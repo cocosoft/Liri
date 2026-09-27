@@ -6,6 +6,7 @@
  * 替换 CostPage.tsx L285-342 的 ~60 行重复 JSX。
  * Props: { inputTokens, outputTokens, cacheReadTokens, totalRequests }
  */
+import { useTranslation } from "react-i18next";
 import { formatTokens } from "../../utils/format";
 
 export interface TokenGridProps {
@@ -21,11 +22,18 @@ export function TokenGrid({
   cacheReadTokens,
   totalRequests,
 }: TokenGridProps) {
+  const { t } = useTranslation();
   const cards: { label: string; value: string }[] = [
-    { label: "累计输入 Tokens", value: formatTokens(inputTokens) },
-    { label: "累计输出 Tokens", value: formatTokens(outputTokens) },
-    { label: "缓存读取 Tokens", value: formatTokens(cacheReadTokens) },
-    { label: "总请求数", value: totalRequests.toLocaleString() },
+    {
+      label: t("cost.cumulativeInputTokens"),
+      value: formatTokens(inputTokens),
+    },
+    {
+      label: t("cost.cumulativeOutputTokens"),
+      value: formatTokens(outputTokens),
+    },
+    { label: t("cost.cacheReadTokens"), value: formatTokens(cacheReadTokens) },
+    { label: t("cost.totalRequests"), value: totalRequests.toLocaleString() },
   ];
 
   return (

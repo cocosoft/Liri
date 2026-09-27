@@ -22,9 +22,22 @@
  * 安全定位横幅（M1，方案 §5.2）
  * 统一标注每个安全功能页所属权限级别（系统边界 / 用户级 / 应用级），
  * 一眼可辨"这块管什么、回答什么问题、与相邻块什么关系"。
+ *
+ * CS02：`SafetyLayer` 取**语言中立标识**（system/user/app）作判别值，
+ * 展示文案一律由 i18n 键提供 —— 禁止用中文文案当判别值
+ * （否则切语言时判别失效、且文案一改即类型不匹配）。
  */
 
-export type SafetyLayer = "系统边界" | "用户级" | "应用级";
+import { useTranslation } from "react-i18next";
+
+export type SafetyLayer = "system" | "user" | "app";
+
+/** 权限级别标识 → i18n 键（判别值为语言中立标识，仅渲染时翻译） */
+const LAYER_LABEL_KEYS: Record<SafetyLayer, string> = {
+  system: "settings.safetyLayerSystem",
+  user: "settings.safetyLayerUser",
+  app: "settings.safetyLayerApp",
+};
 
 interface SafetyPositionBannerProps {
   /** 主级别（可选从属级别） */
@@ -39,10 +52,9 @@ interface SafetyPositionBannerProps {
 }
 
 const LAYER_STYLE: Record<SafetyLayer, string> = {
-  系统边界: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  用户级: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  应用级:
-    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  system: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  user: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  app: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
 };
 
 function SafetyPositionBanner({
@@ -52,6 +64,8 @@ function SafetyPositionBanner({
   relation,
   isDark,
 }: SafetyPositionBannerProps) {
+  const { t } = useTranslation();
+
   return (
     <div
       className={`mb-4 p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
@@ -60,7 +74,7 @@ function SafetyPositionBanner({
         <span
           className={`text-xs px-2 py-0.5 rounded ${LAYER_STYLE[layer.primary]}`}
         >
-          {layer.primary}
+          {t(LAYER_LABEL_KEYS[layer.primary])}
         </span>
         {layer.secondary && (
           <>
@@ -72,7 +86,7 @@ function SafetyPositionBanner({
             <span
               className={`text-xs px-2 py-0.5 rounded ${LAYER_STYLE[layer.secondary]}`}
             >
-              {layer.secondary}
+              {t(LAYER_LABEL_KEYS[layer.secondary])}
             </span>
           </>
         )}
@@ -85,13 +99,13 @@ function SafetyPositionBanner({
       <p
         className={`text-xs mt-2 ${isDark ? "text-gray-400" : "text-gray-600"}`}
       >
-        回答的问题：{question}
+        {t("settings.safetyQuestion", { question })}
       </p>
       {relation && (
         <p
           className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}
         >
-          关系：{relation}
+          {t("settings.safetyRelation", { relation })}
         </p>
       )}
     </div>

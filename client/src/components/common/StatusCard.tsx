@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface StatusCardProps {
   title: string;
   value: string | number;
@@ -18,6 +20,7 @@ function StatusCard({
   status = "normal",
   isDark = false,
 }: StatusCardProps) {
+  const { t } = useTranslation();
   const statusColors = {
     normal: isDark ? "text-green-400" : "text-green-600",
     warning: isDark ? "text-yellow-400" : "text-yellow-600",
@@ -67,7 +70,7 @@ function StatusCard({
               <span>{trend.isPositive ? "↑" : "↓"}</span>
               <span>{Math.abs(trend.value)}%</span>
               <span className={isDark ? "text-gray-500" : "text-gray-400"}>
-                较上期
+                {t("common.vsPrevPeriod")}
               </span>
             </p>
           )}

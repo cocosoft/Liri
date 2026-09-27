@@ -103,9 +103,9 @@ function Footer() {
     const d = Math.floor(seconds / 86400);
     const h = Math.floor((seconds % 86400) / 3600);
     const m = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}天 ${h}小时`;
-    if (h > 0) return `${h}小时 ${m}分钟`;
-    return `${m}分钟`;
+    if (d > 0) return t("footer.durationDaysHours", { d, h });
+    if (h > 0) return t("footer.durationHoursMinutes", { h, m });
+    return t("footer.durationMinutes", { m });
   };
 
   const getPercentColor = (percent: number) => {
@@ -218,7 +218,7 @@ function Footer() {
               <button
                 onClick={() => navigate("/models")}
                 className="flex items-center gap-1 text-amber-500 hover:text-amber-600 transition-colors"
-                title="配置 AI 模型"
+                title={t("footer.configureModel")}
               >
                 <svg
                   className="w-3.5 h-3.5"
@@ -233,7 +233,9 @@ function Footer() {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
                   />
                 </svg>
-                <span className="text-xs font-medium">配置模型</span>
+                <span className="text-xs font-medium">
+                  {t("footer.configureModelShort")}
+                </span>
               </button>
             )}
           </>
@@ -356,7 +358,7 @@ function Footer() {
               }}
               className="w-full text-center text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >
-              查看完整用量分析 →
+              {t("dashboard.viewFullUsage")}
             </button>
           </div>
         </div>

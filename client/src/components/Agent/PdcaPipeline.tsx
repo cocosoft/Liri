@@ -86,10 +86,10 @@ const STATUS_TEXT: Record<string, string> = {
 };
 
 const DECISION_TEXT: Record<string, string> = {
-  approved: "✅ 通过",
-  retry: "🔄 重试",
-  skip: "⏭ 跳过",
-  escalate: "⚠ 上报",
+  approved: "agent.decisionApproved",
+  retry: "agent.decisionRetry",
+  skip: "agent.decisionSkip",
+  escalate: "agent.decisionEscalate",
 };
 
 export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
@@ -173,14 +173,14 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
         <div className="text-center py-4">
           <p className="text-xs text-gray-400">
             {status && status.source === "checkpoint"
-              ? "该任务无步骤快照（阶段链/待审批）"
+              ? t("agent.noStepSnapshot")
               : t("agent.noAgents")}
           </p>
           <button
             onClick={load}
             className="mt-2 text-xs text-blue-600 hover:text-blue-800"
           >
-            刷新
+            {t("common.refresh")}
           </button>
         </div>
       </div>
@@ -217,7 +217,9 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
       {progress && (
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-gray-500">总体进度</span>
+            <span className="text-xs text-gray-500">
+              {t("agent.overallProgress")}
+            </span>
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {progress.percent}%
             </span>
@@ -240,7 +242,7 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
       {/* 步骤列表 */}
       <div>
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">
-          步骤 ({plan.steps.length})
+          {t("agent.stepsCount", { count: plan.steps.length })}
         </span>
         <div className="space-y-1.5">
           {plan.steps.map((step, si) => (
@@ -278,7 +280,9 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
                   )}
                   {step.decision && (
                     <span className="text-[9px] text-gray-500">
-                      {DECISION_TEXT[step.decision] || step.decision}
+                      {DECISION_TEXT[step.decision]
+                        ? t(DECISION_TEXT[step.decision])
+                        : step.decision}
                     </span>
                   )}
                 </div>
@@ -293,13 +297,18 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
                       {t(STATUS_TEXT[step.status] || step.status)}
                     </span>
                     <span>
-                      重试: {step.retryCount}/{step.maxRetries}
+                      {t("agent.retryInline", {
+                        count: step.retryCount,
+                        max: step.maxRetries,
+                      })}
                     </span>
                   </div>
 
                   {step.acceptanceCriteria && (
                     <div className="text-[10px] text-gray-500 bg-gray-50 dark:bg-gray-700/30 p-1.5 rounded">
-                      <span className="font-medium">验收标准:</span>{" "}
+                      <span className="font-medium">
+                        {t("agent.acceptanceCriteria")}
+                      </span>{" "}
                       {step.acceptanceCriteria}
                     </div>
                   )}
@@ -313,8 +322,11 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
                       }`}
                     >
                       <div className="font-medium">
-                        {step.reviewResult.pass ? "审查通过" : "审查未通过"} (
-                        {step.reviewResult.score}分)
+                        {step.reviewResult.pass
+                          ? t("agent.reviewPassed")
+                          : t("agent.reviewFailed")}{" "}
+                        ({step.reviewResult.score}
+                        {t("agent.scoreSuffix")}
                       </div>
                       {step.reviewResult.summary && (
                         <div className="mt-0.5">
@@ -352,7 +364,9 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
                         disabled={actionLoading === step.id}
                         className="text-[10px] px-2 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded"
                       >
-                        {actionLoading === step.id ? "..." : "审查"}
+                        {actionLoading === step.id
+                          ? "..."
+                          : t("agent.reviewAction")}
                       </button>
                     )}
                     {step.reviewResult && !step.decision && (
@@ -390,17 +404,28 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
       {audit && (
         <div className="border-t border-gray-100 dark:border-gray-700 pt-2">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
-            审计报告
+            {t("agent.auditReport")}
           </span>
           <div className="text-[10px] text-gray-500 space-y-0.5 bg-gray-50 dark:bg-gray-700/30 p-1.5 rounded">
             <div>
-              {audit.completedSteps}/{audit.totalSteps} 步骤完成
+              {t("agent.stepsCompleted", {
+                done: audit.completedSteps,
+                total: audit.totalSteps,
+              })}
             </div>
             {audit.failedSteps > 0 && (
-              <div className="text-red-500">{audit.failedSteps} 步骤失败</div>
+              <div className="text-red-500">
+                {t("agent.stepsFailed", { n: audit.failedSteps })}
+              </div>
             )}
-            <div>总耗时: {(audit.totalDurationMs / 1000).toFixed(1)}s</div>
-            {audit.totalRetries > 0 && <div>总重试: {audit.totalRetries}</div>}
+            <div>
+              {t("agent.totalDuration", {
+                seconds: (audit.totalDurationMs / 1000).toFixed(1),
+              })}
+            </div>
+            {audit.totalRetries > 0 && (
+              <div>{t("agent.totalRetries", { n: audit.totalRetries })}</div>
+            )}
             <div className="text-gray-600 dark:text-gray-300">
               {audit.summary}
             </div>

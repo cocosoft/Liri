@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { graphService } from "../../../services/graphService";
 import type { GraphEdge, GraphStats } from "../../../types/project";
 import { GraphFilterPanel } from "./GraphFilterPanel";
@@ -13,6 +14,7 @@ interface GraphPageProps {
 }
 
 export function GraphPage({ isDark, active = true }: GraphPageProps) {
+  const { t } = useTranslation();
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [stats, setStats] = useState<GraphStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,11 +36,13 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
       setEdges(data.edges);
       setStats(data.stats);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      setError(
+        err instanceof Error ? err.message : t("knowledge.graph.loadFailed"),
+      );
     } finally {
       setLoading(false);
     }
-  }, [selectedDomain, selectedType]);
+  }, [selectedDomain, selectedType, t]);
 
   useEffect(() => {
     // KB-C1：active 变 true（切回本 tab / 首次挂载）时加载，确保编译后的最新图谱可见
@@ -116,7 +120,7 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索实体名 / 关系类型…"
+            placeholder={t("knowledge.graph.searchPlaceholder")}
             className={`w-44 px-2 py-1 text-xs rounded border outline-none focus:ring-1 ${
               isDark
                 ? "bg-gray-800 border-gray-700 text-gray-200 placeholder-gray-500 focus:ring-blue-500"
@@ -126,21 +130,26 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
           <span
             className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            {filteredEdges.length} 条边
+            {t("knowledge.graph.edgeCount", { count: filteredEdges.length })}
             {/* KB-C13：画布仅渲染前 200 条，超限明确提示避免计数与渲染不符 */}
             {filteredEdges.length > 200 && (
               <span className="ml-1 text-amber-500 dark:text-amber-400">
-                （画布仅显示前 200 条）
+                {t("knowledge.graph.canvasLimitHint")}
               </span>
             )}
             {search && (
               <span className="ml-1 text-blue-400">
-                | 匹配 {matchedEntities} 个实体 · {matchedTypes} 种关系
+                {t("knowledge.graph.matchSummary", {
+                  entities: matchedEntities,
+                  types: matchedTypes,
+                })}
               </span>
             )}
             {focusNode && (
               <span className="ml-1 text-blue-400">
-                | 聚焦: {focusNode.slice(0, 30)}
+                {t("knowledge.graph.focusLabel", {
+                  name: focusNode.slice(0, 30),
+                })}
               </span>
             )}
           </span>
@@ -148,7 +157,7 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
             onClick={load}
             disabled={loading}
             className={`ml-auto p-1 rounded transition-colors ${isDark ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
-            title="刷新"
+            title={t("common.refresh")}
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
@@ -164,19 +173,19 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
         <div className="flex-1 min-h-0">
           {loading ? (
             <div className="flex items-center justify-center h-full text-sm text-gray-500">
-              加载中...
+              {t("common.loading")}
             </div>
           ) : edges.length === 0 ? (
             <div
               className={`flex items-center justify-center h-full text-sm ${isDark ? "text-gray-600" : "text-gray-400"}`}
             >
-              暂无图谱数据。编译知识库后自动生成。
+              {t("knowledge.graph.empty")}
             </div>
           ) : filteredEdges.length === 0 ? (
             <div
               className={`flex items-center justify-center h-full text-sm ${isDark ? "text-gray-600" : "text-gray-400"}`}
             >
-              无匹配结果，换个关键词试试。
+              {t("knowledge.graph.noMatch")}
             </div>
           ) : (
             <GraphCanvas

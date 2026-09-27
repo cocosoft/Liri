@@ -9,18 +9,18 @@ interface VoiceSettingsProps {
   isDark: boolean;
 }
 
-const PROVIDER_LABELS: Record<VoiceProvider, string> = {
+const PROVIDER_LABELS: Record<VoiceProvider, string | null> = {
   gemini: "Google Gemini",
   openai: "OpenAI",
-  webapi: "系统默认",
+  webapi: null,
 };
 
 /** STT 引擎显示名称映射 */
-const STT_PROVIDER_LABELS: Record<string, string> = {
-  local: "本地 Whisper",
-  cloud: "OpenAI API",
-  stream: "流式 STT",
-  sensevoice: "SenseVoice 中文",
+const STT_PROVIDER_LABEL_KEYS: Record<string, string> = {
+  local: "settings.sttLocal",
+  cloud: "settings.sttCloud",
+  stream: "settings.sttStream",
+  sensevoice: "settings.sttSenseVoice",
 };
 
 const DEFAULT_TRIGGERS = ["小鸟小鸟", "Hi Liri"];
@@ -182,7 +182,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
           <h3
             className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            语音提供方
+            {t("settings.voiceProviderSection")}
           </h3>
           <div className="grid grid-cols-3 gap-3">
             {(["gemini", "openai", "webapi"] as VoiceProvider[]).map(
@@ -201,7 +201,8 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                   }`}
                 >
                   <span className="block text-sm font-medium">
-                    {PROVIDER_LABELS[provider]}
+                    {PROVIDER_LABELS[provider] ??
+                      t("settings.voiceProviderSystem")}
                   </span>
                 </button>
               ),
@@ -214,16 +215,18 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
           <h3
             className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            STT 识别引擎
+            {t("settings.voiceSttSection")}
           </h3>
           <p
             className={`text-xs mb-3 ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            选择语音转文字使用的引擎
+            {t("settings.voiceSttSectionDesc")}
           </p>
           <div className="grid grid-cols-3 gap-3">
             {sttProviders.map((providerId) => {
-              const label = STT_PROVIDER_LABELS[providerId] || providerId;
+              const label = STT_PROVIDER_LABEL_KEYS[providerId]
+                ? t(STT_PROVIDER_LABEL_KEYS[providerId])
+                : providerId;
               const isSelected = localConfig.sttProviderId === providerId;
               return (
                 <button
@@ -252,8 +255,8 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
         </div>
 
         <ConfigItem
-          label="流式字幕识别"
-          description="按住说话时实时显示后端流式 STT 字幕；关闭时降级浏览器语音识别"
+          label={t("settings.voiceStreamingStt")}
+          description={t("settings.voiceStreamingSttDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -273,7 +276,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
             <label
               className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              输入语言
+              {t("settings.voiceInputLanguage")}
             </label>
             <select
               value={localConfig.inputLanguage}
@@ -289,11 +292,11 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                   : "bg-white border-gray-300 text-gray-900"
               } focus:outline-none focus:ring-2 focus:ring-blue-500`}
             >
-              <option value="auto">自动检测</option>
-              <option value="zh-CN">中文</option>
-              <option value="en-US">英语</option>
-              <option value="ja-JP">日语</option>
-              <option value="ko-KR">韩语</option>
+              <option value="auto">{t("settings.langAuto")}</option>
+              <option value="zh-CN">{t("settings.langChinese")}</option>
+              <option value="en-US">{t("settings.langEnglish")}</option>
+              <option value="ja-JP">{t("settings.langJapanese")}</option>
+              <option value="ko-KR">{t("settings.langKorean")}</option>
             </select>
           </div>
 
@@ -301,7 +304,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
             <label
               className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              输出语言
+              {t("settings.voiceOutputLanguage")}
             </label>
             <select
               value={localConfig.outputLanguage}
@@ -317,17 +320,17 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                   : "bg-white border-gray-300 text-gray-900"
               } focus:outline-none focus:ring-2 focus:ring-blue-500`}
             >
-              <option value="zh-CN">中文</option>
-              <option value="en-US">英语</option>
-              <option value="ja-JP">日语</option>
-              <option value="ko-KR">韩语</option>
+              <option value="zh-CN">{t("settings.langChinese")}</option>
+              <option value="en-US">{t("settings.langEnglish")}</option>
+              <option value="ja-JP">{t("settings.langJapanese")}</option>
+              <option value="ko-KR">{t("settings.langKorean")}</option>
             </select>
           </div>
         </div>
 
         <ConfigItem
-          label="语音唤醒"
-          description="启用后可通过唤醒词激活语音输入"
+          label={t("settings.voiceWakeWord")}
+          description={t("settings.voiceWakeWordDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -346,7 +349,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                 <span
                   className={`text-xs ${isDark ? "text-green-400" : "text-green-600"}`}
                 >
-                  正在监听唤醒词...
+                  {t("settings.voiceListeningWake")}
                 </span>
               </div>
             )}
@@ -356,7 +359,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                 <span
                   className={`text-xs font-medium ${isDark ? "text-blue-400" : "text-blue-600"}`}
                 >
-                  已触发：{wakeWordTriggered}
+                  {t("settings.voiceTriggered", { word: wakeWordTriggered })}
                 </span>
               </div>
             )}
@@ -366,8 +369,12 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                 <span
                   className={`text-xs ${isDark ? "text-red-400" : "text-red-600"}`}
                 >
-                  语音输入已激活
-                  {wakeWordTriggered ? `（唤醒词：${wakeWordTriggered}）` : ""}
+                  {t("settings.voiceInputActive")}
+                  {wakeWordTriggered
+                    ? t("settings.voiceTriggeredBy", {
+                        word: wakeWordTriggered,
+                      })
+                    : ""}
                 </span>
               </div>
             )}
@@ -377,7 +384,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                 <span
                   className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  唤醒监听未启动
+                  {t("settings.voiceWakeIdle")}
                 </span>
               </div>
             )}
@@ -387,7 +394,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
               <label
                 className={`block text-xs font-medium mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}
               >
-                唤醒词列表
+                {t("settings.voiceTriggerList")}
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {wakeWordTriggers.map((trigger, i) => (
@@ -406,7 +413,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                         setWakeWordTriggers(next);
                       }}
                       className="ml-0.5 hover:text-red-500"
-                      title="移除"
+                      title={t("common.remove")}
                     >
                       ×
                     </button>
@@ -423,7 +430,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                       addTrigger();
                     }
                   }}
-                  placeholder="输入新唤醒词，回车添加"
+                  placeholder={t("settings.voiceTriggerPlaceholder")}
                   className={`flex-1 px-3 py-1.5 text-sm rounded-lg border ${
                     isDark
                       ? "bg-gray-800 border-gray-700 text-white"
@@ -439,7 +446,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                   } disabled:opacity-50`}
                 >
-                  添加
+                  {t("settings.voiceAddTrigger")}
                 </button>
               </div>
             </div>
@@ -447,8 +454,8 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
         )}
 
         <ConfigItem
-          label="自动播放 TTS"
-          description="AI回复时自动朗读文本"
+          label={t("settings.voiceAutoPlayTts")}
+          description={t("settings.voiceAutoPlayTtsDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -464,8 +471,8 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
         </ConfigItem>
 
         <ConfigItem
-          label="TTS 音色"
-          description="AI回复朗读使用的音色（可输入或从列表选择）"
+          label={t("settings.voiceTtsVoice")}
+          description={t("settings.voiceTtsVoiceDesc")}
           isDark={isDark}
         >
           <input
@@ -476,7 +483,9 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
               setLocalConfig({ ...localConfig, voiceId: e.target.value })
             }
             placeholder={
-              voiceLoading ? "加载音色中..." : "如 zh-CN-XiaoxiaoNeural"
+              voiceLoading
+                ? t("settings.voiceLoadingVoices")
+                : t("settings.voicePlaceholder")
             }
             className={`w-full px-3 py-2 rounded-lg border ${
               isDark
@@ -503,7 +512,7 @@ function VoiceSettings({ isDark }: VoiceSettingsProps) {
                 : "bg-blue-600 hover:bg-blue-700 text-white"
             } disabled:opacity-50`}
           >
-            {isProcessing ? "保存中..." : t("settings.saveSettings")}
+            {isProcessing ? t("settings.saving") : t("settings.saveSettings")}
           </button>
         </div>
       </div>

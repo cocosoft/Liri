@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { GraphEdge } from "../../../types/project";
 
 interface GraphNodeDetailProps {
@@ -14,6 +15,7 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
   isDark,
   onClear,
 }: GraphNodeDetailProps) {
+  const { t } = useTranslation();
   const outgoing = edges.filter((e) => e.from === focusNode);
   const incoming = edges.filter((e) => e.to === focusNode);
 
@@ -31,7 +33,7 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
           onClick={onClear}
           className={`text-[10px] ${isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
         >
-          清除
+          {t("knowledge.graph.clear")}
         </button>
       </div>
 
@@ -40,7 +42,7 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
           <span
             className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            出边 ({outgoing.length})
+            {t("knowledge.graph.outgoingCount", { count: outgoing.length })}
           </span>
           <div className="space-y-0.5 mt-0.5">
             {outgoing.slice(0, 10).map((e) => (
@@ -63,7 +65,9 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
               <div
                 className={`text-[10px] ${isDark ? "text-gray-600" : "text-gray-400"}`}
               >
-                还有 {outgoing.length - 10} 条
+                {t("knowledge.graph.moreCount", {
+                  count: outgoing.length - 10,
+                })}
               </div>
             )}
           </div>
@@ -75,7 +79,7 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
           <span
             className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            入边 ({incoming.length})
+            {t("knowledge.graph.incomingCount", { count: incoming.length })}
           </span>
           <div className="space-y-0.5 mt-0.5">
             {incoming.slice(0, 10).map((e) => (
@@ -98,7 +102,9 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
               <div
                 className={`text-[10px] ${isDark ? "text-gray-600" : "text-gray-400"}`}
               >
-                还有 {incoming.length - 10} 条
+                {t("knowledge.graph.moreCount", {
+                  count: incoming.length - 10,
+                })}
               </div>
             )}
           </div>

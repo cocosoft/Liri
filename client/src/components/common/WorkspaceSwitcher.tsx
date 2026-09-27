@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useRootStore } from "@/stores/root-store";
 import type { Workspace } from "@/stores/root-store/types";
 
@@ -10,6 +11,7 @@ import type { Workspace } from "@/stores/root-store/types";
  * 支持新建（需指定文件夹）、重命名、修改路径、删除。
  */
 export default function WorkspaceSwitcher() {
+  const { t } = useTranslation();
   const currentWtId = useRootStore((s) => s.currentWorkspaceId);
   const worktrees = useRootStore((s) => s.worktrees);
   const recentWorkspaceIds = useRootStore((s) => s.recentWorkspaceIds);
@@ -128,7 +130,9 @@ export default function WorkspaceSwitcher() {
           {label}
         </span>
         <span className="max-w-[120px] truncate text-gray-600 dark:text-gray-300">
-          {isSwitching ? "切换中..." : (currentWt?.name ?? "选择工作空间")}
+          {isSwitching
+            ? t("common.workspaceSwitching")
+            : (currentWt?.name ?? t("common.workspaceSelect"))}
         </span>
         {activeWorkItemCount > 0 && (
           <span className="text-[10px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium">
@@ -141,11 +145,11 @@ export default function WorkspaceSwitcher() {
       {open && (
         <div className="absolute right-0 top-full mt-1 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-80 overflow-y-auto">
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <span>工作空间</span>
+            <span>{t("common.workspaceTitle")}</span>
             <button
               onClick={openCreateDialog}
               className="text-blue-500 hover:text-blue-600 text-lg leading-none"
-              title="新建工作空间"
+              title={t("common.workspaceNew")}
             >
               +
             </button>
@@ -153,7 +157,7 @@ export default function WorkspaceSwitcher() {
 
           {sortedWorkspaces.length === 0 ? (
             <div className="px-3 py-4 text-sm text-gray-400 text-center">
-              暂无工作空间，点击右上角 + 创建
+              {t("common.workspaceEmpty")}
             </div>
           ) : (
             <div className="py-1">
@@ -218,7 +222,7 @@ export default function WorkspaceSwitcher() {
                             openEditDialog(wt);
                           }}
                           className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                          title="编辑"
+                          title={t("common.edit")}
                         >
                           <svg
                             className="w-3 h-3"
@@ -241,7 +245,7 @@ export default function WorkspaceSwitcher() {
                             setOpen(false);
                           }}
                           className="p-1 text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                          title="删除"
+                          title={t("common.delete")}
                         >
                           <svg
                             className="w-3 h-3"
@@ -302,19 +306,21 @@ export default function WorkspaceSwitcher() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-4">
-                {dialogMode === "create" ? "新建工作空间" : "编辑工作空间"}
+                {dialogMode === "create"
+                  ? t("common.workspaceNew")
+                  : t("common.workspaceEdit")}
               </h3>
 
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    工作空间名称
+                    {t("common.workspaceName")}
                   </label>
                   <input
                     type="text"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="例如：我的项目"
+                    placeholder={t("common.workspaceNamePlaceholder")}
                     className="w-full px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200"
                     autoFocus
                     onKeyDown={(e) => {
@@ -328,13 +334,14 @@ export default function WorkspaceSwitcher() {
 
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    文件夹路径 <span className="text-red-400">*</span>
+                    {t("common.workspacePath")}{" "}
+                    <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formPath}
                     onChange={(e) => setFormPath(e.target.value)}
-                    placeholder="例如：C:\\Projects\\myapp"
+                    placeholder={t("common.workspacePathPlaceholder")}
                     className="w-full px-3 py-1.5 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200 font-mono"
                     onKeyDown={(e) => {
                       if (e.key === "Enter")
@@ -344,7 +351,7 @@ export default function WorkspaceSwitcher() {
                     }}
                   />
                   <p className="text-[10px] text-gray-400 mt-0.5">
-                    必须是真实存在的文件夹路径
+                    {t("common.workspacePathHint")}
                   </p>
                 </div>
               </div>
@@ -354,7 +361,7 @@ export default function WorkspaceSwitcher() {
                   onClick={() => setDialogMode(null)}
                   className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={
@@ -365,7 +372,9 @@ export default function WorkspaceSwitcher() {
                   disabled={!formName.trim() || !formPath.trim()}
                   className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {dialogMode === "create" ? "创建" : "保存"}
+                  {dialogMode === "create"
+                    ? t("common.create")
+                    : t("common.save")}
                 </button>
               </div>
             </div>
@@ -385,24 +394,25 @@ export default function WorkspaceSwitcher() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                删除工作空间
+                {t("common.workspaceDeleteTitle")}
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                确定要删除「{worktrees[deleteTargetId]?.name ?? ""}
-                」吗？此操作不可恢复。
+                {t("common.workspaceDeleteConfirm", {
+                  name: worktrees[deleteTargetId]?.name ?? "",
+                })}
               </p>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setDeleteTargetId(null)}
                   className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
                   className="px-3 py-1.5 text-xs text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
                 >
-                  删除
+                  {t("common.delete")}
                 </button>
               </div>
             </div>

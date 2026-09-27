@@ -7,30 +7,24 @@ import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 /** 帮助中心导航项 */
 interface HelpNavItem {
   id: string;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
 /** 文档分类 */
 interface DocCategory {
-  name: string;
+  id: string;
+  labelKey: string;
   dir: string;
   files: string[];
   collapsed?: boolean;
 }
 
 const NAV_ITEMS: HelpNavItem[] = [
-  { id: "docs", label: "帮助文档", icon: "D" },
-  { id: "shortcuts", label: "快捷键", icon: "S" },
-  { id: "about", label: "关于 Liri", icon: "A" },
+  { id: "docs", labelKey: "help.helpDocs", icon: "D" },
+  { id: "shortcuts", labelKey: "help.shortcuts", icon: "S" },
+  { id: "about", labelKey: "help.aboutLiri", icon: "A" },
 ];
-
-/** 导航项 id 到 i18n key 的映射 */
-const NAV_LABEL_KEYS: Record<string, string> = {
-  docs: "help.helpDocs",
-  shortcuts: "help.shortcuts",
-  about: "help.aboutLiri",
-};
 
 const ACTIVE_NAV_KEY = "liri-help-active-nav";
 
@@ -39,7 +33,8 @@ const ACTIVE_NAV_KEY = "liri-help-active-nav";
  */
 const DOC_CATEGORIES: DocCategory[] = [
   {
-    name: "快速入门",
+    id: "quickstart",
+    labelKey: "help.catQuickstart",
     dir: "快速入门",
     files: [
       "index",
@@ -51,7 +46,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "安装部署",
+    id: "install",
+    labelKey: "help.catInstall",
     dir: "安装部署",
     files: [
       "index",
@@ -65,7 +61,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "开发指南",
+    id: "dev-guide",
+    labelKey: "help.catDevGuide",
     dir: "开发指南",
     files: [
       "index",
@@ -85,7 +82,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "核心模块",
+    id: "core-modules",
+    labelKey: "help.catCoreModules",
     dir: "核心模块",
     files: [
       "index",
@@ -116,7 +114,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "工具参考",
+    id: "tools",
+    labelKey: "help.catTools",
     dir: "工具参考",
     files: [
       "index",
@@ -140,7 +139,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "插件系统",
+    id: "plugins",
+    labelKey: "help.catPlugins",
     dir: "插件系统",
     files: [
       "index",
@@ -158,7 +158,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "概念与架构",
+    id: "concepts",
+    labelKey: "help.catConcepts",
     dir: "概念与架构",
     files: [
       "index",
@@ -172,7 +173,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "渠道 (Channels)",
+    id: "channels",
+    labelKey: "help.catChannels",
     dir: "渠道",
     files: [
       "index",
@@ -196,7 +198,8 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "配置与安全",
+    id: "config-security",
+    labelKey: "help.catConfigSecurity",
     dir: "配置与安全",
     files: [
       "index",
@@ -212,12 +215,14 @@ const DOC_CATEGORIES: DocCategory[] = [
     ],
   },
   {
-    name: "自动化",
+    id: "automation",
+    labelKey: "help.catAutomation",
     dir: "自动化",
     files: ["index", "cron", "hooks", "tasks", "webhooks"],
   },
   {
-    name: "帮助与支持",
+    id: "support",
+    labelKey: "help.catSupport",
     dir: "帮助与支持",
     files: [
       "index",
@@ -229,10 +234,21 @@ const DOC_CATEGORIES: DocCategory[] = [
       "troubleshooting",
     ],
   },
-  { name: "知识库", dir: "知识库", files: ["index"] },
-  { name: "语音", dir: "语音", files: ["语音生成功"] },
   {
-    name: "顶层文档",
+    id: "knowledge",
+    labelKey: "help.catKnowledge",
+    dir: "知识库",
+    files: ["index"],
+  },
+  {
+    id: "voice",
+    labelKey: "help.catVoice",
+    dir: "语音",
+    files: ["语音生成功"],
+  },
+  {
+    id: "top-level",
+    labelKey: "help.catTopLevel",
     dir: ".",
     files: [
       "API",
@@ -246,120 +262,32 @@ const DOC_CATEGORIES: DocCategory[] = [
   },
 ];
 
-// 文档文件显示名称映射（去掉连字符、首字母大写）
+// 语言中立/品牌名文档标签（其余中文标签走 i18n `help.labels.*`）
 const DOC_LABELS: Record<string, string> = {
-  index: "概述",
-  "add-ai-provider": "添加 AI 提供商",
-  "add-platform-channel": "添加平台渠道",
-  "add-tool-command-skill": "添加工具/命令/Skill",
-  "api-reference": "API 参考",
-  "agent-tools": "Agent 工具",
-  "code-execution": "代码执行",
-  "file-edit": "文件编辑",
-  "file-read": "文件读取",
-  "file-write": "文件写入",
-  "image-generation": "图片生成",
-  "music-generation": "音乐生成",
-  "video-generation": "视频生成",
-  "web-fetch": "网页抓取",
-  "web-search": "网页搜索",
-  "getting-started": "开始入门",
-  module: "模块",
-  "module-dev": "模块开发",
-  "module-to-plugin-migration": "模块到插件迁移",
-  "internationalization-design": "国际化设计",
-  "design-philosophy": "设计理念",
-  "plugin-architecture": "插件架构",
-  "error-handling": "错误处理",
-  "event-bus": "事件总线",
-  "flow-engine": "流程引擎",
-  "config-manager": "配置管理",
-  "context-engine": "上下文引擎",
-  "session-manager": "会话管理",
-  "state-management": "状态管理",
-  "media-generation": "媒体生成",
-  "media-understanding": "媒体理解",
-  "memory-host": "记忆宿主",
-  "markdown-render": "Markdown 渲染",
-  "cache-system": "缓存系统",
-  "cron-scheduler": "Cron 调度器",
-  "di-container": "DI 容器",
-  "channel-routing": "渠道路由",
-  "channel-testing": "渠道测试",
-  dingtalk: "钉钉",
   discord: "Discord",
-  feishu: "飞书",
   irc: "IRC",
   line: "LINE",
   matrix: "Matrix",
-  overview: "概览",
   qq: "QQ",
   signal: "Signal",
   slack: "Slack",
   telegram: "Telegram",
   web: "Web",
-  wechat: "微信",
-  wecom: "企业微信",
   whatsapp: "WhatsApp",
-  "building-plugins": "构建插件",
-  "bundled-plugins": "内置插件",
-  lifecycle: "生命周期",
-  manifest: "插件清单",
-  marketplace: "市场",
   "plugin-sdk": "Plugin SDK",
-  "review-process": "审查流程",
   skills: "Skills",
   hooks: "Hooks",
-  tasks: "任务",
   webhooks: "Webhooks",
   cron: "Cron",
-  troubleshooting: "故障排除",
-  debugging: "调试",
-  environment: "环境",
-  "faq-install": "安装 FAQ",
-  faq: "常见问题",
-  support: "支持",
-  onboarding: "上手引导",
-  quickstart: "快速开始",
-  setup: "设置",
-  upgrading: "升级",
-  configuration: "配置",
   docker: "Docker",
   linux: "Linux",
   macos: "macOS",
-  source: "源码构建",
   windows: "Windows",
-  "network-security": "网络安全",
   oauth: "OAuth",
-  permissions: "权限",
-  sandbox: "沙箱",
-  secrets: "密钥管理",
-  "smart-router": "智能路由",
-  governance: "治理",
-  audit: "审计",
-  "app-core": "应用核心",
-  auth: "认证",
-  "auto-reply": "自动回复",
-  coordinator: "协调器",
-  gateway: "网关",
-  notification: "通知",
-  "task-system": "任务系统",
-  "agent-model": "Agent 模型",
-  streaming: "流式",
-  "tool-system": "工具系统",
-  session: "会话",
-  architecture: "架构",
-  "code-style": "代码风格",
-  testing: "测试",
-  contributing: "贡献指南",
-  security: "安全",
-  语音生成功: "语音合成",
   lsp: "LSP",
   mcp: "MCP",
   pdf: "PDF",
   tts: "TTS",
-  thinking: "思考",
-  browser: "浏览器",
   bash: "Bash",
 };
 
@@ -482,8 +410,8 @@ function HelpPage() {
     setLoadingDoc(false);
   };
 
-  const toggleCategory = (catName: string) => {
-    setExpandedCat(expandedCat === catName ? null : catName);
+  const toggleCategory = (catId: string) => {
+    setExpandedCat(expandedCat === catId ? null : catId);
   };
 
   return (
@@ -511,9 +439,7 @@ function HelpPage() {
                 <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                   {item.icon}
                 </span>
-                <span className="truncate">
-                  {t(NAV_LABEL_KEYS[item.id] || item.label)}
-                </span>
+                <span className="truncate">{t(item.labelKey)}</span>
               </button>
             );
           })}
@@ -571,18 +497,18 @@ function HelpPage() {
 
         <div className="space-y-2">
           {DOC_CATEGORIES.map((cat) => {
-            const isExpanded = expandedCat === cat.name;
+            const isExpanded = expandedCat === cat.id;
             return (
               <div
-                key={cat.name}
+                key={cat.id}
                 className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
               >
                 {/* 分类头部 */}
                 <button
-                  onClick={() => toggleCategory(cat.name)}
+                  onClick={() => toggleCategory(cat.id)}
                   className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  <span>{cat.name}</span>
+                  <span>{t(cat.labelKey)}</span>
                   <span
                     className={`text-gray-400 transition-transform ${
                       isExpanded ? "rotate-90" : ""
@@ -665,18 +591,22 @@ function HelpPage() {
                 className="mt-3 px-4 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded transition-colors"
               >
                 {checking
-                  ? "检查中..."
+                  ? t("help.checking")
                   : downloading
-                    ? "下载中..."
-                    : "检查更新"}
+                    ? t("help.downloading")
+                    : t("help.checkUpdate")}
               </button>
               {updateResult?.available && (
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5">
-                  新版本 {updateResult.latestVersion} 可用
+                  {t("help.newVersionAvailable", {
+                    version: updateResult.latestVersion,
+                  })}
                 </p>
               )}
               {updateResult && !updateResult.available && !checking && (
-                <p className="text-xs text-gray-400 mt-1">已是最新版本</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {t("help.upToDate")}
+                </p>
               )}
               {updateError && (
                 <p className="text-xs text-red-500 mt-1">{updateError}</p>

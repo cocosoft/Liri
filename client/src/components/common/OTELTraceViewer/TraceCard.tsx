@@ -1,4 +1,5 @@
 import { memo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { SpanList } from "./SpanList";
 import type { SanitizedSpan, GroupedTrace } from "./utils";
 
@@ -23,6 +24,7 @@ export const TraceCard = memo(function TraceCard({
   highlightedSpanId,
   onSpanClick,
 }: TraceCardProps) {
+  const { t } = useTranslation();
   const colorDot = {
     ok: "🟢",
     warning: "🟡",
@@ -32,7 +34,7 @@ export const TraceCard = memo(function TraceCard({
 
   const totalDuration = formatDuration(trace.totalDurationMs);
   const traceIdShort = trace.traceId.slice(0, 12);
-  const orphanBadge = trace.hasOrphans ? " ❗不完全" : "";
+  const orphanBadge = trace.hasOrphans ? t("otel.incompleteBadge") : "";
 
   const copyTraceId = useCallback(
     (e: React.MouseEvent) => {
@@ -68,7 +70,7 @@ export const TraceCard = memo(function TraceCard({
         <span
           className={`text-sm font-mono ${textPrimary} cursor-pointer hover:underline`}
           onClick={copyTraceId}
-          title="点击复制 TraceId"
+          title={t("otel.clickCopyTraceId")}
         >
           {traceIdShort}
         </span>
@@ -80,7 +82,10 @@ export const TraceCard = memo(function TraceCard({
           {trace.moduleLabel}
         </span>
         <span className={`text-xs ${textSecondary}`}>
-          ({trace.spans.length} spans, {totalDuration})
+          {t("otel.spansCount", {
+            count: trace.spans.length,
+            duration: totalDuration,
+          })}
         </span>
         {trace.errorCount > 0 && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400 font-medium">
@@ -88,10 +93,7 @@ export const TraceCard = memo(function TraceCard({
           </span>
         )}
         {orphanBadge && (
-          <span
-            className="text-xs text-gray-400"
-            title="部分父 Span 已不在缓冲区"
-          >
+          <span className="text-xs text-gray-400" title={t("otel.orphanTitle")}>
             {orphanBadge}
           </span>
         )}
@@ -100,7 +102,9 @@ export const TraceCard = memo(function TraceCard({
       {/* Span list */}
       {expanded &&
         (trace.spans.length === 0 ? (
-          <div className={`px-4 py-2 text-xs ${textSecondary}`}>(已淘汰)</div>
+          <div className={`px-4 py-2 text-xs ${textSecondary}`}>
+            {t("otel.evicted")}
+          </div>
         ) : (
           <SpanList
             spans={trace.spans}

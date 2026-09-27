@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ProviderFormData, ProviderInfo } from "../../types";
 import { PROVIDER_FORM_SCHEMA } from "./ProviderFormSchema";
 import SchemaFormField from "./SchemaFormField";
@@ -27,6 +28,7 @@ export default function ProviderEditorModal({
   onSave,
   onClose,
 }: ProviderEditorModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<ProviderFormData>(() => ({
     name: provider?.name ?? initialFormData?.name ?? "",
     providerType:
@@ -74,7 +76,7 @@ export default function ProviderEditorModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          {provider ? "编辑 Provider" : "新增 Provider"}
+          {provider ? t("model.editProvider") : t("model.addProvider")}
         </h3>
 
         <div className="space-y-3">
@@ -108,13 +110,13 @@ export default function ProviderEditorModal({
             disabled={isSaving}
             className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50"
           >
-            {isSaving ? "保存中..." : "保存"}
+            {isSaving ? t("model.saving") : t("common.save")}
           </button>
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm"
           >
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       </div>

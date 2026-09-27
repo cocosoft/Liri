@@ -12,6 +12,7 @@
  * 上下文 Tab 在 token 告警时显示 `!`。
  */
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import type { InspectorTab } from "../../stores/chatInspectorStore";
 
@@ -29,6 +30,7 @@ function CollapsedBarImpl({
   tabs: readonly CollapsedBarTab[];
   onExpandAndSwitch: (tab: InspectorTab) => void;
 }) {
+  const { t } = useTranslation();
   const activeToolCount = useChatInspectorStore((s) => s.activeToolCount);
   const newFileCount = useChatInspectorStore((s) => s.newFileCount);
   const tokenWarning = useChatInspectorStore((s) => s.tokenWarning);
@@ -49,7 +51,7 @@ function CollapsedBarImpl({
             key={tab.id}
             onClick={() => onExpandAndSwitch(tab.id)}
             className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-            title={`展开到${tab.label} Tab`}
+            title={t("chatInspector.expandToTab", { label: tab.label })}
           >
             {tab.icon}
             {badge && (

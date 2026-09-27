@@ -2,6 +2,7 @@
  * RecycleBinModal — 回收站查看/恢复/永久删除（P2#18）
  */
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
 import { toastError } from "../../stores/toastStore";
 
@@ -21,6 +22,7 @@ export function RecycleBinModal({
   /** 恢复/删除后通知父级刷新列表 */
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyPath, setBusyPath] = useState<string | null>(null);
@@ -31,14 +33,14 @@ export function RecycleBinModal({
       setItems(await knowledgeService.listTrash());
     } catch {
       setItems([]);
-      toastError("加载回收站失败，请检查后端连接");
+      toastError(t("knowledge.loadTrashFailed"));
     } finally {
       setLoading(false);
     }
   };
   useEffect(() => {
     void load();
-  }, []);
+  }, [t]);
 
   const restore = async (item: TrashItem) => {
     if (busyPath) return;
@@ -49,10 +51,12 @@ export function RecycleBinModal({
         await load();
         onChanged();
       } else {
-        toastError("恢复失败");
+        toastError(t("knowledge.restoreFailed"));
       }
     } catch (err) {
-      toastError(err instanceof Error ? err.message : "恢复失败");
+      toastError(
+        err instanceof Error ? err.message : t("knowledge.restoreFailed"),
+      );
     } finally {
       setBusyPath(null);
     }
@@ -60,17 +64,20 @@ export function RecycleBinModal({
 
   const purge = async (item: TrashItem) => {
     if (busyPath) return;
-    if (!window.confirm(`永久删除 ${item.fileName}？此操作不可恢复。`)) return;
+    if (!window.confirm(t("knowledge.purgeConfirm", { name: item.fileName })))
+      return;
     setBusyPath(item.docPath);
     try {
       const ok = await knowledgeService.purgeTrash(item.docPath);
       if (ok) {
         await load();
       } else {
-        toastError("永久删除失败");
+        toastError(t("knowledge.purgeFailed"));
       }
     } catch (err) {
-      toastError(err instanceof Error ? err.message : "永久删除失败");
+      toastError(
+        err instanceof Error ? err.message : t("knowledge.purgeFailed"),
+      );
     } finally {
       setBusyPath(null);
     }
@@ -86,19 +93,23 @@ export function RecycleBinModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-medium">回收站</h3>
+          <h3 className="text-sm font-medium">{t("knowledge.recycleBin")}</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
-            关闭
+            {t("common.close")}
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
           {loading ? (
-            <p className="text-xs text-gray-400 text-center py-6">加载中...</p>
+            <p className="text-xs text-gray-400 text-center py-6">
+              {t("common.loading")}
+            </p>
           ) : items.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">回收站为空</p>
+            <p className="text-xs text-gray-400 text-center py-6">
+              {t("knowledge.recycleBinEmpty")}
+            </p>
           ) : (
             items.map((item) => (
               <div
@@ -123,14 +134,14 @@ export function RecycleBinModal({
                     onClick={() => void restore(item)}
                     className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
                   >
-                    恢复
+                    {t("knowledge.restoreLabel")}
                   </button>
                   <button
                     disabled={busyPath === item.docPath}
                     onClick={() => void purge(item)}
                     className="text-[10px] px-2 py-0.5 rounded border text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40"
                   >
-                    永久删除
+                    {t("knowledge.purgeLabel")}
                   </button>
                 </div>
               </div>

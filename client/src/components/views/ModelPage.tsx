@@ -53,9 +53,9 @@ function formatUnitPrice(v: number | undefined): string {
 }
 
 const BILLING_LABELS: Record<string, string> = {
-  token: "按Token",
-  per_request: "按次",
-  token_and_per_request: "Token+按次",
+  token: "settings.modelBillingToken",
+  per_request: "settings.modelBillingPerRequest",
+  token_and_per_request: "settings.modelBillingTokenAndPerRequest",
 };
 
 function ProviderPage() {
@@ -367,7 +367,18 @@ function ProviderPage() {
             .then((r) => {
               if (r.method === "static") {
                 toastInfo(
-                  `已自动检测模型能力：工具调用${r.tool_use === true ? "✓" : r.tool_use === false ? "✗" : "未知"}${r.vision === true ? " · 视觉✓" : ""}`,
+                  t("settings.modelAutoProbe", {
+                    tool:
+                      r.tool_use === true
+                        ? "✓"
+                        : r.tool_use === false
+                          ? "✗"
+                          : t("settings.modelProbeUnknown"),
+                    vision:
+                      r.vision === true
+                        ? t("settings.modelProbeVisionYes")
+                        : "",
+                  }),
                 );
               }
             })
@@ -383,7 +394,7 @@ function ProviderPage() {
         );
       }
     },
-    [store, loadModels],
+    [store, loadModels, t],
   );
 
   const handleSyncOfficialPricing = useCallback(async () => {
@@ -392,20 +403,22 @@ function ProviderPage() {
       const updated = await modelService.syncOfficialPricing();
       await loadModels(); // 刷新展示的价格
       if (updated > 0) {
-        toastInfo(`已同步 ${updated} 个模型的官方价格`);
+        toastInfo(t("settings.modelSyncPricingSuccess", { count: updated }));
       } else {
-        toastInfo("官方价格已是最新（或模型均为自定义定价）");
+        toastInfo(t("settings.modelSyncPricingUpToDate"));
       }
     } catch (e) {
       toastError(
         new Error(
-          `同步官方价格失败: ${e instanceof Error ? e.message : String(e)}`,
+          t("settings.modelSyncPricingFailed", {
+            error: e instanceof Error ? e.message : String(e),
+          }),
         ),
       );
     } finally {
       setSyncingPricing(false);
     }
-  }, [loadModels]);
+  }, [loadModels, t]);
 
   const handleBulkImport = useCallback(
     async (modelIds: string[]) => {
@@ -416,7 +429,9 @@ function ProviderPage() {
           await import("../../services/providerService");
         await providerService.bulkImportModels(fetchingProviderId, modelIds);
         await loadModels();
-        toastInfo(`成功导入 ${modelIds.length} 个模型到模型列表`);
+        toastInfo(
+          t("settings.modelBulkImportSuccess", { count: modelIds.length }),
+        );
       } catch (e) {
         toastError(
           new Error(
@@ -427,84 +442,108 @@ function ProviderPage() {
         setImporting(false);
       }
     },
-    [fetchingProviderId, loadModels],
+    [fetchingProviderId, loadModels, t],
   );
 
-  const handleCheckBalance = useCallback(async (provider: ProviderInfo) => {
-    setCheckingBalanceId(provider.id);
-    try {
-      const result = await usageService.checkBalance({
-        providerId: provider.id,
-      });
-      if (result.success) {
-        const lines = result.data.map(
-          (d) =>
-            `${d.planName || ""}: ${d.remaining?.toFixed(2) ?? "--"} ${d.unit || ""}${d.total ? ` / ${d.total.toFixed(2)}` : ""}`,
-        );
-        toastInfo(`余额 — ${result.provider}\n${lines.join("\n")}`);
-      } else {
-        toastError(new Error(`余额查询失败: ${result.error}`));
+  const handleCheckBalance = useCallback(
+    async (provider: ProviderInfo) => {
+      setCheckingBalanceId(provider.id);
+      try {
+        const result = await usageService.checkBalance({
+          providerId: provider.id,
+        });
+        if (result.success) {
+          const lines = result.data.map(
+            (d) =>
+              `${d.planName || ""}: ${d.remaining?.toFixed(2) ?? "--"} ${d.unit || ""}${d.total ? ` / ${d.total.toFixed(2)}` : ""}`,
+          );
+          toastInfo(
+            `${t("settings.modelBalanceTitle", { provider: result.provider })}\n${lines.join("\n")}`,
+          );
+        } else {
+          toastError(
+            new Error(
+              t("settings.modelBalanceQueryFailed", { error: result.error }),
+            ),
+          );
+        }
+      } catch {
+        toastError(new Error(t("settings.modelBalanceFailed")));
+      } finally {
+        setCheckingBalanceId(null);
       }
-    } catch {
-      toastError(new Error(t("settings.modelBalanceFailed")));
-    } finally {
-      setCheckingBalanceId(null);
-    }
-  }, []);
+    },
+    [t],
+  );
 
-  const handleSetDefaultModel = useCallback(async (provider: ProviderInfo) => {
-    const modelId = prompt(
-      `为 "${provider.name}" 设置默认模型 ID:\n输入模型 ID（留空清除默认）`,
-      "",
-    );
-    if (modelId === null) return;
-    try {
-      await modelSwitchService.setDefaultModel(provider.id, modelId);
-      toastInfo(
-        `已${modelId ? `将 "${provider.name}" 默认模型设为 ${modelId}` : `清除 "${provider.name}" 的默认模型`}`,
+  const handleSetDefaultModel = useCallback(
+    async (provider: ProviderInfo) => {
+      const modelId = prompt(
+        t("settings.modelSetDefaultPrompt", { provider: provider.name }),
+        "",
       );
-    } catch (e) {
-      toastError(
-        new Error(
-          `${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
-        ),
-      );
-    }
-  }, []);
+      if (modelId === null) return;
+      try {
+        await modelSwitchService.setDefaultModel(provider.id, modelId);
+        toastInfo(
+          modelId
+            ? t("settings.modelDefaultSetTo", {
+                provider: provider.name,
+                modelId,
+              })
+            : t("settings.modelDefaultCleared", { provider: provider.name }),
+        );
+      } catch (e) {
+        toastError(
+          new Error(
+            `${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+          ),
+        );
+      }
+    },
+    [t],
+  );
 
   /** 探测模型能力（工具调用/视觉），结果写回 DB capabilities */
-  const handleProbeModel = useCallback(async (model: ModelInfo) => {
-    setProbingId(model.id);
-    try {
-      const result = await modelService.probeCapabilities(
-        model.modelId || model.id,
-        true,
-      );
-      setProbeResults((prev) => ({ ...prev, [model.id]: result }));
-      const parts: string[] = [];
-      if (result.tool_use === true) parts.push("工具调用");
-      if (result.vision === true) parts.push("视觉");
-      if (parts.length > 0) {
-        toastInfo(`检测完成：支持${parts.join("、")}（已写入模型能力）`);
-      } else {
-        toastInfo(
-          result.method === "skipped"
-            ? "该模型由云端 Provider 托管，不支持自动检测，请手动配置能力标签"
-            : result.method === "failed"
-              ? "检测失败：模型对应 Provider 未就绪或服务不可达"
-              : "未检测到工具调用/视觉能力",
+  const handleProbeModel = useCallback(
+    async (model: ModelInfo) => {
+      setProbingId(model.id);
+      try {
+        const result = await modelService.probeCapabilities(
+          model.modelId || model.id,
+          true,
         );
+        setProbeResults((prev) => ({ ...prev, [model.id]: result }));
+        const parts: string[] = [];
+        if (result.tool_use === true) parts.push(t("settings.modelCapToolUse"));
+        if (result.vision === true) parts.push(t("settings.modelCapVision"));
+        if (parts.length > 0) {
+          toastInfo(
+            t("settings.modelProbeDone", { capabilities: parts.join("、") }),
+          );
+        } else {
+          toastInfo(
+            result.method === "skipped"
+              ? t("settings.modelProbeSkipped")
+              : result.method === "failed"
+                ? t("settings.modelProbeFailedHint")
+                : t("settings.modelProbeNoCapability"),
+          );
+        }
+      } catch (e) {
+        toastError(
+          new Error(
+            t("settings.modelProbeError", {
+              error: e instanceof Error ? e.message : String(e),
+            }),
+          ),
+        );
+      } finally {
+        setProbingId(null);
       }
-    } catch (e) {
-      toastError(
-        new Error(
-          `能力检测失败: ${e instanceof Error ? e.message : String(e)}`,
-        ),
-      );
-    } finally {
-      setProbingId(null);
-    }
-  }, []);
+    },
+    [t],
+  );
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -513,11 +552,13 @@ function ProviderPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              模型管理
+              {t("settings.modelPageTitle")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {store.providers.length} 个 Provider，
-              {store.providers.filter((p) => p.isActive).length} 激活
+              {t("settings.modelProviderSummary", {
+                total: store.providers.length,
+                active: store.providers.filter((p) => p.isActive).length,
+              })}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -525,13 +566,13 @@ function ProviderPage() {
               onClick={() => setShowPresets(true)}
               className="px-3 py-2 text-sm bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg transition-colors"
             >
-              快速添加
+              {t("settings.modelQuickAdd")}
             </button>
             <button
               onClick={() => openEditor()}
               className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
-              + 新增 Provider
+              + {t("settings.modelAddProvider")}
             </button>
           </div>
         </div>
@@ -541,7 +582,7 @@ function ProviderPage() {
           <div className="mb-4 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
             {store.error}
             <button onClick={store.clearError} className="ml-2 underline">
-              关闭
+              {t("common.close")}
             </button>
           </div>
         )}
@@ -627,7 +668,7 @@ function ProviderPage() {
                               className="text-[10px] px-1 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded"
                               title={t("settings.modelLocalProvider")}
                             >
-                              本地
+                              {t("settings.modelLocalBadge")}
                             </span>
                           )}
                           <span
@@ -643,8 +684,11 @@ function ProviderPage() {
                           {p.baseUrl}
                         </p>
                         <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                          创建: {formatDate(p.createdAt, dateLocale)} | ID:{" "}
-                          {p.id.substring(0, 8)}...
+                          {t("settings.modelCreatedAt", {
+                            date: formatDate(p.createdAt, dateLocale),
+                            id: p.id.substring(0, 8),
+                          })}
+                          ...
                         </p>
                       </div>
                       <div className="flex items-center gap-2 ml-4 shrink-0">
@@ -661,15 +705,27 @@ function ProviderPage() {
                           }
                           className="px-2 py-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded transition-colors disabled:opacity-30"
                         >
-                          {fetchingModelsId === p.id ? "..." : "模型"}
+                          {fetchingModelsId === p.id
+                            ? "..."
+                            : t("settings.modelFetchBtn")}
                         </button>
                         <button
                           onClick={async () => {
                             const result = await store.testConnection(p.id);
                             if (result.success) {
-                              toastInfo(`连接成功 (${result.latencyMs}ms)`);
+                              toastInfo(
+                                t("settings.modelConnectionSuccessMs", {
+                                  ms: result.latencyMs,
+                                }),
+                              );
                             } else {
-                              toastError(new Error(`失败: ${result.error}`));
+                              toastError(
+                                new Error(
+                                  t("settings.modelTestFailed", {
+                                    error: result.error,
+                                  }),
+                                ),
+                              );
                             }
                           }}
                           disabled={p.requiresAuth && !p.apiKey}
@@ -680,7 +736,7 @@ function ProviderPage() {
                           }
                           className="px-2 py-1.5 text-xs bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-600 dark:text-teal-400 rounded transition-colors disabled:opacity-30"
                         >
-                          测试
+                          {t("settings.modelTest")}
                         </button>
                         <button
                           onClick={() => store.toggleProvider(p.id)}
@@ -695,7 +751,7 @@ function ProviderPage() {
                           title={t("settings.modelSetDefault")}
                           className="px-2 py-1.5 text-xs bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-600 dark:text-sky-400 rounded transition-colors"
                         >
-                          设默认
+                          {t("settings.modelSetDefaultShort")}
                         </button>
                         {p.requiresAuth !== false && (
                           <button
@@ -720,13 +776,13 @@ function ProviderPage() {
                           onClick={() => openEditor(p)}
                           className="px-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded transition-colors"
                         >
-                          编辑
+                          {t("common.edit")}
                         </button>
                         <button
                           onClick={() => handleDelete(p.id, p.name)}
                           className="px-2 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded transition-colors"
                         >
-                          删除
+                          {t("common.delete")}
                         </button>
                       </div>
                     </div>
@@ -774,11 +830,13 @@ function ProviderPage() {
                       }`}
                     />
                     {type === "ollama" ? "Ollama" : "llama.cpp"}
-                    {running ? "运行中" : "未运行"}
+                    {running
+                      ? t("settings.modelStatusRunning")
+                      : t("settings.modelStatusNotRunning")}
                   </span>
                 ))}
                 <span className="text-xs text-gray-400 dark:text-gray-500">
-                  每 20 秒自动刷新
+                  {t("settings.modelAutoRefreshEvery20s")}
                 </span>
               </div>
             )}
@@ -786,16 +844,18 @@ function ProviderPage() {
               <button
                 onClick={handleSyncOfficialPricing}
                 disabled={syncingPricing}
-                title="按内置官方价格表刷新已注册模型的价格（不覆盖自定义定价）"
+                title={t("settings.modelSyncPricingTitle")}
                 className="px-4 py-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors disabled:opacity-50"
               >
-                {syncingPricing ? "同步中..." : "同步官方价格"}
+                {syncingPricing
+                  ? t("settings.modelSyncing")
+                  : t("settings.modelSyncOfficialPricing")}
               </button>
               <button
                 onClick={() => setShowAddModel(true)}
                 className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
-                + 添加模型
+                + {t("settings.modelAddModel")}
               </button>
             </div>
 
@@ -890,10 +950,10 @@ function ProviderPage() {
             ) : models.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-gray-400 dark:text-gray-500 text-lg mb-2">
-                  暂无可用模型
+                  {t("settings.modelNoModelsAvailable")}
                 </p>
                 <p className="text-gray-400 dark:text-gray-500 text-sm">
-                  请在 Provider 管理页面添加供应商
+                  {t("settings.modelAddProviderHint")}
                 </p>
               </div>
             ) : (
@@ -928,50 +988,63 @@ function ProviderPage() {
                           {probeResults[model.id] && (
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                              title="最近一次能力检测结果"
+                              title={t("settings.modelProbeResultTitle")}
                             >
-                              工具调用
+                              {t("settings.modelCapToolUse")}
                               {probeResults[model.id].tool_use === true
                                 ? "✓"
                                 : probeResults[model.id].tool_use === false
                                   ? "✗"
                                   : "?"}
                               {probeResults[model.id].vision === true
-                                ? " · 视觉✓"
+                                ? t("settings.modelProbeVisionYes")
                                 : ""}
                             </span>
                           )}
                           {model.pricing && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                              输入 ${formatUnitPrice(model.pricing.inputPer1M)}{" "}
-                              / 输出 $
-                              {formatUnitPrice(model.pricing.outputPer1M)} /1M
+                              {t("settings.modelPriceInOut", {
+                                input: formatUnitPrice(
+                                  model.pricing.inputPer1M,
+                                ),
+                                output: formatUnitPrice(
+                                  model.pricing.outputPer1M,
+                                ),
+                              })}
                             </span>
                           )}
                           {model.pricing?.billingMode &&
                             model.pricing.billingMode !== "token" && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400">
-                                {BILLING_LABELS[model.pricing.billingMode] ||
-                                  model.pricing.billingMode}
+                                {t(
+                                  BILLING_LABELS[model.pricing.billingMode] ||
+                                    model.pricing.billingMode,
+                                )}
                                 {model.pricing.pricePerRequest
-                                  ? ` $${model.pricing.pricePerRequest}/次`
+                                  ? ` ${t("settings.modelPricePerCall", {
+                                      price: model.pricing.pricePerRequest,
+                                    })}`
                                   : ""}
                               </span>
                             )}
                           {model.pricing?.timeBasedPricing?.length ? (
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                              title={`分时价差: ${model.pricing.timeBasedPricing.map((s) => `${s.start}-${s.end}`).join("、")}`}
+                              title={t("settings.modelTimeBasedSpread", {
+                                ranges: model.pricing.timeBasedPricing
+                                  .map((s) => `${s.start}-${s.end}`)
+                                  .join("、"),
+                              })}
                             >
-                              分时
+                              {t("settings.modelTimeBased")}
                             </span>
                           ) : null}
                           {model.pricing?.pricingSource === "manual" && (
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                              title="价格由用户手动配置，官方价格同步不会覆盖"
+                              title={t("settings.modelManualPricingTitle")}
                             >
-                              自定义
+                              {t("settings.modelCustomPricing")}
                             </span>
                           )}
                         </div>
@@ -1005,34 +1078,38 @@ function ProviderPage() {
                             onClick={() => setActiveTab("providers")}
                             className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0"
                           >
-                            管理 Provider
+                            {t("settings.modelManageProvider")}
                           </button>
                         )}
                         <button
                           onClick={() => handleProbeModel(model)}
                           disabled={probingId === model.id}
-                          title="静态探测模型是否支持工具调用/视觉，结果写入模型能力"
+                          title={t("settings.modelProbeTitle")}
                           className="px-2 py-1 text-xs bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 text-violet-600 dark:text-violet-400 rounded shrink-0 disabled:opacity-50"
                         >
-                          {probingId === model.id ? "检测中..." : "检测能力"}
+                          {probingId === model.id
+                            ? t("settings.modelProbing")
+                            : t("settings.modelProbeCapabilities")}
                         </button>
                         <button
                           onClick={() => setEditMetaId(model.id)}
                           className="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded shrink-0"
                         >
-                          元数据
+                          {t("settings.modelMetadata")}
                         </button>
                         <button
                           onClick={() => handleStartEditModel(model)}
                           className="px-2 py-1 text-xs bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded shrink-0"
                         >
-                          编辑
+                          {t("common.edit")}
                         </button>
                         <button
                           onClick={() => {
                             if (
                               window.confirm(
-                                `确定删除模型「${model.name || model.id}」？此操作不可恢复。`,
+                                t("settings.modelDeleteModelConfirm", {
+                                  name: model.name || model.id,
+                                }),
                               )
                             ) {
                               deleteModel(model.id).catch(() => {});
@@ -1041,7 +1118,7 @@ function ProviderPage() {
                           className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded shrink-0"
                           title={t("settings.modelDeleteModel")}
                         >
-                          删除
+                          {t("common.delete")}
                         </button>
                       </div>
                     </div>
@@ -1106,25 +1183,24 @@ function ProviderPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  编辑模型 — {model.modelId || model.name}
+                  {t("settings.modelEditTitle", {
+                    name: model.modelId || model.name,
+                  })}
                 </h3>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      能力标签（逗号分隔）
+                      {t("settings.modelCapabilitiesLabel")}
                     </label>
                     <input
                       type="text"
                       value={editCaps}
                       onChange={(e) => setEditCaps(e.target.value)}
-                      placeholder="如: embedding, streaming, reranking"
+                      placeholder={t("settings.modelCapabilitiesPlaceholder")}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      可选: streaming, function_calling, vision, thinking,
-                      tool_use, embedding, image_generation, video_generation,
-                      text_to_speech, speech_recognition, reranking,
-                      code_execution 等
+                      {t("settings.modelCapabilitiesHint")}
                     </p>
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
@@ -1132,14 +1208,16 @@ function ProviderPage() {
                       onClick={handleCancelEditModel}
                       className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                     >
-                      取消
+                      {t("common.cancel")}
                     </button>
                     <button
                       onClick={handleSaveEditModel}
                       disabled={savingModel}
                       className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50"
                     >
-                      {savingModel ? "保存中..." : "保存"}
+                      {savingModel
+                        ? t("settings.modelSaving")
+                        : t("common.save")}
                     </button>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { getBackendBaseUrl } from "../../services/backendUrl";
 
 /**
@@ -34,6 +35,7 @@ export function VoiceSelector({
   activeFormat,
   onFormatChange,
 }: VoiceSelectorProps) {
+  const { t } = useTranslation();
   const [voices, setVoices] = useState<Voice[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -61,7 +63,7 @@ export function VoiceSelector({
 
   /** 按语言分组 */
   const grouped = voices.reduce<Record<string, Voice[]>>((acc, v) => {
-    const lang = v.language || "未分类";
+    const lang = v.language || t("tts.uncategorized");
     if (!acc[lang]) acc[lang] = [];
     acc[lang].push(v);
     return acc;
@@ -81,16 +83,16 @@ export function VoiceSelector({
       {/* 语音选择 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          语音
+          {t("tts.voice")}
         </label>
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
         >
-          {loading && <option value="">加载中...</option>}
+          {loading && <option value="">{t("common.loading")}</option>}
           {!loading && voices.length === 0 && (
-            <option value="">暂无可用语音</option>
+            <option value="">{t("tts.noVoices")}</option>
           )}
           {sortedLanguages.map((lang) => (
             <optgroup key={lang} label={lang}>
@@ -108,7 +110,7 @@ export function VoiceSelector({
       {supportedFormats && supportedFormats.length > 0 && onFormatChange && (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            音频格式
+            {t("tts.audioFormat")}
           </label>
           <select
             value={activeFormat || supportedFormats[0]}
@@ -128,7 +130,7 @@ export function VoiceSelector({
       {supportedFormats && supportedFormats.length > 0 && !onFormatChange && (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            音频格式
+            {t("tts.audioFormat")}
           </label>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {supportedFormats.join(", ")}

@@ -1,23 +1,25 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ShortcutEntry {
   keys: string[];
-  label: string;
+  labelKey: string;
 }
 
 const shortcuts: ShortcutEntry[] = [
-  { keys: ["Ctrl", "Alt", "N"], label: "新建会话" },
-  { keys: ["Ctrl", "Shift", "N"], label: "速记（写入知识库）" },
-  { keys: ["Ctrl", "L"], label: "清空当前消息" },
-  { keys: ["Ctrl", "Shift", "D"], label: "切换仪表盘" },
-  { keys: ["Ctrl", ","], label: "打开设置面板" },
-  { keys: ["Ctrl", "I"], label: "聚焦输入框" },
-  { keys: ["Ctrl", "/"], label: "显示快捷键帮助" },
-  { keys: ["Esc"], label: "取消聚焦 / 关闭弹窗" },
-  { keys: ["Ctrl", "Shift", "S"], label: "停止生成" },
+  { keys: ["Ctrl", "Alt", "N"], labelKey: "common.shortcutNewSession" },
+  { keys: ["Ctrl", "Shift", "N"], labelKey: "common.shortcutQuickNote" },
+  { keys: ["Ctrl", "L"], labelKey: "common.shortcutClearMessages" },
+  { keys: ["Ctrl", "Shift", "D"], labelKey: "common.shortcutToggleDashboard" },
+  { keys: ["Ctrl", ","], labelKey: "common.shortcutOpenSettings" },
+  { keys: ["Ctrl", "I"], labelKey: "common.shortcutFocusInput" },
+  { keys: ["Ctrl", "/"], labelKey: "common.shortcutShowShortcuts" },
+  { keys: ["Esc"], labelKey: "common.shortcutCancelFocus" },
+  { keys: ["Ctrl", "Shift", "S"], labelKey: "common.shortcutStopGenerating" },
 ];
 
 function KeyboardShortcutsHelp() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ function KeyboardShortcutsHelp() {
       <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            快捷键
+            {t("common.shortcuts")}
           </h3>
           <button
             onClick={() => setOpen(false)}
@@ -64,7 +66,7 @@ function KeyboardShortcutsHelp() {
           {shortcuts.map((s, i) => (
             <div key={i} className="flex items-center justify-between py-1.5">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                {s.label}
+                {t(s.labelKey)}
               </span>
               <div className="flex gap-1">
                 {s.keys.map((key, j) => (
@@ -81,7 +83,7 @@ function KeyboardShortcutsHelp() {
         </div>
 
         <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
-          按 Esc 关闭
+          {t("common.pressEscToClose")}
         </p>
       </div>
     </div>

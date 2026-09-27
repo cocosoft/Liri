@@ -7,6 +7,7 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   Channel,
   UpdateChannelRequest,
@@ -100,6 +101,7 @@ function SecretField({
   onSecretChange: (key: string, value: string) => void;
 }) {
   const [showPassword, setShowPassword] = useState(false);
+  const { t } = useTranslation();
   const currentInput = secretMap[field.key] ?? "";
   const isDirty = currentInput.length > 0;
 
@@ -115,7 +117,7 @@ function SecretField({
           value={currentInput}
           onChange={(e) => onSecretChange(field.key, e.target.value)}
           placeholder={
-            defaultValue ? "已保存，留空则不修改" : field.placeholder
+            defaultValue ? t("channels.savedLeaveEmpty") : field.placeholder
           }
           className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
@@ -123,7 +125,7 @@ function SecretField({
           type="button"
           onClick={() => setShowPassword(!showPassword)}
           className="px-2 py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          title={showPassword ? "隐藏" : "显示"}
+          title={showPassword ? t("channels.hide") : t("channels.show")}
         >
           {showPassword ? "🙈" : "👁"}
         </button>
@@ -131,11 +133,15 @@ function SecretField({
       <div className="flex items-center gap-2 mt-1">
         {defaultValue && (
           <span className="text-xs text-gray-400">
-            当前: {maskSecretValue(defaultValue)}
+            {t("channels.currentValue", {
+              value: maskSecretValue(defaultValue),
+            })}
           </span>
         )}
         {isDirty && (
-          <span className="text-xs text-orange-500 font-medium">待更新</span>
+          <span className="text-xs text-orange-500 font-medium">
+            {t("channels.pendingUpdate")}
+          </span>
         )}
       </div>
     </div>
@@ -171,6 +177,7 @@ function TextField({
 // ─── 主组件 ────────────────────────────────────────────
 
 function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
+  const { t } = useTranslation();
   const {
     closeFormModal,
     saveChannel,
@@ -300,7 +307,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            编辑渠道
+            {t("channels.editChannel")}
           </h3>
           <button
             onClick={closeFormModal}
@@ -315,14 +322,14 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
           {/* 未注册提示 */}
           {!channel.registered && (
             <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
-              此渠道尚未注册。请在下方填写凭据后保存，系统将自动完成注册。
+              {t("channels.unregisteredHint")}
             </div>
           )}
 
           {/* 类型（只读） */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              类型
+              {t("channels.typeLabel")}
             </label>
             <span
               className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${TYPE_COLORS[channel.type] || "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400"}`}
@@ -334,7 +341,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
           {/* 名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              名称
+              {t("common.name")}
             </label>
             <input
               type="text"
@@ -362,7 +369,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
           {fields.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">
-                认证配置
+                {t("channels.authConfig")}
               </h4>
               <div>
                 {fields.map((field) =>
@@ -404,11 +411,11 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
           {/* 行为配置 */}
           <div>
             <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 border-b border-gray-200 dark:border-gray-700 pb-1">
-              行为配置
+              {t("channels.behaviorConfig")}
             </h4>
             <div className="flex items-center justify-between py-2">
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                启用
+                {t("common.enable")}
               </span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -426,7 +433,7 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
         {/* 底部按钮 */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
           <span className="text-xs text-gray-400">
-            {isApplying ? "正在应用配置..." : ""}
+            {isApplying ? t("channels.applying") : ""}
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -434,21 +441,25 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
               disabled={isSaving || isApplying}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               onClick={() => saveChannel(buildSaveData())}
               disabled={isSaving || isApplying}
               className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
             >
-              {isSaving && !isApplying ? "保存中..." : "保存"}
+              {isSaving && !isApplying
+                ? t("channels.saving")
+                : t("common.save")}
             </button>
             <button
               onClick={() => saveAndApplyChannel(buildSaveData())}
               disabled={isSaving || isApplying}
               className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
             >
-              {isApplying ? "应用中..." : "保存并应用"}
+              {isApplying
+                ? t("channels.applyingShort")
+                : t("channels.saveAndApply")}
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { WaveformIcon } from "../../assets/icons/navigation";
 import { TTSProviderSection } from "./TTSProviderSection";
 import { VoiceSelector } from "./VoiceSelector";
@@ -21,6 +22,7 @@ interface ProviderDetail {
 }
 
 function TTSPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   // ── TTS Provider 状态 ──
@@ -88,17 +90,16 @@ function TTSPage() {
         <div className="max-w-4xl mx-auto p-6 text-center">
           <WaveformIcon size={64} className="mx-auto mb-4 text-gray-400" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            TTS 模块尚未启动
+            {t("tts.notStarted")}
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            请在设置中确认 TTS 提供者已启用，或在后端配置中启用 Edge TTS /
-            OpenAI TTS 等提供者。
+            {t("tts.notStartedDesc")}
           </p>
           <button
             onClick={() => navigate("/settings")}
             className="text-blue-600 hover:underline"
           >
-            前往设置 →
+            {t("tts.goSettings")}
           </button>
         </div>
       </div>
@@ -110,10 +111,10 @@ function TTSPage() {
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-          TTS 语音管理
+          {t("tts.pageTitle")}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          配置语音合成提供商、管理人设、测试合成效果
+          {t("tts.pageDesc")}
         </p>
 
         {/* Section 1: Provider 配置 */}
@@ -122,13 +123,13 @@ function TTSPage() {
         {/* Section 2: 语音与语速 */}
         <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-            语音与语速
+            {t("tts.voiceAndSpeed")}
           </h3>
           <div className="space-y-4">
             {/* Provider 选择 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                TTS 提供商
+                {t("tts.providerLabel")}
               </label>
               <select
                 value={activeProvider}
@@ -156,7 +157,7 @@ function TTSPage() {
             {/* 语速 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                语速：{speed.toFixed(1)}x
+                {t("tts.speedValue", { value: speed.toFixed(1) })}
               </label>
               <input
                 type="range"

@@ -31,21 +31,23 @@ import DayView from "./DayView";
 
 const logger = createLogger("components:office:CalendarPage");
 
-const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-const WEEKDAYS_FULL = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-const MONTH_NAMES = [
-  "1月",
-  "2月",
-  "3月",
-  "4月",
-  "5月",
-  "6月",
-  "7月",
-  "8月",
-  "9月",
-  "10月",
-  "11月",
-  "12月",
+const WEEKDAY_KEYS = [
+  "office.calWeekdayShortSun",
+  "office.calWeekdayShortMon",
+  "office.calWeekdayShortTue",
+  "office.calWeekdayShortWed",
+  "office.calWeekdayShortThu",
+  "office.calWeekdayShortFri",
+  "office.calWeekdayShortSat",
+];
+const WEEKDAY_FULL_KEYS = [
+  "office.calWeekdaySun",
+  "office.calWeekdayMon",
+  "office.calWeekdayTue",
+  "office.calWeekdayWed",
+  "office.calWeekdayThu",
+  "office.calWeekdayFri",
+  "office.calWeekdaySat",
 ];
 type ViewMode = "month" | "week" | "year" | "day";
 
@@ -162,8 +164,11 @@ export default function OfficeCalendarPage() {
     currentMonday.setDate(now.getDate() - dow + (dow === 0 ? -6 : 1));
     const weekStart = new Date(currentMonday);
     weekStart.setDate(currentMonday.getDate() + weekOffset * 7);
-    return `${weekStart.getFullYear()}年 ${MONTH_NAMES[weekStart.getMonth()]}`;
-  }, [weekOffset]);
+    return t("office.calYearMonth", {
+      year: weekStart.getFullYear(),
+      month: weekStart.getMonth() + 1,
+    });
+  }, [weekOffset, t]);
 
   /** 右键菜单状态 */
   const [contextMenu, setContextMenu] = useState<{
@@ -343,7 +348,11 @@ export default function OfficeCalendarPage() {
         source: "manual",
         sourceId: ev.id,
         draggable: true,
-        action: { type: "edit", label: "编辑日程", payload: { id: ev.id } },
+        action: {
+          type: "edit",
+          label: t("office.calEditEvent"),
+          payload: { id: ev.id },
+        },
         status: ev.status,
         priority: ev.priority,
         tags: ev.tags,
@@ -366,7 +375,7 @@ export default function OfficeCalendarPage() {
           draggable: false,
           action: {
             type: "navigate-cron",
-            label: "查看任务",
+            label: t("office.calCronViewTask"),
             payload: { id: cron.jobId },
           },
         });
@@ -386,14 +395,14 @@ export default function OfficeCalendarPage() {
         draggable: false,
         action: {
           type: "navigate-chat",
-          label: "查看对话",
+          label: t("office.calViewConversation"),
           payload: { id: ai.sessionId ?? "" },
         },
       });
     }
 
     return events;
-  }, [mergedCalendar, visibleSources, statusFilter]);
+  }, [mergedCalendar, visibleSources, statusFilter, t]);
 
   async function handleSaveEvent(data: CalendarAddFormData) {
     setError(null);
@@ -426,12 +435,14 @@ export default function OfficeCalendarPage() {
           .create({
             category: "todo",
             title: data.summary,
-            content: data.description || `${data.start} 开始`,
+            content:
+              data.description ||
+              t("office.calEventStartsAt", { start: data.start }),
             source: "calendar",
             link_to: {
               type: "page",
               id: `/office?view=calendar&date=${data.start.slice(0, 10)}`,
-              label: "查看日历",
+              label: t("office.calViewCalendar"),
             },
             expires_at: Math.floor(new Date(data.start).getTime() / 1000),
           })
@@ -455,12 +466,14 @@ export default function OfficeCalendarPage() {
         error?: { message?: string };
       };
       if (wrapped.ok === false) {
-        throw new Error(wrapped.error?.message ?? "未知错误");
+        throw new Error(wrapped.error?.message ?? t("office.calUnknownError"));
       }
       refreshMerged();
     } catch (err) {
       setError(
-        `状态更新失败：${err instanceof Error ? err.message : String(err)}`,
+        t("office.calStatusUpdateFailed", {
+          error: err instanceof Error ? err.message : String(err),
+        }),
       );
       setTimeout(() => setError(null), 4000);
     }
@@ -698,7 +711,7 @@ export default function OfficeCalendarPage() {
         day: d.getDate(),
         month: d.getMonth() + 1,
         dateStr,
-        weekday: WEEKDAYS_FULL[i],
+        weekdayKey: WEEKDAY_FULL_KEYS[i],
         isToday: dateStr === todayStr,
         lunar,
         events: eventsByDay.get(dateStr) ?? [],
@@ -819,7 +832,10 @@ export default function OfficeCalendarPage() {
               ◀
             </button>
             <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {viewYear}年{viewMonth + 1}月
+              {t("office.calYearMonthCompact", {
+                year: viewYear,
+                month: viewMonth + 1,
+              })}
             </span>
             <button
               onClick={nextMonth}
@@ -829,9 +845,9 @@ export default function OfficeCalendarPage() {
             </button>
           </div>
           <div className="grid grid-cols-7 px-2 pb-1">
-            {WEEKDAYS.map((d) => (
-              <div key={d} className="text-center text-xs text-gray-400 py-1">
-                {d}
+            {WEEKDAY_KEYS.map((k) => (
+              <div key={k} className="text-center text-xs text-gray-400 py-1">
+                {t(k)}
               </div>
             ))}
           </div>
@@ -901,15 +917,15 @@ export default function OfficeCalendarPage() {
           {/* 筛选图例 */}
           <div className="px-2 pb-2 border-t border-gray-200 dark:border-gray-700 pt-2">
             <div className="text-[10px] text-gray-400 mb-1 px-1">
-              图例（点击切换）
+              {t("office.calLegendTitle")}
             </div>
             {(["manual", "cron", "ai"] as EventSource[]).map((src) => {
               const label =
                 src === "manual"
-                  ? "手动日程"
+                  ? t("office.calLegendManual")
                   : src === "cron"
-                    ? "定时任务"
-                    : "AI 提取";
+                    ? t("office.calLegendCron")
+                    : t("office.calLegendAI");
               const icon =
                 src === "manual" ? "🔵" : src === "cron" ? "🟢" : "🟣";
               const hasError = mergedErrors.some((e) => e.source === src);
@@ -942,7 +958,9 @@ export default function OfficeCalendarPage() {
 
           {/* 状态筛选 */}
           <div className="px-2 pb-2 border-t border-gray-200 dark:border-gray-700 pt-2">
-            <div className="text-[10px] text-gray-400 mb-1 px-1">状态筛选</div>
+            <div className="text-[10px] text-gray-400 mb-1 px-1">
+              {t("office.calStatusFilter")}
+            </div>
             <div className="flex flex-wrap gap-1">
               {(
                 [
@@ -955,12 +973,12 @@ export default function OfficeCalendarPage() {
                 ] as Array<EventStatus | "all">
               ).map((s) => {
                 const labelMap: Record<string, string> = {
-                  all: "全部",
-                  pending: "待办",
-                  in_progress: "进行中",
-                  completed: "已完成",
-                  cancelled: "已取消",
-                  overdue: "超时",
+                  all: "common.all",
+                  pending: "office.calStatPending",
+                  in_progress: "office.calStatInProgress",
+                  completed: "office.calStatCompleted",
+                  cancelled: "office.calStatCancelled",
+                  overdue: "office.calStatOverdue",
                 };
                 return (
                   <button
@@ -973,7 +991,7 @@ export default function OfficeCalendarPage() {
                           : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                       }`}
                   >
-                    {labelMap[s]}
+                    {t(labelMap[s])}
                   </button>
                 );
               })}
@@ -1011,12 +1029,12 @@ export default function OfficeCalendarPage() {
               <div className="mt-1 max-h-[240px] overflow-y-auto">
                 {cronLoading && (
                   <div className="px-2 py-3 text-xs text-gray-400 text-center">
-                    加载中...
+                    {t("common.loading")}
                   </div>
                 )}
                 {!cronLoading && cronTasks.length === 0 && (
                   <div className="px-2 py-3 text-xs text-gray-400 text-center">
-                    暂无定时任务
+                    {t("office.calNoCronTasks")}
                   </div>
                 )}
                 {cronTasks.map((task) => (
@@ -1046,12 +1064,12 @@ export default function OfficeCalendarPage() {
                         </span>
                         {task.status === "error" && (
                           <span className="text-[10px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 flex-shrink-0">
-                            异常
+                            {t("office.calCronError")}
                           </span>
                         )}
                         {task.status === "running" && (
                           <span className="text-[10px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 flex-shrink-0">
-                            运行中
+                            {t("common.running")}
                           </span>
                         )}
                       </div>
@@ -1066,7 +1084,7 @@ export default function OfficeCalendarPage() {
                       to={`/cron?jobId=${task.id}`}
                       className="flex-shrink-0 text-[10px] text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      详情
+                      {t("office.calDetail")}
                     </Link>
                   </div>
                 ))}
@@ -1075,7 +1093,7 @@ export default function OfficeCalendarPage() {
                   to="/cron"
                   className="block px-2 py-1.5 text-xs text-center text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors mt-1"
                 >
-                  查看全部定时任务 →
+                  {t("office.calViewAllCron")}
                 </Link>
               </div>
             )}
@@ -1112,7 +1130,7 @@ export default function OfficeCalendarPage() {
                           onClick={() => handleDeleteEvent(ev.sourceId)}
                           className="text-red-400 hover:text-red-600 mt-0.5"
                         >
-                          删除
+                          {t("common.delete")}
                         </button>
                       )}
                       {ev.source === "cron" && (
@@ -1120,7 +1138,7 @@ export default function OfficeCalendarPage() {
                           to={`/cron?jobId=${ev.sourceId}`}
                           className="text-green-400 hover:text-green-600 mt-0.5 block"
                         >
-                          查看任务 →
+                          {t("office.calCronViewTask")} →
                         </Link>
                       )}
                     </div>
@@ -1161,7 +1179,11 @@ export default function OfficeCalendarPage() {
                   <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
                     className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded mr-1"
-                    title={sidebarOpen ? "关闭侧栏" : "打开侧栏"}
+                    title={
+                      sidebarOpen
+                        ? t("office.calCloseSidebar")
+                        : t("office.calOpenSidebar")
+                    }
                   >
                     ☰
                   </button>
@@ -1176,7 +1198,11 @@ export default function OfficeCalendarPage() {
                     className={`px-3 py-1 text-xs rounded-full transition-colors
                     ${viewMode === m ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
                   >
-                    {m === "month" ? "月" : m === "week" ? "周" : "年"}
+                    {m === "month"
+                      ? t("office.calViewMonth")
+                      : m === "week"
+                        ? t("office.calViewWeek")
+                        : t("office.calViewYear")}
                   </button>
                 ))}
               </div>
@@ -1187,16 +1213,16 @@ export default function OfficeCalendarPage() {
                       onClick={prevMonth}
                       className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
                     >
-                      ◀ 上一年
+                      ◀ {t("office.calPrevYear")}
                     </button>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                      {viewYear}年
+                      {t("office.calYear", { year: viewYear })}
                     </h2>
                     <button
                       onClick={nextMonth}
                       className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
                     >
-                      下一年 ▶
+                      {t("office.calNextYear")} ▶
                     </button>
                   </>
                 ) : viewMode === "week" ? (
@@ -1205,7 +1231,7 @@ export default function OfficeCalendarPage() {
                       onClick={prevMonth}
                       className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
                     >
-                      ◀ 上周
+                      ◀ {t("office.calPrevWeek")}
                     </button>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                       {weekTitle}
@@ -1214,7 +1240,7 @@ export default function OfficeCalendarPage() {
                       onClick={nextMonth}
                       className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
                     >
-                      下周 ▶
+                      {t("office.calNextWeek")} ▶
                     </button>
                   </>
                 ) : (
@@ -1223,16 +1249,19 @@ export default function OfficeCalendarPage() {
                       onClick={prevMonth}
                       className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
                     >
-                      ◀ 上月
+                      ◀ {t("office.calPrevMonth")}
                     </button>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                      {viewYear}年 {MONTH_NAMES[viewMonth]}
+                      {t("office.calYearMonth", {
+                        year: viewYear,
+                        month: viewMonth + 1,
+                      })}
                     </h2>
                     <button
                       onClick={nextMonth}
                       className="px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
                     >
-                      下月 ▶
+                      {t("office.calNextMonth")} ▶
                     </button>
                   </>
                 )}
@@ -1259,12 +1288,12 @@ export default function OfficeCalendarPage() {
             {viewMode === "month" && (
               <>
                 <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-                  {WEEKDAYS.map((d, i) => (
+                  {WEEKDAY_KEYS.map((k, i) => (
                     <div
-                      key={d}
+                      key={k}
                       className={`text-center text-xs font-medium py-2 ${i === 0 || i === 6 ? "text-red-400 dark:text-red-500" : "text-gray-500 dark:text-gray-400"}`}
                     >
-                      {d}
+                      {t(k)}
                     </div>
                   ))}
                 </div>
@@ -1378,7 +1407,7 @@ export default function OfficeCalendarPage() {
                       <div
                         className={`text-xs ${wd.isToday ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-gray-500 dark:text-gray-400"}`}
                       >
-                        {wd.weekday}
+                        {t(wd.weekdayKey)}
                       </div>
                       <div
                         className={`text-lg font-semibold mt-0.5 ${wd.isToday ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-white"}`}
@@ -1410,7 +1439,7 @@ export default function OfficeCalendarPage() {
                     >
                       {wd.events.length === 0 ? (
                         <div className="text-xs text-gray-300 dark:text-gray-600 mt-2 text-center">
-                          无日程
+                          {t("office.calNoEventsInDay")}
                         </div>
                       ) : (
                         <div className="space-y-1">
@@ -1466,19 +1495,19 @@ export default function OfficeCalendarPage() {
                       className="border border-gray-200 dark:border-gray-700 rounded-lg p-2 cursor-pointer hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
                     >
                       <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 text-center">
-                        {MONTH_NAMES[m.month]}
+                        {t("office.calMonthLabel", { month: m.month + 1 })}
                         {m.month === today.getMonth() &&
                           viewYear === today.getFullYear() && (
                             <span className="ml-1 text-blue-500">●</span>
                           )}
                       </div>
                       <div className="grid grid-cols-7 gap-px">
-                        {["日", "一", "二", "三", "四", "五", "六"].map((d) => (
+                        {WEEKDAY_KEYS.map((k) => (
                           <div
-                            key={d}
+                            key={k}
                             className="text-[9px] text-center text-gray-400 py-0.5"
                           >
-                            {d}
+                            {t(k)}
                           </div>
                         ))}
                         {m.cells.map((cell, ci) => (
@@ -1538,7 +1567,7 @@ export default function OfficeCalendarPage() {
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
                 >
-                  ✅ 标记为已完成
+                  {t("office.calMarkCompleted")}
                 </button>
               )}
               {contextMenu.event.status !== "in_progress" && (
@@ -1552,7 +1581,7 @@ export default function OfficeCalendarPage() {
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-950 transition-colors"
                 >
-                  🔄 标记为进行中
+                  {t("office.calMarkInProgress")}
                 </button>
               )}
               {contextMenu.event.status !== "pending" && (
@@ -1566,7 +1595,7 @@ export default function OfficeCalendarPage() {
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors"
                 >
-                  ⏸ 标记为待办
+                  {t("office.calMarkPending")}
                 </button>
               )}
               {contextMenu.event.status !== "cancelled" && (
@@ -1580,7 +1609,7 @@ export default function OfficeCalendarPage() {
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
-                  ❌ 标记为已取消
+                  {t("office.calMarkCancelled")}
                 </button>
               )}
               <div className="border-t border-gray-100 dark:border-gray-700 my-0.5" />

@@ -7,6 +7,7 @@
  * - 协商式执行引擎开关 + 门控强度（negotiation.enabled + tier）
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -25,6 +26,7 @@ interface OfficeProjectSettingsPanelProps {
 function OfficeProjectSettingsPanel({
   isDark,
 }: OfficeProjectSettingsPanelProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<OfficeCliInstallStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState(false);
@@ -119,7 +121,7 @@ function OfficeProjectSettingsPanel({
   if (loading) {
     return (
       <div className={`p-6 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-        加载中…
+        {t("office.officeCliLoading")}
       </div>
     );
   }
@@ -131,21 +133,21 @@ function OfficeProjectSettingsPanel({
   const badge =
     state === "running"
       ? {
-          text: "安装中…",
+          text: t("office.officeCliInstalling"),
           cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
         }
       : installed
         ? {
-            text: "已就绪",
+            text: t("office.officeCliReady"),
             cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
           }
         : info?.incompatible
           ? {
-              text: "版本不兼容",
+              text: t("office.officeCliIncompatible"),
               cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
             }
           : {
-              text: "未安装",
+              text: t("office.officeCliNotInstalled"),
               cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
             };
 
@@ -153,16 +155,22 @@ function OfficeProjectSettingsPanel({
     <>
       {/* OfficeCLI 安装管理 */}
       <ConfigSection
-        title="办公能力"
-        description="文档生成依赖的 OfficeCLI 工具管理"
+        title={t("office.officeCliTitle")}
+        description={t("office.officeCliDesc")}
         isDark={isDark}
       >
         <ConfigItem
           label="OfficeCLI"
           description={
             info?.installed
-              ? `版本 ${info.version ?? "未知"}${info.incompatible ? "（与兼容范围不符）" : ""}，位于 ${info.path ?? "系统 PATH"}`
-              : "文档创建/编辑功能依赖的命令行工具，安装后可直接调用"
+              ? t("office.officeCliVersionInfo", {
+                  version: info.version ?? t("office.officeCliVersionUnknown"),
+                  incompatibleSuffix: info.incompatible
+                    ? t("office.officeCliVersionIncompatibleSuffix")
+                    : "",
+                  path: info.path ?? t("office.officeCliSystemPath"),
+                })
+              : t("office.officeCliNotInstalledDesc")
           }
           isDark={isDark}
         >
@@ -182,7 +190,9 @@ function OfficeProjectSettingsPanel({
                     : "bg-blue-500 hover:bg-blue-600 text-white"
                 }`}
               >
-                {state === "running" || installing ? "安装中…" : "一键安装"}
+                {state === "running" || installing
+                  ? t("office.officeCliInstalling")
+                  : t("office.officeCliInstall")}
               </button>
             )}
           </div>
@@ -190,16 +200,18 @@ function OfficeProjectSettingsPanel({
             <p
               className={`mt-2 text-xs ${isDark ? "text-red-400" : "text-red-600"}`}
             >
-              安装失败：{status.error}
+              {t("office.officeCliInstallFailed", { error: status.error })}
             </p>
           )}
           {status?.constraint && info?.incompatible && (
             <p
               className={`mt-2 text-xs ${isDark ? "text-amber-400" : "text-amber-600"}`}
             >
-              文档生成经测试的版本范围：{status.constraint.minVersion} ~
-              {status.constraint.maxVersion} （最近验证{" "}
-              {status.constraint.lastTested}）
+              {t("office.officeCliVersionRange", {
+                min: status.constraint.minVersion,
+                max: status.constraint.maxVersion,
+                lastTested: status.constraint.lastTested,
+              })}
             </p>
           )}
         </ConfigItem>
@@ -207,13 +219,13 @@ function OfficeProjectSettingsPanel({
 
       {/* 协作式文档生成 */}
       <ConfigSection
-        title="协作式文档生成"
-        description="分阶段流水线：大纲整理 → 内容填充+配图 → 成稿。关闭后改为一次性生成。"
+        title={t("office.docStagedTitle")}
+        description={t("office.docStagedDesc")}
         isDark={isDark}
       >
         <ConfigItem
-          label="分阶段生成"
-          description="启用后文档按「大纲→内容+配图→成稿」三阶段执行，每阶段可确认"
+          label={t("office.docStaged")}
+          description={t("office.docStagedHint")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -223,8 +235,8 @@ function OfficeProjectSettingsPanel({
           />
         </ConfigItem>
         <ConfigItem
-          label="默认输出格式"
-          description="未指定格式时的默认文档类型"
+          label={t("office.docDefaultFormat")}
+          description={t("office.docDefaultFormatDesc")}
           isDark={isDark}
         >
           <SelectConfig
@@ -232,16 +244,16 @@ function OfficeProjectSettingsPanel({
             value={docWorkflow.defaultFormat}
             onChange={(v) => updateDocWorkflow("defaultFormat", v)}
             options={[
-              { value: "docx", label: "Word 文档" },
-              { value: "pptx", label: "PPT 演示文稿" },
-              { value: "html", label: "HTML 网页" },
-              { value: "pdf", label: "PDF 文档" },
+              { value: "docx", label: t("office.docFormatDocx") },
+              { value: "pptx", label: t("office.docFormatPptx") },
+              { value: "html", label: t("office.docFormatHtml") },
+              { value: "pdf", label: t("office.docFormatPdf") },
             ]}
           />
         </ConfigItem>
         <ConfigItem
-          label="图片生成失败降级"
-          description="开启后图片生成失败时保留占位符继续成稿，关闭则中止"
+          label={t("office.docDegradeImage")}
+          description={t("office.docDegradeImageDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -254,13 +266,13 @@ function OfficeProjectSettingsPanel({
 
       {/* 协商式执行引擎 */}
       <ConfigSection
-        title="协商式执行引擎"
-        description="工具执行前的用户确认机制。关闭后所有操作自动执行不拦截。"
+        title={t("office.negotiationTitle")}
+        description={t("office.negotiationDesc")}
         isDark={isDark}
       >
         <ConfigItem
-          label="启用协商式执行"
-          description="开启后关键操作（外部动作、选型、异常结果）执行前需用户确认"
+          label={t("office.negotiationEnable")}
+          description={t("office.negotiationEnableDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -270,8 +282,8 @@ function OfficeProjectSettingsPanel({
           />
         </ConfigItem>
         <ConfigItem
-          label="门控强度"
-          description="strict=全拦截 | moderate=仅外部操作+异常 | relaxed=仅外部操作"
+          label={t("office.negotiationTier")}
+          description={t("office.negotiationTierDesc")}
           isDark={isDark}
         >
           <SelectConfig
@@ -280,15 +292,15 @@ function OfficeProjectSettingsPanel({
             onChange={(v) => updateNegotiation("tier", v)}
             disabled={!negotiation.enabled}
             options={[
-              { value: "strict", label: "严格（全部拦截）" },
-              { value: "moderate", label: "中等（外部操作+异常）" },
-              { value: "relaxed", label: "宽松（仅外部操作）" },
+              { value: "strict", label: t("office.negotiationTierStrict") },
+              { value: "moderate", label: t("office.negotiationTierModerate") },
+              { value: "relaxed", label: t("office.negotiationTierRelaxed") },
             ]}
           />
         </ConfigItem>
         <ConfigItem
-          label="超时自动降级"
-          description="用户响应超时后是否自动取默认答案继续（关闭则中止操作）"
+          label={t("office.negotiationAutoDegrade")}
+          description={t("office.negotiationAutoDegradeDesc")}
           isDark={isDark}
         >
           <ToggleConfig

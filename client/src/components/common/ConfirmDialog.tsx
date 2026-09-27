@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -15,12 +16,15 @@ function ConfirmDialog({
   open,
   title,
   message,
-  confirmText = "确认",
-  cancelText = "取消",
+  confirmText,
+  cancelText,
   variant = "default",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
+  const confirmLabel = confirmText ?? t("common.confirm");
+  const cancelLabel = cancelText ?? t("common.cancel");
   // P3-1 修复（前端交互专项 2026-08-30）：确认按钮防连点——连点会并发触发两次
   // onConfirm（如删除会话第二次 404 报错）。点击后锁 300ms 并置 disabled。
   const [confirming, setConfirming] = useState(false);
@@ -48,7 +52,7 @@ function ConfirmDialog({
             onClick={onCancel}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
           >
-            {cancelText}
+            {cancelLabel}
           </button>
           <button
             onClick={handleConfirm}
@@ -59,7 +63,7 @@ function ConfirmDialog({
                 : "bg-blue-500 hover:bg-blue-600"
             }`}
           >
-            {confirmText}
+            {confirmLabel}
           </button>
         </div>
       </div>

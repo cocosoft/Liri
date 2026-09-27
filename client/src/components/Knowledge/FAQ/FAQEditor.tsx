@@ -1,4 +1,5 @@
 import { useState, useCallback, memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { FAQEntry } from "../../../types/knowledge";
 import { X, Eye, Edit3 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export const FAQEditor = memo(function FAQEditor({
   onSave,
   onClose,
 }: FAQEditorProps) {
+  const { t } = useTranslation();
   const [question, setQuestion] = useState(entry?.question ?? "");
   const [answer, setAnswer] = useState(entry?.answer ?? "");
   const [similarText, setSimilarText] = useState(
@@ -37,11 +39,11 @@ export const FAQEditor = memo(function FAQEditor({
 
   const handleSave = useCallback(async () => {
     if (!question.trim()) {
-      setError("问题不能为空");
+      setError(t("knowledge.faq.errorQuestionRequired"));
       return;
     }
     if (!answer.trim()) {
-      setError("答案不能为空");
+      setError(t("knowledge.faq.errorAnswerRequired"));
       return;
     }
     setSaving(true);
@@ -61,7 +63,9 @@ export const FAQEditor = memo(function FAQEditor({
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      setError(
+        err instanceof Error ? err.message : t("knowledge.faq.errorSaveFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -74,18 +78,19 @@ export const FAQEditor = memo(function FAQEditor({
     recommended,
     onSave,
     onClose,
+    t,
   ]);
 
   const addTag = useCallback(() => {
-    const t = tagsInput.trim();
-    if (t && !tags.includes(t)) {
-      setTags([...tags, t]);
+    const tag = tagsInput.trim();
+    if (tag && !tags.includes(tag)) {
+      setTags([...tags, tag]);
       setTagsInput("");
     }
   }, [tagsInput, tags]);
 
   const removeTag = useCallback(
-    (t: string) => setTags(tags.filter((tg) => tg !== t)),
+    (tag: string) => setTags(tags.filter((tg) => tg !== tag)),
     [tags],
   );
 
@@ -109,7 +114,9 @@ export const FAQEditor = memo(function FAQEditor({
           <h2
             className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}
           >
-            {entry ? "编辑 FAQ" : "新建 FAQ"}
+            {entry
+              ? t("knowledge.faq.editTitle")
+              : t("knowledge.faq.createTitle")}
           </h2>
           <button
             onClick={onClose}
@@ -132,13 +139,13 @@ export const FAQEditor = memo(function FAQEditor({
             <span
               className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              问题
+              {t("knowledge.faq.questionLabel")}
             </span>
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="输入标准问题"
+              placeholder={t("knowledge.faq.questionPlaceholder")}
               className={`mt-1 w-full text-sm px-3 py-2 rounded-lg border outline-none ${
                 isDark
                   ? "bg-gray-800 border-gray-700 text-gray-200 focus:border-blue-500"
@@ -153,7 +160,7 @@ export const FAQEditor = memo(function FAQEditor({
               <span
                 className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                答案 (Markdown)
+                {t("knowledge.faq.answerLabel")}
               </span>
               <div
                 className={`flex rounded-lg overflow-hidden border text-[10px] ${isDark ? "border-gray-700" : "border-gray-200"}`}
@@ -168,7 +175,7 @@ export const FAQEditor = memo(function FAQEditor({
                         : "text-gray-400"
                   }`}
                 >
-                  <Edit3 size={10} /> 编辑
+                  <Edit3 size={10} /> {t("common.edit")}
                 </button>
                 <button
                   onClick={() => setPreviewTab("preview")}
@@ -180,7 +187,7 @@ export const FAQEditor = memo(function FAQEditor({
                         : "text-gray-400"
                   }`}
                 >
-                  <Eye size={10} /> 预览
+                  <Eye size={10} /> {t("common.preview")}
                 </button>
               </div>
             </div>
@@ -188,7 +195,7 @@ export const FAQEditor = memo(function FAQEditor({
               <textarea
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder="输入 Markdown 格式的答案..."
+                placeholder={t("knowledge.faq.answerPlaceholder")}
                 rows={8}
                 className={`mt-1 w-full text-sm px-3 py-2 rounded-lg border outline-none resize-none font-mono ${
                   isDark
@@ -206,7 +213,7 @@ export const FAQEditor = memo(function FAQEditor({
               >
                 {answer || (
                   <span className={isDark ? "text-gray-600" : "text-gray-400"}>
-                    无内容
+                    {t("knowledge.noContentPlain")}
                   </span>
                 )}
               </div>
@@ -218,12 +225,12 @@ export const FAQEditor = memo(function FAQEditor({
             <span
               className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              相似问题（每行一个，支持批量粘贴）
+              {t("knowledge.faq.similarLabel")}
             </span>
             <textarea
               value={similarText}
               onChange={(e) => setSimilarText(e.target.value)}
-              placeholder="问题变体1&#10;问题变体2&#10;问题变体3"
+              placeholder={t("knowledge.faq.similarPlaceholder")}
               rows={3}
               className={`mt-1 w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none font-mono ${
                 isDark
@@ -238,7 +245,7 @@ export const FAQEditor = memo(function FAQEditor({
             <span
               className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              标签
+              {t("knowledge.tags")}
             </span>
             <div className="flex items-center gap-1.5 mt-1">
               <input
@@ -251,7 +258,7 @@ export const FAQEditor = memo(function FAQEditor({
                     addTag();
                   }
                 }}
-                placeholder="输入后回车添加"
+                placeholder={t("knowledge.faq.tagsPlaceholder")}
                 className={`text-xs px-2 py-1.5 rounded-lg border outline-none w-32 ${
                   isDark
                     ? "bg-gray-800 border-gray-700 text-gray-200 focus:border-blue-500"
@@ -270,18 +277,18 @@ export const FAQEditor = memo(function FAQEditor({
                 +
               </button>
               <div className="flex items-center gap-1 flex-wrap">
-                {tags.map((t) => (
+                {tags.map((tag) => (
                   <span
-                    key={t}
+                    key={tag}
                     className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
                       isDark
                         ? "bg-blue-500/20 text-blue-400"
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
-                    {t}
+                    {tag}
                     <button
-                      onClick={() => removeTag(t)}
+                      onClick={() => removeTag(tag)}
                       className="hover:text-red-400"
                     >
                       ×
@@ -297,13 +304,13 @@ export const FAQEditor = memo(function FAQEditor({
             <span
               className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              分类
+              {t("knowledge.categories")}
             </span>
             <input
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="如：账号问题 / 支付问题"
+              placeholder={t("knowledge.faq.categoryPlaceholder")}
               className={`mt-1 w-full text-xs px-3 py-2 rounded-lg border outline-none ${
                 isDark
                   ? "bg-gray-800 border-gray-700 text-gray-200 focus:border-blue-500"
@@ -322,7 +329,7 @@ export const FAQEditor = memo(function FAQEditor({
               onChange={(e) => setRecommended(e.target.checked)}
               className="rounded"
             />
-            <span className="text-xs">推荐</span>
+            <span className="text-xs">{t("knowledge.faq.recommended")}</span>
           </label>
         </div>
 
@@ -338,7 +345,7 @@ export const FAQEditor = memo(function FAQEditor({
                 : "text-gray-500 hover:bg-gray-100"
             }`}
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -347,7 +354,7 @@ export const FAQEditor = memo(function FAQEditor({
               saving ? "opacity-50 cursor-not-allowed" : ""
             } bg-blue-600 text-white hover:bg-blue-700`}
           >
-            {saving ? "保存中..." : "保存"}
+            {saving ? t("knowledge.saving") : t("common.save")}
           </button>
         </div>
       </div>

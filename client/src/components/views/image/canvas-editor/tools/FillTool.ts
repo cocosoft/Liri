@@ -1,5 +1,6 @@
 // canvas-editor/tools/FillTool.ts — 填充（Scanline Fill + Web Worker + 超时降级）
 
+import i18n from "@/i18n";
 import { CanvasTool, CanvasPointerEvent } from "../types";
 import { CanvasToolHandler, ToolContext } from "./base";
 
@@ -231,7 +232,11 @@ export class FillTool implements CanvasToolHandler {
         oc.font = "14px sans-serif";
         oc.textAlign = "center";
         oc.textBaseline = "middle";
-        oc.fillText("填充中...", oc.canvas.width / 2, oc.canvas.height / 2);
+        oc.fillText(
+          i18n.t("media.canvasFilling"),
+          oc.canvas.width / 2,
+          oc.canvas.height / 2,
+        );
         oc.restore();
       }
       try {

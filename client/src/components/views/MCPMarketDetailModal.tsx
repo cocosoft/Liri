@@ -99,7 +99,7 @@ export function MCPMarketDetailModal({
             className={`grid grid-cols-2 gap-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
             <div>
-              <span className="font-semibold">来源</span>
+              <span className="font-semibold">{t("mcp.source")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {getRegistryLabel()}
               </p>
@@ -125,14 +125,14 @@ export function MCPMarketDetailModal({
             </div>
             {server.license && (
               <div>
-                <span className="font-semibold">许可</span>
+                <span className="font-semibold">{t("mcp.license")}</span>
                 <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                   {server.license}
                 </p>
               </div>
             )}
             <div>
-              <span className="font-semibold">安装方式</span>
+              <span className="font-semibold">{t("mcp.installType")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {server.installTypes.join(", ")}
               </p>
@@ -144,7 +144,7 @@ export function MCPMarketDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                分类
+                {t("mcp.categories")}
               </span>
               <div className="flex flex-wrap gap-2 mt-1">
                 {server.categories.map((cat) => (
@@ -193,7 +193,7 @@ export function MCPMarketDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                环境变量
+                {t("mcp.envVarsRequired")}
               </span>
               <div className="mt-1 space-y-1">
                 {server.requiredEnv.map((env) => (
@@ -227,7 +227,7 @@ export function MCPMarketDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                仓库
+                {t("mcp.repository")}
               </span>
               <p
                 className={`text-sm mt-0.5 ${isDark ? "text-blue-400" : "text-blue-600"}`}
@@ -251,7 +251,7 @@ export function MCPMarketDetailModal({
                     : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
-                {isEnabled ? "禁用" : "启用"}
+                {isEnabled ? t("common.disable") : t("common.enable")}
               </button>
               <button
                 onClick={onUninstall}
@@ -270,7 +270,7 @@ export function MCPMarketDetailModal({
                   : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
-              {installing ? "安装中..." : "安装"}
+              {installing ? t("mcp.installing") : t("mcp.install")}
             </button>
           )}
         </div>

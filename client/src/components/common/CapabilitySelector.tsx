@@ -34,12 +34,12 @@ interface CapabilitySelectorProps {
   forceRefresh?: boolean;
 }
 
-const CATEGORY_NAMES: Record<string, string> = {
-  core: "核心能力",
-  vision: "视觉能力",
-  media: "媒体能力",
-  tools: "工具能力",
-  special: "特殊能力",
+const CATEGORY_NAME_KEYS: Record<string, string> = {
+  core: "common.capabilityCatCore",
+  vision: "common.capabilityCatVision",
+  media: "common.capabilityCatMedia",
+  tools: "common.capabilityCatTools",
+  special: "common.capabilityCatSpecial",
 };
 
 export default function CapabilitySelector({
@@ -47,12 +47,13 @@ export default function CapabilitySelector({
   onChange,
   disabled = false,
   showSearch = true,
-  title = "能力",
+  title,
   onlyEnabled = true,
   capabilities: presetCapabilities,
   categories: presetCategories,
 }: CapabilitySelectorProps) {
   const { t } = useTranslation();
+  const resolvedTitle = title ?? t("common.capabilityTitle");
   const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>(
     [],
   );
@@ -224,7 +225,9 @@ export default function CapabilitySelector({
       return capabilityService.getCategoryDisplayName(cat);
     }
     // 回退到硬编码映射
-    return CATEGORY_NAMES[categoryKey] || categoryKey;
+    return CATEGORY_NAME_KEYS[categoryKey]
+      ? t(CATEGORY_NAME_KEYS[categoryKey])
+      : categoryKey;
   };
 
   // 切换能力选中状态
@@ -278,18 +281,18 @@ export default function CapabilitySelector({
   if (loading) {
     return (
       <div className="py-4 text-center text-gray-400 text-sm">
-        加载能力列表中...
+        {t("common.capabilityLoading")}
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {title && (
+      {resolvedTitle && (
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          {title}
+          {resolvedTitle}
           <span className="text-gray-400 font-normal ml-1">
-            ({value.length} 已选)
+            {t("common.capabilitySelected", { count: value.length })}
           </span>
         </label>
       )}
@@ -299,7 +302,7 @@ export default function CapabilitySelector({
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="搜索能力..."
+          placeholder={t("common.capabilitySearchPlaceholder")}
           className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={disabled}
         />
@@ -358,7 +361,9 @@ export default function CapabilitySelector({
 
       {Object.keys(filteredAndGroupedCapabilities).length === 0 && (
         <div className="py-4 text-center text-gray-400 text-sm">
-          {searchTerm ? "未找到匹配的能力" : "暂无可用能力"}
+          {searchTerm
+            ? t("common.capabilityNoMatch")
+            : t("common.capabilityNone")}
         </div>
       )}
     </div>

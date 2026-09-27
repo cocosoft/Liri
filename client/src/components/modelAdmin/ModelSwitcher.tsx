@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { modelService } from "../../services/modelService";
 import { modelSwitchService } from "../../services/modelSwitchService";
@@ -28,6 +29,7 @@ function getProviderColor(provider: string): string {
 }
 
 function ModelSwitcher({ onClose }: ModelSwitcherProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { currentModelId, switchModel, tasks } = useModelSwitchStore();
   // 读取当前会话的任务分工覆盖（用于"按任务"视图区分全局/会话级配置）
@@ -157,7 +159,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索模型..."
+            placeholder={t("model.searchPlaceholder")}
             className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
             autoFocus
           />
@@ -169,13 +171,13 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
             onClick={() => setGroupBy("provider")}
             className={`px-3 py-1 text-xs rounded-full transition-colors ${groupBy === "provider" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
           >
-            按提供商
+            {t("model.byProvider")}
           </button>
           <button
             onClick={() => setGroupBy("task")}
             className={`px-3 py-1 text-xs rounded-full transition-colors ${groupBy === "task" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
           >
-            按任务
+            {t("model.byTask")}
           </button>
         </div>
 
@@ -210,13 +212,13 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
                       )}
                       {isSessionOverride && (
                         <span className="text-[10px] text-blue-500 font-medium border border-blue-200 dark:border-blue-700 rounded px-1">
-                          会话
+                          {t("model.sessionOverrideBadge")}
                         </span>
                       )}
                     </div>
                     {type === currentTaskType && (
                       <span className="text-xs text-blue-500 font-medium">
-                        当前
+                        {t("model.currentBadge")}
                       </span>
                     )}
                   </div>
@@ -262,7 +264,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
                               ? `${bal.remaining.toFixed(2)} ${bal.unit}`
                               : bal.supported
                                 ? "--"
-                                : "暂不支持"}
+                                : t("model.unsupportedBalance")}
                           </span>
                         );
                       })()}
@@ -291,7 +293,7 @@ function ModelSwitcher({ onClose }: ModelSwitcherProps) {
             }}
             className="w-full px-3 py-2 text-xs text-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
           >
-            ⚙ 管理模型
+            {t("model.manageModels")}
           </button>
         </div>
       </div>
@@ -308,6 +310,7 @@ function ModelRow({
   isActive: boolean;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={() => onSelect(model.id)}
@@ -329,7 +332,9 @@ function ModelRow({
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {isActive && (
-          <span className="text-xs text-blue-500 font-medium">● 当前</span>
+          <span className="text-xs text-blue-500 font-medium">
+            {t("model.currentDot")}
+          </span>
         )}
       </div>
     </button>

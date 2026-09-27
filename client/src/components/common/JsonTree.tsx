@@ -34,6 +34,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   value: unknown;
@@ -54,6 +55,7 @@ function previewOf(v: Record<string, unknown> | unknown[]): string {
 }
 
 function PrimitiveValue({ value }: { value: unknown }) {
+  const { t } = useTranslation();
   if (value === null) return <span className="text-gray-500">null</span>;
   if (value === undefined)
     return <span className="text-gray-500">undefined</span>;
@@ -63,7 +65,9 @@ function PrimitiveValue({ value }: { value: unknown }) {
       <span className="text-emerald-600 dark:text-emerald-400 break-all">
         &quot;{truncated ? value.slice(0, MAX_STRING_CHARS) : value}&quot;
         {truncated && (
-          <span className="text-gray-400">…（共 {value.length} 字符）</span>
+          <span className="text-gray-400">
+            {t("common.charsTotal", { count: value.length })}
+          </span>
         )}
       </span>
     );

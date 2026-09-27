@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { FileEntry } from "../../types";
 
 /**
@@ -91,8 +92,8 @@ function getFileIcon(entry: FileEntry): string {
 /**
  * 获取文件类型标签
  */
-function getFileTypeLabel(entry: FileEntry): string {
-  if (entry.type === "directory") return "文件夹";
+function getFileTypeLabel(entry: FileEntry, folderLabel: string): string {
+  if (entry.type === "directory") return folderLabel;
   const ext = entry.name.split(".").pop()?.toLowerCase() || "";
   return ext.toUpperCase();
 }
@@ -111,6 +112,8 @@ function DetailedFileList({
   onSaveToKnowledge,
   onSaveToMemory,
 }: DetailedFileListProps) {
+  const { t } = useTranslation();
+  const folderLabel = t("files.folder");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [contextMenu, setContextMenu] = useState<{
@@ -141,7 +144,9 @@ function DetailedFileList({
         comparison = a.name.localeCompare(b.name);
         break;
       case "type":
-        comparison = getFileTypeLabel(a).localeCompare(getFileTypeLabel(b));
+        comparison = getFileTypeLabel(a, folderLabel).localeCompare(
+          getFileTypeLabel(b, folderLabel),
+        );
         break;
       case "size":
         comparison = (a.size || 0) - (b.size || 0);
@@ -166,34 +171,38 @@ function DetailedFileList({
         <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800">
           <tr className="border-b border-gray-200 dark:border-gray-700">
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 w-10">
-              类型
+              {t("files.type")}
             </th>
             <th
               onClick={() => toggleSort("name")}
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200"
             >
-              名称{sortIndicator("name")}
+              {t("common.name")}
+              {sortIndicator("name")}
             </th>
             <th
               onClick={() => toggleSort("type")}
               className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 w-20"
             >
-              类型{sortIndicator("type")}
+              {t("files.type")}
+              {sortIndicator("type")}
             </th>
             <th
               onClick={() => toggleSort("size")}
               className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 w-24"
             >
-              大小{sortIndicator("size")}
+              {t("files.size")}
+              {sortIndicator("size")}
             </th>
             <th
               onClick={() => toggleSort("modified_at")}
               className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 w-44"
             >
-              修改时间{sortIndicator("modified_at")}
+              {t("files.modified")}
+              {sortIndicator("modified_at")}
             </th>
             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48">
-              操作
+              {t("files.actions")}
             </th>
           </tr>
         </thead>
@@ -203,16 +212,14 @@ function DetailedFileList({
           {loading ? (
             <tr>
               <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
-                加载中...
+                {t("common.loading")}
               </td>
             </tr>
           ) : sortedEntries.length === 0 ? (
             <tr>
               <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
-                <p className="mb-1">暂无文件</p>
-                <p className="text-xs text-gray-400">
-                  拖拽文件到此处或点击上传按钮添加文件
-                </p>
+                <p className="mb-1">{t("files.noFiles")}</p>
+                <p className="text-xs text-gray-400">{t("files.dropHint")}</p>
               </td>
             </tr>
           ) : (
@@ -253,7 +260,7 @@ function DetailedFileList({
                       </span>
                       {entry.type === "file" && entry.size === 0 && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                          空
+                          {t("files.emptyFileBadge")}
                         </span>
                       )}
                     </div>
@@ -262,7 +269,7 @@ function DetailedFileList({
                   {/* 类型 */}
                   <td className="px-4 py-2.5">
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {getFileTypeLabel(entry)}
+                      {getFileTypeLabel(entry, folderLabel)}
                     </span>
                   </td>
 
@@ -282,7 +289,7 @@ function DetailedFileList({
                       {entry.type === "file" && (
                         <>
                           <ActionButton
-                            label="预览"
+                            label={t("files.preview")}
                             icon="👁️"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -298,7 +305,7 @@ function DetailedFileList({
                             }}
                           />
                           <ActionButton
-                            label="知识库"
+                            label={t("files.knowledge")}
                             icon="📚"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -306,7 +313,7 @@ function DetailedFileList({
                             }}
                           />
                           <ActionButton
-                            label="记忆"
+                            label={t("files.memory")}
                             icon="🧠"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -317,7 +324,7 @@ function DetailedFileList({
                       )}
                       {entry.type === "directory" && (
                         <span className="text-xs text-gray-400 px-2">
-                          点击进入
+                          {t("files.clickEnter")}
                         </span>
                       )}
                     </div>
@@ -341,7 +348,7 @@ function DetailedFileList({
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             <ContextMenuItem
-              label="发送给 AI 分析"
+              label={t("files.sendToAI")}
               icon="🤖"
               onClick={() => {
                 onSendToAI(contextMenu.entry.path);
@@ -349,7 +356,7 @@ function DetailedFileList({
               }}
             />
             <ContextMenuItem
-              label="存入知识库"
+              label={t("files.saveToKnowledge")}
               icon="📚"
               onClick={() => {
                 onSaveToKnowledge(contextMenu.entry.path);
@@ -357,7 +364,7 @@ function DetailedFileList({
               }}
             />
             <ContextMenuItem
-              label="存入记忆"
+              label={t("files.saveToMemory")}
               icon="🧠"
               onClick={() => {
                 onSaveToMemory(contextMenu.entry.path);
@@ -366,7 +373,7 @@ function DetailedFileList({
             />
             <hr className="my-1 border-gray-200 dark:border-gray-700" />
             <ContextMenuItem
-              label="复制路径"
+              label={t("files.copyPath")}
               icon="📋"
               onClick={() => {
                 navigator.clipboard

@@ -27,6 +27,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const DETAIL_MAX_HEIGHT = 200;
 const LONG_TEXT_CHARS = 600;
@@ -46,6 +47,7 @@ export interface ClampedBodyProps {
 }
 
 export function ClampedBody({ text, label, noClamp }: ClampedBodyProps) {
+  const { t } = useTranslation();
   const [showAll, setShowAll] = useState(false);
   const long = isLongText(text);
   const clamped = !noClamp && !showAll;
@@ -70,7 +72,7 @@ export function ClampedBody({ text, label, noClamp }: ClampedBodyProps) {
           onClick={() => setShowAll((s) => !s)}
           className="text-[10px] text-blue-500 mt-0.5 hover:underline"
         >
-          {showAll ? "收起 ▲" : "显示全部 ▼"}
+          {showAll ? t("common.collapseArrow") : t("common.showAll")}
         </button>
       )}
       {label && (

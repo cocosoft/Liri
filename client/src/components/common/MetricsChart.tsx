@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { MetricPoint } from "../../types";
 
 interface MetricsChartProps {
@@ -35,6 +36,7 @@ function MetricsChart({
   secondaryColor = "#8B5CF6",
   secondaryLabel,
 }: MetricsChartProps) {
+  const { t } = useTranslation();
   /**
    * 将 MetricPoint[] 数据计算为 SVG 路径字符串
    * 返回主数据路径、面积路径、最值及点列表
@@ -103,7 +105,7 @@ function MetricsChart({
         <div
           className={`flex items-center justify-center h-${height} ${isDark ? "text-gray-500" : "text-gray-400"}`}
         >
-          暂无数据
+          {t("common.noData")}
         </div>
       </div>
     );
@@ -138,7 +140,7 @@ function MetricsChart({
             <span
               className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              系统
+              {t("common.metricsChartSystem")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -149,7 +151,7 @@ function MetricsChart({
             <span
               className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              {secondaryLabel || "应用"}
+              {secondaryLabel || t("common.metricsChartApp")}
             </span>
           </div>
         </div>

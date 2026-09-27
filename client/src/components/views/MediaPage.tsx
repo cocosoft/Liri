@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
@@ -73,9 +74,9 @@ function ratioToSize(ratio: string): string {
 }
 
 /** 从文件名提取格式 */
-function extractFormat(name: string): string {
+function extractFormat(name: string, fallback: string): string {
   const ext = name.split(".").pop()?.toUpperCase();
-  return ext || "未知";
+  return ext || fallback;
 }
 
 /** 从 URL 路径提取日期 */
@@ -137,6 +138,7 @@ interface ImageMetadata {
 }
 
 function MediaPage() {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
   const navigate = useNavigate();
@@ -312,7 +314,7 @@ function MediaPage() {
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
       window.history.pushState({ editing: true }, "");
-      if (window.confirm("有未保存更改，确定离开？")) {
+      if (window.confirm(t("media.unsavedLeaveConfirm"))) {
         setEditingImage(null);
       }
     };
@@ -321,7 +323,7 @@ function MediaPage() {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [isEditing, setEditingImage]);
+  }, [isEditing, setEditingImage, t]);
 
   // ──── 拖拽到聊天区 ────
   const handleDragStart = useCallback(
@@ -639,7 +641,7 @@ function MediaPage() {
     if (analyzingImage) return;
     const item = galleryItems.find((i) => i.id === selectedId);
     if (!item || !imageMeta?.path) {
-      addToast("error", "无法获取图片路径");
+      addToast("error", t("media.cannotGetImagePath"));
       return;
     }
 
@@ -654,13 +656,13 @@ function MediaPage() {
         useMediaStore.getState().setMode("image");
         useMediaStore.getState().setSelectedImage(item.url, item.id);
         useMediaStore.getState().setPrompt(analysis.description);
-        addToast("success", "已识别图片内容，可直接生成");
+        addToast("success", t("media.recognizedReady"));
         logger.info("识图成功", { descLen: analysis.description.length });
       } else {
         useMediaStore.getState().setMode("image");
         useMediaStore.getState().setSelectedImage(item.url, item.id);
         useMediaStore.getState().setPrompt("生成一张类似风格的图片");
-        addToast("info", "识图返回空描述，已填入默认提示词");
+        addToast("info", t("media.recognizeEmptyFilled"));
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -668,20 +670,23 @@ function MediaPage() {
       useMediaStore.getState().setMode("image");
       useMediaStore.getState().setSelectedImage(item.url, item.id);
       useMediaStore.getState().setPrompt("生成一张类似风格的图片");
-      addToast("info", `识图失败(${errMsg.slice(0, 40)})，已填入默认提示词`);
+      addToast(
+        "info",
+        t("media.recognizeFailedFilled", { err: errMsg.slice(0, 40) }),
+      );
     } finally {
       setAnalyzingImage(false);
     }
-  }, [selectedId, galleryItems, imageMeta, addToast]);
+  }, [selectedId, galleryItems, imageMeta, addToast, t]);
 
   // ──── 上传完成回调 ────
   const handleUploaded = useCallback(
     (_result: { path: string; url: string }) => {
-      addToast("success", "上传成功");
+      addToast("success", t("media.uploadSuccess"));
       loadGallery();
       setShowUpload(false);
     },
-    [addToast, loadGallery],
+    [addToast, loadGallery, t],
   );
 
   // ──── 生成（图片 / 视频） ────
@@ -693,15 +698,15 @@ function MediaPage() {
       if (modelHints?.image === false) {
         addToast(
           "warning",
-          "未配置生图模型，请先到「模型」页中配置",
-          "点击左侧导航「模型」进入模型管理",
+          t("media.noImageModelHint"),
+          t("media.noImageModelHintDesc"),
         );
         return;
       }
       // i2i 竞态（2026-08-26）：选中参考图但元数据异步未就绪时拦截，
       // 否则 inputImage 缺失 → 退化文生图
       if (selectedImageUrl && !imageMeta?.path) {
-        addToast("info", "正在加载参考图信息，请稍后重试");
+        addToast("info", t("media.loadingReferenceImage"));
         return;
       }
       // 图片生成（纳入任务队列）
@@ -740,7 +745,10 @@ function MediaPage() {
             // BUG-8（2026-08-26）：多图全量存入，不再只保留首张
             images: urls,
           });
-          addToast("success", `已生成 ${urls.length} 张图片`);
+          addToast(
+            "success",
+            t("media.generatedImages", { count: urls.length }),
+          );
           // BUG-9（2026-08-26）：loadGallery 完成后自动选中首张新图
           // BUG-F（2026-08-26）：仅调用一次，此前 719/721 双重加载导致重复请求 + 竞态
           loadGallery().then(() => {
@@ -757,9 +765,9 @@ function MediaPage() {
           updateGenerationTask(taskId, {
             status: "failed",
             progress: 0,
-            error: "生成返回空结果，请重试或更换模型",
+            error: t("media.emptyResultError"),
           });
-          addToast("error", "图片生成失败：模型返回空结果");
+          addToast("error", t("media.imageGenerateEmptyFailed"));
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -769,7 +777,10 @@ function MediaPage() {
           error: errMsg,
         });
         // 对用户显示友好信息，原始错误保留在任务详情中便于排查
-        addToast("error", `图片生成失败：${friendlyErrorSummary(e)}`);
+        addToast(
+          "error",
+          t("media.imageGenerateFailed", { error: friendlyErrorSummary(e) }),
+        );
         logger.error("图片生成失败", { error: errMsg });
       }
     } else {
@@ -777,8 +788,8 @@ function MediaPage() {
       if (modelHints?.video === false) {
         addToast(
           "warning",
-          "未配置生视频模型，请先到「模型」页中配置",
-          "点击左侧导航「模型」进入模型管理",
+          t("media.noVideoModelHint"),
+          t("media.noVideoModelHintDesc"),
         );
         return;
       }
@@ -816,9 +827,9 @@ function MediaPage() {
           // 次要项（2026-08-26）：异常响应兜底，避免任务卡 running
           updateGenerationTask(taskId, {
             status: "failed",
-            error: "视频任务创建失败：未返回任务 ID",
+            error: t("media.videoTaskNoId"),
           });
-          addToast("error", "视频生成失败：未返回任务 ID");
+          addToast("error", t("media.videoGenerateNoIdFailed"));
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -827,7 +838,10 @@ function MediaPage() {
           error: errMsg,
         });
         // 对用户显示友好信息，原始错误保留在任务详情中便于排查
-        addToast("error", `视频生成失败：${friendlyErrorSummary(e)}`);
+        addToast(
+          "error",
+          t("media.videoGenerateFailed", { error: friendlyErrorSummary(e) }),
+        );
         logger.error("视频生成失败", { error: errMsg });
       }
     }
@@ -843,6 +857,7 @@ function MediaPage() {
     addGenerationTask,
     updateGenerationTask,
     modelHints,
+    t,
   ]);
 
   // ──── 打开 lightbox ────
@@ -881,7 +896,7 @@ function MediaPage() {
     try {
       await deleteMediaItem(currentItem);
       removeGalleryItem(currentItem.id);
-      addToast("success", "图片已删除");
+      addToast("success", t("media.imageDeleted"));
       // BUG-11（2026-08-26）：删除后选中相邻项，保留查看上下文
       const siblings = galleryItems.filter((i) => i.type === "image");
       const next = siblings[lightboxIndex + 1] || siblings[lightboxIndex - 1];
@@ -890,7 +905,7 @@ function MediaPage() {
       }
       setLightboxOpen(false);
     } catch {
-      addToast("error", "删除失败，请重试");
+      addToast("error", t("media.deleteFailed"));
     }
   }, [
     lightboxIndex,
@@ -898,6 +913,7 @@ function MediaPage() {
     deleteMediaItem,
     removeGalleryItem,
     addToast,
+    t,
   ]);
 
   // ──── 删除（单个，供右键菜单/面板使用） ────
@@ -913,11 +929,11 @@ function MediaPage() {
     try {
       await deleteMediaItem(item);
       removeGalleryItem(item.id);
-      addToast("success", "已删除");
+      addToast("success", t("media.deleted"));
     } catch {
-      addToast("error", "删除失败，请重试");
+      addToast("error", t("media.deleteFailed"));
     }
-  }, [deleteConfirming, deleteMediaItem, removeGalleryItem, addToast]);
+  }, [deleteConfirming, deleteMediaItem, removeGalleryItem, addToast, t]);
 
   // ──── 批量删除 ────
   const handleBatchDelete = useCallback(async () => {
@@ -934,10 +950,17 @@ function MediaPage() {
         // 继续删除其他项
       }
     }
-    addToast("success", `已删除 ${success} 项`);
+    addToast("success", t("media.batchDeleted", { count: success }));
     setSelectedIds(new Set());
     setBatchMode(false);
-  }, [selectedIds, galleryItems, deleteMediaItem, removeGalleryItem, addToast]);
+  }, [
+    selectedIds,
+    galleryItems,
+    deleteMediaItem,
+    removeGalleryItem,
+    addToast,
+    t,
+  ]);
 
   // ──── 批量选择切换 ────
   const toggleSelect = useCallback((id: string) => {
@@ -976,7 +999,9 @@ function MediaPage() {
   const selectedFileName = selectedItem
     ? extractFileName(selectedItem.url)
     : "";
-  const selectedFormat = selectedItem ? extractFormat(selectedFileName) : "";
+  const selectedFormat = selectedItem
+    ? extractFormat(selectedFileName, t("media.unknown"))
+    : "";
   const selectedDate = selectedItem ? extractDate(selectedItem.url) : "";
 
   return (
@@ -996,10 +1021,10 @@ function MediaPage() {
           >
             <span aria-hidden="true">⚠️</span>
             <span className="flex-1">
-              {!modelHints.image && "未配置生图模型"}
+              {!modelHints.image && t("media.hintBarNoImageModel")}
               {!modelHints.image && !modelHints.video && " / "}
-              {!modelHints.video && "未配置生视频模型"}
-              ，请在「模型」页配置后再进行生成。
+              {!modelHints.video && t("media.hintBarNoVideoModel")}
+              {t("media.hintBarSuffix")}
             </span>
             <button
               onClick={() => navigate("/models?tab=models")}
@@ -1009,7 +1034,7 @@ function MediaPage() {
                   : "bg-amber-500 text-white hover:bg-amber-600"
               }`}
             >
-              前往模型管理
+              {t("media.goModelManagement")}
             </button>
             <button
               onClick={() => setHintDismissed(true)}
@@ -1018,7 +1043,7 @@ function MediaPage() {
                   ? "text-amber-300 hover:bg-amber-800"
                   : "text-amber-600 hover:bg-amber-100"
               }`}
-              aria-label="关闭提示"
+              aria-label={t("media.dismissHint")}
             >
               ✕
             </button>
@@ -1047,7 +1072,7 @@ function MediaPage() {
             {/* 类型筛选 + 排序 + 视图切换 */}
             <div className="flex items-center gap-1 flex-wrap">
               <FilterTab
-                label="全部"
+                label={t("common.all")}
                 count={typeCounts.all}
                 active={filterType === "all"}
                 onClick={() => {
@@ -1058,7 +1083,7 @@ function MediaPage() {
                 }}
               />
               <FilterTab
-                label="图片"
+                label={t("media.image")}
                 count={typeCounts.images}
                 active={filterType === "image"}
                 onClick={() => {
@@ -1067,7 +1092,7 @@ function MediaPage() {
                 }}
               />
               <FilterTab
-                label="视频"
+                label={t("media.video")}
                 count={typeCounts.videos}
                 active={filterType === "video"}
                 onClick={() => {
@@ -1095,9 +1120,9 @@ function MediaPage() {
                     : "border-gray-300 bg-white text-gray-600"
                 }`}
               >
-                <option value="date_desc">时间↓</option>
-                <option value="date_asc">时间↑</option>
-                <option value="name">名称</option>
+                <option value="date_desc">{t("media.sortDateDesc")}</option>
+                <option value="date_asc">{t("media.sortDateAsc")}</option>
+                <option value="name">{t("common.name")}</option>
               </select>
 
               {/* 视图切换 */}
@@ -1109,7 +1134,7 @@ function MediaPage() {
                       ? "bg-blue-500 text-white"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
-                  title="瀑布流"
+                  title={t("media.viewMasonry")}
                 >
                   ▦
                 </button>
@@ -1120,7 +1145,7 @@ function MediaPage() {
                       ? "bg-blue-500 text-white"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   }`}
-                  title="网格列表"
+                  title={t("media.viewGrid")}
                 >
                   ⊞
                 </button>
@@ -1139,7 +1164,7 @@ function MediaPage() {
                       : "text-gray-500 hover:bg-gray-100"
                 }`}
               >
-                ⬆️ 上传
+                ⬆️ {t("media.uploadLabel")}
               </button>
 
               <button
@@ -1155,7 +1180,8 @@ function MediaPage() {
                       : "text-gray-500 hover:bg-gray-100"
                 }`}
               >
-                ☑️ 批量{selectedIds.size > 0 && ` (${selectedIds.size})`}
+                ☑️ {t("media.batchLabel")}
+                {selectedIds.size > 0 && ` (${selectedIds.size})`}
               </button>
 
               {batchMode && selectedIds.size > 0 && (
@@ -1163,7 +1189,7 @@ function MediaPage() {
                   onClick={handleBatchDelete}
                   className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                  🗑️ 删除选中
+                  🗑️ {t("media.deleteSelected")}
                 </button>
               )}
             </div>
@@ -1218,15 +1244,15 @@ function MediaPage() {
               <div className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    图片对比
-                    {compareIds[1] && " — 并排模式"}
-                    {!compareIds[1] && " — 已选 1 张，请再选 1 张"}
+                    {t("media.compareTitle")}
+                    {compareIds[1] && t("media.compareSideBySide")}
+                    {!compareIds[1] && t("media.compareSelectSecond")}
                   </h3>
                   <button
                     onClick={() => setCompareIds(null)}
                     className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   >
-                    ✕ 退出对比
+                    {t("media.compareExit")}
                   </button>
                 </div>
                 {compareIds[1] ? (
@@ -1248,7 +1274,7 @@ function MediaPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-6 text-xs text-gray-400">
-                    点击左侧任意图片选择第二张，或点击卡片 ◧ 按钮
+                    {t("media.comparePickHint")}
                   </div>
                 )}
               </div>
@@ -1266,10 +1292,10 @@ function MediaPage() {
                   ) : (
                     <img
                       src={selectedItem.url}
-                      alt="预览"
+                      alt={t("common.preview")}
                       className="w-full max-h-[50vh] cursor-pointer rounded-lg object-contain"
                       onClick={handleOpenLightbox}
-                      title="点击放大查看"
+                      title={t("media.zoomInTitle")}
                     />
                   )}
                 </div>
@@ -1279,19 +1305,19 @@ function MediaPage() {
                   {selectedItem.type === "image" && (
                     <>
                       <ActionButton
-                        label="放大查看"
+                        label={t("media.zoomIn")}
                         icon="🔍"
                         isDark={isDark}
                         onClick={handleOpenLightbox}
                       />
                       <ActionButton
-                        label="对比"
+                        label={t("media.compare")}
                         icon="◧"
                         isDark={isDark}
                         onClick={() => handleCompareToggle(selectedItem.id)}
                       />
                       <ActionButton
-                        label="图生视频"
+                        label={t("media.imageToVideo")}
                         icon="🎬"
                         isDark={isDark}
                         onClick={() => {
@@ -1306,7 +1332,7 @@ function MediaPage() {
                         }}
                       />
                       <ActionButton
-                        label="编辑图片"
+                        label={t("media.editImage")}
                         icon="✏️"
                         isDark={isDark}
                         onClick={() => {
@@ -1321,19 +1347,23 @@ function MediaPage() {
                         }}
                       />
                       <ActionButton
-                        label={analyzingImage ? "识别中…" : "生成类似"}
+                        label={
+                          analyzingImage
+                            ? t("media.recognizing")
+                            : t("media.generateSimilar")
+                        }
                         icon={analyzingImage ? "⏳" : "✨"}
                         isDark={isDark}
                         onClick={handleGenerateSimilar}
                       />
                       <ActionButton
-                        label="下载"
+                        label={t("common.download")}
                         icon="⬇️"
                         isDark={isDark}
                         onClick={() => window.open(selectedItem.url, "_blank")}
                       />
                       <ActionButton
-                        label="删除"
+                        label={t("common.delete")}
                         icon="🗑️"
                         isDark={isDark}
                         danger
@@ -1344,13 +1374,13 @@ function MediaPage() {
                   {selectedItem.type === "video" && (
                     <>
                       <ActionButton
-                        label="下载"
+                        label={t("common.download")}
                         icon="⬇️"
                         isDark={isDark}
                         onClick={() => window.open(selectedItem.url, "_blank")}
                       />
                       <ActionButton
-                        label="删除"
+                        label={t("common.delete")}
                         icon="🗑️"
                         isDark={isDark}
                         danger
@@ -1363,21 +1393,28 @@ function MediaPage() {
                 {/* 信息面板 */}
                 <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
                   <h3 className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    文件信息
+                    {t("media.fileInfo")}
                   </h3>
                   <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                    <InfoRow label="文件名" value={selectedFileName} />
                     <InfoRow
-                      label="类型"
-                      value={selectedItem.type === "video" ? "视频" : "图片"}
+                      label={t("media.fileName")}
+                      value={selectedFileName}
                     />
                     <InfoRow
-                      label="格式"
+                      label={t("media.fileType")}
+                      value={
+                        selectedItem.type === "video"
+                          ? t("media.video")
+                          : t("media.image")
+                      }
+                    />
+                    <InfoRow
+                      label={t("media.format")}
                       value={imageMeta?.format || selectedFormat}
                     />
                     {imageMeta?.width && imageMeta?.height && (
                       <InfoRow
-                        label="尺寸"
+                        label={t("media.dimension")}
                         value={`${imageMeta.width} × ${imageMeta.height}`}
                       />
                     )}
@@ -1385,44 +1422,48 @@ function MediaPage() {
                       selectedItem.width &&
                       selectedItem.height && (
                         <InfoRow
-                          label="尺寸"
+                          label={t("media.dimension")}
                           value={`${selectedItem.width} × ${selectedItem.height}`}
                         />
                       )}
                     {imageMeta?.size && (
                       <InfoRow
-                        label="大小"
+                        label={t("media.fileSize")}
                         value={formatFileSize(imageMeta.size)}
                       />
                     )}
                     {selectedItem.duration && (
                       <InfoRow
-                        label="时长"
+                        label={t("media.duration")}
                         value={`${selectedItem.duration}s`}
                       />
                     )}
                     {videoMeta && selectedItem.type === "video" && (
                       <InfoRow
-                        label="分辨率"
+                        label={t("media.resolution")}
                         value={`${videoMeta.width} × ${videoMeta.height}`}
                       />
                     )}
                     {imageMeta?.createdAt && (
                       <InfoRow
-                        label="日期"
+                        label={t("media.date")}
                         value={formatDate(imageMeta.createdAt)}
                       />
                     )}
                     {!imageMeta && selectedDate && (
-                      <InfoRow label="日期" value={selectedDate} />
+                      <InfoRow label={t("media.date")} value={selectedDate} />
                     )}
-                    <InfoRow label="路径" value={selectedItem.url} mono />
+                    <InfoRow
+                      label={t("media.path")}
+                      value={selectedItem.url}
+                      mono
+                    />
                   </div>
                 </div>
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center text-xs text-gray-400">
-                点击左侧媒体项以查看详情
+                {t("media.pickMediaHint")}
               </div>
             )}
           </div>
@@ -1466,7 +1507,7 @@ function MediaPage() {
         <EditLayer
           imageUrl={editingImage.url}
           imageId={editingImage.id}
-          onSaveSuccess={() => addToast("success", "图片已保存")}
+          onSaveSuccess={() => addToast("success", t("media.imageSaved"))}
           onClose={() => {
             setEditingImage(null);
             // 竞态保护修正（2026-08-26）：仅当仍是本 session 打开时才刷新画廊
@@ -1538,7 +1579,7 @@ function MediaPage() {
               navigator.clipboard
                 .writeText(item.url)
                 .then(() => {
-                  addToast("success", "路径已复制");
+                  addToast("success", t("media.pathCopied"));
                 })
                 .catch(() => {});
             } else if (action === "extract-audio") {
@@ -1555,14 +1596,19 @@ function MediaPage() {
                 )
                 .then((r) => {
                   if (r.ok && r.data?.url) {
-                    addToast("success", "音频已提取");
+                    addToast("success", t("media.audioExtracted"));
                     window.open(r.data.url, "_blank");
                   } else {
-                    addToast("error", "音频提取失败");
+                    addToast("error", t("media.audioExtractFailed"));
                   }
                 })
                 .catch((e) =>
-                  addToast("error", `音频提取失败：${friendlyErrorSummary(e)}`),
+                  addToast(
+                    "error",
+                    t("media.audioExtractFailedDetail", {
+                      error: friendlyErrorSummary(e),
+                    }),
+                  ),
                 );
             }
           }}
@@ -1583,8 +1629,8 @@ function MediaPage() {
             >
               <p className="mb-3 text-sm">
                 {deleteConfirming.type === "video"
-                  ? "确定要删除此视频吗？此操作不可撤销。"
-                  : "确定要删除此图片吗？此操作不可撤销。"}
+                  ? t("media.confirmDeleteVideo")
+                  : t("media.confirmDeleteImage")}
               </p>
               <p
                 className="mb-3 text-xs text-gray-400 truncate"
@@ -1597,13 +1643,13 @@ function MediaPage() {
                   onClick={() => setDeleteConfirming(null)}
                   className={`rounded px-3 py-1 text-xs ${isDark ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-100 hover:bg-gray-200"}`}
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleConfirmDelete}
                   className="rounded bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
                 >
-                  删除
+                  {t("common.delete")}
                 </button>
               </div>
             </div>
@@ -1688,6 +1734,7 @@ const ContextMenu: React.FC<{
   isDark: boolean;
   onAction: (action: string) => void;
 }> = ({ item, x, y, isDark, onAction }) => {
+  const { t } = useTranslation();
   const isImage = item.type === "image";
 
   return (
@@ -1706,33 +1753,37 @@ const ContextMenu: React.FC<{
         {isImage && (
           <>
             <MenuItem
-              label="编辑图像"
+              label={t("media.editImageMenu")}
               icon="✏️"
               onClick={() => onAction("edit")}
             />
             <MenuItem
-              label="图生视频"
+              label={t("media.imageToVideo")}
               icon="🎬"
               onClick={() => onAction("generate-video")}
             />
           </>
         )}
-        <MenuItem label="下载" icon="⬇️" onClick={() => onAction("download")} />
         <MenuItem
-          label="复制路径"
+          label={t("common.download")}
+          icon="⬇️"
+          onClick={() => onAction("download")}
+        />
+        <MenuItem
+          label={t("media.copyPath")}
           icon="📋"
           onClick={() => onAction("copy-path")}
         />
         {!isImage && (
           <MenuItem
-            label="提取音频"
+            label={t("media.extractAudio")}
             icon="🎵"
             onClick={() => onAction("extract-audio")}
           />
         )}
         <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
         <MenuItem
-          label="删除"
+          label={t("common.delete")}
           icon="🗑️"
           danger
           onClick={() => onAction("delete")}
@@ -1797,6 +1848,7 @@ const GridView: React.FC<{
   onLoadMore,
   disabled = false,
 }) => {
+  const { t } = useTranslation();
   const sentinelRef = useRef<HTMLDivElement>(null);
   // P0-4：复用共享无限滚动 hook（与 MasonryGallery 一致）
   useInfiniteScroll(sentinelRef, hasMore, loading, onLoadMore ?? (() => {}));
@@ -1859,7 +1911,9 @@ const GridView: React.FC<{
                       className={`rounded bg-black/30 p-0.5 text-[10px] transition-colors hover:bg-black/50 ${
                         isFav ? "text-yellow-400" : "text-white/60"
                       }`}
-                      title={isFav ? "取消收藏" : "收藏"}
+                      title={
+                        isFav ? t("media.unfavorite") : t("media.favorite")
+                      }
                     >
                       {isFav ? "★" : "☆"}
                     </button>
@@ -1871,7 +1925,7 @@ const GridView: React.FC<{
                         onCompareToggle(item.id);
                       }}
                       className="rounded bg-black/30 p-0.5 text-[10px] text-white/60 transition-colors hover:bg-black/50"
-                      title="加入对比"
+                      title={t("media.addToCompare")}
                     >
                       ◧
                     </button>
@@ -1912,7 +1966,8 @@ const GridView: React.FC<{
                   {fileName}
                 </p>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  {item.type === "video" ? "视频" : "图片"} · {fileDate}
+                  {item.type === "video" ? t("media.video") : t("media.image")}{" "}
+                  · {fileDate}
                 </p>
               </div>
             </div>
@@ -1921,7 +1976,7 @@ const GridView: React.FC<{
       </div>
       {items.length === 0 && (
         <div className="flex items-center justify-center py-12 text-xs text-gray-400">
-          暂无内容
+          {t("media.noContent")}
         </div>
       )}
 
@@ -1929,7 +1984,7 @@ const GridView: React.FC<{
       <div ref={sentinelRef} className="h-1" />
       {loading && (
         <div className="flex items-center justify-center py-4">
-          <span className="text-xs text-gray-400">加载更多…</span>
+          <span className="text-xs text-gray-400">{t("media.loadMore")}</span>
         </div>
       )}
     </div>
@@ -1943,6 +1998,7 @@ const CompareImage: React.FC<{
   item: GalleryItem | undefined;
   isDark: boolean;
 }> = ({ item, isDark }) => {
+  const { t } = useTranslation();
   if (!item) {
     return (
       <div
@@ -1950,7 +2006,7 @@ const CompareImage: React.FC<{
           isDark ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-gray-100"
         }`}
       >
-        <span className="text-xs text-gray-400">未选择</span>
+        <span className="text-xs text-gray-400">{t("media.notSelected")}</span>
       </div>
     );
   }

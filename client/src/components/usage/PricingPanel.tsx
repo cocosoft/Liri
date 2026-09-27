@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import {
   usageService,
@@ -29,6 +30,7 @@ const emptyForm: FormData = {
 };
 
 function PricingPanel() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -49,7 +51,7 @@ function PricingPanel() {
         module: "components:usage:PricingPanel",
         action: "loadRecords",
       });
-      setError(e instanceof Error ? e.message : "加载定价失败");
+      setError(e instanceof Error ? e.message : t("common.pricingLoadFailed"));
     } finally {
       setLoading(false);
     }
@@ -85,14 +87,14 @@ function PricingPanel() {
         module: "components:usage:PricingPanel",
         action: "handleSave",
       });
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t("common.pricingSaveFailed"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (modelId: string) => {
-    if (!window.confirm(`删除 "${modelId}" 的自定义定价？`)) return;
+    if (!window.confirm(t("common.pricingDeleteConfirm", { modelId }))) return;
     try {
       await usageService.removePricing(modelId);
       await loadRecords();
@@ -101,7 +103,9 @@ function PricingPanel() {
         module: "components:usage:PricingPanel",
         action: "handleDelete",
       });
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(
+        e instanceof Error ? e.message : t("common.pricingDeleteFailed"),
+      );
     }
   };
 
@@ -123,10 +127,12 @@ function PricingPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-          {records.length} 个模型定价记录
+          {t("common.pricingRecords", { count: records.length })}
           {records.length > 0 && (
             <span className="ml-2 text-xs">
-              （{records.filter((r) => r.isCustom).length} 个自定义）
+              {t("common.pricingCustomCount", {
+                count: records.filter((r) => r.isCustom).length,
+              })}
             </span>
           )}
         </p>
@@ -137,7 +143,7 @@ function PricingPanel() {
           }}
           className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
         >
-          {showForm ? "取消" : "+ 新增定价"}
+          {showForm ? t("common.cancel") : t("common.pricingAdd")}
         </button>
       </div>
 
@@ -145,7 +151,7 @@ function PricingPanel() {
         <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-xs flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="underline">
-            关闭
+            {t("common.close")}
           </button>
         </div>
       )}
@@ -159,12 +165,12 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                模型 ID *
+                {t("common.pricingModelId")}
               </label>
               <input
                 value={form.modelId}
                 onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-                placeholder="例如: gpt-4o"
+                placeholder={t("common.pricingModelIdPlaceholder")}
                 className={`w-full px-2 py-1.5 rounded border text-sm ${isDark ? "bg-gray-700 border-gray-600 text-gray-200" : "bg-white border-gray-300 text-gray-900"}`}
               />
             </div>
@@ -172,7 +178,7 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                显示名
+                {t("common.pricingDisplayName")}
               </label>
               <input
                 value={form.displayName}
@@ -187,7 +193,7 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                输入 $/1M *
+                {t("common.pricingInputCost")}
               </label>
               <input
                 value={form.inputCost}
@@ -204,7 +210,7 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                输出 $/1M *
+                {t("common.pricingOutputCost")}
               </label>
               <input
                 value={form.outputCost}
@@ -221,7 +227,7 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                缓存读 $/1M
+                {t("common.pricingCacheReadCost")}
               </label>
               <input
                 value={form.cacheReadCost}
@@ -238,7 +244,7 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                缓存写 $/1M
+                {t("common.pricingCacheWriteCost")}
               </label>
               <input
                 value={form.cacheWriteCost}
@@ -255,7 +261,7 @@ function PricingPanel() {
               <label
                 className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                成本倍率
+                {t("common.pricingMultiplier")}
               </label>
               <input
                 value={form.costMultiplier}
@@ -274,16 +280,18 @@ function PricingPanel() {
             disabled={saving}
             className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm disabled:opacity-50"
           >
-            {saving ? "保存中..." : "保存定价"}
+            {saving ? t("settings.saving") : t("common.pricingSave")}
           </button>
         </div>
       )}
 
       {loading ? (
-        <div className="text-center py-8 text-gray-400 text-sm">加载中...</div>
+        <div className="text-center py-8 text-gray-400 text-sm">
+          {t("common.loading")}
+        </div>
       ) : records.length === 0 ? (
         <div className="text-center py-8 text-gray-400 text-sm">
-          暂无自定义定价。点击"新增定价"添加。
+          {t("common.pricingEmpty")}
         </div>
       ) : (
         <div
@@ -293,28 +301,28 @@ function PricingPanel() {
             <thead>
               <tr className={isDark ? "bg-gray-700" : "bg-gray-50"}>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                  模型 ID
+                  {t("common.pricingColModelId")}
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                  输入 $/1M
+                  {t("common.pricingColInput")}
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                  输出 $/1M
+                  {t("common.pricingColOutput")}
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                  缓存读 $/1M
+                  {t("common.pricingColCacheRead")}
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                  缓存写 $/1M
+                  {t("common.pricingColCacheWrite")}
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
-                  倍率
+                  {t("common.pricingColMultiplier")}
                 </th>
                 <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">
-                  自定义
+                  {t("common.pricingColCustom")}
                 </th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                  操作
+                  {t("common.pricingColActions")}
                 </th>
               </tr>
             </thead>
@@ -353,9 +361,13 @@ function PricingPanel() {
                   </td>
                   <td className="px-3 py-2 text-center">
                     {r.isCustom ? (
-                      <span className="text-[10px] text-blue-500">自定义</span>
+                      <span className="text-[10px] text-blue-500">
+                        {t("common.custom")}
+                      </span>
                     ) : (
-                      <span className="text-[10px] text-gray-400">默认</span>
+                      <span className="text-[10px] text-gray-400">
+                        {t("common.default")}
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">
@@ -363,14 +375,14 @@ function PricingPanel() {
                       onClick={() => handleEdit(r)}
                       className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      编辑
+                      {t("common.edit")}
                     </button>
                     {r.isCustom && (
                       <button
                         onClick={() => handleDelete(r.modelId)}
                         className="ml-1 px-2 py-1 text-xs text-red-500 hover:underline"
                       >
-                        删除
+                        {t("common.delete")}
                       </button>
                     )}
                   </td>

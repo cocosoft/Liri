@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Plus, FileInput, Trash2 } from "lucide-react";
 import { faqService } from "../../../services/faqService";
 import { toastError } from "../../../stores/toastStore";
@@ -15,6 +16,7 @@ interface FAQPageProps {
 }
 
 export function FAQPage({ base, isDark }: FAQPageProps) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<FAQEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,11 +66,11 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
       if (seq !== loadSeqRef.current) return;
       // F1：失败清空脏数据（避免残留上一分类/base 内容）+ 明确错误提示
       setEntries([]);
-      setLoadError("加载 FAQ 失败，请重试");
+      setLoadError(t("knowledge.faq.loadFailed"));
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [base, searchQuery, category]);
+  }, [base, searchQuery, category, t]);
 
   useEffect(() => {
     load();
@@ -109,7 +111,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
   const handleDelete = useCallback(
     async (id: string) => {
       // KB-F1：单条删除加确认（与批量删除 confirm 一致，列表每行删除按钮是高频误触路径）
-      if (!window.confirm("确定删除这条 FAQ？此操作不可恢复。")) return;
+      if (!window.confirm(t("knowledge.faq.deleteConfirm"))) return;
       try {
         await faqService.delete(base, id);
         setSelectedIds((prev) => {
@@ -120,11 +122,14 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
         await load();
       } catch (err) {
         toastError(
-          "删除 FAQ 失败: " + (err instanceof Error ? err.message : "未知错误"),
+          t("knowledge.faq.deleteFailed", {
+            error:
+              err instanceof Error ? err.message : t("knowledge.unknownError"),
+          }),
         );
       }
     },
-    [base, load],
+    [base, load, t],
   );
 
   const handleBatchDelete = useCallback(async () => {
@@ -132,7 +137,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
     // F2：批量删除加确认 + 防重（不可恢复）
     if (
       !window.confirm(
-        `确定删除选中的 ${selectedIds.size} 条 FAQ？此操作不可恢复。`,
+        t("knowledge.faq.batchDeleteConfirm", { count: selectedIds.size }),
       )
     )
       return;
@@ -143,12 +148,15 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
       await load();
     } catch (err) {
       toastError(
-        "批量删除失败: " + (err instanceof Error ? err.message : "未知错误"),
+        t("knowledge.faq.batchDeleteFailed", {
+          error:
+            err instanceof Error ? err.message : t("knowledge.unknownError"),
+        }),
       );
     } finally {
       setDeleting(false);
     }
-  }, [base, selectedIds, load, deleting]);
+  }, [base, selectedIds, load, deleting, t]);
 
   const handleImport = useCallback(
     async (format: "csv" | "json", data: string): Promise<FAQImportReport> => {
@@ -206,7 +214,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
               <span
                 className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
               >
-                {entries.length} 条结果
+                {t("knowledge.faq.resultCount", { count: entries.length })}
               </span>
             )}
           </div>
@@ -222,7 +230,11 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
                 }`}
               >
                 <Trash2 size={12} />
-                {deleting ? "删除中..." : `删除 (${selectedIds.size})`}
+                {deleting
+                  ? t("knowledge.faq.deleting")
+                  : t("knowledge.faq.deleteWithCount", {
+                      count: selectedIds.size,
+                    })}
               </button>
             )}
             <button
@@ -234,7 +246,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
               }`}
             >
               <FileInput size={12} />
-              导入
+              {t("common.import")}
             </button>
             <button
               onClick={() => {
@@ -244,7 +256,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
             >
               <Plus size={12} />
-              新建
+              {t("knowledge.faq.newEntry")}
             </button>
           </div>
         </div>
@@ -259,7 +271,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
             >
               <span>{loadError}</span>
               <button onClick={() => void load()} className="underline">
-                重试
+                {t("common.retry")}
               </button>
             </div>
           )}
@@ -267,7 +279,7 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
             <div
               className={`text-center py-12 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              加载中...
+              {t("common.loading")}
             </div>
           ) : (
             <FAQList

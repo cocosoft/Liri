@@ -41,13 +41,13 @@ interface AgentModelBindingConfigProps {
 
 /** Agent 角色中文名 */
 const ROLE_LABELS: Record<string, string> = {
-  default: "默认 Agent",
-  coder: "编码 Agent",
-  reviewer: "审核 Agent",
-  researcher: "研究 Agent",
-  coordinator: "协调 Agent",
-  planner: "规划 Agent",
-  tester: "测试 Agent",
+  default: "workspace.roleDefaultAgent",
+  coder: "workspace.roleCoder",
+  reviewer: "workspace.roleReviewer",
+  researcher: "workspace.roleResearcher",
+  coordinator: "workspace.roleCoordinator",
+  planner: "workspace.rolePlanner",
+  tester: "workspace.roleTester",
 };
 
 /**
@@ -80,7 +80,7 @@ function AgentModelBindingConfig({
       setAvailableModels(result.availableModels);
     } catch (err) {
       logger.warn("加载配置失败", err);
-      setMessage({ type: "error", text: "加载配置失败" });
+      setMessage({ type: "error", text: t("workspace.loadConfigFailed") });
     } finally {
       setLoading(false);
     }
@@ -104,11 +104,11 @@ function AgentModelBindingConfig({
       await workspaceService.updateAgentModelBindings(workspaceId, {
         bindings,
       });
-      setMessage({ type: "success", text: "保存成功" });
+      setMessage({ type: "success", text: t("workspace.saveSuccess") });
       setTimeout(() => setMessage(null), 2000);
     } catch (err) {
       logger.warn("保存失败", err);
-      setMessage({ type: "error", text: "保存失败" });
+      setMessage({ type: "error", text: t("workspace.saveFailed") });
     } finally {
       setSaving(false);
     }
@@ -119,7 +119,7 @@ function AgentModelBindingConfig({
       <div
         className={`p-4 text-center ${isDark ? "text-gray-400" : "text-gray-500"}`}
       >
-        加载中...
+        {t("common.loading")}
       </div>
     );
   }
@@ -128,7 +128,9 @@ function AgentModelBindingConfig({
     <div className={`p-4 ${isDark ? "text-gray-200" : "text-gray-800"}`}>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold">Agent-Model 绑定配置</h3>
+          <h3 className="text-lg font-semibold">
+            {t("workspace.agentModelBindingTitle")}
+          </h3>
           <p className="text-sm text-gray-500 mt-1">{t("agent.config")}</p>
         </div>
         <button
@@ -136,7 +138,7 @@ function AgentModelBindingConfig({
           disabled={saving}
           className="px-4 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:opacity-50 transition-colors"
         >
-          {saving ? "保存中..." : "保存"}
+          {saving ? t("workspace.savingNow") : t("common.save")}
         </button>
       </div>
 
@@ -164,7 +166,9 @@ function AgentModelBindingConfig({
           >
             <div className="flex items-center gap-3 mb-3">
               <span className="text-sm font-medium w-24">
-                {ROLE_LABELS[binding.agentRole] || binding.agentRole}
+                {ROLE_LABELS[binding.agentRole]
+                  ? t(ROLE_LABELS[binding.agentRole])
+                  : binding.agentRole}
               </span>
               <span className="text-xs text-gray-500 font-mono">
                 {binding.agentRole}
@@ -174,7 +178,9 @@ function AgentModelBindingConfig({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* 模型选择 */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">模型</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  {t("workspace.modelLabel")}
+                </label>
                 <select
                   value={binding.model}
                   onChange={(e) =>
@@ -223,7 +229,9 @@ function AgentModelBindingConfig({
               {/* 温度 */}
               <div>
                 <label className="block text-xs text-gray-500 mb-1">
-                  温度: {binding.temperature}
+                  {t("workspace.temperatureInline", {
+                    value: binding.temperature,
+                  })}
                 </label>
                 <input
                   type="range"

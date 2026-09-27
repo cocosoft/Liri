@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
 import { useOfficeStore, type FileInfo } from "../../../../stores/officeStore";
 import { officeApi } from "../../../../services/officeApi";
@@ -14,6 +15,7 @@ interface PptxRendererProps {
 }
 
 export function PptxRenderer({ file }: PptxRendererProps) {
+  const { t } = useTranslation();
   const { previewCache, addToCache, setPreviewState } = useOfficeStore();
   const [thumbnails, setThumbnails] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,10 @@ export function PptxRenderer({ file }: PptxRendererProps) {
         setPreviewState("success");
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "演示文稿加载失败";
+        const msg =
+          err instanceof Error
+            ? err.message
+            : t("office.pptxLoadFailed", "演示文稿加载失败");
         setError(msg);
         setPreviewState("error", msg);
       } finally {
@@ -103,7 +108,7 @@ export function PptxRenderer({ file }: PptxRendererProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        加载中...
+        {t("common.loading", "加载中...")}
       </div>
     );
   }
@@ -111,7 +116,7 @@ export function PptxRenderer({ file }: PptxRendererProps) {
   if (error || !thumbnails) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400 px-4 text-center">
-        {error ?? "无法渲染演示文稿"}
+        {error ?? t("office.pptxRenderFailed", "无法渲染演示文稿")}
       </div>
     );
   }
@@ -120,7 +125,9 @@ export function PptxRenderer({ file }: PptxRendererProps) {
     <div className="h-full overflow-y-auto bg-gray-100 dark:bg-gray-900 p-4">
       <div className="flex flex-col items-center gap-4 max-w-3xl mx-auto">
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          共 {thumbnails.length} 页
+          {t("office.pptxPageCount", "共 {{count}} 页", {
+            count: thumbnails.length,
+          })}
         </p>
 
         {thumbnails.map((svgStr, i) => (
@@ -129,7 +136,7 @@ export function PptxRenderer({ file }: PptxRendererProps) {
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden w-full"
           >
             <p className="text-xs text-gray-400 px-3 py-1 border-b border-gray-100 dark:border-gray-700">
-              第 {i + 1} 页
+              {t("office.pptxPageIndex", "第 {{index}} 页", { index: i + 1 })}
             </p>
             <div
               dangerouslySetInnerHTML={{ __html: svgStr }}

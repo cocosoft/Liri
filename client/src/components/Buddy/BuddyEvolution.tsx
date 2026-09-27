@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useBuddyStore } from "../../stores/buddyStore";
 
 interface EvolutionStage {
@@ -16,6 +17,7 @@ interface EvolutionPath {
 }
 
 function BuddyEvolution() {
+  const { t } = useTranslation();
   const { companion } = useBuddyStore();
   const [evolutionPath, setEvolutionPath] = useState<EvolutionPath | null>(
     null,
@@ -28,45 +30,45 @@ function BuddyEvolution() {
     const stages: EvolutionStage[] = [
       {
         id: "egg",
-        name: "蛋",
+        name: t("buddy.stageEggName"),
         level: 0,
         unlocked: true,
-        description: "未孵化的伙伴蛋",
+        description: t("buddy.stageEggDesc"),
       },
       {
         id: "baby",
-        name: "幼年期",
+        name: t("buddy.stageBabyName"),
         level: 1,
         unlocked: companion.level >= 1,
-        description: "刚刚孵化的伙伴",
+        description: t("buddy.stageBabyDesc"),
       },
       {
         id: "child",
-        name: "成长期",
+        name: t("buddy.stageChildName"),
         level: 5,
         unlocked: companion.level >= 5,
-        description: "正在成长的伙伴",
+        description: t("buddy.stageChildDesc"),
       },
       {
         id: "adult",
-        name: "成熟期",
+        name: t("buddy.stageAdultName"),
         level: 10,
         unlocked: companion.level >= 10,
-        description: "已经完全成长的伙伴",
+        description: t("buddy.stageAdultDesc"),
       },
       {
         id: "elder",
-        name: "老年期",
+        name: t("buddy.stageElderName"),
         level: 20,
         unlocked: companion.level >= 20,
-        description: "经验丰富的伙伴",
+        description: t("buddy.stageElderDesc"),
       },
       {
         id: "legend",
-        name: "传说",
+        name: t("buddy.stageLegendName"),
         level: 30,
         unlocked: companion.level >= 30,
-        description: "传说中的伙伴",
+        description: t("buddy.stageLegendDesc"),
       },
     ];
 
@@ -82,15 +84,19 @@ function BuddyEvolution() {
       : 100;
 
     setEvolutionPath({ current, next, progress: Math.min(progress, 100) });
-  }, [companion]);
+  }, [companion, t]);
 
   if (!companion || !evolutionPath) {
-    return <div className="p-4 text-center text-gray-400">暂无伙伴数据</div>;
+    return (
+      <div className="p-4 text-center text-gray-400">
+        {t("buddy.noBuddyData")}
+      </div>
+    );
   }
 
   return (
     <div className="p-4">
-      <h3 className="text-lg font-medium mb-4">进化树</h3>
+      <h3 className="text-lg font-medium mb-4">{t("buddy.evolutionTree")}</h3>
 
       <div className="relative">
         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-300 dark:bg-gray-600" />
@@ -146,7 +152,7 @@ function BuddyEvolution() {
                 {isCurrentStage && evolutionPath.next && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span>进化进度</span>
+                      <span>{t("buddy.evolutionProgress")}</span>
                       <span>{evolutionPath.progress.toFixed(0)}%</span>
                     </div>
                     <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -156,8 +162,11 @@ function BuddyEvolution() {
                       />
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      距离 {evolutionPath.next.name} 还需{" "}
-                      {evolutionPath.next.level - (companion?.level || 0)} 级
+                      {t("buddy.evolutionRemaining", {
+                        name: evolutionPath.next.name,
+                        levels:
+                          evolutionPath.next.level - (companion?.level || 0),
+                      })}
                     </p>
                   </div>
                 )}
@@ -168,11 +177,13 @@ function BuddyEvolution() {
       </div>
 
       <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <h4 className="text-sm font-medium mb-2">进化条件</h4>
+        <h4 className="text-sm font-medium mb-2">
+          {t("buddy.evolutionConditions")}
+        </h4>
         <ul className="text-xs space-y-1 text-gray-600 dark:text-gray-400">
-          <li>• 达到指定等级即可进化</li>
-          <li>• 进化后属性将获得显著提升</li>
-          <li>• 传说形态需要达到30级</li>
+          <li>{t("buddy.conditionLevel")}</li>
+          <li>{t("buddy.conditionAttributes")}</li>
+          <li>{t("buddy.conditionLegend")}</li>
         </ul>
       </div>
     </div>

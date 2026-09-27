@@ -4,6 +4,8 @@
  * 支持关键词搜索、状态筛选、类型筛选、刷新
  */
 
+import { useTranslation } from "react-i18next";
+
 type StatusFilter =
   "all" | "connected" | "disconnected" | "enabled" | "disabled";
 
@@ -57,6 +59,7 @@ function ChannelFilterBar({
   isRefreshing,
   onRefresh,
 }: ChannelFilterBarProps) {
+  const { t } = useTranslation();
   return (
     <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_160px_40px] gap-3 items-center">
@@ -69,7 +72,7 @@ function ChannelFilterBar({
             type="text"
             value={filters.search}
             onChange={(e) => onFiltersChange({ search: e.target.value })}
-            placeholder="搜索渠道名称或类型..."
+            placeholder={t("channels.searchPlaceholder")}
             className="w-full pl-9 pr-8 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {filters.search && (
@@ -90,11 +93,11 @@ function ChannelFilterBar({
           }
           className="py-2 px-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="all">全部状态</option>
-          <option value="connected">已连接</option>
-          <option value="disconnected">未连接</option>
-          <option value="enabled">已启用</option>
-          <option value="disabled">已禁用</option>
+          <option value="all">{t("channels.allStatus")}</option>
+          <option value="connected">{t("channels.connected")}</option>
+          <option value="disconnected">{t("channels.notConnected")}</option>
+          <option value="enabled">{t("channels.enabled")}</option>
+          <option value="disabled">{t("channels.disabled")}</option>
         </select>
 
         {/* 类型筛选 */}
@@ -103,10 +106,10 @@ function ChannelFilterBar({
           onChange={(e) => onFiltersChange({ type: e.target.value })}
           className="py-2 px-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">全部类型</option>
-          {availableTypes.map((t) => (
-            <option key={t} value={t}>
-              {TYPE_LABELS[t] || t}
+          <option value="">{t("channels.allTypes")}</option>
+          {availableTypes.map((type) => (
+            <option key={type} value={type}>
+              {TYPE_LABELS[type] || type}
             </option>
           ))}
         </select>
@@ -116,7 +119,7 @@ function ChannelFilterBar({
           onClick={onRefresh}
           disabled={isRefreshing}
           className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors disabled:opacity-50"
-          title="刷新"
+          title={t("common.refresh")}
         >
           <span className={`text-lg ${isRefreshing ? "animate-spin" : ""}`}>
             🔄

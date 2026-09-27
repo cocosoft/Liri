@@ -127,3 +127,14 @@ export type {
   ProviderInfo,
   VoiceSession,
 } from './voice-types';
+
+// ============================================================
+// 状态块 statusType 契约（前后端唯一事实来源）
+// ============================================================
+
+export {
+  STATUS_TYPE,
+  TRANSIENT_STATUS_TYPES,
+  isTransientStatusType,
+} from './status-types';
+export type { SharedStatusType } from './status-types';

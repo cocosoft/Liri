@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { planService } from "../../services/planService";
 import type { Plan } from "../../services/planService";
@@ -18,6 +19,7 @@ interface PlanFlowItem {
  *  projectId 为当前项目（workspace）ID，传入时仅展示该项目下的计划
  */
 export default function PlansPanel({ projectId }: { projectId?: string }) {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -51,7 +53,7 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
             module: "views:PlansPanel",
             action: "load_plans_flows",
           });
-          setError("加载计划或流程列表失败，请检查后端服务是否正常运行");
+          setError(t("plans.loadFailed"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -62,7 +64,7 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, t]);
 
   if (loading) {
     return (
@@ -92,15 +94,12 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
       {/* 计划列表 */}
       <div>
         <h3 className={`text-sm font-semibold mb-3 ${textPrimary}`}>
-          执行计划 ({plans.length})
+          {t("plans.executePlans", { count: plans.length })}
         </h3>
         {plans.length === 0 ? (
           <div className={`text-sm ${textSecondary} space-y-1`}>
-            <p>暂无计划</p>
-            <p className="text-xs">
-              在对话中输入需要分解的复杂任务，AI
-              会自动生成执行计划并展示在此处。
-            </p>
+            <p>{t("plans.emptyPlans")}</p>
+            <p className="text-xs">{t("plans.emptyPlansHint")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -130,14 +129,18 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
                       <span
                         className={`text-sm font-medium ${textPrimary} truncate`}
                       >
-                        {plan.description || `计划 ${plan.id.slice(0, 8)}`}
+                        {plan.description ||
+                          t("plans.planFallbackName", {
+                            id: plan.id.slice(0, 8),
+                          })}
                       </span>
                       <span className="text-xs text-gray-400 ml-auto">
                         {isExpanded ? "▲" : "▼"}
                       </span>
                     </div>
                     <div className={`text-xs mt-1 ${textSecondary}`}>
-                      {plan.steps.length} 步骤 · {plan.status}
+                      {t("plans.stepsLabel", { count: plan.steps.length })} ·{" "}
+                      {plan.status}
                     </div>
                   </button>
 
@@ -157,14 +160,12 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
       {/* 流程列表 */}
       <div>
         <h3 className={`text-sm font-semibold mb-3 ${textPrimary}`}>
-          执行流程 ({flows.length})
+          {t("plans.executeFlows", { count: flows.length })}
         </h3>
         {flows.length === 0 ? (
           <div className={`text-sm ${textSecondary} space-y-1`}>
-            <p>暂无流程</p>
-            <p className="text-xs">
-              流程是可复用的任务编排模板，由后端 TaskFlowRegistry 注册。
-            </p>
+            <p>{t("plans.emptyFlows")}</p>
+            <p className="text-xs">{t("plans.emptyFlowsHint")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -174,7 +175,9 @@ export default function PlansPanel({ projectId }: { projectId?: string }) {
                 className={`${cardBg} ${borderColor} border rounded-lg p-3`}
               >
                 <p className={`text-sm font-medium ${textPrimary}`}>
-                  {flow.name || flow.title || `流程 ${i + 1}`}
+                  {flow.name ||
+                    flow.title ||
+                    t("plans.flowFallbackName", { index: i + 1 })}
                 </p>
                 {flow.description && (
                   <p className={`text-xs mt-1 ${textSecondary}`}>

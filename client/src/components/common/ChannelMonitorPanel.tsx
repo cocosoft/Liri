@@ -28,6 +28,7 @@
  * SSE 断线指数退避重连（3s → 30s，对齐 useNotificationSSE 模式）。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { channelService } from "../../services/channelService";
 import { getBackendBaseUrl } from "../../services/backendUrl";
 import { handleClientError } from "../../utils/handleError";
@@ -43,29 +44,29 @@ const logger = createLogger("ChannelMonitorPanel");
 /** 五态徽章样式（对齐 SystemHealthStatus 的绿/黄/红语义） */
 const STATUS_BADGE: Record<
   ChannelRuntimeStatus,
-  { label: string; className: string }
+  { labelKey: string; className: string }
 > = {
   connected: {
-    label: "已连接",
+    labelKey: "common.channelStatusConnected",
     className:
       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   },
   connecting: {
-    label: "连接中",
+    labelKey: "common.channelStatusConnecting",
     className:
       "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   },
   reconnecting: {
-    label: "重连等待",
+    labelKey: "common.channelStatusReconnecting",
     className:
       "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
   },
   error: {
-    label: "异常",
+    labelKey: "common.channelStatusError",
     className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   },
   disconnected: {
-    label: "未连接",
+    labelKey: "common.channelStatusDisconnected",
     className:
       "bg-gray-100 text-gray-500 dark:bg-gray-700/50 dark:text-gray-400",
   },
@@ -79,6 +80,7 @@ function formatDuration(ms: number): string {
 }
 
 export function ChannelMonitorPanel() {
+  const { t } = useTranslation();
   const [channels, setChannels] = useState<ChannelRuntimeStatusInfo[]>([]);
   const [connected, setConnected] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -246,43 +248,46 @@ export function ChannelMonitorPanel() {
     };
   }, [applyEvent]);
 
-  const handleForceReconnect = useCallback(async (channelId: string) => {
-    const t0 = Date.now();
-    logger.info("强制重连请求发起", { channelId });
-    setReconnectingIds((prev) => new Set(prev).add(channelId));
-    try {
-      const result = await channelService.forceReconnect(channelId);
-      logger.info("强制重连请求完成", {
-        channelId,
-        recovered: result.recovered,
-        error: result.error ?? null,
-        elapsedMs: Date.now() - t0,
-      });
-      if (!result.recovered) {
-        handleClientError(new Error(result.error ?? "强制重连后探测仍不健康"), {
+  const handleForceReconnect = useCallback(
+    async (channelId: string) => {
+      const t0 = Date.now();
+      logger.info("强制重连请求发起", { channelId });
+      setReconnectingIds((prev) => new Set(prev).add(channelId));
+      try {
+        const result = await channelService.forceReconnect(channelId);
+        logger.info("强制重连请求完成", {
+          channelId,
+          recovered: result.recovered,
+          error: result.error ?? null,
+          elapsedMs: Date.now() - t0,
+        });
+        if (!result.recovered) {
+          handleClientError(new Error(t("common.forceReconnectUnhealthy")), {
+            module: "ChannelMonitorPanel",
+            action: "forceReconnect",
+          });
+        }
+        // 成功/失败状态由 SSE status_change/recovered 事件驱动刷新
+      } catch (error) {
+        logger.warn("强制重连请求异常", {
+          channelId,
+          error: String(error),
+          elapsedMs: Date.now() - t0,
+        });
+        handleClientError(error, {
           module: "ChannelMonitorPanel",
           action: "forceReconnect",
         });
+      } finally {
+        setReconnectingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(channelId);
+          return next;
+        });
       }
-      // 成功/失败状态由 SSE status_change/recovered 事件驱动刷新
-    } catch (error) {
-      logger.warn("强制重连请求异常", {
-        channelId,
-        error: String(error),
-        elapsedMs: Date.now() - t0,
-      });
-      handleClientError(error, {
-        module: "ChannelMonitorPanel",
-        action: "forceReconnect",
-      });
-    } finally {
-      setReconnectingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(channelId);
-        return next;
-      });
-    }
-  }, []);
+    },
+    [t],
+  );
 
   /** 拉取最近消息链路（方案 A） */
   const loadTraces = useCallback(async () => {
@@ -319,15 +324,15 @@ export function ChannelMonitorPanel() {
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm">📡</span>
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-          渠道实时监控
+          {t("common.channelRealtimeMonitor")}
         </h3>
         {/* Tab 切换：通道状态 | 消息链路 */}
         <div className="ml-2 flex gap-1">
           {(
             [
-              ["status", "通道状态"],
-              ["traces", "消息链路"],
-            ] as const
+              ["status", t("common.channelStatusTab")],
+              ["traces", t("common.channelTracesTab")],
+            ] as ["status" | "traces", string][]
           ).map(([key, label]) => (
             <button
               key={key}
@@ -352,11 +357,11 @@ export function ChannelMonitorPanel() {
         >
           {tab === "traces"
             ? tracesLoading
-              ? "加载中…"
-              : `${traces.length} 条`
+              ? t("common.loadingEllipsis")
+              : t("common.tracesCount", { count: traces.length })
             : connected
-              ? "实时"
-              : "离线"}
+              ? t("common.realtime")
+              : t("common.offline")}
         </span>
       </div>
 
@@ -383,7 +388,7 @@ export function ChannelMonitorPanel() {
                 <span
                   className={`px-1.5 py-0.5 rounded text-[11px] ${badge.className}`}
                 >
-                  {badge.label}
+                  {t(badge.labelKey)}
                 </span>
                 {ch.latencyMs !== null && (
                   <span className="text-gray-500 dark:text-gray-400">
@@ -392,7 +397,7 @@ export function ChannelMonitorPanel() {
                 )}
                 {ch.reconnectCount > 0 && (
                   <span className="text-yellow-600 dark:text-yellow-400">
-                    重连×{ch.reconnectCount}
+                    {t("common.reconnectCount", { count: ch.reconnectCount })}
                   </span>
                 )}
                 {ch.uptimeMs > 0 && (
@@ -420,7 +425,7 @@ export function ChannelMonitorPanel() {
                   onClick={() => void handleForceReconnect(ch.channelId)}
                   className="ml-auto text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {busy ? "重连中…" : "强制重连"}
+                  {busy ? t("common.reconnecting") : t("common.forceReconnect")}
                 </button>
 
                 {expanded === ch.channelId && ch.lastErrorSnapshot && (
@@ -440,24 +445,24 @@ export function ChannelMonitorPanel() {
 /** 消息整体状态徽章 */
 const TRACE_STATUS_BADGE: Record<
   MessageTrace["status"],
-  { label: string; className: string }
+  { labelKey: string; className: string }
 > = {
   ok: {
-    label: "完成",
+    labelKey: "common.traceStatusOk",
     className:
       "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   },
   inflight: {
-    label: "处理中",
+    labelKey: "common.traceStatusInflight",
     className:
       "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   },
   fail: {
-    label: "失败",
+    labelKey: "common.traceStatusFail",
     className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   },
   rejected: {
-    label: "被拒",
+    labelKey: "common.traceStatusRejected",
     className:
       "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
   },
@@ -471,15 +476,15 @@ const STAGE_DOT: Record<string, string> = {
 };
 
 /** 阶段中文名 */
-const STAGE_LABEL: Record<string, string> = {
-  frame_check: "帧验证",
-  dm_auth: "授权",
-  dedup: "去重",
-  rate_limit: "限流",
-  shared_session: "共享会话",
-  session: "会话",
-  llm: "LLM",
-  outbound: "出站",
+const STAGE_LABEL_KEY: Record<string, string> = {
+  frame_check: "common.stageFrameCheck",
+  dm_auth: "common.stageDmAuth",
+  dedup: "common.stageDedup",
+  rate_limit: "common.stageRateLimit",
+  shared_session: "common.stageSharedSession",
+  session: "common.stageSession",
+  llm: "common.stageLlm",
+  outbound: "common.stageOutbound",
 };
 
 /**
@@ -497,6 +502,7 @@ function MessageTracesView({
   onToggle: (traceId: string) => void;
   onRefresh: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="flex items-center justify-end mb-1.5">
@@ -505,12 +511,12 @@ function MessageTracesView({
           onClick={onRefresh}
           className="text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          刷新
+          {t("common.refresh")}
         </button>
       </div>
       {traces.length === 0 ? (
         <div className="text-xs text-gray-400 dark:text-gray-500 py-6 text-center">
-          暂无消息链路记录（等待渠道消息入站）
+          {t("common.noTraces")}
         </div>
       ) : (
         <div className="space-y-1 max-h-72 overflow-y-auto">
@@ -531,7 +537,7 @@ function MessageTracesView({
                   <span
                     className={`px-1.5 py-0.5 rounded text-[11px] shrink-0 ${badge.className}`}
                   >
-                    {badge.label}
+                    {t(badge.labelKey)}
                   </span>
                   {trace.totalMs !== undefined && (
                     <span className="text-gray-500 dark:text-gray-400 shrink-0">
@@ -539,12 +545,16 @@ function MessageTracesView({
                     </span>
                   )}
                   <span className="text-gray-400 dark:text-gray-500 truncate">
-                    {trace.contentPreview || "(空)"}
+                    {trace.contentPreview || t("common.emptyContent")}
                   </span>
                   {(failedStage || trace.error) && (
                     <span className="text-red-500 dark:text-red-400 truncate max-w-48">
                       {failedStage
-                        ? `${STAGE_LABEL[failedStage.name] ?? failedStage.name}失败`
+                        ? t("common.stageFailed", {
+                            stage: STAGE_LABEL_KEY[failedStage.name]
+                              ? t(STAGE_LABEL_KEY[failedStage.name])
+                              : failedStage.name,
+                          })
                         : trace.error}
                     </span>
                   )}
@@ -576,7 +586,9 @@ function MessageTracesView({
                             }`}
                           />
                           <span className="text-gray-600 dark:text-gray-300 w-16 shrink-0">
-                            {STAGE_LABEL[stage.name] ?? stage.name}
+                            {STAGE_LABEL_KEY[stage.name]
+                              ? t(STAGE_LABEL_KEY[stage.name])
+                              : stage.name}
                           </span>
                           {stage.durationMs !== undefined && (
                             <span className="text-gray-500 dark:text-gray-400">

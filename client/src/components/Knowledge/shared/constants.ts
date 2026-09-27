@@ -4,13 +4,13 @@
  * 从 KnowledgePage/KnowledgeBaseList 两方提取归并。
  */
 
-/** 文档来源标签映射 */
-export const sourceLabels: Record<string, string> = {
-  manual: "手动创建",
-  "auto-memory": "自动记忆",
-  upload: "文件上传",
-  "chat-save": "聊天保存",
-  "quick-note": "速记",
-  dream: "梦境生成",
-  compiled: "LLM编译",
+/** 文档来源 i18n 键映射（渲染处用 t() 取值） */
+export const sourceLabelKeys: Record<string, string> = {
+  manual: "knowledge.sourceManual",
+  "auto-memory": "knowledge.sourceAutoMemory",
+  upload: "knowledge.sourceUpload",
+  "chat-save": "knowledge.sourceChatSave",
+  "quick-note": "knowledge.sourceQuickNote",
+  dream: "knowledge.sourceDream",
+  compiled: "knowledge.sourceCompiled",
 };

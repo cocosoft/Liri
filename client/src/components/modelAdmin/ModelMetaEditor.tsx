@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { modelAdminService } from "../../services/modelAdminService";
 import { configService } from "../../services/configService";
 import { capabilityService } from "../../services/capabilityService";
@@ -29,6 +30,7 @@ function ModelMetaEditor({
   onClose,
   onSaved,
 }: ModelMetaEditorProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<FormState>({
     displayName: modelName,
     contextWindow: "200000",
@@ -241,14 +243,11 @@ function ModelMetaEditor({
 
   // 获取分类显示名称
   const getCategoryName = (categoryKey: string): string => {
-    const names: Record<string, string> = {
-      core: "核心能力",
-      vision: "视觉能力",
-      media: "媒体能力",
-      tools: "工具能力",
-      special: "特殊能力",
-    };
-    return names[categoryKey] || categoryKey;
+    const known = ["core", "vision", "media", "tools", "special"];
+    if (known.includes(categoryKey)) {
+      return t(`model.capability.category.${categoryKey}`);
+    }
+    return categoryKey;
   };
 
   const handleChange = (field: keyof FormState, value: string | string[]) => {
@@ -297,7 +296,7 @@ function ModelMetaEditor({
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t("model.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -310,7 +309,9 @@ function ModelMetaEditor({
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "恢复默认失败");
+      setError(
+        e instanceof Error ? e.message : t("model.restoreDefaultFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -327,15 +328,15 @@ function ModelMetaEditor({
       >
         {!loaded || !capabilitiesLoaded ? (
           <div className="py-8 text-center text-gray-400 text-sm">
-            加载中...
+            {t("common.loading")}
           </div>
         ) : (
           <>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
-              编辑模型: {modelId}
+              {t("model.editModelTitle", { id: modelId })}
             </h3>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-              修改后将覆盖内置默认值
+              {t("model.overrideHint")}
             </p>
 
             {error && (
@@ -347,7 +348,7 @@ function ModelMetaEditor({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  显示名称
+                  {t("model.displayNameLabel")}
                 </label>
                 <input
                   type="text"
@@ -360,7 +361,7 @@ function ModelMetaEditor({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    上下文窗口
+                    {t("model.contextWindowLabel")}
                   </label>
                   <input
                     type="number"
@@ -373,7 +374,7 @@ function ModelMetaEditor({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    最大输出 Token
+                    {t("model.maxOutputTokensLabel")}
                   </label>
                   <input
                     type="number"
@@ -388,12 +389,12 @@ function ModelMetaEditor({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  定价（$ / 1M tokens）
+                  {t("model.pricingLabel")}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      输入
+                      {t("model.inputPriceLabel")}
                     </label>
                     <input
                       type="text"
@@ -401,13 +402,13 @@ function ModelMetaEditor({
                       onChange={(e) =>
                         handleChange("inputPrice", e.target.value)
                       }
-                      placeholder="如: 3.0"
+                      placeholder={t("model.pricePlaceholder3")}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      输出
+                      {t("model.outputPriceLabel")}
                     </label>
                     <input
                       type="text"
@@ -415,13 +416,13 @@ function ModelMetaEditor({
                       onChange={(e) =>
                         handleChange("outputPrice", e.target.value)
                       }
-                      placeholder="如: 15.0"
+                      placeholder={t("model.pricePlaceholder15")}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      缓存读
+                      {t("model.cacheReadPriceLabel")}
                     </label>
                     <input
                       type="text"
@@ -429,13 +430,13 @@ function ModelMetaEditor({
                       onChange={(e) =>
                         handleChange("cacheReadPrice", e.target.value)
                       }
-                      placeholder="如: 0.3"
+                      placeholder={t("model.pricePlaceholder03")}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      缓存写
+                      {t("model.cacheWritePriceLabel")}
                     </label>
                     <input
                       type="text"
@@ -443,7 +444,7 @@ function ModelMetaEditor({
                       onChange={(e) =>
                         handleChange("cacheWritePrice", e.target.value)
                       }
-                      placeholder="如: 3.75"
+                      placeholder={t("model.pricePlaceholder375")}
                       className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -452,7 +453,7 @@ function ModelMetaEditor({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  能力
+                  {t("model.capabilities")}
                 </label>
                 <div className="space-y-3">
                   {Object.entries(capabilitiesByCategory)
@@ -494,21 +495,21 @@ function ModelMetaEditor({
                 disabled={saving}
                 className="px-3 py-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-50"
               >
-                恢复默认
+                {t("model.restoreDefault")}
               </button>
               <div className="flex gap-2">
                 <button
                   onClick={onClose}
                   className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
                   className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
                 >
-                  {saving ? "保存中..." : "保存"}
+                  {saving ? t("model.saving") : t("common.save")}
                 </button>
               </div>
             </div>

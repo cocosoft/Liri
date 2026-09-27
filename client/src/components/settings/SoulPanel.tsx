@@ -63,14 +63,14 @@ function SoulPanel({ isDark }: SoulPanelProps) {
         module: "components:settings:Soul",
         action: "loadSoul",
       });
-      setMessage({ type: "error", text: "加载人格定义失败" });
+      setMessage({ type: "error", text: t("settings.soulLoadFailed") });
     }
   };
 
   /** 保存人格定义 */
   const handleSave = async () => {
     if (!content.trim()) {
-      setMessage({ type: "error", text: "内容不能为空" });
+      setMessage({ type: "error", text: t("settings.userContentEmpty") });
       return;
     }
     setSaving(true);
@@ -78,14 +78,14 @@ function SoulPanel({ isDark }: SoulPanelProps) {
     try {
       await saveSoul(content);
       setOriginalContent(content);
-      setMessage({ type: "success", text: "人格定义已保存" });
+      setMessage({ type: "success", text: t("settings.soulSaved") });
       setTimeout(() => setMessage(null), 3000);
     } catch (e) {
       handleClientError(e, {
         module: "components:settings:Soul",
         action: "handleSave",
       });
-      setMessage({ type: "error", text: "保存失败，请重试" });
+      setMessage({ type: "error", text: t("settings.userSaveFailed") });
     } finally {
       setSaving(false);
     }
@@ -134,7 +134,7 @@ function SoulPanel({ isDark }: SoulPanelProps) {
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {saving ? "保存中..." : t("common.save")}
+            {saving ? t("settings.saving") : t("common.save")}
           </button>
 
           <button
@@ -145,7 +145,7 @@ function SoulPanel({ isDark }: SoulPanelProps) {
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
-            恢复默认
+            {t("settings.restoreDefault")}
           </button>
         </div>
       </div>

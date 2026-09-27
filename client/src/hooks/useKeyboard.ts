@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import i18n from "@/i18n";
 import { useChatStore } from "../stores/chat";
 import { useSessionStore } from "../stores/sessionStore";
 import { useNavigationStore } from "../stores/navigationStore";
@@ -65,7 +66,9 @@ export function useKeyboard() {
         e.preventDefault();
         // W1 修复：createChatSession 失败已在其内部 toast + 记录，
         // 这里无需重复处理，仅防止未 await 产生 unhandledRejection
-        createSession(`新会话 ${sessions.length + 1}`).catch(() => {});
+        createSession(
+          i18n.t("chat.newSessionTitle", { n: sessions.length + 1 }),
+        ).catch(() => {});
         setActivePage("chat");
         return;
       }
@@ -86,7 +89,7 @@ export function useKeyboard() {
       if (isCtrl && !e.shiftKey && key === shortcutMap["toggle-settings"].key) {
         e.preventDefault();
         const btn = document.querySelector(
-          '[title="设置"]',
+          `[title="${i18n.t("nav.settings")}"]`,
         ) as HTMLButtonElement;
         btn?.click();
         return;

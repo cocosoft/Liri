@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 
 /**
@@ -57,6 +58,7 @@ async function fetchSecurityStatus(): Promise<SecurityStatus> {
 }
 
 function SecurityDashboard() {
+  const { t } = useTranslation();
   const { config } = useConfigStore();
   const isDark = config.theme === "dark";
   const [status, setStatus] = useState<SecurityStatus | null>(null);
@@ -116,13 +118,14 @@ function SecurityDashboard() {
   /** 获取决策对应的中文描述 */
   function decisionLabel(decision: string): string {
     const map: Record<string, string> = {
-      approved: "已批准",
-      rejected: "已拒绝",
-      auto_allowed: "自动放行",
-      auto_denied: "自动拒绝",
-      timeout_denied: "超时拒绝",
+      approved: "security.decisionApproved",
+      rejected: "security.decisionRejected",
+      auto_allowed: "security.decisionAutoAllowed",
+      auto_denied: "security.decisionAutoDenied",
+      timeout_denied: "security.decisionTimeoutDenied",
     };
-    return map[decision] || decision;
+    const key = map[decision];
+    return key ? t(key) : decision;
   }
 
   // 2-4：趋势柱状图比例基准（每日事件总数最大值）
@@ -140,7 +143,7 @@ function SecurityDashboard() {
         <div
           className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}
         >
-          加载中...
+          {t("common.loading")}
         </div>
       )}
 
@@ -149,7 +152,7 @@ function SecurityDashboard() {
         <div
           className={`p-6 ${bgCard} border rounded-lg ${textSecondary} text-center`}
         >
-          安全仪表盘尚未激活，请确保后端安全服务已启动。
+          {t("security.dashboardInactive")}
         </div>
       )}
 
@@ -157,13 +160,17 @@ function SecurityDashboard() {
       {status && status.auditEventCount > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className={`p-4 ${bgCard} border rounded-lg`}>
-            <div className={`text-sm ${textSecondary}`}>权限规则数</div>
+            <div className={`text-sm ${textSecondary}`}>
+              {t("security.ruleCount")}
+            </div>
             <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
               {status.totalRules}
             </div>
           </div>
           <div className={`p-4 ${bgCard} border rounded-lg`}>
-            <div className={`text-sm ${textSecondary}`}>风险等级分布</div>
+            <div className={`text-sm ${textSecondary}`}>
+              {t("security.riskDistribution")}
+            </div>
             <div className="mt-2 space-y-1">
               {Object.entries(status.riskDistribution).map(([level, count]) => (
                 <div key={level} className="flex items-center justify-between">
@@ -180,7 +187,9 @@ function SecurityDashboard() {
             </div>
           </div>
           <div className={`p-4 ${bgCard} border rounded-lg`}>
-            <div className={`text-sm ${textSecondary}`}>决策分布</div>
+            <div className={`text-sm ${textSecondary}`}>
+              {t("security.decisionDistribution")}
+            </div>
             <div className="mt-2 space-y-1">
               {Object.entries(status.decisionDistribution).map(
                 ([decision, count]) => (
@@ -209,39 +218,47 @@ function SecurityDashboard() {
             className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
           >
             <h2 className={`text-sm font-semibold ${textPrimary}`}>
-              权限拒绝监测
+              {t("security.denialMonitor")}
             </h2>
           </div>
           <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <div className={`text-sm ${textSecondary}`}>累计拒绝</div>
+              <div className={`text-sm ${textSecondary}`}>
+                {t("security.totalDenials")}
+              </div>
               <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
                 {status.denialStats.totalDenials}
               </div>
             </div>
             <div>
-              <div className={`text-sm ${textSecondary}`}>连续拒绝</div>
+              <div className={`text-sm ${textSecondary}`}>
+                {t("security.consecutiveDenials")}
+              </div>
               <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
                 {status.denialStats.consecutiveDenials}
               </div>
             </div>
             <div>
-              <div className={`text-sm ${textSecondary}`}>拒绝率</div>
+              <div className={`text-sm ${textSecondary}`}>
+                {t("security.denialRate")}
+              </div>
               <div className={`text-2xl font-bold mt-1 ${textPrimary}`}>
                 {(status.denialStats.averageDenialRate * 100).toFixed(1)}%
               </div>
             </div>
             <div>
-              <div className={`text-sm ${textSecondary}`}>被拒最多工具</div>
+              <div className={`text-sm ${textSecondary}`}>
+                {t("security.topDeniedTools")}
+              </div>
               <div className="mt-1 space-y-1">
-                {status.denialStats.topDeniedTools.map((t) => (
+                {status.denialStats.topDeniedTools.map((tool) => (
                   <div
-                    key={t.tool}
+                    key={tool.tool}
                     className="flex items-center justify-between text-xs"
                   >
-                    <span className="font-mono">{t.tool}</span>
+                    <span className="font-mono">{tool.tool}</span>
                     <span className={`font-medium ${textPrimary}`}>
-                      {t.count} 次
+                      {t("security.timesCount", { count: tool.count })}
                     </span>
                   </div>
                 ))}
@@ -268,7 +285,7 @@ function SecurityDashboard() {
                 className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
               >
                 <h2 className={`text-sm font-semibold ${textPrimary}`}>
-                  近 7 日决策趋势
+                  {t("security.trend7d")}
                 </h2>
               </div>
               <div className="p-4 space-y-2">
@@ -302,7 +319,7 @@ function SecurityDashboard() {
                         className={`w-28 shrink-0 text-right truncate ${textPrimary}`}
                         title={parts.join(" · ")}
                       >
-                        {parts.join(" · ") || "无事件"}
+                        {parts.join(" · ") || t("security.noEvents")}
                       </span>
                     </div>
                   );
@@ -316,7 +333,7 @@ function SecurityDashboard() {
                 className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
               >
                 <h2 className={`text-sm font-semibold ${textPrimary}`}>
-                  越权拦截类别 Top
+                  {t("security.topBlockKinds")}
                 </h2>
               </div>
               <div className="p-4 space-y-1">
@@ -327,7 +344,7 @@ function SecurityDashboard() {
                   >
                     <span className="font-mono text-xs">{b.kind}</span>
                     <span className={`font-medium ${textPrimary}`}>
-                      {b.count} 次
+                      {t("security.timesCount", { count: b.count })}
                     </span>
                   </div>
                 ))}
@@ -344,17 +361,25 @@ function SecurityDashboard() {
             className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
           >
             <h2 className={`text-sm font-semibold ${textPrimary}`}>
-              最近安全事件
+              {t("security.recentEvents")}
             </h2>
           </div>
           <div className="overflow-x-auto">
             <table className={`w-full text-sm ${textPrimary}`}>
               <thead className={isDark ? "bg-gray-700" : "bg-gray-50"}>
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium">时间</th>
-                  <th className="px-4 py-2 text-left font-medium">命令</th>
-                  <th className="px-4 py-2 text-left font-medium">决策</th>
-                  <th className="px-4 py-2 text-left font-medium">风险</th>
+                  <th className="px-4 py-2 text-left font-medium">
+                    {t("security.colTime")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium">
+                    {t("security.colCommand")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium">
+                    {t("security.colDecision")}
+                  </th>
+                  <th className="px-4 py-2 text-left font-medium">
+                    {t("security.colRisk")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">

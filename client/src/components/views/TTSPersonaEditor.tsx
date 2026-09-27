@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ export function TTSPersonaEditor({
   persona,
   onSaved,
 }: TTSPersonaEditorProps) {
+  const { t } = useTranslation();
   const isEditing = !!persona;
 
   // 表单状态
@@ -118,15 +120,15 @@ export function TTSPersonaEditor({
   /** 提交表单 */
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError("人设名称不能为空");
+      setError(t("tts.personaNameRequired"));
       return;
     }
     if (!provider) {
-      setError("请选择 TTS 提供商");
+      setError(t("tts.personaProviderRequired"));
       return;
     }
     if (!voice) {
-      setError("请选择语音");
+      setError(t("tts.selectVoice"));
       return;
     }
 
@@ -153,20 +155,20 @@ export function TTSPersonaEditor({
             body: JSON.stringify(body),
           },
         );
-        if (!response.ok) throw new Error("更新人设失败");
+        if (!response.ok) throw new Error(t("tts.updatePersonaFailed"));
       } else {
         const response = await fetch(`${getBackendBaseUrl()}/v1/tts/personas`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!response.ok) throw new Error("创建人设失败");
+        if (!response.ok) throw new Error(t("tts.createPersonaFailed"));
       }
 
       onSaved();
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存人设失败");
+      setError(err instanceof Error ? err.message : t("tts.savePersonaFailed"));
     } finally {
       setSaving(false);
     }
@@ -176,31 +178,33 @@ export function TTSPersonaEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "编辑人设" : "新建人设"}</DialogTitle>
+          <DialogTitle>
+            {isEditing ? t("tts.editPersona") : t("tts.newPersona")}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* 名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              名称 <span className="text-red-500">*</span>
+              {t("common.name")} <span className="text-red-500">*</span>
             </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="给这个人设取个名字"
+              placeholder={t("tts.namePlaceholder")}
             />
           </div>
 
           {/* 描述 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              描述
+              {t("common.description")}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="人设描述（可选）"
+              placeholder={t("tts.descriptionPlaceholder")}
               rows={2}
               className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm resize-none"
             />
@@ -209,7 +213,7 @@ export function TTSPersonaEditor({
           {/* Provider */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              TTS 提供商 <span className="text-red-500">*</span>
+              {t("tts.providerLabel")} <span className="text-red-500">*</span>
             </label>
             <select
               value={provider}
@@ -230,14 +234,14 @@ export function TTSPersonaEditor({
           {/* 语音 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              语音 <span className="text-red-500">*</span>
+              {t("tts.voice")} <span className="text-red-500">*</span>
             </label>
             <select
               value={voice}
               onChange={(e) => setVoice(e.target.value)}
               className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
             >
-              {!voice && <option value="">请选择语音</option>}
+              {!voice && <option value="">{t("tts.selectVoice")}</option>}
               {voices.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
@@ -249,7 +253,7 @@ export function TTSPersonaEditor({
           {/* 语速 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              语速：{speed.toFixed(1)}x
+              {t("tts.speedValue", { value: speed.toFixed(1) })}
             </label>
             <input
               type="range"
@@ -265,19 +269,19 @@ export function TTSPersonaEditor({
           {/* 语言 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              语言代码
+              {t("tts.languageCode")}
             </label>
             <Input
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              placeholder="如 zh-CN、en-US"
+              placeholder={t("tts.languagePlaceholder")}
             />
           </div>
 
           {/* 音频格式 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              音频格式
+              {t("tts.audioFormat")}
             </label>
             <select
               value={format}
@@ -301,10 +305,14 @@ export function TTSPersonaEditor({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? "保存中..." : isEditing ? "更新人设" : "创建人设"}
+            {saving
+              ? t("tts.saving")
+              : isEditing
+                ? t("tts.updatePersona")
+                : t("tts.createPersona")}
           </Button>
         </DialogFooter>
       </DialogContent>

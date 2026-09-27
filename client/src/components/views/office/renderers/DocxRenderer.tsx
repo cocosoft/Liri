@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import mammoth from "mammoth";
 import { useOfficeStore, type FileInfo } from "../../../../stores/officeStore";
 import { officeApi } from "../../../../services/officeApi";
@@ -16,6 +17,7 @@ interface DocxRendererProps {
 }
 
 export function DocxRenderer({ file }: DocxRendererProps) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme === "dark";
 
@@ -76,7 +78,9 @@ export function DocxRenderer({ file }: DocxRendererProps) {
         if (cancelled) return;
         setPreviewState(
           "error",
-          err instanceof Error ? err.message : "文档加载失败",
+          err instanceof Error
+            ? err.message
+            : t("office.docxLoadFailed", "文档加载失败"),
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -93,7 +97,7 @@ export function DocxRenderer({ file }: DocxRendererProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        加载中...
+        {t("common.loading", "加载中...")}
       </div>
     );
   }
@@ -101,7 +105,7 @@ export function DocxRenderer({ file }: DocxRendererProps) {
   if (!html) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        无法渲染文档内容
+        {t("office.docxRenderFailed", "无法渲染文档内容")}
       </div>
     );
   }

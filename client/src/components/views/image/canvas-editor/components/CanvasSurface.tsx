@@ -3,6 +3,7 @@
 // 事件统一在 Overlay 层监听，InputAdapter 坐标转换后分发
 
 import React, { useRef, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CanvasTool, CanvasState } from "../types";
 import { CanvasTransform } from "../core/CanvasTransform";
 import { CommandManager } from "../core/CommandManager";
@@ -114,6 +115,7 @@ export const CanvasSurface: React.FC<Props> = ({
   onSelectionExport,
   onDrawingChange,
 }) => {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const staticRef = useRef<HTMLCanvasElement>(null);
   const interactiveRef = useRef<HTMLCanvasElement>(null);
@@ -801,7 +803,7 @@ export const CanvasSurface: React.FC<Props> = ({
         className="absolute inset-0 z-20"
         tabIndex={0}
         role="img"
-        aria-label="画布编辑器"
+        aria-label={t("media.canvasEditorAria")}
       />
 
       {/* 右键上下文菜单 */}
@@ -820,7 +822,7 @@ export const CanvasSurface: React.FC<Props> = ({
             disabled={!commands.canUndo()}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-30 border-0 bg-transparent cursor-pointer"
           >
-            撤销 (Ctrl+Z)
+            {t("media.canvasUndo")}
           </button>
           <button
             onClick={() => {
@@ -831,7 +833,7 @@ export const CanvasSurface: React.FC<Props> = ({
             disabled={!commands.canRedo()}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-30 border-0 bg-transparent cursor-pointer"
           >
-            重做 (Ctrl+Y)
+            {t("media.canvasRedo")}
           </button>
           <div className="h-px bg-gray-600/30 my-1" />
           <button
@@ -841,7 +843,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            导出 PNG
+            {t("media.canvasExportPng")}
           </button>
           <button
             onClick={() => {
@@ -850,7 +852,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            导出 JPEG
+            {t("media.canvasExportJpeg")}
           </button>
           <div className="h-px bg-gray-600/30 my-1" />
           <button
@@ -860,7 +862,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            水平翻转
+            {t("media.canvasFlipHorizontal")}
           </button>
           <button
             onClick={() => {
@@ -869,7 +871,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            垂直翻转
+            {t("media.canvasFlipVertical")}
           </button>
           <div className="h-px bg-gray-600/30 my-1" />
           {/* 滤镜 */}
@@ -880,7 +882,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            亮度 +
+            {t("media.canvasBrightnessUp")}
           </button>
           <button
             onClick={() => {
@@ -889,7 +891,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            亮度 -
+            {t("media.canvasBrightnessDown")}
           </button>
           <button
             onClick={() => {
@@ -898,7 +900,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            对比度 +
+            {t("media.canvasContrastUp")}
           </button>
           <button
             onClick={() => {
@@ -907,7 +909,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            对比度 -
+            {t("media.canvasContrastDown")}
           </button>
           <button
             onClick={() => {
@@ -916,7 +918,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            灰度
+            {t("media.canvasGrayscale")}
           </button>
           <button
             onClick={() => {
@@ -925,7 +927,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            反相
+            {t("media.canvasInvert")}
           </button>
           <button
             onClick={() => {
@@ -934,7 +936,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-amber-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            模糊
+            {t("media.canvasBlur")}
           </button>
           <div className="h-px bg-gray-600/30 my-1" />
           <button
@@ -944,7 +946,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            裁剪到选区
+            {t("media.canvasCrop")}
           </button>
           <button
             onClick={() => {
@@ -953,7 +955,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            新建画布
+            {t("media.canvasNew")}
           </button>
           <button
             onClick={() => {
@@ -962,7 +964,7 @@ export const CanvasSurface: React.FC<Props> = ({
             }}
             className="w-full text-left px-3 py-1.5 text-xs text-red-400 hover:bg-gray-700 border-0 bg-transparent cursor-pointer"
           >
-            清空画布
+            {t("media.canvasClear")}
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@
  *
  * 选中文件后显示：批量加标签、移动、删除、取消。
  */
+import { useTranslation } from "react-i18next";
 import type { KnowledgeBase } from "../../types";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useState } from "react";
@@ -27,6 +28,7 @@ function BatchActionBar({
   onClearSelection,
   onRefresh,
 }: BatchActionBarProps) {
+  const { t } = useTranslation();
   const count = selectedFileIds.size;
   // KB-BATCH（2026-08-27）：批量操作期间禁用按钮 + 失败提示，避免 unhandled rejection
   const [busy, setBusy] = useState(false);
@@ -51,8 +53,14 @@ function BatchActionBar({
       if (failed.length > 0) {
         // Phase 2-11：明确"成功 N/M 条"，失败明细可排查
         toastError(
-          `批量移动: 成功 ${ids.length - failed.length}/${ids.length} 条` +
-            (failed.length > 0 ? `，失败 ${failed.length} 条` : ""),
+          t("knowledge.batchMoveSummary", {
+            ok: ids.length - failed.length,
+            total: ids.length,
+            failedPart:
+              failed.length > 0
+                ? t("knowledge.batchMoveFailedPart", { failed: failed.length })
+                : "",
+          }),
         );
       }
     } finally {
@@ -62,15 +70,18 @@ function BatchActionBar({
 
   async function handleBatchDelete() {
     if (busy) return; // F8：移动/删除进行中防并发
-    if (!confirm(`确定要删除选中的 ${count} 个文档吗？此操作不可撤销。`))
-      return;
+    if (!confirm(t("knowledge.batchDeleteConfirm", { count }))) return;
     setBusy(true);
     try {
       await knowledgeService.batchDelete([...selectedFileIds]);
       onClearSelection();
       onRefresh();
     } catch (err) {
-      toastError(err instanceof Error ? err : new Error("批量删除失败"));
+      toastError(
+        err instanceof Error
+          ? err
+          : new Error(t("knowledge.batchDeleteFailed")),
+      );
     } finally {
       setBusy(false);
     }
@@ -87,7 +98,7 @@ function BatchActionBar({
       <span
         className={`text-xs font-medium ${isDark ? "text-blue-300" : "text-blue-700"}`}
       >
-        已选 {count} 项
+        {t("knowledge.selectedCount", { count })}
       </span>
       <div className="flex items-center gap-1.5">
         <button
@@ -99,7 +110,7 @@ function BatchActionBar({
               : "bg-blue-200 text-blue-700 hover:bg-blue-300"
           }`}
         >
-          批量加标签
+          {t("knowledge.batchAddTags")}
         </button>
         <select
           value=""
@@ -116,7 +127,7 @@ function BatchActionBar({
               : "bg-gray-100 border-gray-300 text-gray-600"
           } border focus:outline-none cursor-pointer`}
         >
-          <option value="">移至...</option>
+          <option value="">{t("knowledge.moveTo")}</option>
           {bases
             .filter((b) => b.name !== selectedBase)
             .map((b) => (
@@ -134,7 +145,7 @@ function BatchActionBar({
               : "bg-red-100 text-red-600 hover:bg-red-200"
           }`}
         >
-          删除
+          {t("common.delete")}
         </button>
         <button
           onClick={onClearSelection}
@@ -144,7 +155,7 @@ function BatchActionBar({
               : "text-gray-500 hover:text-gray-700"
           }`}
         >
-          取消
+          {t("common.cancel")}
         </button>
       </div>
     </div>

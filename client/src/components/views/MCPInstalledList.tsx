@@ -81,9 +81,12 @@ function MCPInstalledList() {
       await toggleServer(serverId, enabled);
       const server = installedServers.find((s) => s.name === serverId);
       const label = server?.title || serverId;
-      addToast("info", `"${label}" ${enabled ? "已启用" : "已禁用"}`);
+      addToast(
+        "info",
+        `"${label}" ${enabled ? t("mcp.enabled") : t("mcp.disabled")}`,
+      );
     },
-    [toggleServer, installedServers, addToast],
+    [toggleServer, installedServers, addToast, t],
   );
 
   if (installedServers.length === 0) {
@@ -103,12 +106,12 @@ function MCPInstalledList() {
           <p
             className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            暂无已安装的 MCP 服务器
+            {t("mcp.noInstalled")}
           </p>
           <p
             className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            在下方搜索市场安装，或手动添加服务器
+            {t("mcp.noInstalledHint")}
           </p>
         </div>
       </div>
@@ -161,7 +164,7 @@ function MCPInstalledList() {
               ? "hover:bg-gray-700 text-gray-400"
               : "hover:bg-gray-100 text-gray-500"
           }`}
-          title="刷新列表"
+          title={t("mcp.refreshList")}
         >
           <svg
             className="w-4 h-4"
@@ -188,27 +191,31 @@ function MCPInstalledList() {
             onClick={() => clearSelection()}
             className={`text-xs hover:underline ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            取消选择
+            {t("mcp.clearSelection")}
           </button>
           <button
             onClick={() => {
               batchEnable();
               addToast(
                 "info",
-                `已批量启用 ${selectedServerNames.size} 个服务器`,
+                t("mcp.batchEnableSuccess", {
+                  count: selectedServerNames.size,
+                }),
               );
             }}
             disabled={batchOperating}
             className="px-2 py-1 text-xs rounded bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400 transition-colors disabled:opacity-50"
           >
-            批量启用
+            {t("mcp.batchEnable")}
           </button>
           <button
             onClick={() => {
               batchDisable();
               addToast(
                 "info",
-                `已批量禁用 ${selectedServerNames.size} 个服务器`,
+                t("mcp.batchDisableSuccess", {
+                  count: selectedServerNames.size,
+                }),
               );
             }}
             disabled={batchOperating}
@@ -221,7 +228,9 @@ function MCPInstalledList() {
               batchUninstall();
               addToast(
                 "success",
-                `已批量卸载 ${selectedServerNames.size} 个服务器`,
+                t("mcp.batchUninstallSuccess", {
+                  count: selectedServerNames.size,
+                }),
               );
             }}
             disabled={batchOperating}
@@ -344,9 +353,9 @@ function MCPInstalledList() {
                       ? "border-gray-600 text-gray-300 hover:bg-gray-700"
                       : "border-gray-300 text-gray-600 hover:bg-gray-50"
                   }`}
-                  title="编辑配置"
+                  title={t("mcp.editConfig")}
                 >
-                  编辑
+                  {t("common.edit")}
                 </button>
                 <button
                   onClick={() => handleToggle(server.name, !server.enabled)}
@@ -356,7 +365,7 @@ function MCPInstalledList() {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
-                  {server.enabled ? "禁用" : "启用"}
+                  {server.enabled ? t("common.disable") : t("common.enable")}
                 </button>
                 <button
                   onClick={() => promptUninstall(server.name)}

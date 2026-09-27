@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../../stores/agent";
 import { createLogger } from "../../utils/logger";
 import { handleClientError } from "../../utils/handleError";
@@ -17,30 +18,31 @@ const STATUS_COLOR: Record<AgentTask["status"], string> = {
   lost: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
 };
 
-/** 状态 → 中文文案 */
-const STATUS_TEXT: Record<AgentTask["status"], string> = {
-  pending: "等待中",
-  running: "运行中",
-  completed: "已完成",
-  failed: "失败",
-  lost: "丢失",
+/** 状态 → i18n 键 */
+const STATUS_TEXT_KEYS: Record<AgentTask["status"], string> = {
+  pending: "settings.agentStatusPending",
+  running: "settings.agentStatusRunning",
+  completed: "settings.agentStatusCompleted",
+  failed: "settings.agentStatusFailed",
+  lost: "settings.agentStatusLost",
 };
 
 type StatusFilter = AgentTask["status"] | "all";
 
 /** 状态过滤选项 */
-const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
-  { id: "all", label: "全部" },
-  { id: "pending", label: "等待中" },
-  { id: "running", label: "运行中" },
-  { id: "completed", label: "已完成" },
-  { id: "failed", label: "失败" },
+const STATUS_FILTERS: { id: StatusFilter; labelKey: string }[] = [
+  { id: "all", labelKey: "common.all" },
+  { id: "pending", labelKey: "settings.agentStatusPending" },
+  { id: "running", labelKey: "settings.agentStatusRunning" },
+  { id: "completed", labelKey: "settings.agentStatusCompleted" },
+  { id: "failed", labelKey: "settings.agentStatusFailed" },
 ];
 
 /** 自动轮询间隔（跨项目全局任务进度保持最新） */
 const POLL_INTERVAL_MS = 5000;
 
 function AgentTaskSettings() {
+  const { t } = useTranslation();
   const {
     tasks,
     isLoading,
@@ -93,7 +95,11 @@ function AgentTaskSettings() {
 
   const handleDelete = async (task: AgentTask) => {
     if (
-      !window.confirm(`确定删除任务「${task.name || task.type || task.id}」？`)
+      !window.confirm(
+        t("settings.agentDeleteConfirm", {
+          name: task.name || task.type || task.id,
+        }),
+      )
     ) {
       return;
     }
@@ -114,10 +120,10 @@ function AgentTaskSettings() {
     <div className="flex flex-col">
       <div className="mb-4">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-          Agent 任务管理
+          {t("settings.agentTasksTitle")}
         </h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          跨项目的全局 Agent 任务列表，每 5 秒自动刷新
+          {t("settings.agentTasksDesc")}
         </p>
       </div>
 
@@ -139,7 +145,7 @@ function AgentTaskSettings() {
                 : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            {f.label}
+            {t(f.labelKey)}
             <span className="ml-1 text-xs opacity-70">{counts[f.id] || 0}</span>
           </button>
         ))}
@@ -148,7 +154,7 @@ function AgentTaskSettings() {
           disabled={isLoading}
           className="ml-auto px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50"
         >
-          刷新
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -156,11 +162,11 @@ function AgentTaskSettings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {isLoading && filtered.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400 dark:text-gray-500">
-            加载中...
+            {t("common.loading")}
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-12 text-center text-gray-400 dark:text-gray-500">
-            暂无任务
+            {t("settings.agentNoTasks")}
           </div>
         ) : (
           <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -178,10 +184,10 @@ function AgentTaskSettings() {
                         STATUS_COLOR[task.status]
                       }`}
                     >
-                      {STATUS_TEXT[task.status] || task.status}
+                      {t(STATUS_TEXT_KEYS[task.status]) || task.status}
                     </span>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {task.name || task.type || "未知任务"}
+                      {task.name || task.type || t("settings.agentUnknownTask")}
                     </span>
                     {task.progress !== undefined && (
                       <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -204,7 +210,7 @@ function AgentTaskSettings() {
                         }}
                         className="text-xs px-2 py-1 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-900/30"
                       >
-                        终止
+                        {t("settings.agentCancel")}
                       </button>
                     )}
                     {canRerun(task.status) && task.name && (
@@ -215,7 +221,7 @@ function AgentTaskSettings() {
                         }}
                         className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30"
                       >
-                        重新执行
+                        {t("settings.agentRerun")}
                       </button>
                     )}
                     <button
@@ -225,7 +231,7 @@ function AgentTaskSettings() {
                       }}
                       className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
-                      删除
+                      {t("common.delete")}
                     </button>
                     <span className="text-xs text-gray-400 dark:text-gray-500">
                       {expandedId === task.id ? "▲" : "▼"}
@@ -248,7 +254,9 @@ function AgentTaskSettings() {
                     <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                       <span>ID: {task.id}</span>
                       <span>
-                        创建时间： {new Date(task.created_at).toLocaleString()}
+                        {t("settings.agentCreatedAt", {
+                          time: new Date(task.created_at).toLocaleString(),
+                        })}
                       </span>
                     </div>
                     {task.description && (
@@ -259,7 +267,7 @@ function AgentTaskSettings() {
                     {task.result && (
                       <div>
                         <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                          结果
+                          {t("settings.agentResult")}
                         </div>
                         <pre className="whitespace-pre-wrap text-xs bg-gray-50 dark:bg-gray-900 rounded p-2 text-gray-700 dark:text-gray-300 max-h-40 overflow-y-auto">
                           {task.result}
@@ -269,7 +277,7 @@ function AgentTaskSettings() {
                     {task.error && (
                       <div>
                         <div className="text-xs font-medium text-red-500 mb-1">
-                          错误
+                          {t("settings.agentError")}
                         </div>
                         <pre className="whitespace-pre-wrap text-xs bg-red-50 dark:bg-red-900/20 rounded p-2 text-red-600 dark:text-red-400 max-h-40 overflow-y-auto">
                           {task.error}
@@ -278,7 +286,9 @@ function AgentTaskSettings() {
                     )}
                     {task.tokenUsed !== undefined && (
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Token 用量: {task.tokenUsed}
+                        {t("settings.agentTokenUsage", {
+                          value: task.tokenUsed,
+                        })}
                       </div>
                     )}
                   </div>

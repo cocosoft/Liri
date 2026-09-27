@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface DisconnectBannerProps {
   lastUpdateTime: string;
@@ -11,6 +12,7 @@ export const DisconnectBanner = memo(function DisconnectBanner({
   isDark,
   onRetry,
 }: DisconnectBannerProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={`mb-3 p-3 rounded-lg text-sm flex items-center justify-between ${
@@ -19,7 +21,7 @@ export const DisconnectBanner = memo(function DisconnectBanner({
           : "bg-yellow-50 text-yellow-700 border border-yellow-200"
       }`}
     >
-      <span>数据源已断开，最后更新：{lastUpdateTime}</span>
+      <span>{t("otel.disconnectedLastUpdate", { time: lastUpdateTime })}</span>
       {onRetry && (
         <button
           onClick={onRetry}
@@ -29,7 +31,7 @@ export const DisconnectBanner = memo(function DisconnectBanner({
               : "bg-yellow-200 hover:bg-yellow-300 text-yellow-800"
           }`}
         >
-          重试
+          {t("common.retry")}
         </button>
       )}
     </div>

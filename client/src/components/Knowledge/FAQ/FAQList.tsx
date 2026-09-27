@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { FAQEntry } from "../../../types/knowledge";
 import { FAQStatusBadge } from "./FAQStatusBadge";
 import { Pencil, Trash2, Star } from "lucide-react";
@@ -22,13 +23,14 @@ export const FAQList = memo(function FAQList({
   onDelete,
   isDark,
 }: FAQListProps) {
+  const { t } = useTranslation();
   if (entries.length === 0) {
     return (
       <div
         className={`text-center py-12 ${isDark ? "text-gray-500" : "text-gray-400"}`}
       >
-        <p className="text-sm">暂无 FAQ 条目</p>
-        <p className="text-xs mt-1">点击「新建」创建第一条 FAQ</p>
+        <p className="text-sm">{t("knowledge.faq.empty")}</p>
+        <p className="text-xs mt-1">{t("knowledge.faq.emptyHint")}</p>
       </div>
     );
   }
@@ -45,9 +47,11 @@ export const FAQList = memo(function FAQList({
           onChange={onToggleAll}
           className="rounded"
         />
-        <span className="flex-1">问题</span>
-        <span className="w-12 text-center">状态</span>
-        <span className="w-14 text-center">操作</span>
+        <span className="flex-1">{t("knowledge.faq.questionLabel")}</span>
+        <span className="w-12 text-center">{t("knowledge.faq.colStatus")}</span>
+        <span className="w-14 text-center">
+          {t("knowledge.faq.colActions")}
+        </span>
       </div>
 
       {entries.map((entry) => (
@@ -86,12 +90,12 @@ export const FAQList = memo(function FAQList({
               {(entry.answer ?? "").slice(0, 100)}
             </p>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {entry.tags.map((t) => (
+              {entry.tags.map((tag) => (
                 <span
-                  key={t}
+                  key={tag}
                   className={`text-[10px] px-1 py-0 rounded ${isDark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}
                 >
-                  {t}
+                  {tag}
                 </span>
               ))}
               {entry.category && (
@@ -112,14 +116,14 @@ export const FAQList = memo(function FAQList({
             <button
               onClick={() => onEdit(entry)}
               className={`p-1 rounded hover:bg-gray-700/50 ${isDark ? "text-gray-400 hover:text-blue-400" : "text-gray-400 hover:text-blue-500"}`}
-              title="编辑"
+              title={t("common.edit")}
             >
               <Pencil size={14} />
             </button>
             <button
               onClick={() => onDelete(entry.id)}
               className={`p-1 rounded hover:bg-gray-700/50 ${isDark ? "text-gray-400 hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}
-              title="删除"
+              title={t("common.delete")}
             >
               <Trash2 size={14} />
             </button>

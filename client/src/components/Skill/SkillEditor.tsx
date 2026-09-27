@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   Skill,
   SkillParameter,
@@ -22,11 +23,11 @@ const PARAMETER_TYPES: SkillParameter["type"][] = [
 ];
 
 const PARAMETER_TYPE_LABELS: Record<SkillParameter["type"], string> = {
-  string: "字符串",
-  number: "数字",
-  boolean: "布尔值",
-  array: "数组",
-  object: "对象",
+  string: "skill.paramString",
+  number: "skill.paramNumber",
+  boolean: "skill.paramBoolean",
+  array: "skill.paramArray",
+  object: "skill.paramObject",
 };
 
 function SkillEditor({
@@ -36,6 +37,7 @@ function SkillEditor({
   onSave,
   onCancel,
 }: SkillEditorProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -78,10 +80,10 @@ function SkillEditor({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) {
-      newErrors.name = "请输入技能名称";
+      newErrors.name = t("skill.nameRequired");
     }
     if (!category) {
-      newErrors.category = "请选择分类";
+      newErrors.category = t("skill.categoryRequired");
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -114,7 +116,7 @@ function SkillEditor({
       <h2
         className={`text-xl font-bold mb-6 ${isDark ? "text-gray-100" : "text-gray-900"}`}
       >
-        {skill ? "编辑技能" : "创建技能"}
+        {skill ? t("skill.edit") : t("skill.create")}
       </h2>
 
       <div className="space-y-4">
@@ -122,13 +124,13 @@ function SkillEditor({
           <label
             className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            技能名称 <span className="text-red-500">*</span>
+            {t("skill.name")} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="输入技能名称"
+            placeholder={t("skill.namePlaceholder")}
             className={`w-full px-3 py-2 rounded-lg text-sm border ${
               isDark
                 ? "bg-gray-700 border-gray-600 text-white"
@@ -144,12 +146,12 @@ function SkillEditor({
           <label
             className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            描述
+            {t("skill.description")}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="输入技能描述"
+            placeholder={t("skill.descriptionPlaceholder")}
             rows={3}
             className={`w-full px-3 py-2 rounded-lg text-sm border resize-none ${
               isDark
@@ -163,7 +165,7 @@ function SkillEditor({
           <label
             className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            分类 <span className="text-red-500">*</span>
+            {t("skill.categories")} <span className="text-red-500">*</span>
           </label>
           <select
             value={category}
@@ -174,7 +176,7 @@ function SkillEditor({
                 : "bg-white border-gray-300 text-gray-900"
             } ${errors.category ? "border-red-500" : ""} focus:outline-none focus:ring-2 focus:ring-blue-500`}
           >
-            <option value="">选择分类</option>
+            <option value="">{t("skill.selectCategory")}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
@@ -191,7 +193,7 @@ function SkillEditor({
             <label
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              参数列表
+              {t("skill.paramList")}
             </label>
             <button
               onClick={addParameter}
@@ -201,7 +203,7 @@ function SkillEditor({
                   : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
-              + 添加参数
+              {t("skill.addParam")}
             </button>
           </div>
 
@@ -209,7 +211,7 @@ function SkillEditor({
             <p
               className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              暂无参数，点击上方按钮添加
+              {t("skill.noParams")}
             </p>
           ) : (
             <div className="space-y-3">
@@ -222,7 +224,7 @@ function SkillEditor({
                     <span
                       className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
                     >
-                      参数 {index + 1}
+                      {t("skill.paramIndex", { index: index + 1 })}
                     </span>
                     <button
                       onClick={() => removeParameter(index)}
@@ -251,7 +253,7 @@ function SkillEditor({
                       onChange={(e) =>
                         updateParameter(index, { name: e.target.value })
                       }
-                      placeholder="参数名称"
+                      placeholder={t("skill.paramNamePlaceholder")}
                       className={`px-2 py-1.5 rounded-lg text-sm border ${
                         isDark
                           ? "bg-gray-800 border-gray-600 text-white"
@@ -273,7 +275,7 @@ function SkillEditor({
                     >
                       {PARAMETER_TYPES.map((type) => (
                         <option key={type} value={type}>
-                          {PARAMETER_TYPE_LABELS[type]}
+                          {t(PARAMETER_TYPE_LABELS[type])}
                         </option>
                       ))}
                     </select>
@@ -289,7 +291,7 @@ function SkillEditor({
                       <span
                         className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}
                       >
-                        必填
+                        {t("skill.required")}
                       </span>
                     </div>
                   </div>
@@ -300,7 +302,7 @@ function SkillEditor({
                     onChange={(e) =>
                       updateParameter(index, { description: e.target.value })
                     }
-                    placeholder="参数描述（可选）"
+                    placeholder={t("skill.paramDescPlaceholder")}
                     className={`w-full mt-2 px-2 py-1.5 rounded-lg text-sm border ${
                       isDark
                         ? "bg-gray-800 border-gray-600 text-white"
@@ -323,7 +325,7 @@ function SkillEditor({
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          取消
+          {t("common.cancel")}
         </button>
         <button
           onClick={handleSubmit}
@@ -333,7 +335,7 @@ function SkillEditor({
               : "bg-blue-600 hover:bg-blue-700 text-white"
           }`}
         >
-          {skill ? "保存修改" : "创建技能"}
+          {skill ? t("skill.saveChanges") : t("skill.create")}
         </button>
       </div>
     </div>

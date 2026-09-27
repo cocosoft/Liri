@@ -157,12 +157,12 @@ function NotificationsPanel({
         <p
           className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}
         >
-          消息中心
+          {t("notification.title")}
         </p>
 
         <ConfigItem
-          label="免打扰时段"
-          description="免打扰时段内不弹桌面通知，仅更新角标"
+          label={t("settings.notifyDnd")}
+          description={t("settings.notifyDndDesc")}
           isDark={isDark}
         >
           <div className="flex items-center gap-3">
@@ -191,7 +191,7 @@ function NotificationsPanel({
                 <span
                   className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  时 —
+                  {t("settings.notifyHourDash")}
                 </span>
                 <TextConfig
                   isDark={isDark}
@@ -211,7 +211,7 @@ function NotificationsPanel({
                 <span
                   className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  时
+                  {t("settings.notifyHourSuffix")}
                 </span>
               </div>
             )}
@@ -219,8 +219,8 @@ function NotificationsPanel({
         </ConfigItem>
 
         <ConfigItem
-          label="桌面通知阈值"
-          description="未读消息达到此数量时才弹出桌面通知（0=始终通知）"
+          label={t("settings.notifyDesktopThreshold")}
+          description={t("settings.notifyDesktopThresholdDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -238,8 +238,8 @@ function NotificationsPanel({
         </ConfigItem>
 
         <ConfigItem
-          label="分类角标"
-          description="控制各分类是否在 Tab 栏显示未读角标"
+          label={t("settings.notifyCategoryBadges")}
+          description={t("settings.notifyCategoryBadgesDesc")}
           isDark={isDark}
         >
           <div className="space-y-2">
@@ -267,10 +267,10 @@ function NotificationsPanel({
                 >
                   {
                     {
-                      approval: "审批",
-                      todo: "待办",
-                      system: "系统",
-                      mention: "@提及",
+                      approval: t("settings.notifyCategoryApproval"),
+                      todo: t("settings.notifyCategoryTodo"),
+                      system: t("settings.notifyCategorySystem"),
+                      mention: t("settings.notifyCategoryMention"),
                     }[cat]
                   }
                 </span>

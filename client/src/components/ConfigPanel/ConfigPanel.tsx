@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { chatService } from "../../services/chatService";
 import { handleClientError } from "../../utils/handleError";
@@ -28,6 +29,7 @@ function Modal({ isOpen, onClose, children }: ModalProps) {
 }
 
 function ThemeToggle() {
+  const { t } = useTranslation();
   const { config, setConfig } = useConfigStore();
   const isDark = config.theme === "dark";
 
@@ -40,10 +42,11 @@ function ThemeToggle() {
     <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
       <div>
         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          主题模式
+          {t("settings.themeMode")}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          当前: {isDark ? "深色模式" : "浅色模式"}
+          {t("common.currentLabel")}{" "}
+          {isDark ? t("common.themeDark") : t("common.themeLight")}
         </div>
       </div>
       <button
@@ -65,6 +68,7 @@ function ThemeToggle() {
 }
 
 function BackendControl() {
+  const { t } = useTranslation();
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({
     running: false,
     port: null,
@@ -121,11 +125,13 @@ function BackendControl() {
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
       <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">
-        Backend 服务
+        {t("common.backendService")}
       </h3>
 
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm text-gray-600 dark:text-gray-400">状态:</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {t("common.statusLabel")}
+        </span>
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
             backendStatus.running
@@ -133,11 +139,11 @@ function BackendControl() {
               : "bg-gray-100 text-gray-800"
           }`}
         >
-          {backendStatus.running ? "运行中" : "已停止"}
+          {backendStatus.running ? t("common.running") : t("common.stopped")}
         </span>
         {backendStatus.port && (
           <span className="text-xs text-gray-500">
-            端口: {backendStatus.port}
+            {t("common.portInline", { port: backendStatus.port })}
           </span>
         )}
         {backendStatus.pid && (
@@ -160,7 +166,7 @@ function BackendControl() {
             disabled={loading}
             className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm rounded disabled:opacity-50"
           >
-            {loading ? "停止中..." : "停止 Backend"}
+            {loading ? t("common.stopping") : t("common.stopBackend")}
           </button>
         ) : (
           <button
@@ -168,7 +174,7 @@ function BackendControl() {
             disabled={loading}
             className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded disabled:opacity-50"
           >
-            {loading ? "启动中..." : "启动 Backend"}
+            {loading ? t("common.starting") : t("common.startBackend")}
           </button>
         )}
         <button
@@ -176,13 +182,13 @@ function BackendControl() {
           disabled={loading}
           className="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300 text-sm rounded disabled:opacity-50"
         >
-          刷新状态
+          {t("settings.refreshStatus")}
         </button>
       </div>
 
       {!backendStatus.running && (
         <p className="mt-2 text-xs text-gray-500">
-          提示: 需要先启动 Backend 才能进行聊天
+          {t("common.backendStartHint")}
         </p>
       )}
     </div>
@@ -190,6 +196,7 @@ function BackendControl() {
 }
 
 function ConfigPanel() {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"backend" | "config">("config");
   const { config, loadConfig } = useConfigStore();
@@ -215,7 +222,7 @@ function ConfigPanel() {
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              设置
+              {t("nav.settings")}
             </h2>
             <button
               onClick={() => setIsOpen(false)}
@@ -234,7 +241,7 @@ function ConfigPanel() {
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              外观
+              {t("settings.appearance")}
             </button>
             <button
               onClick={() => setActiveTab("backend")}
@@ -244,7 +251,7 @@ function ConfigPanel() {
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              Backend 服务
+              {t("common.backendService")}
             </button>
           </div>
 
@@ -254,7 +261,7 @@ function ConfigPanel() {
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  快捷操作
+                  {t("common.quickActions")}
                 </div>
                 <button
                   onClick={() => {
@@ -264,7 +271,7 @@ function ConfigPanel() {
                   className="w-full flex items-center gap-2 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm transition-colors"
                 >
                   <span>⚙️</span>
-                  <span>打开完整设置</span>
+                  <span>{t("common.openFullSettings")}</span>
                 </button>
               </div>
             </div>

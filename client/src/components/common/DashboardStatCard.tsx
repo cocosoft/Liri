@@ -5,6 +5,8 @@
  * DashboardStatCard — 概览卡片（场景 B：大数字 + emoji icon + trendDirection，用于 DashboardPage）
  * Props: { label, value, icon?, trendDirection? }
  */
+import { useTranslation } from "react-i18next";
+
 export interface DashboardStatCardProps {
   label: string;
   value: string | number;
@@ -18,6 +20,7 @@ export function DashboardStatCard({
   icon,
   trendDirection,
 }: DashboardStatCardProps) {
+  const { t } = useTranslation();
   const trendIcon =
     trendDirection === "up" ? "↑" : trendDirection === "down" ? "↓" : "→";
   const trendColor =
@@ -39,7 +42,7 @@ export function DashboardStatCard({
             <span
               className={`text-xs mt-0.5 inline-flex items-center gap-0.5 ${trendColor}`}
             >
-              {trendIcon} 较昨日
+              {trendIcon} {t("common.vsYesterday")}
             </span>
           )}
         </div>

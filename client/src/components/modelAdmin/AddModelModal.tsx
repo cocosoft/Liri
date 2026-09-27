@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { BillingMode, ProviderInfo, TimeBasedPrice } from "../../types";
 import { toastWarning } from "../../stores/toastStore";
 
@@ -31,10 +32,10 @@ interface AddModelModalProps {
   onClose: () => void;
 }
 
-const BILLING_MODE_LABELS: Record<BillingMode, string> = {
-  token: "按 Token 计费",
-  per_request: "按次计费",
-  token_and_per_request: "按 Token + 按次",
+const BILLING_MODE_KEYS: Record<BillingMode, string> = {
+  token: "model.billingToken",
+  per_request: "model.billingPerRequest",
+  token_and_per_request: "model.billingTokenAndPerRequest",
 };
 
 function emptyTimeSlot(): TimeBasedPrice {
@@ -51,6 +52,7 @@ export default function AddModelModal({
   onSave,
   onClose,
 }: AddModelModalProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<AddModelFormData>({
     modelId: "",
     displayName: "",
@@ -88,12 +90,12 @@ export default function AddModelModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          添加自定义模型
+          {t("model.addCustomModel")}
         </h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              关联供应商 *
+              {t("model.relatedProvider")}
             </label>
             <select
               value={form.providerId}
@@ -101,7 +103,7 @@ export default function AddModelModal({
               className={inputCls}
             >
               {providers.length === 0 ? (
-                <option value="">-- 暂无可用供应商，请先添加 --</option>
+                <option value="">{t("model.noProvidersHint")}</option>
               ) : (
                 providers.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -114,20 +116,20 @@ export default function AddModelModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              模型 ID *
+              {t("model.modelIdLabel")}
             </label>
             <input
               type="text"
               value={form.modelId}
               onChange={(e) => setForm({ ...form, modelId: e.target.value })}
-              placeholder="如: my-custom-model"
+              placeholder={t("model.modelIdPlaceholder")}
               className={inputCls}
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              显示名称
+              {t("model.displayNameLabel")}
             </label>
             <input
               type="text"
@@ -135,7 +137,7 @@ export default function AddModelModal({
               onChange={(e) =>
                 setForm({ ...form, displayName: e.target.value })
               }
-              placeholder="可选，默认使用模型 ID"
+              placeholder={t("model.displayNamePlaceholder")}
               className={inputCls}
             />
           </div>
@@ -143,7 +145,7 @@ export default function AddModelModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                上下文窗口
+                {t("model.contextWindowLabel")}
               </label>
               <input
                 type="number"
@@ -159,7 +161,7 @@ export default function AddModelModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                最大输出 Token
+                {t("model.maxOutputTokensLabel")}
               </label>
               <input
                 type="number"
@@ -178,7 +180,7 @@ export default function AddModelModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                输入定价 ($/1M tokens)
+                {t("model.inputPricing")}
               </label>
               <input
                 type="number"
@@ -195,7 +197,7 @@ export default function AddModelModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                输出定价 ($/1M tokens)
+                {t("model.outputPricing")}
               </label>
               <input
                 type="number"
@@ -215,7 +217,7 @@ export default function AddModelModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                缓存命中输入 ($/1M)
+                {t("model.cacheReadPricing")}
               </label>
               <input
                 type="number"
@@ -232,7 +234,7 @@ export default function AddModelModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                缓存写入 ($/1M)
+                {t("model.cacheWritePricing")}
               </label>
               <input
                 type="number"
@@ -252,7 +254,7 @@ export default function AddModelModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                计费模式
+                {t("model.billingMode")}
               </label>
               <select
                 value={form.billingMode}
@@ -264,18 +266,16 @@ export default function AddModelModal({
                 }
                 className={inputCls}
               >
-                {(Object.keys(BILLING_MODE_LABELS) as BillingMode[]).map(
-                  (m) => (
-                    <option key={m} value={m}>
-                      {BILLING_MODE_LABELS[m]}
-                    </option>
-                  ),
-                )}
+                {(Object.keys(BILLING_MODE_KEYS) as BillingMode[]).map((m) => (
+                  <option key={m} value={m}>
+                    {t(BILLING_MODE_KEYS[m])}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                按次单价 ($/请求)
+                {t("model.perRequestPrice")}
               </label>
               <input
                 type="number"
@@ -296,7 +296,7 @@ export default function AddModelModal({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                分时价差（可选，如 DeepSeek 错峰优惠）
+                {t("model.timeBasedPricing")}
               </label>
               <button
                 type="button"
@@ -311,12 +311,12 @@ export default function AddModelModal({
                 }
                 className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
               >
-                + 添加时段
+                {t("model.addTimeSlot")}
               </button>
             </div>
             {form.timeBasedPricing.length === 0 ? (
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                无分时价差，按上述默认价计费
+                {t("model.noTimeBasedPricing")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -331,7 +331,9 @@ export default function AddModelModal({
                       onChange={(e) => updateSlot(i, { start: e.target.value })}
                       className="px-1.5 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded"
                     />
-                    <span className="text-gray-400">至</span>
+                    <span className="text-gray-400">
+                      {t("model.timeRangeTo")}
+                    </span>
                     <input
                       type="time"
                       value={slot.end}
@@ -341,7 +343,7 @@ export default function AddModelModal({
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="输入 $/1M"
+                      placeholder={t("model.inputPriceShortPlaceholder")}
                       value={slot.inputCostPerMillion ?? ""}
                       onChange={(e) =>
                         updateSlot(i, {
@@ -353,7 +355,7 @@ export default function AddModelModal({
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="输出 $/1M"
+                      placeholder={t("model.outputPriceShortPlaceholder")}
                       value={slot.outputCostPerMillion ?? ""}
                       onChange={(e) =>
                         updateSlot(i, {
@@ -374,14 +376,14 @@ export default function AddModelModal({
                       }
                       className="text-red-500 hover:text-red-600"
                     >
-                      删除
+                      {t("common.delete")}
                     </button>
                   </div>
                 ))}
               </div>
             )}
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              end 早于 start 表示跨天时段（如 21:30-08:00）
+              {t("model.timeCrossDayHint")}
             </p>
           </div>
         </div>
@@ -390,24 +392,24 @@ export default function AddModelModal({
           <button
             onClick={() => {
               if (!form.modelId.trim()) {
-                toastWarning("请输入模型 ID");
+                toastWarning(t("model.enterModelId"));
                 return;
               }
               if (!form.providerId) {
-                toastWarning("请先添加供应商");
+                toastWarning(t("model.addProviderFirst"));
                 return;
               }
               onSave(form);
             }}
             className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
           >
-            创建
+            {t("common.create")}
           </button>
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm"
           >
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       </div>

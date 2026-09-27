@@ -109,14 +109,14 @@ function MCPToolsPanel() {
         <h2
           className={`text-lg font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-900"}`}
         >
-          MCP 工具
+          {t("mcp.toolsTitle")}
         </h2>
         <div className="text-center py-6">
           <div className="text-3xl mb-2">🔧</div>
           <p
             className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            安装 MCP 服务器后，这里将展示所有可用工具
+            {t("mcp.noToolsHint")}
           </p>
         </div>
       </div>
@@ -135,7 +135,7 @@ function MCPToolsPanel() {
           <h2
             className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            MCP 工具
+            {t("mcp.toolsTitle")}
           </h2>
           <span
             className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}
@@ -148,7 +148,7 @@ function MCPToolsPanel() {
           <span
             className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            每页
+            {t("mcp.perPage")}
           </span>
           <select
             value={pageSize}
@@ -177,7 +177,7 @@ function MCPToolsPanel() {
             type="search"
             value={toolSearch}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="搜索工具（按名称、服务器、描述）..."
+            placeholder={t("mcp.toolSearchPlaceholder")}
             className={`w-full text-sm bg-transparent outline-none border rounded px-3 py-1.5 pl-8 ${
               isDark
                 ? "border-gray-600 text-white placeholder-gray-500 focus:border-blue-400"
@@ -247,7 +247,7 @@ function MCPToolsPanel() {
                             : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                         }`}
                       >
-                        {tool.enabled ? "已启用" : "已禁用"}
+                        {tool.enabled ? t("mcp.enabled") : t("mcp.disabled")}
                       </button>
                     </div>
                     {tool.description && (
@@ -298,7 +298,11 @@ function MCPToolsPanel() {
           <span
             className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            {filteredTools.length} 个工具 · 第 {page}/{totalPages} 页
+            {t("mcp.pageOf", {
+              count: filteredTools.length,
+              page,
+              total: totalPages,
+            })}
           </span>
           <div className="flex gap-1">
             <button
@@ -310,7 +314,7 @@ function MCPToolsPanel() {
                   : "bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40"
               }`}
             >
-              上一页
+              {t("common.prevPage")}
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

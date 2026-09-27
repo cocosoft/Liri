@@ -1,4 +1,5 @@
 import { memo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 
 interface FAQSearchBarProps {
@@ -10,6 +11,7 @@ export const FAQSearchBar = memo(function FAQSearchBar({
   onSearch,
   isDark,
 }: FAQSearchBarProps) {
+  const { t } = useTranslation();
   const [value, setValue] = useState("");
 
   const handleSubmit = useCallback(
@@ -40,7 +42,7 @@ export const FAQSearchBar = memo(function FAQSearchBar({
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="搜索 FAQ..."
+          placeholder={t("knowledge.faq.searchPlaceholder")}
           className={`text-xs bg-transparent outline-none flex-1 ${
             isDark
               ? "text-gray-300 placeholder:text-gray-600"

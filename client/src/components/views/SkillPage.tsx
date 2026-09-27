@@ -210,12 +210,12 @@ function SkillPage() {
             <h1
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              技能管理
+              {t("skill.management")}
             </h1>
             <p
               className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              管理和配置系统技能，共 {total} 个
+              {t("skill.managerDesc", { count: total })}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ function SkillPage() {
                   : "bg-indigo-600 hover:bg-indigo-700 text-white"
               }`}
             >
-              进入市场
+              {t("skill.enterMarket")}
             </button>
             <button
               onClick={handleCreate}
@@ -295,11 +295,19 @@ function SkillPage() {
           {[
             {
               key: "local" as const,
-              label: "系统技能",
-              desc: "内置/用户/项目",
+              labelKey: "skill.systemSkill",
+              descKey: "skill.systemDesc",
             },
-            { key: "official" as const, label: "官方", desc: "官方发布" },
-            { key: "third_party" as const, label: "第三方", desc: "社区来源" },
+            {
+              key: "official" as const,
+              labelKey: "skill.official",
+              descKey: "skill.officialDesc",
+            },
+            {
+              key: "third_party" as const,
+              labelKey: "skill.thirdParty",
+              descKey: "skill.thirdPartyDesc",
+            },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -314,11 +322,11 @@ function SkillPage() {
                     : "text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50"
               }`}
             >
-              <div>{tab.label}</div>
+              <div>{t(tab.labelKey)}</div>
               <div
                 className={`text-xs mt-0.5 ${activeTab === tab.key ? (isDark ? "text-blue-400" : "text-blue-500") : isDark ? "text-gray-500" : "text-gray-400"}`}
               >
-                {tab.desc}
+                {t(tab.descKey)}
               </div>
             </button>
           ))}
@@ -446,9 +454,9 @@ function SkillPage() {
                 : "bg-white border-gray-300 text-gray-700"
             } focus:outline-none focus:ring-2 focus:ring-blue-500`}
           >
-            <option value="updatedAt">按更新时间</option>
-            <option value="createdAt">按创建时间</option>
-            <option value="usageCount">按使用次数</option>
+            <option value="updatedAt">{t("skill.sortByUpdated")}</option>
+            <option value="createdAt">{t("skill.sortByCreated")}</option>
+            <option value="usageCount">{t("skill.sortByUsage")}</option>
           </select>
 
           <button
@@ -511,7 +519,7 @@ function SkillPage() {
                     >
                       <polyline points="15 18 9 12 15 6" />
                     </svg>
-                    返回列表
+                    {t("skill.backToList")}
                   </button>
                   <SkillDetail
                     skill={selectedSkill}
@@ -557,7 +565,7 @@ function SkillPage() {
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    <p>选择一个技能查看详情</p>
+                    <p>{t("skill.selectSkillHint")}</p>
                   </div>
                 </div>
               )}
@@ -572,9 +580,11 @@ function SkillPage() {
       {/* 删除确认对话框 */}
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="删除技能"
-        message={`确定要删除技能「${deleteTarget?.name ?? ""}」吗？此操作不可撤销。`}
-        confirmText="删除"
+        title={t("skill.deleteSkillTitle")}
+        message={t("skill.deleteSkillConfirm", {
+          name: deleteTarget?.name ?? "",
+        })}
+        confirmText={t("common.delete")}
         variant="danger"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}

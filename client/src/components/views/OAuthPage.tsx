@@ -45,7 +45,7 @@ function OAuthPage() {
         module: "components:views:OAuth",
         action: "loadProviders",
       });
-      setError("加载 OAuth Provider 配置失败");
+      setError(t("oauth.loadProvidersFailed"));
     } finally {
       setLoading(false);
     }
@@ -100,14 +100,15 @@ function OAuthPage() {
               : "bg-yellow-50 text-yellow-700 border border-yellow-200"
           }`}
         >
-          OAuth 第三方登录当前未接入。Provider 配置（clientId/clientSecret
-          来自环境变量）仅作只读展示；如需管理请通过运维 API。
+          {t("oauth.noticeText")}
         </div>
 
         {activeTab === "providers" && (
           <div className="space-y-3">
             {loading ? (
-              <div className="text-center py-12 text-gray-500">加载中...</div>
+              <div className="text-center py-12 text-gray-500">
+                {t("common.loading")}
+              </div>
             ) : error ? (
               <div className="text-center py-12 text-red-500">{error}</div>
             ) : providers.length === 0 ? (
@@ -115,13 +116,12 @@ function OAuthPage() {
                 className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} p-12 text-center`}
               >
                 <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                  未接入 OAuth 登录（未配置 Provider）
+                  {t("oauth.notConnected")}
                 </p>
                 <p
                   className={`mt-1 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
                 >
-                  可通过环境变量 OAUTH_GITHUB_CLIENT_ID / OAUTH_GOOGLE_CLIENT_ID
-                  或运维 API 配置
+                  {t("oauth.envConfigHint")}
                 </p>
               </div>
             ) : (
@@ -146,12 +146,16 @@ function OAuthPage() {
                         <p
                           className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}
                         >
-                          来源：
+                          {t("oauth.sourceLabel")}
                           {provider.source === "env"
-                            ? "环境变量（只读）"
-                            : "本地配置"}
+                            ? t("oauth.sourceEnv")
+                            : t("oauth.sourceLocal")}
                           {provider.updatedAt
-                            ? ` · 更新于 ${new Date(provider.updatedAt).toLocaleString()}`
+                            ? ` · ${t("oauth.updatedAtLabel", {
+                                date: new Date(
+                                  provider.updatedAt,
+                                ).toLocaleString(),
+                              })}`
                             : ""}
                         </p>
                       </div>
@@ -196,8 +200,8 @@ function OAuthPage() {
                         className={`font-mono ${isDark ? "text-gray-200" : "text-gray-800"}`}
                       >
                         {provider.hasClientSecret
-                          ? "******（已配置）"
-                          : "未配置"}
+                          ? t("oauth.secretConfigured")
+                          : t("oauth.secretNotConfigured")}
                       </p>
                     </div>
                     {provider.redirectUri && (
@@ -246,12 +250,12 @@ function OAuthPage() {
           >
             <div className="text-center py-12">
               <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                会话令牌为内存态（重启后失效），无列表 API。
+                {t("oauth.sessionMemoryHint")}
               </p>
               <p
                 className={`mt-1 text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}
               >
-                已登录 Liri 云时可通过 CLI auth status 查看
+                {t("oauth.sessionCliHint")}
               </p>
             </div>
           </div>

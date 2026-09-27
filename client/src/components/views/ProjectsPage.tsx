@@ -9,6 +9,7 @@
  *  └───────────┴─────────────────────────────────────┴───────────────────┘
  */
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { resolveSessionWorkspaceId } from "@/stores/selectors";
 import { useRootStore } from "@/stores/root-store";
@@ -48,46 +49,46 @@ const logger = createLogger("components:projectsPage");
 
 interface CreationItem {
   id: string;
-  label: string;
+  labelKey: string;
   path: string;
-  description: string;
+  descriptionKey: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 const CREATION_ITEMS: CreationItem[] = [
   {
     id: "summary",
-    label: "摘要",
+    labelKey: "projects.creationSummaryLabel",
     path: "summary",
-    description: "基于项目输入生成内容摘要与核心要点。",
+    descriptionKey: "projects.creationSummaryDesc",
     icon: ZapIcon,
   },
   {
     id: "podcast",
-    label: "播客",
+    labelKey: "projects.creationPodcastLabel",
     path: "podcast",
-    description: "将项目内容转化为可播放的对话式语音节目。",
+    descriptionKey: "projects.creationPodcastDesc",
     icon: UsersIcon,
   },
   {
     id: "study-guide",
-    label: "学习指南",
+    labelKey: "projects.creationStudyGuideLabel",
     path: "study-guide",
-    description: "生成分章节的结构化学习大纲与知识脉络。",
+    descriptionKey: "projects.creationStudyGuideDesc",
     icon: KnowledgeIcon,
   },
   {
     id: "quiz",
-    label: "测验",
+    labelKey: "projects.creationQuizLabel",
     path: "quiz",
-    description: "围绕项目主题生成自测题目与答案解析。",
+    descriptionKey: "projects.creationQuizDesc",
     icon: ModelIcon,
   },
   {
     id: "flashcards",
-    label: "闪卡",
+    labelKey: "projects.creationFlashcardsLabel",
     path: "flashcards",
-    description: "生成正反面问答记忆卡，用于复习和记忆。",
+    descriptionKey: "projects.creationFlashcardsDesc",
     icon: FileIcon,
   },
 ];
@@ -156,7 +157,12 @@ const PDCA_PHASE_TO_DIMENSION: Record<string, number> = {
   decide: 3,
 };
 
-const PDCA_STEP_LABELS = ["计划", "执行", "审查", "决策"];
+const PDCA_STEP_LABEL_KEYS = [
+  "projects.pdcaStepPlan",
+  "projects.pdcaStepExecute",
+  "projects.pdcaStepReview",
+  "projects.pdcaStepDecide",
+];
 
 /** 待审批 phase（归入 Plan 维度，附加角标） */
 const PDCA_AWAIT_APPROVAL = new Set([
@@ -165,10 +171,10 @@ const PDCA_AWAIT_APPROVAL = new Set([
 ]);
 
 /** 终态集合（与后端 PDCA_TERMINAL_PHASES 口径一致，phase 判定，禁止字符串前缀判断） */
-const PDCA_TERMINAL_LABEL: Record<string, string> = {
-  completed: "已完成",
-  abort: "已中止",
-  failed: "失败",
+const PDCA_TERMINAL_LABEL_KEY: Record<string, string> = {
+  completed: "projects.pdcaTerminalCompleted",
+  abort: "projects.pdcaTerminalAbort",
+  failed: "projects.pdcaTerminalFailed",
 };
 
 const PDCA_TERMINAL_DOT: Record<string, string> = {
@@ -185,12 +191,13 @@ const PDCA_TERMINAL_TEXT: Record<string, string> = {
 
 /** 行级四阶段迷你步进：已过段绿色、当前段蓝色加粗、未到段灰显 */
 function PdcaPhaseStepper({ phase }: { phase: string }) {
+  const { t } = useTranslation();
   const dim = PDCA_PHASE_TO_DIMENSION[phase];
   if (dim === undefined) return null;
   return (
     <div className="flex items-center text-[9px] leading-none">
-      {PDCA_STEP_LABELS.map((label, i) => (
-        <span key={label} className="flex items-center">
+      {PDCA_STEP_LABEL_KEYS.map((labelKey, i) => (
+        <span key={labelKey} className="flex items-center">
           {i > 0 && (
             <span className="mx-0.5 text-gray-300 dark:text-gray-600">›</span>
           )}
@@ -203,7 +210,7 @@ function PdcaPhaseStepper({ phase }: { phase: string }) {
                   : "text-gray-300 dark:text-gray-600"
             }
           >
-            {label}
+            {t(labelKey)}
           </span>
         </span>
       ))}
@@ -214,6 +221,7 @@ function PdcaPhaseStepper({ phase }: { phase: string }) {
 /* ---------- 组件 ---------- */
 
 export default function ProjectsPage() {
+  const { t } = useTranslation();
   // 模态框 & 选中状态
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -395,18 +403,20 @@ export default function ProjectsPage() {
           // 避免每次 5s 轮询把已结束任务反复写进实时 store（latest 永不清理）。
           useOrchestrationStore.getState().replay(
             tasks
-              .filter((t) => t.taskId && !PDCA_TERMINAL_LABEL[t.phase])
-              .map((t) => ({
+              .filter(
+                (task) => task.taskId && !PDCA_TERMINAL_LABEL_KEY[task.phase],
+              )
+              .map((task) => ({
                 schemaVersion: 1,
                 type: "pdca:stage:phase",
                 time: Date.now(),
-                taskId: t.taskId,
-                planId: t.planId,
-                projectId: t.projectId,
+                taskId: task.taskId,
+                planId: task.planId,
+                projectId: task.projectId,
                 data: {
-                  stage: t.phase,
-                  status: t.phase,
-                  percent: t.progress?.percent,
+                  stage: task.phase,
+                  status: task.phase,
+                  percent: task.progress?.percent,
                 },
               })),
           );
@@ -417,7 +427,7 @@ export default function ProjectsPage() {
             module: "views:ProjectsPage",
             action: "load_pdca_list",
           });
-          setPdcaError("加载 PDCA 任务列表失败");
+          setPdcaError(t("projects.pdcaLoadFailed"));
         });
     };
     load();
@@ -426,12 +436,16 @@ export default function ProjectsPage() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [selectedProjectId, rightPanelTab]);
+  }, [selectedProjectId, rightPanelTab, t]);
 
   /** 活跃（非终态）与历史（终态 phase）分区；终态判断用常量表，禁止字符串前缀判断 */
   const { activePdcaTasks, historyPdcaTasks } = useMemo(() => {
-    const active = pdcaTasks.filter((t) => !PDCA_TERMINAL_LABEL[t.phase]);
-    const history = pdcaTasks.filter((t) => PDCA_TERMINAL_LABEL[t.phase]);
+    const active = pdcaTasks.filter(
+      (task) => !PDCA_TERMINAL_LABEL_KEY[task.phase],
+    );
+    const history = pdcaTasks.filter(
+      (task) => PDCA_TERMINAL_LABEL_KEY[task.phase],
+    );
     return { activePdcaTasks: active, historyPdcaTasks: history };
   }, [pdcaTasks]);
 
@@ -722,7 +736,7 @@ export default function ProjectsPage() {
       // 路由必然失败被忽略），刷新后 listWorkspaces 补全逻辑把项目重新拉回列表（"复活"）。
       const backendDeleted = await deleteProject(selectedProjectId);
       if (!backendDeleted) {
-        throw new Error("删除后端项目失败，请重试");
+        throw new Error(t("projects.deleteBackendFailed"));
       }
       await deleteWorkspace(selectedProjectId);
       setSelectedProjectId(null);
@@ -747,9 +761,11 @@ export default function ProjectsPage() {
     const latest = Math.max(...projSessions.map((s) => sessionTs(s)));
     const now = Date.now();
     const hours = (now - latest) / (1000 * 60 * 60);
-    if (hours < 24) return { color: "text-green-500", label: "今天" };
-    if (hours < 168) return { color: "text-yellow-500", label: "本周" };
-    return { color: "text-gray-400", label: "更早" };
+    if (hours < 24)
+      return { color: "text-green-500", labelKey: "projects.badgeToday" };
+    if (hours < 168)
+      return { color: "text-yellow-500", labelKey: "projects.badgeThisWeek" };
+    return { color: "text-gray-400", labelKey: "projects.badgeEarlier" };
   };
 
   /** 休眠分区：按最后活跃时间分组 */
@@ -878,18 +894,18 @@ export default function ProjectsPage() {
                   setContextMenuId(contextMenuId === p.id ? null : p.id);
                 }}
                 className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-opacity cursor-pointer select-none"
-                title="更多操作"
+                title={t("projects.moreActions")}
               >
                 ⋮
               </span>
             </div>
             <div className="flex items-center gap-2 mt-0.5 ml-6">
               <span className="text-xs text-gray-400 dark:text-gray-500">
-                {getSessionCount(p.id)} 个会话
+                {t("projects.sessionCount", { count: getSessionCount(p.id) })}
               </span>
               {badge && !isCompleted && (
                 <span className={`text-[10px] ${badge.color}`}>
-                  {badge.label}
+                  {t(badge.labelKey)}
                 </span>
               )}
             </div>
@@ -908,13 +924,15 @@ export default function ProjectsPage() {
                 onClick={handleRename}
                 className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                重命名
+                {t("projects.rename")}
               </button>
               <button
                 onClick={handleComplete}
                 className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                {isCompleted ? "取消完成" : "标记完成"}
+                {isCompleted
+                  ? t("projects.uncomplete")
+                  : t("projects.markComplete")}
               </button>
               <button
                 onClick={() => {
@@ -923,7 +941,7 @@ export default function ProjectsPage() {
                 }}
                 className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                {p.pinned ? "📌 取消置顶" : "📌 置顶"}
+                {p.pinned ? t("projects.unpin") : t("projects.pin")}
               </button>
               {canUndo && (
                 <button
@@ -933,7 +951,7 @@ export default function ProjectsPage() {
                     void (async () => {
                       const backendDeleted = await deleteProject(p.id);
                       if (!backendDeleted) {
-                        alert("删除后端项目失败，请重试");
+                        alert(t("projects.deleteBackendFailed"));
                         setContextMenuId(null);
                         return;
                       }
@@ -943,14 +961,14 @@ export default function ProjectsPage() {
                   }}
                   className="w-full text-left px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  ↩ 撤销创建
+                  {t("projects.undoCreate")}
                 </button>
               )}
               <button
                 onClick={handleDeleteClick}
                 className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                删除
+                {t("common.delete")}
               </button>
             </div>
           </>
@@ -974,12 +992,12 @@ export default function ProjectsPage() {
               size={16}
               className="text-gray-500 dark:text-gray-400"
             />
-            项目
+            {t("projects.title")}
           </h2>
           <button
             onClick={() => setShowCreate(true)}
             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-            title="新建项目"
+            title={t("projects.newProject")}
           >
             <svg
               className="w-4 h-4"
@@ -1004,7 +1022,7 @@ export default function ProjectsPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索项目..."
+              placeholder={t("projects.searchPlaceholder")}
               className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             />
             <svg
@@ -1034,22 +1052,22 @@ export default function ProjectsPage() {
               {searchQuery.trim() ? (
                 <>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    没有找到「{searchQuery}」
+                    {t("projects.noMatchQuery", { query: searchQuery })}
                   </p>
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                    试试用其他关键词或拼音搜索
+                    {t("projects.noMatchHint")}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    暂无项目
+                    {t("projects.noProjects")}
                   </p>
                   <button
                     onClick={() => setShowCreate(true)}
                     className="mt-2 text-xs text-blue-600 dark:text-blue-500 hover:text-blue-700 dark:hover:text-blue-400"
                   >
-                    创建第一个项目
+                    {t("projects.createFirst")}
                   </button>
                 </>
               )}
@@ -1069,7 +1087,9 @@ export default function ProjectsPage() {
                     <span className="text-[10px]">
                       {dormantExpanded ? "▾" : "▸"}
                     </span>
-                    休眠 ({dormantProjects.length} 个项目)
+                    {t("projects.dormantCount", {
+                      count: dormantProjects.length,
+                    })}
                   </button>
                   {dormantExpanded && dormantProjects.map(renderProjectItem)}
                 </>
@@ -1081,13 +1101,15 @@ export default function ProjectsPage() {
                   onClick={() => setShowArchived(true)}
                   className="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
-                  查看归档 ({archivedProjects.length})
+                  {t("projects.viewArchived", {
+                    count: archivedProjects.length,
+                  })}
                 </button>
               )}
               {showArchived && archivedProjects.length > 0 && (
                 <>
                   <div className="px-3 py-1 text-[10px] text-gray-400 bg-gray-50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-800">
-                    归档
+                    {t("projects.archived")}
                   </div>
                   {archivedProjects.map(renderProjectItem)}
                 </>
@@ -1114,7 +1136,7 @@ export default function ProjectsPage() {
                 {/* 搜索图标 */}
                 <button
                   className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  title="搜索"
+                  title={t("common.search")}
                 >
                   <svg
                     className="w-4 h-4"
@@ -1135,7 +1157,7 @@ export default function ProjectsPage() {
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
                     className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                    title="项目操作"
+                    title={t("projects.projectActions")}
                   >
                     <svg
                       className="w-4 h-4"
@@ -1164,7 +1186,7 @@ export default function ProjectsPage() {
                 {!hasMessages && (
                   <div className="px-8 pt-16 pb-6 flex justify-center">
                     <h1 className="text-2xl md:text-3xl font-semibold text-gray-800 dark:text-gray-100 text-center leading-tight">
-                      准备开始「{selectedProject.name}」项目了吗？
+                      {t("projects.welcome", { name: selectedProject.name })}
                     </h1>
                   </div>
                 )}
@@ -1183,10 +1205,10 @@ export default function ProjectsPage() {
               className="mb-3 text-gray-300 dark:text-gray-700"
             />
             <p className="text-lg mb-1 font-medium text-gray-700 dark:text-gray-300">
-              请选择一个项目
+              {t("projects.selectProject")}
             </p>
             <p className="text-sm text-gray-400 dark:text-gray-600">
-              从左侧列表中选择项目开始
+              {t("projects.selectProjectHint")}
             </p>
           </div>
         )}
@@ -1199,10 +1221,10 @@ export default function ProjectsPage() {
         {/* Tab 栏 */}
         <div className="flex border-b border-gray-200 dark:border-gray-700 shrink-0">
           {[
-            { id: "materials", label: "资料" },
-            { id: "orchestration", label: "编排" },
-            { id: "deliverables", label: "成果" },
-            { id: "discussion", label: "讨论" },
+            { id: "materials", labelKey: "projects.tabMaterials" },
+            { id: "orchestration", labelKey: "projects.tabOrchestration" },
+            { id: "deliverables", labelKey: "projects.tabDeliverables" },
+            { id: "discussion", labelKey: "projects.tabDiscussion" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1213,7 +1235,7 @@ export default function ProjectsPage() {
                   : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -1230,7 +1252,7 @@ export default function ProjectsPage() {
                 />
               ) : (
                 <div className="p-4 text-sm text-gray-400 text-center">
-                  请先选择项目
+                  {t("projects.selectProjectFirst")}
                 </div>
               )}
             </div>
@@ -1256,7 +1278,7 @@ export default function ProjectsPage() {
               {pdcaTasks.length > 0 && (
                 <div className="border-t border-gray-200 dark:border-gray-700">
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    PDCA 任务 ({pdcaTasks.length})
+                    {t("projects.pdcaTasks", { count: pdcaTasks.length })}
                   </div>
                   {/* OBS（M3b-UI）：独立通道实时面板（4.2-4：按当前项目上下文过滤） */}
                   <OrchestrationLivePanel
@@ -1295,12 +1317,12 @@ export default function ProjectsPage() {
                             <PdcaPhaseStepper phase={task.phase} />
                             {PDCA_AWAIT_APPROVAL.has(task.phase) && (
                               <span className="text-[9px] text-amber-500 flex-shrink-0">
-                                待审批
+                                {t("projects.pdcaPendingApproval")}
                               </span>
                             )}
                             {task.source === "checkpoint" && (
                               <span className="text-[9px] text-gray-400 flex-shrink-0">
-                                已恢复
+                                {t("projects.pdcaRestored")}
                               </span>
                             )}
                           </div>
@@ -1312,7 +1334,9 @@ export default function ProjectsPage() {
                   {historyPdcaTasks.length > 0 && (
                     <div className="border-t border-gray-100 dark:border-gray-800">
                       <div className="px-3 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        历史 ({historyPdcaTasks.length})
+                        {t("projects.pdcaHistory", {
+                          count: historyPdcaTasks.length,
+                        })}
                       </div>
                       {historyPdcaTasks.map((task) => (
                         <button
@@ -1340,7 +1364,9 @@ export default function ProjectsPage() {
                             <span
                               className={`text-[9px] flex-shrink-0 ${PDCA_TERMINAL_TEXT[task.phase] ?? ""}`}
                             >
-                              {PDCA_TERMINAL_LABEL[task.phase] ?? task.phase}
+                              {PDCA_TERMINAL_LABEL_KEY[task.phase]
+                                ? t(PDCA_TERMINAL_LABEL_KEY[task.phase])
+                                : task.phase}
                             </span>
                           </div>
                         </button>
@@ -1357,11 +1383,8 @@ export default function ProjectsPage() {
               )}
               {pdcaTasks.length === 0 && !pdcaError && selectedProjectId && (
                 <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-400 space-y-1">
-                  <p>暂无 PDCA 任务</p>
-                  <p className="text-xs">
-                    PDCA 流程在 AI
-                    执行任务分解后自动启动，用于计划-执行-检查-行动的质量闭环。
-                  </p>
+                  <p>{t("projects.noPdcaTasks")}</p>
+                  <p className="text-xs">{t("projects.pdcaHint")}</p>
                 </div>
               )}
             </div>
@@ -1377,7 +1400,7 @@ export default function ProjectsPage() {
                 />
               ) : (
                 <div className="p-4 text-sm text-gray-400 text-center">
-                  请先选择项目
+                  {t("projects.selectProjectFirst")}
                 </div>
               )}
             </div>
@@ -1393,7 +1416,7 @@ export default function ProjectsPage() {
                 />
               ) : (
                 <div className="p-4 text-sm text-gray-400 text-center">
-                  请先选择项目
+                  {t("projects.selectProjectFirst")}
                 </div>
               )}
             </div>
@@ -1421,28 +1444,28 @@ export default function ProjectsPage() {
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              删除项目
+              {t("projects.deleteProject")}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 leading-relaxed">
-              这将删除{" "}
+              {t("projects.deleteConfirmPrefix")}{" "}
               <span className="font-medium text-gray-700 dark:text-gray-300">
                 「{selectedProject?.name}」
               </span>{" "}
-              及其下所有会话。此操作不可撤销。
+              {t("projects.deleteConfirmSuffix")}
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="px-4 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
                 className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors font-medium"
               >
-                {deleting ? "删除中..." : "删除"}
+                {deleting ? t("projects.deleting") : t("common.delete")}
               </button>
             </div>
           </div>

@@ -7,6 +7,8 @@
 
 import React from "react";
 import { useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Message } from "../../types";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -70,7 +72,10 @@ function aggregateTokens(messages: Message[]) {
 
 /** 生成消息轮次摘要（合并 user+assistant 为一轮）
  *  仅处理最近 MAX_ROUNDS 轮，避免大会话卡主线程 */
-function buildRoundSummaries(messages: Message[]): Array<{
+function buildRoundSummaries(
+  messages: Message[],
+  t: TFunction,
+): Array<{
   roundIndex: number;
   userMsg: string;
   userMsgId: string;
@@ -101,7 +106,9 @@ function buildRoundSummaries(messages: Message[]): Array<{
         rounds.push({ ...currentRound, roundIndex: rounds.length + 1 });
       }
       currentRound = {
-        userMsg: content.slice(0, 60).replace(/\n/g, " ") || "用户消息",
+        userMsg:
+          content.slice(0, 60).replace(/\n/g, " ") ||
+          t("chatInspector.userMessageFallback"),
         userMsgId: msg.id,
         assistantMsg: "",
         timestamp: msg.timestamp,
@@ -113,7 +120,8 @@ function buildRoundSummaries(messages: Message[]): Array<{
           .map((b) => b.content)
           .join(" ") || content;
       currentRound.assistantMsg =
-        textBlocks.slice(0, 60).replace(/\n/g, " ") || "AI 回复";
+        textBlocks.slice(0, 60).replace(/\n/g, " ") ||
+        t("chatInspector.aiReplyFallback");
     }
   }
 
@@ -147,6 +155,7 @@ function ContextWindowBarImpl({
   isStreaming?: boolean;
   realTimeTokens?: number;
 }) {
+  const { t } = useTranslation();
   const barColor =
     severity === "compact"
       ? "bg-red-500"
@@ -163,18 +172,20 @@ function ContextWindowBarImpl({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        上下文窗口
+        {t("chatInspector.contextWindow")}
         {isStreaming && realTimeTokens !== undefined && (
           <span className="ml-1 text-blue-500 dark:text-blue-400 text-[10px] font-normal">
-            实时
+            {t("common.realtime")}
           </span>
         )}
         {severity === "warn" && (
-          <span className="ml-1 text-yellow-500 text-[10px]">⚠ 偏高</span>
+          <span className="ml-1 text-yellow-500 text-[10px]">
+            {t("chatInspector.contextHigh")}
+          </span>
         )}
         {severity === "compact" && (
           <span className="ml-1 text-red-500 text-[10px] animate-pulse">
-            🔴 临界
+            {t("chatInspector.contextCritical")}
           </span>
         )}
       </h4>
@@ -187,8 +198,10 @@ function ContextWindowBarImpl({
       <p className="text-xs text-gray-600 dark:text-gray-400">
         {used > contextLength ? (
           <span className="text-red-500 font-medium">
-            已超出上限（{used.toLocaleString()} /{" "}
-            {contextLength.toLocaleString()} tokens）
+            {t("chatInspector.overLimit", {
+              used: used.toLocaleString(),
+              limit: contextLength.toLocaleString(),
+            })}
           </span>
         ) : (
           <>
@@ -202,25 +215,27 @@ function ContextWindowBarImpl({
         </span>
         {isStreaming && realTimeTokens !== undefined && realTimeTokens > 0 && (
           <span className="ml-2 text-blue-500 dark:text-blue-400 text-[10px]">
-            实时: {realTimeTokens.toLocaleString()} tokens
+            {t("chatInspector.realtimeTokens", {
+              tokens: realTimeTokens.toLocaleString(),
+            })}
           </span>
         )}
       </p>
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div>
-          <span className="text-gray-400">输入</span>
+          <span className="text-gray-400">{t("chatInspector.input")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {totalInput.toLocaleString()}
           </p>
         </div>
         <div>
-          <span className="text-gray-400">输出</span>
+          <span className="text-gray-400">{t("chatInspector.output")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {totalOutput.toLocaleString()}
           </p>
         </div>
         <div>
-          <span className="text-gray-400">缓存读取</span>
+          <span className="text-gray-400">{t("chatInspector.cacheRead")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {cacheRead.toLocaleString()}
             {cacheRead > 0 && (
@@ -245,13 +260,16 @@ function MessageSummaryListImpl({
   streaming: boolean;
   onRoundClick: (userMsgId: string) => void;
 }) {
+  const { t } = useTranslation();
   if (rounds.length === 0) return null;
 
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        消息摘要
-        <span className="ml-1 text-gray-400">(点击跳转)</span>
+        {t("chatInspector.messageSummary")}
+        <span className="ml-1 text-gray-400">
+          {t("chatInspector.clickToJump")}
+        </span>
       </h4>
       <div className="space-y-1">
         {rounds.map((round) => (
@@ -267,7 +285,9 @@ function MessageSummaryListImpl({
             {!round.assistantMsg &&
               streaming &&
               rounds.indexOf(round) === rounds.length - 1 && (
-                <span className="text-blue-500 ml-1">进行中...</span>
+                <span className="text-blue-500 ml-1">
+                  {t("chatInspector.inProgressEllipsis")}
+                </span>
               )}
           </button>
         ))}
@@ -292,6 +312,7 @@ function SessionStatsImpl({
   estimatedCost: number;
   createdAt: string;
 }) {
+  const { t } = useTranslation();
   const createdTime = useMemo(() => {
     try {
       return new Date(createdAt).toLocaleTimeString("zh-CN", {
@@ -306,41 +327,43 @@ function SessionStatsImpl({
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        会话统计
+        {t("chatInspector.sessionStats")}
       </h4>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-          <span className="text-gray-400">创建</span>
+          <span className="text-gray-400">{t("chatInspector.createdAt")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {createdTime}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-          <span className="text-gray-400">轮次</span>
+          <span className="text-gray-400">{t("chatInspector.rounds")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {roundCount}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-          <span className="text-gray-400">消息</span>
+          <span className="text-gray-400">{t("chatInspector.messages")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {messageCount}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-          <span className="text-gray-400">工具调用</span>
+          <span className="text-gray-400">{t("chatInspector.toolCalls")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {toolCallCount}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-          <span className="text-gray-400">文件</span>
+          <span className="text-gray-400">{t("chatInspector.files")}</span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             {fileCount}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
-          <span className="text-gray-400">成本估算</span>
+          <span className="text-gray-400">
+            {t("chatInspector.estimatedCost")}
+          </span>
           <p className="font-medium text-gray-700 dark:text-gray-300">
             ${estimatedCost.toFixed(4)}
           </p>
@@ -354,6 +377,7 @@ const SessionStats = React.memo(SessionStatsImpl);
 // ─── 主组件 ───────────────────────────────────────
 
 function ContextTab() {
+  const { t } = useTranslation();
   const messages = useChatStore((s) => s.messages) || [];
   const isStreaming = useChatStore((s) => s.isStreaming);
   const currentSession = useSessionStore((s) => s.currentSession);
@@ -410,7 +434,7 @@ function ContextTab() {
   const realTimeSeverity = hasRealtime ? watermark.severity : undefined;
   const realTimeTokens = hasRealtime ? watermark.currentTokens : undefined;
 
-  const rounds = useMemo(() => buildRoundSummaries(messages), [messages]);
+  const rounds = useMemo(() => buildRoundSummaries(messages, t), [messages, t]);
 
   // 提取系统提示词（从第一条 system 消息）
   const systemPromptText = useMemo(() => {
@@ -470,7 +494,9 @@ function ContextTab() {
       <div className="p-3 space-y-4">
         <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
           <p className="mb-2">
-            {hasModel ? "开始第一次对话" : "请在底部状态栏中选择模型"}
+            {hasModel
+              ? t("chatInspector.startFirstChat")
+              : t("chatInspector.selectModelHint")}
           </p>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
             <div
@@ -483,11 +509,11 @@ function ContextTab() {
           </p>
           {!hasModel && (
             <p className="mt-3 text-xs text-gray-400">
-              按{" "}
+              {t("chatInspector.pressKey")}{" "}
               <kbd className="px-1 py-0.5 text-[10px] bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">
                 Ctrl+M
               </kbd>{" "}
-              打开模型切换面板
+              {t("chatInspector.openModelPanelHint")}
             </p>
           )}
         </div>
@@ -513,14 +539,14 @@ function ContextTab() {
       {/* 系统提示词（只读） */}
       <div className="space-y-1.5">
         <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          系统提示词
+          {t("chatInspector.systemPrompt")}
           <span className="ml-1 text-gray-400 text-[10px] font-normal">
-            (只读)
+            {t("chatInspector.readOnly")}
           </span>
         </h4>
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5">
           <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3 whitespace-pre-wrap">
-            {systemPromptText || "未设置系统提示词"}
+            {systemPromptText || t("chatInspector.noSystemPrompt")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -528,16 +554,16 @@ function ContextTab() {
             <button
               onClick={handleCopySystemPrompt}
               className="text-xs text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
-              title="复制系统提示词"
+              title={t("chatInspector.copySystemPrompt")}
             >
-              复制
+              {t("common.copy")}
             </button>
           )}
           <button
             onClick={handleGoToSettings}
             className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 underline transition-colors"
           >
-            前往设置编辑
+            {t("chatInspector.goEditSettings")}
           </button>
         </div>
       </div>

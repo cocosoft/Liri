@@ -8,6 +8,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { CanvasState, CanvasTool, CanvasEditorProps } from "../types";
 import { CanvasTransform } from "../core/CanvasTransform";
 import { CommandManager } from "../core/CommandManager";
@@ -44,6 +45,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
     },
     ref,
   ) => {
+    const { t } = useTranslation();
     const transformRef = useRef(new CanvasTransform());
     const commandRef = useRef(new CommandManager());
     const bufferRef = useRef(new OffscreenBuffer(width, height));
@@ -772,18 +774,18 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
         {/* 崩溃恢复提示 */}
         {showRecover && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 border-b border-amber-700/30 text-amber-300 text-xs">
-            <span>检测到上次编辑的快照，是否恢复？</span>
+            <span>{t("media.canvasRecoverPrompt")}</span>
             <button
               onClick={handleRecover}
               className="px-2 py-0.5 rounded bg-amber-700/40 hover:bg-amber-600/40 border-0 cursor-pointer text-amber-200"
             >
-              恢复
+              {t("media.canvasRecover")}
             </button>
             <button
               onClick={() => setShowRecover(false)}
               className="px-2 py-0.5 rounded bg-gray-800/50 hover:bg-gray-700/50 border-0 cursor-pointer text-gray-400"
             >
-              忽略
+              {t("media.canvasIgnore")}
             </button>
           </div>
         )}
@@ -798,9 +800,13 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
               className="bg-gray-800 border border-gray-600/40 rounded-lg p-4 shadow-xl min-w-[260px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-sm text-gray-200 mb-3">调整画布尺寸</h3>
+              <h3 className="text-sm text-gray-200 mb-3">
+                {t("media.canvasResize")}
+              </h3>
               <div className="flex items-center gap-2 mb-3">
-                <label className="text-xs text-gray-400">宽</label>
+                <label className="text-xs text-gray-400">
+                  {t("media.canvasWidthLabel")}
+                </label>
                 <input
                   type="number"
                   defaultValue={state.width}
@@ -812,7 +818,9 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
                   }}
                   className="w-20 h-7 px-2 text-xs bg-gray-700 border border-gray-600/40 rounded text-gray-200 outline-none focus:border-blue-500/50"
                 />
-                <label className="text-xs text-gray-400">高</label>
+                <label className="text-xs text-gray-400">
+                  {t("media.canvasHeightLabel")}
+                </label>
                 <input
                   type="number"
                   defaultValue={state.height}
@@ -830,13 +838,13 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
                   onClick={() => setShowResize(false)}
                   className="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border-0 cursor-pointer text-gray-300"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleResizeCanvas}
                   className="px-3 py-1 text-xs rounded bg-blue-700/40 hover:bg-blue-600/40 border-0 cursor-pointer text-blue-200"
                 >
-                  确认
+                  {t("common.confirm")}
                 </button>
               </div>
             </div>
@@ -854,7 +862,9 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-sm text-gray-200 mb-3">
-                导出预览 ({previewFormatRef.current.toUpperCase()})
+                {t("media.canvasExportPreview", {
+                  format: previewFormatRef.current.toUpperCase(),
+                })}
               </h3>
               <div
                 className="max-w-sm max-h-64 overflow-auto mb-3 bg-gray-950 rounded flex items-center justify-center"
@@ -862,7 +872,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
               >
                 <img
                   src={previewUrl}
-                  alt="导出预览"
+                  alt={t("media.canvasExportPreviewAlt")}
                   className="max-w-full max-h-64 object-contain"
                 />
               </div>
@@ -874,13 +884,13 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
                   onClick={() => setShowPreview(false)}
                   className="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 border-0 cursor-pointer text-gray-300"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleConfirmExport}
                   className="px-3 py-1 text-xs rounded bg-blue-700/40 hover:bg-blue-600/40 border-0 cursor-pointer text-blue-200"
                 >
-                  下载
+                  {t("media.download")}
                 </button>
               </div>
             </div>

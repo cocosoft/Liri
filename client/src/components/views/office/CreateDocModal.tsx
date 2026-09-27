@@ -98,8 +98,10 @@ export default function CreateDocModal({
                 {t("office.cliNotInstalledTitle", "OfficeCLI 未安装")}
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-300 mb-4">
-                文档创建需要 OfficeCLI 命令行工具。请在
-                PowerShell（管理员）中运行以下命令安装：
+                {t(
+                  "office.docCliInstallHint",
+                  "文档创建需要 OfficeCLI 命令行工具。请在 PowerShell（管理员）中运行以下命令安装：",
+                )}
               </p>
               <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-3 mb-3 text-left">
                 <code className="block text-xs text-blue-700 dark:text-blue-300">
@@ -150,10 +152,18 @@ export default function CreateDocModal({
                   onChange={(e) => setTemplate(e.target.value)}
                   className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                 >
-                  <option value="">无模板</option>
-                  <option value="周报">周报</option>
-                  <option value="会议纪要">会议纪要</option>
-                  <option value="技术设计">技术设计</option>
+                  <option value="">
+                    {t("office.docTemplateNone", "无模板")}
+                  </option>
+                  <option value="周报">
+                    {t("office.docTemplateWeekly", "周报")}
+                  </option>
+                  <option value="会议纪要">
+                    {t("office.docTemplateMeeting", "会议纪要")}
+                  </option>
+                  <option value="技术设计">
+                    {t("office.docTemplateTechDesign", "技术设计")}
+                  </option>
                   <option value="PRD">PRD</option>
                 </select>
               </div>

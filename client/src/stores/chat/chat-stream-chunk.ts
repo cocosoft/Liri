@@ -177,33 +177,11 @@ export async function processChunk(
         watermarkStore.updateWatermark(chunk.watermarkState);
         // 异常水位：额外 status 块已由 aggregator 写入事件流
       } else {
-        const structured = chunk.content.match(
-          /上下文水位:\s*(\d+)%\s*\(?(\d+K?)\/(\d+K?)\)?\s*\|\s*severity:(compact|warn)\s*\|\s*ratio:([\d.]+)\s*\|\s*tokens:(\d+)\/(\d+)/,
-        );
-        if (structured) {
-          watermarkStore.updateWatermark({
-            currentTokens: parseInt(structured[6], 10),
-            contextLimit: parseInt(structured[7], 10),
-            ratio: parseFloat(structured[5]),
-            severity: structured[4] as "compact" | "warn",
-          });
-        } else {
-          const legacy = chunk.content.match(/上下文水位:\s*(\d+)%/);
-          if (legacy) {
-            const pct = parseInt(legacy[1], 10);
-            const isCompact =
-              chunk.content.includes("压缩") || chunk.content.includes("临界");
-            watermarkStore.updateWatermark({
-              currentTokens: 0,
-              contextLimit: 0,
-              ratio: pct / 100,
-              severity: isCompact ? "compact" : "warn",
-            });
-          } else {
-            // 非水位提示（压缩/召回/降级事件）
-            set({ streamingStatus: chunk.content });
-          }
-        }
+        // 非水位提示（压缩/召回/降级事件）
+        // CS02：水位判据只用 `chunk.watermarkState`（结构化）；不再解析 content 文本
+        // —— 全部 context_state 生产者均带该字段（chat-handlers 的 onProgress 守卫 +
+        // streamMessageFlow 降级分支），文本解析分支已无可达路径。
+        set({ streamingStatus: chunk.content });
       }
       break;
     }

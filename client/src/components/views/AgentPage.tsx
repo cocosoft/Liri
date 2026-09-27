@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../../stores/agent";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { SkeletonCard } from "../common/Skeleton";
 
 function AgentPage() {
+  const { t } = useTranslation();
   const {
     tasks,
     isLoading,
@@ -62,10 +64,10 @@ function AgentPage() {
   };
 
   const statusText: Record<string, string> = {
-    pending: "等待中",
-    running: "运行中",
-    completed: "已完成",
-    failed: "失败",
+    pending: t("agent.taskStatusPending"),
+    running: t("agent.taskStatusRunning"),
+    completed: t("agent.taskStatusCompleted"),
+    failed: t("agent.taskStatusFailed"),
   };
 
   return (
@@ -73,13 +75,13 @@ function AgentPage() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Agent 任务
+            {t("agent.taskPageTitle")}
           </h2>
           <button
             onClick={() => setActivePage("chat")}
             className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded"
           >
-            返回聊天
+            {t("agent.backToChat")}
           </button>
         </div>
 
@@ -95,7 +97,7 @@ function AgentPage() {
             value={taskName}
             onChange={(e) => setTaskName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleExecute()}
-            placeholder="输入任务名称..."
+            placeholder={t("agent.taskNamePlaceholder")}
             className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
@@ -103,14 +105,14 @@ function AgentPage() {
             disabled={!taskName.trim() || isLoading}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white rounded-lg disabled:cursor-not-allowed"
           >
-            执行
+            {t("agent.runTask")}
           </button>
           <button
             onClick={loadTasks}
             disabled={isLoading}
             className="px-3 py-2 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg disabled:opacity-50"
           >
-            刷新
+            {t("common.refresh")}
           </button>
         </div>
 
@@ -121,7 +123,7 @@ function AgentPage() {
             </div>
           ) : tasks.length === 0 ? (
             <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-              暂无任务
+              {t("tasks.noTasks")}
             </div>
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-gray-700/50">
@@ -142,7 +144,7 @@ function AgentPage() {
                         {statusText[task.status] || task.status}
                       </span>
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {task.name || task.type || "未知任务"}
+                        {task.name || task.type || t("agent.unknownTask")}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -163,7 +165,7 @@ function AgentPage() {
                           }}
                           className="text-xs px-2 py-1 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-900/30"
                         >
-                          取消
+                          {t("common.cancel")}
                         </button>
                       )}
                       <span className="text-xs text-gray-400 dark:text-gray-500">
@@ -177,7 +179,7 @@ function AgentPage() {
                       {task.result && (
                         <div>
                           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                            结果:
+                            {t("agent.resultLabel")}
                           </span>
                           <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                             {task.result}
@@ -187,7 +189,7 @@ function AgentPage() {
                       {task.error && (
                         <div>
                           <span className="text-xs font-medium text-red-500 dark:text-red-400">
-                            错误:
+                            {t("agent.errorLabel")}
                           </span>
                           <p className="mt-0.5 text-xs text-red-500 dark:text-red-400">
                             {task.error}
@@ -197,7 +199,9 @@ function AgentPage() {
                       {task.subTasks && task.subTasks.length > 0 && (
                         <div>
                           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                            子任务 ({task.subTasks.length}):
+                            {t("agent.subTasksLabel", {
+                              n: task.subTasks.length,
+                            })}
                           </span>
                           <ul className="mt-1 space-y-1">
                             {task.subTasks.map((st, idx) => (
@@ -231,7 +235,7 @@ function AgentPage() {
                       {task.logs && task.logs.length > 0 && (
                         <div>
                           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                            日志 ({task.logs.length}):
+                            {t("agent.logsLabel", { n: task.logs.length })}
                           </span>
                           <div className="mt-1 max-h-32 overflow-y-auto space-y-0.5">
                             {task.logs.map((log, idx) => (
@@ -250,7 +254,7 @@ function AgentPage() {
                         taskProgress.agentId === task.id && (
                           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
                             <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                              实时进度:
+                              {t("agent.realtimeProgress")}
                             </span>
                             <div className="mt-1 flex items-center gap-2">
                               <div className="flex-1 h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden">

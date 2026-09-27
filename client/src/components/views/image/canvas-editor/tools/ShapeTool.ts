@@ -13,7 +13,7 @@ const FILL_PARAM: ParamSchema = {
   name: "filled",
   type: "boolean",
   default: false,
-  labelKey: "实心",
+  labelKey: "media.canvasParamSolid",
 };
 
 const SHAPE_PARAMS: Record<ShapeKind, ParamSchema[]> = {
@@ -21,19 +21,44 @@ const SHAPE_PARAMS: Record<ShapeKind, ParamSchema[]> = {
   rect: [FILL_PARAM],
   ellipse: [FILL_PARAM],
   arrow: [
-    { name: "headSize", type: "number", default: 10, labelKey: "箭头大小" },
+    {
+      name: "headSize",
+      type: "number",
+      default: 10,
+      labelKey: "media.canvasParamArrowSize",
+    },
   ],
   roundedRect: [
     FILL_PARAM,
-    { name: "radius", type: "number", default: 12, labelKey: "圆角半径" },
+    {
+      name: "radius",
+      type: "number",
+      default: 12,
+      labelKey: "media.canvasParamCornerRadius",
+    },
   ],
   polygon: [
-    { name: "sides", type: "number", default: 5, labelKey: "边数" },
+    {
+      name: "sides",
+      type: "number",
+      default: 5,
+      labelKey: "media.canvasParamSides",
+    },
     FILL_PARAM,
   ],
   star: [
-    { name: "points", type: "number", default: 5, labelKey: "角数" },
-    { name: "innerRatio", type: "number", default: 0.4, labelKey: "内径比" },
+    {
+      name: "points",
+      type: "number",
+      default: 5,
+      labelKey: "media.canvasParamPoints",
+    },
+    {
+      name: "innerRatio",
+      type: "number",
+      default: 0.4,
+      labelKey: "media.canvasParamInnerRatio",
+    },
     FILL_PARAM,
   ],
 };

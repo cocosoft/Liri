@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { statsService, type DashboardStats } from "../../services/statsService";
 import {
   monitorService,
@@ -35,16 +36,19 @@ import { DashboardStatCard } from "../common/DashboardStatCard";
 import { ChannelMetricsCard } from "../common/ChannelMetricsCard";
 import { ChannelMonitorPanel } from "../common/ChannelMonitorPanel";
 
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
 const BuddyCard = memo(function BuddyCard({
   buddy,
 }: {
   buddy: NonNullable<DashboardStats["buddy"]>;
 }) {
+  const { t } = useTranslation();
   const speciesInfo = SPECIES_MAP[buddy.species as keyof typeof SPECIES_MAP];
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-        伙伴
+        {t("dashboard.buddy")}
       </h4>
       <div className="flex items-center gap-3 mb-3">
         <span className="text-3xl">{speciesInfo?.emoji || "🦆"}</span>
@@ -59,13 +63,13 @@ const BuddyCard = memo(function BuddyCard({
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded p-2">
-          <span className="block text-gray-400">等级</span>
+          <span className="block text-gray-400">{t("dashboard.level")}</span>
           <span className="font-bold text-gray-900 dark:text-white">
             {buddy.level}
           </span>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded p-2">
-          <span className="block text-gray-400">经验值</span>
+          <span className="block text-gray-400">{t("dashboard.xp")}</span>
           <span className="font-bold text-gray-900 dark:text-white">
             {buddy.xp}
           </span>
@@ -75,16 +79,17 @@ const BuddyCard = memo(function BuddyCard({
   );
 });
 
-function formatUptime(seconds: number): string {
+function formatUptime(seconds: number, t: Translate): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}天${h}小时`;
-  if (h > 0) return `${h}小时${m}分`;
-  return `${m}分钟`;
+  if (d > 0) return t("dashboard.uptimeDays", { d, h });
+  if (h > 0) return t("dashboard.uptimeHours", { h, m });
+  return t("dashboard.uptimeMinutes", { m });
 }
 
 function DashboardPage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const timezone = (config.timezone as string) || "Asia/Shanghai";
   const currency = getCurrencyFromTimezone(timezone);
@@ -118,7 +123,7 @@ function DashboardPage() {
       const statsData = await statsService.getDashboardStats();
       setStats(statsData);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载仪表盘数据失败");
+      setError(e instanceof Error ? e.message : t("dashboard.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -196,10 +201,10 @@ function DashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              仪表盘
+              {t("dashboard.title")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              系统概览
+              {t("dashboard.systemOverview")}
             </p>
           </div>
           <div className="flex gap-2">
@@ -211,16 +216,18 @@ function DashboardPage() {
                   : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
               }`}
             >
-              {showMonitor ? "收起监控" : "展开监控"}
+              {showMonitor
+                ? t("dashboard.hideMonitor")
+                : t("dashboard.showMonitor")}
             </button>
             <span className="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500 self-center">
-              每 30s 自动刷新
+              {t("dashboard.autoRefresh")}
             </span>
             <button
               onClick={() => navigate("/chat")}
               className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
             >
-              开始聊天
+              {t("dashboard.startChat")}
             </button>
           </div>
         </div>
@@ -235,42 +242,46 @@ function DashboardPage() {
           <div className="space-y-6">
             <div>
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                <span>📈</span> 数据概览
+                <span>📈</span> {t("dashboard.dataOverview")}
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <DashboardStatCard
-                  label="模型"
+                  label={t("dashboard.models")}
                   value={stats.models}
                   icon="🤖"
                 />
-                <DashboardStatCard label="工具" value={stats.tools} icon="🔧" />
                 <DashboardStatCard
-                  label="会话"
+                  label={t("dashboard.tools")}
+                  value={stats.tools}
+                  icon="🔧"
+                />
+                <DashboardStatCard
+                  label={t("dashboard.sessions")}
                   value={stats.sessions}
                   icon="💬"
                 />
                 <DashboardStatCard
-                  label="知识条目"
+                  label={t("dashboard.knowledgeItems")}
                   value={stats.knowledge}
                   icon="📚"
                 />
                 <DashboardStatCard
-                  label="定时任务"
+                  label={t("dashboard.cronTasks")}
                   value={stats.cronTasks}
                   icon="⏰"
                 />
                 <DashboardStatCard
-                  label="消息渠道"
+                  label={t("dashboard.messageChannels")}
                   value={stats.channels}
                   icon="📡"
                 />
                 <DashboardStatCard
-                  label="Agent 任务"
+                  label={t("dashboard.agentTasks")}
                   value={stats.agentTasks}
                   icon="⚙️"
                 />
                 <DashboardStatCard
-                  label="伙伴等级"
+                  label={t("dashboard.buddyLevel")}
                   value={stats.buddy?.level ?? "-"}
                   icon="🌟"
                 />
@@ -280,7 +291,7 @@ function DashboardPage() {
             {stats.buddy && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                  <span>🦆</span> 伙伴
+                  <span>🦆</span> {t("dashboard.buddy")}
                 </h3>
                 <div className="max-w-sm">
                   <BuddyCard buddy={stats.buddy} />
@@ -290,38 +301,38 @@ function DashboardPage() {
 
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
               <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
-                <span>🚀</span> 快捷入口
+                <span>🚀</span> {t("dashboard.quickAccess")}
               </h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => navigate("/chat")}
                   className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                 >
-                  💬 聊天
+                  💬 {t("dashboard.quickChat")}
                 </button>
                 <button
                   onClick={() => navigate("/knowledge")}
                   className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                 >
-                  📚 知识库
+                  📚 {t("dashboard.quickKnowledge")}
                 </button>
                 <button
                   onClick={() => navigate("/cost")}
                   className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                 >
-                  💰 成本
+                  💰 {t("dashboard.quickCost")}
                 </button>
                 <button
                   onClick={() => navigate("/cron")}
                   className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                 >
-                  🎯 任务
+                  🎯 {t("dashboard.quickTasks")}
                 </button>
                 <button
                   onClick={() => navigate("/settings")}
                   className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                 >
-                  ⚙️ 设置
+                  ⚙️ {t("dashboard.quickSettings")}
                 </button>
               </div>
             </div>
@@ -330,17 +341,17 @@ function DashboardPage() {
             {costSummary && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                  用量概览
+                  {t("dashboard.usageOverview")}
                 </h3>
                 <div className="grid grid-cols-3 gap-4">
                   <DashboardStatCard
-                    label="今日成本"
+                    label={t("dashboard.todayCost")}
                     value={formatCost(costSummary.todayCost, currency)}
                     icon="💵"
                     trendDirection={costSummary.todayCost > 0 ? "up" : "stable"}
                   />
                   <DashboardStatCard
-                    label="本月 Token"
+                    label={t("dashboard.monthlyTokens")}
                     value={formatTokens(costSummary.monthlyTokens)}
                     icon="🪙"
                     trendDirection={
@@ -348,7 +359,7 @@ function DashboardPage() {
                     }
                   />
                   <DashboardStatCard
-                    label="活跃模型"
+                    label={t("dashboard.activeModels")}
                     value={String(costSummary.topProviders.length)}
                     icon="🧩"
                     trendDirection="stable"
@@ -359,7 +370,7 @@ function DashboardPage() {
                     onClick={() => navigate("/usage?tab=cost")}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    查看完整用量分析 →
+                    {t("dashboard.viewFullUsage")}
                   </button>
                 </div>
               </div>
@@ -369,36 +380,37 @@ function DashboardPage() {
             {traceStats && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                  <span>📊</span> AI API 调用统计
+                  <span>📊</span> {t("dashboard.apiCallStats")}
                   <span className="text-[10px] text-green-500 font-normal ml-1">
-                    (Trace 实时)
+                    {t("dashboard.traceRealtime")}
                   </span>
                 </h3>
                 <div className="grid grid-cols-4 gap-4">
                   <DashboardStatCard
-                    label="API 调用"
+                    label={t("dashboard.apiCalls")}
                     value={String(traceStats.totalCalls)}
                     icon="📞"
                   />
                   <DashboardStatCard
-                    label="输入 Token"
+                    label={t("dashboard.inputTokens")}
                     value={formatTokens(traceStats.totalInputTokens)}
                     icon="📥"
                   />
                   <DashboardStatCard
-                    label="输出 Token"
+                    label={t("dashboard.outputTokens")}
                     value={formatTokens(traceStats.totalOutputTokens)}
                     icon="📤"
                   />
                   <DashboardStatCard
-                    label="平均延迟"
+                    label={t("dashboard.avgLatency")}
                     value={`${traceStats.latencyP50}ms`}
                     icon="⏱️"
                   />
                 </div>
                 {traceStats.totalErrors > 0 && (
                   <div className="mt-2 text-xs text-red-500 dark:text-red-400">
-                    ⚠️ {traceStats.totalErrors} 次错误 (
+                    ⚠️{" "}
+                    {t("dashboard.errorCount", { n: traceStats.totalErrors })} (
                     {(
                       (traceStats.totalErrors /
                         Math.max(traceStats.totalCalls, 1)) *
@@ -431,7 +443,7 @@ function DashboardPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm">🔍</span>
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                      OTEL 追踪摘要
+                      {t("dashboard.otelTraceSummary")}
                     </h3>
                   </div>
                   {ENABLE_TRACE_REDESIGN ? (
@@ -447,7 +459,7 @@ function DashboardPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                      <span>🖥️</span> 系统资源
+                      <span>🖥️</span> {t("dashboard.systemResources")}
                     </h3>
                   </div>
                   <select
@@ -459,32 +471,32 @@ function DashboardPage() {
                         : "bg-white border-gray-300 text-gray-700"
                     } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
-                    <option value={300000}>最近5分钟</option>
-                    <option value={1800000}>最近30分钟</option>
-                    <option value={3600000}>最近1小时</option>
-                    <option value={86400000}>最近24小时</option>
+                    <option value={300000}>{t("dashboard.range5m")}</option>
+                    <option value={1800000}>{t("dashboard.range30m")}</option>
+                    <option value={3600000}>{t("dashboard.range1h")}</option>
+                    <option value={86400000}>{t("dashboard.range24h")}</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <MetricsChart
-                    title="CPU 使用率 (%)"
+                    title={t("dashboard.cpuUsagePercent")}
                     data={metrics?.cpu ?? []}
                     valueFormatter={(v) => `${v.toFixed(1)}%`}
                     color="#3B82F6"
                     isDark={isDark}
                     secondaryData={metrics?.appCpu ?? []}
                     secondaryColor="#8B5CF6"
-                    secondaryLabel="应用"
+                    secondaryLabel={t("dashboard.app")}
                   />
                   <MetricsChart
-                    title="内存使用 (MB)"
+                    title={t("dashboard.memoryUsageMb")}
                     data={metrics?.memory ?? []}
                     valueFormatter={(v) => `${v.toFixed(0)} MB`}
                     color="#10B981"
                     isDark={isDark}
                     secondaryData={metrics?.appMemory ?? []}
                     secondaryColor="#F59E0B"
-                    secondaryLabel="应用"
+                    secondaryLabel={t("dashboard.app")}
                   />
                 </div>
 
@@ -493,7 +505,7 @@ function DashboardPage() {
                     className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                   >
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      磁盘总量
+                      {t("dashboard.diskTotal")}
                     </p>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">
                       {summary ? `${summary.diskTotalGB} GB` : "--"}
@@ -503,7 +515,7 @@ function DashboardPage() {
                     className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                   >
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      磁盘已用
+                      {t("dashboard.diskUsed")}
                     </p>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">
                       {summary ? `${summary.diskUsedGB} GB` : "--"}
@@ -513,7 +525,7 @@ function DashboardPage() {
                     className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                   >
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      磁盘使用率
+                      {t("dashboard.diskUsage")}
                     </p>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">
                       {summary ? `${summary.diskUsagePercent}%` : "--"}
@@ -523,7 +535,7 @@ function DashboardPage() {
                     className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                   >
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      系统负载
+                      {t("dashboard.systemLoad")}
                     </p>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">
                       {summary && summary.loadAverage.length > 0
@@ -541,20 +553,20 @@ function DashboardPage() {
                       className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                     >
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        运行时间
+                        {t("dashboard.uptime")}
                       </p>
                       <p
                         className="text-lg font-bold text-gray-900 dark:text-white"
-                        title={`${summary.uptime}秒`}
+                        title={t("dashboard.seconds", { n: summary.uptime })}
                       >
-                        {formatUptime(summary.uptime)}
+                        {formatUptime(summary.uptime, t)}
                       </p>
                     </div>
                     <div
                       className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                     >
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        CPU 使用率
+                        {t("dashboard.cpuUsage")}
                       </p>
                       <p className="text-lg font-bold text-gray-900 dark:text-white">
                         {summary.cpuPercent}%
@@ -564,7 +576,7 @@ function DashboardPage() {
                       className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                     >
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        内存使用
+                        {t("dashboard.memoryUsage")}
                       </p>
                       <p className="text-lg font-bold text-gray-900 dark:text-white">
                         {summary.memoryUsedMB} MB / {summary.memoryTotalMB} MB
@@ -574,7 +586,7 @@ function DashboardPage() {
                       className={`p-3 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                     >
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        内存使用率
+                        {t("dashboard.memoryUsagePercent")}
                       </p>
                       <p className="text-lg font-bold text-gray-900 dark:text-white">
                         {summary.memoryPercent}%
@@ -585,14 +597,14 @@ function DashboardPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <MetricsChart
-                    title="请求量趋势"
+                    title={t("dashboard.requestsTrend")}
                     data={metrics?.requests ?? []}
                     valueFormatter={(v) => `${v.toFixed(0)}`}
                     color="#3B82F6"
                     isDark={isDark}
                   />
                   <MetricsChart
-                    title="响应时间 (ms)"
+                    title={t("dashboard.responseTimeMs")}
                     data={metrics?.responseTime ?? []}
                     valueFormatter={(v) => `${v.toFixed(0)}ms`}
                     color="#10B981"
@@ -602,7 +614,7 @@ function DashboardPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <MetricsChart
-                    title="错误率趋势 (%)"
+                    title={t("dashboard.errorRateTrend")}
                     data={metrics?.errorRate ?? []}
                     valueFormatter={(v) => `${v.toFixed(2)}%`}
                     color="#EF4444"
@@ -617,7 +629,7 @@ function DashboardPage() {
                     <h2
                       className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                     >
-                      📊 分析面板
+                      {t("dashboard.analyticsPanel")}
                     </h2>
                   </div>
                   <div className="p-4">
@@ -626,7 +638,7 @@ function DashboardPage() {
                         {(costSummary?.totalTokens ?? 0) === 0 &&
                           analytics.tools.totalToolCalls === 0 && (
                             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-700 dark:text-yellow-300">
-                              ⏳ 分析数据收集中，请等待指标采集完成后刷新
+                              {t("dashboard.analyticsCollecting")}
                             </div>
                           )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -634,12 +646,12 @@ function DashboardPage() {
                             className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                           >
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span>🪙</span> Token 用量
+                              <span>🪙</span> {t("dashboard.tokenUsage")}
                             </h3>
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  总输入 Tokens
+                                  {t("dashboard.totalInputTokens")}
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
                                   {(
@@ -649,7 +661,7 @@ function DashboardPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  总输出 Tokens
+                                  {t("dashboard.totalOutputTokens")}
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
                                   {(
@@ -659,7 +671,7 @@ function DashboardPage() {
                               </div>
                               <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-2">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  合计 Tokens
+                                  {t("dashboard.totalTokensLabel")}
                                 </span>
                                 <span className="font-bold text-blue-600 dark:text-blue-400">
                                   {(
@@ -669,7 +681,7 @@ function DashboardPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  LLM 请求次数
+                                  {t("dashboard.llmRequests")}
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
                                   {(
@@ -684,7 +696,7 @@ function DashboardPage() {
                             className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                           >
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span>🔧</span> 工具调用 Top 10
+                              <span>🔧</span> {t("dashboard.toolCallsTop10")}
                             </h3>
                             {analytics.tools.topTools.length > 0 ? (
                               <div className="space-y-1.5">
@@ -721,18 +733,18 @@ function DashboardPage() {
                               </div>
                             ) : (
                               <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-                                暂无工具调用数据
+                                {t("dashboard.noToolCalls")}
                               </p>
                             )}
                             <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 flex justify-between text-xs text-gray-500 dark:text-gray-400">
                               <span>
-                                总调用:{" "}
+                                {t("dashboard.totalCalls")}{" "}
                                 <strong className="text-gray-900 dark:text-white">
                                   {analytics.tools.totalToolCalls}
                                 </strong>
                               </span>
                               <span>
-                                已用工具:{" "}
+                                {t("dashboard.uniqueTools")}{" "}
                                 <strong className="text-gray-900 dark:text-white">
                                   {analytics.tools.uniqueToolsUsed}
                                 </strong>
@@ -744,12 +756,12 @@ function DashboardPage() {
                             className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                           >
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span>❌</span> 错误分析
+                              <span>❌</span> {t("dashboard.errorAnalysis")}
                             </h3>
                             <div className="flex gap-4 mb-3">
                               <div className="flex-1 text-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  总错误
+                                  {t("dashboard.totalErrors")}
                                 </p>
                                 <p className="text-lg font-bold text-red-600 dark:text-red-400">
                                   {analytics.errors.totalErrors}
@@ -757,7 +769,7 @@ function DashboardPage() {
                               </div>
                               <div className="flex-1 text-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  错误率
+                                  {t("dashboard.errorRate")}
                                 </p>
                                 <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
                                   {analytics.errors.errorRate}%
@@ -784,7 +796,7 @@ function DashboardPage() {
                               </div>
                             ) : (
                               <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">
-                                暂无错误记录
+                                {t("dashboard.noErrors")}
                               </p>
                             )}
                           </div>
@@ -793,12 +805,13 @@ function DashboardPage() {
                             className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                           >
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span>⏱️</span> 延迟百分位
+                              <span>⏱️</span>{" "}
+                              {t("dashboard.latencyPercentiles")}
                             </h3>
                             <div className="grid grid-cols-2 gap-3">
                               <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  平均延迟
+                                  {t("dashboard.avgLatency")}
                                 </p>
                                 <p className="text-base font-bold text-blue-600 dark:text-blue-400">
                                   {analytics.performance.averageLatencyMs}ms
@@ -830,7 +843,9 @@ function DashboardPage() {
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-2">
-                              基于 {analytics.performance.totalMetrics} 个样本
+                              {t("dashboard.basedOnSamples", {
+                                n: analytics.performance.totalMetrics,
+                              })}
                             </p>
                           </div>
 
@@ -838,12 +853,12 @@ function DashboardPage() {
                             className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                           >
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span>💬</span> 会话统计
+                              <span>💬</span> {t("dashboard.sessionStats")}
                             </h3>
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  总事件数
+                                  {t("dashboard.totalEvents")}
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
                                   {analytics.session.totalEvents.toLocaleString()}
@@ -851,7 +866,7 @@ function DashboardPage() {
                               </div>
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  总会话数
+                                  {t("dashboard.totalSessions")}
                                 </span>
                                 <span className="font-medium text-gray-900 dark:text-white">
                                   {analytics.session.totalSessions.toLocaleString()}
@@ -859,7 +874,7 @@ function DashboardPage() {
                               </div>
                               <div className="flex justify-between text-sm border-t border-gray-200 dark:border-gray-600 pt-2">
                                 <span className="text-gray-500 dark:text-gray-400">
-                                  活动会话
+                                  {t("dashboard.activeSessions")}
                                 </span>
                                 <span className="font-bold text-green-600 dark:text-green-400">
                                   {analytics.session.activeSessions.toLocaleString()}
@@ -872,12 +887,12 @@ function DashboardPage() {
                             className={`p-4 rounded-lg border ${isDark ? "bg-gray-700/50 border-gray-600" : "bg-gray-50 border-gray-200"}`}
                           >
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                              <span>💰</span> 成本概览
+                              <span>💰</span> {t("dashboard.costOverview")}
                             </h3>
                             <div className="flex items-center justify-center py-4">
                               <div className="text-center">
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                  累计成本
+                                  {t("dashboard.cumulativeCost")}
                                 </p>
                                 <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                                   {formatCost(
@@ -888,7 +903,7 @@ function DashboardPage() {
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                              基于成本记录实时统计
+                              {t("dashboard.costRealtimeNote")}
                             </p>
                           </div>
                         </div>
@@ -897,7 +912,7 @@ function DashboardPage() {
                       <div
                         className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}
                       >
-                        加载分析数据...
+                        {t("dashboard.loadingAnalytics")}
                       </div>
                     )}
                   </div>
@@ -911,7 +926,7 @@ function DashboardPage() {
                       <h2
                         className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                       >
-                        🩺 系统健康
+                        {t("dashboard.systemHealthSection")}
                       </h2>
                     </div>
                     <div className="p-4">
@@ -926,16 +941,17 @@ function DashboardPage() {
                           }`}
                         >
                           {systemHealth.status === "healthy"
-                            ? "健康"
+                            ? t("dashboard.healthHealthy")
                             : systemHealth.status === "degraded"
-                              ? "降级"
-                              : "不健康"}
+                              ? t("dashboard.healthDegraded")
+                              : t("dashboard.healthUnhealthy")}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          检测时间:{" "}
-                          {new Date(systemHealth.timestamp).toLocaleString(
-                            "zh-CN",
-                          )}
+                          {t("dashboard.checkTime", {
+                            time: new Date(
+                              systemHealth.timestamp,
+                            ).toLocaleString("zh-CN"),
+                          })}
                         </span>
                       </div>
                       {systemHealth.components.length > 0 && (
@@ -989,7 +1005,7 @@ function DashboardPage() {
                         <h2
                           className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                         >
-                          🔴 告警列表
+                          {t("dashboard.alertList")}
                         </h2>
                         {filteredAlerts.length > 0 && (
                           <span className="px-1.5 py-0.5 text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
@@ -1010,11 +1026,19 @@ function DashboardPage() {
                               : "bg-white border-gray-300 text-gray-700"
                           } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                         >
-                          <option value="all">全部未确认</option>
-                          <option value="critical">严重</option>
-                          <option value="error">错误</option>
-                          <option value="warn">警告</option>
-                          <option value="info">信息</option>
+                          <option value="all">{t("dashboard.allUnack")}</option>
+                          <option value="critical">
+                            {t("dashboard.levelCritical")}
+                          </option>
+                          <option value="error">
+                            {t("dashboard.levelError")}
+                          </option>
+                          <option value="warn">
+                            {t("dashboard.levelWarn")}
+                          </option>
+                          <option value="info">
+                            {t("dashboard.levelInfo")}
+                          </option>
                         </select>
                       </div>
                     </div>
@@ -1025,7 +1049,7 @@ function DashboardPage() {
                         <div
                           className={`p-8 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}
                         >
-                          暂无未确认的告警
+                          {t("dashboard.noAlerts")}
                         </div>
                       ) : (
                         filteredAlerts.map((alert) => (
@@ -1071,7 +1095,7 @@ function DashboardPage() {
                                     : "border-gray-300 text-gray-600 hover:bg-gray-50"
                                 }`}
                               >
-                                确认
+                                {t("common.confirm")}
                               </button>
                             </div>
                           </div>

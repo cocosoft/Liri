@@ -3,6 +3,7 @@
  * P0b: 同时创建后端 Project 实体 + 前端 worktree，ID 统一
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useRootStore } from "@/stores/root-store";
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function CreateProjectModal({ onClose }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [description, setDescription] = useState("");
@@ -27,7 +29,7 @@ export default function CreateProjectModal({ onClose }: Props) {
       const selected = await open({
         directory: true,
         multiple: false,
-        title: "选择项目文件夹",
+        title: t("workspace.selectProjectFolder"),
       });
       if (typeof selected === "string") {
         setPath(selected);
@@ -41,11 +43,11 @@ export default function CreateProjectModal({ onClose }: Props) {
     setError("");
 
     if (!name.trim()) {
-      setError("请输入项目名称");
+      setError(t("workspace.nameRequired"));
       return;
     }
     if (!path.trim()) {
-      setError("请输入项目路径");
+      setError(t("workspace.pathRequired"));
       return;
     }
 
@@ -84,17 +86,17 @@ export default function CreateProjectModal({ onClose }: Props) {
     >
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-          新建项目
+          {t("workspace.newProject")}
         </h2>
 
         {/* 名称 */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-          项目名称
+          {t("workspace.projectName")}
         </label>
         <input
           type="text"
           className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          placeholder="例如：my-project"
+          placeholder={t("workspace.projectNamePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
@@ -102,13 +104,13 @@ export default function CreateProjectModal({ onClose }: Props) {
 
         {/* 路径 */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-          本地路径
+          {t("workspace.localPath")}
         </label>
         <div className="flex gap-2 mb-3">
           <input
             type="text"
             className="flex-1 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            placeholder="例如：E:/Projects/my-app"
+            placeholder={t("workspace.localPathPlaceholder")}
             value={path}
             onChange={(e) => setPath(e.target.value)}
           />
@@ -116,17 +118,17 @@ export default function CreateProjectModal({ onClose }: Props) {
             onClick={handleSelectFolder}
             className="px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap"
           >
-            选择文件夹
+            {t("workspace.selectFolder")}
           </button>
         </div>
 
         {/* 描述 */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-          描述（可选）
+          {t("workspace.descriptionOptional")}
         </label>
         <textarea
           className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
-          placeholder="项目说明..."
+          placeholder={t("workspace.projectDescPlaceholder")}
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -141,14 +143,14 @@ export default function CreateProjectModal({ onClose }: Props) {
             onClick={onClose}
             className="px-4 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
             className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {submitting ? "创建中..." : "创建"}
+            {submitting ? t("workspace.creatingNow") : t("common.create")}
           </button>
         </div>
       </div>

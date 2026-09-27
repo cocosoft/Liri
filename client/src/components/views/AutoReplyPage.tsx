@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import {
   autoReplyService,
@@ -29,6 +30,7 @@ function patternToKeywords(p: AutoReplyPattern): string {
 }
 
 function AutoReplyPage() {
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
   const [rules, setRules] = useState<AutoReplyRule[]>([]);
@@ -126,9 +128,9 @@ function AutoReplyPage() {
   };
 
   const getPriorityLabel = (priority: number) => {
-    if (priority === 1) return "高";
-    if (priority === 2) return "中";
-    return "低";
+    if (priority === 1) return t("autoReply.priorityHigh");
+    if (priority === 2) return t("autoReply.priorityMedium");
+    return t("autoReply.priorityLow");
   };
 
   return (
@@ -141,12 +143,12 @@ function AutoReplyPage() {
             <h1
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              自动回复管理
+              {t("autoReply.title")}
             </h1>
             <p
               className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              配置关键词触发的自动回复规则
+              {t("autoReply.desc")}
             </p>
           </div>
           <button
@@ -157,7 +159,7 @@ function AutoReplyPage() {
             }}
             className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
           >
-            添加规则
+            {t("autoReply.addRule")}
           </button>
         </div>
 
@@ -168,14 +170,14 @@ function AutoReplyPage() {
             <h3
               className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              {editingRule ? "编辑规则" : "新建规则"}
+              {editingRule ? t("autoReply.editRule") : t("autoReply.newRule")}
             </h3>
             <div className="space-y-4">
               <div>
                 <label
                   className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                 >
-                  规则名称
+                  {t("autoReply.ruleName")}
                 </label>
                 <input
                   type="text"
@@ -184,14 +186,14 @@ function AutoReplyPage() {
                     setNewRule((prev) => ({ ...prev, name: e.target.value }))
                   }
                   className={`w-full px-3 py-2 text-sm border rounded-lg ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
-                  placeholder="输入规则名称"
+                  placeholder={t("autoReply.ruleNamePlaceholder")}
                 />
               </div>
               <div>
                 <label
                   className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                 >
-                  匹配关键词（逗号分隔）
+                  {t("autoReply.keywordsLabel")}
                 </label>
                 <input
                   type="text"
@@ -203,14 +205,14 @@ function AutoReplyPage() {
                     }))
                   }
                   className={`w-full px-3 py-2 text-sm border rounded-lg ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
-                  placeholder="如: 你好, 您好, hello"
+                  placeholder={t("autoReply.keywordsPlaceholder")}
                 />
               </div>
               <div>
                 <label
                   className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                 >
-                  回复内容
+                  {t("autoReply.replyLabel")}
                 </label>
                 <textarea
                   value={newRule.reply}
@@ -219,14 +221,14 @@ function AutoReplyPage() {
                   }
                   className={`w-full px-3 py-2 text-sm border rounded-lg ${isDark ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
                   rows={3}
-                  placeholder="输入自动回复内容"
+                  placeholder={t("autoReply.replyPlaceholder")}
                 />
               </div>
               <div>
                 <label
                   className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                 >
-                  优先级
+                  {t("autoReply.priority")}
                 </label>
                 <div className="flex gap-2">
                   {[1, 2, 3].map((p) => (
@@ -243,7 +245,8 @@ function AutoReplyPage() {
                             : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                       }`}
                     >
-                      {getPriorityLabel(p)}优先级
+                      {getPriorityLabel(p)}
+                      {t("autoReply.priority")}
                     </button>
                   ))}
                 </div>
@@ -256,13 +259,15 @@ function AutoReplyPage() {
                   }}
                   className={`px-4 py-2 text-sm rounded-lg ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={editingRule ? handleUpdate : handleSubmit}
                   className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                 >
-                  {editingRule ? "保存修改" : "添加规则"}
+                  {editingRule
+                    ? t("autoReply.saveChanges")
+                    : t("autoReply.addRule")}
                 </button>
               </div>
             </div>
@@ -278,45 +283,45 @@ function AutoReplyPage() {
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              规则名称
+              {t("autoReply.ruleName")}
             </span>
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              关键词
+              {t("autoReply.keywords")}
             </span>
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              回复预览
+              {t("autoReply.replyPreview")}
             </span>
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              优先级
+              {t("autoReply.priority")}
             </span>
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              匹配方式
+              {t("autoReply.matchMode")}
             </span>
             <span
               className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              操作
+              {t("autoReply.actions")}
             </span>
           </div>
 
           {!loading && rules.length === 0 ? (
             <div className="text-center py-12">
               <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                暂无自动回复规则
+                {t("autoReply.empty")}
               </p>
             </div>
           ) : loading ? (
             <div className="text-center py-12">
               <p className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                加载中...
+                {t("common.loading")}
               </p>
             </div>
           ) : (
@@ -335,7 +340,7 @@ function AutoReplyPage() {
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${rule.enabled ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}
                     >
-                      {rule.enabled ? "启用" : "禁用"}
+                      {rule.enabled ? t("common.enable") : t("common.disable")}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -363,7 +368,9 @@ function AutoReplyPage() {
                   <span
                     className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    {rule.pattern.type === "regexp" ? "关键词组" : "包含匹配"}
+                    {rule.pattern.type === "regexp"
+                      ? t("autoReply.matchRegexp")
+                      : t("autoReply.matchSubstring")}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -379,19 +386,19 @@ function AutoReplyPage() {
                       }}
                       className={`px-2 py-1 text-xs rounded ${isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
                     >
-                      编辑
+                      {t("common.edit")}
                     </button>
                     <button
                       onClick={() => toggleRule(rule)}
                       className={`px-2 py-1 text-xs rounded ${rule.enabled ? "bg-yellow-50 hover:bg-yellow-100 text-yellow-700" : "bg-green-50 hover:bg-green-100 text-green-700"}`}
                     >
-                      {rule.enabled ? "禁用" : "启用"}
+                      {rule.enabled ? t("common.disable") : t("common.enable")}
                     </button>
                     <button
                       onClick={() => deleteRule(rule.id)}
                       className={`px-2 py-1 text-xs rounded ${isDark ? "bg-red-900/30 hover:bg-red-900/50 text-red-400" : "bg-red-50 hover:bg-red-100 text-red-600"}`}
                     >
-                      删除
+                      {t("common.delete")}
                     </button>
                   </div>
                 </div>

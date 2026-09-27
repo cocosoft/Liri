@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useBuddyStore } from "../../stores/buddyStore";
 
 interface DreamEntry {
@@ -12,6 +14,7 @@ interface DreamEntry {
 }
 
 function BuddyDreamDetail() {
+  const { t } = useTranslation();
   const { companion } = useBuddyStore();
   const [dreams, setDreams] = useState<DreamEntry[]>([]);
   const [selectedDream, setSelectedDream] = useState<DreamEntry | null>(null);
@@ -40,34 +43,41 @@ function BuddyDreamDetail() {
   const getMoodText = (mood: string) => {
     switch (mood) {
       case "excited":
-        return "兴奋";
+        return t("buddy.moodExcited");
       case "peaceful":
-        return "平静";
+        return t("buddy.moodPeaceful");
       case "adventurous":
-        return "冒险";
+        return t("buddy.moodAdventurous");
       case "scared":
-        return "恐惧";
+        return t("buddy.moodScared");
       case "happy":
-        return "幸福";
+        return t("buddy.moodHappy");
       default:
-        return "未知";
+        return t("common.unknown");
     }
   };
 
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) return `${minutes}分钟`;
+  const formatDuration = (minutes: number, t: TFunction) => {
+    if (minutes < 60) return t("buddy.durationMinutes", { n: minutes });
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return `${hours}小时${mins > 0 ? `${mins}分钟` : ""}`;
+    return (
+      t("buddy.durationHours", { n: hours }) +
+      (mins > 0 ? t("buddy.durationMinutes", { n: mins }) : "")
+    );
   };
 
   if (!companion) {
-    return <div className="p-4 text-center text-gray-400">暂无伙伴数据</div>;
+    return (
+      <div className="p-4 text-center text-gray-400">
+        {t("buddy.noBuddyData")}
+      </div>
+    );
   }
 
   return (
     <div className="p-4">
-      <h3 className="text-lg font-medium mb-4">梦境记录</h3>
+      <h3 className="text-lg font-medium mb-4">{t("buddy.dreamRecords")}</h3>
 
       {selectedDream ? (
         <div>
@@ -75,7 +85,7 @@ function BuddyDreamDetail() {
             onClick={() => setSelectedDream(null)}
             className="mb-4 px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
           >
-            返回列表
+            {t("buddy.backToList")}
           </button>
 
           <div
@@ -100,8 +110,12 @@ function BuddyDreamDetail() {
               {selectedDream.content}
             </p>
             <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span>⏱ {formatDuration(selectedDream.duration)}</span>
-              <span>心情: {getMoodText(selectedDream.mood)}</span>
+              <span>⏱ {formatDuration(selectedDream.duration, t)}</span>
+              <span>
+                {t("buddy.moodLabel", {
+                  mood: getMoodText(selectedDream.mood),
+                })}
+              </span>
             </div>
             {selectedDream.symbols.length > 0 && (
               <div className="mt-3 flex gap-2">
@@ -117,7 +131,9 @@ function BuddyDreamDetail() {
       ) : (
         <div className="space-y-3">
           {dreams.length === 0 ? (
-            <p className="text-center text-gray-400 py-8">暂无梦境记录</p>
+            <p className="text-center text-gray-400 py-8">
+              {t("buddy.noDreamRecords")}
+            </p>
           ) : (
             dreams.map((dream) => (
               <button
@@ -134,7 +150,7 @@ function BuddyDreamDetail() {
                 </p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                   <span>{dream.date}</span>
-                  <span>{formatDuration(dream.duration)}</span>
+                  <span>{formatDuration(dream.duration, t)}</span>
                   <div className="flex gap-1">
                     {dream.symbols.slice(0, 3).map((s, i) => (
                       <span key={i}>{s}</span>
@@ -148,9 +164,11 @@ function BuddyDreamDetail() {
       )}
 
       <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-        <h4 className="text-sm font-medium mb-2">梦境解读</h4>
+        <h4 className="text-sm font-medium mb-2">
+          {t("buddy.dreamInterpretation")}
+        </h4>
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          伙伴的梦境反映了其潜意识状态。与伙伴积极互动可以帮助它产生更多正面的梦境体验。
+          {t("buddy.dreamInterpretationDesc")}
         </p>
       </div>
     </div>

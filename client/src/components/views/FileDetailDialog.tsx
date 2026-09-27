@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { FileRegistryRecord } from "../../types";
 import { formatRegistryTime } from "../../utils/registryTime";
 
@@ -14,6 +15,7 @@ interface FileDetailDialogProps {
  * 展示文件的完整元数据信息，包括 MD5、来源、时间线等
  */
 function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
+  const { t } = useTranslation();
   /** 格式化时间戳（P2-2：秒级 → 统一走 formatRegistryTime，带秒） */
   const formatDate = (ts: number) =>
     formatRegistryTime(ts, { withSeconds: true });
@@ -44,7 +46,7 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
         {/* 头部 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            文件详情
+            {t("files.detailTitle")}
           </h3>
           <button
             onClick={onClose}
@@ -69,45 +71,69 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
         {/* 内容 */}
         <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <DetailRow
-            label="原始文件名"
+            label={t("files.originalName")}
             value={record.originalName}
             mono={false}
           />
-          <DetailRow label="保存文件名" value={record.savedName} mono />
-          <DetailRow label="文件 ID" value={record.fileId} mono />
-          <DetailRow label="存储路径" value={record.savedPath} mono />
-          <DetailRow label="MD5" value={record.md5 || "-"} mono />
+          <DetailRow
+            label={t("files.savedName")}
+            value={record.savedName}
+            mono
+          />
+          <DetailRow label={t("files.fileId")} value={record.fileId} mono />
+          <DetailRow
+            label={t("files.storedPath")}
+            value={record.savedPath}
+            mono
+          />
+          <DetailRow label={t("files.md5")} value={record.md5 || "-"} mono />
           <div className="grid grid-cols-2 gap-3">
-            <DetailRow label="大小" value={formatSize(record.size)} mono />
-            <DetailRow label="MIME 类型" value={record.mimeType || "-"} mono />
+            <DetailRow
+              label={t("files.size")}
+              value={formatSize(record.size)}
+              mono
+            />
+            <DetailRow
+              label={t("files.mimeType")}
+              value={record.mimeType || "-"}
+              mono
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <DetailRow label="来源" value={record.source} mono />
-            <DetailRow label="来源 ID" value={record.sourceId || "-"} mono />
+            <DetailRow label={t("files.source")} value={record.source} mono />
+            <DetailRow
+              label={t("files.sourceId")}
+              value={record.sourceId || "-"}
+              mono
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <DetailRow label="存储分区" value={record.storeZone} mono />
+            <DetailRow
+              label={t("files.storeZone")}
+              value={record.storeZone}
+              mono
+            />
             {record.storeZone === "media" && (
               <DetailRow
-                label="媒体类型"
+                label={t("files.mediaType")}
                 value={record.mediaType || "-"}
                 mono
               />
             )}
           </div>
           <DetailRow
-            label="描述"
+            label={t("common.description")}
             value={record.description || "-"}
             mono={false}
           />
           <div className="grid grid-cols-2 gap-3">
             <DetailRow
-              label="创建时间"
+              label={t("files.createdAt")}
               value={formatDate(record.createdAt)}
               mono
             />
             <DetailRow
-              label="更新时间"
+              label={t("files.updatedAt")}
               value={formatDate(record.updatedAt)}
               mono
             />
@@ -115,11 +141,11 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
           {record.isArchive && (
             <div className="flex items-center gap-2 text-sm">
               <span className="px-2 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded text-xs font-medium">
-                压缩包文件
+                {t("files.archiveFile")}
               </span>
               {record.archiveParentId && (
                 <span className="text-gray-500">
-                  父文件 ID:{" "}
+                  {t("files.archiveParentIdLabel")}{" "}
                   <code className="text-xs">{record.archiveParentId}</code>
                 </span>
               )}
@@ -127,7 +153,7 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
           )}
           {record.isDeleted && (
             <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded text-xs font-medium">
-              已删除
+              {t("files.deleted")}
             </span>
           )}
         </div>
@@ -138,13 +164,13 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
             onClick={() => copyToClipboard(record.savedPath)}
             className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
           >
-            复制路径
+            {t("files.copyPath")}
           </button>
           <button
             onClick={() => copyToClipboard(record.fileId)}
             className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
           >
-            复制 ID
+            {t("files.copyId")}
           </button>
           <button
             // P2-3：md5 为空时不复制（对齐列表页 `|| "-"` 语义）
@@ -152,7 +178,7 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
             disabled={!record.md5}
             className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-40"
           >
-            复制 MD5
+            {t("files.copyMd5")}
           </button>
         </div>
       </div>

@@ -14,14 +14,14 @@ interface SkillDetailModalProps {
   onToggle: (enabled: boolean) => void;
 }
 
-const PERMISSION_LABELS: Record<string, string> = {
-  network: "网络访问",
-  filesystem: "文件系统",
-  browser: "浏览器",
-  shell: "Shell 执行",
-  notifications: "通知",
-  vault: "Vault 存储",
-  voice: "语音录制",
+const PERMISSION_LABEL_KEYS: Record<string, string> = {
+  network: "skill.permissionNetwork",
+  filesystem: "skill.permissionFilesystem",
+  browser: "skill.permissionBrowser",
+  shell: "skill.permissionShell",
+  notifications: "skill.permissionNotifications",
+  vault: "skill.permissionVault",
+  voice: "skill.permissionVoice",
 };
 
 export function SkillDetailModal({
@@ -101,7 +101,7 @@ export function SkillDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                说明文档
+                {t("skill.readmeSection")}
               </span>
               <div
                 className={`mt-1 p-3 rounded-lg text-sm max-h-48 overflow-y-auto whitespace-pre-wrap ${
@@ -119,7 +119,7 @@ export function SkillDetailModal({
             className={`grid grid-cols-2 gap-3 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
             <div>
-              <span className="font-semibold">版本</span>
+              <span className="font-semibold">{t("skill.version")}</span>
               <p className={isDark ? "text-gray-200" : "text-gray-800"}>
                 v{skill.version}
               </p>
@@ -153,7 +153,7 @@ export function SkillDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                标签
+                {t("skill.tags")}
               </span>
               <div className="flex flex-wrap gap-2 mt-1">
                 {skill.tags.map((tag) => (
@@ -177,7 +177,7 @@ export function SkillDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                权限声明
+                {t("skill.permissions")}
               </span>
               <div className="flex flex-wrap gap-2 mt-1">
                 {skill.permissions.map((perm) => (
@@ -189,7 +189,9 @@ export function SkillDetailModal({
                         : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
-                    {PERMISSION_LABELS[perm] || perm}
+                    {PERMISSION_LABEL_KEYS[perm]
+                      ? t(PERMISSION_LABEL_KEYS[perm])
+                      : perm}
                   </span>
                 ))}
               </div>
@@ -201,7 +203,7 @@ export function SkillDetailModal({
               <span
                 className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                依赖
+                {t("skill.dependencies")}
               </span>
               <ul
                 className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
@@ -229,7 +231,7 @@ export function SkillDetailModal({
                     : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
-                {isEnabled ? "禁用" : "启用"}
+                {isEnabled ? t("common.disable") : t("common.enable")}
               </button>
               <button
                 onClick={onUninstall}

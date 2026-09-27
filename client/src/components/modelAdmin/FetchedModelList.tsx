@@ -3,6 +3,7 @@
  * 从 ModelPage 提取的独立组件
  */
 
+import { useTranslation } from "react-i18next";
 import type { FetchedModel } from "../../types";
 
 interface FetchedModelListProps {
@@ -28,23 +29,26 @@ export default function FetchedModelList({
   onBulkImport,
   importing,
 }: FetchedModelListProps) {
+  const { t } = useTranslation();
   return (
     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-gray-500">可用模型 ({total}):</p>
+        <p className="text-xs text-gray-500">
+          {t("model.availableModelsCount", { count: total })}
+        </p>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onBulkImport(models.map((m) => m.id))}
             disabled={importing || models.length === 0}
             className="px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded transition-colors disabled:opacity-30"
           >
-            {importing ? "导入中..." : "导入到模型列表"}
+            {importing ? t("model.importing") : t("model.importToList")}
           </button>
           <input
             type="text"
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="搜索模型..."
+            placeholder={t("model.searchPlaceholder")}
             className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded"
           />
         </div>
@@ -63,8 +67,10 @@ export default function FetchedModelList({
       {total > pageSize && (
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>
-            显示 {(currentPage - 1) * pageSize + 1} -{" "}
-            {Math.min(currentPage * pageSize, total)} 条
+            {t("model.showingRange", {
+              from: (currentPage - 1) * pageSize + 1,
+              to: Math.min(currentPage * pageSize, total),
+            })}
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -72,7 +78,7 @@ export default function FetchedModelList({
               disabled={currentPage <= 1}
               className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded disabled:opacity-30"
             >
-              上一页
+              {t("common.prevPage")}
             </button>
             <span>{currentPage}</span>
             <button
@@ -84,7 +90,7 @@ export default function FetchedModelList({
               disabled={currentPage >= Math.ceil(total / pageSize)}
               className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded disabled:opacity-30"
             >
-              下一页
+              {t("common.nextPage")}
             </button>
           </div>
         </div>

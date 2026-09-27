@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   datasourceService,
   type DataSourceConfig,
@@ -18,6 +19,7 @@ const TYPE_LABELS: Record<
 };
 
 export function DataSourcePage({ isDark }: DataSourcePageProps) {
+  const { t } = useTranslation();
   const [configs, setConfigs] = useState<DataSourceConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,11 +46,13 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
       setConfigs(await datasourceService.list());
       setError(""); // D2：成功后清理错误提示
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(
+        e instanceof Error ? e.message : t("knowledge.datasource.loadFailed"),
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -63,43 +67,56 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
       setShowEditor(false);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(
+        e instanceof Error ? e.message : t("knowledge.datasource.saveFailed"),
+      );
     } finally {
       setSaving(false);
     }
-  }, [form, load, saving]);
+  }, [form, load, saving, t]);
 
   const handleDelete = useCallback(
     async (type: string) => {
-      if (!confirm(`确定删除数据源 "${type}"？`)) return;
+      if (!confirm(t("knowledge.datasource.deleteConfirm", { type }))) return;
       try {
         await datasourceService.delete(type);
         // KB-D1：await 刷新，保证删除成功后列表与错误清理时序确定
         await load();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "删除失败");
+        setError(
+          e instanceof Error
+            ? e.message
+            : t("knowledge.datasource.deleteFailed"),
+        );
       }
     },
-    [load],
+    [load, t],
   );
 
-  const handleSync = useCallback(async (type: string) => {
-    const seq = ++syncSeqRef.current;
-    setSyncing(type);
-    setSyncResult(null);
-    try {
-      const r = await datasourceService.sync(type);
-      // L5：仅当仍是最近一次同步时更新结果，避免多源并行时慢响应覆盖快响应
-      if (seq === syncSeqRef.current) setSyncResult(r);
-      setError("");
-    } catch (e) {
-      if (seq === syncSeqRef.current) {
-        setError(e instanceof Error ? e.message : "同步失败");
+  const handleSync = useCallback(
+    async (type: string) => {
+      const seq = ++syncSeqRef.current;
+      setSyncing(type);
+      setSyncResult(null);
+      try {
+        const r = await datasourceService.sync(type);
+        // L5：仅当仍是最近一次同步时更新结果，避免多源并行时慢响应覆盖快响应
+        if (seq === syncSeqRef.current) setSyncResult(r);
+        setError("");
+      } catch (e) {
+        if (seq === syncSeqRef.current) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : t("knowledge.datasource.syncFailed"),
+          );
+        }
+      } finally {
+        if (seq === syncSeqRef.current) setSyncing(null);
       }
-    } finally {
-      if (seq === syncSeqRef.current) setSyncing(null);
-    }
-  }, []);
+    },
+    [t],
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -110,12 +127,12 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
           <span
             className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}
           >
-            外部数据源
+            {t("knowledge.datasource.title")}
           </span>
           <span
             className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
-            {configs.length} 个数据源
+            {t("knowledge.datasource.count", { count: configs.length })}
           </span>
         </div>
         <button
@@ -123,7 +140,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
           className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
         >
           <Plus size={12} />
-          添加
+          {t("knowledge.datasource.add")}
         </button>
       </div>
 
@@ -142,8 +159,11 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                 : "bg-green-500/10 text-green-600 dark:text-green-400"
             }`}
           >
-            同步完成: 新增 {syncResult.added}，更新 {syncResult.updated}，失败{" "}
-            {syncResult.failed}
+            {t("knowledge.datasource.syncSummary", {
+              added: syncResult.added,
+              updated: syncResult.updated,
+              failed: syncResult.failed,
+            })}
             {syncResult.errors.map((e, i) => (
               <div key={i}>
                 {e.item}: {e.error}
@@ -154,15 +174,17 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
 
         {loading ? (
           <div className="text-center py-8 text-sm text-gray-500">
-            加载中...
+            {t("common.loading")}
           </div>
         ) : configs.length === 0 ? (
           <div
             className={`text-center py-8 ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
             <Globe size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">暂无外部数据源</p>
-            <p className="text-xs mt-1">点击「添加」连接 RSS/Atom Feed</p>
+            <p className="text-sm">{t("knowledge.datasource.empty")}</p>
+            <p className="text-xs mt-1">
+              {t("knowledge.datasource.emptyHint")}
+            </p>
           </div>
         ) : (
           <div className="space-y-2 max-w-2xl">
@@ -196,7 +218,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                             : "bg-gray-500/20 text-gray-500"
                         }`}
                       >
-                        {c.enabled ? "启用" : "禁用"}
+                        {c.enabled ? t("common.enable") : t("common.disable")}
                       </span>
                     </div>
                     <div
@@ -207,8 +229,10 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                     <div
                       className={`text-[10px] mt-0.5 ${isDark ? "text-gray-600" : "text-gray-400"}`}
                     >
-                      每 {Math.round(c.intervalMs / 60000)} 分钟同步一次 · 最多{" "}
-                      {c.maxItems ?? 20} 条
+                      {t("knowledge.datasource.intervalSummary", {
+                        minutes: Math.round(c.intervalMs / 60000),
+                        max: c.maxItems ?? 20,
+                      })}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -216,7 +240,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                       onClick={() => handleSync(c.type)}
                       disabled={syncing === c.type}
                       className={`p-1.5 rounded transition-colors ${isDark ? "text-gray-400 hover:bg-gray-700" : "text-gray-400 hover:bg-gray-100"}`}
-                      title="手动同步"
+                      title={t("knowledge.datasource.syncNow")}
                     >
                       <RefreshCw
                         size={14}
@@ -226,7 +250,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                     <button
                       onClick={() => handleDelete(c.type)}
                       className={`p-1.5 rounded transition-colors ${isDark ? "text-gray-400 hover:bg-red-500/20 hover:text-red-400" : "text-gray-400 hover:bg-red-50 hover:text-red-500"}`}
-                      title="删除"
+                      title={t("common.delete")}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -251,14 +275,14 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
             <h3
               className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}
             >
-              添加数据源
+              {t("knowledge.datasource.addTitle")}
             </h3>
 
             <label className="block">
               <span
                 className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                类型
+                {t("knowledge.datasource.typeLabel")}
               </span>
               <select
                 value={form.type}
@@ -289,7 +313,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                 <span
                   className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  同步间隔(分钟)
+                  {t("knowledge.datasource.intervalLabel")}
                 </span>
                 <input
                   type="number"
@@ -310,7 +334,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                 <span
                   className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  最大条目
+                  {t("knowledge.datasource.maxItemsLabel")}
                 </span>
                 <input
                   type="number"
@@ -333,14 +357,16 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                 onClick={() => setShowEditor(false)}
                 className={`text-xs px-3 py-1.5 rounded-lg ${isDark ? "text-gray-400 hover:bg-gray-800" : "text-gray-500 hover:bg-gray-100"}`}
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleSave}
                 disabled={!form.url || saving}
                 className={`text-xs px-4 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50`}
               >
-                {saving ? "添加中..." : "添加"}
+                {saving
+                  ? t("knowledge.datasource.adding")
+                  : t("knowledge.datasource.add")}
               </button>
             </div>
           </div>

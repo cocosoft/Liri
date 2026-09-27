@@ -1,4 +1,5 @@
 import React, { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 interface EditorToolbarProps {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -21,17 +22,32 @@ const TOOLBAR_BUTTONS: {
   action: ToolbarAction;
   label: string;
   icon: string;
-  title: string;
+  titleKey: string;
 }[] = [
-  { action: "bold", label: "B", icon: "𝐁", title: "加粗" },
-  { action: "italic", label: "I", icon: "𝐼", title: "斜体" },
-  { action: "heading", label: "H", icon: "H", title: "标题" },
-  { action: "ulist", label: "•", icon: "•", title: "无序列表" },
-  { action: "olist", label: "1.", icon: "1.", title: "有序列表" },
-  { action: "code", label: "<>", icon: "<>", title: "代码块" },
-  { action: "link", label: "🔗", icon: "🔗", title: "链接" },
-  { action: "quote", label: "❝", icon: "❝", title: "引用" },
-  { action: "hr", label: "—", icon: "—", title: "分隔线" },
+  { action: "bold", label: "B", icon: "𝐁", titleKey: "knowledge.editorBold" },
+  {
+    action: "italic",
+    label: "I",
+    icon: "𝐼",
+    titleKey: "knowledge.editorItalic",
+  },
+  {
+    action: "heading",
+    label: "H",
+    icon: "H",
+    titleKey: "knowledge.editorHeading",
+  },
+  { action: "ulist", label: "•", icon: "•", titleKey: "knowledge.editorUlist" },
+  {
+    action: "olist",
+    label: "1.",
+    icon: "1.",
+    titleKey: "knowledge.editorOlist",
+  },
+  { action: "code", label: "<>", icon: "<>", titleKey: "knowledge.editorCode" },
+  { action: "link", label: "🔗", icon: "🔗", titleKey: "knowledge.editorLink" },
+  { action: "quote", label: "❝", icon: "❝", titleKey: "knowledge.editorQuote" },
+  { action: "hr", label: "—", icon: "—", titleKey: "knowledge.editorHr" },
 ];
 
 function EditorToolbar({
@@ -39,6 +55,7 @@ function EditorToolbar({
   onContentChange,
   isDark,
 }: EditorToolbarProps) {
+  const { t } = useTranslation();
   const insertSyntax = useCallback(
     (action: ToolbarAction) => {
       const textarea = textareaRef.current;
@@ -55,11 +72,17 @@ function EditorToolbar({
 
       switch (action) {
         case "bold":
-          newText = before + `**${selectedText || "粗体文本"}**` + after;
+          newText =
+            before +
+            `**${selectedText || t("knowledge.editorBoldText")}**` +
+            after;
           cursorOffset = selectedText ? 0 : -4;
           break;
         case "italic":
-          newText = before + `*${selectedText || "斜体文本"}*` + after;
+          newText =
+            before +
+            `*${selectedText || t("knowledge.editorItalicText")}*` +
+            after;
           cursorOffset = selectedText ? 0 : -2;
           break;
         case "heading": {
@@ -97,11 +120,18 @@ function EditorToolbar({
         }
         case "code":
           newText =
-            before + "```\n" + (selectedText || "代码") + "\n```" + after;
+            before +
+            "```\n" +
+            (selectedText || t("knowledge.editorCodeText")) +
+            "\n```" +
+            after;
           cursorOffset = selectedText ? 0 : -5;
           break;
         case "link":
-          newText = before + `[${selectedText || "链接文本"}](url)` + after;
+          newText =
+            before +
+            `[${selectedText || t("knowledge.editorLinkText")}](url)` +
+            after;
           cursorOffset = selectedText ? 0 : -5;
           break;
         case "quote": {
@@ -131,7 +161,7 @@ function EditorToolbar({
         textarea.setSelectionRange(newCursor, newCursor);
       });
     },
-    [textareaRef, onContentChange],
+    [textareaRef, onContentChange, t],
   );
 
   const btnBase = `px-2 py-1 text-sm rounded transition-colors ${
@@ -153,7 +183,7 @@ function EditorToolbar({
           key={btn.action}
           onClick={() => insertSyntax(btn.action)}
           className={btnBase}
-          title={btn.title}
+          title={t(btn.titleKey)}
         >
           {btn.icon}
         </button>

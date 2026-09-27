@@ -5,6 +5,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { createLogger } from "../../../utils/logger";
@@ -32,6 +34,7 @@ export default function DocPreviewModal({
   file,
   onClose,
 }: DocPreviewModalProps) {
+  const { t } = useTranslation();
   const format = detectFormat(file);
 
   const [html, setHtml] = useState<string>("");
@@ -44,7 +47,7 @@ export default function DocPreviewModal({
   useEffect(() => {
     const controller = new AbortController();
 
-    loadAndRender(file, format, pptxContainerRef, controller.signal)
+    loadAndRender(file, format, pptxContainerRef, controller.signal, t)
       .then((result) => setHtml(result))
       .catch((e) => {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -53,7 +56,7 @@ export default function DocPreviewModal({
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [file, format]);
+  }, [file, format, t]);
 
   return (
     <div
@@ -71,7 +74,7 @@ export default function DocPreviewModal({
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none p-1"
-            aria-label="关闭"
+            aria-label={t("office.close", "关闭")}
           >
             ✕
           </button>
@@ -81,7 +84,9 @@ export default function DocPreviewModal({
         <div className="flex-1 overflow-auto p-6">
           {loading && (
             <div className="flex items-center justify-center h-full">
-              <span className="text-gray-400 animate-pulse">加载中...</span>
+              <span className="text-gray-400 animate-pulse">
+                {t("common.loading", "加载中...")}
+              </span>
             </div>
           )}
 
@@ -93,7 +98,7 @@ export default function DocPreviewModal({
                   onClick={onClose}
                   className="text-xs text-blue-600 hover:underline"
                 >
-                  关闭
+                  {t("office.close", "关闭")}
                 </button>
               </div>
             </div>
@@ -128,13 +133,17 @@ async function loadAndRender(
   format: FileFormat,
   pptxRef: React.RefObject<HTMLDivElement | null>,
   signal: AbortSignal,
+  t: TFunction,
 ): Promise<string> {
   const res = await fetch(`/v1/doc/download?file=${encodeURIComponent(file)}`, {
     signal,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { message?: string }).message || "文件加载失败");
+    throw new Error(
+      (body as { message?: string }).message ||
+        t("office.docPreviewLoadFailed", "文件加载失败"),
+    );
   }
 
   const arrayBuffer = await res.arrayBuffer();
@@ -143,9 +152,9 @@ async function loadAndRender(
     case "docx":
       return renderDocx(arrayBuffer);
     case "xlsx":
-      return renderXlsx(arrayBuffer);
+      return renderXlsx(arrayBuffer, t);
     case "pptx":
-      return renderPptx(arrayBuffer, pptxRef);
+      return renderPptx(arrayBuffer, pptxRef, t);
   }
 }
 
@@ -175,11 +184,13 @@ async function renderDocx(arrayBuffer: ArrayBuffer): Promise<string> {
 }
 
 /** .xlsx → HTML 表格（SheetJS，支持多 sheet 切换） */
-function renderXlsx(arrayBuffer: ArrayBuffer): string {
+function renderXlsx(arrayBuffer: ArrayBuffer, t: TFunction): string {
   const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
   const sheetNames = workbook.SheetNames;
 
-  if (sheetNames.length === 0) return "<p>空工作簿</p>";
+  if (sheetNames.length === 0) {
+    return `<p>${t("office.docPreviewEmptyWorkbook", "空工作簿")}</p>`;
+  }
 
   let html = "";
 
@@ -200,6 +211,7 @@ function renderXlsx(arrayBuffer: ArrayBuffer): string {
 async function renderPptx(
   arrayBuffer: ArrayBuffer,
   pptxRef: React.RefObject<HTMLDivElement | null>,
+  t: TFunction,
 ): Promise<string> {
   const { PPTXViewer } = await import("pptx-viewer");
 
@@ -207,7 +219,9 @@ async function renderPptx(
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
   const container = pptxRef.current;
-  if (!container) throw new Error("预览容器未就绪");
+  if (!container) {
+    throw new Error(t("office.docPreviewContainerNotReady", "预览容器未就绪"));
+  }
 
   // 清空容器
   container.innerHTML = "";

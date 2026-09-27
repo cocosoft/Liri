@@ -234,9 +234,9 @@ function CronPage() {
   };
 
   const statusText: Record<string, string> = {
-    running: "运行中",
-    error: "错误",
-    idle: "空闲",
+    running: t("cron.running"),
+    error: t("cron.error"),
+    idle: t("cron.idle"),
   };
 
   const formatTimestamp = (timestamp: number) => {
@@ -252,14 +252,20 @@ function CronPage() {
     if (newCronForm.scheduleMode === "every") {
       const unitLabel =
         newCronForm.everyUnit === "minutes"
-          ? "分钟"
+          ? t("cron.minutesUnit")
           : newCronForm.everyUnit === "hours"
-            ? "小时"
-            : "天";
-      return `每 ${newCronForm.everyValue} ${unitLabel}`;
+            ? t("cron.hoursUnit")
+            : t("cron.daysUnit");
+      return t("cron.everyNTemplate", {
+        value: newCronForm.everyValue,
+        unit: unitLabel,
+      });
     }
     // at mode
-    return `每天 ${newCronForm.atHour}:${newCronForm.atMinute}`;
+    return t("cron.atTimeTemplate", {
+      hour: newCronForm.atHour,
+      minute: newCronForm.atMinute,
+    });
   };
 
   /** 套用预设模板 */
@@ -369,7 +375,7 @@ function CronPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            任务列表
+            {t("cron.tabTasks")}
           </button>
           <button
             onClick={() => setActiveTab("history")}
@@ -379,7 +385,7 @@ function CronPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            执行历史
+            {t("cron.tabHistory")}
           </button>
           <button
             onClick={() => setActiveTab("retry")}
@@ -389,7 +395,7 @@ function CronPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            重试配置
+            {t("cron.tabRetry")}
           </button>
         </div>
 
@@ -520,55 +526,55 @@ function CronPage() {
               <div className="flex flex-wrap gap-2">
                 {[
                   {
-                    label: "每30分钟",
+                    labelKey: "cron.quickTemplate30min",
                     scheduleMode: "every" as ScheduleMode,
                     everyValue: 30,
                     everyUnit: "minutes" as const,
                   },
                   {
-                    label: "每小时",
+                    labelKey: "cron.quickTemplate1h",
                     scheduleMode: "every" as ScheduleMode,
                     everyValue: 1,
                     everyUnit: "hours" as const,
                   },
                   {
-                    label: "每6小时",
+                    labelKey: "cron.quickTemplate6h",
                     scheduleMode: "every" as ScheduleMode,
                     everyValue: 6,
                     everyUnit: "hours" as const,
                   },
                   {
-                    label: "每天8:00",
+                    labelKey: "cron.quickTemplate8am",
                     scheduleMode: "cron" as ScheduleMode,
                     cronExpr: "0 8 * * *",
                   },
                   {
-                    label: "每天14:00",
+                    labelKey: "cron.quickTemplate14pm",
                     scheduleMode: "at" as ScheduleMode,
                     atHour: "14",
                     atMinute: "00",
                   },
                   {
-                    label: "每天9:00",
+                    labelKey: "cron.quickTemplate9am",
                     scheduleMode: "at" as ScheduleMode,
                     atHour: "9",
                     atMinute: "00",
                   },
                   {
-                    label: "每周一9:00",
+                    labelKey: "cron.quickTemplateMon9am",
                     scheduleMode: "cron" as ScheduleMode,
                     cronExpr: "0 9 * * 1",
                   },
                 ].map((tpl) => (
                   <button
-                    key={tpl.label}
+                    key={tpl.labelKey}
                     onClick={() => {
                       setShowCreateModal(true);
                       applyTemplate(tpl);
                     }}
                     className="text-xs px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 rounded-full transition-colors border border-gray-200 dark:border-gray-600"
                   >
-                    {tpl.label}
+                    {t(tpl.labelKey)}
                   </button>
                 ))}
               </div>
@@ -683,7 +689,9 @@ function CronPage() {
                     setSortOrder(sortOrder === "asc" ? "desc" : "asc")
                   }
                   className="px-2 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                  title={sortOrder === "asc" ? "升序 ↑" : "降序 ↓"}
+                  title={
+                    sortOrder === "asc" ? t("cron.sortAsc") : t("cron.sortDesc")
+                  }
                 >
                   {sortOrder === "asc" ? "↑" : "↓"}
                 </button>
@@ -927,18 +935,20 @@ function CronPage() {
                               }}
                               className="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-600 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30"
                             >
-                              {task.enabled ? "禁用" : "启用"}
+                              {task.enabled
+                                ? t("cron.disable")
+                                : t("cron.enable")}
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (confirm("确定要删除这个定时任务吗？")) {
+                                if (confirm(t("cron.deleteConfirm"))) {
                                   deleteTask(task.id);
                                 }
                               }}
                               className="text-xs px-2 py-1 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                             >
-                              删除
+                              {t("cron.deleteTask")}
                             </button>
                           </div>
 
@@ -1222,7 +1232,7 @@ function CronPage() {
                           }))
                         }
                         className="w-20 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
-                        placeholder="时"
+                        placeholder={t("cron.hourPlaceholder")}
                       />
                       <span className="text-gray-500 dark:text-gray-400 font-bold">
                         :
@@ -1239,7 +1249,7 @@ function CronPage() {
                           }))
                         }
                         className="w-20 px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
-                        placeholder="分"
+                        placeholder={t("cron.minutePlaceholder")}
                       />
                     </div>
                   </div>

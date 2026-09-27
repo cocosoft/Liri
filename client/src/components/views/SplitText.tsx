@@ -6,6 +6,7 @@
  */
 
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 interface SplitTextProps {
   text: string;
@@ -19,6 +20,7 @@ function isWordChar(ch: string): boolean {
 }
 
 function SplitText({ text, isDark, onWordClick }: SplitTextProps) {
+  const { t } = useTranslation();
   const hoverColor = isDark ? "hover:bg-gray-700" : "hover:bg-gray-200";
   const underlineColor = isDark ? "decoration-gray-500" : "decoration-gray-400";
 
@@ -62,7 +64,7 @@ function SplitText({ text, isDark, onWordClick }: SplitTextProps) {
               key={idx}
               onClick={(e) => onWordClick(token.text, e)}
               className={`cursor-pointer rounded-sm px-0.5 -mx-0.5 transition-colors ${hoverColor} hover:underline ${underlineColor}`}
-              title="点击查看备选翻译"
+              title={t("translate.viewAlternatives")}
             >
               {token.text}
             </span>

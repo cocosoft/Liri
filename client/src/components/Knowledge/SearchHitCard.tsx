@@ -1,15 +1,16 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { KnowledgeSearchHit } from "../../types";
 import { CitationText } from "./CitationText";
 
-const MATCH_TYPE_LABELS: Record<KnowledgeSearchHit["matchType"], string> = {
-  keyword: "关键词",
-  semantic: "语义",
-  graph_rag: "图谱",
-  knowledge: "知识库",
-  username: "人名",
-  title: "标题",
-  directory: "目录",
+const MATCH_TYPE_LABEL_KEYS: Record<KnowledgeSearchHit["matchType"], string> = {
+  keyword: "knowledge.matchKeyword",
+  semantic: "knowledge.matchSemantic",
+  graph_rag: "knowledge.matchGraph",
+  knowledge: "knowledge.matchKnowledge",
+  username: "knowledge.matchUsername",
+  title: "knowledge.matchTitle",
+  directory: "knowledge.matchDirectory",
 };
 
 const MATCH_TYPE_COLORS: Record<KnowledgeSearchHit["matchType"], string> = {
@@ -45,6 +46,7 @@ export const SearchHitCard = memo(function SearchHitCard({
   isDark,
   onClick,
 }: SearchHitCardProps) {
+  const { t } = useTranslation();
   const percent = Math.round(hit.score * 100);
 
   return (
@@ -87,7 +89,7 @@ export const SearchHitCard = memo(function SearchHitCard({
             className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
               isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
             }`}
-            title="命中起始行"
+            title={t("knowledge.matchStartLine")}
           >
             L{hit.startLine}
             {hit.endLine !== undefined && hit.endLine !== hit.startLine
@@ -100,7 +102,9 @@ export const SearchHitCard = memo(function SearchHitCard({
             MATCH_TYPE_COLORS[hit.matchType] ?? MATCH_TYPE_COLORS.keyword
           }`}
         >
-          {MATCH_TYPE_LABELS[hit.matchType] ?? hit.matchType}
+          {MATCH_TYPE_LABEL_KEYS[hit.matchType]
+            ? t(MATCH_TYPE_LABEL_KEYS[hit.matchType])
+            : hit.matchType}
         </span>
       </div>
 

@@ -12,11 +12,11 @@ import { handleClientError } from "../../utils/handleError";
 /** 权限级别选项（与后端 PERMISSION_SANDBOX_DEFAULT 一致） */
 const PERMISSION_LEVELS: Array<{
   value: SandboxPermissionLevel;
-  label: string;
+  labelKey: string;
 }> = [
-  { value: "full", label: "完整（读写 + 执行）" },
-  { value: "standard", label: "标准（读写）" },
-  { value: "readonly", label: "只读（仅可读）" },
+  { value: "full", labelKey: "sandbox.permissionFull" },
+  { value: "standard", labelKey: "sandbox.permissionStandard" },
+  { value: "readonly", labelKey: "sandbox.permissionReadonly" },
 ];
 
 function SandboxPage() {
@@ -43,11 +43,11 @@ function SandboxPage() {
       setStatus(st);
     } catch (e) {
       handleClientError(e, { module: "views:SandboxPage", action: "load" });
-      setError("沙箱状态加载失败");
+      setError(t("sandbox.statusLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadConfig();
@@ -100,7 +100,7 @@ function SandboxPage() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className={`text-xl font-semibold ${valueClass}`}>
-            沙箱安全护栏
+            {t("sandbox.pageTitle")}
           </h2>
           <button
             onClick={toggleEnabled}
@@ -127,7 +127,7 @@ function SandboxPage() {
 
         {loading && !sandboxConfig ? (
           <div className={`${cardClass} text-center ${mutedClass}`}>
-            加载中...
+            {t("common.loading")}
           </div>
         ) : (
           <>
@@ -141,7 +141,7 @@ function SandboxPage() {
                   <label
                     className={`block text-sm font-medium mb-2 ${labelClass}`}
                   >
-                    权限级别
+                    {t("sandbox.permissionLevel")}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {PERMISSION_LEVELS.map((level) => (
@@ -159,13 +159,12 @@ function SandboxPage() {
                               : "border-gray-300 text-gray-700 hover:border-gray-400"
                         }`}
                       >
-                        {level.label}
+                        {t(level.labelKey)}
                       </button>
                     ))}
                   </div>
                   <p className={`text-xs mt-2 ${mutedClass}`}>
-                    决定新沙箱工作空间的授权范围：完整 = 读写 + 执行，标准 =
-                    读写， 只读 = 仅可读。现有工作空间不受影响。
+                    {t("sandbox.permissionHint")}
                   </p>
                 </div>
               </div>
@@ -174,47 +173,63 @@ function SandboxPage() {
             {/* 运行时状态 */}
             <div className={`${cardClass} mb-6`}>
               <h3 className={`text-lg font-semibold mb-4 ${valueClass}`}>
-                运行时状态
+                {t("sandbox.runtimeStatus")}
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <div className={`text-xs ${mutedClass}`}>启用状态</div>
+                  <div className={`text-xs ${mutedClass}`}>
+                    {t("sandbox.enabledStatus")}
+                  </div>
                   <div className={`text-sm font-medium ${valueClass}`}>
-                    {status?.enabled ? "已启用" : "未启用"}
+                    {status?.enabled
+                      ? t("common.enabled")
+                      : t("sandbox.notEnabled")}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${mutedClass}`}>违规拦截次数</div>
+                  <div className={`text-xs ${mutedClass}`}>
+                    {t("sandbox.violationCount")}
+                  </div>
                   <div className={`text-sm font-medium ${valueClass}`}>
                     {status?.violationCount ?? "-"}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${mutedClass}`}>活跃工作空间</div>
+                  <div className={`text-xs ${mutedClass}`}>
+                    {t("sandbox.activeWorkspaces")}
+                  </div>
                   <div className={`text-sm font-medium ${valueClass}`}>
                     {status?.activeWorkspaceCount ?? "-"}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${mutedClass}`}>进程总数</div>
+                  <div className={`text-xs ${mutedClass}`}>
+                    {t("sandbox.processTotal")}
+                  </div>
                   <div className={`text-sm font-medium ${valueClass}`}>
                     {status?.processStats.total ?? "-"}
                     {status && status.processStats.total > 0 && (
                       <span className={`text-xs ${mutedClass}`}>
                         {" "}
-                        （运行中 {status.processStats.running}）
+                        {t("sandbox.runningCount", {
+                          count: status.processStats.running,
+                        })}
                       </span>
                     )}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${mutedClass}`}>资源限制插件</div>
+                  <div className={`text-xs ${mutedClass}`}>
+                    {t("sandbox.resourceLimitPlugins")}
+                  </div>
                   <div className={`text-sm font-medium ${valueClass}`}>
                     {status?.resourceSummary.totalPlugins ?? "-"}
                   </div>
                 </div>
                 <div>
-                  <div className={`text-xs ${mutedClass}`}>活跃执行</div>
+                  <div className={`text-xs ${mutedClass}`}>
+                    {t("sandbox.activeExecutions")}
+                  </div>
                   <div className={`text-sm font-medium ${valueClass}`}>
                     {status?.resourceSummary.totalActive ?? "-"}
                   </div>
@@ -226,11 +241,13 @@ function SandboxPage() {
             {status && (
               <div className={`${cardClass}`}>
                 <h3 className={`text-lg font-semibold mb-4 ${valueClass}`}>
-                  隔离约束
+                  {t("sandbox.constraints")}
                 </h3>
                 <div className="space-y-3 text-sm">
                   <div>
-                    <span className={mutedClass}>运行时长上限：</span>
+                    <span className={mutedClass}>
+                      {t("sandbox.maxDuration")}
+                    </span>
                     <span className={valueClass}>
                       {status.constraints.maxOutputBytes
                         ? `${Math.round(status.constraints.maxOutputBytes / 1024 / 1024)}MB`
@@ -238,19 +255,23 @@ function SandboxPage() {
                     </span>
                   </div>
                   <div>
-                    <span className={mutedClass}>允许命令白名单：</span>
+                    <span className={mutedClass}>
+                      {t("sandbox.allowedCommandsLabel")}
+                    </span>
                     <span className={valueClass}>
                       {status.constraints.allowedCommands?.length
                         ? status.constraints.allowedCommands.join("、")
-                        : "未配置"}
+                        : t("sandbox.notConfigured")}
                     </span>
                   </div>
                   <div>
-                    <span className={mutedClass}>禁止命令黑名单：</span>
+                    <span className={mutedClass}>
+                      {t("sandbox.deniedCommandsLabel")}
+                    </span>
                     <span className={valueClass}>
                       {status.constraints.deniedCommands?.length
                         ? status.constraints.deniedCommands.join("、")
-                        : "未配置"}
+                        : t("sandbox.notConfigured")}
                     </span>
                   </div>
                 </div>

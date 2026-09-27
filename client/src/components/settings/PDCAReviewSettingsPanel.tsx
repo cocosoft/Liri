@@ -29,11 +29,11 @@ const DEFAULT_CONFIG: PDCAReviewConfig = {
   enableVerifier: true,
 };
 
-const MODE_OPTIONS = [
-  { value: "default", label: "默认（critical/major 阻塞）" },
-  { value: "lenient", label: "宽松（仅 critical 阻塞，门槛 40）" },
-  { value: "strict", label: "严格（含 minor 阻塞，门槛 80）" },
-  { value: "disabled", label: "禁用（跳过审查直接批准）" },
+const MODE_OPTIONS: { value: PDCAReviewConfig["mode"]; labelKey: string }[] = [
+  { value: "default", labelKey: "settings.pdcaModeDefault" },
+  { value: "lenient", labelKey: "settings.pdcaModeLenient" },
+  { value: "strict", labelKey: "settings.pdcaModeStrict" },
+  { value: "disabled", labelKey: "settings.pdcaModeDisabled" },
 ];
 
 function PDCAReviewSettingsPanel() {
@@ -82,18 +82,18 @@ function PDCAReviewSettingsPanel() {
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       <ConfigSection
         title={t("settings.pdcaReview")}
-        description="PDCA 循环的 REVIEW + DECIDE 质量门配置。切换审查模式、分数门槛与验证开关，立即保存到后端配置（重启后仍生效）。"
+        description={t("settings.pdcaReviewDesc")}
         isDark={isDark}
       >
         {!loaded ? (
           <div className="py-4 text-sm text-gray-400 dark:text-gray-500">
-            加载中...
+            {t("common.loading")}
           </div>
         ) : (
           <>
             <ConfigItem
-              label="审查模式"
-              description="默认：critical/major 阻塞；宽松：仅 critical；严格：含 minor；禁用：跳过审查直接批准"
+              label={t("settings.pdcaMode")}
+              description={t("settings.pdcaModeDesc")}
               isDark={isDark}
             >
               <SelectConfig
@@ -102,13 +102,16 @@ function PDCAReviewSettingsPanel() {
                 onChange={(mode) =>
                   setCfg({ ...cfg, mode: mode as PDCAReviewConfig["mode"] })
                 }
-                options={MODE_OPTIONS}
+                options={MODE_OPTIONS.map((o) => ({
+                  value: o.value,
+                  label: t(o.labelKey),
+                }))}
               />
             </ConfigItem>
 
             <ConfigItem
-              label="分数门槛（0-100）"
-              description="低于该分数的审查不通过；0 = 不启用分数门槛"
+              label={t("settings.pdcaThreshold")}
+              description={t("settings.pdcaThresholdDesc")}
               isDark={isDark}
             >
               <TextConfig
@@ -127,8 +130,8 @@ function PDCAReviewSettingsPanel() {
             </ConfigItem>
 
             <ConfigItem
-              label="机械验证"
-              description="执行前运行 verifyProject（编译/测试）作为 Reviewer 输入上下文"
+              label={t("settings.pdcaMechanicalVerify")}
+              description={t("settings.pdcaMechanicalVerifyDesc")}
               isDark={isDark}
             >
               <ToggleConfig
@@ -142,8 +145,8 @@ function PDCAReviewSettingsPanel() {
             </ConfigItem>
 
             <ConfigItem
-              label="VerifierAgent 双指标验证"
-              description="REJECT / ESCALATE 判定融合进审查结果"
+              label={t("settings.pdcaVerifier")}
+              description={t("settings.pdcaVerifierDesc")}
               isDark={isDark}
             >
               <ToggleConfig
@@ -162,11 +165,13 @@ function PDCAReviewSettingsPanel() {
                 disabled={saving}
                 className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
               >
-                {saving ? "保存中..." : "保存"}
+                {saving ? t("settings.saving") : t("common.save")}
               </button>
               {savedAt && (
                 <span className="text-xs text-green-500 dark:text-green-400">
-                  已保存（{new Date(savedAt).toLocaleTimeString()}）
+                  {t("settings.savedAt", {
+                    time: new Date(savedAt).toLocaleTimeString(),
+                  })}
                 </span>
               )}
             </div>

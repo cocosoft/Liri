@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface SearchInputProps {
   value: string;
@@ -13,10 +14,12 @@ function SearchInput({
   value,
   onChange,
   onSearch,
-  placeholder = "搜索...",
+  placeholder,
   isDark = false,
   className = "",
 }: SearchInputProps) {
+  const { t } = useTranslation();
+  const placeholderText = placeholder ?? t("common.searchPlaceholder");
   const [isFocused, setIsFocused] = useState(false);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -47,7 +50,7 @@ function SearchInput({
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        placeholder={placeholder}
+        placeholder={placeholderText}
         className={`w-full pl-10 pr-4 py-2 text-sm rounded-lg border transition-colors ${
           isFocused
             ? isDark

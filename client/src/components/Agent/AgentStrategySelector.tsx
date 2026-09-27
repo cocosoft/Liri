@@ -28,7 +28,7 @@ function AgentStrategySelector({
       <h2
         className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
       >
-        {t("selectAgentStrategy")}
+        {t("agent.strategySelector")}
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {displayStrategies.map((strategy) => (
@@ -83,7 +83,7 @@ function AgentStrategySelector({
         <h3
           className={`text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          策略说明
+          {t("agent.strategyDesc")}
         </h3>
         <ul
           className={`text-sm space-y-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}

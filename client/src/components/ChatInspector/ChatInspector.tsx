@@ -51,7 +51,7 @@ import { useCollapsedTurns } from "../../hooks/useCollapsedTurns";
 // P1-5（2026-09-22）：来源维度派生映射（`categoryToSource`）与事件过滤逻辑统一移入
 // `stores/chat/filterTrajectoryEvents.ts`（纯函数，可单测），此处不再保留副本。
 
-const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
+const TABS: { id: InspectorTab; icon: React.ReactNode; labelKey: string }[] = [
   {
     id: "context",
     icon: (
@@ -60,7 +60,7 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
         <path d="M10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
       </svg>
     ),
-    label: "上下文",
+    labelKey: "chatInspector.tabContext",
   },
   {
     id: "trajectory",
@@ -73,7 +73,7 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
         />
       </svg>
     ),
-    label: "轨迹",
+    labelKey: "chatInspector.tabTrajectory",
   },
   {
     id: "files",
@@ -86,7 +86,7 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
         />
       </svg>
     ),
-    label: "文件",
+    labelKey: "chatInspector.tabFiles",
   },
   {
     id: "log",
@@ -99,7 +99,7 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
         <path d="M3 15a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1z" />
       </svg>
     ),
-    label: "日志",
+    labelKey: "chatInspector.tabLog",
   },
   {
     id: "settings",
@@ -125,7 +125,7 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
         />
       </svg>
     ),
-    label: "设置",
+    labelKey: "chatInspector.tabSettings",
   },
 ];
 
@@ -616,6 +616,7 @@ const TabContent = React.memo(TabContentImpl);
 // ─── 主组件 ───────────────────────────────────────
 
 function ChatInspector() {
+  const { t } = useTranslation();
   const isOpen = useChatInspectorStore((s) => s.isOpen);
   const activeTab = useChatInspectorStore((s) => s.activeTab);
   const panelWidth = useChatInspectorStore((s) => s.panelWidth);
@@ -625,6 +626,11 @@ function ChatInspector() {
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+
+  const tabs = useMemo(
+    () => TABS.map((tab) => ({ ...tab, label: t(tab.labelKey) })),
+    [t],
+  );
 
   // 小屏 (<1024px) 自动收起
   useEffect(() => {
@@ -705,7 +711,7 @@ function ChatInspector() {
 
   if (!isOpen)
     return (
-      <CollapsedBar tabs={TABS} onExpandAndSwitch={handleExpandAndSwitch} />
+      <CollapsedBar tabs={tabs} onExpandAndSwitch={handleExpandAndSwitch} />
     );
 
   return (
@@ -720,7 +726,7 @@ function ChatInspector() {
         onMouseDown={handleResizeStart}
       />
       <div className="flex border-b border-gray-200 dark:border-gray-700">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => handleTabClick(tab.id)}
@@ -743,7 +749,7 @@ function ChatInspector() {
         onClick={() => setOpen(false)}
         className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-10 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-l-md flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-20 shadow-sm"
         style={{ marginLeft: -3 }}
-        title="收起面板"
+        title={t("chatInspector.collapsePanel")}
       >
         <svg
           className="w-3 h-3 text-gray-500 dark:text-gray-400"

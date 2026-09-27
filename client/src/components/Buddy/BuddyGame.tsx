@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useBuddyStore } from "../../stores/buddyStore";
 
 interface GameScore {
@@ -11,6 +12,7 @@ interface GameScore {
 type GameType = "math" | "memory" | "reaction";
 
 function BuddyGame() {
+  const { t } = useTranslation();
   const { interact } = useBuddyStore();
   const [activeGame, setActiveGame] = useState<GameType | null>(null);
   const [score, setScore] = useState<GameScore>({
@@ -197,7 +199,7 @@ function BuddyGame() {
               onClick={handleAnswer}
               className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg"
             >
-              回答
+              {t("buddy.answer")}
             </button>
           </div>
         );
@@ -231,7 +233,7 @@ function BuddyGame() {
             )}
             {memoryPhase === "result" && (
               <div className="text-center">
-                <p className="text-lg mb-2">正确顺序:</p>
+                <p className="text-lg mb-2">{t("buddy.correctOrder")}</p>
                 <div className="flex gap-2 mb-4">
                   {memorySequence.map((num, i) => (
                     <span
@@ -257,10 +259,16 @@ function BuddyGame() {
                   : "bg-red-500 hover:bg-red-600 text-white"
               }`}
             >
-              {waitStart === null ? "准备..." : gameStarted ? "点击!" : "太早!"}
+              {waitStart === null
+                ? t("buddy.ready")
+                : gameStarted
+                  ? t("buddy.clickNow")
+                  : t("buddy.tooEarly")}
             </button>
             {reactionTime !== null && (
-              <p className="mt-4 text-xl">反应时间: {reactionTime}ms</p>
+              <p className="mt-4 text-xl">
+                {t("buddy.reactionTime", { ms: reactionTime })}
+              </p>
             )}
           </div>
         );
@@ -271,7 +279,7 @@ function BuddyGame() {
 
   return (
     <div className="p-4">
-      <h3 className="text-lg font-medium mb-4">互动小游戏</h3>
+      <h3 className="text-lg font-medium mb-4">{t("buddy.miniGames")}</h3>
       {!activeGame || !gameActive ? (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-2">
@@ -283,7 +291,7 @@ function BuddyGame() {
               className="px-4 py-3 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-center"
             >
               <span className="text-2xl">🔢</span>
-              <p className="text-sm mt-1">速算</p>
+              <p className="text-sm mt-1">{t("buddy.gameMath")}</p>
             </button>
             <button
               onClick={() => {
@@ -293,7 +301,7 @@ function BuddyGame() {
               className="px-4 py-3 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 rounded-lg text-center"
             >
               <span className="text-2xl">🧠</span>
-              <p className="text-sm mt-1">记忆</p>
+              <p className="text-sm mt-1">{t("buddy.gameMemory")}</p>
             </button>
             <button
               onClick={() => {
@@ -303,15 +311,21 @@ function BuddyGame() {
               className="px-4 py-3 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 rounded-lg text-center"
             >
               <span className="text-2xl">⚡</span>
-              <p className="text-sm mt-1">反应</p>
+              <p className="text-sm mt-1">{t("buddy.gameReaction")}</p>
             </button>
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
             <p>
-              正确: {score.correct} / 总计: {score.total}
+              {t("buddy.scoreCorrectTotal", {
+                correct: score.correct,
+                total: score.total,
+              })}
             </p>
             <p>
-              连续正确: {score.streak} (最高: {score.maxStreak})
+              {t("buddy.scoreStreakMax", {
+                streak: score.streak,
+                max: score.maxStreak,
+              })}
             </p>
           </div>
         </div>
@@ -325,11 +339,11 @@ function BuddyGame() {
               }}
               className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded"
             >
-              返回
+              {t("common.back")}
             </button>
             <div className="flex gap-4 text-sm">
-              <span>正确: {score.correct}</span>
-              <span>连续: {score.streak}</span>
+              <span>{t("buddy.correctInline", { count: score.correct })}</span>
+              <span>{t("buddy.streakInline", { count: score.streak })}</span>
             </div>
           </div>
           {renderGame()}
@@ -337,7 +351,9 @@ function BuddyGame() {
             <p
               className={`mt-4 text-center text-lg ${feedback === "correct" ? "text-green-500" : "text-red-500"}`}
             >
-              {feedback === "correct" ? "✓ 正确!" : "✗ 错误"}
+              {feedback === "correct"
+                ? t("buddy.feedbackCorrect")
+                : t("buddy.feedbackWrong")}
             </p>
           )}
         </div>

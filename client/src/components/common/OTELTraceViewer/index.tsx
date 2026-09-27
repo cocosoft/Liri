@@ -12,6 +12,7 @@ import {
   subscribeSpanCollector,
 } from "../../../monitoring/otel";
 import type { SpanRecord } from "../../../monitoring/otel";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../../stores/configStore";
 import { TraceStatsBar } from "./TraceStatsBar";
 import { TraceFilterBar } from "./TraceFilterBar";
@@ -100,6 +101,7 @@ interface OTELTraceViewerProps {
 }
 
 export function OTELTraceViewer({ compact }: OTELTraceViewerProps) {
+  const { t } = useTranslation();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [expandedSet, setExpandedSet] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"tree" | "waterfall">("tree");
@@ -317,7 +319,9 @@ export function OTELTraceViewer({ compact }: OTELTraceViewerProps) {
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500 dark:text-gray-400">错误</span>
+          <span className="text-gray-500 dark:text-gray-400">
+            {t("otel.errorLabel")}
+          </span>
           <span
             className={`font-mono font-medium ${errorCount > 0 ? "text-red-500" : "text-gray-700 dark:text-gray-300"}`}
           >
@@ -390,7 +394,9 @@ export function OTELTraceViewer({ compact }: OTELTraceViewerProps) {
       )}
 
       {/* isPending indicator */}
-      {isPending && <div className="text-xs text-gray-400 mb-2">过滤中...</div>}
+      {isPending && (
+        <div className="text-xs text-gray-400 mb-2">{t("otel.filtering")}</div>
+      )}
 
       {/* Empty state */}
       {showEmpty && (

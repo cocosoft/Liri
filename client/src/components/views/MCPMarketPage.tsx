@@ -13,9 +13,9 @@ import ConfirmDialog from "../common/ConfirmDialog";
 import { SkeletonCard } from "../common/Skeleton";
 
 const CATEGORIES = [
-  { value: "all", label: "全部" },
-  { value: "official", label: "官方" },
-  { value: "third_party", label: "第三方" },
+  { value: "all" },
+  { value: "official" },
+  { value: "third_party" },
 ];
 
 /**
@@ -98,7 +98,7 @@ function MCPMarketPage() {
       const label = server?.server.title || serverId;
       addToast("success", `"${label}" ${t("mcp.installSuccess")}`);
     },
-    [install, searchResults, addToast],
+    [install, searchResults, addToast, t],
   );
 
   const handleToggle = useCallback(
@@ -108,9 +108,12 @@ function MCPMarketPage() {
         installedServers.find((s) => s.name === serverId) ||
         searchResults.find((r) => r.server.name === serverId)?.server;
       const label = server?.title || serverId;
-      addToast("info", `"${label}" ${enabled ? "已启用" : "已禁用"}`);
+      addToast(
+        "info",
+        `"${label}" ${enabled ? t("mcp.enabled") : t("mcp.disabled")}`,
+      );
     },
-    [toggleServer, installedServers, searchResults, addToast],
+    [toggleServer, installedServers, searchResults, addToast, t],
   );
 
   const handleUninstall = useCallback(
@@ -119,9 +122,9 @@ function MCPMarketPage() {
       const label =
         searchResults.find((r) => r.server.name === serverId)?.server.title ||
         serverId;
-      addToast("success", `"${label}" 已卸载`);
+      addToast("success", `"${label}" ${t("mcp.uninstalled")}`);
     },
-    [uninstall, searchResults, addToast],
+    [uninstall, searchResults, addToast, t],
   );
 
   // 处理搜索框输入
@@ -187,7 +190,7 @@ function MCPMarketPage() {
             : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
         }`}
       >
-        {enabled ? "已启用" : "已禁用"}
+        {enabled ? t("mcp.enabled") : t("mcp.disabled")}
       </span>
     );
   };
@@ -227,7 +230,7 @@ function MCPMarketPage() {
             }`}
             title={t("mcp.addServer")}
           >
-            + 手动添加
+            + {t("mcp.addManual")}
           </button>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -242,7 +245,7 @@ function MCPMarketPage() {
               type="text"
               value={filters.search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="搜索 MCP 服务器..."
+              placeholder={t("mcp.searchPlaceholder")}
               className={`w-full px-4 py-2 text-sm outline-none ${
                 isDark
                   ? "bg-transparent text-white placeholder-gray-400"
@@ -314,7 +317,7 @@ function MCPMarketPage() {
                     : "text-gray-600 hover:text-gray-900 border border-gray-200"
               }`}
             >
-              全部
+              {t("common.all")}
             </button>
             {availableRegistries.map((reg) => (
               <button
@@ -384,7 +387,7 @@ function MCPMarketPage() {
             </div>
           ) : searchResults.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
-              未找到匹配的 MCP 服务器
+              {t("mcp.noMatch")}
             </div>
           ) : (
             <>
@@ -446,7 +449,7 @@ function MCPMarketPage() {
                             isDark ? "text-gray-500" : "text-gray-400"
                           }`}
                         >
-                          {t("mcp.author")}: {result.server.author}
+                          {t("common.author")}: {result.server.author}
                         </span>
                         <span
                           className={`text-xs ${
@@ -460,7 +463,9 @@ function MCPMarketPage() {
                             isDark ? "text-gray-500" : "text-gray-400"
                           }`}
                         >
-                          安装: {result.server.installCount}
+                          {t("mcp.installCountShort", {
+                            count: result.server.installCount,
+                          })}
                         </span>
                       </div>
                     </div>
@@ -485,13 +490,15 @@ function MCPMarketPage() {
                                 : "bg-blue-600 hover:bg-blue-700 text-white"
                             }`}
                           >
-                            {isEnabled(result.server.name) ? "禁用" : "启用"}
+                            {isEnabled(result.server.name)
+                              ? t("common.disable")
+                              : t("common.enable")}
                           </button>
                           <button
                             onClick={() => promptUninstall(result.server.name)}
                             className="px-3 py-1.5 text-sm rounded-lg bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 transition-colors"
                           >
-                            卸载
+                            {t("common.uninstall")}
                           </button>
                         </div>
                       ) : (
@@ -527,7 +534,11 @@ function MCPMarketPage() {
                   <span
                     className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    {safePage} / {totalPages} （共 {searchResults.length} 项）
+                    {t("mcp.pageIndicator", {
+                      page: safePage,
+                      total: totalPages,
+                      count: searchResults.length,
+                    })}
                   </span>
                   <button
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
@@ -563,9 +574,9 @@ function MCPMarketPage() {
         {/* 卸载确认 */}
         <ConfirmDialog
           open={!!confirmUninstallId}
-          title="确认卸载"
-          message="确定要卸载这个 MCP 服务器吗？卸载后将无法使用该服务器提供的工具。"
-          confirmText="卸载"
+          title={t("mcp.confirmUninstallTitle")}
+          message={t("mcp.confirmUninstallMsg")}
+          confirmText={t("common.uninstall")}
           variant="danger"
           onConfirm={() => {
             if (confirmUninstallId) {

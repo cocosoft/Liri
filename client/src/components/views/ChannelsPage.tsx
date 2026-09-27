@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useChannelStore } from "../../stores/channelStore";
 import ChannelStatsPanel from "./ChannelStatsPanel";
 import ChannelFilterBar from "./ChannelFilterBar";
@@ -83,6 +84,7 @@ const CHANNEL_TYPE_LABELS: Record<string, string> = {
 // ─── 组件 ──────────────────────────────────────────────
 
 function ChannelsPage() {
+  const { t } = useTranslation();
   const {
     channels,
     isLoading,
@@ -125,10 +127,10 @@ function ChannelsPage() {
         {/* 页面标题 */}
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            渠道管理
+            {t("channels.title")}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            管理消息渠道集成（QQ/微信/Discord 等）
+            {t("channels.pageDesc")}
           </p>
         </div>
 
@@ -152,7 +154,7 @@ function ChannelsPage() {
               onClick={clearError}
               className="ml-2 text-red-500 hover:text-red-700 dark:hover:text-red-300 underline"
             >
-              关闭
+              {t("common.close")}
             </button>
           </div>
         )}
@@ -164,7 +166,9 @@ function ChannelsPage() {
           </div>
         ) : filteredChannels.length === 0 ? (
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-            {channels.length === 0 ? "暂无渠道配置" : "没有匹配的渠道"}
+            {channels.length === 0
+              ? t("channels.noChannelsConfig")
+              : t("channels.noMatchingChannels")}
           </div>
         ) : (
           <div className="space-y-3">
@@ -205,26 +209,32 @@ function ChannelsPage() {
                               : "text-gray-400"
                           }
                         >
-                          {channel.connected ? "已连接" : "未连接"}
+                          {channel.connected
+                            ? t("channels.connected")
+                            : t("channels.notConnected")}
                         </span>
                       </span>
 
                       {channel.messageCount !== undefined && (
                         <span className="text-xs text-gray-400">
-                          消息: {channel.messageCount}
+                          {t("channels.messagesLabel", {
+                            count: channel.messageCount,
+                          })}
                         </span>
                       )}
 
                       {channel.errorCount !== undefined &&
                         channel.errorCount > 0 && (
                           <span className="text-xs text-red-400">
-                            错误: {channel.errorCount}
+                            {t("channels.errorsLabel", {
+                              count: channel.errorCount,
+                            })}
                           </span>
                         )}
 
                       {channel.lastActive && (
                         <span className="text-xs text-gray-400">
-                          最后活动:{" "}
+                          {t("channels.lastActiveAt")}{" "}
                           {new Date(channel.lastActive).toLocaleString()}
                         </span>
                       )}
@@ -239,7 +249,7 @@ function ChannelsPage() {
                     onClick={() => openEditModal(channel)}
                     className="px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded transition-colors"
                   >
-                    配置
+                    {t("channels.configure")}
                   </button>
 
                   {/* 启用开关（未注册渠道显示标签） */}
@@ -257,7 +267,7 @@ function ChannelsPage() {
                     </label>
                   ) : (
                     <span className="text-xs text-gray-400 dark:text-gray-500 italic">
-                      未注册
+                      {t("channels.unregistered")}
                     </span>
                   )}
 
@@ -267,7 +277,7 @@ function ChannelsPage() {
                       onClick={() => promptDelete(channel.id)}
                       className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded transition-colors"
                     >
-                      删除
+                      {t("common.delete")}
                     </button>
                   )}
                 </div>
@@ -282,13 +292,13 @@ function ChannelsPage() {
         {/* Phase 2: 删除确认对话框 */}
         <ConfirmDialog
           open={confirmDeleteId !== null}
-          title="确认删除"
+          title={t("channels.confirmDeleteTitle")}
           message={
             deletingChannel
-              ? `确定要删除渠道「${deletingChannel.name}」吗？此操作不可撤销。`
+              ? t("channels.confirmDeleteMsg", { name: deletingChannel.name })
               : ""
           }
-          confirmText="删除"
+          confirmText={t("common.delete")}
           variant="danger"
           onConfirm={() => {
             if (confirmDeleteId) deleteChannel(confirmDeleteId);

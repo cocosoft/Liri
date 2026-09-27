@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useMemoryStore } from "../../stores/memoryStore";
 import type { MemoryType } from "../../services/memoryService";
@@ -11,6 +12,7 @@ import MemoryCreateDialog from "../Memory/MemoryCreateDialog";
 import { TYPE_LABELS } from "../Memory/memoryConstants";
 
 function MemoryPage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -112,20 +114,20 @@ function MemoryPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("确定要删除这条记忆吗？")) {
+    if (confirm(t("memory.confirmDelete"))) {
       await deleteMemory(id);
-      showToast("记忆已删除", "success");
+      showToast(t("memory.deleted"), "success");
     }
   };
 
   const handleDeleteAll = async () => {
     if (total === 0) return;
-    if (deleteAllConfirm !== "确认删除") {
+    if (deleteAllConfirm !== t("memory.confirmPhrase")) {
       return;
     }
     await deleteAllMemories();
     setDeleteAllConfirm("");
-    showToast(`已清除全部记忆`, "success");
+    showToast(t("memory.clearedAll"), "success");
     loadWeights();
     loadSystemStats();
   };
@@ -133,9 +135,9 @@ function MemoryPage() {
   const handleBatchDelete = async () => {
     const count = selectedIds.size;
     if (count === 0) return;
-    if (confirm(`确定要删除选中的 ${count} 条记忆吗？`)) {
+    if (confirm(t("memory.confirmBatchDelete", { count }))) {
       const deleted = await batchDelete();
-      showToast(`已删除 ${deleted} 条记忆`, "success");
+      showToast(t("memory.batchDeleted", { count: deleted }), "success");
     }
   };
 
@@ -161,7 +163,7 @@ function MemoryPage() {
     } as Partial<Memory>);
     await loadMemories({ sortBy, sortOrder });
     setEditMemory(null);
-    showToast("记忆已更新", "success");
+    showToast(t("memory.updated"), "success");
   };
 
   const handleEditCancel = () => {
@@ -186,7 +188,7 @@ function MemoryPage() {
       await loadMemories({ sortBy, sortOrder });
       await loadWeights();
       await loadSystemStats();
-      showToast("记忆创建成功", "success");
+      showToast(t("memory.created"), "success");
     }
   };
 
@@ -197,13 +199,13 @@ function MemoryPage() {
     if (mem) {
       setImportFilePath("");
       await loadWeights();
-      showToast("文件导入成功", "success");
+      showToast(t("memory.imported"), "success");
     }
   };
 
   const handleExport = async () => {
     await exportAllAsJson();
-    showToast("导出成功", "success");
+    showToast(t("memory.exported"), "success");
   };
 
   const formatDate = (timestamp: number) => {
@@ -259,7 +261,7 @@ function MemoryPage() {
                 : "bg-blue-500 hover:bg-blue-600 text-white"
             }`}
           >
-            + 创建记忆
+            + {t("memory.createMemory")}
           </button>
           <button
             onClick={handleExport}
@@ -272,7 +274,7 @@ function MemoryPage() {
                   : "bg-green-500 hover:bg-green-600 text-white"
             }`}
           >
-            导出 JSON
+            {t("memory.exportJson")}
           </button>
           <button
             onClick={() => {
@@ -288,14 +290,14 @@ function MemoryPage() {
                 : "bg-gray-200 hover:bg-gray-300 text-gray-700"
             }`}
           >
-            {isBatchMode ? "退出批量" : "批量模式"}
+            {isBatchMode ? t("memory.exitBatch") : t("memory.batchMode")}
           </button>
           {isBatchMode && selectedIds.size > 0 && (
             <button
               onClick={handleBatchDelete}
               className="px-3 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
             >
-              删除选中 ({selectedIds.size})
+              {t("memory.deleteSelected", { count: selectedIds.size })}
             </button>
           )}
           {!isBatchMode && (
@@ -309,13 +311,16 @@ function MemoryPage() {
                   ? "bg-gray-800 text-gray-100"
                   : "bg-white text-gray-900";
                 // 使用简单的 confirm + 输入确认文字
+                const phrase = t("memory.confirmPhrase");
                 const confirmed = confirm(
-                  `⚠️ 确定要清除全部 ${total} 条记忆吗？\n\n此操作不可恢复！\n请输入「确认删除」后点击确定。`,
+                  t("memory.confirmAllPrompt", { count: total, phrase }),
                 );
                 if (confirmed) {
-                  const input = prompt("请输入「确认删除」以继续:");
-                  if (input === "确认删除") {
-                    setDeleteAllConfirm("确认删除");
+                  const input = prompt(
+                    t("memory.confirmPhrasePrompt", { phrase }),
+                  );
+                  if (input === phrase) {
+                    setDeleteAllConfirm(phrase);
                     handleDeleteAll();
                   }
                 }
@@ -327,7 +332,7 @@ function MemoryPage() {
                   : "bg-red-500 hover:bg-red-600 text-white"
               }`}
             >
-              清除全部
+              {t("memory.clearAllAction")}
             </button>
           )}
         </div>
@@ -350,13 +355,13 @@ function MemoryPage() {
         <span
           className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}
         >
-          从文件导入:
+          {t("memory.importFromFileLabel")}
         </span>
         <input
           type="text"
           value={importFilePath}
           onChange={(e) => setImportFilePath(e.target.value)}
-          placeholder="输入文件路径..."
+          placeholder={t("memory.importPathPlaceholder")}
           className={`flex-1 px-3 py-1.5 rounded text-sm border ${
             isDark
               ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
@@ -374,7 +379,7 @@ function MemoryPage() {
                 : "bg-indigo-500 hover:bg-indigo-600 text-white"
           }`}
         >
-          {isImporting ? "导入中..." : "导入"}
+          {isImporting ? t("memory.importing") : t("common.import")}
         </button>
       </div>
 
@@ -396,7 +401,7 @@ function MemoryPage() {
                     : "bg-white border-gray-300 text-gray-700"
                 } focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
-                <option value="all">全部类型</option>
+                <option value="all">{t("memory.allTypes")}</option>
                 {Object.entries(TYPE_LABELS).map(([key, label]) => (
                   <option key={key} value={key}>
                     {label}
@@ -416,9 +421,9 @@ function MemoryPage() {
                     : "bg-white border-gray-300 text-gray-700"
                 } focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
-                <option value="updatedAt">按更新时间</option>
-                <option value="createdAt">按创建时间</option>
-                <option value="weight">按权重</option>
+                <option value="updatedAt">{t("memory.sortByUpdated")}</option>
+                <option value="createdAt">{t("memory.sortByCreated")}</option>
+                <option value="weight">{t("memory.sortByWeight")}</option>
               </select>
               <button
                 onClick={() =>
@@ -430,7 +435,9 @@ function MemoryPage() {
                     : "bg-white border-gray-300 text-gray-700"
                 } focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
-                {sortOrder === "desc" ? "↓ 降序" : "↑ 升序"}
+                {sortOrder === "desc"
+                  ? t("memory.sortDesc")
+                  : t("memory.sortAsc")}
               </button>
             </>
           )}
@@ -440,13 +447,13 @@ function MemoryPage() {
                 onClick={selectAllMemories}
                 className={`text-xs ${isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500"}`}
               >
-                全选
+                {t("memory.selectAll")}
               </button>
               <button
                 onClick={clearSelection}
                 className={`text-xs ${isDark ? "text-gray-400 hover:text-gray-300" : "text-gray-500 hover:text-gray-400"}`}
               >
-                取消选择
+                {t("memory.deselect")}
               </button>
             </div>
           )}
@@ -454,8 +461,10 @@ function MemoryPage() {
         <span
           className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
         >
-          {isFiltering ? `筛选: ${displayMemories.length} / ` : ""}共 {total}{" "}
-          条记忆
+          {isFiltering
+            ? t("memory.filterPrefix", { count: displayMemories.length })
+            : ""}
+          {t("memory.totalLabel", { count: total })}
         </span>
       </div>
 
@@ -513,10 +522,12 @@ function MemoryPage() {
                 <span
                   className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  权重: {selectedMemory.weight}
+                  {t("memory.weightLabel", { count: selectedMemory.weight })}
                 </span>
                 {(selectedMemory.metadata?.isPinned as boolean) && (
-                  <span className="text-yellow-500 text-xs">📌 已置顶</span>
+                  <span className="text-yellow-500 text-xs">
+                    {t("memory.pinnedBadge")}
+                  </span>
                 )}
                 {(selectedMemory.metadata?.accessLevel as
                   string | undefined) && (
@@ -550,9 +561,13 @@ function MemoryPage() {
               <p
                 className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                创建于 {formatDate(selectedMemory.createdAt)}
+                {t("memory.createdAtLabel", {
+                  date: formatDate(selectedMemory.createdAt),
+                })}
                 {" · "}
-                更新于 {formatDate(selectedMemory.updatedAt)}
+                {t("memory.updatedAtLabel", {
+                  date: formatDate(selectedMemory.updatedAt),
+                })}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -566,7 +581,9 @@ function MemoryPage() {
                       : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                 }`}
               >
-                {selectedMemory.metadata?.isPinned ? "已置顶" : "置顶"}
+                {selectedMemory.metadata?.isPinned
+                  ? t("memory.pinned")
+                  : t("memory.pin")}
               </button>
               <button
                 onClick={() => handleEditStart(selectedMemory)}
@@ -576,7 +593,7 @@ function MemoryPage() {
                     : "bg-blue-50 text-blue-600 hover:bg-blue-100"
                 }`}
               >
-                编辑
+                {t("common.edit")}
               </button>
               <button
                 onClick={() => handleDelete(selectedMemory.id)}
@@ -586,7 +603,7 @@ function MemoryPage() {
                     : "bg-red-50 text-red-600 hover:bg-red-100"
                 }`}
               >
-                删除
+                {t("common.delete")}
               </button>
               <button
                 onClick={() => setSelectedMemory(null)}
@@ -596,7 +613,7 @@ function MemoryPage() {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                关闭
+                {t("common.close")}
               </button>
             </div>
           </div>
@@ -606,7 +623,7 @@ function MemoryPage() {
             <h4
               className={`text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              记忆内容
+              {t("memory.contentTitle")}
             </h4>
             <p
               className={`text-sm whitespace-pre-wrap ${isDark ? "text-gray-300" : "text-gray-700"}`}
@@ -621,7 +638,7 @@ function MemoryPage() {
               <h4
                 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
               >
-                摘要
+                {t("memory.summary")}
               </h4>
               <p
                 className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
@@ -642,7 +659,7 @@ function MemoryPage() {
             <h2
               className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              编辑记忆
+              {t("memory.editMemory")}
             </h2>
 
             <div className="space-y-4">
@@ -651,7 +668,7 @@ function MemoryPage() {
                   <label
                     className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    类型
+                    {t("memory.typeLabel")}
                   </label>
                   <select
                     value={editType}
@@ -673,7 +690,7 @@ function MemoryPage() {
                   <label
                     className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                   >
-                    权重 ({editWeight})
+                    {t("memory.weightValue", { count: editWeight })}
                   </label>
                   <input
                     type="range"
@@ -690,7 +707,7 @@ function MemoryPage() {
                 <label
                   className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  标签 (逗号分隔)
+                  {t("memory.tagsLabel")}
                 </label>
                 <input
                   type="text"
@@ -708,7 +725,7 @@ function MemoryPage() {
                 <label
                   className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  内容
+                  {t("memory.content")}
                 </label>
                 <textarea
                   value={editContent}
@@ -732,13 +749,13 @@ function MemoryPage() {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleEditSave}
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white"
               >
-                保存
+                {t("common.save")}
               </button>
             </div>
           </div>

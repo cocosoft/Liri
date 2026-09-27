@@ -347,18 +347,15 @@ export class EventBasedStreamAggregator {
           });
         }
         // 其他非水位提示（压缩/召回/降级事件）→ status 块
+        // CS02：水位判据只用 `chunk.watermarkState`（结构化），不再解析 content 判定是否为水位文本
+        // —— 水位事件的唯一生产者（chat-handlers 的 onProgress 守卫 / streamMessageFlow 降级分支）
+        // 均带 `watermarkState`，故此处"无 watermarkState"即等价于"非水位提示"。
         if (!chunk.watermarkState) {
-          const structured = chunk.content.match(
-            /上下文水位:\s*(\d+)%\s*\(?(\d+K?)\/(\d+K?)\)?\s*\|\s*severity:(compact|warn)\s*\|\s*ratio:([\d.]+)\s*\|\s*tokens:(\d+)\/(\d+)/,
-          );
-          const legacy = chunk.content.match(/上下文水位:\s*(\d+)%/);
-          if (!structured && !legacy) {
-            if (!this.turnStarted) this.startTurn();
-            this.appendEvent({
-              type: "assistant/status",
-              data: { content: chunk.content },
-            });
-          }
+          if (!this.turnStarted) this.startTurn();
+          this.appendEvent({
+            type: "assistant/status",
+            data: { content: chunk.content },
+          });
         }
         // normal 水位：高频每 1.5s，不进事件流
         break;

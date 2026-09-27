@@ -1,4 +1,5 @@
 import { memo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import type { SanitizedSpan } from "./utils";
 
 interface SpanDetailDrawerProps {
@@ -13,6 +14,7 @@ export const SpanDetailDrawer = memo(function SpanDetailDrawer({
   isDark,
   onClose,
 }: SpanDetailDrawerProps) {
+  const { t } = useTranslation();
   const copyAsJson = useCallback(() => {
     if (!span) return;
     const { _suspicious, _orphan, ...rest } = span as SanitizedSpan & {
@@ -59,7 +61,9 @@ export const SpanDetailDrawer = memo(function SpanDetailDrawer({
         <div
           className={`px-4 py-3 border-b flex items-center justify-between sticky top-0 ${bg} ${isDark ? "border-gray-700" : "border-gray-200"}`}
         >
-          <h3 className={`text-sm font-semibold ${textPrimary}`}>Span 详情</h3>
+          <h3 className={`text-sm font-semibold ${textPrimary}`}>
+            {t("otel.spanDetail")}
+          </h3>
           <button
             onClick={onClose}
             className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${textSecondary}`}
@@ -122,7 +126,7 @@ export const SpanDetailDrawer = memo(function SpanDetailDrawer({
                 : "border-gray-300 text-gray-600 hover:bg-gray-50"
             }`}
           >
-            复制 JSON
+            {t("otel.copyJson")}
           </button>
         </div>
       </div>

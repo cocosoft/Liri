@@ -6,6 +6,7 @@
  */
 import type { KnowledgeFile } from "../../types";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import FileUploadZone from "./FileUploadZone";
 import PendingCompilePanel from "./PendingCompilePanel";
 import KBaseSelector from "./KBaseSelector";
@@ -16,7 +17,7 @@ import BatchTagModal from "./BatchTagModal";
 import { RecycleBinModal } from "./RecycleBinModal";
 import { useKnowledgeBaseList } from "./useKnowledgeBaseList";
 import { formatFileSize, formatDate } from "./shared/utils";
-import { sourceLabels } from "./shared/constants";
+import { sourceLabelKeys } from "./shared/constants";
 
 interface KnowledgeBaseListProps {
   isDark: boolean;
@@ -37,6 +38,7 @@ function KnowledgeBaseList({
   onRefreshBases,
   onTotalChange,
 }: KnowledgeBaseListProps) {
+  const { t } = useTranslation();
   const {
     bases,
     files,
@@ -140,12 +142,12 @@ function KnowledgeBaseList({
       <div
         className={`flex items-center justify-between px-4 py-3 border-b ${bc}`}
       >
-        <h2 className={`text-sm font-medium ${t1}`}>知识库</h2>
+        <h2 className={`text-sm font-medium ${t1}`}>{t("knowledge.title")}</h2>
         <div className="flex items-center gap-1">
           <button
             onClick={() => dispatch({ type: "OPEN_CREATE_MODAL" })}
             className={`p-1 rounded ${t2} hover:opacity-70`}
-            title="新建知识库"
+            title={t("knowledge.createBaseTitle")}
           >
             <svg
               className="w-4 h-4"
@@ -164,7 +166,7 @@ function KnowledgeBaseList({
           <button
             onClick={handleRefresh}
             className={`p-1 rounded ${t2} hover:opacity-70`}
-            title="刷新"
+            title={t("common.refresh")}
           >
             <svg
               className="w-4 h-4"
@@ -183,7 +185,7 @@ function KnowledgeBaseList({
           <button
             onClick={() => setShowCompileDrawer((v) => !v)}
             className={`p-1 rounded ${showCompileDrawer ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600" : t2} hover:opacity-70`}
-            title="待处理文件（编译队列）"
+            title={t("knowledge.pendingFilesTooltip")}
           >
             <svg
               className="w-4 h-4"
@@ -203,7 +205,7 @@ function KnowledgeBaseList({
             onClick={handleCompile}
             disabled={compileStatus === "compiling"}
             className={`p-1 rounded ${t2} hover:opacity-70 disabled:opacity-40`}
-            title="编译"
+            title={t("knowledge.compileLabel")}
           >
             <svg
               className="w-4 h-4"
@@ -222,7 +224,7 @@ function KnowledgeBaseList({
           <button
             onClick={() => setShowTrash(true)}
             className={`p-1 rounded ${t2} hover:opacity-70`}
-            title="回收站"
+            title={t("knowledge.recycleBin")}
           >
             <svg
               className="w-4 h-4"
@@ -299,7 +301,7 @@ function KnowledgeBaseList({
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="flex items-center">
                   <span className="animate-spin w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full inline-block mr-1.5" />
-                  编译中...
+                  {t("knowledge.compiling")}
                 </span>
                 <span>{compileProgress}%</span>
               </div>
@@ -336,7 +338,7 @@ function KnowledgeBaseList({
           <div className={`text-center py-8 ${tm}`}>
             <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
             <span className="text-xs">
-              {searching ? "搜索中..." : "加载中..."}
+              {searching ? t("knowledge.searching") : t("common.loading")}
             </span>
           </div>
         ) : sortedFiles.length === 0 ? (
@@ -356,17 +358,17 @@ function KnowledgeBaseList({
             </svg>
             <p className="text-sm font-medium mb-1">
               {isSearchActive
-                ? "未找到匹配的文档"
+                ? t("knowledge.noMatchDocs")
                 : selectedCategory || selectedSource
-                  ? "该筛选条件下暂无文档"
-                  : "知识库为空"}
+                  ? t("knowledge.noDocsForFilter")
+                  : t("knowledge.baseEmpty")}
             </p>
             {isSearchActive || selectedCategory || selectedSource ? (
               <div>
                 <p className="text-xs opacity-60 mb-2">
                   {isSearchActive
-                    ? "试试缩短关键词，或调整分类筛选"
-                    : "试试切换分类/来源筛选"}
+                    ? t("knowledge.tryShorterKeywords")
+                    : t("knowledge.trySwitchFilter")}
                 </p>
                 <button
                   onClick={() => {
@@ -376,7 +378,7 @@ function KnowledgeBaseList({
                   }}
                   className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
                 >
-                  重置筛选
+                  {t("knowledge.resetFilters")}
                 </button>
               </div>
             ) : (
@@ -397,14 +399,14 @@ function KnowledgeBaseList({
                   }}
                   className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  上传文档
+                  {t("knowledge.uploadDoc")}
                 </button>
                 <button
                   onClick={() => dispatch({ type: "OPEN_CREATE_MODAL" })}
                   className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   {/* KB-C7：此按钮打开的是"新建知识库"弹窗，文案与行为对齐（原"新建文档"误导） */}
-                  新建知识库
+                  {t("knowledge.createBaseTitle")}
                 </button>
               </div>
             )}
@@ -437,19 +439,22 @@ function KnowledgeBaseList({
                 >
                   <div className="flex items-center justify-between gap-1">
                     <p className={`text-sm font-medium truncate ${t1}`}>
-                      {file.title || "未命名文档"}
+                      {file.title || t("knowledge.untitledDoc")}
                     </p>
                     {file.source && (
                       <span
                         className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] ${isDark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}
                       >
-                        {sourceLabels[file.source] || file.source}
+                        {sourceLabelKeys[file.source]
+                          ? t(sourceLabelKeys[file.source])
+                          : file.source}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <p className={`text-xs ${t2} truncate`}>
-                      {file.content?.slice(0, 60) || "无内容"}
+                      {file.content?.slice(0, 60) ||
+                        t("knowledge.noContentPlain")}
                     </p>
                     <span className={`ml-auto shrink-0 text-[10px] ${tm}`}>
                       {formatFileSize(file.size)}
@@ -479,7 +484,7 @@ function KnowledgeBaseList({
                 disabled={page === 0}
                 className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30"
               >
-                首页
+                {t("knowledge.firstPage")}
               </button>
               <button
                 onClick={() =>
@@ -488,7 +493,7 @@ function KnowledgeBaseList({
                 disabled={page === 0}
                 className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30"
               >
-                上一页
+                {t("common.prevPage")}
               </button>
               <button
                 onClick={() =>
@@ -500,7 +505,7 @@ function KnowledgeBaseList({
                 disabled={(page + 1) * pageSize >= total}
                 className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30"
               >
-                下一页
+                {t("common.nextPage")}
               </button>
             </div>
           </div>

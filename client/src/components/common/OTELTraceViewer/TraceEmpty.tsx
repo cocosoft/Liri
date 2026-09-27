@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 
 export type EmptyReason = "pending" | "no-match" | "cleared";
 
@@ -15,16 +16,17 @@ export const TraceEmpty = memo(function TraceEmpty({
   lastDataTime,
   onResetFilter,
 }: TraceEmptyProps) {
+  const { t } = useTranslation();
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
 
   const content = () => {
     switch (reason) {
       case "pending":
-        return <p className={textSecondary}>等待追踪数据...</p>;
+        return <p className={textSecondary}>{t("otel.emptyPending")}</p>;
       case "no-match":
         return (
           <div className="space-y-2">
-            <p className={textSecondary}>无匹配结果</p>
+            <p className={textSecondary}>{t("otel.emptyNoMatch")}</p>
             {onResetFilter && (
               <button
                 onClick={onResetFilter}
@@ -34,7 +36,7 @@ export const TraceEmpty = memo(function TraceEmpty({
                     : "border-gray-300 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                重置过滤器
+                {t("otel.resetFilter")}
               </button>
             )}
           </div>
@@ -42,8 +44,8 @@ export const TraceEmpty = memo(function TraceEmpty({
       case "cleared":
         return (
           <p className={textSecondary}>
-            数据已清空
-            {lastDataTime ? `，上次数据: ${lastDataTime}` : ""}
+            {t("otel.emptyCleared")}
+            {lastDataTime ? t("otel.lastData", { time: lastDataTime }) : ""}
           </p>
         );
     }

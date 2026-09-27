@@ -7,6 +7,8 @@
  * Props: { totalCacheReadTokens, totalCacheCreationTokens }
  */
 
+import { useTranslation } from "react-i18next";
+
 export interface CacheBenefitPanelProps {
   totalCacheReadTokens: number;
   totalCacheCreationTokens: number;
@@ -16,6 +18,7 @@ export function CacheBenefitPanel({
   totalCacheReadTokens,
   totalCacheCreationTokens,
 }: CacheBenefitPanelProps) {
+  const { t } = useTranslation();
   const totalCache = totalCacheReadTokens + totalCacheCreationTokens;
   const hitRate =
     totalCache > 0
@@ -26,14 +29,14 @@ export function CacheBenefitPanel({
     <div className="rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          ⚡ 缓存效益
+          {t("common.cacheBenefitTitle")}
         </h2>
       </div>
       <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-3 rounded-lg border text-center bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              缓存读取
+              {t("common.cacheBenefitRead")}
             </p>
             <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
               {totalCacheReadTokens.toLocaleString()}
@@ -44,7 +47,7 @@ export function CacheBenefitPanel({
           </div>
           <div className="p-3 rounded-lg border text-center bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              缓存创建
+              {t("common.cacheBenefitCreation")}
             </p>
             <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
               {totalCacheCreationTokens.toLocaleString()}
@@ -55,7 +58,7 @@ export function CacheBenefitPanel({
           </div>
           <div className="p-3 rounded-lg border text-center bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              缓存命中率
+              {t("common.cacheBenefitHitRate")}
             </p>
             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
               {hitRate}
@@ -82,7 +85,7 @@ export function CacheBenefitPanel({
               </span>
             </div>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 text-right">
-              读取 / 创建 比率
+              {t("common.cacheBenefitRatio")}
             </p>
           </div>
         )}

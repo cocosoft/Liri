@@ -60,17 +60,23 @@ function PluginMarketPage() {
   const handleInstall = useCallback(
     async (plugin: MarketplacePlugin) => {
       await install(plugin.name || plugin.id);
-      addToast("success", `"${plugin.name}" 已安装`);
+      addToast(
+        "success",
+        t("pluginMarket.installedToast", { name: plugin.name }),
+      );
     },
-    [install, addToast],
+    [install, addToast, t],
   );
 
   const handleUninstall = useCallback(
     async (pluginId: string) => {
       await uninstall(pluginId);
-      addToast("success", `"${pluginId}" 已卸载`);
+      addToast(
+        "success",
+        t("pluginMarket.uninstalledToast", { name: pluginId }),
+      );
     },
-    [uninstall, addToast],
+    [uninstall, addToast, t],
   );
 
   return (
@@ -122,7 +128,8 @@ function PluginMarketPage() {
                         {plugin.name}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        v{plugin.version} · {plugin.author || "Unknown"}
+                        v{plugin.version} ·{" "}
+                        {plugin.author || t("pluginMarket.unknownAuthor")}
                       </div>
                     </div>
                     <span
@@ -132,7 +139,9 @@ function PluginMarketPage() {
                           : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                       }`}
                     >
-                      {plugin.enabled ? "已启用" : "已禁用"}
+                      {plugin.enabled
+                        ? t("common.enabled")
+                        : t("common.disabled")}
                     </span>
                   </div>
                   {plugin.description && (
@@ -161,13 +170,15 @@ function PluginMarketPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-amber-700 dark:text-amber-400">
-                响应式挂起 ({pendingPlugins.length})
+                {t("pluginMarket.pendingSection", {
+                  count: pendingPlugins.length,
+                })}
               </h2>
               <button
                 onClick={loadPending}
                 className="text-xs px-2 py-1 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                刷新
+                {t("common.refresh")}
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -186,12 +197,12 @@ function PluginMarketPage() {
                         {plugin.pluginName}
                         {plugin.timedOut && (
                           <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                            已超时
+                            {t("pluginMarket.timedOut")}
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        v· 等待服务注册
+                        {t("pluginMarket.pendingWaitRegister")}
                       </div>
                     </div>
                     <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
@@ -199,14 +210,14 @@ function PluginMarketPage() {
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    缺失必需注入服务：
+                    {t("pluginMarket.missingServices")}
                     <span className="font-mono text-xs">
                       {plugin.missing.join(", ")}
                     </span>
                   </p>
                   {plugin.timedOut && (
                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      挂起超时（可能服务级依赖死锁），请安装提供者插件后刷新
+                      {t("pluginMarket.pendingTimeoutHint")}
                     </p>
                   )}
                 </div>
@@ -302,7 +313,7 @@ function PluginMarketPage() {
                         {plugin.name}
                         {plugin.tags?.includes("official") && (
                           <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                            官方
+                            {t("pluginMarket.official")}
                           </span>
                         )}
                         {plugin.type === "python" && (
@@ -385,11 +396,13 @@ function PluginMarketPage() {
               )}
               <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 space-y-1">
                 {selectedPlugin.license && (
-                  <div>许可证: {selectedPlugin.license}</div>
+                  <div>
+                    {t("pluginMarket.licenseLabel")} {selectedPlugin.license}
+                  </div>
                 )}
                 {selectedPlugin.repository && (
                   <div>
-                    仓库:{" "}
+                    {t("pluginMarket.repositoryLabel")}{" "}
                     <a
                       href={selectedPlugin.repository}
                       target="_blank"
@@ -401,7 +414,10 @@ function PluginMarketPage() {
                   </div>
                 )}
                 {selectedPlugin.tags && selectedPlugin.tags.length > 0 && (
-                  <div>标签: {selectedPlugin.tags.join(", ")}</div>
+                  <div>
+                    {t("pluginMarket.tagsLabel")}{" "}
+                    {selectedPlugin.tags.join(", ")}
+                  </div>
                 )}
               </div>
             </div>

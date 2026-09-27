@@ -5,6 +5,7 @@
  * 每条可点击展开查看原始异常信息。
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useToastStore } from "../../stores/toastStore";
 
 const COLORS = {
@@ -39,6 +40,7 @@ const COLORS = {
 };
 
 export default function ToastContainer() {
+  const { t } = useTranslation();
   const toasts = useToastStore((s) => s.toasts);
   const dismiss = useToastStore((s) => s.dismiss);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -56,40 +58,46 @@ export default function ToastContainer() {
 
   return (
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
-      {toasts.map((t) => {
-        const c = COLORS[t.type];
-        const isExpanded = expanded.has(t.id);
+      {toasts.map((toast) => {
+        const c = COLORS[toast.type];
+        const isExpanded = expanded.has(toast.id);
         return (
           <div
-            key={t.id}
+            key={toast.id}
             className={`${c.bg} ${c.border} border rounded-lg px-3 py-2.5 shadow-lg cursor-pointer text-sm transition-all`}
-            onClick={() => dismiss(t.id)}
-            title="点击关闭"
+            onClick={() => dismiss(toast.id)}
+            title={t("common.toastClickToClose")}
           >
             <div className="flex items-start gap-2">
               <span className={c.icon + " flex-shrink-0 mt-0.5"}>
-                {t.type === "error" ? "✕" : t.type === "warning" ? "!" : "i"}
+                {toast.type === "error"
+                  ? "✕"
+                  : toast.type === "warning"
+                    ? "!"
+                    : "i"}
               </span>
               <div className="flex-1 min-w-0">
                 <p className={`${c.text} text-xs font-medium leading-snug`}>
-                  {t.message}
+                  {toast.message}
                 </p>
-                {t.detail && (
+                {toast.detail && (
                   <>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleExpand(t.id);
+                        toggleExpand(toast.id);
                       }}
                       className={`text-[10px] mt-1 ${c.text} opacity-60 hover:opacity-100 underline`}
                     >
-                      {isExpanded ? "收起详情" : "查看详情"}
+                      {isExpanded
+                        ? t("common.toastCollapseDetail")
+                        : t("common.toastViewDetail")}
                     </button>
                     {isExpanded && (
                       <p
                         className={`text-[10px] mt-1 whitespace-pre-wrap ${c.detail} opacity-70`}
                       >
-                        {t.detail}
+                        {toast.detail}
                       </p>
                     )}
                   </>

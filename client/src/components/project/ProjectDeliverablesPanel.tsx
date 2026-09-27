@@ -7,6 +7,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FileOutput, FolderOpen } from "lucide-react";
 import {
   fetchArtifacts,
@@ -53,6 +54,7 @@ export const ProjectDeliverablesPanel: React.FC<Props> = ({
   projectId,
   refreshKey,
 }) => {
+  const { t } = useTranslation();
   const [artifacts, setArtifacts] = useState<ProjectArtifact[]>([]);
   // 兜底数据源：artifacts 为空时扫描沙箱中的交付类文件
   const [fallbackFiles, setFallbackFiles] = useState<ProjectFileEntry[]>([]);
@@ -86,7 +88,7 @@ export const ProjectDeliverablesPanel: React.FC<Props> = ({
   if (artifacts.length === 0 && fallbackFiles.length === 0) {
     return (
       <div className="p-4 text-sm text-gray-400 text-center">
-        暂无成果。开始对话后，AI 产出物会自动出现在这里。
+        {t("projects.noDeliverables")}
       </div>
     );
   }
@@ -101,7 +103,7 @@ export const ProjectDeliverablesPanel: React.FC<Props> = ({
         >
           <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 mb-0.5">
             <FileOutput size={14} />
-            <span className="text-xs">成果</span>
+            <span className="text-xs">{t("projects.deliverable")}</span>
           </div>
           <div className="text-gray-700 dark:text-gray-300 font-medium truncate">
             {a.title}
@@ -122,7 +124,9 @@ export const ProjectDeliverablesPanel: React.FC<Props> = ({
           >
             <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 mb-0.5">
               <FolderOpen size={14} />
-              <span className="text-xs">成果（沙箱）</span>
+              <span className="text-xs">
+                {t("projects.deliverableSandbox")}
+              </span>
             </div>
             <div className="text-gray-700 dark:text-gray-300 font-medium truncate">
               {f.name}

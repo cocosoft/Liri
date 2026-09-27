@@ -5,6 +5,8 @@
  */
 
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useNotificationStore } from "../../stores/notificationStore";
 import type {
   NotificationCategory,
@@ -13,39 +15,47 @@ import type {
 
 // ─── 分类配置（P0-4 收件箱化：仅告知型 notice/system，决策类已移出） ───
 
-const CATEGORIES: { key: NotificationCategory | "all"; label: string }[] = [
-  { key: "all", label: "全部" },
-  { key: "system", label: "系统" },
-  { key: "notice", label: "日历" },
+const CATEGORIES: { key: NotificationCategory | "all"; labelKey: string }[] = [
+  { key: "all", labelKey: "notification.categoryAll" },
+  { key: "system", labelKey: "notification.categorySystem" },
+  { key: "notice", labelKey: "notification.categoryNotice" },
 ];
 
 // ─── 格式化 ──────────────────────────────────────────
 
-function timeAgo(ts: number): string {
+function timeAgo(ts: number, t: TFunction): string {
   const now = Math.floor(Date.now() / 1000);
   const diff = now - ts;
-  if (diff < 60) return "刚刚";
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-  return `${Math.floor(diff / 86400)}天前`;
+  if (diff < 60) return t("notification.justNow");
+  if (diff < 3600)
+    return t("notification.minutesAgo", { count: Math.floor(diff / 60) });
+  if (diff < 86400)
+    return t("notification.hoursAgo", { count: Math.floor(diff / 3600) });
+  return t("notification.daysAgo", { count: Math.floor(diff / 86400) });
 }
 
-function expireCountdown(expiresAt: number | null): string | null {
+function expireCountdown(
+  expiresAt: number | null,
+  t: TFunction,
+): string | null {
   if (!expiresAt) return null;
   const now = Math.floor(Date.now() / 1000);
   const diff = expiresAt - now;
-  if (diff <= 0) return "已过期";
-  if (diff < 60) return `${diff}秒后过期`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟后过期`;
+  if (diff <= 0) return t("notification.expired");
+  if (diff < 60) return t("notification.expiresInSeconds", { count: diff });
+  if (diff < 3600)
+    return t("notification.expiresInMinutes", {
+      count: Math.floor(diff / 60),
+    });
   return null;
 }
 
-function formatSource(source: string): string {
+function formatSource(source: string, t: TFunction): string {
   if (!source) return "";
   if (source.startsWith("channel:")) return source.slice(8);
-  if (source === "system") return "系统";
-  if (source === "cron") return "定时任务";
-  if (source === "inbox") return "收件箱";
+  if (source === "system") return t("notification.sourceSystem");
+  if (source === "cron") return t("notification.sourceCron");
+  if (source === "inbox") return t("notification.sourceInbox");
   return source;
 }
 
@@ -75,12 +85,16 @@ function priorityStyles(priority: string): { bar: string; badge: string } {
 // ─── NotificationCard ──────────────────────────────
 
 function NotificationCard({ item }: { item: NotificationItem }) {
+  const { t } = useTranslation();
   const markRead = useNotificationStore((s) => s.markRead);
   const dismiss = useNotificationStore((s) => s.dismiss);
   const pStyles = priorityStyles(item.priority);
   const isExpired = item.status === "expired";
   const isResolved = item.status === "resolved";
-  const countdown = expireCountdown(item.expires_at);
+  const countdown = expireCountdown(item.expires_at, t);
+  const categoryLabelKey = CATEGORIES.find(
+    (c) => c.key === item.category,
+  )?.labelKey;
 
   return (
     <div
@@ -108,14 +122,15 @@ function NotificationCard({ item }: { item: NotificationItem }) {
           <span
             className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${pStyles.badge}`}
           >
-            {CATEGORIES.find((c) => c.key === item.category)?.label ??
-              item.category}
+            {categoryLabelKey ? t(categoryLabelKey) : item.category}
           </span>
           {item.priority === "urgent" && (
-            <span className="text-[11px] text-red-500 font-medium">紧急</span>
+            <span className="text-[11px] text-red-500 font-medium">
+              {t("notification.urgent")}
+            </span>
           )}
           <span className="text-[11px] text-gray-400 dark:text-gray-500 ml-auto">
-            {timeAgo(item.created_at)}
+            {timeAgo(item.created_at, t)}
           </span>
         </div>
 
@@ -142,17 +157,17 @@ function NotificationCard({ item }: { item: NotificationItem }) {
         <div className="flex items-center gap-2 mt-2">
           {isResolved && (
             <span className="text-[11px] text-green-500 font-medium">
-              已处理
+              {t("notification.resolved")}
             </span>
           )}
           {isExpired && (
             <span className="text-[11px] text-gray-400 font-medium">
-              已过期
+              {t("notification.expired")}
             </span>
           )}
           {item.source && (
             <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
-              {formatSource(item.source)}
+              {formatSource(item.source, t)}
             </span>
           )}
           {countdown && !isExpired && (
@@ -167,7 +182,7 @@ function NotificationCard({ item }: { item: NotificationItem }) {
               dismiss(item.id);
             }}
             className="ml-auto text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-colors"
-            title="删除"
+            title={t("common.delete")}
           >
             <svg
               width="14"
@@ -189,7 +204,8 @@ function NotificationCard({ item }: { item: NotificationItem }) {
 // ─── EmptyState ─────────────────────────────────────
 
 function EmptyState({ category }: { category: NotificationCategory | "all" }) {
-  const label = CATEGORIES.find((c) => c.key === category)?.label ?? category;
+  const { t } = useTranslation();
+  const categoryLabelKey = CATEGORIES.find((c) => c.key === category)?.labelKey;
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
       <svg
@@ -204,7 +220,11 @@ function EmptyState({ category }: { category: NotificationCategory | "all" }) {
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
       <p className="text-sm">
-        {label === "全部" ? "暂无通知" : `暂无${label}通知`}
+        {category === "all"
+          ? t("notification.emptyAll")
+          : t("notification.emptyCategory", {
+              category: categoryLabelKey ? t(categoryLabelKey) : category,
+            })}
       </p>
     </div>
   );
@@ -213,6 +233,7 @@ function EmptyState({ category }: { category: NotificationCategory | "all" }) {
 // ─── NotificationPanel ─────────────────────────────
 
 export default function NotificationPanel() {
+  const { t } = useTranslation();
   const panelOpen = useNotificationStore((s) => s.panelOpen);
   const closePanel = useNotificationStore((s) => s.closePanel);
   const activeCategory = useNotificationStore((s) => s.activeCategory);
@@ -280,7 +301,7 @@ export default function NotificationPanel() {
         {/* 头部 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
-            消息中心
+            {t("notification.title")}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -288,7 +309,9 @@ export default function NotificationPanel() {
               disabled={readingAll || counts.total === 0}
               className="text-xs text-blue-500 hover:text-blue-600 disabled:opacity-40 font-medium px-2 py-1"
             >
-              {readingAll ? "处理中..." : "全部已读"}
+              {readingAll
+                ? t("notification.readingAll")
+                : t("notification.readAll")}
             </button>
             <button
               onClick={closePanel}
@@ -323,7 +346,7 @@ export default function NotificationPanel() {
                     : "text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
                 }`}
               >
-                {cat.label}
+                {t(cat.labelKey)}
                 {count > 0 && (
                   <span
                     className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${
@@ -365,14 +388,14 @@ export default function NotificationPanel() {
               onClick={() => loadItems()}
               className="w-full text-xs text-blue-500 hover:text-blue-600 py-2"
             >
-              加载更多
+              {t("notification.loadMore")}
             </button>
           )}
         </div>
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500 text-center">
-          通知保留最近 1000 条，已读 30 天后自动归档
+          {t("notification.footerHint")}
         </div>
       </div>
     </>

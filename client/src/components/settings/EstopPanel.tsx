@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ConfigSection } from "./ConfigComponents";
 import {
   systemService,
@@ -18,6 +19,7 @@ interface EstopPanelProps {
  * 进行中的工作不受影响；解除后立即恢复。sentinel 持久化于 ~/.pyapp/data/ESTOP。
  */
 export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
+  const { t } = useTranslation();
   const [engaged, setEngaged] = useState(false);
   const [state, setState] = useState<EstopStateDto | null>(null);
   const [reason, setReason] = useState("");
@@ -47,17 +49,15 @@ export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
       if (res.ok) {
         setEngaged(false);
         setState(null);
-        toastInfo("已解除全局暂停，新工作恢复执行");
+        toastInfo(t("settings.estopDisengaged"));
       } else {
-        toastWarning(res.error?.message ?? "解除全局暂停失败");
+        toastWarning(res.error?.message ?? t("settings.estopDisengageFailed"));
       }
       return;
     }
 
     // 启用暂停：二次确认
-    const confirmed = window.confirm(
-      "启用全局暂停后，新的消息发送与定时任务触发将被暂停（进行中的工作不受影响）。确定启用？",
-    );
+    const confirmed = window.confirm(t("settings.estopConfirm"));
     if (!confirmed) return;
 
     setLoading(true);
@@ -66,9 +66,9 @@ export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
     if (res.ok) {
       setEngaged(true);
       setState(res.data?.state ?? null);
-      toastInfo("已启用全局暂停");
+      toastInfo(t("settings.estopEngaged"));
     } else {
-      toastWarning(res.error?.message ?? "启用全局暂停失败");
+      toastWarning(res.error?.message ?? t("settings.estopEngageFailed"));
     }
   }
 
@@ -78,8 +78,8 @@ export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
 
   return (
     <ConfigSection
-      title="全局暂停（ESTOP）"
-      description="紧急停止：暂停新消息发送与新的定时任务触发，进行中的工作不受影响；解除后自动恢复。"
+      title={t("settings.estop")}
+      description={t("settings.estopDesc")}
       isDark={isDark}
       collapsible={collapsible}
     >
@@ -97,11 +97,11 @@ export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
               engaged ? "bg-red-500" : "bg-green-500"
             }`}
           />
-          {engaged ? "已暂停" : "运行中"}
+          {engaged ? t("settings.estopPaused") : t("common.running")}
         </span>
         {engaged && engagedAtText && (
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            启用时间：{engagedAtText}
+            {t("settings.estopEngagedAt", { time: engagedAtText })}
           </span>
         )}
       </div>
@@ -111,14 +111,14 @@ export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
         <label
           className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}
         >
-          暂停原因（可选）
+          {t("settings.estopReason")}
         </label>
         <input
           type="text"
           value={reason}
           disabled={engaged}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="例如：正在进行维护"
+          placeholder={t("settings.estopReasonPlaceholder")}
           className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
             engaged
               ? "opacity-60 cursor-not-allowed"
@@ -141,11 +141,15 @@ export default function EstopPanel({ isDark, collapsible }: EstopPanelProps) {
             : "bg-red-600 hover:bg-red-700 text-white"
         }`}
       >
-        {loading ? "处理中..." : engaged ? "解除全局暂停" : "启用全局暂停"}
+        {loading
+          ? t("settings.processing")
+          : engaged
+            ? t("settings.estopDisengage")
+            : t("settings.estopEngage")}
       </button>
 
       <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-        说明：全局暂停不影响正在进行的回复与工具执行；暂停期间发送的新消息会收到提示。解除后可立即恢复。
+        {t("settings.estopNote")}
       </p>
     </ConfigSection>
   );

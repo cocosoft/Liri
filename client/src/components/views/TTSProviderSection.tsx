@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { voiceService } from "@/services/voiceService";
 import TTSProviderConfig from "./TTSProviderConfig";
 
@@ -19,6 +20,7 @@ interface ProviderDetail {
 
 /** 健康状态指示器颜色 */
 function HealthDot({ status }: { status: "ok" | "degraded" | "unknown" }) {
+  const { t } = useTranslation();
   const colorMap: Record<string, string> = {
     ok: "bg-green-500",
     degraded: "bg-yellow-500",
@@ -28,7 +30,7 @@ function HealthDot({ status }: { status: "ok" | "degraded" | "unknown" }) {
   return (
     <span
       className={`inline-block w-2 h-2 rounded-full ${colorMap[status]} mr-1.5`}
-      title={`状态: ${status}`}
+      title={t("tts.healthStatus", { status })}
     />
   );
 }
@@ -37,6 +39,7 @@ function HealthDot({ status }: { status: "ok" | "degraded" | "unknown" }) {
  * Provider 配置区
  */
 export function TTSProviderSection() {
+  const { t } = useTranslation();
   const [providers, setProviders] = useState<ProviderDetail[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -55,10 +58,10 @@ export function TTSProviderSection() {
         setProviders(basic.map((name) => ({ name, supportedFormats: [] })));
         setError(null);
       } catch {
-        setError("无法加载 TTS 提供商列表");
+        setError(t("tts.loadProvidersFailed"));
       }
     }
-  }, []);
+  }, [t]);
 
   /** 初始化加载 + 页面可见时每 60s 轮询（§5.6 健康检测） */
   useEffect(() => {
@@ -107,7 +110,7 @@ export function TTSProviderSection() {
     try {
       await voiceService.saveProviderConfig(providerName, config);
     } catch {
-      setError(`保存 ${providerName} 配置失败`);
+      setError(t("tts.saveProviderConfigFailed", { name: providerName }));
     } finally {
       setSaving((prev) => ({ ...prev, [providerName]: false }));
     }
@@ -117,9 +120,9 @@ export function TTSProviderSection() {
     return (
       <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-          Provider 配置
+          {t("tts.providerConfigTitle")}
         </h3>
-        <p className="text-sm text-gray-400">暂无可用 TTS 提供商</p>
+        <p className="text-sm text-gray-400">{t("tts.noProviders")}</p>
       </section>
     );
   }
@@ -127,7 +130,7 @@ export function TTSProviderSection() {
   return (
     <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-        Provider 配置
+        {t("tts.providerConfigTitle")}
       </h3>
 
       {error && (
@@ -161,7 +164,9 @@ export function TTSProviderSection() {
                     </span>
                   )}
                 <span className="text-xs text-gray-400">
-                  {expanded[provider.name] ? "收起 ▲" : "展开 ▼"}
+                  {expanded[provider.name]
+                    ? t("tts.collapse")
+                    : t("tts.expand")}
                 </span>
               </div>
             </button>

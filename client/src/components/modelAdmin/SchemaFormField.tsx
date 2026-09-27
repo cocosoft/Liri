@@ -4,6 +4,7 @@
  * 根据 SchemaField 定义自动渲染 text/password/select/checkbox/textarea，
  * 统一深色模式样式。字段增删改只改 schema，UI 自动对齐。
  */
+import { useTranslation } from "react-i18next";
 import type { ProviderFormData } from "../../types";
 import type { SchemaField } from "./ProviderFormSchema";
 
@@ -32,6 +33,11 @@ export default function SchemaFormField({
   onChange,
   credential,
 }: SchemaFormFieldProps) {
+  const { t } = useTranslation();
+  const fieldLabel = field.labelKey ? t(field.labelKey) : field.label;
+  const fieldPlaceholder = field.placeholderKey
+    ? t(field.placeholderKey)
+    : field.placeholder;
   if (field.type === "checkbox") {
     const checked = field.inverted ? !value : !!value;
     return (
@@ -49,7 +55,7 @@ export default function SchemaFormField({
           htmlFor={`schema-${field.key}`}
           className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} cursor-pointer`}
         >
-          {field.label}
+          {fieldLabel}
         </label>
       </div>
     );
@@ -59,7 +65,7 @@ export default function SchemaFormField({
     return (
       <div>
         <label className={labelClass}>
-          {field.label}
+          {fieldLabel}
           {field.required && <span className="text-red-500"> *</span>}
         </label>
         <select
@@ -80,11 +86,11 @@ export default function SchemaFormField({
   if (field.type === "textarea") {
     return (
       <div>
-        <label className={labelClass}>{field.label}</label>
+        <label className={labelClass}>{fieldLabel}</label>
         <textarea
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={field.placeholder}
+          placeholder={fieldPlaceholder}
           className={`${inputClass} resize-y min-h-[64px]`}
         />
       </div>
@@ -94,7 +100,7 @@ export default function SchemaFormField({
   return (
     <div>
       <label className={labelClass}>
-        {field.label}
+        {fieldLabel}
         {field.required && <span className="text-red-500"> *</span>}
         {field.credentialControl && credential && (
           <span
@@ -104,7 +110,9 @@ export default function SchemaFormField({
                 : "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
             }`}
           >
-            {credential.hasKey ? "已配置" : "未配置"}
+            {credential.hasKey
+              ? t("model.credentialConfigured")
+              : t("model.credentialNotConfigured")}
           </span>
         )}
       </label>
@@ -114,8 +122,8 @@ export default function SchemaFormField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={
           field.credentialControl && credential?.hasKey
-            ? "已配置，留空保存则保留现有 Key"
-            : field.placeholder
+            ? t("model.credentialKeepHint")
+            : fieldPlaceholder
         }
         className={inputClass}
       />
@@ -130,8 +138,8 @@ export default function SchemaFormField({
           }`}
         >
           {credential.clearApiKey
-            ? "将清除已配置的 API Key（保存后生效）"
-            : "清除 API Key"}
+            ? t("model.credentialClearHint")
+            : t("model.credentialClear")}
         </button>
       )}
     </div>

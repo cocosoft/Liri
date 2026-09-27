@@ -4,6 +4,7 @@
  */
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   UnifiedCalendarEvent,
   EventSource,
@@ -39,6 +40,17 @@ const OVERDUE_STYLE = "border-l-2 border-l-red-500";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+/** 星期文案键（0=周日 … 6=周六，与 Date.getDay() 对齐） */
+const WEEKDAY_KEYS = [
+  "office.calWeekdaySun",
+  "office.calWeekdayMon",
+  "office.calWeekdayTue",
+  "office.calWeekdayWed",
+  "office.calWeekdayThu",
+  "office.calWeekdayFri",
+  "office.calWeekdaySat",
+];
+
 interface DayViewProps {
   dateStr: string;
   events: UnifiedCalendarEvent[];
@@ -57,6 +69,7 @@ export default function DayView({
   onAddEvent,
   onContextMenu,
 }: DayViewProps) {
+  const { t } = useTranslation();
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
@@ -95,8 +108,12 @@ export default function DayView({
   /** 格式化日期显示 */
   const dateLabel = (() => {
     const d = new Date(dateStr + "T00:00:00");
-    const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
+    return t("office.calDateLabel", {
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      day: d.getDate(),
+      weekday: t(WEEKDAY_KEYS[d.getDay()]),
+    });
   })();
 
   /** 点击空白区域 → 添加日程 */
@@ -124,19 +141,21 @@ export default function DayView({
           >
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          返回月视图
+          {t("office.calBackToMonth")}
         </button>
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
           {dateLabel}
           {isToday && (
-            <span className="ml-2 text-sm text-blue-500 font-normal">今天</span>
+            <span className="ml-2 text-sm text-blue-500 font-normal">
+              {t("office.calToday")}
+            </span>
           )}
         </h2>
         <button
           onClick={() => onAddEvent(dateStr)}
           className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          + 添加日程
+          + {t("office.calAdd")}
         </button>
       </div>
 
@@ -224,20 +243,28 @@ export default function DayView({
 
       {/* 底部统计栏 */}
       <div className="flex items-center gap-3 px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
-        <span>待办 {stats.pending}</span>
+        <span>
+          {t("office.calStatPending")} {stats.pending}
+        </span>
         <span>·</span>
-        <span>进行中 {stats.in_progress}</span>
+        <span>
+          {t("office.calStatInProgress")} {stats.in_progress}
+        </span>
         <span>·</span>
-        <span>已完成 {stats.completed}</span>
+        <span>
+          {t("office.calStatCompleted")} {stats.completed}
+        </span>
         {stats.overdue > 0 && (
           <>
             <span>·</span>
             <span className="text-red-500 dark:text-red-400">
-              超时 {stats.overdue}
+              {t("office.calStatOverdue")} {stats.overdue}
             </span>
           </>
         )}
-        <span className="ml-auto">共 {events.length} 项</span>
+        <span className="ml-auto">
+          {t("office.calStatTotal", { count: events.length })}
+        </span>
       </div>
     </div>
   );

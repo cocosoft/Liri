@@ -1,6 +1,7 @@
 // views/media/EditLayer.tsx — 图片编辑模态层（状态机：loading → ready → saving → error）
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { CanvasEditor } from "../image/canvas-editor/components/CanvasEditor";
 import type { CanvasEditorHandle } from "../image/canvas-editor/components/CanvasEditor";
 import { CanvasErrorBoundary } from "../image/canvas-editor/components/CanvasErrorBoundary";
@@ -21,6 +22,7 @@ export const EditLayer: React.FC<Props> = ({
   onClose,
   onSaveSuccess,
 }) => {
+  const { t } = useTranslation();
   const [phase, setPhase] = useState<EditLayerPhase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
@@ -52,13 +54,13 @@ export const EditLayer: React.FC<Props> = ({
       .catch(() => {
         if (!cancelled) {
           setPhase("error");
-          setError("无法加载图片（跨域限制），请联系管理员配置 CORS 头");
+          setError(t("media.canvasLoadFailed"));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [imageUrl]);
+  }, [imageUrl, t]);
 
   // Ctrl+S 保存 + ESC 退出 + beforeunload + body 滚动锁定
   useEffect(() => {
@@ -103,11 +105,11 @@ export const EditLayer: React.FC<Props> = ({
   // 关闭（带未保存检测）
   const handleClose = useCallback(() => {
     if (hasUnsaved) {
-      const confirmed = window.confirm("有未保存的更改，确定退出？");
+      const confirmed = window.confirm(t("media.unsavedExitConfirm"));
       if (!confirmed) return;
     }
     onClose();
-  }, [hasUnsaved, onClose]);
+  }, [hasUnsaved, onClose, t]);
 
   // 格式检测：优先从 Content-Type 推断，URL 扩展名作为 fallback
   const detectFormat = useCallback(async (url: string): Promise<string> => {
@@ -134,7 +136,7 @@ export const EditLayer: React.FC<Props> = ({
       if (!blob) {
         savingRef.current = false;
         setPhase("error");
-        setError("画布导出失败，请重试或联系管理员");
+        setError(t("media.canvasExportFailed"));
         return;
       }
 
@@ -143,7 +145,7 @@ export const EditLayer: React.FC<Props> = ({
         const format = await detectFormat(imageUrl);
         // 安全过滤：仅允许已知图片格式
         if (!["png", "jpg", "jpeg", "webp"].includes(format))
-          throw new Error(`不支持的格式: ${format}`);
+          throw new Error(t("media.unsupportedImageFormat", { format }));
 
         const formData = new FormData();
         const newName = `${imageId}_edited_${Date.now()}.${format}`;
@@ -166,7 +168,9 @@ export const EditLayer: React.FC<Props> = ({
         clearTimeout(timeout);
 
         if (!result.ok) {
-          throw new Error(`上传失败: ${result.status}`);
+          throw new Error(
+            t("media.uploadFailedStatus", { status: result.status }),
+          );
         }
 
         setPhase("ready");
@@ -179,13 +183,13 @@ export const EditLayer: React.FC<Props> = ({
         savingRef.current = false;
         setPhase("error");
         if (e instanceof DOMException && e.name === "AbortError") {
-          setError("保存超时，请检查网络后重试");
+          setError(t("media.saveTimeout"));
         } else {
-          setError(e instanceof Error ? e.message : "保存失败");
+          setError(e instanceof Error ? e.message : t("media.saveFailed"));
         }
       }
     },
-    [imageUrl, imageId, detectFormat, onClose],
+    [imageUrl, imageId, detectFormat, onClose, t],
   );
 
   // CanvasEditor 内部保存触发（由 Ctrl+S 或工具栏按钮触发）
@@ -213,7 +217,7 @@ export const EditLayer: React.FC<Props> = ({
       {phase === "loading" && (
         <div className="flex flex-col items-center gap-3 text-white">
           <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          <div className="text-lg">正在加载图片...</div>
+          <div className="text-lg">{t("media.loadingImage")}</div>
         </div>
       )}
 
@@ -226,7 +230,7 @@ export const EditLayer: React.FC<Props> = ({
               onClick={onClose}
               className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 border-0 cursor-pointer text-gray-300"
             >
-              关闭
+              {t("common.close")}
             </button>
             <button
               onClick={() => {
@@ -235,7 +239,7 @@ export const EditLayer: React.FC<Props> = ({
               }}
               className="px-4 py-2 rounded bg-blue-700/40 hover:bg-blue-600/40 border-0 cursor-pointer text-blue-200"
             >
-              重试
+              {t("common.retry")}
             </button>
           </div>
         </div>
@@ -262,7 +266,7 @@ export const EditLayer: React.FC<Props> = ({
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
           <div className="flex flex-col items-center gap-3 text-white">
             <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            <div className="text-lg">正在保存...</div>
+            <div className="text-lg">{t("media.savingImage")}</div>
           </div>
         </div>
       )}

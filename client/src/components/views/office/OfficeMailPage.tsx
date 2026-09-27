@@ -116,7 +116,7 @@ export default function OfficeMailPage() {
 
   async function handleSaveConfig() {
     if (!emailAddress || !password) {
-      setError("邮箱地址和密码不能为空");
+      setError(t("office.mailFieldsRequired", "邮箱地址和密码不能为空"));
       return;
     }
     setSaving(true);
@@ -248,7 +248,9 @@ export default function OfficeMailPage() {
             >
               <option value="gmail">Gmail</option>
               <option value="outlook">Outlook</option>
-              <option value="custom">SMTP/IMAP 自定义</option>
+              <option value="custom">
+                {t("office.mailProviderCustom", "SMTP/IMAP 自定义")}
+              </option>
             </select>
             <input
               type="email"
@@ -269,7 +271,7 @@ export default function OfficeMailPage() {
                 <input
                   value={smtpHost}
                   onChange={(e) => setSmtpHost(e.target.value)}
-                  placeholder="SMTP 主机"
+                  placeholder={t("office.mailSmtpHost", "SMTP 主机")}
                   className="border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                 />
                 <input
@@ -281,7 +283,7 @@ export default function OfficeMailPage() {
                 <input
                   value={imapHost}
                   onChange={(e) => setImapHost(e.target.value)}
-                  placeholder="IMAP 主机"
+                  placeholder={t("office.mailImapHost", "IMAP 主机")}
                   className="border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                 />
                 <input

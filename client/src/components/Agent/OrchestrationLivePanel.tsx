@@ -29,6 +29,7 @@
  * 阶段一 4.2-4：按会话上下文过滤——调用方传入 projectId/sessionId 后，
  * 仅展示归属匹配的事件；事件未显式携带归属字段时保守保留（兼容缺失归属的旧事件）。
  */
+import { useTranslation } from "react-i18next";
 import { useOrchestrationStore } from "@/stores/orchestrationStore";
 import type { PdcaLiveEventPayload } from "@/stores/orchestrationStore";
 
@@ -57,6 +58,7 @@ export default function OrchestrationLivePanel({
   projectId,
   sessionId,
 }: OrchestrationLivePanelProps) {
+  const { t } = useTranslation();
   const latest = useOrchestrationStore((s) => s.latest);
   const timeline = useOrchestrationStore((s) => s.timeline);
 
@@ -80,11 +82,11 @@ export default function OrchestrationLivePanel({
   return (
     <div className="border-t border-gray-100 dark:border-gray-800">
       <div className="px-3 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-        实时编排 (通道)
+        {t("agent.liveOrchestration")}
       </div>
       {entries.length === 0 ? (
         <div className="px-3 py-1.5 text-[11px] text-gray-400">
-          暂无活动任务
+          {t("agent.noActiveTasks")}
         </div>
       ) : (
         entries.map((ev) => (
@@ -103,7 +105,7 @@ export default function OrchestrationLivePanel({
       {decisions.length > 0 && (
         <>
           <div className="px-3 py-1 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            最近分流决策
+            {t("agent.recentDecisions")}
           </div>
           {decisions.map((ev, i) => (
             <div

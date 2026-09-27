@@ -6,21 +6,22 @@
  */
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { errorStats } from "../../utils/handleError";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  network: "网络",
-  filesystem: "文件",
-  permission: "权限",
-  validation: "校验",
-  execution: "执行",
-  configuration: "配置",
-  api: "API",
-  database: "数据库",
-  resource: "资源",
-  data: "数据",
-  operation: "操作",
-  unknown: "未知",
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  network: "common.errCatNetwork",
+  filesystem: "common.errCatFilesystem",
+  permission: "common.errCatPermission",
+  validation: "common.errCatValidation",
+  execution: "common.errCatExecution",
+  configuration: "common.errCatConfiguration",
+  api: "common.errCatApi",
+  database: "common.errCatDatabase",
+  resource: "common.errCatResource",
+  data: "common.errCatData",
+  operation: "common.errCatOperation",
+  unknown: "common.errCatUnknown",
 };
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -38,6 +39,7 @@ const SEVERITY_BG: Record<string, string> = {
 };
 
 export function ClientErrorStats() {
+  const { t } = useTranslation();
   const [, setTick] = useState(0);
   const [recent, setRecent] = useState(errorStats.recent.slice(0, 10));
 
@@ -56,10 +58,10 @@ export function ClientErrorStats() {
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg">🐛</span>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            前端错误
+            {t("common.clientErrorsTitle")}
           </h3>
         </div>
-        <p className="text-sm text-green-500">✅ 无前端错误</p>
+        <p className="text-sm text-green-500">{t("common.clientErrorsNone")}</p>
       </div>
     );
   }
@@ -76,7 +78,7 @@ export function ClientErrorStats() {
       <div className="flex items-center gap-2 mb-3">
         <span className="text-lg">🐛</span>
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-          前端错误 ({errorStats.total})
+          {t("common.clientErrorsTitleCount", { count: errorStats.total })}
         </h3>
       </div>
 
@@ -96,7 +98,9 @@ export function ClientErrorStats() {
       <div className="text-xs text-gray-600 dark:text-gray-400 mb-3 space-y-1">
         {categoryEntries.slice(0, 5).map(([cat, count]) => (
           <div key={cat} className="flex justify-between">
-            <span>{CATEGORY_LABELS[cat] || cat}</span>
+            <span>
+              {CATEGORY_LABEL_KEYS[cat] ? t(CATEGORY_LABEL_KEYS[cat]) : cat}
+            </span>
             <span className="font-mono">{count}</span>
           </div>
         ))}
@@ -106,7 +110,7 @@ export function ClientErrorStats() {
       {recent.length > 0 && (
         <details>
           <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">
-            最近 {recent.length} 条
+            {t("common.clientErrorsRecent", { count: recent.length })}
           </summary>
           <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
             {recent.map((e) => (

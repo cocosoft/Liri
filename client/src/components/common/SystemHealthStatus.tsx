@@ -5,6 +5,7 @@
  */
 
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { InfrastructureStatus } from "../../services/infrastructureHealthService";
 
 /** 颜色映射 */
@@ -17,13 +18,13 @@ const STATUS_COLOR: Record<string, string> = {
   critical: "bg-red-500",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  healthy: "健康",
-  degraded: "降级",
-  unhealthy: "不健康",
-  unknown: "未知",
-  warning: "警告",
-  critical: "严重",
+const STATUS_LABEL_KEY: Record<string, string> = {
+  healthy: "common.healthHealthy",
+  degraded: "common.healthDegraded",
+  unhealthy: "common.healthUnhealthy",
+  unknown: "common.unknown",
+  warning: "common.healthWarning",
+  critical: "common.healthCritical",
 };
 
 interface SystemHealthStatusProps {
@@ -41,6 +42,7 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
   status,
   isDark,
 }: SystemHealthStatusProps) {
+  const { t } = useTranslation();
   const overallStatus = status.health?.overall ?? "unknown";
 
   return (
@@ -49,7 +51,7 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
         <h3
           className={`text-sm font-semibold flex items-center gap-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          <span>🩺</span> 系统健康
+          <span>🩺</span> {t("common.systemHealthTitle")}
         </h3>
         <div className="flex items-center gap-2">
           <span
@@ -58,7 +60,9 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
           <span
             className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            {STATUS_LABEL[overallStatus] || overallStatus}
+            {STATUS_LABEL_KEY[overallStatus]
+              ? t(STATUS_LABEL_KEY[overallStatus])
+              : overallStatus}
           </span>
         </div>
       </div>
@@ -96,7 +100,7 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
             <span
               className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              内存
+              {t("common.memoryLabel")}
             </span>
             <span
               className={`block font-bold mt-0.5 ${
@@ -120,7 +124,7 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
             <span
               className={`block ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              磁盘
+              {t("common.diskLabel")}
             </span>
             <span
               className={`block font-bold mt-0.5 ${
@@ -143,7 +147,7 @@ export const SystemHealthStatus = memo(function SystemHealthStatus({
           <span
             className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            通道:
+            {t("common.channelsLabel")}
           </span>
           <div className="flex gap-1">
             {status.channels.map((ch) => (

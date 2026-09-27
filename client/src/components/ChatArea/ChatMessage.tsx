@@ -1211,8 +1211,14 @@ function TokenInfoSection({
           className={`mt-1 text-xs space-y-0.5 ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}
         >
           <div>💬 {sessionUsage.totalTokens.toLocaleString()} tokens</div>
-          <div>📥 {t("chat.usageInput")}: {sessionUsage.inputTokens.toLocaleString()}</div>
-          <div>📤 {t("chat.usageOutput")}: {sessionUsage.outputTokens.toLocaleString()}</div>
+          <div>
+            📥 {t("chat.usageInput")}:{" "}
+            {sessionUsage.inputTokens.toLocaleString()}
+          </div>
+          <div>
+            📤 {t("chat.usageOutput")}:{" "}
+            {sessionUsage.outputTokens.toLocaleString()}
+          </div>
           {sessionUsage.estimatedCostUsd != null &&
             sessionUsage.estimatedCostUsd > 0 && (
               <div>💰 {formatCost(sessionUsage.estimatedCostUsd)}</div>
@@ -1577,20 +1583,13 @@ function renderBlocksWithGroups(
     // 纯 status 块（无 tool_call）直接渲染，不包装为 "工具执行" 组
     if (!hasToolCall) {
       for (const tb of toolBlocks) {
-        // 上下文水位：收缩为紧凑标签（结构化标记 block.status === "watermark"），
-        // 完整详情在右侧「会话日志」面板
-        // TODO: CS05-ROOTFIX — /^上下文水位/ 内容匹配仅为旧持久化数据（无 status 标记）的过渡兜底
-        if (
-          tb.type === "status" &&
-          (tb.status === "watermark" || /^上下文水位/.test(tb.content))
-        ) {
-          result.push(
-            <WatermarkTag
-              key={tb.id}
-              content={tb.content}
-              watermark={tb.watermark}
-            />,
-          );
+        // 上下文水位：收缩为紧凑标签。
+        // CS02：判据为**结构化标记** `block.status === "watermark"`（唯一来源，见 chat-stream-chunk / EventBasedStreamAggregator）；
+        // 禁止按 content 文本前缀判定 —— 压缩进度块的 content 同样以「上下文水位」开头
+        // （streamMessageFlow `statusType: 'compaction'`），字符串匹配会把压缩块误判为水位标签。
+        // `watermark` 字段缺失时（旧事件载荷）回落到 renderBlock 渲染原始状态块，不静默丢弃。
+        if (tb.type === "status" && tb.status === "watermark" && tb.watermark) {
+          result.push(<WatermarkTag key={tb.id} watermark={tb.watermark} />);
           continue;
         }
         result.push(renderBlock(tb));

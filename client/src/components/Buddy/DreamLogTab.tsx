@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { dreamService } from "../../services/backgroundTaskService";
 import { memoryService } from "../../services/memoryService";
 import type { DreamLogEntry, DreamLogResponse } from "../../types";
 import DreamCycleDetail from "./DreamCycleDetail";
 
 const DREAM_TYPE_LABELS: Record<string, string> = {
-  "dream:started": "开始",
-  "dream:completed": "完成",
-  "dream:failed": "失败",
+  "dream:started": "buddy.dreamTypeStarted",
+  "dream:completed": "buddy.dreamTypeCompleted",
+  "dream:failed": "buddy.dreamTypeFailed",
 };
 
 const DREAM_TYPE_COLORS: Record<string, string> = {
@@ -45,6 +46,7 @@ interface DreamCycleEntry {
 type TabView = "logs" | "cycles";
 
 function DreamLogTab() {
+  const { t } = useTranslation();
   const [logData, setLogData] = useState<DreamLogResponse | null>(null);
   const [cycles, setCycles] = useState<DreamCycleEntry[]>([]);
   const [cycleTotal, setCycleTotal] = useState(0);
@@ -139,11 +141,11 @@ function DreamLogTab() {
   const getTriggerLabel = (source: string) => {
     switch (source) {
       case "idle":
-        return "空闲触发";
+        return t("buddy.triggerIdle");
       case "cron":
-        return "定时触发";
+        return t("buddy.triggerCron");
       case "manual":
-        return "手动触发";
+        return t("buddy.triggerManual");
       default:
         return source;
     }
@@ -152,7 +154,7 @@ function DreamLogTab() {
   if (isLoading) {
     return (
       <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-        加载梦境日志...
+        {t("buddy.loadingDreamLog")}
       </div>
     );
   }
@@ -169,7 +171,7 @@ function DreamLogTab() {
               : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
           }`}
         >
-          梦境周期 {cycleTotal > 0 && `(${cycleTotal})`}
+          {t("buddy.dreamCycles")} {cycleTotal > 0 && `(${cycleTotal})`}
         </button>
         <button
           onClick={() => setTabView("logs")}
@@ -179,7 +181,7 @@ function DreamLogTab() {
               : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
           }`}
         >
-          执行日志
+          {t("buddy.executionLogs")}
         </button>
 
         {/* 周期统计 */}
@@ -204,7 +206,7 @@ function DreamLogTab() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
                 <div className="text-lg">✨</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  完成
+                  {t("buddy.statCompleted")}
                 </div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">
                   {logData.stats.totalCompleted}
@@ -213,7 +215,7 @@ function DreamLogTab() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
                 <div className="text-lg">📚</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  会话
+                  {t("buddy.statSessions")}
                 </div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">
                   {logData.stats.totalSessions}
@@ -222,7 +224,7 @@ function DreamLogTab() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
                 <div className="text-lg">💡</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  洞察
+                  {t("buddy.statInsights")}
                 </div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">
                   {logData.stats.totalInsights}
@@ -231,7 +233,7 @@ function DreamLogTab() {
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
                 <div className="text-lg">💤</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  失败
+                  {t("buddy.statFailed")}
                 </div>
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-0.5">
                   {logData.stats.totalFailed}
@@ -252,7 +254,7 @@ function DreamLogTab() {
                       : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
                   }`}
                 >
-                  {type ? DREAM_TYPE_LABELS[type] : "全部"}
+                  {type ? t(DREAM_TYPE_LABELS[type]) : t("common.all")}
                 </button>
               ),
             )}
@@ -260,7 +262,7 @@ function DreamLogTab() {
 
           {!logData?.logs || logData.logs.length === 0 ? (
             <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-              暂无梦境日志
+              {t("buddy.noDreamLogs")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -286,11 +288,21 @@ function DreamLogTab() {
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 dark:text-gray-500">
                           <span className={DREAM_TYPE_COLORS[entry.type] || ""}>
-                            {DREAM_TYPE_LABELS[entry.type] || entry.type}
+                            {DREAM_TYPE_LABELS[entry.type]
+                              ? t(DREAM_TYPE_LABELS[entry.type])
+                              : entry.type}
                           </span>
-                          <span>{entry.sessionsCount} 条会话</span>
+                          <span>
+                            {t("buddy.sessionCountInline", {
+                              count: entry.sessionsCount,
+                            })}
+                          </span>
                           {entry.insightsGenerated > 0 && (
-                            <span>{entry.insightsGenerated} 条洞察</span>
+                            <span>
+                              {t("buddy.insightCountInline", {
+                                count: entry.insightsGenerated,
+                              })}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -311,7 +323,7 @@ function DreamLogTab() {
         <>
           {cycles.length === 0 ? (
             <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-              暂无梦境周期记录
+              {t("buddy.noDreamCycles")}
             </div>
           ) : (
             <div className="space-y-3">
@@ -353,12 +365,22 @@ function DreamLogTab() {
                               )}
                             </span>
                             <span>
-                              {cycle.sessionsProcessed}/{cycle.sessionsScanned}{" "}
-                              会话
+                              {t("buddy.sessionRatio", {
+                                processed: cycle.sessionsProcessed,
+                                scanned: cycle.sessionsScanned,
+                              })}
                             </span>
-                            <span>{cycle.memoriesCreated} 新记忆</span>
+                            <span>
+                              {t("buddy.newMemories", {
+                                count: cycle.memoriesCreated,
+                              })}
+                            </span>
                             {cycle.memoriesRefined > 0 && (
-                              <span>{cycle.memoriesRefined} 精炼</span>
+                              <span>
+                                {t("buddy.refinedCount", {
+                                  count: cycle.memoriesRefined,
+                                })}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -375,7 +397,7 @@ function DreamLogTab() {
                       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            扫描会话
+                            {t("buddy.scannedSessions")}
                           </div>
                           <div className="font-medium text-gray-900 dark:text-gray-100">
                             {cycle.sessionsScanned}
@@ -383,7 +405,7 @@ function DreamLogTab() {
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            处理会话
+                            {t("buddy.processedSessions")}
                           </div>
                           <div className="font-medium text-gray-900 dark:text-gray-100">
                             {cycle.sessionsProcessed}
@@ -391,7 +413,7 @@ function DreamLogTab() {
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            创建记忆
+                            {t("buddy.createdMemories")}
                           </div>
                           <div className="font-medium text-green-600 dark:text-green-400">
                             {cycle.memoriesCreated}
@@ -399,7 +421,7 @@ function DreamLogTab() {
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            精炼记忆
+                            {t("buddy.refinedMemories")}
                           </div>
                           <div className="font-medium text-purple-600 dark:text-purple-400">
                             {cycle.memoriesRefined}
@@ -407,7 +429,7 @@ function DreamLogTab() {
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            知识文件
+                            {t("buddy.knowledgeFiles")}
                           </div>
                           <div className="font-medium text-gray-900 dark:text-gray-100">
                             {cycle.knowledgeFilesUpdated}
@@ -415,27 +437,31 @@ function DreamLogTab() {
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            SOUL 纠偏
+                            {t("buddy.soulCorrection")}
                           </div>
                           <div
                             className={`font-medium ${cycle.soulUpdated ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`}
                           >
-                            {cycle.soulUpdated ? "已更新" : "未变更"}
+                            {cycle.soulUpdated
+                              ? t("buddy.updated")
+                              : t("buddy.unchanged")}
                           </div>
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            USER 更新
+                            {t("buddy.userUpdate")}
                           </div>
                           <div
                             className={`font-medium ${cycle.userProfileUpdated ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`}
                           >
-                            {cycle.userProfileUpdated ? "已更新" : "未变更"}
+                            {cycle.userProfileUpdated
+                              ? t("buddy.updated")
+                              : t("buddy.unchanged")}
                           </div>
                         </div>
                         <div className="p-2 rounded bg-gray-50 dark:bg-gray-700/50">
                           <div className="text-gray-400 dark:text-gray-500">
-                            耗时
+                            {t("buddy.duration")}
                           </div>
                           <div className="font-medium text-gray-900 dark:text-gray-100">
                             {formatDuration(cycle.startedAt, cycle.completedAt)}
@@ -447,7 +473,7 @@ function DreamLogTab() {
                       {cycle.insights.length > 0 && (
                         <div className="mt-3">
                           <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            💡 洞察
+                            {t("buddy.insightsTitle")}
                           </div>
                           <ul className="space-y-1">
                             {cycle.insights.map((insight, i) => (
@@ -466,7 +492,7 @@ function DreamLogTab() {
                       {cycle.errors.length > 0 && (
                         <div className="mt-3">
                           <div className="text-xs font-medium text-red-500 dark:text-red-400 mb-1">
-                            ⚠️ 错误
+                            {t("buddy.errorsTitle")}
                           </div>
                           <ul className="space-y-1">
                             {cycle.errors.map((err, i) => (
@@ -489,7 +515,7 @@ function DreamLogTab() {
                           }}
                           className="px-3 py-1.5 text-xs rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                         >
-                          查看完整详情
+                          {t("buddy.viewFullDetail")}
                         </button>
                       </div>
                     </div>

@@ -4,6 +4,7 @@
  */
 
 import { Component, type ReactNode } from "react";
+import i18n from "@/i18n";
 import { createLogger } from "../../../../utils/logger";
 
 const logger = createLogger("components:office:ErrorBoundary");
@@ -59,13 +60,14 @@ export class ErrorBoundary extends Component<
           className="flex flex-col items-center justify-center p-6 text-center"
         >
           <p className="text-gray-500 dark:text-gray-400 mb-2">
-            {this.props.message ?? "组件加载失败"}
+            {this.props.message ??
+              i18n.t("office.componentLoadFailed", "组件加载失败")}
           </p>
           <button
             onClick={this.handleRetry}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            重试
+            {i18n.t("office.retry", "重试")}
           </button>
         </div>
       );

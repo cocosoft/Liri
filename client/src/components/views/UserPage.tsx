@@ -1,11 +1,12 @@
 import { useState, lazy, Suspense, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { httpLegacy as http } from "../../services/httpClient";
 
 /** 用户中心侧边栏导航项 */
 interface UserNavItem {
   id: string;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
@@ -17,10 +18,10 @@ const SUB_PAGE_REGISTRY: Record<string, React.LazyExoticComponent<React.FC>> = {
 };
 
 const NAV_ITEMS: UserNavItem[] = [
-  { id: "profile", label: "个人资料", icon: "U" },
-  { id: "apikeys", label: "API 密钥", icon: "K" },
-  { id: "oauth", label: "OAuth 应用", icon: "O" },
-  { id: "permissions", label: "权限管理", icon: "P" },
+  { id: "profile", labelKey: "user.profile", icon: "U" },
+  { id: "apikeys", labelKey: "user.apiKeys", icon: "K" },
+  { id: "oauth", labelKey: "user.oauthApps", icon: "O" },
+  { id: "permissions", labelKey: "user.permissions", icon: "P" },
 ];
 
 const ACTIVE_NAV_KEY = "liri-user-active-nav";
@@ -50,6 +51,7 @@ interface UserConfig {
 }
 
 function UserPage() {
+  const { t } = useTranslation();
   const { config, setConfig } = useConfigStore();
   const userCfg = config.user as UserConfig | undefined;
   const [activeNav, setActiveNav] = useState(() => {
@@ -111,7 +113,7 @@ function UserPage() {
       <aside className="w-52 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="px-4 pt-5 pb-3">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            用户中心
+            {t("user.center")}
           </h2>
         </div>
         <nav className="pb-6">
@@ -130,7 +132,7 @@ function UserPage() {
                 <span className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
                   {item.icon}
                 </span>
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{t(item.labelKey)}</span>
               </button>
             );
           })}
@@ -152,7 +154,7 @@ function UserPage() {
         {/* ── 个人资料 ── */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            个人资料
+            {t("user.profile")}
           </h3>
           <div className="space-y-5">
             {/* 头像 */}
@@ -162,10 +164,10 @@ function UserPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {nickname || "本地用户"}
+                  {nickname || t("user.localUser")}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  本地账户 · 无需登录
+                  {t("user.localAccountHint")}
                 </p>
                 {info && (
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
@@ -181,7 +183,7 @@ function UserPage() {
                 htmlFor="nickname-input"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
               >
-                显示名称
+                {t("user.displayName")}
               </label>
               <div className="flex gap-2 items-start">
                 <input
@@ -192,7 +194,7 @@ function UserPage() {
                     setNickname(e.target.value);
                     setNickSaved(false);
                   }}
-                  placeholder="请输入显示名称"
+                  placeholder={t("user.displayNamePlaceholder")}
                   maxLength={30}
                   className="flex-1 max-w-xs px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -204,7 +206,7 @@ function UserPage() {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
-                  {nickSaved ? "已保存" : "保存"}
+                  {nickSaved ? t("user.saved") : t("common.save")}
                 </button>
               </div>
             </div>
@@ -212,7 +214,7 @@ function UserPage() {
             {/* 主题偏好 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                主题偏好
+                {t("user.themePreference")}
               </label>
               <div className="flex gap-2">
                 <button
@@ -223,7 +225,7 @@ function UserPage() {
                       : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
                   }`}
                 >
-                  浅色
+                  {t("user.themeLight")}
                 </button>
                 <button
                   onClick={() => setConfig("theme", "dark")}
@@ -233,7 +235,7 @@ function UserPage() {
                       : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
                   }`}
                 >
-                  深色
+                  {t("user.themeDark")}
                 </button>
               </div>
             </div>
@@ -241,14 +243,14 @@ function UserPage() {
             {/* 界面语言 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                界面语言
+                {t("user.interfaceLanguage")}
               </label>
               <select
                 value={String(config.locale ?? "zh-CN")}
                 onChange={(e) => setConfig("locale", e.target.value)}
                 className="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="zh-CN">简体中文</option>
+                <option value="zh-CN">{t("translate.langZh")}</option>
                 <option value="en-US">English</option>
               </select>
             </div>
@@ -256,7 +258,7 @@ function UserPage() {
             {/* 时区 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                时区
+                {t("user.timezone")}
               </label>
               <select
                 value={String(
@@ -285,12 +287,12 @@ function UserPage() {
         {info && (
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              系统信息
+              {t("user.systemInfo")}
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
                 <span className="text-gray-600 dark:text-gray-400">
-                  应用版本
+                  {t("user.appVersion")}
                 </span>
                 <span className="text-gray-900 dark:text-gray-100 font-mono">
                   {info.version}
@@ -298,7 +300,7 @@ function UserPage() {
               </div>
               <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
                 <span className="text-gray-600 dark:text-gray-400">
-                  数据目录
+                  {t("user.dataDir")}
                 </span>
                 <span
                   className="text-gray-900 dark:text-gray-100 font-mono text-xs truncate max-w-[240px] text-right"
@@ -309,7 +311,7 @@ function UserPage() {
               </div>
               <div className="flex justify-between items-center py-2.5 px-3 bg-gray-50 dark:bg-gray-700/50 rounded">
                 <span className="text-gray-600 dark:text-gray-400">
-                  用户目录
+                  {t("user.userDir")}
                 </span>
                 <span
                   className="text-gray-900 dark:text-gray-100 font-mono text-xs truncate max-w-[240px] text-right"
@@ -329,9 +331,13 @@ function UserPage() {
   function renderLazyPage() {
     const LazyComp = SUB_PAGE_REGISTRY[activeNav];
     if (!LazyComp)
-      return <div className="p-6 text-gray-500">页面加载中...</div>;
+      return <div className="p-6 text-gray-500">{t("user.pageLoading")}</div>;
     return (
-      <Suspense fallback={<div className="p-6 text-gray-500">加载中...</div>}>
+      <Suspense
+        fallback={
+          <div className="p-6 text-gray-500">{t("common.loading")}</div>
+        }
+      >
         <LazyComp />
       </Suspense>
     );

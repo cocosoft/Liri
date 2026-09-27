@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * TTSProviderConfig — Provider 展开配置表单组件
@@ -40,6 +41,7 @@ function TTSProviderConfig({
   onSave,
   saving = false,
 }: TTSProviderConfigProps) {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<ProviderConfig>({ ...initialConfig });
 
   const handleChange = (field: string, value: string): void => {
@@ -69,7 +71,7 @@ function TTSProviderConfig({
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              模型
+              {t("tts.model")}
             </label>
             <input
               type="text"
@@ -84,7 +86,7 @@ function TTSProviderConfig({
             disabled={saving}
             className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? "保存中..." : "保存配置"}
+            {saving ? t("tts.saving") : t("tts.saveConfig")}
           </button>
         </div>
       );
@@ -96,7 +98,7 @@ function TTSProviderConfig({
         <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded">
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              可执行文件路径
+              {t("tts.executablePath")}
             </label>
             <input
               type="text"
@@ -108,7 +110,7 @@ function TTSProviderConfig({
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              模型路径
+              {t("tts.modelPath")}
             </label>
             <input
               type="text"
@@ -123,7 +125,7 @@ function TTSProviderConfig({
             disabled={saving}
             className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? "保存中..." : "保存配置"}
+            {saving ? t("tts.saving") : t("tts.saveConfig")}
           </button>
         </div>
       );
@@ -137,7 +139,7 @@ function TTSProviderConfig({
       // Edge / Command 等零配置 Provider，或未知 Provider
       return (
         <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded text-sm text-gray-500 dark:text-gray-400">
-          此提供者无需额外配置。
+          {t("tts.noExtraConfig")}
         </div>
       );
     }

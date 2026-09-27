@@ -4,6 +4,7 @@
  */
 
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   getPresetsByCategory,
   CATEGORY_LABELS,
@@ -31,6 +32,7 @@ export default function ProviderPresetPanel({
   onSelect,
   onClose,
 }: ProviderPresetPanelProps) {
+  const { t } = useTranslation();
   const grouped = useMemo(() => getPresetsByCategory(), []);
 
   return (
@@ -43,13 +45,16 @@ export default function ProviderPresetPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          快速添加 Provider
+          {t("model.quickAddProvider")}
         </h3>
 
         {Object.entries(grouped).map(([category, presets]) => (
           <div key={category} className="mb-5">
             <h4 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-              {CATEGORY_LABELS[category] || category}
+              {t(
+                `model.providerCategory.${category}`,
+                CATEGORY_LABELS[category] || category,
+              )}
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {presets.map((preset) => (
@@ -79,7 +84,7 @@ export default function ProviderPresetPanel({
           onClick={onClose}
           className="mt-2 w-full px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
         >
-          取消
+          {t("common.cancel")}
         </button>
       </div>
     </div>

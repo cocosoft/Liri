@@ -1,4 +1,5 @@
 import { memo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Tag } from "lucide-react";
 
 interface SearchTargetFilterProps {
@@ -12,14 +13,15 @@ export const SearchTargetFilter = memo(function SearchTargetFilter({
   isDark,
   tags: initialTags,
 }: SearchTargetFilterProps) {
+  const { t } = useTranslation();
   const [activeTags, setActiveTags] = useState<string[]>(initialTags ?? []);
   const [input, setInput] = useState("");
   const [showInput, setShowInput] = useState(false);
 
   const addTag = useCallback(() => {
-    const t = input.trim().toLowerCase();
-    if (t && !activeTags.includes(t)) {
-      const next = [...activeTags, t];
+    const tag = input.trim().toLowerCase();
+    if (tag && !activeTags.includes(tag)) {
+      const next = [...activeTags, tag];
       setActiveTags(next);
       onTagsChange(next);
     }
@@ -28,8 +30,8 @@ export const SearchTargetFilter = memo(function SearchTargetFilter({
   }, [input, activeTags, onTagsChange]);
 
   const removeTag = useCallback(
-    (t: string) => {
-      const next = activeTags.filter((tg) => tg !== t);
+    (tag: string) => {
+      const next = activeTags.filter((tg) => tg !== tag);
       setActiveTags(next);
       onTagsChange(next);
     },
@@ -39,17 +41,17 @@ export const SearchTargetFilter = memo(function SearchTargetFilter({
   return (
     <div className="flex items-center gap-1.5">
       <Tag size={12} className={isDark ? "text-gray-500" : "text-gray-400"} />
-      {activeTags.map((t) => (
+      {activeTags.map((tag) => (
         <span
-          key={t}
+          key={tag}
           className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 cursor-default ${
             isDark
               ? "bg-blue-500/20 text-blue-400"
               : "bg-blue-100 text-blue-700"
           }`}
         >
-          {t}
-          <button onClick={() => removeTag(t)} className="hover:text-red-400">
+          {tag}
+          <button onClick={() => removeTag(tag)} className="hover:text-red-400">
             <X size={10} />
           </button>
         </span>
@@ -66,7 +68,7 @@ export const SearchTargetFilter = memo(function SearchTargetFilter({
           onBlur={() => {
             if (!input) setShowInput(false);
           }}
-          placeholder="标签过滤..."
+          placeholder={t("knowledge.tagFilterPlaceholder")}
           className={`text-[10px] px-2 py-0.5 rounded border outline-none w-20 ${
             isDark
               ? "bg-gray-800 border-gray-600 text-gray-200"
@@ -83,7 +85,7 @@ export const SearchTargetFilter = memo(function SearchTargetFilter({
               : "border-gray-300 text-gray-400 hover:border-gray-400"
           }`}
         >
-          +标签
+          {t("knowledge.addTagShort")}
         </button>
       )}
     </div>

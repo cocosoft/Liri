@@ -5,6 +5,7 @@
  * P4: 排序/来源收进「筛选」弹层，工具条行只留 文档数 + 标签过滤，缓解侧边栏拥挤。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SearchTargetFilter } from "./SearchTargetFilter";
 import type { KnowledgeSortBy as SortBy } from "../../types";
 
@@ -27,6 +28,7 @@ function FilterPopover({
   /** KB-C11：搜索激活时来源筛选不生效，禁用避免"高亮选中但实际被绕过" */
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -51,7 +53,7 @@ function FilterPopover({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        title="筛选（排序/来源）"
+        title={t("knowledge.filterTooltip")}
         className={`p-1.5 rounded border ${inputBg} hover:opacity-80 transition-opacity ${
           open || sortBy !== "updated" || selectedSource
             ? "border-blue-500 text-blue-500"
@@ -80,19 +82,23 @@ function FilterPopover({
           }`}
         >
           <label className="block">
-            <span className={`block text-[10px] mb-0.5 ${labelCls}`}>排序</span>
+            <span className={`block text-[10px] mb-0.5 ${labelCls}`}>
+              {t("knowledge.sortLabel")}
+            </span>
             <select
               value={sortBy}
               onChange={(e) => onSortByChange(e.target.value as SortBy)}
               className={`w-full text-xs px-1.5 py-1 rounded border ${inputBg} focus:outline-none cursor-pointer`}
             >
-              <option value="updated">最近更新</option>
-              <option value="title">按名称</option>
-              <option value="created">按创建</option>
+              <option value="updated">{t("knowledge.sortUpdated")}</option>
+              <option value="title">{t("knowledge.sortTitle")}</option>
+              <option value="created">{t("knowledge.sortCreated")}</option>
             </select>
           </label>
           <label className="block">
-            <span className={`block text-[10px] mb-0.5 ${labelCls}`}>来源</span>
+            <span className={`block text-[10px] mb-0.5 ${labelCls}`}>
+              {t("knowledge.source")}
+            </span>
             <select
               value={selectedSource || "all"}
               onChange={(e) => {
@@ -102,13 +108,15 @@ function FilterPopover({
               disabled={disabled}
               className={`w-full text-xs px-1.5 py-1 rounded border ${inputBg} focus:outline-none cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              <option value="all">全部来源</option>
-              <option value="manual">手动创建</option>
-              <option value="upload">文件上传</option>
-              <option value="chat-save">聊天保存</option>
-              <option value="quick-note">速记</option>
-              <option value="dream">梦境生成</option>
-              <option value="compiled">LLM编译</option>
+              <option value="all">{t("knowledge.sourceAll")}</option>
+              <option value="manual">{t("knowledge.sourceManual")}</option>
+              <option value="upload">{t("knowledge.sourceUpload")}</option>
+              <option value="chat-save">{t("knowledge.sourceChatSave")}</option>
+              <option value="quick-note">
+                {t("knowledge.sourceQuickNote")}
+              </option>
+              <option value="dream">{t("knowledge.sourceDream")}</option>
+              <option value="compiled">{t("knowledge.sourceCompiled")}</option>
             </select>
           </label>
         </div>
@@ -155,6 +163,7 @@ function DocFilterBar({
   searchTags,
   searchActive = false,
 }: DocFilterBarProps) {
+  const { t } = useTranslation();
   const textMuted = isDark ? "text-gray-500" : "text-gray-400";
   const inputBg = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
@@ -179,7 +188,7 @@ function DocFilterBar({
           value={searchQuery}
           onChange={(e) => onSearchQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="搜索知识文档..."
+          placeholder={t("knowledge.searchDocsPlaceholder")}
           className={`flex-1 px-3 py-1.5 rounded-md text-xs border ${inputBg} focus:outline-none focus:ring-1 focus:ring-blue-500`}
         />
         <button
@@ -187,16 +196,16 @@ function DocFilterBar({
           disabled={!searchQuery.trim()}
           className="px-2 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md"
         >
-          搜索
+          {t("common.search")}
         </button>
       </div>
 
       {/* P4: 工具条行 — 文档数 + 标签过滤 + 筛选弹层；flex-wrap 防止标签 chips 挤压溢出 */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className={`text-[10px] ${textMuted} shrink-0`}>
-          {docCount} 个文档
+          {t("knowledge.docCountLabel", { count: docCount })}
           {selectedCategory && (
-            <span className="ml-1 opacity-60">（已筛选）</span>
+            <span className="ml-1 opacity-60">{t("knowledge.filtered")}</span>
           )}
         </span>
         {onSearchTagsChange && (
@@ -231,7 +240,7 @@ function DocFilterBar({
                   : "bg-gray-100 text-gray-500 hover:text-gray-700"
             }`}
           >
-            全部分类
+            {t("knowledge.allCategories")}
           </button>
           {categories.map((cat) => (
             <button

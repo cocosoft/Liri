@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { sseService } from "../../services/sseService";
 import {
   stateMachineService,
@@ -13,6 +14,7 @@ import {
  * 供仪表盘（DashboardPage）监控区与运行状况页（BackgroundStatusPage）复用。
  */
 function StateMachinePanel() {
+  const { t } = useTranslation();
   const [stateMachines, setStateMachines] = useState<StateMachineInfo[]>([]);
 
   const load = async () => {
@@ -88,19 +90,19 @@ function StateMachinePanel() {
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
-          <span>⚙️</span> 应用状态（状态机）
+          <span>⚙️</span> {t("common.stateMachineTitle")}
         </h3>
         <button
           onClick={() => void load()}
           className="px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300"
         >
-          刷新
+          {t("common.refresh")}
         </button>
       </div>
 
       {stateMachines.length === 0 ? (
         <div className="text-sm text-gray-400 dark:text-gray-500 py-3 text-center border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-          暂无已注册状态机（/v1/state/all 返回空）
+          {t("common.stateMachineEmpty")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -139,7 +141,9 @@ function StateMachinePanel() {
                       className="text-xs text-gray-500 dark:text-gray-400"
                     >
                       {h.from} → {h.to}
-                      {h.reason ? `（${h.reason}）` : ""}
+                      {h.reason
+                        ? t("common.stateMachineReason", { reason: h.reason })
+                        : ""}
                     </div>
                   ))}
                 </div>

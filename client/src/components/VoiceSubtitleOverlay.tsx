@@ -242,7 +242,7 @@ export default function VoiceSubtitleOverlay({
               fontStyle: "italic",
             }}
           >
-            等待语音输入...
+            {t("voice.waitingVoiceInput")}
           </span>
         )}
       </div>

@@ -4,6 +4,7 @@
  * P0-4: 查看快照列表、对比版本差异、恢复历史版本
  */
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
 import { toastError } from "../../stores/toastStore";
 
@@ -21,6 +22,7 @@ function VersionHistory({
   currentContent,
   onRestored,
 }: VersionHistoryProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [snapshots, setSnapshots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,7 +45,7 @@ function VersionHistory({
     if (open && snapshots.length === 0) {
       loadSnapshots();
     }
-  }, [open]);
+  }, [open, t]);
 
   // KB-VH（2026-08-27）：切换文档时 title 变化但组件复用不重新挂载，
   // 若不重置状态会显示上一个文档的快照/选中版本
@@ -67,7 +69,7 @@ function VersionHistory({
     } catch {
       if (seq !== loadSeqRef.current) return;
       // KB-V1：加载失败明确提示（原静默 setSnapshots([]) 显示"历史版本 (0)"误导为无版本）
-      toastError("加载版本历史失败，请稍后重试");
+      toastError(t("knowledge.loadVersionsFailed"));
       setSnapshots([]);
     } finally {
       setLoading(false);
@@ -81,14 +83,13 @@ function VersionHistory({
       setSnapshotContent(content);
     } catch {
       // KB-V1：读取失败明确提示（原静默无任何反馈）
-      toastError("读取快照内容失败，请稍后重试");
+      toastError(t("knowledge.loadSnapshotFailed"));
       setSnapshotContent(null);
     }
   }
 
   async function handleRestore() {
-    if (!selectedSnapshot || !confirm("确定恢复到此版本？当前内容将被覆盖。"))
-      return;
+    if (!selectedSnapshot || !confirm(t("knowledge.restoreConfirm"))) return;
     setRestoring(true);
     try {
       const content = await knowledgeService.restoreSnapshot(
@@ -99,11 +100,13 @@ function VersionHistory({
         setOpen(false);
         onRestored?.(content);
       } else {
-        toastError(new Error("恢复失败"));
+        toastError(new Error(t("knowledge.restoreFailed")));
       }
     } catch (err) {
       // KB-VH（2026-08-27）：restoreSnapshot 失败时兜底提示，避免 unhandled rejection
-      toastError(err instanceof Error ? err : new Error("恢复失败"));
+      toastError(
+        err instanceof Error ? err : new Error(t("knowledge.restoreFailed")),
+      );
     } finally {
       setRestoring(false);
     }
@@ -123,9 +126,9 @@ function VersionHistory({
       <button
         onClick={() => setOpen(true)}
         className={`text-xs ${btnClass} px-2 py-1 rounded transition-colors`}
-        title="查看历史版本"
+        title={t("knowledge.viewVersionHistory")}
       >
-        历史版本
+        {t("knowledge.versionHistory")}
       </button>
     );
   }
@@ -139,7 +142,7 @@ function VersionHistory({
         className={`px-3 py-2 border-b ${borderColor} flex items-center justify-between`}
       >
         <span className={`text-sm font-medium ${textPrimary}`}>
-          历史版本 ({snapshots.length})
+          {t("knowledge.versionHistoryCount", { count: snapshots.length })}
         </span>
         <div className="flex items-center gap-2">
           <select
@@ -147,8 +150,8 @@ function VersionHistory({
             onChange={(e) => setViewMode(e.target.value as "side" | "inline")}
             className={`text-xs px-1.5 py-0.5 rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-300" : "bg-white border-gray-300"}`}
           >
-            <option value="side">并排对比</option>
-            <option value="inline">行内对比</option>
+            <option value="side">{t("knowledge.sideBySide")}</option>
+            <option value="inline">{t("knowledge.inlineDiff")}</option>
           </select>
           <button
             onClick={() => {
@@ -157,7 +160,7 @@ function VersionHistory({
             }}
             className={`text-xs ${btnClass} px-2 py-0.5 rounded`}
           >
-            关闭
+            {t("common.close")}
           </button>
         </div>
       </div>
@@ -169,12 +172,12 @@ function VersionHistory({
         >
           {loading && (
             <div className={`px-3 py-2 text-xs ${textSecondary}`}>
-              加载中...
+              {t("common.loading")}
             </div>
           )}
           {!loading && snapshots.length === 0 && (
             <div className={`px-3 py-2 text-xs ${textSecondary}`}>
-              暂无历史版本
+              {t("knowledge.noVersions")}
             </div>
           )}
           {snapshots.map((name) => (
@@ -201,15 +204,15 @@ function VersionHistory({
             >
               <div className="p-2">
                 <div className="text-xs font-semibold text-green-600 dark:text-green-400 mb-1">
-                  旧版本
+                  {t("knowledge.oldVersion")}
                 </div>
                 <pre className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap font-mono leading-relaxed">
-                  {snapshotContent || "选择左侧版本查看"}
+                  {snapshotContent || t("knowledge.selectVersionHint")}
                 </pre>
               </div>
               <div className="p-2">
                 <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
-                  当前版本
+                  {t("knowledge.currentVersion")}
                 </div>
                 <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
                   {currentContent}
@@ -219,13 +222,13 @@ function VersionHistory({
           ) : (
             <div className="p-2">
               <div className="text-xs font-semibold text-green-600 dark:text-green-400 mb-1">
-                旧版本
+                {t("knowledge.oldVersion")}
               </div>
               <pre className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap font-mono leading-relaxed mb-4">
-                {snapshotContent || "选择左侧版本查看"}
+                {snapshotContent || t("knowledge.selectVersionHint")}
               </pre>
               <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
-                当前版本
+                {t("knowledge.currentVersion")}
               </div>
               <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
                 {currentContent}
@@ -245,7 +248,9 @@ function VersionHistory({
             disabled={restoring}
             className="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded"
           >
-            {restoring ? "恢复中..." : "恢复到此版本"}
+            {restoring
+              ? t("knowledge.restoring")
+              : t("knowledge.restoreThisVersion")}
           </button>
         </div>
       )}

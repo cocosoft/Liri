@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { useShallow } from "zustand/shallow";
 import FilePreviewContent from "../ChatArea/FilePreviewContent";
@@ -16,6 +17,7 @@ import type { FilePreview } from "../../types";
 
 /** 空状态 */
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 text-center">
       <svg
@@ -31,9 +33,11 @@ function EmptyState() {
           d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
         />
       </svg>
-      <p className="text-sm text-gray-400 dark:text-gray-500">暂无文件</p>
+      <p className="text-sm text-gray-400 dark:text-gray-500">
+        {t("chatInspector.noFiles")}
+      </p>
       <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
-        AI 会在需要时生成文件
+        {t("chatInspector.aiGeneratesFiles")}
       </p>
     </div>
   );
@@ -85,6 +89,7 @@ function FileList({
 // ─── 主组件 ───────────────────────────────────────
 
 export default function FileListViewer() {
+  const { t } = useTranslation();
   const {
     previewFile,
     sessionFiles,
@@ -135,7 +140,7 @@ export default function FileListViewer() {
             <button
               onClick={handleClose}
               className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-              title="返回文件列表"
+              title={t("chatInspector.backToFileList")}
             >
               <svg
                 className="w-4 h-4"
@@ -186,13 +191,15 @@ export default function FileListViewer() {
               />
             </svg>
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              会话文件 ({sessionFiles.length})
+              {t("chatInspector.sessionFiles", {
+                count: sessionFiles.length,
+              })}
             </span>
           </div>
           <button
             onClick={clearSessionFiles}
             className="p-1 text-xs text-gray-400 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-            title="清除文件列表"
+            title={t("chatInspector.clearFileList")}
           >
             <svg
               className="w-3.5 h-3.5"

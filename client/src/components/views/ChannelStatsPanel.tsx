@@ -4,6 +4,8 @@
  * 展示 4 个指标卡片：总数 / 已连接 / 已启用 / 已禁用
  */
 
+import { useTranslation } from "react-i18next";
+
 interface ChannelStats {
   total: number;
   connected: number;
@@ -40,30 +42,31 @@ function StatCard({
 }
 
 function ChannelStatsPanel({ stats }: ChannelStatsPanelProps) {
+  const { t } = useTranslation();
   return (
     <div className="mb-4 p-5 rounded-xl bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950/40 dark:to-green-950/40 border border-blue-100 dark:border-blue-900/30">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
           icon="📡"
-          label="总数"
+          label={t("channels.statsTotal")}
           value={stats.total}
           colorClass="text-gray-700 dark:text-gray-300"
         />
         <StatCard
           icon="✅"
-          label="已连接"
+          label={t("channels.connected")}
           value={stats.connected}
           colorClass="text-green-600 dark:text-green-400"
         />
         <StatCard
           icon="🔌"
-          label="已启用"
+          label={t("channels.enabled")}
           value={stats.enabled}
           colorClass="text-blue-600 dark:text-blue-400"
         />
         <StatCard
           icon="⚠️"
-          label="已禁用"
+          label={t("channels.disabled")}
           value={stats.disabled}
           colorClass="text-amber-600 dark:text-amber-400"
         />

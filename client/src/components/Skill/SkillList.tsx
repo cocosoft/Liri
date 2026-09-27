@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type {
   Skill,
   SkillStatus,
@@ -14,9 +15,9 @@ interface SkillListProps {
 }
 
 const STATUS_LABELS: Record<SkillStatus, string> = {
-  enabled: "启用",
-  disabled: "禁用",
-  draft: "草稿",
+  enabled: "skill.statusEnabled",
+  disabled: "skill.statusDisabled",
+  draft: "skill.statusDraft",
 };
 
 const STATUS_COLORS: Record<SkillStatus, string> = {
@@ -30,52 +31,52 @@ const STATUS_COLORS: Record<SkillStatus, string> = {
 // 来源配置：颜色圆点 + 标签
 const SOURCE_CONFIG: Record<
   SkillSource,
-  { label: string; dotColor: string; tagColor: string }
+  { labelKey: string; dotColor: string; tagColor: string }
 > = {
   builtin: {
-    label: "内置",
+    labelKey: "skill.sourceBuiltin",
     dotColor: "bg-blue-500",
     tagColor:
       "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   },
   official: {
-    label: "官方",
+    labelKey: "skill.official",
     dotColor: "bg-indigo-500",
     tagColor:
       "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
   },
   third_party: {
-    label: "第三方",
+    labelKey: "skill.thirdParty",
     dotColor: "bg-orange-500",
     tagColor:
       "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
   },
   user: {
-    label: "用户",
+    labelKey: "skill.sourceUser",
     dotColor: "bg-green-500",
     tagColor:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   },
   project: {
-    label: "项目",
+    labelKey: "skill.sourceProject",
     dotColor: "bg-purple-500",
     tagColor:
       "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
   },
   plugin: {
-    label: "插件",
+    labelKey: "skill.sourcePlugin",
     dotColor: "bg-orange-500",
     tagColor:
       "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
   },
   mcp: {
-    label: "MCP",
+    labelKey: "skill.sourceMcp",
     dotColor: "bg-cyan-500",
     tagColor:
       "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400",
   },
   bundled: {
-    label: "捆绑",
+    labelKey: "skill.sourceBundled",
     dotColor: "bg-gray-500",
     tagColor: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   },
@@ -88,6 +89,7 @@ function SkillList({
   selectedId,
   hasActiveFilters,
 }: SkillListProps) {
+  const { t } = useTranslation();
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN", {
       month: "2-digit",
@@ -115,7 +117,9 @@ function SkillList({
             d="M13 10V3L4 14h7v7l9-11h-7z"
           />
         </svg>
-        <p>{hasActiveFilters ? "当前过滤条件下无匹配技能" : "暂无技能"}</p>
+        <p>
+          {hasActiveFilters ? t("skill.noMatchFiltered") : t("skill.noSkills")}
+        </p>
       </div>
     );
   }
@@ -141,7 +145,7 @@ function SkillList({
               {skill.source && (
                 <span
                   className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${SOURCE_CONFIG[skill.source].dotColor}`}
-                  title={SOURCE_CONFIG[skill.source].label}
+                  title={t(SOURCE_CONFIG[skill.source].labelKey)}
                 />
               )}
               <h3
@@ -149,7 +153,10 @@ function SkillList({
               >
                 {skill.name}
                 {skill.modified && (
-                  <span className="ml-1 text-xs text-yellow-500" title="已修改">
+                  <span
+                    className="ml-1 text-xs text-yellow-500"
+                    title={t("skill.modified")}
+                  >
                     ✎
                   </span>
                 )}
@@ -158,7 +165,7 @@ function SkillList({
             <span
               className={`px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 ${STATUS_COLORS[skill.status]}`}
             >
-              {STATUS_LABELS[skill.status]}
+              {t(STATUS_LABELS[skill.status])}
             </span>
           </div>
           <p
@@ -172,7 +179,7 @@ function SkillList({
                 <span
                   className={`px-2 py-0.5 rounded text-xs ${SOURCE_CONFIG[skill.source].tagColor}`}
                 >
-                  {SOURCE_CONFIG[skill.source].label}
+                  {t(SOURCE_CONFIG[skill.source].labelKey)}
                 </span>
               )}
               <span
@@ -196,7 +203,7 @@ function SkillList({
               <span
                 className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
               >
-                使用 {skill.usageCount} 次
+                {t("skill.usageCountInline", { count: skill.usageCount })}
               </span>
               <span
                 className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}

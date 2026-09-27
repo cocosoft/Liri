@@ -5,22 +5,26 @@
  * v1.3: 类型重构 — 对齐语义正确的前后端映射
  */
 
+import i18n from "@/i18n";
 import type { MemoryType } from "../../services/memoryService";
 
 export const TYPE_LABELS: Record<MemoryType, string> = {
-  user_identity: "用户身份",
-  user_preference: "用户偏好",
-  project_context: "项目上下文",
-  knowledge: "知识库",
-  system_instruction: "系统指令",
+  user_identity: i18n.t("memory.typeUserIdentity"),
+  user_preference: i18n.t("memory.typeUserPreference"),
+  project_context: i18n.t("memory.typeProjectContext"),
+  knowledge: i18n.t("memory.typeKnowledge"),
+  system_instruction: i18n.t("memory.typeSystemInstruction"),
 };
 
 export const TYPE_OPTIONS: { value: MemoryType; label: string }[] = [
-  { value: "user_identity", label: "用户身份" },
-  { value: "user_preference", label: "用户偏好" },
-  { value: "project_context", label: "项目上下文" },
-  { value: "knowledge", label: "知识库" },
-  { value: "system_instruction", label: "系统指令" },
+  { value: "user_identity", label: i18n.t("memory.typeUserIdentity") },
+  { value: "user_preference", label: i18n.t("memory.typeUserPreference") },
+  { value: "project_context", label: i18n.t("memory.typeProjectContext") },
+  { value: "knowledge", label: i18n.t("memory.typeKnowledge") },
+  {
+    value: "system_instruction",
+    label: i18n.t("memory.typeSystemInstruction"),
+  },
 ];
 
 export const TYPE_COLORS: Record<MemoryType, string> = {

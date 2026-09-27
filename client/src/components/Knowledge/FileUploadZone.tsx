@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
@@ -44,6 +45,7 @@ function FileUploadZone({
   baseName,
   onUploadComplete,
 }: FileUploadZoneProps) {
+  const { t } = useTranslation();
   const [uploadState, setUploadState] = useState<UploadState>({
     status: "idle",
     message: "",
@@ -78,7 +80,7 @@ function FileUploadZone({
     if (!baseName) {
       setUploadState({
         status: "error",
-        message: "请先选择一个知识库",
+        message: t("knowledge.selectBaseFirst"),
         progress: 0,
       });
       return;
@@ -87,7 +89,11 @@ function FileUploadZone({
     // 捕获 non-null baseName 供内部函数使用
     const targetBase = baseName;
 
-    setUploadState({ status: "uploading", message: "上传中...", progress: 0 });
+    setUploadState({
+      status: "uploading",
+      message: t("knowledge.uploading"),
+      progress: 0,
+    });
 
     // 过滤出可接受的文件
     const validFiles = fileArray.filter((file) => {
@@ -137,7 +143,10 @@ function FileUploadZone({
           if (mountedRef.current) {
             setUploadState({
               status: "uploading",
-              message: `上传中... (${done}/${files.length})`,
+              message: t("knowledge.uploadProgress", {
+                done,
+                total: files.length,
+              }),
               progress: Math.round((done / files.length) * 100),
             });
           }
@@ -159,19 +168,23 @@ function FileUploadZone({
       const baseSwitched = baseName !== targetBase;
       setUploadState({
         status: "success",
-        message:
-          `上传完成: ${successCount} 个文件成功` +
-          (errorCount > 0 ? `, ${errorCount} 个失败` : "") +
-          (baseSwitched
-            ? `（已上传至「${targetBase}」，当前已切换知识库）`
-            : ""),
+        message: t("knowledge.uploadComplete", {
+          success: successCount,
+          failed:
+            errorCount > 0
+              ? t("knowledge.uploadFailedPart", { error: errorCount })
+              : "",
+          switched: baseSwitched
+            ? t("knowledge.uploadSwitchedPart", { base: targetBase })
+            : "",
+        }),
         progress: 100,
       });
       if (!baseSwitched) onUploadComplete();
     } else {
       setUploadState({
         status: "error",
-        message: lastErrorMessage || "上传失败，请检查文件是否正确或稍后重试",
+        message: lastErrorMessage || t("knowledge.uploadFailedHint"),
         progress: 0,
       });
     }
@@ -238,7 +251,7 @@ function FileUploadZone({
               d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
             />
           </svg>
-          <span className={textMuted}>上传文档</span>
+          <span className={textMuted}>{t("knowledge.uploadDoc")}</span>
         </button>
       ) : (
         <>
@@ -309,10 +322,10 @@ function FileUploadZone({
                     />
                   </svg>
                   <p className={`text-xs ${textMuted}`}>
-                    拖拽文件到此处，或点击选择文件
+                    {t("knowledge.dragOrClick")}
                   </p>
                   <p className={`text-[10px] ${textMuted} mt-0.5`}>
-                    支持 Markdown、文本、Office、PDF 等常见文件格式
+                    {t("knowledge.supportedFormats")}
                   </p>
                 </div>
               ) : (
@@ -330,7 +343,9 @@ function FileUploadZone({
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     />
                   </svg>
-                  <span className={`text-xs ${textMuted}`}>拖拽文件上传</span>
+                  <span className={`text-xs ${textMuted}`}>
+                    {t("knowledge.dragToUpload")}
+                  </span>
                 </div>
               ))}
 
@@ -350,7 +365,7 @@ function FileUploadZone({
             onClick={() => setCollapsed(true)}
             className="mt-1 w-full text-center text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
-            收起
+            {t("knowledge.collapse")}
           </button>
         </>
       )}

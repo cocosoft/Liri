@@ -8,6 +8,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useMediaStore } from "../../../stores/mediaStore";
 import { imageService } from "../../../services/imageService";
 import { useToastStore } from "../../../stores/toastStore";
@@ -25,36 +26,39 @@ const ConfirmDialog: React.FC<{
   isDark: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-}> = ({ message, isDark, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-    <div
-      className={`rounded-lg p-4 shadow-xl ${
-        isDark ? "bg-gray-700 text-gray-200" : "bg-white text-gray-700"
-      }`}
-      style={{ minWidth: 280 }}
-    >
-      <p className="mb-3 text-sm">{message}</p>
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={onCancel}
-          className={`rounded px-3 py-1 text-xs ${
-            isDark
-              ? "bg-gray-600 hover:bg-gray-500"
-              : "bg-gray-100 hover:bg-gray-200"
-          }`}
-        >
-          取消
-        </button>
-        <button
-          onClick={onConfirm}
-          className="rounded bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
-        >
-          删除
-        </button>
+}> = ({ message, isDark, onConfirm, onCancel }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div
+        className={`rounded-lg p-4 shadow-xl ${
+          isDark ? "bg-gray-700 text-gray-200" : "bg-white text-gray-700"
+        }`}
+        style={{ minWidth: 280 }}
+      >
+        <p className="mb-3 text-sm">{message}</p>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className={`rounded px-3 py-1 text-xs ${
+              isDark
+                ? "bg-gray-600 hover:bg-gray-500"
+                : "bg-gray-100 hover:bg-gray-200"
+            }`}
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="rounded bg-red-500 px-3 py-1 text-xs text-white hover:bg-red-600"
+          >
+            {t("common.delete")}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const ActionMenu: React.FC<ActionMenuProps> = ({
   itemId,
@@ -62,6 +66,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
   itemType,
   isDark,
 }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -114,9 +119,9 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     try {
       await imageService.deleteImage(itemUrl);
       removeGalleryItem(itemId);
-      addToast("success", "图片已删除");
+      addToast("success", t("media.imageDeleted"));
     } catch {
-      addToast("error", "删除失败，请重试");
+      addToast("error", t("media.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -170,25 +175,25 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
               onClick={() => handleAction("generate-video")}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
             >
-              🎬 生成视频
+              🎬 {t("media.generateVideo")}
             </button>
             <button
               onClick={() => handleAction("edit-image")}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
             >
-              ✏️ 编辑图片
+              ✏️ {t("media.editImage")}
             </button>
             <button
               onClick={() => handleAction("download")}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
             >
-              ⬇️ 下载
+              ⬇️ {t("media.download")}
             </button>
             <button
               onClick={() => handleAction("delete")}
               className="block w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
-              🗑️ 删除
+              🗑️ {t("common.delete")}
             </button>
           </div>,
           document.body,
@@ -198,7 +203,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
       {confirming &&
         createPortal(
           <ConfirmDialog
-            message="确定要删除此图片吗？此操作不可撤销。"
+            message={t("media.confirmDeleteImage")}
             isDark={isDark}
             onConfirm={handleDelete}
             onCancel={() => setConfirming(false)}

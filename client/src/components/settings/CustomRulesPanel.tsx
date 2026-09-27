@@ -49,11 +49,11 @@ interface CustomRulesPanelProps {
 type RuleTab =
   "command-blacklist" | "command-whitelist" | "dir-blacklist" | "dir-whitelist";
 
-const RULE_TABS: { id: RuleTab; label: string }[] = [
-  { id: "command-blacklist", label: "命令黑名单" },
-  { id: "command-whitelist", label: "命令白名单" },
-  { id: "dir-blacklist", label: "目录黑名单" },
-  { id: "dir-whitelist", label: "目录白名单" },
+const RULE_TABS: { id: RuleTab; labelKey: string }[] = [
+  { id: "command-blacklist", labelKey: "settings.rulesTabCommandBlacklist" },
+  { id: "command-whitelist", labelKey: "settings.rulesTabCommandWhitelist" },
+  { id: "dir-blacklist", labelKey: "settings.rulesTabDirBlacklist" },
+  { id: "dir-whitelist", labelKey: "settings.rulesTabDirWhitelist" },
 ];
 
 function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
@@ -87,7 +87,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         module: "components:settings:CustomRules",
         action: "loadConfig",
       });
-      setError("加载自定义规则失败");
+      setError(t("settings.rulesLoadFailed"));
     }
   };
 
@@ -107,7 +107,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         module: "components:settings:CustomRules",
         action: "saveConfig",
       });
-      setError("保存失败");
+      setError(t("settings.rulesSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -207,9 +207,9 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   /** 占位提示 */
   const getInputPlaceholder = (): string => {
     if (activeTab.startsWith("command")) {
-      return "输入命令模式（如 rm -rf, chmod）";
+      return t("settings.rulesCmdPlaceholder");
     }
-    return "输入目录路径（如 /etc, C:\\Windows）";
+    return t("settings.rulesDirPlaceholder");
   };
 
   // 首次渲染时加载配置
@@ -221,14 +221,14 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     <ConfigSection isDark={isDark}>
       {/* 安全定位横幅（M1） */}
       <SafetyPositionBanner
-        layer={{ primary: "系统边界" }}
-        title="自定义规则"
-        question="哪些危险命令/目录必拦"
-        relation="强制兜底，黑名单命中即拒，allow 无法覆盖"
+        layer={{ primary: "system" }}
+        title={t("settings.customRules")}
+        question={t("settings.rulesBannerQuestion")}
+        relation={t("settings.rulesBannerRelation")}
         isDark={isDark}
       />
       {/* 命令模式选择 */}
-      <ConfigItem label="命令模式" isDark={isDark}>
+      <ConfigItem label={t("settings.rulesCommandMode")} isDark={isDark}>
         <SelectConfig
           isDark={isDark}
           value={config.commandRules?.mode || "blacklist"}
@@ -242,8 +242,8 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
             })
           }
           options={[
-            { value: "blacklist", label: "黑名单模式（默认放行）" },
-            { value: "whitelist", label: "白名单模式（仅允许）" },
+            { value: "blacklist", label: t("settings.rulesModeBlacklist") },
+            { value: "whitelist", label: t("settings.rulesModeWhitelist") },
           ]}
         />
       </ConfigItem>
@@ -262,7 +262,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
                   : "bg-gray-200 text-gray-600 hover:bg-gray-300"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -282,7 +282,7 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
           disabled={!newItem.trim()}
           className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          添加
+          {t("settings.rulesAdd")}
         </button>
       </div>
 
@@ -292,31 +292,37 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
           className={`py-3 px-3 rounded-lg text-xs space-y-1.5 ${isDark ? "bg-gray-800/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
         >
           <p className="font-medium">
-            暂无{activeTab.includes("command") ? "命令" : "目录"}规则
+            {t("settings.rulesEmpty", {
+              type: t(
+                activeTab.includes("command")
+                  ? "settings.rulesEmptyCommand"
+                  : "settings.rulesEmptyDir",
+              ),
+            })}
           </p>
           {activeTab === "command-blacklist" && (
             <p>
-              添加命令模式（如{" "}
+              {t("settings.rulesHintCmdBlacklistPrefix")}
               <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
                 rm -rf
               </code>
-              ）后，匹配的命令将被拦截。
+              {t("settings.rulesHintCmdBlacklistSuffix")}
             </p>
           )}
           {activeTab === "command-whitelist" && (
-            <p>添加命令模式后，仅允许匹配的命令执行，其余全部拦截。</p>
+            <p>{t("settings.rulesHintCmdWhitelist")}</p>
           )}
           {activeTab === "dir-blacklist" && (
             <p>
-              添加目录路径（如{" "}
+              {t("settings.rulesHintDirBlacklistPrefix")}
               <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
                 /etc
               </code>
-              ）后，禁止访问该目录。
+              {t("settings.rulesHintDirBlacklistSuffix")}
             </p>
           )}
           {activeTab === "dir-whitelist" && (
-            <p>添加目录路径后，仅允许访问这些目录，其余全部拦截。</p>
+            <p>{t("settings.rulesHintDirWhitelist")}</p>
           )}
         </div>
       ) : (
@@ -348,9 +354,11 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
           disabled={loading}
           className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
         >
-          {loading ? "保存中..." : "保存配置"}
+          {loading ? t("settings.saving") : t("settings.wsSaveConfig")}
         </button>
-        {saved && <span className="text-xs text-green-500">已保存</span>}
+        {saved && (
+          <span className="text-xs text-green-500">{t("settings.saved")}</span>
+        )}
         {error && <span className="text-xs text-red-500">{error}</span>}
       </div>
     </ConfigSection>

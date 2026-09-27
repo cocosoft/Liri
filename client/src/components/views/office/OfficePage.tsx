@@ -230,109 +230,120 @@ export default function OfficePage() {
   // --- 发送消息回调（接入真实 AI 管线）---
   // 遗留项 3：复用办公专用会话，避免每次生成文档创建新会话无限堆积
   const officeSessionIdRef = useRef<string | null>(null);
-  const handleSendMessage = useCallback(async (message: string) => {
-    const officeStore = useOfficeStore.getState();
-    const chatStore = useChatStore.getState();
-    const sessionStore = useSessionStore.getState();
+  const handleSendMessage = useCallback(
+    async (message: string) => {
+      const officeStore = useOfficeStore.getState();
+      const chatStore = useChatStore.getState();
+      const sessionStore = useSessionStore.getState();
 
-    logger.debug("handleSendMessage 触发", {
-      message: message.slice(0, 50),
-    });
+      logger.debug("handleSendMessage 触发", {
+        message: message.slice(0, 50),
+      });
 
-    // 首次创建后复用同一会话（若已被删除则兜底重建）
-    let sessionId = officeSessionIdRef.current;
-    if (!sessionId) {
+      // 首次创建后复用同一会话（若已被删除则兜底重建）
+      let sessionId = officeSessionIdRef.current;
+      if (!sessionId) {
+        try {
+          const newSession = await sessionStore.createSession(
+            t("office.sessionTitle", "办公文档"),
+          );
+          sessionId = newSession?.id ?? "office-default";
+          officeSessionIdRef.current = sessionId;
+          logger.debug("创建办公专用会话", { sessionId });
+        } catch (err) {
+          logger.error("创建会话失败", err);
+          sessionId = "office-default";
+        }
+      }
+
+      // 记录文件列表快照（用于生成后对比，找到新文件）
+      const beforeFiles = new Set(officeStore.fileList.map((f) => f.name));
+      logger.debug("发送前文件列表", {
+        count: beforeFiles.size,
+        files: [...beforeFiles],
+      });
+
+      officeStore.setGenerationStatus({
+        active: true,
+        fileName: t("office.doc", "文档"),
+        progress: t("office.generatingProgress", "AI 正在处理您的请求..."),
+      });
+
       try {
-        const newSession = await sessionStore.createSession("办公文档");
-        sessionId = newSession?.id ?? "office-default";
-        officeSessionIdRef.current = sessionId;
-        logger.debug("创建办公专用会话", { sessionId });
-      } catch (err) {
-        logger.error("创建会话失败", err);
-        sessionId = "office-default";
-      }
-    }
+        // 通过主 AI 管线发送消息
+        logger.debug("调用 chatStore.sendMessage", { sessionId });
+        await chatStore.sendMessage(message, sessionId);
+        logger.debug("sendMessage 完成");
 
-    // 记录文件列表快照（用于生成后对比，找到新文件）
-    const beforeFiles = new Set(officeStore.fileList.map((f) => f.name));
-    logger.debug("发送前文件列表", {
-      count: beforeFiles.size,
-      files: [...beforeFiles],
-    });
+        // AI 响应完成后，同步助手消息到办公面板
+        const latestMessages = useChatStore.getState().messages;
+        const lastAssistant = [...latestMessages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.session_id === sessionId);
 
-    officeStore.setGenerationStatus({
-      active: true,
-      fileName: "文档",
-      progress: "AI 正在处理您的请求...",
-    });
-
-    try {
-      // 通过主 AI 管线发送消息
-      logger.debug("调用 chatStore.sendMessage", { sessionId });
-      await chatStore.sendMessage(message, sessionId);
-      logger.debug("sendMessage 完成");
-
-      // AI 响应完成后，同步助手消息到办公面板
-      const latestMessages = useChatStore.getState().messages;
-      const lastAssistant = [...latestMessages]
-        .reverse()
-        .find((m) => m.role === "assistant" && m.session_id === sessionId);
-
-      logger.debug("AI响应", {
-        hasAssistant: !!lastAssistant,
-        content: lastAssistant?.content?.slice(0, 100),
-        totalMessages: latestMessages.length,
-      });
-
-      if (lastAssistant) {
-        const assistantMsg = {
-          id: lastAssistant.id,
-          role: "assistant" as const,
-          content: lastAssistant.content || "(文档已生成)",
-          timestamp: lastAssistant.timestamp,
-        };
-        officeStore.addChatMessage(assistantMsg);
-      }
-
-      // 刷新文件列表，检测新生成的文件
-      logger.debug("刷新文件列表");
-      await officeStore.refreshFileList();
-
-      // 自动选中新生成的文件（对比前后文件列表差异）
-      const afterFiles = useOfficeStore.getState().fileList;
-      const newFile = afterFiles.find((f) => !beforeFiles.has(f.name));
-
-      logger.debug("文件对比结果", {
-        beforeCount: beforeFiles.size,
-        afterCount: afterFiles.length,
-        newFileName: newFile?.name,
-        afterFileNames: afterFiles.map((f) => f.name),
-      });
-
-      if (newFile) {
-        officeStore.selectFile(newFile);
-        officeStore.setPreviewState("loading");
-        officeStore.setGenerationStatus({
-          active: false,
-          fileName: newFile.name,
+        logger.debug("AI响应", {
+          hasAssistant: !!lastAssistant,
+          content: lastAssistant?.content?.slice(0, 100),
+          totalMessages: latestMessages.length,
         });
-      } else {
-        // 未检测到新文件，可能是 AI 以文本方式回复
+
+        if (lastAssistant) {
+          const assistantMsg = {
+            id: lastAssistant.id,
+            role: "assistant" as const,
+            content:
+              lastAssistant.content ||
+              t("office.docGeneratedPlaceholder", "(文档已生成)"),
+            timestamp: lastAssistant.timestamp,
+          };
+          officeStore.addChatMessage(assistantMsg);
+        }
+
+        // 刷新文件列表，检测新生成的文件
+        logger.debug("刷新文件列表");
+        await officeStore.refreshFileList();
+
+        // 自动选中新生成的文件（对比前后文件列表差异）
+        const afterFiles = useOfficeStore.getState().fileList;
+        const newFile = afterFiles.find((f) => !beforeFiles.has(f.name));
+
+        logger.debug("文件对比结果", {
+          beforeCount: beforeFiles.size,
+          afterCount: afterFiles.length,
+          newFileName: newFile?.name,
+          afterFileNames: afterFiles.map((f) => f.name),
+        });
+
+        if (newFile) {
+          officeStore.selectFile(newFile);
+          officeStore.setPreviewState("loading");
+          officeStore.setGenerationStatus({
+            active: false,
+            fileName: newFile.name,
+          });
+        } else {
+          // 未检测到新文件，可能是 AI 以文本方式回复
+          officeStore.setGenerationStatus({ active: false });
+        }
+      } catch (err) {
+        // 错误处理：展示用户友好的提示
+        logger.error("sendMessage 异常", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        officeStore.addChatMessage({
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: t(
+            "office.docGenerateError",
+            "抱歉，文档生成遇到问题：{{error}}",
+            { error: errMsg },
+          ),
+          timestamp: Date.now(),
+        });
         officeStore.setGenerationStatus({ active: false });
       }
-    } catch (err) {
-      // 错误处理：展示用户友好的提示
-      logger.error("sendMessage 异常", err);
-      const errMsg = err instanceof Error ? err.message : String(err);
-      officeStore.addChatMessage({
-        id: `err-${Date.now()}`,
-        role: "assistant",
-        content: `抱歉，文档生成遇到问题：${errMsg}`,
-        timestamp: Date.now(),
-      });
-      officeStore.setGenerationStatus({ active: false });
-    }
-  }, []);
+    },
+    [t],
+  );
 
   // --- 右栏可拖拽宽度 ---
   const RIGHT_PANEL_MIN = 360; // 最小宽度 px
@@ -412,7 +423,7 @@ export default function OfficePage() {
                 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-20
                 shadow-sm"
               style={{ marginLeft: -3 }}
-              title="收起AI面板"
+              title={t("office.collapseAiPanel", "收起AI面板")}
             >
               <svg
                 className="w-3 h-3 text-gray-500 dark:text-gray-400"
@@ -505,7 +516,7 @@ export default function OfficePage() {
             dark:border-gray-600 rounded-l-md flex items-center justify-center
             hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-20
             shadow-sm"
-          title="展开AI面板"
+          title={t("office.expandAiPanel", "展开AI面板")}
         >
           <svg
             className="w-3 h-3 text-gray-500 dark:text-gray-400"

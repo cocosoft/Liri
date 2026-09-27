@@ -1,4 +1,5 @@
 import { useState, useCallback, memo } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Upload } from "lucide-react";
 import type { FAQImportReport } from "../../../types/knowledge";
 
@@ -13,6 +14,7 @@ export const FAQImportModal = memo(function FAQImportModal({
   onImport,
   onClose,
 }: FAQImportModalProps) {
+  const { t } = useTranslation();
   const [format, setFormat] = useState<"csv" | "json">("csv");
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<FAQImportReport | null>(null);
@@ -21,7 +23,7 @@ export const FAQImportModal = memo(function FAQImportModal({
 
   const handleImport = useCallback(async () => {
     if (!rawText.trim()) {
-      setError("请粘贴或选择文件内容");
+      setError(t("knowledge.faq.errorPasteOrFile"));
       return;
     }
     setImporting(true);
@@ -30,11 +32,15 @@ export const FAQImportModal = memo(function FAQImportModal({
       const result = await onImport(format, rawText.trim());
       setReport(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "导入失败");
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("knowledge.faq.errorImportFailed"),
+      );
     } finally {
       setImporting(false);
     }
-  }, [format, rawText, onImport]);
+  }, [format, rawText, onImport, t]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,10 +51,10 @@ export const FAQImportModal = memo(function FAQImportModal({
         setRawText(text);
         setReport(null);
       } catch {
-        setError("文件读取失败");
+        setError(t("knowledge.faq.errorFileRead"));
       }
     },
-    [],
+    [t],
   );
 
   return (
@@ -71,7 +77,7 @@ export const FAQImportModal = memo(function FAQImportModal({
           <h2
             className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}
           >
-            批量导入 FAQ
+            {t("knowledge.faq.importTitle")}
           </h2>
           <button
             onClick={onClose}
@@ -88,7 +94,7 @@ export const FAQImportModal = memo(function FAQImportModal({
             <span
               className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              格式
+              {t("knowledge.faq.formatLabel")}
             </span>
             <div className="flex gap-2 mt-1">
               {(["csv", "json"] as const).map((f) => (
@@ -120,7 +126,9 @@ export const FAQImportModal = memo(function FAQImportModal({
           >
             {format === "csv" ? (
               <>
-                <p className="font-medium mb-1">CSV 格式：</p>
+                <p className="font-medium mb-1">
+                  {t("knowledge.faq.csvFormatLabel")}
+                </p>
                 <code>question,answer,category,tags</code>
                 <br />
                 <code>
@@ -129,7 +137,9 @@ export const FAQImportModal = memo(function FAQImportModal({
               </>
             ) : (
               <>
-                <p className="font-medium mb-1">JSON 格式：</p>
+                <p className="font-medium mb-1">
+                  {t("knowledge.faq.jsonFormatLabel")}
+                </p>
                 <code>
                   {
                     '[{ "question": "...", "answer": "...", "category": "...", "tags": ["..."] }]'
@@ -149,7 +159,7 @@ export const FAQImportModal = memo(function FAQImportModal({
               }`}
             >
               <Upload size={14} />
-              点击选择文件
+              {t("knowledge.faq.clickToSelectFile")}
               <input
                 type="file"
                 accept={format === "csv" ? ".csv" : ".json"}
@@ -163,7 +173,9 @@ export const FAQImportModal = memo(function FAQImportModal({
                 setRawText(e.target.value);
                 setReport(null);
               }}
-              placeholder={`或直接粘贴 ${format.toUpperCase()} 内容...`}
+              placeholder={t("knowledge.faq.pastePlaceholder", {
+                format: format.toUpperCase(),
+              })}
               rows={8}
               className={`w-full text-xs px-3 py-2 rounded-lg border outline-none resize-none font-mono ${
                 isDark
@@ -189,13 +201,19 @@ export const FAQImportModal = memo(function FAQImportModal({
                   : "bg-green-500/10 text-green-600 dark:text-green-400"
               }`}
             >
-              导入 {report.imported}，跳过 {report.skipped}，失败{" "}
-              {report.failed}
+              {t("knowledge.faq.importReport", {
+                imported: report.imported,
+                skipped: report.skipped,
+                failed: report.failed,
+              })}
               {report.errors.length > 0 && (
                 <div className="mt-1 space-y-0.5">
                   {report.errors.map((e, i) => (
                     <div key={i}>
-                      第 {e.row} 行: {e.error}
+                      {t("knowledge.faq.rowError", {
+                        row: e.row,
+                        error: e.error,
+                      })}
                     </div>
                   ))}
                 </div>
@@ -216,7 +234,7 @@ export const FAQImportModal = memo(function FAQImportModal({
                 : "text-gray-500 hover:bg-gray-100"
             }`}
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleImport}
@@ -227,7 +245,7 @@ export const FAQImportModal = memo(function FAQImportModal({
                 : ""
             } bg-blue-600 text-white hover:bg-blue-700`}
           >
-            {importing ? "导入中..." : "导入"}
+            {importing ? t("knowledge.faq.importing") : t("common.import")}
           </button>
         </div>
       </div>

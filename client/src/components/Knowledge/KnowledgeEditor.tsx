@@ -5,6 +5,7 @@
  * 编辑器 unmount 前将草稿存到 store，重新挂载时恢复。
  */
 import { useRef, useCallback, useEffect, useReducer } from "react";
+import { useTranslation } from "react-i18next";
 import EditorToolbar from "./EditorToolbar";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { useKnowledgeStore } from "../../stores/knowledgeStore";
@@ -59,18 +60,21 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
   }
 }
 
-const templates: { name: string; content: string }[] = [
+const templates: { name: string; labelKey?: string; content: string }[] = [
   {
     name: "会议纪要",
+    labelKey: "knowledge.tplMeetingNotes",
     content: `# 会议纪要\n\n**日期**: ${new Date().toISOString().slice(0, 10)}\n**参与者**: \n**主题**: \n\n## 议程\n\n1. \n\n## 决议\n\n- \n\n## 待办\n\n- [ ] \n`,
   },
   {
     name: "技术笔记",
+    labelKey: "knowledge.tplTechNotes",
     content: "# 技术笔记\n\n## 背景\n\n\n## 方案\n\n```\n\n```\n\n## 结论\n\n",
   },
   { name: "FAQ", content: "# FAQ\n\n## Q: \n\nA: \n\n## Q: \n\nA: \n" },
   {
     name: "周报",
+    labelKey: "knowledge.tplWeeklyReport",
     content: `# 周报 (${new Date().toISOString().slice(0, 10)})\n\n## 本周完成\n\n- \n\n## 遇到的问题\n\n- \n\n## 下周计划\n\n- \n`,
   },
 ];
@@ -82,6 +86,7 @@ function KnowledgeEditor({
   onCancel,
   onFileCreated,
 }: KnowledgeEditorProps) {
+  const { t } = useTranslation();
   // W5: 从 store 读取草稿
   const editorDraft = useKnowledgeStore((s) => s.editorDraft);
   const setEditorDraft = useKnowledgeStore((s) => s.setEditorDraft);
@@ -160,17 +165,20 @@ function KnowledgeEditor({
     } catch (err) {
       // Phase 2-10：保存失败明确提示（原静默）
       toastError(
-        "保存失败: " + (err instanceof Error ? err.message : "未知错误"),
+        t("knowledge.saveFailed", {
+          error:
+            err instanceof Error ? err.message : t("knowledge.unknownError"),
+        }),
       );
     } finally {
       dispatch({ type: "SET_SAVING", saving: false });
     }
-  }, [title, content, saving, onSave, setEditorDraft]);
+  }, [title, content, saving, onSave, setEditorDraft, t]);
 
   const viewButtons: { mode: ViewMode; icon: string; label: string }[] = [
-    { mode: "edit", icon: "✏️", label: "编辑" },
-    { mode: "preview", icon: "👁", label: "预览" },
-    { mode: "split", icon: "↔", label: "分屏" },
+    { mode: "edit", icon: "✏️", label: t("common.edit") },
+    { mode: "preview", icon: "👁", label: t("common.preview") },
+    { mode: "split", icon: "↔", label: t("knowledge.splitView") },
   ];
 
   const editorSection = (
@@ -186,7 +194,7 @@ function KnowledgeEditor({
         onChange={(e) =>
           dispatch({ type: "SET_CONTENT", content: e.target.value })
         }
-        placeholder="文档内容（支持 Markdown 格式）"
+        placeholder={t("knowledge.contentPlaceholder")}
         className={`w-full flex-1 px-4 py-3 text-sm font-mono ${inputBg} focus:outline-none resize-none border-0`}
         data-editor-textarea
         spellCheck={false}
@@ -204,7 +212,9 @@ function KnowledgeEditor({
           <MarkdownRenderer content={content} />
         </div>
       ) : (
-        <p className={`text-sm ${textSecondary} italic`}>（无内容）</p>
+        <p className={`text-sm ${textSecondary} italic`}>
+          {t("knowledge.noContent")}
+        </p>
       )}
     </div>
   );
@@ -221,7 +231,7 @@ function KnowledgeEditor({
           onChange={(e) =>
             dispatch({ type: "SET_TITLE", title: e.target.value })
           }
-          placeholder="文档标题"
+          placeholder={t("knowledge.titlePlaceholder")}
           className={`flex-1 px-2 py-1 text-base font-semibold ${textPrimary} bg-transparent border-0 focus:outline-none focus:ring-0 placeholder-gray-400`}
         />
         <div className="flex items-center gap-2 ml-4">
@@ -250,7 +260,9 @@ function KnowledgeEditor({
           <select
             value=""
             onChange={async (e) => {
-              const tpl = templates.find((t) => t.name === e.target.value);
+              const tpl = templates.find(
+                (item) => item.name === e.target.value,
+              );
               if (!tpl) return;
               (e.target as HTMLSelectElement).value = "";
               try {
@@ -282,17 +294,21 @@ function KnowledgeEditor({
               } catch (err) {
                 // Phase 2-10：模板新建失败明确提示（原静默）
                 toastError(
-                  "模板新建失败: " +
-                    (err instanceof Error ? err.message : "未知错误"),
+                  t("knowledge.templateCreateFailed", {
+                    error:
+                      err instanceof Error
+                        ? err.message
+                        : t("knowledge.unknownError"),
+                  }),
                 );
               }
             }}
             className={`text-xs px-2 py-1 rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-300" : "bg-white border-gray-300 text-gray-600"} focus:outline-none`}
           >
-            <option value="">模板</option>
-            {templates.map((t) => (
-              <option key={t.name} value={t.name}>
-                {t.name}
+            <option value="">{t("knowledge.templatesLabel")}</option>
+            {templates.map((tpl) => (
+              <option key={tpl.name} value={tpl.name}>
+                {tpl.labelKey ? t(tpl.labelKey) : tpl.name}
               </option>
             ))}
           </select>
@@ -301,18 +317,18 @@ function KnowledgeEditor({
             disabled={saving || !title.trim() || !content.trim()}
             className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md"
           >
-            {saving ? "保存中..." : "保存"}
+            {saving ? t("knowledge.saving") : t("common.save")}
           </button>
           {autoSaved && (
             <span className="text-[10px] text-green-500 dark:text-green-400 ml-1">
-              已保存
+              {t("knowledge.savedHint")}
             </span>
           )}
           <button
             onClick={onCancel}
             className={`px-3 py-1.5 text-sm border ${borderColor} rounded-md ${textSecondary} hover:bg-gray-100 dark:hover:bg-gray-700`}
           >
-            取消
+            {t("common.cancel")}
           </button>
         </div>
       </div>

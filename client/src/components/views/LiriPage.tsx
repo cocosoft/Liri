@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import BuddyAvatar from "../Buddy/BuddyAvatar";
 import DreamLogTab from "../Buddy/DreamLogTab";
@@ -19,21 +20,22 @@ import { useNavigationStore } from "../../stores/navigationStore";
 
 const INTERACTIONS = ["pet", "feed", "play", "praise", "scold"];
 const INTERACTION_LABELS: Record<string, string> = {
-  pet: "抚摸",
-  feed: "喂食",
-  play: "玩耍",
-  praise: "表扬",
-  scold: "批评",
+  pet: "buddy.interactPet",
+  feed: "buddy.interactFeed",
+  play: "buddy.interactPlay",
+  praise: "buddy.interactPraise",
+  scold: "buddy.interactScold",
 };
 
 const PHASE_LABELS: Record<string, string> = {
-  gather: "收集数据",
-  analyze: "分析中",
-  write: "写入记忆",
-  index: "刷新索引",
+  gather: "buddy.phaseGather",
+  analyze: "buddy.phaseAnalyze",
+  write: "buddy.phaseWrite",
+  index: "buddy.phaseIndex",
 };
 
 function LiriPage() {
+  const { t } = useTranslation();
   const {
     companion,
     lastInteraction,
@@ -83,7 +85,7 @@ function LiriPage() {
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto p-6">
           <div className="flex items-center justify-center h-64 text-gray-400">
-            加载中...
+            {t("common.loading")}
           </div>
         </div>
       </div>
@@ -193,33 +195,48 @@ function LiriPage() {
             </div>
 
             <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
-              等待你的第一个伙伴
+              {t("buddy.waitingFirstBuddy")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed mb-8">
-              Liri 会在你与它对话时自动孵化出一个独一无二的伙伴。
-              每次做梦、每次交互，它都会成长。
+              {t("buddy.hatchHint")} {t("buddy.growHint")}
             </p>
 
             {/* 五阶段预览卡片 */}
             <div className="inline-flex gap-2 mb-8">
               {[
-                { emoji: "💬", label: "交谈", desc: "与 Liri 对话" },
-                { emoji: "🌙", label: "做梦", desc: "自动编织记忆" },
-                { emoji: "⚡", label: "进化", desc: "获得经验成长" },
-                { emoji: "🎨", label: "蜕变", desc: "解锁稀有形态" },
+                {
+                  emoji: "💬",
+                  labelKey: "buddy.stageTalk",
+                  descKey: "buddy.stageTalkDesc",
+                },
+                {
+                  emoji: "🌙",
+                  labelKey: "buddy.stageDream",
+                  descKey: "buddy.stageDreamDesc",
+                },
+                {
+                  emoji: "⚡",
+                  labelKey: "buddy.stageEvolve",
+                  descKey: "buddy.stageEvolveDesc",
+                },
+                {
+                  emoji: "🎨",
+                  labelKey: "buddy.stageTransform",
+                  descKey: "buddy.stageTransformDesc",
+                },
               ].map((step, _i) => (
                 <div
-                  key={step.label}
+                  key={step.labelKey}
                   className="flex flex-col items-center gap-1 w-16"
                 >
                   <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/30 flex items-center justify-center text-lg">
                     {step.emoji}
                   </div>
                   <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400">
-                    {step.label}
+                    {t(step.labelKey)}
                   </span>
                   <span className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight text-center">
-                    {step.desc}
+                    {t(step.descKey)}
                   </span>
                 </div>
               ))}
@@ -242,7 +259,7 @@ function LiriPage() {
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                 />
               </svg>
-              去聊天，孵化你的伙伴
+              {t("buddy.goChatToHatch")}
             </button>
           </div>
         </div>
@@ -267,7 +284,7 @@ function LiriPage() {
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 rounded-lg border border-indigo-100 dark:border-indigo-900/50 p-4 mb-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                🌙 Liri 正在做梦...
+                {t("buddy.dreamingNow")}
               </span>
               <span className="inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
             </div>
@@ -293,7 +310,7 @@ function LiriPage() {
                         className={`text-[9px] mt-1 text-center leading-tight
                         ${active ? "text-indigo-600 dark:text-indigo-400 font-semibold" : done ? "text-indigo-500 dark:text-indigo-400" : "text-gray-400"}`}
                       >
-                        {PHASE_LABELS[phase]}
+                        {t(PHASE_LABELS[phase])}
                       </span>
                     </div>
                     {i < 4 && (
@@ -327,7 +344,7 @@ function LiriPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            概览
+            {t("buddy.tabOverview")}
           </button>
           <button
             onClick={() => setActiveTab("game")}
@@ -337,7 +354,7 @@ function LiriPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            🎮 游戏
+            {t("buddy.tabGame")}
           </button>
           <button
             onClick={() => setActiveTab("evolution")}
@@ -347,7 +364,7 @@ function LiriPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            ⬆️ 进化
+            {t("buddy.tabEvolution")}
           </button>
           <button
             onClick={() => setActiveTab("dreams")}
@@ -357,7 +374,7 @@ function LiriPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            🌙 梦境日志
+            {t("buddy.tabDreamLog")}
           </button>
           <button
             onClick={() => setActiveTab("dreamDetail")}
@@ -367,7 +384,7 @@ function LiriPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            ✨ 梦境详情
+            {t("buddy.tabDreamDetail")}
           </button>
         </div>
 
@@ -403,11 +420,11 @@ function LiriPage() {
                   </div>
                   {companion.shiny && (
                     <span className="text-xs text-yellow-500 font-medium mt-1 block">
-                      ✨ 闪光
+                      {t("buddy.shiny")}
                     </span>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    性格: {companion.personality}
+                    {t("buddy.personality", { name: companion.personality })}
                   </p>
                 </div>
               </div>
@@ -434,7 +451,7 @@ function LiriPage() {
             {/* 属性面板 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                属性
+                {t("buddy.attributes")}
               </h3>
               <div className="grid grid-cols-5 gap-3">
                 {(Object.entries(companion.stats) as [BuddyStat, number][]).map(
@@ -456,26 +473,30 @@ function LiriPage() {
             {/* 梦境整合统计 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                🌙 梦境整合
+                {t("buddy.dreamIntegration")}
               </h3>
               <div className="flex items-center justify-between text-sm">
                 <div className="text-gray-500 dark:text-gray-400">
-                  已完成整合
+                  {t("buddy.completedIntegrations")}
                 </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {stats?.dreamsCompleted ?? 0} 次
+                  {t("buddy.times", { n: stats?.dreamsCompleted ?? 0 })}
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
-                <div className="text-gray-500 dark:text-gray-400">总经验值</div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  {t("buddy.totalXp")}
+                </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">
                   {stats?.totalXp ?? 0} XP
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
-                <div className="text-gray-500 dark:text-gray-400">互动次数</div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  {t("buddy.interactions")}
+                </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {stats?.interactions ?? 0} 次
+                  {t("buddy.times", { n: stats?.interactions ?? 0 })}
                 </div>
               </div>
               <div className="flex gap-2 mt-3">
@@ -485,10 +506,10 @@ function LiriPage() {
                   className="flex-1 px-3 py-2 text-sm bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded transition-colors disabled:opacity-50"
                 >
                   {triggering
-                    ? "触发中..."
+                    ? t("buddy.triggering")
                     : dreamPhase
-                      ? "梦境进行中"
-                      : "🌙 手动触发梦境"}
+                      ? t("buddy.dreamInProgress")
+                      : t("buddy.manualTriggerDream")}
                 </button>
                 <button
                   onClick={() => setActivePage("agent")}
@@ -502,7 +523,7 @@ function LiriPage() {
             {/* 互动区 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                互动
+                {t("buddy.interactionsSection")}
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
                 {INTERACTIONS.map((action) => (
@@ -511,7 +532,7 @@ function LiriPage() {
                     onClick={() => handleInteract(action)}
                     className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
                   >
-                    {INTERACTION_LABELS[action]}
+                    {t(INTERACTION_LABELS[action])}
                   </button>
                 ))}
               </div>
@@ -554,7 +575,7 @@ function LiriPage() {
                     setMessage("");
                   }
                 }}
-                placeholder="和 Liri 说话..."
+                placeholder={t("buddy.talkPlaceholderLiri")}
                 className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>

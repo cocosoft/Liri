@@ -53,14 +53,14 @@ function UserPanel({ isDark }: UserPanelProps) {
         module: "components:settings:User",
         action: "loadUser",
       });
-      setMessage({ type: "error", text: "加载用户身份失败" });
+      setMessage({ type: "error", text: t("settings.userLoadFailed") });
     }
   };
 
   /** 保存用户身份 */
   const handleSave = async () => {
     if (!content.trim()) {
-      setMessage({ type: "error", text: "内容不能为空" });
+      setMessage({ type: "error", text: t("settings.userContentEmpty") });
       return;
     }
     setSaving(true);
@@ -68,14 +68,14 @@ function UserPanel({ isDark }: UserPanelProps) {
     try {
       await saveUser(content);
       setOriginalContent(content);
-      setMessage({ type: "success", text: "用户身份已保存" });
+      setMessage({ type: "success", text: t("settings.userSaved") });
       setTimeout(() => setMessage(null), 3000);
     } catch (e) {
       handleClientError(e, {
         module: "components:settings:User",
         action: "handleSave",
       });
-      setMessage({ type: "error", text: "保存失败，请重试" });
+      setMessage({ type: "error", text: t("settings.userSaveFailed") });
     } finally {
       setSaving(false);
     }
@@ -99,7 +99,7 @@ function UserPanel({ isDark }: UserPanelProps) {
               ? "bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-500"
               : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400"
           }`}
-          placeholder="输入用户身份信息..."
+          placeholder={t("settings.userPlaceholder")}
         />
 
         {message && (
@@ -124,7 +124,7 @@ function UserPanel({ isDark }: UserPanelProps) {
                 : "bg-blue-500 text-white hover:bg-blue-600"
             }`}
           >
-            {saving ? "保存中..." : t("common.save")}
+            {saving ? t("settings.saving") : t("common.save")}
           </button>
 
           <button
@@ -135,7 +135,7 @@ function UserPanel({ isDark }: UserPanelProps) {
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
-            恢复默认
+            {t("settings.restoreDefault")}
           </button>
         </div>
       </div>

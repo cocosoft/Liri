@@ -3,6 +3,7 @@
  *
  * 顶部 pill 按钮选择知识库，支持双击重命名、删除。
  */
+import { useTranslation } from "react-i18next";
 import type { KnowledgeBase } from "../../types";
 
 interface KBaseSelectorProps {
@@ -36,6 +37,7 @@ function KBaseSelector({
   onCloneBase,
   onDuplicateBase,
 }: KBaseSelectorProps) {
+  const { t } = useTranslation();
   const textMuted = isDark ? "text-gray-500" : "text-gray-400";
 
   return (
@@ -52,7 +54,7 @@ function KBaseSelector({
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
-          全部
+          {t("common.all")}
         </button>
         {bases.map((base) => (
           <div key={base.name} className="relative group flex-shrink-0">
@@ -104,7 +106,7 @@ function KBaseSelector({
                       onCloneBase(base.name);
                     }}
                     className="w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center"
-                    title="克隆知识库（含文档）"
+                    title={t("knowledge.cloneBaseTooltip")}
                   >
                     +
                   </button>
@@ -116,7 +118,7 @@ function KBaseSelector({
                       onDuplicateBase(base.name);
                     }}
                     className="w-4 h-4 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center"
-                    title="复制配置（仅配置）"
+                    title={t("knowledge.duplicateBaseTooltip")}
                   >
                     ⎘
                   </button>
@@ -127,7 +129,7 @@ function KBaseSelector({
                     onDeleteBase(base.name);
                   }}
                   className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center"
-                  title="删除知识库"
+                  title={t("knowledge.deleteBaseTooltip")}
                 >
                   ✕
                 </button>

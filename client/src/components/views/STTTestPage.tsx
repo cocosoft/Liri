@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   voiceService,
   createSTTStream,
@@ -32,6 +33,7 @@ const MAX_HISTORY = 50;
  * 提供录音和文件上传两种输入方式，调用后端 STT 提供者进行语音转文字测试
  */
 function STTTestPage() {
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -152,10 +154,12 @@ function STTTestPage() {
       setIsRecording(true);
     } catch (err) {
       setError(
-        "无法访问麦克风：" + (err instanceof Error ? err.message : "未知错误"),
+        t("voice.micAccessError", {
+          error: err instanceof Error ? err.message : t("voice.unknownError"),
+        }),
       );
     }
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, t]);
 
   /**
    * 停止录音
@@ -210,7 +214,7 @@ function STTTestPage() {
    */
   const handleTranscribe = useCallback(async () => {
     if (!audioFile) {
-      setError("请先录音或选择音频文件");
+      setError(t("voice.needAudio"));
       return;
     }
 
@@ -249,7 +253,10 @@ function STTTestPage() {
 
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || `服务器错误 (${response.status})`);
+          throw new Error(
+            errData.error ||
+              t("voice.serverError", { status: response.status }),
+          );
         }
 
         const data = await response.json();
@@ -280,7 +287,7 @@ function STTTestPage() {
         timestamp: Date.now(),
         providerId: providerId || "default",
         language: language || "auto",
-        audioName: audioFile.name || "录音",
+        audioName: audioFile.name || t("voice.recordingFile"),
         text: sttResult.text || "",
         confidence: sttResult.confidence || 0,
         result: sttResult,
@@ -290,7 +297,9 @@ function STTTestPage() {
       setHistory((prev) => [histItem, ...prev].slice(0, MAX_HISTORY));
     } catch (err) {
       setError(
-        "转录失败：" + (err instanceof Error ? err.message : "未知错误"),
+        t("voice.transcribeFailed", {
+          error: err instanceof Error ? err.message : t("voice.unknownError"),
+        }),
       );
     } finally {
       setIsProcessing(false);
@@ -300,7 +309,7 @@ function STTTestPage() {
         elapsedTimerRef.current = null;
       }
     }
-  }, [audioFile, providerId, language, keyterms]);
+  }, [audioFile, providerId, language, keyterms, t]);
 
   /**
    * 清除当前结果
@@ -421,9 +430,11 @@ function STTTestPage() {
 
       setStreamingActive(true);
     } catch (err) {
-      setStreamError(err instanceof Error ? err.message : "流式识别启动失败");
+      setStreamError(
+        err instanceof Error ? err.message : t("voice.streamStartFailed"),
+      );
     }
-  }, [language, providerId, stopStreaming]);
+  }, [language, providerId, stopStreaming, t]);
 
   // S1.3: 组件卸载时清理音频资源
   useEffect(() => {
@@ -506,10 +517,10 @@ function STTTestPage() {
             <h1
               className={`text-2xl font-bold text-gray-900 dark:text-gray-100`}
             >
-              STT 语音识别测试
+              {t("voice.sttTestTitle")}
             </h1>
             <p className={`mt-1 text-sm text-gray-500 dark:text-gray-400`}>
-              测试语音转文字功能，选择音频来源和转录选项
+              {t("voice.sttTestDesc")}
             </p>
           </div>
         </div>
@@ -517,7 +528,7 @@ function STTTestPage() {
         {/* S2.1: 一键测试工具栏 */}
         <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">
-            快捷操作:
+            {t("voice.quickActions")}
           </span>
           <button
             onClick={() => {
@@ -525,12 +536,12 @@ function STTTestPage() {
             }}
             className="px-3 py-1.5 text-xs rounded-md bg-blue-500 hover:bg-blue-600 text-white transition-colors"
           >
-            录音并转录
+            {t("voice.recordAndTranscribe")}
           </button>
           <button
             onClick={() => {
               if (audioFile) handleTranscribe();
-              else setError("请先选择音频文件");
+              else setError(t("voice.needAudioFile"));
             }}
             disabled={!audioFile}
             className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
@@ -539,13 +550,13 @@ function STTTestPage() {
                 : "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400"
             }`}
           >
-            转录当前文件
+            {t("voice.transcribeCurrentFile")}
           </button>
           <button
             onClick={handleClear}
             className="px-3 py-1.5 text-xs rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 dark:border-gray-600 transition-colors"
           >
-            清除
+            {t("voice.clear")}
           </button>
         </div>
 
@@ -565,7 +576,7 @@ function STTTestPage() {
               <h2
                 className={`text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200`}
               >
-                音频输入
+                {t("voice.audioInput")}
               </h2>
               {/* S2.4: 输入模式切换 */}
               <div className="flex mb-4 border-b border-gray-200 dark:border-gray-700">
@@ -577,7 +588,7 @@ function STTTestPage() {
                   }`}
                   onClick={() => setInputMode("record")}
                 >
-                  录音输入
+                  {t("voice.recordInput")}
                 </button>
                 <button
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -587,24 +598,25 @@ function STTTestPage() {
                   }`}
                   onClick={() => setInputMode("upload")}
                 >
-                  上传文件
+                  {t("voice.uploadFile")}
                 </button>
               </div>
               {/* S2.6: 麦克风设备选择 */}
               {devices.length > 0 && inputMode === "record" && (
                 <div className="mb-4">
                   <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
-                    麦克风设备
+                    {t("voice.micDevice")}
                   </label>
                   <select
                     value={selectedDeviceId}
                     onChange={(e) => setSelectedDeviceId(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border bg-white border-gray-300 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">默认设备</option>
+                    <option value="">{t("voice.defaultDevice")}</option>
                     {devices.map((d) => (
                       <option key={d.deviceId} value={d.deviceId}>
-                        {d.label || `麦克风 (${d.deviceId.slice(0, 8)}...)`}
+                        {d.label ||
+                          t("voice.micName", { id: d.deviceId.slice(0, 8) })}
                       </option>
                     ))}
                   </select>
@@ -615,7 +627,7 @@ function STTTestPage() {
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      录音电平
+                      {t("voice.recordingLevel")}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       {recordingTime.toFixed(1)}s
@@ -635,10 +647,10 @@ function STTTestPage() {
                   </div>
                   <div className="flex justify-between mt-1">
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      静音
+                      {t("voice.levelMin")}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-gray-500">
-                      最大
+                      {t("voice.levelMax")}
                     </span>
                   </div>
                 </div>
@@ -691,11 +703,13 @@ function STTTestPage() {
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
                       )}
                     </svg>
-                    {isRecording ? "停止录音" : "开始录音"}
+                    {isRecording
+                      ? t("voice.stopRecording")
+                      : t("voice.startRecording")}
                   </button>
 
                   <span className={`text-sm text-gray-500 dark:text-gray-400`}>
-                    或
+                    {t("voice.or")}
                   </span>
 
                   <label
@@ -714,7 +728,7 @@ function STTTestPage() {
                         d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                       />
                     </svg>
-                    选择媒体文件
+                    {t("voice.selectMediaFile")}
                     <input
                       type="file"
                       accept="audio/*,video/*"
@@ -731,7 +745,8 @@ function STTTestPage() {
                     <p
                       className={`text-xs mb-2 text-gray-500 dark:text-gray-400`}
                     >
-                      已选择：{audioFile?.name || "录音文件"} (
+                      {t("voice.selectedFilePrefix")}
+                      {audioFile?.name || t("voice.recordingFile")} (
                       {audioFile?.size ? (audioFile.size / 1024).toFixed(1) : 0}{" "}
                       KB)
                     </p>
@@ -744,7 +759,7 @@ function STTTestPage() {
                     {/* S3.4: 播放速度控制 */}
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        播放速度:
+                        {t("voice.playbackSpeed")}
                       </span>
                       {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
                         <button
@@ -772,12 +787,12 @@ function STTTestPage() {
               <h2
                 className={`text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200`}
               >
-                转录选项
+                {t("voice.transcribeOptions")}
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>提供者 ID</label>
+                  <label className={labelClass}>{t("voice.providerId")}</label>
                   <select
                     value={providerId}
                     onChange={(e) => setProviderId(e.target.value)}
@@ -792,7 +807,9 @@ function STTTestPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>语言代码</label>
+                  <label className={labelClass}>
+                    {t("voice.languageCode")}
+                  </label>
                   <input
                     type="text"
                     value={language}
@@ -805,12 +822,12 @@ function STTTestPage() {
               </div>
 
               <div className="mt-4">
-                <label className={labelClass}>关键词提示（逗号分隔）</label>
+                <label className={labelClass}>{t("voice.keytermsLabel")}</label>
                 <input
                   type="text"
                   value={keyterms}
                   onChange={(e) => setKeyterms(e.target.value)}
-                  placeholder="例如：机器学习, 人工智能, API"
+                  placeholder={t("voice.keytermsPlaceholder")}
                   className={inputClass}
                 />
               </div>
@@ -846,7 +863,7 @@ function STTTestPage() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                         />
                       </svg>
-                      转录中... {elapsed}s
+                      {t("voice.transcribing", { seconds: elapsed })}
                     </>
                   ) : (
                     <>
@@ -863,7 +880,7 @@ function STTTestPage() {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      执行转录
+                      {t("voice.runTranscribe")}
                     </>
                   )}
                 </button>
@@ -872,7 +889,7 @@ function STTTestPage() {
                   onClick={handleClear}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 dark:border dark:border-gray-600`}
                 >
-                  清除
+                  {t("voice.clear")}
                 </button>
               </div>
             </div>
@@ -885,7 +902,7 @@ function STTTestPage() {
                 <h2
                   className={`text-lg font-semibold text-gray-800 dark:text-gray-200`}
                 >
-                  流式实时识别
+                  {t("voice.streamingTitle")}
                 </h2>
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
@@ -894,12 +911,13 @@ function STTTestPage() {
                       : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                   }`}
                 >
-                  {streamingActive ? "识别中" : "已停止"}
+                  {streamingActive
+                    ? t("voice.recognizing")
+                    : t("common.stopped")}
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                实时推流 PCM16 → 后端 /v1/voice/stt，interim 实时字幕 + final
-                最终结果
+                {t("voice.streamingDesc")}
               </p>
 
               <div className="flex items-center gap-3 mb-3">
@@ -912,10 +930,15 @@ function STTTestPage() {
                       : "bg-indigo-500 hover:bg-indigo-600 text-white"
                   } disabled:opacity-50`}
                 >
-                  {streamingActive ? "停止识别" : "开始流式识别"}
+                  {streamingActive
+                    ? t("voice.stopStreaming")
+                    : t("voice.startStreaming")}
                 </button>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  语言：{language} · 提供者：{providerId || "默认"}
+                  {t("voice.streamInfo", {
+                    language,
+                    provider: providerId || t("voice.default"),
+                  })}
                 </span>
               </div>
 
@@ -928,11 +951,11 @@ function STTTestPage() {
               {streamingActive && (
                 <div className="p-3 rounded-lg text-sm min-h-12 bg-gray-50 dark:bg-gray-700/50">
                   <span className="text-xs text-gray-400 dark:text-gray-500 mr-2">
-                    实时字幕：
+                    {t("voice.interimCaption")}
                   </span>
                   {streamInterim || (
                     <span className="text-gray-400 dark:text-gray-500">
-                      正在聆听...
+                      {t("voice.listeningNow")}
                     </span>
                   )}
                 </div>
@@ -943,7 +966,7 @@ function STTTestPage() {
                   className={`mt-3 p-3 rounded-lg text-sm bg-green-50 text-gray-900 dark:bg-green-900/20 dark:text-gray-100`}
                 >
                   <span className="text-xs font-medium text-green-600 dark:text-green-400 mr-2">
-                    最终结果：
+                    {t("voice.finalResult")}
                   </span>
                   {streamFinal}
                 </div>
@@ -957,7 +980,7 @@ function STTTestPage() {
                 <h2
                   className={`text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200`}
                 >
-                  转录结果
+                  {t("voice.transcribeResult")}
                 </h2>
 
                 <div
@@ -966,7 +989,7 @@ function STTTestPage() {
                   {result.text || (
                     <div>
                       <p className={"text-gray-400 dark:text-gray-500"}>
-                        无识别结果
+                        {t("voice.noResult")}
                       </p>
                       {result.status && (
                         <p
@@ -984,7 +1007,7 @@ function STTTestPage() {
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
                     <p className={`text-xs text-gray-500 dark:text-gray-400`}>
-                      置信度
+                      {t("voice.confidence")}
                     </p>
                     <p
                       className={`text-lg font-semibold text-gray-900 dark:text-gray-100`}
@@ -999,7 +1022,7 @@ function STTTestPage() {
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
                     <p className={`text-xs text-gray-500 dark:text-gray-400`}>
-                      处理耗时
+                      {t("voice.processingTime")}
                     </p>
                     <p
                       className={`text-lg font-semibold text-gray-900 dark:text-gray-100`}
@@ -1012,7 +1035,7 @@ function STTTestPage() {
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
                     <p className={`text-xs text-gray-500 dark:text-gray-400`}>
-                      音频时长
+                      {t("voice.audioDuration")}
                     </p>
                     <p
                       className={`text-lg font-semibold text-gray-900 dark:text-gray-100`}
@@ -1027,7 +1050,7 @@ function STTTestPage() {
                     className={`p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
                     <p className={`text-xs text-gray-500 dark:text-gray-400`}>
-                      检测语言
+                      {t("voice.detectedLanguage")}
                     </p>
                     <p
                       className={`text-lg font-semibold text-gray-900 dark:text-gray-100`}
@@ -1058,7 +1081,7 @@ function STTTestPage() {
                           d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      下载 SRT 字幕
+                      {t("voice.downloadSrt")}
                     </a>
                     {history[0].downloadTxt && (
                       <a
@@ -1066,7 +1089,7 @@ function STTTestPage() {
                         download
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-500 hover:bg-gray-600 text-white`}
                       >
-                        下载 TXT 文本
+                        {t("voice.downloadTxt")}
                       </a>
                     )}
                   </div>
@@ -1077,7 +1100,7 @@ function STTTestPage() {
                     className={`mt-3 p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50`}
                   >
                     <p className={`text-xs text-gray-500 dark:text-gray-400`}>
-                      提供者
+                      {t("voice.providerLabel")}
                     </p>
                     <p
                       className={`text-sm font-medium text-gray-800 dark:text-gray-200`}
@@ -1092,7 +1115,7 @@ function STTTestPage() {
                   <summary
                     className={`text-xs cursor-pointer text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300`}
                   >
-                    查看原始 JSON
+                    {t("voice.viewRawJson")}
                   </summary>
                   <pre
                     className={`mt-2 p-3 rounded-lg text-xs overflow-auto max-h-60 bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300`}
@@ -1109,21 +1132,21 @@ function STTTestPage() {
             <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 p-5">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  历史记录
+                  {t("voice.historyTitle")}
                 </h2>
                 {history.length > 0 && (
                   <button
                     onClick={() => setHistory([])}
                     className="text-xs text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
                   >
-                    清空
+                    {t("voice.clearAll")}
                   </button>
                 )}
               </div>
 
               {history.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-                  暂无历史记录
+                  {t("voice.noHistory")}
                 </p>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -1142,7 +1165,7 @@ function STTTestPage() {
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                        {item.text || "无识别结果"}
+                        {item.text || t("voice.noResult")}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-400 dark:text-gray-500">

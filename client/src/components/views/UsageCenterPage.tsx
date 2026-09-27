@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useConfigStore } from "../../stores/configStore";
 import {
@@ -25,18 +26,29 @@ const PricingPanel = lazy(() => import("../usage/PricingPanel"));
 
 type TabId = "usage" | "cost" | "balance" | "pricing";
 
-const TABS: { id: TabId; label: string; desc: string }[] = [
-  { id: "usage", label: "用量总览", desc: "Token 消耗 / 工具调用 / 模型分布" },
-  { id: "cost", label: "成本分析", desc: "费用趋势 / 供应商分布 / 消费记录" },
-  { id: "balance", label: "余额管理", desc: "供应商余额查询 / 不足告警" },
-  { id: "pricing", label: "定价管理", desc: "模型定价配置 / 批量管理" },
+/** 翻译函数类型（模块级纯函数需要由调用方传入） */
+type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
+const TABS: { id: TabId; labelKey: string; descKey: string }[] = [
+  { id: "usage", labelKey: "cost.tabUsage", descKey: "cost.tabUsageDesc" },
+  { id: "cost", labelKey: "cost.tabCost", descKey: "cost.tabCostDesc" },
+  {
+    id: "balance",
+    labelKey: "cost.tabBalance",
+    descKey: "cost.tabBalanceDesc",
+  },
+  {
+    id: "pricing",
+    labelKey: "cost.tabPricing",
+    descKey: "cost.tabPricingDesc",
+  },
 ];
 
 const RANGE_OPTIONS = [
-  { label: "当前", value: "current" },
-  { label: "今天", value: "today" },
-  { label: "7 天", value: "7d" },
-  { label: "30 天", value: "30d" },
+  { labelKey: "cost.rangeCurrent", value: "current" },
+  { labelKey: "cost.rangeToday", value: "today" },
+  { labelKey: "cost.range7d", value: "7d" },
+  { labelKey: "cost.range30d", value: "30d" },
 ];
 
 function formatTokensLocal(n: number): string {
@@ -46,19 +58,47 @@ function formatTokensLocal(n: number): string {
 }
 
 /** 导出 CSV */
-function exportCSV(summary: CostSummary | null, records: CostRecord[]) {
+function exportCSV(
+  summary: CostSummary | null,
+  records: CostRecord[],
+  t: Translate,
+) {
   if (!summary) return;
-  const rows = [["类型", "指标", "值"].join(",")];
-  rows.push(["成本", "今日", summary.todayCost.toFixed(4)].join(","));
-  rows.push(["成本", "本周", summary.weeklyCost.toFixed(4)].join(","));
-  rows.push(["成本", "本月", summary.monthlyCost.toFixed(4)].join(","));
-  rows.push(["Token", "总输入", String(summary.totalInputTokens)].join(","));
-  rows.push(["Token", "总输出", String(summary.totalOutputTokens)].join(","));
+  const rows = [
+    [t("cost.csvType"), t("cost.csvMetric"), t("cost.csvValue")].join(","),
+  ];
+  rows.push(
+    [t("cost.csvCost"), t("cost.csvToday"), summary.todayCost.toFixed(4)].join(
+      ",",
+    ),
+  );
+  rows.push(
+    [t("cost.csvCost"), t("cost.csvWeek"), summary.weeklyCost.toFixed(4)].join(
+      ",",
+    ),
+  );
+  rows.push(
+    [
+      t("cost.csvCost"),
+      t("cost.csvMonth"),
+      summary.monthlyCost.toFixed(4),
+    ].join(","),
+  );
+  rows.push(
+    ["Token", t("cost.csvInput"), String(summary.totalInputTokens)].join(","),
+  );
+  rows.push(
+    ["Token", t("cost.csvOutput"), String(summary.totalOutputTokens)].join(","),
+  );
   for (const r of records) {
     rows.push(
-      ["记录", r.date, r.model, String(r.totalTokens), r.cost.toFixed(4)].join(
-        ",",
-      ),
+      [
+        t("cost.csvRecord"),
+        r.date,
+        r.model,
+        String(r.totalTokens),
+        r.cost.toFixed(4),
+      ].join(","),
     );
   }
   const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -69,6 +109,7 @@ function exportCSV(summary: CostSummary | null, records: CostRecord[]) {
 }
 
 export default function UsageCenterPage() {
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
   const timezone = (config.timezone as string) || "Asia/Shanghai";
@@ -151,22 +192,25 @@ export default function UsageCenterPage() {
   };
 
   // ── 成本 & 余额 ──
-  const fetchCostData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
-    try {
-      const summaryData = await usageService.getCostSummary();
-      setSummary(summaryData);
-    } catch (err) {
-      handleClientError(err, {
-        module: "components:views:UsageCenterPage",
-        action: "fetchCostData",
-      });
-      setError(err instanceof Error ? err.message : "加载成本数据失败");
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, []);
+  const fetchCostData = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const summaryData = await usageService.getCostSummary();
+        setSummary(summaryData);
+      } catch (err) {
+        handleClientError(err, {
+          module: "components:views:UsageCenterPage",
+          action: "fetchCostData",
+        });
+        setError(err instanceof Error ? err.message : t("cost.loadCostFailed"));
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [t],
+  );
 
   const fetchRecords = useCallback(async () => {
     try {
@@ -210,11 +254,13 @@ export default function UsageCenterPage() {
         module: "components:views:UsageCenterPage",
         action: "runReconcile",
       });
-      setReconcileError(e instanceof Error ? e.message : "对账失败");
+      setReconcileError(
+        e instanceof Error ? e.message : t("cost.reconcileFailed"),
+      );
     } finally {
       setReconcileLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const refreshAll = useCallback(
     async (silent = false) => {
@@ -258,17 +304,17 @@ export default function UsageCenterPage() {
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-end mb-4">
           <button
-            onClick={() => exportCSV(summary, records)}
+            onClick={() => exportCSV(summary, records, t)}
             className="px-3 py-1.5 text-sm rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors"
           >
-            导出 CSV
+            {t("cost.exportCsv")}
           </button>
         </div>
 
         {/* 实时会话状态栏 */}
         {summary && (
           <div className="flex items-center gap-4 px-3 py-2 mb-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs">
-            <span className="text-gray-500">当前会话</span>
+            <span className="text-gray-500">{t("cost.currentSession")}</span>
             <span className="text-blue-500">
               In: {formatTokens(summary.sessionInputTokens)}
             </span>
@@ -279,7 +325,7 @@ export default function UsageCenterPage() {
               {formatCost(summary.sessionCost, "$")}
             </span>
             <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-            <span className="text-gray-500">今日</span>
+            <span className="text-gray-500">{t("cost.today")}</span>
             <span className="text-orange-500">
               {formatCost(summary.todayCost, currency)}
             </span>
@@ -296,9 +342,9 @@ export default function UsageCenterPage() {
               key={tab.id}
               onClick={() => switchTab(tab.id)}
               className={`px-4 py-2 text-sm rounded-md transition-colors ${activeTab === tab.id ? "bg-white dark:bg-gray-700 shadow-sm font-medium" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"}`}
-              title={tab.desc}
+              title={t(tab.descKey)}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -313,37 +359,45 @@ export default function UsageCenterPage() {
                   onClick={() => setRange(opt.value)}
                   className={`px-2 py-1 text-xs rounded ${range === opt.value ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200"}`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
             {usageLoading ? (
-              <p className="text-sm text-gray-400">加载中...</p>
+              <p className="text-sm text-gray-400">{t("common.loading")}</p>
             ) : !usageData ? (
-              <p className="text-sm text-gray-400">暂无数据</p>
+              <p className="text-sm text-gray-400">{t("common.noData")}</p>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">总请求数</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.totalRequests")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {usageData.totalRequests.toLocaleString()}
                     </p>
                   </div>
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">总成本</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.totalCostLabel")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {formatCost(usageData.totalCost, currency)}
                     </p>
                   </div>
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">输入 Token</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.inputTokenLabel")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {formatTokensLocal(usageData.totalInputTokens)}
                     </p>
                   </div>
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">输出 Token</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.outputTokenLabel")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {formatTokensLocal(usageData.totalOutputTokens)}
                     </p>
@@ -351,19 +405,25 @@ export default function UsageCenterPage() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">缓存读取 Token</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.cacheReadTokenLabel")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {formatTokensLocal(usageData.totalCacheReadTokens)}
                     </p>
                   </div>
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">缓存写入 Token</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.cacheWriteTokenLabel")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {formatTokensLocal(usageData.totalCacheCreationTokens)}
                     </p>
                   </div>
                   <div className="p-3 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500">成功率</p>
+                    <p className="text-xs text-gray-500">
+                      {t("cost.successRate")}
+                    </p>
                     <p className="text-lg font-semibold">
                       {usageData.successRate.toFixed(1)}%
                     </p>
@@ -379,11 +439,13 @@ export default function UsageCenterPage() {
           <>
             {loading && !summary ? (
               <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">加载中...</div>
+                <div className="text-gray-400">{t("common.loading")}</div>
               </div>
             ) : error && !summary ? (
               <div className="flex items-center justify-center h-64">
-                <div className="text-red-500">加载失败: {error}</div>
+                <div className="text-red-500">
+                  {t("cost.loadFailed", { error })}
+                </div>
               </div>
             ) : summary ? (
               <>
@@ -392,13 +454,17 @@ export default function UsageCenterPage() {
                   className={`mb-4 p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-medium">成本对账</h3>
+                    <h3 className="text-lg font-medium">
+                      {t("cost.reconcile")}
+                    </h3>
                     <button
                       onClick={runReconcile}
                       disabled={reconcileLoading}
                       className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
                     >
-                      {reconcileLoading ? "对账中..." : "运行对账"}
+                      {reconcileLoading
+                        ? t("cost.reconciling")
+                        : t("cost.runReconcile")}
                     </button>
                   </div>
                   {reconcileError && (
@@ -410,25 +476,33 @@ export default function UsageCenterPage() {
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
-                          <p className="text-xs text-gray-500">匹配记录</p>
+                          <p className="text-xs text-gray-500">
+                            {t("cost.matched")}
+                          </p>
                           <p className="text-lg font-semibold text-green-600">
                             {reconcile.matched}
                           </p>
                         </div>
                         <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
-                          <p className="text-xs text-gray-500">仅用量侧</p>
+                          <p className="text-xs text-gray-500">
+                            {t("cost.onlyInUsage")}
+                          </p>
                           <p className="text-lg font-semibold text-orange-500">
                             {reconcile.onlyInUsage}
                           </p>
                         </div>
                         <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
-                          <p className="text-xs text-gray-500">仅成本侧</p>
+                          <p className="text-xs text-gray-500">
+                            {t("cost.onlyInCost")}
+                          </p>
                           <p className="text-lg font-semibold text-purple-500">
                             {reconcile.onlyInCost}
                           </p>
                         </div>
                         <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
-                          <p className="text-xs text-gray-500">匹配率</p>
+                          <p className="text-xs text-gray-500">
+                            {t("cost.matchRate")}
+                          </p>
                           <p className="text-lg font-semibold">
                             {reconcile.matchRate}
                           </p>
@@ -436,7 +510,7 @@ export default function UsageCenterPage() {
                       </div>
                       {reconcile.onlyInUsage > 0 && (
                         <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                          提示：仅用量侧记录表示用量已记录但成本未落库（历史数据未回填或定价缺失），新记录将随成本链路自动持久化。
+                          {t("cost.onlyInUsageHint")}
                         </p>
                       )}
                       {reconcile.costDiffs.length > 0 && (
@@ -449,16 +523,16 @@ export default function UsageCenterPage() {
                                 }
                               >
                                 <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                                  模型
+                                  {t("cost.modelCol")}
                                 </th>
                                 <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                                  用量侧成本
+                                  {t("cost.usageSideCost")}
                                 </th>
                                 <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                                  成本侧
+                                  {t("cost.costSide")}
                                 </th>
                                 <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                                  差异
+                                  {t("cost.diff")}
                                 </th>
                               </tr>
                             </thead>
@@ -493,21 +567,21 @@ export default function UsageCenterPage() {
                 {/* 成本统计卡片 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   <MetricCard
-                    label="今日成本"
+                    label={t("cost.todayCostLabel")}
                     value={formatCost(summary.todayCost, currency)}
                     sublabel={`${formatTokens(summary.todayTokens)} tokens`}
                   />
                   <MetricCard
-                    label="本周成本"
+                    label={t("cost.weeklyCostLabel")}
                     value={formatCost(summary.weeklyCost, currency)}
                   />
                   <MetricCard
-                    label="本月成本"
+                    label={t("cost.monthlyCostLabel")}
                     value={formatCost(summary.monthlyCost, currency)}
                     sublabel={`${formatTokens(summary.monthlyTokens)} tokens`}
                   />
                   <MetricCard
-                    label="当前会话"
+                    label={t("cost.currentSession")}
                     value={formatCost(summary.sessionCost, "$")}
                     sublabel={`${formatTokens(summary.sessionTokens)} tokens`}
                   />
@@ -529,7 +603,7 @@ export default function UsageCenterPage() {
                     <h3
                       className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
                     >
-                      供应商成本分布
+                      {t("cost.providerCostDistribution")}
                     </h3>
                     <PieChart
                       data={summary.topProviders.slice(0, 6).map((p, i) => ({
@@ -544,7 +618,7 @@ export default function UsageCenterPage() {
                           "#10B981",
                         ][i % 6],
                       }))}
-                      centerLabel="月成本"
+                      centerLabel={t("cost.monthCost")}
                       centerValue={formatCost(summary.monthlyCost, currency)}
                     />
                   </div>
@@ -554,7 +628,7 @@ export default function UsageCenterPage() {
                     <h3
                       className={`text-lg font-medium mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
                     >
-                      每日成本与 Token 趋势
+                      {t("cost.dailyTrend")}
                     </h3>
                     <div className="h-52 flex items-end justify-between gap-1.5 px-2">
                       {summary.dailyBreakdown.map((day) => (
@@ -598,32 +672,34 @@ export default function UsageCenterPage() {
                   className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} mb-6`}
                 >
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium">各模型消耗明细</h3>
+                    <h3 className="text-lg font-medium">
+                      {t("cost.modelBreakdown")}
+                    </h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className={isDark ? "bg-gray-700" : "bg-gray-50"}>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                            模型
+                            {t("cost.modelCol")}
                           </th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                            供应商
+                            {t("cost.providerCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            输入
+                            {t("cost.inputCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            输出
+                            {t("cost.outputCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            总 Tokens
+                            {t("cost.totalTokensCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            成本
+                            {t("cost.costCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            占比
+                            {t("cost.percentage")}
                           </th>
                         </tr>
                       </thead>
@@ -666,9 +742,9 @@ export default function UsageCenterPage() {
                   className={`rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                 >
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h3 className="text-lg font-medium">消费记录</h3>
+                    <h3 className="text-lg font-medium">{t("cost.records")}</h3>
                     <div className="text-sm text-gray-400">
-                      共 {recordsTotal} 条
+                      {t("cost.recordsCount", { count: recordsTotal })}
                     </div>
                   </div>
                   <div className="overflow-x-auto">
@@ -676,22 +752,22 @@ export default function UsageCenterPage() {
                       <thead>
                         <tr className={isDark ? "bg-gray-700" : "bg-gray-50"}>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                            时间
+                            {t("cost.timeCol")}
                           </th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">
-                            模型
+                            {t("cost.modelCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            输入
+                            {t("cost.inputCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            输出
+                            {t("cost.outputCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            总 Tokens
+                            {t("cost.totalTokensCol")}
                           </th>
                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">
-                            成本
+                            {t("cost.costCol")}
                           </th>
                         </tr>
                       </thead>
@@ -729,7 +805,10 @@ export default function UsageCenterPage() {
                   {totalPages > 1 && (
                     <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
                       <span className="text-sm text-gray-400">
-                        第 {recordsPage} / {totalPages} 页
+                        {t("cost.pageOf", {
+                          page: recordsPage,
+                          total: totalPages,
+                        })}
                       </span>
                       <div className="flex gap-2">
                         <button
@@ -739,7 +818,7 @@ export default function UsageCenterPage() {
                           disabled={recordsPage <= 1}
                           className="px-3 py-1 text-sm rounded disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border"
                         >
-                          上一页
+                          {t("common.prevPage")}
                         </button>
                         <button
                           onClick={() =>
@@ -748,7 +827,7 @@ export default function UsageCenterPage() {
                           disabled={recordsPage >= totalPages}
                           className="px-3 py-1 text-sm rounded disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border"
                         >
-                          下一页
+                          {t("common.nextPage")}
                         </button>
                       </div>
                     </div>
@@ -767,11 +846,11 @@ export default function UsageCenterPage() {
                 onClick={fetchBalances}
                 className="px-3 py-1.5 text-sm text-blue-600 hover:underline"
               >
-                刷新
+                {t("common.refresh")}
               </button>
             </div>
             {balances.length === 0 ? (
-              <p className="text-sm text-gray-400">暂无余额数据</p>
+              <p className="text-sm text-gray-400">{t("cost.noBalanceData")}</p>
             ) : (
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                 <div className="space-y-2">
@@ -789,12 +868,12 @@ export default function UsageCenterPage() {
                         </span>
                         {b.belowThreshold && (
                           <span className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
-                            余额不足
+                            {t("cost.insufficientBalance")}
                           </span>
                         )}
                         {!b.supported && (
                           <span className="text-xs px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded">
-                            不支持
+                            {t("cost.unsupported")}
                           </span>
                         )}
                       </div>
@@ -832,7 +911,7 @@ export default function UsageCenterPage() {
           <Suspense
             fallback={
               <div className="h-64 flex items-center justify-center text-gray-400">
-                加载中...
+                {t("common.loading")}
               </div>
             }
           >

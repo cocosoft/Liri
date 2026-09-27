@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useBackendStore } from "../../stores/backendStore";
 import { DEFAULT_BACKEND_PORT } from "../../services/backendUrl";
 
 function BackendStatusBadge() {
+  const { t } = useTranslation();
   const {
     status,
     isChecking,
@@ -35,7 +37,11 @@ function BackendStatusBadge() {
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-gray-700/50 transition-colors w-full"
-        title={isRunning ? "后端运行中" : "后端未连接"}
+        title={
+          isRunning
+            ? t("sidebar.backendRunning")
+            : t("sidebar.backendDisconnected")
+        }
       >
         <span
           className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -46,8 +52,8 @@ function BackendStatusBadge() {
         />
         <span className="text-gray-300 truncate">
           {isRunning
-            ? `运行中${status.port ? ` :${status.port}` : ""}`
-            : "未连接"}
+            ? `${t("common.running")}${status.port ? ` :${status.port}` : ""}`
+            : t("sidebar.disconnected")}
         </span>
         {isChecking && (
           <span className="w-2 h-2 border border-gray-400 border-t-transparent rounded-full animate-spin ml-auto" />
@@ -70,21 +76,27 @@ function BackendStatusBadge() {
       {expanded && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-xl overflow-hidden z-50">
           <div className="p-3 space-y-2">
-            <div className="text-xs text-gray-300 font-medium">后端服务</div>
+            <div className="text-xs text-gray-300 font-medium">
+              {t("sidebar.backendService")}
+            </div>
 
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <span
                 className={`w-1.5 h-1.5 rounded-full ${isRunning ? "bg-green-400" : "bg-red-400"}`}
               />
-              <span>{isRunning ? "运行中" : "未运行"}</span>
+              <span>
+                {isRunning ? t("common.running") : t("sidebar.notRunning")}
+              </span>
               {status.port && (
-                <span className="text-gray-500">端口 {status.port}</span>
+                <span className="text-gray-500">
+                  {t("sidebar.portInline", { port: status.port })}
+                </span>
               )}
             </div>
 
             {isBrowserMode && !isRunning && (
               <div className="text-xs text-gray-400 bg-gray-800 rounded p-2 leading-relaxed">
-                浏览器模式需要手动启动后端：
+                {t("sidebar.browserModeHint")}
                 <code className="block mt-1 text-yellow-300 break-all select-all">
                   cd backend &amp;&amp; bun start -- --http-port{" "}
                   {DEFAULT_BACKEND_PORT}
@@ -116,7 +128,7 @@ function BackendStatusBadge() {
                   }}
                   className="flex-1 px-2 py-1 text-xs bg-red-500/80 hover:bg-red-500 text-white rounded transition-colors"
                 >
-                  停止
+                  {t("common.stop")}
                 </button>
               ) : (
                 <button
@@ -127,7 +139,7 @@ function BackendStatusBadge() {
                   className="flex-1 px-2 py-1 text-xs bg-green-500/80 hover:bg-green-500 text-white rounded transition-colors"
                   disabled={isChecking}
                 >
-                  {isChecking ? "检查中..." : "启动"}
+                  {isChecking ? t("sidebar.checkingNow") : t("common.start")}
                 </button>
               )}
               <button
@@ -138,7 +150,7 @@ function BackendStatusBadge() {
                 className="px-2 py-1 text-xs bg-gray-600 hover:bg-gray-500 text-gray-300 rounded transition-colors"
                 disabled={isChecking}
               >
-                刷新
+                {t("common.refresh")}
               </button>
             </div>
           </div>

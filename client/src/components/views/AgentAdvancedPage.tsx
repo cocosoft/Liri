@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
 import { workspaceService } from "../../services/workspaceService";
@@ -11,6 +12,7 @@ import AgentModelBindingConfig from "../Workspace/AgentModelBindingConfig";
 type AgentTab = "strategy" | "swarm" | "identity" | "bindings";
 
 function AgentAdvancedPage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
   const activeWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
@@ -56,11 +58,11 @@ function AgentAdvancedPage() {
     });
   };
 
-  const tabs: { key: AgentTab; label: string }[] = [
-    { key: "strategy", label: "策略选择" },
-    { key: "swarm", label: "Swarm编排" },
-    { key: "identity", label: "身份配置" },
-    { key: "bindings", label: "模型绑定" },
+  const tabs: { key: AgentTab; labelKey: string }[] = [
+    { key: "strategy", labelKey: "agent.strategySelector" },
+    { key: "swarm", labelKey: "agent.swarmOrchestration" },
+    { key: "identity", labelKey: "agent.identityConfig" },
+    { key: "bindings", labelKey: "workspace.modelBinding" },
   ];
 
   useEffect(() => {
@@ -95,12 +97,12 @@ function AgentAdvancedPage() {
           <h1
             className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
           >
-            Agent 高级管理
+            {t("agent.advancedTitle")}
           </h1>
           <p
             className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            配置 Agent 策略、Swarm 编排、执行轨迹和身份参数
+            {t("agent.advancedDesc")}
           </p>
         </div>
 
@@ -117,7 +119,7 @@ function AgentAdvancedPage() {
                     : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>

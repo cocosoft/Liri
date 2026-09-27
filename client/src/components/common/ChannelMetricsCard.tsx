@@ -27,6 +27,7 @@
  *       各渠道消息处理平均耗时（含 LLM 往返）、各平台出站发送成功率。
  */
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { channelService } from "../../services/channelService";
 import type { ChannelMetricEntry, ChannelMetricsResponse } from "../../types";
 import { handleClientError } from "../../utils/handleError";
@@ -123,6 +124,7 @@ function Overview({ label, value }: { label: string; value: number }) {
 }
 
 export function ChannelMetricsCard() {
+  const { t } = useTranslation();
   const [metrics, setMetrics] = useState<ChannelMetricsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,7 +143,7 @@ export function ChannelMetricsCard() {
           module: "dashboard",
           action: "loadChannelMetrics",
         });
-        setError("渠道指标加载失败");
+        setError(t("common.channelMetricsLoadFailed"));
       }
     };
     load();
@@ -151,7 +153,7 @@ export function ChannelMetricsCard() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [t]);
 
   const agg = metrics ? aggregate(metrics.metrics) : null;
   const hasData =
@@ -167,7 +169,7 @@ export function ChannelMetricsCard() {
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm">📊</span>
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-          渠道消息指标
+          {t("common.channelMetricsTitle")}
         </h3>
       </div>
 
@@ -175,25 +177,46 @@ export function ChannelMetricsCard() {
         <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
       )}
       {!agg && !error && (
-        <p className="text-xs text-gray-400">正在加载渠道指标…</p>
+        <p className="text-xs text-gray-400">
+          {t("common.channelMetricsLoading")}
+        </p>
       )}
       {agg && !hasData && (
-        <p className="text-xs text-gray-400">暂无消息活动数据</p>
+        <p className="text-xs text-gray-400">
+          {t("common.channelMetricsNoActivity")}
+        </p>
       )}
 
       {agg && hasData && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
-            <Overview label="入站消息" value={agg.inbound} />
-            <Overview label="拒绝/跳过" value={agg.rejected} />
-            <Overview label="发送成功" value={sendTotals.ok} />
-            <Overview label="发送失败" value={sendTotals.fail} />
-            <Overview label="广播" value={agg.broadcast} />
+            <Overview
+              label={t("common.channelMetricsInbound")}
+              value={agg.inbound}
+            />
+            <Overview
+              label={t("common.channelMetricsRejected")}
+              value={agg.rejected}
+            />
+            <Overview
+              label={t("common.channelMetricsSendOk")}
+              value={sendTotals.ok}
+            />
+            <Overview
+              label={t("common.channelMetricsSendFail")}
+              value={sendTotals.fail}
+            />
+            <Overview
+              label={t("common.channelMetricsBroadcast")}
+              value={agg.broadcast}
+            />
           </div>
 
           {Object.keys(agg.rejectedByReason).length > 0 && (
             <div className="mb-3">
-              <p className="text-xs text-gray-400 mb-1">拒绝原因分布</p>
+              <p className="text-xs text-gray-400 mb-1">
+                {t("common.channelMetricsRejectReasons")}
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(agg.rejectedByReason).map(([reason, count]) => (
                   <span
@@ -210,7 +233,7 @@ export function ChannelMetricsCard() {
           {Object.keys(agg.processingByChannel).length > 0 && (
             <div className="mb-3">
               <p className="text-xs text-gray-400 mb-1">
-                消息处理平均耗时（含 LLM 往返）
+                {t("common.channelMetricsProcessing")}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(agg.processingByChannel).map(
@@ -219,7 +242,11 @@ export function ChannelMetricsCard() {
                       key={channel}
                       className="text-[11px] px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
                     >
-                      {channel}: {stat.avgMs}ms（{stat.count} 条）
+                      {t("common.channelMetricsProcessingItem", {
+                        channel,
+                        ms: stat.avgMs,
+                        count: stat.count,
+                      })}
                     </span>
                   ),
                 )}
@@ -229,7 +256,9 @@ export function ChannelMetricsCard() {
 
           {Object.keys(agg.sendByPlatform).length > 0 && (
             <div>
-              <p className="text-xs text-gray-400 mb-1">出站发送成功率</p>
+              <p className="text-xs text-gray-400 mb-1">
+                {t("common.channelMetricsSendRate")}
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(agg.sendByPlatform).map(([platform, stat]) => {
                   const total = stat.ok + stat.fail;
@@ -240,7 +269,12 @@ export function ChannelMetricsCard() {
                       key={platform}
                       className="text-[11px] px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
                     >
-                      {platform}: {rate}%（{stat.ok}/{total}）
+                      {t("common.channelMetricsSendRateItem", {
+                        platform,
+                        rate,
+                        ok: stat.ok,
+                        total,
+                      })}
                     </span>
                   );
                 })}

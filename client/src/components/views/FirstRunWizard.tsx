@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { appConfigService } from "../../services/appConfigService";
 import { useBackendStore } from "../../stores/backendStore";
 import { DEFAULT_BACKEND_PORT } from "../../services/backendUrl";
@@ -8,6 +9,7 @@ interface FirstRunWizardProps {
 }
 
 export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
+  const { t } = useTranslation();
   const [dataDir, setDataDir] = useState("");
   const [httpPort, setHttpPort] = useState(DEFAULT_BACKEND_PORT);
   const [saving, setSaving] = useState(false);
@@ -76,15 +78,14 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               Liri
             </h1>
             <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-              欢迎使用 Liri，你的 AI 助手。开始之前先做一点准备工作，
-              之后就可以直接开始对话了。
+              {t("onboarding.welcomeText")}
             </p>
           </div>
           <button
             onClick={() => setStep("configure")}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
-            开始准备
+            {t("onboarding.startPrep")}
           </button>
         </div>
       </div>
@@ -95,29 +96,29 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full mx-4">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-          准备工作
+          {t("onboarding.prepTitle")}
         </h2>
 
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              我的数据存放位置
+              {t("onboarding.dataDirLabel")}
             </label>
             <input
               type="text"
               value={dataDir}
               onChange={(e) => setDataDir(e.target.value)}
-              placeholder="C:\Users\<用户名>\.pyapp"
+              placeholder={t("onboarding.dataDirPlaceholder")}
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              你的对话、资料和设置都会保存在这里
+              {t("onboarding.dataDirHint")}
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              网络端口
+              {t("onboarding.httpPortLabel")}
             </label>
             <input
               type="number"
@@ -128,7 +129,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              一般保持默认即可
+              {t("onboarding.httpPortHint")}
             </p>
           </div>
 
@@ -140,7 +141,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
 
           {saving && (
             <div className="text-sm text-blue-600 dark:text-blue-400 text-center py-2">
-              准备中...
+              {t("onboarding.preparing")}
             </div>
           )}
 
@@ -150,7 +151,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               disabled={saving || !dataDir.trim()}
               className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
-              开始使用
+              {t("onboarding.startUsing")}
             </button>
           </div>
         </div>

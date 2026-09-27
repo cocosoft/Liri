@@ -15,9 +15,14 @@ export interface SchemaField<
 > {
   /** 表单数据字段 key */
   key: T;
-  label: string;
+  /** 可翻译标签键（优先于 label） */
+  labelKey?: string;
+  /** 语言中立字面标签（无中文时使用） */
+  label?: string;
   type: SchemaFieldType;
   required?: boolean;
+  /** 可翻译占位符键（优先于 placeholder） */
+  placeholderKey?: string;
   placeholder?: string;
   options?: Array<{ value: string; label: string }>;
   /** checkbox 反向语义：勾选 = 该字段为 false（如 requiresAuth） */
@@ -29,14 +34,14 @@ export interface SchemaField<
 export const PROVIDER_FORM_SCHEMA: SchemaField[] = [
   {
     key: "name",
-    label: "名称",
+    labelKey: "model.providerFieldName",
     type: "text",
     required: true,
-    placeholder: "例如: DeepSeek",
+    placeholderKey: "model.providerFieldNamePlaceholder",
   },
   {
     key: "providerType",
-    label: "类型",
+    labelKey: "model.providerFieldType",
     type: "select",
     options: Object.entries(PROVIDER_TYPE_LABELS).map(([value, label]) => ({
       value,
@@ -59,13 +64,13 @@ export const PROVIDER_FORM_SCHEMA: SchemaField[] = [
   },
   {
     key: "notes",
-    label: "备注",
+    labelKey: "model.providerFieldNotes",
     type: "text",
-    placeholder: "可选备注",
+    placeholderKey: "model.providerFieldNotesPlaceholder",
   },
   {
     key: "requiresAuth",
-    label: "本地供应商（无需 API Key，如 Ollama / LM Studio）",
+    labelKey: "model.providerFieldLocal",
     type: "checkbox",
     inverted: true,
   },

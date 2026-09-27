@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { SpanRecord } from "../../../monitoring/otel";
 
 // ── Types ───────────────────────────────────────────────────
@@ -30,16 +31,16 @@ export interface TreeSpan extends SanitizedSpan {
 
 const MODULE_PREFIXES: [string, string][] = [
   ["http.", "HTTP"],
-  ["tool.", "工具调用"],
-  ["session.", "会话"],
-  ["auth.", "认证"],
-  ["db.", "数据库"],
-  ["ai.", "AI/模型"],
-  ["llm.", "AI/模型"],
-  ["model.", "AI/模型"],
+  ["tool.", i18n.t("otel.catTool")],
+  ["session.", i18n.t("otel.catSession")],
+  ["auth.", i18n.t("otel.catAuth")],
+  ["db.", i18n.t("otel.catDb")],
+  ["ai.", i18n.t("otel.catAi")],
+  ["llm.", i18n.t("otel.catAi")],
+  ["model.", i18n.t("otel.catAi")],
   ["agent.", "Agent"],
   ["task.", "Agent"],
-  ["channel.", "通道"],
+  ["channel.", i18n.t("otel.catChannel")],
   ["mcp.", "MCP"],
 ];
 

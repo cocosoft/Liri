@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CronTask } from "../types";
 import { cronService } from "../services/backgroundTaskService";
 
@@ -13,6 +14,7 @@ import { cronService } from "../services/backgroundTaskService";
 
 /** 任务统计网格 */
 function TaskStatsGrid({ tasks }: { tasks: CronTask[] }) {
+  const { t } = useTranslation();
   const running = tasks.filter((t) => t.enabled && t.status === "running");
   const idle = tasks.filter((t) => t.enabled && t.status !== "running");
   const errorCount = tasks.filter((t) => t.status === "error").length;
@@ -23,25 +25,33 @@ function TaskStatsGrid({ tasks }: { tasks: CronTask[] }) {
         <span className="block text-lg font-bold text-gray-900 dark:text-white">
           {tasks.length}
         </span>
-        <span className="text-gray-500 dark:text-gray-400">总数</span>
+        <span className="text-gray-500 dark:text-gray-400">
+          {t("tasks.total")}
+        </span>
       </div>
       <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
         <span className="block text-lg font-bold text-green-600">
           {running.length}
         </span>
-        <span className="text-gray-500 dark:text-gray-400">运行中</span>
+        <span className="text-gray-500 dark:text-gray-400">
+          {t("tasks.running")}
+        </span>
       </div>
       <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
         <span className="block text-lg font-bold text-yellow-600">
           {idle.length}
         </span>
-        <span className="text-gray-500 dark:text-gray-400">待命中</span>
+        <span className="text-gray-500 dark:text-gray-400">
+          {t("tasks.standby")}
+        </span>
       </div>
       <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
         <span className="block text-lg font-bold text-red-600">
           {errorCount}
         </span>
-        <span className="text-gray-500 dark:text-gray-400">异常</span>
+        <span className="text-gray-500 dark:text-gray-400">
+          {t("tasks.abnormal")}
+        </span>
       </div>
     </div>
   );
@@ -49,12 +59,13 @@ function TaskStatsGrid({ tasks }: { tasks: CronTask[] }) {
 
 /** 运行中任务列表 */
 function RunningTasksList({ tasks }: { tasks: CronTask[] }) {
+  const { t } = useTranslation();
   const running = tasks.filter((t) => t.enabled && t.status === "running");
 
   if (tasks.length === 0) {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
-        暂无运行中的定时任务
+        {t("tasks.noRunningTasks")}
       </div>
     );
   }
@@ -71,7 +82,9 @@ function RunningTasksList({ tasks }: { tasks: CronTask[] }) {
             <span className="text-gray-600 dark:text-gray-400 truncate">
               {task.name}
             </span>
-            <span className="ml-auto text-xs text-gray-400">运行中</span>
+            <span className="ml-auto text-xs text-gray-400">
+              {t("tasks.running")}
+            </span>
           </div>
         ))
       ) : (
@@ -93,7 +106,9 @@ function RunningTasksList({ tasks }: { tasks: CronTask[] }) {
                   {task.name}
                 </span>
                 <span className="ml-auto text-xs text-gray-400">
-                  {task.status === "error" ? "错误" : "待命"}
+                  {task.status === "error"
+                    ? t("tasks.statusError")
+                    : t("tasks.statusStandby")}
                 </span>
               </div>
             ))}
@@ -106,6 +121,7 @@ function RunningTasksList({ tasks }: { tasks: CronTask[] }) {
 // ─── 主组件 ───────────────────────────────────────
 
 export default function RunningTasksCard() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<CronTask[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -140,7 +156,7 @@ export default function RunningTasksCard() {
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          运行中的任务
+          {t("tasks.runningTasks")}
           {tasks.filter((t) => t.enabled && t.status === "running").length >
             0 && (
             <span className="ml-2 text-xs text-blue-500">

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useFileStore } from "../../stores/fileStore";
 import type {
   FileRegistryRecord,
@@ -12,21 +13,25 @@ import { useConfigStore } from "../../stores/configStore";
 import { formatRegistryTime } from "../../utils/registryTime";
 
 /**
- * 来源筛选选项配置
+ * 来源筛选选项配置（`labelKey` 走 i18n；`label` 为语言中立专名）
  */
-const SOURCE_GROUPS: Array<{ label: string; sources: string[] }> = [
-  { label: "全部", sources: [] },
-  { label: "用户上传", sources: ["upload"] },
+const SOURCE_GROUPS: Array<{
+  label?: string;
+  labelKey?: string;
+  sources: string[];
+}> = [
+  { labelKey: "common.all", sources: [] },
+  { labelKey: "files.sourceUpload", sources: ["upload"] },
   { label: "Telegram", sources: ["channel_telegram"] },
-  { label: "飞书", sources: ["channel_feishu"] },
-  { label: "钉钉", sources: ["channel_dingtalk"] },
-  { label: "AI 写入", sources: ["tool_write"] },
-  { label: "AI 下载", sources: ["tool_download"] },
-  { label: "AI 生成", sources: ["tool_generate"] },
-  { label: "自动摄取", sources: ["auto_ingest"] },
-  { label: "会话制品", sources: ["artifact"] },
-  { label: "笔记本", sources: ["notebook"] },
-  { label: "解压产物", sources: ["archive_extracted"] },
+  { labelKey: "files.sourceFeishu", sources: ["channel_feishu"] },
+  { labelKey: "files.sourceDingtalk", sources: ["channel_dingtalk"] },
+  { labelKey: "files.sourceAIWrite", sources: ["tool_write"] },
+  { labelKey: "files.sourceAIDownload", sources: ["tool_download"] },
+  { labelKey: "files.sourceAIGenerate", sources: ["tool_generate"] },
+  { labelKey: "files.sourceAutoIngest", sources: ["auto_ingest"] },
+  { labelKey: "files.sourceArtifact", sources: ["artifact"] },
+  { labelKey: "files.sourceNotebook", sources: ["notebook"] },
+  { labelKey: "files.sourceArchiveExtracted", sources: ["archive_extracted"] },
 ];
 
 /**
@@ -34,6 +39,7 @@ const SOURCE_GROUPS: Array<{ label: string; sources: string[] }> = [
  * 支持来源筛选、FTS 搜索、游标分页
  */
 function FileListView() {
+  const { t } = useTranslation();
   const {
     registryResults,
     registryTotal,
@@ -121,10 +127,14 @@ function FileListView() {
     return "📎";
   };
 
+  /** 解析来源筛选组标签（`labelKey` 优先） */
+  const groupLabel = (group: (typeof SOURCE_GROUPS)[number]): string =>
+    group.labelKey ? t(group.labelKey) : (group.label ?? "");
+
   /** 获取来源中文标签 */
   const getSourceLabel = (source: string): string => {
     const group = SOURCE_GROUPS.find((g) => g.sources.includes(source));
-    return group?.label || source;
+    return group ? groupLabel(group) : source;
   };
 
   /** 获取来源颜色 */
@@ -165,7 +175,7 @@ function FileListView() {
             onChange={(v) => {
               setSearchText(v);
             }}
-            placeholder="FTS 全文搜索..."
+            placeholder={t("files.ftsSearchPlaceholder")}
             className="flex-1"
           />
           <button
@@ -175,26 +185,26 @@ function FileListView() {
             }}
             className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            搜索
+            {t("common.search")}
           </button>
           <button
             onClick={() => setViewMode("directory")}
             className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
           >
-            返回目录
+            {t("files.backToDirectory")}
           </button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* 来源筛选 */}
           <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
-            来源:
+            {t("files.sourceLabel")}
           </span>
           {SOURCE_GROUPS.map((group) => {
             const sources = group.sources ?? [];
             return (
               <button
-                key={group.label}
+                key={group.labelKey ?? group.label}
                 onClick={() => {
                   const newSource =
                     activeSource === sources[0]
@@ -209,7 +219,7 @@ function FileListView() {
                     : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
                 }`}
               >
-                {group.label}
+                {groupLabel(group)}
               </button>
             );
           })}
@@ -218,7 +228,7 @@ function FileListView() {
         <div className="flex items-center gap-2">
           {/* 存储分区筛选 */}
           <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
-            分区:
+            {t("files.zoneLabel")}
           </span>
           {(["inbound", "media", "artifact", "notebook"] as const).map(
             (zone) => (
@@ -234,12 +244,12 @@ function FileListView() {
                 }`}
               >
                 {zone === "inbound"
-                  ? "入站"
+                  ? t("files.zoneInbound")
                   : zone === "media"
-                    ? "媒体"
+                    ? t("files.zoneMedia")
                     : zone === "artifact"
-                      ? "制品"
-                      : "笔记本"}
+                      ? t("files.zoneArtifact")
+                      : t("files.zoneNotebook")}
               </button>
             ),
           )}
@@ -249,14 +259,16 @@ function FileListView() {
       {/* 统计信息 */}
       <div className="px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
         <span className="text-sm text-gray-500 dark:text-gray-400">
-          共{" "}
+          {t("files.recordCountPrefix")}{" "}
           <strong className="text-gray-900 dark:text-gray-100">
             {registryTotal ?? 0}
           </strong>{" "}
-          条记录
+          {t("files.recordCountSuffix")}
           {(registryResults ?? []).length < (registryTotal ?? 0) && (
             <span className="ml-1">
-              （已显示 {(registryResults ?? []).length} 条）
+              {t("files.shownCount", {
+                count: (registryResults ?? []).length,
+              })}
             </span>
           )}
         </span>
@@ -266,15 +278,17 @@ function FileListView() {
       <div className="flex-1 overflow-y-auto p-4">
         {registryLoading && (registryResults ?? []).length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            加载中...
+            {t("common.loading")}
           </div>
         ) : error ? (
           <div className="text-center py-12 text-red-500">{error}</div>
         ) : (registryResults ?? []).length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">暂无文件记录</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {t("files.noRecords")}
+            </p>
             <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-              上传文件或使用 AI 工具生成文件后将在此处显示
+              {t("files.noRecordsHint")}
             </p>
           </div>
         ) : (
@@ -313,7 +327,7 @@ function FileListView() {
                             {formatSize(record.size)}
                           </span>
                           <span className="text-xs text-gray-400">
-                            {record.mimeType || "未知类型"}
+                            {record.mimeType || t("files.unknownType")}
                           </span>
                           <span className="text-xs text-gray-400">
                             {formatDate(record.createdAt)}
@@ -329,10 +343,10 @@ function FileListView() {
                     {/* P1-2：已入知识库徽标（依据 DB 字段，非字符串判断） */}
                     {record.knowledgeLinkedAt && (
                       <span
-                        title="该文件已摄取到知识库"
+                        title={t("files.knowledgeLinkedTooltip")}
                         className="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                       >
-                        📚 已入知识库
+                        {t("files.knowledgeLinkedBadge")}
                       </span>
                     )}
                   </div>
@@ -342,32 +356,42 @@ function FileListView() {
                     <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
-                          <span className="text-gray-400">来源 ID：</span>
+                          <span className="text-gray-400">
+                            {t("files.sourceIdLabel")}
+                          </span>
                           <span className="text-gray-700 dark:text-gray-300">
                             {record.sourceId || "-"}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-400">存储分区：</span>
+                          <span className="text-gray-400">
+                            {t("files.storeZoneLabel")}
+                          </span>
                           <span className="text-gray-700 dark:text-gray-300">
                             {record.storeZone}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-400">MD5：</span>
+                          <span className="text-gray-400">
+                            {t("files.md5Label")}
+                          </span>
                           <code className="text-xs text-gray-700 dark:text-gray-300">
                             {record.md5 || "-"}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-400">文件 ID：</span>
+                          <span className="text-gray-400">
+                            {t("files.fileIdLabel")}
+                          </span>
                           <code className="text-xs text-gray-700 dark:text-gray-300">
                             {record.fileId}
                           </code>
                         </div>
                         {record.storeZone === "inbound" && (
                           <div className="col-span-2">
-                            <span className="text-gray-400">保存路径：</span>
+                            <span className="text-gray-400">
+                              {t("files.savedPathLabel")}
+                            </span>
                             <code className="text-xs text-gray-600 dark:text-gray-400 break-all">
                               {record.savedPath}
                             </code>
@@ -386,7 +410,7 @@ function FileListView() {
                             }}
                             className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
                           >
-                            预览
+                            {t("files.preview")}
                           </button>
                         )}
                         <button
@@ -397,7 +421,7 @@ function FileListView() {
                           }}
                           className="px-3 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors"
                         >
-                          复制路径
+                          {t("files.copyPath")}
                         </button>
                         {record.storeZone !== "media" && (
                           <button
@@ -413,7 +437,7 @@ function FileListView() {
                             }}
                             className="px-3 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded-md transition-colors"
                           >
-                            存入知识库
+                            {t("files.saveToKnowledge")}
                           </button>
                         )}
                       </div>
@@ -431,7 +455,7 @@ function FileListView() {
                   disabled={registryLoading}
                   className="px-6 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {registryLoading ? "加载中..." : "加载更多"}
+                  {registryLoading ? t("common.loading") : t("files.loadMore")}
                 </button>
               </div>
             )}

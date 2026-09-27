@@ -16,6 +16,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // 双端共享契约（与 `client/tsconfig.json` 的 `@shared/*` paths 对应）。
+      // ⚠ tsconfig paths 只服务类型检查；**值导入**（非 `import type`，会被擦除）必须有运行时别名，
+      // 否则 dev / build / vitest 三处都解析失败。2026-09-27 因 `status-types` 引入值导入时补。
+      "@shared": path.resolve(__dirname, "../shared"),
     },
     dedupe: ["react", "react-dom"],
   },

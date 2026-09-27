@@ -5,6 +5,7 @@
  * ProviderRankTable — 供应商排名表（供应商名 + 请求数 + Tokens + 成本 + 成功率 + 延迟）
  * Props: { stats: ProviderRankEntry[], currency?, maxRows? }
  */
+import { useTranslation } from "react-i18next";
 import { formatCost, formatTokens } from "../../utils/format";
 
 export interface ProviderRankEntry {
@@ -28,6 +29,7 @@ export function ProviderRankTable({
   currency = "$",
   maxRows = 10,
 }: ProviderRankTableProps) {
+  const { t } = useTranslation();
   const sorted = [...stats]
     .sort((a, b) => b.totalCost - a.totalCost)
     .slice(0, maxRows);
@@ -35,10 +37,12 @@ export function ProviderRankTable({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-        供应商使用排行
+        {t("common.providerRankTitle")}
       </h3>
       {sorted.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">暂无数据</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500">
+          {t("common.noData")}
+        </p>
       ) : (
         <div className="space-y-2">
           {sorted.map((p) => (
@@ -58,7 +62,9 @@ export function ProviderRankTable({
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatTokens(p.requestCount)} 次
+                  {t("common.timesCount", {
+                    count: formatTokens(p.requestCount),
+                  })}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   {formatTokens(p.totalTokens)}

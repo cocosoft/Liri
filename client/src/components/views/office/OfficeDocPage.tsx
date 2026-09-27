@@ -15,49 +15,52 @@ import CreateDocModal from "./CreateDocModal";
 
 interface TemplateDef {
   id: string;
-  name: string;
+  /** 展示名：语言中立专名（如 PRD）直接给字面量 */
+  name?: string;
+  /** 展示名的 i18n key（与 name 二选一） */
+  nameKey?: string;
   icon: string;
-  scenario: string;
+  scenarioKey: string;
   prompt: string;
-  inputs: string;
+  inputsKey: string;
 }
 
 const TEMPLATES: TemplateDef[] = [
   {
     id: "weekly-report",
-    name: "周报",
+    nameKey: "office.docTemplateWeekly",
     icon: "📋",
-    scenario: "本周工作总结与下周计划",
+    scenarioKey: "office.docTemplateWeeklyScenario",
     prompt:
       "请用周报模板帮我创建本周工作总结文档，包括：\n1. 本周完成的工作\n2. 遇到的问题及解决方案\n3. 下周工作计划",
-    inputs: "工作事项列表",
+    inputsKey: "office.docTemplateWeeklyInputs",
   },
   {
     id: "meeting-minutes",
-    name: "会议纪要",
+    nameKey: "office.docTemplateMeeting",
     icon: "📝",
-    scenario: "会议记录、决议跟踪",
+    scenarioKey: "office.docTemplateMeetingScenario",
     prompt:
       "请用会议纪要模板帮我创建会议记录，包括：\n1. 会议主题\n2. 参会人员\n3. 讨论要点\n4. 决议事项\n5. 待办任务",
-    inputs: "会议信息",
+    inputsKey: "office.docTemplateMeetingInputs",
   },
   {
     id: "tech-design",
-    name: "技术设计",
+    nameKey: "office.docTemplateTechDesign",
     icon: "⚙️",
-    scenario: "技术方案设计文档",
+    scenarioKey: "office.docTemplateTechDesignScenario",
     prompt:
       "请用技术设计模板帮我创建技术方案，包括：\n1. 背景与目标\n2. 技术选型\n3. 架构设计\n4. 接口定义\n5. 风险评估",
-    inputs: "设计概要",
+    inputsKey: "office.docTemplateTechDesignInputs",
   },
   {
     id: "prd",
     name: "PRD",
     icon: "📄",
-    scenario: "产品需求文档",
+    scenarioKey: "office.docTemplatePrdScenario",
     prompt:
       "请用 PRD 模板帮我创建产品需求文档，包括：\n1. 产品背景\n2. 用户场景\n3. 功能需求\n4. 非功能需求\n5. 验收标准",
-    inputs: "需求要点",
+    inputsKey: "office.docTemplatePrdInputs",
   },
 ];
 
@@ -279,8 +282,10 @@ export default function OfficeDocPage() {
                   {t("office.cliNotInstalledTitle", "OfficeCLI 未安装")}
                 </h3>
                 <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                  文档创建需要 OfficeCLI 命令行工具。请在
-                  PowerShell（管理员）中运行：
+                  {t(
+                    "office.docCliRunHint",
+                    "文档创建需要 OfficeCLI 命令行工具。请在 PowerShell（管理员）中运行：",
+                  )}
                 </p>
                 <div className="bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-3 space-y-1">
                   <code className="block text-xs text-blue-700 dark:text-blue-300">
@@ -371,14 +376,14 @@ export default function OfficeDocPage() {
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">{tmpl.icon}</span>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {tmpl.name}
+                    {tmpl.nameKey ? t(tmpl.nameKey) : tmpl.name}
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  {tmpl.scenario}
+                  {t(tmpl.scenarioKey)}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
-                  输入: {tmpl.inputs}
+                  {t("office.docTemplateInputs", "输入")}: {t(tmpl.inputsKey)}
                 </p>
                 {creatingTemplate === tmpl.id && (
                   <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 animate-pulse">
@@ -453,7 +458,7 @@ export default function OfficeDocPage() {
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-xl">
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
               {t("office.docTemplatesBackend", "后端注册模板")}:{" "}
-              {docTemplates.length} 个
+              {docTemplates.length} {t("office.templatesUnit", "个")}
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {docTemplates.map((name) => (

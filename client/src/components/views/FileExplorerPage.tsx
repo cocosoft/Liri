@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useFileStore } from "../../stores/fileStore";
 import { useNavigationStore } from "../../stores/navigationStore";
@@ -50,52 +51,77 @@ type ViewMode = "grid" | "list";
 const CATEGORY_CONFIG: Partial<
   Record<
     FileCategory,
-    { label: string; icon: string; color: string; path: string }
+    { labelKey: string; icon: string; color: string; path: string }
   >
 > = {
-  all: { label: "全部", icon: "🗂️", color: "bg-gray-500", path: "" },
+  all: { labelKey: "common.all", icon: "🗂️", color: "bg-gray-500", path: "" },
   output: {
-    label: "AI 输出",
+    labelKey: "files.catOutput",
     icon: "📤",
     color: "bg-blue-500",
     path: "output",
   },
   downloads: {
-    label: "下载材料",
+    labelKey: "files.catDownloads",
     icon: "📥",
     color: "bg-green-500",
     path: "downloads",
   },
   attachments: {
-    label: "上传文件",
+    labelKey: "files.catAttachments",
     icon: "📁",
     color: "bg-purple-500",
     path: "attachments",
   },
-  memory: { label: "记忆", icon: "🧠", color: "bg-pink-500", path: "memory" },
-  inbound: { label: "入站", icon: "📥", color: "bg-teal-500", path: "inbound" },
-  media: { label: "媒体", icon: "🎬", color: "bg-red-500", path: "media" },
+  memory: {
+    labelKey: "files.memory",
+    icon: "🧠",
+    color: "bg-pink-500",
+    path: "memory",
+  },
+  inbound: {
+    labelKey: "files.zoneInbound",
+    icon: "📥",
+    color: "bg-teal-500",
+    path: "inbound",
+  },
+  media: {
+    labelKey: "files.zoneMedia",
+    icon: "🎬",
+    color: "bg-red-500",
+    path: "media",
+  },
   artifact: {
-    label: "制品",
+    labelKey: "files.zoneArtifact",
     icon: "🔧",
     color: "bg-indigo-500",
     path: "artifact",
   },
   notebook: {
-    label: "笔记本",
+    labelKey: "files.zoneNotebook",
     icon: "📓",
     color: "bg-yellow-500",
     path: "notebook",
   },
 };
 
-/** 目录树根配置 */
+/** 目录树根配置（`labelKey` 由渲染处 t() 解析） */
 const TREE_ROOTS = [
-  { key: "all", label: "全部文件", path: "", icon: "🗂️" },
-  { key: "output", label: "AI 输出", path: "output", icon: "📤" },
-  { key: "downloads", label: "下载材料", path: "downloads", icon: "📥" },
-  { key: "attachments", label: "上传文件", path: "attachments", icon: "📁" },
-  { key: "memory", label: "记忆", path: "memory", icon: "🧠" },
+  { key: "all", labelKey: "files.rootAll", path: "", icon: "🗂️" },
+  { key: "output", labelKey: "files.catOutput", path: "output", icon: "📤" },
+  {
+    key: "downloads",
+    labelKey: "files.catDownloads",
+    path: "downloads",
+    icon: "📥",
+  },
+  {
+    key: "attachments",
+    labelKey: "files.catAttachments",
+    path: "attachments",
+    icon: "📁",
+  },
+  { key: "memory", labelKey: "files.memory", path: "memory", icon: "🧠" },
 ];
 
 /**
@@ -103,6 +129,7 @@ const TREE_ROOTS = [
  * 集成目录树侧边栏 + 网格/列表双视图 + 文件管理(Registry)视图
  */
 function FileExplorerPage() {
+  const { t } = useTranslation();
   const {
     entries,
     currentPath,
@@ -268,12 +295,12 @@ function FileExplorerPage() {
           size: entry.size,
         });
       } catch (e) {
-        addToast("error", `预览失败: ${e}`);
+        addToast("error", t("files.toastPreviewFailed", { error: String(e) }));
       } finally {
         setPreviewLoading(false);
       }
     },
-    [getFilePreviewType, addToast],
+    [getFilePreviewType, addToast, t],
   );
 
   /** 关闭预览 */
@@ -335,13 +362,13 @@ function FileExplorerPage() {
     async (filePath: string) => {
       try {
         await sendToAI(filePath);
-        addToast("success", "文件已发送给 AI 分析");
+        addToast("success", t("files.toastSentToAI"));
         setActivePage("chat");
       } catch (e) {
-        addToast("error", `发送失败: ${e}`);
+        addToast("error", t("files.toastSendFailed", { error: String(e) }));
       }
     },
-    [sendToAI, addToast, setActivePage],
+    [sendToAI, addToast, setActivePage, t],
   );
 
   /** 存入知识库（成功/失败 toast 已在 fileStore 集中处理，此处仅触发） */
@@ -350,10 +377,10 @@ function FileExplorerPage() {
       try {
         await saveToKnowledge(filePath);
       } catch (e) {
-        addToast("error", `存入失败: ${e}`);
+        addToast("error", t("files.toastSaveFailed", { error: String(e) }));
       }
     },
-    [saveToKnowledge, addToast],
+    [saveToKnowledge, addToast, t],
   );
 
   /** 存入记忆 */
@@ -361,12 +388,12 @@ function FileExplorerPage() {
     async (filePath: string) => {
       try {
         await saveToMemory(filePath);
-        addToast("success", "文件内容已存入记忆");
+        addToast("success", t("files.toastSavedToMemory"));
       } catch (e) {
-        addToast("error", `存入失败: ${e}`);
+        addToast("error", t("files.toastSaveFailed", { error: String(e) }));
       }
     },
-    [saveToMemory, addToast],
+    [saveToMemory, addToast, t],
   );
 
   /** 目录树导航 */
@@ -390,6 +417,8 @@ function FileExplorerPage() {
     return selectedFile?.path === entry.path;
   };
 
+  const treeRoots = TREE_ROOTS.map((r) => ({ ...r, label: t(r.labelKey) }));
+
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto p-6">
@@ -397,12 +426,12 @@ function FileExplorerPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              文件枢纽
+              {t("files.hubTitle")}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {currentWorkspace
-                ? `工作空间: ${currentWorkspace.name}`
-                : "未选择工作空间"}
+                ? t("files.workspaceLine", { name: currentWorkspace.name })
+                : t("files.noWorkspace")}
             </p>
           </div>
           <div className="flex gap-3 items-center">
@@ -414,7 +443,7 @@ function FileExplorerPage() {
                   ? "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
-              title={showTree ? "隐藏目录树" : "显示目录树"}
+              title={showTree ? t("files.hideTree") : t("files.showTree")}
             >
               {showTree ? "📂" : "📁"}
             </button>
@@ -427,7 +456,7 @@ function FileExplorerPage() {
                     ? "bg-blue-600 text-white"
                     : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
-                title="网格视图"
+                title={t("files.gridView")}
               >
                 ▦
               </button>
@@ -438,7 +467,7 @@ function FileExplorerPage() {
                     ? "bg-blue-600 text-white"
                     : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
-                title="列表视图"
+                title={t("files.listView")}
               >
                 ☰
               </button>
@@ -460,7 +489,7 @@ function FileExplorerPage() {
                   : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
             >
-              📋 文件管理
+              {t("files.registryToggle")}
             </button>
             <button
               onClick={() => {
@@ -469,13 +498,13 @@ function FileExplorerPage() {
               }}
               className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
             >
-              📚 前往知识库
+              {t("files.goToKnowledge")}
             </button>
             <button
               onClick={() => setActivePage("chat")}
               className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
-              返回聊天
+              {t("files.backToChat")}
             </button>
           </div>
         </div>
@@ -506,7 +535,7 @@ function FileExplorerPage() {
               }`}
             >
               <span>{config.icon}</span>
-              <span>{config.label}</span>
+              <span>{t(config.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -521,7 +550,7 @@ function FileExplorerPage() {
                 <DirectoryTree
                   currentPath={currentPath}
                   onNavigate={handleTreeNavigate}
-                  roots={TREE_ROOTS}
+                  roots={treeRoots}
                   currentRoot={currentCategory}
                   onRootChange={handleRootChange}
                 />
@@ -531,27 +560,27 @@ function FileExplorerPage() {
                 {fileStats && !showRegistry && (
                   <div className="flex items-center gap-6 px-4 py-2 mb-3 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10 border-gray-200 dark:border-gray-700">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      📁 文件总数:{" "}
+                      {t("files.statsTotalFiles")}{" "}
                       <strong className="text-gray-700 dark:text-gray-300">
                         {fileStats.totalFiles}
                       </strong>
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      📦 总大小:{" "}
+                      {t("files.statsTotalSize")}{" "}
                       <strong className="text-gray-700 dark:text-gray-300">
                         {formatSize(fileStats.totalSize)}
                       </strong>
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      📤 今日入站:{" "}
+                      {t("files.statsTodayInbound")}{" "}
                       <strong className="text-gray-700 dark:text-gray-300">
                         {fileStats.todayInbound}
                       </strong>
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      🔁 去重节省:{" "}
+                      {t("files.statsDedupSaved")}{" "}
                       <strong className="text-gray-700 dark:text-gray-300">
-                        {fileStats.dedupSaved} 次
+                        {t("files.times", { count: fileStats.dedupSaved })}
                       </strong>
                       {fileStats.dedupSize > 0 && (
                         <span className="text-gray-400 ml-1">
@@ -568,7 +597,7 @@ function FileExplorerPage() {
                     <SearchInput
                       value={searchQuery}
                       onChange={setSearchQuery}
-                      placeholder="过滤当前目录..."
+                      placeholder={t("files.filterPlaceholder")}
                       className="w-64"
                     />
                     <div className="relative">
@@ -581,7 +610,9 @@ function FileExplorerPage() {
                         className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         <span>📁</span>
-                        <span>{currentWorkspace?.name || "选择工作空间"}</span>
+                        <span>
+                          {currentWorkspace?.name || t("files.selectWorkspace")}
+                        </span>
                         <span className="text-gray-400">▼</span>
                       </button>
                       {activeMenu === "workspace" && (
@@ -604,7 +635,7 @@ function FileExplorerPage() {
                           ))}
                           {workspaces.length === 0 && (
                             <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                              暂无工作空间
+                              {t("files.noWorkspaceOption")}
                             </div>
                           )}
                         </div>
@@ -619,14 +650,14 @@ function FileExplorerPage() {
                       }
                       className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      上级目录
+                      {t("files.parentDir")}
                     </button>
                     <button
                       onClick={handleUploadClick}
                       disabled={uploading}
                       className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition-colors"
                     >
-                      {uploading ? "上传中..." : "上传文件"}
+                      {uploading ? t("files.uploading") : t("files.uploadFile")}
                     </button>
                     <input
                       ref={fileInputRef}
@@ -647,7 +678,7 @@ function FileExplorerPage() {
                   {isDragging && (
                     <div className="p-8 border-2 border-dashed border-green-500 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
                       <p className="text-lg font-medium text-green-600 dark:text-green-400">
-                        📁 释放文件以上传
+                        {t("files.dropToUpload")}
                       </p>
                     </div>
                   )}
@@ -661,30 +692,30 @@ function FileExplorerPage() {
                         {error}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        请确认后端服务（Liri_coding）是否已正常启动
+                        {t("files.backendHint")}
                       </p>
                       <button
                         onClick={() => loadDir(currentPath)}
                         className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                       >
-                        重新加载
+                        {t("files.reload")}
                       </button>
                     </div>
                   ) : sortedEntries.length === 0 ? (
                     <div className="text-center py-12">
                       <p className="text-gray-500 dark:text-gray-400">
-                        暂无文件
+                        {t("files.noFiles")}
                       </p>
                       <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
                         {currentCategory === "all"
-                          ? "这是您的 Liri 数据目录（~/.pyapp/），子目录将在此展示"
+                          ? t("files.emptyAll")
                           : currentCategory === "output"
-                            ? "AI 生成的输出文件将出现在此目录"
+                            ? t("files.emptyOutput")
                             : currentCategory === "downloads"
-                              ? "下载的材料将保存到此目录"
+                              ? t("files.emptyDownloads")
                               : currentCategory === "attachments"
-                                ? "上传的文件将保存到此目录。拖拽文件到此处或点击「上传文件」按钮"
-                                : "拖拽文件到此处或点击上传按钮添加文件"}
+                                ? t("files.emptyAttachments")
+                                : t("files.dropHint")}
                       </p>
                     </div>
                   ) : viewMode === "list" ? (
@@ -724,7 +755,7 @@ function FileExplorerPage() {
                             {entry.type === "file" && entry.size === 0 ? (
                               // P2-3：0 字节文件显示空标记（对齐 DetailedFileList）
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                空
+                                {t("files.emptyFileBadge")}
                               </span>
                             ) : (
                               <span>{formatSize(entry.size)}</span>
@@ -743,7 +774,7 @@ function FileExplorerPage() {
                                   disabled={previewLoading}
                                   className="flex-1 px-2 py-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors disabled:opacity-50"
                                 >
-                                  👁️ 预览
+                                  {t("files.previewBtn")}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -763,7 +794,7 @@ function FileExplorerPage() {
                                   }}
                                   className="flex-1 px-2 py-1 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded-md transition-colors"
                                 >
-                                  📚 知识库
+                                  {t("files.knowledgeBtn")}
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -772,14 +803,14 @@ function FileExplorerPage() {
                                   }}
                                   className="flex-1 px-2 py-1 text-xs bg-pink-500 hover:bg-pink-600 text-white rounded-md transition-colors"
                                 >
-                                  🧠 记忆
+                                  {t("files.memoryBtn")}
                                 </button>
                               </div>
                             </div>
                           )}
                           {entry.type === "directory" && (
                             <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">
-                              点击进入
+                              {t("files.clickEnter")}
                             </div>
                           )}
                         </div>
@@ -833,6 +864,7 @@ function FilePreviewModal({
   onSendToAI,
   onSaveToKnowledge,
 }: FilePreviewModalProps) {
+  const { t } = useTranslation();
   const [copySuccess, setCopySuccess] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -878,7 +910,7 @@ function FilePreviewModal({
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
                 />
               </svg>
-              <p className="text-sm">图片加载失败</p>
+              <p className="text-sm">{t("files.imageLoadFailed")}</p>
             </div>
           ) : (
             <img
@@ -1032,6 +1064,7 @@ function ModalHeader({
   copySuccess,
   showCopy,
 }: ModalHeaderProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-3 min-w-0">
@@ -1051,20 +1084,20 @@ function ModalHeader({
             onClick={onCopy}
             className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
           >
-            {copySuccess ? "✅ 已复制" : "📋 复制内容"}
+            {copySuccess ? t("files.copiedBadge") : t("files.copyContent")}
           </button>
         )}
         <button
           onClick={() => onSendToAI(preview.path)}
           className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
         >
-          🤖 发送给 AI
+          {t("files.sendToAIBtn")}
         </button>
         <button
           onClick={() => onSaveToKnowledge(preview.path)}
           className="px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
         >
-          📚 存入知识库
+          {t("files.saveToKnowledgeBtn")}
         </button>
         <button
           onClick={onClose}
@@ -1093,14 +1126,18 @@ function ModalHeader({
  * 文件类型徽标
  */
 function FileTypeBadge({ type }: { type: FilePreview["type"] }) {
-  const badges: Record<string, { label: string; color: string }> = {
+  const { t } = useTranslation();
+  const badges: Record<
+    string,
+    { label?: string; labelKey?: string; color: string }
+  > = {
     image: {
-      label: "图片",
+      labelKey: "files.typeImage",
       color:
         "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
     },
     code: {
-      label: "代码",
+      labelKey: "files.typeCode",
       color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
     },
     markdown: {
@@ -1118,7 +1155,7 @@ function FileTypeBadge({ type }: { type: FilePreview["type"] }) {
       color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300",
     },
     text: {
-      label: "文本",
+      labelKey: "files.typeText",
       color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
     },
     pdf: {
@@ -1126,22 +1163,23 @@ function FileTypeBadge({ type }: { type: FilePreview["type"] }) {
       color: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
     },
     docx: {
-      label: "文档",
+      labelKey: "files.typeDoc",
       color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
     },
     pptx: {
-      label: "演示",
+      labelKey: "files.typePpt",
       color:
         "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
     },
   };
   const badge = badges[type] || badges.text;
+  const label = badge.labelKey ? t(badge.labelKey) : (badge.label ?? "");
 
   return (
     <span
       className={`px-2 py-0.5 text-xs font-medium rounded-full ${badge.color}`}
     >
-      {badge.label}
+      {label}
     </span>
   );
 }

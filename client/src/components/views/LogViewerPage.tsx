@@ -101,7 +101,7 @@ function LogViewerPage() {
         setIsLoadingLogs(false);
       }
     },
-    [levelFilter, sourceFilter, searchQuery, offset],
+    [levelFilter, sourceFilter, searchQuery, offset, t],
   );
 
   const fetchSessions = useCallback(async () => {
@@ -120,7 +120,7 @@ function LogViewerPage() {
     } finally {
       setIsLoadingSessions(false);
     }
-  }, []);
+  }, [t]);
 
   const fetchSessionDetail = useCallback(async (sessionId: string) => {
     try {
@@ -483,7 +483,7 @@ function LogViewerPage() {
                     value={frontendSearchQuery}
                     onChange={setFrontendSearchQuery}
                     onSearch={handleFrontendSearch}
-                    placeholder="搜索前端日志"
+                    placeholder={t("logs.frontendSearchPlaceholder")}
                     isDark={isDark}
                   />
                 </div>
@@ -496,7 +496,7 @@ function LogViewerPage() {
                       : "bg-white border-gray-300 text-gray-700"
                   } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 >
-                  <option value="all">全部级别</option>
+                  <option value="all">{t("logs.allLevels")}</option>
                   <option value="debug">Debug</option>
                   <option value="info">Info</option>
                   <option value="warn">Warning</option>
@@ -506,7 +506,7 @@ function LogViewerPage() {
                   type="text"
                   value={frontendModuleFilter}
                   onChange={(e) => setFrontendModuleFilter(e.target.value)}
-                  placeholder="模块名称"
+                  placeholder={t("logs.modulePlaceholder")}
                   className={`px-3 py-2 text-sm rounded-lg border flex-1 min-w-[150px] ${
                     isDark
                       ? "bg-gray-700 border-gray-600 text-gray-300 placeholder-gray-500"
@@ -521,7 +521,7 @@ function LogViewerPage() {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
-                  刷新
+                  {t("common.refresh")}
                 </button>
                 <button
                   onClick={handleClearFrontendLogs}
@@ -531,12 +531,12 @@ function LogViewerPage() {
                       : "bg-red-600 hover:bg-red-700 text-white"
                   }`}
                 >
-                  清空
+                  {t("logs.clear")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-4 mt-3 text-xs">
                 <span className={isDark ? "text-gray-400" : "text-gray-500"}>
-                  共 {frontendLogsTotal} 条日志
+                  {t("logs.frontendTotal", { count: frontendLogsTotal })}
                 </span>
                 <span className="text-gray-400">|</span>
                 <span className="text-gray-400">
@@ -570,7 +570,7 @@ function LogViewerPage() {
               <div
                 className={`text-center py-12 ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                <p>暂无前端日志</p>
+                <p>{t("logs.noFrontendLogs")}</p>
               </div>
             ) : (
               <>
@@ -643,7 +643,7 @@ function LogViewerPage() {
                           : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                       }`}
                     >
-                      加载更多
+                      {t("logs.loadMore")}
                     </button>
                   </div>
                 )}

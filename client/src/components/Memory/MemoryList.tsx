@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Memory } from "../../services/memoryService";
 import { TYPE_LABELS, TYPE_COLORS } from "./memoryConstants";
 
@@ -37,6 +38,7 @@ function MemoryList({
   onTogglePin,
   onTagClick,
 }: MemoryListProps) {
+  const { t } = useTranslation();
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN", {
       month: "2-digit",
@@ -63,20 +65,20 @@ function MemoryList({
     let colorClass: string;
 
     if (dreamSource.type === "knowledge_file") {
-      label = "知识提炼";
+      label = t("memory.dreamKnowledge");
       colorClass =
         "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300";
     } else if (dreamSource.type === "manual") {
-      label = "手动创建";
+      label = t("memory.dreamManual");
       colorClass =
         "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
     } else if (dreamSource.type === "conversation") {
       if (dreamRefined) {
-        label = "梦境精炼";
+        label = t("memory.dreamRefined");
         colorClass =
           "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300";
       } else {
-        label = "对话记忆";
+        label = t("memory.dreamConversation");
         colorClass =
           "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
       }
@@ -111,11 +113,11 @@ function MemoryList({
             d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
           />
         </svg>
-        <p className="text-base font-medium mb-2">暂无记忆</p>
+        <p className="text-base font-medium mb-2">{t("memory.noMemories")}</p>
         <p className="text-sm max-w-md mx-auto leading-relaxed">
-          系统会在对话中自动提取并保存重要的上下文、偏好和知识。
+          {t("memory.emptyDesc")}
           <br />
-          点击上方「+ 创建记忆」手动添加，或继续对话让 AI 自动记录。
+          {t("memory.emptyDesc2")}
         </p>
       </div>
     );
@@ -167,7 +169,10 @@ function MemoryList({
                   )}
                   {/* 置顶图标 */}
                   {isPinned && (
-                    <span title="已置顶" className="text-yellow-500 text-xs">
+                    <span
+                      title={t("memory.pinned")}
+                      className="text-yellow-500 text-xs"
+                    >
                       📌
                     </span>
                   )}
@@ -181,7 +186,7 @@ function MemoryList({
                   <span
                     className={`text-xs ${getWeightColor(memory.weight)} font-medium`}
                   >
-                    权重: {memory.weight}
+                    {t("memory.weightLabel", { count: memory.weight })}
                   </span>
                   {getDreamSourceBadge(memory)}
                 </div>
@@ -205,7 +210,7 @@ function MemoryList({
                         e.stopPropagation();
                         onTagClick?.(tag);
                       }}
-                      title="点击按此标签筛选"
+                      title={t("memory.tagFilterTitle")}
                       className={`px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors ${
                         isDark
                           ? "bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-blue-400"
@@ -236,7 +241,7 @@ function MemoryList({
                           ? "hover:bg-gray-600 text-gray-500 hover:text-yellow-400"
                           : "hover:bg-gray-100 text-gray-400 hover:text-yellow-600"
                     }`}
-                    title={isPinned ? "取消置顶" : "置顶"}
+                    title={isPinned ? t("memory.unpinTitle") : t("memory.pin")}
                   >
                     📌
                   </button>
@@ -251,7 +256,7 @@ function MemoryList({
                       ? "hover:bg-gray-600 text-gray-400 hover:text-blue-400"
                       : "hover:bg-gray-100 text-gray-400 hover:text-blue-600"
                   }`}
-                  title="编辑"
+                  title={t("common.edit")}
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -277,7 +282,7 @@ function MemoryList({
                       ? "hover:bg-gray-600 text-gray-400 hover:text-red-400"
                       : "hover:bg-gray-100 text-gray-400 hover:text-red-600"
                   }`}
-                  title="删除"
+                  title={t("common.delete")}
                 >
                   <svg
                     className="w-3.5 h-3.5"

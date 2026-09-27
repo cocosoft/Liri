@@ -34,26 +34,26 @@ interface LlamaConfigPanelProps {
   isDark: boolean;
 }
 
-const STATUS_LABEL: Record<LlamaStatus["status"], string> = {
-  stopped: "已停止",
-  downloading: "下载中…",
-  starting: "启动中…",
-  running: "运行中",
-  error: "异常",
+const STATUS_LABEL_KEY: Record<LlamaStatus["status"], string> = {
+  stopped: "common.stopped",
+  downloading: "settings.llamaStatusDownloading",
+  starting: "settings.llamaStatusStarting",
+  running: "common.running",
+  error: "settings.llamaStatusError",
 };
 
 /** KV cache 档位选项（D1: low=q4_0 / medium=q8_0 / high=f16） */
-const KV_CACHE_OPTIONS: { value: LlamaKvCacheTier; label: string }[] = [
-  { value: "low", label: "低 (q4_0)" },
-  { value: "medium", label: "中 (q8_0)" },
-  { value: "high", label: "高 (f16)" },
+const KV_CACHE_OPTIONS: { value: LlamaKvCacheTier; labelKey: string }[] = [
+  { value: "low", labelKey: "settings.kvCacheLow" },
+  { value: "medium", labelKey: "settings.kvCacheMedium" },
+  { value: "high", labelKey: "settings.kvCacheHigh" },
 ];
 
 /** Flash Attention 三态（D2 显式传默认值 auto） */
-const FLASH_ATTN_OPTIONS = [
-  { value: "auto", label: "自动 (auto)" },
-  { value: "on", label: "开启 (on)" },
-  { value: "off", label: "关闭 (off)" },
+const FLASH_ATTN_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: "auto", labelKey: "settings.flashAttnAuto" },
+  { value: "on", labelKey: "settings.flashAttnOn" },
+  { value: "off", labelKey: "settings.flashAttnOff" },
 ];
 
 /** 数值输入解析：非数字回退默认值 */
@@ -143,31 +143,38 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       setError(null);
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "load" });
-      setError(e instanceof Error ? e.message : "加载 llama.cpp 配置失败");
+      setError(e instanceof Error ? e.message : t("settings.llamaLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // 硬件检测：页面加载时自动执行一次
-  const runHardwareDetection = useCallback(async (force = false) => {
-    setHardwareDetecting(true);
-    setError(null);
-    try {
-      const hw = await llamaService.detectHardware(force);
-      setHardware(hw);
-      const recs = await llamaService.getRecommendations();
-      setRecommendations(recs);
-    } catch (e) {
-      handleClientError(e, {
-        module: "settings:llama",
-        action: "detect_hardware",
-      });
-      setError(e instanceof Error ? e.message : "硬件检测失败");
-    } finally {
-      setHardwareDetecting(false);
-    }
-  }, []);
+  const runHardwareDetection = useCallback(
+    async (force = false) => {
+      setHardwareDetecting(true);
+      setError(null);
+      try {
+        const hw = await llamaService.detectHardware(force);
+        setHardware(hw);
+        const recs = await llamaService.getRecommendations();
+        setRecommendations(recs);
+      } catch (e) {
+        handleClientError(e, {
+          module: "settings:llama",
+          action: "detect_hardware",
+        });
+        setError(
+          e instanceof Error
+            ? e.message
+            : t("settings.llamaHardwareDetectFailed"),
+        );
+      } finally {
+        setHardwareDetecting(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     void load();
@@ -194,14 +201,14 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       setConfig(saved);
       if (restart) {
         await llamaService.restart();
-        setSavedMsg("配置已保存并重启服务");
+        setSavedMsg(t("settings.llamaSavedRestarted"));
       } else {
-        setSavedMsg("配置已保存（重启后生效）");
+        setSavedMsg(t("settings.llamaSavedPendingRestart"));
       }
       await load(); // 刷新状态（含模型列表）
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "save" });
-      setError(e instanceof Error ? e.message : "保存配置失败");
+      setError(e instanceof Error ? e.message : t("settings.llamaSaveFailed"));
     } finally {
       setSaving(false);
     }
@@ -213,7 +220,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       const selected = await open({
         directory: true,
         multiple: false,
-        title: "选择模型存储目录",
+        title: t("settings.llamaSelectModelsDir"),
         defaultPath: config?.modelsDir || undefined,
       });
       if (selected && typeof selected === "string") {
@@ -221,7 +228,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       }
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "browse_dir" });
-      setError(e instanceof Error ? e.message : "选择目录失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.llamaSelectDirFailed"),
+      );
     }
   };
 
@@ -245,12 +254,15 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           onProgress: (p) => setMigrateProgress(p),
           onComplete: (r) => setMigrateResult(r),
           onError: (e) => setMigrateError(e),
-          onCancelled: () => setMigrateError("迁移已取消"),
+          onCancelled: () =>
+            setMigrateError(t("settings.llamaMigrateCancelled")),
         },
       );
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "migrate" });
-      setMigrateError(e instanceof Error ? e.message : "迁移失败");
+      setMigrateError(
+        e instanceof Error ? e.message : t("settings.llamaMigrateFailed"),
+      );
     } finally {
       setMigrating(false);
       void load();
@@ -271,7 +283,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
   // ─── 下载 ────────────────────────────────────────────────────
   const handleDownloadModel = async (rec: LlamaModelRecommendation) => {
     setDownloadingVersion(rec.quantVersion);
-    setDownloadProgress({ percent: 0, status: "下载中" });
+    setDownloadProgress({ percent: 0, status: t("settings.llamaDownloading") });
     setDownloadComplete(null);
     setDownloadError(null);
 
@@ -297,7 +309,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         module: "settings:llama",
         action: "download_model",
       });
-      setDownloadError(e instanceof Error ? e.message : "下载失败");
+      setDownloadError(
+        e instanceof Error ? e.message : t("settings.llamaDownloadFailed"),
+      );
     } finally {
       setDownloadingVersion(null);
       void load();
@@ -311,14 +325,16 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
     setDeleteConfirm(null);
     try {
       await llamaService.deleteModel(filename);
-      setSavedMsg(`已删除模型 ${filename}`);
+      setSavedMsg(t("settings.llamaModelDeleted", { name: filename }));
       void load();
     } catch (e) {
       handleClientError(e, {
         module: "settings:llama",
         action: "delete_model",
       });
-      setError(e instanceof Error ? e.message : "删除模型失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.llamaDeleteFailed"),
+      );
     }
   };
 
@@ -334,7 +350,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       await load();
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "forceKill" });
-      setError(e instanceof Error ? e.message : "强制杀死失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.llamaForceKillFailed"),
+      );
     } finally {
       setForceKilling(false);
     }
@@ -348,9 +366,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
     try {
       const result = await llamaService.forceRestart();
       if (result.success) {
-        setSavedMsg("llama-server 已强制重启");
+        setSavedMsg(t("settings.llamaForceRestarted"));
       } else {
-        setError("强制重启后服务未就绪");
+        setError(t("settings.llamaForceRestartNotReady"));
       }
       await load();
     } catch (e) {
@@ -358,7 +376,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         module: "settings:llama",
         action: "forceRestart",
       });
-      setError(e instanceof Error ? e.message : "强制重启失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.llamaForceRestartFailed"),
+      );
     } finally {
       setForceRestarting(false);
     }
@@ -373,7 +393,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "getLogs" });
       setLogsContent(
-        `获取日志失败: ${e instanceof Error ? e.message : String(e)}`,
+        t("settings.llamaGetLogsFailed", {
+          error: e instanceof Error ? e.message : String(e),
+        }),
       );
     } finally {
       setLogsLoading(false);
@@ -402,7 +424,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
             logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
           },
           onError: (err) => {
-            setLogsContent((prev) => prev + `\n[错误] ${err}\n`);
+            setLogsContent(
+              (prev) =>
+                prev + t("settings.llamaLogStreamError", { error: err }),
+            );
             setLogStreamActive(false);
           },
         },
@@ -429,7 +454,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
   if (loading) {
     return (
       <div className={`p-6 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-        加载中…
+        {t("common.loadingEllipsis")}
       </div>
     );
   }
@@ -442,12 +467,12 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
   return (
     <div className="p-6">
       <ConfigSection
-        title="llama.cpp 本地推理"
-        description="基于 llama.cpp（内置 llama-server），为本地推理提供贴近实际环境的精细配置"
+        title={t("settings.llama")}
+        description={t("settings.llamaDesc")}
         isDark={isDark}
       >
         {/* 服务状态 */}
-        <ConfigItem label="服务状态" isDark={isDark}>
+        <ConfigItem label={t("settings.serviceStatus")} isDark={isDark}>
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -458,55 +483,64 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
               }`}
             >
-              {status ? STATUS_LABEL[status.status] : "未知"}
+              {status
+                ? t(STATUS_LABEL_KEY[status.status])
+                : t("common.unknown")}
             </span>
             {status && (
               <span className="text-xs text-gray-400 dark:text-gray-500">
-                v{status.version} · 端口 {status.port} · 重启{" "}
-                {status.restartCount} 次
-                {status.binaryExists ? "" : " · 二进制缺失"}
+                {t("settings.llamaStatusLine", {
+                  version: status.version,
+                  port: status.port,
+                  count: status.restartCount,
+                })}
+                {status.binaryExists ? "" : t("settings.llamaBinaryMissing")}
               </span>
             )}
           </div>
         </ConfigItem>
         {status?.lastError && (
-          <ConfigItem label="最近错误" isDark={isDark}>
+          <ConfigItem label={t("settings.lastError")} isDark={isDark}>
             <span className="text-xs text-red-500">{status.lastError}</span>
           </ConfigItem>
         )}
 
         {/* 紧急操作 */}
-        <ConfigItem label="紧急操作" isDark={isDark}>
+        <ConfigItem label={t("settings.emergencyOps")} isDark={isDark}>
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowForceKillConfirm(true)}
               disabled={forceKilling || forceRestarting}
               className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              title="强制杀掉系统中所有 llama-server 进程"
+              title={t("settings.llamaForceKillTitle")}
             >
-              {forceKilling ? "杀死中…" : "强制杀死"}
+              {forceKilling
+                ? t("settings.llamaKilling")
+                : t("settings.llamaForceKill")}
             </button>
             <button
               onClick={() => setShowForceRestartConfirm(true)}
               disabled={forceKilling || forceRestarting}
               className="px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              title="强制杀掉并立即重启 llama-server"
+              title={t("settings.llamaForceRestartTitle")}
             >
-              {forceRestarting ? "重启中…" : "强制重启"}
+              {forceRestarting
+                ? t("settings.llamaRestarting")
+                : t("settings.llamaForceRestart")}
             </button>
             <button
               onClick={() => void handleViewLogs()}
               disabled={logsLoading}
               className="px-3 py-1.5 text-xs bg-gray-500 hover:bg-gray-400 text-white rounded disabled:opacity-50"
-              title="查看 llama-server 日志"
+              title={t("settings.llamaViewLogsTitle")}
             >
-              查看日志
+              {t("settings.llamaViewLogs")}
             </button>
           </div>
         </ConfigItem>
 
         {/* 服务配置 */}
-        <ConfigItem label="监听地址" isDark={isDark}>
+        <ConfigItem label={t("settings.listenAddress")} isDark={isDark}>
           <TextConfig
             isDark={isDark}
             value={config?.host ?? "127.0.0.1"}
@@ -516,8 +550,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           />
         </ConfigItem>
         <ConfigItem
-          label="端口"
-          description="默认 11435（避开 Ollama 默认端口 11434）。启动时将自动检测端口可用性，被占用时会提示更换"
+          label={t("settings.portLabel")}
+          description={t("settings.llamaPortDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -528,7 +562,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
             className="w-24"
           />
         </ConfigItem>
-        <ConfigItem label="随应用自动启动" isDark={isDark}>
+        <ConfigItem label={t("settings.llamaAutoStart")} isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
             checked={config?.autoStart ?? true}
@@ -538,19 +572,25 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
 
         {/* 模型配置 */}
         <ConfigItem
-          label="GGUF 模型"
-          description="从本地模型目录扫描"
+          label={t("settings.llamaGgufModel")}
+          description={t("settings.llamaScanLocalModels")}
           isDark={isDark}
         >
           <SelectConfig
             isDark={isDark}
             value={config?.model ?? ""}
             onChange={(v) => update({ model: v })}
-            options={[{ value: "", label: "（不设置）" }, ...modelOptions]}
+            options={[
+              { value: "", label: t("settings.llamaNotSet") },
+              ...modelOptions,
+            ]}
           />
         </ConfigItem>
         {config?.model && (
-          <ConfigItem label="当前模型路径" isDark={isDark}>
+          <ConfigItem
+            label={t("settings.llamaCurrentModelPath")}
+            isDark={isDark}
+          >
             <span className="text-xs text-gray-500 dark:text-gray-400 break-all">
               {config.model}
             </span>
@@ -559,8 +599,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
 
         {/* 性能配置 */}
         <ConfigItem
-          label="GPU 层数 (-ngl)"
-          description="0 = 纯 CPU；有 CUDA 二进制时可用 GPU"
+          label={t("settings.llamaGpuLayers")}
+          description={t("settings.llamaGpuLayersDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -574,8 +614,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           />
         </ConfigItem>
         <ConfigItem
-          label="上下文窗口 (-c)"
-          description="保存并重启后自动同步到模型注册（无需手动匹配）"
+          label={t("settings.llamaContextWindow")}
+          description={t("settings.llamaContextWindowDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -589,21 +629,24 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           />
         </ConfigItem>
         <ConfigItem
-          label="KV cache 量化"
-          description="档位: 低=q4_0 / 中=q8_0 / 高=f16（显存敏感）"
+          label={t("settings.llamaKvCache")}
+          description={t("settings.llamaKvCacheDesc")}
           isDark={isDark}
         >
           <SelectConfig
             isDark={isDark}
             value={config?.kvCache ?? "high"}
             onChange={(v) => update({ kvCache: v as LlamaKvCacheTier })}
-            options={KV_CACHE_OPTIONS}
+            options={KV_CACHE_OPTIONS.map((o) => ({
+              value: o.value,
+              label: t(o.labelKey),
+            }))}
             className="w-32"
           />
         </ConfigItem>
         <ConfigItem
-          label="线程数 (-t)"
-          description="0 = 自动（按 CPU 核心数）"
+          label={t("settings.llamaThreads")}
+          description={t("settings.llamaThreadsDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -617,8 +660,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           />
         </ConfigItem>
         <ConfigItem
-          label="批大小 (-b)"
-          description="0 = 自动（默认 2048）"
+          label={t("settings.llamaBatchSize")}
+          description={t("settings.llamaBatchSizeDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -634,8 +677,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
 
         {/* 采样配置（D2：显式传默认值，与 llama.cpp 默认一致） */}
         <ConfigItem
-          label="温度 (--temp)"
-          description="默认 0.8"
+          label={t("settings.llamaTemperature")}
+          description={t("settings.llamaDefault08")}
           isDark={isDark}
         >
           <TextConfig
@@ -648,7 +691,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         </ConfigItem>
         <ConfigItem
           label="Top-K (--top-k)"
-          description="默认 40"
+          description={t("settings.llamaDefault40")}
           isDark={isDark}
         >
           <TextConfig
@@ -663,7 +706,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         </ConfigItem>
         <ConfigItem
           label="Top-P (--top-p)"
-          description="默认 0.95"
+          description={t("settings.llamaDefault095")}
           isDark={isDark}
         >
           <TextConfig
@@ -675,8 +718,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           />
         </ConfigItem>
         <ConfigItem
-          label="重复惩罚 (--repeat-penalty)"
-          description="默认 1.1"
+          label={t("settings.llamaRepeatPenalty")}
+          description={t("settings.llamaDefault11")}
           isDark={isDark}
         >
           <TextConfig
@@ -688,8 +731,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           />
         </ConfigItem>
         <ConfigItem
-          label="随机种子 (--seed)"
-          description="-1 = 随机"
+          label={t("settings.llamaSeed")}
+          description={t("settings.llamaSeedDesc")}
           isDark={isDark}
         >
           <TextConfig
@@ -704,7 +747,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         {/* 高级配置 */}
         <ConfigItem
           label="--no-mmap"
-          description="禁用内存映射加载"
+          description={t("settings.llamaNoMmapDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -715,7 +758,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         </ConfigItem>
         <ConfigItem
           label="--mlock"
-          description="锁定内存防止换页"
+          description={t("settings.llamaMlockDesc")}
           isDark={isDark}
         >
           <ToggleConfig
@@ -726,7 +769,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         </ConfigItem>
         <ConfigItem
           label="Flash Attention (--flash-attn)"
-          description="显存充足时建议开启"
+          description={t("settings.llamaFlashAttnDesc")}
           isDark={isDark}
         >
           <SelectConfig
@@ -735,7 +778,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
             onChange={(v) =>
               update({ flashAttn: v as LlamaConfig["flashAttn"] })
             }
-            options={FLASH_ATTN_OPTIONS}
+            options={FLASH_ATTN_OPTIONS.map((o) => ({
+              value: o.value,
+              label: t(o.labelKey),
+            }))}
             className="w-32"
           />
         </ConfigItem>
@@ -763,7 +809,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                 : "bg-blue-600 hover:bg-blue-500 text-white"
             }`}
           >
-            {saving ? "保存中…" : t("settings.llamaSave")}
+            {saving ? t("settings.llamaSaving") : t("settings.llamaSave")}
           </button>
           <button
             onClick={() => handleSave(true)}
@@ -774,38 +820,48 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                 : "bg-indigo-600 hover:bg-indigo-500 text-white"
             }`}
           >
-            {saving ? "重启中…" : "保存并重启"}
+            {saving
+              ? t("settings.llamaRestarting")
+              : t("settings.llamaSaveAndRestart")}
           </button>
         </div>
       </ConfigSection>
 
       {/* ─── 系统检测 / 智能推荐（小白友好） ──────────── */}
       <ConfigSection
-        title="系统检测"
-        description="自动检测硬件配置，为您推荐最合适的 llama.cpp 模型版本"
+        title={t("settings.llamaSystemDetect")}
+        description={t("settings.llamaSystemDetectDesc")}
         isDark={isDark}
       >
         {hardwareDetecting && (
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            正在检测硬件配置…
+            {t("settings.llamaDetectingHardware")}
           </div>
         )}
         {hardware && !hardwareDetecting && (
           <>
-            <ConfigItem label="CPU 核心" isDark={isDark}>
+            <ConfigItem label={t("settings.llamaCpuCores")} isDark={isDark}>
               <span className="text-sm">
-                {hardware.cpuCores} 核心 / 系统 {hardware.systemMemoryGB} GB
-                内存
+                {t("settings.llamaCpuCoresValue", {
+                  cores: hardware.cpuCores,
+                  memory: hardware.systemMemoryGB,
+                })}
               </span>
             </ConfigItem>
             <ConfigItem label="GPU" isDark={isDark}>
               <span className="text-sm">
                 {hardware.gpu.name
-                  ? `${hardware.gpu.name} (${hardware.gpu.memoryGB} GB 显存)`
-                  : "未检测到独立 GPU，将使用 CPU 推理"}
+                  ? t("settings.llamaGpuMemory", {
+                      name: hardware.gpu.name,
+                      memory: hardware.gpu.memoryGB,
+                    })
+                  : t("settings.llamaNoDiscreteGpu")}
               </span>
             </ConfigItem>
-            <ConfigItem label="推荐后端" isDark={isDark}>
+            <ConfigItem
+              label={t("settings.llamaRecommendedBackend")}
+              isDark={isDark}
+            >
               <span
                 className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
                   hardware.llamaCppBackend === "cpu"
@@ -814,8 +870,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                 }`}
               >
                 {hardware.llamaCppBackend === "cpu"
-                  ? "CPU 推理"
-                  : `GPU 加速 (${hardware.llamaCppBackend})`}
+                  ? t("settings.llamaCpuInference")
+                  : t("settings.llamaGpuAccelerated", {
+                      backend: hardware.llamaCppBackend,
+                    })}
               </span>
             </ConfigItem>
           </>
@@ -825,14 +883,14 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           disabled={hardwareDetecting}
           className="text-xs text-blue-500 hover:text-blue-600 disabled:opacity-50"
         >
-          🔄 重新检测
+          {t("settings.llamaRedetect")}
         </button>
       </ConfigSection>
 
       {recommendations.length > 0 && (
         <ConfigSection
-          title="为您推荐"
-          description="基于您的硬件配置推荐的模型版本，点击「下载此版本」一键下载并自动配置"
+          title={t("settings.llamaRecommendedForYou")}
+          description={t("settings.llamaRecommendedDesc")}
           isDark={isDark}
         >
           <div className="space-y-3">
@@ -858,26 +916,31 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                         </span>
                         {isBest && (
                           <span className="px-1.5 py-0.5 text-xs rounded bg-green-500 text-white">
-                            🏆 最佳推荐
+                            {t("settings.llamaBestPick")}
                           </span>
                         )}
                         {rec.suitability === "high" && !isBest && (
                           <span className="px-1.5 py-0.5 text-xs rounded bg-green-100 text-green-700">
-                            适配
+                            {t("settings.llamaSuitable")}
                           </span>
                         )}
                         {rec.suitability === "medium" && (
                           <span className="px-1.5 py-0.5 text-xs rounded bg-yellow-100 text-yellow-700">
-                            可用
+                            {t("settings.llamaUsable")}
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        大小 {rec.fileSizeGB} GB · 运行内存 ~
-                        {rec.estimatedRamGB} GB · 质量 {rec.qualityScore}/100
+                        {t("settings.llamaRecMeta", {
+                          size: rec.fileSizeGB,
+                          ram: rec.estimatedRamGB,
+                          quality: rec.qualityScore,
+                        })}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
-                        💡 {rec.recommendationReason}
+                        {t("settings.llamaRecReason", {
+                          reason: rec.recommendationReason,
+                        })}
                       </div>
                     </div>
                     <button
@@ -886,8 +949,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                       className="shrink-0 px-3 py-1.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
                     >
                       {downloadingVersion === rec.quantVersion
-                        ? "下载中…"
-                        : "下载此版本"}
+                        ? t("settings.llamaStatusDownloading")
+                        : t("settings.llamaDownloadThis")}
                     </button>
                   </div>
 
@@ -895,7 +958,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     downloadProgress && (
                       <div className="mt-2">
                         <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          <span>{downloadProgress.status ?? "下载中"}</span>
+                          <span>
+                            {downloadProgress.status ??
+                              t("settings.llamaDownloading")}
+                          </span>
                           <span>{downloadProgress.percent ?? 0}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -914,13 +980,19 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           </div>
           {downloadComplete && (
             <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-700 dark:text-green-300">
-              ✅ 模型 {downloadComplete.quantVersion} 已下载并自动配置完成
-              {downloadComplete.autoStart ? "（服务已启动）" : ""}
+              {t("settings.llamaDownloadComplete", {
+                version: downloadComplete.quantVersion,
+              })}
+              {downloadComplete.autoStart
+                ? t("settings.llamaServiceStarted")
+                : ""}
             </div>
           )}
           {downloadError && (
             <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded text-xs text-red-600 dark:text-red-300">
-              ❌ 下载失败：{downloadError}
+              {t("settings.llamaDownloadFailedInline", {
+                error: downloadError,
+              })}
             </div>
           )}
         </ConfigSection>
@@ -928,13 +1000,13 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
 
       {/* ─── 模型存储与迁移 ──────────────────────────────── */}
       <ConfigSection
-        title="模型存储"
-        description="管理 GGUF 模型文件存放位置，支持迁移现有模型到新目录"
+        title={t("settings.llamaModelStorage")}
+        description={t("settings.llamaModelStorageDesc")}
         isDark={isDark}
       >
         <ConfigItem
-          label="模型目录"
-          description="自定义 GGUF 模型存放路径；留空使用默认路径"
+          label={t("settings.llamaModelsDir")}
+          description={t("settings.llamaModelsDirDesc")}
           isDark={isDark}
         >
           <div className="flex items-center gap-2 flex-wrap">
@@ -942,32 +1014,38 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
               isDark={isDark}
               value={config?.modelsDir ?? ""}
               onChange={(v) => update({ modelsDir: v })}
-              placeholder={status?.modelsDir || "默认路径"}
+              placeholder={status?.modelsDir || t("settings.defaultPath")}
               className="min-w-[320px] max-w-full flex-1"
             />
             <button
               onClick={() => void handleBrowseDir()}
               className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
             >
-              浏览…
+              {t("settings.llamaBrowse")}
             </button>
             {config?.modelsDir && (
               <button
                 onClick={() => update({ modelsDir: "" })}
                 className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
-                title="恢复默认路径"
+                title={t("settings.llamaRestoreDefaultPath")}
               >
-                重置
+                {t("common.reset")}
               </button>
             )}
           </div>
         </ConfigItem>
 
         {status?.modelsDir && (
-          <ConfigItem label="当前目录" isDark={isDark}>
+          <ConfigItem label={t("settings.llamaCurrentDir")} isDark={isDark}>
             <div className="text-xs text-gray-500 dark:text-gray-400 break-all">
-              <div>路径: {status.modelsDir}</div>
-              <div>模型数: {status.models.length} 个</div>
+              <div>
+                {t("settings.llamaPathLine", { path: status.modelsDir })}
+              </div>
+              <div>
+                {t("settings.llamaModelCountLine", {
+                  count: status.models.length,
+                })}
+              </div>
             </div>
           </ConfigItem>
         )}
@@ -977,8 +1055,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           status?.modelsDir &&
           config.modelsDir !== status.modelsDir && (
             <ConfigItem
-              label="迁移模型"
-              description="将当前目录的模型文件迁移到新路径"
+              label={t("settings.llamaMigrate")}
+              description={t("settings.llamaMigrateDesc")}
               isDark={isDark}
             >
               <div className="space-y-2">
@@ -988,7 +1066,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     disabled={migrating}
                     className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
                   >
-                    {migrating ? "迁移中…" : "迁移模型到新目录"}
+                    {migrating
+                      ? t("settings.llamaMigratingShort")
+                      : t("settings.llamaMigrateToNewDir")}
                   </button>
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -996,7 +1076,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                       checked={migrateCopy}
                       onChange={(e) => setMigrateCopy(e.target.checked)}
                     />
-                    复制而非移动
+                    {t("settings.llamaCopyNotMove")}
                   </label>
                   <label className="flex items-center gap-1 text-xs">
                     <input
@@ -1004,7 +1084,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                       checked={migrateOverwrite}
                       onChange={(e) => setMigrateOverwrite(e.target.checked)}
                     />
-                    覆盖同名文件
+                    {t("settings.llamaOverwrite")}
                   </label>
                 </div>
 
@@ -1012,8 +1092,11 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                   <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded">
                     <div className="flex justify-between text-xs mb-1">
                       <span>
-                        正在迁移：{migrateProgress.file} (
-                        {migrateProgress.current}/{migrateProgress.total})
+                        {t("settings.llamaMigrating", {
+                          file: migrateProgress.file,
+                          current: migrateProgress.current,
+                          total: migrateProgress.total,
+                        })}
                       </span>
                       <span>{migrateProgress.percent}%</span>
                     </div>
@@ -1027,7 +1110,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                       onClick={() => void handleCancelMigration()}
                       className="mt-1 text-xs text-red-500 hover:text-red-600"
                     >
-                      ✕ 取消迁移
+                      {t("settings.llamaCancelMigrate")}
                     </button>
                   </div>
                 )}
@@ -1035,19 +1118,27 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                 {!migrating && migrateResult && (
                   <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs">
                     <div className="font-medium">
-                      迁移完成（耗时 {migrateResult.elapsedMs}ms）
+                      {t("settings.llamaMigrateDone", {
+                        ms: migrateResult.elapsedMs,
+                      })}
                     </div>
                     <div>
-                      ✓ 已迁移: {migrateResult.migratedFiles.length} 个文件
+                      {t("settings.llamaMigratedCount", {
+                        count: migrateResult.migratedFiles.length,
+                      })}
                     </div>
                     {migrateResult.skippedFiles.length > 0 && (
                       <div className="text-yellow-600">
-                        ⊘ 已跳过: {migrateResult.skippedFiles.length} 个
+                        {t("settings.llamaSkippedCount", {
+                          count: migrateResult.skippedFiles.length,
+                        })}
                       </div>
                     )}
                     {migrateResult.failedFiles.length > 0 && (
                       <div className="text-red-600">
-                        ✗ 失败: {migrateResult.failedFiles.length} 个
+                        {t("settings.llamaFailedCount", {
+                          count: migrateResult.failedFiles.length,
+                        })}
                       </div>
                     )}
                   </div>
@@ -1065,15 +1156,22 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         {/* 二次确认对话框 */}
         {migrateShowConfirm && config?.modelsDir && status?.modelsDir && (
           <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
-            <div className="font-medium mb-1">确认迁移模型</div>
+            <div className="font-medium mb-1">
+              {t("settings.llamaConfirmMigrateTitle")}
+            </div>
             <p>
-              将{migrateCopy ? "复制" : "移动"}当前目录的
-              <b>{status.models.length}</b> 个模型文件到：
+              {t(
+                migrateCopy
+                  ? "settings.llamaConfirmCopyPrefix"
+                  : "settings.llamaConfirmMovePrefix",
+              )}
+              <b>{status.models.length}</b>
+              {t("settings.llamaConfirmSuffix")}
             </p>
             <p className="font-mono mt-1 break-all">{config.modelsDir}</p>
             {!migrateCopy && (
               <p className="text-red-500 mt-1">
-                ⚠ 移动模式下，源目录文件将被删除，此操作不可逆。
+                {t("settings.llamaMoveWarning")}
               </p>
             )}
             <div className="flex gap-2 mt-2">
@@ -1081,13 +1179,13 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                 onClick={() => void handleStartMigration()}
                 className="px-3 py-1 bg-blue-500 text-white rounded"
               >
-                确定迁移
+                {t("settings.llamaConfirmMigrate")}
               </button>
               <button
                 onClick={() => setMigrateShowConfirm(false)}
                 className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded"
               >
-                取消
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -1097,8 +1195,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       {/* ─── 模型管理（删除） ────────────────────────────── */}
       {status && status.models.length > 0 && (
         <ConfigSection
-          title="模型管理"
-          description="当前已识别的 GGUF 模型，可删除不需要的文件"
+          title={t("settings.llamaModelManagement")}
+          description={t("settings.llamaModelManagementDesc")}
           isDark={isDark}
         >
           <div className="space-y-1">
@@ -1114,7 +1212,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     {fileName}
                     {isInUse && (
                       <span className="ml-2 px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
-                        当前使用
+                        {t("settings.llamaInUse")}
                       </span>
                     )}
                   </span>
@@ -1123,7 +1221,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     disabled={isInUse}
                     className="text-xs text-red-500 hover:text-red-600 disabled:opacity-30"
                   >
-                    删除
+                    {t("common.delete")}
                   </button>
                 </div>
               );
@@ -1133,20 +1231,22 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           {deleteConfirm && (
             <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
               <div className="mb-1">
-                确认删除模型 <b>{deleteConfirm}</b>？此操作不可恢复。
+                {t("settings.llamaConfirmDeletePrefix")}
+                <b>{deleteConfirm}</b>
+                {t("settings.llamaConfirmDeleteSuffix")}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => void handleDeleteModel()}
                   className="px-3 py-1 bg-red-500 text-white rounded"
                 >
-                  确认删除
+                  {t("settings.llamaConfirmDelete")}
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(null)}
                   className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded"
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>
@@ -1157,10 +1257,13 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       {/* ─── 紧急操作确认对话框 ──────────────────────────────────── */}
       {showForceKillConfirm && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs">
-          <div className="font-medium text-red-600 mb-1">⚠ 警告</div>
+          <div className="font-medium text-red-600 mb-1">
+            {t("settings.warningLabel")}
+          </div>
           <div className="mb-2">
-            此操作将<strong>强制杀掉系统中所有 llama-server 进程</strong>，
-            包括可能由其他程序或终端启动的实例。该操作不可撤销。
+            {t("settings.llamaForceKillWarnPrefix")}
+            <strong>{t("settings.llamaForceKillWarnStrong")}</strong>
+            {t("settings.llamaForceKillWarnSuffix")}
           </div>
           <div className="flex gap-2">
             <button
@@ -1168,14 +1271,16 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
               disabled={forceKilling}
               className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded disabled:opacity-50"
             >
-              {forceKilling ? "杀死中…" : "确认强制杀死"}
+              {forceKilling
+                ? t("settings.llamaKilling")
+                : t("settings.llamaConfirmForceKill")}
             </button>
             <button
               onClick={() => setShowForceKillConfirm(false)}
               disabled={forceKilling}
               className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded"
             >
-              取消
+              {t("common.cancel")}
             </button>
           </div>
         </div>
@@ -1183,10 +1288,13 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
 
       {showForceRestartConfirm && (
         <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded text-xs">
-          <div className="font-medium text-orange-600 mb-1">⚠ 警告</div>
+          <div className="font-medium text-orange-600 mb-1">
+            {t("settings.warningLabel")}
+          </div>
           <div className="mb-2">
-            此操作将<strong>强制杀掉所有 llama-server 进程并立即重启</strong>。
-            如果模型加载较慢，重启后可能需要等待一段时间才能就绪。
+            {t("settings.llamaForceRestartWarnPrefix")}
+            <strong>{t("settings.llamaForceRestartWarnStrong")}</strong>
+            {t("settings.llamaForceRestartWarnSuffix")}
           </div>
           <div className="flex gap-2">
             <button
@@ -1194,14 +1302,16 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
               disabled={forceRestarting}
               className="px-3 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded disabled:opacity-50"
             >
-              {forceRestarting ? "重启中…" : "确认强制重启"}
+              {forceRestarting
+                ? t("settings.llamaRestarting")
+                : t("settings.llamaConfirmForceRestart")}
             </button>
             <button
               onClick={() => setShowForceRestartConfirm(false)}
               disabled={forceRestarting}
               className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded"
             >
-              取消
+              {t("common.cancel")}
             </button>
           </div>
         </div>
@@ -1210,8 +1320,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       {/* ─── 日志查看面板 ──────────────────────────────────────── */}
       {showLogs && (
         <ConfigSection
-          title={`llama-server 日志${logStreamActive ? " · 🟢 实时追踪中" : ""}`}
-          description="llama-server 服务的运行日志，用于排查问题"
+          title={`${t("settings.llamaServerLogs")}${logStreamActive ? t("settings.llamaLiveFollowing") : ""}`}
+          description={t("settings.llamaLogsDesc")}
           isDark={isDark}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -1220,14 +1330,14 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                 onClick={handleStopLogStream}
                 className="text-xs text-red-500 hover:text-red-600"
               >
-                ⏹ 停止追踪
+                {t("settings.llamaStopFollowing")}
               </button>
             ) : (
               <button
                 onClick={() => void handleStartLogStream()}
                 className="text-xs text-green-500 hover:text-green-600"
               >
-                ▶ 开始实时追踪
+                {t("settings.llamaStartFollowing")}
               </button>
             )}
             <button
@@ -1235,7 +1345,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
               disabled={logsLoading || logStreamActive}
               className="text-xs text-blue-500 hover:text-blue-600 disabled:opacity-50"
             >
-              {logsLoading ? "加载中…" : "🔄 刷新日志"}
+              {logsLoading
+                ? t("common.loadingEllipsis")
+                : t("settings.llamaRefreshLogs")}
             </button>
             <button
               onClick={() => {
@@ -1244,18 +1356,18 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
               }}
               className="text-xs text-gray-500 hover:text-gray-700"
             >
-              ✕ 关闭
+              {t("settings.llamaCloseLogs")}
             </button>
           </div>
           <div className="bg-gray-900 dark:bg-black rounded p-2 max-h-96 overflow-auto">
             <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap break-all">
-              {logsContent || "暂无日志"}
+              {logsContent || t("settings.llamaNoLogs")}
             </pre>
             <div ref={logsEndRef} />
           </div>
           {logStreamActive && (
             <div className="mt-1 text-xs text-green-600 animate-pulse">
-              ● 实时追踪中... 日志将自动更新
+              {t("settings.llamaFollowingHint")}
             </div>
           )}
         </ConfigSection>

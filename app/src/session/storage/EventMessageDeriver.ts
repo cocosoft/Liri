@@ -34,6 +34,8 @@ import type { LiriEvent, LiriEventType } from '../../chat/types/events.js';
 import { getLogger } from '@modules/monitoring';
 import { pickMoreCompleteContent } from '@modules/utils/common';
 import { KNOWN_SESSION_EVENT_TYPES } from '../../chat/types/knownEventTypes.js';
+// 状态块 statusType 契约（CS02）：判据的单一事实来源，与前端共用同一集合
+import { isTransientStatusType } from '@shared/types';
 
 const logger = getLogger('session:event-deriver');
 
@@ -237,35 +239,20 @@ const TOOL_OUTCOME_UNKNOWN =
 const TOOL_NOT_STARTED = '工具调用在记录执行前被中断，如需仍可重试。';
 
 /**
- * C-2：内部过渡状态过滤（前端基线 isInternalTransitionStatus 的镜像拷贝，
- * 保证"流式视图 = 回放视图"——status 心跳与 tool_call 块展示重复的过渡态不建块）。
+ * C-2：内部过渡状态过滤。
+ *
+ * **判据收敛（CS02）**：原为"前端实现的镜像拷贝"（双端各一份、逐字重复，含 13 条字符串模式回退），
+ * 现改为**引用共享契约** `isTransientStatusType`（与前端 `chat-toolcall.slice.ts` 同一集合）
+ * —— 判据单一事实来源，双端取值口径不可能再漂移；字符串回退已删除。
+ * 详见 `.trae/specs/chat-status-type-contract.md`。
  */
 function isInternalTransitionStatus(
   content: string,
   statusType?: string
 ): boolean {
-  // 结构化过滤（CS02）：瞬态/冗余状态类型（工具状态已由 tool_call 块展示）
-  if (
-    statusType === 'ai_thinking' ||
-    statusType === 'tool_started' ||
-    statusType === 'tool_completed'
-  ) {
-    return true;
-  }
-  // 字符串回退：兼容旧后端 statusType 缺失时的协议消息
-  if (content.includes('🔧') && content.includes('Running tool')) return true;
-  if (content.startsWith('✅ Tool') || content.startsWith('❌ Tool')) {
-    return true;
-  }
-  const internalPatterns = [
-    'AI is thinking',
-    'AI is analyzing',
-    'AI is preparing',
-    'AI is waiting',
-    '🔍 AI is analyzing the image',
-    '🎨 AI is generating',
-  ];
-  return internalPatterns.some((p) => content.startsWith(p));
+  // content 形参保留（调用方签名不变）；判据只用 statusType
+  void content;
+  return isTransientStatusType(statusType);
 }
 
 /**

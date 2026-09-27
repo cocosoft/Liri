@@ -233,14 +233,14 @@ function MCPConfigModal({
             <button
               onClick={handleImport}
               className={`text-xs hover:underline ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}
-              title="从 JSON 文件导入"
+              title={t("mcp.importJsonHint")}
             >
               {t("common.import")}
             </button>
             <button
               onClick={handleExport}
               className={`text-xs hover:underline ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}
-              title="导出为 JSON 文件"
+              title={t("mcp.exportJsonHint")}
             >
               {t("common.export")}
             </button>
@@ -397,7 +397,7 @@ function MCPConfigModal({
               <label
                 className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                认证方式
+                {t("mcp.authType")}
               </label>
               <button
                 onClick={() => setShowAdvanced(!showAdvanced)}
@@ -418,7 +418,7 @@ function MCPConfigModal({
                     clipRule="evenodd"
                   />
                 </svg>
-                高级
+                {t("mcp.advanced")}
               </button>
             </div>
             <select
@@ -467,7 +467,7 @@ function MCPConfigModal({
                 <label
                   className={`block text-xs mb-0.5 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  Headers（JSON 格式）
+                  {t("mcp.headers")}
                 </label>
                 <textarea
                   value={form.headers}
@@ -524,7 +524,7 @@ function MCPConfigModal({
                         onChange={(e) =>
                           updateEnvVar(i, "value", e.target.value)
                         }
-                        placeholder="值"
+                        placeholder={t("mcp.envVarValue")}
                         className={`flex-1 text-sm bg-transparent outline-none border-b pb-1 ${
                           isDark
                             ? "border-gray-600 text-white placeholder-gray-500 focus:border-blue-400"

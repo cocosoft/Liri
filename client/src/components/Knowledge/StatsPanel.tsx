@@ -4,8 +4,9 @@
  * 从 KnowledgePage.tsx 中抽取独立组件 (CS09)。
  */
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
-import { sourceLabels } from "./shared/constants";
+import { sourceLabelKeys } from "./shared/constants";
 
 interface HealthMetrics {
   totalDocs: number;
@@ -28,6 +29,7 @@ interface StatsPanelProps {
 }
 
 function StatsPanel({ isDark }: StatsPanelProps) {
+  const { t } = useTranslation();
   const [health, setHealth] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -82,7 +84,7 @@ function StatsPanel({ isDark }: StatsPanelProps) {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto text-center py-16">
           <p className={`text-sm ${isDark ? "text-red-400" : "text-red-600"}`}>
-            统计信息加载失败
+            {t("knowledge.statsLoadFailed")}
           </p>
           <button
             onClick={load}
@@ -92,7 +94,7 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                 : "border-gray-300 text-gray-600 hover:bg-gray-100"
             }`}
           >
-            重试
+            {t("common.retry")}
           </button>
         </div>
       </div>
@@ -115,22 +117,26 @@ function StatsPanel({ isDark }: StatsPanelProps) {
         <div className="grid grid-cols-3 gap-4">
           <div className={`${cardBg} rounded-lg p-4`}>
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-              知识库概览
+              {t("knowledge.overviewTitle")}
             </h3>
             {/* P2#11：口径注记——健康接口为全部知识库，未按当前库过滤 */}
             <p className="text-[10px] mb-2 opacity-60">
-              统计范围：全部知识库（未按当前选中的库过滤）
+              {t("knowledge.statsScopeNote")}
             </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className={`text-sm ${textSecondary}`}>总条目数</span>
+                <span className={`text-sm ${textSecondary}`}>
+                  {t("knowledge.totalItems")}
+                </span>
                 <span className={`text-sm font-medium ${textPrimary}`}>
                   {totalItems}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 {/* KB-L10：数据实为 tagDistribution（标签分布），文案不再误称"分类" */}
-                <span className={`text-sm ${textSecondary}`}>标签数</span>
+                <span className={`text-sm ${textSecondary}`}>
+                  {t("knowledge.tagCount")}
+                </span>
                 <span className={`text-sm font-medium ${textPrimary}`}>
                   {totalCategories}
                 </span>
@@ -142,12 +148,12 @@ function StatsPanel({ isDark }: StatsPanelProps) {
           {health && (
             <div className={`${cardBg} rounded-lg p-4`}>
               <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-                编译质量
+                {t("knowledge.compileQuality")}
               </h3>
               <div className="flex flex-col items-center">
                 <div
                   className="relative w-20 h-20 mb-2"
-                  title={`Lint 分数: ${lintScore}/100`}
+                  title={t("knowledge.lintScoreTooltip", { score: lintScore })}
                 >
                   <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
                     <circle
@@ -183,10 +189,10 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                 </div>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400">
                   {lintScore >= 80
-                    ? "优秀"
+                    ? t("knowledge.gradeExcellent")
                     : lintScore >= 50
-                      ? "中等"
-                      : "待改善"}
+                      ? t("knowledge.gradeMedium")
+                      : t("knowledge.gradePoor")}
                 </span>
               </div>
             </div>
@@ -194,17 +200,11 @@ function StatsPanel({ isDark }: StatsPanelProps) {
 
           <div className={`${cardBg} rounded-lg p-4`}>
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-              关于知识库
+              {t("knowledge.aboutTitle")}
             </h3>
             <div className={`space-y-2 text-sm ${textSecondary}`}>
-              <p>
-                知识库是 AI
-                助手的「外部记忆」，您添加的知识会在对话中被自动检索和引用。
-              </p>
-              <p>
-                系统使用混合检索策略（关键词 +
-                语义），确保最相关的内容被优先匹配。
-              </p>
+              <p>{t("knowledge.aboutDesc1")}</p>
+              <p>{t("knowledge.aboutDesc2")}</p>
             </div>
           </div>
         </div>
@@ -213,7 +213,7 @@ function StatsPanel({ isDark }: StatsPanelProps) {
         {health && (
           <div className={`${cardBg} rounded-lg p-4`}>
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-              知识健康度
+              {t("knowledge.healthTitle")}
               <span
                 className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
                   health.brokenLinks === 0 && health.orphanDocs === 0
@@ -224,40 +224,40 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                 }`}
               >
                 {health.brokenLinks === 0 && health.orphanDocs === 0
-                  ? "🟢 健康"
+                  ? t("knowledge.healthHealthy")
                   : health.brokenLinks + health.orphanDocs < 5
-                    ? "🟡 警告"
-                    : "🔴 危险"}
+                    ? t("knowledge.healthWarning")
+                    : t("knowledge.healthDanger")}
               </span>
             </h3>
             <div className="grid grid-cols-3 gap-3">
               <MetricBadge
-                label="断裂链接"
+                label={t("knowledge.brokenLinks")}
                 value={health.brokenLinks}
                 color={health.brokenLinks > 0 ? "red" : "green"}
               />
               <MetricBadge
-                label="过期文档"
+                label={t("knowledge.expiredDocs")}
                 value={health.expiredDocs}
                 color={health.expiredDocs > 0 ? "yellow" : "green"}
               />
               <MetricBadge
-                label="孤立文档"
+                label={t("knowledge.orphanDocs")}
                 value={health.orphanDocs}
                 color={health.orphanDocs > 0 ? "yellow" : "green"}
               />
               <MetricBadge
-                label="结构错误"
+                label={t("knowledge.structureErrors")}
                 value={health.structureErrors}
                 color={health.structureErrors > 0 ? "red" : "green"}
               />
               <MetricBadge
-                label="一致性问题"
+                label={t("knowledge.consistencyIssues")}
                 value={health.consistencyWarnings}
                 color={health.consistencyWarnings > 0 ? "yellow" : "green"}
               />
               <MetricBadge
-                label="质量问题"
+                label={t("knowledge.qualityIssues")}
                 value={health.qualityIssues}
                 color={health.qualityIssues > 0 ? "yellow" : "green"}
               />
@@ -269,13 +269,15 @@ function StatsPanel({ isDark }: StatsPanelProps) {
         {sourceDistribution.length > 0 && (
           <div className={`${cardBg} rounded-lg p-4`}>
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-              来源分布
+              {t("knowledge.sourceDistribution")}
             </h3>
             <div className="space-y-2">
               {sourceDistribution.map(({ source, count }) => (
                 <div key={source} className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500 dark:text-gray-400 w-16 truncate">
-                    {sourceLabels[source] ?? source}
+                    {sourceLabelKeys[source]
+                      ? t(sourceLabelKeys[source])
+                      : source}
                   </span>
                   <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
@@ -297,11 +299,13 @@ function StatsPanel({ isDark }: StatsPanelProps) {
         {/* 最近更新 */}
         <div className={`${cardBg} rounded-lg`}>
           <div className={`px-4 py-3 border-b ${borderColor}`}>
-            <h3 className={`text-sm font-semibold ${textPrimary}`}>最近更新</h3>
+            <h3 className={`text-sm font-semibold ${textPrimary}`}>
+              {t("knowledge.recentUpdates")}
+            </h3>
           </div>
           {recentItems.length === 0 ? (
             <div className={`px-4 py-6 text-center ${textSecondary} text-sm`}>
-              暂无知识条目
+              {t("knowledge.noEntries")}
             </div>
           ) : (
             <div className={`divide-y ${dividerColor}`}>
@@ -327,10 +331,12 @@ function StatsPanel({ isDark }: StatsPanelProps) {
         {/* 标签分布 */}
         <div className={`${cardBg} rounded-lg p-4`}>
           <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
-            标签分布
+            {t("knowledge.tagDistribution")}
           </h3>
           {totalCategories === 0 ? (
-            <p className={`text-sm ${textSecondary}`}>暂无标签</p>
+            <p className={`text-sm ${textSecondary}`}>
+              {t("knowledge.noTags")}
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {(health?.tagDistribution ?? []).map(({ tag, count }) => (

@@ -65,7 +65,9 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
         module: "settings:ai",
         action: "set_auto_register_unknown",
       });
-      setError(e instanceof Error ? e.message : "保存模型策略失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.aiConfigSavePolicyFailed"),
+      );
     } finally {
       setConfigSaving(false);
     }
@@ -95,9 +97,11 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
       ]);
     } catch (e) {
       handleClientError(e, { module: "settings:ai", action: "load" });
-      setError(e instanceof Error ? e.message : "加载 AI 配置失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.aiConfigLoadFailed"),
+      );
     }
-  }, [loadProviders, loadModels, loadStatus, loadConfigFlag]);
+  }, [loadProviders, loadModels, loadStatus, loadConfigFlag, t]);
 
   useEffect(() => {
     void load();
@@ -111,7 +115,11 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
         module: "settings:ai",
         action: "toggle_provider",
       });
-      setError(e instanceof Error ? e.message : "切换 Provider 状态失败");
+      setError(
+        e instanceof Error
+          ? e.message
+          : t("settings.aiConfigToggleProviderFailed"),
+      );
     }
   };
 
@@ -174,16 +182,18 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
                       : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                   }`}
                 >
-                  {localRunning ? "● 运行中" : "○ 未连接"}
+                  {localRunning
+                    ? t("settings.aiLocalRunning")
+                    : t("settings.aiLocalDisconnected")}
                 </span>
               )}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
               {provider.baseUrl}
               {provider.requiresAuth && provider.hasKey
-                ? " · API Key 已配置"
+                ? t("settings.aiApiKeyConfigured")
                 : provider.requiresAuth
-                  ? " · 未配置 API Key"
+                  ? t("settings.aiApiKeyMissing")
                   : ""}
             </div>
           </div>
@@ -202,7 +212,11 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
   return (
     <ConfigSection
       title={t("settings.aiConfig")}
-      description={`已配置 ${providers.length} 个 Provider · ${activeProviders.length} 个启用 · ${models.length} 个模型`}
+      description={t("settings.aiProvidersSummary", {
+        providers: providers.length,
+        active: activeProviders.length,
+        models: models.length,
+      })}
       isDark={isDark}
       collapsible={collapsible}
     >
@@ -219,13 +233,13 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
             onClick={handleNavigateToModels}
             className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            模型管理 →
+            {t("settings.aiGoModelManagement")}
           </button>
           <button
             onClick={() => void load()}
             className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
           >
-            🔄 刷新
+            {t("settings.aiRefresh")}
           </button>
           {localProviders.length > 0 && (
             <button
@@ -233,7 +247,9 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
               disabled={detecting}
               className="px-3 py-1.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800 disabled:opacity-50"
             >
-              {detecting ? "检测中…" : "🔍 检测本地服务"}
+              {detecting
+                ? t("settings.aiDetecting")
+                : t("settings.aiDetectLocal")}
             </button>
           )}
         </div>
@@ -248,14 +264,15 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
         >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium">未知模型自动登记</div>
+              <div className="text-sm font-medium">
+                {t("settings.aiAutoRegisterUnknown")}
+              </div>
               <div
                 className={`text-xs mt-0.5 ${
                   isDark ? "text-gray-400" : "text-gray-500"
                 }`}
               >
-                使用未登记的模型时，自动登记为自定义模型并放行本次请求（自愈模式）。
-                关闭则拒绝调用并提示到模型管理登记。
+                {t("settings.aiAutoRegisterUnknownDesc")}
               </div>
             </div>
             <ToggleConfig
@@ -273,7 +290,7 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
             <h4
               className={`text-xs font-medium mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              本地推理
+              {t("settings.aiLocalInference")}
             </h4>
             <div className="space-y-2">
               {localProviders.map(renderProviderCard)}
@@ -287,7 +304,7 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
             <h4
               className={`text-xs font-medium mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              云端服务
+              {t("settings.aiCloudService")}
             </h4>
             <div className="space-y-2">
               {cloudProviders.map(renderProviderCard)}
@@ -304,12 +321,12 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
                 : "border-gray-300 text-gray-400"
             }`}
           >
-            <div className="text-sm mb-3">尚未配置任何 AI Provider</div>
+            <div className="text-sm mb-3">{t("settings.aiNoProvider")}</div>
             <button
               onClick={handleNavigateToModels}
               className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
             >
-              前往模型管理添加 →
+              {t("settings.aiGoAddProvider")}
             </button>
           </div>
         )}

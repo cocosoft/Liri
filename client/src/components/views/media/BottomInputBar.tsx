@@ -6,18 +6,19 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMediaStore } from "../../../stores/mediaStore";
 
 /**
  * 长宽比选项（含面向小白用户的语义标签）
  * 2026-08-26：示意图帮助理解 16:9（横）与 9:16（竖）的区别
  */
-const RATIO_OPTIONS: { value: string; label: string; hint: string }[] = [
-  { value: "16:9", label: "16:9", hint: "横屏" },
-  { value: "9:16", label: "9:16", hint: "竖屏" },
-  { value: "1:1", label: "1:1", hint: "方形" },
-  { value: "2:3", label: "2:3", hint: "竖版" },
-  { value: "3:2", label: "3:2", hint: "横版" },
+const RATIO_OPTIONS: { value: string; label: string; hintKey: string }[] = [
+  { value: "16:9", label: "16:9", hintKey: "media.ratioLandscape" },
+  { value: "9:16", label: "9:16", hintKey: "media.ratioPortrait" },
+  { value: "1:1", label: "1:1", hintKey: "media.ratioSquare" },
+  { value: "2:3", label: "2:3", hintKey: "media.ratioPortraitPoster" },
+  { value: "3:2", label: "3:2", hintKey: "media.ratioLandscapePoster" },
 ];
 
 /** 按真实宽高比渲染的迷你矩形示意图 */
@@ -40,6 +41,7 @@ const AspectRatioSelect: React.FC<{
   isDark: boolean;
   onChange: (v: string) => void;
 }> = ({ value, isDark, onChange }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [customMode, setCustomMode] = useState(false);
   const [customW, setCustomW] = useState("16");
@@ -69,7 +71,7 @@ const AspectRatioSelect: React.FC<{
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        title="选择图片/视频长宽比"
+        title={t("media.ratioSelectTitle")}
         className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
           isDark
             ? "border-gray-600 bg-gray-700 text-gray-200"
@@ -77,9 +79,9 @@ const AspectRatioSelect: React.FC<{
         }`}
       >
         <RatioGlyph ratio={value} />
-        <span>{current ? current.label : "自定义"}</span>
+        <span>{current ? current.label : t("media.custom")}</span>
         <span className="text-[10px] text-gray-400">
-          {current ? current.hint : value}
+          {current ? t(current.hintKey) : value}
         </span>
         <span className="text-[8px] opacity-60">▼</span>
       </button>
@@ -114,7 +116,9 @@ const AspectRatioSelect: React.FC<{
               >
                 <RatioGlyph ratio={opt.value} />
                 <span>{opt.label}</span>
-                <span className="text-[10px] text-gray-400">{opt.hint}</span>
+                <span className="text-[10px] text-gray-400">
+                  {t(opt.hintKey)}
+                </span>
               </button>
             ))}
 
@@ -152,7 +156,7 @@ const AspectRatioSelect: React.FC<{
                   onClick={applyCustom}
                   className="ml-auto rounded bg-blue-500 px-2 py-0.5 text-xs text-white hover:bg-blue-600"
                 >
-                  应用
+                  {t("media.apply")}
                 </button>
               </div>
             ) : (
@@ -168,7 +172,7 @@ const AspectRatioSelect: React.FC<{
                 }`}
               >
                 <span className="inline-block h-3.5 w-4 shrink-0 rounded-sm border border-dashed border-current opacity-85" />
-                <span>自定义</span>
+                <span>{t("media.custom")}</span>
                 {isCustom && (
                   <span className="text-[10px] text-gray-400">{value}</span>
                 )}
@@ -185,6 +189,7 @@ const AspectRatioSelect: React.FC<{
  * 图片|视频 模式切换
  */
 const ModeSegmentedControl: React.FC = () => {
+  const { t } = useTranslation();
   const mode = useMediaStore((s) => s.mode);
   const setMode = useMediaStore((s) => s.setMode);
 
@@ -198,7 +203,7 @@ const ModeSegmentedControl: React.FC = () => {
             : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         }`}
       >
-        图片
+        {t("media.image")}
       </button>
       <button
         onClick={() => setMode("video")}
@@ -208,7 +213,7 @@ const ModeSegmentedControl: React.FC = () => {
             : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         }`}
       >
-        视频
+        {t("media.video")}
       </button>
     </div>
   );
@@ -219,6 +224,7 @@ export const BottomInputBar: React.FC<{
   generating: boolean;
   onGenerate: () => void;
 }> = ({ isDark, generating, onGenerate }) => {
+  const { t } = useTranslation();
   const mode = useMediaStore((s) => s.mode);
   const setMode = useMediaStore((s) => s.setMode);
   const prompt = useMediaStore((s) => s.prompt);
@@ -281,7 +287,7 @@ export const BottomInputBar: React.FC<{
             {selectedImageUrl && (
               <div className="flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-0.5 dark:bg-blue-900/20">
                 <span className="truncate text-xs text-blue-600 dark:text-blue-400 max-w-[150px]">
-                  已选图片
+                  {t("media.selectedImage")}
                 </span>
                 <button
                   onClick={clearSelectedImage}
@@ -300,8 +306,8 @@ export const BottomInputBar: React.FC<{
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={
                 isVideoMode
-                  ? "描述你想生成的视频内容..."
-                  : "描述你想生成的图片内容..."
+                  ? t("media.promptVideoPlaceholder")
+                  : t("media.promptImagePlaceholder")
               }
               rows={2}
               className={`w-full resize-none rounded-xl border px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 ${
@@ -326,9 +332,15 @@ export const BottomInputBar: React.FC<{
                     : "border-gray-200 bg-gray-100 text-gray-600"
                 }`}
               >
-                <option value={5}>5 秒</option>
-                <option value={8}>8 秒</option>
-                <option value={10}>10 秒</option>
+                <option value={5}>
+                  {t("media.durationSeconds", { n: 5 })}
+                </option>
+                <option value={8}>
+                  {t("media.durationSeconds", { n: 8 })}
+                </option>
+                <option value={10}>
+                  {t("media.durationSeconds", { n: 10 })}
+                </option>
               </select>
             ) : (
               <select
@@ -340,9 +352,9 @@ export const BottomInputBar: React.FC<{
                     : "border-gray-200 bg-gray-100 text-gray-600"
                 }`}
               >
-                <option value={1}>1 张</option>
-                <option value={2}>2 张</option>
-                <option value={4}>4 张</option>
+                <option value={1}>{t("media.countImages", { n: 1 })}</option>
+                <option value={2}>{t("media.countImages", { n: 2 })}</option>
+                <option value={4}>{t("media.countImages", { n: 4 })}</option>
               </select>
             )}
 
@@ -358,7 +370,7 @@ export const BottomInputBar: React.FC<{
               disabled={(!prompt.trim() && !selectedImageUrl) || generating}
               className="ml-auto rounded-full bg-blue-600 px-5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              {generating ? "生成中…" : "生成"}
+              {generating ? t("media.generatingLabel") : t("media.generateBtn")}
             </button>
           </div>
         </div>

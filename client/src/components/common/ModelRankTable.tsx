@@ -5,6 +5,7 @@
  * ModelRankTable — 模型排名表（圆点色标 + 名称 + 详情 + 费用 + 百分比 布局）
  * Props: { stats: ModelRankEntry[], currency?, maxRows? }
  */
+import { useTranslation } from "react-i18next";
 import { formatCost, formatTokens } from "../../utils/format";
 
 export interface ModelRankEntry {
@@ -38,6 +39,7 @@ export function ModelRankTable({
   currency = "$",
   maxRows = 10,
 }: ModelRankTableProps) {
+  const { t } = useTranslation();
   const sorted = [...stats]
     .sort((a, b) => b.totalCost - a.totalCost)
     .slice(0, maxRows);
@@ -46,10 +48,12 @@ export function ModelRankTable({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-        模型使用排行
+        {t("common.modelRankTitle")}
       </h3>
       {sorted.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">暂无数据</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500">
+          {t("common.noData")}
+        </p>
       ) : (
         <div className="space-y-2">
           {sorted.map((m, i) => (
@@ -64,7 +68,9 @@ export function ModelRankTable({
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {formatTokens(m.totalTokens)} tokens ·{" "}
-                  {m.requestCount.toLocaleString()} 次
+                  {t("common.timesCount", {
+                    count: m.requestCount.toLocaleString(),
+                  })}
                   {m.avgLatencyMs != null ? ` · ${m.avgLatencyMs}ms` : ""}
                 </div>
               </div>

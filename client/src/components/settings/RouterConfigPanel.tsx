@@ -4,6 +4,7 @@
  * A3：从 SettingsPage 提取共享组件，供 /settings 页面与侧边设置抽屉复用（CS01 归一化，禁止复制两份）。
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ConfigSection, ConfigItem, ToggleConfig } from "./ConfigComponents";
 import { routerService } from "../../services/routerService";
 
@@ -17,6 +18,7 @@ function RouterConfigPanel({
   config: Record<string, unknown>;
   setConfig: (key: string, value: unknown) => void;
 }) {
+  const { t } = useTranslation();
   const [routerExpanded, setRouterExpanded] = useState(false);
 
   const smartRouter = (config["models.router"] as {
@@ -55,7 +57,7 @@ function RouterConfigPanel({
   return (
     <div>
       <ConfigSection isDark={isDark}>
-        <ConfigItem label="启用 SmartRouter" isDark={isDark}>
+        <ConfigItem label={t("settings.routerEnable")} isDark={isDark}>
           <ToggleConfig
             isDark={isDark}
             checked={smartRouter.enabled}
@@ -63,16 +65,18 @@ function RouterConfigPanel({
           />
         </ConfigItem>
         {smartRouter.enabled && (
-          <ConfigItem label="默认等级" isDark={isDark}>
+          <ConfigItem label={t("settings.routerDefaultTier")} isDark={isDark}>
             <select
               value={smartRouter.defaultTier}
               onChange={handleChangeDefaultTier}
               className="px-3 py-1.5 text-sm rounded-md border bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
             >
-              <option value="simple">Simple - 简单问答</option>
-              <option value="medium">Medium - 常规对话</option>
-              <option value="complex">Complex - 复杂任务</option>
-              <option value="reasoning">Reasoning - 深度推理</option>
+              <option value="simple">{t("settings.routerTierSimple")}</option>
+              <option value="medium">{t("settings.routerTierMedium")}</option>
+              <option value="complex">{t("settings.routerTierComplex")}</option>
+              <option value="reasoning">
+                {t("settings.routerTierReasoning")}
+              </option>
             </select>
           </ConfigItem>
         )}
@@ -81,13 +85,17 @@ function RouterConfigPanel({
             onClick={() => setRouterExpanded(!routerExpanded)}
             className="text-xs text-blue-500 hover:text-blue-400 focus:outline-none ml-0.5"
           >
-            {routerExpanded ? "收起详情 ▲" : "展开详情 ▼"}
+            {routerExpanded
+              ? t("settings.routerCollapse")
+              : t("settings.routerExpand")}
           </button>
         )}
         {smartRouter.enabled && routerExpanded && (
           <div className="space-y-2 mt-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-gray-500">会话黏性</span>
+              <span className="text-gray-500">
+                {t("settings.routerSticky")}
+              </span>
               <ToggleConfig
                 isDark={isDark}
                 checked={smartRouter.sessionSticky}
@@ -95,9 +103,9 @@ function RouterConfigPanel({
               />
             </div>
             <div className="text-gray-400">
-              Judge 模型:{" "}
+              {t("settings.routerJudgeModel")}{" "}
               <span className="text-gray-500">
-                使用云端 Judge 模型判定（未配置时回退默认等级）
+                {t("settings.routerJudgeModelDesc")}
               </span>
             </div>
           </div>

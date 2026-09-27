@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { fileService } from "../../services/fileService";
 
 /**
@@ -47,6 +48,7 @@ function DirectoryTree({
   currentRoot,
   onRootChange,
 }: DirectoryTreeProps) {
+  const { t } = useTranslation();
   const [treeData, setTreeData] = useState<Record<string, TreeNode[]>>({});
   // P2-3：树加载/错误态；root 变化时重置（rootsKey 依赖而非对象引用，避免每帧重载）
   const [treeStatus, setTreeStatus] = useState<"loading" | "ready" | "error">(
@@ -225,7 +227,7 @@ function DirectoryTree({
       {/* 标题 */}
       <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          目录结构
+          {t("files.treeTitle")}
         </h3>
       </div>
 
@@ -251,12 +253,12 @@ function DirectoryTree({
       <div className="flex-1 overflow-y-auto py-2 space-y-0.5">
         {treeStatus === "loading" && (
           <div className="px-4 py-4 text-center text-xs text-gray-400">
-            目录加载中…
+            {t("files.treeLoading")}
           </div>
         )}
         {treeStatus === "error" && (
           <div className="px-4 py-4 text-center text-xs text-red-400">
-            目录加载失败，请检查后端服务
+            {t("files.treeLoadFailed")}
           </div>
         )}
         {treeStatus === "ready" &&
@@ -270,7 +272,7 @@ function DirectoryTree({
                   key={root.key}
                   className="px-4 py-4 text-center text-xs text-gray-400"
                 >
-                  此目录为空
+                  {t("files.treeEmpty")}
                 </div>
               );
             }

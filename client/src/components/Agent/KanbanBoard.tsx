@@ -170,7 +170,7 @@ export default function KanbanBoard() {
           onClick={() => setShowCreate(!showCreate)}
           className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800"
         >
-          {showCreate ? "收起" : "+ 新建"}
+          {showCreate ? t("agent.collapse") : t("agent.newCard")}
         </button>
       </div>
 
@@ -204,7 +204,7 @@ export default function KanbanBoard() {
               disabled={!title.trim()}
               className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
             >
-              添加
+              {t("agent.addCard")}
             </button>
           </div>
         </div>

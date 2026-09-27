@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import BuddyAvatar from "../Buddy/BuddyAvatar";
 import DreamLogTab from "../Buddy/DreamLogTab";
 import BuddyGame from "../Buddy/BuddyGame";
@@ -15,15 +16,16 @@ import type { BuddyStat } from "../../types";
 import { useNavigationStore } from "../../stores/navigationStore";
 
 const INTERACTIONS = ["pet", "feed", "play", "praise", "scold"];
-const INTERACTION_LABELS: Record<string, string> = {
-  pet: "抚摸",
-  feed: "喂食",
-  play: "玩耍",
-  praise: "表扬",
-  scold: "批评",
+const INTERACTION_LABEL_KEYS: Record<string, string> = {
+  pet: "buddy.interactPet",
+  feed: "buddy.interactFeed",
+  play: "buddy.interactPlay",
+  praise: "buddy.interactPraise",
+  scold: "buddy.interactScold",
 };
 
 function BuddyPage() {
+  const { t } = useTranslation();
   const {
     companion,
     lastInteraction,
@@ -53,7 +55,7 @@ function BuddyPage() {
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto p-6">
           <div className="flex items-center justify-center h-64 text-gray-400">
-            加载中...
+            {t("common.loading")}
           </div>
         </div>
       </div>
@@ -65,7 +67,7 @@ function BuddyPage() {
       <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto p-6">
           <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-            尚未孵化伙伴
+            {t("buddy.notHatched")}
           </div>
         </div>
       </div>
@@ -79,7 +81,7 @@ function BuddyPage() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            我的伙伴
+            {t("buddy.myBuddy")}
           </h2>
         </div>
 
@@ -93,7 +95,7 @@ function BuddyPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            概览
+            {t("buddy.tabOverview")}
           </button>
           <button
             onClick={() => setActiveTab("game")}
@@ -103,7 +105,7 @@ function BuddyPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            🎮 游戏
+            {t("buddy.tabGame")}
           </button>
           <button
             onClick={() => setActiveTab("evolution")}
@@ -113,7 +115,7 @@ function BuddyPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            ⬆️ 进化
+            {t("buddy.tabEvolution")}
           </button>
           <button
             onClick={() => setActiveTab("dreams")}
@@ -123,7 +125,7 @@ function BuddyPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            🌙 梦境日志
+            {t("buddy.tabDreamLog")}
           </button>
           <button
             onClick={() => setActiveTab("dreamDetail")}
@@ -133,7 +135,7 @@ function BuddyPage() {
                 : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            ✨ 梦境详情
+            {t("buddy.tabDreamDetail")}
           </button>
         </div>
 
@@ -169,11 +171,11 @@ function BuddyPage() {
                   </div>
                   {companion.shiny && (
                     <span className="text-xs text-yellow-500 font-medium mt-1 block">
-                      ✨ 闪光
+                      {t("buddy.shiny")}
                     </span>
                   )}
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    性格: {companion.personality}
+                    {t("buddy.personality", { name: companion.personality })}
                   </p>
                 </div>
               </div>
@@ -200,7 +202,7 @@ function BuddyPage() {
             {/* 属性面板 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                属性
+                {t("buddy.attributes")}
               </h3>
               <div className="grid grid-cols-5 gap-3">
                 {(Object.entries(companion.stats) as [BuddyStat, number][]).map(
@@ -222,40 +224,44 @@ function BuddyPage() {
             {/* 梦境整合统计 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                🌙 梦境整合
+                {t("buddy.dreamIntegration")}
               </h3>
               <div className="flex items-center justify-between text-sm">
                 <div className="text-gray-500 dark:text-gray-400">
-                  已完成整合
+                  {t("buddy.completedIntegrations")}
                 </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {stats?.dreamsCompleted ?? 0} 次
+                  {t("buddy.times", { n: stats?.dreamsCompleted ?? 0 })}
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
-                <div className="text-gray-500 dark:text-gray-400">总经验值</div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  {t("buddy.totalXp")}
+                </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">
                   {stats?.totalXp ?? 0} XP
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
-                <div className="text-gray-500 dark:text-gray-400">互动次数</div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  {t("buddy.interactions")}
+                </div>
                 <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {stats?.interactions ?? 0} 次
+                  {t("buddy.times", { n: stats?.interactions ?? 0 })}
                 </div>
               </div>
               <button
                 onClick={() => setActivePage("agent")}
                 className="mt-3 w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
               >
-                查看 Agent 任务
+                {t("buddy.viewAgentTasks")}
               </button>
             </div>
 
             {/* 互动区 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                互动
+                {t("buddy.interactionsSection")}
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
                 {INTERACTIONS.map((action) => (
@@ -264,7 +270,7 @@ function BuddyPage() {
                     onClick={() => handleInteract(action)}
                     className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
                   >
-                    {INTERACTION_LABELS[action]}
+                    {t(INTERACTION_LABEL_KEYS[action])}
                   </button>
                 ))}
               </div>
@@ -307,7 +313,7 @@ function BuddyPage() {
                     setMessage("");
                   }
                 }}
-                placeholder="和伙伴说话..."
+                placeholder={t("buddy.talkPlaceholder")}
                 className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>

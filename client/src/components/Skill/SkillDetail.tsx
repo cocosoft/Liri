@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Skill, SkillSource } from "../../services/skillService";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
@@ -18,9 +19,9 @@ interface SkillDetailProps {
 }
 
 const STATUS_LABELS: Record<Skill["status"], string> = {
-  enabled: "已启用",
-  disabled: "已禁用",
-  draft: "草稿",
+  enabled: "skill.enabled",
+  disabled: "skill.disabled",
+  draft: "skill.draft",
 };
 
 const STATUS_COLORS: Record<Skill["status"], string> = {
@@ -33,14 +34,14 @@ const STATUS_COLORS: Record<Skill["status"], string> = {
 
 // 来源标签配置
 const SOURCE_LABELS: Record<SkillSource, string> = {
-  builtin: "内置",
-  official: "官方",
-  third_party: "第三方",
-  user: "用户",
-  project: "项目",
-  plugin: "插件",
-  mcp: "MCP",
-  bundled: "捆绑",
+  builtin: "skill.sourceBuiltin",
+  official: "skill.official",
+  third_party: "skill.thirdParty",
+  user: "skill.sourceUser",
+  project: "skill.sourceProject",
+  plugin: "skill.sourcePlugin",
+  mcp: "skill.sourceMcp",
+  bundled: "skill.sourceBundled",
 };
 
 function SkillDetail({
@@ -54,6 +55,7 @@ function SkillDetail({
   linkedFiles,
   onViewFile,
 }: SkillDetailProps) {
+  const { t } = useTranslation();
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString("zh-CN", {
       year: "numeric",
@@ -67,11 +69,11 @@ function SkillDetail({
 
   const PARAMETER_TYPE_LABELS: Record<Skill["parameters"][0]["type"], string> =
     {
-      string: "字符串",
-      number: "数字",
-      boolean: "布尔值",
-      array: "数组",
-      object: "对象",
+      string: "skill.paramString",
+      number: "skill.paramNumber",
+      boolean: "skill.paramBoolean",
+      array: "skill.paramArray",
+      object: "skill.paramObject",
     };
 
   return (
@@ -94,14 +96,17 @@ function SkillDetail({
               </span>
             )}
             {skill.modified && (
-              <span className="text-xs text-yellow-500" title="已修改">
-                ✎ 已修改
+              <span
+                className="text-xs text-yellow-500"
+                title={t("skill.modified")}
+              >
+                {t("skill.modifiedInline")}
               </span>
             )}
             <span
               className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[skill.status]}`}
             >
-              {STATUS_LABELS[skill.status]}
+              {t(STATUS_LABELS[skill.status])}
             </span>
           </div>
           <p
@@ -123,7 +128,9 @@ function SkillDetail({
                   : "bg-green-50 text-green-600 hover:bg-green-100"
             }`}
           >
-            {skill.status === "enabled" ? "禁用" : "启用"}
+            {skill.status === "enabled"
+              ? t("skill.disableAction")
+              : t("skill.enableAction")}
           </button>
           <button
             onClick={onEdit}
@@ -133,7 +140,7 @@ function SkillDetail({
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            编辑
+            {t("common.edit")}
           </button>
           <button
             onClick={onDelete}
@@ -143,7 +150,7 @@ function SkillDetail({
                 : "bg-red-50 text-red-600 hover:bg-red-100"
             }`}
           >
-            删除
+            {t("common.delete")}
           </button>
         </div>
       </div>
@@ -155,16 +162,16 @@ function SkillDetail({
           <h3
             className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            基本信息
+            {t("skill.basicInfo")}
           </h3>
           <div className="space-y-2">
             {skill.source && (
               <div className="flex items-center justify-between">
                 <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                  来源
+                  {t("common.source")}
                 </span>
                 <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-                  {SOURCE_LABELS[skill.source]} ({skill.source})
+                  {t(SOURCE_LABELS[skill.source])} ({skill.source})
                 </span>
               </div>
             )}
@@ -179,14 +186,14 @@ function SkillDetail({
                 <h4
                   className={`text-xs font-medium mb-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  致谢
+                  {t("skill.acknowledgementsTitle")}
                 </h4>
                 {frontmatter.author ? (
                   <div className="flex items-center justify-between">
                     <span
                       className={isDark ? "text-gray-400" : "text-gray-600"}
                     >
-                      作者
+                      {t("common.author")}
                     </span>
                     <span
                       className={isDark ? "text-gray-200" : "text-gray-800"}
@@ -200,7 +207,7 @@ function SkillDetail({
                     <span
                       className={isDark ? "text-gray-400" : "text-gray-600"}
                     >
-                      许可证
+                      {t("skill.licenseLabel")}
                     </span>
                     <span
                       className={isDark ? "text-gray-200" : "text-gray-800"}
@@ -220,7 +227,7 @@ function SkillDetail({
             ) : null}
             <div className="flex items-center justify-between">
               <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                分类
+                {t("skill.categories")}
               </span>
               <span className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {skill.category}
@@ -228,7 +235,7 @@ function SkillDetail({
             </div>
             <div className="flex items-center justify-between">
               <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                创建时间
+                {t("skill.createdAt")}
               </span>
               <span className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {formatDate(skill.createdAt)}
@@ -236,7 +243,7 @@ function SkillDetail({
             </div>
             <div className="flex items-center justify-between">
               <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                更新时间
+                {t("skill.updatedAt")}
               </span>
               <span className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {formatDate(skill.updatedAt)}
@@ -251,12 +258,12 @@ function SkillDetail({
           <h3
             className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            使用统计
+            {t("skill.usageStats")}
           </h3>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                使用次数
+                {t("skill.usageCount")}
               </span>
               <span className={isDark ? "text-gray-200" : "text-gray-800"}>
                 {skill.usageCount}
@@ -264,10 +271,12 @@ function SkillDetail({
             </div>
             <div className="flex items-center justify-between">
               <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-                最后使用
+                {t("skill.lastUsed")}
               </span>
               <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-                {skill.lastUsedAt ? formatDate(skill.lastUsedAt) : "从未使用"}
+                {skill.lastUsedAt
+                  ? formatDate(skill.lastUsedAt)
+                  : t("skill.neverUsed")}
               </span>
             </div>
           </div>
@@ -281,7 +290,7 @@ function SkillDetail({
           <h3
             className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            参数列表 ({skill.parameters.length})
+            {t("skill.paramListCount", { count: skill.parameters.length })}
           </h3>
           <div className="space-y-2">
             {skill.parameters.map((param) => (
@@ -299,7 +308,7 @@ function SkillDetail({
                     <span
                       className={`px-1.5 py-0.5 rounded text-xs ${isDark ? "bg-red-900/30 text-red-400" : "bg-red-100 text-red-600"}`}
                     >
-                      必填
+                      {t("skill.required")}
                     </span>
                   )}
                 </div>
@@ -307,13 +316,15 @@ function SkillDetail({
                   <span
                     className={`px-2 py-0.5 rounded text-xs ${isDark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-600"}`}
                   >
-                    {PARAMETER_TYPE_LABELS[param.type]}
+                    {t(PARAMETER_TYPE_LABELS[param.type])}
                   </span>
                   {param.default !== undefined && (
                     <span
                       className={isDark ? "text-gray-400" : "text-gray-500"}
                     >
-                      默认: {JSON.stringify(param.default)}
+                      {t("skill.defaultValue", {
+                        value: JSON.stringify(param.default),
+                      })}
                     </span>
                   )}
                 </div>
@@ -336,7 +347,7 @@ function SkillDetail({
           <summary
             className={`cursor-pointer text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            技能内容 (SKILL.md)
+            {t("skill.contentSection")}
           </summary>
           {frontmatter && Object.keys(frontmatter).length > 0 && (
             <details
@@ -345,7 +356,7 @@ function SkillDetail({
               <summary
                 className={`cursor-pointer text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}
               >
-                元数据 (Frontmatter)
+                {t("skill.frontmatterSection")}
               </summary>
               <pre
                 className={`mt-2 text-xs overflow-x-auto ${isDark ? "text-gray-300" : "text-gray-700"}`}
@@ -368,7 +379,7 @@ function SkillDetail({
           <h3
             className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            关联文件 ({linkedFiles.length})
+            {t("skill.linkedFiles", { count: linkedFiles.length })}
           </h3>
           <div className="space-y-1">
             {linkedFiles.map((file) => (

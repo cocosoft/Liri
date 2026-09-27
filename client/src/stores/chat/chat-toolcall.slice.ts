@@ -20,6 +20,8 @@ import type {
 } from "../../services/chatService";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
+// 状态块 statusType 契约（CS02）：判据的单一事实来源，双端共用
+import { isTransientStatusType } from "@shared/types";
 
 const logger = createLogger("stores:chat:toolcall");
 
@@ -40,9 +42,11 @@ export function generateGroupId(): string {
 /**
  * 判断 status 内容是否属于"内部过渡状态"（SSE 协议过程消息，非用户可见内容，应丢弃）。
  *
- * 分层过滤（与 ChronologicalBlockBuilder.addStatus 共用，CS01 归一化）：
- *  - 结构化（CS02）：statusType 命中瞬态类型 → 丢弃
- *  - 字符串回退：兼容旧后端 statusType 缺失时的协议消息
+ * **判据收敛（CS02）**：只依赖结构化 `statusType`（经共享契约 `isTransientStatusType`），
+ * **不再回退到 `content` 文本匹配**。原实现的 13 条字符串模式（如
+ * `content.includes('🔧') && content.includes('Running tool')`、`AI is thinking…`）已删除 ——
+ * 它们依赖后端文案，文案一变即静默失效；且 `tool_running` 因两端取值口径不一致而
+ * **从未走通结构化通路**（详见 `.trae/specs/chat-status-type-contract.md`）。
  *
  * 用法：流式派生（deriveConversationBlocks）、渲染（StatusBlock）、旧构建器（addStatus）三处共用，
  * 保证"流式视图 = 回放视图"且过渡状态在各路径一致过滤。
@@ -51,28 +55,9 @@ export function isInternalTransitionStatus(
   content: string,
   statusType?: string,
 ): boolean {
-  // 结构化过滤 (CS02)：瞬态/冗余状态类型（工具状态已由 tool_call 块展示）
-  if (
-    statusType === "ai_thinking" ||
-    statusType === "tool_started" ||
-    statusType === "tool_completed"
-  ) {
-    return true;
-  }
-  // 字符串回退：兼容旧后端 statusType 缺失时的协议消息
-  if (content.includes("🔧") && content.includes("Running tool")) return true;
-  if (content.startsWith("✅ Tool") || content.startsWith("❌ Tool")) {
-    return true;
-  }
-  const internalPatterns = [
-    "AI is thinking",
-    "AI is analyzing",
-    "AI is preparing",
-    "AI is waiting",
-    "🔍 AI is analyzing the image",
-    "🎨 AI is generating",
-  ];
-  return internalPatterns.some((p) => content.startsWith(p));
+  // content 形参保留（调用方签名不变）；判据只用 statusType
+  void content;
+  return isTransientStatusType(statusType);
 }
 
 /**

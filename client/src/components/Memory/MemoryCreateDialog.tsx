@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { MemoryType } from "../../services/memoryService";
 import { TYPE_OPTIONS } from "./memoryConstants";
 
@@ -22,6 +23,7 @@ function MemoryCreateDialog({
   onClose,
   onCreate,
 }: MemoryCreateDialogProps) {
+  const { t } = useTranslation();
   const [type, setType] = useState<MemoryType>("knowledge");
   const [content, setContent] = useState("");
   const [tagsInput, setTagsInput] = useState("");
@@ -60,7 +62,7 @@ function MemoryCreateDialog({
         <h2
           className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
         >
-          创建新记忆
+          {t("memory.createNew")}
         </h2>
 
         <div className="space-y-4">
@@ -69,7 +71,7 @@ function MemoryCreateDialog({
             <label
               className={`block text-sm font-medium mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              记忆类型
+              {t("memory.memoryType")}
             </label>
             <div className="flex flex-wrap gap-2">
               {TYPE_OPTIONS.map((opt) => (
@@ -97,7 +99,7 @@ function MemoryCreateDialog({
             <label
               className={`block text-sm font-medium mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              权重 (1-100): {weight}
+              {t("memory.weightRange", { value: weight })}
             </label>
             <input
               type="range"
@@ -114,13 +116,13 @@ function MemoryCreateDialog({
             <label
               className={`block text-sm font-medium mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              标签 (逗号分隔)
+              {t("memory.tagsLabel")}
             </label>
             <input
               type="text"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="例如: 重要, 项目A, 待办"
+              placeholder={t("memory.tagsPlaceholder")}
               className={`w-full px-3 py-2 rounded-lg text-sm border ${
                 isDark
                   ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
@@ -134,12 +136,12 @@ function MemoryCreateDialog({
             <label
               className={`block text-sm font-medium mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              记忆内容 *
+              {t("memory.contentRequired")}
             </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="输入记忆内容..."
+              placeholder={t("memory.contentPlaceholder")}
               rows={6}
               className={`w-full p-3 rounded-lg text-sm border resize-y ${
                 isDark
@@ -159,7 +161,7 @@ function MemoryCreateDialog({
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleCreate}
@@ -170,7 +172,7 @@ function MemoryCreateDialog({
                 : "bg-blue-500 hover:bg-blue-600 text-white"
             }`}
           >
-            {isCreating ? "创建中..." : "创建"}
+            {isCreating ? t("memory.creatingNow") : t("common.create")}
           </button>
         </div>
       </div>

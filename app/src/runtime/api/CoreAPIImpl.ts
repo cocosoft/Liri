@@ -128,6 +128,8 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
+// 状态块 statusType 契约（CS02：判据为结构化标记，勿写字面量）
+import { STATUS_TYPE } from '@shared/types';
 import {
   resolveModelRoute,
   RouteKey,
@@ -637,6 +639,7 @@ export class CoreAPIImpl implements CoreAPI {
       type: 'status',
       content: 'AI is analyzing your request...',
       sessionId: finalSessionId,
+      statusType: STATUS_TYPE.AI_THINKING,
     } as ChatStreamChunk;
 
     // 工具执行结果缓存：tool:completed 事件可能在 onToolCall('end') 之前或之后到达
@@ -700,6 +703,7 @@ export class CoreAPIImpl implements CoreAPI {
         type: 'status',
         content: 'AI is preparing context...',
         sessionId: finalSessionId,
+        statusType: STATUS_TYPE.AI_THINKING,
       } as ChatStreamChunk;
       // 同步更新模型名（用于成本记录）
       if (model) this._modelName = model;
@@ -804,7 +808,7 @@ export class CoreAPIImpl implements CoreAPI {
               toolCallId,
               // L3（2026-08-23）：结构化 statusType（CS02）——前端 GroupStatusLine
               // 据此判断运行中，不再字符串匹配 "Running"
-              statusType: 'tool_running',
+              statusType: STATUS_TYPE.TOOL_RUNNING,
             } as ChatStreamChunk);
 
             // 图像工具：流式返回进度状态，前端展示友好提示
@@ -813,12 +817,14 @@ export class CoreAPIImpl implements CoreAPI {
                 type: 'status',
                 content: '🎨 AI is generating an image...',
                 sessionId: finalSessionId,
+                statusType: STATUS_TYPE.TOOL_RUNNING,
               } as ChatStreamChunk);
             } else if (toolName === 'image_analyze' || toolName === 'image') {
               pendingEvents.push({
                 type: 'status',
                 content: '🔍 AI is analyzing the image...',
                 sessionId: finalSessionId,
+                statusType: STATUS_TYPE.TOOL_RUNNING,
               } as ChatStreamChunk);
             }
 
@@ -856,7 +862,9 @@ export class CoreAPIImpl implements CoreAPI {
               sessionId: finalSessionId,
               toolCallId,
               // L3（2026-08-23）：结构化 statusType（CS02）——前端据此判断完成/失败
-              statusType: isFailed ? 'tool_failed' : 'tool_completed',
+              statusType: isFailed
+                ? STATUS_TYPE.TOOL_FAILED
+                : STATUS_TYPE.TOOL_COMPLETED,
             } as ChatStreamChunk);
 
             // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）
@@ -1035,6 +1043,7 @@ export class CoreAPIImpl implements CoreAPI {
         type: 'status',
         content: 'AI is waiting for response...',
         sessionId: finalSessionId,
+        statusType: STATUS_TYPE.AI_THINKING,
       } as ChatStreamChunk;
 
       // 排查日志：chunk 从生成到发送的完整链路（2026-08-14）

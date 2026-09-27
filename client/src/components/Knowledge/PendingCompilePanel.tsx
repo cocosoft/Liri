@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useCompilePolling } from "./useCompilePolling";
 import { formatFileSize, formatDate } from "./shared/utils";
@@ -25,6 +26,7 @@ function PendingCompilePanel({
   onCompileComplete,
   onClose,
 }: PendingCompilePanelProps) {
+  const { t } = useTranslation();
   const [rawFiles, setRawFiles] = useState<RawFileInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [compiling, setCompiling] = useState(false);
@@ -113,7 +115,7 @@ function PendingCompilePanel({
             />
           </svg>
           <span className={`text-xs font-medium ${textPrimary}`}>
-            待处理文件
+            {t("knowledge.pendingFilesTitle")}
           </span>
           {rawFiles.length > 0 && (
             <span
@@ -144,7 +146,7 @@ function PendingCompilePanel({
                 onClose();
               }}
               className={`p-0.5 rounded ${textSecondary} hover:opacity-70`}
-              title="关闭待处理面板"
+              title={t("knowledge.closePendingPanel")}
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -168,13 +170,13 @@ function PendingCompilePanel({
         <div className="px-3 pb-2">
           {loading ? (
             <div className={`text-center py-3 ${textMuted}`}>
-              <span className="text-xs">加载中...</span>
+              <span className="text-xs">{t("common.loading")}</span>
             </div>
           ) : rawFiles.length === 0 ? (
             <div className={`text-center py-3 ${textMuted}`}>
-              <p className="text-xs">暂无待处理的文件</p>
+              <p className="text-xs">{t("knowledge.noPendingFiles")}</p>
               <p className="text-[10px] mt-1 opacity-60">
-                上传 .md .txt .pdf 等文件后将自动进入编译队列
+                {t("knowledge.pendingQueueHint")}
               </p>
             </div>
           ) : (
@@ -221,7 +223,7 @@ function PendingCompilePanel({
                 {compiling ? (
                   <>
                     <span className="animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full inline-block" />
-                    编译中...
+                    {t("knowledge.compiling")}
                   </>
                 ) : (
                   <>
@@ -238,7 +240,7 @@ function PendingCompilePanel({
                         d="M13 10V3L4 14h7v7l9-11h-7z"
                       />
                     </svg>
-                    全部编译
+                    {t("knowledge.compileAll")}
                   </>
                 )}
               </button>
@@ -247,7 +249,7 @@ function PendingCompilePanel({
                 disabled={loading}
                 className={`text-xs ${textSecondary} hover:${isDark ? "text-gray-300" : "text-gray-700"} transition-colors`}
               >
-                刷新
+                {t("common.refresh")}
               </button>
             </div>
           )}
@@ -256,7 +258,7 @@ function PendingCompilePanel({
           {compiling && (
             <div className="mt-2">
               <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
-                <span>编译中...</span>
+                <span>{t("knowledge.compiling")}</span>
                 <span>{Math.round(compileProgress)}%</span>
               </div>
               <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, memo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   getSpanRecords,
   subscribeSpanCollector,
@@ -105,6 +106,7 @@ const SpanRow = memo(function SpanRow({ span }: SpanRowProps) {
 });
 
 export function OTELSpanViewer({ compact }: { compact?: boolean }) {
+  const { t } = useTranslation();
   const [spans, setSpans] = useState<SpanRecord[]>([]);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -138,19 +140,17 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
   if (spans.length === 0) {
     return compact ? (
       <div className="text-xs text-gray-400 text-center py-2">
-        OTEL: 暂无追踪数据
+        {t("otel.compactEmpty")}
       </div>
     ) : (
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg">🔍</span>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            OTEL 追踪
+            {t("otel.title")}
           </h3>
         </div>
-        <p className="text-xs text-gray-400">
-          暂无 Span 数据（等待页面交互产生追踪数据...）
-        </p>
+        <p className="text-xs text-gray-400">{t("otel.noSpans")}</p>
       </div>
     );
   }
@@ -172,7 +172,7 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500">错误</span>
+          <span className="text-gray-500">{t("otel.errorLabel")}</span>
           <span
             className={`font-mono font-medium ${errorCount > 0 ? "text-red-500" : "text-gray-700 dark:text-gray-300"}`}
           >
@@ -180,7 +180,7 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500">平均延迟</span>
+          <span className="text-gray-500">{t("otel.avgLatency")}</span>
           <span className="font-mono text-gray-700 dark:text-gray-300">
             {spans.length > 0
               ? formatDuration(
@@ -190,7 +190,7 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500">最近</span>
+          <span className="text-gray-500">{t("otel.latest")}</span>
           <span className="font-mono text-gray-600 dark:text-gray-400 truncate max-w-[140px]">
             {spans[spans.length - 1]?.name || "-"}
           </span>
@@ -205,11 +205,11 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
         <div className="flex items-center gap-2">
           <span className="text-lg">🔍</span>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            OTEL 追踪 ({spans.length})
+            {t("otel.titleWithCount", { count: spans.length })}
           </h3>
           {errorCount > 0 && (
             <span className="text-xs text-red-500 font-medium">
-              {errorCount} 错误
+              {t("otel.errorCount", { count: errorCount })}
             </span>
           )}
         </div>
@@ -218,13 +218,13 @@ export function OTELSpanViewer({ compact }: { compact?: boolean }) {
             onClick={() => setCollapsed(!collapsed)}
             className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
-            {collapsed ? "展开" : "折叠"}
+            {collapsed ? t("otel.expand") : t("otel.collapse")}
           </button>
           <button
             onClick={handleClear}
             className="text-xs text-gray-400 hover:text-red-500"
           >
-            清空
+            {t("otel.clear")}
           </button>
         </div>
       </div>

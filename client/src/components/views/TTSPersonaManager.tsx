@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TTSPersonaEditor } from "./TTSPersonaEditor";
@@ -34,6 +35,7 @@ interface PersonaBindings {
 }
 
 export function TTSPersonaManager() {
+  const { t } = useTranslation();
   const [personas, setPersonas] = useState<TTSPersona[]>([]);
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -119,7 +121,7 @@ export function TTSPersonaManager() {
           method: "DELETE",
         },
       );
-      if (!response.ok) throw new Error("删除人设失败");
+      if (!response.ok) throw new Error(t("tts.deletePersonaFailed"));
       await loadPersonas();
       await loadDefaultPersona();
     } catch {
@@ -151,30 +153,30 @@ export function TTSPersonaManager() {
     <>
       <Card size="sm" className="mb-6">
         <CardHeader>
-          <CardTitle>人设管理</CardTitle>
+          <CardTitle>{t("tts.personaManagerTitle")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            管理语音合成人设，快速切换不同的语音风格
+            {t("tts.personaManagerDesc")}
           </p>
         </CardHeader>
         <CardContent>
           {/* 新建按钮 */}
           <div className="mb-4">
             <Button variant="outline" onClick={handleCreate} size="sm">
-              + 新建人设
+              + {t("tts.newPersona")}
             </Button>
           </div>
 
           {/* 加载中 */}
           {loading && (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              加载中...
+              {t("common.loading")}
             </div>
           )}
 
           {/* 空状态 */}
           {!loading && personas.length === 0 && (
             <div className="text-center py-8 text-sm text-muted-foreground">
-              暂无保存的人设，点击"新建人设"开始创建
+              {t("tts.noPersonas")}
             </div>
           )}
 
@@ -198,12 +200,12 @@ export function TTSPersonaManager() {
                         {/* 默认标记 */}
                         {isDefault && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
-                            ★ 默认
+                            ★ {t("tts.defaultLabel")}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {persona.description ?? "无描述"}
+                        {persona.description ?? t("tts.noDescription")}
                         {" · "}
                         {persona.provider} / {persona.voice}
                         {persona.format ? ` / ${persona.format}` : ""}
@@ -211,7 +213,9 @@ export function TTSPersonaManager() {
                       {/* Agent 绑定信息 */}
                       {agentBindings && agentBindings.length > 0 && (
                         <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                          已绑定 {agentBindings.length} 个 Agent：
+                          {t("tts.boundAgents", {
+                            count: agentBindings.length,
+                          })}
                           {agentBindings.map((a) => a.agentName).join("、")}
                         </p>
                       )}
@@ -224,9 +228,11 @@ export function TTSPersonaManager() {
                           size="xs"
                           onClick={() => handleSetDefault(persona.id)}
                           disabled={settingDefault === persona.id}
-                          title="设为默认"
+                          title={t("tts.setDefault")}
                         >
-                          {settingDefault === persona.id ? "..." : "设为默认"}
+                          {settingDefault === persona.id
+                            ? "..."
+                            : t("tts.setDefault")}
                         </Button>
                       )}
                       <Button
@@ -234,14 +240,14 @@ export function TTSPersonaManager() {
                         size="xs"
                         onClick={() => handleEdit(persona)}
                       >
-                        编辑
+                        {t("common.edit")}
                       </Button>
                       <Button
                         variant="destructive"
                         size="xs"
                         onClick={() => handleDelete(persona.id)}
                       >
-                        删除
+                        {t("common.delete")}
                       </Button>
                     </div>
                   </div>

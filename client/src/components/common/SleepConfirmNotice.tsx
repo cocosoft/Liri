@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import ConfirmDialog from "./ConfirmDialog";
 import { useSleepNoticeStore } from "../../stores/sleepNoticeStore";
 import { systemService } from "../../services/systemService";
 
-/** 格式化滞后时长：分钟（<1 分钟显示秒） */
-function formatLag(lagMs: number): string {
+/** 格式化滞后时长：分钟（<1 分钟显示秒）→ i18n 键 + 数值 */
+function lagInfo(lagMs: number): { key: string; n: number } {
   const minutes = Math.round(lagMs / 60000);
-  if (minutes < 1) return `${Math.round(lagMs / 1000)} 秒`;
-  return `${minutes} 分钟`;
+  if (minutes < 1) {
+    return { key: "common.sleepSeconds", n: Math.round(lagMs / 1000) };
+  }
+  return { key: "common.sleepMinutes", n: minutes };
 }
 
 /**
@@ -20,6 +23,7 @@ function formatLag(lagMs: number): string {
  * - "跳过"：跳过积压任务（resolve(false)）
  */
 function SleepConfirmNotice() {
+  const { t } = useTranslation();
   const notice = useSleepNoticeStore((s) => s.notice);
   const clearNotice = useSleepNoticeStore((s) => s.clearNotice);
   const [open, setOpen] = useState(false);
@@ -41,10 +45,13 @@ function SleepConfirmNotice() {
   return (
     <ConfirmDialog
       open={open}
-      title="检测到系统休眠"
-      message={`系统休眠了约 ${formatLag(notice.lagMs)}，期间有 ${notice.pendingCount} 个定时任务未执行。是否继续执行？`}
-      confirmText="继续执行"
-      cancelText="跳过"
+      title={t("common.sleepTitle")}
+      message={t("common.sleepMessage", {
+        lag: t(lagInfo(notice.lagMs).key, { n: lagInfo(notice.lagMs).n }),
+        pending: notice.pendingCount,
+      })}
+      confirmText={t("common.sleepContinue")}
+      cancelText={t("common.sleepSkip")}
       onConfirm={() => handleConfirm(true)}
       onCancel={() => handleConfirm(false)}
     />

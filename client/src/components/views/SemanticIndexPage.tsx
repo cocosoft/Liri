@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { semanticService } from "../../services/semanticService";
 import type {
   SemanticIndexStatus,
@@ -11,6 +12,7 @@ import { SkeletonCard } from "../common/Skeleton";
  * 方案规划中的管理类功能：后端 /v1/semantic/* API 的前端界面
  */
 export default function SemanticIndexPage() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<SemanticIndexStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
@@ -51,27 +53,28 @@ export default function SemanticIndexPage() {
   const handleBuild = async () => {
     if (building) return; // F4：防重，避免并行构建
     setBuilding(true);
-    setBuildMsg("正在启动构建...");
+    setBuildMsg(t("semanticIndex.buildStarting"));
     // KB-SEM-P13：异步任务 + 轮询进度，避免大目录构建时 HTTP 超时误报失败
     const taskId = await semanticService.startBuild();
     if (!taskId) {
-      setBuildMsg("❌ 构建请求失败");
+      setBuildMsg(t("semanticIndex.buildRequestFailed"));
       setBuilding(false);
       return;
     }
     const phaseLabel = (phase: string): string => {
       const labels: Record<string, string> = {
-        chunking: "分块",
-        filtering: "过滤",
-        embedding: "嵌入",
-        storing: "存储",
+        chunking: "semanticIndex.phaseChunking",
+        filtering: "semanticIndex.phaseFiltering",
+        embedding: "semanticIndex.phaseEmbedding",
+        storing: "semanticIndex.phaseStoring",
       };
-      return labels[phase] ?? phase;
+      const key = labels[phase];
+      return key ? t(key) : phase;
     };
     const poll = async (): Promise<void> => {
       const task = await semanticService.getBuildTask(taskId);
       if (!task) {
-        setBuildMsg("❌ 获取构建进度失败");
+        setBuildMsg(t("semanticIndex.buildProgressFailed"));
         setBuilding(false);
         return;
       }
@@ -81,14 +84,23 @@ export default function SemanticIndexPage() {
             ? `${Math.round((task.done / task.total) * 100)}%`
             : "";
         setBuildMsg(
-          `构建中... ${phaseLabel(task.phase)} ${task.done}/${task.total} ${pct}`,
+          t("semanticIndex.buildInProgress", {
+            phase: phaseLabel(task.phase),
+            done: task.done,
+            total: task.total,
+            pct,
+          }),
         );
         // F4：定时器存 ref，卸载时由 cleanup 清除
         pollTimerRef.current = setTimeout(poll, 1000);
         return;
       }
       if (task.status === "error") {
-        setBuildMsg(`❌ ${task.error || "构建失败"}`);
+        setBuildMsg(
+          t("semanticIndex.buildError", {
+            error: task.error || t("semanticIndex.buildFailed"),
+          }),
+        );
         setBuilding(false);
         loadStatus();
         return;
@@ -98,13 +110,21 @@ export default function SemanticIndexPage() {
       if (r) {
         if (r.ok) {
           setBuildMsg(
-            `✅ 构建完成 — ${r.chunkCount} 个分块, ${r.embeddedCount} 个嵌入, 耗时 ${(r.durationMs / 1000).toFixed(1)}s`,
+            t("semanticIndex.buildDone", {
+              chunks: r.chunkCount,
+              embedded: r.embeddedCount,
+              duration: (r.durationMs / 1000).toFixed(1),
+            }),
           );
         } else {
-          setBuildMsg(`❌ ${r.error || "构建失败"}`);
+          setBuildMsg(
+            t("semanticIndex.buildError", {
+              error: r.error || t("semanticIndex.buildFailed"),
+            }),
+          );
         }
       } else {
-        setBuildMsg("❌ 构建失败（无结果）");
+        setBuildMsg(t("semanticIndex.buildFailedNoResult"));
       }
       setBuilding(false);
       loadStatus();
@@ -113,11 +133,11 @@ export default function SemanticIndexPage() {
   };
 
   const handleClear = async () => {
-    if (!confirm("确定要清除语义索引吗？此操作不可恢复。")) return;
+    if (!confirm(t("semanticIndex.confirmClear"))) return;
     setClearing(true);
     const ok = await semanticService.clearIndex();
-    if (ok) setBuildMsg("✅ 索引已清除");
-    else setBuildMsg("❌ 清除失败");
+    if (ok) setBuildMsg(t("semanticIndex.clearSuccess"));
+    else setBuildMsg(t("semanticIndex.clearFailed"));
     setClearing(false);
     loadStatus();
   };
@@ -137,9 +157,7 @@ export default function SemanticIndexPage() {
     setSearching(false);
     if (results === null) {
       // KB-SEM-P2-1：搜索失败（嵌入服务不可用/维度不匹配），明确提示而非"无结果"
-      setSearchError(
-        "搜索失败：嵌入服务不可用或索引模型不匹配，请检查嵌入配置后重试",
-      );
+      setSearchError(t("semanticIndex.searchFailed"));
       setSearchResults([]);
       return;
     }
@@ -149,14 +167,14 @@ export default function SemanticIndexPage() {
   };
 
   const formatBytes = (bytes: number | undefined): string => {
-    if (!bytes) return "未知";
+    if (!bytes) return t("semanticIndex.unknown");
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const formatTime = (ts: number | undefined): string => {
-    if (!ts) return "未知";
+    if (!ts) return t("semanticIndex.unknown");
     return new Date(ts).toLocaleString("zh-CN");
   };
 
@@ -164,18 +182,18 @@ export default function SemanticIndexPage() {
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-          语义索引管理
+          {t("semanticIndex.pageTitle")}
         </h2>
         {/* P2#20：作用域说明——语义索引针对当前知识库根目录（~/.pyapp/knowledge），
             不区分知识库 base 子目录；如需按库隔离需后端索引分区改造 */}
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
-          作用于当前知识库（~/.pyapp/knowledge，不按 base 子目录隔离）
+          {t("semanticIndex.scopeHint")}
         </p>
 
         {/* 索引状态 */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 mb-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-            索引状态
+            {t("semanticIndex.statusSection")}
           </h3>
           {loading ? (
             <SkeletonCard />
@@ -186,7 +204,7 @@ export default function SemanticIndexPage() {
                   {status.exists ? "✅" : "❌"}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  索引存在
+                  {t("semanticIndex.indexExists")}
                 </p>
               </div>
               <div className="text-center">
@@ -194,7 +212,7 @@ export default function SemanticIndexPage() {
                   {status.docCount}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  文档数
+                  {t("semanticIndex.docCount")}
                 </p>
               </div>
               <div className="text-center">
@@ -202,7 +220,7 @@ export default function SemanticIndexPage() {
                   {status.chunkCount}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  片段数
+                  {t("semanticIndex.chunkCount")}
                 </p>
               </div>
               <div className="text-center">
@@ -210,18 +228,20 @@ export default function SemanticIndexPage() {
                   {formatBytes(status.sizeBytes)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  大小
+                  {t("semanticIndex.sizeLabel")}
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-sm">
-              <p className="text-red-500 dark:text-red-400">状态获取失败</p>
+              <p className="text-red-500 dark:text-red-400">
+                {t("semanticIndex.statusFetchFailed")}
+              </p>
               <button
                 onClick={() => void loadStatus()}
                 className="mt-1 text-xs text-blue-500 dark:text-blue-400 underline"
               >
-                重试
+                {t("common.retry")}
               </button>
             </div>
           )}
@@ -233,14 +253,18 @@ export default function SemanticIndexPage() {
               disabled={building}
               className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
             >
-              {building ? "构建中..." : "构建索引"}
+              {building
+                ? t("semanticIndex.building")
+                : t("semanticIndex.buildIndex")}
             </button>
             <button
               onClick={handleClear}
               disabled={clearing || !status?.exists}
               className="px-4 py-2 text-sm bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded"
             >
-              {clearing ? "清除中..." : "清除索引"}
+              {clearing
+                ? t("semanticIndex.clearing")
+                : t("semanticIndex.clearIndex")}
             </button>
           </div>
 
@@ -254,14 +278,14 @@ export default function SemanticIndexPage() {
         {/* 语义搜索 */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            语义搜索（测试）
+            {t("semanticIndex.searchSection")}
           </h3>
           <div className="flex gap-2">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="输入搜索关键词..."
+              placeholder={t("semanticIndex.searchPlaceholder")}
               className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
@@ -270,14 +294,18 @@ export default function SemanticIndexPage() {
               disabled={!searchQuery.trim()}
               className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded"
             >
-              {searching ? "搜索中..." : "搜索"}
+              {searching
+                ? t("semanticIndex.searching")
+                : t("semanticIndex.searchAction")}
             </button>
           </div>
 
           {searchResults.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                找到 {searchResults.length} 条结果
+                {t("semanticIndex.resultCount", {
+                  count: searchResults.length,
+                })}
               </p>
               {searchResults.map((r, i) => (
                 <div
@@ -286,7 +314,7 @@ export default function SemanticIndexPage() {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
-                      {r.title || "(无标题)"}
+                      {r.title || t("semanticIndex.untitled")}
                     </span>
                     <span className="text-xs text-gray-400">
                       {(r.score * 100).toFixed(1)}%
@@ -310,14 +338,18 @@ export default function SemanticIndexPage() {
             searchQuery.trim() &&
             !searching &&
             searchResults.length === 0 && (
-              <p className="mt-3 text-sm text-gray-400">无搜索结果</p>
+              <p className="mt-3 text-sm text-gray-400">
+                {t("semanticIndex.noSearchResults")}
+              </p>
             )}
         </div>
 
         {/* 最后更新时间 */}
         {status?.lastIndexedAt && (
           <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
-            最后索引时间: {formatTime(status.lastIndexedAt)}
+            {t("semanticIndex.lastIndexedAt", {
+              time: formatTime(status.lastIndexedAt),
+            })}
           </p>
         )}
       </div>

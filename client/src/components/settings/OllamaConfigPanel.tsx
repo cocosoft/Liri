@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ConfigSection,
   ConfigItem,
@@ -20,6 +21,7 @@ interface OllamaConfigPanelProps {
 }
 
 function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const {
     providers,
@@ -123,11 +125,11 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         errorStack: e instanceof Error ? e.stack : undefined,
       });
       handleClientError(e, { module: "settings:ollama", action: "load" });
-      setError(e instanceof Error ? e.message : "加载 Ollama 配置失败");
+      setError(e instanceof Error ? e.message : t("settings.ollamaLoadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [loadProviders, loadModels, loadStatus]);
+  }, [loadProviders, loadModels, loadStatus, t]);
 
   useEffect(() => {
     void load();
@@ -157,7 +159,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         errorStack: e instanceof Error ? e.stack : undefined,
       });
       handleClientError(e, { module: "settings:ollama", action: "detect" });
-      setError(e instanceof Error ? e.message : "检测 Ollama 失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.ollamaDetectFailed"),
+      );
     } finally {
       setDetecting(false);
     }
@@ -177,14 +181,16 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         ? latestModels.filter((m) => m.providerId === provider.id).length
         : 0;
       logger.info("模型列表刷新完成", { beforeCount, afterCount });
-      setSavedMsg(`已刷新 ${afterCount} 个 Ollama 模型`);
+      setSavedMsg(t("settings.ollamaModelsRefreshed", { count: afterCount }));
     } catch (e) {
       logger.error("模型列表刷新失败", {
         error: String(e),
         errorStack: e instanceof Error ? e.stack : undefined,
       });
       handleClientError(e, { module: "settings:ollama", action: "sync" });
-      setError(e instanceof Error ? e.message : "刷新模型列表失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.ollamaRefreshFailed"),
+      );
     } finally {
       setSyncing(false);
       setTimeout(() => setSavedMsg(null), 3000);
@@ -194,7 +200,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
   const handleSaveConfig = async () => {
     if (!ollamaProvider) {
       logger.warn("保存配置被阻止：Ollama Provider 不存在");
-      setError("请先在模型管理中添加 Ollama Provider");
+      setError(t("settings.ollamaNoProvider"));
       return;
     }
     setSaving(true);
@@ -207,7 +213,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
     try {
       await updateProvider(ollamaProvider.id, { baseUrl: configUrl });
       logger.info("Ollama 地址保存成功", { configUrl });
-      setSavedMsg(`已保存地址: ${configUrl}`);
+      setSavedMsg(t("settings.ollamaAddressSaved", { url: configUrl }));
       setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) {
       logger.error("保存 Ollama 配置失败", {
@@ -217,7 +223,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         errorStack: e instanceof Error ? e.stack : undefined,
       });
       handleClientError(e, { module: "settings:ollama", action: "save" });
-      setError(e instanceof Error ? e.message : "保存配置失败");
+      setError(e instanceof Error ? e.message : t("settings.ollamaSaveFailed"));
     } finally {
       setSaving(false);
     }
@@ -239,7 +245,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         errorStack: e instanceof Error ? e.stack : undefined,
       });
       handleClientError(e, { module: "settings:ollama", action: "toggle" });
-      setError(e instanceof Error ? e.message : "切换状态失败");
+      setError(
+        e instanceof Error ? e.message : t("settings.ollamaToggleFailed"),
+      );
     }
   };
 
@@ -253,14 +261,14 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
     logger.info("自动创建 Ollama Provider");
     const ollamaPreset = PRESETS.find((p) => p.providerType === "ollama");
     if (!ollamaPreset) {
-      setError("Ollama 预设不存在");
+      setError(t("settings.ollamaPresetMissing"));
       setCreating(false);
       return;
     }
     try {
       await createProvider(ollamaPreset.settingsConfig);
       logger.info("Ollama Provider 自动创建成功");
-      setSavedMsg("Ollama Provider 已自动创建");
+      setSavedMsg(t("settings.ollamaProviderCreated"));
       setTimeout(() => setSavedMsg(null), 3000);
     } catch (e) {
       logger.error("Ollama Provider 自动创建失败", {
@@ -269,7 +277,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
       });
       handleClientError(e, { module: "settings:ollama", action: "create" });
       setError(
-        e instanceof Error ? e.message : "自动创建 Ollama Provider 失败",
+        e instanceof Error ? e.message : t("settings.ollamaAutoCreateFailed"),
       );
     } finally {
       setCreating(false);
@@ -279,12 +287,14 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
   if (loading) {
     return (
       <div className={`p-6 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-        加载中…
+        {t("common.loadingEllipsis")}
       </div>
     );
   }
 
-  const statusLabel = ollamaStatus?.running ? "● 运行中" : "○ 未连接";
+  const statusLabel = ollamaStatus?.running
+    ? t("settings.ollamaRunning")
+    : t("settings.ollamaDisconnected");
   const statusClass = ollamaStatus?.running
     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
     : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400";
@@ -293,11 +303,11 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
     <div className="p-6">
       {/* 服务状态 */}
       <ConfigSection
-        title="Ollama 本地推理"
-        description="通过 Ollama 在本地运行开源模型，无需 API Key。模型列表在后端启动时自动同步，可在此页刷新。"
+        title={t("settings.ollama")}
+        description={t("settings.ollamaDesc")}
         isDark={isDark}
       >
-        <ConfigItem label="服务状态" isDark={isDark}>
+        <ConfigItem label={t("settings.serviceStatus")} isDark={isDark}>
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}
@@ -306,21 +316,27 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
             </span>
             {ollamaStatus?.running && (
               <span className="text-xs text-gray-400 dark:text-gray-500">
-                端口 {ollamaStatus.port || 11434}
-                {ollamaStatus.model ? ` · 当前模型 ${ollamaStatus.model}` : ""}
+                {t("settings.ollamaPortLine", {
+                  port: ollamaStatus.port || 11434,
+                })}
+                {ollamaStatus.model
+                  ? t("settings.ollamaCurrentModel", {
+                      model: ollamaStatus.model,
+                    })
+                  : ""}
               </span>
             )}
             {!ollamaStatus?.running && (
               <span className="text-xs text-gray-400 dark:text-gray-500">
-                请确保 Ollama 已安装并在运行中
+                {t("settings.ollamaEnsureRunning")}
               </span>
             )}
           </div>
         </ConfigItem>
 
         <ConfigItem
-          label="监听地址"
-          description="Ollama OpenAI 兼容接口地址，默认 http://localhost:11434/v1"
+          label={t("settings.listenAddress")}
+          description={t("settings.ollamaAddressDesc")}
           isDark={isDark}
         >
           <div className="flex items-center gap-2 flex-wrap">
@@ -335,7 +351,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
               onClick={() => setConfigUrl("http://localhost:11434/v1")}
               className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
             >
-              恢复默认
+              {t("settings.ollamaRestoreDefault")}
             </button>
           </div>
         </ConfigItem>
@@ -363,7 +379,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                 : "bg-blue-500 hover:bg-blue-600 text-white"
             }`}
           >
-            {detecting ? "检测中…" : "🔍 检测 Ollama"}
+            {detecting
+              ? t("settings.ollamaDetecting")
+              : t("settings.ollamaDetect")}
           </button>
           <button
             onClick={() => void handleSaveConfig()}
@@ -374,43 +392,58 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                 : "bg-indigo-500 hover:bg-indigo-600 text-white"
             }`}
           >
-            {saving ? "保存中…" : "保存地址"}
+            {saving
+              ? t("settings.ollamaSaving")
+              : t("settings.ollamaSaveAddress")}
           </button>
           <button
             onClick={handleNavigateToModels}
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
           >
-            模型管理 →
+            {t("settings.ollamaManageModels")}
           </button>
         </div>
       </ConfigSection>
 
       {/* Ollama Provider 配置 */}
       <ConfigSection
-        title="Provider 配置"
-        description="Ollama 在模型管理中的配置状态"
+        title={t("settings.ollamaProviderConfig")}
+        description={t("settings.ollamaProviderConfigDesc")}
         isDark={isDark}
       >
         {ollamaProvider ? (
           <>
-            <ConfigItem label="Provider 名称" isDark={isDark}>
+            <ConfigItem
+              label={t("settings.ollamaProviderName")}
+              isDark={isDark}
+            >
               <span className="text-sm">{ollamaProvider.name}</span>
             </ConfigItem>
-            <ConfigItem label="类型" isDark={isDark}>
+            <ConfigItem label={t("settings.ollamaType")} isDark={isDark}>
               <span className="text-sm">
                 {PROVIDER_TYPE_LABELS[ollamaProvider.providerType] ||
                   ollamaProvider.providerType}
               </span>
             </ConfigItem>
-            <ConfigItem label="启用状态" isDark={isDark}>
+            <ConfigItem
+              label={t("settings.ollamaEnabledState")}
+              isDark={isDark}
+            >
               <ToggleConfig
                 isDark={isDark}
                 checked={ollamaProvider.isActive}
                 onChange={() => void handleToggleActive()}
               />
             </ConfigItem>
-            <ConfigItem label="已同步模型" isDark={isDark}>
-              <span className="text-sm">{ollamaModelsInDb.length} 个</span>
+            <ConfigItem
+              label={t("settings.ollamaSyncedModels")}
+              isDark={isDark}
+            >
+              <span className="text-sm">
+                {t("settings.ollamaModelsCount", {
+                  count: ollamaModelsInDb.length,
+                })}
+              </span>
             </ConfigItem>
           </>
         ) : (
@@ -422,7 +455,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
             }`}
           >
             <div className="text-sm mb-3">
-              Ollama Provider 尚未添加到模型管理
+              {t("settings.ollamaProviderMissing")}
             </div>
             <div className="flex gap-2 justify-center">
               <button
@@ -434,13 +467,15 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                     : "bg-blue-500 text-white hover:bg-blue-600"
                 }`}
               >
-                {creating ? "创建中…" : "⚡ 一键添加 Ollama"}
+                {creating
+                  ? t("settings.ollamaCreating")
+                  : t("settings.ollamaQuickAdd")}
               </button>
               <button
                 onClick={handleNavigateToModels}
                 className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
               >
-                手动添加 →
+                {t("settings.ollamaManualAdd")}
               </button>
             </div>
           </div>
@@ -449,8 +484,8 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
 
       {/* 已同步模型（来自模型管理系统） */}
       <ConfigSection
-        title="Ollama 已安装模型"
-        description="已注册到模型管理系统的 Ollama 模型列表（数据库刷新）"
+        title={t("settings.ollamaInstalledModels")}
+        description={t("settings.ollamaInstalledModelsDesc")}
         isDark={isDark}
       >
         {ollamaModelsInDb.length > 0 ? (
@@ -467,9 +502,11 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                     {model.modelId || model.id}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {model.enabled ? "已启用" : "已禁用"}
+                    {model.enabled ? t("common.enabled") : t("common.disabled")}
                     {model.context_length
-                      ? ` · 上下文 ${model.context_length}`
+                      ? t("settings.ollamaContextLength", {
+                          length: model.context_length,
+                        })
                       : ""}
                   </div>
                 </div>
@@ -481,8 +518,8 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
             className={`text-sm text-center py-4 ${isDark ? "text-gray-500" : "text-gray-400"}`}
           >
             {ollamaStatus?.running
-              ? "Ollama 正在运行，但模型尚未同步到模型管理系统。"
-              : "Ollama 未运行，无法读取已安装模型。"}
+              ? t("settings.ollamaRunningNotSynced")
+              : t("settings.ollamaNotRunning")}
             <br />
             {ollamaStatus?.running && (
               <button
@@ -494,16 +531,18 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                     : "bg-blue-500 hover:bg-blue-600 text-white"
                 }`}
               >
-                {syncing ? "刷新中…" : "🔄 刷新模型列表"}
+                {syncing
+                  ? t("settings.ollamaRefreshing")
+                  : t("settings.ollamaRefreshModels")}
               </button>
             )}
             {!ollamaStatus?.running && (
               <>
-                请在终端中运行{" "}
+                {t("settings.ollamaRunInTerminalPrefix")}
                 <code className="px-1 rounded bg-gray-100 dark:bg-gray-800 text-xs">
                   ollama serve
-                </code>{" "}
-                启动服务。
+                </code>
+                {t("settings.ollamaRunInTerminalSuffix")}
               </>
             )}
           </div>
@@ -520,7 +559,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                   : "bg-blue-500 hover:bg-blue-600 text-white"
               }`}
             >
-              {syncing ? "刷新中…" : "🔄 刷新列表"}
+              {syncing
+                ? t("settings.ollamaRefreshing")
+                : t("settings.ollamaRefreshList")}
             </button>
           </div>
         )}

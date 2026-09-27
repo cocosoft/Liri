@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
 import { useOfficeStore, type FileInfo } from "../../../../stores/officeStore";
 import { officeApi } from "../../../../services/officeApi";
@@ -16,6 +17,7 @@ interface XlsxRendererProps {
 }
 
 export function XlsxRenderer({ file }: XlsxRendererProps) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDark = theme === "dark";
 
@@ -75,7 +77,9 @@ export function XlsxRenderer({ file }: XlsxRendererProps) {
         if (cancelled) return;
         setPreviewState(
           "error",
-          err instanceof Error ? err.message : "表格加载失败",
+          err instanceof Error
+            ? err.message
+            : t("office.xlsxLoadFailed", "表格加载失败"),
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -92,7 +96,7 @@ export function XlsxRenderer({ file }: XlsxRendererProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        加载中...
+        {t("common.loading", "加载中...")}
       </div>
     );
   }
@@ -100,7 +104,7 @@ export function XlsxRenderer({ file }: XlsxRendererProps) {
   if (!html) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400">
-        无法渲染表格内容
+        {t("office.xlsxRenderFailed", "无法渲染表格内容")}
       </div>
     );
   }

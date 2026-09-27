@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { modelService } from "../../services/modelService";
 import { modelSwitchService } from "../../services/modelSwitchService";
 import type { ModelInfo, TaskModelConfig, TaskDefinition } from "../../types";
@@ -18,6 +19,7 @@ const TASK_SOURCE_AWARE_TYPES = new Set([
 ]);
 
 function TaskAssignment() {
+  const { t } = useTranslation();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [tasks, setTasks] = useState<TaskModelConfig>({});
   /** N-46：各任务的配置来源（'user' = 已显式生效 / 'seed' = 跟随档位） */
@@ -38,26 +40,26 @@ function TaskAssignment() {
   const phaseDefs = [
     {
       key: "plan",
-      label: "Plan 规划",
-      desc: "分析、设计、规划、调研时使用",
+      labelKey: "model.phasePlanLabel",
+      descKey: "model.phasePlanDesc",
       icon: "📋",
     },
     {
       key: "do",
-      label: "Do 执行",
-      desc: "实现、写代码、修改、开发时使用",
+      labelKey: "model.phaseDoLabel",
+      descKey: "model.phaseDoDesc",
       icon: "⚡",
     },
     {
       key: "check",
-      label: "Check 审查",
-      desc: "检查、验证、测试、审查时使用",
+      labelKey: "model.phaseCheckLabel",
+      descKey: "model.phaseCheckDesc",
       icon: "🔍",
     },
     {
       key: "act",
-      label: "Act 总结",
-      desc: "优化、改进、总结、调整时使用",
+      labelKey: "model.phaseActLabel",
+      descKey: "model.phaseActDesc",
       icon: "📝",
     },
   ];
@@ -78,9 +80,9 @@ function TaskAssignment() {
         setPhaseMapping(phaseMap);
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : "加载失败");
+        setError(e instanceof Error ? e.message : t("model.loadFailed"));
       });
-  }, []);
+  }, [t]);
 
   /** 默认模型名（用于未设置任务的提示） */
   const defaultModelName = useMemo(() => {
@@ -127,7 +129,9 @@ function TaskAssignment() {
     if (inOptions) return null;
     return (
       <option value={current} disabled>
-        已配置：{modelNames[current] || current}（当前不可用）
+        {t("model.orphanModelOption", {
+          name: modelNames[current] || current,
+        })}
       </option>
     );
   };
@@ -155,7 +159,7 @@ function TaskAssignment() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t("model.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -173,7 +177,9 @@ function TaskAssignment() {
       setSources(sourceMap);
       setSaved(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载默认策略失败");
+      setError(
+        e instanceof Error ? e.message : t("model.loadDefaultStrategyFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -187,7 +193,7 @@ function TaskAssignment() {
       setPhaseSaved(true);
       setTimeout(() => setPhaseSaved(false), 2000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存阶段偏好失败");
+      setError(e instanceof Error ? e.message : t("model.savePhasePrefFailed"));
     } finally {
       setPhaseSaving(false);
     }
@@ -197,14 +203,13 @@ function TaskAssignment() {
     <div>
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          按任务分配模型
+          {t("model.assignByTaskTitle")}
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          为不同使用场景分配默认模型，切换任务时自动使用对应模型
+          {t("model.assignByTaskDesc")}
         </p>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-          标记「显式」= 优先使用此处所选模型；标记「跟随档位」=
-          实际模型由智能路由档位决定（保存后即转为显式）
+          {t("model.sourceMarkHint")}
         </p>
       </div>
 
@@ -237,11 +242,13 @@ function TaskAssignment() {
                       }`}
                       title={
                         sources[task.type] === "user"
-                          ? "已显式配置：该任务优先使用此处所选模型（优先于智能路由档位）"
-                          : "系统播种值：实际模型由智能路由档位决定；保存后转为显式配置"
+                          ? t("model.sourceExplicitTitle")
+                          : t("model.sourceSeedTitle")
                       }
                     >
-                      {sources[task.type] === "user" ? "显式" : "跟随档位"}
+                      {sources[task.type] === "user"
+                        ? t("model.sourceExplicit")
+                        : t("model.sourceSeed")}
                     </span>
                   )}
               </div>
@@ -260,9 +267,9 @@ function TaskAssignment() {
                 }`}
               >
                 <option value="">
-                  — 未设置
+                  {t("model.notSetOption")}
                   {defaultModelName && task.type !== "default"
-                    ? `（跟随默认: ${defaultModelName}）`
+                    ? t("model.followDefaultInline", { name: defaultModelName })
                     : ""}{" "}
                   —
                 </option>
@@ -295,23 +302,23 @@ function TaskAssignment() {
       {/* P3 role 路由 — 编排角色（候选生成 / 对抗批评）专用模型；未设置跟随各任务/默认 */}
       <div className="mt-6">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-          🎭 角色分工
+          {t("model.roleAssignment")}
           <span className="text-xs text-gray-400 font-normal">
-            研究/验证编排的专用模型（未设置时跟随默认模型）
+            {t("model.roleAssignmentHint")}
           </span>
         </h3>
         <div className="space-y-2">
           {[
             {
               key: "generator" as keyof TaskModelConfig,
-              label: "候选生成",
-              desc: "研究模式多视角候选方案生成（不宜弱于中档模型）",
+              label: t("model.roleGenerator"),
+              desc: t("model.roleGeneratorDesc"),
               icon: "🧪",
             },
             {
               key: "verifier" as keyof TaskModelConfig,
-              label: "对抗批评",
-              desc: "研究候选对抗评审 / 验证环节（建议用强档）",
+              label: t("model.roleVerifier"),
+              desc: t("model.roleVerifierDesc"),
               icon: "🛡️",
             },
           ].map((role) => (
@@ -336,9 +343,9 @@ function TaskAssignment() {
                 }`}
               >
                 <option value="">
-                  — 未设置
+                  {t("model.notSetOption")}
                   {defaultModelName
-                    ? `（跟随默认: ${defaultModelName}）`
+                    ? t("model.followDefaultInline", { name: defaultModelName })
                     : ""}{" "}
                   —
                 </option>
@@ -369,9 +376,9 @@ function TaskAssignment() {
       {/* S3: 阶段偏好 — 配置每个 PDCA 阶段应使用哪个任务类型的模型 */}
       <div className="mt-6">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-          🔄 阶段偏好
+          {t("model.phasePreference")}
           <span className="text-xs text-gray-400 font-normal">
-            自动检测对话阶段，切换到对应模型
+            {t("model.phasePreferenceHint")}
           </span>
         </h3>
         <div className="space-y-2">
@@ -384,9 +391,9 @@ function TaskAssignment() {
                 <span className="text-lg">{phase.icon}</span>
                 <div>
                   <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                    {phase.label}
+                    {t(phase.labelKey)}
                   </span>
-                  <p className="text-xs text-gray-400">{phase.desc}</p>
+                  <p className="text-xs text-gray-400">{t(phase.descKey)}</p>
                 </div>
               </div>
               <select
@@ -402,7 +409,7 @@ function TaskAssignment() {
                     : ""
                 }`}
               >
-                <option value="">— 默认 —</option>
+                <option value="">{t("model.defaultOption")}</option>
                 {Object.entries(modelsByProvider).map(
                   ([provider, providerModels]) => {
                     const available = getAvailableModels(
@@ -432,10 +439,10 @@ function TaskAssignment() {
             className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg transition-colors"
           >
             {phaseSaving
-              ? "保存中..."
+              ? t("model.saving")
               : phaseSaved
-                ? "✅ 已保存"
-                : "保存阶段偏好"}
+                ? t("model.saved")
+                : t("model.savePhasePref")}
           </button>
         </div>
       </div>
@@ -446,13 +453,17 @@ function TaskAssignment() {
           disabled={saving}
           className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
         >
-          {saving ? "保存中..." : saved ? "✅ 已保存" : "保存策略"}
+          {saving
+            ? t("model.saving")
+            : saved
+              ? t("model.saved")
+              : t("model.saveStrategy")}
         </button>
         <button
           onClick={handleReset}
           className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
         >
-          恢复默认
+          {t("model.restoreDefault")}
         </button>
       </div>
     </div>

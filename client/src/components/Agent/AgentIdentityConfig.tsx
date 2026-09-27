@@ -35,7 +35,7 @@ function AgentIdentityConfig({
       <h2
         className={`text-lg font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
       >
-        Agent 身份配置
+        {t("agent.identityConfigTitle")}
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -49,7 +49,7 @@ function AgentIdentityConfig({
             type="text"
             value={identity.name || ""}
             onChange={(e) => handleChange("name", e.target.value)}
-            placeholder="输入 Agent 名称"
+            placeholder={t("agent.agentNamePlaceholder")}
             className={`w-full px-3 py-2 rounded-lg border ${
               isDark
                 ? "bg-gray-800 border-gray-700 text-white"
@@ -62,13 +62,13 @@ function AgentIdentityConfig({
           <label
             className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
           >
-            头像 URL
+            {t("agent.avatarUrl")}
           </label>
           <input
             type="text"
             value={identity.avatar || ""}
             onChange={(e) => handleChange("avatar", e.target.value)}
-            placeholder="输入头像 URL"
+            placeholder={t("agent.avatarUrlPlaceholder")}
             className={`w-full px-3 py-2 rounded-lg border ${
               isDark
                 ? "bg-gray-800 border-gray-700 text-white"
@@ -87,7 +87,7 @@ function AgentIdentityConfig({
         <textarea
           value={identity.description || ""}
           onChange={(e) => handleChange("description", e.target.value)}
-          placeholder="描述 Agent 的角色和能力"
+          placeholder={t("agent.roleDescPlaceholder")}
           rows={3}
           className={`w-full px-3 py-2 rounded-lg border resize-none ${
             isDark
@@ -101,7 +101,7 @@ function AgentIdentityConfig({
         <label
           className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          个性 / 行为特征
+          {t("agent.personality")}
         </label>
         <textarea
           value={identity.personality || ""}
@@ -124,12 +124,12 @@ function AgentIdentityConfig({
             <label
               className={`block text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              快速模式 (Fast Mode)
+              {t("agent.fastMode")}
             </label>
             <p
               className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              启用后跳过详细思考过程，加快响应速度
+              {t("agent.fastModeDesc")}
             </p>
           </div>
           <button
@@ -155,7 +155,7 @@ function AgentIdentityConfig({
         <label
           className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          远程 Agent 列表
+          {t("agent.remoteAgents")}
         </label>
         <div className="space-y-2">
           {(identity.remoteAgents || []).map((agent, index) => (

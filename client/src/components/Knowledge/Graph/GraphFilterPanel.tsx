@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { GraphStats } from "../../../types/project";
 
 interface GraphFilterPanelProps {
@@ -32,6 +33,7 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
   onSelectDomain,
   isDark,
 }: GraphFilterPanelProps) {
+  const { t } = useTranslation();
   const types = stats?.byType ? Object.entries(stats.byType) : [];
 
   return (
@@ -44,13 +46,15 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
             className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
           >
             <div className="text-sm font-semibold">{stats.totalEdges}</div>
-            <div className="text-[10px]">边</div>
+            <div className="text-[10px]">{t("knowledge.graph.edgesShort")}</div>
           </div>
           <div
             className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
           >
             <div className="text-sm font-semibold">{stats.totalEntities}</div>
-            <div className="text-[10px]">实体</div>
+            <div className="text-[10px]">
+              {t("knowledge.graph.entitiesShort")}
+            </div>
           </div>
           <div
             className={`text-center px-2 py-1.5 rounded ${isDark ? "bg-gray-800" : "bg-gray-100"}`}
@@ -58,7 +62,9 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
             <div className="text-sm font-semibold">
               {Object.keys(stats.byType).length}
             </div>
-            <div className="text-[10px]">关系类型</div>
+            <div className="text-[10px]">
+              {t("knowledge.graph.relationTypes")}
+            </div>
           </div>
         </div>
       )}
@@ -67,7 +73,7 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
         <span
           className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}
         >
-          关系类型
+          {t("knowledge.graph.relationTypes")}
         </span>
         <div className="flex flex-wrap gap-1 mt-1">
           <button
@@ -80,7 +86,7 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
           >
-            全部
+            {t("common.all")}
           </button>
           {types.map(([type, count], i) => (
             <button
@@ -106,7 +112,7 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
         <span
           className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}
         >
-          域
+          {t("knowledge.graph.domainLabel")}
         </span>
         <div className="flex flex-wrap gap-1 mt-1">
           <button
@@ -119,7 +125,7 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
           >
-            全部
+            {t("common.all")}
           </button>
           {domains.map((d) => (
             <button

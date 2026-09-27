@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { authService, type Permission } from "../../services/authService";
 import {
@@ -27,37 +28,38 @@ interface PermissionItem {
 const TRUST_LEVELS = [
   {
     level: 0,
-    name: "完全隔离",
-    description: "无网络、无文件、系统隔离",
+    nameKey: "permission.trust0Name",
+    descKey: "permission.trust0Desc",
     color: "gray",
   },
   {
     level: 1,
-    name: "受限",
-    description: "受限网络访问、只读文件系统",
+    nameKey: "permission.trust1Name",
+    descKey: "permission.trust1Desc",
     color: "red",
   },
   {
     level: 2,
-    name: "标准",
-    description: "标准访问权限、有限写入",
+    nameKey: "permission.trust2Name",
+    descKey: "permission.trust2Desc",
     color: "yellow",
   },
   {
     level: 3,
-    name: "可信",
-    description: "完全网络、完全读写、系统调用",
+    nameKey: "permission.trust3Name",
+    descKey: "permission.trust3Desc",
     color: "green",
   },
   {
     level: 4,
-    name: "管理员",
-    description: "完全信任、所有权限",
+    nameKey: "permission.admin",
+    descKey: "permission.trust4Desc",
     color: "blue",
   },
 ];
 
 function PermissionPage() {
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
   // CS04：禁止 mock。权限用户管理 API 尚未提供，先渲染空态（"暂无用户数据"）
@@ -107,7 +109,8 @@ function PermissionPage() {
         perms.map((p: Permission, idx: number) => ({
           id: p.scope || `perm_${idx}`,
           name: p.scope,
-          description: p.description || `${p.scope} 权限`,
+          description:
+            p.description || t("permission.scopeSuffix", { scope: p.scope }),
           enabled: p.level !== "none",
         })),
       );
@@ -293,15 +296,14 @@ function PermissionPage() {
             <h3
               className={`text-sm font-semibold mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              用户列表
+              {t("permission.userList")}
             </h3>
             <div className="space-y-2">
               {users.length === 0 ? (
                 <p
                   className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
                 >
-                  暂无用户数据（细粒度用户管理可通过 CLI /permissions user
-                  配置）
+                  {t("permission.noUsersHint")}
                 </p>
               ) : (
                 users.map((user) => (
@@ -350,14 +352,16 @@ function PermissionPage() {
                   <h3
                     className={`text-lg font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
                   >
-                    用户详情: {selectedUser.username}
+                    {t("permission.userDetail", {
+                      username: selectedUser.username,
+                    })}
                   </h3>
                   <div className="grid grid-cols-2 gap-6">
                     <div>
                       <label
                         className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                       >
-                        信任等级
+                        {t("permission.trustLevel")}
                       </label>
                       {/* M0e：信任等级由角色派生，只读展示（避免假交互，CS04） */}
                       <div
@@ -368,27 +372,28 @@ function PermissionPage() {
                             className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
                           >
                             Lv.{selectedUser.trustLevel}{" "}
-                            {getTrustLevelInfo(selectedUser.trustLevel).name}
+                            {t(
+                              getTrustLevelInfo(selectedUser.trustLevel)
+                                .nameKey,
+                            )}
                           </span>
                           <span
                             className={`text-xs px-2 py-0.5 rounded ${getTrustLevelColor(selectedUser.trustLevel)}`}
                           >
-                            当前
+                            {t("permission.current")}
                           </span>
                         </div>
                         <p
                           className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                         >
-                          {
-                            getTrustLevelInfo(selectedUser.trustLevel)
-                              .description
-                          }
+                          {t(
+                            getTrustLevelInfo(selectedUser.trustLevel).descKey,
+                          )}
                         </p>
                         <p
                           className={`text-xs mt-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}
                         >
-                          信任等级由角色派生（admin/system=Lv.4，user=Lv.2，
-                          guest=Lv.0），只读展示。
+                          {t("permission.trustLevelHint")}
                         </p>
                       </div>
                     </div>
@@ -396,7 +401,7 @@ function PermissionPage() {
                       <label
                         className={`block text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                       >
-                        角色
+                        {t("permission.roles")}
                       </label>
                       <div className="space-y-2">
                         {(["admin", "user", "guest"] as const).map((role) => (
@@ -418,10 +423,10 @@ function PermissionPage() {
                                 className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
                               >
                                 {role === "admin"
-                                  ? "管理员"
+                                  ? t("permission.admin")
                                   : role === "user"
-                                    ? "普通用户"
-                                    : "访客"}
+                                    ? t("permission.roleUser")
+                                    : t("permission.roleGuest")}
                               </span>
                               <span
                                 className={`text-xs px-1.5 py-0.5 rounded ${getRoleColor(role)}`}
@@ -433,10 +438,10 @@ function PermissionPage() {
                               className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                             >
                               {role === "admin"
-                                ? "完全系统访问权限"
+                                ? t("permission.roleAdminDesc")
                                 : role === "user"
-                                  ? "标准访问权限"
-                                  : "受限访问权限"}
+                                  ? t("permission.roleUserDesc")
+                                  : t("permission.roleGuestDesc")}
                             </p>
                           </button>
                         ))}
@@ -447,7 +452,9 @@ function PermissionPage() {
                     <p
                       className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
                     >
-                      最后活动: {selectedUser.lastActive}
+                      {t("permission.lastActive", {
+                        value: selectedUser.lastActive,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -459,20 +466,22 @@ function PermissionPage() {
                     <h3
                       className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                     >
-                      用户权限
+                      {t("permission.userPermissions")}
                     </h3>
                     <button
                       onClick={loadPermissions}
                       disabled={permissionsLoading}
                       className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded"
                     >
-                      {permissionsLoading ? "加载中..." : "刷新"}
+                      {permissionsLoading
+                        ? t("common.loading")
+                        : t("common.refresh")}
                     </button>
                   </div>
                   {permissionsLoading ? (
                     <div className="text-center py-4">
                       <span className="text-sm text-gray-400">
-                        权限加载中...
+                        {t("permission.permissionsLoading")}
                       </span>
                     </div>
                   ) : (
@@ -524,39 +533,41 @@ function PermissionPage() {
                     <h3
                       className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                     >
-                      工具权限规则
+                      {t("permission.toolRules")}
                     </h3>
                     <button
                       onClick={loadRules}
                       disabled={rulesLoading}
                       className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded"
                     >
-                      {rulesLoading ? "加载中..." : "刷新"}
+                      {rulesLoading ? t("common.loading") : t("common.refresh")}
                     </button>
                   </div>
                   {/* P2-10：与 RuleEngine 对话行为规则区分（rule-handlers.ts 的 /v1/workspaces/:id/rules 是对话规则，与本页工具权限规则无关） */}
                   <p
                     className={`text-xs mb-4 ${isDark ? "text-gray-500" : "text-gray-500"}`}
                   >
-                    工具权限规则：控制 AI 能否调用某个工具（allow/deny/ask），
-                    数据存于 permissions/tool_rules.json。与"对话行为规则"
-                    （RuleEngine，约束 Agent 回复行为）不是一回事，勿混用。
+                    {t("permission.toolRulesDesc")}
                   </p>
 
                   <div className="flex gap-3 mb-4 text-xs">
                     <span
                       className={isDark ? "text-gray-400" : "text-gray-600"}
                     >
-                      总数: {rulesSummary.total}
+                      {t("permission.totalCount", {
+                        count: rulesSummary.total,
+                      })}
                     </span>
                     <span className="text-green-600">
-                      允许: {rulesSummary.allow}
+                      {t("permission.allowCount", {
+                        count: rulesSummary.allow,
+                      })}
                     </span>
                     <span className="text-red-600">
-                      拒绝: {rulesSummary.deny}
+                      {t("permission.denyCount", { count: rulesSummary.deny })}
                     </span>
                     <span className="text-yellow-600">
-                      询问: {rulesSummary.ask}
+                      {t("permission.askCount", { count: rulesSummary.ask })}
                     </span>
                   </div>
 
@@ -574,8 +585,9 @@ function PermissionPage() {
                       }`}
                     >
                       <p className="font-medium mb-1">
-                        ⚠ 规则冲突检测：{shadowDetection.shadowedCount}{" "}
-                        条规则被遮蔽（规则顺序或通配导致失效）
+                        {t("permission.ruleConflict", {
+                          count: shadowDetection.shadowedCount,
+                        })}
                       </p>
                       <ul className="list-disc pl-4 space-y-0.5">
                         {shadowDetection.suggestions.map((s, i) => (
@@ -595,18 +607,22 @@ function PermissionPage() {
                       }
                       className={`px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200" : "bg-white border-gray-300 text-gray-800"}`}
                     >
-                      <option value="allow">允许</option>
-                      <option value="deny">拒绝</option>
-                      <option value="ask">询问</option>
+                      <option value="allow">
+                        {t("permission.behaviorAllow")}
+                      </option>
+                      <option value="deny">
+                        {t("permission.behaviorDeny")}
+                      </option>
+                      <option value="ask">{t("permission.behaviorAsk")}</option>
                     </select>
                     <input
-                      placeholder="工具名（支持 glob，如 Bash）"
+                      placeholder={t("permission.toolNamePlaceholder")}
                       value={ruleToolName}
                       onChange={(e) => setRuleToolName(e.target.value)}
                       className={`flex-1 px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500" : "bg-white border-gray-300 text-gray-800 placeholder-gray-400"}`}
                     />
                     <input
-                      placeholder="内容模式（可选，正则）"
+                      placeholder={t("permission.contentPatternPlaceholder")}
                       value={ruleContentPattern}
                       onChange={(e) => setRuleContentPattern(e.target.value)}
                       className={`flex-1 px-2 py-1.5 text-xs rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500" : "bg-white border-gray-300 text-gray-800 placeholder-gray-400"}`}
@@ -616,7 +632,7 @@ function PermissionPage() {
                       disabled={!ruleToolName.trim()}
                       className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
                     >
-                      添加
+                      {t("permission.addRule")}
                     </button>
                   </div>
 
@@ -624,8 +640,7 @@ function PermissionPage() {
                     <p
                       className={`text-xs p-3 rounded-lg text-center ${isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
                     >
-                      暂无权限规则。添加后，工具调用将按 allow/deny/ask
-                      判定（无规则匹配时按默认行为放行或拒绝）。
+                      {t("permission.noRulesHint")}
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -651,10 +666,10 @@ function PermissionPage() {
                               }`}
                             >
                               {rule.behavior === "allow"
-                                ? "允许"
+                                ? t("permission.behaviorAllow")
                                 : rule.behavior === "deny"
-                                  ? "拒绝"
-                                  : "询问"}
+                                  ? t("permission.behaviorDeny")
+                                  : t("permission.behaviorAsk")}
                             </span>
                             <span
                               className={`font-mono text-sm truncate ${isDark ? "text-gray-100" : "text-gray-900"}`}
@@ -673,7 +688,7 @@ function PermissionPage() {
                             onClick={() => deleteRule(rule.id)}
                             className="text-xs text-red-500 hover:text-red-400 shrink-0 ml-2"
                           >
-                            删除
+                            {t("common.delete")}
                           </button>
                         </div>
                       ))}
@@ -686,8 +701,7 @@ function PermissionPage() {
                 className={`${isDark ? "bg-gray-800" : "bg-white"} rounded-lg border ${isDark ? "border-gray-700" : "border-gray-200"} p-6 text-center`}
               >
                 <p className={`${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                  暂无用户数据：细粒度用户管理可通过 CLI /permissions user
-                  配置后，在此查看信任等级与角色。
+                  {t("permission.noUsersData")}
                 </p>
               </div>
             )}

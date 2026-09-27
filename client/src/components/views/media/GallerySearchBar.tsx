@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { GallerySearchParams } from "../../../stores/mediaStore";
 
 interface GallerySearchBarProps {
@@ -16,12 +17,12 @@ interface GallerySearchBarProps {
 
 const DATE_RANGE_OPTIONS: {
   value: GallerySearchParams["dateRange"];
-  label: string;
+  labelKey: string;
 }[] = [
-  { value: "all", label: "全部" },
-  { value: "today", label: "今天" },
-  { value: "7days", label: "近 7 天" },
-  { value: "30days", label: "近 30 天" },
+  { value: "all", labelKey: "common.all" },
+  { value: "today", labelKey: "media.dateToday" },
+  { value: "7days", labelKey: "media.date7Days" },
+  { value: "30days", labelKey: "media.date30Days" },
 ];
 
 export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
@@ -29,6 +30,7 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
   onChange,
   onRefresh,
 }) => {
+  const { t } = useTranslation();
   // P0-1（2026-08-26）：关键词 300ms 防抖，避免每键触发 store 更新 + 画廊重新加载
   const [inputValue, setInputValue] = useState(params.keyword);
   const skipFirstSubmit = useRef(true);
@@ -62,7 +64,7 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
       <div className="relative flex-1">
         <input
           type="text"
-          placeholder="搜索图片…"
+          placeholder={t("media.searchImagePlaceholder")}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-8 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-500"
@@ -94,7 +96,7 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
       >
         {DATE_RANGE_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
-            {opt.label}
+            {t(opt.labelKey)}
           </option>
         ))}
       </select>
@@ -104,7 +106,7 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
         <button
           onClick={onRefresh}
           className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-          title="刷新"
+          title={t("common.refresh")}
         >
           ↻
         </button>

@@ -59,7 +59,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
         module: "components:settings:TrustedWorkspaces",
         action: "loadConfig",
       });
-      setError("加载权限配置失败");
+      setError(t("settings.wsLoadFailed"));
     }
   };
 
@@ -77,7 +77,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
         module: "components:settings:TrustedWorkspaces",
         action: "saveConfig",
       });
-      setError("保存失败");
+      setError(t("settings.wsSaveFailed"));
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     const trimmed = newPath.trim();
     if (!trimmed) return;
     if (permission.trustedWorkspaces.some((ws) => ws.path === trimmed)) {
-      setError("该路径已存在");
+      setError(t("settings.wsPathExists"));
       return;
     }
     setPermission({
@@ -126,10 +126,10 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     setPermission({ ...permission, trustedWorkspaces: list });
   };
 
-  const LEVEL_LABELS: Record<WorkspaceTrustLevel, string> = {
-    chat: "聊天（只读）",
-    work: "工作（读写）",
-    development: "开发（完全）",
+  const LEVEL_LABEL_KEYS: Record<WorkspaceTrustLevel, string> = {
+    chat: "settings.wsLevelChat",
+    work: "settings.wsLevelWork",
+    development: "settings.wsLevelDevelopment",
   };
 
   // 首次渲染时加载
@@ -141,14 +141,14 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
     <ConfigSection isDark={isDark}>
       {/* 安全定位横幅（M1） */}
       <SafetyPositionBanner
-        layer={{ primary: "系统边界" }}
-        title="信任工作区"
-        question="允许 AI 碰哪些本地路径"
-        relation="此处白名单决定文件读写门禁，与工具权限规则互补；应用内强制兜底，任何一级无法覆盖"
+        layer={{ primary: "system" }}
+        title={t("settings.wsBannerTitle")}
+        question={t("settings.wsBannerQuestion")}
+        relation={t("settings.wsBannerRelation")}
         isDark={isDark}
       />
       {/* 权限模式 */}
-      <ConfigItem label="默认权限模式" isDark={isDark}>
+      <ConfigItem label={t("settings.wsDefaultMode")} isDark={isDark}>
         <SelectConfig
           isDark={isDark}
           value={permission.mode}
@@ -159,9 +159,9 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
             })
           }
           options={[
-            { value: "default", label: "默认" },
-            { value: "strict", label: "严格" },
-            { value: "permissive", label: "宽松" },
+            { value: "default", label: t("settings.wsModeDefault") },
+            { value: "strict", label: t("settings.wsModeStrict") },
+            { value: "permissive", label: t("settings.wsModePermissive") },
           ]}
         />
       </ConfigItem>
@@ -173,7 +173,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
             isDark={isDark}
             value={newPath}
             onChange={setNewPath}
-            placeholder="输入工作空间绝对路径"
+            placeholder={t("settings.wsPathPlaceholder")}
           />
         </div>
         <SelectConfig
@@ -181,9 +181,12 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
           value={newLevel}
           onChange={(v) => setNewLevel(v as WorkspaceTrustLevel)}
           options={[
-            { value: "development", label: "开发" },
-            { value: "work", label: "工作" },
-            { value: "chat", label: "聊天" },
+            {
+              value: "development",
+              label: t("settings.wsLevelDevelopmentShort"),
+            },
+            { value: "work", label: t("settings.wsLevelWorkShort") },
+            { value: "chat", label: t("settings.wsLevelChatShort") },
           ]}
         />
         <button
@@ -191,7 +194,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
           disabled={!newPath.trim()}
           className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          添加
+          {t("settings.wsAdd")}
         </button>
       </div>
 
@@ -215,7 +218,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
               {ws.path}
             </div>
             <div className="text-xs text-gray-400">
-              {LEVEL_LABELS[ws.trustLevel]}
+              {t(LEVEL_LABEL_KEYS[ws.trustLevel])}
             </div>
           </div>
           <SelectConfig
@@ -223,9 +226,12 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
             value={ws.trustLevel}
             onChange={(v) => updateLevel(i, v as WorkspaceTrustLevel)}
             options={[
-              { value: "development", label: "开发" },
-              { value: "work", label: "工作" },
-              { value: "chat", label: "聊天" },
+              {
+                value: "development",
+                label: t("settings.wsLevelDevelopmentShort"),
+              },
+              { value: "work", label: t("settings.wsLevelWorkShort") },
+              { value: "chat", label: t("settings.wsLevelChatShort") },
             ]}
           />
           <button
@@ -242,7 +248,7 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
         <p
           className={`text-xs py-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}
         >
-          尚未添加信任工作区。添加后 AI 在该目录内的操作将减少安全拦截。
+          {t("settings.wsEmpty")}
         </p>
       )}
 
@@ -253,9 +259,11 @@ function TrustedWorkspacesPanel({ isDark }: TrustedWorkspacesPanelProps) {
           disabled={loading}
           className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
         >
-          {loading ? "保存中..." : "保存配置"}
+          {loading ? t("settings.saving") : t("settings.wsSaveConfig")}
         </button>
-        {saved && <span className="text-xs text-green-500">已保存</span>}
+        {saved && (
+          <span className="text-xs text-green-500">{t("settings.saved")}</span>
+        )}
         {error && <span className="text-xs text-red-500">{error}</span>}
       </div>
     </ConfigSection>

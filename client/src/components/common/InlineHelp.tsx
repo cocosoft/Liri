@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface InlineHelpProps {
   content: string;
@@ -6,7 +7,9 @@ interface InlineHelpProps {
   children: React.ReactNode;
 }
 
-function InlineHelp({ content, title = "帮助", children }: InlineHelpProps) {
+function InlineHelp({ content, title, children }: InlineHelpProps) {
+  const { t } = useTranslation();
+  const titleText = title ?? t("help.title");
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -48,7 +51,7 @@ function InlineHelp({ content, title = "帮助", children }: InlineHelpProps) {
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center cursor-help"
-        title={title}
+        title={titleText}
       >
         {children}
         <svg
@@ -74,7 +77,7 @@ function InlineHelp({ content, title = "帮助", children }: InlineHelpProps) {
         >
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {title}
+              {titleText}
             </h4>
             <button
               onClick={() => setIsOpen(false)}

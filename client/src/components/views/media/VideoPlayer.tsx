@@ -10,6 +10,7 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface VideoMeta {
   width: number;
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export default function VideoPlayer({ src, className, onMetaLoaded }: Props) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -218,7 +220,7 @@ export default function VideoPlayer({ src, className, onMetaLoaded }: Props) {
           <button
             onClick={cycleSpeed}
             className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/80 hover:bg-white/20 cursor-pointer"
-            title="切换倍速"
+            title={t("media.speedToggle")}
           >
             {speed}x
           </button>
@@ -229,7 +231,7 @@ export default function VideoPlayer({ src, className, onMetaLoaded }: Props) {
             className={`text-[10px] bg-transparent border-0 cursor-pointer ${
               isPiP ? "text-blue-400" : "text-white/60 hover:text-white"
             }`}
-            title="画中画"
+            title={t("media.pip")}
           >
             ▣
           </button>
@@ -238,7 +240,7 @@ export default function VideoPlayer({ src, className, onMetaLoaded }: Props) {
           <button
             onClick={captureFrame}
             className="text-white/60 hover:text-white text-[10px] bg-transparent border-0 cursor-pointer"
-            title="截图帧"
+            title={t("media.captureFrame")}
           >
             📷
           </button>
@@ -247,7 +249,7 @@ export default function VideoPlayer({ src, className, onMetaLoaded }: Props) {
           <button
             onClick={toggleFullscreen}
             className="text-white/60 hover:text-white text-[10px] bg-transparent border-0 cursor-pointer"
-            title="全屏"
+            title={t("media.fullscreen")}
           >
             {isFullscreen ? "⤓" : "⤢"}
           </button>

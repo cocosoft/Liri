@@ -16,6 +16,7 @@ import React, {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
@@ -121,6 +122,7 @@ function ToolRowImpl({
   event: LogEvent;
   isStreaming: boolean;
 }) {
+  const { t } = useTranslation();
   const record = event.record!;
   const displayName = getToolDisplayName(record.name);
   const hasArgs = record.arguments && Object.keys(record.arguments).length > 0;
@@ -176,17 +178,17 @@ function ToolRowImpl({
         </span>
         {record.status === "running" && !isWaitingAnswer && !isInterrupted && (
           <span className="ml-auto text-blue-500 animate-pulse shrink-0 text-[10px]">
-            进行中
+            {t("chatInspector.statusRunning")}
           </span>
         )}
         {isWaitingAnswer && (
           <span className="ml-auto text-amber-500 shrink-0 text-[10px]">
-            等待回答
+            {t("chatInspector.waitingAnswer")}
           </span>
         )}
         {isInterrupted && (
           <span className="ml-auto text-gray-500 shrink-0 text-[10px]">
-            已中断
+            {t("chatInspector.interrupted")}
           </span>
         )}
       </div>
@@ -197,20 +199,20 @@ function ToolRowImpl({
       )}
       {hasArgs && (
         <ClampedBody
-          label="参数"
+          label={t("chatInspector.argsLabel")}
           text={JSON.stringify(record.arguments, null, 2)}
         />
       )}
       {record.status === "completed" && hasResult && (
         <ClampedBody
-          label="结果"
+          label={t("chatInspector.resultLabel")}
           text={summarizeResult(record.result)}
           noClamp={isFailed}
         />
       )}
       {record.status === "completed" && !hasResult && (
         <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-          该工具已执行完成（无文本结果）
+          {t("chatInspector.toolCompletedNoResult")}
         </p>
       )}
       {errorText && (
@@ -223,17 +225,17 @@ function ToolRowImpl({
           <button
             onClick={handleCopy}
             className="px-1.5 py-0.5 rounded text-[10px] text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            title="复制结果"
+            title={t("chatInspector.copyResult")}
           >
-            复制
+            {t("common.copy")}
           </button>
         )}
         {isFailed && (
           <button
             className="px-1.5 py-0.5 rounded text-[10px] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-            title="重试该工具调用"
+            title={t("chatInspector.retryToolCall")}
           >
-            重试
+            {t("common.retry")}
           </button>
         )}
       </div>
@@ -249,6 +251,7 @@ function LogRowImpl({
   event: LogEvent;
   isStreaming: boolean;
 }) {
+  const { t } = useTranslation();
   const isSystem = event.kind === "system";
   // P1-C（2026-08-26）：thinking/text 默认折叠为标题行，点击展开全文；
   // text（AI 回复）用 💬 图标 + 加粗标题作语义锚点（P0-B）
@@ -285,7 +288,7 @@ function LogRowImpl({
         </span>
         {isCollapsible && (
           <span className="ml-auto text-gray-400 dark:text-gray-500 shrink-0 text-[10px] mt-0.5">
-            {expanded ? "收起" : "展开"}
+            {expanded ? t("chatInspector.collapse") : t("chatInspector.expand")}
           </span>
         )}
       </button>
@@ -305,6 +308,7 @@ function TurnHeaderRow({
   collapsed: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   const { turn, counts } = row;
   return (
     <div className="px-3 py-1.5 bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-800">
@@ -344,15 +348,21 @@ function TurnHeaderRow({
         )}
         {turn.completed ? (
           <span className="text-green-600 dark:text-green-400 shrink-0">
-            已完成
+            {t("chatInspector.completed")}
           </span>
         ) : turn.interrupted ? (
-          <span className="text-orange-500 shrink-0">已中断</span>
+          <span className="text-orange-500 shrink-0">
+            {t("chatInspector.interrupted")}
+          </span>
         ) : (
-          <span className="text-amber-500 shrink-0">进行中</span>
+          <span className="text-amber-500 shrink-0">
+            {t("chatInspector.statusRunning")}
+          </span>
         )}
         <span className="ml-auto text-gray-400 dark:text-gray-500 shrink-0">
-          {collapsed ? "展开 ▸" : "折叠 ▾"}
+          {collapsed
+            ? t("trajectory.turn.expand")
+            : t("trajectory.turn.collapse")}
         </span>
       </button>
     </div>
@@ -363,6 +373,7 @@ const TurnHeader = React.memo(TurnHeaderRow);
 // ─── 主组件 ───────────────────────────────────────
 
 function LogTab() {
+  const { t } = useTranslation();
   const isStreaming = useChatStore((s) => s.isStreaming);
   const setActiveToolCount = useChatInspectorStore((s) => s.setActiveToolCount);
   const currentModelName = useModelSwitchStore((s) => s.currentModelName);
@@ -515,12 +526,12 @@ function LogTab() {
     getItemKey: (index) => rows[index]?.key ?? index,
   });
 
-  const FILTERS: { id: LogView; label: string }[] = [
-    { id: "all", label: "全部" },
-    { id: "text", label: "回复" },
-    { id: "tool", label: "工具" },
-    { id: "thinking", label: "思考" },
-    { id: "system", label: "系统" },
+  const FILTERS: { id: LogView; labelKey: string }[] = [
+    { id: "all", labelKey: "chatInspector.filterAll" },
+    { id: "text", labelKey: "chatInspector.filterReply" },
+    { id: "tool", labelKey: "chatInspector.filterTool" },
+    { id: "thinking", labelKey: "chatInspector.filterThinking" },
+    { id: "system", labelKey: "chatInspector.filterSystem" },
   ];
   const failedCount = countOf("failed");
 
@@ -529,11 +540,10 @@ function LogTab() {
       {/* 面板说明 */}
       <div className="px-3 pt-3 pb-2 shrink-0">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          会话日志
+          {t("chatInspector.sessionLog")}
         </h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-          展示 AI 的思考过程、工具调用与系统事件，是 AI
-          背后做了什么的时间轴记录。
+          {t("chatInspector.sessionLogDesc")}
         </p>
       </div>
 
@@ -542,11 +552,11 @@ function LogTab() {
         <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            进行中 {runningCount}
+            {t("chatInspector.runningCount", { count: runningCount })}
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-            完成 {completedCount}
+            {t("chatInspector.completedCount", { count: completedCount })}
           </span>
         </div>
         {failedCount > 0 && (
@@ -559,7 +569,9 @@ function LogTab() {
             }`}
           >
             <span>✗</span>
-            <span>{failedCount} 个工具失败，点击查看</span>
+            <span>
+              {t("chatInspector.failedTools", { count: failedCount })}
+            </span>
           </button>
         )}
       </div>
@@ -576,7 +588,7 @@ function LogTab() {
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
             }`}
           >
-            {f.label} {countOf(f.id)}
+            {t(f.labelKey)} {countOf(f.id)}
           </button>
         ))}
         <span className="flex-1" />
@@ -584,16 +596,21 @@ function LogTab() {
         <button
           onClick={() => setViewMode(viewMode === "group" ? "flat" : "group")}
           className="px-2 py-0.5 rounded text-[11px] text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
-          title="分组视图按 Turn 归组，平铺视图保留精确事件顺序"
+          title={t("chatInspector.viewToggleTitle")}
         >
-          {viewMode === "group" ? "平铺视图" : "分组视图"}
+          {viewMode === "group"
+            ? t("chatInspector.flatView")
+            : t("chatInspector.groupView")}
         </button>
       </div>
 
       {/* 模型切换合成事件 */}
       {lastModelSwitch && (
         <div className="mx-3 mb-1 px-2 py-1 rounded text-[11px] bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
-          ⚙️ 模型已切换：{lastModelSwitch.from} → {lastModelSwitch.to}
+          {t("chatInspector.modelSwitched", {
+            from: lastModelSwitch.from,
+            to: lastModelSwitch.to,
+          })}
         </div>
       )}
 
@@ -603,21 +620,23 @@ function LogTab() {
           <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             {events.length === 0 ? (
               trajLoading ? (
-                <p className="text-xs mt-1">正在加载会话日志...</p>
+                <p className="text-xs mt-1">{t("chatInspector.loadingLog")}</p>
               ) : trajError ? (
-                <p className="text-xs mt-1">加载失败：{trajError}</p>
+                <p className="text-xs mt-1">
+                  {t("chatInspector.loadFailed", { error: trajError })}
+                </p>
               ) : (
                 <>
-                  <p>暂无会话日志</p>
+                  <p>{t("chatInspector.noLog")}</p>
                   <p className="text-xs mt-1">
                     {isStreaming
-                      ? "AI 正在生成回复..."
-                      : "AI 思考、工具调用与系统事件会实时出现在这里"}
+                      ? t("chatInspector.aiGenerating")
+                      : t("chatInspector.aiRealtimeHint")}
                   </p>
                 </>
               )
             ) : (
-              <p>当前筛选下没有事件</p>
+              <p>{t("chatInspector.noFilteredEvents")}</p>
             )}
           </div>
         ) : (
@@ -652,7 +671,7 @@ function LogTab() {
                     />
                   ) : row.kind === "group-orphan-header" ? (
                     <div className="px-3 py-1 bg-gray-100/60 dark:bg-gray-800/40 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
-                      未分组事件
+                      {t("chatInspector.ungroupedEvents")}
                     </div>
                   ) : (
                     <LogRow event={row.event} isStreaming={isStreaming} />

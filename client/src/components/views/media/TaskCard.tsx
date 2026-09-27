@@ -6,6 +6,7 @@
  */
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { VideoTaskItem, GenerationTask } from "../../../stores/mediaStore";
 
 // ============================================================
@@ -21,20 +22,40 @@ interface TaskCardProps {
 
 const STATUS_CONFIG: Record<
   VideoTaskItem["status"],
-  { label: string; color: string; icon: string }
+  { labelKey: string; color: string; icon: string }
 > = {
-  pending: { label: "准备中…", color: "text-gray-400", icon: "⏳" },
-  queued: { label: "排队中", color: "text-yellow-500", icon: "🕐" },
-  running: { label: "生成中", color: "text-blue-500", icon: "🔄" },
-  completed: { label: "已完成", color: "text-green-500", icon: "✅" },
-  failed: { label: "失败", color: "text-red-500", icon: "❌" },
-  cancelled: { label: "已取消", color: "text-gray-500", icon: "⏹️" },
+  pending: {
+    labelKey: "media.taskPreparing",
+    color: "text-gray-400",
+    icon: "⏳",
+  },
+  queued: {
+    labelKey: "media.taskQueued",
+    color: "text-yellow-500",
+    icon: "🕐",
+  },
+  running: {
+    labelKey: "media.taskRunning",
+    color: "text-blue-500",
+    icon: "🔄",
+  },
+  completed: {
+    labelKey: "media.taskCompleted",
+    color: "text-green-500",
+    icon: "✅",
+  },
+  failed: { labelKey: "media.taskFailed", color: "text-red-500", icon: "❌" },
+  cancelled: {
+    labelKey: "media.taskCancelled",
+    color: "text-gray-500",
+    icon: "⏹️",
+  },
 };
 
 /** 格式化排队位置（简化为显示状态） */
-function queueLabel(task: VideoTaskItem): string {
-  if (task.status === "queued") return "排队中";
-  return STATUS_CONFIG[task.status].label;
+function queueLabelKey(task: VideoTaskItem): string {
+  if (task.status === "queued") return "media.taskQueued";
+  return STATUS_CONFIG[task.status].labelKey;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -43,6 +64,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onRetry,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   const cfg = STATUS_CONFIG[task.status];
   const isActive = ["pending", "queued", "running"].includes(task.status);
   const isDone = task.status === "completed";
@@ -64,7 +86,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className={`text-xs font-medium ${cfg.color}`}>
-            {queueLabel(task)}
+            {t(queueLabelKey(task))}
           </span>
           {isActive && (
             <span className="text-xs text-gray-400">{task.progress}%</span>
@@ -100,9 +122,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <button
             onClick={() => onCancel(task.taskId)}
             className="rounded px-2 py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            title="取消"
+            title={t("common.cancel")}
           >
-            取消
+            {t("common.cancel")}
           </button>
         )}
         {isFailed && onRetry && (
@@ -110,14 +132,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onClick={() => onRetry(task.taskId)}
             className="rounded bg-blue-500 px-2 py-1 text-xs text-white hover:bg-blue-600"
           >
-            重试
+            {t("common.retry")}
           </button>
         )}
         {(isDone || isFailed) && onDelete && (
           <button
             onClick={() => onDelete(task.taskId)}
             className="rounded px-2 py-1 text-xs text-gray-400 hover:text-red-500"
-            title="删除"
+            title={t("common.delete")}
           >
             ✕
           </button>
@@ -144,12 +166,13 @@ export const TaskList: React.FC<TaskListProps> = ({
   onRetry,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   if (tasks.length === 0) return null;
 
   return (
     <div className="space-y-2">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-        生成任务
+        {t("media.genTaskListTitle")}
       </h4>
       {tasks.map((task) => (
         <TaskCard
@@ -168,10 +191,21 @@ export const TaskList: React.FC<TaskListProps> = ({
 // GenerationTaskCard（统一图片/视频任务卡片）
 // ============================================================
 
-const GEN_STATUS_CONFIG = {
-  running: { label: "生成中", color: "text-blue-500", icon: "🔄" },
-  completed: { label: "已完成", color: "text-green-500", icon: "✅" },
-  failed: { label: "失败", color: "text-red-500", icon: "❌" },
+const GEN_STATUS_CONFIG: Record<
+  GenerationTask["status"],
+  { labelKey: string; color: string; icon: string }
+> = {
+  running: {
+    labelKey: "media.taskRunning",
+    color: "text-blue-500",
+    icon: "🔄",
+  },
+  completed: {
+    labelKey: "media.taskCompleted",
+    color: "text-green-500",
+    icon: "✅",
+  },
+  failed: { labelKey: "media.taskFailed", color: "text-red-500", icon: "❌" },
 };
 
 interface GenTaskCardProps {
@@ -180,6 +214,7 @@ interface GenTaskCardProps {
 }
 
 const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
+  const { t } = useTranslation();
   const cfg = GEN_STATUS_CONFIG[task.status];
   const isRunning = task.status === "running";
   const isDone = task.status === "completed";
@@ -195,14 +230,14 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
             {task.type === "image" ? "🖼️" : "🎬"}
           </span>
           <span className={`text-xs font-medium ${cfg.color}`}>
-            {cfg.label}
+            {t(cfg.labelKey)}
           </span>
         </div>
         <p
           className="truncate text-[10px] text-gray-500 dark:text-gray-400"
           title={task.prompt}
         >
-          {task.prompt || "(无提示词)"}
+          {task.prompt || t("media.noPrompt")}
         </p>
         {isRunning && (
           <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-600">
@@ -221,7 +256,7 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
                 href={url}
                 target="_blank"
                 rel="noreferrer"
-                title="查看图片"
+                title={t("media.viewImage")}
               >
                 <img
                   src={url}
@@ -240,7 +275,7 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
               href={task.resultUrl}
               target="_blank"
               rel="noreferrer"
-              title="查看视频"
+              title={t("media.viewVideo")}
             >
               <video
                 src={task.resultUrl}
@@ -262,7 +297,11 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
         <button
           onClick={() => onDelete(task.id)}
           className="text-xs text-gray-400 hover:text-red-500"
-          title={isDone || task.status === "failed" ? "删除" : "取消"}
+          title={
+            isDone || task.status === "failed"
+              ? t("common.delete")
+              : t("common.cancel")
+          }
         >
           ✕
         </button>
@@ -284,12 +323,13 @@ export const GenerationTaskList: React.FC<GenTaskListProps> = ({
   tasks,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   if (tasks.length === 0) return null;
 
   return (
     <div className="space-y-1.5">
       <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400">
-        当前任务
+        {t("media.currentTasksTitle")}
       </h4>
       {tasks.map((task) => (
         <GenTaskCard key={task.id} task={task} onDelete={onDelete} />

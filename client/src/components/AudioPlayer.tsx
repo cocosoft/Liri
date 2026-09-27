@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface AudioPlayerProps {
   audioUrl: string;
@@ -15,6 +16,7 @@ function AudioPlayer({
   onPause,
   onEnded,
 }: AudioPlayerProps) {
+  const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -153,7 +155,7 @@ function AudioPlayer({
           }
         }}
         className={`p-1.5 rounded ${isDark ? "hover:bg-gray-700" : "hover:bg-gray-200"}`}
-        title="停止"
+        title={t("common.stop")}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <rect x="6" y="6" width="12" height="12" rx="2" />

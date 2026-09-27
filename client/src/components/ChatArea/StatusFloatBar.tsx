@@ -282,12 +282,9 @@ export default function StatusFloatBar({
       return t("chat.deepThinkingHint", { seconds: thinkingSeconds });
     }
     if (streamingStatus) {
-      // 精简上下文水位显示：仅取百分比，其余信息在 ContextWatermark hover 中查看
-      // TODO: CS05-ROOTFIX — 正则解析为旧格式兜底；当前水位数据已走 contextWatermarkStore
-      // 结构化字段（chat-stream-chunk context_state 分支），streamingStatus 不再承载水位文本
-      const pctMatch = streamingStatus.match(/上下文水位:\s*(\d+)%/);
-      if (pctMatch)
-        return t("chat.statusContextWatermark", { pct: pctMatch[1] });
+      // CS02：水位数据已全部走 `contextWatermarkStore` 的结构化字段
+      // （chat-stream-chunk 的 context_state 分支），`streamingStatus` 不再承载水位文本，
+      // 故不再对其做正则解析（判据必须落在结构化标记上）。
       return streamingStatus;
     }
     return t("chat.streamingLabel");

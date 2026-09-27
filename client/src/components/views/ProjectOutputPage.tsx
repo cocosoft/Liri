@@ -17,6 +17,7 @@
  *   └────────────────────────────────────────────┘
  */
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRootStore } from "@/stores/root-store";
 import {
@@ -54,6 +55,7 @@ const OUTPUT_ICON_MAP: Record<
 /* ---------- 组件 ---------- */
 
 export default function ProjectOutputPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { projectId, outputType } = useParams<{
     projectId: string;
@@ -77,7 +79,7 @@ export default function ProjectOutputPage() {
   if (!projectId || !outputType) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
-        参数缺失
+        {t("projects.paramMissing")}
       </div>
     );
   }
@@ -90,13 +92,13 @@ export default function ProjectOutputPage() {
           className="mb-3 text-gray-300 dark:text-gray-700"
         />
         <p className="font-medium mb-1 text-gray-700 dark:text-gray-300">
-          项目不存在
+          {t("projects.projectNotFound")}
         </p>
         <button
           onClick={() => navigate("/projects")}
           className="mt-3 text-sm text-blue-600 dark:text-blue-500 hover:underline"
         >
-          返回到项目列表
+          {t("projects.backToProjectList")}
         </button>
       </div>
     );
@@ -110,13 +112,13 @@ export default function ProjectOutputPage() {
           className="mb-3 text-gray-300 dark:text-gray-700"
         />
         <p className="font-medium mb-1 text-gray-700 dark:text-gray-300">
-          不支持的输出类型：{outputType}
+          {t("projects.unsupportedOutputType", { type: outputType })}
         </p>
         <button
           onClick={() => navigate(`/projects/${projectId}`)}
           className="mt-3 text-sm text-blue-600 dark:text-blue-500 hover:underline"
         >
-          返回项目
+          {t("projects.backToProject")}
         </button>
       </div>
     );
@@ -142,7 +144,7 @@ export default function ProjectOutputPage() {
               size={16}
               className="text-gray-500 dark:text-gray-400"
             />
-            项目
+            {t("projects.title")}
           </h2>
         </div>
         <div className="px-3 py-4 text-center">
@@ -150,7 +152,7 @@ export default function ProjectOutputPage() {
             onClick={() => navigate(`/projects/${projectId}`)}
             className="w-full text-left px-3 py-2 rounded-md border-2 border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-gray-800 dark:text-gray-100 text-sm font-medium"
           >
-            ← 返回「{project.name}」
+            {t("projects.backToNamed", { name: project.name })}
           </button>
         </div>
       </aside>
@@ -167,7 +169,7 @@ export default function ProjectOutputPage() {
             </div>
             <div className="min-w-0">
               <div className="text-base font-medium text-gray-800 dark:text-gray-100 truncate">
-                {creation.label}
+                {t(creation.labelKey)}
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {project.name}
@@ -201,7 +203,9 @@ export default function ProjectOutputPage() {
                   />
                 </svg>
               ) : null}
-              {generating ? "生成中..." : `生成${creation.label}`}
+              {generating
+                ? t("projects.generating")
+                : t("projects.generateNamed", { name: t(creation.labelKey) })}
             </button>
           </div>
         </header>
@@ -211,14 +215,14 @@ export default function ProjectOutputPage() {
           {/* 历史生成侧边列表（当前占位） */}
           <aside className="w-56 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900/50 flex flex-col">
             <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b border-gray-200 dark:border-gray-700">
-              历史生成
+              {t("projects.historyGeneration")}
             </div>
             <div className="flex-1 overflow-y-auto">
               {history.length === 0 ? (
                 <div className="px-3 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-                  暂无记录
+                  {t("projects.noHistory")}
                   <br />
-                  点击「生成{creation.label}」开始
+                  {t("projects.noHistoryHint", { name: t(creation.labelKey) })}
                 </div>
               ) : (
                 history.map((h) => (
@@ -250,10 +254,10 @@ export default function ProjectOutputPage() {
                     </div>
                     <div>
                       <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">
-                        {creation.label}
+                        {t(creation.labelKey)}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                        {creation.description}
+                        {t(creation.descriptionKey)}
                       </p>
                     </div>
                   </div>
@@ -263,28 +267,34 @@ export default function ProjectOutputPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      生成范围
+                      {t("projects.scopeLabel")}
                     </label>
                     <select
                       disabled={generating}
                       className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="all">全部项目输入（推荐）</option>
-                      <option value="selected">仅选择的输入项</option>
-                      <option value="current">当前会话上下文</option>
+                      <option value="all">{t("projects.scopeAll")}</option>
+                      <option value="selected">
+                        {t("projects.scopeSelected")}
+                      </option>
+                      <option value="current">
+                        {t("projects.scopeCurrent")}
+                      </option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                      语言
+                      {t("projects.languageLabel")}
                     </label>
                     <select
                       disabled={generating}
                       className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="zh">中文</option>
-                      <option value="en">English</option>
-                      <option value="bilingual">中英双语</option>
+                      <option value="zh">{t("projects.langZh")}</option>
+                      <option value="en">{t("projects.langEn")}</option>
+                      <option value="bilingual">
+                        {t("projects.langBilingual")}
+                      </option>
                     </select>
                   </div>
                   <div className="pt-2">
@@ -294,11 +304,13 @@ export default function ProjectOutputPage() {
                       className="w-full px-4 py-2.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 transition-colors font-medium"
                     >
                       {generating
-                        ? "正在生成，请稍候..."
-                        : `开始生成 ${creation.label}`}
+                        ? t("projects.generatingWait")
+                        : t("projects.startGenerate", {
+                            name: t(creation.labelKey),
+                          })}
                     </button>
                     <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 text-center">
-                      Phase 2 接入后端 Workflow，当前为前端占位流程
+                      {t("projects.phase2Hint")}
                     </p>
                   </div>
                 </div>

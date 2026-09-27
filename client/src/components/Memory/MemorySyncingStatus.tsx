@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { MemorySystemStats } from "../../services/memoryService";
 
 interface MemorySyncingStatusProps {
@@ -12,15 +14,15 @@ interface MemorySyncingStatusProps {
   dreamBusyMessage?: string | null;
 }
 
-function formatAge(timestamp: number | null): string {
-  if (!timestamp) return "从未";
+function formatAge(timestamp: number | null, t: TFunction): string {
+  if (!timestamp) return t("memory.ageNever");
   const diffMs = Date.now() - timestamp;
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 60) return `${mins}分钟前`;
+  if (mins < 60) return t("memory.ageMinutesAgo", { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}小时前`;
+  if (hours < 24) return t("memory.ageHoursAgo", { n: hours });
   const days = Math.floor(hours / 24);
-  return `${days}天前`;
+  return t("memory.ageDaysAgo", { n: days });
 }
 
 function MemorySyncingStatus({
@@ -34,13 +36,14 @@ function MemorySyncingStatus({
   onDream,
   dreamBusyMessage,
 }: MemorySyncingStatusProps) {
+  const { t } = useTranslation();
   if (!stats) {
     return (
       <div
         className={`p-4 rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
       >
         <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-          加载中...
+          {t("common.loading")}
         </p>
       </div>
     );
@@ -58,13 +61,13 @@ function MemorySyncingStatus({
       <h3
         className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
       >
-        记忆系统状态
+        {t("memory.systemStatus")}
       </h3>
 
       <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            记忆总数
+            {t("memory.total")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
             {stats.totalMemories}
@@ -73,7 +76,7 @@ function MemorySyncingStatus({
 
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            向量覆盖
+            {t("memory.vectorCoverage")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
             {vectorPercent}% ({stats.withVectors}/{stats.totalMemories})
@@ -82,7 +85,7 @@ function MemorySyncingStatus({
 
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            7 天新增
+            {t("memory.recent7Days")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
             {stats.recentCount}
@@ -91,7 +94,7 @@ function MemorySyncingStatus({
 
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            即将过期
+            {t("memory.expiringSoon")}
           </span>
           <span
             className={
@@ -108,25 +111,25 @@ function MemorySyncingStatus({
 
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            最旧记忆
+            {t("memory.oldestMemory")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-            {stats.aging.oldestMemoryAge} 天前
+            {t("memory.daysAgo", { n: stats.aging.oldestMemoryAge })}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            上次清理
+            {t("memory.lastCleanup")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
-            {formatAge(stats.aging.lastCleanupAt)}
+            {formatAge(stats.aging.lastCleanupAt, t)}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            索引/缓存
+            {t("memory.indexCache")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
             {stats.index.indexedCount}/{stats.index.vectorCacheSize}
@@ -146,7 +149,7 @@ function MemorySyncingStatus({
                 : "bg-orange-500 hover:bg-orange-600 text-white"
           }`}
         >
-          {isCleaning ? "清理中..." : "清理过期"}
+          {isCleaning ? t("memory.cleaningNow") : t("memory.cleanupExpired")}
         </button>
         <button
           onClick={onConsolidate}
@@ -159,7 +162,9 @@ function MemorySyncingStatus({
                 : "bg-purple-500 hover:bg-purple-600 text-white"
           }`}
         >
-          {isConsolidating ? "合并中..." : "合并重复"}
+          {isConsolidating
+            ? t("memory.consolidatingNow")
+            : t("memory.mergeDuplicates")}
         </button>
         <button
           onClick={onDream}
@@ -172,7 +177,7 @@ function MemorySyncingStatus({
                 : "bg-indigo-500 hover:bg-indigo-600 text-white"
           }`}
         >
-          {isDreaming ? "梦境中..." : "记忆精炼"}
+          {isDreaming ? t("memory.dreamingNow") : t("memory.memoryRefinement")}
         </button>
       </div>
 

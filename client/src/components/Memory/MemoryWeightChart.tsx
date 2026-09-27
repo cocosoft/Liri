@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { MemoryWeight } from "../../services/memoryService";
 import { TYPE_LABELS, TYPE_CHART_COLORS } from "./memoryConstants";
 
@@ -8,6 +9,7 @@ interface MemoryWeightChartProps {
 }
 
 function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
+  const { t } = useTranslation();
   const maxWeight = useMemo(() => {
     return Math.max(...weights.map((w) => w.totalWeight), 1);
   }, [weights]);
@@ -28,10 +30,10 @@ function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
         <h3
           className={`text-sm font-medium mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          📊 记忆权重分布
+          {t("memory.weightDistribution")}
         </h3>
         <p className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-          暂无数据
+          {t("common.noData")}
         </p>
       </div>
     );
@@ -44,7 +46,7 @@ function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
       <h3
         className={`text-sm font-medium mb-3 ${isDark ? "text-gray-300" : "text-gray-700"}`}
       >
-        📊 记忆权重分布
+        {t("memory.weightDistribution")}
       </h3>
 
       <div className="space-y-3">
@@ -65,7 +67,7 @@ function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
                 </span>
                 <div className="flex items-center gap-3">
                   <span className={isDark ? "text-gray-500" : "text-gray-400"}>
-                    {weight.count} 条
+                    {t("memory.itemCount", { count: weight.count })}
                   </span>
                   <span className={isDark ? "text-gray-300" : "text-gray-700"}>
                     {totalPercentage}%
@@ -93,7 +95,7 @@ function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
       >
         <div className="flex items-center justify-between text-sm">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            总记忆数
+            {t("memory.totalCountLabel")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
             {totalCount}
@@ -101,7 +103,7 @@ function MemoryWeightChart({ weights, isDark }: MemoryWeightChartProps) {
         </div>
         <div className="flex items-center justify-between text-sm mt-1">
           <span className={isDark ? "text-gray-400" : "text-gray-600"}>
-            总权重值
+            {t("memory.totalWeightLabel")}
           </span>
           <span className={isDark ? "text-gray-200" : "text-gray-800"}>
             {totalWeight}

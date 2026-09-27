@@ -101,7 +101,7 @@ function CouncilAgentRolesPage() {
       const data = await http.get<AgentRole[]>("/v1/agent-roles");
       setRoles(data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "加载失败");
+      setError(err instanceof Error ? err.message : t("council.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -155,11 +155,11 @@ function CouncilAgentRolesPage() {
   /** 保存（新增/更新） */
   const handleSave = async () => {
     if (!form.name.trim()) {
-      setFormError("角色名称不能为空");
+      setFormError(t("council.nameRequired"));
       return;
     }
     if (!form.agentId.trim()) {
-      setFormError("Agent 标识不能为空");
+      setFormError(t("council.agentIdRequired"));
       return;
     }
 
@@ -196,7 +196,9 @@ function CouncilAgentRolesPage() {
       setShowForm(false);
       await loadRoles();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "保存失败");
+      setFormError(
+        err instanceof Error ? err.message : t("council.saveFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -213,7 +215,7 @@ function CouncilAgentRolesPage() {
       setDeleteTarget(null);
       await loadRoles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "删除失败");
+      setError(err instanceof Error ? err.message : t("council.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -227,7 +229,9 @@ function CouncilAgentRolesPage() {
       });
       await loadRoles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "操作失败");
+      setError(
+        err instanceof Error ? err.message : t("council.operationFailed"),
+      );
     }
   };
 
@@ -256,7 +260,7 @@ function CouncilAgentRolesPage() {
             onClick={handleAdd}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors"
           >
-            + 新增角色
+            + {t("council.addRole")}
           </button>
         </div>
 
@@ -268,7 +272,7 @@ function CouncilAgentRolesPage() {
               onClick={() => setError(null)}
               className="ml-2 underline hover:no-underline"
             >
-              关闭
+              {t("common.close")}
             </button>
           </div>
         )}
@@ -278,7 +282,7 @@ function CouncilAgentRolesPage() {
           <div
             className={`text-center py-12 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            加载中...
+            {t("common.loading")}
           </div>
         )}
 
@@ -287,7 +291,7 @@ function CouncilAgentRolesPage() {
           <div
             className={`text-center py-12 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            暂无 Agent 角色，请点击"新增角色"添加。
+            {t("council.empty")}
           </div>
         )}
 
@@ -323,15 +327,15 @@ function CouncilAgentRolesPage() {
                         </span>
                         {!role.enabled && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
-                            已禁用
+                            {t("common.disabled")}
                           </span>
                         )}
                         {role.canDelegate && (
                           <span
                             className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-                            title="该角色被授权再委派子代理（仍受父侧深度上限约束）"
+                            title={t("council.delegateTooltip")}
                           >
-                            可委派
+                            {t("council.delegatable")}
                           </span>
                         )}
                       </div>
@@ -356,11 +360,14 @@ function CouncilAgentRolesPage() {
                       <div
                         className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                       >
-                        权重: {role.weight} | 排序: {role.sortOrder} | 模型:{" "}
-                        {role.model
-                          ? (models.find((m) => m.modelId === role.model)
-                              ?.name ?? role.model)
-                          : "默认"}
+                        {t("council.metaLine", {
+                          weight: role.weight,
+                          sortOrder: role.sortOrder,
+                          model: role.model
+                            ? (models.find((m) => m.modelId === role.model)
+                                ?.name ?? role.model)
+                            : t("council.modelDefault"),
+                        })}
                       </div>
                     </div>
                   </div>
@@ -376,9 +383,11 @@ function CouncilAgentRolesPage() {
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                           : "bg-green-600 text-white hover:bg-green-700"
                       }`}
-                      title={role.enabled ? "禁用" : "启用"}
+                      title={
+                        role.enabled ? t("common.disable") : t("common.enable")
+                      }
                     >
-                      {role.enabled ? "禁用" : "启用"}
+                      {role.enabled ? t("common.disable") : t("common.enable")}
                     </button>
                     <button
                       onClick={() => handleEdit(role)}
@@ -388,13 +397,13 @@ function CouncilAgentRolesPage() {
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
-                      编辑
+                      {t("common.edit")}
                     </button>
                     <button
                       onClick={() => setDeleteTarget(role)}
                       className="px-2 py-1 text-xs rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                     >
-                      删除
+                      {t("common.delete")}
                     </button>
                   </div>
                 </div>
@@ -409,7 +418,7 @@ function CouncilAgentRolesPage() {
             <h3
               className={`text-sm font-semibold mb-2 ${isDark ? "text-gray-300" : "text-gray-700"}`}
             >
-              System Prompt 预览
+              {t("council.systemPromptPreview")}
             </h3>
             <div className="space-y-2">
               {roles.map((role) => (
@@ -431,7 +440,7 @@ function CouncilAgentRolesPage() {
                     }`}
                     style={{ whiteSpace: "pre-wrap" }}
                   >
-                    {role.systemPrompt || "(无)"}
+                    {role.systemPrompt || t("council.systemPromptEmpty")}
                   </pre>
                 </details>
               ))}
@@ -456,7 +465,7 @@ function CouncilAgentRolesPage() {
                 <h3
                   className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-gray-900"}`}
                 >
-                  {editingId ? "编辑角色" : "新增角色"}
+                  {editingId ? t("council.editRole") : t("council.addRole")}
                 </h3>
               </div>
 
@@ -473,7 +482,8 @@ function CouncilAgentRolesPage() {
                   <label
                     className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                   >
-                    Agent 标识 <span className="text-red-500">*</span>
+                    {t("council.agentIdLabel")}{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -487,10 +497,12 @@ function CouncilAgentRolesPage() {
                         ? "bg-gray-700 border-gray-600 text-gray-200"
                         : "bg-white border-gray-300 text-gray-900"
                     } ${editingId ? "opacity-50 cursor-not-allowed" : ""}`}
-                    placeholder="如：architect"
+                    placeholder={t("council.agentIdPlaceholder")}
                   />
                   {editingId && (
-                    <p className="text-xs text-gray-400 mt-1">创建后不可修改</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {t("council.agentIdHint")}
+                    </p>
                   )}
                 </div>
 
@@ -499,7 +511,8 @@ function CouncilAgentRolesPage() {
                   <label
                     className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                   >
-                    角色名称 <span className="text-red-500">*</span>
+                    {t("council.roleName")}{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -510,7 +523,7 @@ function CouncilAgentRolesPage() {
                         ? "bg-gray-700 border-gray-600 text-gray-200"
                         : "bg-white border-gray-300 text-gray-900"
                     }`}
-                    placeholder="如：架构师"
+                    placeholder={t("council.roleNamePlaceholder")}
                   />
                 </div>
 
@@ -519,7 +532,7 @@ function CouncilAgentRolesPage() {
                   <label
                     className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                   >
-                    图标 emoji
+                    {t("council.iconLabel")}
                   </label>
                   <input
                     type="text"
@@ -530,7 +543,7 @@ function CouncilAgentRolesPage() {
                         ? "bg-gray-700 border-gray-600 text-gray-200"
                         : "bg-white border-gray-300 text-gray-900"
                     }`}
-                    placeholder="如：🏗️"
+                    placeholder={t("council.iconPlaceholder")}
                     maxLength={4}
                   />
                 </div>
@@ -540,7 +553,7 @@ function CouncilAgentRolesPage() {
                   <label
                     className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                   >
-                    专业领域（逗号分隔）
+                    {t("council.expertiseLabel")}
                   </label>
                   <input
                     type="text"
@@ -553,7 +566,7 @@ function CouncilAgentRolesPage() {
                         ? "bg-gray-700 border-gray-600 text-gray-200"
                         : "bg-white border-gray-300 text-gray-900"
                     }`}
-                    placeholder="如：系统架构, 模块设计, 扩展性"
+                    placeholder={t("council.expertisePlaceholder")}
                   />
                 </div>
 
@@ -562,7 +575,7 @@ function CouncilAgentRolesPage() {
                   <label
                     className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                   >
-                    推荐模型
+                    {t("council.recommendedModel")}
                   </label>
                   <select
                     value={form.model}
@@ -575,7 +588,7 @@ function CouncilAgentRolesPage() {
                         : "bg-white border-gray-300 text-gray-900"
                     }`}
                   >
-                    <option value="">（沿用「任务分工」的对话模型）</option>
+                    <option value="">{t("council.modelInherit")}</option>
                     {models.map((m) => (
                       // ⚠ 值必须是**模型名**（`modelId`）：下游 `providerRegistry.getByModel()`
                       // 按模型名解析，传 UUID（`id`）会解析不到、并把 UUID 当模型名发给上游
@@ -588,7 +601,7 @@ function CouncilAgentRolesPage() {
                   <p
                     className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
                   >
-                    选定后，该角色被委派时使用此模型；未指定则用任务分工中的默认模型
+                    {t("council.modelHint")}
                   </p>
                 </div>
 
@@ -598,7 +611,7 @@ function CouncilAgentRolesPage() {
                     <label
                       className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                     >
-                      权重
+                      {t("council.weight")}
                     </label>
                     <input
                       type="number"
@@ -623,7 +636,7 @@ function CouncilAgentRolesPage() {
                     <label
                       className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
                     >
-                      排序
+                      {t("council.sortOrder")}
                     </label>
                     <input
                       type="number"
@@ -659,7 +672,7 @@ function CouncilAgentRolesPage() {
                     htmlFor="enabled"
                     className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
                   >
-                    启用
+                    {t("common.enable")}
                   </label>
                 </div>
 
@@ -681,14 +694,13 @@ function CouncilAgentRolesPage() {
                       htmlFor="canDelegate"
                       className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
                     >
-                      允许该角色再委派子代理
+                      {t("council.allowDelegate")}
                     </label>
                   </div>
                   <p
                     className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
                   >
-                    默认关闭。开启后，模型委派到该角色时可再次派发子代理；仍受嵌套深度上限
-                    （任务分工/环境变量）约束。授权只能在此设置，模型无法自行声明。
+                    {t("council.allowDelegateHint")}
                   </p>
                 </div>
 
@@ -710,7 +722,7 @@ function CouncilAgentRolesPage() {
                         ? "bg-gray-700 border-gray-600 text-gray-200"
                         : "bg-white border-gray-300 text-gray-900"
                     }`}
-                    placeholder="输入 Agent 的 system prompt 模板..."
+                    placeholder={t("council.systemPromptPlaceholder")}
                   />
                 </div>
               </div>
@@ -727,14 +739,14 @@ function CouncilAgentRolesPage() {
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
                   className="px-4 py-2 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
                 >
-                  {saving ? "保存中..." : "保存"}
+                  {saving ? t("council.saving") : t("common.save")}
                 </button>
               </div>
             </div>
@@ -752,13 +764,14 @@ function CouncilAgentRolesPage() {
               <h3
                 className={`text-base font-semibold mb-2 ${isDark ? "text-gray-100" : "text-gray-900"}`}
               >
-                确认删除
+                {t("council.confirmDelete")}
               </h3>
               <p
                 className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}
               >
-                确定要删除角色 "<strong>{deleteTarget.name}</strong> (
-                {deleteTarget.agentId})"吗？ 此操作不可恢复。
+                {t("council.deleteConfirmPrefix")}
+                <strong>{deleteTarget.name}</strong> ({deleteTarget.agentId})
+                {t("council.deleteConfirmSuffix")}
               </p>
               <div className="flex justify-end gap-2">
                 <button
@@ -769,14 +782,16 @@ function CouncilAgentRolesPage() {
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
-                  取消
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
                   className="px-4 py-2 text-sm rounded bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50"
                 >
-                  {deleting ? "删除中..." : "确认删除"}
+                  {deleting
+                    ? t("council.deleting")
+                    : t("council.confirmDelete")}
                 </button>
               </div>
             </div>

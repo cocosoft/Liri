@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Target,
   Crosshair,
@@ -50,17 +51,18 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
 
 /** type → 中文标签 */
 const TYPE_LABELS: Record<string, string> = {
-  goal: "目标",
-  scope: "范围",
-  constraint: "约束",
-  requirement: "需求",
-  knowledge: "知识",
+  goal: "projects.typeGoal",
+  scope: "projects.typeScope",
+  constraint: "projects.typeConstraint",
+  requirement: "projects.typeRequirement",
+  knowledge: "projects.typeKnowledge",
 };
 
 export const ProjectMaterialsPanel: React.FC<Props> = ({
   projectId,
   refreshKey,
 }) => {
+  const { t } = useTranslation();
   const [contexts, setContexts] = useState<ProjectContext[]>([]);
   const [summaries, setSummaries] = useState<ProjectSummary[]>([]);
   const [fileResult, setFileResult] = useState<ProjectFilesResult | null>(null);
@@ -91,7 +93,11 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
         const { failed } = await uploadProjectFiles(projectId, files);
         await loadFiles(); // 上传后刷新文件列表
         if (failed.length > 0) {
-          toastError(new Error(`以下文件上传失败：\n${failed.join("\n")}`));
+          toastError(
+            new Error(
+              t("projects.uploadFailedFiles", { files: failed.join("\n") }),
+            ),
+          );
         }
       } finally {
         setUploading(false);
@@ -99,12 +105,14 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [projectId, loadFiles],
+    [projectId, loadFiles, t],
   );
 
   const handleDeleteFile = useCallback(
     async (filename: string) => {
-      if (!window.confirm(`确定删除文件「${filename}」？此操作不可恢复。`)) {
+      if (
+        !window.confirm(t("projects.deleteFileConfirm", { name: filename }))
+      ) {
         return;
       }
       setDeleting(filename);
@@ -112,12 +120,14 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
         await deleteProjectFile(projectId, filename);
         await loadFiles();
       } catch (err) {
-        toastError(new Error(`删除文件失败：${String(err)}`));
+        toastError(
+          new Error(t("projects.deleteFileFailed", { error: String(err) })),
+        );
       } finally {
         setDeleting(null);
       }
     },
-    [projectId, loadFiles],
+    [projectId, loadFiles, t],
   );
 
   useEffect(() => {
@@ -149,9 +159,9 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
     return (
       <div className="p-4 space-y-3">
         <div className="text-sm text-gray-400 text-center leading-relaxed">
-          暂无资料。
+          {t("projects.noMaterials")}
           <br />
-          在聊天中描述项目目标、范围、约束，AI 会自动写入 rules.md。
+          {t("projects.noMaterialsHint")}
         </div>
         <div className="flex justify-center">
           <input
@@ -167,7 +177,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${uploading ? "animate-pulse" : ""}`}
           >
             <Upload size={12} />
-            {uploading ? "上传中..." : "上传文件"}
+            {uploading ? t("projects.uploading") : t("projects.uploadFile")}
           </button>
         </div>
       </div>
@@ -187,7 +197,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
       <div className="space-y-1">
         <div className="text-xs text-gray-400 px-1 font-medium flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <Folder size={12} /> 项目文件
+            <Folder size={12} /> {t("projects.projectFiles")}
           </span>
           <div className="flex items-center gap-1">
             <input
@@ -201,7 +211,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${uploading ? "animate-pulse" : ""}`}
-              title="上传文件"
+              title={t("projects.uploadFile")}
             >
               <Upload size={12} />
             </button>
@@ -209,7 +219,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
               onClick={loadFiles}
               disabled={fileLoading}
               className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${fileLoading ? "animate-spin" : ""}`}
-              title="手动刷新"
+              title={t("projects.manualRefresh")}
             >
               <RefreshCw size={12} />
             </button>
@@ -244,7 +254,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
                   onClick={() => handleDeleteFile(f.name)}
                   disabled={deleting === f.name}
                   className="p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
-                  title="删除文件"
+                  title={t("projects.deleteFile")}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -253,7 +263,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
           </>
         ) : (
           <div className="px-2.5 py-2 text-xs text-gray-400 text-center">
-            点击上传按钮添加文件到项目文件夹
+            {t("projects.uploadHint")}
           </div>
         )}
       </div>
@@ -261,7 +271,9 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
       {/* 项目上下文 */}
       {contexts.length > 0 && (
         <div className="space-y-1">
-          <div className="text-xs text-gray-400 px-1 font-medium">项目资料</div>
+          <div className="text-xs text-gray-400 px-1 font-medium">
+            {t("projects.projectMaterials")}
+          </div>
           {contexts.map((ctx, i) => (
             <div
               key={i}
@@ -272,7 +284,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
               )}
               <div className="min-w-0">
                 <span className="text-xs text-gray-400">
-                  {TYPE_LABELS[ctx.type] || ctx.type}
+                  {TYPE_LABELS[ctx.type] ? t(TYPE_LABELS[ctx.type]) : ctx.type}
                 </span>
                 <div className="text-gray-700 dark:text-gray-300 truncate text-xs mt-0.5">
                   {ctx.content}
@@ -287,7 +299,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
       {decisions.length > 0 && (
         <div className="space-y-1">
           <div className="text-xs text-gray-400 px-1 font-medium flex items-center gap-1">
-            <GitCommit size={12} /> 关键决策
+            <GitCommit size={12} /> {t("projects.keyDecisions")}
           </div>
           {decisions.map((d, i) => (
             <div
@@ -304,7 +316,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
       {phaseSummaries.length > 0 && (
         <div className="space-y-1">
           <div className="text-xs text-gray-400 px-1 font-medium flex items-center gap-1">
-            <BookOpen size={12} /> 阶段性小结
+            <BookOpen size={12} /> {t("projects.phaseSummary")}
           </div>
           {phaseSummaries.map((ps, i) => (
             <div
@@ -321,7 +333,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
       {sessionSummaries.length > 0 && (
         <div className="space-y-1">
           <div className="text-xs text-gray-400 px-1 font-medium flex items-center gap-1">
-            <MessageSquare size={12} /> 最近讨论
+            <MessageSquare size={12} /> {t("projects.recentDiscussions")}
           </div>
           {sessionSummaries.map((s, i) => (
             <div
@@ -331,7 +343,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
               <div className="truncate">{s.summary}</div>
               <div className="text-gray-400 mt-0.5">
                 {new Date(s.createdAt).toLocaleDateString("zh-CN")} ·{" "}
-                {s.messageCount} 条消息
+                {t("projects.messageCount", { count: s.messageCount })}
               </div>
             </div>
           ))}

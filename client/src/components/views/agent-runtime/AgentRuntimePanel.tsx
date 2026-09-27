@@ -11,7 +11,10 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../../services/httpClient";
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 interface ActiveAgentItem {
   id: string;
@@ -60,13 +63,20 @@ interface AgentRunAttribution {
   }>;
 }
 
-/** 来源 → 中文标签（与解析链的四级回退同源） */
-const DESCRIPTOR_SOURCE_LABELS: Record<string, string> = {
-  "role-store": "Agent 配置",
-  registry: "运行时注册",
-  builtin: "内置",
-  default: "默认",
+/** 来源 → i18n 键（与解析链的四级回退同源） */
+const DESCRIPTOR_SOURCE_LABEL_KEYS: Record<string, string> = {
+  "role-store": "agent.runtime.sourceRoleStore",
+  registry: "agent.runtime.sourceRegistry",
+  builtin: "agent.runtime.sourceBuiltin",
+  default: "agent.runtime.sourceDefault",
 };
+
+/** 来源 → 展示文案（未识别的来源原样回显） */
+function descriptorSourceLabel(source: string | null, t: Translate): string {
+  if (!source) return "—";
+  const key = DESCRIPTOR_SOURCE_LABEL_KEYS[source];
+  return key ? t(key) : source;
+}
 
 /** 运行状态 → 图标（`unknown` = 陈旧自愈：无法证明结果，故用问号） */
 function statusIcon(status: string): string {
@@ -96,25 +106,38 @@ function formatTime(ts: number | null): string {
  *
  * 无候选 ⇒ 显式写"无上游候选"（失败点没有已声明的上游），**不编造**结论（CS06）。
  */
-function formatAttribution(attribution: AgentRunAttribution): string {
+function formatAttribution(
+  attribution: AgentRunAttribution,
+  t: Translate,
+): string {
   const list =
     attribution.candidates.length === 0
-      ? "无上游候选"
+      ? t("agent.runtime.attributionNoCandidate")
       : attribution.candidates
           .map((c) => `${c.nodeId}(${c.score.toFixed(2)})`)
           .join(" → ");
-  return `归因（起点 ${attribution.failedNodeId}）：${list}`;
+  return t("agent.runtime.attributionLine", {
+    node: attribution.failedNodeId,
+    list,
+  });
 }
 
 /** 归因行悬浮明细：逐候选给出距离与证据引用，便于独立复核 */
-function attributionTooltip(attribution: AgentRunAttribution): string {
+function attributionTooltip(
+  attribution: AgentRunAttribution,
+  t: Translate,
+): string {
   if (attribution.candidates.length === 0) {
-    return "失败点没有已声明的上游（无可归因对象）";
+    return t("agent.runtime.tooltipNoUpstream");
   }
   return attribution.candidates
-    .map(
-      (c) =>
-        `${c.nodeId}（${c.kind}，距失败点 ${c.distance}，证据 ${c.pathEvidenceRefs.join("、") || "—"}）`,
+    .map((c) =>
+      t("agent.runtime.tooltipCandidate", {
+        node: c.nodeId,
+        kind: c.kind,
+        distance: c.distance,
+        evidence: c.pathEvidenceRefs.join("、") || "—",
+      }),
     )
     .join("\n");
 }
@@ -125,6 +148,7 @@ interface AgentRuntimePanelProps {
 }
 
 export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
+  const { t } = useTranslation();
   const [control, setControl] = useState<AgentControlInfo | null>(null);
   const [runs, setRuns] = useState<AgentRunItem[]>([]);
   const [runtimeLoading, setRuntimeLoading] = useState(false);
@@ -181,7 +205,8 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
         <h3
           className={`text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}
         >
-          运行态{control?.spawn.paused ? "（已暂停新委派）" : ""}
+          {t("agent.runtime.title")}
+          {control?.spawn.paused ? t("agent.runtime.pausedSuffix") : ""}
         </h3>
         <button
           onClick={loadRuntime}
@@ -192,7 +217,7 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
-          {runtimeLoading ? "刷新中..." : "刷新"}
+          {runtimeLoading ? t("agent.runtime.refreshing") : t("common.refresh")}
         </button>
       </div>
 
@@ -200,7 +225,9 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
       <div
         className={`text-xs mb-3 ${isDark ? "text-gray-400" : "text-gray-500"}`}
       >
-        活跃: {control?.agents.length ?? 0}
+        {t("agent.runtime.activeLabel", {
+          n: control?.agents.length ?? 0,
+        })}
         {control && control.agents.length > 0 && (
           <span className="ml-2">
             {control.agents
@@ -215,7 +242,7 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
         <div
           className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
         >
-          暂无运行记录。
+          {t("agent.runtime.noRuns")}
         </div>
       ) : (
         <div
@@ -248,18 +275,17 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
                           : "bg-gray-100 text-gray-500"
                       }`}
                     >
-                      批次任务 {run.taskKey ?? "-"}
+                      {t("agent.runtime.batchTask", {
+                        key: run.taskKey ?? "-",
+                      })}
                     </span>
                   )}
                 </div>
                 <div
                   className={`flex items-center gap-3 flex-shrink-0 ${isDark ? "text-gray-400" : "text-gray-500"}`}
                 >
-                  <span title="描述符来源：Agent 配置 / 运行时注册 / 内置 / 默认">
-                    {run.descriptorSource
-                      ? (DESCRIPTOR_SOURCE_LABELS[run.descriptorSource] ??
-                        run.descriptorSource)
-                      : "—"}
+                  <span title={t("agent.runtime.sourceTooltip")}>
+                    {descriptorSourceLabel(run.descriptorSource, t)}
                   </span>
                   <span>{formatTime(run.startedAt)}</span>
                 </div>
@@ -268,9 +294,9 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
               {run.attribution && (
                 <div
                   className={`mt-1 truncate ${isDark ? "text-amber-300" : "text-amber-700"}`}
-                  title={attributionTooltip(run.attribution)}
+                  title={attributionTooltip(run.attribution, t)}
                 >
-                  {formatAttribution(run.attribution)}
+                  {formatAttribution(run.attribution, t)}
                 </div>
               )}
             </div>

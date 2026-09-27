@@ -3,6 +3,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ export default function CalendarAddDialog({
   initialData,
   onSave,
 }: CalendarAddDialogProps) {
+  const { t } = useTranslation();
   const [summary, setSummary] = useState(initialData?.summary ?? "");
   const [start, setStart] = useState(
     initialData?.start ?? (defaultDate ? `${defaultDate}T09:00` : ""),
@@ -108,19 +110,21 @@ export default function CalendarAddDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {initialData?.summary ? "编辑日程" : "添加日程"}
+            {initialData?.summary
+              ? t("office.calEditEvent", "编辑日程")
+              : t("office.calAdd", "添加日程")}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           {/* 标题 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              标题 *
+              {t("office.calLabelTitle", "标题 *")}
             </label>
             <input
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
-              placeholder="日程标题"
+              placeholder={t("office.calSummaryPlaceholder", "日程标题")}
               autoFocus
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             />
@@ -129,7 +133,7 @@ export default function CalendarAddDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                开始时间
+                {t("office.calLabelStart", "开始时间")}
               </label>
               <input
                 type="datetime-local"
@@ -140,7 +144,7 @@ export default function CalendarAddDialog({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                结束时间
+                {t("office.calLabelEnd", "结束时间")}
               </label>
               <input
                 type="datetime-local"
@@ -153,12 +157,12 @@ export default function CalendarAddDialog({
           {/* 描述 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              描述
+              {t("office.calLabelDesc", "描述")}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="描述（可选）"
+              placeholder={t("office.calDescPlaceholder", "描述（可选）")}
               rows={2}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white resize-none"
             />
@@ -166,35 +170,43 @@ export default function CalendarAddDialog({
           {/* 地点 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              地点
+              {t("office.calLabelLocation", "地点")}
             </label>
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="地点（可选）"
+              placeholder={t("office.calLocationPlaceholder", "地点（可选）")}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             />
           </div>
           {/* 状态 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              状态
+              {t("office.calLabelStatus", "状态")}
             </label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as EventStatus)}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             >
-              <option value="pending">待办</option>
-              <option value="in_progress">进行中</option>
-              <option value="completed">已完成</option>
-              <option value="cancelled">已取消</option>
+              <option value="pending">
+                {t("office.calStatPending", "待办")}
+              </option>
+              <option value="in_progress">
+                {t("office.calStatInProgress", "进行中")}
+              </option>
+              <option value="completed">
+                {t("office.calStatCompleted", "已完成")}
+              </option>
+              <option value="cancelled">
+                {t("office.calStatCancelled", "已取消")}
+              </option>
             </select>
           </div>
           {/* 优先级 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              优先级
+              {t("office.calLabelPriority", "优先级")}
             </label>
             <div className="flex gap-1">
               {priorityStars.map((p) => (
@@ -216,12 +228,15 @@ export default function CalendarAddDialog({
           {/* 标签 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              标签
+              {t("office.calLabelTags", "标签")}
             </label>
             <input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
-              placeholder="标签，逗号分隔（可选）"
+              placeholder={t(
+                "office.calTagsPlaceholder",
+                "标签，逗号分隔（可选）",
+              )}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
             />
           </div>
@@ -235,7 +250,7 @@ export default function CalendarAddDialog({
               className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              同时添加到消息中心待办
+              {t("office.calSyncToNotification", "同时添加到消息中心待办")}
             </span>
           </label>
         </div>
@@ -244,14 +259,16 @@ export default function CalendarAddDialog({
             onClick={onClose}
             className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            取消
+            {t("office.cancel", "取消")}
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !summary}
             className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? "保存中..." : "保存"}
+            {saving
+              ? t("office.calSaving", "保存中...")
+              : t("office.calSave", "保存")}
           </button>
         </DialogFooter>
       </DialogContent>

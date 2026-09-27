@@ -228,11 +228,9 @@ function getMessageExportText(message: Message, full = false): string {
         // 无 toolCallId 的纯文本 status（如 "思考中" / "执行 N 个工具调用"）也跳过
         if (!block.toolCallId && !block.toolCall) {
           // 例外：上下文水位 / 任务分解 / 进度等业务标记保留
-          if (
-            /^上下文水位/.test(content) ||
-            block.status === "watermark" ||
-            block.status === "info"
-          ) {
+          // CS02：水位判据用结构化 `block.status`；不再匹配 content 文本
+          // —— 压缩进度块的 content 同样以「上下文水位」开头，字符串匹配会把进度噪音带进导出。
+          if (block.status === "watermark" || block.status === "info") {
             parts.push(content);
           }
           continue;

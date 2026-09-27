@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface MemorySearchProps {
   isDark: boolean;
@@ -6,6 +7,7 @@ interface MemorySearchProps {
 }
 
 function MemorySearch({ isDark, onSearch }: MemorySearchProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
 
   const handleSearch = () => {
@@ -41,7 +43,7 @@ function MemorySearch({ isDark, onSearch }: MemorySearchProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="搜索记忆..."
+          placeholder={t("memory.searchPlaceholder")}
           className={`w-full pl-10 pr-4 py-2 rounded-lg text-sm ${
             isDark
               ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"

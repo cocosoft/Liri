@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface FAQCategoryFilterProps {
   categories: string[];
@@ -13,12 +14,13 @@ export const FAQCategoryFilter = memo(function FAQCategoryFilter({
   onSelect,
   isDark,
 }: FAQCategoryFilterProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1">
       <span
         className={`text-[10px] uppercase font-semibold px-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
       >
-        分类
+        {t("knowledge.categories")}
       </span>
       <button
         onClick={() => onSelect("")}
@@ -30,7 +32,7 @@ export const FAQCategoryFilter = memo(function FAQCategoryFilter({
               : "text-gray-600 hover:bg-gray-100"
         }`}
       >
-        全部
+        {t("common.all")}
       </button>
       {categories.map((cat) => (
         <button

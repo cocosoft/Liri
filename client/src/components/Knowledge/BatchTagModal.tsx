@@ -1,6 +1,8 @@
 /**
  * BatchTagModal — 批量加标签弹窗 (Phase 1 W1)
  */
+import { useTranslation } from "react-i18next";
+
 interface BatchTagModalProps {
   isDark: boolean;
   selectedCount: number;
@@ -20,6 +22,7 @@ function BatchTagModal({
   onSave,
   onClose,
 }: BatchTagModalProps) {
+  const { t } = useTranslation();
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
   const inputBg = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
@@ -41,16 +44,16 @@ function BatchTagModal({
         <h3
           className={`text-sm font-semibold mb-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
         >
-          批量加标签
+          {t("knowledge.batchAddTags")}
         </h3>
         <p className={`text-xs mb-3 ${textSecondary}`}>
-          为选中的 {selectedCount} 个文档添加以下标签：
+          {t("knowledge.batchTagHint", { count: selectedCount })}
         </p>
         <input
           type="text"
           value={tagInput}
           onChange={(e) => onTagInputChange(e.target.value)}
-          placeholder="输入标签，用逗号分隔"
+          placeholder={t("knowledge.tagsPlaceholder")}
           className={`w-full px-3 py-2 text-sm border rounded-md ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -63,21 +66,23 @@ function BatchTagModal({
           autoFocus
         />
         {status === "error" && (
-          <p className="text-xs text-red-500 mt-1">添加标签失败，请重试</p>
+          <p className="text-xs text-red-500 mt-1">
+            {t("knowledge.addTagFailed")}
+          </p>
         )}
         <div className="flex items-center justify-end gap-2 mt-3">
           <button
             onClick={onClose}
             className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={onSave}
             disabled={status === "saving" || !tagInput.trim()}
             className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md"
           >
-            {status === "saving" ? "保存中..." : "保存"}
+            {status === "saving" ? t("knowledge.saving") : t("common.save")}
           </button>
         </div>
       </div>

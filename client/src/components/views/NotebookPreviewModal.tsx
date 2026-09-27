@@ -7,6 +7,7 @@
  * 仅查看，不提供编辑。
  */
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { fileService } from "../../services/fileService";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 
@@ -30,6 +31,7 @@ function NotebookPreviewModal({
   onClose,
   isDark,
 }: NotebookPreviewModalProps) {
+  const { t } = useTranslation();
   const [markdown, setMarkdown] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,11 +44,11 @@ function NotebookPreviewModal({
           outputFormat: "markdown",
         })) as ConvertResponse;
         if (result?.error) {
-          setError(result.error.message || "转换失败");
+          setError(result.error.message || t("files.notebookConvertFailed"));
         } else if (typeof result?.markdown === "string") {
           setMarkdown(result.markdown);
         } else {
-          setError("无法转换 Notebook 内容（非标准 nbformat 或为空）");
+          setError(t("files.notebookConvertUnsupported"));
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -54,7 +56,7 @@ function NotebookPreviewModal({
         setLoading(false);
       }
     })();
-  }, [filePath]);
+  }, [filePath, t]);
 
   return (
     <div
@@ -88,15 +90,15 @@ function NotebookPreviewModal({
             {loading ? (
               <div className="text-center py-8 text-gray-400">
                 <div className="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2" />
-                <span className="text-xs">读取中...</span>
+                <span className="text-xs">{t("files.notebookReading")}</span>
               </div>
             ) : error ? (
               <div className="text-center py-8 text-red-500 text-sm">
-                读取失败：{error}
+                {t("files.notebookReadFailed", { error })}
               </div>
             ) : markdown.trim() === "" ? (
               <div className="text-center py-8 text-gray-400 text-sm">
-                Notebook 内容为空
+                {t("files.notebookEmpty")}
               </div>
             ) : (
               <MarkdownRenderer content={markdown} />

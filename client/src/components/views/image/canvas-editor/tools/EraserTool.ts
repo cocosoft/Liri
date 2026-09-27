@@ -11,7 +11,7 @@ export class EraserTool implements CanvasToolHandler {
       name: "transparent",
       type: "boolean",
       default: false,
-      labelKey: "透明擦",
+      labelKey: "media.canvasToolTransparentErase",
     },
   ];
 

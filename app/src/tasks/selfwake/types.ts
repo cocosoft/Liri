@@ -51,5 +51,14 @@ export interface ISelfWakeService {
     eventKey: string
   ): Promise<WakeEntry>;
   getDueWakes(): WakeEntry[];
+  /**
+   * 按会话取"待触发"（`pending` | `due`）唤醒项，按 `triggerAt` 升序（无 `triggerAt` 排最后）。
+   *
+   * 2026-09-27（等待态可见性，Spec `wait-state-visibility.md` D1）：供只读查询面使用 ——
+   * 长等待（`sleep_for` / `wake_on_job`…）期间"会话仍在等"这一事实的**唯一来源**，
+   * 由 `GET /v1/sessions/:id/streaming` 的 `pendingWake` 字段对外表达。
+   * 只读，不改状态；无记录 ⇒ 空数组（不抛错）。
+   */
+  getPendingBySession(sessionId: string): Promise<WakeEntry[]>;
   fire(wakeId: string): Promise<void>;
 }

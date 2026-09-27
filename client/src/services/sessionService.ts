@@ -29,17 +29,53 @@ export function isUsingFallback(): boolean {
  * （`chat-message-set-messages.ts` 只回填有 assistant 配对的 tool 消息，详见台账 N-48），
  * 故会话级状态不受消息管道影响。
  */
-export async function getSessionRuntimeStatus(sessionId: string): Promise<{
+/**
+ * 会话运行态（`GET /v1/sessions/:id/streaming`）
+ *
+ * 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D1）：
+ * `pendingWake` = 本会话存在**待触发**的自唤醒等待（`sleep_for` / `sleep_until` /
+ * `wake_on_job` / `wake_on_event`）。这类等待**不进** `YieldRegistry` ⇒ 其等待期
+ * `yieldState` 为 `undefined`，此前前端因此看不到"仍在等"（界面看起来"答完了"）。
+ */
+export interface SessionRuntimeStatus {
   streaming: boolean;
   yieldState?: "waiting" | "unresolved";
-}> {
+  /** 待触发唤醒（多条时取 `triggerAt` 最早的一条；`triggerAt` 仅 timer 类才有） */
+  pendingWake?: {
+    kind: "timer" | "completion" | "event";
+    triggerAt?: number;
+    createdAt: number;
+  };
+}
+
+export async function getSessionRuntimeStatus(
+  sessionId: string,
+): Promise<SessionRuntimeStatus> {
   const res = await apiHttp.get<{
     streaming?: boolean;
     yieldState?: "waiting" | "unresolved";
+    pendingWake?: {
+      kind?: "timer" | "completion" | "event";
+      triggerAt?: number;
+      createdAt?: number;
+    };
   }>(`/v1/sessions/${sessionId}/streaming`);
+  const pw = res.data?.pendingWake;
   return {
     streaming: res.data?.streaming === true,
     yieldState: res.data?.yieldState,
+    // 缺字段即"无待触发"（不造默认值）；createdAt 缺失视为非法条目、整条丢弃
+    ...(pw && pw.kind && typeof pw.createdAt === "number"
+      ? {
+          pendingWake: {
+            kind: pw.kind,
+            ...(typeof pw.triggerAt === "number"
+              ? { triggerAt: pw.triggerAt }
+              : {}),
+            createdAt: pw.createdAt,
+          },
+        }
+      : {}),
   };
 }
 

@@ -137,6 +137,9 @@ export default defineConfig({
         "src/stores/chat/trajectoryStore.ts",
         "src/components/Trajectory/**",
         "src/components/common/JsonTree.tsx",
+        // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md`）：会话级等待态共享钩子
+        // （含纯函数 deriveWaitState）。纳入统计 + 逐文件棘轮（见 thresholds）。
+        "src/components/ChatArea/useWaitState.ts",
       ],
       reporter: ["text"],
       thresholds: {
@@ -229,6 +232,14 @@ export default defineConfig({
           statements: 80, // 实测 81.33
           functions: 100,
           branches: 68, // 实测 68.75
+        },
+        // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md`）：新建钩子，
+        // 单测覆盖轮询策略/停止条件/秒数递增/取数失败回落 ⇒ 按实测设棘轮（只许升不许降）。
+        "src/components/ChatArea/useWaitState.ts": {
+          lines: 100, // 实测 100
+          statements: 95, // 实测 96.22
+          functions: 100, // 实测 100
+          branches: 88, // 实测 89.65
         },
       },
     },

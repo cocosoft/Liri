@@ -10,6 +10,8 @@ import {
 import type { TaskCardData } from "../../types";
 // 2026-09-25：任务卡快照取数抽为**单一来源**（本组件与 usePdcaStartEntry 共用）
 import { findLatestTaskCard } from "./taskCardSnapshot";
+// 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D5/D6）：等待态并入浮动栏
+import type { WaitState } from "./useWaitState";
 
 const PHASE_LABELS: Record<string, string> = {
   analyzing: "chat.phaseAnalyzing",
@@ -145,6 +147,7 @@ export default function StatusFloatBar({
   fluid = false,
   pdca,
   orchestrate,
+  wait,
 }: {
   fluid?: boolean;
   /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供） */
@@ -157,6 +160,9 @@ export default function StatusFloatBar({
     starting: boolean;
     onStart: () => void;
   };
+  /** 等待态可见性（2026-09-27）：会话级等待态 —— 由 ChatArea 的 `useWaitState` **统一提供**
+   *  （单一拉取点；避免本组件与 YieldNoticeBar 各自轮询）。详见 `useWaitState.ts`。 */
+  wait?: WaitState;
 }) {
   const { t } = useTranslation();
   // UI-1（2026-09-23）：深度思考等待期 —— 与"正在生成/阶段"在**同一处**呈现，
@@ -173,27 +179,35 @@ export default function StatusFloatBar({
   const [showTaskPanel, setShowTaskPanel] = useState(false);
 
   const isActive = isSending || isStreaming || isUploading;
+  /**
+   * 等待态可见性（2026-09-27 Spec D5/D6）：等待期**保持渲染**（只换文案）——
+   * 原判据只有"有字节在流动"（isSending/isStreaming/isUploading），故流一停、哪怕后台
+   * 仍在等（长等待/自唤醒），状态条就卸载 ⇒ 界面退回"答完了"的样子（用户实测现象）。
+   * 等待态是**已确认在等**（后端 `yieldState='waiting'` 或 `pendingWake`），故并入"保持可见"。
+   */
+  const isWaiting = wait?.waiting === true;
+  const keepVisible = isActive || isWaiting;
   const [fadingOut, setFadingOut] = useState(false);
 
   /**
-   * isActive 从 true → false 时渐隐：先 `opacity-0`（1s 过渡），2s 后置回 `fadingOut=false`
-   * 让末尾 `if (!isActive && !fadingOut) return null` 生效、组件真正卸载。
+   * keepVisible 从 true → false 时渐隐：先 `opacity-0`（1s 过渡），2s 后置回 `fadingOut=false`
+   * 让末尾 `if (!keepVisible && !fadingOut) return null` 生效、组件真正卸载。
    *
    * N-49 根因修复（2026-09-20）：本 effect 原先依赖 `[isActive, fadingOut]` —— 进入渐隐
    * （`fadingOut` 被置 true）会**重跑 effect**，而它的 cleanup 会把刚设好的 2 秒定时器清掉
    * ⇒ `fadingOut` **永久为 true** ⇒ 组件**永不卸载**：以 `opacity-0` 常驻 DOM（仍订阅 store、
    * 仍占位、仍可拦截指针事件，并曾让两次浏览器验证误判为"状态条仍在显示"）。
-   * 故改为**只依赖 `isActive`**：cleanup 只在活跃态切换时清定时器，不再自清。
+   * 故改为**只依赖 `keepVisible`**：cleanup 只在可见态切换时清定时器，不再自清。
    */
   useEffect(() => {
-    if (isActive) {
+    if (keepVisible) {
       setFadingOut(false);
       return;
     }
     setFadingOut(true);
     const timer = setTimeout(() => setFadingOut(false), 2000);
     return () => clearTimeout(timer);
-  }, [isActive]);
+  }, [keepVisible]);
 
   // BUG-9 修复（2026-08-23）：从 planTaskStore 订阅实时任务数据（SSE 驱动），
   // 与 TaskCard 组件同源；按消息中最后一个 planId 定位并优先取实时数据
@@ -207,8 +221,31 @@ export default function StatusFloatBar({
   // 流结束后继续跑，原 ChatPdcaDrawer 的独立入口行正为此而常驻；并入浮动栏后
   // 若仍只在 isActive 时渲染，会**丢失空闲态入口**（回归）。
   // 「用编排推进」入口同理：空闲且仍有未完成 todo 时常驻（否则入口无处可点）。
-  if (!isActive && !fadingOut && !pdca?.visible && !orchestrate?.visible)
+  // 等待态（2026-09-27）：等待期同样常驻 —— 见 `keepVisible` 注释。
+  if (!keepVisible && !fadingOut && !pdca?.visible && !orchestrate?.visible)
     return null;
+
+  /**
+   * 等待态文案（2026-09-27 Spec D7：**只报真实测量值**）
+   * - selfwake 且带 `triggerAt`（`sleep_for`/`sleep_until`）⇒ 倒计时（唯一能算出的剩余量）；
+   * - selfwake 无 `triggerAt`（`wake_on_job`/`wake_on_event`）⇒ 只说"等待中" + 已等待秒数，
+   *   **不猜**剩余时间；
+   * - yield（等子任务结算）⇒ 已等待秒数（结算时刻不可预测）。
+   */
+  const waitText = (): string => {
+    const elapsed = wait?.seconds ?? 0;
+    if (wait?.reason === "selfwake") {
+      if (typeof wait.triggerAt === "number") {
+        const remain = Math.max(
+          0,
+          Math.round((wait.triggerAt - Date.now()) / 1000),
+        );
+        return t("chat.waitingSelfwakeCountdown", { seconds: remain });
+      }
+      return t("chat.waitingSelfwake", { seconds: elapsed });
+    }
+    return t("chat.waitingYield", { seconds: elapsed });
+  };
 
   /**
    * 根据当前状态生成显示文本
@@ -217,6 +254,9 @@ export default function StatusFloatBar({
   const getStatusText = (): string => {
     // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
     if (!isActive) {
+      // 等待态（2026-09-27）：**已确认在等**（后端 yieldState/pendingWake）⇒ 不得回落成
+      // "正在生成 / 编排进行中"等谎报文案（原实现即因此显示成"答完了"）
+      if (isWaiting) return waitText();
       if (pdca?.visible) return t("chat.pdcaIdle");
       // 空闲且仅"用编排推进"入口常驻：左侧不谎报运行态也不与右侧入口文案重复，
       // 未完成进度由 TaskProgress（已完成 x/y）承担
@@ -261,14 +301,19 @@ export default function StatusFloatBar({
       >
         <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            {/* 状态指示点：绿色脉冲 = 运行中；空闲但 PDCA 常驻时用静态点（不谎报运行态） */}
+            {/* 状态指示点：绿色脉冲 = 运行中；等待中 = 静态蓝点（**不脉冲**，否则谎报"正在输出"）；
+                空闲但 PDCA 常驻时用静态灰点（不谎报运行态） */}
             <span className="relative flex h-2.5 w-2.5">
               {isActive && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
               )}
               <span
                 className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                  isActive ? "bg-green-500" : "bg-gray-400"
+                  isActive
+                    ? "bg-green-500"
+                    : isWaiting
+                      ? "bg-sky-500"
+                      : "bg-gray-400"
                 }`}
               />
             </span>

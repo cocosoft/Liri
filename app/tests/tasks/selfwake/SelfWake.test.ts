@@ -250,5 +250,64 @@ describe('SelfWake', () => {
       svc.destroy();
       // No assertion needed — verify no uncaught timer exception on destroy
     });
+
+    // ── 2026-09-27：等待态可见性（Spec `wait-state-visibility.md` D8 / D1）────────────
+
+    // D8 回归守卫：同会话连续登记**不得丢条目**。
+    // 旧实现 `wakeStore.save(sessionId, [entry])` 是整文件覆盖 ⇒ 第二次登记会把第一次
+    // 尚未触发的条目**静默丢弃**。突变验证：把 `appendEntry` 还原为 `save([entry])` ⇒
+    // 本用例转红（Expected length 2 / Received 1）。
+    // 注：tickInterval=1 ⇒ 所有时长都走"长时"路径、不创建 setTimeout（避免悬挂句柄）。
+    it('同会话两次登记 ⇒ 两条都在（不丢唤醒）', async () => {
+      const store = new WakeStore();
+      const svc = new SelfWakeService(store, 1);
+      const sessionId = 'merge-write-1';
+
+      const first = await svc.sleepFor(sessionId, 't1', 600);
+      const second = await svc.sleepFor(sessionId, 't2', 900);
+
+      const loaded = await store.load(sessionId);
+      expect(loaded.map((e) => e.id).sort()).toEqual(
+        [first.id, second.id].sort()
+      );
+    });
+
+    it('sleep_for 与 wake_on_job 混用 ⇒ 两条都在（不丢唤醒）', async () => {
+      const store = new WakeStore();
+      const svc = new SelfWakeService(store, 1);
+      const sessionId = 'merge-write-2';
+
+      const timer = await svc.sleepFor(sessionId, 't1', 600);
+      const job = await svc.wakeOnJob(sessionId, 't1', 'job-1');
+
+      const loaded = await store.load(sessionId);
+      expect(loaded.map((e) => e.id).sort()).toEqual([timer.id, job.id].sort());
+    });
+
+    // D1：只读查询面（供 HTTP `pendingWake` 字段）。
+    it('getPendingBySession：只含 pending|due，按 triggerAt 升序，无 triggerAt 排最后', async () => {
+      const store = new WakeStore();
+      const svc = new SelfWakeService(store, 1);
+      const sessionId = 'pending-by-session';
+
+      const later = await svc.sleepFor(sessionId, 't', 600); // triggerAt = now + 600s
+      const sooner = await svc.sleepFor(sessionId, 't', 60); // triggerAt = now + 60s
+      const noTriggerAt = await svc.wakeOnJob(sessionId, 't', 'job-1'); // 无 triggerAt
+      const fired = await svc.sleepFor(sessionId, 't', 300);
+      await svc.fire(fired.id);
+
+      const pending = await svc.getPendingBySession(sessionId);
+      expect(pending.map((e) => e.id)).toEqual([
+        sooner.id,
+        later.id,
+        noTriggerAt.id,
+      ]);
+    });
+
+    it('getPendingBySession：无记录 ⇒ 空数组（不抛错）', async () => {
+      const store = new WakeStore();
+      const svc = new SelfWakeService(store, 1);
+      expect(await svc.getPendingBySession('no-such-session')).toEqual([]);
+    });
   });
 });

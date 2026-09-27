@@ -242,6 +242,13 @@ const en = {
     streamingLabel: "AI is generating a reply",
     deepThinkingHint:
       "🧠 Model is thinking deeply… {{seconds}}s elapsed (reasoning models reason first, please wait)",
+    // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D7）
+    waitingSelfwakeCountdown: "⏳ Waiting — resuming automatically in ~{{seconds}}s",
+    waitingSelfwake:
+      "⏳ Waiting ({{seconds}}s elapsed) — will resume automatically",
+    waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
+    yieldUnresolved:
+      "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
     tokenInfo: "Token Details",
     actionsMore: "More",
     contentUnchanged: "Content unchanged",

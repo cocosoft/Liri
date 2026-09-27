@@ -15,6 +15,8 @@ import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
 // N-45：会话级"已让出 / 等待结算"提示条（读会话运行态，不经消息管道）
 import YieldNoticeBar from "./YieldNoticeBar";
+// 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D3）：会话级等待态的单一拉取点
+import { useWaitState } from "./useWaitState";
 import { usePdcaAutoAppend } from "./usePdcaAutoAppend";
 import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
@@ -62,6 +64,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
   // P2-A（2026-09-17）：PDCA 自动启动 → 当前轮聊天正文内嵌卡片（实时 append，幂等）
   usePdcaAutoAppend(currentSid);
+
+  // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D3/D5）：**单一拉取点** ——
+  // 本组件统一订阅会话等待态（含低频轮询）后下传，避免 YieldNoticeBar 与 StatusFloatBar
+  // 各自请求同一端点；`waiting` 文案由浮动栏承载，`unresolved` 仍走独立提示条。
+  const wait = useWaitState(currentSid, isStreaming);
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {
@@ -620,11 +627,12 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
-        {/* N-45：会话级"已让出 / 等待结算"提示（读时派生；会话切换与流结束即刷新） */}
-        <YieldNoticeBar fluid={fluid} />
-        {/* UI 期 UI-1/UI-2：浮动栏统一承载 运行状态 / 深度思考等待 / PDCA 入口 / 任务进度 */}
+        {/* N-45：会话级"已让出但未能自动恢复"告警（`waiting` 已迁入浮动栏，见 useWaitState） */}
+        <YieldNoticeBar fluid={fluid} unresolved={wait.unresolved} />
+        {/* UI 期 UI-1/UI-2：浮动栏统一承载 运行状态 / 等待态 / 深度思考等待 / PDCA 入口 / 任务进度 */}
         <StatusFloatBar
           fluid={fluid}
+          wait={wait}
           pdca={{
             visible: pdca.visible,
             open: pdcaOpen,

@@ -50,6 +50,19 @@ export class SelfWakeService {
     this.tickIntervalMs = tickIntervalMs;
   }
 
+  /**
+   * 合并写：把新条目**追加**到该会话既有条目之后（而非整文件覆盖）。
+   *
+   * 2026-09-27（等待态可见性，Spec `wait-state-visibility.md` D8）：原实现四处登记都是
+   * `wakeStore.save(sessionId, [entry])`，而 `WakeStore.save` 直接 `writeFileSync(entries)`
+   * ⇒ 同会话存在**未触发**条目时会被**静默丢弃**（丢唤醒）。改为 load → 追加 → save；
+   * `WakeStore` 内部有按 sessionId 的文件级互斥，故读-改-写仍原子。
+   */
+  private async appendEntry(entry: WakeEntry): Promise<void> {
+    const existing = await this.wakeStore.load(entry.sessionId);
+    await this.wakeStore.save(entry.sessionId, [...existing, entry]);
+  }
+
   /** Agent 挂起指定秒数 */
   async sleepFor(
     sessionId: string,
@@ -84,7 +97,7 @@ export class SelfWakeService {
       this.shortTimers.set(entry.id, timer);
     }
 
-    await this.wakeStore.save(sessionId, [entry]);
+    await this.appendEntry(entry);
     cg3Log('tasks:selfwake', 'info', 'sleepFor', {
       sessionId,
       taskId,
@@ -123,7 +136,7 @@ export class SelfWakeService {
       jobId,
       createdAt: Date.now(),
     };
-    await this.wakeStore.save(sessionId, [entry]);
+    await this.appendEntry(entry);
     cg3Log('tasks:selfwake', 'info', 'wakeOnJob', {
       sessionId,
       taskId,
@@ -148,7 +161,7 @@ export class SelfWakeService {
       eventKey,
       createdAt: Date.now(),
     };
-    await this.wakeStore.save(sessionId, [entry]);
+    await this.appendEntry(entry);
     cg3Log('tasks:selfwake', 'info', 'wakeOnEvent', {
       sessionId,
       taskId,
@@ -161,6 +174,19 @@ export class SelfWakeService {
   /** 获取到期应唤醒的条目（由 CronScheduler.extra_tick 调用） */
   async getDueWakes(): Promise<WakeEntry[]> {
     return this.wakeStore.getDueWakes();
+  }
+
+  /**
+   * 按会话取"待触发"（`pending` | `due`）条目，按 `triggerAt` 升序（无 `triggerAt` 排最后）。
+   *
+   * 2026-09-27（等待态可见性 Spec D1）：只读；供 `GET /v1/sessions/:id/streaming` 的
+   * `pendingWake` 字段使用。成本 = 读该会话 1 个 JSON 文件（`WakeStore.load`）。
+   */
+  async getPendingBySession(sessionId: string): Promise<WakeEntry[]> {
+    const entries = await this.wakeStore.load(sessionId);
+    return entries
+      .filter((e) => e.status === 'pending' || e.status === 'due')
+      .sort((a, b) => (a.triggerAt ?? Infinity) - (b.triggerAt ?? Infinity));
   }
 
   /**

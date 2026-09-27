@@ -237,6 +237,12 @@ const zh = {
     streamingLabel: "AI 正在生成回复",
     deepThinkingHint:
       "🧠 模型正在深度思考中…已 {{seconds}} 秒（思考型模型会先推理再回答，请稍候）",
+    // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D7）：长等待期间"仍在干活"
+    waitingSelfwakeCountdown: "⏳ 等待中，预计 {{seconds}} 秒后自动继续",
+    waitingSelfwake: "⏳ 等待中（已 {{seconds}} 秒），条件满足后自动继续",
+    waitingYield: "⏳ 等待子任务结算中（已 {{seconds}} 秒）",
+    yieldUnresolved:
+      "本轮已让出，但未能自动恢复（可能因应用重启或子任务结算丢失）。直接发送消息即可继续。",
     tokenInfo: "Token 详情",
     actionsMore: "更多",
     contentUnchanged: "内容未变更",

@@ -28,6 +28,8 @@ import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 // N-45：会话级 yield 状态派生（同处 handlers 层，单向依赖，无环）
 import { deriveYieldState } from './session-handlers';
+// 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D1）：只读取本会话待触发唤醒
+import { resolvePendingWake } from './sessionWaitFields';
 import { getLogger } from '@modules/monitoring';
 import { handleError, AppError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -918,12 +920,15 @@ export async function handleSessionStreamingStatus(
     // `'waiting'` = 本轮已让出、仍在等子任务结算；`'unresolved'` = 已让出但未能自动恢复。
     // 前端据此在会话级提示条上给出准确状态（消息级承载已被 store 丢弃，见台账 N-48）。
     const yieldState = await deriveYieldState(sessionId);
+    // 等待态可见性（2026-09-27）：自唤醒类长等待（sleep_for 等）—— 见 resolvePendingWake 注释。
+    const pendingWake = await resolvePendingWake(sessionId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
         sessionId,
         streaming,
         ...(yieldState ? { yieldState } : {}),
+        ...(pendingWake ? { pendingWake } : {}),
       })
     );
   } catch (err) {

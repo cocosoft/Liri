@@ -241,6 +241,7 @@
 | PUT | `/api/session/{id}/message/{msgId}/blocks` | ✅ | `chatService.updateMessageBlocks` |
 | GET | `/v1/sessions/{id}/streaming` | ✅ P1-5 | `chat-message.slice.ts` ghostCheckTimer；`sessionService.getSessionRuntimeStatus` |
 |  | 响应含 `yieldState?: 'waiting' \| 'unresolved'`（N-45，2026-09-20） |  | **会话级** yield 状态（后端读时派生：`waiting` = 本轮已让出、仍在等子任务结算；`unresolved` = 已让出但未能自动恢复）。消费方：`YieldNoticeBar`（会话级提示条）—— 不走消息字段是因为让出轮次的承载消息会被前端 store 丢弃（台账 N-48） |
+|  | 响应含 `pendingWake?: { kind: 'timer' \| 'completion' \| 'event'; triggerAt?: number; createdAt: number }`（2026-09-27，等待态可见性 Spec `wait-state-visibility.md`） |  | **会话级**"待触发的自唤醒等待"（`sleep_for` / `sleep_until` / `wake_on_job` / `wake_on_event` 登记于 `WakeStore`）。这类等待**不进** `YieldRegistry`（`ChatManager` 只对 `sessions_yield` 写 `finishReason='yielded'`）⇒ 其等待期 `yieldState` 为 `undefined`，故单独暴露（否则长等待期间前端无任何"仍在等"依据，界面看起来"答完了"）。多条时取 `triggerAt` 最早；`triggerAt` 仅 timer 类有。无待触发 / CG3 未启动 / 读取异常 ⇒ **省略该字段**（不阻断主响应）。消费方：`useWaitState`（含 4s 低频轮询，`unresolved` 即停）→ `StatusFloatBar`（等待期常驻 + 倒计时）、`YieldNoticeBar`（仅 `unresolved`） |
 | GET | `/v1/sessions/{id}/checkpoints/latest` | ✅ P2-1 | `chat-message.slice.ts` reconnect |
 | POST | `/v1/sessions/{id}/resume` | ✅ P2-1 | `chatService.streamMessageWithReconnect` |
 

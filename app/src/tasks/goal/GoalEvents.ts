@@ -35,7 +35,7 @@ import {
   type ContextualFragment,
 } from '@modules/context';
 import { renderGoalTemplate, type GoalTemplateKind } from './goalTemplates';
-import type { GoalRunSettlement } from './goalRunBinding';
+import type { GoalRunSettlement } from './goalSettlementTypes';
 import type { TaskGoalStatus, TaskGoalUpdateReason } from './TaskGoalStore';
 
 const logger = getLogger('tasks:goal:events');

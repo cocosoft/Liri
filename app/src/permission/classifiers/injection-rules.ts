@@ -24,7 +24,7 @@
  * 从 AutoModeClassifier.ts 提取（FSZ-003 拆分），由 heuristicClassify 按原顺序调用。
  */
 
-import type { ClassifierDecision } from './AutoModeClassifier';
+import type { ClassifierDecision } from './classifierDecision';
 
 /**
  * 检测Unicode零宽字符注入

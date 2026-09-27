@@ -46,21 +46,11 @@ export interface GoalRunOutcome {
   cancelled: boolean;
 }
 
-export interface GoalRunSettlement {
-  goalId: string;
-  /**
-   * 落定的状态。
-   * - `budget_limited`：因用量触顶收尾；
-   * - `failed`：本次批次全败，**或**连续未达成达停止阈值（见 `NO_PROGRESS_STOP_THRESHOLD`）。
-   */
-  status: 'completed' | 'blocked' | 'failed' | 'cancelled' | 'budget_limited';
-  /** 触顶时的**收尾指令**（`budget_limit` 模板渲染；未触顶 ⇒ undefined） */
-  closingInstruction?: string;
-  /** **停止条件**成立时的指令（`progress_stalled` 模板渲染）⇒ 该次已落终态 */
-  stopInstruction?: string;
-  /** 本次记账后的连续未达成批次数（仅 `blocked` 路径给出） */
-  noProgressStreak?: number;
-}
+// 2026-09-26：`GoalRunSettlement` 已抽到**叶子** `./goalSettlementTypes` —— 打断
+// `GoalEvents → goalRunBinding` 这条回边（连带 `GoalEvents > goalRunBinding > goalBudget` 一并断开；
+// madge 把 `import type` 也计环）。本地使用需 `import`；对外路径由 `export type` 保持。
+import type { GoalRunSettlement } from './goalSettlementTypes';
+export type { GoalRunSettlement } from './goalSettlementTypes';
 
 /**
  * **停止条件阈值**（连续未达成批次数）：达此值即判定"停滞"，落终态 `failed` 并停止推进。

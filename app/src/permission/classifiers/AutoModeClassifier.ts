@@ -33,44 +33,12 @@ import {
   detectDNSTunnel,
 } from './vector-rules';
 
-/**
- * 分类器决策结果
- */
-export interface ClassifierDecision {
-  /**
-   * 是否应该阻止
-   */
-  shouldBlock: boolean;
-  /**
-   * 阻止原因
-   */
-  reason?: string;
-  /**
-   * 分类器是否不可用
-   */
-  unavailable?: boolean;
-  /**
-   * 转录是否太长
-   */
-  transcriptTooLong?: boolean;
-  /**
-   * 分类器使用信息
-   */
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadInputTokens?: number;
-    cacheCreationInputTokens?: number;
-  };
-  /**
-   * 使用的模型
-   */
-  model?: string;
-  /**
-   * 执行耗时（毫秒）
-   */
-  durationMs?: number;
-}
+// 2026-09-26：`ClassifierDecision` 已抽到**叶子** `./classifierDecision` —— 打断
+// `AutoModeClassifier ↔ injection-rules` 与 `↔ vector-rules` 两条环
+// （`madge --circular` 把 `import type` 也计环，故类型位置也会成环）。
+// 本地使用需 `import`（re-export 不引入本地绑定）；对外路径由下方 `export type` 保持不变。
+import type { ClassifierDecision } from './classifierDecision';
+export type { ClassifierDecision } from './classifierDecision';
 
 /**
  * 分类器接口

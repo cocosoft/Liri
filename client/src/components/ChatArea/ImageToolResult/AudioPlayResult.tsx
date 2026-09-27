@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface DisplayAudio {
   url: string;
@@ -21,13 +22,16 @@ function formatSize(bytes?: number): string {
 
 /** 音频播放组件：直接播放音频，支持 controls */
 function AudioPlayResult({ data }: Props) {
+  const { t } = useTranslation();
   const audios = useMemo(() => {
     const innerData = (data.data as Record<string, unknown>) ?? data;
     return (innerData.audios as DisplayAudio[]) || [];
   }, [data]);
 
   if (audios.length === 0) {
-    return <div className="text-gray-400 text-sm">无音频可播放</div>;
+    return (
+      <div className="text-gray-400 text-sm">{t("chat.noAudioToPlay")}</div>
+    );
   }
 
   return (

@@ -3,6 +3,7 @@
  * 图片预览结果渲染 — 多图缩略图网格 + 点击放大 + 引用/下载
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../../stores/chat";
 import { createLogger } from "@/utils/logger";
 import ImageViewer from "../ImageViewer/ImageViewer";
@@ -30,6 +31,7 @@ function formatSize(bytes?: number): string {
 
 export default function ImageDisplayResult({ data }: Props) {
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const { t } = useTranslation();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
 
@@ -42,7 +44,7 @@ export default function ImageDisplayResult({ data }: Props) {
   if (images.length === 0) {
     return (
       <div className="text-gray-500 text-xs italic px-2 py-1">
-        没有可显示的图片
+        {t("chat.noImagesToDisplay")}
       </div>
     );
   }
@@ -117,14 +119,14 @@ export default function ImageDisplayResult({ data }: Props) {
             </div>
 
             {/* 悬浮操作按钮 */}
-            <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCite(img);
                 }}
                 className="px-1 py-0.5 rounded text-[10px] bg-gray-900/80 text-green-300 hover:bg-gray-800 border-0 cursor-pointer"
-                title="引用到对话"
+                title={t("chat.citeToChat")}
               >
                 💬
               </button>
@@ -134,7 +136,7 @@ export default function ImageDisplayResult({ data }: Props) {
                   handleCopyCite(img);
                 }}
                 className="px-1 py-0.5 rounded text-[10px] bg-gray-900/80 text-blue-300 hover:bg-gray-800 border-0 cursor-pointer"
-                title="复制引用"
+                title={t("chat.copyCitation")}
               >
                 📋
               </button>
@@ -143,7 +145,7 @@ export default function ImageDisplayResult({ data }: Props) {
                 download={img.name}
                 className="px-1 py-0.5 rounded text-[10px] bg-gray-900/80 text-gray-300 hover:bg-gray-800 no-underline"
                 onClick={(e) => e.stopPropagation()}
-                title="下载"
+                title={t("chat.imageDownload")}
               >
                 ↓
               </a>
@@ -154,7 +156,7 @@ export default function ImageDisplayResult({ data }: Props) {
 
       {/* 底部操作栏 */}
       <div className="flex items-center justify-between text-[10px] text-gray-400">
-        <span>共 {images.length} 张图片</span>
+        <span>{t("chat.imageCount", { count: images.length })}</span>
         <button
           onClick={() => {
             const attachedImages = images.map((img) => ({
@@ -170,7 +172,7 @@ export default function ImageDisplayResult({ data }: Props) {
           }}
           className="text-blue-400 hover:text-blue-300 bg-transparent border-0 cursor-pointer"
         >
-          全部引用
+          {t("chat.citeAll")}
         </button>
       </div>
 

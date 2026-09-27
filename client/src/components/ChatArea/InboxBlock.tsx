@@ -4,7 +4,8 @@
  * 在 AI 回复消息中渲染为可交互的审批卡片，用户可直接点击按钮操作，
  * 无需离开聊天页面。支持 pending / replied / expired 三种状态。
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { InboxBlockData } from "../../types";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
@@ -15,10 +16,11 @@ interface Props {
   onResolved?: () => void;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  approval: "审批",
-  question: "提问",
-  authorization: "授权",
+/** 类型标签 i18n 键（未登记的类型回退后端原值显示，CS06） */
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  approval: "chat.inboxTypeApproval",
+  question: "chat.inboxTypeQuestion",
+  authorization: "chat.inboxTypeAuthorization",
 };
 
 /** 按钮样式映射 */
@@ -51,6 +53,7 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const [replying, setReplying] = useState(false);
   const [resuming, setResuming] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
+  const { t } = useTranslation();
 
   const handleAction = async (reply: string) => {
     if (replying || status !== "pending") return;
@@ -64,15 +67,15 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         setStatus("replied");
         const label =
           reply === "approve"
-            ? "批准"
+            ? t("chat.inboxReplyApprove")
             : reply === "reject"
-              ? "拒绝"
+              ? t("chat.inboxReplyReject")
               : reply === "allowlist_tool"
-                ? "加入工具白名单"
+                ? t("chat.inboxReplyAllowTool")
                 : reply === "allowlist_command"
-                  ? "加入命令白名单"
-                  : "回复";
-        addToast("success", `已${label}`);
+                  ? t("chat.inboxReplyAllowCommand")
+                  : t("chat.reply");
+        addToast("success", t("chat.inboxRepliedToast", { label }));
         onResolved?.();
 
         // P2-1 + P2-4 → M2-T2.1（2026-08-31）：批准类 reply 的续跑责任收敛到后端——
@@ -100,10 +103,10 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
           }
         }
       } else {
-        addToast("error", String(res.error || "操作失败"));
+        addToast("error", String(res.error || t("common.failed")));
       }
     } catch (e) {
-      addToast("error", e instanceof Error ? e.message : "操作失败");
+      addToast("error", e instanceof Error ? e.message : t("common.failed"));
     } finally {
       setReplying(false);
     }
@@ -112,6 +115,16 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   const isPending = status === "pending";
   const isExpired = status === "expired";
   const isUrgent = data.priority === "urgent";
+
+  // P2-8：过期倒计时原为渲染期一次性快照（`Date.now()` 只在重渲染时取一次）
+  // ⇒ 卡片长时间停留在页面上时"X 分钟后过期"会冻结在首次渲染的值。
+  // 以 30s 心跳驱动重算；仅在确实有待过期项时运行。
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    if (!(isPending && data.expiresAt)) return;
+    const timer = setInterval(() => setClockTick((v) => v + 1), 30_000);
+    return () => clearInterval(timer);
+  }, [isPending, data.expiresAt]);
 
   return (
     <div
@@ -125,11 +138,13 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       {/* 头部：类型标签 + 优先级 + 标题 */}
       <div className="mb-2 flex items-center gap-2">
         <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-          📋 {TYPE_LABELS[data.type] || data.type}
+          📋{" "}
+          {(TYPE_LABEL_KEYS[data.type] && t(TYPE_LABEL_KEYS[data.type])) ||
+            data.type}
         </span>
         {isUrgent && (
           <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">
-            紧急
+            {t("chat.urgent")}
           </span>
         )}
         <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -137,8 +152,12 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         </span>
         {isPending && data.expiresAt && (
           <span className="ml-auto shrink-0 text-[10px] text-gray-400">
-            {Math.max(0, Math.ceil((data.expiresAt - Date.now()) / 60000))}{" "}
-            分钟后过期
+            {t("chat.expiresInMinutes", {
+              count: Math.max(
+                0,
+                Math.ceil((data.expiresAt - Date.now()) / 60000),
+              ),
+            })}
           </span>
         )}
       </div>
@@ -170,20 +189,22 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         {/* P2-1: 批准后自动续跑中 —— 避免用户感知空转 */}
         {resuming && (
           <span className="text-xs font-medium text-green-600 dark:text-green-400">
-            ✅ 已批准，正在执行…
+            ✅ {t("chat.inboxResuming")}
           </span>
         )}
 
         {/* 已处理状态 */}
         {!isPending && !isExpired && !resuming && (
           <span className="text-xs text-green-600 dark:text-green-400">
-            ✅ 已处理
+            ✅ {t("chat.inboxHandled")}
           </span>
         )}
 
         {/* 已过期状态 */}
         {isExpired && (
-          <span className="text-xs text-gray-400">⏰ 已超时过期</span>
+          <span className="text-xs text-gray-400">
+            ⏰ {t("chat.inboxExpired")}
+          </span>
         )}
 
         {/* 来源渠道 */}

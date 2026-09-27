@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ReactFlow,
@@ -124,9 +124,27 @@ export default function DAGFullScreen({
   const { t } = useTranslation();
   const { nodes, edges } = useMemo(() => layoutNodes(tasks), [tasks]);
 
+  // P2-5：Esc 关闭全屏 DAG（补对话框语义的可预期退出方式）
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[90vw] h-[85vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={
+          title
+            ? t("chat.dagTitleWithName", { title })
+            : t("chat.dagTitle", "任务依赖关系图")
+        }
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-[90vw] h-[85vh] flex flex-col overflow-hidden border border-gray-200 dark:border-gray-700"
+      >
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">

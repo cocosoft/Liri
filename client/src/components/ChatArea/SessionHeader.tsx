@@ -47,15 +47,22 @@ function protectExportStructure(text: string): string {
   return text.replace(/^###\s+(👤|🤖|⚙️|🛠)\s/gm, "\\### $1 ");
 }
 
+/** 最小 t 契约（i18n 残留收尾：模块级构造函数由渲染处传入翻译函数） */
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
 /** Markdown 头部：会话元信息（P1-3） */
-function buildMarkdownHeader(messages: Message[], meta: ExportMeta): string {
+function buildMarkdownHeader(
+  messages: Message[],
+  meta: ExportMeta,
+  t: Translate,
+): string {
   const rounds = messages.filter((m) => m.role === "user").length;
   return [
-    `# ${meta.title || "会话导出"}`,
+    `# ${meta.title || t("chat.exportDefaultTitle")}`,
     "",
-    `- 会话 ID：\`${meta.id || "?"}\``,
-    `- 消息数：${messages.length}（轮数：${rounds}）`,
-    `- 导出时间：${meta.exportedAt}`,
+    `- ${t("chat.exportMetaSessionId", { id: meta.id || "?" })}`,
+    `- ${t("chat.exportMetaMessageCount", { count: messages.length, rounds })}`,
+    `- ${t("chat.exportMetaExportedAt", { time: meta.exportedAt })}`,
     "",
     "---",
     "",
@@ -69,60 +76,100 @@ const MAX_EXPORT_BLOCK_CHARS = 5000;
  * 块内容截断（P1-2）：**必须带标注**——原实现静默 `substring(0, 5000)`，
  * 消费者无法判断内容缺口。此处复用 thinking 截断的无歧义口径（保留量 + 原文量 + 去处）。
  */
-function truncateBlockContent(content: string): string {
+function truncateBlockContent(content: string, t: Translate): string {
   if (content.length <= MAX_EXPORT_BLOCK_CHARS) return content;
-  return `${content.slice(0, MAX_EXPORT_BLOCK_CHARS)}\n\n（内容过长，已截断：仅导出前 ${MAX_EXPORT_BLOCK_CHARS} 字，原文共 ${content.length} 字；完整内容见会话内）`;
+  return `${content.slice(0, MAX_EXPORT_BLOCK_CHARS)}\n\n${t(
+    "chat.exportTruncatedBlock",
+    { kept: MAX_EXPORT_BLOCK_CHARS, total: content.length },
+  )}`;
+}
+
+/**
+ * P2-7（2026-09-27 审计）：导出构造分段让出事件循环。
+ * 原实现用 `messages.map(...).join()` 一次性同步构造整段字符串，超大会话会长时间
+ * 阻塞主线程（UI 卡死、导出中动画不动）。现按条累加，每 `EXPORT_YIELD_EVERY` 条
+ * `await` 一次让出，把长任务切成多个可渲染帧。
+ */
+const EXPORT_YIELD_EVERY = 20;
+
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
+/** 整体缩进多行字符串（P2-7：逐条 stringify 后拼装，替代一次性整体 stringify） */
+function indentLines(text: string, spaces: number): string {
+  const pad = " ".repeat(spaces);
+  return text
+    .split("\n")
+    .map((line) => pad + line)
+    .join("\n");
 }
 
 /** 导出为 Markdown（含思考、工具调用、blocks 标识 + 会话元信息）
  *  @param opts.full D6（2026-09-27）= B：完整版——思考/工具结果不截断、工具调用附参数 */
-function exportAsMarkdown(
+async function exportAsMarkdown(
   messages: Message[],
   labels: Record<string, string>,
   meta: ExportMeta,
+  t: Translate,
   opts?: { full?: boolean },
-): string {
+): Promise<string> {
   // 跨消息归属去重：全局 seen 在整会话导出期间共享（2026-09-05）
   const seen = new Set<string>();
-  const body = messages
-    .map((msg) => {
-      const roleLabel =
-        msg.role === "user"
-          ? `👤 ${labels.user}`
-          : msg.role === "assistant"
-            ? `🤖 ${labels.assistant}`
-            : msg.role === "system"
-              ? `⚙️ ${labels.system}`
-              : `🛠 ${labels.tool}`;
-      const date = new Date(msg.timestamp).toLocaleString();
-      // 1.6：助手消息有 startedAt 时显示开始时间与耗时（区分流式开始/完成）
-      const timeInfo =
-        msg.role === "assistant" && msg.startedAt
-          ? `（开始 ${new Date(msg.startedAt).toLocaleString()} · 耗时 ${(
-              (msg.timestamp - msg.startedAt) /
-              1000
-            ).toFixed(1)}s）`
-          : "";
-      const text = getMessageSearchText(
-        dedupeCrossMessageToolBlocks(msg, seen),
-        { forExport: true, full: opts?.full === true },
-      );
-      const usageInfo = msg.usage
-        ? `\n> 📊 Token: 输入 ${msg.usage.inputTokens ?? "?"} / 输出 ${msg.usage.outputTokens ?? "?"} / 缓存读 ${msg.usage.cacheReadTokens ?? "0"}`
+  const parts: string[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const roleLabel =
+      msg.role === "user"
+        ? `👤 ${labels.user}`
+        : msg.role === "assistant"
+          ? `🤖 ${labels.assistant}`
+          : msg.role === "system"
+            ? `⚙️ ${labels.system}`
+            : `🛠 ${labels.tool}`;
+    const date = new Date(msg.timestamp).toLocaleString();
+    // 1.6：助手消息有 startedAt 时显示开始时间与耗时（区分流式开始/完成）
+    const timeInfo =
+      msg.role === "assistant" && msg.startedAt
+        ? t("chat.exportStartedAtDuration", {
+            start: new Date(msg.startedAt).toLocaleString(),
+            seconds: ((msg.timestamp - msg.startedAt) / 1000).toFixed(1),
+          })
         : "";
-      // 2026-09-27（真机产物实证）：先补齐**未闭合代码围栏**（否则本条会吞掉后续所有消息），
-      // 再做结构保护（见 utils/exportMessage#balanceCodeFences）
-      return `### ${roleLabel}  (${date}${timeInfo})\n\n${protectExportStructure(
+    const text = getMessageSearchText(dedupeCrossMessageToolBlocks(msg, seen), {
+      forExport: true,
+      full: opts?.full === true,
+    });
+    const usageInfo = msg.usage
+      ? `\n> 📊 ${t("chat.exportTokenLine", {
+          input: msg.usage.inputTokens ?? "?",
+          output: msg.usage.outputTokens ?? "?",
+          cacheRead: msg.usage.cacheReadTokens ?? "0",
+        })}`
+      : "";
+    // 2026-09-27（真机产物实证）：先补齐**未闭合代码围栏**（否则本条会吞掉后续所有消息），
+    // 再做结构保护（见 utils/exportMessage#balanceCodeFences）
+    parts.push(
+      `### ${roleLabel}  (${date}${timeInfo})\n\n${protectExportStructure(
         balanceCodeFences(text),
-      )}${usageInfo}\n`;
-    })
-    .join("\n---\n");
-  return buildMarkdownHeader(messages, meta) + body;
+      )}${usageInfo}\n`,
+    );
+    if (i > 0 && i % EXPORT_YIELD_EVERY === 0) await yieldToEventLoop();
+  }
+  return buildMarkdownHeader(messages, meta, t) + parts.join("\n---\n");
 }
 
 /** 导出 JSON（含 blocks 全字段、usage、metadata + 会话元信息） */
-function exportAsJson(messages: Message[], meta: ExportMeta): string {
-  const cleaned = messages.map((msg) => {
+async function exportAsJson(
+  messages: Message[],
+  meta: ExportMeta,
+  t: Translate,
+): Promise<string> {
+  const parts: string[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
     // P1-1：透传块的全部结构化载荷（原实现只映射 6 个字段 ⇒ taskCard/questionData/
     // deliverableData/diffData/*WorkflowData/块级 error 在导出中全部丢失）；
     // P1-2：超长 content 走**带标注**截断，不再静默丢弃。
@@ -130,10 +177,10 @@ function exportAsJson(messages: Message[], meta: ExportMeta): string {
       ...b,
       content:
         typeof b.content === "string"
-          ? truncateBlockContent(b.content)
+          ? truncateBlockContent(b.content, t)
           : b.content,
     }));
-    return {
+    const entry = {
       id: msg.id,
       role: msg.role,
       timestamp: msg.timestamp,
@@ -154,18 +201,20 @@ function exportAsJson(messages: Message[], meta: ExportMeta): string {
       replyToId: msg.replyToId,
       metadata: msg.metadata,
     };
-  });
+    // P2-7：逐条 stringify（单条体积有界）后按 2 空格缩进拼装，产出与
+    // `JSON.stringify({...}, null, 2)` 完全一致；避免整体 stringify 的长同步任务。
+    parts.push(indentLines(JSON.stringify(entry, null, 2), 4));
+    if (i > 0 && i % EXPORT_YIELD_EVERY === 0) await yieldToEventLoop();
+  }
   // P1-3：导出件自证来源——顶层补会话元信息（原实现只输出消息数组，无法判断出处）
-  return JSON.stringify(
-    {
-      session: { id: meta.id || null, title: meta.title || null },
-      exportedAt: meta.exportedAt,
-      messageCount: cleaned.length,
-      messages: cleaned,
-    },
-    null,
-    2,
-  );
+  const head =
+    `{\n  "session": ${JSON.stringify({
+      id: meta.id || null,
+      title: meta.title || null,
+    })},\n  "exportedAt": ${JSON.stringify(meta.exportedAt)},\n` +
+    `  "messageCount": ${parts.length},\n  "messages": [`;
+  if (parts.length === 0) return `${head}]\n}`;
+  return `${head}\n${parts.join(",\n")}\n  ]\n}`;
 }
 
 /**
@@ -327,6 +376,7 @@ function SessionHeader() {
         tool: t("chat.tool"),
       },
       buildExportMeta(),
+      t,
       { full },
     );
   };
@@ -376,7 +426,7 @@ function SessionHeader() {
     setExporting(true);
     try {
       const source = await resolveExportMessages();
-      const json = exportAsJson(source, buildExportMeta());
+      const json = await exportAsJson(source, buildExportMeta(), t);
       triggerBlobDownload(
         new Blob([json], { type: "application/json;charset=utf-8" }),
         `chat-export-${Date.now()}.json`,
@@ -409,8 +459,7 @@ function SessionHeader() {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   autoFocus
-                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
-                  style={{ width: "200px" }}
+                  className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-[200px]"
                 />
               ) : (
                 /* 方案 C #6：title 归还完整标题，操作提示迁到 Tooltip */

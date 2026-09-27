@@ -244,7 +244,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
   // 成功渲染
   return (
     <div
-      className="flex-1 overflow-auto p-4 office-preview-content dark:invert-[0.9]"
+      className="flex-1 overflow-auto p-4 office-preview-content dark:invert dark:hue-rotate-180"
       dangerouslySetInnerHTML={{ __html: html ?? "" }}
     />
   );

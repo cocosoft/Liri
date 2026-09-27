@@ -27,6 +27,7 @@ import {
 /**
  * 会话来源渠道 → 显示名称映射
  * 根据会话的 source 字段显示来源标签，如【QQ】【WeChat】
+ * 品牌名（Web/QQ/WeChat/Slack 等）语言中立，保持字面量；需翻译的来源见下方键映射。
  */
 const SESSION_SOURCE_LABELS: Record<string, string> = {
   web: "Web",
@@ -34,9 +35,6 @@ const SESSION_SOURCE_LABELS: Record<string, string> = {
   discord: "Discord",
   telegram: "Telegram",
   wechat: "WeChat",
-  wecom: "企微",
-  feishu: "飞书",
-  dingtalk: "钉钉",
   slack: "Slack",
   mcp: "MCP",
   api: "API",
@@ -45,13 +43,24 @@ const SESSION_SOURCE_LABELS: Record<string, string> = {
   nostr: "Nostr",
 };
 
+/** 需翻译的来源名 → 文案键（i18n 残留收尾） */
+const SESSION_SOURCE_LABEL_KEYS: Record<string, string> = {
+  wecom: "chat.sourceWecom",
+  feishu: "chat.sourceFeishu",
+  dingtalk: "chat.sourceDingtalk",
+};
+
 /**
  * 根据会话 source 获取来源显示标签
  * @returns 如 "【QQ】" 格式的标签文字，无 source 时返回空字符串
  */
-function getSourceLabel(source?: string): string {
+function sourceLabelOf(
+  source: string | undefined,
+  t: (key: string) => string,
+): string {
   if (!source) return "";
-  const label = SESSION_SOURCE_LABELS[source];
+  const key = SESSION_SOURCE_LABEL_KEYS[source];
+  const label = key ? t(key) : SESSION_SOURCE_LABELS[source];
   return label ? `【${label}】` : "";
 }
 
@@ -76,6 +85,11 @@ function SessionHistorySidebar({
 }: SessionHistorySidebarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  /** 来源标签（组件内绑定 t；签名不变，供 SessionListItem 的同名 prop 复用） */
+  const getSourceLabel = useCallback(
+    (source?: string) => sourceLabelOf(source, t),
+    [t],
+  );
   const {
     sessions,
     currentSession,
@@ -217,7 +231,7 @@ function SessionHistorySidebar({
       // P3: 仅导出会话元数据（非完整消息）。完整对话导出请使用 SessionHeader 的导出功能。
       const exportedTitle = sanitizeFilename(session.title || "session");
       if (format === "md") {
-        const md = `# ${session.title || "session"}\n\n- ID: ${session.id}\n- 创建时间: ${session.createdAt}\n- 更新时间: ${session.updatedAt}\n- 消息数: ${session.messageCount ?? "N/A"}\n`;
+        const md = `# ${session.title || "session"}\n\n- ID: ${session.id}\n- ${t("chat.exportMetaCreatedAt", { time: session.createdAt })}\n- ${t("chat.exportMetaUpdatedAt", { time: session.updatedAt })}\n- ${t("chat.exportMetaMessageCountPlain", { count: session.messageCount ?? "N/A" })}\n`;
         triggerBlobDownload(
           new Blob([md], { type: "text/markdown" }),
           `${exportedTitle}.md`,
@@ -844,7 +858,7 @@ function SessionHistorySidebar({
         {!contextReady && sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mb-2" />
-            <p className="text-sm text-gray-400">加载中...</p>
+            <p className="text-sm text-gray-400">{t("common.loading")}</p>
           </div>
         ) : error && sessions.length === 0 ? (
           // P2-6：加载异常与"首次无会话"区分——请求抛错时不再误显示"暂无会话"
@@ -863,7 +877,7 @@ function SessionHistorySidebar({
               />
             </svg>
             <p className="text-sm text-red-400 dark:text-red-500">
-              会话加载失败
+              {t("chat.sessionLoadFailed")}
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[240px] break-all">
               {error}
@@ -872,7 +886,7 @@ function SessionHistorySidebar({
               onClick={() => void loadSessions()}
               className="mt-3 px-3 py-1 text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
             >
-              重试
+              {t("common.retry")}
             </button>
           </div>
         ) : sessions.length === 0 ||

@@ -588,7 +588,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                 {errorDetail && errorDetail !== errorSummary && (
                   <details className="mt-1.5">
                     <summary className="text-xs text-red-400 dark:text-red-400/80 cursor-pointer hover:text-red-500 select-none">
-                      查看技术详情
+                      {t("chat.viewTechDetails")}
                     </summary>
                     <pre className="mt-1.5 text-[11px] text-red-500/90 dark:text-red-400/70 whitespace-pre-wrap break-all max-h-40 overflow-y-auto bg-red-100/40 dark:bg-red-900/30 rounded p-2">
                       {errorDetail}

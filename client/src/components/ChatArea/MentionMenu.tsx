@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { FilePreview } from "../../types";
 
 /** @ 提及条目 */
@@ -33,10 +34,11 @@ const TYPE_ICON: Record<string, string> = {
   file: "📄",
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  context: "资料",
-  artifact: "成果",
-  file: "文件",
+/** 类型标签 i18n 键（未登记的类型回退后端原值显示，CS06） */
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  context: "chat.mentionTypeContext",
+  artifact: "chat.mentionTypeArtifact",
+  file: "chat.mentionTypeFile",
 };
 
 /**
@@ -54,6 +56,7 @@ export default function MentionMenu({
   onSelect,
   onHover,
 }: MentionMenuProps) {
+  const { t } = useTranslation();
   /** 根据 @ 后的文本过滤匹配的文件 */
   const filteredItems = useMemo((): MentionItem[] => {
     const q = query.toLowerCase();
@@ -92,13 +95,13 @@ export default function MentionMenu({
     <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
       <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
         <span>@</span>
-        <span>引用</span>
+        <span>{t("chat.mentionQuoteSection")}</span>
         {query && <span className="text-blue-500 font-mono">"{query}"</span>}
       </div>
       {Array.from(groups.entries()).map(([type, items]) => (
         <div key={type}>
           <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-850">
-            {TYPE_LABEL[type] || type}
+            {(TYPE_LABEL_KEYS[type] && t(TYPE_LABEL_KEYS[type])) || type}
           </div>
           {items.map((item) => {
             const idx = globalIdx++;

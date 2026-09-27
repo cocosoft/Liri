@@ -375,23 +375,35 @@ export default function StatusFloatBar({
               </button>
             )}
 
-            {/* 任务进度展开指示 */}
+            {/* 任务进度展开指示 —— P2-5：由纯 svg 改为真按钮，
+                键盘用户（Tab + Enter）也能展开/收起任务面板；鼠标仍可点整条浮动栏 */}
             {taskCard && (
-              <svg
-                className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${
-                  showTaskPanel ? "rotate-180" : ""
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTaskPanel((v) => !v);
+                }}
+                aria-expanded={showTaskPanel}
+                aria-label={t("chat.taskPanelToggle")}
+                className="shrink-0 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                    showTaskPanel ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
             )}
 
             {/* 停止按钮：仅流式输出中显示 */}
@@ -401,9 +413,9 @@ export default function StatusFloatBar({
                   e.stopPropagation();
                   stopMessage();
                 }}
-                aria-label="停止 AI 回复"
+                aria-label={t("chat.stopReply")}
                 className="flex items-center gap-1 px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
-                title="停止 AI 回复"
+                title={t("chat.stopReply")}
               >
                 <svg
                   className="w-3.5 h-3.5"
@@ -412,7 +424,7 @@ export default function StatusFloatBar({
                 >
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>
-                <span>停止</span>
+                <span>{t("common.stop")}</span>
               </button>
             )}
           </div>

@@ -13,6 +13,7 @@
  * - text / default → MarkdownRenderer
  */
 import type { MessageBlock } from "../../types";
+import { useTranslation } from "react-i18next";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ThinkingBlock from "./ThinkingBlock";
 import StatusBlock from "./StatusBlock";
@@ -31,16 +32,16 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("BlockRenderer");
 
-/** P3-8：各 block 类型数据缺失时的统一兜底文案 */
-const MISSING_DATA_LABELS: Record<string, string> = {
-  tool_call: "工具调用",
-  question: "问题",
-  task: "任务",
-  progress: "进度",
-  deliverable: "交付物",
-  diff: "差异",
-  inbox: "收件箱",
-  doc_workflow: "文档工作流",
+/** P3-8：各 block 类型数据缺失时的统一兜底文案（键映射；未登记类型回退原 type） */
+const MISSING_DATA_LABEL_KEYS: Record<string, string> = {
+  tool_call: "chat.toolCall",
+  question: "chat.blockTypeQuestion",
+  task: "chat.blockTypeTask",
+  progress: "chat.blockTypeProgress",
+  deliverable: "chat.blockTypeDeliverable",
+  diff: "chat.blockTypeDiff",
+  inbox: "chat.blockTypeInbox",
+  doc_workflow: "chat.blockTypeDocWorkflow",
 };
 
 /** P3-8：数据缺失兜底（8 处重复模式抽组件）：DEV 记录日志 + 统一样式展示 */
@@ -51,12 +52,15 @@ function MissingDataFallback({
   type: string;
   block: MessageBlock;
 }) {
+  const { t } = useTranslation();
   if (import.meta.env.DEV) {
     logger.warn(`[BlockRenderer] ${type} block 数据缺失`, block);
   }
+  const labelKey = MISSING_DATA_LABEL_KEYS[type];
+  const label = labelKey ? t(labelKey) : type;
   return (
     <div className="text-xs text-gray-400 italic px-2 py-1">
-      {MISSING_DATA_LABELS[type] ?? type}数据缺失
+      {t("chat.blockDataMissing", { type: label })}
     </div>
   );
 }

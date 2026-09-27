@@ -53,15 +53,19 @@ export const PROGRESS_EVENT_TYPES: string[] = [
 
 export const AUTO_LAUNCHED_TYPE = "pdca:auto_launched";
 
-/** 阶段胶囊元信息结构（PdcaWorkflowCard 复用，P2-A） */
-export type StageMeta = { icon: string; label: string; capsule: string };
+/** 阶段胶囊元信息结构（PdcaWorkflowCard 复用，P2-A）
+ *  `label` 为语言中立字面量（Plan/Do/Check/Act、PDCA）；需翻译的文案走 `labelKey`，
+ *  由渲染处经 `metaLabel` 解析（i18n 残留收尾）。 */
+export type StageMeta = {
+  icon: string;
+  label?: string;
+  labelKey?: string;
+  capsule: string;
+};
 
 /** 阶段胶囊元信息：data.stage → Plan→Do→Check→Act
  *  导出：PdcaWorkflowCard 复用（P2-A，移私有为导出，避免复制） */
-export const STAGE_META: Record<
-  string,
-  { icon: string; label: string; capsule: string }
-> = {
+export const STAGE_META: Record<string, StageMeta> = {
   plan: {
     icon: "📋",
     label: "Plan",
@@ -88,18 +92,23 @@ export const STAGE_META: Record<
   },
 };
 
-export const DECISION_META = {
+export const DECISION_META: StageMeta = {
   icon: "⚖",
-  label: "决策",
+  labelKey: "chat.pdcaDecision",
   capsule:
     "bg-amber-100/80 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
 };
 
-export const FALLBACK_META = {
+export const FALLBACK_META: StageMeta = {
   icon: "🧩",
   label: "PDCA",
   capsule: "bg-gray-100/80 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
 };
+
+/** 胶囊文案解析：`labelKey` 优先（需渲染处提供 t），否则用语言中立字面量 */
+export function metaLabel(meta: StageMeta, t: (key: string) => string): string {
+  return meta.labelKey ? t(meta.labelKey) : (meta.label ?? "");
+}
 
 /** 从 timeline（有序尾部 200 条）倒序取最新匹配；replay 只写 latest 时以 latest 兜底
  *  导出：ChatPdcaDrawer（C3）复用 */
@@ -120,11 +129,7 @@ export function findLatestEvent(
   return candidates[0];
 }
 
-export function stageMetaOf(ev: PdcaLiveEventPayload): {
-  icon: string;
-  label: string;
-  capsule: string;
-} {
+export function stageMetaOf(ev: PdcaLiveEventPayload): StageMeta {
   const stage = (ev.data?.stage as string | undefined) ?? "";
   if (STAGE_META[stage]) return STAGE_META[stage];
   if (ev.type === "pdca:decision") return DECISION_META;
@@ -132,10 +137,14 @@ export function stageMetaOf(ev: PdcaLiveEventPayload): {
 }
 
 /** 主文本：当前步骤 > 工具摘要 > message；状态文案（含 percent），失败标红
- *  导出：PdcaWorkflowCard 复用 */
+ *  导出：PdcaWorkflowCard 复用
+ *  状态文案返回**文案键** `statusKey`（由渲染处 t()），未登记状态回退后端原值
+ *  `statusLiteral`（CS06，不臆造映射）。 */
 export function textOf(ev: PdcaLiveEventPayload): {
   primary: string;
-  statusText: string;
+  statusKey: string;
+  statusLiteral: string;
+  percent: string;
   failed: boolean;
 } {
   const d = ev.data ?? {};
@@ -148,24 +157,29 @@ export function textOf(ev: PdcaLiveEventPayload): {
     "";
 
   const failed = ev.type === "pdca:stage:fail" || status === "failed";
-  let statusLabel = "";
+  let statusKey = "";
   if (ev.type === "pdca:stage:start") {
-    statusLabel = status === "completed" ? "已完成" : "已启动";
+    statusKey =
+      status === "completed" ? "chat.completed" : "chat.pdcaStageStarted";
   } else if (ev.type === "pdca:stage:phase") {
-    statusLabel =
-      status === "failed" ? "失败" : status === "completed" ? "完成" : "执行中";
+    statusKey =
+      status === "failed"
+        ? "chat.failed"
+        : status === "completed"
+          ? "chat.pdcaStageDone"
+          : "chat.executing";
   } else if (ev.type === "pdca:stage:complete") {
-    statusLabel = "已完成";
+    statusKey = "chat.completed";
   } else if (ev.type === "pdca:stage:fail") {
-    statusLabel = "失败";
+    statusKey = "chat.failed";
   } else if (ev.type === "pdca:decision") {
-    statusLabel = "分流决策";
-  } else {
-    statusLabel = status;
+    statusKey = "chat.pdcaDecisionRouted";
   }
   return {
     primary,
-    statusText: [statusLabel, percent].filter(Boolean).join(" · "),
+    statusKey,
+    statusLiteral: statusKey ? "" : status,
+    percent,
     failed,
   };
 }

@@ -7,6 +7,8 @@
  * 数据来源：优先读 block.watermark 结构化字段（P1-3），旧数据回退解析 content。
  */
 
+import { useTranslation } from "react-i18next";
+
 interface WatermarkTagProps {
   content: string;
   /** 结构化水位数据（P1-3，CS02：替代内容正则解析） */
@@ -14,6 +16,7 @@ interface WatermarkTagProps {
 }
 
 function WatermarkTag({ content, watermark }: WatermarkTagProps) {
+  const { t } = useTranslation();
   // TODO: CS05-ROOTFIX — content 正则解析仅为旧持久化数据（无 watermark 字段）的过渡兜底，
   // 待历史会话数据自然过期后可删除 fallback 分支
   const pctMatch = watermark ? null : content.match(/上下文水位:\s*(\d+)%/);
@@ -35,8 +38,8 @@ function WatermarkTag({ content, watermark }: WatermarkTagProps) {
         }`}
       >
         <span>{isCritical ? "🔴" : "⚠️"}</span>
-        <span>上下文 {pct ?? "--"}%</span>
-        {isCritical && <span>需压缩</span>}
+        <span>{t("chat.watermarkContext", { pct: pct ?? "--" })}</span>
+        {isCritical && <span>{t("chat.needCompression")}</span>}
       </span>
     </div>
   );

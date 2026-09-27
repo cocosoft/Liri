@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import hljs from "highlight.js/lib/core";
 import "highlight.js/styles/github-dark.css";
 import { handleClientError } from "../../utils/handleError";
@@ -76,6 +77,7 @@ interface CodeBlockProps {
 
 /** 代码块组件：语法高亮 + 复制按钮 + 语言标签 */
 function CodeBlock({ code, language }: CodeBlockProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const highlighted = useMemo(() => {
@@ -133,10 +135,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
           onClick={handleCopy}
           // P2-5（2026-09-27 审计）：原仅 hover 可见 ⇒ 触摸/键盘用户不可达；补
           // focus-visible 显示 + aria-label（复制失败的反馈仍由状态文案承担）
-          aria-label={copied ? "已复制代码" : "复制代码"}
+          aria-label={copied ? t("chat.copiedCode") : t("chat.copyCode")}
           className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:text-gray-200"
         >
-          {copied ? "已复制" : "复制"}
+          {copied ? t("chat.toastCopied") : t("common.copy")}
         </button>
       </div>
 

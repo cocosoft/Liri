@@ -107,7 +107,7 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
       </a>
       <button
         onClick={handleOpenInSystem}
-        className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100 ${
+        className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${
           error
             ? "text-red-400 hover:text-red-600"
             : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"

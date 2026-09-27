@@ -117,7 +117,7 @@ export default function ImageGenerateResult({ data }: Props) {
               </button>
 
               {/* 悬浮操作按钮 */}
-              <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                 <a
                   href={src}
                   download={alt

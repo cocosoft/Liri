@@ -429,6 +429,9 @@ const zh = {
     // P1-6a（D8 = 统一到总量 + 尾锚定）：轮次导航器文案
     roundNavExpand: "{{count}} 轮对话 · 点击展开导航",
     roundNavExpandAria: "{{count}} 轮对话，点击展开轮次导航",
+    roundNavCollapse: "折叠轮次导航",
+    roundNavRoundAria: "第 {{count}} 轮，点击跳转",
+    taskPanelToggle: "任务进度详情",
     roundsUnloaded: "更早 {{count}} 轮未加载（点击加载）",
     roundsUnloadedNoCount: "更早消息尚未加载（点击加载）",
     // P1-6b（2026-09-27）：分页游标缺失时的可见反馈（避免"按钮点了没反应"）
@@ -586,6 +589,125 @@ const zh = {
     untitledDeliverable: "未命名成果",
     // ChatMessageList（欢迎页官网）
     welcomeOfficialSite: "官网: https://openliri.com",
+    // ---- i18n 残留收尾（2026-09-27，第 8 批取证清单）----
+    // StatusFloatBar（停止按钮）
+    stopReply: "停止 AI 回复",
+    // InboxBlock（审批交互卡）
+    urgent: "紧急",
+    expiresInMinutes: "{{count}} 分钟后过期",
+    inboxTypeApproval: "审批",
+    inboxTypeQuestion: "提问",
+    inboxTypeAuthorization: "授权",
+    inboxReplyApprove: "批准",
+    inboxReplyReject: "拒绝",
+    inboxReplyAllowTool: "加入工具白名单",
+    inboxReplyAllowCommand: "加入命令白名单",
+    inboxRepliedToast: "已{{label}}",
+    inboxResuming: "已批准，正在执行…",
+    inboxHandled: "已处理",
+    inboxExpired: "已超时过期",
+    // ImageDisplayResult（图片结果卡）
+    citeToChat: "引用到对话",
+    copyCitation: "复制引用",
+    imageCount: "共 {{count}} 张图片",
+    // ---- i18n 残留收尾 第 2 轮（2026-09-27，ChatArea 全量扫描）----
+    // ChatInput（缩略图展开/收起；收起复用上方 chat.collapse）
+    expandAllImages: "展开全部图片",
+    // ChatPdcaDrawer（编排面板标题 + 收起）
+    pdcaPanelTitle: "PDCA 编排面板",
+    pdcaPanelCollapse: "收起编排面板",
+    // AudioPlayResult / VideoDisplayResult（空态）
+    noAudioToPlay: "无音频可播放",
+    noVideoToDisplay: "无视频可显示",
+    // MentionMenu（@ 引用菜单：标题 + 类型标签）
+    mentionQuoteSection: "引用",
+    mentionTypeContext: "资料",
+    mentionTypeArtifact: "成果",
+    mentionTypeFile: "文件",
+    // SessionListItem（梦境凝练标记）
+    dreamCondensed: "已被梦境凝练",
+    // WatermarkTag（上下文水位标签）
+    watermarkContext: "上下文 {{pct}}%",
+    needCompression: "需压缩",
+    // ---- i18n 残留收尾 第 3 轮（2026-09-27，ChatArea 深扫：裸串/映射表/JSX 文本）----
+    // CodeBlock（复制代码按钮；「复制」复用 common.copy、「已复制」复用上方 toastCopied）
+    copyCode: "复制代码",
+    copiedCode: "已复制代码",
+    // DiffBlock（展开/折叠「收起」复用上方 collapse）
+    expand: "展开",
+    copying: "复制中...",
+    copyDiff: "复制 diff",
+    ignoreChange: "忽略此改动",
+    ignoredChange: "已忽略",
+    diffCopyHint: "复制 diff 后可粘贴到编辑器中应用（此处不会自动改动文件）",
+    diffFileHeader: "文件：{{file}}",
+    // MarkdownRenderer（超长截断提示 + 复制全文）
+    truncatedChars: "剩余 {{count}} 字符未显示",
+    copyFullText: "复制全文",
+    copiedFullText: "已复制全文",
+    // ChatMessage（Token 用量明细 / 本轮耗时单位）
+    usageInput: "输入",
+    usageOutput: "输出",
+    durationMinutesSeconds: "{{m}}分{{s}}秒",
+    // BlockRenderer（block 数据缺失兜底；tool_call 复用上方 toolCall）
+    blockDataMissing: "{{type}}数据缺失",
+    blockTypeQuestion: "问题",
+    blockTypeTask: "任务",
+    blockTypeProgress: "进度",
+    blockTypeDeliverable: "交付物",
+    blockTypeDiff: "差异",
+    blockTypeInbox: "收件箱",
+    blockTypeDocWorkflow: "文档工作流",
+    // FileTypeBadge（文件类型标签）
+    fileTypeCode: "代码",
+    fileTypeMarkdown: "文档",
+    fileTypeImage: "图片",
+    fileTypeText: "文本",
+    fileTypeAudio: "音频",
+    fileTypeVideo: "视频",
+    // ChatInput（编辑态另存为分支 / 流式阻止发送提示 / 待回答占位符）
+    branchOnEdit: "另存为分支",
+    streamBlockedHint: "正在回复中，请等待当前回复完成后发送",
+    pendingQuestionPlaceholder: "请先在上方回答 AI 的问题",
+    // CitationLink（本地文件打开悬浮提示）
+    openPathUnavailable: "打开失败：本地路径不可用或已被移动",
+    openLocalFile: "打开本地文件",
+    openLocalFileWith: "打开本地文件（{{label}}）",
+    citePage: "第 {{page}} 页",
+    citeLine: "第 {{line}} 行",
+    // PdcaActivityStrip / PdcaWorkflowCard（阶段状态文案「执行中/已完成/失败」复用上方既有键）
+    pdcaStageStarted: "已启动",
+    pdcaStageDone: "完成",
+    pdcaDecisionRouted: "分流决策",
+    pdcaDecision: "决策",
+    pdcaModePdl: "快速路径（PlanDrivenLoop）",
+    pdcaModeStageChain: "经典阶段链（复杂/危险任务）",
+    pdcaModeResearch: "研究模式（候选生成 + 对抗评审）",
+    pdcaAutoLaunched: "已自动创建项目并启动任务规划",
+    // SessionHeader（导出件元信息 / 截断标注 / 耗时 / Token 统计行）
+    exportDefaultTitle: "会话导出",
+    exportMetaSessionId: "会话 ID：`{{id}}`",
+    exportMetaMessageCount: "消息数：{{count}}（轮数：{{rounds}}）",
+    exportMetaExportedAt: "导出时间：{{time}}",
+    exportTruncatedBlock:
+      "（内容过长，已截断：仅导出前 {{kept}} 字，原文共 {{total}} 字；完整内容见会话内）",
+    exportStartedAtDuration: "（开始 {{start}} · 耗时 {{seconds}}s）",
+    exportTokenLine:
+      "Token: 输入 {{input}} / 输出 {{output}} / 缓存读 {{cacheRead}}",
+    // SessionListItem（会话列表项轮数后缀）
+    roundCountSuffix: "{{count}} 轮对话",
+    // SessionHistorySidebar（会话元数据导出 + 渠道来源标签；品牌名保持语言中立）
+    exportMetaCreatedAt: "创建时间：{{time}}",
+    exportMetaUpdatedAt: "更新时间：{{time}}",
+    exportMetaMessageCountPlain: "消息数：{{count}}",
+    sourceWecom: "企微",
+    sourceFeishu: "飞书",
+    sourceDingtalk: "钉钉",
+    sessionLoadFailed: "会话加载失败",
+    // ChatArea / ImageDisplayResult（错误技术详情折叠 / 图片空态 / 全部引用）
+    viewTechDetails: "查看技术详情",
+    noImagesToDisplay: "没有可显示的图片",
+    citeAll: "全部引用",
   },
   settings: {
     title: "设置",

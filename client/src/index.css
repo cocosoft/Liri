@@ -300,3 +300,10 @@ pre code.hljs {
     min-width: 44px;
   }
 }
+
+/* P2-8：Office/docx 预览在暗色下对容器整体反色（`dark:invert` + `dark:hue-rotate-180`），
+   文档内嵌图片会被一起反色 ⇒ 图片显示成负片。
+   对 img 再施加**同一条滤镜链**，两次叠加约等于原色（C(v)=1−Rv ⇒ C∘C=R²≈I）。 */
+.dark .office-preview-content img {
+  filter: hue-rotate(180deg) invert(1);
+}

@@ -1103,8 +1103,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                         type="button"
                         onClick={() => void handleTranslateImage(item)}
                         disabled={translatingId === item.id}
-                        className="absolute bottom-0.5 left-0.5 h-5 px-1.5 bg-black/60 text-white rounded text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 disabled:opacity-100"
+                        className="absolute bottom-0.5 left-0.5 h-5 px-1.5 bg-black/60 text-white rounded text-[10px] leading-none opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:bg-black/80 disabled:opacity-100"
                         title={t("translate.title")}
+                        aria-label={t("translate.title")}
                       >
                         {translatingId === item.id
                           ? "..."
@@ -1113,8 +1114,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                     )}
                     <button
                       onClick={() => handleRemoveImage(item.id)}
-                      className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:bg-black/80"
+                      className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-xs hover:bg-black/80"
                       title={t("chat.removeImage")}
+                      aria-label={t("chat.removeImage")}
                     >
                       ×
                     </button>
@@ -1126,10 +1128,14 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   type="button"
                   onClick={() => setShowAllThumbnails((v) => !v)}
                   className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 flex-shrink-0 hover:border-blue-400 hover:text-blue-500 transition-colors cursor-pointer"
-                  title={showAllThumbnails ? "收起" : "展开全部图片"}
+                  title={
+                    showAllThumbnails
+                      ? t("chat.collapse")
+                      : t("chat.expandAllImages")
+                  }
                 >
                   {showAllThumbnails
-                    ? "收起"
+                    ? t("chat.collapse")
                     : `+${imageItems.length - MAX_VISIBLE_THUMBNAILS}`}
                 </button>
               )}
@@ -1253,14 +1259,14 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                     onChange={(e) => setBranchOnEdit(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-amber-500 focus:ring-amber-500"
                   />
-                  {"另存为分支"}
+                  {t("chat.branchOnEdit")}
                 </label>
               </div>
             )}
             {/* R3 修复：流式（非排队模式）阻止发送时的可见提示 */}
             {streamBlockedHint && (
               <div className="mb-1.5 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
-                ⏳ 正在回复中，请等待当前回复完成后发送
+                ⏳ {t("chat.streamBlockedHint")}
               </div>
             )}
             {/* 模式选择器 + 上传/表情 — 输入框上方 */}
@@ -1448,7 +1454,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   placeholder={
                     currentSession
                       ? pendingQuestionActive
-                        ? "请先在上方回答 AI 的问题"
+                        ? t("chat.pendingQuestionPlaceholder")
                         : isStreaming && messageQueueEnabled
                           ? t("chat.streamingInputHint")
                           : t("chat.inputPlaceholder")

@@ -10,6 +10,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import mermaid from "mermaid";
 import DOMPurify from "dompurify";
+import { useTranslation } from "react-i18next";
 
 /** 检测文本是否包含中文字符，含中文的 $...$ 内容不应走 KaTeX 解析 */
 const CONTAINS_CHINESE_RE = /[\u4e00-\u9fa5]/;
@@ -72,6 +73,7 @@ function MarkdownRenderer({
   const blockIdRef = useRef(0);
   // N6 修复：mermaid 只处理本组件容器内的元素（原全局 querySelectorAll 越权）
   const containerRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   /** content 归一化（undefined 防护）：调用方可能传未初始化的 result，直接 .length 会崩溃 */
   const normalizedContent = content ?? "";
@@ -470,14 +472,19 @@ function MarkdownRenderer({
           </pre>
           <div className="mt-2 flex items-center gap-2 flex-wrap">
             <span className="text-amber-500 dark:text-amber-400">
-              ... 剩余 {(normalizedContent.length - 5000).toLocaleString()}{" "}
-              字符未显示 ...
+              ...{" "}
+              {t("chat.truncatedChars", {
+                count: (normalizedContent.length - 5000).toLocaleString(),
+              })}{" "}
+              ...
             </span>
             <button
               onClick={handleCopyFull}
               className="px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
             >
-              {copiedFull ? "\u2713 已复制全文" : "复制全文"}
+              {copiedFull
+                ? `\u2713 ${t("chat.copiedFullText")}`
+                : t("chat.copyFullText")}
             </button>
           </div>
         </div>

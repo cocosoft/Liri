@@ -32,6 +32,7 @@
  * 展开态：内嵌 PdcaPipeline（taskId，步骤/阶段详情，REST 轮询）+
  *   OrchestrationLivePanel（sessionId 过滤的 pdca:* 实时事件流）。
  */
+import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePdcaEntry } from "./usePdcaEntry";
 import OrchestrationLivePanel from "../Agent/OrchestrationLivePanel";
@@ -47,6 +48,7 @@ export default function ChatPdcaDrawer({
   open?: boolean;
   onClose?: () => void;
 }) {
+  const { t } = useTranslation();
   const { visible, taskId } = usePdcaEntry();
   const currentSessionId = useSessionStore((s) => s.currentSession?.id);
 
@@ -59,7 +61,7 @@ export default function ChatPdcaDrawer({
           {/* 面板头部：标题 + 收起 */}
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 dark:border-gray-700/50">
             <span className="text-[11px] font-medium text-gray-600 dark:text-gray-300">
-              📊 PDCA 编排面板
+              📊 {t("chat.pdcaPanelTitle")}
             </span>
             {taskId && (
               <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500 font-mono truncate max-w-[12rem]">
@@ -69,8 +71,8 @@ export default function ChatPdcaDrawer({
             <button
               onClick={() => onClose?.()}
               className="ml-auto shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-              title="收起编排面板"
-              aria-label="收起编排面板"
+              title={t("chat.pdcaPanelCollapse")}
+              aria-label={t("chat.pdcaPanelCollapse")}
             >
               <svg
                 className="w-3.5 h-3.5"

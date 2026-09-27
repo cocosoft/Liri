@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 interface DisplayVideo {
   url: string;
@@ -21,13 +22,16 @@ function formatSize(bytes?: number): string {
 
 /** 视频预览组件：直接播放视频，支持 controls */
 function VideoDisplayResult({ data }: Props) {
+  const { t } = useTranslation();
   const videos = useMemo(() => {
     const innerData = (data.data as Record<string, unknown>) ?? data;
     return (innerData.videos as DisplayVideo[]) || [];
   }, [data]);
 
   if (videos.length === 0) {
-    return <div className="text-gray-400 text-sm">无视频可显示</div>;
+    return (
+      <div className="text-gray-400 text-sm">{t("chat.noVideoToDisplay")}</div>
+    );
   }
 
   return (

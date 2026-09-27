@@ -441,6 +441,9 @@ const en = {
     // P1-6a (D8 = total-rounds basis, tail-anchored): round navigator strings
     roundNavExpand: "{{count}} rounds · click to expand navigation",
     roundNavExpandAria: "{{count}} rounds, click to expand round navigation",
+    roundNavCollapse: "Collapse round navigation",
+    roundNavRoundAria: "Round {{count}}, click to jump",
+    taskPanelToggle: "Task progress details",
     roundsUnloaded: "{{count}} earlier rounds not loaded (click to load)",
     roundsUnloadedNoCount: "Earlier messages not loaded (click to load)",
     // P1-6b (2026-09-27): visible feedback when the pagination cursor is missing
@@ -602,6 +605,127 @@ const en = {
     untitledDeliverable: "Untitled deliverable",
     // ChatMessageList (welcome page official site)
     welcomeOfficialSite: "Official site: https://openliri.com",
+    // ---- i18n residual cleanup (2026-09-27, batch-8 evidence list) ----
+    // StatusFloatBar (stop button)
+    stopReply: "Stop AI response",
+    // InboxBlock (approval card)
+    urgent: "Urgent",
+    expiresInMinutes: "Expires in {{count}} min",
+    inboxTypeApproval: "Approval",
+    inboxTypeQuestion: "Question",
+    inboxTypeAuthorization: "Authorization",
+    inboxReplyApprove: "Approve",
+    inboxReplyReject: "Reject",
+    inboxReplyAllowTool: "Allowlist tool",
+    inboxReplyAllowCommand: "Allowlist command",
+    inboxRepliedToast: "Done: {{label}}",
+    inboxResuming: "Approved — resuming…",
+    inboxHandled: "Handled",
+    inboxExpired: "Expired",
+    // ImageDisplayResult (image result card)
+    citeToChat: "Quote to chat",
+    copyCitation: "Copy citation",
+    imageCount: "{{count}} images",
+    // ---- i18n residual cleanup round 2 (2026-09-27, full ChatArea scan) ----
+    // ChatInput (thumbnail expand/collapse; collapse reuses chat.collapse above)
+    expandAllImages: "Show all images",
+    // ChatPdcaDrawer (panel title + collapse)
+    pdcaPanelTitle: "PDCA orchestration panel",
+    pdcaPanelCollapse: "Collapse orchestration panel",
+    // AudioPlayResult / VideoDisplayResult (empty state)
+    noAudioToPlay: "No audio to play",
+    noVideoToDisplay: "No video to display",
+    // MentionMenu (@ quote menu: title + type labels)
+    mentionQuoteSection: "Quote",
+    mentionTypeContext: "Context",
+    mentionTypeArtifact: "Artifact",
+    mentionTypeFile: "File",
+    // SessionListItem (dream-condensed marker)
+    dreamCondensed: "Condensed by dream",
+    // WatermarkTag (context watermark tag)
+    watermarkContext: "Context {{pct}}%",
+    needCompression: "Compression needed",
+    // ---- i18n residual cleanup round 3 (2026-09-27, deep ChatArea scan: bare strings / maps / JSX text) ----
+    // CodeBlock (copy-code button; "Copy" reuses common.copy, "Copied" reuses toastCopied above)
+    copyCode: "Copy code",
+    copiedCode: "Code copied",
+    // DiffBlock (expand/collapse; "Collapse" reuses collapse above)
+    expand: "Expand",
+    copying: "Copying...",
+    copyDiff: "Copy diff",
+    ignoreChange: "Ignore this change",
+    ignoredChange: "Ignored",
+    diffCopyHint:
+      "Copy the diff and paste it into your editor to apply (files are not modified here)",
+    diffFileHeader: "File: {{file}}",
+    // MarkdownRenderer (truncation notice + copy full text)
+    truncatedChars: "{{count}} characters not shown",
+    copyFullText: "Copy full text",
+    copiedFullText: "Full text copied",
+    // ChatMessage (token usage breakdown / round duration units)
+    usageInput: "Input",
+    usageOutput: "Output",
+    durationMinutesSeconds: "{{m}}m {{s}}s",
+    // BlockRenderer (block data-missing fallback; tool_call reuses toolCall above)
+    blockDataMissing: "{{type}} data missing",
+    blockTypeQuestion: "Question",
+    blockTypeTask: "Task",
+    blockTypeProgress: "Progress",
+    blockTypeDeliverable: "Deliverable",
+    blockTypeDiff: "Diff",
+    blockTypeInbox: "Inbox",
+    blockTypeDocWorkflow: "Doc workflow",
+    // FileTypeBadge (file type labels)
+    fileTypeCode: "Code",
+    fileTypeMarkdown: "Doc",
+    fileTypeImage: "Image",
+    fileTypeText: "Text",
+    fileTypeAudio: "Audio",
+    fileTypeVideo: "Video",
+    // ChatInput (save-as-branch / streaming block hint / pending-question placeholder)
+    branchOnEdit: "Save as branch",
+    streamBlockedHint: "Replying — please wait for the current reply to finish",
+    pendingQuestionPlaceholder: "Please answer the AI's question above first",
+    // CitationLink (local file open tooltip)
+    openPathUnavailable: "Open failed: local path unavailable or moved",
+    openLocalFile: "Open local file",
+    openLocalFileWith: "Open local file ({{label}})",
+    citePage: "Page {{page}}",
+    citeLine: "Line {{line}}",
+    // PdcaActivityStrip / PdcaWorkflowCard (stage status "Executing/Completed/Failed" reuse existing keys above)
+    pdcaStageStarted: "Started",
+    pdcaStageDone: "Done",
+    pdcaDecisionRouted: "Routing decision",
+    pdcaDecision: "Decision",
+    pdcaModePdl: "Fast path (PlanDrivenLoop)",
+    pdcaModeStageChain: "Classic stage chain (complex/risky tasks)",
+    pdcaModeResearch:
+      "Research mode (candidate generation + adversarial review)",
+    pdcaAutoLaunched: "Project auto-created · task planning started",
+    // SessionHeader (exported metadata / truncation note / duration / token stats line)
+    exportDefaultTitle: "Session Export",
+    exportMetaSessionId: "Session ID: `{{id}}`",
+    exportMetaMessageCount: "Messages: {{count}} ({{rounds}} rounds)",
+    exportMetaExportedAt: "Exported at: {{time}}",
+    exportTruncatedBlock:
+      "(Content too long — truncated: only the first {{kept}} chars exported, {{total}} chars in total; full content in session)",
+    exportStartedAtDuration: "(started {{start}} · {{seconds}}s)",
+    exportTokenLine:
+      "Token: input {{input}} / output {{output}} / cache read {{cacheRead}}",
+    // SessionListItem (round count suffix in session list item)
+    roundCountSuffix: "{{count}} rounds",
+    // SessionHistorySidebar (session metadata export + source labels; brand names stay neutral)
+    exportMetaCreatedAt: "Created: {{time}}",
+    exportMetaUpdatedAt: "Updated: {{time}}",
+    exportMetaMessageCountPlain: "Messages: {{count}}",
+    sourceWecom: "WeCom",
+    sourceFeishu: "Feishu",
+    sourceDingtalk: "DingTalk",
+    sessionLoadFailed: "Failed to load sessions",
+    // ChatArea / ImageDisplayResult (error details toggle / image empty state / cite all)
+    viewTechDetails: "View technical details",
+    noImagesToDisplay: "No images to display",
+    citeAll: "Cite all",
   },
   settings: {
     title: "Settings",

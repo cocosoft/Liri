@@ -147,7 +147,7 @@ function SessionListItem({
               {isDreamProcessed && (
                 <span
                   className="inline-block w-2 h-2 rounded-full bg-green-400 dark:bg-green-500 flex-shrink-0"
-                  title="已被梦境凝练"
+                  title={t("chat.dreamCondensed")}
                 />
               )}
               {/* §4.3-8 增强①：正文命中标记 —— 区分"标题命中"与"消息正文命中" */}
@@ -184,7 +184,10 @@ function SessionListItem({
               {formatRelativeTime(session.updatedAt)}
               {(session.roundCount ?? Math.ceil(session.messageCount / 2)) >
                 0 &&
-                ` · ${session.roundCount ?? Math.ceil(session.messageCount / 2)} 轮对话`}
+                ` · ${t("chat.roundCountSuffix", {
+                  count:
+                    session.roundCount ?? Math.ceil(session.messageCount / 2),
+                })}`}
             </div>
             {/* §4.3-8 增强②：正文命中片段预览（仅当搜索命中消息正文时出现） */}
             {contentSnippet ? (
@@ -201,8 +204,9 @@ function SessionListItem({
       {!isEditing && (
         <button
           onClick={(e) => onDelete(e, session.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0"
-          title="删除会话"
+          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0"
+          title={t("chat.deleteSession")}
+          aria-label={t("chat.deleteSession")}
         >
           <svg
             className="w-3.5 h-3.5"

@@ -40,6 +40,15 @@ function SaveKnowledgeModal({
       });
   }, []);
 
+  // P2-5：Esc 关闭弹窗（补对话框语义的可预期退出方式）
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const handleSave = async () => {
     if (!saveTitle.trim()) return;
     setSaveStatus("saving");
@@ -58,11 +67,17 @@ function SaveKnowledgeModal({
     : "bg-white border-gray-300 text-gray-900 placeholder-gray-400";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="save-knowledge-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    >
       <div
         className={`w-96 p-5 rounded-xl shadow-xl ${isDark ? "bg-gray-800 border border-gray-700" : "bg-white border border-gray-200"}`}
       >
         <h3
+          id="save-knowledge-title"
           className={`text-sm font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
         >
           {t("chat.saveToKnowledge", "保存到知识库")}

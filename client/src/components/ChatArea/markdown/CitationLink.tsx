@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createLogger } from "@/utils/logger";
 import type { ParsedCitation } from "../../../utils/citation";
 import { openLocalFile } from "../../../services/fileOpenService";
@@ -45,12 +46,13 @@ async function resolveCandidatePath(
 function CitationLink({ citation, knownFilePaths }: CitationLinkProps) {
   const [opening, setOpening] = useState(false);
   const [failed, setFailed] = useState(false);
+  const { t } = useTranslation();
 
   const locationLabel = citation.page
-    ? `第 ${citation.page} 页` +
+    ? t("chat.citePage", { page: citation.page }) +
       (citation.section ? `·${citation.section}` : "")
     : citation.lineFrom
-      ? `第 ${citation.lineFrom} 行` +
+      ? t("chat.citeLine", { line: citation.lineFrom }) +
         (citation.lineTo && citation.lineTo !== citation.lineFrom
           ? `-${citation.lineTo}`
           : "")
@@ -86,8 +88,10 @@ function CitationLink({ citation, knownFilePaths }: CitationLinkProps) {
       onClick={handleClick}
       title={
         failed
-          ? "打开失败：本地路径不可用或已被移动"
-          : `打开本地文件${locationLabel ? `（${locationLabel}）` : ""}`
+          ? t("chat.openPathUnavailable")
+          : locationLabel
+            ? t("chat.openLocalFileWith", { label: locationLabel })
+            : t("chat.openLocalFile")
       }
       className={`inline cursor-pointer underline decoration-dotted underline-offset-2 ${
         failed

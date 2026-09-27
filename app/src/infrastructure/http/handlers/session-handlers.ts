@@ -1360,7 +1360,11 @@ export async function handleForkSession(
 /**
  * GET /v1/sessions/:id/events/export?format=jsonl|json&fromSeq&toSeq — P7（2026-08-25）事件导出
  *
- * 复用 coreAPI.getSessionEvents 分页拉取全部事件（避免一次拉爆内存），
+ * 复用 coreAPI.getSessionEvents 分页拉取事件，**边分页边 `res.write` 写出**
+ * （P2-7，2026-09-27：原实现分页收集进数组后用 `.map().join()` 一次性构造整段
+ * 响应体 ⇒ 超大会话同时驻留"全部事件 + 完整序列化字符串"，且序列化是不可中断的
+ * 同步长任务）。写出时等待 `drain` 处理背压，避免内核/Node 缓冲无界堆积。
+ *
  * 序列化为 jsonl（每行一条）或 json（{ events, count }）。
  *
  * 响应：
@@ -1401,17 +1405,41 @@ export async function handleExportSessionEvents(
       return;
     }
 
-    // 分页拉取全部（limit 上限 10000）
+    // P2-7（2026-09-27 审计）：改为**逐页流式写**。
+    // 原实现先分页收集进 `all`，再用 `.map().join()` 一次性构造整段响应体 ⇒
+    // 超大会话同时驻留"全部事件数组 + 完整序列化字符串"两份内存，且序列化是
+    // 一次不可中断的同步长任务（阻塞事件循环）。现在边分页边 `res.write`。
+    if (format === 'jsonl') {
+      res.writeHead(200, {
+        'Content-Type': 'application/x-ndjson',
+        'Content-Disposition': `attachment; filename="events-${sessionId}.jsonl"`,
+      });
+    } else {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="events-${sessionId}.json"`,
+      });
+      res.write('{"events":[');
+    }
+
     const PAGE = 10000;
-    const all: unknown[] = [];
     let cursor = fromSeq;
+    let count = 0;
     for (;;) {
       const page = await coreAPI.getSessionEvents(sessionId, {
         fromSeq: cursor,
         toSeq,
         limit: PAGE,
       });
-      all.push(...page.events);
+      for (const e of page.events) {
+        const chunk =
+          format === 'jsonl'
+            ? `${JSON.stringify(e)}\n`
+            : `${count === 0 ? '' : ','}${JSON.stringify(e)}`;
+        // 背压：返回 false 表示内核缓冲已满，等 drain 再写；客户端断开时停止导出
+        if (!(await writeWithBackpressure(res, chunk))) return;
+        count++;
+      }
       if (!page.hasMore || page.events.length === 0) break;
       cursor = (page.events[page.events.length - 1] as { seq: number }).seq + 1;
       // 防御：连续分页不前进则终止（toSeq 已包含时）
@@ -1419,21 +1447,9 @@ export async function handleExportSessionEvents(
     }
 
     if (format === 'jsonl') {
-      const body = all
-        .map((e) => JSON.stringify(e))
-        .join('\n')
-        .concat(all.length > 0 ? '\n' : '');
-      res.writeHead(200, {
-        'Content-Type': 'application/x-ndjson',
-        'Content-Disposition': `attachment; filename="events-${sessionId}.jsonl"`,
-      });
-      res.end(body);
+      res.end();
     } else {
-      res.writeHead(200, {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="events-${sessionId}.json"`,
-      });
-      res.end(JSON.stringify({ events: all, count: all.length }));
+      res.end(`],"count":${count}}`);
     }
   } catch (err) {
     await handleError(err, {
@@ -1450,6 +1466,38 @@ export async function handleExportSessionEvents(
       } catch {
         /* res可能已结束, 忽略 */
       }
+    } else if (!res.writableEnded) {
+      // 流式写中途失败：响应头已发出，无法改状态码，必须结束响应
+      // 否则客户端会一直等待未到来的响应结尾（挂起）
+      try {
+        res.end();
+      } catch {
+        /* res可能已结束, 忽略 */
+      }
     }
   }
+}
+
+/**
+ * 带背压的响应写出（P2-7）：`res.write` 返回 false 时等待 `drain`，
+ * 避免事件以不受控速度堆积在 Node 内部缓冲（等同"全量驻留"）。
+ *
+ * @returns true 正常写出；false 客户端已断开，调用方应停止导出。
+ */
+function writeWithBackpressure(
+  res: http.ServerResponse,
+  chunk: string
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (res.write(chunk)) return resolve(true);
+    const onDrain = () => done(true);
+    const onClose = () => done(false);
+    const done = (ok: boolean) => {
+      res.off('drain', onDrain);
+      res.off('close', onClose);
+      resolve(ok);
+    };
+    res.once('drain', onDrain);
+    res.once('close', onClose);
+  });
 }

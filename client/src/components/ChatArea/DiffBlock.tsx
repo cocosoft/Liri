@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { DiffData } from "../../types";
 import { handleClientError } from "../../utils/handleError";
 import { createLogger } from "@/utils/logger";
@@ -67,6 +68,7 @@ export default function DiffBlock({
   data,
   collapsible = true,
 }: DiffBlockProps) {
+  const { t } = useTranslation();
   const { file, diff, stats } = data;
   const [isExpanded, setIsExpanded] = useState(!collapsible);
   const [applying, setApplying] = useState(false);
@@ -80,7 +82,7 @@ export default function DiffBlock({
     setApplying(true);
     try {
       const rawDiffText = formatRawDiff(lines);
-      const formatted = `文件：${file}\n\n\`\`\`diff\n${rawDiffText}\n\`\`\``;
+      const formatted = `${t("chat.diffFileHeader", { file })}\n\n\`\`\`diff\n${rawDiffText}\n\`\`\``;
       await navigator.clipboard.writeText(formatted);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -112,7 +114,7 @@ export default function DiffBlock({
             </span>
           </div>
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            已忽略
+            {t("chat.ignoredChange")}
           </span>
         </div>
       </div>
@@ -146,7 +148,9 @@ export default function DiffBlock({
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
             >
-              {isExpanded ? "\u25B2 收起" : "\u25BC 展开"}
+              {isExpanded
+                ? `\u25B2 ${t("chat.collapse")}`
+                : `\u25BC ${t("chat.expand")}`}
             </button>
           )}
         </div>
@@ -188,16 +192,20 @@ export default function DiffBlock({
               : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
           } disabled:opacity-70`}
         >
-          {copied ? "\u2713 已复制" : applying ? "复制中..." : "复制 diff"}
+          {copied
+            ? `\u2713 ${t("chat.toastCopied")}`
+            : applying
+              ? t("chat.copying")
+              : t("chat.copyDiff")}
         </button>
         <button
           onClick={handleReject}
           className="px-3 py-1 text-xs font-medium rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
         >
-          {"\u2717 忽略此改动"}
+          {`\u2717 ${t("chat.ignoreChange")}`}
         </button>
         <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">
-          复制 diff 后可粘贴到编辑器中应用（此处不会自动改动文件）
+          {t("chat.diffCopyHint")}
         </span>
       </div>
     </div>

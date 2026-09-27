@@ -313,7 +313,8 @@ function RoundNavigator({
           <button
             onClick={() => setExpanded(false)}
             className="w-4 h-4 flex items-center justify-center text-[8px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors mb-0.5"
-            title="折叠导航"
+            title={t("chat.roundNavCollapse")}
+            aria-label={t("chat.roundNavCollapse")}
           >
             ◀
           </button>
@@ -368,6 +369,9 @@ function RoundNavigator({
                   onClick={() => handleRoundClick(round)}
                   onMouseEnter={() => setHoveredRound(idx)}
                   onMouseLeave={() => setHoveredRound(-1)}
+                  aria-label={t("chat.roundNavRoundAria", {
+                    count: unloadedRounds + round.index,
+                  })}
                   className={`
                     w-4 h-4 rounded-full text-[9px] font-medium
                     flex items-center justify-center

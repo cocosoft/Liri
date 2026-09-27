@@ -223,6 +223,45 @@ const ChatMessageMemo = memo(
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [branching, setBranching] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    // P2-5：⋯ 菜单键盘可达（Esc 关闭并归还焦点 / ↑↓ 在菜单项间移动）
+    const menuRef = useRef<HTMLDivElement>(null);
+    const menuButtonRef = useRef<HTMLButtonElement>(null);
+    const handleMenuKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Escape" && menuOpen) {
+        e.stopPropagation();
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+        return;
+      }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (!menuOpen) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setMenuOpen(true);
+          setTimeout(() => {
+            menuRef.current
+              ?.querySelector<HTMLButtonElement>("button")
+              ?.focus();
+          }, 0);
+        }
+        return;
+      }
+      const items = Array.from(
+        menuRef.current?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+      );
+      if (items.length === 0) return;
+      e.preventDefault();
+      const current = items.findIndex((b) => b === document.activeElement);
+      const delta = e.key === "ArrowDown" ? 1 : -1;
+      const next =
+        current < 0 ? 0 : (current + delta + items.length) % items.length;
+      items[next].focus();
+    };
+    // 原 onBlur 挂在触发按钮上 ⇒ 焦点一移入菜单项菜单就被关闭；改挂整个菜单区域
+    const handleMenuBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+      setTimeout(() => setMenuOpen(false), 150);
+    };
     const [confirmAction, setConfirmAction] = useState<
       "delete" | "rollback" | null
     >(null);
@@ -284,7 +323,7 @@ const ChatMessageMemo = memo(
       if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
-      return `${m}分${s}秒`;
+      return t("chat.durationMinutesSeconds", { m, s });
     };
 
     /**
@@ -556,7 +595,14 @@ const ChatMessageMemo = memo(
                     ? `👤 ${t("chat.user")}`
                     : `🤖 ${t("chat.assistant")}`}
                 </div>
-                <div className="truncate">
+                <div
+                  className="truncate"
+                  title={
+                    typeof replyTarget.content === "string"
+                      ? replyTarget.content.slice(0, 500)
+                      : undefined
+                  }
+                >
                   {typeof replyTarget.content === "string"
                     ? replyTarget.content.slice(0, 80) +
                       (replyTarget.content.length > 80 ? "..." : "")
@@ -724,10 +770,14 @@ const ChatMessageMemo = memo(
               )}
 
               {/* ⋯ 更多菜单 */}
-              <div className="relative">
+              <div
+                className="relative"
+                onKeyDown={handleMenuKeyDown}
+                onBlur={handleMenuBlur}
+              >
                 <button
+                  ref={menuButtonRef}
                   onClick={() => setMenuOpen(!menuOpen)}
-                  onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
                   className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   aria-haspopup="true"
                   aria-expanded={menuOpen}
@@ -736,7 +786,10 @@ const ChatMessageMemo = memo(
                   ⋯
                 </button>
                 {menuOpen && (
-                  <div className="absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+                  <div
+                    ref={menuRef}
+                    className="absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30"
+                  >
                     {isUser ? (
                       <></>
                     ) : (
@@ -1158,8 +1211,8 @@ function TokenInfoSection({
           className={`mt-1 text-xs space-y-0.5 ${isUser ? "text-blue-200" : "text-gray-400 dark:text-gray-500"}`}
         >
           <div>💬 {sessionUsage.totalTokens.toLocaleString()} tokens</div>
-          <div>📥 输入: {sessionUsage.inputTokens.toLocaleString()}</div>
-          <div>📤 输出: {sessionUsage.outputTokens.toLocaleString()}</div>
+          <div>📥 {t("chat.usageInput")}: {sessionUsage.inputTokens.toLocaleString()}</div>
+          <div>📤 {t("chat.usageOutput")}: {sessionUsage.outputTokens.toLocaleString()}</div>
           {sessionUsage.estimatedCostUsd != null &&
             sessionUsage.estimatedCostUsd > 0 && (
               <div>💰 {formatCost(sessionUsage.estimatedCostUsd)}</div>
@@ -1360,7 +1413,7 @@ function DebugBlockInfo({
                 "
               </span>
             ) : b.type === "status" ? (
-              <span className="text-amber-500" title={b.content}>
+              <span className="text-amber-500" title={b.content.slice(0, 500)}>
                 {" "}
                 status="{b.content.slice(0, 50)}
                 {b.content.length > 50 ? "..." : ""}"

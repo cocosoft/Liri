@@ -1,6 +1,6 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, afterAll } from 'bun:test';
 import { existsSync, rmSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -10,6 +10,8 @@ import type { WakeEntry } from '../../../src/tasks/selfwake/types';
 
 // 覆盖 PYAPP_DATA_DIR，避免污染真实数据
 const testDataDir = join(tmpdir(), `cg3-selfwake-test-${randomUUID()}.d`);
+/** 原值备份：**必须**在 afterAll 恢复（bun 全量测试同进程 ⇒ 否则 env 泄漏给后续文件） */
+const prevDataDir = process.env.PYAPP_DATA_DIR;
 process.env.PYAPP_DATA_DIR = testDataDir;
 
 // 动态导入：确保 env 在模块初始化前生效
@@ -29,6 +31,14 @@ describe('SelfWake', () => {
     } catch {
       /* best-effort */
     }
+  });
+
+  // **必须**恢复 env：本文件在模块顶层改了 `PYAPP_DATA_DIR`，而 bun 全量测试在**同一进程**内
+  // 跑所有文件 ⇒ 不恢复会泄漏给后续文件（实测 2026-09-27 CI：泄漏使
+  // `tests/config/ConfigLayersService.test.ts` 的层级配置里多出 `data_dir`）。
+  afterAll(() => {
+    if (prevDataDir === undefined) delete process.env.PYAPP_DATA_DIR;
+    else process.env.PYAPP_DATA_DIR = prevDataDir;
   });
 
   describe('WakeStore', () => {

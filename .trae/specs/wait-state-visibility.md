@@ -250,6 +250,53 @@ export function useWaitState(sessionId?: string, isStreaming = false): WaitState
 
 ### 8.4 未覆盖 / 待跟进（如实记录，不粉饰）
 
-1. **未做真机端到端复现**：本轮用单测锁死"后端字段 → 前端等待态 → 文案/指示点"三段，但**未**在真实会话里跑一次 `sleep_for` 后再肉眼确认浮动栏倒计时（真机验证需要一次真实长等待）。已登记到 `dev_docs/error_repairs/预存错误与待处理问题.md`。
+1. ~~**未做真机端到端复现**~~ → **✅ 2026-09-27 已完成，见 §8.5**（真实后端 + 真实工具 + 真实浏览器）。
 2. `yieldState='unresolved'` 与 `pendingWake` **并存**时的语义按"unresolved 优先"处理（`deriveWaitState` 分支顺序）；该组合在真实数据里**未见样本**，属按"需用户介入优先"的保守判定。
 3. 轮询间隔 4s 为常量（未做成配置）；若后续发现长等待下仍不够"有动感"，可再评估是否引入"已等待秒数本地跳动"（当前本地秒数**已在跳动**，故暂不做）。
+
+### 8.5 真机端到端复现（2026-09-27，用户要求执行）
+
+**环境**：真实数据目录 `~/.pyapp/data`；后端 = `bun run src/main.ts daemon --http-port 18990`（`startCg3: ready`，CG3 已装配）；前端 = 已在运行的 vite dev server `http://localhost:1420`（proxy → 18990）。
+
+#### (1) 事故档案的**真实数据**证据（修复前就存在）
+
+`~/.pyapp/data/selfwake/session_muj5asu8g825d0rgqt.json` 原始内容（1 条）：
+
+| 字段 | 值 | 含义 |
+|---|---|---|
+| `kind` / `status` | `timer` / `fired` | 定时唤醒，已触发 |
+| `createdAt` | 1790473013471（本地 09:36:53） | 登记时刻（用户在 09:36:25 要求"持续跟踪"之后 28s） |
+| `triggerAt` | 1790473163471 | = createdAt + **150s** ⇒ 真实发生过一次 `sleep_for(150)` 长等待 |
+| `firedAt` | 1790473163479 | **准点触发（+150.008s）** ⇒ 续跑通路本身正常，缺的只是"等待期可见" |
+
+⇒ 与导出的会话时间线（09:36:25 → 09:39:23 用户感到"像答完了"）**精确对齐**：诊断成立。
+
+#### (2) 后端：真实工具 + 真实端点
+
+```
+POST /v1/tools/sleep_for/execute  {"sessionId":"session_muj5asu8g825d0rgqt","arguments":{"seconds":1800}}
+→ {"success":true,"data":{"wakeId":"48c28824-…","triggerAt":1790478217525,"status":"pending"}}
+
+GET /v1/sessions/session_muj5asu8g825d0rgqt/streaming
+→ {"sessionId":"…","streaming":false,"pendingWake":{"kind":"timer","triggerAt":1790478217525,"createdAt":1790476417525}}
+```
+
+- **修复前同一端点**（旧代码）返回 `{"sessionId":"…","streaming":false}` —— **无任何等待信息**（正是"看起来答完了"的根因）。
+- 顺带在**真实数据**上验证 D8：登记后该文件为 **2 条**（原 `fired` + 新 `pending`）；旧覆盖写实现会丢掉 1 条。
+
+#### (3) 前端：真实浏览器（含截图取证）
+
+在 `http://localhost:1420` 打开会话「**Liri v0.4.51 打包状态检查**」（= 事故会话，前端默认打开的其实是另一个会话，已手动切换）：
+
+| 观测项 | 实测 |
+|---|---|
+| 浮动栏是否仍在 | **在**（未随流式结束消失/渐隐） |
+| 文案（原文） | `⏳ 等待中，预计 1699 秒后自动继续` |
+| 倒计时是否走动 | **是**：1737 → 1729 → 1720 → 1714 → 1713 → 1699（多次采样递减） |
+| 指示点 | `bg-sky-500` **静态蓝点**，容器内**无** `animate-ping`（不谎报"正在输出"） |
+
+#### (4) 清理（未污染真实数据）
+
+- 删除本次注入的 `pending` 条目 ⇒ 该文件回到原始 1 条（`fired`）；端点复核回到 `{"streaming":false}`（不再有 `pendingWake`）。浮动栏随之消失为**推定**（下一轮 4s 轮询取不到 `pendingWake` ⇒ `waiting=false` ⇒ 渐隐卸载；该轮询/停止路径已由 `useWaitState.test.ts` 覆盖），**未**为此再截一次图。
+- **刻意未触发续跑**：选 `sleep_for(1800)`（> CG3 tick 300s ⇒ 不创建 setTimeout），且该 daemon 的 `wireSelfWake: cron not started`（cron 未接线）⇒ 验证期间**不会**自动续跑，**不产生任何模型调用与费用**。
+- 副作用说明（如实）：为让新代码生效曾重启该后端 daemon（原进程亦为 AI 侧此前的后台任务，非用户手工启动）；浏览器步骤把当前会话切到了事故会话（用户可自行切回）。

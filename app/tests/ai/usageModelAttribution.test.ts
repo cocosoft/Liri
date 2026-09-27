@@ -114,6 +114,42 @@ describe('防漂移：记账点必须经 provider 回显取模型', () => {
         'utf-8'
       )
     );
-    expect(code).toMatch(/logInferenceUsage\(\s*session\.id,\s*extractModelFromResponse\(/);
+    expect(code).toMatch(
+      /logInferenceUsage\(\s*session\.id,\s*extractModelFromResponse\(/
+    );
   });
+});
+
+/**
+ * 窗口 / 估价类归属守卫（2026-09-27 同批）
+ *
+ * 自发轮次不带 `options.model` ⇒ `resolveMaxContextTokens('')` 回落**硬编码 128k**
+ * （`chat/services/ChatHelper.ts`）⇒ 按错误窗口做切窗 / 压缩 / 截断；`getModelPricing`
+ * 同样按默认名取价。修法：先 `resolveEffectiveTurnModel(...)` 解析一次再复用，
+ * 本守卫锁"这三个函数不再直接吃 `options?.model`"（诊断日志字段不在此列，另行处理）。
+ */
+const WINDOW_PRICING_SITES = [
+  'chat/orchestrator/sendMessageFlow.ts',
+  'chat/orchestrator/streamMessageFlow.ts',
+  'chat/orchestrator/preSendContextProtection.ts',
+] as const;
+
+describe('防漂移：窗口/估价类站点必须经 resolveEffectiveTurnModel 解析', () => {
+  for (const rel of WINDOW_PRICING_SITES) {
+    it(`${rel} 不再把 options?.model 直接传给窗口/阈值/估价函数`, () => {
+      const code = stripComments(readFileSync(join(APP_SRC, rel), 'utf-8'));
+      // 必须：经本批新增的只读解析入口
+      expect(code).toMatch(/resolveEffectiveTurnModel\s*\(/);
+      // 禁止：空模型直落窗口/阈值/估价（自发轮次会取到 undefined）
+      for (const fn of [
+        'resolveMaxContextTokens',
+        'getModelThresholds',
+        'getModelPricing',
+      ]) {
+        expect(code).not.toMatch(
+          new RegExp(`${fn}\\(\\s*(?:this\\.ctx\\.)?options\\?\\.model`)
+        );
+      }
+    });
+  }
 });

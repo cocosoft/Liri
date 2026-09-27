@@ -51,7 +51,11 @@ import {
   getDegradationWarning,
   type DegradationState,
 } from '@modules/ai';
-import { resolveMaxContextTokens, toUsageInfo } from '../services/ChatHelper';
+import {
+  resolveMaxContextTokens,
+  resolveEffectiveTurnModel,
+  toUsageInfo,
+} from '../services/ChatHelper';
 // K4（2026-09-06）：项目执行意图判定（工具类别裁剪决策共用）
 import { isExecutionTaskIntent, lastUserMessageText } from '../taskIntent.js';
 import {
@@ -643,6 +647,15 @@ export async function* runStreamMessage(
     // 数据都会重置前端空闲超时计时器
     // 耗时日志（2026-08-19 超时排查）：构建开始/结束 + 心跳次数——若构建阻塞
     // 事件循环，心跳会被拖慢，heartbeatCount 能反映"阻塞了几轮 10s"辅助定位
+    // 窗口/估价类归属（2026-09-27）：自发轮次（服务端续跑/自唤醒/PDCA）不带
+    // options.model ⇒ 空模型使 resolveMaxContextTokens 回落硬编码 128k，按错误窗口
+    // 做切窗与渐进降级。按请求侧同源链解析一次（只读，零额外模型调用），供下方
+    // 构建期切窗（本块）与 P1-7 渐进降级（本轮循环）复用。
+    const turnModel = await resolveEffectiveTurnModel({
+      explicitModel: options?.model,
+      client: host.getClientForModel(options?.model),
+      sessionId: session.id,
+    });
     let apiMessages: Array<Record<string, unknown>>;
     {
       const buildStart = Date.now();
@@ -656,7 +669,7 @@ export async function* runStreamMessage(
         session.messages,
         // C-2（2026-09-02，v4 §7.2）：构建期预算切窗——超窗大会话 map 前先丢
         // 头部旧轮次，构建期内存 O(全量)→O(窗口)
-        resolveMaxContextTokens(options?.model),
+        resolveMaxContextTokens(turnModel),
         options?.maxTokens
       )
         // P0-1 修复（2026-08-27）：构建失败不再静默中断——原 buildPromise reject →
@@ -1045,7 +1058,7 @@ export async function* runStreamMessage(
     let degradeRetryDone = false;
 
     // P1-7: 上下文溢出渐进降级
-    const initialCtxLimit = resolveMaxContextTokens(options?.model);
+    const initialCtxLimit = resolveMaxContextTokens(turnModel);
     // 发送前截断上限（与 applyPreSendProtection 内部一致，用于重试轮次日志）
     const sendCtxLimit = initialCtxLimit;
     let ctxDegradation: DegradationState =
@@ -2588,11 +2601,11 @@ export async function* runStreamMessage(
     // 长度守卫（compactSessionInBackground 内部）防覆盖压缩期间新增消息。
     // 前端可见性（2026-08-19）：水位接近触发阈值（复用 policy 真实阈值，CS01 不重复定义）
     // 时发射"后台压缩进行中"状态块，提示用户上下文较长已进入后台压缩
-    const bgThresholds = getModelThresholds(options?.model || '');
+    const bgThresholds = getModelThresholds(turnModel || '');
     const bgTokens = estimateMessagesTokens(
       session.messages as unknown as ChatMessage[]
     );
-    const bgMax = resolveMaxContextTokens(options?.model);
+    const bgMax = resolveMaxContextTokens(turnModel);
     const bgRatio = bgMax > 0 ? bgTokens / bgMax : 0;
     if (bgRatio >= bgThresholds.warn) {
       yield {
@@ -2609,7 +2622,7 @@ export async function* runStreamMessage(
         (messages) => {
           session.messages = messages as unknown as typeof session.messages;
         },
-        { model: options?.model || '', sessionId: session.id }
+        { model: turnModel || '', sessionId: session.id }
       )
       .catch((err) =>
         logger.warn('compaction:bg_failed', {

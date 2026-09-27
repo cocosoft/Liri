@@ -32,7 +32,10 @@ import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { estimateMessagesTokens } from '@modules/ai';
-import { resolveMaxContextTokens } from '../services/ChatHelper';
+import {
+  resolveMaxContextTokens,
+  resolveEffectiveTurnModel,
+} from '../services/ChatHelper';
 import {
   repairImageUrls,
   TOOL_RESULT_MAX_LENGTH,
@@ -99,9 +102,16 @@ export async function prepareApiMessages(
   let baseMessages = session.messages;
   let cutIndex = 0;
   if (session.messages.length > 2) {
+    // 窗口/估价类归属（2026-09-27）：自发轮次不带 options.model ⇒ 空模型回落硬编码
+    // 128k。按请求侧同源链解析一次，供分页切窗的窗口上限复用（只读，零额外模型调用）。
+    const turnModel = await resolveEffectiveTurnModel({
+      explicitModel: options?.model,
+      client: ctx.host.getClientForModel(options?.model),
+      sessionId: session.id,
+    });
     const point = await computePaginationPoint(
       session.messages as Array<{ role: string; content: unknown }>,
-      resolveMaxContextTokens(options?.model),
+      resolveMaxContextTokens(turnModel),
       options?.maxTokens
     );
     cutIndex = point.cutIndex;
@@ -381,6 +391,14 @@ export async function compactContext(
   ctx: SendMessageContext
 ): Promise<Record<string, unknown>[]> {
   const { options, session, host } = ctx;
+  // 窗口/估价类归属（2026-09-27）：与 prepareApiMessages 同理——自发轮次不带
+  // options.model ⇒ 空模型使下方窗口判定回落硬编码 128k（按错误窗口追加截断）。
+  // 解析一次供两个分支（压缩后校验 / 未压缩截断）复用。
+  const turnModel = await resolveEffectiveTurnModel({
+    explicitModel: options?.model,
+    client: host.getClientForModel(options?.model),
+    sessionId: session.id,
+  });
   const beforeCompact = estimateMessagesTokens(ctx.apiMessages);
   // 耗时日志：发送路径压缩入口（skipTier3Sync 模式应毫秒级返回，不含 Tier3）
   const ctxStart = Date.now();
@@ -393,7 +411,7 @@ export async function compactContext(
   });
   const compResult = await compactionOrchestrator.compact(
     ctx.apiMessages as unknown as ChatMessage[],
-    { model: options?.model || '', sessionId: session.id },
+    { model: turnModel || '', sessionId: session.id },
     // 异步压缩（2026-08-14 补充落地）：发送路径不阻塞等待 Tier3（LLM 摘要），
     // 仅同步 Tier1/2；Tier3 由发送后 compactSessionInBackground 后台执行写回
     { skipTier3Sync: true }
@@ -407,7 +425,7 @@ export async function compactContext(
     // Tier3 内部仅保证 afterTokens < beforeTokens，不保证 ≤ 窗口；压缩后仍超限
     // 直接发送会 400 context 超限。追加截断兜底（原实现仅"不 applied"才走截断）。
     const afterTokens = estimateMessagesTokens(ctx.apiMessages);
-    const postMaxCtx = resolveMaxContextTokens(options?.model);
+    const postMaxCtx = resolveMaxContextTokens(turnModel);
     if (postMaxCtx > 0 && afterTokens > postMaxCtx) {
       logger.warn('compaction:post_check — 压缩后仍超窗口，追加截断', {
         sessionId: session.id,
@@ -426,7 +444,7 @@ export async function compactContext(
       await injectSkillsBlock(ctx.apiMessages);
     }
   } else {
-    const maxCtx = resolveMaxContextTokens(options?.model);
+    const maxCtx = resolveMaxContextTokens(turnModel);
     await host.truncateApiMessages(
       ctx.apiMessages,
       maxCtx,

@@ -39,6 +39,7 @@ import {
 } from '@modules/ai';
 import {
   resolveMaxContextTokens,
+  resolveEffectiveTurnModel,
   isLocalLlmEndpoint,
 } from '../services/ChatHelper';
 import { truncateByPreciseTokens } from '../services/MessageContextPipeline';
@@ -94,7 +95,12 @@ export interface PreSendProtectionParams {
   host: ChatOrchestratorHost;
   apiMessages: Record<string, unknown>[];
   toolDefinitions: ToolDefinition[];
-  activeClient: { getProviderId(): string; getBaseUrl?(): string };
+  activeClient: {
+    getProviderId(): string;
+    getBaseUrl?(): string;
+    /** provider 级默认模型（resolveEffectiveTurnModel 第 2 步；缺省则跳过） */
+    getConfiguredModel?(): string | undefined;
+  };
   options?: StreamMessageOptions;
   session: ChatSession;
 }
@@ -119,7 +125,15 @@ export async function applyPreSendProtection(
       options,
       session,
     } = params;
-    const sendCtxLimit = resolveMaxContextTokens(options?.model);
+    // 窗口/估价类归属（2026-09-27）：自发轮次不带 options.model ⇒ 空模型会让
+    // resolveMaxContextTokens 回落硬编码 128k（按错误窗口截断）。此处按请求侧同源链
+    // 解析一次本轮实际模型（只读，零额外模型调用），供下方窗口/截断判定复用。
+    const turnModel = await resolveEffectiveTurnModel({
+      explicitModel: options?.model,
+      client: activeClient,
+      sessionId: session.id,
+    });
+    const sendCtxLimit = resolveMaxContextTokens(turnModel);
     let toolsCleared = false;
 
     // 1) 估算截断：以 resolveMaxContextTokens 为上限截断旧消息

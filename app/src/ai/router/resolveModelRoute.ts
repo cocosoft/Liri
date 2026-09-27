@@ -66,12 +66,19 @@ const EXPLICIT_CONFIG_PREFERRED_ROUTES: ReadonlySet<RouteKeyType> = new Set([
  *   3. ModelRouter 静态路由（任务分工兜底 / 旧格式）。
  *
  * @param route - 路由键
- * @param options - 可选：message（chat 类需要）、sessionId
+ * @param options - 可选：message（chat 类需要）、sessionId、
+ *                  `skipJudge`（2026-09-27：**只读场景**跳过 LLM Judge —— 见下）
  * @returns 模型名
+ *
+ * ⚠️ `skipJudge` 的用途与边界（2026-09-27 新增）：
+ * 发送前的窗口/压缩决策需要"本轮实际会用哪个模型"，但**不得**为此多付一次模型调用。
+ * 置 `skipJudge: true` 时走「会话黏性 → 默认档位」（纯读取，零模型调用）。
+ * 结果**仅用于读取/估算**（窗口、压缩阈值、预估价），**不得**用它决定实际请求的模型；
+ * 实际请求仍由 provider 侧 `resolveModel('chat')` 走完整链（含 Judge）。
  */
 export async function resolveModelRoute(
   route: RouteKeyType,
-  options?: { message?: string; sessionId?: string }
+  options?: { message?: string; sessionId?: string; skipJudge?: boolean }
 ): Promise<string> {
   // 层 1（N-46）：用户显式配置优先 —— 仅 chat 类 route，且仅当该任务被**用户**保存过。
   // 未命中/解析不出模型名（UUID 未预载）时不返回 UUID，落到下方档位解析，避免下游
@@ -102,6 +109,8 @@ export async function resolveModelRoute(
       const decision = await smartRouter.resolve(route, {
         message: options?.message,
         sessionId: options?.sessionId,
+        // 2026-09-27：只读场景跳过 Judge（避免"读模型名"触发一次模型调用）
+        ...(options?.skipJudge ? { skipJudge: true } : {}),
       });
       // SmartRouter 返回有效模型 → 直接使用；返回空 → fall through 到 modelRouter
       if (decision.model) {

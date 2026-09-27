@@ -219,6 +219,61 @@ export function resolveMaxContextTokens(model?: string): number {
 }
 
 /**
+ * 解析"本轮**实际会使用**的模型"（发送前使用：窗口 / 压缩阈值 / 预估价归因）。
+ *
+ * ## 为什么需要它（2026-09-27，服务端自发轮次的模型归属）
+ *
+ * 自发轮次（系统续跑 / 自唤醒 / 目标空闲续接 / PDCA）经
+ * `ChatManager._resumeSessionInternally → streamMessage(content, { sessionId, metadata })`
+ * —— **不带 `options.model`**。发送前的决策点因此只拿到空模型
+ * ⇒ `resolveMaxContextTokens('')` 回落**硬编码 `128_000`**（见上），与真实模型窗口不符：
+ *   - 真实窗口更大（如 200k/1M）⇒ **过度压缩 / 过度截断**（丢上下文、白跑压缩）；
+ *   - 真实窗口更小（如 32k）⇒ 保护不足（可能 400 context 超限）。
+ *
+ * ## 取值链（与请求侧同源，且**零额外模型调用**）
+ *
+ *   1. `explicitModel`（调用方显式指定；命中即用）；
+ *   2. **provider 级默认模型**（`config.model` / 构造 `defaultModel`，纯读）；
+ *   3. `resolveModelRoute(CHAT, { sessionId, skipJudge: true })`
+ *      ——「用户显式任务分工 → 会话黏性 → 默认档位」，**不进 LLM Judge**：
+ *      为"读一个模型名"触发一次模型调用（Judge）不可接受，且 Judge 结果只影响档位。
+ *
+ * ⚠️ 本函数**只读**：返回值**仅用于**窗口 / 压缩 / 估价等**估算与归因**，
+ * **不得**用于决定实际请求走哪个模型（那由 provider 侧完整链决定；
+ * 模型选择遵循用户显式选择，不得擅自变更）。无法解析时返回 `undefined`
+ * ⇒ 调用方保持旧行为（不伪造模型名）。
+ */
+export async function resolveEffectiveTurnModel(params: {
+  explicitModel?: string;
+  /** 当前客户端（读 provider 级默认模型；缺省则跳过第 2 步） */
+  client?: { getConfiguredModel?: () => string | undefined };
+  sessionId?: string;
+}): Promise<string | undefined> {
+  const explicit = params.explicitModel?.trim();
+  if (explicit) return explicit;
+
+  const configured = params.client?.getConfiguredModel?.()?.trim();
+  if (configured) return configured;
+
+  try {
+    const { resolveModelRoute, RouteKey } =
+      await import('@modules/ai/router/resolveModelRoute');
+    const model = await resolveModelRoute(RouteKey.CHAT, {
+      ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+      skipJudge: true,
+    });
+    return model?.trim() || undefined;
+  } catch (err) {
+    // @ignore-catch — 解析失败不影响发送：调用方以 undefined 回落旧行为（默认窗口）
+    logger.warn('resolveEffectiveTurnModel: 路由解析失败（回落旧行为）', {
+      error: err instanceof Error ? err.message : String(err),
+      sessionId: params.sessionId,
+    });
+    return undefined;
+  }
+}
+
+/**
  * 截断工具结果，保留前后关键信息
  * 策略：前 500 字符（上下文） + 后 1500 字符（file_path 等关键信息）
  * 并在截断提示中列出工具结果中包含的文件路径，避免路径幻觉

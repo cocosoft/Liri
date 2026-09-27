@@ -67,6 +67,27 @@ export class ToolAwareClient {
     return this.provider.id;
   }
 
+  /**
+   * **provider 级默认模型**（纯读，零副作用）。
+   *
+   * 2026-09-27（服务端自发轮次的模型归属）：发送前的窗口/压缩决策需要知道
+   * "本轮实际会用哪个模型"，而请求侧各 provider 的链是
+   * `options.model → provider.config.model / 构造 defaultModel → resolveModel('chat')`
+   * （见 `OpenAIProvider.chatStream`、`AnthropicProvider.chatStreamInternal`）。
+   * 本方法覆盖**前两段（纯读）**；第三段（路由/Judge）若也要读，须走
+   * `resolveModelRoute(..., { skipJudge: true })`，不得为"读名字"触发模型调用。
+   *
+   * 无配置默认模型 ⇒ `undefined`（调用方继续走路由读取或回落旧行为）。
+   */
+  getConfiguredModel(): string | undefined {
+    const p = this.provider as unknown as {
+      config?: { model?: string };
+      options?: { defaultModel?: string };
+    };
+    const configured = (p.config?.model ?? p.options?.defaultModel)?.trim();
+    return configured || undefined;
+  }
+
   /** 透传底层 provider 的 baseUrl（本地服务识别/精确 tokenize 用） */
   getBaseUrl(): string {
     const p = this.provider as unknown as { getBaseUrl?: () => string };

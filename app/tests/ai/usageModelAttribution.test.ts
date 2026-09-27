@@ -50,12 +50,32 @@ import { extractModelFromResponse } from '../../src/ai/UsageTracker';
 
 const APP_SRC = join(import.meta.dir, '..', '..', 'src');
 
-/** 三个用量记账点（`trackUsage` 的 model 参数来源） */
-const USAGE_SITES = [
+/**
+ * 去掉注释后再做"禁止写法"匹配 —— 否则**注释里引用旧写法**（本次修复的说明文字）会被误判为代码。
+ * 仅用于守卫断言；不做词法级解析（够用即可）。
+ */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
+
+/**
+ * 四个用量/归因记账点及各自的守卫口径。
+ *
+ * - 前三个文件：不得再出现 `model: options?.model || 'unknown'` 式**直接赋值**（本缺陷原形态）；
+ *   注意用 `model:` 锚定 —— 合规写法 `extractModelFromResponse(resp, options?.model || 'unknown')`
+ *   会把同一片段作为**回落参数**出现，用宽正则会误判。
+ * - `streamMessageFlow.ts`：本批只修了 `logInferenceUsage` 调用点（记账/诊断口径），
+ *   文件内**仍有多处**同类"诊断日志字段"（`model: options?.model ?? 'unknown'`）属同族、
+ *   已登记台账待后续统一处理 ⇒ 此处只断言该调用点已改为 `extractModelFromResponse`。
+ */
+const STRICT_SITES = [
   'chat/ReActToolLoop.ts', // 工具轮（系统续跑 / 自唤醒 / PDCA 走这条）
-  'chat/pipeline/StreamPipeline.ts', // 流式主路径
+  'chat/pipeline/StreamPipeline.ts', // 流式主路径（recordUsage + notifyUsage 预估价）
   'chat/orchestrator/sendMessageFlow.ts', // 非流式发送路径
 ] as const;
+
+/** 只要求"经既有助手取模型"（豁免：文件内尚有同族日志字段待统一） */
+const REQUIRED_ONLY_SITES = ['chat/orchestrator/streamMessageFlow.ts'] as const;
 
 describe('用量归因模型回落链（extractModelFromResponse 的组合用法）', () => {
   it('响应回显模型名 ⇒ 取它（服务端自发轮次无 options.model 时的正解）', () => {
@@ -73,16 +93,27 @@ describe('用量归因模型回落链（extractModelFromResponse 的组合用法
   });
 });
 
-describe('防漂移：三个记账点必须经 provider 回显取模型', () => {
-  for (const rel of USAGE_SITES) {
-    it(`${rel} 使用 extractModelFromResponse 且不再写死 unknown`, () => {
-      const source = readFileSync(join(APP_SRC, rel), 'utf-8');
+describe('防漂移：记账点必须经 provider 回显取模型', () => {
+  for (const rel of STRICT_SITES) {
+    it(`${rel} 使用 extractModelFromResponse 且不再直接写死 unknown`, () => {
+      const code = stripComments(readFileSync(join(APP_SRC, rel), 'utf-8'));
       // 必须：经既有助手从响应取模型（回落 options.model → 'unknown'）
-      expect(source).toMatch(/extractModelFromResponse\s*\(/);
-      // 禁止：`model: options?.model || 'unknown'` 式写法（本缺陷的原形态）
-      expect(source).not.toMatch(
-        /model:\s*(?:this\.ctx\.)?options\?\.model\s*\|\|\s*'unknown'/
+      expect(code).toMatch(/extractModelFromResponse\s*\(/);
+      // 禁止：`model: options?.model || 'unknown'` 式直接赋值（本缺陷原形态；`model:` 锚定避免
+      // 误伤合规写法里作为**回落参数**出现的同一片段）
+      expect(code).not.toMatch(
+        /model:\s*(?:this\.ctx\.)?options\?\.model\s*(?:\|\||\?\?)\s*'unknown'/
       );
     });
   }
+
+  it('chat/orchestrator/streamMessageFlow.ts 的 logInferenceUsage 调用点已改取真实模型', () => {
+    const code = stripComments(
+      readFileSync(
+        join(APP_SRC, 'chat/orchestrator/streamMessageFlow.ts'),
+        'utf-8'
+      )
+    );
+    expect(code).toMatch(/logInferenceUsage\(\s*session\.id,\s*extractModelFromResponse\(/);
+  });
 });

@@ -20,7 +20,12 @@ import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
-import { resolveMaxContextTokens } from '../services/ChatHelper';
+// 2026-09-27：`resolveEffectiveTurnModel` —— 发送前解析"本轮实际会用的模型"
+// （服务端自发轮次不带 options.model；只读、零额外模型调用）
+import {
+  resolveMaxContextTokens,
+  resolveEffectiveTurnModel,
+} from '../services/ChatHelper';
 import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
@@ -74,6 +79,11 @@ export interface PipelineContext {
       ChatResponse
     >;
     getProviderId(): string;
+    /**
+     * provider 级默认模型（纯读；2026-09-27 用于发送前解析"本轮实际会用的模型"）。
+     * 可选：测试替身可不实现 ⇒ 解析链自动跳过该步。
+     */
+    getConfiguredModel?: () => string | undefined;
   };
   activeClient: PipelineContext['llmClient'];
   unifiedTracker: {
@@ -236,6 +246,23 @@ export class StreamPipeline {
     this.ctx.apiMessages.unshift({ role: 'system', content: sysPrompt });
   }
 
+  /**
+   * 本轮**实际会使用的模型**（只读，供发送前的窗口 / 压缩 / 预估决策）。
+   *
+   * 2026-09-27（服务端自发轮次的模型归属）：自发轮次不带 `options.model`，
+   * 故改为走 `resolveEffectiveTurnModel`（显式 → provider 默认 → 路由"跳过 Judge"读取），
+   * **零额外模型调用**；解析不出时返回 `''`（保持本文件既有回落口径 ⇒ 默认窗口）。
+   */
+  private async _effectiveModel(): Promise<string> {
+    return (
+      (await resolveEffectiveTurnModel({
+        explicitModel: this.ctx.options?.model,
+        client: this.ctx.activeClient,
+        sessionId: this.ctx.session.id,
+      })) ?? ''
+    );
+  }
+
   /** 上下文压缩 */
   async compactContext(): Promise<{
     applied: boolean;
@@ -247,13 +274,19 @@ export class StreamPipeline {
     const span = otel.startSpan('chat:pipeline:compactContext', {
       'session.id': this.ctx.session.id,
     });
+    // 注：`options` 在本方法尾部仍用于进度回调（`options?.onProgress`），不可删
     const { session, options } = this.ctx;
+    // 2026-09-27（服务端自发轮次的模型归属）：本轮**实际会用的模型** —— 自发轮次不带
+    // `options.model`，若此处只读它，`resolveMaxContextTokens('')` 会回落硬编码 128k，
+    // 导致按错误窗口压缩/截断（过压或欠保护）。此处解析一次，本方法内**全程复用**
+    // （日志 / compact 决策 / 三处窗口判定），零额外模型调用（见 `resolveEffectiveTurnModel`）。
+    const model = await this._effectiveModel();
     const beforeCompact = estimateMessagesTokens(this.ctx.apiMessages);
     // 耗时日志：发送路径压缩入口（skipTier3Sync 模式应毫秒级返回，不含 Tier3）
     const ctxStart = Date.now();
     logger.info('compaction:ctx_start — 发送路径压缩开始', {
       sessionId: session.id,
-      model: options?.model || '',
+      model,
       messageCount: this.ctx.apiMessages.length,
       estimatedTokens: beforeCompact,
       skipTier3Sync: true,
@@ -265,7 +298,7 @@ export class StreamPipeline {
     try {
       compResult = await compactionOrchestrator.compact(
         this.ctx.apiMessages as unknown as ChatMessage[],
-        { model: options?.model || '', sessionId: session.id },
+        { model, sessionId: session.id },
         // 异步压缩（2026-08-14 补充落地）：发送路径不阻塞等待 Tier3（LLM 摘要），
         // 仅同步 Tier1/2；Tier3 由发送后 compactSessionInBackground 后台执行写回
         { skipTier3Sync: true }
@@ -285,7 +318,7 @@ export class StreamPipeline {
         // 与 sendMessageFlow 一致。Tier3 内部仅保证 afterTokens < beforeTokens，
         // 压缩后仍超限直接发送会 400 context 超限，追加截断兜底。
         const postAfter = estimateMessagesTokens(this.ctx.apiMessages);
-        const postMaxCtx = resolveMaxContextTokens(options?.model);
+        const postMaxCtx = resolveMaxContextTokens(model);
         if (postMaxCtx > 0 && postAfter > postMaxCtx) {
           logger.warn('compaction:post_check — 压缩后仍超窗口，追加截断', {
             sessionId: session.id,
@@ -322,7 +355,7 @@ export class StreamPipeline {
             reason: 'orchestrator_not_applied',
           });
         }
-        const maxCtx = resolveMaxContextTokens(options?.model);
+        const maxCtx = resolveMaxContextTokens(model);
         const afterTokens = estimateMessagesTokens(this.ctx.apiMessages);
         // P1-4（2026-08-27）：context-overflow 强触发——常规评估未压缩但确认超窗口时，
         // 以 trigger 决策强制再跑一次 Tier1/2（毫秒级，仍 skipTier3Sync），
@@ -330,7 +363,7 @@ export class StreamPipeline {
         if (maxCtx > 0 && afterTokens > maxCtx) {
           const forced = await compactionOrchestrator.compact(
             this.ctx.apiMessages as unknown as ChatMessage[],
-            { model: options?.model || '', sessionId: session.id },
+            { model, sessionId: session.id },
             {
               skipTier3Sync: true,
               preEvaluated: {
@@ -381,7 +414,7 @@ export class StreamPipeline {
         sessionId: session.id,
         error: compErr instanceof Error ? compErr.message : String(compErr),
       });
-      const maxCtx = resolveMaxContextTokens(options?.model);
+      const maxCtx = resolveMaxContextTokens(model);
       await this._truncateApiMessages(maxCtx, session.id);
       handleError(compErr, {
         module: 'chat:manager',
@@ -641,6 +674,15 @@ export class StreamPipeline {
     const { options, finalResponse } = this.ctx;
     if (!options?.onUsage || !finalResponse?.usage) return;
 
+    // 2026-09-27（模型归属）：预估价必须用**实际使用的模型**取价。自发轮次不带 `options.model`
+    // ⇒ 原写法 `getModelPricing('')` 会回落**兜底价**（$3/M in、$15/M out），预估价失真。
+    // 此处优先取 provider 回显的 `finalResponse.model`（回落 options.model → ''），与
+    // `recordUsage()` / `ReActToolLoop._reportUsage` 同一口径。
+    const priceModel = extractModelFromResponse(
+      finalResponse,
+      options?.model || ''
+    );
+
     const u = finalResponse.usage as unknown as Record<string, number>;
     const inputTokens = u.prompt_tokens ?? u.inputTokens ?? 0;
     const outputTokens = u.completion_tokens ?? u.outputTokens ?? 0;
@@ -662,7 +704,7 @@ export class StreamPipeline {
       estimatedCostUsd: (() => {
         try {
           return calculateTotalCost(
-            getModelPricing(options.model ?? ''),
+            getModelPricing(priceModel),
             inputTokens,
             outputTokens,
             u.cache_creation_input_tokens ?? u.cacheCreationInputTokens ?? 0,
@@ -671,7 +713,7 @@ export class StreamPipeline {
         } catch (costErr) {
           // KB-COST-CALC（2026-08-29）：成本计算失败记 0 → 成本统计失真且无法追溯
           logger.warn('成本计算失败，按 0 处理', {
-            model: options.model ?? '',
+            model: priceModel,
             error: costErr instanceof Error ? costErr.message : String(costErr),
           });
           return 0;

@@ -265,6 +265,15 @@ export class SmartRouter {
       sessionId?: string;
       providerId?: string;
       phaseContext?: PhaseContext;
+      /**
+       * 跳过 LLM Judge 分级（2026-09-27，**只读场景**）：
+       * 供"发送前需要知道本轮实际会用哪个模型"的调用方使用（窗口/压缩决策）。
+       * 置 true 时 chat 路由不再进入 `judgeService.classify`（可能是一次 LLM 调用），
+       * 直接用 会话黏性 → 默认档位 解析 ⇒ **零额外模型调用**。
+       * 语义：跳过 Judge ⇒ 结果可能与"真正请求时（带 message 走 Judge）"的档位不同，
+       * 故**仅用于读取/估算**，不得用于决定实际请求用哪个模型。
+       */
+      skipJudge?: boolean;
     }
   ): Promise<RouteDecision> {
     // 开关关闭 → 全部回退 ModelRouter 静态路由
@@ -298,7 +307,10 @@ export class SmartRouter {
 
     // chat 类路由：走 decide() 进行 Judge 分级
     const message = options?.message ?? '';
-    return this.decide(message, options?.sessionId);
+    // 2026-09-27：`skipJudge` 透传（只读场景：避免为"读模型名"而触发一次 Judge 模型调用）
+    return this.decide(message, options?.sessionId, {
+      ...(options?.skipJudge ? { skipJudge: true } : {}),
+    });
   }
 
   /**

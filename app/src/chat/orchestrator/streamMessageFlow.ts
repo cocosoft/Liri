@@ -57,6 +57,8 @@ import { isExecutionTaskIntent, lastUserMessageText } from '../taskIntent.js';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
+  // 2026-09-27（模型归属）：诊断日志同样取 provider 回显的真实模型名（自发轮次无 options.model）
+  extractModelFromResponse,
 } from '@modules/ai';
 import {
   logTokenSnapshot,
@@ -1941,7 +1943,12 @@ export async function* runStreamMessage(
     // 诊断日志：发送前估算 vs 发送后 API 返回真实 usage（闭环对比截断/压缩效果）
     await logInferenceUsage(
       session.id,
-      options?.model ?? 'unknown',
+      // 2026-09-27（模型归属）：原为 `options?.model ?? 'unknown'` —— 自发轮次恒为 unknown。
+      // 诊断日志同样应记**实际使用的模型**（provider 回显优先）。
+      extractModelFromResponse(
+        finalResponse ?? {},
+        options?.model || 'unknown'
+      ),
       finalResponse,
       apiMessages
     );

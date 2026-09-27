@@ -77,6 +77,11 @@ describe('GET /v1/tasks/pdca/metrics 契约', () => {
       expect(json.total).toHaveProperty(key);
       expect(typeof json.total[key]).toBe('number');
     }
-    expect(json.total.totalSteps).toBe(0); // 未建 plan，步骤为 0
+    // 2026-09-26（macOS CI 实测 `Expected: 0 / Received: 2`）：原断言 `json.total.totalSteps === 0`
+    // 依赖**全局聚合**，而 orchestrator 注册表是**进程级单例** ⇒ 其他用例泄漏进来的任务会让它非 0。
+    // 改为**按本用例任务**断言（与执行顺序解耦）——本用例的意图本就是"该任务未建 plan ⇒ 步骤 0"。
+    const mine = json.tasks.find((t) => t.taskId === 'contract-test-task');
+    expect(mine).toBeDefined();
+    expect(mine?.metrics.totalSteps).toBe(0); // 未建 plan，步骤为 0
   });
 });

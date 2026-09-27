@@ -17,7 +17,13 @@ const router = ModelRouter.getInstance();
 
 /** 记录 service 调用 + 重置内存缓存 */
 function seed(opts: { tasks?: Record<string, string> }) {
-  const r = router as unknown as { _taskCache: Map<string, string> };
+  const r = router as unknown as { _taskCache?: Map<string, string> };
+  // 2026-09-26（macOS CI 实测 `TypeError: undefined is not an object (evaluating
+  // 'r._taskCache.clear')`）：`_taskCache` 是**类字段带初值**（`modelRouter.ts:436`），
+  // 正常实例上不会 undefined ⇒ 它缺失只说明 `getInstance()` 拿到的**不是正常构造的真身**
+  // （跨用例污染 / ESM 半初始化 / 模块双实例 —— 与执行顺序相关，故只在 macOS 暴露）。
+  // 此处**不假设**它存在：缺失即按契约重建（断言仍只走**公开行为**：service spy + `resolveRole`）。
+  r._taskCache ??= new Map<string, string>();
   r._taskCache.clear();
   for (const [k, v] of Object.entries(opts.tasks ?? {})) r._taskCache.set(k, v);
 }

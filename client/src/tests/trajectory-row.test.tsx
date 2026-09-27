@@ -80,6 +80,25 @@ describe("TrajectoryRow（P3-4：metric/timing 行内预览）", () => {
     expect(screen.getByText("assistant")).toBeTruthy();
   });
 
+  // 2026-09-27：补齐 `previewTiming` 的请求延迟分支 —— 此前仅 stage/duration/tokens 有覆盖，
+  // `ttfb` 回退那一行（TrajectoryRow.tsx:174）从未被执行 ⇒ 覆盖率门槛 `lines: 100`
+  // 报 97.29%（`bun run test:coverage`）。按门槛的"棘轮"本意补测，而非下调门槛。
+  it.each([
+    [{ ttft: 1500 }, "ttft 1.5 s"],
+    [{ ttfb: 1500 }, "ttfb 1.5 s"],
+    // ttft 优先：两者都有时只显示 ttft（不把首块延迟冒充成首个 token 延迟）
+    [{ ttft: 1500, ttfb: 2500 }, "ttft 1.5 s"],
+  ])("请求延迟预览 %o ⇒ %s", (extra, expected) => {
+    render(
+      <TrajectoryRow
+        event={ev(3, 9000, "metric/timing", { stage: "request", ...extra })}
+        selected={false}
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByText(`request · ${expected}`)).toBeTruthy();
+  });
+
   it("非 metric/timing 事件仍走原预览（content）", () => {
     render(
       <TrajectoryRow

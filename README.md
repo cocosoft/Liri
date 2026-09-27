@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.52-blue)
+![Version](https://img.shields.io/badge/version-0.4.53-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -364,7 +364,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.52**
+当前版本：**v0.4.53**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -372,6 +372,26 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.53 (2026-09-27)
+
+**聊天区渲染与导出链路修复（P0–P2）+ ChatArea i18n 全量迁移**
+
+- ✅ **工具结果信封 JSON 泄漏（三条路径）** - 工具卡合并入口统一走 `decodeToolResultContent` 解码；导出侧把 tool 消息合并进助手消息并解包 ⇒ 修复前导出件 `tool_result` 20+ 处、`🛠 role:tool` 单独成节 12+ 个、字面 `\n` 转义，修复后全部为 **0**（42KB → 10.7KB）
+- ✅ **表格空单元格丢列** - `splitCells` 不再丢弃空 cell，按表头列数补齐；单测 + 突变验证覆盖
+- ✅ **表格列错位 / 导出完整性** - JSON 透传块级结构化载荷（原 `any` 化丢失 `questionData` 等）、超长内容改**带标注截断**（原静默截断 5000 字）、md/json 补会话元数据（会话 ID / 消息数 / 轮数 / 导出时间）
+- ✅ **导出结构保护** - 闭合未配对的代码围栏（原奇数个 ``` 会把其后 5 条消息的角色标题吞进代码块，md/html/word 三格式同源受影响）
+- ✅ **会话导出新增 HTML / Word** - 复用既有 `exportMessageAsFormat`（不另立实现），导出菜单 2 项 → **4 项**
+- ✅ **长会话滚动位置恢复（D5=B）** - 锚点改由 **DOM 几何**判定顶部可见项并**延后一帧**读取（原读 `getVirtualItems()[0].index`：含 overscan 且为上一帧范围，实测偏差约 9–10 条）；真机 A（重载贴底）/ B（切走切回恢复阅读位置）/ C（手动滚动不被抢回）三项全通过
+- ✅ **轮次导航在虚拟列表下可达** - 改走 `highlightedRoundId` / `scrollToMessageId`，不再依赖离屏 DOM 的 `querySelector`（原点击较远轮次静默无反应）
+- ✅ **会话切换整表重排（P2-9）** - 排序主键 `lastEventSeq` 缺失者不再按 `0` 兜底顶到最前（改为"全体具备才用该主键，否则回退 timestamp 序"）
+- ✅ **ChatArea i18n 全量迁移（P2-1）** - 用户可见 UI 文案全量迁至 `react-i18next`（zh/en 成对维护，`chat` 段按轮次分组）；**未登记枚举一律回退后端原值**，不臆造映射；ChatArea 内已无裸中文文案
+- ✅ **可访问性（P2-5 剩余）** - hover-only 操作改键盘可达（`focus-visible` / `group-focus-within`）、补可访问名、`ChatMessage` "⋯" 菜单完整键盘导航（Esc 关闭并归还焦点 / ↑↓ 移动 / 关闭态 ↓ 打开）、`DAGFullScreen` 与 `SaveKnowledgeModal` 补 `dialog` 语义、`StatusFloatBar` 展开指示改真 `<button>`（`aria-expanded`）
+- ✅ **导出性能与规模（P2-7）** - 后端导出改**边分页边 `res.write`**（jsonl 逐行）+ `writeWithBackpressure` 背压控制（客户端断开即停止，避免无界缓冲与悬挂连接）；前端导出逐条累加、**每 20 条让出事件循环**（JSON 产物与 `JSON.stringify(…, null, 2)` 逐字符一致）
+- ✅ **零散修复（P2-8）** - `InboxBlock` 过期倒计时改 30s 心跳（原渲染期一次性快照）、`OfficePreview` docx 暗色滤镜链修正（图片不再被一起反色）、`DebugBlockInfo` 无界 `title` 截断、回复引用截断补 `title`、`SessionHeader` 标题输入宽度类化
+- ✅ **死代码清理（P2-3）** - 删除 5 个零引用文件 + `PdcaActivityStrip` 组件本体（保留仍被复用的具名导出）
+- ✅ **工程修复** - 导出 Diff 文案「接受/拒绝」改「复制 diff / 忽略此改动」并提示不会自动改动文件；`GroupStatusLine` 收敛为结构化 `status` 精确匹配（CS02）；`exportMessage.ts` 源码裸 NUL 字节改 `\u0000` 转义（原被 git 判为二进制、**无法逐行 review**）
+- ✅ **回归守卫** - 新增 `exportFenceBalance` 等用例，关键用例做**突变验证**（还原旧实现即转红）；门禁 `client` 49 文件 / 471 用例全绿、`app` 相关子集 291 用例 0 失败、双端 `tsc --noEmit` 0
 
 #### v0.4.52 (2026-09-27)
 

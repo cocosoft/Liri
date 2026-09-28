@@ -116,7 +116,6 @@ describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () =
     cwd: '/work/x',
     abi: 3,
     homeDir: '/home/u',
-    pyappHome: '/home/u/.pyapp',
   });
   const rule = (path: string) => policy.fs.find((r) => r.path === path);
 
@@ -126,9 +125,11 @@ describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () =
     }
   });
 
-  it('~/.pyapp（配置/凭据/记忆）**只读** —— bash 改不动', () => {
-    expect(rule('/home/u/.pyapp')?.allow).toEqual(['read', 'execute']);
-    expect(rule('/home/u/.pyapp')?.allow).not.toContain('write');
+  it('`~/.pyapp` 整棵目录树**不放行**（P0-3-a，2026-09-28）', () => {
+    // 此前这里是 `{path: '~/.pyapp', allow: read+execute}`（只读）—— "挡改不挡读"，
+    // 而该目录下有 config.json / credentials.json / data/app.db / sessions / memory 等
+    // ⇒ 在 bash 域内**可读**（凭据与会话数据泄露）。现整条移除。
+    expect(rule('/home/u/.pyapp')).toBeUndefined();
   });
 
   it('工作区与受管目录可写', () => {

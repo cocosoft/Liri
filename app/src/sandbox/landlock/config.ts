@@ -34,12 +34,14 @@
  * 一旦漏声明用户需要的路径就会**拦掉正常命令**（方案 §4 G1 明确点名"误伤"风险）⇒ 默认关闭、
  * 由用户显式开启；开启后语义见 `tools/bash/bashLandlockExec.ts`（不静默降级）。
  *
- * ⚠️ **实测注记（2026-09-26，如实）**：`enabled` / `failClosed` 目前**只被本模块与桶导出引用**，
- * **没有任何执行路径读取它们** —— `tools/CodeRunner/LinuxSandboxRunner.ts` 是直接
- * `LandlockDetector.detect()` + 不可用即降级，**不看** `enabled`。
- * 即：`sandbox.landlock.enabled=false` **拦不住** `code_run` 走 Landlock 路径。
- * 属"名义契约"，已记入台账待裁定（本次 G1-A 只让 `bashEnabled` 成为**第一个真实消费者**，
- * 未顺带改 code_run 的行为）。
+ * ✅ **"名义契约"已修复（G1-A2，2026-09-26）；本注记 2026-09-28 更新（原标题已过时）**：
+ * 修复前，`enabled` / `failClosed` **只被本模块与桶导出引用、没有任何执行路径读取它们** ——
+ * `tools/CodeRunner/LinuxSandboxRunner.ts` 当时是直接 `LandlockDetector.detect()` + 不可用即降级
+ * ⇒ `sandbox.landlock.enabled=false` 拦不住 `code_run` 走 Landlock 路径。
+ * **现两个开关都有真实消费者**：`LinuxSandboxRunner.runCodeRunnerWithLandlock()` 先读
+ * `readLandlockConfig()`（`enabled === false` ⇒ 直接交回跨平台执行器），`failClosed` 决定
+ * "exit 125 时**拒绝**还是**降级**"（另见该文件的 `resolveSandboxInitFailure`）；
+ * `bashEnabled` 的消费者在 `tools/bash/bashLandlockExec.ts`。
  */
 import { configManager } from '@modules/config';
 

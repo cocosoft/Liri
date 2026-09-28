@@ -67,7 +67,6 @@ import type {
 import {
   resolveDownloadsDir,
   resolveOutputDir,
-  resolvePyappHome,
   resolveTempDir,
 } from '@modules/core/paths';
 import { reportBashLandlockGapOnce } from './bashLandlockGap';
@@ -116,24 +115,35 @@ const SYSTEM_READ_EXECUTE_PATHS = [
  * 构造 bash 的 Landlock 策略（**纯函数**，便于离线断言形状）。
  *
  * 写权限只给：工作区（cwd）、受管输出/下载/临时目录、`/tmp` 与 `/var/tmp`、常见工具缓存、
- * `/dev`（允许 `2>/dev/null` 这类常规重定向）。**`~/.pyapp` 整体只读** ⇒ bash 改不动配置与凭据。
+ * `/dev`（允许 `2>/dev/null` 这类常规重定向）。
+ *
+ * 🔒 **`~/.pyapp` 整棵目录树一律不放行**（P0-3-a，2026-09-28）。此前这里是一条
+ * `{ path: pyappHome, allow: FS_READ_EXECUTE }`（"只读"）—— 但该目录下**几乎全是敏感内容**：
+ * `config.json` / `credentials.json`（凭据）、`data/app.db`（全部会话与台账）、`sessions/`、
+ * `memory/`、`knowledge/`、`logs/`、`mcp/`（可能含服务器凭据）、`permissions/`、`settings/`、
+ * `snapshots/`、`backups/` …（实测顶层 **25 个目录 + 6 个文件**）。
+ * ⇒ "只读"挡得住**改**，挡不住**读**，而读走凭据与会话数据同样是泄露；且 Landlock 无法表达
+ * "父目录允许、子目录排除"，逐项枚举非敏感项的净收益为负（敏感项占绝大多数）⇒ **整条移除**是唯一合理形态。
+ *
+ * **功能面不受影响（有取证，见 `.trae/specs/liri-optimization-plan-20260926.md` 的 P0-3）**：
+ * ① 受管产物目录 `output` / `downloads` / `temp` **已单独以读写列出**（它们是 `~/.pyapp` 下的
+ *    **具体子路径**，不受本次移除影响）；② 项目内**无内建 bash 命令**需要读 `~/.pyapp`
+ *    —— `execBashCommand` 的唯一调用点是 `BashTool.execute`，命令来自用户/模型；
+ * ③ 技能按 `project_rules.md §1.15` **仅提示词注入、禁止 shell 执行** ⇒ 无"读 `skills/` 跑脚本"场景；
+ * ④ 工具链缓存（`~/.bun` / `~/.npm` / `~/.cache`）与 cwd 均已单独放行。
  */
 export function buildBashLandlockPolicy(input: {
   cwd: string;
   abi: number;
   homeDir?: string;
-  pyappHome?: string;
 }): LandlockPolicy {
   const homeDir = input.homeDir ?? homedir();
-  const pyappHome = input.pyappHome ?? resolvePyappHome();
 
   const fs: LandlockFsRule[] = [
     ...SYSTEM_READ_EXECUTE_PATHS.map((path) => ({
       path,
       allow: FS_READ_EXECUTE,
     })),
-    // Liri 自身目录（配置 / 凭据 / 记忆）：只读 —— bash 不得改动
-    { path: pyappHome, allow: FS_READ_EXECUTE },
     // `/dev`：可写（`2>/dev/null`、`>&2` 等常规重定向；只限制不提权，故无额外风险）
     { path: '/dev', allow: FS_READ_WRITE },
     // 工作区

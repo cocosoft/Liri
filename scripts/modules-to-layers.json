@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Liri 模块分层映射。每个模块/目录归属一个层，lint:arch 据此检查跨层依赖",
-  "lastUpdated": "2026-06-19",
+  "lastUpdated": "2026-09-28",
 
   "layerOrder": ["entry", "ui", "app", "service", "infra", "core"],
 
@@ -29,6 +29,7 @@
     "hooks":    { "layer": "ui", "description": "React Hooks" },
     "cli":      { "layer": "ui", "description": "命令行界面" },
     "vim":      { "layer": "ui", "description": "Vim 模式" },
+    "keybindings": { "layer": "ui", "description": "键盘绑定（含 React 组件/Context）" },
 
     "commands": { "layer": "app", "description": "命令处理" },
     "tools":    { "layer": "app", "description": "工具管理" },
@@ -53,12 +54,26 @@
     "plugin-sdk": { "layer": "app", "description": "插件 SDK" },
     "plugins":  { "layer": "app", "description": "插件系统" },
 
+    "context-engine": { "layer": "app", "description": "上下文引擎（与 context 同域）" },
+    "evals":    { "layer": "app", "description": "Agent 评测框架（runner/scoring/sandbox/反作弊）" },
+    "project":  { "layer": "app", "description": "项目域（成果/历史/需求追踪/迁移）" },
+    "promptSuggestion": { "layer": "app", "description": "提示建议（消费 ai/chat）" },
+    "subagent": { "layer": "app", "description": "子代理管理（工厂/通信/Teammate）" },
+    "subagents": { "layer": "app", "description": "子代理事件泵（与 subagent 同域）" },
+    "testing":  { "layer": "app", "description": "测试辅助（依赖面宽，故归 app 而非 infra）" },
+    "tool":     { "layer": "app", "description": "工具结果/作用域注册（与 tools 同域）" },
+    "workspace": { "layer": "app", "description": "工作空间域（.liri 目录管理/工作项生命周期）" },
+    "workspaces": { "layer": "app", "description": "工作区注册/扫描/清理/Git" },
+
     "session":  { "layer": "service", "description": "会话管理" },
     "bridge":   { "layer": "service", "description": "桥接模块" },
     "channels": { "layer": "service", "description": "通道系统" },
     "streaming":{ "layer": "service", "description": "流式输出" },
     "services": { "layer": "service", "description": "通用服务" },
     "voice":    { "layer": "service", "description": "语音服务" },
+    "infrastructure": { "layer": "service", "description": "HTTP 服务层（LocalHTTPService + handlers + 17 路由子域）" },
+    "remote":   { "layer": "service", "description": "远程接入（SSH 连接池/远程会话/文件同步）" },
+    "runtime":  { "layer": "service", "description": "运行时 API（CoreAPI/Inbox/通知持久化）" },
 
     "config":   { "layer": "infra", "description": "配置管理" },
     "error":    { "layer": "infra", "description": "错误处理" },
@@ -80,6 +95,12 @@
     "security": { "layer": "infra", "description": "安全模块" },
     "oauth":    { "layer": "infra", "description": "OAuth 认证" },
     "permission": { "layer": "infra", "description": "权限控制" },
+
+    "diagnostics": { "layer": "infra", "description": "诊断/健康检查（与 monitoring 同类）" },
+    "featureflags": { "layer": "infra", "description": "特性开关" },
+    "performance": { "layer": "infra", "description": "性能采样/优化/启动剖析" },
+    "system":   { "layer": "infra", "description": "聚合容器（auth/i18n/state/theme 基础能力）" },
+    "trace-recording": { "layer": "infra", "description": "AI 轨迹录制（观测）" },
 
     "core":     { "layer": "core", "description": "核心框架" },
     "modules":  { "layer": "core", "description": "模块系统" },

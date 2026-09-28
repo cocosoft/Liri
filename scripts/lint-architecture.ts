@@ -2461,11 +2461,23 @@ class ArchitectureLinter {
     let checked = 0;
     let violationCount = 0;
     let exemptedCount = 0;
+    /**
+     * R00-002（2026-09-28，D-3「防盲区复发」）：**未在分层映射中的顶层目录**。
+     *
+     * 此前 `if (!srcLayer) continue;` 是**静默**跳过 ⇒ 实测 `app/src` 有 **19 个顶层目录**
+     * （含整个 `infrastructure/` HTTP 层与 `runtime/`）**从未参与分层检查**，而门禁仍报"违规 0"。
+     * 改为**显式登记并报 warning**（不阻断提交）⇒ 盲区一旦新增/存续即被看见。
+     * 消除方式：在 `scripts/modules-to-layers.json` 的 `modules` 里补齐该目录的层归属。
+     */
+    const unmappedModules = new Set<string>();
 
     for (const file of this.allFiles) {
       const srcModule = this.resolveModuleName(file);
       const srcLayer = this.moduleToLayer.get(srcModule);
-      if (!srcLayer) continue;
+      if (!srcLayer) {
+        unmappedModules.add(srcModule);
+        continue;
+      }
 
       const allowedLayers = this.allowedDeps[srcLayer] || [];
       const targetModules = this.parseModuleImports(file);
@@ -2495,8 +2507,25 @@ class ArchitectureLinter {
       checked++;
     }
     console.log(
-      `分层检查完成: 检查 ${checked} 个文件 | 违规 ${violationCount} | 已豁免 ${exemptedCount}`
+      `分层检查完成: 检查 ${checked} 个文件 | 违规 ${violationCount} | 已豁免 ${exemptedCount}${
+        unmappedModules.size > 0
+          ? ` | 未映射目录 ${unmappedModules.size} 个`
+          : ''
+      }`
     );
+
+    // R00-002：未映射目录（其文件**不参与**分层检查）—— warning 级、不阻断提交
+    if (unmappedModules.size > 0) {
+      const list = [...unmappedModules].sort();
+      this.violations.push({
+        ruleId: 'R00-002',
+        severity: 'warning',
+        file: 'scripts/modules-to-layers.json',
+        message: `${list.length} 个顶层目录未登记分层映射 ⇒ 其文件**不参与**分层检查（门禁盲区）：${list.join(', ')}`,
+        suggestion:
+          '在 scripts/modules-to-layers.json 的 modules 中为每个目录补 { "layer": ... }（按职责选 entry/ui/app/service/infra/core），补齐后本条自动消失',
+      });
+    }
   }
 
   // ============ P1 新增检查（AR/GR 规则） ============

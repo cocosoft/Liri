@@ -73,6 +73,9 @@ import {
 } from './sourceTask.js';
 import { sourceTaskSpecs } from './tasks/source-derived.js';
 import { collectShieldedPaths, verifyShieldApplied } from './shieldPlan.js';
+// P1-1 形态 B（2026-09-28）：反作弊面自检（纯函数、零模型；默认仅观测，`--cheat-gate` 可门禁化）
+import { auditAntiCheatSurface } from './antiCheatAudit.js';
+import { readLandlockConfig } from '@modules/sandbox';
 import {
   discoverFixCommits,
   screenFixCandidates,
@@ -402,11 +405,52 @@ const assertShieldApplied = (sandbox: EvalSandbox): void => {
   }
 };
 
+/**
+ * P1-1 形态 B（2026-09-28）：**反作弊面自检**开关。
+ *
+ * 默认**仅观测**（与 A2 / A5 / S2 同取向：先取干净基线，再议门禁化）；
+ * 加 `--cheat-gate` 时"**必须挡但没挡**"（`exposed`）即**拒绝本次运行**（fail-closed）。
+ * `knownGap`（**已登记的已知缺口**）**刻意不参与** fail-closed —— 否则 D-5 会让所有题立即全废。
+ */
+const cheatGate = process.argv.includes('--cheat-gate');
+let antiCheatReported = false;
+
+/** 自检 + 打印（**只跑一次**：向量与 attempt 无关，只依赖本次运行配置） */
+const reportAntiCheatOnce = (sandbox: EvalSandbox): void => {
+  if (antiCheatReported) return;
+  antiCheatReported = true;
+  const report = auditAntiCheatSurface({
+    declaredShields: shieldTargets,
+    appliedShields: sandbox.shieldedPaths,
+    reportDir: outDir,
+    sandboxRoot: sandbox.root,
+    platform: process.platform,
+    bashLandlockEnabled: readLandlockConfig().bashEnabled,
+  });
+  const blocked =
+    report.findings.length - report.knownGaps.length - report.exposed.length;
+  out(
+    `  反作弊面自检：${report.findings.length} 条向量 ｜ 已挡 ${blocked} ｜ 已知缺口 ${report.knownGaps.length} ｜ 暴露 ${report.exposed.length}`
+  );
+  for (const g of report.knownGaps) out(`    · [已知缺口 ${g.id}] ${g.title}`);
+  for (const e of report.exposed) out(`    · [暴露 ${e.id}] ${e.detail}`);
+  if (report.exposed.length > 0) {
+    if (cheatGate) {
+      err(
+        `反作弊面自检未通过（--cheat-gate）：${report.exposed.map((e) => e.id).join(', ')}`
+      );
+      process.exit(2);
+    }
+    out('    ⚠️ 暴露项未开启 --cheat-gate ⇒ 本次仅记录（不影响判定）');
+  }
+};
+
 /** 新建沙箱并登记根目录（两条 fresh 路径共用） */
 const createTrackedSandbox = async (): Promise<EvalSandbox> => {
   const created = await createSandbox(sandboxOpts);
   createdRoots.push(created.root);
   assertShieldApplied(created);
+  reportAntiCheatOnce(created);
   return created;
 };
 

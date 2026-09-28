@@ -535,3 +535,91 @@ describe('AgentRunStore：描述符来源落盘（O19 / schema v2）', () => {
     store.close();
   });
 });
+
+describe('AgentRunStore：并发写入（P0-2 验收判据，2026-09-28）', () => {
+  /**
+   * 背景：方案 `liri-optimization-plan-20260926.md` 的 P0-2 原设"多子代理并发写仍可能
+   * `SQLITE_BUSY` / 写放大 ⇒ 加内存 Write-Buffer"。**取证后该前提被证伪**（见该 spec 的修正记录）：
+   *   · `getAgentRunStore()` 是**模块级单例**（`AgentRunStore.ts:641`）⇒ 进程内**单连接**；
+   *   · `core/external/sqlite3.ts:159` 统一 `PRAGMA busy_timeout=10000` ⇒ 跨连接争锁是**等待**而非报错；
+   *   · `prune()` 只在 `doInit()` 调用一次（`AgentRunStore.ts:207`），**不在写入路径** ⇒ 无"每写必扫"的写放大。
+   * 故**不引入 Write-Buffer**（它还会反过来破坏头注释⑥"完成即写回 ⇒ 崩溃只丢未完成的那几个"的即时落盘语义）。
+   *
+   * 本 describe 把方案原本的**验收判据**固化为回归守卫：若将来有人把 store 改成多连接、
+   * 去掉 `busy_timeout`、或把 `prune` 挪进写入路径，这两条用例会先红。
+   */
+
+  test('单连接 50 路并发 startRun/settleRun ⇒ 不丢行、终态齐全', async () => {
+    const store = await makeStore();
+    const N = 50;
+    const ids = Array.from({ length: N }, (_, i) => `conc-${i}`);
+
+    await Promise.all(
+      ids.map((toolCallId, i) =>
+        store.startRun({
+          toolCallId,
+          agentId: `agent-${i}`,
+          name: `worker-${i}`,
+          agentType: 'general-purpose_task',
+          status: 'running',
+          batchId: 'batch-conc',
+          taskKey: `task-${i}`,
+          startedAt: Date.now(),
+        })
+      )
+    );
+    // 起跑阶段：50 条在途行全部在盘（崩溃只丢"未完成的那几个"这一语义的前提）
+    expect(await store.listRuns('running')).toHaveLength(N);
+
+    await Promise.all(
+      ids.map((toolCallId, i) =>
+        store.settleRun(toolCallId, i % 3 === 0 ? 'failed' : 'completed', {
+          outputSummary: `out-${i}`,
+        })
+      )
+    );
+
+    const rows = await store.listRuns();
+    expect(rows).toHaveLength(N);
+    expect(rows.filter((r) => r.status === 'failed')).toHaveLength(
+      ids.filter((_, i) => i % 3 === 0).length
+    );
+    expect(await store.listRuns('running')).toHaveLength(0);
+  });
+
+  test('两个连接同库并发写 ⇒ 不报 BUSY、不丢行（多连接场景的兜底验证）', async () => {
+    const path = makeDbPath();
+    const a = new AgentRunStore(path);
+    const b = new AgentRunStore(path);
+    openedStores.push(a, b);
+    // 先各自完成初始化（含幂等 DDL / 陈旧自愈 / 裁剪），排除 init 期交错
+    await Promise.all([a.init(), b.init()]);
+
+    const idsA = Array.from({ length: 25 }, (_, i) => `connA-${i}`);
+    const idsB = Array.from({ length: 25 }, (_, i) => `connB-${i}`);
+    const startAll = (store: AgentRunStore, ids: string[]) =>
+      Promise.all(
+        ids.map((toolCallId) =>
+          store.startRun({
+            toolCallId,
+            agentId: 'shared',
+            name: toolCallId,
+            agentType: 'general',
+            status: 'running',
+          })
+        )
+      );
+
+    await Promise.all([startAll(a, idsA), startAll(b, idsB)]);
+    // 两个连接看到的是同一张表：50 行齐全（无"各自一半"的隔离假象）
+    expect(await a.listRuns('running')).toHaveLength(50);
+
+    await Promise.all([
+      Promise.all(idsA.map((id) => a.settleRun(id, 'completed', {}))),
+      Promise.all(idsB.map((id) => b.settleRun(id, 'completed', {}))),
+    ]);
+
+    expect(await b.listRuns('completed')).toHaveLength(50);
+    expect(await a.listRuns('running')).toHaveLength(0);
+  });
+});

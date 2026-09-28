@@ -19,18 +19,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * doc 工作流 Provider（P0-1 **接入点第一刀**）
+ * doc 工作流 Provider（P0-1 **接入点**；临时双轨已于 2026-09-26 收口）
  *
- * 把 `runDocWorkflow` 的四阶段声明为 seam 可调度的 `WorkflowDefinition`，让 workflow seam
- * （拓扑序 + 成员级账本 + 失败归因）对 doc 流水线**真实生效** —— 这是 P0-1/P0-2 从"有内核、
- * 无数据"走向"有真实数据"的第一步（方案见 `.trae/specs/graph-engineering-p0.md` §七）。
+ * 把 doc 四阶段流水线（`buildOutline → fillContent → generateImages → compose`）声明为
+ * seam 可调度的 `WorkflowDefinition`，让 workflow seam（拓扑序 + 成员级账本 + 失败归因）
+ * 对 doc 流水线**真实生效**（方案见 `.trae/specs/graph-engineering-p0.md` §七）。
  *
- * **第一刀边界**：
- * - **不改** `runDocWorkflow` 及其调用方 ⇒ 现有文档生成行为完全不变；
- * - 本 Provider 目前只被 `engine.execute()` 调用（把 `office:workflow` 工具切到 seam 属第二刀）。
- *
- * TODO: CS05-ROOTFIX — 第一刀期间本文件与 `runDocWorkflow` 各自持有同一阶段序列（临时双轨）；
- * 第二刀收口后由本 Provider 独占序列、`runDocWorkflow` 降为薄包装（spec §七.2）。
+ * **✅ 序列单一事实源（原 `TODO: CS05-ROOTFIX` 已结）**：第一刀期间本文件与
+ * `runDocWorkflow` 各持一份相同序列（临时双轨）；**2026-09-26「方案 3」已收口** ——
+ * `runDocWorkflow` **已删除**、**本 Provider 独占序列**，进度由本 Provider 复用
+ * `DocWorkflowProgressEmitter` 在阶段边界推进（保真度与删除前同等：节点清单 + 逐节点百分比）。
+ * 调用路径：`office:doc-pipeline` 工具 → workflow seam（`engine.execute('doc_pipeline', …)`）。
+ * 收口过程的完整记录见 `DocWorkflow.ts` 的「收口说明」段。
  */
 
 import { getLogger } from '@modules/monitoring';
@@ -91,7 +91,7 @@ export interface DocPipelineParams {
   onProgress?: RunDocWorkflowOptions['onProgress'];
 }
 
-/** 阶段 id（与 `runDocWorkflow` 的三阶段语义一一对应；配图是填充阶段的辅助动作，故独立成步） */
+/** 阶段 id（与 doc 四阶段流水线语义对应；配图是填充阶段的辅助动作，故独立成步） */
 const STEP_OUTLINE = 'outline';
 const STEP_FILL = 'fill_content';
 const STEP_IMAGES = 'images';

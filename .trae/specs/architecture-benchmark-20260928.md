@@ -41,9 +41,94 @@
 
 | 优先级 | 缺口 | 根因 | 下一步 |
 |:--:|---|---|---|
-| **P1** | 产物类生成物（Mermaid/图表/长文）**无自纠回路**（#4） | 校验点不在"产物出口"，错误直达前端 | P1-1：① 前端降级止血 → ② 服务端"校验失败→回喂同一子代理"（并落事件，对齐 §1.6） |
-| **P1** | 工具**出参无 schema 契约**（#5） | 入参有 zod、出参只有解包（`decodeToolResultContent`），边界未强约束 | P1-3：工具结果出口做 schema 校验（先高频 10 个） |
-| **P2** | `DocWorkflow` **阶段序列双份**（#1） | 迁移期临时双轨（代码已标 `TODO: CS05-ROOTFIX`） | 按该 TODO 收口：`DocWorkflowProvider` 独占序列，`runDocWorkflow` 降为薄包装 |
+| ~~**P1**~~ **✅** | 产物类生成物（Mermaid/图表/长文）**无自纠回路**（#4） | 校验点不在"产物出口"，错误直达前端 | **✅ 2026-09-28 已完成**：① 前端降级止血（`MarkdownRenderer` 改用 `mermaid.parse()` 预校验 + 琥珀降级卡片）；② 服务端 `app/src/utils/mermaidLint.ts`（零依赖结构预检）命中 ⇒ **落 `validation/injected` 事件**（三处同步：`events.ts` + `eventPayloads.ts` + `knownEventTypes.ts`）并经 `steeringQueue` **同一轮内**回喂修正指令（每 run **≤1 次**）。详见 `liri-optimization-plan-20260926.md` 的 P0-1② |
+| **P1** | 工具**出参无 schema 契约**（#5） | 入参有 zod、出参只有解包 —— **⚠️ 2026-09-28 复查更正**：原写的依据 `decodeToolResultContent` **全仓零命中（该函数不存在）**；实测真实形态见下 | ⬜ **未执行**，且**需先出方案**（见下方"复查更正"） |
+
+> **⚠️ 2026-09-28 复查更正（P1-3 的前提有误，问题比原描述更根本）**：
+> - 原依据 `decodeToolResultContent` **不存在**（`grep` 全仓零命中）⇒ 原表述"出参只有解包"**不成立**。
+> - **真实形态**（[`tools/types/ToolResult.ts:40`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/types/ToolResult.ts#L40-L68)）：`ToolResult<T>` 有 **19 个字段且几乎全为 optional**，含 `any`（`contextModifier?: (context: any) => any`、`progress?: any[]`），且 **`data?: T` 与 `result?: T` 两个并行字段语义重叠**。
+>   ⇒ 结论：**不是"缺一个 schema 校验"，而是出参类型本身"什么都可以"** ⇒ 直接加 schema 只能写成"全 optional" ⇒ **无约束力**（等于把 §四 那句"门禁本身会变成第二份事实源"再犯一次）。
+> - **另有 7 处 `ToolResult` 独立定义**（`core/types.ts:46`、`chat/types/tool.ts:127`、`runtime/api/CoreAPI.ts:265`、`ToolExecutor.ts:32`、`extensions/ExtendedToolOptions.ts:68`、`ChatMessage.tsx:15` 等）⇒ 收敛前需先甄别"真重复 vs 不同语义同名"，属于 §四 根因类 ①。
+> - **故 P1-3 需先出方案**（口径见 `liri-optimization-plan-20260926.md` 的 P1-3 条目；两者编号同名但**不同物**：本 spec 的 P1-3 = 工具出参 schema）。
+
+| ~~**P2**~~ **✅** | `DocWorkflow` **阶段序列双份**（#1） | 迁移期临时双轨（代码已标 `TODO: CS05-ROOTFIX`） | **✅ 已完成 —— 但收口形态与原方案不同：不是"降为薄包装"，而是"删除"**。实测 `runDocWorkflow` 在 `app/src` **已不存在**（全仓 `grep` 仅命中台账/spec/测试注释），收口于 **2026-09-26「方案 3」**完成（`DocWorkflow.ts` 原址留有「收口说明」段，记明"为何删除 / 现走哪条路 / 保留 `RunDocWorkflowOptions` 作类型来源"）。本次（2026-09-28）**补清理了残留的过时注释**：`DocWorkflowProvider.ts` 头注释仍写"接入点第一刀 / 临时双轨 / TODO 未结"、阶段 id 注释仍引用已删函数 —— **零代码改动**。⇒ **原方案"降为薄包装"不成立**：该函数已无调用方，保留它只会形成第二条路径。 |
+
+#### §2.1 P1-3 方案（2026-09-28 取证后）
+
+**问题重定义**（三条，均有代码依据）：
+
+1. **主契约过宽**：[`tools/types/ToolResult.ts:40`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/types/ToolResult.ts#L40-L68) 的 `ToolResult<T>` 有 **19 个字段、几乎全 optional**，含 `any`（`contextModifier?: (context: any) => any`、`progress?: any[]`），且 **`data?: T` 与 `result?: T` 语义重叠** ⇒ 任何工具可返回任意子集 ⇒ **不存在可校验的契约**。
+2. **4 层视图各自重声明**（**已逐处甄别：不是"同一事实源两份"，而是同概念的 4 层视图**）：
+
+   | 位置 | 层 | 字段 |
+   |---|---|---|
+   | `tools/types/ToolResult.ts:40` | 工具内部（主契约） | 19 字段 |
+   | `chat/types/tool.ts:127` | 聊天事件层 | `toolCallId` / `toolName` / `result` |
+   | `runtime/api/CoreAPI.ts:265` | 对外 API DTO | `toolCallId` / `toolName` / `result` / `error` / `executionTime` |
+   | `components/ui/ChatMessage.tsx:15` | UI 展示 | `toolName` / `success` / `result: string` |
+
+   （[`chat/types/ToolUseBlock.ts:23`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/types/ToolUseBlock.ts#L23-L32) 的 `ToolResultBlock` 是 **provider 协议块**（`tool_use_id`/`is_error`），语义不同 ⇒ **不计入重复**。）
+   ⇒ 共性字段 `toolCallId`/`toolName`/`result` **在 4 处各自声明** ⇒ 改一处需同步 4 处（漂移风险），且**无单一基座类型**。
+   ⚠️ **本表未穷尽**：另 2 处（`core/types.ts:46`、`extensions/ExtendedToolOptions.ts:68`）**尚未展开甄别**（本次取证被输出上限截断）⇒ 若按 B/C 档动手，**须先补齐这 2 处的语义判定**。
+3. **出参无任何声明**：入参有 zod；出参**无 schema**，且**每个工具各自实现 `execute()`** ⇒ 出参形态**只存在于各工具代码里**。
+
+**校验插入点（已取证，前提成立）** —— 统一出口**存在**，不需新建机制：
+
+- [`tools/ToolExecutor.ts:104`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/ToolExecutor.ts#L104) `async execute(...)`（含 `executeWithGovernance` :392 / `executeLegacy` :480）
+- [`tools/ToolManager.ts:334`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/ToolManager.ts#L334) `async executeTool(...)`（门面 `tools/core/ToolManager.ts:37` 转发）
+- 且 [`ToolExecutor.ts:358`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/ToolExecutor.ts#L358) **已有 `executePostToolUseHooks`** ⇒ **天然的"事后校验"挂点**。
+
+**三档方案**：
+
+| 档 | 内容 | 破坏面 | 价值 |
+|---|---|---|---|
+| **A（建议起点）** | 工具**可选**声明 `outputSchema`（zod）；在 `ToolExecutor` post-hook 链上加一步校验，**仅对已声明者生效**；失败 ⇒ 记录 + 如实标注（**默认不阻断**） | **零**（纯增量） | 契约**首次存在**，且**可门禁化** |
+| B | A + 收敛主契约（去 `data`/`result` 重复、收窄 `any`） | **大**（影响所有工具） | 契约有真正约束力 |
+| C | B + 抽「基座类型」，4 层视图由其派生 | **最大**（跨 4 层重构） | 消除 4 处重声明 |
+
+**高频工具清单**：**不臆造**（CS04）—— 应从 `getToolRegistry()` 注册面 + **实际运行数据**（事件日志中 `assistant/tool_call` 的 `name` 频次）确定；建议先统计 top-N。
+
+**门禁**（与 §三 收尾同一件事）：A 落地后即可加判据 ——「**声明了 `outputSchema` 的工具，其出参必须通过该校验**」。
+
+**✅ A 档机制已落地（2026-09-28）**：
+
+| 改动 | 内容 |
+|---|---|
+| `tools/types/Tool.ts` | `outputSchema?: unknown` ⇒ **收窄为** `{ safeParse(data): {success, error?} }`。**关键发现：该字段早已存在，但类型是 `unknown` ⇒ 任何校验都不可能**（等价"只有占位、没有契约"）⇒ spec 原表述已随之更正 |
+| `tools/ToolExecutor.ts` | ① `execute()` 的 **governance/legacy 唯一汇合处**接入校验（`result.success !== false` 时）；② 新增**导出纯函数** `validateToolOutputShape()`（private 方法无法单测）；③ 校验失败**不阻断**，只写 `metadata.outputSchemaError` + warning |
+| `tests/tools/toolOutputSchema.test.ts` | **5 例**：未声明不校验（**零行为变化的关键不变量**）/ 合规通过 / 不合规返回详情 / **schema 自身抛错不向上抛** / `data` 缺省回退校验 `result` 本体 |
+
+- **实测验收**：`typecheck` **0** · `eslint` **0** · 该测试 **5 pass / 0 fail**。
+- **阴性证据**：把 `unknown` 收窄为结构化接口后 `typecheck` 仍 **0 错** ⇒ **全仓无一处真正使用 `outputSchema`**（此前是纯占位）。
+- **⬜ 尚未做（如实）**：① **top-10 工具逐个补 `outputSchema`**（频次已统计：`file_read` 9,585 / `grep` 6,875 / `glob` 4,353 / `tool_search` 1,569 / `web_search` 548 / `todo_write` 466 / `web_fetch` 360 / `sessions` 286 / `bash` 272 / `file_convert` 239 ⇒ top-10 覆盖 **94.8%**）——属**增量填充**，机制已就绪；② 上表"门禁"判据尚未加。
+- **统计口径（可复现）**：扫 `~/.pyapp/data/sessions/**/events.jsonl` 中 `assistant/tool_call` 的 `name`（263 个会话文件、36 种工具、**26,103** 次调用）。
+
+**✅ top-N 填充进展：6/10 已完成（覆盖 87.6%）**
+
+| # | 工具 | 频次 | `data` 形态 | 做法与发现 |
+|:--:|---|---:|---|---|
+| 1 | `file_read` | 9,585 | **字符串** | 新写 `z.string()`。**刻意不断言非空**（空文件合法）。⚠️ 该工具 `data` 走"正文/Markdown/错误说明"**同一通道** |
+| 2 | `grep` | 6,875 | 结构对象 | **仅接线**：`outputSchema = GrepOutputSchema`（`schemas.ts` 已有，且出口 `satisfies GrepOutputType` ⇒ **类型与运行期同源、必然匹配**） |
+| 3 | `glob` | 4,353 | **字符串数组** | 新写 `z.array(z.string())`。⚠️ **契约漂移**：`tools/GlobTool/schemas.ts` 的 `GlobOutputSchema` 描述的是**内层 `globAsync()`** 的返回（`{filenames, durationMs, numFiles, truncated}`），而工具出口 `data` **只取 `filenames`** ⇒ **强行接线会每次校验失败**；且该 schema **全仓无消费者**（孤立文件） |
+| 4 | `tool_search` | 1,569 | 结构对象 | 新写 `z.object({ matches: unknown[], query, total_deferred_tools, deferredToolNames })`。`matches` 元素形态**刻意不细化**（取证只确认"数组"，不臆断） |
+| 5 | `bash` | 272 | **字符串** | 新写 `z.string()`。⚠️ **与 `glob` 完全同型**的漂移：`BashTool.ts:89` 的 `{stdout, stderr, exitCode}` schema 描述的是**内层 `execBashCommand()`**，而出口 `data` 是字符串 `output` |
+| 6 | `file_convert` | 239 | **字符串** | 新写 `z.string()`（成功传 Markdown/提示文本、失败传错误说明，**同一通道**） |
+
+- 验收：`typecheck` **0** · `eslint` **0** · `tests/tools` **538 pass / 0 fail**。
+- **本轮关键结论（两条）**：
+  1. **不能按"是否有 `*OutputSchema`"批量接线** —— `grep` 有且**匹配**（应接），`glob`/`bash` 有但**描述的是内层函数**（**不可接**，强行接会每次校验失败）⇒ **每个工具都必须实测其出口 `data` 形态**。
+  2. **已出现 2 例同型漂移**（`glob`、`bash`）⇒ 提示这是一类**系统性**问题：`schemas.ts` 里写的是"内层函数的输出契约"，与"工具出口的 data"**不是同一层** ⇒ 建议后续单独立项核查全部 `*OutputSchema` 的层级归属。
+- ⬜ **剩余 4 个：取证已完成，但结论是「按现有证据不宜硬加 schema」**（如实，非跳过）：
+
+| # | 工具 | 频次 | 取证结果（含 `文件:行`） | 结论 |
+|:--:|---|---:|---|---|
+| 7 | `web_fetch` | 548 | 错误分支 = **string**（L181/192/220/287/374/399）；成功分支 = **对象** `WebFetchResult`（L321 `const result: WebFetchResult = {…}`，L537 定义 `{url, status, statusText, headers, content, contentLength, …}`）；而 `WebFetchTool/schemas.ts:46` 的 `WebFetchOutputSchema` 是 `{content, url, statusCode, contentType, contentLength, fetchTime}` ⇒ **字段名不同**（`status` vs `statusCode`，且缺 `headers`/`statusText`） | ⚠️ **第 3 例同型漂移**；出口为 **string ∪ object 混合** ⇒ **暂不加** |
+| 8 | `todo_write` | 466 | **混合**：`null`（L674/L869）/ 字符串（L716/855/896）/ `output`（L755，未确证）/ `result`（L785/829，未确证） | 需**联合**且成功分支未确证 ⇒ **暂不加** |
+| 9 | `web_search` | 360 | 错误分支 = string（L154/212）；成功分支**未确证**；`WebSearchTool/schemas.ts:45` 的 `WebSearchOutputSchema` = `{results:[{title,url,snippet}]}` | 取证不足 ⇒ **暂不加** |
+| 10 | `sessions` | 286 | `execute(): Promise<ToolResult>`（**无泛型实参**，L264）；返回分支**未取证** | 取证不足 ⇒ **暂不加** |
+
+- **为何不硬凑**：`glob` / `bash` 已两次证明「**看到 `*OutputSchema` 就接**」会导致**每次调用校验失败**（schema 描述的是**内层函数**、与工具出口**不是同一层**）。在形态未确证时硬加，等于制造噪音告警，违背 A 档"零破坏"的前提。
+- **建议**：这 4 个（合计 **6.4%**）与「**全部 `*OutputSchema` 的层级归属核查**」**合并立项**处理 —— 二者是**同一根因**（schema 写在内层函数上，缺"工具出口契约"这一层）。
 
 > 观察：三个缺口都属**同一类根因** ——「**同一事实源/契约在边界处缺失**」（序列双份 / 契约只覆盖入参 / 校验点位置错）。这与论文的核心主张一致，也解释了为何它们不是靠"加功能"能解决的。
 
@@ -114,7 +199,7 @@
 > 起因：用户问"能否先做架构层面的治理""企业级是否要补一个 `server/` 文件夹装共性内容"。
 > 本文只**记录取证与判断**（可复核），**未改任何代码**；执行与否待用户另择时机启动。
 
-### 5.1 门禁"假绿"：分层检查有 **19 个顶层目录从未被检查过**
+### 5.1 ✅ 门禁"假绿"：分层检查有 **19 个顶层目录从未被检查过** —— **已修（D-3-A，2026-09-28，见 §5.6）**
 
 | 项 | 实测 |
 |---|---|
@@ -154,6 +239,59 @@
 
 ### 5.5 待用户裁定的选项（本次未选，原样留档）
 
-- **治理起点**（可多选）：**A** 先补门禁视野（补映射 + 未映射目录改为报 warning + 处理 10-18 到期例外）；**B** 先做跨端契约单一事实源（`shared/` 收口，含"单向依赖 vs codegen"二选一）；**C** 先拆文件规模债（156 个 `>1000` 行文件）；**D** 先做分层依赖收口（210 处跨层依赖走 SPI）。
+- **治理起点**（可多选）：**A** 先补门禁视野（补映射 + 未映射目录改为报 warning + 处理 10-18 到期例外）—— **✅ 前两项已完成（D-3-A，见 §5.6）；第三项 = D-3-B，方案已出（§5.7）、执行待定**；**B** 先做跨端契约单一事实源（`shared/` 收口，含"单向依赖 vs codegen"二选一）；**C** 先拆文件规模债（156 个 `>1000` 行文件）；**D** 先做分层依赖收口（210 处跨层依赖走 SPI）。
 - **`server/` 意图澄清**：三种读法（后端服务层 / 跨端契约 / 独立部署）分别对应"不新增 / 落 `shared/` / 出部署方案"。
 - 建议顺序（我的判断，未执行）：**A → B → C/D** —— A 是零业务风险且**是其余各项的前置**（不做 A，后续重构无法被门禁验证）。
+
+### 5.6 ✅ D-3-A 已落地（2026-09-28，用户裁定"先补门禁视野"）
+
+- **① 补映射表**：`scripts/modules-to-layers.json` **65 → 84 项**（补入 19 个目录，各带 `description` 记录定层依据）；`lastUpdated` 2026-06-19 → **2026-09-28**。
+  · 定层结果（**逐个核实目录内容**后判定，非按名字臆断）：**ui** = `keybindings`；**service** = `infrastructure` / `remote` / `runtime`；**infra** = `diagnostics` / `featureflags` / `performance` / `system` / `trace-recording`；**app** = `context-engine` / `evals` / `project` / `promptSuggestion` / `subagent` / `subagents` / `testing` / `tool` / `workspace` / `workspaces`。
+  · 两个**需说明的判断**：`system/` 实为**聚合容器**（仅含 `auth` / `i18n` / `state` / `theme` 四个子目录、无顶层源文件）⇒ 归 **infra**；`testing/` 归 **app**（而非 infra）的理由：它依赖面宽，归 infra 会**大量假违规**（infra 只允许依赖 core）。
+- **② 防盲区复发（新规则 R00-002）**：`scripts/lint-architecture.ts` **不再静默跳过**未映射目录 —— 改为**显式登记 + 报 warning**（不阻断提交），并在完成行输出"`未映射目录 N 个`"⇒ 新增目录会被自动捕获，无需人工记得。
+- **验收（实测）**：`检查 3677 → **4007** 个文件`（与 `已扫描 4007` **逐数吻合 ⇒ 盲区归零**）· **违规 0** · 已豁免 395 → **464** · 警告 2 → **1**（R00-002 消失，仅剩预存 R07-004）。
+  · ⚠️ **一处如实提示（影响 D-3-B 规模）**：**没有冒出任何真实违规** —— 说明这些目录的依赖方向**本就合规**，此前只是**没被检查**；但**豁免数 +69** 意味着这些文件的跨层依赖**已被既有 `R00-001` 批量例外覆盖** ⇒ **D-3-B（例外 2026-10-18 到期）的收口面比原先估计更大**（从 210 处量级进一步扩大），届时"收口 vs 续期"的取舍更需明确。
+- **D-3-B 状态**：**未续期、未收口**（用户裁定"稍后再说"）。
+
+### 5.7 D-3-B 收口方案分析（2026-09-28 取证）
+
+**到期机制（先明确后果）**：`layer-exceptions.json` 的 `expiresAt = 2026-10-18`；到期后 `isException` 判定失效 ⇒ 对应依赖全部转为 **`EXC-EXPIRED`（error 级）** ⇒ **`lint:arch` 直接红、pre-commit hook 阻断提交**。⇒ **"什么都不做"不是可选项**（必须至少续期）。
+
+**⚠️ 发现①：4 条 bulk 例外与 `allowedDependencies` 重复，永不生效（可零风险删除）**
+
+`lint-architecture.ts` 的判定顺序是 **L2489 `if (allowedLayers.includes(tgtLayer)) continue;` 先于 L2492 `isException(...)`** ⇒ 凡"已允许的依赖方向"**根本走不到例外查询**。对照 `modules-to-layers.json` 的 `allowedDependencies`：
+
+| 例外 | pattern | `allowedDependencies` 是否已允许 | 判定 |
+|---|---|:---:|---|
+| BULK-001 | `app -> infra` | ✅（`app: [app, service, infra, core]`） | **冗余·永不生效** |
+| BULK-002 | `service -> infra` | ✅（`service: [service, infra, core]`） | **冗余·永不生效** |
+| BULK-003 | `app -> service` | ✅（同上） | **冗余·永不生效** |
+| BULK-006 | `ui -> app` | ✅（`ui: [ui, app, service, infra, core]`） | **冗余·永不生效** |
+
+- 这 4 条的 `estimatedCount` 之和 = 120+50+40+185 = **395**，与门禁输出的 `已豁免 395` **数值相同但语义无关**（因 L2489 先 `continue`，它们对 `exemptedCount` **零贡献**）—— **不要被这个巧合误导**，`已豁免 395` 是**其余 14 条真例外**的实际命中数。
+- **删除收益**：消除"看起来有 395 处待收口"的假象；例外清单 18 → 14 条。**风险：零**（不改变任何判定结果）。
+
+**⚠️ 发现②：PM-002 是「映射问题」而非「代码问题」⇒ 改映射即可收口，零代码改动**
+
+PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享目录，所有层都可引用"。但 `types` 当前被映射为 **infra** ⇒ `core → infra` 违反 `core: [core]`。而 `types` 的**真实语义**（纯类型定义、应无运行时代码、被所有层引用）**恰好就是 `core` 的定义**。⇒ **把 `types` 的层从 `infra` 改为 `core`，`core → types` 即为 `core → core`，自动合法** ⇒ PM-002 可直接删除。
+- **前置验证（未做）**：需先确认 `app/src/types/` **无出向依赖**（若有 `types → infra` 之类，改归 core 会反而制造违规）。同类待评估：`common` / `constants` / `utils` 是否也该归 core（**风险更高**：它们可能依赖 `config`，归 core 会立即违规）⇒ 建议**只动 `types`**。
+
+**真例外分类与收口路径**
+
+| 类别 | 例外（pattern） | 规模 | 性质 | 收口路径 |
+|---|---|---:|---|---|
+| **A. 倒挂·严重** | `core → infra`(50) / `core → service`(10) / `core → app`(10) / `core → ui`(10) / `core → entry`(1) | **81** | core 是最底层却依赖上方各层 ⇒ **循环依赖风险** | **逐个反转依赖**（core 定义接口、上层实现、经 DI 注入）⇒ 量小，**可收口** |
+| **B. 倒挂·量大** | `infra → app`(**204**) / `infra → ui`(10) / `infra → entry`(10) / `service → app`(20) / `service → ui`(10) / `service → entry`(1) | **255** | 底层依赖上层 ⇒ **真债**，且 `infra → app` 独占 204 | **分批**：按模块拆"上层耦合点"为接口/事件；建议先攻 `infra → app` 里最集中的模块 |
+| **C. 跨层向上** | `app → ui`(30) / `app → entry`(10) | **40** | app 依赖 UI/entry | **逐点评估**：若为 UI 能力 ⇒ 反转调用；若为共享类型 ⇒ 下沉 core/infra |
+| **PM-001** | `buddy → ui` | — | buddy 混合模块（含 UI 渲染） | 按原 rationale：事件模式解耦 |
+
+**三个处置选项**
+
+| 选项 | 内容 | 风险 | 效果 |
+|---|---|---|---|
+| **B1 最小（推荐起点）** | 删 4 条冗余 + `types` 改归 core（收口 PM-002）+ 其余**续期**至 2027-04-18 | **低** | 例外 20 → 14 条；CI 不红；债务**真实规模**首次被看清（不再被冗余条目稀释） |
+| **B2 分档** | B1 + **A 类（core，81 处）**尝试收口 + B/C 续期 | 中（需改代码，但集中在小量） | 消除最严重的倒挂（core 依赖上层） |
+| **B3 全面** | 逐点重构 **376 处**（255+81+40）⇒ 引入 SPI / 事件 / 反转依赖 | **高**（触及 infra/chat/UI 大面积） | 彻底消除，但需分多轮且回归面大 |
+
+- **与 `decayRules` 的一致性**：例外文件自带 `decayRules`（`maxPerModule: 30`、`batchExpiryDays: 60`）⇒ 其**设计意图就是"例外应逐批衰减"** ⇒ **B1/B2 符合该意图**，B3 一步到位反而与该机制冲突（会被 decay 规则反复阻断）。
+- **时间点建议**：**10-11 前**必须定（`expiresAt` 到期前的 warning 窗口开始后，每次提交都会看到告警）；若选 B1，工作量很小（改 1 个 JSON + 1 个映射值 + 续期日期）。

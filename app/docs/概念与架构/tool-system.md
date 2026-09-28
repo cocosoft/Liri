@@ -27,8 +27,11 @@ interface Tool {
 - 执行点：`ToolExecutor.execute()` 中 governance / legacy 两分支的**唯一汇合处** → `validateToolOutputShape()`
 - **失败不阻断**：只在 `metadata.outputSchemaError` 记一行 + warning；工具照常返回结果
 - **未声明即不校验**：不写这个字段的工具**完全不受影响**（零行为变化）
-- 校验对象：优先 `result.data`；`data` 为 `undefined` 时回退校验 `result` 本体
-- **错误分支不校验**：仅当 `result.success !== false` 时才校验
+- 校验对象：`result.data`（工具出口的结构化产物）
+- **无载荷不校验**（2026-09-28 补）：`data` 为 `null`/`undefined` ⇒ 跳过（失败分支本就没有产出，
+  不该被判"出参违规"；实证：`todo_write` 的 5 处 `null` 失败分支）
+- **`success === false` 时也不校验**：但注意——**不设 `success` 的工具永远触发不了这条豁免**，
+  这时靠上一条「无载荷不校验」兜底
 
 ### ⚠️ 它**不是**什么（最容易踩的坑）
 
@@ -37,6 +40,11 @@ interface Tool {
 > 若把这种 schema 直接接到 `Tool.outputSchema` 上，**每次调用都会校验失败**（往 `metadata.outputSchemaError` 灌噪音）。
 
 **接线前必须实测工具出口的 `data` 形态**（看各处 `createToolResult` / `createSuccessResult` 的**第一实参**），而不是"看到 `*OutputSchema` 就接"。
+
+> 2026-09-28（T4）：上表 `web_fetch` / `web_search` / `todo_write` 三处**错层 schema 已删除**
+> （删前已用 grep 确认**零消费者**）。`todo_write` 的正确契约已**就地在工具上**声明
+> （`TodoWriteTool.ts:420` = `z.string()`）；另两个出口是"字符串 ∪ 对象"的多形态，见下节。
+> 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T4）。
 
 ### 怎么写（示例）
 
@@ -59,7 +67,7 @@ outputSchema = GlobOutputSchema;  // 它描述的是内层 globAsync()，不是�
 | 形态 | 例子 | 原因 |
 |---|---|---|
 | **多态出口**（随参数/action 变化） | `sessions` | 单一 schema 无法表达 |
-| **成功/失败形态不同**且失败分支也带结构化 `data` | `web_fetch` / `web_search` | 需联合类型；当前先不接（避免噪音） |
+| **成功/失败形态不同**（失败分支的 `data` 是**字符串**，成功分支是**对象**） | `web_fetch` / `web_search` | 理论上可写 `z.union([z.string(), …])`，但"含 string 的联合"**几乎不设防**；根因是这些分支**未标 `success: false`**（属工具层缺陷，修它属另一议题）⇒ **不接**。其错层 `*OutputSchema` 已于 2026-09-28 删除（T4） |
 
 ---
 

@@ -1,12 +1,12 @@
 /**
  * P1-3 A 档（2026-09-28）：工具出参运行期校验的**约定回归**。
  *
- * 覆盖 4 条不变量：
+ * 覆盖 5 条不变量：
  *  1. **未声明 `outputSchema` ⇒ 不校验**（与改动前行为完全一致 —— 这是"零破坏"的关键）；
  *  2. 合规 ⇒ 通过（返回 null）；
  *  3. 不合规 ⇒ 返回**详情文本**（调用方只记录、**不阻断**）；
- *  4. schema 自身抛错 ⇒ **不向上抛**，返回"执行异常"文本。
- * 另覆盖：`data` 缺省时回退校验 `result` 本体。
+ *  4. schema 自身抛错 ⇒ **不向上抛**，返回"执行异常"文本；
+ *  5. `data` 为 `null`/`undefined` ⇒ **无载荷不校验**（T4 补：错误分支不该被判违规）。
  */
 import { describe, it, expect } from 'bun:test';
 import { z } from 'zod';
@@ -54,12 +54,18 @@ describe('工具出参运行期校验（P1-3 A 档）', () => {
     expect(detail).toContain('boom');
   });
 
-  it('data 缺省 ⇒ 回退校验 result 本体（缺 data 故不合规）', () => {
-    const result = { output: 'plain text' } as ToolResult;
-    const detail = validateToolOutputShape(
-      { name: 'demo', outputSchema: schema },
-      result
-    );
-    expect(detail).not.toBeNull();
+  it('data 为 null/undefined ⇒ 无载荷不校验（错误分支不该被判违规）', () => {
+    const schemaStr = z.string();
+    expect(
+      validateToolOutputShape({ name: 'demo', outputSchema: schemaStr }, {
+        data: null,
+      } as ToolResult)
+    ).toBeNull();
+    expect(
+      validateToolOutputShape(
+        { name: 'demo', outputSchema: schemaStr },
+        {} as ToolResult
+      )
+    ).toBeNull();
   });
 });

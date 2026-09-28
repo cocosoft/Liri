@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -37,26 +37,21 @@ export const WebSearchInputSchema = z.strictObject({
     .describe('超时时间（毫秒）'),
 });
 
-export type WebSearchInputType = z.infer<typeof WebSearchInputSchema>;
-
 /**
- * WebSearchTool 输出模式
+ * ⚠️ 本文件原有的 `WebSearchOutputSchema` 已于 2026-09-28 删除（T4）。
+ *
+ * 原因（实证）：该工具出口有三种形态，且**均未标 `success: false`** ⇒ 全部会进入
+ * `ToolExecutor` 的出参校验，单一 schema 无法表达：
+ *  - **错误分支**（字符串）：`WebSearchTool.ts:154/212/323/342/357/385`；
+ *  - **空结果分支**（另一种对象）：`:242` = `{query, results: [], totalResults, message}`；
+ *  - **成功分支**（成功对象）：`:285` = `WebSearchResult`
+ *    `{query, results, totalResults, searchUrl, safeSearch}`（定义见 `:561`）。
+ *
+ * 而原 schema 的字段（`searchTime`）与上述**全都不一致** ⇒ 一旦被误接到
+ * `Tool.outputSchema` 必定每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T4）。
  */
-export const WebSearchOutputSchema = z.object({
-  results: z
-    .array(
-      z.object({
-        title: z.string().describe('搜索结果标题'),
-        url: z.string().url().describe('搜索结果URL'),
-        snippet: z.string().describe('搜索结果摘要'),
-      })
-    )
-    .describe('搜索结果列表'),
-  totalResults: z.number().int().nonnegative().describe('结果总数'),
-  searchTime: z.number().int().nonnegative().describe('搜索耗时（毫秒）'),
-});
 
-export type WebSearchOutputType = z.infer<typeof WebSearchOutputSchema>;
+export type WebSearchInputType = z.infer<typeof WebSearchInputSchema>;
 
 /**
  * 验证 WebSearchTool 输入

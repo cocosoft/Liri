@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -38,22 +38,21 @@ export const WebFetchInputSchema = z.strictObject({
     .describe('最大内容长度（字符数）'),
 });
 
-export type WebFetchInputType = z.infer<typeof WebFetchInputSchema>;
-
 /**
- * WebFetchTool 输出模式
+ * ⚠️ 本文件原有的 `WebFetchOutputSchema` 已于 2026-09-28 删除（T4）。
+ *
+ * 原因（实证）：该工具出口是**混合形态**，且 6 个失败分支**均未标 `success: false`**
+ * ⇒ 全部会进入 `ToolExecutor` 的出参校验，单一 schema 无法表达：
+ *  - **失败分支**（字符串 `data`）：`WebFetchTool.ts:181/192/220/287/374/399`；
+ *  - **成功分支**（对象）：`:352` = `WebFetchResult`（定义见 `:536`
+ *    `{url, status, statusText, headers, content, contentLength, contentType}`）。
+ *
+ * 而原 schema 的字段名与出口**不一致**（`statusCode` vs 出口的 `status`；`fetchTime`/`truncated`
+ * 出口根本没有）⇒ 一旦被误接到 `Tool.outputSchema` 必定每次误报。详见
+ * `.trae/specs/tool-output-schema-layer-audit.md`（T4）。
  */
-export const WebFetchOutputSchema = z.object({
-  content: z.string().describe('获取到的页面内容（Markdown格式）'),
-  url: z.string().url().describe('最终请求URL（可能包含重定向）'),
-  statusCode: z.number().int().describe('HTTP状态码'),
-  contentType: z.string().optional().describe('内容类型'),
-  contentLength: z.number().int().nonnegative().describe('内容长度（字符数）'),
-  fetchTime: z.number().int().nonnegative().describe('获取耗时（毫秒）'),
-  truncated: z.boolean().describe('内容是否被截断'),
-});
 
-export type WebFetchOutputType = z.infer<typeof WebFetchOutputSchema>;
+export type WebFetchInputType = z.infer<typeof WebFetchInputSchema>;
 
 /**
  * 验证 WebFetchTool 输入

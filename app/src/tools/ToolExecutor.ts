@@ -46,10 +46,12 @@ export interface ToolResultBlock {
  *
  * 语义（**保守**）：
  * - 未声明 `outputSchema` ⇒ 返回 `null`（**不校验**，与改动前行为**完全一致**）；
+ * - `data` 为 `null`/`undefined` ⇒ 返回 `null`（**无载荷不校验**，2026-09-28 T4 补）——
+ *   这类分支是"输入校验失败 / 前置拒绝"等**没有产出**的路径，不是"出参不合规"；
  * - 校验通过 ⇒ 返回 `null`；
  * - 校验失败 / schema 自身抛错 ⇒ 返回**详情文本**（调用方负责记录，**不阻断执行**）。
  *
- * 校验对象：优先 `result.data`（工具的结构化产物），缺省回退 `result` 本体。
+ * 校验对象：`result.data`（工具的结构化产物）。
  */
 export function validateToolOutputShape(
   tool: Pick<Tool, 'name' | 'outputSchema'>,
@@ -58,10 +60,14 @@ export function validateToolOutputShape(
   const schema = tool.outputSchema;
   if (!schema) return null;
 
-  const payload = result.data !== undefined ? result.data : result;
+  // 无载荷不校验（2026-09-28 T4）：`createToolResult(null, …)` 的失败分支（如输入校验失败）
+  // 本就没有产出，强行校验只会被误判为"出参契约违规"制造噪音
+  // （实证：`todo_write` 的 5 个此类分支——`TodoWriteTool.ts:686/881/919/1014/1037`）。
+  if (result.data == null) return null;
+
   let parsed: { success: boolean; error?: unknown };
   try {
-    parsed = schema.safeParse(payload);
+    parsed = schema.safeParse(result.data);
   } catch (error) {
     // schema 自身抛错 = 契约实现缺陷（非数据不合规）
     return `outputSchema 执行异常：${String(error)}`;

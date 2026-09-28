@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -42,25 +42,19 @@ export const TodoWriteInputSchema = z.strictObject({
     .describe('批量待办数组（write操作时使用）'),
 });
 
-export type TodoWriteInputType = z.infer<typeof TodoWriteInputSchema>;
-
 /**
- * TodoWriteTool 输出模式
+ * ⚠️ 本文件原有的 `TodoWriteOutputSchema`（`{todos, updated}`）已于 2026-09-28 删除（T4）。
+ *
+ * 原因（实证）：该工具的**真实出口是字符串** —— 成功分支恒为提示文案
+ * （如 `TodoWriteTool.ts:716/855/896`），5 个失败分支传 `null`
+ * （`:686/881/919/1014/1037`，由「无载荷不校验」规则排除）。原 schema 的字段名
+ * （`todos`/`updated`）与出口**不一致**，属错层定义 ⇒ 一旦被误接必定每次误报。
+ *
+ * 出口契约已就地声明在工具上：`TodoWriteTool.ts:420` = `z.string()`。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T4）。
  */
-export const TodoWriteOutputSchema = z.object({
-  todos: z
-    .array(
-      z.object({
-        content: z.string().describe('待办内容'),
-        status: TodoStatusSchema.describe('待办状态'),
-        priority: TodoPrioritySchema.describe('优先级'),
-      })
-    )
-    .describe('待办列表'),
-  updated: z.boolean().describe('数据是否已更新'),
-});
 
-export type TodoWriteOutputType = z.infer<typeof TodoWriteOutputSchema>;
+export type TodoWriteInputType = z.infer<typeof TodoWriteInputSchema>;
 
 /**
  * 验证 TodoWriteTool 输入

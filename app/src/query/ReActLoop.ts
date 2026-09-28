@@ -613,6 +613,24 @@ export abstract class ReActLoop<
     return false; // default: 不重试
   }
 
+  /**
+   * **终稿校验 Hook**（P1-1②，2026-09-28）：在 `onIncompleteTurn` **之后**、`finalize` 之前调用
+   * （仅当本轮无 tool_calls）。子类校验终稿内容，不合格则注入修正指令并返回 `true`
+   * ⇒ 骨架 `continue` 再给一轮（**真本轮内自纠**，区别于收尾后的下轮 steering）。
+   *
+   * 与 `onIncompleteTurn` 的分工（两者都是"重试一次"，但判据不同）：
+   * - 前者判**完整性**（空回复/只思考/只计划/被截断）——输出"没交付"；
+   * - 本钩子判**合法性**（内容在，但不合规）——输出"交付了坏东西"。
+   *
+   * 重试上限由子类维护，防死循环。
+   */
+  protected async onFinalOutputValidation(
+    _result: ReasonResult<TContext>,
+    _context?: TContext
+  ): Promise<boolean> {
+    return false; // default: 不校验
+  }
+
   /** steering 注入 Hook（下沉自 TAORLoop 2026-09-01）：骨架每轮 reason 前调用，
    *  子类把 [STEERING] 消息加入自己的对话上下文（ReActToolLoop 实现为 loopState.messages）。 */
   protected async onSteering(_messages: string[]): Promise<void> {
@@ -816,6 +834,12 @@ export abstract class ReActLoop<
           // （空回复/只思考无答案/只计划不行动）时，子类注入重试指令并返回 true，
           // 骨架 continue 再给一次机会（重试上限由子类控制，防死循环）。
           if (await this.onIncompleteTurn(reasonResult, context)) {
+            continue;
+          }
+          // P1-1②（2026-09-28）：**终稿校验**——完整性通过后校验内容合法性（当前为 mermaid
+          // 结构预检）。不合格则注入修正指令并返回 true，同样再给一轮（上限由子类控制）。
+          // 顺序不可颠倒：先"有没有交付"，再"交付得对不对"。
+          if (await this.onFinalOutputValidation(reasonResult, context)) {
             continue;
           }
           // 二期 R5（2026-09-23 修复计划 §六，精化 1 的真病根）：**不再无条件写

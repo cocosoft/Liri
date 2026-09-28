@@ -87,6 +87,10 @@ export type LiriEventType =
   | 'goal/updated'
   | 'goal/status_changed'
   | 'goal/injected'
+  // P1-1②（2026-09-28）：**输出校验回喂**事件 —— 终稿未通过服务端结构预检（当前为 mermaid）
+  // 时，注入模型的修正指令同样属"模型可见输入"，必须可重建（§1.6 红线，与 `goal/injected`
+  // 同一理由：`text` 记注入原文，通道前缀由通道自身拼装）。
+  | 'validation/injected'
   // B4-1（2026-09-23）：子代理恢复通路审计事件（认领 / 恢复 / 放弃各一条）——
   // log-only（不入消息 surface，与 `session/title` 同口径）：它描述的是**恢复通路**，
   // 不是模型看到的内容。修复前这三个可判定节点**只有 logger 文本**，

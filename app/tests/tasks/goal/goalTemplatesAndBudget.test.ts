@@ -55,6 +55,19 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
     expect(getGoalTemplate('continue_goal')).toBe(GOAL_TEMPLATES.continue_goal);
   });
 
+  test('mermaid_repair（P1-1②，2026-09-28）：{{issues}} 渲染 + 缺参保持字面量', () => {
+    const issues = '- 第 1 个图表（起始行 3）：无法识别的图类型「graphx TD」';
+    const text = renderGoalTemplate('mermaid_repair', { issues });
+
+    expect(text).toContain(issues);
+    expect(text).not.toContain('{{issues}}');
+    // 修正轮**取代**坏正文 ⇒ 指令必须明确"重发完整回复"，否则用户会丢失非图表部分
+    expect(text).toContain('COMPLETE previous reply');
+
+    // 既有契约：未提供的占位符保持字面量（便于发现漏传，而非静默留空）
+    expect(renderGoalTemplate('mermaid_repair')).toContain('{{issues}}');
+  });
+
   test('continue_goal（idle 触发续接，2026-09-22）：目标与 streak 渲染 + "续推不重做"语义', () => {
     const text = renderGoalTemplate('continue_goal', {
       objective: '把长程目标跑通',

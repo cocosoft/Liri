@@ -12,6 +12,8 @@ import type { DataAttachment } from '@modules/core';
 // B2-2（2026-09-23）：目标事件载荷复用 Goal 域的既有词表（单一来源，不另立联合类型）
 import type { TaskGoalStatus, TaskGoalUpdateReason } from '@modules/tasks';
 import type { GoalTemplateKind } from '@modules/tasks';
+// P1-1②（2026-09-28）：输出校验问题项复用校验器的既有形状（单一来源，不复制字段定义）
+import type { MermaidLintIssue } from '@modules/utils/mermaidLint';
 
 // ─── 事件载荷映射 ───────────────────────────────────────────────────────────
 
@@ -435,6 +437,27 @@ export interface LiriEventMap {
      */
     channel: 'tool_result' | 'user_message' | 'steering';
     /** **注入正文的完整文本**（§1.6：模型看到了什么必须可重建） */
+    text: string;
+  };
+
+  /**
+   * 输出校验回喂（P1-1②，2026-09-28；§1.6「模型可见 ⇔ 已落盘」红线的又一落点）。
+   *
+   * 终稿未通过**服务端结构预检**时回喂给模型的修正指令，同样进模型输入 ⇒ 必须落事件，
+   * 且 `text` 是**实际注入的原文**。与 `goal/injected` 同口径：载荷只记原文与必要标识，
+   * **不含通道前缀**（前缀由通道/片段类型拼装）。
+   */
+  'validation/injected': {
+    /** 校验器类别（当前仅 mermaid 结构预检；新增校验器在此加值，不新增事件类型） */
+    kind: 'mermaid';
+    /**
+     * 未通过的结构性问题（结构化可判定，不依赖日志文本）。
+     * 形状与 `@modules/utils/mermaidLint` 的 `MermaidLintIssue` **同源**（单一事实来源）。
+     */
+    issues: MermaidLintIssue[];
+    /** 回喂通道：经循环内 steering 队列在**下一轮请求前**注入 */
+    channel: 'steering';
+    /** 注入的完整正文（不含 `[STEERING] ` 前缀 —— 前缀由 `kind:'steering'` 片段给出） */
     text: string;
   };
 

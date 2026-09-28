@@ -851,6 +851,8 @@ const en = {
     // MarkdownRenderer (truncation notice + copy full text)
     truncatedChars: "{{count}} characters not shown",
     copyFullText: "Copy full text",
+    mermaidRenderFailed:
+      "Diagram not rendered (syntax error). Source kept below.",
     copiedFullText: "Full text copied",
     // ChatMessage (token usage breakdown / round duration units)
     usageInput: "Input",

@@ -80,6 +80,8 @@ const ALL_SESSION_EVENT_TYPES = [
   'goal/updated',
   'goal/status_changed',
   'goal/injected',
+  // ─── 输出校验回喂（P1-1②，2026-09-28） ───
+  'validation/injected',
   // ─── 子代理恢复通路审计（B4-1，2026-09-23） ───
   'agent/recovery',
   // ─── 生命周期 ───

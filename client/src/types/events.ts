@@ -74,6 +74,8 @@ export type LiriEventType =
   | "session/title"
   // P2-2（2026-09-23）：请求边界（turn × request 双边界；requestId = 本事件的 seq）
   | "request/start"
+  // P1-1②（2026-09-28）：输出校验回喂（终稿 mermaid 结构预检失败 ⇒ 注入模型的修正指令）
+  | "validation/injected"
   // ─── Code Mode（CM-5，2026-08-25） ───
   | "assistant/code_run";
 
@@ -415,6 +417,14 @@ export interface LiriEventMap {
     }>;
     logs?: string[];
     durationMs?: number;
+  };
+  // P1-1②（2026-09-28）：输出校验回喂 —— 终稿未通过服务端结构预检（mermaid）时，
+  // 注入模型的修正指令（log-only，不入消息 surface；镜像 app 侧同名字段，勿单端改）
+  "validation/injected": {
+    kind: "mermaid";
+    issues: Array<{ blockIndex: number; line: number; reason: string }>;
+    channel: "steering";
+    text: string;
   };
 }
 

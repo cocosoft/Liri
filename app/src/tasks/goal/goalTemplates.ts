@@ -19,12 +19,21 @@
  *（不抛错、不静默清空 —— 便于在日志里看出"哪个参数漏传"）。
  */
 
-/** 续接指令的变体（键与 `ReActToolLoop.onIncompleteTurn` 的 `kind` 一一对应） */
+/**
+ * 续接指令的变体。
+ *
+ * 键与「回合重试」的类别一一对应，来自两个钩子：
+ * - `ReActToolLoop.onIncompleteTurn` 的 `kind`：`empty` / `reasoning` / `planning` / `truncated`；
+ * - `ReActToolLoop.onFinalOutputValidation` 的重试类别：`mermaid_repair`（P1-1②，2026-09-28）。
+ *
+ * `resume_agent` 不属重试，是子代理恢复时拼进系统提示的续跑指示（见下）。
+ */
 export type ContinuationVariant =
   | 'empty'
   | 'reasoning'
   | 'planning'
   | 'truncated'
+  | 'mermaid_repair'
   | 'resume_agent';
 
 /**
@@ -35,6 +44,8 @@ export type ContinuationVariant =
  * - `reasoning`：只产出了推理、没有可见答案；
  * - `planning`：只描述了计划、没有行动；
  * - `truncated`：输出被 `max_tokens` 截断（最常见的"任务中断"伪装）；
+ * - `mermaid_repair`（P1-1②，2026-09-28）：终稿的 mermaid 代码块**未能通过结构预检**
+ *   （前端渲染必然失败/降级）。`{{issues}}` 由校验器给出的问题清单渲染；
  * - `resume_agent`（B2-3 收尾迁移，2026-09-23）：**恢复被暂停的子代理**时拼进系统提示的
  *   续跑指示（原为 `AgentTool/ResumeAgent.reconstructSystemPrompt` 内的硬编码，Spec §5.3.1 #3）。
  */
@@ -47,6 +58,8 @@ export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
     'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.',
   truncated:
     'Your previous output was cut off by the output length limit before it finished. Do NOT restate anything you already wrote and do NOT re-enter reasoning. Continue directly from where the output stopped: if you were about to call tools, emit the tool calls now; otherwise finish your visible answer concisely.',
+  mermaid_repair:
+    'The mermaid diagram(s) in your previous reply are invalid and cannot be rendered. Problems found:\n{{issues}}\nRe-output your COMPLETE previous reply with the diagram(s) fixed — the corrected reply replaces the previous one. Use only diagram types mermaid supports, and keep brackets/quotes balanced. Change nothing else.',
   resume_agent:
     'Continue from where you left off. You have access to the full conversation history above.',
 };

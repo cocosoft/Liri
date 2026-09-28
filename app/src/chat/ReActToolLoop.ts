@@ -58,7 +58,18 @@ import { registerYieldFromResults } from '../session/yield';
 // `CONTINUATION_TEMPLATES.*`（L121-125），桶求值期 tasks 桶可能仍在循环中未初始化
 // ⇒ 走桶会触发 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`
 // （2026-09-24 R03-002 收敛时实测复现）。goalTemplates 是无依赖叶子模块，子路径直连为循环安全入口。
-import { CONTINUATION_TEMPLATES } from '../tasks/goal/goalTemplates';
+import {
+  CONTINUATION_TEMPLATES,
+  renderGoalTemplate,
+} from '../tasks/goal/goalTemplates';
+// P1-1②（2026-09-28）：终稿 mermaid **结构预检**（零依赖启发式，边界见该模块头注释）。
+// 该模块无任何 import ⇒ 叶子，无循环风险。
+import {
+  lintMermaidBlocks,
+  formatMermaidIssues,
+  type MermaidLintIssue,
+} from '@modules/utils/mermaidLint';
+import type { LiriEvent } from './types/events';
 // P1-2 / P1-4（B2-4，2026-09-23）：轮级熔断 / 压缩停滞 ⇒ **落 Goal**（目标层可见"为何停下"）。
 // 注意：`tasks/` 不是 `chat/`，此处不构成"反向层依赖"（与 goalTemplates 同向）。
 import { settleGoalForTurn, type GoalTurnReason } from '@modules/tasks';
@@ -264,6 +275,14 @@ export class ReActToolLoop extends ReActLoop<
     planning: 0,
     truncated: 0,
   };
+  /**
+   * P1-1②（2026-09-28）：终稿校验回喂是否已用掉（**每 run 至多 1 次**）。
+   *
+   * 上限 1 的理由：预检是**启发式**（见 `utils/mermaidLint.ts` 头注释，与 mermaid 真解析器判定
+   * 不保证一致）⇒ 若模型按指令改了而启发式仍判不合格，再回喂就是**纯空转**（每轮多一次
+   * LLM 请求）。只给一次机会，其后如实放行（用户仍看到前端 ① 的降级卡片，不会静默）。
+   */
+  private _outputValidationRetried = false;
   /**
    * 二期 F2-0/F2-2（2026-09-23 修复计划 §六）：本轮因**外部拦停**（超时）而未执行的
    * tool_calls 数量（0 = 无）。
@@ -2456,6 +2475,82 @@ export class ReActToolLoop extends ReActLoop<
     return true;
   }
 
+  /**
+   * P1-1②（2026-09-28）：**终稿校验** —— mermaid 结构预检失败 ⇒ 注入修正指令、本轮内重试一次。
+   *
+   * 为什么在**循环内**而不是收尾后（`StreamPipeline.postProcess`）：收尾后的 steering 只能在
+   * **下一次请求前**生效（跨轮，且用户已先看到坏图）；此处返回 `true` ⇒ 骨架 `continue`，
+   * 同一轮内模型立刻拿到修正指令 ⇒ 用户最终看到的是**修正后**的回复（真自纠回路）。
+   *
+   * §1.6 红线：修正指令是**模型可见输入** ⇒ 先落 `validation/injected`（`text` ＝ 注入正文），
+   * 再经 `steeringQueue` 注入 —— `[STEERING] ` 前缀由 `onSteering` 的片段类型拼装，
+   * 故事件 `text` 不含前缀（与 `goal/injected` 同口径）。
+   */
+  protected override async onFinalOutputValidation(
+    result: ReasonResult<ToolLoopContext>,
+    _context?: ToolLoopContext
+  ): Promise<boolean> {
+    if (this._outputValidationRetried) return false;
+    // 与本类 `onIncompleteTurn` 同款守卫：骨架通常在无 tool_calls 时才走到这里，但**外部拦停**
+    // （超时）路径下 `shouldContinue=false` 而 tool_calls 仍在（F2-0）——那不是"终稿"，不校验。
+    if (result.toolCalls.length > 0) return false;
+    const text = (result.text ?? '').trim();
+    if (!text) return false;
+
+    const issues = lintMermaidBlocks(text);
+    if (issues.length === 0) return false;
+
+    const instruction = renderGoalTemplate('mermaid_repair', {
+      issues: formatMermaidIssues(issues),
+    });
+    // 先落盘（§1.6：模型将看到什么，必须先从事件日志可重建），再注入。
+    await this._emitValidationInjected(issues, instruction);
+
+    this._outputValidationRetried = true;
+    // 与 O2-4 同款：修正轮正文**取代**坏正文（避免坏图与修正图并存于同一回复）。
+    this._supersedeNextRoundText = true;
+    // 经既有 steering 通道注入：下一轮 reason 前由 `onSteering` 消费为 `[STEERING] …`
+    this.steeringQueue.push(instruction);
+
+    logger.warn('reactToolLoop:final_output_validation_retry', {
+      sessionId: this.ctx.session.id,
+      kind: 'mermaid',
+      issueCount: issues.length,
+      issues,
+      textLength: text.length,
+    });
+    return true;
+  }
+
+  /**
+   * P1-1②：落一条 `validation/injected` 事件。
+   *
+   * 不复用 `_appendStreamEvent`：后者是**工具轮 chunk 事件**专用（强制附 `_activeToolRoundMessageId`），
+   * 本事件不属任何 assistant 消息。`seq: 0` ⇒ 由 append 在 mutex 内原子分配（既有约定，
+   * 与 `GoalEvents.appendGoalEvent` 同款）。
+   */
+  private async _emitValidationInjected(
+    issues: MermaidLintIssue[],
+    text: string
+  ): Promise<void> {
+    const { appendStreamEvent } = this.ctx;
+    // 观测面能力缺失（如单测替身未装配）⇒ 如实不落（不伪造）
+    if (!appendStreamEvent) return;
+    const event: LiriEvent<'validation/injected'> = {
+      type: 'validation/injected',
+      schemaVersion: 1,
+      seq: 0,
+      time: Date.now(),
+      sessionId: this.ctx.session.id,
+      data: { kind: 'mermaid', issues, channel: 'steering', text },
+    };
+    try {
+      await appendStreamEvent(this.ctx.session.id, event);
+    } catch {
+      // @ignore-catch — 事件落盘属观测面，失败不得中断自纠回路（CS03）
+    }
+  }
+
   /** 下沉自 TAORLoop（2026-09-01）：steering 消息注入到工具轮对话上下文，下一轮 reason 生效 */
   protected override async onSteering(messages: string[]): Promise<void> {
     for (const sm of messages) {
@@ -2506,6 +2601,9 @@ export class ReActToolLoop extends ReActLoop<
     this.budgetIsContinuation = false;
     // O2-4：正文取代标记随 run 归零（一次性语义，禁止跨 run 残留误清正文）
     this._supersedeNextRoundText = false;
+    // P1-1②（2026-09-28）：终稿校验回喂配额随 run 归零（"每 run 至多 1 次"，
+    // 与 `_incompleteRetries` 同批——否则第二次坏图直接放行）
+    this._outputValidationRetried = false;
   }
 
   /** A2（2026-09-05）：循环检测终止由 loopState.loopDetected 判别（供骨架访问器） */

@@ -121,6 +121,11 @@ function MarkdownRenderer({
       const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const code = el.textContent || "";
       try {
+        // P1-1①（2026-09-28）：**先用 `parse` 预校验**——实测非法语法在此即抛
+        // "Parse error on line 1"（`graph TD; A-->;`），因此不再进入 `render`
+        // ⇒ mermaid 不会往 DOM 注入它自带的 "Syntax error in text mermaid version …" 错误图
+        //（用户截图里右下角的红字即此）。
+        await mermaid.parse(code);
         const { svg } = await mermaid.render(id, code);
         if (cancelled) return;
         el.innerHTML = DOMPurify.sanitize(svg, {
@@ -128,18 +133,30 @@ function MarkdownRenderer({
         });
         el.classList.add("rendered");
       } catch {
+        // 兜底清理：`render` 失败时可能在 document 上残留临时节点/错误图
+        document.getElementById(id)?.remove();
+        document.getElementById(`d${id}`)?.remove();
         if (cancelled) return;
-        // 语法错误等：降级为等宽文本展示原始代码，避免一直显示原文且无提示
-        const fallback = document.createElement("pre");
-        fallback.className = "mermaid-error text-xs text-red-500";
-        fallback.textContent = code;
+        // 降级 UI：通俗提示（不用"语法/mermaid"等技术术语）+ 原样保留源码（可复制），
+        // 不再以红字刷屏（文案见 `chat.mermaidRenderFailed`）
+        const fallback = document.createElement("div");
+        fallback.className =
+          "mermaid-fallback rounded border border-amber-500/30 bg-amber-500/5 p-2";
+        const hint = document.createElement("div");
+        hint.className = "mb-1 text-xs text-amber-600 dark:text-amber-400";
+        hint.textContent = t("chat.mermaidRenderFailed");
+        const pre = document.createElement("pre");
+        pre.className =
+          "overflow-x-auto whitespace-pre-wrap text-xs opacity-70";
+        pre.textContent = code;
+        fallback.append(hint, pre);
         el.replaceWith(fallback);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [blocks]);
+  }, [blocks, t]);
 
   const renderHeading = (content: string, level: number, key: string) => {
     return (

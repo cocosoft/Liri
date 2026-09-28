@@ -831,6 +831,7 @@ const zh = {
     // MarkdownRenderer（超长截断提示 + 复制全文）
     truncatedChars: "剩余 {{count}} 字符未显示",
     copyFullText: "复制全文",
+    mermaidRenderFailed: "图表未能渲染（语法有误），已保留源码",
     copiedFullText: "已复制全文",
     // ChatMessage（Token 用量明细 / 本轮耗时单位）
     usageInput: "输入",

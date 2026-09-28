@@ -168,6 +168,59 @@ export interface MemoryManager {
 }
 
 /**
+ * 记忆库保留上限（D5-B 护栏，见 `.trae/specs/memory-dedup-blocking-rootfix.md` §D5）。
+ *
+ * 实测库规模 644 条（2026-09-28）⇒ 短期不触发；超限时按下方淘汰序**归档**（软停用）到 `.trash`。
+ * 未做 env/配置开关：§1.4 的环境变量前缀表未含 `MEMORY_*`，护栏也无需运行期调参（有需要再按规范加）。
+ */
+const MEMORY_MAX_COUNT = 1000;
+
+/**
+ * 保留上限的 dry-run 开关（D5-B 首版按方案先只报告、不动文件）。
+ *
+ * `true` ⇒ 仅 `logger.info` 报告"将归档哪些/多少条"；确认选择合理后改 `false` 即真归档。
+ */
+const MEMORY_RETENTION_DRY_RUN = true;
+
+/** 保留上限的候选字段（与 `Memory` 解耦，便于纯函数单测） */
+export interface EvictionCandidate {
+  id: string;
+  type: string;
+  importance: number;
+  isPinned: boolean;
+  updatedAt: Date;
+}
+
+/** 永久保护的记忆类型（量小、价值高，不参与淘汰） */
+const PROTECTED_MEMORY_TYPES = new Set(['user_fact', 'session_summary']);
+
+/**
+ * 选出需要归档的记忆 id（**纯函数**，不碰 I/O）。
+ *
+ * ① 溢出量 = 总数 − `maxCount`；② 候选 = 非保护类型 && 非 pinned && `importance < 0.7`；
+ * ③ 候选内按 **importance 升序 → updatedAt 升序**（低价值、最旧先）。
+ * 保护项永不入选 ⇒ 全受保护时可能少于溢出量（宁可不减，也不误伤）。
+ */
+export function selectEvictions(
+  memories: EvictionCandidate[],
+  maxCount: number
+): string[] {
+  const overflow = memories.length - maxCount;
+  if (overflow <= 0) return [];
+  return memories
+    .filter(
+      (m) =>
+        !PROTECTED_MEMORY_TYPES.has(m.type) && !m.isPinned && m.importance < 0.7
+    )
+    .sort((a, b) => {
+      if (a.importance !== b.importance) return a.importance - b.importance;
+      return a.updatedAt.getTime() - b.updatedAt.getTime();
+    })
+    .slice(0, overflow)
+    .map((m) => m.id);
+}
+
+/**
  * 记忆管理器实现
  */
 export class MemoryManagerImpl {
@@ -836,12 +889,59 @@ export class MemoryManagerImpl {
         }
       }
 
+      // D5-B（2026-09-28）：TTL 老化之外补「保留上限 + 归档」护栏。
+      // 复用同一次 `getAllMemories()` 遍历与同一把 `isCleaning` 锁 ⇒ 不新增调度器、不新增 I/O 轮次。
+      const evictions = selectEvictions(
+        allMemories.map((m) => ({
+          id: m.id,
+          type: m.metadata.type,
+          importance: m.metadata.importance ?? 0.5,
+          isPinned: m.metadata.isPinned ?? false,
+          updatedAt: m.updatedAt,
+        })),
+        MEMORY_MAX_COUNT
+      );
+
       for (const id of expired) {
         await this.store.deleteMemory(id);
         this.retriever.removeFromIndex(id);
       }
 
-      if (expired.length > 0) {
+      // 超限条目**归档**（软停用：移动到 `.trash`）而非物理删除；dry-run 下只报告
+      let archived = 0;
+      if (!MEMORY_RETENTION_DRY_RUN) {
+        for (const id of evictions) {
+          if (await this.store.archiveMemory(id)) {
+            this.retriever.removeFromIndex(id);
+            archived += 1;
+          }
+        }
+      }
+      if (evictions.length > 0) {
+        const preview = allMemories
+          .filter((m) => evictions.includes(m.id))
+          .slice(0, 5)
+          .map((m) => ({
+            id: m.id,
+            type: m.metadata.type,
+            importance: m.metadata.importance ?? 0.5,
+            ageDays: Math.round(
+              (now.getTime() - m.updatedAt.getTime()) / 86_400_000
+            ),
+          }));
+        logger.info(
+          MEMORY_RETENTION_DRY_RUN
+            ? `记忆库超限：将归档 ${evictions.length} 条（dry-run，未移动文件）`
+            : `记忆库超限：已归档 ${archived}/${evictions.length} 条`,
+          {
+            totalMemories: allMemories.length,
+            limit: MEMORY_MAX_COUNT,
+            preview,
+          }
+        );
+      }
+
+      if (expired.length > 0 || archived > 0) {
         await this.retriever.saveIndex();
         await this.saveRelationGraph();
       }

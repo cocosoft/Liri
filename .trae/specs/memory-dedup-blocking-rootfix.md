@@ -24,7 +24,16 @@
 - **状态**：**已实施（2026-09-25 起落地；2026-09-28 复核 + 清残余）**；原「📝 待批准」状态已过期
   - 复核（以代码为据）：D2′ 预分词（`jaccardFromSets`）、D2 分片让出（`findDuplicatesChunked`）、
     热路径切换（`MemoryManager.ts:417`）、空闲维护入口（`ChatOrchestrator.ts:423` → `runMaintenancePass()`）均已存在；
-    D3 已按 §1.3 放弃。D1（`createMemory` 默认不跑全量）/D5（库膨胀治理）未逐条复核。
+    D3 已按 §1.3 放弃。
+  - **D1 复核 ✅（2026-09-28）**：`MemoryManager.createMemory`（L347-391）确认**不再跑全库相似度去重**，
+    只留 `contentHash` 精确去重（命中即删新建、返回既有）；全量已进 `runMaintenancePass()`（L405-436，`findDuplicatesChunked`）。
+  - **D5-A 复核 ✅（2026-09-28）**：同会话对话记忆**按会话聚合**有代码证据 ——
+    `ChatManager.ts:3494-3505`（`appendTurn(prev)` + `mm.updateMemory(id, {content: appendTurn(prevContent)})`），
+    与 §4.1 的运行时验收（3 轮对话只生成 1 条、正文含 Turn 1/2/3）一致。
+    实测库规模与来源：**644 条 / 1,871KB**；日新增 15–46 条（09-21～09-28），抽样最新条目为
+    `type: decision`（源自 chat-export 的「多 Agent 协作升级方案」）⇒ 增长来自**决策/知识类记忆**，非对话轮次。
+  - **D5-B 残余（未做，建议登记为待办）**：方案 B（保留上限 + 归档）**未实施** ⇒ 记忆库长期无上限；
+    当前成本可控（n=644 时全库去重 ~1.2s，且已挪到空闲期分片让出），随 n 线性增长。
   - **本次补的残余**（2026-09-28）：HTTP `handleConsolidateMemories`（`memory-handlers.ts`）原调**同步**
     `findDuplicates`（O(n²) 整段占用请求线程）⇒ 已改 `await findDuplicatesChunked`，符合本 spec §2 D2
     「即使要跑，也不许冻结」；判据与返回结构逐字不变。
@@ -117,12 +126,67 @@ D3（索引/关系图**落盘节流**）原假设"落盘也是大头"。实测**
 - `runMaintenancePass()` = 分片去重（D2，逐块让出）+ 索引/关系图落盘（D3）+ 观测（复用 `observability:background-task` 的 start/complete）。
 - **单轮上限**：每轮比较数封顶（如 ≤50k 次），未完成留待下一轮（避免空闲期长时间占用 CPU）。
 
-### D5 库膨胀治理（**配套必需；含一个待裁定项**）
+### D5 库膨胀治理（D5-A ✅ 已实施；D5-B ✅ 已实施·dry-run 默认开）
 
-现状 `extractMemoryFromChat` **每轮写一条**「会话 X 对话」记忆 ⇒ 库随轮数线性增长（本机已 577 条）⇒ 即使挪到后台，`O(n²)` 仍会随库增长。
+- **D5-A ✅ 已实施**（2026-09-25 落地，2026-09-28 复核）：同一会话的对话记忆**按会话聚合**（逐轮追加），
+  代码证据 `ChatManager.ts:3494-3505`（`appendTurn(prev)` + `updateMemory`）；§4.1 的运行时验收
+  （3 轮对话只生成 1 条、正文含 Turn 1/2/3）一致。
+- **D5-B（保留上限 + 归档）最小实现评估（2026-09-28，未实施）**
 
-- **建议（方案 A）**：同一会话的对话记忆**按会话聚合**（追加/合并为一条），而非每轮一条 —— 直接把库规模从"轮数"降到"会话数"。**属行为变更（记忆内容组织方式变化），需你确认。**
-- 备选（方案 B）：保留每轮一条，但加**保留上限 + 归档**（`ArtifactRetention` 已有"按 mtime 判龄 + 节拍"先例）。
+**实测现状**：库 **644 条 / 1,871KB** —— `decision` **337** / `conversation` **300** / `session_summary` 6 /
+`user_fact` 1；最近 7 天 **183** 条、更早 **461** 条。已存在的 TTL 老化
+（`MemoryManager.cleanupExpiredMemories()`：按 `importance` 45/90/180 天，`metadata.expiresAt` 优先；
+**启动 + 每 6 小时**各跑一次，`init.ts:593-618`）**当前尚未到龄**（最老可见 ~19–26 天 < 90 天）。
+⇒ **D5-B 不是当下的成本紧急项**（全库去重 n=644 约 1.2s、已挪到空闲期分片让出、不冻结事件循环），
+它是**防止无界增长的护栏**。
+
+**最小实现（结论：不新建机制，在既有 `cleanupExpiredMemories()` 上补两件事）**
+
+1. **保留上限**：`MEMORY_MAX_COUNT`（建议默认 **1000**，当前 644 ⇒ 短期不触发）；超出部分按淘汰序选。
+2. **归档而非硬删**：选中条目**软删到 `.trash`**（仓内既有先例：`FileSystemStorage` /
+   `FileSystemUnifiedStorage` 的僵尸会话即软删到 `.trash`），收尾复用该方法已有的
+   `store.deleteMemory` + `retriever.removeFromIndex` + `saveIndex()` + `saveRelationGraph()`。
+
+**淘汰序（保护优先）**：永久保护 `user_fact` / `session_summary` / `importance >= 0.7`；
+其余按 `importance asc, updatedAt asc`（最旧、最低价值先）。实现为**纯函数**
+`selectEvictions(memories, cap): string[]`（不碰 I/O ⇒ 易单测）。
+
+**明确不改**：TTL 判据（45/90/180 天）、`metadata.expiresAt` 分支、现有删除路径、`runMaintenancePass`
+（空闲去重）—— 全部沿用以保持行为可预期。
+
+**改动面**：`MemoryManager.ts` 内 ~40–60 行（复用同一次 `getAllMemories()` 遍历）+ 1 个上限常量 + 单测；
+**无新文件、无新调度器、无新依赖**。**首版建议 dry-run**（只 `logger.info` 报告"将归档 N 条 + 前 5 条
+id/type/age"，不动文件），确认选择合理后再开真归档（一个布尔开关）。
+
+| 风险 | 缓解 |
+|---|---|
+| 误归档有用记忆 | 先 dry-run；保护队列；软删可恢复 |
+| 索引/关系图残留引用 | 复用既有收尾（`removeFromIndex` + 两处 save） |
+| 与写入并发 | 复用既有 `isCleaning` 锁（`createMemory` 已 `await` 等待） |
+| 归档目录自身无界 | `.trash` 复用/新增节拍清理（同 `ArtifactRetention` 先例） |
+
+**裁定与实施（2026-09-28）**：按评估建议落地 —— ① 上限 **1000**；② **dry-run 默认开**；③ 归档到
+`.trash`（镜像 `FileSystemStorage` 先例）；④ **仅常量、未做 env**（§1.4 前缀表未含 `MEMORY_*`，
+护栏无需运行期调参；有需要再按规范加）。
+
+| 落点 | 内容 |
+|---|---|
+| `MemoryStore` 接口 + `MemoryStoreImpl` | 新增 `archiveMemory(id)`：`findMemoryPath` → `mkdir .trash` → `rename(<id>-<时间戳>.md)` → 清理路径/内存缓存与向量索引（**不物理删除**） |
+| `MemoryManager.ts` | 常量 `MEMORY_MAX_COUNT=1000`、`MEMORY_RETENTION_DRY_RUN=true`；导出**纯函数** `selectEvictions(candidates, maxCount)`（溢出量 → 候选过滤 → importance↑/updatedAt↑）；在既有 `cleanupExpiredMemories()` 内复用同一次 `getAllMemories()` 与同一把 `isCleaning` 锁接入 |
+| `memory/index.ts` | 导出 `selectEvictions` / `EvictionCandidate`（唯一出口，R03-002） |
+| 测试 | 🆕 `app/tests/memory/memoryRetention.test.ts`（6 例：未超限/低重要度先出/最旧先出/四类保护项/全保护返回空不改入参） |
+
+**门禁**：`typecheck` 0；`bun test tests/memory tests/session` **367 pass / 0 fail**；改动文件 `eslint` 0；
+`lint:arch` **0 错误 / 0 警告**。
+
+**未验证项（如实）**：当前库 644 < 1000 ⇒ **超限分支真机未触发过**（dry-run 日志与 `.trash` 移动均未实际发生）。
+触发时的观察点＝`记忆库超限：将归档 N 条（dry-run，未移动文件）`。若要更强的端到端证据，可临时把上限降到
+约 600 跑一次真归档（会移动 ~44 个文件到 `.trash`，可恢复，但会真实改动记忆库）——需显式同意后再做。
+
+**顺带发现（不在 D5-B 范围，另案）**：`EnhancedMemoryManager`（含 `retentionScore` /
+`lifecycleStage: active|archived|expired|deleted` / `retentionPeriod: 365`）**全仓未发现生产实例化**
+（`new EnhancedMemoryManager` 零命中；仅 `memory/index.ts` 导出 + `MemoryWeightExporter` 引类型）
+⇒ 疑似**未接线的第二套记忆生命周期实现**（双轨制）。**D5-B 不依赖它**；接线或删除需单独裁定。
 
 ---
 

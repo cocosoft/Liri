@@ -19,7 +19,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export type { MemoryManager } from './MemoryManager';
-export { MemoryManagerImpl } from './MemoryManager';
+export {
+  MemoryManagerImpl,
+  selectEvictions,
+  type EvictionCandidate,
+} from './MemoryManager';
 export {
   registerSessionSummaryMemoryType,
   idempotencyKey,

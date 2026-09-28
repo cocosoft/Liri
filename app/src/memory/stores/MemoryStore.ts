@@ -130,6 +130,14 @@ export interface MemoryStore {
   // 删除记忆
   deleteMemory(id: string): Promise<void>;
 
+  /**
+   * 归档记忆（D5-B）：把记忆文件**移动**到 `<memoryDir>/.trash/`（带时间戳避免同名冲突），
+   * 而非物理删除 —— 镜像仓内既有先例 `session/storage/FileSystemStorage` 的软删做法，误删可恢复。
+   * 同步清理路径/内存缓存与向量索引。
+   * @returns 是否确实归档了文件（不存在时 false）
+   */
+  archiveMemory(id: string): Promise<boolean>;
+
   // 列出所有记忆
   listMemories(): Promise<string[]>;
 
@@ -875,6 +883,31 @@ export class MemoryStoreImpl implements MemoryStore {
       });
       return null;
     }
+  }
+
+  /**
+   * 归档记忆（D5-B）：移动到 `<memoryDir>/.trash/<id>-<时间戳>.md`，不物理删除。
+   *
+   * 与 `deleteMemory` 的差异**仅**在"保留文件"：缓存清理与向量索引删除一致
+   * （故此处照搬同一组收尾动作，避免改动既有 delete 热路径）。
+   */
+  async archiveMemory(id: string): Promise<boolean> {
+    validateMemoryId(id);
+    const filePath = await this.findMemoryPath(id);
+    if (!filePath) return false;
+
+    this.pendingBatch.delete(id);
+
+    const trashDir = join(this.memoryDir, '.trash');
+    await fs.mkdir(trashDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    await fs.rename(filePath, join(trashDir, `${id}-${stamp}.md`));
+
+    // 与 deleteMemory 相同的收尾：缓存 + 向量
+    this.filePathCache.delete(id);
+    this.memoryCache.delete(id);
+    await this.deleteMemoryVector(id);
+    return true;
   }
 
   /**

@@ -27,6 +27,22 @@ import { runPostCompactCleanup } from './postCompactCleanup';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:compact:AutoCompactService');
 
+/**
+ * ── 边界声明（2026-09-28，与「两套压缩核查」结论配套） ──
+ *
+ * 本目录（`services/compact/`）是**会话级**压缩：只在 **`/compact` 命令**
+ * （`commands/builtin/compact/Compact.ts`）、**HTTP 压缩端点**
+ * （`session-handlers.ts:1017` → `CoreAPIImpl:2658` → `ChatManager.compactSession`）、
+ * **会话生命周期边界**（`SessionGateway:1974` / `SessionManager:405` 的 `beforeCompact`）触发。
+ *
+ * 仓内另有 **对话轮级（自动）**压缩 [`context/compaction/`](../../context/compaction)
+ * （门面 `CompactionOrchestrator`），只被对话请求路径调用 ⇒ 两者是**分工，不是双轨**
+ * （完整核查表见 `.trae/specs/compaction-duplicate-subsystems.md` §7）。
+ *
+ * ⚠️ **命名警示**：本目录的 `CompactOrchestrator` / `strategies/SnipCompactStrategy` 与 A 套的
+ * `CompactionOrchestrator` / `SnipEngine` **名字极近**，而据 2026-09-28 核查，**前者已无任何消费者**
+ * （仅桶导出，见台账 D-6-c）⇒ 阅读时勿把两者当作"同一实现的两份副本"。
+ */
 export interface AutoCompactTrackingState extends CompactState {
   lastRecompactInfo?: string;
 }

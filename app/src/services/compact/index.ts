@@ -32,9 +32,6 @@ export type {
 } from './types';
 export {
   DEFAULT_MAX_OUTPUT_TOKENS_FOR_SUMMARY,
-  DEFAULT_AUTO_COMPACT_BUFFER_TOKENS,
-  DEFAULT_WARNING_THRESHOLD_BUFFER_TOKENS,
-  DEFAULT_ERROR_THRESHOLD_BUFFER_TOKENS,
   DEFAULT_MANUAL_COMPACT_BUFFER_TOKENS,
   MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES,
   getContextWindowForModel,
@@ -76,17 +73,6 @@ export {
 } from './prompt';
 
 export {
-  microcompactMessages,
-  evaluateTimeBasedTrigger,
-  TIME_BASED_MC_CLEARED_MESSAGE,
-  resetMicrocompactState,
-} from './microCompact';
-export type { MicrocompactResult, PendingCacheEdits } from './microCompact';
-
-export { getTimeBasedMCConfig } from './timeBasedMCConfig';
-export type { TimeBasedMCConfig } from './timeBasedMCConfig';
-
-export {
   suppressCompactWarning,
   clearCompactWarningSuppression,
   isCompactWarningSuppressed,
@@ -108,9 +94,3 @@ export type {
   SessionMemoryCompactResult,
   SessionMemoryCompactionResult,
 } from './sessionMemoryCompact';
-
-export { CompactOrchestrator } from './CompactOrchestrator';
-export type {
-  CompactRecord,
-  CompactOrchestratorOptions,
-} from './CompactOrchestrator';

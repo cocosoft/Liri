@@ -10,6 +10,19 @@
  *   3. warn → 尝试 Tier 1（Micro），无效则 Tier 2（Snip）
  *   4. trigger → 执行 Tier 2（Snip），无效则 Tier 3（LLM Full）
  *   5. 每次压缩前后调用 hookRegistry + compactionMetricsTracker
+ *
+ * ── 边界声明（2026-09-28，与「两套压缩核查」结论配套） ──
+ *
+ * 本模块是**对话轮级（自动）**压缩：只被**对话请求路径**调用 ——
+ * `chat/pipeline/StreamPipeline`、`chat/orchestrator/streamMessageFlow` / `sendMessageFlow`、
+ * `chat/ReActToolLoop`（工具轮内）、`query/QueryEngine`（`compactIfNeeded`）。
+ *
+ * 仓内另有 **会话级**压缩 [`services/compact/`](../../services/compact)（门面 `AutoCompactService`），
+ * 它只在 **`/compact` 命令 / HTTP 压缩端点 / 会话生命周期边界**（`SessionGateway` / `SessionManager`
+ * 的 `beforeCompact`）触发 ⇒ 两者是**分工，不是双轨**（完整核查表见
+ * `.trae/specs/compaction-duplicate-subsystems.md` §7）。
+ *
+ * ⚠️ 改动任一侧前请先读该 §7 —— 避免把"**两道闸**"误判为重复实现而做无谓合并。
  */
 import type { ChatMessage } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';

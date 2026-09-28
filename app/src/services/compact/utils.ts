@@ -5,6 +5,10 @@
  */
 
 import { modelManager } from '@modules/ai';
+// P1-3-b（2026-09-28）：窗口解析改用与 unified / `createStreamBudget` **同一事实源**
+import { resolveContextWindow } from '@modules/context';
+// P1-3-c（2026-09-28）：阈值口径统一为**比例**，引用全仓**唯一**阈值常量源
+import { UNIFIED_THRESHOLDS } from '@modules/core/tokenBudget/TokenBudgetController.js';
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
   null;
@@ -26,23 +30,50 @@ function lazyInitNative() {
   return nativeEstimateTokens;
 }
 
+/**
+ * P1-3-c（2026-09-28，用户裁定）：**阈值口径统一为比例**（引用 `UNIFIED_THRESHOLDS`）。
+ *
+ * 改前这里是 4 个**绝对 buffer** 常量（`AUTO_COMPACT=13000` / `WARNING=20000` / `ERROR=20000` /
+ * `MANUAL=3000`），阈值 = `有效窗口 − buffer`；而 `context/compaction` 与 unified 用**比例**
+ * ⇒ **同一仓两套口径**（本 spec P1-3 取证 ②c）。
+ *
+ * 现改为**以有效窗口为基准的比例**（保留"基准 = 有效窗口"，只把减法换乘法）：
+ * | 用途 | 映射 |
+ * |---|---|
+ * | 自动压缩触发 | `COMPACT_DEEP`（0.85） |
+ * | 警告 | `WARNING`（0.75） |
+ * | 错误 | `CRITICAL`（0.92） |
+ *
+ * ⚠️ **行为变化（如实；以 200k 窗口 / 输出预留 20k ⇒ 有效窗口 180k 为例）**：
+ * 自动压缩 167000 → **153000**（**早 14000**）、警告 160000 → **135000**（早 25000）、
+ * 错误 160000 → **165600**（晚 5600，且**不再与警告同级** —— 顺带修掉 D-6-d 的反向算式）。
+ *
+ * **未纳入统一的一项（附理由）**：`getBlockingLimit` 仍是"有效窗口 − `MANUAL_COMPACT_BUFFER_TOKENS`"。
+ * 它是**手动压缩的硬上限**，语义是**为操作预留绝对空间**、不属 `UNIFIED_THRESHOLDS` 的"压缩档"
+ * 范畴 ⇒ 强行比例化反而失真。
+ */
 export const DEFAULT_MAX_OUTPUT_TOKENS_FOR_SUMMARY = 20000;
-export const DEFAULT_AUTO_COMPACT_BUFFER_TOKENS = 13000;
-export const DEFAULT_WARNING_THRESHOLD_BUFFER_TOKENS = 20000;
-export const DEFAULT_ERROR_THRESHOLD_BUFFER_TOKENS = 20000;
+/** 手动压缩硬上限的绝对余量（**有意**不比例化，理由见上） */
 export const DEFAULT_MANUAL_COMPACT_BUFFER_TOKENS = 3000;
 export const MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3;
 
-const CONTEXT_WINDOW_MAP: Record<string, number> = {};
-
 const MAX_OUTPUT_TOKENS_MAP: Record<string, number> = {};
 
+/**
+ * P1-3-b（2026-09-28）：模型上下文窗口 —— **与 unified / `createStreamBudget` 同一事实源**。
+ *
+ * 改前：`CONTEXT_WINDOW_MAP[model]`（**恒空的死表**；且"按模型名建表"违反 `model-usage.md`）
+ *   → `modelManager.getModelContextWindow(model)` → **`100000`**（硬编码兜底）
+ * ⇒ 同一个"未注册模型"在本模块得 **100000**、而 `resolveContextWindow` 得 **200_000**（**1 倍分歧**）。
+ *
+ * 现统一为 `resolveContextWindow`：DB `model_registry.context_window`（**唯一事实来源**）
+ *   → 1M 启发式 → `200_000`。
+ *
+ * ⚠️ **行为变化（如实）**：**未注册模型**的兜底窗口 100000 → 200000 ⇒
+ * `getAutoCompactThreshold`（= 有效窗口 − 13000）随之抬高 ⇒ 这类模型上自动压缩**触发更晚**。
+ */
 export function getContextWindowForModel(model: string): number {
-  return (
-    CONTEXT_WINDOW_MAP[model] ||
-    modelManager.getModelContextWindow(model) ||
-    100000
-  );
+  return resolveContextWindow(model).tokens;
 }
 
 export function getMaxOutputTokensForModel(model: string): number {
@@ -58,23 +89,25 @@ export function getEffectiveContextWindowFromModel(model: string): number {
 }
 
 export function getAutoCompactThreshold(model: string): number {
-  const effectiveContextWindow = getEffectiveContextWindowFromModel(model);
-  return effectiveContextWindow - DEFAULT_AUTO_COMPACT_BUFFER_TOKENS;
-}
-
-export function getWarningThreshold(autoCompactThreshold: number): number {
   return (
-    autoCompactThreshold -
-    (DEFAULT_AUTO_COMPACT_BUFFER_TOKENS -
-      DEFAULT_WARNING_THRESHOLD_BUFFER_TOKENS)
+    getEffectiveContextWindowFromModel(model) * UNIFIED_THRESHOLDS.COMPACT_DEEP
   );
 }
 
-export function getErrorThreshold(autoCompactThreshold: number): number {
-  return (
-    autoCompactThreshold -
-    (DEFAULT_AUTO_COMPACT_BUFFER_TOKENS - DEFAULT_ERROR_THRESHOLD_BUFFER_TOKENS)
-  );
+/**
+ * 警告阈值 = `有效窗口 × WARNING`。
+ *
+ * P1-3-c：**签名由 `autoCompactThreshold` 改为 `effectiveContextWindow`** —— 原算式为
+ * `autoCompactThreshold - (13000 - 20000)` = `autoCompact + 7000`，**方向反了**
+ * （warning 反而**晚于** autoCompact，见台账 D-6-d）；改为比例后顺带消除该错误。
+ */
+export function getWarningThreshold(effectiveContextWindow: number): number {
+  return effectiveContextWindow * UNIFIED_THRESHOLDS.WARNING;
+}
+
+/** 错误阈值 = `有效窗口 × CRITICAL`（同上改签名；原与 warning 同级，现为最晚一道） */
+export function getErrorThreshold(effectiveContextWindow: number): number {
+  return effectiveContextWindow * UNIFIED_THRESHOLDS.CRITICAL;
 }
 
 export function getBlockingLimit(effectiveContextWindow: number): number {
@@ -102,8 +135,9 @@ export function calculateTokenWarningState(
     Math.round(((threshold - tokenUsage) / threshold) * 100)
   );
 
-  const warningThreshold = threshold - DEFAULT_WARNING_THRESHOLD_BUFFER_TOKENS;
-  const errorThreshold = threshold - DEFAULT_ERROR_THRESHOLD_BUFFER_TOKENS;
+  // P1-3-c：复用上面的**比例**函数（原为内联的绝对 buffer 减法 ⇒ 与 unified 两套口径）
+  const warningThreshold = getWarningThreshold(threshold);
+  const errorThreshold = getErrorThreshold(threshold);
 
   const isAboveWarningThreshold = tokenUsage >= warningThreshold;
   const isAboveErrorThreshold = tokenUsage >= errorThreshold;

@@ -3094,6 +3094,43 @@ class ArchitectureLinter {
     );
   }
 
+  /**
+   * R07-004: 检查仓库工作区内是否残留**参考副本**目录（`REF/` 等）。
+   *
+   * 依据（2026-09-28 实测）：`REF/` 含 **82,168 文件 / 2,659 MB**，`git ls-files REF` = **0**
+   * （`.gitignore` 已有 `REF/*`）。它本身不入库，但**会污染人工统计口径** —— 当时把其中
+   * 5,159 个 `.rs` 当成 Liri 自身代码（真值 **21** 个），得出完全相反的结论
+   * （"Rust 193 万行" vs 真实 3,919 行）。对应架构原则「**单一事实源**」：参考副本不是本仓事实。
+   *
+   * 等级 **warning（不阻断提交）**：物理搬迁需用户择机执行（目录可能被 IDE/索引器占用，
+   * `rename` 会被拒），处置与口径约定见 `.trae/specs/liri-upgrade-plan-20260928.md` §1。
+   */
+  async checkWorkspaceHygiene(): Promise<void> {
+    const repoRoot = resolve(__dirname, '..');
+    const referenceDirs = ['REF', 'codex-main'];
+    const found: string[] = [];
+    for (const name of referenceDirs) {
+      if (existsSync(resolve(repoRoot, name))) found.push(name);
+    }
+
+    if (found.length > 0) {
+      this.violations.push({
+        ruleId: 'R07-004',
+        severity: 'warning',
+        file: found[0],
+        message: `仓库工作区存在参考副本目录：${found.join('、')}（未入库，但会污染统计口径）`,
+        suggestion:
+          '按「单一事实源」把参考副本移出仓库（同卷 Directory.Move 即秒级完成）；搬迁前任何人工统计/脚本必须排除这些目录，见 .trae/specs/liri-upgrade-plan-20260928.md §1',
+      });
+    }
+
+    console.log(
+      `[工作区参考副本检查 R07-004] 发现 ${found.length} 个参考副本目录${
+        found.length > 0 ? `：${found.join('、')}` : ''
+      }`
+    );
+  }
+
   /** R07-001 豁免：已登记的微小文件例外 */
   isTinyFileExempt(relPath: string): boolean {
     const normalized = relPath.replace(/\\/g, '/').toLowerCase();
@@ -3487,6 +3524,8 @@ class ArchitectureLinter {
       // R10 模块统一管理（§十二，阶段对齐 + 生命周期契约）
       this.checkModulePhaseAlignment(),
       this.checkModuleLifecycle(),
+      // R07 工作区卫生（参考副本不得留在仓库内：防统计口径污染复发）
+      this.checkWorkspaceHygiene(),
     ]);
 
     // 分层合规检查（需按顺序在 loadFiles 之后执行）

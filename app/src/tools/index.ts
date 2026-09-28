@@ -322,6 +322,8 @@ export type { ToolExample, FewShotEntry } from './FewShotRegistry';
 export { getToolManager, createToolManager } from './ToolManager';
 export type { ToolSchema } from './ToolRegistry';
 export { createToolRegistry } from './ToolRegistry';
+// wire codec（工具名两种语义：内部标识 `模块:动作` vs OpenAI wire 安全名）
+export { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 export { ToolFilterManager } from './ToolFilterManager';
 export { filterToolsByTask } from './toolCategories';
 export type { ToolCategory } from './toolCategories';

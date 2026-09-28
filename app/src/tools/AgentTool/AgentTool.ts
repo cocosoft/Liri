@@ -23,6 +23,7 @@ import {
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { WorkspaceGit } from '../../workspaces/WorkspaceGit';
+import { toWireToolName } from '../toolNameCodec';
 import {
   AGENT_TOOL_NAME,
   LEGACY_AGENT_TOOL_NAME,
@@ -1105,7 +1106,8 @@ export class AgentTool implements Tool {
     return tools.map((tool) => {
       const info = tool.getInfo();
       return {
-        name: tool.name,
+        // wire codec：出站用 wire 安全名（禁冒号，否则 provider 400 ⇒ 整轮失败）
+        name: toWireToolName(tool.name),
         description: info.description,
         parameters: {
           type: 'object' as const,

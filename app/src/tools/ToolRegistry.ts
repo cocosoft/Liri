@@ -14,6 +14,7 @@ import {
 } from './utils/toolSearch';
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
+import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -154,6 +155,24 @@ export class ToolRegistry {
       }
     }
 
+    // wire codec：非 wire 安全名（冒号命名空间，如 `calendar:add`）自动登记其 wire 安全名
+    // （`calendar_add`）为别名 ⇒ 模型以安全名调用时可解析回真名（`getTool()` 已内置别名解析）。
+    // 冲突（安全名已被别的工具名/别名占用）→ 跳过并 warn：该工具降级为"不可下发"，
+    // **不做静默改名**（避免两个工具抢同一 wire 名导致误执行）。
+    if (!isWireSafeToolName(tool.name)) {
+      const wireName = toWireToolName(tool.name);
+      if (this.tools.has(wireName) || this.aliases.has(wireName)) {
+        logger.warn('工具名 codec：wire 安全名冲突，跳过别名登记', {
+          toolName: tool.name,
+          wireName,
+          occupiedBy:
+            this.tools.get(wireName)?.name ?? this.aliases.get(wireName),
+        });
+      } else {
+        this.aliases.set(wireName, tool.name);
+      }
+    }
+
     // 初始化使用统计
     this.usageStats.set(tool.name, {
       usageCount: 0,
@@ -185,6 +204,14 @@ export class ToolRegistry {
         this.aliases.delete(alias);
       }
     }
+
+    // wire codec：清理自动登记的 wire 安全别名（仅当仍指向本工具）
+    if (!isWireSafeToolName(tool.name)) {
+      const wireName = toWireToolName(tool.name);
+      if (this.aliases.get(wireName) === tool.name) {
+        this.aliases.delete(wireName);
+      }
+    }
   }
 
   /**
@@ -210,6 +237,16 @@ export class ToolRegistry {
     }
 
     return undefined;
+  }
+
+  /**
+   * 将外部传入的工具名归一为注册名（wire codec）。
+   *
+   * 模型侧只见到 wire 安全名（`calendar_add`），策略/权限/审计需按真名（`calendar:add`）
+   * 判定，故在这些判定点先经本方法归一。未命中时原样返回（调用方按未知工具处理）。
+   */
+  resolveRegisteredName(name: string): string {
+    return this.getTool(name)?.name ?? name;
   }
 
   getTools(): Map<string, Tool> {

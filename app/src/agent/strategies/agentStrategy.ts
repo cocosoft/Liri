@@ -17,6 +17,7 @@ import { AIMessageRole } from '@modules/ai';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
 import { getLogger } from '@modules/monitoring';
+import { toWireToolName } from '../../tools/toolNameCodec';
 const logger = getLogger('agent:strategies:agentStrategy');
 
 /**
@@ -69,7 +70,9 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
     return (context.tools ?? []).map((t: AgentTool) => ({
       type: 'function' as const,
       function: {
-        name: t.name,
+        // wire codec：出站必须用 wire 安全名（OpenAI `tools[].function.name` 禁冒号，
+        // 原样下发 `calendar:add` 会被 provider 以 400 拒绝，导致整轮对话失败）
+        name: toWireToolName(t.name),
         description: t.description,
         parameters: t.parameters ?? {},
       },
@@ -94,7 +97,10 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
       error?: string;
     }> = [];
     for (const tc of toolCalls) {
-      const tool = (context.tools ?? []).find((t) => t.name === tc.name);
+      // wire codec：模型回传的是 wire 安全名（`calendar_add`）⇒ 按 wire 名匹配回真名工具
+      const tool = (context.tools ?? []).find(
+        (t) => toWireToolName(t.name) === tc.name
+      );
       if (!tool) {
         toolResults.push({
           name: tc.name,

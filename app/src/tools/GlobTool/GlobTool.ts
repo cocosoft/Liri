@@ -25,6 +25,32 @@ export interface GlobResult {
 const MAX_FILES = 100;
 
 /**
+ * 不可读目录（EPERM / EACCES / ENOENT 等）属遍历用户目录时的**预期**情况。
+ *
+ * 根因修复（2026-09-27，实测取证）：原实现对**每个**不可读目录调用 `handleError`
+ * ⇒ 一次全盘 glob 会产出数十条 `severity:medium` 的 `[readdir] EPERM…`（`AppData` /
+ * `$Recycle.Bin` 等系统保护目录在多轮遍历中反复出现）⇒ **噪音风暴**并污染告警面
+ * （见 `debug-long-task-interrupt.md`）。
+ * 现改为：计数 + 每 30s 至多一条 debug —— 保住可观测性，不再逐目录上报错误。
+ */
+const SKIPPED_DIR_LOG_INTERVAL_MS = 30_000;
+let skippedDirCount = 0;
+let skippedDirLastLogAt = 0;
+
+function noteSkippedDir(dir: string, err: unknown): void {
+  skippedDirCount++;
+  const now = Date.now();
+  if (now - skippedDirLastLogAt < SKIPPED_DIR_LOG_INTERVAL_MS) return;
+  skippedDirLastLogAt = now;
+  logger.debug('glob: 跳过不可读目录（预期内，已聚合）', {
+    skippedInWindow: skippedDirCount,
+    lastDir: dir,
+    reason: err instanceof Error ? err.message : String(err),
+  });
+  skippedDirCount = 0;
+}
+
+/**
  * 根据指定的通配符模式在目标路径下搜索匹配的文件。
  * * @param pattern - 用于匹配文件名的通配符模式字符串
  * @param searchPath - 搜索的起始目录路径，默认为当前工作目录
@@ -153,10 +179,8 @@ async function walkDirAsync(
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    handleError(err, {
-      module: 'tools:glob',
-      action: 'readdir',
-    });
+    // 权限受限目录属预期情况 ⇒ 聚合计数（不逐目录上报错误；见 noteSkippedDir 注释）
+    noteSkippedDir(dir, err);
     return;
   }
 
@@ -215,10 +239,8 @@ function walkDir(
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    handleError(err, {
-      module: 'tools:glob',
-      action: 'readdir',
-    });
+    // 权限受限目录属预期情况 ⇒ 聚合计数（不逐目录上报错误；见 noteSkippedDir 注释）
+    noteSkippedDir(dir, err);
     return;
   }
 

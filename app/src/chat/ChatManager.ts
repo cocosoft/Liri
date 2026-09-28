@@ -90,7 +90,11 @@ import {
   type RequestEventAppender,
 } from './services/requestBoundary';
 import { feature as coreFeature } from '@modules/core';
-import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
+import {
+  configureCodeRunner,
+  getSubAgentEngine,
+  toWireToolName,
+} from '@modules/tools';
 import {
   sanitizeApiMessages,
   compressToolHistory,
@@ -3163,7 +3167,12 @@ export class ChatManagerImpl implements ChatManager {
     return schemas.map((schema) => ({
       type: 'function' as const,
       function: {
-        name: schema.name,
+        // wire codec：出站必须用 wire 安全名。OpenAI 兼容 `tools[].function.name` 只接受
+        // `^[a-zA-Z0-9_-]+$`（禁冒号）——原样下发冒号命名空间工具（`calendar:add` /
+        // `office:workflow` / `mail:send`）会被 provider 以 400 拒绝
+        // （`Invalid 'tools[N].function.name'…`）⇒ `chunkCount:0` ⇒ 走空回复兜底
+        // ⇒ 用户感知「长程任务中断」。入站由 `ToolRegistry.resolveRegisteredName()` 回真名。
+        name: toWireToolName(schema.name),
         description: schema.description,
         parameters: {
           type: 'object' as const,

@@ -1268,12 +1268,17 @@ export async function* runStreamMessage(
       }
 
       // Phase 1c: 流式水位监测
-      // P1 修复（2026-08-14 排查）：水位告警刷屏降噪——定时器每 1.5s 触发一次，
-      // 原实现无条件 logger.warn（normal 级别也在刷，24h 日志膨胀 12.6MB+）。
-      // 复用 severity 分级：normal 降为 debug，仅 warn/compact 记录告警。
-      // P2（2026-08-14 排查）：warn 级仍 1.5s 一条会淹没其他日志 → warn 节流 15s，
-      // compact（触发压缩的关键告警）保持全量记录。
+      // P1 修复（2026-08-14）：normal 降为 debug（原无条件 warn ⇒ 24h 膨胀 12.6MB+）；
+      // warn 级节流 15s。
+      // P1 修复（2026-09-27，实测取证）：**compact 级此前无节流** ⇒ 水位长期持平
+      // （ratio 3.75~6.17，severity 恒 compact）时每 1.5s 一条 warn，单会话单日
+      // **14852 条**，日志膨胀并掩盖真因（见 `debug-long-task-interrupt.md`）。
+      // 现改为**「状态跃迁必记 + 同级时间节流」**：首次进入某级别必记（保住关键信息），
+      // 同级别持续期间每 WATERMARK_LOG_THROTTLE_MS 至多一条。
+      const WATERMARK_LOG_THROTTLE_MS = 15_000;
       let lastWatermarkWarnAt = 0;
+      /** 上次记录的 severity（用于判定"跃迁"：null → 任意级别 视为跃迁，必记） */
+      let lastWatermarkSeverity: string | null = null;
       host.unifiedTracker.startStreamingCheck((state) => {
         const logPayload = {
           sessionId: session.id,
@@ -1282,17 +1287,20 @@ export async function* runStreamMessage(
           ratio: Number(state.ratio.toFixed(3)),
           severity: state.severity,
         };
+        const isEscalation = state.severity !== lastWatermarkSeverity;
         if (state.severity === 'normal') {
           logger.debug('流式输出中上下文水位（normal）', logPayload);
-        } else if (state.severity === 'warn') {
+        } else {
           const now = Date.now();
-          if (now - lastWatermarkWarnAt >= 15_000) {
+          if (
+            isEscalation ||
+            now - lastWatermarkWarnAt >= WATERMARK_LOG_THROTTLE_MS
+          ) {
             lastWatermarkWarnAt = now;
             logger.warn('流式输出中上下文水位告警', logPayload);
           }
-        } else {
-          logger.warn('流式输出中上下文水位告警', logPayload);
         }
+        lastWatermarkSeverity = state.severity;
         const pct = Math.round(state.ratio * 100);
         const curK =
           state.currentTokens > 0

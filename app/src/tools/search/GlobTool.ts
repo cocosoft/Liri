@@ -18,6 +18,7 @@ import {
   normalizeToolPath,
 } from '../utils/ToolUtils';
 import { globAsync } from '../GlobTool/GlobTool';
+import { z } from 'zod';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:search:GlobTool');
@@ -27,6 +28,17 @@ export class GlobTool extends BaseTool {
   description = 'Find files matching a pattern';
 
   override tags = [ToolTag.FILE, ToolTag.READ];
+
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * ⚠️ **刻意不复用** `tools/GlobTool/schemas.ts` 的 `GlobOutputSchema` —— 实测两者**不匹配**：
+   * 该 schema 描述的是**内层** `globAsync()` 的返回值（`{ filenames, durationMs, numFiles, truncated }`），
+   * 而本工具（Tool 出口）的 `data` **只取 `filenames`**（见 `createSuccessResult(result.filenames, …)`）。
+   * 若强行接上，**每次调用都会校验失败**（属"schema 与工具出口的契约漂移"，已登记待收口）。
+   * 故此处按**真实出口**声明：`data` 为**字符串数组**。
+   */
+  outputSchema = z.array(z.string());
 
   params: ToolParam[] = [
     {

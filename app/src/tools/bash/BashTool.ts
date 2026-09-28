@@ -340,6 +340,16 @@ function formatBytes(n: number): string {
 export class BashTool extends BaseTool {
   name = 'bash';
 
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * ⚠️ **刻意不复用**本文件内 `{ stdout, stderr, exitCode }` 的 zod schema —— 实测它描述的是
+   * **内层** `execBashCommand()` 的返回，而工具出口的 `data` 是**字符串** `output`
+   * （见 `createSuccessResult(output, …)`；各错误分支同样传字符串）⇒ 与 `glob` **完全同型**的
+   * 契约漂移，强行接线会每次校验失败。故此处按**真实出口**声明：`data` 为**字符串**。
+   */
+  outputSchema = z.string();
+
   /** 是否为 Windows 平台 */
   private isWindows = process.platform === 'win32';
 

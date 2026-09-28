@@ -39,6 +39,40 @@ export interface ToolResultBlock {
 }
 
 /**
+ * P1-3 A 档（2026-09-28）：**出参运行期校验（纯函数）**。
+ *
+ * 之所以导出为纯函数：`ToolExecutor.validateToolOutput` 是 private，单测无法直接触达；
+ * 而校验本身是「输入 ⇒ 判定」的纯逻辑，与执行器状态无关。
+ *
+ * 语义（**保守**）：
+ * - 未声明 `outputSchema` ⇒ 返回 `null`（**不校验**，与改动前行为**完全一致**）；
+ * - 校验通过 ⇒ 返回 `null`；
+ * - 校验失败 / schema 自身抛错 ⇒ 返回**详情文本**（调用方负责记录，**不阻断执行**）。
+ *
+ * 校验对象：优先 `result.data`（工具的结构化产物），缺省回退 `result` 本体。
+ */
+export function validateToolOutputShape(
+  tool: Pick<Tool, 'name' | 'outputSchema'>,
+  result: ToolResult
+): string | null {
+  const schema = tool.outputSchema;
+  if (!schema) return null;
+
+  const payload = result.data !== undefined ? result.data : result;
+  let parsed: { success: boolean; error?: unknown };
+  try {
+    parsed = schema.safeParse(payload);
+  } catch (error) {
+    // schema 自身抛错 = 契约实现缺陷（非数据不合规）
+    return `outputSchema 执行异常：${String(error)}`;
+  }
+  if (parsed.success) return null;
+  return parsed.error instanceof Error
+    ? parsed.error.message
+    : String(parsed.error ?? 'unknown');
+}
+
+/**
  * 工具执行器类
  */
 export class ToolExecutor {
@@ -214,6 +248,11 @@ export class ToolExecutor {
             toolUseId
           );
 
+      // ─── P1-3 A 档（2026-09-28）：出参运行期校验（仅对显式声明 outputSchema 的工具） ───
+      if (result.success !== false) {
+        this.validateToolOutput(tool, result);
+      }
+
       if (this.useHooks) {
         hookContext.output = result.data;
         hookContext.error =
@@ -377,6 +416,24 @@ export class ToolExecutor {
         action: 'executePostToolUseHooks',
       });
     }
+  }
+
+  /**
+   * P1-3 A 档（2026-09-28）：**出参运行期校验**（薄封装，逻辑在导出的纯函数里以便单测）。
+   *
+   * 只在工具**显式声明** `outputSchema` 时生效（未声明者完全不受影响）；失败**不阻断**，
+   * 仅把问题**如实标注**到返回结果（`metadata.outputSchemaError`）并记 warning。
+   */
+  private validateToolOutput(tool: Tool, result: ToolResult): void {
+    const detail = validateToolOutputShape(tool, result);
+    if (!detail) return;
+    logger.warning(
+      `[P1-3] ${tool.name} 出参未通过 outputSchema 校验（不阻断）：${detail}`
+    );
+    result.metadata = {
+      ...(result.metadata ?? {}),
+      outputSchemaError: detail,
+    };
   }
 
   /**

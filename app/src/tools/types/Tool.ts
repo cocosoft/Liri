@@ -364,9 +364,23 @@ export interface Tool<
   inputJSONSchema?: unknown;
 
   /**
-   * 输出Schema
+   * 出参运行期 schema（P1-3 A 档，2026-09-28）。
+   *
+   * **改前为 `unknown`** —— 字段早已存在，但该类型使**任何校验都不可能**（无法调用
+   * `safeParse`）⇒ 等价于"只有占位、没有契约"。现收窄为结构化最小接口。
+   *
+   * 与泛型 `Output` **互补**：`Output` 只作用于**编译期**（对运行期数据无约束），本字段是
+   * **运行期**校验 —— 在 `ToolExecutor` 的统一出口（`validateToolOutput`）调用其 `safeParse`。
+   *
+   * 设计约定（**保守**，避免"加校验反而打断工具"）：
+   * - **可选**：未声明者**完全不受影响**（不校验、不报错）；
+   * - **不阻断**：校验失败仅**记录 + 如实标注**（写入 `metadata.outputSchemaError`），**不抛错**；
+   * - 结构刻意**不 import zod 类型**：零新增依赖，且兼容 zod 的 `safeParse` 形态
+   *   （MCP 工具亦可自行适配）。
    */
-  outputSchema?: unknown;
+  outputSchema?: {
+    safeParse(data: unknown): { success: boolean; error?: unknown };
+  };
 
   /**
    * 判断两个输入是否等价

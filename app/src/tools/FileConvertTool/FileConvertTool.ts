@@ -14,6 +14,7 @@ import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 import { truncateToolResult, MAX_TOOL_RESULT_CHARS } from '@modules/query';
+import { z } from 'zod';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:FileConvertTool:FileConvertTool');
@@ -91,6 +92,15 @@ export function shapeMarkdownResult(
 
 export class FileConvertTool extends BaseTool {
   override readonly name = 'file_convert';
+
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * 本工具出口的 `data` **恒为字符串**（成功分支传 Markdown / 提示文本，失败分支传错误说明 ——
+   * 见各处 `createToolResult(<string>, …)`）⇒ 契约表达"**返回必须是字符串**"。
+   * **刻意不断言非空**：空产物（如空文件的转换结果）合法。
+   */
+  outputSchema = z.string();
   override readonly description =
     'Convert file to Markdown format, or convert locally to .docx (no LLM involved). ' +
     'For local file conversion requests (e.g. html/md → Word), prefer this over doc_generate ' +

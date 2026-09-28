@@ -10,6 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import type { ToolCallProgress } from '../types/Tool';
 import { isDeferredTool, TOOL_SEARCH_TOOL_NAME } from '../utils/toolSearch';
+import { z } from 'zod';
 import { getToolRegistry } from '../ToolRegistry';
 import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
 
@@ -251,6 +252,22 @@ export class ToolSearchTool extends BaseTool<
    * 工具名称
    */
   name = TOOL_SEARCH_TOOL_NAME;
+
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * 覆盖**两处出口**（L386 / L450 的 `createToolResult`）共有的**结构骨架**：
+   * `{ matches, query, total_deferred_tools, deferredToolNames }`。
+   *
+   * ⚠️ `matches` 的元素形态**刻意不细化**为 `z.unknown()` 之外的约束 —— 取证时只确认了
+   * "数组"，**不下臆断**（CS04/CS06）；骨架级约束已足以捕获"字段改名 / 丢失"这类破坏。
+   */
+  outputSchema = z.object({
+    matches: z.array(z.unknown()),
+    query: z.string(),
+    total_deferred_tools: z.number(),
+    deferredToolNames: z.array(z.string()),
+  });
 
   /**
    * 工具描述

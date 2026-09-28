@@ -17,6 +17,7 @@ import { getLogger } from '@modules/monitoring';
 import { SimpleMutex } from '@modules/core';
 import { handleError } from '@modules/error';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
 
 const logger = getLogger('tools:todoWrite');
 
@@ -406,6 +407,17 @@ const todoManager = new Proxy({} as TodoManager, {
 export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /** 工具名称 */
   name = 'todo_write';
+
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * 实测出口：**成功分支恒为字符串** —— `list` 拼装 `Todo List (…)`（L736-738）、
+   * `add`（L772）/ `update`（L816）拼装模板串、无待办时返回 `'No todos found…'`（L716）。
+   * 错误分支传 `null`（L674 / L869），但**错误分支不参与校验**（`ToolExecutor.validateToolOutput`
+   * 仅在 `result.success !== false` 时调用）⇒ 故契约按成功分支声明为**字符串**。
+   * **刻意不断言非空**（空列表提示语亦为合法结果）。
+   */
+  outputSchema = z.string();
 
   /** 工具描述 */
   override description =

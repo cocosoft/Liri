@@ -161,6 +161,7 @@ export function addLineNumbers(content: string, startLine: number = 1): string {
 }
 
 import { BaseTool } from '../BaseTool';
+import { z } from 'zod';
 import { ToolTag } from '../types/Tool';
 import type {
   ToolParam,
@@ -239,6 +240,17 @@ export class FileReadTool extends BaseTool {
   description = 'Read file content';
 
   override tags = [ToolTag.FILE, ToolTag.READ];
+
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * ⚠️ 本工具的 `data` 是**纯文本**（`createToolResult(<string>, …)` —— 文件正文 / 转换后的
+   * Markdown / 错误说明**都走同一通道**），**不是结构对象** ⇒ 契约只能表达"**返回必须是字符串**"，
+   * 用于捕获"返回值被改成对象 / undefined"这类**契约破坏**（本工具为**最高频**工具，占 36.7%）。
+   *
+   * **刻意不断言非空**：空文件是合法结果（曾因 `min(1)` 类约束误判而得不偿失）。
+   */
+  outputSchema = z.string();
 
   params: ToolParam[] = [
     {

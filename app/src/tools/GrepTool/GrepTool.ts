@@ -23,7 +23,7 @@ import {
 } from '../utils/ToolUtils';
 import { grep, grepAsync } from './grep';
 import type { GrepInputType, GrepOutputType } from './schemas';
-import { validateGrepInput } from './schemas';
+import { validateGrepInput, GrepOutputSchema } from './schemas';
 import { getDescription } from './prompt';
 
 import { getLogger } from '@modules/monitoring';
@@ -95,6 +95,16 @@ export class GrepTool extends BaseTool {
   description = getDescription();
 
   override tags = [ToolTag.CODE, ToolTag.READ];
+
+  /**
+   * 出参契约（P1-3 A 档，2026-09-28）。
+   *
+   * **本工具的出参 schema 早已存在** —— `./schemas.ts` 的 `GrepOutputSchema`（zod，与
+   * `GrepOutputType` 由 `z.infer` **同源**，即类型与运行期校验本已一致）；此前只是**从未接到
+   * `Tool.outputSchema` 字段**上（该字段原类型为 `unknown`，根本无法被消费）⇒ 本次**仅接线**，
+   * 不新增任何契约定义（单一事实源）。
+   */
+  outputSchema = GrepOutputSchema;
 
   params: ToolParam[] = [
     {

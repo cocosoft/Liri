@@ -16,7 +16,7 @@
 | 1 | Prompt Chaining 提示链 | 🟡 | `modules/doc/workflow/DocWorkflowProvider.ts:24-33`（把 `runDocWorkflow` 四阶段声明为 seam 可调度 `WorkflowDefinition`）；`config/types.ts:217 DocWorkflowConfig`（分阶段执行 / 默认格式 / 图片并发 / 失败降级）；`chat/ChatManager.ts:4814 persistDocWorkflowProgress` | **阶段序列双份**：`DocWorkflowProvider` 与 `runDocWorkflow` 各持同一序列（代码内已标 `TODO: CS05-ROOTFIX`「临时双轨，第二刀收口」）⇒ 根因＝同一编排序列两处事实源；**下一步：按该 TODO 收口为唯一序列**（P2，改动面中等） |
 | 2 | Routing 路由 | ✅ | `ai/modelRouter.ts`（任务→模型映射；`getPhaseMapping`/`setTasks`/`validateTaskAssignment`）；`ai/complexity` 的 `TaskComplexityClassifier`（启动日志 `ai:complexity`）；`chat/ChatManager.ts:629 _shouldUsePlanDrivenLoop`（复杂/危险分流）；`ChatHelper.resolveEffectiveTurnModel`（发送前模型归属，台账 4704） | 层次完整（任务路由 / 复杂度分流 / 归属防漂移）；**缺口仅疑在"路由决策可观测性"**（未核）⇒ 待核 |
 | 3 | Parallelization 并行化 | 🟡 | `agent/events/OrchestrationEvents.ts:70-85`（Council 辩论事件族：`COUNCIL_START`/`ROUND_START`/`AGENT_SPEAKING`/`AGENT_DELTA`/`ROUND`/`END`/`DETAIL`） | Council 已具"多智能体并发发言 + 回合聚合"；**"可独立子任务的通用 Map-Reduce 并行（含并发上限与失败聚合）"是否存在未证** ⇒ 下一批取证 |
-| 4 | Reflection 反思 | 🟡 | `tools/ToolInputSelfCorrector.ts`（JSON 入参自纠循环；对标 cc `formatZodValidationError` + PilotDeck `jsonSelfCorrect`）；`query/ErrorRecoveryManager.ts:93`（自纠错上限 3 次）；`query/CompetitiveStrategyOrchestrator.ts:345 _critique`；`tasks/LongRunningTaskOrchestrator.ts:1268 reviewStep`（PDCA review gate） | **产物类输出的自纠缺失**：图表/Mermaid/长文等**生成物**无"语法/结构校验 → 回喂同一子代理重试"回路 ⇒ 前端直接暴露 `Syntax error in text mermaid`（用户截图实证）。根因＝校验点不在"产物出口"；**下一步 = P1-1（前端降级 → 服务端校验回喂）**，P1 |
+| 4 | Reflection 反思 | 🟡 | `tools/ToolInputSelfCorrector.ts`（JSON 入参自纠循环；对标 cc `formatZodValidationError` + PilotDeck `jsonSelfCorrect`）；`query/ErrorRecoveryManager.ts:93`（自纠错上限 3 次）；`query/CompetitiveStrategyOrchestrator.ts:345 _critique`；`tasks/LongRunningTaskOrchestrator.ts:1268 reviewStep`（PDCA review gate） | **产物类输出的自纠缺失**：图表/Mermaid/长文等**生成物**无"语法/结构校验 → 回喂同一子代理重试"回路 ⇒ 前端直接暴露 `Syntax error in text mermaid`（用户截图实证）。根因＝校验点不在"产物出口"；**下一步 = P1-1**：① 前端降级 **✅ 已落地（2026-09-28）** —— `MarkdownRenderer` 先 `mermaid.parse` 预校验（实测非法语法在此即抛 `Parse error on line 1`）⇒ **错误图根本不进 DOM**（原缺陷：mermaid 自行注入 "Syntax error in text mermaid version …"，即截图红字）+ 兜底清理残留节点 + 通俗提示（i18n `chat.mermaidRenderFailed`）+ 源码原样保留（不再红字）+ 2 例回归守卫；② 服务端校验回喂 **待做** |
 | 5 | Tool Use 工具使用 | ✅ | 运行时 `GET /v1/tools` = **60**；`tools/ToolRegistry.ts`（唯一写入口）；`tools/toolNameCodec.ts`（wire 名安全）；`ToolInputSelfCorrector`（入参 zod + 自纠）；`decodeToolResultContent`（出参解包统一） | 缺口：**出参无强制 schema**（入参已有 zod）⇒ 边界处无法阻断噪声入下一链；**下一步 = P1-3（先覆盖高频 10 工具）**，P1。另：工具数口径 60 vs 建议 81 待核 |
 | 6 | Planning 规划 | ✅ | `core/loop/PlanDrivenLoop.ts`（快速路径；`chat/ChatManager.ts:962 enablePlanDrivenLoop: true` 恒启用）；`tasks/LongRunningTaskOrchestrator.ts`（复杂/危险任务走 LRTO + PDCA 阶段链）；docWorkflow 四阶段（同 #1） | 双轨路由（快速路径 vs LRTO）已成型；**分流判据 `_shouldUsePlanDrivenLoop` 的阈值与危险工具清单未核**（是否与"验收标准/目标"绑定）⇒ 待核 |
 | 7 | Multi-Agent Collaboration | ✅ | `tools/AgentTool/SubAgentEngine.ts`（`getSubAgentEngine`；子代理轮次上限 **200**，对标 cc_code fork，见 `chat/loopTurnLimits.ts:57`）；`tools/AgentTool/AgentRunStore.ts`（子代理台账：幂等 DDL + `schema_version`）；`agent/utils/TeamHelper.ts:95`（Team 目录/团队组织）；`commands/tools/ai/agent.ts`（CLI 侧调度） | 能力齐备；**唯一记录的隐患**＝`AgentTool.ts:372` 注释提及"与 `SubAgentEngine`、`AgentRunStore` 的**单例口径分裂**" ⇒ 需细核是否真有第二套单例来源（P2，属 CS01/双轨类风险） |
@@ -106,3 +106,54 @@
 | #13 HITL | 审批/提问决策是否落**可审计事件**（论文 Ch.13/18 要求可审计） |
 | #15 A2A | **ACP 与 A2A 的边界**（谁对外、谁对内）；`/.well-known/agent.json` 端点是否存在（与升级方案 F2/P3-1 同一问题） |
 | #16 Resource | 并发子代理"悲观预扣 + 真实回滚"现状（升级方案 C1）；`TokenTracker` 位置（疑在 `monitoring/llm`） |
+
+---
+
+## 五、架构治理议题（2026-09-28 取证；**用户裁定：先记录，暂不执行**）
+
+> 起因：用户问"能否先做架构层面的治理""企业级是否要补一个 `server/` 文件夹装共性内容"。
+> 本文只**记录取证与判断**（可复核），**未改任何代码**；执行与否待用户另择时机启动。
+
+### 5.1 门禁"假绿"：分层检查有 **19 个顶层目录从未被检查过**
+
+| 项 | 实测 |
+|---|---|
+| `app/src` 实际顶层目录 | **77 个**（`Get-ChildItem -Directory` 实测） |
+| `modules-to-layers.json` 登记 | **65 个**（60 目录键 + 5 文件键；与 `lint:arch` 输出"已加载 65 个模块的分层映射"**逐数吻合**） |
+| 该文件 `lastUpdated` | **2026-06-19**（三个月未更新） |
+| 未登记 ⇒ 行为 | [`lint-architecture.ts:2468`](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L2468) `if (!srcLayer) continue;` + [L2476](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L2473-L2477) `if (!tgtLayer) continue;` ⇒ **整目录跳过分层检查（静默）** |
+| **实测盲区规模** | `app/src` 实测 `.ts/.tsx` = **4010**，与 `lint:arch` 自报"已扫描 4010 个 TypeScript 文件"**逐数吻合**（⇒ `srcPath` = `app/src`）；同次运行另报"检查 **3681** 个文件"，且 `checked++` 位于 `if (!srcLayer) continue;` **之后**（[L2495](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L2495) vs [L2468](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L2468)）⇒ **差值即"因模块未登记而未参与分层检查的文件数"** ⇒ **329 个文件 ≈ 8.2% 的后端源码不在门禁视野内** |
+
+**未登记目录差集（19 个，实测）**：`infrastructure`、`runtime`、`evals`、`diagnostics`、`performance`、`system`、`trace-recording`、`project`、`remote`、`context-engine`、`featureflags`、`keybindings`、`promptSuggestion`、`tool`、`subagent`、`subagents`、`workspace`、`workspaces`、`testing`。
+（反向差集：JSON 里 `models` / `i18n` 两个目录键在实际顶层已不存在 ⇒ 映射表**双向**均已失准。）
+
+⇒ **最刺眼的两处**：**`infrastructure`（整个 HTTP 层：`LocalHTTPService` + 80+ handler + 17 个业务子域路由）** 与 **`runtime`（CoreAPI）** 都在盲区里。
+⇒ 与 §四 末尾那句"否则门禁本身会变成第二份事实源"**同族**：这里的具体形态是「**门禁的视野 ≠ 仓库的实际结构**」。
+
+### 5.2 例外清单有**硬到期日**：2026-10-18（距今 20 天），过期是 **error** 不是 warning
+
+- [`layer-exceptions.json`](file:///e:/PY/Documents/CODES/PY_APP/scripts/layer-exceptions.json#L11-L53)：`BULK-001~018` 与 `PM-*` **全部** `expiresAt: 2026-10-18`；含 `R00-001` 的 app→infra（`estimatedCount` 120）、service→infra（50）、app→service（40）等。
+- [`checkExceptionExpiry` L1106-1142](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L1106-L1142)：过期 ⇒ `EXC-EXPIRED` **severity: 'error'**；剩余 ≤7 天 ⇒ `EXC-EXPIRING` warning。
+- 另有 **156 条文件大小例外**（`>1000` 行）与 20 条分层例外（`lint:arch` 实测输出）。
+
+⇒ 时间线：**10-11 起**逐条冒 warning → **10-19 起** CI 直接红。故"先做治理"的时机成立 —— **要么收口，要么续期（续期＝把债再展期）**。
+
+### 5.3 跨端共性内容**无单一事实源**（已实证产生漂移）
+
+- `shared/` 现有 4 个文件（`types/index.ts`、`status-types.ts`、`voice-types.ts`、`utils/index.ts`），**只有 `client` 在用**（`@shared/types` 3 处命中；`app` **零引用**）⇒ 名为 shared，实为"前端专用"。
+- 后果**已实证**：`client/src/types/events.ts` 的事件类型镜像**落后后端 5 个类型**（`goal/*` ×4 + `agent/recovery`），而该文件头**明文要求"双端必须保持一致"** —— 见 `dev_docs/error_repairs/预存错误与待处理问题.md` 2026-09-28 **D-1**。
+- 归属：这正是 §四 根因类 ① 的**已实证实例**；可作为 ① 的第一个落点（而非另开新议题）。
+
+### 5.4 关于新增 `server/` 文件夹：**不建议**（附理由）
+
+| 诉求读法 | 判断 |
+|---|---|
+| "后端服务层" | **已存在**，叫 `app`（DAEMON 模式 + `infrastructure/http/LocalHTTPService.ts` + `runtime/CoreAPI`）。新增 `server/` 会成**第三个后端实体** ⇒ 与 `project_rules.md §1.11`（禁止两套实现重复定义相同类型）及"实现唯一性原则（双轨制禁止）"**冲突** |
+| "跨端共性类型/协议" | 缺位属实，但**应落 `shared/`**，不是 `server/` —— 共性内容是**契约**而非**服务**，命名错会长期误导 |
+| "企业级独立部署/多实例" | 属**部署形态**问题（`app` 独立部署 + 多客户端接入），**不涉及顶层目录**；应出部署方案而非建目录 |
+
+### 5.5 待用户裁定的选项（本次未选，原样留档）
+
+- **治理起点**（可多选）：**A** 先补门禁视野（补映射 + 未映射目录改为报 warning + 处理 10-18 到期例外）；**B** 先做跨端契约单一事实源（`shared/` 收口，含"单向依赖 vs codegen"二选一）；**C** 先拆文件规模债（156 个 `>1000` 行文件）；**D** 先做分层依赖收口（210 处跨层依赖走 SPI）。
+- **`server/` 意图澄清**：三种读法（后端服务层 / 跨端契约 / 独立部署）分别对应"不新增 / 落 `shared/` / 出部署方案"。
+- 建议顺序（我的判断，未执行）：**A → B → C/D** —— A 是零业务风险且**是其余各项的前置**（不做 A，后续重构无法被门禁验证）。

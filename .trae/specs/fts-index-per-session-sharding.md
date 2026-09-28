@@ -226,7 +226,7 @@
 
 | 项 | 状态 |
 |---|---|
-| `spawnSync 3853ms`（`toolround:execute`） | ❌ 未定位；`context.ts` git 调用已**实测排除**（<200ms） |
+| `spawnSync` 3853ms（`toolround:execute`） | ✅ **已定位（2026-09-28）**：**与工具执行无关**。用探针落盘的完整 cpuprofile 还原调用树，自耗时拆为三条链：①1768ms `checkCommandExists`（6 次 `where`/`--version` spawn）②1143ms ③1052ms 均为 `getDiskInfo` 的 `powershell Get-CimInstance`（`performFullCheck` 内连查两次）。合计 3963ms ≈ probe 3853ms。`toolround:execute` 仅"当时活跃阶段"（`suspects: []` 即不匹配任何已插桩路径）。**磁盘部分已修复**（`fs.statfsSync` 取代 PowerShell：1237ms → 1–2ms，数值逐项一致）；**命令探测部分亦已异步化**（`execFileNoThrow` + 并发：该端点滞后事件 2161ms → **0 条**，响应 3785ms → 2465ms）；单请求**两次**全量检查亦**已去重**（复用 `getLastReport()`：响应 → 1842ms，spawn 突发 2×6 → 1×6）；存在性探测已改 **PATH 扫描**（零 spawn：突发 6 → 3）；版本探测按命令声明（仅 `git`）⇒ 单次检查 1326ms → **333ms**、端点 **537/368/388ms**（对照最初 3785ms 约 10×） |
 | `current:null` 的 3.4s 阻塞 | 🟡 未定性；插桩已随 §8-9 清理（其根因类＝巨型中间体已随整索引废弃而消除），复发时按 **§11.11 处方**重挂 |
 | `sleepWake` 假滞后（71s/64s/62s） | ✅ 已识别；**判定阻塞前须先排除该形态** |
 | Tier 2 步骤 3 余项（字面量改常量） | 见 `chat-status-type-contract.md` §9 |

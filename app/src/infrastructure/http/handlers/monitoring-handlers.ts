@@ -634,12 +634,25 @@ export async function handleInfrastructureStatus(
       Promise.resolve(getLLMTracker().getGlobalSummary()),
     ]);
 
+    // 复用「同一请求内刚产出的系统健康报告」的最大年龄（ms）。
+    // 阈值只需覆盖"上面的 runAllChecks 完成 → 此处读取"的同请求窗口。
+    const HEALTH_REPORT_REUSE_MS = 5_000;
     // 系统健康检查（独立于 HealthChecker）
+    //
+    // 2026-09-28 去重：上方 `infraHealthChecker.runAllChecks()` 已包含注册项 `system-health`
+    // （`infrastructure-diagnostics.ts` 注册），它刚刚执行过 `systemHealthChecker.performFullCheck()`
+    // —— 实测单次全量检查含命令探测 + 磁盘查询 ≈ 1.2s（原磁盘走 PowerShell 时更长）。
+    // 原实现在此处**再跑一次**，使单请求的成本与子进程数直接翻倍（实测端点 3.7s → 去重后 ~1.2s）。
+    // 现在优先复用刚产出的报告，仅当报告缺失或过期（`runAllChecks` 失败/被短路）时才重跑。
     let sysHealth = null;
     try {
       const { systemHealthChecker } =
         await import('@modules/diagnostics/SystemHealthChecker');
-      sysHealth = await systemHealthChecker.performFullCheck();
+      const cached = systemHealthChecker.getLastReport();
+      sysHealth =
+        cached && Date.now() - cached.timestamp < HEALTH_REPORT_REUSE_MS
+          ? cached
+          : await systemHealthChecker.performFullCheck();
     } catch (_err) {
       sysHealth = null;
     }

@@ -168,7 +168,7 @@ export class SessionsHistoryTool extends BaseTool {
       const offset = filter.offset ?? 0;
 
       if (filter.query) {
-        const results = this.gateway.searchMessagesFTS(
+        const results = await this.gateway.searchMessagesFTS(
           filter.query,
           filter.sessionId,
           limit + offset

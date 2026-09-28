@@ -38,12 +38,22 @@ export class AtomicWriter {
     this.tmpDir = tmpDir;
   }
 
-  async write(targetPath: string, data: string | Uint8Array): Promise<void> {
+  /**
+   * 原子写入（tmp + rename）。
+   *
+   * @returns 写入的**字节数**（供调用方记录尺寸，如 FTS 分片清单的 `bytes` 条目；
+   *   避免调用方为拿尺寸再 `stat` 一次文件）
+   */
+  async write(targetPath: string, data: string | Uint8Array): Promise<number> {
     const dir = this.tmpDir ?? path.dirname(targetPath);
     await fs.mkdir(dir, { recursive: true });
 
     const suffix = crypto.randomBytes(4).toString('hex');
     const tmpPath = path.join(dir, `.tmp.${suffix}`);
+    const byteLength =
+      typeof data === 'string'
+        ? Buffer.byteLength(data, 'utf-8')
+        : data.byteLength;
 
     try {
       // 阶段耗时分解：writeFile（数据写入，随数据量增长）vs rename（原子替换，
@@ -67,7 +77,7 @@ export class AtomicWriter {
       const totalMs = writeFileMs + renameMs;
       logger.debug('AtomicWriter.write 完成', {
         path: targetPath,
-        bytes: typeof data === 'string' ? data.length : data.byteLength,
+        bytes: byteLength,
         writeFileMs,
         renameMs,
         totalMs,
@@ -75,6 +85,7 @@ export class AtomicWriter {
         // 与 *100 实现量纲矛盾。正常应远小于 10（<10%）。
         renameRatio: totalMs > 0 ? Math.round((renameMs / totalMs) * 100) : 0,
       });
+      return byteLength;
     } catch (err) {
       // @ignore-catch — 原子写入失败时清理临时文件，best-effort非关键
       await fs.unlink(tmpPath).catch(() => {});

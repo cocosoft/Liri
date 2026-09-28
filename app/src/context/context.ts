@@ -7,9 +7,7 @@
  * 获取系统上下文
  * @returns {Promise<Object>} 系统上下文信息
  */
-import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = getLogger('context:context');
 
 export async function getSystemContext() {
   try {

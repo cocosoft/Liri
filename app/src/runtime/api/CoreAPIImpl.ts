@@ -2572,7 +2572,7 @@ export class CoreAPIImpl implements CoreAPI {
     const gateway = this.chatManager.getSessionGateway();
     // N-66：`allowedSessionIds` 由调用方（HTTP handler 按 moduleType 算好）下推，
     // 谓词在 FTS 引擎内生效 ⇒ 见 SessionGateway.searchMessagesFTS 的说明
-    const results = gateway.searchMessagesFTS(
+    const results = await gateway.searchMessagesFTS(
       query,
       undefined,
       limit ?? 10,

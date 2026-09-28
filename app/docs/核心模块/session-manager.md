@@ -260,14 +260,15 @@ const history = gateway.getCompactionHistory(session.id);
 
 ## FTS5 全文搜索
 
-基于 FTS5 引擎的全文搜索，支持跨会话消息检索：
+基于 FTS5 引擎的全文搜索，支持跨会话消息检索（**分片实现**：会话内检索只读该会话的 1 片，
+全局检索按清单 ∪ 缓存扇出，带并发上限与总超时）：
 
 ```typescript
-// 搜索所有会话中的消息
-const results = gateway.searchMessagesFTS('error 数据库');
+// 搜索所有会话中的消息（异步：分片按需读盘）
+const results = await gateway.searchMessagesFTS('error 数据库');
 
 // 按会话过滤
-const sessionResults = gateway.searchMessagesFTS(
+const sessionResults = await gateway.searchMessagesFTS(
   '认证失败',
   session.id,
   20  // 限制返回条数
@@ -275,8 +276,9 @@ const sessionResults = gateway.searchMessagesFTS(
 
 for (const result of sessionResults) {
   logger.info('搜索结果', {
-    messageId: result.metadata?.messageId,
-    content: result.content.substring(0, 100)
+    messageId: result.document.metadata?.messageId,
+    content: result.document.content.substring(0, 100),
+    score: result.score,
   });
 }
 ```

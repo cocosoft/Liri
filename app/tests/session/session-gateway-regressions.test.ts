@@ -287,7 +287,7 @@ describe('M5: sendMessage 直连 FTS 索引', () => {
     };
     await gateway.sendMessage('s-m5', msg);
 
-    const results = getFTS5SearchEngine().search('m5uniquetokenxyz');
+    const results = await getFTS5SearchEngine().search('m5uniquetokenxyz');
     expect(results.some((r) => r.document.id === 'msg_m5-msg-1')).toBe(true);
   });
 });

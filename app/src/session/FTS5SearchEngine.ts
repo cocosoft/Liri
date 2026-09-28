@@ -1,11 +1,34 @@
 /**
- * SQLite FTS5 全文搜索服务
- * 对标 Hermes hermes_state.py 的 FTS5 搜索能力
- * 将全文搜索引入会话和记忆搜索
+ * FTS5 全文搜索服务（**分片实现**）
+ *
+ * 对标 Hermes hermes_state.py 的 FTS5 搜索能力；分片重构见
+ * spec `.trae/specs/fts-index-per-session-sharding.md`。
+ *
+ * **职责边界**（§4.6）：
+ * - 本类：索引/检索逻辑（分词、打分、摘要）与**文档级变更**标记；
+ * - `FTSIndexStore`：磁盘布局（`manifest.json` + `shards/`）、片数据缓存、片级 `dirty`、
+ *   原子写、LRU。**本类不持有索引数据**（唯一例外：单次调用内从 store 取到的可写片引用，
+ *   用完即 `markShardDirty` 归还）——否则缓存与磁盘会互相漂移。
+ *
+ * **分片归属**：片键 = `doc.metadata.sessionId`。分片模型下没有归属的文档**无法索引**
+ * （拒收 + warn，禁止静默塞进某个片）。
+ *
+ * **读取侧**：会话内检索 = 1 片；全局检索 = 按清单扇出（并发上限 + 总超时，超时返回部分结果）。
+ * 片缺失/损坏 ⇒ 跳过该片（不阻塞检索），由 `SessionGateway` 在落盘驱动 tick 中按会话重建（§8-6）。
  */
-import fs from 'fs';
-import path from 'path';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { getLogger } from '@modules/monitoring';
+import {
+  FTSIndexStore,
+  type FTSShardData,
+} from './persistence/FTSIndexStore.js';
+
+const logger = getLogger('session:fts');
+
+/** 全局扇出并发上限（片数多时避免同时打开过多文件） */
+export const FTS_FANOUT_CONCURRENCY = 4;
+/** 全局扇出总超时（超时返回已收集的部分结果并告警，不无限等待） */
+export const FTS_FANOUT_TIMEOUT_MS = 3000;
 
 /**
  * 搜索文档
@@ -30,15 +53,10 @@ export interface FTSSearchResult {
 
 /**
  * FTS5 搜索配置
+ *
+ * 说明：索引**路径**不在此处（§8-1/§11.8-4：路径统一归 `FTSIndexStore` 构造参数，避免双入口）。
  */
 export interface FTSConfig {
-  /**
-   * 索引持久化路径。H1 修复：不再提供默认 `fts.db` 路径，
-   * 统一由调用方显式传入（SessionGateway.getFTSIndexPath()），
-   * 消除「读 fts.db、写 fts-index.json」的路径不对称。
-   * 无参 saveToDisk/loadFromDisk 在未提供 dbPath 时报错。
-   */
-  dbPath?: string;
   maxResults: number;
   snippetLength: number;
   cacheEnabled: boolean;
@@ -53,107 +71,317 @@ const DEFAULT_CONFIG: FTSConfig = {
   cacheEnabled: true,
 };
 
+/** 检索选项（`sessionIds` 缺省/`null` ⇒ 全局扇出） */
+export interface FTSSearchOptions {
+  category?: string;
+  limit?: number;
+  /** 作用域：仅检索这些会话的片；`null`/省略 ⇒ 全局 */
+  sessionIds?: Iterable<string> | null;
+  metadataFilter?: (doc: FTSDocument) => boolean;
+  /** 扇出保护（默认见 `FTS_FANOUT_*`；测试可注入以验证超时） */
+  fanout?: { concurrency?: number; timeoutMs?: number };
+}
+
 /**
- * FTS5 全文搜索引擎
- * 纯 TypeScript 实现，无需 SQLite C 扩展
- * 使用内存倒排索引模拟 FTS5 能力
+ * 分词（与整索引时代逐字一致：仅把方法下沉为函数，供片内写入复用）
+ */
+function tokenize(text: string): string[] {
+  const tokens: string[] = [];
+  const words = text
+    .toLowerCase()
+    .split(/[\s,，。！？；：、（）()\[\]{}"'`~@#$%^&*+=|\\<>/]+/);
+
+  for (const word of words) {
+    if (!word) continue;
+    if (/^[a-z0-9_]+$/i.test(word)) {
+      tokens.push(word);
+    } else {
+      for (const ch of word) {
+        tokens.push(ch);
+      }
+    }
+  }
+
+  return [...new Set(tokens)];
+}
+
+/** 把文档写入片的内存视图（documents + invertedIndex） */
+function addDocumentToShard(shard: FTSShardData, doc: FTSDocument): void {
+  shard.documents.set(doc.id, doc);
+  for (const token of tokenize(doc.title + ' ' + doc.content)) {
+    let ids = shard.invertedIndex.get(token);
+    if (!ids) {
+      ids = new Set<string>();
+      shard.invertedIndex.set(token, ids);
+    }
+    ids.add(doc.id);
+  }
+}
+
+/**
+ * FTS5 全文搜索引擎（分片实现，纯 TypeScript，无需 SQLite C 扩展）
  */
 export class FTS5SearchEngine {
-  private documents: Map<string, FTSDocument> = new Map();
-  private invertedIndex: Map<string, Set<string>> = new Map();
-  private config: FTSConfig;
-  /** 索引自上次落盘后是否有变更（P2-18 修复：无变更时跳过全量写盘） */
-  private isDirty: boolean = false;
-  /**
-   * R7（2026-09-21）：变更代际计数 —— 与 `isDirty` 同时递增。
-   *
-   * 用途：落盘改为**异步**后，"序列化期间又发生变更"成为可能；写盘结束时按
-   * `dirtySeq` 是否变化决定能否清 `isDirty`，避免把写入期间的新变更一并抹掉。
-   */
-  private dirtySeq: number = 0;
-  /** R7：落盘重入保护（异步写盘未完成时跳过本 tick，`isDirty` 保持待下轮） */
-  private saving: boolean = false;
-  /** L7：累计文档 content 长度（getStats 增量计数，消除 O(n) 遍历） */
-  private totalLength: number = 0;
+  private readonly store: FTSIndexStore;
+  private readonly config: FTSConfig;
 
-  constructor(config?: Partial<FTSConfig>) {
+  constructor(store: FTSIndexStore, config?: Partial<FTSConfig>) {
+    this.store = store;
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  /** R7：标记索引已变更（`isDirty` + 代际递增的唯一入口） */
-  private touchDirty(): void {
-    this.isDirty = true;
-    this.dirtySeq++;
-  }
+  // ───────────────────────── 写 ─────────────────────────
 
   /**
-   * 索引文档
-   * @param doc 文档
+   * 索引文档（按 `doc.metadata.sessionId` 归属片）
    */
-  index(doc: FTSDocument): void {
-    // BUG12 修复：检查文档元数据中的路径是否在允许范围内
-    this.validateDocumentPaths(doc);
-    const existing = this.documents.get(doc.id);
-    if (existing) {
-      this.totalLength -= existing.content.length;
-    }
-    this.documents.set(doc.id, doc);
-    this.totalLength += doc.content.length;
-
-    const tokens = this.tokenize(doc.title + ' ' + doc.content);
-
-    for (const token of tokens) {
-      if (!this.invertedIndex.has(token)) {
-        this.invertedIndex.set(token, new Set());
-      }
-      this.invertedIndex.get(token)!.add(doc.id);
-    }
-
-    this.touchDirty();
+  async index(doc: FTSDocument): Promise<void> {
+    await this.indexBatch([doc]);
   }
 
   /**
    * 批量索引文档
-   * @param docs 文档列表
+   *
+   * 跨会话文档可混批（各自归入自己的片）；无归属文档被拒收并记 warn。
    */
-  indexBatch(docs: FTSDocument[]): void {
+  async indexBatch(docs: FTSDocument[]): Promise<void> {
     for (const doc of docs) {
-      this.index(doc);
+      const sessionId = this.shardKeyOf(doc);
+      if (!sessionId) {
+        logger.warn(
+          'FTS 索引写入缺少 metadata.sessionId，已拒收（分片模型下无归属）',
+          {
+            docId: doc.id,
+          }
+        );
+        continue;
+      }
+      this.validateDocumentPaths(doc);
+      const shard = await this.mutableShard(sessionId);
+      if (!shard) continue; // 损坏片：拒绝单文档覆盖式写入，等按会话重建
+      addDocumentToShard(shard, doc);
+      this.store.markShardDirty(sessionId);
     }
   }
 
   /**
-   * 全文搜索
-   * @param query 搜索查询
-   * @param category 按类别过滤（可选）
-   * @param limit 最大结果数
-   * @param metadataFilter 按元数据过滤（可选）
-   * @returns 搜索结果列表
+   * 删除文档（按会话定位片）
    */
-  search(
+  async remove(sessionId: string, docId: string): Promise<void> {
+    // 无片 / 损坏片 ⇒ 无可移除（损坏片整体由重建覆盖，逐个删无意义）
+    const shard = await this.store.loadShard(sessionId);
+    if (!shard) return;
+    if (!shard.documents.delete(docId)) return;
+
+    for (const ids of shard.invertedIndex.values()) {
+      ids.delete(docId);
+    }
+    this.store.markShardDirty(sessionId);
+  }
+
+  /**
+   * 整片替换（§8-6 片级重建）：调用方（有 storage 的一方）提供该会话**全部**文档。
+   */
+  async rebuildSession(sessionId: string, docs: FTSDocument[]): Promise<void> {
+    const shard: FTSShardData = {
+      documents: new Map(),
+      invertedIndex: new Map(),
+    };
+    let skipped = 0;
+    for (const doc of docs) {
+      if (this.shardKeyOf(doc) !== sessionId) {
+        skipped++;
+        continue;
+      }
+      this.validateDocumentPaths(doc);
+      addDocumentToShard(shard, doc);
+    }
+    if (skipped > 0) {
+      logger.warn('FTS 片重建时发现归属不符的文档，已跳过', {
+        sessionId,
+        skipped,
+      });
+    }
+    await this.store.putShard(sessionId, shard);
+  }
+
+  /**
+   * 清空全部索引（内存视图 + 磁盘片 + 清单条目）。
+   *
+   * **当前无调用点**（保留 API；去留见 spec §11.8-2）。
+   */
+  async clear(): Promise<void> {
+    const manifest = await this.store.readManifest();
+    for (const sessionId of Object.keys(manifest.shards)) {
+      await this.store.removeShard(sessionId);
+    }
+    await this.store.flushManifest();
+  }
+
+  // ───────────────────────── 读 ─────────────────────────
+
+  /**
+   * 全文搜索
+   *
+   * 排序键固定为 **`(score desc, docId asc)`**：分片归并后「Map 插入序」不再稳定，
+   * 必须显式定序（spec §11.3，V4 逐条一致判定的前提）。
+   */
+  async search(
     query: string,
-    category?: string,
-    limit?: number,
-    metadataFilter?: (doc: FTSDocument) => boolean
-  ): FTSSearchResult[] {
-    const maxResults = limit || this.config.maxResults;
-    const tokens = this.tokenize(query);
-
+    options: FTSSearchOptions = {}
+  ): Promise<FTSSearchResult[]> {
+    const tokens = tokenize(query);
     if (tokens.length === 0) return [];
+    const limit = options.limit ?? this.config.maxResults;
 
+    const { items, skipped } = await this.collectFromShards(
+      options.sessionIds ?? null,
+      (data) => this.scoreShard(data, tokens, options),
+      options.fanout
+    );
+    items.sort(
+      (a, b) =>
+        b.score - a.score ||
+        (a.document.id < b.document.id
+          ? -1
+          : a.document.id > b.document.id
+            ? 1
+            : 0)
+    );
+    if (skipped > 0) {
+      logger.warn('FTS 检索跳过不可用分片（待重建）', { skipped });
+    }
+    return items.slice(0, limit);
+  }
+
+  /**
+   * 前缀搜索（自动补全）
+   *
+   * **当前无调用点**（保留 API；去留见 spec §11.8-2）。
+   */
+  async prefixSearch(
+    prefix: string,
+    limit: number = 10
+  ): Promise<FTSDocument[]> {
+    const lower = prefix.toLowerCase();
+    const { items } = await this.collectFromShards(null, (data) => {
+      const matched: FTSDocument[] = [];
+      for (const doc of data.documents.values()) {
+        if (
+          doc.title.toLowerCase().startsWith(lower) ||
+          doc.content.toLowerCase().includes(lower)
+        ) {
+          matched.push(doc);
+        }
+      }
+      return matched;
+    });
+    return items.slice(0, limit);
+  }
+
+  /**
+   * 获取索引统计
+   *
+   * 全部由清单汇总（**零读片**）：`documentCount` / `totalLength` 精确；
+   * `termCount` = Σ 片内词条数，同一词跨片会重复计（口径见 `FTSShardEntry.termCount`）；
+   * **统计口径**：以**已落盘清单**为准 —— 尚未落盘的脏片不计入（下一个落盘 tick 后一致）。
+   */
+  async getStats(): Promise<{
+    documentCount: number;
+    termCount: number;
+    avgDocLength: number;
+  }> {
+    const manifest = await this.store.readManifest();
+    let documentCount = 0;
+    let termCount = 0;
+    let totalLength = 0;
+    for (const entry of Object.values(manifest.shards)) {
+      documentCount += entry.docCount;
+      termCount += entry.termCount;
+      totalLength += entry.contentLength;
+    }
+    return {
+      documentCount,
+      termCount,
+      avgDocLength:
+        documentCount > 0 ? Math.round(totalLength / documentCount) : 0,
+    };
+  }
+
+  // ───────────────────────── 持久化（委托 store） ─────────────────────────
+
+  /**
+   * 落盘全部脏片（§8-4 驱动入口）。无脏片 ⇒ 0（不建目录、不写盘、不重写清单）。
+   */
+  async flush(): Promise<number> {
+    enterPhase('fts:flushShards');
+    try {
+      return await this.store.flushPendingShards();
+    } finally {
+      exitPhase('fts:flushShards');
+    }
+  }
+
+  /** 释放某会话的片内存视图（片重建/会话删除后调用，避免陈旧视图回写） */
+  async unloadSession(sessionId: string): Promise<void> {
+    await this.store.unloadShard(sessionId);
+  }
+
+  // ───────────────────────── 内部 ─────────────────────────
+
+  /** 片键：`metadata.sessionId`（分片模型下无归属即无法索引） */
+  private shardKeyOf(doc: FTSDocument): string | null {
+    const sessionId = doc.metadata?.sessionId;
+    return typeof sessionId === 'string' && sessionId.length > 0
+      ? sessionId
+      : null;
+  }
+
+  /**
+   * 取得**可写**的片内存视图：
+   * - 已有片（缓存/磁盘）⇒ 返回其引用（调用方变更后须 `markShardDirty`）；
+   * - 无片 ⇒ 新建空片并 `putShard`（已标脏）；
+   * - 清单有记录但不可读（**损坏**）⇒ 返回 `null`：拒绝单文档覆盖式写入，等按会话重建
+   *   （否则该会话其余文档会被这次覆盖写永久丢掉）。
+   */
+  private async mutableShard(sessionId: string): Promise<FTSShardData | null> {
+    const loaded = await this.store.loadShard(sessionId);
+    if (loaded) return loaded;
+
+    const manifest = await this.store.readManifest();
+    if (manifest.shards[sessionId]) {
+      logger.warn('FTS 片损坏，拒绝单文档写入（等待按会话重建）', {
+        sessionId,
+      });
+      return null;
+    }
+
+    const created: FTSShardData = {
+      documents: new Map(),
+      invertedIndex: new Map(),
+    };
+    await this.store.putShard(sessionId, created);
+    return created;
+  }
+
+  /** 单片打分（与整索引时代逐条等价，仅数据源换成单片） */
+  private scoreShard(
+    data: FTSShardData,
+    tokens: string[],
+    options: FTSSearchOptions
+  ): FTSSearchResult[] {
     const docScores = new Map<string, number>();
 
     for (const token of tokens) {
-      const docIds = this.invertedIndex.get(token);
+      const docIds = data.invertedIndex.get(token);
       if (!docIds) continue;
 
       for (const docId of docIds) {
-        const doc = this.documents.get(docId);
+        const doc = data.documents.get(docId);
         if (!doc) continue;
 
-        if (category && doc.category !== category) continue;
-
-        if (metadataFilter && !metadataFilter(doc)) continue;
+        if (options.category && doc.category !== options.category) continue;
+        if (options.metadataFilter && !options.metadataFilter(doc)) continue;
 
         const current = docScores.get(docId) || 0;
 
@@ -173,76 +401,75 @@ export class FTS5SearchEngine {
     }
 
     const results: FTSSearchResult[] = [];
-
     for (const [docId, score] of docScores) {
-      const doc = this.documents.get(docId)!;
-      const snippet = this.generateSnippet(doc.content, tokens);
-
-      results.push({ document: doc, score, snippet });
+      const doc = data.documents.get(docId);
+      if (!doc) continue;
+      results.push({
+        document: doc,
+        score,
+        snippet: this.generateSnippet(doc.content, tokens),
+      });
     }
-
-    results.sort((a, b) => b.score - a.score);
-
-    return results.slice(0, maxResults);
-  }
-
-  /**
-   * 前缀搜索（自动补全）
-   * @param prefix 前缀
-   * @param limit 最大结果数
-   * @returns 匹配的文档列表
-   */
-  prefixSearch(prefix: string, limit: number = 10): FTSDocument[] {
-    const lower = prefix.toLowerCase();
-    const results: FTSDocument[] = [];
-
-    for (const doc of this.documents.values()) {
-      if (
-        doc.title.toLowerCase().startsWith(lower) ||
-        doc.content.toLowerCase().includes(lower)
-      ) {
-        results.push(doc);
-      }
-
-      if (results.length >= limit) break;
-    }
-
     return results;
   }
 
   /**
-   * 删除文档
-   * @param docId 文档 ID
+   * 遍历候选片并归并结果。
+   *
+   * - `sessionIds === null` ⇒ 全局扇出：候选 = **清单 ∪ 缓存**（按 id 排序保证遍历稳定）——
+   *   含缓存是因为新建片在首次落盘前不在清单里，只认清单会让新会话消息 ≤60s 检索不到；
+   * - 给定会话集合 ⇒ 仅这些片中**已知**的（未登记的会话直接排除，不算"跳过"）；
+   * - 并发上限 + 总超时：超时停止调度，返回已收集结果（不无限等待）；
+   * - 片缺失/损坏 ⇒ `skipped++`（由调用方告警，不阻塞检索）。
    */
-  remove(docId: string): void {
-    const existing = this.documents.get(docId);
-    if (existing) {
-      this.totalLength -= existing.content.length;
-    }
-    this.documents.delete(docId);
+  private async collectFromShards<R>(
+    sessionIds: Iterable<string> | null,
+    perShard: (data: FTSShardData) => R[],
+    fanout?: { concurrency?: number; timeoutMs?: number }
+  ): Promise<{ items: R[]; skipped: number }> {
+    const known = await this.store.knownShardIds();
+    const scoped = sessionIds === null ? null : new Set(sessionIds);
+    const targets = (
+      scoped ? known.filter((id) => scoped.has(id)) : known
+    ).sort();
 
-    for (const docIds of this.invertedIndex.values()) {
-      docIds.delete(docId);
-    }
+    const concurrency = Math.max(
+      1,
+      fanout?.concurrency ?? FTS_FANOUT_CONCURRENCY
+    );
+    const timeoutMs = fanout?.timeoutMs ?? FTS_FANOUT_TIMEOUT_MS;
+    const deadline = Date.now() + timeoutMs;
 
-    this.touchDirty();
-  }
+    const items: R[] = [];
+    let skipped = 0;
+    let cursor = 0;
 
-  /**
-   * 获取索引统计
-   */
-  getStats(): {
-    documentCount: number;
-    termCount: number;
-    avgDocLength: number;
-  } {
-    const docCount = this.documents.size;
-
-    return {
-      documentCount: docCount,
-      termCount: this.invertedIndex.size,
-      avgDocLength: docCount > 0 ? Math.round(this.totalLength / docCount) : 0,
+    const worker = async (): Promise<void> => {
+      while (cursor < targets.length) {
+        if (Date.now() > deadline) return;
+        const sessionId = targets[cursor++];
+        const data = await this.store.loadShard(sessionId);
+        if (!data) {
+          skipped++;
+          continue;
+        }
+        items.push(...perShard(data));
+      }
     };
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, targets.length) }, () =>
+        worker()
+      )
+    );
+
+    if (cursor < targets.length) {
+      logger.warn('FTS 扇出检索超时，已返回部分结果', {
+        scanned: cursor,
+        total: targets.length,
+        timeoutMs,
+      });
+    }
+    return { items, skipped };
   }
 
   /**
@@ -272,16 +499,6 @@ export class FTS5SearchEngine {
   }
 
   /**
-   * 清除所有索引
-   */
-  clear(): void {
-    this.documents.clear();
-    this.invertedIndex.clear();
-    this.totalLength = 0;
-    this.touchDirty();
-  }
-
-  /**
    * 生成搜索摘要
    * @param content 文档内容
    * @param tokens 搜索词
@@ -299,239 +516,30 @@ export class FTS5SearchEngine {
     let bestStart = 0;
     let bestScore = 0;
 
-    for (let i = 0; i < lower.length; i++) {
-      let score = 0;
-      for (const token of tokens) {
-        if (lower.slice(i, i + snippetLen).includes(token)) {
-          score++;
+    for (const token of tokens) {
+      let idx = lower.indexOf(token);
+      while (idx !== -1) {
+        const start = Math.max(0, idx - Math.floor(snippetLen / 4));
+        const window = lower.slice(start, start + snippetLen);
+        let score = 0;
+        for (const t of tokens) {
+          if (window.includes(t)) score++;
         }
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        bestStart = i;
-      }
-    }
-
-    let snippet = content.slice(bestStart, bestStart + snippetLen);
-
-    if (bestStart > 0) snippet = '...' + snippet;
-    if (bestStart + snippetLen < content.length) snippet += '...';
-
-    return snippet;
-  }
-
-  /**
-   * 分词器（简单空格 + CJK 单字符）
-   * @param text 原始文本
-   * @returns 词条列表
-   */
-  private tokenize(text: string): string[] {
-    const tokens: string[] = [];
-    const lower = text.toLowerCase();
-    const wordPattern = /[a-z0-9_\u4e00-\u9fff]+/gi;
-    let match;
-
-    while ((match = wordPattern.exec(lower)) !== null) {
-      const word = match[0];
-
-      if (/^[a-z0-9_]+$/i.test(word)) {
-        tokens.push(word);
-      } else {
-        for (const ch of word) {
-          tokens.push(ch);
+        if (score > bestScore) {
+          bestScore = score;
+          bestStart = start;
         }
+        idx = lower.indexOf(token, idx + 1);
       }
     }
 
-    return [...new Set(tokens)];
-  }
-
-  /**
-   * 持久化索引到磁盘（R7，2026-09-21：**异步 + 分片让出 + 原子替换**）
-   *
-   * **修复前**：`Array.from(...)` 全量物化 + **单次** `JSON.stringify`（该文件实测
-   * **260.8MB**）+ `fs.writeFileSync` —— 全程在主线程同步执行，由
-   * `SessionGateway.startFTSIndexPersistence()` 的 `setInterval(60_000)` 驱动。
-   * 真机证据：`Event Loop 滞后 37520ms / 28335ms / 39217ms`（13:20 / 14:07 / 14:32），
-   * 三次的 `memRssMb` 均 ≈5GB 而 `heapUsedMb` 仅 ≈1.2GB（差额即序列化中间体），
-   * 同秒前端上报 `Failed to fetch` / `请求超时 (30000ms)`。
-   *
-   * **修复后**：
-   *  ① 分片序列化 —— 逐词条产出，攒够 ~1MB 写一次并 `setImmediate` **让出事件循环**
-   *   （最大连续阻塞从"整个索引"降到"单片的字符串化"）；
-   *  ② `fs.promises` + 先写临时文件再 `rename` **原子替换**（不会留下半截索引）；
-   *  ③ 重入保护：上一次未写完 ⇒ 本次 tick 直接返回（`isDirty` 保持，下轮再试）；
-   *  ④ 代际保护：写入期间有新变更（`dirtySeq` 变化）⇒ **不清** `isDirty`。
-   *
-   * 一致性说明：分片期间索引可能被并发修改（异步让出所致），写出的文件可能"某词条
-   * 缺失 / 引用已被删除的文档"—— 前者只是该轮检索不到（下轮重写即恢复），后者由
-   * `search()` 的 `if (!doc) continue`（L135-136）安全跳过，故不会读到坏数据。
-   *
-   * @returns 是否真的写了盘（未变更 / 重入跳过 ⇒ false）
-   */
-  async saveToDisk(filePath?: string): Promise<boolean> {
-    enterPhase('fts:saveToDisk');
-    try {
-      // P2-18：索引无变更时跳过全量序列化写盘，避免每 60s 无条件写放大
-      if (!this.isDirty) return false;
-      if (this.saving) return false; // ③ 重入保护
-
-      const target = filePath ?? this.config.dbPath;
-      if (!target) {
-        throw new Error(
-          'FTS5SearchEngine.saveToDisk: 未提供 dbPath，索引持久化路径缺失'
-        );
-      }
-      const dir = path.dirname(target);
-      const seqAtStart = this.dirtySeq;
-      const tmpPath = `${target}.tmp-${process.pid}`;
-
-      this.saving = true;
-      try {
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
-        const handle = await fs.promises.open(tmpPath, 'w');
-        try {
-          let buffer = '';
-          let pieces = 0;
-          for await (const piece of this.serializeChunks()) {
-            buffer += piece;
-            pieces++;
-            // 攒满 ~1MB 或每 200 片写一次 → 让出事件循环（避免长同步块）
-            if (buffer.length >= 1 << 20 || pieces >= 200) {
-              await handle.write(buffer);
-              buffer = '';
-              pieces = 0;
-              await new Promise<void>((resolve) => setImmediate(resolve));
-            }
-          }
-          if (buffer.length > 0) {
-            await handle.write(buffer);
-          }
-        } finally {
-          await handle.close();
-        }
-        // ② 原子替换：loadFromDisk 只会看到"旧完整文件"或"新完整文件"
-        await fs.promises.rename(tmpPath, target);
-        // ④ 写入期间无新变更 ⇒ 才算"已落盘"；否则保留下轮写
-        if (this.dirtySeq === seqAtStart) {
-          this.isDirty = false;
-        }
-        return true;
-      } catch (err) {
-        // 清理半截临时文件（内存索引不受影响；下次 tick 会重试）
-        try {
-          await fs.promises.unlink(tmpPath);
-        } catch {
-          // @ignore-catch: 临时文件可能未创建（open 失败）或已被 rename
-        }
-        throw err;
-      } finally {
-        this.saving = false;
-      }
-    } finally {
-      exitPhase('fts:saveToDisk');
-    }
-  }
-
-  /**
-   * R7：分片序列化（与既有落盘格式**逐字节等价**：`{documents:[[id,doc]…],
-   * invertedIndex:[[term,[ids]…]…]}`，仅把"一次性拼装"改为逐条产出）。
-   *
-   * 逐条 `JSON.stringify` 单个词条 ⇒ 单次 CPU 时间与词条大小同阶（微秒级），
-   * 配合调用方的让出点，把 28–39s 的单次阻塞拆成大量可忽略的小块。
-   */
-  private async *serializeChunks(): AsyncGenerator<string> {
-    yield '{"documents":[';
-    let first = true;
-    for (const entry of this.documents.entries()) {
-      yield (first ? '' : ',') + JSON.stringify(entry);
-      first = false;
-    }
-    yield '],"invertedIndex":[';
-    first = true;
-    for (const [key, values] of this.invertedIndex.entries()) {
-      // CS05（2026-09-18）：Set 不能直接 JSON.stringify（序列化为 {}），
-      // 落盘前转数组，保证 loadFromDisk 可正确恢复（曾致索引文件损坏后
-      // loadFromDisk 崩溃，中断 ensureSessionsLoaded 使历史会话不显示）。
-      yield (first ? '' : ',') + JSON.stringify([key, Array.from(values)]);
-      first = false;
-    }
-    yield ']}';
-  }
-
-  /**
-   * 从磁盘加载索引
-   * @param filePath 文件路径
-   */
-  loadFromDisk(filePath?: string): void {
-    const target = filePath ?? this.config.dbPath;
-    if (!target) {
-      throw new Error(
-        'FTS5SearchEngine.loadFromDisk: 未提供 dbPath，索引持久化路径缺失'
-      );
-    }
-
-    if (!fs.existsSync(target)) return;
-
-    const raw = fs.readFileSync(target, 'utf-8');
-    const data = JSON.parse(raw);
-
-    this.documents = new Map(data.documents);
-
-    this.totalLength = 0;
-    for (const doc of this.documents.values()) {
-      this.totalLength += doc.content.length;
-    }
-
-    this.invertedIndex = new Map();
-    // 先复位 dirty：循环中检测到损坏词条时置 true（持久化重写修复文件）
-    this.isDirty = false;
-    for (const [key, values] of data.invertedIndex) {
-      // CS05（2026-09-18）：容错旧损坏文件（values 为 {} 而非数组，
-      // 旧版 saveToDisk 直接 stringify Set 所致）。跳过损坏词条并标记
-      // dirty，循环后从 documents 全量重建索引，避免索引缺失。
-      if (!Array.isArray(values)) {
-        this.touchDirty();
-        continue;
-      }
-      this.invertedIndex.set(key, new Set(values));
-    }
-    // CS05（2026-09-18）补漏：磁盘文件可能已被"空倒排索引"覆盖
-    // （上一版容错把损坏词条全部跳过并持久化，造成 documents 有值
-    // 但 invertedIndex 为空、全文搜索永久失效）。满足任一条件即从
-    // documents 全量重建倒排索引：
-    //  ① 本轮检测到损坏词条（旧文件整体损坏）
-    //  ② documents 非空但 invertedIndex 为空（空索引被持久化）
-    if (
-      this.isDirty ||
-      (this.documents.size > 0 && this.invertedIndex.size === 0)
-    ) {
-      this.rebuildIndexFromDocuments();
-      this.touchDirty();
-    }
-  }
-
-  /**
-   * 基于已加载的 documents 全量重建倒排索引
-   * CS05（2026-09-18）：损坏词条"跳过"策略会让倒排索引永久缺失，
-   * 改为从 documents 重新 tokenize 全量重建，保证搜索功能可用。
-   */
-  private rebuildIndexFromDocuments(): void {
-    const rebuilt = new Map<string, Set<string>>();
-    for (const [id, doc] of this.documents) {
-      const tokens = this.tokenize(doc.title + ' ' + doc.content);
-      for (const token of tokens) {
-        let ids = rebuilt.get(token);
-        if (!ids) {
-          ids = new Set<string>();
-          rebuilt.set(token, ids);
-        }
-        ids.add(id);
-      }
-    }
-    this.invertedIndex = rebuilt;
+    const snippet = content.slice(
+      bestStart,
+      Math.min(content.length, bestStart + snippetLen)
+    );
+    const prefix = bestStart > 0 ? '...' : '';
+    const suffix = bestStart + snippetLen < content.length ? '...' : '';
+    return prefix + snippet + suffix;
   }
 }
 
@@ -542,10 +550,17 @@ let globalFTS: FTS5SearchEngine | null = null;
 
 /**
  * 获取全局 FTS5 搜索引擎
+ *
+ * @param store 首次调用必须注入（索引目录归属 `FTSIndexStore`，引擎不持有路径）
  */
-export function getFTS5SearchEngine(): FTS5SearchEngine {
+export function getFTS5SearchEngine(store?: FTSIndexStore): FTS5SearchEngine {
   if (!globalFTS) {
-    globalFTS = new FTS5SearchEngine();
+    if (!store) {
+      throw new Error(
+        'getFTS5SearchEngine: 首次调用必须注入 FTSIndexStore（索引目录归 store 所有）'
+      );
+    }
+    globalFTS = new FTS5SearchEngine(store);
   }
 
   return globalFTS;

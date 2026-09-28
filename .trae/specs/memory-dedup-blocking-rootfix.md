@@ -21,7 +21,15 @@
 
 # Spec：记忆库去重阻塞根治（事件循环冻结 30–50s）
 
-- **状态**：📝 待批准（用户已裁定方向：「结构性根治（先出 spec）」，2026-09-25）
+- **状态**：**已实施（2026-09-25 起落地；2026-09-28 复核 + 清残余）**；原「📝 待批准」状态已过期
+  - 复核（以代码为据）：D2′ 预分词（`jaccardFromSets`）、D2 分片让出（`findDuplicatesChunked`）、
+    热路径切换（`MemoryManager.ts:417`）、空闲维护入口（`ChatOrchestrator.ts:423` → `runMaintenancePass()`）均已存在；
+    D3 已按 §1.3 放弃。D1（`createMemory` 默认不跑全量）/D5（库膨胀治理）未逐条复核。
+  - **本次补的残余**（2026-09-28）：HTTP `handleConsolidateMemories`（`memory-handlers.ts`）原调**同步**
+    `findDuplicates`（O(n²) 整段占用请求线程）⇒ 已改 `await findDuplicatesChunked`，符合本 spec §2 D2
+    「即使要跑，也不许冻结」；判据与返回结构逐字不变。
+  - 交叉证据：`fts-index-per-session-sharding.md` §11.11 聚合 36 份历史 profile 得出「长滞后 self-time 首位为
+    `tokenize`/`Set`、GC 占比恒 0%」，与本 spec §1 的归因一致（9/25 之后无同类长滞后）。
 - **关联**：`dev_docs/error_repairs/预存错误与待处理问题.md` → **附带发现 6**；同类先例 [FTS5SearchEngine.saveToDisk](file:///e:/PY/Documents/CODES/PY_APP/app/src/session/FTS5SearchEngine.ts#L349-L368)（2026-09-21 已收口）
 
 ---

@@ -453,7 +453,10 @@ export async function handleConsolidateMemories(
     const { MemoryConsolidator } =
       await import('@modules/memory/consolidation/MemoryConsolidator');
     const consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
-    const dedupResult = consolidator.findDuplicates(
+    // 用分片让出版本：`findDuplicates` 是 O(n²) 成对比较（实测 n=576 同步块 ~1.1s，库更大时增长），
+    // 不能在 HTTP 请求线程上整段同步跑 —— 同 `.trae/specs/memory-dedup-blocking-rootfix.md` §2 D2
+    // 的原则「即使要跑，也不许冻结」。返回结构与判据逐字不变，仅改为逐块 `setImmediate` 让出。
+    const dedupResult = await consolidator.findDuplicatesChunked(
       allMemories.map((m) => ({
         id: m.id,
         content: m.content,

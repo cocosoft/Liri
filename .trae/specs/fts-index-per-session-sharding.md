@@ -222,12 +222,12 @@
 
 ---
 
-## 9. 未决项（本 spec 之外）
+## 9. 关联项（本 spec 之外：阻塞类均已结，其余指向他处）
 
 | 项 | 状态 |
 |---|---|
 | `spawnSync` 3853ms（`toolround:execute`） | ✅ **已定位（2026-09-28）**：**与工具执行无关**。用探针落盘的完整 cpuprofile 还原调用树，自耗时拆为三条链：①1768ms `checkCommandExists`（6 次 `where`/`--version` spawn）②1143ms ③1052ms 均为 `getDiskInfo` 的 `powershell Get-CimInstance`（`performFullCheck` 内连查两次）。合计 3963ms ≈ probe 3853ms。`toolround:execute` 仅"当时活跃阶段"（`suspects: []` 即不匹配任何已插桩路径）。**磁盘部分已修复**（`fs.statfsSync` 取代 PowerShell：1237ms → 1–2ms，数值逐项一致）；**命令探测部分亦已异步化**（`execFileNoThrow` + 并发：该端点滞后事件 2161ms → **0 条**，响应 3785ms → 2465ms）；单请求**两次**全量检查亦**已去重**（复用 `getLastReport()`：响应 → 1842ms，spawn 突发 2×6 → 1×6）；存在性探测已改 **PATH 扫描**（零 spawn：突发 6 → 3）；版本探测按命令声明（仅 `git`）⇒ 单次检查 1326ms → **333ms**、端点 **537/368/388ms**（对照最初 3785ms 约 10×） |
-| `current:null` 的 3.4s 阻塞 | 🟡 未定性；插桩已随 §8-9 清理（其根因类＝巨型中间体已随整索引废弃而消除），复发时按 **§11.11 处方**重挂 |
+| `current:null` 类无归属阻塞 | ✅ **已归因并处置（2026-09-28）**：聚合 36 份历史 profile ⇒ `GC/program 占比` 恒 **0%**（GC 假设被证伪）。实际含两类：① 工具轮期间的 `spawnSync`（§8-9 记录的 3853ms，已修）；② **记忆去重的同步 CPU** —— `tokenize`/`Set` 链（`createMemory → findDuplicates → jaccardSimilarity → tokenize`），历史最大滞后 **59.6s**，根因已由 `.trae/specs/memory-dedup-blocking-rootfix.md` 修复（D2′ 后 41.9s → 1.1s；热路径与空闲维护均分片让出），本次另清 HTTP 端点残余；9/25 后未再出现。**复发时按 §11.11 新处方（打印调用父链归因，不要先怀疑 GC）** |
 | `sleepWake` 假滞后（71s/64s/62s） | ✅ 已识别；**判定阻塞前须先排除该形态** |
 | Tier 2 步骤 3 余项（字面量改常量） | 见 `chat-status-type-contract.md` §9 |
 
@@ -371,7 +371,7 @@ class FTS5SearchEngine {
 
 **门禁**：`tsc --noEmit` **0**｜`bun test tests/session` **289 pass / 0 fail**（41 文件）｜`eslint`（src + 本次涉及测试）**0**｜`lint:arch` **0 违规**｜`lint:size` 无新增错误（实测：引擎 **574** 行、store **716** 行，均 <800 错误线；原 2 个 error 仍为既有 client 文件）。
 
-**遗留（§8-8/§8-9）**：§8-8 真机验收**已完成**（见 §11.10）；插桩清理剩 `A1`（`context/context.ts`）、`GC1`（`diagnostics/infrastructure-diagnostics.ts`）。
+**遗留（§8-8/§8-9）**：均已**完成** —— §8-8 真机验收见 §11.10；§8-9 插桩清理见 §11.11（代码侧残留 0）。
 
 ### 11.10 真机验收结果（2026-09-28）
 
@@ -407,14 +407,27 @@ class FTS5SearchEngine {
 
 门禁：`tsc --noEmit` 0；`bun test tests/diagnostics tests/session/ftsShardedEngine.test.ts` **37 pass / 0 fail**。
 
-**复发处方**（若 `current:null` 类型的无归属阻塞再现）——重挂 GC 观测即可，无需重新发明：
+**复发处方（2026-09-28 修正：原处方瞄准了被证伪的假设）**
 
-```ts
-const { PerformanceObserver } = await import('perf_hooks');
-const recentGc: number[] = [];
-new PerformanceObserver((list) => {
-  for (const e of list.getEntries()) recentGc.push(Math.round(e.duration));
-  while (recentGc.length > 30) recentGc.shift();
-}).observe({ entryTypes: ['gc'] });
-// 判定：把 recentGc 中「最近 10s 的暂停之和」与同条滞后告警的 lagMs 比对，≈ 即由 GC 造成
+原处方是"重挂 GC 观测"。对探针落盘的 **36 份** profile 聚合（`artifacts/eventloop-blocks/*/summary.md`）后，
+`GC/program 帧占比` **全部为 0.00%**（中位＝最大＝0）⇒ **没有任何一次阻塞由 GC 造成**，GC 观测不是有效归因手段。
+
+真正的归因是**主线程同步 CPU**：self-time 首位是 `tokenize`(16/36) 与 `Set`(13/36)，三条最大事故
+（**59.6s / 59.1s / 37.1s**）的调用链**完全相同**：
+
 ```
+tokenize @ memory/consolidation/MemoryConsolidator.ts
+  ← jaccardSimilarity ← findDuplicates ← createMemory @ memory/MemoryManager.ts
+（所在 phase 为 dream:cycle / knowledge:compile / compaction:orchestrate / pipeline:postProcess，
+ 即这些后台任务里触发的「记忆去重」）
+```
+该问题已有专门 spec：`.trae/specs/memory-dedup-blocking-rootfix.md`（D2′ 预分词后 `findDuplicates`
+n=576 由 **41,921ms → 1,085ms**；热路径 `MemoryManager` 与空闲维护
+`ChatOrchestrator.runMaintenancePass` 均已走分片让出版本）⇒ 与「9/25 之后不再出现同类长滞后」一致。
+本次另清掉一处残余：HTTP `handleConsolidateMemories` 原调**同步** `findDuplicates`，
+已改 `await findDuplicatesChunked`（判据与返回结构逐字不变）。
+
+**现在的处方（长滞后再现时）**：**不要先怀疑 GC**，直接拿那次 `profile.cpuprofile` 打印**调用父链** ——
+`summary.md` 的 self-time 表带不出 URL，但 profile 的节点树保留 `functionName @ url:line`
+（参考 `%TEMP%\analyze-cpuprofile.mjs` 的做法：按正则筛帧 → 沿 `children` 反查父链 → 按 self-time 排序），
+先看 `tokenize` / `Set` / `fs.*` / `spawnSync` 哪一类占优，再顺链定位调用方。

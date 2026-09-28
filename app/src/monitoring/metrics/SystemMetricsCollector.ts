@@ -6,6 +6,7 @@
  */
 
 import os from 'os';
+import fs from 'fs';
 import { execFileSync } from 'child_process';
 
 import { getLogger } from '@modules/monitoring';
@@ -191,7 +192,7 @@ export interface DiskInfo {
 /**
  * 收集磁盘信息
  *
- * - Windows: 通过 PowerShell Get-CimInstance 获取磁盘信息（2s 超时，失败静默返回 0）
+ * - Windows: 原生 `fs.statfsSync` 逐盘符取值（**无子进程**）
  * - Unix:    通过 df -k
  */
 export function getDiskInfo(): DiskInfo {
@@ -200,25 +201,25 @@ export function getDiskInfo(): DiskInfo {
 
   try {
     if (process.platform === 'win32') {
-      const output = execFileSync(
-        'powershell.exe',
-        [
-          '-NoProfile',
-          '-Command',
-          'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | ForEach-Object { "$($_.Size),$($_.FreeSpace)" }',
-        ],
-        { encoding: 'utf8', timeout: 2000 }
-      );
-      const lines = output.trim().split('\n');
-      for (const line of lines) {
-        const parts = line.split(',').map((s) => s.trim().replace(/"/g, ''));
-        if (parts.length >= 2) {
-          const size = parseFloat(parts[0]);
-          const free = parseFloat(parts[1]);
-          if (!isNaN(size) && !isNaN(free) && size > 0) {
+      // 2026-09-28：弃用 `powershell Get-CimInstance`。事件循环探针实测该调用**同步**占用
+      // 823–1225ms/次，而 `performFullCheck` 内连查两次；用同一份 cpuprofile 归因后确认它是
+      // `spawnSync 3853ms` 阻塞的主因之一（详见 `.trae/specs/fts-index-per-session-sharding.md` §9）。
+      // 改用原生 `fs.statfsSync`（仓内既有先例：`DaemonDiagnostics.checkDiskSpace`、
+      // `ExpansionTools`；本机实测连续 3 次 0ms）。
+      //
+      // 口径差异（如实标注）：原 PowerShell 用 `DriveType=3` **只统计本地固定盘**；此处按盘符探测，
+      // 会把可移动盘/已映射网络盘一并计入（无子进程前提下无法获知 DriveType）。
+      for (let code = 67 /* C */; code <= 90 /* Z */; code += 1) {
+        try {
+          const s = fs.statfsSync(`${String.fromCharCode(code)}:\\`);
+          const size = s.blocks * s.bsize;
+          const free = s.bfree * s.bsize;
+          if (size > 0) {
             totalBytes += size;
             freeBytes += free;
           }
+        } catch {
+          // @ignore-catch: 该盘符不存在/不可访问（未挂载、映射盘断连）⇒ 跳过，非错误路径
         }
       }
     } else {
@@ -268,7 +269,7 @@ export function getDiskInfo(): DiskInfo {
 /**
  * 异步收集磁盘信息
  *
- * wmic / df 均为毫秒级操作，直接委托给同步方法，无需独立异步实现。
+ * `statfs` / `df` 均为亚毫秒~毫秒级操作，直接委托同步实现即可，无需独立异步版本。
  */
 export async function getDiskInfoAsync(): Promise<DiskInfo> {
   return getDiskInfo();

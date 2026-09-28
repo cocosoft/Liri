@@ -76,10 +76,58 @@ export type LiriEventType =
   | "request/start"
   // P1-1②（2026-09-28）：输出校验回喂（终稿 mermaid 结构预检失败 ⇒ 注入模型的修正指令）
   | "validation/injected"
+  // ─── 目标（Goal）生命周期（B2-2，2026-09-23；D-1 补镜像 2026-09-28） ───
+  | "goal/created"
+  | "goal/updated"
+  | "goal/status_changed"
+  | "goal/injected"
+  // ─── 子代理恢复通路审计（B4-1，2026-09-23；D-1 补镜像 2026-09-28） ───
+  | "agent/recovery"
   // ─── Code Mode（CM-5，2026-08-25） ───
   | "assistant/code_run";
 
 // ─── 事件载荷映射 ───────────────────────────────
+
+/**
+ * D-1 补镜像（2026-09-28）：以下 3 个联合镜像自后端，**值必须逐字一致** ——
+ * `app/src/tasks/goal/TaskGoalStore.ts`（`TaskGoalStatus` / `TaskGoalUpdateReason`）与
+ * `app/src/tasks/goal/goalTemplates.ts`（`GoalTemplateKind`）。
+ *
+ * ⚠️ 这是**治标**：根治应由「跨端契约单一事实源」消除双端手工镜像（见
+ * `architecture-benchmark-20260928.md` §5.3 / §四 根因类 ①）；在此之前，
+ * 后端改动这 3 个联合时**必须同步本文件**。
+ */
+export type TaskGoalStatus =
+  | "active"
+  | "blocked"
+  | "completed"
+  | "budget_limited"
+  | "failed"
+  | "cancelled";
+
+export type TaskGoalUpdateReason =
+  | "batch_completed"
+  | "batch_blocked"
+  | "batch_failed"
+  | "batch_cancelled"
+  | "budget_limit"
+  | "stop_threshold"
+  | "turn_error"
+  | "compaction_stalled"
+  | "turn_limit"
+  | "turn_timeout"
+  | "turn_budget_exhausted"
+  | "turn_interrupted"
+  | "user_aborted"
+  | "system_aborted"
+  | "manual";
+
+export type GoalTemplateKind =
+  | "budget_limit"
+  | "objective_updated"
+  | "progress_stalled"
+  | "continue_goal"
+  | "tool_execution_errors";
 
 export interface LiriEventMap {
   "turn/start": { turn: number; userMessageSeq?: number };
@@ -417,6 +465,54 @@ export interface LiriEventMap {
     }>;
     logs?: string[];
     durationMs?: number;
+  };
+  // ─── 目标（Goal）生命周期 + 子代理恢复（B2-2 / B4-1；D-1 补镜像 2026-09-28） ───
+  "goal/created": {
+    goalId: string;
+    objective: string;
+    sessionId?: string;
+    tokenBudget?: number;
+  };
+  "goal/updated": {
+    goalId: string;
+    /** 本次**真实变更**的字段（只列变更项，不做全量覆盖） */
+    changes: {
+      objective?: string;
+      tokenBudget?: number;
+      runId?: string;
+    };
+    reason: TaskGoalUpdateReason;
+  };
+  "goal/status_changed": {
+    goalId: string;
+    from: TaskGoalStatus;
+    to: TaskGoalStatus;
+    /** 迁移原因码 */
+    reason: TaskGoalUpdateReason;
+    /** 迁移**后**的累计用量（如实读库，不猜） */
+    tokensUsed: number;
+    tokenBudget?: number;
+    noProgressStreak?: number;
+  };
+  "goal/injected": {
+    goalId: string;
+    templateKind: GoalTemplateKind;
+    channel: "tool_result" | "user_message" | "steering";
+    text: string;
+  };
+  "agent/recovery": {
+    /** 动作：认领 / 恢复 / 放弃 */
+    action: "claim" | "resume" | "abandon";
+    /** 本次动作的结果（枚举，禁止按文案判定状态） */
+    outcome: "claimed" | "resumed" | "abandoned" | "failed";
+    /** 该 yield 所属 turn */
+    turn?: number;
+    /** 该轮 `sessions_yield` 的 toolCallId */
+    toolCallId?: string;
+    /** 是否来自回放投递 */
+    restored?: boolean;
+    /** 未达成的原因（`outcome` 为 `failed` / `abandoned` 时给出） */
+    error?: string;
   };
   // P1-1②（2026-09-28）：输出校验回喂 —— 终稿未通过服务端结构预检（mermaid）时，
   // 注入模型的修正指令（log-only，不入消息 surface；镜像 app 侧同名字段，勿单端改）

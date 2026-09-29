@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.53-blue)
+![Version](https://img.shields.io/badge/version-0.4.54-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -364,7 +364,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.53**
+当前版本：**v0.4.54**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -372,6 +372,22 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.54 (2026-09-29)
+
+**工具层死代码清理与命名 / 错误契约修复 + PDCA 检查点性能与留存 + DAEMON 启动路径死角修复**
+
+- ✅ **工具死实现清理（D-15 / 另案①②）** - 删除**未注册进运行时**的 `TaskTool` 4 个工具类及其 8 个孤儿文件（`TaskStorage` / `types` / `constants` / `TaskOutputUI`）、以及**零消费者**的 `tools/guardrails/` 整模块（4 文件）；并摘除 `ToolUIRegistry` 中指向已死 UI 的 4 条注册 ⇒ 源码扫描文件数 **3984 → 3972**
+- ✅ **工具别名冲突 + 注册期守卫（另案③）** - 修复 `todo_write` 抢占**真实工具名** `create_task_list`（实测 `tool_search(select:create_task_list)` 指错工具、模型连续 3 轮 **0 次**成功调用）与 `video_generate` 抢占 `video`；`findToolByName` 改为**真实名优先**；`ToolRegistry.registerTool` 新增**双向别名守卫**（撞真实名 ⇒ 跳过 + warn；真实名被先前别名占用 ⇒ 摘除该别名）
+- ✅ **工具入参归一化 + 失败可判定（另案④）** - `create_task_list` 复用同族文本字段兜底链（新增 `ToolUtils.pickTaskText`，与 `TodoWriteTool` **同一实现**）；失败分支统一落 `success / error / errorLevel`；`ToolExecutor.processResult` 补**顶层 `error` 回退** —— 原先只读 `metadata.error`，而该字段**全仓无人写入** ⇒ 失败原因从不进入模型视野（模型只看到 `{}`）
+- ✅ **PDCA 检查点性能（另案⑥）** - 列表链路由"每次请求 `readdir` + **逐文件** `readFileSync`+`JSON.parse`"改为**文件级 `mtime`/`size` 记忆索引**：真实目录 3394 文件实测 **1032ms → ≈32ms（≈30×）**；并把 handler 内 **3 处重复内联扫描**收敛到同一索引（GR02）
+- ✅ **启动异步预热（另案⑥ 补）** - 新增 `prewarmPdcaCheckpointIndex()`：**分批 + 每批让出事件循环**（预热 1.2s，事件循环**最大阻塞仅 62ms**，对比同步做法 ≈1138ms），预热后首个请求 ≈35ms
+- ✅ **检查点留存策略（另案⑥ 补）** - 启动时清理"**终态或超期孤儿** + 超 **30 天**"（在跑 / 待审批**一律保留**）；真实目录 **2860 → 2798**（删 62）；判据收敛为单一事实源（`PDCA_TERMINAL_STATUSES` / `PDCA_ACTIVE_STATUSES` / `PDCA_AWAITING_APPROVAL_PHASES`）
+- ✅ **DAEMON 启动路径死角修复（另案⑦）** - `launchDaemon` 末尾 `await new Promise(...)` 永久挂起 ⇒ `launch()` 尾部（「启动完成」汇总、`_appReady` 兜底、PDCA 启动扫描、`profileReport()`）在 **DAEMON 下从未执行**；抽出 `reportBootCompletion()` 并由 DAEMON 就绪点调用 ⇒ daemon 侧**首次产出**「启动完成 + 阶段耗时」（实测 `启动完成 (929ms)`）
+- ✅ **会话水合死分支清理（c2）** - 删除 `SessionStateHydrator.extractTodos()`（实测**恒不命中**）及其专属辅助 `parseToolResult`、`HydratedState.todos`、两处**只写不读**的 `metadata.hydratedTodos`
+- ✅ **测试隔离修复 + 夹具清理** - `pdca-list` 契约测试原为**假隔离**（模块级路径常量被 preload 链冻结 ⇒ 单测实读真实 3394 文件 ⇒ 两次调用必然越过 5s 超时 ⇒ 偶发红灯）；改**惰性解析**后该用例 **1225ms → 2.9ms**；并清理真实数据目录里被测试写入的夹具（`pdca_ck_a/b`、`d5-test-*` 529 个、`pdca_st_*` 3 个）
+- ✅ **回归守卫** - 新增 `toolNameResolution` / `taskOrchestratorToolsOutput` / `pdcaCheckpointRetention` 等用例（含"删除后索引同步""守卫不误伤"等边界）；全量 `app` 侧 **4201 pass / 21 skip / 0 fail**（439 文件）、`typecheck` 0、`lint:arch` 0 错 1 警
+- ✅ **工程治理** - `.trae/rules/` **13 个规则文件纳入版本控制**（原被 `.gitignore` 吞掉，现与代码同仓可 review）
 
 #### v0.4.53 (2026-09-27)
 

@@ -3172,9 +3172,11 @@ class ArchitectureLinter {
    * 判据：`export const <X>OutputSchema` 若**全仓出现次数 === 1**（即只剩定义那一行）
    * ⇒ **warning**（提示"要么接线、要么删除"）。**不阻断提交**。
    *
-   * ⚠️ **已知局限（如实）**：① **同名重复定义会互相掩盖**（如 `TaskStopOutputSchema` 同时定义在
-   * `TaskTool/` 与 `TaskStopTool/`，后者即便孤立也不会被捕获）；② 注释/文档字符串里的同名言及
-   * 会被计为引用 ⇒ 只会**漏报**，**不会误报**。
+   * ⚠️ **已知局限（如实）**：① **同名重复定义会互相掩盖** —— 判据按"全仓总出现次数"计、**不做符号解析**，
+   * 故同名多份定义会互相"供血"。**真实案例**：`TaskStopOutputSchema` 曾同时定义在 `TaskTool/` 与
+   * `TaskStopTool/`，后者即便孤立也抓不到（该孤儿侧已于 2026-09-29 按台账 D-9 删除 ⇒ **案例消失，风险仍在**）；
+   * ② 注释/文档字符串里的同名言及、③ `import` 而未被使用，都会被计为引用 ⇒ 只会**漏报**，**不会误报**
+   * （③ 另由 eslint / tsc 的未使用变量规则兜住）。
    */
   async checkOrphanOutputSchemas(): Promise<void> {
     const repoRoot = resolve(__dirname, '..');

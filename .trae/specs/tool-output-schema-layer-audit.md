@@ -96,7 +96,7 @@ P1-3 A 档把 `Tool.outputSchema`（原类型 `unknown`，纯占位）接上运�
 | 1b | `task_create` / `TaskCreateOutputSchema` · TaskGet 的 `TaskOutputSchema` · `task_list` / `TaskListOutputSchema` · `task_update` / `TaskUpdateOutputSchema` | **删除**（4 项） | 四个工具**出口 `data` 全是 JSON 字符串**（`TaskCreateTool.ts:221` / `TaskGetTool.ts:169` / `TaskListTool.ts:117` / `TaskUpdateTool.ts:248` 的 `JSON.stringify(output)`），而 schema 描述的是**对象** ⇒ 错层（根因另立 D-10） | ✅ |
 | 1b | `task_stop` / `TaskStopOutputSchema` | **接线** | 出口 5 处全为对象 `{task_id, previous_status, current_status, success, message}`（`TaskStopTool.ts:149/175/196/217/229`）⇒ 与 schema **逐字段相符** | ✅ |
 | 1b | `task_output` / `TaskOutputOutputSchema` | **接线** | 出口 7 处全为 `{retrieval_status, task}`；`retrieval_status` 全在枚举内（`:290-292`），`TaskOutputData`（`:28-38`，9 字段）与 `TaskOutputDataSchema` **逐字段一致** | ✅ |
-| 1b | `TaskStopTool/schemas.ts` 的 `TaskStopOutputSchema` | **⏸ 暂不处置** | **不是"单个悬空 schema"，而是"孤儿模块"问题**：该目录的 tool 文件 `TaskStopTool.tsx` **未被发现引用**（真正的 `task_stop` 在 `TaskTool/TaskStopTool.ts`，由 `ToolFactory.ts:49/1164` 注册），其 `UI.tsx` 则被 `ToolUIRegistry.ts:372` `require` 而**存活**；且该 `.tsx` 的内联 schema 与本 schema **逐字重复**（双份事实源）⇒ 另立 **D-9** 裁定，不混在本批 | ⏸ |
+| 1b | `TaskStopTool/schemas.ts` 的 `TaskStopOutputSchema` | **删除**（原转 D-9，2026-09-29 收口） | **不是"单个悬空 schema"，而是"孤儿模块"问题**：该目录的 tool 文件 `TaskStopTool.tsx` **未被发现引用**（真正的 `task_stop` 在 `TaskTool/TaskStopTool.ts`，由 `ToolFactory.ts:49/1164` 注册），其 `UI.tsx` 则被 `ToolUIRegistry.ts:372` `require` 而**存活**；且该 `.tsx` 的内联 schema 与本 schema **逐字重复**（双份事实源）⇒ 另立 **D-9** 裁定；**已于同日按 D-9 处置**：删除 `.tsx`/`schemas.ts`/`prompt.ts` 三个孤儿文件、**保留活的 `UI.tsx`** | ✅ |
 | 2 | `EnterPlanMode` / `ExitPlanMode` / `EnterWorktree` / `ExitWorktree`（4 个） | **接线** | 出口 `data` **全为对象且与各自 schema 逐字段相符**：两个 PlanMode 工具含 `mode` 字面量（`'plan'` / `'normal'`）；两个 Worktree 工具为 `{success, message, worktree_path? / previous_branch?}`，失败分支 `{success:false, message}` 亦符合（可选字段缺省） | ✅ |
 | 2 | `plan` / `PlanToolOutputSchema` | **接线** | 出口为 `let result: PlanToolOutput` 累积后交给 `createToolResult(result, …)`；而**本文件内**的 `PlanToolOutput`/`PlanData`/`PlanStep` 三接口与 `schemas.ts` 的三个 schema **逐字段同构**（含四值枚举、必填项）⇒ **TS 赋值已强制**符合。**遗留**：本地 3 接口 vs 3 schema = **双份事实源**，归一化（改用 `z.infer` 派生）另议 | ✅ |
 | 2 | `SkillOutputSchema` · `SleepOutputSchema` · `MonitorOutputSchema` | **删除**（3 项） | 三者**都不用 `createToolResult`**（手工构造）：`sleep` 成功分支 `data = {durationMs, elapsed, reason}`（与 `{sleptMs, message}` **字段名全不同**）；`monitor` 的 `data = {metric, ...result}` 有 **4 种形态**（memory/cpu/disk/network）**均无** schema 要求的 `value`/`timestamp`；`skill` ⚠️ **理由已于批次 3 更正**：载荷在 `result`（现已可回退校验），其 `result` 是**字符串**而 schema 是对象 ⇒ 仍不符 ⇒ 删除 | ✅ |
@@ -113,8 +113,8 @@ P1-3 A 档把 `Tool.outputSchema`（原类型 `unknown`，纯占位）接上运�
 | 4b | `BriefOutputSchema` ・ `TungstenOutputSchema` ・ `ConfigOutputSchema` ・ `LSPOutputSchema` ・ `TimeOutputSchema` ・ `PowerShellOutputSchema` ・ `AskUserQuestionOutputSchema` ・ `SubscribePROutputSchema` | **删除**（8 项） | **四类错法各占**：① **schema 描述的是 `ToolResult` 本体**（`brief` / `config` —— 出口只有 `{success, output, error}`，`output` 是**人类可读文本**、不作载荷）；② **出口是字符串/多形态**（`tungsten` 14 处全为字符串或 `null`；`time` 是 `JSON.stringify`（且三 format 字段集互不相同）；`powerShell` 成功 `data` 是**字符串**（与 `bash` 同型）；`ask_user_question` 是 `JSON.stringify` 或 `{error, retryable}`）；③ **错层**（`LSP`：出口 `data = result`，按接口 `lsp/types/LSPTool.ts:31-54` 其返回是 `CompletionItem[]`/`Location[]`/`Diagnostic[]`/**`string`**，而 schema 描述的是"归一化后的对象"）；④ **第 ④ 族**（`subscribe_pr`：定义在 `ToolFactory` 内联对象里，出口只有 `{success, output}`） | ✅ |
 
 - **验收（批次 1–4b，全部）**：`typecheck` **0** · `eslint` **0** · `tests/tools` **539 pass / 0 fail**（校验器专项 **6 例**）。
-- **计数变化（累计；⚠️ 用 grep 独立核验，不靠减法学）**：有消费者 **1 → 21**；零消费者 **44 → 1**。
-  · **核验方式**：`grep "export const \w+OutputSchema" app/src` ⇒ 定义数 **45 → 22**（逐批删除累计 **3+4+3+3+2+8 = 23**）；消费方 = **21** ⇒ 零消费者 = 22 − 21 = **1**，且该 1 个即 [`TaskStopTool/schemas.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/TaskStopTool/schemas.ts) 的 `TaskStopOutputSchema`（**已转 D-9「孤儿模块」另案**）。
+- **计数变化（最终；⚠️ 用 grep 独立核验，不靠减法学）**：有消费者 **1 → 21**；零消费者 **44 → 0**。
+  · **核验方式**：`grep "export const \w+OutputSchema" app/src` ⇒ 定义数 **45 → 21**（逐批删除累计 **3+4+3+3+2+8+1 = 24**，末项即 **D-9 收口**删掉的 `TaskStopTool/schemas.ts`）；消费方 = **21** ⇒ 零消费者 = 21 − 21 = **0**。
   · ⚠️ **本表此前两处计数算错**（`44 → 41`、`41 → 37`）—— 漏算"**接线项会从零消费者转入有消费者**"这一步；正确应为 `44 → 40`、`40 → 34`，现按上式更正。
 
 ### ✅ T6 收口结论（2026-09-29）
@@ -122,13 +122,13 @@ P1-3 A 档把 `Tool.outputSchema`（原类型 `unknown`，纯占位）接上运�
 | 项 | 数 | 说明 |
 |---|:--:|---|
 | **接线** | **21** | 出参与 schema 相符者（含 3 处叠加**归一化**：`tool_search` / `list_mcp_resources` / `read_mcp_resource`） |
-| **删除** | **23** | 错层（描述内层函数/`ToolResult` 本体）、出口字符串化、多形态、第 ④ 族（`ToolFactory` 内联定义） |
-| **转另案** | **1** | `TaskStopTool` 的（D-9「孤儿模块」） |
+| **删除** | **24** | 错层（描述内层函数 / `ToolResult` 本体）、出口字符串化、多形态、第 ④ 族（`ToolFactory` 内联定义）；**含 D-9 收口的 1 个**（孤儿模块 `TaskStopTool/schemas.ts`） |
+| **转另案** | **0** | ~~1（`TaskStopTool` 孤儿模块）~~ ⇒ 已于同日按 **D-9** 删除 |
 | **合计** | **45** | = 立项时的全部 `*OutputSchema` 定义数 |
 
-- **达标判定**：立项时"44 个零消费者"**全部有结论**（0 遗留）；**唯一剩余 1 个**已明确归属 D-9、非本 spec 范围。
+- **达标判定**：立项时"44 个零消费者"**全部有结论**（0 遗留）；**含原转 D-9 的 1 个也已于同日收口** ⇒ 仓内零消费者 `*OutputSchema` = **0**（`lint:arch` 的 R15-001 实测 `定义 21 个，零消费者 0 个`）。
 - **过程产出（超出原目标）**：① 修掉 1 处**机制盲区**（载荷只看 `data` ⇒ 改为 `data ?? result`，并标 `TODO: CS05-ROOTFIX`）；② 沉淀**四族出口构造法 + 三处载荷位置**的判定方法（见上）；③ 顺带记录 **D-7 四例入参漂移**、**D-9 孤儿模块**、**D-10 出参字符串化**。
-- **未做（如实）**：① ~~**门禁**（「`*OutputSchema` 无消费者 ⇒ warning」）尚未落地~~ ⇒ ✅ **已落地（2026-09-29）**：新增 **`R15-001`**（`scripts/lint-architecture.ts#checkOrphanOutputSchemas` + `.trae/rules/architecture-compliance.md` §R15），**warning 级、零豁免上线**；实测输出 `定义 22 个，零消费者 0 个`、总告警仍为 1（仅既有 R07-004）⇒ **无新增噪音**；并做 **A 档变异测试**（临时插入孤立定义 ⇒ `零消费者 1 个：R15MutationProbeOutputSchema`、告警 1→2、报 1 条违规；已还原且残留 0）。② `schemas.ts` 的**入参侧**死定义未清（D-7）。
+- **未做（如实）**：① ~~**门禁**（「`*OutputSchema` 无消费者 ⇒ warning」）尚未落地~~ ⇒ ✅ **已落地（2026-09-29）**：新增 **`R15-001`**（`scripts/lint-architecture.ts#checkOrphanOutputSchemas` + `.trae/rules/architecture-compliance.md` §R15），**warning 级、零豁免上线**；实测输出 `定义 22 个，零消费者 0 个`（**D-9 收口后为 `21 个`，仍 0 零消费者**）、总告警仍为 1（仅既有 R07-004）⇒ **无新增噪音**；并做 **A 档变异测试**（临时插入孤立定义 ⇒ `零消费者 1 个：R15MutationProbeOutputSchema`、告警 1→2、报 1 条违规；已还原且残留 0）。② `schemas.ts` 的**入参侧**死定义未清（D-7）。
 - **方法补充（批次 3 新增，重要）**：出口构造有**三族**，逐项判定时**三族都要看** ——
   ① `createToolResult(data, …)`（多数工具，`data` 为第一实参）；
   ② `ToolUtils.createSuccessResult` / `createFailureResult`（如 `file_search`；**前者** `{data, success:true}` 会被校验，**后者** `{data: undefined, success:false}` ⇒ **双重豁免**）；

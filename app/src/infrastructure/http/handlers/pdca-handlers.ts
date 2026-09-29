@@ -21,13 +21,7 @@
 
 import type http from 'http';
 import { join } from 'path';
-import {
-  mkdirSync,
-  existsSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-} from 'fs';
+import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'fs';
 import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
@@ -37,6 +31,7 @@ import {
   readPdcaCheckpoint,
   writePdcaCheckpoint,
   syncPdcaWorkItemStatus,
+  getPdcaCheckpointIndex,
 } from '@modules/tasks';
 import type { PdcaMetrics } from '@modules/tasks';
 
@@ -88,11 +83,25 @@ export async function handlePdcaDecisionLog(
   }
 }
 
-/** PDCA 检查点目录 */
-const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));
+/**
+ * PDCA 检查点目录（**惰性解析**，2026-09-29 台账「另案 ⑤」）。
+ *
+ * ⚠️ 原实现是**模块顶层常量** ⇒ 路径在模块**求值**时被冻结。`bun test` 的 preload 链
+ * （`tests/setupIsolateAgentStore.ts`）会**先于**测试文件加载本模块，测试再设
+ * `LIRI_HOME` / `LIRI_DATA_DIR` 已不生效 ⇒ 单测实际读写**真实** `~/.pyapp/data/pdca`
+ * （实测 **3394** 个 json，每次请求全量 `readdirSync`+逐个 `readFileSync` ⇒ ≈**1.2s/次**，
+ * 两次调用的用例即越过 bun 默认 5s 超时）。改为**调用时解析**，与
+ * [`CheckpointLogConfig`](../config/settings/CheckpointLogConfig.ts) 的"不在模块顶层解析路径"
+ * 既有约定一致。
+ */
+function pdcaCheckpointDir(): string {
+  return resolveDataSubDir('pdca');
+}
 
-/** WorkItem 持久化目录 */
-const WORKITEM_DIR = join(resolveDataSubDir('workitems'));
+/** WorkItem 持久化目录（惰性解析，同上） */
+function workitemDir(): string {
+  return resolveDataSubDir('workitems');
+}
 
 interface WorkItemRecord {
   id: string;
@@ -110,15 +119,15 @@ interface WorkItemRecord {
 }
 
 function ensureWorkItemDir(): void {
-  if (!existsSync(WORKITEM_DIR)) {
-    mkdirSync(WORKITEM_DIR, { recursive: true });
+  if (!existsSync(workitemDir())) {
+    mkdirSync(workitemDir(), { recursive: true });
   }
 }
 
 function writeWorkItem(item: WorkItemRecord): void {
   ensureWorkItemDir();
   writeFileSync(
-    join(WORKITEM_DIR, `${item.id}.json`),
+    join(workitemDir(), `${item.id}.json`),
     JSON.stringify(item, null, 2),
     'utf-8'
   );
@@ -126,12 +135,8 @@ function writeWorkItem(item: WorkItemRecord): void {
 
 /** 幂等键检查：相同 sessionId 的进行中 PDCA 任务 */
 function findExistingTask(sessionId: string): string | null {
-  const dir = PDCA_CHECKPOINT_DIR;
-  if (!existsSync(dir)) return null;
-  const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
-  for (const file of files) {
-    const ck = readPdcaCheckpoint(file.replace('.json', ''));
-    if (!ck) continue;
+  // 2026-09-29（台账「另案 ⑥」）：改用桥接层**带记忆的索引**（原实现每请求全量 read+parse）
+  for (const ck of getPdcaCheckpointIndex().values()) {
     if (
       ck.sessionId === sessionId &&
       ck.status !== 'abort' &&
@@ -148,14 +153,11 @@ function findExistingTask(sessionId: string): string | null {
  * 启动扫描：检查所有检查点，标记无活跃 orchestrator 的 running 任务为 abort
  */
 export function scanAndAbortStalePdcaTasks(): void {
-  const dir = PDCA_CHECKPOINT_DIR;
-  if (!existsSync(dir)) return;
-  const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+  // 2026-09-29（台账「另案 ⑥」）：同批改用带记忆索引 —— 本函数虽只在启动时跑一次，
+  // 但目录达 3394 文件时原实现同样要 ≈1s 全量 read+parse。
   let aborted = 0;
 
-  for (const file of files) {
-    const ck = readPdcaCheckpoint(file.replace('.json', ''));
-    if (!ck) continue;
+  for (const ck of getPdcaCheckpointIndex().values()) {
     const status = ck.status as string | undefined;
     if (status !== 'started' && status !== 'running') continue;
     // Gap D（1-0c，2026-09-03）：等待审批的任务（plan_pending/stage_awaiting_approval）
@@ -570,15 +572,10 @@ export async function handlePdcaList(
     }
 
     // checkpoint 目录索引（taskId → checkpoint，归属/状态权威）
-    const ckByTask = new Map<string, Record<string, unknown>>();
-    if (existsSync(PDCA_CHECKPOINT_DIR)) {
-      for (const file of readdirSync(PDCA_CHECKPOINT_DIR).filter((f) =>
-        f.endsWith('.json')
-      )) {
-        const ck = readPdcaCheckpoint(file.replace('.json', ''));
-        if (ck?.taskId) ckByTask.set(ck.taskId as string, ck);
-      }
-    }
+    // 2026-09-29（台账「另案 ⑥」）：改用桥接层的**带记忆索引** —— 原实现对整个目录逐文件
+    // `readFileSync`+`JSON.parse`（真实目录 3394 个 json ⇒ ≈**1.0s/请求**），
+    // 且与 `listPdcaCheckpoints()` 重复实现（GR02 实现唯一性）。
+    const ckByTask = getPdcaCheckpointIndex();
 
     // 内存 orchestrator 条目（活跃任务）——checkpoint 归属字段回填（checkpoint 优先）
     let memoryItems: Record<string, unknown>[] = [];

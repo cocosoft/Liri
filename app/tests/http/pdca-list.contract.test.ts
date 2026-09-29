@@ -4,7 +4,15 @@
 /**
  * POST /v1/pdca/list 契约测试（1-5 P1 前置，2026-09-03）
  * 验证：checkpoint 回退（无内存 orchestrator 时列表非空）+ projectId/sessionId/workspaceId
- * 过滤 + checkpoint-only 条目 source 标记。隔离 LIRI_HOME（临时目录）。
+ * 过滤 + checkpoint-only 条目 source 标记。
+ *
+ * **隔离机制（2026-09-29 台账「另案 ⑤」修正）**：`LIRI_HOME` 指向临时目录。
+ * ⚠️ 该隔离**此前形同虚设** —— `pdca-handlers` / `PdcaWorkItemBridge` 的检查点目录曾是
+ * **模块顶层常量**，被 `bunfig.toml` 的 preload 链**先行求值并冻结**到真实
+ * `~/.pyapp/data/pdca`（实测 **3394** 个 json）⇒ 本测试实际**读写真实数据**，且每次调用
+ * 全量扫描 ≈**1.2s**（≥2 次调用的用例即越过 bun 默认 5s 超时 ⇒ 偶发红灯）。
+ * 已把两处目录改为**调用时解析**（见 `pdca-handlers.ts` 的 `pdcaCheckpointDir()`），
+ * 本测试现在**真正**落在临时目录，单次调用 ≈**ms**。
  */
 import { describe, expect, test } from 'bun:test';
 import { mkdtempSync } from 'fs';

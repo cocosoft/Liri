@@ -1157,6 +1157,49 @@ async function launchMCPServer(options: LaunchOptions): Promise<void> {
 }
 
 /**
+ * 启动完成汇总（2026-09-29，台账「另案 ⑦」）。
+ *
+ * **为什么抽成函数**：DAEMON 模式下 `launch()` 的**尾部永不执行** —— `launchDaemon()` 末尾
+ * `await new Promise(...)` 永久挂起等待 SIGINT/SIGTERM ⇒ 原本写在 `launch()` 尾部的
+ * 「启动完成 + 阶段耗时 + 模块初始化失败汇总 + `_appReady` 兜底 + `profileReport()`」
+ * 在 DAEMON 下**从未产出**（实测：daemon 启动日志无「启动完成」行）。
+ * 现由两处调用：① `launch()` 尾部（CLI/REPL/MCP/TEST）；② `launchDaemon()` 就绪点。
+ *
+ * @param initFailures 模块初始化失败清单（仅 `launch()` 持有；DAEMON 调用点传空数组）
+ */
+async function reportBootCompletion(
+  initFailures: Array<{ module: string; error: string }> = []
+): Promise<void> {
+  const { totalDuration, phaseSummary } = getPhaseSummary();
+  const significantPhases = phaseSummary.filter((s) => s.duration >= 1.0);
+  logger.info(`启动完成 (${totalDuration.toFixed(0)}ms)`);
+  for (const summary of significantPhases) {
+    logger.info(
+      `  ${summary.phase}: ${summary.duration.toFixed(1)}ms (${(summary.ratio * 100).toFixed(1)}%)`
+    );
+  }
+
+  // 汇总报告：模块初始化失败（非致命）
+  if (initFailures.length > 0) {
+    logger.warning(`${initFailures.length} 个模块初始化失败（非致命）`, {
+      modules: initFailures.map((f) => f.module),
+      errors: initFailures.map((f) => f.error),
+    });
+  }
+
+  // 标记应用已就绪，HTTP 服务开始接受业务请求（幂等：DAEMON 下 launchDaemon 已设过一次）
+  try {
+    const { LocalHTTPService } =
+      await import('./infrastructure/http/LocalHTTPService.js');
+    LocalHTTPService._appReady = true;
+  } catch {
+    // @ignore-catch: LocalHTTPService 导入失败不影响主流程
+  }
+
+  profileReport();
+}
+
+/**
  * 启动后台守护进程模式
  * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
@@ -1200,7 +1243,9 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
         await import('./infrastructure/http/LocalHTTPService.js');
       LocalHTTPService._appReady = true;
     } catch {
-      // @ignore-catch — 就绪标记失败不影响进程存活，launch() 末尾会再设一次兜底
+      // @ignore-catch — 就绪标记失败不影响进程存活；下方 `reportBootCompletion()` 会再设一次
+      //（2026-09-29 台账「另案 ⑦」：原注释称"launch() 末尾会再设一次兜底"，但 DAEMON 下
+      // `launch()` 尾部**永不执行** ⇒ 那个兜底并不存在，故改为本模式内的自兜底）
     }
   }
 
@@ -1222,6 +1267,14 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
       error: err instanceof Error ? err.message : String(err),
     });
   }
+
+  // 启动完成汇总（2026-09-29，台账「另案 ⑦」）：DAEMON 下 `launch()` 尾部**永不执行**
+  //（本函数末尾 `await new Promise` 永久挂起）⇒ 若不在此产出，「启动完成 / 阶段耗时 /
+  // 就绪兜底 / profileReport」在 DAEMON 下永远不会出现。此点即 DAEMON 的"启动完成"时刻
+  //（HTTP 与 Cron 均已就绪）。
+  // 注：此刻 `T2_dispatch` / `launch_total` 两阶段尚未 end（由 `launch()` 尾部收尾）⇒
+  // 汇总中不含这两项，属已知口径差异。
+  await reportBootCompletion();
 
   // 永远挂住直到 SIGINT/SIGTERM
   logger.info('DAEMON 模式常驻：等待信号退出（SIGINT/SIGTERM）');
@@ -1896,6 +1949,30 @@ export async function launch(options: LaunchOptions): Promise<void> {
       await getCoreAPI().getChatManager().bootstrapRecovery();
     });
 
+    // PDCA：检查点索引**异步预热** + 启动扫描（标记残留的运行中任务为 abort）
+    //
+    // ⚠️ 位置很关键（2026-09-29 实测，台账「另案 ⑦」）：必须放在**模式分发之前** ——
+    // DAEMON 模式在 `launchDaemon()` 末尾 `await new Promise(...)` **永久挂起**（等
+    // SIGINT/SIGTERM）⇒ `launch()` **尾部代码在 DAEMON 下永不执行**（实测 daemon 启动日志
+    // 无「启动完成」行）。原实现把该扫描放在尾部 ⇒ **DAEMON 模式下从未执行过**。
+    //
+    // 背景（台账「另案 ⑥」）：真实目录 3394 个 json，全量 `readFileSync`+`JSON.parse`
+    // 首次 ≈1.1s（而每个 HTTP 请求都触发它）。故先**分批异步预热**索引（每批让出事件循环，
+    // 单批 ≈30ms），预热完成后再执行扫描（走同一索引 ⇒ 已热，≈33ms）。
+    // 整体不阻塞启动，失败也不影响主流程。
+    void (async () => {
+      try {
+        const { prewarmPdcaCheckpointIndex } =
+          await import('./tasks/PdcaWorkItemBridge.js');
+        await prewarmPdcaCheckpointIndex();
+        const { scanAndAbortStalePdcaTasks } =
+          await import('./infrastructure/http/handlers/pdca-handlers.js');
+        scanAndAbortStalePdcaTasks();
+      } catch {
+        // @ignore-catch: 预热/扫描失败不影响主流程
+      }
+    })();
+
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
     profilePhaseStart('T2_dispatch');
@@ -1927,42 +2004,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 不再需要在此重复调用 scheduleDeferredModules()
     profilePhaseEnd('launch_total');
 
-    const { totalDuration, phaseSummary } = getPhaseSummary();
-    const significantPhases = phaseSummary.filter((s) => s.duration >= 1.0);
-    logger.info(`启动完成 (${totalDuration.toFixed(0)}ms)`);
-    for (const summary of significantPhases) {
-      logger.info(
-        `  ${summary.phase}: ${summary.duration.toFixed(1)}ms (${(summary.ratio * 100).toFixed(1)}%)`
-      );
-    }
-
-    // 汇总报告：模块初始化失败（非致命）
-    if (initFailures.length > 0) {
-      logger.warning(`${initFailures.length} 个模块初始化失败（非致命）`, {
-        modules: initFailures.map((f) => f.module),
-        errors: initFailures.map((f) => f.error),
-      });
-    }
-
-    // 标记应用已就绪，HTTP 服务开始接受业务请求
-    try {
-      const { LocalHTTPService } =
-        await import('./infrastructure/http/LocalHTTPService.js');
-      LocalHTTPService._appReady = true;
-    } catch {
-      // LocalHTTPService 导入失败不影响主流程
-    }
-
-    // PDCA 启动扫描：标记残留的运行中任务为 abort
-    try {
-      const { scanAndAbortStalePdcaTasks } =
-        await import('./infrastructure/http/handlers/pdca-handlers.js');
-      scanAndAbortStalePdcaTasks();
-    } catch {
-      // 扫描失败不影响主流程
-    }
-
-    profileReport();
+    // 启动完成汇总（阶段耗时 + 初始化失败 + 就绪标记 + profileReport）
+    // 2026-09-29（台账「另案 ⑦」）：抽成 `reportBootCompletion()` 以便 DAEMON 复用
+    //（DAEMON 下本尾部永不执行）。
+    await reportBootCompletion(initFailures);
   } catch (error) {
     // 增强错误日志：记录原始错误类型和栈信息
     logger.error('launch 捕获到未处理异常', {

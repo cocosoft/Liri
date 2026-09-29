@@ -27,11 +27,16 @@ interface Tool {
 - 执行点：`ToolExecutor.execute()` 中 governance / legacy 两分支的**唯一汇合处** → `validateToolOutputShape()`
 - **失败不阻断**：只在 `metadata.outputSchemaError` 记一行 + warning；工具照常返回结果
 - **未声明即不校验**：不写这个字段的工具**完全不受影响**（零行为变化）
-- 校验对象：`result.data`（工具出口的结构化产物）
-- **无载荷不校验**（2026-09-28 补）：`data` 为 `null`/`undefined` ⇒ 跳过（失败分支本就没有产出，
+- 校验对象：**载荷字段** —— `result.data` 为主，**缺省回退 `result.result`**（二者是 `ToolResult`
+  的**并行载荷字段**；只填 `result` 的手写 ToolResult 工具，如 `voice_input` / `voice_output`，
+  因此也能被校验 —— 否则声明的 schema 会**静默永不校验**）
+- **无载荷不校验**（2026-09-28 补）：**载荷**为 `null`/`undefined` ⇒ 跳过（失败分支本就没有产出，
   不该被判"出参违规"；实证：`todo_write` 的 5 处 `null` 失败分支）
 - **`success === false` 时也不校验**：但注意——**不设 `success` 的工具永远触发不了这条豁免**，
   这时靠上一条「无载荷不校验」兜底
+- **门禁（R15-001）**：`bun run lint:arch` 会检查「**零消费者的 `*OutputSchema`**」——
+  新写的 schema **必须接线到 `Tool.outputSchema`**，否则留下 warning（规则见
+  `.trae/rules/architecture-compliance.md` §R15；接线前必须**实测出口载荷相符**）
 
 ### ⚠️ 它**不是**什么（最容易踩的坑）
 

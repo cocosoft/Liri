@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -18,19 +18,18 @@ export const GlobInputSchema = z.strictObject({
     .describe('搜索的起始目录路径，默认为当前工作目录'),
 });
 
-export type GlobInputType = z.infer<typeof GlobInputSchema>;
-
 /**
- * GlobTool 输出模式
+ * ⚠️ 本文件原有的 `GlobOutputSchema`（`{durationMs, numFiles, filenames, truncated}`）
+ * 已于 2026-09-29 删除（T6 分批处置 · 批次 1）。
+ *
+ * 原因（实证）：它描述的是**内层 `globAsync()`** 的返回，而工具出口的 `data`
+ * **只取 `filenames`**（**字符串数组**）⇒ 属**错层定义**，接上必每次误报。
+ * 出口契约已**就地在工具上**声明：`tools/search/GlobTool.ts:41` = `z.array(z.string())`
+ * （该文件 `:35` 另有"**刻意不复用本 schema**"的取证注释）。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const GlobOutputSchema = z.object({
-  durationMs: z.number().int().nonnegative().describe('执行耗时（毫秒）'),
-  numFiles: z.number().int().nonnegative().describe('匹配文件数量'),
-  filenames: z.array(z.string()).describe('匹配文件路径列表'),
-  truncated: z.boolean().describe('是否被截断'),
-});
 
-export type GlobOutputType = z.infer<typeof GlobOutputSchema>;
+export type GlobInputType = z.infer<typeof GlobInputSchema>;
 
 /**
  * 验证 GlobTool 输入

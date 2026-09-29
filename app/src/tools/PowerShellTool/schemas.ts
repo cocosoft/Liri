@@ -29,15 +29,15 @@ export const PowerShellInputSchema = z.strictObject({
 export type PowerShellInputType = z.infer<typeof PowerShellInputSchema>;
 
 /**
- * PowerShellTool 输出模式
+ * ⚠️ `PowerShellOutputSchema`（`{output, executionTime, exitCode?}`）已于 2026-09-29 删除（T6 分批处置 · 批次 4b）。
+ *
+ * 原因（实证）：成功出口 `createSuccessResult(output, {executionTime, output})` 的 `data` 是
+ * **字符串**（`PowerShellTool.ts:526` 的 `output`）⇒ 与"对象"schema **不符**；6 处失败分支经
+ * `createFailureResult` 自带 `success: false`（豁免）。
+ * ⚠️ **与 `bash` 完全同型**：本目录 `PowerShellTool.ts:224` 另有**本地同名常量** `PowerShellOutputSchema`
+ * （描述**内层函数**的返回，不是工具出口）—— 该本地常量**不在本次处置范围**。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const PowerShellOutputSchema = z.object({
-  output: z.string().describe('命令输出'),
-  executionTime: z.number().int().nonnegative().describe('执行耗时（毫秒）'),
-  exitCode: z.number().int().optional().describe('退出码'),
-});
-
-export type PowerShellOutputType = z.infer<typeof PowerShellOutputSchema>;
 
 /**
  * 验证 PowerShellTool 输入

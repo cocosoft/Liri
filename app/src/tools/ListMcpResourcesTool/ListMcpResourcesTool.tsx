@@ -9,6 +9,7 @@ import { Text, Box } from '@modules/ink';
 import type { Tool } from '../types/index.js';
 import { buildTool, type ToolDef } from '../BaseTool.js';
 import { jsonStringify } from '@modules/utils/json.js';
+import { ListMcpResourcesOutputSchema } from './schemas';
 
 const LIST_MCP_RESOURCES_TOOL_NAME = 'ListMcpResources';
 
@@ -69,17 +70,10 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
       }) as any;
     },
 
-    get outputSchema() {
-      return z.array(
-        z.object({
-          uri: z.string().describe('Resource URI'),
-          name: z.string().describe('Resource name'),
-          mimeType: z.string().optional().describe('MIME type of the resource'),
-          description: z.string().optional().describe('Resource description'),
-          server: z.string().describe('Server that provides this resource'),
-        })
-      );
-    },
+    // 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 归一化接线**）：
+    // 原为**内联 getter**（与 `./schemas.ts` 的 `ListMcpResourcesOutputSchema` **逐字重复**）⇒ 改引该常量，
+    // 消除"双份事实源"（CS01）。出口 `data` 是资源数组（`{ data: results.flat() }`）⇒ 与 schema 相符。
+    outputSchema: ListMcpResourcesOutputSchema,
 
     userFacingName() {
       return 'listMcpResources';

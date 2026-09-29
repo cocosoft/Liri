@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { getLogger } from '@modules/monitoring';
+import { CodeAnalysisOutputSchema } from './schemas';
 const logger = getLogger('tools:CodeAnalysisTool:CodeAnalysisTool');
 
 /**
@@ -55,6 +56,16 @@ export class CodeAnalysisTool implements Tool {
   /** 工具信息 */
   private info: ToolInfo;
   name: string = 'code_analysis';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4b 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测成功出口**手写 ToolResult、载荷在 `result`**
+   * （`result: output`，`output: CodeAnalysisOutput` = `{analysis:{type,stats,details?}, filesAnalyzed, analysisTime}`）
+   * ⇒ 与 schema **逐字段相符**（2026-09-29 起校验器已**回退读 `result`**）；6 处 `createFailureResult`
+   * 分支自带 `success: false` ⇒ 命中豁免。
+   */
+  outputSchema = CodeAnalysisOutputSchema;
   description: string = '分析代码结构、质量和依赖关系';
   params: any[] = [];
 

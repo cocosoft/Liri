@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 计划模式工具
  * 参考CC源码 cc_code/backend/utils/planModeV2.ts 实现
  * 提供计划生成、管理和执行功能
@@ -16,6 +16,7 @@ import type {
 import type { Tool } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
+import { PlanToolOutputSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -104,6 +105,20 @@ export class PlanTool extends BaseTool<
   ToolProgressData
 > {
   name = 'plan';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测出口为 `let result: PlanToolOutput` 累积后的
+   * `createToolResult(result, { success, output })`，而其**本文件内的** `PlanToolOutput`
+   * / `PlanData` / `PlanStep` 三接口与 `schemas.ts` 的 `PlanToolOutputSchema` /
+   * `PlanDataSchema` / `PlanStepSchema` **逐字段同构**（含 `PlanStep.type` 四值枚举、
+   * `params` 必填、`PlanData.created_at/updated_at` 必填）⇒ **TS 赋值已强制**符合 ⇒ 接线。
+   *
+   * ⚠️ **遗留（未做，归一化建议）**：本地 3 接口与 3 schema 是**双份事实源**（同名同形）。
+   * 彻底归一应改成 `z.infer<typeof PlanToolOutputSchema>` 派生 —— 属独立重构，不在本批。
+   */
+  outputSchema = PlanToolOutputSchema;
   description = 'Create, manage, and execute plans';
 
   override tags = [ToolTag.SYSTEM];

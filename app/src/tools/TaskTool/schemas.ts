@@ -13,12 +13,13 @@ export const TaskCreateInputSchema = z.strictObject({
   metadata: z.record(z.unknown()).optional().describe('附加到任务的任意元数据'),
 });
 
-export const TaskCreateOutputSchema = z.object({
-  task: z.object({
-    id: z.string().describe('创建的任务 ID'),
-    subject: z.string().describe('任务主题'),
-  }),
-});
+/**
+ * ⚠️ `TaskCreateOutputSchema`（`{task: {id, subject}}`）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
+ *
+ * 原因（实证）：该工具**出口 `data` 是 JSON 字符串**（`TaskCreateTool.ts:221` 的
+ * `JSON.stringify(output)`；另有 `null` 失败分支 `:191/233`）⇒ 原 schema 描述的是**对象** ⇒
+ * **错层定义**，接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
+ */
 
 /**
  * TaskGet Schema
@@ -27,46 +28,27 @@ export const TaskGetInputSchema = z.strictObject({
   id: z.string().min(1).describe('要获取的任务 ID'),
 });
 
-export const TaskOutputSchema = z.object({
-  id: z.string().describe('任务 ID'),
-  subject: z.string().describe('任务主题'),
-  status: z
-    .enum(['pending', 'in_progress', 'completed', 'failed', 'cancelled'])
-    .describe('任务状态'),
-  description: z.string().optional().describe('任务描述'),
-  activeForm: z.string().optional().describe('主动词'),
-  priority: z
-    .enum(['low', 'medium', 'high', 'urgent'])
-    .optional()
-    .describe('任务优先级'),
-  blockedBy: z
-    .array(z.string())
-    .optional()
-    .describe('阻塞当前任务的其他任务 ID 列表'),
-  owner: z.string().optional().describe('任务所有者'),
-  metadata: z.record(z.unknown()).optional().describe('任务元数据'),
-  createdAt: z.number().optional().describe('创建时间戳'),
-  updatedAt: z.number().optional().describe('更新时间戳'),
-});
+/**
+ * ⚠️ `TaskOutputSchema`（任务详情对象，11 字段）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
+ *
+ * 原因（实证）：它服务于 **TaskGet**，而该工具**出口 `data` 是 JSON 字符串**
+ * （`TaskGetTool.ts:169` 的 `JSON.stringify(output)`；另有 `null` 失败分支 `:128/145/181`）⇒
+ * 描述的是**对象** ⇒ **错层定义**，接上必每次误报。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
+ */
 
 /**
  * TaskList Schema
  */
 export const TaskListInputSchema = z.strictObject({});
 
-export const TaskListOutputSchema = z.object({
-  tasks: z.array(
-    z.object({
-      id: z.string().describe('任务 ID'),
-      subject: z.string().describe('任务主题'),
-      status: z
-        .enum(['pending', 'in_progress', 'completed', 'failed', 'cancelled'])
-        .describe('任务状态'),
-      owner: z.string().optional().describe('任务所有者'),
-      blockedBy: z.array(z.string()).describe('阻塞任务 ID 列表'),
-    })
-  ),
-});
+/**
+ * ⚠️ `TaskListOutputSchema`（`{tasks: [{…}]}`）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
+ *
+ * 原因（实证）：该工具**出口 `data` 是 JSON 字符串**（`TaskListTool.ts:117` 的
+ * `JSON.stringify(output)`；另有 `null` 分支 `:129`）⇒ 原 schema 描述的是**对象** ⇒
+ * **错层定义**，接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
+ */
 
 /**
  * TaskUpdate Schema
@@ -88,15 +70,13 @@ export const TaskUpdateInputSchema = z.strictObject({
   metadata: z.record(z.unknown()).optional().describe('新元数据'),
 });
 
-export const TaskUpdateOutputSchema = z.object({
-  task: z.object({
-    id: z.string().describe('任务 ID'),
-    subject: z.string().describe('任务主题'),
-    status: z
-      .enum(['pending', 'in_progress', 'completed', 'failed', 'cancelled'])
-      .describe('任务状态'),
-  }),
-});
+/**
+ * ⚠️ `TaskUpdateOutputSchema`（`{task: {id, subject, status}}`）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
+ *
+ * 原因（实证）：该工具**出口 `data` 是 JSON 字符串**（`TaskUpdateTool.ts:248` 的
+ * `JSON.stringify(output)`；另有 `null` 分支 `:188/204`）⇒ 原 schema 描述的是**对象** ⇒
+ * **错层定义**，接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
+ */
 
 /**
  * TaskStop Schema

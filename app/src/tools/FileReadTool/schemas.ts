@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -19,22 +19,17 @@ export const FileReadInputSchema = z.strictObject({
     .describe('最大读取行数'),
 });
 
-export type FileReadInputType = z.infer<typeof FileReadInputSchema>;
-
 /**
- * FileReadTool 输出模式
+ * ⚠️ 本文件原有的 `FileReadOutputSchema`（`{content, filePath, totalLines, lineCount, offset, sizeBytes, truncated}`）
+ * 已于 2026-09-29 删除（T6 分批处置 · 批次 1）。
+ *
+ * 原因（实证）：它描述的是**内层读取结果的元信息对象**，而该工具**出口的 `data` 是字符串**
+ * （正文 / Markdown / 错误说明走**同一通道**）⇒ 属**错层定义**，接上必每次误报。
+ * 出口契约已**就地在工具上**声明：`FileReadTool.ts:253` = `z.string()`（刻意不断言非空）。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const FileReadOutputSchema = z.object({
-  content: z.string().describe('文件内容'),
-  filePath: z.string().describe('解析后的文件路径'),
-  totalLines: z.number().int().nonnegative().describe('文件总行数'),
-  lineCount: z.number().int().nonnegative().describe('返回的行数'),
-  offset: z.number().int().positive().describe('起始行号'),
-  sizeBytes: z.number().int().nonnegative().describe('文件大小（字节）'),
-  truncated: z.boolean().describe('是否被截断'),
-});
 
-export type FileReadOutputType = z.infer<typeof FileReadOutputSchema>;
+export type FileReadInputType = z.infer<typeof FileReadInputSchema>;
 
 /**
  * 验证 FileReadTool 输入

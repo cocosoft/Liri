@@ -1,10 +1,11 @@
-﻿/**
+/**
  * Cron删除工具 - 接入新 CronJobStore
  */
 
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
+import { CronDeleteOutputSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -15,6 +16,16 @@ export class CronDeleteTool {
     return {
       name: 'cron_delete',
       description: 'Cancel/delete a scheduled cron task by ID',
+
+      /**
+       * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 3 接线**）。
+       *
+       * 该 schema **早已存在却零消费者**。实测成功出口（`ToolUtils.createSuccessResult`）的
+       * `data` 为 `{id, name: existing.name}` —— **含 schema 要求的 `id`**，多出的 `name` 会被
+       * zod 默认 **strip**（非 `.strict()`，无害）；失败路径经 `createFailureResult` 返回
+       * `{data: undefined, success: false}` ⇒ **双重豁免**，不会误报。
+       */
+      outputSchema: CronDeleteOutputSchema,
       params: [
         {
           name: 'id',

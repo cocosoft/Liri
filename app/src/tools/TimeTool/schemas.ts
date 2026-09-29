@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -22,16 +22,14 @@ export const TimeInputSchema = z.strictObject({
 export type TimeInputType = z.infer<typeof TimeInputSchema>;
 
 /**
- * TimeTool 输出模式
+ * ⚠️ `TimeOutputSchema`（`{time, format, timezone, timestamp}`）已于 2026-09-29 删除（T6 分批处置 · 批次 4b）。
+ *
+ * 原因（实证）：该工具**仅两处出口** —— 成功分支 `data = JSON.stringify(result)`（**字符串**，
+ * 且 `result` 按 format 有三种互不相同的字段集：iso→`{iso,timestamp,timezone}`、
+ * unix→`{timestamp,seconds,timezone}`、local→`{local,date,time,timestamp,timezone}`）与 `data = null`
+ * ⇒ 与"固定 4 字段对象"schema **完全不符**。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const TimeOutputSchema = z.object({
-  time: z.string().describe('当前时间字符串'),
-  format: z.string().describe('时间格式'),
-  timezone: z.string().describe('时区'),
-  timestamp: z.number().int().nonnegative().describe('Unix时间戳（毫秒）'),
-});
-
-export type TimeOutputType = z.infer<typeof TimeOutputSchema>;
 
 /**
  * 验证 TimeTool 输入

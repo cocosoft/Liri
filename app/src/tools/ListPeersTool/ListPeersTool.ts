@@ -14,6 +14,7 @@ import { resolveDataSubDir } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { ListPeersOutputSchema } from './schemas';
 const logger = getLogger('tools:ListPeersTool:ListPeersTool');
 
 /**
@@ -54,6 +55,15 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
    * 工具名称
    */
   name = 'ListPeers';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4b 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。本工具**仅一处出口**（`createToolResult({peers, total, active})`），
+   * 其中 `peers: PeerInfo[]`（`{id, type: uds|bridge|local, address, status: active|inactive, lastSeen?}`）
+   * 与 `PeerInfoSchema` **逐字段同构**（含两处枚举取值）⇒ 与 schema **完全相符** ⇒ 接线。
+   */
+  outputSchema = ListPeersOutputSchema;
 
   /**
    * 工具描述

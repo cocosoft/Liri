@@ -15,6 +15,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 
 import { getLogger } from '@modules/monitoring';
+import { BrowserToolOutputSchema } from './schemas';
 const logger = getLogger('tools:BrowserTool:BrowserTool');
 
 /**
@@ -62,6 +63,15 @@ export interface BrowserToolOutput {
  */
 export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
   name = 'browser';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4b 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测成功出口 `data = result`（`BrowserToolOutput`，字段
+   * `{success, message, data?, tabs?, screenshot?}`）⇒ 与 schema **逐字段相符**；
+   * 2 个失败分支在 **ToolResult 层自带 `success: false`** ⇒ 命中豁免、不参与校验。
+   */
+  outputSchema = BrowserToolOutputSchema;
   description = 'Automate Chrome browser to interact with web pages';
 
   override tags = [ToolTag.NETWORK];

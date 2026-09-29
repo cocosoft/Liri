@@ -51,7 +51,8 @@ export interface ToolResultBlock {
  * - 校验通过 ⇒ 返回 `null`；
  * - 校验失败 / schema 自身抛错 ⇒ 返回**详情文本**（调用方负责记录，**不阻断执行**）。
  *
- * 校验对象：`result.data`（工具的结构化产物）。
+ * 校验对象：**载荷字段** —— `result.data` 为主，缺省回退 `result.result`（两者是 `ToolResult` 的
+ * 并行载荷字段；只填 `result` 的工具因此也能被校验，避免"声明了却静默永不校验"）。
  */
 export function validateToolOutputShape(
   tool: Pick<Tool, 'name' | 'outputSchema'>,
@@ -60,14 +61,22 @@ export function validateToolOutputShape(
   const schema = tool.outputSchema;
   if (!schema) return null;
 
+  // 载荷字段：`data` 为主，**缺省回退 `result`**（`ToolResult` 的两个并行载荷字段，
+  // 见 P1-3 取证：`data?: T` 与 `result?: T` 语义重叠）。部分工具**只填 `result`**
+  // （`voice_input` / `voice_output` / `skill` 的手写 ToolResult）⇒ 若不回退，它们声明的
+  // schema 会**静默永不校验**，正是本机制要消灭的"摆设契约"。
+  // TODO: CS05-ROOTFIX — 回退属过渡措施；根因是主契约 `data`/`result` 重复，
+  // 根治见 `architecture-benchmark-20260928.md` §2.1 的 **B 档**（收敛主契约、去重复字段）。
+  const payload = result.data ?? result.result;
+
   // 无载荷不校验（2026-09-28 T4）：`createToolResult(null, …)` 的失败分支（如输入校验失败）
   // 本就没有产出，强行校验只会被误判为"出参契约违规"制造噪音
   // （实证：`todo_write` 的 5 个此类分支——`TodoWriteTool.ts:686/881/919/1014/1037`）。
-  if (result.data == null) return null;
+  if (payload == null) return null;
 
   let parsed: { success: boolean; error?: unknown };
   try {
-    parsed = schema.safeParse(result.data);
+    parsed = schema.safeParse(payload);
   } catch (error) {
     // schema 自身抛错 = 契约实现缺陷（非数据不合规）
     return `outputSchema 执行异常：${String(error)}`;

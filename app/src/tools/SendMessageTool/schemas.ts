@@ -13,17 +13,15 @@ export const SendMessageInputSchema = z.strictObject({
 });
 
 /**
- * SendMessageTool 输出模式
+ * ⚠️ `SendMessageOutputSchema`（`{messageId, to, delivered, timestamp}`）已于 2026-09-29 删除（T6 分批处置 · 批次 4a）。
+ *
+ * 原因（实证）：成功出口先把对象 **`JSON.stringify` 成字符串**再当 `data`
+ * （`SendMessageTool.ts` 的 `createToolResult(JSON.stringify({messageId, to, delivered: true, timestamp}), …)`），
+ * 两个失败分支传 `null` ⇒ 与"对象"schema **不符**（同 **D-10** 那一类：结构在出口被字符串化）。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const SendMessageOutputSchema = z.object({
-  messageId: z.string().describe('消息唯一标识'),
-  to: z.string().describe('目标代理名称'),
-  delivered: z.boolean().describe('消息是否成功投递'),
-  timestamp: z.number().describe('消息发送时间戳'),
-});
 
 export type SendMessageInput = z.infer<typeof SendMessageInputSchema>;
-export type SendMessageOutput = z.infer<typeof SendMessageOutputSchema>;
 
 /**
  * 验证 SendMessageTool 输入

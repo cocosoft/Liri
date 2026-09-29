@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -19,16 +19,15 @@ export const FileEditInputSchema = z.strictObject({
 export type FileEditInputType = z.infer<typeof FileEditInputSchema>;
 
 /**
- * FileEditTool 输出模式
+ * ⚠️ `FileEditOutputSchema`（`{filePath, linesChanged, replaced, oldStringFound}`）已于 2026-09-29 删除（T6 分批处置 · 批次 3）。
+ *
+ * 原因（实证）：该工具出口 `data` **两种形态混杂**且**与 schema 都不符** ——
+ *  ① **字符串**（4 处：freshness 报错、`old_string is required`、old==new、外层 error msg）；
+ *  ② **对象**，但只有两种、且**一种字段不全**：`{filePath, replaced}`（缺 `linesChanged`/
+ *     `oldStringFound` 这两个**必填**字段 ⇒ 接上必误报）与 `{filePath, linesChanged, replaced,
+ *     oldStringFound, replaceAll}`（多出的 `replaceAll` 会被 zod 默认 strip，无害）。
+ * ⇒ 属**错层/不完整定义**。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const FileEditOutputSchema = z.object({
-  filePath: z.string().describe('编辑的文件路径'),
-  linesChanged: z.number().int().nonnegative().describe('变更行数'),
-  replaced: z.boolean().describe('是否成功替换'),
-  oldStringFound: z.boolean().describe('是否找到旧字符串'),
-});
-
-export type FileEditOutputType = z.infer<typeof FileEditOutputSchema>;
 
 /**
  * 验证 FileEditTool 输入

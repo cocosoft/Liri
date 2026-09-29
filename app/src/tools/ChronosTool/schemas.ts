@@ -24,14 +24,17 @@ export const CronCreateInputSchema = z.strictObject({
 });
 
 /**
- * CronCreateTool 输出模式
+ * ⚠️ `CronCreateOutputSchema`（`{id, humanSchedule, recurring, durable}`）已于 2026-09-29 删除（T6 分批处置 · 批次 3）。
+ *
+ * 原因（实证）：该工具出口（`ToolUtils.createSuccessResult`）的 `data` 是
+ * `{id, name, humanSchedule, nextRunAt}` ⇒ 相比 schema **缺 `recurring` 与 `durable` 两个必填字段**
+ * （多出的 `name`/`nextRunAt` 会被 zod 默认 strip）⇒ 接上必误报。
+ *
+ * ⚠️ **旁证（同类漂移）**：本文件的**入参** schema 是 `{cron, prompt, recurring, durable}`，
+ * 而工具实际读取的是 `input.expression` / `scheduleMode` / `name`（`CronCreateTool.ts:171-172`）
+ * ⇒ 入参侧**也**与实现不一致（同 D-7 那类"孤立 schema 与实现脱节"）。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const CronCreateOutputSchema = z.object({
-  id: z.string().describe('创建的 cron 任务 ID'),
-  humanSchedule: z.string().describe('人类可读的调度描述'),
-  recurring: z.boolean().describe('是否重复触发'),
-  durable: z.boolean().describe('是否持久化到文件'),
-});
 
 /**
  * CronDeleteTool 输入模式
@@ -56,22 +59,13 @@ export const CronDeleteOutputSchema = z.object({
 export const CronListInputSchema = z.strictObject({});
 
 /**
- * CronListTool 输出模式
+ * ⚠️ `CronListOutputSchema`（`{jobs: [{id, cron, humanSchedule, prompt, …}]}`）已于 2026-09-29 删除（T6 分批处置 · 批次 3）。
+ *
+ * 原因（实证）：该工具出口的 `data` 是 `{jobs, count}`，而 `jobs[]` 元素实际为
+ * `{id, name, schedule, prompt, enabled, state, nextRunAt?, lastRunAt?, silent}`
+ * （`CronListTool.ts:37-47`）—— 与 schema 相比：**用 `schedule` 而非 `cron`**，且**没有 `humanSchedule`**
+ * （两者在 schema 里都是**必填**）⇒ 接上必误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const CronListOutputSchema = z.object({
-  jobs: z
-    .array(
-      z.object({
-        id: z.string().describe('任务 ID'),
-        cron: z.string().describe('cron 表达式'),
-        humanSchedule: z.string().describe('人类可读的调度描述'),
-        prompt: z.string().describe('任务提示词'),
-        recurring: z.boolean().optional().describe('是否重复触发'),
-        durable: z.boolean().optional().describe('是否持久化到文件'),
-      })
-    )
-    .describe('cron 任务列表'),
-});
 
 export type CronCreateInput = z.infer<typeof CronCreateInputSchema>;
 export type CronDeleteInput = z.infer<typeof CronDeleteInputSchema>;

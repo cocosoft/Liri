@@ -8,6 +8,7 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
+import { EnterPlanModeOutputSchema } from './schemas';
 
 /**
  * 进入计划模式输出
@@ -26,6 +27,14 @@ export class EnterPlanModeTool extends BaseTool<void, EnterPlanModeOutput> {
    * 工具名称
    */
   name = 'EnterPlanMode';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测**唯一**出口（`execute()` 里的 `createToolResult`）
+   * 的 `data` 为 `{success: true, message: '…', mode: 'plan'}` ⇒ 与 schema **逐字段相符**（含 `mode` 字面量）⇒ 接线。
+   */
+  outputSchema = EnterPlanModeOutputSchema;
 
   /**
    * 工具描述

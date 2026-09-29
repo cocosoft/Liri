@@ -10,6 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { execSync } from 'child_process';
 import { enterWorktree } from '@modules/workspaces/commands/session';
+import { EnterWorktreeOutputSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:EnterWorktreeTool:EnterWorktreeTool');
@@ -50,6 +51,15 @@ export class EnterWorktreeTool extends BaseTool<
    * 工具名称
    */
   name = 'EnterWorktree';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测出口 `data` **全为同一骨架**
+   * `{success, message, worktree_path?, branch?}`：成功分支给全 4 字段；
+   * 4 个失败分支为 `{success:false, message}`（两个可选字段缺省，符合 schema）⇒ 接线。
+   */
+  outputSchema = EnterWorktreeOutputSchema;
 
   /**
    * 工具描述

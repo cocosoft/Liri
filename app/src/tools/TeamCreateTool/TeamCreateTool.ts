@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 团队创建工具
  * 用于创建多Agent swarm团队
  * 参考CC源码 cc_code/backend/tools/TeamCreateTool/TeamCreateTool.ts 实现
@@ -16,6 +16,7 @@ import { configManager } from '@modules/config';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { getLogger } from '@modules/monitoring';
+import { TeamCreateOutputSchema } from './schemas';
 const logger = getLogger('tools:TeamCreateTool:TeamCreateTool');
 
 /**
@@ -80,6 +81,15 @@ export class TeamCreateTool extends BaseTool<
    * 工具名称
    */
   name = 'TeamCreate';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测**三处出口**（1 成功 + 2 失败）的 `data` 全是**同一 3 键结构**
+   * `{team_name, team_file_path, lead_agent_id}`（失败分支用 `''` 占位；且这些分支**未在 ToolResult 层标
+   * `success: false`** ⇒ 会被校验）⇒ 与 schema 的 3 个必填字段**完全相符** ⇒ 接线。
+   */
+  outputSchema = TeamCreateOutputSchema;
 
   /**
    * 工具描述

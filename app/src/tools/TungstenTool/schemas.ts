@@ -17,31 +17,14 @@ export const TungstenInputSchema = z.strictObject({
 });
 
 /**
- * TungstenTool 输出模式
+ * ⚠️ `TungstenOutputSchema`（`{sessions?, activeSession?, activeSessionName?}`）已于 2026-09-29 删除（T6 分批处置 · 批次 4b）。
+ *
+ * 原因（实证）：该工具**14 处出口的 `data` 全是字符串或 `null`**（如 `'Created Tungsten session:…'`、
+ * `'Deleted session:…'`、拼接的 `output` 文本、以及 6 处 `null`）⇒ 与"对象"schema **完全不符**
+ * ⇒ 接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const TungstenOutputSchema = z.object({
-  sessions: z
-    .array(
-      z.object({
-        id: z.string().describe('会话 ID'),
-        name: z.string().describe('会话名称'),
-        createdAt: z.string().describe('创建时间'),
-        lastActivity: z.string().describe('最后活动时间'),
-        commandHistory: z.array(z.string()).describe('命令历史列表'),
-      })
-    )
-    .optional()
-    .describe('会话列表'),
-  activeSession: z.string().nullable().optional().describe('当前活动会话 ID'),
-  activeSessionName: z
-    .string()
-    .nullable()
-    .optional()
-    .describe('当前活动会话名称'),
-});
 
 export type TungstenInput = z.infer<typeof TungstenInputSchema>;
-export type TungstenOutput = z.infer<typeof TungstenOutputSchema>;
 
 /**
  * 验证 TungstenTool 输入

@@ -19,7 +19,7 @@ import {
 } from '../utils/ToolUtils';
 import { globAsync } from '../GlobTool/GlobTool';
 import type { FileSearchInputType } from './schemas';
-import { validateFileSearchInput } from './schemas';
+import { validateFileSearchInput, FileSearchOutputSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:FileSearchTool:FileSearchTool');
@@ -35,6 +35,17 @@ export interface FileSearchItem extends FileOperationResult {
  */
 export class FileSearchTool extends BaseTool {
   name = 'file_search';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 3 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测成功出口（`createSuccessResult`）的 `data` 为
+   * `{durationMs, numFiles, files: [{relativePath, filePath, canonicalPath}], truncated}` ⇒ 与 schema
+   * **顶层逐字段相符**；`files[]` 元素多出的 `filePath` 会被 zod 默认 **strip**（非 `.strict()`，无害）。
+   * **失败路径天然免疫**：`createFailureResult` 返回 `{data: undefined, success: false}` ⇒
+   * 同时命中「`success === false` 豁免」与「**无载荷不校验**」两条 ⇒ 不会误报。
+   */
+  outputSchema = FileSearchOutputSchema;
   description = '使用 glob 模式搜索匹配的文件路径，返回标准化绝对路径';
 
   override tags = [ToolTag.FILE, ToolTag.READ];

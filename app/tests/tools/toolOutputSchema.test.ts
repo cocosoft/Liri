@@ -1,12 +1,13 @@
 /**
  * P1-3 A 档（2026-09-28）：工具出参运行期校验的**约定回归**。
  *
- * 覆盖 5 条不变量：
+ * 覆盖 6 条不变量：
  *  1. **未声明 `outputSchema` ⇒ 不校验**（与改动前行为完全一致 —— 这是"零破坏"的关键）；
  *  2. 合规 ⇒ 通过（返回 null）；
  *  3. 不合规 ⇒ 返回**详情文本**（调用方只记录、**不阻断**）；
  *  4. schema 自身抛错 ⇒ **不向上抛**，返回"执行异常"文本；
- *  5. `data` 为 `null`/`undefined` ⇒ **无载荷不校验**（T4 补：错误分支不该被判违规）。
+ *  5. `data` 为 `null`/`undefined` ⇒ **无载荷不校验**（T4 补：错误分支不该被判违规）；
+ *  6. **载荷在 `result` 上**（只填 `result` 的手写 ToolResult 工具）⇒ **同样被校验**（批次 3 补）。
  */
 import { describe, it, expect } from 'bun:test';
 import { z } from 'zod';
@@ -67,5 +68,20 @@ describe('工具出参运行期校验（P1-3 A 档）', () => {
         {} as ToolResult
       )
     ).toBeNull();
+  });
+
+  it('载荷在 result 上（只填 result 的手写 ToolResult 工具）⇒ 同样被校验', () => {
+    // 合规：data 缺省、result 有载荷 ⇒ 通过
+    expect(
+      validateToolOutputShape({ name: 'demo', outputSchema: schema }, {
+        result: { count: 1 },
+      } as ToolResult)
+    ).toBeNull();
+    // 不合规：必须报错 —— 证明"真的校验了"，而不是"因无载荷而跳过"
+    expect(
+      validateToolOutputShape({ name: 'demo', outputSchema: schema }, {
+        result: { count: 'bad' },
+      } as ToolResult)
+    ).not.toBeNull();
   });
 });

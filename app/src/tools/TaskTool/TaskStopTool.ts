@@ -15,6 +15,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
+import { TaskStopOutputSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:TaskTool:TaskStopTool');
@@ -53,6 +54,15 @@ export class TaskStopTool extends BaseTool<
   TaskStopToolOutput
 > {
   name = 'task_stop';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 1b 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。本次实测出口全部 `createToolResult` 的 `data`
+   * 均为 `TaskStopToolOutput` 对象（`:149/175/196/217/229`，5 字段
+   * `{task_id, previous_status, current_status, success, message}`）⇒ **与 schema 完全相符** ⇒ 接线。
+   */
+  outputSchema = TaskStopOutputSchema;
   description = 'Stop a running task by its ID';
 
   params: ToolParam[] = [

@@ -24,17 +24,16 @@ export const AskUserQuestionInputSchema = z.strictObject({
 });
 
 /**
- * AskUserQuestionTool 输出模式
+ * ⚠️ `AskUserQuestionOutputSchema`（`{questionId, question, answers[], timestamp}`）已于 2026-09-29 删除（T6 分批处置 · 批次 4b）。
+ *
+ * 原因（实证）：该工具**仅两处出口且都不符** ——
+ * ① `{ error, retryable: false }`（对象字面量，**未在 ToolResult 层标 `success:false`** ⇒ 会被校验）；
+ * ② `JSON.stringify(result, null, 2)`（**字符串**；`result` 为 `AskUserQuestionResult`，
+ * 比 schema **多一个 `questionType`**）。
+ * ⇒ 与 schema 的 4 个必填字段**都不符**。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const AskUserQuestionOutputSchema = z.object({
-  questionId: z.string().describe('问题唯一标识'),
-  question: z.string().describe('问题内容'),
-  answers: z.array(z.string()).describe('用户选择的答案列表'),
-  timestamp: z.number().describe('提问时间戳'),
-});
 
 export type AskUserQuestionInput = z.infer<typeof AskUserQuestionInputSchema>;
-export type AskUserQuestionOutput = z.infer<typeof AskUserQuestionOutputSchema>;
 
 /**
  * 验证 AskUserQuestionTool 输入

@@ -25,6 +25,7 @@ import {
 
 const logger = getLogger('tools:mcpResource');
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
+import { MCPResourceOutputSchema } from './schemas';
 
 /**
  * MCP资源工具输入类型
@@ -70,6 +71,15 @@ export class MCPResourceTool extends BaseTool<
   MCPResourceToolOutput
 > {
   name = 'mcp_resource';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测成功出口均为 `MCPResourceToolOutput` 对象
+   * （`{success: true, resources|content|prompts|prompt, message}`）⇒ 全在 schema 的
+   * **1 必填 + 6 可选**字段之内；失败分支在 **ToolResult 层自带 `success: false`** ⇒ 命中豁免、不参与校验。
+   */
+  outputSchema = MCPResourceOutputSchema;
   description =
     'List and read MCP (Model Context Protocol) resources and prompts from connected servers';
   override tags = [ToolTag.NETWORK];

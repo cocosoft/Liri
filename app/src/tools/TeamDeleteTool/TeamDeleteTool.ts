@@ -15,6 +15,7 @@ import { resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
+import { TeamDeleteOutputSchema } from './schemas';
 
 const logger = getLogger('tools:teamDelete');
 
@@ -54,6 +55,15 @@ export class TeamDeleteTool extends BaseTool<
    * 工具名称
    */
   name = 'TeamDelete';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。实测 4 处出口的 `data` 全是
+   * `{success, message, team_name, terminated_teammates?}`（仅成功分支带第 4 键）⇒ 与 schema
+   * （`terminated_teammates` 为**可选**）**完全相符** ⇒ 接线。
+   */
+  outputSchema = TeamDeleteOutputSchema;
 
   /**
    * 工具描述

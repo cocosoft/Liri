@@ -16,6 +16,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
+import { TaskOutputOutputSchema } from './schemas';
 import type { BaseTask } from '@modules/tasks';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
@@ -163,6 +164,17 @@ export class TaskOutputTool extends BaseTool<
   TaskOutputToolOutput
 > {
   name = 'task_output';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 1b 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**。本次实测出口 7 处 `createToolResult` 的 `data`
+   * 均为 `{retrieval_status, task}`（`:255/274/288/317/328/337/345`）——
+   * `retrieval_status ∈ {'success','not_ready','timeout'}`（`:290-292` 等，全在枚举内）、
+   * `task: TaskOutputData | null`，而 `TaskOutputData`（`:28-38`，9 字段）与
+   * `schemas.ts` 的 `TaskOutputDataSchema`（`:28-38`）**逐字段一致** ⇒ 接线。
+   */
+  outputSchema = TaskOutputOutputSchema;
   description = 'Get output from a running or completed task by its ID';
 
   params: ToolParam[] = [

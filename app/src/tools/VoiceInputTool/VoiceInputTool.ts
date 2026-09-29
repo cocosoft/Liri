@@ -8,6 +8,7 @@ import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_INPUT_TOOL_NAME } from './constants';
+import { VoiceInputOutputSchema } from './schemas';
 import voiceService from '@modules/services/voice';
 
 const logger = getLogger('tools:voiceInput');
@@ -31,6 +32,18 @@ const VOICE_INPUT_PARAMS = [
 
 export class VoiceInputTool implements Tool {
   name: string = VOICE_INPUT_TOOL_NAME;
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 3 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**；且本工具**手写 `ToolResult`、载荷放在 `result`**（非 `data`）
+   * —— 这正是本次顺带补上「载荷缺省**回退 `result`**」的原因（否则声明的契约会**静默永不校验**）。
+   * 实测三个成功分支的 `result` 分别是 `{recording, language}`（`start`）、识别结果对象（`stop`）、
+   * `{recording, available, dependenciesAvailable, missing}`（`check`）——**全在 schema 的 8 个
+   * 可选字段之内**（这就是它把字段全写成 optional 的原因：三个 action 形态的并集）⇒ 接线。
+   * 失败分支 `result: null` ⇒ 命中「**无载荷不校验**」⇒ 不会误报。
+   */
+  outputSchema = VoiceInputOutputSchema;
   description: string = '语音输入工具，用于将语音转换为文本';
   params = VOICE_INPUT_PARAMS;
   private isActive: boolean = false;

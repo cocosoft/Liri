@@ -9,6 +9,7 @@ import { Text, Box } from '@modules/ink';
 import type { Tool } from '../types/index.js';
 import { buildTool, type ToolDef } from '../BaseTool.js';
 import { jsonStringify } from '@modules/utils/json.js';
+import { ReadMcpResourceOutputSchema } from './schemas';
 
 const READ_MCP_RESOURCE_TOOL_NAME = 'ReadMcpResource';
 
@@ -70,21 +71,10 @@ export const ReadMcpResourceTool: Tool<
     }) as any;
   },
 
-  get outputSchema() {
-    return z.object({
-      contents: z.array(
-        z.object({
-          uri: z.string().describe('Resource URI'),
-          mimeType: z.string().optional().describe('MIME type of the content'),
-          text: z.string().optional().describe('Text content of the resource'),
-          blobSavedTo: z
-            .string()
-            .optional()
-            .describe('Path where binary blob content was saved'),
-        })
-      ),
-    });
-  },
+  // 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 归一化接线**）：
+  // 原为**内联 getter**（与 `./schemas.ts` 的 `ReadMcpResourceOutputSchema` **逐字重复**）⇒ 改引该常量，
+  // 消除"双份事实源"（CS01）。出口 `data` 为 `{ contents: [...] }` ⇒ 与 schema 相符。
+  outputSchema: ReadMcpResourceOutputSchema,
 
   userFacingName() {
     return 'readMcpResource';

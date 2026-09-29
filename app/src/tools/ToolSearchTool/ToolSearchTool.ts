@@ -10,7 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import type { ToolCallProgress } from '../types/Tool';
 import { isDeferredTool, TOOL_SEARCH_TOOL_NAME } from '../utils/toolSearch';
-import { z } from 'zod';
+import { ToolSearchOutputSchema } from './schemas';
 import { getToolRegistry } from '../ToolRegistry';
 import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
 
@@ -254,20 +254,18 @@ export class ToolSearchTool extends BaseTool<
   name = TOOL_SEARCH_TOOL_NAME;
 
   /**
-   * 出参契约（P1-3 A 档，2026-09-28）。
+   * 出参契约（P1-3 A 档；2026-09-29 **归一化**为引用 `./schemas.ts`）。
    *
-   * 覆盖**两处出口**（L386 / L450 的 `createToolResult`）共有的**结构骨架**：
+   * 覆盖**两处出口**（`:403` / `:467` 的 `createToolResult`）共有的结构骨架：
    * `{ matches, query, total_deferred_tools, deferredToolNames }`。
    *
-   * ⚠️ `matches` 的元素形态**刻意不细化**为 `z.unknown()` 之外的约束 —— 取证时只确认了
-   * "数组"，**不下臆断**（CS04/CS06）；骨架级约束已足以捕获"字段改名 / 丢失"这类破坏。
+   * ⚠️ **2026-09-29 更正（T6 取证）**：本字段原为**内联**定义，且把 `matches` 写成
+   * `z.array(z.unknown())`（此前"刻意不细化"）。实测 `matches` **就是 `string[]`（工具名）** ——
+   * `:371-375` 的 `const found: string[]` + `found.push(tool.name)`、`:434` 的
+   * `const matches = [...toolMatches]` ⇒ 改用 `./schemas.ts` 的 `ToolSearchOutputSchema`
+   * （`matches: z.array(z.string())`），**消除内联重复**（CS01 归一化）。
    */
-  outputSchema = z.object({
-    matches: z.array(z.unknown()),
-    query: z.string(),
-    total_deferred_tools: z.number(),
-    deferredToolNames: z.array(z.string()),
-  });
+  outputSchema = ToolSearchOutputSchema;
 
   /**
    * 工具描述

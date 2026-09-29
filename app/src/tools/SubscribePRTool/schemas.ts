@@ -20,19 +20,16 @@ export const SubscribePRInputSchema = z.strictObject({
 });
 
 /**
- * SubscribePRTool 输出模式
+ * ⚠️ `SubscribePROutputSchema`（`{id, repo, prNumber?, events[], createdAt, active}`）已于 2026-09-29 删除（T6 分批处置 · 批次 4b）。
+ *
+ * 原因（实证）：该工具**定义在 `ToolFactory.ts:837-898` 的内联对象里**（其目录下 `SubscribePRTool.ts`
+ * 只是辅助函数），`execute` 的 4 处出口全是 `{success, output: JSON.stringify(...)}` 形态 ——
+ * **既无 `data` 也无 `result` 载荷**，结构化结果被序列化进 **`output` 字符串**
+ * ⇒ 本 schema 描述的形态**在出口不存在**（第 ④ 族）。
+ * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
  */
-export const SubscribePROutputSchema = z.object({
-  id: z.string().describe('订阅唯一标识'),
-  repo: z.string().describe('订阅的仓库名称'),
-  prNumber: z.number().optional().describe('订阅的 PR 编号'),
-  events: z.array(PREventEnum).describe('订阅的事件类型列表'),
-  createdAt: z.number().describe('创建时间戳'),
-  active: z.boolean().describe('是否活跃'),
-});
 
 export type SubscribePRInput = z.infer<typeof SubscribePRInputSchema>;
-export type SubscribePROutput = z.infer<typeof SubscribePROutputSchema>;
 
 /**
  * 验证 SubscribePRTool 输入

@@ -8,6 +8,7 @@ import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
+import { VoiceOutputOutputSchema } from './schemas';
 import voiceService from '@modules/services/voice';
 
 const logger = getLogger('tools:voiceOutput');
@@ -43,6 +44,17 @@ const VOICE_OUTPUT_PARAMS = [
 
 export class VoiceOutputTool implements Tool {
   name: string = VOICE_OUTPUT_TOOL_NAME;
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 3 接线**）。
+   *
+   * 该 schema **早已存在却零消费者**；本工具**手写 `ToolResult`、载荷放在 `result`**（非 `data`）
+   * ⇒ 依赖本次补上的「载荷缺省**回退 `result`**」才能生效。实测三个成功分支的 `result` 为
+   * `{spoken, textLength}`（speak）、`{stopped}`（stop）、`{speaking, available, languages}`（check）
+   * —— **全在 schema 的 6 个可选字段之内**（故字段全 optional）⇒ 接线。
+   * 失败分支 `result: null` ⇒ 命中「**无载荷不校验**」⇒ 不会误报。
+   */
+  outputSchema = VoiceOutputOutputSchema;
   description: string = '语音输出工具，用于将文本转换为语音';
   params = VOICE_OUTPUT_PARAMS;
   private isSpeaking: boolean = false;

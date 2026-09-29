@@ -84,21 +84,18 @@ export async function handlePdcaDecisionLog(
 }
 
 /**
- * PDCA 检查点目录（**惰性解析**，2026-09-29 台账「另案 ⑤」）。
+ * WorkItem 持久化目录（**惰性解析**，2026-09-29 台账「另案 ⑤」）。
  *
  * ⚠️ 原实现是**模块顶层常量** ⇒ 路径在模块**求值**时被冻结。`bun test` 的 preload 链
  * （`tests/setupIsolateAgentStore.ts`）会**先于**测试文件加载本模块，测试再设
- * `LIRI_HOME` / `LIRI_DATA_DIR` 已不生效 ⇒ 单测实际读写**真实** `~/.pyapp/data/pdca`
- * （实测 **3394** 个 json，每次请求全量 `readdirSync`+逐个 `readFileSync` ⇒ ≈**1.2s/次**，
- * 两次调用的用例即越过 bun 默认 5s 超时）。改为**调用时解析**，与
- * [`CheckpointLogConfig`](../config/settings/CheckpointLogConfig.ts) 的"不在模块顶层解析路径"
+ * `LIRI_HOME` / `LIRI_DATA_DIR` 已不生效 ⇒ 单测实际读写**真实**数据目录。改为**调用时解析**，
+ * 与 [`CheckpointLogConfig`](../config/settings/CheckpointLogConfig.ts) 的"不在模块顶层解析路径"
  * 既有约定一致。
+ *
+ * 注：**检查点目录**已不在本文件解析 —— 台账「另案 ⑥」后统一走
+ * [`getPdcaCheckpointIndex()`](../tasks/PdcaWorkItemBridge.ts)（同一惰性口径在其内部实现），
+ * 故本文件只保留 WorkItem 目录。
  */
-function pdcaCheckpointDir(): string {
-  return resolveDataSubDir('pdca');
-}
-
-/** WorkItem 持久化目录（惰性解析，同上） */
 function workitemDir(): string {
   return resolveDataSubDir('workitems');
 }

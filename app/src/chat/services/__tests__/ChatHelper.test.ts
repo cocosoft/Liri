@@ -23,6 +23,7 @@ import {
   resolveMaxContextTokens,
   repairImageUrls,
   truncateToolResult,
+  toToolResultRawText,
   TOOL_RESULT_MAX_LENGTH,
   getLocalSession,
   getOrCreateSessionMachine,
@@ -560,5 +561,29 @@ describe('ChatHelper — persistChatMessage', () => {
 
     expect(receivedTimestamp).toBeGreaterThanOrEqual(before);
     expect(receivedTimestamp).toBeLessThanOrEqual(Date.now());
+  });
+});
+
+// ============================================================
+// 2026-09-29 新增：模型可见文本的载荷判定（空值 vs falsy）
+// ============================================================
+
+describe('ChatHelper — toToolResultRawText', () => {
+  it('undefined / null ⇒ 视为无载荷，走 error 兜底', () => {
+    expect(toToolResultRawText(undefined, undefined)).toBe('{}');
+    expect(toToolResultRawText(null, null)).toBe('{}');
+    expect(toToolResultRawText(undefined, 'boom')).toBe('boom');
+    expect(toToolResultRawText(null, 'boom')).toBe('boom');
+  });
+
+  it('falsy 但**非空载荷** ⇒ 保留真实值（原 truthiness 判定会误替换为 "{}"）', () => {
+    expect(toToolResultRawText('', null)).toBe('""');
+    expect(toToolResultRawText(0, null)).toBe('0');
+    expect(toToolResultRawText(false, null)).toBe('false');
+  });
+
+  it('对象 ⇒ JSON 文本；字符串 ⇒ 保持既有 stringify 行为（本项不改）', () => {
+    expect(toToolResultRawText({ a: 1 }, null)).toBe('{"a":1}');
+    expect(toToolResultRawText('ok', null)).toBe('"ok"');
   });
 });

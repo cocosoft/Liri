@@ -274,6 +274,27 @@ export async function resolveEffectiveTurnModel(params: {
 }
 
 /**
+ * 工具结果载荷 → 模型可见文本（2026-09-29，与「出参对象化」同批）。
+ *
+ * **归一化动机**：`ChatManager._buildToolRoundMessages` 内**两处**（诊断日志 / 实际载荷）原各写
+ * 一遍 `payload ? JSON.stringify(payload) : error || '{}'` —— **truthiness 判定**会把
+ * `''` / `0` / `false` 一并误判为"无载荷"并替换成 `'{}'` ⇒ 模型看到 `{}` 而非真实空值。
+ * 此处收敛为**单一实现**（两处共用），并只把 `undefined` / `null` 视为无载荷。
+ *
+ * ⚠️ **不在本项范围**：对**字符串**载荷同样 `JSON.stringify` 这一既有行为**保持不动**
+ * （它是"字符串出参在模型侧被多套一层引号/转义"的来源，属框架级话题，另立项）。
+ */
+export function toToolResultRawText(
+  payload: unknown,
+  error: string | null | undefined
+): string {
+  if (payload === undefined || payload === null) {
+    return error || '{}';
+  }
+  return JSON.stringify(payload);
+}
+
+/**
  * 截断工具结果，保留前后关键信息
  * 策略：前 500 字符（上下文） + 后 1500 字符（file_path 等关键信息）
  * 并在截断提示中列出工具结果中包含的文件路径，避免路径幻觉

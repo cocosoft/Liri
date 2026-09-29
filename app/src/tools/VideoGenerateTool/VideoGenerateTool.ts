@@ -156,7 +156,10 @@ export class VideoGenerateTool extends BaseTool {
     },
   ];
 
-  override aliases = ['video', 'generate-video'];
+  // ⚠️ 2026-09-29 修正：**移除** `video` —— 它是**另一个真实工具**的名字
+  // （`tools/VideoTool/VideoTool.ts` 的 `name = 'video'`，且在 `/v1/tools` 内）
+  // ⇒ 真实工具名不得作为他工具的别名（同族先例：`TodoWriteTool` 的 `create_task_list`）。
+  override aliases = ['generate-video'];
   override searchHint = 'Generate videos using AI providers';
 
   // ----- Router 缓存（5 分钟 TTL）-----

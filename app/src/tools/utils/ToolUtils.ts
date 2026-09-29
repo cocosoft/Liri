@@ -60,6 +60,42 @@ export function getToolBaseDir(context?: {
 }
 
 /**
+ * 任务类工具入参的**文本字段兜底链**（单一实现，2026-09-29 归一化）。
+ *
+ * **背景（台账另案 ④ 实测）**：模型描述任务时字段名不固定（`description` / `title` / `name` /
+ * `task` / `subject` / `desc` / `content`）。曾出现：模型传 `{"tasks":[{"title":"写周报"}]}` 而
+ * `create_task_list` **只认 `description`** ⇒ 全量被过滤成空 ⇒ 静默失败（返回 `null` 载荷且
+ * 不设 `error`，模型只看到 `{}`，遂绕道 `todo_write`）。
+ *
+ * 顺序沿用 [`TodoWriteTool.normalizeWriteTodos`](../TodoWriteTool/TodoWriteTool.ts) 的**既有链**，
+ * 使两处**共用一条链**而非各写一套（GR02 实现唯一性 / CS01 归一化）。
+ *
+ * @param raw 原始项（字符串或对象；其他类型视为空）
+ * @returns 首个非空字符串（已 `trim`）；全部缺失时返回 `''`（**由调用方决定兜底或跳过**，
+ *          本函数**不**臆造占位文本 —— 见 CS04）
+ */
+export function pickTaskText(raw: unknown): string {
+  if (typeof raw === 'string') return raw.trim();
+  if (!raw || typeof raw !== 'object') return '';
+
+  const t = raw as Record<string, unknown>;
+  const keys = [
+    'content',
+    'name',
+    'title',
+    'task',
+    'subject',
+    'description',
+    'desc',
+  ] as const;
+  for (const key of keys) {
+    const value = t[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+/**
  * 工具工具类
  */
 export class ToolUtils {

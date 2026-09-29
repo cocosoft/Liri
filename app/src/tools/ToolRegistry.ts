@@ -151,8 +151,30 @@ export class ToolRegistry {
 
     if (tool.aliases) {
       for (const alias of tool.aliases) {
+        // 别名守卫（2026-09-29）：**真实工具名不得被当作他工具的别名**。
+        // 依据（实测）：`TodoWriteTool` 曾把真实工具名 `create_task_list` 当别名 ⇒
+        // `tool_search(select:create_task_list)` 指错工具（台账「另案 ③-①」）。
+        // 处置口径与下方 wire 名冲突**一致**：**跳过 + warn**，不静默改名。
+        if (this.tools.has(alias)) {
+          logger.warn('工具别名守卫：别名与已注册工具的真实名冲突，跳过登记', {
+            toolName: tool.name,
+            alias,
+            occupiedBy: this.tools.get(alias)?.name,
+          });
+          continue;
+        }
         this.aliases.set(alias, tool.name);
       }
+    }
+
+    // 反向守卫（同批）：本工具的**真实名**若已被先前注册的工具当作别名占用 ⇒ 摘除该别名
+    //（真实名优先，与 `getTool()` / `findToolByName()` 的口径一致）。
+    if (this.aliases.has(tool.name)) {
+      logger.warn('工具别名守卫：真实名被先前工具的别名占用，已摘除该别名', {
+        toolName: tool.name,
+        previousOwner: this.aliases.get(tool.name),
+      });
+      this.aliases.delete(tool.name);
     }
 
     // wire codec：非 wire 安全名（冒号命名空间，如 `calendar:add`）自动登记其 wire 安全名

@@ -6,12 +6,18 @@
  */
 
 import { Tool, ToolParam } from '../types/Tool';
-import { ToolResult, createToolResult } from '../types/ToolResult';
+import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { taskRegistry, DisplayStatus } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
 import { NoteTask } from '@modules/tasks';
 import { getTaskConcurrencyLimits } from '../../tasks/limits';
+import { pickTaskText } from '../utils/ToolUtils';
+import {
+  CreateTaskListOutputSchema,
+  GetTaskListOutputSchema,
+  UpdateTaskStatusOutputSchema,
+} from './schemas';
 
 const TASK_TOOL_PARAMS: ToolParam[] = [
   {
@@ -49,12 +55,36 @@ const TASK_TOOL_PARAMS: ToolParam[] = [
  */
 export const MAX_TASKS_PER_CALL = getTaskConcurrencyLimits().maxTasksPerCall;
 
+/**
+ * 任务编排工具的**失败结果**（单一实现，2026-09-29 台账**另案 ④**）。
+ *
+ * **为什么必须落 `error` 字段**：这是**模型与前端都能看到**的失败原因通道，范式同
+ * [`failProjectTool`](../projectToolGuidance.ts)（该文件注释即引用项目约定
+ * 「工具失败信息必须落 `error` 字段供前端展示」）。此前这些分支只写 `newMessages`，
+ * 而 `newMessages` 在本仓 **`app/src/chat` 内零消费方** ⇒ 模型侧 `error || '{}'` 恒取到
+ * **`{}`**，与"成功但空载荷"不可区分 ⇒ 实测模型据此误判并**绕道 `todo_write`**。
+ */
+function taskToolFail(message: string): ToolResult {
+  return createToolResult(null, {
+    success: false,
+    error: message,
+    errorLevel: ErrorLevel.RECOVERABLE,
+    newMessages: [{ role: 'system', content: `Error: ${message}` }],
+  });
+}
+
 export class TaskCreateListTool implements Tool {
   name = 'create_task_list';
   description =
     'Create multiple tasks at once. ' +
     'Use this when the user provides a list of items they want to track as tasks (e.g. plan steps, todo items). ' +
     'Input: JSON array of task objects, each with description and optional metadata.';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 出参对象化同批接线）。
+   * 出口见 `execute()` 成功分支的 `data`（对象）；失败分支 `createToolResult(null, …)` ⇒ 无载荷不校验。
+   */
+  outputSchema = CreateTaskListOutputSchema;
   params = TASK_TOOL_PARAMS;
 
   isEnabled(): boolean {
@@ -92,51 +122,37 @@ export class TaskCreateListTool implements Tool {
     input: Record<string, unknown>,
     _context: ToolUseContext
   ): Promise<ToolResult> {
-    const tasks = input.tasks as
-      | Array<{ description: string; metadata?: Record<string, unknown> }>
-      | undefined;
-    if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content: 'Error: tasks array is required and must be non-empty',
-          },
-        ],
-      });
+    const rawTasks = input.tasks;
+    if (!rawTasks || !Array.isArray(rawTasks) || rawTasks.length === 0) {
+      return taskToolFail('tasks array is required and must be non-empty');
     }
 
-    // 空参数校验：过滤掉 description 缺失/非字符串/空白的无效项
-    const validTasks = tasks.filter(
-      (t): t is { description: string; metadata?: Record<string, unknown> } =>
-        !!t &&
-        typeof t.description === 'string' &&
-        t.description.trim().length > 0
-    );
-    const skippedCount = tasks.length - validTasks.length;
+    // 入参归一化（2026-09-29，台账**另案 ④**）：模型描述任务的字段名不固定
+    // （`description` / `title` / `name` / `task` / `subject` / `desc` / `content`）⇒ 复用
+    // 同族兜底链 [`pickTaskText`](../utils/ToolUtils.ts)（与 `TodoWriteTool` **同一实现**），
+    // **只丢弃"全部文本字段都为空"的项**（不臆造占位文本 —— CS04）。
+    const validTasks = (rawTasks as unknown[])
+      .map((t) => ({
+        description: pickTaskText(t),
+        metadata:
+          t && typeof t === 'object'
+            ? (t as { metadata?: Record<string, unknown> }).metadata
+            : undefined,
+      }))
+      .filter((t) => t.description.length > 0);
+    const skippedCount = rawTasks.length - validTasks.length;
 
     if (validTasks.length === 0) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content:
-              'Error: all task descriptions are empty. Each task must have a non-empty description string.',
-          },
-        ],
-      });
+      return taskToolFail(
+        'all task descriptions are empty — 每项都缺少可用的文本字段（description/title/name/task/subject/desc）'
+      );
     }
 
     // 单次调用数量限制：防止模型批量幻觉一次性创建过多任务
     if (validTasks.length > MAX_TASKS_PER_CALL) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content: `Error: too many tasks in one call (${validTasks.length}). Max ${MAX_TASKS_PER_CALL} tasks per call. Please create them in smaller batches.`,
-          },
-        ],
-      });
+      return taskToolFail(
+        `too many tasks in one call (${validTasks.length}). Max ${MAX_TASKS_PER_CALL} tasks per call. Please create them in smaller batches.`
+      );
     }
 
     const created: Array<{ id: string; description: string }> = [];
@@ -150,24 +166,27 @@ export class TaskCreateListTool implements Tool {
     }
 
     const stats = taskRegistry.getTaskStats();
-    const output = [
-      `Created ${created.length} task(s):`,
-      ...created.map((c) => `  - [${c.id}] ${c.description}`),
-      '',
-      `Stats: ${stats.total} total, ${stats.pending} pending`,
-      ...(skippedCount > 0
-        ? [`Note: ${skippedCount} invalid empty task(s) were skipped`]
-        : []),
-    ].join('\n');
 
-    return createToolResult(output, {
-      newMessages: [
-        {
-          role: 'system',
-          content: `Created ${created.length} tasks${skippedCount > 0 ? ` (skipped ${skippedCount} empty)` : ''}`,
-        },
-      ],
-    });
+    // 出参对象化（2026-09-29）：原为多行纯文本，与同族 `task_stop` 形态不一致且无法声明契约。
+    return createToolResult(
+      {
+        created: created.map((c) => ({
+          task_id: c.id,
+          description: c.description,
+        })),
+        total: stats.total,
+        pending: stats.pending,
+        skipped: skippedCount,
+      },
+      {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Created ${created.length} tasks${skippedCount > 0 ? ` (skipped ${skippedCount} empty)` : ''}`,
+          },
+        ],
+      }
+    );
   }
 
   renderToolUseMessage() {
@@ -574,6 +593,12 @@ export class TaskUpdateStatusTool implements Tool {
   name = 'update_task_status';
   description =
     'Update the status of a task by ID. Supports: pending, in_progress, completed, failed, cancelled.';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 出参对象化同批接线）。
+   * 出口见 `execute()` 成功分支的 `data`（对象）；失败分支 `createToolResult(null, …)` ⇒ 无载荷不校验。
+   */
+  outputSchema = UpdateTaskStatusOutputSchema;
   params = TASK_TOOL_PARAMS;
 
   isEnabled(): boolean {
@@ -615,25 +640,15 @@ export class TaskUpdateStatusTool implements Tool {
     const status = input.status as string | undefined;
 
     if (!taskId) {
-      return createToolResult(null, {
-        newMessages: [
-          { role: 'system', content: 'Error: task_id is required' },
-        ],
-      });
+      return taskToolFail('task_id is required');
     }
     if (!status) {
-      return createToolResult(null, {
-        newMessages: [{ role: 'system', content: 'Error: status is required' }],
-      });
+      return taskToolFail('status is required');
     }
 
     const task = taskRegistry.getTask(taskId);
     if (!task) {
-      return createToolResult(null, {
-        newMessages: [
-          { role: 'system', content: `Error: task ${taskId} not found` },
-        ],
-      });
+      return taskToolFail(`task ${taskId} not found`);
     }
 
     const statusMap: Record<string, TaskStatus> = {
@@ -646,25 +661,28 @@ export class TaskUpdateStatusTool implements Tool {
 
     const mapped = statusMap[status];
     if (mapped === undefined) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content: `Error: invalid status "${status}". Valid: pending, in_progress, completed, failed, cancelled`,
-          },
-        ],
-      });
+      return taskToolFail(
+        `invalid status "${status}". Valid: pending, in_progress, completed, failed, cancelled`
+      );
     }
 
     if (task instanceof NoteTask) {
       task.setStatusDirect(mapped);
     }
 
-    return createToolResult(`Updated task ${taskId} to ${status}`, {
-      newMessages: [
-        { role: 'system', content: `Updated task ${taskId} to ${status}` },
-      ],
-    });
+    return createToolResult(
+      {
+        task_id: taskId,
+        status,
+        success: true,
+        message: `Updated task ${taskId} to ${status}`,
+      },
+      {
+        newMessages: [
+          { role: 'system', content: `Updated task ${taskId} to ${status}` },
+        ],
+      }
+    );
   }
 
   renderToolUseMessage() {
@@ -683,6 +701,12 @@ export class TaskGetListTool implements Tool {
   description =
     'Get the current list of all tasks with their IDs, descriptions, and statuses. ' +
     'Use this to show the user their task list or to find task IDs for updates.';
+
+  /**
+   * 出参契约（P1-3 A 档；2026-09-29 出参对象化同批接线）。
+   * 出口见 `execute()` 的 `data`（对象，含空列表分支）；无失败分支载荷。
+   */
+  outputSchema = GetTaskListOutputSchema;
   params = TASK_TOOL_PARAMS;
 
   isEnabled(): boolean {
@@ -724,34 +748,46 @@ export class TaskGetListTool implements Tool {
     const stats = taskRegistry.getTaskStats();
 
     if (tasks.length === 0) {
-      return createToolResult('No tasks found.', {
-        newMessages: [{ role: 'system', content: 'No tasks found' }],
-      });
+      // 空列表同属"成功但为空" ⇒ 与成功分支**同形态**（否则出参契约校验会记为不合规）
+      return createToolResult(
+        {
+          count: 0,
+          stats: {
+            pending: stats.pending,
+            in_progress: stats.running,
+            completed: stats.completed,
+            failed: stats.failed,
+            cancelled: stats.cancelled,
+          },
+          tasks: [],
+        },
+        { newMessages: [{ role: 'system', content: 'No tasks found' }] }
+      );
     }
 
-    const statusIcons: Record<string, string> = {
-      pending: '○',
-      in_progress: '◐',
-      completed: '✓',
-      failed: '✗',
-      cancelled: '−',
-    };
-
-    let output = `Task List (${tasks.length} items):\n`;
-    output += `  ${stats.pending} pending | ${stats.running} in_progress | ${stats.completed} completed | ${stats.failed} failed | ${stats.cancelled} cancelled\n`;
-    output += `${'='.repeat(60)}\n\n`;
-
-    tasks.forEach((task, index) => {
-      const icon = statusIcons[task.displayStatus] || '○';
-      output += `${index + 1}. [${icon}] [${task.id}] ${task.description}\n`;
-      output += `   Status: ${task.displayStatus}\n\n`;
-    });
-
-    return createToolResult(output, {
-      newMessages: [
-        { role: 'system', content: `Listed ${tasks.length} tasks` },
-      ],
-    });
+    // 出参对象化（2026-09-29）：原为对齐表格文本，与同族 `task_stop` 形态不一致且无法声明契约。
+    return createToolResult(
+      {
+        count: tasks.length,
+        stats: {
+          pending: stats.pending,
+          in_progress: stats.running,
+          completed: stats.completed,
+          failed: stats.failed,
+          cancelled: stats.cancelled,
+        },
+        tasks: tasks.map((task) => ({
+          task_id: task.id,
+          description: task.description,
+          status: task.displayStatus,
+        })),
+      },
+      {
+        newMessages: [
+          { role: 'system', content: `Listed ${tasks.length} tasks` },
+        ],
+      }
+    );
   }
 
   renderToolUseMessage() {

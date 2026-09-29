@@ -644,7 +644,17 @@ export function toolMatchesName(
 
 /**
  * 通过名称查找工具
+ *
+ * **真实名优先于别名** —— 与 [`ToolRegistry.getTool()`](../ToolRegistry.ts)（先 `tools.has(name)`
+ * 再 `aliases.get(name)`）**口径一致**。
+ *
+ * 依据（2026-09-29 实测）：别名可能与**他人真实名**冲突（`TodoWriteTool` 曾把真实工具名
+ * `create_task_list` 当别名）⇒ 此时按数组顺序 `find` 会返回**别名持有者**而非真实工具，
+ * 使 `tool_search(select:<真实名>)` 指错工具（实测被引向 `todo_write`）。
  */
 export function findToolByName(tools: Tools, name: string): Tool | undefined {
-  return tools.find((t) => toolMatchesName(t, name));
+  return (
+    tools.find((t) => t.name === name) ??
+    tools.find((t) => toolMatchesName(t, name))
+  );
 }

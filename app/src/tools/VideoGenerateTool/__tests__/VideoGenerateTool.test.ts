@@ -130,9 +130,12 @@ describe('VideoGenerateTool — 基础单元测试', () => {
     }
   });
 
-  test('支持别名', () => {
-    expect(tool.aliases).toContain('video');
+  test('支持别名（2026-09-29 修正：不得占用他人真实工具名）', () => {
     expect(tool.aliases).toContain('generate-video');
+    // `video` 是 `VideoTool` 的**真实名字**（在 `/v1/tools` 内）⇒ 不得作为本工具别名，
+    // 否则 `tool_search(select:video)` 可能指错工具（台账「另案 ③-①」）。
+    // ⚠️ 本用例此前**断言相反**（`toContain('video')`）＝把该缺陷当契约锁定了。
+    expect(tool.aliases).not.toContain('video');
   });
 
   test('缺少 prompt 返回错误', async () => {

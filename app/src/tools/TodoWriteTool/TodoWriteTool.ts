@@ -8,6 +8,7 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolCallProgress } from '../types/Tool';
+import { pickTaskText } from '../utils/ToolUtils';
 import { feature } from '@modules/core';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 import { Database } from '@modules/core/external/sqlite3';
@@ -488,8 +489,17 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     },
   ];
 
-  /** 工具别名 */
-  override aliases = ['todo', 'tasks', 'todo_list', 'create_task_list'];
+  /**
+   * 工具别名（2026-09-29 修正：**移除** `create_task_list`）。
+   *
+   * `create_task_list` 是**另一个真实工具**的名字（`TaskOrchestratorTools` 的
+   * `TaskCreateListTool`，在 `/v1/tools` 的 60 个工具内）。把它当别名的后果：
+   * `tool_search(select:create_task_list)` 经 `findToolByName`（按数组顺序 `find`）可能返回
+   * **本工具** —— 实测已复现（模型被从 `create_task_list` 引向 `todo_write` 并改用它）。
+   * 执行面不受影响（`ToolRegistry.getTool()` 真实名优先）。
+   * 原则：**一个名字只能指向一个工具** ⇒ 真实工具名不得作为他工具的别名。
+   */
+  override aliases = ['todo', 'tasks', 'todo_list'];
 
   /**
    * 搜索提示
@@ -1067,20 +1077,8 @@ export function normalizeWriteTodos(rawTodos: unknown[]): Array<
 > {
   return rawTodos.map((raw, i) => {
     const t = (raw ?? {}) as Record<string, unknown>;
-    let content = '';
-    if (typeof raw === 'string') {
-      content = raw.trim();
-    } else if (t && typeof t === 'object') {
-      content =
-        (typeof t.content === 'string' && t.content.trim()) ||
-        (typeof t.name === 'string' && t.name.trim()) ||
-        (typeof t.title === 'string' && t.title.trim()) ||
-        (typeof t.task === 'string' && t.task.trim()) ||
-        (typeof t.subject === 'string' && t.subject.trim()) ||
-        (typeof t.description === 'string' && t.description.trim()) ||
-        (typeof t.desc === 'string' && t.desc.trim()) ||
-        '';
-    }
+    // 文本字段兜底链收敛到 `pickTaskText`（**单一实现**，与 `create_task_list` 共用）
+    const content = pickTaskText(raw);
     const statusRaw = t?.status;
     const status: TodoStatus =
       statusRaw === 'in_progress' || statusRaw === 'completed'

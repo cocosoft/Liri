@@ -759,18 +759,24 @@ export class ToolExecutor {
     result: ToolResult,
     toolUseID: string
   ): ToolResultBlock {
+    // 读取面修正（2026-09-29）：`ToolResult` 同时声明 `data?` 与 `result?`，且出参校验器
+    // 已支持"载荷在 `result` 上"的形态；本处原**只读 `data`** ⇒ 只填 `result` 的工具其块
+    // `result`/`output` 恒为空。仅在 `data` 缺省时回退到 `result`（`data` 有值时行为不变）。
+    const payload = result.data !== undefined ? result.data : result.result;
     return {
       toolCallId: toolUseID,
       toolName: tool.name,
-      result: result.data,
+      result: payload,
+      // 错误通道修正（同批，另案 ④）：本处原**只读 `metadata.error`**，而全仓工具按项目约定
+      // 把失败信息写**顶层 `error`**（如 `failProjectTool`、`TaskStopTool`）⇒ 模型侧
+      // `error || '{}'` 恒取到 `{}`，失败原因从不进入模型视野。此处补顶层 `error` 回退。
       error:
         typeof result.metadata?.error === 'string'
           ? result.metadata.error
-          : null,
-      output:
-        typeof result.data === 'string'
-          ? result.data
-          : JSON.stringify(result.data),
+          : typeof result.error === 'string'
+            ? result.error
+            : null,
+      output: typeof payload === 'string' ? payload : JSON.stringify(payload),
       executionTime: 0,
     };
   }

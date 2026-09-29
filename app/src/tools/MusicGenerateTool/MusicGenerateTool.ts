@@ -101,7 +101,11 @@ export class MusicGenerateTool extends BaseTool {
     },
   ];
 
-  override aliases = ['music', 'generate-music', 'audio-generate'];
+  // ⚠️ 2026-09-29 修正：**移除** `music` —— 它是**另一个真实工具**的名字
+  // （`tools/MusicTool/MusicTool.ts` 的 `name = 'music'`，在 `/v1/tools` 内）。
+  // 本工具（`music_generate`）当前**未注册** ⇒ 该别名此前无实际影响；清理是为与同族判据一致
+  // （**真实工具名不得作为他工具的别名**），并避免将来注册时复发。
+  override aliases = ['generate-music', 'audio-generate'];
   override searchHint = 'Generate music using AI providers';
 
   async execute(

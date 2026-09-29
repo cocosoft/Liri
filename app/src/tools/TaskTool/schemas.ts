@@ -1,85 +1,15 @@
 import { z } from 'zod';
 
 /**
- * TaskCreate Schema
- */
-export const TaskCreateInputSchema = z.strictObject({
-  subject: z.string().min(1).max(500).describe('任务主题（简要标题）'),
-  description: z.string().optional().describe('任务详细描述'),
-  activeForm: z
-    .string()
-    .optional()
-    .describe('进行中时显示的主动词（如 "Running tests"）'),
-  metadata: z.record(z.unknown()).optional().describe('附加到任务的任意元数据'),
-});
-
-/**
- * ⚠️ `TaskCreateOutputSchema`（`{task: {id, subject}}`）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
- *
- * 原因（实证）：该工具**出口 `data` 是 JSON 字符串**（`TaskCreateTool.ts:221` 的
- * `JSON.stringify(output)`；另有 `null` 失败分支 `:191/233`）⇒ 原 schema 描述的是**对象** ⇒
- * **错层定义**，接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
- */
-
-/**
- * TaskGet Schema
- */
-export const TaskGetInputSchema = z.strictObject({
-  id: z.string().min(1).describe('要获取的任务 ID'),
-});
-
-/**
- * ⚠️ `TaskOutputSchema`（任务详情对象，11 字段）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
- *
- * 原因（实证）：它服务于 **TaskGet**，而该工具**出口 `data` 是 JSON 字符串**
- * （`TaskGetTool.ts:169` 的 `JSON.stringify(output)`；另有 `null` 失败分支 `:128/145/181`）⇒
- * 描述的是**对象** ⇒ **错层定义**，接上必每次误报。
- * 详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
- */
-
-/**
- * TaskList Schema
- */
-export const TaskListInputSchema = z.strictObject({});
-
-/**
- * ⚠️ `TaskListOutputSchema`（`{tasks: [{…}]}`）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
- *
- * 原因（实证）：该工具**出口 `data` 是 JSON 字符串**（`TaskListTool.ts:117` 的
- * `JSON.stringify(output)`；另有 `null` 分支 `:129`）⇒ 原 schema 描述的是**对象** ⇒
- * **错层定义**，接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
- */
-
-/**
- * TaskUpdate Schema
- */
-export const TaskUpdateInputSchema = z.strictObject({
-  id: z.string().min(1).describe('要更新的任务 ID'),
-  status: z
-    .enum(['pending', 'in_progress', 'completed', 'failed', 'cancelled'])
-    .optional()
-    .describe('新状态'),
-  subject: z.string().optional().describe('新主题'),
-  description: z.string().optional().describe('新描述'),
-  activeForm: z.string().optional().describe('新主动词'),
-  priority: z
-    .enum(['low', 'medium', 'high', 'urgent'])
-    .optional()
-    .describe('新优先级'),
-  blockedBy: z.array(z.string()).optional().describe('阻塞任务 ID 列表'),
-  metadata: z.record(z.unknown()).optional().describe('新元数据'),
-});
-
-/**
- * ⚠️ `TaskUpdateOutputSchema`（`{task: {id, subject, status}}`）已于 2026-09-29 删除（T6 分批处置 · 批次 1b）。
- *
- * 原因（实证）：该工具**出口 `data` 是 JSON 字符串**（`TaskUpdateTool.ts:248` 的
- * `JSON.stringify(output)`；另有 `null` 分支 `:188/204`）⇒ 原 schema 描述的是**对象** ⇒
- * **错层定义**，接上必每次误报。详见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果）。
- */
-
-/**
  * TaskStop Schema
+ *
+ * ⚠️ 沿革（2026-09-29，D-15）：本文件原有 TaskCreate / TaskGet / TaskList / TaskUpdate 的
+ * 入参 schema、出参 schema 与 `validate*Input`；这 4 个工具类**从未注册进运行时注册表**
+ * （`GET /v1/tools` 的 60 个工具内没有它们；活的任务工具是 `TaskOrchestratorTools` 的
+ * `create_task_list` / `get_task_list` / `update_task_status`）⇒ 随 4 个类一并删除。
+ *
+ * 此处只保留**唯一有消费者的** TaskStop schema —— `TaskStopTool.ts:18` 在用，
+ * 且其工具名 `task_stop` 确在注册表内。
  */
 export const TaskStopInputSchema = z.strictObject({
   task_id: z.string().min(1).describe('要停止的任务 ID'),
@@ -95,75 +25,10 @@ export const TaskStopOutputSchema = z.object({
 });
 
 /**
- * 验证 TaskCreate 输入
- */
-export function validateTaskCreateInput(input: unknown) {
-  const result = TaskCreateInputSchema.safeParse(input);
-  if (!result.success) {
-    const errors = result.error.issues.map(
-      (issue) => `${issue.path.join('.')}: ${issue.message}`
-    );
-    return {
-      success: false as const,
-      error: `输入验证失败: ${errors.join('; ')}`,
-    };
-  }
-  return { success: true as const, data: result.data };
-}
-
-/**
- * 验证 TaskGet 输入
- */
-export function validateTaskGetInput(input: unknown) {
-  const result = TaskGetInputSchema.safeParse(input);
-  if (!result.success) {
-    const errors = result.error.issues.map(
-      (issue) => `${issue.path.join('.')}: ${issue.message}`
-    );
-    return {
-      success: false as const,
-      error: `输入验证失败: ${errors.join('; ')}`,
-    };
-  }
-  return { success: true as const, data: result.data };
-}
-
-/**
- * 验证 TaskList 输入
- */
-export function validateTaskListInput(input: unknown) {
-  const result = TaskListInputSchema.safeParse(input);
-  if (!result.success) {
-    const errors = result.error.issues.map(
-      (issue) => `${issue.path.join('.')}: ${issue.message}`
-    );
-    return {
-      success: false as const,
-      error: `输入验证失败: ${errors.join('; ')}`,
-    };
-  }
-  return { success: true as const, data: result.data };
-}
-
-/**
- * 验证 TaskUpdate 输入
- */
-export function validateTaskUpdateInput(input: unknown) {
-  const result = TaskUpdateInputSchema.safeParse(input);
-  if (!result.success) {
-    const errors = result.error.issues.map(
-      (issue) => `${issue.path.join('.')}: ${issue.message}`
-    );
-    return {
-      success: false as const,
-      error: `输入验证失败: ${errors.join('; ')}`,
-    };
-  }
-  return { success: true as const, data: result.data };
-}
-
-/**
  * 验证 TaskStop 输入
+ *
+ * ⚠️ 消费方为零（`TaskStopTool` 自带 `validateInput`）—— 与台账 **D-7**「符号级残留」同族；
+ * 用户已裁定「保留不动」，故此处不动。
  */
 export function validateTaskStopInput(input: unknown) {
   const result = TaskStopInputSchema.safeParse(input);

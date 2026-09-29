@@ -203,7 +203,11 @@ export {
   TURN_BUDGET_CHARS,
 } from './services/ToolResultPersister';
 
-export * from './guardrails';
+// ⚠️ 2026-09-29（D-15 顺带）：原此处 `export * from './guardrails'` 已移除 ——
+// `tools/guardrails/`（4 文件：GuardrailDecision / GuardrailRules / ToolCallGuardrailController / index）
+// 全仓**零消费者**（唯一对外口就是这一行转发，无人取用其符号），且活路径已有等价安全面
+// （`SandboxSecurityChecker` 危险命令检查 / `PathGuard` 越界路径 / `permission` 权限决策）
+// ⇒ 整模块删除（同 N-29 处置 `tools/policy/*` 的判据）。
 export * from './web';
 export * from './version';
 

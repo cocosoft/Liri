@@ -192,15 +192,12 @@ export function initDefaultToolUIRegistry(): void {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
-  try {
-    const taskUI = require('../../tools/TaskTool/UI');
-    registerToolUI('task', taskUI);
-    registerToolUI('task_update', taskUI);
-    registerToolUI('task_get', taskUI);
-    registerToolUI('task_list', taskUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
+  // ⚠️ 沿革（2026-09-29，另案 ②）：原此处注册 `task` / `task_update` / `task_get` / `task_list`
+  // 四条 UI（`require('../../tools/TaskTool/UI')`）—— 这 4 个名字**均非真实工具名**：
+  // 活的任务工具是 `create_task_list` / `update_task_status` / `get_task_list` / `task_stop`
+  // （见 `GET /v1/tools`），其中 `task_update` / `task_get` / `task_list` 的实现类已随 D-15 删除，
+  // `task` 从不是工具名 ⇒ 属"注册了、工具永不产生"的错配，故整块删除。
+  // 连带：`tools/TaskTool/UI.tsx` 因此失去唯一引用（同批删除）。
 
   try {
     const briefUI = require('../../tools/BriefTool/UI');

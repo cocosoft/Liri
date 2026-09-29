@@ -49,6 +49,7 @@ import {
   getOrCreateSessionMachine,
   persistChatMessage,
   isEmptyAssistantWithoutToolCalls,
+  toToolResultRawText,
 } from './services/ChatHelper';
 import {
   RequestSnapshotService,
@@ -3046,12 +3047,13 @@ export class ChatManagerImpl implements ChatManager {
           }
 
           // Session State Hydration: 从 transcript 恢复衍生状态
+          // ⚠️ 2026-09-29（台账 c2）：原 `hydrated.todos` / `hydratedTodos` 已删 ——
+          // `extractTodos` 实测**永不命中**，且 `hydratedTodos` 全仓**零读取方**（只写不读）。
           try {
             const hydrated = this.sessionAccess.hydrateSession(chatSession);
-            if (hydrated.todos || (hydrated.recentFiles?.length ?? 0) > 0) {
+            if ((hydrated.recentFiles?.length ?? 0) > 0) {
               chatSession.metadata = {
                 ...chatSession.metadata,
-                hydratedTodos: hydrated.todos,
                 hydratedRecentFiles: hydrated.recentFiles,
                 hydratedDecisions: hydrated.recentDecisions,
               };
@@ -5882,9 +5884,8 @@ export class ChatManagerImpl implements ChatManager {
           ? currentAssistantMsg.content.length
           : -1,
       resultChars: processedResults.map((pr) => {
-        const raw = pr.result.result
-          ? JSON.stringify(pr.result.result)
-          : pr.result.error || '{}';
+        // 空值判定收敛到 ChatHelper.toToolResultRawText（原 truthiness 会把 ''/0/false 误判为无载荷）
+        const raw = toToolResultRawText(pr.result.result, pr.result.error);
         return { id: pr.normalizedToolCall.id, chars: raw.length };
       }),
     });
@@ -5909,9 +5910,8 @@ export class ChatManagerImpl implements ChatManager {
         })),
       },
       ...processedResults.map((pr) => {
-        const raw = pr.result.result
-          ? JSON.stringify(pr.result.result)
-          : pr.result.error || '{}';
+        // 空值判定收敛到 ChatHelper.toToolResultRawText（与上方诊断日志共用同一实现）
+        const raw = toToolResultRawText(pr.result.result, pr.result.error);
         // P0-2（2026-09-02，对标 hermes observe_call 结果 stub）：同会话同工具同参数
         // 的大结果（≥1024 字符）重复时替换为引用 stub——缓解上下文膨胀（实测工具循环
         // 输入 token 44 万，大量为重复的 web_fetch/grep 全文）。落盘消息保留完整内容，

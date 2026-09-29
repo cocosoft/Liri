@@ -73,7 +73,6 @@ export class SessionAccessFacade {
 
   /** 从 transcript 恢复衍生状态 */
   hydrateSession(session: ChatSession): {
-    todos?: unknown;
     recentFiles?: string[];
     recentDecisions?: unknown;
   } {

@@ -395,12 +395,14 @@ export class SessionLifecycleManager {
         this.chatSessions.set(storedSession.id, chatSession);
 
         // Session State Hydration
+        // ⚠️ 2026-09-29（台账 c2）：原 `hydrated.todos` / `hydratedTodos` 已删 ——
+        // `SessionStateHydrator.extractTodos` 实测**永不命中**（详见该文件头注），
+        // 且 `hydratedTodos` 全仓**零读取方**（只写不读）。
         try {
           const hydrated = this.sessionAccess.hydrateSession(chatSession);
-          if (hydrated.todos || (hydrated.recentFiles?.length ?? 0) > 0) {
+          if ((hydrated.recentFiles?.length ?? 0) > 0) {
             chatSession.metadata = {
               ...chatSession.metadata,
-              hydratedTodos: hydrated.todos,
               hydratedRecentFiles: hydrated.recentFiles,
               hydratedDecisions: hydrated.recentDecisions,
             };

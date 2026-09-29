@@ -8,9 +8,15 @@
  * 让 Agent 重新进入已有会话时能恢复到上次中断的上下文。
  *
  * 恢复内容：
- * 1. Todo 状态 — 从最后一条 create_task_list 工具调用中提取
- * 2. 文件变更记录 — 从 file_write/file_edit 工具调用中提取
- * 3. 上下文摘要 — 从消息中提取最近的决策记录
+ * 1. 文件变更记录 — 从 file_write/file_edit 工具调用中提取
+ * 2. 上下文摘要 — 从消息中提取最近的决策记录
+ *
+ * ⚠️ 沿革（2026-09-29，台账「c2」处置）：原第 1 项「Todo 状态恢复」（`extractTodos`：扫
+ * `create_task_list` / `tasklist_write` 的工具消息、要求其内容含 `todos` 数组）经**端到端实测
+ * 证实永不命中** —— ① 该工具出口**从无 `todos` 字段**（纯文本时期与对象化后皆无；对照实验证明
+ * 只有 `{"todos":[…]}` 形状才会命中）；② `tasklist_write` **全仓仅出现在该判断里**（无生产者）；
+ * ③ `NoteTask` 由 `TaskRegistry` **自身持久化**（`registerNoteTask → saveTasks()`）⇒ 即便命中
+ * 也与注册表恢复**重复**。故连同其专属辅助 `parseToolResult`（零其他调用方）一并删除。
  */
 
 import type { ChatSession } from '../../chat/types/session';
@@ -24,8 +30,6 @@ const logger = getLogger('session:hydration:SessionStateHydrator');
 // ============================================================================
 
 export interface HydratedState {
-  /** 恢复的 todo 列表 */
-  todos?: Record<string, unknown>[];
   /** 最近操作的文件路径列表 */
   recentFiles: string[];
   /** 最近的用户决策摘要 */
@@ -43,41 +47,12 @@ export class SessionStateHydrator {
   hydrate(session: ChatSession): HydratedState {
     const messages = session.messages || [];
     return {
-      todos: this.extractTodos(messages),
       recentFiles: this.extractRecentFiles(messages),
       recentDecisions: this.extractDecisions(messages),
     };
   }
 
-  // ── 1. Todo 恢复 ──
-
-  /**
-   * 从消息中倒查最后一条 create_task_list 工具调用的结果
-   */
-  private extractTodos(
-    messages: Message[]
-  ): Record<string, unknown>[] | undefined {
-    // 倒序查找最近的任务列表工具调用结果
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.role !== 'tool') continue;
-
-      const metadata = msg.metadata as Record<string, unknown> | undefined;
-      const toolName = metadata?.toolName || metadata?.tool_name || '';
-      if (toolName !== 'create_task_list' && toolName !== 'tasklist_write') {
-        continue;
-      }
-
-      // 解析工具结果中的 todos
-      const result = this.parseToolResult(msg.content);
-      if (result?.todos && Array.isArray(result.todos)) {
-        return result.todos as Record<string, unknown>[];
-      }
-    }
-    return undefined;
-  }
-
-  // ── 2. 文件变更记录 ──
+  // ── 1. 文件变更记录 ──
 
   /**
    * 从最近 20 条消息中提取被操作的文件路径
@@ -108,7 +83,7 @@ export class SessionStateHydrator {
     return [...files];
   }
 
-  // ── 3. 决策恢复 ──
+  // ── 2. 决策恢复 ──
 
   /**
    * 从最近用户消息中提取短决策（<200 字符的 user 消息通常是决策）
@@ -167,38 +142,6 @@ export class SessionStateHydrator {
             // B12 修复：预期内失败（普通文本不是 JSON）静默忽略，不上报 error——
             // 与 string 分支（:143-157）行为对齐，避免每次加载会话刷 error 日志。
           }
-        }
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * 解析工具结果（可能是 JSON 字符串或结构化对象）
-   */
-  private parseToolResult(
-    content: string | Array<{ type: string; text?: string; value?: unknown }>
-  ): Record<string, unknown> | null {
-    if (typeof content === 'string') {
-      try {
-        return JSON.parse(content);
-      } catch {
-        return null;
-      }
-    }
-
-    if (Array.isArray(content)) {
-      for (const block of content) {
-        if (block.type === 'text' && block.text) {
-          try {
-            return JSON.parse(block.text);
-          } catch {
-            // B12 修复：预期内失败（普通文本不是 JSON）静默忽略，不上报 error。
-          }
-        }
-        if (block.value) {
-          return block.value as Record<string, unknown>;
         }
       }
     }

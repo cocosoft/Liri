@@ -3240,6 +3240,88 @@ class ArchitectureLinter {
     );
   }
 
+  /**
+   * R15-002: 检查「**零 importer 的工具 schemas 模块**」—— `tools/<X>/schemas.ts` 不得成为死文件。
+   *
+   * 依据（2026-09-29 D-7 核查）：`app/src/tools/<各工具>/schemas.ts` 曾共 **41 个**，其中 **20 个零 importer**
+   * （**整文件死亡**：其 `*InputSchema` / `validateXxxInput` / `logger` 全无人消费，且**已实测与实现漂移** ——
+   * 如 `sleep` 写 `milliseconds` 而工具读 `durationMs`、`cron_create` 的 `cron` vs 实读 `expression`）⇒ 已全部删除；
+   * 现仓内 **21 个均有 importer**（恰等于 T6 接线的 21 个出参契约）。
+   *
+   * 判据：把 import/require 说明符**真实解析**到该文件路径（支持 `./schemas`、`./schemas.js`、
+   * `../<X>/schemas` 与 `@modules/tools/<X>/schemas`）—— 若无任何解析结果指向它 ⇒ **warning**。
+   *
+   * ⚠️ **局限（如实）**：仅解析**静态**说明符；动态拼出的路径无法识别 ⇒ 只**漏报**、不误报。
+   */
+  async checkOrphanSchemaModules(): Promise<void> {
+    const repoRoot = resolve(__dirname, '..');
+    const appSrc = resolve(repoRoot, 'app', 'src');
+    const files = collectTsFiles(appSrc);
+    const toKey = (p: string): string =>
+      p.replace(/\\/g, '/').replace(/\.(ts|tsx|js)$/, '');
+
+    const candidates = files
+      .filter((f) => {
+        const rel = relative(appSrc, f).replace(/\\/g, '/');
+        return rel.startsWith('tools/') && rel.endsWith('/schemas.ts');
+      })
+      .map((f) => ({ file: f, key: toKey(f) }));
+
+    if (candidates.length === 0) {
+      console.log(
+        '[工具 schemas 模块引用检查 R15-002] 未发现 tools/<各工具>/schemas.ts'
+      );
+      return;
+    }
+
+    const keySet = new Set(candidates.map((c) => c.key));
+    const imported = new Set<string>();
+    const SPEC_RE = /(?:from|require\()\s*['"]([^'"]+)['"]/g;
+
+    for (const file of files) {
+      let text: string;
+      try {
+        text = readFileSync(file, 'utf-8');
+      } catch {
+        continue;
+      }
+      for (const m of text.matchAll(SPEC_RE)) {
+        const spec = m[1];
+        if (!/\/schemas(\.js|\.ts)?$/.test(spec)) continue;
+        let abs: string | null = null;
+        if (spec.startsWith('.')) {
+          abs = resolve(dirname(file), spec);
+        } else if (spec.startsWith('@modules/')) {
+          abs = resolve(appSrc, spec.slice('@modules/'.length));
+        }
+        if (!abs) continue;
+        const key = toKey(abs);
+        if (keySet.has(key)) imported.add(key);
+      }
+    }
+
+    const orphans = candidates.filter((c) => !imported.has(c.key));
+
+    for (const o of orphans) {
+      this.violations.push({
+        ruleId: 'R15-002',
+        severity: 'warning',
+        file: relative(repoRoot, o.file).replace(/\\/g, '/'),
+        message: `零 importer 的工具 schemas 模块：${relative(repoRoot, o.file).replace(/\\/g, '/')}（整文件无人消费）`,
+        suggestion:
+          '默认应删除（该类文件已多次实测与实现漂移：如 sleep 的 milliseconds vs durationMs）；若确有价值，须让工具 import 它并逐字段对齐实现，见 dev_docs/error_repairs/预存错误与待处理问题.md 的 D-7',
+      });
+    }
+
+    console.log(
+      `[工具 schemas 模块引用检查 R15-002] 候选 ${candidates.length} 个，零 importer ${orphans.length} 个${
+        orphans.length > 0
+          ? `：${orphans.map((o) => relative(appSrc, o.file).replace(/\\/g, '/')).join('、')}`
+          : ''
+      }`
+    );
+  }
+
   /** R07-001 豁免：已登记的微小文件例外 */
   isTinyFileExempt(relPath: string): boolean {
     const normalized = relPath.replace(/\\/g, '/').toLowerCase();
@@ -3637,6 +3719,8 @@ class ArchitectureLinter {
       this.checkWorkspaceHygiene(),
       // R15 工具出参契约（"零消费者的 *OutputSchema" 防回潮；T6 收口后**零豁免上线**）
       this.checkOrphanOutputSchemas(),
+      // R15-002 工具 schemas 模块引用（"零 importer 的 schemas.ts" 防回潮；D-7 收口后零豁免上线）
+      this.checkOrphanSchemaModules(),
     ]);
 
     // 分层合规检查（需按顺序在 loadFiles 之后执行）

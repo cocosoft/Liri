@@ -3160,6 +3160,84 @@ class ArchitectureLinter {
     );
   }
 
+  /**
+   * R15-001: 检查「**零消费者的 `*OutputSchema` 定义**」—— 工具出参契约不得"只定义、不接线"。
+   *
+   * 依据（2026-09-29 T6 核查）：`app/src/tools/<各工具>/schemas.ts` 曾定义 **45 个** `*OutputSchema`，
+   * 其中 **44 个零消费者** —— 既未接线到 `Tool.outputSchema`，也**全仓无任何 import**。
+   * 它们是"看着像出口契约、实则无人消费"的**死代码**，正是 T4 那类"错层误接"的来源
+   * （接错会每次调用误报）。同批处置结论：**21 接线 / 23 删除 / 1 转另案**，
+   * 见 `.trae/specs/tool-output-schema-layer-audit.md`（T6 分类结果 / 收口结论）。
+   *
+   * 判据：`export const <X>OutputSchema` 若**全仓出现次数 === 1**（即只剩定义那一行）
+   * ⇒ **warning**（提示"要么接线、要么删除"）。**不阻断提交**。
+   *
+   * ⚠️ **已知局限（如实）**：① **同名重复定义会互相掩盖**（如 `TaskStopOutputSchema` 同时定义在
+   * `TaskTool/` 与 `TaskStopTool/`，后者即便孤立也不会被捕获）；② 注释/文档字符串里的同名言及
+   * 会被计为引用 ⇒ 只会**漏报**，**不会误报**。
+   */
+  async checkOrphanOutputSchemas(): Promise<void> {
+    const repoRoot = resolve(__dirname, '..');
+    const appSrc = resolve(repoRoot, 'app', 'src');
+    const DEF_RE = /export\s+const\s+([A-Za-z_$][\w$]*OutputSchema)\b/;
+    const USAGE_RE = /\b[A-Za-z_$][\w$]*OutputSchema\b/g;
+
+    // 第 1 遍：收集定义（只记名字与文件，不驻留全文，避免大内存）
+    const files = collectTsFiles(appSrc);
+    const defs: Array<{ name: string; file: string }> = [];
+    for (const file of files) {
+      let text: string;
+      try {
+        text = readFileSync(file, 'utf-8');
+      } catch {
+        continue;
+      }
+      for (const line of text.split(/\r?\n/)) {
+        const m = DEF_RE.exec(line);
+        if (m) defs.push({ name: m[1], file });
+      }
+    }
+    if (defs.length === 0) {
+      console.log('[出参 schema 消费者检查 R15-001] 未发现任何 *OutputSchema 定义');
+      return;
+    }
+
+    // 第 2 遍：统计全仓出现次数（含定义行本身；注释中的言及也会被计入 ⇒ 只会漏报）
+    const defNames = new Set(defs.map((d) => d.name));
+    const occurrences = new Map<string, number>();
+    for (const file of files) {
+      let text: string;
+      try {
+        text = readFileSync(file, 'utf-8');
+      } catch {
+        continue;
+      }
+      for (const m of text.matchAll(USAGE_RE)) {
+        if (!defNames.has(m[0])) continue;
+        occurrences.set(m[0], (occurrences.get(m[0]) ?? 0) + 1);
+      }
+    }
+
+    const orphans = defs.filter((d) => (occurrences.get(d.name) ?? 0) <= 1);
+
+    for (const o of orphans) {
+      this.violations.push({
+        ruleId: 'R15-001',
+        severity: 'warning',
+        file: relative(repoRoot, o.file).replace(/\\/g, '/'),
+        message: `零消费者的出参 schema 定义：${o.name}（既未接线到 Tool.outputSchema，也无任何引用）`,
+        suggestion:
+          '要么把它接到对应工具的 outputSchema（须先实测出口载荷与其相符），要么删除；判据与方法见 .trae/specs/tool-output-schema-layer-audit.md（T6 分类结果 / 收口结论）',
+      });
+    }
+
+    console.log(
+      `[出参 schema 消费者检查 R15-001] 定义 ${defs.length} 个，零消费者 ${orphans.length} 个${
+        orphans.length > 0 ? `：${orphans.map((o) => o.name).join('、')}` : ''
+      }`
+    );
+  }
+
   /** R07-001 豁免：已登记的微小文件例外 */
   isTinyFileExempt(relPath: string): boolean {
     const normalized = relPath.replace(/\\/g, '/').toLowerCase();
@@ -3555,6 +3633,8 @@ class ArchitectureLinter {
       this.checkModuleLifecycle(),
       // R07 工作区卫生（参考副本不得留在仓库内：防统计口径污染复发）
       this.checkWorkspaceHygiene(),
+      // R15 工具出参契约（"零消费者的 *OutputSchema" 防回潮；T6 收口后**零豁免上线**）
+      this.checkOrphanOutputSchemas(),
     ]);
 
     // 分层合规检查（需按顺序在 loadFiles 之后执行）

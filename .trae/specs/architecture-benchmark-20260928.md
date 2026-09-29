@@ -95,15 +95,15 @@
 | 改动 | 内容 |
 |---|---|
 | `tools/types/Tool.ts` | `outputSchema?: unknown` ⇒ **收窄为** `{ safeParse(data): {success, error?} }`。**关键发现：该字段早已存在，但类型是 `unknown` ⇒ 任何校验都不可能**（等价"只有占位、没有契约"）⇒ spec 原表述已随之更正 |
-| `tools/ToolExecutor.ts` | ① `execute()` 的 **governance/legacy 唯一汇合处**接入校验（`result.success !== false` 时）；② 新增**导出纯函数** `validateToolOutputShape()`（private 方法无法单测）；③ 校验失败**不阻断**，只写 `metadata.outputSchemaError` + warning |
-| `tests/tools/toolOutputSchema.test.ts` | **5 例**：未声明不校验（**零行为变化的关键不变量**）/ 合规通过 / 不合规返回详情 / **schema 自身抛错不向上抛** / `data` 缺省回退校验 `result` 本体 |
+| `tools/ToolExecutor.ts` | ① `execute()` 的 **governance/legacy 唯一汇合处**接入校验（`result.success !== false` 时）；② 新增**导出纯函数** `validateToolOutputShape()`（private 方法无法单测）；③ 校验失败**不阻断**，只写 `metadata.outputSchemaError` + warning；④ **补「无载荷不校验」**（`data == null` ⇒ 跳过，2026-09-29）—— 实测发现**不设 `success` 的工具永远触发不了上条豁免**，会把 `todo_write` 的 5 处 `null` 失败分支误判为"出参违规" |
+| `tests/tools/toolOutputSchema.test.ts` | **5 例**：未声明不校验（**零行为变化的关键不变量**）/ 合规通过 / 不合规返回详情 / **schema 自身抛错不向上抛** / **无载荷不校验**（`data === null`，2026-09-29 T4 补；原第 5 例"`data` 缺省回退校验 `result` 本体"的行为已**证伪并移除** —— 校验整个 `ToolResult` 无意义） |
 
 - **实测验收**：`typecheck` **0** · `eslint` **0** · 该测试 **5 pass / 0 fail**。
 - **阴性证据**：把 `unknown` 收窄为结构化接口后 `typecheck` 仍 **0 错** ⇒ **全仓无一处真正使用 `outputSchema`**（此前是纯占位）。
-- **⬜ 尚未做（如实）**：① **top-10 工具逐个补 `outputSchema`**（频次已统计：`file_read` 9,585 / `grep` 6,875 / `glob` 4,353 / `tool_search` 1,569 / `web_search` 548 / `todo_write` 466 / `web_fetch` 360 / `sessions` 286 / `bash` 272 / `file_convert` 239 ⇒ top-10 覆盖 **94.8%**）——属**增量填充**，机制已就绪；② 上表"门禁"判据尚未加。
+- **⬜ 尚未做（如实）**：① **top-10 填充**：**已接线 7/10（覆盖 89.4%）**，余 3 个（`web_fetch` / `web_search` / `sessions`）经取证判为**多形态出口、不宜声明**（见下）；② **门禁判据**尚未加 —— 且 2026-09-29 取证发现**更该先做的判据是**「`*OutputSchema` 全仓无消费者 ⇒ warning」（见 `tool-output-schema-layer-audit.md` T6）；③ **44 个零消费者 schema 的分批处置**（同上）。
 - **统计口径（可复现）**：扫 `~/.pyapp/data/sessions/**/events.jsonl` 中 `assistant/tool_call` 的 `name`（263 个会话文件、36 种工具、**26,103** 次调用）。
 
-**✅ top-N 填充进展：6/10 已完成（覆盖 87.6%）**
+**✅ top-N 填充进展：7/10 已接线（覆盖 89.4%）** —— 下表为其中的 6 个；第 7 个（`todo_write`，466 次）见下 T2/T4
 
 | # | 工具 | 频次 | `data` 形态 | 做法与发现 |
 |:--:|---|---:|---|---|
@@ -118,17 +118,17 @@
 - **本轮关键结论（两条）**：
   1. **不能按"是否有 `*OutputSchema`"批量接线** —— `grep` 有且**匹配**（应接），`glob`/`bash` 有但**描述的是内层函数**（**不可接**，强行接会每次校验失败）⇒ **每个工具都必须实测其出口 `data` 形态**。
   2. **已出现 2 例同型漂移**（`glob`、`bash`）⇒ 提示这是一类**系统性**问题：`schemas.ts` 里写的是"内层函数的输出契约"，与"工具出口的 data"**不是同一层** ⇒ 建议后续单独立项核查全部 `*OutputSchema` 的层级归属。
-- ⬜ **剩余 4 个：取证已完成，但结论是「按现有证据不宜硬加 schema」**（如实，非跳过）：
+- ✅ **剩余 3 个：取证已完成，结论是「多形态出口 ⇒ 不宜声明 `outputSchema`」**（如实，非跳过）：
 
 | # | 工具 | 频次 | 取证结果（含 `文件:行`） | 结论 |
 |:--:|---|---:|---|---|
-| 7 | `web_fetch` | 548 | 错误分支 = **string**（L181/192/220/287/374/399）；成功分支 = **对象** `WebFetchResult`（L321 `const result: WebFetchResult = {…}`，L537 定义 `{url, status, statusText, headers, content, contentLength, …}`）；而 `WebFetchTool/schemas.ts:46` 的 `WebFetchOutputSchema` 是 `{content, url, statusCode, contentType, contentLength, fetchTime}` ⇒ **字段名不同**（`status` vs `statusCode`，且缺 `headers`/`statusText`） | ⚠️ **第 3 例同型漂移**；出口为 **string ∪ object 混合** ⇒ **暂不加** |
-| 8 | `todo_write` | 466 | **混合**：`null`（L674/L869）/ 字符串（L716/855/896）/ `output`（L755，未确证）/ `result`（L785/829，未确证） | 需**联合**且成功分支未确证 ⇒ **暂不加** |
-| 9 | `web_search` | 360 | 错误分支 = string（L154/212）；成功分支**未确证**；`WebSearchTool/schemas.ts:45` 的 `WebSearchOutputSchema` = `{results:[{title,url,snippet}]}` | 取证不足 ⇒ **暂不加** |
-| 10 | `sessions` | 286 | `execute(): Promise<ToolResult>`（**无泛型实参**，L264）；返回分支**未取证** | 取证不足 ⇒ **暂不加** |
+| 7 | `web_fetch` | 548 | 失败分支 = **string**（`:181/192/220/287/374/399`）；成功分支 = **对象** `WebFetchResult`（`:352` 赋值、`:536` 定义 `{url, status, statusText, headers, content, contentLength, contentType}`）；而其 `schemas.ts` 的 `WebFetchOutputSchema` 字段名**不符**（`status` vs `statusCode`，且缺 `headers`/`statusText`） | ⚠️ **第 3 例同型漂移**；出口 **string ∪ object** ⇒ **不接**；错层 schema **已删**（T4） |
+| 8 | ~~`todo_write`~~ | 466 | ✅ **已接线**：成功分支**恒为字符串**（`:716/772/816/855/896`）；5 处失败分支传 `null`（`:686/881/919/1014/1037`） | ✅ `z.string()`（T2）；`null` 分支由 T4「**无载荷不校验**」排除 |
+| 9 | `web_search` | 360 | **三形态**：错误 string（`:154/212/323/342/357/385`）+ **空结果对象**（`:242`）+ 成功对象 `WebSearchResult`（`:285`，定义 `:561`） | ⚠️ 三形态 ⇒ **不接**；错层 schema **已删**（T4） |
+| 10 | `sessions` | 286 | **多态**（随 `action`）：成功 `{success:true, data, output}`（`:317-321`）、错误分支**无 `data`**（`:284/290/330`）；且**不用** `createToolResult` 族 ⇒ 手写构造 | ⚠️ 多态出口 ⇒ **不接** |
 
 - **为何不硬凑**：`glob` / `bash` 已两次证明「**看到 `*OutputSchema` 就接**」会导致**每次调用校验失败**（schema 描述的是**内层函数**、与工具出口**不是同一层**）。在形态未确证时硬加，等于制造噪音告警，违背 A 档"零破坏"的前提。
-- **建议**：这 4 个（合计 **6.4%**）与「**全部 `*OutputSchema` 的层级归属核查**」**合并立项**处理 —— 二者是**同一根因**（schema 写在内层函数上，缺"工具出口契约"这一层）。
+- **建议 → 已执行**：这 3 个（合计 **4.6%**）已与「**全部 `*OutputSchema` 的层级归属核查**」**合并立项**（二者同一根因），并于 **2026-09-29** 完成 **T1-T6**。⚠️ **T6 分类结果远超立项时的预估**：45 个定义中 **44 个零消费者**（⇒「工具出参契约层事实上不存在」，T4 那 3 个**不是特例而是通例**）⇒ 后续 = **分批处置（每批 8-10 个）+ 门禁**，见 [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md)。
 
 > 观察：三个缺口都属**同一类根因** ——「**同一事实源/契约在边界处缺失**」（序列双份 / 契约只覆盖入参 / 校验点位置错）。这与论文的核心主张一致，也解释了为何它们不是靠"加功能"能解决的。
 
@@ -142,7 +142,7 @@
 | 2 | 7–11（Multi-Agent / Memory / Learning / MCP / Goal） | ✅ 已取证（Learning 与 Goal 判 🟡，各有 1 项待细核） |
 | 3 | 12–16（Exception Recovery / HITL / RAG / A2A / Resource-Aware） | ✅ 已取证（A2A 判 🟡：**ACP 与 A2A 协议双轨**） |
 | 4 | 17–21（Reasoning / Guardrails / Evaluation / Prioritization / Exploration） | ✅ 已取证（Prioritization、Exploration 判 🟡） |
-| 收尾 | 把**可机械判定**的条目接进 `lint:arch`（如"工具出参必须过 schema"） | 待做 |
+| 收尾 | 把**可机械判定**的条目接进 `lint:arch`（如"工具出参必须过 schema"） | ⬜ **待做**（判据已细化）：「工具出参必须过 schema」是**运行期**属性、无法静态判定；**更可机械判定的替代判据** = 「**`*OutputSchema` 全仓无消费者 ⇒ warning**」（= T4/T6 教训的制度化）。⚠️ 但**须与 44 个存量分批清理同步落地** —— 否则会一次性产生 44 条 warning，冲垮基线（0 错 1 警）、淹没真实告警 |
 
 ### 批次 4 新增的待细核项
 

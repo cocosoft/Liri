@@ -13,10 +13,15 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  unlinkSync,
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
-import { type PdcaPhase, PDCA_TO_WORKITEM } from '@modules/core';
+import {
+  type PdcaPhase,
+  PDCA_TO_WORKITEM,
+  PDCA_TERMINAL_PHASES,
+} from '@modules/core';
 export type { PdcaPhase };
 export { PDCA_TERMINAL_PHASES } from '@modules/core';
 
@@ -172,6 +177,174 @@ export function getPdcaCheckpointIndex(): Map<string, Record<string, unknown>> {
     if (typeof ck.taskId === 'string') index.set(ck.taskId, ck);
   }
   return index;
+}
+
+/**
+ * 检查点**终态 status** 集合（2026-09-29，另案 ⑥ 留存）。
+ *
+ * 与 [`pdca-handlers.findExistingTask`](../infrastructure/http/handlers/pdca-handlers.ts) 的
+ * "非活跃"判据**同源**（原先该处内联 `status !== 'abort' && status !== 'failed' && !== 'completed'`）
+ * ⇒ 收敛为单一事实源（GR02），并与 `core` 的 `PDCA_TERMINAL_PHASES`（按 **phase** 判定）互为补充：
+ * 本仓检查点**两个字段并用**（`phase` 见 PhaseVocabulary，`status` 见各写入点）⇒ 二者任一为终态即算终态。
+ */
+export const PDCA_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+  'completed',
+  'failed',
+  'abort',
+]);
+
+/**
+ * **活跃 status**（2026-09-29，另案 ⑥ 留存扩展）：这些状态视为"正在跑"，留存**一律保留**。
+ * 与 `pdca-handlers.scanAndAbortStalePdcaTasks` 的命中判据同源。
+ */
+export const PDCA_ACTIVE_STATUSES: ReadonlySet<string> = new Set([
+  'started',
+  'running',
+]);
+
+/**
+ * **待审批 phase**（同批）：等待用户/审批入口处理，留存**一律保留**。
+ * 与 `pdca-handlers.scanAndAbortStalePdcaTasks` 的豁免判据同源（收敛为单一事实源，GR02）。
+ */
+export const PDCA_AWAITING_APPROVAL_PHASES: ReadonlySet<string> = new Set([
+  'plan_pending',
+  'stage_awaiting_approval',
+]);
+
+/**
+ * 检查点留存天数（2026-09-29，另案 ⑥ · 留存策略）。
+ *
+ * **可删条件 = 超期 且 下列任一**：
+ * 1. **终态**：`phase ∈ PDCA_TERMINAL_PHASES` **或** `status ∈ PDCA_TERMINAL_STATUSES`；
+ * 2. **孤儿**（2026-09-29 扩展，用户裁定"纳入"）：非终态 **且** `status ∉ PDCA_ACTIVE_STATUSES`
+ *    **且** `phase ∉ PDCA_AWAITING_APPROVAL_PHASES` —— 即"既没在跑、也不在等审批"的历史残留
+ *    （实测真实目录里 8/16 的 `d2-test-*` / `d5-replan-*` 即此类：`phase=review/plan` 且 `status` 为空）。
+ *
+ * **一律保留**：`started`/`running`（可能在跑）、`plan_pending`/`stage_awaiting_approval`（待审批）、
+ * 以及**未超期**的一切。
+ *
+ * 超期判据：`updatedAt`（缺失时回退文件 mtime）早于 `now - 天数`。
+ */
+export const PDCA_CHECKPOINT_RETENTION_DAYS = 30;
+
+/** 留存清理结果（供日志与测试断言） */
+export interface PdcaCheckpointPruneResult {
+  /** 扫描到的检查点数 */
+  scanned: number;
+  /** 已删除总数（= prunedTerminal + prunedOrphan） */
+  pruned: number;
+  /** 其中：终态超期 */
+  prunedTerminal: number;
+  /** 其中：超期孤儿（非终态且非活跃、非待审批） */
+  prunedOrphan: number;
+  /** 保留：未超期 */
+  keptFresh: number;
+  /** 保留：未超期以外的不可删项（非终态且活跃/待审批，或无 taskId） */
+  keptActive: number;
+  /** 删除失败数 */
+  errors: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 解析 ISO 时间戳；无法解析返回 null */
+function parseTimestampMs(value: unknown): number | null {
+  if (typeof value !== 'string' || !value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** 读取文件 mtime；失败返回 null */
+function fileMtimeMs(filePath: string): number | null {
+  try {
+    return statSync(filePath).mtimeMs;
+  } catch {
+    // @ignore-catch: 竞态删除 ⇒ 视为无 mtime（上层会保留该文件，不做删除）
+    return null;
+  }
+}
+
+/**
+ * **留存清理**：删除"终态 + 超期"的检查点（2026-09-29，另案 ⑥ 留存策略）。
+ *
+ * **调用时机**：DAEMON/CLI 启动时一次（`main.ts` 的启动链，**在启动扫描之后** —— 扫描刚把
+ * 崩溃遗留的 `running` 标为 `abort` 并刷新 `updatedAt`，因而它们会因"新鲜"被保留，
+ * 不会被"刚标完就删掉"）。参照既有范式 [`MemoryManager.cleanupExpiredMemories()`](../memory/MemoryManager.ts)
+ *（启动时运行 + 日志计数），不再新建机制。
+ *
+ * **安全性**：只删终态且超期；`unlinkSync` 失败仅计数并 warn，不抛出；同时清理对应记忆条目
+ * （`ckFileMemo`）以免陈旧条目残留。目录不存在时为空操作。
+ *
+ * @param maxAgeDays 保留天数（默认 {@link PDCA_CHECKPOINT_RETENTION_DAYS}）
+ */
+export function prunePdcaCheckpoints(
+  maxAgeDays: number = PDCA_CHECKPOINT_RETENTION_DAYS
+): PdcaCheckpointPruneResult {
+  const result: PdcaCheckpointPruneResult = {
+    scanned: 0,
+    pruned: 0,
+    prunedTerminal: 0,
+    prunedOrphan: 0,
+    keptFresh: 0,
+    keptActive: 0,
+    errors: 0,
+  };
+
+  const dir = pdcaCheckpointDir();
+  if (!existsSync(dir)) return result;
+
+  const cutoff = Date.now() - maxAgeDays * DAY_MS;
+
+  // 复用带记忆的扫描：只对"内容未变"的文件免重复解析（无需为留存单独再读一遍目录）
+  for (const ck of scanCheckpoints()) {
+    result.scanned++;
+
+    const taskId = typeof ck.taskId === 'string' ? ck.taskId : '';
+    const phase = typeof ck.phase === 'string' ? ck.phase : '';
+    const status = typeof ck.status === 'string' ? ck.status : '';
+
+    const isTerminal =
+      PDCA_TERMINAL_PHASES.has(phase) || PDCA_TERMINAL_STATUSES.has(status);
+    // 孤儿：非终态、且"没在跑、也不在等审批" ⇒ 历史残留（判据说明见 PDCA_CHECKPOINT_RETENTION_DAYS）
+    const isOrphan =
+      !isTerminal &&
+      !PDCA_ACTIVE_STATUSES.has(status) &&
+      !PDCA_AWAITING_APPROVAL_PHASES.has(phase);
+
+    if (!taskId || !(isTerminal || isOrphan)) {
+      result.keptActive++;
+      continue;
+    }
+
+    const filePath = join(dir, `${taskId}.json`);
+    const at = parseTimestampMs(ck.updatedAt) ?? fileMtimeMs(filePath);
+    if (at === null || at > cutoff) {
+      result.keptFresh++;
+      continue;
+    }
+
+    try {
+      unlinkSync(filePath);
+      ckFileMemo.delete(filePath);
+      result.pruned++;
+      if (isTerminal) result.prunedTerminal++;
+      else result.prunedOrphan++;
+    } catch (err) {
+      result.errors++;
+      logger.warn('PDCA 检查点留存删除失败（跳过）', {
+        taskId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  if (result.pruned > 0 || result.errors > 0) {
+    logger.info('PDCA 检查点留存清理完成', {
+      maxAgeDays,
+      ...result,
+    });
+  }
+  return result;
 }
 
 /** 预热 Promise（幂等：并发调用复用同一次预热；见 `prewarmPdcaCheckpointIndex`） */

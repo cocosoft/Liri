@@ -32,6 +32,9 @@ import {
   writePdcaCheckpoint,
   syncPdcaWorkItemStatus,
   getPdcaCheckpointIndex,
+  PDCA_TERMINAL_STATUSES,
+  PDCA_ACTIVE_STATUSES,
+  PDCA_AWAITING_APPROVAL_PHASES,
 } from '@modules/tasks';
 import type { PdcaMetrics } from '@modules/tasks';
 
@@ -132,13 +135,12 @@ function writeWorkItem(item: WorkItemRecord): void {
 
 /** 幂等键检查：相同 sessionId 的进行中 PDCA 任务 */
 function findExistingTask(sessionId: string): string | null {
-  // 2026-09-29（台账「另案 ⑥」）：改用桥接层**带记忆的索引**（原实现每请求全量 read+parse）
+  // 2026-09-29（台账「另案 ⑥」）：改用桥接层**带记忆的索引**（原实现每请求全量 read+parse）；
+  // "非活跃"判据收敛到 `PDCA_TERMINAL_STATUSES`（与留存清理同源，GR02 实现唯一性）
   for (const ck of getPdcaCheckpointIndex().values()) {
     if (
       ck.sessionId === sessionId &&
-      ck.status !== 'abort' &&
-      ck.status !== 'failed' &&
-      ck.status !== 'completed'
+      !PDCA_TERMINAL_STATUSES.has(ck.status as string)
     ) {
       return ck.taskId as string;
     }
@@ -155,13 +157,15 @@ export function scanAndAbortStalePdcaTasks(): void {
   let aborted = 0;
 
   for (const ck of getPdcaCheckpointIndex().values()) {
+    // 命中判据与豁免判据**与留存清理同源**（GR02）：PDCA_ACTIVE_STATUSES /
+    // PDCA_AWAITING_APPROVAL_PHASES（均定义在 PdcaWorkItemBridge）
     const status = ck.status as string | undefined;
-    if (status !== 'started' && status !== 'running') continue;
+    if (status === undefined || !PDCA_ACTIVE_STATUSES.has(status)) continue;
     // Gap D（1-0c，2026-09-03）：等待审批的任务（plan_pending/stage_awaiting_approval）
     // 不是崩溃遗留——重启后应保留供 /goal 审批/恢复，不得被启动扫描误 abort。
     // （1-0b 后 plan_pending 的 status 演进为 'started'，故此处需按 phase 二次排除。）
     const phase = ck.phase as string | undefined;
-    if (phase === 'plan_pending' || phase === 'stage_awaiting_approval') {
+    if (phase !== undefined && PDCA_AWAITING_APPROVAL_PHASES.has(phase)) {
       continue;
     }
 

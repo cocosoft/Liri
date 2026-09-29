@@ -1962,14 +1962,19 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 整体不阻塞启动，失败也不影响主流程。
     void (async () => {
       try {
-        const { prewarmPdcaCheckpointIndex } =
-          await import('./tasks/PdcaWorkItemBridge.js');
-        await prewarmPdcaCheckpointIndex();
+        const bridge = await import('./tasks/PdcaWorkItemBridge.js');
+        // 1) 分批异步预热索引（不阻塞启动与事件循环）
+        await bridge.prewarmPdcaCheckpointIndex();
+        // 2) 启动扫描：把崩溃遗留的 started/running 标为 abort
         const { scanAndAbortStalePdcaTasks } =
           await import('./infrastructure/http/handlers/pdca-handlers.js');
         scanAndAbortStalePdcaTasks();
+        // 3) 留存清理（仅"终态 + 超期 30 天"，非终态一律保留）
+        //    ⚠️ **必须在启动扫描之后**：扫描刚给遗留任务刷新 `updatedAt` ⇒ 它们会因"新鲜"被保留，
+        //    不会被"刚标完就删掉"。
+        bridge.prunePdcaCheckpoints();
       } catch {
-        // @ignore-catch: 预热/扫描失败不影响主流程
+        // @ignore-catch: 预热/扫描/留存失败不影响主流程
       }
     })();
 

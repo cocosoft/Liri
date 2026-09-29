@@ -107,13 +107,11 @@ openclaw-main/
 # Testing - main test directory
 app/testing/
 
-# Testing - test directories within source code
-app/src/**/__tests__/
-app/src/**/tests/
-
-# Testing - standalone test files within source
-app/src/**/*.test.ts
-app/src/**/*.test.tsx
+# Testing - 源码内测试**入库**（2026-09-29 起；台账 dev_docs/error_repairs 的 D-13）
+# 原先忽略 app/src/**/__tests__/ 、app/src/**/tests/ 、app/src/**/*.test.ts(x)；不再忽略，理由：
+#   ① 口径自相矛盾 —— 同目录树内早就有**被跟踪**的源码内测试（app/src/query/FileIOLoopDetector.test.ts）；
+#   ② 未跟踪的测试会**静默腐化** —— D-12 的 SessionGateway 失败正因未被跟踪而长期无人发现。
+# 注意：此处只放开**测试代码**；测试产物/缓存仍由下方 `*.db`/`*.sqlite`/`.test_cache/`/`__pycache__/` 等规则忽略。
 
 # Testing - test config
 app/.test_config/
@@ -191,7 +189,11 @@ app/app/
 app/backend/
 client/scripts/
 app/minesweeper.html
-DOCS/
+# ⚠️ 2026-09-29：本行原为 `DOCS/`（无锚定）—— 在 Windows（core.ignorecase=true）下会**连带吞掉**
+# `app/docs/`（第一层代码文档，project_rules §1.5 明确「✅ Git 跟踪」）⇒ 新增文档默认不入库（存量 142 个
+# 文件因历史 `-f` 已在库，故不易察觉）。现锚定到仓库根：仓库根并无大写 `DOCS/`，语义等价且不再误伤
+# `app/docs/`。详见台账 dev_docs/error_repairs 的 D-14。
+/DOCS/
 
 output/
 

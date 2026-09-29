@@ -163,6 +163,12 @@ CJL_REF/
 !.trae/specs/
 # 例外：文档（`api-spec.md` 等历史上已跟踪；保持新文档同样可见）
 !.trae/docs/
+# 例外：规则库（D-11 收口，2026-09-29）—— 原先整体忽略，导致**追踪中的脚本 7 处硬引用悬空**
+#（`scripts/lint-architecture.ts:3826` 每次运行都打印「规则定义: .trae/rules/architecture-compliance.md」；
+# 另有 architecture-health.ts / check-version-consistency.js / lint-file-size.ts / lint-models.ts / sync-version.ts），
+# 且跟踪中的 spec 有 4 处把规则当"依据"引用 ⇒ 规则变更不可评审、无历史，与 `.trae/specs/`、`.trae/docs/` 口径不一致。
+# 已扫描：目录内 14 文件 / 约 192KB，**无密钥、无机器专属路径** ⇒ 入库无安全顾虑。详见台账 D-11。
+!.trae/rules/
 # Exclude specific dev_docs
 # （dev_docs/ 整体保持忽略：2026-09-23 实测 1144 文件 / 87MB 本地分析产物，属有意排除；
 #   仅放行 `error_repairs/` —— 规则指定的"发现即记录"目的地，见文件末尾的反排除）
@@ -199,7 +205,6 @@ output/
 
 client/app/
 client/data/
-.trae/rules/
 fixer.js
 security-architecture-analysis.md
 security-audit-report.md

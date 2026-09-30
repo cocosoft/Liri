@@ -172,17 +172,34 @@
 ⚠️ **关键风险（"同类不同物"）**：**主契约的 `result?: T` 与事件载荷的 `result: string` 同名不同物**（前者结构化、后者已字符串化）⇒ 收敛时**不得**当作同一个字段处理；**事件侧 `result` 是持久层 schema**，改名需事件格式迁移，**明确不在 B2 范围**。
 
 **② 结论与两步走（替代原"二选一保留"）**
-- **B2-a（消除并行）**：把 T6 记录的 **4 个手写 `ToolResult` 工具**的载荷由 `result` **迁到 `data`**（对齐 `createToolResult` 家族）⇒ 主契约内不再需要 `result` 承载数据。
+- **B2-a（消除并行）**：把 **3 个**手写 `ToolResult` 工具（`voice_input` / `voice_output` / `code_analysis` —— 清单复核见 §2.2.1 ③，**原记 4 个有误**）的载荷由 `result` **迁到 `data`**（对齐 `createToolResult` 家族）⇒ 主契约内不再需要 `result` 承载数据。
 - **B2-b（撤过渡）**：迁移完成后，**撤掉** `validateToolOutputShape` 的 `?? result.result` 回退并删 `TODO: CS05-ROOTFIX`；再评估移除主契约 `result?: T`（届时须先确认无"把它当事件 result 用"的代码 —— 即 ① 的风险项）。
-- **验收**：每步 `typecheck` + 全量 `bun test` 全绿；4 个工具的出参 `outputSchema` 校验仍通过（`tests/tools` **539** 例）。
+- **验收**：每步 `typecheck` + 全量 `bun test` 全绿；3 个工具的出参 `outputSchema` 校验仍通过（`tests/tools` **539** 例）。
 
-**③ 待量化（B2-a 开工前必须完成）**：全仓确认"**手写 `ToolResult` 且把载荷放在 `result`**"的**完整清单**（T6 记 4 个，需复核是否仅此 4 个）。
-- 判定条件三交叉：**手写对象字面量** + `result:` 赋值 + **不经 `createToolResult`**。
-- ⚠️ 为什么不能靠计数：原始 `grep '\sresult:' app/src/tools` 得 **83 处 / 25 文件**，其中**多数与 `ToolResult` 无关**（诸如 `ResultAggregator` / `CouncilEngine` / `ToolCacheManager` 的同名字段）⇒ 计数**不可作为收敛依据**（纪律 G：先取证再动手）。
+**③ B2-a 清单复核 —— ✅ 已完成（2026-09-30）；结论：迁移面 = **3 个**文件（原记 4 个有误）**
 
-**④ 档位进度（2026-09-30）**
+**口径（决定性）**：校验器**只对声明了 `outputSchema` 的工具运行** ⇒ 迁移面 = 「已接线 `outputSchema` 的工具（实测 **23 个站点 / 22 文件**）」**∩**「载荷在 `result`」。
+- ⚠️ 为什么不用计数：原始 `grep '\sresult:' app/src/tools` 得 **83 处 / 25 文件**，其中**多数与 `ToolResult` 无关**（`ResultAggregator` / `CouncilEngine` / `ToolCacheManager` 的同名字段，甚至 `BrowserTool.validateInput` 的 `{result: false, message}` —— **又一个"名为 result、语义为校验结果布尔"的同类不同物**）⇒ 计数**不可作为收敛依据**（纪律 G）。
+
+| 工具 | `outputSchema` | 载荷位置（实测） | 需迁移 |
+|---|---|---|:--:|
+| `voice_input` | `VoiceInputOutputSchema`（`VoiceInputTool.ts:46`） | **`result`**（成功分支 `result: {…}`；失败 `result: null`）| ✅ |
+| `voice_output` | `VoiceOutputOutputSchema`（`VoiceOutputTool.ts:57`） | **`result`**（同上形态）| ✅ |
+| `code_analysis` | `CodeAnalysisOutputSchema`（`CodeAnalysisTool.ts:68`） | **`result`**（`result: output`）| ✅ |
+| ~~`skill`~~ | **schema 已于 T6 批次 2/3 删除 ⇒ 未接线** | — | ❌ **原记"4 个"含 `skill` 有误**（未接线者不受校验器影响）|
+| `browser` | `BrowserToolOutputSchema`（`BrowserTool.ts:74`） | **`data`**（`createToolResult(result, …)`）| ❌ |
+| 其余 18 处 | 各自 schema | `data` / 字符串（T6 批次表已逐项记录）| ❌ |
+
+⇒ **B2-a 实际迁移面 = `VoiceInputTool` · `VoiceOutputTool` · `CodeAnalysisTool`（3 文件）**。
+
+**④ B2-a 开工前的最后一项待办**：定位**事件侧 `result: string`**（持久层 schema）的**上游构造点**，确认它**不读 `ToolResult.result`** —— 否则改字段会**改变落盘内容**（属行为变更）。
+- 已排除的：`ChatManager.ts:1682-1691`（实时写入处）**只回填 `callSeq`**，不读 `result`；`MessageToEventMigrator.ts:362` 取的是 **`message.content`**（字符串），非 `ToolResult` 字段。
+- 待定位的：字面量 `type: 'tool/result'` 在 `app/src` **只有迁移器一处** ⇒ 实时构造点应为**变量/派生**形式（相关 spec：`event-derivation-read-path-rootfix.md`）⇒ 需再定位。
+
+**⑤ 档位进度（2026-09-30）**
 - **B1 ✅ 已完成**（commit `aeeeb5e8e`）：`tools/types/ToolResult.ts` 的 7 个共有字段改为 `extends` core 版 ⇒ `bun run typecheck` **exit 0**（预测的 `contextModifier` 收紧**零命中**）+ 全量 `bun test` **4251 pass / 21 skip / 0 fail**（与基线同值）⇒ **零行为变更**实证。
-- **下一步 = §2.2.1 ③ 的清单复核（纯只读）→ B2-a 迁移**。
+- **B2 的清单复核 ✅ 已完成**（§2.2.1 ③：迁移面 **3 文件**，原记 4 个有误）。
+- **下一步 = §2.2.1 ④（定位事件侧 `result: string` 的构造点）→ B2-a 迁移（3 文件）**。
 
 ---
 

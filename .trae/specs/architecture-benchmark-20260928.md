@@ -225,14 +225,27 @@
 
 ⇒ 时间线：**10-11 起**逐条冒 warning → **10-19 起** CI 直接红。故"先做治理"的时机成立 —— **要么收口，要么续期（续期＝把债再展期）**。
 
-### 5.3 跨端共性内容**无单一事实源**（已实证产生漂移）
+### 5.3 跨端共性内容**单一事实源** —— ✅ **已收口（2026-09-30 复核；本节原判已过时）**
 
-- `shared/` 现有 4 个文件（`types/index.ts`、`status-types.ts`、`voice-types.ts`、`utils/index.ts`），**只有 `client` 在用**（`@shared/types` 3 处命中；`app` **零引用**）⇒ 名为 shared，实为"前端专用"。
-- 后果**已实证**：`client/src/types/events.ts` 的事件类型镜像**落后后端 5 个类型**（`goal/*` ×4 + `agent/recovery`），而该文件头**明文要求"双端必须保持一致"** —— 见 `dev_docs/error_repairs/预存错误与待处理问题.md` 2026-09-28 **D-1**。
-  · ✅ **2026-09-29 复核：该漂移已消失（不再是未决项）**。方法＝对两文件的 `a/b` 形式事件名做**集合级比对**（兼容单/双引号）：**后端 42 个 vs 客户端 42 个，双向差集均为空**；且客户端已含 `goal/created`/`goal/updated`/`goal/status_changed`/`goal/injected`/`agent/recovery`（`client/src/types/events.ts:80-85`，载荷 `:470-503`）。
-  · ⚠️ **口径如实说明**：本比对只看**含 `/` 的名字**（42 个）；**不含**非 `/` 形式的名字（若有）。台账 **D-52** 已记。
-  · **但根因未除**：两侧仍是**手写镜像**（无单一事实源、无门禁）⇒ **下一次仍会漂移**。这正是 §四 根因类 ① 的落点：**本项应从"已修复"升级为"加防漂移门禁 / codegen 单一事实源"**（属 §5.3 的正题，仍未做）。
-- 归属：这正是 §四 根因类 ① 的**已实证实例**；可作为 ① 的第一个落点（而非另开新议题）。
+> ⚠️ **状态更正（2026-09-30）**：本节原标题为"跨端共性内容**无单一事实源**（已实证产生漂移）"，并把"加防漂移门禁 / codegen 单一事实源"列为**正题、仍未做**。**实测该正题已完成** ⇒ 整节改写如下（原判依据留档）。
+
+- **原判依据（2026-09-28，现已过时）**：`shared/` 4 个文件"**只有 client 在用（`app` 零引用）**"；`client/src/types/events.ts` 手写镜像**落后后端 5 个类型**（`goal/*` ×4 + `agent/recovery`，台账 **D-1**）。
+- **✅ 现状（2026-09-30 实测）**：
+  1. **事件名已有单一事实源并加了三端门禁**（台账 **D-57**）：[`shared/events/eventNames.ts`](file:///e:/PY/Documents/CODES/PY_APP/shared/events/eventNames.ts) 的 `LIRI_EVENT_NAMES` 是**唯一来源**，**两端 `LiriEventType` 均由其派生**（`(typeof LIRI_EVENT_NAMES)[number]`）⇒ "两端联合是否一致"由**构造**保证；配套门禁 [`app/tests/chat/eventTypeParity.test.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/tests/chat/eventTypeParity.test.ts) 校验**三端一致**（shared 清单 vs 两端**载荷映射**顶层键，双向差集为空）。**实测 3 pass / 0 fail**。选型＝**单向依赖**（名字下沉 shared + 两端派生），**未引入 codegen**。
+  2. **`shared/` 已是真·双端共用**（原判"app 零引用"**不成立**）—— app 侧实测 **5 处**引用：
+
+     | 侧 | 引用点 | 引用的 shared 内容 |
+     |---|---|---|
+     | app | `chat/types/events.ts:20` | `@shared/events/eventNames`（事件名单一事实源）|
+     | app | `runtime/api/CoreAPIImpl.ts:160` | `@shared/types`（`STATUS_TYPE`）|
+     | app | `session/storage/EventMessageDeriver.ts:38` | `@shared/types`（`isTransientStatusType`）|
+     | app | `services/voice/models/types.ts:132` | `@shared/types`（`STTResult`/`STTSegment` 转出）|
+     | app | `ink/repl/StatusFloatingBar.tsx:11` | `@shared/utils`（`formatTokenSpeed`/`formatElapsed`）|
+     | client | `types/events.ts:32` · `services/voiceService.ts:5` · `stores/chat/chat-toolcall.slice.ts:24` · `tests/status-type-contract.test.ts:37` | `@shared/events` + `@shared/types` |
+
+  3. **契约类三块（`events` / `status-types` / `voice-types`）两端都在用** ⇒ 单一事实源成立（`shared/types/index.ts` 聚合 `status-types` + `voice-types`）。
+- **残余观察（非缺陷，备案）**：`shared/utils/index.ts` 自述"Web(client/) 和 TUI(app/) 两端复用"，但**目前仅 app 引用**（client 未采用）。已核实 **client 无同名本地实现**（搜 `formatTokenSpeed` / `formatElapsed` 于 `client/src` **0 命中**）⇒ **不构成双份实现（CS01）**，属"契约先行、客户端待采用"。
+- **归属**：本节正是 §四 根因类 ① 的**已实证实例**，且**已作为 ① 的第一个落点完成**（选型＝单向依赖而非 codegen）。
 
 ### 5.4 关于新增 `server/` 文件夹：**不建议**（附理由）
 
@@ -244,7 +257,7 @@
 
 ### 5.5 待用户裁定的选项（本次未选，原样留档）
 
-- **治理起点**（可多选）：**A** 先补门禁视野（补映射 + 未映射目录改为报 warning + 处理 10-18 到期例外）—— **✅ 前两项已完成（D-3-A，见 §5.6）；第三项 = D-3-B，方案已出（§5.7）、执行待定**；**B** 先做跨端契约单一事实源（`shared/` 收口，含"单向依赖 vs codegen"二选一）；**C** 先拆文件规模债（156 个 `>1000` 行文件）；**D** 先做分层依赖收口（210 处跨层依赖走 SPI）。
+- **治理起点**（可多选）：**A** 先补门禁视野（补映射 + 未映射目录改为报 warning + 处理 10-18 到期例外）—— **✅ 前两项已完成（D-3-A，见 §5.6）；第三项 = D-3-B，方案已出（§5.7）、执行待定**；**B** 先做跨端契约单一事实源（`shared/` 收口，含"单向依赖 vs codegen"二选一）—— ✅ **已完成（2026-09-30）**：选型＝**单向依赖**（事件名下沉 `shared/events/eventNames.ts` + 两端派生），并加**三端一致性门禁**；见 §5.3（台账 **D-57**）；**C** 先拆文件规模债（156 个 `>1000` 行文件）；**D** 先做分层依赖收口（210 处跨层依赖走 SPI）。
 - **`server/` 意图澄清**：三种读法（后端服务层 / 跨端契约 / 独立部署）分别对应"不新增 / 落 `shared/` / 出部署方案"。
 - 建议顺序（我的判断，未执行）：**A → B → C/D** —— A 是零业务风险且**是其余各项的前置**（不做 A，后续重构无法被门禁验证）。
 
@@ -339,7 +352,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | **§三 收尾门禁**「`*OutputSchema` 全仓无消费者 ⇒ warning」 | §三 收尾行 | 中 | **前置**：须与 **44 个存量**零消费者 schema **分批处置同步落地**，否则一次性 44 条 warning 冲垮基线；分批处置见 [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) |
 | **P1-3 B/C 档**（收敛主契约 / 抽基座类型） | §二 P1 行 | 大 | 需先补 `core/types.ts:46`、`extensions/ExtendedToolOptions.ts:68` 两处语义判定（§2.1 未穷尽） |
 | **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦） |
-| **§5.3 跨端契约单一事实源**（`shared/` 收口；`client/src/types/events.ts` 落后后端 5 个类型） | §5.3 | 中 | 与 §四 根因类 ① 同一落点 |
+| ~~**§5.3 跨端契约单一事实源**~~ | §5.3 | — | ✅ **已完成（2026-09-30 复核）**：事件名已下沉 `shared/events/eventNames.ts` 单一事实源 + **三端一致性门禁**（台账 **D-57**，实测 **3 pass / 0 fail**）。原判两条**均已过时** —— ①"client 落后后端 5 类型"②"`shared/` 仅 client 在用（app 零引用）"（app 实测 **5 处**引用）⇒ **§5.3 正文已同步改写** |
 | **待细核项**（§三批次4 + §四批次2/3 表）：#7 单例口径分裂 · #9 adaptation/SkillCurator · #12 两处 `@deprecated` 旧重试器 · #13 审批决策可审计事件 · #16 `TokenTracker` 位置（悲观预扣 C1 已判"不实施"）· #17 CoT/ToT/reasoning effort · #20 统一优先级调度 · #21 主动探索与 `evals/` 重叠 | §三/§四 各表 | 取证 | ✅ **已于 2026-09-29 全部取证完毕 ⇒ 见 §6.4（不再待核）** |
 
 ### 6.4 「待细核项」结案（2026-09-29，纯只读取证；台账 **D-54**）

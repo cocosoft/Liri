@@ -8,14 +8,22 @@ import { MessageToEventMigrator } from '../src/session/storage/MessageToEventMig
 import { resolveSessionsDir, resolveDbPath } from '../src/core/paths';
 // 防止 Logger 未初始化导致报错：设置一个全局 logger fallback（用 console）
 const mod_logger = await import('../src/monitoring/logs/Logger');
-if (!globalThis._logger_init_flag) {
+// D-137 收网（2026-09-30）：两处修正 ——
+// ① `_logger_init_flag` 是脚本自设的幂等标记，原以 `globalThis` 动态属性存取 ⇒ TS7017
+//    （globalThis 无索引签名）；改用受类型约束的引用，语义不变；
+// ② `level: 'warn'` 字面量与 Logger 的 `LogLevel` 不匹配 ⇒ 改用枚举常量。
+const g = globalThis as typeof globalThis & { _logger_init_flag?: boolean };
+if (!g._logger_init_flag) {
   try {
     (mod_logger as any).Logger ||
-      new mod_logger.Logger({ level: 'warn', module: 'a4' });
+      new mod_logger.Logger({
+        level: mod_logger.LogLevel.WARN,
+        module: 'a4',
+      });
   } catch {
     /* ignore */
   }
-  globalThis._logger_init_flag = true;
+  g._logger_init_flag = true;
 }
 
 // ── 环境变量初始化（pyapp.ts 同款最简子集），让 resolve* 正常工作 ──

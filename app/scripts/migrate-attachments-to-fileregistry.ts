@@ -44,9 +44,13 @@ function mapSource(source: string): FileSource {
     case 'knowledge':
       return FileSource.AUTO_INGEST;
     case 'telegram':
-      return FileSource.TELEGRAM;
+      // D-137 收网（2026-09-30）：枚举中无 `TELEGRAM`，渠道入站应为 `CHANNEL_TELEGRAM`
+      //（原写成陈旧名 ⇒ 运行时得到 `undefined`，类型检查首日即抓出）
+      return FileSource.CHANNEL_TELEGRAM;
     case 'web_fetch':
-      return FileSource.WEB_FETCH;
+      // D-137 收网：枚举中无 `WEB_FETCH`；web_fetch 产物归入「自动入库」桶
+      //（与上面 knowledge 类同处理）—— 属语义择近，如需独立分类应先在 FileSource 增枚举值
+      return FileSource.AUTO_INGEST;
     case 'tool_write':
       return FileSource.TOOL_WRITE;
     default:

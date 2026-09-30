@@ -100,13 +100,18 @@ async function main(): Promise<void> {
           .split('\n')[0]
           .replace(/^#+\s*/, '')
           .slice(0, 80) || 'Memory';
+      // D-137 收网（2026-09-30）：`MemoryMetadata` 的 description / createdAt / updatedAt 为必填
+      const migratedAt = new Date();
       await manager.createMemory({
         content: section,
         metadata: {
           name: firstLine,
+          description: firstLine,
           type: MemoryType.USER_FACT,
           tags: ['migration', `v1_${i}`],
           source: 'migration',
+          createdAt: migratedAt,
+          updatedAt: migratedAt,
         },
       });
       result.created++;

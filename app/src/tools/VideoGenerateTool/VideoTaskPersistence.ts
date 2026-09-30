@@ -261,8 +261,12 @@ export class VideoTaskPersistence {
     params.push(Date.now());
     params.push(id);
 
+    // D-137 收网（2026-09-30）：scripts 类型程序引入 bun:sqlite 类型后，此调用由「未检查」转为受检，
+    // 绑定数组 `unknown[]` 与 `SQLQueryBindings[]` 不匹配。⚠️ `@ts-ignore` 只作用于**紧邻的下一行**，
+    // 而报错发生在**实参行** ⇒ 注释必须紧贴 `params`（本文件其余 bun:sqlite 调用同款放宽）。
     this.db.run(
       `UPDATE video_tasks SET ${sets.join(', ')} WHERE id = ?`,
+      // @ts-ignore — bun:sqlite 绑定参数
       params
     );
 

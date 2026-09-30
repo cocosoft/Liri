@@ -155,11 +155,34 @@
 | 期 | 内容 | 破坏面 | 前置 / 风险 |
 |:--:|---|---|---|
 | **B1** | `tools/types/ToolResult.ts` 的**7 个共有字段**改为 **`extends` core 版**（`@modules/core/types`）⇒ 消除"7 字段在两处重声明" | **小**（纯类型；`tools → core` 为**合法下行**） | ⚠️ 须实测：core 版 `contextModifier` 是 **`unknown`**（主契约是 `any`）⇒ 继承后会**收紧**，可能触发实现侧类型错 |
-| **B2** | 收敛 **`data?` / `result?` 并行载荷**（二选一保留） | **中**（影响所有工具） | 须先**量化**：`data` vs `result` 的读写点计数（`createToolResult` 家族写 `data`；手写 `ToolResult` 的工具多写 `result`）|
+| **B2** | 收敛 **`data?` / `result?` 并行载荷** | **中**（影响**手写 `ToolResult` 的工具**，非"所有工具"） | ✅ **量化取证已完成（2026-09-30）⇒ 方案见 §2.2.1**（两字段**各有职责**，宜"迁移"而非"二选一删"）|
 | **B3** | 收窄两处 `any`（`contextModifier` / `progress`）+ 甄别 `output?` / `content?` 并行 | **中** | 同 B2 |
 | **C** | 抽**基座类型** + 6 处视图**由基座派生**（跨 4 层） | **最大** | 依赖 ① 的结论（基座＝`success`/`error` 极小交集）|
 
-**③ 建议起点 = B1**：零行为变更，可用 `typecheck` + 全量 `bun test` **直接证明**；且它把"两处重声明"降为"**一处基座 + 一处扩展**"，是 C 档的地基。
+##### §2.2.1 B2 量化取证结论（2026-09-30）—— 两字段**各有职责**，宜「迁移」而非「二选一」
+
+**① 消费者面（决定收敛方向的硬证据）**
+
+| 字段 | 谁在读 | 语义 | 位置 |
+|---|---|---|---|
+| `data: T` | **运行期校验器** | **结构化载荷**（出参契约的校验对象） | `ToolExecutor.validateToolOutputShape`：`const payload = result.data ?? result.result`（已标 `TODO: CS05-ROOTFIX` 指向 B 档）|
+| `result?: T`（**主契约**内） | 校验器的**回退**分支 | **手写 `ToolResult`** 的工具所用的载荷位 | 同上（`?? result.result`）；T6 已记录 **4 个**：`voice_input` / `voice_output` / `skill` / `code_analysis` |
+| `result: string`（**事件载荷**内） | 目录区 / 「取回原文」 | **已格式化的字符串**，**持久层 schema** | [`eventPayloads.ts:125-136`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/types/eventPayloads.ts#L125-L136)：`'tool/result'` payload = `{ callSeq, toolCallId, result: string, isError?, messageId? }`；读点 [`ChatManager.ts:2240`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ChatManager.ts#L2239-L2240)（`d?.result`）、`EventMessageDeriver.ts:1046`（只读 `toolCallId`）|
+
+⚠️ **关键风险（"同类不同物"）**：**主契约的 `result?: T` 与事件载荷的 `result: string` 同名不同物**（前者结构化、后者已字符串化）⇒ 收敛时**不得**当作同一个字段处理；**事件侧 `result` 是持久层 schema**，改名需事件格式迁移，**明确不在 B2 范围**。
+
+**② 结论与两步走（替代原"二选一保留"）**
+- **B2-a（消除并行）**：把 T6 记录的 **4 个手写 `ToolResult` 工具**的载荷由 `result` **迁到 `data`**（对齐 `createToolResult` 家族）⇒ 主契约内不再需要 `result` 承载数据。
+- **B2-b（撤过渡）**：迁移完成后，**撤掉** `validateToolOutputShape` 的 `?? result.result` 回退并删 `TODO: CS05-ROOTFIX`；再评估移除主契约 `result?: T`（届时须先确认无"把它当事件 result 用"的代码 —— 即 ① 的风险项）。
+- **验收**：每步 `typecheck` + 全量 `bun test` 全绿；4 个工具的出参 `outputSchema` 校验仍通过（`tests/tools` **539** 例）。
+
+**③ 待量化（B2-a 开工前必须完成）**：全仓确认"**手写 `ToolResult` 且把载荷放在 `result`**"的**完整清单**（T6 记 4 个，需复核是否仅此 4 个）。
+- 判定条件三交叉：**手写对象字面量** + `result:` 赋值 + **不经 `createToolResult`**。
+- ⚠️ 为什么不能靠计数：原始 `grep '\sresult:' app/src/tools` 得 **83 处 / 25 文件**，其中**多数与 `ToolResult` 无关**（诸如 `ResultAggregator` / `CouncilEngine` / `ToolCacheManager` 的同名字段）⇒ 计数**不可作为收敛依据**（纪律 G：先取证再动手）。
+
+**④ 档位进度（2026-09-30）**
+- **B1 ✅ 已完成**（commit `aeeeb5e8e`）：`tools/types/ToolResult.ts` 的 7 个共有字段改为 `extends` core 版 ⇒ `bun run typecheck` **exit 0**（预测的 `contextModifier` 收紧**零命中**）+ 全量 `bun test` **4251 pass / 21 skip / 0 fail**（与基线同值）⇒ **零行为变更**实证。
+- **下一步 = §2.2.1 ③ 的清单复核（纯只读）→ B2-a 迁移**。
 
 ---
 

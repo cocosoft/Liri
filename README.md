@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.54-blue)
+![Version](https://img.shields.io/badge/version-0.4.55-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -364,7 +364,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.54**
+当前版本：**v0.4.55**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -372,6 +372,23 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.55 (2026-09-30)
+
+**分层倒挂治理收官（A/B/C 类）+ 门禁盲区可见化 + 通道清单归一 + 死代码与陈旧副本清零**
+
+- ✅ **分层倒挂治理收官（C1）** - 静态面 `已豁免` 逐批收敛至 **220**；动态面新增门禁 **`R00-003`**（动态 `import()` 造成的跨层引用，warning 级上报）并把它从 **95 → 28**；**三类真实错层（⑥ 真倒挂 / ⑤ 装配本体错层 / ② SPI 家族）全部归零**，余下均为"设计即如此"或测试文件（详见 `.trae/specs/layer-inversion-a-class-inventory.md`）
+- ✅ **`core` 下沉与门面化** - `abortReason` / `errorCodes` / `errors` / `errorHandler` / `lazySingleton` / `loggerFacade` / `profilerFacade` / `pricing` / `tracingFacade` 下沉 `core` 模块根；core 对 infra 的消费改走**门面 + SPI**（日志门面化 + SPI 延迟绑定 / 注册前缓冲回放），消除 `core → infra` 倒挂
+- ✅ **SPI 家族扩建至 8 个（引入"推送模型"）** - Logger / OTel / Profiler / Broadcast / PluginSystem / AiAccess / DiagnosticsProbe / Knowledge；实现体集中到 `entrypoints/spiWiring.ts`，由**入口侧装配后推入**容器 ⇒ 消除 SPI 自身反向导入产生的跨层对；未注册一律 noop / 空值降级
+- ✅ **服务层端口化（`runtime/api/*OpsPorts`）** - 新增 **12 个端口文件**（ai / buddy / commands / knowledge / pluginAdmin / project / query / skills / task / thirdPartySkill / tools / workspace），替代 `runtime → app` 的直接领域依赖
+- ✅ **门禁盲区可见化（`core/LazyModuleStrategy`）** - 字符串路径表改为**字面量 thunk 表**：把"藏起来的依赖"变为门禁可见（`R00-003` 18 → 28，**数字变差但真实** —— 该规则设计目的即让盲区可见）；并删除 4 条失效条目（`remote` / `doc` / `mail` / `calendar`）
+- ✅ **通道清单归一（4 份 → 1 份）** - 新建单一事实源 `channels/ChannelCatalog.ts`（存**位置无关的惰性 thunk**），删除 `setupChannels` / `LocalHTTPServiceHelpers` / `channel-handlers` 四处重复清单；顺带修复 `tryDynamicRegister()` 对 whatsapp / signal / matrix **恒返回 false** 的漂移缺陷
+- ✅ **死代码与陈旧副本清零** - 删除 `ExtensibilityService` / `StateMigrator` / `NotificationService` / `StartupPreloader` / `MemorySnapshotService` / sandbox 旧实现（4 文件）/ `EnterPlanMode` / `ExitPlanMode` / `FileSearch` / `SessionsHistory` 等 **27 个跟踪文件**；并删除 `LocalHTTPServiceHelpers` 中 `tryDynamicRegister` 的**陈旧死副本**（**P0-4 之前**版本，会**明文落库凭据**，属"复制函数致安全修复只落一份"的典型）
+- ✅ **工具名编译期枚举** - 新增 codegen 产物 `tools/toolNames.generated.ts` + `scripts/gen-tool-names.ts`，工具名收敛为单一来源（含回归用例）
+- ✅ **对外 Agent 协议（A2A）** - 新增 `a2a-routes` / `a2a-delegator` 与契约测试；环境变量 `A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`
+- ✅ **沙箱与安全** - Landlock 网络策略两态（+ 测试）；快照存储配额治理（+ `snapshotQuota` 测试）；`PathGuard` 注册表驱动化（+ 测试）；通道进程隔离规格登记
+- ✅ **错误处理与监控收敛** - 错误处理 core sink（`core/errorHandler.ts`）；监控 Logger core SPI；`shared/events/` 事件名单一来源（奇偶门禁保障两端一致）
+- ✅ **回归守卫** - 全量 `bun test` = **4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）；`typecheck` 0 错；`lint:arch` 违规 0 / 错误 0（2 条警告均为既有存量）
 
 #### v0.4.54 (2026-09-29)
 

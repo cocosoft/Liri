@@ -213,7 +213,16 @@
     ① **B2-a 的验证不完整** —— 当时只跑了 `tests/tools`，**漏了 `tests/voice`**（`VoiceInputTool.test.ts` 有 **6 处**断言旧载荷字段 `result`）⇒ 直到撤 B2-b 回退时才暴露 **4 处失败**；现已全部改为 `.data`（并**保留** `validateInput` 的 `{result: boolean}` 断言**不动** —— 同名不同物）。
     ⇒ **纪律 H：改"载荷字段 / 契约字段"后，验证必须跑全量（至少先 grep 测试全域），不能只跑"看似相关"的子目录。**
     ② **全量测试挂起的一个真因**：复用**被打断运行**留下的 `.tmp-bun-test` 沙箱目录时会挂起（本次 **7 分钟无输出**）；换**干净目录**后 **96.77s** 正常完成。⇒ **打断后重跑前，先清沙箱目录。**
-- **下一步 = 评估移除主契约 `result?: T`**（须先确认全仓无"把它当事件 `result` 用"的代码）—— 这是 B2 收口的最后一步。
+- **B2 收口最后一步（移除主契约 `result?: T`）—— ✅ 已评估，结论：❌ 暂不删除，改立 **B2-c**（2026-09-30）**
+  - **取证方法（用编译器当穷尽发现器）**：临时移除 `result?: T` ⇒ `bunx tsc --noEmit` **枚举全部残留读写点**（比人工 grep 穷尽、且给出 `file:line`）。
+  - **结果：61 处（51 写 × `TS2353` + 10 读 × `TS2339`），跨 31 个文件** —— `ai/interfaces/ToolExecutor.ts`×6 · `tools/services/ToolResultPersister.ts`×5 · `tools/AgentTool/*`×6 · `knowledge/tools/*`×12 · `memory/tools/*`×7 · `media/tools/*`×7（`MediaToolResult`）· `modules/calendar/tools/CalendarToolWrap.ts`×4 · `modules/mail/tools/MailSendTool.ts`×1 · `tools/SkillTool/*`×5 · `tools/KnowledgeSaveTool`×2 · `tools/ToolExecutor.ts`×1 · `core/Coordinator.ts`（**读**）…，**另含 3 个测试文件**（`tests/tools/knowledgeSaveTool` · `tests/skills/skillInjectionFix` · `tests/tools/AgentTool/swarmDescriptorResolution`）。
+  - ⚠️ **重要口径更正（本 spec 此前未显式区分）**：B2-a 的"**3 文件**"是**限定在「已接线 `outputSchema` 的 23 个工具」内**的迁移面（**校验视角**）；**全仓视角**下该字段仍被 **31 个文件**读写 ⇒ **两个口径不可互相引用**。
+  - **处置**：**恢复字段**（保持契约稳定、仓库保持绿色），并**在契约内就地标注**取证结论 + 复现命令；删除动作立为**独立分批项 B2-c**：
+    - **先迁 10 处读取点**（`TS2339`，有**行为风险**：读错字段会静默改变输出）；再迁写入点。
+    - **按模块分批**（每批 8–10 处），每批 `typecheck` + **全量** `bun test`；逐站点判"载荷语义"（对齐"载荷只认 `data`"）。
+    - 清零后方可移除字段。
+  - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
+  - **验收（本步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）；**无代码行为变更**。
 
 ---
 

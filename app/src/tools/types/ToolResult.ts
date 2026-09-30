@@ -54,6 +54,24 @@ export enum ErrorLevel {
  */
 export interface ToolResult<T = unknown> extends CoreToolResult<T> {
   status?: ToolExecutionStatus;
+  /**
+   * ⚠️ **并行载荷（待收敛 → B2-c）**：与继承来的 `data?: T` 语义重叠。
+   *
+   * 2026-09-30（B2 收口尝试的**取证结论**）：把本字段移除后，`tsc` 枚举出 **61 处**残留
+   * （**51 写 + 10 读**），跨 **31 个文件** —— `ai/interfaces/ToolExecutor.ts`×6 ·
+   * `tools/services/ToolResultPersister.ts`×5 · `tools/AgentTool/*`×6 · `knowledge/tools/*`×12 ·
+   * `memory/tools/*`×7 · `media/tools/*`×7（`MediaToolResult`）· `modules/calendar/*`×4 ·
+   * `modules/mail/*`×1 · `tools/SkillTool/*`×5 · `tools/KnowledgeSaveTool`×2 ·
+   * `core/Coordinator.ts`（读）等，**另含 3 个测试文件**（`tests/tools/knowledgeSaveTool` ·
+   * `tests/skills/skillInjectionFix` · `tests/tools/AgentTool/swarmDescriptorResolution`）。
+   * ⇒ **远超 B2-a 的"3 文件"** —— 那 3 个是「已接线 `outputSchema` 的 **23** 个工具」内的迁移面，
+   * 与本口径（**全仓**）不同，**不可互相引用**。
+   *
+   * **故暂不删除**（此字段仍被 31 个文件读写）：迁移须**按模块分批**（每批 8–10 处，逐批
+   * `typecheck` + **全量** `bun test`，并逐站点判"载荷语义"），见 spec
+   * `architecture-benchmark-20260928.md` §2.2.1 的 **B2-c**。删除前的复现命令：
+   * `cd app; bunx tsc --noEmit | Select-String 'error TS'`（预期 51×`TS2353` + 10×`TS2339`）。
+   */
   result?: T;
   executionTime?: number;
   errorOutput?: string;

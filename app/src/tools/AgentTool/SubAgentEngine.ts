@@ -857,7 +857,11 @@ export class SubAgentEngine {
         );
       }
       const result = await tool.execute(parsedArgs, resolvedContext);
-      const output = result.output || result.result || JSON.stringify(result);
+      // B2-c（2026-09-30）：载荷以 **`data`** 为准 —— 原实现**只读 `result`**（并行载荷），
+      // 对把载荷写在 `data` 的工具取不到值；现补 `data` 优先并保留 `result` 回退（同
+      // `ToolResultPersister.extractResultText`），直至 B2-c 写入侧迁移完成。
+      const output =
+        result.output || result.data || result.result || JSON.stringify(result);
 
       if (typeof output === 'string') return { ok: true, content: output };
 

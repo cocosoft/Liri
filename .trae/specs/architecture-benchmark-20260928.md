@@ -217,12 +217,23 @@
   - **取证方法（用编译器当穷尽发现器）**：临时移除 `result?: T` ⇒ `bunx tsc --noEmit` **枚举全部残留读写点**（比人工 grep 穷尽、且给出 `file:line`）。
   - **结果：61 处（51 写 × `TS2353` + 10 读 × `TS2339`），跨 31 个文件** —— `ai/interfaces/ToolExecutor.ts`×6 · `tools/services/ToolResultPersister.ts`×5 · `tools/AgentTool/*`×6 · `knowledge/tools/*`×12 · `memory/tools/*`×7 · `media/tools/*`×7（`MediaToolResult`）· `modules/calendar/tools/CalendarToolWrap.ts`×4 · `modules/mail/tools/MailSendTool.ts`×1 · `tools/SkillTool/*`×5 · `tools/KnowledgeSaveTool`×2 · `tools/ToolExecutor.ts`×1 · `core/Coordinator.ts`（**读**）…，**另含 3 个测试文件**（`tests/tools/knowledgeSaveTool` · `tests/skills/skillInjectionFix` · `tests/tools/AgentTool/swarmDescriptorResolution`）。
   - ⚠️ **重要口径更正（本 spec 此前未显式区分）**：B2-a 的"**3 文件**"是**限定在「已接线 `outputSchema` 的 23 个工具」内**的迁移面（**校验视角**）；**全仓视角**下该字段仍被 **31 个文件**读写 ⇒ **两个口径不可互相引用**。
-  - **处置**：**恢复字段**（保持契约稳定、仓库保持绿色），并**在契约内就地标注**取证结论 + 复现命令；删除动作立为**独立分批项 B2-c**：
-    - **先迁 10 处读取点**（`TS2339`，有**行为风险**：读错字段会静默改变输出）；再迁写入点。
-    - **按模块分批**（每批 8–10 处），每批 `typecheck` + **全量** `bun test`；逐站点判"载荷语义"（对齐"载荷只认 `data`"）。
-    - 清零后方可移除字段。
+  - **处置**：**恢复字段**（保持契约稳定、仓库保持绿色），并**在契约内就地标注**取证结论 + 复现命令；删除动作立为**独立分批项 B2-c**。
+  - ⚠️ **顺序更正（2026-09-30 执行批次 1 时发现，重要）**：原计划"**先迁 10 处读取点**"**不成立** —— 因为 `tools/ToolExecutor.ts:768` 的回退（`data ?? result`）是 **51 处未迁移写入点**（knowledge / media / memory / calendar / mail / SkillTool / AgentTool 等模块的工具）进入**「模型可见块」的唯一通道**；若先删读取侧回退，这些工具给模型的载荷会**静默变成 `undefined`**。
+    ⇒ **正确顺序 = 写入侧（按模块分批） → 读取侧收尾 → 删字段**；每批 `typecheck` + **全量** `bun test`，逐站点判"载荷语义"。
+  - **批次 1 实际结果（10 处读取点逐点裁定）**：
+
+    | 站点 | 裁定 | 说明 |
+    |---|---|---|
+    | `core/Coordinator.ts:271` | ✅ **已对齐** | 原**只读 `result`**（对写 `data` 的工具取不到值）⇒ 改为 `data` 优先 + 保留 `result` 回退（兼容期）|
+    | `tools/services/ToolResultPersister.ts:59-68` | ✅ **已对齐 + 修缺陷** | `extractResultText` 原**只读 `result`** ⇒ **多数工具（写 `data`）的落盘文本退化为 `'{}'`**（**预存缺陷**）⇒ 改 `data` 优先；`result` 回退待写入侧迁完后删 |
+    | `tools/AgentTool/SubAgentEngine.ts:860` | ✅ **已对齐** | 同上形态（`output → result`）⇒ 补 `data` 优先 |
+    | `tools/ToolExecutor.ts:768` | 🚫 **有意保留** | 属**兼容依赖**（非"读错字段"）：51 处写入点的**唯一通道** ⇒ 已就地标注删除时机 |
+    | `tests/tools/knowledgeSaveTool.test.ts:66,88` · `tests/tools/AgentTool/swarmDescriptorResolution.test.ts:698` | 🚫 **随写入批次** | 断言的是**尚未迁移**的写入点 ⇒ 随 knowledge / AgentTool 模块的**写入批次**一起改 |
+
+  - **批次 1 验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）✓
+  - **批次 2 起（未做）**：按模块迁**写入侧**（每批 8–10 处）—— 建议起手 `tools/services/ToolResultPersister.ts`×5 → `tools/AgentTool/*`×6 → `knowledge/tools/*`×12 → `memory/tools/*`×7 → `media/tools/*`×7 → `modules/calendar/*`×4 → `SkillTool/*`×5 → 其余。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
-  - **验收（本步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）；**无代码行为变更**。
+  - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 
 ---
 

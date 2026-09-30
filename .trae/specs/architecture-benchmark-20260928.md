@@ -235,7 +235,13 @@
     - **连带改测试（本批既定动作）**：`tests/tools/AgentTool/swarmDescriptorResolution.test.ts:698`（读载荷 → `data` 优先）· `tests/tools/ToolResultPersister.test.ts`（fixture + 4 处断言 → `data`）—— 否则**运行期静默失败**（`tsc` 抓不到，正是批次 1 的教训）。
     - **客观进度证据（探针复测）**：字段临时移除后错误数 **59 → 53**，其中**写入点 51 → 45**（恰好 −6）✓
     - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
-  - **剩余（批次 3 起）**：**写入点 45 处** —— `knowledge/tools/*`×12 → `memory/tools/*`×7 → `media/tools/*`×7 → `ai/interfaces/ToolExecutor.ts`×6 → `modules/calendar/*`×4 → `SkillTool/*`×5 → `tools/KnowledgeSaveTool`×2 → `modules/mail/*`×1；另有**兼容读 4 处**（`ToolExecutor:773` · `Coordinator` · `ToolResultPersister:64` · `SubAgentEngine:864`）与**测试断言**（`knowledgeSaveTool.test.ts:66,88` 等），待**写入侧清零后**统一收口 → 再删字段。
+  - **批次 3 ✅ 已完成（2026-09-30）**：迁移 **`knowledge` 家族全部写入点（14 处）** —— `knowledge/tools/*`×12（Delete×3 · Export · Import×2 · Restore · Search×3 · Snapshots · Write）+ `tools/KnowledgeSaveTool`×2；连带改 `tests/tools/knowledgeSaveTool.test.ts`（2 处断言 → `data`）。
+    - 🔴 **重要方法论发现（探针盲区）**：`KnowledgeSaveTool` 的**成功分支**（载荷在 `result`）**未被探针标出** —— 因为它在 `return (async () => {…})()` 内、对象字面量**无上下文标注** ⇒ **不触发 TS 多余属性检查**；**是测试暴露了它**（`r.data === undefined`）。顺带在该分支就地标注了盲区成因（防后人再踩）。
+      ⇒ **纪律 I：`tsc` 探针只覆盖「有上下文标注的字面量」；推断型字面量（IIFE／未标注返回值）会漏 ⇒ 每批必须"探针 + grep 复核 + 全量测试"三保险，不能只信探针计数。**
+    - **复核方式（本批新增步骤）**：迁移后 grep 目标目录的 `^\s+result[:\s]` 并逐条判"审计日志 / `validateInput` / ToolResult 载荷" —— 结果：`knowledge/tools/*` 残留**全部是审计日志**（`action` / `target` / `result: 'success'`）⇒ 正确地保留；另揪出 `KnowledgeSaveTool.ts:249`（catch 块、**10 空格**）1 处漏改。
+    - **客观进度**：探针 **53 → 43 →（含盲区补漏）37**；写入点 **45 → 35 → 31**。
+    - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
+  - **剩余（批次 4 起）**：写入点 **31 处**（**探针口径** —— 因纪律 I，实际可能更多）—— `memory/tools/*`×7 → `media/tools/*`×7 → `ai/interfaces/ToolExecutor.ts`×6 → `modules/calendar/*`×4 → `SkillTool/*`×5 → `modules/mail/*`×1；另有**兼容读 4 处** + **测试断言 2 处**，待写入侧清零后统一收口 → 再删字段。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

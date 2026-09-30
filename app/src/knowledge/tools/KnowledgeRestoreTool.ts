@@ -122,7 +122,7 @@ export class KnowledgeRestoreTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: { title, snapshot },
+        data: { title, snapshot },
         output: `Document "${title}" restored from snapshot successfully.`,
         executionTime: Date.now() - startTime,
         error: '',

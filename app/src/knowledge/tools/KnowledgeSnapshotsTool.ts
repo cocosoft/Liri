@@ -78,7 +78,7 @@ export class KnowledgeSnapshotsTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: snapshots,
+        data: snapshots,
         output: JSON.stringify(snapshots),
         executionTime: Date.now() - startTime,
         error: '',

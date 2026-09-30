@@ -220,7 +220,7 @@ export class KnowledgeImportTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
-      result: { imported, skipped, total: docs.length },
+      data: { imported, skipped, total: docs.length },
       output: JSON.stringify({ imported, skipped, total: docs.length }),
       executionTime: Date.now() - startTime,
       error: '',
@@ -322,7 +322,7 @@ export class KnowledgeImportTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
-      result: { imported, skipped, total: mdFiles.length },
+      data: { imported, skipped, total: mdFiles.length },
       output: JSON.stringify({ imported, skipped, total: mdFiles.length }),
       executionTime: Date.now() - startTime,
       error: '',

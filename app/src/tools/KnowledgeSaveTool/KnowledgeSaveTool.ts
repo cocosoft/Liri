@@ -161,7 +161,7 @@ export class KnowledgeSaveTool implements Tool {
       return {
         status: ToolExecutionStatus.FAILURE,
         toolName: this.name,
-        result: null,
+        data: null,
         error: 'knowledge_save 需要 title 和 content 参数',
       };
     }
@@ -179,7 +179,7 @@ export class KnowledgeSaveTool implements Tool {
       return {
         status: ToolExecutionStatus.FAILURE,
         toolName: this.name,
-        result: null,
+        data: null,
         error:
           '内容疑似引用系统指令/上下文（检测到 [SYSTEM]/[STEERING]/[FILE_OPERATION] 等标记），已拒绝写入。请提供真实文档内容后重试。',
       };
@@ -208,7 +208,7 @@ export class KnowledgeSaveTool implements Tool {
           return {
             status: ToolExecutionStatus.FAILURE,
             toolName: this.name,
-            result: null,
+            data: null,
             error: result.error ?? '知识库写入失败',
           };
         }
@@ -222,7 +222,11 @@ export class KnowledgeSaveTool implements Tool {
         return {
           status: ToolExecutionStatus.SUCCESS,
           toolName: this.name,
-          result: {
+          // B2-c（2026-09-30）：载荷字段 result → data。
+          // ⚠️ 本处原**未被探针（tsc）标出** —— 该分支在 `return (async () => {…})()` 内，
+          // 对象字面量**未被上下文标注** ⇒ 不触发 TS 多余属性检查（探针盲区），
+          // 是**测试**（`tests/tools/knowledgeSaveTool.test.ts`）暴露了它。
+          data: {
             success: true,
             title,
             action: result.action,
@@ -242,7 +246,7 @@ export class KnowledgeSaveTool implements Tool {
         return {
           status: ToolExecutionStatus.FAILURE,
           toolName: this.name,
-          result: null,
+          data: null,
           error: errMsg,
         };
       }

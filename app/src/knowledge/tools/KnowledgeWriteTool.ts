@@ -196,7 +196,9 @@ export class KnowledgeWriteTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result,
+        // B2-c（2026-09-30）：载荷字段 result → data；原为简写 `result,`，此处必须显式 `data: result,`
+        //（本作用域无名为 `data` 的变量，写成 `data,` 会编译失败）
+        data: result,
         executionTime: Date.now() - startTime,
         output: JSON.stringify(result),
         errorOutput: '',

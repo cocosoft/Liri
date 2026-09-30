@@ -70,7 +70,11 @@ export interface ToolResult<T = unknown> extends CoreToolResult<T> {
    * **故暂不删除**（此字段仍被 31 个文件读写）：迁移须**按模块分批**（每批 8–10 处，逐批
    * `typecheck` + **全量** `bun test`，并逐站点判"载荷语义"），见 spec
    * `architecture-benchmark-20260928.md` §2.2.1 的 **B2-c**。删除前的复现命令：
-   * `cd app; bunx tsc --noEmit | Select-String 'error TS'`（预期 51×`TS2353` + 10×`TS2339`）。
+   * `cd app; bunx tsc --noEmit | Select-String 'error TS'`（**批次 3 后**：写入 **31** + 兼容读 4 + 测试断言 2 ≈ **37**）。
+   * ⚠️ **探针盲区（B2-c 批次 3 实证）**：`tsc` 只对**有上下文标注**的对象字面量报「多余属性」；
+   * 位于 `return (async () => {…})()` 等**推断型返回值**中的字面量**不会**被标出
+   * （`KnowledgeSaveTool` 的成功分支即如此，**靠测试才发现**）⇒ 每批必须配
+   * **grep 复核 + 全量 `bun test`**，不可只信探针计数（纪律 I）。
    */
   result?: T;
   executionTime?: number;

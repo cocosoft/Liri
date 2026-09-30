@@ -63,7 +63,8 @@ describe('knowledge_save 核心工具', () => {
       {} as never
     );
     expect(r.status).toBe('success');
-    const result = r.result as {
+    // B2-c（2026-09-30）：载荷字段由 result 迁至 data
+    const result = r.data as {
       filePath: string;
       action: string;
       message: string;
@@ -85,7 +86,8 @@ describe('knowledge_save 核心工具', () => {
       { title: '测试文章', content: '# 测试\n\n正文内容' },
       {} as never
     );
-    const result = r.result as { action: string; message: string };
+    // B2-c（2026-09-30）：载荷字段由 result 迁至 data
+    const result = r.data as { action: string; message: string };
     expect(result.action).toBe('skipped');
     // skipped 必须明确"无需重复保存"，否则模型反复重试（no_progress 熔断根因）
     expect(String(result.message)).toContain('无需重复保存');

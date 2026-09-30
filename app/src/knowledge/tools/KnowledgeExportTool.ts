@@ -145,7 +145,7 @@ export class KnowledgeExportTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: { exported: docs.length, targetDir, format },
+        data: { exported: docs.length, targetDir, format },
         output: JSON.stringify({ exported: docs.length, targetDir, format }),
         executionTime: Date.now() - startTime,
         error: '',

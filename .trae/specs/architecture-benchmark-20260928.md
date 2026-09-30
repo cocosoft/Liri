@@ -134,6 +134,33 @@
 
 > 观察：三个缺口都属**同一类根因** ——「**同一事实源/契约在边界处缺失**」（序列双份 / 契约只覆盖入参 / 校验点位置错）。这与论文的核心主张一致，也解释了为何它们不是靠"加功能"能解决的。
 
+#### §2.2 P1-3 **B/C 档：前置取证结论 + 实施方案**（2026-09-30）
+
+**① 六处视图全部甄别完毕**（§2.1 原表为"4 层视图 + 2 处未穷尽"，本次补齐；**并更正 2 处坐标**）
+
+| # | 位置 | 形状 | 语义判定 |
+|:--:|---|---|---|
+| 1 | `tools/types/ToolResult.ts:40` | **19 字段**（`data?`+`result?` 并行、`output?`+`content?` 并行、`any`×2） | **主契约**（工具执行层）|
+| 2 | `core/types.ts:46` | 8 字段 | **core 层最小视图** —— 因**分层约束**（core 不得依赖 tools）必然独立；实测是主契约的**真子集**（**7 个共有字段**）⇒ **不是"重复定义"**，而是"core 视图" |
+| 3 | ~~`extensions/ExtendedToolOptions.ts:68`~~ → **`tools/extensions/ExtendedToolOptions.ts:67`** | `{success: boolean(必填), data?: any, error?, executionTime: number}` | **扩展选项侧视图**；⚠️ `success` **必填**、`data` 为 `any` ⇒ 与主契约（全 optional）**可选性相反** |
+| 4 | `chat/types/tool.ts:127` | `{toolCallId, toolName, result, …}` | **聊天事件层视图**（含主契约没有的 `toolCallId`/`toolName` 上下文元数据）|
+| 5 | ~~`runtime/api/CoreAPI.ts:265`~~ → **`tools/ToolExecutor.ts:32`（`ToolResultBlock`）** | `{toolCallId, toolName, result: unknown, error: string\|null, output: string, executionTime: number}` | **执行器侧块**（与 #4 同族，`error` 为 `string\|null`）；⚠️ 原记的 `CoreAPI.ts:265` 实为 **`DiffBlockData`**（与工具结果无关）⇒ **坐标更正** |
+| 6 | `components/ui/ChatMessage.tsx:14`（`ToolResultInfo`） | `{toolName, success, result: string}` | **UI 展示视图**（`result` 是**已格式化的字符串**）|
+
+⇒ **结论：6 处均为"同概念的层视图"，不是"同一事实源两份"** —— 各层的**可选性/类型不同**源于**需求差异**（如 UI 要字符串、执行器要 `error: string\|null`），不是漂移。
+⇒ **对 C 档的硬约束**：抽"基座类型"时，**基座只能含跨层同义的极小交集**（`success` / `error`），其余各层**各自扩展**；若把 `data`/`result`/`output` 也塞进基座，等于把"某一层的可选性"强加给所有层（会制造新的错配）。
+
+**② 分期方案（按破坏面递增）**
+
+| 期 | 内容 | 破坏面 | 前置 / 风险 |
+|:--:|---|---|---|
+| **B1** | `tools/types/ToolResult.ts` 的**7 个共有字段**改为 **`extends` core 版**（`@modules/core/types`）⇒ 消除"7 字段在两处重声明" | **小**（纯类型；`tools → core` 为**合法下行**） | ⚠️ 须实测：core 版 `contextModifier` 是 **`unknown`**（主契约是 `any`）⇒ 继承后会**收紧**，可能触发实现侧类型错 |
+| **B2** | 收敛 **`data?` / `result?` 并行载荷**（二选一保留） | **中**（影响所有工具） | 须先**量化**：`data` vs `result` 的读写点计数（`createToolResult` 家族写 `data`；手写 `ToolResult` 的工具多写 `result`）|
+| **B3** | 收窄两处 `any`（`contextModifier` / `progress`）+ 甄别 `output?` / `content?` 并行 | **中** | 同 B2 |
+| **C** | 抽**基座类型** + 6 处视图**由基座派生**（跨 4 层） | **最大** | 依赖 ① 的结论（基座＝`success`/`error` 极小交集）|
+
+**③ 建议起点 = B1**：零行为变更，可用 `typecheck` + 全量 `bun test` **直接证明**；且它把"两处重声明"降为"**一处基座 + 一处扩展**"，是 C 档的地基。
+
 ---
 
 ## 三、批次计划

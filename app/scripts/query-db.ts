@@ -21,7 +21,9 @@ const allProviders = db.query(`SELECT * FROM ai_providers ORDER BY id`).all();
 console.log(JSON.stringify(allProviders, null, 2));
 
 console.log('\n=== SiliconFlow Provider 详情 ===');
-const sf = db.query(`SELECT * FROM ai_providers WHERE provider_type LIKE ?`).all('%silicon%');
+const sf = db
+  .query(`SELECT * FROM ai_providers WHERE provider_type LIKE ?`)
+  .all('%silicon%');
 console.log(JSON.stringify(sf, null, 2));
 
 console.log('\n=== model_registry 表结构 ===');
@@ -33,17 +35,28 @@ const allModels = db.query(`SELECT * FROM model_registry LIMIT 30`).all();
 console.log(JSON.stringify(allModels, null, 2));
 
 console.log('\n=== 标记有 Video 能力的模型 ===');
-const videoModels = db.query(`SELECT * FROM model_registry WHERE capabilities LIKE '%video%' LIMIT 20`).all();
+const videoModels = db
+  .query(
+    `SELECT * FROM model_registry WHERE capabilities LIKE '%video%' LIMIT 20`
+  )
+  .all();
 console.log(JSON.stringify(videoModels, null, 2));
 
 console.log('\n=== 所有表名 ===');
-const tables = db.query(`SELECT name FROM sqlite_master WHERE type='table'`).all();
+const tables = db
+  .query(`SELECT name FROM sqlite_master WHERE type='table'`)
+  .all();
 console.log(JSON.stringify(tables, null, 2));
 
 // 额外：查找与视频模型路由相关的表
 for (const t of tables) {
   const name = (t as any).name;
-  if (name.includes('model') || name.includes('route') || name.includes('video') || name.includes('tool')) {
+  if (
+    name.includes('model') ||
+    name.includes('route') ||
+    name.includes('video') ||
+    name.includes('tool')
+  ) {
     console.log(`\n--- ${name} (前5条) ---`);
     try {
       const rows = db.query(`SELECT * FROM "${name}" LIMIT 5`).all();

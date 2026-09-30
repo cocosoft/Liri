@@ -55,8 +55,12 @@ async function measure(id: string, note: string): Promise<void> {
     return;
   }
   const lines = fileLines(eventsPath);
-  const bytes = existsSync(eventsPath) ? (await import('node:fs')).statSync(eventsPath).size : 0;
-  console.log(`\n=== ${id}（${note}）events 行数=${lines} 字节=${(bytes / 1024).toFixed(0)}KB idx=${existsSync(join(SESSIONS_ROOT, 'default', id, 'events.idx'))} ===`);
+  const bytes = existsSync(eventsPath)
+    ? (await import('node:fs')).statSync(eventsPath).size
+    : 0;
+  console.log(
+    `\n=== ${id}（${note}）events 行数=${lines} 字节=${(bytes / 1024).toFixed(0)}KB idx=${existsSync(join(SESSIONS_ROOT, 'default', id, 'events.idx'))} ===`
+  );
   const base = process.memoryUsage();
   const s = new EventLogStorage(id, 'default', SESSIONS_ROOT);
   const r1 = await s.read({ limit: 10000, fromSeq: 1 });
@@ -77,7 +81,8 @@ async function measure(id: string, note: string): Promise<void> {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   memTag('进程基线(模块加载后)');
-  const targets = args.length > 0 ? args.map((id) => ({ id, note: '命令行指定' })) : DEFAULTS;
+  const targets =
+    args.length > 0 ? args.map((id) => ({ id, note: '命令行指定' })) : DEFAULTS;
   for (const t of targets) {
     await measure(t.id, t.note);
   }
@@ -87,6 +92,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(`度量失败: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(
+    `度量失败: ${err instanceof Error ? err.message : String(err)}`
+  );
   process.exit(1);
 });

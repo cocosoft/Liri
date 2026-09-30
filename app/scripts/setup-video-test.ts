@@ -85,18 +85,14 @@ try {
   }
   db2.close();
 } catch {
-  console.log(
-    '\nDB 被锁定，无法直接写入。请关闭应用后重新运行此脚本。'
-  );
+  console.log('\nDB 被锁定，无法直接写入。请关闭应用后重新运行此脚本。');
 }
 
 console.log('\n使用说明:');
 console.log(
   '  1. 设置 FAL API Key: 模型管理 UI → 供应商 → FAL.ai → 编辑 → 填写 API Key'
 );
-console.log(
-  '  2. 或设置环境变量: $env:FAL_KEY="your-fal-api-key"'
-);
+console.log('  2. 或设置环境变量: $env:FAL_KEY="your-fal-api-key"');
 console.log(
   '  3. 运行测试: cd app && npx bun test src/tools/VideoGenerateTool/__tests__/VideoGenerateTool.test.ts'
 );

@@ -23,7 +23,10 @@ console.log(JSON.stringify(config.models.tasks, null, 2));
 
 // 检查是否有 UUID 残留
 for (const [key, value] of Object.entries(config.models.tasks)) {
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value as string);
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value as string
+    );
   if (isUuid) {
     console.log(`⚠️ 警告: ${key} 仍然是 UUID: ${value}`);
   }

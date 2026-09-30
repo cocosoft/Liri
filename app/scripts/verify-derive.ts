@@ -44,13 +44,18 @@ for (const line of rawLines) {
     }
   }
 }
-console.log(`原始行数=${rawLines.length} 恢复后事件数=${events.length} 损坏行恢复=${tornLineCount}`);
+console.log(
+  `原始行数=${rawLines.length} 恢复后事件数=${events.length} 损坏行恢复=${tornLineCount}`
+);
 
-const derived = deriveMessagesFromEvents(
-  events as never,
-  [],
-  { compactionRanges: undefined }
-) as Array<{ id: string; role: string; finishReason?: string; content?: unknown }>;
+const derived = deriveMessagesFromEvents(events as never, [], {
+  compactionRanges: undefined,
+}) as Array<{
+  id: string;
+  role: string;
+  finishReason?: string;
+  content?: unknown;
+}>;
 
 let canceledCount = 0;
 let asstCount = 0;
@@ -58,11 +63,17 @@ for (const m of derived) {
   if (m.role !== 'assistant') continue;
   asstCount++;
   const contentLen =
-    typeof m.content === 'string' ? m.content.length : JSON.stringify(m.content ?? '').length;
-  const flag = m.finishReason === 'canceled' || m.finishReason === 'abort' ? ' ⚠️ CANCELED' : '';
-  if (m.finishReason === 'canceled' || m.finishReason === 'abort') canceledCount++;
+    typeof m.content === 'string'
+      ? m.content.length
+      : JSON.stringify(m.content ?? '').length;
+  const flag =
+    m.finishReason === 'canceled' || m.finishReason === 'abort'
+      ? ' ⚠️ CANCELED'
+      : '';
+  if (m.finishReason === 'canceled' || m.finishReason === 'abort')
+    canceledCount++;
   console.log(
-    `assistant ${m.id.slice(0, 8)} finishReason=${m.finishReason ?? '(无)'} contentLen=${contentLen}${flag}`,
+    `assistant ${m.id.slice(0, 8)} finishReason=${m.finishReason ?? '(无)'} contentLen=${contentLen}${flag}`
   );
 }
 console.log(`\n中断标记消息数: ${canceledCount} / assistant ${asstCount}`);

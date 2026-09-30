@@ -80,7 +80,9 @@ function main(): void {
 
   if (!fs.existsSync(pkgDir)) {
     console.error(`[错误] 分发包目录不存在: ${pkgDir}`);
-    console.error('请先执行 build:bundle、build:runtime、build:deps、build:seed');
+    console.error(
+      '请先执行 build:bundle、build:runtime、build:deps、build:seed'
+    );
     process.exit(1);
   }
 
@@ -134,7 +136,8 @@ function main(): void {
         }
       } else {
         const destDir2 = path.dirname(dest);
-        if (!fs.existsSync(destDir2)) fs.mkdirSync(destDir2, { recursive: true });
+        if (!fs.existsSync(destDir2))
+          fs.mkdirSync(destDir2, { recursive: true });
         fs.copyFileSync(src, dest);
       }
     };

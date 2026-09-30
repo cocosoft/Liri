@@ -19,8 +19,8 @@ const __dirname = dirname(__filename);
  */
 function findGitDir(): string | null {
   const searchPaths = [
-    join(__dirname, '..', '..', '.git'),    // 项目根目录
-    join(__dirname, '..', '.git'),            // app 目录
+    join(__dirname, '..', '..', '.git'), // 项目根目录
+    join(__dirname, '..', '.git'), // app 目录
   ];
   for (const p of searchPaths) {
     if (existsSync(p)) return p;

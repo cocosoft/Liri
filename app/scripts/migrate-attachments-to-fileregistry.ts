@@ -119,13 +119,16 @@ export async function migrateAttachments(): Promise<MigrationStats> {
           content: fileContent,
           source: mapSource(row.source),
           sourceId: row.attachment_id,
-          description: row.description || `从 attachments_sources 迁移 (id=${row.id})`,
+          description:
+            row.description || `从 attachments_sources 迁移 (id=${row.id})`,
           mimeType: row.mime_type || 'application/octet-stream',
           storeZone: 'inbound',
         });
 
         stats.migrated++;
-        logger.info(`迁移成功: ${row.file_path} (attachment_id=${row.attachment_id})`);
+        logger.info(
+          `迁移成功: ${row.file_path} (attachment_id=${row.attachment_id})`
+        );
       } catch (err) {
         stats.failed++;
         const msg = `迁移失败: ${row.file_path || row.attachment_id} - ${(err as Error).message}`;

@@ -51,7 +51,9 @@ async function benchFirstPacket(): Promise<void> {
           reject(err);
         });
       });
-      console.log(`  #${i + 1}: ${latencies[latencies.length - 1].toFixed(0)}ms`);
+      console.log(
+        `  #${i + 1}: ${latencies[latencies.length - 1].toFixed(0)}ms`
+      );
     } catch (err) {
       console.error(`  #${i + 1} 失败: ${String(err)}`);
     } finally {
@@ -61,8 +63,12 @@ async function benchFirstPacket(): Promise<void> {
   if (latencies.length > 0) {
     const sorted = [...latencies].sort((a, b) => a - b);
     const p95v = p95(sorted);
-    console.log(`\n  结果: 样本=${latencies.length} P50=${sorted[Math.floor(sorted.length / 2)].toFixed(0)}ms P95=${p95v.toFixed(0)}ms max=${Math.max(...latencies).toFixed(0)}ms`);
-    console.log(`  验收: P95 ≤ 800ms → ${p95v <= 800 ? '✅ 通过' : '❌ 未通过'}`);
+    console.log(
+      `\n  结果: 样本=${latencies.length} P50=${sorted[Math.floor(sorted.length / 2)].toFixed(0)}ms P95=${p95v.toFixed(0)}ms max=${Math.max(...latencies).toFixed(0)}ms`
+    );
+    console.log(
+      `  验收: P95 ≤ 800ms → ${p95v <= 800 ? '✅ 通过' : '❌ 未通过'}`
+    );
   }
 }
 
@@ -87,12 +93,15 @@ async function benchPoolReuse(): Promise<void> {
   provider.stop?.();
   if (times.length >= 2) {
     const first = times[0];
-    const reusedAvg = times.slice(1).reduce((a, b) => a + b, 0) / (times.length - 1);
+    const reusedAvg =
+      times.slice(1).reduce((a, b) => a + b, 0) / (times.length - 1);
     const savePct = ((first - reusedAvg) / first) * 100;
     console.log(
       `\n  结果: 新建连接=${first.toFixed(0)}ms 复用平均=${reusedAvg.toFixed(0)}ms 收益=${savePct.toFixed(1)}% (${(first - reusedAvg).toFixed(0)}ms)`
     );
-    console.log(`  验收: 复用显著提速 → ${savePct > 10 ? '✅ 收益显著' : savePct > 0 ? '✅ 有收益（<10%）' : '⚠️ 无收益'}`);
+    console.log(
+      `  验收: 复用显著提速 → ${savePct > 10 ? '✅ 收益显著' : savePct > 0 ? '✅ 有收益（<10%）' : '⚠️ 无收益'}`
+    );
   }
 }
 

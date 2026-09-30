@@ -59,7 +59,9 @@ if (!existsSync(dbPath)) {
 
 const db = new Database(dbPath);
 const hasTable = db
-  .query(`SELECT name FROM sqlite_master WHERE type='table' AND name='taor_checkpoints'`)
+  .query(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='taor_checkpoints'`
+  )
   .all().length;
 
 if (!hasTable) {
@@ -70,9 +72,10 @@ if (!hasTable) {
 
 /** 启发式标注（仅供参考，不参与删除判定）：taskId 形态或非典型会话 id 形态 */
 function advisoryFlag(sessionId: string): boolean {
-  const isTypicalSessionId = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-    sessionId
-  );
+  const isTypicalSessionId =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+      sessionId
+    );
   if (isTypicalSessionId) return false;
   return (
     /^(pdca_|session:|task_|goal_|plan_|lrto_)/i.test(sessionId) ||
@@ -95,7 +98,11 @@ if (apply) {
   const del = db.query(`DELETE FROM taor_checkpoints WHERE session_id = ?`);
   for (const sid of sessionFilters) {
     const before = (
-      db.query(`SELECT COUNT(*) AS c FROM taor_checkpoints WHERE session_id = ?`).get(sid) as {
+      db
+        .query(
+          `SELECT COUNT(*) AS c FROM taor_checkpoints WHERE session_id = ?`
+        )
+        .get(sid) as {
         c: number;
       }
     ).c;
@@ -126,7 +133,9 @@ const goalRows = db
   .query(`SELECT COUNT(*) AS rows FROM taor_checkpoints WHERE kind = 'goal'`)
   .get() as { rows: number };
 
-console.log(`\n=== taor_checkpoints 存量分布（总行数 ${totals.rows}，其中 goal=${goalRows.rows}）===`);
+console.log(
+  `\n=== taor_checkpoints 存量分布（总行数 ${totals.rows}，其中 goal=${goalRows.rows}）===`
+);
 if (groups.length === 0) {
   console.log('（空）');
 } else {
@@ -135,7 +144,9 @@ if (groups.length === 0) {
     `${pad('session_id', 48)} | ${pad('kind', 6)} | ${pad('rows', 4)} | 时间窗(本地)`
   );
   for (const g of groups) {
-    const flag = advisoryFlag(g.session_id) ? '  ⚠ 疑 taskId 形态(启发式,仅供参考)' : '';
+    const flag = advisoryFlag(g.session_id)
+      ? '  ⚠ 疑 taskId 形态(启发式,仅供参考)'
+      : '';
     console.log(
       `${pad(g.session_id, 48)} | ${pad(g.kind ?? 'NULL', 6)} | ${pad(String(g.rows), 4)} | ` +
         `${new Date(g.first_at).toLocaleString()} ~ ${new Date(g.last_at).toLocaleString()}${flag}`

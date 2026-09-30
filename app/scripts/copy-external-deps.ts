@@ -76,7 +76,9 @@ function trimPdfjsDist(depsDir: string): void {
     fs.rmSync(modernBuildDir, { recursive: true, force: true });
     const sizeAfter = getDirSize(pdfjsDir);
     const savedMB = ((sizeBefore - sizeAfter) / 1024 / 1024).toFixed(1);
-    console.log(`[裁剪] pdfjs-dist: 删除 modern build/ 目录，节省 ${savedMB} MB`);
+    console.log(
+      `[裁剪] pdfjs-dist: 删除 modern build/ 目录，节省 ${savedMB} MB`
+    );
   }
 }
 
@@ -110,13 +112,19 @@ function main(): void {
   }
 
   // 自动检测：如果目标目录以 pkg 结尾，则为 bundle 模式
-  if (targetDir.endsWith('pkg') || targetDir.endsWith('pkg\\') || targetDir.endsWith('pkg/')) {
+  if (
+    targetDir.endsWith('pkg') ||
+    targetDir.endsWith('pkg\\') ||
+    targetDir.endsWith('pkg/')
+  ) {
     bundleMode = true;
   }
 
   console.log('\n=== 复制外部依赖到输出目录 ===');
   console.log(`目标目录: ${targetDir}`);
-  console.log(`模式: ${bundleMode ? 'bundle (node_modules/)' : 'compile (deps/node_modules/)'}`);
+  console.log(
+    `模式: ${bundleMode ? 'bundle (node_modules/)' : 'compile (deps/node_modules/)'}`
+  );
 
   if (!fs.existsSync(targetDir)) {
     console.error(`[错误] 输出目录不存在: ${targetDir}`);
@@ -194,7 +202,9 @@ function main(): void {
     }
   }
 
-  console.log(`\n完成: 已复制 ${copiedCount}/${EXTERNAL_DEPS.length} 个外部依赖`);
+  console.log(
+    `\n完成: 已复制 ${copiedCount}/${EXTERNAL_DEPS.length} 个外部依赖`
+  );
 
   // 裁剪 pdfjs-dist：仅保留 legacy/ 构建，删除 modern build/ 目录
   // 项目统一使用 pdfjs-dist/legacy/build/pdf，modern build/ 约 150MB 无需携带

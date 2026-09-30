@@ -134,12 +134,14 @@ async function main(): Promise<void> {
     | (new () => { getAllMemories: () => Promise<unknown[]> })
     | undefined;
   if (ctor) {
-    const all = await ctor.prototype.getAllMemories
+    const all = (await ctor.prototype.getAllMemories)
       ? await new ctor().getAllMemories()
       : [];
     out(`[probe] memories=${all.length} trackedTimers=${recs.size}`);
   } else {
-    out(`[probe] 该模块无 MemoryManagerImpl，仅观测导入副作用 trackedTimers=${recs.size}`);
+    out(
+      `[probe] 该模块无 MemoryManagerImpl，仅观测导入副作用 trackedTimers=${recs.size}`
+    );
   }
 
   // 给"短命定时器"一点时间自行触发，避免把已完成的计时器误报为存活
@@ -152,12 +154,15 @@ async function main(): Promise<void> {
     alive.push(r);
   }
 
-  out(`[probe] 仍存活定时器=${alive.length}（已排除 cleared 与已触发的 timeout）`);
+  out(
+    `[probe] 仍存活定时器=${alive.length}（已排除 cleared 与已触发的 timeout）`
+  );
   alive.forEach((r, i) => {
     out(
-      `\n[timer ${i + 1}] ${r.kind} ms=${r.ms} unrefed=${r.unrefed} fired=${r.fired}\n${
-        r.stack.split('\n').slice(0, 7).join('\n')
-      }`
+      `\n[timer ${i + 1}] ${r.kind} ms=${r.ms} unrefed=${r.unrefed} fired=${r.fired}\n${r.stack
+        .split('\n')
+        .slice(0, 7)
+        .join('\n')}`
     );
   });
 

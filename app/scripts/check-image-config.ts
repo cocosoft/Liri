@@ -13,7 +13,10 @@ const paths = [
 
 let dbPath = '';
 for (const p of paths) {
-  if (existsSync(p)) { dbPath = p; break; }
+  if (existsSync(p)) {
+    dbPath = p;
+    break;
+  }
 }
 console.log('DB path:', dbPath);
 
@@ -29,11 +32,19 @@ const configs = db.query(`SELECT * FROM app_model_config`).all();
 console.log(JSON.stringify(configs, null, 2));
 
 console.log('\n=== ai_providers (所有) ===');
-const providers = db.query(`SELECT id, name, provider_type, base_url, api_key LIKE ? as has_key FROM ai_providers`).all('%sk%');
+const providers = db
+  .query(
+    `SELECT id, name, provider_type, base_url, api_key LIKE ? as has_key FROM ai_providers`
+  )
+  .all('%sk%');
 console.log(JSON.stringify(providers, null, 2));
 
 console.log('\n=== model_registry (带 image 能力) ===');
-const imageModels = db.query(`SELECT id, model_id, name, provider_id, capabilities FROM model_registry WHERE capabilities LIKE '%image%' OR capabilities LIKE '%generation%' LIMIT 20`).all();
+const imageModels = db
+  .query(
+    `SELECT id, model_id, name, provider_id, capabilities FROM model_registry WHERE capabilities LIKE '%image%' OR capabilities LIKE '%generation%' LIMIT 20`
+  )
+  .all();
 console.log(JSON.stringify(imageModels, null, 2));
 
 db.close();

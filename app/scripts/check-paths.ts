@@ -43,11 +43,7 @@ const CWD_ALLOWLIST: string[] = [
 ];
 
 /** 需要排除的目录 */
-const EXCLUDE_DIRS = new Set([
-  'node_modules',
-  'dist',
-  '.git',
-]);
+const EXCLUDE_DIRS = new Set(['node_modules', 'dist', '.git']);
 
 interface Violation {
   file: string;
@@ -104,14 +100,17 @@ function checkFile(filePath: string, relPath: string): Violation[] {
         line: lineNum,
         content: trimmed,
         severity: 'error',
-        message: '禁止使用 __dirname，编译 exe 后指向临时目录，改用 resolveProjectRoot()',
+        message:
+          '禁止使用 __dirname，编译 exe 后指向临时目录，改用 resolveProjectRoot()',
       });
     }
 
     if (/process\.cwd\(\)/.test(trimmed)) {
       const isPathJoin = /join\s*\(\s*process\.cwd\(\)/.test(trimmed);
       const isPathResolve = /resolve\s*\(\s*process\.cwd\(\)/.test(trimmed);
-      const isPathConcat = /\+\s*process\.cwd\(\)/.test(trimmed) || /process\.cwd\(\)\s*\+/.test(trimmed);
+      const isPathConcat =
+        /\+\s*process\.cwd\(\)/.test(trimmed) ||
+        /process\.cwd\(\)\s*\+/.test(trimmed);
 
       if ((isPathJoin || isPathResolve || isPathConcat) && !isCwdAllowlisted) {
         violations.push({
@@ -119,7 +118,8 @@ function checkFile(filePath: string, relPath: string): Violation[] {
           line: lineNum,
           content: trimmed,
           severity: 'warn',
-          message: 'process.cwd() 用于路径拼接，可能是数据持久化操作，请改用 config/paths.ts 的函数',
+          message:
+            'process.cwd() 用于路径拼接，可能是数据持久化操作，请改用 config/paths.ts 的函数',
         });
       }
     }
@@ -140,7 +140,9 @@ function validateAllowlist(): void {
     }
     const content = fs.readFileSync(filePath, 'utf-8');
     if (!content.includes('已知风险')) {
-      console.warn(`  ⚠️  白名单文件 ${relPath} 缺少"已知风险"标注，请确认是否仍需要使用 __dirname`);
+      console.warn(
+        `  ⚠️  白名单文件 ${relPath} 缺少"已知风险"标注，请确认是否仍需要使用 __dirname`
+      );
     }
   }
 }
@@ -164,7 +166,10 @@ function countProcessCwd(files: string[]): {
 
     let fileCount = 0;
     for (let i = 0; i < lines.length; i++) {
-      if (/process\.cwd\(\)/.test(lines[i]) && !/^\s*(\/\/|\*)/.test(lines[i])) {
+      if (
+        /process\.cwd\(\)/.test(lines[i]) &&
+        !/^\s*(\/\/|\*)/.test(lines[i])
+      ) {
         fileCount++;
       }
     }
@@ -218,7 +223,9 @@ function main(): void {
   }
 
   if (warnings.length > 0) {
-    console.log(`⚠️  [警告] 发现 ${warnings.length} 个 process.cwd() 路径拼接：`);
+    console.log(
+      `⚠️  [警告] 发现 ${warnings.length} 个 process.cwd() 路径拼接：`
+    );
     console.log('');
     for (const v of warnings) {
       console.log(`  ${v.file}:${v.line}`);
@@ -233,7 +240,9 @@ function main(): void {
   console.log(`    扫描文件数:           ${files.length}`);
   console.log(`    process.cwd() 总计:   ${cwdStats.total} 处使用`);
   if (cwdStats.allowlisted > 0) {
-    console.log(`      白名单内:          ${cwdStats.allowlisted} 处（引导层/测试文件）`);
+    console.log(
+      `      白名单内:          ${cwdStats.allowlisted} 处（引导层/测试文件）`
+    );
   }
   if (cwdStats.unlisted > 0) {
     console.log(`      未分类（安全使用）:  ${cwdStats.unlisted} 处`);
@@ -251,7 +260,9 @@ function main(): void {
 
   if (errors.length > 0) {
     console.log('');
-    console.log('❌ 路径安全检查未通过：存在违规使用 __dirname，请修复后重试。');
+    console.log(
+      '❌ 路径安全检查未通过：存在违规使用 __dirname，请修复后重试。'
+    );
     process.exit(1);
   }
 

@@ -59,7 +59,9 @@ function main(): void {
 
   if (!existsSync(LCOV_FILE)) {
     console.error(`[coverage-check] 错误: 未找到覆盖率文件 ${LCOV_FILE}`);
-    console.error('[coverage-check] 请先执行: bun test --coverage --coverage-reporter=lcov');
+    console.error(
+      '[coverage-check] 请先执行: bun test --coverage --coverage-reporter=lcov'
+    );
     process.exit(1);
   }
 
@@ -73,14 +75,20 @@ function main(): void {
   const coveragePercent = (coveredLines / totalLines) * 100;
   const rounded = Math.round(coveragePercent * 100) / 100;
 
-  console.log(`[coverage-check] 行覆盖率: ${coveredLines}/${totalLines} = ${rounded}%`);
+  console.log(
+    `[coverage-check] 行覆盖率: ${coveredLines}/${totalLines} = ${rounded}%`
+  );
   console.log(`[coverage-check] 阈值: ${threshold}%`);
 
   if (coveragePercent >= threshold) {
-    console.log(`[coverage-check] ✅ 通过 — 覆盖率 ${rounded}% >= ${threshold}%`);
+    console.log(
+      `[coverage-check] ✅ 通过 — 覆盖率 ${rounded}% >= ${threshold}%`
+    );
     process.exit(0);
   } else {
-    console.error(`[coverage-check] ❌ 失败 — 覆盖率 ${rounded}% < ${threshold}%`);
+    console.error(
+      `[coverage-check] ❌ 失败 — 覆盖率 ${rounded}% < ${threshold}%`
+    );
     process.exit(1);
   }
 }

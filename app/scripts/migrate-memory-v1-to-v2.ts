@@ -95,7 +95,11 @@ async function main(): Promise<void> {
 
     try {
       // 截取标题（第一行或前 100 字符）
-      const firstLine = section.split('\n')[0].replace(/^#+\s*/, '').slice(0, 80) || 'Memory';
+      const firstLine =
+        section
+          .split('\n')[0]
+          .replace(/^#+\s*/, '')
+          .slice(0, 80) || 'Memory';
       await manager.createMemory({
         content: section,
         metadata: {
@@ -115,7 +119,9 @@ async function main(): Promise<void> {
     }
   }
 
-  log(`导入完成: 成功 ${result.created}, 跳过 ${result.skipped}, 失败 ${result.failed}`);
+  log(
+    `导入完成: 成功 ${result.created}, 跳过 ${result.skipped}, 失败 ${result.failed}`
+  );
 
   // 5. 全量校验
   const allMemories = await manager.getAllMemories();
@@ -136,12 +142,14 @@ async function main(): Promise<void> {
 
   log('========================');
   log(`迁移${result.success ? '成功' : '失败'}，共 ${result.verified} 条记忆`);
-  log(`日志已保存到: migration-${new Date().toISOString().replace(/[:.]/g, '-')}.log`);
+  log(
+    `日志已保存到: migration-${new Date().toISOString().replace(/[:.]/g, '-')}.log`
+  );
 
   // 7. 写入日志文件
   const logPath = join(
     process.cwd(),
-    `migration-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.log`,
+    `migration-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.log`
   );
   await writeFile(logPath, logLines.join('\n'), 'utf-8');
 }

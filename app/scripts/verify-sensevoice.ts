@@ -47,19 +47,17 @@ function synthWav(durationSec: number): Buffer {
   const fade = Math.floor(0.05 * sampleRate);
   for (let i = 0; i < n; i++) {
     const t = i / sampleRate;
-    const env =
-      i < fade
-        ? i / fade
-        : i > n - fade
-          ? (n - i) / fade
-          : 1;
+    const env = i < fade ? i / fade : i > n - fade ? (n - i) / fade : 1;
     const sample =
       env *
       (0.5 * Math.sin(2 * Math.PI * 220 * t) +
         0.25 * Math.sin(2 * Math.PI * 440 * t) +
         0.1 * Math.sin(2 * Math.PI * 880 * t));
     const clamped = Math.max(-1, Math.min(1, sample));
-    buf.writeInt16LE(clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, 44 + i * 2);
+    buf.writeInt16LE(
+      clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff,
+      44 + i * 2
+    );
   }
   return buf;
 }
@@ -83,7 +81,9 @@ async function main(): Promise<void> {
   const elapsed = performance.now() - t0;
 
   console.log(`耗时: ${elapsed.toFixed(0)}ms`);
-  console.log(`result: text='${result.text}' confidence=${result.confidence} duration=${result.duration}s`);
+  console.log(
+    `result: text='${result.text}' confidence=${result.confidence} duration=${result.duration}s`
+  );
   console.log(`provider=${result.provider} isFinal=${result.isFinal}`);
 
   if (result.error) {

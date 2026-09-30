@@ -79,7 +79,9 @@ function runCheck(): void {
   if (diffs.length > 0) {
     console.log('=== i18n 快照差异 ===');
     console.log(diffs.join('\n'));
-    console.log('\n⚠ 翻译快照已变更，如果是预期修改请运行: bun run i18n:snapshot');
+    console.log(
+      '\n⚠ 翻译快照已变更，如果是预期修改请运行: bun run i18n:snapshot'
+    );
     process.exit(1);
   }
 
@@ -92,7 +94,11 @@ function runSnapshot(): void {
 
   const current = registry.exportAsJSON();
 
-  writeFileSync(SNAPSHOT_FILE, JSON.stringify(current, null, 2) + '\n', 'utf-8');
+  writeFileSync(
+    SNAPSHOT_FILE,
+    JSON.stringify(current, null, 2) + '\n',
+    'utf-8'
+  );
 
   const keyCount = Object.keys(current).length;
   console.log(`✓ 翻译快照已更新: ${SNAPSHOT_FILE} (${keyCount} keys)`);

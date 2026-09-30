@@ -15,8 +15,7 @@ function arg(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-const logPath =
-  arg('log') ?? 'C:\\Users\\csdnc\\.pyapp\\data\\logs\\app.log';
+const logPath = arg('log') ?? 'C:\\Users\\csdnc\\.pyapp\\data\\logs\\app.log';
 const from = arg('from') ?? '00:00:00';
 const to = arg('to') ?? '23:59:59';
 const reSrc = arg('re');
@@ -27,7 +26,9 @@ const lines = readFileSync(logPath, 'utf-8').split('\n');
 let shown = 0;
 for (const line of lines) {
   if (!line.trim()) continue;
-  const tm = line.match(/"timestamp":"([^"]+)"\s*,\s*"level":"([^"]+)"\s*,\s*"module":"([^"]+)"\s*,\s*"message":"((?:[^"\\]|\\.)*)"/);
+  const tm = line.match(
+    /"timestamp":"([^"]+)"\s*,\s*"level":"([^"]+)"\s*,\s*"module":"([^"]+)"\s*,\s*"message":"((?:[^"\\]|\\.)*)"/
+  );
   if (!tm) continue;
   const time = tm[1].slice(11, 19); // HH:mm:ss (UTC)
   if (time < from || time > to) continue;
@@ -41,7 +42,9 @@ for (const line of lines) {
     meta = metaM[1];
     if (meta.length > 160) meta = meta.slice(0, 160);
   }
-  console.log(`${time} [${level}] ${module}: ${message}${meta ? ' ' + meta : ''}`);
+  console.log(
+    `${time} [${level}] ${module}: ${message}${meta ? ' ' + meta : ''}`
+  );
   shown++;
   if (shown >= head) break;
 }

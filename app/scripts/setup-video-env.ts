@@ -13,7 +13,13 @@
 
 import { Database } from 'bun:sqlite';
 import { randomUUID } from 'crypto';
-import { readFileSync, writeFileSync, copyFileSync, existsSync, mkdirSync } from 'fs';
+import {
+  readFileSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+} from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 
@@ -27,12 +33,18 @@ const BACKUP_DIR = join(homedir(), '.pyapp', 'data', 'backups', 'app');
 
 console.log('📦 备份数据库...');
 if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true });
-const backupPath = join(BACKUP_DIR, `app-${new Date().toISOString().replace(/:/g, '-')}.db`);
+const backupPath = join(
+  BACKUP_DIR,
+  `app-${new Date().toISOString().replace(/:/g, '-')}.db`
+);
 copyFileSync(DB_PATH, backupPath);
 console.log(`  已备份到: ${backupPath}`);
 
 // 备份 config.json
-const configBackupPath = join(BACKUP_DIR, `config-${new Date().toISOString().replace(/:/g, '-')}.json`);
+const configBackupPath = join(
+  BACKUP_DIR,
+  `config-${new Date().toISOString().replace(/:/g, '-')}.json`
+);
 copyFileSync(CONFIG_PATH, configBackupPath);
 console.log(`  已备份 config.json 到: ${configBackupPath}`);
 
@@ -48,7 +60,9 @@ const db = new Database(DB_PATH);
 
 console.log('\n🔧 修复 Wan-AI 模型 capabilities...');
 const wanModel = db
-  .prepare("SELECT id, model_id, capabilities FROM model_registry WHERE model_id = 'Wan-AI/Wan2.2-I2V-A14B'")
+  .prepare(
+    "SELECT id, model_id, capabilities FROM model_registry WHERE model_id = 'Wan-AI/Wan2.2-I2V-A14B'"
+  )
   .get() as any;
 
 if (wanModel) {
@@ -57,14 +71,20 @@ if (wanModel) {
   const needsImageGen = !currentCaps.includes('image_generation');
 
   if (needsVideoGen || needsImageGen) {
-    const newCaps = [...new Set([...currentCaps, 'video_generation', 'image_generation'])];
+    const newCaps = [
+      ...new Set([...currentCaps, 'video_generation', 'image_generation']),
+    ];
     db.prepare('UPDATE model_registry SET capabilities = ? WHERE id = ?').run(
       JSON.stringify(newCaps),
       wanModel.id
     );
-    console.log(`  ✅ Wan-AI capabilities: ${JSON.stringify(currentCaps)} → ${JSON.stringify(newCaps)}`);
+    console.log(
+      `  ✅ Wan-AI capabilities: ${JSON.stringify(currentCaps)} → ${JSON.stringify(newCaps)}`
+    );
   } else {
-    console.log(`  ✅ Wan-AI capabilities 已正确: ${JSON.stringify(currentCaps)}`);
+    console.log(
+      `  ✅ Wan-AI capabilities 已正确: ${JSON.stringify(currentCaps)}`
+    );
   }
 } else {
   console.log('  ❌ 未找到 Wan-AI/Wan2.2-I2V-A14B 模型');
@@ -87,10 +107,12 @@ if (existingFal) {
 } else {
   falProviderId = randomUUID();
   const now = Math.floor(Date.now() / 1000);
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO ai_providers (id, name, provider_type, api_key, base_url, is_active, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `
+  ).run(
     falProviderId,
     'FAL.ai',
     'fal',
@@ -109,7 +131,9 @@ if (existingFal) {
 
 console.log('\n🔧 注册 FAL 视频模型...');
 const existingKling = db
-  .prepare("SELECT id FROM model_registry WHERE model_id = 'fal-ai/kling-video/v2.1'")
+  .prepare(
+    "SELECT id FROM model_registry WHERE model_id = 'fal-ai/kling-video/v2.1'"
+  )
   .get() as any;
 
 if (existingKling) {
@@ -117,12 +141,14 @@ if (existingKling) {
 } else {
   const klingId = randomUUID();
   const now = Math.floor(Date.now() / 1000);
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO model_registry (id, model_id, display_name, context_window, max_output_tokens,
       capabilities, provider_mappings, input_price, output_price, cache_read_price, cache_write_price,
       provider_id, enabled, is_custom, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `
+  ).run(
     klingId,
     'fal-ai/kling-video/v2.1',
     'Kling 2.1 (FAL)',
@@ -130,13 +156,13 @@ if (existingKling) {
     4096,
     JSON.stringify(['video_generation', 'image_generation']),
     '{}',
-    0.5,  // input_price
-    0,    // output_price
-    0,    // cache_read_price
-    0,    // cache_write_price
+    0.5, // input_price
+    0, // output_price
+    0, // cache_read_price
+    0, // cache_write_price
     falProviderId,
-    1,    // enabled
-    1,    // is_custom
+    1, // enabled
+    1, // is_custom
     now,
     now
   );
@@ -169,7 +195,9 @@ console.log('\n=== 验证结果 ===');
 // 6.1 视频模型
 console.log('\n📋 视频生成模型:');
 const videoModels = db
-  .query("SELECT model_id, display_name, capabilities, enabled, provider_id FROM model_registry WHERE capabilities LIKE '%video_generation%'")
+  .query(
+    "SELECT model_id, display_name, capabilities, enabled, provider_id FROM model_registry WHERE capabilities LIKE '%video_generation%'"
+  )
   .all() as any[];
 videoModels.forEach((m: any) => {
   const caps = JSON.parse(m.capabilities || '[]');
@@ -197,9 +225,13 @@ console.log('\n📋 环境变量:');
 const falKey = process.env.FAL_KEY || process.env.FAL_API_KEY;
 console.log(`  FAL_KEY: ${falKey ? '✅ 已设置' : '⚠️ 未设置 (文生视频需要)'}`);
 const siliconKey = process.env.SILICONFLOW_API_KEY;
-console.log(`  SILICONFLOW_API_KEY: ${siliconKey ? '✅ 已设置' : '⚠️ 未设置 (图生视频需要)'}`);
+console.log(
+  `  SILICONFLOW_API_KEY: ${siliconKey ? '✅ 已设置' : '⚠️ 未设置 (图生视频需要)'}`
+);
 
 db.close();
 
 console.log('\n=== 配置完成 ===');
-console.log('运行测试: cd app && bun test src/tools/VideoGenerateTool/__tests__/VideoGenerateTool.test.ts');
+console.log(
+  '运行测试: cd app && bun test src/tools/VideoGenerateTool/__tests__/VideoGenerateTool.test.ts'
+);

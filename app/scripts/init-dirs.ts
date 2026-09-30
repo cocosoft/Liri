@@ -86,7 +86,9 @@ function main(): void {
     console.log(`  [种子] USER.md`);
   }
 
-  console.log(`\n完成: 新建 ${created}，已存在 ${existed}，总计 ${ROOT_LEVEL_DIRS.length}`);
+  console.log(
+    `\n完成: 新建 ${created}，已存在 ${existed}，总计 ${ROOT_LEVEL_DIRS.length}`
+  );
 }
 
 main();

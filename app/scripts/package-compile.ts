@@ -61,7 +61,8 @@ function getDirSizeMB(dirPath: string): string {
 
 function main(): void {
   const args = process.argv.slice(2);
-  let platform = process.platform === 'win32' ? 'win-x64' : process.platform + '-x64';
+  let platform =
+    process.platform === 'win32' ? 'win-x64' : process.platform + '-x64';
 
   for (const arg of args) {
     if (arg.startsWith('--platform=')) {
@@ -85,7 +86,8 @@ function main(): void {
   }
 
   // ── 产物完整性校验（与 copy-external-deps 校验对齐）──
-  const exeName = process.platform === 'win32' ? 'liri_terminal.exe' : 'liri_terminal';
+  const exeName =
+    process.platform === 'win32' ? 'liri_terminal.exe' : 'liri_terminal';
   const exePath = path.join(targetDir, exeName);
   if (!fs.existsSync(exePath)) {
     console.error(`[错误] 未找到可执行文件: ${exePath}`);

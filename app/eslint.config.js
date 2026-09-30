@@ -142,6 +142,10 @@ export default [
       'src/docs/**/*.ts',
       // 脚本工具
       'src/scripts/**/*.ts',
+      // D-137（2026-09-30）：**顶层 `scripts/**`**（构建 / 运维 / 迁移脚本，~60 文件）此前不在
+      // eslint 的 tsconfig project 内 ⇒ 根本无法 lint（补网后实测 631 处 `no-console`）。
+      // 这些是 CLI 脚本，本就应允许终端打印 ⇒ 与 `src/scripts/**` 同口径豁免。
+      'scripts/**/*.ts',
     ],
     rules: {
       'no-console': 'off'

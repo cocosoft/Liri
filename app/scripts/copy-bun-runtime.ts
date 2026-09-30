@@ -96,7 +96,12 @@ function findBunExe(): string | null {
 
   // 4. node_modules 中的 bun
   const nodeModulesBun = path.resolve(
-    __dirname, '..', 'node_modules', 'bun', 'bin', 'bun'
+    __dirname,
+    '..',
+    'node_modules',
+    'bun',
+    'bin',
+    'bun'
   );
   candidates.push(nodeModulesBun);
   // Windows 备选
@@ -137,7 +142,9 @@ function main(): void {
   }
 
   console.log(`找到 Bun: ${bunExePath}`);
-  console.log(`版本: ${execSync(`"${bunExePath}" --version`, { encoding: 'utf-8' }).trim()}`);
+  console.log(
+    `版本: ${execSync(`"${bunExePath}" --version`, { encoding: 'utf-8' }).trim()}`
+  );
 
   // 创建 runtime 目录
   const runtimeDir = path.join(targetDir, 'runtime');

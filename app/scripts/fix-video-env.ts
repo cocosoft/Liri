@@ -28,14 +28,17 @@ console.log('=== 视频生成环境修复 ===\n');
 // ================================================================
 console.log('1. 修复 SiliconFlow base_url...');
 const silicon = db
-  .query("SELECT id, name, base_url FROM ai_providers WHERE provider_type = 'siliconflow'")
+  .query(
+    "SELECT id, name, base_url FROM ai_providers WHERE provider_type = 'siliconflow'"
+  )
   .get() as any;
 
 if (silicon) {
   const correctBaseUrl = 'https://api.siliconflow.cn/v1';
   if (silicon.base_url !== correctBaseUrl) {
-    db.prepare('UPDATE ai_providers SET base_url = ?, updated_at = ? WHERE id = ?')
-      .run(correctBaseUrl, now, silicon.id);
+    db.prepare(
+      'UPDATE ai_providers SET base_url = ?, updated_at = ? WHERE id = ?'
+    ).run(correctBaseUrl, now, silicon.id);
     console.log(`   ✅ base_url: "${silicon.base_url}" → "${correctBaseUrl}"`);
   } else {
     console.log(`   ✅ base_url 已正确: "${silicon.base_url}"`);
@@ -51,19 +54,21 @@ console.log('\n2. 注册 T2V 模型...');
 
 const t2vModelId = 'Lightricks/LTX-Video';
 const existingT2V = db
-  .query("SELECT id FROM model_registry WHERE model_id = ?")
+  .query('SELECT id FROM model_registry WHERE model_id = ?')
   .get(t2vModelId) as any;
 
 if (existingT2V) {
   console.log(`   ✅ ${t2vModelId} 已存在: ${existingT2V.id}`);
 } else if (silicon) {
   const t2vId = randomUUID();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO model_registry (id, model_id, display_name, context_window, max_output_tokens,
       capabilities, provider_mappings, input_price, output_price, cache_read_price, cache_write_price,
       provider_id, enabled, is_custom, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `
+  ).run(
     t2vId,
     t2vModelId,
     'LTX-Video (SiliconFlow)',
@@ -110,11 +115,16 @@ console.log('\n=== 验证结果 ===');
 
 console.log('\n📋 视频生成模型:');
 const videoModels = db
-  .query("SELECT model_id, display_name, capabilities, enabled, provider_id FROM model_registry WHERE capabilities LIKE '%video_generation%'")
+  .query(
+    "SELECT model_id, display_name, capabilities, enabled, provider_id FROM model_registry WHERE capabilities LIKE '%video_generation%'"
+  )
   .all() as any[];
 videoModels.forEach((m: any) => {
   const caps = JSON.parse(m.capabilities || '[]');
-  const prov = db.query("SELECT name, provider_type, base_url, is_active FROM ai_providers WHERE id = ?")
+  const prov = db
+    .query(
+      'SELECT name, provider_type, base_url, is_active FROM ai_providers WHERE id = ?'
+    )
     .get(m.provider_id) as any;
   console.log(`  ${m.model_id} (${m.display_name || '-'})`);
   console.log(`    capabilities: ${JSON.stringify(caps)}`);
@@ -136,4 +146,6 @@ db.close();
 
 console.log('\n=== 修复完成 ===');
 console.log('\n运行测试:');
-console.log('  cd app && bun test src/tools/VideoGenerateTool/__tests__/VideoGenerateTool.test.ts');
+console.log(
+  '  cd app && bun test src/tools/VideoGenerateTool/__tests__/VideoGenerateTool.test.ts'
+);

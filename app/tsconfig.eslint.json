@@ -8,6 +8,7 @@
     "src/**/*",
     "tests/**/*",
     "packages/**/*",
+    "scripts/**/*",
     "eslint.config.js",
     ".eslintrc.json"
   ],

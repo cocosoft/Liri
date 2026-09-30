@@ -14,7 +14,7 @@ const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
 if (config.models && config.models.tasks) {
   // 从嵌套结构中提取正确的 tasks
   const tasks = config.models.tasks;
-  
+
   // 清理嵌套的 tasks.tasks.tasks...
   const cleanTasks: Record<string, string> = {};
   const extractTasks = (obj: any) => {
@@ -29,12 +29,12 @@ if (config.models && config.models.tasks) {
     }
   };
   extractTasks(tasks);
-  
+
   // 确保 video 任务存在
   if (!cleanTasks.video) {
     cleanTasks.video = 'Wan-AI/Wan2.2-I2V-A14B';
   }
-  
+
   config.models.tasks = cleanTasks;
   console.log('清理后的 tasks:');
   console.log(JSON.stringify(config.models.tasks, null, 2));

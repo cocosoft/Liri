@@ -216,8 +216,18 @@ function main(): void {
   }
 
   // data/memory/memory-index.json
-  const memoryIndexSrc = path.join(dataRoot, 'data', 'memory', 'memory-index.json');
-  const memoryIndexDest = path.join(targetDataDir, 'data', 'memory', 'memory-index.json');
+  const memoryIndexSrc = path.join(
+    dataRoot,
+    'data',
+    'memory',
+    'memory-index.json'
+  );
+  const memoryIndexDest = path.join(
+    targetDataDir,
+    'data',
+    'memory',
+    'memory-index.json'
+  );
   if (fs.existsSync(memoryIndexSrc)) {
     if (!fs.existsSync(path.dirname(memoryIndexDest))) {
       fs.mkdirSync(path.dirname(memoryIndexDest), { recursive: true });

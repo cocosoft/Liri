@@ -73,10 +73,7 @@ async function main(): Promise<void> {
   }));
 
   const consolidator = new MemoryConsolidator();
-  const sizes = [
-    ...LADDER.filter((n) => n < input.length),
-    input.length,
-  ];
+  const sizes = [...LADDER.filter((n) => n < input.length), input.length];
 
   out('[findDuplicates] 子集阶梯计时（Jaccard，默认配置）');
   for (const n of sizes) {
@@ -97,23 +94,23 @@ async function main(): Promise<void> {
   // ── 步骤 3：写入路径的"非去重"成本（saveMemory + saveIndex + saveRelationGraph）──
   // 用 skipConsolidation:true 隔离出去重，量出**修复后写入路径**的真实成本。
   // 注意：此步会**写入一条临时记忆**（随后删除），不再严格"只读" —— 已在此显式说明。
-  out('[step] createMemory(skipConsolidation=true) 计时（写入路径非去重成本）...');
+  out(
+    '[step] createMemory(skipConsolidation=true) 计时（写入路径非去重成本）...'
+  );
   const t2 = performance.now();
   let createdId: string | null = null;
   try {
-    const created = await mm.createMemory(
-      {
-        content: `[bench] 临时基准条目 ${Date.now()}`,
-        metadata: {
-          name: 'bench-temp',
-          description: 'bench-memory-dedup 临时条目（随后删除）',
-          type: 'conversation',
-          tags: ['bench-temp'],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      } as never
-    );
+    const created = await mm.createMemory({
+      content: `[bench] 临时基准条目 ${Date.now()}`,
+      metadata: {
+        name: 'bench-temp',
+        description: 'bench-memory-dedup 临时条目（随后删除）',
+        type: 'conversation',
+        tags: ['bench-temp'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    } as never);
     createdId = created?.id ?? null;
     out(
       `[createMemory] skipConsolidation=true ms=${Math.round(

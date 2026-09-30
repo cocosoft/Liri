@@ -50,7 +50,14 @@ const SERVICE_DISPLAY_NAME = 'Liri Backend Service';
 const SERVICE_DESCRIPTION = 'Liri AI 后端守护进程 — 跨平台 AI 助手服务';
 
 /** 支持的命令列表 */
-const VALID_ACTIONS = ['install', 'uninstall', 'start', 'stop', 'restart', 'status'] as const;
+const VALID_ACTIONS = [
+  'install',
+  'uninstall',
+  'start',
+  'stop',
+  'restart',
+  'status',
+] as const;
 
 type Action = (typeof VALID_ACTIONS)[number];
 
@@ -239,7 +246,9 @@ function findBunPath(): string {
 function getPlatformLabel(forceSchtasks = false): string {
   switch (process.platform) {
     case 'win32':
-      return forceSchtasks || !findNssmPath() ? 'Windows (schtasks)' : 'Windows (nssm)';
+      return forceSchtasks || !findNssmPath()
+        ? 'Windows (schtasks)'
+        : 'Windows (nssm)';
     case 'darwin':
       return 'macOS (launchd)';
     case 'linux':
@@ -277,7 +286,11 @@ function executeAction(service: DaemonService, action: Action): void {
 /**
  * 显示服务详细信息
  */
-function showServiceInfo(service: DaemonService, config: ServiceConfig, forceSchtasks = false): void {
+function showServiceInfo(
+  service: DaemonService,
+  config: ServiceConfig,
+  forceSchtasks = false
+): void {
   const status = service.getStatus();
 
   console.log('');
@@ -322,7 +335,9 @@ function main(): void {
   console.log('═══════════════════════════════════════');
   console.log('  Liri 跨平台服务管理工具');
   console.log(`  平台: ${getPlatformLabel(options.forceSchtasks)}`);
-  console.log(`  模式: ${options.devMode ? '开发模式 (bun)' : '生产模式 (编译二进制)'}`);
+  console.log(
+    `  模式: ${options.devMode ? '开发模式 (bun)' : '生产模式 (编译二进制)'}`
+  );
   console.log('═══════════════════════════════════════\n');
 
   const config = buildServiceConfig(options);

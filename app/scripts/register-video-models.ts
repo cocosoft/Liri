@@ -15,7 +15,9 @@ const now = Math.floor(Date.now() / 1000);
 
 // 获取 SiliconFlow 供应商
 const silicon = db
-  .query("SELECT id FROM ai_providers WHERE provider_type = 'siliconflow' AND is_active = 1")
+  .query(
+    "SELECT id FROM ai_providers WHERE provider_type = 'siliconflow' AND is_active = 1"
+  )
   .get() as any;
 
 if (!silicon) {
@@ -24,29 +26,45 @@ if (!silicon) {
 }
 
 const candidateModels = [
-  { modelId: 'tencent/HunyuanVideo', displayName: 'HunyuanVideo (SiliconFlow)' },
+  {
+    modelId: 'tencent/HunyuanVideo',
+    displayName: 'HunyuanVideo (SiliconFlow)',
+  },
   { modelId: 'genmo/mochi-1-preview', displayName: 'Mochi-1 (SiliconFlow)' },
 ];
 
 // 注册缺失的模型
 for (const m of candidateModels) {
   const existing = db
-    .query("SELECT id FROM model_registry WHERE model_id = ?")
+    .query('SELECT id FROM model_registry WHERE model_id = ?')
     .get(m.modelId) as any;
 
   if (!existing) {
     const id = randomUUID();
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO model_registry (id, model_id, display_name, context_window, max_output_tokens,
         capabilities, provider_mappings, input_price, output_price, cache_read_price, cache_write_price,
         provider_id, enabled, is_custom, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id, m.modelId, m.displayName,
-      200000, 4096,
-      JSON.stringify(['video_generation']), '{}',
-      0.5, 0, 0, 0,
-      silicon.id, 1, 1, now, now
+    `
+    ).run(
+      id,
+      m.modelId,
+      m.displayName,
+      200000,
+      4096,
+      JSON.stringify(['video_generation']),
+      '{}',
+      0.5,
+      0,
+      0,
+      0,
+      silicon.id,
+      1,
+      1,
+      now,
+      now
     );
     console.log(`✅ 已注册: ${m.modelId} (${id})`);
   } else {
@@ -65,7 +83,9 @@ console.log(`✅ 任务分工 video → tencent/HunyuanVideo`);
 // 验证
 console.log('\n当前视频模型:');
 const videoModels = db
-  .query("SELECT model_id, display_name, enabled FROM model_registry WHERE capabilities LIKE '%video_generation%'")
+  .query(
+    "SELECT model_id, display_name, enabled FROM model_registry WHERE capabilities LIKE '%video_generation%'"
+  )
   .all() as any[];
 videoModels.forEach((m: any) => {
   console.log(`  ${m.model_id} (${m.display_name}) enabled=${!!m.enabled}`);

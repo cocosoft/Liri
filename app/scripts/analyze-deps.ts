@@ -19,46 +19,46 @@ const SRC_DIR = path.resolve(__dirname, '..', 'src');
 const OUTPUT_FILE = path.resolve(__dirname, '..', 'deps-report.md');
 
 const MODULE_MAP: Record<string, string> = {
-  'core': 'core',
-  'ai': 'ai',
-  'agent': 'agent',
-  'bridge': 'bridge',
-  'chat': 'chat',
-  'cli': 'cli',
-  'commands': 'commands',
-  'config': 'config',
-  'docs': 'docs',
-  'error': 'error',
-  'hooks': 'hooks',
-  'ink': 'ink',
-  'mcp': 'mcp',
-  'memory': 'memory',
-  'modules': 'modules',
-  'monitoring': 'monitoring',
-  'oauth': 'oauth',
-  'performance': 'performance',
-  'permission': 'permission',
-  'plugins': 'plugins',
-  'security': 'security',
-  'services': 'services',
-  'session': 'session',
-  'skills': 'skills',
-  'streaming': 'streaming',
-  'tools': 'tools',
-  'ui': 'ui',
-  'utils': 'utils',
-  'analytics': 'analytics',
-  'buddy': 'buddy',
-  'chronos': 'chronos',
-  'components': 'components',
-  'entrypoints': 'entrypoints',
-  'governance': 'governance',
-  'lsp': 'lsp',
-  'promptSuggestion': 'promptSuggestion',
-  'query': 'query',
-  'remote': 'remote',
-  'scripts': 'scripts',
-  'subagent': 'subagent',
+  core: 'core',
+  ai: 'ai',
+  agent: 'agent',
+  bridge: 'bridge',
+  chat: 'chat',
+  cli: 'cli',
+  commands: 'commands',
+  config: 'config',
+  docs: 'docs',
+  error: 'error',
+  hooks: 'hooks',
+  ink: 'ink',
+  mcp: 'mcp',
+  memory: 'memory',
+  modules: 'modules',
+  monitoring: 'monitoring',
+  oauth: 'oauth',
+  performance: 'performance',
+  permission: 'permission',
+  plugins: 'plugins',
+  security: 'security',
+  services: 'services',
+  session: 'session',
+  skills: 'skills',
+  streaming: 'streaming',
+  tools: 'tools',
+  ui: 'ui',
+  utils: 'utils',
+  analytics: 'analytics',
+  buddy: 'buddy',
+  chronos: 'chronos',
+  components: 'components',
+  entrypoints: 'entrypoints',
+  governance: 'governance',
+  lsp: 'lsp',
+  promptSuggestion: 'promptSuggestion',
+  query: 'query',
+  remote: 'remote',
+  scripts: 'scripts',
+  subagent: 'subagent',
 };
 
 type DepGraph = Record<string, Set<string>>;
@@ -74,7 +74,8 @@ function parseImports(filePath: string): string[] {
   const content = fs.readFileSync(filePath, 'utf-8');
   const imports: string[] = [];
 
-  const importRegex = /import\s+(?:type\s+)?(?:(?:\{[^}]*\}|[^'{]*?)\s+from\s+)?['"]([^'"]+)['"]/g;
+  const importRegex =
+    /import\s+(?:type\s+)?(?:(?:\{[^}]*\}|[^'{]*?)\s+from\s+)?['"]([^'"]+)['"]/g;
   let match: RegExpExecArray | null;
 
   while ((match = importRegex.exec(content)) !== null) {
@@ -125,12 +126,20 @@ function collectFiles(dir: string): string[] {
     const fullPath = path.join(dir, entry.name);
 
     if (entry.isDirectory()) {
-      if (entry.name === 'node_modules' || entry.name === 'testing' || entry.name === '__tests__') {
+      if (
+        entry.name === 'node_modules' ||
+        entry.name === 'testing' ||
+        entry.name === '__tests__'
+      ) {
         continue;
       }
       results.push(...collectFiles(fullPath));
     } else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
-      if (!entry.name.endsWith('.d.ts') && !entry.name.includes('.test.') && !entry.name.includes('.spec.')) {
+      if (
+        !entry.name.endsWith('.d.ts') &&
+        !entry.name.includes('.test.') &&
+        !entry.name.includes('.spec.')
+      ) {
         results.push(fullPath);
       }
     }
@@ -139,7 +148,10 @@ function collectFiles(dir: string): string[] {
   return results;
 }
 
-function buildGraph(files: string[]): { fileGraph: Map<string, Set<string>>; moduleGraph: DepGraph } {
+function buildGraph(files: string[]): {
+  fileGraph: Map<string, Set<string>>;
+  moduleGraph: DepGraph;
+} {
   const fileGraph = new Map<string, Set<string>>();
   const moduleGraph: DepGraph = {};
 
@@ -208,7 +220,7 @@ function generateReport(
   moduleGraph: DepGraph,
   cycles: string[][],
   fileCount: number,
-  moduleCount: number,
+  moduleCount: number
 ): string {
   const lines: string[] = [];
 
@@ -296,7 +308,9 @@ function generateReport(
   lines.push('## 4. 零依赖模块（叶节点）');
   lines.push('');
 
-  const leafModules = modules.filter((m) => (moduleGraph[m]?.size || 0) === 0).sort();
+  const leafModules = modules
+    .filter((m) => (moduleGraph[m]?.size || 0) === 0)
+    .sort();
 
   if (leafModules.length === 0) {
     lines.push('无零依赖模块。');

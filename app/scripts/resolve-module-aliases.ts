@@ -65,16 +65,26 @@ const ALIAS_MAP: Record<string, string> = {
   '@modules/error': 'error',
 };
 
-const ALIAS_PREFIXES = Object.keys(ALIAS_MAP).sort((a, b) => b.length - a.length);
+const ALIAS_PREFIXES = Object.keys(ALIAS_MAP).sort(
+  (a, b) => b.length - a.length
+);
 
 function resolveAlias(importPath: string, fileDir: string): string | null {
   for (const prefix of ALIAS_PREFIXES) {
     if (importPath === prefix) {
-      return relative(fileDir, join(SRC_DIR, ALIAS_MAP[prefix])).replace(/\\/g, '/') || './';
+      return (
+        relative(fileDir, join(SRC_DIR, ALIAS_MAP[prefix])).replace(
+          /\\/g,
+          '/'
+        ) || './'
+      );
     }
     if (importPath.startsWith(prefix + '/')) {
       const rest = importPath.slice(prefix.length + 1);
-      return relative(fileDir, join(SRC_DIR, ALIAS_MAP[prefix], rest)).replace(/\\/g, '/');
+      return relative(fileDir, join(SRC_DIR, ALIAS_MAP[prefix], rest)).replace(
+        /\\/g,
+        '/'
+      );
     }
   }
   return null;
@@ -141,7 +151,8 @@ function main(): void {
     for (const f of modified.slice(0, 20)) {
       console.log(`  ${relative(SRC_DIR, f)}`);
     }
-    if (modified.length > 20) console.log(`  ... and ${modified.length - 20} more`);
+    if (modified.length > 20)
+      console.log(`  ... and ${modified.length - 20} more`);
   } else {
     console.log('No files needed modification (already resolved?)');
   }

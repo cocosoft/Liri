@@ -1,11 +1,15 @@
 import { Database } from 'bun:sqlite';
 import { readFileSync } from 'fs';
 
-const db = new Database('e:/PY/CODES/PY_APP/app/data/pyapp/data/app.db', { readonly: true });
+const db = new Database('e:/PY/CODES/PY_APP/app/data/pyapp/data/app.db', {
+  readonly: true,
+});
 
 console.log('=== config.json 中的 models 配置 ===');
 try {
-  const config = JSON.parse(readFileSync('e:/PY/CODES/PY_APP/app/data/pyapp/data/config.json', 'utf-8'));
+  const config = JSON.parse(
+    readFileSync('e:/PY/CODES/PY_APP/app/data/pyapp/data/config.json', 'utf-8')
+  );
   console.log(JSON.stringify(config.models, null, 2));
 } catch (e) {
   console.log('读取失败:', (e as Error).message);

@@ -16,7 +16,14 @@
  *   - 其余事件原样保留，seq 从 1 重排，同步更新 events.tail
  *   - 损坏行跳过（备份中保留原始数据）
  */
-import { readdirSync, readFileSync, writeFileSync, renameSync, existsSync, statSync } from 'fs';
+import {
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  existsSync,
+  statSync,
+} from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -40,7 +47,13 @@ function collectEventFiles(dir: string): string[] {
   return files;
 }
 
-function compress(file: string): { before: number; after: number; lines: number; outLines: number; dropped: number } {
+function compress(file: string): {
+  before: number;
+  after: number;
+  lines: number;
+  outLines: number;
+  dropped: number;
+} {
   const backup = `${file}.bak`;
   if (existsSync(backup)) {
     throw new Error(`备份已存在（${backup}），跳过防重复处理`);
@@ -48,7 +61,12 @@ function compress(file: string): { before: number; after: number; lines: number;
   renameSync(file, backup);
   const lines = readFileSync(backup, 'utf8').split('\n');
   const out: string[] = [];
-  let pending: { ev: Record<string, unknown>; content: string; messageId: string; lastTime: number } | null = null;
+  let pending: {
+    ev: Record<string, unknown>;
+    content: string;
+    messageId: string;
+    lastTime: number;
+  } | null = null;
   let seq = 1;
   let dropped = 0;
 
@@ -63,7 +81,12 @@ function compress(file: string): { before: number; after: number; lines: number;
 
   for (const line of lines) {
     if (!line.trim()) continue;
-    let ev: { type?: string; data?: { messageId?: string; content?: string }; seq?: number; time?: number };
+    let ev: {
+      type?: string;
+      data?: { messageId?: string; content?: string };
+      seq?: number;
+      time?: number;
+    };
     try {
       ev = JSON.parse(line);
     } catch {
@@ -95,18 +118,31 @@ function compress(file: string): { before: number; after: number; lines: number;
   if (DRY_RUN) {
     // 恢复备份（dry-run 不写盘）
     renameSync(backup, file);
-    return { before: 0, after: 0, lines: lines.length, outLines: out.length, dropped };
+    return {
+      before: 0,
+      after: 0,
+      lines: lines.length,
+      outLines: out.length,
+      dropped,
+    };
   }
 
   writeFileSync(file, out.join('\n') + '\n');
   const tailFile = join(file.replace('events.jsonl', ''), 'events.tail');
   writeFileSync(tailFile, String(seq - 1));
-  return { before: statSync(backup).size, after: statSync(file).size, lines: lines.length, outLines: out.length, dropped };
+  return {
+    before: statSync(backup).size,
+    after: statSync(file).size,
+    lines: lines.length,
+    outLines: out.length,
+    dropped,
+  };
 }
 
 const MB = 1024 * 1024;
 const files = collectEventFiles(root);
-let ok = 0, skipped = 0;
+let ok = 0,
+  skipped = 0;
 
 console.log(`扫描目录: ${root}${DRY_RUN ? '（DRY-RUN，不写盘）' : ''}\n`);
 
@@ -120,13 +156,19 @@ for (const f of files) {
   try {
     const r = compress(f);
     if (DRY_RUN) {
-      console.log(`[预览] ${sessionId}: ${(size / MB).toFixed(1)}MB, ${r.lines} 行 → ${r.outLines} 行, 损坏跳过 ${r.dropped}`);
+      console.log(
+        `[预览] ${sessionId}: ${(size / MB).toFixed(1)}MB, ${r.lines} 行 → ${r.outLines} 行, 损坏跳过 ${r.dropped}`
+      );
     } else {
-      console.log(`[ok]   ${sessionId}: ${(r.before / MB).toFixed(1)}MB → ${(r.after / MB).toFixed(1)}MB, ${r.lines} 行 → ${r.outLines} 行, 损坏跳过 ${r.dropped}, tailSeq ${r.outLines}`);
+      console.log(
+        `[ok]   ${sessionId}: ${(r.before / MB).toFixed(1)}MB → ${(r.after / MB).toFixed(1)}MB, ${r.lines} 行 → ${r.outLines} 行, 损坏跳过 ${r.dropped}, tailSeq ${r.outLines}`
+      );
     }
     ok++;
   } catch (e) {
-    console.log(`[skip] ${sessionId}: ${e instanceof Error ? e.message : String(e)}`);
+    console.log(
+      `[skip] ${sessionId}: ${e instanceof Error ? e.message : String(e)}`
+    );
   }
 }
 

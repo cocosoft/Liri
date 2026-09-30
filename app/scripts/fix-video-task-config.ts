@@ -8,11 +8,11 @@
  * 修复：根据 model_registry 中已有的视频模型，填充任务分工配置。
  */
 
-import { Database } from "bun:sqlite";
-import { join } from "path";
-import { homedir } from "os";
+import { Database } from 'bun:sqlite';
+import { join } from 'path';
+import { homedir } from 'os';
 
-const DB_PATH = join(homedir(), ".pyapp", "data", "app.db");
+const DB_PATH = join(homedir(), '.pyapp', 'data', 'app.db');
 const now = Math.floor(Date.now() / 1000);
 
 console.log(`DB 路径: ${DB_PATH}`);
@@ -37,7 +37,7 @@ const models = db
 
 console.log(`\n找到 ${models.length} 个视频模型:`);
 models.forEach((m) => {
-  const caps = JSON.parse(m.capabilities || "[]");
+  const caps = JSON.parse(m.capabilities || '[]');
   console.log(
     `  ${m.model_id} (${m.id.slice(0, 8)}...) caps: ${JSON.stringify(caps)} enabled: ${!!m.enabled}`
   );
@@ -48,15 +48,13 @@ models.forEach((m) => {
 // image_to_video: I2V 模型（带 image_to_video 能力）
 const i2vModel = models.find(
   (m) =>
-    m.enabled &&
-    JSON.parse(m.capabilities || "[]").includes("image_to_video")
+    m.enabled && JSON.parse(m.capabilities || '[]').includes('image_to_video')
 );
 
 // text_to_video: T2V 模型（带 text_to_video 能力）
 const t2vModel = models.find(
   (m) =>
-    m.enabled &&
-    JSON.parse(m.capabilities || "[]").includes("text_to_video")
+    m.enabled && JSON.parse(m.capabilities || '[]').includes('text_to_video')
 );
 
 // video: 优先 I2V，其次第一个启用的 video_generation 模型
@@ -65,13 +63,13 @@ const videoModel =
   models.find(
     (m) =>
       m.enabled &&
-      JSON.parse(m.capabilities || "[]").includes("video_generation")
+      JSON.parse(m.capabilities || '[]').includes('video_generation')
   );
 
-console.log("\n任务分工分配:");
-console.log(`  image_to_video → ${i2vModel?.model_id || "(未找到)"}`);
-console.log(`  text_to_video  → ${t2vModel?.model_id || "(未找到)"}`);
-console.log(`  video          → ${videoModel?.model_id || "(未找到)"}`);
+console.log('\n任务分工分配:');
+console.log(`  image_to_video → ${i2vModel?.model_id || '(未找到)'}`);
+console.log(`  text_to_video  → ${t2vModel?.model_id || '(未找到)'}`);
+console.log(`  video          → ${videoModel?.model_id || '(未找到)'}`);
 
 // 3. 写入 ai_app_model_configs 表
 const upsertStmt = db.prepare(
@@ -87,13 +85,13 @@ const upsert = (appType: string, modelId: string) => {
   console.log(`  ✅ ${appType} → ${modelId}`);
 };
 
-console.log("\n写入 ai_app_model_configs:");
-if (i2vModel) upsert("image_to_video", i2vModel.id);
-if (t2vModel) upsert("text_to_video", t2vModel.id);
-if (videoModel) upsert("video", videoModel.id);
+console.log('\n写入 ai_app_model_configs:');
+if (i2vModel) upsert('image_to_video', i2vModel.id);
+if (t2vModel) upsert('text_to_video', t2vModel.id);
+if (videoModel) upsert('video', videoModel.id);
 
 // 4. 验证
-console.log("\n=== 写入后验证 ===");
+console.log('\n=== 写入后验证 ===');
 const configs = db
   .query(
     `SELECT app_type, model, updated_at
@@ -105,9 +103,9 @@ const configs = db
 
 configs.forEach((c) => {
   const modelRecord = models.find((m) => m.id === c.model);
-  const modelName = modelRecord ? modelRecord.model_id : "未知";
+  const modelName = modelRecord ? modelRecord.model_id : '未知';
   console.log(`  ${c.app_type}: ${modelName} (${c.model.slice(0, 16)}...)`);
 });
 
 db.close();
-console.log("\n✅ 修复完成。重启应用后生效。");
+console.log('\n✅ 修复完成。重启应用后生效。');

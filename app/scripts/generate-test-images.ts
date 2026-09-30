@@ -11,7 +11,13 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const FIXTURES_DIR = path.resolve(__dirname, '..', 'tests', 'fixtures', 'images');
+const FIXTURES_DIR = path.resolve(
+  __dirname,
+  '..',
+  'tests',
+  'fixtures',
+  'images'
+);
 
 function ensureDir(dir: string): void {
   if (!fs.existsSync(dir)) {
@@ -118,7 +124,12 @@ async function generateTestDiffImages(): Promise<void> {
   </svg>`;
 
   const bufA = await sharp({
-    create: { width: 200, height: 200, channels: 4, background: { r: 74, g: 144, b: 217, alpha: 1 } },
+    create: {
+      width: 200,
+      height: 200,
+      channels: 4,
+      background: { r: 74, g: 144, b: 217, alpha: 1 },
+    },
   })
     .composite([{ input: Buffer.from(svgA), top: 0, left: 0 }])
     .png()
@@ -134,7 +145,12 @@ async function generateTestDiffImages(): Promise<void> {
   </svg>`;
 
   const bufB = await sharp({
-    create: { width: 220, height: 220, channels: 4, background: { r: 74, g: 144, b: 217, alpha: 1 } },
+    create: {
+      width: 220,
+      height: 220,
+      channels: 4,
+      background: { r: 74, g: 144, b: 217, alpha: 1 },
+    },
   })
     .composite([{ input: Buffer.from(svgB), top: 0, left: 0 }])
     .png()

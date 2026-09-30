@@ -86,7 +86,10 @@ const TEST_CRON_TASKS = [
     durable: 0,
     agent_id: null,
     task_type: 'prompt',
-    metadata: JSON.stringify({ tags: ['test', 'report', 'monthly'], source: 'seed' }),
+    metadata: JSON.stringify({
+      tags: ['test', 'report', 'monthly'],
+      source: 'seed',
+    }),
   },
   {
     id: `seed-cron-${randomUUID().slice(0, 8)}`,
@@ -117,7 +120,11 @@ const TEST_AGENT_TASKS = [
     output_offset: 0,
     notified: 0,
     error: null,
-    metadata: JSON.stringify({ priority: 'high', tags: ['test', 'frontend'], source: 'seed' }),
+    metadata: JSON.stringify({
+      priority: 'high',
+      tags: ['test', 'frontend'],
+      source: 'seed',
+    }),
     updated_at: NOW,
   },
   {
@@ -133,7 +140,11 @@ const TEST_AGENT_TASKS = [
     output_offset: 0,
     notified: 0,
     error: null,
-    metadata: JSON.stringify({ priority: 'medium', tags: ['test', 'frontend'], source: 'seed' }),
+    metadata: JSON.stringify({
+      priority: 'medium',
+      tags: ['test', 'frontend'],
+      source: 'seed',
+    }),
     updated_at: NOW,
   },
   {
@@ -149,7 +160,11 @@ const TEST_AGENT_TASKS = [
     output_offset: 0,
     notified: 0,
     error: null,
-    metadata: JSON.stringify({ priority: 'low', tags: ['test', 'frontend'], source: 'seed' }),
+    metadata: JSON.stringify({
+      priority: 'low',
+      tags: ['test', 'frontend'],
+      source: 'seed',
+    }),
     updated_at: NOW,
   },
   {
@@ -165,7 +180,11 @@ const TEST_AGENT_TASKS = [
     output_offset: 0,
     notified: 0,
     error: 'Network timeout: connection to remote agent failed after 30s',
-    metadata: JSON.stringify({ priority: 'high', tags: ['test', 'frontend', 'error'], source: 'seed' }),
+    metadata: JSON.stringify({
+      priority: 'high',
+      tags: ['test', 'frontend', 'error'],
+      source: 'seed',
+    }),
     updated_at: NOW,
   },
   {
@@ -181,7 +200,11 @@ const TEST_AGENT_TASKS = [
     output_offset: 0,
     notified: 0,
     error: null,
-    metadata: JSON.stringify({ priority: 'medium', tags: ['test', 'frontend', 'workflow'], source: 'seed' }),
+    metadata: JSON.stringify({
+      priority: 'medium',
+      tags: ['test', 'frontend', 'workflow'],
+      source: 'seed',
+    }),
     updated_at: NOW,
   },
   {
@@ -197,7 +220,11 @@ const TEST_AGENT_TASKS = [
     output_offset: 0,
     notified: 0,
     error: null,
-    metadata: JSON.stringify({ priority: 'low', tags: ['test', 'frontend'], source: 'seed' }),
+    metadata: JSON.stringify({
+      priority: 'low',
+      tags: ['test', 'frontend'],
+      source: 'seed',
+    }),
     updated_at: NOW,
   },
 ];
@@ -220,7 +247,11 @@ function execDb(db: Database, sql: string): Promise<void> {
   });
 }
 
-function runDb(db: Database, sql: string, params: unknown[] = []): Promise<void> {
+function runDb(
+  db: Database,
+  sql: string,
+  params: unknown[] = []
+): Promise<void> {
   return new Promise((resolve, reject) => {
     db.run(sql, params, (err) => {
       if (err) reject(err);
@@ -259,7 +290,9 @@ async function seedCronTasks(db: Database): Promise<void> {
         task.metadata,
       ]
     );
-    console.log(`  ✓ Cron: ${task.id} (${task.cron}) - ${task.prompt.slice(0, 30)}...`);
+    console.log(
+      `  ✓ Cron: ${task.id} (${task.cron}) - ${task.prompt.slice(0, 30)}...`
+    );
   }
 }
 

@@ -7,7 +7,10 @@ import { writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
-import { MODULE_DEFINITIONS, MODULE_INITIALIZATION_ORDER } from '../src/modules/ModuleDefinitions';
+import {
+  MODULE_DEFINITIONS,
+  MODULE_INITIALIZATION_ORDER,
+} from '../src/modules/ModuleDefinitions';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,14 +22,17 @@ interface DependencySnapshot {
   version: string;
   generatedAt: string;
   description: string;
-  modules: Record<string, {
-    id: string;
-    name: string;
-    category: string;
-    version: string;
-    dependencies: string[];
-    optionalDependencies: string[];
-  }>;
+  modules: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      category: string;
+      version: string;
+      dependencies: string[];
+      optionalDependencies: string[];
+    }
+  >;
   initializationOrder: string[];
   fingerprint: string;
 }
@@ -54,7 +60,7 @@ function exportSnapshot(): void {
       category: def.category,
       version: def.version,
       dependencies: [...def.dependencies],
-      optionalDependencies: [...def.optionalDependencies]
+      optionalDependencies: [...def.optionalDependencies],
     };
   }
 
@@ -64,12 +70,12 @@ function exportSnapshot(): void {
     description: 'Liri 模块依赖关系基准快照 — 记录批准的基础架构',
     modules,
     initializationOrder: [...MODULE_INITIALIZATION_ORDER],
-    fingerprint: ''
+    fingerprint: '',
   };
 
   snapshot.fingerprint = generateFingerprint({
     modules: snapshot.modules,
-    initializationOrder: snapshot.initializationOrder
+    initializationOrder: snapshot.initializationOrder,
   });
 
   const outputPath = join(__dirname, '..', 'dependency-snapshot.json');

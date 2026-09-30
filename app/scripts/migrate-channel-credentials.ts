@@ -26,7 +26,10 @@ import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { resolveDbPath, resolveDataSubDir } from '@modules/core';
-import { isSensitiveKey, encryptSecret } from '../src/channels/secrets/encryption';
+import {
+  isSensitiveKey,
+  encryptSecret,
+} from '../src/channels/secrets/encryption';
 
 interface Row {
   id: string;
@@ -88,7 +91,9 @@ function usage(): void {
   log('用法:');
   log('  bun run app/scripts/migrate-channel-credentials.ts');
   log('  bun run app/scripts/migrate-channel-credentials.ts --apply');
-  log('  bun run app/scripts/migrate-channel-credentials.ts --rollback <备份文件>');
+  log(
+    '  bun run app/scripts/migrate-channel-credentials.ts --rollback <备份文件>'
+  );
 }
 
 async function main(): Promise<void> {
@@ -135,7 +140,9 @@ async function main(): Promise<void> {
       }
     }
 
-    log(`敏感字段变更: ${changedFields} 个（涉及 ${changedRows.length} 条渠道）`);
+    log(
+      `敏感字段变更: ${changedFields} 个（涉及 ${changedRows.length} 条渠道）`
+    );
 
     if (changedRows.length === 0) {
       log('无需迁移（所有敏感字段均已加密或为空）。');
@@ -157,7 +164,12 @@ async function main(): Promise<void> {
     const backup: BackupFile = {
       createdAt: new Date().toISOString(),
       dbPath,
-      rows: rows.map(({ id, name, type, options }) => ({ id, name, type, options })),
+      rows: rows.map(({ id, name, type, options }) => ({
+        id,
+        name,
+        type,
+        options,
+      })),
     };
     writeFileSync(backupPath, JSON.stringify(backup, null, 2), {
       mode: 0o600,
@@ -175,7 +187,9 @@ async function main(): Promise<void> {
     });
     tx(changedRows);
     log(`已加密写回 ${changedRows.length} 条渠道配置。`);
-    log(`回滚命令: bun run app/scripts/migrate-channel-credentials.ts --rollback ${backupPath}`);
+    log(
+      `回滚命令: bun run app/scripts/migrate-channel-credentials.ts --rollback ${backupPath}`
+    );
   } finally {
     db.close();
   }
@@ -208,7 +222,9 @@ async function doRollback(backupPath: string): Promise<void> {
       }
     );
     const restored = tx(backup.rows);
-    log(`已从 ${backupPath} 恢复 ${restored}/${backup.rows.length} 条渠道配置。`);
+    log(
+      `已从 ${backupPath} 恢复 ${restored}/${backup.rows.length} 条渠道配置。`
+    );
   } finally {
     db.close();
   }

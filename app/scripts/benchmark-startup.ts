@@ -33,8 +33,12 @@ process.env.Liri_PROFILE_STARTUP = '1';
 process.env.LIRI_BENCHMARK_MODE = '1'; // 防止进入交互式 REPL
 
 console.log('[benchmark] 开始启动性能基线测量...');
-console.log(`[benchmark] 启动前 RSS: ${(memBeforeRss / 1024 / 1024).toFixed(2)} MB`);
-console.log(`[benchmark] 启动前 Heap: ${(memBeforeHeap / 1024 / 1024).toFixed(2)} MB`);
+console.log(
+  `[benchmark] 启动前 RSS: ${(memBeforeRss / 1024 / 1024).toFixed(2)} MB`
+);
+console.log(
+  `[benchmark] 启动前 Heap: ${(memBeforeHeap / 1024 / 1024).toFixed(2)} MB`
+);
 console.log('');
 
 // ============================================================
@@ -45,7 +49,8 @@ const startTime = performance.now();
 let bootResult;
 try {
   // 2026-09-30 路径随归属搬迁更新（`core/boot/` → entry 层 `bootstrap/pipeline/`，台账 D-82）
-  const { executePipeline } = await import('../src/bootstrap/pipeline/BootPipelineIntegrator.ts');
+  const { executePipeline } =
+    await import('../src/bootstrap/pipeline/BootPipelineIntegrator.ts');
 
   // executePipeline() 内部调用 registerStandardHandlers() 注册 8 阶段处理器，
   // 然后按顺序执行各阶段。其中 Phase 4 (DI_STARTUP) 已包含真实 DIContainer.bootstrap() 逻辑。
@@ -59,7 +64,9 @@ try {
 }
 
 const totalStartupMs = performance.now() - startTime;
-console.log(`[benchmark] BootPipeline 执行完成，总耗时: ${totalStartupMs.toFixed(2)} ms`);
+console.log(
+  `[benchmark] BootPipeline 执行完成，总耗时: ${totalStartupMs.toFixed(2)} ms`
+);
 console.log('');
 
 // ============================================================
@@ -91,9 +98,10 @@ const totalPhaseMs = phaseEntries.reduce((sum, p) => sum + p.durationMs, 0);
 const phaseSummary = phaseEntries.map((entry) => ({
   phase: entry.phase,
   durationMs: entry.durationMs,
-  ratio: totalPhaseMs > 0
-    ? Math.round((entry.durationMs / totalPhaseMs) * 10000) / 10000
-    : 0,
+  ratio:
+    totalPhaseMs > 0
+      ? Math.round((entry.durationMs / totalPhaseMs) * 10000) / 10000
+      : 0,
 }));
 
 // ============================================================
@@ -167,8 +175,10 @@ if (phaseEntries.length > 0) {
   console.log('— 各阶段耗时（从高到低）—');
   for (const entry of phaseEntries) {
     const icon = entry.success ? '✓' : '✗';
-    console.log(`  ${icon} ${entry.durationMs.toString().padStart(8)} ms  ${entry.phase}` +
-      `  (handlers: ${entry.handlerCount}, failed: ${entry.failedCount})`);
+    console.log(
+      `  ${icon} ${entry.durationMs.toString().padStart(8)} ms  ${entry.phase}` +
+        `  (handlers: ${entry.handlerCount}, failed: ${entry.failedCount})`
+    );
   }
 }
 

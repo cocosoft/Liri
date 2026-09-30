@@ -19,10 +19,10 @@
 | P1-1 对抗 Agent（作弊审查） | ✅ **形态 B 已落地** | 机械攻击集 `evals/antiCheatAudit.ts` + 8 例；形态 A（LLM 攻击者）另立 spec |
 | P1-2 Token burst 悲观预扣 | ❌ **不实施**（前提证伪 + 处方有反作用） | —— |
 | P1-3 热窗口阈值口径统一 | ✅ **已完成** | a/b/c/d 全部落地；另立项 `compaction-duplicate-subsystems.md`（已核查：两套为分工，非双轨） |
-| P2-1 沙箱层复用（`pack_diff` 类） | ⛔ **阻塞（前提证伪）** | 2026-09-29 取证：依赖的 `SandboxPruner` **零消费者**，且项目**无活的实例级沙箱生命周期**（`ToolSandboxRouter`/`SandboxManagerImpl` 亦未接线 ⇒ 台账 **D-16**）⇒ 无可挂目标；spec 已标阻塞 |
+| P2-1 沙箱层复用（`pack_diff` 类） | ❌ **不适用（前置已物理删除）** | 2026-09-29 取证：依赖的 `SandboxPruner` **零消费者**，且项目**无活的实例级沙箱生命周期**（台账 **D-16**）⇒ 无可挂目标；**2026-09-29 后续（台账 D-25）已把沙箱「实例层」整层下线**（删 5 文件：`SandboxImpl` / `WorkerSandbox` / `SandboxPruner` / `PluginHealthMonitor` / `ToolSandboxRouter`）⇒ **挂载目标已不存在**（由"阻塞"改判为"不适用"）；spec 已标阻塞 |
 | P2-2 MCP 动态工具映射 | ✅ **已实施（2026-09-29）** | spec：[`pathguard-registry-driven-args.md`](./pathguard-registry-driven-args.md)。`PathGuard` 改为**注册表驱动**（`resolveToolParamNames` + `PATH_ARG_KEYS` 求交），两个调用方已注入；8 例守卫 + 回归 119 例全绿。⚠️ 取证**纠正**：`pathShield` 本就与工具名无关（**无需改**），真缺口在 `PathGuard` 静态名单（方向是 **fail-OPEN**，非"误拦"） |
 
-**结论**：P0 三项与 P1 三项**已全部收口**（其中 P0-2 / P1-2 为"取证后裁定不做"）；**P2-2 已于 2026-09-29 实施**；**剩余 = P2-1（⛔ 阻塞：前提证伪，见 D-16）**。
+**结论**：P0 三项与 P1 三项**已全部收口**（其中 P0-2 / P1-2 为"取证后裁定不做"）；**P2-2 已于 2026-09-29 实施**；**剩余 = 无** —— P2-1 由"⛔ 阻塞"**改判为 ❌ 不适用**：其前置（沙箱实例层）已于 **D-25** 整层删除 ⇒ 挂载目标不复存在。
 
 ---
 

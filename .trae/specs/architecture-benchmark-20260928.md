@@ -360,8 +360,11 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | #2 | 路由决策的**可观测性** | 🟡 **有 debug 日志，无事件（默认不落盘）** | `ai/modelRouter.ts:56` logger `ai:model-router`，命中/未命中/回退均为 **`debug`**（`:760/769/781/790/801/812`）；`SmartRouter.ts:236/507` 亦 `debug`；默认 INFO ⇒ **不落盘**；调用方仅感知失败告警（`ChatHelper.ts:268`）。**无 `LiriEventType` 承载路由决策**（events.ts 无 route/model 事件；最接近 `:68 context/model-input`） |
 | #6 | 分流判据的**阈值**与**危险工具清单** | 🟡 **两者均硬编码，且不与"验收标准/目标"绑定** | 阈值 `SIMPLE_TASK_MAX_LENGTH = 60`（`core/loop/PlanDrivenLoop.ts:168`，判据 `:162-165` 仅看 `message.trim().length <= 60`；头注释明写"冻结期固定"）；"危险清单"实为 **7 条意图正则** `DANGEROUS_TOOL_PATTERNS`（`:176-184`：删除/移除/rm/remove/unlink/send/写入/覆盖…），**不是工具名清单**；两者**不读配置**。⚠️ 另有一套**真正的工具名**清单 `permission/classifiers/dangerous-tool-keywords.ts:30`（属权限侧，与分流无关） |
 
-**未查明（如实，4 项）**：
-1. `daemon/TaskQueue` 的**生产装配点** —— `new TaskQueue(` 在 `app/src` **零命中**，`daemon/CronBridge.ts:34` 以参数接收但未见注入方 ⇒ 只能判"**TS 生产路径未装配**"（可能由驱动层注入或为存量未接线）。
-2. `context/model-input` 事件**是否携带路由结果** —— 未展开其载荷字段（若要回答"路由决策是否已随该快照落盘"需另读数行）。
-3. `SkillCurator` 是否有 **HTTP/前端消费者** —— 未核 `client/` 与路由，不排除前端直接调用。
-4. ⑤ 中"用户回答"是否**同时**以 `user/message` 事件落盘 —— 已回答写 `NegotiationState`，但未追该回答是否另有 `user/message` 事件（`events.ts:39`）。
+**「未查明 4 项」—— ✅ 已全部结案（2026-09-30，纯只读取证；台账 D-139）**
+
+| # | 原未查明项 | 结论 | 证据（`file:line` / 搜索词） |
+|:--:|---|:--:|---|
+| 1 | `daemon/TaskQueue` 的**生产装配点** | ❌ **TS 侧完全未接线**（比原判"未装配"更彻底） | `new TaskQueue(` 全 app **0 命中**；`daemon/index.ts:29` 仅 re-export；`daemon/CronBridge.ts:6,34` 以 **`import type` + 构造参数**接收 ⇒ 再追一层：**`new CronBridge(` 亦 0 命中** ⇒ **整条 daemon 队列装配链在 TS 侧断开**（疑留给驱动层，或为存量未接线）。**已登记台账 D-139** |
+| 2 | `context/model-input` 事件**是否携带路由结果** | ❌ **不携带** | 载荷仅 `tools` / `toolsRefSeq` / `sections` / `mode` / `tokens`（[`chat/types/eventPayloads.ts:227-252`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/types/eventPayloads.ts#L227-L252)）⇒ **无 model / route / provider 字段**。结合 §6.4 #2（路由命中/回退**仅 `debug` 日志**、默认 INFO 不落盘）⇒ **路由决策可观测性缺口就此确认**（既无事件承载，也默认不落盘） |
+| 3 | `SkillCurator` 是否有 **HTTP/前端消费者** | ❌ **仅后端生命周期管理器消费** | `client/src` 搜 `SkillCurator` / `curator` **0 命中**；app 侧消费点仅 [`skills/persistence/SkillLifecycleManager.ts:86-91`](file:///e:/PY/Documents/CODES/PY_APP/app/src/skills/persistence/SkillLifecycleManager.ts#L86-L91)（`getSkillCurator(skillDB)`）⇒ **无 HTTP 路由、无前端面**（§6.4 #9「无反馈写回」结论不变） |
+| 4 | ⑤ 中"用户回答"是否**同时**以 `user/message` 落盘 | ❌ **不落** | `recordAnswer(` 调用点**唯一**（[`chat/ReActToolLoop.ts:1429`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ReActToolLoop.ts#L1429)）；其上下文（`:1428-1437`）只写 `NegotiationState` + 会话判断，**无** `user/message` 事件追加。配合 §6.4 #13（审批裁决亦不落盘）⇒ **HITL 的"裁决"整体不可审计**（`assistant/question` 落**问题文本**，**答案不落**） |

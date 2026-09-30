@@ -250,7 +250,11 @@ export interface KnowledgeOpsPort {
    */
   searchKnowledgeBuckets(
     query: string,
-    opts: { limit: number; base?: string | undefined; domain?: string | undefined }
+    opts: {
+      limit: number;
+      base?: string | undefined;
+      domain?: string | undefined;
+    }
   ): Promise<{
     rules: unknown;
     faqs: unknown;

@@ -68,7 +68,11 @@ export type SpeculationState =
  * 建议推测状态
  */
 export type SuggestionSpeculationStatus =
-  'idle' | 'active' | 'accepted' | 'aborted' | 'error';
+  | 'idle'
+  | 'active'
+  | 'accepted'
+  | 'aborted'
+  | 'error';
 
 /**
  * 建议推测结果
@@ -107,13 +111,21 @@ export const IDLE_SUGGESTION_SPECULATION_STATE: SuggestionSpeculationState = {
  * 底部项目
  */
 export type FooterItem =
-  'tasks' | 'tmux' | 'bagel' | 'teams' | 'bridge' | 'companion';
+  | 'tasks'
+  | 'tmux'
+  | 'bagel'
+  | 'teams'
+  | 'bridge'
+  | 'companion';
 
 /**
  * 远程连接状态
  */
 export type RemoteConnectionStatus =
-  'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected';
 
 /**
  * 应用状态

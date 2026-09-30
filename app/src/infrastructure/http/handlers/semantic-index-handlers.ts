@@ -359,9 +359,9 @@ export async function handleClearSemanticIndex(
 ): Promise<void> {
   try {
     const { resolveDataSubDir } = await import('@modules/core/paths');
-    await (await getCoreAPI().getKnowledgeOpsPort()).wipeSemanticStoreFiles(
-      resolveDataSubDir('semantic-index')
-    );
+    await (
+      await getCoreAPI().getKnowledgeOpsPort()
+    ).wipeSemanticStoreFiles(resolveDataSubDir('semantic-index'));
     // KB-SEM-P13：索引已清空，共享 store 缓存失效
     resetSharedStore();
     res.writeHead(200, { 'Content-Type': 'application/json' });

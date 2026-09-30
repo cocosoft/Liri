@@ -106,9 +106,7 @@ export interface AgentRoleBriefDto {
 /** Agent 角色存储**句柄**（P1；单例 `getAgentRoleStore()`，方法均**异步**） */
 export interface AgentRoleStorePort {
   listAll(): Promise<unknown>;
-  getByAgentId(
-    agentId: string
-  ): Promise<AgentRoleBriefDto | null | undefined>;
+  getByAgentId(agentId: string): Promise<AgentRoleBriefDto | null | undefined>;
   insert(data: Record<string, unknown>): Promise<unknown>;
   /** app 侧返回值未被使用 ⇒ 声明 `void`（实现侧 `await` 且不返回） */
   update(id: string, data: Record<string, unknown>): Promise<void>;
@@ -243,10 +241,7 @@ export interface WorkItemStorePort {
   get(id: string): WorkItemBriefDto | null;
   list(workspaceId: string): WorkItemBriefDto[];
   create(data: Record<string, unknown>): WorkItemBriefDto;
-  update(
-    id: string,
-    data: Record<string, unknown>
-  ): WorkItemBriefDto | null;
+  update(id: string, data: Record<string, unknown>): WorkItemBriefDto | null;
 }
 
 /** 历史工作项搜索查询（逐字镜像 `WorkItemSearchQuery`） */

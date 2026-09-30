@@ -20,7 +20,9 @@ import type { RuleSpecializationDto } from '@modules/runtime/api/workspaceOpsPor
 
 /** C1（D-114）：规则引擎经端口取用（`workspace` 域） */
 async function getEngine(workspacePath?: string) {
-  return (await getCoreAPI().getWorkspaceOpsPort()).getRuleEngine(workspacePath);
+  return (await getCoreAPI().getWorkspaceOpsPort()).getRuleEngine(
+    workspacePath
+  );
 }
 
 /**

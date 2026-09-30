@@ -161,9 +161,8 @@ export async function handleGetBackgroundStatus(
 ): Promise<void> {
   try {
     const buddyOps = await getCoreAPI().getBuddyOpsPort();
-    const { getBackgroundTaskLog, detectTaskAlerts } = await import(
-      '@modules/monitoring'
-    );
+    const { getBackgroundTaskLog, detectTaskAlerts } =
+      await import('@modules/monitoring');
 
     const dreamStats = await buddyOps.getBuddyDreamStats();
     const recentLogs = await buddyOps.getBuddyDreamLogs(10);

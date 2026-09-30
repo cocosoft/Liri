@@ -109,7 +109,9 @@ export interface PluginAgentDefinition extends BaseAgentDefinition {
  * 所有Agent类型的联合类型
  */
 export type AgentDefinition =
-  BuiltInAgentDefinition | CustomAgentDefinition | PluginAgentDefinition;
+  | BuiltInAgentDefinition
+  | CustomAgentDefinition
+  | PluginAgentDefinition;
 
 /**
  * 解析后的Agent（包含覆盖信息）

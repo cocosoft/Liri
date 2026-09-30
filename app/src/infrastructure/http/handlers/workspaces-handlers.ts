@@ -1582,7 +1582,10 @@ export async function handleListTasks(
         tasks = tasks.filter((t) => t.status === status);
       }
     } else if (workspaceId && status) {
-      tasks = await taskStore.listByStatus(workspaceId, status as TaskStatusDto);
+      tasks = await taskStore.listByStatus(
+        workspaceId,
+        status as TaskStatusDto
+      );
     } else if (workspaceId) {
       tasks = await taskStore.listByWorkspace(workspaceId);
     }

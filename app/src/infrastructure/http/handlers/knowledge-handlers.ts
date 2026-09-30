@@ -434,14 +434,12 @@ export async function handleSearchKnowledge(
 
     // R3+B7：buckets=1 时附加 rules/faqs/records/sources 分桶（docs 仍为兼容原形状的增强数组）
     if (url.searchParams.get('buckets') === '1') {
-      const { rules, faqs, records, sources } = await kops.searchKnowledgeBuckets(
-        query,
-        {
+      const { rules, faqs, records, sources } =
+        await kops.searchKnowledgeBuckets(query, {
           limit: filtered.length || 5,
           base,
           domain,
-        }
-      );
+        });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ docs: result, rules, faqs, records, sources }));
       return;

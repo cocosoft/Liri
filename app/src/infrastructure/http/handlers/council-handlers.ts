@@ -309,7 +309,9 @@ export async function handleSubmitStatement(
 
     // 发射 SSE 事件，确保前端 SSE 客户端能收到手动注入的发言
     try {
-      await (await getCoreAPI().getWorkspaceOpsPort()).emitCouncilEvent({
+      await (
+        await getCoreAPI().getWorkspaceOpsPort()
+      ).emitCouncilEvent({
         type: 'statement',
         sessionId,
         phase: session.phase,

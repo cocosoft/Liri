@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "allowImportingTsExtensions": true
+  },
+  // 必须把 app 的 src / tests 也作为【根文件】：src 下的全局 *.d.ts（ImportMeta 增强、ink JSX 等）
+  // 只被 import 到不会进程序 ⇒ 会冒出大量假错（实测 33 错中有 22 错源于此）。
+  // 但【不能】把 app 的 scripts 目录一并纳入：根 scripts 与 app scripts 都在全局作用域声明同名函数
+  // ⇒ TS2393 Duplicate function implementation。故这里单独列出 app/scripts 下唯一需要的 d.ts。
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "../scripts/**/*",
+    "scripts/bun-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "packages",
+    "src/**/__tests__",
+    "src/**/tests",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*ModuleTest.ts",
+    // 已知缺口（台账 D-138）：该脚本 import 'typescript'，但根 package.json 未声明此依赖，
+    // 且 typescript 只装在 app/node_modules（根目录没有）⇒ 需先补依赖（bun add -d typescript）
+    // 或补 paths 映射，之后即可移出本排除项。
+    "../scripts/generate-method-map.ts"
+  ]
+}

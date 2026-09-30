@@ -6,7 +6,11 @@
     "noUnusedParameters": false,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*", "tests/**/*", "scripts/**/*"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "scripts/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",

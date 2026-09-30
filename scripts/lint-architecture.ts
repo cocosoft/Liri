@@ -1760,9 +1760,13 @@ class ArchitectureLinter {
     const tsconfigPath = resolve(process.cwd(), 'app', 'tsconfig.json');
     if (!existsSync(tsconfigPath)) return;
 
-    const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf-8'));
+    // D-138 收网（2026-09-30）：显式声明读取到的配置形状 —— 原先 `JSON.parse` 结果为 `any`，
+    // 经 `new Set(...)` 后元素退化为 `unknown`，故 `ex.replace` 报 TS18046。
+    const tsconfig: { exclude?: string[] } = JSON.parse(
+      readFileSync(tsconfigPath, 'utf-8')
+    );
     const excluded = new Set(
-      (tsconfig.exclude || []).map((e: string) => e.replace(/\/\*\*$/, ''))
+      (tsconfig.exclude ?? []).map((e) => e.replace(/\/\*\*$/, ''))
     );
 
     // 检查被 tsconfig 排除但应纳入类型检查的目录

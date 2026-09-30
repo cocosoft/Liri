@@ -72,17 +72,23 @@ describe('工具出参运行期校验（P1-3 A 档）', () => {
     ).toBeNull();
   });
 
-  it('载荷在 result 上（只填 result 的手写 ToolResult 工具）⇒ 同样被校验', () => {
-    // 合规：data 缺省、result 有载荷 ⇒ 通过
-    expect(
-      validateToolOutputShape({ name: 'demo', outputSchema: schema }, {
-        result: { count: 1 },
-      } as ToolResult)
-    ).toBeNull();
-    // 不合规：必须报错 —— 证明"真的校验了"，而不是"因无载荷而跳过"
+  it('载荷只认 data（B2-b 已撤除 result 回退）⇒ 写在 result 上不再被校验', () => {
+    // 2026-09-30（P1-3 **B2-b**，spec `architecture-benchmark-20260928.md` §2.2.1）：
+    // 原实现 `data ?? result` 是 B 档之前的**过渡回退**（曾标 `TODO: CS05-ROOTFIX`），
+    // 已随**根因收口**撤除 —— 3 个"只填 result"的工具（voice_input / voice_output /
+    // code_analysis）在 **B2-a** 已把载荷迁到 `data`。
+    // 本用例由「断言 result 会被校验」**反转为新契约的守卫**：
+    // 载荷**必须**放 `data`；写在 `result` 上 ⇒ 校验器看不到载荷 ⇒ 按"无载荷不校验"返回 null。
     expect(
       validateToolOutputShape({ name: 'demo', outputSchema: schema }, {
         result: { count: 'bad' },
+      } as ToolResult)
+    ).toBeNull();
+
+    // 反证（防"校验器失灵"式误读）：同一份不合规载荷改放 `data` ⇒ 立刻报错
+    expect(
+      validateToolOutputShape({ name: 'demo', outputSchema: schema }, {
+        data: { count: 'bad' },
       } as ToolResult)
     ).not.toBeNull();
   });

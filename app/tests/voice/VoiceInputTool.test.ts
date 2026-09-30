@@ -365,10 +365,13 @@ describe('VoiceInputTool', () => {
       expect(result.error).toBeUndefined();
     });
 
-    it('返回 result 应包含 recording=true', async () => {
+    // 2026-09-30（P1-3 B2-a）：工具载荷字段由 `result` 迁至 `data`（spec §2.2.1）⇒
+    // 本文件**断言 ToolResult 载荷**的用例统一改读 `.data`；注意**不改** `validateInput`
+    // 的 `{result: boolean}` 断言（那是同名不同物）。
+    it('返回 data 应包含 recording=true', async () => {
       const result = await tool.execute({ action: 'start', language: 'en' });
 
-      expect(result.result).toEqual({ recording: true, language: 'en' });
+      expect(result.data).toEqual({ recording: true, language: 'en' });
     });
 
     it('metadata 应包含 language', async () => {
@@ -380,7 +383,7 @@ describe('VoiceInputTool', () => {
     it('未传 language 时默认使用 zh-CN', async () => {
       const result = await tool.execute({ action: 'start' });
 
-      expect(result.result).toEqual({ recording: true, language: 'zh-CN' });
+      expect(result.data).toEqual({ recording: true, language: 'zh-CN' });
     });
 
     it('录音启动失败应返回 FAILURE 状态', async () => {
@@ -422,9 +425,9 @@ describe('VoiceInputTool', () => {
       const result = await tool.execute({ action: 'stop' });
 
       expect(result.status).toBe('success');
-      // 识别结果经 result.result.text（成功路径）或 result.output 返回
+      // 识别结果经 data.text（成功路径）或 result.output 返回
       expect(
-        (result.result as { text?: string } | null)?.text || result.output
+        (result.data as { text?: string } | null)?.text || result.output
       ).toBeDefined();
     });
 
@@ -442,9 +445,9 @@ describe('VoiceInputTool', () => {
       const result = await tool.execute({ action: 'check' });
 
       expect(result.status).toBe('success');
-      expect(result.result).toBeDefined();
-      if (result.result) {
-        const checkResult = result.result as Record<string, unknown>;
+      expect(result.data).toBeDefined();
+      if (result.data) {
+        const checkResult = result.data as Record<string, unknown>;
         expect(typeof checkResult.recording).toBe('boolean');
         expect(typeof checkResult.available).toBe('boolean');
         expect(typeof checkResult.dependenciesAvailable).toBe('boolean');
@@ -508,13 +511,13 @@ describe('VoiceInputTool', () => {
       await tool.execute({ action: 'start' });
       const during = await tool.execute({ action: 'check' });
       expect(during.status).toBe('success');
-      expect((during.result as Record<string, unknown>)?.recording).toBe(true);
+      expect((during.data as Record<string, unknown>)?.recording).toBe(true);
 
       // 停止后 check
       await tool.execute({ action: 'stop' });
       const after = await tool.execute({ action: 'check' });
       expect(after.status).toBe('success');
-      expect((after.result as Record<string, unknown>)?.recording).toBe(false);
+      expect((after.data as Record<string, unknown>)?.recording).toBe(false);
     });
   });
 });

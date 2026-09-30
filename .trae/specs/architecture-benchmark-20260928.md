@@ -206,7 +206,14 @@
   - **判据精度**：用**表达式级锚点**（`status: ToolExecutionStatus.X,` + `result:`）⇒ **绝不误触** 三文件 `validateInput` 里的 `{result: false}`（**同名不同物**）。事后以 `^\s*result[:\s]` 复核：三文件仅剩 `validateInput` 的 4 处，**迁移面已清零** ✓
   - **零行为变更（构造上等价）**：校验器读 `data ?? result` —— 迁移前 `data===undefined` ⇒ 回退取 `result`；迁移后 `data=payload` ⇒ **短路取同一值** ⇒ 校验结论**逐字段一致**；事件侧另有独立来源（§2.2.1 ④，读 `message.content`）⇒ **双证**。
   - **验收**：`bun run typecheck` **exit 0**（三遍）· `eslint` 三文件 **0 problem** · `bun test tests/tools` **576 pass / 0 fail**。
-- **下一步 = B2-b**（撤掉 `validateToolOutputShape` 的 `?? result.result` 回退 + 删 `TODO: CS05-ROOTFIX`，再评估移除主契约 `result?: T`）。
+- **B2-b ✅ 已完成（2026-09-30）**：撤掉 `validateToolOutputShape` 的 `?? result.result` **过渡回退**（改为只读 `result.data`）+ **删 `TODO: CS05-ROOTFIX`**（根因已消，回退失去存在理由）。
+  - **测试同步**：`tests/tools/toolOutputSchema.test.ts` 里「载荷在 `result` 上 ⇒ 同样被校验」的用例**反转为新契约的守卫**（载荷只认 `data`；写在 `result` 上按"无载荷不校验"返回 null），并保留"同一不合规载荷改放 `data` ⇒ 立刻报错"的**反证**（防"校验器失灵"式误读）。
+  - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
+  - ⚠️ **过程教训（本批两次自纠）**：
+    ① **B2-a 的验证不完整** —— 当时只跑了 `tests/tools`，**漏了 `tests/voice`**（`VoiceInputTool.test.ts` 有 **6 处**断言旧载荷字段 `result`）⇒ 直到撤 B2-b 回退时才暴露 **4 处失败**；现已全部改为 `.data`（并**保留** `validateInput` 的 `{result: boolean}` 断言**不动** —— 同名不同物）。
+    ⇒ **纪律 H：改"载荷字段 / 契约字段"后，验证必须跑全量（至少先 grep 测试全域），不能只跑"看似相关"的子目录。**
+    ② **全量测试挂起的一个真因**：复用**被打断运行**留下的 `.tmp-bun-test` 沙箱目录时会挂起（本次 **7 分钟无输出**）；换**干净目录**后 **96.77s** 正常完成。⇒ **打断后重跑前，先清沙箱目录。**
+- **下一步 = 评估移除主契约 `result?: T`**（须先确认全仓无"把它当事件 `result` 用"的代码）—— 这是 B2 收口的最后一步。
 
 ---
 

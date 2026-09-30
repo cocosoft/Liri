@@ -144,7 +144,7 @@
 | 2 | 7–11（Multi-Agent / Memory / Learning / MCP / Goal） | ✅ 已取证（Learning 与 Goal 判 🟡，各有 1 项待细核） |
 | 3 | 12–16（Exception Recovery / HITL / RAG / A2A / Resource-Aware） | ✅ 已取证（A2A 判 🟡：**ACP 与 A2A 协议双轨**） |
 | 4 | 17–21（Reasoning / Guardrails / Evaluation / Prioritization / Exploration） | ✅ 已取证（Prioritization、Exploration 判 🟡） |
-| 收尾 | 把**可机械判定**的条目接进 `lint:arch`（如"工具出参必须过 schema"） | ⬜ **待做**（判据已细化）：「工具出参必须过 schema」是**运行期**属性、无法静态判定；**更可机械判定的替代判据** = 「**`*OutputSchema` 全仓无消费者 ⇒ warning**」（= T4/T6 教训的制度化）。⚠️ 但**须与 44 个存量分批清理同步落地** —— 否则会一次性产生 44 条 warning，冲垮基线（0 错 1 警）、淹没真实告警 |
+| 收尾 | 把**可机械判定**的条目接进 `lint:arch`（如"工具出参必须过 schema"） | ✅ **已完成（2026-09-30 复核）**：「工具出参必须过 schema」是**运行期**属性、无法静态判定 ⇒ 实际落地的是**更可机械判定的替代判据**「**`*OutputSchema` 全仓无消费者 ⇒ warning**」（T4/T6 教训的制度化）＝ **R15-001**；并严格按"**先清存量 → 再加门禁 → 零豁免上线**"顺序执行：存量 **44 → 0**（接线 21 / 删除 24），门禁上线后实测 `定义 21 个，零消费者 0 个`、**总告警仍为 1**（仅既有 R07-004）⇒ **无新增噪音**，且做过 A 档变异测试（临时插入孤立定义 ⇒ 报 1 条，已还原）。配套 **R15-002**（零 importer 的 `schemas.ts` ⇒ warning）同步落地。详见 [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) §三 / §五 |
 
 ### 批次 4 新增的待细核项
 
@@ -349,7 +349,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 
 | 项 | 位置 | 性质 | 备注 |
 |---|---|---|---|
-| **§三 收尾门禁**「`*OutputSchema` 全仓无消费者 ⇒ warning」 | §三 收尾行 | 中 | **前置**：须与 **44 个存量**零消费者 schema **分批处置同步落地**，否则一次性 44 条 warning 冲垮基线；分批处置见 [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) |
+| ~~**§三 收尾门禁**~~「`*OutputSchema` 全仓无消费者 ⇒ warning」 | §三 收尾行 | — | ✅ **已完成（2026-09-30 复核）**：① **存量已清零** —— spec 分批 1a–4b 全部执行完毕（**接线 21 / 删除 24**，零消费者 **44 → 0**）；② **门禁已落地** —— 新增 **R15-001**（`checkOrphanOutputSchemas`，warning 级、**零豁免上线**）：`lint:arch` 实测「定义 **21** 个，零消费者 **0** 个」、总告警仍为 **1**（仅既有 R07-004）⇒ **无新增噪音**；③ 并做 **A 档变异测试**（临时插入孤立定义 ⇒ 报 1 条，已还原）。另顺带清掉**入参侧**零 importer 死文件（20/41 整文件删除）+ 新增门禁 **R15-002**。⇒ spec [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) 已自记「~~门禁尚未落地~~ ⇒ ✅ 已落地」，本行滞后更正 |
 | **P1-3 B/C 档**（收敛主契约 / 抽基座类型） | §二 P1 行 | 大 | 需先补 `core/types.ts:46`、`extensions/ExtendedToolOptions.ts:68` 两处语义判定（§2.1 未穷尽） |
 | **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦） |
 | ~~**§5.3 跨端契约单一事实源**~~ | §5.3 | — | ✅ **已完成（2026-09-30 复核）**：事件名已下沉 `shared/events/eventNames.ts` 单一事实源 + **三端一致性门禁**（台账 **D-57**，实测 **3 pass / 0 fail**）。原判两条**均已过时** —— ①"client 落后后端 5 类型"②"`shared/` 仅 client 在用（app 零引用）"（app 实测 **5 处**引用）⇒ **§5.3 正文已同步改写** |

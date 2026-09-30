@@ -48,9 +48,11 @@ function mapSource(source: string): FileSource {
       //（原写成陈旧名 ⇒ 运行时得到 `undefined`，类型检查首日即抓出）
       return FileSource.CHANNEL_TELEGRAM;
     case 'web_fetch':
-      // D-137 收网：枚举中无 `WEB_FETCH`；web_fetch 产物归入「自动入库」桶
-      //（与上面 knowledge 类同处理）—— 属语义择近，如需独立分类应先在 FileSource 增枚举值
-      return FileSource.AUTO_INGEST;
+      // D-137 收网（同批内自纠）：枚举中无 `WEB_FETCH`，但也**无需新增枚举值** ——
+      // WebFetchTool 注册抓取产物用的就是 `FileSource.TOOL_DOWNLOAD`
+      //（见 tools/WebFetchTool/WebFetchTool.ts 的 registerFile），那才是该概念的事实来源。
+      // 新增 WEB_FETCH 会造成"同一概念两个枚举值"（CS01）；此处对齐既有事实来源。
+      return FileSource.TOOL_DOWNLOAD;
     case 'tool_write':
       return FileSource.TOOL_WRITE;
     default:

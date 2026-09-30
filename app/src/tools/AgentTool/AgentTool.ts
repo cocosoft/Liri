@@ -735,7 +735,7 @@ export class AgentTool implements Tool {
   ): ToolResult<unknown> {
     return {
       status: ToolExecutionStatus.FAILURE,
-      result: null,
+      data: null,
       error,
       executionTime: 0,
       output: '',
@@ -1939,7 +1939,7 @@ export class AgentTool implements Tool {
 
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: errorMessage,
         executionTime: Date.now() - startTime,
         output: '',
@@ -2722,7 +2722,8 @@ export class AgentTool implements Tool {
       resultStatus === ToolExecutionStatus.FAILURE ? batchError : undefined;
     return {
       status: resultStatus,
-      result: finalOutput,
+      // B2-c（2026-09-30）：载荷字段由 `result` 迁至 `data`（对齐主契约与校验器口径）
+      data: finalOutput,
       error: resultError,
       executionTime: Date.now() - startTime,
       output: finalOutput,
@@ -2868,7 +2869,7 @@ export class AgentTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
-      result: `Background agent task started (ID: ${taskId}). Use /agent status ${taskId} to check progress.`,
+      data: `Background agent task started (ID: ${taskId}). Use /agent status ${taskId} to check progress.`,
       error: undefined,
       executionTime: 0,
       output: `Background agent task started (ID: ${taskId})`,
@@ -3023,7 +3024,7 @@ export class AgentTool implements Tool {
       status: result.completed
         ? ToolExecutionStatus.SUCCESS
         : ToolExecutionStatus.FAILURE,
-      result: result.result,
+      data: result.result,
       error: result.completed ? undefined : result.error,
       executionTime: Date.now() - startTime,
       output: result.result || '',

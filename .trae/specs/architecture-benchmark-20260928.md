@@ -231,7 +231,11 @@
     | `tests/tools/knowledgeSaveTool.test.ts:66,88` · `tests/tools/AgentTool/swarmDescriptorResolution.test.ts:698` | 🚫 **随写入批次** | 断言的是**尚未迁移**的写入点 ⇒ 随 knowledge / AgentTool 模块的**写入批次**一起改 |
 
   - **批次 1 验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）✓
-  - **批次 2 起（未做）**：按模块迁**写入侧**（每批 8–10 处）—— 建议起手 `tools/services/ToolResultPersister.ts`×5 → `tools/AgentTool/*`×6 → `knowledge/tools/*`×12 → `memory/tools/*`×7 → `media/tools/*`×7 → `modules/calendar/*`×4 → `SkillTool/*`×5 → 其余。
+  - **批次 2 ✅ 已完成（2026-09-30）**：迁移 **6 处写入点** —— `tools/AgentTool/AgentTool.ts`×5（失败分支 `result:null`→`data:null` ×2 · 批处理出口 `finalOutput` · 后台任务启动文案 · `result.result` 出口）+ `tools/services/ToolResultPersister.ts`×1（**溢出替换**的载荷位）。
+    - **连带改测试（本批既定动作）**：`tests/tools/AgentTool/swarmDescriptorResolution.test.ts:698`（读载荷 → `data` 优先）· `tests/tools/ToolResultPersister.test.ts`（fixture + 4 处断言 → `data`）—— 否则**运行期静默失败**（`tsc` 抓不到，正是批次 1 的教训）。
+    - **客观进度证据（探针复测）**：字段临时移除后错误数 **59 → 53**，其中**写入点 51 → 45**（恰好 −6）✓
+    - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
+  - **剩余（批次 3 起）**：**写入点 45 处** —— `knowledge/tools/*`×12 → `memory/tools/*`×7 → `media/tools/*`×7 → `ai/interfaces/ToolExecutor.ts`×6 → `modules/calendar/*`×4 → `SkillTool/*`×5 → `tools/KnowledgeSaveTool`×2 → `modules/mail/*`×1；另有**兼容读 4 处**（`ToolExecutor:773` · `Coordinator` · `ToolResultPersister:64` · `SubAgentEngine:864`）与**测试断言**（`knowledgeSaveTool.test.ts:66,88` 等），待**写入侧清零后**统一收口 → 再删字段。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

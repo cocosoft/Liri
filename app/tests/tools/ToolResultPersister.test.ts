@@ -24,9 +24,10 @@ afterAll(() => {
 });
 
 function makeResult(id: string, content: string) {
+  // B2-c（2026-09-30）：载荷字段统一为 `data`（溢出替换与 extractResultText 均已对齐）
   return {
     normalizedToolCall: { id, name: 'testTool' },
-    result: { result: content, metadata: {} as Record<string, unknown> },
+    result: { data: content, metadata: {} as Record<string, unknown> },
   };
 }
 
@@ -34,7 +35,7 @@ describe('prepareToolResultsForContext — 工具结果二级防御', () => {
   it('小结果（不超单条/单轮预算）不落盘不替换', async () => {
     const items = [makeResult('c1', 'small content')];
     await prepareToolResultsForContext(items);
-    expect(items[0]!.result.result).toBe('small content');
+    expect(items[0]!.result.data).toBe('small content');
     expect(items[0]!.result.metadata?.toolResultPath).toBeUndefined();
   });
 
@@ -43,7 +44,7 @@ describe('prepareToolResultsForContext — 工具结果二级防御', () => {
     const items = [makeResult('c-big', big)];
     await prepareToolResultsForContext(items);
 
-    const replaced = items[0]!.result.result as string;
+    const replaced = items[0]!.result.data as string;
     // preview 长度 + 路径引用通知，远小于原文
     expect(replaced.length).toBeLessThan(big.length);
     expect(replaced.length).toBeGreaterThan(PREVIEW_CHARS);
@@ -60,8 +61,8 @@ describe('prepareToolResultsForContext — 工具结果二级防御', () => {
     );
     await prepareToolResultsForContext(items);
 
-    expect(items[0]!.result.result as string).toContain('完整内容已保存到');
-    expect(items[4]!.result.result as string).toContain('完整内容已保存到');
+    expect(items[0]!.result.data as string).toContain('完整内容已保存到');
+    expect(items[4]!.result.data as string).toContain('完整内容已保存到');
   });
 
   it('单轮聚合恰好未超限时不 spill', async () => {

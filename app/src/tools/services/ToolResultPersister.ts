@@ -102,7 +102,8 @@ export async function prepareToolResultsForContext(
       const notice = buildPathRefNotice(path);
       item.pr.result = {
         ...item.pr.result,
-        result: preview + notice,
+        // B2-c（2026-09-30）：溢出替换同样以 `data` 承载载荷（对齐主契约）
+        data: preview + notice,
         metadata: {
           ...(item.pr.result.metadata ?? {}),
           toolResultPath: path,

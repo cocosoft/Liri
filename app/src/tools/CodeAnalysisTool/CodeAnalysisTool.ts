@@ -64,6 +64,10 @@ export class CodeAnalysisTool implements Tool {
    * （`result: output`，`output: CodeAnalysisOutput` = `{analysis:{type,stats,details?}, filesAnalyzed, analysisTime}`）
    * ⇒ 与 schema **逐字段相符**（2026-09-29 起校验器已**回退读 `result`**）；6 处 `createFailureResult`
    * 分支自带 `success: false` ⇒ 命中豁免。
+   *
+   * 2026-09-30（P1-3 **B2-a**，spec `architecture-benchmark-20260928.md` §2.2.1）：载荷已由
+   * `result` **迁至 `data`**（对齐 `createToolResult` 家族）⇒ 不再依赖"校验器回退读 `result`"；
+   * 上文的历史说明保留作沿革。
    */
   outputSchema = CodeAnalysisOutputSchema;
   description: string = '分析代码结构、质量和依赖关系';
@@ -259,7 +263,7 @@ export class CodeAnalysisTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: output,
+        data: output,
         error: undefined,
         executionTime: analysisTime,
         output: JSON.stringify(output),

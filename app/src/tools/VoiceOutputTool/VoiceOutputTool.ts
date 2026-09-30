@@ -53,6 +53,10 @@ export class VoiceOutputTool implements Tool {
    * `{spoken, textLength}`（speak）、`{stopped}`（stop）、`{speaking, available, languages}`（check）
    * —— **全在 schema 的 6 个可选字段之内**（故字段全 optional）⇒ 接线。
    * 失败分支 `result: null` ⇒ 命中「**无载荷不校验**」⇒ 不会误报。
+   *
+   * 2026-09-30（P1-3 **B2-a**，spec `architecture-benchmark-20260928.md` §2.2.1）：载荷已由
+   * `result` **迁至 `data`**（对齐 `createToolResult` 家族）⇒ 不再依赖"校验器回退读 `result`"；
+   * 上文的历史说明保留作沿革。
    */
   outputSchema = VoiceOutputOutputSchema;
   description: string = '语音输出工具，用于将文本转换为语音';
@@ -80,7 +84,7 @@ export class VoiceOutputTool implements Tool {
         logger.warn('VoiceOutputTool · 未知操作', { action });
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: `Unknown action: ${action}`,
           executionTime: 0,
           output: '',
@@ -104,7 +108,7 @@ export class VoiceOutputTool implements Tool {
         logger.warn('VoiceOutputTool · 缺少朗读文本');
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: 'Missing text parameter',
           executionTime: 0,
           output: '',
@@ -121,7 +125,7 @@ export class VoiceOutputTool implements Tool {
         logger.warn('VoiceOutputTool · 正在朗读中');
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: 'Already speaking',
           executionTime: 0,
           output: '',
@@ -155,7 +159,7 @@ export class VoiceOutputTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: { spoken: true, textLength: text.length },
+        data: { spoken: true, textLength: text.length },
         error: undefined,
         executionTime: 0,
         output: '文本已朗读完成',
@@ -175,7 +179,7 @@ export class VoiceOutputTool implements Tool {
       });
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: errorMsg,
         executionTime: 0,
         output: '',
@@ -197,7 +201,7 @@ export class VoiceOutputTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: { stopped: true },
+        data: { stopped: true },
         error: undefined,
         executionTime: 0,
         output: '已停止朗读',
@@ -216,7 +220,7 @@ export class VoiceOutputTool implements Tool {
       });
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: errorMsg,
         executionTime: 0,
         output: '',
@@ -233,7 +237,7 @@ export class VoiceOutputTool implements Tool {
   private async handleCheck(): Promise<ToolResult> {
     return {
       status: ToolExecutionStatus.SUCCESS,
-      result: {
+      data: {
         speaking: this.isSpeaking,
         available: true,
         languages: voiceService.getSupportedLanguages(),

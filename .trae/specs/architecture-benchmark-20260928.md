@@ -172,7 +172,7 @@
 ⚠️ **关键风险（"同类不同物"）**：**主契约的 `result?: T` 与事件载荷的 `result: string` 同名不同物**（前者结构化、后者已字符串化）⇒ 收敛时**不得**当作同一个字段处理；**事件侧 `result` 是持久层 schema**，改名需事件格式迁移，**明确不在 B2 范围**。
 
 **② 结论与两步走（替代原"二选一保留"）**
-- **B2-a（消除并行）**：把 **3 个**手写 `ToolResult` 工具（`voice_input` / `voice_output` / `code_analysis` —— 清单复核见 §2.2.1 ③，**原记 4 个有误**）的载荷由 `result` **迁到 `data`**（对齐 `createToolResult` 家族）⇒ 主契约内不再需要 `result` 承载数据。
+- **B2-a（消除并行）**：把 **3 个**手写 `ToolResult` 工具（`voice_input` / `voice_output` / `code_analysis` —— 清单复核见 §2.2.1 ③，**原记 4 个有误**）的载荷由 `result` **迁到 `data`**（对齐 `createToolResult` 家族）⇒ 主契约内不再需要 `result` 承载数据。**✅ 已完成（2026-09-30）**，见 §2.2.1 ⑤。
 - **B2-b（撤过渡）**：迁移完成后，**撤掉** `validateToolOutputShape` 的 `?? result.result` 回退并删 `TODO: CS05-ROOTFIX`；再评估移除主契约 `result?: T`（届时须先确认无"把它当事件 result 用"的代码 —— 即 ① 的风险项）。
 - **验收**：每步 `typecheck` + 全量 `bun test` 全绿；3 个工具的出参 `outputSchema` 校验仍通过（`tests/tools` **539** 例）。
 
@@ -192,14 +192,21 @@
 
 ⇒ **B2-a 实际迁移面 = `VoiceInputTool` · `VoiceOutputTool` · `CodeAnalysisTool`（3 文件）**。
 
-**④ B2-a 开工前的最后一项待办**：定位**事件侧 `result: string`**（持久层 schema）的**上游构造点**，确认它**不读 `ToolResult.result`** —— 否则改字段会**改变落盘内容**（属行为变更）。
-- 已排除的：`ChatManager.ts:1682-1691`（实时写入处）**只回填 `callSeq`**，不读 `result`；`MessageToEventMigrator.ts:362` 取的是 **`message.content`**（字符串），非 `ToolResult` 字段。
-- 待定位的：字面量 `type: 'tool/result'` 在 `app/src` **只有迁移器一处** ⇒ 实时构造点应为**变量/派生**形式（相关 spec：`event-derivation-read-path-rootfix.md`）⇒ 需再定位。
+**④ 事件侧构造点定位 —— ✅ 已完成（2026-09-30）；结论：迁移安全**
+
+- **实时路径复用迁移器（CS01 归一化）**：`ChatManager.ts:1529`（注释原话「复用 Migrator 的 `convertMessage` 逻辑（CS01 归一化），避免重复实现」）+ `:1615`（`migrator.convertMessage(message, 0, Date.now())`）⇒ **实时 `tool/result` 事件的载荷由 `MessageToEventMigrator.convertMessage` 的 tool 分支生成**。
+- **该分支不读 `ToolResult.result`**：它取的是 **`this.extractStringContent(message.content)`**（[`MessageToEventMigrator.ts:360-362`](file:///e:/PY/Documents/CODES/PY_APP/app/src/session/storage/MessageToEventMigrator.ts#L360-L362)）⇒ 事件侧 `result: string` 的来源是 **message content**，与 `ToolResult` 的字段**无耦合** ✓
+- 另已排除：`ChatManager.ts:1682-1691`（实时写入处）**只回填 `callSeq`**，不读 `result`；字面量 `type: 'tool/result'` 在 `app/src` **仅迁移器一处**（其余均为读取/类型位）。
+⇒ **结论：改 `ToolResult` 的载荷字段不会改变落盘内容** ✓（B2-a 的最后一个风险点解除）
 
 **⑤ 档位进度（2026-09-30）**
 - **B1 ✅ 已完成**（commit `aeeeb5e8e`）：`tools/types/ToolResult.ts` 的 7 个共有字段改为 `extends` core 版 ⇒ `bun run typecheck` **exit 0**（预测的 `contextModifier` 收紧**零命中**）+ 全量 `bun test` **4251 pass / 21 skip / 0 fail**（与基线同值）⇒ **零行为变更**实证。
 - **B2 的清单复核 ✅ 已完成**（§2.2.1 ③：迁移面 **3 文件**，原记 4 个有误）。
-- **下一步 = §2.2.1 ④（定位事件侧 `result: string` 的构造点）→ B2-a 迁移（3 文件）**。
+- **B2-a ✅ 已完成**（2026-09-30）：`VoiceInputTool` / `VoiceOutputTool` / `CodeAnalysisTool` 的载荷由 `result` **迁至 `data`**（含 6/8/10 三种缩进变体共 **10 处**；失败分支 `result: null` → `data: null`），并更新 3 处**已陈旧**的契约注释。
+  - **判据精度**：用**表达式级锚点**（`status: ToolExecutionStatus.X,` + `result:`）⇒ **绝不误触** 三文件 `validateInput` 里的 `{result: false}`（**同名不同物**）。事后以 `^\s*result[:\s]` 复核：三文件仅剩 `validateInput` 的 4 处，**迁移面已清零** ✓
+  - **零行为变更（构造上等价）**：校验器读 `data ?? result` —— 迁移前 `data===undefined` ⇒ 回退取 `result`；迁移后 `data=payload` ⇒ **短路取同一值** ⇒ 校验结论**逐字段一致**；事件侧另有独立来源（§2.2.1 ④，读 `message.content`）⇒ **双证**。
+  - **验收**：`bun run typecheck` **exit 0**（三遍）· `eslint` 三文件 **0 problem** · `bun test tests/tools` **576 pass / 0 fail**。
+- **下一步 = B2-b**（撤掉 `validateToolOutputShape` 的 `?? result.result` 回退 + 删 `TODO: CS05-ROOTFIX`，再评估移除主契约 `result?: T`）。
 
 ---
 

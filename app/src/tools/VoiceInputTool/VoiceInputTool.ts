@@ -42,6 +42,10 @@ export class VoiceInputTool implements Tool {
    * `{recording, available, dependenciesAvailable, missing}`（`check`）——**全在 schema 的 8 个
    * 可选字段之内**（这就是它把字段全写成 optional 的原因：三个 action 形态的并集）⇒ 接线。
    * 失败分支 `result: null` ⇒ 命中「**无载荷不校验**」⇒ 不会误报。
+   *
+   * 2026-09-30（P1-3 **B2-a**，spec `architecture-benchmark-20260928.md` §2.2.1）：载荷已由
+   * `result` **迁至 `data`**（对齐 `createToolResult` 家族）⇒ 不再依赖"校验器回退读 `result`"；
+   * 上文的历史说明保留作沿革。
    */
   outputSchema = VoiceInputOutputSchema;
   description: string = '语音输入工具，用于将语音转换为文本';
@@ -67,7 +71,7 @@ export class VoiceInputTool implements Tool {
         logger.warn('VoiceInputTool · 未知操作', { action });
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: `Unknown action: ${action}`,
           executionTime: 0,
           output: '',
@@ -91,7 +95,7 @@ export class VoiceInputTool implements Tool {
         logger.warn('VoiceInputTool · 录音已在进行中');
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: 'Recording already in progress',
           executionTime: 0,
           output: '',
@@ -117,7 +121,7 @@ export class VoiceInputTool implements Tool {
         logger.error('VoiceInputTool · 启动录音失败');
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: 'Failed to start recording',
           executionTime: 0,
           output: '',
@@ -136,7 +140,7 @@ export class VoiceInputTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: { recording: true, language },
+        data: { recording: true, language },
         error: undefined,
         executionTime: 0,
         output: '语音输入已启动，请开始说话',
@@ -155,7 +159,7 @@ export class VoiceInputTool implements Tool {
       });
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: errorMsg,
         executionTime: 0,
         output: '',
@@ -177,7 +181,7 @@ export class VoiceInputTool implements Tool {
         logger.warn('VoiceInputTool · 没有正在进行的录音');
         return {
           status: ToolExecutionStatus.FAILURE,
-          result: null,
+          data: null,
           error: 'No recording in progress',
           executionTime: 0,
           output: '',
@@ -204,7 +208,7 @@ export class VoiceInputTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: result,
+        data: result,
         error: undefined,
         executionTime: 0,
         output: `识别结果: ${result.text}`,
@@ -223,7 +227,7 @@ export class VoiceInputTool implements Tool {
       });
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: errorMsg,
         executionTime: 0,
         output: '',
@@ -243,7 +247,7 @@ export class VoiceInputTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
-      result: {
+      data: {
         recording: this.isActive,
         available: availability.available,
         dependenciesAvailable: dependencies.available,

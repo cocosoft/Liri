@@ -2,7 +2,7 @@
  * 工具执行结果类型
  * 参考CC_CODE的ToolResult设计，适应backend现有架构
  */
-import type { Message } from '@modules/core';
+import type { ToolResult as CoreToolResult } from '@modules/core';
 
 export enum ToolExecutionStatus {
   SUCCESS = 'success',
@@ -37,17 +37,22 @@ export enum ErrorLevel {
   FATAL = 'fatal',
 }
 
-export interface ToolResult<T = unknown> {
-  data?: T;
-  newMessages?: Message[];
-  contextModifier?: (context: any) => any;
-  mcpMeta?: {
-    _meta?: Record<string, unknown>;
-    structuredContent?: Record<string, unknown>;
-  };
-  success?: boolean;
-  output?: string;
-  error?: string;
+/**
+ * 工具出参（**主契约**，工具执行层）
+ *
+ * 2026-09-30（P1-3 **B1 档**，spec `architecture-benchmark-20260928.md` §2.2）：
+ * 原先此处把 7 个字段（`success` / `output` / `error` / `data` / `newMessages` /
+ * `contextModifier` / `mcpMeta`）与 **core 层最小视图** `core/types.ts:46` **各写一份**
+ * ⇒ 改为 **`extends` core 版**，消灭重声明（`tools → core` 为**合法下行**，且本文件
+ * 原本就已从 `@modules/core` 引入 `Message` ⇒ **零新增跨层对**）。
+ *
+ * ⚠️ 连带收紧（有意为之）：core 版 `contextModifier` 是 `(context: unknown) => unknown`，
+ * 原此处为 `any` ⇒ 继承后**变严**；实现侧若依赖上下文 `any` 需显式标注。
+ *
+ * ⚠️ 未收敛（后续档位）：`data?` 与 `result?` 两个**并行载荷**（B2）、两处 `any`
+ * （`contextModifier` 已随继承收窄；`progress?: any[]` 待 B3）、`output?` 与 `content?` 并行（B3）。
+ */
+export interface ToolResult<T = unknown> extends CoreToolResult<T> {
   status?: ToolExecutionStatus;
   result?: T;
   executionTime?: number;

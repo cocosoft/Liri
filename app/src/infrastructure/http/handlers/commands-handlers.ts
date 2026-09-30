@@ -28,6 +28,8 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
+// C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /**
  * 处理列出所有命令请求 GET /v1/commands
@@ -38,9 +40,9 @@ export async function handleListCommands(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCommandManager } = await import('@modules/commands');
-    const commandManager = getCommandManager();
-    const commands = await commandManager.getAllCommands();
+    const commands = await (
+      await getCoreAPI().getCommandsOpsPort()
+    ).listCommands();
     const result = commands.map((cmd) => ({
       name: cmd.name,
       description: cmd.description,
@@ -92,9 +94,9 @@ export async function handleExecuteCommand(
       return;
     }
 
-    const { commandExecutor } =
-      await import('@modules/commands/executor/CommandExecutor.js');
-    const result = await commandExecutor.execute(command);
+    const result = await (
+      await getCoreAPI().getCommandsOpsPort()
+    ).executeCommand(command);
 
     const output = result.value?.toString() || result.message?.toString() || '';
     const error = result.type === 'error' ? output : '';

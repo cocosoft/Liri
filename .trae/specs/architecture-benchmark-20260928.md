@@ -11,6 +11,8 @@
 
 ## 一、矩阵
 
+> ⚠️ **状态以 [§六 状态回填（2026-09-29）](#六状态回填2026-09-29逐项取证后) 为准**：本矩阵中 #5（工具数口径）、#10（MCP→PathGuard）、#15（ACP/A2A 边界与端点）、#18（沙箱 deny 语义）、#19（`evals/` 能力）的「待核/未核」**均已闭环**，逐项证据见 §6.1。
+
 | # | 模式 | 现状 | 证据（file:line） | 缺口 / 根因 / 下一步 |
 |:--:|---|:--:|---|---|
 | 1 | Prompt Chaining 提示链 | 🟡 | `modules/doc/workflow/DocWorkflowProvider.ts:24-33`（把 `runDocWorkflow` 四阶段声明为 seam 可调度 `WorkflowDefinition`）；`config/types.ts:217 DocWorkflowConfig`（分阶段执行 / 默认格式 / 图片并发 / 失败降级）；`chat/ChatManager.ts:4814 persistDocWorkflowProgress` | **阶段序列双份**：`DocWorkflowProvider` 与 `runDocWorkflow` 各持同一序列（代码内已标 `TODO: CS05-ROOTFIX`「临时双轨，第二刀收口」）⇒ 根因＝同一编排序列两处事实源；**下一步：按该 TODO 收口为唯一序列**（P2，改动面中等） |
@@ -227,6 +229,9 @@
 
 - `shared/` 现有 4 个文件（`types/index.ts`、`status-types.ts`、`voice-types.ts`、`utils/index.ts`），**只有 `client` 在用**（`@shared/types` 3 处命中；`app` **零引用**）⇒ 名为 shared，实为"前端专用"。
 - 后果**已实证**：`client/src/types/events.ts` 的事件类型镜像**落后后端 5 个类型**（`goal/*` ×4 + `agent/recovery`），而该文件头**明文要求"双端必须保持一致"** —— 见 `dev_docs/error_repairs/预存错误与待处理问题.md` 2026-09-28 **D-1**。
+  · ✅ **2026-09-29 复核：该漂移已消失（不再是未决项）**。方法＝对两文件的 `a/b` 形式事件名做**集合级比对**（兼容单/双引号）：**后端 42 个 vs 客户端 42 个，双向差集均为空**；且客户端已含 `goal/created`/`goal/updated`/`goal/status_changed`/`goal/injected`/`agent/recovery`（`client/src/types/events.ts:80-85`，载荷 `:470-503`）。
+  · ⚠️ **口径如实说明**：本比对只看**含 `/` 的名字**（42 个）；**不含**非 `/` 形式的名字（若有）。台账 **D-52** 已记。
+  · **但根因未除**：两侧仍是**手写镜像**（无单一事实源、无门禁）⇒ **下一次仍会漂移**。这正是 §四 根因类 ① 的落点：**本项应从"已修复"升级为"加防漂移门禁 / codegen 单一事实源"**（属 §5.3 的正题，仍未做）。
 - 归属：这正是 §四 根因类 ① 的**已实证实例**；可作为 ① 的第一个落点（而非另开新议题）。
 
 ### 5.4 关于新增 `server/` 文件夹：**不建议**（附理由）
@@ -251,7 +256,7 @@
 - **② 防盲区复发（新规则 R00-002）**：`scripts/lint-architecture.ts` **不再静默跳过**未映射目录 —— 改为**显式登记 + 报 warning**（不阻断提交），并在完成行输出"`未映射目录 N 个`"⇒ 新增目录会被自动捕获，无需人工记得。
 - **验收（实测）**：`检查 3677 → **4007** 个文件`（与 `已扫描 4007` **逐数吻合 ⇒ 盲区归零**）· **违规 0** · 已豁免 395 → **464** · 警告 2 → **1**（R00-002 消失，仅剩预存 R07-004）。
   · ⚠️ **一处如实提示（影响 D-3-B 规模）**：**没有冒出任何真实违规** —— 说明这些目录的依赖方向**本就合规**，此前只是**没被检查**；但**豁免数 +69** 意味着这些文件的跨层依赖**已被既有 `R00-001` 批量例外覆盖** ⇒ **D-3-B（例外 2026-10-18 到期）的收口面比原先估计更大**（从 210 处量级进一步扩大），届时"收口 vs 续期"的取舍更需明确。
-- **D-3-B 状态**：**未续期、未收口**（用户裁定"稍后再说"）。
+- **D-3-B 状态**：~~未续期、未收口~~ ⇒ ✅ **B1 已完成（2026-09-29，用户裁定；台账 D-50 + D-51）**：删 4 条冗余 bulk（18 → 14）+ 其余续期至 `2027-04-18` + **`types` 改归 `core`（先把其 4 处出向依赖清零，6 处消费方改直连事实源）⇒ 收口 `PM-002`**（`perModuleExceptions` 仅剩 `PM-001`）。⚠️ 过程含两处更正：① D-50 曾判"`types` 改归 core 前提证伪"（据当时的 4 处出向依赖）—— 该判断在**依赖被消化后即失效**，D-51 已实施；② `PM-002` 实为**零命中**的"空气例外"。
 
 ### 5.7 D-3-B 收口方案分析（2026-09-28 取证）
 
@@ -295,3 +300,68 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 
 - **与 `decayRules` 的一致性**：例外文件自带 `decayRules`（`maxPerModule: 30`、`batchExpiryDays: 60`）⇒ 其**设计意图就是"例外应逐批衰减"** ⇒ **B1/B2 符合该意图**，B3 一步到位反而与该机制冲突（会被 decay 规则反复阻断）。
 - **时间点建议**：**10-11 前**必须定（`expiresAt` 到期前的 warning 窗口开始后，每次提交都会看到告警）；若选 B1，工作量很小（改 1 个 JSON + 1 个映射值 + 续期日期）。
+
+---
+
+## 六、状态回填（2026-09-29，逐项取证后）
+
+> 说明：本节**只回填"本轮（2026-09-29 收口会话）已完成/已核实"的项**，并为每项给出**台账号或 spec**，便于复核。**未完成项原样保留在上文各表**，不在此重复。
+
+### 6.1 本轮**已闭环**的项（原标"待核/未执行"）
+
+| 原位置 | 原状态 | 现状态 | 证据 |
+|---|:--:|:--:|---|
+| §一 #5「工具数口径 60 vs 建议 81 **待核**」 | 待核 | ✅ **已核** | 本机实跑枚举：**生效 = 60**（与运行时 `GET /v1/tools` **逐数吻合**）· **全量 = 71**；差额 11 = 默认关闭的条件工具。**"81" 无任何本仓口径支撑**（全仓仅出现在本 spec 与 `core` 层倒挂 81 处）⇒ 判为**外部分析的计数口径**。台账 **D-35** |
+| §一 #10 / §四「MCP 动态工具如何进入 **PathGuard/安全清单**」（＝升级方案 C2） | 未核 | ✅ **已实施** | spec [`pathguard-registry-driven-args.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/pathguard-registry-driven-args.md)（**✅ 已实施**，本会话）⇒ PathGuard 改为**注册表驱动**取路径入参（含 MCP 动态工具） |
+| §一 #15 / §三 批次 3 / §四 ①「**ACP 与 A2A 边界**未核」+「`/.well-known/agent.json` 端点是否存在」 | 未核 | ✅ **已核并实施** | 用户裁定 **「ACP 对内 / A2A 对外」**；A2A **T0–T6 全完成**（发现端点 ETag/304/405/401 → 委派端点 → 鉴权 fail-closed → 部署/轮换），spec [`a2a-external-exposure.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/a2a-external-exposure.md)；另经核实 **ACP 默认压根不启动**（需 `ACP_REMOTE_PORT` 双显式 opt-in） |
+| §一 #18 / §五(§5-#6)「沙箱对 `/proc`、socket、运行态日志的 **deny 语义**是否默认拒绝」 | 未核 | ✅ **已核（结论：不是"默认拒绝"）** | `/proc` 被**显式放行**；socket 无该语义；**仅** `~/.pyapp` 满足"未列即拒"且仅在真走 Landlock 时成立。台账 **D-35** / **D-36-①** |
+| （同上衍生）Landlock **网络语义与注释相反** | 未发现 | ✅ **已修** | 网络**收敛为两态**（`--net-deny` = 全禁 / 不 handle = 不受限），bash 真放行、code_run 真全禁；spec [`landlock-net-policy-two-state.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/landlock-net-policy-two-state.md)；台账 **D-38**（⚠️ C 侧待 Linux 实测） |
+| §一 #19「`app/src/evals/` 的实际能力」 | 待核 | ✅ **已核** | `evals/antiCheatAudit.ts`（**5 条机械攻击向量**）+ `tests/evals/antiCheatAudit.test.ts`（**8 例**）⇒ 对抗性/泄漏过滤用例**已落地**。台账 **D-35** |
+| §四 ③「#11 Goal 预算**两步记账竞态**」 | 待设计 | 🟡 **部分**：spec [`goal-entity.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/goal-entity.md) 已记录；本轮**未动**（属"原子晋升"改造） | — |
+| §四 ⑤ 工作区卫生 | ✅ | ✅（无变化） | `R07-004` 仍是**唯一**常驻告警（每轮 `lint:arch` 均为"0 错 1 警"） |
+
+### 6.2 本轮**新增发现并已处置**的架构级问题（原文档未列）
+
+| 项 | 处置 | 台账 |
+|---|---|---|
+| **工具名漂移族**（7+ 例：`file_search` 等） | 编译期枚举 + 2 条门禁 + 逐例清理/改名 | D-29 ~ D-39 |
+| **`SandboxPolicy` 工具门禁是死门禁**（12 项里 9 项是幻觉名） | 整段删除（保留输出上限四件套） | **D-43** |
+| **`disallowedTools` 文档已承诺却零消费者** | **接线使其真正生效** + 端到端守卫 | **D-46** |
+| **`ToolFactory` 遗留池组装链**（`assembleToolPool`→`getTools`→`getAllBaseTools`…）+ `createToolFactory` | 净删 24 个符号 + 修正一处失真判据（`toolSchemaLossless` 夹具改真实注册面） | **D-47** |
+| **门禁覆盖面**（"按工具名登记的清单"未受检） | T3-① 受检名单 **6 → 10** | **D-48-A** |
+| **swarm 路径未接定义侧 `disallowedTools`** + memo 键缺陷 | 接上（每任务精确）+ 修 memo 键 | **D-48-B** |
+| **`processGroupKill.test.ts` 孤儿/挂起隐患** | pid 由父进程写 + `afterAll` 兜底清扫 + 显式 20s 超时 | **D-49** |
+
+### 6.3 仍未执行（原样保留，供裁定）
+
+| 项 | 位置 | 性质 | 备注 |
+|---|---|---|---|
+| **§三 收尾门禁**「`*OutputSchema` 全仓无消费者 ⇒ warning」 | §三 收尾行 | 中 | **前置**：须与 **44 个存量**零消费者 schema **分批处置同步落地**，否则一次性 44 条 warning 冲垮基线；分批处置见 [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) |
+| **P1-3 B/C 档**（收敛主契约 / 抽基座类型） | §二 P1 行 | 大 | 需先补 `core/types.ts:46`、`extensions/ExtendedToolOptions.ts:68` 两处语义判定（§2.1 未穷尽） |
+| **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦） |
+| **§5.3 跨端契约单一事实源**（`shared/` 收口；`client/src/types/events.ts` 落后后端 5 个类型） | §5.3 | 中 | 与 §四 根因类 ① 同一落点 |
+| **待细核项**（§三批次4 + §四批次2/3 表）：#7 单例口径分裂 · #9 adaptation/SkillCurator · #12 两处 `@deprecated` 旧重试器 · #13 审批决策可审计事件 · #16 `TokenTracker` 位置（悲观预扣 C1 已判"不实施"）· #17 CoT/ToT/reasoning effort · #20 统一优先级调度 · #21 主动探索与 `evals/` 重叠 | §三/§四 各表 | 取证 | ✅ **已于 2026-09-29 全部取证完毕 ⇒ 见 §6.4（不再待核）** |
+
+### 6.4 「待细核项」结案（2026-09-29，纯只读取证；台账 **D-54**）
+
+> 口径：每条给 **`file:line` 证据**；阴性结论亦给出**搜索词**。统计已排除 `REF/`。
+
+| # | 待核内容 | 结论 | 证据 / 判据 |
+|:--:|---|:--:|---|
+| #7 | `AgentTool.ts:372` 所称"与 `SubAgentEngine`/`AgentRunStore` 的单例口径分裂"是否真存在第二套单例 | ❌ **不成立** | `getSubAgentEngine`/`getAgentRunStore` 各只有 **1 个模块级 `let` 缓存 + 1 个工厂**；`new SubAgentEngine(` / `new AgentRunStore(` 全仓各 **1 处**（`SubAgentEngine.ts:1137-1144`、`AgentRunStore.ts:638-650`）。`AgentTool.ts:435-441` 那段是**"为何要升级台账"的反例描述**（升级后已收敛到 `AgentRunLedger` 模块级单例 `:441`、批次取消收敛到 `swarmBatchRegistry.ts:16`）⇒ **注释描述的是修复前状态** |
+| #9 | adaptation（把经验写回策略/提示）闭环 + `SkillCurator` 是否存在 | 🟡 **Curator 存在，但无"反馈写回"** | 有：[`skills/SkillCurator.ts:65`](file:///e:/PY/Documents/CODES/PY_APP/app/src/skills/SkillCurator.ts#L65)（动作仅 `pin/unpin/archive/unarchive` `:172-216`、`consolidate :223-245`、`patch :252-259`（**只写 `patchedAt` + 一条历史字符串**）、`startScheduler :369-388`）+ 审查链 `CuratorScheduler.ts` / `CuratorReviewScope.ts` / `agent/agent.ts:477-490`。无：`selfImprove`/`promptEvolution`/`rewritePrompt`/`strategyFeedback` **全 `app/src` 零命中**；`adaptation` 14 处全在 `keybindings/IntelligentKeybindingsAnalyzer.ts`（无关）。⇒ **无"策略/提示演化"写回路径** |
+| #11 | 目标预算"两步记账"竞态窗口 + 目标监控闭环 | 🟡 **两步确实分离（无事务），但已有原子晋升；监控闭环未接线** | [`TaskGoalStore.ts:463-476`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tasks/goal/TaskGoalStore.ts#L463-L476) `addUsage` 与 `:354-394` `markStatusChanged` 各为**独立 SQL**，全会**无 `BEGIN TRANSACTION`**（搜该词未命中）⇒ 竞态窗口**存在**；但 **`:514-583` `addUsageAndPromote`** 已把判定写进 `WHERE`（`:561-567`：`status IN ('active','blocked') AND token_budget IS NOT NULL AND tokens_used >= token_budget`），以 `changes > 0` 作"首次晋升"唯一判据 ⇒ **原子晋升已具备**（与 codex 做法一致）。监控侧：写入方 3 处（`PlanDrivenLoop.ts:360-363`、`LongRunningTaskOrchestrator.ts:2343-2346`/`:2471-2472`），但 `GoalMetricsService` 的 `queryStageMetrics`(`:339`)/`queryReviewSamples`(`:297`) **只有定义、无调用方**，且全文无 `alert`/`deviation` 上报（`deviation` 全仓仅 `context/analytics/EstimationDeviationMonitor.ts`，与 goal 无关）⇒ **进度上报/偏差告警未接线** |
+| #12 | 两处 `@deprecated` 旧重试器残留调用面（何时可删） | ❌ **残留 = 0 ⇒ 可删** | ⚠️ **路径更正**：实际是 [`app/src/bridge/error/BridgeErrorHandler.ts:147-150`](file:///e:/PY/Documents/CODES/PY_APP/app/src/bridge/error/BridgeErrorHandler.ts#L147-L150) 与 `app/src/bridge/utils/debugUtils.ts:378-380`（**不是** `channels/bridge/...`）。全 `app` 搜 `RetryHandler` **仅命中定义**；`debugUtils` 仅 `bridge/api/BridgeApi.ts:13`（且只取 `debugBody`/`extractErrorDetail`，非被弃方法）⇒ 两个被弃方法/类**无任何调用点（含测试）** |
+| #13 | 审批/提问决策是否落**可审计事件** | ❌ **审批裁决不落盘（仅"问题文本"落盘）** | 事件联合里与 HITL 相关的**只有** `assistant/question`（`chat/types/events.ts:50`，登记 `knownEventTypes.ts:45`，载荷 `eventPayloads.ts:576`；落点 `ReActToolLoop.ts:1407/1485`）—— 它记录**问题文本**（模型可见输入，符合 §1.6 红线），**不是裁决结果**。裁决链：`ToolExecutionService.ts:857-870` → `ChatManager.ts:6080-6135`（提交 Inbox `type:'approval'`，`options:['approve','deny']`）→ `inbox-handlers.ts:278-324`（写**内存 TTL** `ApprovedCommandRegistry.approve()` `:233-248` + 可选 `persistAllowlistRule` `:315`）⇒ **`events.jsonl` 查不到"谁批/谁拒/何时"**；提问回答写 `NegotiationState` JSON（`chat/services/NegotiationState.ts:57/214/232` → `~/.pyapp/data/negotiation/<sessionId>.json`），**亦非 session 事件** |
+| #16 | `TokenTracker` 位置 | 🟡 **位置与推测不符；无预扣/回滚** | ❌ 不存在 `monitoring/llm` 下的 `TokenTracker`；实际三处：[`core/events/TokenTracker.ts:49`](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/events/TokenTracker.ts#L49)、`session/TokenTracker.ts:54`（`SessionTokenTracker`）、`core/tokenBudget/UnifiedTokenTracker.ts:163`。搜 `reserve`/`preDeduct`/`rollback`/`hold` 于 `core/tokenBudget` **仅** `:529 reservedOutputTokens:20000`（窗口**输出预留** ≠ 成本**预扣**）⇒ 无"悲观预扣 + 真实回滚" |
+| #17 | 显式 CoT / ToT / 可调推理预算 | ❌ **无** | `reasoningEffort`/`chainOfThought`/`treeOfThought`/`thinkingBudget`/`budget_tokens`/`maxReasoningTokens` 全 `app/src` **零命中**；`capabilities.thinking` 的读取点仅 `main.ts:1386`，用途是 **SmartRouter 选"推理模型"档位的布尔开关** ⇒ **不能调预算** |
+| #20 | 是否有**统一**优先级调度入口 | ❌ **无全局统一，仅各模块局部** | 搜 `PriorityQueue` 全 `app/src` **仅命中 `TTSPriorityQueue`**（语音局部）；局部排序代表：`ai/cost/BillingRoute.ts:156-180`、`services/voice/services/ttsProvider.ts:215`、`commands/builtin/parallel/Parallel.ts:91`；候选统一入口均未接线（见下"未查明"）。`tasks/` 与 `chronos/` **无跨模块统一调度** |
+| #21 | 主动探索/假设验证是否与 `evals/`、`query/` 重叠 | ❌ **无假设生成**；但 ✅ **验证侧已有等价能力 ⇒ 新机制若只补"验证"属重复建设** | `hypothesis` 全 `app/src` **零命中** ⇒ "假设生成→验证"闭环**不存在**。验证侧已有等价：`query/verifyProject.ts:90`（被 `TAORLoop.ts:1148` 与 `tasks/review/ReviewGate.ts:205` 调用）+ evals 断言族（`processAssertions.ts`/`assertionAudit.ts`/`antiCheatAudit.ts`）。`evals/` 本身是**离线评测 harness**（28 文件：runner/sandbox/repoTestJudge/scoring/report/tasks…），**非运行时机制** |
+| #2 | 路由决策的**可观测性** | 🟡 **有 debug 日志，无事件（默认不落盘）** | `ai/modelRouter.ts:56` logger `ai:model-router`，命中/未命中/回退均为 **`debug`**（`:760/769/781/790/801/812`）；`SmartRouter.ts:236/507` 亦 `debug`；默认 INFO ⇒ **不落盘**；调用方仅感知失败告警（`ChatHelper.ts:268`）。**无 `LiriEventType` 承载路由决策**（events.ts 无 route/model 事件；最接近 `:68 context/model-input`） |
+| #6 | 分流判据的**阈值**与**危险工具清单** | 🟡 **两者均硬编码，且不与"验收标准/目标"绑定** | 阈值 `SIMPLE_TASK_MAX_LENGTH = 60`（`core/loop/PlanDrivenLoop.ts:168`，判据 `:162-165` 仅看 `message.trim().length <= 60`；头注释明写"冻结期固定"）；"危险清单"实为 **7 条意图正则** `DANGEROUS_TOOL_PATTERNS`（`:176-184`：删除/移除/rm/remove/unlink/send/写入/覆盖…），**不是工具名清单**；两者**不读配置**。⚠️ 另有一套**真正的工具名**清单 `permission/classifiers/dangerous-tool-keywords.ts:30`（属权限侧，与分流无关） |
+
+**未查明（如实，4 项）**：
+1. `daemon/TaskQueue` 的**生产装配点** —— `new TaskQueue(` 在 `app/src` **零命中**，`daemon/CronBridge.ts:34` 以参数接收但未见注入方 ⇒ 只能判"**TS 生产路径未装配**"（可能由驱动层注入或为存量未接线）。
+2. `context/model-input` 事件**是否携带路由结果** —— 未展开其载荷字段（若要回答"路由决策是否已随该快照落盘"需另读数行）。
+3. `SkillCurator` 是否有 **HTTP/前端消费者** —— 未核 `client/` 与路由，不排除前端直接调用。
+4. ⑤ 中"用户回答"是否**同时**以 `user/message` 事件落盘 —— 已回答写 `NegotiationState`，但未追该回答是否另有 `user/message` 事件（`events.ts:39`）。

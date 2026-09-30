@@ -9,8 +9,8 @@
  * 流程级确认（大纲确认/图片确认）由本模块内部管理，不经过 DecisionGate（设计方案 §4.5 v0.4 修订）
  */
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../../../core/loggerFacade.js';
+import { handleError } from '../../../core/errorHandler.js';
 import { resolveOutputDir } from '@modules/core/paths';
 import type {
   DocFormat,

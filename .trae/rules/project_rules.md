@@ -23,7 +23,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 - **向后兼容策略**：当前应用无正式用户，所有重构/迁移**无需考虑向后兼容**。旧类型、旧文件、旧接口可直接删除或重写，无需保留兼容层或 deprecation 过渡期。待有用户后重新评估此策略。
 
 ### 1.4 环境变量规范
-前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)、`CHANNEL_*`(通道)
+前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)、`CHANNEL_*`(通道)、`A2A_*`(对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`)
 
 **运行时注入（main.ts 自动设置，子进程继承）**：
 | 环境变量 | 对应函数 | 路径 | 用途 |
@@ -297,6 +297,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.14.0**: §1.4 增补 `A2A_*` 环境变量前缀（对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）—— 承接 A2A 对外面（P3-1 / F2，2026-09-29；分发=OS 环境变量、轮换=单钥文档化，见 `.trae/specs/a2a-external-exposure.md` §8）
 - **v7.13.0**: §1.8 日志规范口径与门禁 R11-001 对齐 —— 优先 `getLogger(module)`（默认 INFO/json，同 module 复用单例）；仅需自定义配置（level/format/source/colorize/otelTraceEnabled）时才直接构造并注明理由。同批已按此收敛 `memProfile.ts`、`MemoryPressureMonitor.ts` 两处默认形态
 - **v7.12.0**: §1.6 新增「模型可见 ⇔ 已落盘」红线（事件类型三处同步改为**编译期强制**：`ALL_SESSION_EVENT_TYPES` 清单 + 穷尽断言；`KNOWN_SESSION_EVENT_TYPES` 从清单派生）—— 对标 deepseek-harness 仓库级约束，补齐"可重建性"的制度落点（轨迹对标 P0-2）
 - **v7.11.0**: §1.15 技能来源契约（SkillProvider：list/get/invalidate + rank/locator，四加载器 + ClawHub 收敛）与技能注入索引全量（根治用户技能被截断不可见）；§1.16 工具注册表单一 + 注册→disposer 生命周期约定（MCPToolBridge 对齐 EffectScope）

@@ -75,4 +75,4 @@ export {
   isModuleOnDemand,
   requestModule,
   hasDynamicImport,
-} from './LazyModuleStrategy';
+} from '@modules/core/LazyModuleStrategy';

@@ -63,7 +63,6 @@ const TOOL_NAME_MAP: Record<string, string> = {
   "web-fetch": "网页获取",
   grep: "文本搜索",
   glob: "文件搜索",
-  file_search: "文件搜索",
   search_knowledge: "搜索知识库",
 
   // ---- 文件操作类 ----
@@ -178,7 +177,6 @@ function buildToolHumanSummary(toolCall: ToolCall): string {
     case "grep":
       return formatSummary("正在搜索代码", getArgStr(args, "pattern"));
     case "glob":
-    case "file_search":
       return formatSummary("正在搜索文件", getArgStr(args, "pattern"));
     case "web_search":
     case "web-search":

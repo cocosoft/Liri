@@ -35,9 +35,10 @@ import type {
 } from './runtime/types.js';
 import { getDefaultSessionStore } from './session.js';
 import type { AcpSessionStore } from './session.js';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger } from '../core/loggerFacade.js';
+import { getOTelTracing } from '../core/tracingFacade.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '../core/errorHandler.js';
 import * as http from 'http';
 import * as net from 'net';
 import type { Duplex } from 'stream';

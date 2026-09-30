@@ -803,6 +803,24 @@ export function getToolRegistry(): ToolRegistry {
 }
 
 /**
+ * 解析工具在**运行期注册表**中声明的入参名。
+ *
+ * 2026-09-29（spec `pathguard-registry-driven-args.md` T3）：把 `PathGuard` 的"哪个入参是路径"
+ * 判定从**静态工具名清单**改为可由**注册表**驱动 ⇒ 覆盖外部 MCP 动态注册的工具
+ * （`mcp__<server>__<tool>`；静态名单不可能枚举它们）。
+ *
+ * 调用方（`ReActToolLoop` / `TAORLoop`）把它作为 `PathGuardOptions.resolvePathArgKeys` 注入。
+ *
+ * @returns 该工具声明的**全部**入参名（是否"路径"由 `PathGuard` 侧的键集合收窄）；
+ *          **工具未注册** ⇒ `null`（调用方据此回退既有静态名单，零回归）。
+ */
+export function resolveToolParamNames(toolName: string): string[] | null {
+  const tool = getToolRegistry().getTool(toolName);
+  if (!tool) return null;
+  return tool.getInfo().params.map((p) => p.name);
+}
+
+/**
  * 设置全局工具注册表实例
  * @param registry 工具注册表实例
  */

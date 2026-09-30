@@ -28,45 +28,22 @@ import fs from 'fs';
 import path from 'path';
 
 import { getLogger } from '@modules/monitoring';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { ThirdPartySkillAdapterPort } from '@modules/runtime/api/thirdPartySkillPorts';
 import { broadcastEvent, readRequestBody, sendError } from './handler-utils';
-import type { SkillSearchEngine } from '@modules/skills/loaders/adapter/SkillSearchEngine';
-import type { LocalSkillStore } from '@modules/skills/loaders/adapter/LocalSkillStore';
 
 const logger = getLogger('http:skills');
 
-/** SkillRegistry 最小接口（5.6：system 列表 status 反映真实启用状态） */
-interface SkillRegistryLike {
-  get(
-    name: string,
-    opts?: { includeDisabled?: boolean }
-  ): { name: string; isEnabled?: () => boolean } | undefined;
-}
-
-/** ClawHubAdapter 方法的最小接口（与真实实现对齐，v1.5 阶段 3：消除 as unknown as 断言） */
-interface ClawHubAdapterLike {
-  initialize(): Promise<void>;
-  getInstalledSkills(): Promise<unknown[]>;
-  searchSkills(
-    query: string,
-    opts?: { category?: string; tags?: string[]; source?: string }
-  ): Promise<unknown[]>;
-  getSearchEngine(): SkillSearchEngine;
-  getSkillDetail(id: string): Promise<unknown>;
-  getRemoteVersion(id: string): Promise<string | null>;
-  getSkillRegistry(): SkillRegistryLike | null;
-  installSkill(id: string, sourceUrl?: string): Promise<unknown>;
-  uninstallSkill(id: string): Promise<unknown>;
-  updateSkill(id: string): Promise<unknown>;
-  enableSkill(id: string): Promise<void>;
-  disableSkill(id: string): Promise<void>;
-  getLocalStore(): LocalSkillStore;
-}
+// 2026-09-30（台账 D-90，C1「口径 C」站点 7）：原 `SkillRegistryLike`（5.6：system 列表 status 反映
+// 真实启用状态）与 `ClawHubAdapterLike`（v1.5 阶段 3：消除 as unknown as 断言）两个**本地最小接口**
+// 已**下移为服务层端口** `@modules/runtime/api/thirdPartySkillPorts` —— 它们原先引用了 app 类型
+// `SkillSearchEngine` / `LocalSkillStore`（类型 + 行为双重依赖），正是本文件 service → app 跨层引用的组成部分。
 
 async function reloadUserSkillsAfterWrite(): Promise<void> {
   try {
-    const { reloadUserSkills } =
-      await import('@modules/constants/systemPromptSections');
-    await reloadUserSkills();
+    // 2026-09-30（D-126，`R00-003` P6-b/G6-a）：改经**服务层端口**取用
+    // （实现已自 `constants` 迁入 `skills`（app），handler 直连将构成 service → app 违规）
+    await (await getCoreAPI().getSkillsOpsPort()).reloadUserSkills();
   } catch (err) {
     logger.warning('用户技能重载失败（不影响已落盘文件）', {
       error: String(err),
@@ -74,28 +51,15 @@ async function reloadUserSkillsAfterWrite(): Promise<void> {
   }
 }
 
-async function getClawHubAdapter(): Promise<ClawHubAdapterLike> {
-  const { ClawHubAdapter } =
-    await import('@modules/skills/loaders/adapter/clawhub/ClawHubAdapter');
-
-  // 优先从注册表获取（instanceof 收窄到真实类型；initialize 幂等）
-  try {
-    const { thirdPartyAdapterRegistry } =
-      await import('@modules/skills/loaders/adapter/ThirdPartyAdapterRegistry');
-    const registered = thirdPartyAdapterRegistry.get('clawhub');
-    if (registered instanceof ClawHubAdapter) {
-      await registered.initialize();
-      return registered;
-    }
-  } catch (_err) {
-    // 注册表不可用时 fallback
-  }
-
-  // Fallback: 单例
-  const adapter = ClawHubAdapter.getInstance();
-  await adapter.initialize();
-
-  return adapter;
+/**
+ * 取 ClawHub 适配器 —— 自 2026-09-30（台账 D-90，C1「口径 C」站点 7）起**委托服务层门面**。
+ *
+ * 原编排（registry 查找 → `instanceof` 收窄 → `initialize()` → 单例 fallback）已**内聚到 `CoreAPIImpl`**
+ * （`instanceof` 需 app 类，只有那条 sanctioned 缝可持有），本文件不再直接依赖 app 层实现类与注册表。
+ * **保留本函数壳** ⇒ 19 处调用点零改动。
+ */
+async function getClawHubAdapter(): Promise<ThirdPartySkillAdapterPort> {
+  return getCoreAPI().getClawHubSkillAdapter();
 }
 
 export async function handleListSkills(
@@ -120,8 +84,6 @@ export async function handleListSystemSkills(
   try {
     const { resolveProjectRoot, resolvePyappHome } =
       await import('@modules/core/paths');
-    const { parseSkillFrontmatter } =
-      await import('@modules/skills/utils/skillParser');
     const { readdir, readFile, stat } = await import('fs/promises');
     const { existsSync, readFileSync } = await import('fs');
     const { join } = await import('path');
@@ -177,10 +139,12 @@ export async function handleListSystemSkills(
           try {
             await stat(skillMdPath); // 检查 SKILL.md 是否存在
             const content = await readFile(skillMdPath, 'utf-8');
-            const parsed = parseSkillFrontmatter(content);
+            const parsed = await getCoreAPI().parseSkillFrontmatter(content);
             const name = entry.name;
             const description = parsed.frontmatter?.description || '';
-            const fm = parsed.frontmatter as Record<string, unknown>;
+            const fm = parsed.frontmatter as
+              | Record<string, unknown>
+              | undefined;
             const version = fm?.version || '1.0.0';
             const author = fm?.author || '';
             const category = fm?.category || 'general';
@@ -232,10 +196,10 @@ export async function handleListSystemSkills(
         const filePath = join(dir, entry.name);
         try {
           const content = await readFile(filePath, 'utf-8');
-          const parsed = parseSkillFrontmatter(content);
+          const parsed = await getCoreAPI().parseSkillFrontmatter(content);
           const name = entry.name.replace(/\.md$/, '');
           const description = parsed.frontmatter?.description || '';
-          const fm = parsed.frontmatter as Record<string, unknown>;
+          const fm = parsed.frontmatter as Record<string, unknown> | undefined;
           const version = fm?.version || '1.0.0';
           const author = fm?.author || '';
           const category = fm?.category || 'general';
@@ -348,10 +312,8 @@ async function validateSkillIdParam(
   rawId: string,
   res: http.ServerResponse
 ): Promise<string | null> {
-  const { validateSkillId } =
-    await import('@modules/skills/loaders/adapter/safeSkillId');
   const decoded = decodeURIComponent(rawId);
-  const idError = validateSkillId(decoded);
+  const idError = await getCoreAPI().validateSkillId(decoded);
   if (idError) {
     res.writeHead(400, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -373,11 +335,9 @@ async function skillRelError(rel: string): Promise<string | null> {
   if (path.isAbsolute(normalized) || /^[a-zA-Z]:/.test(normalized)) {
     return `非法条目路径: ${rel}`;
   }
-  const { validateSkillId } =
-    await import('@modules/skills/loaders/adapter/safeSkillId');
   for (const seg of normalized.split('/')) {
     if (!seg || seg === '.') continue;
-    const err = validateSkillId(seg);
+    const err = await getCoreAPI().validateSkillId(seg);
     if (err) return `非法条目路径: ${rel} (${err})`;
   }
   return null;
@@ -397,10 +357,8 @@ export async function handleSystemSkillContent(
   skillId: string
 ): Promise<void> {
   try {
-    const { validateSkillId } =
-      await import('@modules/skills/loaders/adapter/safeSkillId');
     const decodedId = decodeURIComponent(skillId);
-    const idError = validateSkillId(decodedId);
+    const idError = await getCoreAPI().validateSkillId(decodedId);
     if (idError) {
       res.writeHead(400, {
         'Content-Type': 'application/json; charset=utf-8',
@@ -655,15 +613,14 @@ export async function handleImportSkill(
       }
     } else if (Array.isArray(body.skills)) {
       // S2-1 双兼容：{ skills: [{ name, description, category }] } 简易导入
-      const { sanitizeSkillId } =
-        await import('@modules/skills/loaders/adapter/safeSkillId');
       const imported: string[] = [];
       for (const item of body.skills) {
         if (!item || typeof item.name !== 'string' || !item.name.trim()) {
           continue;
         }
         const name = item.name.trim();
-        const safeName = sanitizeSkillId(name) || 'unnamed-skill';
+        const safeName =
+          (await getCoreAPI().sanitizeSkillId(name)) || 'unnamed-skill';
         const skillDir = path.join(userSkillsDir, safeName);
         fs.mkdirSync(skillDir, { recursive: true });
         const frontmatter = [
@@ -709,9 +666,7 @@ export async function handleImportSkill(
     }
 
     // 基础 id 校验（v1.5 阶段 4：safeSkillId 白名单）
-    const { validateSkillId } =
-      await import('@modules/skills/loaders/adapter/safeSkillId');
-    const idError = validateSkillId(skillId);
+    const idError = await getCoreAPI().validateSkillId(skillId);
     if (idError) {
       res.writeHead(400, {
         'Content-Type': 'application/json; charset=utf-8',
@@ -737,12 +692,11 @@ export async function handleImportSkill(
     let requiresApproval = false;
     const skillMdPath = path.join(target, 'SKILL.md');
     if (fs.existsSync(skillMdPath)) {
-      const { parseSkillPermissions, hasSensitivePermission } =
-        await import('@modules/skills/loaders/adapter/SkillPermission');
-      const permissions = parseSkillPermissions(
-        fs.readFileSync(skillMdPath, 'utf-8')
-      );
-      if (hasSensitivePermission(permissions)) {
+      if (
+        await getCoreAPI().skillMdRequiresApproval(
+          fs.readFileSync(skillMdPath, 'utf-8')
+        )
+      ) {
         fs.writeFileSync(path.join(target, '.enabled'), 'false', 'utf-8');
         requiresApproval = true;
       }
@@ -980,15 +934,16 @@ export async function handleSkillCategories(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { PLUGIN_CATEGORIES } =
-      await import('@modules/plugins/categories/PluginCategories');
+    const pluginCategories = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).getPluginCategories();
 
     const adapter = await getClawHubAdapter();
     const installed = await adapter.getInstalledSkills();
 
     const categoryMap = getSkillCategoryMap(installed);
 
-    const categories = Object.entries(PLUGIN_CATEGORIES).map(([key, cat]) => ({
+    const categories = Object.entries(pluginCategories).map(([key, cat]) => ({
       id: key,
       capability: cat.capability,
       description: cat.description,
@@ -1325,9 +1280,8 @@ async function createLocalSkill(
   const { resolvePyappHome } = await import('@modules/core/paths');
   const userSkillsDir = path.join(resolvePyappHome(), 'skills');
   // 目录名清洗（v1.5 阶段 4：safeSkillId）
-  const { sanitizeSkillId } =
-    await import('@modules/skills/loaders/adapter/safeSkillId');
-  const safeName = sanitizeSkillId(name) || 'unnamed-skill';
+  const safeName =
+    (await getCoreAPI().sanitizeSkillId(name)) || 'unnamed-skill';
   // S0-4：frontmatter 注入防护 —— 拦截 \n / --- 注入，限制长度
   const cleanName = sanitizeSkillFrontmatterValue(name, 200) || safeName;
   const cleanDescription = sanitizeSkillFrontmatterValue(description, 1000);
@@ -1522,9 +1476,7 @@ async function applyLocalSkillEnabled(
 ): Promise<void> {
   try {
     // S0-1：非法 ID 直接跳过（如 %2F 解码后的路径穿越）
-    const { validateSkillId } =
-      await import('@modules/skills/loaders/adapter/safeSkillId');
-    const idError = validateSkillId(skillId);
+    const idError = await getCoreAPI().validateSkillId(skillId);
     if (idError) {
       logger.warn(`本地技能启用状态落盘跳过（非法 ID）: ${skillId}`, {
         error: idError,

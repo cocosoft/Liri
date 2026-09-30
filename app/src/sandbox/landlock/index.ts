@@ -28,7 +28,6 @@ export {
   clampAccessByAbi,
   MAX_SUPPORTED_ABI,
   MIN_FS_ABI,
-  NET_TCP_ABI,
 } from './LandlockPolicyBuilder';
 export { LandlockDetector } from './LandlockDetector';
 export {

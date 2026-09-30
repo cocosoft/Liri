@@ -24,6 +24,7 @@ import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
+import type { ToolName } from '@modules/tools/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { configManager } from '@modules/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
@@ -650,12 +651,18 @@ export class ToolExecutionService {
     }
 
     // ── 图像路径校验 ──
-    const IMAGE_INPUT_TOOLS = new Set(['image_analysis', 'image']);
-    const IMAGE_TOOL_NAMES = new Set([
-      ...IMAGE_INPUT_TOOLS,
+    // 2026-09-29（P2-3 / T2）：真名由 `satisfies readonly ToolName[]` 编译期校验（拼错 ⇒ typecheck 报错）
+    const IMAGE_INPUT_TOOL_NAME_LIST = [
+      'image_analysis',
+      'image',
+    ] as const satisfies readonly ToolName[];
+    const IMAGE_INPUT_TOOLS = new Set<string>(IMAGE_INPUT_TOOL_NAME_LIST);
+    const IMAGE_TOOL_NAME_LIST = [
+      ...IMAGE_INPUT_TOOL_NAME_LIST,
       'image_svg_generate',
       'canvas',
-    ]);
+    ] as const satisfies readonly ToolName[];
+    const IMAGE_TOOL_NAMES = new Set<string>(IMAGE_TOOL_NAME_LIST);
     if (IMAGE_INPUT_TOOLS.has(normalizedToolCall.name) && toolCall.sessionId) {
       const args = normalizedToolCall.arguments;
       let inputPath = (args.inputPath || args.file_path || args.path) as

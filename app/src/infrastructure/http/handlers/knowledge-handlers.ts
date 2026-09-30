@@ -15,7 +15,10 @@ import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
-import type { KnowledgeRoute } from '@modules/docs/knowledge-types';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// C1（2026-09-30 D-97，`knowledge` 域 P3）：类型位改为服务层端口类型
+// （原文由 docs 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import type { KnowledgeRoutePort } from '@modules/runtime/api/knowledgeOpsPorts';
 
 /**
  * B4（2026-09-08）：HTTP 知识搜索复用共享单例 getKnowledgeRouter()，
@@ -89,9 +92,8 @@ function scheduleDigestRebuild(): void {
   digestTimer = setTimeout(async () => {
     digestTimer = null;
     try {
-      const { getDefaultDigestService } =
-        await import('@modules/knowledge/KnowledgeDigestService');
-      await getDefaultDigestService().buildDigest();
+      const kops = await getCoreAPI().getKnowledgeOpsPort();
+      await kops.rebuildKnowledgeDigest();
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:knowledge-handlers',
@@ -106,11 +108,6 @@ export async function handleListKnowledge(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
     const { stat } = await import('fs/promises');
     const { join } = await import('path');
 
@@ -141,10 +138,10 @@ export async function handleListKnowledge(
     const categoryFilter = parsedUrl.searchParams.get('category');
     const sourceFilter = parsedUrl.searchParams.get('source');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
 
-    const docs = await knowledgeDocsProvider.buildIndex();
+    const docs = await getCoreAPI().buildKnowledgeDocsIndex();
     // KB-P1-7（2026-08-27）：stat 并行化——原 for 内串行 await stat，
     // 文档多时列表延迟显著；先 Promise.all 并行采集元数据再组装
     const statResults = await Promise.all(
@@ -197,7 +194,7 @@ export async function handleListKnowledge(
 
       const content = doc.content || '';
       // KB-P1-8（2026-08-27）：使用公共 frontmatter parser，收敛重复手写解析
-      const parsed = parseFrontmatter(content);
+      const parsed = await kops.parseKnowledgeFrontmatter(content);
       let category = doc.category || '根目录';
       let tags: string[] = [];
       if (parsed) {
@@ -281,14 +278,11 @@ export async function handleGetKnowledgeDoc(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, stat } = await import('fs/promises');
     const { existsSync } = await import('fs');
-    const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
     // KB-DOC：路径校验（防 ../ 逃逸）+ 解析绝对路径
     const fullPath = await assertDocPathWithin(knowledgeRoot, docPath);
 
@@ -300,7 +294,7 @@ export async function handleGetKnowledgeDoc(
 
     const content = await readFile(fullPath, 'utf-8');
     const fileStat = await stat(fullPath);
-    const parsed = parseFrontmatter(content);
+    const parsed = await kops.parseKnowledgeFrontmatter(content);
     const h1 = content.match(/^#\s+(.+)$/m);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -352,20 +346,15 @@ export async function handleSearchKnowledge(
       .filter(Boolean);
     const filterTags = tags ?? urlTags;
 
-    const { getKnowledgeRouter } =
-      await import('@modules/knowledge/KnowledgeRouter');
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
     const { stat, open } = await import('fs/promises');
     const { join } = await import('path');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
 
-    // B4：复用共享单例（init 注入 vectorStore/semanticStore/graph，与工具通道同索引）。
-    // onlyKnowledge=true 保持 HTTP「仅用户知识库」语义（共享单例额外含 app/docs 内置文档）
-    const router = await getKnowledgeRouter();
-    const routes = await router.search(query, {
+    // B4：共享单例取用**内聚在端口实现侧**（init 注入 vectorStore/semanticStore/graph，
+    // 与工具通道同索引）。onlyKnowledge=true 保持 HTTP「仅用户知识库」语义
+    // （共享单例额外含 app/docs 内置文档）
+    const routes = await kops.searchKnowledgeRoutes(query, {
       maxResults: 20,
       onlyKnowledge: true,
       ...(domain ? { domain } : {}),
@@ -373,7 +362,7 @@ export async function handleSearchKnowledge(
 
     // KB-SEARCH-BASE（2026-08-29 导出复核）：前端 hybridSearch 传 base 期望库内搜索，
     // 原 _base 解析后未使用（死变量）→ 结果混入其他库文档。按 docPath 前缀过滤。
-    const inBase = (route: KnowledgeRoute): boolean => {
+    const inBase = (route: KnowledgeRoutePort): boolean => {
       if (!base || base === '根目录') return true;
       const dp: string = route.docPath ?? '';
       return dp === base || dp.startsWith(`${base}/`);
@@ -381,7 +370,7 @@ export async function handleSearchKnowledge(
     // P2-2: 按标签过滤（大小写不敏感）+ base 过滤
     const filtered = (
       filterTags?.length
-        ? routes.filter((route: KnowledgeRoute) =>
+        ? routes.filter((route: KnowledgeRoutePort) =>
             filterTags.some((t: string) =>
               (route.tags ?? []).some(
                 (tag: string) => tag.toLowerCase() === t.toLowerCase()
@@ -393,7 +382,7 @@ export async function handleSearchKnowledge(
 
     // P2-7: 补充 size/updated_at/source（stat + frontmatter 头部解析）
     const result = await Promise.all(
-      filtered.map(async (route: KnowledgeRoute) => {
+      filtered.map(async (route: KnowledgeRoutePort) => {
         let size = 0;
         let updatedAt = 0;
         let source = 'manual';
@@ -414,7 +403,7 @@ export async function handleSearchKnowledge(
             );
             // KB-P1-8（2026-08-27）：改用公共 parseFrontmatter——原手写
             // `split(':')[1]` 在值含冒号时拆错；head 仅 2048B 覆盖 frontmatter 足够
-            const parsed = parseFrontmatter(
+            const parsed = await kops.parseKnowledgeFrontmatter(
               head.toString('utf-8', 0, bytesRead)
             );
             if (parsed?.source) source = parsed.source;
@@ -445,10 +434,7 @@ export async function handleSearchKnowledge(
 
     // R3+B7：buckets=1 时附加 rules/faqs/records/sources 分桶（docs 仍为兼容原形状的增强数组）
     if (url.searchParams.get('buckets') === '1') {
-      const { createUnifiedSearchService } =
-        await import('@modules/knowledge/search/UnifiedSearchService');
-      const svc = createUnifiedSearchService(router);
-      const { rules, faqs, records, sources } = await svc.searchBucketed(
+      const { rules, faqs, records, sources } = await kops.searchKnowledgeBuckets(
         query,
         {
           limit: filtered.length || 5,
@@ -504,9 +490,8 @@ export async function handleKnowledgeRawPreview(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const knowledgeRoot = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
 
     // 路径穿越防护：realpath 后必须仍位于 knowledgeRoot 内
     // （解析基准=知识库根而非根/raw——file 已含 base/raw 前缀，见函数头注记）
@@ -560,16 +545,12 @@ export async function handleCreateKnowledge(
       res.end(JSON.stringify({ error: { message: 'title is required' } }));
       return;
     }
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
     const { writeFile, mkdir } = await import('fs/promises');
     const { existsSync } = await import('fs');
     const { join, relative } = await import('path');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
     // P2-3: 与列表 docPath 语义统一（相对路径）；"根目录"不建子目录
     // KB-P0-3（2026-08-27）：category 为自由文本（前端可手动输入），
     // 直接 join(knowledgeRoot, category) 可注入 ../../xxx 逃逸根目录——统一走 sanitizeBaseName
@@ -599,7 +580,7 @@ export async function handleCreateKnowledge(
       : `# ${title}\n\n`;
     await writeFile(filePath, fileContent, 'utf-8');
     // KB-P0-2（2026-08-27）：创建后清缓存，否则新建文档要等其它操作触发清缓存才出现在列表
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
     const docPath = relative(knowledgeRoot, filePath);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -632,16 +613,12 @@ export async function handleUpdateKnowledge(
   try {
     const body = await readRequestBody(req);
     const { title, content } = JSON.parse(body);
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile } = await import('fs/promises');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
     // KB-DOC（2026-08-27）：knowledgeId 来自 URL，补 assertDocPathWithin 防 ../ 逃逸
     const filePath = await assertDocPathWithin(
-      registry.getKnowledgeRoot(),
+      await kops.getDefaultKnowledgeRoot(),
       knowledgeId
     );
 
@@ -655,7 +632,7 @@ export async function handleUpdateKnowledge(
     }
 
     await writeFile(filePath, fileContent, 'utf-8');
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -683,23 +660,19 @@ export async function handleDeleteKnowledge(
   knowledgeId: string
 ): Promise<void> {
   try {
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('fs/promises');
     const { existsSync } = await import('fs');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
     // KB-DOC（2026-08-27）：knowledgeId 来自 URL，直接 join 可 ../ 逃逸根目录越权删除
     const filePath = await assertDocPathWithin(
-      registry.getKnowledgeRoot(),
+      await kops.getDefaultKnowledgeRoot(),
       knowledgeId
     );
 
     if (existsSync(filePath)) {
       await unlink(filePath);
-      knowledgeDocsProvider.clearCache();
+      await getCoreAPI().clearKnowledgeDocsCache();
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -719,10 +692,8 @@ export async function handleListKnowledgeBases(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const bases = await registry.listBases();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const bases = await kops.listKnowledgeBases();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(bases));
   } catch (err) {
@@ -749,10 +720,8 @@ export async function handleCreateKnowledgeBase(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const base = await registry.createBase(name, label, icon);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const base = await kops.createKnowledgeBase(name, label, icon);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(base));
@@ -779,10 +748,8 @@ export async function handleUpdateKnowledgeBase(
     const body = await readRequestBody(req);
     const { label, enabled, icon } = JSON.parse(body);
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const base = await registry.updateBase(baseName, {
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const base = await kops.updateKnowledgeBase(baseName, {
       label,
       enabled,
       icon,
@@ -810,10 +777,8 @@ export async function handleDeleteKnowledgeBase(
   baseName: string
 ): Promise<void> {
   try {
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    await registry.deleteBase(baseName);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    await kops.deleteKnowledgeBase(baseName);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
@@ -846,10 +811,8 @@ export async function handleCloneKnowledgeBase(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const result = await registry.cloneBase(baseName, target);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const result = await kops.cloneKnowledgeBase(baseName, target);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -880,10 +843,8 @@ export async function handleDuplicateKnowledgeBase(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const result = await registry.duplicateConfig(baseName, target);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const result = await kops.duplicateKnowledgeBaseConfig(baseName, target);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -921,17 +882,13 @@ export async function handleSaveFromChat(
     const ALLOWED_SOURCES = new Set(['chat-save', 'quick-note']);
     const sourceValue = ALLOWED_SOURCES.has(source) ? source : 'chat-save';
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile, mkdir } = await import('fs/promises');
     const { join } = await import('path');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
     // B-D1 修复：baseName 必须经路径穿越清洗（base 为自由文本，可注入 ../../xxx）
     const baseName = sanitizeBaseName(base);
-    const baseDir = join(registry.getKnowledgeRoot(), baseName);
+    const baseDir = join(await kops.getDefaultKnowledgeRoot(), baseName);
 
     await mkdir(baseDir, { recursive: true });
 
@@ -957,7 +914,7 @@ export async function handleSaveFromChat(
     // 显式补两个换行保证 frontmatter 与正文分行。
     const fileContent = `${frontmatter}\n\n${content}\n`;
     await writeFile(filePath, fileContent, 'utf-8');
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -1012,15 +969,11 @@ export async function handleKnowledgeUpload(
     // 知识库根目录写任意位置——解构后统一清洗，后续所有 baseName 引用均为安全值
     const baseName = sanitizeBaseName(rawBaseName);
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile, mkdir } = await import('fs/promises');
     const { join, extname, basename } = await import('path');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
 
     const safeName = sanitizeFileName(filename);
     const ext = extname(filename).toLowerCase();
@@ -1088,10 +1041,9 @@ export async function handleKnowledgeUpload(
       await writeFile(join(rawDir, originalRawName), rawBuffer);
 
       // 2. 使用 ConverterEngine 提取文本
-      const { getConverterEngine } = await import('@modules/tools');
-      const engine = getConverterEngine();
-      const fileInfo = engine.getDetector().detect(filename, rawBuffer.length);
-      const result = await engine.convertContent(fileInfo, rawBuffer);
+      const port = await getCoreAPI().getToolsPort();
+      const fileInfo = await port.detectFileInfo(filename, rawBuffer.length);
+      const result = await port.convertContent(fileInfo, rawBuffer);
       const extractedContent = result.markdown;
 
       // 3. 保存提取的 Markdown 到 {baseDir}/raw/{stem}.md（伴侣文件）
@@ -1187,7 +1139,7 @@ export async function handleKnowledgeUpload(
       await writeFile(fullPath, frontmatter, 'utf-8');
     }
 
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
 
     if (ext !== '.md') {
       notifyFileChanged();
@@ -1221,9 +1173,11 @@ export async function handleKnowledgeCompile(
     const body = await readRequestBody(req);
     const { force } = JSON.parse(body);
 
-    const { aiService } = await import('@modules/ai');
-    const { runKnowledgeCompile } =
-      await import('@modules/knowledge/KnowledgeCompiler');
+    // ⚠️ 句柄须为**真对象**（原样透传给 `runKnowledgeCompile`）
+    const aiService = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getAiServiceHandle();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
 
     // KB-COMPILE-ASYNC（2026-08-28）：编译耗时较长（几十秒~数分钟），
     // 同步 await 会长时间占用事件循环（compile-status 也无法响应）。
@@ -1231,7 +1185,7 @@ export async function handleKnowledgeCompile(
     // 显示实时进度（current/total），避免用户不知情。
     setImmediate(async () => {
       try {
-        await runKnowledgeCompile(aiService, { force: !!force });
+        await kops.runKnowledgeCompile(aiService, { force: !!force });
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:handlers:knowledge-handlers',
@@ -1264,9 +1218,8 @@ export async function handleKnowledgeCompileStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCompileProgress } =
-      await import('@modules/knowledge/CompileProgressTracker');
-    const progress = getCompileProgress();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const progress = await kops.getKnowledgeCompileProgress();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(progress));
@@ -1289,8 +1242,6 @@ export async function handleKnowledgeLineage(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { LineageStore } =
-      await import('@modules/knowledge/lineage/LineageStore');
     const url = new URL(
       req.url ?? '/',
       `http://${req.headers.host ?? 'localhost'}`
@@ -1346,15 +1297,11 @@ export async function handleKnowledgeLineage(
       return;
     }
 
-    const store = new LineageStore();
-    try {
-      await store.init();
-      const links = await store.query(query);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ links, count: links.length }));
-    } finally {
-      await store.close();
-    }
+    // 实例生命周期（新建/初始化/关闭）内聚在端口实现侧
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const links = await kops.queryKnowledgeLineage(query);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ links, count: links.length }));
   } catch (err) {
     sendError(res, err);
   }
@@ -1373,11 +1320,9 @@ export async function handleGetRawFiles(
     const { readdir, stat } = await import('fs/promises');
     const { join, extname } = await import('path');
     const { readFileSync, existsSync } = await import('fs');
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const rawDir = join(registry.getKnowledgeRoot(), 'raw');
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const rawDir = join(await kops.getDefaultKnowledgeRoot(), 'raw');
 
     if (!existsSync(rawDir)) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1455,14 +1400,12 @@ export async function handleExportToNotebook(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile, mkdir } = await import('fs/promises');
     const { join } = await import('path');
     const { resolveOutputDir } = await import('@modules/core/paths');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const sourcePath = join(registry.getKnowledgeRoot(), docPath);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const sourcePath = join(await kops.getDefaultKnowledgeRoot(), docPath);
 
     const content = await readFile(sourcePath, 'utf-8');
 
@@ -1521,13 +1464,9 @@ export async function handleImportFromFile(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile, mkdir } = await import('fs/promises');
     const { join, basename, extname } = await import('path');
     const { existsSync } = await import('fs');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
     if (!existsSync(filePath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1560,9 +1499,9 @@ export async function handleImportFromFile(
     let rawContent: string;
 
     if (BINARY_EXTENSIONS.has(ext)) {
-      const { getConverterEngine } = await import('@modules/tools');
-      const engine = getConverterEngine();
-      const result = await engine.convertFile(filePath);
+      const result = await (
+        await getCoreAPI().getToolsPort()
+      ).convertFile(filePath);
       rawContent = result.markdown;
     } else {
       rawContent = await readFile(filePath, 'utf-8');
@@ -1571,8 +1510,8 @@ export async function handleImportFromFile(
     // KB-IMP（2026-08-27）：targetBase 为自由文本，直接 join 可注入 ../../xxx 逃逸
     // 知识库根目录写任意位置——与 upload/update/create 一致走 sanitizeBaseName
     const targetBase = sanitizeBaseName(baseName || 'default');
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
     const baseDir = join(knowledgeRoot, targetBase);
 
     await mkdir(baseDir, { recursive: true });
@@ -1605,7 +1544,7 @@ export async function handleImportFromFile(
       await writeFile(fullPath, rawContent, 'utf-8');
     }
 
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
 
     // P1-2：登记原文件「已入知识库」（原文件在 FileRegistry 登记过才命中；失败不影响导入）
     try {
@@ -1662,16 +1601,12 @@ export async function handleUpdateKnowledgeDoc(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, writeFile, mkdir, rename } = await import('fs/promises');
     const { join, relative, basename, dirname } = await import('path');
     const { existsSync } = await import('fs');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
     let effectiveDocPath = docPath;
     // KB-DOC（2026-08-27）：docPath 来自请求体，先校验再 join，防止 ../ 逃逸根目录
     const filePath = await assertDocPathWithin(knowledgeRoot, docPath);
@@ -1796,7 +1731,7 @@ export async function handleUpdateKnowledgeDoc(
           ].join('\n');
 
           await writeFile(effectiveFilePath, newContent, 'utf-8');
-          knowledgeDocsProvider.clearCache();
+          await getCoreAPI().clearKnowledgeDocsCache();
           // KB-P2-13（2026-08-27）：digest 重建改为 debounce（500ms 合并），不再每次串行全量
           scheduleDigestRebuild();
 
@@ -1835,7 +1770,7 @@ export async function handleUpdateKnowledgeDoc(
     ].join('\n');
 
     await writeFile(effectiveFilePath, newContent, 'utf-8');
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
     // KB-P2-13（2026-08-27）：digest 重建改为 debounce（500ms 合并），不再每次串行全量
     scheduleDigestRebuild();
 
@@ -1873,15 +1808,11 @@ export async function handleBatchDeleteKnowledge(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('fs/promises');
     const { existsSync } = await import('fs');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
 
     let deleted = 0;
     const deletedPaths: string[] = [];
@@ -1895,7 +1826,7 @@ export async function handleBatchDeleteKnowledge(
       }
     }
 
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
     // KB-P2-11（2026-08-27）：批量删除广播事件，多窗口/托盘场景同步；
     // KB-SEM：同步发布 knowledge:changed 驱动语义索引清理
     for (const id of ids) {
@@ -1938,16 +1869,11 @@ export async function handleBatchTagKnowledge(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { parseTags } = await import('@modules/knowledge/frontmatter');
     const { readFile, writeFile } = await import('fs/promises');
     const { existsSync } = await import('fs');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const knowledgeRoot = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
 
     let updated = 0;
     const updatedPaths: string[] = [];
@@ -1976,7 +1902,7 @@ export async function handleBatchTagKnowledge(
           .slice(1)
           .join(':')
           .trim();
-        existingTags.push(...parseTags(existingVal));
+        existingTags.push(...(await kops.parseKnowledgeTags(existingVal)));
       }
 
       const mergedTags = [...new Set([...existingTags, ...tags])];
@@ -2007,7 +1933,7 @@ export async function handleBatchTagKnowledge(
       updatedPaths.push(filePath);
     }
 
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
     // KB-P2-11（2026-08-27）：批量标签更新广播事件，多窗口/托盘场景同步；
     // KB-SEM：同步发布 knowledge:changed 驱动语义索引增量更新
     for (const id of ids) {
@@ -2033,9 +1959,8 @@ export async function handleKnowledgeHealth(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { runKnowledgeLint } =
-      await import('@modules/knowledge/KnowledgeLinter.js');
-    const lintResult = await runKnowledgeLint();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const lintResult = await kops.runKnowledgeLint();
     const { summary } = lintResult;
 
     // 计算综合 lint 分数 (0-100)
@@ -2050,15 +1975,11 @@ export async function handleKnowledgeHealth(
     // 前端统计弹窗不再全量拉列表（store.items 双轨），改由本接口单次聚合：
     // sourceDistribution/tagDistribution 由 buildIndex（frontmatter 已解析 source/tags）派生；
     // recentItems 按文件 mtime 取最近 10 条
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
     const { stat } = await import('fs/promises');
     const { join } = await import('path');
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
 
-    const knowledgeRoot = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
-    const docs = await knowledgeDocsProvider.buildIndex();
+    const knowledgeRoot = await kops.getDefaultKnowledgeRoot();
+    const docs = await getCoreAPI().buildKnowledgeDocsIndex();
     const docMeta = await Promise.all(
       docs.map(async (doc) => {
         let updatedAt = 0;
@@ -2104,8 +2025,7 @@ export async function handleKnowledgeHealth(
       }));
 
     // D5：OCR 开关可见性（默认关；开启需含 EasyOCR 的 L2 环境）
-    const { isPdfOcrEnabled, SCAN_MIN_CHARS_PER_PAGE } =
-      await import('@modules/knowledge/ingestion/extractors/PdfOcrExtractor.js');
+    const ocrInfo = await kops.getKnowledgePdfOcrInfo();
 
     const metrics = {
       totalDocs: lintResult.totalDocs,
@@ -2123,9 +2043,9 @@ export async function handleKnowledgeHealth(
       lastLintAt: new Date().toISOString(),
       // D5：扫描件 OCR 降级开关（环境变量 KNOWLEDGE_PDF_OCR，默认关）
       ocr: {
-        enabled: isPdfOcrEnabled(),
+        enabled: ocrInfo.enabled,
         envVar: 'KNOWLEDGE_PDF_OCR',
-        scanMinCharsPerPage: SCAN_MIN_CHARS_PER_PAGE,
+        scanMinCharsPerPage: ocrInfo.scanMinCharsPerPage,
         note: 'PDF 文本层稀薄时自动降级 OCR，需含 EasyOCR 的 L2 运行环境',
       },
     };
@@ -2152,10 +2072,8 @@ export async function handleListSnapshots(
       return;
     }
 
-    const { KnowledgeBaseWriter } =
-      await import('@modules/knowledge/KnowledgeBaseWriter.js');
-    const writer = new KnowledgeBaseWriter();
-    const snapshots = await writer.listSnapshots(title);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const snapshots = await kops.listKnowledgeSnapshots(title);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ title, snapshots }));
   } catch (err) {
@@ -2176,10 +2094,8 @@ export async function handleRestoreSnapshot(
       return;
     }
 
-    const { KnowledgeBaseWriter } =
-      await import('@modules/knowledge/KnowledgeBaseWriter.js');
-    const writer = new KnowledgeBaseWriter();
-    const content = await writer.restoreSnapshot(title, snapshot);
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const content = await kops.restoreKnowledgeSnapshot(title, snapshot);
     const restored = content !== null;
     res.writeHead(restored ? 200 : 404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ restored, content }));
@@ -2203,15 +2119,11 @@ export async function handleTrashKnowledge(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
     const { rename, mkdir } = await import('fs/promises');
     const { join, relative } = await import('path');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const root = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const root = await kops.getDefaultKnowledgeRoot();
     // KB-DOC（2026-08-27）：docPath 来自请求体，防 ../ 逃逸根目录移入回收站
     const src = await assertDocPathWithin(root, docPath);
     const trashDir = join(root, '.knowledge-trash');
@@ -2224,7 +2136,7 @@ export async function handleTrashKnowledge(
     await rename(src, dest);
     // KB-P0-1（2026-08-27）：trash 后清缓存 + 广播，与 delete/update 分支一致，
     // 否则 buildIndex 返回旧缓存，前端 REFRESH_LIST 拉到回收站中的过期数据
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ trashed: true }));
@@ -2249,15 +2161,11 @@ export async function handleRestoreTrash(
       return;
     }
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
     const { rename, mkdir } = await import('fs/promises');
     const { join, relative, dirname } = await import('path');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const root = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const root = await kops.getDefaultKnowledgeRoot();
     // KB-DOC（2026-08-27）：docPath 来自请求体，防 ../ 逃逸根目录恢复文件
     const dest = await assertDocPathWithin(root, docPath);
     // KB-TRASH-COLLISION：与 trash 对称——回收站保留相对目录层级，反查源路径
@@ -2267,7 +2175,7 @@ export async function handleRestoreTrash(
     await mkdir(dirname(dest), { recursive: true });
     await rename(src, dest);
     // KB-P0-1（2026-08-27）：restore 后清缓存 + 广播，回收站文档恢复后立即可见
-    knowledgeDocsProvider.clearCache();
+    await getCoreAPI().clearKnowledgeDocsCache();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ restored: true }));
@@ -2288,11 +2196,10 @@ export async function handleListKnowledgeTrash(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readdir, stat } = await import('fs/promises');
     const { join, relative, basename } = await import('path');
-    const root = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const root = await kops.getDefaultKnowledgeRoot();
     const trashDir = join(root, '.knowledge-trash');
 
     const items: Array<{
@@ -2351,11 +2258,10 @@ export async function handlePurgeKnowledgeTrash(
       res.end(JSON.stringify({ error: { message: 'docPath required' } }));
       return;
     }
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('fs/promises');
     const { join, resolve, sep } = await import('path');
-    const root = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const root = await kops.getDefaultKnowledgeRoot();
     const trashDir = resolve(join(root, '.knowledge-trash'));
     const target = resolve(join(trashDir, docPath));
 
@@ -2382,13 +2288,11 @@ export async function handleExportKnowledge(
     const parsedUrl = new URL(req.url || '', 'http://localhost');
     const baseFilter = parsedUrl.searchParams.get('base');
 
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { readFile, readdir } = await import('fs/promises');
     const { join } = await import('path');
 
-    const registry = getDefaultKnowledgeBaseRegistry();
-    const root = registry.getKnowledgeRoot();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const root = await kops.getDefaultKnowledgeRoot();
 
     // 递归收集知识库文件
     async function collectFiles(
@@ -2443,11 +2347,10 @@ export async function handleGetKnowledgeConfig(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { KnowledgeConfig } =
-      await import('@modules/knowledge/KnowledgeConfig');
-    const config = await KnowledgeConfig.load();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const config = await kops.getKnowledgeConfig();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(config.toJSON()));
+    res.end(JSON.stringify(config));
   } catch (err) {
     sendError(res, err);
   }
@@ -2462,11 +2365,8 @@ export async function handleUpdateKnowledgeConfig(
     const body = await readRequestBody(req);
     const partial = JSON.parse(body);
 
-    const { KnowledgeConfig } =
-      await import('@modules/knowledge/KnowledgeConfig');
-    const config = await KnowledgeConfig.load();
-    const updated = config.update(partial);
-    await config.save();
+    const kops = await getCoreAPI().getKnowledgeOpsPort();
+    const updated = await kops.updateKnowledgeConfig(partial);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));

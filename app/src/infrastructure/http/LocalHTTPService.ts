@@ -27,6 +27,8 @@ import {
 } from './handlers/handler-utils';
 import { SandboxPermission } from '@modules/sandbox';
 import { dispatchRoute } from './handlers/route-table';
+// P3-1（2026-09-29）：A2A 委派后端装配（CoreAPI 对话轮，方案①）
+import { installA2ADelegator } from './handlers/routes/a2a-delegator';
 import {
   verifyRequestAuth,
   seedKnowledgeBaseIfEmpty,
@@ -488,6 +490,9 @@ export function getLocalHTTPService(): LocalHTTPService {
       host: '127.0.0.1',
       port: DEFAULT_HTTP_PORT,
     });
+    // P3-1（2026-09-29）：**同步**装配 A2A 委派后端（CoreAPI 对话轮，方案①）。
+    // 仅注入端口；端点是否可达仍由 `A2A_ENABLED` 门控（默认关闭）。
+    installA2ADelegator();
   }
   return _localHTTPService;
 }

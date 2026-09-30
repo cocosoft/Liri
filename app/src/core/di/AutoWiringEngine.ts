@@ -1,12 +1,12 @@
-﻿/**
+/**
  * 自动装配引擎
  * 通过构造函数参数名自动解析依赖
  *
  * 使用 IContainer 接口而非 DIContainer 类型，避免循环依赖。
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core\di\AutoWiringEngine');
 
 /**

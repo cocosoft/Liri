@@ -7,7 +7,9 @@
  * 最终目标：取代 TokenBudgetController 成为唯一的 token 预算管理入口。
  */
 
-import type { ContextTracker } from '@modules/query';
+// G1 收口（台账 D-59）：原先以 `@modules/query` 的 ContextTracker（app 层类）作类型，
+// 现改由 core 自持端口 `CompressionRecorderPort`（`./types`）——上层 ContextTracker 结构满足
+import type { CompressionRecorderPort } from './types';
 import { extractUsage } from '@modules/ai';
 import {
   estimateTokens,
@@ -16,8 +18,8 @@ import {
 } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
-import { getLogger } from '../../monitoring/logs/Logger';
-import { handleError } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
 import {
   TokenBudgetController,
   UNIFIED_THRESHOLDS,
@@ -162,7 +164,7 @@ export {
 
 export class UnifiedTokenTracker {
   private readonly controller: TokenBudgetController;
-  private readonly contextTracker: ContextTracker;
+  private readonly contextTracker: CompressionRecorderPort;
   /**
    * 校准状态（FSZ-162，2026-09-23：**逻辑**抽至 `./tokenCalibration`，**状态**仍由本类持有
    * —— 因 `factor` 在本类另有 4 处外部触点：模型切换恢复、会话元数据恢复、状态快照、
@@ -200,7 +202,7 @@ export class UnifiedTokenTracker {
 
   constructor(
     controller: TokenBudgetController,
-    contextTracker: ContextTracker,
+    contextTracker: CompressionRecorderPort,
     overhead?: { systemPrompt: number; toolDefs: number }
   ) {
     this.controller = controller;
@@ -744,7 +746,7 @@ export class UnifiedTokenTracker {
         calibrationFactor?: number;
       };
     },
-    contextTracker: ContextTracker
+    contextTracker: CompressionRecorderPort
   ): UnifiedTokenTracker {
     const contextWindow = resolveContextWindow(
       session.metadata?.currentModel ?? 'default'

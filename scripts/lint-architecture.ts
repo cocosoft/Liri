@@ -344,8 +344,13 @@ class ArchitectureLinter {
       for (const match of errorMatches) {
         const className = match[1];
 
-        // 跳过标准错误类型文件
-        if (file.includes('error\\') || file.includes('error/')) continue;
+        // 跳过**规范错误基座文件**（⚠️ 用"显式文件清单"，**禁止**用 `error/` 之类的路径子串做判据 ——
+        // 子串判断会随"定义被下沉/搬家"而失效：AppError 下沉到 core/errors.ts 后即被误报，
+        // 见台账 D-63/D-64 与 CS02「状态检测禁止字符串匹配」）
+        const normalizedFile = file.replace(/\\/g, '/');
+        const CANONICAL_ERROR_BASE_FILES = ['core/errors.ts', 'error/types.ts'];
+        if (CANONICAL_ERROR_BASE_FILES.some((p) => normalizedFile.endsWith(p)))
+          continue;
         // 跳过压缩/打包后的文件
         if (file.includes('.min.') || file.includes('.bundle.')) continue;
         // 跳过已知的标准 Error 继承
@@ -1599,7 +1604,16 @@ class ArchitectureLinter {
       'OTEL_TRACES_EXPORTER', // 标准 OpenTelemetry 环境变量（与 monitoring/instrumentation 同类）
       'REACT_LOOP_MAX_DURATION_MS', // ReAct 循环最大时长配置 env
       'LANDLOCK_RUN_HELPER', // Linux 沙箱辅助工具路径（系统检测类）
+      'PDCA_RUN_MAX_TOKENS', // PDCA 运行 token 上限（core/loop/PlanDrivenLoop 直读，理由见下方前缀说明）
     ]);
+
+    // 2026-09-30（台账 D-71，用户裁定「A：`LIRI_*` 前缀入白名单」）：
+    // `LIRI_*` 是本项目**自有**环境变量命名空间（见 `.trae/rules/project_rules.md` §1.4 前缀分类），
+    // 与既有 `PYAPP_*` / `OTEL_*` 同类。core 层**不得** import ConfigManager（分层约束 R00-001），
+    // 而 `configManager.env()` 的实现本就是 `process.env[name] ?? defaultValue`
+    // （`config/ConfigManager.ts:1420`）⇒ core 侧读取本命名空间只能直读 env。
+    // 故**按前缀放行**（白名单仅 `LIRI_`，不放宽到任意前缀 / 任意变量）。
+    const whitelistPrefixes = ['LIRI_'];
 
     // 已知例外的文件路径片段（边界场景，合理的 process.env 直接访问）
     const knownExceptions = [
@@ -1652,7 +1666,10 @@ class ArchitectureLinter {
       const foundVars: string[] = [];
       while ((match = envPattern.exec(content)) !== null) {
         const varName = match[1];
-        if (!whitelist.has(varName)) {
+        const allowed =
+          whitelist.has(varName) ||
+          whitelistPrefixes.some((p) => varName.startsWith(p));
+        if (!allowed) {
           foundVars.push(varName);
         }
       }
@@ -2077,6 +2094,33 @@ class ArchitectureLinter {
       // 若改走 `@modules/query` 桶，会把 TAORLoop / PathGuard / FileIOLoopDetector 整条 query 模块面
       // 拉进推测执行与工具编排路径，徒增求值闭环（TDZ）风险 ⇒ 与 `tasks/goal`、`ai/router` 同理。
       'query/tool-constants',
+      // 循环安全子入口（2026-09-29）：`tools/toolNames.generated` 是 **codegen 产物、零 import 的叶子**
+      // （仅导出 `TOOL_NAMES` 字面量数组 + `ToolName` 联合类型），由 4 个**跨模块核心文件**直接引用
+      // （`constants/tools` · `query/tool-constants` · `context/compaction/MicroCompactionEngine` ·
+      // `chat/services/ToolExecutionService`）—— 它们都处于 tools 的**上游**（context/query/constants）。
+      // 若改走 `@modules/tools` 桶，会把这些核心路径**反向**拉入 ToolFactory + 全部工具类（求值闭环/TDZ 风险），
+      // 与 `query/tool-constants`、`tasks/goal`、`ai/router` 同理 ⇒ 登记为规范子入口。
+      'tools/toolNames.generated',
+      // 循环安全子入口（2026-09-30，台账 D-120）：`core/LazyModuleStrategy` 是**叶子级**懒加载策略
+      // （仅依赖 `core/profilerFacade` + `core/loggerFacade`），被 `modules`(app) 与其**上游**的
+      // `performance`(infra) / `tools`(app) 直接消费（原位于 `modules/`；因 `modules` 由 core 改归
+      // app，为避免 `performance`(infra) → modules(app) 静态倒挂而**下沉 core**）。若改走 `@modules/core`
+      // 桶，会把 `core/loop/PlanDrivenLoop`（依赖 `@modules/tasks`）等整条 core 链路拉入 `performance`
+      // 与模块加载路径 ⇒ 求值闭环 / TDZ 风险 ⇒ 与 `core/systemgraph` 同属"循环安全子入口"。
+      'core/LazyModuleStrategy',
+      // SPI 端口目录（2026-09-30，台账 D-121）：`core/spi/**` 是 core 定义的**抽象契约**
+      // （Logger/OTel/Profiler/Broadcast），由上层实现并注入。**infra / core 层**消费方必须
+      // **按端口精确导入**（`@modules/core/spi`）—— 若改走 `@modules/core` 桶，会被迫拉入
+      // `core/loop/PlanDrivenLoop`（→ tasks）等整条 core 链路，增大求值闭环（TDZ）风险。
+      // 与 `core/events`、`core/systemgraph` 同属规范子入口。
+      'core/spi',
+      // 单一事实源子入口（2026-09-30，台账 D-134）：`channels/ChannelCatalog` 是**零静态依赖的叶子**
+      // （仅导出 26 条「type/name/exportKey/loader」，其 thunk 目标同属 channels ⇒ 同模块不产生跨层）。
+      // `infrastructure/http` 的 `LocalHTTPServiceHelpers` 与 `handlers/channel-handlers` 必须直连它；
+      // **禁止改走 `@modules/channels` 桶** —— 该桶**静态再导出全部 26 个通道实现**，会把整个通道面
+      // 拉进 HTTP 启动路径（同 spec §3.7 记录的懒加载动机）⇒ 与 `core/spi`、`tasks/goal` 同属规范子入口。
+      // 命名保持 PascalCase，以复用 eslint `module-registry/no-direct-module-import` 的 PascalCase 兜底。
+      'channels/ChannelCatalog',
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）
@@ -2450,6 +2494,41 @@ class ArchitectureLinter {
     return imports;
   }
 
+  /**
+   * R00-003（B 组治理）：解析文件中的**动态导入** `import('…')` 目标模块。
+   *
+   * 为什么需要：`parseModuleImports` 只匹配 `from '…'` 形式 ⇒ 动态 `import('…')`
+   * **完全不参与** R00-001 / R03-002，core 层可借此"把依赖藏起来"（A 类盘点发现，
+   * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.6）。
+   * 本方法只收集目标模块名；**是否倒挂**由调用方用同一套 `allowedDependencies` 判定。
+   *
+   * 裁定（用户批准 2026-09-30）：**仅 warning 级上报** —— 不计入 `违规` / `已豁免`，
+   * 不建 composition-root 白名单，不阻断提交。
+   */
+  parseDynamicImports(filePath: string): Set<string> {
+    const content = readFileSync(filePath, 'utf-8');
+    const imports = new Set<string>();
+
+    // 统一捕获 import('…') 的说明符，再按「别名 / 相对路径 / 裸包」分类
+    const dynRegex = /import\(\s*['"]([^'"]+)['"]/g;
+    let match: RegExpExecArray | null;
+    while ((match = dynRegex.exec(content)) !== null) {
+      const spec = match[1];
+      const aliasMatch = /^@modules\/([^'"/]+)/.exec(spec);
+      if (aliasMatch) {
+        imports.add(aliasMatch[1]);
+        continue;
+      }
+      // 裸包（第三方依赖）与其它形式跳过
+      if (!spec.startsWith('.')) continue;
+      const resolved = resolve(dirname(filePath), spec);
+      if (!resolved.startsWith(this.srcPath)) continue;
+      imports.add(this.resolveModuleName(resolved));
+    }
+
+    return imports;
+  }
+
   /** R00-001: 检查分层合规 */
   async checkLayerCompliance(): Promise<void> {
     await this.loadLayerMapping();
@@ -2470,6 +2549,21 @@ class ArchitectureLinter {
      * 消除方式：在 `scripts/modules-to-layers.json` 的 `modules` 里补齐该目录的层归属。
      */
     const unmappedModules = new Set<string>();
+
+    /**
+     * R00-003（B 组治理）：**动态 `import('…')` 造成的跨层引用**。
+     *
+     * 裁定（用户批准 2026-09-30）：**仅 warning 级上报** —— 不计入 R00-001 的 `违规`/`已豁免`，
+     * 不建 composition-root 白名单、不阻断提交；目的是让"把依赖藏起来"的盲区**可见**。
+     * 详见 .trae/specs/layer-inversion-a-class-inventory.md §3.6。
+     */
+    const dynamicCrossLayerRefs: Array<{
+      file: string;
+      srcModule: string;
+      srcLayer: string;
+      tgtModule: string;
+      tgtLayer: string;
+    }> = [];
 
     for (const file of this.allFiles) {
       const srcModule = this.resolveModuleName(file);
@@ -2504,12 +2598,31 @@ class ArchitectureLinter {
         });
         violationCount++;
       }
+
+      // R00-003：动态 import 的跨层引用（仅收集，不计数）
+      for (const dynModule of this.parseDynamicImports(file)) {
+        if (dynModule === srcModule) continue;
+        const dynLayer = this.moduleToLayer.get(dynModule);
+        if (!dynLayer) continue;
+        if (allowedLayers.includes(dynLayer)) continue;
+        dynamicCrossLayerRefs.push({
+          file: relative(process.cwd(), file),
+          srcModule,
+          srcLayer,
+          tgtModule: dynModule,
+          tgtLayer: dynLayer,
+        });
+      }
       checked++;
     }
     console.log(
       `分层检查完成: 检查 ${checked} 个文件 | 违规 ${violationCount} | 已豁免 ${exemptedCount}${
         unmappedModules.size > 0
           ? ` | 未映射目录 ${unmappedModules.size} 个`
+          : ''
+      }${
+        dynamicCrossLayerRefs.length > 0
+          ? ` | 动态跨层引用 ${dynamicCrossLayerRefs.length} 处（R00-003，仅上报）`
           : ''
       }`
     );
@@ -2524,6 +2637,35 @@ class ArchitectureLinter {
         message: `${list.length} 个顶层目录未登记分层映射 ⇒ 其文件**不参与**分层检查（门禁盲区）：${list.join(', ')}`,
         suggestion:
           '在 scripts/modules-to-layers.json 的 modules 中为每个目录补 { "layer": ... }（按职责选 entry/ui/app/service/infra/core），补齐后本条自动消失',
+      });
+    }
+
+    // R00-003（B 组治理）：动态 import 的跨层引用 —— **仅 warning 级上报**
+    // 裁定（用户批准 2026-09-30）：不计入 R00-001 的 违规/已豁免，不建白名单、不阻断提交。
+    // 目的：让"把依赖藏起来"的盲区**可见**（详见 spec §3.6）。
+    if (dynamicCrossLayerRefs.length > 0) {
+      // 输出形态（2026-09-30 用户选定）：**按（源模块 → 目标模块）聚合** ——
+      // 保留完整覆盖（无 top-N 截断），又不逐条刷屏；每组附一个示例文件以保持可下手性。
+      const grouped = new Map<string, { count: number; sample: string }>();
+      for (const r of dynamicCrossLayerRefs) {
+        const key = `${r.srcModule} (${r.srcLayer}) → ${r.tgtModule} (${r.tgtLayer})`;
+        const cur = grouped.get(key);
+        if (cur) {
+          cur.count++;
+        } else {
+          grouped.set(key, { count: 1, sample: r.file });
+        }
+      }
+      const list = [...grouped.entries()]
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([key, v]) => `    - ${key} × ${v.count}（如 ${v.sample}）`)
+        .join('\n');
+      this.violations.push({
+        ruleId: 'R00-003',
+        severity: 'warning',
+        file: 'app/src (全局)',
+        message: `存在 ${dynamicCrossLayerRefs.length} 处**动态导入**（import('…')）造成的跨层引用，覆盖 ${grouped.size} 个「源模块 → 目标模块」组合 —— 门禁 R00-001/R03-002 的 from 正则匹配不到（盲区）；本规则仅上报，不计入违规/已豁免`,
+        suggestion: `下列依赖**真实存在**但静态正则看不见。治理口径（2026-09-30 用户裁定）为**仅 warning 级上报**：不建白名单、不改判定。\n**按（源模块 → 目标模块）聚合（合计 ${dynamicCrossLayerRefs.length} 处）**：\n${list}`,
       });
     }
   }
@@ -3200,7 +3342,9 @@ class ArchitectureLinter {
       }
     }
     if (defs.length === 0) {
-      console.log('[出参 schema 消费者检查 R15-001] 未发现任何 *OutputSchema 定义');
+      console.log(
+        '[出参 schema 消费者检查 R15-001] 未发现任何 *OutputSchema 定义'
+      );
       return;
     }
 

@@ -3,7 +3,7 @@
  * 预定义工作流：send-report, reply-with-doc, meeting-to-all
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 const logger = getLogger('doc:orchestration');
 
 /** 工作流步骤 */

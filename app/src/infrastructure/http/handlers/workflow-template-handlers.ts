@@ -13,12 +13,14 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import type { WorkflowTemplate } from '@modules/workspace/types';
+// C1（2026-09-30 D-113，`workspace` 域 P1）：**类型位**改为服务层端口**逐字镜像**类型
+// （原类型导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import type { WorkflowTemplateDto } from '@modules/runtime/api/workspaceOpsPorts';
 
 const logger = getLogger('http:workflowTemplate');
 
 /** 内建工作流模板 */
-const BUILTIN_TEMPLATES: WorkflowTemplate[] = [
+const BUILTIN_TEMPLATES: WorkflowTemplateDto[] = [
   {
     id: 'builtin:bug-fix',
     name: 'Bug 修复',
@@ -252,7 +254,7 @@ const BUILTIN_TEMPLATES: WorkflowTemplate[] = [
 ];
 
 /** 用户自定义模板存储（内存） */
-const userTemplates: Map<string, WorkflowTemplate> = new Map();
+const userTemplates: Map<string, WorkflowTemplateDto> = new Map();
 
 /**
  * 列出所有模板
@@ -344,7 +346,7 @@ export async function handleCreateWorkflowTemplate(
       return;
     }
 
-    const template: WorkflowTemplate = {
+    const template: WorkflowTemplateDto = {
       id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       name: data.name,
       description: data.description || '',
@@ -412,7 +414,7 @@ export async function handleUpdateWorkflowTemplate(
     const body = await ctx.readRequestBody(req);
     const data = JSON.parse(body || '{}');
 
-    const updated: WorkflowTemplate = {
+    const updated: WorkflowTemplateDto = {
       ...existing,
       name: data.name || existing.name,
       description: data.description || existing.description,

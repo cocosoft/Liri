@@ -101,7 +101,6 @@ export const TOOL_GROUPS: Record<string, string[]> = {
   ],
   'group:sessions': [
     'sessions_list',
-    'sessions_history',
     'sessions_send',
     'sessions_spawn',
     // 注意（2026-09-20，N-25）：本组与下方 `PROFILE_TOOL_ALLOW_LISTS` 的声明都以
@@ -133,7 +132,6 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     'exec',
     'bash',
     'sessions_list',
-    'sessions_history',
     'sessions_send',
     'task',
     'memory_search',

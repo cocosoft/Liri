@@ -6,11 +6,12 @@
  * 零 LLM 调用，O(n) 复杂度
  */
 import type { ChatMessage } from '@modules/ai';
+import type { ToolName } from '@modules/tools/toolNames.generated';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('context:compaction:micro');
 
 /**
- * 可微压缩的工具名（其结果可被占位符替换）。
+ * 可微压缩工具（**真实注册名**；2026-09-29 P2-3/T2 起由 `satisfies readonly ToolName[]` **编译期校验**）
  *
  * 2026-09-26 修复（P3-2 顺查项③）：原清单抄的是 **CC 源码**的名字
  * （`read_file` / `Read` / `edit_file` / `write_file` / `Write` 等），而本仓**真实注册名**是
@@ -20,7 +21,7 @@ const logger = getLogger('context:compaction:micro');
  *
  * 导出仅为**防漂移守卫**可在用例里直接断言（对齐本仓 `appendWithinLimit` 等"供离线断言"的做法）。
  */
-export const COMPACTABLE_TOOL_NAMES = new Set([
+const COMPACTABLE_TOOL_NAME_LIST = [
   'file_read',
   'file_edit',
   'file_write',
@@ -29,7 +30,11 @@ export const COMPACTABLE_TOOL_NAMES = new Set([
   'glob',
   'web_search',
   'web_fetch',
-]);
+] as const satisfies readonly ToolName[];
+
+export const COMPACTABLE_TOOL_NAMES = new Set<string>(
+  COMPACTABLE_TOOL_NAME_LIST
+);
 
 const MICROCOMPACT_CLEARED = '[Old tool result content cleared]';
 

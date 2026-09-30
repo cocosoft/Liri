@@ -12,30 +12,14 @@ import { FileEditTool } from './FileEditTool/FileEditTool';
 import { FileConvertTool } from './FileConvertTool/FileConvertTool';
 import { GrepTool } from './GrepTool/GrepTool';
 import { GlobTool } from './search/GlobTool';
-import { FileSearchTool } from './FileSearchTool/FileSearchTool'; //文件搜索工具（内部其实调用GlobTool）
+// 2026-09-29（台账 D-32）：删除 `FileSearchTool` 导入 —— 该类**从未被任何 loader 注册**（零消费者，
+// 已被 `glob`/`grep` 取代）⇒ 属"类里声明但不在注册面"的死代码（N-27 同族），随死类集群一并清理。
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { CronListTool } from './ChronosTool/CronListTool';
 import { CronStopTool } from './ChronosTool/CronStopTool';
-import { knowledgeRouter } from '../knowledge/KnowledgeRouter';
-import { resolveMemoryDir } from '@modules/core';
-import { createKnowledgeSearchTool } from '../knowledge/tools/KnowledgeSearchTool';
-import { createKnowledgeWriteTool } from '../knowledge/tools/KnowledgeWriteTool';
-import { createKnowledgeDeleteTool } from '../knowledge/tools/KnowledgeDeleteTool';
-import { createKnowledgeImportTool } from '../knowledge/tools/KnowledgeImportTool';
-import { createKnowledgeExportTool } from '../knowledge/tools/KnowledgeExportTool';
-import { createKnowledgeSnapshotsTool } from '../knowledge/tools/KnowledgeSnapshotsTool';
-import { createKnowledgeRestoreTool } from '../knowledge/tools/KnowledgeRestoreTool';
-import {
-  MemoryManagerImpl,
-  createMemoryTool,
-  createMemoryGetTool,
-  createUnifiedSearchTool,
-  SearchToolImpl,
-  createUnifiedSearchService,
-} from '@modules/memory';
 
 const logger = getLogger('tools:factory');
 import { PowerShellTool } from './PowerShellTool/PowerShellTool';
@@ -51,9 +35,6 @@ import {
   TaskCreateListTool,
   TaskUpdateStatusTool,
   TaskGetListTool,
-  ViewTasksTool,
-  AbortTaskTool,
-  ViewPlanTool,
 } from './TaskOrchestratorTools/TaskOrchestratorTools';
 import { TodoWriteTool } from './TodoWriteTool/TodoWriteTool';
 import { TungstenTool } from './TungstenTool/TungstenTool';
@@ -61,7 +42,6 @@ import { LSPToolAdapter } from './adapters/LSPToolAdapter';
 import { REPLToolAdapter } from './adapters/REPLToolAdapter';
 import { NotebookToolAdapter } from './adapters/NotebookToolAdapter';
 import { AskUserQuestionTool } from './AskUserQuestionTool/AskUserQuestionTool';
-import { ProposePlanTool } from './ProposePlanTool/ProposePlanTool';
 import { ConfigTool } from './ConfigTool/ConfigTool';
 import { MCPResourceTool } from './MCPResourceTool/MCPResourceTool';
 import { BriefTool } from './BriefTool/BriefTool';
@@ -87,23 +67,10 @@ import { CanvasTool } from './CanvasTool/CanvasTool';
 import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
 import { ReadMcpResourceTool } from './ReadMcpResourceTool/ReadMcpResourceTool.js';
 import { MCPTool } from '../mcp/MCPTool';
-import { isAntUser, isSimpleMode } from '../utils/features.js';
 import { isToolEnabled } from './utils/ToolFeatureFlags';
-import { isFeatureEnabled } from '@modules/core';
-import { NodesTool } from './NodesTool/NodesTool';
 import { SleepTool } from './SleepTool/SleepTool.js';
 import { CodeRunnerTool } from './CodeRunner/CodeRunnerTool.js';
 import { MonitorTool } from './MonitorTool/MonitorTool.js';
-import { CodeAnalysisTool } from './CodeAnalysisTool/CodeAnalysisTool';
-import { VoiceInputTool } from './VoiceInputTool/VoiceInputTool';
-import { VoiceOutputTool } from './VoiceOutputTool/VoiceOutputTool';
-import { TTSTool } from './TTSTool/TTSTool';
-import { ThinkingTool } from './ThinkingTool/ThinkingTool';
-import { PDFTool } from './PDFTool/PDFTool';
-import { KanbanTool } from './KanbanTool/KanbanTool';
-import { SessionsSendTool } from './SessionsSendTool/SessionsSendTool';
-import { SessionsSpawnTool } from './SessionsSpawnTool/SessionsSpawnTool';
-import { SessionStatusTool } from './SessionStatusTool/SessionStatusTool';
 import { SessionsYieldTool } from './SessionsYieldTool/SessionsYieldTool';
 // N-37（2026-09-20）：自唤醒工具（sleep_for / sleep_until）—— 此前仅有 JSON schema
 // 与执行器、无 BaseTool 包装与注册点 ⇒ 对模型不可达；见 SelfWakeTool.ts 头部说明。
@@ -111,7 +78,6 @@ import {
   createSleepForTool,
   createSleepUntilTool,
 } from './SelfWakeTool/SelfWakeTool';
-import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
 import { ChannelTool } from './ChannelTool/ChannelTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
 import { ImageSvgTool } from './ImageSvgTool/ImageSvgTool';
@@ -120,33 +86,8 @@ import { VideoDisplayTool } from './VideoDisplayTool/VideoDisplayTool';
 import { AudioPlayTool } from './AudioPlayTool/AudioPlayTool';
 import { VideoAnalysisTool } from './VideoAnalysisTool/VideoAnalysisTool';
 import { BrowserVisionTool } from './BrowserVisionTool/BrowserVisionTool';
-import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
 import { VideoGenerateTool } from './VideoGenerateTool/VideoGenerateTool';
-import { McpAuthTool } from './McpAuthTool/McpAuthTool';
-import { AgentsListTool } from './AgentsListTool/AgentsListTool';
-import { UpdatePlanTool } from './UpdatePlanTool/UpdatePlanTool';
-import { TaskOutputTool } from './TaskOutputTool/TaskOutputTool';
-import { TimeTool } from './TimeTool/TimeTool';
-import { RecallMemoryTool } from './RecallMemoryTool/RecallMemoryTool';
-import { createUtilityTools } from './UtilityTools';
-import {
-  createDecisionLoggerTool,
-  createConfidenceScorerTool,
-  createPerformanceProfilerTool,
-  createMemoryDumpTool,
-  createSystemInfoTool,
-  createProcessManagerTool,
-  createGitBranchTool,
-  createGitMergeTool,
-  createGitStashTool,
-  createCodeFormatTool,
-  createReviewAssignTool,
-  createCodeReviewTool,
-} from './ExpansionTools';
-import {
-  BroadcastTool,
-  createBroadcastTool,
-} from './BroadcastTool/BroadcastTool';
+import { BroadcastTool } from './BroadcastTool/BroadcastTool';
 import { CreateProjectTool } from './CreateProjectTool/CreateProjectTool';
 import { ReadProjectFileTool } from './ReadProjectFileTool/ReadProjectFileTool';
 import { WriteProjectFileTool } from './WriteProjectFileTool/WriteProjectFileTool';
@@ -309,15 +250,6 @@ export class ToolFactory {
    */
   createGlobTool(): Tool {
     return new GlobTool();
-  }
-
-  /**
-   * 创建文件搜索工具
-   * 基于 Glob 的文件搜索，返回含 canonicalPath 的搜索结果
-   * @returns 文件搜索工具实例
-   */
-  createFileSearchTool(): Tool {
-    return new FileSearchTool();
   }
 
   /**
@@ -504,26 +436,9 @@ export class ToolFactory {
     return new TaskGetListTool();
   }
 
-  /**
-   * 创建 ViewTasks 工具
-   */
-  createViewTasksTool(): Tool {
-    return new ViewTasksTool();
-  }
-
-  /**
-   * 创建 AbortTask 工具
-   */
-  createAbortTaskTool(): Tool {
-    return new AbortTaskTool();
-  }
-
-  /**
-   * 创建 ViewPlan 工具
-   */
-  createViewPlanTool(): Tool {
-    return new ViewPlanTool();
-  }
+  // 2026-09-29（台账 D-34）：删除 `createViewTasksTool` / `createAbortTaskTool` / `createViewPlanTool`
+  // 三个工厂方法 —— 对应 `view_tasks` / `abort_task` / `view_plan` 均**未注册**（不在
+  // `getBuiltinToolLoaders()` 活清单），已由 `get_task_list` / `task_stop` 取代。
 
   /**
    * 创建AskUserQuestion工具
@@ -1106,14 +1021,11 @@ export class ToolFactory {
   }
 
   /**
-   * 创建网关管理工具
-   */
-  createGatewayTool(): Tool {
-    return new ChannelTool();
-  }
-
-  /**
    * 创建频道管理器工具
+   *
+   * ⚠️ 2026-09-29（台账 **D-29**）：原另有 `createGatewayTool()` —— 它与本方法
+   * **都是 `return new ChannelTool()`** ⇒ 清单里出现**两条同名 `channel` 加载器**。
+   * 按用户裁定**保留本方法**、删除 `createGatewayTool()`（去重）。
    */
   createChannelManagerTool(): Tool {
     return new ChannelTool();
@@ -1144,742 +1056,7 @@ export class ToolFactory {
   }
 }
 
-/**
- * 创建工具工厂实例
- * @returns 工具工厂实例
- */
-export function createToolFactory(): ToolFactory {
-  return new ToolFactory();
-}
-
-/**
- * 获取所有基础工具列表
- * 支持基于功能标志的条件加载，参考CC源码的getAllBaseTools()实现
- * 注意：当前应用使用PlanTool代替EnterPlanModeTool和ExitPlanModeTool
- */
-export function getAllBaseTools(): Tool[] {
-  const tools: Tool[] = [];
-
-  tools.push(new AgentTool());
-  tools.push(new TaskStopTool());
-  tools.push(new TaskCreateListTool());
-  tools.push(new TaskUpdateStatusTool());
-  tools.push(new TaskGetListTool());
-  tools.push(new ViewTasksTool());
-  tools.push(new AbortTaskTool());
-  tools.push(new ViewPlanTool());
-  tools.push(new BashTool());
-
-  const globTool = new GlobTool();
-  const grepTool = new GrepTool();
-  const fileSearchTool = new FileSearchTool();
-  if (globTool) {
-    tools.push(globTool);
-  }
-  if (grepTool) {
-    tools.push(grepTool);
-  }
-  if (fileSearchTool) {
-    tools.push(fileSearchTool);
-  }
-
-  tools.push(new FileEditTool());
-  tools.push(new FileReadTool());
-  tools.push(new FileWriteTool());
-  tools.push(new WebFetchTool());
-  tools.push(new TodoWriteTool());
-  tools.push(new WebSearchTool());
-  tools.push(new AskUserQuestionTool());
-  tools.push(new ProposePlanTool());
-
-  const knowledgeSearchTool = createKnowledgeSearchTool(knowledgeRouter);
-  if (knowledgeSearchTool) {
-    tools.push(knowledgeSearchTool);
-  }
-
-  const knowledgeWriteTool = createKnowledgeWriteTool();
-  if (knowledgeWriteTool) {
-    tools.push(knowledgeWriteTool);
-  }
-
-  const knowledgeDeleteTool = createKnowledgeDeleteTool();
-  if (knowledgeDeleteTool) {
-    tools.push(knowledgeDeleteTool);
-  }
-  const knowledgeImportTool = createKnowledgeImportTool();
-  if (knowledgeImportTool) {
-    tools.push(knowledgeImportTool);
-  }
-  const knowledgeExportTool = createKnowledgeExportTool();
-  if (knowledgeExportTool) {
-    tools.push(knowledgeExportTool);
-  }
-  const knowledgeSnapshotsTool = createKnowledgeSnapshotsTool();
-  if (knowledgeSnapshotsTool) {
-    tools.push(knowledgeSnapshotsTool);
-  }
-  const knowledgeRestoreTool = createKnowledgeRestoreTool();
-  if (knowledgeRestoreTool) {
-    tools.push(knowledgeRestoreTool);
-  }
-
-  const memoryManager = new MemoryManagerImpl(resolveMemoryDir());
-  const memorySearchTool = createMemoryTool(new SearchToolImpl(memoryManager));
-  if (memorySearchTool) {
-    tools.push(memorySearchTool);
-  }
-
-  const memoryGetTool = createMemoryGetTool(memoryManager);
-  if (memoryGetTool) {
-    tools.push(memoryGetTool);
-  }
-
-  const unifiedSearchService = createUnifiedSearchService(
-    knowledgeRouter,
-    memoryManager
-  );
-  const unifiedSearchTool = createUnifiedSearchTool(unifiedSearchService);
-  if (unifiedSearchTool) {
-    tools.push(unifiedSearchTool);
-  }
-  tools.push(new SkillTool());
-  // T9'（2026-08-30）：hermes 渐进式披露——skills_list 列元数据 + skill_view 按需加载全文
-  tools.push(new SkillListTool());
-  tools.push(new SkillViewTool());
-  tools.push(
-    new PlanTool() as unknown as Tool<unknown, unknown, ToolProgressData>
-  );
-
-  if (isAntUser()) {
-    tools.push(new ConfigTool());
-    tools.push(new TungstenTool());
-  }
-
-  if (isFeatureEnabled('LSP')) {
-    tools.push(new LSPToolAdapter());
-  }
-
-  if (isFeatureEnabled('AGENT_TRIGGERS')) {
-    tools.push(CronCreateTool.create());
-    tools.push(CronDeleteTool.create());
-    tools.push(CronListTool.create());
-    tools.push(CronStopTool.create());
-  }
-
-  const sendMessageTool = new SendMessageTool();
-  if (sendMessageTool) {
-    tools.push(sendMessageTool);
-  }
-
-  const teamCreateTool = new TeamCreateTool();
-  const teamDeleteTool = new TeamDeleteTool();
-  if (teamCreateTool) {
-    tools.push(teamCreateTool);
-  }
-  if (teamDeleteTool) {
-    tools.push(teamDeleteTool);
-  }
-
-  const enterWorktreeTool = new EnterWorktreeTool();
-  const exitWorktreeTool = new ExitWorktreeTool();
-  if (enterWorktreeTool) {
-    tools.push(enterWorktreeTool);
-  }
-  if (exitWorktreeTool) {
-    tools.push(exitWorktreeTool);
-  }
-
-  const listPeersTool = new ListPeersTool();
-  if (listPeersTool) {
-    tools.push(listPeersTool);
-  }
-
-  if (isAntUser() && isFeatureEnabled('REPL')) {
-    const replTool = new REPLToolAdapter();
-    if (replTool) {
-      tools.push(replTool);
-    }
-  }
-
-  if (isFeatureEnabled('PROACTIVE') || isFeatureEnabled('KAIROS')) {
-    const sleepTool = createSleepTool();
-    if (sleepTool) {
-      tools.push(sleepTool);
-    }
-  }
-
-  const remoteTriggerTool = createRemoteTriggerTool();
-  if (remoteTriggerTool) {
-    tools.push(remoteTriggerTool);
-  }
-
-  const monitorTool = createMonitorTool();
-  if (monitorTool) {
-    tools.push(monitorTool);
-  }
-
-  const traceRecordingTool = createTraceRecordingTool();
-  if (traceRecordingTool) {
-    tools.push(traceRecordingTool);
-  }
-
-  tools.push(new BriefTool());
-  tools.push(new SaveConversationTool());
-
-  const sendUserFileTool = createSendUserFileTool();
-  if (sendUserFileTool) {
-    tools.push(sendUserFileTool);
-  }
-
-  const pushNotificationTool = createPushNotificationTool();
-  if (pushNotificationTool) {
-    tools.push(pushNotificationTool);
-  }
-
-  const subscribePRTool = createSubscribePRTool();
-  if (subscribePRTool) {
-    tools.push(subscribePRTool);
-  }
-
-  const powerShellTool = new PowerShellTool();
-  if (powerShellTool) {
-    tools.push(powerShellTool);
-  }
-
-  const snipTool = createSnipTool();
-  if (snipTool) {
-    tools.push(snipTool);
-  }
-
-  if (isFeatureEnabled('TEST_MODE')) {
-    tools.push(createTestingPermissionTool());
-  }
-
-  tools.push(ListMcpResourcesTool);
-  tools.push(ReadMcpResourceTool);
-
-  const toolSearchTool = createToolSearchTool();
-  if (toolSearchTool) {
-    tools.push(toolSearchTool);
-  }
-
-  tools.push(new MCPResourceTool());
-  tools.push(MCPTool);
-  // P0-2: 删除无条件注册 notebook（原绕过 NOTEBOOK 开关）；notebook 仅经
-  // ToolManagerUtils 中 conditionalTool(coreFeature('NOTEBOOK')) 条件加载
-  tools.push(new BrowserTool());
-
-  tools.push(new CanvasTool());
-
-  // === Phase 1: 注册已存在但未注册的工具类 ===
-  tools.push(new FileConvertTool());
-
-  const sessionsTool = new SessionsTool();
-  if (sessionsTool) {
-    tools.push(sessionsTool);
-  }
-
-  const clipboardTool = new ClipboardTool();
-  if (clipboardTool) {
-    tools.push(clipboardTool);
-  }
-
-  const docGenerateTool = new DocGenerateTool();
-  if (docGenerateTool) {
-    tools.push(docGenerateTool);
-  }
-
-  const imageTool = new ImageTool();
-  if (imageTool) {
-    tools.push(imageTool);
-  }
-
-  const imageAnalysisTool = new ImageAnalysisTool();
-  if (imageAnalysisTool) {
-    tools.push(imageAnalysisTool);
-  }
-
-  const videoTool = new VideoTool();
-  if (videoTool) {
-    tools.push(videoTool);
-  }
-
-  const musicTool = new MusicTool();
-  if (musicTool) {
-    tools.push(musicTool);
-  }
-
-  const nodesTool = new NodesTool();
-  if (nodesTool) {
-    tools.push(nodesTool);
-  }
-
-  const codeAnalysisTool = new CodeAnalysisTool();
-  if (codeAnalysisTool) {
-    tools.push(codeAnalysisTool);
-  }
-
-  const voiceInputTool = new VoiceInputTool();
-  if (voiceInputTool) {
-    tools.push(voiceInputTool);
-  }
-
-  const voiceOutputTool = new VoiceOutputTool();
-  if (voiceOutputTool) {
-    tools.push(voiceOutputTool);
-  }
-
-  const ttsTool = new TTSTool();
-  if (ttsTool) {
-    tools.push(ttsTool);
-  }
-
-  const thinkingTool = new ThinkingTool();
-  if (thinkingTool) {
-    tools.push(thinkingTool);
-  }
-
-  const pdfTool = new PDFTool();
-  if (pdfTool) {
-    tools.push(pdfTool);
-  }
-
-  const kanbanTool = new KanbanTool();
-  if (kanbanTool) {
-    tools.push(kanbanTool);
-  }
-
-  const sessionsSendTool = new SessionsSendTool();
-  if (sessionsSendTool) {
-    tools.push(sessionsSendTool);
-  }
-
-  const sessionsSpawnTool = new SessionsSpawnTool();
-  if (sessionsSpawnTool) {
-    tools.push(sessionsSpawnTool);
-  }
-
-  const sessionStatusTool = new SessionStatusTool();
-  if (sessionStatusTool) {
-    tools.push(sessionStatusTool);
-  }
-
-  // 阶段 A：直接注册（原 `if (t)` 恒真，属冗余）
-  tools.push(new SessionsYieldTool());
-
-  const sessionsHistoryTool = new SessionsHistoryTool();
-  if (sessionsHistoryTool) {
-    tools.push(sessionsHistoryTool);
-  }
-
-  const channelTool = new ChannelTool();
-  if (channelTool) {
-    tools.push(channelTool);
-  }
-
-  const imageGenerateTool = new ImageGenerateTool();
-  if (imageGenerateTool) {
-    tools.push(imageGenerateTool);
-  }
-
-  const videoAnalysisTool = new VideoAnalysisTool();
-  if (videoAnalysisTool) {
-    tools.push(videoAnalysisTool);
-  }
-
-  const browserVisionTool = new BrowserVisionTool();
-  if (browserVisionTool) {
-    tools.push(browserVisionTool);
-  }
-
-  const imageSvgTool = new ImageSvgTool();
-  if (imageSvgTool) {
-    tools.push(imageSvgTool);
-  }
-
-  const imageDisplayTool = new ImageDisplayTool();
-  if (imageDisplayTool) {
-    tools.push(imageDisplayTool);
-  }
-
-  const videoDisplayTool = new VideoDisplayTool();
-  if (videoDisplayTool) {
-    tools.push(videoDisplayTool);
-  }
-
-  const audioPlayTool = new AudioPlayTool();
-  if (audioPlayTool) {
-    tools.push(audioPlayTool);
-  }
-
-  const musicGenerateTool = new MusicGenerateTool();
-  if (musicGenerateTool) {
-    tools.push(musicGenerateTool);
-  }
-
-  const videoGenerateTool = new VideoGenerateTool();
-  if (videoGenerateTool) {
-    tools.push(videoGenerateTool);
-  }
-
-  const mcpAuthTool = new McpAuthTool();
-  if (mcpAuthTool) {
-    tools.push(mcpAuthTool);
-  }
-
-  const agentsListTool = new AgentsListTool();
-  if (agentsListTool) {
-    tools.push(agentsListTool);
-  }
-
-  const updatePlanTool = new UpdatePlanTool();
-  if (updatePlanTool) {
-    tools.push(updatePlanTool);
-  }
-
-  const taskOutputTool = new TaskOutputTool();
-  if (taskOutputTool) {
-    tools.push(taskOutputTool);
-  }
-
-  const timeTool = TimeTool.create();
-  if (timeTool) {
-    tools.push(timeTool);
-  }
-
-  /**
-   * Phase 3.5 双通道说明：
-   * memory.md 内容已通过系统提示词注入（见 MessageContextPipeline），模型无需主动调用
-   * recall_memory 即可获取会话记忆。recall_memory 为补充通道：有会话上下文查当前会话；
-   * 3-2（2026-09-03）起无会话上下文时自动兜底检索全局记忆（memory_vectors + memdir）。
-   */
-  const recallMemoryTool = RecallMemoryTool.create();
-  if (recallMemoryTool) {
-    tools.push(recallMemoryTool);
-  }
-
-  // === Phase 4: Expansion tools (5.2 工具数量追平首批) ===
-  tools.push(createDecisionLoggerTool());
-  tools.push(createConfidenceScorerTool());
-  tools.push(createPerformanceProfilerTool());
-  tools.push(createMemoryDumpTool());
-  tools.push(createSystemInfoTool());
-  tools.push(createProcessManagerTool());
-  tools.push(createGitBranchTool());
-  tools.push(createGitMergeTool());
-  tools.push(createGitStashTool());
-  tools.push(createCodeFormatTool());
-
-  // === Phase 4b: 协作工具 ===
-  const reviewAssignTool = createReviewAssignTool();
-  if (reviewAssignTool) {
-    tools.push(reviewAssignTool);
-  }
-  const codeReviewTool = createCodeReviewTool();
-  if (codeReviewTool) {
-    tools.push(codeReviewTool);
-  }
-
-  // === Phase 4c: 网关/通道工具（统一由 ChannelTool 覆盖） ===
-  // 已在 Phase 3 中通过 channelTool 实例注册，此处不再重复创建 ChannelManagerTool
-  const broadcastTool = createBroadcastTool();
-  if (broadcastTool) {
-    tools.push(broadcastTool);
-  }
-
-  // === Phase 2: 效用工具集 (编码/哈希/文本/数学/日期/系统/安全/网络等) ===
-  const utilityTools = createUtilityTools();
-  for (const utilTool of utilityTools) {
-    tools.push(utilTool);
-  }
-
-  return tools.filter(
-    (tool): tool is Tool => tool !== null && tool !== undefined
-  );
-}
-
-function createSendMessageTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_SEND_MESSAGE')) return null;
-  const factory = new ToolFactory();
-  return factory.createSendMessageTool();
-}
-
-function createTeamCreateTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_TEAM_CREATE')) return null;
-  const factory = new ToolFactory();
-  return factory.createTeamCreateTool();
-}
-
-function createTeamDeleteTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_TEAM_DELETE')) return null;
-  const factory = new ToolFactory();
-  return factory.createTeamDeleteTool();
-}
-
-function createSleepTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_SLEEP')) return null;
-  const factory = new ToolFactory();
-  return factory.createSleepTool();
-}
-
-function createRemoteTriggerTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_REMOTE_TRIGGER')) return null;
-  const factory = new ToolFactory();
-  return factory.createRemoteTriggerTool();
-}
-
-function createMonitorTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_MONITOR')) return null;
-  const factory = new ToolFactory();
-  return factory.createMonitorTool();
-}
-
-function createTraceRecordingTool(): Tool | null {
-  const factory = new ToolFactory();
-  return factory.createTraceRecordingTool();
-}
-
-function createSendUserFileTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_SEND_USER_FILE')) return null;
-  const factory = new ToolFactory();
-  return factory.createSendUserFileTool();
-}
-
-function createPushNotificationTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_PUSH_NOTIFICATION')) return null;
-  const factory = new ToolFactory();
-  return factory.createPushNotificationTool();
-}
-
-function createSubscribePRTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_SUBSCRIBE_PR')) return null;
-  const factory = new ToolFactory();
-  return factory.createSubscribePRTool();
-}
-
-function createSnipTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_SNIP')) return null;
-  const factory = new ToolFactory();
-  return factory.createSnipTool();
-}
-
-function createToolSearchTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_TOOL_SEARCH')) return null;
-  const factory = new ToolFactory();
-  return factory.createToolSearchTool();
-}
-
-function createTestingPermissionTool(): Tool {
-  const tool = {
-    name: 'testing_permission',
-    description: 'Testing permission tool',
-    execute: async () => ({
-      success: true,
-      output: 'Testing permission granted',
-    }),
-    isEnabled: () => true,
-  };
-  return tool as unknown as Tool;
-}
-
-/**
- * 工具权限上下文类型
- */
-export interface ToolPermissionContextInput {
-  mode?: 'default' | 'auto' | 'strict' | 'bypass';
-  alwaysAllowRules?: Record<string, string[]>;
-  alwaysDenyRules?: Record<string, string[]>;
-  alwaysAskRules?: Record<string, string[]>;
-}
-
-/**
- * 过滤被拒绝规则阻止的工具
- * 参考CC源码的filterToolsByDenyRules实现
- * @param tools 工具列表
- * @param permissionContext 权限上下文
- * @returns 过滤后的工具列表
- */
-export function filterToolsByDenyRules<
-  T extends {
-    name: string;
-    mcpInfo?: { serverName: string; toolName: string };
-  },
->(tools: readonly T[], permissionContext: ToolPermissionContextInput): T[] {
-  const denyRules = getCompiledDenyRules(permissionContext);
-  return tools.filter((tool) => !matchesDenyRule(tool, denyRules));
-}
-
-/**
- * 编译拒绝规则
- */
-function getCompiledDenyRules(context: ToolPermissionContextInput): Array<{
-  toolName: string;
-  serverName?: string;
-  isWildcard?: boolean;
-}> {
-  const rules: Array<{
-    toolName: string;
-    serverName?: string;
-    isWildcard?: boolean;
-  }> = [];
-
-  const denyRulesBySource = context.alwaysDenyRules || {};
-  for (const source of Object.keys(denyRulesBySource)) {
-    const ruleStrings = denyRulesBySource[source] || [];
-    for (const ruleString of ruleStrings) {
-      const parsed = parseToolRule(ruleString);
-      if (parsed) {
-        rules.push(parsed);
-      }
-    }
-  }
-
-  return rules;
-}
-
-/**
- * 解析工具规则字符串
- * 支持格式：
- * - "ToolName" - 直接匹配工具名
- * - "mcp__server__tool" - MCP工具的完全限定名
- * - "mcp__server__*" - MCP服务器下的所有工具
- */
-function parseToolRule(ruleString: string): {
-  toolName: string;
-  serverName?: string;
-  isWildcard?: boolean;
-} | null {
-  if (!ruleString || typeof ruleString !== 'string') {
-    return null;
-  }
-
-  if (ruleString.startsWith('mcp__')) {
-    const parts = ruleString.split('__');
-    if (parts.length >= 2) {
-      const serverName = parts[1];
-      const toolName = parts[2];
-      return {
-        toolName: toolName || ruleString,
-        serverName,
-        isWildcard: toolName === '*' || toolName === undefined,
-      };
-    }
-  }
-
-  return { toolName: ruleString };
-}
-
-/**
- * 检查工具是否匹配拒绝规则
- */
-function matchesDenyRule<
-  T extends {
-    name: string;
-    mcpInfo?: { serverName: string; toolName: string };
-  },
->(
-  tool: T,
-  denyRules: Array<{
-    toolName: string;
-    serverName?: string;
-    isWildcard?: boolean;
-  }>
-): boolean {
-  const toolName = tool.name;
-
-  for (const rule of denyRules) {
-    if (rule.serverName) {
-      if (tool.mcpInfo) {
-        if (rule.isWildcard) {
-          if (tool.mcpInfo.serverName === rule.serverName) {
-            return true;
-          }
-        } else if (
-          tool.mcpInfo.serverName === rule.serverName &&
-          (tool.mcpInfo.toolName === rule.toolName ||
-            toolName === rule.toolName)
-        ) {
-          return true;
-        }
-      }
-      if (
-        toolName.startsWith(`mcp__${rule.serverName}__`) &&
-        (rule.isWildcard ||
-          toolName === `mcp__${rule.serverName}__${rule.toolName}`)
-      ) {
-        return true;
-      }
-    } else if (toolName === rule.toolName) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * 获取给定权限上下文下的所有可用工具
- * 这是工具系统的主要入口点，整合了条件加载和权限过滤
- * @param permissionContext 权限上下文
- * @returns 可用的工具列表
- */
-export function getTools(
-  permissionContext: ToolPermissionContextInput
-): Tool[] {
-  const allTools = getAllBaseTools();
-
-  const simpleModeActive = isSimpleMode();
-  if (simpleModeActive) {
-    const simpleTools = allTools.filter((tool) => {
-      const name = tool.name;
-      return name === 'Bash' || name === 'Read' || name === 'Edit';
-    });
-    return filterToolsByDenyRules(simpleTools, permissionContext);
-  }
-
-  const filteredTools = filterToolsByDenyRules(allTools, permissionContext);
-
-  return filteredTools.filter((tool) => {
-    if (typeof tool.isEnabled === 'function') {
-      return tool.isEnabled();
-    }
-    return true;
-  });
-}
-
-/**
- * 组装完整的工具池，整合内置工具和MCP工具
- * 参考CC源码的assembleToolPool实现
- * @param permissionContext 权限上下文
- * @param mcpTools MCP工具列表
- * @returns 组合后的工具列表
- */
-export function assembleToolPool(
-  permissionContext: ToolPermissionContextInput,
-  mcpTools: Tool[]
-): Tool[] {
-  const builtInTools = getTools(permissionContext);
-
-  const allowedMcpTools = filterToolsByDenyRules(mcpTools, permissionContext);
-
-  const byName = (a: Tool, b: Tool) => a.name.localeCompare(b.name);
-  const uniqueTools = uniqByTools(
-    [...builtInTools].sort(byName).concat(allowedMcpTools.sort(byName))
-  );
-
-  return uniqueTools;
-}
-
-/**
- * 按名称去重工具列表，保留首次出现的工具
- */
-function uniqByTools(tools: Tool[]): Tool[] {
-  const seen = new Set<string>();
-  return tools.filter((tool) => {
-    if (seen.has(tool.name)) {
-      return false;
-    }
-    seen.add(tool.name);
-    return true;
-  });
-}
+// 2026-09-29（台账 D-47）：遗留"工具池组装链"整链已删除 ——
+// `assembleToolPool` → `getTools` → `getAllBaseTools` + `filterToolsByDenyRules`（含私有 `getCompiledDenyRules`）
+// 零生产消费者（链头 `assembleToolPool` 无导入方），连同模块私有工厂函数群一并移除。
+// 现行生效来源 = `tools/utils/ToolManagerUtils.getBuiltinToolLoaders()`。

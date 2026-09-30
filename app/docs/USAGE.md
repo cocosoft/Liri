@@ -391,8 +391,8 @@ Liri 提供多种内置工具：
 - `MonitorTool` - 系统监控
 
 ### AI 工具
-- `Agent` - 创建子代理
-- `Skill` - 执行技能
+- `agent` - 创建子代理
+- `skill` - 执行技能
 
 ### 网络工具
 

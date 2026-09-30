@@ -31,6 +31,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（infra → core 合法）
+import { resolveBroadcast } from '@modules/core/spi';
 import { TaskStatus } from '../../tasks/types';
 import { StateMachine } from '../engine/StateMachine';
 import { StateMachineRegistry } from '../engine/StateMachineRegistry';
@@ -103,9 +105,7 @@ function createTransitionHook(
       reason: record.reason,
     });
     try {
-      const { broadcastEvent } =
-        require('@modules/infrastructure/http/LocalHTTPServiceSSE') as typeof import('@modules/infrastructure/http/LocalHTTPServiceSSE');
-      broadcastEvent('task:state', {
+      resolveBroadcast().broadcast('task:state', {
         taskId,
         state: record.to,
         from: record.from,

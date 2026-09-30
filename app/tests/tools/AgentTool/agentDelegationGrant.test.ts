@@ -74,7 +74,7 @@ async function runChild(tool: AgentTool): Promise<void> {
 describe('T9：子代理委派授权（角色策略 × 深度）', () => {
   beforeEach(() => {
     setAgentToolManager(() =>
-      ['grep', 'Agent', 'Task', 'sessions_yield'].map(fakeTool)
+      ['grep', 'agent', 'Task', 'sessions_yield'].map(fakeTool)
     );
   });
 
@@ -89,7 +89,7 @@ describe('T9：子代理委派授权（角色策略 × 深度）', () => {
 
     await runChild(tool);
 
-    expect(capture.toolNames).toContain('Agent');
+    expect(capture.toolNames).toContain('agent');
     // 语义防护与授权无关：yield 恒不可继承
     expect(capture.toolNames).not.toContain('sessions_yield');
   });
@@ -101,7 +101,7 @@ describe('T9：子代理委派授权（角色策略 × 深度）', () => {
 
     await runChild(tool);
 
-    expect(capture.toolNames).not.toContain('Agent');
+    expect(capture.toolNames).not.toContain('agent');
     expect(capture.toolNames).not.toContain('Task');
     expect(capture.toolNames).not.toContain('sessions_yield');
     // 普通工具不受影响

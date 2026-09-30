@@ -3,10 +3,10 @@
  * 对标 Hermes gateway/restart.py
  * 在收到重启信号时优雅关闭所有通道和连接，无损重启
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import { EventEmitter } from 'events';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core\lifecycle\GracefulRestartService');
 
 /**

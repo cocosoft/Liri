@@ -40,6 +40,8 @@ import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
+// C1（2026-09-30 D-124，`R00-003` P5/G2）：按角色调用改经 core SPI 端口（infra → core 合法）
+import { resolveAiAccess } from '@modules/core/spi';
 import { createHash } from 'crypto';
 import {
   encodePayload,
@@ -687,47 +689,37 @@ export class MemoryManagerImpl {
     // P2-6: 候选超过 limit 时，用 LLM 精选最相关的记忆
     if (combined.length > limit) {
       try {
-        const { providerRegistry, modelRouter } = await import('@modules/ai');
-        // 精选模型显式通过模型路由解析（DB 唯一事实来源）并匹配对应 provider，
-        // 避免 model: undefined 回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 400）
-        const selectModel = await modelRouter.resolveAsync('quick');
-        const provider =
-          (selectModel && providerRegistry.getByModel(selectModel)) ||
-          providerRegistry.getDefaultProvider();
+        const items: MemoryItem[] = combined.map((m) => ({
+          id: m.id,
+          type: (m.metadata?.type as string) ?? 'unknown',
+          content: m.content,
+          createdAt: m.createdAt.getTime(),
+        }));
 
-        if (provider) {
-          const items: MemoryItem[] = combined.map((m) => ({
-            id: m.id,
-            type: (m.metadata?.type as string) ?? 'unknown',
-            content: m.content,
-            createdAt: m.createdAt.getTime(),
-          }));
-
-          const prompt = buildSelectionPrompt(query, items);
-          const _trackStart = Date.now();
-          const response = await provider.chat(
-            [
-              {
-                role: 'system',
-                content:
-                  'You are a memory selector. Return ONLY a JSON array of memory IDs.',
-              },
-              { role: 'user', content: prompt },
-            ],
+        // 端口内显式经模型路由解析（DB 唯一事实来源）并匹配 provider，保留原
+        // "避免 model: undefined 回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 400）" 语义。
+        const _trackStart = Date.now();
+        const chatResult = await resolveAiAccess().chatWithRole(
+          'quick',
+          [
             {
-              model: selectModel,
-              temperature: 0.3,
-              maxTokens: 512,
-            }
-          );
+              role: 'system',
+              content:
+                'You are a memory selector. Return ONLY a JSON array of memory IDs.',
+            },
+            { role: 'user', content: buildSelectionPrompt(query, items) },
+          ],
+          { temperature: 0.3, maxTokens: 512 }
+        );
 
-          trackUsage(response, {
-            model: response.model || provider.id || 'unknown',
-            providerId: provider.id,
+        if (chatResult) {
+          trackUsage(chatResult.raw as never, {
+            model: chatResult.model,
+            providerId: chatResult.providerId,
             latencyMs: Date.now() - _trackStart,
           });
 
-          const selectedIds = parseSelectionResult(response.content);
+          const selectedIds = parseSelectionResult(chatResult.content);
           if (selectedIds.length > 0) {
             const selected = applySelection(items, selectedIds);
             const selectedIdSet = new Set(selected.map((s) => s.id));

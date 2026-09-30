@@ -61,7 +61,7 @@ export interface MCPToolParams {
  * MCPTool
  */
 export const MCPTool: Tool = {
-  name: 'MCPTool',
+  name: 'mcp_tool',
   description:
     'Connect to MCP (Model Context Protocol) servers and use external tools. Supports stdio, SSE, WebSocket, and HTTP transports.',
   params: [

@@ -75,7 +75,10 @@ import type { LiriEvent } from './types/events';
 import { settleGoalForTurn, type GoalTurnReason } from '@modules/tasks';
 // X8（2026-09-23，Spec §5.5）：主会话预算触顶 ⇒ 下一轮请求前经 steering 注入收尾指令
 import { injectMainSessionBudgetWrapUp } from '@modules/tasks';
-import { prepareToolResultsForContext } from '@modules/tools';
+import {
+  prepareToolResultsForContext,
+  resolveToolParamNames,
+} from '@modules/tools';
 import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
@@ -309,8 +312,13 @@ export class ReActToolLoop extends ReActLoop<
   /** 截断续接重试的 maxTokens 放大标记（2026-09-03）：onIncompleteTurn truncated 分支置位，
    *  下一轮 reason 的 LLM 调用把输出预算放大到 base×4（封顶 64K），避免"重试仍被截断"空转。 */
   private _boostNextReasonMaxTokens = false;
-  /** L2（2026-09-06）：PathGuard 越界路径防护（对齐 batch 三守卫；仅 deny 列表命中才拦截） */
-  private readonly pathGuard = createPathGuard();
+  /**
+   * L2（2026-09-06）：PathGuard 越界路径防护（对齐 batch 三守卫；仅 deny 列表命中才拦截）
+   * 2026-09-29：注入**运行期注册表**派生解析器 ⇒ 覆盖静态名单外的工具（含 MCP 动态工具）
+   */
+  private readonly pathGuard = createPathGuard({
+    resolvePathArgKeys: resolveToolParamNames,
+  });
 
   /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
   private static readonly INTERACTION_HEARTBEAT_MS = 10_000;

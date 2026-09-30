@@ -71,7 +71,9 @@ import { isAncestorSession } from '@modules/session';
 import { resolveContextWindowAsync } from '@modules/context';
 import type { AgentToolProgress } from '../types/ToolProgress';
 import { VERIFICATION_SYSTEM_PROMPT } from './strategies/VerificationStrategy';
+import { VERIFICATION_AGENT_DEFINITION } from './strategies/VerificationStrategy';
 import { STATUSLINE_SYSTEM_PROMPT } from './strategies/StatuslineStrategy';
+import { STATUSLINE_SETUP_AGENT_DEFINITION } from './strategies/StatuslineStrategy';
 import {
   FORK_SUBAGENT_TYPE,
   isForkSubagentEnabled,
@@ -298,6 +300,11 @@ interface SwarmTaskDescriptor {
   systemPrompt?: string;
   model?: string;
   source?: string;
+  /**
+   * 定义侧禁用项（D-48 接线）：该任务角色声明的 `disallowedTools`。
+   * 与批次级 `deniedTools` 合取后**只收窄**该 worker 的工具集（白名单顺序不变）。
+   */
+  disallowedTools?: string[];
   error?: string;
 }
 
@@ -309,6 +316,64 @@ interface SwarmToolDefinition {
     description: string;
     parameters: Record<string, unknown>;
   };
+}
+
+/**
+ * 内置子代理定义（仅收录携带 `disallowedTools` 的策略定义）。
+ *
+ * 键 = `BUILTIN_AGENTS` 的键（= `subagent_type` 归一后的**小写名**），与解析链 ③ 分支
+ * 传入的 `key` 口径一致；未收录/未声明者取不到 ⇒ `undefined`（不抛错）。
+ */
+const BUILTIN_AGENT_DEFINITIONS_BY_TYPE: Record<
+  string,
+  { disallowedTools?: string[] }
+> = {
+  [VERIFICATION_AGENT_DEFINITION.agentType]: VERIFICATION_AGENT_DEFINITION,
+  [STATUSLINE_SETUP_AGENT_DEFINITION.agentType]:
+    STATUSLINE_SETUP_AGENT_DEFINITION,
+};
+
+/**
+ * 合并两路黑名单：调用侧 `deniedTools` + 定义侧 `disallowedTools`
+ * （如 verification 的 `['agent','notebook']`）。
+ *
+ * **只收窄语义**：结果仅用作 `filterToolPool` 的**黑名单**（且在 `allowedTools` 白名单
+ * **之后**生效）——既不新增白名单、也不改写白/黑顺序 ⇒ 不可能因此拿到原本不可用的工具。
+ * 顺序：先 input 后 definition（重复项保留原样，过滤侧按集合判定）。
+ */
+export function resolveDeniedTools(
+  inputDenied: string[] | undefined,
+  definitionDisallowed: string[] | undefined
+): string[] {
+  return [...(inputDenied ?? []), ...(definitionDisallowed ?? [])];
+}
+
+/**
+ * 按 `allowedTools` / `deniedTools` 过滤工具池（O7：**定义侧与执行侧的单一过滤源**）。
+ *
+ * 白名单先于黑名单（与原实现一致）；比较**大小写不敏感**。
+ * 模块级纯函数：便于守卫测试直接断言过滤语义（`AgentTool` 私有方法委托至此，行为不变）。
+ */
+export function filterToolPool(
+  allowedTools: string[] | undefined,
+  deniedTools: string[] | undefined,
+  toolPool: Tool[]
+): Tool[] {
+  let tools = toolPool;
+
+  // 白名单过滤：只保留名称在列表中的工具
+  if (allowedTools && allowedTools.length > 0) {
+    const allowedSet = new Set(allowedTools.map((t) => t.toLowerCase()));
+    tools = tools.filter((t) => allowedSet.has(t.name.toLowerCase()));
+  }
+
+  // 黑名单过滤：排除名称在列表中的工具
+  if (deniedTools && deniedTools.length > 0) {
+    const deniedSet = new Set(deniedTools.map((t) => t.toLowerCase()));
+    tools = tools.filter((t) => !deniedSet.has(t.name.toLowerCase()));
+  }
+
+  return tools;
 }
 
 /**
@@ -551,6 +616,10 @@ export class AgentTool implements Tool {
             .find((a) => a.name === raw || a.role === raw) ??
           null,
         builtinTypeNames: Object.keys(BUILTIN_AGENTS),
+        // 定义侧裁剪来源：内置定义的 `disallowedTools`（如 verification ⇒ ['agent','notebook']）。
+        // 取不到返回 undefined（本函数不抛错），与 `BUILTIN_AGENTS` 的键（小写名）同口径。
+        getBuiltinDisallowedTools: (typeName) =>
+          BUILTIN_AGENT_DEFINITIONS_BY_TYPE[typeName]?.disallowedTools,
       },
     });
   }
@@ -916,13 +985,13 @@ export class AgentTool implements Tool {
   /**
    * 子代理**可继承**工具池（O7①）：父级全量 − `DELEGATE_BLOCKED_TOOLS`（单一入口）。
    *
-   * 修复前只有 `runWithEngine` 内联排除了 `Agent`/`Task`，而 `runDirectCall` 传的是
-   * **全量池**（含 `Agent`/`Task`/`sessions_yield`）—— 同一契约两处实现、且其中一处漏排除。
+   * 修复前只有 `runWithEngine` 内联排除了 `agent`/`Task`，而 `runDirectCall` 传的是
+   * **全量池**（含 `agent`/`Task`/`sessions_yield`）—— 同一契约两处实现、且其中一处漏排除。
    */
   private getInheritableToolPool(
     options: { allowDelegation?: boolean } = {}
   ): Tool[] {
-    // T9：被授权的角色不再剔除**委派入口**（`Agent`/`Task`）；`sessions_yield` 等
+    // T9：被授权的角色不再剔除**委派入口**（`agent`/`Task`）；`sessions_yield` 等
     // `ALWAYS_BLOCKED_TOOLS` 与授权无关，**始终**剔除（yield 属会话级语义）
     const blockedNames = options.allowDelegation
       ? ALWAYS_BLOCKED_TOOLS
@@ -1055,27 +1124,14 @@ export class AgentTool implements Tool {
    * 按 `allowedTools` / `deniedTools` 过滤工具池（O7：**定义侧与执行侧的单一过滤源**）。
    *
    * 白名单先于黑名单（与原实现一致）；比较**大小写不敏感**。
+   * 逻辑已抽为模块级纯函数 `filterToolPool`（便于守卫测试），此处仅委托 —— 行为不变。
    */
   private filterToolPool(
     allowedTools: string[] | undefined,
     deniedTools: string[] | undefined,
     toolPool: Tool[]
   ): Tool[] {
-    let tools = toolPool;
-
-    // 白名单过滤：只保留名称在列表中的工具
-    if (allowedTools && allowedTools.length > 0) {
-      const allowedSet = new Set(allowedTools.map((t) => t.toLowerCase()));
-      tools = tools.filter((t) => allowedSet.has(t.name.toLowerCase()));
-    }
-
-    // 黑名单过滤：排除名称在列表中的工具
-    if (deniedTools && deniedTools.length > 0) {
-      const deniedSet = new Set(deniedTools.map((t) => t.toLowerCase()));
-      tools = tools.filter((t) => !deniedSet.has(t.name.toLowerCase()));
-    }
-
-    return tools;
+    return filterToolPool(allowedTools, deniedTools, toolPool);
   }
 
   /**
@@ -1085,7 +1141,7 @@ export class AgentTool implements Tool {
    * `子代理可用工具 = 父级可继承工具（父级全量 − DELEGATE_BLOCKED_TOOLS）`
    * `∩ allowedTools（若有） − deniedTools`；模型**只能收窄，不能扩权**。
    *
-   * @param toolPool 工具池（**默认即可继承池**，已排除 `Agent`/`Task`/`sessions_yield`；
+   * @param toolPool 工具池（**默认即可继承池**，已排除 `agent`/`Task`/`sessions_yield`；
    *                 调用方仅在需要更窄的池时才显式传入）
    */
   private buildToolDefinitions(
@@ -1145,7 +1201,14 @@ export class AgentTool implements Tool {
     mailbox: Array<{ role: 'user'; content: string }> = [],
     toolContext?: ToolUseContext,
     /** T9：该子代理是否被授权再委派（角色策略 × 深度，见 `resolveDelegationGrant`） */
-    allowDelegation = false
+    allowDelegation = false,
+    /**
+     * 定义侧禁用工具（`descriptor.disallowedTools`，如 verification 的 ['agent','notebook']）。
+     *
+     * 追加在参数末尾且有默认值 ⇒ 既有调用方位置参数不变。与调用侧 `deniedTools` **取并集**
+     * 后作黑名单 —— **只收窄，不扩权**。
+     */
+    definitionDeniedTools: string[] = []
   ): Promise<{
     result: string;
     // N1 修复（2026-08-27）：透出 engine 完成状态——原只返回 result/tokenUsage，
@@ -1167,14 +1230,19 @@ export class AgentTool implements Tool {
     // 修复前 `toolInstances` 用的是**未过滤**的全池，模型凭旧上下文里的工具名仍可执行
     // 未授权工具（"定义侧过滤、执行侧放行"），使两段校验形同虚设。
     const subAgentPool = this.getInheritableToolPool({ allowDelegation });
+    // 定义侧 `disallowedTools` 与调用侧 `deniedTools` 合取（只收窄，不扩权）
+    const deniedTools = resolveDeniedTools(
+      input.deniedTools,
+      definitionDeniedTools
+    );
     const filteredPool = this.filterToolPool(
       input.allowedTools,
-      input.deniedTools,
+      deniedTools,
       subAgentPool
     );
     const toolDefinitions = this.buildToolDefinitions(
       input.allowedTools,
-      input.deniedTools,
+      deniedTools,
       subAgentPool
     );
 
@@ -1328,6 +1396,12 @@ export class AgentTool implements Tool {
               systemPrompt: descriptor.systemPrompt,
               model: descriptor.model,
               source: descriptor.source,
+              // D-48（2026-09-30）：**已接线** —— 定义侧 `disallowedTools` 随描述符下发，
+              // 由 `buildSwarmExecutor` 在**每个 worker 自己的**工具集构造处与批次级
+              // `deniedTools` 合取（`resolveDeniedTools`）⇒ 各 worker 只受自己声明的限制。
+              // 修复前该字段在此被丢弃（台账 D-46 遗留的"共享池 vs 每任务禁用"歧义，
+              // 现按**每任务精确**裁定：过滤点是 per-task，能取到该任务的描述符）。
+              disallowedTools: descriptor.disallowedTools,
             }
           : { error: descriptor.error }
       );
@@ -1379,9 +1453,23 @@ export class AgentTool implements Tool {
     >();
 
     const resolveWorkerToolset = (
-      categories: string[]
+      categories: string[],
+      taskDisallowedTools?: string[]
     ): { definitions: SwarmToolDefinition[]; instances: Map<string, Tool> } => {
-      const cacheKey = [...categories].sort().join('|');
+      // D-48（2026-09-30）：**定义侧 disallowedTools 已接线** —— 与批次级 `deniedTools`
+      // 合取（只收窄；白名单仍先于黑名单、位置参数不变）。取到的是**该任务自己的**禁用项
+      //（调用点在 per-task 闭包内，`resolved` 已就绪）⇒ 无"共享池"歧义。
+      const effectiveDeniedTools = resolveDeniedTools(
+        deniedTools,
+        taskDisallowedTools
+      );
+      // memo 键**必须**含生效黑名单：否则"同类别、不同定义侧禁用项"的两个 worker 会复用
+      // 同一份工具集 ⇒ 后者的禁用项被前者的缓存吞掉（静默失效）。
+      const cacheKey = `${[...categories].sort().join('|')}::${[
+        ...effectiveDeniedTools,
+      ]
+        .sort()
+        .join(',')}`;
       const cached = toolsetCache.get(cacheKey);
       if (cached) return cached;
       const allowedCategories = new Set(categories);
@@ -1391,7 +1479,7 @@ export class AgentTool implements Tool {
       const entry = {
         definitions: this.buildToolDefinitions(
           allowedTools,
-          deniedTools,
+          effectiveDeniedTools,
           categoryPool
         ).map((t) => ({
           type: 'function' as const,
@@ -1402,9 +1490,11 @@ export class AgentTool implements Tool {
           },
         })),
         instances: new Map(
-          this.filterToolPool(allowedTools, deniedTools, categoryPool).map(
-            (t) => [t.name, t]
-          )
+          this.filterToolPool(
+            allowedTools,
+            effectiveDeniedTools,
+            categoryPool
+          ).map((t) => [t.name, t])
         ),
       };
       toolsetCache.set(cacheKey, entry);
@@ -1467,7 +1557,11 @@ export class AgentTool implements Tool {
       }
 
       const toolset = isWorkerCall
-        ? resolveWorkerToolset(declaredCategories ?? [])
+        ? // D-48：把**该任务**的定义侧禁用项传给工具集构造（`resolved` 已按 taskKey 取到）
+          resolveWorkerToolset(
+            declaredCategories ?? [],
+            resolved?.disallowedTools
+          )
         : {
             definitions: [] as SwarmToolDefinition[],
             instances: new Map<string, Tool>(),
@@ -1590,7 +1684,7 @@ export class AgentTool implements Tool {
     }
 
     // O7①：与 `runWithEngine` 共用**同一**可继承池（修复前此处传的是全量池，
-    // 含 `Agent`/`Task`/`sessions_yield` ⇒ 简单任务路径会把委派入口暴露给子代理）
+    // 含 `agent`/`Task`/`sessions_yield` ⇒ 简单任务路径会把委派入口暴露给子代理）
     const toolDefinitions = this.buildToolDefinitions(
       input.allowedTools,
       input.deniedTools,
@@ -1790,6 +1884,8 @@ export class AgentTool implements Tool {
             mailbox,
             context,
             canDelegate,
+            // 定义侧裁剪（descriptor 命中来源的 disallowedTools ⇒ 只收窄工具池）
+            definitionDisallowedTools: descriptor.disallowedTools ?? [],
             onProgress,
           });
         } catch (err) {
@@ -1817,6 +1913,8 @@ export class AgentTool implements Tool {
         context,
         isSimpleTaskNow,
         canDelegate,
+        // 定义侧裁剪（descriptor 命中来源的 disallowedTools ⇒ 只收窄工具池）
+        definitionDisallowedTools: descriptor.disallowedTools ?? [],
         onProgress,
       });
     } catch (error) {
@@ -2671,6 +2769,8 @@ export class AgentTool implements Tool {
     context?: ToolUseContext;
     /** T9：该子代理是否被授权再委派（角色策略 × 深度已在 execute 内合取） */
     canDelegate: boolean;
+    /** 定义侧禁用工具（`descriptor.disallowedTools`）；缺省 = 不额外收窄 */
+    definitionDisallowedTools?: string[];
     onProgress?: ToolCallProgress<AgentToolProgress>;
   }): Promise<ToolResult<unknown>> {
     const {
@@ -2683,6 +2783,7 @@ export class AgentTool implements Tool {
       mailbox,
       context,
       canDelegate,
+      definitionDisallowedTools,
       onProgress,
     } = params;
 
@@ -2718,7 +2819,9 @@ export class AgentTool implements Tool {
       mailbox,
       context,
       // T9：授权位（后台路径同前台口径）
-      canDelegate
+      canDelegate,
+      // 定义侧裁剪（后台路径同前台口径）：与 input.deniedTools 合取，只收窄
+      definitionDisallowedTools ?? []
     )
       .then(async (runResult) => {
         // N1 修复（2026-08-27）：按 engine 真实结果置状态——原无条件置
@@ -2805,6 +2908,8 @@ export class AgentTool implements Tool {
     isSimpleTaskNow: boolean;
     /** T9：该子代理是否被授权再委派（角色策略 × 深度已在 execute 内合取） */
     canDelegate: boolean;
+    /** 定义侧禁用工具（`descriptor.disallowedTools`）；缺省 = 不额外收窄 */
+    definitionDisallowedTools?: string[];
     onProgress?: ToolCallProgress<AgentToolProgress>;
   }): Promise<ToolResult<unknown>> {
     const {
@@ -2820,6 +2925,7 @@ export class AgentTool implements Tool {
       context,
       isSimpleTaskNow,
       canDelegate,
+      definitionDisallowedTools,
       onProgress,
     } = params;
 
@@ -2855,7 +2961,9 @@ export class AgentTool implements Tool {
         // G3：worktree 隔离时注入带 worktree cwd 的子代理上下文
         worktreeContext ?? context,
         // T9：授权位（角色策略 × 深度已在 execute 内合取）
-        canDelegate
+        canDelegate,
+        // 定义侧裁剪：与 input.deniedTools 合取，只收窄
+        definitionDisallowedTools ?? []
       );
       logger.info('Agent engine execution completed', {
         agentId,

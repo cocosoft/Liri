@@ -1652,6 +1652,20 @@ export async function launch(options: LaunchOptions): Promise<void> {
       args: options.args,
       debug: options.debug,
       verbose: options.verbose,
+      // 2026-09-30（D-127，`R00-003` ⑤）：环境初始化回调**由入口注入**。
+      // ⚠️ 保持**惰性**（回调内部再动态导入 ⇒ 不在顶层 import init.ts）⇒ **启动时序不变**；
+      // 目的：消除 `modules`（app）反调 `entrypoints`（entry）的跨层引用。
+      initializeEnvironment: async () => {
+        const { init } = await import('./entrypoints/init');
+        await init();
+      },
+      // 2026-09-30（D-128，`R00-003` ② 改造）：SPI 实现**由入口推送注册**（惰性）
+      // 实现体在 entry 侧装配模块构建 ⇒ 消除 `core/spi/*` 反向导入 app/service 的跨层对；
+      // 回调由 DIContainer 在**原注册点**调用 ⇒ 注册时机不变。
+      registerSpis: async (container) => {
+        const { registerAllSpis } = await import('./entrypoints/spiWiring');
+        await registerAllSpis(container);
+      },
     });
 
     // 清除加载提示行
@@ -1686,8 +1700,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
     await wrapInit(
       'OTel',
       async () => {
+        // 2026-09-30 路径随归属搬迁更新（`core/` → entry 层 `bootstrap/`，台账 D-82）
         const { initializeOTelSystem } =
-          await import('./core/AppCoreOTelHelper');
+          await import('./bootstrap/AppCoreOTelHelper');
         await initializeOTelSystem();
       },
       { fallbackMsg: '已跳过' }
@@ -1968,7 +1983,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 2) 启动扫描：把崩溃遗留的 started/running 标为 abort
         const { scanAndAbortStalePdcaTasks } =
           await import('./infrastructure/http/handlers/pdca-handlers.js');
-        scanAndAbortStalePdcaTasks();
+        // C1（2026-09-30 D-103）：该扫描已改 `async`（端口 API 异步化）⇒ **必须 await**，
+        // 以保持下方"留存清理在其之后"的既有次序约束（见紧邻注释）。
+        await scanAndAbortStalePdcaTasks();
         // 3) 留存清理（仅"终态 + 超期 30 天"，非终态一律保留）
         //    ⚠️ **必须在启动扫描之后**：扫描刚给遗留任务刷新 `updatedAt` ⇒ 它们会因"新鲜"被保留，
         //    不会被"刚标完就删掉"。

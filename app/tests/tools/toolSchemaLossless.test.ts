@@ -11,10 +11,18 @@
 //
 // 本用例锁的是**面**（**真实工具集全体**），不是单点：此后任何工具新增"无默认值参数 /
 // 无 aliases"都会被当场抓住。
+//
+// 夹具来源（2026-09-29，台账 D-47）：`loadTools(new ToolFactory(), getAllBuiltinToolLoaders())`
+// —— 即 `ToolManagerUtils` 的**全量注册面**（唯一生效来源）；**不是** `getAllBaseTools()`
+// （后者 N-27 已证从未被 ToolManager 使用，已删除 ⇒ 用它当"真实工具池"判据失真）。
 
 import { describe, it, expect } from 'bun:test';
 import { ToolRegistry } from '../../src/tools/ToolRegistry.js';
-import { getAllBaseTools } from '../../src/tools/ToolFactory.js';
+import { ToolFactory } from '../../src/tools/ToolFactory.js';
+import {
+  loadTools,
+  getAllBuiltinToolLoaders,
+} from '../../src/tools/utils/ToolManagerUtils.js';
 
 /** 深扫首个 `undefined` 值，返回其路径（无则 null） */
 function findUndefinedPath(value: unknown, path = ''): string | null {
@@ -36,10 +44,10 @@ function findUndefinedPath(value: unknown, path = ''): string | null {
 
 /** 用**真实工具池**构建 schema（经真实 `ToolRegistry`，不造假工具） */
 function buildRealSchemas(): {
-  tools: ReturnType<typeof getAllBaseTools>;
+  tools: ReturnType<typeof loadTools>;
   schemas: ReturnType<ToolRegistry['getToolSchemas']>;
 } {
-  const tools = getAllBaseTools();
+  const tools = loadTools(new ToolFactory(), getAllBuiltinToolLoaders());
   const registry = new ToolRegistry();
   for (const tool of tools) registry.registerTool(tool);
   return { tools, schemas: registry.getToolSchemas() };

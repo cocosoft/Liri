@@ -13,13 +13,13 @@
  */
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { OrchestrationEventType } from '@modules/agent';
+import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import { globalEventBus } from './EventBus';
 import {
   getOTelTracing,
   isSpanCovered,
   markSpanCovered,
-} from '@modules/monitoring';
+} from '../tracingFacade.js';
 
 /** Span 映射配置 */
 interface SpanMapping {

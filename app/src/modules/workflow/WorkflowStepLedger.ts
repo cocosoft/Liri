@@ -33,7 +33,7 @@
  * 重复 end / 无配对 start 的 end / 封闭后到达的任何上报。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 
 import type {
   WorkflowStepEndInfo,

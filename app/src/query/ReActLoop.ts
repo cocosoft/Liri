@@ -41,9 +41,13 @@ export const EXTERNAL_FETCH_TOOLS = new Set([
   'web_search',
   'skill_view',
   'skills_list',
-  'Skill',
+  'skill',
   'tool_search',
-  'search_codebase',
+  // ⚠️ 2026-09-29（工具名漂移修复，台账 D-37）：原列 `'search_codebase'` —— 该名在本仓
+  // **不存在**（CC 风格）⇒ 永不命中；按既定策略"无对应工具者**直接移除**、不臆造近义名"清理。
+  // **开放问题（登记 D-39，未决）**：本集合语义是"外部内容获取 / 探索"，是否应把**本地检索**
+  //（`grep`/`glob`，事实源 = `query/tool-constants.ts` 的 `SEARCH_TOOLS`）并入，属**设计判断**
+  //（会改变探索预算与探索疲劳的判定口径）⇒ 本轮**未擅自加入**。
 ]);
 
 /**

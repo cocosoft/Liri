@@ -14,6 +14,8 @@
 
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
 import { resolveKnowledgeDir, resolvePyappHome } from '@modules/core';
+// C1（2026-09-30 D-125，`R00-003` P6/G4）：知识编译改经 core SPI 端口（infra → core 合法）
+import { resolveKnowledge } from '@modules/core/spi';
 import { join } from 'path';
 import {
   readLastConsolidatedAt,
@@ -513,11 +515,7 @@ export async function runKnowledgeRain(): Promise<void> {
 
   logger.info('发现待编译原始文件', { count: compileCandidates.length });
 
-  const { aiService } = await import('@modules/ai');
-  const { runKnowledgeCompile } =
-    await import('../../knowledge/KnowledgeCompiler');
-
-  const result = await runKnowledgeCompile(aiService, { force: false });
+  const result = await resolveKnowledge().runCompile({ force: false });
 
   if (result.compiled > 0) {
     logger.info('知识雨编译完成', {

@@ -9,7 +9,7 @@
  *   calendar:cron:state_changed → 通过事件总线通知前端
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 import type { EventSubscription } from '@modules/core/events/EventBus';
 import { CronJobStore } from '@modules/tasks';
 import { resolveDbPath } from '@modules/core';

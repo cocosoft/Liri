@@ -1,31 +1,21 @@
 /**
- * 沙箱安全策略
- * 定义工具白名单 / 黑名单，控制沙箱内可用的工具范围
- * 对齐 OpenClaw config/sessions/reset-policy.ts
+ * 沙箱策略 —— **现只保留"输出上限"这一件事**（B1 唯一来源）。
+ *
+ * 沿革（2026-09-29，台账 **D-42**）：本文件原有**另一半** —— **工具白/黑名单门禁**
+ * （`SandboxToolPolicy` / `SandboxMode` / `SandboxGlobalPolicy` / `createSandboxPolicy` /
+ * `isToolAllowed` / `getAllowedTools` / `getDeniedTools` / `restrictToolSet` / `validateToolAccess` /
+ * `PRODUCTION_SANDBOX_POLICY`）。经核实该门禁**全仓零生产消费者**（外部同名
+ * `PermissionSyncManager.isToolAllowed` 是**另一个符号**；`evals/cli.ts` 的 `SandboxMode`
+ * 亦为**本地独立类型**）⇒ 属**死门禁**；且其默认集**大面积漂移**
+ * （`DEFAULT_ALLOWED_BASE_TOOLS` 12 项里 **9 项**是 CC 名，真名仅 `bash`/`grep`/`glob`）
+ * ⇒ 与 **N-27 / D-25** 同族，**整段删除**（连同其唯一"消费者"—— 仅断言自身字段的测试用例）。
+ *
+ * 保留部分（**活**）：`MAX_OUTPUT_BYTES_SOFT` / `MAX_OUTPUT_BYTES_HARD` / `resolveOutputLimit` /
+ * `appendWithinLimit` —— 消费者：`PTYSandbox` / `SSHSandbox` / `tools/bash/bashLandlockExec`。
  */
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('sandbox:policy');
-
-export interface SandboxToolPolicy {
-  allowedTools: Set<string>;
-  deniedTools: Set<string>;
-  allowAll: boolean;
-}
-
-export type SandboxMode = 'host' | 'docker' | 'pty' | 'off';
-
-export interface SandboxGlobalPolicy {
-  mode: SandboxMode;
-  nonMainSessions: SandboxToolPolicy;
-  mainSession: SandboxToolPolicy;
-  maxExecutionTimeMs: number;
-  /** **软上限**（保上下文）：超出即丢弃，保留前 N 字节供模型/日志阅读 */
-  maxOutputBytes: number;
-  /** **硬上限**（防 OOM）：进程缓冲/传输层不得超出（B1 双层语义） */
-  maxOutputBytesHard: number;
-  allowInteractive: boolean;
-}
 
 /**
  * 输出上限的**唯一来源**（B1，2026-09-26，《Liri 优化方案》）。
@@ -37,6 +27,7 @@ export interface SandboxGlobalPolicy {
  * **改前状况（实测）**：策略层 `maxOutputBytes` **零消费者**（仅 `sandbox/index.ts` 桶导出），
  * 而后端 `PTYSandbox` / `SSHSandbox` **各写一份 1MB 默认值** ⇒ 名义契约 ≠ 实际契约。
  * 现在两侧都从**本文件**取数：后端 `resolveOutputLimit({ soft: 配置值 })`，不再自设默认。
+ * （**注**：该"策略层"对象本身已于 2026-09-29 随死门禁一并删除，见文件头沿革 —— 本条留作历史记录。）
  *
  * ⚠️ **不同层不要混**：`DockerSandbox.ts` 的 `exec` `maxBuffer`（10MB）属**子进程缓冲**层，
  * 与"输出上限"不是一回事，**不由此派生**（方案 §1.1 #14 的更正）。同理 `tools/bash/BashTool.ts`
@@ -93,132 +84,3 @@ export function resolveOutputLimit(
   }
   return { soft, hard };
 }
-
-const DEFAULT_ALLOWED_BASE_TOOLS = new Set([
-  'bash',
-  'read',
-  'write',
-  'edit',
-  'search',
-  'grep',
-  'glob',
-  'list_files',
-  'get_file_info',
-  'sessions_list',
-  'sessions_history',
-  'sessions_send',
-  'sessions_spawn',
-]);
-
-const DEFAULT_DENIED_TOOLS = new Set([
-  'browser',
-  'canvas',
-  'nodes',
-  'cron',
-  'discord',
-  'gateway',
-  'slack',
-  'telegram',
-  'web_fetch_external',
-  'network_external',
-]);
-
-export function createSandboxPolicy(
-  overrides: Partial<SandboxGlobalPolicy> = {}
-): SandboxGlobalPolicy {
-  return {
-    mode: overrides.mode || 'pty',
-    nonMainSessions: {
-      allowedTools: new Set(DEFAULT_ALLOWED_BASE_TOOLS),
-      deniedTools: new Set(DEFAULT_DENIED_TOOLS),
-      allowAll: false,
-      ...overrides.nonMainSessions,
-    },
-    mainSession: {
-      allowedTools: new Set(DEFAULT_ALLOWED_BASE_TOOLS),
-      deniedTools: new Set(DEFAULT_DENIED_TOOLS),
-      allowAll: true,
-      ...overrides.mainSession,
-    },
-    maxExecutionTimeMs: overrides.maxExecutionTimeMs || 300000,
-    // B1：唯一来源取数（改前是就地硬编码 `1024 * 1024`，与后端各自的 1MB 默认互不相干）
-    maxOutputBytes: overrides.maxOutputBytes ?? MAX_OUTPUT_BYTES_SOFT,
-    maxOutputBytesHard: overrides.maxOutputBytesHard ?? MAX_OUTPUT_BYTES_HARD,
-    allowInteractive: overrides.allowInteractive ?? false,
-  };
-}
-
-export function isToolAllowed(
-  policy: SandboxToolPolicy,
-  toolName: string
-): boolean {
-  if (policy.allowAll) return !policy.deniedTools.has(toolName);
-  return policy.allowedTools.has(toolName) && !policy.deniedTools.has(toolName);
-}
-
-export function getAllowedTools(
-  policy: SandboxToolPolicy,
-  availableTools: string[]
-): string[] {
-  return availableTools.filter((t) => isToolAllowed(policy, t));
-}
-
-export function getDeniedTools(
-  policy: SandboxToolPolicy,
-  availableTools: string[]
-): string[] {
-  return availableTools.filter((t) => !isToolAllowed(policy, t));
-}
-
-export function restrictToolSet(
-  globalPolicy: SandboxGlobalPolicy,
-  isMainSession: boolean
-): SandboxToolPolicy {
-  if (isMainSession) {
-    return globalPolicy.mainSession;
-  }
-  return globalPolicy.nonMainSessions;
-}
-
-export function validateToolAccess(
-  policy: SandboxToolPolicy,
-  toolName: string
-): { allowed: boolean; reason?: string } {
-  if (!isToolAllowed(policy, toolName)) {
-    if (policy.deniedTools.has(toolName)) {
-      return { allowed: false, reason: `工具 "${toolName}" 在沙箱黑名单中` };
-    }
-    return { allowed: false, reason: `工具 "${toolName}" 不在沙箱白名单中` };
-  }
-  return { allowed: true };
-}
-
-/**
- * 默认生产环境沙箱策略（参考 OpenClaw 的安全默认值）
- */
-export const PRODUCTION_SANDBOX_POLICY = createSandboxPolicy({
-  mode: 'docker',
-  nonMainSessions: {
-    allowedTools: new Set(DEFAULT_ALLOWED_BASE_TOOLS),
-    deniedTools: new Set([
-      ...DEFAULT_DENIED_TOOLS,
-      'browser',
-      'canvas',
-      'nodes',
-      'cron',
-      'discord',
-      'gateway',
-    ]),
-    allowAll: false,
-  },
-  mainSession: {
-    allowedTools: new Set(DEFAULT_ALLOWED_BASE_TOOLS),
-    deniedTools: new Set(DEFAULT_DENIED_TOOLS),
-    allowAll: true,
-  },
-  maxExecutionTimeMs: 600000,
-  // B1：生产策略的**软**上限是**显式策略选择**（8MB），硬上限仍取唯一来源（16MB）
-  maxOutputBytes: 8 * 1024 * 1024,
-  maxOutputBytesHard: MAX_OUTPUT_BYTES_HARD,
-  allowInteractive: false,
-});

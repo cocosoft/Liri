@@ -4,7 +4,7 @@ import { resolveDataDir } from '@modules/core';
 import { createGzip } from 'zlib';
 import { createReadStream, createWriteStream, existsSync } from 'fs';
 import { pipeline } from 'stream/promises';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../loggerFacade.js';
 const logger = getLogger('core:delivery:archiver:transcriptArchiver');
 
 export interface ArchiveResult {

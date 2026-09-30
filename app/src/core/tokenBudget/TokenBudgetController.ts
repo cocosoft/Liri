@@ -44,7 +44,7 @@ import type {
   TokenUsage,
 } from './types';
 import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
-import { getLogger } from '../../monitoring/logs/Logger';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('tokenBudget:controller');
 
 // === Phase 1a: 统一阈值常量 — 所有方法共享 ===

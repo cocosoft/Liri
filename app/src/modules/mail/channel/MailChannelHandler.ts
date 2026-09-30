@@ -3,7 +3,7 @@
  * 支持渠道内发送邮件通知
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 const logger = getLogger('mail:channel');
 
 /**

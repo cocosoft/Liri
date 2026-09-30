@@ -25,6 +25,7 @@
 
 import type http from 'http';
 import os from 'os';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { HandlerCtx } from './handler-utils';
 import { LogLevel, StructuredLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
@@ -739,9 +740,8 @@ export async function handlePathGuardMetrics(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getPathGuardMetrics } =
-      await import('@modules/chat/services/PathGuardService');
-    const metrics = getPathGuardMetrics();
+    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面，消除 service → app 跨层引用
+    const metrics = await getCoreAPI().getPathGuardMetrics();
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
     });
@@ -766,9 +766,8 @@ export async function handlePathGuardMetricsReset(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { resetPathGuardMetrics } =
-      await import('@modules/chat/services/PathGuardService');
-    resetPathGuardMetrics();
+    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面
+    await getCoreAPI().resetPathGuardMetrics();
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
     });

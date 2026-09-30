@@ -19,104 +19,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * 错误类型定义
+ * 错误类型定义（**转出壳**）
  * 提供详细的错误分类和层次结构
+ *
+ * 2026-09-30（分层倒挂收口第 2 批）：错误基座 `AppError` / `ErrorCategory` / `ErrorSeverity`
+ * 的定义已**下沉至 core 侧** `core/errors.ts` —— 三者被 core 层多处直接引用，
+ * 原位置构成 core → infra 倒挂（A 类台账，见 .trae/specs/layer-inversion-a-class-inventory.md §3.5.1）。
+ * 本文件保留同名转出 ⇒ `@modules/error` 与 `@modules/error/types` 对外符号逐字不变。
  */
 
-/**
- * 错误分类枚举
- */
-export enum ErrorCategory {
-  NETWORK = 'network',
-  FILESYSTEM = 'filesystem',
-  PERMISSION = 'permission',
-  VALIDATION = 'validation',
-  EXECUTION = 'execution',
-  CONFIGURATION = 'configuration',
-  API = 'api',
-  DATABASE = 'database',
-  RESOURCE = 'resource',
-  DATA = 'data',
-  OPERATION = 'operation',
-  UNKNOWN = 'unknown',
-}
+import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 
-/**
- * 错误严重程度枚举
- */
-export enum ErrorSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
-}
-
-/**
- * 应用错误基类
- */
-export class AppError extends Error {
-  /**
-   * 构造函数
-   * @param message 错误信息
-   * @param category 错误分类
-   * @param severity 错误严重程度
-   * @param code 错误代码
-   * @param context 错误上下文
-   * @param errorId 错误 ID（用于生产环境溯源）
-   */
-  constructor(
-    message: string,
-    public category: ErrorCategory,
-    public severity: ErrorSeverity,
-    public code?: string,
-    public context?: Record<string, unknown>,
-    public errorId?: number
-  ) {
-    super(message);
-    this.name = 'AppError';
-  }
-
-  /**
-   * 从标准错误码创建 AppError
-   * @param errorDef 错误码定义
-   * @param options 可选参数
-   */
-  static fromCode(
-    errorDef: { code: number; message: string; level: string },
-    options?: {
-      category?: ErrorCategory;
-      context?: Record<string, unknown>;
-      cause?: Error;
-    }
-  ): AppError {
-    const category = options?.category ?? ErrorCategory.UNKNOWN;
-    const severity = AppError.levelToSeverity(errorDef.level);
-    const error = new AppError(
-      errorDef.message,
-      category,
-      severity,
-      String(errorDef.code),
-      options?.context
-    );
-    if (options?.cause) {
-      error.cause = options.cause;
-    }
-    return error;
-  }
-
-  private static levelToSeverity(level: string): ErrorSeverity {
-    switch (level) {
-      case 'CRITICAL':
-        return ErrorSeverity.CRITICAL;
-      case 'ERROR':
-        return ErrorSeverity.HIGH;
-      case 'WARN':
-        return ErrorSeverity.MEDIUM;
-      default:
-        return ErrorSeverity.LOW;
-    }
-  }
-}
+export { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 
 /**
  * 网络错误类

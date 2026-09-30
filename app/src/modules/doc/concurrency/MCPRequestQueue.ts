@@ -3,8 +3,8 @@
  * 读请求优先 + 超时控制 + 满队拒绝（>10 待处理）
  */
 
-import { AppError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { AppError } from '../../../core/errors.js';
+import { getLogger } from '../../../core/loggerFacade.js';
 import type { MCPRequest, MCPRequestType, MCPResponse } from '../types';
 
 const logger = getLogger('doc:concurrency');

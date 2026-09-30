@@ -23,8 +23,10 @@
  * 智能路由核心类型定义
  */
 
-/** 四级分类：任务复杂度等级 */
-export type RouterTier = 'simple' | 'medium' | 'complex' | 'reasoning';
+import type { RouterTier } from '@modules/types/router';
+
+/** 四级分类：任务复杂度等级（G1 收口 台账 D-59：定义已下沉 core 层 types 模块，此处转出） */
+export type { RouterTier };
 
 /** 全部 tier 列表 */
 export const ALL_ROUTER_TIERS: RouterTier[] = [

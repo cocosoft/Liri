@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）",
-  "lastUpdated": "2026-08-15",
+  "lastUpdated": "2026-09-30",
   "decayRules": {
     "batchExpiryDays": 60,
     "newExpiryDays": 30,
@@ -10,47 +10,14 @@
   },
   "bulkExceptions": [
     {
-      "id": "BULK-001",
-      "ruleId": "R00-001",
-      "pattern": "app -> infra",
-      "description": "应用层直接依赖基础设施层（日志/配置/错误处理等）",
-      "rationale": "应用层（agent/ai/chat/tools/gateway 等）大量使用 infra 层的基础能力，需通过 Phase 2-3 逐步引入 SPI 接口解耦",
-      "estimatedCount": 120,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-002",
-      "ruleId": "R00-001",
-      "pattern": "service -> infra",
-      "description": "服务层依赖基础设施层",
-      "rationale": "服务层（session/bridge/channels）使用 infra 层的监控和工具函数，属合理依赖。后续通过 SPI 接口治理",
-      "estimatedCount": 50,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-003",
-      "ruleId": "R00-001",
-      "pattern": "app -> service",
-      "description": "应用层依赖服务层",
-      "rationale": "应用层（agent/ai/chat）引用服务层（session/bridge）是正常依赖，无需治理",
-      "estimatedCount": 40,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
-    },
-    {
       "id": "BULK-004",
       "ruleId": "R00-001",
       "pattern": "app -> ui",
       "description": "应用层引用 UI 层组件",
-      "rationale": "部分混合模块（buddy/chat）直接引用 UI 组件渲染。后续通过事件模式解耦",
-      "estimatedCount": 30,
+      "rationale": "部分混合模块（buddy/chat）直接引用 UI 组件渲染。后续通过事件模式解耦。**2026-09-30 D-84**：`hooks` 由 ui 改归 app ⇒ 其 **9 对**（chat×3 · governance×2 · query×2 · tools×2）退出本桶 ⇒ 30 → 21。⚠️ **归因自省**：本桶原 rationale 举的 buddy/chat 例子中，**相当部分是 `@modules/hooks` 的运行时钩子链消费**，与「引用 UI 组件渲染」并非同因（是被归错层的模块混进来的）；剩余 21 对仍需另立复核",
+      "estimatedCount": 21,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -58,21 +25,10 @@
       "ruleId": "R00-001",
       "pattern": "service -> app",
       "description": "服务层引用应用层",
-      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦",
-      "estimatedCount": 20,
+      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）",
+      "estimatedCount": 22,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-006",
-      "ruleId": "R00-001",
-      "pattern": "ui -> app",
-      "description": "UI 层引用应用层",
-      "rationale": "UI 组件直接调用应用层服务。后续通过事件订阅解耦",
-      "estimatedCount": 185,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -80,10 +36,10 @@
       "ruleId": "R00-001",
       "pattern": "infra -> app",
       "description": "基础设施层引用应用层",
-      "rationale": "infra 层模块（chronos/scheduling）直接调用应用层回调。后续通过事件总线解耦",
-      "estimatedCount": 204,
+      "rationale": "infra 层模块（chronos/scheduling）直接调用应用层回调。后续通过事件总线解耦。**2026-09-30 D-84**：`hooks` 由 ui 改归 app ⇒ `cost`/`memory` 的 2 对由 `BULK-009` 换桶并入 ⇒ 204 → 206",
+      "estimatedCount": 206,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -91,10 +47,10 @@
       "ruleId": "R00-001",
       "pattern": "infra -> service",
       "description": "基础设施层引用服务层",
-      "rationale": "infra 层模块（chronos/constants）引用服务层模块。后续通过 SPI 接口解耦",
-      "estimatedCount": 50,
+      "rationale": "infra 层模块（chronos/constants）引用服务层模块。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，`system/state/AppState.ts` 的 infra→mcp 并入本桶，50 → 51）",
+      "estimatedCount": 51,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -102,21 +58,10 @@
       "ruleId": "R00-001",
       "pattern": "infra -> ui",
       "description": "基础设施层引用 UI 层",
-      "rationale": "infra 层引用 UI 组件的异常模式。后续治理",
-      "estimatedCount": 10,
+      "rationale": "infra 层引用 UI 组件的异常模式。后续治理。**2026-09-30 D-84**：`hooks` 改归 app ⇒ `cost/CostHookDispatcher`、`memory/MemoryHookDispatcher` **2 对换桶**至 `BULK-007`（`infra -> app`）⇒ 10 → 8",
+      "estimatedCount": 8,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-010",
-      "ruleId": "R00-001",
-      "pattern": "core -> infra",
-      "description": "核心层引用基础设施层",
-      "rationale": "core 层（AppCore/acp）直接使用 infra 层的错误处理和监控。需通过 Phase 2 SPI 接口解耦",
-      "estimatedCount": 50,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -124,10 +69,10 @@
       "ruleId": "R00-001",
       "pattern": "core -> service",
       "description": "核心层引用服务层",
-      "rationale": "core 层引用服务层的异常模式。后续治理",
-      "estimatedCount": 10,
+      "rationale": "core 层引用服务层的异常模式。后续治理（2026-09-30 D-67：`mcp` 改归 service，其 →services 共 7 对退出本桶，9 → 2）",
+      "estimatedCount": 2,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -135,10 +80,10 @@
       "ruleId": "R00-001",
       "pattern": "core -> app",
       "description": "核心层引用应用层",
-      "rationale": "core 层引用应用层的异常模式。后续治理",
-      "estimatedCount": 10,
+      "rationale": "core 层引用应用层的异常模式。后续治理（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 2 对移入 BULK-005，6 → 4；同日 H5-① 收口：`core/events/{EventBusOTelBridge,OrchestrationMetrics,TokenTracker}` → agent 3 对随 `OrchestrationEventType` 下沉 core 消除，4 → 1）",
+      "estimatedCount": 1,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -149,7 +94,7 @@
       "rationale": "core 层引用 UI 组件的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -160,7 +105,7 @@
       "rationale": "服务层引用 UI 组件的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -171,7 +116,7 @@
       "rationale": "应用层引用入口点的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -182,18 +127,7 @@
       "rationale": "infra 层引用入口点的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-017",
-      "ruleId": "R00-001",
-      "pattern": "core -> entry",
-      "description": "核心层引用入口层",
-      "rationale": "core 层引用入口点的异常模式。后续治理",
-      "estimatedCount": 1,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     },
     {
@@ -204,7 +138,7 @@
       "rationale": "service 层引用入口点的异常模式。后续治理",
       "estimatedCount": 1,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
     }
   ],
@@ -216,18 +150,8 @@
       "targetModule": "ui",
       "description": "Buddy 模块需要 UI 组件渲染精灵动画",
       "rationale": "buddy 是混合模块，同时包含业务逻辑和 UI 渲染，后续通过事件模式解耦",
-      "expiresAt": "2026-10-18",
+      "expiresAt": "2027-04-18",
       "owner": "@buddy-team"
-    },
-    {
-      "id": "PM-002",
-      "ruleId": "R00-001",
-      "sourceModule": "core",
-      "targetModule": "types",
-      "description": "core 模块引用 types 目录的定义",
-      "rationale": "types 是全局类型共享目录，所有层都可引用。待统一类型治理后移除",
-      "expiresAt": "2026-10-18",
-      "owner": "@arch-lead"
     }
   ],
   "outdatedHistory": [
@@ -274,10 +198,10 @@
       "id": "FSZ-106",
       "ruleId": "R04-001",
       "file": "app/src/infrastructure/http/handlers/skills-handlers.ts",
-      "lines": 1568,
+      "lines": 1582,
       "targetLines": 800,
       "plan": "由 LocalHTTPService 拆分产物，技能领域 24 handler + 10 辅助；后续按 ClawHub/本地/系统三子域再拆",
-      "expiresAt": "2026-09-30",
+      "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
     },
     {
@@ -1807,7 +1731,7 @@
       "file": "app/src/commands/builtin/index.ts",
       "exports": 102,
       "plan": "命令注册表 barrel：为保持公共 API 命名导出兼容，命令归集期间保留。二期按域拆分 barrel 后移除",
-      "expiresAt": "2026-09-30",
+      "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
     },
     {
@@ -1827,7 +1751,7 @@
       "file": "app/src/context/types/SessionContext.ts",
       "lines": 6,
       "plan": "与 Context.ts 内同名 SessionContext 接口字段不同（Context.ts 含 userId/agentName/channelType），归并需先解决同名接口冲突，属预存问题待产品决策",
-      "expiresAt": "2026-09-30",
+      "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
     }
   ]

@@ -21,6 +21,8 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
+// C1（2026-09-30 D-92）：插件管理改经服务层端口（消除 service → app 跨层引用）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 // ========== ChannelPlugin Handlers ==========
 
@@ -32,9 +34,9 @@ export async function handleListChannelPlugins(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { NpmDistributor } = await import('@modules/plugins');
-    const distributor = new NpmDistributor();
-    const installed = await distributor.listInstalled();
+    const installed = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).listInstalledPackages();
 
     const result = installed.map((p) => ({
       name: p.name,
@@ -70,9 +72,9 @@ export async function handleInstallChannelPlugin(
       return;
     }
 
-    const { NpmDistributor } = await import('@modules/plugins');
-    const distributor = new NpmDistributor();
-    const result = await distributor.install(packageName);
+    const result = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).installPackage(packageName);
 
     if (result.success) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -107,9 +109,7 @@ export async function handleUninstallChannelPlugin(
   pluginName: string
 ): Promise<void> {
   try {
-    const { NpmDistributor } = await import('@modules/plugins');
-    const distributor = new NpmDistributor();
-    await distributor.remove(pluginName);
+    await (await getCoreAPI().getPluginAdminPort()).removePackage(pluginName);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));

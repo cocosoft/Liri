@@ -9,13 +9,19 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
-import { createLiriConfigManager } from '@modules/workspace/LiriConfigManager';
-import { resolveWorkspacePath } from './workspaces-handlers';
+// C1（2026-09-30 D-114，`workspace` 域 P2）：工作空间配置 / 工作项存储 / 类型改经服务层端口
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type {
-  WorkItemSearchQuery,
-  WorkItemSearchResult,
-} from '@modules/workspace/types';
+  WorkItemSearchQueryDto,
+  WorkItemSearchResultDto,
+} from '@modules/runtime/api/workspaceOpsPorts';
+import { resolveWorkspacePath } from './workspaces-handlers';
+
+/** C1（D-114）：工作空间上下文（配置 + 工作项存储）经端口取用 */
+async function getWorkspaceContext(wsPath: string) {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getWorkspaceContext(wsPath);
+}
 
 /**
  * 搜索工作项
@@ -31,7 +37,7 @@ export async function handleSearchWorkItems(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const query: WorkItemSearchQuery = body ? JSON.parse(body) : {};
+    const query: WorkItemSearchQueryDto = body ? JSON.parse(body) : {};
 
     const wsPath = await resolveWorkspacePath(workspaceId);
     if (!wsPath) {
@@ -40,8 +46,8 @@ export async function handleSearchWorkItems(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     let items = store.list(workspaceId);
 
     // 关键词过滤（标题 + 描述）
@@ -107,7 +113,7 @@ export async function handleSearchWorkItems(
     const limit = query.limit || 50;
     items = items.slice(offset, offset + limit);
 
-    const result: WorkItemSearchResult = {
+    const result: WorkItemSearchResultDto = {
       items,
       total,
       query,
@@ -150,8 +156,8 @@ export async function handleWorkItemReview(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const items = store.list(workspaceId);
 
     // 按状态统计

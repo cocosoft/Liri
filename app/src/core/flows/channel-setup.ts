@@ -4,7 +4,7 @@ import type {
   FlowConfigProvider,
 } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:flows:channel-setup');
 
 export type ChannelSetupPlugin = {

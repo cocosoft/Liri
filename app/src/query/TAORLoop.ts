@@ -19,6 +19,7 @@ import { CONTINUATION_TEMPLATES, renderGoalTemplate } from '@modules/tasks';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { messageProjector, resolveContextWindow } from '@modules/context';
+import { resolveToolParamNames } from '@modules/tools';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
@@ -495,7 +496,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.errorRecovery = createErrorRecoveryManager();
     this.circuitBreaker = createCircuitBreaker();
     // Phase 1: 路径安全守卫
-    this.pathGuard = createPathGuard();
+    // 2026-09-29：注入运行期注册表派生解析器 ⇒ 覆盖静态名单外的工具（含 MCP 动态工具）
+    this.pathGuard = createPathGuard({
+      resolvePathArgKeys: resolveToolParamNames,
+    });
     // Phase 2: 文件IO循环检测
     this.fileIOLoopDetector = createFileIOLoopDetector();
     // Phase 3: 日预算管理
@@ -964,7 +968,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       const args = tc.input as Record<string, unknown>;
       // 2026-09-26（漂移家族第 ② 处的**调用链一半**）：原写法只认 `path` / `filePath` / `directory`，
       // 而本仓真实入参键是 `file_path`（file_read/file_write/file_edit）、`notebook_path`（notebook）、
-      // `searchPath`（grep/file_search）⇒ 即便清单名已修正，`checkBeforeAccess()` 也**从未被调用**
+      // `searchPath`（grep）⇒ 即便清单名已修正，`checkBeforeAccess()` 也**从未被调用**
       // （fail-open：漏检不误检）。现按各工具 `params` 声明补齐。
       const filePath = (args.file_path ??
         args.notebook_path ??

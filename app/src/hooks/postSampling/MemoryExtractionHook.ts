@@ -34,14 +34,23 @@ export interface MemoryExtractionOptions {
 }
 
 /**
- * 值得记忆的工具类型
+ * 值得记忆的工具类型。
+ *
+ * ⚠️ 2026-09-29（工具名漂移修复，台账 **D-37**）：原清单是 **CC 名**
+ * （`Write` / `Edit` / `Bash` / `PowerShell`），而本仓**真实注册名**是
+ * `file_write` / `file_edit` / `bash` / `powershell` ⇒ 该判定**几乎恒不命中**
+ * （唯一真实命中的只有 `agent`）⇒ "重要文件 / 重要命令触发记忆提取"的设计**静默失效**。
+ * 同批把下方 [`evaluateForMemory()`](#L155) 里同型的两处 CC 名判断一并换真名
+ * （否则即便清单命中，分支仍走不到）。
+ *
+ * 导出仅为**防漂移守卫**可在用例里直接断言（对齐 `DreamPhases.READ_ONLY_TOOLS` 的做法）。
  */
-const MEMORABLE_TOOLS = new Set([
-  'Write',
-  'Edit',
-  'Bash',
-  'PowerShell',
-  'Agent',
+export const MEMORABLE_TOOLS = new Set([
+  'file_write',
+  'file_edit',
+  'bash',
+  'powershell',
+  'agent',
 ]);
 
 /**
@@ -174,14 +183,14 @@ async function evaluateForMemory(
     return false;
   }
 
-  if (b.name === 'Write' || b.name === 'Edit') {
+  if (b.name === 'file_write' || b.name === 'file_edit') {
     const filePath = input.file_path || input.path;
     if (filePath && isImportantFile(filePath as string)) {
       return true;
     }
   }
 
-  if (b.name === 'Bash' || b.name === 'PowerShell') {
+  if (b.name === 'bash' || b.name === 'powershell') {
     const command = input.command as string | undefined;
     if (command && isImportantCommand(command)) {
       return true;

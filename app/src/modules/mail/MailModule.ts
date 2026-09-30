@@ -3,7 +3,7 @@
  * 负责邮件模块生命周期管理、Feature Flag 路由、EmailTool 初始化与 ToolManager 注册
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 import { feature } from '@modules/core';
 import { globalToolManager } from '@modules/tools';
 

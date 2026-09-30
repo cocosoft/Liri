@@ -3,7 +3,7 @@
  * 负责模块生命周期管理、Feature Flag 路由、MCP 集成协调
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 import { feature, resolveOutputDir } from '@modules/core';
 import { globalToolManager } from '@modules/tools';
 import { join } from 'path';

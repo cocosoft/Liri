@@ -24,6 +24,8 @@ import { dispatchLlamaRoutes } from './routes/llama-routes';
 import { dispatchSystemRoutes } from './routes/system-routes';
 import { dispatchTranslationRoutes } from './routes/translation-routes';
 import { dispatchGoalRoutes } from './routes/goal-routes';
+// P3-1（2026-09-29）：A2A 对外发现（ACP 对内 / A2A 对外）—— 默认关闭
+import { dispatchA2ARoutes } from './routes/a2a-routes';
 
 /**
  * 路由调度函数
@@ -127,6 +129,9 @@ export async function dispatchRoute(
     return true;
   // M-6 接线（2026-09-22）：长程任务目标入口（`/v1/goals`）
   if (await dispatchGoalRoutes(req, res, url, broadcastEvent, handlerCtx))
+    return true;
+  // P3-1（2026-09-29）：A2A 对外发现（`/.well-known/agent.json`，默认关闭 ⇒ 未启用时自然 404）
+  if (await dispatchA2ARoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
 
   return false;

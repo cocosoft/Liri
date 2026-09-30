@@ -5,8 +5,8 @@
 
 import type http from 'http';
 import type { EmailAccount } from '../../mail/types';
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../../../core/loggerFacade.js';
+import { handleError } from '../../../core/errorHandler.js';
 
 const logger = getLogger('doc:api');
 

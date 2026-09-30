@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 
 const perfLogger = getLogger('core:performance');
 

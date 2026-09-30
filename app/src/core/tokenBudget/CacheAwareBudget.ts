@@ -6,11 +6,12 @@
 import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
 
-import { calculateTotalCost } from '@modules/cost';
-import type { ModelPricing } from '@modules/cost';
+// 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
+import { calculateTotalCost } from '../pricing.js';
+import type { ModelPricing } from '../pricing.js';
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
 const logger = getLogger('core:tokenBudget:CacheAwareBudget');
 
 export interface CacheEfficiencyResult {

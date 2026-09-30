@@ -9,6 +9,8 @@
 import type http from 'http';
 import { sendError } from './handler-utils';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-92）：插件管理改经服务层端口（消除 service → app 跨层引用）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /**
  * 处理插件市场搜索 GET /v1/plugins/marketplace/search?query=xx&page=1&pageSize=20
@@ -27,8 +29,9 @@ export async function handlePluginMarketplaceSearch(
     const pageSize =
       Number(parsedUrl.searchParams.get('pageSize') || '20') || 20;
 
-    const { pluginMarketplace } = await import('@modules/plugins/marketplace');
-    const result = pluginMarketplace.search({ query, page, pageSize });
+    const result = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).searchMarket({ query, page, pageSize });
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(result));
@@ -49,8 +52,9 @@ export async function handlePluginMarketplaceCategories(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { pluginMarketplace } = await import('@modules/plugins/marketplace');
-    const categories = pluginMarketplace.getCategories();
+    const categories = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).getMarketCategories();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(categories));
   } catch (err) {
@@ -71,8 +75,9 @@ export async function handlePluginInstalledList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { pluginSystem } = await import('@modules/plugins');
-    const plugins = pluginSystem.getPluginInfoList();
+    const plugins = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).getPluginInfoList();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(plugins));
   } catch (err) {
@@ -93,10 +98,10 @@ export async function handlePluginPendingList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { pluginSystem } = await import('@modules/plugins');
-    // 刷新超时标记后返回快照
-    pluginSystem.checkPendingSdkTimeouts();
-    const pending = pluginSystem.getPendingSdkPlugins();
+    // 刷新超时标记后返回快照（2026-09-30 D-92：改经 CoreAPI 端口）
+    const port = await getCoreAPI().getPluginAdminPort();
+    await port.checkPendingSdkTimeouts();
+    const pending = await port.getPendingSdkPlugins();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(pending));
   } catch (err) {
@@ -117,9 +122,9 @@ export async function handlePluginMarketplaceDetail(
   pluginId: string
 ): Promise<void> {
   try {
-    const { pluginMarketplace } = await import('@modules/plugins/marketplace');
-    const plugin = pluginMarketplace.getPlugin(pluginId);
-    const versions = pluginMarketplace.getPluginVersions(pluginId);
+    const port = await getCoreAPI().getPluginAdminPort();
+    const plugin = await port.getMarketPlugin(pluginId);
+    const versions = await port.getMarketPluginVersions(pluginId);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ plugin: plugin ?? null, versions }));
@@ -143,11 +148,8 @@ export async function handlePluginInstall(
   pluginId: string
 ): Promise<void> {
   try {
-    const { NpmDistributor } = await import('@modules/plugins');
-    const { pluginSystem } = await import('@modules/plugins');
-
-    const distributor = new NpmDistributor();
-    const installResult = await distributor.install(pluginId);
+    const port = await getCoreAPI().getPluginAdminPort();
+    const installResult = await port.installPackage(pluginId);
 
     if (!installResult.success) {
       res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -158,7 +160,7 @@ export async function handlePluginInstall(
     // 尝试加载进插件系统（npm 包若含 plugin.json 清单则注册成功，否则仅落盘）
     let loaded = false;
     try {
-      const loadResult = await pluginSystem.loadPlugin(pluginId);
+      const loadResult = await port.loadPlugin(pluginId);
       loaded = loadResult.success;
     } catch {
       loaded = false;
@@ -193,18 +195,15 @@ export async function handlePluginUninstall(
   pluginId: string
 ): Promise<void> {
   try {
-    const { NpmDistributor } = await import('@modules/plugins');
-    const { pluginSystem } = await import('@modules/plugins');
+    const port = await getCoreAPI().getPluginAdminPort();
 
     try {
-      await pluginSystem.stopPlugin(pluginId);
-      await pluginSystem.unloadPlugin(pluginId);
+      await port.stopAndUnloadPlugin(pluginId);
     } catch {
       // @ignore-catch: 插件未加载时忽略（卸载不存在的插件为预期场景）
     }
 
-    const distributor = new NpmDistributor();
-    const removed = await distributor.remove(pluginId);
+    const removed = await port.removePackage(pluginId);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: removed, name: pluginId }));

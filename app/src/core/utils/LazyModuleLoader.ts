@@ -1,11 +1,11 @@
-﻿/**
+/**
  * 懒加载模块加载器
  * 支持并发安全访问、校验、重置，用于按需加载重量级模块
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:utils:LazyModuleLoader');
 
 /**

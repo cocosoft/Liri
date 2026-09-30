@@ -1,5 +1,5 @@
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../../loggerFacade.js';
+import { handleError } from '../../errorHandler.js';
 import {
   DeliveryAdapter,
   ConsoleAdapter,

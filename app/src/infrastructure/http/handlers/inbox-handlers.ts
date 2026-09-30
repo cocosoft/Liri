@@ -16,6 +16,8 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   inboxManager,
   type InboxItemStatus,
@@ -240,8 +242,9 @@ export async function handleReplyInbox(
       const sessionId = current.sessionId;
       if (taskId && sessionId) {
         try {
-          const { getOrCreateOrchestrator } = await import('@modules/tasks');
-          const orchestrator = getOrCreateOrchestrator(taskId);
+          const orchestrator = await (
+            await getCoreAPI().getTaskOpsPort()
+          ).getOrCreatePdcaOrchestrator(taskId);
           if (orchestrator) {
             if (reply === 'approve' || selectedOption === 'approve') {
               const result = await orchestrator.resumeAfterApproval(sessionId);
@@ -401,8 +404,9 @@ export async function handleUndoApproval(
     // 如果 PDCA 审批已被触发恢复，尝试暂停
     if (item.source === 'pdca' && item.metadata?.taskId) {
       try {
-        const { getOrCreateOrchestrator } = await import('@modules/tasks');
-        const orch = getOrCreateOrchestrator(item.metadata.taskId as string);
+        const orch = await (
+          await getCoreAPI().getTaskOpsPort()
+        ).getOrCreatePdcaOrchestrator(item.metadata.taskId as string);
         if (orch) {
           await orch.abort();
           logger.info('PDCA orchestrator aborted due to approval undo', {

@@ -355,11 +355,15 @@ export function buildEnvironmentHints(): string {
   hints.push('--- HARD CONSTRAINT: FILE PATHS ---');
   // 2026-09-26 修复（P3-2 顺查项③）：工具名必须用**本仓真实注册名**——原写
   // `read_file` / `write_file` / `list_directory` / `search_codebase` / `Read/Write/Glob/Edit`（CC 名，本仓不存在）。
+  //
+  // ⚠️ 2026-09-29（P2-3）：**移除 `file_search`** —— 它**不是注册名**（仅存在于 `ToolFactory.getAllBaseTools()`
+  // 死路径，台账 N-27；真实类 `FileSearchTool` 无任何 loader 引用）⇒ 原提示词在**教模型去调一个不存在的工具**
+  // （模型会尝试调用并失败）。改用真实搜索工具 `grep`（内容检索）/ `glob`（文件名匹配）。
   hints.push(
-    '1. Only use file paths that have been confirmed via tool calls (file_read, file_write, glob, file_search).'
+    '1. Only use file paths that have been confirmed via tool calls (file_read, file_write, glob, grep).'
   );
   hints.push(
-    '2. Do NOT invent, guess, or assume file paths. If you are unsure, use file_search or glob to find the correct path.'
+    '2. Do NOT invent, guess, or assume file paths. If you are unsure, use glob or grep to find the correct path.'
   );
   hints.push(
     '3. All paths must be absolute paths. Use the OS-appropriate path separators (\\ for Windows, / for macOS/Linux).'

@@ -11,8 +11,8 @@ import {
 } from './types';
 import { CycleDetector } from './CycleDetector';
 import { DisposeManager } from './DisposeManager';
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
 
 const logger = getLogger('DIContainer');
 

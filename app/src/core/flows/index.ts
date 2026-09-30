@@ -46,17 +46,6 @@ export {
 export type { ChannelSetupPlugin } from './channel-setup.js';
 
 export {
-  registerHealthCheck,
-  registerHealthChecks,
-  unregisterHealthCheck,
-  initializeDefaultHealthChecks,
-  runHealthChecks,
-  listHealthChecks,
-  getHealthChecker,
-} from './doctor-health.js';
-export type { HealthCheck } from './doctor-health.js';
-
-export {
   getModel,
   listModels,
   listModelsByProvider,

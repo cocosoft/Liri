@@ -8,28 +8,17 @@
 
 import { ModelRegistry } from '../ai/models/ModelRegistry.js';
 import { getModelConfigById } from '../ai/models/ModelConfigs.js';
-import type {
-  BillingMode,
-  TimeBasedPrice,
-} from '../ai/models/ModelPricingService.js';
+import type { TimeBasedPrice } from '../ai/models/ModelPricingService.js';
+import type { ModelPricing } from '../core/pricing.js';
 
 import { handleError } from '../error/handleError.js';
 
 import { getLogger } from '../monitoring/logs/Logger.js';
 const logger = getLogger('cost:ModelPricing');
 
-export interface ModelPricing {
-  inputPricePerMillion: number;
-  outputPricePerMillion: number;
-  cacheReadPricePerMillion: number;
-  cacheCreationPricePerMillion: number;
-  webSearchPricePerRequest: number;
-  fastModePricing?: ModelPricing;
-  /** 计费模式（默认 'token'） */
-  billingMode?: BillingMode;
-  /** 按次计价单价（美元/请求） */
-  pricePerRequest?: number;
-}
+// 2026-09-30 下沉 core（A1 分层倒挂收口）：定义移至 `core/pricing.ts`，此处**原样转出**
+// ⇒ `@modules/cost` 的 `ModelPricing` 导出名与结构逐字不变。
+export type { ModelPricing };
 
 /** "HH:mm" → 分钟数（0-1439） */
 function minutesOfDay(hhmm: string): number {

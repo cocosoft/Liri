@@ -9,13 +9,11 @@ import type {
   MCPServerConnectionInfo,
   ServerResource,
 } from '@modules/mcp/types/index.js';
-import type { LoadedPlugin, PluginError } from '@modules/types/plugin.js';
+import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
+import type { PluginError } from '@modules/error';
 import type { TaskState } from './types.js';
-import type {
-  Command,
-  SettingsJson,
-  ModelSetting,
-} from '@modules/types/index.js';
+import type { SettingsJson } from '@modules/config/types.js';
+import type { Command, ModelSetting } from '@modules/types/index.js';
 
 export type AgentId = string;
 
@@ -70,11 +68,7 @@ export type SpeculationState =
  * 建议推测状态
  */
 export type SuggestionSpeculationStatus =
-  | 'idle'
-  | 'active'
-  | 'accepted'
-  | 'aborted'
-  | 'error';
+  'idle' | 'active' | 'accepted' | 'aborted' | 'error';
 
 /**
  * 建议推测结果
@@ -113,21 +107,13 @@ export const IDLE_SUGGESTION_SPECULATION_STATE: SuggestionSpeculationState = {
  * 底部项目
  */
 export type FooterItem =
-  | 'tasks'
-  | 'tmux'
-  | 'bagel'
-  | 'teams'
-  | 'bridge'
-  | 'companion';
+  'tasks' | 'tmux' | 'bagel' | 'teams' | 'bridge' | 'companion';
 
 /**
  * 远程连接状态
  */
 export type RemoteConnectionStatus =
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting'
-  | 'disconnected';
+  'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
 /**
  * 应用状态

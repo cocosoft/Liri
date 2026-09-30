@@ -15,6 +15,8 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-95，`knowledge` 域 P1）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 从 URL 路径中提取知识库名称 */
 function extractBaseName(url: string): string | null {
@@ -48,7 +50,6 @@ export async function handleListFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const base = extractBaseName(req.url ?? '');
     if (!base) {
       sendError(res, 'Missing knowledge base name', 400);
@@ -63,14 +64,14 @@ export async function handleListFAQ(
       200
     );
 
-    const service = getFAQService();
-    const entries = await service.list({
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const entries = await service.listFaqEntries({
       knowledgeBaseName: base,
       category,
       offset,
       limit,
     });
-    const total = await service.count(base);
+    const total = await service.countFaqEntries(base);
 
     sendJson(res, 200, { entries, total, offset, limit });
   } catch (err) {
@@ -85,7 +86,6 @@ export async function handleCreateFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const base = extractBaseName(req.url ?? '');
     if (!base) {
       sendError(res, 'Missing knowledge base name', 400);
@@ -100,8 +100,8 @@ export async function handleCreateFAQ(
       return;
     }
 
-    const service = getFAQService();
-    const entry = await service.create({
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const entry = await service.createFaqEntry({
       knowledgeBaseName: base,
       question: params.question,
       answer: params.answer,
@@ -128,7 +128,6 @@ export async function handleUpdateFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const id = extractFaqId(req.url ?? '');
     if (!id) {
       sendError(res, 'Missing FAQ id', 400);
@@ -138,8 +137,8 @@ export async function handleUpdateFAQ(
     const body = await readRequestBody(req);
     const params = JSON.parse(body);
 
-    const service = getFAQService();
-    const entry = await service.update(id, params);
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const entry = await service.updateFaqEntry(id, params);
 
     if (!entry) {
       sendError(res, 'FAQ entry not found', 404);
@@ -159,15 +158,14 @@ export async function handleDeleteFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const id = extractFaqId(req.url ?? '');
     if (!id) {
       sendError(res, 'Missing FAQ id', 400);
       return;
     }
 
-    const service = getFAQService();
-    await service.delete(id);
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    await service.deleteFaqEntry(id);
 
     sendJson(res, 200, { deleted: true });
   } catch (err) {
@@ -182,7 +180,6 @@ export async function handleBatchDeleteFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const body = await readRequestBody(req);
     const { ids } = JSON.parse(body);
 
@@ -191,8 +188,8 @@ export async function handleBatchDeleteFAQ(
       return;
     }
 
-    const service = getFAQService();
-    const count = await service.deleteBatch(ids);
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const count = await service.deleteFaqEntries(ids);
 
     sendJson(res, 200, { deleted: count });
   } catch (err) {
@@ -210,7 +207,6 @@ export async function handleImportFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const base = extractBaseName(req.url ?? '');
     if (!base) {
       sendError(res, 'Missing knowledge base name', 400);
@@ -225,8 +221,8 @@ export async function handleImportFAQ(
       return;
     }
 
-    const service = getFAQService();
-    const report = await service.importBatch(base, items);
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const report = await service.importFaqEntries(base, items);
 
     sendJson(res, 200, report);
   } catch (err) {
@@ -241,7 +237,6 @@ export async function handleSearchFAQ(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const base = extractBaseName(req.url ?? '');
     if (!base) {
       sendError(res, 'Missing knowledge base name', 400);
@@ -258,8 +253,8 @@ export async function handleSearchFAQ(
     const category = url.searchParams.get('category') ?? undefined;
     const topK = parseInt(url.searchParams.get('topK') ?? '10', 10);
 
-    const service = getFAQService();
-    const entries = await service.search({
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const entries = await service.searchFaqEntries({
       query,
       knowledgeBaseName: base,
       category,
@@ -279,15 +274,14 @@ export async function handleFAQCategories(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getFAQService } = await import('@modules/knowledge/faq/FAQService');
     const base = extractBaseName(req.url ?? '');
     if (!base) {
       sendError(res, 'Missing knowledge base name', 400);
       return;
     }
 
-    const service = getFAQService();
-    const categories = await service.getCategories(base);
+    const service = await getCoreAPI().getKnowledgeOpsPort();
+    const categories = await service.getFaqCategories(base);
 
     sendJson(res, 200, { categories });
   } catch (err) {

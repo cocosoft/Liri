@@ -17,6 +17,8 @@ import {
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '@modules/core';
 import { credentialStore, CRED_STORED_MARKER } from '@modules/ai';
+// C1（2026-09-30 D-124，`R00-003` P5/G2）：供应商能力改经 core SPI 端口（infra → core 合法）
+import { resolveAiAccess } from '@modules/core/spi';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
@@ -102,47 +104,27 @@ const BALANCE_WARN_THRESHOLD = 10;
 /** 定时刷新所有活跃供应商余额缓存 */
 async function refreshBalancesInBackground(): Promise<void> {
   try {
-    const { BalanceStore } = await import('../../ai/providers/BalanceStore.js');
-    const { providerManager } =
-      await import('../../ai/providers/ProviderManager.js');
-    const { checkBalance } =
-      await import('../../ai/providers/BalanceChecker.js');
-
-    const store = BalanceStore.getInstance();
-    await store.initialize();
-    await providerManager.initialize();
-
-    const providers = await providerManager.listProviders();
-    const activeProviders = providers.filter((p) => p.isActive);
+    const activeProviders = await resolveAiAccess().listActiveProviders();
 
     for (const p of activeProviders) {
       try {
-        const result = await checkBalance(
+        const probe = await resolveAiAccess().refreshProviderBalance(
+          p.id,
           p.baseUrl,
           p.apiKey === CRED_STORED_MARKER
             ? credentialStore.get(p.id) || ''
-            : p.apiKey || ''
+            : p.apiKey || '',
+          BALANCE_WARN_THRESHOLD
         );
-        if (result.success && result.data.length > 0) {
-          const d = result.data[0];
-          const remaining = d.remaining ?? null;
-          const belowThreshold =
-            remaining !== null && remaining < BALANCE_WARN_THRESHOLD;
-
-          await store.setBalance(p.id, {
-            remaining,
-            total: d.total ?? null,
-            used: d.used ?? null,
-            unit: d.unit || 'CNY',
-            isSupported: true,
-            belowThreshold,
-          });
-
-          if (belowThreshold) {
-            logger.warn(
-              `供应商余额不足: ${p.name} (${p.id}) - 剩余 ${remaining?.toFixed(2)} ${d.unit || 'CNY'}`
-            );
-          }
+        // 端口内已按 threshold 落库；此处仅补"余额不足"警告日志
+        if (
+          probe &&
+          probe.remaining !== null &&
+          probe.remaining < BALANCE_WARN_THRESHOLD
+        ) {
+          logger.warn(
+            `供应商余额不足: ${p.name} (${p.id}) - 剩余 ${probe.remaining.toFixed(2)} ${probe.unit}`
+          );
         }
       } catch (err) {
         void handleError(err, {

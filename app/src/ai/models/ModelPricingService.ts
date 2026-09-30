@@ -36,6 +36,10 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/core';
+// 2026-09-30 下沉 core（A1 分层倒挂收口）：`BillingMode` 被 `ModelPricing`（详见
+// `core/pricing.ts`）引用，定义若留在 app 层会让 core 侧新造 core → app 倒挂 ⇒ 定义移至 core，
+// 本文件原样转出（`@modules/ai` 对外导出名不变）。
+import type { BillingMode } from '../../core/pricing.js';
 
 /** sqlite3 db.run() 回调中的 this 上下文 */
 interface SqliteRunContext {
@@ -71,8 +75,8 @@ const COLUMN_MAP: Record<string, string> = {
 };
 
 /** 模型注册表记录（完整字段） */
-/** 计费模式：按 token / 按次 / 混合 */
-export type BillingMode = 'token' | 'per_request' | 'token_and_per_request';
+// 计费模式：按 token / 按次 / 混合 —— 2026-09-30 下沉 core（见文件头 import 说明），此处转出
+export type { BillingMode };
 
 /** 分时价格条目（24h 格式 "HH:mm"；end < start 表示跨天，如 21:30-08:00 错峰） */
 export interface TimeBasedPrice {

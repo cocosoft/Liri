@@ -16,7 +16,7 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 import type { PersonaBinding, CreatePersonaBindingInput } from './types';
 
 const logger = getLogger('core:persona');

@@ -1,6 +1,5 @@
-import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
-import { TTLCache } from '@modules/utils/cache';
+import { getLogger } from '../loggerFacade.js';
+import { TtlCache } from '../spi/CacheService.js';
 
 const logger = getLogger('core:performance');
 
@@ -539,6 +538,9 @@ export class MemoryManager {
   }
 }
 
+// 2026-09-30 直连 core（A2 倒挂收口）：`MemoryCache` 的底层缓存由 infra 的 `utils` 改为 core 侧
+// `TtlCache`（`../spi/CacheService.js`）—— 与原地逐一同签名（CS01 归一化复用，未搬第二份 TTL 缓存
+// 进 core）；唯一语义差为容量淘汰由 LRU 变 FIFO，本处 maxSize 为**条目数**上限，实际不触达。
 /**
  * 缓存项
  */
@@ -562,18 +564,18 @@ export interface CacheOptions {
 
 /**
  * 内存缓存
- * 基于标准 TTLCache 实现，委托 TTL/过期管理给标准实现。
+ * 基于标准 TtlCache 实现，委托 TTL/过期管理给标准实现。
  */
 export class MemoryCache<T> {
   /** 标准缓存实例，接管 TTL/过期/逐出管理 */
-  private cache: TTLCache<T>;
+  private cache: TtlCache<T>;
   /** 默认过期时间（毫秒） */
   private defaultMaxAge: number;
 
   constructor(options: CacheOptions = {}) {
     const maxSize = options.maxSize ?? 1024 * 1024 * 1024;
     this.defaultMaxAge = options.maxAge ?? 3600000;
-    this.cache = new TTLCache<T>(maxSize, this.defaultMaxAge);
+    this.cache = new TtlCache<T>(maxSize, this.defaultMaxAge);
   }
 
   /**
@@ -627,10 +629,10 @@ export class MemoryCache<T> {
   }
 
   /**
-   * 停止自动清理（标准 TTLCache 无定时器，空操作）
+   * 停止自动清理（标准 TtlCache 无定时器，空操作）
    */
   stopCleanup(): void {
-    // TTLCache 在访问时惰性清理，无需停止定时器
+    // TtlCache 在访问时惰性清理，无需停止定时器
   }
 
   /**
@@ -726,7 +728,7 @@ export function createPerformanceProfiler(
   options?: PerformanceProfilerOptions
 ): PerformanceProfiler {
   return new PerformanceProfiler({
-    enabled: configManager.env('NODE_ENV') !== 'production',
+    enabled: process.env.NODE_ENV !== 'production',
     samplingInterval: 100,
     maxEvents: 1000,
     slowThreshold: 100,

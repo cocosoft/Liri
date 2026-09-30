@@ -277,3 +277,23 @@ export type {
   ScheduledTaskResult,
 } from './moa/ParallelAgentScheduler';
 export { ResultAggregator, AggregationStrategy } from './moa/ResultAggregator';
+
+// A2A 对外暴露（P3-1，2026-09-29）：Agent Card 构建。
+// 边界：**ACP 对内 / A2A 对外**（见 `.trae/specs/a2a-external-exposure.md`）。
+// 经 barrel 导出是**必须**的 —— `infrastructure` 侧受 `module-registry/no-direct-module-import` 约束，
+// 只能走 `@modules/agent`（深路径被拦）。
+export {
+  A2A_PROTOCOL_VERSION,
+  buildAgentCard,
+  computeAgentCardEtag,
+} from './a2a/agentCard';
+export { a2aTaskStore } from './a2a/taskStore';
+export type {
+  A2AAgentCard,
+  A2AAgentSkill,
+  A2AArtifact,
+  A2AMessage,
+  A2APart,
+  A2ATask,
+  A2ATaskState,
+} from './a2a/types';

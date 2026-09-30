@@ -27,6 +27,8 @@
  * **需要工具名时的正确来源**：工具类自身的 `name` 字段（`src/tools/**`）或
  * `components/ui/ToolUIRegistry.ts` —— 那才是运行时事实；本文件只登记**已核对过**的少数几个。
  */
-export const FILE_READ_TOOL_NAME = 'file_read';
-export const FILE_EDIT_TOOL_NAME = 'file_edit';
-export const FILE_WRITE_TOOL_NAME = 'file_write';
+import type { ToolName } from '@modules/tools/toolNames.generated';
+
+export const FILE_READ_TOOL_NAME = 'file_read' satisfies ToolName;
+export const FILE_EDIT_TOOL_NAME = 'file_edit' satisfies ToolName;
+export const FILE_WRITE_TOOL_NAME = 'file_write' satisfies ToolName;

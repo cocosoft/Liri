@@ -23,7 +23,7 @@
  * landlock-run 执行器（P1，2026-08-25）
  *
  * 通过 landlock-run 在 Landlock 域中执行命令（/bin/sh -c 使 shell 及全部子进程受域约束）。
- * CLI 语法与 `native/main.c` 对齐：`--ro/--rw`（FS 规则）、`--net-connect tcp|udp`（网络）、
+ * CLI 语法与 `native/main.c` 对齐：`--ro/--rw`（FS 规则）、`--net-deny`（网络全禁）、
  * `-- <argv>...`（命令）。
  *
  * fail-closed 协议（对齐参考仓库 cli-contract.md / postmortem 0004）：
@@ -59,7 +59,12 @@ export interface RunWithLandlockOptions {
  * 将 LandlockPolicy 转换为 landlock-run CLI 参数。
  * - 含 write 的规则 → `--rw`（完整 FS 访问，含 read/execute）
  * - 仅 read/execute 的规则 → `--ro`（read+execute）
- * - net.allow 含 connect_tcp/connect_udp → `--net-connect tcp|udp`
+ * - `net.denyAll === true` → `--net-deny`（网络全禁）；**不设 `net` ⇒ 不传网络参数**（网络不受限）
+ *
+ * ⚠️ 2026-09-29（台账 D-36-① / D-38）：原实现对 `net.allow` 里的 `connect_tcp`/`connect_udp`
+ * 逐个输出 `--net-connect tcp|udp` —— 而该 flag 在内核侧的实际语义是**拒绝**该协议 CONNECT
+ * 且**放行** bind（详见 `types.ts` 的 `LandlockNetRule` 注释）⇒ 与调用方意图相反。现按
+ * **可表达的两态**输出。
  */
 export function buildLandlockArgv(policy: LandlockPolicy): string[] {
   const args: string[] = [];
@@ -70,13 +75,8 @@ export function buildLandlockArgv(policy: LandlockPolicy): string[] {
       args.push('--ro', rule.path);
     }
   }
-  if (policy.net) {
-    if (policy.net.allow.includes('connect_tcp')) {
-      args.push('--net-connect', 'tcp');
-    }
-    if (policy.net.allow.includes('connect_udp')) {
-      args.push('--net-connect', 'udp');
-    }
+  if (policy.net?.denyAll) {
+    args.push('--net-deny');
   }
   return args;
 }
@@ -108,7 +108,7 @@ export async function runWithLandlock(
   await writeFile(policyPath, JSON.stringify(policy));
 
   try {
-    // landlock-run [--ro p]... [--rw p]... [--net-connect tcp|udp]... -- /bin/sh -c "<command>"
+    // landlock-run [--ro p]... [--rw p]... [--net-deny] -- /bin/sh -c "<command>"
     const args = [...buildLandlockArgv(policy), '--', '/bin/sh', '-c', command];
     return await new Promise<LandlockRunResult>((resolve) => {
       const child = spawn(helper, args, {

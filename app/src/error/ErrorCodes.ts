@@ -1,296 +1,36 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 /**
- * 标准错误码定义
+ * 标准错误码 —— **转出（re-export）**（2026-09-30）。
  *
- * 基于 ErrorIds.ts 的 ID 分配规则，提供结构化错误码描述。
- * 每个错误码包含数字代码、用户端中文消息和日志端严重级别。
- *
- * ID 分配规则（与 ErrorIds.ts 保持一致）:
- * - 1-99:     网络错误
- * - 100-199:  文件系统错误
- * - 200-299:  API 错误
- * - 300-399:  认证/授权错误
- * - 400-499:  配置错误
- * - 500-599:  执行/工具错误
- * - 600-699:  验证错误
- * - 700-799:  数据库错误
- * - 800-899:  缓存错误
- * - 900-999:  安全错误
- * - 1000-1099: 通用错误
- * - 1100-1199: AI 错误
+ * 定义已**下沉至 core 侧** `core/errorCodes.ts`：该表为纯数据、零依赖，却被 core 侧
+ * 模块系统（`modules/*`）直接引用 ⇒ 原位置构成 core → infra 倒挂（A 类台账，
+ * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.5.1）。
+ * 本文件保留同名导出 ⇒ `@modules/error` 与 `@modules/error/ErrorCodes` 对外符号逐字不变。
  */
 
-export interface ErrorCodeDef {
-  code: number;
-  message: string;
-  level: 'CRITICAL' | 'ERROR' | 'WARN' | 'INFO';
-}
-
-export const ErrorCodes = {
-  // ─── 通用错误 (1000-1099) ─────────────────────
-  UNKNOWN: { code: 1000, message: '未知错误', level: 'ERROR' as const },
-  NOT_IMPLEMENTED: {
-    code: 1001,
-    message: '功能未实现',
-    level: 'WARN' as const,
-  },
-  INVALID_INPUT: {
-    code: 1002,
-    message: '输入参数无效',
-    level: 'WARN' as const,
-  },
-  TIMEOUT: { code: 1003, message: '操作超时', level: 'ERROR' as const },
-  INTERNAL: { code: 1004, message: '内部错误', level: 'ERROR' as const },
-  ENTITY_NOT_FOUND: {
-    code: 1005,
-    message: '实体未找到',
-    level: 'WARN' as const,
-  },
-  INVALID_STATE: {
-    code: 1006,
-    message: '当前状态不允许此操作',
-    level: 'ERROR' as const,
-  },
-
-  // ─── 网络错误 (1-99) ──────────────────────────
-  NETWORK_TIMEOUT: {
-    code: 1,
-    message: '网络连接超时',
-    level: 'ERROR' as const,
-  },
-  NETWORK_CONNECTION_REFUSED: {
-    code: 2,
-    message: '网络连接被拒绝',
-    level: 'ERROR' as const,
-  },
-  NETWORK_CONNECTION_RESET: {
-    code: 3,
-    message: '网络连接被重置',
-    level: 'ERROR' as const,
-  },
-  NETWORK_DNS_NOT_FOUND: {
-    code: 4,
-    message: 'DNS 解析失败',
-    level: 'ERROR' as const,
-  },
-  NETWORK_UNREACHABLE: {
-    code: 9,
-    message: '目标不可达',
-    level: 'ERROR' as const,
-  },
-
-  // ─── 文件系统错误 (100-199) ────────────────────
-  FILE_NOT_FOUND: { code: 100, message: '文件未找到', level: 'WARN' as const },
-  FILE_PERMISSION_DENIED: {
-    code: 101,
-    message: '文件权限不足',
-    level: 'ERROR' as const,
-  },
-  FILE_READ_FAILED: {
-    code: 108,
-    message: '文件读取失败',
-    level: 'ERROR' as const,
-  },
-  FILE_WRITE_FAILED: {
-    code: 109,
-    message: '文件写入失败',
-    level: 'ERROR' as const,
-  },
-  FILE_INVALID_PATH: {
-    code: 105,
-    message: '文件路径无效',
-    level: 'WARN' as const,
-  },
-
-  // ─── API 错误 (200-299) ────────────────────────
-  API_RATE_LIMITED: {
-    code: 200,
-    message: 'API 请求频率超限',
-    level: 'WARN' as const,
-  },
-  API_SERVER_OVERLOAD: {
-    code: 201,
-    message: 'API 服务器过载',
-    level: 'WARN' as const,
-  },
-  API_MODEL_UNAVAILABLE: {
-    code: 204,
-    message: '模型不可用',
-    level: 'WARN' as const,
-  },
-  API_INVALID_MODEL: {
-    code: 206,
-    message: '无效的模型',
-    level: 'WARN' as const,
-  },
-  API_CONTEXT_OVERFLOW: {
-    code: 213,
-    message: '上下文溢出',
-    level: 'WARN' as const,
-  },
-
-  // ─── 认证/授权错误 (300-399) ────────────────────
-  AUTH_TOKEN_EXPIRED: {
-    code: 300,
-    message: '令牌已过期',
-    level: 'WARN' as const,
-  },
-  AUTH_INVALID_API_KEY: {
-    code: 302,
-    message: 'API 密钥无效',
-    level: 'ERROR' as const,
-  },
-  AUTH_INSUFFICIENT_PERMISSIONS: {
-    code: 304,
-    message: '权限不足',
-    level: 'WARN' as const,
-  },
-  // OAuth 加密存储错误
-  OAUTH_ENCRYPTION_KEY_MISSING: {
-    code: 310,
-    message: 'OAUTH_ENCRYPTION_KEY 环境变量未配置',
-    level: 'CRITICAL' as const,
-  },
-  OAUTH_ENCRYPTION_KEY_TOO_SHORT: {
-    code: 311,
-    message: 'OAUTH_ENCRYPTION_KEY 长度不足 32 字符',
-    level: 'CRITICAL' as const,
-  },
-  OAUTH_CALLBACK_PORT_EXHAUSTED: {
-    code: 312,
-    message: 'OAuth 回调服务器端口耗尽',
-    level: 'ERROR' as const,
-  },
-  PERMISSION_DENIED: {
-    code: 4000,
-    message: '权限不足',
-    level: 'WARN' as const,
-  },
-
-  // ─── 配置错误 (400-499 / 5000) ───────────────────
-  CONFIG_INVALID: { code: 5000, message: '配置无效', level: 'ERROR' as const },
-  CONFIG_NOT_FOUND: {
-    code: 400,
-    message: '配置未找到',
-    level: 'WARN' as const,
-  },
-
-  // ─── 工具/执行错误 (500-599 / 2000) ─────────────
-  TOOL_NOT_FOUND: { code: 2000, message: '工具未找到', level: 'WARN' as const },
-  TOOL_EXEC_FAILED: {
-    code: 2001,
-    message: '工具执行失败',
-    level: 'ERROR' as const,
-  },
-  TOOL_PERMISSION_DENIED: {
-    code: 2002,
-    message: '工具权限不足',
-    level: 'WARN' as const,
-  },
-  EXECUTION_FAILED: { code: 500, message: '执行失败', level: 'ERROR' as const },
-
-  // ─── 转换器错误 (2003-2006) ────────────────────
-  MISSING_DEPENDENCY: {
-    code: 2003,
-    message: '缺少可选依赖',
-    level: 'WARN' as const,
-  },
-  UNSUPPORTED_FORMAT: {
-    code: 2004,
-    message: '不支持的格式',
-    level: 'WARN' as const,
-  },
-  CONVERSION_FAILED: {
-    code: 2005,
-    message: '转换失败',
-    level: 'ERROR' as const,
-  },
-
-  // ─── AI 错误 (1100-1199) ──────────────────────
-  AI_CLIENT_ERROR: {
-    code: 1100,
-    message: 'AI 客户端错误',
-    level: 'ERROR' as const,
-  },
-  AI_RATE_LIMITED: {
-    code: 1101,
-    message: 'AI 请求频率限制',
-    level: 'WARN' as const,
-  },
-  AI_MODEL_ERROR: {
-    code: 1102,
-    message: 'AI 模型响应错误',
-    level: 'ERROR' as const,
-  },
-
-  // ─── 安全错误 (900-999) ────────────────────────
-  SECURITY_INJECTION_DETECTED: {
-    code: 900,
-    message: '检测到注入攻击',
-    level: 'CRITICAL' as const,
-  },
-  SECURITY_PATH_TRAVERSAL: {
-    code: 901,
-    message: '检测到路径遍历',
-    level: 'CRITICAL' as const,
-  },
-  SECURITY_UNSAFE_COMMAND: {
-    code: 902,
-    message: '检测到危险命令',
-    level: 'CRITICAL' as const,
-  },
-  SECURITY_AUDIT_FAILED: {
-    code: 903,
-    message: '安全审计执行失败',
-    level: 'ERROR' as const,
-  },
-  SECURITY_PLUGIN_UNTRUSTED: {
-    code: 904,
-    message: '插件未通过信任审计',
-    level: 'WARN' as const,
-  },
-  SECURITY_CONFIG_DANGEROUS: {
-    code: 905,
-    message: '检测到危险配置项',
-    level: 'WARN' as const,
-  },
-
-  // ---- 知识库 (1200-1299) ----
-  KNOWLEDGE_INDEX_EMPTY: {
-    code: 1200,
-    message: '知识库索引为空，请先构建索引',
-    level: 'WARN' as const,
-  },
-  KNOWLEDGE_VECTOR_STORE_ERROR: {
-    code: 1201,
-    message: '向量存储操作失败',
-    level: 'ERROR' as const,
-  },
-  KNOWLEDGE_RERANK_FAILED: {
-    code: 1202,
-    message: '重排序调用失败',
-    level: 'WARN' as const,
-  },
-  KNOWLEDGE_EMBEDDING_FAILED: {
-    code: 1203,
-    message: '嵌入生成失败',
-    level: 'ERROR' as const,
-  },
-  KNOWLEDGE_GRAPH_EXTRACT_FAILED: {
-    code: 1204,
-    message: '知识图谱提取失败',
-    level: 'WARN' as const,
-  },
-  KNOWLEDGE_FAQ_DUPLICATE: {
-    code: 1205,
-    message: 'FAQ 条目重复',
-    level: 'WARN' as const,
-  },
-  KNOWLEDGE_MIGRATION_FAILED: {
-    code: 1206,
-    message: '知识库数据迁移失败',
-    level: 'ERROR' as const,
-  },
-} as const;
-
-export type ErrorCodeKey = keyof typeof ErrorCodes;
-export type ErrorCodeValue = (typeof ErrorCodes)[ErrorCodeKey];
+export { ErrorCodes } from '../core/errorCodes.js';
+export type {
+  ErrorCodeDef,
+  ErrorCodeKey,
+  ErrorCodeValue,
+} from '../core/errorCodes.js';

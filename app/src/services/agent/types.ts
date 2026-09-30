@@ -22,7 +22,7 @@
  * Agent系统类型定义
  */
 
-import type { HooksSettings } from '@modules/types';
+import type { HooksSettings } from '@modules/utils/settings/types.js';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 
 export type AgentMemoryScope = 'user' | 'project' | 'local';
@@ -109,9 +109,7 @@ export interface PluginAgentDefinition extends BaseAgentDefinition {
  * 所有Agent类型的联合类型
  */
 export type AgentDefinition =
-  | BuiltInAgentDefinition
-  | CustomAgentDefinition
-  | PluginAgentDefinition;
+  BuiltInAgentDefinition | CustomAgentDefinition | PluginAgentDefinition;
 
 /**
  * 解析后的Agent（包含覆盖信息）

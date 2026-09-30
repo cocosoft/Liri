@@ -365,34 +365,3 @@ ${'='.repeat(50)}
 ${collector.toString()}
 `;
 }
-
-/**
- * 模拟延迟
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * 重试函数
- * @deprecated 请使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync
- */
-export async function retry<T>(
-  fn: () => Promise<T>,
-  maxAttempts: number,
-  delayMs: number
-): Promise<T> {
-  let lastError: Error;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      void handleError(lastError, { module: 'bridge:debug', action: 'retry' });
-      if (attempt < maxAttempts) {
-        await delay(delayMs * attempt);
-      }
-    }
-  }
-  throw lastError!;
-}

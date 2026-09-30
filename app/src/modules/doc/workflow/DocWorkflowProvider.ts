@@ -33,8 +33,12 @@
  * 收口过程的完整记录见 `DocWorkflow.ts` 的「收口说明」段。
  */
 
-import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { getLogger } from '../../../core/loggerFacade.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '../../../core/errors.js';
 import type {
   WorkflowDefinition,
   WorkflowProvider,

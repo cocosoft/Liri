@@ -20,71 +20,20 @@
 // SOFTWARE.
 
 /**
- * 事件溯源 — 前端事件类型镜像
+ * 事件溯源 — 前端事件类型
  *
- * 设计参考：app/src/chat/types/events.ts（后端唯一源）
+ * 事件名（`LiriEventType`）的**单一事实源**：`shared/events/eventNames.ts`（双端共用，
+ * 2026-09-30，台账 D-57）—— 本联合由其派生。原「手写镜像 app 侧」的做法同期废弃
+ * （曾**实证漂移**：台账 D-1，client 落后 5 个类型）。
  *
- * 前端不直接 import 后端类型，按 client/types 约定镜像一份。
- * 双端结构必须保持一致，新增事件类型时双端同步。
+ * 载荷（`LiriEventMap`）仍由本端自持：后端载荷引用后端领域类型，不宜下沉到 shared。
  */
+
+import { LIRI_EVENT_NAMES } from "@shared/events/eventNames";
 
 // ─── 事件类型枚举 ───────────────────────────────
 
-export type LiriEventType =
-  | "turn/start"
-  | "turn/end"
-  | "user/message"
-  | "assistant/thinking"
-  | "assistant/text"
-  // F-2（2026-09-02）：text 流式 chunk 聚合批事件（服务端 64KB/2s 合并落盘）
-  | "assistant/text-batch"
-  | "assistant/tool_call"
-  | "tool/result"
-  | "tool/canceled"
-  // ─── 富块（M4-1-a 扩展） ───
-  | "assistant/status"
-  | "assistant/progress"
-  | "assistant/question"
-  | "assistant/todo"
-  | "assistant/doc_workflow"
-  | "assistant/pdca_workflow"
-  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
-  | "assistant/workflow_run_start"
-  | "assistant/workflow_step_start"
-  | "assistant/workflow_step_end"
-  | "assistant/workflow_run_end"
-  | "assistant/truncation"
-  | "assistant/deliverable"
-  | "assistant/diff"
-  | "context/compaction"
-  | "context/summary"
-  // TR-12-B（2026-09-22）：模型输入快照（工具清单 + 系统提示词分段，引用式去重）
-  | "context/model-input"
-  // D-1（2026-09-02）：会话远期摘要事件（摘要也是轨迹）
-  | "session/summary"
-  | "system/error"
-  | "system/warning"
-  | "system/info"
-  | "metric/timing"
-  | "channel/connect"
-  | "channel/disconnect"
-  | "channel/message"
-  | "session/start"
-  | "session/end"
-  | "session/title"
-  // P2-2（2026-09-23）：请求边界（turn × request 双边界；requestId = 本事件的 seq）
-  | "request/start"
-  // P1-1②（2026-09-28）：输出校验回喂（终稿 mermaid 结构预检失败 ⇒ 注入模型的修正指令）
-  | "validation/injected"
-  // ─── 目标（Goal）生命周期（B2-2，2026-09-23；D-1 补镜像 2026-09-28） ───
-  | "goal/created"
-  | "goal/updated"
-  | "goal/status_changed"
-  | "goal/injected"
-  // ─── 子代理恢复通路审计（B4-1，2026-09-23；D-1 补镜像 2026-09-28） ───
-  | "agent/recovery"
-  // ─── Code Mode（CM-5，2026-08-25） ───
-  | "assistant/code_run";
+export type LiriEventType = (typeof LIRI_EVENT_NAMES)[number];
 
 // ─── 事件载荷映射 ───────────────────────────────
 

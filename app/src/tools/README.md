@@ -153,11 +153,18 @@ import { ToolManager } from '../ToolManager';
 ### 5.2 工具工厂使用
 
 ```typescript
-import { ToolFactory, getAllBaseTools } from '@modules/tools/ToolFactory';
+import { ToolFactory } from '@modules/tools/ToolFactory';
+import {
+  loadTools,
+  getBuiltinToolLoaders,
+} from '@modules/tools/utils/ToolManagerUtils';
 
 const factory = new ToolFactory();
-const tools = getAllBaseTools(); // 获取所有启用的工具
+const tools = loadTools(factory, getBuiltinToolLoaders()); // 获取所有启用的工具
 ```
+
+> `getAllBaseTools()` 已删除（台账 D-47）：其所在"工具池组装链"（`assembleToolPool` → `getTools`
+> → `getAllBaseTools`）零生产消费者。现行生效来源为 `ToolManagerUtils.getBuiltinToolLoaders()`。
 
 ---
 

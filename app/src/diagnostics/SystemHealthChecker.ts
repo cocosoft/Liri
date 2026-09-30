@@ -17,6 +17,8 @@ import { probeExternalModule } from '@modules/utils/externalDeps';
 const execAsync = promisify(exec);
 
 import type { HealthStatus } from '@modules/core';
+// C1（2026-09-30 D-123，`R00-003` P4/G3）：MCP 摘要改经 core SPI 端口（infra → core 合法）
+import { resolveDiagnosticsProbe } from '@modules/core/spi';
 export type { HealthStatus };
 
 /**
@@ -465,10 +467,8 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async checkMCPStatus(): Promise<HealthCheckItem> {
     try {
-      const { mcpSystem } = await import('@modules/services/mcp');
-      const servers = mcpSystem.getServers();
-      const serverCount = Array.isArray(servers) ? servers.length : 0;
-      const toolCount = mcpSystem.getRegisteredMcpToolCount();
+      const { serverCount, toolCount } =
+        resolveDiagnosticsProbe().getMcpSnapshot();
       return {
         name: 'MCP 服务',
         status: 'healthy',

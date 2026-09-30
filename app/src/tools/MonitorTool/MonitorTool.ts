@@ -15,7 +15,7 @@ export class MonitorTool extends BaseTool {
   /**
    * 工具名称
    */
-  name = 'MonitorTool';
+  name = 'monitor';
 
   /**
    * 工具描述

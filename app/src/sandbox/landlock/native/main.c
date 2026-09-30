@@ -12,13 +12,21 @@
  *
  * CLI contract (consumed by `app/src/sandbox/landlock/runWithLandlock.ts`):
  *
- *   landlock-run [--ro <path>]... [--rw <path>]... [--net-connect <tcp|udp>]... [--tsync] -- <argv>...
+ *   landlock-run [--ro <path>]... [--rw <path>]... [--net-deny] [--tsync] -- <argv>...
  *   landlock-run --probe
  *
  * `--ro` grants read+execute beneath the path; `--rw` grants full filesystem
- * access beneath the path. `--net-connect tcp|udp` grants CONNECT for the
- * protocol (TCP needs ABI 4, UDP needs ABI 10); bind is never granted
- * (deny-bind is the default posture of our policies). `--tsync` passes
+ * access beneath the path. `--net-deny` denies ALL network access: it *handles*
+ * every net right the running ABI knows about and adds NO net rule — Landlock
+ * denies handled-but-ungranted rights, so "handle everything, grant nothing" is
+ * exactly "deny all". Omitting `--net-deny` leaves net rights entirely
+ * unhandled, which the kernel treats as "not restricted" (a plain shell).
+ *
+ * There is deliberately NO `--net-allow`: a Landlock net rule can only grant a
+ * concrete port (`struct landlock_net_port_attr.port` is a literal port number;
+ * port 0 means "the ephemeral port", NOT "any port"), so "allow CONNECT to any
+ * port" is not expressible. Callers that need ordinary shell networking must
+ * simply not pass `--net-deny`. `--tsync` passes
  * LANDLOCK_RESTRICT_SELF_TSYNC (ABI 8) — needed only when restrict_self runs
  * in a multithreaded process; this helper is single-threaded before exec,
  * so it defaults to 0 (see plan §3.3 TSYNC warning).
@@ -36,6 +44,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -155,7 +164,7 @@ struct cli {
   size_t ro_count;
   const char **rw;
   size_t rw_count;
-  uint64_t net_connect; /* bitmask of LL_NET_CONNECT_* requested */
+  bool net_deny; /* handle every ABI-known net right, grant none ⇒ deny all */
   char **command;       /* NULL-terminated tail of main's argv */
 };
 
@@ -184,16 +193,9 @@ static int parse(int argc, char **argv, struct cli *cli) {
         cli->rw[cli->rw_count++] = argv[index + 1];
       }
       index += 2;
-    } else if (strcmp(arg, "--net-connect") == 0) {
-      if (index + 1 >= argc) return fail_usage("--net-connect", " requires tcp|udp");
-      if (strcmp(argv[index + 1], "tcp") == 0) {
-        cli->net_connect |= LL_NET_CONNECT_TCP;
-      } else if (strcmp(argv[index + 1], "udp") == 0) {
-        cli->net_connect |= LL_NET_CONNECT_UDP;
-      } else {
-        return fail_usage("--net-connect", " expects tcp|udp");
-      }
-      index += 2;
+    } else if (strcmp(arg, "--net-deny") == 0) {
+      cli->net_deny = true;
+      index += 1;
     } else if (strcmp(arg, "--") == 0) {
       cli->command = &argv[index + 1];
       break;
@@ -276,9 +278,14 @@ static int restrict_self(const struct cli *cli, int *partial) {
    * would silently narrow the granted set; fail instead — the caller must
    * clamp by its own probe result). */
   uint64_t requested_fs = fs_mask_for_abi(MAX_ABI);
-  uint64_t requested_net = cli->net_connect;
   if ((requested_fs & ~fs_mask_for_abi(use_abi)) != 0) return fail("landlock ruleset error", "requested FS access beyond kernel ABI");
-  if ((requested_net & ~net_mask_for_abi(use_abi)) != 0) return fail("landlock ruleset error", "requested NET access beyond kernel ABI");
+
+  /* `--net-deny` derives the handled set FROM the running ABI (never from a
+   * caller-supplied protocol list) ⇒ it is a subset by construction, so the
+   * former "requested NET access beyond kernel ABI" hard failure — which made
+   * any UDP request fail on every ABI < 10 — can no longer happen. No net rule
+   * is ever added ⇒ every handled right stays denied ("deny all"). */
+  uint64_t requested_net = cli->net_deny ? net_mask_for_abi(use_abi) : 0;
 
   struct landlock_ruleset_attr attr;
   memset(&attr, 0, sizeof attr);

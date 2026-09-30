@@ -1,7 +1,7 @@
 /**
  * 模型上下文窗口缓存
  *
- * 集中管理所有可用模型的上下文窗口信息，基于标准 TTLCache 实现。
+ * 集中管理所有可用模型的上下文窗口信息，基于标准 TtlCache 实现。
  * 支持从 ALL_MODEL_CONFIGS 和 PriceManager 两个来源自动发现。
  *
  * 使用场景：
@@ -10,12 +10,12 @@
  * - 系统启动时调用 applyDiscoveredContextWindows() 预填充
  */
 
-import { TTLCache } from '@modules/utils/cache';
+import { TtlCache } from '../spi/CacheService.js';
 import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
 const logger = getLogger('core:tokenBudget:ModelContextCache');
 
 /** TTL 默认值: 5 分钟 */
@@ -24,6 +24,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 /** 最大缓存条目数 */
 const MAX_CACHE_SIZE = 10000;
 
+// 2026-09-30 直连 core（A2 倒挂收口）：缓存实现由 infra 的 `utils` 改为 core 侧 `TtlCache`
+// （`../spi/CacheService.js`）—— get/set/has/delete/clear/size 与原地逐一同签名（CS01 归一化复用，
+// 未搬第二份 TTL 缓存进 core）；唯一语义差为容量淘汰由 LRU 变 FIFO，本处 maxSize=10000 实际不触达。
 /** 缓存条目信息 */
 export interface ModelContextInfo {
   /** 上下文窗口大小 */
@@ -54,20 +57,20 @@ export interface DiscoveryResult {
 /**
  * 模型上下文窗口缓存
  *
- * 基于标准 TTLCache，自动管理 TTL 过期和容量淘汰。
+ * 基于标准 TtlCache，自动管理 TTL 过期和容量淘汰。
  * 保留监听器机制用于缓存更新通知。
  */
 export class ModelContextCache {
-  private cache: TTLCache<ModelContextInfo>;
+  private cache: TtlCache<ModelContextInfo>;
   private listeners: Array<() => void> = [];
 
   constructor(ttlMs: number = CACHE_TTL_MS) {
-    this.cache = new TTLCache<ModelContextInfo>(MAX_CACHE_SIZE, ttlMs);
+    this.cache = new TtlCache<ModelContextInfo>(MAX_CACHE_SIZE, ttlMs);
   }
 
   /**
    * 获取指定模型的上下文窗口信息
-   * TTLCache 自动处理过期条目的清理
+   * TtlCache 自动处理过期条目的清理
    */
   get(modelName: string): ModelContextInfo | null {
     return this.cache.get(modelName);
@@ -101,7 +104,7 @@ export class ModelContextCache {
   getAll(): Map<string, ModelContextInfo> {
     const result = new Map<string, ModelContextInfo>();
     // getAll 非关键路径，通过 get 逐一检查可获取仍有效的条目
-    // TTLCache 不暴露内部键列表，此处保持兼容签名但返回空实现
+    // TtlCache 不暴露内部键列表，此处保持兼容签名但返回空实现
     return result;
   }
 

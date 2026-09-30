@@ -14,8 +14,9 @@ import { join } from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
-import { createLiriConfigManager } from '@modules/workspace/LiriConfigManager';
+// C1（2026-09-30 D-114，`workspace` 域 P2）：工作空间配置 / 工作项存储改经服务层端口
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveWorkspacePath } from './workspaces-handlers';
 import type { OrchestrationSnapshot } from '@modules/agent';
 import { OrchestrationEventType } from '@modules/agent';
@@ -25,6 +26,11 @@ import type { EventSubscription } from '../../../core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
 
 const logger = getLogger('http:orchestration');
+
+/** C1（D-114）：工作空间上下文（原 `createLiriConfigManager` + `createWorkItemStore` 耦合）经端口取用 */
+async function getWorkspaceContext(wsPath: string) {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getWorkspaceContext(wsPath);
+}
 
 /** SSE 响应头 */
 const SSE_HEADERS = {
@@ -57,8 +63,8 @@ export async function handleOrchestrationStream(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const item = store.get(itemId);
 
     if (!item) {
@@ -90,7 +96,7 @@ export async function handleOrchestrationStream(
     }, 15000);
 
     // 启动编排历史适配器（首次 SSE 连接时初始化）
-    getOrchestrationHistoryAdapter().start(manager.dir);
+    getOrchestrationHistoryAdapter().start(wsCtx.dir);
 
     // ── 订阅所有编排事件，推模式转发到 SSE ──
 
@@ -220,8 +226,8 @@ export async function handleGetOrchestrationSnapshot(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const item = store.get(itemId);
 
     if (!item) {
@@ -269,10 +275,10 @@ export async function handleGetSwarmStatus(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
+    const wsCtx = await getWorkspaceContext(wsPath);
 
     // 从配置中读取 Swarm 配置
-    const config = manager.loadConfig();
+    const config = wsCtx.loadConfig();
 
     // 构建 Swarm 状态响应
     const swarmStatus = {
@@ -322,8 +328,8 @@ export async function handleGetAgentModelBindings(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const config = manager.loadConfig();
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const config = wsCtx.loadConfig();
 
     const bindings = config.agentModelBindings || [
       {
@@ -384,8 +390,8 @@ export async function handleUpdateAgentModelBindings(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    manager.updateConfig({ agentModelBindings: bindings });
+    const wsCtx = await getWorkspaceContext(wsPath);
+    wsCtx.updateConfig({ agentModelBindings: bindings });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, bindings }));
@@ -443,8 +449,8 @@ export async function handleGetOrchestrationHistory(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const item = store.get(itemId);
 
     if (!item) {
@@ -455,7 +461,7 @@ export async function handleGetOrchestrationHistory(
 
     // 查询历史
     const adapter = getOrchestrationHistoryAdapter();
-    const itemDir = join(manager.dir, 'workitems');
+    const itemDir = join(wsCtx.dir, 'workitems');
     const result = adapter.query(itemDir, itemId, sinceMs, limit);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

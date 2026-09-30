@@ -11,21 +11,30 @@ import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveDataDir } from '@modules/core';
-import { ProjectArtifactStore } from '../../../project/ProjectArtifactStore';
-import type {
-  ProjectArtifact,
-  ArtifactKind,
-} from '../../../project/ProjectArtifactStore';
-import { ProjectContextService } from '../../../project/ProjectContextService';
-import { ImplicitEngineHook } from '../../../project/ImplicitEngineHook';
-import { ProjectItemStore } from '../../../workspace/ProjectItemStore';
-import type { ProjectContext } from '@modules/workspace/types';
+// C1（D-117）：构件存储 / 上下文服务 / 引擎钩子 的导入已移除（改经服务层端口，见下方 C1 注释块）
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { readBody, json } from './handler-utils';
+// C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口（本批仅**动态**取用面）
+// C1（2026-09-30 D-116，`workspace` 域 P4）：项目条目存储 / 类型位改经服务层端口
+// C1（2026-09-30 D-117，`project` 域静态面）：构件存储 / 上下文服务 / 引擎钩子 / 类型位改经端口
+// （原相对/具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { ProjectContextDto } from '@modules/runtime/api/workspaceOpsPorts';
+import type {
+  ArtifactKindDto,
+  ProjectArtifactDto,
+} from '@modules/runtime/api/projectOpsPorts';
 
 const logger = getLogger('project:artifactHandlers');
+
+/** C1（D-116）：项目条目存储（workspace 域）经端口取用（原逐处**直接构造**实例） */
+async function getItemStore(projectId: string) {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getProjectItemStore(
+    projectId
+  );
+}
 
 /**
  * BUG-10 修复：projectId 路径穿越防护。
@@ -42,7 +51,12 @@ function isSafeProjectId(projectId: string): boolean {
 
 /** P0-3: 存储路径收敛到 resolveDataDir()/projects/ */
 const LIRI_PROJECTS_DIR = join(resolveDataDir(), 'projects');
-const artifactStore = new ProjectArtifactStore(LIRI_PROJECTS_DIR);
+/** C1（D-117）：构件存储（`project` 域；原**模块级单例**）经端口取用 */
+async function getArtifactStore() {
+  return (await getCoreAPI().getProjectOpsPort()).getProjectArtifactStore(
+    LIRI_PROJECTS_DIR
+  );
+}
 
 /** GET /v1/projects/:projectId/artifacts */
 export async function handleListArtifacts(
@@ -54,7 +68,7 @@ export async function handleListArtifacts(
     req.url || '/',
     `http://${req.headers.host || 'localhost'}`
   );
-  const kind = url.searchParams.get('kind') as ArtifactKind | null;
+  const kind = url.searchParams.get('kind') as ArtifactKindDto | null;
   const effectiveKind =
     kind === 'input' || kind === 'output' ? kind : undefined;
 
@@ -62,6 +76,7 @@ export async function handleListArtifacts(
   // 原实现"优先 artifacts.json、仅当空才回退 items.db"——双写时某一侧数据被隐藏，
   // 且"保存→迁移→保存"无限循环。input 型 items.db 不承载（kind 仅 context/artifact），
   // 仅用于 output/全部场景合并。
+  const artifactStore = await getArtifactStore();
   const jsonArtifacts = artifactStore.list(projectId, effectiveKind);
   if (effectiveKind !== 'input') {
     const dbArtifacts = await listArtifactsFromItemsDb(projectId);
@@ -87,16 +102,11 @@ export async function handleListArtifacts(
  */
 async function listArtifactsFromItemsDb(
   projectId: string
-): Promise<ProjectArtifact[]> {
-  let store:
-    | import('../../../workspace/ProjectItemStore.js').ProjectItemStore
-    | null = null;
+): Promise<ProjectArtifactDto[]> {
   try {
-    const { ProjectItemStore } =
-      await import('../../../workspace/ProjectItemStore.js');
-    store = new ProjectItemStore(projectId, resolveDataDir());
-    await store.initialize();
-    const items = await store.list('artifact');
+    const items = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).listProjectItemArtifacts(projectId);
     return items.map((item) => ({
       id: item.id,
       projectId: item.projectId,
@@ -113,8 +123,6 @@ async function listArtifactsFromItemsDb(
       error: String(e),
     });
     return [];
-  } finally {
-    await store?.close().catch(() => {});
   }
 }
 
@@ -126,7 +134,7 @@ export async function handleSaveArtifact(
 ): Promise<void> {
   try {
     const body = await readBody(req);
-    const data = JSON.parse(body) as Partial<ProjectArtifact>;
+    const data = JSON.parse(body) as Partial<ProjectArtifactDto>;
 
     if (!data.title || !data.content) {
       json(res, 400, { error: '缺少 title 或 content' });
@@ -144,7 +152,7 @@ export async function handleSaveArtifact(
       return;
     }
 
-    const artifact: ProjectArtifact = {
+    const artifact: ProjectArtifactDto = {
       id: data.id || randomUUID(),
       projectId,
       kind,
@@ -163,7 +171,7 @@ export async function handleSaveArtifact(
       join(LIRI_PROJECTS_DIR, projectId, 'rules.md')
     );
     if (kind === 'output' && migrated) {
-      const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+      const itemStore = await getItemStore(projectId);
       try {
         await itemStore.initialize();
         await itemStore.upsert({
@@ -182,6 +190,7 @@ export async function handleSaveArtifact(
         await itemStore.close().catch(() => {});
       }
     } else {
+      const artifactStore = await getArtifactStore();
       artifactStore.save(artifact);
     }
     logger.info('构件已保存', { projectId, artifactId: artifact.id });
@@ -205,9 +214,10 @@ export async function handleDeleteArtifact(
 ): Promise<void> {
   // E-1 修复：同时删 artifacts.json 与 items.db（原实现只删 json，
   // 已迁移成果（items.db）删不掉 → 列表删了又"冒出"）。
+  const artifactStore = await getArtifactStore();
   const jsonDeleted = artifactStore.delete(projectId, artifactId);
   let dbDeleted = false;
-  const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+  const itemStore = await getItemStore(projectId);
   try {
     await itemStore.initialize();
     try {
@@ -244,7 +254,9 @@ export async function handleGetProjectContext(
     }
     const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
     if (existsSync(rulesPath)) {
-      const entries = ProjectContextService.parseRulesFile(rulesPath);
+      const entries = await (
+        await getCoreAPI().getProjectOpsPort()
+      ).parseProjectRulesFile(rulesPath);
       // E-9 修复：空 rules.md（迁移 rename 失败残留）不再遮蔽 items.db——
       // 原实现只要文件存在就走 rules.md，空文件也会让 items.db context 永远不可见。
       // 解析为空时继续落入 items.db 分支读取。
@@ -257,7 +269,7 @@ export async function handleGetProjectContext(
 
     // P2-4: rules.md 已迁移到 items.db，从 SQLite 读取
     // D-1 修复：SQLite 连接必须关闭（否则句柄泄漏 + WAL 不 checkpoint + Windows 删项目 EBUSY）
-    const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+    const itemStore = await getItemStore(projectId);
     try {
       if (itemStore.needsMigration()) {
         await itemStore.initialize();
@@ -266,8 +278,8 @@ export async function handleGetProjectContext(
         await itemStore.initialize();
       }
       const items = await itemStore.list('context');
-      const entries: ProjectContext[] = items.map((item, idx) => ({
-        type: (item.type as ProjectContext['type']) ?? 'constraint',
+      const entries: ProjectContextDto[] = items.map((item, idx) => ({
+        type: (item.type as ProjectContextDto['type']) ?? 'constraint',
         content: item.content,
         line: idx + 1,
       }));
@@ -305,14 +317,9 @@ export async function handleSaveProjectContext(
     }
     // G-3 修复：项目存在性校验——原实现任意 projectId 都会 mkdirSync + 写
     // rules.md/items.db（幽灵目录复活），与 handleEngineHook 保持一致。
-    const { createProjectStore } =
-      await import('../../../workspace/ProjectStore.js');
-    const { WorkItemStore } =
-      await import('../../../workspace/WorkItemStore.js');
-    const store = createProjectStore(
-      resolveDataDir(),
-      new WorkItemStore(resolveDataDir())
-    );
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getProjectStore();
     if (!store.get(projectId)) {
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '项目不存在' });
@@ -397,7 +404,7 @@ export async function handleSaveProjectContext(
       // BUG-5 修复：S2 迁移后直写 rules.md 会重建文件 → needsMigration 复发 → 重复迁移。
       // 已迁移（rules.md 不存在）时写入 items.db（kind=context），保持与 ImplicitEngineHook 一致。
       // D-1 修复：SQLite 连接用毕必须关闭。
-      const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+      const itemStore = await getItemStore(projectId);
       try {
         await itemStore.initialize();
         const existing = await itemStore.list('context');
@@ -445,14 +452,9 @@ export async function handleEngineHook(
     // G-3 修复：项目存在性校验——原实现任意 projectId 都会 mkdirSync + 写
     // items.db/requirements.json/history，已删除项目的残留会话 persist 会重建
     // 幽灵目录（数据"复活"且无法通过 UI 删除）。
-    const { createProjectStore } =
-      await import('../../../workspace/ProjectStore.js');
-    const { WorkItemStore } =
-      await import('../../../workspace/WorkItemStore.js');
-    const store = createProjectStore(
-      resolveDataDir(),
-      new WorkItemStore(resolveDataDir())
-    );
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getProjectStore();
     if (!store.get(projectId)) {
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '项目不存在' });
@@ -468,11 +470,9 @@ export async function handleEngineHook(
       return;
     }
 
-    const result = await ImplicitEngineHook.persist(
-      projectId,
-      text,
-      LIRI_PROJECTS_DIR
-    );
+    const result = await (
+      await getCoreAPI().getProjectOpsPort()
+    ).persistImplicitEngine(projectId, text, LIRI_PROJECTS_DIR);
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, {
       processed: result.contexts > 0 || result.deliverables > 0,
@@ -506,10 +506,9 @@ export async function handleGetProjectHistory(
       `http://${req.headers.host || 'localhost'}`
     );
     const since = url.searchParams.get('since') || undefined;
-    const { createProjectHistoryStore } =
-      await import('../../../project/ProjectHistoryStore');
-    const store = createProjectHistoryStore(projectId);
-    const groups = store.getGrouped(since);
+    const groups = await (
+      await getCoreAPI().getProjectOpsPort()
+    ).getProjectHistory(projectId, since);
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, groups);
   } catch (e) {
@@ -552,7 +551,7 @@ export async function handleGetSummaries(
     // E-2 修复：已迁移（summaries.json 缺失）回退 items.db
     // （kind='context', type='summary'，content 存 SummaryEntry 的 JSON）。
     // 原实现缺失直接返回 []——迁移后 AI 摘要永久不可见，跨会话记忆断裂。
-    const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+    const itemStore = await getItemStore(projectId);
     try {
       await itemStore.initialize();
       const items = await itemStore.list('context');
@@ -615,14 +614,9 @@ export async function handleDeleteProjectFile(
       return;
     }
 
-    const { createProjectStore } =
-      await import('../../../workspace/ProjectStore.js');
-    const { WorkItemStore } =
-      await import('../../../workspace/WorkItemStore.js');
-    const store = createProjectStore(
-      resolveDataDir(),
-      new WorkItemStore(resolveDataDir())
-    );
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getProjectStore();
     const project = store.get(projectId);
     if (!project || !project.sandboxPath) {
       span.setStatus({ code: SpanStatusCode.OK });
@@ -686,14 +680,9 @@ export async function handleListProjectFiles(
   const span = otel.startSpan('project:artifactHandlers:listFiles');
   span.setAttribute('projectId', projectId);
   try {
-    const { createProjectStore } =
-      await import('../../../workspace/ProjectStore.js');
-    const { WorkItemStore } =
-      await import('../../../workspace/WorkItemStore.js');
-    const store = createProjectStore(
-      resolveDataDir(),
-      new WorkItemStore(resolveDataDir())
-    );
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getProjectStore();
     const project = store.get(projectId);
     if (!project || !project.sandboxPath) {
       span.setStatus({ code: SpanStatusCode.OK });
@@ -800,14 +789,9 @@ export async function handleUploadProjectFile(
       return;
     }
 
-    const { createProjectStore } =
-      await import('../../../workspace/ProjectStore.js');
-    const { WorkItemStore } =
-      await import('../../../workspace/WorkItemStore.js');
-    const store = createProjectStore(
-      resolveDataDir(),
-      new WorkItemStore(resolveDataDir())
-    );
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getProjectStore();
     const project = store.get(projectId);
     if (!project || !project.sandboxPath) {
       span.setStatus({ code: SpanStatusCode.OK });

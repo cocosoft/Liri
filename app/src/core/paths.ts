@@ -24,11 +24,11 @@ import {
 } from 'path';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import * as os from 'os';
-// 注意：直连 Logger 实现文件而非 @modules/monitoring barrel——barrel 会拉入
-// MonitoringService/BackupManager 等（它们静态 import @modules/core barrel），
-// 在循环 import（paths→monitoring→core→paths）期间触发 paths 的 TDZ。
-// Logger.ts 自身仅依赖 monitoring/logs 内部文件，不依赖 core。
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+// 注意：经 **core 侧日志门面**取值（core/spi 的 Logger SPI），不再直接 import monitoring 层。
+// 2026-09-30（台账 D-70）：core/modules 对 monitoring 的 87 对倒挂收口；门面内是**延迟绑定**
+// 代理（注册前缓冲、注册后回放），**无静态 monitoring 依赖** ⇒ 原「barrel 拉入
+// MonitoringService/BackupManager 触发 paths TDZ」的隐患随之消除。
+import { getLogger } from './loggerFacade.js';
 
 const pathsLogger = getLogger('core:paths');
 

@@ -3,7 +3,7 @@
  * 提供不同的视觉主题选项
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from './loggerFacade.js';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';

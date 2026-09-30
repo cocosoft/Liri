@@ -17,7 +17,7 @@
  * 避免 core → infrastructure 反向依赖（R06-008）。
  */
 
-import { getLogger } from '../../monitoring/logs/Logger';
+import { getLogger } from '../loggerFacade.js';
 import { globalEventBus } from '../events/EventBus';
 
 const logger = getLogger('core:sleepMonitor');

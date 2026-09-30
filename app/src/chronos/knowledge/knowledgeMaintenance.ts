@@ -8,6 +8,8 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
+// C1（2026-09-30 D-125，`R00-003` P6/G4）：知识运维改经 core SPI 端口（infra → core 合法）
+import { resolveKnowledge } from '@modules/core/spi';
 
 const logger = getLogger('chronos:knowledge');
 
@@ -89,16 +91,8 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
       compileCandidates: compileCandidates.length,
     });
 
-    const { aiService } = await import('@modules/ai');
-    const { runKnowledgeCompile } =
-      await import('../../knowledge/KnowledgeCompiler');
-    const { runKnowledgeLint } =
-      await import('../../knowledge/KnowledgeLinter');
-    const { getDefaultDigestService } =
-      await import('../../knowledge/KnowledgeDigestService');
-
-    // Step 1: 编译 raw/ 文件
-    const compileResult = await runKnowledgeCompile(aiService, {
+    // Step 1: 编译 raw/ 文件（端口未注册 ⇒ 全零，等价于原"无 AI 服务跳过"）
+    const compileResult = await resolveKnowledge().runCompile({
       force: false,
     });
     result.compiled = compileResult.compiled;
@@ -107,8 +101,7 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
 
     // Step 2: 更新摘要缓存
     try {
-      const digestService = getDefaultDigestService();
-      await digestService.buildDigest();
+      await resolveKnowledge().buildDigest();
       result.digestUpdated = true;
     } catch (err) {
       void handleError(new Error('摘要缓存更新失败'), {
@@ -120,7 +113,7 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
 
     // Step 3: 健康检查（非阻塞）
     try {
-      const lintResult = await runKnowledgeLint();
+      const lintResult = await resolveKnowledge().runLint();
       result.lintIssues = lintResult.issues.length;
       if (lintResult.issues.length > 0) {
         logger.info('知识库健康检查发现问题', {

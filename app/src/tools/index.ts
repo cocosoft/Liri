@@ -26,13 +26,17 @@
 // 导出类型定义
 export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 
-import { feature } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('tools:index');
 import { ToolManager, globalToolManager } from './core/ToolManager';
-import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
+import {
+  ToolRegistry,
+  setToolRegistry,
+  getToolRegistry,
+  resolveToolParamNames,
+} from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';
 import {
   ToolPermissionManager,
@@ -42,7 +46,12 @@ import { ToolMonitor, globalToolMonitor } from './monitoring/ToolMonitor';
 
 // 导出核心组件
 export { ToolManager, globalToolManager };
-export { ToolRegistry, setToolRegistry, getToolRegistry };
+export {
+  ToolRegistry,
+  setToolRegistry,
+  getToolRegistry,
+  resolveToolParamNames,
+};
 export { ToolExecutor, globalToolExecutor };
 
 // 导出安全组件
@@ -63,8 +72,8 @@ export type { ToolFunction, FunctionToolConfig } from './FunctionTool';
 export { ToolGroup } from './ToolGroup';
 export { Toolkit } from './Toolkit';
 
-// 导出 E-08 沙箱路由组件
-export { ToolSandboxRouter, SandboxLevel } from './sandbox/ToolSandboxRouter';
+// E-08 沙箱路由组件 —— **2026-09-29 下线**（台账 D-16/D-25）：`ToolSandboxRouter` / `SandboxLevel`
+// **全仓零消费者**（仅经本 barrel 可达），其唯一依赖 `SandboxManagerImpl` 随之失去构造方。
 
 /**
  * 工具系统初始化函数
@@ -226,41 +235,11 @@ export {
 } from './BashAllowlistMatcher';
 export type { AllowlistResult } from './BashAllowlistMatcher';
 
-/**
- * 使用 feature() 控制可选工具的条件加载
- */
-export function getTools(): any[] {
-  const tools: any[] = [];
-
-  if (feature('AGENT_TRIGGERS')) {
-    tools.push('CronCreateTool');
-    tools.push('CronDeleteTool');
-    tools.push('CronListTool');
-    tools.push('CronStopTool');
-  }
-
-  if (feature('AGENT_TRIGGERS_REMOTE')) {
-    tools.push('RemoteTriggerTool');
-  }
-
-  if (feature('MONITOR_TOOL')) {
-    tools.push('MonitorTool');
-  }
-
-  if (feature('VOICE_MODE')) {
-    tools.push('VoiceTool');
-  }
-
-  if (feature('KAIROS') || feature('KAIROS_GITHUB_WEBHOOKS')) {
-    tools.push('SubscribePRTool');
-  }
-
-  if (feature('KAIROS') || feature('PROACTIVE')) {
-    tools.push('PushNotificationTool');
-  }
-
-  return tools;
-}
+// 2026-09-29（台账 D-45）：删除本文件原导出的 `getTools(): any[]`（`feature()` 门控的**类名**数组，
+// 如 `'CronCreateTool'`/`'MonitorTool'`/`'VoiceTool'`）—— 经全仓核实**零消费者**（`init.ts:411` /
+// `cli.ts:253` 等用的是 `ToolManager.getTools()` **方法**，同名不同物），且它推的是**类名**而非
+// 注册名 ⇒ 与 `ToolFactory.getAllBaseTools()`（N-27）同族的**遗留池组装残留**。随删一并移除
+// 本文件唯一的 `feature` 导入（避免留下孤儿导入）。
 
 /**
  * 默认导出工具系统

@@ -20,6 +20,8 @@ import {
   MAX_HTTP_BODY_BYTES,
 } from './handler-utils';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层引用）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   resolveOutputDir,
   resolveMediaDir,
@@ -687,11 +689,10 @@ export async function handleImageDelete(
     }
 
     // Phase 2: 检查是否有视频任务引用了此图片，清除引用
-    const { getVideoTaskPersistence } = await import('@modules/tools');
-    const persistence = getVideoTaskPersistence();
+    const port = await getCoreAPI().getToolsPort();
 
     // 查找引用此图片路径的任务（sourceImageUrl 中可能含文件路径片段）
-    const allTasks = persistence.listByStatus(
+    const allTasks = await port.listVideoTasksByStatus(
       ['pending', 'queued', 'running', 'completed'],
       200
     );
@@ -703,7 +704,7 @@ export async function handleImageDelete(
 
     if (referencingTasks.length > 0) {
       for (const task of referencingTasks) {
-        persistence.update(task.id, {
+        await port.updateVideoTask(task.id, {
           sourceImageUrl: '',
           sourceImageId: '',
         });

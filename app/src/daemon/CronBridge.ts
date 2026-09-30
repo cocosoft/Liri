@@ -10,7 +10,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
 import { checkEstop } from '@modules/core';
 import { globalEventBus } from '../core/events/EventBus';
-import { broadcastEvent } from '@modules/infrastructure';
+import { resolveBroadcast } from '@modules/core/spi';
 import type { EventSubscription } from '../core/events/EventBus';
 
 const logger = getLogger('daemon:cronBridge');
@@ -177,7 +177,7 @@ export class CronBridge implements ManagedProcess {
         lagMinutes: Math.round(lagMs / 60000),
         pendingCount,
       });
-      broadcastEvent('system:sleep_detected', {
+      resolveBroadcast().broadcast('system:sleep_detected', {
         lagMs,
         detectedAt,
         pendingCount,

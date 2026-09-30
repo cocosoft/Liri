@@ -2,7 +2,9 @@
  * 工具名清单**防漂移守卫**（2026-09-26，P3-2 顺查项③修复的配套）。
  *
  * 背景：本仓多处清单抄的是 **Claude Code（CC）源码的工具名**（`read_file` / `Read` / `Edit` /
- * `search_code` / `list_files` …），而本仓**真实注册名**是 `file_read` / `file_edit` / `file_write` / `file_search`
+ * `search_code` / `list_files` …），而本仓**真实注册名**是 `file_read` / `file_edit` / `file_write` / `glob` / `grep`
+ * （另有一类**更隐蔽**的漂移：名字**在工具类里声明**、却**从未被任何 loader 注册** —— 如 `file_search`，
+ * 见 2026-09-29 P2-3 的门禁与注释）
  * ⇒ 这些清单**对本仓主要文件工具永不命中**，功能静默失效（微压缩不覆盖文件结果、只读判定恒 false、
  * 注入模型的提示词让模型去调不存在的工具）。
  *
@@ -28,7 +30,16 @@ import {
   READ_TOOLS as QUERY_READ_TOOLS,
   WRITE_TOOLS as QUERY_WRITE_TOOLS,
 } from '../../src/query/tool-constants';
+// 2026-09-30（防漂移复发）：以下四处"按工具名登记的清单"经台账 D-39/D-44 清理/订正过，
+// 同样纳入守卫 —— 它们此前**不在受检名单**内 ⇒ 再次漂移不会被发现。
+import { EXTERNAL_FETCH_TOOLS } from '../../src/query/ReActLoop';
+import { MEMORABLE_TOOLS } from '../../src/hooks/postSampling/MemoryExtractionHook';
+import {
+  COMPLEXITY_READ_TOOLS,
+  COMPLEXITY_WRITE_TOOLS,
+} from '../../src/ai/router/TaskComplexityClassifier';
 import { buildEnvironmentHints } from '../../src/ai/prompts/PlatformHints';
+import { TOOL_NAMES } from '../../src/tools/toolNames.generated';
 import {
   FILE_EDIT_TOOL_NAME,
   FILE_READ_TOOL_NAME,
@@ -148,9 +159,53 @@ describe('工具名清单守卫：判据来自真实注册名', () => {
     expect(SPECULATION_WRITE_TOOLS.has('file_edit')).toBe(true);
     // query/tool-constants：真实名必须真的进了清单（否则"改了名但漏项"发现不了）
     expect(QUERY_READ_TOOLS.has('file_read')).toBe(true);
-    expect(QUERY_READ_TOOLS.has('file_search')).toBe(true);
+    // ⚠️ 2026-09-29（P2-3/T2）：原断言 `file_search` **∈** 读清单 —— 该断言**建立在过期假设上**：
+    // `file_search` **不在生效注册面**（仅存在于 `ToolFactory.getAllBaseTools()`，台账 N-27 已认定
+    // 该函数从未被使用；真实类 `FileSearchTool` 亦无任何 loader 引用）⇒ 属"永不命中的假覆盖"，已移除。
+    expect(QUERY_READ_TOOLS.has('glob')).toBe(true);
+    expect(QUERY_READ_TOOLS.has('file_search')).toBe(false);
     expect(QUERY_WRITE_TOOLS.has('file_write')).toBe(true);
     expect(QUERY_WRITE_TOOLS.has('file_edit')).toBe(true);
+  });
+
+  /**
+   * **T3-①（P2-3，2026-09-29）**：清单中的名字必须落在**生效注册面**内。
+   *
+   * 判据 = **生成物 `TOOL_NAMES`**（源自 `getAllBuiltinToolLoaders()`），**不是**上面的
+   * "扫描 `name = '...'` 声明"口径 —— 后者会**高估**注册面：`file_search` 这类"**文件里有、但
+   * 没有任何 loader 引用**"的名字会被误算作注册名（台账 **D-15 / N-27** 的盲区），
+   * 于是"清单抄了一个永不命中的名字"**查不出来**（这正是本 spec 要消灭的漂移）。
+   *
+   * 例外白名单（曾用 `PENDING_REGISTRATION`）已于 **2026-09-29 台账 D-34** 删空并**移除该机制**：
+   * 原 3 项（`sessions_history` / `view_tasks` / `view_plan`）的保留依据是"台账 D-15 将来会注册"，
+   * 而 D-34 裁定这 3 项（连同 `abort_task`）**属被取代/重复而非漏注册**，对应类已删除 ⇒ 依据不成立。
+   * 此后**不允许**再为"抄进清单但未注册"的名字开例外（那正是本 spec 要消灭的漂移）。
+   */
+  it('清单中的名字必须落在"生效注册面"内（新建清单抄错名 ⇒ 失败）', () => {
+    const live = new Set<string>(TOOL_NAMES);
+    const lists: Array<[string, Set<string>]> = [
+      ['COMPACTABLE_TOOL_NAMES', COMPACTABLE_TOOL_NAMES],
+      ['READ_ONLY_TOOLS', READ_ONLY_TOOLS],
+      ['SPECULATION_WRITE_TOOLS', SPECULATION_WRITE_TOOLS],
+      ['SAFE_READ_ONLY_TOOLS', SAFE_READ_ONLY_TOOLS],
+      ['QUERY_READ_TOOLS', QUERY_READ_TOOLS],
+      ['QUERY_WRITE_TOOLS', QUERY_WRITE_TOOLS],
+      // 2026-09-30 补：D-39/D-44 清理过的另四处（判据口径同上，均为"生效注册面"）
+      ['ReActLoop.EXTERNAL_FETCH_TOOLS', EXTERNAL_FETCH_TOOLS],
+      ['MemoryExtractionHook.MEMORABLE_TOOLS', MEMORABLE_TOOLS],
+      [
+        'TaskComplexityClassifier.COMPLEXITY_WRITE_TOOLS',
+        new Set(COMPLEXITY_WRITE_TOOLS),
+      ],
+      [
+        'TaskComplexityClassifier.COMPLEXITY_READ_TOOLS',
+        new Set(COMPLEXITY_READ_TOOLS),
+      ],
+    ];
+    for (const [label, list] of lists) {
+      const unknown = [...list].filter((n) => !live.has(n));
+      expect({ list: label, unknown }).toEqual({ list: label, unknown: [] });
+    }
   });
 
   /**
@@ -177,6 +232,11 @@ describe('工具名清单守卫：判据来自真实注册名', () => {
       ...SAFE_READ_ONLY_TOOLS,
       ...QUERY_READ_TOOLS,
       ...QUERY_WRITE_TOOLS,
+      // 同上四处（2026-09-30 补）⇒ 一并覆盖"不得残留 CC 漂移名"
+      ...EXTERNAL_FETCH_TOOLS,
+      ...MEMORABLE_TOOLS,
+      ...COMPLEXITY_WRITE_TOOLS,
+      ...COMPLEXITY_READ_TOOLS,
     ];
     const leftovers = all.filter((n) => DRIFTED_NAMES.includes(n));
     expect(leftovers).toEqual([]);
@@ -232,10 +292,16 @@ describe('工具名清单守卫：注入模型的提示词', () => {
     }
   });
 
-  it('明确给出真实工具名（file_read / file_write / glob / file_search）', () => {
+  it('明确给出真实工具名（file_read / file_write / glob / grep）', () => {
     expect(hints).toContain('file_read');
     expect(hints).toContain('file_write');
-    expect(hints).toContain('file_search');
+    // ⚠️ 2026-09-29（P2-3）：原断言要求提示词含 `file_search` —— **该断言本身把缺陷锁住了**：
+    // 它要求注入模型的提示词给出一个**非注册名**（仅存在于 `ToolFactory.getAllBaseTools()` 死路径，
+    // 台账 N-27；真实类 `FileSearchTool` 无 loader 引用）⇒ "教模型去调不存在的工具" 反被守卫**保护**。
+    // 现改为真实搜索工具，并**反向断言**其不得出现（防回退）。
+    expect(hints).toContain('glob');
+    expect(hints).toContain('grep');
+    expect(hints).not.toContain('file_search');
   });
 
   it('模型特定指引里同样不得出现漂移名（GOOGLE / OLLAMA / CODEX）', () => {

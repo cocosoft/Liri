@@ -109,7 +109,8 @@ import {
 } from '../rule-handlers';
 import { handleBottleneckAnalysis } from '../bottleneck-handlers';
 import { handleExecuteCommand, handleListCommands } from '../commands-handlers';
-import type { RuleSpecialization } from '@modules/workspace/RuleEngine';
+// C1（2026-09-30 D-114，`workspace` 域 P2）：规则专业领域**类型位**改经服务层端口**逐字镜像**
+import type { RuleSpecializationDto } from '@modules/runtime/api/workspaceOpsPorts';
 
 /**
  * dispatchMonitorCommandRoutes — monitor-command-routes 领域路由分发
@@ -454,7 +455,7 @@ export async function dispatchMonitorCommandRoutes(
       handlerCtx,
       req,
       res,
-      specialization as RuleSpecialization
+      specialization as RuleSpecializationDto
     );
     return true;
   }
@@ -468,7 +469,7 @@ export async function dispatchMonitorCommandRoutes(
       handlerCtx,
       req,
       res,
-      specialization as RuleSpecialization
+      specialization as RuleSpecializationDto
     );
     return true;
   }
@@ -482,7 +483,7 @@ export async function dispatchMonitorCommandRoutes(
       handlerCtx,
       req,
       res,
-      specialization as RuleSpecialization
+      specialization as RuleSpecializationDto
     );
     return true;
   }

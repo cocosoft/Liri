@@ -28,7 +28,7 @@
  * `validate()` 的三重静态校验仍复用 `TaskDependencyService`（其拓扑排序与环检测不依赖 TaskRegistry）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 import { projectTaskGraph } from '@modules/core/systemgraph';
 import { TaskDependencyService, TaskRegistry } from '@modules/tasks';
 

@@ -4,7 +4,7 @@
  * 管线：用户数据 → Handlebars 渲染 → Markdown → OfficeCLI → DOCX
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { resolveProjectRoot } from '@modules/core/paths';

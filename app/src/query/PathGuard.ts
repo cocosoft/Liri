@@ -35,6 +35,7 @@ import { getLogger } from '@modules/monitoring';
 import { isLoopObserveOnly } from './loop-config.js';
 import {
   FILE_READ_TOOLS,
+  PATH_ARG_KEYS,
   SEARCH_TOOLS as SHARED_SEARCH_TOOLS,
   WRITE_TOOLS as SHARED_WRITE_TOOLS,
 } from './tool-constants.js';
@@ -168,6 +169,25 @@ const SEARCH_TOOL_NAMES = new Set([
 /** 写类（入参键 `file_path` / `notebook_path`）+ 别名 */
 const WRITE_TOOL_NAMES = new Set([...SHARED_WRITE_TOOLS, 'write', 'echo']);
 
+/** 「路径语义」键集合（只读视图；单一事实源见 `tool-constants.ts`） */
+const PATH_ARG_KEY_SET = new Set<string>(PATH_ARG_KEYS);
+
+/**
+ * PathGuard 可选项（2026-09-29，spec `pathguard-registry-driven-args.md` T1）。
+ *
+ * `resolvePathArgKeys` 由调用方注入（**运行期注册表**派生），使"哪个入参是路径"的判定
+ * **不再绑死静态工具名名单** ⇒ 覆盖外部 MCP 动态注册的工具（`mcp__<server>__<tool>`）。
+ *
+ * 返回值语义：
+ *  - `string[]`：该工具在注册表中声明的入参名（本类会再与 `PATH_ARG_KEYS` 求交）；
+ *  - `null`：注册表中**查不到**该工具 ⇒ 回退既有静态名单（G3：零回归）。
+ *
+ * 未注入 ⇒ 恒走静态名单（与历史行为逐字段一致）。
+ */
+export interface PathGuardOptions {
+  resolvePathArgKeys?: (toolName: string) => string[] | null;
+}
+
 /** 按候选顺序取第一个字符串型路径参数 */
 function pickPathArg(
   args: Record<string, unknown>,
@@ -182,14 +202,17 @@ function pickPathArg(
 
 export class PathGuard {
   private config: PathGuardConfig;
+  /** 运行期注册表派生解析器；未注入 ⇒ 恒走静态名单 */
+  private readonly resolvePathArgKeys?: (toolName: string) => string[] | null;
 
-  constructor() {
+  constructor(options?: PathGuardOptions) {
     const envPatterns = loadEnvDenyPatterns();
 
     this.config = {
       denyRead: [...DEFAULT_DENY_PATTERNS, ...envPatterns],
       denyWrite: [...DEFAULT_DENY_WRITE_PATTERNS, ...envPatterns],
     };
+    this.resolvePathArgKeys = options?.resolvePathArgKeys;
   }
 
   /**
@@ -259,13 +282,29 @@ export class PathGuard {
    * 从工具调用 args 中提取路径参数
    *
    * 参数名判据 = 工具类的 `params` 声明（`file_read`/`file_write`/`file_edit` 均为 `file_path`；
-   * `notebook` 为 `notebook_path`；`glob` 为 `path`，`grep`/`file_search` 为 `searchPath`）。
+   * `notebook` 为 `notebook_path`；`glob` 为 `path`，`grep` 为 `searchPath`）。
    * 旧名 `path`/`filePath` 保留为兜底。
    */
   private _extractPath(
     toolName: string,
     args: Record<string, unknown>
   ): string | null {
+    // ① 运行期注册表分支（2026-09-29）—— 仅当调用方注入了解析器；覆盖 MCP 动态工具
+    const resolveKeys = this.resolvePathArgKeys;
+    if (resolveKeys) {
+      const declared = resolveKeys(toolName);
+      if (declared) {
+        // 与「路径语义」键集合**求交**：注册表"声明了" ≠ "是路径" ⇒ 不收窄会误拦（spec G2）
+        const keys = declared.filter((k) => PATH_ARG_KEY_SET.has(k));
+        return keys.length > 0 ? pickPathArg(args, keys) : null;
+      }
+      // ② 注册表查不到 ⇒ 回退静态名单（如实留痕，不静默）
+      logger.debug('PathGuard: 注册表未命中，回退静态名单', {
+        tool: toolName,
+      });
+    }
+
+    // ③ 既有静态名单分支（未注入解析器时零行为变化）
     // 整文件读类工具
     if (READ_FILE_TOOL_NAMES.has(toolName)) {
       return pickPathArg(args, ['file_path', 'path', 'filePath']);
@@ -295,6 +334,11 @@ export class PathGuard {
    * 判断是否写操作工具
    *
    * 与 `_extractPath()` 的写分支共用 `WRITE_TOOL_NAMES`（其真实名来自 `./tool-constants.js`）。
+   *
+   * ⚠️ 已知边界（2026-09-29，如实标注）：**写判定仍只用静态名单** —— 注册表分支解析出的
+   * 名单外工具（含 MCP 动态工具）会落到此处 ⇒ `false` ⇒ 按**读**处理（只套 `denyRead`）。
+   * 这是**保守**选择（现状对它们**完全不检查**）⇒ 属净收紧；若将来要覆盖 `denyWrite`，
+   * 需让注册表同时声明"读写语义"（本 spec 未涉及）。
    */
   private _isWriteTool(toolName: string): boolean {
     return WRITE_TOOL_NAMES.has(toolName);
@@ -302,6 +346,6 @@ export class PathGuard {
 }
 
 /** 工厂函数 */
-export function createPathGuard(): PathGuard {
-  return new PathGuard();
+export function createPathGuard(options?: PathGuardOptions): PathGuard {
+  return new PathGuard(options);
 }

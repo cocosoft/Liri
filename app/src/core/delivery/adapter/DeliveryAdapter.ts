@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../loggerFacade.js';
 const logger = getLogger('core:delivery:adapter:deliveryAdapter');
 
 export interface DeliveryMessage {

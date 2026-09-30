@@ -1,11 +1,12 @@
-﻿/**
+/**
  * 错误处理核心工具
  * 负责应用的错误恢复和容错机制
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('ErrorHandler');
-import { toError, isAbortError, errorMessage } from '@modules/error';
+// 2026-09-30 G2 倒挂收口：错误值归一化纯函数已下沉 core 侧（core 层不得引 infra 层）
+import { toError, isAbortError, errorMessage } from '../errors.js';
 
 /**
  * 错误处理选项

@@ -10,9 +10,11 @@
  */
 
 import type http from 'http';
-import { getAgentRoleStore } from '@modules/workspace/AgentRoleStore';
 import { getLogger } from '@modules/monitoring';
-import { activeModelService, deriveModelType } from '@modules/ai';
+// C1（2026-09-30 D-113，`workspace` 域 P1）：`getAgentRoleStore` 改经服务层端口句柄
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+// C1（2026-09-30 D-109，`ai` 域 P3）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { refreshAvailableSubagentTypeNames } from '@modules/tools';
 import type { HandlerCtx } from './handler-utils';
 
@@ -34,13 +36,14 @@ export interface AgentRoleModelInfo {
 async function defaultModelLookup(
   modelId: string
 ): Promise<AgentRoleModelInfo | null> {
-  const models = await activeModelService.getActiveModels();
+  const aiOps = await getCoreAPI().getAiOpsPort();
+  const models = await aiOps.listActiveModels();
   const hit = models.find((m) => m.modelId === modelId);
   if (!hit) return null;
   const capabilities = hit.capabilities ?? [];
   return {
     modelId: hit.modelId,
-    type: deriveModelType(capabilities),
+    type: await aiOps.deriveModelTypeOf(capabilities),
     providerId: hit.providerId ?? '',
     capabilities,
   };
@@ -139,7 +142,9 @@ export async function handleListAgentRoles(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const store = getAgentRoleStore();
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getAgentRoleStore();
     const roles = await store.listAll();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(roles));
@@ -159,7 +164,9 @@ export async function handleGetAgentRole(
   agentId: string
 ): Promise<void> {
   try {
-    const store = getAgentRoleStore();
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getAgentRoleStore();
     const role = await store.getByAgentId(agentId);
     if (!role) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -200,7 +207,9 @@ export async function handleCreateAgentRole(
       return;
     }
 
-    const store = getAgentRoleStore();
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getAgentRoleStore();
     const id = await store.insert({
       agentId: data.agentId,
       name: data.name,
@@ -241,7 +250,9 @@ export async function handleUpdateAgentRole(
     const body = await ctx.readRequestBody(req);
     const data = JSON.parse(body);
 
-    const store = getAgentRoleStore();
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getAgentRoleStore();
     const existing = await store.getByAgentId(agentId);
     if (!existing) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -290,7 +301,9 @@ export async function handleDeleteAgentRole(
   agentId: string
 ): Promise<void> {
   try {
-    const store = getAgentRoleStore();
+    const store = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getAgentRoleStore();
     const existing = await store.getByAgentId(agentId);
     if (!existing) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

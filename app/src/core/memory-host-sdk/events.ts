@@ -1,8 +1,8 @@
 import path from 'path';
 import fs from 'fs/promises';
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
 const logger = getLogger('core:memory-host-sdk:events');
 
 export const MEMORY_HOST_EVENT_LOG_RELATIVE_PATH = path.join(

@@ -27,17 +27,19 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { TAORLoop } from '@modules/query';
+// C1（2026-09-30 D-117，`query` 域静态面）：循环**类型位**改经服务层端口**最小结构镜像**
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import type { TaorLoopPort } from '@modules/runtime/api/queryOpsPorts';
 import type { HandlerCtx } from './handler-utils';
 import { createChatManager } from '@modules/chat';
 
 /** 活跃的 TAORLoop 实例注册表（由 ChatManager 和 PDCA 注册） */
-const activeLoops = new Map<string, TAORLoop>();
+const activeLoops = new Map<string, TaorLoopPort>();
 
 /**
  * 注册 TAORLoop 实例
  */
-export function registerTAORLoop(sessionId: string, loop: TAORLoop): void {
+export function registerTAORLoop(sessionId: string, loop: TaorLoopPort): void {
   activeLoops.set(sessionId, loop);
 }
 

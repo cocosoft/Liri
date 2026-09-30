@@ -45,7 +45,8 @@ import type { RoundSnapshot } from './types';
 
 const logger = getLogger('CleanupManager');
 
-/** 默认快照配额上限（5GB） */
+/** 默认快照配额上限（5GB）。⚠️ 为**常量**（与 `MEMORY_MAX_COUNT` / `PDCA_CHECKPOINT_RETENTION_DAYS` 先例一致）
+ *  且 `enforceSnapshotQuota()` 的唯一调用方 `onApplicationStart()` **不传参** ⇒ 恒用此值；按 CS03 **不引入配置面**。 */
 const DEFAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
 
 /**
@@ -128,6 +129,46 @@ export async function cleanupRoundTempFiles(
 }
 
 /**
+ * 轻量统计"已 finalize 的轮次快照"数量。
+ *
+ * 2026-09-29（spec `snapshot-storage-governance.md` §3）：配额判定原本"未超限 ⇒ 零输出"，
+ * 运维看不到占用与余量 ⇒ 本函数供 `enforceSnapshotQuota()` **始终**输出巡检统计。
+ *
+ * 口径（刻意与 `getTotalSnapshotSize()` 分工）：
+ *   - 本函数给**条数** —— **只列目录 + 探 `manifest.json` 是否存在**，**不解析 manifest**（廉价）；
+ *   - `getTotalSnapshotSize()` 给**字节** —— 按 `manifest.totalSize` 累加（权威）。
+ * `tmp/`（中断轮次临时区）**不计** —— 它不是已完成的快照。
+ */
+async function countFinalizedSnapshots(): Promise<number> {
+  const root = getSnapshotsRoot();
+  if (!existsSync(root)) return 0;
+
+  let count = 0;
+  try {
+    const entries = await readdir(root, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name === 'tmp') continue;
+      let rounds: string[] = [];
+      try {
+        rounds = await readdir(join(root, entry.name));
+      } catch {
+        // @ignore-catch — 无法读取的会话目录跳过（与 getTotalSnapshotSize 同口径）
+        continue;
+      }
+      for (const roundId of rounds) {
+        if (existsSync(getManifestPath(entry.name, parseInt(roundId, 10)))) {
+          count++;
+        }
+      }
+    }
+  } catch {
+    // @ignore-catch — 根目录不可读 ⇒ 返回 0（统计非关键路径，不影响配额判定）
+    return 0;
+  }
+  return count;
+}
+
+/**
  * 检查快照配额并在超限时清理最旧快照
  *
  * 清理策略：
@@ -141,12 +182,28 @@ export async function enforceSnapshotQuota(
   maxBytes: number = DEFAULT_QUOTA_BYTES
 ): Promise<{ cleaned: number; freedBytes: number }> {
   let totalSize = await getTotalSnapshotSize();
+  const snapshotCount = await countFinalizedSnapshots();
+  const usagePercent =
+    maxBytes > 0 ? Math.round((totalSize / maxBytes) * 1000) / 10 : 0;
 
+  // 2026-09-29（spec `snapshot-storage-governance.md`）：**未超限也输出一条巡检**
+  // 原实现"未超限 ⇒ 零输出" ⇒ 运维看不到占用 / 余量 / 条数（与 PDCA 留存先例不一致）
   if (totalSize <= maxBytes) {
+    logger.info('快照存储巡检：未超限', {
+      totalBytes: totalSize,
+      quotaBytes: maxBytes,
+      usagePercent,
+      snapshotCount,
+    });
     return { cleaned: 0, freedBytes: 0 };
   }
 
-  logger.warn('快照配额超限，开始清理', { totalSize, maxBytes });
+  logger.warn('快照配额超限，开始清理', {
+    totalSize,
+    maxBytes,
+    usagePercent,
+    snapshotCount,
+  });
   let cleaned = 0;
   let freedBytes = 0;
 
@@ -204,7 +261,13 @@ export async function enforceSnapshotQuota(
     sessionRoundCount.set(key, count - 1);
   }
 
-  logger.info('清理完成', { cleaned, freedBytes, remainingSize: totalSize });
+  logger.info('清理完成', {
+    cleaned,
+    freedBytes,
+    remainingSize: totalSize,
+    quotaBytes: maxBytes,
+    snapshotCount,
+  });
   return { cleaned, freedBytes };
 }
 

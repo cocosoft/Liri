@@ -10,7 +10,7 @@
  *   - 运行目录（wrapper/user.ts/产物）--rw
  *   - ~/.bun 缓存 --rw（bun 首次运行写缓存，未放行会沙箱内启动失败）
  *   - /tmp --rw、/proc --ro（bun 运行时临时文件/运行时读取）
- *   - 无网络规则（net 缺省 → 全禁）
+ *   - `--net-deny`（**网络全禁**：handle 全部 net 权限且不授予任何规则）
  *
  * 不可用（非 Linux / LSM 未启用 / helper 缺失）→ 返回 null，调用方降级到跨平台执行器。
  * 平台差异仅在进程隔离手段（landlock vs 无），API 面一致（五轮评审 P1-4）。
@@ -53,9 +53,19 @@ const logger = getLogger('tools:CodeRunner:landlock');
 const LANDLOCK_HELPER = process.env.LANDLOCK_RUN_HELPER || 'landlock-run';
 
 /**
- * 构造最小 bun 执行 policy（CM-3a）
+ * 构造最小 bun 执行 policy（CM-3a）。
+ *
+ * `net: { denyAll: true }`（2026-09-29 台账 **D-36-① / D-38** 修复）：本模块的注释意图一直是
+ * "网络全禁"，但原实现**不传任何网络参数** —— 而 Landlock 的语义是"**未 handle 即不受限**"
+ * ⇒ 实际得到的是**网络完全不受限**（与注释相反，属**安全缺口**）。"全禁"的正确写法是
+ * **handle 全部 net 权限且不加任何规则**，由 helper 的 `--net-deny` 表达。
+ *
+ * 导出仅供离线断言策略形状（生产消费者只有下方 `runCodeRunnerWithLandlock`）。
  */
-function buildBunLandlockPolicy(runDir: string, abi: number): LandlockPolicy {
+export function buildBunLandlockPolicy(
+  runDir: string,
+  abi: number
+): LandlockPolicy {
   const fs: LandlockPolicy['fs'] = [
     // bun 解释器（只读+执行）
     { path: dirname(process.execPath), allow: ['read', 'execute'] },
@@ -77,7 +87,8 @@ function buildBunLandlockPolicy(runDir: string, abi: number): LandlockPolicy {
     // /proc：bun 运行时读取
     { path: '/proc', allow: ['read'] },
   ];
-  return { cwd: runDir, fs, abi };
+  // 网络**全禁**（见上方注释：未 handle 即不受限 ⇒ 必须显式 handle 全部 net 权限且不授予）
+  return { cwd: runDir, fs, net: { denyAll: true }, abi };
 }
 
 /** 门控判定（**纯函数**，便于离线逐分支覆盖） */

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "description": "Liri 模块分层映射。每个模块/目录归属一个层，lint:arch 据此检查跨层依赖",
-  "lastUpdated": "2026-09-28",
+  "lastUpdated": "2026-09-30",
 
   "layerOrder": ["entry", "ui", "app", "service", "infra", "core"],
 
@@ -26,7 +26,7 @@
     "ink":      { "layer": "ui", "description": "Ink UI 渲染引擎" },
     "ui":       { "layer": "ui", "description": "用户界面" },
     "components": { "layer": "ui", "description": "UI 组件" },
-    "hooks":    { "layer": "ui", "description": "React Hooks" },
+    "hooks":    { "layer": "app", "description": "钩子系统（运行时钩子链 core/executors/managers/types/utils/postSampling + 部分 React hooks use*.ts）；2026-09-30 D-84 由 ui 改归 app —— 实测其**零 ui 依赖**（仅用 error/monitoring/cost=infra 与 commands=app），却被 app(9 文件)/infra(2 文件) 消费；**混合体待后续拆分**（React hooks 与运行时钩子链分离）" },
     "cli":      { "layer": "ui", "description": "命令行界面" },
     "vim":      { "layer": "ui", "description": "Vim 模式" },
     "keybindings": { "layer": "ui", "description": "键盘绑定（含 React 组件/Context）" },
@@ -82,7 +82,7 @@
     "analytics":{ "layer": "infra", "description": "数据分析" },
     "constants":{ "layer": "infra", "description": "常量定义" },
     "common":   { "layer": "infra", "description": "公共工具" },
-    "types":    { "layer": "infra", "description": "类型定义" },
+    "types":    { "layer": "core", "description": "类型定义（纯类型、无出向依赖；归 core 后各层引用自动合法）" },
     "utils":    { "layer": "infra", "description": "通用工具" },
     "state":    { "layer": "infra", "description": "状态管理" },
     "memory":   { "layer": "infra", "description": "记忆存储" },
@@ -103,8 +103,8 @@
     "trace-recording": { "layer": "infra", "description": "AI 轨迹录制（观测）" },
 
     "core":     { "layer": "core", "description": "核心框架" },
-    "modules":  { "layer": "core", "description": "模块系统" },
+    "modules":  { "layer": "app", "description": "模块系统（注册表/定义/初始化/懒加载策略）。2026-09-30 D-120 由 **core 改归 app** —— 实测其**出向依赖**为 core / tools(app) / tasks(app) / runtime(service) 及动态的 services/infrastructure/cost/session，**需要 core 以上各层**；归 core（其 allowedDependencies 仅含 core）会把全部出向判为跨层。改归 app 后：出向到 app/service/infra/core 合法（已豁免与 R00-003 同步出清），入向由 ≥app 各层承担（已同步修好原 core/infra 入向 4 处）" },
     "acp":      { "layer": "core", "description": "ACP 协议" },
-    "mcp":      { "layer": "core", "description": "MCP 协议" }
+    "mcp":      { "layer": "service", "description": "MCP 协议（增强层，静态引用标准层 services/mcp；2026-09-30 D-67 由 core 改归 service，对齐 §1.11「增强层引用标准层」语义）" }
   }
 }

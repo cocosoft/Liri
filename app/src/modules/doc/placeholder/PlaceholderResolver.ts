@@ -9,7 +9,7 @@
  *  - 避免提示词内含 ) 导致截断（v0.4 修正原方案缺陷）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 import type { ImagePlaceholder } from '../types/outline';
 
 const logger = getLogger('doc:placeholderResolver');

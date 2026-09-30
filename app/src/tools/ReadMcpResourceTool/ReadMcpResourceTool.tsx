@@ -11,7 +11,7 @@ import { buildTool, type ToolDef } from '../BaseTool.js';
 import { jsonStringify } from '@modules/utils/json.js';
 import { ReadMcpResourceOutputSchema } from './schemas';
 
-const READ_MCP_RESOURCE_TOOL_NAME = 'ReadMcpResource';
+const READ_MCP_RESOURCE_TOOL_NAME = 'read_mcp_resource';
 
 const DESCRIPTION = 'Read a specific MCP resource by URI';
 

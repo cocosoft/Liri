@@ -43,8 +43,8 @@ import {
   writeFileSync,
 } from 'fs';
 import { basename, join } from 'path';
-import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import { resolveDataSubDir } from '../paths';
 import {
   getAppMigrationStore,

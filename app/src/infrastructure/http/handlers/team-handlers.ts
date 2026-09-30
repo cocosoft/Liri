@@ -16,15 +16,16 @@ import type http from 'http';
 import * as path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { createTeamStore } from '@modules/workspace/TeamStore';
+// C1（2026-09-30 D-113，`workspace` 域 P1）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveWorkspacePath } from './workspaces-handlers';
 
 /**
  * 获取或创建 TeamStore
  */
-function getTeamStore(wsPath: string) {
+async function getTeamStore(wsPath: string) {
   const teamsDir = path.join(wsPath, '.liri', 'teams');
-  return createTeamStore(teamsDir);
+  return (await getCoreAPI().getWorkspaceOpsPort()).getTeamStore(teamsDir);
 }
 
 /**
@@ -45,7 +46,7 @@ export async function handleListTeams(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const teams = store.list(workspaceId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -86,7 +87,7 @@ export async function handleCreateTeam(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const team = store.create({
       workspaceId,
       name: data.name,
@@ -125,7 +126,7 @@ export async function handleGetTeam(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const team = store.get(teamId);
 
     if (!team) {
@@ -167,7 +168,7 @@ export async function handleUpdateTeam(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const team = store.update(teamId, data);
 
     if (!team) {
@@ -206,7 +207,7 @@ export async function handleDeleteTeam(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const deleted = store.delete(teamId);
 
     if (!deleted) {
@@ -258,7 +259,7 @@ export async function handleAddTeamMember(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const team = store.addMember(teamId, {
       id: data.id,
       name: data.name,
@@ -306,7 +307,7 @@ export async function handleRemoveTeamMember(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const team = store.removeMember(teamId, memberId);
 
     if (!team) {
@@ -362,7 +363,7 @@ export async function handleUpdateMemberRole(
       return;
     }
 
-    const store = getTeamStore(wsPath);
+    const store = await getTeamStore(wsPath);
     const team = store.updateMemberRole(teamId, memberId, data.role);
 
     if (!team) {

@@ -5,7 +5,7 @@
 /**
  * AgentTool名称
  */
-export const AGENT_TOOL_NAME = 'Agent';
+export const AGENT_TOOL_NAME = 'agent';
 
 /**
  * 传统AgentTool名称(向后兼容)

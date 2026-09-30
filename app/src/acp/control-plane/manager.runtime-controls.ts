@@ -4,7 +4,7 @@ import type {
   AcpRuntimeControl,
 } from '../runtime/types.js';
 import { AcpRuntimeError } from '../runtime/errors.js';
-import { handleError } from '@modules/error';
+import { handleError } from '../../core/errorHandler.js';
 
 export interface RuntimeControlRequest {
   control: AcpRuntimeControl;

@@ -3,7 +3,7 @@
  * 负责日历模块生命周期、CalendarTool 集成与 ToolManager 注册
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 import { feature } from '@modules/core';
 import { globalToolManager } from '@modules/tools';
 

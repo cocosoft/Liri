@@ -39,7 +39,7 @@ describe('toolNameCodec — 转换与判定', () => {
   });
 
   it('已是安全名时幂等（原值返回）', () => {
-    for (const name of ['file_write', 'bash', 'MCPTool', 'cron_create']) {
+    for (const name of ['file_write', 'bash', 'mcp_tool', 'cron_create']) {
       expect(toWireToolName(name)).toBe(name);
       expect(isWireSafeToolName(name)).toBe(true);
     }

@@ -5,7 +5,7 @@
 /**
  * SkillTool名称
  */
-export const SKILL_TOOL_NAME = 'Skill';
+export const SKILL_TOOL_NAME = 'skill';
 
 /**
  * Skill搜索提示

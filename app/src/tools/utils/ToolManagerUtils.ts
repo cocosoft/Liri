@@ -63,9 +63,23 @@ export function loadTools(factory: ToolFactory, loaders: ToolLoader[]): Tool[] {
 }
 
 /**
- * 获取内置工具加载器列表（延迟初始化，避免与 ToolFactory 的循环依赖）
+ * 构建内置工具加载器清单 —— **单一事实源**（P2-3，2026-09-29）。
+ *
+ * @param includeConditionalDisabled `true` ⇒ **条件工具也返回其加载器**（**与 flag 无关的全量视图**），
+ *   供**工具名生成器**（`app/scripts/gen-tool-names.ts`）与门禁比对使用 ⇒ **生成物不随 flag/环境变化**；
+ *   `false` ⇒ 保持既有语义（条件不满足 ⇒ 该位置返回 `null` 加载器，运行时自然被过滤）。
+ *
+ * ⚠️ 两处如实说明：
+ * 1. 全量视图下条件表达式**仍会被求值**（JS 实参先求值），但其结果被**丢弃** ⇒ 视图**与 flag 无关**；
+ * 2. 清单**仍在每次调用时构建**（不提到模块顶层）—— 避免把条件求值提前到模块加载期（TDZ / 读 flag 过早）。
  */
-export function getBuiltinToolLoaders(): ToolLoader[] {
+function buildBuiltinToolLoaders(
+  includeConditionalDisabled: boolean
+): ToolLoader[] {
+  /** 条件包装：全量视图下直接返回加载器（丢弃条件） */
+  const cond = (condition: boolean, loader: ToolLoader): ToolLoader =>
+    includeConditionalDisabled ? loader : conditionalTool(condition, loader);
+
   return [
     // 核心工具
     createToolLoader(ToolFactory.prototype.createBashTool),
@@ -137,7 +151,7 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createTraceRecordingTool),
 
     // Code Mode（code_run，默认关闭——CODE_MODE=false 时不注册）
-    conditionalTool(
+    cond(
       coreFeature('CODE_MODE'),
       createToolLoader(ToolFactory.prototype.createCodeRunnerTool)
     ),
@@ -148,114 +162,113 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createTeamDeleteTool),
 
     // 条件工具
-    conditionalTool(
+    cond(
       coreFeature('POWERSHELL'),
       createToolLoader(ToolFactory.prototype.createPowerShellTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('LSP'),
       createToolLoader(ToolFactory.prototype.createLSPTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('MCP'),
       createToolLoader(ToolFactory.prototype.createMCPTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('MCP'),
       createToolLoader(ToolFactory.prototype.createMCPResourceTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('MCP'),
       createToolLoader(ToolFactory.prototype.createListMcpResourcesTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('MCP'),
       createToolLoader(ToolFactory.prototype.createReadMcpResourceTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('REPL'),
       createToolLoader(ToolFactory.prototype.createREPLTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('NOTEBOOK'),
       createToolLoader(ToolFactory.prototype.createNotebookTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('CONFIG'),
       createToolLoader(ToolFactory.prototype.createConfigTool)
     ),
     // Tungsten 工具 (仅 ANT 用户)
-    conditionalTool(
+    cond(
       isAntUser(),
       createToolLoader(ToolFactory.prototype.createTungstenTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('BROWSER'),
       createToolLoader(ToolFactory.prototype.createBrowserTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('PLAN'),
       createToolLoader(ToolFactory.prototype.createPlanTool)
     ),
 
     // 其他条件工具
-    conditionalTool(
+    cond(
       coreFeature('AGENT_TRIGGERS'),
       createToolLoader(ToolFactory.prototype.createCronCreateTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('AGENT_TRIGGERS'),
       createToolLoader(ToolFactory.prototype.createCronDeleteTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('AGENT_TRIGGERS'),
       createToolLoader(ToolFactory.prototype.createCronListTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('AGENT_TRIGGERS'),
       createToolLoader(ToolFactory.prototype.createCronStopTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('AGENT_TRIGGERS_REMOTE'),
       createToolLoader(ToolFactory.prototype.createRemoteTriggerTool)
     ),
-    conditionalTool(
-      coreFeature('MONITOR_TOOL'),
-      createToolLoader(ToolFactory.prototype.createMonitorTool)
-    ),
-    conditionalTool(
+    // 2026-09-29 D-29 去重：删 `cond(coreFeature('MONITOR_TOOL'), createMonitorTool)` ——
+    // `MonitorTool` 上方（「通用工具」段）**已有无条件项** ⇒ 此处为**重复注册**
+    // （且因无条件项已存在，删除本项**不改变行为**：flag 为假时该工具本来也已注册）。
+    cond(
       coreFeature('KAIROS'),
       createToolLoader(ToolFactory.prototype.createSendUserFileTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('KAIROS'),
       createToolLoader(ToolFactory.prototype.createPushNotificationTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('KAIROS_GITHUB_WEBHOOKS'),
       createToolLoader(ToolFactory.prototype.createSubscribePRTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('HISTORY_SNIP'),
       createToolLoader(ToolFactory.prototype.createSnipTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('UDS_INBOX'),
       createToolLoader(ToolFactory.prototype.createListPeersTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('WORKFLOW_SCRIPTS'),
       createToolLoader(ToolFactory.prototype.createWorkflowTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('TOOL_SEARCH'),
       createToolLoader(ToolFactory.prototype.createToolSearchTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('WORKTREE'),
       createToolLoader(ToolFactory.prototype.createEnterWorktreeTool)
     ),
-    conditionalTool(
+    cond(
       coreFeature('WORKTREE'),
       createToolLoader(ToolFactory.prototype.createExitWorktreeTool)
     ),
@@ -267,11 +280,25 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createReadProjectFileTool),
     createToolLoader(ToolFactory.prototype.createWriteProjectFileTool),
 
-    // 通道/网关工具
-    createToolLoader(ToolFactory.prototype.createGatewayTool),
+    // 通道/网关工具（2026-09-29 D-29 去重：删 `createGatewayTool` —— 它与
+    // `createChannelManagerTool` **返回同一个 `new ChannelTool()`** ⇒ 同名 `channel` 注册两次）
     createToolLoader(ToolFactory.prototype.createChannelManagerTool),
     createToolLoader(ToolFactory.prototype.createBroadcastTool),
   ];
+}
+
+/** **生效视图**（既有语义，行为不变）：条件不满足的位置返回 `null` 加载器 */
+export function getBuiltinToolLoaders(): ToolLoader[] {
+  return buildBuiltinToolLoaders(false);
+}
+
+/**
+ * **全量视图**（含**条件工具**，**与 flag 无关**）。
+ *
+ * ⚠️ **仅供**工具名生成器 / 门禁比对使用；❌ **不要**用它做运行时加载（会把未启用的工具注册进来）。
+ */
+export function getAllBuiltinToolLoaders(): ToolLoader[] {
+  return buildBuiltinToolLoaders(true);
 }
 
 /**

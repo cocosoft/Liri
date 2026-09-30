@@ -14,13 +14,9 @@
 import type http from 'http';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
-import {
-  changeImpactAnalyzer,
-  riskDetector,
-  decisionClassifier,
-  escalationManager,
-  resourceScheduler,
-} from '@modules/workspace/OrchIntelligence';
+// C1（2026-09-30 D-113，`workspace` 域 P1）：5 个单例改经服务层端口**聚合句柄**
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /**
  * POST /v1/workspaces/:id/intelligence/impact
@@ -42,6 +38,9 @@ export async function handleImpactAnalysis(
       return;
     }
 
+    const { changeImpactAnalyzer } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const result = changeImpactAnalyzer.analyze(
       changedFiles,
       changedContent || ''
@@ -81,6 +80,9 @@ export async function handleRiskDetection(
       return;
     }
 
+    const { riskDetector } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const risks = riskDetector.detect(
       title,
       description || '',
@@ -123,6 +125,9 @@ export async function handleDecisionClassify(
       return;
     }
 
+    const { decisionClassifier } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const result = decisionClassifier.classify(
       title,
       description || '',
@@ -166,6 +171,9 @@ export async function handleEscalation(
       return;
     }
 
+    const { escalationManager } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const request = escalationManager.recordEscalation(
       workItemId,
       type,
@@ -200,12 +208,15 @@ export async function handleEscalation(
  * GET /v1/workspaces/:id/intelligence/escalations
  * 获取活跃异常列表
  */
-export function handleGetEscalations(
+export async function handleGetEscalations(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse
-): void {
+): Promise<void> {
   try {
+    const { escalationManager } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const active = escalationManager.getActiveEscalations();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -242,6 +253,9 @@ export async function handleResourceSchedule(
       return;
     }
 
+    const { resourceScheduler } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const results = resourceScheduler.requestResource(
       workItemId,
       resources,
@@ -266,12 +280,15 @@ export async function handleResourceSchedule(
  * GET /v1/workspaces/:id/intelligence/resources
  * 获取资源状态
  */
-export function handleGetResources(
+export async function handleGetResources(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse
-): void {
+): Promise<void> {
   try {
+    const { resourceScheduler } = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).getOrchIntelligence();
     const status = resourceScheduler.getResourceStatus();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

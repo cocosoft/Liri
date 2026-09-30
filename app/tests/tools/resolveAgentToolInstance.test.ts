@@ -1,7 +1,7 @@
 /**
  * R6（2026-09-22）：AgentTool 真身解析（穿透 `ToolLazyWrapper`）
  *
- * 病根：`getToolManager().getTool('Agent')` 返回 `ToolLazyWrapper`
+ * 病根：`getToolManager().getTool('agent')` 返回 `ToolLazyWrapper`
  * （`implements Tool`，**非 extends**）⇒ 三处入口的 `tool instanceof AgentTool` **恒为 false**
  * ⇒ `GET /v1/agents/control`、`POST /v1/agents/:id/stop|pause` 全量 503，
  * `AgentTool.stopAgent`（含批次级取消 R1）的修复代码一行都不会被执行。
@@ -31,7 +31,7 @@ function metadata(name: string): ToolInfo {
 /** 具备控制面契约的假工具（鸭子类型判据：stopAgent + getActiveAgents） */
 function agentToolLike(label: string): Record<string, unknown> {
   return {
-    name: 'Agent',
+    name: 'agent',
     label,
     stopAgent: () => true,
     getActiveAgents: () => [],
@@ -42,7 +42,7 @@ describe('R6：病根复现（包装器既非实例、也不代理契约方法�
   test('ToolLazyWrapper 不是 AgentTool 实例，且不代理 stopAgent/getActiveAgents', () => {
     const real = agentToolLike('real');
     const wrapper = new ToolLazyWrapper(
-      metadata('Agent'),
+      metadata('agent'),
       new LazyModuleLoader<Tool>(() => real as unknown as Tool)
     );
 
@@ -67,7 +67,7 @@ describe('R6：ToolLazyWrapper.unwrap / LazyModuleLoader.loadSync', () => {
       created++;
       return real as unknown as Tool;
     });
-    const wrapper = new ToolLazyWrapper(metadata('Agent'), loader);
+    const wrapper = new ToolLazyWrapper(metadata('agent'), loader);
 
     expect(loader.isLoaded()).toBe(false);
     expect(wrapper.unwrap()).toBe(real as unknown as Tool);
@@ -81,7 +81,7 @@ describe('R6：ToolLazyWrapper.unwrap / LazyModuleLoader.loadSync', () => {
     const real = agentToolLike('loaded');
     const loader = new LazyModuleLoader<Tool>(() => real as unknown as Tool);
     await loader.get();
-    const wrapper = new ToolLazyWrapper(metadata('Agent'), loader);
+    const wrapper = new ToolLazyWrapper(metadata('agent'), loader);
 
     expect(wrapper.unwrap()).toBe(loader.getSync());
   });
@@ -90,7 +90,7 @@ describe('R6：ToolLazyWrapper.unwrap / LazyModuleLoader.loadSync', () => {
     const loader = new LazyModuleLoader<Tool>(
       async () => agentToolLike('async') as unknown as Tool
     );
-    const wrapper = new ToolLazyWrapper(metadata('Agent'), loader);
+    const wrapper = new ToolLazyWrapper(metadata('agent'), loader);
 
     expect(wrapper.unwrap()).toBeNull();
   });
@@ -99,7 +99,7 @@ describe('R6：ToolLazyWrapper.unwrap / LazyModuleLoader.loadSync', () => {
     const loader = new LazyModuleLoader<Tool>(
       () => new Promise<Tool>(() => {}) // 永不 resolve：稳定停在"加载中"
     );
-    const wrapper = new ToolLazyWrapper(metadata('Agent'), loader);
+    const wrapper = new ToolLazyWrapper(metadata('agent'), loader);
 
     void loader.get(); // 启动异步加载（同步段已置 loading=true）
     expect(() => loader.loadSync()).toThrow(/异步加载进行中/);
@@ -129,7 +129,7 @@ describe('R6：resolveAgentToolInstance（能力判定 + fail-closed）', () => 
 
   test('解析结果仍是包装器（无契约方法）⇒ null（不误认领）', () => {
     const wrapper = new ToolLazyWrapper(
-      metadata('Agent'),
+      metadata('agent'),
       new LazyModuleLoader<Tool>(
         () => agentToolLike('wrapped') as unknown as Tool
       )

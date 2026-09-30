@@ -1,6 +1,6 @@
 import type { ReplyEnvelope, DispatchTarget, DispatchResult } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:auto-reply:dispatch');
 
 export type DispatchHandler = (

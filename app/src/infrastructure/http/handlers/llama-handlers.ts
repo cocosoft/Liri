@@ -24,7 +24,8 @@
  */
 
 import type http from 'http';
-import type { MigrateProgress } from '@modules/ai';
+// C1（2026-09-30 D-110，`ai` 域 P4）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   AppError,
   ErrorCategory,
@@ -46,8 +47,9 @@ export async function handleLlamaStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     const status = await llamaCppServerManager.getStatus();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, status }));
@@ -70,8 +72,9 @@ export async function handleLlamaConfig(
 ): Promise<void> {
   const method = req.method || 'GET';
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     if (method === 'GET') {
       const status = await llamaCppServerManager.getStatus();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -134,8 +137,9 @@ export async function handleLlamaRestart(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     await llamaCppServerManager.restart();
     const status = await llamaCppServerManager.getStatus();
     if (status.status === 'error' || !status.running) {
@@ -149,9 +153,9 @@ export async function handleLlamaRestart(
       );
       return;
     }
-    const { ensureLlamaCppProviderRegistered } =
-      await import('@modules/ai/local/llama/registerLlamaCppProvider.js');
-    const providerRegistered = await ensureLlamaCppProviderRegistered();
+    const providerRegistered = await (
+      await getCoreAPI().getAiOpsPort()
+    ).ensureLlamaProviderRegistered();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, providerRegistered }));
   } catch (err) {
@@ -172,8 +176,9 @@ export async function handleLlamaForceKill(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     const result = await llamaCppServerManager.forceKill();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
@@ -204,8 +209,9 @@ export async function handleLlamaForceRestart(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     await llamaCppServerManager.forceKillAndRestart();
     const status = await llamaCppServerManager.getStatus();
 
@@ -220,9 +226,9 @@ export async function handleLlamaForceRestart(
       return;
     }
 
-    const { ensureLlamaCppProviderRegistered } =
-      await import('@modules/ai/local/llama/registerLlamaCppProvider.js');
-    const providerRegistered = await ensureLlamaCppProviderRegistered();
+    const providerRegistered = await (
+      await getCoreAPI().getAiOpsPort()
+    ).ensureLlamaProviderRegistered();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -249,8 +255,9 @@ export async function handleLlamaLogs(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     const url = new URL(req.url ?? '/', 'http://localhost');
     const maxLines = parseInt(url.searchParams.get('lines') || '200', 10);
     const logs = llamaCppServerManager.getLogContent(maxLines);
@@ -273,8 +280,9 @@ export async function handleLlamaLogsStream(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
-  const { llamaCppServerManager } =
-    await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+  const llamaCppServerManager = await (
+    await getCoreAPI().getAiOpsPort()
+  ).getLlamaManager();
 
   // 设置 SSE 响应头
   res.writeHead(200, {
@@ -362,8 +370,8 @@ export async function handleLlamaMigrate(
   let controller: AbortController | null = null;
 
   try {
-    const { llamaCppServerManager, ensureSafeMigrationPath } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const aiOps = await getCoreAPI().getAiOpsPort();
+    const llamaCppServerManager = await aiOps.getLlamaManager();
 
     const body = await readRequestBody(req);
     const parsed = JSON.parse(body || '{}') as LlamaMigrateRequest;
@@ -382,7 +390,10 @@ export async function handleLlamaMigrate(
     const sourceDir = llamaCppServerManager.getConfig().modelsDir
       ? resolveLlamaModelsDir(llamaCppServerManager.getConfig().modelsDir)
       : resolveLlamaModelsDir();
-    const safetyCheck = ensureSafeMigrationPath(parsed.targetDir, sourceDir);
+    const safetyCheck = await aiOps.ensureSafeLlamaMigrationPath(
+      parsed.targetDir,
+      sourceDir
+    );
 
     if (!safetyCheck.valid || !safetyCheck.safePath) {
       throw new AppError(
@@ -410,7 +421,7 @@ export async function handleLlamaMigrate(
       targetDir: safetyCheck.safePath,
       copy: parsed.copy ?? false,
       overwrite: parsed.overwrite ?? false,
-      onProgress: (progress: MigrateProgress) => {
+      onProgress: (progress) => {
         // SSE 推送进度
         res.write(`event: progress\ndata: ${JSON.stringify(progress)}\n\n`);
       },
@@ -488,8 +499,9 @@ export async function handleLlamaDeleteModel(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { llamaCppServerManager } =
-      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    const llamaCppServerManager = await (
+      await getCoreAPI().getAiOpsPort()
+    ).getLlamaManager();
     const { unlinkSync, existsSync } = await import('fs');
     const { join } = await import('path');
 
@@ -567,13 +579,11 @@ export async function handleLlamaHardware(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { HardwareDetector } =
-      await import('@modules/ai/local/llama/HardwareDetector.js');
-    const detector = new HardwareDetector();
-
     const url = new URL(req.url ?? '/', 'http://localhost');
     const forceRefresh = url.searchParams.get('forceRefresh') === '1';
-    const hardware = await detector.detect({ forceRefresh });
+    const hardware = await (
+      await getCoreAPI().getAiOpsPort()
+    ).detectLlamaHardware(forceRefresh);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, hardware }));
@@ -594,15 +604,9 @@ export async function handleLlamaRecommendations(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { HardwareDetector } =
-      await import('@modules/ai/local/llama/HardwareDetector.js');
-    const { ModelRecommender } =
-      await import('@modules/ai/local/llama/ModelRecommender.js');
-
-    const detector = new HardwareDetector();
-    const hardware = await detector.detect();
-    const recommender = new ModelRecommender();
-    const recommendations = await recommender.recommend(hardware, detector);
+    const recommendations = await (
+      await getCoreAPI().getAiOpsPort()
+    ).recommendLlamaModels();
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, recommendations }));
@@ -623,12 +627,9 @@ export async function handleLlamaDownload(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { ModelDownloadService } =
-      await import('@modules/ai/local/llama/ModelDownloadService.js');
+    const aiOps = await getCoreAPI().getAiOpsPort();
     const body = await readRequestBody(req);
     const parsed = JSON.parse(body || '{}');
-
-    const service = new ModelDownloadService();
 
     // 设置 SSE 响应头
     res.writeHead(200, {
@@ -638,7 +639,7 @@ export async function handleLlamaDownload(
       'X-Accel-Buffering': 'no',
     });
 
-    const result = await service.downloadAndConfigure(
+    const result = await aiOps.downloadLlamaModel(
       {
         modelId: parsed.modelId as string,
         quantVersion: parsed.quantVersion as string,

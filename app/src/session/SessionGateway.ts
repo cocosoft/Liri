@@ -239,7 +239,7 @@ export class SessionGateway {
    * 原实现是"检查 `_crashRecoveryResult` → 执行 → 赋值"的**非同步 check-then-act** ——
    * 两个并发的 `initialize()` / `recoverAfterCrash()` 会同时通过检查 ⇒ **双扫**
    * （重复 `markAppError` + 重复 `session:paused` SSE）。可达路径（代码面确认）：
-   * 同一批**并行工具调用**里 `SessionsTool` 与 `SessionsHistoryTool` 各自
+   * 同一批**并行工具调用**里多个 `SessionsTool` 实例各自
    * `gateway.initialize()`；`CombinedSessionGateway` 亦循环 await 各网关。
    */
   private crashRecoveryInFlight: Promise<CrashRecoveryResult> | null = null;

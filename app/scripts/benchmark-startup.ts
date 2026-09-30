@@ -44,7 +44,8 @@ const startTime = performance.now();
 
 let bootResult;
 try {
-  const { executePipeline } = await import('../src/core/boot/BootPipelineIntegrator.ts');
+  // 2026-09-30 路径随归属搬迁更新（`core/boot/` → entry 层 `bootstrap/pipeline/`，台账 D-82）
+  const { executePipeline } = await import('../src/bootstrap/pipeline/BootPipelineIntegrator.ts');
 
   // executePipeline() 内部调用 registerStandardHandlers() 注册 8 阶段处理器，
   // 然后按顺序执行各阶段。其中 Phase 4 (DI_STARTUP) 已包含真实 DIContainer.bootstrap() 逻辑。

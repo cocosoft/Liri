@@ -37,8 +37,8 @@ function block(name: string): ToolUseBlock {
 }
 
 describe('Partitioner 工具名口径（本仓真实注册名）', () => {
-  test('只读工具（file_read/glob/grep/file_search）⇒ 判为并发安全', () => {
-    const names = ['file_read', 'glob', 'grep', 'file_search'];
+  test('只读工具（file_read/glob/grep）⇒ 判为并发安全', () => {
+    const names = ['file_read', 'glob', 'grep'];
 
     for (const name of names) {
       expect(isReadOnlyTool(name)).toBe(true);
@@ -74,8 +74,10 @@ describe('Partitioner 工具名口径（本仓真实注册名）', () => {
   test('搜索工具集合按真实名成立（SEARCH_TOOLS/isSearchTool）', () => {
     expect(isSearchTool('grep')).toBe(true);
     expect(isSearchTool('glob')).toBe(true);
-    expect(isSearchTool('file_search')).toBe(true);
-    expect(SEARCH_TOOLS.has('file_search')).toBe(true);
+    // 2026-09-29（P2-3）：`file_search` **不是注册名**（仅存在于 `ToolFactory.getAllBaseTools()`
+    // 死路径，台账 N-27）⇒ 已从 `SEARCH_TOOLS` 移除，此处**反向断言**防回退。
+    expect(isSearchTool('file_search')).toBe(false);
+    expect(SEARCH_TOOLS.has('file_search')).toBe(false);
   });
 
   test('防漂移守卫：三清单不得含外部（CC）命名', () => {

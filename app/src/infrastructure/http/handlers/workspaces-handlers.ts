@@ -25,15 +25,26 @@ import type { SessionInfo } from '@modules/runtime/api/CoreAPI';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import {
-  createLiriConfigManager,
-  detectLiriDir,
-} from '@modules/workspace/LiriConfigManager';
-import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
-import { createChangeSetStore } from '@modules/workspace/ChangeSetStore';
-import { createProjectStore } from '@modules/workspace/ProjectStore';
+// C1（2026-09-30 D-115，`workspace` 域 P3）：工作空间配置 / 各 Store / 任务存储 / 类型位改经服务层端口
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import type {
+  TaskNodeDto,
+  TaskStatusDto,
+} from '@modules/runtime/api/workspaceOpsPorts';
 
 const logger = getLogger('http:workspaces');
+
+/** C1（D-115）：工作空间上下文（配置 + 各 Store，**同一实例**耦合）经端口取用 */
+async function getWorkspaceContext(wsPath: string) {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getWorkspaceContext(wsPath);
+}
+
+/** C1（D-115）：任务存储（单例）经端口取用，并 `initialize()` 就绪（原逐 handler 手调） */
+async function getTaskStore() {
+  const store = await (await getCoreAPI().getWorkspaceOpsPort()).getTaskStore();
+  await store.initialize();
+  return store;
+}
 
 // ========== Workspaces Handlers ==========
 
@@ -43,16 +54,15 @@ export async function handleListWorkspaces(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { buildEntries } =
-      await import('@modules/workspaces/WorkspaceStorage');
-    const entries = await buildEntries();
+    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面，消除 service → app 跨层引用
+    const entries = await getCoreAPI().listWorkspaceEntries();
 
     const workspaces = entries.map((entry) => ({
-      id: entry.meta.id,
+      id: entry.id,
       name: entry.name,
-      description: entry.meta.description,
-      createdAt: new Date(entry.meta.createdAt).getTime(),
-      updatedAt: new Date(entry.meta.updatedAt).getTime(),
+      description: entry.description,
+      createdAt: new Date(entry.createdAt).getTime(),
+      updatedAt: new Date(entry.updatedAt).getTime(),
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -90,10 +100,8 @@ export async function handleDeleteWorkspace(
   workspaceId: string
 ): Promise<void> {
   try {
-    const { buildEntries, deleteWorkspace: removeWorkspace } =
-      await import('@modules/workspaces/WorkspaceStorage');
-    const entries = await buildEntries();
-    const entry = entries.find((e) => e.meta.id === workspaceId);
+    const entries = await getCoreAPI().listWorkspaceEntries();
+    const entry = entries.find((e) => e.id === workspaceId);
 
     if (!entry) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -101,7 +109,7 @@ export async function handleDeleteWorkspace(
       return;
     }
 
-    await removeWorkspace(entry.path);
+    await getCoreAPI().deleteWorkspace(entry.path);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {
@@ -241,8 +249,8 @@ export async function handleListWorkItems(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const items = store.list(workspaceId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -293,8 +301,8 @@ export async function handleCreateWorkItem(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const item = store.create({
       workspaceId,
       title,
@@ -371,8 +379,8 @@ export async function handleUpdateWorkItem(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createWorkItemStore(manager.dir, manager);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
     const updated = store.update(itemId, updates);
 
     if (!updated) {
@@ -411,11 +419,8 @@ export async function resolveWorkspacePath(
   workspaceId: string
 ): Promise<string | null> {
   try {
-    const { buildEntries } =
-      await import('@modules/workspaces/WorkspaceStorage');
-    const entries = await buildEntries();
-    const entry = entries.find((e) => e.meta.id === workspaceId);
-    return entry ? entry.path : null;
+    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面，消除 service → app 跨层引用
+    return await getCoreAPI().getWorkspacePath(workspaceId);
   } catch (_err) {
     return null;
   }
@@ -440,7 +445,9 @@ export async function handleDetectLiriDir(
       return;
     }
 
-    const result = detectLiriDir(wsPath);
+    const result = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).detectLiriDir(wsPath);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -476,10 +483,10 @@ export async function handleInitLiriDir(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    manager.init();
+    const wsCtx = await getWorkspaceContext(wsPath);
+    wsCtx.init();
 
-    const result = manager.detect();
+    const result = wsCtx.detect();
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -515,8 +522,8 @@ export async function handleGetWorkspaceConfig(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const summary = manager.getSummary();
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const summary = wsCtx.getSummary();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(summary));
@@ -553,8 +560,8 @@ export async function handleUpdateWorkspaceConfig(
     const body = await ctx.readRequestBody(req);
     const updates = JSON.parse(body || '{}');
 
-    const manager = createLiriConfigManager(wsPath);
-    const merged = manager.updateConfig(updates);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const merged = wsCtx.updateConfig(updates);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(merged));
@@ -593,8 +600,8 @@ export async function handleGetWorkspaceRules(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const rules = manager.loadRules();
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const rules = wsCtx.loadRules();
 
     res.writeHead(200, { 'Content-Type': 'text/markdown' });
     res.end(rules);
@@ -637,8 +644,8 @@ export async function handleUpdateWorkspaceRules(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    manager.saveRules(content);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    wsCtx.saveRules(content);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
@@ -680,8 +687,8 @@ export async function handleListChangeSets(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createChangeSetStore(manager.dir);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getChangeSetStore();
     const changesets = store.listByWorkItem(itemId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -728,8 +735,8 @@ export async function handleCreateChangeSet(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createChangeSetStore(manager.dir);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getChangeSetStore();
     const changeset = store.create({ workItemId: itemId, description, files });
 
     res.writeHead(201, { 'Content-Type': 'application/json' });
@@ -768,8 +775,8 @@ export async function handleGetChangeSet(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createChangeSetStore(manager.dir);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getChangeSetStore();
     const changeset = store.get(changesetId);
 
     if (!changeset) {
@@ -822,8 +829,8 @@ export async function handleAddFileChange(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createChangeSetStore(manager.dir);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getChangeSetStore();
     const updated = store.recordFileChange(
       changesetId,
       path,
@@ -883,8 +890,8 @@ export async function handleUpdateChangeSet(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createChangeSetStore(manager.dir);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getChangeSetStore();
     const updated = store.updateStatus(changesetId, status);
 
     if (!updated) {
@@ -929,8 +936,8 @@ export async function handleGetChangeSetSummary(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const store = createChangeSetStore(manager.dir);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getChangeSetStore();
     const summary = store.getSummary(changesetId);
 
     if (!summary) {
@@ -978,9 +985,8 @@ export async function handleListProjects(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const projects = store.list(workspaceId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1024,9 +1030,8 @@ export async function handleCreateProject(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const project = store.create({
       workspaceId,
       name,
@@ -1068,9 +1073,8 @@ export async function handleGetProject(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const project = store.get(projectId);
 
     if (!project) {
@@ -1113,9 +1117,8 @@ export async function handleUpdateProject(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const updated = store.update(projectId, updates);
 
     if (!updated) {
@@ -1157,9 +1160,8 @@ export async function handleDeleteProject(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const deleted = store.delete(projectId);
 
     if (!deleted) {
@@ -1201,9 +1203,8 @@ export async function handleGetProjectBoard(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const board = store.buildBoard(projectId);
 
     if (!board) {
@@ -1245,9 +1246,8 @@ export async function handleGetProjectRules(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const project = store.get(projectId);
 
     if (!project) {
@@ -1300,9 +1300,8 @@ export async function handleUpdateProjectRules(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const project = store.get(projectId);
 
     if (!project) {
@@ -1348,9 +1347,8 @@ export async function handleGetTemplates(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const templates = store.getTemplates();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1395,9 +1393,8 @@ export async function handleCreateProjectWorkItem(
       return;
     }
 
-    const manager = createLiriConfigManager(wsPath);
-    const workItemStore = createWorkItemStore(manager.dir, manager);
-    const store = createProjectStore(manager.dir, workItemStore);
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getProjectStore();
     const item = store.createWorkItemFromTemplate(projectId, {
       title,
       description,
@@ -1557,9 +1554,7 @@ export async function handleDecomposeProject(
 }
 
 // ========== Tasks API（Phase B: TaskNode 统一模型） ==========
-
-import { taskStore } from '@modules/workspace/TaskStore';
-import type { TaskNode, TaskStatus } from '@modules/workspace/types';
+// C1（2026-09-30 D-115）：任务存储 / 类型位改经服务层端口（取用见文件头 `getTaskStore`）
 
 /**
  * 列出任务
@@ -1571,14 +1566,14 @@ export async function handleListTasks(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    await taskStore.initialize();
+    const taskStore = await getTaskStore();
 
     const url = new URL(req.url || '/', 'http://localhost');
     const workspaceId = url.searchParams.get('workspaceId');
     const projectId = url.searchParams.get('projectId');
     const status = url.searchParams.get('status');
 
-    let tasks: TaskNode[] = [];
+    let tasks: TaskNodeDto[] = [];
 
     if (projectId) {
       tasks = await taskStore.listByProject(projectId);
@@ -1587,7 +1582,7 @@ export async function handleListTasks(
         tasks = tasks.filter((t) => t.status === status);
       }
     } else if (workspaceId && status) {
-      tasks = await taskStore.listByStatus(workspaceId, status as TaskStatus);
+      tasks = await taskStore.listByStatus(workspaceId, status as TaskStatusDto);
     } else if (workspaceId) {
       tasks = await taskStore.listByWorkspace(workspaceId);
     }
@@ -1614,7 +1609,7 @@ export async function handleGetTask(
   taskId: string
 ): Promise<void> {
   try {
-    await taskStore.initialize();
+    const taskStore = await getTaskStore();
 
     const task = await taskStore.get(taskId);
     if (!task) {
@@ -1644,7 +1639,7 @@ export async function handleCreateTask(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    await taskStore.initialize();
+    const taskStore = await getTaskStore();
 
     const body = await ctx.readRequestBody(req);
     const data = JSON.parse(body || '{}');
@@ -1690,7 +1685,7 @@ export async function handleCreateTask(
     }
 
     const now = new Date().toISOString();
-    const task: TaskNode = {
+    const task: TaskNodeDto = {
       id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       workspaceId: data.workspaceId,
       projectId: data.projectId,
@@ -1751,7 +1746,7 @@ export async function handleUpdateTask(
   taskId: string
 ): Promise<void> {
   try {
-    await taskStore.initialize();
+    const taskStore = await getTaskStore();
 
     const body = await ctx.readRequestBody(req);
     const updates = JSON.parse(body || '{}') as Record<string, unknown>;
@@ -1804,7 +1799,7 @@ export async function handleDeleteTask(
   taskId: string
 ): Promise<void> {
   try {
-    await taskStore.initialize();
+    const taskStore = await getTaskStore();
 
     const deleted = await taskStore.delete(taskId);
     if (!deleted) {
@@ -1835,7 +1830,7 @@ export async function handleListTaskChildren(
   taskId: string
 ): Promise<void> {
   try {
-    await taskStore.initialize();
+    const taskStore = await getTaskStore();
 
     const children = await taskStore.listChildren(taskId);
 

@@ -34,13 +34,20 @@ interface BundledSkillDefinition {
 
 /**
  * 内置技能列表（从CC源码移植）
+ *
+ * ⚠️ **`allowedTools` 必须写本仓的"真实注册名"**（2026-09-29，台账 **D-44**）：该字段会经
+ * `commands/builtin/skill/index.ts`（中文）与 `skills/cli/skills.ts`（英文）**显示给用户**
+ * （"允许的工具: …"）⇒ 写成 CC 名（`Read`/`Write`/`Edit`/`Grep`/`Glob`/`AskUserQuestion`）
+ * 会让用户看到**本仓不存在**的工具名（`file_search` 同族漂移）。
+ * 事实源 = 生成物 `tools/toolNames.generated.ts`；守卫见 `tests/skills/SkillProvider.test.ts`
+ * 的「内置技能 allowedTools ⊆ 真实注册名」用例。
  */
 const bundledSkills: BundledSkillDefinition[] = [
   {
     name: 'debug',
     description:
       'Enable debug logging for this session and help diagnose issues',
-    allowedTools: ['Read', 'Grep', 'Glob'],
+    allowedTools: ['file_read', 'grep', 'glob'],
     argumentHint: '[issue description]',
     userInvocable: true,
     async getPromptForCommand(args) {
@@ -264,7 +271,7 @@ ${args || 'No problem description provided.'}
     whenToUse:
       'When the user wants to configure settings, permissions, hooks, or environment variables using natural language',
     argumentHint: '<configuration request>',
-    allowedTools: ['Read'],
+    allowedTools: ['file_read'],
     userInvocable: true,
     async getPromptForCommand(args) {
       return [
@@ -356,7 +363,14 @@ ${args ? `\n## User Request\n\n${args}` : ''}`,
     whenToUse:
       'When the user has performed a repeatable process and wants to save it as a reusable skill',
     argumentHint: '[description of the process to capture]',
-    allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'AskUserQuestion'],
+    allowedTools: [
+      'file_read',
+      'file_write',
+      'file_edit',
+      'glob',
+      'grep',
+      'ask_user_question',
+    ],
     userInvocable: true,
     async getPromptForCommand(args) {
       return [
@@ -433,7 +447,14 @@ Before writing, output the SKILL.md content for review. Ask user to confirm usin
     whenToUse:
       'When the user wants to create, edit, improve, review, or restructure a skill (SKILL.md), or wants guidance on how to design a well-structured skill',
     argumentHint: '[skill name or description]',
-    allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'AskUserQuestion'],
+    allowedTools: [
+      'file_read',
+      'file_write',
+      'file_edit',
+      'glob',
+      'grep',
+      'ask_user_question',
+    ],
     userInvocable: true,
     async getPromptForCommand(args) {
       return [
@@ -503,7 +524,7 @@ Do NOT include extraneous files (README.md, CHANGELOG.md, INSTALLATION_GUIDE.md,
     aliases: ['做文档', '做报告', '做PPT', '做周报', '生成文档'],
     whenToUse:
       '用户要求生成图文混编文档时使用，特别是周报、PPT、方案、会议纪要等职场场景。当用户说"做份周报"、"做份PPT"、"生成方案"时触发。',
-    allowedTools: ['doc_generate', 'image_generate', 'AskUserQuestion'],
+    allowedTools: ['doc_generate', 'image_generate', 'ask_user_question'],
     argumentHint: '[文档主题和格式]',
     userInvocable: true,
     async getPromptForCommand(args) {

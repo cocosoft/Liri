@@ -31,9 +31,9 @@
 import fs from 'fs';
 import path from 'path';
 import { resolveDataDir } from '@modules/core/paths';
-import { getLogger } from '@modules/monitoring';
-// 2026-09-25 §6.8：预期中断判据（已下沉到 error/，供 core/ 这类低层直接使用）
-import { isAbortReason } from '../../error/abortReason.js';
+import { getLogger } from '../loggerFacade.js';
+// 2026-09-30 G2 倒挂收口：预期中断判据已下沉 core 侧（core 层不得引 infra 层，判据零依赖故可共用）
+import { isAbortReason } from '../abortReason.js';
 const logger = getLogger('core:exit');
 
 export type ExitReason =

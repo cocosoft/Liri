@@ -60,10 +60,27 @@ export interface LandlockFsRule {
   allow: LandlockFsAccess[];
 }
 
-/** Landlock 网络规则 */
+/**
+ * Landlock 网络策略。
+ *
+ * ⚠️ **为什么没有 `allow`**（2026-09-29 台账 **D-36-① / D-38**）：Landlock 的 net 规则
+ * （`LANDLOCK_RULE_NET_PORT`）**只能按具体端口授权** —— 规则里的 `port` 是**字面端口号**
+ * （`port 0` 表示"ephemeral 端口"，**不是**"任意端口"；见内核 `landlock.h` 的
+ * `struct landlock_net_port_attr` 注释）。因此"放行任意端口的 CONNECT"**在内核层面无法表达**。
+ * 于是本策略只保留**两态**：
+ *  - **不设 `net`** = 完全不 handle 网络 ⇒ 内核视为**不受限**（等价普通 shell）；
+ *  - **`{ denyAll: true }`** = handle 该 ABI 已知的**全部** net 权限且**不加任何规则**
+ *    ⇒ 内核语义（handled 即默认拒绝）⇒ **网络全禁**。
+ *
+ * 历史（缺陷沿革）：原类型是 `{ allow: string[]; denyBind?: boolean }`，对应 CLI 的
+ * `--net-connect tcp|udp`。但该 flag 的实现是把 CONNECT 位放进 `handled_access_net`
+ * **且不加任何授权规则** ⇒ 实际效果是**拒绝** CONNECT、而 **bind 因未 handle 而放行** ——
+ * 与"授予 CONNECT / deny-bind"的注释**两个方向都相反**；且 `denyBind` 从未被
+ * `buildLandlockArgv` 输出（静默丢弃）。
+ */
 export interface LandlockNetRule {
-  allow: string[];
-  denyBind?: boolean;
+  /** true = handle 全部 net 权限且不授予任何规则 ⇒ **网络全禁**（bind/connect，TCP/UDP 按 ABI 覆盖） */
+  denyAll: true;
 }
 
 /** Landlock policy.json（landlock-run 输入） */

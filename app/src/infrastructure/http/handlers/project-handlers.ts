@@ -6,29 +6,25 @@
  */
 
 import type http from 'http';
-import { resolveDataDir } from '@modules/core';
-import { createProjectStore } from '../../../workspace/ProjectStore.js';
-import { WorkItemStore } from '../../../workspace/WorkItemStore.js';
+// C1（2026-09-30 D-116，`workspace` 域 P4）：项目存储改经服务层端口
+// （原具名/相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-import {
-  migrateLegacyFiles,
-  migrateWorktrees,
-} from '../../../project/MigrationService';
+// C1（2026-09-30 D-117，`project` 域静态面）：迁移服务改经服务层端口
+// （原相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { readBody, json } from './handler-utils';
 
 const logger = getLogger('project:handlers');
 
-let _workItemStore: WorkItemStore | null = null;
-let _projectStore: ReturnType<typeof createProjectStore> | null = null;
-function getProjectStore() {
-  if (!_projectStore || !_workItemStore) {
-    const dataDir = resolveDataDir();
-    _workItemStore = new WorkItemStore(dataDir);
-    _projectStore = createProjectStore(dataDir, _workItemStore);
-  }
-  return _projectStore;
+/**
+ * C1（D-116）：项目存储改经服务层端口取用。
+ * ⚠️ 原本地**缓存单例**（`_projectStore` / `_workItemStore`）已移除 ——
+ * `ProjectStore` 每次调用**读写文件**、无跨调用内存状态 ⇒ 实例生命周期变化**无行为影响**。
+ */
+async function getProjectStore() {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getProjectStore();
 }
 
 // ─── GET /v1/projects — 列出所有项目 ───
@@ -44,7 +40,7 @@ export async function handleListProjects(
       `http://${req.headers.host || 'localhost'}`
     );
     const workspaceId = url.searchParams.get('workspaceId') || 'default';
-    const store = getProjectStore();
+    const store = await getProjectStore();
     const projects = store.list(workspaceId);
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, projects);
@@ -86,7 +82,7 @@ export async function handleCreateProject(
       return;
     }
 
-    const store = getProjectStore();
+    const store = await getProjectStore();
     const project = store.create({
       workspaceId: workspaceId || 'default',
       name,
@@ -123,7 +119,7 @@ export async function handleGetProject(
   const span = otel.startSpan('project:handlers:getProject');
   span.setAttribute('projectId', projectId);
   try {
-    const store = getProjectStore();
+    const store = await getProjectStore();
     const project = store.get(projectId);
     if (!project) {
       span.setStatus({ code: SpanStatusCode.OK });
@@ -170,7 +166,7 @@ export async function handleUpdateProject(
       json(res, 400, { error: 'tags 必须是数组' });
       return;
     }
-    const store = getProjectStore();
+    const store = await getProjectStore();
     const project = store.update(
       projectId,
       updates as Parameters<typeof store.update>[1]
@@ -204,7 +200,7 @@ export async function handleDeleteProject(
   const span = otel.startSpan('project:handlers:deleteProject');
   span.setAttribute('projectId', projectId);
   try {
-    const store = getProjectStore();
+    const store = await getProjectStore();
     const deleted = store.delete(projectId);
     span.setStatus({ code: SpanStatusCode.OK });
     json(
@@ -243,12 +239,16 @@ export async function handleMigrateProjects(
     };
 
     // 1. 文件级迁移（旧路径 → 新路径，幂等）
-    const fileResult = migrateLegacyFiles();
+    const fileResult = await (
+      await getCoreAPI().getProjectOpsPort()
+    ).migrateLegacyFiles();
 
     // 2. worktree → Project 实体
     let wtResult = { created: 0, skipped: 0 };
     if (worktrees && worktrees.length > 0) {
-      wtResult = migrateWorktrees(worktrees);
+      wtResult = await (
+        await getCoreAPI().getProjectOpsPort()
+      ).migrateWorktrees(worktrees);
     }
 
     span.setStatus({ code: SpanStatusCode.OK });
@@ -274,7 +274,9 @@ export async function handleMigrateFiles(
   const otel = getOTelTracing();
   const span = otel.startSpan('project:handlers:migrateFiles');
   try {
-    const result = migrateLegacyFiles();
+    const result = await (
+      await getCoreAPI().getProjectOpsPort()
+    ).migrateLegacyFiles();
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, result);
   } catch (e) {

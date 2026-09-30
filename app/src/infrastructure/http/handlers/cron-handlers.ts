@@ -25,6 +25,8 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-101，`tasks` 域 P2）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 将 CronJob 转为前端 CronTask 响应格式 */
 function jobToCronTask(job: any): any {
@@ -69,9 +71,8 @@ export async function handleListCron(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-    const { resolveDbPath } = await import('@modules/core/paths');
-    const store = new CronJobStore(resolveDbPath());
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const store = await taskOps.createCronJobStore();
     await store.init();
     const jobs = await store.loadJobs();
     const result = jobs.map((j: any) => jobToCronTask(j));
@@ -119,10 +120,7 @@ export async function handleCreateCron(
     }
 
     const { parseSchedule } = await import('@modules/chronos');
-    const { computeNextCronRun } =
-      await import('@modules/tasks/cron/CronParser');
-    const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-    const { resolveDbPath } = await import('@modules/core/paths');
+    const taskOps = await getCoreAPI().getTaskOpsPort();
 
     const parsed: any = parseSchedule(cronExpr) || {
       kind: 'cron',
@@ -162,20 +160,18 @@ export async function handleCreateCron(
       const mins = parsed.minutes || 30;
       job.nextRunAt = new Date(nowMs + mins * 60 * 1000).toISOString();
     } else if (parsed.kind === 'cron' && parsed.expr) {
-      const next = computeNextCronRun(parsed.expr, nowMs);
+      const next = await taskOps.computeNextCronRun(parsed.expr, nowMs);
       if (next) job.nextRunAt = next;
     }
 
-    const store = new CronJobStore(resolveDbPath());
+    const store = await taskOps.createCronJobStore();
     await store.init();
     await store.upsertJob(job);
     await store.close();
 
     // 唤醒全局调度器
     try {
-      const { wakeGlobalCronScheduler } =
-        await import('@modules/tasks/cron/GlobalCronScheduler');
-      wakeGlobalCronScheduler();
+      await taskOps.wakeCronScheduler();
     } catch (err) {
       // 调度器未启动，忽略
 
@@ -203,9 +199,8 @@ export async function handleGetCron(
   cronId: string
 ): Promise<void> {
   try {
-    const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-    const { resolveDbPath } = await import('@modules/core/paths');
-    const store = new CronJobStore(resolveDbPath());
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const store = await taskOps.createCronJobStore();
     await store.init();
     const job = await store.getJob(cronId);
     await store.close();
@@ -233,9 +228,8 @@ export async function handleUpdateCron(
   try {
     const body = await readRequestBody(req);
     const updates = JSON.parse(body);
-    const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-    const { resolveDbPath } = await import('@modules/core/paths');
-    const store = new CronJobStore(resolveDbPath());
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const store = await taskOps.createCronJobStore();
     await store.init();
 
     const existing = await store.getJob(cronId);
@@ -280,9 +274,8 @@ export async function handleDeleteCron(
   broadcastEvent?: (event: string, data: Record<string, unknown>) => void
 ): Promise<void> {
   try {
-    const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-    const { resolveDbPath } = await import('@modules/core/paths');
-    const store = new CronJobStore(resolveDbPath());
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const store = await taskOps.createCronJobStore();
     await store.init();
     await store.deleteJob(cronId);
     await store.close();
@@ -305,9 +298,8 @@ export async function handleRunCron(
   broadcastEvent?: (event: string, data: Record<string, unknown>) => void
 ): Promise<void> {
   try {
-    const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-    const { resolveDbPath } = await import('@modules/core/paths');
-    const store = new CronJobStore(resolveDbPath());
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const store = await taskOps.createCronJobStore();
     await store.init();
 
     const job = await store.getJob(cronId);
@@ -342,20 +334,15 @@ export async function handleCronStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { isGlobalCronSchedulerStarted, getGlobalCronScheduler } =
-      await import('@modules/tasks/cron/GlobalCronScheduler');
-    const started = isGlobalCronSchedulerStarted();
-    const scheduler = getGlobalCronScheduler();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const status = await taskOps.getCronSchedulerStatus();
 
-    if (started && scheduler) {
-      const status = scheduler.getStatus();
+    if (status) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(status));
     } else {
       // 调度器未启动，回退到静态查询
-      const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');
-      const { resolveDbPath } = await import('@modules/core/paths');
-      const store = new CronJobStore(resolveDbPath());
+      const store = await taskOps.createCronJobStore();
       await store.init();
       const stats = await store.getStats();
       const enabledJobs = await store.listEnabledJobs();
@@ -399,9 +386,8 @@ export async function handleCronRuns(
       | 'failed'
       | undefined;
 
-    const { CronRunLog } = await import('@modules/tasks/cron/CronRunLog');
-    const { resolveDbPath } = await import('@modules/core/paths');
-    const runLog = new CronRunLog(resolveDbPath());
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const runLog = await taskOps.createCronRunLog();
     await runLog.init();
 
     const page = await runLog.queryPage({ jobId, limit, offset, status });

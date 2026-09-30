@@ -32,11 +32,8 @@ export async function handleListAgentTasks(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    const taskStates = await store.loadTaskStates();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const taskStates = await taskOps.listTaskStates();
 
     const tasks = taskStates.map((state) => ({
       id: state.id,

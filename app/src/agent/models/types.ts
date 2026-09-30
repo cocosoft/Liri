@@ -24,7 +24,7 @@
 
 import { AIModelType } from '@modules/ai';
 import type { ParsedToolCall } from '@modules/ai';
-import type { HooksSettings } from '@modules/types';
+import type { HooksSettings } from '@modules/utils/settings/types.js';
 import type { SkillLifecycleManager } from '@modules/tools';
 
 /**
@@ -225,12 +225,7 @@ export interface AgentHistory {
  * Agent来源类型
  */
 export type AgentSource =
-  | 'built-in'
-  | 'user'
-  | 'project'
-  | 'local'
-  | 'managed'
-  | 'plugin';
+  'built-in' | 'user' | 'project' | 'local' | 'managed' | 'plugin';
 
 /**
  * Agent内存作用域
@@ -241,14 +236,7 @@ export type AgentMemoryScope = 'user' | 'project' | 'local';
  * Agent颜色名称
  */
 export type AgentColorName =
-  | 'blue'
-  | 'green'
-  | 'red'
-  | 'yellow'
-  | 'purple'
-  | 'cyan'
-  | 'orange'
-  | 'pink';
+  'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'cyan' | 'orange' | 'pink';
 
 /**
  * Agent配置详情
@@ -323,9 +311,7 @@ export interface PluginAgentDefinition extends BaseAgentDefinition {
  * Agent定义联合类型
  */
 export type AgentDefinition =
-  | BuiltInAgentDefinition
-  | CustomAgentDefinition
-  | PluginAgentDefinition;
+  BuiltInAgentDefinition | CustomAgentDefinition | PluginAgentDefinition;
 
 /**
  * Agent定义结果

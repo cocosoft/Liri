@@ -13,8 +13,11 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { translationService } from '@modules/ai';
-import type { TranslateRequest } from '@modules/ai';
+// C1（2026-09-30 D-109，`ai` 域 P3）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// ⚠️ **类型位** app 类型（原文由 ai 域提供）已替换为服务层端口类型。
+// 此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活（见台账 D-77）
+import type { TranslateRequestDto } from '@modules/runtime/api/aiOpsPorts';
 
 /**
  * POST /v1/translate
@@ -30,7 +33,7 @@ export async function handleTranslate(
     const body = await ctx.readRequestBody(req);
     const { text, sourceLang, targetLang, model } = JSON.parse(
       body
-    ) as Partial<TranslateRequest>;
+    ) as TranslateRequestDto;
 
     if (!text || !targetLang) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -38,7 +41,9 @@ export async function handleTranslate(
       return;
     }
 
-    const result = await translationService.translate({
+    const result = await (
+      await getCoreAPI().getAiOpsPort()
+    ).translateText({
       text,
       sourceLang: (sourceLang as string) || 'auto',
       targetLang,

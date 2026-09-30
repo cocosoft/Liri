@@ -40,7 +40,7 @@ const CORE_TOOLS = [
   'knowledge_write',
   'skill_view',
   'skills_list',
-  'Skill',
+  'skill',
   'tool_search',
   'web_fetch',
 ];
@@ -55,7 +55,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
   test('技能工具归 search 类别（与 tool_search 同链）', () => {
     expect(getToolCategory('skill_view')).toBe('search');
     expect(getToolCategory('skills_list')).toBe('search');
-    expect(getToolCategory('Skill')).toBe('search');
+    expect(getToolCategory('skill')).toBe('search');
   });
 
   test('default 任务白名单保留核心工具（knowledge_save + 技能工具）', () => {
@@ -95,10 +95,10 @@ describe('toolCategories — P0 工具可见性回归', () => {
     // 现纳入 MANDATORY_TOOLS 恒保留。
     // 注：`sessions_yield` 走**类别登记**（N-44 起登记为 'session'，default/chat 可见），
     // 不纳入 mandatory —— 它在 quick/local 等轻量集里仍会被裁。
-    const defs = [{ name: 'Agent' }, { name: 'bash' }, { name: 'web_search' }];
+    const defs = [{ name: 'agent' }, { name: 'bash' }, { name: 'web_search' }];
     for (const taskType of ['chat', 'default', undefined]) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      expect(kept).toContain('Agent');
+      expect(kept).toContain('agent');
     }
   });
 

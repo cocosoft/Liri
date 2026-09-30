@@ -2,7 +2,10 @@
  * B1（2026-09-26，《Liri 优化方案》）：输出上限的**唯一来源**与后端边界。
  *
  * 锁三件事：
- *  ① `SandboxPolicy` 是软/硬上限的唯一来源（策略层与常量一致，不再各写一份默认值）；
+ *  ① `SandboxPolicy` 是软/硬上限的唯一来源（后端不再各写一份默认值）；
+ *     ⚠️ 2026-09-29（台账 D-42）：原"**策略层与常量一致**"的两条断言随该文件的**死门禁整段删除**
+ *     一并移除（`createSandboxPolicy` / `PRODUCTION_SANDBOX_POLICY` 已不存在 —— 它们唯一的
+ *     "消费者"就是这两条断言本身，属**测死代码**）。
  *  ② `appendWithinLimit` 的逐块切片语义（含**多字节字符**的真实字节统计）；
  *  ③ PTY 后端**真实执行**下的截断可确定性判定（`truncated` / `truncatedBytes`）。
  *
@@ -12,10 +15,8 @@
 import { describe, expect, it } from 'bun:test';
 import {
   appendWithinLimit,
-  createSandboxPolicy,
   MAX_OUTPUT_BYTES_HARD,
   MAX_OUTPUT_BYTES_SOFT,
-  PRODUCTION_SANDBOX_POLICY,
   resolveOutputLimit,
 } from '../../src/sandbox/SandboxPolicy';
 import { PTYSandbox } from '../../src/sandbox/PTYSandbox';
@@ -40,19 +41,6 @@ describe('B1: resolveOutputLimit —— 输出上限的唯一来源', () => {
       soft: 100,
       hard: 100,
     });
-  });
-
-  it('策略层与唯一来源一致：createSandboxPolicy 默认取常量', () => {
-    const policy = createSandboxPolicy();
-    expect(policy.maxOutputBytes).toBe(MAX_OUTPUT_BYTES_SOFT);
-    expect(policy.maxOutputBytesHard).toBe(MAX_OUTPUT_BYTES_HARD);
-  });
-
-  it('生产策略的软上限是**显式策略选择**（8MB），硬上限仍取唯一来源', () => {
-    expect(PRODUCTION_SANDBOX_POLICY.maxOutputBytes).toBe(8 * 1024 * 1024);
-    expect(PRODUCTION_SANDBOX_POLICY.maxOutputBytesHard).toBe(
-      MAX_OUTPUT_BYTES_HARD
-    );
   });
 });
 
@@ -97,7 +85,9 @@ describe('B1: PTY 后端真实执行的截断边界', () => {
     expect(typeof result.truncatedBytes).toBe('number');
     expect(result.truncatedBytes).toBeGreaterThan(0);
     // stdout 只保留软上限字符 + 截断标记
-    expect(result.stdout.length).toBeLessThanOrEqual(16 + '\n[输出已截断]'.length);
+    expect(result.stdout.length).toBeLessThanOrEqual(
+      16 + '\n[输出已截断]'.length
+    );
     expect(result.stdout.startsWith('x')).toBe(true);
   }, 30_000);
 

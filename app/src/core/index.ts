@@ -23,7 +23,7 @@
  * 核心模块统一入口
  * 导出所有核心相关的类型、类和函数
  *
- * 注意：paths 必须最先求值——后续导出（system/state → monitoring → config）
+ * 注意：paths 必须最先求值——后续导出（monitoring → config 等）
  * 可能在模块顶层访问 configManager/路径函数，若 paths 尚未初始化会触发
  * userDataDirOverride 的 TDZ（循环导入）。
  */
@@ -32,7 +32,13 @@ export * from './paths';
 // P2-9（2026-09-25）：迁移注册表与版本中枢（`core/migration/` 内部用相对路径引 `../paths`，无环）
 export * from './migration/AppMigrationStore';
 export * from './migration/MigrationRegistry';
-export * from '@modules/system/state';
+// G1 收口（台账 D-77 / A5）：移除 `@modules/system/state` 的整包再导出（`export *`）——
+//   零消费（删除后 `bun run typecheck` 无符号缺失），且消掉 core → system(infra) 的对边；
+//   消费方一律直连 `@modules/state/*`（如 `promptSuggestion/types.ts`）。
+//   ⚠️ **写法约定**：本文件及同类注释中**禁止出现"from '<包名>'"的完整导入片段** ——
+//   门禁 `parseModuleImports` 的两条正则**都不剥离注释**，照抄一条 import 语句会让该依赖
+//   在门禁眼里"复活"（2026-09-30 实测踩中：本行原写作 `export * from '<包名>'` 的形式，
+//   导致该对边在删除后再现，靠探针才定位到）。要提及包名时只写包名本身即可。
 export * from './seedSync';
 export type { Message, ToolCall, ToolResult, ToolContext } from './types';
 export * from './events/EventBus';
@@ -62,22 +68,19 @@ export {
   type CycleDetectionResult,
 } from './DIContainer';
 // J-7 清理：旧版 PluginSDK 双轨已删除（@deprecated 由 pluginSystem 统一替代），re-export 一并移除
-export type { Plugin } from '@modules/plugin-sdk';
+// G1 收口（台账 D-59）：`Plugin` 的再导出亦移除——core 不得转出 app 层 plugin-sdk 类型（消费方直连 @modules/plugin-sdk，
+//   且 plugin-sdk 自身有「零反向引用」红线，故不能反向下沉到 core）
 export {
   Coordinator,
   coordinator,
   type CoordinatorConfig,
   type CoordinatorTask,
 } from './Coordinator';
-export type { ContextData } from './context/index';
-export type { AuthManager, AuthConfig } from '@modules/system/auth/AuthManager';
-
-export {
-  NotificationService,
-  notificationService,
-  createNotificationService,
-  type NotificationOptions,
-} from './notifications/NotificationService';
+// G1 收口（台账 D-59）：移除 core → app(context) 的 ContextData 再导出（无消费方，消费方直连 @modules/context/types/ContextData）
+// G1 收口（台账 D-77 / A5）：同批移除 `AuthManager` / `AuthConfig` 的 core → system 再导出（零消费，
+//   与上方 `system/state` 同属 `(core/index.ts × system)` 这一对 —— 同对语句须一次搬净）。
+// 2026-09-30（台账 D-77 / A4）：`core/notifications/NotificationService.ts` 零消费（全仓含测试无引用）
+//   且构成 core → infra(`state`) 倒挂 ⇒ 按 D-59/D-70 先例删除该文件，此处再导出一并移除。
 
 export {
   FEATURE_FLAGS,
@@ -110,6 +113,11 @@ export {
   LOGGER_SERVICE_ID,
   registerLoggerSpi,
   resolveLogger,
+  type IOTelService,
+  type IOTelTracing,
+  OTEL_SERVICE_ID,
+  registerOTelSpi,
+  resolveOTelTracing,
   TtlCache,
   AppError,
   ErrorCategory,

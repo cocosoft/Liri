@@ -15,6 +15,8 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getVideoTaskPersistence } from '@modules/tools';
 import type { ToolUseContext } from '@modules/tools/types/Tool';
+// C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层**动态**引用）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 从 URL 路径中提取 taskId（/v1/video/tasks/{id}） */
 function extractTaskId(url: string): string | null {
@@ -78,22 +80,16 @@ async function handleCreateTask(
     }
 
     // 通过 VideoGenerateTool.execute() 异步模式创建任务
-    const { createVideoGenerateTool } =
-      await import('@modules/tools/VideoGenerateTool/VideoGenerateTool');
-
-    const tool = createVideoGenerateTool();
-    const result = await tool.execute(
-      {
-        prompt,
-        imageUrl: imageUrl || undefined,
-        imagePath: imagePath || undefined,
-        duration: duration || 5,
-        aspectRatio: aspectRatio || '16:9',
-        model: modelId || undefined,
-        async: true,
-      },
-      {} as unknown as ToolUseContext
-    );
+    const result = await (
+      await getCoreAPI().getToolsPort()
+    ).executeVideoGenerateTool({
+      prompt,
+      imageUrl: imageUrl || undefined,
+      imagePath: imagePath || undefined,
+      duration: duration || 5,
+      aspectRatio: aspectRatio || '16:9',
+      model: modelId || undefined,
+    });
 
     // taskId 在 result.data 中
     const taskData = (result.data ?? {}) as Record<string, unknown>;
@@ -258,9 +254,7 @@ async function handleCancelTask(
       return;
     }
 
-    const { VideoGenerateTool } =
-      await import('@modules/tools/VideoGenerateTool/VideoGenerateTool');
-    VideoGenerateTool.cancelTask(taskId);
+    await (await getCoreAPI().getToolsPort()).cancelVideoTask(taskId);
     json(res, 200, { success: true, taskId, status: 'cancelled' });
   } catch (err) {
     await handleError(err, { module: 'api:videoTasks', action: 'cancelTask' });

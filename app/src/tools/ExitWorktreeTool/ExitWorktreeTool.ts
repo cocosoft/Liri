@@ -49,7 +49,7 @@ export class ExitWorktreeTool extends BaseTool<
   /**
    * 工具名称
    */
-  name = 'ExitWorktree';
+  name = 'exit_worktree';
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。

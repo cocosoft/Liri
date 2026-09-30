@@ -15,10 +15,11 @@
  *   4. 分解失败降级为单步执行（不阻塞主流程）
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { configManager } from '@modules/config';
-import { handleError } from '@modules/error/handleError.js';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
+import { getOTelTracing } from '../tracingFacade.js';
+// C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（core 内自洽）
+import { resolveBroadcast } from '../spi/index.js';
 import { TAORLoop } from '@modules/query/TAORLoop.js';
 import type { TAORLoopDeps } from '@modules/query/TAORLoop.js';
 import type { ChatMessage } from '@modules/ai';
@@ -114,7 +115,7 @@ export interface PlanDrivenLoopConfig {
  * 默认不启用以免改变既有行为；DailyBudget 仍为跨 run 兜底）。
  */
 function pdlRunTokenCap(): number {
-  const v = Number(configManager.env('PDCA_RUN_MAX_TOKENS'));
+  const v = Number(process.env.PDCA_RUN_MAX_TOKENS);
   return Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
@@ -1111,14 +1112,13 @@ export class PlanDrivenLoop {
     });
   }
 
-  /** P2（08-09）：动态 import broadcastEvent 避免循环依赖 */
+  /** P2（08-09）：动态 import broadcastEvent 避免循环依赖；2026-09-30 D-121 改经 core SPI 端口 */
   private async _emitSSE(
     event: string,
     payload: Record<string, unknown>
   ): Promise<void> {
     try {
-      const { broadcastEvent } = await import('@modules/infrastructure');
-      await broadcastEvent(event, payload);
+      resolveBroadcast().broadcast(event, payload);
     } catch {
       // @ignore-catch — SSE 广播失败不影响任务执行
     }

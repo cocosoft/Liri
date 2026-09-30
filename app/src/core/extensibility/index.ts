@@ -65,18 +65,14 @@ export {
   globalEventBus,
 } from '../events/EventBus.js';
 
-// 可扩展性服务
-export {
-  extensibilityUtils,
-  ExtensibilityService,
-  getExtensibilityService,
-} from './ExtensibilityService.js';
+// 2026-09-30（台账 D-83）：`ExtensibilityService` 已删除 —— 它是**默认禁用的遗留本体**：
+// 其 `init()` 首行即止血开关（`USE_LEGACY_EXTENSIBILITY !== 'true'` ⇒ 直接 return），而
+// `entrypoints/init.ts`（2026-08-06）起已把启动期初始化改为 `plugins/` 的 PluginSystem，
+// 全仓**再无 `init()` 调用方** ⇒ 开关已无启用路径、6 处动态引用在运行期不可达。
+// ⚠️ 本目录**其余组件**（PluginLoader / ModuleManager / ConfigManager / EventBus）仍被
+// `tools/EnhancedToolSystem.ts` 使用 ⇒ **保留**，本次只删本体。
 
 // 默认导出（兼容旧引用）
-import {
-  getExtensibilityService,
-  ExtensibilityService,
-} from './ExtensibilityService.js';
 import { PluginLoader, createPluginLoader } from './PluginLoader.js';
 import { ModuleManager, createModuleManager } from './ModuleManager.js';
 import { ConfigManager, createConfigManager } from './ConfigManager.js';
@@ -85,7 +81,6 @@ import {
   createEventBus,
   globalEventBus,
 } from '../events/EventBus.js';
-import { extensibilityUtils } from './ExtensibilityService.js';
 import { PluginState, PluginType, ModuleType, EventType } from './types.js';
 
 export default {
@@ -95,12 +90,9 @@ export default {
   ModuleManager,
   ConfigManager,
   EventType,
-  extensibilityUtils,
   createPluginLoader,
   createModuleManager,
   createConfigManager,
   createEventBus,
-  ExtensibilityService,
-  getExtensibilityService,
   globalEventBus,
 };

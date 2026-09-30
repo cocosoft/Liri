@@ -35,14 +35,8 @@ declare module '../tools/index.js' {
   export function getToolManager(): ToolManagerInterface | undefined;
 }
 
-declare module '../core/extensibility/index.js' {
-  export interface ExtensibilityServiceInterface {
-    init(): Promise<void>;
-    startAllModules(): Promise<void>;
-    shutdown(): Promise<void>;
-  }
-  export function getExtensibilityService(): ExtensibilityServiceInterface;
-}
+// 2026-09-30（台账 D-83）：`ExtensibilityService` 已删除 ⇒ 其 ambient 声明（遗留 shim，
+// 无其他引用方）一并移除。
 
 declare module '../monitoring/index.js' {
   export interface MonitoringServiceInterface {

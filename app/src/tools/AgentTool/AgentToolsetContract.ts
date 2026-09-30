@@ -23,7 +23,7 @@ import { AGENT_TOOL_NAME, LEGACY_AGENT_TOOL_NAME } from './constants';
 import { YIELD_TOOL_NAME } from '../../session/yield';
 
 /**
- * 委派入口工具（T9：**可由角色策略授权放行**）—— `Agent` 及其历史别名 `Task`。
+ * 委派入口工具（T9：**可由角色策略授权放行**）—— `agent` 及其历史别名 `Task`。
  *
  * 默认对子代理阻断（递归防护）；仅当"该子代理所属角色的策略位 `canDelegate = true`
  * **且** 父侧深度未达 `MAX_SUBAGENT_DEPTH`"时，才重新放回子代理工具池。
@@ -45,12 +45,12 @@ export const ALWAYS_BLOCKED_TOOLS: readonly string[] = [YIELD_TOOL_NAME];
 /**
  * 阻断清单（O7①）：**即使父级持有，也不继承给子代理**的工具。
  *
- * - `Agent` / `Task`（{@link DELEGATION_ENTRY_TOOLS}）：递归防护 —— 子代理默认不得再持有
+ * - `agent` / `Task`（{@link DELEGATION_ENTRY_TOOLS}）：递归防护 —— 子代理默认不得再持有
  *   委派入口（T9 的角色授权位可放行）；与 `MAX_SUBAGENT_DEPTH` 正交：前者控"能不能再委派"，
  *   后者控"嵌套多深"。
  * - `sessions_yield`（{@link ALWAYS_BLOCKED_TOOLS}）：语义防护（见上）。
  *
- * 值顺序与拆分前保持一致（`['Agent','Task','sessions_yield']`）—— O7 用例断言其内容。
+ * 值顺序与拆分前保持一致（`['agent','Task','sessions_yield']`）—— O7 用例断言其内容。
  */
 export const DELEGATE_BLOCKED_TOOLS: readonly string[] = [
   ...DELEGATION_ENTRY_TOOLS,

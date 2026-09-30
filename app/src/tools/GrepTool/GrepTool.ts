@@ -2,8 +2,9 @@
  * GrepTool - 代码/文件内容搜索工具
  *
  * 使用正则表达式在文件中搜索文本内容，基于低层 grep() 函数实现。
- * 对标 FileSearchTool（基于 Glob 的文件名搜索），
  * 本工具专注于文件内容搜索，返回含匹配行内容的结果。
+ * （2026-09-29 台账 D-32：原句"对标 FileSearchTool（基于 Glob 的文件名搜索）"已删 ——
+ *  `FileSearchTool` 从未被任何 loader 注册，已随死类集群清理移除。）
  *
  * MIT License
  * Copyright (c) 2026 Liri

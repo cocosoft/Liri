@@ -20,6 +20,14 @@ export {
 } from './LoggerService';
 
 export {
+  type IOTelService,
+  type IOTelTracing,
+  OTEL_SERVICE_ID,
+  registerOTelSpi,
+  resolveOTelTracing,
+} from './OTelService';
+
+export {
   AppError,
   ErrorCategory,
   ErrorSeverity,
@@ -27,3 +35,55 @@ export {
 } from './ErrorTypes';
 
 export { TtlCache } from './CacheService';
+
+export {
+  type IStartupProfilerPort,
+  STARTUP_PROFILER_SERVICE_ID,
+  registerStartupProfilerSpi,
+  resolveStartupProfiler,
+} from './ProfilerService';
+
+export {
+  type IBroadcastService,
+  BROADCAST_SERVICE_ID,
+  registerBroadcastSpi,
+  resolveBroadcast,
+} from './BroadcastService';
+
+export {
+  type LoadedPluginBriefDto,
+  type IPluginSystemService,
+  PLUGIN_SYSTEM_SERVICE_ID,
+  registerPluginSystemSpi,
+  resolvePluginSystem,
+} from './PluginSystemService';
+
+export {
+  type DiagnosticsProvidersSnapshotDto,
+  type DiagnosticsMcpSnapshotDto,
+  type IDiagnosticsProbeService,
+  DIAGNOSTICS_PROBE_SERVICE_ID,
+  registerDiagnosticsProbeSpi,
+  resolveDiagnosticsProbe,
+} from './DiagnosticsProbeService';
+
+export {
+  type AiProviderBriefDto,
+  type BalanceProbeResultDto,
+  type AiRoleChatResultDto,
+  type IAiAccessService,
+  AI_ACCESS_SERVICE_ID,
+  registerAiAccessSpi,
+  resolveAiAccess,
+} from './AiAccessService';
+
+export {
+  type KnowledgeCompileOptionsDto,
+  type KnowledgeCompileResultDto,
+  type KnowledgeLintIssueDto,
+  type KnowledgeLintResultDto,
+  type IKnowledgeService,
+  KNOWLEDGE_SERVICE_ID,
+  registerKnowledgeSpi,
+  resolveKnowledge,
+} from './KnowledgeService';

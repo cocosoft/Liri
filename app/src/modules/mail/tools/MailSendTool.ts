@@ -6,7 +6,7 @@ import type { Tool, ToolParam } from '../../../tools/types/Tool';
 import type { ToolResult } from '../../../tools/types/ToolResult';
 import { ToolExecutionStatus } from '../../../tools/types/ToolResult';
 import type { ToolUseContext } from '../../../tools/types/ToolUseContext';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 const logger = getLogger('mail:send');
 
 /** 工具参数定义 */

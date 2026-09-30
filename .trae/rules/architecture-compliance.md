@@ -308,6 +308,7 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 - OpenTelemetry 配置（`instrumentation.ts`）—— 标准 OTEL env 变量约定
 - 特性开关 Feature Flag（`AppCore.ts`、`ExtensibilityService.ts`）
 - 测试文件（`__tests__`、`.test.ts`）—— 集成测试需直接注入 API key
+- **`LIRI_*` 前缀**（前缀级白名单）与单点 `PDCA_RUN_MAX_TOKENS` —— **core 层专属理由**：core **不得** import `ConfigManager`（分层约束 R00-001），而 `configManager.env()` 的实现本身就是 `process.env[name] ?? defaultValue`（`config/ConfigManager.ts:1420`）⇒ core 侧读取该命名空间**无合法替代路径**；且 `LIRI_*` 是项目**自有** env 命名空间（`project_rules` §1.4）。**仅放行该前缀 + 该单点，不放宽到任意前缀/变量**。（2026-09-30，台账 D-71；实现见 `scripts/lint-architecture.ts` 的 `whitelistPrefixes`）
 
 ---
 

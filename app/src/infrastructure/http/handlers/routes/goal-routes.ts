@@ -23,9 +23,8 @@ import {
   sendError,
   isValidSessionIdFormat,
 } from '../handler-utils';
-import { getTaskGoalStore } from '@modules/tasks';
-import { isTerminalGoalStatus } from '@modules/tasks';
-import { emitGoalCreated, emitGoalUpdated } from '@modules/tasks';
+// C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 解析并校验创建目标的请求体（返回 null 表示已写出错误响应） */
 function parseCreateBody(
@@ -83,9 +82,9 @@ async function handleCreateGoal(
   const parsed = parseCreateBody(await readBody(req), res);
   if (!parsed) return;
 
-  const store = getTaskGoalStore();
+  const taskOps = await getCoreAPI().getTaskOpsPort();
   if (parsed.id) {
-    const existing = await store.get(parsed.id);
+    const existing = await taskOps.getTaskGoal(parsed.id);
     if (existing) {
       json(res, 409, {
         error: { message: `目标 ${parsed.id} 已存在（不覆盖既有目标）` },
@@ -94,7 +93,7 @@ async function handleCreateGoal(
     }
   }
 
-  const goal = await store.create({
+  const goal = await taskOps.createTaskGoal({
     objective: parsed.objective,
     sessionId: parsed.sessionId,
     tokenBudget: parsed.tokenBudget,
@@ -102,7 +101,7 @@ async function handleCreateGoal(
   });
   // B2-2（2026-09-23）：目标生命周期事件族的第一条 —— 创建成功后落 `goal/created`。
   // 目标无归属会话（`sessionId` 缺省）⇒ **不产事件**（会话事件无处可落，不硬凑）。
-  await emitGoalCreated({
+  await taskOps.emitGoalCreated({
     goalId: goal.id,
     objective: goal.objective,
     sessionId: goal.sessionId,
@@ -143,10 +142,10 @@ async function handleListGoals(
     return;
   }
 
-  const store = getTaskGoalStore();
+  const taskOps = await getCoreAPI().getTaskOpsPort();
   const goals = activeOnly
-    ? await store.listActive(sessionId)
-    : await store.listBySession(sessionId as string);
+    ? await taskOps.listActiveTaskGoals(sessionId)
+    : await taskOps.listTaskGoalsBySession(sessionId as string);
   json(res, 200, { goals, count: goals.length });
 }
 
@@ -205,13 +204,13 @@ async function handlePatchGoal(
     tokenBudget = raw;
   }
 
-  const store = getTaskGoalStore();
-  const before = await store.get(goalId);
+  const taskOps = await getCoreAPI().getTaskOpsPort();
+  const before = await taskOps.getTaskGoal(goalId);
   if (!before) {
     json(res, 404, { error: { message: `目标 ${goalId} 不存在` } });
     return;
   }
-  if (isTerminalGoalStatus(before.status)) {
+  if (await taskOps.isTerminalGoalStatus(before.status)) {
     json(res, 409, {
       error: {
         message: `目标 ${goalId} 已是终态（${before.status}），不可改写`,
@@ -233,7 +232,7 @@ async function handlePatchGoal(
     return;
   }
 
-  const updated = await store.updateFields(goalId, changes, 'manual');
+  const updated = await taskOps.updateTaskGoalFields(goalId, changes, 'manual');
   if (!updated) {
     // 条件更新未命中（并发下落终态）⇒ 与"已是终态"同口径回 409，不谎报成功
     json(res, 409, {
@@ -241,7 +240,7 @@ async function handlePatchGoal(
     });
     return;
   }
-  await emitGoalUpdated({
+  await taskOps.emitGoalUpdated({
     sessionId: updated.sessionId,
     goalId: updated.id,
     changes,

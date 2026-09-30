@@ -30,7 +30,8 @@
 
 import type http from 'http';
 import { sendError } from './handler-utils';
-import { taskRegistry } from '@modules/tasks';
+// C1（2026-09-30 D-98，`tasks` 域 P1）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
 export async function handleListTasks(
@@ -38,7 +39,8 @@ export async function handleListTasks(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const tasks = taskRegistry.getAllTasks();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const tasks = await taskOps.listAllTasks();
     const taskInfos = tasks.map((t) => {
       const s = t.taskState;
       return {
@@ -68,12 +70,13 @@ export async function handleCancelTask(
   taskId: string
 ): Promise<void> {
   try {
-    const task = taskRegistry.getTask(taskId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const task = await taskOps.getRegisteredTask(taskId);
     if (!task) {
       sendError(res, `Task not found: ${taskId}`, 404);
       return;
     }
-    await taskRegistry.kill(taskId);
+    await taskOps.killTask(taskId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, taskId }));
   } catch (e) {
@@ -92,12 +95,13 @@ export async function handleRemoveTask(
   taskId: string
 ): Promise<void> {
   try {
-    const task = taskRegistry.getTask(taskId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const task = await taskOps.getRegisteredTask(taskId);
     if (!task) {
       sendError(res, `Task not found: ${taskId}`, 404);
       return;
     }
-    await taskRegistry.remove(taskId);
+    await taskOps.removeTask(taskId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true, taskId }));
   } catch (e) {

@@ -67,7 +67,7 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   web_search: 'search',
   tool_search: 'search',
   search_codebase: 'search',
-  Skill: 'search',
+  skill: 'search',
   skill_view: 'search',
   skills_list: 'search',
 
@@ -126,13 +126,13 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   sessions_yield: 'session',
 
   // ── agent 代理 ──
-  Agent: 'agent',
+  agent: 'agent',
   TeamCreate: 'agent',
   TeamDelete: 'agent',
 
   // ── system 系统 ──
-  MonitorTool: 'system',
-  TraceRecordingTool: 'system',
+  monitor: 'system',
+  trace_recording: 'system',
   time: 'system',
   sleep: 'system',
   // N-44 扩展（2026-09-20，用户决策）：自唤醒工具补登记 —— 与同族的阻塞式 `sleep`
@@ -142,8 +142,8 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   config: 'system',
   repl: 'system',
   notebook: 'system',
-  EnterWorktree: 'system',
-  ExitWorktree: 'system',
+  enter_worktree: 'system',
+  exit_worktree: 'system',
 
   // ── interaction 交互 ──
   ask_user_question: 'interaction',
@@ -161,7 +161,7 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── channel 通道 ──
   channel: 'channel',
   broadcast: 'channel',
-  ListPeers: 'channel',
+  list_peers: 'channel',
 
   // ── calendar 日历 ──
   'calendar:add': 'calendar',
@@ -185,10 +185,10 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── mcp 三方 MCP 工具 ──
   // N-44：静态名归入 'mcp'；**动态名**（`McpToolWrapper` 的 `${server}__${tool}`）由
   // `getToolCategory` 的双下划线判据兜住（见该函数注释）。
-  MCPTool: 'mcp',
+  mcp_tool: 'mcp',
   mcp_resource: 'mcp',
-  ListMcpResources: 'mcp',
-  ReadMcpResource: 'mcp',
+  list_mcp_resources: 'mcp',
+  read_mcp_resource: 'mcp',
 
   // ── assist 通用协作助手 ──
   // N-44（2026-09-20，用户决策）：plan / clipboard / canvas 从 misc 迁出 ——
@@ -331,9 +331,9 @@ export const DEFAULT_TASK_KEY = 'default';
  * → 普通对话中 todo_write 被裁剪 → 模型永不调用 → TaskCard 永不出现。
  * 任务/进度卡是通用协作能力，任何对话都须可用，故列为 mandatory 恒保留。
  *
- * N-41（2026-09-20）：`Agent` 同理恒保留。实测 `taskType:"default"` 裁剪日志
- * （`streamMessageFlow` 的「按任务裁剪工具集」，before:60 → after:26）中 `Agent`
- * 与 `sessions_yield` 均在 `removedNames` 内 ⇒ 普通对话里模型**看不到** Agent，
+ * N-41（2026-09-20）：`agent` 同理恒保留。实测 `taskType:"default"` 裁剪日志
+ * （`streamMessageFlow` 的「按任务裁剪工具集」，before:60 → after:26）中 `agent`
+ * 与 `sessions_yield` 均在 `removedNames` 内 ⇒ 普通对话里模型**看不到** agent，
  * 只能靠"越清单直接调用"（provider 不校验工具名是否在清单内、后端按注册表解析）
  * 侥幸可用 —— 表现即"时好时坏 / 模型自述该工具不可用"。并行子代理是通用协作能力，
  * 故纳入 mandatory（模型当轮即可派发并拿到结果，不依赖 yield）。
@@ -342,7 +342,7 @@ export const DEFAULT_TASK_KEY = 'default';
  * 等子代理结算"，属长流程；若模型登记了却无人结算，会话会停在 running 等待态。
  * 它仍留在全量注册表（`sessions_yield` 可被越清单调用，恢复通路已装配）。
  */
-const MANDATORY_TOOLS: ReadonlySet<string> = new Set(['todo_write', 'Agent']);
+const MANDATORY_TOOLS: ReadonlySet<string> = new Set(['todo_write', 'agent']);
 
 /**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。

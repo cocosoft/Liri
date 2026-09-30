@@ -30,6 +30,24 @@ import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/chat/types/events';
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
+// C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）
+import type { ThirdPartySkillAdapterPort } from './thirdPartySkillPorts';
+// C1（2026-09-30 D-92）：插件管理**服务层端口**（见同目录 pluginAdminPorts.ts）
+import type { PluginAdminPort } from './pluginAdminPorts';
+// C1（2026-09-30 D-93）：工具运行时**服务层端口**（见同目录 toolsPorts.ts）
+import type { ToolsPort } from './toolsPorts';
+// C1（2026-09-30 D-95）：知识库运维 P1**服务层端口**（见同目录 knowledgeOpsPorts.ts）
+import type { KnowledgeOpsPort } from './knowledgeOpsPorts';
+// C1（2026-09-30 D-98）：任务运维 P1**服务层端口**（见同目录 taskOpsPorts.ts）
+import type { TaskOpsPort } from './taskOpsPorts';
+// C1（2026-09-30 D-106）：AI 运维 P1**服务层端口**（见同目录 aiOpsPorts.ts）
+import type { AiOpsPort } from './aiOpsPorts';
+// C1（2026-09-30 D-111，零散单点收尾）：三个小域**服务层端口**
+import type { QueryOpsPort } from './queryOpsPorts';
+import type { BuddyOpsPort } from './buddyOpsPorts';
+import type { CommandsOpsPort } from './commandsOpsPorts';
+import type { WorkspaceOpsPort } from './workspaceOpsPorts';
+import type { ProjectOpsPort } from './projectOpsPorts';
 
 /** 进度事件，用于通知调用方当前 AI 处理阶段 */
 export interface ProgressEvent {
@@ -367,6 +385,215 @@ export interface CoreAPI {
 
   /** 获取指定工具详情 */
   getTool(name: string): Promise<ToolInfo | undefined>;
+
+  // ========== 领域只读快照（HTTP 等 service 侧消费；2026-09-30 D-85）==========
+
+  /**
+   * Git 上下文快照（**只读**）。
+   *
+   * 2026-09-30（台账 D-85，C1「口径 C」）：此前 HTTP handler 直接动态导入 app 层
+   * `context/GitContextService` ⇒ `service → app` 跨层引用（只在 `R00-003` 里可见）。
+   * 改为经本门面暴露 ⇒ **handler 只依赖 service 层**；app 侧动态导入收敛到
+   * `CoreAPIImpl`（本仓既有的 sanctioned `service → app` 缝，如 `chatManager` / `chat()`）。
+   *
+   * ⚠️ **DTO 内联自持**：不引用 app 层类型（`R00-001` 连类型导入也计），字段按结构对齐
+   * app 层 `GitContextService.GitStatusInfo`。
+   */
+  getGitContextSnapshot(): Promise<{
+    /** 是否为 Git 仓库 */
+    isGitRepo: boolean;
+    /** 仓库状态详情（非仓库时为 null） */
+    status: {
+      branch: string;
+      mainBranch: string;
+      status: string;
+      recentCommits: string;
+      userName: string | null;
+    } | null;
+  }>;
+
+  /**
+   * PathGuard 指标快照（只读，HTTP 路由用）。
+   *
+   * 2026-09-30（台账 D-85，C1「口径 C」）：原 `monitoring-handlers.ts` 直接动态导入
+   * `@modules/chat/services/PathGuardService`（`service → app`，仅 `R00-003` 可见）⇒ 收敛到本门面。
+   * **DTO 不透明**（`Record<string, unknown>`）：service 侧**仅透传序列化**、不读字段 ⇒ 避免镜像字段漂移。
+   */
+  getPathGuardMetrics(): Promise<Record<string, unknown>>;
+
+  /** 重置 PathGuard 指标（上一条的写侧对应操作） */
+  resetPathGuardMetrics(): Promise<void>;
+
+  // ========== 工作空间（HTTP 路由用；2026-09-30 D-85）==========
+
+  /** 列出工作空间条目（字段与 app 层 `WorkspaceStorage.buildEntries()` 对齐并摊平 meta） */
+  listWorkspaceEntries(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      path: string;
+      description: string | undefined;
+      createdAt: string;
+      updatedAt: string;
+    }>
+  >;
+
+  /** 按 id 取工作空间物理路径（不存在时 null） */
+  getWorkspacePath(workspaceId: string): Promise<string | null>;
+
+  /** 删除工作空间（按物理路径；与 app 层 `deleteWorkspace(path)` 同义） */
+  deleteWorkspace(path: string): Promise<void>;
+
+  // ========== 梦境（HTTP 路由用；2026-09-30 D-87）==========
+  // ⚠️ 全部为**不透明 DTO**：service 侧仅透传序列化（原 handler 即如此）⇒ 不镜像 app 字段，免漂移。
+
+  /** 梦境周期列表（分页 / 来源 / 状态 / 时间窗 / 排序；返回值调用方**展开**使用 ⇒ `object`） */
+  listDreamCycles(params: {
+    page: number;
+    pageSize: number;
+    triggerSource?: string;
+    status?: string;
+    startTime?: number;
+    endTime?: number;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<object>;
+
+  /** 梦境周期查询 + 聚合（app 层 `queryCycles` + `aggregateCycles`） */
+  queryDreamCycles(filter: {
+    from?: number;
+    to?: number;
+    triggerSource?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<{ cycles: unknown; stats: unknown }>;
+
+  /** 读取单个梦境周期（不存在时 null） */
+  getDreamCycle(cycleId: string): Promise<unknown | null>;
+
+  /** 读取梦境指标（文件缺失/读取失败时 null —— 原 handler 以 `catch {}` 吞掉） */
+  readDreamMetrics(): Promise<unknown | null>;
+
+  // ========== 知识库文档（HTTP 路由用；2026-09-30 D-88）==========
+  // `buildIndex()` 的返回值调用方**会 `.map`/`.length` 并读字段** ⇒ 不能用 `unknown`/`object`，
+  // 故按消费方**实际读取面**给最小投影 DTO（字段一律 `?: T | undefined`，兼容 app 侧"可选"与"必填含 undefined"两种写法）。
+
+  /** 知识库文档索引（app 层 `FileDocsProvider.buildIndex()`；单例透传） */
+  buildKnowledgeDocsIndex(): Promise<
+    Array<{
+      /** app 侧为**必填** `string`（原调用方直接传入 `path.join` 无回退 ⇒ 据此定必填） */
+      relativePath: string;
+      content?: string | undefined;
+      title?: string | undefined;
+      source?: string | undefined;
+      category?: string | undefined;
+      tags?: string[] | undefined;
+    }>
+  >;
+
+  /** 清空知识库文档索引缓存（app 层同一单例的 `clearCache()`） */
+  clearKnowledgeDocsCache(): Promise<void>;
+
+  // ========== 第三方技能适配器（HTTP 路由用；2026-09-30 D-90）==========
+
+  /**
+   * 取得 ClawHub 第三方技能适配器（**服务层端口**，见 `./thirdPartySkillPorts`）。
+   *
+   * **为什么是"端口 + 单入口"而非平铺方法**：该适配器有 **12+ 方法 / 19 处调用点**，
+   * 平铺会撑爆本接口（详见 spec `layer-inversion-a-class-inventory.md` §3.8）。
+   * 编排（registry 查找 → `instanceof` 收窄 → `initialize()` → 单例 fallback）内聚在 `CoreAPIImpl`。
+   */
+  getClawHubSkillAdapter(): Promise<ThirdPartySkillAdapterPort>;
+
+  // ---- 技能 ID 安全 / 权限解析（同批：消除 handler 内剩余 `@modules/skills/**` 动态导入，D-91）----
+
+  /** 技能 ID 校验（app 层 `safeSkillId.validateSkillId`；返回**错误信息**，`null` = 通过） */
+  validateSkillId(id: string): Promise<string | null>;
+
+  /** 技能 ID 清洗（app 层 `safeSkillId.sanitizeSkillId`；返回安全目录名，可能为空串） */
+  sanitizeSkillId(name: string): Promise<string>;
+
+  /**
+   * SKILL.md 是否**声明了敏感权限**（需用户审批）。
+   * 合并门面：内部等价于 app 层 `hasSensitivePermission(parseSkillPermissions(text))` ——
+   * 合并为**单布尔输出**可避免把 app 的权限类型泄漏到服务层（端口禁止引用 app 类型）。
+   */
+  skillMdRequiresApproval(skillMdText: string): Promise<boolean>;
+
+  /**
+   * 解析 SKILL.md frontmatter（app 层 `skillParser.parseSkillFrontmatter` 的**最小投影**）。
+   * 调用方只读 `frontmatter.description`（其余键自行 `as Record<string, unknown>` 收窄），
+   * 故此处仅声明 `frontmatter` 存在性与 `description`；`frontmatter` 可为 `undefined`
+   * （调用方原用 `?.` 访问 ⇒ 据此定可选）。
+   */
+  parseSkillFrontmatter(content: string): Promise<{
+    frontmatter?: { description?: string | undefined } | undefined;
+  }>;
+
+  // ========== 插件管理（HTTP 路由用；2026-09-30 D-92）==========
+
+  /**
+   * 取得插件管理端口（**服务层端口**，见 `./pluginAdminPorts`）。
+   * 同 `getClawHubSkillAdapter()`：13 方法 / 13 处调用点 ⇒ 走**端口 + 单入口**而非平铺，
+   * 避免 `CoreAPI` 膨胀；app 对象引用与 `new NpmDistributor()` 内聚在 `CoreAPIImpl`。
+   */
+  getPluginAdminPort(): Promise<PluginAdminPort>;
+
+  // ========== 工具运行时（HTTP 路由用；2026-09-30 D-93）==========
+
+  /**
+   * 取得工具运行时端口（**服务层端口**，见 `./toolsPorts`）。
+   * 8 方法 / 4 文件（`video`/`image`/`knowledge`/`video-task` handler）⇒ 走**端口 + 单入口**。
+   */
+  getToolsPort(): Promise<ToolsPort>;
+
+  // ========== 知识库运维（HTTP 路由用；2026-09-30 D-95，`knowledge` 域 P1）==========
+
+  /**
+   * 取得知识库运维端口（**服务层端口**，见 `./knowledgeOpsPorts`）。
+   * P1 = 4 文件 / 13 处 / 4 对（`datasource` · `graph` · 编译调度 · `faq`）；
+   * P2/P3（`semantic-index-handlers` · `knowledge-handlers` 43 处）见 spec §3.11。
+   */
+  getKnowledgeOpsPort(): Promise<KnowledgeOpsPort>;
+
+  // ========== 任务运维（HTTP 路由用；2026-09-30 D-98，`tasks` 域 P1）==========
+
+  /**
+   * 取得任务运维端口（**服务层端口**，见 `./taskOpsPorts`）。
+   * P1 = 4 文件 / 12 处（`agent1` · `agent2` · `kanban` · `task-handlers`）；
+   * P2 = `cron-handlers` 11 处（cron 四件套）；
+   * P3 = `plan-flow-handlers` 8 处（任务编排 / 计划 + 任务流注册表）+ `pdca-handlers` 11 处（PDCA）；
+   * P4 = `inbox-handlers` + `research-handlers` + `sessionWaitFields` + `goal-routes` 8 处
+   * ⇒ **`infrastructure → tasks` 整域清零**（spec §3.12）。
+   */
+  getTaskOpsPort(): Promise<TaskOpsPort>;
+
+  // ========== AI 运维（HTTP 路由用；2026-09-30 D-106，`ai` 域 P1）==========
+
+  /**
+   * 取得 AI 运维端口（**服务层端口**，见 `./aiOpsPorts`）。
+   * P1 = 4 文件 / 4 处（`LocalHTTPServiceHelpers` · `knowledge-handlers` · `semantic-index-handlers`
+   * · `research-handlers`）；
+   * P3（`agent-role` + `auth-access` + `translation`，**静态引用**）·
+   * P4 = `llama-handlers` 16 处（本地模型管理五件套）⇒ **`infrastructure → ai` 整域清零**（spec §3.13）。
+   */
+  getAiOpsPort(): Promise<AiOpsPort>;
+
+  // ========== 查询日志 / Buddy / 命令（零散单点收尾；2026-09-30 D-111）==========
+
+  /** 取得查询日志运维端口（**服务层端口**，见 `./queryOpsPorts`）—— 本批仅覆盖 `analytics-handlers` 所需面 */
+  getQueryOpsPort(): Promise<QueryOpsPort>;
+
+  /** 取得 Buddy 运维端口（**服务层端口**，见 `./buddyOpsPorts`）—— 本批 = `buddy-handlers` 所需面 */
+  getBuddyOpsPort(): Promise<BuddyOpsPort>;
+
+  /** 取得命令运维端口（**服务层端口**，见 `./commandsOpsPorts`）—— 本批 = `commands-handlers` 所需面 */
+  getCommandsOpsPort(): Promise<CommandsOpsPort>;
+
+  /** 取得工作空间运维端口（**服务层端口**，见 `./workspaceOpsPorts`）—— 本批仅覆盖**动态**取用面 */
+  getWorkspaceOpsPort(): Promise<WorkspaceOpsPort>;
+
+  /** 取得项目运维端口（**服务层端口**，见 `./projectOpsPorts`）—— 本批仅覆盖**动态**取用面 */
+  getProjectOpsPort(): Promise<ProjectOpsPort>;
 
   // ========== 会话 ==========
 

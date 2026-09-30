@@ -141,8 +141,13 @@ describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () =
     expect(rule('/dev')?.allow).toContain('write');
   });
 
-  it('网络显式放行（否则 curl/git/npm 全废）', () => {
-    expect(policy.net?.allow).toEqual(['connect_tcp', 'connect_udp']);
+  it('**不设 `net`** ⇒ 网络不受限（否则 curl/git/npm 全废）', () => {
+    // 2026-09-29（台账 D-36-① / D-38）：原实现传 `net.allow = ['connect_tcp','connect_udp']`
+    // （意图"显式放行"），但内核语义是"handle 即默认拒绝"，而 `--net-connect` 从不加 net 授权规则
+    // ⇒ 实际效果是**拒绝** CONNECT（反而误伤 curl/git/npm）。且"按任意端口放行"在内核层面
+    // **无法表达**（net 规则只能授具体端口）⇒ 正确形态 = **根本不给 `net` 字段**
+    //（不 handle ⇒ 内核视为不受限），由 `landlockNetPolicy.test.ts` 统一守卫该两态契约。
+    expect(policy.net).toBeUndefined();
   });
 
   it('cwd 与 abi 原样带出', () => {

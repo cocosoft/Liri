@@ -36,8 +36,8 @@ describe("T9' skills_list/skill_view 注册（循环根因修复回归）", () =
 
     expect(registry.getTool('skills_list')).toBeDefined();
     expect(registry.getTool('skill_view')).toBeDefined();
-    // 与 SkillTool 并列存在（SKILL_TOOL_NAME = 'Skill'）
-    expect(registry.getTool('Skill')).toBeDefined();
+    // 与 SkillTool 并列存在（SKILL_TOOL_NAME = 'skill'）
+    expect(registry.getTool('skill')).toBeDefined();
   });
 
   it('tool_search select:skills_list 可命中（模拟死循环场景）', () => {

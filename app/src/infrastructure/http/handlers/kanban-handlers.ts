@@ -21,6 +21,8 @@
 
 import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
+// C1（2026-09-30 D-98，`tasks` 域 P1）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 // ========== Kanban Handlers ==========
 
@@ -32,11 +34,8 @@ export async function handleKanbanList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    const cards = await store.loadKanbanCards();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const cards = await taskOps.listKanbanCards();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(cards));
   } catch (err) {
@@ -55,10 +54,7 @@ export async function handleKanbanCreate(
     const body = await readRequestBody(req);
     const { title, description, columnId, assignee, priority, tags } =
       JSON.parse(body);
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
     const card = {
       id: `kb_${Date.now().toString(36)}`,
       title,
@@ -69,7 +65,7 @@ export async function handleKanbanCreate(
       tags: tags || [],
       sortOrder: Date.now(),
     };
-    await store.saveKanbanCard(card);
+    await taskOps.saveKanbanCard(card);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(card));
     broadcastEvent('kanban:created', { card });
@@ -89,11 +85,8 @@ export async function handleKanbanUpdate(
   try {
     const body = await readRequestBody(req);
     const { title, description, assignee, priority, tags } = JSON.parse(body);
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    await store.saveKanbanCard({
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    await taskOps.saveKanbanCard({
       id: cardId,
       title: title || '',
       description,
@@ -118,11 +111,8 @@ export async function handleKanbanDelete(
   cardId: string
 ): Promise<void> {
   try {
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    await store.deleteKanbanCard(cardId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    await taskOps.deleteKanbanCard(cardId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
     broadcastEvent('kanban:deleted', { cardId });
@@ -142,15 +132,8 @@ export async function handleKanbanMove(
   try {
     const body = await readRequestBody(req);
     const { columnId, sortOrder } = JSON.parse(body);
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    await store.updateKanbanCardColumn(
-      cardId,
-      columnId,
-      sortOrder ?? Date.now()
-    );
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    await taskOps.moveKanbanCard(cardId, columnId, sortOrder ?? Date.now());
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
     broadcastEvent('kanban:moved', { cardId, columnId });

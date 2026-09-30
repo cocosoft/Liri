@@ -64,11 +64,8 @@ export async function handleGetAgentTaskState(
   taskId: string
 ): Promise<void> {
   try {
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    const state = await store.getTaskState(taskId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const state = await taskOps.getTaskState(taskId);
     if (!state) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Task not found' }));
@@ -101,11 +98,8 @@ export async function handleGetAgentTaskAudit(
   taskId: string
 ): Promise<void> {
   try {
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    const logs = await store.queryAuditLogs(taskId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const logs = await taskOps.queryTaskAuditLogs(taskId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(logs));
   } catch (err) {
@@ -137,11 +131,8 @@ export async function handleGetAgentTaskLogs(
 
     // 从 SQLite 加载日志
     try {
-      const { SqliteTaskStore } =
-        await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      const state = await store.getTaskState(taskId);
+      const taskOps = await getCoreAPI().getTaskOpsPort();
+      const state = await taskOps.getTaskState(taskId);
       if (state) {
         logs.push(
           `Task: ${state.description || taskId} | Status: ${state.status} | Type: ${state.type}`
@@ -191,11 +182,8 @@ export async function handleGetAgentTaskOutput(
 ): Promise<void> {
   try {
     const fs = await import('fs');
-    const { SqliteTaskStore } =
-      await import('@modules/tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    await store.init();
-    const state = await store.getTaskState(taskId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const state = await taskOps.getTaskState(taskId);
 
     let output = '';
     if (state?.outputFile && fs.existsSync(state.outputFile)) {
@@ -229,8 +217,8 @@ export async function handleRecoverAgentTask(
   taskId: string
 ): Promise<void> {
   try {
-    const { taskRegistry } = await import('@modules/tasks');
-    const recovered = await taskRegistry.recoverLostTask(taskId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const recovered = await taskOps.recoverLostTask(taskId);
     if (!recovered) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Task not found or not in LOST state' }));

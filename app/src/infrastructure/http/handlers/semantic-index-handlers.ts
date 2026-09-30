@@ -23,6 +23,11 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { getLogger } from '@modules/monitoring';
 import { randomUUID } from 'node:crypto';
+// C1（2026-09-30 D-96，`knowledge` 域 P2）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// ⚠️ **类型位** app 类型已替换为服务层端口类型（原为 semantic store 模块的 SemanticStore；
+// 此处**故意不写完整导入路径** —— 门禁 `parseModuleImports` 不剥离注释，写了会让「对」复活，见台账 D-77）
+import type { SemanticStorePort } from '@modules/runtime/api/knowledgeOpsPorts';
 
 const logger = getLogger('http:semanticIndex');
 
@@ -73,9 +78,7 @@ function findRunningTask(): string | null {
 
 // ── 搜索共享单例（KB-SEM-P13：避免每次请求全量解析 JSONL） ─────────────
 
-let sharedStore:
-  | import('@modules/knowledge/semantic/store').SemanticStore
-  | null = null;
+let sharedStore: SemanticStorePort | null = null;
 let sharedStoreDir = '';
 let sharedStoreStamp = '';
 
@@ -83,13 +86,9 @@ let sharedStoreStamp = '';
  * 获取共享 SemanticStore。通过比对 index.meta.json 的 updatedAt 判断索引是否
  * 变化，变化才重新 load——保证复用缓存的同时索引更新后立即可见
  */
-async function getSharedStore(
-  indexDir: string
-): Promise<import('@modules/knowledge/semantic/store').SemanticStore> {
-  const { SemanticStore, readIndexMeta } =
-    await import('@modules/knowledge/semantic/store');
-  const meta = await readIndexMeta(indexDir);
-  const stamp = meta?.updatedAt ?? '';
+async function getSharedStore(indexDir: string): Promise<SemanticStorePort> {
+  const port = await getCoreAPI().getKnowledgeOpsPort();
+  const stamp = await port.readSemanticIndexStamp(indexDir);
   if (
     sharedStore &&
     sharedStoreDir === indexDir &&
@@ -97,11 +96,8 @@ async function getSharedStore(
   ) {
     return sharedStore;
   }
-  const store = new SemanticStore(indexDir, {
-    provider: 'local',
-    model: 'nomic-embed-text',
-  });
-  await store.load();
+  // `new SemanticStore(...)` + `load()`（含 provider/model）均已内聚到端口实现
+  const store = await port.createSemanticStore(indexDir);
   sharedStore = store;
   sharedStoreDir = indexDir;
   sharedStoreStamp = stamp;
@@ -130,15 +126,11 @@ export async function handleBuildSemanticIndex(
   try {
     const body = await readRequestBody(req);
     const { rootDir, incremental = true } = JSON.parse(body);
-    const { IndexBuilder } =
-      await import('@modules/knowledge/semantic/builder');
-    const { getDefaultKnowledgeBaseRegistry } =
-      await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const builder = new IndexBuilder();
+    const kbPort = await getCoreAPI().getKnowledgeOpsPort();
+    const builder = await kbPort.createSemanticIndexBuilder();
     // KB-SEM（2026-08-27）：rootDir 默认改为知识库目录——原 `rootDir || resolvePyappHome()`
     // 在用户点"构建索引"（传空）时扫整个 ~/.pyapp 数据目录，索引与知识库完全脱节
-    const effectiveRoot =
-      rootDir || getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const effectiveRoot = rootDir || (await kbPort.getDefaultKnowledgeRoot());
 
     // 幂等：已有进行中任务则直接返回其 taskId
     const runningId = findRunningTask();
@@ -270,15 +262,15 @@ export async function handleSearchSemantic(
       return;
     }
 
-    const { globalEmbeddingManager } = await import('@modules/ai');
     const { resolveDataSubDir } = await import('@modules/core/paths');
     const indexDir = resolveDataSubDir('semantic-index');
     // KB-SEM-P13（2026-08-27）：复用共享单例——原实现每次请求 new SemanticStore
     // + load() 全量解析 JSONL，文档多时搜索慢
     const store = await getSharedStore(indexDir);
 
-    await globalEmbeddingManager.initialize();
-    const embedding = await globalEmbeddingManager.embedOne(query);
+    const aiOps = await getCoreAPI().getAiOpsPort();
+    await aiOps.initGlobalEmbedding();
+    const embedding = await aiOps.embedOneText(query);
     if (embedding.length === 0) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Embedding failed' } }));
@@ -319,20 +311,15 @@ export async function handleGetSemanticIndexStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { SemanticStore, readIndexMeta } =
-      await import('@modules/knowledge/semantic/store');
     const { resolveDataSubDir } = await import('@modules/core/paths');
     const { stat } = await import('fs/promises');
     const { join } = await import('path');
     const indexDir = resolveDataSubDir('semantic-index');
-    // KB-SEM（2026-08-27）：provider/model 与构建/搜索统一，避免三处配置漂移
-    const store = new SemanticStore(indexDir, {
-      provider: 'local',
-      model: 'nomic-embed-text',
-    });
-    await store.load();
+    // KB-SEM（2026-08-27）：provider/model 与构建/搜索统一 —— 现由端口实现统一，避免三处配置漂移
+    const kbPort = await getCoreAPI().getKnowledgeOpsPort();
+    const store = await kbPort.createSemanticStore(indexDir);
 
-    const meta = await readIndexMeta(indexDir);
+    const meta = await kbPort.readSemanticIndexMeta(indexDir);
     // KB-SEM（2026-08-27）：docCount 按 path 去重统计文档数（原 `store.size` 是片段数，
     // 导致"文档数"与"片段数"永远相等）；补 sizeBytes（索引文件实际占用）
     const docCount = new Set(store.all.map((e) => e.path)).size;
@@ -371,10 +358,10 @@ export async function handleClearSemanticIndex(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { wipeStoreFiles } =
-      await import('@modules/knowledge/semantic/store');
     const { resolveDataSubDir } = await import('@modules/core/paths');
-    await wipeStoreFiles(resolveDataSubDir('semantic-index'));
+    await (await getCoreAPI().getKnowledgeOpsPort()).wipeSemanticStoreFiles(
+      resolveDataSubDir('semantic-index')
+    );
     // KB-SEM-P13：索引已清空，共享 store 缓存失效
     resetSharedStore();
     res.writeHead(200, { 'Content-Type': 'application/json' });

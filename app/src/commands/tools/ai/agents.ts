@@ -57,7 +57,7 @@ function formatDuration(ms: number): string {
 /**
  * 从工具管理器获取 AgentTool 实例（R6，2026-09-22）
  *
- * 原 `tool instanceof AgentTool` 恒为 false（`getTool('Agent')` 返回 `ToolLazyWrapper`，
+ * 原 `tool instanceof AgentTool` 恒为 false（`getTool('agent')` 返回 `ToolLazyWrapper`，
  * `implements Tool` 非 extends）⇒ 命令层停批次静默失效。现统一走共享解析器。
  */
 function getAgentTool(): AgentTool | null {

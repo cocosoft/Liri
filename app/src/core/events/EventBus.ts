@@ -4,14 +4,14 @@
  */
 
 import {
-  Logger,
-  getLogger as getModuleLogger,
-} from '@modules/monitoring/logs/Logger.js';
+  getLogger as resolveCoreLogger,
+  type ILogger,
+} from '../loggerFacade.js';
 
-let _logger: Logger | null = null;
-function getLogger(): Logger {
+let _logger: ILogger | null = null;
+function getLogger(): ILogger {
   if (!_logger) {
-    _logger = getModuleLogger('core:events');
+    _logger = resolveCoreLogger('core:events');
   }
   return _logger;
 }

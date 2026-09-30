@@ -21,6 +21,8 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
+// C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 // ========== Buddy Handlers ==========
 
@@ -33,8 +35,9 @@ export async function handleGetBuddy(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCompanion } = await import('@modules/buddy');
-    const companion = getCompanion();
+    const companion = await (
+      await getCoreAPI().getBuddyOpsPort()
+    ).getBuddyCompanion();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(companion || null));
   } catch {
@@ -54,15 +57,14 @@ export async function handleBuddyInteract(
   try {
     const body = await ctx.readRequestBody(req);
     const { action } = JSON.parse(body);
-    const { InteractionManager, getCompanion } = await import('@modules/buddy');
-    const companion = getCompanion();
+    const buddyOps = await getCoreAPI().getBuddyOpsPort();
+    const companion = await buddyOps.getBuddyCompanion();
     if (!companion) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ message: '暂无 Buddy', statChanges: {} }));
       return;
     }
-    const manager = new InteractionManager();
-    const result = await manager.execute(companion, action);
+    const result = await buddyOps.executeBuddyInteraction(companion, action);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
     ctx.broadcastEvent('buddy:interacted', {
@@ -83,8 +85,9 @@ export async function handleGetBuddyStats(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getDreamStats } = await import('@modules/buddy/dreamLogStore');
-    const dreamStats = await getDreamStats();
+    const dreamStats = await (
+      await getCoreAPI().getBuddyOpsPort()
+    ).getBuddyDreamStats();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -119,15 +122,13 @@ export async function handleGetDreamLogs(
     const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
     const typeFilter = urlObj.searchParams.get('type') || '';
 
-    const { getDreamLogs, getDreamLogsByType, getDreamStats } =
-      await import('@modules/buddy/dreamLogStore');
+    const buddyOps = await getCoreAPI().getBuddyOpsPort();
 
     const result = typeFilter
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await getDreamLogsByType(typeFilter as any, limit, offset)
-      : await getDreamLogs(limit, offset);
+      ? await buddyOps.getBuddyDreamLogsByType(typeFilter, limit, offset)
+      : await buddyOps.getBuddyDreamLogs(limit, offset);
 
-    const stats = await getDreamStats();
+    const stats = await buddyOps.getBuddyDreamStats();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ...result, stats }));
@@ -159,21 +160,16 @@ export async function handleGetBackgroundStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const [
-      { getDreamStats, getDreamLogs },
-      { loadGrowthState },
-      { getBackgroundTaskLog, detectTaskAlerts },
-    ] = await Promise.all([
-      import('@modules/buddy/dreamLogStore'),
-      import('@modules/buddy/growthPersistence'),
-      import('@modules/monitoring'),
-    ]);
+    const buddyOps = await getCoreAPI().getBuddyOpsPort();
+    const { getBackgroundTaskLog, detectTaskAlerts } = await import(
+      '@modules/monitoring'
+    );
 
-    const dreamStats = await getDreamStats();
-    const recentLogs = await getDreamLogs(10);
+    const dreamStats = await buddyOps.getBuddyDreamStats();
+    const recentLogs = await buddyOps.getBuddyDreamLogs(10);
 
     // 成长统计从持久化层读取（与 DreamGrowthTracker 共享同一文件）
-    const growth = await loadGrowthState();
+    const growth = await buddyOps.loadBuddyGrowthState();
     // §9.3 统一后台任务事件日志（R08-002 配套，各后台模块四态事件）
     const recentTasks = await getBackgroundTaskLog(20);
     // §9.3 阶段 2：连续失败/持续跳过提醒（阈值 3 次）

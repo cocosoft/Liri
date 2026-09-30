@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../../loggerFacade.js';
+import { handleError } from '../../errorHandler.js';
 
 const logger = getLogger('core:delivery:monitor:diskSpaceMonitor');
 

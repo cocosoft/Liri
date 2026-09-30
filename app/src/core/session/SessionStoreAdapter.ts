@@ -3,16 +3,34 @@
  *
  * SessionSupervisor 需要精简的 SessionStore 接口（listSessions/markIdle/deleteSession），
  * 而 session/SessionStore 接口更丰富。本适配器桥接二者。
+ *
+ * G1 收口（台账 D-59）：输入侧不再引用 session（service 层）的 `SessionStore` 类，
+ * 改由 core 自持结构端口 `SessionStorePort`（上层实现结构满足），消除 core → service 倒挂。
  */
 
 import type {
   SessionStore as SessionSupervisorStore,
   SessionSummary,
 } from './SessionSupervisor';
-import type { SessionStore } from '@modules/session';
+
+/** 适配所需的最小会话视图（core 侧自持，避免依赖 session 层模型） */
+export interface SupervisedSessionView {
+  id: string;
+  createdAt: Date | string | number;
+  updatedAt: Date | string | number;
+  state?: { currentState: string };
+}
+
+/** 被适配的会话存储端口（session/SessionStore 结构满足） */
+export interface SessionStorePort {
+  listSessions(): Promise<string[]>;
+  loadSession(sessionId: string): Promise<SupervisedSessionView | null>;
+  saveSession(session: SupervisedSessionView): Promise<void>;
+  deleteSession(sessionId: string): Promise<void>;
+}
 
 export function createSupervisorStore(
-  sessionStore: SessionStore
+  sessionStore: SessionStorePort
 ): SessionSupervisorStore {
   return {
     async listSessions(): Promise<SessionSummary[]> {

@@ -17,6 +17,7 @@
  * 三处同步（LiriEventType / LiriEventMap / ALL_SESSION_EVENT_TYPES）语义不变。
  */
 
+import { LIRI_EVENT_NAMES } from '@shared/events/eventNames';
 import type { LiriEventMap } from './eventPayloads';
 
 // ─── 事件类型枚举 ─────────────────────────────────────────────────────────────
@@ -24,85 +25,13 @@ import type { LiriEventMap } from './eventPayloads';
 /**
  * 事件类型（细粒度）
  *
- * 命名约定：`<分类>/<动作>`
- *   - conversation 分类：user/message, assistant/*
- *   - tool 分类：assistant/tool_call, tool/result
- *   - context 分类：context/*
- *   - system 分类：system/*, metric/*
- *   - channel 分类：channel/*
- *   - lifecycle 分类：turn/*, session/*
+ * **事件名单一事实源**：`shared/events/eventNames.ts`（双端共用，2026-09-30，台账 D-57）。
+ * 本联合由其派生；原分组注释与命名约定（`<分类>/<动作>`）已随清单移入该文件。
+ *
+ * 三处同步不变：① 本联合（派生）；② `LiriEventMap` 载荷（由 `LiriEvent<T>.data` 泛型索引强制）；
+ * ③ `ALL_SESSION_EVENT_TYPES` 清单（文件末穷尽断言）。
  */
-export type LiriEventType =
-  // ─── 对话核心 ───
-  | 'turn/start'
-  | 'turn/end'
-  | 'user/message'
-  | 'assistant/thinking'
-  | 'assistant/text'
-  // F-2（2026-09-02）：text 流式 chunk 聚合批事件（服务端 64KB/2s 合并落盘）
-  | 'assistant/text-batch'
-  | 'assistant/tool_call'
-  | 'tool/result'
-  | 'tool/canceled'
-  // ─── 富块（M4-1-a 扩展，覆盖 question/todo/progress/doc_workflow/status） ───
-  | 'assistant/status'
-  | 'assistant/progress'
-  | 'assistant/question'
-  | 'assistant/todo'
-  | 'assistant/doc_workflow'
-  // P2-A（2026-09-17）：PDCA 自动启动快照富块（聊天正文内嵌卡片）
-  | 'assistant/pdca_workflow'
-  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
-  | 'assistant/workflow_run_start'
-  | 'assistant/workflow_step_start'
-  | 'assistant/workflow_step_end'
-  | 'assistant/workflow_run_end'
-  | 'assistant/truncation'
-  // ─── 交付物/diff（E-1，2026-08-23：deliverable/diff 事件化，T-H.2） ───
-  | 'assistant/deliverable'
-  | 'assistant/diff'
-  // ─── 上下文管理 ───
-  | 'context/compaction'
-  | 'context/summary'
-  // TR-12-B（2026-09-22）：模型输入快照（工具清单 + 系统提示词分段，引用式去重）
-  | 'context/model-input'
-  // D-1（2026-09-02）：会话远期摘要事件化落盘（摘要也是轨迹，见 §8 设计）
-  | 'session/summary'
-  // ─── 系统与日志 ───
-  | 'system/error'
-  | 'system/warning'
-  | 'system/info'
-  | 'metric/timing'
-  // ─── 通道 ───
-  | 'channel/connect'
-  | 'channel/disconnect'
-  | 'channel/message'
-  // P2-2（2026-09-23）：请求边界事件 —— turn × request 双边界
-  // （见 `.trae/specs/request-boundary-events.md` v0.2；requestId = 本事件的 seq）
-  | 'request/start'
-  // B2-2（2026-09-23）：目标（Goal）生命周期事件族 —— 见 `.trae/specs/goal-entity.md` §4.1。
-  // `goal/injected` 是 §1.6「模型可见 ⇔ 已落盘」红线（缺口 X2）的正面修复：
-  // 目标指令（预算收尾 / 停滞停止 / idle 续接）进了模型输入，就必须有事件可重建。
-  | 'goal/created'
-  | 'goal/updated'
-  | 'goal/status_changed'
-  | 'goal/injected'
-  // P1-1②（2026-09-28）：**输出校验回喂**事件 —— 终稿未通过服务端结构预检（当前为 mermaid）
-  // 时，注入模型的修正指令同样属"模型可见输入"，必须可重建（§1.6 红线，与 `goal/injected`
-  // 同一理由：`text` 记注入原文，通道前缀由通道自身拼装）。
-  | 'validation/injected'
-  // B4-1（2026-09-23）：子代理恢复通路审计事件（认领 / 恢复 / 放弃各一条）——
-  // log-only（不入消息 surface，与 `session/title` 同口径）：它描述的是**恢复通路**，
-  // 不是模型看到的内容。修复前这三个可判定节点**只有 logger 文本**，
-  // 崩溃后"这次恢复到底发生了什么"无法从持久层按序重建。
-  | 'agent/recovery'
-  // ─── 生命周期 ───
-  | 'session/start'
-  | 'session/end'
-  // ─── 标题（D5，2026-08-24：标题事件化，log-only 不入消息 surface） ───
-  | 'session/title'
-  // ─── Code Mode（CM-5，2026-08-25：code_run 执行事件） ───
-  | 'assistant/code_run';
+export type LiriEventType = (typeof LIRI_EVENT_NAMES)[number];
 
 // ─── 事件结构 ───────────────────────────────────────────────────────────────
 

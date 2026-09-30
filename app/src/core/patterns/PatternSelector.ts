@@ -12,7 +12,7 @@
  * 与 agent 层 StrategySelector（agent 类型→路由）职责区分，不混用。
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '../loggerFacade.js';
 import type { PatternMatchSpec, PatternName } from './types.js';
 
 const logger = getLogger('core:patterns:selector');

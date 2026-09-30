@@ -23,6 +23,32 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('permission:checker');
 
 /**
+ * 权限检查器的**运行时依赖**（由入口在启动时注入）——
+ * 2026-09-30 台账 D-126（`R00-003` P6-b / G6-b）
+ *
+ * **为什么注入而非直接导入**：`permission`（**infra**）原**动态导入** `runtime`（**service**）的
+ * `unattendedMode` / `inboxManager` ⇒ 构成 `infra -> service` 跨层引用（`R00-003` 盲区）。
+ * 改由 **entry** 注入（`service -> infra` **合法**）⇒ **零新增跨层对**。
+ * 未注入时相关分支静默降级 —— 与原 `catch {}` 语义一致。
+ */
+export interface PermissionRuntimeDeps {
+  unattendedMode: {
+    isUnattended(): boolean;
+    shouldAutoApprove(): boolean;
+  };
+  inboxManager: {
+    submit(item: Record<string, unknown>): Promise<unknown>;
+  };
+}
+
+let _runtimeDeps: PermissionRuntimeDeps | null = null;
+
+/** 注入运行时依赖（幂等，入口启动时调用一次） */
+export function setPermissionRuntimeDeps(deps: PermissionRuntimeDeps): void {
+  _runtimeDeps = deps;
+}
+
+/**
  * P1-2: 命令内容级黑白名单决策（「设置→自定义规则」B 体系）。
  *
  * 读取与 BashSecurityAnalyzer 相同的配置 `permission.customRules.commandRules`：
@@ -320,30 +346,25 @@ export class PermissionChecker {
       });
     }
 
-    // 无人值守模式下的降级策略
-    try {
-      const { unattendedMode } =
-        await import('@modules/runtime/UnattendedModeManager.js');
-      if (unattendedMode.isUnattended()) {
-        switch (risk) {
-          case RiskClass.READ:
-          case RiskClass.DISCUSS:
-            return createAllowDecision(
-              'Unattended: auto-allow low-risk operation'
-            );
-          case RiskClass.WRITE_LOCAL:
-          case RiskClass.EXTERNAL:
-            if (unattendedMode.shouldAutoApprove()) {
-              return createAllowDecision('Unattended: auto-approve write');
-            }
-            return this._submitToInbox(toolName, input, context, risk);
-          case RiskClass.SHELL:
-            // Shell 在无人值守下不自动放行，进 Inbox
-            return this._submitToInbox(toolName, input, context, risk);
-        }
+    // 无人值守模式下的降级策略（运行时依赖由入口注入；未注入 ⇒ 跳过本分支）
+    const unattendedMode = _runtimeDeps?.unattendedMode;
+    if (unattendedMode?.isUnattended()) {
+      switch (risk) {
+        case RiskClass.READ:
+        case RiskClass.DISCUSS:
+          return createAllowDecision(
+            'Unattended: auto-allow low-risk operation'
+          );
+        case RiskClass.WRITE_LOCAL:
+        case RiskClass.EXTERNAL:
+          if (unattendedMode.shouldAutoApprove()) {
+            return createAllowDecision('Unattended: auto-approve write');
+          }
+          return this._submitToInbox(toolName, input, context, risk);
+        case RiskClass.SHELL:
+          // Shell 在无人值守下不自动放行，进 Inbox
+          return this._submitToInbox(toolName, input, context, risk);
       }
-    } catch {
-      // UnattendedModeManager 不可用时静默降级
     }
 
     // 非无人值守：按风险等级处理
@@ -372,8 +393,15 @@ export class PermissionChecker {
     context: PermissionContext,
     risk: RiskClass
   ): Promise<PermissionDecision> {
+    const inboxManager = _runtimeDeps?.inboxManager;
+    if (!inboxManager) {
+      // 依赖未注入（启动早期 / 非标准入口）⇒ 降级为 ask（与既有 catch 分支同语义）
+      return createAskDecision(`Inbox unavailable for ${toolName}`, undefined, {
+        submittedToInbox: false,
+      });
+    }
+
     try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       const sessionId = (context as unknown as Record<string, unknown>)
         ?.sessionId as string | undefined;
       if (!sessionId) {

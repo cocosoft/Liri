@@ -565,31 +565,7 @@ export class ErrorUtils {
   }
 }
 
-// ─── 独立便捷函数 ─────────────────────────────────
+// ─── 独立便捷函数（2026-09-30 下沉 core 侧，此处同名转出 ⇒ 对外 API 不变）─────
+// 下沉原因：core 侧 `core/utils/ErrorHandler` 直接引用构成 core → infra 倒挂（A 类台账）。
 
-/**
- * 从错误中提取消息
- * @param error 错误对象
- * @returns 错误消息
- */
-export function errorMessage(error: unknown): string {
-  return ErrorUtils.errorMessage(error);
-}
-
-/**
- * 将未知值转换为Error
- * @param error 未知值
- * @returns Error实例
- */
-export function toError(error: unknown): Error {
-  return ErrorUtils.toError(error);
-}
-
-/**
- * 检查错误是否为中止错误
- * @param error 错误对象
- * @returns 是否为中止错误
- */
-export function isAbortError(error: unknown): boolean {
-  return ErrorUtils.isAbortError(error);
-}
+export { toError, errorMessage, isAbortError } from '../core/errors.js';

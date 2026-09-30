@@ -37,6 +37,14 @@ export interface AgentDescriptorRole {
    * 还取决于父侧深度上限（`MAX_SUBAGENT_DEPTH`）—— 双判据的合取在 `AgentTool` 内完成。
    */
   canDelegate?: boolean;
+  /**
+   * **定义侧工具池收窄**（只减不增）：该角色声明的禁用工具名。
+   *
+   * 语义：由 `AgentTool` 与调用侧 `deniedTools` **取并集**后作为黑名单消费（见 AgentTool
+   * 的 `resolveDeniedTools` / `filterToolPool` 过滤点）—— 它**只能收窄**工具池，
+   * 不参与 `allowedTools` 白名单，故不可能扩权。
+   */
+  disallowedTools?: string[];
 }
 
 /**
@@ -57,6 +65,8 @@ export interface AgentDescriptorRegistered {
   role?: string;
   systemPrompt?: string;
   model?: string;
+  /** 定义侧工具池收窄（只减不增）：见 `AgentDescriptorRole.disallowedTools` 说明 */
+  disallowedTools?: string[];
 }
 
 /** 解析链依赖（由调用方注入真实取数逻辑） */
@@ -67,6 +77,13 @@ export interface AgentDescriptorDeps {
   getRegistered: (key: string, raw: string) => AgentDescriptorRegistered | null;
   /** 内置类型名名单（**单一来源**，与错误提示共用） */
   builtinTypeNames: string[];
+  /**
+   * 按内置类型名（`builtinTypeNames` 的键，**小写**）读取其定义侧禁用工具。
+   *
+   * **可选**：未注入 ⇒ 内置分支不下发禁用项（保持既有调用方可编译与行为不变）。
+   * 取不到必须返回 `undefined`，不得抛错。
+   */
+  getBuiltinDisallowedTools?: (typeName: string) => string[] | undefined;
 }
 
 /** 解析来源（写入日志，便于排障"这个提示词到底从哪来"） */
@@ -89,6 +106,14 @@ export type AgentDescriptorResult =
        * 放行与否还要与父侧深度上限取合取（见 `AgentTool.resolveDelegationGrant`）。
        */
       canDelegate?: boolean;
+      /**
+       * **定义侧工具池收窄**（只减不增）：命中来源声明的禁用工具名。
+       *
+       * 消费点：`AgentTool.runWithEngine` 内与调用侧 `deniedTools` 取并集后作黑名单
+       * （见 `AgentTool.resolveDeniedTools`）—— 仅用于**裁剪**子代理工具池，
+       * 不参与白名单，故不构成扩权路径。
+       */
+      disallowedTools?: string[];
     }
   | { ok: false; error: string };
 
@@ -193,6 +218,8 @@ export async function resolveAgentDescriptor(params: {
       model: role.model,
       // T9：授权位随角色下发（缺省 false；模型无法自行声明）
       canDelegate: role.canDelegate === true,
+      // 定义侧裁剪（只减不增）：随角色下发，由 AgentTool 与调用侧黑名单取并集
+      disallowedTools: role.disallowedTools,
     };
   }
 
@@ -204,6 +231,8 @@ export async function resolveAgentDescriptor(params: {
       source: 'registry',
       systemPrompt: registered.systemPrompt || params.baseSystemPrompt,
       model: registered.model,
+      // 定义侧裁剪（只减不增）：运行时注册的 agent 同样可声明禁用项
+      disallowedTools: registered.disallowedTools,
     };
   }
 
@@ -213,6 +242,8 @@ export async function resolveAgentDescriptor(params: {
       ok: true,
       source: 'builtin',
       systemPrompt: params.baseSystemPrompt,
+      // 定义侧裁剪（只减不增）：取自内置定义（如 verification 的 ['agent','notebook']）
+      disallowedTools: params.deps.getBuiltinDisallowedTools?.(key),
     };
   }
 

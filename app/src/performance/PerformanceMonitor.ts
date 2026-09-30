@@ -18,7 +18,7 @@ import {
 import {
   deferredLoader,
   DeferredLoadState,
-} from '@modules/modules/LazyModuleStrategy';
+} from '@modules/core/LazyModuleStrategy';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('performance:performanceMonitor');
 

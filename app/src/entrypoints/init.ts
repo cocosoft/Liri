@@ -886,14 +886,30 @@ async function startDeferredPrefetches(): Promise<void> {
       })(),
 
       // 初始化内置技能（BundledSkillLoader → SkillRegistry 注册）
+      // 2026-09-30（D-126，`R00-003` P6-b/G6-a）：实现自 `constants/systemPromptSections` **迁入 `skills/`**
       (async () => {
         try {
           const { initBuiltinSkills } =
-            await import('../constants/systemPromptSections.js');
+            await import('../skills/BuiltinSkillBootstrap.js');
           await initBuiltinSkills();
           logger.info('内置技能初始化完成');
         } catch (error) {
           logger.warning('内置技能初始化失败（非关键）', { error });
+        }
+      })(),
+
+      // 注入权限检查器的运行时依赖（2026-09-30 D-126，`R00-003` P6-b/G6-b）
+      // 由**入口**注入 ⇒ `service -> infra` 合法；避免 `permission`（infra）反向动态导入 runtime（service）
+      (async () => {
+        try {
+          const { unattendedMode } =
+            await import('../runtime/UnattendedModeManager.js');
+          const { inboxManager } = await import('../runtime/InboxManager.js');
+          const { setPermissionRuntimeDeps } =
+            await import('../permission/PermissionChecker.js');
+          setPermissionRuntimeDeps({ unattendedMode, inboxManager });
+        } catch (error) {
+          logger.warning('权限运行时依赖注入失败（非关键）', { error });
         }
       })(),
 

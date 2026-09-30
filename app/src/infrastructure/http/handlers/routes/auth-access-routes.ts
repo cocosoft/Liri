@@ -27,6 +27,7 @@
  */
 
 import type http from 'http';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { HandlerCtx } from '../handler-utils';
 import {
   handleAuthLogin,
@@ -58,7 +59,6 @@ import {
   handleMediaSubtitleDownload,
   handleMediaSubtitleGenerate,
 } from '../media-handlers';
-import { tryHandleRoute } from '@modules/ai';
 
 /**
  * dispatchAuthAccessRoutes — auth-access-routes 领域路由分发
@@ -218,9 +218,8 @@ export async function dispatchAuthAccessRoutes(
   if (method === 'GET' && url === '/health') {
     let dream;
     try {
-      const { readMetrics } =
-        await import('../../../../../src/dream/DreamMetrics');
-      dream = await readMetrics();
+      // 2026-09-30（台账 D-87，C1「口径 C」）：改经 CoreAPI 门面，消除 service → app 跨层引用
+      dream = await getCoreAPI().readDreamMetrics();
     } catch {
       // 指标文件不存在或读取失败，不影响健康检查
     }
@@ -249,7 +248,9 @@ export async function dispatchAuthAccessRoutes(
   }
 
   // ---- Model Management API (Providers / Usage / Balance / Pricing) ----
-  const handled = await tryHandleRoute(req, res);
+  const handled = await (
+    await getCoreAPI().getAiOpsPort()
+  ).tryHandleAiModelRoute(req, res);
   if (handled) return true;
 
   // ---- Office / doc 模块 API ----
@@ -439,18 +440,14 @@ export async function dispatchAuthAccessRoutes(
 
   // ---- Git Context (Phase 3) ----
   if (method === 'GET' && url === '/v1/git/status') {
-    const { getGitContextService } =
-      await import('@modules/context/GitContextService');
-    const git = getGitContextService();
-    const isRepo = await git.isGitRepository();
-    if (!isRepo) {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ isGitRepo: false }));
-      return true;
-    }
-    const info = await git.getGitStatus();
+    // 2026-09-30（台账 D-85，C1「口径 C」）：改经 CoreAPI 门面取值，消除 service → app 跨层引用。
+    // 行为逐字保持：非仓库 → { isGitRepo: false }；仓库且 status 为 null → { isGitRepo: true }。
+    const snapshot = await getCoreAPI().getGitContextSnapshot();
+    const payload = snapshot.isGitRepo
+      ? { isGitRepo: true, ...(snapshot.status ?? {}) }
+      : { isGitRepo: false };
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ isGitRepo: true, ...info }));
+    res.end(JSON.stringify(payload));
     return true;
   }
   return false;

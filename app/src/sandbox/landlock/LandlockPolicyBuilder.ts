@@ -38,8 +38,6 @@ import type {
 export const MAX_SUPPORTED_ABI = 10;
 /** partial 探测时的保守 ABI（仅基础 FS 权限） */
 export const MIN_FS_ABI = 1;
-/** TCP 网络规则所需 ABI（v4+） */
-export const NET_TCP_ABI = 4;
 /** REFER 所需 ABI（v2+） */
 export const REFER_ABI = 2;
 
@@ -47,7 +45,9 @@ export const REFER_ABI = 2;
  * 按 ABI 裁剪权限（best-effort，禁止硬编码超当前内核）
  * - v1：read/write/execute/make_dir/make_reg/remove（基础 FS）
  * - v2+：+ refer（REFER）
- * - v4+：+ net（connect_tcp，见 build 内判定）
+ *
+ * 注：**net 不参与裁剪**（2026-09-29 台账 D-38）—— 现网络只有"全禁"与"不受限"两态，
+ * 而"全禁"由 `handled_access_net`（helper 内按运行 ABI 自行取全位）表达，与 FS 权限表无关。
  */
 export function clampAccessByAbi(
   access: LandlockFsAccess[],
@@ -95,10 +95,12 @@ export class LandlockPolicyBuilder {
       allow: clampAccessByAbi(mapPermissions(rule.permissions), abi),
     }));
 
-    let net: LandlockNetRule | undefined;
-    if (permissions.network && abi >= NET_TCP_ABI) {
-      net = { allow: ['connect_tcp'], denyBind: true };
-    }
+    // `permissions.network === false` ⇒ 该工具**不需要网络** ⇒ 显式**全禁**（真受限）；
+    // `true` ⇒ 需要网络 ⇒ **不设 net**（Landlock net 规则只能按具体端口授权，无法表达
+    // "任意端口的 CONNECT 放行" ⇒ 只能"不 handle"即不受限）。见 types.ts 的 LandlockNetRule。
+    const net: LandlockNetRule | undefined = permissions.network
+      ? undefined
+      : { denyAll: true };
 
     return {
       cwd: options.cwd ?? process.cwd(),

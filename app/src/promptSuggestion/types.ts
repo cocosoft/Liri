@@ -22,6 +22,8 @@
  * Prompt Suggestion类型定义
  */
 
+import type { ToolName } from '@modules/tools/toolNames.generated';
+
 export type PromptVariant = 'user_intent' | 'stated_intent';
 
 export type SuggestionOutcome = 'accepted' | 'ignored';
@@ -216,16 +218,24 @@ export { WRITE_TOOLS as SPECULATION_WRITE_TOOLS } from '@modules/query/tool-cons
 /**
  * 安全只读工具（同上修复）。
  *
- * 映射依据 = 真实名：`file_read` / `glob` / `grep` / `lsp` / `file_search` / `view_tasks` / `get_task_list`。
- * ⚠️ 原清单里的 `ToolSearch` / `TaskGet` / `TaskList` **在本仓不存在**：分别取最接近的真实只读工具
- * （`file_search`、`view_tasks`、`get_task_list`）；这是**语义近似**，已在台账注明。
+ * 映射依据 = 真实名：`file_read` / `glob` / `grep` / `lsp` / `get_task_list`。
+ * ⚠️ 原清单里的 `ToolSearch` / `TaskGet` / `TaskList` **在本仓不存在**：取最接近的真实只读工具
+ * （`get_task_list`）；这是**语义近似**，已在台账注明。
+ *
+ * 2026-09-29（P2-3/T2）：① 移除 `'file_search'` —— **不是注册名**（仅在 `ToolFactory.getAllBaseTools()`
+ * 死路径 + 无 loader 引用的 `FileSearchTool`，台账 N-27）⇒ "永不命中的假覆盖"；
+ * ② 移除 `'view_tasks'`（2026-09-29 台账 **D-34**）：该**类已删除**（与活工具 `get_task_list` 职责重复）
+ * ⇒ 它不再是"待注册"，保留只会成为新的漂移。
+ *
+ * 2026-09-29（D-34 收尾）：移除 `view_tasks` 后本清单**已全部是注册名** ⇒ 按 T2 同一手法补
+ * `as const satisfies readonly ToolName[]` **编译期校验**（拼错 / 改名未同步 ⇒ `typecheck` 报错）；
+ * **导出类型仍为 `Set<string>`** ⇒ 零消费方改动。
  */
-export const SAFE_READ_ONLY_TOOLS = new Set([
+const SAFE_READ_ONLY_TOOL_NAMES = [
   'file_read',
   'glob',
   'grep',
-  'file_search',
   'lsp',
-  'view_tasks',
   'get_task_list',
-]);
+] as const satisfies readonly ToolName[];
+export const SAFE_READ_ONLY_TOOLS = new Set<string>(SAFE_READ_ONLY_TOOL_NAMES);

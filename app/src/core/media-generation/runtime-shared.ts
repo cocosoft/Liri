@@ -1,4 +1,4 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import type {
   MediaGenerationNormalizationMetadataInput,
   MediaNormalizationEntry,
@@ -6,7 +6,7 @@ import type {
   ParsedProviderModelRef,
 } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:media-generation:runtime-shared');
 
 export type {

@@ -36,9 +36,14 @@
  * - helper 初始化失败（exit 125）⇒ 由既有 `failClosed` 决定：`true` 拒绝、`false` 回退普通执行并 WARN；
  * - 命令本身非 0 退出 ⇒ 与原来的 `exec` 路径**同形**（抛错、带出 `stderr`/`code`）。
  *
- * **本项只补"文件系统写"的内核级约束**：网络**显式放行**（`net.allow = connect_tcp/udp`）。
- * 理由是 Landlock 缺省即"全禁 TCP/UDP"，而 bash 从来不是网络受限通道，若照抄 `code_run` 的
- * "无 net 规则"会让 `curl`/`git`/`npm` 全部失效（误伤）。
+ * **本项只补"文件系统写"的内核级约束；网络保持"不受限"**（2026-09-29 台账 D-36-①/D-38 更正）：
+ * 原实现传 `net.allow = connect_tcp/udp`（意图"放行"）⇒ 经 `--net-connect` 落到内核后实际是
+ * **拒绝**该协议 CONNECT（Landlock 语义：handle 即默认拒绝，且该 flag 从不加 net 授权规则）⇒
+ * 反而**制造**了它想避免的误伤（`curl`/`git`/`npm` 失败）。而"按任意端口放行 CONNECT"在内核层面
+ * **无法表达**（net 规则只能授**具体端口**，`port 0` 只表示 ephemeral）⇒ 正确形态是**根本不 handle
+ * 网络**（不设 `net`），内核即视为不受限。另：原实现**无条件**请求 `connect_udp`，在 ABI < 10 的
+ * 内核上会让 helper 直接 **exit 125**（"requested NET access beyond kernel ABI"）⇒ 该问题随
+ * "不传网络参数"一并消失。
  *
  * ⚠️ **未验（如实）**：本机为 Windows ⇒ **真实 Linux 上的 enforce 行为未验证**；离线用例覆盖的是
  * 门控判据、策略形状、argv 形状与成败分支（执行器可注入）。
@@ -163,8 +168,8 @@ export function buildBashLandlockPolicy(input: {
   return {
     cwd: input.cwd,
     fs,
-    // **网络显式放行**（见模块头注释：Landlock 缺省=全禁 TCP/UDP，会误伤 curl/git/npm）
-    net: { allow: ['connect_tcp', 'connect_udp'] },
+    // **不设 `net`** ⇒ 不传网络参数 ⇒ 内核不 handle 网络 ⇒ **不受限**（bash 从来不是网络受限通道）。
+    // ⚠️ 不可写成 `{ denyAll: true }`（那会真的禁网、误伤 curl/git/npm）。见 types.ts 的 LandlockNetRule。
     abi: input.abi,
   };
 }

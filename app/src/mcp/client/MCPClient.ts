@@ -4,7 +4,7 @@
 
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../../core/errors.js';
 import type {
   MCPClient,
   MCPRequest,

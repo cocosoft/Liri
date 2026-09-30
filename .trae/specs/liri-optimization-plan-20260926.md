@@ -9,6 +9,23 @@
 
 ---
 
+## 0. 任务状态总览（2026-09-29 复核）
+
+| 任务 | 状态 | 说明 |
+|---|---|---|
+| P0-1 Mermaid 生成自纠错 | ✅ **已完成** | ① 前端降级 + ② 服务端零依赖预检/本轮内回喂均已落地；仅"真机端到端"未验（需模型额度） |
+| P0-2 Agent 台账写入合并 | ❌ **不实施**（前提取证证伪） | 原验收判据已固化为回归守卫（`agentRunStore.test.ts` 2 例） |
+| P0-3 Landlock 拒绝集补强 | ✅ **已完成** | a/b/c 三项均落地；仅"Linux 真机端到端"未验（本机 Windows） |
+| P1-1 对抗 Agent（作弊审查） | ✅ **形态 B 已落地** | 机械攻击集 `evals/antiCheatAudit.ts` + 8 例；形态 A（LLM 攻击者）另立 spec |
+| P1-2 Token burst 悲观预扣 | ❌ **不实施**（前提证伪 + 处方有反作用） | —— |
+| P1-3 热窗口阈值口径统一 | ✅ **已完成** | a/b/c/d 全部落地；另立项 `compaction-duplicate-subsystems.md`（已核查：两套为分工，非双轨） |
+| P2-1 沙箱层复用（`pack_diff` 类） | ⛔ **阻塞（前提证伪）** | 2026-09-29 取证：依赖的 `SandboxPruner` **零消费者**，且项目**无活的实例级沙箱生命周期**（`ToolSandboxRouter`/`SandboxManagerImpl` 亦未接线 ⇒ 台账 **D-16**）⇒ 无可挂目标；spec 已标阻塞 |
+| P2-2 MCP 动态工具映射 | ✅ **已实施（2026-09-29）** | spec：[`pathguard-registry-driven-args.md`](./pathguard-registry-driven-args.md)。`PathGuard` 改为**注册表驱动**（`resolveToolParamNames` + `PATH_ARG_KEYS` 求交），两个调用方已注入；8 例守卫 + 回归 119 例全绿。⚠️ 取证**纠正**：`pathShield` 本就与工具名无关（**无需改**），真缺口在 `PathGuard` 静态名单（方向是 **fail-OPEN**，非"误拦"） |
+
+**结论**：P0 三项与 P1 三项**已全部收口**（其中 P0-2 / P1-2 为"取证后裁定不做"）；**P2-2 已于 2026-09-29 实施**；**剩余 = P2-1（⛔ 阻塞：前提证伪，见 D-16）**。
+
+---
+
 ## 1. 核验结论总表（先证真伪，再谈优化）
 
 | # | 外部建议 | 本仓实况（证据坐标） | 判定 |
@@ -35,7 +52,7 @@
 
 ### P0 — 小、缺口明确、可当次落地
 
-**P0-1 Mermaid 生成自纠错（对照 §1-#3）**
+**P0-1 Mermaid 生成自纠错（对照 §1-#3）—— ✅ ① ② 均已落地（2026-09-28）；仅"真机端到端"未验**
 - 现状：坏语法只在浏览器端 `Syntax error in text mermaid version 11.15.0` 暴露，后端无拦截。
 - 做法（两步，先做 ①）：① **前端降级**：`MarkdownRenderer` 捕获 mermaid `parseError`，失败时**降级为代码块**并显示"图表语法错误（已保留源码）"，杜绝红字刷屏；② **服务端校验 + 回喂**：对**助手终稿**做结构预检，失败则注入修正指令让模型**同一轮内**重发（≤1 次/运行），并落一条事件（对齐 §1.6「模型可见 ⇔ 已落盘」）。
   ⚠️ 原写"在**图表类工具输出落盘前**做语法校验"——**实施期取证后修正**（`doc_generate` 无 mermaid 通道，该挂点已删除），详见下方 ② 的④条修正记录。
@@ -125,7 +142,7 @@
 
 ### P1 — 中
 
-**P1-1 对抗 Agent（作弊审查角色）**（对照 §1-#7）—— ⚠️ 取证后**三处前提需修正**，形态**待裁定**（2026-09-28）
+**P1-1 对抗 Agent（作弊审查角色）**（对照 §1-#7）—— ✅ 已裁定「形态 C」并落地 **B**（2026-09-28）；**A（LLM 攻击者）另立 spec**
 
 - **原设（留档）**：在评测流水线补第 4 角色 —— 拿到"隐藏验证器 + 用例"后，专职尝试**不改目标代码而让测试通过**（读缓存/编译产物/绕过 allowlist/读自身台账）；产出 `cheatReport`；命中即该题**作废（fail-closed）**。复用既有 `evals/shieldPlan.ts`、`tools/shieldGuard.ts`、`sourceTask` 的桩自检。
 - **取证结论（三条，均核到行）**：
@@ -232,8 +249,9 @@
 
 ### P2 — 重，需先出 spec
 
-**P2-1 沙箱层复用（`pack_diff` 类能力）**（对照 §1-#10）——跨 `sandbox` / `evals` / 工具面 ⇒ 按规范**先 spec 后编码**。
-**P2-2 MCP 动态工具映射**（对照 §1-#4 的引申）——让 `pathShield` / `PathGuard` 读**运行时注册表**（含外部 MCP 动态注入工具），而非静态清单，避免误拦合法外部工具。
+**P2-1 沙箱层复用（`pack_diff` 类能力）**（对照 §1-#10）—— ⛔ **阻塞（前提经取证证伪，2026-09-29）**。跨 `sandbox` / `evals` / 工具面 ⇒ 按规范**先 spec 后编码**；spec 已立项：[`sandbox-freeze-reuse.md`](./sandbox-freeze-reuse.md)。**但其前提不成立**：依赖的 `SandboxPruner` 全仓**零消费者**，且项目**没有活的实例级沙箱生命周期**（`SandboxPruner` / `ToolSandboxRouter` / `SandboxManagerImpl` 三者均未接线）⇒ "冻结/复用"**既无触发点也无可复用载体**。完整取证见台账 **D-16**。⇒ 与"明确不做"同理，**当前不具备实施条件**。
+**P2-2 MCP 动态工具映射**（对照 §1-#4 的引申）—— ✅ **已实施（2026-09-29，用户批准）**：[`pathguard-registry-driven-args.md`](./pathguard-registry-driven-args.md)。取证结论（两条，均附行号）：① **`pathShield` 无需改动** —— 它的 `findShieldedHit()` 把整个入参 `JSON.stringify` 后做子串匹配、**完全不看工具名** ⇒ 天然覆盖 MCP 动态工具；② **真缺口在 `PathGuard`** —— 它按 `READ_FILE_TOOL_NAMES`/`SEARCH_TOOL_NAMES`/`WRITE_TOOL_NAMES` **三份静态名单**判"哪个入参是路径"，名单外工具（含 `mcp__<server>__<tool>`）`_extractPath()` 返回 `null` ⇒ `checkToolCall()` **直接放行（fail-OPEN）**。⚠️ 故原方案"避免误拦合法外部工具"的表述**与实测方向相反**（现状是**漏拦**；"误拦"是**改法自身**要防的风险，已在 spec §3.2 设反例守卫）。
+**落地形态**：`PathGuard` 加**可选注入** `resolvePathArgKeys`（端口注入，避免 `query→tools` 新依赖）＋ 新增注册表派生解析器 `ToolRegistry.resolveToolParamNames()` ＋ `PATH_ARG_KEYS` 求交收窄；两个调用方 [`ReActToolLoop`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ReActToolLoop.ts#L319-L321) / [`TAORLoop`](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/TAORLoop.ts#L500-L502) 已注入。**验收**：新增 8 例守卫全过 · `tests/query` 回归 **119 pass / 0 fail** · `typecheck` 0 · `lint:arch` 0 错 1 警（预存 R07-004）· eslint/prettier 干净。
 
 ---
 

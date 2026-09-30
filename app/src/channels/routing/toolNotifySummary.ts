@@ -46,7 +46,6 @@ const TOOL_ACTIONS: Record<string, { action: string; argKeys: string[] }> = {
 
   // ---- 搜索类 ----
   glob: { action: '搜索文件', argKeys: ['pattern'] },
-  file_search: { action: '搜索文件', argKeys: ['pattern'] },
   grep: { action: '搜索内容', argKeys: ['pattern'] },
   web_search: { action: '网络搜索', argKeys: ['query', 'keywords'] },
   web_fetch: { action: '获取网页', argKeys: ['url', 'link'] },

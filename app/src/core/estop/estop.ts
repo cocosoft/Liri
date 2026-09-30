@@ -34,7 +34,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:estop');
 
 const SENTINEL_NAME = 'ESTOP';

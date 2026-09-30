@@ -3,21 +3,18 @@
  * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
 
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-  handleError,
-} from '@modules/error';
+import { handleError } from '../errorHandler.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
 
-import { calculateCost } from '@modules/cost';
-import type { ModelPricing } from '@modules/cost';
+// 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
+import { calculateCost } from '../pricing.js';
+import type { ModelPricing } from '../pricing.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:tokenBudget:PriceManager');
 
 export interface CostCalculationResult {

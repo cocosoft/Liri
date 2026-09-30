@@ -27,7 +27,7 @@
  * 本期为**零侵入**落地：没有任何生产调用点，故不改变既有执行路径。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 
 import type {
   AgentLike,

@@ -57,12 +57,6 @@ const TOOL_IMAGES: Record<string, ToolImage> = {
     value: '🔧',
     description: 'Edit file contents',
   },
-  FileSearchTool: {
-    name: 'Search',
-    type: 'emoji',
-    value: '🔍',
-    description: 'Search file contents',
-  },
   BashTool: {
     name: 'Bash',
     type: 'emoji',
@@ -111,7 +105,6 @@ const TOOL_SYMBOLS: Record<string, string> = {
   ReadFileTool: 'R',
   WriteFileTool: 'W',
   EditFileTool: 'E',
-  FileSearchTool: 'S',
   BashTool: '>_',
   WebFetchTool: 'www',
   WebSearchTool: '?',

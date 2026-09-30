@@ -11,19 +11,20 @@
  *   4. 调用 isOverBudget(sessionId) 检查是否超预算
  */
 
-import { OrchestrationEventType } from '@modules/agent';
+import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import {
   globalEventBus,
   type EventSubscription,
   SystemEvents,
 } from './EventBus';
 import type { CostRecordedEvent } from './EventBus';
-import { createLogger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 
-const logger = createLogger({
-  module: 'core:events:TokenTracker',
-  level: LogLevel.WARN,
-});
+// 2026-09-30（台账 D-70 Phase 2，用户裁定「方案 B：放开输出」）：
+// 原为 `createLogger({ module, level: WARN })` ⇒ 下方 `logger.info(...)` 被级别过滤、
+// **从不输出**；改走 core 日志门面后按作者本意正常输出。
+// 副作用可控：INFO 档位受「日志查看」开关控制（WARN/ERROR 才始终输出）⇒ 不产生不可关闭的噪声。
+const logger = getLogger('core:events:TokenTracker');
 
 /** Token 使用量上报 payload */
 export interface TokenUsagePayload {

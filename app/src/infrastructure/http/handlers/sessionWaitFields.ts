@@ -30,7 +30,8 @@
  * 界面看起来"答完了"。本模块把该事实（`WakeStore` 是唯一事实源）以只读字段暴露给
  * `GET /v1/sessions/{id}/streaming`。
  */
-import { getCg3SelfWakeService } from '@modules/tasks';
+// C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
 
 /** `pendingWake` 响应字段（多条待触发时取 `triggerAt` 最早的一条） */
@@ -51,9 +52,12 @@ export async function resolvePendingWake(
   sessionId: string
 ): Promise<PendingWakeField | undefined> {
   try {
-    const selfWake = getCg3SelfWakeService();
-    if (!selfWake) return undefined;
-    const first = (await selfWake.getPendingBySession(sessionId))[0];
+    const pending = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).listPendingWakes(sessionId);
+    // CG3 未启动 ⇒ `null`（等价于改动前 `if (!selfWake) return undefined`）
+    if (!pending) return undefined;
+    const first = pending[0];
     if (!first) return undefined;
     return {
       kind: first.kind,

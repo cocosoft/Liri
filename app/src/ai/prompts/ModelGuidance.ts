@@ -106,7 +106,7 @@ export const GOOGLE_GUIDANCE = `## Google 模型特定指引
 
 ### 路径处理
 - **绝对路径：** 始终构建和使用绝对文件路径进行文件系统操作。将项目根目录与相对路径组合。
-- **验证先行：** 在执行修改前使用 file_read/file_search 检查文件内容和项目结构。永远不要猜测文件内容。
+- **验证先行：** 在执行修改前使用 file_read/glob/grep 检查文件内容和项目结构。永远不要猜测文件内容。
 
 ### 依赖检查
 - **永远不要假设库可用。** 在使用前检查 package.json、requirements.txt、Cargo.toml 等。

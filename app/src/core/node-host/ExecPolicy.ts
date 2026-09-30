@@ -1,6 +1,6 @@
 import { ExecPolicyConfig } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:node-host:ExecPolicy');
 
 const DEFAULT_POLICY: ExecPolicyConfig = {

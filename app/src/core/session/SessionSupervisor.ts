@@ -3,9 +3,10 @@
  * 负责会话生命周期管理：健康检查、空闲检测、自动回收
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
+import { getOTelTracing } from '../tracingFacade.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '../errorHandler.js';
 import { ResetPolicyDecider } from '@modules/session';
 import type { ResetPolicy } from '@modules/session';
 

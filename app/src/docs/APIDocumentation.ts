@@ -301,7 +301,7 @@ export class APIDocumentation {
         code: `{
   "toolcall": {
     "thought": "Summarize the current context",
-    "name": "Skill",
+    "name": "skill",
     "params": {
       "name": "summarize",
       "arguments": {

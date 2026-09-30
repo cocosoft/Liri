@@ -10,7 +10,7 @@ import type {
   AcpRuntimeEvent,
 } from '../runtime/types.js';
 import type { SessionId } from '../types.js';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '../../core/errorHandler.js';
 
 export class AcpSessionManager {
   private core: AcpSessionManagerCore;

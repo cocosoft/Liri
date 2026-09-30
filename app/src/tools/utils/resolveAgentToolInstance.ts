@@ -1,7 +1,7 @@
 /**
  * 解析「Agent 工具的真实实例」（R6 修复，2026-09-22）
  *
- * **为什么需要**：`getToolManager().getTool('Agent')` 返回的是
+ * **为什么需要**：`getToolManager().getTool('agent')` 返回的是
  * [`ToolLazyWrapper`](./ToolLazyWrapper.ts)（`implements Tool`，**非 extends**），
  * 因此三处入口原先的 `tool instanceof AgentTool` **恒为 false**：
  *   - `infrastructure/http/handlers/agent-control-handlers.ts`（`GET /v1/agents/control`、
@@ -47,7 +47,7 @@ export function resolveAgentToolInstance(
     getToolManager().getToolInstance(name)
 ): AgentTool | null {
   try {
-    const tool = resolve('Agent');
+    const tool = resolve('agent');
     if (isAgentToolLike(tool)) return tool;
     if (tool) {
       // 升为 error：一旦出现，控制面会全量 503，属"静默失效"高发点

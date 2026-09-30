@@ -526,11 +526,8 @@ export async function handleDreamCyclesList(
       req.url!,
       `http://${req.headers.host || 'localhost'}`
     );
-    const { DreamPersistence } =
-      await import('../../../../src/dream/DreamPersistence');
-    const persistence = new DreamPersistence();
-
-    const result = await persistence.listCycles({
+    // 2026-09-30（台账 D-87，C1「口径 C」）：改经 CoreAPI 门面，消除 service → app 跨层引用
+    const result = await getCoreAPI().listDreamCycles({
       page: parseInt(parsedUrl.searchParams.get('page') || '1'),
       pageSize: parseInt(parsedUrl.searchParams.get('pageSize') || '20'),
       triggerSource: parsedUrl.searchParams.get('triggerSource') || undefined,
@@ -590,13 +587,7 @@ export async function handleDreamCycleAnalytics(
       status,
       limit,
     };
-    const { getDreamCycleDb } =
-      await import('../../../../src/dream/DreamCycleDb');
-    const db = await getDreamCycleDb();
-    const [cycles, stats] = await Promise.all([
-      db.queryCycles(filter),
-      db.aggregateCycles(filter),
-    ]);
+    const { cycles, stats } = await getCoreAPI().queryDreamCycles(filter);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, cycles, stats }));
   } catch (err) {
@@ -613,10 +604,7 @@ export async function handleDreamCycleDetail(
   cycleId: string
 ): Promise<void> {
   try {
-    const { DreamPersistence } =
-      await import('../../../../src/dream/DreamPersistence');
-    const persistence = new DreamPersistence();
-    const cycle = await persistence.getCycle(cycleId);
+    const cycle = await getCoreAPI().getDreamCycle(cycleId);
 
     if (!cycle) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

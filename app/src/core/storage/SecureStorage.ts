@@ -10,16 +10,11 @@ import {
 import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-  handleError,
-} from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { handleError } from '../errorHandler.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('SecureStorage');
 import { resolvePyappHome } from '@modules/core';
-import { configManager } from '@modules/config';
 
 /**
  * 安全存储数据接口
@@ -244,7 +239,7 @@ export class SecureStorage extends EventEmitter {
       return this.encryptionKey;
     }
 
-    const key = configManager.env('LIRI_ENCRYPTION_KEY');
+    const key = process.env.LIRI_ENCRYPTION_KEY;
     if (!key) {
       throw new AppError(
         'LIRI_ENCRYPTION_KEY environment variable is required',

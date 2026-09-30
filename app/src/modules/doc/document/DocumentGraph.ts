@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 const logger = getLogger('doc:document');
 
 /** 持久化文件路径 */

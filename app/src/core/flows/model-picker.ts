@@ -6,8 +6,8 @@ import type {
 } from './types.js';
 import { modelManager } from '@modules/ai';
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '../loggerFacade.js';
+import { handleError } from '../errorHandler.js';
 const logger = getLogger('core:flows:model-picker');
 
 export type ModelCatalogEntry = {

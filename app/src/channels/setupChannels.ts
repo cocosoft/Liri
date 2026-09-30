@@ -18,6 +18,7 @@ import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 import { getDeliveryRouter } from './DeliveryRouter';
+import { CHANNEL_CATALOG, getChannelCatalogEntry } from './ChannelCatalog';
 
 const logger = getLogger('channels:setup');
 
@@ -38,35 +39,12 @@ export function useDeliveryRouterOutbound(): boolean {
 /**
  * 全部支持的通道类型清单（含显示名称）
  * 用于前端列表展示，即使通道未注册也能显示在 UI 中
+ *
+ * 2026-09-30 · 台账 D-134：改为从 `CHANNEL_CATALOG`（单一事实源）派生 ——
+ * 此前这里是与目录**逐字重复**的另一份 type/name 清单。
  */
-export const ALL_CHANNEL_DEFS: Array<{ type: string; name: string }> = [
-  { type: 'telegram', name: 'Telegram' },
-  { type: 'discord', name: 'Discord' },
-  { type: 'qq', name: 'QQ' },
-  { type: 'dingtalk', name: '钉钉' },
-  { type: 'feishu', name: '飞书' },
-  { type: 'wechat', name: '微信' },
-  { type: 'slack', name: 'Slack' },
-  { type: 'line', name: 'Line' },
-  { type: 'irc', name: 'IRC' },
-  { type: 'nostr', name: 'Nostr' },
-  { type: 'email', name: '邮件' },
-  { type: 'sms', name: '短信' },
-  { type: 'webhook', name: 'Webhook' },
-  { type: 'wecom', name: '企业微信' },
-  { type: 'googlechat', name: 'Google Chat' },
-  { type: 'msteams', name: 'MS Teams' },
-  { type: 'zalo', name: 'Zalo' },
-  { type: 'yuanbao', name: '元宝' },
-  { type: 'whatsapp', name: 'WhatsApp' },
-  { type: 'signal', name: 'Signal' },
-  { type: 'matrix', name: 'Matrix' },
-  { type: 'facebook', name: 'Facebook Messenger' },
-  { type: 'twitter', name: 'Twitter/X' },
-  { type: 'claude', name: 'Claude' },
-  { type: 'mattermost', name: 'Mattermost' },
-  { type: 'bluebubbles', name: 'iMessage' },
-];
+export const ALL_CHANNEL_DEFS: Array<{ type: string; name: string }> =
+  CHANNEL_CATALOG.map(({ type, name }) => ({ type, name }));
 
 /**
  * 根据配置自动注册 IChannelPlugin 通道
@@ -81,204 +59,130 @@ export async function setupChannelsFromConfig(): Promise<{
   // 初始化 ChannelSecretStore 的 channelRegistry 引用
   initRegistry(channelRegistry);
 
-  // 第一步：定义通道映射 + 筛选已启用的通道
-  // 注意：import() 路径定义在函数内部而非模块顶层，避免 Bun 预解析所有路径
-  const channelCandidates: Array<{
-    type: string;
-    enabled: boolean;
-    importPath: string;
-    exportKey: string;
-  }> = [
-    {
-      type: 'telegram',
-      enabled: !!configManager.env('TELEGRAM_BOT_TOKEN'),
-      importPath: '../channels/telegram/TelegramChannel',
-      exportKey: 'telegramChannel',
-    },
-    {
-      type: 'discord',
-      enabled: !!configManager.env('DISCORD_TOKEN'),
-      importPath: '../channels/discord/DiscordChannel',
-      exportKey: 'discordChannel',
-    },
+  // 第一步：筛选已启用的通道
+  // 此处只保留「启动策略」（type + 环境变量启用判据）；**路径与导出键统一取自
+  // `CHANNEL_CATALOG` 单一事实源**（2026-09-30 · 台账 D-134，原为逐字重复的第二份路径表）。
+  const channelCandidates: Array<{ type: string; enabled: boolean }> = [
+    { type: 'telegram', enabled: !!configManager.env('TELEGRAM_BOT_TOKEN') },
+    { type: 'discord', enabled: !!configManager.env('DISCORD_TOKEN') },
     {
       type: 'qq',
       enabled:
         !!configManager.env('QQ_APP_ID') &&
         !!configManager.env('QQ_APP_SECRET'),
-      importPath: '../channels/qq/QQChannel',
-      exportKey: 'qqChannel',
     },
     {
       type: 'dingtalk',
       enabled:
         !!configManager.env('DINGTALK_APP_KEY') &&
         !!configManager.env('DINGTALK_APP_SECRET'),
-      importPath: '../channels/dingtalk/DingTalkChannel',
-      exportKey: 'dingtalkChannel',
     },
     {
       type: 'feishu',
       enabled:
         !!configManager.env('FEISHU_APP_ID') &&
         !!configManager.env('FEISHU_APP_SECRET'),
-      importPath: '../channels/feishu/FeishuChannel',
-      exportKey: 'feishuChannel',
     },
-    {
-      type: 'wechat',
-      enabled: !!configManager.env('WECHAT_BOT_HTTP_URL'),
-      importPath: '../channels/wechat/WechatChannel',
-      exportKey: 'wechatChannel',
-    },
+    { type: 'wechat', enabled: !!configManager.env('WECHAT_BOT_HTTP_URL') },
     {
       type: 'slack',
       enabled:
         !!configManager.env('SLACK_BOT_TOKEN') &&
         !!configManager.env('SLACK_SIGNING_SECRET'),
-      importPath: '../channels/slack/index',
-      exportKey: 'slackChannelPlugin',
     },
     {
       type: 'line',
       enabled:
         !!configManager.env('LINE_CHANNEL_ACCESS_TOKEN') &&
         !!configManager.env('LINE_CHANNEL_SECRET'),
-      importPath: '../channels/line/index',
-      exportKey: 'lineChannelPlugin',
     },
     {
       type: 'irc',
       enabled:
         !!configManager.env('IRC_SERVER') && !!configManager.env('IRC_NICK'),
-      importPath: '../channels/irc/index',
-      exportKey: 'ircChannelPlugin',
     },
     {
       type: 'nostr',
       enabled:
         !!configManager.env('NOSTR_PRIVATE_KEY') ||
         !!configManager.env('NOSTR_RELAYS'),
-      importPath: '../channels/nostr/index',
-      exportKey: 'nostrChannelPlugin',
     },
     {
       type: 'email',
       enabled:
         !!configManager.env('EMAIL_HOST') && !!configManager.env('EMAIL_USER'),
-      importPath: '../channels/email/EmailChannel',
-      exportKey: 'emailChannelPlugin',
     },
-    {
-      type: 'sms',
-      enabled: !!configManager.env('SMS_FROM_NUMBER'),
-      importPath: '../channels/sms/SmsChannel',
-      exportKey: 'smsChannelPlugin',
-    },
-    {
-      type: 'webhook',
-      enabled: !!configManager.env('WEBHOOK_LISTEN_PORT'),
-      importPath: '../channels/webhook/WebhookChannel',
-      exportKey: 'webhookChannelPlugin',
-    },
+    { type: 'sms', enabled: !!configManager.env('SMS_FROM_NUMBER') },
+    { type: 'webhook', enabled: !!configManager.env('WEBHOOK_LISTEN_PORT') },
     {
       type: 'wecom',
       enabled:
         !!configManager.env('WECOM_CORP_ID') &&
         !!configManager.env('WECOM_CORP_SECRET') &&
         !!configManager.env('WECOM_AGENT_ID'),
-      importPath: '../channels/wecom/WeComChannel',
-      exportKey: 'wecomChannel',
     },
     {
       type: 'googlechat',
       enabled: !!configManager.env('GOOGLECHAT_SERVICE_ACCOUNT'),
-      importPath: '../channels/googlechat/index',
-      exportKey: 'googleChatChannelPlugin',
     },
     {
       type: 'msteams',
       enabled:
         !!configManager.env('MSTEAMS_BOT_ID') &&
         !!configManager.env('MSTEAMS_BOT_PASSWORD'),
-      importPath: '../channels/msteams/index',
-      exportKey: 'msteamsChannelPlugin',
     },
     {
       type: 'zalo',
       enabled:
         !!configManager.env('ZALO_APP_ID') &&
         !!configManager.env('ZALO_APP_SECRET'),
-      importPath: '../channels/zalo/index',
-      exportKey: 'zaloChannelPlugin',
     },
     {
       type: 'yuanbao',
       enabled:
         !!configManager.env('YUANBAO_APP_ID') &&
         !!configManager.env('YUANBAO_APP_KEY'),
-      importPath: '../channels/yuanbao/index',
-      exportKey: 'yuanbaoChannelPlugin',
     },
     {
       type: 'whatsapp',
       enabled:
         !!configManager.env('WHATSAPP_PHONE_NUMBER_ID') &&
         !!configManager.env('WHATSAPP_ACCESS_TOKEN'),
-      importPath: '../channels/whatsapp/index',
-      exportKey: 'whatsAppChannelPlugin',
     },
-    {
-      type: 'signal',
-      enabled: !!configManager.env('SIGNAL_ACCOUNT'),
-      importPath: '../channels/signal/index',
-      exportKey: 'signalChannelPlugin',
-    },
+    { type: 'signal', enabled: !!configManager.env('SIGNAL_ACCOUNT') },
     {
       type: 'matrix',
       enabled:
         !!configManager.env('MATRIX_HOMESERVER_URL') &&
         !!configManager.env('MATRIX_ACCESS_TOKEN'),
-      importPath: '../channels/matrix/index',
-      exportKey: 'matrixChannelPlugin',
     },
     {
       type: 'facebook',
       enabled: !!configManager.env('FACEBOOK_PAGE_ACCESS_TOKEN'),
-      importPath: '../channels/facebookmessenger/index',
-      exportKey: 'facebookMessengerChannelPlugin',
     },
     {
       type: 'twitter',
       enabled:
         !!configManager.env('TWITTER_API_KEY') &&
         !!configManager.env('TWITTER_API_SECRET_KEY'),
-      importPath: '../channels/twitter/index',
-      exportKey: 'twitterChannelPlugin',
     },
     {
       type: 'claude',
       enabled:
         !!configManager.env('CLAUDE_CHANNEL_ENABLED') &&
         !!configManager.env('CLAUDE_API_KEY'),
-      importPath: '../channels/claude/index',
-      exportKey: 'claudeChannelPlugin',
     },
     {
       type: 'mattermost',
       enabled:
         !!configManager.env('MATTERMOST_URL') &&
         !!configManager.env('MATTERMOST_TOKEN'),
-      importPath: '../channels/mattermost/MattermostChannel',
-      exportKey: 'mattermostChannel',
     },
     {
       type: 'bluebubbles',
       enabled:
         !!configManager.env('BLUEBUBBLES_URL') &&
         !!configManager.env('BLUEBUBBLES_PASSWORD'),
-      importPath: '../channels/bluebubbles/BlueBubblesChannel',
-      exportKey: 'bluebubblesChannelPlugin',
     },
   ];
 
@@ -369,13 +273,18 @@ export async function setupChannelsFromConfig(): Promise<{
     );
   }
   // 第三步：仅导入选中的通道模块（并行导入）
+  // 路径 / 导出键取自 `CHANNEL_CATALOG`（位置无关加载器）
   const importResults = await Promise.allSettled(
     selectedDefs.map(async (def) => {
       const t1 = Date.now();
-      const mod = await import(def.importPath);
-      const factory = (mod as Record<string, unknown>)[def.exportKey];
+      const entry = getChannelCatalogEntry(def.type);
+      if (!entry) {
+        throw new Error(`通道 ${def.type} 未在 CHANNEL_CATALOG 中登记`);
+      }
+      const mod = await entry.load();
+      const factory = (mod as Record<string, unknown>)[entry.exportKey];
       logger.info(`通道模块导入: ${def.type} (${Date.now() - t1}ms)`);
-      return { type: def.type, factory, exportKey: def.exportKey };
+      return { type: def.type, factory, exportKey: entry.exportKey };
     })
   );
 

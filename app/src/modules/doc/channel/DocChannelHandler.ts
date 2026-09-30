@@ -3,8 +3,8 @@
  * 注入 ChannelManager，支持渠道内创建文档和发送文件
  */
 
-import { getLogger } from '@modules/monitoring';
-import { AppError } from '@modules/error';
+import { getLogger } from '../../../core/loggerFacade.js';
+import { AppError } from '../../../core/errors.js';
 const logger = getLogger('doc:channel');
 
 /**

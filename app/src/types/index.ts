@@ -21,20 +21,14 @@
 /**
  * 核心类型定义（2026-08-29 类型中心收缩）
  *
- * 仅保留有真实消费方的类型：
- *   - HooksSettings：唯一事实源 utils/settings/types.ts（3 个消费方：agentLoader/agent models/services agent）
- *   - SettingsJson：@deprecated 兼容 re-export（from config/types）
+ * 沿革：曾 re-export HooksSettings（事实源 utils/settings/types）与 SettingsJson（事实源 config/types），
+ * 现两类型已由消费方直连事实源，本模块不再转出 ⇒ 无出向依赖，故可归 core 层（台账 D-51）。
  *
  * 已删除 18 个零消费死类型（ToolContext/ToolResult/CommandContext/PermissionContext/
  * SessionManager/Session/ContentBlock/Message/Tool/AppConfig/Command/ModelSetting 等）：
  * 各模块使用自身领域类型（tools/types、chat/types、permission/ 等），
  * 会话消息事实规范为 chat/types/message.ts（@deprecated 迁 @modules/core/data-models 的 DataMessage）。
  */
-
-/**
- * Webhook 钩子设置（唯一事实源：utils/settings/types.ts）
- */
-export type { HooksSettings } from '../utils/settings/types.js';
 
 /**
  * 命令（CLI 命令接口——commands/env、system/state/AppState 消费）
@@ -57,8 +51,3 @@ export interface ModelSetting {
   maxTokens?: number;
   temperature?: number;
 }
-
-/**
- * 用户设置（@deprecated 请从 @modules/config/types 导入 SettingsJson）
- */
-export type { SettingsJson } from '../config/types.js';

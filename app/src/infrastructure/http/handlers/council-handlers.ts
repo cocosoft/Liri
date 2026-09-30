@@ -13,26 +13,37 @@ import type http from 'http';
 import { randomUUID } from 'crypto';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
-import {
-  getCouncilEngine,
-  setCouncilEmitter,
-} from '@modules/workspace/CouncilEngine';
-import type { CouncilStreamEvent } from '@modules/workspace/CouncilTypes';
-import { CouncilOrchestrator } from '@modules/workspace/CouncilOrchestrator';
+// C1（2026-09-30 D-114，`workspace` 域 P2）：Council 引擎 / 事件槽 / 编排器改经服务层端口
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { CouncilEnginePort } from '@modules/runtime/api/workspaceOpsPorts';
 
 /** SSE 客户端连接池 */
 const sseClients = new Map<string, Set<http.ServerResponse>>();
 
-// 初始化：绑定 emit 回调到 SSE 连接池
-setCouncilEmitter((event: CouncilStreamEvent) => {
-  const clients = sseClients.get(event.sessionId);
-  if (clients) {
-    const data = `data: ${JSON.stringify(event)}\n\n`;
-    for (const res of clients) {
-      res.write(data);
-    }
+// 初始化：绑定 emit 回调到 SSE 连接池（⚠️ 原为模块加载期副作用 ⇒ 改为**首次取用引擎前**绑定一次）
+let emitterBound = false;
+
+/**
+ * C1（D-114）：取 Council 引擎句柄，并在首次取用时把 emit 回调绑定到 SSE 连接池。
+ * ⚠️ 语义等价：任何 `createSession` 之前均已绑定（原为模块加载期执行）。
+ */
+async function acquireCouncilEngine(): Promise<CouncilEnginePort> {
+  const ops = await getCoreAPI().getWorkspaceOpsPort();
+  if (!emitterBound) {
+    await ops.setCouncilEmitter((event: { sessionId: string }) => {
+      const clients = sseClients.get(event.sessionId);
+      if (clients) {
+        const data = `data: ${JSON.stringify(event)}\n\n`;
+        for (const res of clients) {
+          res.write(data);
+        }
+      }
+    });
+    emitterBound = true;
   }
-});
+  return ops.getCouncilEngine();
+}
 
 /** 注册 SSE 客户端 */
 function registerSSEClient(sessionId: string, res: http.ServerResponse): void {
@@ -87,7 +98,7 @@ export async function handleCreateCouncil(
       return;
     }
 
-    const engine = getCouncilEngine();
+    const engine = await acquireCouncilEngine();
 
     const session = engine.createSession(workspaceId, topic, context, agents, {
       maxRounds: maxRounds ?? 3,
@@ -103,13 +114,14 @@ export async function handleCreateCouncil(
     );
 
     // 第 2 步：异步执行辩论（不阻塞 HTTP 响应）
-    const orchestrator = new CouncilOrchestrator(engine);
-    orchestrator.runDebate(session.sessionId).catch((err) => {
-      void handleError(err, {
-        module: 'infra:handler:council',
-        action: 'debate_execution',
+    void (await getCoreAPI().getWorkspaceOpsPort())
+      .runCouncilDebate(session.sessionId)
+      .catch((err) => {
+        void handleError(err, {
+          module: 'infra:handler:council',
+          action: 'debate_execution',
+        });
       });
-    });
   } catch (err) {
     await handleError(err, {
       module: 'infra:handler:council',
@@ -126,14 +138,14 @@ export async function handleCreateCouncil(
  * GET /v1/workspace/:id/council/:sessionId
  * 获取 Council 会话状态
  */
-export function handleGetCouncil(
+export async function handleGetCouncil(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   sessionId: string
-): void {
+): Promise<void> {
   try {
-    const engine = getCouncilEngine();
+    const engine = await acquireCouncilEngine();
     const session = engine.getSession(sessionId);
 
     if (!session) {
@@ -160,13 +172,13 @@ export function handleGetCouncil(
  * GET /v1/workspace/:id/council/:sessionId/stream
  * SSE 流式订阅辩论过程
  */
-export function handleCouncilStream(
+export async function handleCouncilStream(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   sessionId: string
-): void {
-  const engine = getCouncilEngine();
+): Promise<void> {
+  const engine = await acquireCouncilEngine();
   const session = engine.getSession(sessionId);
 
   if (!session) {
@@ -228,14 +240,14 @@ export function handleCouncilStream(
  * GET /v1/workspace/:id/council
  * 列出所有活跃的 Council 会话
  */
-export function handleListCouncils(
+export async function handleListCouncils(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   workspaceId: string
-): void {
+): Promise<void> {
   try {
-    const engine = getCouncilEngine();
+    const engine = await acquireCouncilEngine();
     const sessions = engine.getActiveSessionsByWorkspace(workspaceId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -273,7 +285,7 @@ export async function handleSubmitStatement(
       return;
     }
 
-    const engine = getCouncilEngine();
+    const engine = await acquireCouncilEngine();
     const session = engine.getSession(sessionId);
 
     if (!session) {
@@ -296,22 +308,17 @@ export async function handleSubmitStatement(
     session.statements.push(statement);
 
     // 发射 SSE 事件，确保前端 SSE 客户端能收到手动注入的发言
-
-    const emit = (getCouncilEngine() as unknown as Record<string, unknown>)
-      .emit as (...args: unknown[]) => void;
-    if (typeof emit === 'function') {
-      try {
-        emit({
-          type: 'statement',
-          sessionId,
-          phase: session.phase,
-          round,
-          statement,
-          timestamp: Date.now(),
-        });
-      } catch (_err) {
-        // @ignore-catch: emit 失败不阻塞请求（事件总线发送为辅助动作，无 logger 依赖）
-      }
+    try {
+      await (await getCoreAPI().getWorkspaceOpsPort()).emitCouncilEvent({
+        type: 'statement',
+        sessionId,
+        phase: session.phase,
+        round,
+        statement,
+        timestamp: Date.now(),
+      });
+    } catch (_err) {
+      // @ignore-catch: emit 失败不阻塞请求（事件总线发送为辅助动作，无 logger 依赖）
     }
 
     res.writeHead(201, { 'Content-Type': 'application/json' });

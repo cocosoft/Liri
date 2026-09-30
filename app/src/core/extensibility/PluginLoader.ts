@@ -30,13 +30,9 @@
  *   此模块将在未来版本中移除。
  */
 
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-  handleError,
-} from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { handleError } from '../errorHandler.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
+import { getLogger } from '../loggerFacade.js';
 import {
   Plugin,
   PluginState,

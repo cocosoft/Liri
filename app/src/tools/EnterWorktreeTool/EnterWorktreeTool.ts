@@ -50,7 +50,7 @@ export class EnterWorktreeTool extends BaseTool<
   /**
    * 工具名称
    */
-  name = 'EnterWorktree';
+  name = 'enter_worktree';
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。

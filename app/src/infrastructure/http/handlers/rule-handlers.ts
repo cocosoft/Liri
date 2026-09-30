@@ -13,23 +13,28 @@
 import type http from 'http';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
-import {
-  getRuleEngine,
-  type RuleSpecialization,
-} from '@modules/workspace/RuleEngine';
+// C1（2026-09-30 D-114，`workspace` 域 P2）：规则引擎 + 类型位改经服务层端口
+// （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { RuleSpecializationDto } from '@modules/runtime/api/workspaceOpsPorts';
+
+/** C1（D-114）：规则引擎经端口取用（`workspace` 域） */
+async function getEngine(workspacePath?: string) {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getRuleEngine(workspacePath);
+}
 
 /**
  * GET /v1/workspaces/:id/rules
  * 列出所有规则文件
  */
-export function handleListRules(
+export async function handleListRules(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
   workspaceId: string
-): void {
+): Promise<void> {
   try {
-    const engine = getRuleEngine(workspaceId);
+    const engine = await getEngine(workspaceId);
     const rules = engine.listRules();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -50,14 +55,14 @@ export function handleListRules(
  * GET /v1/workspaces/:id/rules/:spec
  * 读取指定专业领域的规则
  */
-export function handleGetRule(
+export async function handleGetRule(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  specialization: RuleSpecialization
-): void {
+  specialization: RuleSpecializationDto
+): Promise<void> {
   try {
-    const engine = getRuleEngine();
+    const engine = await getEngine();
     const content = engine.readRule(specialization);
 
     if (content === null) {
@@ -90,7 +95,7 @@ export async function handleWriteRule(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  specialization: RuleSpecialization
+  specialization: RuleSpecializationDto
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
@@ -103,7 +108,7 @@ export async function handleWriteRule(
       return;
     }
 
-    const engine = getRuleEngine();
+    const engine = await getEngine();
     engine.writeRule(specialization, content);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -128,7 +133,7 @@ export async function handleAppendRule(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  specialization: RuleSpecialization
+  specialization: RuleSpecializationDto
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
@@ -141,7 +146,7 @@ export async function handleAppendRule(
       return;
     }
 
-    const engine = getRuleEngine();
+    const engine = await getEngine();
     engine.appendRule(specialization, content);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -178,7 +183,7 @@ export async function handleLoadRulesForWorkItem(
       return;
     }
 
-    const engine = getRuleEngine();
+    const engine = await getEngine();
     const rules = engine.loadRulesForWorkItem(
       title,
       description || '',
@@ -203,13 +208,13 @@ export async function handleLoadRulesForWorkItem(
  * GET /v1/workspaces/:id/rules/overview
  * 规则总览
  */
-export function handleRulesOverview(
+export async function handleRulesOverview(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
   res: http.ServerResponse
-): void {
+): Promise<void> {
   try {
-    const engine = getRuleEngine();
+    const engine = await getEngine();
     const overview = engine.getRulesOverview();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

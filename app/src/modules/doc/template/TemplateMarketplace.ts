@@ -3,7 +3,7 @@
  * 复用现有 MCPMarketplace 基础设施
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 import {
   TemplateEngine,
   BUILTIN_TEMPLATES,

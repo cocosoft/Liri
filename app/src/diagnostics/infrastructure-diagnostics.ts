@@ -9,6 +9,8 @@
 
 import { HealthChecker } from '@modules/monitoring/health/HealthChecker.js';
 import { systemHealthChecker } from '@modules/diagnostics/SystemHealthChecker.js';
+// C1（2026-09-30 D-123，`R00-003` P4/G3）：provider 快照改经 core SPI 端口（infra → core 合法）
+import { resolveDiagnosticsProbe } from '@modules/core/spi';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 // 2026-09-22：事件循环阻塞探针（P1 守株待兔 CPU profile + P2 阶段标签）挂载点。
 // 仅消费"已判定为真实阻塞"（非睡眠唤醒）的结论，不改变本监视器既有节拍与日志。
@@ -180,30 +182,10 @@ export function setupInfrastructureDiagnostics(): void {
     async () => {
       const providerInfo: Record<string, unknown> = {};
 
-      try {
-        const { STTRegistry } =
-          await import('@modules/services/voice/services/sttRegistry');
-        providerInfo.sttProviders = STTRegistry.getProviderIds();
-      } catch {
-        providerInfo.sttProviders = [];
-      }
-
-      try {
-        const { TTSRegistry } =
-          await import('@modules/services/voice/services/ttsProvider');
-        providerInfo.ttsProviders = TTSRegistry.getProviderNames();
-      } catch {
-        providerInfo.ttsProviders = [];
-      }
-
-      try {
-        const { channelRegistry } = await import('@modules/channels');
-        providerInfo.channelNames = channelRegistry
-          .getAll()
-          .map((ch) => ch.name);
-      } catch {
-        providerInfo.channelNames = [];
-      }
+      const snapshot = resolveDiagnosticsProbe().getProvidersSnapshot();
+      providerInfo.sttProviders = snapshot.sttProviders;
+      providerInfo.ttsProviders = snapshot.ttsProviders;
+      providerInfo.channelNames = snapshot.channelNames;
 
       const totalProviders =
         (providerInfo.sttProviders as string[]).length +

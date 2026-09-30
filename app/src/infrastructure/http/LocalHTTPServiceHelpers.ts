@@ -9,163 +9,13 @@ import http from 'http';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 import { setNotifyFileChangedHandler } from './handlers/handler-utils';
 
 const logger = getLogger('infrastructure:http:localHTTPServiceHelpers');
 
-// ── 通道动态注册元信息表（26 通道全覆盖）──────────────────────────
-
-export const CHANNEL_TABLE: Array<{
-  type: string;
-  name: string;
-  importPath: string;
-  exportKey: string;
-}> = [
-  {
-    type: 'telegram',
-    name: 'Telegram',
-    importPath: '../../../channels/telegram/TelegramChannel',
-    exportKey: 'telegramChannel',
-  },
-  {
-    type: 'discord',
-    name: 'Discord',
-    importPath: '../../../channels/discord/DiscordChannel',
-    exportKey: 'discordChannel',
-  },
-  {
-    type: 'qq',
-    name: 'QQ',
-    importPath: '../../../channels/qq/QQChannel',
-    exportKey: 'qqChannel',
-  },
-  {
-    type: 'dingtalk',
-    name: '钉钉',
-    importPath: '../../../channels/dingtalk/DingTalkChannel',
-    exportKey: 'dingtalkChannel',
-  },
-  {
-    type: 'feishu',
-    name: '飞书',
-    importPath: '../../../channels/feishu/FeishuChannel',
-    exportKey: 'feishuChannel',
-  },
-  {
-    type: 'wechat',
-    name: '微信',
-    importPath: '../../../channels/wechat/WechatChannel',
-    exportKey: 'wechatChannel',
-  },
-  {
-    type: 'slack',
-    name: 'Slack',
-    importPath: '../../../channels/slack/index',
-    exportKey: 'slackChannelPlugin',
-  },
-  {
-    type: 'line',
-    name: 'Line',
-    importPath: '../../../channels/line/index',
-    exportKey: 'lineChannelPlugin',
-  },
-  {
-    type: 'irc',
-    name: 'IRC',
-    importPath: '../../../channels/irc/index',
-    exportKey: 'ircChannelPlugin',
-  },
-  {
-    type: 'nostr',
-    name: 'Nostr',
-    importPath: '../../../channels/nostr/index',
-    exportKey: 'nostrChannelPlugin',
-  },
-  {
-    type: 'email',
-    name: '邮件',
-    importPath: '../../../channels/email/EmailChannel',
-    exportKey: 'emailChannelPlugin',
-  },
-  {
-    type: 'sms',
-    name: '短信',
-    importPath: '../../../channels/sms/SmsChannel',
-    exportKey: 'smsChannelPlugin',
-  },
-  {
-    type: 'webhook',
-    name: 'Webhook',
-    importPath: '../../../channels/webhook/WebhookChannel',
-    exportKey: 'webhookChannelPlugin',
-  },
-  {
-    type: 'wecom',
-    name: '企业微信',
-    importPath: '../../../channels/wecom/WeComChannel',
-    exportKey: 'wecomChannel',
-  },
-  {
-    type: 'googlechat',
-    name: 'Google Chat',
-    importPath: '../../../channels/googlechat/index',
-    exportKey: 'googleChatChannelPlugin',
-  },
-  {
-    type: 'msteams',
-    name: 'MS Teams',
-    importPath: '../../../channels/msteams/index',
-    exportKey: 'msteamsChannelPlugin',
-  },
-  {
-    type: 'zalo',
-    name: 'Zalo',
-    importPath: '../../../channels/zalo/index',
-    exportKey: 'zaloChannelPlugin',
-  },
-  {
-    type: 'yuanbao',
-    name: '元宝',
-    importPath: '../../../channels/yuanbao/index',
-    exportKey: 'yuanbaoChannelPlugin',
-  },
-  {
-    type: 'facebook',
-    name: 'Facebook Messenger',
-    importPath: '../../../channels/facebookmessenger/index',
-    exportKey: 'facebookMessengerChannelPlugin',
-  },
-  {
-    type: 'twitter',
-    name: 'Twitter/X',
-    importPath: '../../../channels/twitter/index',
-    exportKey: 'twitterChannelPlugin',
-  },
-  {
-    type: 'claude',
-    name: 'Claude',
-    importPath: '../../../channels/claude/index',
-    exportKey: 'claudeChannelPlugin',
-  },
-  {
-    type: 'mattermost',
-    name: 'Mattermost',
-    importPath: '../../../channels/mattermost/MattermostChannel',
-    exportKey: 'mattermostChannel',
-  },
-  {
-    type: 'bluebubbles',
-    name: 'iMessage',
-    importPath: '../../../channels/bluebubbles/BlueBubblesChannel',
-    exportKey: 'bluebubblesChannelPlugin',
-  },
-];
-
-/** CHANNEL_TABLE 的快速索引 */
-export function getChannelEntry(type: string) {
-  return CHANNEL_TABLE.find((e) => e.type === type);
-}
+// 通道动态注册元信息统一取自 `channels/ChannelCatalog.ts`（单一事实源）
+// 2026-09-30 · 台账 D-134：此处曾维护**独立的第三份副本**且仅 23 条
+//（缺 whatsapp / signal / matrix）⇒ 与另两处漂移，已收敛到单一事实源。
 
 /**
  * 验证请求的共享密钥
@@ -331,30 +181,27 @@ export async function startCompileScheduler(): Promise<{
   stop: () => void;
 } | null> {
   try {
-    const { aiService } = await import('@modules/ai');
-    const defaultModel = aiService.getDefaultModel();
+    const aiOps = await getCoreAPI().getAiOpsPort();
+    // ⚠️ 句柄须为**真对象**（原样透传给知识库编译端口）
+    const aiService = await aiOps.getAiServiceHandle();
+    const defaultModel = await aiOps.getDefaultAiModel();
     if (!defaultModel) {
       logger.warning(
         '知识库编译调度器跳过首次编译：未配置默认模型，调度器仍按周期运行'
       );
     }
 
-    const { runKnowledgeCompile } =
-      await import('@modules/knowledge/KnowledgeCompiler');
-    const { KnowledgeCompileScheduler } =
-      await import('@modules/knowledge/KnowledgeCompileScheduler');
-    const scheduler = new KnowledgeCompileScheduler(
-      (force?: boolean) =>
-        runKnowledgeCompile(aiService, {
-          force,
-          model: defaultModel || undefined,
-        }),
-      { runOnStart: !!defaultModel }
-    );
-    scheduler.start();
-    // 注册 notifyFileChanged DI：上传非 md 文件后延迟触发编译（handler-utils.notifyFileChanged 委托至此）
-    setNotifyFileChangedHandler(scheduler.notifyFileChanged.bind(scheduler));
-    return scheduler;
+    // 说明：调度器构造 / start() / notifyFileChanged DI 注册均已内聚到端口实现
+    // （原语义：notifyFileChanged ⇒ 上传非 md 文件后延迟触发编译，由 handler-utils 委托至此）
+    return await getCoreAPI()
+      .getKnowledgeOpsPort()
+      .then((port) =>
+        port.startKnowledgeCompileScheduler(
+          aiService,
+          { model: defaultModel || undefined, runOnStart: !!defaultModel },
+          setNotifyFileChangedHandler
+        )
+      );
   } catch (err) {
     void handleError(err, {
       module: 'infrastructure:http:helpers',
@@ -364,123 +211,12 @@ export async function startCompileScheduler(): Promise<{
   }
 }
 
-/**
- * 尝试动态注册未注册的通道（前端提供凭据时自动注册）
- * 覆盖全部 26 个通道，通过 CHANNEL_TABLE 表驱动
- */
-export async function tryDynamicRegister(
-  channelType: string,
-  config?: Record<string, unknown>
-): Promise<boolean> {
-  const entry = getChannelEntry(channelType);
-  if (!entry) return false;
-
-  try {
-    // 动态导入插件模块
-    const mod = await import(entry.importPath);
-    const plugin = (mod as Record<string, unknown>)[entry.exportKey] as
-      | IChannelPlugin
-      | undefined;
-    if (!plugin) {
-      logger.warning(
-        `tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`
-      );
-      return false;
-    }
-
-    // 1. 注册到 ChannelRegistry
-    const { channelRegistry } = await import('@modules/channels');
-    const { adaptPluginToInterface } = await import('@modules/channels');
-    channelRegistry.register(adaptPluginToInterface(plugin));
-
-    // 2. 注册到 ChannelBootstrapper
-    const { channelBootstrapper } =
-      await import('../../channels/bootstrap/ChannelBootstrapper');
-    channelBootstrapper.registerPluginChannel(channelType, () => plugin);
-
-    // 3. 写入配置（合并前端传入的凭据）
-    channelRegistry.updateConfig(channelType, {
-      name: entry.name,
-      enabled: false,
-      options: {
-        ...(channelRegistry.getConfig(channelType)?.options || {}),
-        ...(config || {}),
-      },
-    });
-
-    // 4. 绑定入站消息处理器
-    bindInboundMessageHandler(channelType, plugin);
-
-    return true;
-  } catch (err) {
-    await handleError(err, {
-      module: 'infra:http:helpers',
-      action: 'try_dynamic_register',
-      context: { channelType },
-    });
-    return false;
-  }
-}
-
-/** 绑定入站消息 → AI → 出站 回路 */
-function bindInboundMessageHandler(
-  channelType: string,
-  plugin: IChannelPlugin
-): void {
-  if (!plugin.inbound) return;
-
-  const _processingMessages = new Set<string>();
-
-  plugin.inbound.setMessageHandler(
-    async (message: import('@modules/channels/types').MessageContext) => {
-      if (_processingMessages.has(message.messageId)) return;
-      _processingMessages.add(message.messageId);
-
-      try {
-        const sender = message.senderName || message.senderId || 'unknown';
-        const label = channelType.toUpperCase();
-        logger.info(
-          `[${label}] ${sender}: ${message.content?.substring(0, 200)}`
-        );
-
-        const coreAPI = getCoreAPI();
-        const response = await coreAPI.chat({
-          content: message.content,
-          sessionId: message.conversationId ?? message.senderId,
-          metadata: {
-            channel: message.channelId,
-            sender: message.senderId,
-            messageType: message.messageType,
-            isDirectMessage: message.isDirectMessage,
-            rawPayload: message.rawPayload,
-          },
-        });
-
-        if (response.content && plugin.outbound) {
-          logger.info(
-            `[${label}] Liri → ${sender}: ${response.content?.substring(0, 200)}`
-          );
-
-          await plugin.outbound.sendText(
-            message.conversationId ?? message.senderId,
-            response.content
-          );
-        }
-      } catch (error) {
-        await handleError(error, {
-          module: 'infra:http',
-          action: 'channel_inbound_message',
-          context: { channelType, messageId: message.messageId },
-        });
-      } finally {
-        setTimeout(() => {
-          _processingMessages.delete(message.messageId);
-        }, 3000);
-      }
-    }
-  );
-  logger.info(`[${channelType}] 入站消息处理器已绑定`);
-}
+// 2026-09-30（台账 D-135）：此处原有 `tryDynamicRegister` + `bindInboundMessageHandler` 的**整份副本**，
+// 但**全仓零调用方**（`bindInboundMessageHandler` 仅被该副本内部调用）⇒ 死代码，已删除。
+// ⚠️ 删除理由不止"未使用"：该副本停留在 **P0-4 之前** —— 其配置合并走**明文**
+// （`channelRegistry.getConfig(type)?.options`），而 `handlers/channel-handlers.ts` 的**活实现**已改为
+// 「先解密 → 合并前端凭据 → `encryptOptions()` 加密落库」。保留陈旧副本会被误用 ⇒ 凭据**明文落库**。
+// 活实现位置：`infrastructure/http/handlers/channel-handlers.ts` 的 `tryDynamicRegister()`（3 处调用）。
 
 /**
  * 递归复制目录

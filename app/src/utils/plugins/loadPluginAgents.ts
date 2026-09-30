@@ -15,7 +15,9 @@ import {
   parseAgentFromMarkdown,
   parseAgentsFromJson,
 } from '@modules/services/agent/parseAgent';
-import type { LoadedPlugin } from '@modules/types/plugin';
+import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
+// C1（2026-09-30 D-122，`R00-003` P3/G5）：插件读取改经 core SPI 端口（infra → core 合法）
+import { resolvePluginSystem } from '@modules/core/spi';
 
 /**
  * 从插件加载Agent定义（实时读取，无缓存）
@@ -44,8 +46,8 @@ export async function loadPluginAgents(): Promise<PluginAgentDefinition[]> {
  */
 async function getInstalledPlugins(): Promise<LoadedPlugin[]> {
   try {
-    const { pluginSystem } = await import('@modules/plugins');
-    return pluginSystem.getLoader().getAllPlugins();
+    // 端口只暴露**最小投影** ⇒ 在边界处按 app 层 `LoadedPlugin` 收窄（下游 parseAgent* 需完整类型）
+    return resolvePluginSystem().getLoadedPlugins() as LoadedPlugin[];
   } catch (error) {
     logger.error('Failed to get installed plugins:', error as Error);
     return [];

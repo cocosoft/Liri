@@ -16,6 +16,8 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层引用）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveMediaDir, isPathWithin } from '@modules/core/paths';
 import { ffmpegWrapper } from '../../../media/ffmpeg/FFmpegWrapper';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
@@ -450,10 +452,9 @@ export async function handleVideoBySourceImage(
     }
 
     // 使用 VideoTaskPersistence 查询
-    const { getVideoTaskPersistence } = await import('@modules/tools');
-    const persistence = getVideoTaskPersistence();
-
-    const tasks = persistence.listBySourceImagePath(imagePath);
+    const tasks = await (
+      await getCoreAPI().getToolsPort()
+    ).listVideoTasksBySourceImagePath(imagePath);
 
     const videos = tasks
       .filter((t) => t.resultVideoUrl)

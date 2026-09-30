@@ -140,14 +140,25 @@ export const VERIFICATION_AGENT_DEFINITION: BuiltInAgentDefinition = {
   whenToUse: VERIFICATION_WHEN_TO_USE,
   color: 'red',
   background: true,
+  // ✅ 2026-09-29（**接线生效 + 按提示词补齐**，台账 **D-46**）：本字段现由 `AgentTool` 的
+  //  **定义侧裁剪**真正消费 —— `execute` → `runBackgroundPath`/`runForegroundPath` → `runWithEngine`
+  //  → `resolveDeniedTools` → `filterToolPool`（**定义侧与执行侧同源**）⇒ 它**已是安全边界**。
+  //  因此本清单必须按提示词承诺补齐：`VERIFICATION_CRITICAL_REMINDER` 明写
+  //  "You CANNOT **edit**, **write**, or **create** files IN THE PROJECT DIRECTORY"
+  //  ⇒ 直接写文件的三件工具必须禁 —— `file_write`（write）/ `file_edit`（edit）/
+  //  `write_project_file`（create project file）。
+  //  ⚠️ **已知残留（有意保留，非遗漏）**：`bash` / `powershell` / `code_run` **不禁** ——
+  //  验证代理需要跑测试（提示词允许 "tmp is allowed for ephemeral test scripts"）⇒ 经 shell
+  //  写文件仍可行；收紧到禁 shell 会使其无法验证，故**有意**不列入。
+  //  · 沿革（D-37 / D-39）：原列含 CC 名 `Task`/`FileEdit`/`FileWrite`/`NotebookEdit`/`ExitPlanMode`
+  //    （本仓不存在 ⇒ 永不命中）；D-39 按当时"零消费者 ⇒ 只删不补"的策略清理，本次**接线后**
+  //    必须把真名补齐（否则字段生效了却不覆盖它本该覆盖的工具）。
   disallowedTools: [
-    'Agent',
-    'Task',
-    'FileEdit',
-    'FileWrite',
-    'NotebookEdit',
+    'agent',
     'notebook',
-    'ExitPlanMode',
+    'file_write',
+    'file_edit',
+    'write_project_file',
   ],
   source: 'built-in',
   baseDir: 'built-in',

@@ -41,6 +41,8 @@ import {
 } from '@modules/skills';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
+// D-44 守卫：判据 = 生成物（与 tests/tools/toolNameLists.test.ts 同一事实源）
+import { TOOL_NAMES } from '../../src/tools/toolNames.generated';
 
 /** 构造一个最小可测 Skill */
 function makeSkill(name: string, source: SkillSource): Skill {
@@ -219,5 +221,52 @@ describe('SkillProvider 契约（W2）', () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0]!.source).toBe(SkillSource.BUILTIN);
+  });
+});
+
+/**
+ * 内置技能 `allowedTools` 的**防漂移守卫**（2026-09-29，台账 **D-44**）。
+ *
+ * **为什么需要**：`allowedTools` 会**显示给用户** —— `commands/builtin/skill/index.ts`（中文
+ * "允许的工具: …"）与 `skills/cli/skills.ts`（`Allowed tools: …`）。若写成 CC 名
+ * （`Read`/`Write`/`Edit`/`Grep`/`Glob`/`AskUserQuestion`）⇒ 用户会看到**本仓不存在**的工具名
+ *（`file_search` 同族漂移：D-32 / D-39）。
+ *
+ * **判据** = 生成物 `TOOL_NAMES`（与 `tests/tools/toolNameLists.test.ts` **同一事实源**）。
+ */
+describe('内置技能 allowedTools ⊆ 真实注册名（D-44 防漂移守卫）', () => {
+  it('每个内置技能的 allowedTools 都必须落在生成物 TOOL_NAMES 内', async () => {
+    const skills = await new BundledSkillLoader().loadSkills();
+    const live = new Set<string>(TOOL_NAMES);
+
+    const offenders: Array<{ skill: string; tool: string }> = [];
+    for (const s of skills) {
+      for (const t of s.allowedTools ?? []) {
+        if (!live.has(t)) offenders.push({ skill: s.name, tool: t });
+      }
+    }
+    // 失败时直接打印违规对（而非只报 null/[] ）
+    expect({ offenders }).toEqual({ offenders: [] });
+  });
+
+  it('正向断言：至少一个内置技能声明了 allowedTools（否则上面会"空集假绿"）', async () => {
+    const skills = await new BundledSkillLoader().loadSkills();
+    expect(skills.some((s) => (s.allowedTools ?? []).length > 0)).toBe(true);
+  });
+
+  it('**防回退**：不得再出现 CC 风格名（Read/Write/Edit/Grep/Glob/AskUserQuestion）', async () => {
+    const skills = await new BundledSkillLoader().loadSkills();
+    const drifted = [
+      'Read',
+      'Write',
+      'Edit',
+      'Grep',
+      'Glob',
+      'AskUserQuestion',
+    ];
+    const leftovers = skills.flatMap((s) =>
+      (s.allowedTools ?? []).filter((t) => drifted.includes(t))
+    );
+    expect(leftovers).toEqual([]);
   });
 });

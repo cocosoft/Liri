@@ -32,6 +32,8 @@ import fs from 'fs';
 import path from 'path';
 import { resolveDataSubDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
+// C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（infra → core 合法）
+import { resolveBroadcast } from '@modules/core/spi';
 import { StateMachine } from '../engine/StateMachine';
 import { StateMachineRegistry } from '../engine/StateMachineRegistry';
 import type { StateSnapshot, TransitionRecord } from '../engine/types';
@@ -89,9 +91,7 @@ function createTransitionHook(): (record: TransitionRecord<AppState>) => void {
       reason: record.reason,
     });
     try {
-      const { broadcastEvent } =
-        require('@modules/infrastructure/http/LocalHTTPServiceSSE') as typeof import('@modules/infrastructure/http/LocalHTTPServiceSSE');
-      broadcastEvent('app:state', {
+      resolveBroadcast().broadcast('app:state', {
         state: record.to,
         from: record.from,
         reason: record.reason,

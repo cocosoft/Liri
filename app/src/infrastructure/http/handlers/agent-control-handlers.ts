@@ -24,7 +24,7 @@ import type { HandlerCtx } from './handler-utils';
 /**
  * 取 AgentTool 真身（R6，2026-09-22）。
  *
- * 修复前：`getToolManager().getTool('Agent') instanceof AgentTool` —— 而 `getTool()` 返回的是
+ * 修复前：`getToolManager().getTool('agent') instanceof AgentTool` —— 而 `getTool()` 返回的是
  * `ToolLazyWrapper`（`implements Tool`，**非 extends**）⇒ 恒 false ⇒ 本控制面全量 503，
  * `AgentTool.stopAgent`（含批次级取消 R1）的修复代码**一行都不会被执行**。
  * 现统一走 `resolveAgentToolInstance()`（解包 + 能力判定，见该模块注释；其内部自带 error 日志）。

@@ -10,7 +10,7 @@
  * 排版约束：16:9，标题区 / 正文区 / 配图区分区
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 import type { DocOutlineNode, PptRefineConfig } from '../types/outline';
 import { DEFAULT_PPT_CONFIG, validatePptConfig } from '../types/outline';
 

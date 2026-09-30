@@ -6,7 +6,8 @@
 import type http from 'http';
 import { handleError } from '@modules/error';
 import type { HandlerCtx } from './handler-utils';
-import { bottleneckAnalyzer } from '@modules/workspace/BottleneckAnalyzer';
+// C1（2026-09-30 D-113，`workspace` 域 P1）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /**
  * POST /v1/workspaces/:id/intelligence/bottleneck
@@ -30,7 +31,9 @@ export async function handleBottleneckAnalysis(
       return;
     }
 
-    const summary = bottleneckAnalyzer.analyze(steps);
+    const summary = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).analyzeBottlenecks(steps);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(summary));

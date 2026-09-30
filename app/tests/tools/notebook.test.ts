@@ -30,7 +30,6 @@ import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl.js';
 import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
 import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
-import { getAllBaseTools } from '../../src/tools/ToolFactory.js';
 import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapter.js';
 import { FileRegistry } from '../../src/services/file/FileRegistry.js';
 import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
@@ -365,13 +364,6 @@ describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
 });
 
 describe('Notebook Feature 开关 (P0-2)', () => {
-  it('getAllBaseTools 不含 notebook（无条件注册已删除）', () => {
-    const names = getAllBaseTools().map((t) => t.name);
-    expect(names).not.toContain('notebook');
-    // 同时确认条件注册路径仍存在（feature 开启时经 ToolManagerUtils conditionalTool 加载）
-    expect(names.length).toBeGreaterThan(0);
-  });
-
   it('feature 关闭（默认）时 /notebook 命令禁用（命令层/工具层一致性）', async () => {
     const prev = process.env.FEATURE_NOTEBOOK;
     delete process.env.FEATURE_NOTEBOOK; // 默认 NOTEBOOK: false

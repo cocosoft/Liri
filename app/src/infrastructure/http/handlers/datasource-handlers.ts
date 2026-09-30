@@ -14,6 +14,8 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-95，`knowledge` 域 P1）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { resolveDataSubDir } from '@modules/core';
@@ -162,16 +164,14 @@ export async function handleSyncDataSource(
     // 根据类型创建对应连接器并同步
     let result;
     if (dsType === 'rss') {
-      const { RSSConnector } =
-        await import('@modules/knowledge/datasource/RSSConnector');
-      const connector = new RSSConnector({
-        type: 'rss',
-        enabled: true,
-        intervalMs: config.intervalMs || 3600000,
+      // 默认值（3600000 / 20）已内聚到端口实现，此处原样透传
+      result = await (
+        await getCoreAPI().getKnowledgeOpsPort()
+      ).syncRssDataSource({
+        intervalMs: config.intervalMs,
         url: config.url,
-        maxItems: config.maxItems ?? 20,
+        maxItems: config.maxItems,
       });
-      result = await connector.sync();
     } else {
       sendError(res, `不支持的数据源类型: ${dsType}`, 400);
       return;

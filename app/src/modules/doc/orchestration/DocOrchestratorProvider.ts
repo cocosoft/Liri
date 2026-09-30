@@ -38,7 +38,7 @@
  * 不得出现两次 —— 该约束由 `WorkflowEngine.validate()` 在**注册期**拦截（fail loud）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 import type {
   WorkflowDefinition,
   WorkflowProvider,

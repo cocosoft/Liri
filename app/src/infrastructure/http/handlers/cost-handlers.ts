@@ -11,7 +11,11 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { resolveWorkspacePath } from './workspaces-handlers';
-import type { CostReport } from '@modules/workspace/types';
+// C1（2026-09-30 D-114，`workspace` 域 P2）：成本报告**类型位**改经服务层端口**逐字镜像**
+// （原类型导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import type { CostReportDto } from '@modules/runtime/api/workspaceOpsPorts';
+// C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 const logger = getLogger('http:cost');
 
@@ -89,7 +93,7 @@ export async function handleWorkspaceCostReport(
       // budgetManager 可能未配置
     }
 
-    const report: CostReport = {
+    const report: CostReportDto = {
       id: `cost_${Date.now()}`,
       workspaceId,
       totalCostUSD,
@@ -235,15 +239,11 @@ export async function handleGlobalCostSummary(
     const { getDailyCostCache } = await import('@modules/cost/DailyCostCache');
     const dailyCache = getDailyCostCache();
 
-    const { modelPricingService } = await import('@modules/ai');
-    const { providerManager } = await import('@modules/ai');
-    await Promise.all([
-      modelPricingService.initialize(),
-      providerManager.initialize(),
-    ]);
+    const aiOps = await getCoreAPI().getAiOpsPort();
+    await Promise.all([aiOps.initModelPricing(), aiOps.initProviders()]);
     const [pricingAll, providers] = await Promise.all([
-      modelPricingService.getAllPricing(),
-      providerManager.listProviders(),
+      aiOps.getAllModelPricing(),
+      aiOps.listProviders(),
     ]);
     const providerNameById = new Map(providers.map((p) => [p.id, p.name]));
     const providerNameByModel = new Map<string, string>();

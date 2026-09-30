@@ -11,7 +11,7 @@ import { buildTool, type ToolDef } from '../BaseTool.js';
 import { jsonStringify } from '@modules/utils/json.js';
 import { ListMcpResourcesOutputSchema } from './schemas';
 
-const LIST_MCP_RESOURCES_TOOL_NAME = 'ListMcpResources';
+const LIST_MCP_RESOURCES_TOOL_NAME = 'list_mcp_resources';
 
 const DESCRIPTION = 'List resources from connected MCP servers';
 

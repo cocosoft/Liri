@@ -1,22 +1,9 @@
 /**
- * 插件类型定义（2026-08-29 类型中心收缩）
+ * 插件类型定义
  *
- * 仅保留有真实消费方的类型：
- *   - LoadedPlugin：re-export @modules/plugins/types/PluginTypes（loadPluginAgents/AppState 消费）
- *   - PluginError：re-export @modules/error（AppState 消费）
- *   - PluginManifest/PluginHooks/PluginMcpServer：plugins/types/PluginTypes.ts 消费 PluginManifest
- *
- * 已删除零消费 interface（PluginLoader/PluginRegistry/PluginManager/PluginSource/
- * CommandMetadata/BuiltinPluginDefinition/PluginSourceType）——插件领域事实类型在
- * @modules/plugins/types（class 实现）与 plugins/utils/schemas（zod 校验事实源）。
+ * 沿革：曾 re-export LoadedPlugin（← plugins/types/PluginTypes）与 PluginError（← error）；
+ * 现两类型已由消费方直连事实源，本模块不再转出 ⇒ 无出向依赖，故可归 core 层（台账 D-51）。
  */
-
-// === 从 PluginTypes 导入并重导出核心类型 ===
-import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
-export type { LoadedPlugin };
-
-import { PluginError } from '@modules/error';
-export { PluginError };
 
 /**
  * 插件清单

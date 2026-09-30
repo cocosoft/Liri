@@ -178,9 +178,6 @@ export type {
 // ── CLI ──
 export { createMcpCommand } from './cli/mcpCommand.js';
 
-// ── MCP Server ──
-export { startMCPServer } from '../entrypoints/mcp.js';
-
 // ── 插件 MCP 工具暴露 ──
 export {
   createPluginMCPTools,

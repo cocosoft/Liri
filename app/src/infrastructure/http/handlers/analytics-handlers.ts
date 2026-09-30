@@ -30,6 +30,17 @@ import type { HandlerCtx } from './handler-utils';
 import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// ⚠️ **类型位** app 类型（原文由 ai 域提供）已替换为服务层端口类型。
+// 此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活（见台账 D-77）
+import type { LatencyStatsDto } from '@modules/runtime/api/aiOpsPorts';
+// C1（2026-09-30 D-111，零散单点收尾）：`query` 域类型位改为服务层端口类型
+// （原文由 query 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
+import type {
+  QueryToolStatsDto,
+  QueryErrorStatsDto,
+} from '@modules/runtime/api/queryOpsPorts';
 
 const logger = getLogger('infrastructure:http:handlers:analytics-handlers');
 
@@ -315,12 +326,11 @@ export async function handleAnalyticsDashboard(
     }
 
     // 工具调用统计：优先持久化 query_logs（重启不清零），回退内存累计器
-    let persistedToolStats: Awaited<
-      ReturnType<import('@modules/query').QueryLogStore['getToolStats']>
-    > | null = null;
+    let persistedToolStats: QueryToolStatsDto | null = null;
     try {
-      const { getQueryLogStore } = await import('@modules/query');
-      persistedToolStats = await getQueryLogStore().getToolStats();
+      persistedToolStats = await (
+        await getCoreAPI().getQueryOpsPort()
+      ).getToolStats();
     } catch (err) {
       // 查询日志不可用时回退内存统计
       void handleError(err, {
@@ -332,12 +342,11 @@ export async function handleAnalyticsDashboard(
     const toolCallStats = analyticsService!.getToolCallStats();
 
     // 错误统计：优先持久化 query_logs（重启不清零），回退内存事件
-    let persistedErrorStats: Awaited<
-      ReturnType<import('@modules/query').QueryLogStore['getErrorStats']>
-    > | null = null;
+    let persistedErrorStats: QueryErrorStatsDto | null = null;
     try {
-      const { getQueryLogStore } = await import('@modules/query');
-      persistedErrorStats = await getQueryLogStore().getErrorStats();
+      persistedErrorStats = await (
+        await getCoreAPI().getQueryOpsPort()
+      ).getErrorStats();
     } catch (err) {
       void handleError(err, {
         module: 'infrastructure:http:analytics',
@@ -346,13 +355,11 @@ export async function handleAnalyticsDashboard(
     }
 
     // 延迟百分位：优先持久化 model_usage_logs.latency_ms（重启不清零），回退内存
-    let persistedLatencyStats: Awaited<
-      ReturnType<import('@modules/ai').UsageStatsService['getLatencyStats']>
-    > | null = null;
+    let persistedLatencyStats: LatencyStatsDto | null = null;
     try {
-      const { usageStatsService } = await import('@modules/ai');
-      await usageStatsService.initialize();
-      persistedLatencyStats = await usageStatsService.getLatencyStats();
+      const aiOps = await getCoreAPI().getAiOpsPort();
+      await aiOps.initUsageStats();
+      persistedLatencyStats = await aiOps.getLatencyStats();
     } catch (err) {
       void handleError(err, {
         module: 'infrastructure:http:analytics',

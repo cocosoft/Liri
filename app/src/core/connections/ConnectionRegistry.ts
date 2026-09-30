@@ -5,7 +5,7 @@
  * 防止"组件有了但无人调用"的问题复发。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:connections');
 
 export interface ConnectionDef {

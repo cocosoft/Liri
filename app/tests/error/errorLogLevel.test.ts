@@ -126,8 +126,12 @@ describe('错误级别口径（附带发现 12）', () => {
     // **如实说明本守卫的限度**：它是文本级断言 —— 只能证明"该调用点仍在"，**不能**证明
     // "仓内没有第二份内联映射"；真正的行为保证由上方往返断言承担。留着它的价值在于：
     // 若有人把映射内联进 handleError 并让 `resolveErrorLogLevel` 沦为死代码，本断言会先红。
+    //
+    // 2026-09-30（台账 D-69）：`handleError` 实现已**整体下沉** core 侧
+    // （`src/core/errorHandler.ts`），`src/error/handleError.ts` 改为纯转出 ⇒ 本守卫
+    // 改读新位置，守卫意图不变。
     const source = readFileSync(
-      new URL('../../src/error/handleError.ts', import.meta.url),
+      new URL('../../src/core/errorHandler.ts', import.meta.url),
       'utf8'
     );
     expect(source).toContain('resolveErrorLogLevel(');

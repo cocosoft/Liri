@@ -54,7 +54,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
   /**
    * 工具名称
    */
-  name = 'ListPeers';
+  name = 'list_peers';
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4b 接线**）。

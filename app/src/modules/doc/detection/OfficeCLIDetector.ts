@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../../core/loggerFacade.js';
 import type { OfficeCLIInfo, OfficeCLIVersionConstraint } from '../types';
 
 const logger = getLogger('doc:detection');

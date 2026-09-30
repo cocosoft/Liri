@@ -21,7 +21,7 @@ const PARENT = [
   'Read',
   'Write',
   'WebFetch',
-  'Agent',
+  'agent',
   'Task',
   'sessions_yield',
 ];
@@ -85,7 +85,7 @@ describe('validateToolsetRequest：两段校验（O7②）', () => {
 
   test('第②段 已知但被阻断 ⇒ 拒绝（父级有也不可授予）', () => {
     const result = validateToolsetRequest({
-      allowedTools: ['Agent'],
+      allowedTools: ['agent'],
       contract: contract(),
     });
 
@@ -138,7 +138,7 @@ describe('validateToolsetRequest：fail-closed（O7③）', () => {
 
 describe('DELEGATE_BLOCKED_TOOLS：阻断清单内容', () => {
   test('含委派入口（Agent/Task）与 yield 工具', () => {
-    expect(DELEGATE_BLOCKED_TOOLS).toContain('Agent');
+    expect(DELEGATE_BLOCKED_TOOLS).toContain('agent');
     expect(DELEGATE_BLOCKED_TOOLS).toContain('Task');
     expect(DELEGATE_BLOCKED_TOOLS).toContain('sessions_yield');
   });

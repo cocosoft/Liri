@@ -27,6 +27,7 @@ import { getLogger, getMetricsService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { messageTraceBuffer } from '@modules/channels';
+import { getChannelCatalogEntry } from '@modules/channels/ChannelCatalog';
 
 const logger = getLogger('infrastructure:http:handlers:channel-handlers');
 
@@ -41,176 +42,8 @@ async function getDecryptedOptions(
   return ChannelSecretStore.getInstance().get(channelId);
 }
 
-// ========== Channel Dynamic Registration Table ==========
-
-const CHANNEL_TABLE: Array<{
-  type: string;
-  name: string;
-  importPath: string;
-  exportKey: string;
-}> = [
-  {
-    type: 'telegram',
-    name: 'Telegram',
-    importPath: '../../../channels/telegram/TelegramChannel',
-    exportKey: 'telegramChannel',
-  },
-  {
-    type: 'discord',
-    name: 'Discord',
-    importPath: '../../../channels/discord/DiscordChannel',
-    exportKey: 'discordChannel',
-  },
-  {
-    type: 'qq',
-    name: 'QQ',
-    importPath: '../../../channels/qq/QQChannel',
-    exportKey: 'qqChannel',
-  },
-  {
-    type: 'dingtalk',
-    name: '钉钉',
-    importPath: '../../../channels/dingtalk/DingTalkChannel',
-    exportKey: 'dingtalkChannel',
-  },
-  {
-    type: 'feishu',
-    name: '飞书',
-    importPath: '../../../channels/feishu/FeishuChannel',
-    exportKey: 'feishuChannel',
-  },
-  {
-    type: 'wechat',
-    name: '微信',
-    importPath: '../../../channels/wechat/WechatChannel',
-    exportKey: 'wechatChannel',
-  },
-  {
-    type: 'slack',
-    name: 'Slack',
-    importPath: '../../../channels/slack/index',
-    exportKey: 'slackChannelPlugin',
-  },
-  {
-    type: 'line',
-    name: 'Line',
-    importPath: '../../../channels/line/index',
-    exportKey: 'lineChannelPlugin',
-  },
-  {
-    type: 'irc',
-    name: 'IRC',
-    importPath: '../../../channels/irc/index',
-    exportKey: 'ircChannelPlugin',
-  },
-  {
-    type: 'nostr',
-    name: 'Nostr',
-    importPath: '../../../channels/nostr/index',
-    exportKey: 'nostrChannelPlugin',
-  },
-  {
-    type: 'email',
-    name: '邮件',
-    importPath: '../../../channels/email/EmailChannel',
-    exportKey: 'emailChannelPlugin',
-  },
-  {
-    type: 'sms',
-    name: '短信',
-    importPath: '../../../channels/sms/SmsChannel',
-    exportKey: 'smsChannelPlugin',
-  },
-  {
-    type: 'webhook',
-    name: 'Webhook',
-    importPath: '../../../channels/webhook/WebhookChannel',
-    exportKey: 'webhookChannelPlugin',
-  },
-  {
-    type: 'wecom',
-    name: '企业微信',
-    importPath: '../../../channels/wecom/WeComChannel',
-    exportKey: 'wecomChannel',
-  },
-  {
-    type: 'googlechat',
-    name: 'Google Chat',
-    importPath: '../../../channels/googlechat/index',
-    exportKey: 'googleChatChannelPlugin',
-  },
-  {
-    type: 'msteams',
-    name: 'MS Teams',
-    importPath: '../../../channels/msteams/index',
-    exportKey: 'msteamsChannelPlugin',
-  },
-  {
-    type: 'zalo',
-    name: 'Zalo',
-    importPath: '../../../channels/zalo/index',
-    exportKey: 'zaloChannelPlugin',
-  },
-  {
-    type: 'yuanbao',
-    name: '元宝',
-    importPath: '../../../channels/yuanbao/index',
-    exportKey: 'yuanbaoChannelPlugin',
-  },
-  {
-    type: 'whatsapp',
-    name: 'WhatsApp',
-    importPath: '../../../channels/whatsapp/index',
-    exportKey: 'whatsAppChannelPlugin',
-  },
-  {
-    type: 'signal',
-    name: 'Signal',
-    importPath: '../../../channels/signal/index',
-    exportKey: 'signalChannelPlugin',
-  },
-  {
-    type: 'matrix',
-    name: 'Matrix',
-    importPath: '../../../channels/matrix/index',
-    exportKey: 'matrixChannelPlugin',
-  },
-  {
-    type: 'facebook',
-    name: 'Facebook Messenger',
-    importPath: '../../../channels/facebookmessenger/index',
-    exportKey: 'facebookMessengerChannelPlugin',
-  },
-  {
-    type: 'twitter',
-    name: 'Twitter/X',
-    importPath: '../../../channels/twitter/index',
-    exportKey: 'twitterChannelPlugin',
-  },
-  {
-    type: 'claude',
-    name: 'Claude',
-    importPath: '../../../channels/claude/index',
-    exportKey: 'claudeChannelPlugin',
-  },
-  {
-    type: 'mattermost',
-    name: 'Mattermost',
-    importPath: '../../../channels/mattermost/MattermostChannel',
-    exportKey: 'mattermostChannel',
-  },
-  {
-    type: 'bluebubbles',
-    name: 'iMessage',
-    importPath: '../../../channels/bluebubbles/BlueBubblesChannel',
-    exportKey: 'bluebubblesChannelPlugin',
-  },
-];
-
-/** CHANNEL_TABLE 的快速索引 */
-function getChannelEntry(type: string) {
-  return CHANNEL_TABLE.find((e) => e.type === type);
-}
+// 通道动态注册元信息统一取自 `channels/channelCatalog.ts`（单一事实源）
+// 2026-09-30 · 台账 D-134：此处曾维护**独立的副本**（26 条，与 `setupChannels` 逐字重复），已收敛。
 
 // ========== Channel Handlers ==========
 
@@ -570,12 +403,12 @@ async function tryDynamicRegister(
   config?: Record<string, unknown>,
   _broadcastEvent?: (event: string, data: Record<string, unknown>) => void
 ): Promise<boolean> {
-  const entry = getChannelEntry(channelType);
+  const entry = getChannelCatalogEntry(channelType);
   if (!entry) return false;
 
   try {
     // 动态导入插件模块
-    const mod = await import(entry.importPath);
+    const mod = await entry.load();
     const plugin = (mod as Record<string, unknown>)[entry.exportKey] as any;
     if (!plugin) {
       logger.warning(

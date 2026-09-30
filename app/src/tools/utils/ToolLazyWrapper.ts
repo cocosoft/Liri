@@ -158,7 +158,7 @@ export class ToolLazyWrapper implements Tool {
    * R6（2026-09-22）：**解包为真实工具实例**。
    *
    * 背景：本类是 `implements Tool`（**非 extends**），因此
-   * `getToolManager().getTool('Agent') instanceof AgentTool` **恒为 false** ⇒
+   * `getToolManager().getTool('agent') instanceof AgentTool` **恒为 false** ⇒
    * 控制面/命令层三处入口全部落空（`GET /v1/agents/control`、
    * `POST /v1/agents/:id/stop|pause` 恒 503），"批次停止"的修复代码一行都不会被执行。
    *

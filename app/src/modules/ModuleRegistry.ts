@@ -3,9 +3,13 @@
  * 统一管理所有模块的注册、查找和依赖解析
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
+// 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
+import { ErrorCodes } from '../core/errorCodes.js';
+import { getLogger } from '../core/loggerFacade.js';
+// 2026-09-30（台账 D-131，CS01 归一化）：`BootstrapOptions` **单一来源 = `core/di/types.ts`**
+// （原在本文件重复声明，二者结构需人工同步 —— D-127 实测"仅改一处即触发 3 处 TS 报错"）
+import type { BootstrapOptions } from '../core/di/types.js';
 import {
   ModuleCategory,
   type ModuleDefinition,
@@ -308,7 +312,7 @@ export class ModuleRegistry {
     // 初始化环境（startup.yaml → 配置系统 → 数据目录 → 优雅关闭）
     // 此步骤在模块初始化之前执行，确保配置系统就绪
     if (options?.skipEnvInit !== true) {
-      await this.initializeEnvironment();
+      await this.initializeEnvironment(options?.initializeEnvironment);
     }
 
     // 初始化必需模块（CRITICAL 优先级）
@@ -319,20 +323,19 @@ export class ModuleRegistry {
   }
 
   /**
-   * 初始化运行环境
+   * 初始化运行环境（**回调由入口注入**）
    *
-   * 封装了 entrypoints/init.ts:init() 的环境初始化逻辑：
-   * - startup.yaml 加载
-   * - 配置系统启用
-   * - 数据目录确保
-   * - 优雅关闭注册
-   *
-   * init.ts 中的工具/插件/命令/监控/模型管理/Gateway 等模块级
-   * 初始化由各模块的 initialize() 生命周期管理，不属于环境初始化范畴。
+   * 封装环境初始化逻辑：startup.yaml 加载 / 配置系统启用 / 数据目录确保 / 优雅关闭注册。
+   * ⚠️ 工具/插件/命令/监控/模型管理/Gateway 等**模块级**初始化由各模块 `initialize()`
+   * 生命周期管理，不属环境初始化范畴。
+   * 2026-09-30（台账 D-127，`R00-003` ⑤）：原实现**动态导入** `entrypoints/init` ⇒
+   * `modules -> entrypoints` 跨层引用；改由入口注入回调 ⇒ 层向合法、时序不变。
    */
-  private async initializeEnvironment(): Promise<void> {
+  private async initializeEnvironment(
+    init?: (() => Promise<void>) | undefined
+  ): Promise<void> {
+    if (!init) return; // 未注入 ⇒ 跳过（调用方自行初始化）
     try {
-      const { init } = await import('../entrypoints/init');
       await init();
     } catch (error) {
       logger.warning('环境初始化失败（非致命）', {
@@ -342,22 +345,9 @@ export class ModuleRegistry {
   }
 }
 
-/**
- * 启动选项
- * 传递给 ModuleRegistry.bootstrap() 的统一启动配置
- */
-export interface BootstrapOptions {
-  /** 启动模式 */
-  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test' | 'oneshot';
-  /** 调试模式 */
-  debug?: boolean;
-  /** 详细输出 */
-  verbose?: boolean;
-  /** 命令行参数 */
-  args?: string[];
-  /** 跳过环境初始化（用于测试） */
-  skipEnvInit?: boolean;
-}
+// 2026-09-30（台账 D-131，CS01 归一化）：`BootstrapOptions` 原在本文件与 `core/di/types.ts`
+// **重复声明**（结构须人工保持一致，D-127 实测仅改一处即触发 3 处 `TS2353`/`TS2339`）
+// ⇒ 已归一化为**单一来源**，本文件改为**导入**（见文件头 import），此处不再声明。
 
 /**
  * 全局模块注册表实例

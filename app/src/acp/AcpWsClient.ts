@@ -28,7 +28,7 @@
 import type { Duplex } from 'stream';
 import * as net from 'net';
 import { resolveLogger, type ILogger } from '@modules/core';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '../core/errorHandler.js';
 import {
   OpCode,
   DEFAULT_MAX_MESSAGE_SIZE,

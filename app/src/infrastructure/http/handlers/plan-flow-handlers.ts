@@ -21,6 +21,8 @@
 
 import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
+// C1（2026-09-30 D-102，`tasks` 域 P3）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 // ========== PlanFlow Handlers ==========
 
@@ -33,13 +35,13 @@ export async function handleListPlans(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks');
-    await taskOrchestrator['initialize']();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    await taskOps.initTaskOrchestrator();
     const url = new URL(req.url ?? '', 'http://localhost');
     const workspaceId = url.searchParams.get('workspaceId');
     const plans = workspaceId
-      ? taskOrchestrator.getPlansByWorkspace(workspaceId)
-      : taskOrchestrator.getAllPlans();
+      ? await taskOps.getPlansByWorkspace(workspaceId)
+      : await taskOps.getAllPlans();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(plans));
   } catch (err) {
@@ -55,17 +57,15 @@ export async function handleCreatePlan(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks');
+    const taskOps = await getCoreAPI().getTaskOpsPort();
     const body = await readRequestBody(req);
     const { description, steps, sessionId, workspaceId } = JSON.parse(body);
-    const plan = taskOrchestrator.createPlan(
-      description || '',
-      steps || [],
-      sessionId || '',
-      undefined,
-      undefined,
-      workspaceId
-    );
+    const plan = await taskOps.createPlan({
+      description: description || '',
+      stepDescriptions: steps || [],
+      sessionId: sessionId || '',
+      workspaceId,
+    });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(plan));
     broadcastEvent('plan:created', { planId: plan.id });
@@ -83,14 +83,14 @@ export async function handleGetPlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks');
-    const plan = taskOrchestrator.getPlan(planId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const plan = await taskOps.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
       res.end(JSON.stringify({ error: 'Plan not found' }));
       return;
     }
-    const progress = taskOrchestrator.getPlanProgress(planId);
+    const progress = await taskOps.getPlanProgress(planId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ plan, progress }));
   } catch (err) {
@@ -107,8 +107,8 @@ export async function handleExecutePlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks');
-    const plan = taskOrchestrator.getPlan(planId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const plan = await taskOps.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
       res.end(JSON.stringify({ error: 'Plan not found' }));
@@ -117,7 +117,7 @@ export async function handleExecutePlan(
     // 标记所有 pending 步骤为 running
     for (const step of plan.steps) {
       if (step.status === 'pending') {
-        taskOrchestrator.markStepRunning(step.id);
+        await taskOps.markStepRunning(step.id);
       }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -137,8 +137,8 @@ export async function handleAbortPlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks');
-    const plan = taskOrchestrator.getPlan(planId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const plan = await taskOps.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
       res.end(JSON.stringify({ error: 'Plan not found' }));
@@ -147,7 +147,7 @@ export async function handleAbortPlan(
     // 标记所有 running/pending 步骤为 cancelled
     for (const step of plan.steps) {
       if (step.status === 'running' || step.status === 'pending') {
-        taskOrchestrator.markStepFailed(step.id, '已终止');
+        await taskOps.markStepFailed(step.id, '已终止');
       }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -166,9 +166,8 @@ export async function handleListFlows(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskFlowRegistry } =
-      await import('@modules/tasks/TaskFlowRegistry');
-    const flows = taskFlowRegistry.getAllFlows();
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const flows = await taskOps.listTaskFlows();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(flows));
   } catch (err) {
@@ -187,8 +186,8 @@ export async function handleGetPlanDAG(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } = await import('@modules/tasks');
-    const plan = taskOrchestrator.getPlan(planId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const plan = await taskOps.getPlan(planId);
     if (!plan) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Plan not found' }));
@@ -209,7 +208,7 @@ export async function handleGetPlanDAG(
       }
     }
 
-    const progress = taskOrchestrator.getPlanProgress(planId);
+    const progress = await taskOps.getPlanProgress(planId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ planId, nodes, edges, progress }));
   } catch (err) {
@@ -226,15 +225,14 @@ export async function handleGetFlow(
   flowId: string
 ): Promise<void> {
   try {
-    const { taskFlowRegistry } =
-      await import('@modules/tasks/TaskFlowRegistry');
-    const flow = taskFlowRegistry.getFlow(flowId);
+    const taskOps = await getCoreAPI().getTaskOpsPort();
+    const flow = await taskOps.getTaskFlow(flowId);
     if (!flow) {
       res.writeHead(404);
       res.end(JSON.stringify({ error: 'Flow not found' }));
       return;
     }
-    const stats = taskFlowRegistry.getStats();
+    const stats = await taskOps.getTaskFlowStats();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ flow, stats }));
   } catch (err) {

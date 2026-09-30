@@ -3,13 +3,9 @@
  * 支持 singleton/transient/request 三种作用域、循环依赖检测、自动装配、
  * 生命周期钩子、ModuleRegistry 回退解析、统一启动入口等特性
  */
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-  handleError,
-} from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { handleError } from '../errorHandler.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
+import { getLogger } from '../loggerFacade.js';
 import {
   type ContainerConfig,
   DEFAULT_CONTAINER_CONFIG,
@@ -278,7 +274,7 @@ export class DIContainer {
    * 使用方式（main.ts 入口处）：
    *
    *   import { getDIContainer } from '@modules/core';
-   *   import { moduleRegistry } from '@modules/modules/ModuleRegistry';
+   *   // moduleRegistry 由模块注册表（ModuleRegistry）提供
    *   await getDIContainer().bootstrap(moduleRegistry, { mode: 'repl' });
    *
    * 注：ModuleRegistry 由调用方传入而非动态导入，
@@ -308,18 +304,26 @@ export class DIContainer {
           debug: options?.debug,
           verbose: options?.verbose,
           skipEnvInit: options?.skipEnvInit,
+          // 2026-09-30（D-127，`R00-003` ⑤）：环境初始化回调**透传**（由入口注入）
+          initializeEnvironment: options?.initializeEnvironment,
         });
       }
 
-      // 注册 Logger SPI 实现（容器就绪后）
-      try {
-        const { registerLoggerSpi } = await import('../spi/LoggerService');
-        await registerLoggerSpi(this);
-      } catch (spiError) {
-        logger.warn('Logger SPI 注册失败（非致命，使用回退路径）', {
-          error:
-            spiError instanceof Error ? spiError.message : String(spiError),
-        });
+      // 装配 SPI 实现（**推送模型**）—— 2026-09-30 D-128/D-129（`R00-003` ② 改造）。
+      // 原 `AiAccess` / `DiagnosticsProbe` 两块在此处逐块注册（各自动态导入实现方 ⇒ 产生 3 个
+      // `core -> ai|service` 跨层对）；改为由 **entry** 侧装配模块构建实现体后**主动注册**。
+      // ⚠️ 调用点即原注册点 ⇒ **注册顺序与时机不变**；未注入则各端口回退 noop/空值。
+      if (options?.registerSpis) {
+        try {
+          await options.registerSpis(this);
+        } catch (spiWiringError) {
+          logger.warn('SPI 装配失败（非致命，各端口回退 noop/空值）', {
+            error:
+              spiWiringError instanceof Error
+                ? spiWiringError.message
+                : String(spiWiringError),
+          });
+        }
       }
 
       // 完成 ModuleRegistry 注册后，执行 onLoad → onReady 生命周期

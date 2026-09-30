@@ -34,7 +34,7 @@
 import { readdir, stat, unlink } from 'fs/promises';
 import { join } from 'path';
 import { resolveTempDir } from '@modules/core/paths';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:idleScale');
 
 export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60_000; // 30 分钟无活动

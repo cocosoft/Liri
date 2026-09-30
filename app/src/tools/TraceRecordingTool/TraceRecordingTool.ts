@@ -39,7 +39,7 @@ export class TraceRecordingTool extends BaseTool {
   /**
    * 工具名称
    */
-  name = 'TraceRecordingTool';
+  name = 'trace_recording';
 
   /**
    * 工具描述

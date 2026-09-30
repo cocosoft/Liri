@@ -18,7 +18,7 @@ export type DependencyType =
 
 import type { HealthStatus } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:health:DependencyHealthChecker');
 export type { HealthStatus };
 

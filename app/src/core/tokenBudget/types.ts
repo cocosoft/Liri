@@ -89,3 +89,27 @@ export interface TokenUsage {
   budgetRemaining: number;
   budgetPercentage: number;
 }
+
+/**
+ * 压缩记录端口（core 侧自持）
+ *
+ * G1 收口（台账 D-59）：`UnifiedTokenTracker` 只需写入压缩记录，原先以 `@modules/query` 的
+ * `ContextTracker`（app 层类）作类型 ⇒ core → app 倒挂。改由 core 声明最小端口，
+ * `ContextTracker` 结构满足，运行时零依赖。
+ */
+export interface CompressionRecordPort {
+  timestamp: number;
+  turnCount: number;
+  engineName: string;
+  beforeTokens: number;
+  afterTokens: number;
+  compressionRatio: number;
+  messageCountBefore: number;
+  messageCountAfter: number;
+  hasFocusTopic: boolean;
+}
+
+/** 压缩记录写入端口（由上层 ContextTracker 实现） */
+export interface CompressionRecorderPort {
+  record(record: CompressionRecordPort): void;
+}

@@ -290,6 +290,50 @@
 **GET 契约**：`sessionId` ⇒ 该会话目标（加 `active=1` 只回未终结）；**不给 `sessionId` 时必须 `active=1`**（否则 **400**，避免无界全表扫描）。
 返回 `{ goals, count }`。
 
+### §3.8.2 A2A 对外发现（`/.well-known/agent.json`，2026-09-29 新增）
+
+实现：`app/src/infrastructure/http/handlers/routes/a2a-routes.ts`（经 `route-table.ts` 统一注册）。
+**边界（用户裁定 2026-09-29）：`ACP 对内` / `A2A 对外`** —— 本端点是**唯一对外**的 Agent 发现面（ACP 侧默认仅 `127.0.0.1`）。见 `.trae/specs/a2a-external-exposure.md`。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/.well-known/agent.json` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**，非本仓前端） |
+| POST | `/v1/a2a/tasks` | ✅（**默认关闭**；委派后端需装配期注入） | —（面向**外部 A2A Agent**） |
+| GET | `/v1/a2a/tasks/{id}` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**） |
+
+**开关**：环境变量 `A2A_ENABLED === 'true'` 才启用；**未启用 ⇒ 不处理任何 A2A 路径**（由上层回落 **404**，**不泄露端点存在性**，fail-closed）。
+**鉴权（fail-closed，2026-09-29 裁定）**：`A2A_API_KEY` **未配置 ⇒ 一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；配置了则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`）。**与 `A2A_ENABLED` 构成双闸**。
+**基址**：优先 `A2A_PUBLIC_URL`；缺省按请求 `Host` 推导（**不硬编码域名/端口**）。
+
+**发现端点状态码**
+
+| 状态码 | 条件 |
+|---|---|
+| **200** | 已启用、已鉴权且方法为 GET ⇒ A2A Agent Card（`application/json`，带 `ETag`） |
+| **304** | `If-None-Match` 命中当前 `ETag`（无 body） |
+| **401** | 已启用但**未通过鉴权**（`A2A_API_KEY` 未配置，或 `x-api-key`/`Bearer` 不匹配） |
+| **405** | 已鉴权但方法非 GET |
+| **404** | **未启用**（或路径不匹配）—— 两者**不区分**，避免泄露 |
+
+**委派契约（`POST /v1/a2a/tasks`）**：body `{ message: string（必填，trim 非空）, agentId?: string }`
+→ 创建 A2A Task 并把消息交给**委派后端**（`CoreAPI` 对话轮，方案①）；**有界等待**（`A2A_DELEGATE_MAX_WAIT_MS`，默认 **15000 ms**）。
+
+| 状态码 | 条件 |
+|---|---|
+| **200** | 阈值内完成 ⇒ **终态** Task（`completed`，含 `artifacts[].parts[].text`） |
+| **202** | 超出有界等待 ⇒ Task `status.state = 'working'` + `id`（**不做 HTTP 长挂**）；完成后由同一执行流收尾，客户端轮询 `GET` |
+| **400** | `message` 缺失/空白；请求体非法 JSON |
+| **401** | 已启用但**未通过鉴权**（同上） |
+| **405** | 已鉴权但方法非 POST |
+| **501** | **委派后端未装配**（装配失败兜底；正常装配后**不可达**）—— 如实返回，**不伪造**成功、不创建任务 |
+| **404** | **未启用**（或路径不匹配） |
+
+**任务回查（`GET /v1/a2a/tasks/{id}`）**：`200` + Task / **404**（未知 id，含**进程重启后**旧任务不可查 ⇒ 客户端按 A2A §3.4 新建任务重发）。
+
+**能力声明口径**：`capabilities.streaming` / `pushNotifications` **恒为 `false`**（未支持的能力须如实声明）；"长任务"以 **Task 状态机**表达（`submitted`→`working`→终态），**不用** `pushNotifications`。
+**安全**：卡片**不内嵌密钥**（只声明 `securitySchemes`，凭证经 HTTP Header 带外传递）。
+**部署与轮换**：密钥经 **OS 环境变量** `A2A_API_KEY` 分发（改后**需重启**，无热加载）；**单钥轮换流程 + 回滚点**见 `.trae/specs/a2a-external-exposure.md` **§8**（含 `A2A_ENABLED` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS` 全清单）。
+
 **PATCH 契约（2026-09-23 新增，Spec `goal-entity.md` §4.2 / 缺口 X4）**：
 body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数） }` —— **至少一项**。
 用途：给 `objective_updated` 续接模板与 `goal/updated` 事件提供**真实来源**（此前只有 POST/GET ⇒ "更新目标"无入口）。
@@ -956,6 +1000,9 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.6.0 | 2026-09-29 | §3.8.2 新增 **A2A 鉴权**（`A2A_API_KEY`，**fail-closed**：未配置 ⇒ 401）—— 与 `A2A_ENABLED` 构成**双闸**；发现/委派端点均返回 **401** |
+| 2.5.0 | 2026-09-29 | §3.8.2 新增 **A2A 委派**（`POST /v1/a2a/tasks` / `GET /v1/a2a/tasks/{id}`）—— 有界等待（`A2A_DELEGATE_MAX_WAIT_MS`）+ Task 状态机；委派后端 = **CoreAPI 对话轮**（方案①） |
+| 2.4.0 | 2026-09-29 | 新增 §3.8.2 **A2A 对外发现**（`GET /.well-known/agent.json`，**默认关闭**）—— 承接 `agent/a2a/agentCard.ts` 的 `buildAgentCard`；边界裁定 **ACP 对内 / A2A 对外**（P3-1 / F2 / G2） |
 | 2.3.1 | 2026-09-22 | §3.8.1 补充 `goal.noProgressStreak` 字段与服务端状态迁移口径（含**停止条件**：连续 `blocked` ×3 ⇒ `failed`） |
 | 2.3.0 | 2026-09-22 | 新增 §3.8.1 长程任务目标 API（`POST /v1/goals` / `GET /v1/goals`）—— 承接 `TaskGoalStore`（M-6），为"批次收口落状态 + 任务级预算触顶"提供创建入口 |
 | 2.2.0 | 2026-07-26 | 新增 §3.15 Inbox API（4 个端点） + §3.16 Usage API；§4 新增 inboxService 映射 |

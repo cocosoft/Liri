@@ -13,6 +13,31 @@ const logger = getLogger('ai:complexity');
 
 export type Complexity = 'simple' | 'medium' | 'complex';
 
+/**
+ * 写操作工具名清单（复杂度升级路径判据）。
+ *
+ * ⚠️ 2026-09-29（工具名漂移修复，台账 D-37）：原清单**混有 CC 名**
+ *（`Write`/`Edit`/`SubAgent`）—— 它们在本仓**不存在** ⇒ 永不命中；
+ * 按既定策略"本仓无对应工具者**直接移除**、不臆造近义名"清理。真名本就在列。
+ *
+ * 导出仅为**防漂移守卫**可在用例里直接断言（对齐 `DreamPhases.READ_ONLY_TOOLS` 的做法）。
+ */
+export const COMPLEXITY_WRITE_TOOLS: readonly string[] = [
+  'file_edit',
+  'file_write',
+  'agent',
+];
+
+/**
+ * 只读工具名清单（复杂度降级路径判据）。
+ *
+ * ⚠️ 同上清理：`Read`/`Grep`/`Glob`/`SearchCodebase` 均为 CC 名 ⇒ 永不命中
+ *（真名 `file_read`/`grep` 已在列）。
+ *
+ * 导出仅为**防漂移守卫**可在用例里直接断言。
+ */
+export const COMPLEXITY_READ_TOOLS: readonly string[] = ['file_read', 'grep'];
+
 export interface ClassifyContext {
   /** 用户输入长度 */
   descriptionLength: number;
@@ -54,30 +79,14 @@ export function transitionComplexity(
   toolName: string,
   readOnlyStreak: number
 ): Complexity {
-  // 升级路径：用了写操作 → 提升
-  const writeTools = [
-    'file_edit',
-    'file_write',
-    'Write',
-    'Edit',
-    'Agent',
-    'SubAgent',
-  ];
-  if (writeTools.includes(toolName)) {
+  // 升级路径：用了写操作 → 提升（清单见 `COMPLEXITY_WRITE_TOOLS`）
+  if (COMPLEXITY_WRITE_TOOLS.includes(toolName)) {
     if (current === 'simple') return 'medium';
     if (current === 'medium') return 'complex';
   }
 
-  // 降级路径：连续只读 → 降低
-  const readTools = [
-    'file_read',
-    'Read',
-    'grep',
-    'Grep',
-    'Glob',
-    'SearchCodebase',
-  ];
-  if (readTools.includes(toolName) && readOnlyStreak >= 3) {
+  // 降级路径：连续只读 → 降低（清单见 `COMPLEXITY_READ_TOOLS`）
+  if (COMPLEXITY_READ_TOOLS.includes(toolName) && readOnlyStreak >= 3) {
     if (current === 'complex') return 'medium';
     if (current === 'medium') return 'simple';
   }

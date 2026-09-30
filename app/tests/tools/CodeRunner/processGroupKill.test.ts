@@ -59,15 +59,36 @@ beforeAll(async () => {
   //     断言"组信号连孙进程一起终止"这一**本模块真正承诺**的行为。
   await fs.writeFile(
     parentScript,
-    "const {spawn}=require('child_process');const hb=process.argv[2],pf=process.argv[3];" +
-      "spawn(process.execPath,[require('path').join(__dirname,'grandchild.js'),hb,pf]," +
+    "const {spawn}=require('child_process');const fs=require('fs');" +
+      'const hb=process.argv[2],pf=process.argv[3];' +
+      "const g=spawn(process.execPath,[require('path').join(__dirname,'grandchild.js'),hb,pf]," +
       "{stdio:'ignore',detached:process.platform==='win32'});" +
+      // ⚠️ 2026-09-29（台账 D-49）：pid 文件**由父进程立即写**（用 spawn 返回的 `g.pid`），
+      // 不再依赖"孙进程自己写" —— 后者在孙进程早夭/竞态时会**缺失** ⇒ 清理分支被跳过
+      // ⇒ 孤儿孙进程持续写心跳（污染环境 + 可能卡住 `afterAll` 的目录删除，即 D-47/D-48 的挂起）。
+      "try{fs.writeFileSync(pf,String(g.pid))}catch{};" +
       'setInterval(()=>{},1000);'
   );
 });
 
 afterAll(async () => {
-  if (dir) await fs.rm(dir, { recursive: true, force: true });
+  // 兜底：杀掉本次遗留在 pid 文件里的进程（用例中途失败时孤儿会一直写心跳）
+  for (const tag of ['new', 'old']) {
+    const pid = await readPid(join(dir, `pid-${tag}.txt`));
+    if (pid !== null) killByPid(pid);
+  }
+  if (dir) {
+    // Windows 上被写入占用的目录可能瞬时 EBUSY ⇒ 有限重试；仍失败则抛出（不静默）
+    for (let i = 0; i < 5; i++) {
+      try {
+        await fs.rm(dir, { recursive: true, force: true });
+        return;
+      } catch {
+        await sleep(200);
+      }
+    }
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });
 
 async function sizeOf(path: string): Promise<number> {
@@ -148,7 +169,8 @@ describe('O4「终止按进程组」：真机验证', () => {
 
     // 兜底（防实现回归导致孤儿残留）
     if (grandchildPid !== null) killByPid(grandchildPid);
-  });
+    // D-49：显式超时 —— 真机进程用例若再次挂起，应表现为**失败**而不是无限阻塞全量套件
+  }, 20000);
 
   test('对照组（旧行为 child.kill）⇒ 孙进程**继续**写心跳（证明本用例非空）', async () => {
     const { parent, heartbeat, pidFile } = await startProcessTree('old');
@@ -177,5 +199,6 @@ describe('O4「终止按进程组」：真机验证', () => {
 
     // 清理孤儿（父已死 ⇒ 只能按 pid 直接杀）
     if (grandchildPid !== null) killByPid(grandchildPid);
-  });
+    // D-49：显式超时（同上）
+  }, 20000);
 });

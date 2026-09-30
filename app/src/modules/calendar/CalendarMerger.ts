@@ -8,7 +8,7 @@
  * - 降级策略（单源失败返回部分数据 + errors[]，不阻塞全景）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../../core/loggerFacade.js';
 import { CronJobStore } from '@modules/tasks';
 import { resolveDbPath } from '@modules/core';
 import { computeNextCronRunMs } from '@modules/tasks';

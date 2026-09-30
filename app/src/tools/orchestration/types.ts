@@ -71,9 +71,7 @@ export const READ_ONLY_TOOLS = new Set([
   'file_read',
   'glob',
   'grep',
-  'file_search',
   'lsp',
-  'view_tasks',
   'get_task_list',
 ]);
 
@@ -90,8 +88,11 @@ export const SERIALIZING_TOOLS = new Set([...SHARED_FILE_WRITE_TOOLS, 'bash']);
 
 /**
  * 搜索工具集合
+ *
+ * 2026-09-29（P2-3）：移除 `'file_search'` —— **非注册名**（仅存在于 `ToolFactory.getAllBaseTools()`
+ * 死路径，台账 N-27）⇒ 属"永不命中的假覆盖"。
  */
-export const SEARCH_TOOLS = new Set(['grep', 'glob', 'file_search']);
+export const SEARCH_TOOLS = new Set(['grep', 'glob']);
 
 /**
  * 判断是否为只读工具

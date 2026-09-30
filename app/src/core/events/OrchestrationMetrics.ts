@@ -8,10 +8,33 @@
  * 可选对接 OTel Metrics（通过 OTelMetrics 实例）。
  */
 
-import { OrchestrationEventType } from '@modules/agent';
+import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import { globalEventBus, type EventSubscription } from './EventBus';
-import type { OTelMetrics } from '@modules/monitoring/otel/OTelMetrics';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../loggerFacade.js';
+
+/**
+ * OTel Metrics **端口**（core 侧声明，上层注入）
+ *
+ * 2026-09-30（台账 D-70 Phase 2）：原直接 `import type { OTelMetrics }`（monitoring，infra）
+ * 构成 `core -> infra` 倒挂。本能力是**可选注入**（setter 注入、非注册式 SPI）—— 故按
+ * D-59 的「core 声明结构接口 + 上层实现结构化满足」手法就地声明端口：
+ * 只需把入参类型换成端口，调用方仍照常传 monitoring 的 `OTelMetrics` 实例（结构化兼容），
+ * **无需任何注册缝或调用方改动**。
+ */
+export interface IOTelMetricsPort {
+  /** 递增计数器 */
+  incrementCounter(
+    name: string,
+    value: number,
+    attributes?: Record<string, string | number | boolean>
+  ): void;
+  /** 记录直方图观测值 */
+  recordHistogram(
+    name: string,
+    value: number,
+    attributes?: Record<string, string | number | boolean>
+  ): void;
+}
 const logger = getLogger('core:events:OrchestrationMetrics');
 
 /** 滑动窗口大小（记录最近 N 条延迟） */
@@ -150,14 +173,14 @@ export class OrchestrationMetrics {
   /** 订阅列表 */
   private subscriptions: EventSubscription[] = [];
   /** 可选的 OTelMetrics 实例 */
-  private otelMetrics: OTelMetrics | null = null;
+  private otelMetrics: IOTelMetricsPort | null = null;
 
   /**
    * 设置 OTel Metrics 实例（启用后将同时记录到 OTel）
    *
    * @param metrics OTelMetrics 实例
    */
-  setOTelMetrics(metrics: OTelMetrics): void {
+  setOTelMetrics(metrics: IOTelMetricsPort): void {
     this.otelMetrics = metrics;
   }
 

@@ -40,7 +40,7 @@ import type { ProcessFinding, ToolCallDetail } from './types';
 /** 本仓真实注册名（工具名漂移的教训：以运行时真实名为准） */
 const MUTATING_TOOLS = new Set(['file_write', 'file_edit']);
 const COMMAND_TOOLS = new Set(['bash', 'code_run']);
-const READ_TOOLS = new Set(['file_read', 'grep', 'glob', 'file_search']);
+const READ_TOOLS = new Set(['file_read', 'grep', 'glob']);
 
 /** 归一化参数里的"资源键"（与 `ReActToolLoop` 的资源签名同源口径：path/pattern/query 类） */
 const RESOURCE_KEYS = [

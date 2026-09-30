@@ -4,9 +4,10 @@
  */
 
 import { randomUUID } from 'crypto';
-import { lazySingleton } from '../utils/common';
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+// 2026-09-30 G2 倒挂收口：懒加载单例纯 HOF 已下沉 core 侧（core 层不得引 infra 层）
+import { lazySingleton } from './lazySingleton.js';
+import { getLogger } from './loggerFacade.js';
+import { handleError } from './errorHandler.js';
 // P3（2026-09-22）：静态 import + 明确类型 + 复用注册表共享实例（原为 `any` + 动态 require + new）
 import { AgentTool, resolveAgentToolInstance } from '@modules/tools';
 

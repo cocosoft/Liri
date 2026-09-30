@@ -27,16 +27,14 @@ import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import {
-  readPdcaCheckpoint,
-  writePdcaCheckpoint,
-  syncPdcaWorkItemStatus,
-  getPdcaCheckpointIndex,
-  PDCA_TERMINAL_STATUSES,
-  PDCA_ACTIVE_STATUSES,
-  PDCA_AWAITING_APPROVAL_PHASES,
-} from '@modules/tasks';
-import type { PdcaMetrics } from '@modules/tasks';
+// C1（2026-09-30 D-103，`tasks` 域 P3-b）：改经服务层端口
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// ⚠️ **类型位** app 类型（原文由 tasks 域提供）已替换为服务层端口类型。
+// 此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活（见台账 D-77）
+import type {
+  PdcaMetricsDto,
+  PdcaOrchestratorPort,
+} from '@modules/runtime/api/taskOpsPorts';
 
 const logger = getLogger('pdca:handlers');
 
@@ -54,10 +52,9 @@ export async function handlePdcaDecisionLog(
     const limit = Number.isFinite(rawLimit)
       ? Math.min(Math.max(Math.floor(rawLimit), 1), 500)
       : 100;
-    const { SqliteTaskStore } =
-      await import('../../../tasks/db/SqliteTaskStore');
-    const store = new SqliteTaskStore();
-    const rows = await store.listAuditLogByEvent('pdca_decision', limit);
+    const rows = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).listPdcaDecisionRows(limit);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
@@ -134,13 +131,18 @@ function writeWorkItem(item: WorkItemRecord): void {
 }
 
 /** 幂等键检查：相同 sessionId 的进行中 PDCA 任务 */
-function findExistingTask(sessionId: string): string | null {
+async function findExistingTask(sessionId: string): Promise<string | null> {
   // 2026-09-29（台账「另案 ⑥」）：改用桥接层**带记忆的索引**（原实现每请求全量 read+parse）；
-  // "非活跃"判据收敛到 `PDCA_TERMINAL_STATUSES`（与留存清理同源，GR02 实现唯一性）
-  for (const ck of getPdcaCheckpointIndex().values()) {
+  // "非活跃"判据收敛到**终态集**（与留存清理同源，GR02 实现唯一性）
+  const taskOps = await getCoreAPI().getTaskOpsPort();
+  const [checkpoints, statusSets] = await Promise.all([
+    taskOps.getPdcaCheckpointIndex(),
+    taskOps.getPdcaStatusSets(),
+  ]);
+  for (const ck of checkpoints.values()) {
     if (
       ck.sessionId === sessionId &&
-      !PDCA_TERMINAL_STATUSES.has(ck.status as string)
+      !statusSets.terminal.has(ck.status as string)
     ) {
       return ck.taskId as string;
     }
@@ -150,34 +152,41 @@ function findExistingTask(sessionId: string): string | null {
 
 /**
  * 启动扫描：检查所有检查点，标记无活跃 orchestrator 的 running 任务为 abort
+ *
+ * ⚠️ C1（D-103）：原为**同步**函数，因端口 API 异步化 ⇒ 改为 `async`；
+ * 唯一调用方 `main.ts` 已同步改为 `await`（**保持**"扫描先于留存清理"的既有次序约束）。
  */
-export function scanAndAbortStalePdcaTasks(): void {
+export async function scanAndAbortStalePdcaTasks(): Promise<void> {
   // 2026-09-29（台账「另案 ⑥」）：同批改用带记忆索引 —— 本函数虽只在启动时跑一次，
   // 但目录达 3394 文件时原实现同样要 ≈1s 全量 read+parse。
   let aborted = 0;
+  const taskOps = await getCoreAPI().getTaskOpsPort();
+  const [checkpoints, statusSets] = await Promise.all([
+    taskOps.getPdcaCheckpointIndex(),
+    taskOps.getPdcaStatusSets(),
+  ]);
 
-  for (const ck of getPdcaCheckpointIndex().values()) {
-    // 命中判据与豁免判据**与留存清理同源**（GR02）：PDCA_ACTIVE_STATUSES /
-    // PDCA_AWAITING_APPROVAL_PHASES（均定义在 PdcaWorkItemBridge）
+  for (const ck of checkpoints.values()) {
+    // 命中判据与豁免判据**与留存清理同源**（GR02）：活跃集 / 待审批阶段集
     const status = ck.status as string | undefined;
-    if (status === undefined || !PDCA_ACTIVE_STATUSES.has(status)) continue;
+    if (status === undefined || !statusSets.active.has(status)) continue;
     // Gap D（1-0c，2026-09-03）：等待审批的任务（plan_pending/stage_awaiting_approval）
     // 不是崩溃遗留——重启后应保留供 /goal 审批/恢复，不得被启动扫描误 abort。
     // （1-0b 后 plan_pending 的 status 演进为 'started'，故此处需按 phase 二次排除。）
     const phase = ck.phase as string | undefined;
-    if (phase !== undefined && PDCA_AWAITING_APPROVAL_PHASES.has(phase)) {
+    if (phase !== undefined && statusSets.awaitingApprovalPhases.has(phase)) {
       continue;
     }
 
     const taskId = ck.taskId as string;
-    writePdcaCheckpoint(taskId, {
+    await taskOps.writePdcaCheckpoint(taskId, {
       ...ck,
       status: 'abort',
       abortedAt: new Date().toISOString(),
     });
 
     if (ck.workItemId) {
-      syncPdcaWorkItemStatus(taskId, 'abort');
+      await taskOps.syncPdcaWorkItemStatus(taskId, 'abort');
     }
     aborted++;
     logger.info('PDCA 旧任务已标记 abort', { taskId });
@@ -187,14 +196,6 @@ export function scanAndAbortStalePdcaTasks(): void {
     logger.info(`启动扫描完成：已标记 ${aborted} 个旧 PDCA 任务为 abort`);
   }
 }
-
-type OrchestratorLike = {
-  getStatus(): unknown;
-  generateReport(): unknown;
-  reviewStep(stepId: string): Promise<unknown>;
-  decideStep(stepId: string, decision: string): Promise<void>;
-  confirm?(decision: unknown): Promise<void>;
-};
 
 // ========== PDCA Handlers ==========
 
@@ -228,9 +229,11 @@ export async function handlePdcaStart(
 
     // 幂等键检查：同一 sessionId 已有进行中任务 → 直接返回现有 taskId
     if (sessionId) {
-      const existing = findExistingTask(sessionId);
+      const existing = await findExistingTask(sessionId);
       if (existing) {
-        const ck = readPdcaCheckpoint(existing);
+        const ck = await (
+          await getCoreAPI().getTaskOpsPort()
+        ).readPdcaCheckpoint(existing);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
@@ -264,8 +267,9 @@ export async function handlePdcaStart(
     };
     writeWorkItem(workItem);
 
-    const { getOrCreateOrchestrator } = await import('@modules/tasks');
-    const orchestrator = getOrCreateOrchestrator(taskId);
+    const orchestrator = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).getOrCreatePdcaOrchestrator(taskId);
 
     // 异步执行 PDCA，不阻塞 HTTP 响应
     void orchestrator.runFullPdca(description, sessionId).catch(async (e) => {
@@ -278,7 +282,9 @@ export async function handlePdcaStart(
     });
 
     // 持久化检查点（含归属信息）
-    writePdcaCheckpoint(taskId, {
+    await (
+      await getCoreAPI().getTaskOpsPort()
+    ).writePdcaCheckpoint(taskId, {
       taskId,
       workItemId,
       status: 'started',
@@ -374,11 +380,11 @@ export async function handlePdcaStatus(
   taskId: string
 ): Promise<void> {
   try {
-    let orchestrator: OrchestratorLike | null = null;
+    let orchestrator: PdcaOrchestratorPort | null = null;
     try {
-      const mod = await import('@modules/tasks');
-      orchestrator = (mod.getOrchestrator(taskId) ??
-        null) as OrchestratorLike | null;
+      orchestrator = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).getPdcaOrchestrator(taskId);
     } catch (err) {
       // 模块加载失败或无 orchestrator
 
@@ -391,7 +397,9 @@ export async function handlePdcaStatus(
       // 回退到检查点文件（1-5 P2，2026-09-04）：不再原样返回扁平 checkpoint，
       // 构造与 getStatus() 对齐的读模型——plan/progress 由快照 steps 推导（原样透传），
       // 无 steps 时省略 plan/progress（不编造），checkpoint 不存在时保持原空态。
-      const ck = readPdcaCheckpoint(taskId);
+      const ck = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).readPdcaCheckpoint(taskId);
       if (!ck) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(
@@ -449,11 +457,11 @@ export async function handlePdcaAudit(
   taskId: string
 ): Promise<void> {
   try {
-    let orchestrator: OrchestratorLike | null = null;
+    let orchestrator: PdcaOrchestratorPort | null = null;
     try {
-      const m = await import('@modules/tasks');
-      orchestrator = (m.getOrchestrator(taskId) ??
-        null) as OrchestratorLike | null;
+      orchestrator = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).getPdcaOrchestrator(taskId);
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -483,11 +491,11 @@ export async function handlePdcaReviewStep(
   stepId: string
 ): Promise<void> {
   try {
-    let orchestrator: OrchestratorLike | null = null;
+    let orchestrator: PdcaOrchestratorPort | null = null;
     try {
-      const m = await import('@modules/tasks');
-      orchestrator = (m.getOrchestrator(taskId) ??
-        null) as OrchestratorLike | null;
+      orchestrator = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).getPdcaOrchestrator(taskId);
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -520,11 +528,11 @@ export async function handlePdcaDecideStep(
   try {
     const body = await readRequestBody(req);
     const { decision } = JSON.parse(body);
-    let orchestrator: OrchestratorLike | null = null;
+    let orchestrator: PdcaOrchestratorPort | null = null;
     try {
-      const m = await import('@modules/tasks');
-      orchestrator = (m.getOrchestrator(taskId) ??
-        null) as OrchestratorLike | null;
+      orchestrator = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).getPdcaOrchestrator(taskId);
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -576,14 +584,18 @@ export async function handlePdcaList(
     // 2026-09-29（台账「另案 ⑥」）：改用桥接层的**带记忆索引** —— 原实现对整个目录逐文件
     // `readFileSync`+`JSON.parse`（真实目录 3394 个 json ⇒ ≈**1.0s/请求**），
     // 且与 `listPdcaCheckpoints()` 重复实现（GR02 实现唯一性）。
-    const ckByTask = getPdcaCheckpointIndex();
+    const ckByTask = await (
+      await getCoreAPI().getTaskOpsPort()
+    ).getPdcaCheckpointIndex();
 
     // 内存 orchestrator 条目（活跃任务）——checkpoint 归属字段回填（checkpoint 优先）
     let memoryItems: Record<string, unknown>[] = [];
     try {
-      const m = await import('@modules/tasks');
-      memoryItems = m.getAllOrchestrators().map((o: unknown) => {
-        const st = (o as OrchestratorLike).getStatus();
+      const orchestrators = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).listPdcaOrchestrators();
+      memoryItems = orchestrators.map((o) => {
+        const st = o.getStatus();
         return (st ?? {}) as Record<string, unknown>;
       });
     } catch (err) {
@@ -663,10 +675,12 @@ export async function handlePdcaMetrics(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    let tasks: Array<{ taskId: string; metrics: PdcaMetrics }> = [];
+    let tasks: Array<{ taskId: string; metrics: PdcaMetricsDto }> = [];
     try {
-      const m = await import('@modules/tasks');
-      tasks = m.getAllOrchestrators().map((o) => {
+      const orchestrators = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).listPdcaOrchestrators();
+      tasks = orchestrators.map((o) => {
         const status = o.getStatus() as { taskId?: string };
         return {
           taskId: status?.taskId ?? 'unknown',
@@ -681,7 +695,7 @@ export async function handlePdcaMetrics(
     } /* 可选模块, 加载失败时降级 */
 
     const count = tasks.length;
-    const total: PdcaMetrics = {
+    const total: PdcaMetricsDto = {
       totalCycles: tasks.reduce((s, t) => s + t.metrics.totalCycles, 0),
       totalSteps: tasks.reduce((s, t) => s + t.metrics.totalSteps, 0),
       completedSteps: tasks.reduce((s, t) => s + t.metrics.completedSteps, 0),
@@ -732,11 +746,11 @@ export async function handlePdcaConfirm(
   taskId: string
 ): Promise<void> {
   try {
-    let orchestrator: OrchestratorLike | null = null;
+    let orchestrator: PdcaOrchestratorPort | null = null;
     try {
-      const m = await import('@modules/tasks');
-      orchestrator = (m.getOrchestrator(taskId) ??
-        null) as OrchestratorLike | null;
+      orchestrator = await (
+        await getCoreAPI().getTaskOpsPort()
+      ).getPdcaOrchestrator(taskId);
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',

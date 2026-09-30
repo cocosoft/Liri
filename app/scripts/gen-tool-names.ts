@@ -67,7 +67,10 @@ function main(): void {
     '',
     '/** 内建工具名（编译期枚举源）—— **全量**：含"条件工具"（flag 未启用时运行期不可见者） */',
     'export const TOOL_NAMES = [',
-    ...names.map((n) => `  ${JSON.stringify(n)},`),
+    // D-136（2026-09-30）：此处必须输出**单引号** —— 工具名均为 `[a-z_0-9]+` 标识符 ⇒ 无需转义；
+    // 原用 `JSON.stringify(n)` 产出双引号，与仓内 prettier（单引号）冲突 ⇒ 生成物天生不合规，
+    // 每次重生都会被 pre-commit 的 `eslint --fix` 全量改写（实测 ~142 行 diff，来回震荡）。
+    ...names.map((n) => `  '${n}',`),
     '] as const;',
     '',
     '/** 内建工具名联合类型 —— 写出不存在 / 拼错的工具名 ⇒ `bun run typecheck` 报错 */',

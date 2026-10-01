@@ -2507,9 +2507,83 @@ class ArchitectureLinter {
     return first;
   }
 
+  /**
+   * 剥离注释（**保留字符串字面量**）—— 2026-10-01 台账 D-190（门禁口径裁定 ①）
+   *
+   * **为什么**：`parseModuleImports` / `parseDynamicImports` 用正则扫**原始文本**，而**不剥离注释**
+   * ⇒ 把旧 import 写进注释的"收口说明"会让该依赖**复活**（假阳性）。本会话已实证 **3 次**：
+   * D-162（`config -> sandbox`）· D-172（`oauth -> infrastructure` · `system -> tasks`，两次共致 −2 误判）。
+   *
+   * **为什么不能简单用正则删注释**：`from '…'` 的**说明符本身是字符串**，且源码中存在含 `//` 的字符串
+   * （如 URL）⇒ 采用**逐字符状态机**：仅在 code 态识别 `//` 与 `/* *\/`，字符串/模板串内原样保留
+   * （含转义 `\\`）。**保留换行** ⇒ 行号不变。
+   */
+  stripComments(content: string): string {
+    let out = '';
+    let i = 0;
+    let state: 'code' | 'line' | 'block' | 'single' | 'double' | 'template' =
+      'code';
+    while (i < content.length) {
+      const ch = content[i];
+      const next = content[i + 1];
+      if (state === 'code') {
+        if (ch === '/' && next === '/') {
+          state = 'line';
+          i += 2;
+          continue;
+        }
+        if (ch === '/' && next === '*') {
+          state = 'block';
+          i += 2;
+          continue;
+        }
+        if (ch === "'") state = 'single';
+        else if (ch === '"') state = 'double';
+        else if (ch === '`') state = 'template';
+        out += ch;
+        i++;
+        continue;
+      }
+      if (state === 'line') {
+        if (ch === '\n') {
+          state = 'code';
+          out += ch;
+        }
+        i++;
+        continue;
+      }
+      if (state === 'block') {
+        if (ch === '*' && next === '/') {
+          state = 'code';
+          i += 2;
+          continue;
+        }
+        if (ch === '\n') out += ch;
+        i++;
+        continue;
+      }
+      // 字符串态：原样保留（含转义）
+      out += ch;
+      if (ch === '\\') {
+        out += next ?? '';
+        i += 2;
+        continue;
+      }
+      if (
+        (state === 'single' && ch === "'") ||
+        (state === 'double' && ch === '"') ||
+        (state === 'template' && ch === '`')
+      ) {
+        state = 'code';
+      }
+      i++;
+    }
+    return out;
+  }
+
   /** 解析 import 语句，提取跨模块依赖 */
   parseModuleImports(filePath: string): Set<string> {
-    const content = readFileSync(filePath, 'utf-8');
+    const content = this.stripComments(readFileSync(filePath, 'utf-8'));
     const imports = new Set<string>();
 
     // 匹配 @modules/xxx 形式
@@ -2547,7 +2621,8 @@ class ArchitectureLinter {
    * 不建 composition-root 白名单，不阻断提交。
    */
   parseDynamicImports(filePath: string): Set<string> {
-    const content = readFileSync(filePath, 'utf-8');
+    // 同 parseModuleImports：剥离注释，避免"注释里复写 import()"造成 R00-003 假阳性（D-190）。
+    const content = this.stripComments(readFileSync(filePath, 'utf-8'));
     const imports = new Set<string>();
 
     // 统一捕获 import('…') 的说明符，再按「别名 / 相对路径 / 裸包」分类

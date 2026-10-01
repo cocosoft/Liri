@@ -636,6 +636,13 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **⚠️ 未取得的口径**：全量 `bun test` 本次进入**已知偶发长耗时**（>4 min 被中断）；为区分"我的改动导致挂起"与"已知 flake"，改跑**定向子集**（21s 完成、220 pass）证明**不挂起**。
   - **现状**：`infra` 源剩余 **7 条边**（余 `memory` 4 + `chronos` 3）。
 
+- **✅ 2026-10-01（D-165）`memory` 组 M3 边消除 —— 手法：删死代码（非搬迁）** —— 边：`memory/services/KnowledgeBaseWriter.ts` → `@modules/services/file/fileNaming`（`sanitizeFileName`）。
+  - **前置判定（spec §3.2.1 第一步）**：该文件是**孤立的历史重复实现** —— app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述"**迁移自** `memory/services/KnowledgeBaseWriter.ts`"，且全仓对其**零值消费者**（唯一引用是 `AutoMemoryService.ts` 的 **type-only**）。
+  - **再往下取证（决定修法）**：其唯一消费者 `AutoMemoryService` 的 `knowledgeBaseWriter` 能力**整条未接线** —— `MemoryManager.ts:317` 构造只传 **1 个实参**、`setKnowledgeBaseWriter` **零调用方**、`createAutoMemoryService` **零调用方** ⇒ 第 175-183 行的"同步到知识库"分支**永不执行**（死代码）。
+  - **手法（CS01/CS05）**：**删死代码**而非搬迁工具 —— 删 type 引用 + 字段 + 构造参数 + `setKnowledgeBaseWriter` + 同步块，并删除孤立文件本身。⇒ **M3 无需动用 `sanitizeFileName` 的物理归位**，原计划"16 消费方"的改动面**就此避免**（spec §3.2 的备选方案未启用）。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 160 → 159**，恰为 M3 一条边）· 清理文件 `eslint` **0/0** · `allFiles 3991 → 3990`（−1 删文件）· 改动量 **+11 / −214 行**。
+  - **现状**：`infra` 源剩余 **6 条边**（余 `memory` 3：M1 `hooks` · M2 `docs` · M4 `services/prompt`；`chronos` 3）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

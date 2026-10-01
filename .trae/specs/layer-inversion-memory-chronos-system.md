@@ -113,12 +113,9 @@
 
 #### 3.2.1 交接状态（2026-10-01，新会话从此处起步）
 
-- **起始基线**（动手前先跑一次 `bun run lint:arch` 复核）：`已豁免 160` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3991`；分层映射 **85** 个模块（含 D-164 新增的 `appState`）。**预期终点**：`已豁免 156`（−4）。
-- **第一步必须先做（结论决定 M3 走法）** —— 判定 `memory/services/KnowledgeBaseWriter.ts` 是否**历史重复实现**：
-  - 线索：app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述"**迁移自 `memory/services/KnowledgeBaseWriter.ts`**"；`memory/services/AutoMemoryService.ts:18` 以 **type-only** 引用它。
-  - 判据：grep 全仓对该路径的**值**引用。**若为零** ⇒ 直接删该文件（`AutoMemoryService` 的 type 引用改指 app 侧类型或一并删除）⇒ **M3 边免费消失**，**无需**搬迁 `sanitizeFileName`。
-  - **若仍有值消费者** ⇒ 走 §3.2 的 M3 方案（`sanitizeFileName` 物理归位 `utils/`；该工具全仓 **16 个消费方**）。
-- **其余三条**：**M1**（扩 `IHookChainPort` 返回值为最小投影 `{ blocked: boolean }` —— 本子批**唯一动 core 契约处**；须同步改 `entrypoints/spiWiring.ts` 的实现投影，并确认 `cost` 侧忽略返回值 ⇒ 零改动）· **M2**（`docs/knowledge-types` 的 2 个类型位 → 最小结构镜像）· **M4**（`MemoryQueryResult` → 移交 `memory/types/`，由 `services/prompt` 反向引用 = service→infra 合法）。
+- **起始基线（已更新，2026-10-01 D-165 后）**：`已豁免 159` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3990`；分层映射 **85** 个模块。**预期终点**：`已豁免 156`（再消 3 边）。
+- **✅ 第一步（前置判定 + M3）已完成（D-165）**：`memory/services/KnowledgeBaseWriter.ts` 判定为**孤立的历史重复实现**（app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述迁移自它、全仓零值消费者），且其唯一消费者 `AutoMemoryService` 的 `knowledgeBaseWriter` 能力**整条未接线**（构造只传 1 参 · setter 零调用方 · 工厂零调用方 ⇒ 分支永不执行）⇒ **按 CS01/CS05 删死代码**（+11/−214 行），**M3 边消失**，`sanitizeFileName` 的物理归位**未启用**（16 消费方的改动面已避免）。
+- **剩余三条（本批待做）**：**M1**（扩 `IHookChainPort` 返回值为最小投影 `{ blocked: boolean }` —— 本子批**唯一动 core 契约处**；须同步改 `entrypoints/spiWiring.ts` 的实现投影，并确认 `cost` 侧忽略返回值 ⇒ 零改动）· **M2**（`memory/services/UnifiedSearchService.ts` 的 `docs/knowledge-types` 两个类型位 → 最小结构镜像）· **M4**（`MemoryQueryResult` → 移交 `memory/types/`，由 `services/prompt` 反向引用 = service→infra 合法）。
 - **⚠️ 继承本会话已踩的坑（务必避开）**：
   1. **别名形态别漏**：本仓同时存在 `@modules/<mod>/...`、相对路径、**以及 `@modules/state/...` 这类占用别名**三种写法 —— D-164 因漏检别名形态导致 `typecheck` 报 4× `TS2307`。**改 import 前后各 grep 一遍全形态**。
   2. **新增目录要三处同改**：`tsconfig.json` 的 `paths`（`@modules/*` **不是通配符**，必须显式登记）+ `scripts/modules-to-layers.json`（否则门禁未映射 = **假绿**）+ 消费点。

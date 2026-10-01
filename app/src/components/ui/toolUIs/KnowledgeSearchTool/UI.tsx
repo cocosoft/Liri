@@ -2,9 +2,11 @@
 // Copyright (c) 2026 190615273@qq.com
 
 import React from 'react';
-import { Text, Box } from '../../../components/ink.js';
-import { parseToolOutput } from '../parseToolOutput.js';
-import type { KnowledgeSearchOutput } from '../types.js';
+// 2026-10-01 子批 B1：本渲染器（连同其统一解析入口）由 `knowledge/tools/` 归位到 ui 层；
+// 领域输出类型经 `@modules/knowledge/tools/types`（`types` 段 ⇒ R03-002 豁免）反向引用（ui -> app 合法）。
+import { Text, Box } from '@modules/ink';
+import { parseToolOutput } from '../knowledge/parseToolOutput';
+import type { KnowledgeSearchOutput } from '@modules/knowledge/tools/types';
 
 function scoreColor(score: number): string {
   if (score >= 0.7) return 'green';

@@ -416,43 +416,43 @@ export function initDefaultToolUIRegistry(): void {
 
   // Knowledge tools
   try {
-    const knowledgeSearchUI = require('../../knowledge/tools/KnowledgeSearchTool/UI');
+    const knowledgeSearchUI = require('./toolUIs/KnowledgeSearchTool/UI');
     registerToolUI('knowledge_search', knowledgeSearchUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const knowledgeWriteUI = require('../../knowledge/tools/KnowledgeWriteTool/UI');
+    const knowledgeWriteUI = require('./toolUIs/KnowledgeWriteTool/UI');
     registerToolUI('knowledge_write', knowledgeWriteUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const knowledgeDeleteUI = require('../../knowledge/tools/KnowledgeDeleteTool/UI');
+    const knowledgeDeleteUI = require('./toolUIs/KnowledgeDeleteTool/UI');
     registerToolUI('knowledge_delete', knowledgeDeleteUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const knowledgeImportUI = require('../../knowledge/tools/KnowledgeImportTool/UI');
+    const knowledgeImportUI = require('./toolUIs/KnowledgeImportTool/UI');
     registerToolUI('knowledge_import', knowledgeImportUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const knowledgeExportUI = require('../../knowledge/tools/KnowledgeExportTool/UI');
+    const knowledgeExportUI = require('./toolUIs/KnowledgeExportTool/UI');
     registerToolUI('knowledge_export', knowledgeExportUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const knowledgeSnapshotsUI = require('../../knowledge/tools/KnowledgeSnapshotsTool/UI');
+    const knowledgeSnapshotsUI = require('./toolUIs/KnowledgeSnapshotsTool/UI');
     registerToolUI('knowledge_snapshots', knowledgeSnapshotsUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const knowledgeRestoreUI = require('../../knowledge/tools/KnowledgeRestoreTool/UI');
+    const knowledgeRestoreUI = require('./toolUIs/KnowledgeRestoreTool/UI');
     registerToolUI('knowledge_restore', knowledgeRestoreUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });

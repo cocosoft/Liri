@@ -1,7 +1,9 @@
 import React from 'react';
-import { Text, Box } from '../../../components/ink.js';
-import { parseToolOutput } from '../parseToolOutput.js';
-import type { KnowledgeDeleteOutput } from '../types.js';
+// 2026-10-01 子批 B1：本渲染器（连同其统一解析入口）由 `knowledge/tools/` 归位到 ui 层；
+// 领域输出类型经 `@modules/knowledge/tools/types`（`types` 段 ⇒ R03-002 豁免）反向引用（ui -> app 合法）。
+import { Text, Box } from '@modules/ink';
+import { parseToolOutput } from '../knowledge/parseToolOutput';
+import type { KnowledgeDeleteOutput } from '@modules/knowledge/tools/types';
 
 export function renderToolUseMessage(
   input: Partial<{ title: string; docPath: string }>,

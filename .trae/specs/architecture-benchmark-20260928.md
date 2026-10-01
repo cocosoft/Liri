@@ -709,6 +709,13 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
     3. **B3 不是搬文件问题** —— 3 个是**非 UI 实现文件**，依赖 ui 的**能力**（`ThemeManager`/`TerminalUIIntegration`/`TerminalComponents`/`KeyboardShortcuts`）⇒ 应判"这些能力是否错层"（无 UI 依赖的工具函数应下沉）或端口化。
   - **处置**：本子批**拆为 B1 / B2 / B3** 三项分治（见 spec §3.2"更正后的建议拆分"）；**未产生任何代码改动**（避免"为消 2 条边而新增 N 条边"）。
 
+- **✅ 2026-10-01（D-176）B1 完成 —— 7 条 `knowledge -> components` 消除（`app -> ui` **17 → 10**）** —— spec [`layer-inversion-service-app-app-ui.md`](./layer-inversion-service-app-app-ui.md) §3.2。
+  - **决策（用户批准）**：`parseToolOutput` **随 7 个渲染器一并归位 ui 层** —— 其自述即"**知识工具 UI 渲染器的统一解析入口**"（纯自包含、零 import、**唯一消费者就是这 7 个文件**）⇒ 零新增出口、零新增边。
+  - **改动**：`git mv` **7** 个 `knowledge/tools/Knowledge*Tool/UI.tsx` → `components/ui/toolUIs/<Tool>/UI.tsx` + **1** 个 `parseToolOutput.ts` → `components/ui/toolUIs/knowledge/parseToolOutput.ts`；`ToolUIRegistry` **7** 条 `require` 改 `./toolUIs/`；7 个渲染器导入改 `@modules/ink` + `../knowledge/parseToolOutput`（**同模块** ⇒ 不计边）+ 领域类型经 `@modules/knowledge/tools/types`（`types` 段 ⇒ R03-002 豁免）；同步更正 `knowledge/tools/CONTRIBUTING.md` 旧路径。
+  - **验收**：`typecheck` **0** · `lint:arch` **违规 0** / **已豁免 104 → 97**（**恰 −7**）· `allFiles 3987`（8 个 git rename，无增删）· R03-002 = **0** · 改动文件 `eslint` **0/0** · `bun test tests/tools` = **575 pass / 0 fail**。
+  - **现状**：`app -> ui` **17 → 10**（余 B2a 3 · B2b 2 · B2c 2 · B3 3）；全局 **`已豁免 97`**（余：`service -> app` 70 · `app -> ui` 10 · `core -> app` 11 · `app -> entry` 3 · `service -> ui` 2 · `service -> entry` 1）。
+  - **待办**：`B2`（混合模块拆 UI 专项：`commands/**/*UI.tsx` 全量清点 + `buddy` 公共 API 迁移）· `B3`（3 处 ui 能力依赖：判错层 / 端口化）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

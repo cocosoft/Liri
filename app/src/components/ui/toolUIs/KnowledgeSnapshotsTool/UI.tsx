@@ -1,7 +1,9 @@
 import React from 'react';
-import { Text, Box } from '../../../components/ink.js';
-import { parseToolOutput } from '../parseToolOutput.js';
-import type { KnowledgeSnapshotsOutput } from '../types.js';
+// 2026-10-01 子批 B1：本渲染器（连同其统一解析入口）由 `knowledge/tools/` 归位到 ui 层；
+// 领域输出类型经 `@modules/knowledge/tools/types`（`types` 段 ⇒ R03-002 豁免）反向引用（ui -> app 合法）。
+import { Text, Box } from '@modules/ink';
+import { parseToolOutput } from '../knowledge/parseToolOutput';
+import type { KnowledgeSnapshotsOutput } from '@modules/knowledge/tools/types';
 
 /** 快照条目显示名：工具 result 直接是文件名数组（字符串元素），兼容对象形式 */
 function snapshotLabel(s: unknown, i: number): string {

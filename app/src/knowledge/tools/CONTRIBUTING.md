@@ -41,9 +41,9 @@ export class KnowledgeMyTool implements Tool {
 ### 2. 创建 UI 渲染器
 
 ```typescript
-// knowledge/tools/KnowledgeMyTool/UI.tsx
+// components/ui/toolUIs/KnowledgeMyTool/UI.tsx   ← 2026-10-01 子批 B1 起：渲染器归位 ui 层
 import React from 'react';
-import { Text, Box } from '../../../components/ink.js';
+import { Text, Box } from '@modules/ink';
 
 export function renderToolUseMessage(
   input: Partial<{ input: string }>,
@@ -81,7 +81,7 @@ export function getToolUseSummary(
 2. 在 [ToolUIRegistry.ts](../../components/ui/ToolUIRegistry.ts) 中添加注册：
 ```typescript
 try {
-  const myUI = require('../../knowledge/tools/KnowledgeMyTool/UI');
+  const myUI = require('./toolUIs/KnowledgeMyTool/UI');
   registerToolUI('knowledge_my', myUI);
 } catch (err) { /* optional */ }
 ```

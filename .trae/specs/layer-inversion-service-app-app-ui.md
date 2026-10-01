@@ -150,6 +150,13 @@
 
 **更正后的建议拆分**：`B1`（7 条，先定 `parseToolOutput` 归属）→ `B2`（混合模块拆分专项，需先清点 `commands/**/*UI.tsx` 全量）→ `B3`（3 条，逐条判错层/端口化）。
 
+**✅ B1 已完成（2026-10-01，D-176）—— 7 条消除，`app -> ui` **17 → 10****
+
+- **决策（用户批准）**：`parseToolOutput` **随 7 个渲染器一并归位 ui 层** —— 其自述即"**知识工具 UI 渲染器的统一解析入口**"（纯自包含、零 import），且**唯一消费者就是这 7 个文件** ⇒ 既零新增出口、又零新增边。
+- **改动**：`git mv` **7** 个 `knowledge/tools/Knowledge*Tool/UI.tsx` + **1** 个 `parseToolOutput.ts`（→ `components/ui/toolUIs/knowledge/parseToolOutput.ts`）；`ToolUIRegistry` 7 条 `require` 改 `./toolUIs/`；7 个渲染器的导入改为 `@modules/ink` + `../knowledge/parseToolOutput`（**同模块**，不计边）+ 领域类型经 `@modules/knowledge/tools/types`（`types` 段 ⇒ R03-002 豁免）；同步更正 `knowledge/tools/CONTRIBUTING.md` 的旧路径指引。
+- **验收**：`typecheck` **0** · `lint:arch` **违规 0** / **`已豁免 104 → 97`（恰 −7）** · R03-002 = **0** · 改动文件 `eslint` **0/0** · `bun test tests/tools` = **575 pass / 0 fail**。
+- **现状**：`app -> ui` **17 → 10**（余 B2a 3 · B2b 2 · B2c 2 · B3 3）；全局 `已豁免 97`。
+
 
 - `knowledge/components/*.tsx`（10）与 `buddy` 的 2 个 `.tsx`：同 A（UI 归位）。
 - `commands -> ink`(2) / `commands -> ui`(2)：`CommandUI.tsx` / `StatusUI.tsx` 归位；`theme/Theme.ts`、`tools/remote/remote-session.ts` 需**先判**是 UI 还是误报/类型位。

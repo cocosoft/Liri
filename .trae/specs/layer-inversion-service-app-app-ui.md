@@ -85,6 +85,33 @@
 
 ## 3. 设计（6 个子批，按"风险 × 改动量"递增）
 
+### 执行台账（2026-10-01 复查，覆盖 §3.1–§3.6）
+
+| 子批 | 范围 | 状态 | 已完成 | 剩余 |
+|---|---|---|---:|---:|
+| **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
+| **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
+| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· `media-template-handlers` ✅（D-192，1）· `agent-role-handlers` ✅（D-194，1） | **6** | **13**（`tools` 域余 2：`video-task-handlers` 6–8 步 ⬅**下一个** · `agent-control-handlers` 10–14 步；`sandbox` 域 2；`chat` 3；`auto-reply` 1；`agent` 2（建议并入数据契约专项）） |
+| **D** `service -> app` 低风险（§3.4） | 8 | ⬜ **未开始** | 0 | 8 |
+| **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
+| **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
+
+**门禁总账（实测）**：`已豁免` **151 → 79**（**−72**）= 子批 A 47 + 子批 B 13 + 子批 C 6 + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
+**质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
+
+**⬅ 下一个未执行任务**：§3.3 ④ 之 **`video-task-handlers.ts`** —— **取证已完备（D-196），纯机械编辑，可直接照做**：
+
+| handler 调用点 | 端口现状 | 需补 |
+|---|---|---|
+| L101 `update(id, { mode, sourceImageUrl })` | 有 `updateVideoTask`，但 **patch 类型缺 `mode`** | 扩 patch 字段 |
+| L137 `get(taskId)` | ❌ 无 | 新增 `getVideoTask(id)` |
+| L195 `cleanupStaleTasks()` | ❌ 无 | 新增 `cleanupStaleTasks()` |
+| L200 `listByStatus(types, limit)` | ✅ 有 `listVideoTasksByStatus` | — |
+| L205 `list(limit)` | ❌ 无 | 新增 `listVideoTasks(limit)` |
+
+**另需**：删 **2 个**导入（L16 值 + L17 `ToolUseContext` 类型 —— 后者**已实证未被使用**，pre-commit eslint 报 unused ⇒ **免费**；**必须同删才减计数**）+ 改 **5 处**调用点。**实测量级 ≈ 9–11 编辑**（高于原估 6–8，因端口缺口 3 个方法）。
+
 ### 3.1 子批 A —— `tools -> ink` **47**（最大桶；混合模块拆分）
 
 **现状**：`app/src/tools/**/UI.tsx` 型文件 47 个，直接 import `@modules/ink`（ui 层终端渲染）。

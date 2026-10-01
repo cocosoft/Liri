@@ -116,6 +116,18 @@
 - **起始基线（已更新，2026-10-01 D-165 后）**：`已豁免 159` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3990`；分层映射 **85** 个模块。**预期终点**：`已豁免 156`（再消 3 边）。
 - **✅ 第一步（前置判定 + M3）已完成（D-165）**：`memory/services/KnowledgeBaseWriter.ts` 判定为**孤立的历史重复实现**（app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述迁移自它、全仓零值消费者），且其唯一消费者 `AutoMemoryService` 的 `knowledgeBaseWriter` 能力**整条未接线**（构造只传 1 参 · setter 零调用方 · 工厂零调用方 ⇒ 分支永不执行）⇒ **按 CS01/CS05 删死代码**（+11/−214 行），**M3 边消失**，`sanitizeFileName` 的物理归位**未启用**（16 消费方的改动面已避免）。
 - **剩余三条（本批待做）**：**M1**（扩 `IHookChainPort` 返回值为最小投影 `{ blocked: boolean }` —— 本子批**唯一动 core 契约处**；须同步改 `entrypoints/spiWiring.ts` 的实现投影，并确认 `cost` 侧忽略返回值 ⇒ 零改动）· **M2**（`memory/services/UnifiedSearchService.ts` 的 `docs/knowledge-types` 两个类型位 → 最小结构镜像）· **M4**（`MemoryQueryResult` → 移交 `memory/types/`，由 `services/prompt` 反向引用 = service→infra 合法）。
+##### 3.2.1.1 剩余三条的取证明细（2026-10-01 实测，供直接开工）
+
+- **M1**（`memory/MemoryHookDispatcher.ts:9` → `HookChainManager` ← `@modules/hooks`）
+  - **用法（决定改法）**：`this.hookChainManager = HookChainManager.getInstance()`；随后 `const result = await this.hookChainManager.execute('memory', { event, data, sessionId })`，再 `for (const hookResult of result.before) { if (!hookResult.success || hookResult.preventContinuation) return { allowed: false } }` ⇒ **必须拿回返回值**，故不能直接换成现 `IHookChainPort`（现契约 `Promise<void>`，会丢掉阻断语义）。4 处调用点：`preSave` / `postSave` / `preLoad` / `postLoad`。
+  - **现 SPI 实现处（需同批改）**：`entrypoints/spiWiring.ts:399-401` —— `execute: async (hookName, payload) => { await hookChainManager.execute(hookName, payload as never); }`（返回值被丢弃）。
+  - **建议改法**：`IHookChainPort.execute` 返回最小投影 `{ blocked: boolean }`（由实现侧对 `result.before` 投影）；`cost` 侧 `await resolveHookChain().execute(...)` **忽略返回值 ⇒ 零改动**（现有调用形式不变）。
+- **M2**（`memory/services/UnifiedSearchService.ts:1-4` → 相对 `'../../docs/knowledge-types'`，**type-only**：`KnowledgeRoute` / `IKnowledgeSearch`）
+  - **建议**：最小结构镜像（只声明 memory 实际读取的成员）。⚠️ 先核该文件的**实际成员访问**再定镜像字段（已观察到 L106-L113 读 `route.score` / `title` / `snippet` / `docPath` / `category` / `matchType` 等）。
+- **M4**（`memory/services/MemorySummarizer.ts:2` → `MemoryQueryResult` ← `@modules/services/prompt/MemoryPromptProvider`，**type-only**）
+  - **全仓仅 2 处引用**：定义 `services/prompt/MemoryPromptProvider.ts:8` + 消费 `MemorySummarizer.ts:2`（另有 `:32` 作返回类型）。
+  - **建议**：**移交持有方** —— 类型下沉 `memory/types/`，由 `services/prompt` **反向引用**（service→infra 合法 ✓），无需镜像、无需端口。
+
 - **⚠️ 继承本会话已踩的坑（务必避开）**：
   1. **别名形态别漏**：本仓同时存在 `@modules/<mod>/...`、相对路径、**以及 `@modules/state/...` 这类占用别名**三种写法 —— D-164 因漏检别名形态导致 `typecheck` 报 4× `TS2307`。**改 import 前后各 grep 一遍全形态**。
   2. **新增目录要三处同改**：`tsconfig.json` 的 `paths`（`@modules/*` **不是通配符**，必须显式登记）+ `scripts/modules-to-layers.json`（否则门禁未映射 = **假绿**）+ 消费点。

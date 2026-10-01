@@ -3,7 +3,8 @@ import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs/promises';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
-import { globalEmbeddingManager } from '@modules/ai';
+// D-146（2026-10-01）：embedding 管理器改经 core SPI（`infra -> app` 倒挂收口）
+import { resolveAiAccess } from '@modules/core/spi';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 import { resolveDataDir, resolvePyappHome } from '@modules/core';
@@ -358,12 +359,26 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   }
 
   /**
-   * 获取当前嵌入模型名称
+   * D-146（2026-10-01）：embedding 端口（经 core SPI 解析；未注册时返回 `null` ⇒ 调用方降级）
+   */
+  private get embedPort(): {
+    embedOne(text: string): Promise<number[]>;
+  } | null {
+    return resolveAiAccess().getEmbeddingManager() as {
+      embedOne(text: string): Promise<number[]>;
+    } | null;
+  }
+
+  /**
    * 从全局嵌入管理器中读取当前使用的模型名
    */
   private async getEmbeddingModelName(): Promise<string> {
     try {
-      const provider = await globalEmbeddingManager.getProvider();
+      const em = resolveAiAccess().getEmbeddingManager() as {
+        getProvider(): Promise<{ modelName: string }>;
+      } | null;
+      if (!em) return 'unknown';
+      const provider = await em.getProvider();
       return provider.modelName;
     } catch (err) {
       // KB-EMB-MODEL-LOG（2026-08-29）：模型名获取失败静默 'unknown' 写入索引元数据
@@ -386,7 +401,11 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
     const textToEmbed =
       `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
-    const emb = await globalEmbeddingManager.embedOne(textToEmbed);
+    const em = resolveAiAccess().getEmbeddingManager() as {
+      embedOne(text: string): Promise<ArrayLike<number>>;
+    } | null;
+    if (!em) return;
+    const emb = await em.embedOne(textToEmbed);
     this.vectorCache.set(itemId, {
       vector: Array.from(emb),
       model: await this.getEmbeddingModelName(),
@@ -466,6 +485,11 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     selected.push(results[chosenIdx]);
     candidateIndices.delete(chosenIdx);
 
+    // D-146（2026-10-01）：static 方法内取 embedding 端口（经 core SPI）
+    const em = resolveAiAccess().getEmbeddingManager() as {
+      embedOne(text: string): Promise<number[]>;
+    } | null;
+
     while (selected.length < limit && candidateIndices.size > 0) {
       let bestCandidateIdx = -1;
       let bestMMRScore = -Infinity;
@@ -473,12 +497,12 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       for (const i of candidateIndices) {
         const relevanceScore = results[i].similarity;
         const textA = `${results[i].memory.content} ${results[i].memory.metadata.name}`;
-        const textAEmb = await globalEmbeddingManager.embedOne(textA);
+        const textAEmb = (await em?.embedOne(textA)) ?? [];
         let maxSimilarity = 0;
 
         for (const sel of selected) {
           const textB = `${sel.memory.content} ${sel.memory.metadata.name}`;
-          const textBEmb = await globalEmbeddingManager.embedOne(textB);
+          const textBEmb = (await em?.embedOne(textB)) ?? [];
           const sim = cosineSimilarity(textAEmb, textBEmb);
           if (sim > maxSimilarity) maxSimilarity = sim;
         }
@@ -1031,7 +1055,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
     const resultLimit = limit ?? this.searchConfig.query.maxResults;
     const minScore = threshold ?? this.searchConfig.query.minScore;
-    const queryEmb = await globalEmbeddingManager.embedOne(query);
+    const queryEmb = (await this.embedPort?.embedOne(query)) ?? [];
     const currentModel = await this.getEmbeddingModelName();
 
     // Phase 3: 关键词预筛选 — 先用关键词评分筛选 top-30，减少 embedding API 调用量
@@ -1056,7 +1080,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       if (cached && cached.model === currentModel) {
         vector = cached.vector;
       } else {
-        vector = await globalEmbeddingManager.embedOne(textToEmbed);
+        vector = (await this.embedPort?.embedOne(textToEmbed)) ?? [];
         this.vectorCache.set(item.id, { vector, model: currentModel });
       }
 

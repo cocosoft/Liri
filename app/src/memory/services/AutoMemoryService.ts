@@ -14,7 +14,6 @@ interface MemoryManager {
   ): Promise<Memory>;
   getAllMemories(): Promise<Memory[]>;
 }
-import type { AIService } from '@modules/ai';
 import { getLogger, Logger } from '@modules/monitoring';
 import type { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
 
@@ -62,7 +61,8 @@ export class AutoMemoryService {
   private memoryManager: MemoryManager;
   private config: AutoMemoryConfig;
   private conversationMemories: Map<string, Memory[]> = new Map();
-  private aiService: AIService | null = null;
+  // D-146（2026-10-01）：跨层类型引用 `AIService` 宽化为 `unknown`（本类只持引用不调用）
+  private aiService: unknown = null;
   private logger: Logger;
   private knowledgeBaseWriter: KnowledgeBaseWriter | null = null;
 
@@ -75,7 +75,7 @@ export class AutoMemoryService {
   constructor(
     memoryManager: MemoryManager,
     config: Partial<AutoMemoryConfig> = {},
-    aiService?: AIService,
+    aiService?: unknown,
     knowledgeBaseWriter?: KnowledgeBaseWriter
   ) {
     this.memoryManager = memoryManager;

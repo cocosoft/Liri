@@ -11,8 +11,9 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { providerRegistry, modelRouter } from '@modules/ai';
-import { ToolAwareClient } from '@modules/ai';
+// D-146（2026-10-01）：modelRouter / providerRegistry / ToolAwareClient 改经 core SPI
+// （`infra -> app` 倒挂收口）
+import { resolveAiAccess } from '@modules/core/spi';
 import { resolvePyappHome } from '@modules/core';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 import { join } from 'path';
@@ -268,10 +269,21 @@ export async function runMemoryDream(
 
     // 精炼模型显式通过模型路由解析（DB 唯一事实来源），并匹配对应 provider，
     // 避免回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 调 SiliconFlow 端点 400）
-    const refineModel = await modelRouter.resolveAsync('quick');
+    const ai = resolveAiAccess();
+    const routerPort = ai.getModelRouter() as {
+      resolveAsync(role: string): Promise<string | null>;
+    } | null;
+    const registryPort = ai.getProviderRegistry() as {
+      getByModel(model: string): unknown;
+      getDefaultProvider(): unknown;
+    } | null;
+    const refineModel = routerPort
+      ? await routerPort.resolveAsync('quick')
+      : null;
     const provider =
-      (refineModel && providerRegistry.getByModel(refineModel)) ||
-      providerRegistry.getDefaultProvider();
+      refineModel && registryPort
+        ? registryPort.getByModel(refineModel)
+        : registryPort?.getDefaultProvider();
     if (!provider) {
       logger.warn('MemoryDream: 无可用 AI Provider');
       return {
@@ -283,7 +295,12 @@ export async function runMemoryDream(
       };
     }
 
-    const client = new ToolAwareClient(provider, null, null);
+    const client = ai.createToolAwareClient(provider) as {
+      sendMessage(
+        messages: unknown,
+        options: unknown
+      ): Promise<{ content: string }>;
+    };
     let totalOriginal = 0;
     let totalRefined = 0;
 

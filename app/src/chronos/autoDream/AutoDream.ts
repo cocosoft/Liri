@@ -28,13 +28,12 @@ import { configManager } from '@modules/config';
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
-import { taskRegistry } from '@modules/tasks';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('AutoDream');
-import { BaseTask } from '@modules/tasks';
-import { TaskType, TaskStatus } from '@modules/tasks/types';
+// D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
+import { resolveTaskRegistry } from '@modules/core/spi';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
@@ -115,24 +114,6 @@ let currentAbortController: AbortController | null = null;
 
 const dreamTasks: Map<string, DreamTask> = new Map();
 
-/**
- * 轻量级梦境任务包装，用于将梦境生命周期注册到 TaskRegistry
- */
-class DreamRegistryTask extends BaseTask {
-  readonly type = TaskType.DREAM;
-
-  constructor(id: string, description: string) {
-    super(id, description, '', TaskType.DREAM);
-  }
-
-  async spawn(): Promise<void> {
-    /* no-op */
-  }
-  async kill(): Promise<void> {
-    /* no-op */
-  }
-}
-
 /** 内部 dreamTaskId → registryTaskId 映射 */
 const dreamTaskToRegistryMap: Map<string, string> = new Map();
 
@@ -160,11 +141,10 @@ function registerDreamTask(
   };
   dreamTasks.set(taskId, task);
 
-  const registryTaskId = taskRegistry.register(
-    new DreamRegistryTask(
-      taskId,
-      `梦境整合: ${options.sessionsReviewing} 条会话`
-    )
+  const registryTaskId = resolveTaskRegistry().registerLightweightTask(
+    'dream',
+    taskId,
+    `梦境整合: ${options.sessionsReviewing} 条会话`
   );
   dreamTaskToRegistryMap.set(taskId, registryTaskId);
 
@@ -184,7 +164,7 @@ function addDreamTurn(
 
     const registryTaskId = dreamTaskToRegistryMap.get(taskId);
     if (registryTaskId) {
-      taskRegistry.updateState(registryTaskId, { status: TaskStatus.RUNNING });
+      resolveTaskRegistry().updateState(registryTaskId, { status: 'running' });
     }
   }
 }
@@ -197,8 +177,8 @@ function completeDreamTask(taskId: string, setAppState: any): void {
 
     const registryTaskId = dreamTaskToRegistryMap.get(taskId);
     if (registryTaskId) {
-      taskRegistry.updateState(registryTaskId, {
-        status: TaskStatus.COMPLETED,
+      resolveTaskRegistry().updateState(registryTaskId, {
+        status: 'completed',
         endTime: Date.now(),
       });
     }
@@ -214,8 +194,8 @@ function failDreamTask(taskId: string, setAppState: any, error?: string): void {
 
     const registryTaskId = dreamTaskToRegistryMap.get(taskId);
     if (registryTaskId) {
-      taskRegistry.updateState(registryTaskId, {
-        status: TaskStatus.FAILED,
+      resolveTaskRegistry().updateState(registryTaskId, {
+        status: 'failed',
         endTime: Date.now(),
         error,
       });

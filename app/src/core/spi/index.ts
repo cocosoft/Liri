@@ -58,6 +58,16 @@ export {
   resolveAgentTool,
 } from './AgentToolService';
 
+// 2026-10-01 D-147：任务注册表端口（消除 chronos / daemon 的 infra → app 倒挂，9 处）
+export {
+  type ITaskRegistryPort,
+  type LightweightTaskKind,
+  type TaskRegistryStatus,
+  TASK_REGISTRY_SERVICE_ID,
+  registerTaskRegistrySpi,
+  resolveTaskRegistry,
+} from './TaskRegistryService';
+
 export {
   type LoadedPluginBriefDto,
   type IPluginSystemService,

@@ -36,9 +36,8 @@ import { cronToHuman } from './cron';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
-import { taskRegistry } from '@modules/tasks';
-import { BaseTask } from '@modules/tasks';
-import { TaskType, TaskStatus } from '@modules/tasks/types';
+// D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
+import { resolveTaskRegistry } from '@modules/core/spi';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
 const logger = getLogger('chronos:cronScheduler');
@@ -58,24 +57,6 @@ function isRecurringTaskAged(
   return Boolean(
     t.recurring && !t.permanent && nowMs - t.createdAt >= maxAgeMs
   );
-}
-
-/**
- * 轻量级定时任务包装，用于将 cron 任务注册到 TaskRegistry
- */
-class CronRegistryTask extends BaseTask {
-  readonly type = TaskType.CRON;
-
-  constructor(id: string, description: string) {
-    super(id, description, '', TaskType.CRON);
-  }
-
-  async spawn(): Promise<void> {
-    /* no-op */
-  }
-  async kill(): Promise<void> {
-    /* no-op */
-  }
 }
 
 /** cron task id → registryTaskId 映射 */
@@ -108,8 +89,10 @@ export function createCronScheduler(
   const onFireTask = rawOnFireTask
     ? (t: ScheduledTask) => {
         if (!cronTaskMap.has(t.id)) {
-          const registryTaskId = taskRegistry.register(
-            new CronRegistryTask(t.id, t.prompt || `Cron: ${t.cron}`)
+          const registryTaskId = resolveTaskRegistry().registerLightweightTask(
+            'cron',
+            t.id,
+            t.prompt || `Cron: ${t.cron}`
           );
           cronTaskMap.set(t.id, registryTaskId);
           globalEventBus.publish(SystemEvents.TASK_CREATED, {
@@ -121,8 +104,8 @@ export function createCronScheduler(
         }
         const registryTaskId = cronTaskMap.get(t.id);
         if (registryTaskId) {
-          taskRegistry.updateState(registryTaskId, {
-            status: TaskStatus.RUNNING,
+          resolveTaskRegistry().updateState(registryTaskId, {
+            status: 'running',
           });
           globalEventBus.publish(SystemEvents.TASK_STARTED, {
             taskId: registryTaskId,
@@ -131,8 +114,8 @@ export function createCronScheduler(
         }
         rawOnFireTask(t);
         if (registryTaskId && !t.recurring) {
-          taskRegistry.updateState(registryTaskId, {
-            status: TaskStatus.COMPLETED,
+          resolveTaskRegistry().updateState(registryTaskId, {
+            status: 'completed',
             endTime: Date.now(),
           });
           globalEventBus.publish(SystemEvents.TASK_COMPLETED, {

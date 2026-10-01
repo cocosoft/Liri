@@ -237,6 +237,43 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- 任务注册表 SPI（2026-10-01 D-147）----
+  // chronos / daemon 原直接 import `@modules/tasks`（infra → app 倒挂 BULK-007，共 9 处）；
+  // 现改为经 `ITaskRegistryPort` 解析，实现在此注册（子类化 BaseTask 的细节封在实现侧）。
+  {
+    const { taskRegistry, BaseTask } = await import('@modules/tasks');
+    const { TaskType } = await import('@modules/tasks/types');
+    const { registerTaskRegistrySpi } = await import('@modules/core/spi');
+
+    await registerTaskRegistrySpi(container, {
+      registerLightweightTask: (kind, id, description) => {
+        const type =
+          kind === 'cron'
+            ? TaskType.CRON
+            : kind === 'dream'
+              ? TaskType.DREAM
+              : TaskType.DAEMON_PROCESS;
+        // 轻量登记任务：仅用于 TaskRegistry 展示/追踪，无实际执行体
+        class LightweightRegistryTask extends BaseTask {
+          readonly type = type;
+          async spawn(): Promise<void> {
+            /* no-op */
+          }
+          async kill(): Promise<void> {
+            /* no-op */
+          }
+        }
+        return taskRegistry.register(
+          new LightweightRegistryTask(id, description, '', type)
+        );
+      },
+      updateState: (registryTaskId, state) => {
+        // 值区间一致（`TaskStatus` 为字符串枚举）⇒ 边界处收窄即可
+        taskRegistry.updateState(registryTaskId, state as never);
+      },
+    });
+  }
+
   // ---- 诊断采集 SPI（2026-09-30 D-123；D-128 转推送模型）----
   {
     const { STTRegistry } =

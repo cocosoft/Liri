@@ -2,9 +2,8 @@ import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
 import type { HealthStatus as HealthStatusValue } from '@modules/core';
 import type { IPCService } from './IPCService';
-import { taskRegistry } from '@modules/tasks';
-import { BaseTask } from '@modules/tasks';
-import { TaskType, TaskStatus } from '@modules/tasks/types';
+// D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
+import { resolveTaskRegistry } from '@modules/core/spi';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
 const logger = getLogger('daemon:processManager');
@@ -54,25 +53,7 @@ const DEFAULT_CONFIG: ProcessConfig = {
   healthCheckInterval: 15000,
 };
 
-/**
- * 轻量级进程任务包装，用于将进程生命周期注册到 TaskRegistry
- */
-class ProcessRegistryTask extends BaseTask {
-  readonly type = TaskType.DAEMON_PROCESS;
-
-  constructor(id: string, description: string) {
-    super(id, description, '', TaskType.DAEMON_PROCESS);
-  }
-
-  async spawn(): Promise<void> {
-    /* no-op */
-  }
-  async kill(): Promise<void> {
-    /* no-op */
-  }
-}
-
-/** process name → registryTaskId 映射 */
+/** 内部 processName → registryTaskId 映射 */
 const processTaskMap: Map<string, string> = new Map();
 
 export class ProcessManager {
@@ -147,8 +128,10 @@ export class ProcessManager {
     });
     logger.info(`进程已注册: ${process.name}`);
 
-    const registryTaskId = taskRegistry.register(
-      new ProcessRegistryTask(process.name, `守护进程: ${process.name}`)
+    const registryTaskId = resolveTaskRegistry().registerLightweightTask(
+      'daemon_process',
+      process.name,
+      `守护进程: ${process.name}`
     );
     processTaskMap.set(process.name, registryTaskId);
     globalEventBus.publish(SystemEvents.TASK_CREATED, {
@@ -185,8 +168,8 @@ export class ProcessManager {
 
       const registryTaskId = processTaskMap.get(name);
       if (registryTaskId) {
-        taskRegistry.updateState(registryTaskId, {
-          status: TaskStatus.RUNNING,
+        resolveTaskRegistry().updateState(registryTaskId, {
+          status: 'running',
         });
         globalEventBus.publish(SystemEvents.TASK_STARTED, {
           taskId: registryTaskId,
@@ -202,8 +185,8 @@ export class ProcessManager {
 
       const registryTaskId = processTaskMap.get(name);
       if (registryTaskId) {
-        taskRegistry.updateState(registryTaskId, {
-          status: TaskStatus.FAILED,
+        resolveTaskRegistry().updateState(registryTaskId, {
+          status: 'failed',
           error: this.lastError,
           endTime: Date.now(),
         });
@@ -246,8 +229,8 @@ export class ProcessManager {
     const registryTaskId = processTaskMap.get(name);
     if (registryTaskId) {
       if (stopError) {
-        taskRegistry.updateState(registryTaskId, {
-          status: TaskStatus.FAILED,
+        resolveTaskRegistry().updateState(registryTaskId, {
+          status: 'failed',
           endTime: Date.now(),
           error: stopError,
         });
@@ -257,8 +240,8 @@ export class ProcessManager {
           error: stopError,
         });
       } else {
-        taskRegistry.updateState(registryTaskId, {
-          status: TaskStatus.COMPLETED,
+        resolveTaskRegistry().updateState(registryTaskId, {
+          status: 'completed',
           endTime: Date.now(),
         });
         globalEventBus.publish(SystemEvents.TASK_COMPLETED, {

@@ -755,6 +755,13 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **⇒ 执行清单（下一轮 1 批可完成）**：① `git mv ui/theme/{ThemeLoader,ThemeSchema}.ts → system/theme/`；② 以 **ui 版为主体**重写 `system/theme/ThemeManager.ts`（补 `getThemeManager()` 别名 + 移植上表 6 个方法）；③ 改消费点：`commands/builtin/theme/Theme.ts` · `docs/HelpSystem.ts` · `ui/theme/ThemeContext.tsx`（`getInstance()` 可保留）· `ui/index.ts` 停转出 · 删 `ui/ThemeManager.ts`；④ 同批 **B3-2**（`KeyboardShortcuts` → `utils/`）；⑤ 验收预期 **`已豁免 97 → 95`** + `bun test tests/{commands,ui,docs,tools}` 0 fail。
   - **本轮未动手**（预算已尽；本次已完成全部**取证**，下一轮为纯执行）。
 
+- **⚠️ 2026-10-01（D-181）B3-2 尝试被 `no-console` 拦下 ⇒ 回滚 —— `KeyboardShortcuts` 并非「纯工具」** —— 承 D-177 的 B3-2 判断（pre-commit 拒收，`git log` 未前进）。
+  - **实施**：`git mv ui/KeyboardShortcuts.ts → utils/KeyboardShortcuts.ts` + `docs/HelpSystem.ts` 改指 `../utils/KeyboardShortcuts`。
+  - **🔴 结果**：`eslint` 在 `src/utils/KeyboardShortcuts.ts` 报 **4 处 `no-console` error**（`console.log` @ L46/55/64/73）—— 该文件原在 `ui/` 下被豁免，搬入 `utils/` 后命中规则 ⇒ **提交被 pre-commit 拒绝**。
+  - **⇒ 判断修正（推翻 D-177 的 B3-2 前提）**：`KeyboardShortcuts` **不是"零依赖纯工具"** —— 它**直接 `console.log` 输出**（终端呈现职责）⇒ **"归位 `utils/`" 的前提不成立**。B3-2 需重新设计，候选：(a) 保留在 ui 层（则 `docs -> ui` 这条边需另找解法）；(b) 先把 4 处 `console.log` 改走 `Logger`（§1.8 日志唯一入口）再归位 —— **属行为变更**，须单独评估；(c) 为 `utils` 增设 eslint 豁免（**规则改动，需用户裁定**）。
+  - **已回滚**（`git reset` + `git checkout -- src` + 清理未跟踪副本）⇒ **树恢复绿**：`typecheck` **0** · `lint:arch` 违规 **0** / `已豁免 97` · 工作树仅剩 2 个**非我创建**的未跟踪文件。
+  - **⚠️ 附带教训（供门禁口径裁定参考）**：**移动文件会改变其适用的 eslint 规则集**（`ui/` 与 `utils/` 豁免不同）⇒ 归位类改动**必须把 `eslint` 纳入前置检查**，不能只看 `typecheck` + `lint:arch`。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

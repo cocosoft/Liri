@@ -384,7 +384,7 @@ bun run build:enterprise  # 企业版（全功能）
 - ✅ **门禁盲区可见化（`core/LazyModuleStrategy`）** - 字符串路径表改为**字面量 thunk 表**：把"藏起来的依赖"变为门禁可见（`R00-003` 18 → 28，**数字变差但真实** —— 该规则设计目的即让盲区可见）；并删除 4 条失效条目（`remote` / `doc` / `mail` / `calendar`）
 - ✅ **通道清单归一（4 份 → 1 份）** - 新建单一事实源 `channels/ChannelCatalog.ts`（存**位置无关的惰性 thunk**），删除 `setupChannels` / `LocalHTTPServiceHelpers` / `channel-handlers` 四处重复清单；顺带修复 `tryDynamicRegister()` 对 whatsapp / signal / matrix **恒返回 false** 的漂移缺陷
 - ✅ **死代码与陈旧副本清零** - 删除 `ExtensibilityService` / `StateMigrator` / `NotificationService` / `StartupPreloader` / `MemorySnapshotService` / sandbox 旧实现（4 文件）/ `EnterPlanMode` / `ExitPlanMode` / `FileSearch` / `SessionsHistory` 等 **27 个跟踪文件**；并删除 `LocalHTTPServiceHelpers` 中 `tryDynamicRegister` 的**陈旧死副本**（**P0-4 之前**版本，会**明文落库凭据**，属"复制函数致安全修复只落一份"的典型）
-- ✅ **工具名编译期枚举** - 新增 codegen 产物 `tools/toolNames.generated.ts` + `scripts/gen-tool-names.ts`，工具名收敛为单一来源（含回归用例）
+- ✅ **工具名编译期枚举** - 新增 codegen 产物 `constants/toolNames.generated.ts` + `scripts/gen-tool-names.ts`，工具名收敛为单一来源（含回归用例）
 - ✅ **对外 Agent 协议（A2A）** - 新增 `a2a-routes` / `a2a-delegator` 与契约测试；环境变量 `A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`
 - ✅ **沙箱与安全** - Landlock 网络策略两态（+ 测试）；快照存储配额治理（+ `snapshotQuota` 测试）；`PathGuard` 注册表驱动化（+ 测试）；通道进程隔离规格登记
 - ✅ **错误处理与监控收敛** - 错误处理 core sink（`core/errorHandler.ts`）；监控 Logger core SPI；`shared/events/` 事件名单一来源（奇偶门禁保障两端一致）

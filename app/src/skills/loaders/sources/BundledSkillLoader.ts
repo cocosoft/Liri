@@ -39,7 +39,7 @@ interface BundledSkillDefinition {
  * `commands/builtin/skill/index.ts`（中文）与 `skills/cli/skills.ts`（英文）**显示给用户**
  * （"允许的工具: …"）⇒ 写成 CC 名（`Read`/`Write`/`Edit`/`Grep`/`Glob`/`AskUserQuestion`）
  * 会让用户看到**本仓不存在**的工具名（`file_search` 同族漂移）。
- * 事实源 = 生成物 `tools/toolNames.generated.ts`；守卫见 `tests/skills/SkillProvider.test.ts`
+ * 事实源 = 生成物 `constants/toolNames.generated.ts`；守卫见 `tests/skills/SkillProvider.test.ts`
  * 的「内置技能 allowedTools ⊆ 真实注册名」用例。
  */
 const bundledSkills: BundledSkillDefinition[] = [

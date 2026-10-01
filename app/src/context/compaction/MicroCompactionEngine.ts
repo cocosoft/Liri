@@ -6,7 +6,7 @@
  * 零 LLM 调用，O(n) 复杂度
  */
 import type { ChatMessage } from '@modules/ai';
-import type { ToolName } from '@modules/tools/toolNames.generated';
+import type { ToolName } from '@modules/constants/toolNames.generated';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('context:compaction:micro');
 

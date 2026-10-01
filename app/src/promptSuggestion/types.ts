@@ -22,7 +22,7 @@
  * Prompt Suggestion类型定义
  */
 
-import type { ToolName } from '@modules/tools/toolNames.generated';
+import type { ToolName } from '@modules/constants/toolNames.generated';
 
 export type PromptVariant = 'user_intent' | 'stated_intent';
 

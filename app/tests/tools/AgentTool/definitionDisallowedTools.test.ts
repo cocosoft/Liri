@@ -30,7 +30,7 @@ import { VERIFICATION_AGENT_DEFINITION } from '../../../src/tools/AgentTool/stra
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
 // 漂移守卫判据：生成物（与 tests/tools/toolNameLists.test.ts 同一事实源）
-import { TOOL_NAMES } from '../../../src/tools/toolNames.generated';
+import { TOOL_NAMES } from '../../../src/constants/toolNames.generated';
 
 /** 最小可测工具（`buildToolDefinitions` 会读 `getInfo()`，故必须提供） */
 function fakeTool(name: string): Tool {

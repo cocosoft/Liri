@@ -32,7 +32,7 @@
  * 防回退守卫：`tests/tools/toolNameLists.test.ts`。
  *
  * ⚠️ 2026-09-29（P2-3 / T2）：本清单的**真名**现由 `satisfies readonly ToolName[]` **编译期校验**
- * （`ToolName` 来自生成物 `tools/toolNames.generated.ts`）—— 拼错 / 改名后未同步 ⇒ **`typecheck` 报错**。
+ * （`ToolName` 来自生成物 `constants/toolNames.generated.ts`）—— 拼错 / 改名后未同步 ⇒ **`typecheck` 报错**。
  * 同批**删除 `'file_search'`**：它**不在生效清单**（仅存在于 `ToolFactory.getAllBaseTools()` —— 台账
  * **N-27** 已认定该函数**从未被使用**；真实注册类 `FileSearchTool` 亦未被任何 loader 引用）
  * ⇒ 保留它属本文件自己禁止的**"永不命中的假覆盖"**。
@@ -51,7 +51,7 @@
  * ⇒ 即便清单名正确，`checkBeforeAccess()` 也从未被调用。
  */
 
-import type { ToolName } from '@modules/tools/toolNames.generated';
+import type { ToolName } from '@modules/constants/toolNames.generated';
 
 /** 整文件读工具（入参键 = `file_path`） */
 const FILE_READ_TOOL_NAMES = [

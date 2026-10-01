@@ -24,7 +24,7 @@ import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
-import type { ToolName } from '@modules/tools/toolNames.generated';
+import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { configManager } from '@modules/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';

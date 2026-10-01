@@ -139,7 +139,7 @@
 
 | 编号 | 任务 | 状态 | 说明 |
 |---|---|:--:|---|
-| T1 | 生成物骨架（`ToolName` 联合 + `TOOL_NAMES`，由 `getAllBuiltinToolLoaders()` 生成） | ✅ **已完成** | 生成器 [`scripts/gen-tool-names.ts`](../../app/scripts/gen-tool-names.ts)（`bun run gen:toolnames`）→ 产物 [`src/tools/toolNames.generated.ts`](../../app/src/tools/toolNames.generated.ts)（**71** 名，**已排序去重、无时间戳** ⇒ 确定性）；导出 `TOOL_NAMES` / `ToolName` / `TOOL_NAMES_COUNT` |
+| T1 | 生成物骨架（`ToolName` 联合 + `TOOL_NAMES`，由 `getAllBuiltinToolLoaders()` 生成） | ✅ **已完成** | 生成器 [`scripts/gen-tool-names.ts`](../../app/scripts/gen-tool-names.ts)（`bun run gen:toolnames`）→ 产物 [`src/constants/toolNames.generated.ts`](../../app/src/constants/toolNames.generated.ts)（**71** 名，**已排序去重、无时间戳** ⇒ 确定性）；导出 `TOOL_NAMES` / `ToolName` / `TOOL_NAMES_COUNT` |
 | T2 | 收敛 §1.2 的 ≥5 处手写集合 | ✅ **已完成** | 见 §7.4：**4 处清单的真名**改为 `as const satisfies readonly ToolName[]`（**编译期校验**，且**导出类型仍为 `Set<string>` ⇒ 零消费方改动**）；顺带**换出真漂移 `file_search`**。当日 T2 曾**刻意保留** D-15 的 3 个待注册名（`sessions_history`/`view_tasks`/`view_plan`），后经**用户裁定「删 4 项」**（含 `abort_task`）于 **D-34 一并移除**（见 §7.5）。`PathGuard` 的**别名**按设计**不**标类型 |
 | T3-② | 门禁：**新注册工具必须进生成物** | ✅ **已完成**（实现为**回归测试**） | [`tests/tools/toolNames.generated.test.ts`](../../app/tests/tools/toolNames.generated.test.ts) 4 例 ⇒ **变异测试已证非空转**（注入假名 ⇒ **3 fail**；重跑生成器 ⇒ 4 pass） |
 | T3-① | 门禁：**禁止新增手写工具名集合** | ✅ **已完成**（实现为**回归测试**；**替换**原"AST 规则"设想） | [`toolNameLists.test.ts`](../../app/tests/tools/toolNameLists.test.ts) 新增 1 例：**清单名字必须落在"生效注册面"**（生成物 `TOOL_NAMES`）**内**。原例外白名单 `PENDING_REGISTRATION`（D-15 的 3 名）**已于 D-34 删空并移除该机制**（见 §7.5）⇒ 此后**无任何例外**。**替换理由（如实）**：AST 判"是否手写集合"**误报率高**（工具名字面量合法地出现在大量比较/分支中）⇒ 改为**以注册面为判据的集合校验**；**变异测试**证明非空转 |

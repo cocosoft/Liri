@@ -7,10 +7,10 @@ import {
 import {
   TOOL_NAMES,
   TOOL_NAMES_COUNT,
-} from '../../src/tools/toolNames.generated';
+} from '../../src/constants/toolNames.generated';
 
 /**
- * P2-3 门禁②：**新注册的工具必须进入生成物**（`src/tools/toolNames.generated.ts`）
+ * P2-3 门禁②：**新注册的工具必须进入生成物**（`src/constants/toolNames.generated.ts`）
  *
  * 失败时的处置：执行 `bun run gen:toolnames` 重新生成并提交产物。
  * 依据：`.trae/specs/tool-name-compile-time-enum.md`（T3）

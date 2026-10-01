@@ -42,7 +42,7 @@ import {
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 // D-44 守卫：判据 = 生成物（与 tests/tools/toolNameLists.test.ts 同一事实源）
-import { TOOL_NAMES } from '../../src/tools/toolNames.generated';
+import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
 
 /** 构造一个最小可测 Skill */
 function makeSkill(name: string, source: SkillSource): Skill {

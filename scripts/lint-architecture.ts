@@ -2098,13 +2098,15 @@ class ArchitectureLinter {
       // 若改走 `@modules/query` 桶，会把 TAORLoop / PathGuard / FileIOLoopDetector 整条 query 模块面
       // 拉进推测执行与工具编排路径，徒增求值闭环（TDZ）风险 ⇒ 与 `tasks/goal`、`ai/router` 同理。
       'query/tool-constants',
-      // 循环安全子入口（2026-09-29）：`tools/toolNames.generated` 是 **codegen 产物、零 import 的叶子**
-      // （仅导出 `TOOL_NAMES` 字面量数组 + `ToolName` 联合类型），由 4 个**跨模块核心文件**直接引用
-      // （`constants/tools` · `query/tool-constants` · `context/compaction/MicroCompactionEngine` ·
-      // `chat/services/ToolExecutionService`）—— 它们都处于 tools 的**上游**（context/query/constants）。
-      // 若改走 `@modules/tools` 桶，会把这些核心路径**反向**拉入 ToolFactory + 全部工具类（求值闭环/TDZ 风险），
-      // 与 `query/tool-constants`、`tasks/goal`、`ai/router` 同理 ⇒ 登记为规范子入口。
-      'tools/toolNames.generated',
+      // 循环安全子入口（2026-09-29；**2026-10-01 D-152 随生成物下沉 `constants/` 迁移键名**）：
+      // `constants/toolNames.generated` 是 **codegen 产物、零 import 的叶子**
+      // （仅导出 `TOOL_NAMES` 字面量数组 + `ToolName` 联合类型），由 6 个文件直接引用
+      // （`constants/tools`（同模块）· `query/tool-constants` · `context/compaction/MicroCompactionEngine` ·
+      // `chat/services/ToolExecutionService` · `promptSuggestion/types` · `tasks/dream/DreamPhases`）
+      // —— 后 5 者处于 tools 的**上游**（context/query/chat/promptSuggestion/tasks）。
+      // 该叶子**必须**以子路径直连（与 `query/tool-constants`、`tasks/goal`、`ai/router` 同属"桶精确化"手法）：
+      // 若改走 `@modules/constants` 桶，会把整个常量面拉进这些核心路径。
+      'constants/toolNames.generated',
       // 循环安全子入口（2026-09-30，台账 D-120）：`core/LazyModuleStrategy` 是**叶子级**懒加载策略
       // （仅依赖 `core/profilerFacade` + `core/loggerFacade`），被 `modules`(app) 与其**上游**的
       // `performance`(infra) / `tools`(app) 直接消费（原位于 `modules/`；因 `modules` 由 core 改归

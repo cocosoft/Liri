@@ -1,5 +1,5 @@
 import { getLogger } from '@modules/monitoring';
-import type { ToolName } from '@modules/tools/toolNames.generated';
+import type { ToolName } from '@modules/constants/toolNames.generated';
 import { ForkedDreamExecutor } from './ForkedDreamExecutor';
 import type { ForkedDreamResult } from './ForkedDreamExecutor';
 

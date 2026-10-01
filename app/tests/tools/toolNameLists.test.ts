@@ -39,7 +39,7 @@ import {
   COMPLEXITY_WRITE_TOOLS,
 } from '../../src/ai/router/TaskComplexityClassifier';
 import { buildEnvironmentHints } from '../../src/ai/prompts/PlatformHints';
-import { TOOL_NAMES } from '../../src/tools/toolNames.generated';
+import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
 import {
   FILE_EDIT_TOOL_NAME,
   FILE_READ_TOOL_NAME,

@@ -690,6 +690,8 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **`service -> app`（70）**：`services -> *` **20** · `infrastructure -> *` **19** · `session -> *` **16** · `runtime -> *` 7 · `channels -> *` 4 · `mcp` 2 · `bridge` 1 · `voice` 1。
   - **根因分野（决定手法）**：`infrastructure/**`（19）属**装配本体错层**（handlers 的直接消费者是 entry 的 HTTP 装配 ⇒ 与 D-80 判定同型，首选物理归位）；其余 **51 条**属**真跨层依赖**（core SPI 端口 / DI 反转 / 或"被依赖的 app 模块本就该在 service 层"）。
   - **产出**：新 spec [`layer-inversion-service-app-app-ui.md`](./layer-inversion-service-app-app-ui.md) —— **6 子批 A→F**（风险×改动量递增，F=会话主链路最后做），覆盖全局 151 的 **89%**；余 **17** 条（`core -> app` 11 · `app -> entry` 3 · `service -> ui` 2 · `service -> entry` 1）明确**不在本批**（`core -> app` 涉 PDCA 编排链路，应单独立项）。
+  - **✅ 子批 A 前置取证已完成（结论：可行，改动面远小于预期）**：`tools -> ink`(47) 的**唯一消费者** = **ui 层** `components/ui/ToolUIRegistry.ts` 的 `initDefaultToolUIRegistry()`，经 `require('../../tools/<X>/UI')` 逐工具注册；**映射契约已存在**（`ToolUIRenderer` + `registerToolUI` + 两级查找）⇒ **归位零涟漪**（只改注册表的 ~20 条 `require` 路径）。47 条 = **43 个 `tools/**/UI.tsx`** + 4 处变体（`ReadMcpResourceTool.tsx` · `ListMcpResourcesTool.tsx` **内联 ink 的工具实现** · `search/GrepUI.tsx` · `search/GlobUI.tsx`）⇒ **必须分类处理，禁止整体搬迁**。落点优先并入**既有** ui 模块 `components/`（免掉"新模块须三处同改"的坑）。
+  - **🔴 附带发现（新盲区，建议与 D-172「注释盲区」一并裁定）**：门禁只识别 `from '…'`（静态）与 `import('…')`（R00-003），**完全不识别 CommonJS `require('…')`** ⇒ 本批最大桶的**唯一消费者**用了 **40+ 条 `require`** 装配渲染器，门禁**视而不见**（该依赖方向 ui→app 恰好合法故未致违规，**但这是通用盲区**：任何跨层依赖都可用 `require` 藏起来）。⇒ 与 D-172 的"注释不剥离"同属**门禁扫描器口径**问题，建议合并为一项裁定。
 
 ---
 

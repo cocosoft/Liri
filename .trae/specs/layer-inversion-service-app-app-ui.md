@@ -91,11 +91,21 @@
 
 **首选手法：UI 归位** —— 把 47 个 `UI.tsx` 迁出 `tools`，归入 **ui 层**（候选落点：新建 ui 层模块 `toolViews/`，或并入既有 `components/`），`tools` 只保留**业务与渲染器注册契约**。
 
-**⚠️ 动手前必须取证（决定"归位"还是"端口化"）**
+**✅ 前置取证已完成（2026-10-01，D-173 续）—— 结论：可行，且改动面远小于预期**
 
-1. 这 47 个 `UI.tsx` 的**消费方是谁**：`tools` 自身的注册表？`commands`？`ink` 的渲染循环？（grep `UI.tsx` 的 import 面 + 动态解析表）
-2. `tools` 是否已有"tool → UI 组件"的**映射契约**（如 `ToolRegistry` 内带 render）；若有 ⇒ 可端口化为 **ui 侧注册**（`ToolUiRegistry`），`tools` 不再 import ui。
-3. 47 个文件里是否混有**非 UI 内容**（业务/类型）——需逐文件判，禁止整体搬迁携带业务。
+| 取证问题 | 实测结论 | 对方案的影响 |
+|---|---|---|
+| **消费方是谁** | **唯一消费者 = ui 层的 `components/ui/ToolUIRegistry.ts`** 的 `initDefaultToolUIRegistry()`，经 **`require('../../tools/<X>/UI')`** 逐个注册（CommonJS，**非** `from`/`import()`） | **搬迁零涟漪**：注册表本就在 ui 层，只改它的 ~20 条 `require` 路径 |
+| **是否已有映射契约** | **有**：`ToolUIRenderer` 接口 + `registerToolUI(toolName, renderer)` + 两级查找（注册表 → 工具实例原生渲染方法） | 契约不变，仅换"渲染器从哪里来" |
+| **有无非 UI 内容混入** | **有 4 处**：`tools/ReadMcpResourceTool/ReadMcpResourceTool.tsx` · `tools/ListMcpResourcesTool/ListMcpResourcesTool.tsx`（**工具实现本身内联 ink**）；`tools/search/GrepUI.tsx` · `tools/search/GlobUI.tsx`（命名变体） | 47 条 = **43 个 `tools/**/UI.tsx`** + 上述 4 处 ⇒ **必须分类处理，禁止整体搬迁** |
+
+**手法细化（按四类）**
+
+1. **43 个 `tools/**/UI.tsx`** ⇒ 迁入 ui 层；**落点优先 `components/ui/toolUIs/`（并入既有 ui 模块 `components`）** —— 理由：`components` **已是 ui 层** ⇒ **无需新增模块**，可免掉 D-164 踩过的"新模块须同时改 `tsconfig.json` paths + `modules-to-layers.json`"**三处同改**的坑。
+2. **`ReadMcpResourceTool.tsx` / `ListMcpResourcesTool.tsx`**（工具实现内联 UI）⇒ 抽出 UI 到 ui 层、工具实现保留业务。⚠️ 属**文件拆分**，与 FSZ-* 专项重叠 ⇒ **先核行数是否超限**，超限则本子批只做"UI 抽离"的最小动作，不顺手重构。
+3. **`search/GrepUI.tsx` / `search/GlobUI.tsx`** ⇒ 同第 1 类（纯 UI 命名变体）。
+4. **`tools/AgentTool/agentDisplay.ts:7`** 的 `import type { AgentOutput } from './UI'` ⇒ 该 type 随 UI 归位后改指新路径（或把 `AgentOutput` 留在 `tools/AgentTool/types.ts` —— 倾向后者，因它是**工具输出类型**而非 UI 类型）。
+5. **`ToolUIRegistry.initDefaultToolUIRegistry()`** 的 ~20 条 `require` 路径同步改指新位置。
 
 **退路（若归位成本过高）**：ui 侧注册渲染器 + `tools` 经 **core SPI** 取（属"合法化"，非首选，须在台账写明理由）。
 

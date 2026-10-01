@@ -12,14 +12,11 @@ import { configManager } from '@modules/config';
 export type { SessionId };
 export { generateSystemSessionId };
 
-/**
- * 慢操作记录
- */
-export interface SlowOperation {
-  description: string;
-  duration: number;
-  timestamp: number;
-}
+// 2026-10-01 D-160（`R00-001`）：本文件原有的「慢操作记录」存储（`SlowOperation` /
+// `slowOperations` / `addSlowOperation` / `getSlowOperations` / `clearSlowOperations`）
+// 已**物理归位**至 `performance/SlowOperationStore.ts`。原因：该数据属性能域（infra），
+// 却寄存在入口层 ⇒ `performance`(infra) 必须反向依赖 entry，构成 `performance -> bootstrap`
+// 倒挂（2 处：`SlowOperations` 写 / `PerformanceReporter` 读）。
 
 /**
  * 应用启动状态
@@ -54,8 +51,6 @@ export interface AppStartupState {
   isRemoteMode: boolean;
   mainThreadAgentType: string | undefined;
 }
-
-let slowOperations: SlowOperation[] = [];
 
 let startupState: AppStartupState | undefined;
 
@@ -298,31 +293,4 @@ export function resetStartupState(): void {
   profileCheckpoint('startup_state_reset');
 }
 
-/**
- * 添加慢操作记录
- */
-export function addSlowOperation(description: string, duration: number): void {
-  slowOperations.push({
-    description,
-    duration,
-    timestamp: Date.now(),
-  });
-
-  if (slowOperations.length > 1000) {
-    slowOperations = slowOperations.slice(-1000);
-  }
-}
-
-/**
- * 获取慢操作记录
- */
-export function getSlowOperations(): SlowOperation[] {
-  return [...slowOperations];
-}
-
-/**
- * 清除慢操作记录
- */
-export function clearSlowOperations(): void {
-  slowOperations = [];
-}
+// 慢操作记录存储已归位 `performance/SlowOperationStore.ts`（D-160，见本文件头注）。

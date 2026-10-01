@@ -9,7 +9,8 @@ import { getPerformanceConfig } from './PerformanceConfig.js';
 const logger = getLogger('performance:reporter');
 import { analyzePerformance } from './PerformanceAnalyzer.js';
 import { generateMemoryReport } from './MemoryManager.js';
-import { getSlowOperations } from '../bootstrap/state.js';
+// 2026-10-01 D-160（`R00-001`）：存储由 `bootstrap/state.ts`（entry）归位至 performance 域
+import { getSlowOperations } from './SlowOperationStore.js';
 
 /**
  * 性能报告

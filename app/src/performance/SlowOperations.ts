@@ -11,7 +11,8 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
-import { addSlowOperation } from '../bootstrap/state.js';
+// 2026-10-01 D-160（`R00-001`）：存储由 `bootstrap/state.ts`（entry）归位至 performance 域
+import { addSlowOperation } from './SlowOperationStore.js';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
 // 慢操作统计

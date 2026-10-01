@@ -588,7 +588,16 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **为什么这是"修根因"而非绕开**：该 logger 本就不是 oauth 该用的入口 —— 修完同时**消边**且**回归模块一致性**，不新增 SPI/DI（CS01/CS05）。
   - **验收**：`typecheck` **0** · 改动文件 `eslint` **0 error / 0 warning** · `lint:arch` **0 错 / 2 警 / 违规 0** · 全量 `bun test` **4258 pass / 21 skip / 0 fail**（**= 基线**）· grep 复核 `app/src/oauth/` 对 `@modules/infrastructure` 引用 = **0**（仅剩注释）。
   - **现状**：`infra` 源剩余 **15 条边**（17 − 2）；其中 `infra -> service` 由 5 → **3**（余 `memory` 2 · `system` 1）。
-  - **🔴 门禁计数口径偏差 —— 第 4 次复现，且本次为「确定性最小复现」**：2 条边消除 ⇒ `已豁免` **168 → 167（−1）**。这是 L557 记录的 D-153(−7 vs 6) · D-154(−1 vs 2) · D-155(−2 vs 3) 之后的**第 4 次**。本例的价值在于：**恰为"同一模块对（`oauth` → `infrastructure`）含 2 个违规文件"的场景** ⇒ 与"`exemptedCount` 按（源模块,目标模块）**对**计数、而非按**文件边**计数"的猜想一致。⇒ **建议将本例作为 T-③02 的最小复现输入**（核对 `checkLayering` 中 `isException()` 是否对同一对的第 2 条边不再 `exemptedCount++`）。
+  - **🔴 门禁计数口径偏差 —— 第 4 次复现**：2 条边消除 ⇒ `已豁免` **168 → 167**（只减 1）。D-153(−7 vs 6) · D-154(−1 vs 2) · D-155(−2 vs 3) 之后的第 4 次。
+  - **⚠️ 自我更正（同日，D-160 反证）**：我曾在 D-159 提出"`exemptedCount` 按（源模块,目标模块）**对**计数"的假设 —— **已被 D-160 证伪**（D-160 同样是"1 个模块对、2 条边"，却**正确减 2**）⇒ **该假设作废，偏差仍属未归因**。已掌握的两条对照事实（供 T-③02）：D-159 的 2 条边均为 `@modules/…`（barrel）形式且 **减 1**；D-160 的 2 条边均为**相对路径**形式且 **减 2**。⇒ 建议 T-③02 直接逐分支比对 `checkLayering` 中 `exemptedCount++` 的两条路径（`@modules/` 正则分支 vs 相对路径分支）。
+
+- **✅ 2026-10-01（D-160）`performance` 组 2 条边全部消除 —— 手法：物理归位** —— 两条边**同因**：[`SlowOperations.ts:14`](file:///e:/PY/Documents/CODES/PY_APP/app/src/performance/SlowOperations.ts#L14)（写）与 [`PerformanceReporter.ts:12`](file:///e:/PY/Documents/CODES/PY_APP/app/src/performance/PerformanceReporter.ts#L12)（读）均从 `../bootstrap/state.js` 取**慢操作存储** ⇒ `performance`(infra) → `bootstrap`(entry) 倒挂。
+  - **根因（CS05）**：慢操作记录（`SlowOperation` / `slowOperations` / `addSlowOperation` / `getSlowOperations` / `clearSlowOperations`）**寄存在入口层**的 `bootstrap/state.ts` —— **数据属性能域，却要求 infra 反向依赖 entry 才能读写**。
+  - **手法：物理归位**（非 SPI/DI）—— 存储下沉 [performance/SlowOperationStore.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/performance/SlowOperationStore.ts)（新文件）；`bootstrap/state.ts` 仅留指针注释。**零新增端口、零行为变更**（函数体逐字迁移）。
+  - **影响面（归位前取证，证明零风险）**：`addSlowOperation` 仅 `SlowOperations.ts`（2 调用点）· `getSlowOperations` 仅 `PerformanceReporter.ts` · `clearSlowOperations` **全仓零消费者**（随迁以免"半截迁移"）· `SlowOperation` 类型仅本文件自用。
+  - **验收**：`typecheck` **0** · 改动文件 `eslint` **0 error / 0 warning** · `lint:arch` **0 错 / 2 警 / 违规 0**（**豁免 167 → 165**，与本批 2 边**一致**）· 全量 `bun test` **4258 pass / 21 skip / 0 fail**（**= 基线**）· `allFiles` 3989 → **3990**（+1 = 新文件）。
+  - **现状**：`infra` 源剩余 **13 条边**（15 − 2）；`infra -> entry` 由 2 → **0**。
+  - **附带发现（预存，未修）**：`bootstrap/state.ts` 仍是"入口层状态枢纽"，另被 **`services/agent/agentMemory.ts`**（service→entry，**1 条边**）消费 `getProjectRoot` ⇒ 若日后把**整个启动状态**下沉 infra（如 `state/app/`），可一并消除；本批只做性能域归位（最小改动，CS03）。
 
 ---
 

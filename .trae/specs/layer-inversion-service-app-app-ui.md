@@ -337,9 +337,9 @@ export interface MediaTemplateDto {
 |---|---|---|
 | `video-task-handlers.ts` | ⚠️ **两条要点**：① 其**动态**用法**早已在 D-93 端口化**（L19 已有 `getCoreAPI` 导入 + 注释"改经服务层端口"）⇒ 残留的只是**静态** import（L16）；② **该文件有两个 tools 导入** —— `getVideoTaskPersistence`（值 L16）+ **`ToolUseContext`（类型 L17）** ⇒ **只去其一只会"不减计数"**（门禁按「文件 × 去重模块」计），**必须一并处理**。静态调用面：`L100 update(taskId, { mode, sourceImageUrl, … })`（**端口 patch 现只收 `sourceImageUrl`/`sourceImageId`，缺 `mode`**）· `L136 get(taskId)`（**端口无此方法**）· `L191+` 尚有后续调用（grep 截断，须读完） | **8–12** |
 | `agent-role-handlers.ts` | ✅ **已完成（D-194）**：`refreshAvailableSubagentTypeNames` —— **单一函数**、**唯一** tools 导入、1 处调用点（L126）⇒ `已豁免 80 → 79` · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **4 编辑** |
-| `agent-control-handlers.ts` | **多行 import**，符号数**待读** | 待测 |
+| `agent-control-handlers.ts` | ⚠️ **最重一条（D-195 取证）**：多行 import **5 个符号**（L15-21）：`AgentTool` · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` · `getSpawnPauseState`。调用面：`L54 getSpawnPauseState()` · `L71`/`L139 setSpawnPaused(…)`（纯值 ⇒ 端口方法）· `L106 getAgentRunStore().listRuns()`（需**投影 DTO**，须读 L106-130 字段映射）· **`L33 resolveAgentToolInstance()`**（内部 helper `getAgentTool()`）⇒ ⚠️ **返回 app 实例，不能接口投影**（会泄 app 闭包 —— 该模块 D-121 注释已指出"`stopAgent` 是实例方法、无法静态投影"）⇒ 须按**实例方法**逐一投影（端口加 `stopAgent` 等），**须先读 L40–170** 定要投影哪些方法 · `L32 AgentTool` **作为返回类型**（类型 ⇒ 须一并处理才减计数） | **10–14** |
 
-**⇒ 建议执行顺序**：`agent-role-handlers`（最小）→ `agent-control-handlers`（读完 import 再定）→ `video-task-handlers`（最重，需扩端口 `getVideoTask` + patch 加 `mode` + 读完 L191+ 调用面 + 处理类型导入）。
+**⇒ 建议执行顺序（2026-10-01 实测修订）**：`agent-role-handlers` ✅ 已完成 → **`video-task-handlers`（6–8 步，含可免费删除的未使用类型导入）** → `agent-control-handlers`（**10–14 步，本域最重**：5 符号 + 实例方法投影 + `AgentTool` 类型）。
 
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 

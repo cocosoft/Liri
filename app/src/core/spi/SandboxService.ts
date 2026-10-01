@@ -43,9 +43,39 @@
  * 原直接消费 `sandbox` 的 `globalWorkspaceManager`（真实运行时依赖 ⇒ 不可下沉），
  * 故按本 SPI **同一端口**（CS01：同域不另起端口）补一条**最小能力**方法；未注册时返回 `false`
  * （fail-closed，与 `shouldUseSandbox` 同向）。
+ *
+ * **2026-10-01 D-200 扩展**（`infrastructure -> sandbox` 倒挂收口，子批 C）：新增
+ * `isWorkspacePermissionDenied()` 与 `getRuntimeStatus()` —— `infrastructure` 的两个 handler
+ * （`handler-utils.ts` · `sandbox-handlers.ts`）原**静态** `import { … } from '@modules/sandbox'`
+ * ⇒ 倒挂。仍按 CS01 **同一端口**补最小能力（D-157 同法，不另起端口）。
+ * ⚠️ `isWorkspacePermissionDenied` 与既有 `hasWorkspacePermission` 在「默认工作区不存在」
+ * 分支上**取舍相反**，见其文档；**不可互相替代**。
  */
 
 import type { SandboxPermission } from '../sandboxPermission.js';
+
+/**
+ * 沙箱运行时状态快照（**最小投影** —— `sandbox-handlers.ts` 的 `GET /v1/sandbox/status` 读取面）
+ *
+ * 子字段均为**不透明值**（handler 仅原样进 JSON，不读其内部字段）⇒ 用 `unknown` 承载，
+ * 不为其建 DTO（避免过度设计，同 `AgentRunDto` 与 `getActiveAgents()` 的分界）。
+ */
+export interface SandboxRuntimeStatus {
+  /** 沙箱运行时是否启用（`SandboxManager.isSandboxingEnabled()`） */
+  runtimeEnabled: boolean;
+  /** 当前生效设置（`SandboxManager.getSettings()`） */
+  settings: unknown;
+  /** 当前生效约束（`SandboxManager.getConstraints()`） */
+  constraints: unknown;
+  /** 违规事件数（`getViolations().length`） */
+  violationCount: number;
+  /** 进程统计（`processRegistry.getStats()`） */
+  processStats: unknown;
+  /** 资源汇总（`resourceLimitManager.getSummary()`） */
+  resourceSummary: unknown;
+  /** 活跃工作区数（`globalWorkspaceManager.list().size`） */
+  activeWorkspaceCount: number;
+}
 
 /** 沙箱端口（core 侧契约） */
 export interface ISandboxPort {
@@ -61,6 +91,26 @@ export interface ISandboxPort {
    * 实现侧对应 `globalWorkspaceManager.get('default')?.hasPermission(permission) ?? false`。
    */
   hasWorkspacePermission(permission: SandboxPermission): boolean;
+  /**
+   * 默认工作区**存在但缺少**指定权限时为 `true`；默认工作区**不存在**时为 `false`（**放行**）。
+   *
+   * ⚠️ **与 `hasWorkspacePermission` 的差异只在「默认工作区不存在」分支**（实证：全仓无
+   * `create('default')` ⇒ 该分支是**实际生效**分支）：
+   * | 情形 | `hasWorkspacePermission` | 本方法 |
+   * |---|---|---|
+   * | 工作区存在且有权 | `true` | `false` |
+   * | 工作区存在但无权 | `false` | `true` |
+   * | 工作区不存在 | `false`（**fail-closed**） | `false`（**放行**） |
+   *
+   * 前者供 `PermissionService.canAccessFile`（安全判定，缺省拒绝）；
+   * 本方法供 `handler-utils.checkFilePathPermission`（保持其**既有放行**行为）⇒ **不可互相替代**。
+   *
+   * 实现侧对应 `const ws = globalWorkspaceManager.get('default'); return ws ? !ws.hasPermission(p) : false;`
+   * （未注册时返回 `false` = 放行，与实现侧「无默认工作区」分支同向）。
+   */
+  isWorkspacePermissionDenied(permission: SandboxPermission): boolean;
+  /** 沙箱运行时状态快照（未注册时返回全零快照，见 `SandboxRuntimeStatus`） */
+  getRuntimeStatus(): SandboxRuntimeStatus;
 }
 
 /** SPI 服务标识符常量 */
@@ -73,6 +123,17 @@ export const SANDBOX_SERVICE_ID = 'core.spi.ISandboxPort';
 
 let _service: ISandboxPort | null = null;
 
+/** 未注册时的**空状态快照**（空对象语义，同本端口既有「未注册 ⇒ 空值/空操作」纪律，非 Mock 数据） */
+const _EMPTY_RUNTIME_STATUS: SandboxRuntimeStatus = {
+  runtimeEnabled: false,
+  settings: null,
+  constraints: null,
+  violationCount: 0,
+  processStats: null,
+  resourceSummary: null,
+  activeWorkspaceCount: 0,
+};
+
 /** 转发**代理**（延迟绑定，同 `resolveBroadcast()` 语义；注册前为空值语义） */
 const _proxy: ISandboxPort = {
   shouldUseSandbox: (input) => _service?.shouldUseSandbox(input) ?? false,
@@ -80,6 +141,9 @@ const _proxy: ISandboxPort = {
   updateSettings: (settings) => _service?.updateSettings(settings),
   hasWorkspacePermission: (permission) =>
     _service?.hasWorkspacePermission(permission) ?? false,
+  isWorkspacePermissionDenied: (permission) =>
+    _service?.isWorkspacePermissionDenied(permission) ?? false,
+  getRuntimeStatus: () => _service?.getRuntimeStatus() ?? _EMPTY_RUNTIME_STATUS,
 };
 
 /** 获取沙箱端口（未注册时返回空值语义代理） */

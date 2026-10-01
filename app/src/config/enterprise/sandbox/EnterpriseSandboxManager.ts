@@ -23,11 +23,10 @@ import {
   type PolicyDecision,
   type SandboxPolicyConfig,
 } from './SandboxPolicy.js';
-import type {
-  SandboxConfig,
-  SandboxExecuteOptions,
-  SandboxExecuteResult,
-} from '../../../sandbox/SandboxTypes.js';
+
+// 2026-10-01 D-156（`R00-001` 倒挂收口）：此处原 `import type { SandboxConfig,
+// SandboxExecuteOptions, SandboxExecuteResult } from '../../../sandbox/SandboxTypes.js'`
+// 为**死导入**（本文件正文零使用）⇒ 直删，消除 `config`(infra) -> `sandbox`(app) 倒挂边。
 
 const logger = getLogger('config:enterprise:sandbox:enterpriseSandboxManager');
 

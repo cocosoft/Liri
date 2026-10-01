@@ -25,7 +25,7 @@ import { load as yamlLoad } from 'js-yaml';
 import { resolvePyappHome } from '@modules/core';
 import { getBuildVariant } from '@modules/core';
 import { configManager } from '@modules/config';
-import { providerRegistry } from '@modules/ai';
+import { resolveAiAccess } from '@modules/core/spi';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 
@@ -143,16 +143,26 @@ export function loadHomePatch(): Record<string, unknown> {
 
 /**
  * 归属校验接线：providerId → providerRegistry.has；modelId → providerRegistry.getByModel 可解析。
+ *
+ * 2026-10-01 D-156（`R00-001` 倒挂收口）：原直连 `@modules/ai` 的 `providerRegistry`
+ * ⇒ `config`(infra) -> `ai`(app) 倒挂；改经 core SPI **既有**能力 `getProviderRegistry()`
+ * （D-146 加入）。端口返回 `unknown` 且**未注册时为 `null`** ⇒ 最小投影断言 + 空值分支
+ * （对齐 `MemoryDreamService` / `chronos` 既有消费范式）；空值时无法校验归属，取保守默认
+ * （视为"不存在" ⇒ 交由 `validateReferences` fail-fast），不静默放行。
  */
 async function buildReferenceCheckers(): Promise<{
   providerExists: (id: string) => boolean;
   modelExists: (model: string) => boolean;
 }> {
+  const registry = resolveAiAccess().getProviderRegistry() as {
+    has(id: string): boolean;
+    getByModel(model: string): unknown;
+  } | null;
   return {
-    providerExists: (id: string) => providerRegistry.has(id),
+    providerExists: (id: string) => (registry ? registry.has(id) : false),
     modelExists: (model: string) => {
       try {
-        return providerRegistry.getByModel(model) !== undefined;
+        return registry ? registry.getByModel(model) !== undefined : false;
       } catch {
         return false;
       }

@@ -40,4 +40,3 @@ export type {
   SecretMatch as MemorySecretMatch,
   SecretScanResult,
 } from '@modules/memory';
-

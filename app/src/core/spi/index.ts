@@ -77,6 +77,14 @@ export {
   resolveKnowledgeGraph,
 } from './KnowledgeGraphService';
 
+// 2026-10-01 D-154：沙箱端口（消除 security 的 infra -> app 倒挂）
+export {
+  type ISandboxPort,
+  SANDBOX_SERVICE_ID,
+  registerSandboxSpi,
+  resolveSandbox,
+} from './SandboxService';
+
 export {
   type LoadedPluginBriefDto,
   type IPluginSystemService,

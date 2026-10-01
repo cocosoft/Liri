@@ -338,6 +338,25 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- 沙箱 SPI（2026-10-01 D-154）----
+  // security 原直接 import `@modules/sandbox`（infra → app 倒挂 BULK），
+  // 现改为经 `ISandboxPort` 解析，实现在此注册（组合根，动态导入避免静态跨层依赖）。
+  {
+    const { SandboxManager } = await import('@modules/sandbox');
+    const { registerSandboxSpi } = await import('@modules/core/spi');
+    const sandboxManager = SandboxManager.getInstance();
+    await registerSandboxSpi(container, {
+      // 端口输入为 `Record<string, unknown>`，SandboxManager 期望具名字段
+      // （`{ command?: string; dangerouslyDisableSandbox?: boolean }`）⇒ 边界处收窄断言
+      shouldUseSandbox: (input) =>
+        sandboxManager.shouldUseSandbox(input as never),
+      isSandboxingEnabled: () => sandboxManager.isSandboxingEnabled(),
+      // 同上：端口为 `Record<string, unknown>`，实现侧为 `Partial<SandboxSettings>`
+      updateSettings: (settings) =>
+        sandboxManager.updateSettings(settings as never),
+    });
+  }
+
   // ---- 知识库运维 SPI（2026-09-30 D-125；D-129 转推送模型）----
   // ⚠️ 依赖 `AiAccess` 已注册（编译经 `resolveAiAccess()` 取 `aiService`）
   {

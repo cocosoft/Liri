@@ -5,7 +5,7 @@
 
 import { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import { SecurityAnalysisResult, SecurityBehavior } from './types';
-import { SandboxManager } from '@modules/sandbox';
+import { resolveSandbox } from '@modules/core/spi';
 import { PermissionManager } from './PermissionManager';
 import { PermissionMode } from '@modules/permission';
 import { configManager } from '@modules/config';
@@ -32,13 +32,11 @@ export interface SecurityDecision {
  */
 export class SecurityIntegrationService {
   private securityAnalyzer: BashSecurityAnalyzer;
-  private sandboxManager: SandboxManager;
   private permissionManager: PermissionManager;
   private permissionMode: PermissionMode;
 
   constructor() {
     this.securityAnalyzer = new BashSecurityAnalyzer();
-    this.sandboxManager = SandboxManager.getInstance();
     this.permissionManager = PermissionManager.getInstance();
     this.permissionMode = 'default';
   }
@@ -98,7 +96,7 @@ export class SecurityIntegrationService {
     }
 
     // 2. 检查沙箱要求
-    const sandboxRequired = this.sandboxManager.shouldUseSandbox({ command });
+    const sandboxRequired = resolveSandbox().shouldUseSandbox({ command });
 
     // 3. 执行权限检查
     let permissionBehavior: 'allow' | 'deny' | 'ask' = 'allow';
@@ -133,7 +131,7 @@ export class SecurityIntegrationService {
       }
     }
 
-    if (sandboxRequired && !this.sandboxManager.isSandboxingEnabled()) {
+    if (sandboxRequired && !resolveSandbox().isSandboxingEnabled()) {
       allowed = false;
       reason.push('沙箱未启用');
     }
@@ -168,7 +166,7 @@ export class SecurityIntegrationService {
    * @param enabled 是否启用
    */
   setSandboxEnabled(enabled: boolean): void {
-    this.sandboxManager.updateSettings({ enabled });
+    resolveSandbox().updateSettings({ enabled });
   }
 
   /**
@@ -176,7 +174,7 @@ export class SecurityIntegrationService {
    * @returns 是否启用
    */
   isSandboxEnabled(): boolean {
-    return this.sandboxManager.isSandboxingEnabled();
+    return resolveSandbox().isSandboxingEnabled();
   }
 
   /**
@@ -264,14 +262,6 @@ export class SecurityIntegrationService {
    */
   getSecurityAnalyzer(): BashSecurityAnalyzer {
     return this.securityAnalyzer;
-  }
-
-  /**
-   * 获取沙箱管理器
-   * @returns 沙箱管理器
-   */
-  getSandboxManager(): SandboxManager {
-    return this.sandboxManager;
   }
 
   /**

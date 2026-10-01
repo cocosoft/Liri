@@ -2,7 +2,6 @@ import { securityIntegrationService } from './SecurityIntegration';
 import type { SecurityDecision } from './SecurityIntegration';
 import type { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import type { PermissionManager } from './PermissionManager';
-import type { SandboxManager } from '@modules/sandbox';
 import type { PermissionMode } from '@modules/permission';
 import {
   filterMcpServersByPolicy as filterMcpPolicy,
@@ -134,7 +133,6 @@ export interface ICompleteSecuritySystem {
 
   getSecurityAnalyzer(): BashSecurityAnalyzer;
   getPermissionManager(): PermissionManager;
-  getSandboxManager(): SandboxManager;
   getStatus(): {
     sandboxEnabled: boolean;
     permissionMode: PermissionMode;
@@ -474,10 +472,6 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
 
   getPermissionManager(): PermissionManager {
     return securityIntegrationService.getPermissionManager();
-  }
-
-  getSandboxManager(): SandboxManager {
-    return securityIntegrationService.getSandboxManager();
   }
 
   getStatus(): {

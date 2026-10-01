@@ -1404,7 +1404,6 @@ export class CoreAPIImpl implements CoreAPI {
       const result = rawResult as {
         output?: unknown;
         data?: unknown;
-        result?: unknown;
         error?: string | null;
         success: boolean;
       };
@@ -1414,7 +1413,7 @@ export class CoreAPIImpl implements CoreAPI {
         toolName: toolCall.name,
         success: result.success ?? true,
         data: result.data ?? null,
-        result: result.output ?? result.result ?? null,
+        result: result.output ?? null,
         error: result.error ?? null,
         executionTime: Date.now() - startTime,
       };

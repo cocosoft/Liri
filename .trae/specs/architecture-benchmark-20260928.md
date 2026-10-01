@@ -265,7 +265,15 @@
     - **收口站点**：`core/Coordinator.ts:271-273`（`payloadText` 判空链简化）· `tools/AgentTool/SubAgentEngine.ts:861` · `tools/services/ToolResultPersister.ts:64` · `tools/ToolExecutor.ts:770`（原「51 处写入点进入模型可见块的**唯一通道**」，回退已删）· 测试 `swarmDescriptorResolution.test.ts:699`。
     - **测试连带（1 处）**：`tests/tools/taskOrchestratorToolsOutput.test.ts` 中「仅填 `result`（data 缺省）⇒ 块 result/output 不再为空」用例，断言的正是**已删回退** ⇒ 用例移除；同文件「`data` 显式 null」用例去掉已删字段引用后保留。**用例数 4272 → 4271**，故全量 pass **4251 → 4250**（**非回归**）。
     - **验收**：探针 **TS 错误 = 0** · `typecheck` **exit 0**（三遍绿）· `eslint`（5 源文件 + 1 测试）**exit 0** · **全量 `bun test` 4250 pass / 21 skip / 0 fail**（4271 用例 / 447 文件，95.74s）。
-  - **✅ B2-c 收官 ⇒ P1-3 B2 档全部完成**：`result?: T` 已从主契约删除（`tools/types/ToolResult.ts` 类文档改标「✅ 已收敛」）；全仓载荷统一为 `data`。下一步 **B3**（`progress?: any[]` 收窄 + `output?`/`content?` 并行甄别）。
+  - **✅ B2-c 收官 ⇒ P1-3 B2 档全部完成**：`result?: T` 已从主契约删除（`tools/types/ToolResult.ts` 类文档改标「✅ 已收敛」）；全仓载荷统一为 `data`。
+  - **B2-c 补漏 ✅ 已完成（2026-10-01）**：取证发现 **第三类探针盲区 —— 手写结构类型 / `as` 断言**。
+    - **成因**：探针（`tsc`）只能看见**具名类型**（`ToolResult`）上的字段读写；当调用方用 `as` / `as unknown as` / **内联结构类型重述 ToolResult 形状**时（即使显式写了 `result?: unknown`），编译器认为该字段**存在** ⇒ 读已删字段 **不报错**。
+    - **实测命中 2 处（4 个读点）**：
+      - `runtime/api/CoreAPIImpl.ts:1404-1417`：`rawResult as { output?; data?; result?; error?; success }` ⇒ `result: result.output ?? result.result ?? null`（`result.result` 为**死回退**）—— **已删除**。
+      - `chat/services/ToolExecutionService.ts:824-846`：`as unknown as { executeTool: … => Promise<{ result?; data?; error?; … }> }` ⇒ **3 个读点**（`897` 审批分支 · `917` 图像路径提取 · `974` 结果投影）读 `toolResult.result` —— **已删除**；连带更新 `133-142` 的 `summarizeToolScale` 文档注释（`ToolResult.result` → `ToolResultEntry.result`）。
+    - **B 类（保留·甄别结论）**：全仓 **60+ 处**手写 `result?:` 声明中，绝大多数是**各域自有投影契约**（`ToolResultBlock.result` / `ToolResultEntry.result` / `TrackedToolResult` / `StreamingToolExecutor.toolResults` / `ToolResultRegistry.StoredToolCall` / `LiriEvent.data` 事件载荷断言 / MCP·JSON-RPC·IPC 的 `result`）—— 它们的 `result` 是**该层自己的字段命名**，且其值经 `ToolExecutor.processResult`（批次 1 已对齐）由 **`data` 填充** ⇒ **合法，不动**。⇒ **A 类（ToolResult 镜像）= 2 处，已全部清零** ✓
+    - **验收**：`typecheck` **exit 0**（三遍绿）· `eslint`（2 文件）**exit 0** · **全量 `bun test` 4250 pass / 21 skip / 0 fail**（4271 用例 / 447 文件，95.49s）。
+    - **🔑 纪律 I 扩展 —— 探针盲区共三类**：① IIFE 推断型返回值（批次 3）· ② 泛型回调推断返回值（批次 7）· ③ **手写结构类型 / `as` 断言**（本批）。三者共同点：**类型信息绕过具名契约**。⇒ 凡"删除契约字段"类迁移，**必须**同时跑 `typecheck` **和** 结构化 grep（搜 `as`/内联形状 + `.字段` 读点），**不可只依赖编译器**。
   - **顺带发现（预存，已记台账）**：`app/tests/**` **不在 `lint` 范围**（`app/package.json:48` 仅 `eslint src --ext .ts`）⇒ 测试目录的格式问题不被门禁捕获（`taskOrchestratorToolsOutput.test.ts` 的 `144/161` 行 prettier 报错即为例，**HEAD 已存在**）—— 与 D-137 / D-138（`app/scripts/**` 门禁盲区）**同类**，待裁定是否纳入。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。

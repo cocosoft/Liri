@@ -133,8 +133,8 @@ const SCALE_DATA_KEYS = [
 /**
  * #5：从**工具自报 payload** 提取「结果规模 / 遍历规模」。
  *
- * 入参是工具自报的数据对象本身 —— 在 chat 域它是 `ToolResult.result`
- * （`_executeInternal` 的 `result: toolResult.data || toolResult.result`），
+ * 入参是工具自报的数据对象本身 —— 在 chat 域它是 `ToolResultEntry.result`
+ * （`_executeInternal` 的 `result: toolResult.data`），
  * 在 tools 域是 `ToolResult.data`，**二者同物**。故本函数不依赖任一侧的 `ToolResult` 类型。
  *
  * `entries`/`files` 摊平为 `scannedEntries`/`scannedFiles`（统一口径便于日志聚合）。
@@ -834,7 +834,6 @@ export class ToolExecutionService {
               data: Record<string, unknown>;
             }) => void
           ) => Promise<{
-            result?: unknown;
             data?: unknown;
             error?: string;
             metadata?: { error?: string };
@@ -892,9 +891,7 @@ export class ToolExecutionService {
             toolCallId: toolCall.id,
             toolName: normalizedToolCall.name,
             result:
-              (toolResult as { output?: string }).output ||
-              toolResult.data ||
-              toolResult.result,
+              (toolResult as { output?: string }).output || toolResult.data,
             error: rawError,
           };
         }
@@ -914,7 +911,7 @@ export class ToolExecutionService {
         }
 
         // 注册图像工具输出路径
-        const resultData = (toolResult.data || toolResult.result) as
+        const resultData = toolResult.data as
           | Record<string, unknown>
           | undefined;
         if (resultData && !error && toolCall.sessionId) {
@@ -971,7 +968,7 @@ export class ToolExecutionService {
         return {
           toolCallId: toolCall.id,
           toolName: normalizedToolCall.name,
-          result: toolResult.data || toolResult.result,
+          result: toolResult.data,
           error,
           metadata: toolResult.metadata as Record<string, unknown> | undefined,
         };

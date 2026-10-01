@@ -1707,6 +1707,10 @@ export class CoreAPIImpl implements CoreAPI {
       getConverterEngine,
       getMediaTemplates,
       refreshAvailableSubagentTypeNames,
+      getSpawnPauseState,
+      setSpawnPaused,
+      getAgentRunStore,
+      resolveAgentToolInstance,
     } = await import('@modules/tools');
 
     return {
@@ -1730,6 +1734,18 @@ export class CoreAPIImpl implements CoreAPI {
       // 角色变更后需重算工具 schema 可用清单）
       refreshAvailableSubagentTypeNames: async () =>
         refreshAvailableSubagentTypeNames(),
+      // ---- 子代理控制（2026-10-01 D-199；原 `agent-control-handlers` 静态导入同一批符号）----
+      getSpawnPauseState: () => getSpawnPauseState(),
+      setSpawnPaused: (paused: boolean, reason?: string | undefined) =>
+        setSpawnPaused(paused, reason),
+      listAgentRuns: async () => getAgentRunStore().listRuns(),
+      getActiveAgents: () =>
+        resolveAgentToolInstance()?.getActiveAgents() ?? [],
+      stopAgent: (
+        agentId: string,
+        opts: { requesterSessionId?: string | undefined }
+      ) => resolveAgentToolInstance()?.stopAgent(agentId, opts),
+      isAgentToolAvailable: () => resolveAgentToolInstance() !== null,
       listVideoTasksBySourceImagePath: async (imagePath: string) =>
         getVideoTaskPersistence().listBySourceImagePath(imagePath),
       listVideoTasksByStatus: async (

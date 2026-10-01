@@ -111,6 +111,44 @@ export interface ToolsPort {
   // ---- 工具 schema 刷新（2026-10-01 D-194）----
   /** 刷新「可用子代理类型名」快照并重算工具 schema（原 `agent-role-handlers` 静态导入） */
   refreshAvailableSubagentTypeNames(): Promise<void>;
+
+  // ---- 子代理控制（`agent-control-handlers.ts`；2026-10-01 D-199）----
+  /** 原 `getSpawnPauseState()`（同步）。⚠️ 实测返回**不透明状态对象**（原样进 JSON）⇒ `unknown` */
+  getSpawnPauseState(): unknown;
+  /** 原 `setSpawnPaused(paused, reason?)`（同步；返回值为不透明状态，直接进 JSON） */
+  setSpawnPaused(paused: boolean, reason?: string | undefined): unknown;
+  /** 原 `getAgentRunStore().listRuns()`（磁盘台账，按 started_at 升序） */
+  listAgentRuns(): Promise<AgentRunDto[]>;
+  /** 原 `resolveAgentToolInstance()?.getActiveAgents()`（结果直接进 JSON ⇒ 不建 DTO） */
+  getActiveAgents(): unknown[];
+  /** 原 `resolveAgentToolInstance()?.stopAgent(agentId, { requesterSessionId })`（仅用于判断 ⇒ 不建 DTO） */
+  stopAgent(
+    agentId: string,
+    opts: { requesterSessionId?: string | undefined }
+  ): unknown;
+  /**
+   * Agent 工具是否可用（`resolveAgentToolInstance()` 非 null）。
+   * **存在理由**：保留原 `agent-control-handlers` 的 **503 分支**语义 —— 端口若只暴露
+   * `stopAgent`，调用方无法区分"工具未注册"与"停止操作本身返回空"，会**悄悄改变** HTTP 语义。
+   */
+  isAgentToolAvailable(): boolean;
+}
+
+/** 子代理运行台账条目（**最小投影 DTO** —— `agent-control-handlers.ts:111-125` 的读取面） */
+export interface AgentRunDto {
+  /** 以下 5 个字段原代码**无 `?? null` 回退** ⇒ 必填 */
+  toolCallId: string;
+  agentId: string;
+  name: string;
+  agentType: string;
+  status: string;
+  descriptorSource?: unknown;
+  batchId?: unknown;
+  taskKey?: unknown;
+  startedAt?: unknown;
+  endedAt?: unknown;
+  error?: unknown;
+  attribution?: unknown;
 }
 
 /**

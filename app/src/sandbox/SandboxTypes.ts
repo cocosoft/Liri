@@ -3,6 +3,11 @@
  * 定义沙箱相关的接口和类型
  */
 
+// 2026-10-01 D-157（`permission -> sandbox` 倒挂收口）：`SandboxPermission` 定义已下沉 core
+// （`core/sandboxPermission.ts`，零依赖纯枚举），此处**导入 + 原样转出**，全仓导出名与取值不变。
+import { SandboxPermission } from '../core/sandboxPermission.js';
+export { SandboxPermission };
+
 /**
  * 沙箱平台类型
  */
@@ -15,26 +20,6 @@ export enum SandboxPlatform {
   MACOS = 'darwin',
   /** 未知平台 */
   UNKNOWN = 'unknown',
-}
-
-/**
- * 沙箱权限类型
- */
-export enum SandboxPermission {
-  /** 读取文件权限 */
-  READ_FILE = 'read_file',
-  /** 写入文件权限 */
-  WRITE_FILE = 'write_file',
-  /** 执行命令权限 */
-  EXECUTE = 'execute',
-  /** 网络访问权限 */
-  NETWORK = 'network',
-  /** 环境变量访问权限 */
-  ENVIRONMENT = 'environment',
-  /** 进程创建权限 */
-  CREATE_PROCESS = 'create_process',
-  /** 系统调用权限 */
-  SYSTEM_CALL = 'system_call',
 }
 
 /**

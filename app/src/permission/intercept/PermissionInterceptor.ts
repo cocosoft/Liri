@@ -32,7 +32,12 @@
  * 避免"两个拒绝入口、两套错误信息"。
  */
 
-import { dependencyRegistry, DepRegistry } from '@modules/context';
+// 2026-10-01 D-157（`permission -> context` 倒挂收口）：DependencyRegistry 已下沉 core，
+// 消费方按**相对 2 段路径**直连 core 模块根（落 core 子目录会触发 R03-002；见 core/pricing.ts 先例）。
+import {
+  dependencyRegistry,
+  DepRegistry,
+} from '../../core/DependencyRegistry.js';
 import { createDenyDecision } from '../PermissionResult.js';
 import { getLogger } from '@modules/monitoring';
 

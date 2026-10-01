@@ -24,14 +24,17 @@
  *
  * 收敛两套真实生效的权限体系，对外提供单一入口：
  * - A. 工具执行权限：PermissionManager（规则/模式/自动分类器）→ canUseTool
- * - C. 沙箱文件权限：globalWorkspaceManager 默认工作区 → canAccessFile
+ * - C. 沙箱文件权限：默认工作区 → canAccessFile（经 core SPI `ISandboxPort`，不再静态依赖 app 层 sandbox）
  *
  * 新代码一律面向本门面编程，禁止直接 import 各子模块（防再碎片化）。
  */
 
 import { PermissionManager } from './PermissionManager';
-import { globalWorkspaceManager } from '../sandbox/WorkspaceManager';
-import { SandboxPermission } from '../sandbox/SandboxTypes';
+// 2026-10-01 D-157（`permission -> sandbox` 倒挂收口，2 处）：
+// ① 类型 `SandboxPermission` 为纯叶子 ⇒ 已下沉 core，按相对路径直连 core 模块根；
+// ② 运行时判定（默认工作区是否授权）为真实依赖 ⇒ 改经 core SPI 端口 `ISandboxPort`。
+import type { SandboxPermission } from '../core/sandboxPermission.js';
+import { resolveSandbox } from '@modules/core/spi';
 import { handleError } from '@modules/error';
 
 export interface ToolAccessResult {
@@ -73,8 +76,7 @@ class PermissionServiceImpl {
    */
   canAccessFile(permission: SandboxPermission): boolean {
     try {
-      const workspace = globalWorkspaceManager.get('default');
-      return workspace ? workspace.hasPermission(permission) : false;
+      return resolveSandbox().hasWorkspacePermission(permission);
     } catch (error) {
       void handleError(error, {
         module: 'permission:service',

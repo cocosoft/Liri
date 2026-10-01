@@ -37,7 +37,15 @@
  * 边界由实现侧收窄。
  *
  * **未注册时**：布尔方法返回 `false`，`updateSettings` 为 no-op —— 与既有 SPI 的空值语义一致。
+ *
+ * **2026-10-01 D-157 扩展**（`permission -> sandbox` 倒挂收口）：新增
+ * `hasWorkspacePermission()` —— `permission`(infra) 的 `PermissionService.canAccessFile()`
+ * 原直接消费 `sandbox` 的 `globalWorkspaceManager`（真实运行时依赖 ⇒ 不可下沉），
+ * 故按本 SPI **同一端口**（CS01：同域不另起端口）补一条**最小能力**方法；未注册时返回 `false`
+ * （fail-closed，与 `shouldUseSandbox` 同向）。
  */
+
+import type { SandboxPermission } from '../sandboxPermission.js';
 
 /** 沙箱端口（core 侧契约） */
 export interface ISandboxPort {
@@ -47,6 +55,12 @@ export interface ISandboxPort {
   isSandboxingEnabled(): boolean;
   /** 更新沙箱设置（未注册时为 no-op） */
   updateSettings(settings: Record<string, unknown>): void;
+  /**
+   * 默认工作区是否拥有指定权限（未注册 / 默认工作区不存在时返回 `false`）
+   *
+   * 实现侧对应 `globalWorkspaceManager.get('default')?.hasPermission(permission) ?? false`。
+   */
+  hasWorkspacePermission(permission: SandboxPermission): boolean;
 }
 
 /** SPI 服务标识符常量 */
@@ -64,6 +78,8 @@ const _proxy: ISandboxPort = {
   shouldUseSandbox: (input) => _service?.shouldUseSandbox(input) ?? false,
   isSandboxingEnabled: () => _service?.isSandboxingEnabled() ?? false,
   updateSettings: (settings) => _service?.updateSettings(settings),
+  hasWorkspacePermission: (permission) =>
+    _service?.hasWorkspacePermission(permission) ?? false,
 };
 
 /** 获取沙箱端口（未注册时返回空值语义代理） */

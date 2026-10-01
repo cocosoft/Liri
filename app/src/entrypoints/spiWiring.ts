@@ -361,11 +361,13 @@ export async function registerAllSpis(
     });
   }
 
-  // ---- 沙箱 SPI（2026-10-01 D-154）----
+  // ---- 沙箱 SPI（2026-10-01 D-154；D-157 扩展 `hasWorkspacePermission`）----
   // security 原直接 import `@modules/sandbox`（infra → app 倒挂 BULK），
   // 现改为经 `ISandboxPort` 解析，实现在此注册（组合根，动态导入避免静态跨层依赖）。
+  // D-157：permission 侧的文件权限判定（原直连 `globalWorkspaceManager`）并入**同一端口**。
   {
-    const { SandboxManager } = await import('@modules/sandbox');
+    const { SandboxManager, globalWorkspaceManager } =
+      await import('@modules/sandbox');
     const { registerSandboxSpi } = await import('@modules/core/spi');
     const sandboxManager = SandboxManager.getInstance();
     await registerSandboxSpi(container, {
@@ -377,6 +379,10 @@ export async function registerAllSpis(
       // 同上：端口为 `Record<string, unknown>`，实现侧为 `Partial<SandboxSettings>`
       updateSettings: (settings) =>
         sandboxManager.updateSettings(settings as never),
+      // 默认工作区缺失 ⇒ false（fail-closed）
+      hasWorkspacePermission: (permission) =>
+        globalWorkspaceManager.get('default')?.hasPermission(permission) ??
+        false,
     });
   }
 

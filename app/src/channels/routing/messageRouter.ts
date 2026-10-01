@@ -48,7 +48,9 @@ import {
   markMessageProcessed,
 } from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
-import type { SessionSpanContext } from '@modules/ai';
+// 2026-10-01 D-206（子批 D，`channels -> ai` 倒挂收口，2 条边之一）：类型位改**相对直连
+// core 模块根**（`SessionSpanContext` 已随实现下沉 core；app 层原址转出）。
+import type { SessionSpanContext } from '../../core/SessionSpanTracer.js';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../setupChannels';
 // 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）

@@ -91,12 +91,12 @@
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
-| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**） | **16** | **3**（`session-handlers` 1（混合：类型位 + `dedupeMessagesToolCallBlocks`）⬅**下一个** · `routes/a2a-delegator.ts` · `routes/a2a-routes.ts`（**A2A 对外面**，需单独核）） |
-| **D** `service -> app` 低风险（§3.4） | 8 | ⬜ **未开始** | 0 | 8 |
+| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
+| **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | 🟡 **部分完成**：⚠️ **原列 `mcp` 2 条实测不存在**（见 §3.4 D-205 取证）⇒ 实际 **6** 条；已完成 **3**：`channels/registry` ✅（D-205，1）· **`channels -> ai` 2 条 ✅**（D-206，2，**整文件下沉 core + 原址转出**） | **3** | **3**（`channels/bootstrap`(EffectScope) · `bridge/BridgeMain`(workspaces) · `voice/VoiceSession`(tools)） |
 | **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 69**（**−82**）= 子批 A 47 + 子批 B 13 + 子批 C **16** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 64**（**−87**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **3** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -110,7 +110,18 @@
 
 **✅ 已完成（2026-10-01 D-203）**：`agent` 域**枚举/类型 2 条**（`orchestration-handlers.ts` · `OrchestrationHistoryAdapter.ts`）—— 详见 §3.3 ③ 的 D-203 记录 ⇒ **`已豁免 71 → 69`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0（`@modules/types/*` 属规范子入口白名单）· 改动 6 文件 eslint 0/0 · `bun test tests/http tests/tools/AgentTool/toolCallEndStatus.test.ts` = **77 pass / 0 fail**。
 
-**⬅ 下一个未执行任务**：§3.3 ④ 之 **`session-handlers.ts`（1 条，混合）** —— 该文件同时有**类型位**（`Message` / `MessageRole` / `LiriEventType`）+ **值**（`dedupeMessagesToolCallBlocks`）两类导入 ⇒ 按 D-203 同法先核"类型位是否有低位出口"，值位再定端口/门面（⚠️ 该文件正挂 **FSZ 文件大小例外（1012 行）**，**只动 import 与取用点，不顺手拆文件**）。其后 2 条为 `routes/a2a-*`（**A2A 对外面**，`getAgentRegistry` 需单独核是否已有端口）。
+**✅ 已完成（2026-10-01 D-204）**：**A2A 对外面 2 条**（`routes/a2a-routes.ts` · `routes/a2a-delegator.ts`）—— 详见 §3.3 ③ 的 D-204 记录 ⇒ **`已豁免 69 → 67`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 / `R02-002` **未新增** · 改动 6 文件 eslint 0/0（1 处 prettier 折行经 `--fix`）· `bun test tests/http` = **76 pass / 0 fail**（含 `a2aDelegator.test.ts`）。
+⚠️ 新增 1 处动态跨层引用（`runtime → agent`）：R00-003 由 **30 → 31**（仅上报）。
+
+**⛔ 子批 C 剩余 1 条已判定"不宜本批做"**：`session-handlers.ts` —— 见 D-204 末节的取证结论（与**子批 F** 同源，移交专项）。
+
+**✅ 已完成（2026-10-01 D-205，子批 D 首条）**：`channels/registry/ChannelRegistry.ts` **1 条**（`channels -> context`：`dependencyRegistry` **早在 D-157 即下沉 core**，本文件未改低位取用 ⇒ 改**相对直连 core 模块根**）⇒ **`已豁免 67 → 66`**（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0。
+**⚠️ 同批取证修正**：子批 D 原列 8 条中 **`mcp` 2 条实测不存在**（全量 grep 0 命中）⇒ **实测 6 条**；逐条处置见 §3.4 表（余 5 条各有**前置防线**，其中 `EffectScope` 若整体下沉会造成**净零收益** ⇒ 已记录为 §3.4 末的「先算净差，再动手」教训）。
+
+**✅ 已完成（2026-10-01 D-206，子批 D）**：**`channels -> ai` 2 条**（`GatewaySessionTracer.ts` · `routing/messageRouter.ts`）—— **整文件下沉 core 模块根 + 原址转出**（`ai/telemetry/SessionSpanTracer.ts` → `core/SessionSpanTracer.ts`，`git mv` 保历史）⇒ **`已豁免 66 → 64`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动 4 文件 eslint 0/0 · `bun test tests/channels` = **109 pass / 0 fail**。
+理由：该文件**零项目依赖**（仅 Node 内置 `crypto`）⇒ 层无关；落 **core 模块根**（`core/**` 子目录会触发 R03-002，见 D-157 同款说明）。**两条边必须同批**（类型位与值位同源）—— 本批一次拿下。
+
+**⬅ 下一个未执行任务**：§3.4 之 **#5（`bridge -> workspaces` 1 条，单点）** ⇒ 先核既有 `workspaceOpsPorts` 可否复用（CS01）。
 
 **⚠️ 前置取证铁律（D-199/D-200/D-201 教训，三条）**：
 1. **端口方法签名必须由实证而非推断决定** —— D-199 `getSpawnPauseState` 误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`。
@@ -284,7 +295,7 @@
 5. **`agent` 的 `getAgentRegistry`** 与 **`a2a-routes.ts`** ⇒ 属 A2A 对外面，需单独核 `getAgentRegistry` 是否已有端口（`runtime/api/` 下可能已有 agent 相关端口）。
 
 **执行顺序建议（按"改动量÷收益"）**：① 枚举/类型下沉（~8 条，纯类型搬运，风险最低）→ ② 扩充 2 个既有端口（`ISandboxPort` · `toolsPorts`，6 条）→ ③ 新增 3 个端口（6 条）。
-**进度（截至 D-203）**：① **已完成 6 条**（`SandboxPermission` 4 条 D-186 + **`AgentEventType`/`OrchestrationSnapshot` 2 条** D-203）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ **`chat` 域 3 条 ✅**（D-201，**未新增 `chatPorts`** —— 见 D-201 记录：改走既有 `CoreAPI` 门面更省）+ **`auto-reply` 域 1 条 ✅**（D-202，**新增 `autoReplyPorts`**，照 ③ 原预案）⇒ 余 `session-handlers` 1 ⬅**下一个** + `routes/a2a-*` 2。
+**进度（截至 D-204）**：① **已完成 6 条**（`SandboxPermission` 4 条 D-186 + **`AgentEventType`/`OrchestrationSnapshot` 2 条** D-203）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ **`chat` 域 3 条 ✅**（D-201）+ **`auto-reply` 域 1 条 ✅**（D-202）· **A2A 对外面 2 条 ✅**（D-204，**下沉 `types/a2a` + 新增 `a2aPorts`**）⇒ **子批 C 实质收束 18/19**；剩 `session-handlers` 1 条已判定**移交子批 F / 数据契约专项**（见 D-204 末节）。
 
 **✅ 第一步已完成（2026-10-01 D-186）：`SandboxPermission` 4 条 —— 零成本手法**
 
@@ -298,6 +309,7 @@
   - **📊 更新（截至 D-201）**：`chat` **3 条已完成** ⇒ 本子批**剩余 6 条**：`auto-reply` 1（⬅**下一个**）· `agent` 2 · 其余按 §3.3 分型表。
   - **📊 更新（截至 D-202）**：`auto-reply` **1 条已完成** ⇒ 本子批**剩余 5 条**：`agent` 2（⬅**下一个**，建议并入"数据契约统一"专项）· 其余按 §3.3 分型表。
   - **📊 更新（截至 D-203）**：`agent` 域**枚举/类型 2 条已完成**（下沉 `types/`）⇒ 本子批**剩余 3 条**：`session-handlers` 1（⬅**下一个**）· `routes/a2a-delegator.ts` · `routes/a2a-routes.ts`。
+  - **📊 更新（截至 D-204）**：**A2A 对外面 2 条已完成** ⇒ 本子批**剩余 1 条**（`session-handlers`，**经取证判定移交子批 F / 数据契约专项**）⇒ **子批 C 记 18/19 实质收束**。
 
 **✅ 第二步已完成（2026-10-01 D-200）：`sandbox` 值类 2 条 —— 复用既有 core SPI 端口**
 
@@ -387,6 +399,29 @@
 **手法要点（补充第 ⑤ 条）**：**"下沉定义 + 原址转出"是本类边的零风险手法** —— 只把**名字/形状**搬下去、原址保留同名导出，则 app 层其余消费方**无需任何改动**（本批 4 处 app 消费方零改动即实证）；代价仅 2 个新文件。
 
 **⚠️ 发现即记录（与本批无关的预存注释失准）**：`orchestration-handlers.ts:18` 注释称"门禁**不剥离**注释，写了会让「对」复活（见 D-77）" —— 该口径**已被 D-190 的 `stripComments()` 推翻**（注释里写路径不再计违规；本批注释中直接写了 `@modules/agent` 而计数仍**正确 −2**，即为实证）。按 PY_APP §3 **未改该无关注释**，建议后续统一订正。
+
+**✅ 第六步已完成（2026-10-01 D-204）：A2A 对外面 2 条 —— 下沉 `types/a2a` + 新增 `a2aPorts`**
+
+**取证（本轮实测）**：
+- `routes/a2a-routes.ts:32-40`：**7 符号同源**自 `@modules/agent`（值 `A2A_PROTOCOL_VERSION` · `a2aTaskStore` · `buildAgentCard` · `computeAgentCardEtag` · `getAgentRegistry` + 类型 `A2AArtifact` · `A2AMessage`）⇒ 按"文件 × 去重目标模块"计 **1 条边**。
+- `routes/a2a-delegator.ts:15`：`getAgentRegistry`（值）⇒ **1 条边**。
+- ✅ **关键发现**：`agent/a2a/types.ts`（A2A 协议数据模型，215 行）**零出向依赖**（全仓仅 `agentCard.ts` / `taskStore.ts` 以 `./types` 相对引用）⇒ 具备下沉条件（同 D-203 判据）。
+- ✅ **协议类型属"对外契约"**（§5.1 Agent Card / §2.2 Message / §2.4 Artifact），非 app 领域载荷 ⇒ 整表下沉 `types/a2a.ts`，端口即可引用**真实类型** ⇒ **零 DTO 复制**（本批优于 D-202 的 DTO 镜像手法）。
+- ⚠️ `a2a-delegator` 的**窄端口注入**（`A2ADelegationCore`，为可测性而设）**不动**：人格查询原本即**全局**取用（非经注入的 `core`）⇒ 改经 `getCoreAPI().getA2APort()` **不破坏注入契约**，`tests/http/a2aDelegator.test.ts` **零改动**（若改为"必填方法"会破坏该测试的两处 fake）。
+
+**改动（2 新建 + 1 原址转出 + 1 端口实现 + 2 handler）**：
+- **新建** `types/a2a.ts`（整表搬迁）+ `agent/a2a/types.ts` 改为 `export * from '@modules/types/a2a'`（原址转出 ⇒ `agentCard.ts` / `taskStore.ts` / `agent/index.ts` **零改动**）。
+- **新建** `runtime/api/a2aPorts.ts`：`A2ACardSnapshotDto`（`card` / `etag` / `agentCount`）+ `A2APort`（5 方法）—— 其中 `buildCard(baseUrl)` 把"取注册表 → `buildAgentCard` → 算 etag"三步**折叠为一个投影方法**（同 D-200 口径）。
+- `CoreAPIImpl.getA2APort()`：动态导入 app 模块（仅 R00-003 可见）。
+- 2 个 handler 改经端口 ⇒ `@modules/agent` 静态导入**完全消失**；**响应形状 / 状态码 / 304 语义 / 日志字段逐字不变**。
+
+**验收**：`typecheck` **0** · 违规 **0** / **`已豁免 69 → 67`（恰 −2）** / `R03-002` **0** / `R02-002` **未新增** · 6 文件 eslint **0/0**（1 处 prettier 折行经 `--fix`）· `bun test tests/http` = **76 pass / 0 fail**。
+
+**⛔ 子批 C 第 19 条（`session-handlers.ts`）经取证判定「不宜本批做」—— 移交子批 F / 数据契约专项**
+- 该文件 4 个导入（`Message` · `MessageRole` · `LiriEventType` · `dedupeMessagesToolCallBlocks`）**全部**落在 `chat`（app）模块 ⇒ 因门禁按"文件 × 去重目标模块"计，须**四者全部**有低位出口才减计数（只改其一无效）。
+- 取证发现两处**硬耦合**：① `LiriEventType` 是 `coreAPI.getSessionEvents({ types })` 的**入参类型**（`session-handlers.ts:1176` 的 cast 即为证）⇒ 该**契约本身引用 app 类型** ⇒ 改它属 **§3.6 子批 F（`session`+`runtime` 数据面，23 条，最高风险）**；② `Message` 是门禁 `[Message 模型]` 的**规范来源**（`chat/types/message.ts`）⇒ 下沉会牵动该检查口径，属**数据契约统一专项**。
+- **处置**：**不零敲**（避免"改半条契约"留下破损态，CS03/TE03）⇒ 子批 C 记 **18/19 实质收束**。
+
 
 **🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」—— ✅ 已于 D-203 完成**（下列为**当时**取证，保留作沿革）
 
@@ -502,11 +537,23 @@ export interface AgentRunDto {
 
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 
-### 3.4 子批 D —— `service -> app` 低风险 **8**（`channels`4 · `mcp`2 · `bridge`1 · `voice`1）
+### 3.4 子批 D —— `service -> app` 低风险（原列 **8** ⇒ **实测 6**）
 
-- `channels -> context`(2) / `-> ai`(2)：`ChannelBootstrapper`（装配缝，候选归位 entry 或端口化）· `ChannelRegistry` · `GatewaySessionTracer` · `messageRouter`。
-- `mcp -> tools`(1) / `-> tool`(1)：`mcp/MCPTool.ts`（同 D-67 的 `mcp` 归 service 判断需复核：此处是"service 依赖 app"）。
-- `bridge -> workspaces`(1) · `voice -> tools`(1)：单点。
+**⚠️ 清单实测修正（2026-10-01 D-205 取证）**：原列 `mcp -> tools`(1) / `-> tool`(1) **实测不存在** —— 对 `app/src/mcp/**` 做**全量** grep（`@modules/<app 模块>` 含**子路径**形式 + 相对上跳 `../../`）⇒ **0 命中**（该目录只引 `config` / `monitoring` / `error` / `core` / `services/mcp`，均为下行合法）⇒ 疑与 **D-67「`mcp` 由 core 改归 service」**同源（改动后该两边的方向/归属已变）。**实测 6 条**，逐条如下（含本轮新做的取证）：
+
+| # | 文件 | 导入 | 目标 | 处置 |
+|---|---|---|---|---|
+| 1 | `channels/registry/ChannelRegistry.ts:21` | `dependencyRegistry`（值） | `context`(app) | ✅ **已完成（D-205）**：该符号**早在 D-157 即已下沉** `core/DependencyRegistry.ts`（`context/` 仅转出）⇒ 改**相对直连 core 模块根** `'../../core/DependencyRegistry.js'`（同 `PermissionInterceptor.ts:40` 先例）⇒ **零端口零白名单** |
+| 2 | `channels/bootstrap/ChannelBootstrapper.ts:8` | `EffectScope`（类） | `context`(app) | ⏳ **待做**：⚠️ 实测 `context/EffectScope.ts` 依赖 `@modules/error` + `@modules/monitoring`（**infra**）⇒ 若整体下沉 core，会**新增 `core -> infra` 边**（+1，抵消 −1 ⇒ **净零**）⇒ 必须**同时**把这些依赖改为 core 可用形式（`core/errors.ts` 相对路径 + 确认 logger 的 core 出口）**才**真减计数；否则改走**端口/门面** |
+| 3 | `channels/GatewaySessionTracer.ts:6-11` | `getSessionSpanTracer` · `SPAN_ATTRIBUTE_KEYS` + 类型 `SessionSpanContext` · `SessionSpanAttributes` | `ai`(app) | ✅ **已完成（D-206）**：该文件**零项目依赖**（仅 `crypto`）⇒ **整文件下沉** `core/SessionSpanTracer.ts`（core 模块根）+ `ai/telemetry/SessionSpanTracer.ts` **原址转出** ⇒ 改**相对直连 core**。**零端口零 DTO**（比 §3.3 ③-预案的"类型下沉+端口"更省） |
+| 4 | `channels/routing/messageRouter.ts:51` | `type SessionSpanContext` | `ai`(app) | ✅ **已完成（D-206）**：与 #3 **同批**（类型位随 #3 的实现一起下沉，故两条边一次消除） |
+| 5 | `bridge/BridgeMain.ts:20-21` | `createWorkspaceGit` · `pruneOrphanWorktrees` | `workspaces`(app) | ⏳ **待做**：单点 ⇒ 端口化（新增 `bridgePorts` 或复用既有 `workspaceOpsPorts`——**先核既有端口**，CS01） |
+| 6 | `voice/VoiceSession.ts:24` | `globalToolManager`（值） | `tools`(app) | ⏳ **待做**：⚠️ 工具注册表**单一写入口**为 `getToolRegistry()`（§1.16）⇒ 需核 `core/spi/` 是否已有 tool 相关端口（既有 `AgentToolService.ts` 先例）—— 「有则扩充、无则新增」，并注意 `globalToolManager` 是 **Proxy 单例**（`tools/core/ToolManager.ts:98`） |
+
+**⚠️ 关键教训（本轮取证新增，第 ⑥ 条）**：**"下沉前先核其出向依赖的层"** —— #2 的 `EffectScope` 看似可下沉，但其 `error`/`monitoring` 依赖会让 core 新增跨层边 ⇒ **净零收益**（同 D-186 的"改一半不减计数"）。**先算净差，再动手**。
+
+**执行顺序建议**：#1 ✅（D-205）→ **#3+#4 ✅（D-206，同批一次拿下）** → **#5（单点端口，先核既有 `workspaceOpsPorts`）** → #6（核 `core/spi/` 既有 tool 端口）→ #2（需先解决依赖层问题）。
+
 
 ### 3.5 子批 E —— `services -> app` **20**
 

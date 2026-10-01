@@ -18,7 +18,11 @@ import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { dependencyRegistry } from '@modules/context';
+// 2026-10-01 D-205（子批 D，`channels -> context` 倒挂收口）：`DependencyRegistry` 早在
+// **D-157 即已下沉 core**（`core/DependencyRegistry.ts`，`context/` 仅为转出层）⇒ 原
+// `@modules/context`（app 层）取用属倒挂。改**相对直连 core 模块根**
+// （同 D-157 先例 `permission/intercept/PermissionInterceptor.ts:40`；`core` 根文件不触发 R03-002）。
+import { dependencyRegistry } from '../../core/DependencyRegistry.js';
 
 const logger = getLogger('channels:registry');
 

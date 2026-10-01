@@ -60,6 +60,7 @@ import type {
 } from './projectOpsPorts';
 import type { SkillsOpsPort } from './skillsOpsPorts';
 import type { AutoReplyPort } from './autoReplyPorts';
+import type { A2APort } from './a2aPorts';
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1830,6 +1831,48 @@ export class CoreAPIImpl implements CoreAPI {
       updateRule: (ruleId, updates) =>
         autoReplyEngine.updateRule(ruleId, updates as never),
       deleteRule: (ruleId) => autoReplyEngine.deleteRule(ruleId),
+    };
+  }
+
+  // ---- A2A 对外面运行时（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-204）----
+
+  /**
+   * A2A 对外面端口（2026-10-01 D-204，子批 C）
+   *
+   * `infrastructure/http/handlers/routes/` 下 2 个文件原静态导入 app 层 `@modules/agent`
+   * （`getAgentRegistry` / `buildAgentCard` / `computeAgentCardEtag` / `a2aTaskStore` /
+   * `A2A_PROTOCOL_VERSION`）⇒ `infrastructure -> app` 倒挂。现按既有模式**动态**取用
+   * （仅 R00-003 可见）；协议**类型**已下沉 core `types/a2a.ts` ⇒ 端口用真实类型。
+   */
+  async getA2APort(): Promise<A2APort> {
+    const {
+      getAgentRegistry,
+      buildAgentCard,
+      computeAgentCardEtag,
+      a2aTaskStore,
+      A2A_PROTOCOL_VERSION,
+    } = await import('@modules/agent');
+
+    return {
+      // 折叠"取注册表 → buildAgentCard → 算 etag"三步为**一个投影方法**
+      buildCard: (baseUrl: string) => {
+        const definitions = getAgentRegistry().listAll();
+        const card = buildAgentCard(definitions, {
+          baseUrl,
+          version: A2A_PROTOCOL_VERSION,
+        });
+        return {
+          card,
+          etag: computeAgentCardEtag(card),
+          agentCount: definitions.length,
+        };
+      },
+      getAgentSystemPrompt: (agentId: string) =>
+        getAgentRegistry().getAgent(agentId)?.systemPrompt,
+      createTask: () => a2aTaskStore.create(),
+      completeTask: (taskId, state, artifacts, message) =>
+        a2aTaskStore.complete(taskId, state, artifacts, message),
+      getTask: (taskId: string) => a2aTaskStore.get(taskId),
     };
   }
 

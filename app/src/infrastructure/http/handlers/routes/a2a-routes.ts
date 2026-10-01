@@ -29,15 +29,12 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // 复用既有请求鉴权语义（`x-api-key` / `Bearer`）——GR01：不新造第二套头部解析
 import { verifyRequestAuth } from '../../LocalHTTPServiceHelpers';
-import {
-  A2A_PROTOCOL_VERSION,
-  a2aTaskStore,
-  buildAgentCard,
-  computeAgentCardEtag,
-  getAgentRegistry,
-  type A2AArtifact,
-  type A2AMessage,
-} from '@modules/agent';
+// 2026-10-01 D-204（子批 C，`agent` 域 A2A 对外面）：原 7 个符号静态导入 app 层 `@modules/agent`
+// ⇒ `infrastructure -> app` 倒挂。现协议**类型**取自 **core `types/a2a.ts`**（D-204 下沉，
+// app 层 `agent/a2a/types.ts` 原址转出），**值**（注册表 / Agent Card 构建 / etag / 任务台账）
+// 改经 **服务层端口** `getCoreAPI().getA2APort()`。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { A2AArtifact, A2AMessage } from '@modules/types/a2a';
 
 const logger = getLogger('http:a2a');
 
@@ -185,12 +182,10 @@ async function handleAgentCard(
     return true;
   }
 
-  const definitions = getAgentRegistry().listAll();
-  const card = buildAgentCard(definitions, {
-    baseUrl: resolveBaseUrl(req),
-    version: A2A_PROTOCOL_VERSION,
-  });
-  const etag = computeAgentCardEtag(card);
+  // D-204：原"取注册表 → buildAgentCard → computeAgentCardEtag"三步 ⇒ 折叠为端口单方法
+  const { card, etag, agentCount } = (
+    await getCoreAPI().getA2APort()
+  ).buildCard(resolveBaseUrl(req));
 
   const ifNoneMatch = req.headers['if-none-match'];
   if (typeof ifNoneMatch === 'string' && ifNoneMatch === etag) {
@@ -202,7 +197,7 @@ async function handleAgentCard(
   res.setHeader('ETag', etag);
   json(res, 200, card);
   logger.info('A2A Agent Card 已发布', {
-    agents: definitions.length,
+    agents: agentCount,
     url: card.url,
     protocolVersion: card.protocolVersion,
   });
@@ -250,7 +245,9 @@ async function handleCreateTask(
   const agentId =
     typeof body['agentId'] === 'string' ? body['agentId'] : undefined;
 
-  const task = a2aTaskStore.create();
+  // D-204：任务台账改经 A2A 端口（原静态 `a2aTaskStore`）
+  const port = await getCoreAPI().getA2APort();
+  const task = port.createTask();
   const pending = delegator(message, agentId);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -270,7 +267,7 @@ async function handleCreateTask(
 
   if (outcome !== 'timeout') {
     const { artifacts, message: reply } = toDeliverables(outcome.value);
-    const done = a2aTaskStore.complete(task.id, 'completed', artifacts, reply);
+    const done = port.completeTask(task.id, 'completed', artifacts, reply);
     logger.info('A2A 委派完成（同步）', { taskId: task.id, agentId });
     json(res, 200, done);
     return true;
@@ -278,7 +275,7 @@ async function handleCreateTask(
 
   // 超阈值：**有界等待**结束 ⇒ 标记 working 并立刻返回（不做 HTTP 长挂）；完成后由同一 Promise 收尾
   try {
-    a2aTaskStore.complete(task.id, 'working', []);
+    port.completeTask(task.id, 'working', []);
   } catch (error) {
     // @ignore-catch: 任务可能已在竞态窗口内完成（终态不可改写）⇒ 以已完成态返回即可
     await handleError(error, {
@@ -290,7 +287,7 @@ async function handleCreateTask(
   void pending
     .then((value) => {
       const { artifacts, message: reply } = toDeliverables(value);
-      a2aTaskStore.complete(task.id, 'completed', artifacts, reply);
+      port.completeTask(task.id, 'completed', artifacts, reply);
     })
     .catch((error: unknown) =>
       handleError(error, {
@@ -301,7 +298,7 @@ async function handleCreateTask(
     );
 
   logger.info('A2A 委派超出有界等待，转 working', { taskId: task.id, agentId });
-  json(res, 202, a2aTaskStore.get(task.id));
+  json(res, 202, port.getTask(task.id));
   return true;
 }
 
@@ -315,7 +312,7 @@ async function handleGetTask(
     json(res, 405, { error: { message: '仅支持 GET' } });
     return true;
   }
-  const task = a2aTaskStore.get(taskId);
+  const task = (await getCoreAPI().getA2APort()).getTask(taskId);
   if (!task) {
     // 含"进程重启后旧任务不可查"（`taskStore` 头注释）⇒ 客户端按 §3.4 新建任务重发
     json(res, 404, { error: { message: `任务不存在：${taskId}` } });

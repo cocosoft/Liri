@@ -3,12 +3,14 @@
  * 对标平安科技：将 Session Span 打通到 Gateway 层
  * 端到端追踪消息从入站到出站
  */
+// 2026-10-01 D-206（子批 D，`channels -> ai` 倒挂收口，2 条边之一）：原静态导入 app 层
+// `@modules/ai` ⇒ 改**相对直连 core 模块根**（该实现零项目依赖，已下沉 core；app 层原址转出）。
 import {
   getSessionSpanTracer,
   SPAN_ATTRIBUTE_KEYS,
   type SessionSpanContext,
   type SessionSpanAttributes,
-} from '@modules/ai';
+} from '../core/SessionSpanTracer.js';
 import type { ChannelId, MessageContext } from './types/IChannel';
 
 /**

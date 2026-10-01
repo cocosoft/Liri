@@ -12,7 +12,6 @@
  */
 
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { getAgentRegistry } from '@modules/agent';
 import { getLogger } from '@modules/monitoring';
 import { setA2ADelegator, type A2ADelegator } from './a2a-routes';
 
@@ -53,8 +52,11 @@ export function createCoreApiDelegator(
       metadata: { source: 'a2a' },
     });
 
+    // D-204：原静态 `getAgentRegistry()`（app 层）⇒ 改经 **A2A 端口**取用。
+    // ⚠️ 人格查询**不经**注入的 `core`（窄端口只覆盖"对话轮"两个方法）：人格数据来自
+    // agent 注册表，原本也是**全局**取用（非注入）⇒ 行为与测试语义均不变。
     const persona = agentId
-      ? getAgentRegistry().getAgent(agentId)?.systemPrompt
+      ? (await getCoreAPI().getA2APort()).getAgentSystemPrompt(agentId)
       : undefined;
     if (agentId && !persona) {
       logger.warning('A2A 指定的 agentId 未命中注册表，按默认人格执行', {

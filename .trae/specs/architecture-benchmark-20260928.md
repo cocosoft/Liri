@@ -556,6 +556,34 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **现状**：`infra -> app` **12**（`config` 2 · `permission` 2 · `chronos` 2 · `system` 2 · `memory` 2 · `state` 1 · `monitoring` 1）· `infra -> service` **6**。**下一批建议 `config` 或 `permission`（各 2 处）**。
   - **🔴 门禁计数口径疑点（需专项复核）**：**连续 3 批**出现 `已豁免` 与「实际消除边数」不等的偏差 —— D-153 为 **−7 vs 6 边**（多减 1）· D-154 第 2 步 **−1 vs 2 边**（少减 1）· D-155 **−2 vs 3 边**（少减 1）。三批的「边是否真消除」均已用 **grep / 类型检查 + 全量测试**独立证实，故**不影响结论**；但 `已豁免` 与 `违规`（探针口径）**并非严格互补**。⇒ **建议单独立项核查 `lint-architecture.ts` 的 `exemptedCount` 计数口径**（是否与 `allFiles` 增量 / 新增文件 / 相对路径解析有关）。
 
+- **📋 2026-10-01（D-158）`infra` 源倒挂「全量权威清单」（门禁探针实测）** —— 此前各批只有"剩余大头"的**静态估算**，且本表 L547 已自认"主要来源列不可作排期依据"；本项补上**可排期的实测明细**。
+  - **手法**：① 临时令 `layer-exceptions.json` 全部例外过期（`expiresAt → 2020-01-01`）；② 临时在 `lint-architecture.ts` 的 R00-001 判定处打印每条边（`PROJ`）。实跑 ⇒ **违规 168 / 豁免 0**（D-155 时点 171 ⇒ 已再降 3）。两者**均已还原**（`git checkout` 单文件），工作树无残留。
+  - **`srcLayer = infra` 共 17 条边**（其余 151 条属其他源层，未在本批）：
+
+    | # | 源模块 → 目标模块 | 文件 |
+    |---|---|---|
+    | 1 | `chronos` → `buddy`(app) | `chronos/maintenance/ChronosBackgroundHousekeeping.ts` |
+    | 2 | `chronos` → `dream`(app) | 同上 |
+    | 3 | `chronos` → `channels`(service) | `chronos/TaskResultDeliverer.ts` |
+    | 4 | `config` → `sandbox`(app) | `config/enterprise/sandbox/EnterpriseSandboxManager.ts` |
+    | 5 | `memory` → `docs`(app) | `memory/services/UnifiedSearchService.ts` |
+    | 6 | `memory` → `hooks`(app) | `memory/MemoryHookDispatcher.ts` |
+    | 7 | `memory` → `services`(service) | `memory/services/KnowledgeBaseWriter.ts` |
+    | 8 | `memory` → `services`(service) | `memory/services/MemorySummarizer.ts` |
+    | 9 | `monitoring` → `tasks`(app) | `monitoring/archival/archivalCronTask.ts` |
+    | 10 | `oauth` → `infrastructure`(service) | `oauth/services/DynamicClientReg.ts` |
+    | 11 | `oauth` → `infrastructure`(service) | `oauth/services/OAuthClient.ts` |
+    | 12 | `performance` → `bootstrap`(entry) | `performance/PerformanceReporter.ts` |
+    | 13 | `performance` → `bootstrap`(entry) | `performance/SlowOperations.ts` |
+    | 14 | `state` → `tasks`(app) | `state/task/TaskStateMachine.ts` |
+    | 15 | `system` → `mcp`(service) | `system/state/AppState.ts` |
+    | 16 | `system` → `plugins`(app) | 同上 |
+    | 17 | `system` → `tasks`(app) | `system/state/types.ts` |
+
+  - **⚠️ 更正 L556 的"剩余大头"**：原记 `config 2 · permission 2 · chronos 2 · system 2 · memory 2 · state 1 · monitoring 1`（≈12）**与实测不符** —— `permission`/`config` 各已由 D-157/D-156 处理（`config` 仍余 **1**）；实测为 `memory 4 · chronos 3 · system 3 · oauth 2 · performance 2 · config 1 · monitoring 1 · state 1`。⇒ **以本表为准**。
+  - **⚠️ 静态 grep 存在盲区（再次印证 BULK-011 教训）**：本表 #4（`config→sandbox`）与 #14（`state→tasks`）**均非 `@modules/<mod>` 形式**（为相对路径），任何"按 `from '@modules/x'` 形态"的静态清点都会漏掉它们；**唯一权威口径是门禁探针**。
+  - **下一批建议（按手法同构度/净边数）**：`oauth`（2 边，同类）· `performance`（2 边，同类）· `monitoring`（1 边，纯函数下沉）· `state`/`config`（各 1 边）。`memory`（4 边）与 `chronos`（3 边）因牵连历史重复实现（`memory/services/KnowledgeBaseWriter` 仍被 `AutoMemoryService` 类型引用）与事件化解耦，建议**专项批次**。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

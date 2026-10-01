@@ -151,7 +151,7 @@
 #### 3.3.1 执行状态（2026-10-01 **D-169**）
 
 - **起始基线**：`已豁免 156` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`。**实际达成（D-169 + D-170）**：`已豁免 156 → 154 → 153`（−2 = C1/C2；−1 = C3）· 违规 **0** · 错误 **0** 警告 **2**（仅既有 R07-004 + R00-003）· `R03-002` = 0 · `allFiles 3992 → 3991`（−1 删文件）。
-  **⇒ `infra` 源 3 → 0；本 spec 三组（`system` 3 · `memory` 4 · `chronos` 3）共 10 条边全部消除。**
+  **⇒ 本 spec 三组（`system` 3 · `memory` 4 · `chronos` 3）共 10 条边全部消除。**（⚠️ **2026-10-01 D-172 更正**：本行原写"`infra` 源 3 → 0"**不准确** —— **分桶探针实测**当时尚余 **2 对 infra 源**（`oauth -> infrastructure` · `system -> tasks`），且二者**均为"收口注释里复写旧 import"触发的门禁假阳性**，已由 D-172 归零 ⇒ **`infra` 源真实归零**；详见台账 D-172）
 - **✅ C1/C2 已完成（D-169）—— 采用 spec 首选「反转装配方向」，**未启用端口退路**（core 零改动）**：
   - `chronos/maintenance/ChronosBackgroundHousekeeping.ts`：删除 `'../../buddy/dreamIntegration'` 与 `'../../dream/DreamEngine'` 两个越层 import；新增**消费方自持的最小端口** `DreamEnginePort`（`start`/`stop`）与装配注入项 `HousekeepingUpperLayerAssembly`（`createDreamEngine()` + `initBuddyDomainIntegrations()`）；`startBackgroundHousekeeping(assembly)` 改为**必填参数** ⇒ 漏注入 = 编译期报错（**无 null 回退分支**，符合 CS03）。
   - `entrypoints/init.ts`（entry，组合根）：在**原位置**（同一条启动序列）动态导入 `DreamEngine` 与 buddy 三件套并注入 ⇒ **初始化时机与顺序不变**（仍在本入口的该启动环节内），仅**调用方**从 infra 变为 entry。

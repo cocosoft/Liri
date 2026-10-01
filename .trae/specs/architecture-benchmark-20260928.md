@@ -665,7 +665,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **与 M1（D-168）的区别（故 M1 保留该文件）**：M1 的 `MemoryHookDispatcher` 有 `hooks/core/CoreHooks.ts:266-317` 已注册的 memory 域处理器作为**"另一半"**（删除会使其永久悬空）；F-10 **无任何对应"另一半"**。
   - **改动**：删除 `chronos/TaskResultDeliverer.ts`（105 行）+ 摘除 `chronos/index.ts` 两处转出；**未动** `channels` 侧。
   - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 154 → 153**，恰为 C3 一条边；`R03-002` = 0）· `allFiles 3992 → 3991` · `eslint` **0/0** · 定向测试 `tests/chronos` + `tests/channels` = **195 pass / 0 fail** · **grep 复核**：全仓对 `TaskResultDeliverer` 的引用 = **0**。
-  - **🎯 里程碑**：**`infra` 源 17 → 0 条边全部消除**（D-159~D-170 共 12 条台账记录）⇒ `layer-inversion-memory-chronos-system` spec 三组 10 条边**全部完成**。
+  - **🎯 里程碑（⚠️ 口径已由 D-172 更正）**：D-158 清单内的边与 `layer-inversion-memory-chronos-system` spec 三组 10 条边**全部处置完成**（D-159~D-170 共 12 条台账记录）。**但本行原写的"`infra` 源 17 → 0"不成立** —— D-172 的分桶探针实测当时尚余 **2 对 infra 源**（`infra -> app` 1 · `infra -> service` 1），二者均为**注释假阳性**，已由 D-172 归零 ⇒ 见 D-172。
   - **⚠️ 遗留（如实）**：F-10（定时任务结果通知到 IM 通道）能力**不复存在**（今日本也不工作）；若日后重建，按 D6 分析走**新增专用事件 + channels 订阅**，**不要**恢复 infra→service 直连。
 
 - **✅ 2026-10-01（D-171）`exemptedCount` 计数口径归因 —— T-③02 关闭（非"分支差异"，而是**计数粒度**）** —— 连续 5 批（D-153/154/155/159/164）记录的"`已豁免` 递减 ≠ 消除边数"偏差，根因定位在 `scripts/lint-architecture.ts` 的 `checkLayerCompliance()`：
@@ -673,6 +673,16 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **一句话同时解开两个"矛盾"**：**同一文件内 2 条 import 指向同一模块 ⇒ 记 1**（D-159 的 `@modules/…` barrel 双语句 ⇒ 只 −1）；**两个不同文件各 1 模块 ⇒ 记 2**（D-160 的写侧 `SlowOperations.ts` + 读侧 `PerformanceReporter.ts` ⇒ −2）。⇒ 二者**不矛盾，只是同一规则的两个取值**；此前把它与"import 语句数"对齐比较，才生出"偏差"假象。
   - **可预测性验证（本会话连续三轮，逐条吻合）**：D-168 `1 边 ⇒ −1` · D-169 `2 边 ⇒ −2` · D-170 `1 边 ⇒ −1`（每条边恰为「1 文件 × 1 模块」）。
   - **处置**：`已豁免` **是稳定且可预测的指标**，可继续作验收依据；**今后"边"的定义必须写成「文件 × 去重目标模块」**（本 spec 与后续批次统一按此口径表述）。历史 D-153/154/155/164 的残差需旧文件树方可复算 ⇒ **不追**。⇒ **T-③02 关闭；T-③03（2 处残差）建议按同一口径复核后关闭**。
+
+- **✅ 2026-10-01（D-172）分桶探针实测 —— 归零 2 条「注释假阳性」infra 源；并更正 D-170 的里程碑口径** —— 方法：临时给 `checkLayerCompliance()` 加**分桶计数探针**，跑一次后**完整撤销**（`git status` 证实 `scripts/lint-architecture.ts` 无改动）。
+
+  - **实测分桶表（权威；合计 151 = 门禁 `已豁免`，逐数吻合）**：`service -> app` **70** · `app -> ui` **64** · `core -> app` **11** · `app -> entry` **3** · `service -> ui` **2** · `service -> entry` **1** · `infra -> app` **1** · `infra -> service` **1**。
+  - **🔴 更正 D-170**：其"**`infra` 源 17 → 0**"**不成立** —— 探针实测当时尚余 **2 对**。根因：D-158 的 17 条是**静态清单**，而门禁真实口径是**扫描原始文件文本**（`parseModuleImports` 的 `from '…'` 正则**不剥离注释**）⇒ **被删的 import 只要在注释里被"复写"，门禁就仍认为该依赖存在**（D-162 已踩一次，本次为第 2、3 次复现）。
+  - **两条假阳性实锤**：① `app/src/oauth/services/OAuthClient.ts`（`oauth -> infrastructure`）—— 第 9 行注释原样含 `import { logger } from '@modules/infrastructure'`；② `app/src/system/state/types.ts`（`system -> tasks`）—— 第 73 行注释原样含 `export type { TaskState } from '@modules/tasks/types'`。**二者都是被 D-159 / D-164 的"收口说明注释"复写旧 import 而"复活"的。**
+  - **修复（同 D-162 手法）**：改写两处注释，去掉 `from '@modules/…'` 字面形态（信息不丢，改为"取自 `@modules/…`"）⇒ `已豁免 153 → 151`（−2）· **违规 0** · `typecheck` **0**。
+  - **🎯 更正后里程碑**：**`infra` 源真实归零**（分桶表中 infra 源两行消失）；`layer-inversion-memory-chronos-system` spec 三组 10 条边全部完成。
+  - **🔍 附带解开 D-164 的「第 5 次计数偏差」**：D-164 声称消 3 条（`AppState.ts` → mcp + plugins、`types.ts` → tasks）却只 −2 —— 现证实**第 3 条本就是注释假阳性**：删掉 re-export 后**注释残留使其继续计数** ⇒ 只减 2。**按 D-171 新口径（文件 × 去重目标模块）复算：完全吻合**。
+  - **⚠️ 系统性隐患（建议单独立项，需用户裁定）**：`parseModuleImports` **不剥离注释/字符串** ⇒ 凡把旧 import 写进注释的"收口说明"，都会让该依赖**复活**（已 3 次：D-162 / 本次 ×2）。**根因方案** = 扫描前剥离注释与字符串；但这**变更门禁判定行为**（依 T-③01 口径：门禁判定变更需用户裁定）⇒ 本次**只治标**（改写注释），治本待裁定。
 
 ---
 

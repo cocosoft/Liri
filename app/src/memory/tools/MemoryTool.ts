@@ -105,7 +105,7 @@ export class MemoryTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: memories,
+        data: memories,
         error: undefined,
         executionTime,
         output: JSON.stringify(memories),
@@ -124,7 +124,7 @@ export class MemoryTool implements Tool {
       const executionTime = Date.now() - startTime;
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: error instanceof Error ? error.message : String(error),
         executionTime,
         output: '',

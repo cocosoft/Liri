@@ -77,7 +77,7 @@ export class MemoryGetTool implements Tool {
         if (!memory) {
           return {
             status: ToolExecutionStatus.SUCCESS,
-            result: null,
+            data: null,
             error: undefined,
             executionTime,
             output: JSON.stringify({
@@ -95,7 +95,7 @@ export class MemoryGetTool implements Tool {
 
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: memory,
+          data: memory,
           error: undefined,
           executionTime,
           output: JSON.stringify(memory),
@@ -128,7 +128,7 @@ export class MemoryGetTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: memories,
+        data: memories,
         error: undefined,
         executionTime,
         output: JSON.stringify(memories),
@@ -147,7 +147,7 @@ export class MemoryGetTool implements Tool {
       const executionTime = Date.now() - startTime;
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: error instanceof Error ? error.message : String(error),
         executionTime,
         output: '',

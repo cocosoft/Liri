@@ -93,7 +93,7 @@ export class UnifiedSearchTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: results,
+        data: results,
         executionTime: Date.now() - startTime,
         output: JSON.stringify(results),
         errorOutput: '',

@@ -241,7 +241,11 @@
     - **复核方式（本批新增步骤）**：迁移后 grep 目标目录的 `^\s+result[:\s]` 并逐条判"审计日志 / `validateInput` / ToolResult 载荷" —— 结果：`knowledge/tools/*` 残留**全部是审计日志**（`action` / `target` / `result: 'success'`）⇒ 正确地保留；另揪出 `KnowledgeSaveTool.ts:249`（catch 块、**10 空格**）1 处漏改。
     - **客观进度**：探针 **53 → 43 →（含盲区补漏）37**；写入点 **45 → 35 → 31**。
     - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
-  - **剩余（批次 4 起）**：写入点 **31 处**（**探针口径** —— 因纪律 I，实际可能更多）—— `memory/tools/*`×7 → `media/tools/*`×7 → `ai/interfaces/ToolExecutor.ts`×6 → `modules/calendar/*`×4 → `SkillTool/*`×5 → `modules/mail/*`×1；另有**兼容读 4 处** + **测试断言 2 处**，待写入侧清零后统一收口 → 再删字段。
+  - **批次 4 ✅ 已完成（2026-09-30）**：迁移 **`memory` 家族全部写入点（7 处）** —— `memory/tools/MemoryGetTool.ts`×4（含 **12/10/8** 三种缩进）· `MemoryTool.ts`×2 · `UnifiedSearchTool.ts`×1。
+    - **grep 复核（纪律 I 的新增步骤）**：`memory/tools` 全域 `^\s+result[:\s]` **零命中** ⇒ 无「推断型」漏改 ✓
+    - **客观进度**：探针 **37 → 30**，写入点 **31 → 24**（**恰好 −7**，与预期一致）；`memory` 残留清零。
+    - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
+  - **剩余（批次 5 起）**：写入点 **24 处**（**探针口径**）—— `media/tools/*`×7 → `ai/interfaces/ToolExecutor.ts`×6 → `SkillTool/*`×5 → `modules/calendar/*`×4 → `modules/mail/*`×1；另有**兼容读 4 处** + **测试断言 2 处**，待写入侧清零后统一收口 → 再删字段。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

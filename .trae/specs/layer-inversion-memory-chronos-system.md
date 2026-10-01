@@ -113,11 +113,11 @@
 
 #### 3.2.1 交接状态（2026-10-01，新会话从此处起步）
 
-- **起始基线（已更新，2026-10-01 **D-167** 后）**：`已豁免 157` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`；分层映射 **85** 个模块。**终点（D-168 达成）**：`已豁免 156` ✓ ⇒ **本子批（`memory` 4 条边）全部完成**，`infra` 源 **5 → 4**。
+- **起始基线（已更新，2026-10-01 **D-167** 后）**：`已豁免 157` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`；分层映射 **85** 个模块。**终点（D-168 达成）**：`已豁免 156` ✓ ⇒ **本子批（`memory` 4 条边）全部完成**，`infra` 源 **4 → 3**（⚠️ 2026-10-01 口径纠正：原写"5 → 4"，与台账链 `6→5→4→3` 及本 spec §3.2 验收"`infra` 源 **7 → 3**"矛盾，已改）。
 - **✅ M4 已完成（D-166，`925fb86d4`）**：`MemoryQueryResult` 随域**下沉 `memory/types/MemoryQueryResult.ts`**，`services/prompt` 改为反向引用（service→infra 合法，且是该文件既有做法）。全仓仅 2 处引用 ⇒ 零涟漪。
 - **✅ M2 已完成（D-167，`4d1e43212`）**：**未采用 spec 原计划的"最小结构镜像"** —— 取证后发现 `docs/knowledge-types.ts` 含 3 个互引类型（`KnowledgeRoute` + `KnowledgeRouterOptions` + `IKnowledgeSearch`）且**零 import、纯类型** ⇒ 镜像等于复制 3 个类型（两份事实源，违 CS01）；改为**下沉 `core/knowledge-types.ts`**（同 D-163 手法），原址 `docs/knowledge-types.ts` 保留为**转出**（既有多处消费方零改动），并把 `core/knowledge-types` 登记 `canonicalEntryKeys`。
 - **✅ 第一步（前置判定 + M3）已完成（D-165）**：`memory/services/KnowledgeBaseWriter.ts` 判定为**孤立的历史重复实现**（app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述迁移自它、全仓零值消费者），且其唯一消费者 `AutoMemoryService` 的 `knowledgeBaseWriter` 能力**整条未接线**（构造只传 1 参 · setter 零调用方 · 工厂零调用方 ⇒ 分支永不执行）⇒ **按 CS01/CS05 删死代码**（+11/−214 行），**M3 边消失**，`sanitizeFileName` 的物理归位**未启用**（16 消费方的改动面已避免）。
-- **✅ M1 已完成（D-168）**：`IHookChainPort.execute` 由 `Promise<void>` 扩为最小投影 `Promise<HookExecuteResult>`（`{ blocked: boolean }`，本子批**唯一动 core 契约处**）；`entrypoints/spiWiring.ts` 实现侧自 `result.before` 投影"失败或阻止继续"；`cost` 侧忽略返回值 ⇒ **零改动**；`memory/MemoryHookDispatcher.ts` 4 处调用点（`preSave`/`postSave`/`preLoad`/`postLoad`）改经 `resolveHookChain()`。**实测**：`已豁免 157 → 156` ✓、`infra` 源 **5 → 4**（`memory` 组清零）。**取证明细见下 §3.2.1.1 的 M1 条**。
+- **✅ M1 已完成（D-168）**：`IHookChainPort.execute` 由 `Promise<void>` 扩为最小投影 `Promise<HookExecuteResult>`（`{ blocked: boolean }`，本子批**唯一动 core 契约处**）；`entrypoints/spiWiring.ts` 实现侧自 `result.before` 投影"失败或阻止继续"；`cost` 侧忽略返回值 ⇒ **零改动**；`memory/MemoryHookDispatcher.ts` 4 处调用点（`preSave`/`postSave`/`preLoad`/`postLoad`）改经 `resolveHookChain()`。**实测**：`已豁免 157 → 156` ✓、`infra` 源 **4 → 3**（`memory` 组清零）。**取证明细见下 §3.2.1.1 的 M1 条**。
 - **🟡 M1 取证时的顺带发现（超本批范围，登记备查，**需用户裁定**）**：`MemoryHookDispatcher` **全仓零消费者**（含 `app/tests/**` 与 `app/scripts/**`）、**未从 `memory/index.ts` 转出**，且全仓 `execute('memory', …)` 调用点**仅在它自己**（4 处）⇒ hook 域 `memory` 当前**从不触发**（`hooks/core/CoreHooks.ts:266-317` 的 `memory.pre-save/post-save` 注册因此无实际效果）。本次按 **D4** 保留能力并使其层合规（**零运行时行为变化**）；若判定"不打算接线" ⇒ 该文件可整体删除，届时 **M1 亦无需动 core 契约**（详见台账 D-168）。
 ##### 3.2.1.1 剩余三条的取证明细（2026-10-01 实测，供直接开工）
 
@@ -147,6 +147,20 @@
 
 - **验收**：`infra` 源 3 → **0**；`chronos` 模块在 R00-001 下归零。
 - ⚠️ 本子批**最重**：C1/C2 涉及启动时序（反转后 buddy/dream 的初始化时机变化）⇒ 需额外的启动路径验证（`entrypoints/init.ts` 的调用顺序）。
+
+#### 3.3.1 执行状态（2026-10-01 **D-169**）
+
+- **起始基线**：`已豁免 156` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`。**实际达成**：`已豁免 156 → 154`（**−2，恰为 C1/C2**）· 违规 **0** · 错误 **0** 警告 **2**（仅既有 R07-004 + R00-003）· `R03-002` = 0（白名单 **740 未变**）。
+- **✅ C1/C2 已完成（D-169）—— 采用 spec 首选「反转装配方向」，**未启用端口退路**（core 零改动）**：
+  - `chronos/maintenance/ChronosBackgroundHousekeeping.ts`：删除 `'../../buddy/dreamIntegration'` 与 `'../../dream/DreamEngine'` 两个越层 import；新增**消费方自持的最小端口** `DreamEnginePort`（`start`/`stop`）与装配注入项 `HousekeepingUpperLayerAssembly`（`createDreamEngine()` + `initBuddyDomainIntegrations()`）；`startBackgroundHousekeeping(assembly)` 改为**必填参数** ⇒ 漏注入 = 编译期报错（**无 null 回退分支**，符合 CS03）。
+  - `entrypoints/init.ts`（entry，组合根）：在**原位置**（同一条启动序列）动态导入 `DreamEngine` 与 buddy 三件套并注入 ⇒ **初始化时机与顺序不变**（仍在本入口的该启动环节内），仅**调用方**从 infra 变为 entry。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（已豁免 156 → **154** = −2）· 改动文件 `eslint` **0/0** · 定向测试 `tests/chronos` + `tests/http/dream-cycle-analytics.contract.test.ts` = **91 pass / 0 fail** · **grep 独立复核**：`app/src/chronos/**` 内对 `buddy`/`dream` 的**越层 import = 0**（余者均为注释、本地标识符 `dreamEngine`/`DreamEnginePort`、或 `chronos/autoDream` 自身子模块）。
+  - **现状**：`infra` 源 **3 → 1**（`chronos` 组仅余 **C3**，见下）。
+- **⏸ C3 未做 —— 按 spec **D6** 的既定处置「拆出、单独立项」（是取证的结论，不是遗漏）**：
+  - `SystemEvents`（`core/events/EventBus.ts:342-394`）**无**"向通道广播消息"类事件 ⇒ D6 的"事件化（用既有 `SystemEvents`）"**不可行**：`TASK_COMPLETED`/`TASK_FAILED` 同时被 `CronScheduler`、`ProcessManager`、`VideoGenerateTool` 发布，若让 channels 直接订阅它们，会把**所有**任务结果都灌进用户通道 ⇒ **非等价替换**（语义错误）。
+  - 既有 core SPI 广播端口 `IBroadcastService`（[BroadcastService.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/spi/BroadcastService.ts)）是 **SSE-only**（`broadcast(event, payload)` → SSE 客户端）⇒ **语义 ≠ 通道投递**，亦不能复用。
+  - **🟡 关键取证**：`initializeTaskResultDelivery()` **全仓零调用方**（含 `app/tests/**`、`app/scripts/**`；仅由 `chronos/index.ts:150` 转出，**从未被初始化**）；其**唯一历史调用方**是 `daemon/CronBridge.ts:86`（commit `2f37a70fd`），而现 `CronBridge` 已重写为 polling 模式（自注「替代旧的 createCronScheduler」）**不再调用它** ⇒ F-10 投递**当前完全未接线**（与 M1 的 `MemoryHookDispatcher` 同型：零消费者、零运行时行为）。
+  - **待用户裁定（三选一）**：① **删除该文件** —— CS01/CS05，零运行时行为变化，边随之消失，本批即 **3/3** 完成；② **新建 core SPI 端口**补全该边 —— 但与 M1 同类代价（为**未接线**代码扩契约）；③ 维持 D6「拆出」，待 F-10 设计定稿后**单独立项**。
 
 ---
 

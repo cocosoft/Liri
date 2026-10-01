@@ -649,8 +649,15 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **手法（复用既有端口，非新建 —— CS01）**：`IHookChainPort.execute` 由 `Promise<void>` 扩为最小投影 `Promise<HookExecuteResult>`（`{ blocked: boolean }`，新增类型并 barrel 转出）；实现在 `entrypoints/spiWiring.ts` 侧自 `result.before` 投影"失败或阻止继续"；`cost` 侧**忽略返回值 ⇒ 零改动**；未注册时代理返回 `{ blocked: false }`（与旧 no-op 语义一致）。`memory` 侧 4 处调用点（`preSave`/`postSave`/`preLoad`/`postLoad`）改经 `resolveHookChain()`。
   - **为什么只投影 `{ blocked }` 而非暴露 app 侧 `HookResult`**：core 契约不绑 app 实现细节（同 D-155 的立端口初衷）。
   - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 157 → 156**，恰为 M1 一条边；`R03-002` = 0，白名单 **739 → 740**——新增的 `@modules/core/spi` 直连被识别为规范子入口）· 改动文件 `eslint` **0/0** · `allFiles` **3992**（未变）· **grep 独立复核**：`app/src/memory/**` 内对 `@modules/hooks` 的引用**仅剩注释** ⇒ M1 边确已消失。
-  - **现状**：`infra` 源剩余 **4 条边**（`memory` 组**清零**；余 `chronos` 3 属子批 3，涉启动时序反转）。
+  - **现状**：`infra` 源剩余 **3 条边**（`memory` 组**清零**；余 `chronos` C1/C2/C3 属子批 3，涉启动时序反转）。**⚠️ 口径纠正**：spec §3.2.1 原写"`infra` 源 5 → 4"，与台账链（D-165 `6` → D-166 `5` → D-167 `4` → 本条 `3`）及 spec §3.2 自身验收（"`infra` 源 **7 → 3**"）矛盾 ⇒ **以 3 为准**（已同步更正 §3.2.1）。
   - **🟡 顺带发现（超本批范围，登记备查，需用户裁定）**：`MemoryHookDispatcher` **全仓零消费者**（含 `app/tests/**` 与 `app/scripts/**`）且**未从 `memory/index.ts` 转出**；全仓 `execute('memory', …)` 调用点**仅存在于该文件**（4 处）⇒ hook 域 `memory` 当前**从不触发**（`hooks/core/CoreHooks.ts:266-317` 对 `memory.pre-save/post-save` 的注册因此也无实际效果）。本次按 spec D4 **保留该能力并使其层合规**（零运行时行为变化）；**若判定"不打算接线" ⇒ 该文件可整体删除（届时 M1 亦无需动 core 契约）**。
+
+- **✅ 2026-10-01（D-169）`chronos` 组 C1/C2 两条边消除 —— 手法：装配反转（infra 不再主动初始化上层）** —— 边：`chronos/maintenance/ChronosBackgroundHousekeeping.ts:10` → `buddy/dreamIntegration`（3 个 `initBuddy*Integration`）与 `:11` → `dream/DreamEngine`。
+  - **根因（CS05）：方向性错误** —— `chronos`(infra) 原**主动 `new DreamEngine()` 并调用 buddy 域三个 `initBuddy*Integration()`**，即 infra 在**装配上层模块**，而非消费其能力。采 spec §3.3 的**首选**「反转装配方向」，**未启用端口退路**（core 零改动）。
+  - **手法**：① `chronos` 侧删除两个越层 import，改为**消费方自持的最小端口** `DreamEnginePort`（`start`/`stop`）+ 注入项 `HousekeepingUpperLayerAssembly`（`createDreamEngine()` / `initBuddyDomainIntegrations()`）；② `startBackgroundHousekeeping(assembly)` 改**必填参数**（漏注入 = 编译期报错，**无 null 回退分支**，符合 CS03）；③ `entrypoints/init.ts`（entry，组合根）在**原启动序列位置**动态导入 `DreamEngine` + buddy 三件套后注入 ⇒ **初始化时机与顺序不变**。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 156 → 154**，恰为 C1/C2 两条边；`R03-002` = 0，白名单 **740 未变**）· 改动文件 `eslint` **0/0** · 定向测试 `tests/chronos` + `tests/http/dream-cycle-analytics.contract.test.ts` = **91 pass / 0 fail** · **grep 独立复核**：`app/src/chronos/**` 对 `buddy`/`dream` 的**越层 import = 0**。
+  - **⏸ C3 未做（按 spec D6「拆出、单独立项」的既定处置，非遗漏）**：① `SystemEvents` **无**"向通道广播消息"类事件，而 `TASK_COMPLETED`/`TASK_FAILED` 亦被 `CronScheduler`/`ProcessManager`/`VideoGenerateTool` 发布 ⇒ 让 channels 直接订阅 = **语义错误**（非等价替换）；② 既有 core SPI 端口 `IBroadcastService` 为 **SSE-only**，语义 ≠ 通道投递。**关键取证**：`initializeTaskResultDelivery()` **全仓零调用方**（唯一历史调用方 `daemon/CronBridge.ts:86`，已在 polling 重写中移除）⇒ F-10 投递**当前完全未接线**（与 M1 的 `MemoryHookDispatcher` 同型）。**待用户裁定三选一**：删除该文件 / 新建 core SPI 端口 / 维持拆出单独立项。
+  - **现状**：`infra` 源剩余 **1 条边**（仅 `chronos` C3；`memory` 组已清零）。
 
 ---
 

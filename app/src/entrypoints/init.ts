@@ -490,11 +490,27 @@ async function startDeferredPrefetches(): Promise<void> {
       })(),
 
       // 启动 Chronos 后台维护（梦境定时任务 + 周期性清理）
+      // 2026-10-01 D-169（装配反转）：梦境引擎与 buddy 域集成原由 chronos(infra) 主动
+      // `new`/`init` ⇒ `chronos -> dream/buddy`（infra -> app）倒挂；现改由本入口（entry，
+      // 组合根）装配后按端口注入 —— 上层模块的初始化时机不变，仍在此时启动。
       (async () => {
         try {
           const { startBackgroundHousekeeping, stopBackgroundHousekeeping } =
             await import('../chronos/maintenance/ChronosBackgroundHousekeeping.js');
-          startBackgroundHousekeeping();
+          const { DreamEngine } = await import('../dream/DreamEngine.js');
+          const {
+            initBuddyDreamIntegration,
+            initBuddyTaskGrowthIntegration,
+            initBuddyCronFeedbackIntegration,
+          } = await import('../buddy/dreamIntegration.js');
+          startBackgroundHousekeeping({
+            createDreamEngine: () => new DreamEngine(),
+            initBuddyDomainIntegrations: () => {
+              initBuddyDreamIntegration();
+              initBuddyTaskGrowthIntegration();
+              initBuddyCronFeedbackIntegration();
+            },
+          });
           registerShutdownHandler(() => stopBackgroundHousekeeping());
           logger.info('Chronos 后台维护已启动（梦境定时任务 + 周期性清理）');
         } catch (error) {

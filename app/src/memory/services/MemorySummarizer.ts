@@ -1,5 +1,7 @@
 import type { Memory } from '../types/Memory';
-import type { MemoryQueryResult } from '@modules/services/prompt/MemoryPromptProvider';
+// 2026-10-01 D-166（`R00-001` 倒挂收口）：原从 `@modules/services/prompt/MemoryPromptProvider`
+// 取该类型（memory(infra) -> services(service) 倒挂）⇒ 类型已随域下沉，此处改为同域直取。
+import type { MemoryQueryResult } from '../types/MemoryQueryResult';
 import type { SessionContext } from '../types/SessionContext';
 
 /** MemoryManagerImpl 最小接口（避免循环依赖） */

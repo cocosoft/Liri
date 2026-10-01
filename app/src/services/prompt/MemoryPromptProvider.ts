@@ -4,11 +4,12 @@
  */
 
 import type { SessionContext } from '@modules/memory/types/SessionContext';
+// 2026-10-01 D-166（`R00-001` 倒挂收口）：`MemoryQueryResult` 已**随 memory 域下沉**
+// （其唯一消费者是 `memory`(infra) 的 `MemorySummarizer`）⇒ 此处改为**反向引用**（service→infra 合法 ✓）。
+// 与本文件既有的 `SessionContext` 引用方向一致。
+import type { MemoryQueryResult } from '@modules/memory/types/MemoryQueryResult';
 
-export interface MemoryQueryResult {
-  summaries: string[];
-  totalCount: number;
-}
+export type { MemoryQueryResult };
 
 export interface MemoryQueryProvider {
   getMemorySummaries(limit?: number): Promise<MemoryQueryResult>;

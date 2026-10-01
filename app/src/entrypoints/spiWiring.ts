@@ -110,6 +110,20 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- Agent 执行端口 SPI（2026-10-01 D-144）----
+  // core/Coordinator 原直接 import `@modules/tools`（core → app 倒挂 BULK-012）；
+  // 现改为经 `IAgentToolPort` 解析，实现在此注册（组合根，沿用注册表共享实例语义）。
+  {
+    const { resolveAgentToolInstance } = await import('@modules/tools');
+    const { registerAgentToolSpi } = await import('@modules/core/spi');
+    const agentTool = resolveAgentToolInstance();
+    if (agentTool) {
+      await registerAgentToolSpi(container, agentTool);
+    }
+    // else：工具管理器尚未就绪 ⇒ 本时点无法注册。**不静默降级**（CS03）——
+    // `resolveAgentTool()` 在未注册时**调用即抛错**，错误不会被"任务永不执行"掩盖。
+  }
+
   // ---- 插件系统 SPI（2026-09-30 D-122；D-129 转推送模型）----
   {
     const { pluginSystem } = await import('@modules/plugins');

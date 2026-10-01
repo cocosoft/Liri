@@ -50,6 +50,14 @@ export {
   resolveBroadcast,
 } from './BroadcastService';
 
+// 2026-10-01 D-144：Agent 执行端口（消除 Coordinator 的 core → app 倒挂）
+export {
+  type IAgentToolPort,
+  AGENT_TOOL_SERVICE_ID,
+  registerAgentToolSpi,
+  resolveAgentTool,
+} from './AgentToolService';
+
 export {
   type LoadedPluginBriefDto,
   type IPluginSystemService,

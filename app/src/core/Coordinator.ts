@@ -8,8 +8,9 @@ import { randomUUID } from 'crypto';
 import { lazySingleton } from './lazySingleton.js';
 import { getLogger } from './loggerFacade.js';
 import { handleError } from './errorHandler.js';
-// P3（2026-09-22）：静态 import + 明确类型 + 复用注册表共享实例（原为 `any` + 动态 require + new）
-import { AgentTool, resolveAgentToolInstance } from '@modules/tools';
+// 2026-10-01 D-144：改用 core SPI（`IAgentToolPort`）替代对 `@modules/tools` 的直接依赖
+// ⇒ 消除 `core -> app` 倒挂（BULK-012）；实现由 `entrypoints/spiWiring.ts` 注册。
+import { resolveAgentTool, type IAgentToolPort } from './spi/index.js';
 
 const logger = getLogger('Coordinator');
 
@@ -58,39 +59,21 @@ const DEFAULT_CONFIG: CoordinatorConfig = {
 
 export class Coordinator {
   private config: CoordinatorConfig;
-  private _agentTool: AgentTool | null = null;
   private tasks: Map<string, CoordinatorTask> = new Map();
   private taskQueue: string[] = [];
   private runningTasks: Set<string> = new Set();
   private taskStatusCache: Map<string, CoordinatorTask> = new Map();
 
   /**
-   * 取 AgentTool 实例（P3 清理，2026-09-22）。
+   * 取 Agent 执行端口（2026-10-01 D-144，**SPI 化**）。
    *
-   * 修复前：`private _agentTool: any` + `require('@modules/tools/AgentTool/AgentTool')` +
-   * `new AgentTool()`，三个问题：
-   *  ① `any` 放弃编译期检查 —— `stopAgent` / `execute` 签名漂移不会被发现；
-   *  ② 动态 `require` 深路径，与仓内 ESM 风格不一致，且绕过 `@modules/tools` 出口；
-   *  ③ `new AgentTool()` 造出**第三个实例**（注册表一个 / `getAllBaseTools()` 一个 / 这里一个），
-   *     实例级状态（如 teammate handle 映射）随之分裂。
-   *
-   * 现在：静态 import + 明确类型；**优先复用注册表里的共享实例**
-   * （`resolveAgentToolInstance()`，已穿透懒加载包装器，见 R6）；
-   * 仅当工具管理器尚未就绪（该时点确实取不到注册表实例）才退化为本地实例。
+   * 历史：曾直接 `import { AgentTool, resolveAgentToolInstance } from '@modules/tools'`
+   * （P3 清理，2026-09-22）—— 虽解决了「`any` + 动态 `require` + 三实例」三问题，
+   * 但构成 **`core -> app` 倒挂**（BULK-012）。现改经 **core SPI `IAgentToolPort`** 解析
+   * ⇒ core 内自洽；实现由 `entrypoints/spiWiring.ts` 在**组合根**注册（沿用注册表共享实例语义）。
    */
-  private get agentTool(): AgentTool {
-    if (!this._agentTool) {
-      const shared = resolveAgentToolInstance();
-      if (shared) {
-        this._agentTool = shared;
-      } else {
-        this._agentTool = new AgentTool();
-        logger.debug('Coordinator: 注册表暂不可用，回退本地 AgentTool 实例', {
-          reason: 'tool-manager-not-ready',
-        });
-      }
-    }
-    return this._agentTool;
+  private get agentTool(): IAgentToolPort {
+    return resolveAgentTool();
   }
 
   constructor(config?: Partial<CoordinatorConfig>) {

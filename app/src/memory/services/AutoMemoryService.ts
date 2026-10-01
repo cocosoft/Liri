@@ -15,7 +15,11 @@ interface MemoryManager {
   getAllMemories(): Promise<Memory[]>;
 }
 import { getLogger, Logger } from '@modules/monitoring';
-import type { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
+// 2026-10-01 D-165（`R00-001` 倒挂收口）：原此处 `import type { KnowledgeBaseWriter }
+// from './KnowledgeBaseWriter'`。该「知识库同步」能力经取证**整条为死代码**（构造只传 1 参、
+// setter 零调用方 ⇒ 分支永不执行）⇒ 连同被引用文件 `memory/services/KnowledgeBaseWriter.ts`
+// 一并删除，顺带消除 `memory`(infra) -> `services`(service) 的 `sanitizeFileName` 导入边
+// （原 D-158 清单 M3）。
 
 /**
  * 自动记忆触发类型
@@ -64,7 +68,6 @@ export class AutoMemoryService {
   // D-146（2026-10-01）：跨层类型引用 `AIService` 宽化为 `unknown`（本类只持引用不调用）
   private aiService: unknown = null;
   private logger: Logger;
-  private knowledgeBaseWriter: KnowledgeBaseWriter | null = null;
 
   /**
    * 构造函数
@@ -75,12 +78,10 @@ export class AutoMemoryService {
   constructor(
     memoryManager: MemoryManager,
     config: Partial<AutoMemoryConfig> = {},
-    aiService?: unknown,
-    knowledgeBaseWriter?: KnowledgeBaseWriter
+    aiService?: unknown
   ) {
     this.memoryManager = memoryManager;
     this.aiService = aiService || null;
-    this.knowledgeBaseWriter = knowledgeBaseWriter || null;
     this.config = {
       enabled: true,
       minConfidence: 0.7,
@@ -91,13 +92,6 @@ export class AutoMemoryService {
       ...config,
     };
     this.logger = getLogger('memory:services:autoMemory');
-  }
-
-  /**
-   * 设置知识库写入器
-   */
-  setKnowledgeBaseWriter(writer: KnowledgeBaseWriter): void {
-    this.knowledgeBaseWriter = writer;
   }
 
   /**
@@ -171,19 +165,11 @@ export class AutoMemoryService {
       this.conversationMemories.set(conversationId, updatedMemories);
     }
 
-    // 将高置信度的重要信息同步到知识库
-    if (this.knowledgeBaseWriter) {
-      for (let i = 0; i < createdMemories.length; i++) {
-        const extraction = filteredExtractions[i];
-        if (
-          extraction &&
-          extraction.trigger === AutoMemoryTriggerType.IMPORTANT_INFORMATION &&
-          extraction.confidence >= 0.8
-        ) {
-          await this.knowledgeBaseWriter.writeFromMemory(createdMemories[i]);
-        }
-      }
-    }
+    // 2026-10-01 D-165：原此处「高置信度重要信息同步到知识库」整块已删 —— 其唯一依赖
+    // `knowledgeBaseWriter` **从未被注入**（`MemoryManager` 构造只传 1 个实参、
+    // `setKnowledgeBaseWriter` 零调用方）⇒ 该分支永不执行（死代码），且它使
+    // `memory/services/KnowledgeBaseWriter.ts`（内含 `sanitizeFileName` 的
+    // `memory`(infra) -> `services`(service) 导入）成为孤立的重复实现。二者一并删除。
 
     return createdMemories;
   }

@@ -36,13 +36,6 @@ export type {
   SessionSummaryAdapterInput,
   SessionSummaryMemoryInput,
 } from './adapters/SessionSummaryAdapter';
-export {
-  MemoryTool,
-  createMemoryTool,
-  MemoryGetTool,
-  createMemoryGetTool,
-} from './tools';
-export type { SearchTool } from './tools';
 
 export * from './consolidation';
 export * from './indexer';
@@ -140,12 +133,7 @@ export type {
   SecretScanResult,
 } from './scanners/MemorySecretScanner';
 
-// 2026-08-30 R03-002 收敛：tools / services / integrations 统一出口
-export { SearchToolImpl } from './tools/SearchTool';
-export {
-  UnifiedSearchTool,
-  createUnifiedSearchTool,
-} from './tools/UnifiedSearchTool';
+// 2026-08-30 R03-002 收敛：services / integrations 统一出口
 export { MemoryIntegration } from './integrations/MemoryIntegration';
 export {
   UnifiedSearchService,

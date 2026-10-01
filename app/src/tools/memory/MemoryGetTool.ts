@@ -1,8 +1,8 @@
-import type { Tool } from '../../tools/types/Tool';
-import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
-import { MemoryManagerImpl } from '../MemoryManager';
-import { Memory } from '../types/Memory';
+import type { Tool } from '../types/Tool';
+import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
+import { MemoryManagerImpl } from '../../memory/MemoryManager';
+import { Memory } from '../../memory/types/Memory';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:tools:MemoryGetTool');

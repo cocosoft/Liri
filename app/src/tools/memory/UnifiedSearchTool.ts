@@ -1,10 +1,10 @@
-import { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
-import { ToolUseContext } from '../../tools/types/ToolUseContext';
-import {
+import { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
+import { ToolUseContext } from '../types/ToolUseContext';
+import type {
   UnifiedSearchService,
   UnifiedSearchResult,
-} from '../services/UnifiedSearchService';
+} from '@modules/memory';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:tools:UnifiedSearchTool');

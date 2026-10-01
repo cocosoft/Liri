@@ -1,5 +1,5 @@
-import type { Memory } from '../types/Memory';
-import { MemoryManagerImpl } from '../MemoryManager';
+import type { Memory } from '../../memory/types/Memory';
+import { MemoryManagerImpl } from '../../memory/MemoryManager';
 
 /**
  * 搜索工具接口

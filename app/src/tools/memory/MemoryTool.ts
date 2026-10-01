@@ -3,9 +3,9 @@
  * 将 SearchTool 封装为标准 Tool 接口，使其可以注册到 ToolRegistry
  */
 
-import type { Tool } from '../../tools/types/Tool';
-import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool } from '../types/Tool';
+import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { SearchTool, AdvancedSearchOptions } from './SearchTool';
 
 import { getLogger } from '@modules/monitoring';

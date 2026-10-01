@@ -685,6 +685,12 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **🧹 例外清单同步治理（D-172 同批）**：删除 **4 个已空的 infra 桶** —— `BULK-007`(`infra→app` 估 206) · `BULK-008`(`infra→service` 估 51) · `BULK-009`(`infra→ui` 估 8) · `BULK-016`(`infra→entry` 估 10)，**实测均为 0**。**自证**：删除后门禁 `违规 0` 且 `已豁免 151` **不变** ⇒ 确为空（例外加载 12 → **8** 条）。**为何必须删**：空桶会让**未来**新出现的 infra 越层被**静默豁免**（门禁在该方向失效）。同时把剩余桶的**陈旧估值**改为实测值：`BULK-004` 21→**64** · `BULK-005` 22→**70** · `BULK-014` 10→**2** · `BULK-015` 10→**3**（`BULK-012`=11 / `BULK-018`=1 与实测一致）。**`BULK-011`（`core→service`）实测 0 但本次暂留**（D-143 曾误删而复得，留待复核）。
   - **⚠️ 系统性隐患（建议单独立项，需用户裁定）**：`parseModuleImports` **不剥离注释/字符串** ⇒ 凡把旧 import 写进注释的"收口说明"，都会让该依赖**复活**（已 3 次：D-162 / 本次 ×2）。**根因方案** = 扫描前剥离注释与字符串；但这**变更门禁判定行为**（依 T-③01 口径：门禁判定变更需用户裁定）⇒ 本次**只治标**（改写注释），治本待裁定。
 
+- **✅ 2026-10-01（D-173）下一批（`service -> app` **70** · `app -> ui` **64** = **134**）逐对探针实测 —— 新 spec 的 §1 取证** —— 方法同 D-172（临时聚合 `(源模块 -> 目标模块) → 计数 + 样例文件`，跑一次后**完整撤销**，`git status` 证明门禁文件无残留改动；**未改门禁判定**）。
+  - **`app -> ui`（64）**：`tools -> ink` **47**（`tools/**/UI.tsx` 型）· `knowledge -> components` **10** · `buddy -> components` 2 · `commands -> ink` 2 · `commands -> ui` 2 · `docs -> ui` 1 ⇒ **全部是"UI 组件长在 app 层模块里"（混合模块）**，与 D-84 的 `hooks` 同型但**方向相反**（这些模块确实依赖 ui）⇒ 只能**把 UI 归位**，不能靠"改层"消解。
+  - **`service -> app`（70）**：`services -> *` **20** · `infrastructure -> *` **19** · `session -> *` **16** · `runtime -> *` 7 · `channels -> *` 4 · `mcp` 2 · `bridge` 1 · `voice` 1。
+  - **根因分野（决定手法）**：`infrastructure/**`（19）属**装配本体错层**（handlers 的直接消费者是 entry 的 HTTP 装配 ⇒ 与 D-80 判定同型，首选物理归位）；其余 **51 条**属**真跨层依赖**（core SPI 端口 / DI 反转 / 或"被依赖的 app 模块本就该在 service 层"）。
+  - **产出**：新 spec [`layer-inversion-service-app-app-ui.md`](./layer-inversion-service-app-app-ui.md) —— **6 子批 A→F**（风险×改动量递增，F=会话主链路最后做），覆盖全局 151 的 **89%**；余 **17** 条（`core -> app` 11 · `app -> entry` 3 · `service -> ui` 2 · `service -> entry` 1）明确**不在本批**（`core -> app` 涉 PDCA 编排链路，应单独立项）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

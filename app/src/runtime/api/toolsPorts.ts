@@ -99,6 +99,10 @@ export interface ToolsPort {
 
   // ---- 媒体模板（`getMediaTemplates()`；2026-10-01 D-192 tools 域取用面收敛）----
   listMediaTemplates(): Promise<MediaTemplateDto[]>;
+
+  // ---- 工具 schema 刷新（2026-10-01 D-194）----
+  /** 刷新「可用子代理类型名」快照并重算工具 schema（原 `agent-role-handlers` 静态导入） */
+  refreshAvailableSubagentTypeNames(): Promise<void>;
 }
 
 /**

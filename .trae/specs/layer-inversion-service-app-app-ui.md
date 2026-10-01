@@ -336,7 +336,7 @@ export interface MediaTemplateDto {
 | 文件 | 取证结果 | 预估步数 |
 |---|---|---|
 | `video-task-handlers.ts` | ⚠️ **两条要点**：① 其**动态**用法**早已在 D-93 端口化**（L19 已有 `getCoreAPI` 导入 + 注释"改经服务层端口"）⇒ 残留的只是**静态** import（L16）；② **该文件有两个 tools 导入** —— `getVideoTaskPersistence`（值 L16）+ **`ToolUseContext`（类型 L17）** ⇒ **只去其一只会"不减计数"**（门禁按「文件 × 去重模块」计），**必须一并处理**。静态调用面：`L100 update(taskId, { mode, sourceImageUrl, … })`（**端口 patch 现只收 `sourceImageUrl`/`sourceImageId`，缺 `mode`**）· `L136 get(taskId)`（**端口无此方法**）· `L191+` 尚有后续调用（grep 截断，须读完） | **8–12** |
-| `agent-role-handlers.ts` | `refreshAvailableSubagentTypeNames` —— **单一函数**，且该文件**无其它 tools 导入**（"1 方法"型） | **5–6**（**最小 ⇒ 建议先做**） |
+| `agent-role-handlers.ts` | ✅ **已完成（D-194）**：`refreshAvailableSubagentTypeNames` —— **单一函数**、**唯一** tools 导入、1 处调用点（L126）⇒ `已豁免 80 → 79` · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **4 编辑** |
 | `agent-control-handlers.ts` | **多行 import**，符号数**待读** | 待测 |
 
 **⇒ 建议执行顺序**：`agent-role-handlers`（最小）→ `agent-control-handlers`（读完 import 再定）→ `video-task-handlers`（最重，需扩端口 `getVideoTask` + patch 加 `mode` + 读完 L191+ 调用面 + 处理类型导入）。

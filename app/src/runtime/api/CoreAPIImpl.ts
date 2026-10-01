@@ -1702,8 +1702,12 @@ export class CoreAPIImpl implements CoreAPI {
   // ---- 工具运行时（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-93）----
 
   async getToolsPort() {
-    const { getVideoTaskPersistence, getConverterEngine, getMediaTemplates } =
-      await import('@modules/tools');
+    const {
+      getVideoTaskPersistence,
+      getConverterEngine,
+      getMediaTemplates,
+      refreshAvailableSubagentTypeNames,
+    } = await import('@modules/tools');
 
     return {
       // 2026-10-01 D-192：媒体模板列表。`media-template-handlers.ts` 原先**静态**导入
@@ -1722,6 +1726,10 @@ export class CoreAPIImpl implements CoreAPI {
             requiresImage: t.requiresImage,
             sortOrder: t.sortOrder,
           })),
+      // 2026-10-01 D-194：刷新「可用子代理类型名」快照（`agent-role-handlers` 原静态导入，
+      // 角色变更后需重算工具 schema 可用清单）
+      refreshAvailableSubagentTypeNames: async () =>
+        refreshAvailableSubagentTypeNames(),
       listVideoTasksBySourceImagePath: async (imagePath: string) =>
         getVideoTaskPersistence().listBySourceImagePath(imagePath),
       listVideoTasksByStatus: async (

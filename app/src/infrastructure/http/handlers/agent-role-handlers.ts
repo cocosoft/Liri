@@ -15,7 +15,8 @@ import { getLogger } from '@modules/monitoring';
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 // C1（2026-09-30 D-109，`ai` 域 P3）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { refreshAvailableSubagentTypeNames } from '@modules/tools';
+// 2026-10-01 D-194（tools 域取用面收敛）：原**静态** `@modules/tools` 取
+// `refreshAvailableSubagentTypeNames` ⇒ `infrastructure -> app` 倒挂；改经 **service 侧端口**。
 import type { HandlerCtx } from './handler-utils';
 
 const logger = getLogger('http:agentRoles');
@@ -123,7 +124,8 @@ export async function validateAgentRoleModel(
  */
 async function refreshAgentRoleSchema(): Promise<void> {
   try {
-    await refreshAvailableSubagentTypeNames();
+    const tools = await getCoreAPI().getToolsPort();
+    await tools.refreshAvailableSubagentTypeNames();
   } catch (err) {
     // @ignore-catch — 快照刷新失败不影响已落库的角色变更，仅记录（下一轮写入或重启会重试）
     logger.warn('角色变更后刷新工具 schema 可用清单失败', {

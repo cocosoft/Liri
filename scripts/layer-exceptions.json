@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）",
+  "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）｜**2026-10-01 D-172 分桶探针实测（合计 151）**：service→app 70 · app→ui 64 · core→app 11 · app→entry 3 · service→ui 2 · service→entry 1；**已删除 4 个空的 infra 桶**（原 BULK-007/008/009/016，估值 206/51/8/10，实测**均为 0**，删后门禁 `违规 0` 且 `已豁免 151` 不变 ⇒ 自证为空）；⚠️ **BULK-011（core→service）实测亦为 0**，因 D-143 曾误删而复得，本次**暂留不动**，待复核后处置",
   "lastUpdated": "2026-10-01",
   "decayRules": {
     "batchExpiryDays": 60,
@@ -15,7 +15,7 @@
       "pattern": "app -> ui",
       "description": "应用层引用 UI 层组件",
       "rationale": "部分混合模块（buddy/chat）直接引用 UI 组件渲染。后续通过事件模式解耦。**2026-09-30 D-84**：`hooks` 由 ui 改归 app ⇒ 其 **9 对**（chat×3 · governance×2 · query×2 · tools×2）退出本桶 ⇒ 30 → 21。⚠️ **归因自省**：本桶原 rationale 举的 buddy/chat 例子中，**相当部分是 `@modules/hooks` 的运行时钩子链消费**，与「引用 UI 组件渲染」并非同因（是被归错层的模块混进来的）；剩余 21 对仍需另立复核",
-      "estimatedCount": 21,
+      "estimatedCount": 64,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
@@ -25,41 +25,8 @@
       "ruleId": "R00-001",
       "pattern": "service -> app",
       "description": "服务层引用应用层",
-      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）",
-      "estimatedCount": 22,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2027-04-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-007",
-      "ruleId": "R00-001",
-      "pattern": "infra -> app",
-      "description": "基础设施层引用应用层",
-      "rationale": "infra 层模块（chronos/scheduling）直接调用应用层回调。后续通过事件总线解耦。**2026-09-30 D-84**：`hooks` 由 ui 改归 app ⇒ `cost`/`memory` 的 2 对由 `BULK-009` 换桶并入 ⇒ 204 → 206",
-      "estimatedCount": 206,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2027-04-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-008",
-      "ruleId": "R00-001",
-      "pattern": "infra -> service",
-      "description": "基础设施层引用服务层",
-      "rationale": "infra 层模块（chronos/constants）引用服务层模块。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，`system/state/AppState.ts` 的 infra→mcp 并入本桶，50 → 51）",
-      "estimatedCount": 51,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2027-04-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-009",
-      "ruleId": "R00-001",
-      "pattern": "infra -> ui",
-      "description": "基础设施层引用 UI 层",
-      "rationale": "infra 层引用 UI 组件的异常模式。后续治理。**2026-09-30 D-84**：`hooks` 改归 app ⇒ `cost/CostHookDispatcher`、`memory/MemoryHookDispatcher` **2 对换桶**至 `BULK-007`（`infra -> app`）⇒ 10 → 8",
-      "estimatedCount": 8,
+      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）。**2026-10-01 D-172 分桶探针实测 = 70**（本桶为现存**最大**桶；原估值 22 系陈旧）",
+      "estimatedCount": 70,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
@@ -91,8 +58,8 @@
       "ruleId": "R00-001",
       "pattern": "service -> ui",
       "description": "服务层引用 UI 层",
-      "rationale": "服务层引用 UI 组件的异常模式。后续治理",
-      "estimatedCount": 10,
+      "rationale": "服务层引用 UI 组件的异常模式。后续治理。**2026-10-01 D-172 分桶探针实测 = 2**（原估值 10 系陈旧）",
+      "estimatedCount": 2,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
@@ -102,19 +69,8 @@
       "ruleId": "R00-001",
       "pattern": "app -> entry",
       "description": "应用层引用入口层",
-      "rationale": "应用层引用入口点的异常模式。后续治理",
-      "estimatedCount": 10,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2027-04-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-016",
-      "ruleId": "R00-001",
-      "pattern": "infra -> entry",
-      "description": "基础设施层引用入口层",
-      "rationale": "infra 层引用入口点的异常模式。后续治理",
-      "estimatedCount": 10,
+      "rationale": "应用层引用入口点的异常模式。后续治理。**2026-10-01 D-172 分桶探针实测 = 3**（原估值 10 系陈旧）",
+      "estimatedCount": 3,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"

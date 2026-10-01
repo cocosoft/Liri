@@ -5,7 +5,8 @@
  */
 
 import { getCostMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
-import { HookChainManager } from '@modules/hooks';
+// 2026-10-01 D-155（`cost -> hooks` 倒挂收口）：Hook 分发改经 core SPI 取得
+import { resolveHookChain } from '@modules/core/spi';
 import { getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
 
@@ -30,12 +31,7 @@ export interface CostHookData {
  * 监听 CostMonitor 的告警事件，转换为 Hook 事件
  */
 export class CostHookDispatcher {
-  private hookChainManager: HookChainManager;
   private initialized = false;
-
-  constructor() {
-    this.hookChainManager = HookChainManager.getInstance();
-  }
 
   /**
    * 初始化分发器
@@ -68,7 +64,7 @@ export class CostHookDispatcher {
       };
 
       // 始终触发通用告警事件
-      await this.hookChainManager.execute('cost', {
+      await resolveHookChain().execute('cost', {
         event: 'cost.alert',
         data: hookData,
         sessionId: hookData.sessionId,
@@ -76,13 +72,13 @@ export class CostHookDispatcher {
 
       // 根据告警级别触发特定事件
       if (alert.level === AlertLevel.WARNING) {
-        await this.hookChainManager.execute('cost', {
+        await resolveHookChain().execute('cost', {
           event: 'cost.budget.warning',
           data: hookData,
           sessionId: hookData.sessionId,
         });
       } else if (alert.level === AlertLevel.CRITICAL) {
-        await this.hookChainManager.execute('cost', {
+        await resolveHookChain().execute('cost', {
           event: 'cost.budget.exceeded',
           data: hookData,
           sessionId: hookData.sessionId,
@@ -112,7 +108,7 @@ export class CostHookDispatcher {
       sessionId,
     };
 
-    await this.hookChainManager.execute('cost', {
+    await resolveHookChain().execute('cost', {
       event: 'cost.budget.warning',
       data: hookData,
       sessionId,
@@ -138,7 +134,7 @@ export class CostHookDispatcher {
       sessionId,
     };
 
-    await this.hookChainManager.execute('cost', {
+    await resolveHookChain().execute('cost', {
       event: 'cost.budget.exceeded',
       data: hookData,
       sessionId,

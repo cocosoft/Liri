@@ -144,6 +144,9 @@ export async function registerAllSpis(
       globalEmbeddingManager,
       ToolAwareClient,
       credentialStore,
+      // 2026-10-01 D-155（`cost -> ai` 倒挂收口）：cost 所需模型定价投影的数据源
+      ModelRegistry,
+      getModelConfigById,
     } = await import('@modules/ai');
     const { BalanceStore } =
       await import('@modules/ai/providers/BalanceStore.js');
@@ -234,6 +237,26 @@ export async function registerAllSpis(
       createToolAwareClient: (provider) =>
         new ToolAwareClient(provider as never, null, null),
       getCredentialStore: () => credentialStore,
+      // ── 2026-10-01 D-155（`cost -> ai` 倒挂收口）：模型定价 + 规范名投影 ──
+      // 三个数据源同属 `ai` 层（`ModelRegistry` 定价缓存 / 模型定义 / `ModelConfigs` 规范名），
+      // 在此**边界处**合成 cost 所需的最小结构；注册表查无此模型时返回 `null`。
+      getModelPricing: (modelName) => {
+        const registry = ModelRegistry.getInstance();
+        const pricing = registry.getModelPricing(modelName);
+        const model = registry.getModel(modelName);
+        const config = getModelConfigById(modelName);
+        if (!pricing && !model && !config) return null;
+        return {
+          inputPer1M: pricing?.inputPer1M ?? 0,
+          outputPer1M: pricing?.outputPer1M ?? 0,
+          billingMode: pricing?.billingMode ?? 'token',
+          pricePerRequest: pricing?.pricePerRequest ?? 0,
+          timeBasedPricing: pricing?.timeBasedPricing ?? [],
+          cacheReadPer1M: model?.pricing?.cacheReadPer1M ?? 0,
+          cacheWritePer1M: model?.pricing?.cacheWritePer1M ?? 0,
+          canonicalName: config?.firstParty ?? modelName,
+        };
+      },
     });
   }
 
@@ -354,6 +377,22 @@ export async function registerAllSpis(
       // 同上：端口为 `Record<string, unknown>`，实现侧为 `Partial<SandboxSettings>`
       updateSettings: (settings) =>
         sandboxManager.updateSettings(settings as never),
+    });
+  }
+
+  // ---- Hook 链 SPI（2026-10-01 D-155）----
+  // cost 原直接 import `@modules/hooks`（infra -> app 倒挂），
+  // 现改为经 `IHookChainPort` 解析，实现在此注册（组合根，动态导入避免静态跨层依赖）。
+  {
+    const { HookChainManager } = await import('@modules/hooks');
+    const { registerHookChainSpi } = await import('@modules/core/spi');
+    const hookChainManager = HookChainManager.getInstance();
+    await registerHookChainSpi(container, {
+      // 端口载荷 `{ event, data, sessionId }` 与 `HookContext` 值相容，边界处收窄
+      // （`HookContext` 带索引签名，端口不引 app 类型）；返回值被丢弃 ⇒ 端口契约为 `void`
+      execute: async (hookName, payload) => {
+        await hookChainManager.execute(hookName, payload as never);
+      },
     });
   }
 

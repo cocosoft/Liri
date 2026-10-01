@@ -15,6 +15,9 @@
  *   - `cost/ModelPricing.ts`：`ModelPricing`
  *   - `ai/models/ModelPricingService.ts`：`BillingMode`（`ModelPricing` 引用它，不同批搬入会新造
  *     core → app 倒挂，故一并下沉；原文件转出）
+ *   - `ai/models/ModelPricingService.ts`：`TimeBasedPrice`（2026-10-01，`R00-001` 倒挂收口 D-155：
+ *     `cost`(infra) 的 `cost/ModelPricing.ts` 以 type-only 引用它 ⇒ 构成 `cost -> ai` 倒挂；
+ *     原文件转出，全仓引用名不变）
  *
  * 落点说明：置于 **core 模块根**（与 `core/paths.ts` 同级），跨模块消费方按**相对 2 段路径**直连 ——
  * 落 `core/utils/**` 等子目录会触发 R03-002「模块出口单一」（台账 D-61 实测）。
@@ -28,6 +31,16 @@
 
 /** 计费模式：按 token / 按次 / 混合 */
 export type BillingMode = 'token' | 'per_request' | 'token_and_per_request';
+
+/** 分时价格条目（24h 格式 "HH:mm"；end < start 表示跨天，如 21:30-08:00 错峰） */
+export interface TimeBasedPrice {
+  start: string;
+  end: string;
+  inputCostPerMillion?: number;
+  outputCostPerMillion?: number;
+  cacheReadCostPerMillion?: number;
+  cacheWriteCostPerMillion?: number;
+}
 
 export interface ModelPricing {
   inputPricePerMillion: number;

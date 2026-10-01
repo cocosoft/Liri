@@ -85,6 +85,15 @@ export {
   resolveSandbox,
 } from './SandboxService';
 
+// 2026-10-01 D-155：Hook 链端口（消除 cost 的 infra -> app 倒挂）
+export {
+  type IHookChainPort,
+  type HookExecutePayload,
+  HOOK_CHAIN_SERVICE_ID,
+  registerHookChainSpi,
+  resolveHookChain,
+} from './HookChainService';
+
 export {
   type LoadedPluginBriefDto,
   type IPluginSystemService,
@@ -106,6 +115,7 @@ export {
   type AiProviderBriefDto,
   type BalanceProbeResultDto,
   type AiRoleChatResultDto,
+  type AiModelPricingDto,
   type IAiAccessService,
   AI_ACCESS_SERVICE_ID,
   registerAiAccessSpi,

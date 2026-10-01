@@ -6,10 +6,10 @@
  * ModelConfigs.ts 和 ModelRegistry，此文件仅保留工具函数。
  */
 
-import { ModelRegistry } from '../ai/models/ModelRegistry.js';
-import { getModelConfigById } from '../ai/models/ModelConfigs.js';
-import type { TimeBasedPrice } from '../ai/models/ModelPricingService.js';
-import type { ModelPricing } from '../core/pricing.js';
+// 2026-10-01 D-155（`cost -> ai` 倒挂收口）：模型定价/规范名改经 core SPI 取得，
+// `TimeBasedPrice`（type-only）已与 `ModelPricing` 一同下沉 core。
+import type { ModelPricing, TimeBasedPrice } from '../core/pricing.js';
+import { resolveAiAccess } from '@modules/core/spi';
 
 import { handleError } from '../error/handleError.js';
 
@@ -61,21 +61,19 @@ export function resetUnknownModelFlag(): void {
 
 function getPricingFromRegistry(modelName: string): ModelPricing | null {
   try {
-    const registry = ModelRegistry.getInstance();
-    const pricing = registry.getModelPricing(modelName);
-    if (pricing) {
+    const dto = resolveAiAccess().getModelPricing(modelName);
+    if (dto) {
       // 防止 DB 中零定价覆盖默认定价 — 当所有定价值均为 0 时回退到默认
-      if (pricing.inputPer1M === 0 && pricing.outputPer1M === 0) {
+      if (dto.inputPer1M === 0 && dto.outputPer1M === 0) {
         return null;
       }
-      const model = registry.getModel(modelName);
       // 启发式兜底：无明确定价时，缓存读 = 输入×0.1、缓存写 = 输入×1.25（参考 codeburn）
-      const cacheRead = model?.pricing?.cacheReadPer1M;
-      const cacheWrite = model?.pricing?.cacheWritePer1M;
-      let inputPrice = pricing.inputPer1M;
-      let outputPrice = pricing.outputPer1M;
+      const cacheRead = dto.cacheReadPer1M;
+      const cacheWrite = dto.cacheWritePer1M;
+      let inputPrice = dto.inputPer1M;
+      let outputPrice = dto.outputPer1M;
       // 分时价差：命中当前时段则用时段价覆盖默认价（如 deepseek 错峰优惠）
-      const timeSlot = resolveTimeBasedPricing(pricing.timeBasedPricing);
+      const timeSlot = resolveTimeBasedPricing(dto.timeBasedPricing);
       if (timeSlot) {
         if (timeSlot.inputCostPerMillion !== undefined) {
           inputPrice = timeSlot.inputCostPerMillion;
@@ -102,8 +100,8 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
               ? cacheWrite
               : inputPrice * 1.25,
         webSearchPricePerRequest: 0.01,
-        billingMode: pricing.billingMode,
-        pricePerRequest: pricing.pricePerRequest,
+        billingMode: dto.billingMode,
+        pricePerRequest: dto.pricePerRequest,
       };
     }
   } catch (err) {
@@ -117,8 +115,9 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
 
 export function getCanonicalModelName(modelName: string): string {
   try {
-    const config = getModelConfigById(modelName);
-    if (config?.firstParty) return config.firstParty;
+    const canonical =
+      resolveAiAccess().getModelPricing(modelName)?.canonicalName;
+    if (canonical) return canonical;
   } catch (err) {
     // 忽略
     // @ignore-catch: non-critical fallback

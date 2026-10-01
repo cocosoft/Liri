@@ -551,6 +551,11 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **现状（按 D-154 前的探针分布推算）**：`infra -> app` **≈15** · `infra -> service` **≈6**（合计 ≈21）；剩余大头 = `cost` 3 · `config` 2 · `permission` 2 · `chronos` 2 · `system` 2 · `memory` 2 · `state` 1 · `monitoring` 1。**下一批建议 `cost`（3 处）**。
   - **⚠️ 未归因残差（累计 2 处）**：D-153 与 D-154 各出现 `已豁免` 比预期多减/少减 1 的反差，落在其他桶（app→ui / service→app / infra→ui / core→service），**未逐条归因** ⇒ 建议下批一并复核（边是否真消除以 grep / 探针为准，两批均已 grep 复核通过）。
 
+- **✅ 2026-10-01（D-155）cost 组 3 条边全部消除** —— ① `cost → ai`（2 条）**扩展既有 `IAiAccessService`**（CS01 归一化：该 SPI 本就是 infra 访问 AI 域的端口，D-124/D-146 已含 `getModelRouter`/`getProviderRegistry`）新增 `getModelPricing(model)`；② `cost → hooks`（1 条）**新建 `core/spi/HookChainService.ts`**（`IHookChainPort`，同构 D-144/D-147/D-154）；③ `TimeBasedPrice` **下沉 `core/pricing.ts`**（`ai/models/ModelPricingService.ts` 改为导入 + 原样转出）。
+  - **验收**：`typecheck` exit 0 · `lint:arch` **0 错 / 2 警 / 违规 0**（豁免 **173 → 171**）· 全量 `bun test` **4250 pass / 21 skip / 0 fail** · 复核 `app/src/cost/` 对 `@modules/ai` / `@modules/hooks` / `../ai/` 引用 = **0**。
+  - **现状**：`infra -> app` **12**（`config` 2 · `permission` 2 · `chronos` 2 · `system` 2 · `memory` 2 · `state` 1 · `monitoring` 1）· `infra -> service` **6**。**下一批建议 `config` 或 `permission`（各 2 处）**。
+  - **🔴 门禁计数口径疑点（需专项复核）**：**连续 3 批**出现 `已豁免` 与「实际消除边数」不等的偏差 —— D-153 为 **−7 vs 6 边**（多减 1）· D-154 第 2 步 **−1 vs 2 边**（少减 1）· D-155 **−2 vs 3 边**（少减 1）。三批的「边是否真消除」均已用 **grep / 类型检查 + 全量测试**独立证实，故**不影响结论**；但 `已豁免` 与 `违规`（探针口径）**并非严格互补**。⇒ **建议单独立项核查 `lint-architecture.ts` 的 `exemptedCount` 计数口径**（是否与 `allFiles` 增量 / 新增文件 / 相对路径解析有关）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

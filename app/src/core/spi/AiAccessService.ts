@@ -41,6 +41,8 @@
  * 降级路径（编译跳过 / 余额跳过 / 记忆精选降级 top-K）。
  */
 
+import type { BillingMode, TimeBasedPrice } from '../pricing.js';
+
 /** 供应商最小投影（`chronos` 余额刷新所需字段） */
 export interface AiProviderBriefDto {
   id: string;
@@ -64,6 +66,30 @@ export interface AiRoleChatResultDto {
   model: string;
   providerId: string;
   raw: unknown;
+}
+
+/**
+ * 模型定价 + 规范名的**最小投影** —— `cost`(infra) 层 `ModelPricing.ts` / `PricingManager.ts`
+ * 对 `ai/models`（`ModelRegistry.getModelPricing()` / `getModel()` / `getModelConfigById()`）
+ * 的全部数据需求收敛为此结构（2026-10-01 D-155）。
+ */
+export interface AiModelPricingDto {
+  /** 每百万 token 输入价（DB 唯一来源） */
+  inputPer1M: number;
+  /** 每百万 token 输出价 */
+  outputPer1M: number;
+  /** 计费模式（与 app 侧 `BillingMode` 同值区间） */
+  billingMode: BillingMode;
+  /** 按次计价单价（美元/请求） */
+  pricePerRequest: number;
+  /** 分时价格（`core/pricing.ts` 类型，命中时段覆盖默认价） */
+  timeBasedPricing: TimeBasedPrice[];
+  /** 缓存读价（原 `ModelRegistry.getModel().pricing.cacheReadPer1M`；缺省 0） */
+  cacheReadPer1M: number;
+  /** 缓存写价（原 `ModelRegistry.getModel().pricing.cacheWritePer1M`；缺省 0） */
+  cacheWritePer1M: number;
+  /** 规范模型名（原 `getModelConfigById(id).firstParty`；无匹配时回退入参模型名） */
+  canonicalName: string;
 }
 
 /** AI 能力访问端口（core 侧契约） */
@@ -108,6 +134,14 @@ export interface IAiAccessService {
   createToolAwareClient(provider: unknown): unknown;
   /** 凭证存储（原 `credentialStore`；`CRED_STORED_MARKER` 由消费方自带） */
   getCredentialStore(): unknown;
+
+  // ── 2026-10-01 D-155（`cost -> ai` 倒挂收口）：cost 层所需模型定价投影 ──
+  /**
+   * 查询模型的定价 + 规范名（原 `ModelRegistry.getModelPricing()` / `getModel()` /
+   * `getModelConfigById()`，数据仍以 DB 为唯一事实来源）。
+   * 返回 `null` 表示注册表中**查无此模型**（既无定价记录也无模型定义）。
+   */
+  getModelPricing(modelName: string): AiModelPricingDto | null;
 }
 
 /** SPI 服务标识符常量 */
@@ -138,6 +172,8 @@ const _proxy: IAiAccessService = {
   createToolAwareClient: (provider) =>
     _service?.createToolAwareClient(provider) ?? null,
   getCredentialStore: () => _service?.getCredentialStore() ?? null,
+  // D-155：空值语义 —— 未注册时返回 null（cost 侧回退默认定价，与原行为一致）
+  getModelPricing: (modelName) => _service?.getModelPricing(modelName) ?? null,
 };
 
 /** 获取 AI 能力访问端口（未注册时为空值） */

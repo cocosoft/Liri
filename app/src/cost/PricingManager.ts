@@ -6,7 +6,8 @@
 
 import { logForDebugging } from '../utils/debug.js';
 import { ModelPricing } from './ModelPricing.js';
-import { ModelRegistry } from '@modules/ai';
+// 2026-10-01 D-155（`cost -> ai` 倒挂收口）：模型定价改经 core SPI 取得
+import { resolveAiAccess } from '@modules/core/spi';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -114,15 +115,13 @@ export class PricingManager {
     if (local) return local;
 
     try {
-      const registry = ModelRegistry.getInstance();
-      const pricing = registry.getModelPricing(modelName);
-      if (pricing) {
-        const fullPricing = registry.getModel(modelName)?.pricing;
+      const dto = resolveAiAccess().getModelPricing(modelName);
+      if (dto) {
         return {
-          inputPricePerMillion: pricing.inputPer1M,
-          outputPricePerMillion: pricing.outputPer1M,
-          cacheReadPricePerMillion: fullPricing?.cacheReadPer1M ?? 0,
-          cacheCreationPricePerMillion: fullPricing?.cacheWritePer1M ?? 0,
+          inputPricePerMillion: dto.inputPer1M,
+          outputPricePerMillion: dto.outputPer1M,
+          cacheReadPricePerMillion: dto.cacheReadPer1M,
+          cacheCreationPricePerMillion: dto.cacheWritePer1M,
           webSearchPricePerRequest: 0.01,
         };
       }

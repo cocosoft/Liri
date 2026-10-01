@@ -58,7 +58,30 @@
 
 ## 3. 设计
 
-### 3.1 子批 1 —— `system`（3 边，全 type-only）
+### 3.0 ⚠️ 子批 1 的设计更正（2026-10-01 取证后，用户裁定方案 A）
+
+**原 D2（S1/S2 最小结构镜像）与 D3（S3 下沉类型到 core）均作废。** 取证结论：
+
+- `AppState.ts` 对 `MCPServerConnectionInfo` / `ServerResource` / `LoadedPlugin` / `TaskState` 的用法是**纯字段位**（`mcp.clients` / `mcp.resources` / `plugins.enabled` / `tasks[taskId]`），**`AppState` 自身不读这些字段**，只做容器。
+- 因此"最小结构镜像"只能写成**全量复制**（下游字段并集）= 两份事实源（违 CS01）；D3 的"下沉类型"也只是给"位置错了"打局部补丁。
+- **真根因 = 分层归属错误**：`system`(infra) 里放着一个 **app 级状态容器**。实测其消费方**全部是 app/entry（+同模块）**：`buddy/CompanionSprite.tsx` · `ai/AIStateSyncService.ts` · `hooks/notifs/use{PluginInstallation,TaskCompletion,Startup}Notification.ts` · `entrypoints/mcp.ts` · `system/state/*` 自身；`types/index.ts` 仅**注释**提及。**无任何 infra/service/core 消费者**。
+
+**D2'（用户裁定「方案 A」）：把 `AppState` 家族由 `system/state/`（infra）整体改归 app 层** —— 与既有 **D-84**（`hooks` ui→app）· **D-67**（`mcp` core→service）· **D-120**（`modules` core→app）同属"文件/模块改归正确层"的手法。⇒ S1/S2/S3 **三条边一次全消**（变为 app→app），不镜像、不下沉类型、不动 core 契约。
+
+**执行清单（可机械照做，按序）**
+
+| # | 步骤 | 要点 |
+|---|---|---|
+| 1 | 确认搬迁范围**仅 AppState 家族** | `system/state/AppState.ts` · `AppStateStore.ts` · `PYAppStateStore.ts` + `system/state/index.ts` 中**属于它们的出口**。⚠️ **不要**整目录搬迁：`system/state/` 还承载 auth/i18n/theme 等**真 infra** 能力（`system` 的存在意义），整体搬会制造新的 infra→app 边 |
+| 2 | 定目标目录 | 建议新建 app 层目录 `app/src/appState/`（全新模块 ⇒ 需在 `scripts/modules-to-layers.json` 的 `modules` 中登记 `"appState": { "layer": "app" }`，并写 `description` 说明沿革） |
+| 3 | 迁移 3 文件 + 更新 `system/state/index.ts` | 该 `index.ts` **不得**再转出已迁走的符号（否则 `system` 桶转发 app ⇒ 又一条 infra→app 边）。若仍有消费方经 `@modules/system/state` 取 `AppState`，一并改为直连新路径 |
+| 4 | 更新全部引用点（实测 6 处） | `buddy/CompanionSprite.tsx` · `entrypoints/mcp.ts` · `ai/AIStateSyncService.ts` · `hooks/notifs/*`（3） + `system/state/{PYAppStateStore,AppStateStore,index}.ts` 内部相互引用 |
+| 5 | 门禁 | `bun run lint:arch`：期望 `已豁免` **162 → 159**（−3，恰为 S1/S2/S3）；`R00-001` 违规 0；`R03-002` 若出现新子路径违规，按已有机制处理（新目录有 `index.ts` ⇒ 走桶出口即可） |
+| 6 | 类型/测试 | `bun run typecheck` **0**；改动文件 `eslint` **0/0**；`bun test tests/`（CI 口径）**0 fail**（重点回归 `hooks`/`buddy`/`ai` 相关用例） |
+| 7 | 复核 | grep：`app/src/**` 内对 `system/state/AppState` 的引用 = **0**（注释除外）；`AppState` 家族不再出现在 `system/` 下 |
+| 8 | 记录 | 台账新增 D-164（含"为何不镜像/不下沉"与 D2'/D3 作废理由）；更正本 spec §3.1/D2/D3 |
+
+### 3.1 子批 1 —— `system`（3 边，全 type-only）〔**已被 §3.0 取代，保留供对照**〕
 
 | # | 手法 | 说明 |
 |---|---|---|

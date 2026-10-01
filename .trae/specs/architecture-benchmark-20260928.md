@@ -245,7 +245,12 @@
     - **grep 复核（纪律 I 的新增步骤）**：`memory/tools` 全域 `^\s+result[:\s]` **零命中** ⇒ 无「推断型」漏改 ✓
     - **客观进度**：探针 **37 → 30**，写入点 **31 → 24**（**恰好 −7**，与预期一致）；`memory` 残留清零。
     - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
-  - **剩余（批次 5 起）**：写入点 **24 处**（**探针口径**）—— `media/tools/*`×7 → `ai/interfaces/ToolExecutor.ts`×6 → `SkillTool/*`×5 → `modules/calendar/*`×4 → `modules/mail/*`×1；另有**兼容读 4 处** + **测试断言 2 处**，待写入侧清零后统一收口 → 再删字段。
+  - **批次 5 ✅ 已完成（2026-09-30）**：迁移 **`media` 家族全部写入点（7 处）** —— 6 个 image 工具（`ImageAdjustTool` / `ImageConvertTool` / `ImageCropTool` / `ImageResizeTool` / `ImageRotateTool` / `ImageWatermarkTool`，**形状全同：10 空格的对象简写 `result,`**）+ `MediaInfoTool`（`result: metadata,`）。
+    - **本批新增的坑（值得记）**：这批用的是**对象简写语法**（`result,` 而非 `result: …`）⇒ 我最初的定位正则 `^\s+result[:\s]` **漏掉了它们**（首查 `ImageAdjustTool` 报"No matches"却确实有站点）；改用 `^\s+(result|data)[,\s]` 才全覆盖 ✓
+    - **grep 复核**：`media/tools` 全域（**含简写形式**）**零命中** ✓
+    - **客观进度**：探针 **30 → 23**，写入点 **24 → 17**（**恰好 −7**）；`media` 残留清零。
+    - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
+  - **剩余（批次 6 起）**：写入点 **17 处**（探针口径）—— 含 `ai/interfaces/ToolExecutor.ts`×6 · `SkillTool/*`×5 · `modules/calendar/tools/*`×4 · `modules/mail/tools/*`×1 等；另有**兼容读 4 处** + **测试断言 2 处**，待写入侧清零后统一收口 → 再删字段。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

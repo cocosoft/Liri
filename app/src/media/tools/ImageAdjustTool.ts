@@ -137,7 +137,7 @@ export function createImageAdjustTool(): Tool {
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result,
+          data: result,
           output: JSON.stringify(result),
           errorOutput: '',
           progress: [],

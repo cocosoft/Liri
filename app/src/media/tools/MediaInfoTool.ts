@@ -108,7 +108,7 @@ export function createMediaInfoTool(): Tool {
 
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: metadata,
+          data: metadata,
           output: JSON.stringify(metadata),
           errorOutput: '',
           progress: [],

@@ -113,9 +113,11 @@
 
 #### 3.2.1 交接状态（2026-10-01，新会话从此处起步）
 
-- **起始基线（已更新，2026-10-01 D-165 后）**：`已豁免 159` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3990`；分层映射 **85** 个模块。**预期终点**：`已豁免 156`（再消 3 边）。
+- **起始基线（已更新，2026-10-01 **D-167** 后）**：`已豁免 157` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`；分层映射 **85** 个模块。**预期终点**：`已豁免 156`（**仅剩 M1 一条**）。
+- **✅ M4 已完成（D-166，`925fb86d4`）**：`MemoryQueryResult` 随域**下沉 `memory/types/MemoryQueryResult.ts`**，`services/prompt` 改为反向引用（service→infra 合法，且是该文件既有做法）。全仓仅 2 处引用 ⇒ 零涟漪。
+- **✅ M2 已完成（D-167，`4d1e43212`）**：**未采用 spec 原计划的"最小结构镜像"** —— 取证后发现 `docs/knowledge-types.ts` 含 3 个互引类型（`KnowledgeRoute` + `KnowledgeRouterOptions` + `IKnowledgeSearch`）且**零 import、纯类型** ⇒ 镜像等于复制 3 个类型（两份事实源，违 CS01）；改为**下沉 `core/knowledge-types.ts`**（同 D-163 手法），原址 `docs/knowledge-types.ts` 保留为**转出**（既有多处消费方零改动），并把 `core/knowledge-types` 登记 `canonicalEntryKeys`。
 - **✅ 第一步（前置判定 + M3）已完成（D-165）**：`memory/services/KnowledgeBaseWriter.ts` 判定为**孤立的历史重复实现**（app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述迁移自它、全仓零值消费者），且其唯一消费者 `AutoMemoryService` 的 `knowledgeBaseWriter` 能力**整条未接线**（构造只传 1 参 · setter 零调用方 · 工厂零调用方 ⇒ 分支永不执行）⇒ **按 CS01/CS05 删死代码**（+11/−214 行），**M3 边消失**，`sanitizeFileName` 的物理归位**未启用**（16 消费方的改动面已避免）。
-- **剩余三条（本批待做）**：**M1**（扩 `IHookChainPort` 返回值为最小投影 `{ blocked: boolean }` —— 本子批**唯一动 core 契约处**；须同步改 `entrypoints/spiWiring.ts` 的实现投影，并确认 `cost` 侧忽略返回值 ⇒ 零改动）· **M2**（`memory/services/UnifiedSearchService.ts` 的 `docs/knowledge-types` 两个类型位 → 最小结构镜像）· **M4**（`MemoryQueryResult` → 移交 `memory/types/`，由 `services/prompt` 反向引用 = service→infra 合法）。
+- **🔨 剩余一条（本批唯一待做）**：**M1** —— 扩 `IHookChainPort` 返回值为最小投影 `{ blocked: boolean }`（本子批**唯一动 core 契约处**）；须同步改 `entrypoints/spiWiring.ts` 的实现投影（现处丢弃返回值），并确认 `cost` 侧忽略返回值 ⇒ 零改动。**取证明细见下 §3.2.1.1 的 M1 条**（含 4 处调用点与现实现处行号）。完成则 `已豁免 157 → 156`、`infra` 源 **5 → 4**（余 `chronos` 3）。
 ##### 3.2.1.1 剩余三条的取证明细（2026-10-01 实测，供直接开工）
 
 - **M1**（`memory/MemoryHookDispatcher.ts:9` → `HookChainManager` ← `@modules/hooks`）

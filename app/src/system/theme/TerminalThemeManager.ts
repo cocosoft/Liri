@@ -140,8 +140,8 @@ const BUILTIN_THEMES: Record<string, Theme> = {
   light: LIGHT_THEME,
 };
 
-export class ThemeManager {
-  private static instance: ThemeManager | null = null;
+export class TerminalThemeManager {
+  private static instance: TerminalThemeManager | null = null;
   private currentTheme: Theme;
   private config: ThemeConfig;
   private listeners: Set<() => void> = new Set();
@@ -161,11 +161,11 @@ export class ThemeManager {
     this.themeLoader = new ThemeLoader();
   }
 
-  static getInstance(): ThemeManager {
-    if (!ThemeManager.instance) {
-      ThemeManager.instance = new ThemeManager();
+  static getInstance(): TerminalThemeManager {
+    if (!TerminalThemeManager.instance) {
+      TerminalThemeManager.instance = new TerminalThemeManager();
     }
-    return ThemeManager.instance;
+    return TerminalThemeManager.instance;
   }
 
   /**

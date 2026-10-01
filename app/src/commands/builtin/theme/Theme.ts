@@ -5,7 +5,10 @@
  * 子命令：list / set / current / preview / import / reset / help
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { ThemeManager } from '@modules/ui';
+// 2026-10-01（B3-1''）：`/theme` 命令用的是**ANSI 配色 + 显示配置**子系统（原 `ui/ThemeManager`），
+// 已共址到 canonical `system/theme` 并改名 `TerminalThemeManager`（app -> infra 合法）⇒
+// 消除 `commands -> ui` 边。⚠️ 它与同层的**语义主题** `ThemeManager` 是两个不同子系统。
+import { TerminalThemeManager as ThemeManager } from '@modules/system/theme';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:theme:Theme');

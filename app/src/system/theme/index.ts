@@ -34,3 +34,13 @@ export type { Theme } from './ThemeManager';
 // （实测 infra-safe：仅依赖 fs / path / @modules/{monitoring,core}）⇒ 收敛 theme 域实现。
 export { ThemeLoader } from './ThemeLoader';
 export * from './ThemeSchema';
+
+// 2026-10-01（B3-1''）：**ANSI 配色 + 显示配置**子系统由 `ui/ThemeManager.ts` 共址至此。
+// ⚠️ 它与上面的 `ThemeManager`（**语义主题**：primary/success/warning…）是**两个不同子系统**
+// （历史上仅同名，非重复实现）⇒ 改名 `TerminalThemeManager` 以示区分，类型加 `Terminal*` 前缀避免冲突。
+export { TerminalThemeManager } from './TerminalThemeManager';
+export type {
+  Theme as TerminalTheme,
+  ThemeColors as TerminalThemeColors,
+  ThemeConfig as TerminalThemeConfig,
+} from './TerminalThemeManager';

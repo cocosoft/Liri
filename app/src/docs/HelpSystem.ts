@@ -7,7 +7,10 @@
 // 2026-10-01 D-182（B3-2）：`KeyboardShortcuts` 归位 `utils/`（app -> infra 合法）。
 // 前置：其 4 处占位动作的 `console.log` 已改走 `Logger`（§1.8），否则迁入 `utils/` 会命中 `no-console`。
 import { keyboardShortcuts } from '../utils/KeyboardShortcuts';
-import { ThemeManager } from '../ui/ThemeManager';
+// 2026-10-01（B3-1''）：改指 canonical `system/theme` 的 `TerminalThemeManager`
+// （原 `ui/ThemeManager`；app -> infra 合法）⇒ 连同上一行（KeyboardShortcuts → utils/），
+// 本文件**不再依赖 ui 层**（消除 `docs -> ui` 边）。
+import { TerminalThemeManager as ThemeManager } from '@modules/system/theme';
 import { exampleCommands } from './ExampleCommands';
 import { releaseNotes } from './ReleaseNotes';
 import { languageManager } from './i18n/LanguageManager';

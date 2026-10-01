@@ -24,7 +24,9 @@
 
 export * as ink from './ink';
 
-export * from './ThemeManager.js';
+// 2026-10-01（B3-1''）：`ThemeManager`（ANSI 配色+显示配置子系统）已共址到 canonical
+// `system/theme` 并改名 `TerminalThemeManager`，**不再从本 ui 桶转出**
+// （消费者请直接引 `@modules/system/theme`，避免 app 侧被迫依赖 ui 层）。
 
 // 2026-08-30 R03-002 收敛：终端 UI 统一出口
 export {

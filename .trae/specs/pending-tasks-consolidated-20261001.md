@@ -24,17 +24,17 @@
 
 | 编号 | 任务 | 来源 | 现状 | 阻塞/前置 | 备注 |
 |---|---|---|---|---|---|
-| T-①01 | **A8** 模式层「描述非可执行」：`PatternSelection` 仅 `{name}`、`PatternDescriptor.composedOf: string` → 改为**可执行装配描述** | 导出 L4732-4733 / L4890；`architecture-benchmark` §四①（L357） | 未开始 | 无（被定为 A1 的前置） | 会话建议次序第 1 步；建议复用本批 SPI（端口+注入）手法 |
-| T-①02 | **A1** 编排模式层空壳：`tasks/PlanDrivenLoop.ts:333` 的 `selectPattern({complexity:'complex'})` 返回值只流向 `logger.info`，`return` 在 `if` 之外 | 导出 L4785 / L4883（会话自称） | 未开始 | **依赖 T-①01（A8）** | 会话建议次序第 2 步；另 `ChatManager.ts:4643 hasResearchIntent` 路径完全绕开 `PatternSelector`（双轨） |
+| T-①01 | **A8** 模式层「描述非可执行」：`PatternSelection` 仅 `{name}`、`PatternDescriptor.composedOf: string` → 改为**可执行装配描述** | 导出 L4732-4733 / L4890；`architecture-benchmark` §四①（L357） | **已完成（2026-10-01）** | 无 | ✅ **已回仓复核并实施**：`pattern-executable-assembly.md`，提交 `3980a80cc`。`composedOf: string` 已删除，改为 `PatternAssembly`（assembler 闭集 + 角色→承担方绑定）；`PatternSelection` 携带 `descriptor`；新增 `validatePatterns()` 契约自检 |
+| T-①02 | **A1** 编排模式层空壳：`tasks/PlanDrivenLoop.ts:333` 的 `selectPattern({complexity:'complex'})` 返回值只流向 `logger.info`，`return` 在 `if` 之外 | 导出 L4785 / L4883（会话自称） | **已完成（2026-10-01）** | ~~依赖 T-①01（A8）~~ 已解除 | ✅ 提交 `fa452fe10`。**根因更正**：不是"少写装配代码"，而是**决策被放在无法行动的层**（PDL 无手段承接 `competitive_strategy`，返回值必然退化为日志）；修复＝删除 PDL 空转块 + 决策权归位到 `ChatManager`。双轨已消（`ChatManager.ts:4654` 现消费 `selectPattern`）。**遗留**：`iterative_refine`/`parallel_distributed`/`self_verify` 三位仍"有装配描述、无装配运行时" ⇒ 归 T-①04 |
 | T-①03 | **A7** Routing 分散：`new CompetitiveStrategyOrchestrator` 实点 1 处 → **2 处**（新增 `CoreAPIImpl.ts:2520`），入口未统一 | 导出 L4791 / L4895-4800（会话自称） | 未开始（**加重**） | 与 T-①02 同源 | 会话建议次序第 3 步：入口统一后自然收敛；建议尽早冻结该装配点 |
-| T-①04 | **A4** 编排家族失控：`^export class \w*(Orchestrator\|Loop\|Scheduler)` = **28 类/28 文件**，含 3 组同名概念（工具/任务/多智能体各三套） | 导出 L4788 / L4595 / L4734 | 未开始 | 依赖 T-①01 的统一抽象 | 会话：属大工程，各自立项 |
+| T-①04 | **A4** 编排家族失控：`^export class \w*(Orchestrator\|Loop\|Scheduler)` = **28 类/28 文件**，含 3 组同名概念（工具/任务/多智能体各三套） | 导出 L4788 / L4595 / L4734 | 未开始 | ~~依赖 T-①01 的统一抽象~~（A8 已提供装配描述落点） | **已回仓复核（2026-10-01）：实测 32 类 / 32 文件**（会话数字偏低，非加重以外的口径差）。会话：属大工程，各自立项；本项亦承接 A8 遗留的三位"有装配描述、无装配运行时" |
 | T-①05 | **A3** 安全/权限双轨：`permission/PermissionManager.ts` 与 `security/PermissionManager.ts` **同名类并存** | 导出 L4787 / L4521（会话自称） | 未开始 | 无 | D-157 收的是 `permission→sandbox`（另一条边），未触及本项 |
 | T-①06 | **A2** 多智能体协作层缺失：`CollaborationOrchestrator` 全仓 **0 命中**（建议的统一抽象未落地） | 导出 L4786 / L4597 / L4736 | 未开始 | 无 | 会话：大工程，各自立项 |
 | T-①07 | **A5** 记忆分层碎片化：`MemoryPort` **0 命中**；三套记忆实现并存（`AdvancedMemorySystem` / `MemoryManager` / `EnhancedMemoryManager`） | 导出 L4789；导出 §一 #8（L1217）、§4 M3（L1364） | 未开始 | 无 | 导出 §4 M3 建议「收敛为单一接口 + 适配器，明确 deprecation」 |
 | T-①08 | **A6** 评估可观测性割裂：`EvalBus` **0 命中**；`BehaviorMetrics` 明注「仅观测，不参与判定」 | 导出 L4790；A2 第 3 点（L1270）、§一 #19（L1228） | 未开始 | 无 | 会话：属大工程 |
-| T-①09 | **X1** 绕过统一出口直连子路径：`import ... from '@modules/core/` 实测 **191 处 / 182 文件** | 导出 L4807 / L4904（会话自称） | 未开始 | 复用已有 R03-002 门禁探针 | 会话建议：**自动化收口，别人工逐处改**（建议次序第 5 步） |
+| T-①09 | **X1** 绕过统一出口直连子路径：`import ... from '@modules/core/` 实测 **191 处 / 182 文件** | 导出 L4807 / L4904（会话自称） | 未开始 | 复用已有 R03-002 门禁探针 | **已回仓复核（2026-10-01）：实测 215 处 / 201 文件**（较会话数字**加重**）。会话建议：**自动化收口，别人工逐处改**（建议次序第 5 步） |
 | T-①10 | **D-3-B B/C 类分层倒挂收口**：`service→app`≈102 · `infra→app`≈36→**≈21** · `infra→service`≈6；按模块分批（SPI/DI/物理归位） | `architecture-benchmark` §5.7（L531-557，D-145~D-157） | **进行中** | 门禁不支持文件级层映射 → 只能物理移动或 DI 反转 | 每批 `lint:arch` 0 错 / 全量 `bun test` 4250 pass；剩余大头 `config`2 · `permission`2 · `chronos`2 · `system`2 · `memory`2 · `state`1 · `monitoring`1 |
-| T-①11 | **A9** 未提交改动堆积：257 文件改 / 25 删 / ~41 新增，**全部未提交**，变更不可追溯、无法按主题回退 | 导出 L4527 / L4813 | **待核实**（会话无 git 工具，未复核） | 需在仓跑 `git status --porcelain` / `git log --oneline -5` | 会话建议按主题拆提交；**数字为 2026-09-30 一版，本轮未复核** |
+| T-①11 | **A9** 未提交改动堆积：257 文件改 / 25 删 / ~41 新增，**全部未提交**，变更不可追溯、无法按主题回退 | 导出 L4527 / L4813 | **已不成立（2026-10-01 实测）** | ~~需在仓跑 git~~ 已跑 | ❌ **已回仓复核：`git status --porcelain` = 0 行**（工作树干净）；HEAD 当时为 `facb2edd4`（即本清单自身的提交）。会话所述 257/25/41 系 2026-09-30 一版快照，**已被提交消化**。⇒ 本项无需处置 |
 | T-①12 | **X2** SPI 只解决「依赖谁」未解决「谁是谁」：`TaskOrchestrator` / `TaskScheduler` / `LongRunningTaskOrchestrator` 三套编排**照样并存** | 导出 L4808 / L4905 | 未开始 | 与 T-①04 同源（并入 A4 立项） | 会话结论：这是「47 文件架构动作对 A1–A8 改善为零」的根因说明 |
 
 ### ② 契约与单一事实源
@@ -58,7 +58,7 @@
 | T-③01 | **X1 门禁执行**：R03-002 已存在但「没人执行到位」；建议自动化收口 `@modules/core/` 直连子路径 | 导出 L4807 / L4904 | 未开始 | 复用现有探针机制 | 与 T-①09 同一事项的门禁侧 |
 | T-③02 | **门禁 `exemptedCount` 计数口径核查**：连续 3 批「已豁免」与「实际消除边数」不符（D-153/154/155） | `architecture-benchmark` §5.7（L557） | 未开始 | 单独立项 | 结论不受影响（边消除已用 grep+全量测试独立证实） |
 | T-③03 | **未归因残差 2 处**：D-153 / D-154 各 1 处豁免数与预期不符，落在 `app→ui` / `service→app` / `infra→ui` / `core→service` 桶 | `architecture-benchmark` §5.7（L552） | 未开始 | 与 T-③02 一并复核 | 建议下批复核 |
-| T-③04 | **#12 删除两处 `@deprecated` 旧重试器**：`bridge/error/BridgeErrorHandler.ts:147-150`、`bridge/utils/debugUtils.ts:378-380`，残留调用面 = **0** | `architecture-benchmark` §6.4 #12（L609） | 未开始（**可删**） | 无 | 路径已更正（非 `channels/bridge/...`） |
+| T-③04 | **#12 删除两处 `@deprecated` 旧重试器**：`bridge/error/BridgeErrorHandler.ts:147-150`、`bridge/utils/debugUtils.ts:378-380`，残留调用面 = **0** | `architecture-benchmark` §6.4 #12（L609） | **已不成立（2026-10-01 实测）** | 无 | ❌ **已回仓复核：`app/src/bridge/**` 全目录 `@deprecated` 0 命中** ⇒ 两处旧重试器**已不存在**（疑由后续提交删除）。⇒ 本项无需处置 |
 | T-③05 | **daemon `TaskQueue` 装配链在 TS 侧断开**：`new TaskQueue(` / `new CronBridge(` 全 app **0 命中**，仅 `import type` | `architecture-benchmark` §六「未查明」#1（L622） | 未开始 | 疑留给驱动层 | 存量未接线，已登记台账 D-139 |
 | T-③06 | **Landlock `--net-connect` 语义与注释相反**：未请求 net 时完全不受限 | `liri-upgrade-plan` §5 尾（L202）；§5 #6（L197） | **待验证**（⚠️ 需 Linux 实测） | 需 Linux 环境 | 已收敛为两态（`--net-deny`=全禁 / 不 handle=不受限），见 `landlock-net-policy-two-state.md` |
 | T-③07 | **P0-1 Mermaid 真机端到端未验**：需真实模型产出坏 mermaid ⇒ 观察同一轮内自纠并落 `validation/injected` | `liri-optimization-plan` P0-1（L90） | **未验证**（需模型额度） | 需真实模型额度 | ①② 已落地，仅端到端未验 |
@@ -173,7 +173,7 @@
 | 项 | 说明 |
 |---|---|
 | 会话产出文件本体 | 位于 `C:\Users\csdnc\Documents\LiriProjects\proj_1790493202403_7cecrq\output\`（`01_Liri架构层面对照分析报告.md` / `02_复查…` / `03_二次复核…` / `04_三次复核…`），**本机不可访问**，仅据导出文本取证 |
-| 会话的 app/src 代码结论 | `PlanDrivenLoop.ts:333`、`PatternSelection`、`CollaborationOrchestrator`/`EvalBus`/`MemoryPort` 0 命中、28 类编排等，均为**会话自称**，本次**未回仓复核** |
+| 会话的 app/src 代码结论 | `PlanDrivenLoop.ts:333`、`PatternSelection`、`CollaborationOrchestrator`/`EvalBus`/`MemoryPort` 0 命中、28 类编排等，均为**会话自称**。**2026-10-01 已部分回仓复核**（实测值）：`PlanDrivenLoop.ts:333` ✅ 成立（同址）；`PatternSelection` 仅 `{name}` ✅ 成立；`PatternDescriptor.composedOf: string` ✅ 成立；`CollaborationOrchestrator` / `EvalBus` / `MemoryPort` **0 命中** ✅ 成立；编排家族 **28→实测 32 类/32 文件** ❌ 数字偏低；`@modules/core/` 直连 **191/182→实测 215/201** ❌ 数字偏低；A9 未提交改动 ❌ **已不成立**。未复核项：`PermissionManager` 双轨已确认并存；其余 §1 条目仍待回仓 |
 | 会话 A9 未提交改动数字 | 257 文件改 / 25 删 / ~41 新增 为 **2026-09-30 一版**，会话自述**本轮未复核**（无 git 工具） |
 | 会话期间新增 commit | 会话末尾提「本轮提交链 `4c2ac9f54` → `2223b20e6`」（属 benchmark 记录），会话侧未复核 |
 | optimization/upgrade 的「真机 / Linux 端到端」 | 见 T-③07、T-③08，均因环境（Windows / 无模型额度）未验 |

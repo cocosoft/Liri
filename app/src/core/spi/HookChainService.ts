@@ -45,10 +45,26 @@ export interface HookExecutePayload {
   sessionId?: string;
 }
 
+/**
+ * Hook 执行结果（core 侧最小投影）—— 2026-10-01 台账 D-168
+ *
+ * 原契约为 `Promise<void>`，只够 `cost` 的"只发不收"用法；`memory` 需要 `before`
+ * 阶段的**阻断语义**（`!success || preventContinuation`）⇒ 扩为最小投影，由实现侧
+ * （`entrypoints/spiWiring.ts`）从 `HookChainManager.execute()` 的 `result.before` 投影。
+ * **不暴露 app 侧 `HookResult` 类型**——core 契约不绑 app 实现细节。
+ */
+export interface HookExecuteResult {
+  /** `before` 阶段存在"失败或阻止继续"的 Hook ⇒ 调用方应中止后续动作 */
+  blocked: boolean;
+}
+
 /** Hook 链端口（core 侧契约） */
 export interface IHookChainPort {
-  /** 在 `hookName` 域上执行一次 Hook 事件分发（未注册时为 no-op） */
-  execute(hookName: string, payload: HookExecutePayload): Promise<void>;
+  /** 在 `hookName` 域上执行一次 Hook 事件分发（未注册时为 no-op，返回 `{ blocked: false }`） */
+  execute(
+    hookName: string,
+    payload: HookExecutePayload
+  ): Promise<HookExecuteResult>;
 }
 
 /** SPI 服务标识符常量 */
@@ -64,7 +80,7 @@ let _service: IHookChainPort | null = null;
 /** 转发**代理**（延迟绑定，同 `resolveSandbox()` 语义；注册前为空操作，消费方自行降级） */
 const _proxy: IHookChainPort = {
   execute: (hookName, payload) =>
-    _service?.execute(hookName, payload) ?? Promise.resolve(),
+    _service?.execute(hookName, payload) ?? Promise.resolve({ blocked: false }),
 };
 
 /** 获取 Hook 链端口（未注册时为空操作） */

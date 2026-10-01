@@ -395,9 +395,20 @@ export async function registerAllSpis(
     const hookChainManager = HookChainManager.getInstance();
     await registerHookChainSpi(container, {
       // 端口载荷 `{ event, data, sessionId }` 与 `HookContext` 值相容，边界处收窄
-      // （`HookContext` 带索引签名，端口不引 app 类型）；返回值被丢弃 ⇒ 端口契约为 `void`
+      // （`HookContext` 带索引签名，端口不引 app 类型）。
+      // 2026-10-01 D-168：返回值投影为 `{ blocked }`（`memory` 需要 before 阻断语义，
+      // 投影 `result.before` 的"失败或阻止继续"，不把 app 侧 `HookResult` 泄进 core）。
       execute: async (hookName, payload) => {
-        await hookChainManager.execute(hookName, payload as never);
+        const result = await hookChainManager.execute(
+          hookName,
+          payload as never
+        );
+        return {
+          blocked: result.before.some(
+            (hookResult) =>
+              !hookResult.success || hookResult.preventContinuation === true
+          ),
+        };
       },
     });
   }

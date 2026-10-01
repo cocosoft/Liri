@@ -89,6 +89,7 @@ export {
 export {
   type IHookChainPort,
   type HookExecutePayload,
+  type HookExecuteResult,
   HOOK_CHAIN_SERVICE_ID,
   registerHookChainSpi,
   resolveHookChain,

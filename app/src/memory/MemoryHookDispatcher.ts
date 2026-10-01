@@ -6,7 +6,10 @@
  */
 
 import type { Memory } from './types/Memory';
-import { HookChainManager } from '@modules/hooks';
+// 2026-10-01 D-168（`memory -> hooks` 倒挂收口）：Hook 分发改经 core SPI 取得，
+// 端口返回最小投影 `{ blocked }`（原先直连 `@modules/hooks` 的 `HookChainManager`，
+// 属 infra -> app 倒挂）。
+import { resolveHookChain } from '@modules/core/spi';
 import { getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '../error/handleError';
 
@@ -37,12 +40,6 @@ export interface MemoryHookData {
  * 包装 MemoryManager 的关键方法，在前后触发 Hook 事件
  */
 export class MemoryHookDispatcher {
-  private hookChainManager: HookChainManager;
-
-  constructor() {
-    this.hookChainManager = HookChainManager.getInstance();
-  }
-
   /**
    * 执行 pre-save Hook
    * 在记忆保存前触发，允许 Hook 修改或阻止保存
@@ -55,16 +52,14 @@ export class MemoryHookDispatcher {
     modifiedMemory?: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>;
   }> {
     try {
-      const result = await this.hookChainManager.execute('memory', {
+      const { blocked } = await resolveHookChain().execute('memory', {
         event: 'memory.pre-save',
         data: { memory, sessionId },
         sessionId,
       });
 
-      for (const hookResult of result.before) {
-        if (!hookResult.success || hookResult.preventContinuation) {
-          return { allowed: false };
-        }
+      if (blocked) {
+        return { allowed: false };
       }
 
       return { allowed: true };
@@ -80,7 +75,7 @@ export class MemoryHookDispatcher {
    */
   async postSave(memory: Memory, sessionId?: string): Promise<void> {
     try {
-      await this.hookChainManager.execute('memory', {
+      await resolveHookChain().execute('memory', {
         event: 'memory.post-save',
         data: { memory, sessionId },
         sessionId,
@@ -99,16 +94,14 @@ export class MemoryHookDispatcher {
     sessionId?: string
   ): Promise<{ allowed: boolean }> {
     try {
-      const result = await this.hookChainManager.execute('memory', {
+      const { blocked } = await resolveHookChain().execute('memory', {
         event: 'memory.pre-load',
         data: { memoryId, sessionId },
         sessionId,
       });
 
-      for (const hookResult of result.before) {
-        if (!hookResult.success || hookResult.preventContinuation) {
-          return { allowed: false };
-        }
+      if (blocked) {
+        return { allowed: false };
       }
 
       return { allowed: true };
@@ -126,7 +119,7 @@ export class MemoryHookDispatcher {
     if (!memory) return;
 
     try {
-      await this.hookChainManager.execute('memory', {
+      await resolveHookChain().execute('memory', {
         event: 'memory.post-load',
         data: { memory, memoryId: memory.id, sessionId },
         sessionId,

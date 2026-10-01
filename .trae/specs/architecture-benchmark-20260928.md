@@ -643,6 +643,15 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 160 → 159**，恰为 M3 一条边）· 清理文件 `eslint` **0/0** · `allFiles 3991 → 3990`（−1 删文件）· 改动量 **+11 / −214 行**。
   - **现状**：`infra` 源剩余 **6 条边**（余 `memory` 3：M1 `hooks` · M2 `docs` · M4 `services/prompt`；`chronos` 3）。
 
+- **✅ 2026-10-01（D-166 / D-167）`memory` 组 M4 + M2 两条边消除（spec §3.2.1 已详载）** —— M4：`MemoryQueryResult` 随域下沉 `memory/types/`（`services/prompt` 反向引用，`925fb86d4`）；M2：`docs/knowledge-types.ts`（零 import 纯类型）下沉 `core/knowledge-types.ts`、原址转出（`4d1e43212`，**未采用 spec 原"最小结构镜像"** —— 镜像 3 个互引类型 = 两份事实源，违 CS01）。两条均 `已豁免` −1。
+
+- **✅ 2026-10-01（D-168）`memory` 组 M1 边消除 —— 手法：扩展既有 core SPI 返回值（spec D4）** —— 边：`memory/MemoryHookDispatcher.ts:9` → `HookChainManager` ← `@modules/hooks`（**值**，且用其 `result.before` 判阻断）。
+  - **手法（复用既有端口，非新建 —— CS01）**：`IHookChainPort.execute` 由 `Promise<void>` 扩为最小投影 `Promise<HookExecuteResult>`（`{ blocked: boolean }`，新增类型并 barrel 转出）；实现在 `entrypoints/spiWiring.ts` 侧自 `result.before` 投影"失败或阻止继续"；`cost` 侧**忽略返回值 ⇒ 零改动**；未注册时代理返回 `{ blocked: false }`（与旧 no-op 语义一致）。`memory` 侧 4 处调用点（`preSave`/`postSave`/`preLoad`/`postLoad`）改经 `resolveHookChain()`。
+  - **为什么只投影 `{ blocked }` 而非暴露 app 侧 `HookResult`**：core 契约不绑 app 实现细节（同 D-155 的立端口初衷）。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 157 → 156**，恰为 M1 一条边；`R03-002` = 0，白名单 **739 → 740**——新增的 `@modules/core/spi` 直连被识别为规范子入口）· 改动文件 `eslint` **0/0** · `allFiles` **3992**（未变）· **grep 独立复核**：`app/src/memory/**` 内对 `@modules/hooks` 的引用**仅剩注释** ⇒ M1 边确已消失。
+  - **现状**：`infra` 源剩余 **4 条边**（`memory` 组**清零**；余 `chronos` 3 属子批 3，涉启动时序反转）。
+  - **🟡 顺带发现（超本批范围，登记备查，需用户裁定）**：`MemoryHookDispatcher` **全仓零消费者**（含 `app/tests/**` 与 `app/scripts/**`）且**未从 `memory/index.ts` 转出**；全仓 `execute('memory', …)` 调用点**仅存在于该文件**（4 处）⇒ hook 域 `memory` 当前**从不触发**（`hooks/core/CoreHooks.ts:266-317` 对 `memory.pre-save/post-save` 的注册因此也无实际效果）。本次按 spec D4 **保留该能力并使其层合规**（零运行时行为变化）；**若判定"不打算接线" ⇒ 该文件可整体删除（届时 M1 亦无需动 core 契约）**。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

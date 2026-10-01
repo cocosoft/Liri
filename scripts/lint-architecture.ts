@@ -2134,6 +2134,12 @@ class ArchitectureLinter {
       // 就只能走 `@modules/core` 桶（会把 core 面拉进 infra），或退回 `@modules/tasks`
       // （即原 `state`(infra) -> `tasks`(app) 倒挂）⇒ 与 `core/paths`、`core/spi` 同属规范子入口。
       'core/taskStatus',
+      // 零依赖叶子子入口（2026-10-01，台账 D-167）：`core/knowledge-types` 是**纯类型、零 import**
+      // （`KnowledgeRoute` / `KnowledgeRouterOptions` / `IKnowledgeSearch`），消费方横跨 app
+      // （`docs` / `knowledge` 域）与 infra（`memory/services/UnifiedSearchService`）。
+      // 若不让 infra 按此**精确子路径**导入，就只能退回 `@modules/docs`（即原 infra -> app 倒挂）。
+      // 与 `core/taskStatus`、`core/paths` 同属规范子入口。
+      'core/knowledge-types',
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

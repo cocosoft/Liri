@@ -1,7 +1,10 @@
+// 2026-10-01 D-167（`R00-001` 倒挂收口）：原为相对 `'../../docs/knowledge-types'`
+// ⇒ 构成 `memory`(infra) -> `docs`(app) 倒挂（原 D-158 清单 M2）。该类型文件**零 import、纯类型**
+// ⇒ 已下沉 core 叶子，此处改直连（infra → core 合法）。
 import type {
   KnowledgeRoute,
   IKnowledgeSearch,
-} from '../../docs/knowledge-types';
+} from '@modules/core/knowledge-types';
 import type { Memory } from '../types/Memory';
 import { getLogger } from '@modules/monitoring';
 

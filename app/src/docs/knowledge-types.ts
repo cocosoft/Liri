@@ -20,56 +20,12 @@
 // SOFTWARE.
 
 /**
- * 知识搜索通用类型定义
+ * 知识搜索通用类型 —— **原址转出**
  *
- * 原名 KnowledgeRouter.ts（Step 2 重构拆分），
- * 保留 IKnowledgeSearch 接口作为所有搜索路由的统一契约。
+ * 2026-10-01 D-167（`R00-001` 倒挂收口）：类型本体已**下沉 `core/knowledge-types.ts`**
+ * （原因：`memory`(infra) 需要它们 ⇒ 留在 `docs`(app) 会构成 infra -> app 倒挂；该文件
+ * 零 import、纯类型 ⇒ 理想的 core 叶子）。**本文件保留为转出**，以免改动既有多处消费方
+ * （`docs` 自身与 `knowledge` 域等）。新代码可直接引用 `@modules/core/knowledge-types`。
  */
 
-/** 知识路由搜索结果条目 */
-export interface KnowledgeRoute {
-  docPath: string;
-  title: string;
-  score: number;
-  category: string;
-  snippet: string;
-  matchType:
-    | 'knowledge'
-    | 'username'
-    | 'title'
-    | 'keyword'
-    | 'directory'
-    | 'semantic';
-  isKnowledgeDoc: boolean;
-  /** frontmatter tags（供标签过滤搜索使用） */
-  tags?: string[];
-  /** 分块起始行（用于上下文富化时定位关联块） */
-  startLine?: number;
-  /** 分块结束行（用于上下文富化时定位关联块） */
-  endLine?: number;
-  /** 匹配得分（语义搜索时设置） */
-  semanticScore?: number;
-}
-
-/** 知识路由搜索选项 */
-export interface KnowledgeRouterOptions {
-  maxResults?: number;
-  minScore?: number;
-  /** 分页偏移量，默认 0 */
-  offset?: number;
-  /** 限定域搜索（按域名称过滤） */
-  domain?: string;
-  /** 跨多域搜索 */
-  domains?: string[];
-  /** B4：仅返回知识库文档（isKnowledgeDoc）。共享单例含 app/docs 内置文档，
-   * HTTP 知识搜索用此开关保持"仅用户知识库"的既有语义 */
-  onlyKnowledge?: boolean;
-}
-
-/** 知识搜索通用接口 — 所有搜索路由均实现此接口 */
-export interface IKnowledgeSearch {
-  search(
-    query: string,
-    options?: KnowledgeRouterOptions
-  ): Promise<KnowledgeRoute[]>;
-}
+export * from '@modules/core/knowledge-types';

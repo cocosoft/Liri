@@ -1,0 +1,81 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * 知识搜索通用类型定义（core 层叶子）
+ *
+ * 原名 `docs/knowledge-types.ts`（Step 2 重构拆分），保留 `IKnowledgeSearch` 接口
+ * 作为所有搜索路由的统一契约。
+ *
+ * 2026-10-01 D-167（`R00-001` 倒挂收口）：本文件由 `docs`(app) **下沉 core**。原因：
+ * `memory`(infra) 的 `services/UnifiedSearchService` 需要这三个类型 ⇒ 构成
+ * `memory`(infra) -> `docs`(app) 倒挂（原 D-158 清单 M2）。本文件**零 import**（纯类型）
+ * ⇒ 是理想的 core 叶子：各层（app/service/infra/core）均可合法引用，且不会把任何模块面
+ * 拉进引用方。原址 `docs/knowledge-types.ts` 保留为**转出**以免改动既有多处消费方。
+ */
+
+/** 知识路由搜索结果条目 */
+export interface KnowledgeRoute {
+  docPath: string;
+  title: string;
+  score: number;
+  category: string;
+  snippet: string;
+  matchType:
+    | 'knowledge'
+    | 'username'
+    | 'title'
+    | 'keyword'
+    | 'directory'
+    | 'semantic';
+  isKnowledgeDoc: boolean;
+  /** frontmatter tags（供标签过滤搜索使用） */
+  tags?: string[];
+  /** 分块起始行（用于上下文富化时定位关联块） */
+  startLine?: number;
+  /** 分块结束行（用于上下文富化时定位关联块） */
+  endLine?: number;
+  /** 匹配得分（语义搜索时设置） */
+  semanticScore?: number;
+}
+
+/** 知识路由搜索选项 */
+export interface KnowledgeRouterOptions {
+  maxResults?: number;
+  minScore?: number;
+  /** 分页偏移量，默认 0 */
+  offset?: number;
+  /** 限定域搜索（按域名称过滤） */
+  domain?: string;
+  /** 跨多域搜索 */
+  domains?: string[];
+  /** B4：仅返回知识库文档（isKnowledgeDoc）。共享单例含 app/docs 内置文档，
+   * HTTP 知识搜索用此开关保持"仅用户知识库"的既有语义 */
+  onlyKnowledge?: boolean;
+}
+
+/** 知识搜索通用接口 — 所有搜索路由均实现此接口 */
+export interface IKnowledgeSearch {
+  search(
+    query: string,
+    options?: KnowledgeRouterOptions
+  ): Promise<KnowledgeRoute[]>;
+}

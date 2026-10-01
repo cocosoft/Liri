@@ -728,6 +728,22 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **🔴 B3-1 真实形态（实测 API 对照）**：canonical `system/theme/ThemeManager` 提供 `getThemeManager()`/`createThemeManager()` · `getAvailableThemes` · `setTheme` · `getCurrentTheme` · `addCustomTheme` · `removeCustomTheme` · `getColor` · `isDarkTheme` · `toggleTheme` · `subscribe` · `displayThemes` · `displayCurrentTheme` · `applyStyle` · `exportTheme` · `importTheme`；而 `ui/ThemeManager` 的消费者依赖 **`getInstance()`** 与 **`getThemeLoader()`**（后者再提供 `getAllThemeMetadata()` / `getTheme(id)`）—— **canonical 没有 loader 能力** ⇒ **两实现能力不等价**，不能只换 import。
   - **⇒ B3-1 需先定「loader 能力怎么并」**：候选 (a) 把 `ui/theme/{ThemeLoader,ThemeSchema}` **并入 `system/theme`**，再用 canonical API 重写 `commands/builtin/theme/Theme.ts`（3 处 `getThemeLoader()`）与 `ui/theme/ThemeContext.tsx`（1 处）；(b) 改判 `ui/ThemeManager` 为 canonical（与本次裁定相反）；(c) 逐 API 对齐（工作量最大）。**当前未继续**（涉及 theme 子域 3 文件 + 4 消费点 + API 适配，属独立重构批次）。
 
+- **⚠️ 2026-10-01（D-179）方案 (a) 动手后**回滚**：`ui/ThemeManager` 与 canonical 是**两套数据模型**，非「补几个方法」** —— spec §3.2.1。
+  - **已核实可行（前提成立）**：`ui/theme/{ThemeLoader,ThemeSchema}` 实测 **infra-safe**（仅 `fs`/`path`/`@modules/{monitoring,core}`/`./ThemeSchema`）⇒ 具备并入 `system/theme`(infra) 而不新增倒挂的条件 ✓。
+  - **🔴 动手后暴露的真实差距**：canonical 与 ui 版**不是同一实现的深浅差异，而是两套数据模型** ——
+    | | `system/theme`（canonical） | `ui/ThemeManager`（现被命令/React 用） |
+    |---|---|---|
+    | 配置模型 | ❌ 无 | **`ThemeConfig`**（fontFamily/fontSize/lineHeight/letterSpacing/cursorStyle） |
+    | `Theme` 形状 | `{name,description,isDark,colors}` | 另有 **`ansi256`** |
+    | 内置表 | 方法内联数组 | **`BUILTIN_THEMES` / `DEFAULT_THEME`** + `definitionToTheme()` |
+    | 监听 | `subscribe(listener)` + `Array` | `addListener/removeListener` + **`Set`** + `notifyListeners()` |
+    | 工厂 | `getThemeManager()` / `createThemeManager()` | **`getInstance()`**（private ctor 单例） |
+    | 其它 API | `getCurrentTheme` · `getColor` · `applyStyle` · `displayThemes` · `exportTheme` … | **`getTheme()` · `getAllAvailableThemes()` · `getConfig()` · `resetToDefault()` · `getThemeName()` · `getThemeLoader()`** |
+    `commands/builtin/theme/Theme.ts`（**320+ 行**）同时依赖 ui 版多项 API —— **首轮 typecheck 即报 9 处缺失**（`getInstance`/`getAllAvailableThemes`×2/`getTheme`×2/`getConfig`×2/`resetToDefault` + 1 处隐式 any）。
+  - **⇒ 结论**：这不是"补 5 个 shim"，而是**约 200 行的语义合并**（`ThemeConfig`/`ansi256` 数据模型对齐 + 监听器语义统一 + 单例/工厂并存）。**在预算耗尽下硬拼必然产出语义错误的合并 —— 比不合并更糟** ⇒ **已回滚本批全部未提交改动**（`git reset` + `git checkout -- src` + 清理移动产生的未跟踪副本）。
+  - **回滚后状态（绿）**：`typecheck` **0** · `lint:arch` 违规 **0** / `已豁免 97` · `allFiles 3986` · 工作树仅剩 2 个**非我创建**的未跟踪文件 ⇒ **无半成品残留**。
+  - **交接（建议顺序，下一轮直接照做）**：① 先出 **API/数据模型对照表**（上表扩展为逐方法清单）；② **建议以 ui 版为基**（功能更全：config/ansi256/loader/metadata）反向把 canonical 的 `getColor`/`applyStyle`/`displayThemes`/`exportTheme` 等并入，而非反之 —— 即**canonical 的落点仍在 `system/theme`，但实现主体取 ui 版**；③ 合并后先跑 `bun test tests/{commands,ui,docs}` 验语义，再删 `ui/ThemeManager.ts` + 改 3 个消费点 + `ui/index.ts` 停转出；④ **同批**做 B3-2（`KeyboardShortcuts` → `utils/`），以确保 `已豁免 97 → 95` 真的 −2。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

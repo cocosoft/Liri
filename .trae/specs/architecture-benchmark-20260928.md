@@ -516,6 +516,18 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **B2 执行结果**：① 删 **BULK-013**（空气例外 · 零命中）；② 修正 **BULK-011 → 1**、**BULK-012 → 11**（如实）；③ 例外 **13 → 12 条**；④ `lint:arch` **0 错 / 2 警 / 违规 0 / 豁免 220**（不变 —— 删的是零命中条目）。
   - **B2/B3 剩余收口路径（独立议题）**：门禁 `resolveModuleName()` **只取路径第一段** ⇒ **不支持文件级层映射** ⇒ 收口只能二选一：① **物理移动**这 4 个文件至对应 app/service 层目录并改 import；② **DI 反转**（core 定义接口、上层注入）。涉及 PDCA 核心编排链路（`PlanDrivenLoop`），破坏面中偏大。
   - **🔑 方法教训（纪律 I 第四次扩展）**：首轮静态 grep 把 BULK-011 **误判为「空气例外」**（差点删除），根因是**grep 模式只覆盖 `@modules/<mod>/…`（带斜杠），漏掉 `@modules/<mod>`（无斜杠）**。⇒ **凡「判断某依赖是否存在」的结论，必须用门禁实跑（探针）复核，不可只凭静态 grep**；grep 模式须同时覆盖「带斜杠 / 不带斜杠 / 相对路径」三种形式。
+- **✅ 2026-10-01（D-144）A 类收口执行 —— 12 处已全部消除**：
+
+  | 源文件 | 处置 | 方式 | 消除的倒挂 |
+  |---|---|---|---|
+  | `core/loop/PlanDrivenLoop.ts`（+ `topoBatches.ts`） | **物理移动** → `tasks/` | 改 core/tasks barrel + 4 处调用点 | `core -> query / ai / tasks`（4 处） |
+  | `core/session/SessionSupervisor.ts`（+ `SessionStoreAdapter.ts`） | **物理移动** → `session/maintenance/` | 改 `init.ts` 动态 import + 测试 | `core -> service`（1 处，属 BULK-011） |
+  | `core/tokenBudget/TokenBudgetController.ts` | **DI**（构造注入 `TokenEstimatorFn`，5 处调用方注入） | 删除对 `@modules/ai/tokenizer` 的 import | `core -> ai`（1 处） |
+  | `core/Coordinator.ts` | **core SPI**（新增 `IAgentToolPort` + 组合根注册） | 删除对 `@modules/tools` 的 import | `core -> tools`（1 处） |
+
+  - **验收**：`typecheck` exit 0 · `lint:arch` **0 错 / 2 警 / 违规 0** · 全量 `bun test` **4250 pass / 21 skip / 0 fail**。
+  - **豁免数**：220 → **216**（净 −4）；BULK-012 的 `estimatedCount = 11` 已**全部落地消除**（含 D2/D1 的 DI/SPI 两处）。
+  - **顺带的正确性修复**：`core → app` 消除后 `resolveBroadcast` / `selectPattern` 改经 core barrel 出口（原为子目录直连，触发 R03-002）；`FSZ-155` 文件大小例外路径随移动更新。
 
 ---
 
@@ -554,7 +566,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 |---|---|---|---|
 | ~~**§三 收尾门禁**~~「`*OutputSchema` 全仓无消费者 ⇒ warning」 | §三 收尾行 | — | ✅ **已完成（2026-09-30 复核）**：① **存量已清零** —— spec 分批 1a–4b 全部执行完毕（**接线 21 / 删除 24**，零消费者 **44 → 0**）；② **门禁已落地** —— 新增 **R15-001**（`checkOrphanOutputSchemas`，warning 级、**零豁免上线**）：`lint:arch` 实测「定义 **21** 个，零消费者 **0** 个」、总告警仍为 **1**（仅既有 R07-004）⇒ **无新增噪音**；③ 并做 **A 档变异测试**（临时插入孤立定义 ⇒ 报 1 条，已还原）。另顺带清掉**入参侧**零 importer 死文件（20/41 整文件删除）+ 新增门禁 **R15-002**。⇒ spec [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) 已自记「~~门禁尚未落地~~ ⇒ ✅ 已落地」，本行滞后更正 |
 | ~~**P1-3 B/C 档**（收敛主契约 / 抽基座类型）~~ | §二 P1 行 | 大 | ✅ **已完成（2026-10-01）**：**B1**（主契约 `extends` core，`aeeeb5e8e`）· **B2**（`data`/`result` 并行载荷全量迁移 —— 写入 **51** + 读取 **5**，**字段已删除**；含 **B2-c 补漏**清理「手写结构类型 / `as` 断言」盲区 **4** 个读点）· **B3**（`progress` 死字段删除 **165** 处 / 32 文件；`output` / `content` 取证结论＝**保留**）· **C**（实测「抽基座 + 6 视图派生」**不可行且无收益** ⇒ 删除死目录 `tools/extensions/` **3** 文件 + 固化判定）⇒ **详见 §2.2.1 / §2.2.2 / §2.2.3**；本轮提交链 `4c2ac9f54` → `2223b20e6` |
-| **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦）。**🆕 B2 已完成（2026-10-01，D-143）**：经**门禁探针**复核 —— A 类实际只剩 **3 条例外 / 12 处违规**（BULK-011 实测 1 · BULK-012 实测 11 · BULK-013 实测 0＝空气例外）；处置＝**删 BULK-013 + 修正 BULK-011/012 计数** ⇒ 例外 **13 → 12 条**、`lint:arch` **0 错 / 违规 0 / 豁免 220**。剩余 12 处（4 文件）的收口需**物理移动**或 **DI 反转**（门禁不支持文件级映射），列为独立议题 ⇒ 详见 §5.7 的 D-143 段 |
+| **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦）。**🆕 B2 已完成（2026-10-01，D-143）**：经**门禁探针**复核 —— A 类实际只剩 **3 条例外 / 12 处违规**（BULK-011 实测 1 · BULK-012 实测 11 · BULK-013 实测 0＝空气例外）；处置＝**删 BULK-013 + 修正 BULK-011/012 计数** ⇒ 例外 **13 → 12 条**、`lint:arch` **0 错 / 违规 0 / 豁免 220**。剩余 12 处（4 文件）的收口需**物理移动**或 **DI 反转**（门禁不支持文件级映射），列为独立议题 ⇒ 详见 §5.7 的 D-143 段。**🆕 A 类 12 处已全部收口（2026-10-01，D-144）**：**2 组物理移动**（`PlanDrivenLoop`+`topoBatches` → `tasks/` · `SessionSupervisor`+`SessionStoreAdapter` → `session/maintenance/`）+ **2 处 DI/SPI**（`TokenBudgetController` 注入估算器 · `Coordinator` 经 `IAgentToolPort` SPI）⇒ 豁免 **220 → 216**，`lint:arch` **0 错 / 2 警 / 违规 0**；**BULK-012 的 11 处全部落地**。详见 §5.7 的 D-144 段与台账 **D-144** |
 | ~~**§5.3 跨端契约单一事实源**~~ | §5.3 | — | ✅ **已完成（2026-09-30 复核）**：事件名已下沉 `shared/events/eventNames.ts` 单一事实源 + **三端一致性门禁**（台账 **D-57**，实测 **3 pass / 0 fail**）。原判两条**均已过时** —— ①"client 落后后端 5 类型"②"`shared/` 仅 client 在用（app 零引用）"（app 实测 **5 处**引用）⇒ **§5.3 正文已同步改写** |
 | **待细核项**（§三批次4 + §四批次2/3 表）：#7 单例口径分裂 · #9 adaptation/SkillCurator · #12 两处 `@deprecated` 旧重试器 · #13 审批决策可审计事件 · #16 `TokenTracker` 位置（悲观预扣 C1 已判"不实施"）· #17 CoT/ToT/reasoning effort · #20 统一优先级调度 · #21 主动探索与 `evals/` 重叠 | §三/§四 各表 | 取证 | ✅ **已于 2026-09-29 全部取证完毕 ⇒ 见 §6.4（不再待核）** |
 

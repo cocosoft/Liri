@@ -27,7 +27,12 @@ import {
   AttachmentSource,
 } from '@modules/components/attachments';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { createChatManager } from '@modules/chat';
+// 2026-10-01 D-201（chat 域取用面收敛）：原**静态**导入 app 层 `@modules/chat` 的
+// `createChatManager()` ⇒ `infrastructure -> app` 倒挂。
+// ⚠️ **同时修正实测缺陷**：`createChatManager()` 每次是**新实例**（`_chatSessions` 为空、
+// `_currentSessionId` 未设）⇒ 原 `sendMessage()` 实际发往**新建会话**而非用户当前会话；
+// 改用进程内共享的 ChatManager ⇒ 文件内容发往**当前活跃会话**
+// （与「将文件内容作为消息发送给AI」的语义一致）。
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '../../../core/sandboxPermission.js';
 
@@ -181,7 +186,7 @@ export async function handleSendFileToAI(
     const fileName = basename(filePath);
 
     // 将文件内容作为消息发送给AI
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
 
     const message = `请分析以下文件内容（文件名: ${fileName}）:\n\n${content}`;
     // 上传文件自动分析为系统内部调用：不计入 Buddy 用户对话轮数

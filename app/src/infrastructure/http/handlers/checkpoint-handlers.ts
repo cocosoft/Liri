@@ -31,7 +31,19 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import type { TaorLoopPort } from '@modules/runtime/api/queryOpsPorts';
 import type { HandlerCtx } from './handler-utils';
-import { createChatManager } from '@modules/chat';
+// 2026-10-01 D-201（chat 域取用面收敛）：原**静态**导入 app 层 `@modules/chat` 的
+// `createChatManager()` ⇒ `infrastructure -> app` 倒挂。
+//
+// ⚠️ **本次同时修正一个实测缺陷**：`createChatManager()` = `new ChatManagerImpl()`
+// （**每次新实例**），而 `ChatManager._chatSessions` 是**实例级** Map（`ChatManager.ts:406`）
+// ⇒ 新实例的会话表恒为空 ⇒ `ResumeCoordinator.createCheckpoint()` 的
+// `_getLocalSession()` 必然查不到 ⇒ `POST /v1/checkpoints` 与
+// `POST /v1/sessions/:id/checkpoints/latest`（abortRecovery 链路）**必抛
+// `AppError 'Session not found' (1004)`**；`rollbackToCheckpoint` 亦只落盘、
+// 活跃会话不被真正恢复（走 `createSessionDelegate` 另建）。
+// 改用**进程内共享**的 ChatManager（同层 `chat-handlers.ts` 早已如此：SSE 分发链用
+// `getCoreAPI().chatManager?.abortSessionStream()`）⇒ 检查点真作用于活跃会话。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 活跃的 TAORLoop 实例注册表（由 ChatManager 和 PDCA 注册） */
 const activeLoops = new Map<string, TaorLoopPort>();
@@ -213,7 +225,7 @@ export async function handleCreateCheckpoint(
   try {
     const body = await ctx.readRequestBody(req);
     const { sessionId, label } = JSON.parse(body);
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
     const cpId = await chatManager.createCheckpoint(sessionId, label);
     sendJson(res, { id: cpId, sessionId, label });
   } catch (err) {
@@ -231,7 +243,7 @@ export async function handleGetCheckpoint(
   cpId: string
 ): Promise<void> {
   try {
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
     const allCheckpoints = await chatManager.listCheckpoints('');
     let checkpoint: unknown = allCheckpoints.find((cp) => cp.id === cpId);
     if (!checkpoint) {
@@ -262,7 +274,7 @@ export async function handleRollbackCheckpoint(
   cpId: string
 ): Promise<void> {
   try {
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
     await chatManager.rollbackToCheckpoint(cpId);
     sendJson(res, { success: true, checkpointId: cpId });
   } catch (err) {
@@ -280,7 +292,7 @@ export async function handleDeleteCheckpoint(
   cpId: string
 ): Promise<void> {
   try {
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
     await chatManager.deleteCheckpoint(cpId);
     sendJson(res, { success: true, checkpointId: cpId });
   } catch (err) {
@@ -307,7 +319,7 @@ export async function handleSaveLatestCheckpoint(
       autoCreated?: boolean;
       metadata?: Record<string, unknown>;
     };
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
     const cpId = await chatManager.createCheckpoint(
       sessionId,
       parsed.label ?? `abort_${Date.now()}`,
@@ -331,7 +343,7 @@ export async function handleDeleteLatestCheckpoint(
   sessionId: string
 ): Promise<void> {
   try {
-    const chatManager = createChatManager();
+    const chatManager = getCoreAPI().getChatManager();
     const latest = await chatManager.getLatestCheckpoint(sessionId);
     if (latest) {
       const meta = latest.metadata as unknown as Record<string, unknown>;

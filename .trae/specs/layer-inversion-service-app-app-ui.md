@@ -91,22 +91,26 @@
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
-| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2） | **10** | **9**（`chat` 3 ⬅**下一个** · `auto-reply` 1 · `agent` 2（建议并入数据契约专项）· 其余按 §3.3 分型表） |
+| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**） | **13** | **6**（`auto-reply` 1 ⬅**下一个** · `agent` 2（建议并入数据契约专项）· 其余按 §3.3 分型表） |
 | **D** `service -> app` 低风险（§3.4） | 8 | ⬜ **未开始** | 0 | 8 |
 | **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 75**（**−76**）= 子批 A 47 + 子批 B 13 + 子批 C **10** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 72**（**−79**）= 子批 A 47 + 子批 B 13 + 子批 C **13** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
 **✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 
-**⬅ 下一个未执行任务**：§3.3 ④ 之 **`chat` 域（3 条，值类）** —— 按 §3.3 ③ 排期（**新增** `chatPorts`，照抄 `pluginAdminPorts.ts` 模式；⚠️ **不可复用 `ISandboxPort`**，那是 sandbox 域专属）。**需先取证**：3 个 handler（`chat-handlers.ts:42` · `checkpoint-handlers.ts:34` · `file-upload-handlers.ts:30`）各自的导入符号与调用面 ⇒ 再定"端口化"还是"直连 core 叶子"。
+**✅ 已完成（2026-10-01 D-201）**：`chat` 域**3 条**（`chat-handlers.ts` · `checkpoint-handlers.ts` · `file-upload-handlers.ts`）—— 详见 §3.3 ③ 的 D-201 记录 ⇒ **`已豁免 75 → 72`**（恰 −3）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动 3 文件 eslint 0/0（3 处 prettier 折行经 `--fix` 收口）· `bun test tests/http tests/chat` = **411 pass / 0 fail**。
+**⚠️ 同批修复一个实测缺陷**（非单纯收敛）：两个 checkpoint POST 端点因"抛弃式 ChatManager ⇒ 空会话表"必然 500，详见 `dev_docs/error_repairs/预存错误与待处理问题.md` 末节。
 
-**⚠️ 前置取证铁律（D-199/D-200 教训，两条）**：
+**⬅ 下一个未执行任务**：§3.3 ④ 之 **`auto-reply` 域（1 条）** —— ⚠️ 该处为**相对路径**形式（`auto-reply-handlers.ts:36` 写 `'../../../auto-reply'`，**非别名**）⇒ 静态清单易漏，先取证其导入符号与调用面再定手法；随后为 `agent` 域 2 条（建议并入"数据契约统一"专项）。
+
+**⚠️ 前置取证铁律（D-199/D-200/D-201 教训，三条）**：
 1. **端口方法签名必须由实证而非推断决定** —— D-199 `getSpawnPauseState` 误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`。
 2. **复用既有端口前必须逐条比对语义** —— D-200 `handler-utils` 的"默认工作区不存在 ⇒ 放行"与既有 `hasWorkspacePermission`（fail-closed）在该分支**取舍相反**，盲目复用会造成**真实行为回归**（上传路径鉴权从"放行"变"拒绝"）。
+3. **收敛前先查"被取用对象的实例语义"** —— D-201 发现 `createChatManager()` 是**工厂（每次新实例）**而非单例，而 `_chatSessions` 是**实例级** Map ⇒ 原代码的 checkpoint 写端点**长期必失败**。若按"机械替换同等价"处理，就会把这个缺陷**固化**下来。
 
 ### 3.1 子批 A —— `tools -> ink` **47**（最大桶；混合模块拆分）
 
@@ -275,7 +279,7 @@
 5. **`agent` 的 `getAgentRegistry`** 与 **`a2a-routes.ts`** ⇒ 属 A2A 对外面，需单独核 `getAgentRegistry` 是否已有端口（`runtime/api/` 下可能已有 agent 相关端口）。
 
 **执行顺序建议（按"改动量÷收益"）**：① 枚举/类型下沉（~8 条，纯类型搬运，风险最低）→ ② 扩充 2 个既有端口（`ISandboxPort` · `toolsPorts`，6 条）→ ③ 新增 3 个端口（6 条）。
-**进度（截至 D-200）**：① 已完成 4 条（`SandboxPermission`，D-186）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ 未开始（`chat` 3 ⬅**下一个** · `agent` 2 · `auto-reply` 1）。
+**进度（截至 D-201）**：① 已完成 4 条（`SandboxPermission`，D-186）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ **`chat` 域 3 条 ✅**（D-201，**未新增 `chatPorts`** —— 见 D-201 记录：改走既有 `CoreAPI` 门面更省）⇒ 余 `auto-reply` 1 ⬅**下一个** · `agent` 2。
 
 **✅ 第一步已完成（2026-10-01 D-186）：`SandboxPermission` 4 条 —— 零成本手法**
 
@@ -286,6 +290,7 @@
 - **剩余 15 条**（**D-186 时点**）：`chat` 4 · `sandbox` 2（值）· `tools` 4 · `agent` 4 · `auto-reply` 1 ⇒ 按上文 ②③ 步继续。
   - **📊 更新（截至 D-199）**：`tools` **4 条已全部完成**（D-192 / D-194 / D-197 / D-199 —— **静态边归零** 🎯）⇒ 本子批**剩余 11 条**：`sandbox` 2（值，⬅**下一个**）· `chat` 3 · `auto-reply` 1 · `agent` 2（建议并入"数据契约统一"专项）· 其余按 §3.3 分型表。
   - **📊 更新（截至 D-200）**：`sandbox` **2 条值类已完成** ⇒ 本子批**剩余 9 条**：`chat` 3（⬅**下一个**）· `auto-reply` 1 · `agent` 2 · 其余按 §3.3 分型表。
+  - **📊 更新（截至 D-201）**：`chat` **3 条已完成** ⇒ 本子批**剩余 6 条**：`auto-reply` 1（⬅**下一个**）· `agent` 2 · 其余按 §3.3 分型表。
 
 **✅ 第二步已完成（2026-10-01 D-200）：`sandbox` 值类 2 条 —— 复用既有 core SPI 端口**
 
@@ -305,6 +310,34 @@
 **验收（与预测逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 77 → 75`（恰 −2）** / `R03-002` **0**（`@modules/core/spi` 属规范子入口白名单）· 改动 4 文件 eslint **0/0** · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 
 **手法要点（可复用到 `chat`/`agent`/`auto-reply` 域）**：① **一个"取用面"⇒ 一个投影方法**（`getRuntimeStatus()`），而不是"一个符号 ⇒ 一个 getter"；② 只对 handler **真正读取字段**的对象建投影，纯透传值用 `unknown`（同 D-199 `AgentRunDto` 与 `getActiveAgents()` 的分界）；③ **复用既有端口前必须比对语义**（本条的 `isWorkspacePermissionDenied` 与 `hasWorkspacePermission` 是**两个方向**，故必须新增方法而非复用）。
+
+**✅ 第三步已完成（2026-10-01 D-201）：`chat` 域 3 条 —— 改走既有 `CoreAPI` 门面（**推翻本表 ③ 的"新增 `chatPorts`"预案**）**
+
+**取证（本轮实测）**：
+
+| 文件 | 原导入 | 调用面 |
+|---|---|---|
+| `chat-handlers.ts:42` | `eventNotificationService`（值） | **9 处** `.on()` / `.off()`（注册/注销 SSE 分发回调） |
+| `checkpoint-handlers.ts:34` | `createChatManager`（值） | **6 处** —— 覆盖 6 个端点（5 写 1 读） |
+| `file-upload-handlers.ts:30` | `createChatManager`（值） | **1 处**（文件内容送 AI） |
+
+**🔴 取证关键（决定了"零端口新增"与"同批修缺陷"）**：
+1. **既有的 sanctioned 缝已存在**：`runtime/api/CoreAPI.ts:394-397` 明确记载 `CoreAPIImpl` 是"本仓既有 sanctioned `service → app` 缝，如 `chatManager` / `chat()`"；`getCoreAPI(): CoreAPIImpl`（具体类）已暴露 `getChatManager()`（`:4865`）。同层 `chat-handlers.ts` 早已用 `getCoreAPI().chatManager?.abortSessionStream()`。
+   ⇒ **无需新建 `chatPorts`**（③ 原预案作废）：直接经门面取用，**改动更小、且不新增任何文件/类型**。
+2. **`eventNotificationService` 是模块级单例**（`EventNotificationService.getInstance()`，`chat/services/EventNotificationService.ts:295`；`ChatManager.getEventNotificationService()` 原样转发同一实例，`ChatManager.ts:6632-6633`）⇒ 改经门面 **语义零变更**。
+3. **`createChatManager()` 是工厂而非单例**（`new ChatManagerImpl()`，`ChatManager.ts:6955-6957`），而 `_chatSessions` 是**实例级** Map（`:406`）⇒ 原 checkpoint 写端点**必然抛 `AppError 'Session not found' (1004)`**（`ResumeCoordinator.ts:73-86`），rollback 亦只落盘不恢复活跃会话；`file-upload` 的送 AI 落在**新建会话**。
+   ⇒ 该处**不能按"机械等价替换"处理**，否则会把缺陷固化（已按用户裁定：**改共享实例 + 同批修缺陷**）。
+
+**改动（3 文件，均是"取用面替换"，无新增端口文件）**：
+- `chat-handlers.ts`：删静态导入 → 新增模块级 helper `getEventNotificationService()`（`getCoreAPI().getChatManager().getEventNotificationService()`），9 处调用点经它取用（**语义零变更**）。
+- `checkpoint-handlers.ts`：删静态导入 → `getCoreAPI().getChatManager()`（6 处），**行为变更**：检查点真正作用于**活跃会话**。
+- `file-upload-handlers.ts`：删静态导入 → 同法（1 处），**行为变更**：文件内容发往**当前活跃会话**。
+
+**验收**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 75 → 72`（恰 −3）** / `R03-002` **0** · 改动 3 文件 eslint **0/0**（首轮 3 处 `prettier` 折行，经 `bun x eslint --fix` 收口，纯格式）· `bun test tests/http tests/chat` = **411 pass / 0 fail**。
+
+**⚠️ 遗留（独立议题，已记入 `预存错误与待处理问题.md`）**：这 6 个 checkpoint 端点**无任何测试覆盖** ⇒ 上述缺陷长期静默；建议补 `tests/http` 用例。
+
+**手法要点（补充第 ④ 条，供 `auto-reply` 域复用）**：**先查"是否已有 sanctioned 取用缝"，再决定是否新建端口** —— 本表 ③ 原预案（新增 `chatPorts`）在取证后**被推翻**：既有 `CoreAPI` 门面已满足"handler 只依赖 service 层"，新增端口反而是多余抽象（PY_APP §2 简洁优先 + CS01 归一化）。
 
 **🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」，暂不划算**
 

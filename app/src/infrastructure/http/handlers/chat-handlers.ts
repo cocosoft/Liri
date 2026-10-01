@@ -39,10 +39,23 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { eventNotificationService } from '@modules/chat';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 
 const logger = getLogger('http:chat');
+
+/**
+ * 取事件通知服务（2026-10-01 D-201，chat 域取用面收敛）
+ *
+ * 原**静态**导入 app 层 `@modules/chat` 的 `eventNotificationService`
+ * ⇒ `infrastructure -> app` 倒挂。改经 **CoreAPI 门面**（本仓既有的 sanctioned
+ * `service -> app` 缝，同本文件的 `coreAPI.chatManager` / `chatStream()`）。
+ *
+ * 语义**零变更**：`ChatManager.getEventNotificationService()` 返回的就是
+ * `EventNotificationService.getInstance()` 这一**模块级单例**（`ChatManager.ts:6632`）。
+ */
+function getEventNotificationService() {
+  return getCoreAPI().getChatManager().getEventNotificationService();
+}
 
 // ── 模块级辅助函数 ────────────────────────────────────────────────
 
@@ -540,8 +553,11 @@ async function handleStreamingChat(
     const generator = coreAPI.chatStream(chatRequest);
     streamSpan.addEvent('sse.generator.start');
 
-    eventNotificationService.on('tool:completed', onToolCompleted);
-    eventNotificationService.on('project:auto_created', onAutoProjectCreated);
+    getEventNotificationService().on('tool:completed', onToolCompleted);
+    getEventNotificationService().on(
+      'project:auto_created',
+      onAutoProjectCreated
+    );
 
     let result = await generator.next();
     let streamUsage:
@@ -799,8 +815,8 @@ async function handleStreamingChat(
     // 发送 usage 和 done（使用捕获的 finishReason 而非硬编码 'stop'）
     const finalFinishReason = chunkFinishReason || 'stop';
     if (res.destroyed || res.writableEnded) {
-      eventNotificationService.off('tool:completed', onToolCompleted);
-      eventNotificationService.off(
+      getEventNotificationService().off('tool:completed', onToolCompleted);
+      getEventNotificationService().off(
         'project:auto_created',
         onAutoProjectCreated
       );
@@ -846,8 +862,11 @@ async function handleStreamingChat(
 
     res.write('data: [DONE]\n\n');
     safeFlush(res);
-    eventNotificationService.off('tool:completed', onToolCompleted);
-    eventNotificationService.off('project:auto_created', onAutoProjectCreated);
+    getEventNotificationService().off('tool:completed', onToolCompleted);
+    getEventNotificationService().off(
+      'project:auto_created',
+      onAutoProjectCreated
+    );
     logger.info('Stream chat completed', {
       model,
       sessionId: request.session_id,
@@ -860,8 +879,11 @@ async function handleStreamingChat(
     otel.endSpan(streamSpan, SpanStatusCode.OK);
     res.end();
   } catch (err) {
-    eventNotificationService.off('tool:completed', onToolCompleted);
-    eventNotificationService.off('project:auto_created', onAutoProjectCreated);
+    getEventNotificationService().off('tool:completed', onToolCompleted);
+    getEventNotificationService().off(
+      'project:auto_created',
+      onAutoProjectCreated
+    );
     otel.recordError(
       streamSpan,
       err instanceof Error ? err : new Error(String(err))

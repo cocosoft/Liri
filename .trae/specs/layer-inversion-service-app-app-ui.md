@@ -364,9 +364,40 @@ export interface MediaTemplateDto {
 |---|---|---|
 | `video-task-handlers.ts` | ✅ **已完成（D-197）**：端口补 `getVideoTask`/`listVideoTasks`/`cleanupStaleTasks` + `updateVideoTask` patch 加 `mode`（**联合字面量**，首轮 typecheck 因 `string` 不可赋值给 `'text-to-video'\|'image-to-video'` 报错，已收窄）+ 删**两个**导入（值 + 未使用的类型）+ 改 5 处调用点 ⇒ **`已豁免 79 → 78`** · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **10 编辑** |
 | `agent-role-handlers.ts` | ✅ **已完成（D-194）**：`refreshAvailableSubagentTypeNames` —— **单一函数**、**唯一** tools 导入、1 处调用点（L126）⇒ `已豁免 80 → 79` · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **4 编辑** |
-| `agent-control-handlers.ts` | ⚠️ **最重一条（D-195 取证）**：多行 import **5 个符号**（L15-21）：`AgentTool` · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` · `getSpawnPauseState`。调用面：`L54 getSpawnPauseState()` · `L71`/`L139 setSpawnPaused(…)`（纯值 ⇒ 端口方法）· `L106 getAgentRunStore().listRuns()`（需**投影 DTO**，须读 L106-130 字段映射）· **`L33 resolveAgentToolInstance()`**（内部 helper `getAgentTool()`）⇒ ⚠️ **返回 app 实例，不能接口投影**（会泄 app 闭包 —— 该模块 D-121 注释已指出"`stopAgent` 是实例方法、无法静态投影"）⇒ 须按**实例方法**逐一投影（端口加 `stopAgent` 等），**须先读 L40–170** 定要投影哪些方法 · `L32 AgentTool` **作为返回类型**（类型 ⇒ 须一并处理才减计数） | **10–14** |
+| `agent-control-handlers.ts` | ⚠️ **最重一条（D-195/D-198 取证 100% 完成）**：多行 import **5 个符号**（L15-21）：`AgentTool` · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` · `getSpawnPauseState`。调用面：`L54 getSpawnPauseState()` · `L71`/`L139 setSpawnPaused(…)`（纯值 ⇒ 端口方法）· `L106 getAgentRunStore().listRuns()`（需**投影 DTO**，须读 L106-130 字段映射）· **`L33 resolveAgentToolInstance()`**（内部 helper `getAgentTool()`）⇒ ⚠️ **返回 app 实例，不能接口投影**（会泄 app 闭包 —— 该模块 D-121 注释已指出"`stopAgent` 是实例方法、无法静态投影"）⇒ 须按**实例方法**逐一投影（端口加 `stopAgent` 等），**须先读 L40–170** 定要投影哪些方法 · `L32 AgentTool` **作为返回类型**（类型 ⇒ 须一并处理才减计数） | **10–14** |
 
 **⇒ 建议执行顺序（2026-10-01 实测修订）**：`agent-role-handlers` ✅ 已完成 → **`video-task-handlers`（6–8 步，含可免费删除的未使用类型导入）** → `agent-control-handlers`（**10–14 步，本域最重**：5 符号 + 实例方法投影 + `AgentTool` 类型）。
+
+**🛠️ `agent-control-handlers.ts` 完整端口设计（D-198 取证 100% 完成，下一轮纯机械套用）**
+
+实测调用面（另需：**5 处**调用点 + 删 **5 个符号**（含 `AgentTool` 类型，L32 作返回类型；helper `getAgentTool()` 随之删除））：
+
+| handler 调用点 | 端口方法（**建议签名**） |
+|---|---|
+| L54 `getSpawnPauseState()` | `getSpawnPauseState(): boolean`（同步） |
+| L71 `setSpawnPaused(true, reason?)` · L139 `setSpawnPaused(false)` | `setSpawnPaused(paused: boolean, reason?: string \| undefined): unknown`（同步） |
+| L106 `getAgentRunStore().listRuns()` | `listAgentRuns(): Promise<AgentRunDto[]>` |
+| L55 `agentTool?.getActiveAgents() ?? []` | `getActiveAgents(): unknown[]`（结果**直接**进 JSON，无需字段映射） |
+| L168 `agentTool.stopAgent(agentId, { requesterSessionId })` | `stopAgent(agentId: string, opts: { requesterSessionId?: string \| undefined }): unknown` |
+
+**`AgentRunDto`（字段表按 L111-125 实测；**无 `?? null` 的为必填**）**：
+```ts
+export interface AgentRunDto {
+  toolCallId: string;
+  agentId: string;
+  name: string;
+  agentType: string;
+  status: string;
+  descriptorSource?: unknown;
+  batchId?: unknown;
+  taskKey?: unknown;
+  startedAt?: unknown;
+  endedAt?: unknown;
+  error?: unknown;
+  attribution?: unknown;
+}
+```
+**⚠️ 注意**：`getActiveAgents()` / `stopAgent()` 返回**不透明值**（结果直接进 JSON、或仅用于判断）⇒ 用 `unknown` 即可，**不要**为它们新建 DTO（避免 CS02/过度设计）；这也是"实例方法投影"与"数据投影"的分界：**只投影 handler 真正读取字段的对象**。
 
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 

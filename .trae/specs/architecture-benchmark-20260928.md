@@ -528,6 +528,18 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **验收**：`typecheck` exit 0 · `lint:arch` **0 错 / 2 警 / 违规 0** · 全量 `bun test` **4250 pass / 21 skip / 0 fail**。
   - **豁免数**：220 → **216**（净 −4）；BULK-012 的 `estimatedCount = 11` 已**全部落地消除**（含 D2/D1 的 DI/SPI 两处）。
   - **顺带的正确性修复**：`core → app` 消除后 `resolveBroadcast` / `selectPattern` 改经 core barrel 出口（原为子目录直连，触发 R03-002）；`FSZ-155` 文件大小例外路径随移动更新。
+- **✅ 2026-10-01（D-145）B/C 类实测取证（门禁探针）**：让全部 `expiresAt = 2027-04-18` 的例外**临时过期**后实跑 ⇒ **违规 216 / 豁免 0**（A 类 12 已收口 ⇒ **B/C ≈ 204**），vs §5.7 原估「B 255 + C 40 = 295」。按（源 → 目标）静态取证得分布：
+
+  | pattern | **实测** | 原估 | 主要来源 |
+  |---|---:|---:|---|
+  | `service -> app` | **≈ 102** | 22 | `infrastructure/http/handlers`(29) · `services`(29) · `runtime/api`(20) · `session`(17) · `channels`(4) · `bridge`(2) · `voice`(1) |
+  | `infra -> app` | **≈ 36** | 206 | `chronos`(10) · `memory`(6) · `utils`(5) · `security`(4) · `daemon`(3) · `system`(2) · `cost`(2) · `monitoring`/`config`/`media`/`permission`(各 1) |
+  | `infra -> service` | **≈ 7** | 51 | `constants`(5) · `chronos`(1) · `system`(1) |
+  | `buddy -> ui`（PM-001） | **0** | — | ⇒ **疑似空气例外**（待下批复核） |
+
+  - **⚠️ 两处估算严重失真**：`infra -> app` **原估 206 ⇒ 实测 36**（高估 5.7×）；`service -> app` **原估 22 ⇒ 实测 102**（低估 4.6×）。
+  - **`infra -> app` 的引用性质**（决定收口方式）：`@modules/ai`（memory 5 + chronos 1）· `@modules/tasks`（chronos 6）· `@modules/knowledge`（chronos 3）· `@modules/hooks`（memory 1）等 ⇒ 其中 **AI 访问已有 `IAiAccessService` SPI（D-124）**，可扩展复用而非新建。
+  - **处置顺序（用户裁定 2026-10-01）**：**先收官 `infra -> app`（≈36）** —— 底层依赖上层最严重，且 D-144 刚建立的 SPI/DI 模式可直接复用。
 
 ---
 

@@ -130,6 +130,27 @@
 
 ### 3.2 子批 B —— `app -> ui` 其余 **17**（`knowledge`10 · `commands`4 · `buddy`2 · `docs`1）
 
+> **⚠️ 2026-10-01 D-175 执行前取证结论：本子批**设计需更正**，原"UI 归位"一刀切**会反向增边** ⇒ 本子批暂未动手（**未改任何代码**）。**
+
+**17 条逐条定位（实测）**
+
+| 子项 | 文件 | 目标 |
+|---|---|---|
+| **B1**（7） | `knowledge/tools/Knowledge{Search,Write,Delete,Import,Export,Snapshots,Restore}Tool/UI.tsx` | `'../../../components/ink.js'` |
+| **B2a**（3） | `knowledge/components/{KnowledgeDocList,KnowledgeQualityPanel,KnowledgeGraphAsciiView}.tsx` | `'../../components/ink.js'` + `'../../components/ui/{ProgressBar,Table}.js'` |
+| **B2b**（2） | `buddy/{CompanionSprite.tsx,useBuddyNotification.tsx}` | `'../components/ink.js'` |
+| **B2c**（2） | `commands/builtin/shared/CommandUI.tsx` · `commands/builtin/status/StatusUI.tsx` | `'@modules/ink'` |
+| **B3**（3） | `commands/tools/remote/remote-session.ts` · `commands/builtin/theme/Theme.ts` · `docs/HelpSystem.ts` | `'@modules/ui'` / `'../ui/*'`（`TerminalUIIntegration` · `TerminalComponents` · `ThemeManager` · `KeyboardShortcuts`） |
+
+**三类阻碍（决定不能一刀切）**
+
+1. **B1 可行但非零成本**：7 个文件的**唯一消费方 = `ToolUIRegistry`**（零涟漪 ✓），但除 ink 外还依赖同模块的 **`parseToolOutput`（函数）**，而该函数**无任何规范出口**（未被任何 barrel 转出）⇒ 迁出后若用 `@modules/knowledge/tools/parseToolOutput`（无 `types` 段）会触发 **R03-002**。⇒ **须先决策其归属**（随迁到 ui 侧 / 移入 `utils/` / 增设规范出口），再动 B1。
+2. **B2 会反向增边（必须改设计）**：`CommandUI.tsx` 被 `commands/builtin/*/` 下**大量 `*UI.tsx` 消费**（WorkspaceUI/VoiceUI/VimUI/VersionUI/UsageUI/UpgradeUI/TutorialUI/ToolUI…）；`CompanionSprite.tsx` / `useBuddyNotification.tsx` 经 **`buddy/index.ts` 对外转出**（`app/docs/API.md:1506-1609` 有公开用法）⇒ **它们是模块公共 API**，朴素搬迁会**为每个消费方新增一条 `app -> ui` 边**（`app -> ui` 反而变多）。治本 = **整个混合模块拆 UI**（同子批 A 对 `tools` 的手法，但 `commands/**/*UI.tsx` 规模更大）⇒ **须单独立项评估**。
+3. **B3 不是"搬文件"问题**：这 3 个是**非 UI 的实现文件**，依赖的是 ui 层的**能力**（`ThemeManager` 等）⇒ 手法应是"**判断这些能力是否错层**"（若 `ThemeManager`/`KeyboardShortcuts` 本质是无 UI 依赖的工具，应下沉 infra/utils）或**端口化**，而非归位文件。
+
+**更正后的建议拆分**：`B1`（7 条，先定 `parseToolOutput` 归属）→ `B2`（混合模块拆分专项，需先清点 `commands/**/*UI.tsx` 全量）→ `B3`（3 条，逐条判错层/端口化）。
+
+
 - `knowledge/components/*.tsx`（10）与 `buddy` 的 2 个 `.tsx`：同 A（UI 归位）。
 - `commands -> ink`(2) / `commands -> ui`(2)：`CommandUI.tsx` / `StatusUI.tsx` 归位；`theme/Theme.ts`、`tools/remote/remote-session.ts` 需**先判**是 UI 还是误报/类型位。
 - `docs -> ui`(1)：`docs/HelpSystem.ts`（**1106 行**，已挂 FSZ-048 超限例外）⇒ **先取证**其 UI 部分占比；若 UI 与数据强耦合，可拆出 `help/ui/` 子域归 ui 层，**不得**因消边而制造 2000 行巨型文件。

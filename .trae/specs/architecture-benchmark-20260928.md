@@ -701,6 +701,14 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **🟡 顺带发现**：新增 **R02-002 警告** —— `ToolSearchOutput` 在 **3 个模块**重复定义（UI 文件迁出后门禁才"看得见"；同模块内不判重复）⇒ 属"数据契约统一"议题，**非本次引进**，建议并入后续批次。
   - **现状**：`app -> ui` **64 → 17**（`tools` 桶清零）；全局 `已豁免 104`（余：`service -> app` 70 · `app -> ui` 17 · `core -> app` 11 · `app -> entry` 3 · `service -> ui` 2 · `service -> entry` 1）。
 
+- **⚠️ 2026-10-01（D-175）子批 B **执行前取证：设计需更正 —— 原「UI 归位」一刀切会**反向增边** ⇒ 本子批**暂未动手（未改任何代码）**** —— spec [`layer-inversion-service-app-app-ui.md`](./layer-inversion-service-app-app-ui.md) §3.2。
+  - **17 条已逐条定位**（实测，含相对路径形态）：**B1**（7）`knowledge/tools/Knowledge{Search,Write,Delete,Import,Export,Snapshots,Restore}Tool/UI.tsx` → `'../../../components/ink.js'`；**B2a**（3）`knowledge/components/{KnowledgeDocList,KnowledgeQualityPanel,KnowledgeGraphAsciiView}.tsx`；**B2b**（2）`buddy/{CompanionSprite,useBuddyNotification}.tsx`；**B2c**（2）`commands/builtin/{shared/CommandUI,status/StatusUI}.tsx`；**B3**（3）`commands/tools/remote/remote-session.ts` · `commands/builtin/theme/Theme.ts` · `docs/HelpSystem.ts` → `@modules/ui` / `../ui/*`。
+  - **🔴 三类阻碍（为何不能一刀切）**：
+    1. **B2 会反向增边** —— `CommandUI.tsx` 被 `commands/builtin/*/` 下**大量 `*UI.tsx` 消费**（WorkspaceUI/VoiceUI/VimUI/VersionUI/UsageUI/UpgradeUI/TutorialUI/ToolUI…）；`CompanionSprite`/`useBuddyNotification` 经 **`buddy/index.ts` 对外转出**（`app/docs/API.md:1506-1609` 有公开用法）⇒ 它们是**模块公共 API**，朴素搬迁会**为每个消费方新增一条 `app -> ui` 边**（越改越多）。治本 = **整个混合模块拆 UI**（同子批 A 手法，但 `commands/**/*UI.tsx` 规模更大）⇒ **须单独立项**。
+    2. **B1 可行但不零成本** —— 7 个文件唯一消费方 = `ToolUIRegistry`（零涟漪 ✓），但还依赖同模块 **`parseToolOutput`（函数，无任何规范出口）** ⇒ 迁出后经 `@modules/knowledge/tools/parseToolOutput` 会触发 **R03-002** ⇒ **须先决策其归属**。
+    3. **B3 不是搬文件问题** —— 3 个是**非 UI 实现文件**，依赖 ui 的**能力**（`ThemeManager`/`TerminalUIIntegration`/`TerminalComponents`/`KeyboardShortcuts`）⇒ 应判"这些能力是否错层"（无 UI 依赖的工具函数应下沉）或端口化。
+  - **处置**：本子批**拆为 B1 / B2 / B3** 三项分治（见 spec §3.2"更正后的建议拆分"）；**未产生任何代码改动**（避免"为消 2 条边而新增 N 条边"）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

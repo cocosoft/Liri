@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { getLogger } from '@modules/monitoring';
-import { appStateStore } from '../../system/state/AppStateStore';
-import type { Notification } from '../../system/state/AppState';
+import { appStateStore } from '../../appState/AppStateStore';
+import type { Notification } from '../../appState/AppState';
 
 const logger = getLogger('useStartupNotification');
 

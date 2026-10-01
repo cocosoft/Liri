@@ -70,11 +70,11 @@ export interface PluginLoadState {
   errors: string[];
 }
 
-/**
- * 任务状态
- * 规范来源: tasks/types.ts
- */
-export type { TaskState } from '@modules/tasks/types';
+// 2026-10-01 D-164（`R00-001` 倒挂收口）：此处原有 `export type { TaskState } from '@modules/tasks/types'`
+// —— 其**唯一消费者**是 `AppState.ts`（今已改归 app 层 `appState/`，并直连规范来源
+// `@modules/tasks/types`）⇒ 该 re-export 已无消费者，删除即消除
+// `system`(infra) -> `tasks`(app) 倒挂边（原 D-158 清单第 17 条）。
+// 需要 `TaskState` 者请直连 `@modules/tasks/types`（app 侧）或 `core/taskStatus`（core/infra 侧的状态枚举）。
 
 /**
  * 通知类型

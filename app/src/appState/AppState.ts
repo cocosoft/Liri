@@ -11,7 +11,11 @@ import type {
 } from '@modules/mcp/types/index.js';
 import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 import type { PluginError } from '@modules/error';
-import type { TaskState } from './types.js';
+// 2026-10-01 D-164（`R00-001`）：本文件由 `system/state/`（infra）改归 **app 层** `appState/`
+// ⇒ `TaskState` 原经同目录 `./types.js`（留在 infra）取得，现直连其**规范来源** `@modules/tasks/types`
+// （app→app 合法，且 `types` 段属门禁 R03-002 规范子入口）。同时消除 `system/state/types.ts`
+// 那条 `system`(infra) -> `tasks`(app) 的 re-export 边。
+import type { TaskState } from '@modules/tasks/types';
 import type { SettingsJson } from '@modules/config/types.js';
 import type { Command, ModelSetting } from '@modules/types/index.js';
 

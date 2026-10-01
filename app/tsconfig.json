@@ -101,6 +101,8 @@
       "@modules/session/*": ["session/*"],
       "@modules/state": ["system/state"],
       "@modules/state/*": ["system/state/*"],
+      "@modules/appState": ["appState"],
+      "@modules/appState/*": ["appState/*"],
       "@modules/streaming": ["streaming"],
       "@modules/streaming/*": ["streaming/*"],
       "@modules/tasks": ["tasks"],

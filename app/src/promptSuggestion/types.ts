@@ -195,10 +195,10 @@ export const DESCRIPTION_MAX_LENGTH = 60;
  * Speculation超前执行类型
  * 重新从核心状态模块导出
  */
-export type { SuggestionSpeculationStatus as SpeculationStatus } from '@modules/state/AppState.js';
-export type { SuggestionSpeculationResult as SpeculationResult } from '@modules/state/AppState.js';
-export type { SuggestionSpeculationState as SpeculationState } from '@modules/state/AppState.js';
-export { IDLE_SUGGESTION_SPECULATION_STATE as IDLE_SPECULATION_STATE } from '@modules/state/AppState.js';
+export type { SuggestionSpeculationStatus as SpeculationStatus } from '@modules/appState/AppState.js';
+export type { SuggestionSpeculationResult as SpeculationResult } from '@modules/appState/AppState.js';
+export type { SuggestionSpeculationState as SpeculationState } from '@modules/appState/AppState.js';
+export { IDLE_SUGGESTION_SPECULATION_STATE as IDLE_SPECULATION_STATE } from '@modules/appState/AppState.js';
 
 export const MAX_SPECULATION_TURNS = 20;
 export const MAX_SPECULATION_MESSAGES = 100;

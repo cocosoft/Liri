@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
-import { appStateStore } from '../../system/state/AppStateStore';
-import type { AppState } from '../../system/state/AppState';
+import { appStateStore } from '../../appState/AppStateStore';
+import type { AppState } from '../../appState/AppState';
 import { TaskStatus } from '../../tasks/types';
 
 /**

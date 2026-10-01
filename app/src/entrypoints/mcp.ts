@@ -60,7 +60,7 @@ import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '../utils/slowOperations';
 import { getErrorParts } from '../utils/toolErrors';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema';
-import { getDefaultAppState } from '../system/state/AppState.js';
+import { getDefaultAppState } from '../appState/AppState.js';
 import { reviewCommand as review } from '@modules/commands';
 import type { Command } from '../commands/types/index';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';

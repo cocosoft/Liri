@@ -15,6 +15,7 @@
   },
 
   "modules": {
+    "appState":  { "layer": "app", "description": "应用级状态容器（AppState / AppStateStore / PYAppStateStore）。2026-10-01 **D-164 由 `system/state/` 改归 app** —— 实测其消费方**全为 app/entry**（buddy · ai · hooks/notifs · entrypoints/mcp）+ 同模块，**无 infra/service/core 消费者**；原置 `system`(infra) 导致 3 条 `system`(infra) → `mcp`/`plugins`/`tasks`(app) 倒挂（D-158 清单 S1/S2/S3）。改归后三边同消（infra→app 变 app→app）。同 D-84(`hooks` ui→app) / D-67(`mcp` core→service) / D-120(`modules` core→app) 手法。" },
     "entrypoints":  { "layer": "entry", "description": "应用入口" },
     "bootstrap":    { "layer": "entry", "description": "启动引导" },
     "main.ts":      { "layer": "entry", "description": "主入口" },

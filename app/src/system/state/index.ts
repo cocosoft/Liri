@@ -18,38 +18,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-// 核心状态管理（应用状态）
-export {
-  appStateStore,
-  createAppStateStore,
-  getGlobalStore,
-  initializeGlobalStore,
-} from './AppStateStore';
-
-export type {
-  CompletionBoundary,
-  SpeculationResult,
-  SpeculationState,
-  FooterItem,
-  RemoteConnectionStatus,
-  StateChangeListener,
-  StateUpdater,
-  AppState,
-  Notification,
-  NotificationType,
-  AppStateStore,
-} from './AppState';
-
-// PYAppStateStore 增强接口（集中式状态管理）
-export { createPYAppStateStore } from './PYAppStateStore';
-export type {
-  PYAppStateStore,
-  StateChangeEvent,
-  KeyPathListener,
-  StateSnapshot,
-  StateSnapshotMeta,
-  StateTrace,
-} from './PYAppStateStore';
+// 2026-10-01 D-164（`R00-001`）：原此处转出 `AppStateStore` / `AppState` / `PYAppStateStore`
+// 三组符号 —— 该家族已**改归 app 层**（`app/src/appState/`，见
+// `.trae/specs/layer-inversion-memory-chronos-system.md` §3.0）：它是 app 级状态容器，
+// 消费方全为 app/entry，放在 `system`(infra) 属分层归属错误。
+// **本 infra 桶不得再转出它们** —— 否则 `system` 桶转发 app 符号 ⇒ 又产生 infra→app 边。
+// 需要者一律直连 `@modules/appState/…`。
 
 export type {
   Store,
@@ -67,7 +41,6 @@ export type {
   MCPServerConnection,
   MCPState,
   PluginLoadState,
-  TaskState,
   SessionId,
 } from './types';
 export { generateSystemSessionId } from './types';

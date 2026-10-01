@@ -4,8 +4,8 @@
  * 负责将AI模型状态与AppState同步
  */
 
-import { getGlobalStore } from '../system/state/AppStateStore.js';
-import type { AppState } from '../system/state/AppState.js';
+import { getGlobalStore } from '../appState/AppStateStore.js';
+import type { AppState } from '../appState/AppState.js';
 import { getAIModelManager } from './AIModelManager.js';
 import { modelManager } from './models/ModelManager.js';
 

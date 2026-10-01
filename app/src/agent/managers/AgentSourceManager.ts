@@ -7,7 +7,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AgentDefinition, AgentSource } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
-import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
+import { loadPluginAgents as loadPluginAgentsFromPlugins } from '../utils/loadPluginAgents';
 
 const logger = getLogger('agent:managers:agentSourceManager');
 import {

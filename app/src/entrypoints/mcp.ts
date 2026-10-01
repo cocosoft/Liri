@@ -55,7 +55,6 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
   );
 }
 
-import { createAssistantMessage } from '../utils/messages';
 import { modelManager } from '@modules/ai';
 import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '../utils/slowOperations';

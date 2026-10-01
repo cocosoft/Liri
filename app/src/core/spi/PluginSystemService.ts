@@ -26,6 +26,7 @@
  * 直接动态导入（`services/mcp/EnhancedMCPConfigManager` 加载插件声明的 MCP 服务器、
  * `utils/plugins/loadPluginAgents` 加载插件 Agent）⇒ 构成 `service -> app` / `infra -> app` 倒挂
  * （`R00-003` 盲区）。
+ * 【2026-10-01 D-149：`loadPluginAgents` 已归位 `agent/utils/loadPluginAgents`，该 `infra -> app` 边已消除】
  *
  * **方案**：与 `LoggerService` / `OTelService` / `ProfilerService` / `BroadcastService` **同构**的 SPI ——
  * core 定义**最小投影**端口与**转发代理**；实现在 `registerPluginSystemSpi()`（组合根缝）内

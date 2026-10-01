@@ -35,7 +35,7 @@ import {
   parseRunMode,
   validateArgs,
   normalizeArgs,
-} from '@modules/utils/cliArgs.js';
+} from './cliArgs.js';
 import { generateBanner, getVersionString } from '@modules/cli';
 import { setCliMain } from '../main.js';
 

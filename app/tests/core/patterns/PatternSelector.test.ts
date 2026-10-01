@@ -3,6 +3,7 @@ import {
   selectPattern,
   listPatterns,
   getPatternDescriptor,
+  validatePatterns,
 } from '@modules/core/patterns/index.js';
 
 describe('PatternSelector（Teamwork P2a）', () => {
@@ -22,6 +23,17 @@ describe('PatternSelector（Teamwork P2a）', () => {
     const sel2 = selectPattern({ complexity: 'complex', taskType: 'write' });
     expect(sel2?.name).toBe('long_task_pdl');
   });
+
+  // A8（2026-10-01）：选择结果必须携带可消费的装配描述——原仅 {name}，消费方无从决策
+  test('A8：选择结果携带 descriptor 与其 assembly（消费方可直接读 assembler）', () => {
+    const sel = selectPattern({ complexity: 'complex', research: true });
+    expect(sel?.descriptor.name).toBe('competitive_strategy');
+    expect(sel?.descriptor.assembly.assembler).toBe('competitive_strategy');
+    expect(sel?.descriptor.assembly.bindings.length).toBeGreaterThan(0);
+
+    const pdl = selectPattern({ complexity: 'complex' });
+    expect(pdl?.descriptor.assembly.assembler).toBe('long_task_pdl');
+  });
 });
 
 describe('PatternRegistry（描述层）', () => {
@@ -33,7 +45,8 @@ describe('PatternRegistry（描述层）', () => {
       expect(p.displayName).toBeTruthy();
       expect(p.when).toBeTruthy();
       expect(p.roles.length).toBeGreaterThan(0);
-      expect(p.composedOf).toBeTruthy();
+      expect(p.assembly.assembler).toBeTruthy();
+      expect(p.assembly.bindings.length).toBeGreaterThan(0);
     }
   });
 
@@ -43,5 +56,32 @@ describe('PatternRegistry（描述层）', () => {
       'adversarial-reviewer'
     );
     expect(getPatternDescriptor('not_exist' as never)).toBeUndefined();
+  });
+});
+
+// A8（2026-10-01）：装配描述契约 —— 原 composedOf 为自由文本，无法被程序校验/消费
+describe('PatternAssembly（装配契约，A8）', () => {
+  test('注册表自检通过（roles ↔ bindings 双向一一对应、providers 非空、assembler 一一对应）', () => {
+    expect(validatePatterns()).toEqual([]);
+  });
+
+  test('每个 pattern 的 roles 与 bindings 角色集合完全一致', () => {
+    for (const p of listPatterns()) {
+      const boundRoles = p.assembly.bindings.map((b) => b.role).sort();
+      expect(boundRoles).toEqual([...p.roles].sort());
+    }
+  });
+
+  test('装配入口与模式名同域（当前一个模式对应一个装配入口）', () => {
+    for (const p of listPatterns()) {
+      expect(p.assembly.assembler).toBe(p.name);
+    }
+  });
+
+  test('bindings 的承担方覆盖真实既有模块（PDL 由 plan_driven_loop 承接）', () => {
+    const pdl = getPatternDescriptor('long_task_pdl');
+    const providers = pdl?.assembly.bindings.flatMap((b) => b.providers) ?? [];
+    expect(providers).toContain('plan_driven_loop');
+    expect(providers).toContain('task_decomposer');
   });
 });

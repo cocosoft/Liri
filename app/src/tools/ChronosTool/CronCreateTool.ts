@@ -181,8 +181,7 @@ export class CronCreateTool {
 
           // 解析调度
           const { parseSchedule } = await import('@modules/chronos');
-          const { computeNextCronRun } =
-            await import('@modules/utils/cron');
+          const { computeNextCronRun } = await import('@modules/utils/cron');
           const { CronJobStore } =
             await import('@modules/tasks/cron/CronJobStore');
           const { resolveDbPath } = await import('@modules/core/paths');

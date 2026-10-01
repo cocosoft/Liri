@@ -13,8 +13,11 @@ import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { globalEventBus } from '../../../core/events/EventBus.js';
-import { OrchestrationEventType } from '@modules/agent';
-import { AgentEventType } from '@modules/agent';
+// 2026-10-01 D-203（子批 C，`agent` 域枚举）：两常量已下沉 **core 层 types 模块**
+// （`OrchestrationEventType` D-67 · `AgentEventType` D-203）⇒ 改低位取用，消除
+// `infrastructure -> app` 倒挂（app 层原址仍转出，其他消费方零改动）。
+import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
+import { AgentEventType } from '@modules/types/agentEvents';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('http:orchHistory');
 

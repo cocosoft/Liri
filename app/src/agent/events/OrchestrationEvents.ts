@@ -436,45 +436,11 @@ export interface ChainEndData {
   error?: string;
 }
 
-/** 编排状态枚举 */
-export type OrchestrationStatus =
-  | 'idle'
-  | 'planning'
-  | 'executing'
-  | 'checking'
-  | 'completed'
-  | 'failed';
-
-/** 编排状态快照 */
-export interface OrchestrationSnapshot {
-  /** 工作项 ID */
-  workItemId: string;
-  /** 编排状态 */
-  status: OrchestrationStatus;
-  /** 任务进度 */
-  tasks: Array<{
-    id: string;
-    name: string;
-    status: 'pending' | 'running' | 'completed' | 'failed';
-    dependsOn: string[];
-    progress: number;
-    result?: string;
-    error?: string;
-    durationMs?: number;
-  }>;
-  /** 规则检查结果 */
-  ruleChecks: Array<{
-    ruleId: string;
-    ruleName: string;
-    passed: boolean;
-    needsReview: boolean;
-  }>;
-  /** 执行层级 */
-  layers: string[][];
-  /** 当前层级 */
-  currentLayer: number;
-  /** 开始时间 */
-  startTime: string;
-  /** 更新时间 */
-  updatedAt: string;
-}
+// H5-② 收口（台账 D-203）：`OrchestrationStatus` / `OrchestrationSnapshot` 定义已下沉至
+// core 层 types 模块的 `orchestrationSnapshot`，此处仅**转出**（对外导出名与形状逐字不变）。
+// 原因：`infrastructure/http/handlers/orchestration-handlers.ts` 需要其类型位，而 service
+// 不得依赖 app 层（门禁连类型导入也计）⇒ 定义归 core，app 层转出。
+export type {
+  OrchestrationStatus,
+  OrchestrationSnapshot,
+} from '@modules/types/orchestrationSnapshot';

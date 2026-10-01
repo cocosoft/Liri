@@ -18,9 +18,13 @@ import { getLogger } from '@modules/monitoring';
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveWorkspacePath } from './workspaces-handlers';
-import type { OrchestrationSnapshot } from '@modules/agent';
-import { OrchestrationEventType } from '@modules/agent';
-import { AgentEventType } from '@modules/agent';
+// 2026-10-01 D-203（子批 C，`agent` 域枚举/类型）：原 3 个符号均静态导入 app 层 `@modules/agent`
+// ⇒ `infrastructure -> app` 倒挂（其中 `OrchestrationEventType` 早在 D-67 已下沉 core，
+// 只是本文件未改低位取用）。现全部改从 **core 层 types 模块**取用：
+// `AgentEventType` · `OrchestrationSnapshot` 于 D-203 下沉（app 层原址仍转出，其他消费方零改动）。
+import type { OrchestrationSnapshot } from '@modules/types/orchestrationSnapshot';
+import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
+import { AgentEventType } from '@modules/types/agentEvents';
 import { globalEventBus } from '../../../core/events/EventBus.js';
 import type { EventSubscription } from '../../../core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';

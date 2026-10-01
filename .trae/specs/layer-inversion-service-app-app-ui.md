@@ -91,12 +91,12 @@
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
-| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1） | **14** | **5**（`agent` 2（建议并入数据契约专项）⬅**下一个** · 其余按 §3.3 分型表） |
+| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**） | **16** | **3**（`session-handlers` 1（混合：类型位 + `dedupeMessagesToolCallBlocks`）⬅**下一个** · `routes/a2a-delegator.ts` · `routes/a2a-routes.ts`（**A2A 对外面**，需单独核）） |
 | **D** `service -> app` 低风险（§3.4） | 8 | ⬜ **未开始** | 0 | 8 |
 | **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 71**（**−80**）= 子批 A 47 + 子批 B 13 + 子批 C **14** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 69**（**−82**）= 子批 A 47 + 子批 B 13 + 子批 C **16** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -108,7 +108,9 @@
 **✅ 已完成（2026-10-01 D-202）**：`auto-reply` 域 **1 条**（`auto-reply-handlers.ts`，**相对路径边**）—— 详见 §3.3 ③ 的 D-202 记录 ⇒ **`已豁免 72 → 71`**（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 / `R02-002` **未新增** · 改动 3 文件 eslint 0/0（1 处 prettier 折行经 `--fix` 收口）· `bun test tests/http` = **76 pass / 0 fail**。
 ⚠️ 该域**新增 1 处动态跨层引用**（`runtime → auto-reply`）：R00-003 由 **29 → 30**（仅上报，不计违规 —— 与本批 `toolsPorts` 既有做法同性质）。
 
-**⬅ 下一个未执行任务**：§3.3 ④ 之 **`agent` 域（2 条，枚举/类型）** —— 按 §3.3 分型处置 ① 与既有结论（D-187/D-188）：`OrchestrationEventType` 已有低位出口，但 `AgentEventType` + `OrchestrationSnapshot` **无**低位出口 ⇒ 须先做"**类型下沉 `types/`**"（建议与"数据契约统一"专项合并，`ToolSearchOutput` 三处重复定义同批处理）。
+**✅ 已完成（2026-10-01 D-203）**：`agent` 域**枚举/类型 2 条**（`orchestration-handlers.ts` · `OrchestrationHistoryAdapter.ts`）—— 详见 §3.3 ③ 的 D-203 记录 ⇒ **`已豁免 71 → 69`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0（`@modules/types/*` 属规范子入口白名单）· 改动 6 文件 eslint 0/0 · `bun test tests/http tests/tools/AgentTool/toolCallEndStatus.test.ts` = **77 pass / 0 fail**。
+
+**⬅ 下一个未执行任务**：§3.3 ④ 之 **`session-handlers.ts`（1 条，混合）** —— 该文件同时有**类型位**（`Message` / `MessageRole` / `LiriEventType`）+ **值**（`dedupeMessagesToolCallBlocks`）两类导入 ⇒ 按 D-203 同法先核"类型位是否有低位出口"，值位再定端口/门面（⚠️ 该文件正挂 **FSZ 文件大小例外（1012 行）**，**只动 import 与取用点，不顺手拆文件**）。其后 2 条为 `routes/a2a-*`（**A2A 对外面**，`getAgentRegistry` 需单独核是否已有端口）。
 
 **⚠️ 前置取证铁律（D-199/D-200/D-201 教训，三条）**：
 1. **端口方法签名必须由实证而非推断决定** —— D-199 `getSpawnPauseState` 误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`。
@@ -282,7 +284,7 @@
 5. **`agent` 的 `getAgentRegistry`** 与 **`a2a-routes.ts`** ⇒ 属 A2A 对外面，需单独核 `getAgentRegistry` 是否已有端口（`runtime/api/` 下可能已有 agent 相关端口）。
 
 **执行顺序建议（按"改动量÷收益"）**：① 枚举/类型下沉（~8 条，纯类型搬运，风险最低）→ ② 扩充 2 个既有端口（`ISandboxPort` · `toolsPorts`，6 条）→ ③ 新增 3 个端口（6 条）。
-**进度（截至 D-202）**：① 已完成 4 条（`SandboxPermission`，D-186）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ **`chat` 域 3 条 ✅**（D-201，**未新增 `chatPorts`** —— 见 D-201 记录：改走既有 `CoreAPI` 门面更省）+ **`auto-reply` 域 1 条 ✅**（D-202，**新增 `autoReplyPorts`**，照 ③ 原预案）⇒ 余 `agent` 2 ⬅**下一个**。
+**进度（截至 D-203）**：① **已完成 6 条**（`SandboxPermission` 4 条 D-186 + **`AgentEventType`/`OrchestrationSnapshot` 2 条** D-203）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ **`chat` 域 3 条 ✅**（D-201，**未新增 `chatPorts`** —— 见 D-201 记录：改走既有 `CoreAPI` 门面更省）+ **`auto-reply` 域 1 条 ✅**（D-202，**新增 `autoReplyPorts`**，照 ③ 原预案）⇒ 余 `session-handlers` 1 ⬅**下一个** + `routes/a2a-*` 2。
 
 **✅ 第一步已完成（2026-10-01 D-186）：`SandboxPermission` 4 条 —— 零成本手法**
 
@@ -295,6 +297,7 @@
   - **📊 更新（截至 D-200）**：`sandbox` **2 条值类已完成** ⇒ 本子批**剩余 9 条**：`chat` 3（⬅**下一个**）· `auto-reply` 1 · `agent` 2 · 其余按 §3.3 分型表。
   - **📊 更新（截至 D-201）**：`chat` **3 条已完成** ⇒ 本子批**剩余 6 条**：`auto-reply` 1（⬅**下一个**）· `agent` 2 · 其余按 §3.3 分型表。
   - **📊 更新（截至 D-202）**：`auto-reply` **1 条已完成** ⇒ 本子批**剩余 5 条**：`agent` 2（⬅**下一个**，建议并入"数据契约统一"专项）· 其余按 §3.3 分型表。
+  - **📊 更新（截至 D-203）**：`agent` 域**枚举/类型 2 条已完成**（下沉 `types/`）⇒ 本子批**剩余 3 条**：`session-handlers` 1（⬅**下一个**）· `routes/a2a-delegator.ts` · `routes/a2a-routes.ts`。
 
 **✅ 第二步已完成（2026-10-01 D-200）：`sandbox` 值类 2 条 —— 复用既有 core SPI 端口**
 
@@ -364,7 +367,28 @@
 
 **⚠️ 测试盲区（本轮发现，未处理）**：全仓 grep `AutoReplyEngine|autoReplyEngine|auto-reply` 于 `*.test.ts` ⇒ **0 命中** ⇒ 本域 4 个端点**无任何用例覆盖**。本批为**行为保持型**改动（响应逐字不变）故风险可控；建议后续补 `tests/http` 用例。
 
-**🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」，暂不划算**
+**✅ 第五步已完成（2026-10-01 D-203）：`agent` 域枚举/类型 2 条 —— 下沉 core `types/`（D-67 手法）**
+
+**取证（本轮实测）**：
+- `orchestration-handlers.ts:21-23`：3 符号**同源**自 `@modules/agent`（`OrchestrationSnapshot`(type) · `OrchestrationEventType` · `AgentEventType`）⇒ 按"文件 × 去重目标模块"计 **1 条边**。
+- `OrchestrationHistoryAdapter.ts:16-17`：2 符号（`OrchestrationEventType` · `AgentEventType`）⇒ **1 条边**。
+- 三个定义的落点：`OrchestrationEventType` **早在 D-67 已下沉** `types/orchestrationEvents.ts`（app 层只是转出）⇒ 本批只需改这 2 个文件的取用面；`AgentEventType`（enum，`agent/events/types.ts:61-135`）与 `OrchestrationSnapshot` + `OrchestrationStatus`（纯类型，`agent/events/OrchestrationEvents.ts:439-480`）**无低位出口** ⇒ 须先下沉。
+- ✅ **下沉安全性实证**：`OrchestrationSnapshot` 仅引用**同文件内**的 `OrchestrationStatus`（字符串联合）；`AgentEventType` 为纯 enum ⇒ **零出向依赖**，满足 `types` 模块约束（`modules-to-layers.json:86`："纯类型、无出向依赖；归 core 后各层引用自动合法"）。
+- ✅ `@modules/types/*` 别名存在（`tsconfig.json:144-145`），且路径含 **`types` 段 ⇒ R03-002 豁免**（实测 R03-002 = 0）。
+
+**改动（2 新建 + 2 原址转出 + 2 改取用面）**：
+- **新建** `types/agentEvents.ts`：`AgentEventType` 枚举**逐字搬迁**（含成员注释）。
+- **新建** `types/orchestrationSnapshot.ts`：`OrchestrationStatus` + `OrchestrationSnapshot` 逐字搬迁。
+- `agent/events/types.ts` · `agent/events/OrchestrationEvents.ts`：定义体改为 **`export { … } from '@modules/types/…'` 原址转出**（对外导出名与形状**逐字不变**）⇒ app 层其余消费方（`agent/index.ts:271` · `tools/AgentTool/SubAgentEngine.ts:39` · `agent/events/SSEEncoder.ts:7` · `agent/events/index.ts:41`）**零改动**。
+- 2 个 handler：`@modules/agent` 静态导入**完全消失**（3 处 / 2 处改为 `@modules/types/*`）。
+
+**验收**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 71 → 69`（恰 −2）** / `R03-002` **0** / `R02-002` **未新增** · 改动 6 文件 eslint **0/0** · `bun test tests/http tests/tools/AgentTool/toolCallEndStatus.test.ts` = **77 pass / 0 fail**（含唯一直引 `AgentEventType` 的测试文件）。
+
+**手法要点（补充第 ⑤ 条）**：**"下沉定义 + 原址转出"是本类边的零风险手法** —— 只把**名字/形状**搬下去、原址保留同名导出，则 app 层其余消费方**无需任何改动**（本批 4 处 app 消费方零改动即实证）；代价仅 2 个新文件。
+
+**⚠️ 发现即记录（与本批无关的预存注释失准）**：`orchestration-handlers.ts:18` 注释称"门禁**不剥离**注释，写了会让「对」复活（见 D-77）" —— 该口径**已被 D-190 的 `stripComments()` 推翻**（注释里写路径不再计违规；本批注释中直接写了 `@modules/agent` 而计数仍**正确 −2**，即为实证）。按 PY_APP §3 **未改该无关注释**，建议后续统一订正。
+
+**🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」—— ✅ 已于 D-203 完成**（下列为**当时**取证，保留作沿革）
 
 - `OrchestrationEventType` **已有更低层出口** ✓：`@modules/types/orchestrationEvents`（`export const OrchestrationEventType` + `type OrchestrationEventTypeValue`；`core/events/{TokenTracker,OrchestrationMetrics,EventBusOTelBridge}.ts` 即如此引用；路径含 `types` 段 ⇒ **R03-002 豁免**）。
 - ❌ 但两个 handler **同时还依赖**：`AgentEventType`（enum，`agent/events/types.ts:61`）与 `OrchestrationSnapshot`（interface，`agent/events/OrchestrationEvents.ts:449`）—— **二者均无低位出口**（`types/orchestrationEvents.ts` 只有前两者）。

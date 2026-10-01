@@ -722,6 +722,12 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **处置（B3 重拆）**：**B3-1（前置）统一 `ThemeManager`**（倾向 canonical = `system/theme`：infra 层、已含 `getThemeManager()`、被 `UIEnhancer`/`cli` 使用）⇒ 迁移 `ui/ThemeManager.ts` 的消费者、删重复、`ui/index.ts` 停止转出 —— **这一步才解锁 `docs -> ui` 与 `commands -> ui` 中的 2 条**；**B3-2** `KeyboardShortcuts` 下沉 `utils/`（**须与 B3-1 同批**，否则不减计数）；**B3-3** `remote-session.ts` 端口化或归位（独立）。
   - **本次未改任何代码**（避免"减不了计数、还制造新的重复实现"）。
 
+- **✅/🔴 2026-10-01（D-178）B3-1 第一步：`core/theme.ts` 深挖 + 删除（死代码）；并查明 B3-1 的真实形态（API 不等价，非换 import）** —— 用户裁定 canonical = **`system/theme`**。
+  - **`core/theme.ts` 深挖（全形态 + 全仓）**：`grep 'core/theme'` 覆盖 `app/**`（含 `scripts`/`tests`）与 `client/**` ⇒ **零代码引用**（仅 `.trae/specs` 台账与 `app/docs/DEVELOPMENT.md:273` 的注释提及）；且它本就是 `layer-inversion-a-class-inventory.md:295` 记录的**倒挂项**（`core/theme.ts` → monitoring/infra）。⇒ **判为死代码，删除**（顺带消掉 A 类清单该项）。
+  - **验收（删除后）**：`typecheck` **0** · `lint:arch` **违规 0** / `已豁免 97`（**无变化** —— 该文件本不在例外中）· `allFiles 3987 → 3986`。
+  - **🔴 B3-1 真实形态（实测 API 对照）**：canonical `system/theme/ThemeManager` 提供 `getThemeManager()`/`createThemeManager()` · `getAvailableThemes` · `setTheme` · `getCurrentTheme` · `addCustomTheme` · `removeCustomTheme` · `getColor` · `isDarkTheme` · `toggleTheme` · `subscribe` · `displayThemes` · `displayCurrentTheme` · `applyStyle` · `exportTheme` · `importTheme`；而 `ui/ThemeManager` 的消费者依赖 **`getInstance()`** 与 **`getThemeLoader()`**（后者再提供 `getAllThemeMetadata()` / `getTheme(id)`）—— **canonical 没有 loader 能力** ⇒ **两实现能力不等价**，不能只换 import。
+  - **⇒ B3-1 需先定「loader 能力怎么并」**：候选 (a) 把 `ui/theme/{ThemeLoader,ThemeSchema}` **并入 `system/theme`**，再用 canonical API 重写 `commands/builtin/theme/Theme.ts`（3 处 `getThemeLoader()`）与 `ui/theme/ThemeContext.tsx`（1 处）；(b) 改判 `ui/ThemeManager` 为 canonical（与本次裁定相反）；(c) 逐 API 对齐（工作量最大）。**当前未继续**（涉及 theme 子域 3 文件 + 4 消费点 + API 适配，属独立重构批次）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

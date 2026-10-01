@@ -584,6 +584,12 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **⚠️ 静态 grep 存在盲区（再次印证 BULK-011 教训）**：本表 #4（`config→sandbox`）与 #14（`state→tasks`）**均非 `@modules/<mod>` 形式**（为相对路径），任何"按 `from '@modules/x'` 形态"的静态清点都会漏掉它们；**唯一权威口径是门禁探针**。
   - **下一批建议（按手法同构度/净边数）**：`oauth`（2 边，同类）· `performance`（2 边，同类）· `monitoring`（1 边，纯函数下沉）· `state`/`config`（各 1 边）。`memory`（4 边）与 `chronos`（3 边）因牵连历史重复实现（`memory/services/KnowledgeBaseWriter` 仍被 `AutoMemoryService` 类型引用）与事件化解耦，建议**专项批次**。
 
+- **✅ 2026-10-01（D-159）`oauth` 组 2 条边全部消除** —— 两条边**同因**：[`OAuthClient.ts:9`](file:///e:/PY/Documents/CODES/PY_APP/app/src/oauth/services/OAuthClient.ts#L9) 与 [`DynamicClientReg.ts:7`](file:///e:/PY/Documents/CODES/PY_APP/app/src/oauth/services/DynamicClientReg.ts#L7) 均为 `import { logger } from '@modules/infrastructure'` —— 取自 HTTP **服务层桶的"默认 logger"**（`infrastructure/index.ts:24` = `getLogger()` 无 module 名）⇒ ① 构成 `oauth`(infra) → `infrastructure`(service) 倒挂（infra 层仅允许 infra/core）；② 同时偏离 **§1.8「日志唯一入口」**（应为 `monitoring/logs/Logger` 的 `getLogger(module)`）。⇒ 改为**模块内既有约定**（`oauth/` 其余 20+ 文件全部用 `@modules/monitoring` 的 `getLogger('oauth:…')`）：`getLogger('oauth:services:oauthClient')` / `getLogger('oauth:services:dynamicClientReg')`。
+  - **为什么这是"修根因"而非绕开**：该 logger 本就不是 oauth 该用的入口 —— 修完同时**消边**且**回归模块一致性**，不新增 SPI/DI（CS01/CS05）。
+  - **验收**：`typecheck` **0** · 改动文件 `eslint` **0 error / 0 warning** · `lint:arch` **0 错 / 2 警 / 违规 0** · 全量 `bun test` **4258 pass / 21 skip / 0 fail**（**= 基线**）· grep 复核 `app/src/oauth/` 对 `@modules/infrastructure` 引用 = **0**（仅剩注释）。
+  - **现状**：`infra` 源剩余 **15 条边**（17 − 2）；其中 `infra -> service` 由 5 → **3**（余 `memory` 2 · `system` 1）。
+  - **🔴 门禁计数口径偏差 —— 第 4 次复现，且本次为「确定性最小复现」**：2 条边消除 ⇒ `已豁免` **168 → 167（−1）**。这是 L557 记录的 D-153(−7 vs 6) · D-154(−1 vs 2) · D-155(−2 vs 3) 之后的**第 4 次**。本例的价值在于：**恰为"同一模块对（`oauth` → `infrastructure`）含 2 个违规文件"的场景** ⇒ 与"`exemptedCount` 按（源模块,目标模块）**对**计数、而非按**文件边**计数"的猜想一致。⇒ **建议将本例作为 T-③02 的最小复现输入**（核对 `checkLayering` 中 `isException()` 是否对同一对的第 2 条边不再 `exemptedCount++`）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

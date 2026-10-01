@@ -68,6 +68,15 @@ export {
   resolveTaskRegistry,
 } from './TaskRegistryService';
 
+// 2026-10-01 D-148：知识图谱端口（消除 chronos/autoDream 的 infra → app 倒挂，3 处）
+export {
+  type IKnowledgeGraphPort,
+  type KnowledgeDomainDto,
+  KNOWLEDGE_GRAPH_SERVICE_ID,
+  registerKnowledgeGraphSpi,
+  resolveKnowledgeGraph,
+} from './KnowledgeGraphService';
+
 export {
   type LoadedPluginBriefDto,
   type IPluginSystemService,

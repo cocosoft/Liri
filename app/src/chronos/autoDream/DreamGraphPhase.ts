@@ -41,9 +41,8 @@ import {
   resolveDbPath,
   resolveDomainsRoot,
 } from '@modules/core';
-import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
-import { SchemaLoader } from '@modules/knowledge/schema/SchemaLoader';
-import { DomainManager } from '@modules/knowledge/domain/DomainManager';
+// D-148（2026-10-01）：知识图谱改经 core SPI（`infra -> app` 倒挂收口）
+import { resolveKnowledgeGraph } from '@modules/core/spi';
 
 const logger = getLogger('chronos:graph');
 
@@ -91,8 +90,7 @@ export async function runDreamGraphPhase(
     domainsToScan = [domainName];
   } else {
     // 未指定域，扫描所有已注册的域
-    const domainManager = new DomainManager();
-    const domainList = await domainManager.list();
+    const domainList = await resolveKnowledgeGraph().listDomains();
     domainsToScan = domainList.map((d) => d.name);
 
     if (domainsToScan.length === 0) {
@@ -106,7 +104,17 @@ export async function runDreamGraphPhase(
     domains: domainsToScan,
   });
 
-  const graph = new KnowledgeGraph(resolveDbPath());
+  const graph = resolveKnowledgeGraph().createGraph(resolveDbPath()) as {
+    init(): Promise<void>;
+    setEdgeSchemas(schemas: unknown): void;
+    queryEdges(query: unknown): Promise<unknown[]>;
+    addEdge(edge: unknown): Promise<unknown>;
+    close(): Promise<void>;
+  } | null;
+  if (!graph) {
+    logger.warn('知识图谱 SPI 未注册，跳过 DreamGraphPhase');
+    return { success: false, filesScanned: 0, edgesAdded: 0 };
+  }
   let totalFilesScanned = 0;
   let totalEdgesAdded = 0;
 
@@ -142,7 +150,10 @@ export async function runDreamGraphPhase(
       }
 
       // 加载域 schema，注册 edge 类型（使 addEdge 校验通过）
-      const schemaLoader = new SchemaLoader(undefined, domain);
+      const schemaLoader = resolveKnowledgeGraph().createSchemaLoader(
+        domain
+      ) as { loadAll(): Promise<{ edges: unknown }> } | null;
+      if (!schemaLoader) continue;
       const { edges: edgeSchemas } = await schemaLoader.loadAll();
       graph.setEdgeSchemas(edgeSchemas);
 
@@ -150,7 +161,7 @@ export async function runDreamGraphPhase(
         const filePath = join(wikiDir, file);
         const content = readFileSync(filePath, 'utf-8');
         const sourceSlug = basename(file, '.md');
-        const sourceId = KnowledgeGraph.generateEntityId(
+        const sourceId = resolveKnowledgeGraph().generateEntityId(
           domain,
           'wiki',
           sourceSlug
@@ -170,7 +181,7 @@ export async function runDreamGraphPhase(
           if (target !== 'index' && target !== sourceSlug) {
             const targetId = target.includes(':')
               ? target
-              : KnowledgeGraph.generateEntityId(domain, 'wiki', target);
+              : resolveKnowledgeGraph().generateEntityId(domain, 'wiki', target);
             targets.add(targetId);
           }
         }

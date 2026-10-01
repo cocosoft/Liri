@@ -26,7 +26,8 @@ import React, {
   useRef,
 } from 'react';
 import { ThemeManager } from '../ThemeManager';
-import type { ThemeUIColorPalette } from './ThemeSchema';
+// 2026-10-01（B3-1'）：`ThemeSchema` 已并入 canonical `system/theme`（infra）⇒ 改经其桶引用。
+import type { ThemeUIColorPalette } from '@modules/system/theme';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

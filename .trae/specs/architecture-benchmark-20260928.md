@@ -773,6 +773,17 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **⇒ 结论**：B3-1' 的剩余工作 = **一次带行为决策的合并**（改名 + style 映射表 + 重写 canonical 类），仍需要**一轮完整预算**；本轮已完成 B3-2 并把它提交（**但门禁计数未变**：`docs -> ui` 按「文件 × 去重目标模块」计 = **1**，须 `KeyboardShortcuts` 与 `ThemeManager` **两条 import 都清掉**才减 1 ⇒ 必须与 B3-1' **同批**才见效）。
   - **建议决策项（二选一）**：**(i)** 先定"style→ANSI 色"映射表（我可给出建议表：success→green · warning→yellow · error→red · info→cyan · title/header→brightWhite · subtitle→white · code→brightBlack · prompt→cyan），再执行合并；**(ii)** 承认 `theme` 域是"两套并行数据模型、合并收益仅 2 条边"，**挂起 B3**，转 `infrastructure -> app`（19 条，装配错层，无数据模型纠缠）。
 
+- **🔴 2026-10-01（D-183）B3-1' 取证后**推翻"融合"前提**：两个 `ThemeManager` **不是同一个概念** ⇒ 应「共址 + 改名」而非「融合」** —— 承 D-182。
+  - **已完成并提交（`loader/schema` 并入 canonical，绿色中间步）**：`git mv ui/theme/{ThemeLoader,ThemeSchema}.ts → system/theme/`；`system/theme/index.ts` 增设 `ThemeLoader` + `export * from './ThemeSchema'`；4 处引用改造（`ui/ThemeManager.ts` · `ui/theme/ThemeContext.tsx` · `ui/theme/index.ts` · 桶）。**验收**：`typecheck 0` · `eslint 0` · 违规 0 / `已豁免 97`。
+  - **🔴 推翻前提的证据（读 `commands/builtin/theme/Theme.ts:130-186` 实测）**：
+    | | `system/theme`（canonical） | `ui/ThemeManager` |
+    |---|---|---|
+    | 读取的颜色字段 | `colors.success`/`warning`/`error`/`info`/`primary`…（**语义色**） | `colors.foreground`/`background`/`red`/`green`/`brightYellow`…（**ANSI 色**）**+ `getConfig()`**（fontFamily/fontSize/光标） |
+    | 用途 | `UIEnhancer` 给消息上色 · `cli` 切换/展示主题 | `/theme` 命令（list/set/current/preview）· React `ThemeContext` · **用户/内置主题文件加载**（`ThemeLoader`） |
+    ⇒ **两者是不同子系统**（"语义终端主题" vs "ANSI 配色+显示配置"），**仅同名**。融合它们 = **人为发明"语义→ANSI"映射 + 混合状态**（且 `header`/`code`/`prompt` 在 ANSI 模型里**无对应项**）⇒ **会让两个各司其职的子系统互相污染，比不合并更糟**（我上一条给出的映射表属臆造，**撤回**）。
+  - **⇒ 修订方案 B3-1''（更省且更正确）：共址 + 改名，不融合** —— ① `git mv ui/ThemeManager.ts → system/theme/TerminalThemeManager.ts`（**实测 ui-free**：仅依赖 ThemeLoader/ThemeSchema）并改类名以示区分；② 3 个消费点改指 `@modules/system/theme`（`commands/builtin/theme/Theme.ts` · `docs/HelpSystem.ts` · `ui/theme/ThemeContext.tsx`）；③ 删 `ui/index.ts` 的转出；④ 预期 `已豁免 97 → 95`。**工作量 ≈ 6 处改动**，且**零映射决策、零语义风险**。
+  - **⚠️ 诚实说明**：本轮已按你选定的 (i) 走到"前置搬家"，但**取证后发现 (i) 的前提（"同一实现的两套深浅"）不成立**，故按 CS05（根因优先）**停手改报**，而不是硬造一个映射把两个子系统粘起来。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

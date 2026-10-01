@@ -4,8 +4,10 @@
  * 提供终端主题的定制功能，集成 ThemeLoader 支持内置和用户主题。
  */
 
-import { ThemeLoader } from './theme/ThemeLoader';
-import type { ThemeDefinition } from './theme/ThemeSchema';
+// 2026-10-01（B3-1'）：`ThemeLoader` / `ThemeSchema` 已并入 canonical `system/theme`（infra）
+// ⇒ 改经其桶引用（ui -> infra 合法；直插子目录会触发 R03-002）。
+import { ThemeLoader } from '@modules/system/theme';
+import type { ThemeDefinition } from '@modules/system/theme';
 
 export interface ThemeColors {
   foreground: string;

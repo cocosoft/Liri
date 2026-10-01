@@ -29,3 +29,8 @@ export {
 } from './ThemeManager';
 
 export type { Theme } from './ThemeManager';
+
+// 2026-10-01（B3-1'）：`ThemeLoader` / `ThemeSchema` 由 `ui/theme/` 并入 canonical
+// （实测 infra-safe：仅依赖 fs / path / @modules/{monitoring,core}）⇒ 收敛 theme 域实现。
+export { ThemeLoader } from './ThemeLoader';
+export * from './ThemeSchema';

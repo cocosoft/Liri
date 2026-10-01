@@ -22,8 +22,9 @@
  * 主题系统统一导出
  */
 
-export { ThemeLoader } from './ThemeLoader';
-export { validateThemeDefinition } from './ThemeSchema';
+// 2026-10-01（B3-1'）：`ThemeLoader` / `ThemeSchema` 已并入 canonical `system/theme`（infra）。
+// 本 barrel 仅保留**同名转出**以免破坏既有消费方（转发方向 ui -> infra 合法）。
+export { ThemeLoader, validateThemeDefinition } from '@modules/system/theme';
 export type {
   ThemeDefinition,
   ThemeTerminalColors,
@@ -31,6 +32,6 @@ export type {
   ThemeUIColorPalette,
   ThemeMetadata,
   ThemeFileFormat,
-} from './ThemeSchema';
+} from '@modules/system/theme';
 export { ThemeBridgeProvider, useThemeContext } from './ThemeContext';
 export type { ThemeContextValue } from './ThemeContext';

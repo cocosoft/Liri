@@ -618,6 +618,15 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **验收**：`lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 164 → 163**）。
   - **现状**：`infra` 源剩余 **11 条边**（12 − 1）。
 
+- **✅ 2026-10-01（D-163）`state` 组 1 条边消除 —— 手法：`TaskStatus` 枚举下沉 core 叶子** —— 边：[`TaskStateMachine.ts:36`](file:///e:/PY/Documents/CODES/PY_APP/app/src/state/task/TaskStateMachine.ts#L36) 原 `import { TaskStatus } from '../../tasks/types'`（**相对路径**，infra → app）。
+  - **为何不做「最小结构镜像」**：`TaskStatus` 是**字符串枚举**且被以**值**使用（`TASK_TRANSITIONS` 的键）⇒ 镜像枚举值 = 两份事实源（违 CS01）⇒ 只能**下沉**。
+  - **落点为何必须是 core**：`TaskStatus` 消费方 **30+ 文件**横跨 app/service/infra/**core**（含 `core/Coordinator`、`core/spi/TaskRegistryService`）；core 只能依赖 core ⇒ `utils`(infra) 服务不了 core，**唯有 core** 能同时服务各层。
+  - **手法（4 处）**：① 新增**零依赖叶子** [core/taskStatus.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/taskStatus.ts)（枚举 + `isTerminalTaskStatus` **逐字迁移**）；② `core/taskStatus` 登记 `canonicalEntryKeys`（避免 infra 被迫走 `@modules/core` 桶而把 core 面拉进 infra）；③ `tasks/types.ts` 改为**先 import 再 export** 转出 ⇒ 其余 **28 处消费方零改动**；④ `state/task` 改直连该子路径。
+  - **过程中踩到并修掉的坑（如实）**：初版写成纯 `export { X } from '…'` —— 它**只转出、不引入本文件作用域**，而 `tasks/types.ts` 自身后续仍有 4 处引用 `TaskStatus` ⇒ `typecheck` 报 **4× TS2304**；改为"先 `import` 再 `export`"后归零。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 163 → 162**；`R03-002` = 0，白名单豁免 **733 → 735** = 新增的 2 处 `@modules/core/taskStatus` 均被识别为规范子入口）· 改动文件 `eslint` **0/0** · `bun test tests/`（**CI 口径**）**3794 pass / 9 skip / 0 fail** · `allFiles` 3990 → **3991**（+1 新文件）。
+  - **现状**：`infra` 源剩余 **10 条边**（11 − 1）。
+  - **顺带（未做，已具备条件）**：`core/Coordinator`、`core/spi/TaskRegistryService` 对 `tasks` 的 **core → app** 边，因本次下沉已**可直接改用 `core/taskStatus` 的枚举值** ⇒ 属另一批（core 组）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

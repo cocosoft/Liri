@@ -546,6 +546,11 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **验收**：`lint:arch` **0 错 / 违规 0**（豁免 **220 → 216 → 204 → 187 → 184 → 183 → 177**）· 全量 `bun test` **4250 pass / 21 skip / 0 fail**。
   - **⚠️ 更正本表 D-145 的 `infra -> app` / `infra -> service` 两行（静态取证失真）**：门禁探针实测（BULK-007/008 过期态）= utils 消除后 **`infra -> app` 45 · `infra -> service` 8**（合计 53）；media 消除后 **28**（合计 36）；memory 消除后 **25**（合计 33）；constants 第 1 步后 **24 · 8**（合计 32）；**constants 第 2 步（拆分）后 `infra -> app` 19 · `infra -> service` 7（合计 26）**。而本表静态估为 36 / 7。按源模块实测（现状，app 19）：`security` 4 · `cost` 3 · `config` 2 · `permission` 2 · `chronos` 2 · `system` 2 · `memory` 2 · `state` 1 · `monitoring` 1；（service 7）：`memory` 2 · `oauth` 2 · `system` 1 · `security` 1 · `chronos` 1。⇒ **本表"主要来源"列不可作排期依据，以台账 D-149~D-153 实测明细为准**；**下一批建议 `security`（4 处）或 `cost`（3 处）**。⚠️ 另：D-153 新增 **1 处 `R00-003` 动态跨层边**（`skills-handlers` service → `@modules/skills`，仅 warning/不计入 R00-001），修法建议＝扩 `SkillsOpsPort` 补 registry 只读口，详见台账 D-153。
 
+- **✅ 2026-10-01（D-154）security 组 5 条边全部消除** —— ① **归位**：`BashAllowlistMatcher`（安全域纯匹配器）由 `tools/` → `security/`（`tools` 桶的**零消费者**转出一并删除）；② **删死别名**：`security/scanner/secret/index.ts` 对 `plugins`(app) / `services/teamMemorySync`(service) 的 2 组 re-export**零消费者**⇒删除；③ **删死 API**：`getSandboxManager()`（3 处，全仓零消费者）⇒ 消除 `sandbox` **type** 边；④ **新建 core SPI**：`core/spi/SandboxService.ts`（`ISandboxPort` = `shouldUseSandbox`/`isSandboxingEnabled`/`updateSettings`）+ `entrypoints/spiWiring.ts` 动态注入 ⇒ 消除 `sandbox` **值**边。⇒ `security` 模块在 `R00-001` 下**归零**（grep 复核 `app/src/security/` 对 `@modules/sandbox` 引用 = 0）。
+  - **验收**：`typecheck` exit 0 · `lint:arch` **0 错 / 2 警 / 违规 0**（豁免 **177 → 174 → 173**）· 全量 `bun test` **4250 pass / 21 skip / 0 fail**。
+  - **现状（按 D-154 前的探针分布推算）**：`infra -> app` **≈15** · `infra -> service` **≈6**（合计 ≈21）；剩余大头 = `cost` 3 · `config` 2 · `permission` 2 · `chronos` 2 · `system` 2 · `memory` 2 · `state` 1 · `monitoring` 1。**下一批建议 `cost`（3 处）**。
+  - **⚠️ 未归因残差（累计 2 处）**：D-153 与 D-154 各出现 `已豁免` 比预期多减/少减 1 的反差，落在其他桶（app→ui / service→app / infra→ui / core→service），**未逐条归因** ⇒ 建议下批一并复核（边是否真消除以 grep / 探针为准，两批均已 grep 复核通过）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

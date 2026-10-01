@@ -33,7 +33,9 @@
 import { getLogger } from '@modules/monitoring';
 // C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（infra → core 合法）
 import { resolveBroadcast } from '@modules/core/spi';
-import { TaskStatus } from '../../tasks/types';
+// 2026-10-01 D-163（`R00-001` 倒挂收口）：原为 `'../../tasks/types'`（infra -> app 倒挂）
+// ⇒ 改直连已下沉的 core 叶子（`core/taskStatus`，零依赖、已入门禁规范子入口白名单）
+import { TaskStatus } from '@modules/core/taskStatus';
 import { StateMachine } from '../engine/StateMachine';
 import { StateMachineRegistry } from '../engine/StateMachineRegistry';
 import type { TransitionRecord, TransitionRules } from '../engine/types';

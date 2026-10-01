@@ -35,24 +35,16 @@ export enum TaskType {
   DAEMON_PROCESS = 'daemon_process',
 }
 
-export enum TaskStatus {
-  PENDING = 'pending',
-  RUNNING = 'running',
-  BLOCKED = 'blocked',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  KILLED = 'killed',
-  LOST = 'lost',
-}
-
-export function isTerminalTaskStatus(status: TaskStatus): boolean {
-  return (
-    status === TaskStatus.COMPLETED ||
-    status === TaskStatus.FAILED ||
-    status === TaskStatus.KILLED ||
-    status === TaskStatus.LOST
-  );
-}
+// 2026-10-01 D-163（`R00-001` 倒挂收口）：`TaskStatus` / `isTerminalTaskStatus` 原先**定义在
+// 本文件**，但其**枚举值**被 infra（`state/task/TaskStateMachine` 构造状态转移表）与 core
+// （`core/Coordinator` 等）消费 ⇒ 构成 `state`(infra) -> `tasks`(app) 等倒挂。
+// 现**下沉 `core/taskStatus.ts`**（core 是唯一能同时服务 core/infra/app 的基底），
+// 本文件**原样转出** ⇒ 既有消费方（经 `tasks/types` / `@modules/tasks` 取值者）零改动。
+// 该子路径为**零依赖叶子**且已登记门禁 `canonicalEntryKeys`（同 `core/paths`、`core/spi`）。
+// 注：须"先 import 再 export"—— 纯 `export { X } from '…'` 只转出、**不引入本文件作用域**，
+// 而本文件后续（`TaskState.status` 等 4 处）仍要引用 `TaskStatus`。
+import { TaskStatus, isTerminalTaskStatus } from '@modules/core/taskStatus';
+export { TaskStatus, isTerminalTaskStatus };
 
 export interface TaskState {
   id: string;

@@ -2127,6 +2127,13 @@ class ArchitectureLinter {
       // 拉进 HTTP 启动路径（同 spec §3.7 记录的懒加载动机）⇒ 与 `core/spi`、`tasks/goal` 同属规范子入口。
       // 命名保持 PascalCase，以复用 eslint `module-registry/no-direct-module-import` 的 PascalCase 兜底。
       'channels/ChannelCatalog',
+      // 零依赖叶子子入口（2026-10-01，台账 D-163）：`core/taskStatus` 只含 `TaskStatus`
+      // 枚举 + `isTerminalTaskStatus`（**无任何 import**），但消费方横跨 core/infra/app
+      // （`state/task/TaskStateMachine` 构造状态转移表、`core/Coordinator`、`tasks/*`）。
+      // `tasks/types` 已改为原样转出该子路径 ⇒ 若不让 infra 层按此**精确子路径**导入，
+      // 就只能走 `@modules/core` 桶（会把 core 面拉进 infra），或退回 `@modules/tasks`
+      // （即原 `state`(infra) -> `tasks`(app) 倒挂）⇒ 与 `core/paths`、`core/spi` 同属规范子入口。
+      'core/taskStatus',
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

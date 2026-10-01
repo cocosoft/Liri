@@ -194,9 +194,18 @@
 
 ### 3.3 子批 C —— `infrastructure -> app` **19**（装配本体错层）
 
-**判定前提（先取证，再动手）**：核 `infrastructure/http/handlers/**` 的直接消费者是否**仅 entry**（`LocalHTTPService` / `HttpServerSetup` / `routes/*`）：
-- 若是 ⇒ **物理归位**（handlers 移入 entry 层或 `runtime/`），同 D-80 判定；
-- 若 handlers 同时被 service 内部消费 ⇒ 手法改为**端口化**（core SPI）。
+**⚠️ 2026-10-01 D-185 取证结论：原「装配本体错层 ⇒ 归位 entry」的假设被推翻，手法更正为「端口化」**
+
+- **实测消费者（`app/src` 全量 grep）**：`infrastructure/http/handlers/**` 的直接消费者 = **同模块的 HTTP 装配本体** —— `infrastructure/http/LocalHTTPService.ts:20,27,29,31`（`analytics-handlers` · `handler-utils` · `route-table` · `routes/a2a-delegator`）· `LocalHTTPServiceHelpers.ts:12` · `handlers/routes/*`（`knowledge-routes.ts` 内 8 处动态导入同层 handler）。**不是 entry**。
+- **⇒ 原方案（物理归位 entry）会制造新倒挂**：`LocalHTTPService`（**service**）将变成依赖 **entry** ⇒ `service -> entry` 违规 ✗。D-80 的"装配本体错层"判定**不适用于此**（D-80 的对象的唯一调用方确为 entry；此处不是）。
+- **✅ 正确手法：端口化 —— 且仓库已有 4 个同型先例可直接照抄**（service 侧定义端口 → app 侧在 `runtime/api/` 注入实现）：
+  | 既有端口文件 | 其注释记录的治理对象 |
+  |---|---|
+  | `runtime/api/toolsPorts.ts` | "`infrastructure/http/handlers/` 下 **4 个文件**动态导入 app 层 `@modules/tools`" |
+  | `runtime/api/pluginAdminPorts.ts` | "`infrastructure/http/handlers/` 下 3 个文件共 **13 处**动态导入 app 层" |
+  | `runtime/api/thirdPartySkillPorts.ts` | `skills-handlers.ts` 原先直接动态导入 app 层 |
+  | `runtime/api/skillsOpsPorts.ts` | 同上（skills 域） |
+  ⇒ 本子批**沿用该模式**：为 19 条静态边各自的**app 能力**（`chat` · `tools` · `agent` · `sandbox` · `auto-reply`）新增/扩充端口，handler 侧只依赖端口。**不移动任何文件**（避免与 FSZ-* 超限例外纠缠）。
 
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动归属与 import**，**不顺手拆文件**（拆分属另一专项）。
 

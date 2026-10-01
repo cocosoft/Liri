@@ -788,6 +788,11 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **执行（用户批准 B3-1''）**：① `ui/ThemeManager.ts` **类改名 `TerminalThemeManager`**（`replace_all`）后 `git mv → system/theme/TerminalThemeManager.ts`（**实测 ui-free**：仅依赖 `ThemeLoader`/`ThemeSchema`）；② `system/theme/index.ts` 转出该类 + 类型加 `Terminal*` 前缀（`Theme as TerminalTheme` / `ThemeColors as TerminalThemeColors` / `ThemeConfig as TerminalThemeConfig`）以避免与 canonical **语义主题** `Theme` 同名冲突；③ 3 个消费点改指 canonical（`commands/builtin/theme/Theme.ts` · `docs/HelpSystem.ts` · `ui/theme/ThemeContext.tsx`，均用 `TerminalThemeManager as ThemeManager` 局部别名 ⇒ **其余代码零改动**）；④ `ui/index.ts` 停止转出。
   - **验收（与预测逐数吻合）**：`typecheck` **0**（一次通过）· `lint:arch` 违规 **0** / **`已豁免 97 → 95`（恰 −2 = `commands -> ui` −1 · `docs -> ui` −1）** · `R03-002` = **0** · 改动目录 `eslint` **0/0** · `bun test tests/commands tests/tools` = **588 pass / 0 fail** · `allFiles 3986`（均 git rename，无增删）。
   - **🎯 里程碑**：**`app -> ui` 桶 64 → 8**（子批 A 47 + B1 7 + B3 3 + 原有差额），B3 三个子项（B3-1'' · B3-2 · `core/theme.ts` 死代码）**全部落地**。
+- **⚠️ 2026-10-01（D-185）子批 C（`infrastructure -> app` 19）**取证**推翻原手法：不做"归位 entry"，改「端口化」** —— spec §3.3（已同步更正）。
+  - **实测消费者**：`infrastructure/http/handlers/**` 的直接消费者 = **同模块**的 `LocalHTTPService.ts:20,27,29,31` · `LocalHTTPServiceHelpers.ts:12` · `handlers/routes/*`（`knowledge-routes.ts` 内 8 处同层动态导入），**不是 entry**。
+  - **⇒ 原方案（搬 entry）会制造 `service -> entry` 新倒挂**（`LocalHTTPService` 是 service，将依赖 entry）⇒ **D-80 的"装配本体错层"判定不适用于此**（D-80 对象的唯一调用方确为 entry，此处不是）。**这是本 spec 第 2 处被取证推翻的预设手法（第 1 处是 B2 的"UI 归位一刀切"）。**
+  - **✅ 更正手法：端口化，且仓库已有 4 个同型先例可照抄** —— `runtime/api/toolsPorts.ts`（注释即写"为 handlers 下 4 文件动态导入 `@modules/tools`"）· `pluginAdminPorts.ts`（3 文件 13 处）· `thirdPartySkillPorts.ts` · `skillsOpsPorts.ts`。⇒ 为 19 条静态边涉及的 5 个 app 能力（`chat` · `tools` · `agent` · `sandbox` · `auto-reply`）新增/扩充端口，handler 侧只依赖端口；**不移动任何文件**（避免与 FSZ-* 超限例外纠缠）。
+
   - **⚠️ 重要的认知修正（本轮最大收获）**：**"三轨 `ThemeManager` 是重复实现"（D-177）是误判** —— `core/theme.ts` 确是死代码（已删，D-178 ✓），但 `ui/ThemeManager` 与 `system/theme` **是两个不同子系统**（**ANSI 配色 + 显示配置** vs **语义主题**），**仅历史同名**。⇒ 正确处置是 **共址 + 改名**（本轮做法），**而非融合**（融合需臆造"语义→ANSI"映射并混合两套状态，见 D-183）。**教训：判定"重复实现"前必须比对 `file:line` 级的**字段与用途**，而非"类名 + 方法名相似"**。
 
 ---

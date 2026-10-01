@@ -67,10 +67,17 @@ export interface ToolResult<T = unknown> extends CoreToolResult<T> {
    * ⇒ **远超 B2-a 的"3 文件"** —— 那 3 个是「已接线 `outputSchema` 的 **23** 个工具」内的迁移面，
    * 与本口径（**全仓**）不同，**不可互相引用**。
    *
-   * **故暂不删除**（此字段仍被 31 个文件读写）：迁移须**按模块分批**（每批 8–10 处，逐批
+   * **故暂不删除**（此字段仍被多个文件读写）：迁移须**按模块分批**（每批 8–10 处，逐批
    * `typecheck` + **全量** `bun test`，并逐站点判"载荷语义"），见 spec
    * `architecture-benchmark-20260928.md` §2.2.1 的 **B2-c**。删除前的复现命令：
-   * `cd app; bunx tsc --noEmit | Select-String 'error TS'`（**批次 3 后**：写入 **31** + 兼容读 4 + 测试断言 2 ≈ **37**）。
+   * `cd app; bunx tsc --noEmit | Select-String 'error TS'`。
+   *
+   * **进度（探针计数）**：批次 1–5 后 **37 → 23**；**批次 6 后 → 17**
+   * （写入 51 → **10**：`modules/calendar/tools/CalendarToolWrap.ts`×4 ·
+   * `tools/SkillTool/*`×5 · `modules/mail/tools/MailSendTool.ts`×1；
+   * 兼容读 5：`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` ·
+   * `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts`；
+   * 测试断言 2）。**剩余目标**：批次 7 清写入 10 处 → 读取侧收口 → 删字段。
    * ⚠️ **探针盲区（B2-c 批次 3 实证）**：`tsc` 只对**有上下文标注**的对象字面量报「多余属性」；
    * 位于 `return (async () => {…})()` 等**推断型返回值**中的字面量**不会**被标出
    * （`KnowledgeSaveTool` 的成功分支即如此，**靠测试才发现**）⇒ 每批必须配

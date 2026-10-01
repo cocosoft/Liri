@@ -132,7 +132,7 @@ export class DefaultToolExecutor implements IToolExecutor {
     if (sessionId && sessionToolQuota.isExceeded(sessionId)) {
       const used = sessionToolQuota.current(sessionId);
       return {
-        result: undefined,
+        data: undefined,
         content: `本会话工具调用配额已耗尽（已用 ${used} 次）。请停止继续调用工具，基于已有结果直接给出最终答复。`,
         error: `session tool quota exceeded (${used}/${sessionToolQuota.max})`,
         success: false,
@@ -157,7 +157,7 @@ export class DefaultToolExecutor implements IToolExecutor {
       return await this.executeWithTimeout(tool, toolCall.input, context);
     } catch (error) {
       return {
-        result: undefined,
+        data: undefined,
         content: error instanceof Error ? error.message : String(error),
         error: error instanceof Error ? error.message : String(error),
         success: false,
@@ -223,7 +223,7 @@ export class DefaultToolExecutor implements IToolExecutor {
             .then(resolve)
             .catch((e) =>
               resolve({
-                result: undefined,
+                data: undefined,
                 content: e instanceof Error ? e.message : String(e),
                 error: e instanceof Error ? e.message : String(e),
                 success: false,
@@ -231,7 +231,7 @@ export class DefaultToolExecutor implements IToolExecutor {
             );
         } else {
           resolve({
-            result: undefined,
+            data: undefined,
             content: `工具执行超时: ${this.timeout}ms`,
             error: `工具执行超时: ${this.timeout}ms`,
             success: false,
@@ -252,7 +252,7 @@ export class DefaultToolExecutor implements IToolExecutor {
               .then(resolve)
               .catch((e) =>
                 resolve({
-                  result: undefined,
+                  data: undefined,
                   content: e instanceof Error ? e.message : String(e),
                   error: e instanceof Error ? e.message : String(e),
                   success: false,
@@ -260,7 +260,7 @@ export class DefaultToolExecutor implements IToolExecutor {
               );
           } else {
             resolve({
-              result: undefined,
+              data: undefined,
               content: error instanceof Error ? error.message : String(error),
               error: error instanceof Error ? error.message : String(error),
               success: false,

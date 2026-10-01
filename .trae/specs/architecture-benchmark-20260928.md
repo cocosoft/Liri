@@ -250,7 +250,14 @@
     - **grep 复核**：`media/tools` 全域（**含简写形式**）**零命中** ✓
     - **客观进度**：探针 **30 → 23**，写入点 **24 → 17**（**恰好 −7**）；`media` 残留清零。
     - **验收**：`typecheck` **exit 0** · `eslint` **0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件）。
-  - **剩余（批次 6 起）**：写入点 **17 处**（探针口径）—— 含 `ai/interfaces/ToolExecutor.ts`×6 · `SkillTool/*`×5 · `modules/calendar/tools/*`×4 · `modules/mail/tools/*`×1 等；另有**兼容读 4 处** + **测试断言 2 处**，待写入侧清零后统一收口 → 再删字段。
+  - **批次 6 ✅ 已完成（2026-09-30）**：迁移 **`ai/interfaces/ToolExecutor.ts`×6** —— **全部为配额 / 超时 / 异常分支的「显式无载荷」**（`result: undefined,` → `data: undefined,`），行号 `135 / 160 / 226 / 234 / 255 / 263`（含 8 / 12 / 16 空格三种缩进 + `catch` 块变体）。
+    - **本批特性**：这批是**语义最单纯**的一批 —— 6 处均为「此处无结构化载荷」的显式声明，迁移为 `data` **零语义歧义**（不涉及 `payload` vs `result` 的取舍判断）。
+    - **grep 复核**：`ai/interfaces/ToolExecutor.ts` 全域 `^\s+(result|data)[,:]` ⇒ **6 处全为 `data:`，零 `result:` 残留** ✓
+    - **客观进度**：探针 **23 → 17**（**恰好 −6**，与本批迁移数一致）✓
+    - **验收**：`typecheck` **exit 0**（三遍绿）· `eslint`（`ToolExecutor.ts` + `ToolResult.ts`）**exit 0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件，94.26s）。
+  - **剩余（批次 7 起）**：探针 **17 处** = **写入 10**（`modules/calendar/tools/CalendarToolWrap.ts`×4 · `tools/SkillTool/SkillTool.ts`×3 · `tools/SkillTool/SkillViewTool.ts`×2 · `modules/mail/tools/MailSendTool.ts`×1）+ **兼容读 5**（`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` · `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts`）+ **测试断言 2**（`tests/skills/skillInjectionFix.test.ts` · `tests/tools/AgentTool/swarmDescriptorResolution.test.ts`）。
+    - **口径说明**：旧表的"写入 17 处"含 `ToolExecutor.ts` 的 6 处写入 **+ 1 处读取点**（同文件），故本批"写入 17→10"（−7）大于探针"23→17"（−6）—— **两者不矛盾**，探针给出的是**读+写总数**。
+    - **清零顺序**：批次 7 清写入 10 处（SkillTool 家族 5 → calendar 4 → mail 1，含连带测试 1）→ **读取侧收口**（5 处 + 测试 1）→ 删 `result?: T` 字段。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

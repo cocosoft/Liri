@@ -34,7 +34,6 @@ import { goalMetricsService } from './db/GoalMetricsService.js';
 import type { Plan, PlanProgress } from './TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
 import { scheduleTopoBatches } from './topoBatches.js';
-import { selectPattern } from '@modules/core';
 
 const logger = getLogger('tasks:planDrivenLoop');
 
@@ -329,15 +328,10 @@ export class PlanDrivenLoop {
               sessionId: this.sessionId,
               stepCount: decomposition.subTasks.length,
             });
-            // Teamwork P2a（2026-09-06）：selector 记录所套编排模式（描述层，不改执行语义）
-            const patternSel = selectPattern({ complexity: 'complex' });
-            if (patternSel) {
-              logger.info('pattern.selected', {
-                pattern: patternSel.name,
-                sessionId: this.sessionId,
-                stepCount: decomposition.subTasks.length,
-              });
-            }
+            // A1（2026-10-01）：原此处调用 selectPattern 记录所套模式——该决策对本层无任何
+            // 执行后果（PDL 只能分解/直执行，无法承接 competitive_strategy），且输入是硬编码
+            // 字面量 ⇒ 必然退化为日志。决策权已归位到分流层（ChatManager._maybeLaunchPdca，
+            // 见 .trae/specs/pattern-executable-assembly.md §3.3），本层不再重复选择。
             return this._executeDecomposed(userMessage, decomposition);
           }
           span.addEvent('planDrivenLoop.decompose.singleTask');

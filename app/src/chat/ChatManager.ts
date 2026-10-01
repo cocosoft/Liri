@@ -90,7 +90,7 @@ import {
   startRequest,
   type RequestEventAppender,
 } from './services/requestBoundary';
-import { feature as coreFeature } from '@modules/core';
+import { feature as coreFeature, selectPattern } from '@modules/core';
 import {
   configureCodeRunner,
   getSubAgentEngine,
@@ -4642,9 +4642,22 @@ export class ChatManagerImpl implements ChatManager {
     // P0-3（2026-09-06，Teamwork）：研究模式分流——研究型意图 && COMPETITIVE_STRATEGY
     // feature 开启时优先走候选生成 + 对抗评审编排（launchResearch），不占用 PDCA 阶段链；
     // 与 Code Mode 互斥（研究任务由编排直接回复，不进 code_run 沙箱）。成本门控：feature 默认关。
+    //
+    // A1（2026-10-01，`.trae/specs/pattern-executable-assembly.md` §3.3）：模式规则收敛到
+    // `selectPattern`（单一事实源）——本层不再重述「研究 → competitive_strategy」，只
+    // ① 用任务特征构造 spec ② 读装配入口标识决定去向。决策权此前分散在 PDL（无法行动，
+    // 返回值只进日志）与本处（绕过 selector）两处，现归位到本层（唯一能 launchResearch 的层）。
+    //
+    // 注（如实）：此处 `complexity` 固定为 complex —— 本分流点的**唯一**判据历来是"消息意图"
+    // （P0-3 起即无复杂度门），固定值用于维持该语义逐字不变；复杂度维度属 PDL 快速路径门
+    // （`_shouldUsePlanDrivenLoop`），与本决策正交（见 spec §6.5 记录）。
+    const researchPattern = selectPattern({
+      complexity: 'complex',
+      research: hasResearchIntent(lastUserContent || ''),
+    });
     const researchMode =
       coreFeature('COMPETITIVE_STRATEGY') &&
-      hasResearchIntent(lastUserContent || '');
+      researchPattern?.descriptor.assembly.assembler === 'competitive_strategy';
     if (researchMode) {
       logger.info('研究模式分流（P0-3）', {
         sessionId: session.id,

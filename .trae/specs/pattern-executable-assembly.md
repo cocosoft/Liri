@@ -1,6 +1,6 @@
 # Spec：编排模式层「可执行装配」与决策权归位（A8 → A1）
 
-> 版本 1.0 ｜ 创建 2026-10-01 ｜ 状态：**待批准**
+> 版本 1.0 ｜ 创建 2026-10-01 ｜ 状态：**已实施（2026-10-01，见 §6.5）**
 > 来源：`pending-tasks-consolidated-20261001.md` §1 ① **T-①01（A8）** / **T-①02（A1）**（原始出处为会话导出 `chat-export-1790838377052.md` L4732/L4785/L4883/L4890）
 > 前置：无（A8 被定为 A1 的前置；本 spec 按 A8 → A1 两个提交推进）
 > 关联规则：GR15（Spec-Driven）/ **CS01（归一化）** / CS02（状态不靠字符串）/ CS03（回退最小化）/ **CS05（根因优先）** / §1.3（无向后兼容包袱）/ §1.6（模型可见 ⇔ 已落盘）
@@ -208,6 +208,42 @@ const researchMode =
 | 零回归 | 后端全量 `bun test` **0 fail**（基线以实施当日实测为准，实施记录回填） |
 | 突变验证 | ① 把某 pattern 的 `bindings` 去掉一条 ⇒ `validatePatterns()` 用例必 red；② 把 selector 规则的 `assembler` 改成别的值 ⇒ G4 用例必 red |
 | 未做（明确） | 编排运行时装配（N1 → T-①04）、selector 判定规则变更（N2）、PDL 分解语义（N3）、`new CompetitiveStrategyOrchestrator` 装配点收敛（N6 → T-①03） |
+
+---
+
+## 6.5 实施结果（2026-10-01）
+
+| 项 | 结果 |
+|---|---|
+| G1 装配描述结构化 | ✅ [types.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/patterns/types.ts#L22-L89)：新增 `PatternAssemblerId` / `PatternProvider`（均闭集）/ `PatternRoleBinding` / `PatternAssembly`；`PatternDescriptor.composedOf: string` **已删除**（全仓 0 命中，spec 文档除外） |
+| G2 选择结果携带描述 | ✅ [PatternSelector.ts#L28-L38](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/patterns/PatternSelector.ts#L28-L38)：`PatternSelection` 增加 `descriptor`；辅助函数 `selectionOf()` 依赖**编译期全覆盖**取值，无 `undefined` 分支 |
+| G2 注册表自检 | ✅ [PatternSelector.ts#L63-L105](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/patterns/PatternSelector.ts#L63-L105)：`validatePatterns()` 校验 键↔描述一致 / roles↔bindings 双向一一对应 / 无重复角色 / providers 非空 / assembler 双向一一对应 |
+| G3 PDL 空转移除 | ✅ [PlanDrivenLoop.ts#L331-L335](file:///e:/PY/Documents/CODES/PY_APP/app/src/tasks/PlanDrivenLoop.ts#L331-L335)：删除 `selectPattern({complexity:'complex'})` 调用块及其 import（−8 行）；`return this._executeDecomposed(...)` 位置与执行路径**逐字未变** |
+| G4 分流层消费 selector | ✅ [ChatManager.ts#L4642-L4660](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ChatManager.ts#L4642-L4660)：`researchMode = coreFeature('COMPETITIVE_STRATEGY') && researchPattern?.descriptor.assembly.assembler === 'competitive_strategy'`；规则重述已从 ChatManager 移除 |
+
+**验证实测**
+
+| 项 | 结果 |
+|---|---|
+| `bun run typecheck` | **0**（`tsc --noEmit` ×3 配置全通过） |
+| 改动文件 `eslint` | **0 error / 0 warning** |
+| `bun run lint:arch` | **0 错 / 2 警**（与改动前基线一致：R07-004 `REF` 工作区卫生 + R00-003 动态导入仅上报；未新增违规） |
+| 全量 `bun test` | **4255 pass / 21 skip / 0 fail**（4276 tests / 447 文件；较基线 4250 净 +5 = 本项新增用例） |
+| 定向 `tests/core/patterns/` | **10 pass / 0 fail** |
+| G3 实测 grep | `selectPattern` 在 `PlanDrivenLoop.ts` **代码调用 0 处**（仅 1 处在注释中作历史说明）；`complexity: 'complex'` **0 命中** |
+| 突变验证 ×2 | ① 删 `iterative_refine` 的 `reviewer` binding ⇒ **2 例 red**；② 把 `competitive_strategy` 的 `assembler` 改为 `self_verify` ⇒ **3 例 red**（含 G4 所依赖的规则侧用例）。还原后全绿 |
+
+**与 spec 的偏离（如实，含理由）**
+
+1. **未新增独立测试文件**：装配契约用例并入既有 [PatternSelector.test.ts](file:///e:/PY/Documents/CODES/PY_APP/app/tests/core/patterns/PatternSelector.test.ts#L62-L87)（该文件本就同址覆盖 `PatternRegistry`）⇒ 避免为 4 条断言新建文件。
+2. **未实现 `resolvePattern()`**：注册表改为 `Record<PatternName, PatternDescriptor>` 后，闭集内取值**编译期必然存在**，`resolvePattern` 退化为零消费者的死 API（§1.3 简洁优先）⇒ 放弃，改由 `selectionOf()` 内部复用。§3.1 该条目作废。
+3. **未新增 ChatManager 级测试**：该研究分流路径**历来零测试基座**（`app/tests` 内 `launchResearch` / `COMPETITIVE_STRATEGY` / `researchMode` 全仓 0 命中），且 `_maybeLaunchPdca` 为私有方法 + 重依赖宿主 ⇒ 本轮未凭空搭建该基座。G4 的覆盖落在**规则侧**（`PatternRegistry` 的 assembler 值 + 突变验证 ②），接线侧以实测 grep + 全量回归为准。**如实标注为覆盖缺口**。
+4. **`complexity` 在该分流点取固定值 `'complex'`**（非缺陷掩盖，而是**语义保持**）：P0-3 起该分流点的唯一判据是"消息意图"，**历来没有复杂度门**；若改为 `classifyTaskComplexity(...)` 派生，会令 ≤60 字符的研究型消息（如"帮我研究下选型"）不再进入研究模式 —— 属**降级**。复杂度维度属 PDL 快速路径门（`_shouldUsePlanDrivenLoop`），与本决策正交。代码注释已就地说明。
+5. **`PatternAssemblerId` 与 `PatternName` 当前取值同域**：二者语义不同（模式名 vs 装配入口），`validatePatterns()` 强制双向一一对应以防注册表手写漂移；未来若多模式复用同一装配机制，只需放宽该校验。
+
+**连带发现（预存，未修，另行记录）**
+
+- `core/index.ts` 仅导出 `selectPattern` 一个符号，`PatternDescriptor` / `PatternSelection` 等类型未从 barrel 出（现由参数类型推断即可满足消费方）；若后续需要跨层显式引用类型，需补出口。
 
 ---
 

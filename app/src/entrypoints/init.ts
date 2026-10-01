@@ -916,8 +916,9 @@ async function startDeferredPrefetches(): Promise<void> {
       // 初始化技能生命周期（辅助组件 DB 持久化 + 事件订阅）
       (async () => {
         try {
-          const { skillRegistry } =
-            await import('../constants/systemPromptSections.js');
+          const { skillRegistry } = await import('../skills/index.js');
+          const { registerPromptSections } = await import('@modules/context');
+          registerPromptSections();
           const { getSkillDB, initializeSkillLifecycle } =
             await import('../skills/persistence/index.js');
           const skillDB = getSkillDB();
@@ -938,10 +939,10 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           const { ClawHubAdapter } =
             await import('../skills/loaders/adapter/clawhub/ClawHubAdapter.js');
-          const { thirdPartyAdapterRegistry, getSkillHub } =
+          const { thirdPartyAdapterRegistry, getSkillHub, skillRegistry } =
             await import('../skills/index.js');
-          const { skillRegistry } =
-            await import('../constants/systemPromptSections.js');
+          const { registerPromptSections } = await import('@modules/context');
+          registerPromptSections();
           const adapter = ClawHubAdapter.getInstance();
           await adapter.initialize();
           // 注入 SkillRegistry 引用，使安装/卸载操作同步通知 Registry

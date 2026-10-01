@@ -127,3 +127,6 @@ export {
   hydrateOnStartup,
   serializeOnShutdownSync,
 } from './persistence/ContextPersistenceLifecycle.js';
+
+// 2026-10-01 分层拆分：内置提示词段落注册入口（app 侧注入 infra 框架）
+export { registerPromptSections } from './promptSections/index.js';

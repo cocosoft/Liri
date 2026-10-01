@@ -99,3 +99,6 @@ export type {
 
 // 持久化层
 export { SkillDB, getSkillDB } from './persistence/index.js';
+
+// 全局单例（惰性 Proxy：SkillRegistry / SkillInjectionService）
+export { skillRegistry, skillInjectionService } from './skillSingletons.js';

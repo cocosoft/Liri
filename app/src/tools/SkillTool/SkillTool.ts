@@ -102,15 +102,14 @@ export class SkillTool implements Tool {
   }
 
   /**
-   * 2026-08-06：从真实 SkillRegistry（systemPromptSections 单例）同步技能，
+   * 2026-08-06：从真实 SkillRegistry（skillSingletons 单例）同步技能，
    * 使 LLM 可通过 Skill 工具调用注册表内技能（含 skillify/update-config 等 bundled 技能）。
    * 幂等：每次执行时同步，仅注册缺失技能（用户新建技能写盘后重载 registry 即可感知）。
    * prompt 型技能绑定 promptProvider，执行时取 impl.getPromptForCommand 真实内容。
    */
   private async ensureSyncedFromRegistry(): Promise<void> {
     try {
-      const { skillRegistry } =
-        await import('@modules/constants/systemPromptSections');
+      const { skillRegistry } = await import('@modules/skills');
       for (const skill of skillRegistry.getAll({ includeDisabled: true })) {
         if (this.skills.has(skill.name)) continue;
         const enabled = !(skill.isEnabled && skill.isEnabled() === false);

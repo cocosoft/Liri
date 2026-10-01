@@ -267,7 +267,7 @@ export async function handleListSystemSkills(
     // 归一化：按 skill.source 映射真实来源（builtin/official/third_party），不再硬编码 builtin
     try {
       const { skillRegistry: builtinRegistry } =
-        await import('@modules/constants/systemPromptSections');
+        await import('@modules/skills');
       for (const skill of builtinRegistry.getAll({ includeDisabled: true })) {
         if (seen.has(skill.name)) continue;
         seen.add(skill.name);
@@ -403,7 +403,7 @@ export async function handleSystemSkillContent(
       // 回退读取 registry 中 BUILTIN 源技能的 prompt 内容
       try {
         const { skillRegistry: builtinRegistry } =
-          await import('@modules/constants/systemPromptSections');
+          await import('@modules/skills');
         const bundled = builtinRegistry.get(decodedId);
         if (bundled?.impl?.kind === 'prompt') {
           const prompts = await bundled.impl.getPromptForCommand('', {});

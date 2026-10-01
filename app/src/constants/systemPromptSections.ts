@@ -1,94 +1,17 @@
 /**
- * 系统提示词段落常量
- * 提供系统提示词段落的创建、解析和缓存管理
+ * 系统提示词段落框架（infra）
+ * 提供系统提示词段落的创建、解析和缓存管理。
+ *
+ * 2026-10-01 分层拆分（spec: `.trae/specs/prompt-sections-layer-split.md`）：
+ * 本文件**只保留框架**（类型 / 工厂 / 缓存 / 注册槽），不含任何 app / service 依赖。
+ * - 内置段落定义 → `context/promptSections/builtinSections.ts`（app）
+ * - 缓存清理回调 + 注册入口 → `context/promptSections/index.ts`（app）
  */
 
-import {
-  buildSoulSection,
-  clearSoulCache,
-} from '@modules/services/soul/SoulReader';
-import {
-  buildUserSection,
-  clearUserCache,
-} from '@modules/services/soul/UserReader';
-import {
-  readAgentsMd,
-  readToolsMd,
-  clearWorkspaceCache,
-} from '@modules/services/workspace';
-import {
-  getMemoryQueryProvider,
-  getCurrentSessionContext,
-} from '@modules/services/prompt/MemoryPromptProvider';
 import { getFrozenSnapshotService } from '@modules/memory';
-import {
-  getKnowledgeQueryProvider,
-  getCurrentKnowledgeQuery,
-} from '@modules/services/prompt/KnowledgePromptProvider';
-import { generateDigestContext } from '@modules/knowledge/KnowledgeDigestInjector';
-import { truncateMemoryContent } from '@modules/memory';
-import { getGitInfo } from '@modules/context';
-import { readProjectFiles } from '@modules/context';
-import { basename, join } from 'path';
-import { resolveProjectRoot } from '@modules/core';
-import { resolveDataDir, resolveKnowledgeDir } from '@modules/core/paths';
-import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
-import { createProjectStore } from '../workspace/ProjectStore.js';
-import { WorkItemStore } from '../workspace/WorkItemStore.js';
-import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
-import { SkillRegistry } from '@modules/skills/SkillRegistry';
-import { BUILTIN_EXAMPLES, renderFewShotPrompt } from '@modules/tools';
-import {
-  getPunctuationHint,
-  resolveLanguage,
-} from '@modules/system/i18n/languageProfiles';
+import { getLogger } from '@modules/monitoring';
 
-// 技能注册表/注入服务单例 —— 惰性 Proxy（2026-08-30，T7 单测 TDZ 根因修复）：
-// 原 `new SkillRegistry()` / `new SkillInjectionService()` 在模块顶层立即执行，
-// bun test worker 的依赖图加载序（skills → … → systemPromptSections → skills）
-// 触发 `Cannot access 'SkillRegistry' before initialization`（生产 main.ts 启动序正常，
-// 仅 bun test 加载序触发）。对齐 aiService.ts 惰性 Proxy 模式：首次访问成员才实例化，
-// 消费方用法不变。实测 loopGuard/aiService 同模式已验证可用。
-let _skillRegistry: SkillRegistry | undefined;
-export const skillRegistry = new Proxy({} as SkillRegistry, {
-  get(_target, prop: keyof SkillRegistry, receiver) {
-    _skillRegistry ??= new SkillRegistry();
-    const value = Reflect.get(_skillRegistry, prop, _skillRegistry);
-    return typeof value === 'function' ? value.bind(_skillRegistry) : value;
-  },
-});
-
-let _skillInjectionService: SkillInjectionService | undefined;
-export const skillInjectionService = new Proxy({} as SkillInjectionService, {
-  get(_target, prop: keyof SkillInjectionService, receiver) {
-    _skillInjectionService ??= new SkillInjectionService(skillRegistry);
-    const value = Reflect.get(
-      _skillInjectionService,
-      prop,
-      _skillInjectionService
-    );
-    return typeof value === 'function'
-      ? value.bind(_skillInjectionService)
-      : value;
-  },
-});
-
-// P1-2: 模块级单例，避免每次组装 prompt 都 new ProjectStore/WorkItemStore
-// （与 WriteProjectFileTool 的 P4-1 单例模式一致；若 dataDir 运行时变化需重新初始化）
-let _promptWorkItemStore: WorkItemStore | null = null;
-let _promptProjectStore: ReturnType<typeof createProjectStore> | null = null;
-function getPromptProjectStore() {
-  if (!_promptWorkItemStore || !_promptProjectStore) {
-    const dataDir = resolveDataDir();
-    _promptWorkItemStore = new WorkItemStore(dataDir);
-    _promptProjectStore = createProjectStore(dataDir, _promptWorkItemStore);
-  }
-  return _promptProjectStore;
-}
-
-// 2026-09-30（台账 D-126，`R00-003` P6-b/G6-a）：`initBuiltinSkills` / `reloadUserSkills`
-// 已**迁入 `skills/BuiltinSkillBootstrap.ts`**。原址在 `constants`（infra）却动态导入 `skills`（app），
-// 构成跨层引用（`R00-003` 盲区）；迁移后 app 层内自洽，调用方经 entry 直连或服务层端口取用。
+const logger = getLogger('constants:systemPromptSections');
 
 /**
  * 构建上下文隔离的记忆块
@@ -121,7 +44,7 @@ export type SystemPromptSection<N extends string = string> = {
  * 段落缓存
  * 在/clear或/compact时清除
  */
-const sectionCache = new Map<string, string | null>();
+export const sectionCache = new Map<string, string | null>();
 
 /**
  * 已注册的段落列表
@@ -156,7 +79,7 @@ export function DANGEROUS_uncachedSystemPromptSection<N extends string>(
 }
 
 /** Phase 2: 简单字符串 hash（djb2，用于内容缓存保护） */
-function hashString(s: string): string {
+export function hashString(s: string): string {
   let hash = 5381;
   for (let i = 0; i < s.length; i++) {
     hash = ((hash << 5) + hash + s.charCodeAt(i)) | 0;
@@ -167,616 +90,48 @@ function hashString(s: string): string {
 /** Phase 2: 记忆内容 hash 缓存（保护 LLM 提示缓存） */
 let memoryContentHash = '';
 
-/** 默认注册的所有段落 */
-// 注意：**不要**加 `: SystemPromptSection[]` 标注 —— 那会把各段 name 拓宽为 string，
-// 使 `StaticPromptSectionName` 推导失效（下方 §穷尽登记门禁 依赖字面量保留）。
-const DEFAULT_SECTIONS = [
-  systemPromptSection('identity', () => {
-    return `## 身份
-
-你是 Liri（OpenLiri），中文名：玲珑鸟，一个开源的 AI 智能体平台。
-
-**关于你自己**：
-- 你由cocosoft从零开发，源代码位于当前工作目录
-- 基于 TypeScript + Rust 构建，运行于 Bun 运行时
-- 具备动态启用的内置工具集（数量随启动变体与运行时注册而定，不写死）、TAOR 智能体循环引擎、梦境自我进化系统、5 层安全防护、多模型多通道架构
-- 你的身份是 Liri，一个智能编程助手
-- 当被要求自我介绍时，介绍你是 Liri，一个 AI 智能体平台`;
-  }),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'projectRules',
-    () => {
-      const cwd = resolveProjectRoot();
-      const agentsContent = readAgentsMd(cwd);
-      if (!agentsContent) return null;
-      return `## 项目规则\n\n${agentsContent}`;
-    },
-    'AGENTS.md is a workspace file that may change independently of the conversation'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'toolsConvention',
-    () => {
-      const cwd = resolveProjectRoot();
-      const toolsContent = readToolsMd(cwd);
-      if (!toolsContent) return null;
-      return `## 工具约定\n\n${toolsContent}`;
-    },
-    'TOOLS.md is a workspace file that may change independently of the conversation'
-  ),
-
-  systemPromptSection('toolUse', () => {
-    return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n修改文件时：\n- 使用可用工具先读取文件再编辑\n- 做精准、最小化的修改\n- 除非明确要求，否则不添加注释\n\n执行命令时：\n- 先说明你要做什么\n- 必要时等待用户确认\n- 清晰地报告结果\n\n## 输出规范\n\n推理、探索、工具使用的过程叙述（如"让我先查看…""我定位到…""继续读文件…""命令被拦截，改用…"等）只允许放在思考通道（thinking）或 <think>...</think> 标签内，正文只输出对用户问题的最终回答。禁止把工具执行过程叙述混入正文。`;
-  }),
-
-  systemPromptSection('toolIntegrity', () => {
-    return `## 工具结果完整性铁律
-
-**工具是你与现实世界之间的唯一桥梁。桥断了（返回空），你不能画一座假桥。**
-
-### 规则 1：空结果禁止编造
-- 文件读取工具返回空 → 报告"文件不存在或为空：[路径]"，**禁止编造文件内容**
-- 文件搜索工具返回空 → 报告"未找到匹配 [pattern] 的文件"，**禁止虚构文件列表**
-- 内容搜索工具返回空 → 报告"未搜索到 [关键词]"，**禁止编造匹配行**
-- 目录列表返回空 → 报告"目录为空或不存在：[路径]"，**禁止虚构目录结构**
-
-### 规则 2：错误必须停止
-- 工具返回错误（权限拒绝、非预期错误码等）→ 停止当前分析链路
-- 向用户报告具体错误，提出替代方案
-- 禁止忽略错误继续执行，禁止用"可能"、"假设"开头的推测替代错误报告
-
-### 规则 3：路径解析最多 2 次重试
-- 文件路径解析失败时，最多重试 2 次
-- 第 1 次：用已知的正确路径重试
-- 第 2 次：检查是否有路径映射错误
-- 2 次都失败 → 停止猜测，向用户确认正确路径
-- **禁止**连续尝试 4+ 个不同路径（这是路径赌博，不是路径解析）
-
-### 规则 4：证据驱动分析
-- 下结论前必须用工具验证
-- 每个结论标注来源（文件路径 + 行号）
-- "没找到" ≠ "不存在"：搜索确认后才能下结论
-- 分析输出中的每一句话，都必须来自工具返回的真实数据，不能来自推测
-- **涉及先后顺序/并发覆盖/窗口期的结论，禁止仅凭静态代码阅读断言时序**：必须用实际执行证据（日志时间戳、运行观测、工具实际调用顺序）验证后再下结论。凭静态推理夸大"理论竞态"为严重 bug，本身就是结论失实。
-
-### 规则 5：工具失败不能静默终止
-- 任何工具返回错误或空结果时，**禁止直接结束对话**
-- 必须向用户明确报告：哪个工具、什么错误、用户可以做什么
-- 长程任务中单个工具失败 ≠ 整个任务失败。应询问用户是否跳过该步骤继续
-- 系统会在你无工具调用时自动检查上一轮是否有工具错误。如果你收到"[系统提示] 上一轮工具调用返回了错误或空结果"，请先回复该提示，不要忽略它
-
-### 自查问句
-在你输出分析结论之前，问自己：
-1. 这个结论有工具返回的真实数据支撑吗？
-2. 有没有任何一句话是我编造的？
-3. 如果某个工具返回了空，我有没有如实报告？`;
-  }),
-
-  systemPromptSection('shellDeclaration', () => {
-    return `## Shell 文件操作声明\n\n在执行 Shell/PowerShell 命令之前，如果该命令会创建、修改或删除文件，请先在回复中用以下格式声明：\n\n\`\`\`declaration\n[FILE_OPERATION] <create|modify|delete> <文件路径>\n\`\`\`\n\n示例：\n\`\`\`declaration\n[FILE_OPERATION] create src/utils.ts\n[FILE_OPERATION] modify package.json\n\`\`\`\n\n此声明仅用于追踪文件变更，不影响命令执行。`;
-  }),
-
-  systemPromptSection('taskNegotiation', () => {
-    return `## 复杂任务处理
-
-当你接到一个复杂任务时，不要一次性输出完整方案，而是按照以下规则与用户协商。
-
-### 判断是否需要协商
-以下情况属于"复杂任务"，需要与用户协商后再执行：
-- 任务方向存在多种可能性，需要用户决策
-- 任务的最终交付物不确定，需要用户确认
-
-以下情况可以直接执行，不需要协商：
-- 单步操作（如"读取这个文件"）
-- 明确的指令（如"搜索 Python 异步编程"）
-- 用户已经说清楚要做什么，无歧义
-
-### 协商规则
-- 最多与用户协商 2 轮
-- 第 1 轮：提出初步分解方案，一次性列出所有维度，说明依赖关系
-- 第 2 轮：根据反馈调整，再次确认
-- 2 轮后无论用户是否满意，按当前方案执行
-- 用户也可以直接说"开始吧"或"别问了，直接开始"提前结束协商
-- 使用 ask_user_question 工具询问用户意见
-- 默认一次性问完所有问题，不要逐项问（如不要问"要不要加A？"、"要不要加B？"）。但若用户明确要求逐个提问，则遵从用户要求
-
-### 任务计划（必须 todo_write）
-任何任务如果满足以下任一条件，**必须立刻调用 todo_write action=write 写入子任务列表，作为执行的第一步**：
-- 可以分解为 2 个以上子步骤
-- 需要调用多个工具或访问多个模块/文件
-- 子步骤之间存在依赖关系（A 完成后才能做 B）
-
-即使任务很明确不需要协商，只要满足上述条件，也必须先用 todo_write 列出计划。
-用户的进度可见性完全依赖 todo list，所以**必须每完成一个子步骤立即调用 todo_write update 更新状态**。
-
-在 todo_write 的 metadata 中注明 dependsOn 依赖关系（格式：{"taskId": 3, "dependsOn": [1, 2]}）。
-按依赖关系顺序执行：无依赖的先执行，有依赖的后执行。
-
-### 重型任务进度报告
-重型任务（3 次以上工具调用，如批量读取多个文件）需要额外关注进度透明度：
-- **必须**先 todo_write 列出子任务，让用户知道总体规模（"共 10 个文件需要读取"）
-- 每完成一个子步骤，**必须**立即 todo_write update 更新对应任务状态（如 "读取 Logger.ts" → completed）
-- 同时 inline 回复中不带进度信息（已由 todo block 显示），保持回复简洁
-  - 如果连续执行 3 次以上工具调用且未产生用户可见输出,必须主动报进度。超过 30 秒无用户可见输出则必须主动说明当前状态。
-
-### 异常处理
-- 子任务失败时，**必须**立即告知用户失败原因，不得静默跳过
-- **工具返回错误或空结果时，禁止直接结束对话**。必须向用户报告：
-  - 哪个工具失败了
-  - 失败的具体原因（错误信息或空结果）
-  - 用户可以采取什么行动（如：确认文件路径、提供更多信息、换一种方式）
-- 评估失败对后续任务的影响（检查 dependsOn 关系）
-- 使用 ask_user_question 询问用户如何处理（重试 / 跳过 / 改方案）
-- **核心原则**：遇到问题时，用户应该感受到的是一个求助的助手，而不是一个沉默放弃的机器人
-
-### 完成总结
-- 全部完成后，生成一段自然语言总结（关键结果 + 输出文件路径），追加到会话中
-
-### 项目创建（工具优先）
-当用户表达明确的"创建项目/管理任务/追踪进度"意图时：
-- 有 create_project 工具可用时：**直接调用工具创建项目**，不要只建议用户手动操作
-- 仅当没有工具可用时：引导用户在左侧点击"+"创建（每个会话最多建议一次）
-
-示例：用户说"帮我建一个XX项目" → 直接调用 create_project 工具，参数 name="XX"。`;
-  }),
-
-  systemPromptSection('pdcaThinking', () => {
-    return `## 内部思维框架（不对外提及）
-
-回复用户时，在内部遵循以下思维过程，但**绝对不要在输出中提及这些术语**：
-
-- **明确目标**：用户到底想达成什么？如果目标不明确，先通过提问澄清。
-- **产出结果**：基于目标给出完整的、可直接使用的产出（代码/方案/分析）。
-- **自查质量**：产出后对照目标检查：是否完整？有无遗漏边界情况？结果是否可用？
-- **主动改进**：发现差距时主动提出补充建议，而不是等用户发现问题。
-
-用户只应该感受到一个"考虑周全"的助手，不需要知道 Plan/Do/Check/Act 的存在。`;
-  }),
-
-  systemPromptSection('userProfile', () => {
-    return buildUserSection();
-  }),
-
-  systemPromptSection('personality', () => {
-    return buildSoulSection();
-  }),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'memoryContext',
-    async () => {
-      // P1-2: 冻结快照优先 — 会话内记忆不变，避免每轮重算破坏 Prompt 缓存
-      const ctx = getCurrentSessionContext();
-      if (ctx) {
-        const frozenService = getFrozenSnapshotService();
-        const frozen = frozenService.getFrozen(ctx.sessionId);
-        if (frozen) return frozen;
-      }
-
-      const provider = getMemoryQueryProvider();
-      if (!provider) return null;
-
-      const result = await provider.getMemorySummaries(10);
-      if (result.summaries.length === 0) return null;
-
-      const summaries = result.summaries
-        .map((s, i) => `${i + 1}. ${s}`)
-        .join('\n');
-
-      // Phase 2: hash-based 缓存保护 — 内容未变时跳过重建
-      const currentHash = hashString(summaries);
-      if (
-        currentHash === memoryContentHash &&
-        sectionCache.has('memoryContext')
-      ) {
-        return sectionCache.get('memoryContext') ?? null;
-      }
-      memoryContentHash = currentHash;
-
-      const truncated = truncateMemoryContent(summaries);
-      const memoryBlock = buildMemoryContextBlock(
-        `## 记忆上下文\n\n用户有以下相关记忆：\n${truncated.content}`
-      );
-
-      // P1-2: 首次计算后冻结，会话内不再重算
-      if (ctx && memoryBlock) {
-        getFrozenSnapshotService().freeze(ctx.sessionId, memoryBlock);
-      }
-
-      return memoryBlock;
-    },
-    'Memory summaries change as new memories are created'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'gitContext',
-    async () => {
-      const gitInfo = await getGitInfo(resolveProjectRoot());
-      if (!gitInfo.isGit) return null;
-      const parts: string[] = ['## Git 上下文'];
-      if (gitInfo.branch) {
-        parts.push(`当前分支: ${gitInfo.branch}`);
-      }
-      if (gitInfo.status) {
-        parts.push(`\n状态:\n${gitInfo.status}`);
-      }
-      return parts.join('\n');
-    },
-    'Git status changes as files are modified'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'projectMeta',
-    async () => {
-      const cwd = resolveProjectRoot();
-      const projectFiles = readProjectFiles(cwd);
-      const projectName = basename(cwd);
-      const parts: string[] = [`## 项目信息\n\n项目名称: ${projectName}`];
-      if (projectFiles.pyAppMd) {
-        parts.push(`## 项目规则\n\n${projectFiles.pyAppMd}`);
-      }
-      if (projectFiles.readme) {
-        parts.push(`## README\n\n${projectFiles.readme}`);
-      }
-      return parts.join('\n\n');
-    },
-    'Project files may change independently of conversation'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'skills',
-    async () => {
-      // P1-3: Skills 改为 User Message 注入（SkillInjectionService.injectSkillsIntoMessageHistory），
-      // 不再注入到 System Prompt，避免破坏 cache_control 前缀。
-      return null;
-    },
-    'Skill injection content changes as conditions update'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'sessionContext',
-    () => {
-      const ctx = getCurrentSessionContext();
-      if (!ctx || ctx.turnCount <= 1) return null;
-      const durationMinutes = Math.round(ctx.duration / 60000);
-      const parts: string[] = ['## 会话上下文'];
-      parts.push(`当前会话已进行 ${ctx.turnCount} 轮`);
-      if (durationMinutes > 0) {
-        parts.push(`持续 ${durationMinutes} 分钟`);
-      }
-      if (ctx.tags?.length) {
-        parts.push(`标签: ${ctx.tags.join(', ')}`);
-      }
-      if (ctx.recentTopics?.length) {
-        parts.push(`近期主题: ${ctx.recentTopics.join(', ')}`);
-      }
-      return parts.join('\n');
-    },
-    'Session state changes every turn'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'projectContext',
-    () => {
-      const ctx = getCurrentSessionContext();
-      if (!ctx?.projectId) return null;
-
-      const contextPath = join(
-        resolveDataDir(),
-        'projects',
-        ctx.projectId,
-        'project-context.md'
-      );
-      if (!existsSync(contextPath)) return null;
-
-      try {
-        const content = readFileSync(contextPath, 'utf-8').trim();
-        if (!content) return null;
-
-        // 提取 sandboxPath
-        const sandboxMatch = content.match(/\*\*文件夹\*\*:\s*(.+)/);
-        const sandboxPath = sandboxMatch?.[1]?.trim();
-
-        // S5b: 查询项目阶段与进度（来自 ProjectStore）
-        let phaseInfo = '';
-        try {
-          // P1-2: 复用模块级单例，避免每次组装都 new store + require
-          const store = getPromptProjectStore();
-          const project = store.get(ctx.projectId);
-          if (project) {
-            const phaseLabel: Record<string, string> = {
-              plan: '规划中',
-              do: '执行中',
-              check: '审查中',
-              act: '反馈中',
-              active: '活跃',
-              completed: '已完成',
-            };
-            const pdcaCount = project.pdcaIds?.length ?? 0;
-            const workItemCount = project.workItemIds?.length ?? 0;
-            const lines: string[] = [];
-            lines.push(
-              `**阶段**: ${phaseLabel[project.phase ?? 'active'] ?? project.phase ?? '活跃'}`
-            );
-            if (pdcaCount > 0) lines.push(`**PDCA 任务**: ${pdcaCount} 个`);
-            if (workItemCount > 0)
-              lines.push(`**工作项**: ${workItemCount} 个`);
-            if (project.status === 'completed') lines.push('**状态**: 已完成');
-            if (lines.length > 0) {
-              phaseInfo = '\n\n## 项目状态\n\n' + lines.join('\n');
-            }
-          }
-        } catch {
-          // @ignore-catch ProjectStore 查询失败不影响 prompt 组装主流程
-        }
-
-        // P3-5: 附加最近摘要（最近 1 条阶段性小结 + 2 条决策）
-        // 注：本 section 为同步构建（DANGEROUS_uncached），无法 await items.db；
-        // 已迁移项目的摘要经 handleGetSummaries（HTTP 读回退 items.db）与
-        // SessionSummarizer（写分流进 items.db）保障可见，此处仅同步读 summaries.json。
-        let summaryInfo = '';
-        try {
-          const summariesPath = join(
-            resolveDataDir(),
-            'projects',
-            ctx.projectId,
-            'summaries.json'
-          );
-          let all: Array<{
-            type?: string;
-            title?: string;
-            content?: string;
-          }> = [];
-          if (existsSync(summariesPath)) {
-            const raw = readFileSync(summariesPath, 'utf-8');
-            // G-2 修复：兼容写入者结构。SessionSummarizer 写的是 SummaryEntry
-            // （{sessionId, summary, messageCount, createdAt, decision?, phaseSummary?}，
-            // 无 type 字段），原实现按 s.type==='decision'/'phase_summary' 过滤恒空 →
-            // AI 上下文永远看不到项目最近小结/决策。此处归一化为 {type,title,content}。
-            const rawEntries = JSON.parse(raw) as Array<
-              Record<string, unknown>
-            >;
-            all = rawEntries
-              .map((s) => {
-                if (s.decision) {
-                  return {
-                    type: 'decision',
-                    title: '决策',
-                    content: String(s.decision),
-                  };
-                }
-                if (s.phaseSummary) {
-                  return {
-                    type: 'phase_summary',
-                    title: '阶段性小结',
-                    content: String(s.summary ?? ''),
-                  };
-                }
-                if (typeof s.type === 'string') {
-                  return {
-                    type: s.type,
-                    title: String(s.title ?? ''),
-                    content: String(s.content ?? ''),
-                  };
-                }
-                return null;
-              })
-              .filter(
-                (x): x is { type: string; title: string; content: string } =>
-                  x !== null
-              );
-          }
-          const decisions = all.filter((s) => s.type === 'decision').slice(-2);
-          const phaseSummaries = all
-            .filter((s) => s.type === 'phase_summary')
-            .slice(-1);
-
-          const lines: string[] = [];
-          if (phaseSummaries.length > 0) {
-            lines.push('## 最近阶段性小结');
-            for (const s of phaseSummaries) {
-              lines.push(
-                `- ${s.title ?? '小结'}: ${(s.content ?? '').slice(0, 150)}`
-              );
-            }
-          }
-          if (decisions.length > 0) {
-            lines.push('## 最近决策');
-            for (const d of decisions) {
-              lines.push(
-                `- ${d.title ?? '决策'}: ${(d.content ?? '').slice(0, 100)}`
-              );
-            }
-          }
-          if (lines.length > 0) {
-            summaryInfo = '\n\n' + lines.join('\n');
-          }
-        } catch {
-          // @ignore-catch 读取摘要失败不影响 prompt 组装主流程
-        }
-
-        // 扫描文件列表
-        let fileList = '';
-        if (sandboxPath && existsSync(sandboxPath)) {
-          try {
-            const entries = readdirSync(sandboxPath, { withFileTypes: true });
-            const MAX_FILES = 20;
-            const files = entries.filter((e) => e.isFile()).slice(0, MAX_FILES);
-            const dirs = entries
-              .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-              .slice(0, 5);
-
-            if (files.length > 0 || dirs.length > 0) {
-              const lines: string[] = ['**项目文件**：'];
-              for (const d of dirs) {
-                lines.push(`- ${d.name}/`);
-              }
-              for (const f of files) {
-                try {
-                  const size = statSync(join(sandboxPath, f.name)).size;
-                  const sizeStr =
-                    size < 1024
-                      ? `${size}B`
-                      : size < 1024 * 1024
-                        ? `${(size / 1024).toFixed(0)}KB`
-                        : `${(size / (1024 * 1024)).toFixed(1)}MB`;
-                  lines.push(`- ${f.name} (${sizeStr})`);
-                } catch {
-                  // @ignore-catch 单个文件 stat 失败仅回退无大小展示
-                  lines.push(`- ${f.name}`);
-                }
-              }
-              if (entries.filter((e) => e.isFile()).length > MAX_FILES) {
-                lines.push(
-                  `(+${entries.filter((e) => e.isFile()).length - MAX_FILES} 个文件未列出)`
-                );
-              }
-              fileList = '\n' + lines.join('\n');
-            }
-          } catch {
-            // @ignore-catch 目录扫描失败不影响 prompt 组装主流程
-          }
-        }
-
-        // 当前文档语言（方案 v4 §六：通用设置 → 系统语言 → 内容检测）
-        const docLang = resolveLanguage(undefined, '');
-
-        const toolGuidance = [
-          '## 项目上下文',
-          '',
-          content,
-          phaseInfo,
-          summaryInfo,
-          fileList,
-          '',
-          '**文件组织约定**（必须遵守）：',
-          '- `00_input/` — 用户提供的输入材料（原始文档/附件），不要写入生成内容',
-          '- `01_work/` — 过程脚本与临时文件（如 `_*.py`、`_temp_*`），过程产物放这里',
-          '- `output/` — 最终交付物（docx/pptx/pdf/html/md/架构图等），交付文件放这里',
-          '- 禁止把脚本、临时文件直接散落在项目根目录',
-          '- 交付文件生成后请用 `write_project_file` 写入 `output/`（会自动登记到「成果」）',
-          '- 会话结束前请清理 `01_work/` 下的临时文件',
-          '',
-          '**文档语言与标点**（生成文档/报告内容时遵守）：',
-          `- 当前文档语言：${docLang}；请使用${getPunctuationHint(docLang)} 等对应语言标点风格`,
-          '',
-          '**可用工具**：',
-          '- `read_project_file` — 读取项目文件夹中的文件（传入 projectId + relativePath）',
-          '- `write_project_file` — 向项目文件夹写入文件（传入 projectId + relativePath + content）',
-          '- 以上工具已做路径安全校验，仅允许在项目文件夹范围内读写',
-          `- 当前项目 ID: \`${ctx.projectId}\``,
-        ].join('\n');
-
-        // P3-8: 上下文总量字符上限 4000，防止大项目 prompt 膨胀
-        const MAX_CONTEXT_CHARS = 4000;
-        const footer = [
-          '',
-          '**可用工具**：',
-          '- `read_project_file` — 读取项目文件夹中的文件',
-          '- `write_project_file` — 向项目文件夹写入文件',
-          `- 当前项目 ID: \`${ctx.projectId}\``,
-        ].join('\n');
-
-        if (toolGuidance.length > MAX_CONTEXT_CHARS) {
-          const bodyEnd = toolGuidance.lastIndexOf(footer.trim());
-          const body =
-            bodyEnd > 0 ? toolGuidance.slice(0, bodyEnd) : toolGuidance;
-          const maxBody = MAX_CONTEXT_CHARS - footer.length - 50;
-          return (
-            (body.length > maxBody
-              ? body.slice(0, maxBody) + '\n\n*(上下文已截断)*'
-              : body) + footer
-          );
-        }
-
-        return toolGuidance;
-      } catch {
-        // @ignore-catch projectContext 段落组装失败返回 null（段落缺省，不阻断 prompt）
-        return null;
-      }
-    },
-    'P1-4: 项目文件随时变更，不可缓存 — 文件写入后 prompt 立即反映'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'knowledgeContext',
-    async () => {
-      const provider = getKnowledgeQueryProvider();
-      if (!provider) return null;
-
-      const query = getCurrentKnowledgeQuery();
-      if (!query) return null;
-
-      const result = await provider.getKnowledgeSummaries(query, 3);
-      if (result.summaries.length === 0) return null;
-
-      const parts: string[] = ['## 相关知识'];
-      for (const s of result.summaries) {
-        parts.push(`\n### ${s.title}`);
-        parts.push(s.content);
-      }
-      return parts.join('\n');
-    },
-    'Knowledge relevance depends on current conversation context'
-  ),
-
-  DANGEROUS_uncachedSystemPromptSection(
-    'knowledgeDigest',
-    async () => {
-      return await generateDigestContext({ maxCount: 3, strategy: 'combined' });
-    },
-    'Knowledge digest updated periodically, cache 5min'
-  ),
-
-  // P1-11: Few-shot 工具使用示例
-  systemPromptSection('fewShotExamples', () => {
-    if (!BUILTIN_EXAMPLES || BUILTIN_EXAMPLES.length === 0) return null;
-    const parts = [
-      '## Tool Usage Examples',
-      '',
-      'Below are examples of correct tool usage to guide your behavior:',
-      '',
-    ];
-    for (const entry of BUILTIN_EXAMPLES) {
-      parts.push(renderFewShotPrompt(entry));
-    }
-    return parts.join('\n');
-  }),
-
-  // 2026-09-01：知识库保存指引——知识库保存是系统核心能力，封装为 knowledge_save
-  // 工具（KnowledgeBaseWriter）；此处仅提示模型用该工具，不引导底层手写文件。
-  systemPromptSection('knowledgeSaveGuide', () => {
-    return [
-      '## 知识库保存',
-      '',
-      '当用户要求「保存到知识库 / 保存文章 / 归档内容 / 记住资料」时，',
-      '使用 **knowledge_save** 工具（参数：title 标题 + content 内容）将内容保存到用户知识库：',
-      '- content 为整理后的 Markdown 正文',
-      '- 可选参数：category 分类、tags 标签',
-      '- 系统负责写入、溯源（frontmatter）与索引联动，无需其他操作',
-    ].join('\n');
-  }),
-
-  // W2（2026-09-25，方案 A）：交付物落点口径 —— **全局段落**，与「有无项目上下文」解耦。
-  // 实机补验发现：挂在「项目上下文」段内时，无项目的会话（session.metadata.projectId 为空）
-  // 完全拿不到该说明，模型会为"找本项目"空转（见台账 N-60 补验记录）。
-  systemPromptSection('outputArtifactBoundary', () => {
-    return [
-      '## 交付物落点口径（重要）',
-      '',
-      '- 生成类工具（`doc_generate` / `pdf` / `file_write` / `file_convert`）的产物落在**全局输出目录**（`~/.pyapp/output/`），',
-      '  **不属于任何项目，也不会出现在「成果」面板** —— 它们适合临时/中间产物。',
-      '- 需要交付给用户、且应归入某项目的文件，用 `write_project_file`（传 projectId + 相对路径）写入该项目 `output/`，',
-      '  会自动登记为项目「成果」并在「成果」面板可见。',
-      '- **若当前会话没有项目上下文**（不知道 projectId）而用户要求把成果归入项目：**直接向用户询问项目**' +
-        '（或请用户到项目页发起会话）；**不要用 `grep`/`glob`/`read` 在工作区里搜寻项目**（会陷入无进展的探索），' +
-        '也不要用生成类工具顶替（产物不会登记为「成果」）。',
-    ].join('\n');
-  }),
-];
+/** 读取记忆内容 hash（供 app 侧 memoryContext 段落做缓存保护判定） */
+export function getMemoryContentHash(): string {
+  return memoryContentHash;
+}
+
+/** 写入记忆内容 hash（供 app 侧 memoryContext 段落做缓存保护判定） */
+export function setMemoryContentHash(hash: string): void {
+  memoryContentHash = hash;
+}
 
 /**
- * 静态段落名联合（由 `DEFAULT_SECTIONS` **推导**，非手工清单）。
+ * 内置段落名（有序）—— **顺序的唯一事实源**。
+ *
+ * `StaticPromptSectionName` 由其**推导**（非手工联合）；app 侧内置段落对象按键名与之对齐，
+ * 未注册前的段顺序由本清单决定（见 `getRegisteredSections()`）。
+ */
+const SECTION_NAMES = [
+  'identity',
+  'projectRules',
+  'toolsConvention',
+  'toolUse',
+  'toolIntegrity',
+  'shellDeclaration',
+  'taskNegotiation',
+  'pdcaThinking',
+  'userProfile',
+  'personality',
+  'memoryContext',
+  'gitContext',
+  'projectMeta',
+  'skills',
+  'sessionContext',
+  'projectContext',
+  'knowledgeContext',
+  'knowledgeDigest',
+  'fewShotExamples',
+  'knowledgeSaveGuide',
+  'outputArtifactBoundary',
+] as const;
+
+/**
+ * 静态段落名联合（由 `SECTION_NAMES` **推导**，非手工清单）。
  *
  * 用途：`services/prompt/promptSectionLayers.ts` 的 `SECTION_META` 以
  * `satisfies Record<StaticPromptSectionName, PromptSectionMeta>` 做**穷尽登记校验** ——
@@ -786,7 +141,33 @@ const DEFAULT_SECTIONS = [
  * 漏登记会**静默失效**（既不报错也不进提示词）。已实机踩过：`outputArtifactBoundary`
  * 在 `mode=conversation` 下完全不注入，两次实机验证才暴露（台账 N-60）。
  */
-export type StaticPromptSectionName = (typeof DEFAULT_SECTIONS)[number]['name'];
+export type StaticPromptSectionName = (typeof SECTION_NAMES)[number];
+
+/** 内置段落（app 侧注入槽）—— 避免 `infra -> app` 倒挂 */
+let _builtinSections: Record<
+  StaticPromptSectionName,
+  SystemPromptSection
+> | null = null;
+
+/** 段落缓存清理回调（app/service 侧注入槽） */
+let _sectionCacheClearers: Array<() => void> = [];
+
+/** 未注册即 resolve 时的一次性告警标记 */
+let _warnedUnregisteredSections = false;
+
+/** 注册内置段落（app 侧启动期调用一次） */
+export function registerBuiltinSections(
+  sections: Record<StaticPromptSectionName, SystemPromptSection>
+): void {
+  _builtinSections = sections;
+}
+
+/** 注册段落缓存清理器（app 侧启动期调用一次） */
+export function registerSectionCacheClearers(
+  clearers: Array<() => void>
+): void {
+  _sectionCacheClearers = clearers;
+}
 
 /**
  * 本地模型专用工具使用段落（PromptAssembler local 模式替换 toolUse 使用）：
@@ -806,9 +187,23 @@ export function registerSections(sections: SystemPromptSection[]): void {
 
 /**
  * 获取当前注册的段落列表
+ *
+ * 优先级：显式注册（`registerSections`）→ 内置段落（`registerBuiltinSections`，按
+ * `SECTION_NAMES` 顺序组装）→ 空数组（未注册时打一次告警，避免静默空提示词）。
  */
 export function getRegisteredSections(): SystemPromptSection[] {
-  return registeredSections.length > 0 ? registeredSections : DEFAULT_SECTIONS;
+  if (registeredSections.length > 0) return registeredSections;
+  const builtin = _builtinSections;
+  if (builtin) {
+    return SECTION_NAMES.map((n) => builtin[n]);
+  }
+  if (!_warnedUnregisteredSections) {
+    _warnedUnregisteredSections = true;
+    logger.warning(
+      '内置提示词段落尚未注册（registerPromptSections 未调用？），getRegisteredSections() 返回空数组'
+    );
+  }
+  return [];
 }
 
 /**
@@ -845,8 +240,6 @@ export async function resolveSystemPromptSections(
 export function clearSystemPromptSections(): void {
   sectionCache.clear();
   memoryContentHash = '';
-  clearSoulCache();
-  clearUserCache();
-  clearWorkspaceCache();
+  for (const clear of _sectionCacheClearers) clear();
   getFrozenSnapshotService().unfreezeAll();
 }

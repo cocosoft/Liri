@@ -27,7 +27,7 @@
  * ⇒ 构成 `infra -> app` 跨层引用（`R00-003` 盲区）。二者本质是**技能装配**（app 域内职责），
  * 迁入 `skills` 后：
  * - 加载器 / 类型 / `BuiltinEnabledStore` 同级引用 ⇒ **同模块内自洽**；
- * - 仍复用 `constants/systemPromptSections` 的 **`skillRegistry` / `skillInjectionService` 单例**
+ * - 仍复用 `./skillSingletons.js` 的 **`skillRegistry` / `skillInjectionService` 单例**
  *   （`app -> infra` **合法**，**不新增对**，且避免出现第二份注册表导致技能丢失）。
  *
  * **调用方（迁移后）**：`entrypoints/init.ts`（entry，直连 app ✓）· 服务层经
@@ -37,10 +37,7 @@
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { resolveUserSkillsDir } from '@modules/core/paths';
-import {
-  skillRegistry,
-  skillInjectionService,
-} from '@modules/constants/systemPromptSections';
+import { skillRegistry, skillInjectionService } from './skillSingletons.js';
 import { getSkillHub } from './SkillHub';
 import { loadBuiltinEnabled } from './BuiltinEnabledStore';
 import { BundledSkillLoader } from './loaders/sources/BundledSkillLoader';

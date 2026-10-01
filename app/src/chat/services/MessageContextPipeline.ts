@@ -29,10 +29,10 @@ import type { ImageContextService } from './ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
 import {
-  skillInjectionService,
   DANGEROUS_uncachedSystemPromptSection,
   type SystemPromptSection,
 } from '@modules/constants/systemPromptSections';
+import { skillInjectionService } from '@modules/skills';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('chat:context-pipeline');

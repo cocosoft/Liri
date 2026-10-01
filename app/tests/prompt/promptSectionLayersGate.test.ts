@@ -33,14 +33,19 @@
  * 2. **本用例**（运行时穷尽断言）—— 覆盖任何绕过类型推导的注册路径，
  *    并对 N-60 的具体场景加回归锁。
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeAll } from 'bun:test';
 import { getRegisteredSections } from '../../src/constants/systemPromptSections';
 import {
   isSectionDeclared,
   isSectionVisibleIn,
 } from '../../src/services/prompt/promptSectionLayers';
+import { registerPromptSections } from '../../src/context/promptSections';
 
 describe('提示词段落登记门禁', () => {
+  beforeAll(() => {
+    registerPromptSections();
+  });
+
   it('DEFAULT_SECTIONS 的每一段都在 SECTION_META 显式登记（漏登记 = 仅 full = 静默失效）', () => {
     const names = getRegisteredSections().map((s) => s.name);
     expect(names.length).toBeGreaterThan(0);

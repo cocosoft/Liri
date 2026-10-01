@@ -369,8 +369,7 @@ async function injectSkillsBlock(
   apiMessages: Record<string, unknown>[]
 ): Promise<void> {
   try {
-    const { skillInjectionService } =
-      await import('@modules/constants/systemPromptSections');
+    const { skillInjectionService } = await import('@modules/skills');
     await skillInjectionService.ensureFresh();
     const injected = skillInjectionService.injectSkillsIntoMessageHistory(
       apiMessages as Array<{

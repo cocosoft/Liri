@@ -2142,6 +2142,17 @@ class ArchitectureLinter {
       subDir: string;
     }> = [];
 
+    /**
+     * 落在「规范子入口白名单」（`canonicalEntryKeys` 与「types 段」子路径）而被豁免的子路径导入数。
+     *
+     * 为什么要单独计数（2026-10-01）：本数此前不出现在任何输出里，导致「0 处违规」与
+     * 「裸 grep 到 N 处 `@modules/x/y` 导入」被混为一谈 —— 会话据此产出了「215 处绕过统一
+     * 出口」的误判任务项（实际全部在白名单内、真实违规 0，见 `pending-tasks-consolidated-20261001.md`
+     * T-①09/T-③01 与 `dc5137cd5`）。打印该数即可让读者一眼区分「无子路径导入」与
+     * 「子路径导入均为规范子入口」。
+     */
+    let exemptedCount = 0;
+
     for (const file of this.allFiles) {
       // 跳过测试文件
       if (knownSubdirExceptions.some((e) => file.includes(e))) continue;
@@ -2172,9 +2183,14 @@ class ArchitectureLinter {
         // 规范子入口豁免：类型子路径（*/types，支持任意深度如 ai/models/types.js）
         // 与唯一入口白名单（core/paths 等，剥离 .js 后缀匹配 @modules/core/paths.js）
         const subSegments = subPath.replace(/\.js$/, '').split('/');
-        if (subSegments.some((s) => s === 'types')) continue;
-        if (canonicalEntryKeys.has(`${targetModule}/${subSegments[0]}`))
+        if (subSegments.some((s) => s === 'types')) {
+          exemptedCount++;
           continue;
+        }
+        if (canonicalEntryKeys.has(`${targetModule}/${subSegments[0]}`)) {
+          exemptedCount++;
+          continue;
+        }
 
         violations.push({
           importer: relPath,
@@ -2210,10 +2226,15 @@ class ArchitectureLinter {
         if (!moduleHasIndex.get(targetModule)) continue;
         // 规范子入口豁免：类型子路径（任意深度含 types 段）与唯一入口白名单
         //（剥离 .js 后缀匹配，与 @modules/ 分支一致）
-        if (parts.slice(1).some((p) => p.replace(/\.js$/, '') === 'types'))
+        if (parts.slice(1).some((p) => p.replace(/\.js$/, '') === 'types')) {
+          exemptedCount++;
           continue;
+        }
         const relSubKey = subDir.replace(/\.js$/, '');
-        if (canonicalEntryKeys.has(`${targetModule}/${relSubKey}`)) continue;
+        if (canonicalEntryKeys.has(`${targetModule}/${relSubKey}`)) {
+          exemptedCount++;
+          continue;
+        }
 
         // 跳过 index 入口
         const fileName = parts[parts.length - 1];
@@ -2237,7 +2258,7 @@ class ArchitectureLinter {
         ruleId: 'R03-002',
         severity: 'warning',
         file: violations[0].importer,
-        message: `存在 ${violations.length} 处从模块子目录直接 import 的行为（应通过模块 index.ts 出口导入）`,
+        message: `存在 ${violations.length} 处从模块子目录直接 import 的行为（应通过模块 index.ts 出口导入）；另有 ${exemptedCount} 处落在规范子入口白名单，不在此列`,
         suggestion: `请改为从模块 index.ts 出口导入\n  示例 (top 5):\n${violations
           .slice(0, 5)
           .map(
@@ -2251,7 +2272,8 @@ class ArchitectureLinter {
     }
 
     console.log(
-      `\n[R03-002 模块出口单一] ${violations.length} 处子目录 import 违规`
+      `\n[R03-002 模块出口单一] ${violations.length} 处子目录 import 违规` +
+        `（另有 ${exemptedCount} 处落在规范子入口白名单 —— canonicalEntryKeys 与 types 段，非违规）`
     );
   }
 

@@ -331,7 +331,15 @@ export interface MediaTemplateDto {
 **✅ 已执行（2026-10-01 D-192，与预期逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 81 → 80`（恰 −1）** · `eslint` **0/0**（首轮出现 2 处 **prettier** 格式错，已按 prettier 期望改为单行解构）· `bun test tests/http` = **76 pass / 0 fail**。
 **手法要点（可复用到其余 3 条）**：① 端口加**最小投影 DTO**（字段逐一对齐 handler 读取面）；② `CoreAPIImpl.getToolsPort()` 内**动态** `import('@modules/tools')` 取实现（仅 R00-003 可见 —— 这是该文件**既有**做法，故 runtime→tools 早已在 R00-003 清单中）；③ handler 改 `await getCoreAPI().getToolsPort()`，**后续字段映射不变**。
 **⚠️ 踩坑提示**：`CoreAPIImpl` 的多行解构会被 **prettier** 判错（期望单行）⇒ 直接写成单行 `const { a, b, c } = await import(...)` 再折行。
-**④ 其余 3 条同法**（`video-task-handlers` 须先读其 `getVideoTaskPersistence()` 的**全部**调用面再定端口方法；`agent-role-handlers`/`agent-control-handlers` 同理）。
+**④ 其余 3 条的取证结论（2026-10-01 D-193）—— 建议顺序调整：先 `agent-role-handlers`，`video-task-handlers` 放后**
+
+| 文件 | 取证结果 | 预估步数 |
+|---|---|---|
+| `video-task-handlers.ts` | ⚠️ **两条要点**：① 其**动态**用法**早已在 D-93 端口化**（L19 已有 `getCoreAPI` 导入 + 注释"改经服务层端口"）⇒ 残留的只是**静态** import（L16）；② **该文件有两个 tools 导入** —— `getVideoTaskPersistence`（值 L16）+ **`ToolUseContext`（类型 L17）** ⇒ **只去其一只会"不减计数"**（门禁按「文件 × 去重模块」计），**必须一并处理**。静态调用面：`L100 update(taskId, { mode, sourceImageUrl, … })`（**端口 patch 现只收 `sourceImageUrl`/`sourceImageId`，缺 `mode`**）· `L136 get(taskId)`（**端口无此方法**）· `L191+` 尚有后续调用（grep 截断，须读完） | **8–12** |
+| `agent-role-handlers.ts` | `refreshAvailableSubagentTypeNames` —— **单一函数**，且该文件**无其它 tools 导入**（"1 方法"型） | **5–6**（**最小 ⇒ 建议先做**） |
+| `agent-control-handlers.ts` | **多行 import**，符号数**待读** | 待测 |
+
+**⇒ 建议执行顺序**：`agent-role-handlers`（最小）→ `agent-control-handlers`（读完 import 再定）→ `video-task-handlers`（最重，需扩端口 `getVideoTask` + patch 加 `mode` + 读完 L191+ 调用面 + 处理类型导入）。
 
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 

@@ -91,26 +91,23 @@
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
-| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· `media-template-handlers` ✅（D-192，1）· `agent-role-handlers` ✅（D-194，1） | **6** | **13**（`tools` 域余 2：`video-task-handlers` 6–8 步 ⬅**下一个** · `agent-control-handlers` 10–14 步；`sandbox` 域 2；`chat` 3；`auto-reply` 1；`agent` 2（建议并入数据契约专项）） |
+| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· `media-template-handlers` ✅（D-192，1）· `agent-role-handlers` ✅（D-194，1）· `video-task-handlers` ✅（D-197，1）· `agent-control-handlers` ✅（D-199，1）—— **`tools` 域静态边已归零** 🎯 | **8** | **11**（`sandbox` 域 2 ⬅**下一个** · `chat` 3 · `auto-reply` 1 · `agent` 2（建议并入数据契约专项）· 其余按 §3.3 分型表） |
 | **D** `service -> app` 低风险（§3.4） | 8 | ⬜ **未开始** | 0 | 8 |
 | **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 79**（**−72**）= 子批 A 47 + 子批 B 13 + 子批 C 6 + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 77**（**−74**）= 子批 A 47 + 子批 B 13 + 子批 C **8** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
-**⬅ 下一个未执行任务**：§3.3 ④ 之 **`video-task-handlers.ts`** —— **取证已完备（D-196），纯机械编辑，可直接照做**：
+**⬅ 下一个未执行任务**：§3.3 ④ 之 **`sandbox` 域（2 条，值类）** —— **沿用刚走通的 `toolsPorts` recipe**，且该域**无实例方法投影**的复杂点：
 
-| handler 调用点 | 端口现状 | 需补 |
+| 文件 | 现有导入 | 需补 |
 |---|---|---|
-| L101 `update(id, { mode, sourceImageUrl })` | 有 `updateVideoTask`，但 **patch 类型缺 `mode`** | 扩 patch 字段 |
-| L137 `get(taskId)` | ❌ 无 | 新增 `getVideoTask(id)` |
-| L195 `cleanupStaleTasks()` | ❌ 无 | 新增 `cleanupStaleTasks()` |
-| L200 `listByStatus(types, limit)` | ✅ 有 `listVideoTasksByStatus` | — |
-| L205 `list(limit)` | ❌ 无 | 新增 `listVideoTasks(limit)` |
+| `sandbox-handlers.ts:37-40` | `SandboxManager` · `processRegistry` · `resourceLimitManager` · `globalWorkspaceManager`（4 **值**符号） | 扩既有 `ISandboxPort`（`core/spi/SandboxService.ts`，D-154 已建 `shouldUseSandbox`/`isSandboxingEnabled`/`updateSettings`/`hasWorkspacePermission`）⇒ **按 CS01 复用，不另立端口** |
+| `handler-utils.ts:40-41` | `globalWorkspaceManager`（值）+ `SandboxPermission`（枚举） | 同上；⚠️ 枚举部分**照 D-186 直连 core 叶子**即可，但**值同文件 ⇒ 不减计数**，须**一并收敛值**才减 |
 
-**另需**：删 **2 个**导入（L16 值 + L17 `ToolUseContext` 类型 —— 后者**已实证未被使用**，pre-commit eslint 报 unused ⇒ **免费**；**必须同删才减计数**）+ 改 **5 处**调用点。**实测量级 ≈ 9–11 编辑**（高于原估 6–8，因端口缺口 3 个方法）。
+**⚠️ 前置取证铁律（D-199 教训）**：端口方法签名必须**由实证而非推断决定** —— 先读 handler 实际调用面再定签名（本轮 `getSpawnPauseState` 曾误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`）。
 
 ### 3.1 子批 A —— `tools -> ink` **47**（最大桶；混合模块拆分）
 
@@ -279,6 +276,7 @@
 5. **`agent` 的 `getAgentRegistry`** 与 **`a2a-routes.ts`** ⇒ 属 A2A 对外面，需单独核 `getAgentRegistry` 是否已有端口（`runtime/api/` 下可能已有 agent 相关端口）。
 
 **执行顺序建议（按"改动量÷收益"）**：① 枚举/类型下沉（~8 条，纯类型搬运，风险最低）→ ② 扩充 2 个既有端口（`ISandboxPort` · `toolsPorts`，6 条）→ ③ 新增 3 个端口（6 条）。
+**进度（截至 D-199）**：① 已完成 4 条（`SandboxPermission`，D-186）· ② `toolsPorts` **4 条已完成**（D-192/194/197/199），`ISandboxPort` **2 条待做**（⬅**下一个**）· ③ 未开始。
 
 **✅ 第一步已完成（2026-10-01 D-186）：`SandboxPermission` 4 条 —— 零成本手法**
 
@@ -286,7 +284,8 @@
 - **手法（比端口化更省）**：把 4 个 handler 的 `@modules/sandbox`（app 层）改为 **相对直连 core 模块根** —— `LocalHTTPService.ts:31` · `knowledge-handlers.ts:14` · `file-upload-handlers.ts:32` · `memory-handlers.ts:16`。**零新文件、零白名单、零端口**。
 - **验收（与预测逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 95 → 91`（恰 −4）** · **`R03-002` = 0**（**实证：core 的「模块根文件」相对路径不触发 R03-002** —— 与子批 A 踩到的「模块**子目录**文件」不同）· 改动文件 `eslint` **0/0** · `bun test tests/http tests/infrastructure tests/memory` = **162 pass / 0 fail**。
 - **未改**：`handler-utils.ts`（它同时 import `globalWorkspaceManager`(值) ⇒ 改枚举**不减计数**）· `sandbox-handlers.ts`（纯值 ⇒ 需端口，归第 ② 步）。
-- **剩余 15 条**：`chat` 4 · `sandbox` 2（值）· `tools` 4 · `agent` 4 · `auto-reply` 1 ⇒ 按上文 ②③ 步继续。
+- **剩余 15 条**（**D-186 时点**）：`chat` 4 · `sandbox` 2（值）· `tools` 4 · `agent` 4 · `auto-reply` 1 ⇒ 按上文 ②③ 步继续。
+  - **📊 更新（截至 D-199）**：`tools` **4 条已全部完成**（D-192 / D-194 / D-197 / D-199 —— **静态边归零** 🎯）⇒ 本子批**剩余 11 条**：`sandbox` 2（值，⬅**下一个**）· `chat` 3 · `auto-reply` 1 · `agent` 2（建议并入"数据契约统一"专项）· 其余按 §3.3 分型表。
 
 **🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」，暂不划算**
 
@@ -364,21 +363,22 @@ export interface MediaTemplateDto {
 |---|---|---|
 | `video-task-handlers.ts` | ✅ **已完成（D-197）**：端口补 `getVideoTask`/`listVideoTasks`/`cleanupStaleTasks` + `updateVideoTask` patch 加 `mode`（**联合字面量**，首轮 typecheck 因 `string` 不可赋值给 `'text-to-video'\|'image-to-video'` 报错，已收窄）+ 删**两个**导入（值 + 未使用的类型）+ 改 5 处调用点 ⇒ **`已豁免 79 → 78`** · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **10 编辑** |
 | `agent-role-handlers.ts` | ✅ **已完成（D-194）**：`refreshAvailableSubagentTypeNames` —— **单一函数**、**唯一** tools 导入、1 处调用点（L126）⇒ `已豁免 80 → 79` · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **4 编辑** |
-| `agent-control-handlers.ts` | ⚠️ **最重一条（D-195/D-198 取证 100% 完成）**：多行 import **5 个符号**（L15-21）：`AgentTool` · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` · `getSpawnPauseState`。调用面：`L54 getSpawnPauseState()` · `L71`/`L139 setSpawnPaused(…)`（纯值 ⇒ 端口方法）· `L106 getAgentRunStore().listRuns()`（需**投影 DTO**，须读 L106-130 字段映射）· **`L33 resolveAgentToolInstance()`**（内部 helper `getAgentTool()`）⇒ ⚠️ **返回 app 实例，不能接口投影**（会泄 app 闭包 —— 该模块 D-121 注释已指出"`stopAgent` 是实例方法、无法静态投影"）⇒ 须按**实例方法**逐一投影（端口加 `stopAgent` 等），**须先读 L40–170** 定要投影哪些方法 · `L32 AgentTool` **作为返回类型**（类型 ⇒ 须一并处理才减计数） | **10–14** |
+| `agent-control-handlers.ts` | ✅ **已完成（D-199）**：多行 import **5 个符号**全删（L15-21：`AgentTool` · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` · `getSpawnPauseState`）+ helper `getAgentTool()` 删除 + **9 处**调用点改经端口 ⇒ `已豁免 78 → 77` · typecheck 0 · eslint 0 · tests/http 76 pass —— **`tools` 域静态边归零** 🎯 | 实测 **11 编辑** |
 
-**⇒ 建议执行顺序（2026-10-01 实测修订）**：`agent-role-handlers` ✅ 已完成 → **`video-task-handlers`（6–8 步，含可免费删除的未使用类型导入）** → `agent-control-handlers`（**10–14 步，本域最重**：5 符号 + 实例方法投影 + `AgentTool` 类型）。
+**⇒ 执行顺序（结果复盘）**：`agent-role-handlers` ✅（D-194，4 编辑）→ `video-task-handlers` ✅（D-197，10 编辑）→ `agent-control-handlers` ✅（D-199，11 编辑）—— **`tools` 域 4 条全部完成，静态边归零** 🎯。
 
-**🛠️ `agent-control-handlers.ts` 完整端口设计（D-198 取证 100% 完成，下一轮纯机械套用）**
+**🛠️ `agent-control-handlers.ts` 完整端口设计（D-198 取证 → D-199 落地 ✅）**
 
 实测调用面（另需：**5 处**调用点 + 删 **5 个符号**（含 `AgentTool` 类型，L32 作返回类型；helper `getAgentTool()` 随之删除））：
 
-| handler 调用点 | 端口方法（**建议签名**） |
+| handler 调用点 | 端口方法（**D-199 落地签名 —— 与 D-198 建议的差异已标注**） |
 |---|---|
-| L54 `getSpawnPauseState()` | `getSpawnPauseState(): boolean`（同步） |
+| L54 `getSpawnPauseState()` | ⚠️ **D-198 建议 `boolean`，D-199 实证改为 `unknown`** —— 实际返回**不透明状态对象**，首轮 typecheck 报 `TS2416` ⇒ 按实证签名 |
 | L71 `setSpawnPaused(true, reason?)` · L139 `setSpawnPaused(false)` | `setSpawnPaused(paused: boolean, reason?: string \| undefined): unknown`（同步） |
 | L106 `getAgentRunStore().listRuns()` | `listAgentRuns(): Promise<AgentRunDto[]>` |
 | L55 `agentTool?.getActiveAgents() ?? []` | `getActiveAgents(): unknown[]`（结果**直接**进 JSON，无需字段映射） |
-| L168 `agentTool.stopAgent(agentId, { requesterSessionId })` | `stopAgent(agentId: string, opts: { requesterSessionId?: string \| undefined }): unknown` |
+| L168 `agentTool.stopAgent(agentId, { requesterSessionId })` | `stopAgent(agentId: string, opts: { requesterSessionId?: string \| undefined; privileged?: boolean \| undefined }): unknown`（D-199 增 `privileged`，对齐实测调用点） |
+| （D-199 新增） | `isAgentToolAvailable(): boolean` —— **专为保留 503 分支语义**（原 helper `getAgentTool()` 的"解包 + 能力判定"职责并入端口） |
 
 **`AgentRunDto`（字段表按 L111-125 实测；**无 `?? null` 的为必填**）**：
 ```ts

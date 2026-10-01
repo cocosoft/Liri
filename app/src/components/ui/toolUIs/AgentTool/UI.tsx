@@ -1,16 +1,12 @@
 // import React from 'react'
 import { Box, Text } from '@modules/ink';
 
-export type AgentOutput = {
-  agentType?: string;
-  agentName?: string;
-  description?: string;
-  result?: string;
-  error?: string;
-  tokenUsage?: { input: number; output: number };
-  duration?: number;
-  completed?: boolean;
-};
+/**
+ * 渲染所需的**显示投影**类型：单一来源在 app 侧 `tools/AgentTool/types.ts`
+ * （2026-10-01 子批 A：原先它内联在本 UI 文件里 ⇒ `tools`(app) -> `ink`(ui) 倒挂）。
+ * 经 `types` 子入口引用 —— ui -> app 合法，且 `types` 段对 R03-002 豁免。
+ */
+import type { AgentDisplayOutput as AgentRenderOutput } from '@modules/tools/AgentTool/types';
 
 export function renderToolUseMessage(
   input: Partial<{ description: string; subagent_type: string; name: string }>,
@@ -46,7 +42,7 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: AgentOutput,
+  output: AgentRenderOutput,
   _progressMessages: any[],
   { verbose }: { verbose: boolean }
 ): React.ReactNode {

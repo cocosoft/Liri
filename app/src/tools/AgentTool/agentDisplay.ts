@@ -4,7 +4,10 @@
  * Agent工具输出显示/格式化
  */
 
-import type { AgentOutput } from './UI';
+// 2026-10-01 子批 A：本文件原先从 `./UI`（UI 组件文件）取 `AgentOutput` ⇒ 构成
+// `tools`(app) -> `ink`(ui) 倒挂。现已把**显示投影形状**归位到同模块 `./types`
+// （`AgentDisplayOutput`）；此处保留局部别名 `AgentOutput` 以避免大面积改动本文件。
+import type { AgentDisplayOutput as AgentOutput } from './types';
 
 export interface DisplayOptions {
   compact?: boolean;

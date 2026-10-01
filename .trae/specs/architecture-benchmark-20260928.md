@@ -693,6 +693,14 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **✅ 子批 A 前置取证已完成（结论：可行，改动面远小于预期）**：`tools -> ink`(47) 的**唯一消费者** = **ui 层** `components/ui/ToolUIRegistry.ts` 的 `initDefaultToolUIRegistry()`，经 `require('../../tools/<X>/UI')` 逐工具注册；**映射契约已存在**（`ToolUIRenderer` + `registerToolUI` + 两级查找）⇒ **归位零涟漪**（只改注册表的 ~20 条 `require` 路径）。47 条 = **43 个 `tools/**/UI.tsx`** + 4 处变体（`ReadMcpResourceTool.tsx` · `ListMcpResourcesTool.tsx` **内联 ink 的工具实现** · `search/GrepUI.tsx` · `search/GlobUI.tsx`）⇒ **必须分类处理，禁止整体搬迁**。落点优先并入**既有** ui 模块 `components/`（免掉"新模块须三处同改"的坑）。
   - **🔴 附带发现（新盲区，建议与 D-172「注释盲区」一并裁定）**：门禁只识别 `from '…'`（静态）与 `import('…')`（R00-003），**完全不识别 CommonJS `require('…')`** ⇒ 本批最大桶的**唯一消费者**用了 **40+ 条 `require`** 装配渲染器，门禁**视而不见**（该依赖方向 ui→app 恰好合法故未致违规，**但这是通用盲区**：任何跨层依赖都可用 `require` 藏起来）。⇒ 与 D-172 的"注释不剥离"同属**门禁扫描器口径**问题，建议合并为一项裁定。
 
+- **✅ 2026-10-01（D-174）子批 A 完成 —— `tools -> ink` **47 → 0**（手法：UI 归位 + 删孤儿/死代码；**未启用端口化退路**）** —— spec [`layer-inversion-service-app-app-ui.md`](./layer-inversion-service-app-app-ui.md) §3.1。
+  - **改动**：① `git mv` **41** 个 `tools/**/UI.tsx` → `components/ui/toolUIs/<Tool>/UI.tsx`（git 识别 rename）；② 删 **4 个孤儿**（`tools/search/{Grep,Glob}UI.tsx` · `ReadMcpResourceTool/UI.tsx` · `ListMcpResourcesTool/UI.tsx`，全仓零引用）；③ 删 **2 处死代码** —— `ReadMcpResourceTool.tsx` / `ListMcpResourcesTool.tsx` 的内联 `render*` + `@modules/ink` 导入；④ `ToolUIRegistry.initDefaultToolUIRegistry()` **41 条** `require` 路径统一改 `./toolUIs/`；⑤ 类型归位：`AgentDisplayOutput` 提到 `tools/AgentTool/types.ts`、`ClipboardOutput`/`ImageEditOutput` 在 `tools/types/index.ts` 增设规范子入口。
+  - **死代码取证（为何删内联 render 是零行为变化）**：渲染**唯一查找路径** = `components/ui/ChatMessage.tsx:84` 的 `getToolUI(toolName)`（**仅查注册表**），而这两个工具名**已在**注册表（来自 `toolUIs/MCPResourceTool/UI`）⇒ 内联实现**恒被遮蔽**；且工具自带 render 的回退路径 `getToolUIWithFallback`（`ToolUIRegistry.ts:62`）**全仓零消费者**。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 违规 0** / **已豁免 151 → 104**（**恰 −47** = 本桶）· `allFiles 3991 → 3987` · 改动文件 `eslint` **0/0** · `bun test tests/tools` = **575 pass / 0 fail** · R03-002 = **0**。
+  - **⚠️ 两处原计划未预见（实测后修正）**：① **相对路径规避不了 R03-002** —— `ui -> app` 直指 `tools/<Tool>/<Tool>`（无 `types` 段）实测报 2 处违规 ⇒ 必须走规范子入口 `@modules/tools/types`；② **`AgentOutput` 同名不同形** —— `tools/AgentTool/types.ts` 已有领域形状的 `AgentOutput`（`task_id`/`completed: boolean`），与 UI/`agentDisplay.ts` 需要的**显示投影**形状不是同一类型 ⇒ **不强行合并**，新增 `AgentDisplayOutput` 同址单一来源（避免 TNY-001 式误用）。
+  - **🟡 顺带发现**：新增 **R02-002 警告** —— `ToolSearchOutput` 在 **3 个模块**重复定义（UI 文件迁出后门禁才"看得见"；同模块内不判重复）⇒ 属"数据契约统一"议题，**非本次引进**，建议并入后续批次。
+  - **现状**：`app -> ui` **64 → 17**（`tools` 桶清零）；全局 `已豁免 104`（余：`service -> app` 70 · `app -> ui` 17 · `core -> app` 11 · `app -> entry` 3 · `service -> ui` 2 · `service -> entry` 1）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

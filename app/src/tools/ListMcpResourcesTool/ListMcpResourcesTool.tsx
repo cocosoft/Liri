@@ -5,7 +5,6 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { z } from 'zod';
-import { Text, Box } from '@modules/ink';
 import type { Tool } from '../types/index.js';
 import { buildTool, type ToolDef } from '../BaseTool.js';
 import { jsonStringify } from '@modules/utils/json.js';
@@ -128,43 +127,13 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
       };
     },
 
-    renderToolUseMessage() {
-      return null;
-    },
-
-    renderToolResultMessage(output: MCPResource[], _toolUseId: string) {
-      if (!output || output.length === 0) {
-        return (
-          <Box flexDirection="column" marginTop={1}>
-            <Text color="inactive">
-              No resources found. MCP servers may still provide tools even if
-              they have no resources.
-            </Text>
-          </Box>
-        );
-      }
-
-      return (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="cyan">MCP Resources:</Text>
-          {output.map((resource: MCPResource, index: number) => (
-            <Box key={index} flexDirection="column" marginTop={1}>
-              <Text color="white">
-                • {resource.name} ({resource.server})
-              </Text>
-              <Text color="inactive" dimColor>
-                URI: {resource.uri}
-              </Text>
-              {resource.description && (
-                <Text color="inactive" dimColor>
-                  {resource.description}
-                </Text>
-              )}
-            </Box>
-          ))}
-        </Box>
-      );
-    },
+    // 2026-10-01 子批 A（`app -> ui` 收口）：原此处内联 `renderToolUseMessage` /
+    // `renderToolResultMessage`（用 `@modules/ink` 的 `Box`/`Text`）⇒ 构成
+    // `tools`(app) -> `ink`(ui) 倒挂。**取证后删除**（CS01/CS05，零运行时行为变化）：
+    // 渲染**唯一查找路径** = `components/ui/ChatMessage.tsx` 的 `getToolUI(toolName)`
+    // （**仅查注册表**），而 `list_mcp_resources` **已在** `ToolUIRegistry` 注册
+    // （来自 `toolUIs/MCPResourceTool/UI.tsx`）⇒ 本内联实现**恒被遮蔽、从不执行**；
+    // 且工具实例自带 render 的回退路径（`getToolUIWithFallback`）**全仓零消费者**。
 
     mapToolResultToToolResultBlockParam(content, toolUseId) {
       if (!content || content.length === 0) {

@@ -1,6 +1,9 @@
 import { Box, Text } from '@modules/ink';
 
-import type { ImageEditOutput } from './ImageTool';
+// 2026-10-01 子批 A：UI 组件由 `tools/` 归位到 ui 层（`components/ui/toolUIs/`）⇒ 原
+// 相对导入改为经**模块规范子入口** `@modules/tools/types` 取工具输出类型（ui -> app 合法；
+// `types` 段对 R03-002 豁免，不能直插 `tools/<Tool>/<Tool>` 子目录）。
+import type { ImageEditOutput } from '@modules/tools/types';
 
 export function renderToolUseMessage(
   input: { action?: string; inputPath?: string },

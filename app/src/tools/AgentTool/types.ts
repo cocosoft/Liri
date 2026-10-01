@@ -106,6 +106,25 @@ export interface AgentOutput {
 }
 
 /**
+ * Agent 输出的**显示投影**（2026-10-01 子批 A 归位）
+ *
+ * 原先该形状的 `AgentOutput` 声明在 `tools/AgentTool/UI.tsx` 内 ⇒ ① 造成 `tools`(app)
+ * -> `ink`(ui) 倒挂；② 让 `agentDisplay.ts` 必须从 UI 文件取自己的领域形状。
+ * 现与领域类型 `AgentOutput` **同址单一来源**（形状不同、名字不同，避免同名不同形误用），
+ * 由 `agentDisplay.ts`（同模块）与 UI 组件（经 `@modules/tools/AgentTool/types`）共同引用。
+ */
+export type AgentDisplayOutput = {
+  agentType?: string;
+  agentName?: string;
+  description?: string;
+  result?: string;
+  error?: string;
+  tokenUsage?: { input: number; output: number };
+  duration?: number;
+  completed?: boolean;
+};
+
+/**
  * Agent进度
  */
 export interface AgentProgress {

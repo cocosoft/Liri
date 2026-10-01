@@ -114,7 +114,7 @@ export function getRegisteredToolNames(): string[] {
  */
 export function initDefaultToolUIRegistry(): void {
   try {
-    const agentUI = require('../../tools/AgentTool/UI');
+    const agentUI = require('./toolUIs/AgentTool/UI');
     registerToolUI('agent', agentUI);
     registerToolUI('agenttool', agentUI);
   } catch (err) {
@@ -122,19 +122,19 @@ export function initDefaultToolUIRegistry(): void {
   } // @ignore-catch: optional UI module
 
   try {
-    const fileReadUI = require('../../tools/FileReadTool/UI');
+    const fileReadUI = require('./toolUIs/FileReadTool/UI');
     registerToolUI('file_read', fileReadUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const fileWriteUI = require('../../tools/FileWriteTool/UI');
+    const fileWriteUI = require('./toolUIs/FileWriteTool/UI');
     registerToolUI('file_write', fileWriteUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
   try {
-    const fileEditUI = require('../../tools/FileEditTool/UI');
+    const fileEditUI = require('./toolUIs/FileEditTool/UI');
     registerToolUI('file_edit', fileEditUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
@@ -143,49 +143,49 @@ export function initDefaultToolUIRegistry(): void {
   try {
     // G1（2026-09-26）：原指向**无静态引用的大写副本** `tools/BashTool/UI`；因该副本的导出
     // 反而更全（5 个，见 `tools/bash/UI.tsx` 头注释），已把其内容**合并**进活跃目录并删副本。
-    const bashUI = require('../../tools/bash/UI');
+    const bashUI = require('./toolUIs/bash/UI');
     registerToolUI('bash', bashUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const grepUI = require('../../tools/GrepTool/UI');
+    const grepUI = require('./toolUIs/GrepTool/UI');
     registerToolUI('grep', grepUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const globUI = require('../../tools/GlobTool/UI');
+    const globUI = require('./toolUIs/GlobTool/UI');
     registerToolUI('glob', globUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const webFetchUI = require('../../tools/WebFetchTool/UI');
+    const webFetchUI = require('./toolUIs/WebFetchTool/UI');
     registerToolUI('web_fetch', webFetchUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const webSearchUI = require('../../tools/WebSearchTool/UI');
+    const webSearchUI = require('./toolUIs/WebSearchTool/UI');
     registerToolUI('web_search', webSearchUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const skillUI = require('../../tools/SkillTool/UI');
+    const skillUI = require('./toolUIs/SkillTool/UI');
     registerToolUI('skill', skillUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const planUI = require('../../tools/PlanTool/UI');
+    const planUI = require('./toolUIs/PlanTool/UI');
     registerToolUI('enter_plan_mode', planUI);
     registerToolUI('exit_plan_mode', planUI);
   } catch (err) {
@@ -193,35 +193,35 @@ export function initDefaultToolUIRegistry(): void {
   }
 
   // ⚠️ 沿革（2026-09-29，另案 ②）：原此处注册 `task` / `task_update` / `task_get` / `task_list`
-  // 四条 UI（`require('../../tools/TaskTool/UI')`）—— 这 4 个名字**均非真实工具名**：
+  // 四条 UI（原取自 `tools/TaskTool/UI`）—— 这 4 个名字**均非真实工具名**：
   // 活的任务工具是 `create_task_list` / `update_task_status` / `get_task_list` / `task_stop`
   // （见 `GET /v1/tools`），其中 `task_update` / `task_get` / `task_list` 的实现类已随 D-15 删除，
   // `task` 从不是工具名 ⇒ 属"注册了、工具永不产生"的错配，故整块删除。
   // 连带：`tools/TaskTool/UI.tsx` 因此失去唯一引用（同批删除）。
 
   try {
-    const briefUI = require('../../tools/BriefTool/UI');
+    const briefUI = require('./toolUIs/BriefTool/UI');
     registerToolUI('brief', briefUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const lspUI = require('../../tools/LSPTool/UI');
+    const lspUI = require('./toolUIs/LSPTool/UI');
     registerToolUI('lsp', lspUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const configUI = require('../../tools/ConfigTool/UI');
+    const configUI = require('./toolUIs/ConfigTool/UI');
     registerToolUI('config', configUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const chronosUI = require('../../tools/ChronosTool/UI');
+    const chronosUI = require('./toolUIs/ChronosTool/UI');
     registerToolUI('cron_create', chronosUI);
     registerToolUI('cron_delete', chronosUI);
     registerToolUI('cron_list', chronosUI);
@@ -230,35 +230,35 @@ export function initDefaultToolUIRegistry(): void {
   }
 
   try {
-    const pwshUI = require('../../tools/PowerShellTool/UI');
+    const pwshUI = require('./toolUIs/PowerShellTool/UI');
     registerToolUI('powershell', pwshUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const teamCreateUI = require('../../tools/TeamCreateTool/UI');
+    const teamCreateUI = require('./toolUIs/TeamCreateTool/UI');
     registerToolUI('team_create', teamCreateUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const teamDeleteUI = require('../../tools/TeamDeleteTool/UI');
+    const teamDeleteUI = require('./toolUIs/TeamDeleteTool/UI');
     registerToolUI('team_delete', teamDeleteUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const sendMsgUI = require('../../tools/SendMessageTool/UI');
+    const sendMsgUI = require('./toolUIs/SendMessageTool/UI');
     registerToolUI('send_message', sendMsgUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const mcpUI = require('../../tools/MCPResourceTool/UI');
+    const mcpUI = require('./toolUIs/MCPResourceTool/UI');
     registerToolUI('mcp', mcpUI);
     registerToolUI('list_mcp_resources', mcpUI);
     registerToolUI('read_mcp_resource', mcpUI);
@@ -267,42 +267,42 @@ export function initDefaultToolUIRegistry(): void {
   }
 
   try {
-    const worktreeEnterUI = require('../../tools/EnterWorktreeTool/UI');
+    const worktreeEnterUI = require('./toolUIs/EnterWorktreeTool/UI');
     registerToolUI('enter_worktree', worktreeEnterUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const worktreeExitUI = require('../../tools/ExitWorktreeTool/UI');
+    const worktreeExitUI = require('./toolUIs/ExitWorktreeTool/UI');
     registerToolUI('exit_worktree', worktreeExitUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const peersUI = require('../../tools/ListPeersTool/UI');
+    const peersUI = require('./toolUIs/ListPeersTool/UI');
     registerToolUI('list_peers', peersUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const clipboardUI = require('../../tools/ClipboardTool/UI');
+    const clipboardUI = require('./toolUIs/ClipboardTool/UI');
     registerToolUI('clipboard', clipboardUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const imageUI = require('../../tools/ImageTool/UI');
+    const imageUI = require('./toolUIs/ImageTool/UI');
     registerToolUI('image', imageUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const thinkingUI = require('../../tools/ThinkingTool/UI');
+    const thinkingUI = require('./toolUIs/ThinkingTool/UI');
     registerToolUI('thinking', thinkingUI);
     registerToolUI('think', thinkingUI);
   } catch (err) {
@@ -310,105 +310,105 @@ export function initDefaultToolUIRegistry(): void {
   }
 
   try {
-    const askUserUI = require('../../tools/AskUserQuestionTool/UI');
+    const askUserUI = require('./toolUIs/AskUserQuestionTool/UI');
     registerToolUI('ask_user_question', askUserUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const browserUI = require('../../tools/BrowserTool/UI');
+    const browserUI = require('./toolUIs/BrowserTool/UI');
     registerToolUI('browser', browserUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const codeAnalysisUI = require('../../tools/CodeAnalysisTool/UI');
+    const codeAnalysisUI = require('./toolUIs/CodeAnalysisTool/UI');
     registerToolUI('code_analysis', codeAnalysisUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const monitorUI = require('../../tools/MonitorTool/UI');
+    const monitorUI = require('./toolUIs/MonitorTool/UI');
     registerToolUI('monitor', monitorUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const pushNotifUI = require('../../tools/PushNotificationTool/UI');
+    const pushNotifUI = require('./toolUIs/PushNotificationTool/UI');
     registerToolUI('push_notification', pushNotifUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const sleepUI = require('../../tools/SleepTool/UI');
+    const sleepUI = require('./toolUIs/SleepTool/UI');
     registerToolUI('sleep', sleepUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const subscribePRUI = require('../../tools/SubscribePRTool/UI');
+    const subscribePRUI = require('./toolUIs/SubscribePRTool/UI');
     registerToolUI('subscribe_pr', subscribePRUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const taskOutputUI = require('../../tools/TaskOutputTool/UI');
+    const taskOutputUI = require('./toolUIs/TaskOutputTool/UI');
     registerToolUI('task_output', taskOutputUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const taskStopUI = require('../../tools/TaskStopTool/UI');
+    const taskStopUI = require('./toolUIs/TaskStopTool/UI');
     registerToolUI('task_stop', taskStopUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const timeUI = require('../../tools/TimeTool/UI');
+    const timeUI = require('./toolUIs/TimeTool/UI');
     registerToolUI('time', timeUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const todoWriteUI = require('../../tools/TodoWriteTool/UI');
+    const todoWriteUI = require('./toolUIs/TodoWriteTool/UI');
     registerToolUI('todo_write', todoWriteUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const toolSearchUI = require('../../tools/ToolSearchTool/UI');
+    const toolSearchUI = require('./toolUIs/ToolSearchTool/UI');
     registerToolUI('tool_search', toolSearchUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const tungstenUI = require('../../tools/TungstenTool/UI');
+    const tungstenUI = require('./toolUIs/TungstenTool/UI');
     registerToolUI('tungsten', tungstenUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const voiceInputUI = require('../../tools/VoiceInputTool/UI');
+    const voiceInputUI = require('./toolUIs/VoiceInputTool/UI');
     registerToolUI('voice_input', voiceInputUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }
 
   try {
-    const voiceOutputUI = require('../../tools/VoiceOutputTool/UI');
+    const voiceOutputUI = require('./toolUIs/VoiceOutputTool/UI');
     registerToolUI('voice_output', voiceOutputUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });

@@ -107,9 +107,26 @@
 4. **`tools/AgentTool/agentDisplay.ts:7`** 的 `import type { AgentOutput } from './UI'` ⇒ 该 type 随 UI 归位后改指新路径（或把 `AgentOutput` 留在 `tools/AgentTool/types.ts` —— 倾向后者，因它是**工具输出类型**而非 UI 类型）。
 5. **`ToolUIRegistry.initDefaultToolUIRegistry()`** 的 ~20 条 `require` 路径同步改指新位置。
 
-**退路（若归位成本过高）**：ui 侧注册渲染器 + `tools` 经 **core SPI** 取（属"合法化"，非首选，须在台账写明理由）。
+**退路（若归位成本过高）**：**未启用**（实际改动面小于预期，见下）。
 
-**验收**：`tools` 桶清零（`app -> ui` 64 → 17）；`grep -r "@modules/ink" app/src/tools` = **0**；`bun test tests/tools/` 0 fail。
+**✅ 执行结果（2026-10-01，D-174）—— `tools -> ink` **47 → 0**，子批 A 完成**
+
+| 项 | 实测 |
+|---|---|
+| 搬迁 | `git mv` **41** 个 `tools/**/UI.tsx` → `components/ui/toolUIs/<Tool>/UI.tsx`（git 识别为 rename，历史保留） |
+| 删除·**孤儿**（零引用） | **4** 个：`tools/search/GrepUI.tsx` · `tools/search/GlobUI.tsx` · `tools/ReadMcpResourceTool/UI.tsx` · `tools/ListMcpResourcesTool/UI.tsx`（全仓零引用，且注册表未 require） |
+| 删除·**死代码** | `ReadMcpResourceTool.tsx` / `ListMcpResourcesTool.tsx` 的**内联 `render*` 方法 + `@modules/ink` 导入**。取证：渲染**唯一查找路径** = `components/ui/ChatMessage.tsx` 的 `getToolUI(toolName)`（**仅查注册表**），而 `read_mcp_resource` / `list_mcp_resources` **已在**注册表（来自 `toolUIs/MCPResourceTool/UI`）⇒ 内联实现**恒被遮蔽**；工具自带 render 的回退路径 `getToolUIWithFallback` **全仓零消费者** |
+| 注册表 | `ToolUIRegistry.initDefaultToolUIRegistry()` 的 **41 条** `require` 路径统一由 `../../tools/` 改为 `./toolUIs/` |
+| 类型归位 | `AgentDisplayOutput`（**显示投影**形状）由 UI 文件归位到 `tools/AgentTool/types.ts`（该文件是 `types` 段 ⇒ R03-002 豁免；UI 侧经 `@modules/tools/AgentTool/types` 引用）；另为 `ClipboardOutput` / `ImageEditOutput` 在 `tools/types/index.ts` **增设规范子入口再导出** |
+| 门禁 | **`已豁免 151 → 104`**（**恰 −47**，`app -> ui` 64 → **17**）· 违规 **0** · `allFiles 3991 → 3987`（−4 删文件） |
+| 静态/测试 | `typecheck` **0** · 改动文件 `eslint` **0/0** · `bun test tests/tools` = **575 pass / 0 fail** |
+
+**⚠️ 过程中修正的两处（原计划未预见，均已实测确认）**
+
+1. **相对路径规避不了 R03-002**：`ui -> app` 若用相对路径直指 `tools/<Tool>/<Tool>`（路径中**无 `types` 段**）仍被判"直插模块子目录"（实测 2 处违规）⇒ 必须改走**规范子入口** `@modules/tools/types`（`types` 段豁免）才合规。
+2. **`AgentOutput` 同名不同形**：`tools/AgentTool/types.ts` **已有** `AgentOutput`（领域形状：`task_id`/`name`/`completed: boolean`），与 UI + `agentDisplay.ts` 需要的**显示投影形状**（`agentType`/`duration`/`tokenUsage`…）**并非同一类型** ⇒ **未强行合并**，而是新增 `AgentDisplayOutput` 并**同址单一来源**（避免 TNY-001 式"同名不同形"误用）。
+
+**🔴 顺带发现（已登记，建议并入后续批次）**：新增 **R02-002 警告** —— `ToolSearchOutput` 在 **3 个模块**中定义（`components/ui/toolUIs/ToolSearchTool/UI.tsx` · `tools/ToolSearchTool/schemas.ts` · `tools/ToolSearchTool/ToolSearchTool.ts`）。**非本次引进**（重复定义原本就在），而是 **UI 文件迁出后门禁才看得见**（同模块内不判重复）⇒ 属"数据契约统一"议题。
 
 ### 3.2 子批 B —— `app -> ui` 其余 **17**（`knowledge`10 · `commands`4 · `buddy`2 · `docs`1）
 

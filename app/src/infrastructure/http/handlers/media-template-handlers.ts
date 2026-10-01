@@ -11,7 +11,10 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { getMediaTemplates } from '@modules/tools';
+// 2026-10-01 D-192（tools 域取用面收敛）：原**静态** `@modules/tools` 取 `getMediaTemplates`
+// ⇒ `infrastructure -> app` 倒挂。改经 **service 侧端口**（`getCoreAPI().getToolsPort()`）取用
+// —— 同 `file-upload-handlers.ts:29` 的既有做法（service -> service 合法）。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 发送 JSON 响应 */
 function json(res: http.ServerResponse, status: number, data: unknown): void {
@@ -32,8 +35,8 @@ async function handleMediaTemplates(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const tm = getMediaTemplates();
-    const templates = tm.list();
+    const tm = await getCoreAPI().getToolsPort();
+    const templates = await tm.listMediaTemplates();
 
     json(res, 200, {
       templates: templates.map((t) => ({

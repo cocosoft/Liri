@@ -327,6 +327,10 @@ export interface MediaTemplateDto {
 （后续 `templates.map((t) => ({ id: t.templateId, … }))` **保持不变** —— DTO 字段名与读法逐一对齐。）
 
 **验收预期**：`已豁免 81 → 80` · `typecheck 0` · `R03-002 0` · 改动文件 `eslint 0/0` · `bun test tests/http` 0 fail。
+
+**✅ 已执行（2026-10-01 D-192，与预期逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 81 → 80`（恰 −1）** · `eslint` **0/0**（首轮出现 2 处 **prettier** 格式错，已按 prettier 期望改为单行解构）· `bun test tests/http` = **76 pass / 0 fail**。
+**手法要点（可复用到其余 3 条）**：① 端口加**最小投影 DTO**（字段逐一对齐 handler 读取面）；② `CoreAPIImpl.getToolsPort()` 内**动态** `import('@modules/tools')` 取实现（仅 R00-003 可见 —— 这是该文件**既有**做法，故 runtime→tools 早已在 R00-003 清单中）；③ handler 改 `await getCoreAPI().getToolsPort()`，**后续字段映射不变**。
+**⚠️ 踩坑提示**：`CoreAPIImpl` 的多行解构会被 **prettier** 判错（期望单行）⇒ 直接写成单行 `const { a, b, c } = await import(...)` 再折行。
 **④ 其余 3 条同法**（`video-task-handlers` 须先读其 `getVideoTaskPersistence()` 的**全部**调用面再定端口方法；`agent-role-handlers`/`agent-control-handlers` 同理）。
 
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。

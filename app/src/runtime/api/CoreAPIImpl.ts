@@ -1702,10 +1702,26 @@ export class CoreAPIImpl implements CoreAPI {
   // ---- 工具运行时（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-93）----
 
   async getToolsPort() {
-    const { getVideoTaskPersistence, getConverterEngine } =
+    const { getVideoTaskPersistence, getConverterEngine, getMediaTemplates } =
       await import('@modules/tools');
 
     return {
+      // 2026-10-01 D-192：媒体模板列表。`media-template-handlers.ts` 原先**静态**导入
+      // `@modules/tools` 的 `getMediaTemplates`（service -> app 倒挂）；现按本文件既有模式
+      // **动态**取用（仅 R00-003 可见），并对字段做最小投影。
+      listMediaTemplates: async () =>
+        getMediaTemplates()
+          .list()
+          .map((t) => ({
+            templateId: t.templateId,
+            name: t.name,
+            type: t.type,
+            category: t.category,
+            thumbnailUrl: t.thumbnailUrl || null,
+            promptTemplate: t.promptTemplate || null,
+            requiresImage: t.requiresImage,
+            sortOrder: t.sortOrder,
+          })),
       listVideoTasksBySourceImagePath: async (imagePath: string) =>
         getVideoTaskPersistence().listBySourceImagePath(imagePath),
       listVideoTasksByStatus: async (

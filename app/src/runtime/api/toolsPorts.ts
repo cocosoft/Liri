@@ -96,4 +96,21 @@ export interface ToolsPort {
     model?: unknown;
   }): Promise<{ data?: unknown }>;
   cancelVideoTask(taskId: string): Promise<void>;
+
+  // ---- 媒体模板（`getMediaTemplates()`；2026-10-01 D-192 tools 域取用面收敛）----
+  listMediaTemplates(): Promise<MediaTemplateDto[]>;
+}
+
+/**
+ * 媒体模板条目（**最小投影 DTO** —— `media-template-handlers.ts:39-48` 的实际读取面）
+ */
+export interface MediaTemplateDto {
+  templateId: unknown;
+  name: unknown;
+  type: unknown;
+  category: unknown;
+  thumbnailUrl: unknown;
+  promptTemplate: unknown;
+  requiresImage: unknown;
+  sortOrder: unknown;
 }

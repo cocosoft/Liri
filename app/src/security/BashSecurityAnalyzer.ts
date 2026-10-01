@@ -8,7 +8,7 @@
  * 当原生库不可用时自动降级为TypeScript模式匹配
  */
 
-import { checkBashAllowlist } from '../tools/BashAllowlistMatcher';
+import { checkBashAllowlist } from './BashAllowlistMatcher';
 
 let nativeAnalyzeSave: ((command: string) => object | null) | null = null;
 

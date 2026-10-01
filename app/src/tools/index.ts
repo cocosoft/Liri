@@ -228,12 +228,13 @@ export type { ApprovalResult, ApprovalDecision } from './SmartApprovalObserver';
 export { sanitizeSchema } from './SchemaSanitizer';
 export type { SanitizeOptions, SanitizeResult } from './SchemaSanitizer';
 
-// P3-3: Bash 命令 allowlist 前缀匹配防注入
-export {
-  checkBashAllowlist,
-  isReadOnlyBashCommand,
-} from './BashAllowlistMatcher';
-export type { AllowlistResult } from './BashAllowlistMatcher';
+// P3-3: Bash 命令 allowlist 前缀匹配防注入 —— 2026-10-01（台账 D-154）**已移除本处转出**：
+// ① 实现已**归位 `security/BashAllowlistMatcher`**（安全域逻辑，原置于 tools 才造成
+//    `security`(infra) → `tools`(app) 倒挂）；
+// ② 经全仓核实 `checkBashAllowlist` / `isReadOnlyBashCommand` / `AllowlistResult` 在此口径下
+//    **零消费者**（唯一消费者是 `security/BashSecurityAnalyzer`，走同模块相对导入）
+//    ⇒ 保留转出会迫使 `tools` 桶反向引入 `@modules/security` **整桶**，故直接删除。
+// 需要者请从 `@modules/security` 导入。
 
 // 2026-09-29（台账 D-45）：删除本文件原导出的 `getTools(): any[]`（`feature()` 门控的**类名**数组，
 // 如 `'CronCreateTool'`/`'MonitorTool'`/`'VoiceTool'`）—— 经全仓核实**零消费者**（`init.ts:411` /

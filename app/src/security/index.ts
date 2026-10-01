@@ -150,6 +150,15 @@ export {
 } from './scanner/secret';
 export type { MemorySecretMatch } from './scanner/secret';
 
+// ==================== Bash allowlist 匹配 ====================
+// 2026-10-01（台账 D-154）：自 `tools/BashAllowlistMatcher` **归位 security/**（安全域逻辑），
+// 原跨层边 `security`(infra) → `tools`(app) 随之消除。
+export {
+  checkBashAllowlist,
+  isReadOnlyBashCommand,
+} from './BashAllowlistMatcher';
+export type { AllowlistResult } from './BashAllowlistMatcher';
+
 // ==================== 回滚模块 ====================
 export type { RollbackPermissionCheckFn } from './rollback';
 

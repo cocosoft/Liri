@@ -21,11 +21,12 @@
 /**
  * 秘密扫描模块
  *
- * 聚合分散的秘密扫描能力：
+ * 聚合分散的**记忆侧**秘密扫描能力：
  * - MemorySecretScanner（记忆秘密扫描）
- * - TeamMemSecretScanner（团队记忆秘密扫描）
- * - TeamMemSecretGuard（团队记忆写入保护）
- * - PluginSecurityScanner（插件安全扫描）
+ *
+ * 2026-10-01（台账 D-154）：原还转出 TeamMemSecretScanner / TeamMemSecretGuard（`services`）
+ * 与 PluginSecurityScanner（`plugins`）—— 三者**全仓零消费者**（含 tests），却把 app/service
+ * 反向拉进 infra ⇒ 已删除；需要者请直接从各自来源模块导入。
  */
 
 export {
@@ -40,18 +41,3 @@ export type {
   SecretScanResult,
 } from '@modules/memory';
 
-export { scanForSecrets as scanTeamMemForSecrets } from '@modules/services/teamMemorySync/SecretScanner';
-export type { SecretMatch as TeamMemSecretMatch } from '@modules/services/teamMemorySync/SecretScanner';
-
-export {
-  isTeamMemPath,
-  checkTeamMemSecrets,
-} from '@modules/services/teamMemorySync/TeamMemSecretGuard';
-
-export { PluginSecurityScanner } from '@modules/plugins';
-export type {
-  SecurityIssue,
-  SecurityScanResult as PluginSecurityScanResult,
-  DangerPattern,
-  RiskLevel,
-} from '@modules/plugins';

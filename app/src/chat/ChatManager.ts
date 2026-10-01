@@ -308,6 +308,8 @@ import {
   isEligibleForFastPath,
 } from '@modules/tasks';
 import type { PlanDrivenLoopResult } from '@modules/tasks';
+// 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
+import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import { ReActToolLoop } from './ReActToolLoop.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { withToolTimeout } from './services/ToolTimeoutWrapper.js';
@@ -887,7 +889,9 @@ export class ChatManagerImpl implements ChatManager {
     this.tokenBudget = new TokenBudgetController(
       'default',
       defaultBudget,
-      defaultBudget.total
+      defaultBudget.total,
+      undefined,
+      estimateTokens
     );
     this.unifiedTracker = new UnifiedTokenTracker(
       this.tokenBudget,

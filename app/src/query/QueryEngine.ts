@@ -63,6 +63,8 @@ import {
   TokenBudgetStatus,
   getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
+// 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
+import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import {
   UnifiedTokenTracker,
   setUnifiedTokenTracker,
@@ -405,7 +407,9 @@ export class QueryEngine {
         total: config.taskBudget?.total || defaultBudget.total,
         remaining: config.taskBudget?.total || defaultBudget.remaining,
       },
-      config.taskBudget?.total || defaultBudget.total
+      config.taskBudget?.total || defaultBudget.total,
+      undefined,
+      estimateTokens
     );
     this.unifiedTracker = new UnifiedTokenTracker(
       this.tokenBudgetManager,

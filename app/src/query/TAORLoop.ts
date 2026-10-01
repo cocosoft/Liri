@@ -26,6 +26,8 @@ import {
   type TokenBudgetState,
   getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
+// 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
+import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { TokenBudgetConfig } from './TokenBudget.js';
 import { StopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from './StopHooks.js';
 import type { StopHook, StopHookContext, StopHookReason } from './StopHooks.js';
@@ -482,7 +484,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         remaining: totalTokens,
         maxOutputTokens: this.taorConfig.budgetConfig.maxOutputTokens,
       },
-      totalTokens
+      totalTokens,
+      undefined,
+      estimateTokens
     );
     this.stopHookManager = new StopHookManager();
     this.abortController = new AbortController();
@@ -1784,7 +1788,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         remaining: actualRemaining,
         maxOutputTokens: checkpoint.budgetState.maxOutputTokens,
       },
-      checkpoint.budgetState.maxTokens
+      checkpoint.budgetState.maxTokens,
+      undefined,
+      estimateTokens
     );
 
     // 恢复断路器状态

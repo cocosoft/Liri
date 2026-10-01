@@ -43,6 +43,8 @@ import {
   TokenBudgetStatus,
   getDefaultTokenBudget,
 } from '@modules/core/tokenBudget/TokenBudgetController.js';
+// 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
+import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { BudgetControllerLike } from '@modules/query';
 import { resolveContextWindow } from '@modules/context';
 
@@ -83,7 +85,9 @@ export function createStreamBudget(
       remaining: windowTokens,
       maxOutputTokens: def.maxOutputTokens,
     },
-    windowTokens
+    windowTokens,
+    undefined,
+    estimateTokens
   );
   let lastEstimate = 0;
   let graceGranted = false;

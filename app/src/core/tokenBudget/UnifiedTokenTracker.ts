@@ -23,6 +23,7 @@ import { handleError } from '../errorHandler.js';
 import {
   TokenBudgetController,
   UNIFIED_THRESHOLDS,
+  type TokenEstimatorFn,
 } from './TokenBudgetController';
 import { getCalibrationFactor } from './CalibrationStore';
 // FSZ-162（2026-09-23）：校准与统计逻辑抽至 `./tokenCalibration`（状态仍由本类持有）
@@ -746,7 +747,8 @@ export class UnifiedTokenTracker {
         calibrationFactor?: number;
       };
     },
-    contextTracker: CompressionRecorderPort
+    contextTracker: CompressionRecorderPort,
+    tokenEstimator?: TokenEstimatorFn
   ): UnifiedTokenTracker {
     const contextWindow = resolveContextWindow(
       session.metadata?.currentModel ?? 'default'
@@ -770,7 +772,9 @@ export class UnifiedTokenTracker {
     const controller = new TokenBudgetController(
       'default',
       budget,
-      budget.total
+      budget.total,
+      undefined,
+      tokenEstimator
     );
     const tracker = new UnifiedTokenTracker(controller, contextTracker);
     // O9/G14：会话恢复路径同样注册（供摘要预算等跨模块读取"父当前上下文大小"）

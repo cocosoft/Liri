@@ -43,8 +43,12 @@ import type {
   ContextStats,
   TokenUsage,
 } from './types';
-import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
+// 2026-10-01 D-144：原直接 import `@modules/ai/tokenizer/TokenEstimator`（core → app 倒挂）
+// ⇒ 改为 **DI**：估算器由调用方注入（见下方 `TokenEstimatorFn`），core 不再依赖上层。
 import { getLogger } from '../loggerFacade.js';
+/** 注入式 token 估算器（DI，2026-10-01 D-144）：core 不依赖上层 `ai/tokenizer` ⇒ 由调用方注入精确实现 */
+export type TokenEstimatorFn = (text: string) => number;
+
 const logger = getLogger('tokenBudget:controller');
 
 // === Phase 1a: 统一阈值常量 — 所有方法共享 ===
@@ -144,12 +148,17 @@ export class TokenBudgetController {
   private graceCallsUsed: number = 0;
   private readonly MAX_GRACE_CALLS = 3;
 
+  /** 注入式 token 估算器（DI，2026-10-01 D-144）：未注入时用保守基线 */
+  private readonly tokenEstimator?: TokenEstimatorFn;
+
   constructor(
     model: string,
     budget: TokenBudgetParams,
     contextWindow?: number,
-    provider?: APIProviderType
+    provider?: APIProviderType,
+    tokenEstimator?: TokenEstimatorFn
   ) {
+    this.tokenEstimator = tokenEstimator;
     this.model = model;
     this.budget = {
       total: budget.total,
@@ -448,7 +457,9 @@ export class TokenBudgetController {
 
   /** 估算消息 token */
   estimateMessageTokens(content: string): number {
-    return estimateTokens(content);
+    if (this.tokenEstimator) return this.tokenEstimator(content);
+    // 未注入时的保守基线（4 字符 ≈ 1 token）；上层注入精确实现后即走注入分支
+    return Math.ceil(content.length / 4);
   }
 
   /** 是否可以发送消息 */

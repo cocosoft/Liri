@@ -29,14 +29,18 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import {
-  autoReplyEngine,
-  type ReplyRule,
-  type StoredPattern,
-} from '../../../auto-reply';
+// 2026-10-01 D-202（子批 C，auto-reply 域）：原以**相对路径** `'../../../auto-reply'`
+// 静态导入 app 层（`autoReplyEngine` + `ReplyRule` / `StoredPattern`）
+// ⇒ `infrastructure -> app` 倒挂。改经 **服务层端口** `AutoReplyPort`
+// （`runtime/api/autoReplyPorts.ts`，与 `toolsPorts` 同构；驱动实现内聚 `CoreAPIImpl`）。
+import type {
+  AutoReplyRuleDto,
+  AutoReplyRuleInput,
+} from '@modules/runtime/api/autoReplyPorts';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /** 序列化规则（RegExp → { type, value, flags }，函数 response 不传输） */
-function serializeRule(rule: ReplyRule): Record<string, unknown> {
+function serializeRule(rule: AutoReplyRuleDto): Record<string, unknown> {
   return {
     id: rule.id,
     name: rule.name,
@@ -56,11 +60,23 @@ function serializeRule(rule: ReplyRule): Record<string, unknown> {
   };
 }
 
+/**
+ * 前端传入的 pattern 载荷（string 或 `{ type, value, flags }`）
+ *
+ * ⚠️ 就地声明的**边界结构**（校验外部 JSON 输入），非 app 层 `StoredPattern` 的端口镜像
+ * ⇒ 有意不复用端口 DTO（该结构只在此处消费）。
+ */
+type PatternPayload = {
+  type: 'regexp' | 'substring';
+  value: string;
+  flags?: string;
+};
+
 /** 解析前端传入的 pattern（string 或 { type, value, flags }） */
 function parsePattern(p: unknown): RegExp | string {
   if (typeof p === 'string') return p;
   if (p && typeof p === 'object') {
-    const sp = p as StoredPattern;
+    const sp = p as PatternPayload;
     if (sp.type === 'regexp') return new RegExp(sp.value, sp.flags ?? '');
     if (sp.type === 'substring') return sp.value;
   }
@@ -73,11 +89,12 @@ export async function handleListAutoReplyRules(
   res: http.ServerResponse
 ): Promise<void> {
   try {
+    const port = await getCoreAPI().getAutoReplyPort();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        rules: autoReplyEngine.getAllRules().map(serializeRule),
-        stats: autoReplyEngine.getStats(),
+        rules: port.getAllRules().map(serializeRule),
+        stats: port.getStats(),
       })
     );
   } catch (err) {
@@ -116,7 +133,8 @@ export async function handleCreateAutoReplyRule(
     }
 
     const pattern = parsePattern(body.pattern);
-    const rule = autoReplyEngine.registerRule({
+    const port = await getCoreAPI().getAutoReplyPort();
+    const rule = port.registerRule({
       name: body.name,
       pattern,
       response: body.response,
@@ -154,7 +172,7 @@ export async function handleUpdateAutoReplyRule(
       cooldown?: number;
     };
 
-    const updates: Partial<Omit<ReplyRule, 'id'>> = {};
+    const updates: Partial<AutoReplyRuleInput> = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.pattern !== undefined)
       updates.pattern = parsePattern(body.pattern);
@@ -164,7 +182,8 @@ export async function handleUpdateAutoReplyRule(
     if (body.channel !== undefined) updates.channel = body.channel;
     if (body.cooldown !== undefined) updates.cooldown = body.cooldown;
 
-    const updated = autoReplyEngine.updateRule(ruleId, updates);
+    const port = await getCoreAPI().getAutoReplyPort();
+    const updated = port.updateRule(ruleId, updates);
     if (!updated) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: `规则不存在: ${ruleId}` } }));
@@ -189,7 +208,8 @@ export async function handleDeleteAutoReplyRule(
   ruleId: string
 ): Promise<void> {
   try {
-    const deleted = autoReplyEngine.deleteRule(ruleId);
+    const port = await getCoreAPI().getAutoReplyPort();
+    const deleted = port.deleteRule(ruleId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ deleted }));
   } catch (err) {

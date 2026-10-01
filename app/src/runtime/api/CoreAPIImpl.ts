@@ -59,6 +59,7 @@ import type {
   ProjectArtifactStorePort,
 } from './projectOpsPorts';
 import type { SkillsOpsPort } from './skillsOpsPorts';
+import type { AutoReplyPort } from './autoReplyPorts';
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1804,6 +1805,31 @@ export class CoreAPIImpl implements CoreAPI {
           await import('@modules/tools/VideoGenerateTool/VideoGenerateTool');
         VideoGenerateTool.cancelTask(taskId);
       },
+    };
+  }
+
+  // ---- 自动回复运行时（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-202）----
+
+  /**
+   * 自动回复端口（2026-10-01 D-202，子批 C）
+   *
+   * `auto-reply-handlers.ts` 原先以**相对路径**静态导入 app 层 `'../../../auto-reply'`
+   * （`autoReplyEngine` + `ReplyRule` / `StoredPattern`）⇒ `infrastructure -> app` 倒挂。
+   * 现按本文件既有模式**动态**取用（仅 R00-003 可见）。
+   *
+   * ⚠️ `auto-reply` 模块**无 `@modules/*` 别名**（tsconfig 为逐模块显式声明，见 `tsconfig.json:26+`）
+   * ⇒ 此处只能用**相对路径**动态导入（`src/runtime/api/` → `src/auto-reply/index.js`）。
+   */
+  async getAutoReplyPort(): Promise<AutoReplyPort> {
+    const { autoReplyEngine } = await import('../../auto-reply/index.js');
+
+    return {
+      getAllRules: () => autoReplyEngine.getAllRules(),
+      getStats: () => autoReplyEngine.getStats(),
+      registerRule: (rule) => autoReplyEngine.registerRule(rule as never),
+      updateRule: (ruleId, updates) =>
+        autoReplyEngine.updateRule(ruleId, updates as never),
+      deleteRule: (ruleId) => autoReplyEngine.deleteRule(ruleId),
     };
   }
 

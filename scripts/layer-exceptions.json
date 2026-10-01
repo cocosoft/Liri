@@ -32,17 +32,6 @@
       "owner": "@arch-lead"
     },
     {
-      "id": "BULK-011",
-      "ruleId": "R00-001",
-      "pattern": "core -> service",
-      "description": "核心层引用服务层",
-      "rationale": "core 层引用服务层的异常模式。**2026-10-01 D-143 复核（探针实测）**：`estimatedCount` 由 **2 修正为 1** —— 移除本例外后 `lint:arch` 实报 1 处：`core/session/SessionSupervisor.ts:10-11` → `@modules/session`（`ResetPolicyDecider` / `ResetPolicy`）。⚠️ 本条曾于同日被**误判为「空气例外」并删除** —— 根因是**静态 grep 模式只覆盖 `@modules/<mod>/…`（带斜杠），漏掉 `@modules/<mod>`（无斜杠）形式**（与 B2-c「探针盲区」同类：**发现手段本身有盲区**）；经门禁实跑暴露后已恢复并如实修正。收口路径：SessionSupervisor 对 session 服务的依赖需 **DI / 接口反转**（独立议题）",
-      "estimatedCount": 1,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2027-04-18",
-      "owner": "@arch-lead"
-    },
-    {
       "id": "BULK-012",
       "ruleId": "R00-001",
       "pattern": "core -> app",

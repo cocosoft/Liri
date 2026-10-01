@@ -124,7 +124,11 @@ export interface ToolsPort {
   /** 原 `resolveAgentToolInstance()?.stopAgent(agentId, { requesterSessionId })`（仅用于判断 ⇒ 不建 DTO） */
   stopAgent(
     agentId: string,
-    opts: { requesterSessionId?: string | undefined }
+    opts: {
+      requesterSessionId?: string | undefined;
+      /** O14：未带会话标识时**显式**声明特权（原调用点即传此字段） */
+      privileged?: boolean | undefined;
+    }
   ): unknown;
   /**
    * Agent 工具是否可用（`resolveAgentToolInstance()` 非 null）。

@@ -1743,7 +1743,10 @@ export class CoreAPIImpl implements CoreAPI {
         resolveAgentToolInstance()?.getActiveAgents() ?? [],
       stopAgent: (
         agentId: string,
-        opts: { requesterSessionId?: string | undefined }
+        opts: {
+          requesterSessionId?: string | undefined;
+          privileged?: boolean | undefined;
+        }
       ) => resolveAgentToolInstance()?.stopAgent(agentId, opts),
       isAgentToolAvailable: () => resolveAgentToolInstance() !== null,
       listVideoTasksBySourceImagePath: async (imagePath: string) =>

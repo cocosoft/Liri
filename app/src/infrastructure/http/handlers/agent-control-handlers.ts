@@ -12,13 +12,12 @@
  */
 
 import type http from 'http';
-import {
-  AgentTool,
-  getAgentRunStore,
-  resolveAgentToolInstance,
-  setSpawnPaused,
-  getSpawnPauseState,
-} from '@modules/tools';
+// 2026-10-01 D-199（tools 域取用面收敛，`tools` 域**最后一条**）：原先**静态**导入 5 个符号
+// （`AgentTool` 类型 · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` ·
+// `getSpawnPauseState`）⇒ `infrastructure -> app` 倒挂。现已**全部**改经 service 侧端口
+// （`getCoreAPI().getToolsPort()`，端口于 D-199 步骤 1 就绪）。
+// service 侧端口取用入口（同 D-93 先例）
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { HandlerCtx } from './handler-utils';
 
 /**
@@ -29,9 +28,8 @@ import type { HandlerCtx } from './handler-utils';
  * `AgentTool.stopAgent`（含批次级取消 R1）的修复代码**一行都不会被执行**。
  * 现统一走 `resolveAgentToolInstance()`（解包 + 能力判定，见该模块注释；其内部自带 error 日志）。
  */
-function getAgentTool(): AgentTool | null {
-  return resolveAgentToolInstance();
-}
+// （D-199：原 `getAgentTool()` helper 已删除 —— 其"解包 + 能力判定"职责并入端口：
+// `isAgentToolAvailable()` / `getActiveAgents()` / `stopAgent()`。）
 
 function sendJson(
   res: http.ServerResponse,
@@ -49,10 +47,10 @@ export async function handleGetAgentControl(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const agentTool = getAgentTool();
+    const tools = await getCoreAPI().getToolsPort();
     sendJson(res, 200, {
-      spawn: getSpawnPauseState(),
-      agents: agentTool?.getActiveAgents() ?? [],
+      spawn: tools.getSpawnPauseState(),
+      agents: tools.getActiveAgents(),
     });
   } catch (err) {
     ctx.sendError(res, err);
@@ -68,7 +66,8 @@ export async function handlePauseAgentSpawn(
   try {
     const body = await ctx.readRequestBody(req);
     const data = body ? (JSON.parse(body) as { reason?: string }) : {};
-    const state = setSpawnPaused(
+    const tools = await getCoreAPI().getToolsPort();
+    const state = tools.setSpawnPaused(
       true,
       typeof data.reason === 'string' ? data.reason : undefined
     );
@@ -103,7 +102,8 @@ export async function handleListAgentRuns(
       ? Math.min(Math.max(Math.trunc(rawLimit), 1), 200)
       : 50;
 
-    const rows = await getAgentRunStore().listRuns(); // 按 started_at 升序
+    const tools = await getCoreAPI().getToolsPort();
+    const rows = await tools.listAgentRuns(); // 按 started_at 升序
     const recent = rows.slice(-limit).reverse(); // 面板要"最近优先"
 
     sendJson(res, 200, {
@@ -136,7 +136,8 @@ export async function handleResumeAgentSpawn(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const state = setSpawnPaused(false);
+    const tools = await getCoreAPI().getToolsPort();
+    const state = tools.setSpawnPaused(false);
     sendJson(res, 200, { message: '子代理 spawn 已恢复', spawn: state });
   } catch (err) {
     ctx.sendError(res, err);
@@ -155,8 +156,8 @@ export async function handleStopAgent(
   agentId: string
 ): Promise<void> {
   try {
-    const agentTool = getAgentTool();
-    if (!agentTool) {
+    const tools = await getCoreAPI().getToolsPort();
+    if (!tools.isAgentToolAvailable()) {
       sendJson(res, 503, { error: 'Agent 工具当前不可用（工具管理器未注册）' });
       return;
     }
@@ -165,7 +166,7 @@ export async function handleStopAgent(
     const data = body ? (JSON.parse(body) as { sessionId?: string }) : {};
     const sessionId =
       typeof data.sessionId === 'string' ? data.sessionId : undefined;
-    const stopped = agentTool.stopAgent(agentId, {
+    const stopped = tools.stopAgent(agentId, {
       requesterSessionId: sessionId,
       // O14：未带会话标识的调用 ⇒ **显式**声明特权（该端点已在鉴权路由内，属运维级控制面），
       // 而不是依赖"不传即特权"的隐式默认；带上 sessionId 则走 fail-closed 归属校验。

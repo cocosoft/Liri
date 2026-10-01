@@ -762,6 +762,17 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **已回滚**（`git reset` + `git checkout -- src` + 清理未跟踪副本）⇒ **树恢复绿**：`typecheck` **0** · `lint:arch` 违规 **0** / `已豁免 97` · 工作树仅剩 2 个**非我创建**的未跟踪文件。
   - **⚠️ 附带教训（供门禁口径裁定参考）**：**移动文件会改变其适用的 eslint 规则集**（`ui/` 与 `utils/` 豁免不同）⇒ 归位类改动**必须把 `eslint` 纳入前置检查**，不能只看 `typecheck` + `lint:arch`。
 
+- **✅ / 🔴 2026-10-01（D-182）B3-2 完成（方案 b）；B3-1' 撞上「同名类型冲突」硬点** —— spec §3.2.1。
+  - **✅ B3-2 已完成（提交 `c1a69ff8e`）**：① 先把 `KeyboardShortcuts` 的 **4 处占位动作 `console.log` 改走 `getLogger`**（§1.8 日志唯一入口 + 解 `no-console`；这些 action 本是"只打印一句"的占位实现 ⇒ 改 debug 级不改变"未真实执行"的语义）；② `git mv ui/KeyboardShortcuts.ts → utils/KeyboardShortcuts.ts`；③ `docs/HelpSystem.ts` 改指 `../utils/`。**验收**：`typecheck` **0** · `eslint` **0** · `lint:arch` 违规 **0** / `已豁免 97`（未变 —— 同文件仍 import ui 的 `ThemeManager`，须 B3-1' 同批才减计数）。
+  - **🔴 B3-1' 的新硬点：两版「同名类型」冲突（非 API 差异）** ——
+    | 类型 | canonical `system/theme` | ui 版 |
+    |---|---|---|
+    | `ThemeColors` | `primary`/`secondary`/`success`/`warning`/`error`/`info`/`text`/`textSecondary`/`background`/`backgroundSecondary`/`border`/`muted`（**语义色**） | `foreground`/`background`/`cursor`/`black`/`red`/`green`/`yellow`/`blue`/…（**ANSI 色**） |
+    | `Theme` | `{name, description, isDark, colors}` | `{name, colors, ansi256?}` |
+    ⇒ 合并到同一文件会**同名冲突**，须重命名其一；且 `ui/UIEnhancer.ts` 的 **`applyStyle('success'｜'warning'｜'error'｜'info'｜'header'｜'title'｜'subtitle'｜'code'｜'prompt', text)`** 必须**人工决定**"语义 style → ANSI 色"的映射（`success→green`? `header→?` …）—— **这是设计/行为决策，不是机械移植**。
+  - **⇒ 结论**：B3-1' 的剩余工作 = **一次带行为决策的合并**（改名 + style 映射表 + 重写 canonical 类），仍需要**一轮完整预算**；本轮已完成 B3-2 并把它提交（**但门禁计数未变**：`docs -> ui` 按「文件 × 去重目标模块」计 = **1**，须 `KeyboardShortcuts` 与 `ThemeManager` **两条 import 都清掉**才减 1 ⇒ 必须与 B3-1' **同批**才见效）。
+  - **建议决策项（二选一）**：**(i)** 先定"style→ANSI 色"映射表（我可给出建议表：success→green · warning→yellow · error→red · info→cyan · title/header→brightWhite · subtitle→white · code→brightBlack · prompt→cyan），再执行合并；**(ii)** 承认 `theme` 域是"两套并行数据模型、合并收益仅 2 条边"，**挂起 B3**，转 `infrastructure -> app`（19 条，装配错层，无数据模型纠缠）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

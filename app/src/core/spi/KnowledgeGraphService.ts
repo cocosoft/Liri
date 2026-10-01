@@ -69,8 +69,7 @@ let _service: IKnowledgeGraphPort | null = null;
 /** 转发**代理**（延迟绑定，同 `resolveBroadcast()` 语义） */
 const _proxy: IKnowledgeGraphPort = {
   createGraph: (dbPath) => _service?.createGraph(dbPath) ?? null,
-  createSchemaLoader: (domain) =>
-    _service?.createSchemaLoader(domain) ?? null,
+  createSchemaLoader: (domain) => _service?.createSchemaLoader(domain) ?? null,
   listDomains: () => _service?.listDomains() ?? Promise.resolve([]),
   generateEntityId: (domain, kind, slug) =>
     _service?.generateEntityId(domain, kind, slug) ?? '',

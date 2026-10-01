@@ -278,15 +278,12 @@ export async function registerAllSpis(
   // chronos/autoDream/DreamGraphPhase 原直接 import `@modules/knowledge/*`（infra → app 倒挂，3 处）；
   // 现改为经 `IKnowledgeGraphPort` 解析（端口只暴露"能拿到哪些对象"，业务语义留在消费方）。
   {
-    const { KnowledgeGraph } = await import(
-      '@modules/knowledge/graph/KnowledgeGraph'
-    );
-    const { SchemaLoader } = await import(
-      '@modules/knowledge/schema/SchemaLoader'
-    );
-    const { DomainManager } = await import(
-      '@modules/knowledge/domain/DomainManager'
-    );
+    const { KnowledgeGraph } =
+      await import('@modules/knowledge/graph/KnowledgeGraph');
+    const { SchemaLoader } =
+      await import('@modules/knowledge/schema/SchemaLoader');
+    const { DomainManager } =
+      await import('@modules/knowledge/domain/DomainManager');
     const { registerKnowledgeGraphSpi } = await import('@modules/core/spi');
 
     await registerKnowledgeGraphSpi(container, {

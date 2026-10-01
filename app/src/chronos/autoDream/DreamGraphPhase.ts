@@ -181,7 +181,11 @@ export async function runDreamGraphPhase(
           if (target !== 'index' && target !== sourceSlug) {
             const targetId = target.includes(':')
               ? target
-              : resolveKnowledgeGraph().generateEntityId(domain, 'wiki', target);
+              : resolveKnowledgeGraph().generateEntityId(
+                  domain,
+                  'wiki',
+                  target
+                );
             targets.add(targetId);
           }
         }

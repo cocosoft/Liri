@@ -7,7 +7,10 @@ import { getOTelTracing } from '@modules/monitoring/otel';
 import { resolveDataDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '@modules/tasks';
-import type { PlanDrivenLoopResult, PlanDrivenLoopConfig } from '@modules/tasks';
+import type {
+  PlanDrivenLoopResult,
+  PlanDrivenLoopConfig,
+} from '@modules/tasks';
 import type { AIProvider, ChatMessage } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';

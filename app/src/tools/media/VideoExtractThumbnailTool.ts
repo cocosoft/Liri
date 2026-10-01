@@ -1,28 +1,28 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { qrCodeManager } from '../qr/QRCodeManager';
+import { videoProcessor } from '../../media/video/VideoProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import fs from 'fs';
 
-const logger = getLogger('media:tool:qr-generate');
+const logger = getLogger('media:tool:extract-thumbnail');
 
-export function createQRGenerateTool(): Tool {
+export function createVideoExtractThumbnailTool(): Tool {
   return {
-    name: 'media_qr_generate',
-    description: 'Generate a QR code image from text',
+    name: 'media_video_extract_thumbnail',
+    description: 'Extract a thumbnail image from video at specified time',
     params: [
       {
-        name: 'text',
+        name: 'input',
         type: 'string',
-        description: 'Text to encode in QR code',
+        description: 'Input video path',
         required: true,
       },
       {
@@ -32,20 +32,14 @@ export function createQRGenerateTool(): Tool {
         required: true,
       },
       {
-        name: 'size',
+        name: 'time',
         type: 'number',
-        description: 'QR code size in pixels',
-        required: false,
-      },
-      {
-        name: 'format',
-        type: 'string',
-        description: 'Output format (png, svg)',
+        description: 'Time in seconds to capture thumbnail',
         required: false,
       },
     ],
-    aliases: ['qr_generate', 'qr_create'],
-    searchTips: ['qr', 'generate', 'barcode'],
+    aliases: ['video_thumbnail', 'video_extract_thumbnail'],
+    searchTips: ['video', 'thumbnail', 'snapshot'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
@@ -56,23 +50,24 @@ export function createQRGenerateTool(): Tool {
       _context: ToolUseContext
     ): Promise<MediaToolResult> {
       const startTime = Date.now();
-      const text = input.text as string;
+      const inPath = input.input as string;
       const outPath = input.output as string;
+      const captureTime = (input.time as number) ?? 1;
 
-      if (!text || typeof text !== 'string') {
+      const safeInput = resolveSafePath(inPath);
+      if (!safeInput.valid) {
         return {
           status: ToolExecutionStatus.FAILURE,
-          error: 'text 参数不能为空',
+          error: safeInput.error,
           executionTime: Date.now() - startTime,
           output: '',
-          errorOutput: 'text 参数不能为空',
-          metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media_qr_generate',
+          errorOutput: safeInput.error!,
+          metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
-
       const safeOutput = resolveSafePath(outPath);
       if (!safeOutput.valid) {
         return {
@@ -82,32 +77,43 @@ export function createQRGenerateTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media_qr_generate',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
+          timestamp: Date.now(),
+        };
+      }
+
+      if (!fs.existsSync(safeInput.path!)) {
+        return {
+          status: ToolExecutionStatus.FAILURE,
+          error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
+          executionTime: Date.now() - startTime,
+          output: '',
+          errorOutput: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
+          metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const options: Record<string, unknown> = {};
-        if (input.size !== undefined) options.size = input.size as number;
-        if (input.format !== undefined) options.format = input.format as string;
-
-        const success = await qrCodeManager.generate(
-          text,
+        const success = await videoProcessor.extractThumbnail(
+          safeInput.path!,
           safeOutput.path!,
-          options as Record<string, unknown>
+          captureTime
         );
         if (!success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: MEDIA_ERROR_MESSAGES[MediaErrorCode.PROCESS_FAILED],
+            error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
             executionTime: Date.now() - startTime,
             output: '',
-            errorOutput: MEDIA_ERROR_MESSAGES[MediaErrorCode.PROCESS_FAILED],
-            metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `qr_gen_${Date.now()}`,
-            toolName: 'media_qr_generate',
+            errorOutput:
+              MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
+            metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
+            executionId: `vid_thumb_${Date.now()}`,
+            toolName: 'media_video_extract_thumbnail',
             timestamp: Date.now(),
           };
         }
@@ -115,28 +121,33 @@ export function createQRGenerateTool(): Tool {
         const outputSize = fs.existsSync(safeOutput.path!)
           ? fs.statSync(safeOutput.path!).size
           : 0;
-        logger.info('QR code generated', {
+        logger.info('Thumbnail extracted', {
+          input: safeInput.path,
           output: safeOutput.path,
-          size: outputSize,
+          time: captureTime,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
           output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
           errorOutput: '',
-          metadata: { outputPath: safeOutput.path },
+          metadata: {
+            inputPath: safeInput.path,
+            outputPath: safeOutput.path,
+            time: captureTime,
+          },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
           outputSize,
-          executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media_qr_generate',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
-          content: `QR 码已生成: ${safeOutput.path}`,
+          content: `缩略图已提取: ${safeOutput.path} (${captureTime}s)`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:qr-generate',
+          module: 'media:tool:extract-thumbnail',
           action: 'execute',
-          context: { text },
+          context: { input: safeInput.path },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
@@ -145,8 +156,8 @@ export function createQRGenerateTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media_qr_generate',
+          executionId: `vid_thumb_${Date.now()}`,
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -154,13 +165,13 @@ export function createQRGenerateTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_qr_generate',
-        description: 'Generate a QR code image from text',
+        name: 'media_video_extract_thumbnail',
+        description: 'Extract a thumbnail image from video at specified time',
         params: [
           {
-            name: 'text',
+            name: 'input',
             type: 'string',
-            description: 'Text to encode in QR code',
+            description: 'Input video path',
             required: true,
           },
           {
@@ -170,20 +181,14 @@ export function createQRGenerateTool(): Tool {
             required: true,
           },
           {
-            name: 'size',
+            name: 'time',
             type: 'number',
-            description: 'QR code size in pixels',
-            required: false,
-          },
-          {
-            name: 'format',
-            type: 'string',
-            description: 'Output format (png, svg)',
+            description: 'Time in seconds to capture thumbnail',
             required: false,
           },
         ],
-        aliases: ['qr_generate'],
-        searchTips: ['qr', 'generate', 'barcode'],
+        aliases: ['video_thumbnail'],
+        searchTips: ['video', 'thumbnail', 'snapshot'],
         enabled: true,
         readOnly: false,
         destructive: false,

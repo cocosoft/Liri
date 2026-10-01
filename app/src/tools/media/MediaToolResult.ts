@@ -4,7 +4,7 @@
 /**
  * MediaToolResult — Media 工具统一返回类型
  */
-import type { ToolResult } from '../../tools/types/ToolResult';
+import type { ToolResult } from '../types/ToolResult';
 
 export interface MediaToolResult extends ToolResult {
   /** 生成/处理后的文件路径 */

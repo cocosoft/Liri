@@ -541,10 +541,10 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **`infra -> app` 的引用性质**（决定收口方式）：`@modules/ai`（memory 5 + chronos 1）· `@modules/tasks`（chronos 6）· `@modules/knowledge`（chronos 3）· `@modules/hooks`（memory 1）等 ⇒ 其中 **AI 访问已有 `IAiAccessService` SPI（D-124）**，可扩展复用而非新建。
   - **处置顺序（用户裁定 2026-10-01）**：**先收官 `infra -> app`（≈36）** —— 底层依赖上层最严重，且 D-144 刚建立的 SPI/DI 模式可直接复用。
 
-- **✅ 2026-10-01（D-146~149）`infra -> app` 收官前四批**（SPI 端口 3 批 + 物理归位 1 批）：
-  - **D-146 AI 访问 5 处**（扩展既有 `IAiAccessService`）· **D-147 tasks 9 处**（新建 `ITaskRegistryPort`）· **D-148 knowledge 3 处**（新建 `IKnowledgeGraphPort`）· **D-149 utils 5 处**（3 处「域内工具误置 `utils/`」**物理归位**：`cliArgs.ts → entrypoints/`、`messages.ts → chat/utils/`、`loadPluginAgents.ts → agent/utils/`；1 处死文件 `utils/messages/mappers.ts` **删除**）。
-  - **验收**：`lint:arch` **0 错 / 违规 0**（豁免 **220 → 216 → 204**）· 全量 `bun test` **4250 pass / 21 skip / 0 fail**。
-  - **⚠️ 更正本表 D-145 的 `infra -> app` / `infra -> service` 两行（静态取证失真）**：D-149 门禁探针实测（BULK-007/008 过期态，utils 消除后）= **`infra -> app` 45 · `infra -> service` 8**（合计 53，与 `违规 53` 一致），而本表静态估为 36 / 7。按源模块实测：`media` **17**（全为 → tools）· `constants` 6 · `memory` 5 · `security` 4 · `cost` 3 · `chronos` 2 · `system` 2 · `config` 2 · `permission` 2 · `state` 1 · `monitoring` 1（app）；`oauth` 2 · `memory` 2 · `security` 1 · `constants` 1 · `system` 1 · `chronos` 1（service）。⇒ **本表"主要来源"列不可作排期依据，以台账 D-149 实测明细为准**；**下一批建议 `media -> tools`（17）**。
+- **✅ 2026-10-01（D-146~150）`infra -> app` 收官前五批**（SPI 端口 3 批 + 物理归位 2 批）：
+  - **D-146 AI 访问 5 处**（扩展既有 `IAiAccessService`）· **D-147 tasks 9 处**（新建 `ITaskRegistryPort`）· **D-148 knowledge 3 处**（新建 `IKnowledgeGraphPort`）· **D-149 utils 5 处**（3 处「域内工具误置 `utils/`」**物理归位**：`cliArgs.ts → entrypoints/`、`messages.ts → chat/utils/`、`loadPluginAgents.ts → agent/utils/`；1 处死文件 `utils/messages/mappers.ts` **删除**）· **D-150 media 17 处**（`media/tools/` **18 文件** + `media/MediaModule.ts` **物理归位** `tools/media/`；`media` 只留处理器）。
+  - **验收**：`lint:arch` **0 错 / 违规 0**（豁免 **220 → 216 → 204 → 187**）· 全量 `bun test` **4250 pass / 21 skip / 0 fail**。
+  - **⚠️ 更正本表 D-145 的 `infra -> app` / `infra -> service` 两行（静态取证失真）**：门禁探针实测（BULK-007/008 过期态）= utils 消除后 **`infra -> app` 45 · `infra -> service` 8**（合计 53）；media 消除后 **`infra -> app` 28 · `infra -> service` 8**（合计 36）。而本表静态估为 36 / 7。按源模块实测（现状）：`constants` 6 · `memory` 5 · `security` 4 · `cost` 3 · `chronos` 2 · `system` 2 · `config` 2 · `permission` 2 · `state` 1 · `monitoring` 1（app）；`oauth` 2 · `memory` 2 · `security` 1 · `constants` 1 · `system` 1 · `chronos` 1（service）。⇒ **本表"主要来源"列不可作排期依据，以台账 D-149 / D-150 实测明细为准**；**下一批建议 `memory -> tools`（3 处，与 D-150 同因同类）或 `constants`（6 处）**。
 
 ---
 

@@ -7,14 +7,14 @@
  * 统一查询图片/视频/音频/PDF 的元信息（尺寸、时长、格式等）。
  */
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { imageFormatDetector } from '../image/ImageFormatDetector';
-import { mediaStore } from '../store/MediaStore';
+import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
+import { mediaStore } from '../../media/store/MediaStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

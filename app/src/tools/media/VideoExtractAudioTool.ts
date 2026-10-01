@@ -1,44 +1,39 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { imageProcessor } from '../image/ImageProcessor';
+import { videoProcessor } from '../../media/video/VideoProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import fs from 'fs';
 
-const logger = getLogger('media:tool:rotate');
+const logger = getLogger('media:tool:extract-audio');
 
-export function createImageRotateTool(): Tool {
+export function createVideoExtractAudioTool(): Tool {
   return {
-    name: 'media_image_rotate',
-    description: 'Rotate image by specified degrees',
+    name: 'media_video_extract_audio',
+    description: 'Extract audio track from video file',
     params: [
       {
         name: 'input',
         type: 'string',
-        description: 'Input image path',
+        description: 'Input video path',
         required: true,
       },
       {
         name: 'output',
         type: 'string',
-        description: 'Output image path',
-        required: true,
-      },
-      {
-        name: 'degrees',
-        type: 'number',
-        description: 'Rotation angle in degrees (e.g. 90, 180, -45)',
+        description: 'Output audio path',
         required: true,
       },
     ],
-    aliases: ['img_rotate', 'image_rotate'],
-    searchTips: ['image', 'rotate', 'rotation', 'angle'],
+    aliases: ['video_extract_audio'],
+    searchTips: ['video', 'audio', 'extract'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
@@ -51,7 +46,6 @@ export function createImageRotateTool(): Tool {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
-      const degrees = input.degrees as number;
 
       const safeInput = resolveSafePath(inPath);
       if (!safeInput.valid) {
@@ -62,8 +56,8 @@ export function createImageRotateTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `vid_audio_${Date.now()}`,
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
@@ -76,60 +70,71 @@ export function createImageRotateTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `vid_audio_${Date.now()}`,
+          toolName: 'media_video_extract_audio',
+          timestamp: Date.now(),
+        };
+      }
+
+      if (!fs.existsSync(safeInput.path!)) {
+        return {
+          status: ToolExecutionStatus.FAILURE,
+          error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
+          executionTime: Date.now() - startTime,
+          output: '',
+          errorOutput: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
+          metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
+          executionId: `vid_audio_${Date.now()}`,
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const result = await imageProcessor.rotate(
+        const success = await videoProcessor.extractAudio(
           safeInput.path!,
-          safeOutput.path!,
-          degrees
+          safeOutput.path!
         );
-        if (!result.success) {
+        if (!success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: result.error || 'Rotation failed',
+            error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
             executionTime: Date.now() - startTime,
             output: '',
-            errorOutput: result.error || '',
-            metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `img_rotate_${Date.now()}`,
-            toolName: 'media_image_rotate',
+            errorOutput:
+              MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
+            metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
+            executionId: `vid_audio_${Date.now()}`,
+            toolName: 'media_video_extract_audio',
             timestamp: Date.now(),
           };
         }
 
-        logger.info('Image rotated', {
+        const outputSize = fs.existsSync(safeOutput.path!)
+          ? fs.statSync(safeOutput.path!).size
+          : 0;
+        logger.info('Audio extracted', {
           input: safeInput.path,
           output: safeOutput.path,
-          degrees,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
-          data: result,
-          output: JSON.stringify(result),
+          output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
           errorOutput: '',
-          metadata: {
-            inputPath: safeInput.path,
-            outputPath: safeOutput.path,
-            degrees,
-          },
+          metadata: { inputPath: safeInput.path, outputPath: safeOutput.path },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
-          outputSize: result.processedSize,
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          outputSize,
+          executionId: `vid_audio_${Date.now()}`,
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
-          content: `图片已旋转 ${degrees}°: ${safeOutput.path}`,
+          content: `音频已提取: ${safeOutput.path}`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:rotate',
+          module: 'media:tool:extract-audio',
           action: 'execute',
-          context: { input: safeInput.path, degrees },
+          context: { input: safeInput.path },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
@@ -138,8 +143,8 @@ export function createImageRotateTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media_image_rotate',
+          executionId: `vid_audio_${Date.now()}`,
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
@@ -147,30 +152,24 @@ export function createImageRotateTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_image_rotate',
-        description: 'Rotate image by specified degrees',
+        name: 'media_video_extract_audio',
+        description: 'Extract audio track from video file',
         params: [
           {
             name: 'input',
             type: 'string',
-            description: 'Input image path',
+            description: 'Input video path',
             required: true,
           },
           {
             name: 'output',
             type: 'string',
-            description: 'Output image path',
-            required: true,
-          },
-          {
-            name: 'degrees',
-            type: 'number',
-            description: 'Rotation angle in degrees',
+            description: 'Output audio path',
             required: true,
           },
         ],
-        aliases: ['img_rotate'],
-        searchTips: ['image', 'rotate'],
+        aliases: ['video_extract_audio'],
+        searchTips: ['video', 'audio', 'extract'],
         enabled: true,
         readOnly: false,
         destructive: false,

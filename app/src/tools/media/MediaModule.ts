@@ -8,23 +8,23 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { globalToolManager } from '@modules/tools';
+import { globalToolManager } from '../core/ToolManager';
 import { handleError } from '@modules/error';
-import { createImageConvertTool } from './tools/ImageConvertTool';
-import { createImageResizeTool } from './tools/ImageResizeTool';
-import { createImageCropTool } from './tools/ImageCropTool';
-import { createImageRotateTool } from './tools/ImageRotateTool';
-import { createImageWatermarkTool } from './tools/ImageWatermarkTool';
-import { createImageAdjustTool } from './tools/ImageAdjustTool';
-import { createMediaInfoTool } from './tools/MediaInfoTool';
-import { createMediaDeleteTool } from './tools/MediaDeleteTool';
-import { createMediaDeleteBatchTool } from './tools/MediaDeleteBatchTool';
-import { createVideoCompressTool } from './tools/VideoCompressTool';
-import { createVideoExtractAudioTool } from './tools/VideoExtractAudioTool';
-import { createVideoExtractThumbnailTool } from './tools/VideoExtractThumbnailTool';
-import { createQRGenerateTool } from './tools/QRGenerateTool';
-import { createQRDecodeTool } from './tools/QRDecodeTool';
-import { createPdfExtractTool } from './tools/PdfExtractTool';
+import { createImageConvertTool } from './ImageConvertTool';
+import { createImageResizeTool } from './ImageResizeTool';
+import { createImageCropTool } from './ImageCropTool';
+import { createImageRotateTool } from './ImageRotateTool';
+import { createImageWatermarkTool } from './ImageWatermarkTool';
+import { createImageAdjustTool } from './ImageAdjustTool';
+import { createMediaInfoTool } from './MediaInfoTool';
+import { createMediaDeleteTool } from './MediaDeleteTool';
+import { createMediaDeleteBatchTool } from './MediaDeleteBatchTool';
+import { createVideoCompressTool } from './VideoCompressTool';
+import { createVideoExtractAudioTool } from './VideoExtractAudioTool';
+import { createVideoExtractThumbnailTool } from './VideoExtractThumbnailTool';
+import { createQRGenerateTool } from './QRGenerateTool';
+import { createQRDecodeTool } from './QRDecodeTool';
+import { createPdfExtractTool } from './PdfExtractTool';
 
 const logger = getLogger('media:module');
 

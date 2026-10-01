@@ -1,14 +1,14 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { extractPdfPages } from '../pdf/PdfPageExtractor';
-import type { PdfExtractOptions } from '../pdf/PdfPageExtractor';
+import { extractPdfPages } from '../../media/pdf/PdfPageExtractor';
+import type { PdfExtractOptions } from '../../media/pdf/PdfPageExtractor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import fs from 'fs';

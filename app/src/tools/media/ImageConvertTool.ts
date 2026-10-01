@@ -1,39 +1,45 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { videoProcessor } from '../video/VideoProcessor';
+import { imageProcessor } from '../../media/image/ImageProcessor';
+import type { ImageFormat } from '../../media/image/ImageProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import fs from 'fs';
 
-const logger = getLogger('media:tool:extract-audio');
+const logger = getLogger('media:tool:convert');
 
-export function createVideoExtractAudioTool(): Tool {
+export function createImageConvertTool(): Tool {
   return {
-    name: 'media_video_extract_audio',
-    description: 'Extract audio track from video file',
+    name: 'media_image_convert',
+    description: 'Convert image format (e.g. PNG to JPEG, WebP to PNG)',
     params: [
       {
         name: 'input',
         type: 'string',
-        description: 'Input video path',
+        description: 'Input image path',
         required: true,
       },
       {
         name: 'output',
         type: 'string',
-        description: 'Output audio path',
+        description: 'Output image path',
+        required: true,
+      },
+      {
+        name: 'format',
+        type: 'string',
+        description: 'Target format (png, jpeg, webp, gif, bmp)',
         required: true,
       },
     ],
-    aliases: ['video_extract_audio'],
-    searchTips: ['video', 'audio', 'extract'],
+    aliases: ['img_convert', 'image_convert'],
+    searchTips: ['image', 'convert', 'format'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
@@ -46,6 +52,7 @@ export function createVideoExtractAudioTool(): Tool {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
+      const format = input.format as string;
 
       const safeInput = resolveSafePath(inPath);
       if (!safeInput.valid) {
@@ -56,8 +63,8 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -70,71 +77,60 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
-          timestamp: Date.now(),
-        };
-      }
-
-      if (!fs.existsSync(safeInput.path!)) {
-        return {
-          status: ToolExecutionStatus.FAILURE,
-          error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
-          executionTime: Date.now() - startTime,
-          output: '',
-          errorOutput: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
-          metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const success = await videoProcessor.extractAudio(
+        const result = await imageProcessor.convert(
           safeInput.path!,
-          safeOutput.path!
+          safeOutput.path!,
+          format as ImageFormat
         );
-        if (!success) {
+        if (!result.success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
+            error: result.error || 'Conversion failed',
             executionTime: Date.now() - startTime,
             output: '',
-            errorOutput:
-              MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
-            metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
-            executionId: `vid_audio_${Date.now()}`,
-            toolName: 'media_video_extract_audio',
+            errorOutput: result.error || '',
+            metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
+            executionId: `img_convert_${Date.now()}`,
+            toolName: 'media_image_convert',
             timestamp: Date.now(),
           };
         }
 
-        const outputSize = fs.existsSync(safeOutput.path!)
-          ? fs.statSync(safeOutput.path!).size
-          : 0;
-        logger.info('Audio extracted', {
+        logger.info('Image converted', {
           input: safeInput.path,
           output: safeOutput.path,
+          format,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
-          output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
+          data: result,
+          output: JSON.stringify(result),
           errorOutput: '',
-          metadata: { inputPath: safeInput.path, outputPath: safeOutput.path },
+          metadata: {
+            inputPath: safeInput.path,
+            outputPath: safeOutput.path,
+            format,
+          },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
-          outputSize,
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          outputSize: result.processedSize,
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
-          content: `音频已提取: ${safeOutput.path}`,
+          content: `图片已转换为 ${format}: ${safeOutput.path}`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:extract-audio',
+          module: 'media:tool:convert',
           action: 'execute',
-          context: { input: safeInput.path },
+          context: { input: safeInput.path, format },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
@@ -143,8 +139,8 @@ export function createVideoExtractAudioTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media_video_extract_audio',
+          executionId: `img_convert_${Date.now()}`,
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -152,24 +148,30 @@ export function createVideoExtractAudioTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_video_extract_audio',
-        description: 'Extract audio track from video file',
+        name: 'media_image_convert',
+        description: 'Convert image format',
         params: [
           {
             name: 'input',
             type: 'string',
-            description: 'Input video path',
+            description: 'Input image path',
             required: true,
           },
           {
             name: 'output',
             type: 'string',
-            description: 'Output audio path',
+            description: 'Output image path',
+            required: true,
+          },
+          {
+            name: 'format',
+            type: 'string',
+            description: 'Target format',
             required: true,
           },
         ],
-        aliases: ['video_extract_audio'],
-        searchTips: ['video', 'audio', 'extract'],
+        aliases: ['img_convert'],
+        searchTips: ['image', 'convert'],
         enabled: true,
         readOnly: false,
         destructive: false,

@@ -1,72 +1,61 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { imageProcessor } from '../image/ImageProcessor';
+import { videoProcessor } from '../../media/video/VideoProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import fs from 'fs';
 
-const logger = getLogger('media:tool:resize');
+const logger = getLogger('media:tool:compress');
 
-export function createImageResizeTool(): Tool {
+export function createVideoCompressTool(): Tool {
   return {
-    name: 'media_image_resize',
-    description: 'Resize image to specified dimensions',
+    name: 'media_video_compress',
+    description: 'Compress video with quality and resolution options',
     params: [
       {
         name: 'input',
         type: 'string',
-        description: 'Input image path',
+        description: 'Input video path',
         required: true,
       },
       {
         name: 'output',
         type: 'string',
-        description: 'Output image path',
+        description: 'Output video path',
         required: true,
+      },
+      {
+        name: 'quality',
+        type: 'number',
+        description: 'Quality (0-100)',
+        required: false,
       },
       {
         name: 'maxWidth',
         type: 'number',
-        description: 'Maximum width in pixels',
+        description: 'Max width in pixels',
         required: false,
       },
       {
         name: 'maxHeight',
         type: 'number',
-        description: 'Maximum height in pixels',
-        required: false,
-      },
-      {
-        name: 'format',
-        type: 'string',
-        description: 'Output format (png, jpeg, webp)',
-        required: false,
-      },
-      {
-        name: 'quality',
-        type: 'number',
-        description: 'Output quality 1-100',
-        required: false,
-      },
-      {
-        name: 'grayscale',
-        type: 'boolean',
-        description: 'Convert to grayscale',
+        description: 'Max height in pixels',
         required: false,
       },
     ],
-    aliases: ['img_resize', 'image_resize'],
-    searchTips: ['image', 'resize', 'scale', 'dimensions'],
+    aliases: ['video_compress'],
+    searchTips: ['video', 'compress'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
-    isConcurrencySafe: () => true,
+    isConcurrencySafe: () => false,
 
     async execute(
       input: Record<string, unknown>,
@@ -85,8 +74,8 @@ export function createImageResizeTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_resize_${Date.now()}`,
-          toolName: 'media_image_resize',
+          executionId: `vid_compress_${Date.now()}`,
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
@@ -99,65 +88,78 @@ export function createImageResizeTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_resize_${Date.now()}`,
-          toolName: 'media_image_resize',
+          executionId: `vid_compress_${Date.now()}`,
+          toolName: 'media_video_compress',
+          timestamp: Date.now(),
+        };
+      }
+
+      if (!fs.existsSync(safeInput.path!)) {
+        return {
+          status: ToolExecutionStatus.FAILURE,
+          error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
+          executionTime: Date.now() - startTime,
+          output: '',
+          errorOutput: MEDIA_ERROR_MESSAGES[MediaErrorCode.FILE_NOT_FOUND],
+          metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
+          executionId: `vid_compress_${Date.now()}`,
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
 
       try {
         const options: Record<string, unknown> = {};
-        if (input.maxWidth !== undefined) options.maxWidth = input.maxWidth;
-        if (input.maxHeight !== undefined) options.maxHeight = input.maxHeight;
-        if (input.format !== undefined) options.format = input.format;
-        if (input.quality !== undefined) options.quality = input.quality;
-        if (input.grayscale !== undefined) options.grayscale = input.grayscale;
+        if (input.quality !== undefined)
+          options.quality = input.quality as number;
+        if (input.maxWidth !== undefined)
+          options.maxWidth = input.maxWidth as number;
+        if (input.maxHeight !== undefined)
+          options.maxHeight = input.maxHeight as number;
 
-        const result = await imageProcessor.resize(
+        const success = await videoProcessor.compress(
           safeInput.path!,
           safeOutput.path!,
           options as Record<string, unknown>
         );
-        if (!result.success) {
+        if (!success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: result.error || 'Resize failed',
+            error: MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
             executionTime: Date.now() - startTime,
             output: '',
-            errorOutput: result.error || '',
-            metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `img_resize_${Date.now()}`,
-            toolName: 'media_image_resize',
+            errorOutput:
+              MEDIA_ERROR_MESSAGES[MediaErrorCode.FFMPEG_UNAVAILABLE],
+            metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
+            executionId: `vid_compress_${Date.now()}`,
+            toolName: 'media_video_compress',
             timestamp: Date.now(),
           };
         }
 
-        logger.info('Image resized', {
+        const outputSize = fs.existsSync(safeOutput.path!)
+          ? fs.statSync(safeOutput.path!).size
+          : 0;
+        logger.info('Video compressed', {
           input: safeInput.path,
           output: safeOutput.path,
-          options,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
-          data: result,
-          output: JSON.stringify(result),
+          output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
           errorOutput: '',
-          metadata: {
-            inputPath: safeInput.path,
-            outputPath: safeOutput.path,
-            ...options,
-          },
+          metadata: { inputPath: safeInput.path, outputPath: safeOutput.path },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
-          outputSize: result.processedSize,
-          executionId: `img_resize_${Date.now()}`,
-          toolName: 'media_image_resize',
+          outputSize,
+          executionId: `vid_compress_${Date.now()}`,
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
-          content: `图片已调整大小: ${safeOutput.path}`,
+          content: `视频已压缩: ${safeOutput.path}`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:resize',
+          module: 'media:tool:compress',
           action: 'execute',
           context: { input: safeInput.path },
         });
@@ -168,8 +170,8 @@ export function createImageResizeTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `img_resize_${Date.now()}`,
-          toolName: 'media_image_resize',
+          executionId: `vid_compress_${Date.now()}`,
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
@@ -177,58 +179,46 @@ export function createImageResizeTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_image_resize',
-        description: 'Resize image to specified dimensions',
+        name: 'media_video_compress',
+        description: 'Compress video with quality and resolution options',
         params: [
           {
             name: 'input',
             type: 'string',
-            description: 'Input image path',
+            description: 'Input video path',
             required: true,
           },
           {
             name: 'output',
             type: 'string',
-            description: 'Output image path',
+            description: 'Output video path',
             required: true,
+          },
+          {
+            name: 'quality',
+            type: 'number',
+            description: 'Quality (0-100)',
+            required: false,
           },
           {
             name: 'maxWidth',
             type: 'number',
-            description: 'Maximum width in pixels',
+            description: 'Max width in pixels',
             required: false,
           },
           {
             name: 'maxHeight',
             type: 'number',
-            description: 'Maximum height in pixels',
-            required: false,
-          },
-          {
-            name: 'format',
-            type: 'string',
-            description: 'Output format',
-            required: false,
-          },
-          {
-            name: 'quality',
-            type: 'number',
-            description: 'Output quality 1-100',
-            required: false,
-          },
-          {
-            name: 'grayscale',
-            type: 'boolean',
-            description: 'Convert to grayscale',
+            description: 'Max height in pixels',
             required: false,
           },
         ],
-        aliases: ['img_resize'],
-        searchTips: ['image', 'resize'],
+        aliases: ['video_compress'],
+        searchTips: ['video', 'compress'],
         enabled: true,
         readOnly: false,
         destructive: false,
-        concurrencySafe: true,
+        concurrencySafe: false,
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',

@@ -5,13 +5,13 @@
  * MediaDeleteBatchTool — 批量删除媒体文件（需审批）
  */
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { mediaStore } from '../store/MediaStore';
+import { mediaStore } from '../../media/store/MediaStore';
 import { isToolCallApproved } from '@modules/permission';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

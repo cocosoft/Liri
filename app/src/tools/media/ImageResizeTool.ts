@@ -1,23 +1,22 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import type { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
-import { ToolExecutionStatus } from '../../tools/types/ToolResult';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
+import { ToolExecutionStatus } from '../types/ToolResult';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { imageProcessor } from '../image/ImageProcessor';
-import type { ImageFormat } from '../image/ImageProcessor';
+import { imageProcessor } from '../../media/image/ImageProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = getLogger('media:tool:convert');
+const logger = getLogger('media:tool:resize');
 
-export function createImageConvertTool(): Tool {
+export function createImageResizeTool(): Tool {
   return {
-    name: 'media_image_convert',
-    description: 'Convert image format (e.g. PNG to JPEG, WebP to PNG)',
+    name: 'media_image_resize',
+    description: 'Resize image to specified dimensions',
     params: [
       {
         name: 'input',
@@ -32,14 +31,38 @@ export function createImageConvertTool(): Tool {
         required: true,
       },
       {
+        name: 'maxWidth',
+        type: 'number',
+        description: 'Maximum width in pixels',
+        required: false,
+      },
+      {
+        name: 'maxHeight',
+        type: 'number',
+        description: 'Maximum height in pixels',
+        required: false,
+      },
+      {
         name: 'format',
         type: 'string',
-        description: 'Target format (png, jpeg, webp, gif, bmp)',
-        required: true,
+        description: 'Output format (png, jpeg, webp)',
+        required: false,
+      },
+      {
+        name: 'quality',
+        type: 'number',
+        description: 'Output quality 1-100',
+        required: false,
+      },
+      {
+        name: 'grayscale',
+        type: 'boolean',
+        description: 'Convert to grayscale',
+        required: false,
       },
     ],
-    aliases: ['img_convert', 'image_convert'],
-    searchTips: ['image', 'convert', 'format'],
+    aliases: ['img_resize', 'image_resize'],
+    searchTips: ['image', 'resize', 'scale', 'dimensions'],
     isEnabled: () => true,
     isReadOnly: () => false,
     isDestructive: () => false,
@@ -52,7 +75,6 @@ export function createImageConvertTool(): Tool {
       const startTime = Date.now();
       const inPath = input.input as string;
       const outPath = input.output as string;
-      const format = input.format as string;
 
       const safeInput = resolveSafePath(inPath);
       if (!safeInput.valid) {
@@ -63,8 +85,8 @@ export function createImageConvertTool(): Tool {
           output: '',
           errorOutput: safeInput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_resize_${Date.now()}`,
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
         };
       }
@@ -77,36 +99,43 @@ export function createImageConvertTool(): Tool {
           output: '',
           errorOutput: safeOutput.error!,
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_resize_${Date.now()}`,
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
         };
       }
 
       try {
-        const result = await imageProcessor.convert(
+        const options: Record<string, unknown> = {};
+        if (input.maxWidth !== undefined) options.maxWidth = input.maxWidth;
+        if (input.maxHeight !== undefined) options.maxHeight = input.maxHeight;
+        if (input.format !== undefined) options.format = input.format;
+        if (input.quality !== undefined) options.quality = input.quality;
+        if (input.grayscale !== undefined) options.grayscale = input.grayscale;
+
+        const result = await imageProcessor.resize(
           safeInput.path!,
           safeOutput.path!,
-          format as ImageFormat
+          options as Record<string, unknown>
         );
         if (!result.success) {
           return {
             status: ToolExecutionStatus.FAILURE,
-            error: result.error || 'Conversion failed',
+            error: result.error || 'Resize failed',
             executionTime: Date.now() - startTime,
             output: '',
             errorOutput: result.error || '',
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-            executionId: `img_convert_${Date.now()}`,
-            toolName: 'media_image_convert',
+            executionId: `img_resize_${Date.now()}`,
+            toolName: 'media_image_resize',
             timestamp: Date.now(),
           };
         }
 
-        logger.info('Image converted', {
+        logger.info('Image resized', {
           input: safeInput.path,
           output: safeOutput.path,
-          format,
+          options,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
@@ -116,21 +145,21 @@ export function createImageConvertTool(): Tool {
           metadata: {
             inputPath: safeInput.path,
             outputPath: safeOutput.path,
-            format,
+            ...options,
           },
           executionTime: Date.now() - startTime,
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_resize_${Date.now()}`,
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
-          content: `图片已转换为 ${format}: ${safeOutput.path}`,
+          content: `图片已调整大小: ${safeOutput.path}`,
         };
       } catch (err) {
         await handleError(err, {
-          module: 'media:tool:convert',
+          module: 'media:tool:resize',
           action: 'execute',
-          context: { input: safeInput.path, format },
+          context: { input: safeInput.path },
         });
         return {
           status: ToolExecutionStatus.FAILURE,
@@ -139,8 +168,8 @@ export function createImageConvertTool(): Tool {
           output: '',
           errorOutput: String(err),
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
-          executionId: `img_convert_${Date.now()}`,
-          toolName: 'media_image_convert',
+          executionId: `img_resize_${Date.now()}`,
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
         };
       }
@@ -148,8 +177,8 @@ export function createImageConvertTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media_image_convert',
-        description: 'Convert image format',
+        name: 'media_image_resize',
+        description: 'Resize image to specified dimensions',
         params: [
           {
             name: 'input',
@@ -164,14 +193,38 @@ export function createImageConvertTool(): Tool {
             required: true,
           },
           {
+            name: 'maxWidth',
+            type: 'number',
+            description: 'Maximum width in pixels',
+            required: false,
+          },
+          {
+            name: 'maxHeight',
+            type: 'number',
+            description: 'Maximum height in pixels',
+            required: false,
+          },
+          {
             name: 'format',
             type: 'string',
-            description: 'Target format',
-            required: true,
+            description: 'Output format',
+            required: false,
+          },
+          {
+            name: 'quality',
+            type: 'number',
+            description: 'Output quality 1-100',
+            required: false,
+          },
+          {
+            name: 'grayscale',
+            type: 'boolean',
+            description: 'Convert to grayscale',
+            required: false,
           },
         ],
-        aliases: ['img_convert'],
-        searchTips: ['image', 'convert'],
+        aliases: ['img_resize'],
+        searchTips: ['image', 'resize'],
         enabled: true,
         readOnly: false,
         destructive: false,

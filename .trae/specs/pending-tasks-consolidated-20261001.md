@@ -32,7 +32,7 @@
 | T-①06 | **A2** 多智能体协作层缺失：`CollaborationOrchestrator` 全仓 **0 命中**（建议的统一抽象未落地） | 导出 L4786 / L4597 / L4736 | 未开始 | 无 | 会话：大工程，各自立项 |
 | T-①07 | **A5** 记忆分层碎片化：`MemoryPort` **0 命中**；三套记忆实现并存（`AdvancedMemorySystem` / `MemoryManager` / `EnhancedMemoryManager`） | 导出 L4789；导出 §一 #8（L1217）、§4 M3（L1364） | 未开始 | 无 | 导出 §4 M3 建议「收敛为单一接口 + 适配器，明确 deprecation」 |
 | T-①08 | **A6** 评估可观测性割裂：`EvalBus` **0 命中**；`BehaviorMetrics` 明注「仅观测，不参与判定」 | 导出 L4790；A2 第 3 点（L1270）、§一 #19（L1228） | 未开始 | 无 | 会话：属大工程 |
-| T-①09 | **X1** 绕过统一出口直连子路径：`import ... from '@modules/core/` 实测 **191 处 / 182 文件** | 导出 L4807 / L4904（会话自称） | 未开始 | 复用已有 R03-002 门禁探针 | **已回仓复核（2026-10-01）：实测 215 处 / 201 文件**（较会话数字**加重**）。会话建议：**自动化收口，别人工逐处改**（建议次序第 5 步） |
+| T-①09 | **X1** 绕过统一出口直连子路径：`import ... from '@modules/core/` 实测 **191 处 / 182 文件** | 导出 L4807 / L4904（会话自称） | **已不成立（2026-10-01 实测，误报）** | 无 | ❌ **已回仓复核：215 处全部落在门禁白名单内，真实违规 = 0**。完整划分（恰好 106+24+85=215）：`core/paths` **106**（project_rules §1.13 路径唯一入口）· `core/spi` **24**（台账 D-121 SPI 端口）· `core/{events,external,tokenBudget,systemgraph,LazyModuleStrategy}` 与 `*/types` **85**——全部在 `scripts/lint-architecture.ts` 的 `canonicalEntryKeys`（L2066-2130）。会话的 191 与本次 grep 的 215 均为**忽略白名单的裸 grep**，属测量口径错误。⇒ **无逐处改造需求**，会话建议的"自动化收口"失去对象 |
 | T-①10 | **D-3-B B/C 类分层倒挂收口**：`service→app`≈102 · `infra→app`≈36→**≈21** · `infra→service`≈6；按模块分批（SPI/DI/物理归位） | `architecture-benchmark` §5.7（L531-557，D-145~D-157） | **进行中** | 门禁不支持文件级层映射 → 只能物理移动或 DI 反转 | 每批 `lint:arch` 0 错 / 全量 `bun test` 4250 pass；剩余大头 `config`2 · `permission`2 · `chronos`2 · `system`2 · `memory`2 · `state`1 · `monitoring`1 |
 | T-①11 | **A9** 未提交改动堆积：257 文件改 / 25 删 / ~41 新增，**全部未提交**，变更不可追溯、无法按主题回退 | 导出 L4527 / L4813 | **已不成立（2026-10-01 实测）** | ~~需在仓跑 git~~ 已跑 | ❌ **已回仓复核：`git status --porcelain` = 0 行**（工作树干净）；HEAD 当时为 `facb2edd4`（即本清单自身的提交）。会话所述 257/25/41 系 2026-09-30 一版快照，**已被提交消化**。⇒ 本项无需处置 |
 | T-①12 | **X2** SPI 只解决「依赖谁」未解决「谁是谁」：`TaskOrchestrator` / `TaskScheduler` / `LongRunningTaskOrchestrator` 三套编排**照样并存** | 导出 L4808 / L4905 | 未开始 | 与 T-①04 同源（并入 A4 立项） | 会话结论：这是「47 文件架构动作对 A1–A8 改善为零」的根因说明 |
@@ -55,7 +55,7 @@
 
 | 编号 | 任务 | 来源 | 现状 | 阻塞/前置 | 备注 |
 |---|---|---|---|---|---|
-| T-③01 | **X1 门禁执行**：R03-002 已存在但「没人执行到位」；建议自动化收口 `@modules/core/` 直连子路径 | 导出 L4807 / L4904 | 未开始 | 复用现有探针机制 | 与 T-①09 同一事项的门禁侧 |
+| T-③01 | **X1 门禁执行**：R03-002 已存在但「没人执行到位」；建议自动化收口 `@modules/core/` 直连子路径 | 导出 L4807 / L4904 | **已不成立（2026-10-01 实测）** | ~~复用现有探针机制~~ | ❌ **"没人执行到位"不成立**：`lint:arch` 同时接入 **pre-commit**（`app/scripts/setup-git-hooks.ts`）与 **CI**（`.github/workflows/ci.yml` Static Checks → "Run architecture compliance check"），R03-002 每次都在跑。**探测器有效性经突变探针证实**（临时加 `import ... from '@modules/core/patterns'` ⇒ 复现 **1 处违规**；删除后回 **0**）⇒ 现行 **0** 是真实 0，非探测器失效。**唯一遗留**：R03-002 为 **warning 级**（`scripts/lint-architecture.ts:3982-3984`，warnings ⇒ `exit 0`）⇒ **不阻断提交**，属门禁强度议题（需用户裁定，非本项可自行改） |
 | T-③02 | **门禁 `exemptedCount` 计数口径核查**：连续 3 批「已豁免」与「实际消除边数」不符（D-153/154/155） | `architecture-benchmark` §5.7（L557） | 未开始 | 单独立项 | 结论不受影响（边消除已用 grep+全量测试独立证实） |
 | T-③03 | **未归因残差 2 处**：D-153 / D-154 各 1 处豁免数与预期不符，落在 `app→ui` / `service→app` / `infra→ui` / `core→service` 桶 | `architecture-benchmark` §5.7（L552） | 未开始 | 与 T-③02 一并复核 | 建议下批复核 |
 | T-③04 | **#12 删除两处 `@deprecated` 旧重试器**：`bridge/error/BridgeErrorHandler.ts:147-150`、`bridge/utils/debugUtils.ts:378-380`，残留调用面 = **0** | `architecture-benchmark` §6.4 #12（L609） | **已不成立（2026-10-01 实测）** | 无 | ❌ **已回仓复核：`app/src/bridge/**` 全目录 `@deprecated` 0 命中** ⇒ 两处旧重试器**已不存在**（疑由后续提交删除）。⇒ 本项无需处置 |

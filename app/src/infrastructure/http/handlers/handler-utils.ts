@@ -37,8 +37,12 @@ import {
   resolveAttachmentsDir,
   resolvePyappHome,
 } from '@modules/core';
-import { globalWorkspaceManager } from '@modules/sandbox';
-import { SandboxPermission } from '@modules/sandbox';
+import { resolveSandbox } from '@modules/core/spi';
+// 2026-10-01 D-200（子批 C）：原**静态**导入 `@modules/sandbox`（app 层）两个符号
+// （值 `globalWorkspaceManager` + 枚举 `SandboxPermission`）⇒ `infrastructure -> app` 倒挂。
+// 枚举改**相对直连 core 叶子**（同 D-186 四例）；值改经 **core SPI 端口**（`ISandboxPort`，
+// 服务层 → core 为下行，合法）。
+import type { SandboxPermission } from '../../../core/sandboxPermission.js';
 
 const logger = getLogger('http:handlerUtils');
 
@@ -165,8 +169,9 @@ export function checkFilePathPermission(
     return false;
   }
 
-  const activeWorkspace = globalWorkspaceManager.get('default');
-  if (activeWorkspace && !activeWorkspace.hasPermission(permission)) {
+  // D-200：原直连 `globalWorkspaceManager.get('default')` ⇒ 改经 core SPI 端口。
+  // 语义与端口文档一致：默认工作区**存在但缺权** ⇒ 拒绝；**不存在** ⇒ 放行（保持既有行为）。
+  if (resolveSandbox().isWorkspacePermissionDenied(permission)) {
     logger.warn(`工作空间缺少必要权限: ${permission}`, {
       module: 'LocalHTTPService',
       context: { workspaceId: 'default' },

@@ -34,10 +34,11 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { configManager } from '@modules/config';
-import { SandboxManager } from '@modules/sandbox';
-import { processRegistry } from '@modules/sandbox';
-import { resourceLimitManager } from '@modules/sandbox';
-import { globalWorkspaceManager } from '@modules/sandbox';
+// 2026-10-01 D-200（子批 C）：原**静态**导入 `@modules/sandbox`（app 层）4 个值符号
+// （`SandboxManager` · `processRegistry` · `resourceLimitManager` · `globalWorkspaceManager`）
+// ⇒ `infrastructure -> app` 倒挂。改经 **core SPI 端口** `ISandboxPort.getRuntimeStatus()`
+// （服务层 → core 为下行，合法）；端口按 CS01 复用既有端口，不另立。
+import { resolveSandbox } from '@modules/core/spi';
 import { securityIntegrationService } from '@modules/security';
 
 /** 沙箱权限级别（与 PERMISSION_SANDBOX_DEFAULT 取值一致） */
@@ -142,26 +143,22 @@ export async function handleGetSandboxStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const manager = SandboxManager.getInstance();
-    const settings = manager.getSettings();
-    const constraints = manager.getConstraints();
-    const violationCount = manager.getViolations().length;
-    const processStats = processRegistry.getStats();
-    const resourceSummary = resourceLimitManager.getSummary();
-    const activeWorkspaceCount = globalWorkspaceManager.list().size;
+    // D-200：原分别直连 SandboxManager / processRegistry / resourceLimitManager /
+    // globalWorkspaceManager ⇒ 改经 core SPI 端口的**最小投影**快照（子字段原样进 JSON）。
+    const status = resolveSandbox().getRuntimeStatus();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         enabled: readEnabled(),
         permissionLevel: readPermissionLevel(),
-        runtimeEnabled: manager.isSandboxingEnabled(),
-        settings,
-        constraints,
-        violationCount,
-        processStats,
-        resourceSummary,
-        activeWorkspaceCount,
+        runtimeEnabled: status.runtimeEnabled,
+        settings: status.settings,
+        constraints: status.constraints,
+        violationCount: status.violationCount,
+        processStats: status.processStats,
+        resourceSummary: status.resourceSummary,
+        activeWorkspaceCount: status.activeWorkspaceCount,
       })
     );
   } catch (err) {

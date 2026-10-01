@@ -91,23 +91,22 @@
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
-| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· `media-template-handlers` ✅（D-192，1）· `agent-role-handlers` ✅（D-194，1）· `video-task-handlers` ✅（D-197，1）· `agent-control-handlers` ✅（D-199，1）—— **`tools` 域静态边已归零** 🎯 | **8** | **11**（`sandbox` 域 2 ⬅**下一个** · `chat` 3 · `auto-reply` 1 · `agent` 2（建议并入数据契约专项）· 其余按 §3.3 分型表） |
+| **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2） | **10** | **9**（`chat` 3 ⬅**下一个** · `auto-reply` 1 · `agent` 2（建议并入数据契约专项）· 其余按 §3.3 分型表） |
 | **D** `service -> app` 低风险（§3.4） | 8 | ⬜ **未开始** | 0 | 8 |
 | **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 77**（**−74**）= 子批 A 47 + 子批 B 13 + 子批 C **8** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 75**（**−76**）= 子批 A 47 + 子批 B 13 + 子批 C **10** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
-**⬅ 下一个未执行任务**：§3.3 ④ 之 **`sandbox` 域（2 条，值类）** —— **沿用刚走通的 `toolsPorts` recipe**，且该域**无实例方法投影**的复杂点：
+**✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 
-| 文件 | 现有导入 | 需补 |
-|---|---|---|
-| `sandbox-handlers.ts:37-40` | `SandboxManager` · `processRegistry` · `resourceLimitManager` · `globalWorkspaceManager`（4 **值**符号） | 扩既有 `ISandboxPort`（`core/spi/SandboxService.ts`，D-154 已建 `shouldUseSandbox`/`isSandboxingEnabled`/`updateSettings`/`hasWorkspacePermission`）⇒ **按 CS01 复用，不另立端口** |
-| `handler-utils.ts:40-41` | `globalWorkspaceManager`（值）+ `SandboxPermission`（枚举） | 同上；⚠️ 枚举部分**照 D-186 直连 core 叶子**即可，但**值同文件 ⇒ 不减计数**，须**一并收敛值**才减 |
+**⬅ 下一个未执行任务**：§3.3 ④ 之 **`chat` 域（3 条，值类）** —— 按 §3.3 ③ 排期（**新增** `chatPorts`，照抄 `pluginAdminPorts.ts` 模式；⚠️ **不可复用 `ISandboxPort`**，那是 sandbox 域专属）。**需先取证**：3 个 handler（`chat-handlers.ts:42` · `checkpoint-handlers.ts:34` · `file-upload-handlers.ts:30`）各自的导入符号与调用面 ⇒ 再定"端口化"还是"直连 core 叶子"。
 
-**⚠️ 前置取证铁律（D-199 教训）**：端口方法签名必须**由实证而非推断决定** —— 先读 handler 实际调用面再定签名（本轮 `getSpawnPauseState` 曾误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`）。
+**⚠️ 前置取证铁律（D-199/D-200 教训，两条）**：
+1. **端口方法签名必须由实证而非推断决定** —— D-199 `getSpawnPauseState` 误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`。
+2. **复用既有端口前必须逐条比对语义** —— D-200 `handler-utils` 的"默认工作区不存在 ⇒ 放行"与既有 `hasWorkspacePermission`（fail-closed）在该分支**取舍相反**，盲目复用会造成**真实行为回归**（上传路径鉴权从"放行"变"拒绝"）。
 
 ### 3.1 子批 A —— `tools -> ink` **47**（最大桶；混合模块拆分）
 
@@ -276,16 +275,36 @@
 5. **`agent` 的 `getAgentRegistry`** 与 **`a2a-routes.ts`** ⇒ 属 A2A 对外面，需单独核 `getAgentRegistry` 是否已有端口（`runtime/api/` 下可能已有 agent 相关端口）。
 
 **执行顺序建议（按"改动量÷收益"）**：① 枚举/类型下沉（~8 条，纯类型搬运，风险最低）→ ② 扩充 2 个既有端口（`ISandboxPort` · `toolsPorts`，6 条）→ ③ 新增 3 个端口（6 条）。
-**进度（截至 D-199）**：① 已完成 4 条（`SandboxPermission`，D-186）· ② `toolsPorts` **4 条已完成**（D-192/194/197/199），`ISandboxPort` **2 条待做**（⬅**下一个**）· ③ 未开始。
+**进度（截至 D-200）**：① 已完成 4 条（`SandboxPermission`，D-186）· ② **`toolsPorts` 4 条 ✅**（D-192/194/197/199）+ **`ISandboxPort` 2 条 ✅**（D-200）⇒ 第 ② 步**全部完成** · ③ 未开始（`chat` 3 ⬅**下一个** · `agent` 2 · `auto-reply` 1）。
 
 **✅ 第一步已完成（2026-10-01 D-186）：`SandboxPermission` 4 条 —— 零成本手法**
 
 - **发现（取证）**：`SandboxPermission` **早已是 core 叶子**（`core/sandboxPermission.ts:22 export enum`），且**仓库已有现成先例**：`permission/PermissionService.ts:36` 以**相对路径直连 `'../core/sandboxPermission.js'`**。
 - **手法（比端口化更省）**：把 4 个 handler 的 `@modules/sandbox`（app 层）改为 **相对直连 core 模块根** —— `LocalHTTPService.ts:31` · `knowledge-handlers.ts:14` · `file-upload-handlers.ts:32` · `memory-handlers.ts:16`。**零新文件、零白名单、零端口**。
 - **验收（与预测逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 95 → 91`（恰 −4）** · **`R03-002` = 0**（**实证：core 的「模块根文件」相对路径不触发 R03-002** —— 与子批 A 踩到的「模块**子目录**文件」不同）· 改动文件 `eslint` **0/0** · `bun test tests/http tests/infrastructure tests/memory` = **162 pass / 0 fail**。
-- **未改**：`handler-utils.ts`（它同时 import `globalWorkspaceManager`(值) ⇒ 改枚举**不减计数**）· `sandbox-handlers.ts`（纯值 ⇒ 需端口，归第 ② 步）。
+- **未改**（**D-186 时点**）：`handler-utils.ts`（它同时 import `globalWorkspaceManager`(值) ⇒ 改枚举**不减计数**）· `sandbox-handlers.ts`（纯值 ⇒ 需端口，归第 ② 步）—— **二者已于 D-200 完成，见下**。
 - **剩余 15 条**（**D-186 时点**）：`chat` 4 · `sandbox` 2（值）· `tools` 4 · `agent` 4 · `auto-reply` 1 ⇒ 按上文 ②③ 步继续。
   - **📊 更新（截至 D-199）**：`tools` **4 条已全部完成**（D-192 / D-194 / D-197 / D-199 —— **静态边归零** 🎯）⇒ 本子批**剩余 11 条**：`sandbox` 2（值，⬅**下一个**）· `chat` 3 · `auto-reply` 1 · `agent` 2（建议并入"数据契约统一"专项）· 其余按 §3.3 分型表。
+  - **📊 更新（截至 D-200）**：`sandbox` **2 条值类已完成** ⇒ 本子批**剩余 9 条**：`chat` 3（⬅**下一个**）· `auto-reply` 1 · `agent` 2 · 其余按 §3.3 分型表。
+
+**✅ 第二步已完成（2026-10-01 D-200）：`sandbox` 值类 2 条 —— 复用既有 core SPI 端口**
+
+**取证（本轮实测，非推断）**：
+- `sandbox-handlers.ts:37-40`：4 个**值**符号（`SandboxManager` · `processRegistry` · `resourceLimitManager` · `globalWorkspaceManager`），全部只服务于 `GET /v1/sandbox/status` 的**一段快照**（`getSettings()`/`getConstraints()`/`getViolations().length`/`getStats()`/`getSummary()`/`list().size`）⇒ 可**整体投影为 1 个方法**，无需逐符号建端口。
+- `handler-utils.ts:40-41`：枚举 `SandboxPermission`（**仅类型位**，2 处签名）+ 值 `globalWorkspaceManager`（1 处 `get('default')?.hasPermission()`）。
+- 🔴 **关键取证（决定了不可朴素复用）**：全仓**无 `create('default')`** ⇒ `get('default')` 恒为 `undefined` ⇒ `handler-utils` 的**「工作区不存在 ⇒ 放行」是实际生效分支**，而既有 `hasWorkspacePermission` 在该分支返回 `false`（fail-closed）⇒ **二者语义相反，复用会造成上传鉴权行为回归**。
+
+**改动（加性两步，各自树绿）**：
+1. **端口先就绪**（树绿、计数不变 `77`）：
+   - `core/spi/SandboxService.ts`：新增 `SandboxRuntimeStatus`（**最小投影**，子字段 `unknown` 原样进 JSON）+ 两个方法 `isWorkspacePermissionDenied()`（含与 `hasWorkspacePermission` 的**三态对照表**说明）· `getRuntimeStatus()`；代理补默认值（未注册 ⇒ `false` / `_EMPTY_RUNTIME_STATUS` 空对象语义）。
+   - `entrypoints/spiWiring.ts`：注册实现（组合根**动态**导入，池内补 `processRegistry` · `resourceLimitManager`）。
+2. **调用点切换**（计数 `77 → 75`）：
+   - `handler-utils.ts`：枚举 ⇒ `import type { SandboxPermission } from '../../../core/sandboxPermission.js'`（相对直连 core 叶子，同 D-186）；值 ⇒ `resolveSandbox().isWorkspacePermissionDenied(permission)`；`import { resolveSandbox } from '@modules/core/spi'`（服务层 → core 为**下行**，合法）。
+   - `sandbox-handlers.ts`：4 个值符号 ⇒ `resolveSandbox().getRuntimeStatus()`；JSON 字段**逐个显式展开**（不用 `...spread`）⇒ 键序与响应形状与改前**逐字段一致**。
+
+**验收（与预测逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 77 → 75`（恰 −2）** / `R03-002` **0**（`@modules/core/spi` 属规范子入口白名单）· 改动 4 文件 eslint **0/0** · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
+
+**手法要点（可复用到 `chat`/`agent`/`auto-reply` 域）**：① **一个"取用面"⇒ 一个投影方法**（`getRuntimeStatus()`），而不是"一个符号 ⇒ 一个 getter"；② 只对 handler **真正读取字段**的对象建投影，纯透传值用 `unknown`（同 D-199 `AgentRunDto` 与 `getActiveAgents()` 的分界）；③ **复用既有端口前必须比对语义**（本条的 `isWorkspacePermissionDenied` 与 `hasWorkspacePermission` 是**两个方向**，故必须新增方法而非复用）。
 
 **🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」，暂不划算**
 

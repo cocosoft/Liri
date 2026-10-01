@@ -362,7 +362,7 @@ export interface MediaTemplateDto {
 
 | 文件 | 取证结果 | 预估步数 |
 |---|---|---|
-| `video-task-handlers.ts` | ⚠️ **两条要点**：① 其**动态**用法**早已在 D-93 端口化**（L19 已有 `getCoreAPI` 导入 + 注释"改经服务层端口"）⇒ 残留的只是**静态** import（L16）；② **该文件有两个 tools 导入** —— `getVideoTaskPersistence`（值 L16）+ **`ToolUseContext`（类型 L17）** ⇒ **只去其一只会"不减计数"**（门禁按「文件 × 去重模块」计），**必须一并处理**。静态调用面：`L100 update(taskId, { mode, sourceImageUrl, … })`（**端口 patch 现只收 `sourceImageUrl`/`sourceImageId`，缺 `mode`**）· `L136 get(taskId)`（**端口无此方法**）· `L191+` 尚有后续调用（grep 截断，须读完） | **8–12** |
+| `video-task-handlers.ts` | ✅ **已完成（D-197）**：端口补 `getVideoTask`/`listVideoTasks`/`cleanupStaleTasks` + `updateVideoTask` patch 加 `mode`（**联合字面量**，首轮 typecheck 因 `string` 不可赋值给 `'text-to-video'\|'image-to-video'` 报错，已收窄）+ 删**两个**导入（值 + 未使用的类型）+ 改 5 处调用点 ⇒ **`已豁免 79 → 78`** · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **10 编辑** |
 | `agent-role-handlers.ts` | ✅ **已完成（D-194）**：`refreshAvailableSubagentTypeNames` —— **单一函数**、**唯一** tools 导入、1 处调用点（L126）⇒ `已豁免 80 → 79` · typecheck 0 · eslint 0 · tests/http 76 pass | 实测 **4 编辑** |
 | `agent-control-handlers.ts` | ⚠️ **最重一条（D-195 取证）**：多行 import **5 个符号**（L15-21）：`AgentTool` · `getAgentRunStore` · `resolveAgentToolInstance` · `setSpawnPaused` · `getSpawnPauseState`。调用面：`L54 getSpawnPauseState()` · `L71`/`L139 setSpawnPaused(…)`（纯值 ⇒ 端口方法）· `L106 getAgentRunStore().listRuns()`（需**投影 DTO**，须读 L106-130 字段映射）· **`L33 resolveAgentToolInstance()`**（内部 helper `getAgentTool()`）⇒ ⚠️ **返回 app 实例，不能接口投影**（会泄 app 闭包 —— 该模块 D-121 注释已指出"`stopAgent` 是实例方法、无法静态投影"）⇒ 须按**实例方法**逐一投影（端口加 `stopAgent` 等），**须先读 L40–170** 定要投影哪些方法 · `L32 AgentTool` **作为返回类型**（类型 ⇒ 须一并处理才减计数） | **10–14** |
 

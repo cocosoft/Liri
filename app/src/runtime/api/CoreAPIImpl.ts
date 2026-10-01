@@ -1741,9 +1741,18 @@ export class CoreAPIImpl implements CoreAPI {
         patch: {
           sourceImageUrl?: string | undefined;
           sourceImageId?: string | undefined;
+          mode?: 'text-to-video' | 'image-to-video' | undefined;
         }
       ) => {
         getVideoTaskPersistence().update(id, patch);
+      },
+      // D-197：`video-task-handlers.ts` 剩余 3 个方法面（get / list / cleanupStaleTasks）
+      getVideoTask: async (id: string) =>
+        getVideoTaskPersistence().get(id) ?? null,
+      listVideoTasks: async (limit: number) =>
+        getVideoTaskPersistence().list(limit),
+      cleanupStaleTasks: () => {
+        getVideoTaskPersistence().cleanupStaleTasks();
       },
 
       detectFileInfo: async (fileName: string, size: number) =>

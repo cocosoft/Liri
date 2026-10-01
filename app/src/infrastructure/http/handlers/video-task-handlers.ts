@@ -13,8 +13,9 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { getVideoTaskPersistence } from '@modules/tools';
-import type { ToolUseContext } from '@modules/tools/types/Tool';
+// 2026-10-01 D-197（tools 域取用面收敛）：原先**静态**导入 `getVideoTaskPersistence`（值）
+// 与 `ToolUseContext`（类型 —— 经 eslint 实证**从未使用**）⇒ `infrastructure -> app` 倒挂。
+// 二者**同删**才算消除本文件对该层的引用；实现改经 **service 侧端口**（`getCoreAPI().getToolsPort()`）。
 // C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层**动态**引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
@@ -97,8 +98,8 @@ async function handleCreateTask(
 
     // 补充写入 mode / sourceImageUrl
     if (taskId) {
-      const persistence = getVideoTaskPersistence();
-      persistence.update(taskId, {
+      const persistence = await getCoreAPI().getToolsPort();
+      await persistence.updateVideoTask(taskId, {
         mode: !!imageUrl || !!imagePath ? 'image-to-video' : 'text-to-video',
         sourceImageUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
       });
@@ -133,8 +134,8 @@ async function handleGetTask(
       return;
     }
 
-    const persistence = getVideoTaskPersistence();
-    const task = persistence.get(taskId);
+    const persistence = await getCoreAPI().getToolsPort();
+    const task = await persistence.getVideoTask(taskId);
 
     if (!task) {
       json(res, 404, { error: 'Task not found' });
@@ -188,7 +189,7 @@ async function handleListTasks(
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
     const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
-    const persistence = getVideoTaskPersistence();
+    const persistence = await getCoreAPI().getToolsPort();
 
     // 查询活跃任务前，先清理超过 30 分钟的过期任务
     if (statusFilter === 'active') {
@@ -197,12 +198,12 @@ async function handleListTasks(
 
     let tasks;
     if (statusFilter === 'active') {
-      tasks = persistence.listByStatus(
+      tasks = await persistence.listVideoTasksByStatus(
         ['pending', 'queued', 'running'],
         limit + offset
       );
     } else {
-      tasks = persistence.list(limit + offset);
+      tasks = await persistence.listVideoTasks(limit + offset);
     }
 
     const total = tasks.length;

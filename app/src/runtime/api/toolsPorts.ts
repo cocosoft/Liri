@@ -65,8 +65,16 @@ export interface ToolsPort {
     patch: {
       sourceImageUrl?: string | undefined;
       sourceImageId?: string | undefined;
+      /** D-197：`video-task-handlers.ts:101-104` 写入 mode（**联合字面量**，与 `VideoTaskRecord` 对齐） */
+      mode?: 'text-to-video' | 'image-to-video' | undefined;
     }
   ): Promise<void>;
+  /** D-197：`video-task-handlers.ts:137` 按 id 取任务（无则 null） */
+  getVideoTask(id: string): Promise<VideoTaskDto | null>;
+  /** D-197：`video-task-handlers.ts:205` 分页列举 */
+  listVideoTasks(limit: number): Promise<VideoTaskDto[]>;
+  /** D-197：`video-task-handlers.ts:195` 清理过期任务（原调用点即无 `await` ⇒ 同步、fire-and-forget） */
+  cleanupStaleTasks(): void;
 
   // ---- 文档转换引擎（`getConverterEngine()`）----
   /** 探测文件类型（结果作为**不透明句柄**回传给 `convertContent`） */

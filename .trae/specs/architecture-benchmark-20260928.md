@@ -744,6 +744,17 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **回滚后状态（绿）**：`typecheck` **0** · `lint:arch` 违规 **0** / `已豁免 97` · `allFiles 3986` · 工作树仅剩 2 个**非我创建**的未跟踪文件 ⇒ **无半成品残留**。
   - **交接（建议顺序，下一轮直接照做）**：① 先出 **API/数据模型对照表**（上表扩展为逐方法清单）；② **建议以 ui 版为基**（功能更全：config/ansi256/loader/metadata）反向把 canonical 的 `getColor`/`applyStyle`/`displayThemes`/`exportTheme` 等并入，而非反之 —— 即**canonical 的落点仍在 `system/theme`，但实现主体取 ui 版**；③ 合并后先跑 `bun test tests/{commands,ui,docs}` 验语义，再删 `ui/ThemeManager.ts` + 改 3 个消费点 + `ui/index.ts` 停转出；④ **同批**做 B3-2（`KeyboardShortcuts` → `utils/`），以确保 `已豁免 97 → 95` 真的 −2。
 
+- **✅ 2026-10-01（D-180）"以 ui 版为基"的可行性**已验证**（方案收敛为可执行）** —— 承 D-179。
+  - **决定性事实**：`ui/ThemeManager.ts` **仅 2 个 import**（`./theme/ThemeLoader` + `./theme/ThemeSchema`），二者已实测 **infra-safe** ⇒ **该实现自身 ui-free** ⇒ **可整体迁入 `system/theme` 而不产生任何倒挂** ✓
+  - **待并入的 canonical 能力已精确锁定（按**活消费者**实测，而非全量对照）**：
+    | 消费者 | 实际调用的 canonical API |
+    |---|---|
+    | `cli/index.ts:835-847` | `displayThemes()` · `setTheme(name)` · `displayCurrentTheme()` · `toggleTheme()` · `getCurrentTheme().name` |
+    | `ui/UIEnhancer.ts:97-284` | **`applyStyle(style, text)`**（success/warning/error/info/header/title/subtitle/code/prompt 等，共 11+ 处） |
+    ⇒ **只需从 canonical 移植 5 个方法**（`getCurrentTheme` · `setTheme` · `toggleTheme` · `displayThemes` · `displayCurrentTheme`）+ **`applyStyle`**（体量最大，含 style→chalk 映射；需与其 `ThemeColors` 字段对齐），其余 canonical 独有 API（`getColor`/`exportTheme`/`importTheme`/`addCustomTheme`/`removeCustomTheme`/`subscribe`/`isDarkTheme` 等）**无活消费者**，可**按 §1.3「无兼容包袱」直接舍弃**。
+  - **⇒ 执行清单（下一轮 1 批可完成）**：① `git mv ui/theme/{ThemeLoader,ThemeSchema}.ts → system/theme/`；② 以 **ui 版为主体**重写 `system/theme/ThemeManager.ts`（补 `getThemeManager()` 别名 + 移植上表 6 个方法）；③ 改消费点：`commands/builtin/theme/Theme.ts` · `docs/HelpSystem.ts` · `ui/theme/ThemeContext.tsx`（`getInstance()` 可保留）· `ui/index.ts` 停转出 · 删 `ui/ThemeManager.ts`；④ 同批 **B3-2**（`KeyboardShortcuts` → `utils/`）；⑤ 验收预期 **`已豁免 97 → 95`** + `bun test tests/{commands,ui,docs,tools}` 0 fail。
+  - **本轮未动手**（预算已尽；本次已完成全部**取证**，下一轮为纯执行）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

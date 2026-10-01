@@ -627,6 +627,15 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **现状**：`infra` 源剩余 **10 条边**（11 − 1）。
   - **顺带（未做，已具备条件）**：`core/Coordinator`、`core/spi/TaskRegistryService` 对 `tasks` 的 **core → app** 边，因本次下沉已**可直接改用 `core/taskStatus` 的枚举值** ⇒ 属另一批（core 组）。
 
+- **✅ 2026-10-01（D-164）`system` 组 3 条边消除 —— 手法：AppState 家族由 infra 改归 app 层** —— 三条边（D-158 清单 S1/S2/S3）：`system/state/AppState.ts` → `@modules/mcp/types` / `@modules/plugins/types`，`system/state/types.ts` → `@modules/tasks/types`。
+  - **根因（CS05）：分层归属错误，不是引用错误**。取证：① `AppState` 对这三个类型只是**字段位容器**（`mcp.clients` / `mcp.resources` / `plugins.enabled` / `tasks[taskId]`），**自身不读** ⇒ "最小结构镜像"只能写成**全量复制**（违 CS01）；② `AppState`/`AppStateStore`/`PYAppStateStore` 的消费方**全为 app/entry**（`buddy` · `ai` · `hooks/notifs`×3 · `entrypoints/mcp`）+ 同模块，**无任何 infra/service/core 消费者**。⇒ 我 spec 原 **D2（镜像）/D3（下沉类型）作废**，改判 **D2'**（用户裁定「方案 A」）。
+  - **手法（同 D-84 `hooks` ui→app / D-67 `mcp` core→service / D-120 `modules` core→app）**：① `git mv` 三文件 → `app/src/appState/`（git 识别 rename 95%/100%/100%）；② `system/state/index.ts` **移除三组转出**（禁止 infra 桶转发 app 符号）；③ `system/state/types.ts` 删除**已无消费者**的 `TaskState` re-export（顺带消 S3）；④ 6 个消费点改直连；⑤ **新增 tsconfig 别名** `@modules/appState`；⑥ `modules-to-layers.json` 登记 `appState: app`（**否则门禁未映射 = 假绿**，实测映射数 84 → 85）。
+  - **⚠️ 踩坑（两处，均为 D-158 同类盲区）**：① 我的 grep **漏掉别名形态** `@modules/state/AppState.js`（`promptSuggestion/types.ts` **4 处**）⇒ `typecheck` 报 4× `TS2307` 才发现；② **`@modules/*` 不是通配符**，每个模块须在 `tsconfig.json` 显式登记 `paths` ⇒ 新模块必须同时改 tsconfig，否则别名不可用。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（已豁免 **162 → 160**）· 定向子集 `tests/{system,hooks,ai,promptSuggestion,buddy}` **220 pass / 0 fail** · **grep 独立复核**：`app/src/system/**` 内对 `mcp|plugins|tasks` 的引用**仅剩注释** ⇒ 三边确已消失。
+  - **🔴 计数口径偏差第 5 次**：实消 **3** 边而 `已豁免` 只减 **2**。已累积 D-153(−7vs6) · D-154(−1vs2) · D-155(−2vs3) · D-159(2 边−1) · 本批(3 边−2) ⇒ 供 T-③02。**本批结论以 grep 为准，不依赖计数**。
+  - **⚠️ 未取得的口径**：全量 `bun test` 本次进入**已知偶发长耗时**（>4 min 被中断）；为区分"我的改动导致挂起"与"已知 flake"，改跑**定向子集**（21s 完成、220 pass）证明**不挂起**。
+  - **现状**：`infra` 源剩余 **7 条边**（余 `memory` 4 + `chronos` 3）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

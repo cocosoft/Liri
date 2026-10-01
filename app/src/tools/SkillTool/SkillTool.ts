@@ -448,7 +448,7 @@ export class SkillTool implements Tool {
     if (!validation.result) {
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: validation.message || undefined,
         executionTime: 0,
         output: '',
@@ -488,7 +488,7 @@ export class SkillTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
-        result: result,
+        data: result,
         error: undefined,
         executionTime: Date.now() - startTime,
         output: result,
@@ -518,7 +518,7 @@ export class SkillTool implements Tool {
 
       return {
         status: ToolExecutionStatus.FAILURE,
-        result: null,
+        data: null,
         error: errorMessage,
         executionTime: Date.now() - startTime,
         output: '',

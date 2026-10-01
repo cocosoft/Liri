@@ -197,7 +197,7 @@ describe('T3a ToolLazyWrapper 穿透（P0-1）', () => {
       return true;
     }
     async execute(_i: unknown): Promise<ToolResult<unknown>> {
-      return { toolName: 'fake', result: null };
+      return { toolName: 'fake', data: null };
     }
   }
 

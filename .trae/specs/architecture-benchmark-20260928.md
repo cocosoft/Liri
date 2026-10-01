@@ -255,9 +255,14 @@
     - **grep 复核**：`ai/interfaces/ToolExecutor.ts` 全域 `^\s+(result|data)[,:]` ⇒ **6 处全为 `data:`，零 `result:` 残留** ✓
     - **客观进度**：探针 **23 → 17**（**恰好 −6**，与本批迁移数一致）✓
     - **验收**：`typecheck` **exit 0**（三遍绿）· `eslint`（`ToolExecutor.ts` + `ToolResult.ts`）**exit 0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件，94.26s）。
-  - **剩余（批次 7 起）**：探针 **17 处** = **写入 10**（`modules/calendar/tools/CalendarToolWrap.ts`×4 · `tools/SkillTool/SkillTool.ts`×3 · `tools/SkillTool/SkillViewTool.ts`×2 · `modules/mail/tools/MailSendTool.ts`×1）+ **兼容读 5**（`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` · `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts`）+ **测试断言 2**（`tests/skills/skillInjectionFix.test.ts` · `tests/tools/AgentTool/swarmDescriptorResolution.test.ts`）。
-    - **口径说明**：旧表的"写入 17 处"含 `ToolExecutor.ts` 的 6 处写入 **+ 1 处读取点**（同文件），故本批"写入 17→10"（−7）大于探针"23→17"（−6）—— **两者不矛盾**，探针给出的是**读+写总数**。
-    - **清零顺序**：批次 7 清写入 10 处（SkillTool 家族 5 → calendar 4 → mail 1，含连带测试 1）→ **读取侧收口**（5 处 + 测试 1）→ 删 `result?: T` 字段。
+  - **批次 7 ✅ 已完成（2026-09-30）**：**写入侧全部清零** —— 迁移 **16 处**：`tools/SkillTool/SkillViewTool.ts`×7 · `modules/calendar/tools/CalendarToolWrap.ts`×4 · `tools/SkillTool/SkillTool.ts`×3 · `modules/mail/tools/MailSendTool.ts`×1 · 连带测试 `tests/skills/skillInjectionFix.test.ts`×1（测试内 fake 工具的对象字面量，探针报 **TS2353 写入**）。
+    - **🔴 探针盲区二次实证（重要）**：`SkillViewTool.ts` 的 7 处中 **5 处**（`161/189/216/223/236`）位于 `getOTelTracing().wrap(…, async () => {…})` **回调内**，回调返回类型由 `wrap` 泛型推断 ⇒ **无上下文标注** ⇒ `tsc` **完全不报**；探针只标出 `142` + `270`（顶层 `return` 有函数返回类型标注）。**实际迁移 16 处 vs 探针可见 10 处** —— 若只信探针计数，这 5 处会被**静默漏改**（模型载荷变 `undefined`）。与批次 3 的 IIFE 盲区同源，**再次印证纪律 I**。
+    - **grep 复核**：4 个源文件全域 `^\s+(result|data)[,:]` ⇒ **全部为 `data:`，零 `result:` 残留** ✓（`SkillTool.ts` 的 `288/306` `result: false` 属 `ValidationResult` **输入校验**语义，**非 ToolResult 载荷**，正确保留）
+    - **客观进度**：探针 **17 → 7**（−10 = 探针可见的 10 处）；改 `skillInjectionFix.test.ts` 后 → **6**。
+    - **验收**：`typecheck` **exit 0**（三遍绿）· `eslint`（4 源文件 + 1 测试）**exit 0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件，94.60s）。
+    - **附：全量测试偶发挂起（本批实证）**：同一 `bun test` 命令首次运行 **> 370s 无输出**（基线 94s），停止后**原样重跑即 94.60s 正常** ⇒ 非代码问题、属环境偶发；处置：**停止 → 重跑**（勿在原进程上继续等待）。
+  - **剩余（读取侧收口）**：探针 **6 处** = 读 5（`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` · `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts`）+ 测试读 1（`tests/tools/AgentTool/swarmDescriptorResolution.test.ts` —— 该处为 `data ?? result` **兼容读**，已于批次 2 就地注释）。
+    - **清零顺序**：**写入侧已零残留** ⇒ 下一步「读取侧收口」（5 处 + 测试 1）→ 删 `result?: T` 字段 → **B3**（`progress?: any[]` 收窄 + `output?`/`content?` 并行甄别）。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

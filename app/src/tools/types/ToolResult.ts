@@ -72,16 +72,17 @@ export interface ToolResult<T = unknown> extends CoreToolResult<T> {
    * `architecture-benchmark-20260928.md` §2.2.1 的 **B2-c**。删除前的复现命令：
    * `cd app; bunx tsc --noEmit | Select-String 'error TS'`。
    *
-   * **进度（探针计数）**：批次 1–5 后 **37 → 23**；**批次 6 后 → 17**
-   * （写入 51 → **10**：`modules/calendar/tools/CalendarToolWrap.ts`×4 ·
-   * `tools/SkillTool/*`×5 · `modules/mail/tools/MailSendTool.ts`×1；
-   * 兼容读 5：`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` ·
-   * `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts`；
-   * 测试断言 2）。**剩余目标**：批次 7 清写入 10 处 → 读取侧收口 → 删字段。
-   * ⚠️ **探针盲区（B2-c 批次 3 实证）**：`tsc` 只对**有上下文标注**的对象字面量报「多余属性」；
-   * 位于 `return (async () => {…})()` 等**推断型返回值**中的字面量**不会**被标出
-   * （`KnowledgeSaveTool` 的成功分支即如此，**靠测试才发现**）⇒ 每批必须配
-   * **grep 复核 + 全量 `bun test`**，不可只信探针计数（纪律 I）。
+   * **进度（探针计数）**：批次 1–5 后 **37 → 23**；批次 6 后 **23 → 17**；**批次 7 后 → 7**
+   * （**写入侧已全部清零**：`SkillViewTool` 7 · `CalendarToolWrap` 4 · `SkillTool` 3 · `MailSendTool` 1 ·
+   * 测试 fake 工具 1 —— **实际迁移 16 处，探针仅可见 10 处**：`SkillViewTool` 的 5 处位于
+   * `getOTelTracing().wrap(…, async () => {…})` 回调内，属**推断型返回值** ⇒ **探针盲区**，
+   * 探针从未计入，**这正是盲区二次实证**）。
+   * **剩余 6 处 = 读取侧 5 + 测试读 1**：`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` ·
+   * `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts` · 测试 `swarmDescriptorResolution`×1
+   * （**写入侧已零残留** ⇒ 下一步即「读取侧收口」后可删本字段）。
+   * ⚠️ **探针盲区（B2-c 批次 3 首次实证，批次 7 二次实证）**：`tsc` 只对**有上下文标注**的对象字面量报「多余属性」；
+   * 位于 `return (async () => {…})()` / `getOTelTracing().wrap(…, async () => {…})` 等**推断型返回值**中的字面量**不会**被标出
+   * ⇒ 每批必须配 **grep 复核 + 全量 `bun test`**，不可只信探针计数（纪律 I）。
    */
   result?: T;
   executionTime?: number;

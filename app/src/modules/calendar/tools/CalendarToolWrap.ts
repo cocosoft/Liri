@@ -137,7 +137,7 @@ export function createCalendarAddTool(): Tool {
 
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: event,
+          data: event,
           output: JSON.stringify(event),
           errorOutput: '',
           progress: [],
@@ -216,7 +216,7 @@ export function createCalendarListTool(): Tool {
 
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: events,
+          data: events,
           output: JSON.stringify(events),
           errorOutput: '',
           progress: [],
@@ -320,7 +320,7 @@ export function createCalendarUpdateTool(): Tool {
 
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: { id, updates },
+          data: { id, updates },
           output: `日程 ${id} 已更新`,
           errorOutput: '',
           progress: [],
@@ -414,7 +414,7 @@ export function createCalendarDeleteTool(): Tool {
 
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: { id, deleted: true },
+          data: { id, deleted: true },
           output: `日程 ${id} 已删除`,
           errorOutput: '',
           progress: [],

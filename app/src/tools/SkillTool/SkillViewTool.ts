@@ -139,7 +139,7 @@ export class SkillViewTool implements Tool {
       return {
         status: ToolExecutionStatus.FAILURE,
         toolName: this.name,
-        result: null,
+        data: null,
         error: 'skill_view 需要 name 参数（可用 skills_list 查看可用技能名）',
       };
     }
@@ -158,7 +158,7 @@ export class SkillViewTool implements Tool {
             return {
               status: ToolExecutionStatus.FAILURE,
               toolName: this.name,
-              result: null,
+              data: null,
               error: `Skill '${name}' not found（可用 skills_list 查看可用技能）`,
             };
           }
@@ -186,7 +186,7 @@ export class SkillViewTool implements Tool {
               return {
                 status: ToolExecutionStatus.SUCCESS,
                 toolName: this.name,
-                result: { name, source: 'SKILL.md', content: md },
+                data: { name, source: 'SKILL.md', content: md },
               };
             } catch {
               // SKILL.md 不可读 → 回退 prompt 生成
@@ -213,14 +213,14 @@ export class SkillViewTool implements Tool {
             return {
               status: ToolExecutionStatus.SUCCESS,
               toolName: this.name,
-              result: { name, source: 'prompt', content },
+              data: { name, source: 'prompt', content },
             };
           }
 
           return {
             status: ToolExecutionStatus.FAILURE,
             toolName: this.name,
-            result: null,
+            data: null,
             error: `Skill '${name}' 不支持内容查看（非 prompt 型）`,
           };
         } catch (err) {
@@ -233,7 +233,7 @@ export class SkillViewTool implements Tool {
           return {
             status: ToolExecutionStatus.FAILURE,
             toolName: this.name,
-            result: null,
+            data: null,
             error: err instanceof Error ? err.message : String(err),
           };
         }
@@ -267,7 +267,7 @@ export class SkillViewTool implements Tool {
       return {
         status: ToolExecutionStatus.SUCCESS,
         toolName: this.name,
-        result: {
+        data: {
           name,
           source: 'unchanged',
           status: 'unchanged',

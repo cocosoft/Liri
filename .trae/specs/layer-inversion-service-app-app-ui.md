@@ -150,6 +150,18 @@
 
 **更正后的建议拆分**：`B1`（7 条，先定 `parseToolOutput` 归属）→ `B2`（混合模块拆分专项，需先清点 `commands/**/*UI.tsx` 全量）→ `B3`（3 条，逐条判错层/端口化）。
 
+**✅ B2 已消除 4 条（2026-10-01 D-189）—— 手法：删孤儿 UI 组件（0 消费者即死代码）**
+
+- **取证（全仓 grep，含 barrel 转出与 `require`/动态引用形态）**：以下 **4 个 UI 组件全仓零消费者**（仅自身定义/头注释命中）⇒ 按 CS01/CS05 **判为死代码删除**：
+  | 文件 | 原属边 |
+  |---|---|
+  | `knowledge/components/KnowledgeDocList.tsx` | `knowledge -> components` |
+  | `knowledge/components/KnowledgeQualityPanel.tsx` | 同上 |
+  | `knowledge/components/KnowledgeGraphAsciiView.tsx` | 同上 |
+  | `commands/builtin/status/StatusUI.tsx` | `commands -> ink` |
+- **验收（与预测逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 91 → 87`（恰 −4）** · `allFiles 3986 → 3982`（−4）。
+- **剩余 4 条（须"整模块拆 UI"，不在本轮）**：`commands -> ink` 1（`commands/builtin/shared/CommandUI.tsx`，被 `commands/builtin/*/*UI.tsx` **大量消费**）· `buddy -> components` 2（`CompanionSprite`/`useBuddyNotification` 经 **`buddy/index.ts` 对外转出**，`app/docs/API.md:1506-1609` 有公开用法）⇒ 二者的搬迁会**为每个消费方新增 `app -> ui` 边**，治本 = 像子批 A 对 `tools` 那样**整模块拆 UI（全量清点后一次迁移）**。
+
 **✅ B1 已完成（2026-10-01，D-176）—— 7 条消除，`app -> ui` **17 → 10****
 
 - **决策（用户批准）**：`parseToolOutput` **随 7 个渲染器一并归位 ui 层** —— 其自述即"**知识工具 UI 渲染器的统一解析入口**"（纯自包含、零 import），且**唯一消费者就是这 7 个文件** ⇒ 既零新增出口、又零新增边。

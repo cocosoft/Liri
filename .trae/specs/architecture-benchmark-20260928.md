@@ -50,7 +50,7 @@
 > - 原依据 `decodeToolResultContent` **不存在**（`grep` 全仓零命中）⇒ 原表述"出参只有解包"**不成立**。
 > - **真实形态**（[`tools/types/ToolResult.ts:40`](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/types/ToolResult.ts#L40-L68)）：`ToolResult<T>` 有 **19 个字段且几乎全为 optional**，含 `any`（`contextModifier?: (context: any) => any`、`progress?: any[]`），且 **`data?: T` 与 `result?: T` 两个并行字段语义重叠**。
 >   ⇒ 结论：**不是"缺一个 schema 校验"，而是出参类型本身"什么都可以"** ⇒ 直接加 schema 只能写成"全 optional" ⇒ **无约束力**（等于把 §四 那句"门禁本身会变成第二份事实源"再犯一次）。
-> - **另有 7 处 `ToolResult` 独立定义**（`core/types.ts:46`、`chat/types/tool.ts:127`、`runtime/api/CoreAPI.ts:265`、`ToolExecutor.ts:32`、`extensions/ExtendedToolOptions.ts:68`、`ChatMessage.tsx:15` 等）⇒ 收敛前需先甄别"真重复 vs 不同语义同名"，属于 §四 根因类 ①。
+> - ~~**另有 7 处 `ToolResult` 独立定义**（`core/types.ts:46`、`chat/types/tool.ts:127`、`runtime/api/CoreAPI.ts:265`、`ToolExecutor.ts:32`、`extensions/ExtendedToolOptions.ts:68`、`ChatMessage.tsx:15` 等）⇒ 收敛前需先甄别"真重复 vs 不同语义同名"，属于 §四 根因类 ①。~~ **✅ 已办结（2026-10-01，P1-3 B/C 档）**：6 处逐处甄别完毕 —— `core/types.ts:46` 为**事实基座**（主契约 `extends` 之）；`extensions/ExtendedToolOptions.ts:68` 为**零消费者死类型**（整目录已删除）；`runtime/api/CoreAPI.ts:265` 实为 `DiffBlockData`（**坐标更正**）；其余 3 处（`ToolResultBlock` / `chat 事件层` / `ToolResultInfo`）为**各层自有视图**，按硬约束**不派生** ⇒ 判定表见 §2.2.3。
 > - **故 P1-3 需先出方案**（口径见 `liri-optimization-plan-20260926.md` 的 P1-3 条目；两者编号同名但**不同物**：本 spec 的 P1-3 = 工具出参 schema）。
 
 | ~~**P2**~~ **✅** | `DocWorkflow` **阶段序列双份**（#1） | 迁移期临时双轨（代码已标 `TODO: CS05-ROOTFIX`） | **✅ 已完成 —— 但收口形态与原方案不同：不是"降为薄包装"，而是"删除"**。实测 `runDocWorkflow` 在 `app/src` **已不存在**（全仓 `grep` 仅命中台账/spec/测试注释），收口于 **2026-09-26「方案 3」**完成（`DocWorkflow.ts` 原址留有「收口说明」段，记明"为何删除 / 现走哪条路 / 保留 `RunDocWorkflowOptions` 作类型来源"）。本次（2026-09-28）**补清理了残留的过时注释**：`DocWorkflowProvider.ts` 头注释仍写"接入点第一刀 / 临时双轨 / TODO 未结"、阶段 id 注释仍引用已删函数 —— **零代码改动**。⇒ **原方案"降为薄包装"不成立**：该函数已无调用方，保留它只会形成第二条路径。 |
@@ -503,6 +503,19 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 
 - **与 `decayRules` 的一致性**：例外文件自带 `decayRules`（`maxPerModule: 30`、`batchExpiryDays: 60`）⇒ 其**设计意图就是"例外应逐批衰减"** ⇒ **B1/B2 符合该意图**，B3 一步到位反而与该机制冲突（会被 decay 规则反复阻断）。
 - **时间点建议**：**10-11 前**必须定（`expiresAt` 到期前的 warning 窗口开始后，每次提交都会看到告警）；若选 B1，工作量很小（改 1 个 JSON + 1 个映射值 + 续期日期）。
+- **⚠️ 2026-10-01（D-143）复核更正 —— 上表 A/B 类「规模」已大幅过时**：用**门禁探针**（临时移除 A 类三条例外后实跑 `lint:arch`）实测：
+  - **`core -> infra`(50) / `core -> entry`(1) 已完全收口** —— 例外条目已不存在（随 B1「`types` 改归 core」及 D-67/D-84/H5-① 等消除）。
+  - **A 类现存 = 3 条例外 / 真实违规 12 处**，且**高度集中在 4 个文件**：
+
+    | 例外 | 原估 | **实测** | 真实命中点 |
+    |---|---:|---:|---|
+    | BULK-011 `core -> service` | 2 | **1** | `core/session/SessionSupervisor.ts:10-11` → `@modules/session` |
+    | BULK-012 `core -> app` | 1 | **11** | `core/Coordinator.ts`(→tools) · `core/loop/PlanDrivenLoop.ts`(→query/ai/tasks) · `core/tokenBudget/TokenBudgetController.ts`(→ai) |
+    | BULK-013 `core -> ui` | 10 | **0** | —— ⇒ **空气例外，已删** |
+
+  - **B2 执行结果**：① 删 **BULK-013**（空气例外 · 零命中）；② 修正 **BULK-011 → 1**、**BULK-012 → 11**（如实）；③ 例外 **13 → 12 条**；④ `lint:arch` **0 错 / 2 警 / 违规 0 / 豁免 220**（不变 —— 删的是零命中条目）。
+  - **B2/B3 剩余收口路径（独立议题）**：门禁 `resolveModuleName()` **只取路径第一段** ⇒ **不支持文件级层映射** ⇒ 收口只能二选一：① **物理移动**这 4 个文件至对应 app/service 层目录并改 import；② **DI 反转**（core 定义接口、上层注入）。涉及 PDCA 核心编排链路（`PlanDrivenLoop`），破坏面中偏大。
+  - **🔑 方法教训（纪律 I 第四次扩展）**：首轮静态 grep 把 BULK-011 **误判为「空气例外」**（差点删除），根因是**grep 模式只覆盖 `@modules/<mod>/…`（带斜杠），漏掉 `@modules/<mod>`（无斜杠）**。⇒ **凡「判断某依赖是否存在」的结论，必须用门禁实跑（探针）复核，不可只凭静态 grep**；grep 模式须同时覆盖「带斜杠 / 不带斜杠 / 相对路径」三种形式。
 
 ---
 
@@ -540,8 +553,8 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | 项 | 位置 | 性质 | 备注 |
 |---|---|---|---|
 | ~~**§三 收尾门禁**~~「`*OutputSchema` 全仓无消费者 ⇒ warning」 | §三 收尾行 | — | ✅ **已完成（2026-09-30 复核）**：① **存量已清零** —— spec 分批 1a–4b 全部执行完毕（**接线 21 / 删除 24**，零消费者 **44 → 0**）；② **门禁已落地** —— 新增 **R15-001**（`checkOrphanOutputSchemas`，warning 级、**零豁免上线**）：`lint:arch` 实测「定义 **21** 个，零消费者 **0** 个」、总告警仍为 **1**（仅既有 R07-004）⇒ **无新增噪音**；③ 并做 **A 档变异测试**（临时插入孤立定义 ⇒ 报 1 条，已还原）。另顺带清掉**入参侧**零 importer 死文件（20/41 整文件删除）+ 新增门禁 **R15-002**。⇒ spec [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) 已自记「~~门禁尚未落地~~ ⇒ ✅ 已落地」，本行滞后更正 |
-| **P1-3 B/C 档**（收敛主契约 / 抽基座类型） | §二 P1 行 | 大 | 需先补 `core/types.ts:46`、`extensions/ExtendedToolOptions.ts:68` 两处语义判定（§2.1 未穷尽） |
-| **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦） |
+| ~~**P1-3 B/C 档**（收敛主契约 / 抽基座类型）~~ | §二 P1 行 | 大 | ✅ **已完成（2026-10-01）**：**B1**（主契约 `extends` core，`aeeeb5e8e`）· **B2**（`data`/`result` 并行载荷全量迁移 —— 写入 **51** + 读取 **5**，**字段已删除**；含 **B2-c 补漏**清理「手写结构类型 / `as` 断言」盲区 **4** 个读点）· **B3**（`progress` 死字段删除 **165** 处 / 32 文件；`output` / `content` 取证结论＝**保留**）· **C**（实测「抽基座 + 6 视图派生」**不可行且无收益** ⇒ 删除死目录 `tools/extensions/` **3** 文件 + 固化判定）⇒ **详见 §2.2.1 / §2.2.2 / §2.2.3**；本轮提交链 `4c2ac9f54` → `2223b20e6` |
+| **D-3-B（例外 2026-10-18 到期）** | §5.2/§5.7 | 小（B1）/中（B2）/大（B3） | ✅ **B1 已完成（2026-09-29，台账 D-50 + D-51）**：**删 4 条冗余 bulk 例外**（18 → 14）+ **其余续期至 2027-04-18** + **`types` 改归 `core`、收口 `PM-002`**（前置＝先把 `types/` 的 **4 处出向依赖**清零：**6 处**消费方改直连事实源，详见 D-51）。**结果**：`perModuleExceptions` 仅剩 `PM-001`；`lint:arch` **0 错 / 1 警 / 违规 0**。**B2/B3 未动**（需 SPI/事件化改造，独立议题）。⚠️ 一并更正：`PM-002` 实为**零命中**的"空气例外"（`core` 引用的是**子目录自有** `types`，非根 `src/types`）⇒ 它与 D-50 删的 4 条**成因不同**（那 4 条是判定序被前拦）。**🆕 B2 已完成（2026-10-01，D-143）**：经**门禁探针**复核 —— A 类实际只剩 **3 条例外 / 12 处违规**（BULK-011 实测 1 · BULK-012 实测 11 · BULK-013 实测 0＝空气例外）；处置＝**删 BULK-013 + 修正 BULK-011/012 计数** ⇒ 例外 **13 → 12 条**、`lint:arch` **0 错 / 违规 0 / 豁免 220**。剩余 12 处（4 文件）的收口需**物理移动**或 **DI 反转**（门禁不支持文件级映射），列为独立议题 ⇒ 详见 §5.7 的 D-143 段 |
 | ~~**§5.3 跨端契约单一事实源**~~ | §5.3 | — | ✅ **已完成（2026-09-30 复核）**：事件名已下沉 `shared/events/eventNames.ts` 单一事实源 + **三端一致性门禁**（台账 **D-57**，实测 **3 pass / 0 fail**）。原判两条**均已过时** —— ①"client 落后后端 5 类型"②"`shared/` 仅 client 在用（app 零引用）"（app 实测 **5 处**引用）⇒ **§5.3 正文已同步改写** |
 | **待细核项**（§三批次4 + §四批次2/3 表）：#7 单例口径分裂 · #9 adaptation/SkillCurator · #12 两处 `@deprecated` 旧重试器 · #13 审批决策可审计事件 · #16 `TokenTracker` 位置（悲观预扣 C1 已判"不实施"）· #17 CoT/ToT/reasoning effort · #20 统一优先级调度 · #21 主动探索与 `evals/` 重叠 | §三/§四 各表 | 取证 | ✅ **已于 2026-09-29 全部取证完毕 ⇒ 见 §6.4（不再待核）** |
 

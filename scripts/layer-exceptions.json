@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）",
-  "lastUpdated": "2026-09-30",
+  "lastUpdated": "2026-10-01",
   "decayRules": {
     "batchExpiryDays": 60,
     "newExpiryDays": 30,
@@ -69,8 +69,8 @@
       "ruleId": "R00-001",
       "pattern": "core -> service",
       "description": "核心层引用服务层",
-      "rationale": "core 层引用服务层的异常模式。后续治理（2026-09-30 D-67：`mcp` 改归 service，其 →services 共 7 对退出本桶，9 → 2）",
-      "estimatedCount": 2,
+      "rationale": "core 层引用服务层的异常模式。**2026-10-01 D-143 复核（探针实测）**：`estimatedCount` 由 **2 修正为 1** —— 移除本例外后 `lint:arch` 实报 1 处：`core/session/SessionSupervisor.ts:10-11` → `@modules/session`（`ResetPolicyDecider` / `ResetPolicy`）。⚠️ 本条曾于同日被**误判为「空气例外」并删除** —— 根因是**静态 grep 模式只覆盖 `@modules/<mod>/…`（带斜杠），漏掉 `@modules/<mod>`（无斜杠）形式**（与 B2-c「探针盲区」同类：**发现手段本身有盲区**）；经门禁实跑暴露后已恢复并如实修正。收口路径：SessionSupervisor 对 session 服务的依赖需 **DI / 接口反转**（独立议题）",
+      "estimatedCount": 1,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"
@@ -80,19 +80,8 @@
       "ruleId": "R00-001",
       "pattern": "core -> app",
       "description": "核心层引用应用层",
-      "rationale": "core 层引用应用层的异常模式。后续治理（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 2 对移入 BULK-005，6 → 4；同日 H5-① 收口：`core/events/{EventBusOTelBridge,OrchestrationMetrics,TokenTracker}` → agent 3 对随 `OrchestrationEventType` 下沉 core 消除，4 → 1）",
-      "estimatedCount": 1,
-      "createdAt": "2026-06-19",
-      "expiresAt": "2027-04-18",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "BULK-013",
-      "ruleId": "R00-001",
-      "pattern": "core -> ui",
-      "description": "核心层引用 UI 层",
-      "rationale": "core 层引用 UI 组件的异常模式。后续治理",
-      "estimatedCount": 10,
+      "rationale": "core 层引用应用层的异常模式。**2026-10-01 D-143 复核（探针实测）**：`estimatedCount` 由 **1 修正为 11** —— 移除本例外后 `lint:arch` 实报 **11 处** `R00-001` 违规，**全部集中在 3 个文件**：`core/Coordinator.ts` → tools（`AgentTool`）· `core/loop/PlanDrivenLoop.ts` → query / ai / tasks · `core/tokenBudget/TokenBudgetController.ts` → ai（tokenizer）。**收口路径**（门禁 `resolveModuleName` 只取路径第一段 ⇒ **不支持文件级层映射**）：① **物理移动**这 3 个文件至 app 层目录（tools/ · query/ 或 tasks/ · ai/）并改 import；或 ② **DI 反转**（core 定义接口、app 注入）。二者均为**独立议题**（涉及 PDCA 核心编排链路）。⚠️ 同日一并删除 1 条**空气例外**：BULK-013（`core -> ui`，实测 **0** 命中）。**注**：BULK-011 曾同日被误判为空气例外而短暂删除，经门禁实跑发现 **1 处**真实命中（见其 rationale）后已恢复",
+      "estimatedCount": 11,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"

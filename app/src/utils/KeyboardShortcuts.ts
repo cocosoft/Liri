@@ -17,6 +17,13 @@ export interface KeySequence {
   action: () => void | Promise<void>;
 }
 
+// 2026-10-01 D-182（B3-2 前置）：4 处占位动作原用 `console.log`（违 §1.8「日志唯一入口」+
+// eslint `no-console`，导致归位 `utils/` 被 pre-commit 拒绝）⇒ 改走 `getLogger`。
+// 这些 action 本身是**占位实现**（只打印一句），改 debug 级日志不改变其「未真实执行」的语义。
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('utils:keyboardShortcuts');
+
 export class KeyboardShortcuts {
   private static instance: KeyboardShortcuts | null = null;
   private bindings: Map<string, KeyBinding> = new Map();
@@ -43,7 +50,7 @@ export class KeyboardShortcuts {
       modifiers: ['ctrl'],
       description: '中断当前操作',
       action: () => {
-        console.log('Interrupt signal sent');
+        logger.debug('Interrupt signal sent');
       },
     });
 
@@ -52,7 +59,7 @@ export class KeyboardShortcuts {
       modifiers: ['ctrl'],
       description: '撤销',
       action: () => {
-        console.log('Undo action');
+        logger.debug('Undo action');
       },
     });
 
@@ -61,7 +68,7 @@ export class KeyboardShortcuts {
       modifiers: ['ctrl'],
       description: '复制',
       action: () => {
-        console.log('Copy action');
+        logger.debug('Copy action');
       },
     });
 
@@ -70,7 +77,7 @@ export class KeyboardShortcuts {
       modifiers: ['ctrl'],
       description: '清除行',
       action: () => {
-        console.log('Clear line');
+        logger.debug('Clear line');
       },
     });
   }

@@ -4,7 +4,9 @@
  * 提供交互式帮助功能
  */
 
-import { keyboardShortcuts } from '../ui/KeyboardShortcuts';
+// 2026-10-01 D-182（B3-2）：`KeyboardShortcuts` 归位 `utils/`（app -> infra 合法）。
+// 前置：其 4 处占位动作的 `console.log` 已改走 `Logger`（§1.8），否则迁入 `utils/` 会命中 `no-console`。
+import { keyboardShortcuts } from '../utils/KeyboardShortcuts';
 import { ThemeManager } from '../ui/ThemeManager';
 import { exampleCommands } from './ExampleCommands';
 import { releaseNotes } from './ReleaseNotes';

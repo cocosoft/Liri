@@ -453,7 +453,6 @@ export class SkillTool implements Tool {
         executionTime: 0,
         output: '',
         errorOutput: validation.message || '',
-        progress: [],
         metadata: {},
         executionId: '',
         toolName: this.name,
@@ -493,7 +492,6 @@ export class SkillTool implements Tool {
         executionTime: Date.now() - startTime,
         output: result,
         errorOutput: '',
-        progress: [],
         metadata: {
           skillName: skill.name,
           skillType: skill.type,
@@ -523,7 +521,6 @@ export class SkillTool implements Tool {
         executionTime: Date.now() - startTime,
         output: '',
         errorOutput: errorMessage,
-        progress: [],
         metadata: {
           skillName: skill.name,
           skillType: skill.type,

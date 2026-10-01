@@ -29,7 +29,6 @@ export class KnowledgeMyTool implements Tool {
       status: ToolExecutionStatus.SUCCESS,
       output: JSON.stringify({ result: 'done' }),
       executionTime: Date.now() - startTime,
-      progress: [],
       metadata: {},
       executionId: `knowledge_my_${Date.now()}`,
       toolName: this.name,

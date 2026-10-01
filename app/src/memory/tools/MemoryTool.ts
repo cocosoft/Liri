@@ -110,7 +110,6 @@ export class MemoryTool implements Tool {
         executionTime,
         output: JSON.stringify(memories),
         errorOutput: '',
-        progress: [],
         metadata: {
           count: memories.length,
           query: query || '',
@@ -129,7 +128,6 @@ export class MemoryTool implements Tool {
         executionTime,
         output: '',
         errorOutput: error instanceof Error ? error.stack || '' : String(error),
-        progress: [],
         metadata: {},
         executionId: `memory_exec_${Date.now()}`,
         toolName: this.name,

@@ -53,7 +53,6 @@ export function createMediaDeleteBatchTool(): Tool {
             executionTime: Date.now() - startTime,
             output: '',
             errorOutput: '',
-            progress: [],
             metadata: {},
             executionId: `media_delete_batch_${Date.now()}`,
             toolName: 'media_deleteBatch',
@@ -67,7 +66,6 @@ export function createMediaDeleteBatchTool(): Tool {
           executionTime: Date.now() - startTime,
           output: '',
           errorOutput: '',
-          progress: [],
           metadata: {},
           executionId: `media_delete_batch_${Date.now()}`,
           toolName: 'media_deleteBatch',
@@ -86,7 +84,6 @@ export function createMediaDeleteBatchTool(): Tool {
             executionTime: Date.now() - startTime,
             output: '',
             errorOutput: safe.error!,
-            progress: [],
             metadata: {
               errorCode: MediaErrorCode.PATH_INSECURE,
               rejectedPath: p,
@@ -117,7 +114,6 @@ export function createMediaDeleteBatchTool(): Tool {
             executionTime: Date.now() - startTime,
             output: `已删除 ${deletedCount}/${safePaths.length} 个文件`,
             errorOutput: '',
-            progress: [],
             metadata: {
               filePaths: safePaths,
               count: safePaths.length,
@@ -139,7 +135,6 @@ export function createMediaDeleteBatchTool(): Tool {
           executionTime: Date.now() - startTime,
           output: `⚠ 将删除 ${safePaths.length} 个文件，需要审批确认。`,
           errorOutput: '',
-          progress: [],
           metadata: {
             filePaths: safePaths,
             count: safePaths.length,
@@ -162,7 +157,6 @@ export function createMediaDeleteBatchTool(): Tool {
           executionTime: Date.now() - startTime,
           output: '',
           errorOutput: String(err),
-          progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `media_delete_batch_${Date.now()}`,
           toolName: 'media_deleteBatch',

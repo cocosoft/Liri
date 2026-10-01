@@ -52,13 +52,16 @@ export enum ErrorLevel {
  * ✅ 已收敛（P1-3 **B2 档**，2026-09-30 收口）：`result?` **并行载荷已删除** —— 写入侧 51 处
  * + 读取侧 5 处已全部迁移 / 收口至 `data`（逐批过程与「探针盲区」纪律见 spec §2.2.1）。
  *
- * ⚠️ 未收敛（后续档位）：`progress?: any[]` 待 **B3**、`output?` 与 `content?` 并行待 **B3**。
+ * ✅ 已收敛（P1-3 **B3-a 档**，2026-10-01）：`progress?: any[]` **死字段已删除**（取证：非空写入 0 处、
+ * 全仓读取 0 处；**165** 个空数组写入点已清理，另有 **3** 处因「推断型返回值」盲区遗漏同期清理）。
+ *
+ * ⚠️ 未收敛：`output?`（core 基座，**JSON 载荷文本**）与 `content?`（本接口，**人类可读摘要**）
+ * 存在**语义分工**，B3-b 结论为 **保留**（详见 spec §2.2.1）。
  */
 export interface ToolResult<T = unknown> extends CoreToolResult<T> {
   status?: ToolExecutionStatus;
   executionTime?: number;
   errorOutput?: string;
-  progress?: any[];
   metadata?: Record<string, unknown>;
   executionId?: string;
   toolName?: string;

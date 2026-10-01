@@ -73,7 +73,6 @@ export class UnifiedSearchTool implements Tool {
         executionTime: Date.now() - startTime,
         output: '',
         errorOutput: '',
-        progress: [],
         metadata: {},
         executionId: `unified_search_${Date.now()}`,
         toolName: this.name,
@@ -97,7 +96,6 @@ export class UnifiedSearchTool implements Tool {
         executionTime: Date.now() - startTime,
         output: JSON.stringify(results),
         errorOutput: '',
-        progress: [],
         metadata: {
           count: results.length,
           query: query.trim(),
@@ -116,7 +114,6 @@ export class UnifiedSearchTool implements Tool {
         executionTime: Date.now() - startTime,
         output: '',
         errorOutput: error instanceof Error ? error.stack || '' : String(error),
-        progress: [],
         metadata: {},
         executionId: `unified_search_${Date.now()}`,
         toolName: this.name,

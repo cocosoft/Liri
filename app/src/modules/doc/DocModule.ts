@@ -348,12 +348,11 @@ export class DocModule {
           : ToolExecutionStatus.FAILURE;
         return {
           status,
-          result,
+          data: result,
           output: success
             ? (output ?? `工作流 ${workflow} 执行完成`)
             : (runResult.error ?? `工作流 ${workflow} 执行失败`),
           errorOutput: success ? '' : (runResult.error ?? ''),
-          progress: [],
           metadata: {
             workflow,
             completedSteps: runResult.completedSteps,

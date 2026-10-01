@@ -268,7 +268,6 @@ export class CodeAnalysisTool implements Tool {
         executionTime: analysisTime,
         output: JSON.stringify(output),
         errorOutput: '',
-        progress: [],
         metadata: {},
         executionId: `exec_${Date.now()}`,
         toolName: this.name,

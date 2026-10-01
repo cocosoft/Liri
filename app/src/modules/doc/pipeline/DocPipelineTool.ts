@@ -193,10 +193,9 @@ export function createDocPipelineTool(): Tool {
 
       const fail = (message: string) => ({
         status: ToolExecutionStatus.FAILURE,
-        result: { success: false, error: message },
+        data: { success: false, error: message },
         output: message,
         errorOutput: message,
-        progress: [],
         executionTime: 0,
         executionId: `doc_pipeline_${Date.now()}`,
         toolName: 'office:doc-pipeline',
@@ -300,14 +299,13 @@ export function createDocPipelineTool(): Tool {
         }
         return {
           status: ToolExecutionStatus.SUCCESS,
-          result: {
+          data: {
             success: true,
             filePath: composed.filePath,
             format: composed.format ?? format,
           },
           output: `文档已生成：${composed.filePath}`,
           errorOutput: '',
-          progress: [],
           executionTime: 0,
           executionId: `doc_pipeline_${Date.now()}`,
           toolName: 'office:doc-pipeline',

@@ -156,7 +156,7 @@
 |:--:|---|---|---|
 | **B1** | `tools/types/ToolResult.ts` 的**7 个共有字段**改为 **`extends` core 版**（`@modules/core/types`）⇒ 消除"7 字段在两处重声明" | **小**（纯类型；`tools → core` 为**合法下行**） | ⚠️ 须实测：core 版 `contextModifier` 是 **`unknown`**（主契约是 `any`）⇒ 继承后会**收紧**，可能触发实现侧类型错 |
 | **B2** | 收敛 **`data?` / `result?` 并行载荷** | **中**（影响**手写 `ToolResult` 的工具**，非"所有工具"） | ✅ **量化取证已完成（2026-09-30）⇒ 方案见 §2.2.1**（两字段**各有职责**，宜"迁移"而非"二选一删"）|
-| **B3** | 收窄两处 `any`（`contextModifier` / `progress`）+ 甄别 `output?` / `content?` 并行 | **中** | 同 B2 |
+| **B3** | `contextModifier` / `progress` 两处 `any` 收窄 + `output?` / `content?` 并行甄别 —— **✅ 已完成（2026-10-01）**：`contextModifier` 已随 B1 继承收窄 · **`progress` 经取证为死字段 ⇒ 已删除**（165 写入 / 0 读取）· `output?`/`content?` 甄别结论＝**保留**（各有真实消费者）⇒ **详见 §2.2.2** | **中** | 同 B2 |
 | **C** | 抽**基座类型** + 6 处视图**由基座派生**（跨 4 层） | **最大** | 依赖 ① 的结论（基座＝`success`/`error` 极小交集）|
 
 ##### §2.2.1 B2 量化取证结论（2026-09-30）—— 两字段**各有职责**，宜「迁移」而非「二选一」
@@ -277,6 +277,26 @@
   - **顺带发现（预存，已记台账）**：`app/tests/**` **不在 `lint` 范围**（`app/package.json:48` 仅 `eslint src --ext .ts`）⇒ 测试目录的格式问题不被门禁捕获（`taskOrchestratorToolsOutput.test.ts` 的 `144/161` 行 prettier 报错即为例，**HEAD 已存在**）—— 与 D-137 / D-138（`app/scripts/**` 门禁盲区）**同类**，待裁定是否纳入。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
+
+##### §2.2.2 B3 量化取证结论（2026-10-01）—— `progress` 死字段已删 · `output?`/`content?` **保留**
+
+**① B3-a：删除死字段 `progress?: any[]`（用户裁定「删除」）**
+
+- **前置取证（纪律 G）**：① 全仓 `progress` 写入点 **165 处，全部为 `progress: []`（空数组）**，**非空写入 0 处**；② **读取点 0 处**（`app/src` · `client/src` · `app/tests` 三域命中的 `progress` 全属 PDCA / 视频任务 / UI / i18n 等**无关对象**）⇒ **死字段**，处置为**删除**（而非"类型化为 `ToolProgress[]`"—— 类型化后仍是死字段）。
+- **执行**：探针（临时删字段 ⇒ `tsc`）报 **TS2353 = 165 · TS2339 = 0**（全写入 / 零读取，**印证取证**）；按**精确行号**批量删除 165 行（**32 个文件**，`removed=165 mismatch=0`）。
+- **⚠️ 盲区再实证**：grep 复核发现 **3 处** `progress: []` 残留 —— `modules/doc/pipeline/DocPipelineTool.ts`×2 · `modules/doc/DocModule.ts`×1，均位于**无返回类型标注的箭头函数 / 推断型返回值**中（盲区 ①②）⇒ 探针不报。**同步发现这 3 处还写了 B2-c 已删的 `result` 字段**（同一盲区所致）⇒ 一并迁移为 `data`。**⇒ B2-c 遗留盲区至此清零**。
+- **验收**：探针 **0** · `typecheck` **exit 0**（三遍绿）· `bun run lint`（全 src）**exit 0**（13 个预存 warning，**零新增**）· **全量 `bun test` 4250 pass / 21 skip / 0 fail**（4271 用例 / 447 文件，96.57s）。
+
+**② B3-b：`output?` / `content?` 并行甄别 ⇒ 结论「保留，不收敛」（用户裁定「仅出量化取证结论」）**
+
+| 字段 | 位置 | 写入 | 读取 | 消费者（读取侧） | 结论 |
+|---|---|---:|---:|---|---|
+| `output?: string` | **core 基座** `core/types.ts:48` | **421** | **31** | `CoreAPIImpl` HTTP 出口 · `ToolExecutionService` · `Config` / `bash` / `agent` 命令 · `Coordinator` · `SubAgentEngine` · `CodeRunnerTool` 等 | **核心字段，保留** |
+| `content?: string` | 本接口 | **43** | **4** | `tools/services/ToolOrchestration.ts:206` · `tools/services/ToolResultBudget.ts:51,55`（**预算裁剪链**） | **有真实消费者，保留** |
+
+- **量化方法**：对两字段分别执行**临时删除 ⇒ `tsc` 计数 ⇒ 还原**（本档**不改最终代码**，`content`/`output` 探针均已还原）。
+- **语义分工（非冗余并行）**：`output` = **JSON 载荷文本**（机器 / 模型面向，如 `JSON.stringify(event)`）；`content` = **人类可读摘要**（如 `日程已添加: ${summary}`）⇒ **二者不可互换**，故**不收敛**。
+- **⇒ P1-3 B3 档完成**；后续仅余 **C 档**（抽基座类型 + 6 视图派生，破坏面最大，依赖 §2.2① 的「基座＝`success`/`error` 极小交集」结论）。
 
 ---
 

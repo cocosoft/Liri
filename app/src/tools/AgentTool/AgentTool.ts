@@ -740,7 +740,6 @@ export class AgentTool implements Tool {
       executionTime: 0,
       output: '',
       errorOutput,
-      progress: [],
       metadata: {},
       executionId,
       toolName: this.name,
@@ -1944,7 +1943,6 @@ export class AgentTool implements Tool {
         executionTime: Date.now() - startTime,
         output: '',
         errorOutput: errorMessage,
-        progress: [],
         metadata: {
           agentId,
           agentType: effectiveType,
@@ -2728,7 +2726,6 @@ export class AgentTool implements Tool {
       executionTime: Date.now() - startTime,
       output: finalOutput,
       errorOutput: resultError ?? '',
-      progress: [],
       metadata: {
         agentId,
         agentType: effectiveType,
@@ -2874,7 +2871,6 @@ export class AgentTool implements Tool {
       executionTime: 0,
       output: `Background agent task started (ID: ${taskId})`,
       errorOutput: '',
-      progress: [],
       metadata: {
         agentId,
         agentType: effectiveType,
@@ -3029,7 +3025,6 @@ export class AgentTool implements Tool {
       executionTime: Date.now() - startTime,
       output: result.result || '',
       errorOutput: result.completed ? '' : result.error || '',
-      progress: [],
       metadata: {
         agentId,
         agentType: effectiveType,

@@ -24,9 +24,14 @@ import {
   type SandboxPolicyConfig,
 } from './SandboxPolicy.js';
 
-// 2026-10-01 D-156（`R00-001` 倒挂收口）：此处原 `import type { SandboxConfig,
-// SandboxExecuteOptions, SandboxExecuteResult } from '../../../sandbox/SandboxTypes.js'`
-// 为**死导入**（本文件正文零使用）⇒ 直删，消除 `config`(infra) -> `sandbox`(app) 倒挂边。
+// 2026-10-01 D-156（`R00-001` 倒挂收口）：此处原有对 app 层 `sandbox/SandboxTypes` 的
+// **死导入**（SandboxConfig / SandboxExecuteOptions / SandboxExecuteResult 三个类型，
+// 本文件正文零使用）⇒ 直删，消除 `config`(infra) -> `sandbox`(app) 倒挂边。
+//
+// ⚠️ 2026-10-01 D-162：D-156 当时把被删语句**原样复写在本注释里**，而 `lint-architecture.ts`
+// 的导入正则 / `parseModuleImports` **不剥离注释** ⇒ 这条「已删边」被注释顶了回来、持续计入
+// `已豁免`（**门禁假阳性**，非真实依赖）。本处改为**只描述、不复写**导入字面量
+// （同 `runtime/api/queryOpsPorts.ts` 台账 D-77 的告诫：「门禁不剥离注释，写了会让『对』复活」）。
 
 const logger = getLogger('config:enterprise:sandbox:enterpriseSandboxManager');
 

@@ -581,7 +581,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
     | 17 | `system` → `tasks`(app) | `system/state/types.ts` |
 
   - **⚠️ 更正 L556 的"剩余大头"**：原记 `config 2 · permission 2 · chronos 2 · system 2 · memory 2 · state 1 · monitoring 1`（≈12）**与实测不符** —— `permission`/`config` 各已由 D-157/D-156 处理（`config` 仍余 **1**）；实测为 `memory 4 · chronos 3 · system 3 · oauth 2 · performance 2 · config 1 · monitoring 1 · state 1`。⇒ **以本表为准**。
-  - **⚠️ 静态 grep 存在盲区（再次印证 BULK-011 教训）**：本表 #4（`config→sandbox`）与 #14（`state→tasks`）**均非 `@modules/<mod>` 形式**（为相对路径），任何"按 `from '@modules/x'` 形态"的静态清点都会漏掉它们；**唯一权威口径是门禁探针**。
+  - **⚠️ 静态 grep 存在盲区（再次印证 BULK-011 教训）**：本表 #14（`state→tasks`）**非 `@modules/<mod>` 形式**（为相对路径 `'../../tasks/types'`），任何"按 `from '@modules/x'` 形态"的静态清点都会漏掉它；**唯一权威口径是门禁探针**。⚠️ **本行对 #4（`config→sandbox`）的判断有误，已由 D-162 更正**：该"边"**不是导入**，而是**注释**触发的门禁假阳性（`@modules/sandbox` 在该文件 0 命中）。
   - **下一批建议（按手法同构度/净边数）**：`oauth`（2 边，同类）· `performance`（2 边，同类）· `monitoring`（1 边，纯函数下沉）· `state`/`config`（各 1 边）。`memory`（4 边）与 `chronos`（3 边）因牵连历史重复实现（`memory/services/KnowledgeBaseWriter` 仍被 `AutoMemoryService` 类型引用）与事件化解耦，建议**专项批次**。
 
 - **✅ 2026-10-01（D-159）`oauth` 组 2 条边全部消除** —— 两条边**同因**：[`OAuthClient.ts:9`](file:///e:/PY/Documents/CODES/PY_APP/app/src/oauth/services/OAuthClient.ts#L9) 与 [`DynamicClientReg.ts:7`](file:///e:/PY/Documents/CODES/PY_APP/app/src/oauth/services/DynamicClientReg.ts#L7) 均为 `import { logger } from '@modules/infrastructure'` —— 取自 HTTP **服务层桶的"默认 logger"**（`infrastructure/index.ts:24` = `getLogger()` 无 module 名）⇒ ① 构成 `oauth`(infra) → `infrastructure`(service) 倒挂（infra 层仅允许 infra/core）；② 同时偏离 **§1.8「日志唯一入口」**（应为 `monitoring/logs/Logger` 的 `getLogger(module)`）。⇒ 改为**模块内既有约定**（`oauth/` 其余 20+ 文件全部用 `@modules/monitoring` 的 `getLogger('oauth:…')`）：`getLogger('oauth:services:oauthClient')` / `getLogger('oauth:services:dynamicClientReg')`。
@@ -607,6 +607,16 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **⚠️ 未取得的口径（如实）**：**全量 `bun test`（含 `src/**/__tests__`）本次两次异常长耗时（>4 min）被中断**，未拿到读数 ⇒ 本批只验到 CI 口径。上一批全量为 **4258 pass / 0 fail**；本批为**纯搬迁**，风险面限于 cron 符号引用（已由 typecheck + `tests/` 覆盖）。**该 flaky 现象连续出现在 D-160/D-161 两批，来源未明，建议单独立项观察**（与本轮另记的"强杀测试后 `scripts/` 出现探针残留"疑为同一根因：被中断的测试运行未完成清理）。
   - **现状**：`infra` 源剩余 **12 条边**（13 − 1）。
   - **副作用（如实，未消除）**：`tasks/cron/index.ts` 现**转出 infra 符号**（app 桶转发 infra）—— 属 app→infra 合法依赖，但使 `@modules/tasks` 的 cron 求值出口与实现分属两层。若日后要消除该转发，需把 4 个 app 侧调用点改为直连 `@modules/utils/cron`。
+
+- **✅ 2026-10-01（D-162）`config` 组那条"边"实为门禁假阳性 —— 注释复写所致，已修** —— 本项不是倒挂收口，而是**门禁口径纠错**。
+  - **定位**：`config/enterprise/sandbox/EnterpriseSandboxManager.ts` 内 `@modules/sandbox` **0 命中**；`sandbox` 唯一出现在 **D-156 留下的注释**里 —— 该注释**原样复写了被删语句** `from '../../../sandbox/SandboxTypes.js'`。
+  - **机制**：`parseModuleImports`（[lint-architecture.ts#L2510](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L2510)）的相对导入正则 `/from\s+['"](\.[^'"]+)['"]/g` **不剥离注释** ⇒ 注释被匹配 ⇒ `resolve()` 落到 `<src>/sandbox/SandboxTypes.js` ⇒ `resolveModuleName` 取 `parts[0]` = **`sandbox`** ⇒ 报出 `config (infra) → sandbox (app)`。
+  - **意义**：**D-156 那次"消除"从未生效**（删了代码、注释顶了回来），台账当时误判为已消除。本仓早有同类告诫（`runtime/api/queryOpsPorts.ts`：**「门禁不剥离注释，写了会让『对』复活」**，台账 D-77），D-156 违反了它。
+  - **全仓同类扫描（本次新增）**：注释复写相对导入共 **35 处**（`^\s*(//|\*).*from '\.`），**逐条判定后仅此 1 处造成跨层假阳性**；其余 34 处要么落在**同模块**（`'./SlowOperations.js'`、`'./termio.js'` 等），要么虽越模块但落在**允许层**（如 `utils/startupProfiler.ts` 的 `'../performance/StartupProfiler.js'` = infra→infra，合法）。
+  - **手法**：把该注释改为**只描述、不复写**导入字面量。**不新增代码、不改门禁**。
+  - **为什么不改门禁去剥注释（如实，含理由）**：① 本类问题全仓**仅 1 处**，为 1 例改动全局判定不划算；② **朴素的注释剥离会误伤含 `//` 的字符串字面量**（如 `'https://…'`）⇒ 有可能**隐藏真实导入**，风险大于收益。⇒ 留作观察项，不实施。
+  - **验收**：`lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 164 → 163**）。
+  - **现状**：`infra` 源剩余 **11 条边**（12 − 1）。
 
 ---
 

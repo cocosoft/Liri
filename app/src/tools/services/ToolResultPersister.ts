@@ -58,10 +58,10 @@ export async function persistToolResult(
 
 /** 提取工具结果的可序列化文本（与 _buildToolRoundMessages 的 JSON.stringify 一致） */
 function extractResultText(result: ToolResult): string {
-  // B2-c（2026-09-30）：载荷以 **`data`** 为准 —— 原实现**只读 `result`**（并行载荷），而多数
-  // 工具把载荷写在 `data` ⇒ 落盘文本**退化为 `'{}'`**（预存缺陷，本次修复）。现改为 `data`
-  // 优先，并**保留 `result` 回退**直至 B2-c 写入侧全部迁移完成（届时删该分支）。
-  const payload = result.data !== undefined ? result.data : result.result;
+  // B2-c 读取侧收口（2026-09-30）：载荷以 **`data`** 为准 —— 原实现**只读 `result`**（并行载荷），
+  // 而多数工具把载荷写在 `data` ⇒ 落盘文本**退化为 `'{}'`**（预存缺陷，批次 1 已修复）；
+  // `result` 兼容回退随写入侧清零一并删除。
+  const payload = result.data;
   if (typeof payload === 'string') return payload;
   if (payload !== undefined) return JSON.stringify(payload);
   if (result.error) return result.error;

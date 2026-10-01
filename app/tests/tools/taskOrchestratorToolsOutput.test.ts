@@ -169,7 +169,7 @@ describe('TaskOrchestratorTools 出参对象化', () => {
   });
 });
 
-describe('ToolExecutor.processResult 读取面（2026-09-29 修正）', () => {
+describe('ToolExecutor.processResult 读取面（2026-09-29 修正 / B2-c 收口）', () => {
   const executor = new ToolExecutor();
   const fakeTool = { name: 'demo' } as unknown as Tool;
 
@@ -193,21 +193,15 @@ describe('ToolExecutor.processResult 读取面（2026-09-29 修正）', () => {
     expect(block.output).toBe('plain');
   });
 
-  it('仅填 result（data 缺省）⇒ 块 result/output 不再为空', () => {
-    const block = executor.processResult(
-      fakeTool,
-      { result: { b: 2 } } as ToolResult,
-      'c3'
-    );
-    expect(block.result).toEqual({ b: 2 });
-    expect(block.output).toBe('{"b":2}');
-  });
+  // B2-c 读取侧收口（2026-09-30）：`result` 并行载荷已删除（全仓写入侧迁至 `data`）
+  // ⇒ 原「仅填 result（data 缺省）⇒ 块 result/output 不再为空」用例断言的**兼容回退**
+  // 已不存在，该用例随之移除。
 
-  it('data 显式为 null ⇒ 不被 result 顶替（失败分支语义不变）', () => {
+  it('data 显式为 null ⇒ 块载荷保持 null（失败分支语义不变）', () => {
     const block = executor.processResult(
       fakeTool,
-      { data: null, result: { c: 3 } } as ToolResult,
-      'c4'
+      { data: null } as ToolResult,
+      'c3'
     );
     expect(block.result).toBeNull();
   });

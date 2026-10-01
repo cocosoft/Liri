@@ -695,8 +695,8 @@ describe('M-8：预算触顶收尾指令注入 LLM 输入', () => {
       },
       { sessionId } as unknown as Parameters<AgentTool['execute']>[1]
     );
-    // B2-c（2026-09-30）：AgentTool 的载荷已迁至 `data`（`result` 保留为兼容期回退）
-    return String(res.data ?? res.result ?? res.output ?? '');
+    // B2-c 读取侧收口（2026-09-30）：AgentTool 的载荷已迁至 `data`，`result` 回退已删除
+    return String(res.data ?? res.output ?? '');
   }
 
   const overBudget = (): {

@@ -49,42 +49,13 @@ export enum ErrorLevel {
  * ⚠️ 连带收紧（有意为之）：core 版 `contextModifier` 是 `(context: unknown) => unknown`，
  * 原此处为 `any` ⇒ 继承后**变严**；实现侧若依赖上下文 `any` 需显式标注。
  *
- * ⚠️ 未收敛（后续档位）：`data?` 与 `result?` 两个**并行载荷**（B2）、两处 `any`
- * （`contextModifier` 已随继承收窄；`progress?: any[]` 待 B3）、`output?` 与 `content?` 并行（B3）。
+ * ✅ 已收敛（P1-3 **B2 档**，2026-09-30 收口）：`result?` **并行载荷已删除** —— 写入侧 51 处
+ * + 读取侧 5 处已全部迁移 / 收口至 `data`（逐批过程与「探针盲区」纪律见 spec §2.2.1）。
+ *
+ * ⚠️ 未收敛（后续档位）：`progress?: any[]` 待 **B3**、`output?` 与 `content?` 并行待 **B3**。
  */
 export interface ToolResult<T = unknown> extends CoreToolResult<T> {
   status?: ToolExecutionStatus;
-  /**
-   * ⚠️ **并行载荷（待收敛 → B2-c）**：与继承来的 `data?: T` 语义重叠。
-   *
-   * 2026-09-30（B2 收口尝试的**取证结论**）：把本字段移除后，`tsc` 枚举出 **61 处**残留
-   * （**51 写 + 10 读**），跨 **31 个文件** —— `ai/interfaces/ToolExecutor.ts`×6 ·
-   * `tools/services/ToolResultPersister.ts`×5 · `tools/AgentTool/*`×6 · `knowledge/tools/*`×12 ·
-   * `memory/tools/*`×7 · `media/tools/*`×7（`MediaToolResult`）· `modules/calendar/*`×4 ·
-   * `modules/mail/*`×1 · `tools/SkillTool/*`×5 · `tools/KnowledgeSaveTool`×2 ·
-   * `core/Coordinator.ts`（读）等，**另含 3 个测试文件**（`tests/tools/knowledgeSaveTool` ·
-   * `tests/skills/skillInjectionFix` · `tests/tools/AgentTool/swarmDescriptorResolution`）。
-   * ⇒ **远超 B2-a 的"3 文件"** —— 那 3 个是「已接线 `outputSchema` 的 **23** 个工具」内的迁移面，
-   * 与本口径（**全仓**）不同，**不可互相引用**。
-   *
-   * **故暂不删除**（此字段仍被多个文件读写）：迁移须**按模块分批**（每批 8–10 处，逐批
-   * `typecheck` + **全量** `bun test`，并逐站点判"载荷语义"），见 spec
-   * `architecture-benchmark-20260928.md` §2.2.1 的 **B2-c**。删除前的复现命令：
-   * `cd app; bunx tsc --noEmit | Select-String 'error TS'`。
-   *
-   * **进度（探针计数）**：批次 1–5 后 **37 → 23**；批次 6 后 **23 → 17**；**批次 7 后 → 7**
-   * （**写入侧已全部清零**：`SkillViewTool` 7 · `CalendarToolWrap` 4 · `SkillTool` 3 · `MailSendTool` 1 ·
-   * 测试 fake 工具 1 —— **实际迁移 16 处，探针仅可见 10 处**：`SkillViewTool` 的 5 处位于
-   * `getOTelTracing().wrap(…, async () => {…})` 回调内，属**推断型返回值** ⇒ **探针盲区**，
-   * 探针从未计入，**这正是盲区二次实证**）。
-   * **剩余 6 处 = 读取侧 5 + 测试读 1**：`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` ·
-   * `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts` · 测试 `swarmDescriptorResolution`×1
-   * （**写入侧已零残留** ⇒ 下一步即「读取侧收口」后可删本字段）。
-   * ⚠️ **探针盲区（B2-c 批次 3 首次实证，批次 7 二次实证）**：`tsc` 只对**有上下文标注**的对象字面量报「多余属性」；
-   * 位于 `return (async () => {…})()` / `getOTelTracing().wrap(…, async () => {…})` 等**推断型返回值**中的字面量**不会**被标出
-   * ⇒ 每批必须配 **grep 复核 + 全量 `bun test`**，不可只信探针计数（纪律 I）。
-   */
-  result?: T;
   executionTime?: number;
   errorOutput?: string;
   progress?: any[];

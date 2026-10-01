@@ -268,15 +268,9 @@ export class Coordinator {
 
       if (result.status === 'success') {
         task.status = 'completed';
-        // B2-c（2026-09-30）：载荷以 **`data`** 为准 —— 原实现**只读 `result`**（并行载荷），
-        // 对把载荷写在 `data` 的工具取不到值；此处补 `data` 优先，并**保留 `result` 回退**
-        // 直至 B2-c 写入侧（knowledge/media/memory/calendar/mail 等模块的工具）全部迁移完成。
-        const payloadText =
-          typeof result.data === 'string'
-            ? result.data
-            : typeof result.result === 'string'
-              ? result.result
-              : '';
+        // B2-c 读取侧收口（2026-09-30）：载荷以 **`data`** 为准 —— `result` 并行载荷已随
+        // 写入侧全量迁移（16 处）而清零，兼容回退分支随即删除。
+        const payloadText = typeof result.data === 'string' ? result.data : '';
         task.result = result.output || payloadText || '';
         task.usage = {
           totalTokens: result.metadata?.totalTokens as number,

@@ -261,8 +261,12 @@
     - **客观进度**：探针 **17 → 7**（−10 = 探针可见的 10 处）；改 `skillInjectionFix.test.ts` 后 → **6**。
     - **验收**：`typecheck` **exit 0**（三遍绿）· `eslint`（4 源文件 + 1 测试）**exit 0** · **全量 `bun test` 4251 pass / 21 skip / 0 fail**（4272 用例 / 447 文件，94.60s）。
     - **附：全量测试偶发挂起（本批实证）**：同一 `bun test` 命令首次运行 **> 370s 无输出**（基线 94s），停止后**原样重跑即 94.60s 正常** ⇒ 非代码问题、属环境偶发；处置：**停止 → 重跑**（勿在原进程上继续等待）。
-  - **剩余（读取侧收口）**：探针 **6 处** = 读 5（`core/Coordinator.ts`×2 · `tools/AgentTool/SubAgentEngine.ts` · `tools/services/ToolResultPersister.ts` · `tools/ToolExecutor.ts`）+ 测试读 1（`tests/tools/AgentTool/swarmDescriptorResolution.test.ts` —— 该处为 `data ?? result` **兼容读**，已于批次 2 就地注释）。
-    - **清零顺序**：**写入侧已零残留** ⇒ 下一步「读取侧收口」（5 处 + 测试 1）→ 删 `result?: T` 字段 → **B3**（`progress?: any[]` 收窄 + `output?`/`content?` 并行甄别）。
+  - **读取侧收口 ✅ 已完成（2026-09-30）**：删除 5 处 `data ?? result` **兼容回退** + **删除主契约 `result?: T` 字段** ⇒ **探针归零**（`bunx tsc --noEmit` 的 `error TS` 计数 = **0**）。
+    - **收口站点**：`core/Coordinator.ts:271-273`（`payloadText` 判空链简化）· `tools/AgentTool/SubAgentEngine.ts:861` · `tools/services/ToolResultPersister.ts:64` · `tools/ToolExecutor.ts:770`（原「51 处写入点进入模型可见块的**唯一通道**」，回退已删）· 测试 `swarmDescriptorResolution.test.ts:699`。
+    - **测试连带（1 处）**：`tests/tools/taskOrchestratorToolsOutput.test.ts` 中「仅填 `result`（data 缺省）⇒ 块 result/output 不再为空」用例，断言的正是**已删回退** ⇒ 用例移除；同文件「`data` 显式 null」用例去掉已删字段引用后保留。**用例数 4272 → 4271**，故全量 pass **4251 → 4250**（**非回归**）。
+    - **验收**：探针 **TS 错误 = 0** · `typecheck` **exit 0**（三遍绿）· `eslint`（5 源文件 + 1 测试）**exit 0** · **全量 `bun test` 4250 pass / 21 skip / 0 fail**（4271 用例 / 447 文件，95.74s）。
+  - **✅ B2-c 收官 ⇒ P1-3 B2 档全部完成**：`result?: T` 已从主契约删除（`tools/types/ToolResult.ts` 类文档改标「✅ 已收敛」）；全仓载荷统一为 `data`。下一步 **B3**（`progress?: any[]` 收窄 + `output?`/`content?` 并行甄别）。
+  - **顺带发现（预存，已记台账）**：`app/tests/**` **不在 `lint` 范围**（`app/package.json:48` 仅 `eslint src --ext .ts`）⇒ 测试目录的格式问题不被门禁捕获（`taskOrchestratorToolsOutput.test.ts` 的 `144/161` 行 prettier 报错即为例，**HEAD 已存在**）—— 与 D-137 / D-138（`app/scripts/**` 门禁盲区）**同类**，待裁定是否纳入。
   - **为什么不在本批硬做**：① 涉及 knowledge / media / memory / calendar / mail 等**多模块的工具出参**，属跨模块行为面；② 本轮已实证"改载荷字段会**静默打破测试**"（`tests/voice` 4 例）⇒ 一次大批量迁移风险不可控。
   - **验收（字段恢复步）**：恢复后 `bun run typecheck` **exit 0**（三遍全绿）—— 该步**无行为变更**；**批次 1 的实际验收见上**（含 1 处**预存缺陷修复**：`ToolResultPersister` 的落盘文本不再退化为 `'{}'`）。
 

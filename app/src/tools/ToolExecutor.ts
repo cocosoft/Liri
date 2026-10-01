@@ -762,15 +762,12 @@ export class ToolExecutor {
     result: ToolResult,
     toolUseID: string
   ): ToolResultBlock {
-    // 读取面修正（2026-09-29）：`ToolResult` 同时声明 `data?` 与 `result?`，且出参校验器
-    // 已支持"载荷在 `result` 上"的形态；本处原**只读 `data`** ⇒ 只填 `result` 的工具其块
-    // `result`/`output` 恒为空。仅在 `data` 缺省时回退到 `result`（`data` 有值时行为不变）。
+    // 读取面修正（2026-09-29）：本处原**只读 `data`** ⇒ 只填 `result` 的工具其块
+    // `result`/`output` 恒为空；彼时补 `data` 优先 + `result` 回退。
     //
-    // ⚠️ **B2-c 依赖（2026-09-30，不要提前删除本回退）**：全仓仍有 **51 处写入点**（31 个文件，
-    // 含 knowledge / media / memory / calendar / mail / SkillTool / AgentTool 等模块的工具）
-    // **把载荷写在 `result`** ⇒ 本回退是它们进入"模型可见块"的**唯一通道**。删除时机 =
-    // B2-c 写入侧全部迁移完成之后（届时本处可简化为 `const payload = result.data;`）。
-    const payload = result.data !== undefined ? result.data : result.result;
+    // B2-c 读取侧收口（2026-09-30）：全仓 **51 处写入点**已全部迁移至 `data`
+    // ⇒ `result` 回退恒不命中，予以删除（该回退曾是它们进入"模型可见块"的唯一通道）。
+    const payload = result.data;
     return {
       toolCallId: toolUseID,
       toolName: tool.name,

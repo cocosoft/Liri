@@ -11,7 +11,7 @@ import {
   isEligibleForFastPath,
   PlanDrivenLoop,
   type TAORLoopFactoryOptions,
-} from '../../src/core/loop/PlanDrivenLoop';
+} from '../../src/tasks/PlanDrivenLoop';
 import { MAX_SUBTASKS } from '../../src/ai/router/TaskDecomposer';
 import type { TAORLoop } from '../../src/query/TAORLoop';
 import type { TAORLoopDeps } from '../../src/query/TAORLoop';

@@ -1656,10 +1656,10 @@
     {
       "id": "FSZ-155",
       "ruleId": "R04-001",
-      "file": "app/src/core/loop/PlanDrivenLoop.ts",
-      "lines": 1094,
+      "file": "app/src/tasks/PlanDrivenLoop.ts",
+      "lines": 1161,
       "targetLines": 1000,
-      "plan": "PDCA 收口批次扩展（HEAD 620 行 → 1094 行）；核心编排文件行数超限，拆分列入后续专项（对齐 FSZ-108 ReActToolLoop 先例）",
+      "plan": "PDCA 收口批次扩展（HEAD 620 行 → 1094 行）；**2026-10-01 D-144** 自 `core/loop/` 移入 `tasks/`（消除 core → app 倒挂）后按实测更新为 **1161** 行；核心编排文件行数超限，拆分列入后续专项（对齐 FSZ-108 ReActToolLoop 先例）",
       "expiresAt": "2026-11-30"
     },
     {

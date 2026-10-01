@@ -15,11 +15,10 @@
  *   4. 分解失败降级为单步执行（不阻塞主流程）
  */
 
-import { getLogger } from '../loggerFacade.js';
-import { handleError } from '../errorHandler.js';
-import { getOTelTracing } from '../tracingFacade.js';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 // C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（core 内自洽）
-import { resolveBroadcast } from '../spi/index.js';
+import { resolveBroadcast } from '@modules/core';
 import { TAORLoop } from '@modules/query/TAORLoop.js';
 import type { TAORLoopDeps } from '@modules/query/TAORLoop.js';
 import type { ChatMessage } from '@modules/ai';
@@ -28,16 +27,16 @@ import {
   MAX_SUBTASKS,
 } from '@modules/ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
-import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
-import { emitPdcaLiveEvent } from '../../tasks/PdcaLiveEvents.js';
-import { writePdcaCheckpoint } from '../../tasks/PdcaWorkItemBridge.js';
-import { goalMetricsService } from '@modules/tasks';
-import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
+import { taskOrchestrator } from './TaskOrchestrator.js';
+import { emitPdcaLiveEvent } from './PdcaLiveEvents.js';
+import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
+import { goalMetricsService } from './db/GoalMetricsService.js';
+import type { Plan, PlanProgress } from './TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
 import { scheduleTopoBatches } from './topoBatches.js';
-import { selectPattern } from '@modules/core/patterns/index.js';
+import { selectPattern } from '@modules/core';
 
-const logger = getLogger('core:planDrivenLoop');
+const logger = getLogger('tasks:planDrivenLoop');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

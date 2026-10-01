@@ -123,19 +123,16 @@ export {
   ErrorCategory,
   ErrorSeverity,
   ERROR_SERVICE_ID,
+  resolveBroadcast,
 } from './spi';
 
-// 2026-08-29 R03-002 收敛：loop / trajectory / utils 统一出口
-export {
-  PlanDrivenLoop,
-  classifyTaskComplexity,
-  hasDangerousToolIntent,
-  isEligibleForFastPath,
-} from './loop/PlanDrivenLoop';
-export type {
-  PlanDrivenLoopResult,
-  PlanDrivenLoopConfig,
-} from './loop/PlanDrivenLoop';
+// 2026-10-01 D-144：patterns 出口（供 tasks 层的 PlanDrivenLoop 消费，
+// 避免 `@modules/core/patterns/index.js` 子目录直连触发 R03-002）
+export { selectPattern } from './patterns';
+
+// 2026-08-29 R03-002 收敛：trajectory / utils 统一出口
+// 2026-10-01 D-144：PlanDrivenLoop 及其辅助判定函数已移至 tasks 层
+// （消除 core → app 倒挂；新出口见 `@modules/tasks`）
 export { ErrorHandler } from './utils/ErrorHandler';
 export {
   getPerformanceProfiler,
@@ -177,8 +174,8 @@ export type {
   PdcaPhase,
   WorkItemStatus,
 } from './phases/PhaseVocabulary';
-export { scheduleTopoBatches } from './loop/topoBatches';
-export type { TopoBatchTask } from './loop/topoBatches';
+// 2026-10-01 D-144：`scheduleTopoBatches` / `TopoBatchTask` 已移至 `@modules/tasks`
+// （原 core → app 倒挂；consumer 见 `ai/router/OrchEngine.ts`）
 // P0-1（2026-09-24，基础期）：运行时系统图内核（图结构 + 只读投影）
 // 设计见 .trae/specs/graph-engineering-p0.md（零侵入：本期无生产调用点）
 export * from './systemgraph/SystemGraph';

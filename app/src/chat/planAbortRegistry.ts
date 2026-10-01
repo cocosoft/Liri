@@ -32,7 +32,7 @@
  * 显式报错，防止并发互相顶替；会话维度经 abortSessionPlans(sessionId) 遍历达成）。
  */
 
-import type { PlanDrivenLoop } from '@modules/core';
+import type { PlanDrivenLoop } from '@modules/tasks';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('pdca:planAbort');

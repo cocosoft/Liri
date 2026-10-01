@@ -3,14 +3,13 @@
  * 负责会话生命周期管理：健康检查、空闲检测、自动回收
  */
 
-import { getLogger } from '../loggerFacade.js';
-import { getOTelTracing } from '../tracingFacade.js';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '../errorHandler.js';
-import { ResetPolicyDecider } from '@modules/session';
-import type { ResetPolicy } from '@modules/session';
+import { handleError } from '@modules/error';
+import { ResetPolicyDecider } from '../policy/index.js';
+import type { ResetPolicy } from '../policy/index.js';
 
-const logger = getLogger('core:sessionSupervisor');
+const logger = getLogger('session:supervisor');
 
 /** 会话摘要信息（供监管器评估用） */
 export interface SessionSummary {

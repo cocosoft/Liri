@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { PdcaLauncherDeps } from '../../src/chat/launchers/PdcaLauncher.js';
-import type { PlanDrivenLoop } from '../../src/core/loop/PlanDrivenLoop.js';
+import type { PlanDrivenLoop } from '../../src/tasks/PlanDrivenLoop.js';
 import { PdcaLauncher } from '../../src/chat/launchers/PdcaLauncher.js';
 import { getLogger } from '@modules/monitoring';
 

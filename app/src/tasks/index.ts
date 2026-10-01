@@ -65,6 +65,20 @@ export {
 // 导出 TaskOrchestrator
 export { TaskOrchestrator, taskOrchestrator } from './TaskOrchestrator';
 export type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
+
+// 2026-10-01 D-144：PlanDrivenLoop 自 core 移入本层（消除 core → app 倒挂）
+export {
+  PlanDrivenLoop,
+  classifyTaskComplexity,
+  hasDangerousToolIntent,
+  isEligibleForFastPath,
+} from './PlanDrivenLoop';
+export type {
+  PlanDrivenLoopResult,
+  PlanDrivenLoopConfig,
+} from './PlanDrivenLoop';
+export { scheduleTopoBatches } from './topoBatches';
+export type { TopoBatchTask } from './topoBatches';
 export {
   PitfallRegistry,
   pitfallRegistry,

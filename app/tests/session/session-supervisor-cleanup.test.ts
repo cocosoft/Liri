@@ -31,7 +31,7 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import {
   SessionSupervisor,
   type SessionStore,
-} from '../../src/core/session/SessionSupervisor';
+} from '../../src/session/maintenance/SessionSupervisor';
 
 describe('SessionSupervisor 联动清理检查点', () => {
   let cleanupCalls: string[];

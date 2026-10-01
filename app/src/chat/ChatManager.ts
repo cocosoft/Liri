@@ -306,8 +306,8 @@ import {
   classifyTaskComplexity,
   hasDangerousToolIntent,
   isEligibleForFastPath,
-} from '@modules/core';
-import type { PlanDrivenLoopResult } from '@modules/core';
+} from '@modules/tasks';
+import type { PlanDrivenLoopResult } from '@modules/tasks';
 import { ReActToolLoop } from './ReActToolLoop.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { withToolTimeout } from './services/ToolTimeoutWrapper.js';

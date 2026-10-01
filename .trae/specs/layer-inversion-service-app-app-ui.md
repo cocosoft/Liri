@@ -276,6 +276,59 @@
 - **⇒ 处置**：本条**不宜按"4 条边"计价**，应作为**一次完整的"`tools` 域取用面收敛"**来排期（含静态 4 条 + 动态 8 个方法面）。**本轮未动手**（预算不足以安全完成，中断会留下"端口已加、调用点未改完"的破损态）。
 - **同型提示**：`sandbox` 2 条（`sandbox-handlers.ts` 的 `SandboxManager`/`processRegistry`/`resourceLimitManager`/`globalWorkspaceManager` 4 个符号 + `handler-utils.ts` 1 个）与 `chat` 3 条、`auto-reply` 1 条**同理**：都应按"**域取用面收敛**"整批排期，而非按边零敲。
 
+**🛠️ 首个原子单元（`media-template-handlers.ts`）—— 取证完毕，可直接照此改（D-191）**
+
+> 选它作**最小完整单元**：静态 **1 条**边（`@modules/tools` → `getMediaTemplates`）且**无动态 import**（该文件干净）⇒ 一次改完即"该文件取用面收敛"，不会出现"同文件两种取用方式"。
+
+**① `runtime/api/toolsPorts.ts` 追加**（该文件现有风格：最小投影 DTO + 方法名对齐 handler 实际读取面）：
+```ts
+/** 媒体模板条目（**最小投影 DTO** —— `media-template-handlers.ts:39-48` 的实际读取面） */
+export interface MediaTemplateDto {
+  templateId: unknown;
+  name: unknown;
+  type: unknown;
+  category: unknown;
+  thumbnailUrl: unknown;
+  promptTemplate: unknown;
+  requiresImage: unknown;
+  sortOrder: unknown;
+}
+
+// 追加进 ToolsPort：
+  // ---- 媒体模板（`getMediaTemplates()`）----
+  listMediaTemplates(): Promise<MediaTemplateDto[]>;
+```
+
+**② `runtime/api/CoreAPIImpl.ts` 的 `getToolsPort()` 内追加**（照抄其既有模式：**动态** `import('@modules/tools')` ⇒ 仅 R00-003 可见，正是该文件既有做法，见 1704-1706 行）：
+```ts
+    const { getVideoTaskPersistence, getConverterEngine, getMediaTemplates } =
+      await import('@modules/tools');
+    // return { …现有…,
+      listMediaTemplates: async () =>
+        getMediaTemplates()
+          .list()
+          .map((t) => ({
+            templateId: t.templateId,
+            name: t.name,
+            type: t.type,
+            category: t.category,
+            thumbnailUrl: t.thumbnailUrl || null,
+            promptTemplate: t.promptTemplate || null,
+            requiresImage: t.requiresImage,
+            sortOrder: t.sortOrder,
+          })),
+```
+
+**③ `infrastructure/http/handlers/media-template-handlers.ts`**：删 `import { getMediaTemplates } from '@modules/tools';`（第 14 行）→ 改为顶部 `import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';`（service→service 合法，同 `file-upload-handlers.ts:29` 既有做法），并把 35-36 行改为：
+```ts
+    const tm = await getCoreAPI().getToolsPort();
+    const templates = await tm.listMediaTemplates();
+```
+（后续 `templates.map((t) => ({ id: t.templateId, … }))` **保持不变** —— DTO 字段名与读法逐一对齐。）
+
+**验收预期**：`已豁免 81 → 80` · `typecheck 0` · `R03-002 0` · 改动文件 `eslint 0/0` · `bun test tests/http` 0 fail。
+**④ 其余 3 条同法**（`video-task-handlers` 须先读其 `getVideoTaskPersistence()` 的**全部**调用面再定端口方法；`agent-role-handlers`/`agent-control-handlers` 同理）。
+
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 
 ### 3.4 子批 D —— `service -> app` 低风险 **8**（`channels`4 · `mcp`2 · `bridge`1 · `voice`1）

@@ -157,6 +157,34 @@
 - **验收**：`typecheck` **0** · `lint:arch` **违规 0** / **`已豁免 104 → 97`（恰 −7）** · R03-002 = **0** · 改动文件 `eslint` **0/0** · `bun test tests/tools` = **575 pass / 0 fail**。
 - **现状**：`app -> ui` **17 → 10**（余 B2a 3 · B2b 2 · B2c 2 · B3 3）；全局 `已豁免 97`。
 
+---
+
+#### 3.2.1 B3 判断结论（2026-10-01，D-177）—— **不可"下沉纯工具"了事，须先统一实现**
+
+**逐文件判断（实测）**
+
+| 文件 | 依赖 | 判断 | 结论 |
+|---|---|---|---|
+| `docs/HelpSystem.ts` | `'../ui/KeyboardShortcuts'` + `'../ui/ThemeManager'` | `KeyboardShortcuts` **零 import ⇒ 纯工具**（仅此 1 个消费者）；`ThemeManager` ⇒ 见下 | ⚠️ **单独下沉 `KeyboardShortcuts` 不减计数**（同文件仍 import ui 的 `ThemeManager`；门禁按「文件 × 去重目标模块」计） |
+| `commands/builtin/theme/Theme.ts` | `@modules/ui` → `ThemeManager` | **三轨重复实现** | 🔴 **阻断** |
+| `commands/tools/remote/remote-session.ts` | `@modules/ui` → `TerminalUIIntegration` · `TerminalComponents` | 真 UI 能力 | ⏸ 需端口化或把该文件归位，另行设计 |
+
+**🔴 核心发现：`ThemeManager` 三轨重复实现（CS01 违规，且 ui 侧自相矛盾）**
+
+| # | 位置 | 层 | 消费方 |
+|---|---|---|---|
+| 1 | `core/theme.ts:195`（`class ThemeManager` + `getThemeManager()`） | core | —（未见到活消费者） |
+| 2 | `ui/ThemeManager.ts:141`（`class ThemeManager`.getInstance）+ `ui/index.ts:27` **转出** | ui | `ui/theme/ThemeContext.tsx:28` · `commands/builtin/theme/Theme.ts:8`（经 `@modules/ui` 桶）· `docs/HelpSystem.ts:8` |
+| 3 | `system/theme/ThemeManager.ts:34` + `getThemeManager()` | **infra** | `ui/UIEnhancer.ts:7` · `cli/index.ts:47`（均经 `@modules/system/theme`） |
+
+⚠️ **同一 ui 模块内部就用了两个不同实现**（`UIEnhancer` → `system/theme`，`commands/builtin/theme` → `ui/ThemeManager`）⇒ 这 2 条边**不是"位置错了"，而是"有两份实现"**：搬文件只会把重复实现换个层继续存在（**违 CS01**）。
+
+**⇒ B3 重新拆分（替代原"沉纯工具"方案）**
+
+- **B3-1（前置，必须先行）：统一 `ThemeManager`** —— 先判 canonical（倾向 `system/theme`：它是 infra、已含 `getThemeManager()`、且被 `UIEnhancer`/`cli` 使用）⇒ 迁移 `ui/ThemeManager.ts` 的消费者到 canonical、删除重复、`ui/index.ts` 停止转出。**解开 `docs -> ui` 与 `commands -> ui` 中的 2 条**。
+- **B3-2（随 B3-1 同批）：`KeyboardShortcuts` 下沉** —— 它是纯工具（零 import、唯一消费者 `docs/HelpSystem.ts`）⇒ 归位 `utils/`；但**必须与 B3-1 同批**，否则不减计数（见上表）。
+- **B3-3（独立）：`remote-session.ts`** —— 依赖 `TerminalUIIntegration`/`TerminalComponents`（真 UI）⇒ 端口化或把"远程会话的命令侧"归位，需单独设计。
+
 
 - `knowledge/components/*.tsx`（10）与 `buddy` 的 2 个 `.tsx`：同 A（UI 归位）。
 - `commands -> ink`(2) / `commands -> ui`(2)：`CommandUI.tsx` / `StatusUI.tsx` 归位；`theme/Theme.ts`、`tools/remote/remote-session.ts` 需**先判**是 UI 还是误报/类型位。

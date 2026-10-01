@@ -716,6 +716,12 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **现状**：`app -> ui` **17 → 10**（余 B2a 3 · B2b 2 · B2c 2 · B3 3）；全局 **`已豁免 97`**（余：`service -> app` 70 · `app -> ui` 10 · `core -> app` 11 · `app -> entry` 3 · `service -> ui` 2 · `service -> entry` 1）。
   - **待办**：`B2`（混合模块拆 UI 专项：`commands/**/*UI.tsx` 全量清点 + `buddy` 公共 API 迁移）· `B3`（3 处 ui 能力依赖：判错层 / 端口化）。
 
+- **⚠️ 2026-10-01（D-177）B3 判断结论 —— 不可「下沉纯工具」了事：`ThemeManager` 实为**三轨重复实现（CS01）**** —— spec §3.2.1。
+  - **逐文件判断（实测）**：① `docs/HelpSystem.ts` 依赖 `'../ui/KeyboardShortcuts'`（**零 import ⇒ 纯工具**，全仓仅此 1 个消费者 ✓）**与** `'../ui/ThemeManager'` ⇒ **只下沉前者不减计数**（门禁按「文件 × 去重目标模块」计，该文件仍 import ui）；② `commands/builtin/theme/Theme.ts` → ui `ThemeManager`；③ `commands/tools/remote/remote-session.ts` → `TerminalUIIntegration`/`TerminalComponents`（**真 UI 能力**）。
+  - **🔴 核心发现：`ThemeManager` 有 **3 份**实现** ——（a）`core/theme.ts:195`（未见活消费者）·（b）`ui/ThemeManager.ts:141`（经 `ui/index.ts:27` **转出**，被 `ui/theme/ThemeContext.tsx:28` · `commands/builtin/theme/Theme.ts:8` · `docs/HelpSystem.ts:8` 使用）·（c）`system/theme/ThemeManager.ts:34`（**infra**，被 `ui/UIEnhancer.ts:7` 与 `cli/index.ts:47` 使用）。⇒ **同一 ui 模块内部就用了两个不同实现**（`UIEnhancer` 走 `system/theme`，`commands/builtin/theme` 走 `ui/ThemeManager`）⇒ 这 2 条边**不是"位置错了"，而是"有两份实现"**；搬文件只会让重复实现换个层继续存在（**违 CS01**）。
+  - **处置（B3 重拆）**：**B3-1（前置）统一 `ThemeManager`**（倾向 canonical = `system/theme`：infra 层、已含 `getThemeManager()`、被 `UIEnhancer`/`cli` 使用）⇒ 迁移 `ui/ThemeManager.ts` 的消费者、删重复、`ui/index.ts` 停止转出 —— **这一步才解锁 `docs -> ui` 与 `commands -> ui` 中的 2 条**；**B3-2** `KeyboardShortcuts` 下沉 `utils/`（**须与 B3-1 同批**，否则不减计数）；**B3-3** `remote-session.ts` 端口化或归位（独立）。
+  - **本次未改任何代码**（避免"减不了计数、还制造新的重复实现"）。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

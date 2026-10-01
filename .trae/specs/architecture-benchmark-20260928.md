@@ -657,7 +657,16 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **手法**：① `chronos` 侧删除两个越层 import，改为**消费方自持的最小端口** `DreamEnginePort`（`start`/`stop`）+ 注入项 `HousekeepingUpperLayerAssembly`（`createDreamEngine()` / `initBuddyDomainIntegrations()`）；② `startBackgroundHousekeeping(assembly)` 改**必填参数**（漏注入 = 编译期报错，**无 null 回退分支**，符合 CS03）；③ `entrypoints/init.ts`（entry，组合根）在**原启动序列位置**动态导入 `DreamEngine` + buddy 三件套后注入 ⇒ **初始化时机与顺序不变**。
   - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 156 → 154**，恰为 C1/C2 两条边；`R03-002` = 0，白名单 **740 未变**）· 改动文件 `eslint` **0/0** · 定向测试 `tests/chronos` + `tests/http/dream-cycle-analytics.contract.test.ts` = **91 pass / 0 fail** · **grep 独立复核**：`app/src/chronos/**` 对 `buddy`/`dream` 的**越层 import = 0**。
   - **⏸ C3 未做（按 spec D6「拆出、单独立项」的既定处置，非遗漏）**：① `SystemEvents` **无**"向通道广播消息"类事件，而 `TASK_COMPLETED`/`TASK_FAILED` 亦被 `CronScheduler`/`ProcessManager`/`VideoGenerateTool` 发布 ⇒ 让 channels 直接订阅 = **语义错误**（非等价替换）；② 既有 core SPI 端口 `IBroadcastService` 为 **SSE-only**，语义 ≠ 通道投递。**关键取证**：`initializeTaskResultDelivery()` **全仓零调用方**（唯一历史调用方 `daemon/CronBridge.ts:86`，已在 polling 重写中移除）⇒ F-10 投递**当前完全未接线**（与 M1 的 `MemoryHookDispatcher` 同型）。**待用户裁定三选一**：删除该文件 / 新建 core SPI 端口 / 维持拆出单独立项。
-  - **现状**：`infra` 源剩余 **1 条边**（仅 `chronos` C3；`memory` 组已清零）。
+  - **现状**：`infra` 源剩余 **1 条边**（仅 `chronos` C3；`memory` 组已清零）—— 该条**已由 D-170 处置完毕**。
+
+- **✅ 2026-10-01（D-170）`chronos` 组 C3 边消除 —— 手法：删除重写时被丢弃的遗留死模块** —— 边：`chronos/TaskResultDeliverer.ts:8` → `channelRegistry` ← `@modules/channels`（**值**）。
+  - **为何不走 spec D6 的两条原路**：① **事件化不可行** —— `SystemEvents` 无"向通道广播消息"类事件，而 `TASK_COMPLETED`/`TASK_FAILED` 亦被 `CronScheduler`/`ProcessManager`/`VideoGenerateTool` 发布 ⇒ 让 channels 订阅 = **语义错误**（非等价替换）；② 既有 `IBroadcastService`（core SPI）是 **SSE-only**，语义 ≠ 通道投递；③ 新建 core SPI 端口 = **为未接线代码扩契约**（违 CS01/§2）。
+  - **裁定依据（取证）**：`initializeTaskResultDelivery()` **全仓零调用方**（含 `app/tests/**`、`app/scripts/**`）；其**唯一历史调用方** `daemon/CronBridge.ts:86`（commit `2f37a70fd`）已在 `CronBridge` 改 polling 模式时被丢弃 ⇒ 属**遗留死代码**，非"待接线的新功能"。
+  - **与 M1（D-168）的区别（故 M1 保留该文件）**：M1 的 `MemoryHookDispatcher` 有 `hooks/core/CoreHooks.ts:266-317` 已注册的 memory 域处理器作为**"另一半"**（删除会使其永久悬空）；F-10 **无任何对应"另一半"**。
+  - **改动**：删除 `chronos/TaskResultDeliverer.ts`（105 行）+ 摘除 `chronos/index.ts` 两处转出；**未动** `channels` 侧。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 154 → 153**，恰为 C3 一条边；`R03-002` = 0）· `allFiles 3992 → 3991` · `eslint` **0/0** · 定向测试 `tests/chronos` + `tests/channels` = **195 pass / 0 fail** · **grep 复核**：全仓对 `TaskResultDeliverer` 的引用 = **0**。
+  - **🎯 里程碑**：**`infra` 源 17 → 0 条边全部消除**（D-159~D-170 共 12 条台账记录）⇒ `layer-inversion-memory-chronos-system` spec 三组 10 条边**全部完成**。
+  - **⚠️ 遗留（如实）**：F-10（定时任务结果通知到 IM 通道）能力**不复存在**（今日本也不工作）；若日后重建，按 D6 分析走**新增专用事件 + channels 订阅**，**不要**恢复 infra→service 直连。
 
 ---
 

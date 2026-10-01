@@ -150,17 +150,22 @@
 
 #### 3.3.1 执行状态（2026-10-01 **D-169**）
 
-- **起始基线**：`已豁免 156` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`。**实际达成**：`已豁免 156 → 154`（**−2，恰为 C1/C2**）· 违规 **0** · 错误 **0** 警告 **2**（仅既有 R07-004 + R00-003）· `R03-002` = 0（白名单 **740 未变**）。
+- **起始基线**：`已豁免 156` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3992`。**实际达成（D-169 + D-170）**：`已豁免 156 → 154 → 153`（−2 = C1/C2；−1 = C3）· 违规 **0** · 错误 **0** 警告 **2**（仅既有 R07-004 + R00-003）· `R03-002` = 0 · `allFiles 3992 → 3991`（−1 删文件）。
+  **⇒ `infra` 源 3 → 0；本 spec 三组（`system` 3 · `memory` 4 · `chronos` 3）共 10 条边全部消除。**
 - **✅ C1/C2 已完成（D-169）—— 采用 spec 首选「反转装配方向」，**未启用端口退路**（core 零改动）**：
   - `chronos/maintenance/ChronosBackgroundHousekeeping.ts`：删除 `'../../buddy/dreamIntegration'` 与 `'../../dream/DreamEngine'` 两个越层 import；新增**消费方自持的最小端口** `DreamEnginePort`（`start`/`stop`）与装配注入项 `HousekeepingUpperLayerAssembly`（`createDreamEngine()` + `initBuddyDomainIntegrations()`）；`startBackgroundHousekeeping(assembly)` 改为**必填参数** ⇒ 漏注入 = 编译期报错（**无 null 回退分支**，符合 CS03）。
   - `entrypoints/init.ts`（entry，组合根）：在**原位置**（同一条启动序列）动态导入 `DreamEngine` 与 buddy 三件套并注入 ⇒ **初始化时机与顺序不变**（仍在本入口的该启动环节内），仅**调用方**从 infra 变为 entry。
   - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（已豁免 156 → **154** = −2）· 改动文件 `eslint` **0/0** · 定向测试 `tests/chronos` + `tests/http/dream-cycle-analytics.contract.test.ts` = **91 pass / 0 fail** · **grep 独立复核**：`app/src/chronos/**` 内对 `buddy`/`dream` 的**越层 import = 0**（余者均为注释、本地标识符 `dreamEngine`/`DreamEnginePort`、或 `chronos/autoDream` 自身子模块）。
   - **现状**：`infra` 源 **3 → 1**（`chronos` 组仅余 **C3**，见下）。
-- **⏸ C3 未做 —— 按 spec **D6** 的既定处置「拆出、单独立项」（是取证的结论，不是遗漏）**：
+- **✅ C3 已完成（D-170）—— 用户授权自动执行后的裁定：删除未接线的 F-10 模块**（三重取证如下）：
   - `SystemEvents`（`core/events/EventBus.ts:342-394`）**无**"向通道广播消息"类事件 ⇒ D6 的"事件化（用既有 `SystemEvents`）"**不可行**：`TASK_COMPLETED`/`TASK_FAILED` 同时被 `CronScheduler`、`ProcessManager`、`VideoGenerateTool` 发布，若让 channels 直接订阅它们，会把**所有**任务结果都灌进用户通道 ⇒ **非等价替换**（语义错误）。
   - 既有 core SPI 广播端口 `IBroadcastService`（[BroadcastService.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/spi/BroadcastService.ts)）是 **SSE-only**（`broadcast(event, payload)` → SSE 客户端）⇒ **语义 ≠ 通道投递**，亦不能复用。
   - **🟡 关键取证**：`initializeTaskResultDelivery()` **全仓零调用方**（含 `app/tests/**`、`app/scripts/**`；仅由 `chronos/index.ts:150` 转出，**从未被初始化**）；其**唯一历史调用方**是 `daemon/CronBridge.ts:86`（commit `2f37a70fd`），而现 `CronBridge` 已重写为 polling 模式（自注「替代旧的 createCronScheduler」）**不再调用它** ⇒ F-10 投递**当前完全未接线**（与 M1 的 `MemoryHookDispatcher` 同型：零消费者、零运行时行为）。
-  - **待用户裁定（三选一）**：① **删除该文件** —— CS01/CS05，零运行时行为变化，边随之消失，本批即 **3/3** 完成；② **新建 core SPI 端口**补全该边 —— 但与 M1 同类代价（为**未接线**代码扩契约）；③ 维持 D6「拆出」，待 F-10 设计定稿后**单独立项**。
+  - **裁定（三选一取 ①）**：**删除 `chronos/TaskResultDeliverer.ts`** —— 理由：① 事件化不可行（上条一）；② 新建 core SPI 端口 = **为未接线代码扩契约**（违 CS01/§2 简洁优先，且与 M1 同类代价）；③ 该模块的调用方是在 `CronBridge` polling 重写中被**丢弃**的（非"待接线的新功能"）⇒ 属**遗留死代码**，按 CS01/CS05 删除。**与 M1 的 `MemoryHookDispatcher` 的区别（故 M1 保留）**：M1 有 `hooks/core/CoreHooks.ts:266-317` 已注册的 memory 域处理器作为"另一半"，删除会使那半永久悬空；F-10 无任何对应"另一半"。
+  - **改动**：删除 `chronos/TaskResultDeliverer.ts`（105 行）+ 摘除 `chronos/index.ts` 的两处转出；**未动** `channelRegistry` / `channels` 侧（无逆向改动）。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**已豁免 154 → 153**，恰为 C3 一条边）· `allFiles 3992 → 3991` · `eslint src/chronos/index.ts` **0/0** · 定向测试 `tests/chronos` + `tests/channels` = **195 pass / 0 fail** · **grep 复核**：全仓对 `TaskResultDeliverer` / `initializeTaskResultDelivery` 的引用 = **0**（含 `chronos/README.md` 等文档）。
+  - **后续若重建 F-10**：按 D6 的分析走**事件化**（新增专用事件 + channels 侧订阅），**不要**恢复 `infra -> service` 直连。
+  - ⚠️ **遗留风险（如实）**：F-10（定时任务结果通知到 IM 通道）**能力上不存在**了 —— 它今日本就不工作（零调用方），删除只是把"事实"与"代码"对齐；记录于台账 D-170，可 `git revert` 复原。
 
 ---
 

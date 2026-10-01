@@ -256,6 +256,14 @@
 - ⇒ 因门禁按「**文件 × 去重目标模块**」计，**只改 `OrchestrationEventType` 不减计数**；要拿下这 2 条须**先把 `AgentEventType` + `OrchestrationSnapshot` 也下沉 `types/`**（新文件 + 原址转出 + 2 处 import 改造 ≈ 12 步）⇒ **性价比低于上一步（4 步换 −4 条）**，**本轮未做**。
 - **建议**：把 `types/` 确认为 `Orchestration*` / agent 事件契约的**规范低位出口**，随"数据契约统一"专项（与 R02-002 `ToolSearchOutput` 三处重复定义同批）一次处理，而非为 2 条边零敲碎打。
 
+**🔎 第三步取证（2026-10-01 D-188）：`tools` 4 条的**真实成本远高于预估**，本轮未动**
+
+- **既有端口机制（读 `runtime/api/toolsPorts.ts` 实测）**：① `runtime/api/<域>Ports.ts` 只声明**接口**；② **只加 1 个取用方法挂 `CoreAPI`**（`getToolsPort()`，实现在 `CoreAPIImpl`）；③ 消费方经 `getCoreAPI()` 取端口。**⚠️ 端口禁止引用 app 类型（连 `import type` 也计 R00-001）**；`Buffer` 等 Node 内置除外。
+- **逐条成本**：`video-task-handlers.ts:16`（`getVideoTaskPersistence` —— 端口现有 3 方法只覆盖**部分**调用面 ⇒ 须按该文件**实际调用**逐个映射，**不能只加 getter**，否则等于"端口透传 app 对象"）· `agent-role-handlers.ts:18`（1 方法）· `agent-control-handlers.ts:21`（**多行 import，符号数未知**）· `media-template-handlers.ts:14`（1 方法）⇒ 每条 ≈ **6–8 步**（含 `CoreAPIImpl` 取用方法 + 调用点语义映射 + 验证），**4 条 ≈ 25–30 步**。
+- **🔴 新增一层复杂度（取证发现）**：这 4 个文件**同时**存在**动态** `import('@modules/tools')`（`toolsPorts.ts` 注释即记录"**8 个方法面**"，属 R00-003 只上报）⇒ 正确做法须**把静态与动态用法一并收敛到端口**，否则同一文件出现两种取用方式的分裂 ⇒ 改动面**大于**本表最初的估算。
+- **⇒ 处置**：本条**不宜按"4 条边"计价**，应作为**一次完整的"`tools` 域取用面收敛"**来排期（含静态 4 条 + 动态 8 个方法面）。**本轮未动手**（预算不足以安全完成，中断会留下"端口已加、调用点未改完"的破损态）。
+- **同型提示**：`sandbox` 2 条（`sandbox-handlers.ts` 的 `SandboxManager`/`processRegistry`/`resourceLimitManager`/`globalWorkspaceManager` 4 个符号 + `handler-utils.ts` 1 个）与 `chat` 3 条、`auto-reply` 1 条**同理**：都应按"**域取用面收敛**"整批排期，而非按边零敲。
+
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 
 ### 3.4 子批 D —— `service -> app` 低风险 **8**（`channels`4 · `mcp`2 · `bridge`1 · `voice`1）

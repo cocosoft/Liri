@@ -157,7 +157,7 @@
 | **B1** | `tools/types/ToolResult.ts` 的**7 个共有字段**改为 **`extends` core 版**（`@modules/core/types`）⇒ 消除"7 字段在两处重声明" | **小**（纯类型；`tools → core` 为**合法下行**） | ⚠️ 须实测：core 版 `contextModifier` 是 **`unknown`**（主契约是 `any`）⇒ 继承后会**收紧**，可能触发实现侧类型错 |
 | **B2** | 收敛 **`data?` / `result?` 并行载荷** | **中**（影响**手写 `ToolResult` 的工具**，非"所有工具"） | ✅ **量化取证已完成（2026-09-30）⇒ 方案见 §2.2.1**（两字段**各有职责**，宜"迁移"而非"二选一删"）|
 | **B3** | `contextModifier` / `progress` 两处 `any` 收窄 + `output?` / `content?` 并行甄别 —— **✅ 已完成（2026-10-01）**：`contextModifier` 已随 B1 继承收窄 · **`progress` 经取证为死字段 ⇒ 已删除**（165 写入 / 0 读取）· `output?`/`content?` 甄别结论＝**保留**（各有真实消费者）⇒ **详见 §2.2.2** | **中** | 同 B2 |
-| **C** | 抽**基座类型** + 6 处视图**由基座派生**（跨 4 层） | **最大** | 依赖 ① 的结论（基座＝`success`/`error` 极小交集）|
+| **C** | ~~抽**基座类型** + 6 处视图**由基座派生**（跨 4 层）~~ **✅ 已完成（2026-10-01）**：实测结论为「**不可行且无收益**」—— 可派生的仅 #1（B1 已做）与 #3（**零消费者死类型**）；#4 / #5 / #6 因**字段有无 / 可选性 / 类型各异**不得派生（§2.2① 硬约束）。处置＝**删除死目录 `tools/extensions/`（3 文件）+ 固化 6 视图判定** ⇒ **详见 §2.2.3** | **最大** | —— |
 
 ##### §2.2.1 B2 量化取证结论（2026-09-30）—— 两字段**各有职责**，宜「迁移」而非「二选一」
 
@@ -297,6 +297,32 @@
 - **量化方法**：对两字段分别执行**临时删除 ⇒ `tsc` 计数 ⇒ 还原**（本档**不改最终代码**，`content`/`output` 探针均已还原）。
 - **语义分工（非冗余并行）**：`output` = **JSON 载荷文本**（机器 / 模型面向，如 `JSON.stringify(event)`）；`content` = **人类可读摘要**（如 `日程已添加: ${summary}`）⇒ **二者不可互换**，故**不收敛**。
 - **⇒ P1-3 B3 档完成**；后续仅余 **C 档**（抽基座类型 + 6 视图派生，破坏面最大，依赖 §2.2① 的「基座＝`success`/`error` 极小交集」结论）。
+
+##### §2.2.3 C 档取证结论（2026-10-01）—— 「抽基座 + 6 视图派生」**不可行且无收益** ⇒ 改为「删死类型 + 固化判定」
+
+**① 六处视图派生可行性判定（逐处实测）**
+
+| # | 视图 | `success` | `error` | 派生可行性 |
+|:--:|---|---|---|---|
+| 1 | `tools/types/ToolResult.ts` | `success?` | `error?` | ✅ **已 `extends` core**（B1） |
+| 2 | `core/types.ts:46` | `success?` | `error?` | ✅ **即事实基座**（最底层、最简 8 字段视图） |
+| 3 | ~~`tools/extensions/ExtendedToolOptions.ts:68`~~ | `success`（**必填**） | `error?` | 🔴 **零消费者死类型 ⇒ 已删除**（见 ②） |
+| 4 | `chat/types/tool.ts:127` | **无** | `error?` | ❌ 派生会**凭空新增** `success`（原本没有该字段） |
+| 5 | `tools/ToolExecutor.ts:31`（`ToolResultBlock`） | **无** | **`string \| null`** | ❌ 与基座 `error?: string` **类型冲突**（TS2430） |
+| 6 | `components/ui/ChatMessage.tsx:14`（`ToolResultInfo`） | `success`（**必填**） | **无** | ❌ 派生会**凭空新增** `error` |
+
+**② 执行：删除死目录 `tools/extensions/`（3 文件）**
+
+- **取证**：`ExtendedToolOptions` / `WorkerPool` / `extensions/index` 三者**全仓零 import** —— ① 无 `tools/extensions` 路径引用；② barrel 未被 re-export（无 `'./extensions'` 相对路径）；③ 无动态引用。另查得 **`ToolExecutionContext` 有 3 个同名定义**，本目录版为**死副本**（活的是 `tools/types/ToolTypes.ts:130`）⇒ **整目录为死代码**。
+- **处置**（按 `project_rules.md` §1.3「无正式用户 ⇒ 无需向后兼容」）：**直接删除**，不留 deprecation 过渡层。
+- **验收**：删除后 `typecheck` **exit 0**（三遍绿）⇒ **零引用实证**。
+
+**③ 为什么不新建独立基座类型 `ToolResultBase`**
+
+- `core/types.ts:46` 的 `ToolResult` **已经是事实基座**（层级最低、字段最少、被主契约 `extends`）⇒ 再抽一层只会**新增同义层**，无信息增益（违反 CS01 归一化）。
+- §2.2① 的硬约束（基座 ＝ `success` / `error` **极小交集**）在实测中**无法满足**：#4 / #5 / #6 对这两个字段的**有无 · 可选性 · 类型各不相同** ⇒ 强行统一必然制造错配（正是 §2.2① 明令禁止的"把某层的可选性强加给所有层"）。
+
+⇒ **C 档完成 ⇒ P1-3 B/C 档全部收官**（A 档此前已完成）。
 
 ---
 

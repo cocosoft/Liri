@@ -39,8 +39,7 @@ import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { trackUsage } from '@modules/ai';
-// C1（2026-09-30 D-124，`R00-003` P5/G2）：按角色调用改经 core SPI 端口（infra → core 合法）
+// D-146（2026-10-01）：`trackUsage` 改经 core SPI（`infra -> app` 倒挂收口）
 import { resolveAiAccess } from '@modules/core/spi';
 import { createHash } from 'crypto';
 import {
@@ -713,7 +712,7 @@ export class MemoryManagerImpl {
         );
 
         if (chatResult) {
-          trackUsage(chatResult.raw as never, {
+          resolveAiAccess().trackUsage(chatResult.raw, {
             model: chatResult.model,
             providerId: chatResult.providerId,
             latencyMs: Date.now() - _trackStart,

@@ -94,6 +94,20 @@ export interface IAiAccessService {
     messages: unknown,
     options: unknown
   ): Promise<AiRoleChatResultDto | null>;
+
+  // ── 2026-10-01 D-146（`infra -> app` 收口批次 1）：补齐 memory / chronos 所需能力 ──
+  /** 上报一次用量（原 `@modules/ai` 的 `trackUsage`；`raw` 为 `chatWithRole` 返回的 `raw`） */
+  trackUsage(raw: unknown, meta: Record<string, unknown>): void;
+  /** 全局 embedding 管理器（原 `globalEmbeddingManager`：`getProvider()` / `embedOne()`） */
+  getEmbeddingManager(): unknown;
+  /** 模型路由器（原 `modelRouter`：`resolveAsync(role)`） */
+  getModelRouter(): unknown;
+  /** 供应商注册表（原 `providerRegistry`：`getByModel()` / `getDefaultProvider()`） */
+  getProviderRegistry(): unknown;
+  /** 构造 ToolAware 客户端（原 `new ToolAwareClient(provider, null, null)`） */
+  createToolAwareClient(provider: unknown): unknown;
+  /** 凭证存储（原 `credentialStore`；`CRED_STORED_MARKER` 由消费方自带） */
+  getCredentialStore(): unknown;
 }
 
 /** SPI 服务标识符常量 */
@@ -116,6 +130,14 @@ const _proxy: IAiAccessService = {
     Promise.resolve(null),
   chatWithRole: (role, messages, options) =>
     _service?.chatWithRole(role, messages, options) ?? Promise.resolve(null),
+  // D-146：新增能力的空值语义（消费方均已有降级路径 —— 跳过上报 / 无 embedding / 无 provider）
+  trackUsage: (raw, meta) => _service?.trackUsage(raw, meta),
+  getEmbeddingManager: () => _service?.getEmbeddingManager() ?? null,
+  getModelRouter: () => _service?.getModelRouter() ?? null,
+  getProviderRegistry: () => _service?.getProviderRegistry() ?? null,
+  createToolAwareClient: (provider) =>
+    _service?.createToolAwareClient(provider) ?? null,
+  getCredentialStore: () => _service?.getCredentialStore() ?? null,
 };
 
 /** 获取 AI 能力访问端口（未注册时为空值） */

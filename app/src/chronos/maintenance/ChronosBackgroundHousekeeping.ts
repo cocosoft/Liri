@@ -16,11 +16,14 @@ import {
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '@modules/core';
-import { credentialStore, CRED_STORED_MARKER } from '@modules/ai';
-// C1（2026-09-30 D-124，`R00-003` P5/G2）：供应商能力改经 core SPI 端口（infra → core 合法）
+// D-146（2026-10-01）：`credentialStore` 改经 core SPI（`infra -> app` 倒挂收口）；
+// `CRED_STORED_MARKER` 是纯字符串常量（`ai/credentials/CredentialStore.ts:50`）⇒ 本地复刻避免跨层引用
 import { resolveAiAccess } from '@modules/core/spi';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+
+/** `CRED_STORED_MARKER` 纯字符串常量（`ai/credentials/CredentialStore.ts:50`）⇒ 本地复刻避免跨层引用 */
+const CRED_STORED_MARKER = '__stored__';
 
 const logger = getLogger('chronos:housekeeping');
 
@@ -112,7 +115,11 @@ async function refreshBalancesInBackground(): Promise<void> {
           p.id,
           p.baseUrl,
           p.apiKey === CRED_STORED_MARKER
-            ? credentialStore.get(p.id) || ''
+            ? (
+                resolveAiAccess().getCredentialStore() as {
+                  get(id: string): string | null;
+                } | null
+              )?.get(p.id) || ''
             : p.apiKey || '',
           BALANCE_WARN_THRESHOLD
         );

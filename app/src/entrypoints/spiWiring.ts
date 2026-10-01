@@ -135,8 +135,16 @@ export async function registerAllSpis(
 
   // ---- AI 能力访问 SPI（2026-09-30 D-124；D-128 转推送模型）----
   {
-    const { aiService, providerRegistry, modelRouter } =
-      await import('@modules/ai');
+    const {
+      aiService,
+      providerRegistry,
+      modelRouter,
+      // 2026-10-01 D-146（`infra -> app` 收口批次 1）：memory / chronos 所需能力
+      trackUsage,
+      globalEmbeddingManager,
+      ToolAwareClient,
+      credentialStore,
+    } = await import('@modules/ai');
     const { BalanceStore } =
       await import('@modules/ai/providers/BalanceStore.js');
     const { providerManager } =
@@ -216,6 +224,16 @@ export async function registerAllSpis(
           raw: response,
         };
       },
+      // ── 2026-10-01 D-146（`infra -> app` 收口批次 1）：memory / chronos 所需能力 ──
+      trackUsage: (raw, meta) => {
+        trackUsage(raw as never, meta as never);
+      },
+      getEmbeddingManager: () => globalEmbeddingManager,
+      getModelRouter: () => modelRouter,
+      getProviderRegistry: () => providerRegistry,
+      createToolAwareClient: (provider) =>
+        new ToolAwareClient(provider as never, null, null),
+      getCredentialStore: () => credentialStore,
     });
   }
 

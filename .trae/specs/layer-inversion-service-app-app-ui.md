@@ -249,6 +249,13 @@
 - **未改**：`handler-utils.ts`（它同时 import `globalWorkspaceManager`(值) ⇒ 改枚举**不减计数**）· `sandbox-handlers.ts`（纯值 ⇒ 需端口，归第 ② 步）。
 - **剩余 15 条**：`chat` 4 · `sandbox` 2（值）· `tools` 4 · `agent` 4 · `auto-reply` 1 ⇒ 按上文 ②③ 步继续。
 
+**🔎 第二步取证（2026-10-01 D-187）：`agent` 2 条为「2 个符号之遥」，暂不划算**
+
+- `OrchestrationEventType` **已有更低层出口** ✓：`@modules/types/orchestrationEvents`（`export const OrchestrationEventType` + `type OrchestrationEventTypeValue`；`core/events/{TokenTracker,OrchestrationMetrics,EventBusOTelBridge}.ts` 即如此引用；路径含 `types` 段 ⇒ **R03-002 豁免**）。
+- ❌ 但两个 handler **同时还依赖**：`AgentEventType`（enum，`agent/events/types.ts:61`）与 `OrchestrationSnapshot`（interface，`agent/events/OrchestrationEvents.ts:449`）—— **二者均无低位出口**（`types/orchestrationEvents.ts` 只有前两者）。
+- ⇒ 因门禁按「**文件 × 去重目标模块**」计，**只改 `OrchestrationEventType` 不减计数**；要拿下这 2 条须**先把 `AgentEventType` + `OrchestrationSnapshot` 也下沉 `types/`**（新文件 + 原址转出 + 2 处 import 改造 ≈ 12 步）⇒ **性价比低于上一步（4 步换 −4 条）**，**本轮未做**。
+- **建议**：把 `types/` 确认为 `Orchestration*` / agent 事件契约的**规范低位出口**，随"数据契约统一"专项（与 R02-002 `ToolSearchOutput` 三处重复定义同批）一次处理，而非为 2 条边零敲碎打。
+
 **⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 
 ### 3.4 子批 D —— `service -> app` 低风险 **8**（`channels`4 · `mcp`2 · `bridge`1 · `voice`1）

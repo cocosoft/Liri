@@ -20,7 +20,8 @@ import {
 } from '@modules/calendar/CalendarEventBus';
 import type { CronRunLog } from './CronRunLog';
 import type { DeliveryQueue, DeliveryQueueEntry } from './DeliveryQueue';
-import { computeNextCronRun, isValidCronExpr } from './CronParser';
+// 2026-10-01 D-161（`R00-001`）：cron 求值工具已整模块搬迁至 `utils/cron.ts`（infra）
+import { computeNextCronRun, isValidCronExpr } from '@modules/utils/cron';
 import { CronTimer } from './CronTimer';
 import { resolveCronStaggerMs, resolveStaggerOffsetMs } from './CronStagger';
 import { CronAlertService } from './CronAlertService';

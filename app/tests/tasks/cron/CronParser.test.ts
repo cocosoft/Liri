@@ -9,7 +9,7 @@ import {
   isValidCronExpr,
   clearCronCacheForTest,
   getCronCacheSizeForTest,
-} from '../../../src/tasks/cron/CronParser';
+} from '../../../src/utils/cron';
 
 describe('CronParser', () => {
   // Clean cache between tests to avoid cross-test pollution

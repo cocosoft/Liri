@@ -2196,7 +2196,7 @@ export class CoreAPIImpl implements CoreAPI {
       },
       computeNextCronRun: async (expr: string, nowMs: number) => {
         const { computeNextCronRun } =
-          await import('@modules/tasks/cron/CronParser');
+          await import('@modules/utils/cron');
         return computeNextCronRun(expr, nowMs);
       },
 

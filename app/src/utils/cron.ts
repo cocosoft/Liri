@@ -2,11 +2,17 @@
  * Cron 表达式解析器
  * 基于 croner 库，替代自实现的简易 5 段式解析
  * 对标 openclaw src/cron/schedule.ts
+ *
+ * 2026-10-01 D-161（`R00-001` 倒挂收口）：本模块由 `tasks/cron/CronParser.ts` **整模块搬迁**
+ * 至此（`utils` = infra）。原因：`monitoring`(infra) 的归档调度需要 `computeNextCronRunMs`，
+ * 而原位置在 `tasks`(app) ⇒ 构成 `monitoring -> tasks` 倒挂。cron 表达式求值是**跨层共用的
+ * 纯工具**（无跨模块依赖，仅 `croner` + logger）⇒ 归入 infra 通用工具层，各层（app/infra）
+ * 均可合法引用（app→infra / infra→infra）。函数体**逐字迁移**，零语义变更。
  */
 
 import { Cron } from 'croner';
 import { getLogger } from '@modules/monitoring';
-const logger = getLogger('tasks:cron:parser');
+const logger = getLogger('utils:cron');
 
 const CRON_EVAL_CACHE_MAX = 512;
 const cronEvalCache = new Map<string, Cron>();
@@ -183,7 +189,7 @@ function resolveCachedCron(expr: string, tz?: string): Cron | undefined {
     cronEvalCache.set(key, next);
     return next;
   } catch {
-    logger.warning('[CronParser] 无效 cron 表达式', { expr, tz: timezone });
+    logger.warning('[utils:cron] 无效 cron 表达式', { expr, tz: timezone });
     return undefined;
   }
 }

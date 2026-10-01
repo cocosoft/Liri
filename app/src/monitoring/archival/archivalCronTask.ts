@@ -12,7 +12,9 @@ import type {
   ArchiveResult,
   CleanupResult,
 } from './DataArchivalStrategy.js';
-import { computeNextCronRunMs } from '@modules/tasks';
+// 2026-10-01 D-161（`R00-001` 倒挂收口）：改直连 `utils/cron`（infra）——
+// 原由 `@modules/tasks`（app）取 `computeNextCronRunMs` 构成 monitoring(infra) -> tasks(app) 倒挂
+import { computeNextCronRunMs } from '@modules/utils/cron';
 import { addCronTask, removeCronTasks, updateCronTask } from '@modules/chronos';
 import { getLogger } from '../logs/Logger.js';
 import { handleError } from '@modules/error';

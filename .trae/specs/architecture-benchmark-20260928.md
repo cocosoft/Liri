@@ -599,6 +599,15 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   - **现状**：`infra` 源剩余 **13 条边**（15 − 2）；`infra -> entry` 由 2 → **0**。
   - **附带发现（预存，未修）**：`bootstrap/state.ts` 仍是"入口层状态枢纽"，另被 **`services/agent/agentMemory.ts`**（service→entry，**1 条边**）消费 `getProjectRoot` ⇒ 若日后把**整个启动状态**下沉 infra（如 `state/app/`），可一并消除；本批只做性能域归位（最小改动，CS03）。
 
+- **✅ 2026-10-01（D-161）`monitoring` 组 1 条边消除 —— 手法：cron 求值工具**整模块搬迁**」** —— 边：[`archivalCronTask.ts:15`](file:///e:/PY/Documents/CODES/PY_APP/app/src/monitoring/archival/archivalCronTask.ts#L15) 从 `@modules/tasks` 取 `computeNextCronRunMs` ⇒ `monitoring`(infra) → `tasks`(app) 倒挂。
+  - **⚠️ 修正我此前的判断**：我原先把本项描述为"1 边、纯函数下沉"，**不准确**。实测 `computeNextCronRunMs` 住在 [tasks/cron/CronParser.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/utils/cron.ts)（**200 行自包含模块**）内，与 5 个同族导出（`computePreviousCronRunMs` / `computeMissedRuns` / `computeNextCronRun` / `isValidCronExpr` / `getCronDescription`）+ 2 个测试钩子**共用 LRU 缓存与 2 个私有 helper** ⇒ 只能**整模块搬迁**。
+  - **手法**：`tasks/cron/CronParser.ts` → **`utils/cron.ts`**（infra；logger module 名随之改 `utils:cron`，其余**逐字迁移**，零语义变更）。**目标层取 `utils` 而非 `core`**：`core` 不可依赖 `@modules/monitoring`（logger 需改 core 门面）；`utils` 同属 infra ⇒ logger 零改动、依赖方向天然合法。
+  - **共更新 7 处引用**：`tasks/cron/index.ts`（barrel 继续转出，保持 `@modules/tasks` 既有出口稳定 ⇒ app 侧 4 个调用点零改动）· `tasks/cron/CronScheduler.ts` · `monitoring/archival/archivalCronTask.ts`（**改直连** `@modules/utils/cron`）· 3 处动态导入（`tools/ChronosTool/CronCreateTool` · `CronStopTool` · `runtime/api/CoreAPIImpl`）· 测试 `tests/tasks/cron/CronParser.test.ts`。
+  - **验收**：`typecheck` **0** · `lint:arch` **0 错 / 2 警 / 违规 0**（**豁免 165 → 164**，与本批 1 边**一致**）· `僵尸转发 0`（barrel 有 20+ 导出 ⇒ 非薄桶，未触发 R07-003）· `allFiles` **3990 不变**（+1 新文件 / −1 旧文件）· `bun test tests/`（**CI 口径**，与 `ci.yml` 一致）**3794 pass / 9 skip / 0 fail**。
+  - **⚠️ 未取得的口径（如实）**：**全量 `bun test`（含 `src/**/__tests__`）本次两次异常长耗时（>4 min）被中断**，未拿到读数 ⇒ 本批只验到 CI 口径。上一批全量为 **4258 pass / 0 fail**；本批为**纯搬迁**，风险面限于 cron 符号引用（已由 typecheck + `tests/` 覆盖）。**该 flaky 现象连续出现在 D-160/D-161 两批，来源未明，建议单独立项观察**（与本轮另记的"强杀测试后 `scripts/` 出现探针残留"疑为同一根因：被中断的测试运行未完成清理）。
+  - **现状**：`infra` 源剩余 **12 条边**（13 − 1）。
+  - **副作用（如实，未消除）**：`tasks/cron/index.ts` 现**转出 infra 符号**（app 桶转发 infra）—— 属 app→infra 合法依赖，但使 `@modules/tasks` 的 cron 求值出口与实现分属两层。若日后要消除该转发，需把 4 个 app 侧调用点改为直连 `@modules/utils/cron`。
+
 ---
 
 ## 六、状态回填（2026-09-29，逐项取证后）

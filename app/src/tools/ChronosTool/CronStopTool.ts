@@ -130,7 +130,7 @@ export class CronStopTool {
             let nextRunAt = '';
             try {
               const { computeNextCronRun } =
-                await import('@modules/tasks/cron/CronParser');
+                await import('@modules/utils/cron');
               if (
                 existing.schedule?.kind === 'interval' &&
                 existing.schedule.minutes

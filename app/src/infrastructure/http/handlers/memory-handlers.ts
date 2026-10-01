@@ -12,7 +12,8 @@ import {
 } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { SandboxPermission } from '@modules/sandbox';
+// 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
+import { SandboxPermission } from '../../../core/sandboxPermission.js';
 
 /** v1.3: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {

@@ -28,7 +28,8 @@ import {
 } from '@modules/components/attachments';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { createChatManager } from '@modules/chat';
-import { SandboxPermission } from '@modules/sandbox';
+// 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
+import { SandboxPermission } from '../../../core/sandboxPermission.js';
 
 // ========== File Upload Handlers ==========
 

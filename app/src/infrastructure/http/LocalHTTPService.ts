@@ -25,7 +25,10 @@ import {
   createHandlerCtx,
   setBroadcastHandler,
 } from './handlers/handler-utils';
-import { SandboxPermission } from '@modules/sandbox';
+// 2026-10-01 D-186（子批 C）：`SandboxPermission` **早已是 core 叶子**（`core/sandboxPermission.ts`），
+// 原经 `@modules/sandbox`(app) 取值 ⇒ 构成 `infrastructure -> app` 倒挂。改为**相对直连 core 模块根**
+// （同 `permission/PermissionService.ts:36` 既有先例；模块根文件不触发 R03-002）。
+import { SandboxPermission } from '../../core/sandboxPermission.js';
 import { dispatchRoute } from './handlers/route-table';
 // P3-1（2026-09-29）：A2A 委派后端装配（CoreAPI 对话轮，方案①）
 import { installA2ADelegator } from './handlers/routes/a2a-delegator';

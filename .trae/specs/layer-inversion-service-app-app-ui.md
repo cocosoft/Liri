@@ -207,7 +207,49 @@
   | `runtime/api/skillsOpsPorts.ts` | 同上（skills 域） |
   ⇒ 本子批**沿用该模式**：为 19 条静态边各自的**app 能力**（`chat` · `tools` · `agent` · `sandbox` · `auto-reply`）新增/扩充端口，handler 侧只依赖端口。**不移动任何文件**（避免与 FSZ-* 超限例外纠缠）。
 
-**⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动归属与 import**，**不顺手拆文件**（拆分属另一专项）。
+**📋 19 条逐条定位（2026-10-01 D-186 实测）与**分型设计****
+
+| 域 | 条数 | 文件 → 行 | 被导入符号 | 分型 |
+|---|---:|---|---|---|
+| `chat` | 4 | `chat-handlers.ts:42` | `eventNotificationService` | 值 |
+| | | `checkpoint-handlers.ts:34` | `createChatManager` | 值 |
+| | | `file-upload-handlers.ts:30` | `createChatManager` | 值 |
+| | | `session-handlers.ts:27-30` | `Message`·`MessageRole`·`LiriEventType`（**类型/枚举**）+ `dedupeMessagesToolCallBlocks` | 混合 |
+| `sandbox` | 6 | `LocalHTTPService.ts:28` | `SandboxPermission` | **枚举** |
+| | | `knowledge-handlers.ts:13` | `SandboxPermission` | **枚举** |
+| | | `file-upload-handlers.ts:31` | `SandboxPermission` | **枚举** |
+| | | `memory-handlers.ts:15` | `SandboxPermission` | **枚举** |
+| | | `handler-utils.ts:40-41` | `globalWorkspaceManager` + `SandboxPermission` | 混合 |
+| | | `sandbox-handlers.ts:37-40` | `SandboxManager`·`processRegistry`·`resourceLimitManager`·`globalWorkspaceManager` | 值 |
+| `tools` | 4 | `agent-role-handlers.ts:18` | `refreshAvailableSubagentTypeNames` | 值 |
+| | | `agent-control-handlers.ts:21` | （多行 import） | 值 |
+| | | `media-template-handlers.ts:14` | `getMediaTemplates` | 值 |
+| | | `video-task-handlers.ts:16-17` | `getVideoTaskPersistence` + `ToolUseContext`(**type**) | 混合 |
+| `agent` | 4 | `orchestration-handlers.ts:21-23` | `OrchestrationSnapshot`(**type**)·`OrchestrationEventType`·`AgentEventType` | **枚举/类型** |
+| | | `OrchestrationHistoryAdapter.ts:16-17` | `OrchestrationEventType`·`AgentEventType` | **枚举** |
+| | | `routes/a2a-delegator.ts:15` | `getAgentRegistry` | 值 |
+| | | `routes/a2a-routes.ts:40` | （多行 import） | 值 |
+| `auto-reply` | 1 | `auto-reply-handlers.ts:36` | **相对** `'../../../auto-reply'`（⚠️ 非别名形式，静态清单易漏） | 值 |
+
+**分型处置（比"一律建端口"省得多，且复用既有设施）**
+
+1. **枚举/类型类（约 8 条：`SandboxPermission`×4 · `Orchestration*`/`AgentEventType`×2 · `session-handlers` 的类型位）** ⇒ 复用 **D-163/D-167 手法**：把纯枚举/类型**下沉 core 叶子**（或经 `types` 子入口），原址转出以免涟漪。**不新建端口**。
+2. **`sandbox` 值类 2 条** ⇒ **扩充既有 `core/spi/SandboxService.ts` 的 `ISandboxPort`**（D-154 已建：`shouldUseSandbox`/`isSandboxingEnabled`/`updateSettings`/`hasWorkspacePermission`）—— 按 CS01 复用，**不另立端口**。
+3. **`tools` 值类 4 条** ⇒ **扩充既有 `runtime/api/toolsPorts.ts`**（其注释即记录治理过 handlers 的同类依赖）。
+4. **`chat` 值类 3 条 + `agent` 值类 2 条 + `auto-reply` 1 条** ⇒ 新增 3 个端口（`chatPorts` · `agentPorts` · `autoReplyPorts`），照抄 `pluginAdminPorts.ts` 模式。
+5. **`agent` 的 `getAgentRegistry`** 与 **`a2a-routes.ts`** ⇒ 属 A2A 对外面，需单独核 `getAgentRegistry` 是否已有端口（`runtime/api/` 下可能已有 agent 相关端口）。
+
+**执行顺序建议（按"改动量÷收益"）**：① 枚举/类型下沉（~8 条，纯类型搬运，风险最低）→ ② 扩充 2 个既有端口（`ISandboxPort` · `toolsPorts`，6 条）→ ③ 新增 3 个端口（6 条）。
+
+**✅ 第一步已完成（2026-10-01 D-186）：`SandboxPermission` 4 条 —— 零成本手法**
+
+- **发现（取证）**：`SandboxPermission` **早已是 core 叶子**（`core/sandboxPermission.ts:22 export enum`），且**仓库已有现成先例**：`permission/PermissionService.ts:36` 以**相对路径直连 `'../core/sandboxPermission.js'`**。
+- **手法（比端口化更省）**：把 4 个 handler 的 `@modules/sandbox`（app 层）改为 **相对直连 core 模块根** —— `LocalHTTPService.ts:31` · `knowledge-handlers.ts:14` · `file-upload-handlers.ts:32` · `memory-handlers.ts:16`。**零新文件、零白名单、零端口**。
+- **验收（与预测逐数吻合）**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 95 → 91`（恰 −4）** · **`R03-002` = 0**（**实证：core 的「模块根文件」相对路径不触发 R03-002** —— 与子批 A 踩到的「模块**子目录**文件」不同）· 改动文件 `eslint` **0/0** · `bun test tests/http tests/infrastructure tests/memory` = **162 pass / 0 fail**。
+- **未改**：`handler-utils.ts`（它同时 import `globalWorkspaceManager`(值) ⇒ 改枚举**不减计数**）· `sandbox-handlers.ts`（纯值 ⇒ 需端口，归第 ② 步）。
+- **剩余 15 条**：`chat` 4 · `sandbox` 2（值）· `tools` 4 · `agent` 4 · `auto-reply` 1 ⇒ 按上文 ②③ 步继续。
+
+**⚠️ 与 FSZ-* 冲突提示**：多个 handler 文件正挂着**文件大小例外**（`skills-handlers.ts` 1582 行 · `knowledge-handlers.ts` 1759 · `session-handlers.ts` 1012 等）⇒ 本子批**只动 import 与端口**，**不顺手拆文件**（拆分属另一专项）。
 
 ### 3.4 子批 D —— `service -> app` 低风险 **8**（`channels`4 · `mcp`2 · `bridge`1 · `voice`1）
 

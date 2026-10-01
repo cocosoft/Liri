@@ -111,6 +111,21 @@
 - **验收**：`infra` 源 7 → 3（若前置判定为"删文件"，则 M3 不出现在改动里）。
 - ⚠️ 风险点：M1 动 core 契约 ⇒ 需同时核 `spiWiring` 的 `as never` 收窄处与 cost 的现有调用；M3 的 16 消费方需 grep 全量确认。
 
+#### 3.2.1 交接状态（2026-10-01，新会话从此处起步）
+
+- **起始基线**（动手前先跑一次 `bun run lint:arch` 复核）：`已豁免 160` / 违规 **0** / 错误 **0** 警告 **2**；`allFiles 3991`；分层映射 **85** 个模块（含 D-164 新增的 `appState`）。**预期终点**：`已豁免 156`（−4）。
+- **第一步必须先做（结论决定 M3 走法）** —— 判定 `memory/services/KnowledgeBaseWriter.ts` 是否**历史重复实现**：
+  - 线索：app 侧 `knowledge/KnowledgeBaseWriter.ts` 头注自述"**迁移自 `memory/services/KnowledgeBaseWriter.ts`**"；`memory/services/AutoMemoryService.ts:18` 以 **type-only** 引用它。
+  - 判据：grep 全仓对该路径的**值**引用。**若为零** ⇒ 直接删该文件（`AutoMemoryService` 的 type 引用改指 app 侧类型或一并删除）⇒ **M3 边免费消失**，**无需**搬迁 `sanitizeFileName`。
+  - **若仍有值消费者** ⇒ 走 §3.2 的 M3 方案（`sanitizeFileName` 物理归位 `utils/`；该工具全仓 **16 个消费方**）。
+- **其余三条**：**M1**（扩 `IHookChainPort` 返回值为最小投影 `{ blocked: boolean }` —— 本子批**唯一动 core 契约处**；须同步改 `entrypoints/spiWiring.ts` 的实现投影，并确认 `cost` 侧忽略返回值 ⇒ 零改动）· **M2**（`docs/knowledge-types` 的 2 个类型位 → 最小结构镜像）· **M4**（`MemoryQueryResult` → 移交 `memory/types/`，由 `services/prompt` 反向引用 = service→infra 合法）。
+- **⚠️ 继承本会话已踩的坑（务必避开）**：
+  1. **别名形态别漏**：本仓同时存在 `@modules/<mod>/...`、相对路径、**以及 `@modules/state/...` 这类占用别名**三种写法 —— D-164 因漏检别名形态导致 `typecheck` 报 4× `TS2307`。**改 import 前后各 grep 一遍全形态**。
+  2. **新增目录要三处同改**：`tsconfig.json` 的 `paths`（`@modules/*` **不是通配符**，必须显式登记）+ `scripts/modules-to-layers.json`（否则门禁未映射 = **假绿**）+ 消费点。
+  3. **`已豁免` 计数不可作唯一证据**：已累积 **5 次**偏差（D-153/154/155/159/164）⇒ 每步以 **grep 复核 + 测试**为准。
+  4. **全量 `bun test` 有偶发长耗时**（近 3 批均遇，>4 min）⇒ 遇阻时改跑**定向子集**（如 `tests/memory tests/system ...`）并说明；**不要**把它当成改动引入的挂起。
+- **范围**：本子批**不含** `chronos`（子批 3，涉启动时序反转，风险最高）。
+
 ### 3.3 子批 3 —— `chronos`（3 边，**需装配反转**）
 
 | # | 手法 | 说明 |

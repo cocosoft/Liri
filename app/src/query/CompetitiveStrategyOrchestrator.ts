@@ -430,3 +430,29 @@ export class CompetitiveStrategyOrchestrator {
     };
   }
 }
+
+/**
+ * 研究编排**装配点**（A7，2026-10-01）—— 生产代码中本编排器只在此处构造。
+ *
+ * **为什么冻结**：构造此前散落在两处 —— chat 侧自动分流（`PdcaLauncher.launchResearch`）
+ * 与 runtime 端口（`CoreAPIImpl.getQueryOpsPort`，服务 `POST /v1/research/start`）。两处
+ * 配置各自内联拼装、默认值多处重复，且端口以 `Record<string, unknown>` 透传 + `as never`
+ * 收窄 ⇒ 契约变更需追多处，且编译器守不住调用点。
+ *
+ * **现在**：调用方只供**上下文相关件**（`callModel` + 角色模型 + pitfall 落点），
+ * 构造 / 默认值 / 执行收在本函数内。
+ *
+ * **成本护栏**：默认 `perspectiveCount = 2`（每 +1 = +1 次候选生成 +1 次对抗批评），
+ * 默认值的**单一事实源**在构造器内，调用方不再重复声明。
+ *
+ * 边界（如实）：本函数**不**统一两个入口的结果交付与 callModel 构造 —— chat 侧结果以
+ * assistant 消息回写、HTTP 侧以 `pdca:*` SSE 推送，且 chat 侧未接角色模型路由；
+ * 该差异属产品行为，见 `.trae/specs/research-orchestration-assembly-seam.md` §1.1 事实 5。
+ */
+export async function runResearchOrchestration(
+  description: string,
+  signal: AbortSignal,
+  config: CompetitiveOrchestratorConfig
+): Promise<CompetitiveOrchestrationResult> {
+  return new CompetitiveStrategyOrchestrator(config).run(description, signal);
+}

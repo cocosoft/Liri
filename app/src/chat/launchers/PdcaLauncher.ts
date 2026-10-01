@@ -15,7 +15,8 @@ import type { AIProvider, ChatMessage } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';
 import { pitfallRegistry } from '@modules/tasks';
-import { CompetitiveStrategyOrchestrator } from '@modules/query';
+// A7（2026-10-01）：研究编排改经 query 侧唯一装配点（不再直接构造编排器实例）
+import { runResearchOrchestration } from '@modules/query';
 import type { ResearchCallModel } from '@modules/query';
 import type { TAORLoop } from '@modules/query';
 import type { ChatSession } from '../types/session.js';
@@ -486,21 +487,22 @@ export class PdcaLauncher {
         }
       };
 
-      const orchestrator = new CompetitiveStrategyOrchestrator({
-        callModel,
-        perspectiveCount: 2,
-        // Teamwork P2b：REJECT 批评 → pitfall 注册表（P1-2 写点）
-        recordPitfall: (rec) =>
-          pitfallRegistry.record({
-            description: rec.description,
-            error: rec.error,
-            source: 'verifier',
-            contextSig: rec.contextSig ?? taskId,
-          }),
-      });
-      const result = await orchestrator.run(
+      // A7（2026-10-01）：装配点收敛 —— 构造/默认值（perspectiveCount=2 成本护栏）
+      // 归 `runResearchOrchestration`，本处只供上下文相关件（callModel + pitfall 落点）
+      const result = await runResearchOrchestration(
         userMessage || description,
-        new AbortController().signal
+        new AbortController().signal,
+        {
+          callModel,
+          // Teamwork P2b：REJECT 批评 → pitfall 注册表（P1-2 写点）
+          recordPitfall: (rec) =>
+            pitfallRegistry.record({
+              description: rec.description,
+              error: rec.error,
+              source: 'verifier',
+              contextSig: rec.contextSig ?? taskId,
+            }),
+        }
       );
 
       const objectionBlock = (label: string) =>

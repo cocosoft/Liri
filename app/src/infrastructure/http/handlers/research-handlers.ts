@@ -139,7 +139,8 @@ async function runResearchTask(opts: {
       await getCoreAPI().getQueryOpsPort()
     ).runCompetitiveOrchestration(description, new AbortController().signal, {
       callModel,
-      perspectiveCount: 2,
+      // A7（2026-10-01）：不再声明 `perspectiveCount` —— 默认值（2，成本护栏）的
+      // 单一事实源在编排器构造器内，本处只供上下文相关件（callModel + 角色模型 + pitfall 落点）
       // P3 role 路由：候选生成角色模型（未配置回退 callModel）
       generatorCallModel,
       // P3 role 路由：verifier 角色模型（未配置回退 callModel）

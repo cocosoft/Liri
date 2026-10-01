@@ -34,7 +34,10 @@ import type { TaskOpsPort } from './taskOpsPorts';
 // C1（2026-09-30 D-106）：AI 运维**服务层端口**（用于给 `getAiOpsPort()` 显式标注返回类型）
 import type { AiOpsPort, LlamaDownloadProgressDto } from './aiOpsPorts';
 // C1（2026-09-30 D-111）：三个小域**服务层端口**（用于给 `getXxxOpsPort()` 显式标注返回类型）
-import type { QueryOpsPort } from './queryOpsPorts';
+import type {
+  QueryOpsPort,
+  ResearchOrchestrationConfigDto,
+} from './queryOpsPorts';
 import type { BuddyOpsPort } from './buddyOpsPorts';
 import type { CommandsOpsPort } from './commandsOpsPorts';
 import type { WorkspaceOpsPort } from './workspaceOpsPorts';
@@ -2509,18 +2512,16 @@ export class CoreAPIImpl implements CoreAPI {
       getErrorStats: async () =>
         (await queryModule()).getQueryLogStore().getErrorStats(),
 
-      // ---- `query` 域静态面（2026-09-30 台账 D-117）----
+      // ---- `query` 域静态面（2026-09-30 台账 D-117；A7 2026-10-01 改经装配点）----
       runCompetitiveOrchestration: async (
         description: string,
         signal: AbortSignal,
-        config: Record<string, unknown>
+        config: ResearchOrchestrationConfigDto
       ) => {
-        const { CompetitiveStrategyOrchestrator } = await queryModule();
-        // 引擎实例内聚；`config` 含调用方注入的回调（`callModel` / `recordPitfall`）
-        const orchestrator = new CompetitiveStrategyOrchestrator(
-          config as never
-        );
-        return orchestrator.run(description, signal);
+        const { runResearchOrchestration } = await queryModule();
+        // A7：构造收敛到 app 侧唯一装配点（本端口只做跨层转调，不再自建实例 ⇒
+        // 原 `new + as never` 收窄随之删除，配置由类型化 DTO 在边界上守住）
+        return runResearchOrchestration(description, signal, config);
       },
     };
   }

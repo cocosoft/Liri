@@ -98,6 +98,28 @@ export interface CompetitiveOrchestrationResultDto {
   };
 }
 
+/**
+ * 研究编排装配配置（**最小投影**：两个调用方实际传入字段的并集；逐字镜像
+ * `CompetitiveOrchestratorConfig` 的相应子集）。
+ *
+ * A7（2026-10-01）：原为 `Record<string, unknown>` 透传 ⇒ 调用点失去编译期 config 校验
+ * （台账 D-117 自述该代价）。改为类型化 DTO 后，app 侧装配点 `runResearchOrchestration`
+ * 的入参在此边界上由编译器守住；Impl 侧不再需要 `as never`。
+ *
+ * 注：**不收 `perspectiveCount`** —— 默认值（2，成本护栏）的单一事实源在编排器构造器内。
+ */
+export interface ResearchOrchestrationConfigDto {
+  callModel: ResearchCallModelDto;
+  generatorCallModel?: ResearchCallModelDto;
+  verifierCallModel?: ResearchCallModelDto;
+  recordPitfall?: (rec: {
+    description: string;
+    error: string;
+    source: 'verifier';
+    contextSig?: string;
+  }) => void;
+}
+
 /** 查询日志运维端口（调用方均**不传 `limit`** ⇒ 端口不收参，用 app 侧默认值） */
 export interface QueryOpsPort {
   /** 原 `getQueryLogStore().getToolStats()` */
@@ -108,12 +130,13 @@ export interface QueryOpsPort {
   // ---- `query` 域静态面（2026-09-30 台账 D-117）----
   /**
    * 原 `new CompetitiveStrategyOrchestrator(config).run(description, signal)`
-   * （引擎实例内聚；`config` 含 `callModel` / `recordPitfall` 等**回调实参**，
-   * 按**原调用点实参**逐字收 ⇒ `Record<string, unknown>`）。
+   * —— A7（2026-10-01）起改经 app 侧**装配点** `runResearchOrchestration`，
+   * 本端口只做跨层转调；`config` 由 `Record<string, unknown>` 收敛为类型化
+   * `ResearchOrchestrationConfigDto`（恢复调用点的编译期校验）。
    */
   runCompetitiveOrchestration(
     description: string,
     signal: AbortSignal,
-    config: Record<string, unknown>
+    config: ResearchOrchestrationConfigDto
   ): Promise<CompetitiveOrchestrationResultDto>;
 }

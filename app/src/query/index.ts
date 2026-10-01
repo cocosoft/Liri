@@ -157,7 +157,11 @@ export {
 export type { FileIOConfig, FileIOBlockResult } from './FileIOLoopDetector.js';
 export { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 export { verifyProject } from './verifyProject.js';
-export { CompetitiveStrategyOrchestrator } from './CompetitiveStrategyOrchestrator.js';
+export {
+  CompetitiveStrategyOrchestrator,
+  // A7（2026-10-01）：研究编排装配点——生产代码中该编排器只在此函数内构造
+  runResearchOrchestration,
+} from './CompetitiveStrategyOrchestrator.js';
 export type {
   CompetitiveOrchestratorConfig,
   CompetitiveOrchestrationResult,

@@ -11,7 +11,10 @@
  *  - 候选生成全部失败 → 不进入批评，空结果（无假数据）
  */
 import { describe, expect, it } from 'bun:test';
-import { CompetitiveStrategyOrchestrator } from '../../src/query/CompetitiveStrategyOrchestrator';
+import {
+  CompetitiveStrategyOrchestrator,
+  runResearchOrchestration,
+} from '../../src/query/CompetitiveStrategyOrchestrator';
 import type { ResearchCallModel } from '../../src/query/CompetitiveStrategyOrchestrator';
 
 const TASK = '研究：对比两种方案在多语言产品本地化中的可行性并给出选型建议';
@@ -140,5 +143,57 @@ describe('CompetitiveStrategyOrchestrator — 候选生成 + 对抗批评（P0-3
     // 收敛正文源自被批准候选内容——含 [GEN-ROLE] 标记即证明生成确实走了 generatorCallModel
     expect(res.content).toContain('[GEN-ROLE]');
     expect(res.approved.length).toBe(1);
+  });
+});
+
+// A7（2026-10-01）：装配点 —— 生产代码中本编排器只在该函数内构造
+// （见 .trae/specs/research-orchestration-assembly-seam.md）
+describe('runResearchOrchestration — 研究编排装配点（A7）', () => {
+  it('默认视角数 = 2（成本护栏单一事实源在构造器内，调用方不再声明）', async () => {
+    const res = await runResearchOrchestration(
+      TASK,
+      new AbortController().signal,
+      { callModel: makeCallModel({ approve: ['candidate_tradeoff'] }) }
+    );
+    // PERSPECTIVES 共 3 个视角；默认 2 ⇒ 只生成前 2 份候选
+    expect(res.candidates.length).toBe(2);
+    expect(res.approved.length).toBe(1);
+    expect(res.success).toBe(true);
+  });
+
+  it('配置透传 recordPitfall（REJECT 批评落到调用方钩子）', async () => {
+    const errors: string[] = [];
+    const res = await runResearchOrchestration(
+      TASK,
+      new AbortController().signal,
+      {
+        callModel: makeCallModel({ approve: [] }),
+        recordPitfall: (rec) => errors.push(rec.error),
+      }
+    );
+    expect(res.rejected.length).toBe(2);
+    expect(errors.length).toBe(2);
+    expect(errors[0]).toContain('未覆盖小众语言方向');
+  });
+
+  it('配置透传 generatorCallModel（角色路由经装配点仍生效）', async () => {
+    const genRole: ResearchCallModel = async function* (messages) {
+      const usr =
+        [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+      const agentId = usr.includes('反例攻击视角')
+        ? 'candidate_adversarial'
+        : 'candidate_tradeoff';
+      yield { content: `${agentId} [SEAM-GEN] 装配点透传候选` };
+      return;
+    };
+    const res = await runResearchOrchestration(
+      TASK,
+      new AbortController().signal,
+      {
+        callModel: makeCallModel({ approve: ['candidate_tradeoff'] }),
+        generatorCallModel: genRole,
+      }
+    );
+    expect(res.content).toContain('[SEAM-GEN]');
   });
 });

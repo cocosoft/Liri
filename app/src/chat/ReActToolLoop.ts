@@ -2978,7 +2978,24 @@ export class ReActToolLoop extends ReActLoop<
       const hasVisibleText = Array.isArray(rawContent)
         ? true
         : (typeof rawContent === 'string' ? rawContent : '').trim().length > 0;
-      if (!hasVisibleText) suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
+      if (!hasVisibleText) {
+        suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
+        // T-⑥08（2026-10-02 实证）：该兜底触发时**此前不落任何诊断字段** —— 实测会话里
+        // 4 次命中的助手消息 `finishReason` / `tokenUsage` / `startedAt` **全为 null**，
+        // 导致"高频空回复"无法归因（其中 3 次是"只出思考、无正文"）。此处补一条结构化
+        // 诊断日志（**只加日志，不改文案** —— 文案受"流式补发与落库逐字一致"回归守卫）。
+        const blocks = this.loopState.assistantMessage?.blocks ?? [];
+        const blockTypes = Array.from(new Set(blocks.map((b) => b.type)));
+        logger.warn('reactToolLoop:emptyOutputFallback（本轮无可见回复，已落兜底文案）', {
+          finishReason,
+          reason,
+          concurrentReasons,
+          blockTypes,
+          /** 只产出了思考、没有正文 —— 空回复的一个具体可诊断形态 */
+          reasoningOnly:
+            blockTypes.includes('thinking') && !blockTypes.includes('text'),
+        });
+      }
     }
 
     return { suffix, finishReason, reason, concurrentReasons };

@@ -44,7 +44,13 @@ const PER_MESSAGE_OVERHEAD = 4;
  */
 const PER_MESSAGE_TOKEN_CACHE = new Map<object, number>();
 const PER_MESSAGE_TOKEN_CACHE_ORDER: object[] = [];
-const PER_MESSAGE_TOKEN_CACHE_LIMIT = 2000;
+/**
+ * D-232（2026-10-02）：上限由 **2000 提高到 20000**。
+ * 原值低于大会话的消息数（实测 2200 条）⇒ 每轮都触发"超限淘汰一半"，
+ * 而淘汰的恰是**下轮最需要的前半段**（列表按时间顺序遍历）⇒ **必然抖动**，
+ * 缓存形同失效。条目仅"对象引用 + 数值"，2 万条内存开销可忽略（≈1MB，对比实测 RSS 3.4GB）。
+ */
+const PER_MESSAGE_TOKEN_CACHE_LIMIT = 20000;
 
 /** 查缓存——命中返回数值，未命中返回 undefined */
 function cachedMessageTokens(msg: object): number | undefined {
@@ -63,6 +69,41 @@ function storeMessageTokens(msg: object, tokens: number): void {
       if (key !== undefined) PER_MESSAGE_TOKEN_CACHE.delete(key);
     }
   }
+}
+
+/**
+ * D-233（2026-10-02）：**单条消息的 token 计算（缓存优先）** —— 各估算路径共用，避免逻辑分叉。
+ * 命中缓存直接返回；未命中则 tiktoken BPE → CJK 启发式，并写回缓存。
+ * 缓存值口径 = 角色开销 + 内容 tokens（与同步版一致）。
+ */
+function tokenOfMessage(
+  msg: { role?: string; content?: string | unknown },
+  encoder: ReturnType<typeof getCachedTiktokenEncoder>
+): number {
+  const cacheable = typeof msg === 'object' && msg !== null;
+  if (cacheable) {
+    const cached = cachedMessageTokens(msg as object);
+    if (cached !== undefined) return cached;
+  }
+  const overhead = ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
+  let per = overhead;
+  if (typeof msg.content === 'string') {
+    if (encoder) {
+      try {
+        const result = encoder.encode(msg.content);
+        per += Array.isArray(result) ? result.length : result.length;
+      } catch {
+        // 编码失败时回退到启发式
+        per += estimateTokens(msg.content);
+      }
+    } else {
+      per += estimateTokens(msg.content);
+    }
+  } else if (msg.content) {
+    per += estimateTokens(JSON.stringify(msg.content));
+  }
+  if (cacheable) storeMessageTokens(msg as object, per);
+  return per;
 }
 
 /**
@@ -197,24 +238,11 @@ export async function estimateMessagesTokensCooperative(
   const totalStart = Date.now();
   let batchStart = totalStart;
   for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const overhead = ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
-    total += overhead;
-    if (typeof msg.content === 'string') {
-      if (encoder) {
-        try {
-          const result = encoder.encode(msg.content);
-          total += Array.isArray(result) ? result.length : result.length;
-        } catch {
-          // 编码失败时回退到启发式
-          total += estimateTokens(msg.content);
-        }
-      } else {
-        total += estimateTokens(msg.content);
-      }
-    } else if (msg.content) {
-      total += estimateTokens(JSON.stringify(msg.content));
-    }
+    // D-232/D-233（2026-10-02）：统一走 `tokenOfMessage`（**缓存优先**）。
+    // 此前本路径未查缓存（与函数头注"tiktoken 缓存优先"不符）⇒ 每轮对全部消息重新 encode：
+    // 实测 2200 条 / 967 万 tokens 的会话，单次 pre-eval 阻塞事件循环 70.4s
+    // （日志 `compaction:pre_eval_done` elapsedMs=70388，同期事件循环滞后 57437ms）。
+    total += tokenOfMessage(messages[i], encoder);
     if ((i + 1) % batchSize === 0) {
       // 2026-08-19 根因①修复监控：记录每批估算耗时，验证让出事件循环的有效性
       logger.debug('estimate:cooperative_batch_done', {
@@ -234,6 +262,55 @@ export async function estimateMessagesTokensCooperative(
     totalDurationMs: Date.now() - totalStart,
   });
   return Math.ceil(total);
+}
+
+/**
+ * D-233（2026-10-02）：**自尾部累计的限额估算（决策用下界）**。
+ *
+ * 动机：压缩决策只需回答「是否已达阈值」。但会话可能含**巨型历史消息**
+ * （实测单条 `tool_result` ≈14MB；会话 30.43MB / 2380 行），全量估算要 BPE 编码
+ * 千万级 token ⇒ 阻塞事件循环 70s；而这类"早已超窗"的旧历史对决策的唯一作用就是"已超限"。
+ *
+ * 行为：自**最新**消息往回累计；一旦 ≥ `capTokens` 立即返回 `{ capped: true }`
+ * （此时 `tokens` 仅为**下界**）；否则扫完返回精确总和（与
+ * `estimateMessagesTokensCooperative` **同口径、同缓存**）。
+ *
+ * 判据正确性：调用方传 `capTokens = 上下文窗口`，而决策侧 `factor ≥ 1.2`
+ * ⇒ `capped=true` 时必有 `ratio = factor × (tokens + output) / limit ≥ 1.2 > compact 阈值`
+ * ⇒ 结论必为 `trigger`，与全量估算一致（单调性：和只会随包含更多消息而增大）。
+ */
+export async function estimateMessagesTokensCooperativeFromTail(
+  messages: readonly { role?: string; content?: string | unknown }[],
+  capTokens: number,
+  batchSize = 25
+): Promise<{ tokens: number; capped: boolean }> {
+  if (!messages || messages.length === 0) return { tokens: 0, capped: false };
+  const encoder = getCachedTiktokenEncoder();
+  const totalStart = Date.now();
+  let total = 0;
+  let processed = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    total += tokenOfMessage(messages[i], encoder);
+    processed++;
+    if (capTokens > 0 && total >= capTokens) {
+      logger.debug('estimate:cooperative_tail_capped', {
+        processed,
+        totalMessages: messages.length,
+        cappedTokens: total,
+        capTokens,
+        totalDurationMs: Date.now() - totalStart,
+      });
+      return { tokens: total, capped: true };
+    }
+    if (processed % batchSize === 0) await yieldToEventLoop();
+  }
+  logger.debug('estimate:cooperative_total_done', {
+    totalMessages: messages.length,
+    estimatedTokens: total,
+    totalDurationMs: Date.now() - totalStart,
+    fromTail: true,
+  });
+  return { tokens: total, capped: false };
 }
 
 /**

@@ -13,7 +13,7 @@ import type { CompressionRecorderPort } from './types';
 import { extractUsage } from '@modules/ai';
 import {
   estimateTokens,
-  estimateMessagesTokensCooperative,
+  estimateMessagesTokensCooperativeFromTail,
   estimateMessagesTokens,
 } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
@@ -297,8 +297,15 @@ export class UnifiedTokenTracker {
       const state = this.streamState(sessionId);
       state.currentModel = model;
       // 根因①修复：大列表同步估算阻塞事件循环，改用协作式分批估算
-      state.baselineInputTokens =
-        await estimateMessagesTokensCooperative(messages);
+      // D-232 / D-233（2026-10-02）：① 该路径接入按对象身份缓存（此前**漏接** ⇒ 每轮全量重编码）；
+      // ② 改为**自尾部累计 + 1× 窗口封顶** —— 下界已达窗口即返回，避免为"早已超窗"的巨型历史
+      //    （实测单条 `tool_result` ≈14MB、会话 30.43MB / 2380 行）做全量 BPE（实测阻塞 70.4s）。
+      const limit = resolveContextWindow(model).tokens;
+      const tailEstimate = await estimateMessagesTokensCooperativeFromTail(
+        messages,
+        limit
+      );
+      state.baselineInputTokens = tailEstimate.tokens;
       // 计算消息总字符数（流式水位回退用，避免正反馈污染）
       state.totalMessageChars = messages.reduce(
         (sum, m) =>
@@ -306,7 +313,7 @@ export class UnifiedTokenTracker {
         0
       );
       const estimatedOutput = maxOutputTokens ?? 4096;
-      const limit = resolveContextWindow(model).tokens;
+      // D-233：`limit` 已在上方（估算封顶处）解析，此处不再重复查询
       const effectiveFactor =
         this.calibration.factor > 0 ? this.calibration.factor : 1.2;
       const estimatedTotal = state.baselineInputTokens + estimatedOutput;
@@ -352,6 +359,8 @@ export class UnifiedTokenTracker {
         warnThreshold: thresholds.warn,
         compactThreshold: thresholds.compact,
         reason,
+        // D-233：true ⇒ 估算已按 1× 窗口封顶提前返回（tokens 为**下界**，决策必为 trigger）
+        estimateCapped: tailEstimate.capped,
       });
       return { decision, beforeTokens: estimatedTotal, snapshot, reason };
     } catch (err) {
@@ -405,8 +414,13 @@ export class UnifiedTokenTracker {
     const state = this.streamState(sessionId);
     state.currentModel = model;
     // 2026-08-19 根因①修复：工具轮间也改协作式估算，避免 mid-stream 阻塞
-    state.baselineInputTokens =
-      await estimateMessagesTokensCooperative(messages);
+    // D-233：与 checkBeforeRequest 一致 —— 自尾部累计 + 1× 窗口封顶
+    state.baselineInputTokens = (
+      await estimateMessagesTokensCooperativeFromTail(
+        messages,
+        resolveContextWindow(model).tokens
+      )
+    ).tokens;
     state.totalMessageChars = messages.reduce(
       (sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0),
       0

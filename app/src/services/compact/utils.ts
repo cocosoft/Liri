@@ -4,8 +4,9 @@
  * 当原生库不可用时自动降级为启发式估算
  */
 
-import { modelManager } from '@modules/ai';
 // P1-3-b（2026-09-28）：窗口解析改用与 unified / `createStreamBudget` **同一事实源**
+// 2026-10-01 D-213（子批 E，`services -> ai` 倒挂收口）：原 `import { modelManager } from '@modules/ai'`
+// 已是**死导入**（P1-3-b 改走 `resolveContextWindow` 后无任何调用点，仅本文件 L66 注释提及）⇒ 删除。
 import { resolveContextWindow } from '@modules/context';
 // P1-3-c（2026-09-28）：阈值口径统一为**比例**，引用全仓**唯一**阈值常量源
 import { UNIFIED_THRESHOLDS } from '@modules/core/tokenBudget/TokenBudgetController.js';

@@ -93,10 +93,10 @@
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
-| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **2**（`services/mcp/MCPToolBridge.ts -> context` D-208；**`ai` 组 (a) `prompt/DiagnosticsReport.ts -> ai`** D-212）；⚠️ 余 17 条中 **11 条受"规范数据模型"阻塞**（`Message` 6 · `Tool` 类型 4 · `Command` 1 —— 该议题已于 data-contract spec §2.5 裁定为"**存量不迁移**" ⇒ 后续按**端口/门面**处理） | **2** | **17**（`ai` 4 · `chat` 6 · `tools` 4 · `context` 1 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`ai` 组 (b)） |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯；⚠️ 余 13 条中 **11 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理） | **6** | **13**（`chat` 6 · `tools` 4 · `context` 1 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`chat` 组（按 §3.5 D-210/211 的"改归 app"路线）） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 59**（**−92**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **2** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 55**（**−96**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **6** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -609,12 +609,45 @@ export interface AgentRunDto {
 | 文件 | 符号 | 性质 / 处方 |
 |---|---|---|
 | `prompt/DiagnosticsReport.ts` | `getCachedTiktokenEncoder` | ✅ **已完成（D-212）**：`TiktokenEstimator.ts` 仅依赖 `monitoring`/`error`（infra）、**零 app 依赖** ⇒ 已 **改归 infra**（`utils/TiktokenEstimator.ts`，`ai/tokenizer/` 原址同名转出）⇒ 引用改**相对直连 infra**；⚠️ 不可落 core（净变差）；**零配置改动** |
-| `prompt/SystemPromptReport.ts` | `getCachedTiktokenEncoder` + `estimateTokens` | ⚠️ **受阻**：`estimateTokens` 定义在 `ai/tokenizer/TokenEstimator.ts`，该文件依赖 `../models/types`（**app 的 `ChatMessage`**）⇒ 不能直接下沉 ⇒ 须先解决该类型（**数据契约**）或走端口 |
-| `prompt/PromptAssembler.ts` | `buildSystemPrompt` · `modelManager` · `providerRegistry` · `estimateTokens` + 类型 `SystemPromptContext` | ⚠️ **须端口**：`modelManager.getCurrentModel()` / `providerRegistry.getByModel()` 是真 app 能力；且 `estimateTokens` 在**同步函数**内被调用（不可改为 await）⇒ 端口须提供**同步**方法，调用方需**提前取一次端口句柄**（同 `LlamaServerManagerPort` 的"句柄只取一次"先例） |
-| `compact/utils.ts` | `modelManager`（`getModelContextWindow`） | 同上 ⇒ 端口 |
-| `compact/CompactService.ts` | 类型 `AIService`/`AIMessage` + 值 `AIMessageRole`/`AIModelType` | 混合：**类型位须下沉 `types/`**（2 类型 + 2 枚举）+ 值经端口 |
+| `prompt/SystemPromptReport.ts` | `getCachedTiktokenEncoder` + `estimateTokens` | ✅ **已完成（D-215）**：① `getCachedTiktokenEncoder` 改**相对直连 infra**（D-212 已下沉）；② `estimateTokens` 改经端口 `ai.estimateTokensOf`（D-214 所加）—— 因 `estimateTokensPrecise`/`generatePromptReport` 均为**同步**⇒ 给二者**加 `ai` 形参**并由唯一调用方 `PromptAssembler`（已持有 `ai`）下传 ⇒ `已豁免 57 → 55`（与下条同批 −2） |
+| `compact/CompactService.ts` | 类型 `AIService`/`AIMessage` + 值 `AIMessageRole`/`AIModelType` | ✅ **已完成（D-215）**：改为**本服务自持的注入契约** `CompactAiMessage`/`CompactAiService`（最小结构面，仅 `generate`）⇒ **零端口、零 DTO**（因该服务由调用方注入、且消息本地构造）；`AIMessageRole` 以字面量 `'system'`/`'user'` 替代；⚠️ 实测 `AIModelType` 本就**未被使用**（死导入）。**🆕 顺带发现（未处理）**：全仓 grep 显示 `CompactServiceImpl.setAIService()` **从未被调用**（生产装配处 `ChatManager.ts:883` 为 `new CompactServiceImpl()` 无参）⇒ `generateAISummary` 的 AI 路径实际**恒走 `generateBasicSummary` 回退** ⇒ 属**预存"接线缺口"**（提请后续专项核；不影响本次收敛） |
 
-**⇒ `ai` 组建议再细分**：**(a)** `DiagnosticsReport` 1 条（改归 infra，零端口，**建议下一步立即做**）→ **(b)** `PromptAssembler` + `compact/utils`（**端口化**，须解决"同步调用点 + 句柄只取一次"）→ **(c)** `SystemPromptReport` 1 + `CompactService` 1（**待数据契约**：`ChatMessage` / `AIService` / `AIMessage` 低位出口）。
+| `compact/utils.ts` | `modelManager` | ✅ **已完成（D-213）**：实测为**死导入**（P1-3-b 已改走 `resolveContextWindow` 同事实源）⇒ 直接删除导入 ⇒ `已豁免 59 → 58` |
+| `prompt/PromptAssembler.ts` | `buildSystemPrompt` · `modelManager` · `providerRegistry` · `estimateTokens` + 类型 `SystemPromptContext` | ✅ **已完成（D-214）**：`AiOpsPort` 追加 4 个**同步**方法（`estimateTokensOf` · `getCurrentModelId` · `resolveProviderIdByModel` · `buildSystemPromptText`）+ `SystemPromptContextDto`；端口**构造期**解析 `@modules/ai`；调用方在异步入口**取一次句柄后显式下传** ⇒ `已豁免 58 → 57` |
+
+**🛠️ `PromptAssembler.ts` 端口设计（D-213 取证 → ✅ **D-214 已按此实施**，下列保留作沿革）**
+
+**实测调用面**（符号 · 行号 · 同步性）：
+| 调用点 | 性质 |
+|---|---|
+| `providerRegistry.getByModel(modelName).id`（L93-94，helper `resolveProviderFromModel` L90） | **同步**（外层有 try/catch 回退） |
+| `modelManager.getCurrentModel()`（L338，helper `resolveModelContext` L336） | **同步** |
+| `estimateTokens(content)`（L199 循环内 + L424） | **同步**（**不可改 await**） |
+| `buildSystemPrompt(combined, {…})`（L282） | 同步纯函数（内含注入检测，**可能 throw**） |
+| 类型 `SystemPromptContext`（L45，用于**导出**接口 `AssembleOptions`） | 类型位 |
+
+**定义处**：`modelManager = ModelManager.getInstance()`（`ai/models/ModelManager.ts:283`，单例）· `providerRegistry = new ProviderRegistry()`（`ai/providers/ProviderRegistry.ts:238`，单例）· `buildSystemPrompt`（`ai/prompts/SystemPromptBuilder.ts:25`）· `estimateTokens`（`ai/tokenizer/TokenEstimator.ts:74`；⚠️ 该文件依赖 app 的 `ChatMessage` ⇒ **不可下沉 core/infra**）。
+
+**✅ 「句柄只取一次」可行**：该文件已有**异步入口** `assembleSystemPrompt`（L130）· `assembleDefaultSystemPrompt`（L465）⇒ 端口在入口取一次即可，同步 helper 用**显式下传**的参数。
+
+**扩展面（建议：**扁平追加**到既有 `AiOpsPort`，同域共用同一入口 —— CS01，不另立 `aiPorts`）**：
+```ts
+/** —— 追加进 AiOpsPort（**同步**方法：原调用点位于同步函数内，不可改为 await）—— */
+estimateTokensOf(text: string): number;                       // 原 estimateTokens(text)
+getCurrentModelId(): string;                                  // 原 modelManager.getCurrentModel()
+resolveProviderIdByModel(model: string): { id: string } | null; // 原 providerRegistry.getByModel(model)（保留调用方 try/catch）
+buildSystemPromptText(base: string, ctx: SystemPromptContextDto): string; // 原 buildSystemPrompt(...)
+```
+外加 **`SystemPromptContextDto`**（**最小投影**：7 个可选字段 `platform`/`provider`/`modelName`/`includeEnvironmentHints`/`includePlatformHint`/`includeModelGuidance`/`modelGuidanceMode`；最后一项**收宽为 `string`**）。
+
+**⚠️ 设计取舍（建议 A）**：
+- **A（建议）显式下传**：入口 `const ai = await getCoreAPI().getAiOpsPort();` → 传参给 `resolveProviderFromModel(modelName, ai)` · `resolveModelContext(ai)`，循环处用 `ai.estimateTokensOf(...)`（约改 4 处签名；确定性好、可测）
+- **B（不推荐）模块级 current-port 变量**：改动最小但引入隐式状态（仅在调用深度 >2 时再考虑）
+
+**⚠️ 类型位处理**：`SystemPromptContext` **不下沉 `types/`**（`types/` 已"刻意收缩"，见 [data-contract spec §0](./data-contract-unification.md)）⇒ 用**端口 DTO** + 实现侧边界收窄（`as never`，同 D-154/D-202 先例）；调用方传 DTO，`buildSystemPromptText` 实现内收窄。
+
+**🔗 连带收益**：`estimateTokensOf` 亦可直接服务 **(c)** 的 `prompt/SystemPromptReport.ts`（同一符号）⇒ (b) 实施后 (c) 少一个待解符号。
+**⇒ `ai` 组进度与再细分（2026-10-01 D-213 更新）**：**(a)** `DiagnosticsReport` ✅（D-212）→ **(b)** `compact/utils` ✅（D-213，死导入）+ `PromptAssembler` 🛠️ **设计完成待实施**（D-213）→ **(c)** `SystemPromptReport` 1 + `CompactService` 1（**待处理**：前者的 `estimateTokens` 将由 (b) 的 `estimateTokensOf` 一并解决；后者 2 类型 + 2 枚举需端口 DTO —— 因 `not下沉 types/`，见 data-contract spec §0）。
 **⚠️ 既有 `AiOpsPort` 经核不覆盖本组**（其范围为 HTTP handlers 的 P1-P4 共 22 方法）⇒ 按该端口自述的规程（"**同域分阶段共用同一入口** `getAiOpsPort()`"）**扩充**即可，**不另立** `aiPorts`（CS01）。
 
 

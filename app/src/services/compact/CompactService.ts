@@ -5,11 +5,26 @@
  */
 
 import type { SessionMessage } from '@modules/session';
-import type { AIService, AIMessage } from '@modules/ai';
-import { AIMessageRole, AIModelType } from '@modules/ai';
 import { groupMessagesByApiRound, getMessageTextContent } from './grouping';
 import { getCompactPrompt, getCompactUserSummaryMessage } from './prompt';
 import { roughTokenCountEstimationForMessages } from './utils';
+// 2026-10-01 D-215（子批 E，`services -> ai` 倒挂收口）：原先静态导入 app 层
+// `AIService`/`AIMessage`（类型）+ `AIMessageRole`/`AIModelType`（值）⇒ 改为**本服务自持的
+// 注入契约**（最小结构面；注入方向不变、结构性兼容）。
+// ⚠️ 实测 `AIModelType` 本就**未被使用**（死导入）；`AIMessageRole` 仅用于构造下述消息 ⇒ 以字面量替代。
+/** 注入契约：压缩所需的最小 AI 消息面（结构镜像自 app 层 `AIMessage` 的两字段） */
+export interface CompactAiMessage {
+  role: string;
+  content: string;
+}
+/** 注入契约：压缩所需的最小 AI 服务面（仅 `generate`） */
+export interface CompactAiService {
+  generate(
+    messages: CompactAiMessage[],
+    model: string,
+    options: { max_tokens: number; temperature: number }
+  ): Promise<{ content: string }>;
+}
 
 import {
   getCompactConfig,
@@ -114,15 +129,15 @@ const SUMMARY_MAX_OUTPUT_TOKENS = 20000;
 export class CompactServiceImpl implements CompactService {
   private boundaries: Map<string, CompactBoundary> = new Map();
   private artifacts: Map<string, CompactArtifact[]> = new Map();
-  private aiService: AIService | null = null;
+  private aiService: CompactAiService | null = null;
 
-  constructor(aiService?: AIService) {
+  constructor(aiService?: CompactAiService) {
     if (aiService) {
       this.aiService = aiService;
     }
   }
 
-  setAIService(service: AIService): void {
+  setAIService(service: CompactAiService): void {
     this.aiService = service;
   }
 
@@ -219,10 +234,10 @@ export class CompactServiceImpl implements CompactService {
     }
 
     const prompt = getCompactPrompt();
-    const aiMessages: AIMessage[] = [
-      { role: AIMessageRole.SYSTEM, content: prompt },
+    const aiMessages: CompactAiMessage[] = [
+      { role: 'system', content: prompt },
       {
-        role: AIMessageRole.USER,
+        role: 'user',
         content:
           'Please summarize the following conversation:\n\n' +
           messages

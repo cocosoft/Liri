@@ -5,10 +5,18 @@ import {
   type SystemPromptSection,
   localToolUseSection,
 } from '@modules/constants/systemPromptSections';
-import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
+// 2026-10-01 D-214（子批 E，`services -> ai` 倒挂收口）：原静态导入 app 层 `@modules/ai`
+// 的 4 个符号（`buildSystemPrompt` · `modelManager` · `providerRegistry` · `estimateTokens`
+// + 类型 `SystemPromptContext`）⇒ 改经 **服务层端口** `getCoreAPI().getAiOpsPort()`
+// （service→service 合法；⚠️ 4 个能力在 app 侧是**同步**的 ⇒ 端口方法亦同步，
+// 在**异步入口**取一次句柄后**显式下传**给同步 helper —— 方案 A）。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type {
+  AiOpsPort,
+  SystemPromptContextDto,
+} from '@modules/runtime/api/aiOpsPorts';
 import { configManager } from '@modules/config';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
-import { modelManager, providerRegistry, estimateTokens } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -42,7 +50,7 @@ export function getLastDiagnosticsReport(): DiagnosticsReport | null {
 export interface AssembleOptions {
   sections?: SystemPromptSection[];
   strategyExtra?: string;
-  systemPromptContext?: SystemPromptContext;
+  systemPromptContext?: SystemPromptContextDto;
   mode?: PromptMode;
   providerId?: string;
   sessionContext?: SessionContext;
@@ -87,10 +95,10 @@ function filterSectionsByMode(
  * 从模型名称解析提供商。
  * CS02 FIXED: 优先从 ProviderRegistry 查询，未命中时回退到名称前缀启发式。
  */
-function resolveProviderFromModel(modelName: string): string {
+function resolveProviderFromModel(modelName: string, ai: AiOpsPort): string {
   // 优先从 ProviderRegistry 查（DB 注册的模型都有精确的 provider）
   try {
-    const resolved = providerRegistry.getByModel(modelName);
+    const resolved = ai.resolveProviderIdByModel(modelName);
     if (resolved) return resolved.id;
   } catch {
     /* ProviderRegistry 不可用时回退 */
@@ -145,6 +153,8 @@ export async function assembleSystemPrompt(
     setCurrentSessionContext(sessionContext);
   }
   const resolvedMode: PromptMode = mode ?? 'full';
+  // D-214（方案 A）：端口**在异步入口取一次**，再显式下传给下方同步 helper/循环
+  const ai = await getCoreAPI().getAiOpsPort();
 
   const baseSections = sections ?? getRegisteredSections();
   const providerSections = providerPromptRegistry.applyOverrides(
@@ -196,7 +206,7 @@ export async function assembleSystemPrompt(
       const s = allSections[i];
       const content = sectionResults[i];
       if (!s.cacheBreak || extraNames.has(s.name) || !content) continue;
-      dynamicCostCache.set(s.name, estimateTokens(content));
+      dynamicCostCache.set(s.name, ai.estimateTokensOf(content));
     }
   }
 
@@ -207,7 +217,8 @@ export async function assembleSystemPrompt(
       allSections,
       sectionResults,
       extraNames,
-      dynamicBudgetTokens
+      dynamicBudgetTokens,
+      ai
     );
     for (const idx of drop.droppedIndexes) droppedIndexes.add(idx);
     if (drop.droppedInfos.length > 0) {
@@ -245,7 +256,8 @@ export async function assembleSystemPrompt(
     const report = generatePromptReport(
       reportSections,
       reportResults,
-      resolvedMode
+      resolvedMode,
+      ai
     );
     logger.debug(formatPromptReport(report));
   }
@@ -279,12 +291,12 @@ export async function assembleSystemPrompt(
 
   const combined = parts.join('\n\n');
 
-  let result = buildSystemPrompt(combined, {
+  let result = ai.buildSystemPromptText(combined, {
     includeModelGuidance: true,
     ...systemPromptContext,
     ...(systemPromptContext?.provider && systemPromptContext?.modelName
       ? {}
-      : resolveModelContext()),
+      : resolveModelContext(ai)),
   });
 
   if (strategyExtra) {
@@ -333,10 +345,13 @@ export async function assembleSystemPrompt(
 /**
  * 解析当前模型上下文（provider + modelName）
  */
-function resolveModelContext(): { provider: string; modelName: string } {
+function resolveModelContext(ai: AiOpsPort): {
+  provider: string;
+  modelName: string;
+} {
   try {
-    const modelName = modelManager.getCurrentModel();
-    const provider = resolveProviderFromModel(modelName);
+    const modelName = ai.getCurrentModelId();
+    const provider = resolveProviderFromModel(modelName, ai);
     return { provider, modelName };
   } catch {
     return { provider: 'unknown', modelName: 'unknown' };
@@ -396,7 +411,8 @@ function computeDynamicDrops(
   sections: SystemPromptSection[],
   results: Array<string | null>,
   extraNames: Set<string>,
-  budgetTokens: number
+  budgetTokens: number,
+  ai: AiOpsPort
 ): {
   droppedIndexes: Set<number>;
   droppedInfos: Array<{ name: string; tokens: number; layer: string }>;
@@ -421,7 +437,7 @@ function computeDynamicDrops(
     const layer = getSectionLayer(s.name);
     const rank = layerRank(layer);
     if (rank < 2) continue; // L0/L1 豁免
-    const tokens = estimateTokens(content);
+    const tokens = ai.estimateTokensOf(content);
     totalTokens += tokens;
     candidates.push({ idx: i, tokens, rank, name: s.name, layer });
   }

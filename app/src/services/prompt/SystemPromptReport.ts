@@ -1,7 +1,10 @@
 import type { SystemPromptSection } from '@modules/constants/systemPromptSections';
 import type { PromptMode } from './types';
-import { getCachedTiktokenEncoder } from '@modules/ai';
-import { estimateTokens } from '@modules/ai';
+// 2026-10-01 D-215（子批 E，`services -> ai` 倒挂收口）：
+// ① `getCachedTiktokenEncoder` 实现已改归 infra（D-212）⇒ 相对直连 infra 模块根；
+// ② `estimateTokens` 改经服务层端口（D-214 已加 `AiOpsPort.estimateTokensOf`，同步）⇒ 由调用方下传。
+import { getCachedTiktokenEncoder } from '../../utils/TiktokenEstimator.js';
+import type { AiOpsPort } from '@modules/runtime/api/aiOpsPorts';
 
 export interface SectionReportEntry {
   name: string;
@@ -29,7 +32,7 @@ export interface SystemPromptReport {
  * P1-14: 使用 tiktoken o200k_base BPE 精确计数，回退 CJK 感知估算
  * 对比原 chars/4 方案：CJK 文本精度提升 3-6x
  */
-function estimateTokensPrecise(text: string): number {
+function estimateTokensPrecise(text: string, ai: AiOpsPort): number {
   if (!text) return 0;
   const encoder = getCachedTiktokenEncoder();
   if (encoder) {
@@ -40,7 +43,7 @@ function estimateTokensPrecise(text: string): number {
       // @ignore-catch: tiktoken encode failure, fallback
     }
   }
-  return estimateTokens(text);
+  return ai.estimateTokensOf(text);
 }
 
 function truncatePreview(text: string, maxLen: number = 80): string {
@@ -53,7 +56,8 @@ function truncatePreview(text: string, maxLen: number = 80): string {
 export function generatePromptReport(
   sections: SystemPromptSection[],
   resolvedContent: (string | null)[],
-  mode: PromptMode
+  mode: PromptMode,
+  ai: AiOpsPort
 ): SystemPromptReport {
   const entries: SectionReportEntry[] = [];
   let totalChars = 0;
@@ -65,7 +69,7 @@ export function generatePromptReport(
     const content = resolvedContent[i];
     const charCount = content ? content.length : 0;
     totalChars += charCount;
-    const tokens = estimateTokensPrecise(content ?? '');
+    const tokens = estimateTokensPrecise(content ?? '', ai);
 
     let status: 'cached' | 'computed' | 'empty';
     if (content === null || content === undefined) {

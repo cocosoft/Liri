@@ -164,7 +164,23 @@ export interface LlamaServerManagerPort {
   }): Promise<{ success?: boolean | undefined }>;
 }
 
-/** AI 运维端口（P1：6 方法；P2 追加 6；P3 追加 4；P4 追加 6 + 4 类型 + 1 句柄） */
+/**
+ * 系统提示词组装上下文（**最小投影** —— `PromptAssembler.ts` 的 `AssembleOptions` 字段）
+ *
+ * 结构镜像自 app 层 `SystemPromptContext`（`ai/prompts/SystemPromptBuilder.ts:15-23`），
+ * **非新契约**；`modelGuidanceMode` 由 app 层的字面量联合**收宽为 `string`**（端口不引 app 类型）。
+ */
+export interface SystemPromptContextDto {
+  platform?: string | undefined;
+  provider?: string | undefined;
+  modelName?: string | undefined;
+  includeEnvironmentHints?: boolean | undefined;
+  includePlatformHint?: boolean | undefined;
+  includeModelGuidance?: boolean | undefined;
+  modelGuidanceMode?: string | undefined;
+}
+
+/** AI 运维端口（P1：6 方法；P2 追加 6；P3 追加 4；P4 追加 6 + 4 类型 + 1 句柄；P5 追加 4 **同步**方法） */
 export interface AiOpsPort {
   /**
    * 取全局 AI 服务**真句柄**（原 `import('…').aiService`）。
@@ -252,4 +268,22 @@ export interface AiOpsPort {
       onProgress: (p: LlamaDownloadProgressDto) => void;
     }
   ): Promise<Record<string, unknown>>;
+
+  // ---- 系统提示词组装（P5：`services/prompt/PromptAssembler.ts`；**均为同步方法**）----
+  //
+  // ⚠️ 为什么是**同步**：原调用点位于**同步函数内**（`resolveProviderFromModel` / 段成本循环 /
+  // `computeDynamicDrops`），改 `await` 会向上传染 ⇒ 端口方法保持原同步形态；
+  // 调用方在**异步入口**（`assembleSystemPrompt`）取一次端口句柄后**显式下传**（同
+  // `LlamaServerManagerPort` 的"句柄只取一次"先例）。
+  /** 原 `estimateTokens(text)`（app 侧同步纯函数） */
+  estimateTokensOf(text: string): number;
+  /** 原 `modelManager.getCurrentModel()`（app 侧同步；单例） */
+  getCurrentModelId(): string;
+  /**
+   * 原 `providerRegistry.getByModel(model)`：命中 ⇒ `{ id }`，未命中 ⇒ `null`
+   * （**保留调用方的 try/catch 与启发式回退语义**，端口不吞异常）
+   */
+  resolveProviderIdByModel(model: string): { id: string } | null;
+  /** 原 `buildSystemPrompt(base, ctx)`（同步纯函数；内含提示注入检测，**可能抛错**） */
+  buildSystemPromptText(base: string, ctx: SystemPromptContextDto): string;
 }

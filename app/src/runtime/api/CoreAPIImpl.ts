@@ -32,7 +32,11 @@ import type { CoreAPI } from './CoreAPI';
 // C1（2026-09-30 D-98/D-101）：任务运维**服务层端口**（用于给 `getTaskOpsPort()` 显式标注返回类型）
 import type { TaskOpsPort } from './taskOpsPorts';
 // C1（2026-09-30 D-106）：AI 运维**服务层端口**（用于给 `getAiOpsPort()` 显式标注返回类型）
-import type { AiOpsPort, LlamaDownloadProgressDto } from './aiOpsPorts';
+import type {
+  AiOpsPort,
+  LlamaDownloadProgressDto,
+  SystemPromptContextDto,
+} from './aiOpsPorts';
 // C1（2026-09-30 D-111）：三个小域**服务层端口**（用于给 `getXxxOpsPort()` 显式标注返回类型）
 import type {
   QueryOpsPort,
@@ -2523,6 +2527,8 @@ export class CoreAPIImpl implements CoreAPI {
     /** llama 本地模型管理模块取用（P4） */
     const llamaModule = async () =>
       import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    /** P5（D-214）：PromptAssembler 的**同步**能力需在构造期解析模块（方法内不可 await） */
+    const ai = await aiModule();
 
     return {
       // ⚠️ 必须是**真对象**（原调用点将其原样透传给知识库编译端口）⇒ 不包装成替身
@@ -2541,6 +2547,18 @@ export class CoreAPIImpl implements CoreAPI {
         }),
       resolveRoleModel: async (role: 'generator' | 'verifier') =>
         (await aiModule()).modelRouter.resolveRole(role),
+
+      // ---- 系统提示词组装（P5；2026-10-01 D-214，`services -> ai` 倒挂收口）----
+      // ⚠️ 这 4 个是**同步**方法（原调用点位于同步函数内）⇒ 先在端口构造期解析模块，方法内**不再 await**。
+      estimateTokensOf: (text: string) => ai.estimateTokens(text),
+      getCurrentModelId: () => ai.modelManager.getCurrentModel(),
+      resolveProviderIdByModel: (model: string) => {
+        const resolved = ai.providerRegistry.getByModel(model);
+        return resolved ? { id: resolved.id } : null;
+      },
+      // 端口 DTO 的 `modelGuidanceMode` 收宽为 string ⇒ 边界处收窄（同 D-154/D-202 先例）
+      buildSystemPromptText: (base: string, ctx: SystemPromptContextDto) =>
+        ai.buildSystemPrompt(base, ctx as never),
 
       // ---- 用量统计 / 计费（P2）----
       initUsageStats: async () => {

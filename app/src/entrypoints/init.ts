@@ -152,9 +152,8 @@ export async function init(): Promise<void> {
   // `getCoreAPI().createAutoCompactService()/getSessionCheckpointRef()` 触达注入包），且
   // `init()` 处于 `ModuleRegistry.bootstrap()` 的**环境初始化**阶段（早于模块初始化）。
   // 注册本身只存引用（`CoreAPIImpl` 懒解析），故与「创建 CoreAPI 单例」顺序无关。
-  const { registerCoreApiAppDeps } = await import(
-    '@modules/bootstrap/pipeline/BootPipelineIntegrator.js'
-  );
+  const { registerCoreApiAppDeps } =
+    await import('@modules/bootstrap/pipeline/BootPipelineIntegrator.js');
   await registerCoreApiAppDeps();
 
   // 2.2. 设置优雅关闭

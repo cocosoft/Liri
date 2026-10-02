@@ -315,7 +315,9 @@ export class CoreAPIImpl implements CoreAPI {
   private readonly _inlineAppDeps?: CoreApiAppDeps;
   private readonly _inlineChatManager?: ChatManager;
   private readonly _inlineToolManager?: ToolManager;
-  private readonly _inlineConverterEngine?: ReturnType<typeof getConverterEngine>;
+  private readonly _inlineConverterEngine?: ReturnType<
+    typeof getConverterEngine
+  >;
   private readonly _inlineFileTypeDetector?: FileTypeDetector;
   /** D-227：会话管理器懒解析（避免构造期访问 app 依赖 —— 与注册时序解耦） */
   private _sessionManager?: SessionManager;
@@ -396,8 +398,7 @@ export class CoreAPIImpl implements CoreAPI {
    * D-227：由构造期字段改为懒解析 getter（值经 `CoreApiAppDeps.chatManager` 注入）。
    */
   get chatManager(): ChatManager {
-    return (this._inlineChatManager ??
-      this.appDeps.chatManager) as ChatManager;
+    return (this._inlineChatManager ?? this.appDeps.chatManager) as ChatManager;
   }
 
   /** D-227：ToolManager 懒解析（`getToolManager()` 门面保持签名不变，内部读本 getter） */

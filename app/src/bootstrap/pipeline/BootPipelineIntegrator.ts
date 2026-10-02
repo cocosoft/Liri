@@ -32,12 +32,10 @@ const logger = getLogger('BootPipelineIntegrator');
  * ② 本文件的 Phase 5（BootPipeline 路径，`main.ts` 尚未接线到管道，见文件头说明）。
  */
 export async function registerCoreApiAppDeps(): Promise<void> {
-  const { setCoreApiAppDeps } = await import(
-    '@modules/runtime/api/CoreAPIImpl'
-  );
-  const { createChatManager, getCheckpointService } = await import(
-    '@modules/chat'
-  );
+  const { setCoreApiAppDeps } =
+    await import('@modules/runtime/api/CoreAPIImpl');
+  const { createChatManager, getCheckpointService } =
+    await import('@modules/chat');
   const { globalToolManager, getConverterEngine, FileTypeDetector } =
     await import('@modules/tools');
   const { modelRouter, resolveModelRoute, RouteKey, globalEmbeddingManager } =

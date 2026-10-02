@@ -1,9 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Text } from '../components/ink.js';
-import { useAppState, useSetAppState } from '../appState/AppState';
-import { getCompanion } from './companion';
-import { renderSprite, spriteFrameCount } from './sprites';
-import { RARITY_COLORS, RARITY_STARS } from './types';
+// 2026-10-01（子批 B 收口）：本文件由 `buddy/`(app) 迁入 `ui/buddy/`(ui 层) —— 它自身是 **UI 组件**，
+// 原 `buddy -> components`(app -> ui) 倒挂随之消失（唯一跨模块消费方 `cli` 亦在 ui 层）。
+// 以下 import 的**目标模块与迁移前一致**，仅按新深度调整相对层级；对 `buddy` 内部符号改走**桶出口**（ui -> app 合法）。
+import { Box, Text } from '../../components/ink.js';
+import { useAppState, useSetAppState } from '../../appState/AppState';
+import {
+  getCompanion,
+  renderSprite,
+  spriteFrameCount,
+  RARITY_COLORS,
+  RARITY_STARS,
+} from '@modules/buddy';
 
 const TICK_MS = 500;
 const BUBBLE_SHOW = 20;

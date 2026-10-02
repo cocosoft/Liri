@@ -39,3 +39,13 @@ export type {
 } from './TerminalUIIntegration';
 export { TerminalComponents } from './TerminalComponents';
 export type { TableColumn, TableRow } from './TerminalComponents';
+
+// 2026-10-01（子批 B 收口）：原 `buddy/`(app) 的 **UI 面**迁入本层 `ui/buddy/` ——
+// 消除 `buddy -> components`(app -> ui) 倒挂（唯一跨模块消费方 `cli` 亦在本层 ⇒ 零新增边）。
+export { CompanionSprite } from './buddy/CompanionSprite';
+export {
+  isBuddyTeaserWindow,
+  isBuddyLive,
+  useBuddyNotification,
+  findBuddyTriggerPositions,
+} from './buddy/useBuddyNotification';

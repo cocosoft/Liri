@@ -28,16 +28,13 @@ export type {
 } from './interactions';
 export { AttributeSystem, RARITY_FLOOR } from './attributes';
 export type { AttributeDistribution } from './attributes';
-export { CompanionSprite } from './CompanionSprite';
+// 2026-10-01（子批 B 收口）：**UI 面已迁出本模块** → `ui/buddy/`（ui 层）——
+// 含 `CompanionSprite` · `useBuddyNotification` · `isBuddyTeaserWindow` · `isBuddyLive` · `findBuddyTriggerPositions`。
+// ⇒ **不再从本桶转出**（app 桶转发 ui 会造出 `app -> ui` 倒挂）。实测本桶**零跨模块消费方**
+// （全仓无 `from '@modules/buddy'`）⇒ 删除这些转出**无破坏面**；新落点经 `@modules/ui` 桶出口消费（见 ui/index.ts）。
 export { getCompanion, roll, rollWithSeed, companionUserId } from './companion';
 export { companionIntroText, getCompanionIntroAttachment } from './prompt';
 export { renderSprite, renderFace, spriteFrameCount } from './sprites';
-export {
-  isBuddyTeaserWindow,
-  isBuddyLive,
-  useBuddyNotification,
-  findBuddyTriggerPositions,
-} from './useBuddyNotification';
 export {
   BUDDY_FLAGS,
   isBuddyEnabled,

@@ -1503,10 +1503,12 @@ ui.cleanup();
 ### 导入
 
 ```typescript
-import { CompanionSprite, getCompanion, roll, rollWithSeed, companionUserId } from './src/buddy';
+import { getCompanion, roll, rollWithSeed, companionUserId } from './src/buddy';
+// 2026-10-01（子批 B）：UI 面已迁入 ui 层 —— `CompanionSprite` 与 useBuddyNotification 系列
+import { CompanionSprite } from './src/ui/buddy/CompanionSprite';
 import { renderSprite, renderFace, spriteFrameCount } from './src/buddy/sprites';
 import { companionIntroText, getCompanionIntroAttachment } from './src/buddy/prompt';
-import { isBuddyTeaserWindow, isBuddyLive, useBuddyNotification } from './src/buddy/useBuddyNotification';
+import { isBuddyTeaserWindow, isBuddyLive, useBuddyNotification } from './src/ui/buddy/useBuddyNotification';
 import type { Companion, CompanionBones, CompanionSoul, Rarity, Species, Eye, Hat } from './src/buddy/types';
 ```
 

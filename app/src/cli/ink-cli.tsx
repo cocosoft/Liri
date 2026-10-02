@@ -15,8 +15,9 @@ import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools';
 import { profileReport } from '@modules/performance';
-import { CompanionSprite } from '@modules/buddy/CompanionSprite';
-import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
+// 2026-10-01（子批 B 收口）：`CompanionSprite` / `useBuddyNotification` 的实现已由 `buddy/`(app)
+// 迁入本层 `ui/buddy/` ⇒ 改经 `@modules/ui` 桶出口取用（原为 `@modules/buddy/*` 子路径）。
+import { CompanionSprite, useBuddyNotification } from '@modules/ui';
 import { TaskListV2 } from '@modules/components/TaskListV2';
 import type { TaskGroup, TaskItem } from '@modules/components/TaskListV2';
 

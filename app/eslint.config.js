@@ -194,7 +194,7 @@ export default [
       'src/tools/DependencyGraphScanner.ts',
       'src/monitoring/performance/PerformanceAnalyzer.ts',
       'src/monitoring/MonitoringService.ts',
-      'src/buddy/useBuddyNotification.tsx',
+      'src/ui/buddy/useBuddyNotification.tsx',
       'src/query/queryProfiler.ts',
       'src/query/SlowQueryDetector.ts',
       'src/core/paths.ts',

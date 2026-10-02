@@ -420,7 +420,9 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 **⇒ 裁定（执行顺序）**：
 1. **#1 保留 `ToolPermissionContext`**（权限域事实源；类型最严格）。
-2. **#2 改名 `ToolRuntimePermissionContext`**（语义 = **工具执行期**权限上下文：含 `Map` 工作目录与 5 个执行期开关）⇒ 需同批更新其消费方（`tools/types/Tool.ts` 引用 + `tools/types/index.ts` 转出 + 其下游）。
+2. **✅ #2 已改名 `ToolRuntimePermissionContext`（2026-10-01 执行）** —— 语义 = **工具执行期**权限上下文（含 `Map` 工作目录与 5 个执行期开关）。**实测波及面极小：2 文件 4 处** —— `tools/types/PermissionContext.ts`（定义 + `getEmptyToolPermissionContext` 返回类型）· `tools/types/Tool.ts`（导入 + `ToolUseContext.toolPermissionContext` 字段）。**不受影响**：`getEmptyToolPermissionContext()`（同名**函数**，调用方 `entrypoints/mcp.ts` 零改动）· `tools/types/index.ts`（`export *` 自动转发）· **零外部消费者**（无任何文件从 `@modules/tools/types` 取该类型）。
+   - ⚠️ **不可用一键替换**：函数名 `getEmptyToolPermissionContext` 含同名子串，`replace_all` 会连带改坏函数名 ⇒ 必须定点改（4 处）。
+   - **验证**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test tests/tools src/tools` = **675 pass / 0 fail**。
 3. **#3 改名**（`Partial<…>` 变体）· **#4 改名**（`mode: string` 宽松版）—— 新名待定。
 4. **附带新发现**：`PermissionMode` 亦有两份（`tools/types/PermissionContext.ts:9` 本地 `type` vs `permission/PermissionMode.ts`）⇒ 随 #2 改名一并处置（本地那份应改为**从 `permission` 再导出**，因其值域应同源）。
 

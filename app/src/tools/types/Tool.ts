@@ -5,7 +5,7 @@
 import type { ToolResult } from './ToolResult';
 import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
-import type { ToolPermissionContext } from './PermissionContext';
+import type { ToolRuntimePermissionContext } from './PermissionContext';
 import type { Message } from '@modules/core';
 
 export type { ToolResult };
@@ -196,7 +196,7 @@ export interface ToolUseContext {
   localDenialTracking?: unknown;
   contentReplacementState?: unknown;
   renderedSystemPrompt?: unknown;
-  toolPermissionContext?: ToolPermissionContext;
+  toolPermissionContext?: ToolRuntimePermissionContext;
   traceId?: string;
 }
 

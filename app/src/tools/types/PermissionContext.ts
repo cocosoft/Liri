@@ -23,9 +23,19 @@ export interface AdditionalWorkingDirectory {
 export type ToolPermissionRulesBySource = Record<string, any[]>;
 
 /**
- * 工具权限上下文类型
+ * 工具**执行期**权限上下文类型
+ *
+ * 2026-10-01 数据契约专项 U5（#2）：原名 `ToolPermissionContext`，与**权限域事实源**
+ * `permission/permissions.ts:11` **同名不同物** —— 本版为「超集 + 类型劣化」
+ * （`additionalWorkingDirectories` 为 `Map<string, AdditionalWorkingDirectory>`（对方 `string[]`）；
+ * `always*Rules` 为 `Record<string, any[]>`（对方 `Record<PermissionRuleSource, string[]>`）；
+ * 另多 5 个执行期开关）⇒ 依 §9.2 原则 2「一名一规范落点」**改名**为
+ * **`ToolRuntimePermissionContext`**（权限域那份保留 `ToolPermissionContext`）。
+ *
+ * ⚠️ 本文件 L9 的 `PermissionMode` 亦与 `permission/PermissionMode.ts` **同名两份**
+ * （待 U5 后续处置：本地应改为从 `permission` 再导出，值域须同源）。
  */
-export interface ToolPermissionContext {
+export interface ToolRuntimePermissionContext {
   /**
    * 权限模式
    */
@@ -85,7 +95,7 @@ export interface ToolPermissionContext {
 /**
  * 获取空工具权限上下文
  */
-export function getEmptyToolPermissionContext(): ToolPermissionContext {
+export function getEmptyToolPermissionContext(): ToolRuntimePermissionContext {
   return {
     mode: 'default',
     additionalWorkingDirectories: new Map(),

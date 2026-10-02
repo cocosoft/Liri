@@ -40,7 +40,12 @@ export * from './migration/MigrationRegistry';
 //   在门禁眼里"复活"（2026-09-30 实测踩中：本行原写作 `export * from '<包名>'` 的形式，
 //   导致该对边在删除后再现，靠探针才定位到）。要提及包名时只写包名本身即可。
 export * from './seedSync';
-export type { Message, ToolCall, ToolResult, ToolContext } from './types';
+export type {
+  ProtocolMessage,
+  ToolCall,
+  ToolResult,
+  ToolContext,
+} from './types';
 export * from './events/EventBus';
 export * from './events/UiEvents';
 export { UiEventBus, uiEventBus } from './events/UiEventBus';

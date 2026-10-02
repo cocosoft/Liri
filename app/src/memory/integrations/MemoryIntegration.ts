@@ -1,6 +1,6 @@
-﻿import { MemoryManagerImpl } from '../MemoryManager';
+import { MemoryManagerImpl } from '../MemoryManager';
 import type { Memory } from '../types/Memory';
-import type { Message } from '@modules/core';
+import type { ProtocolMessage } from '@modules/core';
 
 /**
  * 记忆集成模块
@@ -61,7 +61,7 @@ export class MemoryIntegration {
    * @param messages 聊天消息列表
    * @returns 可记忆的内容
    */
-  extractMemorableContent(messages: Message[]): string {
+  extractMemorableContent(messages: ProtocolMessage[]): string {
     // 提取最近的几条消息
     const recentMessages = messages.slice(-5);
 
@@ -82,7 +82,7 @@ export class MemoryIntegration {
    * @param type 记忆类型
    */
   async createOrUpdateMemoryFromChat(
-    messages: Message[],
+    messages: ProtocolMessage[],
     name: string = '聊天记忆',
     type: string = 'user'
   ): Promise<Memory> {

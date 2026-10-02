@@ -6,7 +6,7 @@ import type { ToolResult } from './ToolResult';
 import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
 import type { ToolRuntimePermissionContext } from './PermissionContext';
-import type { Message } from '@modules/core';
+import type { ProtocolMessage } from '@modules/core';
 
 export type { ToolResult };
 
@@ -178,7 +178,7 @@ export interface ToolUseContext {
   agentId?: string;
   agentType?: string;
   requireCanUseTool?: boolean;
-  messages: Message[];
+  messages: ProtocolMessage[];
   fileReadingLimits?: { maxTokens?: number; maxSizeBytes?: number };
   globLimits?: { maxResults?: number };
   toolDecisions?: Map<

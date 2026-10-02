@@ -30,7 +30,12 @@
  *   - session/types/Session.ts — SessionInfo/SessionMetadata 等会话元数据类型
  *   - channels/types/IChannel.ts — 通道层的 IChannelMessage
  */
-export interface Message {
+/**
+ * 协议层消息（2026-10-01 数据契约专项 U2 #2：原名 `Message`，
+ * 与规范来源 `chat/types/message.ts` 同名不同物 —— 本版为协议形状（snake_case
+ * `tool_calls` / `tool_call_id`，供 providers 侧组装）⇒ 依 §9.2 原则 2 改名 `ProtocolMessage`）
+ */
+export interface ProtocolMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
   tool_calls?: ToolCall[];
@@ -48,7 +53,7 @@ export interface ToolResult<T = unknown> {
   output?: string;
   error?: string;
   data?: T;
-  newMessages?: Message[];
+  newMessages?: ProtocolMessage[];
   contextModifier?: (context: unknown) => unknown;
   mcpMeta?: {
     _meta?: Record<string, unknown>;

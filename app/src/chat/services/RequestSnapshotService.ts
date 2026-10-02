@@ -67,6 +67,10 @@ export interface ModelInputSnapshot {
   sections?: SnapshotSectionInput[];
   /** 组装模式（`PromptMode`） */
   mode?: string;
+  /** T-②04：本轮模型名（`ModelRouter.resolve(<route>)` 产物；未解析出 ⇒ 省略） */
+  model?: string;
+  /** T-②04：该模型经由的路由键（`ModelRouter.resolve` 的 taskType） */
+  route?: string;
   /** 既有 `SystemPromptReport` 的聚合值（复用，不重算） */
   tokens?: { stable: number; dynamic: number };
 }
@@ -115,6 +119,9 @@ export class RequestSnapshotService {
     const index = await this._ensureIndex(sessionId);
     const payload: ModelInputPayload = {};
     if (input.mode) payload.mode = input.mode;
+    // T-②04：模型/路由随事件落盘 ⇒ "路由决策"可从事件重建（§1.6 同源要求）
+    if (input.model) payload.model = input.model;
+    if (input.route) payload.route = input.route;
     if (input.tokens) payload.tokens = input.tokens;
 
     if (tools) {

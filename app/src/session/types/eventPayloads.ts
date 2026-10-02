@@ -255,6 +255,14 @@ export interface LiriEventMap {
     }>;
     /** 组装模式（对齐 PromptMode） */
     mode?: string;
+    /**
+     * 本轮**模型名**（T-②04，2026-10-02）：组装该轮模型输入所依据的模型，与
+     * `ModelRouter.resolve(<route>)` **同源** ⇒ 与"实际请求发给谁"一致
+     * （对齐系统提示词 isLocal 判定链路）。未解析出模型时**省略**（不写占位）。
+     */
+    model?: string;
+    /** 该模型经由的**路由键**（`ModelRouter.resolve` 的 taskType，如 `'default'`）；仅在有 `model` 时有意义 */
+    route?: string;
     /** 既有 SystemPromptReport 的聚合值（复用，不重算） */
     tokens?: { stable: number; dynamic: number };
   };

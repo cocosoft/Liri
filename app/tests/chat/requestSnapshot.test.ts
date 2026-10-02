@@ -111,6 +111,9 @@ describe('RequestSnapshotService（模型输入快照 · 引用式去重）', ()
       tools: TOOLS,
       sections: [{ name: 'identity', content: '我是 Liri' }],
       mode: 'conversation',
+      // T-②04（2026-10-02）：模型/路由随事件落盘 ⇒ 路由决策可重建
+      model: 'probe-model',
+      route: 'default',
     });
 
     const snaps = await readSnapshots(log);
@@ -121,6 +124,10 @@ describe('RequestSnapshotService（模型输入快照 · 引用式去重）', ()
     expect(snaps[0].data.toolsRefSeq).toBeUndefined();
     expect(snaps[0].data.sections?.[0].refSeq).toBeUndefined();
     expect(snaps[0].data.mode).toBe('conversation');
+    // T-②04（2026-10-02）：模型 / 路由键一并落盘（无则省略，不写占位）
+    const routed = snaps[0].data as { model?: string; route?: string };
+    expect(routed.model).toBe('probe-model');
+    expect(routed.route).toBe('default');
   });
 
   test('内容未变 ⇒ 只写 refSeq/toolsRefSeq（不重复落全量）', async () => {

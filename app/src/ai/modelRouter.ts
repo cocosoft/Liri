@@ -721,7 +721,15 @@ export class ModelRouter {
    */
   resolve(taskType: TaskType): string {
     const t0 = performance.now();
-    const result = this.resolveInner(taskType);
+    // T-②04（2026-10-02）：把**决策来源**一并带出，供统一出口落一条 **INFO** 决策日志
+    //（原只有各分支的 `debug` ⇒ 默认不落盘，"路由命中/回退"不可观测）
+    const decision: { source: string } = { source: 'configured' };
+    const result = this.resolveInner(taskType, decision);
+    logger.info('ModelRouter.resolve: 路由决策', {
+      task: taskType,
+      model: result || '(空)',
+      source: decision.source,
+    });
     const elapsedMs = performance.now() - t0;
     if (elapsedMs > 5) {
       logger.warning(
@@ -753,8 +761,17 @@ export class ModelRouter {
     return value;
   }
 
-  /** resolve() 内部实现（独立方法以便统一出口计时） */
-  private resolveInner(taskType: TaskType): string {
+  /**
+   * resolve() 内部实现（独立方法以便统一出口计时）。
+   *
+   * T-②04（2026-10-02）：经 `decision.source` **回报决策来源**（在**分支入口**打标，单点，
+   * 不逐 `return` 重复）；取值 `configured` / `capability-unconfigured` / `fallback-default`
+   * / `fallback-current` / `hardcoded-default`。日志仅一条（由 `resolve()` 出口落 INFO）。
+   */
+  private resolveInner(
+    taskType: TaskType,
+    decision?: { source: string }
+  ): string {
     const tasks = this.readTasks();
     const configured = tasks[taskType];
     logger.debug(
@@ -762,6 +779,7 @@ export class ModelRouter {
     );
 
     if (tasks[taskType]) {
+      if (decision) decision.source = 'configured';
       const value = tasks[taskType]!;
       if (this.isUUID(value)) {
         const modelName = this.uuidToModelName.get(value);
@@ -787,6 +805,7 @@ export class ModelRouter {
     // 能力路由（视频/图片/嵌入等）不 fallback 到对话模型
     // 对话模型如 deepseek-chat 不具备生图/生视频能力，fallback 会导致调用失败
     if (isCapabilityTask(taskType)) {
+      if (decision) decision.source = 'capability-unconfigured';
       logger.debug(
         `ModelRouter.resolve: 能力路由 ${taskType} 未配置且不 fallback 到对话模型`
       );
@@ -794,6 +813,7 @@ export class ModelRouter {
     }
 
     if (taskType !== 'default' && tasks.default) {
+      if (decision) decision.source = 'fallback-default';
       const defaultVal = tasks.default;
       if (this.isUUID(defaultVal)) {
         const modelName = this.uuidToModelName.get(defaultVal);
@@ -817,6 +837,7 @@ export class ModelRouter {
 
     const current = this.readCurrentModel();
     if (current) {
+      if (decision) decision.source = 'fallback-current';
       // 与 tasks.default 同规则：config.current 可能存 UUID（setCurrentModel 写入），须转模型名
       if (this.isUUID(current)) {
         const modelName = this.uuidToModelName.get(current);
@@ -838,6 +859,7 @@ export class ModelRouter {
       return current;
     }
 
+    if (decision) decision.source = 'hardcoded-default';
     logger.debug(
       `ModelRouter: 任务 ${taskType} 使用硬编码默认 → ${this.defaultModel || '(空)'}`
     );

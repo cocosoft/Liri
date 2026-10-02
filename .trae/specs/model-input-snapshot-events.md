@@ -53,6 +53,13 @@
 
 ### 3.1 事件载荷（`LiriEventMap['context/model-input']`）
 
+> **T-②04（2026-10-02）追加字段**：`model?: string` / `route?: string` —— 记录**组装该轮模型输入
+> 所依据的模型**与**该模型经由的路由键**（与 `ModelRouter.resolve(<route>)` 同源，
+> 对齐系统提示词 isLocal 判定链路），使"**本轮模型/路由**"可从事件重建；未解析出模型时
+> **两字段均省略**（不写占位，CS04）。
+> 路由**命中/回退的来源**另由 `ModelRouter.resolve` 出口的 **INFO 决策日志**承载
+> （`source = configured | capability-unconfigured | fallback-default | fallback-current | hardcoded-default`）。
+
 ```ts
 'context/model-input': {
   /** 本轮请求的工具清单快照（内容未变时省略，用 toolsRefSeq 引用） */

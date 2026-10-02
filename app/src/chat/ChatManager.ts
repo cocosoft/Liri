@@ -2572,6 +2572,12 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 系统提示词组装所依据的 `ModelRouter.resolve` **路由键**（T-②04，2026-10-02）——
+   * 与快照落盘的 `route` 同源 ⇒"本轮走了哪条路由"可从事件读出。
+   */
+  private static readonly PROMPT_ASSEMBLY_ROUTE = 'default';
+
+  /**
    * 获取或组装系统提示词（委托给 MessageContextPipeline）
    */
   private async getOrAssembleSystemPrompt(
@@ -2583,7 +2589,8 @@ export class ChatManagerImpl implements ChatManager {
     // 本地模型（llama.cpp）收到远程版"强制 think/response 标签"规则（system prompt
     // 3653 tokens，且诱导模型输出 <response> 包装 → 前端正文重复显示）。
     // 改用当前模型路由对应 client 组装，isLocal 判定与实际请求一致。
-    const promptClient = await this.resolvePromptClientForSystemPrompt();
+    const { client: promptClient, model: promptModel } =
+      await this.resolvePromptClientForSystemPrompt();
     return assembleContextualSystemPrompt(
       session,
       currentMessage,
@@ -2599,27 +2606,39 @@ export class ChatManagerImpl implements ChatManager {
             content: contents[i] ?? null,
           })),
           mode,
+          // T-②04（2026-10-02）：一并落"本轮模型 / 路由键" ⇒ 路由决策可从事件重建；
+          // 模型未解析出 ⇒ 两字段均省略（不写占位，CS04）
+          model: promptModel,
+          route: promptModel
+            ? ChatManagerImpl.PROMPT_ASSEMBLY_ROUTE
+            : undefined,
         });
       }
     );
   }
 
   /**
-   * 解析用于组装 system prompt 的 LLM client。
-   * 优先当前模型路由（modelRouter.resolve('default')）对应 client；
+   * 解析用于组装 system prompt 的 LLM client，并**回传模型名**（T-②04：供快照落盘）。
+   * 优先当前模型路由（`modelRouter.resolve(PROMPT_ASSEMBLY_ROUTE)`）对应 client；
    * 路由不可用时回退全局 llmClient（组装不阻断）。
    */
-  private async resolvePromptClientForSystemPrompt(): Promise<
-    ToolAwareClient | undefined
-  > {
+  private async resolvePromptClientForSystemPrompt(): Promise<{
+    client: ToolAwareClient | undefined;
+    /** 解析出的模型名；未解析出 ⇒ `undefined`（此时调用方一并省略 `route`） */
+    model?: string;
+  }> {
     try {
       const { modelRouter } = await import('@modules/ai');
-      const modelName = modelRouter.resolve('default');
-      if (modelName) return this.getClientForModel(modelName);
+      const modelName = modelRouter.resolve(
+        ChatManagerImpl.PROMPT_ASSEMBLY_ROUTE
+      );
+      if (modelName) {
+        return { client: this.getClientForModel(modelName), model: modelName };
+      }
     } catch {
       // @ignore-catch 模型路由不可用时回退全局 llmClient
     }
-    return this.llmClient;
+    return { client: this.llmClient };
   }
 
   /**

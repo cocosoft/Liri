@@ -197,6 +197,10 @@ export interface LiriEventMap {
       refSeq?: number;
     }>;
     mode?: string;
+    /** 本轮模型名（T-②04，2026-10-02）——与后端 `context/model-input` 载荷同契约 */
+    model?: string;
+    /** 该模型经由的路由键（`ModelRouter.resolve` 的 taskType） */
+    route?: string;
     tokens?: { stable: number; dynamic: number };
   };
   "channel/connect": { channelType: string; channelId: string };

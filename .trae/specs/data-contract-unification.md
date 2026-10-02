@@ -314,11 +314,11 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 | ID | 任务 | 交付物 | 解锁 |
 |---|---|---|---|
 | U1 | ✅ **已完成（2026-10-01）**：产出 **§9.1-U1** 全量普查（`7451` 名 / `619` 重复 / `166` 域内私有（不处置）/ **`453` 跨模块同名**）+ 优先级三档 | 总表（§9.1-U1） | 后续全部 |
-| U2 | 裁定 **`Message` 4 份**关系（§2.3 三分 + 第 4 份 `UnifiedMessage`） | 判定表 + 处置 | **B11** |
-| U3 | 裁定 **`Tool` 2 份**（含 `types/tool.ts` 极简版可否并入/删除） | 判定表 + 处置 | E 组 `tools` 3 条 |
-| U4 | 裁定 **`parseContextLimitFromError` 2 份**（定事实源，另一份收敛或改名） | 判定表 + 处置 | **B14** |
-| U5 | 裁定 `SessionContext` / `Context` / `CheckpointStorage` / `Command` 等**低风险项** | 判定表 + 处置 | B14 / 低风险 |
-| U6 | 回填 layer-inversion 台账（B11 / B14 / E 余 3 条）并收口本专项 | 台账更新 | — |
+| U2 | ✅ **已完成（2026-10-01）**：`Message` **7 份全消名** —— 规范来源 `chat/types/message.ts` 保留，其余 6 份改名（含单独立项的 `ProtocolMessage` `64dd5a077`）⇒ **R05-011 归零**（§9.10） | 判定表 + 处置 | ~~B11~~（**已更正：不解锁 B11**，见 §9.10「更正」） |
+| U3 | ✅ **已完成（2026-10-01）**：删死文件 `tools/legacy_types.ts`（零 importer）+ `types/tool.ts` 极简版改名 `AppStateToolRef` / `AppStateToolPermissionContext`（§9.7） | 判定表 + 处置 | E 组 `tools` 3 条（**余项仍受阻**：`Tool` 双份 + Windows 大小写） |
+| U4 | ✅ **已完成（2026-10-01）**：`parseContextLimitFromError` 侧改 `parseContextOverflowSignal`（4 文件纯改名），解除 B14 的 `ai` 桶同名硬阻断（§9.6） | 判定表 + 处置 | **B14** ✅ |
+| U5 | ✅ **已完成（2026-10-01）**：`ToolPermissionContext`(5→1) · `SessionContext`(3→1) · `Message`(7→1) · `Context` · `CheckpointStorage` · `PermissionMode` 全簇消名；`Command` 按"不合并"处置（D-220 去假依赖）；`Tool` 见 U3（§9.8–§9.12） | 判定表 + 处置 | B14 ✅ / 低风险 |
+| U6 | ✅ **已完成（2026-10-01）**：回填两张台账（本文件 §9.13 + layer-inversion spec 的 B12/B13/B14）并收口本专项 | 台账更新 | — |
 
 ### 9.4 门禁配合（沿用 §3，补两点）
 
@@ -388,7 +388,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 ---
 
-### 9.8 🟡 U5 进行中：`ToolPermissionContext` 同名簇（5 份 / 4 模块）+ `Tool`（2026-10-01）
+### 9.8 ✅ U5 已收口：`ToolPermissionContext` 同名簇（5 份 / 4 模块）+ `Tool`（2026-10-01）
 
 **判定表（实测 5 处形状各异 ⇒ 全部"同名不同物"）**：
 
@@ -426,7 +426,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 3. **✅ #3 已改名（2026-10-01 执行）**：`permission/utils/RuleMatcher.ts` 的 `ToolPermissionContext` → **`RuleMatcherPermissionContext`**（语义 = **规则匹配器**所用的权限上下文视图；其 4 个规则表为 `Partial<Record<PermissionRuleSource, string[]>>`）。**实测波及面：2 文件** —— `RuleMatcher.ts`（定义 + 10 处内部引用 + 2 处 `getDenyRules`/`getAskRules` 签名）· **`permission/PermissionManager.ts`（4 处：它从 `./utils/RuleMatcher` 导入该类型** —— 即 `#3` 有 1 个**跨文件**消费者，非仅内部；**该导入指向不变 ⇒ 行为不变**）。
    - ⚠️ **两个坑（均已踩并修正）**：① `replace_all` 只匹配了带尾逗号的形式 ⇒ 漏掉 `getAllowRules` 的**无尾逗号**参数行；② `getToolPermissionContext`/`setToolPermissionContext` **含同名子串** ⇒ 必须定点改。
 4. **✅ #4 已改名（2026-10-01 执行）**：`system/state/types.ts` 的 `ToolPermissionContext` → **`StateToolPermissionContext`**（`mode: string` + 3 个规则表**全可选**的 state 侧**宽松**视图）。**波及面：2 文件 2 处** —— `types.ts`（定义）· `system/state/index.ts`（barrel 转出）；**无任何直接消费者**。
-5. **🆕 附带发现（仍待处置）**：`PermissionMode` **亦两份**（`tools/types/PermissionContext.ts:9` 本地 `type PermissionMode = 'default'|'auto'|'strict'|'bypass'` vs `permission/PermissionMode.ts`）⇒ 收敛前需核**值域是否同源**，且须解决 `@modules/permission/...` 子路径导入的 R03-002 口径 ⇒ **单列，未随本批处置**。
+5. **✅ 附带发现已处置（2026-10-01）**：`PermissionMode` **亦两份** ⇒ 工具契约侧改名 **`ToolPermissionMode`**（实测落点 `tools/types/PermissionContext.ts:9` 定义 · `:42 mode` · `:92 prePlanMode`）；权限域 `permission/PermissionMode.ts` **保留**（事实源）。值域未收敛为再导出 ⇒ 处置与 #2 同族（**改名**，非合并）。
 
 **✅ 簇收口状态（2026-10-01）**：`ToolPermissionContext` 的 **5 份已全部消名** —— #1 保留（权限域事实源）· #2 → `ToolRuntimePermissionContext` · #3 → `RuleMatcherPermissionContext` · #4 → `StateToolPermissionContext` · #5 → `AppStateToolPermissionContext`。**验证（#3/#4 批）**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test src/permission tests/permission tests/security` = **97 pass / 1 skip / 0 fail**。
 
@@ -449,7 +449,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 3. **C → 改名 `SecuritySessionContext`**（审计语义；⚠️ **不能**用 `AuditSessionContext` —— 该名已被 `security/SecurityAuditLogger.ts:25` 占用，是另一概念）。
 4. ⚠️ `security/SecurityAuditLogger.ts` 的 `AuditSessionContext` 与 `security/index.ts` 的转出**本已区分**，不在本簇内（佐证"按角色命名"是该仓既有做法）。
 
-⏳ **执行状态**：**待执行**（B 为 6 文件机械改名；C 为 3 处）。
+✅ **执行状态：已完成（2026-10-01）** —— **B → `MemorySessionContext`**（实测 `memory/types/SessionContext.ts:10` 定义 · `memory/index.ts:76` 转出 · `memory/services/MemorySummarizer.ts` 5 处消费）· **C → `SecuritySessionContext`**（实测 `security/SecurityAudit.ts:141` 定义 · `:300` · `:634`）· **A 保留 `SessionContext`**（规范落点）。
 
 ---
 
@@ -475,7 +475,8 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 **⚠️ 更正（2026-10-01，重要的是非粉饰）**：**U2 并不能解锁 B11** —— B11（`session -> chat` 11 条）的阻断是 **① 文件名冲突**（`session/types/Message.ts` ⟷ `chat/types/message.ts`，Windows 大小写不敏感；**U2 改的是 Type 名，对文件名无效**，除非采纳上条"文件名改 `UnifiedMessage.ts`"）+ **② `eventPayloads → @modules/tasks`(app) / `@modules/utils/mermaidLint`(infra)** 的传递依赖（与 U2 完全无关）。⇒ **B11 的解锁依赖"级联下沉"（`TaskGoal*` + `MermaidLintIssue` → core）或另立 recipe**，U2 的价值是**消名 + 收敛 R05-011 的 6 条长期例外**。
 ⇒ **U3 的 `tasks` 行**（U2 原写"解锁 B11"）**据此更正为"解锁：无直接解锁项；收益 = 消名 + R05-011 例外收敛"**。
 
-⏳ **执行状态**：**待执行**（#2 需单独立项评估，其余 5 份为中小面机械改名）。
+✅ **执行状态：已完成（2026-10-01）** —— 7 份**全消名**：#1 → `TitleGenMessage` · #2 → `ProtocolMessage`（`64dd5a077`，4 文件 7 处）· #3 → `ToolUseMessage` · #5 → `ContextEngineMessage` · #6 → `UIMessage` · #7 → `SubAgentMessage`；**#4 `chat/types/message.ts` 保留为规范来源**。
+**验收（实测 `bun run lint:arch`）**：`[Message 模型] 0 个文件自定 Message 类型（规范来源: chat/types/message.ts）` ⇒ **R05-011 归零**。
 
 #### U2 执行：消费者面清点与顺序（2026-10-01）
 
@@ -509,7 +510,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 - ✅ **#7** `subagent/SubAgentCommunicator.ts` → `SubAgentMessage`（`f440c535a`；3 文件）
 - ✅ **#5** `compaction/ContextEngine.ts` → `ContextEngineMessage`（`11ef62824`；4 文件；收敛 R05-011 例外 1 条）
-- ⏳ **#3** 待执行（最安全）· **#1/#6** 待扫桶消费者 · **#2** (ProtocolMessage) 单独立项
+- ✅ **#3** → `ToolUseMessage` · ✅ **#1** → `TitleGenMessage` · ✅ **#6** → `UIMessage` · ✅ **#2** → `ProtocolMessage`（`64dd5a077`）⇒ **本清单全部收口**（#4 `chat/types/message.ts` 保留为规范来源）
 
 #### 📌 #2 `core/types.ts` → `ProtocolMessage` 立项单（2026-10-01 普查完成）
 
@@ -560,4 +561,22 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 **文件内消费**：`mode: PermissionMode`（L42）· `prePlanMode?`（L92）。
 
-⏳ **执行状态**：**待执行**（三簇取证 + 裁定已入档；② 需先核 `FileCheckpointStorage` 导入源，① 需先扫 `HelpContext` 外部消费者）。
+⏳ **执行状态**：见 §9.13（U6 收口）。
+
+---
+
+### 9.13 ✅ U6 收口：台账回填与专项结论（2026-10-01）
+
+**回填范围（两张台账）**
+
+| 台账 | 回填项 | 结果 |
+|---|---|---|
+| 本文件（data-contract-unification） | §9.3 任务表 U2–U6 · §9.6 U4 · §9.7 U3 · §9.8 U5 主簇（含 `PermissionMode` 附注）· §9.9 U5 `SessionContext` 簇 · §9.10 U5 `Message` 簇 · §9.12 U5 剩余三簇 | 全部标记 ✅ 已完成（逐条带**实测落点**） |
+| `layer-inversion-service-app-app-ui.md` | B12（`session -> ai` ×2 清零）· B13（`session -> query` ×2 清零）· B14/B14b（`session -> context` 清零） | 全部标记 ✅ 已落地 |
+
+**专项成果（可复核）**
+
+- **重名处置**：U1 普查出跨模块同名 **453** 个；本专项处置 **7 个簇** —— `Message`(7→1) · `SessionContext`(3→1) · `Context`(2→1) · `Tool`(2→1，另删死文件 `tools/legacy_types.ts`) · `CheckpointStorage`(2→1) · `PermissionMode`(2→1) · `parseContextLimitFromError`(2→1)；`Command` 按"**不合并**"处置（D-220 去假依赖）。
+- **门禁验收（提交 `45bf96ed8` 实测）**：`[Message 模型] 0 个文件自定 Message 类型` ⇒ **R05-011 归零** · `[类型中心冲突] 0` · `[R02-003 Session 模型] 0` · `违规 0` · `已豁免 42`（本会话 **151 → 42**）· `typecheck 0`。
+- **⚠️ 未纳入处置（如实记录，不粉饰）**：`Command` 同名**实测 4 处定义** —— `types/index.ts:36` · `commands/types/index.ts:39`（即 §9.1 所列 2 份）＋ **`commands/types/index.ts:405`（嵌套声明）** ＋ **`lsp/types.ts:243`（LSP 协议 `Command`，外部规范绑定）**。后两者 §9.1 **未列**、**不在本专项范围**；LSP 那份属"协议适配白名单"性质（**不得改名**）。
+- **遗留（转下批，不在本专项内）**：① **B11** 前置取证 = 级联下沉 `TaskGoalStatus` / `TaskGoalUpdateReason` / `GoalTemplateKind`（app→core）+ `MermaidLintIssue`（infra→core）；② **E 组 `tools` 余 3 条** 仍受阻于 `Tool` 双份 + Windows 大小写不敏感；③ 门禁 **R02-002 检测面远窄于实况**（453 个跨模块同名 vs 1 条违规）—— §9.4 已记口径，**扩检测面尚未实施**。

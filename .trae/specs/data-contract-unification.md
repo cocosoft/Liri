@@ -262,6 +262,45 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 | 7 | `parseContextLimitFromError` | **2** | `ai/ContextDegradation.ts` · `context/window/ContextWindowResolver.ts` | **D-222 B14 的硬阻断源**（`ai` 桶出口同名 ⇒ `TS2300`）；两份**行为可能不同** ⇒ 必须先定事实源 |
 | 8 | 其他 | — | 见 `scripts/lint-architecture.ts` 的 R05-013 `knownExceptions` | 既有例外清单，交叉参照 |
 
+### 9.1-U1 📊 全员同名普查结果（2026-10-01 执行，**全量可复核**）
+
+**方法**（不落文件，单条命令即可复现）：遍历 `app/src/**/*.{ts,tsx}`，正则抓取 `export (interface|type|enum|class) <Name>`，按名字归组并**按顶层模块去重**分类。命令：
+
+```
+bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0-9_]*)/g)… // 见本轮执行记录"
+```
+
+**结果**：
+
+| 指标 | 数量 |
+|---|---:|
+| 全仓 `export` 类型/类名（去重后） | **7451** |
+| 出现在 ≥2 个文件的同名 | **619** |
+| ↳ **仅同一模块内**（域内私有同构变体，**不处置**） | **166** |
+| ↳ **跨 ≥2 个顶层模块**（**本专项处置对象**） | **453** |
+
+**分档结论**：
+
+- **166 个"同模块内重名"不处置** —— 典型如 `channels/*/monitor.ts` 的 `MonitorEvent`/`MonitorStats`/`MonitorListener`（**各 24 份**，每通道一份）· `ink/**` 的 React `Props`（7 份）⇒ 属**域内私有**，无跨模块可见性问题。**⚠️ 若按"文件数"粗筛会把它们误判为高危（24 份！）** —— 这是 U1 必须按模块去重的原因。
+- **453 个"跨模块同名"** 按模块数排序，Top（≥4 模块）：
+
+| 名 | 模块数 | 模块 |
+|---|---:|---|
+| `ValidationResult` | **8** | commands, common, context, plugins, security, services, tools, utils |
+| `Message` | **6** | agent, chat, compaction, core, subagent, ui |
+| `TaskStatus` | **6** | chronos, common, components, core, knowledge, workspace |
+| `CompletionItem` | **6** | cli, commands, hooks, lsp, security, tools |
+| `PerformanceMetrics` · `TokenUsage` · `LogLevel` · `SearchResult` | **5** | （见执行记录） |
+| `Tool` · `ToolCall` · `ToolContext` · `ToolResult` · `ToolPermissionContext` · `PermissionContext` · `PermissionRule` · `PermissionMode` · `RetryConfig` · `RetryResult` · `AppState` · `NotificationType` · `SessionInfo` · `SessionStatus` · `SessionMetadata` · `SecurityConfig` · `AuditEvent` · `AuditEventType` · `HealthStatus` · `SyncStatus` · `TeamMember` · `AgentDefinition` · `DeliveryResult` · `MigrationResult` · `HistoryEntry` · `MemoryManager` · `TrendAnalysis` · `CleanupResult` | **4** | （见执行记录） |
+
+**⇒ 优先级（本专项只处理"有后果"的子集，不做 453 一次性清洗）**：按
+
+1. **阻断门禁/改造者优先**：`Message`（B11）· `Tool`（E 组 3 条）· `parseContextLimitFromError`（B14）· `Command`/`CheckpointStorage`/`SessionContext`/`Context`（§9.1 已列）；
+2. **已在类型中心者**（R05-013 相关）：`Message` · `Tool` · `Command` …；
+3. **被跨层消费且同名者**（与 layer-inversion 台账交集）。
+
+**⚠️ 门禁差距（须记入 §9.4）**：实测跨模块同名 **453** 个，而 `R02-002` 当前**仅报 1 条**（`ToolSearchOutput`）⇒ 门禁检测面**远窄于实况**（R02-002 只覆盖"类型中心/核心数据契约"相关的窄集合）。**⇒ 不得把"R02-002 = 1 条"当作"重名问题只有 1 个"**；本专项的判定须以 U1 普查为基数。
+
 ### 9.2 待裁定的**统一判定原则**（本专项核心产出）
 
 三条原则，供 §9.1 逐条套用（与 §2.3 的"三分"结论一致）：
@@ -274,7 +313,7 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 
 | ID | 任务 | 交付物 | 解锁 |
 |---|---|---|---|
-| U1 | **全员同名普查**：`grep -E "export (interface\|type\|enum\|class) (\w+)"` 交叉比对，产出「名字 → 份数 → 落点 → 消费方层」总表（把 §9.1 升为全量版） | 总表 | 后续全部 |
+| U1 | ✅ **已完成（2026-10-01）**：产出 **§9.1-U1** 全量普查（`7451` 名 / `619` 重复 / `166` 域内私有（不处置）/ **`453` 跨模块同名**）+ 优先级三档 | 总表（§9.1-U1） | 后续全部 |
 | U2 | 裁定 **`Message` 4 份**关系（§2.3 三分 + 第 4 份 `UnifiedMessage`） | 判定表 + 处置 | **B11** |
 | U3 | 裁定 **`Tool` 2 份**（含 `types/tool.ts` 极简版可否并入/删除） | 判定表 + 处置 | E 组 `tools` 3 条 |
 | U4 | 裁定 **`parseContextLimitFromError` 2 份**（定事实源，另一份收敛或改名） | 判定表 + 处置 | **B14** |
@@ -284,7 +323,7 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 ### 9.4 门禁配合（沿用 §3，补两点）
 
 - **R05-013**：处置口径已落 `scripts/lint-architecture.ts#checkTypeCenterDuplicates` 的 JSDoc（2026-10-01）—— **只扫定义、不扫再导出**；**往 `types/` 塞同名定义前必须核同名**。
-- **R02-002**：当前仅 1 条违规（`ToolSearchOutput` ×3）。若 U1 普查出更多同名 ⇒ **应先扩 R02-002 的检测面再动手**（避免"改了却没有门禁覆盖"）。
+- **R02-002**：当前仅 1 条违规（`ToolSearchOutput` ×3）。⚠️ **U1 实测跨模块同名 453 个** ⇒ **门禁检测面远窄于实况**（R02-002 只覆盖类型中心/核心契约相关的窄集合）⇒ **不得以"R02-002 = 1 条"推断"重名问题只有 1 个"**。若 U2–U5 要动手 ⇒ **应先扩 R02-002 的检测面**（否则"改了却没有门禁覆盖"）；但**不得放宽已有例外**。
 
 ### 9.5 合规检查清单（评审用，沿用 §7 并补）
 

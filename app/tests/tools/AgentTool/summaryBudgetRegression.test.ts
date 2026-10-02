@@ -19,7 +19,7 @@ import {
   evaluateSummaryCharBudget,
   SUMMARY_HARD_MAX_CHARS as POLICY_HARD_MAX,
   SUMMARY_MIN_CHARS as POLICY_MIN,
-} from '../../../src/core/tokenBudget/BudgetPolicy';
+} from '../../../src/tokenBudget/BudgetPolicy';
 
 /** [输入, 旧公式期望值]（期望值由迁移前的公式手算，作为回归基准） */
 const CASES: Array<[SummaryBudgetInput, number]> = [

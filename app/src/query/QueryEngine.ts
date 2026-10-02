@@ -62,13 +62,13 @@ import {
   TokenBudgetController,
   TokenBudgetStatus,
   getDefaultTokenBudget,
-} from '../core/tokenBudget/TokenBudgetController.js';
+} from '../tokenBudget/TokenBudgetController.js';
 // 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
 import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import {
   UnifiedTokenTracker,
   setUnifiedTokenTracker,
-} from '../core/tokenBudget/UnifiedTokenTracker.js';
+} from '../tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from './context/ContextTracker.js';
 import { getTokenCountFromUsage } from '../services/tokenManagement/TokenCounter.js';
 import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';

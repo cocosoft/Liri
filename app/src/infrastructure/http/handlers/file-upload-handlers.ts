@@ -22,10 +22,12 @@
 import type http from 'http';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
+// 2026-10-02 D-226（`service -> ui` 收口）：原 `@modules/components/attachments`（ui 层）⇒
+// `AttachmentManager` 已物理归位 `services/file/attachments.ts`（service 层，同层引用合法）。
 import {
   attachmentManager,
   AttachmentSource,
-} from '@modules/components/attachments';
+} from '@modules/services/file/attachments';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 D-201（chat 域取用面收敛）：原**静态**导入 app 层 `@modules/chat` 的
 // `createChatManager()` ⇒ `infrastructure -> app` 倒挂。

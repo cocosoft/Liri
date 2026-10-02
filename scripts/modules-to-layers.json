@@ -43,6 +43,7 @@
     "chat":     { "layer": "app", "description": "聊天管理" },
     "compaction": { "layer": "app", "description": "会话级压缩子系统（2026-10-01 D-217 由 `services/compact/` 改归 app）。⚠️ 以 `index.ts` 为**唯一出口**（R03-002）⇒ 消费方一律 `@modules/compaction`，禁止直连子路径。原方案曾嵌套于 `chat/compaction`（图省改本文件、借用 chat 层归属），但那会与 R03-002 冲突：要么直连子路径违规、要么改走 `@modules/chat` 桶而把整个 chat 面（ChatManager/ReActToolLoop…）拉入 query/commands ⇒ 故改**自持模块身份**，使模块边界与子系统边界重合（属「层再分类」，非放宽门禁）。" },
     "context":  { "layer": "app", "description": "上下文管理" },
+    "tokenBudget": { "layer": "app", "description": "Token 预算/定价/上下文窗口子系统（2026-10-02 D-224 由 `core/tokenBudget/` 改归 app）。根因：其出向依赖**全为 app**（`ai` 的 ModelRegistry/ALL_MODEL_CONFIGS/tokenizer 与 `context` 的 resolveContextWindow），且**无任何 core 消费者**（infra 侧唯一消费者 `analytics/CostTrackerPassesHook.ts` 系 @deprecated 死码已删）⇒ 原置 core 时 5 条 `core -> app` 倒挂（BULK-012 全量来源）。改归后出向一律合法，`core -> app` 归零。同 D-120(`modules`)/D-164(`appState`)/D-217(`compaction`) 手法。" },
     "query":    { "layer": "app", "description": "查询引擎 (TAOR)" },
     "auto-reply": { "layer": "app", "description": "自动回复" },
     "docs":     { "layer": "app", "description": "文档帮助" },
@@ -52,7 +53,7 @@
     "knowledge":{ "layer": "app", "description": "知识库" },
     "governance": { "layer": "app", "description": "治理模块" },
     "sandbox":  { "layer": "app", "description": "沙箱执行" },
-    "scripts":  { "layer": "app", "description": "内部脚本" },
+    "scripts":  { "layer": "entry", "description": "内部可执行脚本（7 个 `#!/usr/bin/env bun` 直跑工具：batch-test{,-v2,-v3,-all}/fix-bind/plugify/security-scan）。2026-10-02 **D-225 由 app 改归 entry** —— 实测其**零消费者**（`@modules/scripts` 与相对路径导入全仓皆无），且 `batch-test*.ts` 直接 import `entrypoints/{init,repl}` ⇒ 原归 app 时构成 3 条 `app -> entry` 倒挂（BULK-015 全量来源）。这些脚本**本身即独立入口程序**（shebang + `bun run src/scripts/x.ts`，见 package.json 的 `security-scan`/`plugify`）⇒ 归 entry 语义正确（与 `entrypoints` 同层；entry 可依赖一切 ⇒ 出向一律合法）。同 D-120(`modules`)/D-164(`appState`)/D-217(`compaction`) 手法（层再分类，非放宽门禁）。" },
     "plugin-sdk": { "layer": "app", "description": "插件 SDK" },
     "plugins":  { "layer": "app", "description": "插件系统" },
 

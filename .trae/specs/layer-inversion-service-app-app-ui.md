@@ -94,9 +94,9 @@
 | **C** `infrastructure -> app`（§3.3） | 19 | ✅ **已完成（19/19）** 🎯：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**）· **`session-handlers` ✅（2026-10-01 第 19 条：类型阻断由 B11 解除；值依赖 `dedupeMessagesToolCallBlocks` 下沉 `utils/chatBlocks.ts` ⇒ 边消失，见下）** | **19** | **0** |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
 | **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | ✅ **已完成（18/18）** 🎯：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）· **2026-10-01 收尾 2 条**：`services/mcp/McpToolWrapper.ts -> tools`（B18-b 契约下沉改指 core）· `services/mcp/MCPToolBridge.ts -> tools`（**B18-a 端口注入**，见下） | **18** | **0** |
-| **F** `session`+`runtime`（§3.6，最高风险） | 23 | 🟡 **部分完成**：**`session` 侧 16 条全清** 🎯（B12 ×2 · B13 ×2 · B14 ×1 · B11 ×11）；**`runtime` 侧已清 3 条**（B11 附带 `chat` ×1 · `query` ×1 · `agent` ×1）⇒ **实测余 4 条**：`CoreAPIImpl.ts` × tools / chat / ai / compaction（**均结构性必要**）；另 `CoreAPI.ts` × tools **因 2026-10-01 口径修正转入 type-only 上报**（非治理清零） | **19** | **4**（＋`runtime -> compaction` 属「另计」）；口径修正后实测 `runtime -> *` 共 4 条 |
+| **F** `session`+`runtime`（§3.6，最高风险） | 23 | ✅ **已完成**：**`session` 侧 16 条全清** 🎯（B12 ×2 · B13 ×2 · B14 ×1 · B11 ×11）；**`runtime` 侧 4 条于 2026-10-02 D-227 全清**（`CoreAPIImpl.ts × tools/chat/ai/compaction` —— 依赖反转：`setCoreApiAppDeps` 注入缝 + 组合根注册；**覆盖 spec 原「结构性必要/不推进」结论**）；另 `CoreAPI.ts` × tools **因 2026-10-01 口径修正转入 type-only 上报** | **23** | **0** 🎯 |
 
-**门禁总账（以「实测」为唯一事实源）**：`已豁免` **151 → 15**（起点 `151` 与现值 `15` 均有门禁原始输出留档）；另有 2026-10-01 R00-001 **口径修正 −4**（**非治理成果**，见下方「门禁口径变更记录」）。
+**门禁总账（以「实测」为唯一事实源）**：`已豁免` **151 → 15**（起点 `151` 与 2026-10-01 现值 `15` 均有门禁原始输出留档；**2026-10-02 D-224 收敛至 10 · D-225 至 7 · D-226 至 4 · D-227 至 0（首次归零）**，见下）；另有 2026-10-01 R00-001 **口径修正 −4**（**非治理成果**，见下方「门禁口径变更记录」）。
 
 **当前门禁原始输出（快照，2026-10-01，权威）**：
 ```
@@ -117,6 +117,152 @@
 
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
+
+---
+
+**📌 D-224（2026-10-02）`core -> app` 5 条全清 —— 整模块改归 app + 删死码（`已豁免 15 → 10`，恰 −5）**
+
+**用户裁定**：路线**甲「整模块改归 app」**。
+**根因**：`core/tokenBudget/` 是**错置在 core 的 app 级子系统** —— 出向依赖**全为 app**（`ai` 的 `ModelRegistry`/`ALL_MODEL_CONFIGS`/tokenizer 族 与 `context` 的 `resolveContextWindow`），且**无任何 core 消费者**（infra 侧唯一消费者 `analytics/CostTrackerPassesHook.ts` 系 `@deprecated` 死码）。同 D-120(`modules`)/D-164(`appState`)/D-217(`compaction`) 手法。
+
+| # | 源文件 | 依赖符号 | 目标 | recipe |
+|---|---|---|---|---|
+| ① | `core/tokenBudget/UnifiedTokenTracker.ts:20` | `resolveContextWindow` | context (app) | 随模块**改归 app** ⇒ app→app 合法 |
+| ② | `core/flows/model-picker.ts:7` | `modelManager` | ai (app) | **删死码**（`core/flows/` 全目录零消费，`core/index.ts` 未再导出） |
+| ③ | `core/tokenBudget/ModelContextCache.ts:14` | `ALL_MODEL_CONFIGS` | ai (app) | 随模块**改归 app** |
+| ④ | `core/tokenBudget/PriceManager.ts:11` | `ModelRegistry` | ai (app) | 随模块**改归 app** |
+| ⑤ | `core/tokenBudget/UnifiedTokenTracker.ts:13-19` | `extractUsage`/`estimateTokens`/`estimateMessagesTokens(Cooperative)`/`getCachedTiktokenEncoder` | ai (app) | 随模块**改归 app** |
+
+**改动清单**：
+1. `git mv app/src/core/tokenBudget → app/src/tokenBudget/`（16 文件；内部 `../loggerFacade|errorHandler|errors|pricing|spi/CacheService` → `../core/...`，logger 名 `core:tokenBudget:*` → `tokenBudget:*`）；
+2. **删死码** `app/src/core/flows/`（5 文件，全仓零消费）；
+3. **删死码** `app/src/analytics/CostTrackerPassesHook.ts`（`@deprecated` 零调用；否则新增 `infra -> app`）；
+4. **删** `services/tokenManagement/index.ts` 的「Phase 2.9 向后兼容别名块」（`TokenBudgetManager` 等**零消费**；否则新增 `service -> app`）；
+5. 注册 `@modules/tokenBudget(/*)` 别名（`app/tsconfig.json`）· `modules-to-layers.json` 增 `tokenBudget = app`；
+6. 门禁脚本：删 `canonicalEntryKeys` 中陈旧的 `core/tokenBudget` 键 · R01-004 例外路径 `core\tokenBudget\...` → `tokenBudget\...` · 两处 barrel 白名单补 `src\tokenBudget\` · `lint-models` 白名单随迁；
+7. `layer-exceptions.json`：**删除已归零的 BULK-012（`core -> app`）**（依 BULK-013 空气例外先例）；
+8. 文档同步：删 `app/docs/核心模块/flow-engine.md`（仅描述已删的 `core/flows/`，且示例 API `channelSetupFlow`/`modelPickerFlow` 从不存在）+ 索引行 · `.github/CODEOWNERS` 路径更新。
+
+**门禁实测（新快照，权威）**：
+```
+分层检查完成: 检查 3872 个文件 | 违规 0 | 已豁免 10 | type-only 跨层引用 3 处（仅上报） | 动态跨层引用 32 处（仅上报）
+错误: 0  警告: 2      （R07-004 · R00-003，均**预存**；R05-005 已由 barrel 白名单补齐消除）
+```
+`R03-002` = **0 处子目录 import 违规** · `typecheck 0` · `lint:models PASS` · `bun test tests/tokenBudget tests/core/tokenBudget tests/chat/streamBudgetRefund.test.ts tests/tools/AgentTool/summaryBudgetRegression.test.ts` = **27 pass / 0 fail**。
+
+**⚠️ 净差自省（如实留档）**：改归过程中**一度**新增 1 条 `service -> app`（`services/tokenManagement/index.ts → tokenBudget`；原 `→ core` 属合法方向）⇒ 首轮实测为 `已豁免 11`（净 −4）。已由**删零消费的向后兼容别名块**消除 ⇒ 终态 `core -> app` = **0**、`已豁免 10`。
+**⚠️ 上一轮失败留档**：曾尝试仅把 ① 改指 `@modules/utils/ContextWindowResolver`（infra）⇒ 门禁报 `违规 1`。**根因**：`core` 是**最低层**（`allowedDependencies.core = ['core']`）⇒ **任何 `core → X`（X≠core）皆倒挂，改指 infra 无效**；已在执行前回退（未提交）。
+
+**预存问题（已记录 `dev_docs/error_repairs/预存错误与待处理问题.md`）**：`lint:models` 因 **D-212 把 tiktoken 实现自 `ai/tokenizer/` 下沉 `utils/TiktokenEstimator.ts` 而白名单 `'ai/tokenizer/'` 未同步** ⇒ 假红（`encodingForModel('gpt-4o')` 系 `model-usage.md` 明列的合法项）。本批已补白名单并复跑 PASS。
+
+**待复核（如实登记，**未处理**）**：`app/src/flows/FlowEngine.ts`（模块 `flows`，app）**疑似零消费**（全仓 grep 仅自引用）—— 属 app 层、**无倒挂**，不在本批范围。
+
+---
+
+**📌 D-225（2026-10-02）`app -> entry` 3 条全清 —— `scripts` 模块改归 entry（`已豁免 10 → 7`，恰 −3）**
+
+**对象**：
+| # | 源文件 | 依赖 | 目标 |
+|---|---|---|---|
+| ① | `app/src/scripts/batch-test.ts:6` | `executeOnce` | `entrypoints/repl` (entry) |
+| ② | `app/src/scripts/batch-test-v2.ts:6,8` | `init` · `initializeChatManager` | `entrypoints/{init,repl}` (entry) |
+| ③ | `app/src/scripts/batch-test-v3.ts:5` | `init` | `entrypoints/init` (entry) |
+
+**取证（归一化检查，CS01）**：
+- `app/src/scripts/` 共 7 文件（`batch-test{,-v2,-v3,-all}` · `fix-bind` · `plugify` · `security-scan`），**全部**带 `#!/usr/bin/env bun`、经 `bun run src/scripts/x.ts` 直跑（`package.json` 注册 `security-scan`/`plugify`）；
+- **零消费者**：全仓 grep `@modules/scripts` 与相对路径 `../scripts/` / `../../scripts/` **皆无命中**；
+- `batch-test-all.ts` 不 import 兄弟文件（用 `spawnSync` 起子进程 + `INDEX_PATH = join(SCRIPT_DIR,'..','index.ts')`）。
+
+**根因**：这些文件**本身即独立入口程序**（shebang 直跑），却按「内部脚本」归了 **app** 层 ⇒ 其 import `entrypoints/*` 被判 `app -> entry` 倒挂。
+
+**处置（recipe ①「改归正确层」）**：`modules-to-layers.json` 的 `"scripts"` **`app` → `entry`**（附根因说明）。entry 可依赖全层 ⇒ 全部出向（`entrypoints` · `monitoring` · `security` 等）一律合法。**未移动任何文件、零代码改动**；同 D-120(`modules`)/D-164(`appState`)/D-217(`compaction`) 手法。
+**附带**：删除已归零的 **BULK-015（`app -> entry`）** 空气例外（依 BULK-013/BULK-012 先例）。
+
+**门禁实测（新快照，权威）**：
+```
+分层检查完成: 检查 3872 个文件 | 违规 0 | 已豁免 7 | type-only 跨层引用 3 处（仅上报） | 动态跨层引用 32 处（仅上报）
+错误: 0  警告: 2      （R07-004 · R00-003，均**预存**）
+```
+`R03-002` = **0 处子目录 import 违规** · `typecheck 0`。
+
+**剩余默认豁免 = 7 条**：`service -> app` **4**（`CoreAPIImpl.ts × tools/chat/ai/compaction`，F 组已取证「**可清但不推进**」：收益 −4 vs 装配语义成本 + 启动路径冒烟）· `service -> ui` **2**（`file-upload-handlers.ts → components` · `streaming/StreamEventInk.tsx → ui`）· `service -> entry` **1**（`services/agent/agentMemory.ts → bootstrap`）。
+
+---
+
+**📌 D-226（2026-10-02）`service -> ui` 2 条 + `service -> entry` 1 条全清 —— 归位 + 删死码 + 改指 core（`已豁免 7 → 4`，恰 −3）**
+
+| # | 源 | 依赖 | 目标 | 处置 |
+|---|---|---|---|---|
+| ① | `infrastructure/http/handlers/file-upload-handlers.ts:28` | `attachmentManager` · `AttachmentSource` | `components/attachments` (ui) | **物理归位**：`components/attachments.ts` → `services/file/attachments.ts`（**service 层**）⇒ 同层边消失 |
+| ② | `streaming/StreamEventInk.tsx:12` | `Box, Text` | `ui/ink` (ui) | **删死码**：全仓（含测试）零消费 ⇒ 整文件删除 + 移除 barrel 转出 |
+| ③ | `services/agent/agentMemory.ts:8` | `getProjectRoot` | `bootstrap/state` (entry) | **改指 core**：`core/paths#resolveProjectRoot`（§1.13 路径唯一入口） |
+
+**取证（CS01 归一化检查）**：
+- ①`AttachmentManager` **零 UI 依赖**（仅 `fs`/`path` + `@modules/core` 路径 + sqlite3 + 本模块 `fileNaming`），**唯一消费者**即该 service 层 handler（`@modules/components/attachments` 全仓仅此 1 处 import；`components/index.ts` **未**再导出它）⇒ 「附件持久化服务」归 **服务层** 正确（与 `fileNaming` 同域）。
+- ②`StreamEventInk.tsx` 是 React/Ink 组件却寄居 service；其 6 个导出（`ToolCallStatus`/`StreamControlIndicator`/`MetricsDisplay`/`ProgressBar`/`StreamStatusPanel`/`EventLog`）**全仓零消费者**（`app/src` + `app/tests` 均无），且 `@modules/streaming` 桶本身无人引用（消费方一律走 `@modules/streaming/scrubbers` 等子路径）⇒ 死码。
+- ③`getProjectRoot()`（`bootstrap/state.ts`）＝ `configManager.env('LIRI_PROJECT_DIR') || process.cwd()` 快照，**`setProjectRoot` 全仓零调用**；`core/paths#resolveProjectRoot()` 读同一 env + 多级回退（argv[0]/INIT_CWD/cwd）⇒ **等价且更健壮**，且系 §1.13「路径唯一入口」的规范取法（原取法本身违反 §1.13）。
+
+**实测**：`已豁免 7 → 4`（**恰 −3**）· `违规 0` · `R03-002` 0 · `错误 0 警告 2` · `typecheck 0` · `bun test tests/http tests/knowledge` = **76 pass / 0 fail**。
+**附带**：删除已归零的 **BULK-014（`service -> ui`）** 与 **BULK-018（`service -> entry`）** 空气例外（同 D-224/D-225 先例）。
+
+**⚠️ 净差自省（如实留档）**：①的物理归位使一处**动态**导入（`attachments.ts` 内的 `autoIngestAttachment` → `knowledge/ingestion/FileIngestionService`）由 `ui -> app`（合法）变为 `service -> app` ⇒ **动态跨层引用 `32 → 33`**（`R00-003`，**仅上报、不计违规/豁免**）。现 `core/spi/KnowledgeService.ts` 端口**无 `ingestFile`** ⇒ 未走端口（避免为单点扩大端口面）；此耦合系真实存在、由归位**显性化**，如实登记，**如需消除可后续为该端口补 `ingestFile`**。
+
+**🔎 附带发现（已核实，**未处理**，待裁定）**：`layer-exceptions.json` 中 **`BULK-004`（`app -> ui`，估算 64）** 与 **`PM-001`（`buddy -> ui`）** 经本批探针实测 **0 命中 ⇒ 亦为空气例外**（`已加载 3 条有效分层例外` 中仅 `BULK-005` 尚有 4 处命中）。**未在本批删除**（非本次改动所致，且 `BULK-004` 系大桶、其清零是否需要独立裁定另行确认）—— 依「发现即记录」登记于此。
+
+---
+
+**📌 D-227（2026-10-02）`service -> app` 4 条全清 —— `CoreAPIImpl` 依赖反转 ⇒ `已豁免` 首次归零（0）**
+
+**用户裁定**：路线**甲「实施注入缝」**（覆盖 spec 原「不推进」结论）。
+
+**对象（均在 `app/src/runtime/api/CoreAPIImpl.ts`，4 条 = 4 个目标模块各 1 对）**：`@modules/tools` · `@modules/chat` · `@modules/ai` · `@modules/compaction`。
+
+**根因**：`CoreAPIImpl`（**service** 层，全仓最核心装配文件）以**静态值导入**直接取用 app 层实例/函数。
+
+**处置（recipe：依赖反转 = 端口注入 + 动态化 + 类型化）**：
+1. 文件内新增 **`CoreApiAppDeps` 注入包 + `setCoreApiAppDeps()`**（**不新建文件**；字段用 `unknown`，落点处 `as` 收窄，避免新增 app 类型导入）；`CoreAPIImpl` 以**懒解析 getter** `this.appDeps` 读取（未注入 ⇒ `AppError` fail-fast）—— **「创建」与「访问」解耦**，从而规避「创建早于注册」的启动时序问题。
+2. **8 个符号走注入**：`chatManager` / `toolManager` / `converterEngine` / `fileTypeDetector`（原为构造默认值）· `routers`（**已绑定三元组** `resolveDefault/resolveWithPhase/resolveChat`，隐藏 `modelRouter`+`RouteKey`+`resolveModelRoute`）· `getCheckpointService` · `autoCompactService`（**工厂**，保持每次新建语义）· `globalEmbeddingManager`。
+3. **7 个符号走动态导入**（本文件既有做法，仅进 `R00-003`）：`getToolManager`→`this.toolManager` · `computeUnifiedDiff` · `eventNotificationService` · `resolveModelRoute`/`RouteKey`/`providerRegistry`/`ToolAwareClient` · `detectPhase`。
+4. **类型位**改 `import type`（`SmartRouter`/`RouteDecision`/`ChatManager`/`ToolManager`/`getConverterEngine`/`FileTypeDetector`）。
+5. **组合根注册**（entry，可合法 import app）：`BootPipelineIntegrator`（Phase 5，`setSmartRouter` 同处）· `entrypoints/init.ts`（「预创建 CoreAPI 单例」之前）· `entrypoints/repl.ts`（覆盖 `--print` 直分发、**不经** `init()` 的入口）。
+
+**门禁实测（权威）**：
+```
+分层检查完成: 检查 3871 个文件 | 违规 0 | 已豁免 0 | type-only 跨层引用 6 处（仅上报） | 动态跨层引用 33 处（仅上报）
+错误: 0  警告: 2（R07-004 · R00-003）
+```
+⇒ **`已豁免` 自本专项开工（151）以来首次归零（0）**。`type-only 3 → 6`、`动态 32 → 33`（**均仅上报**，系 4 个「文件 × 模块」对由「值」转「类型/动态」的必然结果，属**可见化**而非新增耦合）。
+**验收**：`typecheck 0` · `bun test tests/runtime tests/http src/runtime/api/__tests__/CoreAPIImpl.chatStream.test.ts` = **111 pass / 0 fail** · **启动路径冒烟**（`bun run src/pyapp.ts --print "/help"`，临时 `LIRI_HOME` 规避单例守卫）= **`启动完成 (1871ms)` + `✓ REPL 已退出`，退出码 0，无 `appDeps 未注入` 报错**。
+**附带**：删除已归零的 **BULK-005** ⇒ `有效分层例外 3 → 2`（余 `BULK-004`/`PM-001`，见上「待裁定」）。
+
+**⚠️ 实施中的必要偏离（如实留档，现已修正 project_rules 认知）**：`globalToolManager`（`tools/core/ToolManager.ts` 的 **Proxy 包装层**，有 `getInner()`）与 `getToolManager()`（`tools/ToolManager.ts` **增强层本体**，有 `loadBuiltinTools/getRegistry`）**并非同一实例**（两同名类）—— 与 `project_rules §1.16`「`globalToolManager` 与 `getToolManager()` 为同一实例」的表述**不符**（冒烟实测注入增强层会抛 `TypeError: this.toolManager.getInner is not a function`）。最终按「注入包装层 + `getInner()` 取增强层」适配，行为与旧码等价（见 `预存错误与待处理问题.md`）。
+
+**🔎 附带发现（已记录，**未处置**）**：① `app/src/scripts/batch-test-all.ts` 的 `INDEX_PATH` 指向**不存在的** `app/src/index.ts`（脚本已不可用）；② `entrypoints/cli.tsx` 末尾**无** `import.meta.main` 自执行 ⇒ `--print` 单次执行入口缺标准 CLI 触发点。二者均系**预存缺陷**，与 D-227 无关。
+
+---
+
+**📌 D-228（2026-10-02）删除最后 2 条空气例外 ⇒ 例外清单彻底归零（口径收紧，零门禁影响）**
+
+**用户裁定**：**两条全删**。
+
+| 条目 | 形式 | 命中 | 判定与依据 |
+|---|---|---|---|
+| **`BULK-004`** | `bulkExceptions`，`pattern: app -> ui`，`estimatedCount: 64` | **0** | `app -> ui` 本身即**非法方向**（`allowedDependencies.app = [app, service, infra, core]` **不含 `ui`**）；rationale 所述成因（buddy/chat 混合模块面）已由子批 B 外迁 `ui/buddy/` 等解决 |
+| **`PM-001`** | `perModuleExceptions`，`buddy -> ui` | **0** | 同上（`buddy` 属 app）；其 UI 面已外迁，`perModuleExceptions` 全仓已无 `buddy -> ui` 命中 |
+
+**取证（门禁权威 + 独立复核）**：`lint:arch` 报 `已豁免 0`（⇒ 两条例外**均未被命中**）；另以 grep 复核 `@modules/{ui,ink,components}` 的**值导入仅出现在 `components/` 内部**（ui→ui 同层）⇒ `app -> ui` 值边确为 0。
+
+**处置**：删除该两条 ⇒ `bulkExceptions: []` + `perModuleExceptions: []`。
+
+**门禁实测（权威）**：
+```
+已加载 0 条有效分层例外 + 156 条文件大小例外 + 2 条桶文件例外 + 1 条微小文件例外
+分层检查完成: 检查 3871 个文件 | 违规 0 | 已豁免 0 | type-only 跨层引用 6 处（仅上报） | 动态跨层引用 33 处（仅上报）
+错误: 0  警告: 2（R07-004 · R00-003）
+```
+
+**口径后果（本批唯一实质变化，属**收紧**）**：今后**任何跨层「值导入/再导出」边**（含 `app -> ui`、`buddy -> ui`）**一律直接报 `R00-001` 违规** —— **不再有沉默容忍**。这与本专项「把容忍面逐条收敛到显式契约」的终态一致（同 BULK-007/008/009/016/012/013/014/015/018/005 十次删除先例）。纯 `type-only` 与**动态**跨层引用**仍照旧仅上报**（不受影响）。
+**当前门禁 0 影响**（`已豁免 0 → 0`、`违规 0 → 0`）。
 
 **📌 门禁口径变更记录（2026-10-01，用户裁定「甲」—— ⚠️ 非治理成果，勿计入上表）**
 

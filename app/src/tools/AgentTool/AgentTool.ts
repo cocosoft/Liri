@@ -65,7 +65,7 @@ import {
   SUMMARY_MIN_CHARS,
 } from './summaryTrim';
 // O9/G14：真实预算取数来源（父当前上下文 + 模型窗口）
-import { getUnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
+import { getUnifiedTokenTracker } from '@modules/tokenBudget/UnifiedTokenTracker';
 // O10b（v7.1）：控制面 Tier1 血缘链（会话祖先判定）
 import { isAncestorSession } from '@modules/session';
 import { resolveContextWindowAsync } from '@modules/context';
@@ -119,7 +119,7 @@ import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
-import { subAgentTokenListeners } from '../../core/tokenBudget/SubAgentTokenBridge';
+import { subAgentTokenListeners } from '../../tokenBudget/SubAgentTokenBridge';
 // N-41（2026-09-21 真机实证）：工具池兜底来源 —— 唯一注册表（project_rules §1.16）
 import { getToolRegistry } from '../ToolRegistry';
 // N-42（2026-09-21）：工具名合法性（OpenAI 兼容 `^[a-zA-Z0-9_-]+$`）——

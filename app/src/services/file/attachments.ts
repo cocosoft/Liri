@@ -7,7 +7,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from './fileNaming';
 import {
   resolveAttachmentsDir,
   resolveDataSubDir,
@@ -15,7 +15,13 @@ import {
 } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
 
-const logger = getLogger('components:attachments');
+// 2026-10-02 D-226（`service -> ui` 收口）：本文件（`AttachmentManager` 附件持久化服务）
+// 原寄居 `src/components/`（ui 层），但其**零 UI 依赖**（仅 fs/DB + `@modules/core` 路径 + 本模块
+// `fileNaming`），唯一消费者是 service 层的 `infrastructure/http/handlers/file-upload-handlers.ts`
+// ⇒ 原位置造成 `infrastructure -> components`（service -> ui）倒挂。
+// **处置**：物理归位至 `services/file/`（**service 层**，与 `fileNaming` 同域）—— 消费方
+// `infrastructure`(service) → `services`(service) 属**同层**，边消失（CS01 归一化：未新建重复实现）。
+const logger = getLogger('services:file:attachments');
 /**
  * 附件类型
  */
@@ -528,7 +534,7 @@ export class AttachmentManager {
     Promise.resolve().then(async () => {
       try {
         const { getDefaultIngestionService } =
-          await import('../knowledge/ingestion/FileIngestionService');
+          await import('../../knowledge/ingestion/FileIngestionService');
         const service = getDefaultIngestionService();
         await service.ingestFile(attachment.path, 'attachment', {
           description: `附件类型: ${attachment.type}, MIME: ${attachment.mimeType}`,

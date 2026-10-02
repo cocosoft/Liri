@@ -6,9 +6,9 @@
 import { priceManager } from './PriceManager';
 import type { ContextCategory, ContextStats, APIProviderType } from './types';
 
-import { getLogger } from '../loggerFacade.js';
-import { handleError } from '../errorHandler.js';
-const logger = getLogger('core:tokenBudget:ContextStatsCollector');
+import { getLogger } from '../core/loggerFacade.js';
+import { handleError } from '../core/errorHandler.js';
+const logger = getLogger('tokenBudget:ContextStatsCollector');
 
 const CONTEXT_COLORS = {
   systemPrompt: '#4A90D9',
@@ -70,7 +70,7 @@ export class ContextStatsCollector {
       // @ignore-catch: non-critical fallback
 
       handleError(err, {
-        module: 'core:tokenBudget',
+        module: 'tokenBudget',
         action: 'collect',
       });
     }

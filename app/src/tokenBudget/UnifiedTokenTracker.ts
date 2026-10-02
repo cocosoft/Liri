@@ -18,8 +18,8 @@ import {
 } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
-import { getLogger } from '../loggerFacade.js';
-import { handleError } from '../errorHandler.js';
+import { getLogger } from '../core/loggerFacade.js';
+import { handleError } from '../core/errorHandler.js';
 import {
   TokenBudgetController,
   UNIFIED_THRESHOLDS,
@@ -356,7 +356,7 @@ export class UnifiedTokenTracker {
       return { decision, beforeTokens: estimatedTotal, snapshot, reason };
     } catch (err) {
       handleError(err, {
-        module: 'core:tokenBudget',
+        module: 'tokenBudget',
         action: 'check_before_request',
       });
       return {
@@ -507,7 +507,7 @@ export class UnifiedTokenTracker {
       }, 1500);
     } catch (err) {
       handleError(err, {
-        module: 'core:tokenBudget',
+        module: 'tokenBudget',
         action: 'start_streaming_check',
       });
     }

@@ -8,7 +8,7 @@
  *   /context debug    — 压缩决策树打印
  */
 import { getLogger } from '@modules/monitoring';
-import { getModelThresholds } from '@modules/core/tokenBudget/UnifiedTokenTracker';
+import { getModelThresholds } from '@modules/tokenBudget/UnifiedTokenTracker';
 const logger = getLogger('context:compaction:diag');
 
 const MAX_HISTORY_ENTRIES = 50;

@@ -62,6 +62,8 @@
       "@modules/config/*": ["config/*"],
       "@modules/context": ["context"],
       "@modules/context/*": ["context/*"],
+      "@modules/tokenBudget": ["tokenBudget"],
+      "@modules/tokenBudget/*": ["tokenBudget/*"],
       "@modules/errors": ["error"],
       "@modules/errors/*": ["error/*"],
       "@modules/modules": ["modules"],

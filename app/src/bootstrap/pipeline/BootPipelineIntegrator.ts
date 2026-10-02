@@ -20,6 +20,52 @@ import { handleError } from '../../core/errorHandler.js';
 const logger = getLogger('BootPipelineIntegrator');
 
 /**
+ * D-227（2026-10-02，B12 `runtime -> app` 收口）：组合根为 `CoreAPIImpl` 注入 app 层能力包。
+ *
+ * `CoreAPIImpl`（service 层）原**静态**值导入 `@modules/{tools,chat,ai,compaction}`（4 条
+ * `runtime -> app` 倒挂）⇒ 改为经 `setCoreApiAppDeps()` 由**入口层**装配注入。
+ *
+ * ⚠️ 只需「注册早于任何 app 依赖**访问**」——`CoreAPIImpl` 对注入包**懒解析**（getter），
+ * 故「创建」(`getCoreAPI()`)与「注册」顺序无关。
+ *
+ * 本函数由多入口复用：① 真实启动 `entrypoints/init.ts`（在预创建 CoreAPI 单例之前）；
+ * ② 本文件的 Phase 5（BootPipeline 路径，`main.ts` 尚未接线到管道，见文件头说明）。
+ */
+export async function registerCoreApiAppDeps(): Promise<void> {
+  const { setCoreApiAppDeps } = await import(
+    '@modules/runtime/api/CoreAPIImpl'
+  );
+  const { createChatManager, getCheckpointService } = await import(
+    '@modules/chat'
+  );
+  const { globalToolManager, getConverterEngine, FileTypeDetector } =
+    await import('@modules/tools');
+  const { modelRouter, resolveModelRoute, RouteKey, globalEmbeddingManager } =
+    await import('@modules/ai');
+  const { AutoCompactService } = await import('@modules/compaction');
+
+  setCoreApiAppDeps({
+    chatManager: createChatManager(),
+    // ⚠️ 必须是 `globalToolManager`（CC 兼容**包装层**，即原 `CoreAPIImpl` 的默认值）——
+    // 它同时暴露 `getTools/getTool/executeTool`（包装层）与 `getInner()`（→ 增强层
+    // `loadBuiltinTools`/`getRegistry`）。若注入 `getToolManager()`（**增强层**本体）会缺失
+    // `getTools`/`getInner`（实测：`this.toolManager.getInner is not a function`）。
+    toolManager: globalToolManager,
+    converterEngine: getConverterEngine(),
+    fileTypeDetector: new FileTypeDetector(),
+    router: {
+      resolveDefault: () => modelRouter.resolve('default') ?? '',
+      resolveWithPhase: (phase) =>
+        modelRouter.resolveWithPhase(RouteKey.CHAT, phase as never) ?? null,
+      resolveChat: () => resolveModelRoute(RouteKey.CHAT),
+    },
+    getCheckpointService,
+    createAutoCompactService: () => new AutoCompactService(),
+    globalEmbeddingManager,
+  });
+}
+
+/**
  * 注册标准启动处理器
  *
  * 将当前 launch() 中的初始化逻辑按阶段注册到 BootPipeline。
@@ -283,6 +329,9 @@ export function registerStandardHandlers(): void {
           config: routerConfig,
           providerRegistry,
         });
+
+        // D-227（2026-10-02）：组合根注入 CoreAPIImpl 的 app 层能力包 —— 须早于任何 app 依赖**访问**。
+        await registerCoreApiAppDeps();
 
         const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
         getCoreAPI().setSmartRouter(smartRouter);

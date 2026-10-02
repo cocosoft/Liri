@@ -3,7 +3,7 @@
  * 所有价格获取逻辑都实现此接口
  */
 
-import type { ModelPriceTable } from '@modules/core/tokenBudget/types';
+import type { ModelPriceTable } from '../types';
 
 export interface PricingResult {
   model: string;

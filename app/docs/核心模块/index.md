@@ -13,7 +13,6 @@ Liri 的核心模块提供了应用的基础能力支撑。
 | [ConfigManager](config-manager.md) | 配置管理 |
 | [SessionManager](session-manager.md) | 会话管理 |
 | [TaskSystem](task-system.md) | 任务系统 |
-| [FlowEngine](flow-engine.md) | 流程引擎 |
 | [Gateway](gateway.md) | 网关服务 |
 | [ACP 协议](acp-protocol.md) | Agent 通信协议 |
 | [Context Engine](context-engine.md) | 上下文引擎 |

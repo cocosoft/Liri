@@ -8,7 +8,7 @@
  * 只留头部，**结尾的结论与改动清单**（最能代表"做成了什么"的部分）恰好被丢掉。
  *
  * **P2-10（2026-09-25）**：`computeSummaryCharBudget` 的**公式与常量已迁入统一预算策略层**
- * （`core/tokenBudget/BudgetPolicy.ts` 的 `subagent.summary-chars`），本模块改为**委托**
+ * （`tokenBudget/BudgetPolicy.ts` 的 `subagent.summary-chars`），本模块改为**委托**
  * ⇒ **导出名 / 签名 / 返回值不变**、调用方零改动（设计见 `.trae/specs/budget-policy-layer.md`）。
  * `trimSummaryWithFooter`（head 75% + tail 25% 裁剪）仍在本模块，逻辑未变。
  *
@@ -22,8 +22,8 @@ import {
   SUMMARY_MIN_CHARS,
   SUMMARY_HEAD_RATIO,
   evaluateSummaryCharBudget,
-} from '@modules/core/tokenBudget/BudgetPolicy';
-import type { SummaryBudgetInput } from '@modules/core/tokenBudget/BudgetPolicy';
+} from '@modules/tokenBudget/BudgetPolicy';
+import type { SummaryBudgetInput } from '@modules/tokenBudget/BudgetPolicy';
 
 // 常量与输入类型的**公共 API 保持不变**（实现迁入策略层后在此 re-export）
 export { SUMMARY_HARD_MAX_CHARS, SUMMARY_MIN_CHARS, SUMMARY_HEAD_RATIO };
@@ -33,7 +33,7 @@ export type { SummaryBudgetInput };
  * 计算单个 worker 摘要的字符预算。
  *
  * **委托**统一预算策略层（`subagent.summary-chars`）—— 规则与 G14 口径见
- * `core/tokenBudget/BudgetPolicy.ts`（那里是这两个量的**单一实现**）。
+ * `tokenBudget/BudgetPolicy.ts`（那里是这两个量的**单一实现**）。
  */
 export function computeSummaryCharBudget(input: SummaryBudgetInput): number {
   return evaluateSummaryCharBudget(input);

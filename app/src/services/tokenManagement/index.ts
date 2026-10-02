@@ -35,13 +35,9 @@ export {
   calculateTokenEstimateFromUsage,
 } from './TokenCounter';
 
-// Phase 2.9: Re-export from core for backward compatibility
-export {
-  TokenBudgetController as TokenBudgetManager,
-  TokenBudgetStatus,
-} from '../../core/tokenBudget/TokenBudgetController';
-export type { TokenBudgetState } from '../../core/tokenBudget/TokenBudgetController';
-
+// 2026-10-02 D-224：移除「Phase 2.9 自 core 转出 TokenBudgetController/Status/State 的向后兼容别名块」
+// —— 该别名（`TokenBudgetManager` 等）全仓**零消费**，且 `tokenBudget` 已**改归 app**；保留会让本
+// service 层文件产生 `service -> app` 倒挂（BULK-005）。消费方一律直连 `@modules/tokenBudget`。
 export type { ModelSpecificTokenEstimator } from './TokenEstimator';
 
 export {

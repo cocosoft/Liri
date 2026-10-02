@@ -42,7 +42,7 @@ import {
   TokenBudgetController,
   TokenBudgetStatus,
   getDefaultTokenBudget,
-} from '@modules/core/tokenBudget/TokenBudgetController.js';
+} from '@modules/tokenBudget/TokenBudgetController.js';
 // 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
 import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { BudgetControllerLike } from '@modules/query';

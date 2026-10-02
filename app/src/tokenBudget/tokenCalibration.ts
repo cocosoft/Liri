@@ -15,7 +15,7 @@
  *
  * **D1 铁律（不变）**：缺 usage / 缺基线一律**保持既有因子**并计数，**不用估算或默认值冒充**。
  */
-import { getLogger } from '../loggerFacade.js';
+import { getLogger } from '../core/loggerFacade.js';
 import { persistCalibrationFactor } from './CalibrationStore';
 
 const logger = getLogger('tokenBudget:calibration');

@@ -107,6 +107,15 @@ const DEFAULT_CONFIG: REPLConfig = {
  *   3. DB 中的 Ollama 等 Provider 通过 syncDBProvidersToRegistry 自动注册
  */
 export async function initializeChatManager(): Promise<ChatManager> {
+  // D-227（2026-10-02，B12 `runtime -> app` 收口）：组合根注入 CoreAPIImpl 的 app 层能力包。
+  // ⚠️ 本函数是 REPL / 单次执行（--print）/ 管道（--pipe）等入口取用 ChatManager 的**公共漏斗**，
+  // 其中 `--print`/`--pipe` 经 `entrypoints/cli.tsx` 直接分发、**不走** `launch()→init()`（后者才注册）
+  // ⇒ 在此补一次注册（幂等；`CoreAPIImpl` 对注入包懒解析）。
+  const { registerCoreApiAppDeps } = await import(
+    '@modules/bootstrap/pipeline/BootPipelineIntegrator.js'
+  );
+  await registerCoreApiAppDeps();
+
   const coreAPI = getCoreAPI();
   const chatManager = coreAPI.getChatManager();
 

@@ -147,6 +147,16 @@ export async function init(): Promise<void> {
   // 此时 userDataDirOverride 已从设置加载，ensureDataDirectories 会使用正确路径
   ensureDataDirectories();
 
+  // 2.1.1. D-227（2026-10-02，B12 `runtime -> app` 收口）：组合根为 CoreAPIImpl 注入 app 层能力包。
+  // ⚠️ **必须早于任何 app 依赖访问** —— `init()` 内下方会构造 `SessionGateway`（其构造函数经
+  // `getCoreAPI().createAutoCompactService()/getSessionCheckpointRef()` 触达注入包），且
+  // `init()` 处于 `ModuleRegistry.bootstrap()` 的**环境初始化**阶段（早于模块初始化）。
+  // 注册本身只存引用（`CoreAPIImpl` 懒解析），故与「创建 CoreAPI 单例」顺序无关。
+  const { registerCoreApiAppDeps } = await import(
+    '@modules/bootstrap/pipeline/BootPipelineIntegrator.js'
+  );
+  await registerCoreApiAppDeps();
+
   // 2.2. 设置优雅关闭
   profileCheckpoint('setup_graceful_shutdown_start');
   setupGracefulShutdown();

@@ -9,7 +9,7 @@
 // 已是**死导入**（P1-3-b 改走 `resolveContextWindow` 后无任何调用点，仅本文件 L66 注释提及）⇒ 删除。
 import { resolveContextWindow } from '@modules/context';
 // P1-3-c（2026-09-28）：阈值口径统一为**比例**，引用全仓**唯一**阈值常量源
-import { UNIFIED_THRESHOLDS } from '@modules/core/tokenBudget/TokenBudgetController.js';
+import { UNIFIED_THRESHOLDS } from '@modules/tokenBudget/TokenBudgetController.js';
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
   null;

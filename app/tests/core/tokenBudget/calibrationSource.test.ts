@@ -41,8 +41,8 @@ import { describe, expect, it } from 'bun:test';
 import type { ContextTracker } from '@modules/query';
 import { buildRequestTimingData } from '../../../src/chat/services/timingEvent';
 import { extractUsage } from '../../../src/ai/tokenizer/UsageExtractor';
-import { TokenBudgetController } from '../../../src/core/tokenBudget/TokenBudgetController';
-import { UnifiedTokenTracker } from '../../../src/core/tokenBudget/UnifiedTokenTracker';
+import { TokenBudgetController } from '../../../src/tokenBudget/TokenBudgetController';
+import { UnifiedTokenTracker } from '../../../src/tokenBudget/UnifiedTokenTracker';
 
 const MODEL = 'd1-calibration-test';
 /** 固定 overhead（构造注入；测试内可精确复现 EMA 期望值） */

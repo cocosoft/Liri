@@ -4,7 +4,7 @@
 /**
  * YieldSettlementBridge — 子代理结算 → yield 等待收敛的桥（阶段 A / A1-d-settle）
  *
- * 形态与 `core/tokenBudget/SubAgentTokenBridge.ts` 一致：**模块级监听器数组**，
+ * 形态与 `tokenBudget/SubAgentTokenBridge.ts` 一致：**模块级监听器数组**，
  * 避免"子代理侧 → chat 侧"的循环依赖。
  *
  * 语义：子代理 run 结束时通知"该会话有一个子代理已结算"，

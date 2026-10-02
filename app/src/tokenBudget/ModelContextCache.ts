@@ -10,13 +10,13 @@
  * - 系统启动时调用 applyDiscoveredContextWindows() 预填充
  */
 
-import { TtlCache } from '../spi/CacheService.js';
+import { TtlCache } from '../core/spi/CacheService.js';
 import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
-import { getLogger } from '../loggerFacade.js';
-import { handleError } from '../errorHandler.js';
-const logger = getLogger('core:tokenBudget:ModelContextCache');
+import { getLogger } from '../core/loggerFacade.js';
+import { handleError } from '../core/errorHandler.js';
+const logger = getLogger('tokenBudget:ModelContextCache');
 
 /** TTL 默认值: 5 分钟 */
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -145,7 +145,7 @@ export class ModelContextCache {
         // @ignore-catch: non-critical fallback
 
         handleError(err, {
-          module: 'core:tokenBudget',
+          module: 'tokenBudget',
           action: 'notifyListeners',
         });
       }
@@ -190,7 +190,7 @@ export class ModelContextCache {
         // @ignore-catch: non-critical fallback
 
         handleError(err, {
-          module: 'core:tokenBudget',
+          module: 'tokenBudget',
           action: 'discoverFromPriceManager',
         });
       }

@@ -78,7 +78,7 @@ import {
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
 import { compactionOrchestrator } from '@modules/context';
-import { getModelThresholds } from '@modules/core/tokenBudget/UnifiedTokenTracker';
+import { getModelThresholds } from '@modules/tokenBudget/UnifiedTokenTracker';
 import { getOTelTracing } from '@modules/monitoring';
 import { getSessionTracing } from '@modules/monitoring';
 import { agentTelemetry } from '@modules/agent';

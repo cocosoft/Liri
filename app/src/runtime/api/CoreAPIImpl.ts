@@ -69,8 +69,9 @@ import type { BridgePort } from './bridgePorts';
 import type { AutoCompactServiceRefPort } from './compactPorts';
 import type { EmbeddingRefPort } from './embeddingPorts';
 import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
-// D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
-import { AutoCompactService } from '@modules/compaction';
+// D-227（2026-10-02，B12 `runtime -> app` 收口）：`AutoCompactService` 原为压缩域**同步**门面所需
+// （见 `createAutoCompactService()`）；现改经 `CoreApiAppDeps.createAutoCompactService` 由组合根注入
+// ⇒ 删除 `@modules/compaction` 静态值导入（该「文件 × 模块」豁免对随之消失）。
 // 2026-10-01（子批 F `runtime -> query` 收口）：B13 的「检查点清理同步门面」已**作废**
 // —— `FileCheckpointStorage` 已下沉 `session/storage/`(service)，`session/**` 回归同模块直连
 // ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
@@ -95,18 +96,14 @@ import type {
   FileInfo,
   ConversionOptions,
 } from '@modules/tools';
-import { getConverterEngine } from '@modules/tools';
-import { FileTypeDetector } from '@modules/tools';
+// D-227（2026-10-02，B12）：仅保留**类型位**（`ReturnType<typeof getConverterEngine>` / `FileTypeDetector`）；
+// 值改经 `CoreApiAppDeps` 注入 ⇒ 删除 `@modules/tools` 静态值导入。
+import type { getConverterEngine, FileTypeDetector } from '@modules/tools';
 import { createPermissionManager } from '@modules/permission';
 import type { ChatManager } from '@modules/chat';
-import {
-  createChatManager,
-  computeUnifiedDiff,
-  eventNotificationService,
-  // 2026-10-01（B11 余 1 条）：会话检查点取用**同步**门面所需 —— 见 getSessionCheckpointRef()。
-  // ⚠️ 本文件早已静态导入 `@modules/chat` ⇒ 追加本符号**零新增**「文件 × 模块」对。
-  getCheckpointService,
-} from '@modules/chat';
+// D-227（2026-10-02，B12 `runtime -> app` 收口）：原静态值导入 `createChatManager` / `computeUnifiedDiff` /
+// `eventNotificationService` / `getCheckpointService` 分别改经 `CoreApiAppDeps` 注入（同步门面）
+// 或**方法内动态导入**（异步路径）⇒ 删除 `@modules/chat` 静态值导入（该「文件 × 模块」豁免对随之消失）。
 // 2026-10-01（子批 C 第 19 条收口）：`dedupeMessagesToolCallBlocks` 已**下沉** `utils/chatBlocks.ts`(infra)
 // ⇒ 本处改指 infra（`service -> infra` 合法），不再经 `@modules/chat`(app) 取值。
 import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
@@ -170,28 +167,29 @@ import type {
 } from '@modules/session/types/UnifiedMessage';
 import type { Message } from '@modules/session/types/message';
 import type { ToolManager } from '@modules/tools';
-import { globalToolManager } from '@modules/tools';
+// D-227（2026-10-02，B12）：`globalToolManager` 值改经 `CoreApiAppDeps.toolManager` 注入 ⇒ 删除静态值导入。
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
 import { resolveWorktreeHash } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+// D-227（2026-10-02，B12）：`AppError` / `ErrorCategory` / `ErrorSeverity` 供 `appDeps` 懒解析缺注入时抛错。
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 // 状态块 statusType 契约（CS02：判据为结构化标记，勿写字面量）
 import { STATUS_TYPE } from '@shared/types';
-import {
-  resolveModelRoute,
-  RouteKey,
-  modelRouter,
-  detectPhase,
-} from '@modules/ai';
-import { SmartRouter } from '@modules/ai';
-import type { RouteDecision } from '@modules/ai';
-import { ToolAwareClient } from '@modules/ai';
-import { providerRegistry, globalEmbeddingManager } from '@modules/ai';
-import { getToolManager } from '@modules/tools';
+// D-227（2026-10-02，B12 `runtime -> app` 收口）：`@modules/ai` 仅保留**类型位**。
+// 同步门面所需（`modelRouter` / `RouteKey` / `resolveModelRoute`）改经 `CoreApiAppDeps.router` 注入；
+// 异步路径（`resolveModelRoute` / `RouteKey` / `providerRegistry` / `ToolAwareClient` / `detectPhase` /
+// `syncDBProvidersToRegistry` / `detectUnifiedProviders`）改**方法内动态导入**。
+import type { SmartRouter, RouteDecision } from '@modules/ai';
+// D-227：`getToolManager` 值改经 `CoreApiAppDeps.toolManager` 注入 ⇒ 删除静态值导入。
 // 2026-10-01（子批 F `runtime -> agent` 收口）：原顶层静态导入 `getTitleGenerator`，但其**唯一**
 // 使用点在 **async** 方法 `generateSessionTitle()` 内 ⇒ 按本文件**既有模式**（同 `getToolsPort()`
 // 内的 `await import('@modules/tools')`）改为**方法内动态导入** ⇒ 该「文件 × 模块」对消失
@@ -249,6 +247,42 @@ function firstAssistantText(
 }
 
 /**
+ * app 层能力注入包（组合根注册；CoreAPIImpl 属 service 层，禁止静态依赖 app 层）
+ *
+ * D-227（2026-10-02，B12 `runtime -> app` 收口）：`CoreAPIImpl` 原**静态**值导入
+ * `@modules/{tools,chat,ai,compaction}`（4 条 `runtime -> app` 倒挂）⇒ 改为由**入口层组合根**
+ * （`bootstrap/pipeline/BootPipelineIntegrator` / `entrypoints/init`）经 `setCoreApiAppDeps()` 注入。
+ *
+ * ⚠️ 字段用 `unknown` 以**避免新增 app 类型导入**（端口不引 app 类型，连 `import type` 也按仓内
+ * 既有端口约定避免）；各**落点**处用 `as` 收窄（本文件已有 `as never` 收窄先例）。
+ */
+export interface CoreApiAppDeps {
+  chatManager: unknown; // 运行期类型 ChatManager（落点处收窄）
+  toolManager: unknown; // ToolManager
+  converterEngine: unknown; // ReturnType<typeof getConverterEngine>
+  fileTypeDetector: unknown; // FileTypeDetector
+  /** ai 路由器：**已绑定**操作（隐藏 modelRouter + RouteKey + resolveModelRoute 三符号） */
+  router: {
+    resolveDefault(): string;
+    /** `phase` 用 `unknown` 以免暴露 app 侧 `PhaseContext`（落点由组合根收窄） */
+    resolveWithPhase(phase: unknown): string | null;
+    resolveChat(): Promise<string>;
+  };
+  /** chat 的检查点服务（同步门面 getSessionCheckpointRef 用） */
+  getCheckpointService: () => unknown;
+  /** compaction 的每调用新建工厂（createAutoCompactService 用） */
+  createAutoCompactService: () => unknown;
+  /** ai 的全局 embedding 管理器（同步门面用） */
+  globalEmbeddingManager: unknown;
+}
+
+let _registeredAppDeps: CoreApiAppDeps | undefined;
+/** 组合根注册（entry 层调用；见 `bootstrap/pipeline/BootPipelineIntegrator.ts`） */
+export function setCoreApiAppDeps(deps: CoreApiAppDeps): void {
+  _registeredAppDeps = deps;
+}
+
+/**
  * 创建 CoreAPIImpl 实例
  * 支持传入可选依赖覆盖，未传入时使用全局默认实例
  */
@@ -274,13 +308,18 @@ export function getCoreAPI(): CoreAPIImpl {
  * 通过构造函数注入依赖，所有参数均为可选，默认使用全局单例
  */
 export class CoreAPIImpl implements CoreAPI {
-  /** P1-5: 改为 public readonly 以支持会话流式状态查询 */
-  public readonly chatManager: ChatManager;
-  private sessionManager: SessionManager;
-  private toolManager: ToolManager;
+  /**
+   * D-227（2026-10-02，B12）：内联 app 依赖（构造器注入；测试/入口覆盖用）。
+   * 未提供时统一回退到组合根注册的 {@link CoreApiAppDeps}（懒解析，见 `appDeps` getter）。
+   */
+  private readonly _inlineAppDeps?: CoreApiAppDeps;
+  private readonly _inlineChatManager?: ChatManager;
+  private readonly _inlineToolManager?: ToolManager;
+  private readonly _inlineConverterEngine?: ReturnType<typeof getConverterEngine>;
+  private readonly _inlineFileTypeDetector?: FileTypeDetector;
+  /** D-227：会话管理器懒解析（避免构造期访问 app 依赖 —— 与注册时序解耦） */
+  private _sessionManager?: SessionManager;
   private coordinator: Coordinator;
-  private converterEngine: ReturnType<typeof getConverterEngine>;
-  private fileTypeDetector: FileTypeDetector;
   /** 模型名内存缓存（仅作后备，事实来源为 ModelRouter DB） */
   private _modelName: string;
 
@@ -315,19 +354,76 @@ export class CoreAPIImpl implements CoreAPI {
     converterEngine?: ReturnType<typeof getConverterEngine>;
     fileTypeDetector?: FileTypeDetector;
     modelName?: string;
+    /** D-227（2026-10-02）：app 层能力注入包（组合根/测试内联） */
+    appDeps?: CoreApiAppDeps;
   }) {
-    this.chatManager = options?.chatManager ?? createChatManager();
-    this.sessionManager =
-      options?.sessionManager ?? this.chatManager.getSessionManager();
-    this.toolManager = options?.toolManager ?? globalToolManager;
+    // D-227：不再在构造期求值 app 依赖默认值（旧为 createChatManager()/globalToolManager/
+    // getConverterEngine()/new FileTypeDetector()）⇒ 改为 getter 懒解析，启动期「创建」与「注册」解耦。
+    this._inlineAppDeps = options?.appDeps;
+    this._inlineChatManager = options?.chatManager;
+    this._inlineToolManager = options?.toolManager;
+    this._inlineConverterEngine = options?.converterEngine;
+    this._inlineFileTypeDetector = options?.fileTypeDetector;
+    this._sessionManager = options?.sessionManager;
     this.coordinator = options?.coordinator ?? defaultCoordinator;
-    this.converterEngine = options?.converterEngine ?? getConverterEngine();
-    this.fileTypeDetector = options?.fileTypeDetector ?? new FileTypeDetector();
     this._modelName =
       options?.modelName ??
       configManager.env('DEEPSEEK_MODEL') ??
       configManager.env('AI_MODEL') ??
       '';
+  }
+
+  /**
+   * D-227（2026-10-02，B12 `runtime -> app` 收口）：app 层依赖的**懒解析**注入包。
+   *
+   * ⚠️ 懒解析是关键 —— 组合根的「注册」与「创建」顺序无关，仅当**访问**某个 app 能力时才解析
+   * （启动时序：`getCoreAPI()` 的创建先于任何 app 依赖访问，注册由其前的组合根完成）。
+   */
+  private get appDeps(): CoreApiAppDeps {
+    const d = this._inlineAppDeps ?? _registeredAppDeps;
+    if (!d) {
+      throw new AppError(
+        'CoreAPIImpl: app 层依赖未注入（组合根未调用 setCoreApiAppDeps）',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
+    }
+    return d;
+  }
+
+  /**
+   * P1-5: 公开 ChatManager 以支持会话流式状态查询。
+   * D-227：由构造期字段改为懒解析 getter（值经 `CoreApiAppDeps.chatManager` 注入）。
+   */
+  get chatManager(): ChatManager {
+    return (this._inlineChatManager ??
+      this.appDeps.chatManager) as ChatManager;
+  }
+
+  /** D-227：ToolManager 懒解析（`getToolManager()` 门面保持签名不变，内部读本 getter） */
+  private get toolManager(): ToolManager {
+    return (this._inlineToolManager ?? this.appDeps.toolManager) as ToolManager;
+  }
+
+  /** D-227：会话管理器懒解析（默认 `chatManager.getSessionManager()`，避免构造期访问） */
+  private get sessionManager(): SessionManager {
+    if (!this._sessionManager) {
+      this._sessionManager =
+        this.chatManager.getSessionManager() as SessionManager;
+    }
+    return this._sessionManager;
+  }
+
+  /** D-227：转换引擎懒解析（值经 `CoreApiAppDeps.converterEngine` 注入） */
+  private get converterEngine(): ReturnType<typeof getConverterEngine> {
+    return (this._inlineConverterEngine ??
+      this.appDeps.converterEngine) as ReturnType<typeof getConverterEngine>;
+  }
+
+  /** D-227：文件类型检测器懒解析（值经 `CoreApiAppDeps.fileTypeDetector` 注入） */
+  private get fileTypeDetector(): FileTypeDetector {
+    return (this._inlineFileTypeDetector ??
+      this.appDeps.fileTypeDetector) as FileTypeDetector;
   }
 
   /**
@@ -342,7 +438,8 @@ export class CoreAPIImpl implements CoreAPI {
    * 收敛为 ModelRouter 单源：优先从 DB 读取 default 任务模型，_modelName 仅作后备
    */
   getModelName(): string {
-    const routerModel = modelRouter.resolve('default');
+    // D-227（2026-10-02）：`modelRouter.resolve('default')` → 经注入路由器（隐藏 app 符号）。
+    const routerModel = this.appDeps.router.resolveDefault();
     if (routerModel) return routerModel;
     return this._modelName;
   }
@@ -412,7 +509,10 @@ export class CoreAPIImpl implements CoreAPI {
       // 路径创建的，工具定义将永远为 [] → LLM 收不到工具 → 模型"想调工具却无工具"
       // → 只输出 think 无 response（think-only 卡死）。
       if (!this.chatManager.getToolRegistry()) {
-        const toolManager = getToolManager();
+        // D-227（2026-10-02）：`getToolManager()` → `this.toolManager.getInner()`（懒解析注入值；
+        // 本仓 `@modules/tools` 的 `ToolManager` 是 CC 兼容包装层，其 `getInner()` 即
+        // `getToolManager()` 的同一实例 —— 与 §1.16 记载一致）。
+        const toolManager = this.toolManager.getInner();
         toolManager.loadBuiltinTools();
         const registry = toolManager.getRegistry();
         if (registry) {
@@ -433,8 +533,17 @@ export class CoreAPIImpl implements CoreAPI {
     }
 
     try {
+      // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报），消除静态值导入。
+      const {
+        syncDBProvidersToRegistry,
+        detectUnifiedProviders,
+        resolveModelRoute,
+        RouteKey,
+        providerRegistry,
+        ToolAwareClient,
+      } = await import('@modules/ai');
+
       // 从 DB 同步所有活跃 Provider 到运行时 ProviderRegistry
-      const { syncDBProvidersToRegistry } = await import('@modules/ai');
       await syncDBProvidersToRegistry();
 
       // 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
@@ -453,7 +562,6 @@ export class CoreAPIImpl implements CoreAPI {
 
       // DB 中无 Provider 时，从环境变量检测创建
       if (!provider) {
-        const { detectUnifiedProviders } = await import('@modules/ai');
         const envProviders = detectUnifiedProviders();
         const envProvider = envProviders[0];
 
@@ -474,7 +582,7 @@ export class CoreAPIImpl implements CoreAPI {
         throw new Error('未找到可用的 API Provider，请在 .env 中配置 API 密钥');
       }
 
-      const toolManager = getToolManager();
+      const toolManager = this.toolManager.getInner();
       toolManager.loadBuiltinTools();
       const registry = toolManager.getRegistry();
 
@@ -527,6 +635,10 @@ export class CoreAPIImpl implements CoreAPI {
       return { model: preferredModel, tier: 'user-selected' };
     }
 
+    // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报）。
+    // 置于「用户显式选择」早返回之后 ⇒ 不改变既有懒加载时机。
+    const { detectPhase, RouteKey } = await import('@modules/ai');
+
     // S3: 自动检测 PDCA 阶段（当调用方未显式传入 phaseContext 时）
     const effectivePhase = phaseContext ?? detectPhase(content);
 
@@ -549,14 +661,13 @@ export class CoreAPIImpl implements CoreAPI {
       }
     }
     // S3: 回退到 modelRouter，支持阶段感知
+    // D-227：`modelRouter.resolveWithPhase(RouteKey.CHAT, …)` → 注入路由器（隐藏 app 符号）。
     if (effectivePhase) {
-      const phaseModel = modelRouter.resolveWithPhase(
-        RouteKey.CHAT,
-        effectivePhase
-      );
+      const phaseModel = this.appDeps.router.resolveWithPhase(effectivePhase);
       if (phaseModel) return { model: phaseModel, tier: 'phase-routed' };
     }
-    return { model: await resolveModelRoute(RouteKey.CHAT), tier: 'fallback' };
+    // D-227：`resolveModelRoute(RouteKey.CHAT)` → 注入路由器的已绑定 `resolveChat()`。
+    return { model: await this.appDeps.router.resolveChat(), tier: 'fallback' };
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
@@ -671,6 +782,10 @@ export class CoreAPIImpl implements CoreAPI {
       temperature: request.temperature ?? undefined,
     });
     await this.ensureLLMClientInitialized();
+    // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报）。
+    // 同一方法内只取一次；`eventNotificationService` 在 try 内 `.on` 与 finally 内 `.off` 复用。
+    const { computeUnifiedDiff, eventNotificationService } =
+      await import('@modules/chat');
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
     let finalMessageId = '';
@@ -1942,19 +2057,32 @@ export class CoreAPIImpl implements CoreAPI {
    *
    * ⚠️ **为何同步而非端口 Promise**：调用点在 `SessionGateway` 的**构造函数**与
    * **同步 fluent API**（`wireWithRealServices(): this`）内，改异步会向上传染 ⇒ 采用
-   * 本仓既有 sanctioned 缝（同 `getChatManager()` / `getToolManager()`）：
-   * **静态**导入 app 模块、暴露同步构造方法。
-   * 👉 计数影响：`runtime -> chat` 对**已存在**（本文件已静态导入 `@modules/chat`）⇒
-   * 迁移后不新增豁免计数（迁移前为 `runtime -> services`＝**同层合法**）。
+   * 本仓既有 sanctioned 缝（同 `getChatManager()` / `getToolManager()`）：暴露**同步**取用方法。
+   *
+   * D-227（2026-10-02，B12）：不再**静态**导入 app 层 `AutoCompactService`，改由组合根经
+   * `CoreApiAppDeps.createAutoCompactService` 注入工厂 ⇒ 消除 `runtime -> compaction` 倒挂。
+   * 👉 语义不变：**每次调用新建实例**（下方仍以工厂现取现建）。
    */
   createAutoCompactService(): AutoCompactServiceRefPort {
-    const service = new AutoCompactService();
+    // D-227：注入工厂**每调用新建**（与旧 `new AutoCompactService()` 同语义）；`unknown` 于落点收窄。
+    const service = this.appDeps.createAutoCompactService() as {
+      checkAndCompact(
+        sessionId: string,
+        messages: unknown[],
+        model: string
+      ): { shouldCompact: boolean };
+      performAutoCompact(
+        sessionId: string,
+        messages: unknown[],
+        model: string
+      ): Promise<{ success: boolean; error?: string | undefined }>;
+    };
     return {
       checkAndCompact: (
         sessionId: string,
         messages: unknown[],
         model: string
-      ) => service.checkAndCompact(sessionId, messages as never[], model),
+      ) => service.checkAndCompact(sessionId, messages, model),
       performAutoCompact: async (
         sessionId: string,
         messages: unknown[],
@@ -1962,7 +2090,7 @@ export class CoreAPIImpl implements CoreAPI {
       ) => {
         const result = await service.performAutoCompact(
           sessionId,
-          messages as never[],
+          messages,
           model
         );
         return { success: result.success, error: result.error };
@@ -1980,10 +2108,12 @@ export class CoreAPIImpl implements CoreAPI {
    * ⚠️ **为何同步而非端口 Promise**：`getSessionMemoryManager()` 是**同步懒初始化**
    * （`if (!memoryManager) { memoryManager = new SessionMemoryManager(…) }`）⇒ 改异步会向上传染
    * ⇒ 采用本仓既有 sanctioned 缝（同 `createAutoCompactService()` / `getChatManager()`）。
-   * 👉 计数影响：`runtime -> ai` 边**早已存在**（本文件已静态导入 `@modules/ai`）⇒ **不新增豁免计数**。
+   *
+   * D-227（2026-10-02，B12）：不再**静态**导入 app 层 `globalEmbeddingManager`，改由组合根经
+   * `CoreApiAppDeps.globalEmbeddingManager` 注入 ⇒ 消除 `runtime -> ai` 倒挂（返回类型不变）。
    */
   getGlobalEmbeddingManager(): EmbeddingRefPort {
-    return globalEmbeddingManager;
+    return this.appDeps.globalEmbeddingManager as EmbeddingRefPort;
   }
 
   // ⚠️ 已删除（2026-10-01，子批 F `runtime -> query` 收口）：B13 曾在此提供
@@ -2002,11 +2132,12 @@ export class CoreAPIImpl implements CoreAPI {
    *
    * ⚠️ **为何同步**：调用点在**同步函数** `createWiredCompactionBridge()` 体内（由 `SessionGateway`
    * 构造函数 / 同步 fluent API 调用）⇒ 不可改异步 ⇒ 采用本仓既有 sanctioned 缝。
-   * 👉 计数影响：**零新增对** —— 本文件**已静态导入** `@modules/chat`（见上方 import 区）
-   * ⇒ 同一「文件 × 模块」对早已存在 ⇒ 本门面使 `session -> chat` **净减 1**。
+   *
+   * D-227（2026-10-02，B12）：不再**静态**导入 app 层 `getCheckpointService`，改由组合根经
+   * `CoreApiAppDeps.getCheckpointService` 注入 ⇒ 消除 `runtime -> chat` 倒挂（返回类型不变）。
    */
   getSessionCheckpointRef(): SessionCheckpointRefPort {
-    return getCheckpointService();
+    return this.appDeps.getCheckpointService() as SessionCheckpointRefPort;
   }
 
   // ---- 知识库运维 P1（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-95）----

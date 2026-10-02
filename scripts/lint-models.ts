@@ -45,6 +45,10 @@ const IGNORE_PATH_FRAGMENTS = [
   'ai/parsers/',
   'ai/formatters/',
   'ai/tokenizer/',
+  // 2026-10-02 D-224 补录（**预存缺口**）：D-212 把 tiktoken 实现自 `ai/tokenizer/` 下沉到
+  // `utils/TiktokenEstimator.ts`（`ai/tokenizer/TiktokenEstimator.ts` 仅剩转出）⇒ 原 `ai/tokenizer/`
+  // 白名单不再覆盖实现体，`encodingForModel('gpt-4o')`（tiktoken **库 API 限制**，model-usage.md 明列为合法项）被误报。
+  'utils/TiktokenEstimator.ts',
   'ai/health/ModelHealthCheck.ts',
   'ai/index.ts',
   'ai/services/aiService.ts',
@@ -54,7 +58,6 @@ const IGNORE_PATH_FRAGMENTS = [
   'ai/models/types.ts',
   'ai/models/ModelRegistry.ts',
   'commands/provider/',
-  'core/flows/model-picker.ts',
   // 播种/预设逻辑
   'ai/ModelManagementBootstrap.ts',
   'plugins/provider/ProviderDiscovery.ts',
@@ -71,7 +74,7 @@ const IGNORE_PATH_FRAGMENTS = [
   // 模型名子串匹配选择 prompt 指引（行为适配，与 parser/formatter 同类）
   'ai/prompts/ModelGuidance.ts',
   // 模型属性阈值表（token budget，DB 无字段，白名单声明）
-  'core/tokenBudget/UnifiedTokenTracker.ts',
+  'tokenBudget/UnifiedTokenTracker.ts',
   // D 层本地/固定能力
   'tools/ImageGenerateTool/providers/ProviderCapability.ts',
   // 音频格式 opus（与 Claude 无关）

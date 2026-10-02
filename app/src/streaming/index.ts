@@ -47,14 +47,11 @@ export type {
   ResumeRequestBuilder,
 } from './IncrementalRetry';
 
-export {
-  ToolCallStatus,
-  StreamControlIndicator,
-  MetricsDisplay,
-  ProgressBar,
-  StreamStatusPanel,
-  EventLog,
-} from './StreamEventInk';
+// 2026-10-02 D-226（`service -> ui` 收口）：原此处转出 `./StreamEventInk`（React/Ink 组件，
+// 却寄居 service 层 `streaming/` ⇒ `streaming -> ui` 倒挂）。经全仓取证（含测试）：其导出的
+// `ToolCallStatus` / `StreamControlIndicator` / `MetricsDisplay` / `ProgressBar` /
+// `StreamStatusPanel` / `EventLog` **零消费者**、`@modules/streaming` 桶本身亦无人引用
+// ⇒ 判定**死码**，整文件删除（同 D-218/D-219 删死码子树手法）。
 
 export {
   BackpressureController,

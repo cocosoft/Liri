@@ -18,7 +18,7 @@ import { createStreamBudget } from '../../src/chat/createAgentLoop';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
-} from '../../src/core/tokenBudget/TokenBudgetController';
+} from '../../src/tokenBudget/TokenBudgetController';
 import { resolveContextWindow } from '../../src/context';
 
 const MODEL = 'test-model-budget-refund';

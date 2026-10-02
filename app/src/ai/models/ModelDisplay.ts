@@ -11,8 +11,8 @@ import {
   ALL_MODEL_CONFIGS,
   type ModelKey,
 } from './ModelConfigs.js';
-import { priceManager } from '@modules/core/tokenBudget/PriceManager';
-import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/core/tokenBudget/CacheAwareBudget';
+import { priceManager } from '@modules/tokenBudget/PriceManager';
+import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/tokenBudget/CacheAwareBudget';
 
 import { calculateTotalCost } from '@modules/cost';
 import type { ModelPricing } from '@modules/cost';

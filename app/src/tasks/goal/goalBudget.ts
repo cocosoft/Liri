@@ -28,7 +28,7 @@ import { renderGoalTemplate } from './goalTemplates';
 import {
   evaluateGoalBudget,
   TokenBudgetStatus,
-} from '@modules/core/tokenBudget/BudgetPolicy';
+} from '@modules/tokenBudget/BudgetPolicy';
 
 /** 一次记账的结果 */
 export interface GoalBudgetChargeResult {

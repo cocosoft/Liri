@@ -100,9 +100,26 @@ mock.module('@modules/agent', () => ({
   getTitleGenerator: () => undefined,
 }));
 
-import { CoreAPIImpl } from '../CoreAPIImpl';
+import { CoreAPIImpl, setCoreApiAppDeps } from '../CoreAPIImpl';
 import type { ChatRequest, ChatResponse, ChatStreamChunk } from '../CoreAPI';
 import type { ChatManager } from '@modules/chat';
+
+// D-227（2026-10-02）：`chatStream` 经 `CoreApiAppDeps` 懒解析 app 能力（如 `router.resolveChat()`）
+// ⇒ 本测试 setup 注册**最小 app 依赖桩**（`@modules/ai` 已在模块顶部 mock，取值与桩保持一致）。
+setCoreApiAppDeps({
+  chatManager: {},
+  toolManager: {},
+  converterEngine: {},
+  fileTypeDetector: {},
+  router: {
+    resolveDefault: () => '',
+    resolveWithPhase: () => null,
+    resolveChat: async () => 'test-model',
+  },
+  getCheckpointService: () => ({}),
+  createAutoCompactService: () => ({}),
+  globalEmbeddingManager: {},
+});
 
 const FALLBACK_TEXT =
   '⚠️ 本次未能生成回复（任务被中断或模型无响应），请重发消息重试。';

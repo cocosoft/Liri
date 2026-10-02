@@ -254,8 +254,8 @@ import {
   TokenBudgetStatus,
   type TokenBudgetParams,
   getDefaultTokenBudget,
-} from '../core/tokenBudget/TokenBudgetController.js';
-import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
+} from '../tokenBudget/TokenBudgetController.js';
+import { UnifiedTokenTracker } from '../tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '@modules/query';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
@@ -282,7 +282,7 @@ import {
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
 // O9/G14：把本实例的 token 追踪器注册到模块级访问器（供摘要预算等跨模块读取"父当前上下文"）
-import { setUnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
+import { setUnifiedTokenTracker } from '@modules/tokenBudget/UnifiedTokenTracker';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
 import {
   setYieldResumeHandler,

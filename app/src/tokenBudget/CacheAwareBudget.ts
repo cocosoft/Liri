@@ -7,12 +7,12 @@ import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
 
 // 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
-import { calculateTotalCost } from '../pricing.js';
-import type { ModelPricing } from '../pricing.js';
+import { calculateTotalCost } from '../core/pricing.js';
+import type { ModelPricing } from '../core/pricing.js';
 
-import { getLogger } from '../loggerFacade.js';
-import { handleError } from '../errorHandler.js';
-const logger = getLogger('core:tokenBudget:CacheAwareBudget');
+import { getLogger } from '../core/loggerFacade.js';
+import { handleError } from '../core/errorHandler.js';
+const logger = getLogger('tokenBudget:CacheAwareBudget');
 
 export interface CacheEfficiencyResult {
   efficiency: number;
@@ -104,7 +104,7 @@ export function getCacheEfficiency(
       // @ignore-catch: non-critical fallback
 
       handleError(err, {
-        module: 'core:tokenBudget',
+        module: 'tokenBudget',
         action: 'computeSavings',
       });
     }

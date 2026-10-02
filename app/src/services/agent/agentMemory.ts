@@ -1,11 +1,10 @@
-﻿/**
+/**
  * Agent内存管理
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveDataDir } from '@modules/core';
-import { getProjectRoot } from '../../bootstrap/state.js';
+import { resolveDataDir, resolveProjectRoot } from '@modules/core';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
 import { getCwd } from '@modules/utils/cwd';
 
@@ -105,7 +104,7 @@ function getLocalAgentMemoryDir(dirName: string): string {
       path.join(
         remoteMemoryDir,
         'projects',
-        findCanonicalGitRoot(getProjectRoot()) ?? getProjectRoot(),
+        findCanonicalGitRoot(resolveProjectRoot()) ?? resolveProjectRoot(),
         'agent-memory-local',
         dirName
       ) + path.sep

@@ -39,7 +39,7 @@ import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolCallEventDetail } from '@modules/session/types/message.js';
-import type { UnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
+import type { UnifiedTokenTracker } from '@modules/tokenBudget/UnifiedTokenTracker';
 
 /* ===================================================================
  *  ToolLoopContext — 工具循环所需的全部外部依赖

@@ -31,7 +31,7 @@ import {
   type CompactionDecision,
   type UnifiedTokenTracker,
   evaluateCompactionFallback,
-} from '@modules/core/tokenBudget/UnifiedTokenTracker';
+} from '@modules/tokenBudget/UnifiedTokenTracker';
 import { applyMicroCompaction } from './MicroCompactionEngine';
 import { snipMessages } from './SnipEngine';
 import {

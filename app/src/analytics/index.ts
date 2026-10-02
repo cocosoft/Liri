@@ -97,13 +97,6 @@ export type {
 } from './FirstPartyEventLogger.js';
 
 export {
-  CostTrackerPassesHook,
-  createCostTrackerPassesHook,
-} from './CostTrackerPassesHook.js';
-
-export type { CostCheckResult } from './CostTrackerPassesHook.js';
-
-export {
   AnonymizationPipeline,
   createAnonymizationPipeline,
   PII_PATTERNS,

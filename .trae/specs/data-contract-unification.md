@@ -511,4 +511,21 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 - ✅ **#5** `compaction/ContextEngine.ts` → `ContextEngineMessage`（`11ef62824`；4 文件；收敛 R05-011 例外 1 条）
 - ⏳ **#3** 待执行（最安全）· **#1/#6** 待扫桶消费者 · **#2** (ProtocolMessage) 单独立项
 
-⏳ **执行状态**：**待执行**（本步只完成 barrel 核验与顺序修订）。
+#### 📌 #2 `core/types.ts` → `ProtocolMessage` 立项单（2026-10-01 普查完成）
+
+**提案**：`core/types.ts:33` 的 `Message`（协议层形状：`role: 'system'|'user'|'assistant'|'tool'` + **snake_case** `tool_calls` / `tool_call_id`）→ 改名 **`ProtocolMessage`**。
+
+**全量消费者普查（3 处，无遗漏）**：
+
+| # | 位置 | 形态 |
+|---|---|---|
+| 1 | `core/index.ts:43` | barrel 转出 `export type { Message, ToolCall, ToolResult, ToolContext } from './types';` |
+| 2 | `tools/types/Tool.ts:9` | `import type { Message } from '@modules/core';` |
+| 3 | `memory/integrations/MemoryIntegration.ts:3` | `import type { Message } from '@modules/core';` |
+
+**普查口径**：multiline 命名导入 grep 覆盖 `@modules/core` · `@modules/core/types` · `@modules/core/index` · `./types` · `../types` 五种路径 ⇒ 除上表外**零命中**；`core/types.ts` 文件内 `Message` 仅 2 处（定义 L33 + 内部 `newMessages?: Message[]` L51）。
+
+**裁决**：面小（**5 处编辑**：定义 1 + 文件内 1 + barrel 1 + 消费者 2），**不属"需保留例外"** ⇒ 建议执行改名。
+**R05-013 无冲突**：`core/types.ts` 不在 `src/types/**` 类型中心内。
+
+⏳ **执行状态**：**待执行**（普查与立项结论已入档；改名 5 处待授权）。

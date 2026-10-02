@@ -655,6 +655,26 @@ export interface AgentRunDto {
 - **验证**：`已豁免 47 → 46`（恰 −1）· `typecheck 0` · `lint:arch` 违规 0 / `R03-002` = 0 / 错误 0 警告 3（预存）· 改动文件 eslint 0/0。
 - **E 组收口状态**：剩余 **3 条全在 `tools` 组**、且**全部**受阻于 `Tool` 双份定义（D-218）⇒ **子批 E 的静态可清部分至此清零**，余项待 [data-contract-unification.md](./data-contract-unification.md) 专项裁定（专项范围须含 `Tool` / `Command`）。
 
+**🔎 子批 F 首组 `session -> chat`（B11 · 11 条）取证 —— ⛔ 方案乙被证伪，整组挂起（D-221，2026-10-01）**
+
+- **形态**（去重 `file × chat` = 11）：**10 条为事件/消息契约**取用（`LiriEvent` · `LiriEventType` · `ChatSession` · `Message` + 值 `isLiriEvent` / `KNOWN_SESSION_EVENT_TYPES` / `MessageStatus`），**1 条为装配值**（`compaction/ServiceAdapters.ts` 取 `getCheckpointService`，与 D-217 同型）。
+- **用户裁定走"乙 · 契约改归 `session/types/`(service)"** ⇒ 前置**传递闭包取证**，结果 **3 处硬阻断**：
+  1. **物理覆盖**：`session/types/` **已有** `Message.ts`（322 行 `UnifiedMessage` 家族：`MessageType`/`MessageRole`/`ContentBlockType` 枚举 · `ContentBlock` 联合 · `FrontendMessageBlock` · `InboxBlockData` · SDK 控制消息族）与 `Session.ts`（`SessionType`/`SessionStatus`/`SessionMetadata`），**均与 `chat/types/*` 不同物**；Windows **大小写不敏感** ⇒ 迁入即**覆盖**（同 `Tool` 情形）。此发现使 `Message` 达 **4 份**（协议层 `core/types.ts` · 领域层 `chat/types/message.ts` · 域私有变体 · session `UnifiedMessage`）。
+  2. **新增倒挂**：`chat/types/events.ts` → `./eventPayloads` → **`@modules/tasks`**(app)（`TaskGoalStatus` / `TaskGoalUpdateReason` / `GoalTemplateKind`）⇒ 整组迁 `session` 将**新增 `session -> tasks`** ⇒ 与治理目标自相矛盾。
+  3. **同一条亦封死甲**（改下沉 `types/`）：`eventPayloads.ts` 另引 `@modules/utils/mermaidLint`(infra) ⇒ 变成 **`core -> app` / `core -> infra`**（**更差**）。⇒ 甲/乙均需**级联前置**（下沉 `TaskGoal*` app→core、`MermaidLintIssue` infra→core）。
+- **唯一可分离小块仍在专项内**：`chat/types/message.ts` **零出向依赖**（实测无任何 `import`）技术上可下沉；但 `types/index.ts:27-31` 明载「`Message` 已从类型中心删除、事实规范为 `chat/types/message.ts`」，且 R05-011 点名该文件 ⇒ 把 `Message` 重新引入 `types/` **正是数据契约专项中被推翻过的提案**（data-contract spec §0「T1 被推翻记录」）⇒ 须专项裁定。
+- **⇒ 处置（用户裁定）**：**B11 整组挂起**，并入数据契约专项（范围需含 `Message`(4 份) · `Tool` · `Command` · `LiriEvent`/`eventPayloads` 的 `TaskGoal*` / `MermaidLintIssue` 跨域依赖）；**先做 F 其余 5 条**（`session -> ai` 2 · `-> query` 2 · `-> context` 1），均**不涉**数据契约。
+- **取证产物（可复核，`chat/types/**` 出向全表）**：`checkpoint.ts`→`./message`+`./session` · `events.ts`→`@shared/events/eventNames`(值)+`./eventPayloads` · `eventPayloads.ts`→`@modules/core`+**`@modules/tasks`**+**`@modules/utils/mermaidLint`** · `knownEventTypes.ts`→`./events` · `session.ts`→`@modules/core`+`./message` · `message.ts`→**零出向**。
+
+**🔎 子批 F 其余 5 条 —— 首条落地 + 其余方案（D-222，2026-10-01）**
+
+- **范围**：`session -> ai` ×2（B12）· `session -> query` ×2（B13）· `session -> context` ×1（B14）。
+- **净差关键事实**：`CoreAPIImpl` **已静态导入 `@modules/ai`** ⇒ B12 走门面**零新增对**；但**未**引 `query`/`context` ⇒ 为 B13/B14 加门面会各 **+1** ⇒ 故 B14 走"改归"路线（见下）。
+- **✅ B12 已落地（−2）**：新增 `runtime/api/embeddingPorts.ts#EmbeddingRefPort`（按调用方实读面最小投影：`embedOne(text)` / `embed(texts).embeddings`）+ `CoreAPIImpl` **同步**门面 `getGlobalEmbeddingManager()`（⚠️ 因 `getSessionMemoryManager()` 是**同步懒初始化** ⇒ 不可改异步；同 D-217 手法）；`SessionMemoryManager` 改引该投影、`extractPerTurn` 的轮次消息改**本服务自持最小契约** `TurnMessageLike`（实测该方法**全仓零外部调用方**，改本地契约零破坏面）；`SessionSystemBootstrap` 改经 `getCoreAPI()` 取句柄。
+  - **验证**：`已豁免 46 → 44`（恰 −2）· `typecheck 0` · `lint:arch` 违规 0 / `R03-002` = 0 / 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test src/session` = **27 pass / 0 fail**。
+- **⏳ B13（用户裁定「甲 · CoreAPI 门面」）**：`CoreAPIImpl` 新增门面取 `FileCheckpointStorage`（该文件引 `../chat/types/checkpoint` ⇒ **app 耦合、不可下沉**）⇒ 新增 1 条 `runtime -> query` ⇒ **净 −1**。（另注：`chat/types/checkpoint.ts` 与 `query/types.ts` 存**两份 `CheckpointStorage`**，属既有重复类型，另册登记。）
+- **⏳ B14（用户裁定「甲 · 改归 `ai` + `utils`」）**：`context/AsyncContextStorage.ts`（仅依赖 `async_hooks` + 零 import 的 `context/types/Context.ts`）→ `utils/`(infra) **原址转出**，其 `Context`/`SessionContext` 类型同迁 `types/`；`ContextWindowResolver`（依赖 `@modules/ai`）→ `ai/` 并经 `AiOpsPort` 暴露（`CoreAPIImpl` 已引 ai ⇒ **零新增对**）⇒ **净 −1**。⚠️ 需同批更新其外部消费方（如 `compaction/utils.ts` 的 `resolveContextWindow`）。
+
 **子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。
 
 **🔎 `ai` 组深入取证（2026-10-01 D-209，逐符号）** —— 结论：**该组内部分化，不可整组同法**：

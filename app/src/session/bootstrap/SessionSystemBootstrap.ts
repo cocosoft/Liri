@@ -12,7 +12,10 @@ import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';
-import { globalEmbeddingManager } from '@modules/ai';
+// 2026-10-01 D-222（子批 F `ai` 组）：原静态导入 app 层 `@modules/ai` 的 `globalEmbeddingManager`
+// ⇒ `session -> ai`(app) 倒挂；且 `getSessionMemoryManager()` 为**同步懒初始化** ⇒ 不可改异步
+// ⇒ 改经 **CoreAPI 同步门面** `getGlobalEmbeddingManager()`（既有 sanctioned 缝，见其实现处说明）。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { SessionActivityTracker } from '../activity/SessionActivityTracker';
 import { SessionStateHydrator } from '../hydration/SessionStateHydrator';
 import type { ChatSession } from '../../chat/types/session';
@@ -49,7 +52,7 @@ export function getSessionMemoryManager(): SessionMemoryManager {
     memoryManager = new SessionMemoryManager(
       resolveSessionsDir(),
       undefined,
-      globalEmbeddingManager
+      getCoreAPI().getGlobalEmbeddingManager()
     );
     logger.info('SessionMemoryManager initialized (with EmbeddingManager)');
   }

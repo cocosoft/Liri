@@ -26,11 +26,27 @@ import {
   statSync,
 } from 'fs';
 import { dirname, join } from 'path';
+// 2026-10-01 D-222（子批 F `ai` 组）：原静态导入 app 层 `@modules/ai` 的 `EmbeddingManager`
+// 与 `ChatMessage` 类型 ⇒ `session -> ai`(app) 倒挂。改为：① 嵌入能力经**取用面投影**
+// `EmbeddingRefPort`（`@modules/runtime/api/embeddingPorts`，service→service 合法）；
+// ② `extractPerTurn` 的轮次消息改**本服务自持的最小结构契约**（该方法全仓**零外部调用方**，
+// 实测仅定义处，故改本地契约零破坏面）。
+import type { EmbeddingRefPort } from '@modules/runtime/api/embeddingPorts';
 import { getLogger } from '@modules/monitoring';
-import type { EmbeddingManager } from '@modules/ai';
-import type { ChatMessage } from '@modules/ai';
 
 const logger = getLogger('session:memory');
+
+/**
+ * 轮次消息**最小结构契约**（D-222 自持）—— 仅覆盖 `extractPerTurn` 实际读取的字段
+ * （`role` / `content` / `tool_calls[].function.{name,arguments}`）。
+ */
+interface TurnMessageLike {
+  role?: string | undefined;
+  content?: unknown;
+  tool_calls?:
+    | Array<{ function: { name: string; arguments: string } }>
+    | undefined;
+}
 
 /**
  * 向量索引条目
@@ -145,7 +161,7 @@ _暂无记录_
 export class SessionMemoryManager {
   private config: MemoryThresholdConfig;
   private memoryDir: string;
-  private embeddingManager?: EmbeddingManager;
+  private embeddingManager?: EmbeddingRefPort;
   private vectorIndex: Map<string, VectorEntry[]> = new Map();
 
   /**
@@ -156,7 +172,7 @@ export class SessionMemoryManager {
   constructor(
     sessionsBaseDir: string,
     config?: Partial<MemoryThresholdConfig>,
-    embeddingManager?: EmbeddingManager
+    embeddingManager?: EmbeddingRefPort
   ) {
     this.memoryDir = sessionsBaseDir;
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -455,7 +471,10 @@ export class SessionMemoryManager {
    * @param turnMessages 本轮消息
    * @returns 提取的关键事实
    */
-  extractPerTurn(sessionId: string, turnMessages: ChatMessage[]): MemoryItem[] {
+  extractPerTurn(
+    sessionId: string,
+    turnMessages: TurnMessageLike[]
+  ): MemoryItem[] {
     const items: MemoryItem[] = [];
 
     // 从工具调用参数直接提取（结构化，不依赖自然语言关键词）

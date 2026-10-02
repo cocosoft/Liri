@@ -67,6 +67,7 @@ import type { AutoReplyPort } from './autoReplyPorts';
 import type { A2APort } from './a2aPorts';
 import type { BridgePort } from './bridgePorts';
 import type { AutoCompactServiceRefPort } from './compactPorts';
+import type { EmbeddingRefPort } from './embeddingPorts';
 // D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
 import { AutoCompactService } from '@modules/compaction';
 import { withPaginationSeq } from './paginationSeq';
@@ -180,7 +181,7 @@ import {
 import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
-import { providerRegistry } from '@modules/ai';
+import { providerRegistry, globalEmbeddingManager } from '@modules/ai';
 import { getToolManager } from '@modules/tools';
 import { getTitleGenerator } from '@modules/agent';
 
@@ -1955,6 +1956,22 @@ export class CoreAPIImpl implements CoreAPI {
         return { success: result.success, error: result.error };
       },
     };
+  }
+
+  /**
+   * 嵌入能力**同步**门面（2026-10-01 D-222，子批 F `ai` 组）
+   *
+   * `session/memory/SessionMemoryManager.ts` + `session/bootstrap/SessionSystemBootstrap.ts`（service）
+   * 原先**静态**导入 app 层 `@modules/ai`（`EmbeddingManager` 类型 + `globalEmbeddingManager` 值）
+   * ⇒ 2 条 `session -> ai`(app) 倒挂 ⇒ 改经本门面取用（投影见 `./embeddingPorts#EmbeddingRefPort`）。
+   *
+   * ⚠️ **为何同步而非端口 Promise**：`getSessionMemoryManager()` 是**同步懒初始化**
+   * （`if (!memoryManager) { memoryManager = new SessionMemoryManager(…) }`）⇒ 改异步会向上传染
+   * ⇒ 采用本仓既有 sanctioned 缝（同 `createAutoCompactService()` / `getChatManager()`）。
+   * 👉 计数影响：`runtime -> ai` 边**早已存在**（本文件已静态导入 `@modules/ai`）⇒ **不新增豁免计数**。
+   */
+  getGlobalEmbeddingManager(): EmbeddingRefPort {
+    return globalEmbeddingManager;
   }
 
   // ---- 知识库运维 P1（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-95）----

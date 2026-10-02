@@ -16,7 +16,10 @@ import {
 } from '@modules/core';
 import { asyncContextStorage } from '@modules/context';
 import { resolveContextWindow } from '@modules/context';
-import { FileCheckpointStorage } from '@modules/query';
+// 2026-10-01 D-222 B13（子批 F `query` 组）：原静态导入 app 层 `@modules/query` 的
+// `FileCheckpointStorage`（引 `../chat/types/checkpoint` ⇒ app 耦合不可下沉）⇒ 改经
+// **CoreAPI 同步门面** `getCheckpointCleanup()`；调用点在同步回调内 ⇒ 不可异步。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { SessionContext } from '../context/types/Context';
 import {
   createTranscriptManager,
@@ -498,7 +501,8 @@ export class SessionGateway {
         adapter,
         options?.prunerOptions,
         // 联动清理被剪枝会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
-        (id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)
+        (id: string) =>
+          getCoreAPI().getCheckpointCleanup().deleteSessionCheckpoints(id)
       )
     );
     this.setSessionLock(new SessionLock());

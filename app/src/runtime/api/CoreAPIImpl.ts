@@ -68,8 +68,11 @@ import type { A2APort } from './a2aPorts';
 import type { BridgePort } from './bridgePorts';
 import type { AutoCompactServiceRefPort } from './compactPorts';
 import type { EmbeddingRefPort } from './embeddingPorts';
+import type { CheckpointCleanupPort } from './checkpointPorts';
 // D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
 import { AutoCompactService } from '@modules/compaction';
+// D-222 B13：检查点清理**同步**门面所需（见 `getCheckpointCleanup()` 说明）
+import { FileCheckpointStorage } from '@modules/query';
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1972,6 +1975,26 @@ export class CoreAPIImpl implements CoreAPI {
    */
   getGlobalEmbeddingManager(): EmbeddingRefPort {
     return globalEmbeddingManager;
+  }
+
+  /**
+   * 检查点清理**同步**门面（2026-10-01 D-222 B13，子批 F `query` 组）
+   *
+   * `session/SessionGateway.ts` + `session/SessionManager.ts`（service）原先**静态**导入 app 层
+   * `@modules/query` 的 `FileCheckpointStorage` ⇒ 2 条 `session -> query`(app) 倒挂。
+   * ⚠️ 该类引 `../chat/types/checkpoint` ⇒ **app 耦合、不可下沉** ⇒ 走门面（投影见
+   * `./checkpointPorts#CheckpointCleanupPort`）。
+   *
+   * ⚠️ **为何同步**：调用点在**同步回调** `(id: string) => …` 内（拼装 `SessionPruner` 选项）⇒
+   * 不可改异步 ⇒ 采用本仓既有 sanctioned 缝（同 `getGlobalEmbeddingManager()`）。
+   * 👉 计数影响：新增 1 条 `runtime -> query`（本文件此前未静态导入 `@modules/query`）⇒
+   * 本组"清 2 增 1" ⇒ **净 −1**。
+   */
+  getCheckpointCleanup(): CheckpointCleanupPort {
+    return {
+      deleteSessionCheckpoints: (sessionId: string) =>
+        new FileCheckpointStorage().deleteSessionCheckpoints(sessionId),
+    };
   }
 
   // ---- 知识库运维 P1（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-95）----

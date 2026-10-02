@@ -130,9 +130,15 @@ export type SecurityAuditDecision =
   | 'timeout_denied'; // 超时自动拒绝
 
 /**
- * 命令执行时的会话上下文
+ * 命令执行时的会话上下文（**安全审计**专用）
+ *
+ * 2026-10-01 数据契约专项 U5（`SessionContext` 簇 · C）：原名 `SessionContext`，与
+ * `context/types/Context.ts`（ALS 注入的会话运行时上下文）及 `memory/types/SessionContext.ts`
+ * （记忆检索上下文）**同名不同物**（本版为 `{ sessionId; taskDescription; currentMode }`，
+ * 且**仅本文件内部消费**）⇒ 依 §9.2 原则 2「一名一规范落点」改名。
+ * ⚠️ 不复用 `AuditSessionContext` —— 该名已由 `security/SecurityAuditLogger.ts:25` 占用（另一概念）。
  */
-export interface SessionContext {
+export interface SecuritySessionContext {
   /** 会话 ID */
   sessionId: string;
   /** 任务描述 */
@@ -291,7 +297,7 @@ export interface AuditEvent {
   /** P3-03: 截断的命令预览 */
   truncatedResult?: string;
   /** P3-03: 会话上下文 */
-  sessionContext?: SessionContext;
+  sessionContext?: SecuritySessionContext;
   /** P3-03: 决策结果 */
   decision?: SecurityAuditDecision;
   /**
@@ -625,7 +631,7 @@ export class SecurityAudit {
     decision: SecurityAuditDecision;
     riskLevel: string;
     userId?: string;
-    sessionContext?: SessionContext;
+    sessionContext?: SecuritySessionContext;
   }): string {
     const truncated =
       params.command.length > 120

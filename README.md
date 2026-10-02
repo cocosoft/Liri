@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.55-blue)
+![Version](https://img.shields.io/badge/version-0.4.56-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -364,7 +364,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.55**
+当前版本：**v0.4.56**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -372,6 +372,18 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.56 (2026-10-02)
+
+**分层倒挂治理完全收官（`已豁免` 151 → 0 · 例外清单归零）+ 数据契约统一专项 + 门禁口径修正**
+
+- ✅ **分层倒挂治理完全收官** - `lint:arch` 的 `已豁免` 由 **151 → 0**（**首次归零**），`layer-exceptions.json` 的 `bulkExceptions` / `perModuleExceptions` **全部清空** ⇒ 今后任何跨层**值边**一律**直接报违规**（不再有沉默容忍）。四类手法：**物理归位**（`AttachmentManager` → `services/file/`）· **层再分类**（`tokenBudget` / `compaction` 归 app、`scripts` 归 entry）· **端口注入**（`CoreAPIImpl` 依赖反转：新增 `setCoreApiAppDeps()` 注入缝 + 组合根注册；8 符号注入 / 7 符号动态化）· **删死码**
+- ✅ **死码清零** - `commands/builtin/**/*UI.tsx`（**90 文件**整棵零引用子树）· `core/flows/`（5 文件）· `analytics/CostTrackerPassesHook.ts` · `streaming/StreamEventInk.tsx` · `commands/tools/remote/remote-session.ts`
+- ✅ **数据契约统一（跨模块同名簇消名）** - `Message` 7→1 · `SessionContext` 3→1 · `Context` → `HelpContext` · `Tool` 2→1 · `CheckpointStorage` → `TAORCheckpointStorage` · `PermissionMode` → `ToolPermissionMode` · `parseContextLimitFromError` → `parseContextOverflowSignal` · `core/types Message` → `ProtocolMessage`
+- ✅ **会话链路类型归一（B11/B14）** - `chat/types/*` **拍平**迁入 `session/types/`；`Context` 家族下沉 `types/context.ts`；`ContextWindowResolver` 解除对 `ai` 的静态耦合（改 infra 缓存 + 同步推入）
+- ✅ **门禁口径修正与可见化** - `R00-001` **不计纯 `type-only`** 跨层引用（改为**仅上报**）；测试文件在 `R00-001/003` 与 `R03-002` **同口径排除**；`R05-013` 落点口径（工具契约改落 `utils/toolContract`）⇒ 类型中心冲突 **20 → 0**；`R02-002` 同名导出冲突清零
+- ✅ **B18 工具端口化** - 工具契约下沉 `utils/toolContract/`（原址 9 转发）+ 工具端口注入 ⇒ `services -> app` 归零
+- ✅ **质量** - `typecheck` 0 错 · `lint:arch` **违规 0 / 已豁免 0**（type-only 6 · 动态 33，**均仅上报**）· 启动路径冒烟通过 · 预存问题逐项登记（`project_rules §1.16` 表述不准 · `batch-test-all` 的 `INDEX_PATH` 失效 · `cli.tsx` 无 `import.meta.main`）
 
 #### v0.4.55 (2026-09-30)
 

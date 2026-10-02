@@ -22,65 +22,27 @@
 import { randomUUID } from 'crypto';
 import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
+// 2026-10-01 B11 前置 P1（D-223）：`TaskGoalStatus` / `TaskGoalUpdateReason` 词表已下沉
+// **类型中心** `@modules/types/goal`（core —— 二者均为纯字面量联合、零出向依赖）⇒ 解除
+// `chat/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。
+// 本文件按 R05-013 口径**再导出**（再导出不计入类型中心冲突），保持 `@modules/tasks` 桶
+// 与既有消费方零改动。
+import type { TaskGoalStatus, TaskGoalUpdateReason } from '@modules/types/goal';
+
+export type { TaskGoalStatus, TaskGoalUpdateReason };
 
 const logger = getLogger('tasks:goal:store');
 
 export const TASK_GOALS_TABLE = 'task_goals';
 
-/**
- * 目标状态（6 态）。
- *
- * - `active`：推进中（唯一的"可推进"状态）；
- * - `blocked`：受阻（**非终态** —— 允许 `blocked → active` 恢复，对齐 codex 的 `GOAL_RESUMED`）；
- * - `completed` / `budget_limited` / `failed` / `cancelled`：**终态**，落定后不可改写。
- */
-export type TaskGoalStatus =
-  | 'active'
-  | 'blocked'
-  | 'completed'
-  | 'budget_limited'
-  | 'failed'
-  | 'cancelled';
+/** 目标状态（6 态）—— 定义已下沉 `@modules/types/goal`（本文件再导出，见文件头）。 */
 
 /** 终态集合（落定后**不可改写**） */
 export const TASK_GOAL_TERMINAL_STATUSES: ReadonlySet<TaskGoalStatus> = new Set(
   ['completed', 'budget_limited', 'failed', 'cancelled']
 );
 
-/**
- * **状态迁移 / 字段变更的原因码**（B2-2，2026-09-23）。
- *
- * 用途：事件载荷 `goal/status_changed.reason` 与 `goal/updated.reason` 的**机器可读**面
- * ——"为何停下"的唯一答案（`.trae/specs/goal-entity.md` §4.1）。
- * 判定一律用本枚举，**禁止**按 `objective` 文案或用户可见字符串推断（CS02）。
- *
- * 取值说明（Spec §3.2 的枚举 + 本仓实际落定路径补齐的两条）：
- * - `batch_completed` / `batch_blocked` / `budget_limit` / `stop_threshold`：Spec 原文；
- * - `batch_failed` / `batch_cancelled`：**本仓补齐** —— 批次全败与批次取消也是真实落定路径，
- *   Spec 枚举未列（若不补，这两条路径只能落 `null` 原因，与"唯一答案"目标相悖）；
- * - `turn_error` / `compaction_stalled` / `manual`：属缺口 X9 / X10 / X4（本批未接，
- *   先按 Spec 登记词表，待其落地后由对应策略层产出）。
- */
-export type TaskGoalUpdateReason =
-  | 'batch_completed'
-  | 'batch_blocked'
-  | 'batch_failed'
-  | 'batch_cancelled'
-  | 'budget_limit'
-  | 'stop_threshold'
-  | 'turn_error'
-  | 'compaction_stalled'
-  // 二期 N2（2026-09-23 修复计划 §六）：**只记录、不计数**的"这一轮为何停下"原因码。
-  // 语义上都不是"无进展" ⇒ 不得混入 `no_progress_streak`（`user_aborted` 更不得
-  // 按用户意图相反地触发 idle 续接）。
-  | 'turn_limit'
-  | 'turn_timeout'
-  | 'turn_budget_exhausted'
-  | 'turn_interrupted'
-  | 'user_aborted'
-  // 二期 O2-1（2026-09-24）：**系统中止**（断线 / 会话清理）与"用户主动放弃"区分
-  | 'system_aborted'
-  | 'manual';
+/** 状态迁移 / 字段变更的原因码 —— 定义已下沉 `@modules/types/goal`（本文件再导出，见文件头）。 */
 
 /** 是否为终态 */
 export function isTerminalGoalStatus(status: TaskGoalStatus): boolean {

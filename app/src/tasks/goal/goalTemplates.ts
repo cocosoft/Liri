@@ -19,6 +19,14 @@
  *（不抛错、不静默清空 —— 便于在日志里看出"哪个参数漏传"）。
  */
 
+// 2026-10-01 B11 前置 P1（D-223）：`GoalTemplateKind` 键集已下沉**类型中心**
+// `@modules/types/goal`（core —— 纯字面量联合、零出向依赖）⇒ 解除
+// `chat/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。
+// 本文件按 R05-013 口径**再导出**，既有消费方（`GoalEvents.ts` · `@modules/tasks` 桶）零改动。
+import type { GoalTemplateKind } from '@modules/types/goal';
+
+export type { GoalTemplateKind };
+
 /**
  * 续接指令的变体。
  *
@@ -64,13 +72,7 @@ export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
     'Continue from where you left off. You have access to the full conversation history above.',
 };
 
-/** 长程任务专用模板 */
-export type GoalTemplateKind =
-  | 'budget_limit'
-  | 'objective_updated'
-  | 'progress_stalled'
-  | 'continue_goal'
-  | 'tool_execution_errors';
+/** 长程任务专用模板（键集）—— 定义已下沉 `@modules/types/goal`（本文件再导出，见文件头）。 */
 
 /**
  * 目标级策略模板（codex 对位：`budget_limit.md` / `objective_updated.md`）。

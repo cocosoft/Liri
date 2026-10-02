@@ -682,6 +682,8 @@ export interface AgentRunDto {
 - **净差**：新增 `tasks → types` / `chat → types` / `utils → types` 三向**均为合法方向**（app→core / infra→core）⇒ **不新增任何跨层对**，`已豁免` **42 → 42**。
 - **同名核验**：`src/types/**` 内**无**这 4 个名字的定义 ⇒ **R05-013 无冲突** ✓。
 - **约定核验**：`@modules/types/<file>` 为仓内通行子入口（实测 **20 处**：`types/a2a` · `types/orchestrationEvents` · `types/tool.js` · `types/router` · `types/plugin.js` · `types/orchestrationSnapshot` · `types/agentEvents` …）✓。
+- **✅ 已执行（2026-10-01，D-223 本批）**：新建 `src/types/goal.ts`（3 个 goal 类型）+ `src/types/mermaid.ts`（`MermaidLintIssue`）；原址三处**再导出**（`tasks/goal/TaskGoalStore.ts` · `tasks/goal/goalTemplates.ts` · `utils/mermaidLint.ts`）；`chat/types/eventPayloads.ts` 的 3 条导入（2 行 goal 词表 + 1 行问题项）改指 core ⇒ **该契约文件已成为「纯 core 引用」**（仅 `@modules/core` + `@modules/types/goal` + `@modules/types/mermaid`），**B11 blocker ②③ 已解除**。
+  - **验证**：`typecheck 0` · `[类型中心] 32 → 36`（+4，与下沉数吻合）· `类型中心冲突 0`（再导出不计入）· `违规 0` · **`已豁免 42 → 42`（净差 0，与取证预测一致）** · 动态跨层引用 32（不变）· 碎片 0 · 警告 3（预存）· `bun test tests/tasks tests/chat tests/utils` = **814 pass / 0 fail**。
 
 **前置项 P2：文件名去冲突 —— ⚠️ 实测 3 处，**多于**记录中的 1 处**
 

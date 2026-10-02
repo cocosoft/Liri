@@ -10,10 +10,18 @@
 
 import type { DataAttachment } from '@modules/core';
 // B2-2（2026-09-23）：目标事件载荷复用 Goal 域的既有词表（单一来源，不另立联合类型）
-import type { TaskGoalStatus, TaskGoalUpdateReason } from '@modules/tasks';
-import type { GoalTemplateKind } from '@modules/tasks';
+// 2026-10-01 B11 前置 P1（D-223）：词表已下沉**类型中心** `@modules/types/goal`(core) ——
+// 本文件由此**不再依赖 `@modules/tasks`(app)**，为其迁往 `session/types/`(service) 扫清
+// `service -> app` 传递倒挂（B11 blocker ②）。
+import type {
+  TaskGoalStatus,
+  TaskGoalUpdateReason,
+  GoalTemplateKind,
+} from '@modules/types/goal';
 // P1-1②（2026-09-28）：输出校验问题项复用校验器的既有形状（单一来源，不复制字段定义）
-import type { MermaidLintIssue } from '@modules/utils/mermaidLint';
+// 2026-10-01 B11 前置 P1（D-223）：同上，问题项接口已下沉 `@modules/types/mermaid`(core)
+// ⇒ 本文件不再依赖 `@modules/utils/mermaidLint`(infra)，成为**纯 core 引用**的契约文件。
+import type { MermaidLintIssue } from '@modules/types/mermaid';
 
 // ─── 事件载荷映射 ───────────────────────────────────────────────────────────
 
@@ -452,7 +460,7 @@ export interface LiriEventMap {
     kind: 'mermaid';
     /**
      * 未通过的结构性问题（结构化可判定，不依赖日志文本）。
-     * 形状与 `@modules/utils/mermaidLint` 的 `MermaidLintIssue` **同源**（单一事实来源）。
+     * 形状与 `@modules/types/mermaid` 的 `MermaidLintIssue` **同源**（单一事实来源）。
      */
     issues: MermaidLintIssue[];
     /** 回喂通道：经循环内 steering 队列在**下一轮请求前**注入 */

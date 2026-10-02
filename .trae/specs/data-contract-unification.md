@@ -385,3 +385,22 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 - **① ✅ 已执行**：删除 `tools/legacy_types.ts` + 移除其 R05-013 例外登记 ⇒ 同名定义 **−3**（`Tool`/`ToolDefinition`/`ToolSchema`）· 例外清单 **−1**。**验证**：`typecheck 0` · `lint:arch` 违规 0 / 类型中心冲突 **0** · 错误 0 警告 3（预存）· 检查文件 `3987 → 3986`（恰 −1）· `bun test tests/chat src/appState` = **335 pass / 0 fail**。
 - **② ❌「甲」被证伪（同日，用户已授权甲但实施后回滚）**：切到完整契约后 `typecheck` 报 **`AppState.ts(340,28) TS2352`** —— `tools/types` 的 `ToolPermissionContext` **必填** `mode` · `additionalWorkingDirectories` · `alwaysAllowRules` · `alwaysDenyRules` · `alwaysAskRules`，而 AppState 的默认字面量（`isBypassPermissionsModeAvailable`/`Enabled` · `circuitBroken` · `circuitBrokenAt`）**没有这些字段** ⇒ **两者仍属"同名不同物"**（我上一轮前置核验**不完整**：只查了 `Tool` 的字段访问，**漏查 `ToolPermissionContext` 的形状**）。补默认值等于**替它编语义**（违反 CS04/CS05）⇒ **立即回滚甲部分**（`types/tool.ts` 与 `AppState.ts` 已还原），仅保留 ①。
   - ⇒ **改走「乙」**：`types/tool.ts` 的极简对（`Tool` + `ToolPermissionContext`）**整体改名**（如 `AppStateToolRef` / `AppStateToolPermissionContext`），或**按 U5 统一处置** `ToolPermissionContext` 的 **4 模块同名面**后再命名 ⇒ **待裁定**。
+
+---
+
+### 9.8 🟡 U5 进行中：`ToolPermissionContext` 同名簇（5 份 / 4 模块）+ `Tool`（2026-10-01）
+
+**判定表（实测 5 处形状各异 ⇒ 全部"同名不同物"）**：
+
+| # | 落点 | 形状 | 处置 |
+|---|---|---|---|
+| 1 | `permission/permissions.ts:11` | `mode: PermissionMode` + 4 个集合**必填** | ⭐ **规范落点候选**（权限域事实源） |
+| 2 | `tools/types/PermissionContext.ts:28` | `mode: PermissionMode` + 额外工作目录…（**工具契约侧**） | 待核与 #1 是否同构 ⇒ 同构则**收敛为再导出**；否则改名 |
+| 3 | `permission/utils/RuleMatcher.ts:41` | **`Partial<Record<PermissionRuleSource, string[]>>`** 变体 | 改名（如 `PartialRuleSourceContext`） |
+| 4 | `system/state/types.ts:29` | `mode: string` 宽松版（4 字段，全可选） | 改名（如 `StateToolPermissionContext`） |
+| 5 | `types/tool.ts:11` | 极简占位（AppState 用） | ✅ **已改名**（见下） |
+
+- **✅ 已执行（#5 + `Tool`）**：`types/tool.ts` 的极简对改名 **`AppStateToolRef` / `AppStateToolPermissionContext`**（即 U3-② 的「乙」），同步更新唯一消费方 `appState/AppState.ts`（导入 + 3 处引用：`toolPermissionContext` 字段 · `tools:` 字段 · `as …` 断言）。
+  - **验证**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test src/appState tests/chat` = **335 pass / 0 fail**。
+  - **收益**：一次性消掉 **2 个同名**（`Tool` 与 `ToolPermissionContext` 各 **−1 份**；且该文件**无行为变化** —— 零风险改名）。
+- ⏳ **余 4 份（#1–#4）待处置**：需先核 **#2 与 #1 是否同构**（决定"收敛为再导出" vs "改名"），再定 #3/#4 的新名。**这是 U5 的主项，随后完成。**

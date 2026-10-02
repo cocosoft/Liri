@@ -4,7 +4,13 @@
  */
 
 import { create } from 'zustand';
-import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
+// 2026-10-01 数据契约专项 U5（并入 U3-② 乙）：原极简 `Tool` / `ToolPermissionContext`
+// 与 `tools/types` 的完整契约**同名不同物**（形状不兼容）⇒ 依 §9.2「一名一规范落点」**改名**
+// 为 `AppStateToolRef` / `AppStateToolPermissionContext`（本文件仅作字段声明，从不解引用字段）。
+import type {
+  AppStateToolRef,
+  AppStateToolPermissionContext,
+} from '@modules/types/tool.js';
 import type {
   MCPServerConnectionInfo,
   ServerResource,
@@ -164,7 +170,7 @@ export interface AppState {
   /** 底部选择 */
   footerSelection: FooterItem | null;
   /** 工具权限上下文 */
-  toolPermissionContext: ToolPermissionContext;
+  toolPermissionContext: AppStateToolPermissionContext;
   /** 加载提示 */
   spinnerTip?: string;
   /** 代理名称 */
@@ -220,7 +226,7 @@ export interface AppState {
     /** MCP客户端 */
     clients: MCPServerConnectionInfo[];
     /** MCP工具 */
-    tools: Tool[];
+    tools: AppStateToolRef[];
     /** MCP命令 */
     commands: Command[];
     /** MCP资源 */
@@ -337,7 +343,7 @@ export function getDefaultAppState(): AppState {
       isBypassPermissionsModeEnabled: false,
       circuitBroken: false,
       circuitBrokenAt: undefined,
-    } as ToolPermissionContext,
+    } as AppStateToolPermissionContext,
     agent: undefined,
     kairosEnabled: false,
     remoteSessionUrl: undefined,

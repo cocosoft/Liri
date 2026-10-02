@@ -528,4 +528,36 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 **裁决**：面小（**5 处编辑**：定义 1 + 文件内 1 + barrel 1 + 消费者 2），**不属"需保留例外"** ⇒ 建议执行改名。
 **R05-013 无冲突**：`core/types.ts` 不在 `src/types/**` 类型中心内。
 
-⏳ **执行状态**：**待执行**（普查与立项结论已入档；改名 5 处待授权）。
+✅ **执行状态**：**已完成**（`64dd5a077`，4 文件 7 处）—— U2 全部收口。
+
+### 9.12 U5 剩余簇取证与裁定（2026-10-01）
+
+#### ① `Context`（2 份）
+
+| 落点 | 形状 | 裁定 |
+|---|---|---|
+| `context/types/Context.ts:10` | 会话运行时上下文（`type:'session'` + sessionId/userId/agentName/channelType） | **保留 `Context`**（规范落点，同 `SessionContext` 簇结论） |
+| `docs/HelpSystem.ts:46` | 帮助系统文档上下文（用于 `getContextHelp(Partial<Context>)`） | → 改名 **`HelpContext`**（文件内 4 处：L46 定义 + L1027/1048/1072） |
+
+⚠️ 前置：需先扫 `HelpContext`/`Context` 的**外部消费者**（`docs/**` 之外是否有人 import 之）。
+
+#### ② `CheckpointStorage`（2 份，同名不同物）
+
+| 落点 | 语义 | 消费者 |
+|---|---|---|
+| `chat/types/checkpoint.ts:35` | **会话检查点**存储 | `chat/services/SessionCheckpointService.ts`（4 处）· `chat/services/CheckpointDatabase.ts`（implements）· **`query/FileCheckpointStorage.ts`（implements）** |
+| `query/types.ts:81` | **TAOR** 检查点存储 | `query/FileTAORCheckpointStorage` · `query/DBTAORCheckpointStorage` · `query/ResumeManager` · `query/TAORLoop`（含 `MemoryCheckpointStorage`）|
+
+**裁定**：chat 侧**保留** `CheckpointStorage`（跨模块被 query 消费 ⇒ 更"规范"）；query 侧 → 改名 **`TAORCheckpointStorage`**（与既有 `TAORCheckpoint` 同族，语义准确）。
+⚠️ **必须先行核验**：`query/FileCheckpointStorage.ts:14` 的 `CheckpointStorage` **导入源**（chat 还是 `./types.js`）—— 决定它是"实现 chat 接口"还是"实现 query 接口"，进而决定改名波及面。
+
+#### ③ `PermissionMode`（2 份）
+
+| 落点 | 形状 | 裁定 |
+|---|---|---|
+| `tools/types/PermissionContext.ts:9` | 本地 `type PermissionMode = 'default' \| 'auto' \| 'strict' \| 'bypass'` | 待核**值域是否同源** → 同源则改**再导出**（并解决 `@modules/permission/...` 子路径的 R03-002 口径）；不同源则改名 **`ToolPermissionMode`** |
+| `permission/PermissionMode.ts` | 权限域事实源 | **保留** |
+
+**文件内消费**：`mode: PermissionMode`（L42）· `prePlanMode?`（L92）。
+
+⏳ **执行状态**：**待执行**（三簇取证 + 裁定已入档；② 需先核 `FileCheckpointStorage` 导入源，① 需先扫 `HelpContext` 外部消费者）。

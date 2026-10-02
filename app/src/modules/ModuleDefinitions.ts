@@ -417,9 +417,20 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     // 2026-08-06 P0-1：补模块生命周期接线（原仅元数据、无 instance → 注册后 initialize 空操作，MCP 从未实际初始化）
     async initialize() {
       const { mcpSystem } = await import('@modules/services/mcp');
+      // 2026-10-01 B18-a：**工具注册端口的组合根注入**。
+      // `MCPToolBridge`(service) 已删除对 `@modules/tools`(app) 的静态依赖；本文件属 **app 层**
+      // （见 `scripts/modules-to-layers.json`）⇒ `modules -> tools` **同层合法**。
+      // 注入与初始化在**同一次调用**内完成 ⇒ 无启动时序窗口（规避 C1/C2 级问题）。
+      // 端口类型用 `Parameters<typeof mcpSystem.initialize>[0]` 表达 ⇒ 无需新增类型导入。
+      const { getToolManager } = await import('@modules/tools');
+      const toolManager = getToolManager();
+      const toolPort: Parameters<typeof mcpSystem.initialize>[0] = {
+        registerTool: (tool) => toolManager.registerTool(tool),
+        unregisterTool: (name) => toolManager.unregisterTool(name),
+      };
       // 3 秒超时保护：MCP 初始化失败/超时仅 warn 不阻塞启动（参照 prefetchOfficialMcpUrls 风格）
       await Promise.race([
-        mcpSystem.initialize(),
+        mcpSystem.initialize(toolPort),
         new Promise<void>((_, reject) =>
           setTimeout(() => reject(new Error('mcp_init_timeout')), 3000)
         ),

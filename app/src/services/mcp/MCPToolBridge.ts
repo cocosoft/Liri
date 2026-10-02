@@ -5,10 +5,17 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error';
 
 const logger = getLogger('services:mcp:toolBridge');
-import { getToolManager } from '@modules/tools';
+// 2026-10-01 B18-a：**删除** `import { getToolManager } from '@modules/tools'` ——
+// 它构成 `services(mcp) -> tools(app)` 倒挂。注册/注销改经**注入的工具端口**（见 McpToolRegistrationPort），
+// 由组合根 `modules/ModuleDefinitions.ts`（**app 层**，`modules -> tools` 同层合法）在 initialize() 时传入。
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
@@ -16,7 +23,20 @@ import { mcpConnectionManager } from './MCPConnectionManager';
 // **D-157 即已下沉** `core/DependencyRegistry.ts`（`context/` 仅转出）⇒ 原 `@modules/context`
 // 取用属倒挂。改**相对直连 core 模块根**（同 D-157 先例 `PermissionInterceptor.ts:40`）。
 import { dependencyRegistry } from '../../core/DependencyRegistry.js';
-import type { Tool } from '@modules/tools/types/Tool';
+// 2026-10-01 B18-b：工具契约已下沉 `src/types/tools/`（core 层）⇒ 改指新落点。
+import type { Tool } from '@modules/types/tools';
+
+/**
+ * 2026-10-01 B18-a：工具注册**端口**。
+ *
+ * 由**组合根**注入（`modules/ModuleDefinitions.ts`，app 层 ⇒ `modules -> tools` 同层合法，
+ * 见 `scripts/modules-to-layers.json`），使本文件（service 层）**不再静态依赖** `@modules/tools`(app)。
+ * 注入与初始化是**同一次调用** ⇒ 无启动时序风险（规避 C1/C2 级问题）。
+ */
+export interface McpToolRegistrationPort {
+  registerTool: (tool: Tool) => void;
+  unregisterTool: (name: string) => void;
+}
 
 /**
  * MCP工具桥接器
@@ -30,11 +50,18 @@ export class MCPToolBridge {
   private disposers: Array<() => void> = [];
   private initialized = false;
 
+  /** 2026-10-01 B18-a：组合根注入的工具注册端口（null = 未注入）。 */
+  private toolPort: McpToolRegistrationPort | null = null;
+
   /**
    * 初始化桥接器
    * 将当前已连接的MCP服务器工具注册到ToolManager
+   *
+   * ⚠️ `toolPort` **必填**：由组合根（`modules/ModuleDefinitions.ts`）在调用链最外层构造并传入，
+   * 与初始化同一次调用完成 ⇒ 不存在"用了才注入"的时序窗口。
    */
-  async initialize(): Promise<void> {
+  async initialize(toolPort: McpToolRegistrationPort): Promise<void> {
+    this.toolPort = toolPort;
     if (this.initialized) {
       return;
     }
@@ -63,6 +90,20 @@ export class MCPToolBridge {
     for (const [serverName, { tools: serializedTools }] of allServerTools) {
       this.registerServerTools(serverName, serializedTools);
     }
+  }
+
+  /**
+   * 取工具端口。未注入即使用属**编程错误**（组合根必注入）⇒ 依 CS03 **不做静默回退**，明确抛错。
+   */
+  private requireToolPort(): McpToolRegistrationPort {
+    if (!this.toolPort) {
+      throw new AppError(
+        'MCPToolBridge 未注入工具端口：须由组合根（modules/ModuleDefinitions.ts）在 initialize() 时传入',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
+    }
+    return this.toolPort;
   }
 
   /**
@@ -96,7 +137,7 @@ export class MCPToolBridge {
 
       names.push(wrapper.name);
       this.registeredMcpTools.set(wrapper.name, wrapper);
-      getToolManager().registerTool(wrapper);
+      this.requireToolPort().registerTool(wrapper);
 
       // 同步注册到 MCPToolRegistry（增强层缓存）
       mcpToolRegistry.registerTool(
@@ -124,7 +165,7 @@ export class MCPToolBridge {
       for (const name of names) {
         const wrapper = this.registeredMcpTools.get(name);
         if (wrapper) {
-          getToolManager().unregisterTool(name);
+          this.requireToolPort().unregisterTool(name);
           this.registeredMcpTools.delete(name);
         }
       }

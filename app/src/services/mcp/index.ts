@@ -34,7 +34,7 @@ import { resolvePyappHome } from '@modules/core/paths';
 const logger = getLogger('services:mcp:index');
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
-import { mcpToolBridge } from './MCPToolBridge';
+import { mcpToolBridge, type McpToolRegistrationPort } from './MCPToolBridge';
 import { initMCPConfigReload } from './mcpConfigReload';
 import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
@@ -80,8 +80,11 @@ export class MCPSystem {
 
   /**
    * 初始化MCP系统
+   *
+   * @param toolPort 工具注册端口 —— 2026-10-01 B18-a：由**组合根**注入并**透传**给 `mcpToolBridge`，
+   *   使 `MCPToolBridge`(service) 不再静态依赖 `@modules/tools`(app)。
    */
-  async initialize(): Promise<void> {
+  async initialize(toolPort: McpToolRegistrationPort): Promise<void> {
     if (this.initialized) {
       logger.warn('MCP system already initialized');
       return;
@@ -107,7 +110,7 @@ export class MCPSystem {
 
       // 初始化MCP工具桥接器（将MCP工具注册到ToolManager）
       profilePhaseStart('mcp_tool_bridge');
-      await mcpToolBridge.initialize();
+      await mcpToolBridge.initialize(toolPort);
       profilePhaseEnd('mcp_tool_bridge');
 
       // 启动 MCP 配置热重载（§3.1 关联点3 接线）：监听三层 mcp.json/.mcp.json，

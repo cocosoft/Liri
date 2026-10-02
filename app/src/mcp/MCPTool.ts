@@ -7,7 +7,8 @@ import type { Tool, ToolUseContext, ToolResult } from '@modules/types/tools';
 import { createToolResult } from '@modules/types/tools';
 import { MCPServerConfig, MCPToolDefinition } from './types';
 import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
-import { toolScopeManager } from '../tool/ToolScopeManager';
+// 2026-10-01 B18-c：**删除** `import { toolScopeManager } from '../tool/ToolScopeManager'` ——
+// 它构成 `mcp(service) -> tool(app)` 倒挂。改在唯一使用点（async `execute()` 内）**动态导入**。
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
@@ -228,6 +229,12 @@ export const MCPTool: Tool = {
               // 登记到会话级 scope，会话销毁时断开连接（防泄漏）；
               // 进程级兜底由 ChildProcessTracker（stdio 两阶段终止）承担，二者共存。
               if (context.sessionId) {
+                // 2026-10-01 B18-c：`toolScopeManager`（`tool` 模块，app 层）原为**静态**导入，
+                // 构成 `mcp(service) -> tool(app)` 倒挂。本处位于 **async** `execute()` 内 ⇒
+                // 改**方法内动态导入**（同 F 尾批 `runtime -> agent` 手法）：静态边消失，
+                // 仅余「动态跨层引用」（R00-003 上报，可见不隐藏），并附懒加载收益。
+                const { toolScopeManager } =
+                  await import('../tool/ToolScopeManager');
                 toolScopeManager
                   .getSessionScope(context.sessionId)
                   .onDispose(() => {

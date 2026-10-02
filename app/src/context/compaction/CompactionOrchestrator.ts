@@ -17,7 +17,7 @@
  * `chat/pipeline/StreamPipeline`、`chat/orchestrator/streamMessageFlow` / `sendMessageFlow`、
  * `chat/ReActToolLoop`（工具轮内）、`query/QueryEngine`（`compactIfNeeded`）。
  *
- * 仓内另有 **会话级**压缩 [`chat/compaction/`](../../chat/compaction)（门面 `AutoCompactService`），
+ * 仓内另有 **会话级**压缩 [`compaction/`](../../compaction)（门面 `AutoCompactService`），
  * 它只在 **`/compact` 命令 / HTTP 压缩端点 / 会话生命周期边界**（`SessionGateway` / `SessionManager`
  * 的 `beforeCompact`）触发 ⇒ 两者是**分工，不是双轨**（完整核查表见
  * `.trae/specs/compaction-duplicate-subsystems.md` §7）。

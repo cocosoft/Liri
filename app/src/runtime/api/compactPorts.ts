@@ -24,8 +24,8 @@
  *
  * **为什么需要**：`session/compaction/ServiceAdapters.ts`（service）需要构造并调用
  * app 侧的 `AutoCompactService`（`checkAndCompact` / `performAutoCompact`）⇒ 该目录
- * **改归 app**（`services/compact/**` → `chat/compaction/**`，见 spec §3.5 D-217 方案甲）后，
- * 若继续直接 import 会构成 `session -> chat`(app) 倒挂 ⇒ 改经**取用面投影**本处取用。
+ * **改归 app**（`services/compact/**` → **独立 app 模块** `compaction`，见 spec §3.5 D-217 方案乙）后，
+ * 若继续直接 import 会构成 `session -> compaction`(app) 倒挂 ⇒ 改经**取用面投影**本处取用。
  *
  * ⚠️ **取用方式为「同步门面」而非 Promise 端口**：调用点在 `SessionGateway` 的**构造函数**与
  * **同步 fluent API** 内 ⇒ 由 `CoreAPIImpl.createAutoCompactService()`（既有 sanctioned 缝，

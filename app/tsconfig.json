@@ -49,6 +49,7 @@
       "@modules/cli/*": ["cli/*"],
       "@modules/chat": ["chat"],
       "@modules/chat/*": ["chat/*"],
+      "@modules/compaction": ["compaction"],
       "@modules/channels": ["channels"],
       "@modules/channels/*": ["channels/*"],
       "@modules/memory": ["memory"],

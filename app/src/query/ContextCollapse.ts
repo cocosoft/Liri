@@ -6,7 +6,7 @@
 import type { SessionMessage } from '../session/index';
 import type { AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { roughTokenCountEstimationForMessages } from '../chat/compaction/utils';
+import { roughTokenCountEstimationForMessages } from '@modules/compaction';
 
 export interface CollapseOptions {
   maxTokens?: number;

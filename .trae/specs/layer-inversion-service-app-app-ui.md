@@ -96,7 +96,7 @@
 | **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）；⚠️ 余 6 条中 **5 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理） | **13** | **6**（`tools` 4 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`tools` 组（类型下沉 + 端口）） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 48**（**−103**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **13**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 49**（**−102**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **13**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）**＝ −103**，**＋1**（D-217 新模块身份 `compaction` 带来的必要跨层取用 `runtime → compaction`）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -608,15 +608,21 @@ export interface AgentRunDto {
 ② `services/compact/**` 改归 app（+ `modules-to-layers.json` 增 app 条目）⇒ **净 −5**（含其 ai 2 / context 1），**同批**端口化 `session/compaction/ServiceAdapters` 的 1 处取用；
 ③ 明细与 F 的交叠在 F 排期时复核。
 
-**✅ 已完成（2026-10-01 D-216 + D-217）—— `chat` 组 7 条边清零（`已豁免 55 → 48`，−7）**
+**✅ 已完成（2026-10-01 D-216 + D-217）—— `chat` 组 7 条违规边清零（`已豁免 55 → 49`，台账净 −6）**
 
 - **D-216（死代码删除，−3）**：`bun run lint:arch` 前置复核确认 `services/contextCollapse/**`（`ContextCollapseService` · `index` · `types`）与 `services/toolUseSummary/**`（`ToolUseSummaryService` · `index`）**零跨模块消费方**（含 barrel 核查：`services/index.ts` 不存在；`query/ContextCollapse.ts` · `query/ToolUseSummary.ts` 为**同名不同物**的独立实现，均不消费）⇒ 经用户授权 `git rm -r` 删除 5 文件 ⇒ **`已豁免 55 → 52`**（恰 −3）。
-- **D-217（`services/compact/**` 改归 app → `chat/compaction/**`，−4）**：
-  - **净差取证（D-207 教训）**：迁移前 `services/compact/**` 的跨层出向实测 **4 条**（`chat` 3 文件：`autoCompact.ts` · `AutoCompactService.ts` · `grouping.ts`；`context` 1 文件：`utils.ts`）—— ⚠️ §3.5 原注所列"**净 −5（含 ai 2）**"已**不成立**：`ai` 那 2 条早在 **D-213** 随死导入删除被清掉 ⇒ 本次实测 **净 −4**。落 `chat`（既有 app 模块）之下 ⇒ **无需**改 `modules-to-layers.json`（原注"新增 app 条目"的顾虑消解）。
-  - **唯一入向的处理（同步门面，非 Promise 端口）**：`session/compaction/ServiceAdapters.ts` 是 service 侧唯一消费方，迁移后会构成 `session -> chat`(app) 倒挂 ⇒ **端口化**。⚠️ 取证发现 `createWiredCompactionBridge()` 的调用点在 `SessionGateway` **构造函数**与**同步 fluent API**（`wireWithRealServices(): this`）内 ⇒ **不可改异步** ⇒ 改用本仓既有 sanctioned 缝模式（同 `getChatManager()`/`getToolManager()`）：`CoreAPIImpl` 新增**同步**门面 `createAutoCompactService()`（静态导入 `AutoCompactService`），投影类型定义于 `runtime/api/compactPorts.ts` 的 `AutoCompactServiceRefPort`。👉 **不新增豁免计数**：`runtime -> chat` 边**早已存在**（该文件本已静态导入 `@modules/chat`）。
-  - **迁移手法**：`git mv app/src/services/compact app/src/chat/compaction`（同深度 ⇒ 目录内相对导入零改动）；同步更新 **8 处**外部消费点（`chat/ChatManager.ts` · `chat/ChatManagerInterface.ts` · `chat/services/ContextCompactor.ts` · `query/ContextCollapse.ts` · `query/ReactiveCompact.ts` · `commands/builtin/compact/Compact.ts` · `runtime/api/CoreAPIImpl.ts` + `query/__tests__/CompactionIntegration.test.ts` 9 处动态 `import()`）。
-  - **门禁脚本同步**：`scripts/lint-architecture.ts` 的例外清单中 `services/compact/ContextEngine.ts` → `chat/compaction/ContextEngine.ts`（R02-002 + R05-011 两处），否则会误报。
-  - **验证**：`已豁免 52 → 48`（恰 −4，与净差取证一致）· `typecheck 0` · `lint:arch` **违规 0**（`R02-002`/`R07-004` 各 1 条为**预存、与本改动无关**）· 改动文件 eslint 0/0 · `bun test src/query/__tests__/CompactionIntegration.test.ts` = **19 pass / 10 skip / 0 fail**。
+- **D-217（`services/compact/**` 改归 app —— **独立模块** `compaction`；7 条违规边全清，台账净 −3）**：
+  - **净差取证（D-207 教训）**：迁移前 `services/compact/**` 的跨层出向实测 **4 条**（`chat` 3 文件：`autoCompact.ts` · `AutoCompactService.ts` · `grouping.ts`；`context` 1 文件：`utils.ts`）—— ⚠️ §3.5 原注所列"**净 −5（含 ai 2）**"已**不成立**：`ai` 那 2 条早在 **D-213** 随死导入删除被清掉。
+  - **⚠️ 落点走过弯路（方案甲 → 乙）—— 一条 R03-002 教训**：首版按"方案甲"把它**嵌进 `chat/compaction/**`**（动机是免改 `modules-to-layers.json`）。**全量 `lint:arch`（pre-commit 钩子）报出 4 处 `R03-002` 违规**：因 `chat` **有 `index.ts`** ⇒ 直连其子目录即"绕过模块出口"；而改走 `@modules/chat` 桶又会把整个 chat 面（`ChatManager` / `ReActToolLoop`…）拉进 `query` / `commands`。首版漏报之因：**只匹配了 R00-001 汇总行，未看 R03-002 独立小节** ⇒ 已记入教训。
+    - **根因（CS05）**：给独立子系统套**假父子关系**以"借用"父层归属 ⇒ **模块边界与子系统边界不重合** ⇒ 与「模块出口单一」**结构性地**冲突（两条出路都不可接受）。**修门禁不如修边界。**
+    - **修正（方案乙，用户裁定）**：`compaction` **自持模块身份** —— `git mv` → `app/src/compaction/` · `modules-to-layers.json` **新增 app 条目** · 以**既有 `index.ts` 为唯一出口**，消费方一律 `@modules/compaction` ⇒ **零门禁白名单改动**（属 spec 原注的"**层再分类**"而非放宽）。同时消除对"顶层模块子路径导入恰好被 `parts.length < 3` 跳过"这一边界情形的隐性依赖。
+  - **唯一入向的处理（同步门面，非 Promise 端口）**：`session/compaction/ServiceAdapters.ts` 是 service 侧唯一消费方，迁移后会构成 `session -> compaction`(app) 倒挂 ⇒ **取用面投影化**。⚠️ 取证发现 `createWiredCompactionBridge()` 的调用点在 `SessionGateway` **构造函数**与**同步 fluent API**（`wireWithRealServices(): this`）内 ⇒ **不可改异步** ⇒ 改用本仓既有 sanctioned 缝模式（同 `getChatManager()`/`getToolManager()`）：`CoreAPIImpl` 新增**同步**门面 `createAutoCompactService()`（静态导入 `AutoCompactService`），投影类型 = `runtime/api/compactPorts.ts#AutoCompactServiceRefPort`。
+  - **计数（如实）**：清掉 **4 条**（`chat` 3 + `context` 1 ⇒ app→app 合法），但**新增 1 条** `runtime -> compaction`（新模块身份带来的必要跨层取用）⇒ **净 −3**（`52 → 49`）。⚠️ 与"嵌入 chat 版"的 −4 相比多 1 条 —— 这是**换掉假边界所付的诚实代价**，换来门禁口径不动。
+  - **迁移手法**：`git mv app/src/services/compact app/src/compaction`；⚠️ 目录**深度变化**（3 段 → 2 段）⇒ 目录内 **2 处**相对导入须修正：`postCompactCleanup.ts` 的动态 `import('../session/SessionStorage.js')` · `utils.ts` 的 `require('../../native')`（`strategies/*` 的 `'../ContextEngine'` 为同级、不受影响）。
+  - **新增别名**：`app/tsconfig.json` 增 `"@modules/compaction": ["compaction"]` —— **只加裸键、不加 `/*` 通配** ⇒ 子路径导入在**编译期**即失败，双保险落实「唯一出口」。
+  - **消费方**：**8 处**改走 `@modules/compaction`（`chat/ChatManager.ts` · `chat/ChatManagerInterface.ts` · `chat/services/ContextCompactor.ts` · `query/ContextCollapse.ts` · `query/ReactiveCompact.ts` · `commands/builtin/compact/Compact.ts` · `runtime/api/CoreAPIImpl.ts` + `query/__tests__/CompactionIntegration.test.ts` 9 处动态 `import()`）。
+  - **门禁脚本同步**：`scripts/lint-architecture.ts` 例外清单 `services/compact/ContextEngine.ts` → `compaction/ContextEngine.ts`（R02-002 + R05-011 两处）。
+  - **验证**：`已豁免 52 → 49` · `typecheck 0` · `lint:arch` **R03-002 = 0 违规**、总账 `错误 0 / 警告 3`（余 R02-002 · R07-004 · R00-003 均**预存、与本改动无关**）· 改动文件 eslint **0 error**（余 34 warning 均**随文件平移的存量**）· `bun test src/query/__tests__/CompactionIntegration.test.ts` = **19 pass / 10 skip / 0 fail**（含动态 `import('@modules/compaction')` 解析验证）。
   - **遗留（预存，非本次引入）**：`CompactServiceImpl.setAIService()` 全仓无调用方 ⇒ `generateAISummary` 恒走 `generateBasicSummary` 回退（见 D-215 记录），另册跟踪。
 
 **子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。

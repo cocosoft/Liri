@@ -17,7 +17,7 @@ let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
 function lazyInitNative() {
   if (nativeEstimateTokens === undefined) {
     try {
-      const native = require('../../../native');
+      const native = require('../../native');
       if (native && typeof native.estimateTokens === 'function') {
         nativeEstimateTokens = (text, model) =>
           native.estimateTokens(text, model);

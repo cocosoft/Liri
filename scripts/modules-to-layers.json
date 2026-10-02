@@ -41,6 +41,7 @@
     "ai":       { "layer": "app", "description": "AI 模型路由" },
     "models":   { "layer": "app", "description": "模型类型" },
     "chat":     { "layer": "app", "description": "聊天管理" },
+    "compaction": { "layer": "app", "description": "会话级压缩子系统（2026-10-01 D-217 由 `services/compact/` 改归 app）。⚠️ 以 `index.ts` 为**唯一出口**（R03-002）⇒ 消费方一律 `@modules/compaction`，禁止直连子路径。原方案曾嵌套于 `chat/compaction`（图省改本文件、借用 chat 层归属），但那会与 R03-002 冲突：要么直连子路径违规、要么改走 `@modules/chat` 桶而把整个 chat 面（ChatManager/ReActToolLoop…）拉入 query/commands ⇒ 故改**自持模块身份**，使模块边界与子系统边界重合（属「层再分类」，非放宽门禁）。" },
     "context":  { "layer": "app", "description": "上下文管理" },
     "query":    { "layer": "app", "description": "查询引擎 (TAOR)" },
     "auto-reply": { "layer": "app", "description": "自动回复" },

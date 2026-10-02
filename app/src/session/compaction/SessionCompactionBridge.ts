@@ -2,7 +2,7 @@
  * SessionCompactionBridge — 将会话生命周期与 AutoCompactService 桥接
  *
  * 职责：
- * 1. 集成现有 chat/compaction/AutoCompactService 的压缩能力（经 CoreAPI 同步门面取用）
+ * 1. 集成现有 `@modules/compaction` 的压缩能力（经 CoreAPI 同步门面取用）
  * 2. 在压缩前自动创建检查点（通过 SessionCheckpointService）
  * 3. 记录压缩历史到 CompactionRecord
  * 4. 提供会话生命周期的压缩钩子

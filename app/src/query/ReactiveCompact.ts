@@ -9,7 +9,7 @@ import {
   type ContextCollapser,
   type CollapseResult,
 } from './ContextCollapse';
-import { roughTokenCountEstimationForMessages } from '../chat/compaction/utils';
+import { roughTokenCountEstimationForMessages } from '@modules/compaction';
 
 export interface ReactiveCompactConfig {
   maxTokens: number;

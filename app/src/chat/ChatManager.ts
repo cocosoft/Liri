@@ -327,7 +327,7 @@ import {
   CompactServiceImpl,
   type CompactBoundary,
   type CompactArtifact,
-} from './compaction/CompactService.js';
+} from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
 import { SessionGateway, createSessionGateway } from '@modules/session';
 import type {

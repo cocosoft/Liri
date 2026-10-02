@@ -68,7 +68,7 @@ import type { A2APort } from './a2aPorts';
 import type { BridgePort } from './bridgePorts';
 import type { AutoCompactServiceRefPort } from './compactPorts';
 // D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
-import { AutoCompactService } from '@modules/chat/compaction/AutoCompactService';
+import { AutoCompactService } from '@modules/compaction';
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1924,8 +1924,8 @@ export class CoreAPIImpl implements CoreAPI {
    * 压缩域**同步**门面（2026-10-01 D-217，子批 E `chat` 组）
    *
    * `session/compaction/ServiceAdapters.ts`（service）原先**静态**导入
-   * `@modules/services/compact/AutoCompactService`；该目录**改归 app**（`chat/compaction/**`，
-   * spec §3.5 方案甲）后会构成 `session -> chat`(app) 倒挂 ⇒ 改经本门面取用。
+   * `@modules/services/compact/AutoCompactService`；该目录**改归 app**（现为独立模块
+   * `@modules/compaction`，见 spec §3.5 D-217 方案乙）后会构成 `session -> app` 倒挂 ⇒ 改经本门面取用。
    *
    * ⚠️ **为何同步而非端口 Promise**：调用点在 `SessionGateway` 的**构造函数**与
    * **同步 fluent API**（`wireWithRealServices(): this`）内，改异步会向上传染 ⇒ 采用

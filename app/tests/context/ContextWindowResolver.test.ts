@@ -4,7 +4,7 @@
 // P1-7: 上下文溢出渐进降级探测测试
 import { describe, it, expect } from 'bun:test';
 import {
-  parseContextLimitFromError,
+  parseContextOverflowSignal,
   parsePromptTokensFromError,
   isOutputCapError,
   getNextDegradationTier,
@@ -51,61 +51,61 @@ describe('ContextWindowResolver — 上下文窗口解析', () => {
 });
 
 describe('P1-7: 渐进降级探测', () => {
-  describe('parseContextLimitFromError', () => {
+  describe('parseContextOverflowSignal', () => {
     it('extracts Anthropic max limit', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         'Your request exceeds the maximum of 200000 tokens'
       );
       expect(result).toBe(200_000);
     });
 
     it('extracts OpenAI max limit', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         "This model's maximum context length is 128000 tokens. Your request used 150000 tokens"
       );
       expect(result).toBe(128_000);
     });
 
     it('extracts llama.cpp exceeds available context size', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         'request (15408 tokens) exceeds the available context size (4096 tokens), try increasing it'
       );
       expect(result).toBe(4096);
     });
 
     it('extracts llama.cpp bare exceeds available context size', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         'request exceeds the available context size (4096 tokens)'
       );
       expect(result).toBe(4096);
     });
 
     it('returns -1 for generic overflow without exact number', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         'context_length_exceeded: prompt is too long'
       );
       expect(result).toBe(-1);
     });
 
     it('returns -1 for prompt_too_long', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         'prompt_too_long: maximum tokens exceeded'
       );
       expect(result).toBe(-1);
     });
 
     it('returns null for unrelated error', () => {
-      const result = parseContextLimitFromError('API key is invalid');
+      const result = parseContextOverflowSignal('API key is invalid');
       expect(result).toBeNull();
     });
 
     it('returns null for empty string', () => {
-      const result = parseContextLimitFromError('');
+      const result = parseContextOverflowSignal('');
       expect(result).toBeNull();
     });
 
     it('handles case-insensitive patterns', () => {
-      const result = parseContextLimitFromError(
+      const result = parseContextOverflowSignal(
         'MAXIMUM CONTEXT LENGTH IS 64000'
       );
       expect(result).toBe(64_000);

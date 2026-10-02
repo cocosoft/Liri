@@ -94,7 +94,7 @@ export {
   resolveContextWindow,
   resolveContextWindowAsync,
   parsePromptTokensFromError,
-  parseContextLimitFromError,
+  parseContextOverflowSignal,
   calibrateContextWindow,
 } from './window/ContextWindowResolver';
 export type {

@@ -45,7 +45,7 @@ import {
 import { truncateByPreciseTokens } from '../services/MessageContextPipeline';
 import {
   parsePromptTokensFromError,
-  parseContextLimitFromError,
+  parseContextOverflowSignal,
   calibrateContextWindow,
 } from '@modules/context';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
@@ -332,7 +332,7 @@ export async function applyErrorCalibration(
           : 0,
     });
   }
-  const ctxLimit = parseContextLimitFromError(errMsg);
+  const ctxLimit = parseContextOverflowSignal(errMsg);
   if (ctxLimit !== null && ctxLimit > 0 && model) {
     await calibrateContextWindow(model, ctxLimit);
   }

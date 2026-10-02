@@ -128,7 +128,7 @@ export function getEffectiveContextWindow(
 /**
  * P1-7: 从 API 错误响应中提取实际上下文限制
  */
-export function parseContextLimitFromError(
+export function parseContextOverflowSignal(
   errorMessage: string
 ): number | null {
   if (!errorMessage) return null;
@@ -240,7 +240,7 @@ export function applyDegradationProbe(
   errorMessage: string,
   currentTokens: number
 ): { tokens: number; degraded: boolean; reason: string } {
-  const parsedLimit = parseContextLimitFromError(errorMessage);
+  const parsedLimit = parseContextOverflowSignal(errorMessage);
   if (parsedLimit && parsedLimit > 0 && parsedLimit >= MINIMUM_CONTEXT_LENGTH) {
     return {
       tokens: parsedLimit,

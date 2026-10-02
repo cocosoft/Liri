@@ -19,16 +19,31 @@ export class InvokeXmlParser extends BaseParser {
 
   readonly modelPatterns = ['*']; // 兜底: 匹配任意模型
 
-  /** 匹配完整 <invoke>...</invoke> 块 */
+  /**
+   * T-⑥05（2026-10-02）：**允许 `<` 与标签名之间存在任意非 `>` 前缀**。
+   *
+   * 取证（本机会话 `messages.jsonl` · 解码后 393 字符的真实模型输出，已用探针复现）：
+   * `<` + U+FF5C×2 + `DSML` + U+FF5C×2 + 空格 + `invoke name="bash">` ——
+   * DeepSeek 的 DSML 标记夹在 `<` 与标签名之间；旧写法要求 `<` 紧跟 `invoke` ⇒
+   * **整块漏解析**（工具未执行 + 协议原文原样进可见回复）。
+   *
+   * 采用"任意非 `>` 前缀"而非精确匹配该标记：源码里不出现特殊字符，且覆盖同类前缀形态；
+   * `[^>]*?` 不跨 `>` ⇒ 不会误吞 `<b>invoke ...` 之类。
+   */
   private static readonly INVOKE_PATTERN =
-    /<invoke\s+name\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/invoke\s*>/gi;
+    /<[^>]*?invoke\s+name\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/[^>]*?invoke\s*>/gi;
 
-  /** 匹配嵌套 <parameter> 标签 */
+  /** 匹配嵌套 parameter 标签（同上：允许任意非 `>` 前缀） */
   private static readonly PARAM_PATTERN =
-    /<parameter\s+name\s*=\s*["']([^"']+)["'](?:[^>]*)>([\s\S]*?)<\/parameter\s*>/gi;
+    /<[^>]*?parameter\s+name\s*=\s*["']([^"']+)["'](?:[^>]*)>([\s\S]*?)<\/[^>]*?parameter\s*>/gi;
 
   override mayContainToolCalls(text: string): boolean {
-    return text.includes('<invoke');
+    // 裸 invoke 形态，或 `<` + U+FF5C×2 + DSML + U+FF5C×2 + 空格（实测 DSML 形态）。
+    // 后者用字符码拼接（源码不出现该特殊字符），也不用模板字面量（避免被当成标签解析）。
+    const bar = String.fromCharCode(0xff5c, 0xff5c);
+    return (
+      text.includes('<invoke') || text.includes('<' + bar + 'DSML' + bar + ' ')
+    );
   }
 
   parse(text: string): ParsedResult {

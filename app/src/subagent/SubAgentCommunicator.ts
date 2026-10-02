@@ -8,7 +8,7 @@ const logger = getLogger('subagent:communicator');
 /**
  * 消息
  */
-export interface Message {
+export interface SubAgentMessage {
   id: string;
   type: string;
   content: any;
@@ -52,7 +52,10 @@ export class SubAgentCommunicator {
    * @param subAgent 子agent
    * @param message 消息
    */
-  async sendMessage(subAgent: SubAgent, message: Message): Promise<void> {
+  async sendMessage(
+    subAgent: SubAgent,
+    message: SubAgentMessage
+  ): Promise<void> {
     try {
       // 检查连接状态
       if (!this.isConnected(subAgent)) {
@@ -78,7 +81,7 @@ export class SubAgentCommunicator {
    * @param subAgent 子agent
    * @returns 消息
    */
-  async receiveMessage(subAgent: SubAgent): Promise<Message> {
+  async receiveMessage(subAgent: SubAgent): Promise<SubAgentMessage> {
     try {
       // 检查连接状态
       if (!this.isConnected(subAgent)) {

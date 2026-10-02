@@ -1,7 +1,7 @@
 /**
  * 邮箱系统
  */
-import { Message } from '../SubAgentCommunicator';
+import { SubAgentMessage } from '../SubAgentCommunicator';
 import { join } from 'path';
 import {
   writeFileSync,
@@ -19,7 +19,7 @@ const logger = getLogger('subagent:mailbox');
  * 邮箱系统
  */
 export class MailboxSystem {
-  private mailboxes: Map<string, Message[]> = new Map();
+  private mailboxes: Map<string, SubAgentMessage[]> = new Map();
   private mailboxDir: string;
 
   /**
@@ -68,7 +68,11 @@ export class MailboxSystem {
    * @param receiver 接收者ID
    * @param message 消息
    */
-  sendMessage(sender: string, receiver: string, message: Message): void {
+  sendMessage(
+    sender: string,
+    receiver: string,
+    message: SubAgentMessage
+  ): void {
     // 确保接收者邮箱存在
     if (!this.mailboxes.has(receiver)) {
       this.createMailbox(receiver);
@@ -90,7 +94,7 @@ export class MailboxSystem {
    * @param receiver 接收者ID
    * @returns 消息数组
    */
-  receiveMessages(receiver: string): Message[] {
+  receiveMessages(receiver: string): SubAgentMessage[] {
     // 确保接收者邮箱存在
     if (!this.mailboxes.has(receiver)) {
       this.createMailbox(receiver);

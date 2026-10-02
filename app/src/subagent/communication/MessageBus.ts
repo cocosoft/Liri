@@ -1,7 +1,7 @@
 /**
  * 消息总线
  */
-import { Message } from '../SubAgentCommunicator';
+import { SubAgentMessage } from '../SubAgentCommunicator';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('subagent:messageBus');
 
@@ -10,8 +10,8 @@ const logger = getLogger('subagent:messageBus');
  */
 interface Subscriber {
   id: string;
-  callback: (message: Message) => void;
-  filter?: (message: Message) => boolean;
+  callback: (message: SubAgentMessage) => void;
+  filter?: (message: SubAgentMessage) => boolean;
 }
 
 /**
@@ -19,7 +19,7 @@ interface Subscriber {
  */
 export class MessageBus {
   private subscribers: Map<string, Subscriber[]> = new Map();
-  private messageQueue: Message[] = [];
+  private messageQueue: SubAgentMessage[] = [];
   private isProcessing: boolean = false;
 
   /**
@@ -32,8 +32,8 @@ export class MessageBus {
   subscribe(
     topic: string,
     subscriberId: string,
-    callback: (message: Message) => void,
-    filter?: (message: Message) => boolean
+    callback: (message: SubAgentMessage) => void,
+    filter?: (message: SubAgentMessage) => boolean
   ): void {
     if (!this.subscribers.has(topic)) {
       this.subscribers.set(topic, []);
@@ -78,7 +78,7 @@ export class MessageBus {
    * @param topic 主题
    * @param message 消息
    */
-  publish(topic: string, message: Message): void {
+  publish(topic: string, message: SubAgentMessage): void {
     // 添加消息到队列
     this.messageQueue.push({ ...message, topic });
 
@@ -111,7 +111,7 @@ export class MessageBus {
    * @param topic 主题
    * @param message 消息
    */
-  private processMessage(topic: string, message: Message): void {
+  private processMessage(topic: string, message: SubAgentMessage): void {
     const subscribers = this.subscribers.get(topic);
     if (subscribers) {
       for (const subscriber of subscribers) {
@@ -138,7 +138,7 @@ export class MessageBus {
    * @param topic 主题
    * @param message 消息
    */
-  private processWildcardTopics(topic: string, message: Message): void {
+  private processWildcardTopics(topic: string, message: SubAgentMessage): void {
     const wildcardTopics = Array.from(this.subscribers.keys()).filter((t) =>
       t.includes('*')
     );

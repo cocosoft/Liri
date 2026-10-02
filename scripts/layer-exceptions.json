@@ -25,8 +25,8 @@
       "ruleId": "R00-001",
       "pattern": "service -> app",
       "description": "服务层引用应用层",
-      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）。**2026-10-01 收口日实测 = 8**（D-172 当时实测 70 系治理前值；经 C 组 / F 组治理后收敛）。明细：`runtime/api/CoreAPIImpl.ts` ×4（tools/chat/ai/compaction —— **已论证为结构性例外并结案**，见 layer-inversion spec「F 组 runtime 例外结案」）· `mcp/MCPTool.ts` ×2（B17 待做）· `services/mcp/{MCPToolBridge,McpToolWrapper}.ts` ×2（E 组余项）",
-      "estimatedCount": 8,
+      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）。**2026-10-01 收口日实测 = 8**（D-172 当时实测 70 系治理前值；经 C 组 / F 组治理后收敛）。明细（**2026-10-01 末实测**）：`runtime/api/CoreAPIImpl.ts` ×4（tools/chat/ai/compaction —— **完整取证后重新定性：可清，但不推进**。可行性：构造函数已有 `options` 注入骨架、`BootPipelineIntegrator.ts:288` 已有 `setSmartRouter` 注入先例；不推进理由：收益仅 −4，而成本 = 改 CoreAPIImpl（R04-001 巨型文件例外在册）装配语义 + 必然引入 2 处 setter 注入 + **启动路径冒烟**（唯一会触碰启动路径的项）⇒ 成本/收益不划算，见 layer-inversion spec「F 组 runtime 例外结案」）。⚠️ 原明细中的 `mcp/MCPTool.ts` ×2 与 `services/mcp/{MCPToolBridge,McpToolWrapper}.ts` ×2 **已由 B18-a/b/c 清除**（子批 E 18/18 全清 · B17 清零）⇒ 本桶 8 → **4**",
+      "estimatedCount": 4,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"

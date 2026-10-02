@@ -159,22 +159,36 @@
 
 **结案依据（实测转储，`ARCH_EXEMPT_DUMP=1` 探针）**：当前 `runtime(service) -> app` **恰 4 条，且全部为值导入（无 type-only）**：
 
-| # | 边 | 为何**不可**消除（技术依据） |
+| # | 边 | 为何**静态手法**不可消除（技术依据） |
 |---|---|---|
 | 1 | `runtime/api/CoreAPIImpl.ts` → **tools** | ① **构造函数内同步初始化**：`this.converterEngine = … getConverterEngine()` · `this.fileTypeDetector = new FileTypeDetector()` · `this.toolManager = … globalToolManager`；② **同步**门面 `getToolManager(): ToolManager`；③ 类型位 `ReturnType<typeof getConverterEngine>`（字段声明） |
 | 2 | `runtime/api/CoreAPIImpl.ts` → **chat** | 构造函数 `this.chatManager = … createChatManager()` ＋ **同步**门面 `getSessionCheckpointRef()`（其调用点在**同步函数** `createWiredCompactionBridge()` 内） |
-| 3 | `runtime/api/CoreAPIImpl.ts` → **ai** | **同步**门面 `getGlobalEmbeddingManager()` ＋ `setSmartRouter` / `getSmartRouter` 的**类型位** ＋ 同步字段 `providerRegistry` |
+| 3 | `runtime/api/CoreAPIImpl.ts` → **ai** | **同步**门面 `getGlobalEmbeddingManager()` ＋ **同步方法 `getModelName()` 内的 `modelRouter.resolve('default')`** ＋ `setSmartRouter`/`getSmartRouter` 类型位；其余 5 个符号（`resolveModelRoute`/`providerRegistry`/`RouteKey`/`ToolAwareClient`/`detectPhase`）**本就在 async 上下文** |
 | 4 | `runtime/api/CoreAPIImpl.ts` → **compaction** | D-217 已裁定：`@modules/compaction` 改归 app（独立模块身份）后，该**同步**门面 `createAutoCompactService()` 是**换取模块真边界**的**诚实代价**（净 −3 优于"嵌入 chat 版"的 −4） |
 
-**为何不"动态化"绕过（口径纪律）**：把静态导入改为方法内 `await import()` **并不消除耦合**，只是把它从「已豁免（上桥 · 参与启动期求值）」搬到「R00-003（仅上报）」—— 对 F 尾批的 `→ agent` 成立，是因为它**本就只在 async 上下文**；而**本 4 条被构造函数与同步门面刚性约束**：改异步会**向上传染**（`SessionGateway` 构造函数 / 同步 fluent API，见 D-217），破坏初始化语义。⇒ **本 4 条不采用该手法**。
+**为何不"动态化"绕过（口径纪律 —— 须逐符号判定）**：把静态导入改为方法内 `await import()` **并不消除耦合**，只是把它从「已豁免（上桥）」搬到「R00-003（仅上报）」。⇒ 对各符号**分别判定**：`→ agent`（F 尾批）与 `× ai` 的 5 个 async 内符号**可以**动态化；而 **`getToolManager()` / `getSessionCheckpointRef()` / `getGlobalEmbeddingManager()` / `getModelName()`（`modelRouter`）/ `createAutoCompactService()` 被同步语义刚性约束**，改异步会**向上传染**（`SessionGateway` 构造函数 / 同步 fluent API，见 D-217）⇒ 这些**必须**改装配。
 
-**唯一可能的根因方案（非本批 · 风险最高 · 须独立立项）**：**装配方向反转** —— 由 `entrypoints/init.ts` 在**组合根**注入各 app 侧服务实例（而非 `CoreAPIImpl` 静态取用），使 runtime 仅依赖端口接口。与 §3.6 记录的 C1/C2 教训同级（**启动时序**风险），须配套**启动路径验证**。
+**📌 完整取证结论（2026-10-01 同日追加）：4 条边「可清，但经成本/收益评估不推进」**
 
-**例外登记状态**：4 条均命中 `layer-exceptions.json` 的 **`service -> app`** 模式例外 —— **不新增条目、不放宽口径**；该桶 `estimatedCount` 已按收口日实测由陈旧的 70 更新为 **8**。
+- **可行性（实测，**修正**原"不可消除"的表述）**：`CoreAPIImpl` 的**注入骨架已存在** —— 构造函数已有 `options?: { chatManager, sessionManager, toolManager, coordinator, converterEngine, fileTypeDetector, modelName }`（每项 `?? 静态默认`，见 L310-331）；**注入先例亦已存在** —— `bootstrap/pipeline/BootPipelineIntegrator.ts:288` 的 `getCoreAPI().setSmartRouter(smartRouter)` ⇒ **组合根已有现成位置**，无需新建。
+- **`× ai` 边的完整符号清单（实测为 **7 个值符号**，非初判的 3 个）**：
 
-**复审触发条件（何时重开）**：① `CoreAPIImpl` 拆分（R04-001 巨型文件例外已在册）；② 引入**组合根装配** / ModuleRegistry 改造；③ `@modules/compaction` 层归属再评估。
+| 符号 | 处置 | 是否需改装配 |
+|---|---|---|
+| `SmartRouter`（仅类型位） | 降 `import type` | ❌ |
+| `resolveModelRoute` · `providerRegistry` · `RouteKey` · `ToolAwareClient` · `detectPhase`（均处 **async** 上下文） | 并入既有动态导入 | ❌ |
+| **`modelRouter`**（用于**同步** `getModelName()`，L344-348） | **只能 setter 注入** | ✅ |
+| **`globalEmbeddingManager`**（**同步**门面 L1985） | **只能 setter 注入** | ✅ |
 
-**⇒ F 组状态**：`session` 侧 **16/16 全清** 🎯；`runtime` 侧 **4 条结构性例外 —— 结案**（移出"待办"，留在例外清单待上述条件触发复审）。
+  ⇒ **清除该边必然引入 2 处 setter 注入**（改装配语义）—— **不存在"只做零风险部分"的路径**：不注入则该边不消失，单独降级的符号**零收益**。
+- **成本 / 收益**：收益 **−1**（单边；4 条全做 −4）；成本 = 改 `CoreAPIImpl`（**R04-001 巨型文件例外在册**）约 8 处 import/调用 + **2 个字段与 2 个 setter** + `BootPipelineIntegrator` 注入 + **启动路径冒烟**（本治理**首次引入**的验收项）；风险 = **启动时序**（`CoreAPIImpl` 为全仓最核心文件）。
+- **裁定（用户，2026-10-01）**：**不推进** —— 4 条边收益（−4）与本会话已达成的 `151 → 15`（**34 倍**）不成比例，且它们是**唯一会触碰启动路径的项**。⇒ **维持结案，但理由订正为「可清但成本/收益不划算」**（原写"**只能**保留例外"**不准确**，本处修正）。
+
+**例外登记状态**：4 条均命中 `layer-exceptions.json` 的 **`service -> app`** 模式例外 —— **不新增条目、不放宽口径**；该桶 `estimatedCount` 已按收口日实测由陈旧的 70 更新为 **8**，并注明 runtime 4 条为「**经完整取证评估：可清、但不推进**」。
+
+**复审触发条件（何时重开）**：① `CoreAPIImpl` 拆分（R04-001 巨型文件例外已在册）；② 引入**组合根装配** / ModuleRegistry 改造（**注入位置已现成** ⇒ 届时成本更低）；③ `@modules/compaction` 层归属再评估；④ **任何必须改动启动路径的其他工作**（可**顺带**一并完成 —— 边际成本最低）。
+
+**⇒ F 组状态**：`session` 侧 **16/16 全清** 🎯；`runtime` 侧 **4 条 —— 结案**（**可清、但经成本/收益评估不推进**；已移出"待办"，留在例外清单待上述条件触发复审）。
 
 **✅ 子批 B 上半（2026-10-01，同日）—— 3 条清零（`已豁免 23 → 20`）**
 

@@ -14,7 +14,10 @@ import {
   resolveDataDir,
   resolveWorktreeHash,
 } from '@modules/core';
-import { asyncContextStorage } from '@modules/context';
+// 2026-10-01 B14 C′ 步：原经 `@modules/context` 桶取用 ⇒ 改指 infra（`utils/`），
+// 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。
+// 依赖 A′/B′：Context 家族已下沉类型中心、AsyncContextStorage 已迁 utils/。
+import { asyncContextStorage } from '@modules/utils/AsyncContextStorage';
 import { resolveContextWindow } from '@modules/context';
 // 2026-10-01 D-222 B13（子批 F `query` 组）：原静态导入 app 层 `@modules/query` 的
 // `FileCheckpointStorage`（引 `../chat/types/checkpoint` ⇒ app 耦合不可下沉）⇒ 改经

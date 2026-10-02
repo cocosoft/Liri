@@ -11,7 +11,10 @@ import {
 } from '@modules/constants/systemPromptSections';
 import { clearSoulCache } from '@modules/services/soul/SoulReader';
 import { clearUserCache } from '@modules/services/soul/UserReader';
-import { clearWorkspaceCache } from '@modules/services/workspace';
+// 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@modules/services/workspace`
+// 转出 barrel 取用（该 barrel 属 service 层、仅本模块与 builtinSections 消费）
+// ⇒ 改**直连 app 同层** `@modules/workspaces`，barrel 随之删除（零端口、零白名单）。
+import { clearWorkspaceCache } from '@modules/workspaces/WorkspaceScanner';
 import { BUILTIN_SECTIONS } from './builtinSections.js';
 
 /** 注册内置段落与缓存清理器（应用启动期调用一次） */

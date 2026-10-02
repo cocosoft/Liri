@@ -476,3 +476,21 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 ⇒ **U3 的 `tasks` 行**（U2 原写"解锁 B11"）**据此更正为"解锁：无直接解锁项；收益 = 消名 + R05-011 例外收敛"**。
 
 ⏳ **执行状态**：**待执行**（#2 需单独立项评估，其余 5 份为中小面机械改名）。
+
+#### U2 执行：消费者面清点与顺序（2026-10-01）
+
+以**一次 grep**（`from '…(TitleGenerator|ToolUseBlock|ContextEngine|SubAgentCommunicator|components/Messages)'`）扫全 `app/src`，得各目标的**按路径消费者**：
+
+| 序 | 目标 | 消费者面（按路径） | 备注 |
+|---|---|---|---|
+| **1** | `subagent/SubAgentCommunicator.ts`（#7） | **2 个**：`subagent/communication/MessageBus.ts:4` · `MailboxSystem.ts:4`（均**显式** `import { Message }`） | ✅ **最小、面最清** ⇒ **建议首个执行** |
+| **2** | `compaction/ContextEngine.ts`（#5） | **3 个**：`compaction/strategies/{AutoCompact,ContextCollapse,ReactiveCompact}Strategy.ts`（经 `'../ContextEngine'`） | ⚠️ 需核这 3 处是否**导入了 `Message`**（它们导入了其他符号也可能） |
+| 3 | `agent/TitleGenerator.ts`（#1） | 路径 grep **零命中** | ⚠️ **前置**：核 `agent/index.ts` 是否 `export *`/转出 `./TitleGenerator` ⇒ 若有，`Message` 会经 barrel 逃逸（外部按名导入 ⇒ 路径 grep 不可见） |
+| 4 | `chat/types/ToolUseBlock.ts`（#3） | 该文件另导出 `ToolUseBlock`（`chat/index.ts:99` + `tools/orchestration/*` ×3） | ⚠️ 同上，需核 `Message` 是否经 `chat/types/index.ts`（`export *`）逃逸 |
+| 5 | `ui/components/Messages.tsx`（#6） | 路径 grep 零命中（组件多经 barrel/`index`） | ⚠️ 同上 |
+
+**⚠️ 关键教训（第 4 类风险，已三次踩中同类）**：**"按路径 grep" 可能漏掉经 barrel 转出的消费者** ⇒ 对 #1/#3/#6 **必须先核 barrel**（`export *` / `export { Message }`）再改名；#5 需核 3 个 strategy 是否真导入 `Message`。
+
+**⇒ `ProtocolMessage`（#2 `core/types.ts`）单独立项**：它是**协议层消息契约**，被 providers 广泛使用（且 `R05-011` 已列 knownException），**不与本批 5 份混做** ⇒ 需单独：① 全量消费者普查；② 评估改名 vs 保留例外；③ 与 `ai` 协议适配层一并考虑。
+
+⏳ **执行状态**：**待执行**（本步完成面清点与顺序；无代码改动）。

@@ -190,7 +190,10 @@ import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry, globalEmbeddingManager } from '@modules/ai';
 import { getToolManager } from '@modules/tools';
-import { getTitleGenerator } from '@modules/agent';
+// 2026-10-01（子批 F `runtime -> agent` 收口）：原顶层静态导入 `getTitleGenerator`，但其**唯一**
+// 使用点在 **async** 方法 `generateSessionTitle()` 内 ⇒ 按本文件**既有模式**（同 `getToolsPort()`
+// 内的 `await import('@modules/tools')`）改为**方法内动态导入** ⇒ 该「文件 × 模块」对消失
+// （转入 R00-003 上报），并附带**懒加载**收益（模块求值期不再拉入 `agent`）。
 
 // [v1.2] costTracker.addCost / recordCost / getCostMetricsBridge 已迁移到 COST_RECORDED 事件订阅者（cost/index.ts）
 
@@ -4854,6 +4857,8 @@ export class CoreAPIImpl implements CoreAPI {
     assistantResponse: string
   ): Promise<string | null> {
     try {
+      // 子批 F `runtime -> agent` 收口：唯一取用点，async 上下文 ⇒ 动态导入（本文件既有模式）
+      const { getTitleGenerator } = await import('@modules/agent');
       const titleGenerator = getTitleGenerator();
       const title = await titleGenerator.generateTitle(
         userMessage,

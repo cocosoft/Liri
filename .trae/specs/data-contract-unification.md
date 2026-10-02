@@ -404,3 +404,24 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
   - **验证**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test src/appState tests/chat` = **335 pass / 0 fail**。
   - **收益**：一次性消掉 **2 个同名**（`Tool` 与 `ToolPermissionContext` 各 **−1 份**；且该文件**无行为变化** —— 零风险改名）。
 - ⏳ **余 4 份（#1–#4）待处置**：需先核 **#2 与 #1 是否同构**（决定"收敛为再导出" vs "改名"），再定 #3/#4 的新名。**这是 U5 的主项，随后完成。**
+
+#### ✅ #2 ↔ #1 同构性核验（2026-10-01，**不同构 ⇒ 不可收敛**）
+
+| 字段 | #1 `permission/permissions.ts:11`（**权限域事实源**） | #2 `tools/types/PermissionContext.ts:28`（工具契约侧） |
+|---|---|---|
+| `mode` | `PermissionMode`（引 `permission/PermissionMode.ts`） | `PermissionMode` —— **本文件 L9 自定** `type PermissionMode = 'default'\|'auto'\|'strict'\|'bypass'` ⚠️ **`PermissionMode` 亦同名又一份**（U1：4 模块） |
+| `additionalWorkingDirectories` | **`string[]`** | **`Map<string, AdditionalWorkingDirectory>`** ✗ |
+| `alwaysAllowRules`/`Deny`/`Ask` | `Record<PermissionRuleSource, string[]>`（**联合类型**） | `ToolPermissionRulesBySource` = **`Record<string, any[]>`**（含 `any`）✗ |
+| `isBypassPermissionsModeAvailable` | `boolean` | `boolean` ✓ |
+| 额外字段 | — | `isAutoModeAvailable?` · `strippedDangerousRules?` · `shouldAvoidPermissionPrompts?` · `awaitAutomatedChecksBeforeDialog?` · `prePlanMode?` |
+| `getEmptyToolPermissionContext()` | 有（值） | **同名亦一份**（值） |
+
+**⇒ 判定**：#2 是 #1 的「**超集 + 类型劣化**」（`Map` ↔ `string[]`、`any[]` ↔ 联合类型）⇒ **不可收敛为再导出**（会静默降低类型精度）⇒ **只能改名**。
+
+**⇒ 裁定（执行顺序）**：
+1. **#1 保留 `ToolPermissionContext`**（权限域事实源；类型最严格）。
+2. **#2 改名 `ToolRuntimePermissionContext`**（语义 = **工具执行期**权限上下文：含 `Map` 工作目录与 5 个执行期开关）⇒ 需同批更新其消费方（`tools/types/Tool.ts` 引用 + `tools/types/index.ts` 转出 + 其下游）。
+3. **#3 改名**（`Partial<…>` 变体）· **#4 改名**（`mode: string` 宽松版）—— 新名待定。
+4. **附带新发现**：`PermissionMode` 亦有两份（`tools/types/PermissionContext.ts:9` 本地 `type` vs `permission/PermissionMode.ts`）⇒ 随 #2 改名一并处置（本地那份应改为**从 `permission` 再导出**，因其值域应同源）。
+
+⏳ **执行状态**：**待执行**（本步只完成核验与裁定）。

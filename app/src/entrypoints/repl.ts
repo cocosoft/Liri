@@ -109,8 +109,9 @@ const DEFAULT_CONFIG: REPLConfig = {
 export async function initializeChatManager(): Promise<ChatManager> {
   // D-227（2026-10-02，B12 `runtime -> app` 收口）：组合根注入 CoreAPIImpl 的 app 层能力包。
   // ⚠️ 本函数是 REPL / 单次执行（--print）/ 管道（--pipe）等入口取用 ChatManager 的**公共漏斗**，
-  // 其中 `--print`/`--pipe` 经 `entrypoints/cli.tsx` 直接分发、**不走** `launch()→init()`（后者才注册）
+  // 而 `--print`/`--pipe` 由 `main.ts#launch()/launchREPL` 分发（**不走** `launch()→init()` 的注册路径）
   // ⇒ 在此补一次注册（幂等；`CoreAPIImpl` 对注入包懒解析）。
+  // （2026-10-02 D-229 订正：原文写「经 `entrypoints/cli.tsx` 直接分发」**有误** —— 该文件经取证为死代码，已删除。）
   const { registerCoreApiAppDeps } =
     await import('@modules/bootstrap/pipeline/BootPipelineIntegrator.js');
   await registerCoreApiAppDeps();

@@ -290,7 +290,8 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 **工具注册表单一（唯一写入口）**：
 - 唯一写入口：`getToolRegistry()`（`src/tools/ToolRegistry.ts` 全局单例）
 - `ToolManager` 为兼容门面：构造统一 `options.registry || getToolRegistry()`。❌ 禁止 `new ToolRegistry()` + `setToolRegistry()` 覆盖全局（曾致 MCP/插件注册目标分裂）
-- `globalToolManager`（`tools/core/ToolManager.ts` CC 兼容层）与 `getToolManager()` 为同一实例
+- `globalToolManager`（`tools/core/ToolManager.ts`，**Proxy 包装层**，暴露 `getInner(): EnhancedToolManager`）与 `getToolManager()`（`tools/ToolManager.ts`，**增强层本体**，暴露 `loadBuiltinTools()` / `getRegistry()`）是**两个同名类**、**不是同一实例** —— 包装层经 `getInner()` 取到增强层。
+  - ⚠️ **2026-10-02（D-229）订正**：本行原文写「二者为同一实例」，**与实测不符**（D-227 依赖反转改造时实际抛 `TypeError: this.toolManager.getInner is not a function`）。需要「加载内置工具 + 取注册表」时须经 `getInner()`；`getCoreAPI().getToolManager()` 门面返回的是**包装层**。取证见 `dev_docs/error_repairs/预存错误与待处理问题.md`（§1.16 表述不准条）
 
 **注册 → disposer 约定（EffectScope 模式）**：
 - skill/plugin/MCP 三方统一：注册返回 disposer，注销按 LIFO 逆序执行

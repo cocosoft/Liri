@@ -73,7 +73,6 @@ T3 ── 后台延迟加载(DEFERRED + ON_DEMAND 模块)
 src/
 ├── main.ts                     # 应用启动入口(launch 函数)
 ├── entrypoints/                # 运行模式入口
-│   ├── cli.tsx                 # CLI 模式
 │   ├── init.ts                 # 环境初始化(T0-T3 启动流程)
 │   ├── repl.ts                 # REPL 模式
 │   └── mcp.ts                  # MCP Server 模式

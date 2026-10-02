@@ -296,7 +296,6 @@ Liri/                            # 工程根目录
 │   ├── src/                     # 源代码
 │   │   ├── main.ts              # 应用启动入口（launch 函数）
 │   │   ├── entrypoints/         # 运行模式入口
-│   │   │   ├── cli.tsx          # CLI 模式
 │   │   │   ├── repl.ts          # REPL 模式
 │   │   │   └── mcp.ts           # MCP Server 模式
 │   │   ├── modules/             # 模块系统（注册表 + 初始化 + 延迟加载）

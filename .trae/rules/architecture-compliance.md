@@ -302,7 +302,7 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 所有环境变量访问应通过 `ConfigManager` 统一管理，禁止直接使用 `process.env.X`。
 
 **允许**（边界场景，已列入已知例外）：
-- 入口点文件（`main.ts`、`pyapp.ts`、`cli.tsx`）—— 启动阶段 ConfigManager 未就绪，需自举
+- 入口点文件（`main.ts`、`pyapp.ts`）—— 启动阶段 ConfigManager 未就绪，需自举（2026-10-02 D-229：原列的 `cli.tsx` 经取证为**死代码**，已删除）
 - CLI 命令（`login`、`logout`）—— 认证令牌写入/env 查询
 - 系统上下文读取（`context/context.ts`）—— 非配置变量（SHELL、USER 等）
 - OpenTelemetry 配置（`instrumentation.ts`）—— 标准 OTEL env 变量约定

@@ -1662,7 +1662,7 @@ class ArchitectureLinter {
     const knownExceptions = [
       // 测试文件（通过 __tests__ 目录和 .test.ts 文件跳过）
       // 入口点文件（启动阶段 ConfigManager 尚未就绪）
-      'entrypoints/cli.tsx',
+      // 2026-10-02 D-229：移除 `'entrypoints/cli.tsx'`（该文件经取证为死代码，已删除）
       'main.ts',
       'pyapp.ts',
       // CLI 命令和环境变量交互

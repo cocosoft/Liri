@@ -237,7 +237,7 @@
 
 **⚠️ 实施中的必要偏离（如实留档，现已修正 project_rules 认知）**：`globalToolManager`（`tools/core/ToolManager.ts` 的 **Proxy 包装层**，有 `getInner()`）与 `getToolManager()`（`tools/ToolManager.ts` **增强层本体**，有 `loadBuiltinTools/getRegistry`）**并非同一实例**（两同名类）—— 与 `project_rules §1.16`「`globalToolManager` 与 `getToolManager()` 为同一实例」的表述**不符**（冒烟实测注入增强层会抛 `TypeError: this.toolManager.getInner is not a function`）。最终按「注入包装层 + `getInner()` 取增强层」适配，行为与旧码等价（见 `预存错误与待处理问题.md`）。
 
-**🔎 附带发现（已记录，**未处置**）**：① `app/src/scripts/batch-test-all.ts` 的 `INDEX_PATH` 指向**不存在的** `app/src/index.ts`（脚本已不可用）；② `entrypoints/cli.tsx` 末尾**无** `import.meta.main` 自执行 ⇒ `--print` 单次执行入口缺标准 CLI 触发点。二者均系**预存缺陷**，与 D-227 无关。
+**🔎 附带发现（已于 2026-10-02 **D-229** 处置）**：① `batch-test-all.ts` 的 `INDEX_PATH` 指向不存在的 `src/index.ts` ⇒ **改指 `src/pyapp.ts` + 子进程 cwd 提至仓库根**（实测 spawn 形态通过）；② `cli.tsx` 缺 `import.meta.main` 的原判断**已作废**（实测 `--print` 由 `main.ts#launch()/launchREPL` 处理、**不经** cli.tsx；且该文件经取证为**死代码**）⇒ **已整体删除**（含 `entrypoints/cliArgs.ts` 与 `main.ts` 连带死码）。详见 `预存错误与待处理问题.md`。
 
 ---
 

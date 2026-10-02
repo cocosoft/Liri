@@ -118,7 +118,7 @@ ReActToolLoop.getLongTaskSignal()            ← 纯读数（todos / 已耗轮�
 | D1 | 阈值：未完成 todo ≥ **3** 且/或 已耗 ≥ **base**（`OR`） | 与既有"多 todo/多轮"口径一致；都是可观测状态量 |
 | D2 | 建议载体取 **方案 a（并入既有 converge steering）** | 零新增注入时机与通道；§1.6 风险面最小 |
 | D3 | **不把运行中信号用于自动升级**（只建议） | 既有自动升级已在"消息意图/目标"层成为产品行为；把"运行中长任务"也自动建项目会显著改变产品语义，需另行裁定 |
-| D4 | G2 触发点：**CLI 入口**（`entrypoints/cli.tsx` 或 REPL 发送处）；UI 不打印 | 与 `OnboardHints.ts:105` 既有口径一致；`showHintIfNeeded` 是 `console.log`（CLI 语义） |
+| D4 | G2 触发点：**CLI REPL 发送处**（2026-10-02 D-229：原备选的 `entrypoints/cli.tsx` 经取证为死代码，**已删除**）；UI 不打印 | 与 `OnboardHints.ts:105` 既有口径一致；`showHintIfNeeded` 是 `console.log`（CLI 语义） |
 | D5 | G4（UI 可点击入口）**本轮不做**，列为后续 | 需前端改动 + 后端信号暴露方式待定；本项先解决"引导 + 建议" |
 | D6 | 文案单一来源落在 `OnboardHints.ts`（不新建模块） | 与既有 4 个 hint 常量同址；避免新桶 |
 
@@ -132,7 +132,7 @@ ReActToolLoop.getLongTaskSignal()            ← 纯读数（todos / 已耗轮�
 |---|---|---|
 | 1 | `app/src/commands/builtin/onboard/OnboardHints.ts` | **改**：`HINT_METHODOLOGY_PDCA` 文案修正（`/goal start`）+ 抽能力说明常量（单一来源） |
 | 2 | `app/src/commands/builtin/onboard/Onboard.ts` | **改**：`:1007` help 文案改为引用同一常量 |
-| 3 | `app/src/entrypoints/cli.tsx`（或 REPL 发送处，见 D4） | **改**：`isExecutionTaskIntent` 命中时 `showHintIfNeeded(METHODOLOGY_PDCA, ...)` |
+| 3 | `app/src/entrypoints/repl.ts`（REPL 发送处；2026-10-02 D-229：原列的 `entrypoints/cli.tsx` 已删除） | **改**：`isExecutionTaskIntent` 命中时 `showHintIfNeeded(METHODOLOGY_PDCA, ...)` |
 | 4 | `app/src/chat/ReActToolLoop.ts` | **改**：长任务信号派生（纯函数/私有方法）+ converge steering 文案追加建议 + 成对落盘 + 一次性注入标志 |
 | 5 | `app/tests/chat/longTaskRouting.test.ts` | **新建**：信号派生（阈值边界）/ 建议仅注入一次 / 文案含正确命令 / 落盘成对（用假 ctx + 日志断言） |
 | 6 | `.trae/docs/api-spec.md` | **本批不加**（无新端点） |

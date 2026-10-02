@@ -115,7 +115,14 @@ const ALL_COMMANDS = [
 ];
 
 const SCRIPT_DIR = import.meta.dirname;
-const INDEX_PATH = join(SCRIPT_DIR, '..', 'index.ts');
+// 2026-10-02 D-229：原为 `join(SCRIPT_DIR, '..', 'index.ts')` ⇒ 指向 `app/src/index.ts`
+// **该文件不存在**（全仓无 `src/index.ts`，且 `project_rules §1.10` 明确 ❌ 禁止直接调用 `index.ts`）
+// ⇒ 脚本每次 spawn 必失败（已不可用）。
+// 现改指**真实启动入口** `src/pyapp.ts`（§1.10「编译入口」：负责项目根解析 + `LIRI_*` env + `.env` 加载，
+// 最后 `await import('./main')`；已实测 `bun run src/pyapp.ts --print "/help"` 可用）。
+// ⚠️ 同时把子进程 cwd 提到**仓库根**：原 cwd=`app/src` 会让 pyapp 的根目录推断落到 `app/src`。
+const INDEX_PATH = join(SCRIPT_DIR, '..', 'pyapp.ts');
+const REPO_ROOT = join(SCRIPT_DIR, '..', '..', '..');
 
 console.log('===== 全量命令批量测试 =====\n');
 console.log(`共 ${ALL_COMMANDS.length} 个命令\n`);
@@ -140,7 +147,7 @@ for (let i = 0; i < ALL_COMMANDS.length; i++) {
     'bun',
     ['run', '--silent', INDEX_PATH, '--print', `/${cmdName}`, 'help'],
     {
-      cwd: join(SCRIPT_DIR, '..'),
+      cwd: REPO_ROOT,
       timeout: 15_000,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,

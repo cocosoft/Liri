@@ -509,7 +509,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
  * 启动模式枚举
  */
 export enum LaunchMode {
-  CLI = 'cli',
+  // D-229：`CLI = 'cli'` 成员已删 —— 全仓无设置点，唯一消费者 `entrypoints/cli.tsx` 已移除。
   REPL = 'repl',
   MCP = 'mcp',
   DAEMON = 'daemon',
@@ -913,24 +913,10 @@ async function displayStartupHealthReport(): Promise<void> {
   }
 }
 
-/**
- * 启动 CLI 模式（通过 DI 回调，避免循环依赖）
- * @deprecated 启动路径已统一到 ModuleRegistry.bootstrap()。
- * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
- */
-let _cliMain: (() => Promise<void>) | null = null;
-export function setCliMain(fn: () => Promise<void>): void {
-  _cliMain = fn;
-}
-
-async function launchCLI(_options: LaunchOptions): Promise<void> {
-  if (!_cliMain) {
-    throw new Error(
-      'CLI main function not registered. Import cli.tsx directly instead.'
-    );
-  }
-  await _cliMain();
-}
+// 2026-10-02 D-229：`setCliMain` / `_cliMain` / `launchCLI`（连同下方 `LaunchMode.CLI` 分支）**已删除** ——
+// 唯一调用方 `entrypoints/cli.tsx` 经取证为**死代码**（`LaunchMode.CLI` 全仓无设置点 ⇒ `launchCLI` 不可达；
+// 该文件零导入、两个导出零消费者、直跑挂起），已连同 `entrypoints/cliArgs.ts` 一并移除。
+// 未识别/未知模式仍由下方 `switch` 的 `default` 回落 REPL。
 
 /**
  * 启动 REPL 模式
@@ -1999,9 +1985,6 @@ export async function launch(options: LaunchOptions): Promise<void> {
     profileCheckpoint('T2_dispatch_start');
     profilePhaseStart('T2_dispatch');
     switch (options.mode) {
-      case LaunchMode.CLI:
-        await launchCLI(options);
-        break;
       case LaunchMode.REPL:
         await launchREPL(options);
         break;
@@ -2065,7 +2048,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
 }
 
 /**
- * 默认启动函数（兼容 cli.tsx 的 import { main } from '../main'）
+ * 默认启动函数（由 `pyapp.ts` 经 `await import('./main')` 调用）
  */
 export async function main(): Promise<void> {
   // 先解析 --project-dir 参数，确保路径解析在所有模块加载前生效

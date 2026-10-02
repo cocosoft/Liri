@@ -1063,8 +1063,7 @@ process.on('SIGTERM', () => {
   flush().finally(() => process.exit(0));
 });
 
-// 2026-09-05 修复（预存 boot 错误）：本文件同时被作为库导入（@modules/cli →
-// entrypoints/cli.tsx 取 banner/版本），此前顶层无条件 program.parse() 会用调用方
+// 2026-09-05 修复（预存 boot 错误）：本文件同时被作为库导入（取 banner/版本），此前顶层无条件 program.parse() 会用调用方
 // argv 解析——入口 flags（--daemon/--list-modes/--mcp 等）在 commander 中未定义 →
 // "unknown option"。仅在作为主入口执行时解析；被导入时由宿主入口负责分发。
 if (import.meta.main) {
@@ -1202,4 +1201,7 @@ function findFilesByPattern(pattern: string): string[] {
   return files;
 }
 
-export * from './banner';
+// 2026-10-02 D-229（续）：原此处为 `export * from './banner';` —— 经**全仓取证**该 `./banner` 模块
+// （CLI 横幅/版本号生成，5 个导出）为**零消费者死码**（3 个导出本就是存量死码；另 2 个
+// `generateBanner`/`getVersionString` 的唯一消费者 `entrypoints/cli.tsx` 已删除）⇒ 模块已删除。
+// ⚠️ 本行原是本文件**唯一**的导出语句 ⇒ 移除后本文件不再有导出面（仅保留 `import.meta.main` 自执行分支）。

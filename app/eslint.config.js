@@ -125,7 +125,6 @@ export default [
       'src/ui/**/*.tsx',
       // CLI 入口
       'src/cli/**/*.ts',
-      'src/entrypoints/cli.tsx',
       'src/entrypoints/repl.ts',
       'src/entrypoints/api-handler.ts',
       // CLI 子命令

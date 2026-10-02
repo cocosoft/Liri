@@ -2631,6 +2631,55 @@ class ArchitectureLinter {
   }
 
   /**
+   * **值导入 / 再导出**目标模块（2026-10-01 R00-001 口径修正，用户裁定「甲」）。
+   *
+   * 与 `parseModuleImports` 的唯一差别：**排除** `import type … from` 与 `export type … from`
+   * 的纯类型语句。依据（两条）：
+   *   ① R00-001 的动机是防**运行时**紧耦合/循环（其 JSDoc：防循环依赖 + 模块实例须由 ModuleRegistry
+   *      管生命周期）—— `import type` 编译后**完全擦除**，两者都不违反；
+   *   ② 同仓 eslint 规则 `app/tools/eslint-plugin-module-registry/rules/no-direct-module-import.js`
+   *      已**明确豁免** type-only（原文：「豁免 type-only import：类型导入无运行时依赖，不会导致循环依赖」）
+   *      ⇒ 本处仅是对齐两条门禁的口径，**不放宽值导入判据**。
+   *
+   * 纯 type-only 的跨层引用**不计违规、不计豁免**，但由调用方**单独上报**（保持可见、不做成盲区）。
+   */
+  parseValueModuleImports(filePath: string): Set<string> {
+    const content = this.stripComments(readFileSync(filePath, 'utf-8'));
+    const imports = new Set<string>();
+
+    /** 该 `from` 所属语句是否以 `import type` / `export type` 开头 */
+    const isTypeStatement = (idx: number): boolean => {
+      const upto = content.slice(0, idx);
+      const candidates = [
+        upto.lastIndexOf('\nimport'),
+        upto.lastIndexOf('\nexport'),
+      ].filter((n) => n >= 0);
+      const start = candidates.length > 0 ? Math.max(...candidates) : 0;
+      return /^\s*(import|export)\s+type\b/.test(content.slice(start, idx));
+    };
+
+    // 匹配 @modules/xxx 形式
+    const moduleRegex = /from\s+['"]@modules\/([^'"/]+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = moduleRegex.exec(content)) !== null) {
+      if (isTypeStatement(match.index)) continue;
+      imports.add(match[1]);
+    }
+
+    // 匹配相对路径 import，解析目标模块
+    const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
+    while ((match = relImportRegex.exec(content)) !== null) {
+      if (isTypeStatement(match.index)) continue;
+      const resolved = resolve(dirname(filePath), match[1]);
+      if (resolved.startsWith(this.srcPath)) {
+        imports.add(this.resolveModuleName(resolved));
+      }
+    }
+
+    return imports;
+  }
+
+  /**
    * R00-003（B 组治理）：解析文件中的**动态导入** `import('…')` 目标模块。
    *
    * 为什么需要：`parseModuleImports` 只匹配 `from '…'` 形式 ⇒ 动态 `import('…')`
@@ -2702,6 +2751,21 @@ class ArchitectureLinter {
       tgtLayer: string;
     }> = [];
 
+    /**
+     * R00-001 口径修正（2026-10-01，用户裁定「甲」）：**纯 type-only** 的跨层引用。
+     *
+     * 与 `dynamicCrossLayerRefs` 同定位 —— **仅上报、不计违规/已豁免**。目的：把"不构成运行时倒挂"
+     * 的类型引用从账上摘掉（与同仓 eslint 规则 type-only 豁免同口径，见 `parseValueModuleImports`），
+     * 同时**保持可见**（不使其成为检查盲区）。
+     */
+    const typeOnlyCrossLayerRefs: Array<{
+      file: string;
+      srcModule: string;
+      srcLayer: string;
+      tgtModule: string;
+      tgtLayer: string;
+    }> = [];
+
     for (const file of this.allFiles) {
       const srcModule = this.resolveModuleName(file);
       const srcLayer = this.moduleToLayer.get(srcModule);
@@ -2712,12 +2776,27 @@ class ArchitectureLinter {
 
       const allowedLayers = this.allowedDeps[srcLayer] || [];
       const targetModules = this.parseModuleImports(file);
+      // 2026-10-01 R00-001 口径修正（用户裁定「甲」）：**值导入/再导出**目标模块集合。
+      // 不在其中的目标模块 ⇒ 该 (file × module) 对为**纯 type-only** ⇒ 不计违规、不计豁免（仅上报）。
+      const valueTargetModules = this.parseValueModuleImports(file);
 
       for (const tgtModule of targetModules) {
         if (tgtModule === srcModule) continue;
         const tgtLayer = this.moduleToLayer.get(tgtModule);
         if (!tgtLayer) continue;
         if (allowedLayers.includes(tgtLayer)) continue;
+
+        // 纯 type-only ⇒ 不构成**运行时**跨层倒挂 ⇒ 从账上摘掉（仅上报，见上方声明）
+        if (!valueTargetModules.has(tgtModule)) {
+          typeOnlyCrossLayerRefs.push({
+            file: relative(this.srcPath, file),
+            srcModule,
+            srcLayer,
+            tgtModule,
+            tgtLayer,
+          });
+          continue;
+        }
 
         // 检查是否被例外豁免
         if (this.isException('R00-001', srcModule, tgtModule)) {
@@ -2756,6 +2835,10 @@ class ArchitectureLinter {
       `分层检查完成: 检查 ${checked} 个文件 | 违规 ${violationCount} | 已豁免 ${exemptedCount}${
         unmappedModules.size > 0
           ? ` | 未映射目录 ${unmappedModules.size} 个`
+          : ''
+      }${
+        typeOnlyCrossLayerRefs.length > 0
+          ? ` | type-only 跨层引用 ${typeOnlyCrossLayerRefs.length} 处（R00-001 口径修正，仅上报）`
           : ''
       }${
         dynamicCrossLayerRefs.length > 0

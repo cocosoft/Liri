@@ -76,7 +76,7 @@ import {
   registerSessionSummaryMemoryType,
   rollupSessionSummaryToLongTerm,
 } from '@modules/memory';
-import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
+import { dedupeToolCallBlocks } from '@modules/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 // TR-14 / TR-12-A（2026-09-22）：`metric/timing` 事件载荷构造（纯函数，可单测）

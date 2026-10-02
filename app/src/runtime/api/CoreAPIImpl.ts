@@ -102,12 +102,14 @@ import type { ChatManager } from '@modules/chat';
 import {
   createChatManager,
   computeUnifiedDiff,
-  dedupeMessagesToolCallBlocks,
   eventNotificationService,
   // 2026-10-01（B11 余 1 条）：会话检查点取用**同步**门面所需 —— 见 getSessionCheckpointRef()。
   // ⚠️ 本文件早已静态导入 `@modules/chat` ⇒ 追加本符号**零新增**「文件 × 模块」对。
   getCheckpointService,
 } from '@modules/chat';
+// 2026-10-01（子批 C 第 19 条收口）：`dedupeMessagesToolCallBlocks` 已**下沉** `utils/chatBlocks.ts`(infra)
+// ⇒ 本处改指 infra（`service -> infra` 合法），不再经 `@modules/chat`(app) 取值。
+import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
 import { MessageToEventMigrator } from '@modules/session';
 // N-50 墓碑（与 N-52 修复同批）：删除轮次后按 seq 区间过滤事件派生消息
 // R03-002（2026-09-24）：墓碑 API 经模块桶出口导入（原为子路径直连）

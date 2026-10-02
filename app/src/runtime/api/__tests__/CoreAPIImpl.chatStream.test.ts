@@ -57,7 +57,12 @@ mock.module('@modules/chat', () => ({
   eventNotificationService: { on: () => {}, off: () => {} },
   createChatManager: () => ({}),
   computeUnifiedDiff: () => ({ diff: '', additions: 0, deletions: 0 }),
+}));
+// 2026-10-01（子批 C 第 19 条）：`dedupeMessagesToolCallBlocks` 已下沉 `utils/chatBlocks.ts`
+// ⇒ mock 落点随之从 `@modules/chat` 移到本模块（原在 chat mock 内的那行已移除）。
+mock.module('@modules/utils/chatBlocks', () => ({
   dedupeMessagesToolCallBlocks: (messages: unknown) => messages,
+  dedupeToolCallBlocks: (blocks: unknown) => blocks,
 }));
 mock.module('@modules/session', () => ({
   MessageToEventMigrator: class {},

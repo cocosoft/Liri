@@ -135,10 +135,13 @@ export type {
 } from './services/ImageDownloader';
 export { computeUnifiedDiff } from './utils/unifiedDiff';
 export type { FileDiffResult } from './utils/unifiedDiff';
+// 2026-10-01（子批 C 第 19 条 `infrastructure -> chat` 收口）：实现已**下沉** `utils/chatBlocks.ts`(infra)
+// —— 该文件**零 import**（纯泛型函数，只约束 `{id?, blocks?}` 结构），符合 `utils/` 定位。
+// 本处改为**原址转出**（app -> infra 合法；再导出不计入类型中心冲突，R05-013 口径）⇒ chat 内部消费方零语义变化。
 export {
   dedupeToolCallBlocks,
   dedupeMessagesToolCallBlocks,
-} from './utils/chatBlocks';
+} from '@modules/utils/chatBlocks';
 
 // 2026-09-24 R03-002 收敛：services/ChatHelper · yield 通路统一出口
 export { extractTodoData, repairImageUrls } from './services/ChatHelper';

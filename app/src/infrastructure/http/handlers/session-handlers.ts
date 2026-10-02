@@ -26,7 +26,10 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/session/types/message';
 import { MessageRole } from '@modules/session/types/message';
-import { dedupeMessagesToolCallBlocks } from '@modules/chat';
+// 2026-10-01（子批 C 第 19 条收口）：`dedupeMessagesToolCallBlocks` 实现已**下沉** `utils/chatBlocks.ts`(infra)
+// —— 原经 `@modules/chat`(app) 取值构成 1 条 `infrastructure(service) -> chat(app)` 倒挂；
+// 改指 infra ⇒ `service -> infra` **合法**（该边消失）。其类型阻断（`Message` / `LiriEventType`）已由 B11 迁 `session/types/` 解除。
+import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
 import type { LiriEventType } from '@modules/session/types/events';
 import { deriveSessionStats, getYieldRegistry } from '@modules/session';
 import {

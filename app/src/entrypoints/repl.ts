@@ -629,7 +629,7 @@ export async function launchRepl(
             const { getDIContainer } = await import('../core/DIContainer.js');
             const { randomUUID } = await import('crypto');
             const { MessageType, MessageRole } =
-              await import('../session/types/Message.js');
+              await import('../session/types/UnifiedMessage.js');
             const container = getDIContainer();
             if (container.has('combinedSessionGateway')) {
               const combinedGateway = container.resolve<{

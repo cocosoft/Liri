@@ -13,13 +13,13 @@ import { DataSessionStatus } from '@modules/core';
 import type { ChatSession } from '../types/session.js';
 import type { ToolResult } from '../types/tool.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
-import { MessageType as SessionMessageType } from '@modules/session/types/Message';
-import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
+import { MessageType as SessionMessageType } from '@modules/session/types/UnifiedMessage';
+import { MessageRole as SessionMessageRole } from '@modules/session/types/UnifiedMessage';
 import type {
   UnifiedMessage,
   FrontendMessageBlock,
   MessageMetadata,
-} from '@modules/session/types/Message';
+} from '@modules/session/types/UnifiedMessage';
 import type { SessionGateway } from '@modules/session';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';

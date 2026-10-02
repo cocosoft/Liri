@@ -1,4 +1,4 @@
-import type { UnifiedMessage } from './Message.ts';
+import type { UnifiedMessage } from './UnifiedMessage.ts';
 export type { UnifiedMessage };
 
 /**

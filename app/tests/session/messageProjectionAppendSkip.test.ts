@@ -33,7 +33,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { StorageType } from '../../src/session/storage/UnifiedStorage';
 import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import type { UnifiedMessage } from '../../src/session/types/Message';
+import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
 
 /**
  * 注（2026-09-20）：本文件**可单文件运行**。此前受两条模块求值期循环导入影响，均已修复：

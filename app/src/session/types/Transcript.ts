@@ -3,8 +3,8 @@
  * 对标CC源码的sessionStorage.ts中的Transcript相关功能
  */
 
-import type { UnifiedMessage } from './Message.js';
-import type { UnifiedSession } from './Session.js';
+import type { UnifiedMessage } from './UnifiedMessage.js';
+import type { UnifiedSession } from './UnifiedSession.js';
 
 /**
  * Transcript条目类型

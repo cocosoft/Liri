@@ -14,8 +14,8 @@ import type {
   SDKMessage,
   PermissionRequest,
   PermissionResponse,
-} from '../types/Message.js';
-import type { UnifiedSession } from '../types/Session.js';
+} from '../types/UnifiedMessage.js';
+import type { UnifiedSession } from '../types/UnifiedSession.js';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('session:remote');

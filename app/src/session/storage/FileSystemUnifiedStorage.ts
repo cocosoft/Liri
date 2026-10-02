@@ -19,9 +19,9 @@ import type {
   UnifiedSession,
   SessionFilter,
   SessionStats,
-} from '../types/Session.js';
-import { SessionStatus } from '../types/Session.js';
-import type { UnifiedMessage } from '../types/Message.js';
+} from '../types/UnifiedSession.js';
+import { SessionStatus } from '../types/UnifiedSession.js';
+import type { UnifiedMessage } from '../types/UnifiedMessage.js';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import { handleError } from '@modules/error';
 

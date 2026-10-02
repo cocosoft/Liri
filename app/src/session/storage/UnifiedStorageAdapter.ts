@@ -4,13 +4,13 @@
  * 实现旧的 SessionStorage 接口，内部将调用委托给 UnifiedSessionStorage
  */
 
-import { SessionType, SessionStatus } from '../types/Session.js';
-import type { UnifiedSession } from '../types/Session.js';
+import { SessionType, SessionStatus } from '../types/UnifiedSession.js';
+import type { UnifiedSession } from '../types/UnifiedSession.js';
 import type {
   UnifiedMessage,
   MessageType as UnifiedMsgType,
   MessageRole,
-} from '../types/Message.js';
+} from '../types/UnifiedMessage.js';
 import type {
   UnifiedSessionStorage,
   UnifiedMessageQueryOptions,

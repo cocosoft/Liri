@@ -334,8 +334,8 @@ import type {
   UnifiedMessage,
   FrontendMessageBlock,
   MessageMetadata,
-} from '@modules/session/types/Message';
-import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
+} from '@modules/session/types/UnifiedMessage';
+import { MessageRole as SessionMessageRole } from '@modules/session/types/UnifiedMessage';
 import {
   resolveProjectRoot,
   resolveOutputDir,

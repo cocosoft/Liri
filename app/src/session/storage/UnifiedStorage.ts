@@ -10,12 +10,12 @@ import type {
   SessionStats,
   SessionType,
   SessionStatus,
-} from '../types/Session.js';
+} from '../types/UnifiedSession.js';
 import type {
   MessageType,
   MessageRole,
   ContentBlock,
-} from '../types/Message.js';
+} from '../types/UnifiedMessage.js';
 
 /**
  * 存储类型枚举

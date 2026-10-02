@@ -35,8 +35,8 @@ import '@modules/core';
 import { SessionGateway } from '../SessionGateway';
 import { StorageType } from '../storage/UnifiedStorage';
 import { getFTS5SearchEngine } from '../FTS5SearchEngine';
-import { MessageType, MessageRole } from '../types/Message';
-import type { UnifiedMessage } from '../types/Message';
+import { MessageType, MessageRole } from '../types/UnifiedMessage';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 
 function makeGateway(basePath: string): SessionGateway {
   return new SessionGateway({

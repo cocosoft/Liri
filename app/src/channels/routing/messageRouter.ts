@@ -502,7 +502,7 @@ export async function routeChannelMessage(
     try {
       const { getDIContainer } = await import('../../core/DIContainer');
       const { MessageType, MessageRole } =
-        await import('../../session/types/Message');
+        await import('../../session/types/UnifiedMessage');
       const container = getDIContainer();
       if (container.has('combinedSessionGateway')) {
         const combinedGateway = container.resolve<{

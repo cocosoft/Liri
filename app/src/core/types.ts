@@ -27,7 +27,7 @@
  *
  * 这是 core 层的基础 Message 类型。session 模块另有扩展的会话消息模型：
  *   - session/models/SessionMessage.ts — 含元数据、状态字段的 SessionMessage
- *   - session/types/Session.ts — SessionInfo/SessionMetadata 等会话元数据类型
+ *   - session/types/UnifiedSession.ts — SessionInfo/SessionMetadata 等会话元数据类型
  *   - channels/types/IChannel.ts — 通道层的 IChannelMessage
  */
 /**

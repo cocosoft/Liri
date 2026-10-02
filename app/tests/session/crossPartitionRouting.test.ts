@@ -42,8 +42,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { StorageType } from '../../src/session/storage/UnifiedStorage';
 import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import type { UnifiedSession } from '../../src/session/types/Session';
-import { SessionStatus, SessionType } from '../../src/session/types/Session';
+import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
+import { SessionStatus, SessionType } from '../../src/session/types/UnifiedSession';
 
 const ID = 'session_xpart_1';
 

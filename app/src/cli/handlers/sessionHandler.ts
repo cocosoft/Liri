@@ -7,8 +7,8 @@ import chalk from 'chalk';
 import { t } from '@modules/system/i18n/extended';
 import { getLogger } from '@modules/monitoring';
 import { SessionGateway, createSessionGateway } from '@modules/session';
-import type { UnifiedSession } from '@modules/session/types/Session';
-import type { UnifiedMessage } from '@modules/session/types/Message';
+import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 import type { Transcript } from '@modules/session/types/Transcript';
 
 const logger = getLogger('sessionHandler');

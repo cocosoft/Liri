@@ -29,8 +29,11 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
 import type { SessionManager } from '@modules/session';
 import type { TranscriptManager } from '@modules/session';
-import { MessageType, MessageRole } from '@modules/session/types/Message';
-import type { UnifiedMessage } from '@modules/session/types/Message';
+import {
+  MessageType,
+  MessageRole,
+} from '@modules/session/types/UnifiedMessage';
+import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 import { MemoryManagerImpl } from '../memory/MemoryManager';
 import { getAlertManager } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';

@@ -79,7 +79,7 @@ const sessions = await gateway.listSessions({
 ### 消息管理
 
 ```typescript
-import { ContentBlockType } from './session/types/Message.js';
+import { ContentBlockType } from './session/types/UnifiedMessage.js';
 
 // 发送消息
 await gateway.sendMessage(session.id, {

@@ -31,8 +31,8 @@ import {
   getFTS5SearchEngine,
   resetFTS5SearchEngine,
 } from '../../src/session/FTS5SearchEngine';
-import { MessageType, MessageRole } from '../../src/session/types/Message';
-import type { UnifiedMessage } from '../../src/session/types/Message';
+import { MessageType, MessageRole } from '../../src/session/types/UnifiedMessage';
+import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
 import type { LiriEvent } from '../../src/chat/types/events';
 
 /** forkSession 测试目录布局：<dataDir>/sessions/testhash/<sessionId>/ */

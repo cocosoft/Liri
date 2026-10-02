@@ -161,7 +161,7 @@ import type { SessionManager } from '@modules/chat/types/session';
 import type {
   UnifiedMessage,
   FrontendMessageBlock,
-} from '@modules/session/types/Message';
+} from '@modules/session/types/UnifiedMessage';
 import type { Message } from '@modules/chat/types/message';
 import type { ToolManager } from '@modules/tools';
 import { globalToolManager } from '@modules/tools';

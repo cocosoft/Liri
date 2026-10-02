@@ -7,10 +7,10 @@
  * 统一 Message、Session、AuditEvent 三类核心数据模型，
  * 合并以下碎片化定义：
  *   - ai/models/types.ts → ChatMessage
- *   - session/types/Message.ts → UnifiedMessage
+ *   - session/types/UnifiedMessage.ts → UnifiedMessage
  *   - chat/types/message.ts → Message
  *   - chat/types/session.ts → ChatSession
- *   - session/types/Session.ts → UnifiedSession
+ *   - session/types/UnifiedSession.ts → UnifiedSession
  *   - security/audit/AuditTypes.ts → SecurityAuditReport
  *   - commands/framework/CommandAuditLogger.ts → AuditEntry
  *     (及其他 6 个审计相关类型)

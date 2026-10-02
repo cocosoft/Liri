@@ -11,8 +11,8 @@ import type {
   ArchiveMetadata,
 } from './ArchiveTypes';
 import { DEFAULT_ARCHIVE_CONFIG } from './ArchiveTypes';
-import type { UnifiedSession } from '../types/Session';
-import type { UnifiedMessage } from '../types/Message';
+import type { UnifiedSession } from '../types/UnifiedSession';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 import { EventLogStorage } from '../storage/EventLogStorage';
 
 const logger = getLogger('session:archiver');

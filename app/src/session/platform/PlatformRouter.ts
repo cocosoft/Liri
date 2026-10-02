@@ -16,7 +16,7 @@ import type {
   PlatformSendResult,
   PlatformType,
 } from './PlatformAdapter';
-import type { UnifiedMessage } from '../types/Message';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 
 const logger = getLogger('session:platformRouter');
 

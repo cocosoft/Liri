@@ -1534,10 +1534,10 @@ class ArchitectureLinter {
       //   - chat/types/message.ts 是会话消息事实规范（@deprecated 迁 DataMessage 中），不应被报
       //   - utils/config.d.ts|config.ts 是 AppConfig 配置事实源；utils/settings/types.ts 是 HooksSettings 事实源（类型中心版为空壳/同构副本）
       //   - plugin-sdk/types.ts|plugins/types/Plugin.ts|plugins/utils/schemas.ts：PluginManifest/CommandMetadata 插件清单，schemas 为 zod 校验事实源
-      //   - session/types/Message.ts：会话存储消息模型；plugins/PluginLoader.ts：插件加载器（与已豁免的 plugins/core 同类）
+      //   - session/types/UnifiedMessage.ts：会话存储消息模型；plugins/PluginLoader.ts：插件加载器（与已豁免的 plugins/core 同类）
       //   待专项：清理类型中心零消费死类型（Message/ContentBlock/Tool/Session/Command/AppConfig/HooksSettings 等），使 @modules/types 收缩
       'chat/types/message.ts',
-      'session/types/Message.ts',
+      'session/types/UnifiedMessage.ts',
       'plugin-sdk/types.ts',
       'plugins/types/Plugin.ts',
       'plugins/utils/schemas.ts',

@@ -7,12 +7,16 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { resolveDataDir } from '@modules/core';
 
-import { UnifiedMessage, MessageType, MessageRole } from './types/Message.js';
+import {
+  UnifiedMessage,
+  MessageType,
+  MessageRole,
+} from './types/UnifiedMessage.js';
 import type {
   UnifiedSession,
   SessionType,
   SessionFilter,
-} from './types/Session.js';
+} from './types/UnifiedSession.js';
 import type {
   Transcript,
   TranscriptEntry,

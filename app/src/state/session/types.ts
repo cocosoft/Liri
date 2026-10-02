@@ -43,7 +43,7 @@ export enum SessionState {
  * Phase 3 ⬜: 删除旧 SessionState 枚举中非核心状态
  *
  * 迁移清单（方案 Step 9）:
- *   - session/types/Session.ts
+ *   - session/types/UnifiedSession.ts
  *   - SessionStore.ts
  *   - SessionStateMachine.ts
  *   - SessionGateway.ts

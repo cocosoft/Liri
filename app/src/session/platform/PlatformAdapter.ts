@@ -12,8 +12,8 @@
  * - 平台特有的消息格式转换
  */
 
-import type { UnifiedMessage } from '../types/Message';
-import type { UnifiedSession } from '../types/Session';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
+import type { UnifiedSession } from '../types/UnifiedSession';
 
 export type PlatformType =
   | 'console'

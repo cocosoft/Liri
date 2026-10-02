@@ -14,8 +14,8 @@
 import { getLogger } from '@modules/monitoring';
 import { broadcastEvent } from '@modules/infrastructure';
 import { markAppError } from '../../state/app/AppLifecycle.js';
-import { SessionStatus } from '../types/Session';
-import type { UnifiedSession } from '../types/Session';
+import { SessionStatus } from '../types/UnifiedSession';
+import type { UnifiedSession } from '../types/UnifiedSession';
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';
 
 const logger = getLogger('session:crashRecovery');

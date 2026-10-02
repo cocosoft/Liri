@@ -4,8 +4,8 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { ArchiveStorage } from './ArchiveStorage';
 import type { ArchiveConfig, ArchiveMetadata } from './ArchiveTypes';
-import type { UnifiedSession } from '../types/Session';
-import type { UnifiedMessage } from '../types/Message';
+import type { UnifiedSession } from '../types/UnifiedSession';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 
 function createTestConfig(rootDir: string): ArchiveConfig {
   return {

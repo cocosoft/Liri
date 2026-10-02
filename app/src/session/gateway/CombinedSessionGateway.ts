@@ -17,14 +17,14 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SessionGateway } from '../SessionGateway';
 import type { SessionGatewayConfig } from '../SessionGateway';
-import { SessionType } from '../types/Session';
+import { SessionType } from '../types/UnifiedSession';
 import type {
   UnifiedSession,
   SessionFilter,
   SessionStats,
   CreateSessionParams,
-} from '../types/Session';
-import type { UnifiedMessage } from '../types/Message';
+} from '../types/UnifiedSession';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 import type { Transcript } from '../types/Transcript';
 
 const logger = getLogger('session:combinedGateway');

@@ -7,15 +7,15 @@ import type { Session } from './models/Session.js';
 import type { SessionMessage } from './models/SessionMessage.js';
 import type { SessionMetadata } from './models/SessionMetadata.js';
 import type { SessionStorage } from './SessionStorage.js';
-import { SessionType, SessionStatus } from './types/Session.js';
+import { SessionType, SessionStatus } from './types/UnifiedSession.js';
 import type {
   UnifiedSession,
   UnifiedMessage,
   SessionFilter,
   SessionStats,
-} from './types/Session.js';
-import { MessageType, MessageRole } from './types/Message.js';
-import type { ContentBlock } from './types/Message.js';
+} from './types/UnifiedSession.js';
+import { MessageType, MessageRole } from './types/UnifiedMessage.js';
+import type { ContentBlock } from './types/UnifiedMessage.js';
 import { StorageType } from './storage/UnifiedStorage.js';
 import type {
   UnifiedSessionStorage,

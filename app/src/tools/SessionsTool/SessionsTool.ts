@@ -21,7 +21,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { SessionGateway, createSessionGateway } from '../../session/index';
 import type { SessionGatewayConfig } from '../../session/index';
-import { SessionType, SessionStatus } from '../../session/types/Session';
+import { SessionType, SessionStatus } from '../../session/types/UnifiedSession';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:SessionsTool:SessionsTool');
@@ -102,7 +102,7 @@ const STATUS_MAP: Record<string, SessionStatus> = {
 };
 
 function toSessionInfo(
-  session: import('../../session/types/Session').UnifiedSession,
+  session: import('../../session/types/UnifiedSession').UnifiedSession,
   messageCount: number = 0
 ): SessionInfo {
   return {
@@ -450,14 +450,15 @@ export class SessionsTool extends BaseTool {
       };
     }
 
-    const message: import('../../session/types/Message').UnifiedMessage = {
-      id: crypto.randomUUID(),
-      sessionId: params.sessionId,
-      type: 'text' as any,
-      role: 'user' as any,
-      content: params.message,
-      timestamp: Date.now(),
-    };
+    const message: import('../../session/types/UnifiedMessage').UnifiedMessage =
+      {
+        id: crypto.randomUUID(),
+        sessionId: params.sessionId,
+        type: 'text' as any,
+        role: 'user' as any,
+        content: params.message,
+        timestamp: Date.now(),
+      };
 
     await this.gateway.sendMessage(params.sessionId, message);
 

@@ -13,7 +13,7 @@ import { tmpdir } from 'os';
 import '@modules/core';
 import { FileSystemUnifiedStorage } from './FileSystemUnifiedStorage';
 import { StorageType } from './UnifiedStorage';
-import type { UnifiedSession } from '../types/Session';
+import type { UnifiedSession } from '../types/UnifiedSession';
 
 function makeSession(id: string, updatedAt: number): UnifiedSession {
   return {

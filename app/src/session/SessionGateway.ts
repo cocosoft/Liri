@@ -73,7 +73,7 @@ import {
 import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
 import type { SessionRebuildStats } from './recovery/RecoveryOrchestrator.js';
 
-import { SessionType, SessionStatus } from './types/Session.js';
+import { SessionType, SessionStatus } from './types/UnifiedSession.js';
 import type { LiriEvent } from '@modules/chat/types/events';
 import { StorageType } from './storage/UnifiedStorage.js';
 import type {
@@ -82,7 +82,7 @@ import type {
   SessionStats,
   SessionMetadata,
   CreateSessionParams,
-} from './types/Session.js';
+} from './types/UnifiedSession.js';
 import type {
   UnifiedMessage,
   MessageType,
@@ -90,7 +90,7 @@ import type {
   SDKMessage,
   PermissionRequest,
   PermissionResponse,
-} from './types/Message.js';
+} from './types/UnifiedMessage.js';
 import type { Transcript } from './types/Transcript.js';
 import type { FTSDocument, FTSSearchResult } from './FTS5SearchEngine.js';
 import {

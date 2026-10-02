@@ -35,8 +35,8 @@ import type {
   RestoreResult,
   ArchiveMetadata,
 } from './archive/ArchiveTypes';
-import { MessageRole, ContentBlockType } from './types/Message';
-import type { UnifiedMessage } from './types/Message';
+import { MessageRole, ContentBlockType } from './types/UnifiedMessage';
+import type { UnifiedMessage } from './types/UnifiedMessage';
 
 const logger = getLogger('session:manager');
 

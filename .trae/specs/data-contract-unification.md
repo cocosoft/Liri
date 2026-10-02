@@ -253,7 +253,7 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 
 | # | 名字 | 份数 | 落点 | 判定要点 |
 |---|---|---:|---|---|
-| 1 | `Message` | **4** | 协议层 `core/types.ts` · 领域层 `chat/types/message.ts` · 域私有变体 · **`session/types/Message.ts`（`UnifiedMessage` 家族，322 行）** | §2.3 已证"**不是同一个东西、不得合并**"；**第 4 份为本次新增发现** |
+| 1 | `Message` | **4** | 协议层 `core/types.ts` · 领域层 `chat/types/message.ts` · 域私有变体 · **`session/types/UnifiedMessage.ts`（`UnifiedMessage` 家族 322 行；2026-10-01 P2 由 `Message.ts` 改名）** | §2.3 已证"**不是同一个东西、不得合并**"；**第 4 份为本次新增发现** |
 | 2 | `SessionContext` | **3** | `context/types/Context.ts` · `memory/types/SessionContext.ts` · `security/SecurityAudit.ts:135` | 同名不同物；⚠️ **B14 类型下沉的唯一冲突源** |
 | 3 | `Context` | **2** | `context/types/Context.ts` · `docs/HelpSystem.ts:46` | 同上 |
 | 4 | `Tool` | **2** | `types/tool.ts`（22 行极简投影） · `tools/types/Tool.ts`（660 行完整契约） | 阻断 E 组 `tools` 3 条；**Windows 大小写不敏感 ⇒ `tool.ts`/`Tool.ts` 无法同目录并存** |
@@ -466,11 +466,11 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 | 5 | `compaction/ContextEngine.ts:7` | `{ id; role; content; createdAt: Date; tokenCount?; metadata? }` | 压缩/上下文引擎 |
 | 6 | `ui/components/Messages.tsx:9` | `{ id; content; **sender**; timestamp?; type?; codeLanguage? }` | UI（用 `sender` 而非 `role`） |
 | 7 | `subagent/SubAgentCommunicator.ts:11` | `{ id; type; **content: any**; sender; receiver; timestamp }` | 子代理 IPC（**含 `any`**） |
-| ＋ | `session/types/Message.ts`（**文件名**同名，导出的是 `UnifiedMessage` 家族 322 行） | — | **文件名**冲突源（Windows 大小写），非类型同名 |
+| ＋ | `session/types/UnifiedMessage.ts`（**文件名**曾与 `chat/types/message.ts` 同名，导出的是 `UnifiedMessage` 家族 322 行） | — | **文件名**冲突源（Windows 大小写）；2026-10-01 P2 已改名 `UnifiedMessage.ts`（B11 前置） |
 
 **⇒ 裁定（§9.2 原则 2）**：**规范落点 = #4 `chat/types/message.ts`**（R05-011 + `project_rules §1.6` 双重认定）⇒ **其余 6 份改名**（建议名）：
 `TitleGenMessage`(#1) · `ProtocolMessage`(#2，⚠️ **波及最大** —— providers 广泛使用，须单独评估) · `ToolUseMessage`(#3) · `ContextEngineMessage`(#5) · `UIMessage`(#6) · `SubAgentMessage`(#7)。
-另：`session/types/Message.ts` **文件名**建议改 `UnifiedMessage.ts`（其导出名本就是 `UnifiedMessage`）⇒ 消除与 `chat/types/message.ts` 的**文件名**冲突。
+另：✅ `session/types/Message.ts` **文件名**已改 `UnifiedMessage.ts`（2026-10-01，B11 前置 P2；其导出名本就是 `UnifiedMessage`）⇒ 消除与 `chat/types/message.ts` 的**文件名**冲突。同批 `session/types/Session.ts` → `UnifiedSession.ts`。
 
 **⚠️ 更正（2026-10-01，重要的是非粉饰）**：**U2 并不能解锁 B11** —— B11（`session -> chat` 11 条）的阻断是 **① 文件名冲突**（`session/types/Message.ts` ⟷ `chat/types/message.ts`，Windows 大小写不敏感；**U2 改的是 Type 名，对文件名无效**，除非采纳上条"文件名改 `UnifiedMessage.ts`"）+ **② `eventPayloads → @modules/tasks`(app) / `@modules/utils/mermaidLint`(infra)** 的传递依赖（与 U2 完全无关）。⇒ **B11 的解锁依赖"级联下沉"（`TaskGoal*` + `MermaidLintIssue` → core）或另立 recipe**，U2 的价值是**消名 + 收敛 R05-011 的 6 条长期例外**。
 ⇒ **U3 的 `tasks` 行**（U2 原写"解锁 B11"）**据此更正为"解锁：无直接解锁项；收益 = 消名 + R05-011 例外收敛"**。

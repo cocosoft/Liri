@@ -8,9 +8,9 @@ import {
   CLEAN_SHUTDOWN_MARKER,
   isCleanShutdown,
 } from '../../src/session/recovery/CrashRecoveryManager';
-import { SessionStatus } from '../../src/session/types/Session';
+import { SessionStatus } from '../../src/session/types/UnifiedSession';
 import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage';
-import type { UnifiedSession } from '../../src/session/types/Session';
+import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
 
 /** 最小内存 storage mock（仅 CrashRecoveryManager 测试必需的方法，其余 never） */
 function createFakeStorage(

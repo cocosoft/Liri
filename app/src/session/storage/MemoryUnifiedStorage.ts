@@ -10,8 +10,8 @@ import type {
   UnifiedSession,
   SessionFilter,
   SessionStats,
-} from '../types/Session';
-import type { UnifiedMessage } from '../types/Message';
+} from '../types/UnifiedSession';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 
 function matchesFilter(
   session: UnifiedSession,

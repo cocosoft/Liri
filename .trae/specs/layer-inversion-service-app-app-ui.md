@@ -691,12 +691,12 @@ export interface AgentRunDto {
 
 | # | 冲突 | chat 侧 | session 侧 | 处置 |
 |---|---|---|---|---|
-| ① | `message.ts` ⟷ `Message.ts` | 领域消息模型（`Message`/`MessageStatus`…） | `UnifiedMessage` 家族（322 行） | `session/types/Message.ts` → **`UnifiedMessage.ts`**（导出名本就是 `UnifiedMessage`）⇒ **10 文件** |
-| ② | `session.ts` ⟷ `Session.ts` | `ChatSession` | `UnifiedSession`/`SessionType`/`SessionStatus` | `session/types/Session.ts` → **`UnifiedSession.ts`** ⇒ **2 文件** |
+| ① | `message.ts` ⟷ `Message.ts` | 领域消息模型（`Message`/`MessageStatus`…） | `UnifiedMessage` 家族（322 行） | `session/types/Message.ts` → **`UnifiedMessage.ts`**（导出名本就是 `UnifiedMessage`）⇒ **实测波及 46 文件 / 89 处**（取证时的"10 文件"只覆盖 `@modules/…` 形式，**漏计同模块相对路径与 `app/tests/`** —— 见下方执行记录） |
+| ② | `session.ts` ⟷ `Session.ts` | `ChatSession` | `UnifiedSession`/`SessionType`/`SessionStatus` | `session/types/Session.ts` → **`UnifiedSession.ts`** ⇒ **同 ①（`session/**` 相对路径亦须改，见执行记录）** |
 | ③ | `index.ts` ⟷ `index.ts` | chat 类型聚合桶 | session 类型聚合桶 | **同名无法并存 ⇒ 必须合并为一个 barrel**（非覆盖） |
 
-- **① 波及面（10 文件）**：`channels/routing/messageRouter.ts`（动态 import）· `chat/ChatManager.ts` · `chat/services/ChatHelper.ts` · `chat/services/__tests__/ChatHelper.test.ts` · `voice/VoiceSession.ts` · `entrypoints/repl.ts`（动态）· `cli/handlers/sessionHandler.ts` · `runtime/InboxManager.ts` · `runtime/api/CoreAPIImpl.ts` · `tools/SessionsTool/SessionsTool.ts`（含 `import(...)` 内联型）。
-- **② 波及面（2 文件）**：`cli/handlers/sessionHandler.ts` · `tools/SessionsTool/SessionsTool.ts`。
+- **①② 波及面（取证时低估；执行时全量实测 = 46 文件 / 89 处）**：跨模块 `@modules/session/types/*` 形式（10 文件：`channels/routing/messageRouter.ts`（动态）· `chat/ChatManager.ts` · `chat/services/ChatHelper.ts` · `chat/services/__tests__/ChatHelper.test.ts` · `voice/VoiceSession.ts` · `entrypoints/repl.ts`（动态）· `cli/handlers/sessionHandler.ts` · `runtime/InboxManager.ts` · `runtime/api/CoreAPIImpl.ts` · `tools/SessionsTool/SessionsTool.ts`（含 `import(...)` 内联型））＋ **`session/**` 内部相对路径**（`./types/*` · `../types/*`，覆盖 `storage/*` · `archive/*` · `platform/*` · `recovery/*` · `remote/*` · `gateway/*` 等 ≈ 27 文件）＋ **`app/tests/session/*` 8 文件** ＋ `scripts/lint-architecture.ts` 的 R05-013 例外路径串 ＋ `app/docs/核心模块/session-manager.md` 示例 ＋ 3 处注释路径提及（`core/types.ts` · `core/data-models.ts` · `state/session/types.ts`）。
+  - ⚠️ **取证教训（方法论）**：上轮的「10 文件 / 2 文件」只统计了 `@modules/…` 形式的**跨模块**引用，**漏计同模块内相对路径**（`session/**` 自身）与 `app/tests/` ⇒ 这是"看起来面很小、实际波及 46 文件"的来源。**同类改名必须按文件名全仓 grep（含相对路径），不能只按 `@modules/` 前缀扫。**
 - **P2 净差 = 0**：改名只动**路径**，不动分层 —— 消费方 `chat(app)` / `channels(service)` / `voice(service)` / `runtime(service)` / `tools(app)` / `cli(ui)` / `entrypoints(entry)` → `session(service)` **均为合法方向**（app/ui/entry→service 允许；service→service 同层）⇒ **不新增跨层对** ✓。
 - **③ 的额外核验（barrel 合并前置）**：`chat/types` **桶**消费方实测 3 处 —— `compaction/autoCompact.ts:4`（`Message`）· `compaction/grouping.ts:9,10`（`Message` · `MessageRole`）· `docs/PluginDevGuide.ts:203`（该文件为**文档示例内容**，非真实 import）。⇒ 合并桶后须保证这些导出名仍在（两个桶的导出名实测**不重叠**：`Message`/`MessageRole`… 与 `UnifiedMessage`/`SessionType`…）。
 
@@ -720,6 +720,15 @@ export interface AgentRunDto {
 1. **P1 可立即执行**（净差 0 · 零同名 · 约定已核 · 4 个类型零出向依赖）；**P2 属机械改名 + barrel 合并**（~12 文件），可同批或紧随；
 2. P2 完成后 **B11 本体**方可做（`chat/types/*` 迁 `session/types/`）⇒ **收益 `已豁免 42 → 31`（−11）**；
 3. ⚠️ 两项均**不得顺手做**：P1 改的是类型落点（涉 4 文件定义 + 原址 shim），P2 涉 barrel 合并（③）—— 须各自独立成批并单独验收。
+
+**✅ P2 执行记录（2026-10-01，D-223）**
+
+- **改名**：`git mv` `app/src/session/types/Message.ts` → `UnifiedMessage.ts` · `Session.ts` → `UnifiedSession.ts`（**不在旧路径留 shim** —— 留转发会与迁入的同名文件再次冲突）；同步订正新 `UnifiedSession.ts` 内部的 `./Message.js` 引用。
+- **引用更新**：**46 文件 / 89 处**；`git diff --stat` 为 **89 insertions / 89 deletions**（**完全对称**，佐证纯路径改名、无内容漂移）。
+- **排除项（同名但不同文件，未误伤，已复核）**：`session/models/index.ts` 的 `./Session.js`（指向 `session/models/Session.ts`）· `components/ui/index.ts` 的 `./Message.js`（指向 `components/ui/Message.tsx`）· `chat/types/message.ts` / `chat/types/session.ts`（B11 的**迁入方**，不动）。
+- **验证（本人独立复跑，非仅采信执行方）**：`typecheck` **exit 0** · **`已豁免 42`（不变）** · `违规 0` · `类型中心冲突 0` · `[Message 模型] 0`（R05-011 未受影响）· 碎片 0 · 警告 3（预存）· `bun test tests/session` = **289 pass / 0 fail**。
+- **⚠️ P2-③（`index.ts` barrel 合并）不在本批**：两个 `index.ts` 只有在 `chat/types/*` **实际迁入** `session/types/` 后才同目录；若**提前**合并，会让 session 桶凭空新增 `session -> chat` 取用（**+1 已豁免**，方向倒挂）⇒ **③ 必须并入 B11 本体**（迁移同批完成）。
+- **⇒ 现状**：B11 三处硬阻断的处置归位 —— **阻断 2/3**（`eventPayloads → @modules/tasks` / `→ @modules/utils/mermaidLint`）已由 **P1** 解除；**阻断 1**（文件名冲突）中 `Message.ts`/`Session.ts` 两项已由**本批**解除，仅剩 `index.ts`（P2-③）。⇒ **B11 本体可做**，预计 **`已豁免 42 → 31`（−11）**。
 
 **📌 B14b 立项单 —— `session -> context`（B14）的净负收口路径（2026-10-01，D-222 续）**
 

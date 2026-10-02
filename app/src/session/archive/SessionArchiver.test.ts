@@ -5,8 +5,8 @@ import { tmpdir } from 'os';
 import { SessionArchiver } from './SessionArchiver';
 import type { ArchivableSession } from './SessionArchiver';
 import type { ArchiveConfig } from './ArchiveTypes';
-import type { UnifiedSession } from '../types/Session';
-import type { UnifiedMessage } from '../types/Message';
+import type { UnifiedSession } from '../types/UnifiedSession';
+import type { UnifiedMessage } from '../types/UnifiedMessage';
 
 function createTestArchivableSession(
   id: string,

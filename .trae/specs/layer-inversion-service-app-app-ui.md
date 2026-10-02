@@ -92,11 +92,11 @@
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
-| **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | 🟡 **部分完成**：⚠️ **原列 `mcp` 2 条实测不存在**（见 §3.4 D-205 取证）⇒ 实际 **6** 条；已完成 **3**：`channels/registry` ✅（D-205，1）· **`channels -> ai` 2 条 ✅**（D-206，2，**整文件下沉 core + 原址转出**） | **3** | **3**（`channels/bootstrap`(EffectScope) · `bridge/BridgeMain`(workspaces) · `voice/VoiceSession`(tools)） |
-| **E** `services -> app`（§3.5） | 20 | ⬜ **未开始** | 0 | 20 |
+| **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **1**（`services/mcp/MCPToolBridge.ts -> context`，D-208）；⚠️ **余 18 条中 11 条受"规范数据模型"阻塞**（`Message` 6 · `Tool` 类型 4 · `Command` 1 ⇒ 与子批 C 余项**同一根因**） | **1** | **18**（`ai` 5 · `chat` 6 · `tools` 4 · `context` 1 · `workspaces` 1 · `commands` 1 —— 建议先做 **`ai` 组**） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 64**（**−87**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **3** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 60**（**−91**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **1** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -121,7 +121,15 @@
 **✅ 已完成（2026-10-01 D-206，子批 D）**：**`channels -> ai` 2 条**（`GatewaySessionTracer.ts` · `routing/messageRouter.ts`）—— **整文件下沉 core 模块根 + 原址转出**（`ai/telemetry/SessionSpanTracer.ts` → `core/SessionSpanTracer.ts`，`git mv` 保历史）⇒ **`已豁免 66 → 64`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动 4 文件 eslint 0/0 · `bun test tests/channels` = **109 pass / 0 fail**。
 理由：该文件**零项目依赖**（仅 Node 内置 `crypto`）⇒ 层无关；落 **core 模块根**（`core/**` 子目录会触发 R03-002，见 D-157 同款说明）。**两条边必须同批**（类型位与值位同源）—— 本批一次拿下。
 
-**⬅ 下一个未执行任务**：§3.4 之 **#5（`bridge -> workspaces` 1 条，单点）** ⇒ 先核既有 `workspaceOpsPorts` 可否复用（CS01）。
+**✅ 已完成（2026-10-01 D-207，子批 D 收尾 3 条）**：**`bridge -> workspaces`** · **`voice -> tools`** · **`channels/bootstrap`（EffectScope）** ⇒ **`已豁免 64 → 61`**（恰 −3）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动 7 文件 eslint 0/0（5 处 prettier 折行经 `--fix`）· `bun test tests/channels tests/bridge tests/voice tests/utils` = **513 pass / 0 fail**。三条的**差异化手法**（各自最省）：
+1. **`voice -> tools`** → **既有 sanctioned 门面**：`voice`(service) 取 `getCoreAPI().getToolManager()`（service→service 合法）。**零语义变更实证**：`CoreAPIImpl.ts:301` 为 `this.toolManager = options?.toolManager ?? globalToolManager` ⇒ **同一实例**（§1.16 亦如此记载）。
+2. **`bridge -> workspaces`** → **新增服务层端口** `runtime/api/bridgePorts.ts`（`createWorktreeManager` + `pruneOrphanWorktrees`，返回值按调用方读取面**最小投影** `{ worktreePath }`）+ `CoreAPIImpl.getBridgePort()`（动态导入）。⚠️ 经核**未复用** `workspaceOpsPorts.ts`（该端口只覆盖"工作空间上下文/工作项存储"，与本处"worktree 隔离"**不同域** ⇒ CS01 另立）。
+3. **`channels/bootstrap`（EffectScope）** → **改归 infra**（`context/EffectScope.ts` → `utils/EffectScope.ts`，`context/` 原址转出；同 D-157 手法）。**关键判据**：⚠️ **不可下沉 core** —— 该文件依赖 `@modules/error` + `@modules/monitoring`（infra），**实证 `app/src/core/**` 零 `@modules/monitoring|error` 导入** ⇒ 下沉 core 会新增 2 条 `core -> infra` 边（+2 抵消 −1 ⇒ **净变差**）；改归 **infra** 则其依赖变为 `infra -> infra`（合法）⇒ **真 −1**。
+
+**✅ 已完成（2026-10-01 D-208，子批 E 首条）**：`services/mcp/MCPToolBridge.ts -> context`（1 条，`dependencyRegistry` 直连 core 模块根）⇒ **`已豁免 61 → 60`**（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0。
+**⚠️ 同批取证（关键结构性发现）**：子批 E 全量实测 **19 条**（原列 20），其中 **11 条受"规范数据模型"阻塞**（`Message` 6 · `Tool` 类型 4 · `Command` 1）—— 与子批 C 余项**同一根因** ⇒ 建议**先立项"数据契约统一"专项**再回扫；本轮**不零敲**（避免逐文件端口化造成大量重复与反复）。详见 §3.5 表。
+
+**⬅ 下一个未执行任务**：§3.5 之 **`ai` 组（5 条）**。
 
 **⚠️ 前置取证铁律（D-199/D-200/D-201 教训，三条）**：
 1. **端口方法签名必须由实证而非推断决定** —— D-199 `getSpawnPauseState` 误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`。
@@ -544,22 +552,38 @@ export interface AgentRunDto {
 | # | 文件 | 导入 | 目标 | 处置 |
 |---|---|---|---|---|
 | 1 | `channels/registry/ChannelRegistry.ts:21` | `dependencyRegistry`（值） | `context`(app) | ✅ **已完成（D-205）**：该符号**早在 D-157 即已下沉** `core/DependencyRegistry.ts`（`context/` 仅转出）⇒ 改**相对直连 core 模块根** `'../../core/DependencyRegistry.js'`（同 `PermissionInterceptor.ts:40` 先例）⇒ **零端口零白名单** |
-| 2 | `channels/bootstrap/ChannelBootstrapper.ts:8` | `EffectScope`（类） | `context`(app) | ⏳ **待做**：⚠️ 实测 `context/EffectScope.ts` 依赖 `@modules/error` + `@modules/monitoring`（**infra**）⇒ 若整体下沉 core，会**新增 `core -> infra` 边**（+1，抵消 −1 ⇒ **净零**）⇒ 必须**同时**把这些依赖改为 core 可用形式（`core/errors.ts` 相对路径 + 确认 logger 的 core 出口）**才**真减计数；否则改走**端口/门面** |
+| 2 | `channels/bootstrap/ChannelBootstrapper.ts:8` | `EffectScope`（类） | `context`(app) | ✅ **已完成（D-207）**：**改归 infra**（`context/EffectScope.ts` → `utils/EffectScope.ts`，`context/` 原址转出）⇒ 引用改**相对直连 infra 模块根**。⚠️ 实证**不可下沉 core**（其 `error`/`monitoring` 依赖会让 core 新增 2 条跨层边 ⇒ 净变差）；改归 infra 则依赖变 `infra -> infra` 合法。**零配置改动**（`utils` 已在层映射中为 infra） |
 | 3 | `channels/GatewaySessionTracer.ts:6-11` | `getSessionSpanTracer` · `SPAN_ATTRIBUTE_KEYS` + 类型 `SessionSpanContext` · `SessionSpanAttributes` | `ai`(app) | ✅ **已完成（D-206）**：该文件**零项目依赖**（仅 `crypto`）⇒ **整文件下沉** `core/SessionSpanTracer.ts`（core 模块根）+ `ai/telemetry/SessionSpanTracer.ts` **原址转出** ⇒ 改**相对直连 core**。**零端口零 DTO**（比 §3.3 ③-预案的"类型下沉+端口"更省） |
 | 4 | `channels/routing/messageRouter.ts:51` | `type SessionSpanContext` | `ai`(app) | ✅ **已完成（D-206）**：与 #3 **同批**（类型位随 #3 的实现一起下沉，故两条边一次消除） |
-| 5 | `bridge/BridgeMain.ts:20-21` | `createWorkspaceGit` · `pruneOrphanWorktrees` | `workspaces`(app) | ⏳ **待做**：单点 ⇒ 端口化（新增 `bridgePorts` 或复用既有 `workspaceOpsPorts`——**先核既有端口**，CS01） |
-| 6 | `voice/VoiceSession.ts:24` | `globalToolManager`（值） | `tools`(app) | ⏳ **待做**：⚠️ 工具注册表**单一写入口**为 `getToolRegistry()`（§1.16）⇒ 需核 `core/spi/` 是否已有 tool 相关端口（既有 `AgentToolService.ts` 先例）—— 「有则扩充、无则新增」，并注意 `globalToolManager` 是 **Proxy 单例**（`tools/core/ToolManager.ts:98`） |
+| 5 | `bridge/BridgeMain.ts:20-21` | `createWorkspaceGit` · `pruneOrphanWorktrees` | `workspaces`(app) | ✅ **已完成（D-207）**：**新增服务层端口** `runtime/api/bridgePorts.ts` + `CoreAPIImpl.getBridgePort()`（动态导入）；返回值按调用方读取面最小投影 `{ worktreePath }`。⚠️ 经核**未复用** `workspaceOpsPorts.ts`（不同域 ⇒ CS01 另立） |
+| 6 | `voice/VoiceSession.ts:24` | `globalToolManager`（值） | `tools`(app) | ✅ **已完成（D-207）**：改经**既有 sanctioned 门面** `getCoreAPI().getToolManager()`（service→service 合法；`CoreAPIImpl.ts:301` 实证与 `globalToolManager` **同一实例**）⇒ **零端口、零语义变更** |
 
-**⚠️ 关键教训（本轮取证新增，第 ⑥ 条）**：**"下沉前先核其出向依赖的层"** —— #2 的 `EffectScope` 看似可下沉，但其 `error`/`monitoring` 依赖会让 core 新增跨层边 ⇒ **净零收益**（同 D-186 的"改一半不减计数"）。**先算净差，再动手**。
+**⚠️ 关键教训（本轮取证新增，第 ⑥ 条）**：**"改层/下沉前先核其出向依赖的层，先算净差再动手"** —— #2 的 `EffectScope` 看似可下沉 core，但实证 `app/src/core/**` **零 `@modules/monitoring|error` 导入** ⇒ 下沉会让 core **新增 2 条** `core -> infra` 边，**净变差**（+2 −1）。**正解是改归 infra**（依赖变 `infra -> infra` 合法）⇒ 真 −1。同 D-186 的"改一半不减计数"。
 
-**执行顺序建议**：#1 ✅（D-205）→ **#3+#4 ✅（D-206，同批一次拿下）** → **#5（单点端口，先核既有 `workspaceOpsPorts`）** → #6（核 `core/spi/` 既有 tool 端口）→ #2（需先解决依赖层问题）。
+**执行顺序建议（结果复盘）**：#1 ✅（D-205）→ **#3+#4 ✅**（D-206，同批一次拿下）→ **#5 ✅ · #6 ✅ · #2 ✅**（D-207）⇒ **子批 D 实测 6/6 全部完成** 🎯。
 
 
-### 3.5 子批 E —— `services -> app` **20**
+### 3.5 子批 E —— `services -> app`（原列 **20** ⇒ **实测 19**）
 
-`services/compact/**`（压缩编排）与 `services/mcp/**`（工具桥）为主：
-- 逐个判"**是不是被依赖的 app 能力**"：如 `compact` 依赖 `chat`/`context`/`ai`，若其**编排语义属 app** ⇒ 候选**改归 app 层**（同 D-67/D-84/D-120 的"改归正确层"），比端口化更彻底。
-- 剩余真跨层的 ⇒ core SPI 端口。
+**全量取证（2026-10-01 D-208，`app/src/services/**` 含子路径 + 相对上跳盲区均扫）**：按 **(文件 × 去重目标模块)** 实测 **19 条**、分布于 **6 个 app 目标**：
+
+| 目标 | 条数 | 文件（实测） | 关键性质 / 处方 |
+|---|---:|---|---|
+| `chat` | **6** | `compact/AutoCompactService.ts` · `compact/autoCompact.ts` · `compact/grouping.ts` · `contextCollapse/types.ts` · `contextCollapse/ContextCollapseService.ts` · `toolUseSummary/ToolUseSummaryService.ts` | 全部是 **`Message` 类型位**（+ `MessageRole` / `ContentBlockType` 值）⇒ ⛔ **与子批 C 余项同源**：`Message` 是门禁 `[Message 模型]` 的**规范来源** ⇒ 须随**数据契约统一专项**（或子批 F）一次处理 |
+| `ai` | **5** | `compact/CompactService.ts` · `compact/utils.ts` · `prompt/PromptAssembler.ts` · `prompt/SystemPromptReport.ts` · `prompt/DiagnosticsReport.ts` | 真 app 能力（`modelManager` · `providerRegistry` · `buildSystemPrompt` · `estimateTokens` · `getCachedTiktokenEncoder`）+ 类型（`AIService`/`AIMessage`/`AIMessageRole`/`AIModelType`）⇒ 处方：**复用既有 `runtime/api/aiOpsPorts.ts`**（先核覆盖面，CS01）+ 类型下沉 `types/` |
+| `tools` | **4** | `agent/builtInAgents.ts` · `mcp/MCPToolRegistry.ts` · `mcp/MCPToolBridge.ts` · `mcp/McpToolWrapper.ts` | 混合：**类型位为主**（`Tool` · `ToolInfo` · `ToolParam` · `ToolUseContext` · `ToolResult` · `ToolExecutionStatus`）+ 值（`getToolManager` · 2 个 Agent 定义常量）⇒ 处方：**`tools/types/**` 类型下沉 `types/`**（先核零依赖）+ 值走 `getCoreAPI().getToolManager()`（D-207 已实证同一实例） |
+| `context` | **2** | `compact/utils.ts`（`resolveContextWindow`）· `mcp/MCPToolBridge.ts`（`dependencyRegistry`） | ✅ **`MCPToolBridge` 已完成（D-208，直连 core 叶子）**；⚠️ 另一半 `resolveContextWindow` **不可下沉 core**（`context/window/ContextWindowResolver.ts` 依赖 `@modules/ai` ⇒ 下沉会给 core 新增 `core -> app` 边）⇒ 须走端口，**且先核 `CoreAPIImpl` 是否已有上下文窗口方法**（`resolveContextWindowAsync()` 见模型规则文档） |
+| `workspaces` | **1** | `services/workspace/index.ts`（`WorkspaceScanner` 系列） | 单点、值 ⇒ 处方：核既有 `workspaceOpsPorts` 覆盖面后**扩充或另立** |
+| `commands` | **1** | `mcp/MCPCacheManager.ts`（`type Command`） | 单类型位 ⇒ 处方：`Command` 类型是否有低位出口；无则随**类型下沉** |
+
+**⚠️ 总体结论（重要）**：子批 E 的 **19 条里 11 条（chat 6 + tools 类型 3-4 + commands 1）受"规范数据模型"阻塞**（`Message` / `Tool` / `Command`）—— 与子批 C 余项（`session-handlers`）**同一根因**。⇒ 建议**先做一次"数据契约统一"专项**（把 `Message` / `Tool` 等规范类型下沉 `types/` 或确立规范低位出口），再回头批量清零 E/C 的剩余边；否则逐文件端口化会**大量重复**且易反复（"改一半不减计数"）。
+
+**子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。
+
+**✅ D-208 首条已完成**：`services/mcp/MCPToolBridge.ts → context`（`dependencyRegistry` 早在 D-157 即下沉 core ⇒ 改**相对直连 core 模块根**）⇒ `已豁免 61 → 60`（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0。
+⚠️ 同文件仍持 `@modules/tools`（`getToolManager` 值 + `Tool` 类型位）⇒ **`tools` 边未消**（须与类型下沉同批，故本轮**未**改 `getToolManager`，避免"改了不减计数"）。
+⚠️ **测试盲区**：全仓 `*.test.ts` grep `MCPToolBridge` ⇒ **0 命中**（该文件无覆盖）。
+
 
 ### 3.6 子批 F —— `session -> *`(16) + `runtime -> *`(7) = **23**（**最高风险，最后做**）
 

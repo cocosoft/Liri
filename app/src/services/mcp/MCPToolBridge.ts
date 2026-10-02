@@ -12,7 +12,10 @@ import { getToolManager } from '@modules/tools';
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
-import { dependencyRegistry } from '@modules/context';
+// 2026-10-01 D-208（子批 E，`services -> context` 倒挂收口）：`dependencyRegistry` 早在
+// **D-157 即已下沉** `core/DependencyRegistry.ts`（`context/` 仅转出）⇒ 原 `@modules/context`
+// 取用属倒挂。改**相对直连 core 模块根**（同 D-157 先例 `PermissionInterceptor.ts:40`）。
+import { dependencyRegistry } from '../../core/DependencyRegistry.js';
 import type { Tool } from '@modules/tools/types/Tool';
 
 /**

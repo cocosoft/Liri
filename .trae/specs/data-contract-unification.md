@@ -380,4 +380,8 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
    - ⚠️ 同文件另有 `ToolPermissionContext`，其同名面跨 **4 模块**（`types/tool.ts` · `tools/types/PermissionContext.ts` · `system/state/types.ts` · `permission/**`）⇒ **属 U5**，与本条分开处置。
 3. **对 E 组 `tools` 3 条的解锁作用（如实）**：本条**不直接**解锁它们（那 3 条要的是 `tools/types/*` 的**跨层取用**问题，见 layer-inversion §3.5 D-218）—— U3 的价值在于**消除同名、减少 3 个重名项、并纠正一处"例外养死码"**。
 
-⏳ **执行状态**：**待授权**（① 需删除授权；② 需在甲/乙之间裁定）。
+**执行状态（2026-10-01 更新）**：
+
+- **① ✅ 已执行**：删除 `tools/legacy_types.ts` + 移除其 R05-013 例外登记 ⇒ 同名定义 **−3**（`Tool`/`ToolDefinition`/`ToolSchema`）· 例外清单 **−1**。**验证**：`typecheck 0` · `lint:arch` 违规 0 / 类型中心冲突 **0** · 错误 0 警告 3（预存）· 检查文件 `3987 → 3986`（恰 −1）· `bun test tests/chat src/appState` = **335 pass / 0 fail**。
+- **② ❌「甲」被证伪（同日，用户已授权甲但实施后回滚）**：切到完整契约后 `typecheck` 报 **`AppState.ts(340,28) TS2352`** —— `tools/types` 的 `ToolPermissionContext` **必填** `mode` · `additionalWorkingDirectories` · `alwaysAllowRules` · `alwaysDenyRules` · `alwaysAskRules`，而 AppState 的默认字面量（`isBypassPermissionsModeAvailable`/`Enabled` · `circuitBroken` · `circuitBrokenAt`）**没有这些字段** ⇒ **两者仍属"同名不同物"**（我上一轮前置核验**不完整**：只查了 `Tool` 的字段访问，**漏查 `ToolPermissionContext` 的形状**）。补默认值等于**替它编语义**（违反 CS04/CS05）⇒ **立即回滚甲部分**（`types/tool.ts` 与 `AppState.ts` 已还原），仅保留 ①。
+  - ⇒ **改走「乙」**：`types/tool.ts` 的极简对（`Tool` + `ToolPermissionContext`）**整体改名**（如 `AppStateToolRef` / `AppStateToolPermissionContext`），或**按 U5 统一处置** `ToolPermissionContext` 的 **4 模块同名面**后再命名 ⇒ **待裁定**。

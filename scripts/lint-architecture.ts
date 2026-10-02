@@ -1510,7 +1510,6 @@ class ArchitectureLinter {
       'ai/interfaces/QueryInterfaces.ts',
       'chat/tool/SmartToolIntegrator.ts',
       'tools/types/Tool.ts',
-      'tools/legacy_types.ts',
       'tools/core/ToolManager.ts',
       'tools/ToolManager.ts',
       'tools/extensions/ExtendedToolOptions.ts',

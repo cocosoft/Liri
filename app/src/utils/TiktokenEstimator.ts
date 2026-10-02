@@ -11,6 +11,12 @@
  *   const tokens = encoder.count("Hello 世界");
  *
  * 惰性初始化：首次调用时加载 wasm，后续调用零延迟。
+ *
+ * H5-⑥ 收口（台账 D-212，子批 E `service -> app`）：原位置 `ai/tokenizer/TiktokenEstimator.ts`
+ * （app 层），而 `services/prompt/DiagnosticsReport.ts` 需要 `getCachedTiktokenEncoder`
+ * ⇒ `services -> ai` 倒挂。该文件**仅依赖 `monitoring`/`error`（infra）、零 app 依赖**
+ * ⇒ **改归 infra**（`utils/`）；⚠️ **不可下沉 core**（会让 core 新增 2 条 `core -> infra` 边，净变差，同 D-207）。
+ * `ai/tokenizer/TiktokenEstimator.ts` 保留**同名转出**（既有消费方零改动）。
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

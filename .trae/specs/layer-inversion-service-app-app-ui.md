@@ -93,7 +93,7 @@
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | ✅ **已完成（19/19）** 🎯：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**）· **`session-handlers` ✅（2026-10-01 第 19 条：类型阻断由 B11 解除；值依赖 `dedupeMessagesToolCallBlocks` 下沉 `utils/chatBlocks.ts` ⇒ 边消失，见下）** | **19** | **0** |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
-| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）；⚠️ 余 3 条**全属**"规范数据模型"类且**硬阻**（`tools` 3 被 `Tool` 双份定义阻塞，见 D-218）⇒ E 组**静态可清部分已清零**，余项待**数据契约专项**收口 | **16** | **3**（`tools` 3（⛔ 受阻于 `Tool` 双份定义）） |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）；⚠️ 余 3 条**全属**"规范数据模型"类且**硬阻**（`tools` 3 被 `Tool` 双份定义阻塞，见 D-218）⇒ E 组**静态可清部分已清零**，余项待**数据契约专项**收口 | **16** | **2**（`services/mcp/{MCPToolBridge,McpToolWrapper}.ts → tools`；⚠️ 原记 3 条中的 `services/mcp/MCPToolRegistry.ts → tools` 经 2026-10-01 **type-only 口径修正**摘出） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | 🟡 **部分完成**：**`session` 侧 16 条全清** 🎯（B12 ×2 · B13 ×2 · B14 ×1 · B11 ×11）；**`runtime` 侧已清 3 条**（B11 附带 `chat` ×1 · `query` ×1 · `agent` ×1）⇒ **实测余 4 条**：`CoreAPIImpl.ts` × tools / chat / ai / compaction（**均结构性必要**）；另 `CoreAPI.ts` × tools **因 2026-10-01 口径修正转入 type-only 上报**（非治理清零） | **19** | **4**（＋`runtime -> compaction` 属「另计」）；口径修正后实测 `runtime -> *` 共 4 条 |
 
 **门禁总账（实测）**：`已豁免` **151 → 29**（**−124**，**治理口径**；另有 2026-10-01 R00-001 **口径修正 −4** ⇒ 当前实测 **23**，见下方「门禁口径变更记录」）＝ 子批 A 47 + 子批 B 13 + 子批 C **19**（含 2026-10-01 第 19 条 `session-handlers` −1） + 子批 D **6** + 子批 E **16**（D-208/212/213/214/215 六条 + D-216 死代码 3 + D-217 `compact` 改归 app 4 + D-218 死文件 1 + D-219 死 barrel 1 + D-220 去假依赖 1）+ 子批 F **19**（D-222 B12 −2 · B13 −1 · **B14 −1**（`45bf96ed8`）· **B11 本体 −10**（方案 2′ 拍平）· **B11 装配值端口化 −1** · **`runtime -> chat` −1**（B11 同批附带）· **`runtime -> query` −1**（`FileCheckpointStorage` 下沉 `session/storage/`）· **`runtime -> agent` −1**（尾批审计后动态化））+ **门禁正确性修正 6**（D-190，**非本次代码改动所致**），**另计 D-217 新增 1 条 `runtime -> compaction`**。⚠️ 各项为**分账记账**，±1 的归属以各 `D-*` 记录为准。
@@ -136,6 +136,27 @@
   - `chat/ChatManager.ts` 改指 `@modules/utils/chatBlocks`；`CoreAPIImpl.chatStream.test.ts` 的 mock 落点同步迁移
 - **验证**：`typecheck 0` · **`已豁免 24 → 23`（恰 −1）** · `违规 0` · `type-only 3` / `动态 31` **均不变** · `eslint src` **0 errors** / 46 warnings · `bun test tests/http tests/chat tests/session src/runtime/api/__tests__` = **703 pass / 0 fail**。
 - **⇒ 子批 C 归零**：`infrastructure -> app` **19/19**。
+
+**✅ F 组 `runtime -> *` 余 4 条 —— 结构性例外结案（2026-10-01）**
+
+**结案依据（实测转储，`ARCH_EXEMPT_DUMP=1` 探针）**：当前 `runtime(service) -> app` **恰 4 条，且全部为值导入（无 type-only）**：
+
+| # | 边 | 为何**不可**消除（技术依据） |
+|---|---|---|
+| 1 | `runtime/api/CoreAPIImpl.ts` → **tools** | ① **构造函数内同步初始化**：`this.converterEngine = … getConverterEngine()` · `this.fileTypeDetector = new FileTypeDetector()` · `this.toolManager = … globalToolManager`；② **同步**门面 `getToolManager(): ToolManager`；③ 类型位 `ReturnType<typeof getConverterEngine>`（字段声明） |
+| 2 | `runtime/api/CoreAPIImpl.ts` → **chat** | 构造函数 `this.chatManager = … createChatManager()` ＋ **同步**门面 `getSessionCheckpointRef()`（其调用点在**同步函数** `createWiredCompactionBridge()` 内） |
+| 3 | `runtime/api/CoreAPIImpl.ts` → **ai** | **同步**门面 `getGlobalEmbeddingManager()` ＋ `setSmartRouter` / `getSmartRouter` 的**类型位** ＋ 同步字段 `providerRegistry` |
+| 4 | `runtime/api/CoreAPIImpl.ts` → **compaction** | D-217 已裁定：`@modules/compaction` 改归 app（独立模块身份）后，该**同步**门面 `createAutoCompactService()` 是**换取模块真边界**的**诚实代价**（净 −3 优于"嵌入 chat 版"的 −4） |
+
+**为何不"动态化"绕过（口径纪律）**：把静态导入改为方法内 `await import()` **并不消除耦合**，只是把它从「已豁免（上桥 · 参与启动期求值）」搬到「R00-003（仅上报）」—— 对 F 尾批的 `→ agent` 成立，是因为它**本就只在 async 上下文**；而**本 4 条被构造函数与同步门面刚性约束**：改异步会**向上传染**（`SessionGateway` 构造函数 / 同步 fluent API，见 D-217），破坏初始化语义。⇒ **本 4 条不采用该手法**。
+
+**唯一可能的根因方案（非本批 · 风险最高 · 须独立立项）**：**装配方向反转** —— 由 `entrypoints/init.ts` 在**组合根**注入各 app 侧服务实例（而非 `CoreAPIImpl` 静态取用），使 runtime 仅依赖端口接口。与 §3.6 记录的 C1/C2 教训同级（**启动时序**风险），须配套**启动路径验证**。
+
+**例外登记状态**：4 条均命中 `layer-exceptions.json` 的 **`service -> app`** 模式例外 —— **不新增条目、不放宽口径**；该桶 `estimatedCount` 已按收口日实测由陈旧的 70 更新为 **8**。
+
+**复审触发条件（何时重开）**：① `CoreAPIImpl` 拆分（R04-001 巨型文件例外已在册）；② 引入**组合根装配** / ModuleRegistry 改造；③ `@modules/compaction` 层归属再评估。
+
+**⇒ F 组状态**：`session` 侧 **16/16 全清** 🎯；`runtime` 侧 **4 条结构性例外 —— 结案**（移出"待办"，留在例外清单待上述条件触发复审）。
 
 **✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 

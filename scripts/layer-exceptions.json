@@ -25,8 +25,8 @@
       "ruleId": "R00-001",
       "pattern": "service -> app",
       "description": "服务层引用应用层",
-      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）。**2026-10-01 D-172 分桶探针实测 = 70**（本桶为现存**最大**桶；原估值 22 系陈旧）",
-      "estimatedCount": 70,
+      "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦（2026-09-30 D-67：`mcp` 改归 service，其 →tools/→tool 两对并入本桶，20 → 22）。**2026-10-01 收口日实测 = 8**（D-172 当时实测 70 系治理前值；经 C 组 / F 组治理后收敛）。明细：`runtime/api/CoreAPIImpl.ts` ×4（tools/chat/ai/compaction —— **已论证为结构性例外并结案**，见 layer-inversion spec「F 组 runtime 例外结案」）· `mcp/MCPTool.ts` ×2（B17 待做）· `services/mcp/{MCPToolBridge,McpToolWrapper}.ts` ×2（E 组余项）",
+      "estimatedCount": 8,
       "createdAt": "2026-06-19",
       "expiresAt": "2027-04-18",
       "owner": "@arch-lead"

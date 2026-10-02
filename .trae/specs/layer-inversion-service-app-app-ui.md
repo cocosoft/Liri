@@ -100,8 +100,9 @@
 
 **当前门禁原始输出（快照，2026-10-01，权威）**：
 ```
+[类型中心] 已收录 36 个公开类型 | [类型中心冲突] 0 处冲突（0 个类型名）
 分层检查完成: 检查 3878 个文件 | 违规 0 | 已豁免 15 | type-only 跨层引用 3 处（R00-001 口径修正，仅上报） | 动态跨层引用 32 处（R00-003，仅上报）
-错误: 0  警告: 5  总计: 5
+错误: 0  警告: 3  总计: 3      （R02-002 · R07-004 · R00-003，均**预存**）
 ```
 
 **分账明列（按子批）**：A **47** + B **17** + C **19** + D **6** + E **18** + F **19** = **126**；＋ 门禁正确性修正 **6**（D-190，**非本次代码改动所致**）＝ **132**；**另计** D-217 新增 `runtime -> compaction` **1** 条（使豁免 **+1**）⇒ **明列净减少 ＝ 131**。
@@ -251,6 +252,20 @@
 **⇒ 连带归零**：**子批 E 18/18 全清** 🎯 · **B17（`mcp -> tools` / `-> tool`）清零** 🎯（本批 `× tool`、B18-b `× tools`）· **B18 全清**。
 
 **⚠️ 一处语义变更（已按要求在代码内注明）**：`MCPToolBridge.initialize()` 的 `toolPort` 为**必填**；未来若有人直接 `new MCPToolBridge()` 而不注入端口，注册/注销会抛 `AppError`（明确失败，不静默降级）。
+
+**✅ R05-013 收口（2026-10-01，同日）—— 工具契约落点由「类型中心」改落 `utils/`(infra) ⇒ 冲突 20 → 0 · 警告 5 → 3** 🎯
+
+- **根因（我的落点错误，如实记录）**：`lint-architecture.ts#checkTypeCenterDuplicates()`（R05-013）的**权威口径**（本会话 D-222 时订立）明写：**「命中同名 ⇒ 不得落 `types/`：改落非类型中心目录（如 `utils/`，infra）」**，并附反面案例（`context/types/Context.ts` 下沉 `types/` 产生 3 处冲突 ⇒ 已回滚）。**B18-b 把工具契约落进 `src/types/tools/` 正违反该条**；且我取证时只核了"`src/types/**` 无重名"、**漏核另一侧**（各模块本地定义）⇒ 产生 `[类型中心冲突] 20 处冲突（11 个类型名）`（跨 `ai/models/types.ts` · `tools/repair/types.ts` · `chat/services/ToolUseSummaryGenerator.ts` 等）。
+- **处置（按口径②）**：整目录 `git mv app/src/types/tools/ → app/src/utils/toolContract/`（10 文件；`utils` = **infra**、非类型中心 ⇒ 不再触发 R05-013）；原址 9 个转发文件改指 `@modules/utils/toolContract/<Name>`；消费方改指 —— `services/mcp/McpToolWrapper.ts` · `mcp/MCPTool.ts` · **`services/mcp/MCPToolBridge.ts`（第 3 处，B18-a 时引入，排查残留时发现）**。
+- **跨层方向不变**：`service → infra` 与 `app → infra` 均**合法** ⇒ **边收口成果保留**。
+- **验证**：`typecheck 0` · **`[类型中心冲突] 0 处冲突`**（原 20 处 / 11 名）· **`⚠️ [R05-013]` 条目消失** · `[类型中心] 已收录 92 → 36` · **`已豁免 15` 不变** · `违规 0` · **警告 5 → 3**（回到预存基线）· `eslint src` 0 errors · `bun test tests/tools tests/mcp tests/modules` = **663 pass / 0 fail**。
+- **⇒ 上一条的两个副作用全部消除**：R05-013 归零；R05-005（纯 barrel）亦随落点移出而不再报。
+
+**📋 落点选择前置检查清单（本次教训固化，第三次同型：改落点前未执行 spec 自身规定的前置核对）**
+1. **核同名（R05-013 原则①，强制）**：`grep -E "export (interface|type|class) (<新名1>|<新名2>|…)" app/src` —— **双向**都要核（类型中心侧 + 各模块本地定义侧）。
+2. **命中同名 ⇒ 不得落 `src/types/`**：改落 `utils/`(infra) 等非类型中心目录；确需落类型中心时按 `knownExceptions` 登记并注明语义差异（优先前者）。
+3. **核 R03-002 子路径形态**：优先用**已验证的 1 段子路径**（`@modules/utils/<x>` · `@modules/types/<x>`），避免多段子路径。
+4. **核出向依赖净差**：目标文件出向依赖须全部 ≤ 新落点层（`core`/自身内部 ⇒ 净差 0）。
 
 **✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 

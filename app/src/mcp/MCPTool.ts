@@ -3,8 +3,12 @@
  * MCP系统的核心工具类，负责与MCP服务器通信并提供工具调用功能
  */
 
-import type { Tool, ToolUseContext, ToolResult } from '@modules/types/tools';
-import { createToolResult } from '@modules/types/tools';
+import type {
+  Tool,
+  ToolUseContext,
+  ToolResult,
+} from '@modules/utils/toolContract';
+import { createToolResult } from '@modules/utils/toolContract';
 import { MCPServerConfig, MCPToolDefinition } from './types';
 import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
 // 2026-10-01 B18-c：**删除** `import { toolScopeManager } from '../tool/ToolScopeManager'` ——

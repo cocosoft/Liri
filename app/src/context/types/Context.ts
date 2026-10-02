@@ -1,46 +1,16 @@
-export interface Context {
-  type: string;
-  createdAt: Date;
-}
-
 /**
- * 会话上下文（注入 AsyncContextStorage）
- * 在 SessionGateway 入口处自动注入，深层调用链可通过 getCurrentSessionContext() 获取
+ * 2026-10-01 B14（子批 F `session -> context` 收敛）A′ 步 —— 原址转出。
+ *
+ * `Context` 家族 5 个类型已**下沉至类型中心** `src/types/context.ts`（core 层）：
+ * 原文件为**纯类型、零出向依赖** ⇒ 下沉净差 0（不新增任何跨层边）。
+ *
+ * 本文件保留为**再导出 shim**，使 `context/**` 既有消费方零改动。
+ * 依 R05-013 处置口径：**再导出不计入类型中心冲突**（合法手法）。
  */
-export interface SessionContext extends Context {
-  type: 'session';
-  sessionId: string;
-  /**
-   * 用户 ID（可选）：SessionGateway 注入时提供；
-   * ContextFactory.createSessionContext 等纯会话场景不提供（R07-P1 归并后统一）
-   */
-  userId?: string;
-  agentName?: string;
-  channelType?: string;
-}
-
-/**
- * 协作者上下文（ContextFactory 创建）
- */
-export interface TeammateContext extends Context {
-  name: string;
-  role: string;
-  status: string;
-}
-
-/**
- * 用户上下文（ContextFactory 创建）
- */
-export interface UserContext extends Context {
-  id: string;
-  name: string;
-  email: string;
-  preferences: Record<string, unknown>;
-}
-
-/**
- * 工作负载上下文（ContextFactory 创建）
- */
-export interface WorkloadContext extends Context {
-  workload: string;
-}
+export type {
+  Context,
+  SessionContext,
+  TeammateContext,
+  UserContext,
+  WorkloadContext,
+} from '../../types/context';

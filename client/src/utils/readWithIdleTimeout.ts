@@ -2,17 +2,23 @@
  * 流式读取无数据超时工具 — 前端各 SSE/fetch 流式链路统一兜底
  * MIT License
  *
- * 对齐后端 BaseAIProvider.readStreamChunkWithTimeout 的 60s idle 语义：
  * Provider/后端返回 200 后 SSE body 流中断时，原生 reader.read() 会永久挂起，
  * 前端 for-await 将卡死无反馈——此处统一提供 idle 超时兜底。
+ *
+ * 2026-10-02（D-231）：idle 默认值由 60s 提升到 **300s**，与后端整体 TTFB 预算
+ * `TTFB_MAX_WAIT_MS`（默认 300s）对齐。原因（实测）：单次 ReAct 迭代内可长时间
+ * **零推流**（工具执行 / 事件循环同步阻塞，实测出现 57.4s 阻塞）⇒ 原 60s 会把
+ * 「正常的长迭代」误判为「连接中断」，前端报「流式响应超时，请重试」。
+ * 注：该场景下心跳也无济于事（事件循环被阻塞时同样发不出），只能靠阈值覆盖。
  */
 
 import { createLogger } from "./logger";
 
 const logger = createLogger("utils:readWithIdleTimeout");
 
-/** 流式读取无数据超时（ms），与后端 readStreamChunkWithTimeout 默认值一致 */
-export const STREAM_IDLE_TIMEOUT_MS = 60_000;
+/** 流式读取无数据超时（ms）。D-231：与后端 TTFB 预算（`TTFB_MAX_WAIT_MS`=300s）对齐，
+ *  覆盖单次 ReAct 迭代内「工具执行 / 事件循环阻塞」导致的长时间零推流 */
+export const STREAM_IDLE_TIMEOUT_MS = 300_000;
 
 /**
  * 首 chunk 无数据超时（ms）。

@@ -30,8 +30,20 @@ const logger = getLogger('BootPipelineIntegrator');
  *
  * 本函数由多入口复用：① 真实启动 `entrypoints/init.ts`（在预创建 CoreAPI 单例之前）；
  * ② 本文件的 Phase 5（BootPipeline 路径，`main.ts` 尚未接线到管道，见文件头说明）。
+ *
+ * D-230（2026-10-02）**幂等守卫（必须）**：本函数被**多入口**调用
+ * （`entrypoints/init.ts` · 本文件 Phase 5 · `entrypoints/repl.ts#initializeChatManager`）。
+ * 若每次都被重新装配，则会**重建 app 实例并整体覆盖注入包** —— 已建立的运行时状态会
+ * 随旧实例被丢弃。**实测回归**（2026-10-02 12:52）：`warmupLLM()` 已把 LLM 客户端挂到
+ * ChatManager#1（日志 `LLM 客户端已通过 CoreAPIImpl 延迟初始化`），随后第二次注册把
+ * 注入包换成 ChatManager#2（日志 `yield 恢复器已装配 listeners:2`）⇒ 消息流在 #2 上
+ * `getLLMClient()` 为空 ⇒ 抛 `LLM client not initialized`（`streamMessageFlow.ts:961`）。
+ * ⇒ **组合根只装配一次**，后续调用为 no-op（保留首个实例，与 `CoreAPIImpl` 的懒解析一致）。
  */
+let _appDepsRegistered = false;
+
 export async function registerCoreApiAppDeps(): Promise<void> {
+  if (_appDepsRegistered) return;
   const { setCoreApiAppDeps } =
     await import('@modules/runtime/api/CoreAPIImpl');
   const { createChatManager, getCheckpointService } =
@@ -61,6 +73,7 @@ export async function registerCoreApiAppDeps(): Promise<void> {
     createAutoCompactService: () => new AutoCompactService(),
     globalEmbeddingManager,
   });
+  _appDepsRegistered = true;
 }
 
 /**

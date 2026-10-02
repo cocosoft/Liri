@@ -899,6 +899,7 @@ const en = {
     exportMetaSessionId: "Session ID: `{{id}}`",
     exportMetaMessageCount: "Messages: {{count}} ({{rounds}} rounds)",
     exportMetaExportedAt: "Exported at: {{time}}",
+    exportTimeUnknown: "Time unknown",
     exportTruncatedBlock:
       "(Content too long — truncated: only the first {{kept}} chars exported, {{total}} chars in total; full content in session)",
     exportStartedAtDuration: "(started {{start}} · {{seconds}}s)",

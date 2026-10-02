@@ -877,6 +877,7 @@ const zh = {
     exportMetaSessionId: "会话 ID：`{{id}}`",
     exportMetaMessageCount: "消息数：{{count}}（轮数：{{rounds}}）",
     exportMetaExportedAt: "导出时间：{{time}}",
+    exportTimeUnknown: "时间未知",
     exportTruncatedBlock:
       "（内容过长，已截断：仅导出前 {{kept}} 字，原文共 {{total}} 字；完整内容见会话内）",
     exportStartedAtDuration: "（开始 {{start}} · 耗时 {{seconds}}s）",

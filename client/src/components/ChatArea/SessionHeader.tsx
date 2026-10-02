@@ -47,6 +47,17 @@ function protectExportStructure(text: string): string {
   return text.replace(/^###\s+(👤|🤖|⚙️|🛠)\s/gm, "\\### $1 ");
 }
 
+/**
+ * 导出时间兜底（T-⑥02，2026-10-02 导出产物实证）：
+ * `msg.timestamp` 缺失时 `new Date(undefined).toLocaleString()` 会输出**纪元 0**
+ * （`Asia/Shanghai` 下即 `1970/1/1 08:00:00`）⇒ 缺失/非法时显式标注，不再伪造时间。
+ */
+function formatExportTime(ts: unknown, t: Translate): string {
+  return typeof ts === "number" && Number.isFinite(ts) && ts > 0
+    ? new Date(ts).toLocaleString()
+    : t("chat.exportTimeUnknown");
+}
+
 /** 最小 t 契约（i18n 残留收尾：模块级构造函数由渲染处传入翻译函数） */
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -129,10 +140,14 @@ async function exportAsMarkdown(
           : msg.role === "system"
             ? `⚙️ ${labels.system}`
             : `🛠 ${labels.tool}`;
-    const date = new Date(msg.timestamp).toLocaleString();
+    const date = formatExportTime(msg.timestamp, t);
     // 1.6：助手消息有 startedAt 时显示开始时间与耗时（区分流式开始/完成）
+    // T-⑥02：两侧时间戳都必须是有限数，否则耗时算成 NaN
     const timeInfo =
-      msg.role === "assistant" && msg.startedAt
+      msg.role === "assistant" &&
+      msg.startedAt &&
+      Number.isFinite(msg.timestamp) &&
+      Number.isFinite(msg.startedAt)
         ? t("chat.exportStartedAtDuration", {
             start: new Date(msg.startedAt).toLocaleString(),
             seconds: ((msg.timestamp - msg.startedAt) / 1000).toFixed(1),
@@ -227,8 +242,12 @@ async function exportAsJson(
  * 与前端 N-48 的可见性策略一致（不丢信息）。
  */
 function filterExportMessages(messages: Message[]): Message[] {
+  // T-⑥01（2026-10-02）：先按 id 去重，再剔除被助手消息消费的 tool 信封。
+  // 持久层实测同一 id 会被重复追加（样本逐字 20 次），而本函数是**全部导出格式
+  // 唯一的导出前归一化点**（resolveExportMessages 三个分支都经它）⇒ 在此收口。
+  const deduped = dedupeMessagesById(messages);
   const consumed = new Set<string>();
-  for (const msg of messages) {
+  for (const msg of deduped) {
     if (msg.role !== "assistant") continue;
     for (const b of msg.blocks ?? []) {
       const id = b.toolCall?.id ?? b.toolCallId;
@@ -239,10 +258,44 @@ function filterExportMessages(messages: Message[]): Message[] {
       if (id) consumed.add(id);
     }
   }
-  const filtered = messages.filter(
+  const filtered = deduped.filter(
     (m) => m.role !== "tool" || !m.toolCallId || !consumed.has(m.toolCallId),
   );
-  return filtered.length === messages.length ? messages : filtered;
+  return filtered.length === deduped.length ? deduped : filtered;
+}
+
+/**
+ * 消息级按 id 去重（T-⑥01，2026-10-02 持久层 + 导出产物双向实证）。
+ *
+ * 背景：`messages.jsonl` 中同一 `id` 会被**重复追加**（样本 `76de12c4-…` 逐字 20 次，
+ * 内容/时间戳/metadata 全同），而导出侧此前**只有 tool block 去重、没有消息级去重**
+ * ⇒ 重复 id 被逐条渲染，产出"同一时刻两条助手消息 / 同刻同文重复"。
+ *
+ * 策略：保留**首次出现的位置**（维持会话时序），取**最后一次的载荷**
+ * （同 id 的后续写入若携带内容更新，则不应导出旧版本）。
+ * 无重复时返回原数组（引用不变，零副作用，与既有去重函数同约定）。
+ */
+function dedupeMessagesById(messages: Message[]): Message[] {
+  const index = new Map<string, number>();
+  const out: Message[] = [];
+  let changed = false;
+  for (const msg of messages) {
+    const key = msg.id;
+    if (!key) {
+      out.push(msg);
+      continue;
+    }
+    const prev = index.get(key);
+    if (prev === undefined) {
+      index.set(key, out.length);
+      out.push(msg);
+    } else {
+      out[prev] = msg;
+      changed = true;
+    }
+  }
+  if (!changed) return messages;
+  return out;
 }
 
 /**

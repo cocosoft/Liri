@@ -26,7 +26,10 @@
 /**
  * 工具权限上下文
  */
-export interface ToolPermissionContext {
+// 2026-10-01 数据契约专项 U5（#4）：原名 `ToolPermissionContext` —— 本版 `mode: string` 且
+// 3 个规则表**全可选**，是 state 侧的**宽松**视图（与权限域事实源、工具契约侧均同名不同物）
+// ⇒ 依 §9.2 原则 2「一名一规范落点」改名。
+export interface StateToolPermissionContext {
   mode: string;
   alwaysAllowRules?: Record<string, string[]>;
   alwaysDenyRules?: Record<string, string[]>;

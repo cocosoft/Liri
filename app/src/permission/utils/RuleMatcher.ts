@@ -38,7 +38,15 @@ export interface ParsedPermissionRule {
 /**
  * 工具权限上下文
  */
-export interface ToolPermissionContext {
+/**
+ * **规则匹配器**所用的权限上下文视图
+ *
+ * 2026-10-01 数据契约专项 U5（#3）：原名 `ToolPermissionContext`，与**权限域事实源**
+ * `permission/permissions.ts:11` 同名不同物 —— 本版 4 个规则表为
+ * **`Partial<Record<PermissionRuleSource, string[]>>`**（事实源为**全量必填**
+ * `Record<PermissionRuleSource, string[]>`）⇒ 依 §9.2 原则 2「一名一规范落点」**改名**。
+ */
+export interface RuleMatcherPermissionContext {
   /**
    * 总是允许的规则（按来源分组）
    */
@@ -277,7 +285,7 @@ export const PERMISSION_RULE_SOURCES: PermissionRuleSource[] = [
  * @returns 规则列表
  */
 export function getRules(
-  context: ToolPermissionContext,
+  context: RuleMatcherPermissionContext,
   behavior: PermissionBehavior
 ): PermissionRule[] {
   return PERMISSION_RULE_SOURCES.flatMap((source) => {
@@ -318,7 +326,7 @@ export function getRules(
  * @returns 允许规则列表
  */
 export function getAllowRules(
-  context: ToolPermissionContext
+  context: RuleMatcherPermissionContext
 ): PermissionRule[] {
   return getRules(context, PermissionBehavior.ALLOW);
 }
@@ -328,7 +336,9 @@ export function getAllowRules(
  * @param context 权限上下文
  * @returns 拒绝规则列表
  */
-export function getDenyRules(context: ToolPermissionContext): PermissionRule[] {
+export function getDenyRules(
+  context: RuleMatcherPermissionContext
+): PermissionRule[] {
   return getRules(context, PermissionBehavior.DENY);
 }
 
@@ -337,7 +347,9 @@ export function getDenyRules(context: ToolPermissionContext): PermissionRule[] {
  * @param context 权限上下文
  * @returns 询问规则列表
  */
-export function getAskRules(context: ToolPermissionContext): PermissionRule[] {
+export function getAskRules(
+  context: RuleMatcherPermissionContext
+): PermissionRule[] {
   return getRules(context, PermissionBehavior.ASK);
 }
 
@@ -367,7 +379,7 @@ export function toolMatchesRule(
  * @returns 匹配的规则，或null
  */
 export function toolAlwaysAllowedRule(
-  context: ToolPermissionContext,
+  context: RuleMatcherPermissionContext,
   toolName: string
 ): PermissionRule | null {
   return (
@@ -383,7 +395,7 @@ export function toolAlwaysAllowedRule(
  * @returns 匹配的规则，或null
  */
 export function getDenyRuleForTool(
-  context: ToolPermissionContext,
+  context: RuleMatcherPermissionContext,
   toolName: string
 ): PermissionRule | null {
   return (
@@ -399,7 +411,7 @@ export function getDenyRuleForTool(
  * @returns 匹配的规则，或null
  */
 export function getAskRuleForTool(
-  context: ToolPermissionContext,
+  context: RuleMatcherPermissionContext,
   toolName: string
 ): PermissionRule | null {
   return (
@@ -415,7 +427,7 @@ export function getAskRuleForTool(
  * @returns 规则内容到规则的映射
  */
 export function getRuleByContentsForTool(
-  context: ToolPermissionContext,
+  context: RuleMatcherPermissionContext,
   toolName: string,
   behavior: PermissionBehavior
 ): Map<string, PermissionRule> {
@@ -443,7 +455,7 @@ export function getRuleByContentsForTool(
  * @returns 匹配的规则，按优先级排序
  */
 export function matchRules(
-  context: ToolPermissionContext,
+  context: RuleMatcherPermissionContext,
   toolName: string,
   input: Record<string, unknown>
 ): {

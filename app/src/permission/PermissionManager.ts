@@ -33,7 +33,7 @@ import {
 import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
 import type { SecurityAuditEvent } from '@modules/security';
 import {
-  ToolPermissionContext,
+  RuleMatcherPermissionContext,
   getAllowRules,
   getDenyRules,
   getAskRules,
@@ -163,7 +163,7 @@ export class PermissionManager {
   /**
    * 工具权限上下文
    */
-  private toolPermissionContext: ToolPermissionContext = {
+  private toolPermissionContext: RuleMatcherPermissionContext = {
     alwaysAllowRules: {},
     alwaysDenyRules: {},
     alwaysAskRules: {},
@@ -972,7 +972,7 @@ export class PermissionManager {
    * 设置工具权限上下文
    * @param context 工具权限上下文
    */
-  setToolPermissionContext(context: ToolPermissionContext): void {
+  setToolPermissionContext(context: RuleMatcherPermissionContext): void {
     this.toolPermissionContext = context;
   }
 
@@ -980,7 +980,7 @@ export class PermissionManager {
    * 获取工具权限上下文
    * @returns 工具权限上下文
    */
-  getToolPermissionContext(): ToolPermissionContext {
+  getToolPermissionContext(): RuleMatcherPermissionContext {
     return this.toolPermissionContext;
   }
 

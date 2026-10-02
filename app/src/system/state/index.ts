@@ -37,7 +37,7 @@ export { StateMigrator } from './StateMigrator';
 
 export type {
   DenialTrackingState,
-  ToolPermissionContext,
+  StateToolPermissionContext,
   MCPServerConnection,
   MCPState,
   PluginLoadState,

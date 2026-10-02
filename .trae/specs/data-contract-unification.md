@@ -423,7 +423,9 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 2. **✅ #2 已改名 `ToolRuntimePermissionContext`（2026-10-01 执行）** —— 语义 = **工具执行期**权限上下文（含 `Map` 工作目录与 5 个执行期开关）。**实测波及面极小：2 文件 4 处** —— `tools/types/PermissionContext.ts`（定义 + `getEmptyToolPermissionContext` 返回类型）· `tools/types/Tool.ts`（导入 + `ToolUseContext.toolPermissionContext` 字段）。**不受影响**：`getEmptyToolPermissionContext()`（同名**函数**，调用方 `entrypoints/mcp.ts` 零改动）· `tools/types/index.ts`（`export *` 自动转发）· **零外部消费者**（无任何文件从 `@modules/tools/types` 取该类型）。
    - ⚠️ **不可用一键替换**：函数名 `getEmptyToolPermissionContext` 含同名子串，`replace_all` 会连带改坏函数名 ⇒ 必须定点改（4 处）。
    - **验证**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test tests/tools src/tools` = **675 pass / 0 fail**。
-3. **#3 改名**（`Partial<…>` 变体）· **#4 改名**（`mode: string` 宽松版）—— 新名待定。
-4. **附带新发现**：`PermissionMode` 亦有两份（`tools/types/PermissionContext.ts:9` 本地 `type` vs `permission/PermissionMode.ts`）⇒ 随 #2 改名一并处置（本地那份应改为**从 `permission` 再导出**，因其值域应同源）。
+3. **✅ #3 已改名（2026-10-01 执行）**：`permission/utils/RuleMatcher.ts` 的 `ToolPermissionContext` → **`RuleMatcherPermissionContext`**（语义 = **规则匹配器**所用的权限上下文视图；其 4 个规则表为 `Partial<Record<PermissionRuleSource, string[]>>`）。**实测波及面：2 文件** —— `RuleMatcher.ts`（定义 + 10 处内部引用 + 2 处 `getDenyRules`/`getAskRules` 签名）· **`permission/PermissionManager.ts`（4 处：它从 `./utils/RuleMatcher` 导入该类型** —— 即 `#3` 有 1 个**跨文件**消费者，非仅内部；**该导入指向不变 ⇒ 行为不变**）。
+   - ⚠️ **两个坑（均已踩并修正）**：① `replace_all` 只匹配了带尾逗号的形式 ⇒ 漏掉 `getAllowRules` 的**无尾逗号**参数行；② `getToolPermissionContext`/`setToolPermissionContext` **含同名子串** ⇒ 必须定点改。
+4. **✅ #4 已改名（2026-10-01 执行）**：`system/state/types.ts` 的 `ToolPermissionContext` → **`StateToolPermissionContext`**（`mode: string` + 3 个规则表**全可选**的 state 侧**宽松**视图）。**波及面：2 文件 2 处** —— `types.ts`（定义）· `system/state/index.ts`（barrel 转出）；**无任何直接消费者**。
+5. **🆕 附带发现（仍待处置）**：`PermissionMode` **亦两份**（`tools/types/PermissionContext.ts:9` 本地 `type PermissionMode = 'default'|'auto'|'strict'|'bypass'` vs `permission/PermissionMode.ts`）⇒ 收敛前需核**值域是否同源**，且须解决 `@modules/permission/...` 子路径导入的 R03-002 口径 ⇒ **单列，未随本批处置**。
 
-⏳ **执行状态**：**待执行**（本步只完成核验与裁定）。
+**✅ 簇收口状态（2026-10-01）**：`ToolPermissionContext` 的 **5 份已全部消名** —— #1 保留（权限域事实源）· #2 → `ToolRuntimePermissionContext` · #3 → `RuleMatcherPermissionContext` · #4 → `StateToolPermissionContext` · #5 → `AppStateToolPermissionContext`。**验证（#3/#4 批）**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test src/permission tests/permission tests/security` = **97 pass / 1 skip / 0 fail**。

@@ -202,6 +202,25 @@
 
 **⚠️ 订正（如实）**：本记录**初稿曾两处写「92 个文件」并附「2 个差异未查明」**——**系我手数错误**（非门禁或删除机制问题）。经 `git show --numstat` 与磁盘/门禁三路核对，实测 **90**，差异**不存在**，同批已订正。
 
+**✅ B18-b（2026-10-01，同日）—— 工具契约下沉 core（方案甲）⇒ `已豁免 19 → 17`**
+
+**取证与两次方案修正（如实记录，含我的一次重复犯错）**：
+- **初次方案「全量改指子路径」被证伪**：① 我的 grep **漏计同模块相对路径** —— `tools/**` 内为 `'../types/Tool'`(92) · `'../types/ToolResult'`(76) · `'../types/ToolUseContext'`(56) · 裸 `'../types'`(85) · `'../types/index'`(112) · 其他(~80) ⇒ 实际消费面 **~215 文件 / ~500 条 import**（我只列了 15 处，占错误面 ~5%；半途实测 `typecheck` = 779 errors / ~230 文件）；② barrel 覆盖不全（`ToolTypes.ts` 13 处消费方；`ToolProgressData.ts` 的 interface 与 `ToolProgress.ts` 的**同名 union 不是一回事**）⇒ 已**完整回退**（`git reset` + `checkout` + 删新建目录），工作树回绿。
+- **⚠️ 教训（同一坑第二次踩）**：P2（`Message.ts`→`UnifiedMessage.ts`）已记档「同类改动须按**文件名形态**全仓 grep（含相对路径），不能只按 `@modules/` 前缀扫」；本批**再次**只按前缀扫 ⇒ 记此以防第三次。
+- **用户裁定「方案甲」**：接受"原址 9 个单行转发文件"的技术债，换取 ~230 处消费方零改动。
+
+**实施**：`git mv` 9 个契约文件 `tools/types/ → types/tools/`（出向依赖实测**全部 `@modules/core` + 本目录内部** ⇒ 净差 0）；新建 `src/types/tools/index.ts`（转出 7 模块）；**原址新建 9 个转发文件** `export * from '@modules/types/tools/<Name>'`（`tools/types/index.ts` **原样保留**，其 7 条转出改指转发文件、2 条 app 层 `*Output` 转出不动）；**仅改 2 处目标消费方**（`services/mcp/McpToolWrapper.ts`、`mcp/MCPTool.ts`）直指 `@modules/types/tools`。
+
+**验证**：`typecheck **0**`（**~230 处消费方零改动仍能编译 ⇒ 转发方案成立的编译期证明**）· **`已豁免 19 → 17`（恰 −2）** · `违规 0` · `R03-002` **0** · `eslint src` **0 errors** / 46 warnings · `bun test tests/tools tests/mcp` = **575 pass / 0 fail**。
+
+**⚠️ 副作用：新增 2 条警告（已记档，待裁定）**
+| 警告 | 对象 | 性质与处置建议 |
+|---|---|---|
+| **R05-005** | `src/types/tools/index.ts` | "仅做 re-export 的 barrel" —— 系**有意的桶出口**（给消费方 1 段子路径 `@modules/types/tools`）。替代：改 2 段子路径，但**未确证** R03-002 是否放行（本批实测 R03-002 = 0，仅因当前用 barrel 形态） |
+| **R05-013** | `ai/models/types.ts`（**20 处**同名） | 类型中心并入工具契约后，与 `ai` 域同名定义**浮出冲突** —— **非本批代码引入**，是"类型中心扩大"的**连带效应**；根因在 `ai/models/types.ts`（数据契约域，建议并入该专项） |
+
+**⇒ 未清（本批只做 B18-b）**：`MCPToolBridge × tools`（需注入，涉启动时序 = B18-a）· `mcp/MCPTool.ts × tool`（`toolScopeManager`，= B18-c）。
+
 **✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 
 **✅ 已完成（2026-10-01 D-201）**：`chat` 域**3 条**（`chat-handlers.ts` · `checkpoint-handlers.ts` · `file-upload-handlers.ts`）—— 详见 §3.3 ③ 的 D-201 记录 ⇒ **`已豁免 75 → 72`**（恰 −3）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动 3 文件 eslint 0/0（3 处 prettier 折行经 `--fix` 收口）· `bun test tests/http tests/chat` = **411 pass / 0 fail**。

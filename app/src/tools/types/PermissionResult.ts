@@ -1,67 +1,8 @@
 /**
- * 权限结果类型
- * 参考CC_CODE的权限系统设计，适应backend现有架构
+ * 2026-10-01 B18-b（方案甲）—— 原址**转发**。契约实现已下沉至 `src/types/tools/`（core 层）。
+ *
+ * 保留本路径使 `tools/**` 内约 230 处相对引用（`'../types/<Name>'` 等）**零改动**；
+ * 依用户裁定「方案甲」明确接受本组转发文件。目标消费方
+ * （`services/mcp/McpToolWrapper.ts`、`mcp/MCPTool.ts`）已直指 core 落点。
  */
-
-/**
- * 权限行为类型
- */
-export type PermissionBehavior = 'allow' | 'deny' | 'ask';
-
-/**
- * 权限结果类型
- */
-export interface PermissionResult {
-  /**
-   * 权限行为
-   */
-  behavior: PermissionBehavior;
-
-  /**
-   * 更新后的输入（可选）
-   */
-  updatedInput?: any;
-
-  /**
-   * 原因（可选）
-   */
-  reason?: string;
-}
-
-/**
- * 创建允许权限结果
- */
-export function createAllowResult(
-  updatedInput?: any,
-  reason?: string
-): PermissionResult {
-  return {
-    behavior: 'allow',
-    updatedInput,
-    reason,
-  };
-}
-
-/**
- * 创建拒绝权限结果
- */
-export function createDenyResult(reason?: string): PermissionResult {
-  return {
-    behavior: 'deny',
-    reason,
-  };
-}
-
-/**
- * 创建询问权限结果
- */
-export function createAskResult(
-  updatedInput?: any,
-  reason?: string
-): PermissionResult {
-  return {
-    behavior: 'ask',
-    updatedInput,
-    reason,
-  };
-}
+export * from '@modules/types/tools/PermissionResult';

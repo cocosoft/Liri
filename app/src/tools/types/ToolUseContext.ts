@@ -1,37 +1,8 @@
 /**
- * 工具使用上下文类型
- * 参考CC_CODE的ToolUseContext设计，适应backend现有架构
- * 实际类型定义已迁移至 Tool.ts 以避免循环依赖
+ * 2026-10-01 B18-b（方案甲）—— 原址**转发**。契约实现已下沉至 `src/types/tools/`（core 层）。
+ *
+ * 保留本路径使 `tools/**` 内约 230 处相对引用（`'../types/<Name>'` 等）**零改动**；
+ * 依用户裁定「方案甲」明确接受本组转发文件。目标消费方
+ * （`services/mcp/McpToolWrapper.ts`、`mcp/MCPTool.ts`）已直指 core 落点。
  */
-import type { ToolUseContext, CompactProgressEvent } from './Tool';
-
-export { ToolUseContext, CompactProgressEvent };
-
-/**
- * 获取空工具使用上下文
- */
-export function getEmptyToolUseContext(): Partial<ToolUseContext> {
-  return {
-    options: {
-      commands: [],
-      debug: false,
-      mainLoopModel: '',
-      tools: [],
-      verbose: false,
-      thinkingConfig: {},
-      mcpClients: [],
-      mcpResources: {},
-      isNonInteractiveSession: false,
-      agentDefinitions: {},
-    },
-    abortController: new AbortController(),
-    readFileState: {},
-    getAppState: () => ({}),
-    setAppState: () => {},
-    setInProgressToolUseIDs: () => {},
-    setResponseLength: () => {},
-    updateFileHistoryState: () => {},
-    updateAttributionState: () => {},
-    messages: [],
-  };
-}
+export * from '@modules/types/tools/ToolUseContext';

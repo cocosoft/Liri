@@ -356,3 +356,28 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 - **改动面 5 个文件（纯改名）**：`context/window/ContextWindowResolver.ts`（定义 + 同文件 L243 调用）· `context/index.ts:97`（转出）· `chat/orchestrator/preSendContextProtection.ts`（导入 + L335 调用）· `app/tests/context/ContextWindowResolver.test.ts`（导入 + 8 处调用）。
 - **效果**：`ai` 桶与 `context` 桶不再同名 ⇒ **解除 B14 的第三处硬阻断**（迁入 `ai/window/` 时不再 `TS2300`）；**计数零变化**（纯改名）。
 - ⏳ **执行状态**：**待执行**（等确认后按上述 5 文件落地）。
+
+---
+
+### 9.7 ✅ U3 裁定：`Tool` 同名簇 —— **死文件删除 + 极简版改名**（2026-10-01）
+
+**取证（U1 显示 `Tool` 跨 4 模块 / `ToolDefinition` 4 / `ToolSchema` 4）**：
+
+| 落点 | 形状 | 消费方 |
+|---|---|---|
+| `tools/types/Tool.ts`（**660 行完整契约**） | `name` · `description` · **`params: ToolParam[]`** · `execute` · `isEnabled` … | **众多**（`tools/**` · `ai` · `permission` · `chat` · `runtime/api`…） |
+| `types/tool.ts`（**22 行极简**） | `name` · `description` · **`parameters?: Record<string, unknown>`** · `execute?` + `ToolPermissionContext`(11 字段) | **仅 1 个**：`appState/AppState.ts:7`（且**只作字段声明** `tools: Tool[]` / `toolPermissionContext`，**不访问任何字段**，L167/L223/L340） |
+| `tools/legacy_types.ts` | `Tool` / `ToolDefinition` / `ToolSchema` **各一份** | ⚠️ **零 importer**（全仓仅被 `scripts/lint-architecture.ts:1513` 的 **R05-013 例外清单**登记而"存活"）⇒ **死文件** |
+
+**⇒ 判定（按 §9.2）**：三者**同名不同物**（极简版字段名 `parameters` ≠ 完整版 `params`，**形状不兼容**）⇒ 不得合并。
+
+**裁定（两条，均待授权执行）**：
+
+1. **删除 `tools/legacy_types.ts`**（零 importer 死文件；同步移除其 R05-013 例外登记）⇒ **直接减少 3 个同名定义**（`Tool`/`ToolDefinition`/`ToolSchema`），且**例外清单 -1**（与"清空例外"同向）。⚠️ 按项目规则「先报告、不擅自删除」⇒ **待你授权**。
+2. **`types/tool.ts` 的极简 `Tool` 消名**，二选一：
+   - **甲（真消肿）**：`AppState` 改引完整契约 `@modules/tools/types`（`appState`→`tools` 同属 **app** ⇒ **合法**）。⚠️ 前置：核 `AppState.tools` 的**写方**是否赋入"极简形状"对象（若赋的是真 `Tool` 则成立；否则会类型不兼容）。
+   - **乙（零风险）**：极简版**改名**（如 `AppStateToolRef`），语义即"AppState 持有的工具**宽松引用**"。
+   - ⚠️ 同文件另有 `ToolPermissionContext`，其同名面跨 **4 模块**（`types/tool.ts` · `tools/types/PermissionContext.ts` · `system/state/types.ts` · `permission/**`）⇒ **属 U5**，与本条分开处置。
+3. **对 E 组 `tools` 3 条的解锁作用（如实）**：本条**不直接**解锁它们（那 3 条要的是 `tools/types/*` 的**跨层取用**问题，见 layer-inversion §3.5 D-218）—— U3 的价值在于**消除同名、减少 3 个重名项、并纠正一处"例外养死码"**。
+
+⏳ **执行状态**：**待授权**（① 需删除授权；② 需在甲/乙之间裁定）。

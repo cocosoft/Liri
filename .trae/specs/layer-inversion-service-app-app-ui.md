@@ -90,7 +90,7 @@
 | 子批 | 范围 | 状态 | 已完成 | 剩余 |
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
-| **B** `app -> ui` 其余（§3.2） | 17 | ✅ **已完成（17/17）** 🎯：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2）· **2026-10-01 收口**：`buddy` UI 面外迁 `ui/buddy/` ＝ **−2** · `commands/tools/remote/remote-session.ts` 死文件 ＝ **−1** · **`commands/builtin/**/*UI.tsx` 整棵零引用死码子树（92 文件）删除** ＝ **−1** | **17** | **0** |
+| **B** `app -> ui` 其余（§3.2） | 17 | ✅ **已完成（17/17）** 🎯：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2）· **2026-10-01 收口**：`buddy` UI 面外迁 `ui/buddy/` ＝ **−2** · `commands/tools/remote/remote-session.ts` 死文件 ＝ **−1** · **`commands/builtin/**/*UI.tsx` 整棵零引用死码子树（90 文件）删除** ＝ **−1** | **17** | **0** |
 | **C** `infrastructure -> app`（§3.3） | 19 | ✅ **已完成（19/19）** 🎯：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**）· **`session-handlers` ✅（2026-10-01 第 19 条：类型阻断由 B11 解除；值依赖 `dedupeMessagesToolCallBlocks` 下沉 `utils/chatBlocks.ts` ⇒ 边消失，见下）** | **19** | **0** |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
 | **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）；⚠️ 余 3 条**全属**"规范数据模型"类且**硬阻**（`tools` 3 被 `Tool` 双份定义阻塞，见 D-218）⇒ E 组**静态可清部分已清零**，余项待**数据契约专项**收口 | **16** | **2**（`services/mcp/{MCPToolBridge,McpToolWrapper}.ts → tools`；⚠️ 原记 3 条中的 `services/mcp/MCPToolRegistry.ts → tools` 经 2026-10-01 **type-only 口径修正**摘出） |
@@ -180,7 +180,7 @@
 - **当初判断**：`CommandUI.tsx` 被 `commands/builtin/*/XxxUI.tsx` 以 `'../shared/CommandUI.js'` 引用（全在 app 层）⇒ 判为「commands 的 UI 子面整体挂在 app 层」的结构问题，拟整组迁入 ui 层。
 - **⚠️ 该判断已被取证推翻**：这些 UI 文件**外部零引用**（是死码），迁移无意义 ⇒ 改走**删除**（见下）。
 
-**✅ 子批 B 收口（2026-10-01，同日）—— `commands/builtin/**/*UI.tsx` 死码子树删除（92 文件）⇒ 子批 B 17/17 全清** 🎯
+**✅ 子批 B 收口（2026-10-01，同日）—— `commands/builtin/**/*UI.tsx` 死码子树删除（90 文件）⇒ 子批 B 17/17 全清** 🎯
 
 **取证（五项独立证据，均指向"外部零引用"）**：
 
@@ -194,11 +194,13 @@
 
 **⇒ 这是「彼此自洽、但无入口消费」的死码子树** —— 使**原计划（整组迁入 ui 层）被推翻**：迁移只会把死码搬家、迁完仍无消费者。**用户裁定改走「删死码子树」（方案甲，同 D-218/D-219 手法）**。
 
-**处置**：删除 `app/src/commands/builtin/**/*UI.tsx` **92 个文件**（91 个 `XxxUI.tsx` + `shared/CommandUI.tsx`）＋ 清理空目录 `builtin/shared/`。**未改任何存活代码**（无引用点可改）。
+**处置**：删除 `app/src/commands/builtin/**/*UI.tsx` **90 个文件**（89 个 `XxxUI.tsx` + `shared/CommandUI.tsx`；`Glob **/*UI.tsx` 实测 90）＋ 清理空目录 `builtin/shared/`。**未改任何存活代码**（无引用点可改）。
 
 **验证**：`typecheck **0**`（**编译期即确认零引用** —— 删除两个导出后无任何编译错误）· **`已豁免 20 → 19`（恰 −1）** · `违规 0` · `R03-002` 0 · 残留 `**/*UI.tsx` glob = **0** · `eslint` **0 errors** / 46 warnings · `bun test tests/commands tests/session tests/chat` = **637 pass / 0 fail**。
 
-**⚠️ 计数说明（如实）**：门禁文件数 **3958 → 3868（−90）**，而删除 92 个 ⇒ **2 个差异未查明**。已交叉核验：当前磁盘 `app/src` 下 `.ts/.tsx` = **3899**，与门禁 **3868 + 31（测试文件排除）** **完全吻合** ⇒ **门禁计数当前自洽**；差异出现在两次历史读数之间，**不影响任何结论**（残留 0 / typecheck 0 / 测试 0 fail 均已独立验证）。
+**✅ 计数核对（已闭环，无差异）**：门禁文件数 **3958 → 3868（恰 −90）**，与本次提交的 **90 个删除**（`git show --numstat` 实测：HEAD 改动 91 文件 = 90 × `*UI.tsx` 删除 + 1 × 本 spec）**完全吻合**；磁盘 `app/src` 下 `.ts/.tsx` = **3899** 亦等于门禁 **3868 + 31（测试文件排除）** —— 三路交叉一致。
+
+**⚠️ 订正（如实）**：本记录**初稿曾两处写「92 个文件」并附「2 个差异未查明」**——**系我手数错误**（非门禁或删除机制问题）。经 `git show --numstat` 与磁盘/门禁三路核对，实测 **90**，差异**不存在**，同批已订正。
 
 **✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 

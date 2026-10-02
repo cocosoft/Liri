@@ -751,6 +751,27 @@ export interface AgentRunDto {
 - `chat/types/*` 的实际路径自本批起为 **`session/types/<file>`**（**拍平**；聚合桶为 `session/types/chat.ts`）；**新条目一律用新路径**。
 - **本 spec 与其余 spec（`api-metrics-surface.md` · `architecture-benchmark-20260928.md` · `data-contract-unification.md` · `goal-entity.md` 等）中的既往条目保留当时的 `chat/types/...` 写法** —— 那些是**带行号/日期的同期证据记录**，文件内容与行号均未变、仅目录迁移，改写会破坏证据可追溯性。**功能耦合（门禁脚本 / 例外清单 / 测试硬编码路径）已全部同步，无遗漏。**
 
+**📌 B11 余 1 条（`ServiceAdapters` 装配值）端口化取证（2026-10-01）**
+
+**取用面实测（`session/compaction/ServiceAdapters.ts`）**：从 `@modules/chat` 只取 **2 个符号** ——
+- **值** `getCheckpointService`（L10；唯一调用点 L82 `const checkpointService = getCheckpointService();`）
+- **类型** `SessionCheckpointService as RealCheckpointService`（L9；仅用于 L50 构造参数类型 `constructor(private real: RealCheckpointService)`）
+
+**真实取用面极窄**：适配器只用 **1 个方法** `real.createCheckpoint({ sessionId, autoCreated: true })`（L56），且只读返回值的 **2 个字段** `cp.id` · `cp.createdAt`（L60）。
+
+**被调方签名（事实源）**：`chat/services/SessionCheckpointService.ts:42` → `createCheckpoint(params: CreateCheckpointParams): Promise<SessionCheckpoint>`；`session/types/checkpoint.ts:25-33` `CreateCheckpointParams`（**除 `sessionId` 外全可选**，含 `autoCreated?: boolean`）；`:4-14` `SessionCheckpoint.createdAt: **number**`。⇒ 投影可无损收敛为 **1 方法 + 2 字段**。
+
+**净差判据（关键，决定可行性）**：`runtime/api/CoreAPIImpl.ts` **已静态导入 `@modules/chat`**（L100-106：`ChatManager`(type) + `createChatManager` 等值导入），且**其自身注释（L1938）明写**「👉 计数影响：`runtime -> chat` 对**已存在**（本文件已静态导入 `@modules/chat`）」⇒ **在同一文件再加一个 chat 符号，不产生任何新的「文件 × 模块」对** ⇒ 端口化 **净 = −1**（`session -> chat` 消失、零新增）✓ ⇒ **可收口 B11**。
+
+**同步性约束**：`createWiredCompactionBridge()` 是**同步函数**（返回 `SessionCompactionBridge`，由 `SessionGateway` 构造函数 / 同步 fluent API 调用 —— 见 D-217 同款约束）⇒ 调用点 L82 在同步体内 ⇒ **必须用同步门面**，不可改 Promise 端口（与 B13 `getCheckpointCleanup()` 同手法）。
+
+**拟实施（3 处，预期 `已豁免 31 → 30` ⇒ B11 归零）**
+1. 新建 `runtime/api/sessionCheckpointPorts.ts`：`export interface SessionCheckpointRefPort { createCheckpoint(params: { sessionId: string; autoCreated?: boolean }): Promise<{ id: string; createdAt: number }>; }`
+2. `CoreAPIImpl` 新增**同步**门面 `getSessionCheckpointRef(): SessionCheckpointRefPort` ⇒ 内部 `return getCheckpointService();`（静态 import，**零新增对**）。⚠️ `CoreAPI.ts` **无需改**（实测该文件**未**声明 `getCheckpointCleanup` ⇒ 无接口约束）。
+3. `ServiceAdapters.ts`：**删除整条 `from '@modules/chat'` 导入**（**值 + 类型两个符号必须一并去掉** —— 只去掉值导入则该「文件 × 模块」对仍存在、计数不减），改用投影类型 + `getCoreAPI().getSessionCheckpointRef()`。
+
+**验收**：`已豁免 31 → 30` · `typecheck 0` · `eslint src` = 0 errors · `lint:arch` 违规 0 · `bun test tests/session tests/chat tests/tasks` 0 fail · **B11 归零（11 → 0）**。
+
 **📌 B14b 立项单 —— `session -> context`（B14）的净负收口路径（2026-10-01，D-222 续）**
 
 **背景：同一条边、四次否决的完整记录**

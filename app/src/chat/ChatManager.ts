@@ -231,7 +231,6 @@ import {
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
 import { shrinkToolResultMessageForPersistence } from '@modules/tools';
-import { SINGLE_RESULT_LIMIT_CHARS } from '@modules/tools';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -1510,17 +1509,39 @@ export class ChatManagerImpl implements ChatManager {
     // 使磁盘与上下文一致，全量仍可在 `tool-results/{toolCallId}.txt` 回读。
     // 注：`Message.type` 为 `MessageType`（成员名与持久化字符串不同）⇒ **不做类型比较**，
     // 由 `shrinkToolResultMessageForPersistence` 按内容结构判定（非 tool_result 内容原样返回，≤ 阈值零开销）。
-    if (
-      typeof message.content === 'string' &&
-      message.content.length > SINGLE_RESULT_LIMIT_CHARS
-    ) {
-      const shrunk = await shrinkToolResultMessageForPersistence({
-        id: message.id,
-        content: message.content,
-        metadata: message.metadata,
-      });
-      if (shrunk.changed && typeof shrunk.content === 'string') {
-        message.content = shrunk.content;
+    // D-240（2026-10-02）：门禁**不再要求 `string`** —— 工具结果消息的 `content` 在生产是
+    // `ContentBlock[]`（`MessageService.createToolResultMessage` 构造），原 `typeof === 'string'`
+    // 门禁恒 false ⇒ 整条 T2 未生效。现放行「字符串（历史/JSONL 形态）或 数组（内存活形态）」，
+    // 判定与改写全部收敛到 `shrinkToolResultMessageForPersistence`（单一事实源）。
+    if (message.content !== undefined && message.content !== null) {
+      try {
+        const shrunk = await shrinkToolResultMessageForPersistence({
+          id: message.id,
+          // 落盘文件名取 `Message.toolCallId`（生产实况）—— 与上下文侧 `normalizedToolCall.id`
+          // 同名同物，避免同一结果在两侧各写一份文件
+          toolCallId: message.toolCallId,
+          content: message.content,
+          metadata: message.metadata,
+        });
+        if (shrunk.changed) {
+          message.content = shrunk.content as Message['content'];
+          // D-238 第 2 条（2026-10-02）：回写落盘路径/长度，与上下文侧 `metadata.toolResultPath`
+          // /`toolResultFullChars` 同字段（原仅上下文侧写 ⇒ 下游按该字段检索会漏 T2 改写过的消息）。
+          message.metadata = {
+            ...(message.metadata ?? {}),
+            toolResultPath: shrunk.toolResultPath,
+            toolResultFullChars: shrunk.toolResultFullChars,
+          };
+        }
+      } catch (e) {
+        // CS03（落盘失败最小回退）：全量落盘是本机 IO，失败概率极低；失败时**保留原文**
+        // （绝不因改写失败丢内容）。本路径此前几乎不触发，D-240 修正后成为常态入口 ⇒
+        // 必须捕获：否则会在 fire-and-forget 调用点产生未处理拒绝。
+        handleError(e, {
+          module: 'chat:manager',
+          action: 'shrinkToolResultBeforePersist',
+          context: { sessionId, messageId: message.id },
+        }).catch(() => {});
       }
     }
     const session = this._chatSessions.get(sessionId);

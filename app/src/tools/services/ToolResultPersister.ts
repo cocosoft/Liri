@@ -14,7 +14,6 @@ import { resolveDataSubDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import type { ToolResult } from '../types/ToolResult';
 
 const logger = getLogger('tools:toolResultPersister');
 
@@ -43,57 +42,119 @@ const PATH_REF_MARKER = '[工具结果超出上下文预算';
  * `messages.jsonl` 达 30.43MB（单条 `tool_result` ≈14MB），而同一 `toolCallId` 的全量已落盘
  * （spec §1.3 判定为 (a) 顺序/对象问题，非旁路）。
  *
- * 语义：令持久化与上下文**同阈值、同文案** —— `|value| > SINGLE_RESULT_LIMIT_CHARS` ⇒ 全量落盘
+ * 语义：令持久化与上下文**同阈值、同文案** —— 载荷文本 `> SINGLE_RESULT_LIMIT_CHARS` ⇒ 全量落盘
  * （复用 `persistToolResult`，路径与上下文侧一致）+ 内容替换为 `PREVIEW_CHARS` + `buildPathRefNotice()`。
  * **幂等**：已含引用文案者跳过；`≤ 阈值` 者原样返回（零开销）；**非 JSON 结构者不动**（无法安全改写）。
+ *
+ * ⚠️ 形态订正（2026-10-02，D-240）：工具结果消息的 `content` 在生产是 **`ContentBlock[]`**
+ * （`MessageService.createToolResultMessage` 构造 `[{type:'tool_result', value, toolCallId}]`），
+ * 而本函数与调用方门禁此前都要求 `string` ⇒ 生产链路**整体未生效**（T2 目标未达成；
+ * 其验证用的是合成字符串消息，形态与生产不符）。现同时接受
+ * **字符串**（历史 / JSONL 形态 = `JSON.stringify(blocks)`）与 **数组**（内存活形态）。
+ *
+ * ⚠️ 载荷口径订正：块内 `value` 实为 `JSON.stringify(payload)`（字符串载荷含引号/转义），
+ * 故**先还原为可读文本**再比阈值 / 落盘 / 取预览 —— 与上下文侧 `extractResultText()` 同口径；
+ * 原实现直接对含引号的 JSON 文本切片，预览会以引号开头、落盘内容也与上下文侧不一致。
  */
 export async function shrinkToolResultMessageForPersistence(message: {
   id?: string;
   type?: string;
+  /** 工具调用 id（`Message.toolCallId`）—— 优先用于落盘文件名，与上下文侧同名同物 */
+  toolCallId?: string;
   content?: string | unknown;
   metadata?: { toolCallId?: string };
-}): Promise<{ content: string | unknown; changed: boolean }> {
+}): Promise<{
+  content: string | unknown;
+  changed: boolean;
+  /** 落盘路径（与上下文侧 `metadata.toolResultPath` 同字段，供下游检索全量） */
+  toolResultPath?: string;
+  /** 落盘前的**载荷文本**长度（与上下文侧 `metadata.toolResultFullChars` 同口径） */
+  toolResultFullChars?: number;
+}> {
   const raw = message.content;
-  if (message.type !== 'tool_result' || typeof raw !== 'string') {
-    return { content: raw, changed: false };
+  const isString = typeof raw === 'string';
+  if (!isString && !Array.isArray(raw)) return { content: raw, changed: false };
+  if (isString) {
+    const text = raw as string;
+    // 字符串形态下信封长度 ≥ 载荷长度 ⇒ 提前零开销返回是安全的
+    if (
+      text.length <= SINGLE_RESULT_LIMIT_CHARS ||
+      text.includes(PATH_REF_MARKER)
+    ) {
+      return { content: raw, changed: false };
+    }
   }
-  if (
-    raw.length <= SINGLE_RESULT_LIMIT_CHARS ||
-    raw.includes(PATH_REF_MARKER)
-  ) {
-    return { content: raw, changed: false };
+  let blocks: unknown[];
+  if (isString) {
+    try {
+      const parsed: unknown = JSON.parse(raw as string);
+      if (!Array.isArray(parsed)) return { content: raw, changed: false };
+      blocks = parsed;
+    } catch {
+      return { content: raw, changed: false };
+    }
+  } else {
+    blocks = raw as unknown[];
   }
-  let blocks: unknown;
-  try {
-    blocks = JSON.parse(raw);
-  } catch {
-    return { content: raw, changed: false };
-  }
-  if (!Array.isArray(blocks)) return { content: raw, changed: false };
 
-  const toolCallId = message.metadata?.toolCallId ?? message.id ?? 'unknown';
+  // 文件名口径：`Message.toolCallId`（生产实况，由 `createToolResultMessage` 设置）
+  // ＞ metadata ＞ 消息 id —— 与上下文侧 `normalizedToolCall.id` **同名同物**，
+  // 保证同一结果只有一个落盘文件（否则上下文侧与持久化侧会各写一份）。
+  const toolCallId =
+    message.toolCallId ??
+    message.metadata?.toolCallId ??
+    message.id ??
+    'unknown';
   let changed = false;
+  let toolResultPath: string | undefined;
+  let toolResultFullChars: number | undefined;
   const out = await Promise.all(
     blocks.map(async (b) => {
       const blk = b as { type?: string; value?: unknown };
       if (blk?.type !== 'tool_result' || typeof blk.value !== 'string')
         return b;
+      const payload = decodeBlockValue(blk.value);
       if (
-        blk.value.length <= SINGLE_RESULT_LIMIT_CHARS ||
-        blk.value.includes(PATH_REF_MARKER)
+        payload.length <= SINGLE_RESULT_LIMIT_CHARS ||
+        payload.includes(PATH_REF_MARKER)
       ) {
         return b;
       }
       // 落盘幂等：路径由 toolCallId 决定，与上下文侧一致（重复写同内容）
-      const path = await persistToolResult(toolCallId, blk.value);
+      const path = await persistToolResult(toolCallId, payload);
       changed = true;
+      toolResultPath = path;
+      toolResultFullChars = payload.length;
       return {
         ...blk,
-        value: blk.value.slice(0, PREVIEW_CHARS) + buildPathRefNotice(path),
+        value: payload.slice(0, PREVIEW_CHARS) + buildPathRefNotice(path),
       };
     })
   );
-  return { content: changed ? JSON.stringify(out) : raw, changed };
+  if (!changed) return { content: raw, changed: false };
+  return {
+    content: isString ? JSON.stringify(out) : out,
+    changed: true,
+    toolResultPath,
+    toolResultFullChars,
+  };
+}
+
+/**
+ * 取出块内载荷的**可读文本**。
+ *
+ * `createToolResultMessage` 写入的是 `JSON.stringify(toolResult.result)` —— 当载荷是**字符串**时
+ * 会被包一层引号并转义；直接切片会把引号当正文，且落盘内容与上下文侧（`extractResultText`）
+ * 不一致。此处在形如 JSON 字符串时还原；对象载荷（`{…}`）本就可读，原样返回。
+ */
+function decodeBlockValue(value: string): string {
+  if (!value.startsWith('"')) return value;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === 'string' ? parsed : value;
+  } catch {
+    return value;
+  }
 }
 
 /** 工具结果落盘路径（toolCallId 做安全化，防路径注入） */
@@ -119,12 +180,28 @@ export async function persistToolResult(
   return path;
 }
 
-/** 提取工具结果的可序列化文本（与 _buildToolRoundMessages 的 JSON.stringify 一致） */
-function extractResultText(result: ToolResult): string {
-  // B2-c 读取侧收口（2026-09-30）：载荷以 **`data`** 为准 —— 原实现**只读 `result`**（并行载荷），
-  // 而多数工具把载荷写在 `data` ⇒ 落盘文本**退化为 `'{}'`**（预存缺陷，批次 1 已修复）；
-  // `result` 兼容回退随写入侧清零一并删除。
-  const payload = result.data;
+/**
+ * **chat 域**工具结果最小结构 —— 载荷字段是 **`result`**（与 tools 域的 `data` 区分）。
+ *
+ * 事实源：`ToolExecutionService._executeInternal` 的
+ * `{ toolCallId, toolName, result: toolResult.data, error, metadata }`。
+ */
+export interface ChatDomainToolResult {
+  result?: unknown;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 提取工具结果的可序列化文本（与 `_buildToolRoundMessages` / `createToolResultMessage` 同字段）。
+ *
+ * ⚠️ 契约订正（2026-10-02，D-239）：入参是 **chat 域**结果对象，载荷在 **`result`**。
+ * B2-c（2026-09-30）曾把此处读侧「收口为 `data`」（tools 域字段），但本函数**唯一调用方是 chat 域**
+ * （`ReActToolLoop` 的 `processedResults`）且 tools 域并无调用 ⇒ 恒取 `undefined`、退化为 `'{}'`，
+ * 单条/单轮预算永不触发 ⇒ 二级/三级防御**整体空转**（实测：51,000 字符 chat 形态结果零替换）。
+ */
+function extractResultText(result: ChatDomainToolResult): string {
+  const payload = result.result;
   if (typeof payload === 'string') return payload;
   if (payload !== undefined) return JSON.stringify(payload);
   if (result.error) return result.error;
@@ -139,7 +216,7 @@ function extractResultText(result: ToolResult): string {
 export async function prepareToolResultsForContext(
   processedResults: Array<{
     normalizedToolCall: { id: string; name: string };
-    result: ToolResult;
+    result: ChatDomainToolResult;
   }>
 ): Promise<void> {
   if (processedResults.length === 0) return;
@@ -165,8 +242,10 @@ export async function prepareToolResultsForContext(
       const notice = buildPathRefNotice(path);
       item.pr.result = {
         ...item.pr.result,
-        // B2-c（2026-09-30）：溢出替换同样以 `data` 承载载荷（对齐主契约）
-        data: preview + notice,
+        // D-239（2026-10-02）：溢出替换写回**实际调用方契约字段 `result`**
+        //（与读取、送模型 `_buildToolRoundMessages`、落盘消息构造 `createToolResultMessage` 同字段）；
+        // 原写 `data`（tools 域）在 chat 域**无人读取** ⇒ 替换等于没做。
+        result: preview + notice,
         metadata: {
           ...(item.pr.result.metadata ?? {}),
           toolResultPath: path,

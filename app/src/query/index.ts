@@ -144,7 +144,9 @@ export {
 export { createChatManagerTAORDeps } from './ChatManagerTAORAdapter.js';
 export type { ChatManagerTAORContext } from './ChatManagerTAORAdapter.js';
 export { TAORPhase } from './types.js';
-export { FileCheckpointStorage } from './FileCheckpointStorage.js';
+// 2026-10-01（子批 F · `runtime -> query` 收口）：`FileCheckpointStorage` 已迁至
+// `session/storage/FileCheckpointStorage.ts`（service）—— 其唯一 app 耦合（`chat/types/checkpoint`）
+// 随 B11 变为 `session/types/checkpoint`(service) 而消失 ⇒ 可下沉。跨模块取用改经 `@modules/session` 桶。
 export { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 export { ResumeManager, resumeManager } from './ResumeManager.js';
 export type { ResumeCandidate } from './ResumeManager.js';

@@ -35,7 +35,7 @@ import { mkdtempSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileCheckpointStorage } from '../../src/query/FileCheckpointStorage.js';
+import { FileCheckpointStorage } from '../../src/session/storage/FileCheckpointStorage.js';
 
 describe('FileCheckpointStorage.deleteSessionCheckpoints', () => {
   let dir: string;

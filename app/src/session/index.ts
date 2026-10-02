@@ -47,6 +47,9 @@ export type {
   UnifiedSessionStorage,
 } from './storage/UnifiedStorage.js';
 export * from './storage/StorageFactory.js';
+// 2026-10-01（子批 F · `runtime -> query` 收口）：由 `query/FileCheckpointStorage.ts` 下沉而来
+// （其唯一 app 耦合 `chat/types/checkpoint` 随 B11 成为 `session/types/checkpoint`(service) ⇒ 可下沉）。
+export { FileCheckpointStorage } from './storage/FileCheckpointStorage.js';
 import './storage/MemoryUnifiedStorage.js';
 export { StorageAdapter, createStorageAdapter } from './StorageAdapter.js';
 // O10b（v7.1）：控制面 Tier1 血缘链（会话祖先判定；P3-1 后**启动期从盘重建**，仍 fail-closed）

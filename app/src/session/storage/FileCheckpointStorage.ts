@@ -1,5 +1,6 @@
 /**
- * @owner chat/ChatManager（自 2026-07-13，原属于 query/TAORLoop）
+ * @owner session（2026-10-01 由 `query/` 下沉：其唯一 app 耦合 `chat/types/checkpoint`
+ * 随 B11 迁入 `session/types/checkpoint`(service) 而消失；原 owner 注释为 chat/ChatManager）
  *
  * 文件系统检查点存储
  * 将 SessionCheckpoint 持久化到磁盘 JSON 文件
@@ -15,7 +16,7 @@ import type {
 } from '@modules/session/types/checkpoint.js';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint.js';
 import { getLogger } from '@modules/monitoring';
-const logger = getLogger('query:fileCheckpointStorage');
+const logger = getLogger('session:fileCheckpointStorage');
 
 const CHECKPOINT_DIR_DEFAULT = 'checkpoints';
 

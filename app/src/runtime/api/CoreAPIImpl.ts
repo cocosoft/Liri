@@ -68,12 +68,12 @@ import type { A2APort } from './a2aPorts';
 import type { BridgePort } from './bridgePorts';
 import type { AutoCompactServiceRefPort } from './compactPorts';
 import type { EmbeddingRefPort } from './embeddingPorts';
-import type { CheckpointCleanupPort } from './checkpointPorts';
 import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
 // D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
 import { AutoCompactService } from '@modules/compaction';
-// D-222 B13：检查点清理**同步**门面所需（见 `getCheckpointCleanup()` 说明）
-import { FileCheckpointStorage } from '@modules/query';
+// 2026-10-01（子批 F `runtime -> query` 收口）：B13 的「检查点清理同步门面」已**作废**
+// —— `FileCheckpointStorage` 已下沉 `session/storage/`(service)，`session/**` 回归同模块直连
+// ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1981,25 +1981,11 @@ export class CoreAPIImpl implements CoreAPI {
     return globalEmbeddingManager;
   }
 
-  /**
-   * 检查点清理**同步**门面（2026-10-01 D-222 B13，子批 F `query` 组）
-   *
-   * `session/SessionGateway.ts` + `session/SessionManager.ts`（service）原先**静态**导入 app 层
-   * `@modules/query` 的 `FileCheckpointStorage` ⇒ 2 条 `session -> query`(app) 倒挂。
-   * ⚠️ 该类引 `../session/types/checkpoint` ⇒ **app 耦合、不可下沉** ⇒ 走门面（投影见
-   * `./checkpointPorts#CheckpointCleanupPort`）。
-   *
-   * ⚠️ **为何同步**：调用点在**同步回调** `(id: string) => …` 内（拼装 `SessionPruner` 选项）⇒
-   * 不可改异步 ⇒ 采用本仓既有 sanctioned 缝（同 `getGlobalEmbeddingManager()`）。
-   * 👉 计数影响：新增 1 条 `runtime -> query`（本文件此前未静态导入 `@modules/query`）⇒
-   * 本组"清 2 增 1" ⇒ **净 −1**。
-   */
-  getCheckpointCleanup(): CheckpointCleanupPort {
-    return {
-      deleteSessionCheckpoints: (sessionId: string) =>
-        new FileCheckpointStorage().deleteSessionCheckpoints(sessionId),
-    };
-  }
+  // ⚠️ 已删除（2026-10-01，子批 F `runtime -> query` 收口）：B13 曾在此提供
+  // `getCheckpointCleanup(): CheckpointCleanupPort` 门面（当时 `FileCheckpointStorage` 还在
+  // `query/`(app) 且被判"app 耦合、不可下沉"）。该前提**随 B11 失效**（其唯一 app 耦合
+  // `chat/types/checkpoint` 已迁 `session/types/`(service)）⇒ 文件已下沉 `session/storage/`，
+  // `session/**` 回归同模块直连 ⇒ **门面与 `./checkpointPorts.ts` 一并作废删除**（净 −1）。
 
   /**
    * 会话检查点取用**同步**门面（2026-10-01 B11 余 1 条 · `session -> chat` 收口）

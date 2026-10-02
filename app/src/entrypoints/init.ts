@@ -529,7 +529,7 @@ async function startDeferredPrefetches(): Promise<void> {
             await import('../session/maintenance/SessionSupervisor.js');
           const { createSupervisorStore } =
             await import('../session/maintenance/SessionStoreAdapter.js');
-          const { FileCheckpointStorage } = await import('@modules/query');
+          const { FileCheckpointStorage } = await import('@modules/session');
           const gateway = new SessionGateway();
           const adapter = new SessionManagerAdapter(gateway);
           const store = createSupervisorStore(adapter.store);

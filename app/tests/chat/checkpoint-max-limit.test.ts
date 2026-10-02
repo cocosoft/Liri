@@ -31,7 +31,7 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileCheckpointStorage } from '../../src/query/FileCheckpointStorage';
+import { FileCheckpointStorage } from '../../src/session/storage/FileCheckpointStorage';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 

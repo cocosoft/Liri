@@ -4,10 +4,9 @@ import { handleError } from '@modules/error';
 import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';
-// 2026-10-01 D-222 B13（子批 F `query` 组）：原静态导入 app 层 `@modules/query` 的
-// `FileCheckpointStorage` ⇒ 改经 **CoreAPI 同步门面** `getCheckpointCleanup()`
-// （详见 `SessionGateway.ts` 同批说明与 `CoreAPIImpl.getCheckpointCleanup()` 实现处）。
-import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// 2026-10-01（子批 F `runtime -> query` 收口）：`FileCheckpointStorage` 已下沉本模块
+// `session/storage/`（B13 的 CoreAPI 门面随之作废）⇒ 回归**同模块直连**。
+import { FileCheckpointStorage } from './storage/FileCheckpointStorage';
 import type { LockOptions } from './SessionLock';
 import { SessionMigration } from './SessionMigration';
 import { FileSystemStorage } from './storage/FileSystemStorage';
@@ -112,8 +111,7 @@ export class SessionManager {
       storage,
       this.config.prunerOptions,
       // 联动清理被剪枝会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
-      (id: string) =>
-        getCoreAPI().getCheckpointCleanup().deleteSessionCheckpoints(id)
+      (id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)
     );
     // M6 修复：删除从未 acquire 的 SessionLock 字段——原构造后仅 shutdown 调
     // releaseAll()（对空 heldLocks 是 no-op），无任何 acquire 入口

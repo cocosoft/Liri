@@ -25,7 +25,7 @@
  * **为什么需要**：`session/compaction/ServiceAdapters.ts`（service）原先**静态**导入 app 层
  * `@modules/chat` 的 `getCheckpointService`（值）与 `SessionCheckpointService`（类型）
  * ⇒ 1 条 `session -> chat`(app) 倒挂。
- * ⚠️ 该取用是**装配值**（非类型）⇒ 移类型文件治不了 ⇒ 走门面（同 B13 `CheckpointCleanupPort`）。
+ * ⚠️ 该取用是**装配值**（非类型）⇒ 移类型文件治不了 ⇒ 走门面（同 `getGlobalEmbeddingManager()`）。
  *
  * **实际取用面极窄**（适配器只用 1 个方法、只读 2 个字段）：
  *   `real.createCheckpoint({ sessionId, autoCreated: true })` ⇒ 只读 `cp.id` / `cp.createdAt`

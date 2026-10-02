@@ -264,7 +264,7 @@ import { memProfile } from '../monitoring/memProfile.js';
 import { getMemoryPressureMonitor } from '@modules/monitoring';
 import { estimateMessagesTokens } from '@modules/ai';
 import { yieldToEventLoop } from '@modules/ai';
-import { FileCheckpointStorage } from '@modules/query';
+import { FileCheckpointStorage } from '@modules/session';
 import {
   StopHookManager,
   createStopHookManager,

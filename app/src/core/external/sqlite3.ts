@@ -96,7 +96,9 @@ function measure<T>(
 const { Database: BunDB } = require('bun:sqlite') as {
   Database: new (
     path: string,
-    options?: { create?: boolean; strict?: boolean }
+    // `readonly`（D-241）：供只读消费者使用 —— 原封装无法表达该选项，
+    // 导致调用方绕过封装直连 `bun:sqlite`（详见 `预存错误与待处理问题.md` D-241）
+    options?: { create?: boolean; strict?: boolean; readonly?: boolean }
   ) => {
     run: (
       sql: string,
@@ -112,6 +114,16 @@ const { Database: BunDB } = require('bun:sqlite') as {
       finalize: () => void;
     };
     exec: (sql: string) => void;
+    /** bun 原生查询入口（`db.query(sql).all()/get()/run()`）—— 供**同步风格**调用方使用 */
+    query: (sql: string) => {
+      get: (...params: unknown[]) => Record<string, unknown> | undefined;
+      all: (...params: unknown[]) => Record<string, unknown>[];
+      run: (...params: unknown[]) => {
+        changes: number;
+        lastInsertRowid: number | bigint;
+      };
+      finalize: () => void;
+    };
     close: () => void;
     configure: (kind: string, val: boolean) => void;
     on: (event: string, cb: (...args: unknown[]) => void) => void;
@@ -119,6 +131,31 @@ const { Database: BunDB } = require('bun:sqlite') as {
     parallelize: () => void;
   };
 };
+
+/** Bun 原生连接句柄（结构类型，避免直接依赖 `bun:sqlite` 的类型声明） */
+export type BunDatabase = InstanceType<typeof BunDB>;
+
+/**
+ * **统一连接初始化 —— PRAGMA 的单一事实源**（台账 D-241）。
+ *
+ * 凡建立 SQLite 连接者（无论用 SQLite3 兼容回调 API 的 `Database` 类，还是用 bun 原生
+ * 同步 API 的调用方）**都必须经此**，避免"绕过封装 ⇒ 缺 per-connection 设置"。
+ *
+ * - `readonly`：只读打开，且**跳过 `journal_mode=WAL`** —— 只读连接改 journal_mode 会失败；
+ *   而 WAL 是**库文件属性**，由写侧首次开启后所有连接共享（故只读侧无需也不应设置）；
+ * - `busy_timeout=10000` / `temp_store=MEMORY` 是 **per-connection** 设置，只读连接同样生效。
+ */
+export function openBunDatabase(
+  path: string,
+  options: { readonly?: boolean } = {}
+): BunDatabase {
+  const readonly = options.readonly === true;
+  const db = new BunDB(path, { create: !readonly, readonly });
+  if (!readonly) db.run('PRAGMA journal_mode=WAL');
+  db.run('PRAGMA busy_timeout=10000');
+  db.run('PRAGMA temp_store=MEMORY');
+  return db;
+}
 
 /**
  * 与 sqlite3 npm 包兼容的 Database 类
@@ -154,10 +191,8 @@ class Database {
     }
 
     try {
-      this._db = new BunDB(path, { create: true });
-      this._db.run('PRAGMA journal_mode=WAL');
-      this._db.run('PRAGMA busy_timeout=10000');
-      this._db.run('PRAGMA temp_store=MEMORY');
+      // D-241：PRAGMA 集**不再在此重写**，收敛到 `openBunDatabase()`（单一事实源）
+      this._db = openBunDatabase(path);
       process.nextTick(() => cb?.(null));
     } catch (e) {
       process.nextTick(() => cb?.(e as Error));

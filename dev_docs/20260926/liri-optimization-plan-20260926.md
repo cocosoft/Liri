@@ -30,21 +30,40 @@
 
 | # | 外部建议 | 本仓实况（证据坐标） | 判定 |
 |---|---|---|---|
-| 1 | 强制 SQLite WAL 防锁 | **已开**：`app/src/core/external/sqlite3.ts:158-160`（`journal_mode=WAL` + `busy_timeout=10000` + `temp_store=MEMORY`）；`workspace/ProjectItemStore.ts:238` 亦单独开 | ✅ **已做**（只需核验覆盖面） |
-| 2 | 台账写入合并（Write-Buffer + 节流批量提交） | `tools/AgentTool/**` 内**无** `flushBatch` / `writeBuffer` / `throttle` / `debounce` 命中 | ⚠️ **缺口成立** |
-| 3 | Mermaid 语法自纠错（Lint 拦截 + 回喂重试） | 前端 `client/src/components/ChatArea/MarkdownRenderer.tsx` 以 `securityLevel:'strict'` + DOMPurify 渲染；**服务端无任何语法校验**（报错只在前端暴露） | ⚠️ **缺口成立** |
-| 4 | Fail-Closed 访问控制（禁读 `/proc`、切断全盘 `grep` 偷答案） | 沙箱实现是 **Landlock**：`app/src/sandbox/landlock/*`（`buildLandlockArgv` / `runWithLandlock` / `readLandlockConfig`），且 2026-09-26 `G1-A` 刚把 **bash 接入 Landlock**（`sandbox/index.ts:112,139-149`）。**未发现 `apparmor` / `ebpf` / `seccomp` 任何命中** | ⚠️ **方向成立、手段需纠正**（应扩展 Landlock 规则，不是引入 eBPF/AppArmor） |
+| 1 | 强制 SQLite WAL 防锁 | **已开**：`app/src/core/external/sqlite3.ts:158-160`（`journal_mode=WAL` + `busy_timeout=10000` + `temp_store=MEMORY`）；`workspace/ProjectItemStore.ts:238` 亦单独开 | ✅ **已做**；**覆盖面已核（2026-10-02）**—— 绝大多数连接经统一封装，另有 **3 文件 5 处直连 `bun:sqlite`**（缺 per-connection `busy_timeout`）⇒ 见 §1.1（已登记台账） |
+| 2 | 台账写入合并（Write-Buffer + 节流批量提交） | `tools/AgentTool/**` 内**无** `flushBatch` / `writeBuffer` / `throttle` / `debounce` 命中 | ❌ **不实施（前提经四条取证证伪）** — 见 §0 / P0-2 |
+| 3 | Mermaid 语法自纠错（Lint 拦截 + 回喂重试） | 前端 `client/src/components/ChatArea/MarkdownRenderer.tsx` 以 `securityLevel:'strict'` + DOMPurify 渲染；**服务端无任何语法校验**（报错只在前端暴露） | ✅ **已完成（2026-09-28）** — ① 前端预校验降级 + ② 服务端 `mermaidLint` 零依赖预检/本轮内回喂 |
+| 4 | Fail-Closed 访问控制（禁读 `/proc`、切断全盘 `grep` 偷答案） | 沙箱实现是 **Landlock**：`app/src/sandbox/landlock/*`（`buildLandlockArgv` / `runWithLandlock` / `readLandlockConfig`），且 2026-09-26 `G1-A` 刚把 **bash 接入 Landlock**（`sandbox/index.ts:112,139-149`）。**未发现 `apparmor` / `ebpf` / `seccomp` 任何命中** | ✅ **已完成（2026-09-28）** — 原"把 `/proc`、`/sys` 显式列入拒绝"**前提证伪**（Landlock 是纯白名单、无拒绝规则）；改法＝移除 `~/.pyapp` 整条放行 + 敏感路径守卫 |
 | 5 | 四级描述符解析链 / fail-closed 拒绝 | v0.4.50 已落地（见 `dev_docs/error_repairs/预存错误与待处理问题.md` 的 v0.4.50 条目：DB 角色 → 运行时注册表 → 内置类型 → **fail-closed 拒绝**） | ✅ **已做** |
 | 6 | 工具命名规范（禁冒号，改下划线） | v0.4.50 `N-42` 已修：`media:<域>:<动作>` → `media_<域>_<动作>`（同条目） | ✅ **已做** |
-| 7 | 对抗 Rollout / Leakage Filtering（作弊 Agent） | 已有 A7 题源屏蔽族：`app/src/tools/pathShield.ts` + `tools/shieldGuard.ts` + `evals/shieldPlan.ts`，评测侧 `evals/sourceTask.ts` 的"桩必败 / 原件必胜"自检 | 🟡 **部分已做** ⇒ 缺"对抗 Agent 作为独立角色" |
-| 8 | Token burst 控制（悲观预扣 + 真实回滚） | 2026-09-26 已改为**真实 `usage.prompt_tokens` 记账 + 对称退款**（`chat/ReActToolLoop._chargeStreamBudget`、`query/TAORLoop._observeRound`）⇒ 仍存"usage 回传前的窗口期" | 🟡 **部分已做** ⇒ 预扣为可选增强 |
-| 9 | 长任务摘要/上卷腾热窗口 | `app/src/context/compaction/*`（0.92 触发、分层折 earliest batches）已在做；名为 compaction，非"上卷" | 🟡 **部分已做** ⇒ 只需统一阈值口径 |
-| 10 | 沙箱 `pack_diff` / EROFS 秒级复用 | 仓内**无 `pack_diff`**；评测侧快照是 `git archive` + 依赖拷贝/junction（`app/src/evals/repoSnapshot.ts`） | 🔶 **方向成立（重）** ⇒ 需先出 spec |
+| 7 | 对抗 Rollout / Leakage Filtering（作弊 Agent） | 已有 A7 题源屏蔽族：`app/src/tools/pathShield.ts` + `tools/shieldGuard.ts` + `evals/shieldPlan.ts`，评测侧 `evals/sourceTask.ts` 的"桩必败 / 原件必胜"自检 | ✅ **形态 B 已落地（2026-09-28）**：`evals/antiCheatAudit.ts`（5 向量）+ 8 例；形态 A（LLM 攻击者）另立 spec |
+| 8 | Token burst 控制（悲观预扣 + 真实回滚） | 2026-09-26 已改为**真实 `usage.prompt_tokens` 记账 + 对称退款**（`chat/ReActToolLoop._chargeStreamBudget`、`query/TAORLoop._observeRound`）⇒ 仍存"usage 回传前的窗口期" | ❌ **不实施（2026-09-28）**：前提证伪（判定点恒在"上一轮完整真实值已记账"之后）+ 处方有反作用 |
+| 9 | 长任务摘要/上卷腾热窗口 | `app/src/context/compaction/*`（0.92 触发、分层折 earliest batches）已在做；名为 compaction，非"上卷" | ✅ **已完成（2026-09-28）**：a/b/c/d 全部落地（`UNIFIED_THRESHOLDS` 单一源；`services/compact` 改比例口径） |
+| 10 | 沙箱 `pack_diff` / EROFS 秒级复用 | 仓内**无 `pack_diff`**；评测侧快照是 `git archive` + 依赖拷贝/junction（`app/src/evals/repoSnapshot.ts`） | ➖ **不适用（2026-09-29 改判）**：前置（沙箱实例层）已整层删除（D-16/D-25）⇒ 挂载目标不存在 |
 
 **需要纠正的外来说法（避免照着想象开工）**：
 - 「五层安全防护 / eBPF 细粒度网络白名单 / AppArmor 策略」—— 仓内**不存在**这些实现；现有 LSM 能力是 **Landlock**（路径级）。
 - 「`CONTEXT_LAYERING` 开关」「kswapd 式 L0/L1/L2 内存回收」—— 仓内**无此开关/命名**；实际对应物是 `context/compaction` 的分层压缩与 `monitoring/memoryPressure`。**不要凭外部命名新建"影子配置面"**（会与既有配置面分裂）。
 - 「EROFS / 分布式存储按需拉取」—— 属外部基础设施经验，Liri 当前不涉及该层，**不建议照搬**。
+
+### 1.1 状态复核（2026-10-02，逐条回仓取证）
+
+> 口径：只标注**当前事实**；与 §0/§1 旧状态不一致的，以本表为准（旧文保留可追溯）。
+
+| # | 复核结论 | 现有证据 |
+|---|---|---|
+| 1 | ✅ 已做；**覆盖面已核** | `core/external/sqlite3.ts:158-160`（WAL + `busy_timeout=10000` + `temp_store=MEMORY`）实测在；全仓 `Database` 引用绝大多数来自该封装。**✅ 覆盖率新增结论 + 登记缺口**：`grep` 全仓 `new Database(`/`require('bun:sqlite')` 得 **3 文件 5 处直连**（`tools/VideoGenerateTool/VideoTaskPersistence.ts:13`、同目录 `MediaTemplates.ts:11`、`infrastructure/http/handlers/video-handlers.ts:158/369/663`）⇒ **不走统一封装 ⇒ 缺 per-connection `busy_timeout`**（WAL 是**库文件属性**、已由首连开启，故不受影响）⇒ 台账 **D-241** —— **✅ 已处置（2026-10-02，用户裁定）**：新增 `openBunDatabase()` 作 PRAGMA 单一事实源（含 `readonly`），5 处全部归一化（`typecheck 0` / 视频测试 35 pass / `lint:arch` 0 违规） |
+| 2 | ❌ 不实施 | 四条取证见 P0-2（单例单连接 + `busy_timeout=10000` + `prune` 不在写入路径 + 全仓无 `SQLITE_BUSY`） |
+| 3 | ✅ 已完成 | `utils/mermaidLint.ts` 在；`mermaid_repair` 模板在 `tasks/goal/goalTemplates.ts`；事件 `validation/injected` **三处齐备**（`shared/events/eventNames.ts:77` 名单 + `session/types/eventPayloads.ts:458` 载荷 + `session/types/knownEventTypes.ts:84` 登记） |
+| 4 | ✅ 已完成 | `sandbox/landlock/*` 在；网络策略已收敛两态（`landlock-net-policy-two-state.md`，`--net-deny`）；`~/.pyapp` 整条放行已移除（`bashLandlockExec`，见 P0-3-a） |
+| 5 | ✅ 已做 | `AgentDescriptorResolver` + `AgentToolsetContract` + `spawnPause` 的 fail-closed 分支在（测试 `descriptorFailClosedSeam.test.ts`） |
+| 6 | ✅ 已做 | 生成物 `constants/toolNames.generated.ts` 全为 snake_case；`grep 'media:'` **0 命中** |
+| 7 | ✅ 形态 B 已落地 | `evals/antiCheatAudit.ts` + `tests/evals/antiCheatAudit.test.ts`（8 例）在 |
+| 8 | ❌ 不实施 | 同 P1-2（判定点恒在上一轮真实值记账之后；预扣只能估算，实测偏 6.4×） |
+| 9 | ✅ 已完成 | `UNIFIED_THRESHOLDS` 单一源（现落 `app/src/tokenBudget/*`，D-224 后由 `core` 改归 `app`）；`services/compact` 已改比例口径 |
+| 10 | ➖ 不适用 | `grep 'pack_diff|packDiff|overlayfs'` **0 命中**；沙箱实例层已删（`sandbox/index.ts:58-62` 墓碑注释 + `tools/index.ts:75-76`） |
+
+> **本表新增的唯一缺口**：§#1 的 3 文件 5 处直连（台账 **D-241**）。其余 9 条与 §0 结论一致。
 
 ---
 

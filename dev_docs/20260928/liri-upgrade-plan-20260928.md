@@ -14,7 +14,7 @@
 |---|---|---|
 | P1-1 Mermaid 自纠回路 | ✅ **已完成** | 同 `liri-optimization-plan-20260926.md` P0-1（① 前端降级 + ② 服务端预检/本轮内回喂） |
 | P1-2 沙箱快照复用 | ❌ **不适用（前置已物理删除）** | 2026-09-29 取证：`SandboxPruner` **零消费者**、项目**无活的实例级沙箱生命周期**（台账 **D-16**）⇒ 无可挂目标；**随后（台账 D-25）沙箱「实例层」整层下线**（删 5 文件）⇒ **挂载目标已不存在**（由"阻塞"改判为"不适用"）；spec `sandbox-freeze-reuse.md` 已标阻塞 |
-| P1-3 工具出参 schema 校验 | ✅ **A 档已完成** | 机制 + top-N 已接线 **7/10**（余 3 个多形态出口不宜声明）；层级核查 T1–T6 完成；门禁 **R15-001/R15-002** 已落地。**B/C 档**（主契约收敛、基座类型抽取）**未做**（另一议题） |
+| P1-3 工具出参 schema 校验 | ✅ **A + B + C 档已完成（2026-10-01）** | A 档：机制 + top-N 已接线 **7/10**（余 3 个多形态出口不宜声明）；层级核查 T1–T6 完成；门禁 **R15-001/R15-002** 已落地。B 档：**B1**（`ToolResult` 与 core 版合并重声明，2026-09-30）· **B2**（`result?` 并行载荷删除）· **B3-a**（`progress?` 死字段删除，2026-10-01）。⚠️ **更正**：B2 档"读取侧 5 处已全部收口至 `data`"有**一处误收** —— `ToolResultPersister.extractResultText` 实为 **chat 域**消费者（载荷在 `result`），该收口使其**生产链路空转**，已于 2026-10-02 订正（台账 **D-239**） |
 | P2-1 Token 悲观预扣 + 回滚 | ❌ **不实施** | 见 `liri-optimization-plan-20260926.md` P1-2（前提证伪 + 处方有反作用） |
 | P2-2 通道进程隔离 | ⛔ **不实施（前置取证后裁定）** | spec：[`channel-process-isolation.md`](./channel-process-isolation.md)。**前置已量化为 0 条**：`app.log`（6.6MB / 2 天）中 `"module":"channels:*"` **零命中** + `failure-logs/` 目录不存在（`ChannelFailureLogger` 零消费者 ⇒ 台账 **D-17**）⇒ 本机**未启用任何通道**、收益无数据可证（违 CS03）。**且"守护自愈"已具备**（`ChannelRealtimeMonitor` 活的：5s 探测 + 五态机 + 退避 2s→300s）⇒ 转为"待真实通道数据"的观察项 |
 | P2-3 工具名 codegen | ✅ **已完成** | runtime wire codec（`tool-name-wire-codec.md`，2026-09-14）+ **编译期枚举全链**（spec [`tool-name-compile-time-enum.md`](./tool-name-compile-time-enum.md)）：**T0** 清单参数化 → **T1** 生成物 `src/constants/toolNames.generated.ts`（71 名，`bun run gen:toolnames`）→ **T2** 4 处清单 `as const satisfies readonly ToolName[]` 收敛 → **T3-①②** 两条门禁；**顺带换出 7 例漂移**（`file_search` 及死类集群 D-32/D-33）并**收敛 D-15 待注册 4 名**（D-34）· **工具名统一 snake_case**（10 项 PascalCase 改名，去 `Tool` 后缀；spec [`tool-name-snake-case-rename.md`](./tool-name-snake-case-rename.md)，含"实际 10 个而非 9 个"的计数更正 **D-36-②**）⇒ 见台账 **D-29 ~ D-37** |
@@ -23,7 +23,18 @@
 | P3-3 工作区卫生 | 🟡 **部分** | 逻辑排除已完成（`.gitignore:233` + 门禁 `R07-004`）；**物理搬迁待办**（用户裁定暂缓——目录被进程占用） |
 | §5 未核实项 2–10 | ✅ **已全部回填** | #2/#3/#4/#5/#6/#7/#8/#9/#10 **均已核实并回填**（#6/#9 于 2026-09-29 结案，见台账 **D-35**；#6 残留风险见 **D-36-①**） |
 
-**结论**：P1 三项中 **P1-1 ✅ / P1-3 ✅（A 档）**，**P1-2 ⛔ 阻塞（前提证伪）**；P2/P3 —— **P2-1 ❌ 不实施**、**P2-2 ⛔ 不实施（前置 = 0 条运行历史）**、**P2-3 ✅ 已完成（T0–T3 + 去重）**、**P3-2 ⛔ 不实施（能力已具备）**、**P3-1 ✅ 已完成（T0–T6）**、**P3-3 🟡 部分**。
+**结论**：P1 三项中 **P1-1 ✅ / P1-3 ✅（A + B + C 档，2026-10-01）**，**P1-2 ➖ 不适用（前提证伪）**；P2/P3 —— **P2-1 ❌ 不实施**、**P2-2 ➖ 不实施（前置 = 0 条运行历史）**、**P2-3 ✅ 已完成（T0–T3 + 去重）**、**P3-2 ⛔ 不实施（能力已具备）**、**P3-1 ✅ 已完成（T0–T6）**、**P3-3 🟡 部分**（仅剩物理搬迁，需用户侧）。
+
+**🆕 2026-10-02 复核（逐条回仓取证；§2 各表的旧状态已随之订正）**：**20 个议题中已无"未开工且可执行"的项** —— 绝大多数落在「✅ 已完成」或「❌/⛔ 取证后裁定不做」，**仍在位仅 3 项**（**A1** 结构化挂起清单 / **F5** AI Contract 治理 / **F1** 动态思考预算；后两者已列入"明确不做"）。订正要点：P1-3 补 **B/C 档已完成**（并更正 B2 档的一处**误收**，台账 D-239）· A2 / C1 / C3 / D1 / D3 / D4 / E5 / F2 / F3 / F4 / G3 / G4 / B2 / B3 / D2 的旧状态（❌/🟡/未核实/待实施）已按实测订正 · 批次 2/3/4 均已收口。
+**剩余项与其阻塞原因（全部非"可立即执行"）**：
+| 剩余项 | 阻塞原因 |
+|---|---|
+| **A1**（结构化挂起清单 + 显式 `cancel_requested` 语义） | 属**设计性增量**（现已有协商门）；未排期 ⇒ 需裁定 |
+| **P3-3** 物理搬迁 | 目录被进程占用（IDE/watcher）+ **工具链沙箱禁写该路径** ⇒ **须用户侧执行** |
+| **F5** / **F1** | 已列"明确不做"（收益未证 / 与既有机制重叠） |
+| 台账 **D-36-①**（Landlock `--net-connect` 语义） | 已收敛两态；**需 Linux 实测**（本机 Windows） |
+| 台账 **D-36-③**（4 个 PascalCase 类） | **2026-10-02 复核后已闭环**：`EnterPlanModeTool`/`ExitPlanModeTool` **已不存在**（0 命中）；`TeamCreate(Tool)`/`TeamDelete(Tool)` 是 **feature-flag 条件工具**（`isToolEnabled('ENABLE_TEAM_CREATE'/'ENABLE_TEAM_DELETE')`），与 browser/code_run 同类，**非缺陷** ⇒ 无需处置 |
+| 台账 **D-241**（3 文件 5 处直连 `bun:sqlite`） | **✅ 已处置（2026-10-02）** —— 按用户裁定扩展封装（`openBunDatabase()`，PRAGMA 单一事实源 + `readonly`）并归一化 5 处；`typecheck 0` / 视频测试 35 pass / `lint:arch` 0 违规 |
 **2026-09-29 汇总（本计划相关多轮累计，台账 D-16 ~ D-36）**
 - 新出 spec **6 份**：[`pathguard-registry-driven-args.md`](./pathguard-registry-driven-args.md)（**✅ 已实施**）· [`channel-process-isolation.md`](./channel-process-isolation.md)（⛔ 前置 = 0 条 ⇒ 搁置）· [`toolchain-checkpoint-atomic-rollback.md`](./toolchain-checkpoint-atomic-rollback.md)（⛔ 能力已具备）· [`snapshot-storage-governance.md`](./snapshot-storage-governance.md)（**✅ 已实施**）· [`a2a-external-exposure.md`](./a2a-external-exposure.md)（**✅ T0–T6 全完成**：边界裁定 + 发现 + 委派 + 鉴权 + 部署/轮换说明）· [`tool-name-compile-time-enum.md`](./tool-name-compile-time-enum.md)（**✅ T0–T3 全完成**：清单参数化 + 生成物 + 4 处 `satisfies` 收敛 + 两条门禁；顺带换出漂移并收敛 D-15 待注册 4 名 **D-32~D-34**）
 - 零消费者死代码删除（本计划相关轮次，共 **10 文件**）：`ChannelFailureLogger` / `MemorySnapshotService`（**D-20**）· 沙箱实例层 **5 文件**（**D-25**：`SandboxImpl` / `WorkerSandbox` / `SandboxPruner` / `PluginHealthMonitor` / `ToolSandboxRouter`）· `FileSearchTool` 集群 **2 文件**（**D-33**）· `SessionsHistoryTool` **1 文件**（**D-34**）
@@ -66,7 +77,7 @@
 | # | 建议 | 现状 | 证据 / 说明 |
 |---|---|---|---|
 | A1 | Fail-Closed 受阻机制（`cancel_requested` + 结构化挂起清单） | 🟡 | 已有**协商门**（缺信息时向用户提问并挂起）：[NegotiationState.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/services/NegotiationState.ts)、`ReActToolLoop.addPendingQuestion/recordAnswer`。缺"结构化挂起清单 + 显式 cancel_requested 语义" |
-| A2 | 对抗性 Rollout / Leakage Filtering（hacker agent 反证） | ❌（未核实） | 仓内有 `app/src/evals/` 模块，但**本轮未核**其是否含对抗用例 |
+| A2 | 对抗性 Rollout / Leakage Filtering（hacker agent 反证） | ✅ **形态 B 已落地（2026-09-28）** | `evals/antiCheatAudit.ts`（5 条机械攻击向量：配置一致性 + 已知边界显性化）+ `tests/evals/antiCheatAudit.test.ts`（8 例）+ `cli.ts` 接线（`--cheat-gate`）；形态 A（LLM 攻击者）需额度 ⇒ 另立 spec |
 | A3 | 工具命令命名规范（MCP 禁冒号） | ✅ | **本轮已修**：`tools/toolNameCodec.ts`（出站 `toWireToolName` / 入站反解），并已入 `34e2cdf89` |
 | A4 | OS 式内存水位回收 / 上下文分层开关 | ✅ | 见 §1（分层默认开）；另有 `monitoring/memoryPressure/` |
 
@@ -75,25 +86,25 @@
 | # | 建议 | 现状 | 证据 / 说明 |
 |---|---|---|---|
 | B1 | Agent Loop 与训练框架分离（常驻 daemon + 网络调用模型） | ✅ | 本项目本身就是 `daemon --http-port` 常驻 + provider 网络调用（`main.ts daemon`） |
-| B2 | 防 `/proc` / 内核虚文件（AppArmor / 黑名单） | 🟡 | 已有 `/proc` 处理：[SandboxSecurityChecker.ts:166](file:///e:/PY/Documents/CODES/PY_APP/app/src/sandbox/SandboxSecurityChecker.ts#L166)、[PathRestrictions.ts:273](file:///e:/PY/Documents/CODES/PY_APP/app/src/sandbox/utils/PathRestrictions.ts#L273)、`SandboxImpl` 用 **bubblewrap + seccomp**（`--proc /proc`）。**deny 语义未逐条核**（是否"默认拒绝"） |
-| B3 | 多层镜像按需加载（EROFS / Overlayfs / `pack_diff`） | ❌ | `sandbox/` 内 `overlayfs|packDiff|pack_diff|snapshot` **零命中** |
+| B2 | 防 `/proc` / 内核虚文件（AppArmor / 黑名单） | ✅ **已核实（结论：不是"默认拒绝"）** | 见 §5-#6（台账 D-35/D-36-①）：`/proc` 被**显式放行**（bash 的 `SYSTEM_READ_EXECUTE_PATHS` 含 `/proc`；code_run 有 `{path:'/proc',allow:['read']}`）——这是**有意为之**（"漏一个 shell 自身起不来"），照原设"拒绝"会打断 bash；真正的收窄落在 `~/.pyapp`（见 P0-3-a）。⚠️ 原文引用的 `SandboxImpl`（bubblewrap + seccomp）**已随沙箱实例层删除**（D-25），现活的沙箱面是**路径级 Landlock** |
+| B3 | 多层镜像按需加载（EROFS / Overlayfs / `pack_diff`） | ➖ **不适用** | 2026-10-02 复测：全仓 `pack_diff|packDiff|overlayfs` **仍 0 命中**；且其前置（沙箱**实例层**）已整层删除（台账 **D-16/D-25**）⇒ 无挂载目标 |
 
 ### C. Token / 上下文治理类
 
 | # | 建议 | 现状 | 证据 / 说明 |
 |---|---|---|---|
-| C1 | 悲观预扣款 + 真实回滚（并发子代理瞬时超支） | **未核实** | 需先核 `monitoring/llm` 的记账实现（本轮未做） |
+| C1 | 悲观预扣款 + 真实回滚（并发子代理瞬时超支） | ❌ **已核实 → 不实施** | 见 §5-#2 / `liri-optimization-plan` P1-2：现账务为**对称记账**，判定点恒在"上一轮完整真实值已记账"之后 ⇒ 无窗口期；预扣只能靠估算（实测偏 6.4×）⇒ 必然复现误杀 |
 | C2 | 动态 MCP 工具代理映射（PathGuard 读动态注册表） | ✅ **已实施（2026-09-29）** | [`pathguard-registry-driven-args.md`](./pathguard-registry-driven-args.md) §7。**两处纠正**：`pathShield` 本就与工具名无关（无需改）；缺口在 `PathGuard` 的静态名单，方向是 **fail-OPEN**（漏拦），非"误拦" |
-| C3 | 自动降级 + 长会话摘要上卷 | 🟡 | 已有分层/压缩（`CompactionOrchestrator`）与 `SessionSummaryAdapter`；"自动降级"策略未核 |
+| C3 | 自动降级 + 长会话摘要上卷 | ✅ **已核实（均已有）** | 压缩面：`context/compaction/*` + `UNIFIED_THRESHOLDS` 单一源；摘要面：`SessionSummaryAdapter`；"自动降级"**已核**：`ai/ContextDegradation.ts`（`tryDegradeContext` / `getDegradationWarning`）已被 `chat/ChatManager.ts`、`chat/orchestrator/streamMessageFlow.ts` 消费 ⇒ **已在位** |
 
 ### D. 企业级 4 条
 
 | # | 建议 | 现状 | 证据 / 说明 |
 |---|---|---|---|
-| D1 | **Self-Reflection Lint 回路**（Mermaid 语法自纠） | 🟡 **已有 spec，待实施** | [liri-optimization-plan-20260926.md:39-42](file:///e:/PY/Documents/CODES/PY_APP/dev_docs/20260926/liri-optimization-plan-20260926.md#L39-L42)：① 前端降级（捕 `parseError` → 代码块展示）② 服务端校验 + 回喂；`client` 已依赖 `mermaid ^11.15.0` |
-| D2 | 沙箱 `pack_diff` 增量快照 / 秒级复用 | ❌ | 同 B3 |
-| D3 | Fail-Closed 访问控制（禁 `/proc`、socket、本地日志） | 🟡 | 同 B2；另需核"禁读 Liri 自身运行态/日志"是否已覆盖 |
-| D4 | SQLite WAL + 台账写缓冲批量落盘 | ✅ / 🟡 | **WAL 与 busy_timeout 已开**（§1）；`AgentRunStore` **写缓冲/批量**未核 |
+| D1 | **Self-Reflection Lint 回路**（Mermaid 语法自纠） | ✅ **已完成（2026-09-28）** | ① 前端 `MarkdownRenderer` 改 `await mermaid.parse()` 预校验 + 降级保留源码（回归守卫 `mermaidFallback.test.tsx`）；② 服务端 `utils/mermaidLint.ts` 零依赖预检 + `ReActLoop.onFinalOutputValidation` **本轮内**回喂 + 事件 `validation/injected`。⚠️ 原方案"图表类工具输出落盘前校验"的挂点经取证**证伪并删除**（`doc_generate` 不渲染 mermaid） |
+| D2 | 沙箱 `pack_diff` 增量快照 / 秒级复用 | ➖ **不适用** | 同 B3（前置已删，2026-10-02 复测仍 0 命中） |
+| D3 | Fail-Closed 访问控制（禁 `/proc`、socket、本地日志） | ✅ **已核实并处置** | `/proc`：同 B2（显式放行，有意）；socket：原"两态"缺陷**已处置**（`landlock-net-policy-two-state.md`，语义收敛为 `--net-deny` 全禁 / 不 handle 不受限，台账 D-38）；**本地日志/运行态**：`~/.pyapp` 满足"未列即拒"，且 bash 侧**整条放行已移除**（P0-3-a）⇒ 原三项均已闭环 |
+| D4 | SQLite WAL + 台账写缓冲批量落盘 | ✅ **已核实（后半＝不实施）** | **WAL 与 busy_timeout 已开**（§1，`core/external/sqlite3.ts:158-160`）；`AgentRunStore` 写缓冲/批量**已核 → 不实施**（前提证伪：模块级单例单连接 + 全仓统一 `busy_timeout=10000` + `prune` 不在写入路径 + 无 `SQLITE_BUSY` 实证），见 §5-#7。**2026-10-02 追加**：全仓**覆盖面已核**，另有 **3 文件 5 处直连 `bun:sqlite`**（缺 per-connection `busy_timeout`）⇒ 台账 **D-241** —— **✅ 已处置（同日，用户裁定）**：新增 `openBunDatabase()` 作 PRAGMA 单一事实源（含 `readonly` 支持）+ 5 处归一化 + 清除 10 处陈旧 `@ts-ignore` |
 
 ### E. 架构级 6 条
 
@@ -103,7 +114,7 @@
 | E2 | Monorepo 拆分（`@liri/core` 等） | ❌ | 当前单仓 `app/ + client/ + shared/` |
 | E3 | 外部 KV/图库缓存（RocksDB/Sled）+ MMAP 事件流 | ➖ **不建议** | 与 CS03/简洁优先冲突：现有 SQLite(WAL) + 分层已满足；先解决 §3 的实际阻塞点 |
 | E4 | Rust 线程池接管 CPU 密集（规则引擎/分词/摘要） | ➖（**待量化**） | 本轮已把最大同步热点逐个定性/修掉（`statfs`、`spawnSync`、`tokenize`）；**未有数据支持**再下沉 Rust |
-| E5 | 工具名 **codegen** 编译期守卫（消灭硬编码字符串） | 🟡 **已核实 → spec 已立项** | 取证：**仓内无编译期枚举**，而**手写工具名集合散落 ≥5 处**（`query/tool-constants.ts` / `PathGuard` 派生集 / `ToolExecutionService.IMAGE_TOOL_NAMES` / `MicroCompactionEngine.COMPACTABLE_TOOL_NAMES` / `constants/tools.ts`）；`featureFlags.TOOL_NAMES` 是**运行时**派生且**非全量**；`toolNameCodec` 只做 **wire 名转换**（无类型约束）。⇒ 立项 [`tool-name-compile-time-enum.md`](./tool-name-compile-time-enum.md)（含**三条边界**：与 `lint:arch` / wire codec / 生成输入源） |
+| E5 | 工具名 **codegen** 编译期守卫（消灭硬编码字符串） | ✅ **已完成（T0–T3 + 去重）** | 生成物 `app/src/constants/toolNames.generated.ts`（**71 名**，`bun run gen:toolnames`）+ 4 处清单 `as const satisfies readonly ToolName[]` + **两条门禁**（生成物一致性 / 清单名必须 ∈ 生效注册面）；另完成 snake_case 改名 10 项。详见 §0 的 P2-3 行与台账 D-29~D-37 |
 | E6 | ACP 分布式传输层（WebSocket/gRPC） | ➖（无需求） | 单机为主；无多机调度需求前不投入 |
 
 ### F. 英文 5 条
@@ -111,9 +122,9 @@
 | # | 建议 | 现状 | 证据 / 说明 |
 |---|---|---|---|
 | F1 | Test-Time Compute Scaling（自适应推理预算 + 后台 overseer） | 🟡 / ➖ | 已有 `maxIterations`/预算/收敛引导（`ReActToolLoop` 的 forced converge）；"动态思考预算"未做，收益未验证 |
-| F2 | Google **A2A** 协议 / `/.well-known/agent.json` | 📝 **已核实 → spec 已立项** | 数据模型已有（[agentCard.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/agent/a2a/agentCard.ts) 的 `buildAgentCard` / `computeAgentCardEtag` + `a2aTaskStore`），且 `capabilities` **已如实声明**；**端点确不存在**（三符号零消费者）⇒ [`a2a-external-exposure.md`](./a2a-external-exposure.md) |
-| F3 | Pydantic-first / Schema-driven tool chaining | 🟡 | **入参**已有 zod（各工具 `schemas.ts`）；**出参**无强制 schema（出参走 codec/字符串契约） |
-| F4 | 事务性 Checkpoint & Rollback | 🟡 | 已有：会话 checkpoint 接口（`chat/types/checkpoint.ts`）、工作区影子 git 快照（[AutonomousRunner.ts:107](file:///e:/PY/Documents/CODES/PY_APP/app/src/workspaces/AutonomousRunner.ts#L107)）、`PlanDrivenLoop` 的 TAOR checkpoint。缺"**工具链级**自动 checkpoint + 失败原子回滚" |
+| F2 | Google **A2A** 协议 / `/.well-known/agent.json` | ✅ **已完成（T0–T6）** | 实现 `infrastructure/http/handlers/routes/a2a-routes.ts`（发现 + 委派 + fail-closed 鉴权，已挂 `route-table.ts`）+ `a2a-delegator`；测试 `tests/http/a2a{Routes,Delegator}.test.ts`；spec [`a2a-external-exposure.md`](./a2a-external-exposure.md) |
+| F3 | Pydantic-first / Schema-driven tool chaining | ✅ **已实施（P1-3 A 档，2026-10-01）** | 入参 zod 已有；**出参 schema 层**已落地：`R15-001` 消费者检查（定义 21 / 零消费者 0）+ `R15-002` 模块引用检查（候选 19 / 零 importer 0）两条门禁在跑；原则="在边界处解析" |
+| F4 | 事务性 Checkpoint & Rollback | ⛔ **不实施（能力已具备）** | 前置取证发现第三块拼图：`security/rollback/`（10 文件）**已实现且已接线** —— 轮粒度快照（`RollbackIntegration.onRoundEnd`）+ 每工具调用前文件追踪 + undo/redo ⇒ 原"缺口"不成立。见 §0 P3-2 / spec [`toolchain-checkpoint-atomic-rollback.md`](./toolchain-checkpoint-atomic-rollback.md) |
 | F5 | AI Contract 治理（契约 + 协商 + 授权门） | 🟡 | 已有协商门（同 A1）；缺"机器可读契约（预算/精度/边界）+ 授权门"的规范化 |
 
 ### G. Google 第二轮（v0.4.53 走查后 4 条）—— **全部与上表重叠，做去重映射**
@@ -124,8 +135,8 @@
 |---|---|---|---|
 | G1 | Channel Worker 进程隔离（`Bun.spawn`/Worker + IPC，**热插拔 + 守护自愈重启**） | **E1** | ⛔ **不实施**（同 E1）。**更正**：本条新增要点里的"**守护自愈重启**"**已具备**（`ChannelRealtimeMonitor`，活的）⇒ 只剩"进程隔离"这一半，而它**无数据依据** |
 | G2 | ACP → **A2A 标准契约**（`/.well-known/agent.json` 导出 Agent Card，声明 streaming/pending） | **F2** | 📝 **已并入 P3-1 并出 spec**：`capabilities.streaming` / `pushNotifications` **已如实声明 `false`**（[`agentCard.ts:95-99`](file:///e:/PY/Documents/CODES/PY_APP/app/src/agent/a2a/agentCard.ts#L95-L99)）；长任务 pending 用 **Task 状态机**表达；**前置 T0 ＝ 划 ACP/A2A 边界** |
-| G3 | Type-Safe **Schema 契约治理层**（入参+出参强制 Schema，"边界处解析"） | **F3** | 🟡 入参 zod 已有、**出参缺** ＝ P1-3 核心；与 §3 P1-3 表述一致 |
-| G4 | **Rust 原生 FFI** 原子级 Checkpoint/Rollback（重型写前快照 + `rollback()`） | **F4 + E4** | 🟡 已有 `CheckpointManager`（4 种机制）与工作区影子 git 快照；缺"**工具链级**自动快照 + 原子回滚"。**关键新事实**：Rust FFI 边界**已存在**（`app/native/`）⇒ 技术上可行；但建议**先复用现有快照能力**（P3-2），仅当"快照自身性能"成瓶颈时才引入 Rust（E4 结论不变） |
+| G3 | Type-Safe **Schema 契约治理层**（入参+出参强制 Schema，"边界处解析"） | **F3** | ✅ 入参 zod 已有、**出参层已落地**（P1-3 A 档，2026-10-01）⇒ 同 F3 |
+| G4 | **Rust 原生 FFI** 原子级 Checkpoint/Rollback（重型写前快照 + `rollback()`） | **F4 + E4** | ⛔ **不实施**：工具链级快照 + 原子回滚**能力已具备**（`security/rollback/`，见 F4）⇒ 无需新建，更无需引入 Rust（E4 结论不变：无数据支持下沉） |
 
 **核对结论（v2）**：**24 条建议（含第二轮 4 条）映射为 20 个议题** —— ✅ 4 已具备 / 🟡 9 部分具备 / ❌ 5 缺失 / ➖ 3 不建议；**第二轮 4 条全部落入既有议题，无新增议题**。即 **约 6 成已具备或部分具备** ⇒ 有价值的不是"照单全收"，而是下面这张**去重后的真增量清单**。
 
@@ -139,7 +150,7 @@
 |---|---|---|---|---|
 | **P1-1 Mermaid 自纠回路** ✅ **已完成** | ① 前端降级（捕 `parseError` → 降级代码块 + 提示，止住红字刷屏）② 服务端：图表/`image_svg`/`doc` 类工具输出落盘前做语法校验，失败以错误日志回喂同一子代理（≤N 次），并落一条事件（对齐 §1.6「模型可见 ⇔ 已落盘」） | `client/src/components/ChatArea/BlockContent.tsx` + 工具输出前钩子 + 事件类型 | 注入坏语法图表：前端无红字、显示降级块；后端产生"校验失败→回喂→修正成功"事件链 | 需一个 mermaid 解析器（node/wasm）；**先做 ① 即可止血**；已有 spec 直接实施 |
 | **P1-2 沙箱快照复用** ⛔ **阻塞（前提证伪，见台账 D-16）** | 基础环境（依赖装好、分支就绪）打成增量快照 → 后续任务/并行子代理直接挂载，免重复 `bun install`/`docker pull` | `app/src/sandbox/`（新增快照接口 + 挂载路径） | 新建任务环境耗时相对现基线下降 ≥50%，且任务结果不受影响 | 需 Docker/OverlayFS 兼容层；先做"同机单容器层"最小版 |
-| **P1-3 工具**出参** schema 校验** ✅ **A 档已完成**（B/C 档未做） | 已有入参 zod；补出参：工具结果进入下一链前按 schema 校验/规整，杜绝 markdown 噪声进下游 prompt | 各工具 `schemas.ts` + 工具结果出口（`decodeToolResultContent` 一带） | 注入"带噪声出参"的工具：下游收到的载荷符合 schema；不一致时打 warn 并可回喂 | 60 个工具逐个补 schema 有工作量 ⇒ **先覆盖高频 10 个** |
+| **P1-3 工具**出参** schema 校验** ✅ **A + B + C 档已完成（2026-10-01）** | 已有入参 zod；补出参：工具结果进入下一链前按 schema 校验/规整，杜绝 markdown 噪声进下游 prompt | 各工具 `schemas.ts` + 工具结果出口（`decodeToolResultContent` 一带） | 注入"带噪声出参"的工具：下游收到的载荷符合 schema；不一致时打 warn 并可回喂 | 60 个工具逐个补 schema 有工作量 ⇒ **先覆盖高频 10 个** |
 
 ### P2（需先核实或改动面较大）
 
@@ -153,7 +164,7 @@
 
 | 项 | 内容 | 前置核实 |
 |---|---|---|
-| **P3-1 A2A 对外暴露** 📝 **spec 已立项（待评审）** | `/.well-known/agent.json` + 任务委派端点（数据模型已就绪） | ✅ 已核并出 spec（[`a2a-external-exposure.md`](./a2a-external-exposure.md)）：模型已就绪、**零消费者 ⇒ 无端点**、挂载点 = `route-table.ts`；**前置 T0 ＝ 划 ACP / A2A 边界** |
+| **P3-1 A2A 对外暴露** ✅ **已完成（T0–T6）** | `/.well-known/agent.json` + 任务委派端点（数据模型已就绪） | ✅ 已核并出 spec（[`a2a-external-exposure.md`](./a2a-external-exposure.md)）：模型已就绪、**零消费者 ⇒ 无端点**、挂载点 = `route-table.ts`；**前置 T0 ＝ 划 ACP / A2A 边界** |
 | **P3-2 工具链级 checkpoint + 原子回滚** ⛔ **不实施（能力已具备）** | 在多步工具链前自动 checkpoint，失败原子回滚到已验证点 | 已核（[spec](./toolchain-checkpoint-atomic-rollback.md) §1.3）：`security/rollback/` 的**轮快照 + 工具级文件追踪 + undo/redo** 已接线 ⇒ 无需新建；剩余 `snapshots/` **4.4 GB 无淘汰** = 存储治理，另立 spec |
 | **P3-3 工作区卫生** 🟡 **部分**（逻辑排除已完成；物理搬迁待办） | 参考副本 `REF/`（2.6GB / 82k 文件）的排除：**逻辑排除已完成**（`.gitignore:233` 早有 `REF/*`；门禁 `R07-004` 已落地；§1 已写入口径约定）；**物理搬迁待办**（2026-09-28 用户裁定暂缓——目录被进程占用导致 rename 被拒，见 §1） | 待你择机关闭 IDE/索引器后，用同卷 `Directory.Move` 秒级完成 |
 
@@ -180,9 +191,9 @@
 ## 4. 建议的实施批次
 
 1. **批次 1（止血，最小）** ✅ **已完成**：P1-1 ① 前端 Mermaid 降级；P1-3 出参 schema 覆盖高频工具（**7/10 已接线**，余 3 个为多形态出口、经取证不宜声明）。
-2. **批次 2（能力）** 🟡 **部分完成**：P1-1 ② 服务端校验 + 回喂 ✅；**P1-2 沙箱快照最小版 ⬜ 未开工**（spec `sandbox-freeze-reuse.md` 已立项）。
-3. **批次 3（治理）** ⬜ **未开工**：**P2-1 ❌ 不实施**（前提证伪）；P2-2 / P2-3 —— **每项先出短 spec 并核实前置项**（P2-3 runtime 部分已实施）。
-4. **批次 4（可选）** ⬜ **未开工**：P3-1 / P3-2 未开工；P3-3 逻辑排除已完成、物理搬迁待办。
+2. **批次 2（能力）** ✅ **已收口**：P1-1 ② 服务端校验 + 回喂 ✅；**P1-2 沙箱快照 ➖ 改判"不适用"**（前置沙箱实例层已删，D-16/D-25）⇒ 本批无遗留。
+3. **批次 3（治理）** ✅ **已收口**：**P2-1 ❌ 不实施**（前提证伪）；**P2-2 ✅ 已实施**（2026-09-29，`pathguard-registry-driven-args.md`）；**P2-3 ✅ 已完成**（T0–T3 + 去重）。
+4. **批次 4（可选）** 🟡 **基本收口**：**P3-1 ✅ 已完成（T0–T6）**；**P3-2 ⛔ 不实施（能力已具备）**，其衍生 `snapshot-storage-governance` ✅ 已实施；**P3-3 🟡 逻辑排除已完成、物理搬迁待办**（被进程占用 + 工具链沙箱禁写该路径 ⇒ 需用户侧执行）。
 
 **统一验收原则**：每批必须给出**运行时可观测判据**（如"无红字 + 事件链完整"、"环境就绪耗时下降 ≥50%"、"下游载荷符合 schema"），并在台账记录实测值；`typecheck` / 相关测试 / `eslint` / `lint:arch` 必须为 0 违规。
 
@@ -192,9 +203,9 @@
 
 1. ~~Liri **自身** Rust 规模~~ ✅ **已澄清**（21 文件 / 3,919 行 ≈ 0.39%；3 个 Cargo 工程，含 `app/native/` FFI 边界）——见 §1。
 2. ~~Token 记账是否已有"预扣/预留"机制（C1）~~ ✅ **已核实 → 不实施**：见 [`liri-optimization-plan-20260926.md`](./liri-optimization-plan-20260926.md) P1-2 —— 现账务为**对称记账**，判定点恒落在「上一轮完整真实值已记账」之后 ⇒ 无"窗口期"；"预扣"只能靠估算（实测偏 6.4×）⇒ 必然复现误杀。
-3. ~~PathGuard 与 MCP 动态工具注册表的联动现状（C2）~~ ✅ **已核实 → 缺口成立**：`app/src/query/PathGuard.ts` 全仓无 `mcp` / 工具注册表引用 ⇒ 即升级方案 **P2-2**（**未开工**）。
+3. ~~PathGuard 与 MCP 动态工具注册表的联动现状（C2）~~ ✅ **已核实 → 缺口成立 → 已实施（2026-09-29）**：缺口在 `PathGuard` 的静态名单（fail-OPEN）；已改为**注册表驱动**（`resolveToolParamNames()` + `PATH_ARG_KEYS` 求交，两个调用方注入）⇒ **P2-2 已闭环**。
 4. ~~`app/src/evals/` 是否已含对抗性/泄漏过滤用例（A2）~~ ✅ **已核实 → 已落地**：`app/src/evals/antiCheatAudit.ts`（5 条机械攻击向量）+ `tests/evals/antiCheatAudit.test.ts`（8 例），见 [`liri-optimization-plan-20260926.md`](./liri-optimization-plan-20260926.md) P1-1 形态 B。
-5. ~~`agent/a2a/` 是否已对外暴露 HTTP 端点（F2）~~ ✅ **已核实 → 无端点**：全仓 grep 仅命中 `agent/a2a/taskStore.ts` 的 `a2aTaskStore`，无 `/.well-known/agent.json` 路由 ⇒ P3-1 未开工。
+5. ~~`agent/a2a/` 是否已对外暴露 HTTP 端点（F2）~~ ✅ **已核实 → 当时无端点 → P3-1 已实施（T0–T6）**：`/.well-known/agent.json` 路由现存于 `infrastructure/http/handlers/routes/a2a-routes.ts` 并已挂 `route-table.ts`；委派端点 `POST /v1/a2a/tasks` + fail-closed 鉴权 + 测试 2 文件 ⇒ **本条已闭环**（旧记"未开工"已过时）。
 6. ~~沙箱对 `/proc`、socket、Liri 运行态日志的 **deny 语义**是否"默认拒绝"（B2/D3）~~ ✅ **已核实（2026-09-29，台账 D-35/D-36）→ 结论：不是"默认拒绝"**：`/proc` 被**显式放行**（bash 的 `SYSTEM_READ_EXECUTE_PATHS` 含 `/proc`；code_run 有 `{path:'/proc',allow:['read']}`）；socket **无该语义**（`--net-connect` 实现与注释相反，未请求 net 时**完全不受限**，见台账 **D-36-①** ⚠️ 需 Linux 实测）；**仅** `~/.pyapp`（含 Liri 日志）满足"未列即拒"，且**只在真走 Landlock 时成立**（bash 默认 `bashEnabled=false` 不成立，兜底仅命令文本黑名单）。**✅ 已处置（2026-09-29，台账 D-38）**：权威依据（内核 `landlock.h`）确认 net 规则**只能授具体端口**（无"任意端口"通配）⇒ "按协议放行"内核不可表达 ⇒ 网络已**收敛为两态**（`--net-deny` = 全禁 / 不 handle = 不受限），spec：[`landlock-net-policy-two-state.md`](./landlock-net-policy-two-state.md)。
 7. ~~`AgentRunStore` 是否已有写缓冲/批量落盘（D4 后半）~~ ✅ **已核实 → 不实施**：`AgentRunStore` 为模块级单例单连接、全仓统一 `busy_timeout=10000`、`prune` 不在写入路径 ⇒ 原设前提证伪；原验收判据已固化为回归守卫，见 [`liri-optimization-plan-20260926.md`](./liri-optimization-plan-20260926.md) P0-2。
 8. ~~`chat/types/checkpoint.ts` 现有能力边界（F4 / P3-2）~~ ✅ **已核实（2026-09-29）→ spec 已立项**：**会话/生成器态**的"每 `tool_call` 后自动 checkpoint + 可恢复"**已存在并已接线**（`StreamingAutoCheckpoint`：`ChatManager.ts:3980/5244`、`streamMessageFlow.ts:42`、`ChatOrchestrator.ts:295`）；`SessionCheckpoint` = `messages + metadata + state`（**不含文件系统**）。**文件系统级**快照存在但**仅限隔离 worktree 且破坏性**（`WorkspaceSnapshot`：`git add -A` + `reset --hard`，唯一消费者 `AutonomousRunner:71/131`）⇒ **不可搬进真实仓库**。"工具链级 + 原子回滚"的缺口**重定义**与前置条件见 [`toolchain-checkpoint-atomic-rollback.md`](./toolchain-checkpoint-atomic-rollback.md)。

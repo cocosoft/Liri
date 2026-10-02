@@ -8,9 +8,12 @@
  * v2.0 — Phase 1 扩展: 新增 mode/imageUrl/progress/queued/worker 恢复等字段
  */
 
-// bun:sqlite 内置模块，tsc 类型检查时跳过（运行时由 Bun 提供）
-// @ts-ignore — bun:sqlite 是 Bun 内置模块，tsc 无类型声明
-import { Database } from 'bun:sqlite';
+// D-241（2026-10-02）：不再直连 `bun:sqlite` —— 经统一封装建立连接（PRAGMA 单一事实源，
+// 补齐 per-connection `busy_timeout`/`temp_store`）
+import {
+  openBunDatabase,
+  type BunDatabase,
+} from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -61,10 +64,10 @@ export interface VideoTaskRecord {
 }
 
 export class VideoTaskPersistence {
-  private db: Database;
+  private db: BunDatabase;
 
   constructor(dbPath?: string) {
-    this.db = new Database(dbPath || resolveDbPath());
+    this.db = openBunDatabase(dbPath || resolveDbPath());
     this.ensureTable();
   }
 
@@ -159,7 +162,6 @@ export class VideoTaskPersistence {
   private getTableColumns(tableName: string): Set<string> {
     try {
       const rows = this.db
-        // @ts-ignore
         .query(`PRAGMA table_info(${tableName})`)
         .all() as Array<{ name: string }>;
       return new Set(rows.map((r) => r.name));
@@ -261,12 +263,10 @@ export class VideoTaskPersistence {
     params.push(Date.now());
     params.push(id);
 
-    // D-137 收网（2026-09-30）：scripts 类型程序引入 bun:sqlite 类型后，此调用由「未检查」转为受检，
-    // 绑定数组 `unknown[]` 与 `SQLQueryBindings[]` 不匹配。⚠️ `@ts-ignore` 只作用于**紧邻的下一行**，
-    // 而报错发生在**实参行** ⇒ 注释必须紧贴 `params`（本文件其余 bun:sqlite 调用同款放宽）。
+    // D-241（2026-10-02）：连接改经 `openBunDatabase()`（统一封装），其结构类型已覆盖绑定参数
+    // 与 `query()` ⇒ 原 D-137 的 `@ts-ignore` 放宽（bun:sqlite 绑定类型不匹配）**已不再需要**，一并清除。
     this.db.run(
       `UPDATE video_tasks SET ${sets.join(', ')} WHERE id = ?`,
-      // @ts-ignore — bun:sqlite 绑定参数
       params
     );
 
@@ -276,7 +276,6 @@ export class VideoTaskPersistence {
   /** 查询单个任务记录 */
   get(id: string): VideoTaskRecord | null {
     const row = this.db
-      // @ts-ignore — bun:sqlite query API
       .query('SELECT * FROM video_tasks WHERE id = ?')
       .get(id) as any;
 
@@ -287,7 +286,6 @@ export class VideoTaskPersistence {
 
   /** 查询所有任务（按创建时间倒序） */
   list(limit: number = 20): VideoTaskRecord[] {
-    // @ts-ignore — bun:sqlite query API
     const rows = this.db
       .query('SELECT * FROM video_tasks ORDER BY created_at DESC LIMIT ?')
       .all(limit) as any[];
@@ -301,7 +299,6 @@ export class VideoTaskPersistence {
     limit: number = 20
   ): VideoTaskRecord[] {
     const placeholders = statuses.map(() => '?').join(',');
-    // @ts-ignore
     const rows = this.db
       .query(
         `SELECT * FROM video_tasks WHERE status IN (${placeholders}) ORDER BY created_at DESC LIMIT ?`
@@ -314,7 +311,6 @@ export class VideoTaskPersistence {
   /** Phase 6.1: 按来源图片路径查询生成视频（图生视频溯源） */
   listBySourceImagePath(imagePath: string): VideoTaskRecord[] {
     // 支持部分匹配：图片路径可能包含文件名片段
-    // @ts-ignore
     const rows = this.db
       .query(
         `SELECT * FROM video_tasks WHERE source_image_path = ? ORDER BY created_at DESC`
@@ -324,7 +320,6 @@ export class VideoTaskPersistence {
     // 精确匹配未找到，尝试 LIKE 模糊匹配
     if (rows.length === 0) {
       const likePath = `%${imagePath.replace(/\\/g, '/').split('/').pop() || imagePath}%`;
-      // @ts-ignore
       const fuzzyRows = this.db
         .query(
           `SELECT * FROM video_tasks WHERE source_image_url LIKE ? ORDER BY created_at DESC`

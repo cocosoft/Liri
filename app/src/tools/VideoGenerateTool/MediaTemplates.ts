@@ -7,8 +7,11 @@
  *   - i2i2v: 图生图再生视频（Showcase, Cinematic, Laser）
  */
 
-// @ts-ignore — bun:sqlite 是 Bun 内置模块
-import { Database } from 'bun:sqlite';
+// D-241（2026-10-02）：不再直连 `bun:sqlite` —— 经统一封装建立连接（PRAGMA 单一事实源）
+import {
+  openBunDatabase,
+  type BunDatabase,
+} from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('media:templates');
@@ -97,10 +100,10 @@ const SEED_TEMPLATES: MediaTemplateRecord[] = [
 ];
 
 export class MediaTemplates {
-  private db: Database;
+  private db: BunDatabase;
 
   constructor(dbPath?: string) {
-    this.db = new Database(dbPath || resolveDbPath());
+    this.db = openBunDatabase(dbPath || resolveDbPath());
     this.ensureTable();
     this.seed();
   }
@@ -125,13 +128,11 @@ export class MediaTemplates {
 
   /** 播种种子数据（使用 INSERT OR IGNORE 避免重复） */
   private seed(): void {
-    const inserted = this.db
-      // @ts-ignore
-      .prepare(
-        `INSERT OR IGNORE INTO media_templates
+    const inserted = this.db.prepare(
+      `INSERT OR IGNORE INTO media_templates
           (template_id, name, type, category, thumbnail_url, prompt_template, requires_image, sort_order, enabled)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      );
+    );
 
     for (const tmpl of SEED_TEMPLATES) {
       inserted.run(
@@ -154,7 +155,6 @@ export class MediaTemplates {
 
   /** 获取所有启用的模板（按 sort_order 排序） */
   list(): MediaTemplateRecord[] {
-    // @ts-ignore
     const rows = this.db
       .query(
         'SELECT * FROM media_templates WHERE enabled = 1 ORDER BY sort_order ASC'
@@ -176,7 +176,6 @@ export class MediaTemplates {
 
   /** 获取单个模板 */
   get(templateId: string): MediaTemplateRecord | null {
-    // @ts-ignore
     const row = this.db
       .query('SELECT * FROM media_templates WHERE template_id = ?')
       .get(templateId) as any;

@@ -155,9 +155,10 @@ function collectRegisteredVideos(): Array<{
 
   // 从 DB 读取已注册的视频文件（file_files 表 store_zone = 'media', media_type = 'video'）
   try {
-    const { Database } = require('bun:sqlite');
+    // D-241：经统一封装建立连接（PRAGMA 单一事实源；`readonly` 由封装表达）
+    const { openBunDatabase } = require('@modules/core/external/sqlite3');
     const { resolveDbPath } = require('@modules/core/paths');
-    const db = new Database(resolveDbPath(), { readonly: true });
+    const db = openBunDatabase(resolveDbPath(), { readonly: true });
 
     const rows = db
       .query(
@@ -366,9 +367,10 @@ export async function handleVideoMetadata(
     let mode: string | null = null;
 
     try {
-      const { Database } = require('bun:sqlite');
+      // D-241：经统一封装建立连接（PRAGMA 单一事实源；`readonly` 由封装表达）
+      const { openBunDatabase } = require('@modules/core/external/sqlite3');
       const { resolveDbPath } = require('@modules/core/paths');
-      const db = new Database(resolveDbPath(), { readonly: true });
+      const db = openBunDatabase(resolveDbPath(), { readonly: true });
 
       // 从 video_tasks 表查询（按 result_video_url LIKE 匹配）
       const likePattern = `%${fileName}%`;
@@ -660,9 +662,10 @@ export async function handleVideoDelete(
 
     // 尝试从 DB 中移除记录
     try {
-      const { Database } = require('bun:sqlite');
+      // D-241：经统一封装建立连接（PRAGMA 单一事实源）
+      const { openBunDatabase } = require('@modules/core/external/sqlite3');
       const { resolveDbPath } = require('@modules/core/paths');
-      const db = new Database(resolveDbPath());
+      const db = openBunDatabase(resolveDbPath());
       const fileName = path.basename(fullPath);
       db.prepare(`DELETE FROM file_files WHERE saved_name = ?`).run(fileName);
       db.close();

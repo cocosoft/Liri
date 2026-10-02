@@ -93,10 +93,10 @@
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
-| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **1**（`services/mcp/MCPToolBridge.ts -> context`，D-208）；⚠️ **余 18 条中 11 条受"规范数据模型"阻塞**（`Message` 6 · `Tool` 类型 4 · `Command` 1 ⇒ 与子批 C 余项**同一根因**） | **1** | **18**（`ai` 5 · `chat` 6 · `tools` 4 · `context` 1 · `workspaces` 1 · `commands` 1 —— 建议先做 **`ai` 组**） |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **2**（`services/mcp/MCPToolBridge.ts -> context` D-208；**`ai` 组 (a) `prompt/DiagnosticsReport.ts -> ai`** D-212）；⚠️ 余 17 条中 **11 条受"规范数据模型"阻塞**（`Message` 6 · `Tool` 类型 4 · `Command` 1 —— 该议题已于 data-contract spec §2.5 裁定为"**存量不迁移**" ⇒ 后续按**端口/门面**处理） | **2** | **17**（`ai` 4 · `chat` 6 · `tools` 4 · `context` 1 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`ai` 组 (b)） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 60**（**−91**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **1** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 59**（**−92**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **2** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -129,7 +129,7 @@
 **✅ 已完成（2026-10-01 D-208，子批 E 首条）**：`services/mcp/MCPToolBridge.ts -> context`（1 条，`dependencyRegistry` 直连 core 模块根）⇒ **`已豁免 61 → 60`**（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0。
 **⚠️ 同批取证（关键结构性发现）**：子批 E 全量实测 **19 条**（原列 20），其中 **11 条受"规范数据模型"阻塞**（`Message` 6 · `Tool` 类型 4 · `Command` 1）—— 与子批 C 余项**同一根因** ⇒ 建议**先立项"数据契约统一"专项**再回扫；本轮**不零敲**（避免逐文件端口化造成大量重复与反复）。详见 §3.5 表。
 
-**⬅ 下一个未执行任务**：§3.5 之 **`ai` 组（5 条）**。
+**⬅ 下一个未执行任务**：§3.5 之 **`ai` 组 (a)：`prompt/DiagnosticsReport.ts`（1 条）** —— `TiktokenEstimator.ts` **零 app 依赖** ⇒ **改归 infra**（同 D-207 `EffectScope` 手法）；⚠️ 不可落 core（会新增 `core -> infra` 边）。随后按 §3.5 的 (b)/(c) 递进。
 
 **⚠️ 前置取证铁律（D-199/D-200/D-201 教训，三条）**：
 1. **端口方法签名必须由实证而非推断决定** —— D-199 `getSpawnPauseState` 误判为 `boolean`，实证为**不透明状态对象** ⇒ 改 `unknown`。
@@ -577,8 +577,46 @@ export interface AgentRunDto {
 | `commands` | **1** | `mcp/MCPCacheManager.ts`（`type Command`） | 单类型位 ⇒ 处方：`Command` 类型是否有低位出口；无则随**类型下沉** |
 
 **⚠️ 总体结论（重要）**：子批 E 的 **19 条里 11 条（chat 6 + tools 类型 3-4 + commands 1）受"规范数据模型"阻塞**（`Message` / `Tool` / `Command`）—— 与子批 C 余项（`session-handlers`）**同一根因**。⇒ 建议**先做一次"数据契约统一"专项**（把 `Message` / `Tool` 等规范类型下沉 `types/` 或确立规范低位出口），再回头批量清零 E/C 的剩余边；否则逐文件端口化会**大量重复**且易反复（"改一半不减计数"）。
+**📄 该专项已立档（2026-10-01）：[data-contract-unification.md](./data-contract-unification.md)** —— 含现状实测（12 条边 · 各候选类型的落点与依赖判定 · `Message` 三分辨析）、门禁配合点（**R05-011 自动跳过 `types/` 前缀 ⇒ 零门禁改动**）、设计决策 D1-D6、任务分解 T1-T7（预计一次性解锁 **−12**）与合规清单。**待评审后实施**。
+
+**🔎 `chat` 组落地方案取证（2026-10-01 D-210）** —— 6 条边 = `compact` 3（`AutoCompactService` · `autoCompact` · `grouping`）+ `contextCollapse` 2（`types` · `ContextCollapseService`）+ `toolUseSummary` 1（`ToolUseSummaryService`）。**因 `Data*` 不等价（见 data-contract spec §2.4 对照表）⇒ 不走 `core/data-models`，改按 spec §3.5 原注的"**改归正确层**"评估**：
+
+- **`services/compact/**` 消费方实测**（跨模块引用全量）：
+  - app 侧：`chat/ChatManager.ts:330` · `chat/ChatManagerInterface.ts:31` · `chat/services/ContextCompactor.ts:33` · `query/ContextCollapse.ts:9` · `query/ReactiveCompact.ts:12` · `commands/builtin/compact/Compact.ts:15`（含 1 处**动态** `import()`：`query/__tests__/CompactionIntegration.test.ts`）
+  - **service 侧（唯一的"上向"消费方）**：`session/compaction/ServiceAdapters.ts:1`（`@modules/services/compact/AutoCompactService`）
+  - ⇒ **若把 `services/compact/**` 整组改归 app**：其 6 条跨层出向（chat 3 + **ai 2** + **context 1**）**全部转为合法**（app→app），但**新增 1 条** `session → compact(app)` ⇒ **净 −5**（且顺带清掉 ai/context 组中属 compact 的 3 条）；⚠️ 须**同批**处理该入向（`ServiceAdapters` 端口化，或与 `session/compaction` 一并归位）。
+- **`services/contextCollapse/**` 与 `services/toolUseSummary/**`**：全仓（别名 + 相对）grep **未见任何跨模块消费方**（仅 3 处**注释**提及 `toolUseSummary`）⇒ ⏳ **待核**（需再扫 `@modules/services` **barrel** 消费与仓内相对写法）；若确无消费方 ⇒ 属**疑似死代码**（按项目规则**先报告、不擅自删除**）。
+- ⚠️ 与子批 **F**（`session -> *` 16 条）**存在交叠**：`session/compaction/**` 正是 F 的成员 ⇒ **改归 compact 前须先与 F 的排期对齐**，否则会"按下葫芦浮起瓢"。
+
+**⇒ `chat` 组建议**（待裁定）：**整组改归 app**（三目录），**前置条件**：① 核清另两目录的消费方（含 barrel）；② 与子批 F 对齐 `session/compaction` 的处置；③ 需改 `modules-to-layers.json`（新增 app 层条目，属**层再分类**而非放宽门禁）。
+
+**🔎 前置①②已完成（2026-10-01 D-211）**：
+1. **barrel 核查**：`app/src/services/index.ts` **不存在** ⇒ **无 `services` barrel** ⇒ 别名子路径是唯一入口；再扫 `ContextCollapseService|ToolUseSummaryService` ⇒ **0 跨模块消费方**
+   ⇒ ⚠️ **`services/contextCollapse/**`（2 条边）与 `services/toolUseSummary/**`（1 条边）＝疑似死代码**（注：`query/ContextCollapse.ts` 与 `query/ToolUseSummary.ts` 是**同名但不同物**的独立实现，均**不消费**这两目录）。
+   ⇒ 按项目规则**先报告、不擅自删除**；**若确认可删 ⇒ 这 3 条边随删除消失，零层变更、零端口**（可能的最优解）。
+2. **`session/compaction/**` 归属核实**：共 **8 文件**（`CompactionRecord` · `CompactionTypes` · `KeyInfoExtractor` · `LayeredCompactor` · `ServiceAdapters` · `SessionCompactionBridge` · `SummaryCompactor` · `index`）＝**会话级压缩子系统**（session 域自持）；其对 compact 的依赖**仅 1 处**（`ServiceAdapters.ts:1` 取 `AutoCompactService`）。
+   ⇒ 建议：`session/compaction` **保持 service**（属 session 域），仅把该 1 处取用**端口化**（即"新增 1 条边的修复成本 = 1 个端口方法"）；⚠️ 其内部是否另有 `@modules/chat`（app）取用需并入**子批 F** 排期一并核（F = `session -> *` 16 条）。
+
+**⇒ 修订后的 `chat` 组执行顺序（待裁定）**：
+① **先裁定**两个疑似死代码目录（`contextCollapse` · `toolUseSummary`）—— 若可删 ⇒ **−3 条**（零风险路径）；
+② `services/compact/**` 改归 app（+ `modules-to-layers.json` 增 app 条目）⇒ **净 −5**（含其 ai 2 / context 1），**同批**端口化 `session/compaction/ServiceAdapters` 的 1 处取用；
+③ 明细与 F 的交叠在 F 排期时复核。
 
 **子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。
+
+**🔎 `ai` 组深入取证（2026-10-01 D-209，逐符号）** —— 结论：**该组内部分化，不可整组同法**：
+
+| 文件 | 符号 | 性质 / 处方 |
+|---|---|---|
+| `prompt/DiagnosticsReport.ts` | `getCachedTiktokenEncoder` | ✅ **已完成（D-212）**：`TiktokenEstimator.ts` 仅依赖 `monitoring`/`error`（infra）、**零 app 依赖** ⇒ 已 **改归 infra**（`utils/TiktokenEstimator.ts`，`ai/tokenizer/` 原址同名转出）⇒ 引用改**相对直连 infra**；⚠️ 不可落 core（净变差）；**零配置改动** |
+| `prompt/SystemPromptReport.ts` | `getCachedTiktokenEncoder` + `estimateTokens` | ⚠️ **受阻**：`estimateTokens` 定义在 `ai/tokenizer/TokenEstimator.ts`，该文件依赖 `../models/types`（**app 的 `ChatMessage`**）⇒ 不能直接下沉 ⇒ 须先解决该类型（**数据契约**）或走端口 |
+| `prompt/PromptAssembler.ts` | `buildSystemPrompt` · `modelManager` · `providerRegistry` · `estimateTokens` + 类型 `SystemPromptContext` | ⚠️ **须端口**：`modelManager.getCurrentModel()` / `providerRegistry.getByModel()` 是真 app 能力；且 `estimateTokens` 在**同步函数**内被调用（不可改为 await）⇒ 端口须提供**同步**方法，调用方需**提前取一次端口句柄**（同 `LlamaServerManagerPort` 的"句柄只取一次"先例） |
+| `compact/utils.ts` | `modelManager`（`getModelContextWindow`） | 同上 ⇒ 端口 |
+| `compact/CompactService.ts` | 类型 `AIService`/`AIMessage` + 值 `AIMessageRole`/`AIModelType` | 混合：**类型位须下沉 `types/`**（2 类型 + 2 枚举）+ 值经端口 |
+
+**⇒ `ai` 组建议再细分**：**(a)** `DiagnosticsReport` 1 条（改归 infra，零端口，**建议下一步立即做**）→ **(b)** `PromptAssembler` + `compact/utils`（**端口化**，须解决"同步调用点 + 句柄只取一次"）→ **(c)** `SystemPromptReport` 1 + `CompactService` 1（**待数据契约**：`ChatMessage` / `AIService` / `AIMessage` 低位出口）。
+**⚠️ 既有 `AiOpsPort` 经核不覆盖本组**（其范围为 HTTP handlers 的 P1-P4 共 22 方法）⇒ 按该端口自述的规程（"**同域分阶段共用同一入口** `getAiOpsPort()`"）**扩充**即可，**不另立** `aiPorts`（CS01）。
+
 
 **✅ D-208 首条已完成**：`services/mcp/MCPToolBridge.ts → context`（`dependencyRegistry` 早在 D-157 即下沉 core ⇒ 改**相对直连 core 模块根**）⇒ `已豁免 61 → 60`（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0。
 ⚠️ 同文件仍持 `@modules/tools`（`getToolManager` 值 + `Tool` 类型位）⇒ **`tools` 边未消**（须与类型下沉同批，故本轮**未**改 `getToolManager`，避免"改了不减计数"）。

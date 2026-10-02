@@ -38,7 +38,7 @@ import { TAORPhase } from './types.js';
 import type {
   TAORCheckpoint,
   TAORCheckpointKind,
-  CheckpointStorage,
+  TAORCheckpointStorage,
 } from './types.js';
 import { createLoopDetector } from './LoopDetector.js';
 import type { LoopDetector } from './LoopDetector.js';
@@ -223,7 +223,7 @@ export interface TAORLoopConfig {
   /** 检查点保存间隔（轮次） */
   checkpointInterval?: number;
   /** 检查点存储实现 */
-  checkpointStorage?: CheckpointStorage;
+  checkpointStorage?: TAORCheckpointStorage;
   /** 是否启用验证器代理（Phase 4），默认 true */
   enableVerifier?: boolean;
   /** 验证器配置 */
@@ -275,7 +275,7 @@ export interface TAORPhaseCallback {
 /**
  * 内存检查点存储（默认实现）
  */
-export class MemoryCheckpointStorage implements CheckpointStorage {
+export class MemoryCheckpointStorage implements TAORCheckpointStorage {
   private checkpoints: Map<string, TAORCheckpoint> = new Map();
 
   async save(checkpoint: TAORCheckpoint): Promise<string> {
@@ -375,7 +375,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private failedToolCalls: number = 0;
 
   // 检查点相关
-  private checkpointStorage: CheckpointStorage;
+  private checkpointStorage: TAORCheckpointStorage;
   private lastCheckpointId: string | null = null;
   private currentPhase: TAORPhase = TAORPhase.THINK;
   private lastPrompt: string = '';

@@ -14,7 +14,7 @@ import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import { randomUUID } from 'crypto';
 
-import type { TAORCheckpoint, CheckpointStorage } from './types.js';
+import type { TAORCheckpoint, TAORCheckpointStorage } from './types.js';
 
 const logger = getLogger('query:fileTAORCheckpoint');
 
@@ -33,7 +33,7 @@ function isStableFile(filename: string): boolean {
   );
 }
 
-export class FileTAORCheckpointStorage implements CheckpointStorage {
+export class FileTAORCheckpointStorage implements TAORCheckpointStorage {
   private storageDir: string;
 
   constructor(customDir?: string) {

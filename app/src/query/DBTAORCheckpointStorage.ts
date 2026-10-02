@@ -17,13 +17,13 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import type { TAORCheckpoint, CheckpointStorage } from './types.js';
+import type { TAORCheckpoint, TAORCheckpointStorage } from './types.js';
 
 const logger = getLogger('query:dbTAORCheckpoint');
 
 const TABLE_NAME = 'taor_checkpoints';
 
-export class DBTAORCheckpointStorage implements CheckpointStorage {
+export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
   private db: Database | null = null;
   private dbPath: string;
 

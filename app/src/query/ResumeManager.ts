@@ -15,7 +15,7 @@ import {
   TAORPhase,
   type TAORCheckpoint,
   type CheckpointIntegrity,
-  type CheckpointStorage,
+  type TAORCheckpointStorage,
 } from './types.js';
 import type { TAORLoop, TAORLoopConfig } from './TAORLoop.js';
 
@@ -39,10 +39,10 @@ export interface ResumeProgressEvent {
 }
 
 export class ResumeManager {
-  private storage: CheckpointStorage;
+  private storage: TAORCheckpointStorage;
   private emitter: EventEmitter;
 
-  constructor(storage?: CheckpointStorage) {
+  constructor(storage?: TAORCheckpointStorage) {
     this.storage = storage ?? new DBTAORCheckpointStorage();
     this.emitter = new EventEmitter();
   }

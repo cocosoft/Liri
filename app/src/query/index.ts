@@ -240,7 +240,7 @@ export type {
 } from './TAORLoop.js';
 export type {
   TAORCheckpoint,
-  CheckpointStorage,
+  TAORCheckpointStorage,
   CheckpointInboxState,
   CheckpointIntegrity,
 } from './types.js';

@@ -78,7 +78,7 @@ export interface CheckpointIntegrity {
 }
 
 /** 检查点存储接口 */
-export interface CheckpointStorage {
+export interface TAORCheckpointStorage {
   save(checkpoint: TAORCheckpoint): Promise<string>;
   load(id: string): Promise<TAORCheckpoint | null>;
   findBySessionId(sessionId: string): Promise<TAORCheckpoint[] | null>;

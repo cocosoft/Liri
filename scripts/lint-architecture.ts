@@ -1363,7 +1363,7 @@ class ArchitectureLinter {
     const knownExceptions = [
       'agent/TitleGenerator.ts',
       'chat/types/ToolUseBlock.ts',
-      'services/compact/ContextEngine.ts',
+      'chat/compaction/ContextEngine.ts',
       'subagent/SubAgentCommunicator.ts',
       'ui/components/Messages.tsx',
       // 2026-08-29 治理：core/types.ts 是 LLM 协议层 Message（snake_case 工具字段），领域变体
@@ -1470,8 +1470,8 @@ class ArchitectureLinter {
       'agent/utils/PermissionSyncManager.ts',
       // 子代理消息（独立概念）
       'subagent/SubAgentCommunicator.ts',
-      // 服务层消息
-      'services/compact/ContextEngine.ts',
+      // 压缩域上下文引擎消息（2026-10-01 D-217 由 services/compact 改归 chat/compaction）
+      'chat/compaction/ContextEngine.ts',
       // UI 组件消息
       'ui/components/Messages.tsx',
       // 2026-08-29 R05-013 治理：领域变体（class 实现 vs interface 契约 / 协议类型 / 语义不同），

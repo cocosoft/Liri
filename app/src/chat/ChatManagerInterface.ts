@@ -28,7 +28,7 @@ import type {
   CompactServiceImpl,
   CompactBoundary,
   CompactArtifact,
-} from '../services/compact/CompactService.js';
+} from './compaction/CompactService.js';
 import type {
   ChatStreamChunk,
   QuestionData,

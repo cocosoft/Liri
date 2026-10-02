@@ -66,6 +66,9 @@ import type { SkillsOpsPort } from './skillsOpsPorts';
 import type { AutoReplyPort } from './autoReplyPorts';
 import type { A2APort } from './a2aPorts';
 import type { BridgePort } from './bridgePorts';
+import type { AutoCompactServiceRefPort } from './compactPorts';
+// D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
+import { AutoCompactService } from '@modules/chat/compaction/AutoCompactService';
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1914,6 +1917,43 @@ export class CoreAPIImpl implements CoreAPI {
         };
       },
       pruneOrphanWorktrees: (gitRoot: string) => pruneOrphanWorktrees(gitRoot),
+    };
+  }
+
+  /**
+   * 压缩域**同步**门面（2026-10-01 D-217，子批 E `chat` 组）
+   *
+   * `session/compaction/ServiceAdapters.ts`（service）原先**静态**导入
+   * `@modules/services/compact/AutoCompactService`；该目录**改归 app**（`chat/compaction/**`，
+   * spec §3.5 方案甲）后会构成 `session -> chat`(app) 倒挂 ⇒ 改经本门面取用。
+   *
+   * ⚠️ **为何同步而非端口 Promise**：调用点在 `SessionGateway` 的**构造函数**与
+   * **同步 fluent API**（`wireWithRealServices(): this`）内，改异步会向上传染 ⇒ 采用
+   * 本仓既有 sanctioned 缝（同 `getChatManager()` / `getToolManager()`）：
+   * **静态**导入 app 模块、暴露同步构造方法。
+   * 👉 计数影响：`runtime -> chat` 对**已存在**（本文件已静态导入 `@modules/chat`）⇒
+   * 迁移后不新增豁免计数（迁移前为 `runtime -> services`＝**同层合法**）。
+   */
+  createAutoCompactService(): AutoCompactServiceRefPort {
+    const service = new AutoCompactService();
+    return {
+      checkAndCompact: (
+        sessionId: string,
+        messages: unknown[],
+        model: string
+      ) => service.checkAndCompact(sessionId, messages as never[], model),
+      performAutoCompact: async (
+        sessionId: string,
+        messages: unknown[],
+        model: string
+      ) => {
+        const result = await service.performAutoCompact(
+          sessionId,
+          messages as never[],
+          model
+        );
+        return { success: result.success, error: result.error };
+      },
     };
   }
 

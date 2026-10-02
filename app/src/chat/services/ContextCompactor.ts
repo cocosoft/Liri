@@ -30,7 +30,7 @@ import {
   CompactServiceImpl,
   type CompactBoundary,
   type CompactArtifact,
-} from '../../services/compact/CompactService.js';
+} from '../compaction/CompactService.js';
 import type { SessionMessage } from '@modules/session';
 import type { ChatSession } from '../types/session.js';
 import { getLocalSession } from './ChatHelper';

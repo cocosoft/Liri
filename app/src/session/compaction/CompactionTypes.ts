@@ -39,7 +39,7 @@ export interface CompactionEngine {
 }
 
 /**
- * AutoCompactService 引用接口 — 避免直接依赖 services/compact 模块
+ * AutoCompactService 引用接口 — 避免直接依赖 chat/compaction 模块
  */
 export interface AutoCompactServiceRef {
   checkAndCompact(

@@ -1,4 +1,10 @@
-import { AutoCompactService } from '@modules/services/compact/AutoCompactService';
+// 2026-10-01 D-217（子批 E `chat` 组）：原静态导入 app 侧
+// `@modules/services/compact/AutoCompactService`；该目录改归 app（`chat/compaction/**`）后
+// 会构成 `session -> chat`(app) 倒挂 ⇒ 改经 **CoreAPI 同步门面**（既有 sanctioned 缝）。
+// ⚠️ 用**同步**门面而非 Promise 端口：本文件由 `SessionGateway` 的**构造函数**与
+// **同步 fluent API**（`wireWithRealServices(): this`）调用 ⇒ 改异步会向上传染。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { AutoCompactServiceRefPort } from '@modules/runtime/api/compactPorts';
 import {
   SessionCheckpointService as RealCheckpointService,
   getCheckpointService,
@@ -16,7 +22,7 @@ import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
 
 export class AutoCompactServiceAdapter implements AutoCompactServiceRef {
-  constructor(private real: AutoCompactService) {}
+  constructor(private real: AutoCompactServiceRefPort) {}
 
   checkAndCompact(
     sessionId: string,
@@ -69,7 +75,7 @@ export function createWiredCompactionBridge(): SessionCompactionBridge {
     ),
   });
 
-  const autoCompactService = new AutoCompactService();
+  const autoCompactService = getCoreAPI().createAutoCompactService();
   const adapter = new AutoCompactServiceAdapter(autoCompactService);
   bridge.setAutoCompactService(adapter);
 

@@ -93,10 +93,10 @@
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
-| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯；⚠️ 余 13 条中 **11 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理） | **6** | **13**（`chat` 6 · `tools` 4 · `context` 1 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`chat` 组（按 §3.5 D-210/211 的"改归 app"路线）） |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）；⚠️ 余 6 条中 **5 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理） | **13** | **6**（`tools` 4 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`tools` 组（类型下沉 + 端口）） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 55**（**−96**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **6** + **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
+**门禁总账（实测）**：`已豁免` **151 → 48**（**−103**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **13**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -585,7 +585,13 @@ export interface AgentRunDto {
   - app 侧：`chat/ChatManager.ts:330` · `chat/ChatManagerInterface.ts:31` · `chat/services/ContextCompactor.ts:33` · `query/ContextCollapse.ts:9` · `query/ReactiveCompact.ts:12` · `commands/builtin/compact/Compact.ts:15`（含 1 处**动态** `import()`：`query/__tests__/CompactionIntegration.test.ts`）
   - **service 侧（唯一的"上向"消费方）**：`session/compaction/ServiceAdapters.ts:1`（`@modules/services/compact/AutoCompactService`）
   - ⇒ **若把 `services/compact/**` 整组改归 app**：其 6 条跨层出向（chat 3 + **ai 2** + **context 1**）**全部转为合法**（app→app），但**新增 1 条** `session → compact(app)` ⇒ **净 −5**（且顺带清掉 ai/context 组中属 compact 的 3 条）；⚠️ 须**同批**处理该入向（`ServiceAdapters` 端口化，或与 `session/compaction` 一并归位）。
-- **`services/contextCollapse/**` 与 `services/toolUseSummary/**`**：全仓（别名 + 相对）grep **未见任何跨模块消费方**（仅 3 处**注释**提及 `toolUseSummary`）⇒ ⏳ **待核**（需再扫 `@modules/services` **barrel** 消费与仓内相对写法）；若确无消费方 ⇒ 属**疑似死代码**（按项目规则**先报告、不擅自删除**）。
+- **`services/contextCollapse/**` 与 `services/toolUseSummary/**`**：✅ **零引用复核已完成（2026-10-01 D-216）—— 确认为"零引用死代码"**：
+  - `ContextCollapseService` / `getContextCollapseService` ⇒ 全仓仅出现在**自身目录**（`services/contextCollapse/{index,ContextCollapseService}.ts`）；
+  - `ToolUseSummaryService` / `getToolUseSummaryService` ⇒ 全仓仅出现在**自身文件**；
+  - 目录名全仓扫描的其它命中**均为无关物**：3 处**注释**（含"用途不同"的明示）· `hooks/types/ToolHooks.ts:121` 的**字段名** `toolUseSummary?` · `query/ReactiveCompact.ts` 的 `ContextCollapser`/`createContextCollapser()`（**query 内独立实现，不同物**）；
+  - **无 `services` barrel**（`services/index.ts` 不存在）⇒ 不存在隐藏入口。
+  ⇒ **裁定就绪：可删 ⇒ 一次消 3 条边（`contextCollapse` 2 + `toolUseSummary` 1），零层变更、零端口、零风险**。
+  ⚠️ 按项目规则「**先报告、不擅自删除**」⇒ **等用户裁定**后再删（删除动作另起一批，含 `git rm` + 验证 + 记档）。
 - ⚠️ 与子批 **F**（`session -> *` 16 条）**存在交叠**：`session/compaction/**` 正是 F 的成员 ⇒ **改归 compact 前须先与 F 的排期对齐**，否则会"按下葫芦浮起瓢"。
 
 **⇒ `chat` 组建议**（待裁定）：**整组改归 app**（三目录），**前置条件**：① 核清另两目录的消费方（含 barrel）；② 与子批 F 对齐 `session/compaction` 的处置；③ 需改 `modules-to-layers.json`（新增 app 层条目，属**层再分类**而非放宽门禁）。
@@ -601,6 +607,17 @@ export interface AgentRunDto {
 ① **先裁定**两个疑似死代码目录（`contextCollapse` · `toolUseSummary`）—— 若可删 ⇒ **−3 条**（零风险路径）；
 ② `services/compact/**` 改归 app（+ `modules-to-layers.json` 增 app 条目）⇒ **净 −5**（含其 ai 2 / context 1），**同批**端口化 `session/compaction/ServiceAdapters` 的 1 处取用；
 ③ 明细与 F 的交叠在 F 排期时复核。
+
+**✅ 已完成（2026-10-01 D-216 + D-217）—— `chat` 组 7 条边清零（`已豁免 55 → 48`，−7）**
+
+- **D-216（死代码删除，−3）**：`bun run lint:arch` 前置复核确认 `services/contextCollapse/**`（`ContextCollapseService` · `index` · `types`）与 `services/toolUseSummary/**`（`ToolUseSummaryService` · `index`）**零跨模块消费方**（含 barrel 核查：`services/index.ts` 不存在；`query/ContextCollapse.ts` · `query/ToolUseSummary.ts` 为**同名不同物**的独立实现，均不消费）⇒ 经用户授权 `git rm -r` 删除 5 文件 ⇒ **`已豁免 55 → 52`**（恰 −3）。
+- **D-217（`services/compact/**` 改归 app → `chat/compaction/**`，−4）**：
+  - **净差取证（D-207 教训）**：迁移前 `services/compact/**` 的跨层出向实测 **4 条**（`chat` 3 文件：`autoCompact.ts` · `AutoCompactService.ts` · `grouping.ts`；`context` 1 文件：`utils.ts`）—— ⚠️ §3.5 原注所列"**净 −5（含 ai 2）**"已**不成立**：`ai` 那 2 条早在 **D-213** 随死导入删除被清掉 ⇒ 本次实测 **净 −4**。落 `chat`（既有 app 模块）之下 ⇒ **无需**改 `modules-to-layers.json`（原注"新增 app 条目"的顾虑消解）。
+  - **唯一入向的处理（同步门面，非 Promise 端口）**：`session/compaction/ServiceAdapters.ts` 是 service 侧唯一消费方，迁移后会构成 `session -> chat`(app) 倒挂 ⇒ **端口化**。⚠️ 取证发现 `createWiredCompactionBridge()` 的调用点在 `SessionGateway` **构造函数**与**同步 fluent API**（`wireWithRealServices(): this`）内 ⇒ **不可改异步** ⇒ 改用本仓既有 sanctioned 缝模式（同 `getChatManager()`/`getToolManager()`）：`CoreAPIImpl` 新增**同步**门面 `createAutoCompactService()`（静态导入 `AutoCompactService`），投影类型定义于 `runtime/api/compactPorts.ts` 的 `AutoCompactServiceRefPort`。👉 **不新增豁免计数**：`runtime -> chat` 边**早已存在**（该文件本已静态导入 `@modules/chat`）。
+  - **迁移手法**：`git mv app/src/services/compact app/src/chat/compaction`（同深度 ⇒ 目录内相对导入零改动）；同步更新 **8 处**外部消费点（`chat/ChatManager.ts` · `chat/ChatManagerInterface.ts` · `chat/services/ContextCompactor.ts` · `query/ContextCollapse.ts` · `query/ReactiveCompact.ts` · `commands/builtin/compact/Compact.ts` · `runtime/api/CoreAPIImpl.ts` + `query/__tests__/CompactionIntegration.test.ts` 9 处动态 `import()`）。
+  - **门禁脚本同步**：`scripts/lint-architecture.ts` 的例外清单中 `services/compact/ContextEngine.ts` → `chat/compaction/ContextEngine.ts`（R02-002 + R05-011 两处），否则会误报。
+  - **验证**：`已豁免 52 → 48`（恰 −4，与净差取证一致）· `typecheck 0` · `lint:arch` **违规 0**（`R02-002`/`R07-004` 各 1 条为**预存、与本改动无关**）· 改动文件 eslint 0/0 · `bun test src/query/__tests__/CompactionIntegration.test.ts` = **19 pass / 10 skip / 0 fail**。
+  - **遗留（预存，非本次引入）**：`CompactServiceImpl.setAIService()` 全仓无调用方 ⇒ `generateAISummary` 恒走 `generateBasicSummary` 回退（见 D-215 记录），另册跟踪。
 
 **子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。
 

@@ -81,7 +81,7 @@
 |---|---|---|---|
 | 领域层 `Message` | `chat/types/message.ts` | 对话领域消息（camelCase，含 `ContentBlock` 等） | **R05-011 认定的规范来源** |
 | 协议层 `Message` | `core/types.ts` | LLM 协议消息（**snake_case** 工具字段） | R05-011 **已知例外**（`knownExceptions` 显式登记 `core/types.ts`） |
-| 其它域私有 | `agent/TitleGenerator.ts` · `chat/types/ToolUseBlock.ts` · `services/compact/ContextEngine.ts` · `subagent/SubAgentCommunicator.ts` · `ui/components/Messages.tsx` | 域内私有变体 | R05-011 **已知例外** |
+| 其它域私有 | `agent/TitleGenerator.ts` · `chat/types/ToolUseBlock.ts` · `chat/compaction/ContextEngine.ts` · `subagent/SubAgentCommunicator.ts` · `ui/components/Messages.tsx` | 域内私有变体 | R05-011 **已知例外** |
 
 ⇒ 本专项**只下沉领域层 `Message`**，**不触碰**协议层与域私有变体（避免制造语义混淆 —— CS05 根因优先，不做"看着像就合并"）。
 

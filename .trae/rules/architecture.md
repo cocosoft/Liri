@@ -128,7 +128,7 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
   - **autoCompact**：基于 Token 阈值（默认 80%）自动触发压缩
   - **reactiveCompact**：基于上下文增长率（连续 3 轮增长率 > 15%）触发压缩
   - **microcompact**：轻量压缩，仅移除低价值系统消息
-- 压缩策略在 `services/compact/` 中统一实现
+- 压缩策略在 `chat/compaction/` 中统一实现（2026-10-01 D-217 由 `services/compact/` 改归 app）
 - 所有压缩操作必须记录原始 Token 数和压缩后 Token 数
 
 ### 3.8 特征开关(FeatureFlag)规范

@@ -52,7 +52,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
   describe('compactConversation()', () => {
     test('空消息列表应返回空结果', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const result = await service.compactConversation([]);
 
@@ -63,7 +63,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
 
     test('短消息列表应生成 BasicSummary', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({ id: 'm1', type: 'user', content: '你好' }),
@@ -90,7 +90,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
 
     test('autoCompact 模式下保留最近 2 轮', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({ id: 'r1u', type: 'user', content: '第1轮-用户' }),
@@ -114,7 +114,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
 
     test('非 autoCompact 模式保留最近 3 轮', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({ id: 'r1u', type: 'user', content: '第1轮' }),
@@ -139,7 +139,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
   describe('generateCompactSummary()', () => {
     test('无 AI 服务时生成 BasicSummary', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({ id: 'm1', type: 'user', content: '什么是机器学习？' }),
@@ -166,7 +166,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
   describe('extractKeyInformation()', () => {
     test('从消息中提取关键信息', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({
@@ -194,7 +194,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
   describe('detectCompactBoundary()', () => {
     test('大量消息应检测为 length 边界', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = Array.from({ length: 70 }, (_, i) =>
         makeMsg({
@@ -216,7 +216,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
 
     test('短消息列表应返回 null', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({ id: 'm1', type: 'user', content: '你好' }),
@@ -235,7 +235,7 @@ describe('P0-1.1: CompactService 直接集成', () => {
   describe('performCompact()', () => {
     test('执行完整压缩流程生成制品', async () => {
       const { CompactServiceImpl } =
-        await import('../../services/compact/CompactService.js');
+        await import('../../chat/compaction/CompactService.js');
       const service = new CompactServiceImpl();
       const messages = [
         makeMsg({

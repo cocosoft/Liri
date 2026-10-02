@@ -12,7 +12,7 @@ import type {
   CommandType,
   CommandResult,
 } from '@modules/commands';
-import type { CompactArtifact } from '@modules/services/compact/CompactService';
+import type { CompactArtifact } from '@modules/chat/compaction/CompactService';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:compact');

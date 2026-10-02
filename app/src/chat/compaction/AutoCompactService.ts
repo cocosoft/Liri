@@ -30,7 +30,7 @@ const logger = getLogger('services:compact:AutoCompactService');
 /**
  * ── 边界声明（2026-09-28，与「两套压缩核查」结论配套） ──
  *
- * 本目录（`services/compact/`）是**会话级**压缩：只在 **`/compact` 命令**
+ * 本目录（`chat/compaction/`，2026-10-01 D-217 由 `services/compact/` 改归 app）是**会话级**压缩：只在 **`/compact` 命令**
  * （`commands/builtin/compact/Compact.ts`）、**HTTP 压缩端点**
  * （`session-handlers.ts:1017` → `CoreAPIImpl:2658` → `ChatManager.compactSession`）、
  * **会话生命周期边界**（`SessionGateway:1974` / `SessionManager:405` 的 `beforeCompact`）触发。

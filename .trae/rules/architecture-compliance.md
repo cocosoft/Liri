@@ -392,14 +392,29 @@ src/<module>/
 
 ### R06-008 [MUST] 分层架构（GR07）
 
-| 层级 | 目录 | 职责 | 依赖方向 |
-|------|------|------|:---:|
-| 表示层 | `infrastructure/http/` | HTTP 路由、Handler、中间件 | → 业务层 |
-| 业务层 | `chat/`、`modules/`、`tools/`、`channels/` | 业务逻辑、服务编排 | → 核心层 |
-| 核心层 | `core/`、`ai/`、`permission/` | 基础设施、AI 引擎、安全 | → 工具层 |
-| 工具层 | `utils/`、`types/` | 纯函数、类型定义 | 无依赖 |
+> **唯一事实源**：`scripts/modules-to-layers.json`（`layerOrder` / `allowedDependencies` / `modules`）。
+> 门禁实现：`scripts/lint-architecture.ts` —— **R00-001**（静态跨层：违规/豁免）；**R00-003**（动态跨层：**仅上报**）。
+> ⚠️ 本节于 **2026-10-01 按事实源重写**：此前为「表示层/业务层/核心层/工具层」**4 层旧模型**，与事实源**多处冲突**（旧表把 `chat`/`tools` 当"业务层"、把 `utils`/`types` 并列为"工具层"、且**完全没有 `entry`/`ui`/`service` 三层**）。
 
-**禁止反向依赖**：`utils/` → `core/`、`core/` → `modules/`、`types/` → `any/`。
+**层序（6 层，自高到低）**：`entry > ui > app > service > infra > core`
+
+| 层 | 典型模块（**示例**；完整映射以事实源为准） | 允许依赖 |
+|---|---|---|
+| `entry` | `entrypoints` · `bootstrap` · `main.ts` · `pyapp.ts` · `healthcheck.ts` · `monitor.ts` · `index.ts` | 全部层 |
+| `ui` | `ui` · `components` · `ink` · `cli` · `vim` · `keybindings` | ui · app · service · infra · core |
+| `app` | `chat` · `ai` · `tools` · `agent` · `commands` · `skills` · `plugins` · `context` · `query` · `compaction` · `tasks` · `modules` · `hooks` … | app · service · infra · core |
+| `service` | `session` · `channels` · `infrastructure` · `runtime` · `bridge` · `mcp` · `services` · `voice` · `remote` · `streaming` | service · infra · core |
+| `infra` | `utils` · `config` · `error` · `monitoring` · `memory` · `state` · `security` · `permission` · `cache` · `media` · `i18n` · `system` … | infra · core |
+| `core` | `core` · `types` · `acp` | 仅 `core` |
+
+**判据**：任一层**只允许**依赖「**自身 ＋ 更低层**」；指向**更高层**即为**倒挂**（R00-001，命中例外清单者豁免）。
+
+**禁止方向（按现行层序重述）**：`core → 任何更高层`（含 `core → modules`(app) · `core → utils`(infra)）· `infra → service/app/ui/entry` · `service → app/ui/entry` · `app → ui/entry` · `ui → entry`。
+⚠️ **易错点**：`utils` 属 **infra**、`types` 属 **core** ⇒ **`utils → core`（即 `infra → core`）是允许方向**（旧文曾误列为"禁止反向依赖"）。
+
+**两项已生效的口径修正（2026-10-01）**：
+1. **`import type` / `export type` 不计** R00-001（与同仓 eslint 规则 `module-registry/no-direct-module-import` 的 type-only 豁免**同口径**）；另以 `type-only 跨层引用 N 处（仅上报）` 保持可见。
+2. **测试文件**（`__tests__` / `.test.ts` / `.spec.ts`）在 R00-001 / R00-003 / R03-002 **统一排除**（常量 `TEST_FILE_EXCLUSIONS`）。
 
 ### R06-009 [SHOULD] 碎片归集（AR06）
 
@@ -423,10 +438,9 @@ src/<module>/
 ### R06-011 [SHOULD] 模块依赖规则（GR06）
 
 - 禁止循环依赖
-- 依赖方向：`modules/` → `core/` → `utils/`
-- `utils/` 不依赖 `core/` 或 `modules/`
-- `core/` 不依赖 `modules/`
-- `types/` 不依赖任何模块
+- **依赖方向**以 `scripts/modules-to-layers.json#allowedDependencies` 为**唯一事实源**：任一层只允许依赖「自身 ＋ 更低层」，层序 `entry > ui > app > service > infra > core`（层表与禁止方向详见 **R06-008**）
+- 常见具体约束（**示例**，非穷举；完整判据以事实源为准）：`core` 仅依赖 `core` ⇒ `core/` 不依赖 `modules/`(app) 或 `utils/`(infra)；`infra`（含 `utils/`）**允许**依赖 `core`（含 `types/`）；`app`（含 `modules/` · `chat/` · `tools/`）允许依赖 `service` · `infra` · `core`
+- ⚠️ 本节 2026-10-01 按事实源订正：此前写「依赖方向：`modules/` → `core/` → `utils/`」与「`utils/` 不依赖 `core/`」——**方向与层归属均与现行模型相反**（现行 `utils`=infra 在 core **之上**，`modules`=app 在 infra **之上**）
 
 ---
 

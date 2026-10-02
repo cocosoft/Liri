@@ -129,13 +129,15 @@ chatCoordinator().setMessages(messages);
 | `coding-standards.md` | 始终 | 编码铁律（CS01-CS07，AI 可执行） |
 | `paths.md` | 磁盘IO时 | 路径使用规范 |
 | `frontend.md` | 前端开发 | 前端规则 |
-| `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R01-R04） |
+| `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R01–R06；**R00 分层**见下方事实源） |
 | `development-workflow.md` | 开发任务 | 开发流程 |
 | `versioning.md` | 版本规划 | 版本管理 |
 | `operations.md` | 部署/安全 | 运维Checklist |
 | `benchmark-rules.md` | 手动`#Rule` | 对标分析规范 |
 
 > 架构合规规则配套检查脚本 `bun run lint:arch`。涉及基础设施复用、数据模型统一、模块边界控制时必须查阅。
+>
+> **分层模型唯一事实源**：`scripts/modules-to-layers.json`（`layerOrder` / `allowedDependencies` / `modules`）。层序 `entry > ui > app > service > infra > core`；任何规则文档中的层表若与之冲突，**以事实源为准**（层表与判据见 `architecture-compliance.md#R06-008`，2026-10-01 已按事实源重写）。
 
 #### 1.6.1 前后端接口清单（强制）
 

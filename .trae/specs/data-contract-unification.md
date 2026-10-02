@@ -332,3 +332,27 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 - [ ] 凡"改名"必须**同批**更新全部消费方，并核 `tsconfig` 别名与桶出口
 - [ ] 凡"再导出"必须核 **R05-013（定义）** 与 **R03-002（桶出口唯一）**
 - [ ] **不得新增 `layer-exceptions.json` 例外条目**（与"清空例外"方向一致）
+
+---
+
+### 9.6 ✅ U4 裁定：`parseContextLimitFromError` 两份 —— **同名不同物，不得合并；改名是唯一出路**（2026-10-01）
+
+**取证（逐条比对两份实现）**：
+
+| 维度 | `ai/ContextDegradation.ts:152` | `context/window/ContextWindowResolver.ts:131` |
+|---|---|---|
+| 入参类型 | `Error \| string \| {message?: string} \| unknown`（**吃对象/错误实例**） | `string`（**只吃字符串**） |
+| 模式数 | **6**（含 `too long (N > N)` · `exceeds (the) maximum of N` · 泛化 `max_tokens: N`） | **4**（含 llama.cpp 专属 `exceeds the available context size (N tokens)`） |
+| **返回契约** | `number \| null`（**无哨兵**） | `number \| null`，其中 **`-1` 为哨兵**（"已知溢出、无精确值"，见其 L149-151） |
+| 数字容错 | 支持千分位（`[\d,]*` + `replace(/,/g,'')`） | 不支持 |
+| 内部消费 | `tryDegradeContext`（→ `chat/ChatManager` · `chat/orchestrator/streamMessageFlow`，经 `@modules/ai`） | `decideOverflowRecovery`（同文件 L243）+ **`chat/orchestrator/preSendContextProtection.ts:335`** + **8 个单测** |
+
+**⇒ 判定（按 §9.2）**：① **同名 ≠ 同物** —— 两者**入参类型不同**（对象 vs 字符串）、**返回语义不同**（`-1` 哨兵 vs 无）⇒ **不可合并**（合并会**静默改变至少一侧契约**：把 `-1` 喂给 `ai` 的 `tryDegradeContext`，或把对象入参喂给只收字符串那份 ⇒ 类型与行为**双重破坏**，违反 CS05/CS03）。② 依 §9.2 原则 2「一个名字一个规范落点」，**必须消名**。
+
+**裁定（建议，纯改名、零行为变化）**：
+
+- **`ai` 侧保留 `parseContextLimitFromError`** —— 它是"**纯解析器**"（无哨兵、无副作用），名字最贴合；且经 `ai` 桶被 `chat` 链路消费。
+- **`context` 侧改名 `parseContextOverflowSignal`** —— 其真实契约是"解析限制；**`-1` = 仅知溢出**；`null` = 未识别" ⇒ 名字须体现**信号语义**。
+- **改动面 5 个文件（纯改名）**：`context/window/ContextWindowResolver.ts`（定义 + 同文件 L243 调用）· `context/index.ts:97`（转出）· `chat/orchestrator/preSendContextProtection.ts`（导入 + L335 调用）· `app/tests/context/ContextWindowResolver.test.ts`（导入 + 8 处调用）。
+- **效果**：`ai` 桶与 `context` 桶不再同名 ⇒ **解除 B14 的第三处硬阻断**（迁入 `ai/window/` 时不再 `TS2300`）；**计数零变化**（纯改名）。
+- ⏳ **执行状态**：**待执行**（等确认后按上述 5 文件落地）。

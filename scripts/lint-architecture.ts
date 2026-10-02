@@ -10,6 +10,27 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve, relative, dirname } from 'node:path';
 
+/**
+ * 测试文件排除集（2026-10-01 口径统一，用户裁定）。
+ *
+ * 沿革：原名 `knownSubdirExceptions`，此前**仅** R03-002（模块出口单一）使用 ⇒ 造成**同一门禁内口径不一致**：
+ * R03-002 跳过测试文件，而 R00-001（分层）/ R00-003（动态跨层）**不跳**（实证：
+ * `app/src/runtime/api/__tests__/CoreAPIImpl.chatStream.test.ts` 曾被计入 `runtime -> chat` 豁免）。
+ * 现提升为模块级常量，并**统一**用于 R03-002 / R00-001 / R00-003。
+ *
+ * 口径依据（与仓内既有惯例一致）：测试文件**不属于出厂模块图**（不参与运行时装配 / 惰性加载），
+ * 且 R05-012（env 门禁）· R06-009-1（碎片归集）· R07 系列**均已显式排除**测试文件。
+ *
+ * 注：`app/tests/**` **不在** `allFiles`（`loadFiles()` 仅收集 `app/src/**`）⇒ 天然不参与分层检查。
+ */
+const TEST_FILE_EXCLUSIONS = [
+  '/__tests__/', // 测试文件可自由 import
+  '.test.ts', // 测试文件
+  '.spec.ts', // 测试文件
+  '/node_modules/', // 跳过
+];
+
+
 // JS/TS 保留字，排除被误判为"方法名"的控制流语句
 const RESERVED_WORDS = new Set([
   'if',
@@ -2067,13 +2088,7 @@ class ArchitectureLinter {
       'voice',
     ]);
 
-    // 已知合法的子目录 import（框架内部、测试辅助等）
-    const knownSubdirExceptions = [
-      '/__tests__/', // 测试文件可自由 import
-      '.test.ts', // 测试文件
-      '.spec.ts', // 测试文件
-      '/node_modules/', // 跳过
-    ];
+    // 测试文件排除集已提升为**模块级**常量 `TEST_FILE_EXCLUSIONS`（2026-10-01 口径统一，见其 JSDoc）
 
     // 规范子入口豁免（2026-08-29）：项目规则/架构文档指定的唯一入口子路径，非违规
     //   - core/paths：路径注册表唯一入口（project_rules §1.13）
@@ -2189,7 +2204,7 @@ class ArchitectureLinter {
 
     for (const file of this.allFiles) {
       // 跳过测试文件
-      if (knownSubdirExceptions.some((e) => file.includes(e))) continue;
+      if (TEST_FILE_EXCLUSIONS.some((e) => file.includes(e))) continue;
 
       const content = readFileSync(file, 'utf-8');
       const relPath = relative(this.srcPath, file).replace(/\\/g, '/');
@@ -2767,6 +2782,12 @@ class ArchitectureLinter {
     }> = [];
 
     for (const file of this.allFiles) {
+      // 2026-10-01 口径统一（用户裁定）：测试文件与 R03-002 **同口径跳过** ——
+      // R00-001（分层）与 R00-003（动态跨层）此前不跳，导致同一门禁内口径不一致
+      // （实证：`runtime/api/__tests__/CoreAPIImpl.chatStream.test.ts` 曾被计入 `runtime -> chat`）。
+      // 口径依据见 `TEST_FILE_EXCLUSIONS` 的 JSDoc。
+      if (TEST_FILE_EXCLUSIONS.some((e) => file.includes(e))) continue;
+
       const srcModule = this.resolveModuleName(file);
       const srcLayer = this.moduleToLayer.get(srcModule);
       if (!srcLayer) {

@@ -242,3 +242,54 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 | [layer-inversion-service-app-app-ui.md](./layer-inversion-service-app-app-ui.md) | 本专项是其实施者：子批 C 余 1 条 + 子批 E 余 11 条的**共同前置**；本专项完成后回填其台账 |
 | （历史）`layer-inversion-memory-chronos-system.md` | 已完成，无冲突 |
 | `.trae/specs/a2a-external-exposure.md` | 先例：其 A2A 类型已由 D-204 下沉 `types/a2a.ts`，与本专项同一手法 |
+
+---
+
+## §9 🆕 v2 范围扩展：**重名事实源集群**（2026-10-01，用户裁定立项）
+
+> **为什么扩**：实施 layer-inversion 子批 F 时，B11（`session -> chat` 11 条）与 B14（`session -> context` 1 条）接连被**同名不同物**阻断，同时暴露多组**同名重复实现**。它们与 §2.3 的 `Message` 属**同一类问题**（"一个名字、多份事实源"）⇒ 必须**一并裁定**，否则：① B11/B14 无法推进；② `R02-002` / `R05-013` 会继续用错误口径误导后续改造。
+
+### 9.1 集群清单（实测，逐条有出处）
+
+| # | 名字 | 份数 | 落点 | 判定要点 |
+|---|---|---:|---|---|
+| 1 | `Message` | **4** | 协议层 `core/types.ts` · 领域层 `chat/types/message.ts` · 域私有变体 · **`session/types/Message.ts`（`UnifiedMessage` 家族，322 行）** | §2.3 已证"**不是同一个东西、不得合并**"；**第 4 份为本次新增发现** |
+| 2 | `SessionContext` | **3** | `context/types/Context.ts` · `memory/types/SessionContext.ts` · `security/SecurityAudit.ts:135` | 同名不同物；⚠️ **B14 类型下沉的唯一冲突源** |
+| 3 | `Context` | **2** | `context/types/Context.ts` · `docs/HelpSystem.ts:46` | 同上 |
+| 4 | `Tool` | **2** | `types/tool.ts`（22 行极简投影） · `tools/types/Tool.ts`（660 行完整契约） | 阻断 E 组 `tools` 3 条；**Windows 大小写不敏感 ⇒ `tool.ts`/`Tool.ts` 无法同目录并存** |
+| 5 | `Command` | **2** | `types/index.ts:36`（极简） · `commands/types/index.ts:39`（完整 CLI 契约，含 `type: CommandType`） | 已按"不合并"处置（D-220 去假依赖：`MCPCacheManager` 改不透明载荷） |
+| 6 | `CheckpointStorage` | **2** | `chat/types/checkpoint.ts:35` · `query/types.ts:81` | D-222 B13 附带发现 |
+| 7 | `parseContextLimitFromError` | **2** | `ai/ContextDegradation.ts` · `context/window/ContextWindowResolver.ts` | **D-222 B14 的硬阻断源**（`ai` 桶出口同名 ⇒ `TS2300`）；两份**行为可能不同** ⇒ 必须先定事实源 |
+| 8 | 其他 | — | 见 `scripts/lint-architecture.ts` 的 R05-013 `knownExceptions` | 既有例外清单，交叉参照 |
+
+### 9.2 待裁定的**统一判定原则**（本专项核心产出）
+
+三条原则，供 §9.1 逐条套用（与 §2.3 的"三分"结论一致）：
+
+1. **同名 ≠ 同物 ⇒ 一律不得"看着像就合并"**（CS05）。每条必须给出**形状 / 语义 / 消费方**三列对照，再判「合并 · 各自为事实源 · 一方删除」。
+2. **一个名字只允许一个"规范落点"**；其余必须**改名**（如 `SessionContext` → `MemorySessionContext`）或**收敛为唯一事实源**（其余改为再导出）。
+3. **"规范落点"所在层必须 ≤ 全部消费方的最低层**（§2.2 判据），且**不得违反两条已付代价的硬约束**：① **Windows 大小写不敏感**（D-217/D-222 教训）；② **模块桶出口唯一**（R03-002；含"不在两个桶里导出同名符号"）。
+
+### 9.3 任务分解（U1–U6，逐个可独立交付）
+
+| ID | 任务 | 交付物 | 解锁 |
+|---|---|---|---|
+| U1 | **全员同名普查**：`grep -E "export (interface\|type\|enum\|class) (\w+)"` 交叉比对，产出「名字 → 份数 → 落点 → 消费方层」总表（把 §9.1 升为全量版） | 总表 | 后续全部 |
+| U2 | 裁定 **`Message` 4 份**关系（§2.3 三分 + 第 4 份 `UnifiedMessage`） | 判定表 + 处置 | **B11** |
+| U3 | 裁定 **`Tool` 2 份**（含 `types/tool.ts` 极简版可否并入/删除） | 判定表 + 处置 | E 组 `tools` 3 条 |
+| U4 | 裁定 **`parseContextLimitFromError` 2 份**（定事实源，另一份收敛或改名） | 判定表 + 处置 | **B14** |
+| U5 | 裁定 `SessionContext` / `Context` / `CheckpointStorage` / `Command` 等**低风险项** | 判定表 + 处置 | B14 / 低风险 |
+| U6 | 回填 layer-inversion 台账（B11 / B14 / E 余 3 条）并收口本专项 | 台账更新 | — |
+
+### 9.4 门禁配合（沿用 §3，补两点）
+
+- **R05-013**：处置口径已落 `scripts/lint-architecture.ts#checkTypeCenterDuplicates` 的 JSDoc（2026-10-01）—— **只扫定义、不扫再导出**；**往 `types/` 塞同名定义前必须核同名**。
+- **R02-002**：当前仅 1 条违规（`ToolSearchOutput` ×3）。若 U1 普查出更多同名 ⇒ **应先扩 R02-002 的检测面再动手**（避免"改了却没有门禁覆盖"）。
+
+### 9.5 合规检查清单（评审用，沿用 §7 并补）
+
+- [ ] 每条判定都有**形状 / 语义 / 消费方**三列对照（GR03 证据驱动）
+- [ ] 凡"合并"必须给出**可复核的编译期或运行期证据**，不得仅凭命名相似
+- [ ] 凡"改名"必须**同批**更新全部消费方，并核 `tsconfig` 别名与桶出口
+- [ ] 凡"再导出"必须核 **R05-013（定义）** 与 **R03-002（桶出口唯一）**
+- [ ] **不得新增 `layer-exceptions.json` 例外条目**（与"清空例外"方向一致）

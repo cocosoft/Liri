@@ -90,13 +90,13 @@
 | 子批 | 范围 | 状态 | 已完成 | 剩余 |
 |---|---|---|---:|---:|
 | **A** `tools -> ink`（§3.1） | 47 | ✅ **已完成**（D-174） | 47 | **0** |
-| **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2）· **2026-10-01 三清**：`buddy` 的 UI 面（`CompanionSprite` + `useBuddyNotification`）迁入 `ui/buddy/` ＝ **−2** · `commands/tools/remote/remote-session.ts` 零引用**死文件**删除 ＝ **−1** | **16** | **1**（`commands/builtin/shared/CommandUI.tsx -> ink` —— 其消费方为 ~10+ 个 `commands/builtin/*/XxxUI.tsx`（**均在 app 层**）⇒ 须**整组拆 UI**，见下） |
+| **B** `app -> ui` 其余（§3.2） | 17 | ✅ **已完成（17/17）** 🎯：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2）· **2026-10-01 收口**：`buddy` UI 面外迁 `ui/buddy/` ＝ **−2** · `commands/tools/remote/remote-session.ts` 死文件 ＝ **−1** · **`commands/builtin/**/*UI.tsx` 整棵零引用死码子树（92 文件）删除** ＝ **−1** | **17** | **0** |
 | **C** `infrastructure -> app`（§3.3） | 19 | ✅ **已完成（19/19）** 🎯：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**）· **`session-handlers` ✅（2026-10-01 第 19 条：类型阻断由 B11 解除；值依赖 `dedupeMessagesToolCallBlocks` 下沉 `utils/chatBlocks.ts` ⇒ 边消失，见下）** | **19** | **0** |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
 | **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）；⚠️ 余 3 条**全属**"规范数据模型"类且**硬阻**（`tools` 3 被 `Tool` 双份定义阻塞，见 D-218）⇒ E 组**静态可清部分已清零**，余项待**数据契约专项**收口 | **16** | **2**（`services/mcp/{MCPToolBridge,McpToolWrapper}.ts → tools`；⚠️ 原记 3 条中的 `services/mcp/MCPToolRegistry.ts → tools` 经 2026-10-01 **type-only 口径修正**摘出） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | 🟡 **部分完成**：**`session` 侧 16 条全清** 🎯（B12 ×2 · B13 ×2 · B14 ×1 · B11 ×11）；**`runtime` 侧已清 3 条**（B11 附带 `chat` ×1 · `query` ×1 · `agent` ×1）⇒ **实测余 4 条**：`CoreAPIImpl.ts` × tools / chat / ai / compaction（**均结构性必要**）；另 `CoreAPI.ts` × tools **因 2026-10-01 口径修正转入 type-only 上报**（非治理清零） | **19** | **4**（＋`runtime -> compaction` 属「另计」）；口径修正后实测 `runtime -> *` 共 4 条 |
 
-**门禁总账（实测）**：`已豁免` **151 → 32**（**−125**，**治理口径**；另有 2026-10-01 R00-001 **口径修正 −4** ⇒ 当前实测 **20**，见下方「门禁口径变更记录」）＝ 子批 A 47 + 子批 B **16**（B1 7 · B2 4 · B3 2 · **2026-10-01 −3**：buddy UI 面外迁 −2 · `remote-session` 死文件 −1） + 子批 C **19**（含 2026-10-01 第 19 条 `session-handlers` −1） + 子批 D **6** + 子批 E **16**（D-208/212/213/214/215 六条 + D-216 死代码 3 + D-217 `compact` 改归 app 4 + D-218 死文件 1 + D-219 死 barrel 1 + D-220 去假依赖 1）+ 子批 F **19**（D-222 B12 −2 · B13 −1 · **B14 −1**（`45bf96ed8`）· **B11 本体 −10**（方案 2′ 拍平）· **B11 装配值端口化 −1** · **`runtime -> chat` −1**（B11 同批附带）· **`runtime -> query` −1**（`FileCheckpointStorage` 下沉 `session/storage/`）· **`runtime -> agent` −1**（尾批审计后动态化））+ **门禁正确性修正 6**（D-190，**非本次代码改动所致**），**另计 D-217 新增 1 条 `runtime -> compaction`**。⚠️ 各项为**分账记账**，±1 的归属以各 `D-*` 记录为准。
+**门禁总账（实测）**：`已豁免` **151 → 33**（**−126**，**治理口径**；另有 2026-10-01 R00-001 **口径修正 −4** ⇒ 当前实测 **19**，见下方「门禁口径变更记录」）＝ 子批 A 47 + 子批 B **17**（B1 7 · B2 4 · B3 2 · **2026-10-01 −4**：buddy UI 面外迁 −2 · `remote-session` 死文件 −1 · `commands/**/*UI.tsx` 死码子树 −1） + 子批 C **19**（含 2026-10-01 第 19 条 `session-handlers` −1） + 子批 D **6** + 子批 E **16**（D-208/212/213/214/215 六条 + D-216 死代码 3 + D-217 `compact` 改归 app 4 + D-218 死文件 1 + D-219 死 barrel 1 + D-220 去假依赖 1）+ 子批 F **19**（D-222 B12 −2 · B13 −1 · **B14 −1**（`45bf96ed8`）· **B11 本体 −10**（方案 2′ 拍平）· **B11 装配值端口化 −1** · **`runtime -> chat` −1**（B11 同批附带）· **`runtime -> query` −1**（`FileCheckpointStorage` 下沉 `session/storage/`）· **`runtime -> agent` −1**（尾批审计后动态化））+ **门禁正确性修正 6**（D-190，**非本次代码改动所致**），**另计 D-217 新增 1 条 `runtime -> compaction`**。⚠️ 各项为**分账记账**，±1 的归属以各 `D-*` 记录为准。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -176,10 +176,29 @@
 - `ui/index.ts` 增转出；`cli/ink-cli.tsx` 改经 `@modules/ui`；`eslint.config.js` 的 override 路径与 `app/docs/API.md` 示例同步。
 - **验证**：`typecheck 0` · **`已豁免 23 → 20`（恰 −3）** · `R03-002` **0 违规** · `违规 0` · `type-only 3` / `动态 31` **均不变** · `eslint` **0 errors** / 46 warnings · `bun test tests/session tests/chat tests/http src/ui` = **700 pass / 0 fail**。
 
-**⏳ 子批 B 剩余最后 1 条（`commands/builtin/shared/CommandUI.tsx → ink`）的整组拆方案（未做）**：
-- **取用面**：被 `commands/builtin/{workspace,voice,vim,version,usage,upgrade,memory,debug,tutorial,…}/XxxUI.tsx` 以 `'../shared/CommandUI.js'` 引用（**全在 app 层**）⇒ 属「**commands 的 UI 子面整体挂在 app 层**」的结构问题。
-- **方案**：把 `CommandUI.tsx` ＋ 各 `XxxUI.tsx`（UI 面）**整组**迁入 ui 层（如 `ui/commands/`），commands 侧改为经 ui 桶/注册表取用 —— 需先摸清「谁注册/驱动这些 `XxxUI`」的调用链（可能牵涉 `cli`/`ink`）。
-- **⇒ 建议独立立项**（先做调用链取证）；本批**不顺手做**。
+**⏳〔已被下方「子批 B 收口」取代，保留以存沿革〕原计划的「整组迁入 ui 层」方案**：
+- **当初判断**：`CommandUI.tsx` 被 `commands/builtin/*/XxxUI.tsx` 以 `'../shared/CommandUI.js'` 引用（全在 app 层）⇒ 判为「commands 的 UI 子面整体挂在 app 层」的结构问题，拟整组迁入 ui 层。
+- **⚠️ 该判断已被取证推翻**：这些 UI 文件**外部零引用**（是死码），迁移无意义 ⇒ 改走**删除**（见下）。
+
+**✅ 子批 B 收口（2026-10-01，同日）—— `commands/builtin/**/*UI.tsx` 死码子树删除（92 文件）⇒ 子批 B 17/17 全清** 🎯
+
+**取证（五项独立证据，均指向"外部零引用"）**：
+
+| # | 证据 |
+|---|---|
+| 1 | `commands/builtin/command-registry.ts` 与 `builtin/index.ts` **只加载 `./Xxx.js` 命令实现**，从不引用任何 UI（`UI` / `.tsx` 零命中） |
+| 2 | `WorkspaceUI` / `VoiceUI` / `VimUI` / `UsageUI` 等逐一 grep ⇒ **只有各自定义处**，无消费者 |
+| 3 | 全仓 `from '…UI'` ⇒ **只有这 92 个文件彼此引用**（91 × `'../shared/CommandUI.js'`） |
+| 4 | `resolveCommandExecutor`（`CommandUI.tsx` 的另一导出）⇒ **只在这批 UI 内被调用** |
+| 5 | 无任何**动态 / 模板 / 字符串** wiring（`\$\{…\}UI` · `UI.tsx` 仅命中**无关目录**的注释） |
+
+**⇒ 这是「彼此自洽、但无入口消费」的死码子树** —— 使**原计划（整组迁入 ui 层）被推翻**：迁移只会把死码搬家、迁完仍无消费者。**用户裁定改走「删死码子树」（方案甲，同 D-218/D-219 手法）**。
+
+**处置**：删除 `app/src/commands/builtin/**/*UI.tsx` **92 个文件**（91 个 `XxxUI.tsx` + `shared/CommandUI.tsx`）＋ 清理空目录 `builtin/shared/`。**未改任何存活代码**（无引用点可改）。
+
+**验证**：`typecheck **0**`（**编译期即确认零引用** —— 删除两个导出后无任何编译错误）· **`已豁免 20 → 19`（恰 −1）** · `违规 0` · `R03-002` 0 · 残留 `**/*UI.tsx` glob = **0** · `eslint` **0 errors** / 46 warnings · `bun test tests/commands tests/session tests/chat` = **637 pass / 0 fail**。
+
+**⚠️ 计数说明（如实）**：门禁文件数 **3958 → 3868（−90）**，而删除 92 个 ⇒ **2 个差异未查明**。已交叉核验：当前磁盘 `app/src` 下 `.ts/.tsx` = **3899**，与门禁 **3868 + 31（测试文件排除）** **完全吻合** ⇒ **门禁计数当前自洽**；差异出现在两次历史读数之间，**不影响任何结论**（残留 0 / typecheck 0 / 测试 0 fail 均已独立验证）。
 
 **✅ 已完成（2026-10-01 D-200）**：`sandbox` 域**值类 2 条**（`handler-utils.ts` · `sandbox-handlers.ts`）—— 详见 §3.3 ② 的 D-200 记录 ⇒ **`已豁免 77 → 75`**（恰 −2）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0 · `bun test tests/http tests/sandbox` = **147 pass / 0 fail**。
 

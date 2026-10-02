@@ -2986,15 +2986,18 @@ export class ReActToolLoop extends ReActLoop<
         // 诊断日志（**只加日志，不改文案** —— 文案受"流式补发与落库逐字一致"回归守卫）。
         const blocks = this.loopState.assistantMessage?.blocks ?? [];
         const blockTypes = Array.from(new Set(blocks.map((b) => b.type)));
-        logger.warn('reactToolLoop:emptyOutputFallback（本轮无可见回复，已落兜底文案）', {
-          finishReason,
-          reason,
-          concurrentReasons,
-          blockTypes,
-          /** 只产出了思考、没有正文 —— 空回复的一个具体可诊断形态 */
-          reasoningOnly:
-            blockTypes.includes('thinking') && !blockTypes.includes('text'),
-        });
+        logger.warn(
+          'reactToolLoop:emptyOutputFallback（本轮无可见回复，已落兜底文案）',
+          {
+            finishReason,
+            reason,
+            concurrentReasons,
+            blockTypes,
+            /** 只产出了思考、没有正文 —— 空回复的一个具体可诊断形态 */
+            reasoningOnly:
+              blockTypes.includes('thinking') && !blockTypes.includes('text'),
+          }
+        );
       }
     }
 

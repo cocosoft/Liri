@@ -494,3 +494,21 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 **⇒ `ProtocolMessage`（#2 `core/types.ts`）单独立项**：它是**协议层消息契约**，被 providers 广泛使用（且 `R05-011` 已列 knownException），**不与本批 5 份混做** ⇒ 需单独：① 全量消费者普查；② 评估改名 vs 保留例外；③ 与 `ai` 协议适配层一并考虑。
 
 ⏳ **执行状态**：**待执行**（本步完成面清点与顺序；无代码改动）。
+
+#### 🔎 #1/#3/#6 的 barrel 核验结果（2026-10-01）
+
+| # | 文件 | Barrel 逃逸？ | 证据 |
+|---|---|---|---|
+| **#3** `chat/types/ToolUseBlock.ts` | ✅ **不逃逸** | `chat/types/index.ts` **未转出** `./ToolUseBlock`（其 grep 仅命中 `./message` 的 `Message` 与 `MessageRole/Type/Status/Priority`）⇒ 消费方一律走 `@modules/chat/types/ToolUseBlock` **直接子路径**（`chat/index.ts:99` · `tools/orchestration/*` ×3 均如此）⇒ **前景最安全** |
+| **#1** `agent/TitleGenerator.ts` | ⚠️ **逃逸** | `agent/index.ts:252` = **`export * from './TitleGenerator.js';`** ⇒ `Message` 随星号转出 ⇒ 外部可 `import { Message } from '@modules/agent'` ⇒ **按路径 grep 不可见** ⇒ 改名**前置**：按 `@modules/agent` 扫 `Message` 引用 |
+| **#6** `ui/components/Messages.tsx` | ⚠️ **逃逸** | `ui/components/index.ts:39` = **`export type { Message, MessagesProps } from './Messages';`**（**显式**再导出）⇒ 外部可 `import type { Message } from '@modules/ui/components'` ⇒ 改名**前置**：按该桶扫 `Message` 引用 |
+
+**⇒ 顺序修订**：**#3 先做**（无 barrel 逃逸、零已知消费者 ⇒ 预计 1 处定义 + 可能 0 消费者）；**#1/#6 需先按桶名扫消费者**（各 1 次 grep）后再定范围。
+
+#### ✅ 进度（U2 执行）
+
+- ✅ **#7** `subagent/SubAgentCommunicator.ts` → `SubAgentMessage`（`f440c535a`；3 文件）
+- ✅ **#5** `compaction/ContextEngine.ts` → `ContextEngineMessage`（`11ef62824`；4 文件；收敛 R05-011 例外 1 条）
+- ⏳ **#3** 待执行（最安全）· **#1/#6** 待扫桶消费者 · **#2** (ProtocolMessage) 单独立项
+
+⏳ **执行状态**：**待执行**（本步只完成 barrel 核验与顺序修订）。

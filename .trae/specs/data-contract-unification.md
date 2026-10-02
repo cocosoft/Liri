@@ -429,3 +429,24 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 5. **🆕 附带发现（仍待处置）**：`PermissionMode` **亦两份**（`tools/types/PermissionContext.ts:9` 本地 `type PermissionMode = 'default'|'auto'|'strict'|'bypass'` vs `permission/PermissionMode.ts`）⇒ 收敛前需核**值域是否同源**，且须解决 `@modules/permission/...` 子路径导入的 R03-002 口径 ⇒ **单列，未随本批处置**。
 
 **✅ 簇收口状态（2026-10-01）**：`ToolPermissionContext` 的 **5 份已全部消名** —— #1 保留（权限域事实源）· #2 → `ToolRuntimePermissionContext` · #3 → `RuleMatcherPermissionContext` · #4 → `StateToolPermissionContext` · #5 → `AppStateToolPermissionContext`。**验证（#3/#4 批）**：`typecheck 0` · `已豁免 43`（不变）· 类型中心冲突 **0** · 错误 0 警告 3（预存）· 改动文件 eslint 0/0 · `bun test src/permission tests/permission tests/security` = **97 pass / 1 skip / 0 fail**。
+
+---
+
+### 9.9 🟡 U5：`SessionContext` 同名簇（3 份 / 3 模块）—— 取证与裁定（2026-10-01）
+
+**判定表（三份字段完全不同 ⇒ 全员"同名不同物"）**：
+
+| # | 落点 | 形状 | 消费方 |
+|---|---|---|---|
+| **A** | `context/types/Context.ts:10` | `extends Context { type:'session'; sessionId; userId?; agentName?; channelType? }` —— **AsyncLocalStorage 注入的会话运行时上下文** | `session/SessionGateway`（导入 + 构造）· `context/ContextFactory` · `context/AsyncContextStorage`；⚠️ **`context/types/SessionContext.ts:8` 已**是它的再导出 shim（原文注明「R07-P1 归并：原此处独立定义…」） |
+| **B** | `memory/types/SessionContext.ts:5` | `{ sessionId; turnCount; duration; startedAt; tags?; recentTopics?; projectId? }` —— **记忆检索专用**（用于检索权重调整） | **6 文件**：`services/prompt/PromptAssembler` · `services/prompt/MemoryPromptProvider` · `memory/services/MemorySummarizer` · `chat/ChatManager` · `chat/services/MessageContextPipeline` · `memory/index.ts`（barrel） |
+| **C** | `security/SecurityAudit.ts:135` | `{ sessionId; taskDescription; currentMode: 'auto'\|'normal'\|'allow_all'\|'deny_all' }` —— **命令执行 / 审计专用** | 同文件内 2 处（294/628） |
+
+**⇒ 裁定（按 §9.2 原则 2「一名一规范落点」）**：
+
+1. **A 保留 `SessionContext`** —— 理由两条：① 语义最通用（"会话**运行时**上下文"）；② **仓内已把它当 context 域规范名**（`context/types/SessionContext.ts` 已是它的再导出 shim，且注明 R07-P1 归并结论）。
+2. **B → 改名 `MemorySessionContext`**（记忆检索语义；⚠️ 工作量集中在此 —— **6 文件**）。
+3. **C → 改名 `SecuritySessionContext`**（审计语义；⚠️ **不能**用 `AuditSessionContext` —— 该名已被 `security/SecurityAuditLogger.ts:25` 占用，是另一概念）。
+4. ⚠️ `security/SecurityAuditLogger.ts` 的 `AuditSessionContext` 与 `security/index.ts` 的转出**本已区分**，不在本簇内（佐证"按角色命名"是该仓既有做法）。
+
+⏳ **执行状态**：**待执行**（B 为 6 文件机械改名；C 为 3 处）。

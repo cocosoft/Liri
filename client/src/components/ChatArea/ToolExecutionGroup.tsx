@@ -9,6 +9,7 @@ import {
   getToolHumanSummary,
 } from "../../utils/toolHumanSummary";
 import GroupStatusLine from "./GroupStatusLine";
+import { getToolResultFull } from "../../stores/chat/chat-message-shared";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:toolExecutionGroup");
@@ -114,26 +115,41 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     return "";
   }, [blocks]);
 
-  /** 从失败的工具调用中提取错误信息 */
+  /**
+   * 从失败的工具调用中提取错误信息。
+   *
+   * T-⑥04（2026-10-02）：原实现只读 `block.toolCall.result`，但历史加载路径
+   * 刻意不把结果内联进 block（`chat-message-set-messages.ts` 只写入 LRU 缓存，
+   * 见 `ToolCall._hasFullResult` 注释），导致回放会话里失败工具卡只剩
+   * "状态图标 + 工具名"（导出件中的 `❌ 文件搜索`）。改为按既有契约逐级取数：
+   * ① 结构化 `ToolCall.error` → ② block 内联 result → ③ 结果缓存。
+   */
   const errorMessage = useMemo(() => {
     for (const block of blocks) {
+      if (block.type !== "tool_call" || !block.toolCall) continue;
+      const toolCall = block.toolCall;
+      if (toolCall.status !== "failed") continue;
+
+      if (toolCall.error) {
+        return toolCall.error.slice(0, 100);
+      }
+
+      const result = toolCall.result;
       if (
-        block.type === "tool_call" &&
-        block.toolCall?.status === "failed" &&
-        block.toolCall?.result
+        result &&
+        typeof result === "object" &&
+        "error" in (result as Record<string, unknown>)
       ) {
-        const result = block.toolCall.result;
-        if (
-          result &&
-          typeof result === "object" &&
-          "error" in (result as Record<string, unknown>)
-        ) {
-          const err = (result as Record<string, unknown>).error;
-          return String(err).slice(0, 100);
-        }
-        if (typeof result === "string") {
-          return result.slice(0, 100);
-        }
+        const err = (result as Record<string, unknown>).error;
+        return String(err).slice(0, 100);
+      }
+      if (typeof result === "string" && result) {
+        return result.slice(0, 100);
+      }
+
+      const cached = getToolResultFull(toolCall.id);
+      if (cached) {
+        return cached.slice(0, 100);
       }
     }
     return null;

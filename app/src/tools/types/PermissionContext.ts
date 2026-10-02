@@ -6,7 +6,7 @@
 /**
  * 权限模式类型
  */
-export type PermissionMode = 'default' | 'auto' | 'strict' | 'bypass';
+export type ToolPermissionMode = 'default' | 'auto' | 'strict' | 'bypass';
 
 /**
  * 额外工作目录类型
@@ -39,7 +39,7 @@ export interface ToolRuntimePermissionContext {
   /**
    * 权限模式
    */
-  mode: PermissionMode;
+  mode: ToolPermissionMode;
 
   /**
    * 额外工作目录
@@ -89,7 +89,7 @@ export interface ToolRuntimePermissionContext {
   /**
    * 计划模式前的权限模式
    */
-  prePlanMode?: PermissionMode;
+  prePlanMode?: ToolPermissionMode;
 }
 
 /**

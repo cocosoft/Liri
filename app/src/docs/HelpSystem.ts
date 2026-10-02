@@ -43,7 +43,7 @@ export enum ContextType {
 /**
  * 上下文接口
  */
-export interface Context {
+export interface HelpContext {
   type: ContextType;
   name?: string;
   args?: Record<string, unknown>;
@@ -1024,7 +1024,7 @@ ${this.getReleaseNotesContent()}
    * @param context 上下文信息
    * @returns 帮助内容
    */
-  getContextHelp(context: Partial<Context>): string {
+  getContextHelp(context: Partial<HelpContext>): string {
     const matchingHelp = contextHelp.findMatchingHelp({
       command: context.currentCommand,
       tool: context.currentTool,
@@ -1045,7 +1045,7 @@ ${this.getReleaseNotesContent()}
    * 显示上下文相关的帮助
    * @param context 上下文信息
    */
-  showContextHelp(context: Partial<Context>): void {
+  showContextHelp(context: Partial<HelpContext>): void {
     const helpContent = this.getContextHelp(context);
     console.log(helpContent);
   }
@@ -1069,7 +1069,7 @@ ${this.getReleaseNotesContent()}
    * @param context 上下文信息
    * @returns 建议操作列表
    */
-  getContextSuggestedActions(context: Partial<Context>): string[] {
+  getContextSuggestedActions(context: Partial<HelpContext>): string[] {
     const matchingHelp = contextHelp.findMatchingHelp({
       command: context.currentCommand,
       tool: context.currentTool,

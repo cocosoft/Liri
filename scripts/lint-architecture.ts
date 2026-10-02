@@ -1412,7 +1412,29 @@ class ArchitectureLinter {
     );
   }
 
-  /** R05-013: 类型中心重复定义检测 — 检查模块本地类型是否已在 src/types/ 中定义 */
+  /**
+   * R05-013: 类型中心重复定义检测 —— 检查模块本地类型是否已在 `src/types/` 中定义。
+   *
+   * ── 处置口径（2026-10-01 台账 D-222，用户裁定）──
+   * **冲突判据**：`src/types/**` 中的**定义**（`export interface|type|class`，见下方 Step 1）
+   * 与**任一模块本地定义**同名 ⇒ 冲突。
+   * ⚠️ **再导出（shim / 桶转发）不计入** —— 本函数只扫**定义**、不扫 `export … from` ⇒
+   * `export * from '@modules/…'` 形式的**原址转出**是合法手法（与 D-207 `EffectScope`、
+   * D-212 `TiktokenEstimator` 一致）。
+   *
+   * **故任何"改归 / 下沉"动作遵守三条**：
+   * ① **往 `types/` 新增或迁移类型前必须核同名**：
+   *    `grep -E "export (interface|type|class) (新名1|新名2|…)" app/src`
+   * ② 命中同名 ⇒ **不得落 `types/`**：改落**非类型中心目录**（如 `utils/`，infra），
+   *    或按 `knownExceptions` 登记并注明语义差异 —— **优先前者**（避免例外清单膨胀，与"清空例外"方向一致）。
+   * ③ **值（类/函数/常量）与类型都可原址转出**（shim 不定义 ⇒ 不触发本规则）；
+   *    真正受限的只有"**往类型中心塞同名定义**"这一件事。
+   *
+   * **反面案例（D-222 B14，已回滚）**：`context/types/Context.ts`（定义 `Context` / `SessionContext` 等
+   * 5 个 interface）下沉 `types/` ⇒ 与 `docs/HelpSystem.ts#Context`、`memory/types/SessionContext.ts#SessionContext`、
+   * `security/SecurityAudit.ts#SessionContext` 同名 ⇒ `[类型中心冲突] 3 处（2 名）`。
+   * **该文件应落 `utils/`（非类型中心）而非 `types/`。**
+   */
   async checkTypeCenterDuplicates(): Promise<void> {
     // Step 1: 收集类型中心已定义的所有公开类型名
     const typeCenterTypes = new Set<string>();

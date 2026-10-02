@@ -92,7 +92,7 @@ chatCoordinator().setMessages(messages);
 
 **任何进入模型请求的内容，都必须能从事件日志（`events.jsonl`）重建。新增"模型可见输入"必须同批新增一个 session 事件。**
 
-- **事实源**：`app/src/session/types/chat/events.ts` 的 `LiriEventType`（类型联合）与 `LiriEventMap`（载荷）；读取/写入校验在 `app/src/session/types/chat/knownEventTypes.ts`。（2026-10-01 B11 本体：原 `app/src/chat/types/` **整目录迁入** `app/src/session/types/chat/`）
+- **事实源**：`app/src/session/types/events.ts` 的 `LiriEventType`（类型联合）与 `LiriEventMap`（载荷）；读取/写入校验在 `app/src/session/types/knownEventTypes.ts`。（2026-10-01 B11 本体：原 `app/src/chat/types/` 整目录迁入 `app/src/session/types/`，**拍平**；见 [layer-inversion-service-app-app-ui.md](../specs/layer-inversion-service-app-app-ui.md) 的 B11 执行记录）
 - **三处必须同批同步**（现由**编译期**强制，不依赖人工记得）：
   1. `LiriEventType` 联合；
   2. `LiriEventMap` 载荷 —— 由 `LiriEvent<T>.data: LiriEventMap[T]` 的泛型索引强制；

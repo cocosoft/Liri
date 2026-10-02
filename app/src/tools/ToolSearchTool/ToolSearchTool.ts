@@ -11,25 +11,12 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import type { ToolCallProgress } from '../types/Tool';
 import { isDeferredTool, TOOL_SEARCH_TOOL_NAME } from '../utils/toolSearch';
 import { ToolSearchOutputSchema } from './schemas';
-import type { ToolSearchOutput } from './schemas';
+// 2026-10-01：`ToolSearchInput` / `ToolSearchOutput` 的**唯一事实源**为 `./schemas.ts`（zod 推导；
+// 字段与本文件原手写 interface/type 一致，`ToolSearchInput` 的 zod 版另含 min/max 约束）
+// ⇒ 此处**仅非导出引用**，不再重复定义（依 §9.2「一个名字一个规范落点」）。
+import type { ToolSearchInput, ToolSearchOutput } from './schemas';
 import { getToolRegistry } from '../ToolRegistry';
 import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
-
-/**
- * 工具搜索输入
- */
-export interface ToolSearchInput {
-  /**
-   * 搜索查询
-   * 使用 "select:<tool_name>" 进行直接选择，或使用关键词搜索
-   */
-  query: string;
-
-  /**
-   * 最大返回结果数（默认：5）
-   */
-  max_results?: number;
-}
 
 /**
  * 解析工具名称为可搜索部分

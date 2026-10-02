@@ -6,7 +6,11 @@
 import React, { useRef, useEffect } from 'react';
 import { MessageBubble, MessageBubbleProps } from './MessageBubble';
 
-export interface Message {
+/**
+ * UI 渲染用消息（2026-10-01 数据契约专项 U2 #6：原名 `Message`，
+ * 与规范来源 `chat/types/message.ts` 同名不同物（本版用 `sender` 而非 `role`）⇒ 依 §9.2 原则 2 改名 `UIMessage`）
+ */
+export interface UIMessage {
   id: string;
   content: string;
   sender: 'user' | 'assistant' | 'system';
@@ -27,7 +31,7 @@ export interface Message {
 }
 
 export interface MessagesProps {
-  messages: Message[];
+  messages: UIMessage[];
   isLoading?: boolean;
 }
 
@@ -40,7 +44,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, isLoading }) => {
     }
   }, [messages]);
 
-  const renderMessage = (message: Message) => {
+  const renderMessage = (message: UIMessage) => {
     const bubbleProps: MessageBubbleProps = {
       content: message.content,
       sender: message.sender,

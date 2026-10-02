@@ -32,9 +32,10 @@ export type TitleGenerationCallback = (
 ) => void;
 
 /**
- * 对话消息接口
+ * 标题生成用的极简消息（2026-10-01 数据契约专项 U2 #1：原名 `Message`，
+ * 与规范来源 `chat/types/message.ts` 同名不同物 ⇒ 依 §9.2 原则 2 改名 `TitleGenMessage`）
  */
-export interface Message {
+export interface TitleGenMessage {
   role: string;
   content: string;
 }
@@ -54,7 +55,7 @@ export class TitleGenerator {
    * @returns 标题文本或 null
    */
   async generateTitle(
-    messages: Message[],
+    messages: TitleGenMessage[],
     callLLM: (
       messages: Array<{ role: string; content: string }>
     ) => Promise<string | null>
@@ -79,7 +80,7 @@ export class TitleGenerator {
    * 生成对话标题（实现体）
    */
   async generateTitle(
-    userMessageOrMessages: string | Message[],
+    userMessageOrMessages: string | TitleGenMessage[],
     assistantResponseOrCallLLM:
       | string
       | ((
@@ -141,7 +142,7 @@ export class TitleGenerator {
    */
   async generateTitleAsync(
     sessionId: string,
-    messages: Message[],
+    messages: TitleGenMessage[],
     callLLM: (
       messages: Array<{ role: string; content: string }>
     ) => Promise<string | null>,
@@ -176,7 +177,7 @@ export class TitleGenerator {
    */
   async generateTitleAsync(
     sessionId: string,
-    userMessageOrMessages: string | Message[],
+    userMessageOrMessages: string | TitleGenMessage[],
     assistantResponseOrCallLLM:
       | string
       | ((

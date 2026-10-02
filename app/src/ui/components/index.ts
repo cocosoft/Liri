@@ -36,7 +36,7 @@ export { Button } from './Button';
 export { Tabs } from './Tabs';
 
 export type { MessageBubbleProps } from './MessageBubble';
-export type { Message, MessagesProps } from './Messages';
+export type { UIMessage, MessagesProps } from './Messages';
 export type {
   InputProps,
   ButtonProps,

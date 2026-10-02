@@ -26,7 +26,7 @@ import { contextRegistry, type ContextTypeOptions } from './ContextRegistry';
 import {
   AsyncContextStorage,
   asyncContextStorage,
-} from './AsyncContextStorage';
+} from '@modules/utils/AsyncContextStorage';
 import { ContextIsolator, contextIsolator } from './ContextIsolator';
 import {
   ContextSharingManager,

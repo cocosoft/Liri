@@ -110,7 +110,7 @@ export {
   type ContextualFragment,
   type FragmentKind,
 } from './fragments/ContextualFragment';
-export { asyncContextStorage } from './AsyncContextStorage';
+export { asyncContextStorage } from '@modules/utils/AsyncContextStorage';
 
 // 2026-08-31 A1：发送前消息投影（对标 PilotDeck MessageProjector）
 export {

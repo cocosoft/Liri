@@ -1,5 +1,8 @@
 import { AsyncLocalStorage } from 'async_hooks';
-import type { Context, SessionContext } from './types/Context';
+// 2026-10-01 B14 B′ 步：本文件由 `context/AsyncContextStorage.ts` 迁入 `utils/`(infra)。
+// 类型依赖随之改为类型中心（core）—— A′ 步已把 Context 家族下沉 `src/types/context.ts`
+// ⇒ 此处为 `infra -> core`（合法），不再构成 `infra -> context`(app) 倒挂。
+import type { Context, SessionContext } from '../types/context';
 
 export class AsyncContextStorage {
   private storage = new AsyncLocalStorage<Record<string, Context>>();

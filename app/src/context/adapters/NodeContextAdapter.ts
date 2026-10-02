@@ -1,4 +1,4 @@
-import { asyncContextStorage } from '../AsyncContextStorage';
+import { asyncContextStorage } from '@modules/utils/AsyncContextStorage';
 import type { Context } from '../types/Context';
 
 export class NodeContextAdapter {

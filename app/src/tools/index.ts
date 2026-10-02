@@ -210,6 +210,7 @@ export {
   persistToolResult,
   SINGLE_RESULT_LIMIT_CHARS,
   TURN_BUDGET_CHARS,
+  shrinkToolResultMessageForPersistence,
 } from './services/ToolResultPersister';
 
 // ⚠️ 2026-09-29（D-15 顺带）：原此处 `export * from './guardrails'` 已移除 ——

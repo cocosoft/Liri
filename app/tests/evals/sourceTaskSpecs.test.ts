@@ -20,7 +20,12 @@
 // SOFTWARE.
 
 /**
- * A7：已登记**任务源规格**的防漂移守卫（10 条）。
+ * A7：已登记**任务源规格**的防漂移守卫（12 条）。
+ *
+ * 计数沿革：第二批 10 条 + 第三批 3 条 = 13 条；2026-10-02（D-237）**废弃 1 条**
+ * `src-dedupe-tool-call-blocks` —— 其源文件 `chatBlocks.ts` 经分层治理下沉至 `app/src/utils/`，
+ * 已落在 `DEFAULT_SOURCE_DIRS`（`app/src/{chat,query,tools}`）之外 ⇒ 规格前提消失（详见 spec
+ * `pending` 记录与 `dev_docs/error_repairs/预存错误与待处理问题.md` D-237）。
  *
  * 为什么需要：规格里写的是**仓库内文件路径 + 导出名**，一旦源文件被移动/改名/加运行时 import，
  * 流水线会在下次干跑时 `rejected`——但那只在"有人手动跑 CLI"时才暴露。本用例把同一批约束
@@ -42,9 +47,9 @@ import { sourceTaskSpecs } from '../../src/evals/tasks/source-derived';
 
 const repoRoot = resolveEvalRepoRoot();
 
-describe('A7 任务源规格（13 条）：结构与资格线防漂移', () => {
-  test('规格数量与唯一 id（第二批 10 条 + 第三批 3 条补区分度）', () => {
-    expect(sourceTaskSpecs.length).toBe(13);
+describe('A7 任务源规格（12 条）：结构与资格线防漂移', () => {
+  test('规格数量与唯一 id（第二批 10 条 + 第三批 3 条 − 已废弃 1 条 = 12 条）', () => {
+    expect(sourceTaskSpecs.length).toBe(12);
     const ids = sourceTaskSpecs.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

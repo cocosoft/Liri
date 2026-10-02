@@ -18,6 +18,7 @@ import type { ChatMessage } from '../models/types';
 import { getTiktokenCount } from './TiktokenEstimator';
 import { getCachedTiktokenEncoder } from './TiktokenEstimator';
 import { getLogger } from '@modules/monitoring';
+import { TOOL_RESULT_MAX_LENGTH } from '@modules/utils/toolResultLimits';
 
 const logger = getLogger('ai:tokenizer');
 
@@ -88,22 +89,47 @@ function tokenOfMessage(
   const overhead = ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
   let per = overhead;
   if (typeof msg.content === 'string') {
+    // 戊（D-234）：与请求侧同口径（工具结果超长则按上限取样），避免对 14MB 原文做 BPE
+    const text = contentForEstimate(msg, msg.content);
     if (encoder) {
       try {
-        const result = encoder.encode(msg.content);
+        const result = encoder.encode(text);
         per += Array.isArray(result) ? result.length : result.length;
       } catch {
         // 编码失败时回退到启发式
-        per += estimateTokens(msg.content);
+        per += estimateTokens(text);
       }
     } else {
-      per += estimateTokens(msg.content);
+      per += estimateTokens(text);
     }
   } else if (msg.content) {
     per += estimateTokens(JSON.stringify(msg.content));
   }
   if (cacheable) storeMessageTokens(msg as object, per);
   return per;
+}
+
+/**
+ * 戊（2026-10-02 / D-234）：**估算必须与「实际发送内容」同口径**。
+ *
+ * 请求侧对工具结果调用 `truncateToolResult()`（上限 `TOOL_RESULT_MAX_LENGTH`，保留头 500 字符
+ * + 尾 `上限-500` 字符）；但历史里持久化的是**未截断原文**（实测单条 `tool_result` ≈14MB，
+ * 会话 30.43MB / 2380 行）。若估算按原文计入 ⇒ 口径不一致：成本被无意义放大
+ * （实测单次 pre-eval 阻塞 70.4s、水位虚高至 7559%）。
+ * ⇒ 对「工具结果且超长」的消息按同一上限**取样后**再编码（切片极廉价，避免对 14MB 做 BPE）。
+ * **非工具结果消息不受影响**（保持原口径）。
+ */
+function contentForEstimate(
+  msg: { role?: string; content?: string | unknown },
+  content: string
+): string {
+  if (content.length <= TOOL_RESULT_MAX_LENGTH) return content;
+  const m = msg as { type?: string; role?: string };
+  const isToolResult = m.type === 'tool_result' || m.role === 'tool';
+  if (!isToolResult) return content;
+  const headLen = 500;
+  const tailLen = TOOL_RESULT_MAX_LENGTH - headLen;
+  return content.slice(0, headLen) + content.slice(content.length - tailLen);
 }
 
 /**
@@ -189,12 +215,14 @@ export function estimateMessagesTokens(
         ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
       let per = overhead;
       if (typeof msg.content === 'string') {
+        // 戊（D-234）：与请求侧同口径（工具结果超长则按上限取样）
+        const text = contentForEstimate(msg, msg.content);
         try {
-          const result = encoder.encode(msg.content);
+          const result = encoder.encode(text);
           per += Array.isArray(result) ? result.length : result.length;
         } catch {
           // 编码失败时回退到启发式
-          per += estimateTokens(msg.content);
+          per += estimateTokens(text);
         }
       } else if (msg.content) {
         per += estimateTokens(JSON.stringify(msg.content));

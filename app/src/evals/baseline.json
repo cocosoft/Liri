@@ -35,7 +35,6 @@
     "src-compute-unified-diff": { "requirePassK": false, "minPass1": 0.25 },
     "src-extract-command-info": { "requirePassK": false, "minPass1": 0.75 },
     "src-format-agent-timing": { "requirePassK": false, "minPass1": 0.75 },
-    "src-dedupe-tool-call-blocks": { "requirePassK": false, "minPass1": 0.75 },
     "fix-254b4776": { "requirePassK": false, "minPass1": 0.75 },
     "fix-04a0102e": { "requirePassK": false, "minPass1": 0.75 },
     "fix-d00dced1": { "requirePassK": false, "minPass1": 0.75 },

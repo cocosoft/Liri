@@ -29,9 +29,11 @@
  * （含其直接父目录）的调用，并做 fail-closed 校验（见 [`pathShield.ts`](../../tools/pathShield.ts)、
  * [`shieldPlan.ts`](../shieldPlan.ts)）。
  *
- * ⬆️ **规格数量：13 条**（第二批 2026-09-26：方案要求"先人工挑 10 条跑通流水线"；
+ * ⬆️ **规格数量：12 条**（第二批 2026-09-26：方案要求"先人工挑 10 条跑通流水线"；
  * 第三批同日 **+3 条**：为**补区分度**按上一条口径新选 —— 合并/组合语义、精确格式化契约、
- * 输入解析边界，均为**逻辑复杂但签名可机械提取**的纯函数）。
+ * 输入解析边界，均为**逻辑复杂但签名可机械提取**的纯函数；
+ * 2026-10-02（D-237）**废弃 1 条** `src-dedupe-tool-call-blocks` —— 其源文件 `chatBlocks.ts`
+ * 经分层治理下沉至 `app/src/utils/`，已落在 `DEFAULT_SOURCE_DIRS` 之外 ⇒ 规格前提消失）。
  * 选取口径（与流水线资格线一致）：**零运行时 import**、`export function` 形式（桩由签名机械生成）、
  * 参数与返回值**可由 JSON 表达**（执行器内联 JSON 字面量，且 `Set`/`Map` 序列化后无区分度 ⇒ 排除）、
  * 单条用例**输入必须小**（启动器命令行上限 28k 字符 ⇒ 排除需要超大输入才触发的分支，如 30k 字符截断）。
@@ -454,112 +456,6 @@ export const sourceTaskSpecs: SourceTaskSpec[] = [
       { name: 'exactly-one-minute', args: [60000] },
       { name: 'minute-plus-fraction', args: [90500] },
       { name: 'no-carry', args: [119700] },
-    ],
-  },
-
-  {
-    id: 'src-dedupe-tool-call-blocks',
-    name: 'A7 派生：合并去重同一次工具调用的重复块',
-    sourcePath: 'app/src/chat/utils/chatBlocks.ts',
-    exportName: 'dedupeToolCallBlocks',
-    behavior: [
-      '输入 blocks 数组（元素为普通对象），返回合并后的数组。',
-      '**只处理** `type === "tool_call"` 的块：其调用 id 取 `toolCallId` 字段，取不到时回退到 `toolCall.id`；' +
-        '两处都取不到（空串）⇒ 该块**原样保留、不参与合并**。',
-      '非 `tool_call` 块一律**原样保留**且位置不变。',
-      '同一调用 id 的多个块合并为**一个**，输出在**该 id 首次出现的位置**；同一 id 只输出一次（后续重复块不再出现）。',
-      '合并规则：块的外层字段取**首个**块；`toolCall` 对象内的字段**后到者覆盖**先到者，' +
-        '**唯一例外是 `arguments`** —— 必须**保留第一个非空的 arguments**（后到的空 arguments 不得覆盖它）。',
-      '「非空 arguments」指该值是对象且至少有一个键；前后都不是非空时，合并结果的 `arguments` 取后到块的值' +
-        '（可能为 `null` 或不出现）。',
-      '没有任何 id 出现两次 ⇒ 返回的数组内容与输入一致，且**不增添/删除任何字段**。',
-    ],
-    cases: [
-      {
-        name: 'duplicate-start-then-end',
-        args: [
-          [
-            {
-              type: 'tool_call',
-              toolCallId: 'a',
-              toolCall: {
-                id: 'a',
-                name: 'file_read',
-                arguments: { path: 'x' },
-              },
-            },
-            { type: 'text', text: 'hi' },
-            {
-              type: 'tool_call',
-              toolCallId: 'a',
-              toolCall: {
-                id: 'a',
-                status: 'completed',
-                result: 'ok',
-                arguments: {},
-              },
-            },
-          ],
-        ],
-      },
-      {
-        name: 'no-duplicate-unchanged',
-        args: [
-          [
-            {
-              type: 'tool_call',
-              toolCallId: 'b',
-              toolCall: { id: 'b', arguments: { path: 'y' } },
-            },
-            { type: 'text', text: 'z' },
-          ],
-        ],
-      },
-      {
-        name: 'nested-id-fallback',
-        args: [
-          [
-            { type: 'tool_call', toolCall: { id: 'c', arguments: { q: 1 } } },
-            {
-              type: 'tool_call',
-              toolCallId: 'c',
-              toolCall: { id: 'c', status: 'failed' },
-            },
-          ],
-        ],
-      },
-      {
-        name: 'third-occurrence-keeps-first-args',
-        args: [
-          [
-            {
-              type: 'tool_call',
-              toolCallId: 'd',
-              toolCall: { id: 'd', arguments: { n: 1 } },
-            },
-            {
-              type: 'tool_call',
-              toolCallId: 'd',
-              toolCall: { id: 'd', arguments: { n: 2 } },
-            },
-            {
-              type: 'tool_call',
-              toolCallId: 'd',
-              toolCall: { id: 'd', status: 'completed' },
-            },
-          ],
-        ],
-      },
-      {
-        name: 'missing-id-kept',
-        args: [
-          [
-            { type: 'tool_call', toolCall: {} },
-            { type: 'tool_call', toolCallId: '', toolCall: { id: '' } },
-          ],
-        ],
-      },
-      { name: 'empty', args: [[]] },
     ],
   },
 ];

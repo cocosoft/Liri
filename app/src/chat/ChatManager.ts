@@ -230,6 +230,8 @@ import {
 } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
+import { shrinkToolResultMessageForPersistence } from '@modules/tools';
+import { SINGLE_RESULT_LIMIT_CHARS } from '@modules/tools';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -1500,6 +1502,25 @@ export class ChatManagerImpl implements ChatManager {
           blockTypes: blockTypes.filter(Boolean),
         });
         return;
+      }
+    }
+    // T2 / D-236（2026-10-02）：**持久化侧同口径改写**（spec `.trae/specs/tool-result-persistence-limit.md` §3.1）。
+    // 此前限额只在上下文侧生效、持久化存原文 ⇒ 样本会话 `messages.jsonl` 30.43MB（单条 ≈14MB）；
+    // 此处复用 `ToolResultPersister` 的**同一阈值与同一文案**（阈值经 `SINGLE_RESULT_LIMIT_CHARS` 单一事实源），
+    // 使磁盘与上下文一致，全量仍可在 `tool-results/{toolCallId}.txt` 回读。
+    // 注：`Message.type` 为 `MessageType`（成员名与持久化字符串不同）⇒ **不做类型比较**，
+    // 由 `shrinkToolResultMessageForPersistence` 按内容结构判定（非 tool_result 内容原样返回，≤ 阈值零开销）。
+    if (
+      typeof message.content === 'string' &&
+      message.content.length > SINGLE_RESULT_LIMIT_CHARS
+    ) {
+      const shrunk = await shrinkToolResultMessageForPersistence({
+        id: message.id,
+        content: message.content,
+        metadata: message.metadata,
+      });
+      if (shrunk.changed && typeof shrunk.content === 'string') {
+        message.content = shrunk.content;
       }
     }
     const session = this._chatSessions.get(sessionId);

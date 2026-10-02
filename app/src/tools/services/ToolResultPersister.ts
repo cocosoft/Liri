@@ -33,6 +33,69 @@ export function buildPathRefNotice(path: string): string {
   return `\n\n[工具结果超出上下文预算，完整内容已保存到 ${path}；如需查看可用 read_file 工具读取该路径]`;
 }
 
+/** 引用文案特征（幂等判定：已改写过的内容不再处理） */
+const PATH_REF_MARKER = '[工具结果超出上下文预算';
+
+/**
+ * T2 / D-236（2026-10-02）：**持久化侧同口径改写**（spec `.trae/specs/tool-result-persistence-limit.md` §3.1）。
+ *
+ * 背景（实测）：限额此前**只在上下文侧**生效，而持久化用的是**改写前的对象** —— 样本会话
+ * `messages.jsonl` 达 30.43MB（单条 `tool_result` ≈14MB），而同一 `toolCallId` 的全量已落盘
+ * （spec §1.3 判定为 (a) 顺序/对象问题，非旁路）。
+ *
+ * 语义：令持久化与上下文**同阈值、同文案** —— `|value| > SINGLE_RESULT_LIMIT_CHARS` ⇒ 全量落盘
+ * （复用 `persistToolResult`，路径与上下文侧一致）+ 内容替换为 `PREVIEW_CHARS` + `buildPathRefNotice()`。
+ * **幂等**：已含引用文案者跳过；`≤ 阈值` 者原样返回（零开销）；**非 JSON 结构者不动**（无法安全改写）。
+ */
+export async function shrinkToolResultMessageForPersistence(message: {
+  id?: string;
+  type?: string;
+  content?: string | unknown;
+  metadata?: { toolCallId?: string };
+}): Promise<{ content: string | unknown; changed: boolean }> {
+  const raw = message.content;
+  if (message.type !== 'tool_result' || typeof raw !== 'string') {
+    return { content: raw, changed: false };
+  }
+  if (
+    raw.length <= SINGLE_RESULT_LIMIT_CHARS ||
+    raw.includes(PATH_REF_MARKER)
+  ) {
+    return { content: raw, changed: false };
+  }
+  let blocks: unknown;
+  try {
+    blocks = JSON.parse(raw);
+  } catch {
+    return { content: raw, changed: false };
+  }
+  if (!Array.isArray(blocks)) return { content: raw, changed: false };
+
+  const toolCallId = message.metadata?.toolCallId ?? message.id ?? 'unknown';
+  let changed = false;
+  const out = await Promise.all(
+    blocks.map(async (b) => {
+      const blk = b as { type?: string; value?: unknown };
+      if (blk?.type !== 'tool_result' || typeof blk.value !== 'string')
+        return b;
+      if (
+        blk.value.length <= SINGLE_RESULT_LIMIT_CHARS ||
+        blk.value.includes(PATH_REF_MARKER)
+      ) {
+        return b;
+      }
+      // 落盘幂等：路径由 toolCallId 决定，与上下文侧一致（重复写同内容）
+      const path = await persistToolResult(toolCallId, blk.value);
+      changed = true;
+      return {
+        ...blk,
+        value: blk.value.slice(0, PREVIEW_CHARS) + buildPathRefNotice(path),
+      };
+    })
+  );
+  return { content: changed ? JSON.stringify(out) : raw, changed };
+}
+
 /** 工具结果落盘路径（toolCallId 做安全化，防路径注入） */
 export function toolResultPath(toolCallId: string): string {
   const safe = toolCallId.replace(/[^a-zA-Z0-9_-]/g, '_');

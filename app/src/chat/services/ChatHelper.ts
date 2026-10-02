@@ -23,11 +23,17 @@ import type {
 import type { SessionGateway } from '@modules/session';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';
+import { TOOL_RESULT_MAX_LENGTH } from '@modules/utils/toolResultLimits';
 
 const logger = getLogger('chat:helper');
 
-/** 工具结果默认最大字符数（Bug Fix: 从 2000 提升至 8000，防止截断丢失关键上下文导致 LLM 误判任务完成） */
-export const TOOL_RESULT_MAX_LENGTH = 8000;
+/**
+ * 工具结果默认最大字符数（Bug Fix: 从 2000 提升至 8000，防止截断丢失关键上下文导致 LLM 误判任务完成）
+ *
+ * 2026-10-02（戊 / D-234）：**定义已移至** `utils/toolResultLimits`（单一事实源，见该文件头注）；
+ * 此处保留再导出以免波及既有调用方。
+ */
+export { TOOL_RESULT_MAX_LENGTH };
 
 /**
  * 判断是否为"空正文且无 tool_calls"的 assistant 消息。

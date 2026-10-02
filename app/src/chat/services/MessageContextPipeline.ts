@@ -24,7 +24,7 @@ import {
 import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
-import type { SessionContext } from '@modules/memory/types/SessionContext';
+import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import type { ImageContextService } from './ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
@@ -899,7 +899,7 @@ export async function assembleContextualSystemPrompt(
   const baseUrl =
     typeof llmClient?.getBaseUrl === 'function' ? llmClient.getBaseUrl() : '';
   const isLocal = baseUrl ? isLocalLlmEndpoint(baseUrl) : false;
-  const sessionContext: SessionContext = {
+  const sessionContext: MemorySessionContext = {
     sessionId: session.id,
     turnCount: session.messages.length,
     duration: Date.now() - (session.createdAt?.getTime() ?? Date.now()),

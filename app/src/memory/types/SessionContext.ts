@@ -1,8 +1,13 @@
 /**
  * 会话上下文（记忆检索专用）
  * 描述当前会话的运行时状态，用于记忆检索时的权重调整
+ *
+ * 2026-10-01 数据契约专项 U5（`SessionContext` 簇 · B）：原名 `SessionContext`，与
+ * `context/types/Context.ts`（ALS 注入的**会话运行时**上下文）及 `security/SecurityAudit.ts`
+ * （**命令执行/审计**上下文）**同名不同物** ⇒ 依 §9.2 原则 2「一名一规范落点」改名为
+ * **`MemorySessionContext`**（规范名 `SessionContext` 归 context 域，见该簇裁定 §9.9）。
  */
-export interface SessionContext {
+export interface MemorySessionContext {
   /** 会话唯一标识 */
   sessionId: string;
 

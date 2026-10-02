@@ -236,7 +236,7 @@ import type {
 } from '@modules/runtime/api/CoreAPI.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
-import type { SessionContext } from '@modules/memory/types/SessionContext';
+import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import {
   QueryEngine,
   createQueryEngine,

@@ -19,7 +19,7 @@ import { configManager } from '@modules/config';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
-import type { SessionContext } from '@modules/memory/types/SessionContext';
+import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
 import {
   applyPromptOverrides,
@@ -53,7 +53,7 @@ export interface AssembleOptions {
   systemPromptContext?: SystemPromptContextDto;
   mode?: PromptMode;
   providerId?: string;
-  sessionContext?: SessionContext;
+  sessionContext?: MemorySessionContext;
   /** P0-1（提示词分层治理）：调用方按场景附加的动态段（如 currentGoal/sessionMemory/
    * contextKeepRules/imageContext）。跳过 mode 白名单过滤、恒按 cacheBreak 进入
    * stable/dynamic 分区，并纳入 SystemPromptReport/DiagnosticsReport（账本真实）。 */

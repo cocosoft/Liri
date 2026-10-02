@@ -73,7 +73,7 @@ export type {
 export { MemorySummarizer } from './services/MemorySummarizer';
 
 // 导出会话上下文类型（记忆检索专用）
-export type { SessionContext } from './types/SessionContext';
+export type { MemorySessionContext } from './types/SessionContext';
 
 // 导出增强功能
 export * from './EnhancedMemoryManager.js';

@@ -69,6 +69,7 @@ import type { BridgePort } from './bridgePorts';
 import type { AutoCompactServiceRefPort } from './compactPorts';
 import type { EmbeddingRefPort } from './embeddingPorts';
 import type { CheckpointCleanupPort } from './checkpointPorts';
+import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
 // D-217：压缩域**同步**门面所需（见 `createAutoCompactService()` 说明）
 import { AutoCompactService } from '@modules/compaction';
 // D-222 B13：检查点清理**同步**门面所需（见 `getCheckpointCleanup()` 说明）
@@ -103,6 +104,9 @@ import {
   computeUnifiedDiff,
   dedupeMessagesToolCallBlocks,
   eventNotificationService,
+  // 2026-10-01（B11 余 1 条）：会话检查点取用**同步**门面所需 —— 见 getSessionCheckpointRef()。
+  // ⚠️ 本文件早已静态导入 `@modules/chat` ⇒ 追加本符号**零新增**「文件 × 模块」对。
+  getCheckpointService,
 } from '@modules/chat';
 import { MessageToEventMigrator } from '@modules/session';
 // N-50 墓碑（与 N-52 修复同批）：删除轮次后按 seq 区间过滤事件派生消息
@@ -1995,6 +1999,23 @@ export class CoreAPIImpl implements CoreAPI {
       deleteSessionCheckpoints: (sessionId: string) =>
         new FileCheckpointStorage().deleteSessionCheckpoints(sessionId),
     };
+  }
+
+  /**
+   * 会话检查点取用**同步**门面（2026-10-01 B11 余 1 条 · `session -> chat` 收口）
+   *
+   * `session/compaction/ServiceAdapters.ts`（service）原先**静态**导入 app 层 `@modules/chat`
+   * 的 `getCheckpointService`（值）与 `SessionCheckpointService`（类型）⇒ 1 条 `session -> chat`(app) 倒挂。
+   * ⚠️ 该取用是**装配值**（非类型）⇒ 移类型文件无效 ⇒ 走门面（投影见
+   * `./sessionCheckpointPorts#SessionCheckpointRefPort`）。
+   *
+   * ⚠️ **为何同步**：调用点在**同步函数** `createWiredCompactionBridge()` 体内（由 `SessionGateway`
+   * 构造函数 / 同步 fluent API 调用）⇒ 不可改异步 ⇒ 采用本仓既有 sanctioned 缝。
+   * 👉 计数影响：**零新增对** —— 本文件**已静态导入** `@modules/chat`（见上方 import 区）
+   * ⇒ 同一「文件 × 模块」对早已存在 ⇒ 本门面使 `session -> chat` **净减 1**。
+   */
+  getSessionCheckpointRef(): SessionCheckpointRefPort {
+    return getCheckpointService();
   }
 
   // ---- 知识库运维 P1（HTTP 等 service 侧消费；见 CoreAPI 声明处沿革 D-95）----

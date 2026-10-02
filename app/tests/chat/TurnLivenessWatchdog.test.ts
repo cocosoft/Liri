@@ -29,8 +29,10 @@ import {
   TurnLivenessWatchdog,
   resolveLivenessTimeout,
   resolveLivenessPoll,
+  resolveStreamHeartbeatMs,
   DEFAULT_LIVENESS_TIMEOUT_MS,
   DEFAULT_LIVENESS_POLL_MS,
+  DEFAULT_STREAM_HEARTBEAT_MS,
 } from '../../src/chat/services/TurnLivenessWatchdog';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -134,5 +136,27 @@ describe('配置解析', () => {
     expect(
       resolveLivenessPoll({ TURN_LIVENESS_POLL_MS: '0' } as NodeJS.ProcessEnv)
     ).toBe(DEFAULT_LIVENESS_POLL_MS);
+  });
+
+  // T-⑥11：流式静默心跳间隔
+  it('STREAM_HEARTBEAT_MS 默认 / 生效 / 非法回退', () => {
+    expect(resolveStreamHeartbeatMs({} as NodeJS.ProcessEnv)).toBe(
+      DEFAULT_STREAM_HEARTBEAT_MS
+    );
+    expect(
+      resolveStreamHeartbeatMs({
+        STREAM_HEARTBEAT_MS: '5000',
+      } as NodeJS.ProcessEnv)
+    ).toBe(5000);
+    expect(
+      resolveStreamHeartbeatMs({
+        STREAM_HEARTBEAT_MS: '0',
+      } as NodeJS.ProcessEnv)
+    ).toBe(DEFAULT_STREAM_HEARTBEAT_MS);
+    expect(
+      resolveStreamHeartbeatMs({
+        STREAM_HEARTBEAT_MS: 'abc',
+      } as NodeJS.ProcessEnv)
+    ).toBe(DEFAULT_STREAM_HEARTBEAT_MS);
   });
 });

@@ -43,6 +43,7 @@ import {
   TurnLivenessWatchdog,
   resolveLivenessTimeout,
   resolveLivenessPoll,
+  resolveStreamHeartbeatMs,
   type LivenessSnapshot,
 } from '@modules/chat/services/TurnLivenessWatchdog';
 import type {
@@ -74,6 +75,32 @@ import type { ChatManagerTAORContext } from '@modules/query';
 import type { LoopDetector } from '@modules/query';
 
 const logger = getLogger('chat:orchestrator');
+
+/** T-⑥11：静默心跳哨兵 —— 区分「计时器到点」与「生成器产出」（`IteratorResult` 恒为对象，不会与之混淆） */
+const STREAM_HEARTBEAT = Symbol('stream-heartbeat');
+
+/**
+ * T-⑥11：等待 `pending`（`gen.next()`），超过 `ms` 无产出则返回 `STREAM_HEARTBEAT` 哨兵。
+ *
+ * **不消费也不丢弃 `pending`**：计时到点后调用方仍持有**同一个** Promise 继续等待，
+ * 否则会丢失已就绪但尚未取走的 chunk。计时器在返回前清理，无泄漏。
+ */
+async function raceStreamHeartbeat<T>(
+  pending: Promise<IteratorResult<T>>,
+  ms: number
+): Promise<IteratorResult<T> | typeof STREAM_HEARTBEAT> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      pending,
+      new Promise<typeof STREAM_HEARTBEAT>((resolve) => {
+        timer = setTimeout(() => resolve(STREAM_HEARTBEAT), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /**
  * 编排所需的最小 ChatManager 端口（sendMessage/streamMessage 编排委托）
@@ -990,8 +1017,19 @@ export class ChatOrchestrator {
       onStall: (snapshot) => this._handleTurnStall(snapshot),
     });
 
+    // T-⑥11（2026-10-03）：静默心跳。长任务（工具执行 / 模型长时间无 token）期间生成器
+    // 可能数十秒~数分钟无任何 chunk，用户感知"卡住"（实测静默样本 11s~1254s，36 条用户
+    // 消息中 19 条是催促）。此处按固定间隔补发一条 status chunk 作为"仍在运行"提示——
+    // 纯前端可见：不落库、不入模型请求、不占通道配额。
+    // ⚠ 心跳**不调用** `watchdog.touch()`：心跳是"计时"而非"进度"，若复位空闲计时，
+    // 10 分钟静默熔断将永不触发（安全网失效）。真卡死的 turn 仍由看门狗中断。
+    const heartbeatMs = resolveStreamHeartbeatMs();
+
     const gen = runStreamMessage(this.host, content, options);
     let started = false;
+    let sessionId: string | undefined;
+    /** 最近一次真实 chunk 产出时刻（供心跳文案计算"已 N 秒无新输出"） */
+    let lastActivityAt = Date.now();
     // turn 收尾保底（2026-09-25，P3-3「看门狗孤儿条目」修复）：
     // 原先 `watchdog.stop()` 只在 `while` **正常走完**时执行，两条路径会跳过它 ——
     //   ① `await gen.next()` 抛错（中止/异常从流中向上传播，实测见
@@ -1000,12 +1038,34 @@ export class ChatOrchestrator {
     // 跳过即定时器常驻 ⇒ `timeoutMs`（默认 10 分钟）后对**已结束的 turn** 触发
     // onStall（"尝试中断"误报 + 定时器/闭包泄漏）。改 try/finally 让三条路径统一收尾。
     try {
-      let next = await gen.next();
-      while (!next.done) {
+      let pending = gen.next();
+      while (true) {
+        // 等待下一个 chunk；期间每 heartbeatMs 无产出 ⇒ 补发一条心跳（继续等待同一 pending）
+        let next: IteratorResult<string | ChatStreamChunk, Message>;
+        for (;;) {
+          const raced = await raceStreamHeartbeat(pending, heartbeatMs);
+          if (raced !== STREAM_HEARTBEAT) {
+            next = raced;
+            break;
+          }
+          // 首个 chunk 之前尚无 sessionId（ChatStreamChunk.sessionId 必填）⇒ 不补发
+          if (sessionId !== undefined) {
+            yield {
+              type: 'status',
+              content: `⏳ 仍在运行…（已 ${Math.round(
+                (Date.now() - lastActivityAt) / 1000
+              )} 秒无新输出）`,
+              sessionId,
+            } as ChatStreamChunk;
+          }
+        }
+
+        if (next.done) return next.value;
+
         if (!started) {
           // 首个 chunk 携带 sessionId（status chunk 等），迟滞提取后启动采样
           const chunk = next.value as { sessionId?: string };
-          const sessionId =
+          sessionId =
             typeof chunk === 'object' && chunk !== null
               ? chunk.sessionId
               : undefined;
@@ -1013,10 +1073,10 @@ export class ChatOrchestrator {
           started = true;
         }
         watchdog.touch();
+        lastActivityAt = Date.now();
         yield next.value;
-        next = await gen.next();
+        pending = gen.next();
       }
-      return next.value;
     } finally {
       watchdog.stop();
       // 内层生成器必须显式关闭（2026-09-25，spec §6.7「内层生成器未关闭风险」）：

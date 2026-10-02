@@ -34,12 +34,15 @@
  * 配置（环境变量，与 Hermes config.yaml turn_liveness 对齐的语义）：
  *   TURN_LIVENESS_TIMEOUT_MS  空闲判定阈值（默认 600000 = 10 分钟；<=0 关闭看门狗）
  *   TURN_LIVENESS_POLL_MS     采样间隔（默认 15000，最小 1000）
+ *   STREAM_HEARTBEAT_MS       静默心跳间隔（默认 45000，见 resolveStreamHeartbeatMs，T-⑥11）
  */
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chat:TurnLivenessWatchdog');
 
 export const DEFAULT_LIVENESS_TIMEOUT_MS = 600_000;
 export const DEFAULT_LIVENESS_POLL_MS = 15_000;
+/** T-⑥11：流式静默心跳间隔默认值（ms）——生成器静默超过该间隔 ⇒ 补发一条用户可见 status chunk */
+export const DEFAULT_STREAM_HEARTBEAT_MS = 45_000;
 const MIN_POLL_MS = 100;
 
 export interface LivenessSnapshot {
@@ -81,6 +84,27 @@ export function resolveLivenessPoll(
   if (!Number.isFinite(value) || value < MIN_POLL_MS) {
     logger.warn('TURN_LIVENESS_POLL_MS 非法（回退默认 15s）', { raw });
     return DEFAULT_LIVENESS_POLL_MS;
+  }
+  return value;
+}
+
+/**
+ * T-⑥11：流式静默心跳间隔（ms）。
+ *
+ * 消费 `runStreamMessage` 生成器时，若超过该间隔无任何 chunk 产出 ⇒ 补发一条
+ * 用户可见的 status chunk（"仍在运行…"），避免长任务期间前端长时间零反馈。
+ * 事实来源：env `STREAM_HEARTBEAT_MS`；缺失/非法/非正数 ⇒ 默认 45s
+ * （与 `resolveLivenessTimeout` 同口径：绝不静默禁用）。
+ */
+export function resolveStreamHeartbeatMs(
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  const raw = env['STREAM_HEARTBEAT_MS']?.trim();
+  if (!raw) return DEFAULT_STREAM_HEARTBEAT_MS;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    logger.warn('STREAM_HEARTBEAT_MS 非法（回退默认 45s）', { raw });
+    return DEFAULT_STREAM_HEARTBEAT_MS;
   }
   return value;
 }

@@ -25,11 +25,11 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError.js';
 import type { BillingMode, TimeBasedPrice } from './ModelPricingService.js';
-// 2026-10-01 B14b（甲′）：把模型窗口同步推入 infra 级缓存 `utils/ModelWindowCache`，
-// 使 `context/window/ContextWindowResolver` 无需再静态依赖本模块（app 层）⇒ 该文件 app-free。
+// 2026-10-01 B14b（甲′）：把模型窗口同步推入 infra 级缓存 `utils/ContextWindowResolver`
+// 自持的 modelWindows 映射，使该解析器无需再静态依赖本模块（app 层）⇒ 该文件 app-free。
 // 推入发生在内存映射变更的同一时刻（非异步预热）⇒ 与"同步读本注册表"语义等价、零竞态。
 // `ai(app) -> utils(infra)` 为合法方向，不新增跨层对。
-import { setModelWindow } from '@modules/utils/ModelWindowCache';
+import { setModelWindow } from '@modules/utils/ContextWindowResolver';
 
 const logger = getLogger('ai:registry');
 

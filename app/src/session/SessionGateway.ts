@@ -18,12 +18,18 @@ import {
 // 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。
 // 依赖 A′/B′：Context 家族已下沉类型中心、AsyncContextStorage 已迁 utils/。
 import { asyncContextStorage } from '@modules/utils/AsyncContextStorage';
-import { resolveContextWindow } from '@modules/context';
+// 2026-10-01 B14b 步 3：原经 `@modules/context`(app) 取用 ⇒ 改指 infra（该实现已迁
+// `utils/ContextWindowResolver`，其 app 耦合已由该文件自持的 infra 级窗口缓存解除）。
+// ⇒ 本文件的**两条 `@modules/context` 取用**清零（第三条相对路径类型导入见下方 L29）。
+import { resolveContextWindow } from '@modules/utils/ContextWindowResolver';
 // 2026-10-01 D-222 B13（子批 F `query` 组）：原静态导入 app 层 `@modules/query` 的
 // `FileCheckpointStorage`（引 `../chat/types/checkpoint` ⇒ app 耦合不可下沉）⇒ 改经
 // **CoreAPI 同步门面** `getCheckpointCleanup()`；调用点在同步回调内 ⇒ 不可异步。
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { SessionContext } from '../context/types/Context';
+// 2026-10-01 B14b 步 3：本条为**相对路径**类型导入，此前未被识别为 `session -> context` 边
+// （写的是 `../context/...` 而非 `@modules/context`），故 B14 长期未清零的**真实根因**在此。
+// 依 B′ 步已确立约定改指类型中心（core）⇒ `session -> context` 的「文件 × 模块」对**整条消失**。
+import type { SessionContext } from '../types/context';
 import {
   createTranscriptManager,
   TranscriptManager,

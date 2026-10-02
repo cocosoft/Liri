@@ -691,7 +691,16 @@ export interface AgentRunDto {
 
 **验收**：`已豁免 43 → 42` · `typecheck 0` · `类型中心冲突 0` · `R05-011 = 0` · `bun test tests/context` 全绿。
 
-**当前状态**：B14 **挂起**（A′/B′/C′ 已落地为去耦前提；等本单实施）。
+**✅ 执行记录（2026-10-01，本日）**
+
+- **步 1–2（已提交 `d205013a7`）**：解除 `ContextWindowResolver` 的 `@modules/ai` 静态耦合 —— 同步取数改由 infra 级窗口缓存承担（`ModelRegistry` 在装载/刷新模型时**同步推入**，DB 仍为唯一事实来源）。
+- **步 3（本批）**：`git mv context/window/ContextWindowResolver.ts → utils/`（13 符号全量）+ 原址**再导出 shim**（`context/**` 消费方 + `tests/context/*` **零改动**）；`SessionGateway.ts` 两条取用改指 `@modules/utils/ContextWindowResolver`。
+- **⚠️ 关键发现（此前误判，已纠正）**：步 3 落地后 `已豁免` **仍为 43**（未降）。**根因**：`SessionGateway.ts` 的第三条 `session -> context` 边是**相对路径**类型导入 `'../context/types/Context'`（写相对路径而非 `@modules/context` ⇒ **长期未被识别**）；且计数口径为「文件 × **去重**目标模块」⇒ 该文件的目标模块 Set 本已含 `context`，故删除两条 `@modules/context` 导入**计数不变**。改指类型中心 `'../types/context'`（B′ 步已确立约定）后，该「文件 × 模块」对方才消失。
+- **碎片回归（同批修复）**：步 1 新建的 `utils/ModelWindowCache.ts`（36 行 < 40）使 `utils/` 达 **3 个微文件** ⇒ 触发 R06-009-1 告警（3 → 6）。依规则建议**并入其唯一读取方** `utils/ContextWindowResolver.ts` 并删除原文件 ⇒ 碎片 **0**，告警回落 **3**（预存）。
+- **验证**：`已豁免 43 → 42`（恰 −1）· `typecheck 0` · `类型中心冲突 0` · `违规 0` · 碎片 **0** · 警告 **3**（预存）· `bun test tests/context` = **75 pass / 0 fail**。
+- **旁注（R00-003）**：动态跨层引用 **31 → 32**（`utils/ContextWindowResolver.ts` 的 `await import('../ai/...')`，仅上报、不计入 `已豁免`）。
+
+**当前状态**：B14 **已清零** ✅（`已豁免 42`，与验收一致）。
 
 ---
 

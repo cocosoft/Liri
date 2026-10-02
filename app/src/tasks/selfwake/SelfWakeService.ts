@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import type { WakeEntry } from './types';
 import { WakeKind } from './types';
 import { WakeStore } from './WakeStore';
+import { recordSelfWake } from './SelfWakeAudit';
 import { cg3Log } from '../cg3Env';
 import { handleError } from '@modules/error';
 
@@ -212,6 +213,8 @@ export class SelfWakeService {
     cg3Log('tasks:selfwake', 'info', 'fired', { wakeId });
 
     if (!entry) {
+      // 事件信封的 `sessionId` 必填，而此分支拿不到 `sessionId` ⇒ 无法落 `session/wake`
+      // （见 `eventPayloads.ts` 的 `session/wake` 注释）；保持日志可观测。
       cg3Log('tasks:selfwake', 'warn', 'fire:entry_not_found', { wakeId });
       return;
     }
@@ -220,6 +223,14 @@ export class SelfWakeService {
         wakeId,
         sessionId: entry.sessionId,
         kind: entry.kind,
+      });
+      // T-⑥12：可判定节点入事件（log-only 审计，可回放）——"发出但无人接"同样要留痕
+      await recordSelfWake({
+        sessionId: entry.sessionId,
+        wakeId,
+        kind: entry.kind,
+        taskId: entry.taskId,
+        outcome: 'handler_absent',
       });
       return;
     }
@@ -233,10 +244,19 @@ export class SelfWakeService {
         reason: `selfwake:${entry.kind}`,
       });
       if (!res.ok) {
+        const error = res.error ?? 'unknown';
         cg3Log('tasks:selfwake', 'warn', 'fire:resume_failed', {
           wakeId,
           sessionId: entry.sessionId,
-          error: res.error ?? 'unknown',
+          error,
+        });
+        await recordSelfWake({
+          sessionId: entry.sessionId,
+          wakeId,
+          kind: entry.kind,
+          taskId: entry.taskId,
+          outcome: 'resume_failed',
+          error,
         });
       } else {
         cg3Log('tasks:selfwake', 'info', 'fire:resumed', {
@@ -244,10 +264,26 @@ export class SelfWakeService {
           sessionId: entry.sessionId,
           kind: entry.kind,
         });
+        await recordSelfWake({
+          sessionId: entry.sessionId,
+          wakeId,
+          kind: entry.kind,
+          taskId: entry.taskId,
+          outcome: 'resumed',
+        });
       }
     } catch (err) {
       cg3Log('tasks:selfwake', 'error', 'fire:resume_threw', {
         wakeId,
+        error: String(err),
+      });
+      // 执行器抛错 ⇒ 会话未继续，与 `resume_failed` 同类
+      await recordSelfWake({
+        sessionId: entry.sessionId,
+        wakeId,
+        kind: entry.kind,
+        taskId: entry.taskId,
+        outcome: 'resume_failed',
         error: String(err),
       });
     }

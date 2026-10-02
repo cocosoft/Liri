@@ -87,6 +87,8 @@ const ALL_SESSION_EVENT_TYPES = [
   // ─── 生命周期 ───
   'session/start',
   'session/end',
+  // ─── 自唤醒续跑审计（T-⑥12，2026-10-03，log-only） ───
+  'session/wake',
   // ─── 标题（D5，2026-08-24） ───
   'session/title',
 ] as const satisfies readonly LiriEventType[];

@@ -297,7 +297,7 @@ import {
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { SettlementOutbox } from './yield/SettlementOutbox';
 // 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
-import { setSelfWakeResumeHandler } from '@modules/tasks';
+import { setSelfWakeResumeHandler, setSelfWakeAuditSink } from '@modules/tasks';
 // M-7 idle 触发续接（2026-09-22）：目标停滞时的自动续跑（识别 + 可续性校验 + 文案）
 import {
   isIdleContinuationTask,
@@ -936,6 +936,10 @@ export class ChatManagerImpl implements ChatManager {
     setYieldRecoveryAuditSink((sid, event) =>
       this.appendStreamEvent(sid, event)
     );
+    // T-⑥12（2026-10-03）：自唤醒续跑审计落盘 —— 同上手法：本模块持有会话事件日志，
+    // 故在此注入 `SelfWakeAudit` 的唯一写入出口（`session/wake`：resumed / resume_failed /
+    // handler_absent 三节点）。通道同样为既有 `events.jsonl`，不新建审计通道、不改 UI。
+    setSelfWakeAuditSink((sid, event) => this.appendStreamEvent(sid, event));
     // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
     // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
     registerSessionSummaryMemoryType();

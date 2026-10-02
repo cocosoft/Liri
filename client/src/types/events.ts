@@ -212,6 +212,17 @@ export interface LiriEventMap {
   "channel/message": { channelType: string; raw: unknown };
   "session/start": { startedAt: number; modelId?: string };
   "session/end": { endedAt: number; reason?: string };
+  /**
+   * T-⑥12（2026-10-03）：自唤醒续跑审计（log-only 不入消息 surface）。
+   * 载荷形状镜像后端 `app/src/session/types/eventPayloads.ts` 的 `session/wake`。
+   */
+  "session/wake": {
+    wakeId: string;
+    kind: "timer" | "completion" | "event";
+    taskId?: string;
+    outcome: "resumed" | "resume_failed" | "handler_absent";
+    error?: string;
+  };
   /** 会话标题快照（D5，2026-08-24，log-only 不入消息 surface） */
   "session/title": {
     title: string;

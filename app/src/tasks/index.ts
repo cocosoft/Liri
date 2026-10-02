@@ -298,6 +298,12 @@ export {
   injectMainSessionBudgetWrapUp,
 } from './goal/goalBudget';
 export { setSelfWakeResumeHandler } from './selfwake/SelfWakeService';
+// T-⑥12（2026-10-03）：自唤醒续跑审计（`session/wake`）的唯一写入出口（注入式装配）
+export {
+  setSelfWakeAuditSink,
+  hasSelfWakeAuditSink,
+  recordSelfWake,
+} from './selfwake/SelfWakeAudit';
 export { getCg3SelfWakeService } from './Cg3Bootstrap';
 export {
   SLEEP_FOR_TOOL,

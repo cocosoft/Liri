@@ -4,12 +4,21 @@
  * P0-1: 对标 openworker WakeStore — pending→due→fired 状态机
  */
 
-/** 唤醒类型 */
-export enum WakeKind {
-  TIMER = 'timer', // sleep_for(seconds) / sleep_until(ISO)
-  COMPLETION = 'completion', // wake_on(job_id) — 后台任务完成时
-  EVENT = 'event', // wake_on_event(event_key) — connector/webhook 事件
-}
+/**
+ * 唤醒类型。
+ *
+ * T-⑥12（2026-10-03）：由 `enum` 改为 **const 对象 + 字面量联合**（与 shared `STATUS_TYPE`
+ * 同款）——使 `WakeKind.TIMER` 的类型就是字面量 `'timer'`，可直接赋给事件载荷
+ * `session/wake.kind`（`enum` 成员类型无法赋给字面量联合；而载荷在 `session/types`（service）
+ * 不得反向引用 `tasks`（app）类型）。取值不变，使用处（`WakeKind.TIMER` / `kind: WakeKind`）不受影响。
+ */
+export const WakeKind = {
+  TIMER: 'timer', // sleep_for(seconds) / sleep_until(ISO)
+  COMPLETION: 'completion', // wake_on(job_id) — 后台任务完成时
+  EVENT: 'event', // wake_on_event(event_key) — connector/webhook 事件
+} as const;
+
+export type WakeKind = (typeof WakeKind)[keyof typeof WakeKind];
 
 /** 唤醒状态机 */
 export type WakeStatus = 'pending' | 'due' | 'fired';

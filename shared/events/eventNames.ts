@@ -83,6 +83,10 @@ export const LIRI_EVENT_NAMES = [
   // ─── 生命周期 ───
   'session/start',
   'session/end',
+  // T-⑥12（2026-10-03）：自唤醒（sleep_for / wake_on_job / wake_on_event）触发的**续跑审计** ——
+  // 唤醒→续跑是系统自动发起（非用户触发），修复前四个可判定节点只有 logger 文本，
+  // 崩溃后无法从持久层按序重建（与 `agent/recovery` B4-1 同一立项理由）。log-only。
+  'session/wake',
   // ─── 标题（D5，2026-08-24：标题事件化，log-only 不入消息 surface） ───
   'session/title',
   // ─── Code Mode（CM-5，2026-08-25：code_run 执行事件） ───

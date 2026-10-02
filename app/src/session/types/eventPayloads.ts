@@ -527,6 +527,41 @@ export interface LiriEventMap {
   };
 
   /**
+   * 自唤醒续跑审计（T-⑥12，2026-10-03，log-only 不入消息 surface）。
+   *
+   * 触发源：`SelfWakeService.fire()`（`sleep_for` / `sleep_until` / `wake_on_job` / `wake_on_event`
+   * 到点）。唤醒→续跑是**系统自动发起**、非用户触发；修复前各可判定节点**只有 logger 文本**，
+   * 崩溃后"这次自动唤醒到底发生了什么"无法从持久层按序重建 —— 与 `agent/recovery`（B4-1）
+   * 同一立项理由（`YieldRecoveryAudit.ts` 同款注入式 sink 装配）。
+   *
+   * 归属会话与时间由**事件信封**给出（`LiriEvent.sessionId` / `.time` / `.seq`）——载荷不重复承载；
+   * 按 `seq` 升序读出即可重建轨迹（字段结构化可判定，不依赖日志文本，CS02）。
+   */
+  'session/wake': {
+    /** 唤醒条目 id（`WakeEntry.id`，可回查 `WakeStore`） */
+    wakeId: string;
+    /**
+     * 唤醒类别（取值与 `WakeKind` 同源）：
+     * `timer`=定时 / `completion`=后台任务完成 / `event`=connector 事件。
+     */
+    kind: 'timer' | 'completion' | 'event';
+    /** 登记时的任务键（`WakeEntry.taskId`） */
+    taskId?: string;
+    /**
+     * 本次唤醒走到的节点（枚举，禁按文案判定，CS02）：
+     * - `resumed`：续跑执行器返回成功（会话已继续）；
+     * - `resume_failed`：执行器返回失败（会话未继续，`error` 给原因）；
+     * - `handler_absent`：未装配续跑执行器（"发出但无人接"，可观测的降级）。
+     *
+     * 注：`wakeId` 反查不到条目（陈旧/已清理）时**无法**落本事件——事件信封的
+     * `sessionId` 必填，而该分支拿不到 `sessionId`，故仍只有日志。
+     */
+    outcome: 'resumed' | 'resume_failed' | 'handler_absent';
+    /** `outcome='resume_failed'` 时的失败原因 */
+    error?: string;
+  };
+
+  /**
    * 会话标题快照（D5，2026-08-24，log-only 不入消息 surface）
    *
    * 对齐 deepseek-harness `session/title`：latest-wins 标题事件，

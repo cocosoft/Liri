@@ -93,10 +93,10 @@
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
-| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）；⚠️ 余 4 条中 **4 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理；`tools` 余 3 条更被 **`Tool` 双份定义**硬阻，见 D-218） | **15** | **4**（`tools` 3（⛔ 受阻于规范数据模型 `Tool`）· `commands` 1） |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）；⚠️ 余 3 条**全属**"规范数据模型"类且**硬阻**（`tools` 3 被 `Tool` 双份定义阻塞，见 D-218）⇒ E 组**静态可清部分已清零**，余项待**数据契约专项**收口 | **16** | **3**（`tools` 3（⛔ 受阻于 `Tool` 双份定义）） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 47**（**−104**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **15**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4 + D-218 死文件删除 1 + D-219 死 barrel 删除 1）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）**＝ −105**，**＋1**（D-217 新模块身份 `compaction` 带来的必要跨层取用 `runtime → compaction`）。
+**门禁总账（实测）**：`已豁免` **151 → 46**（**−105**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **16**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4 + D-218 死文件删除 1 + D-219 死 barrel 删除 1 + D-220 去假依赖 1）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）**＝ −106**，**＋1**（D-217 新模块身份 `compaction` 带来的必要跨层取用 `runtime → compaction`）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -645,6 +645,15 @@ export interface AgentRunDto {
 - **⚠️ 顺带发现（门禁盲区，未修、待裁决）**：R03-002 的"模块根"取自 `scripts/lint-architecture.ts:2001-2047` 的**硬编码 `moduleRoots` Set**，与 `modules-to-layers.json`（**86 模块**）**已漂移** —— 缺 `workspaces` · `compaction` · `workspace` · `docs` · `knowledge` · `governance` · `evals` · `project` · `models` · `flows` · `wizard` · `tool` · `testing` · `plugin-sdk` · `context-engine` · `analytics` · `common` · `constants` · `media` · `i18n` · `lsp` · `security` · `system` · `trace-recording` · `daemon` · `modules` · `appState` 等 ⇒ **这些模块的子路径直连不计入 R03-002**（本例 `@modules/workspaces/WorkspaceScanner` 即因此长期"零违规"）。
   - **对 D-217 的影响（如实）**：`compaction` 的"唯一出口"实际由 **tsconfig 别名（只加裸键、不加 `/*` 通配）** 在**编译期**强制，**并非** R03-002 强制 —— 上条"以 `index.ts` 为唯一出口（R03-002）"的措辞应理解为"结构意图 + 编译期强制"。
   - **处置**：补全 `moduleRoots`（或改为从 `modules-to-layers.json` 派生）会**一次性暴露大批存量**，属**门禁口径变更** ⇒ 另立专项裁定，**本批不动**（已登记 `预存错误与待处理问题.md`）。
+
+**🔎 `commands` 组取证与执行（2026-10-01 D-220）—— 1 条清零（−1，零端口、零白名单）**
+
+- **实测**：`services/mcp/MCPCacheManager.ts` → `type Command`（`@modules/commands`），构成 `services -> commands`(app) 倒挂。
+- **先证伪两个常规处方**：① **不可改引 `types/`** —— `commands/types/index.ts:39` 的 `Command`（含 `type: CommandType` 的**完整 CLI 契约**）与 `types/index.ts:36` 的极简 `Command`（`{ name; description; aliases?; execute(args, context?) }`）**并非同一物**（同 `Tool` 情形，不可"看着像就合并"）；② **不必端口/下沉**。
+- **根因（CS05）**：实测 `Command` 在该类中**仅出现在类型位置、从未解引用任何字段** —— `private commandCache: Map<string, MCPCacheItem<Command[]>>` · `setCommandCache(name, commands: Command[], ttl?)` · `getCommandCache(name): Command[] | null`，而类头 `implements ICache<string, unknown>` **本就擦成 `unknown`** ⇒ 这是个**不透明载荷容器**，却硬绑了 commands 域模型 ⇒ **语义虚假**的跨层依赖。
+- **处方**：**3 处** `Command[]` → `unknown[]`（字段 · setter · getter）+ 删除该 import ⇒ 依赖消失。**零调用方**（`getCommandCache`/`setCommandCache` 全仓仅类内 `get()`/`set()` 两处自用）⇒ **无破坏面**；`unknown` **非 `any`**，不违反"新代码零 any"。
+- **验证**：`已豁免 47 → 46`（恰 −1）· `typecheck 0` · `lint:arch` 违规 0 / `R03-002` = 0 / 错误 0 警告 3（预存）· 改动文件 eslint 0/0。
+- **E 组收口状态**：剩余 **3 条全在 `tools` 组**、且**全部**受阻于 `Tool` 双份定义（D-218）⇒ **子批 E 的静态可清部分至此清零**，余项待 [data-contract-unification.md](./data-contract-unification.md) 专项裁定（专项范围须含 `Tool` / `Command`）。
 
 **子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。
 

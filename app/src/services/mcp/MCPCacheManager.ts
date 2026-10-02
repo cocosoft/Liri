@@ -1,7 +1,12 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:mcp:cache');
 import type { ICache, CacheStats } from '@modules/cache/types';
-import type { Command } from '@modules/commands';
+// 2026-10-01 D-220（子批 E `commands` 组）：原静态导入 `type Command` from `@modules/commands`，
+// 但本类中 `Command` **仅出现在类型位置、从未解引用任何字段**（本类接口层 `ICache<string, unknown>`
+// 本就擦成 `unknown`）⇒ 属**语义虚假**的跨层依赖（`services -> commands`(app)）。
+// 改以 `unknown[]` 作**不透明载荷**类型 ⇒ 根因消除；两存取方法**零外部调用方**（无破坏面）；
+// 且 `@modules/commands` 的 `Command`（含 `type: CommandType` 的完整 CLI 契约）与
+// `@modules/types` 的极简 `Command` **并非同一物**（同 `Tool` 情形）⇒ 不可改引 `types/`。
 import type { ServerResource, SerializedTool } from './types';
 
 interface MCPCacheItem<T> {
@@ -12,7 +17,7 @@ interface MCPCacheItem<T> {
 
 export class MCPCacheManager implements ICache<string, unknown> {
   private toolCache: Map<string, MCPCacheItem<SerializedTool[]>> = new Map();
-  private commandCache: Map<string, MCPCacheItem<Command[]>> = new Map();
+  private commandCache: Map<string, MCPCacheItem<unknown[]>> = new Map();
   private resourceCache: Map<string, MCPCacheItem<ServerResource[]>> =
     new Map();
   private capabilitiesCache: Map<string, MCPCacheItem<unknown>> = new Map();
@@ -46,7 +51,7 @@ export class MCPCacheManager implements ICache<string, unknown> {
         this.setToolCache(name, value as SerializedTool[], ttl);
         break;
       case 'command':
-        this.setCommandCache(name, value as Command[], ttl);
+        this.setCommandCache(name, value as unknown[], ttl);
         break;
       case 'resource':
         this.setResourceCache(name, value as ServerResource[], ttl);
@@ -130,7 +135,7 @@ export class MCPCacheManager implements ICache<string, unknown> {
     return cache.data;
   }
 
-  setCommandCache(serverName: string, commands: Command[], ttl?: number): void {
+  setCommandCache(serverName: string, commands: unknown[], ttl?: number): void {
     this.commandCache.set(serverName, {
       data: commands,
       timestamp: Date.now(),
@@ -141,7 +146,7 @@ export class MCPCacheManager implements ICache<string, unknown> {
     );
   }
 
-  getCommandCache(serverName: string): Command[] | null {
+  getCommandCache(serverName: string): unknown[] | null {
     const cache = this.commandCache.get(serverName);
     if (!cache) return null;
 

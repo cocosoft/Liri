@@ -1,12 +1,6 @@
 // import React from 'react'
 import { Box, Text } from '@modules/ink';
-
-export type ToolSearchOutput = {
-  matches: string[];
-  query: string;
-  total_deferred_tools: number;
-  deferredToolNames: string[];
-};
+import type { ToolSearchOutput } from '@modules/tools';
 
 export function renderToolUseMessage(
   input: Partial<{ query: string }>,

@@ -318,6 +318,9 @@ export { ToolCallPartitioner } from './orchestration/Partitioner';
 export { SubAgentEngine, getSubAgentEngine } from './AgentTool/SubAgentEngine';
 export type { SkillDefinition } from './SkillTool/types';
 
+// 2026-10-02 R02-002 收敛：ToolSearchOutput 数据契约唯一落点（zod 推导）
+export type { ToolSearchOutput } from './ToolSearchTool/schemas';
+
 // 2026-08-29 R03-002 收敛二期：工具子目录统一出口
 export { FileReadTool } from './FileReadTool/FileReadTool';
 export { FileWriteTool } from './FileWriteTool/FileWriteTool';

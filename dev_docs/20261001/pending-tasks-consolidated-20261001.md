@@ -4,9 +4,9 @@
 - **生成时间**：2026-10-01
 - **输入材料**（均为只读，未修改）：
   1. `E:\PY\Downloads\chat-export-1790838377052.md`（标题「Agentic Design Patterns 架构分析」，144 条消息 / 28 轮，2026-09-27 起）
-  2. `E:\PY\Documents\CODES\PY_APP\.trae\specs\liri-optimization-plan-20260926.md`
-  3. `E:\PY\Documents\CODES\PY_APP\.trae\specs\liri-upgrade-plan-20260928.md`
-  4. `E:\PY\Documents\CODES\PY_APP\.trae\specs\architecture-benchmark-20260928.md`
+  2. `E:\PY\Documents\CODES\PY_APP\dev_docs\20260926\liri-optimization-plan-20260926.md`
+  3. `E:\PY\Documents\CODES\PY_APP\dev_docs\20260928\liri-upgrade-plan-20260928.md`
+  4. `E:\PY\Documents\CODES\PY_APP\dev_docs\20260928\architecture-benchmark-20260928.md`
 
 ## 口径说明
 

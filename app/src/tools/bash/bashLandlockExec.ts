@@ -130,7 +130,7 @@ const SYSTEM_READ_EXECUTE_PATHS = [
  * ⇒ "只读"挡得住**改**，挡不住**读**，而读走凭据与会话数据同样是泄露；且 Landlock 无法表达
  * "父目录允许、子目录排除"，逐项枚举非敏感项的净收益为负（敏感项占绝大多数）⇒ **整条移除**是唯一合理形态。
  *
- * **功能面不受影响（有取证，见 `.trae/specs/liri-optimization-plan-20260926.md` 的 P0-3）**：
+ * **功能面不受影响（有取证，见 `dev_docs/20260926/liri-optimization-plan-20260926.md` 的 P0-3）**：
  * ① 受管产物目录 `output` / `downloads` / `temp` **已单独以读写列出**（它们是 `~/.pyapp` 下的
  *    **具体子路径**，不受本次移除影响）；② 项目内**无内建 bash 命令**需要读 `~/.pyapp`
  *    —— `execBashCommand` 的唯一调用点是 `BashTool.execute`，命令来自用户/模型；

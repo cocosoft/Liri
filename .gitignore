@@ -259,3 +259,9 @@ rand_pick.py
 # 位置要求：必须排在上方 `!dev_docs/error_repairs/` **之后** —— gitignore 以"最后匹配者胜"。
 /dev_docs/error_repairs/last-exit-*
 /dev_docs/error_repairs/crashes-manifest-*
+
+# 任务类文档按日期归档（2026-10-02）：任务类文档与代码同生命周期，需入库。
+# 位置要求：必须排在上方所有 `dev_docs/*` 忽略规则**之后** —— gitignore 以"最后匹配者胜"。
+!dev_docs/20260926/
+!dev_docs/20260928/
+!dev_docs/20261001/

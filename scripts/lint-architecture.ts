@@ -3515,7 +3515,7 @@ class ArchitectureLinter {
    * （"Rust 193 万行" vs 真实 3,919 行）。对应架构原则「**单一事实源**」：参考副本不是本仓事实。
    *
    * 等级 **warning（不阻断提交）**：物理搬迁需用户择机执行（目录可能被 IDE/索引器占用，
-   * `rename` 会被拒），处置与口径约定见 `.trae/specs/liri-upgrade-plan-20260928.md` §1。
+   * `rename` 会被拒），处置与口径约定见 `dev_docs/20260928/liri-upgrade-plan-20260928.md` §1。
    */
   async checkWorkspaceHygiene(): Promise<void> {
     const repoRoot = resolve(__dirname, '..');
@@ -3532,7 +3532,7 @@ class ArchitectureLinter {
         file: found[0],
         message: `仓库工作区存在参考副本目录：${found.join('、')}（未入库，但会污染统计口径）`,
         suggestion:
-          '按「单一事实源」把参考副本移出仓库（同卷 Directory.Move 即秒级完成）；搬迁前任何人工统计/脚本必须排除这些目录，见 .trae/specs/liri-upgrade-plan-20260928.md §1',
+          '按「单一事实源」把参考副本移出仓库（同卷 Directory.Move 即秒级完成）；搬迁前任何人工统计/脚本必须排除这些目录，见 dev_docs/20260928/liri-upgrade-plan-20260928.md §1',
       });
     }
 

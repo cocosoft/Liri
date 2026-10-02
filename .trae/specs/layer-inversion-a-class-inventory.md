@@ -2,7 +2,7 @@
 
 > 生成方式：临时摘除 `scripts/layer-exceptions.json` 的 5 条 A 类 bulk 例外后跑门禁取数 + 仓库外只读脚本复刻枚举，随后**原样还原**。
 > 判据规则：**R00-001**（`scripts/lint-architecture.ts`）+ `scripts/modules-to-layers.json`（`core: ["core"]`）。
-> 关联：`.trae/specs/architecture-benchmark-20260928.md` §5.7（A 类 = 倒挂·严重）。
+> 关联：`dev_docs/20260928/architecture-benchmark-20260928.md` §5.7（A 类 = 倒挂·严重）。
 > 日期：2026-09-30。
 
 ---

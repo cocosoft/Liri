@@ -90,7 +90,7 @@
 
 | # | 建议 | 现状 | 证据 / 说明 |
 |---|---|---|---|
-| D1 | **Self-Reflection Lint 回路**（Mermaid 语法自纠） | 🟡 **已有 spec，待实施** | [liri-optimization-plan-20260926.md:39-42](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/liri-optimization-plan-20260926.md#L39-L42)：① 前端降级（捕 `parseError` → 代码块展示）② 服务端校验 + 回喂；`client` 已依赖 `mermaid ^11.15.0` |
+| D1 | **Self-Reflection Lint 回路**（Mermaid 语法自纠） | 🟡 **已有 spec，待实施** | [liri-optimization-plan-20260926.md:39-42](file:///e:/PY/Documents/CODES/PY_APP/dev_docs/20260926/liri-optimization-plan-20260926.md#L39-L42)：① 前端降级（捕 `parseError` → 代码块展示）② 服务端校验 + 回喂；`client` 已依赖 `mermaid ^11.15.0` |
 | D2 | 沙箱 `pack_diff` 增量快照 / 秒级复用 | ❌ | 同 B3 |
 | D3 | Fail-Closed 访问控制（禁 `/proc`、socket、本地日志） | 🟡 | 同 B2；另需核"禁读 Liri 自身运行态/日志"是否已覆盖 |
 | D4 | SQLite WAL + 台账写缓冲批量落盘 | ✅ / 🟡 | **WAL 与 busy_timeout 已开**（§1）；`AgentRunStore` **写缓冲/批量**未核 |

@@ -93,10 +93,10 @@
 | **B** `app -> ui` 其余（§3.2） | 17 | 🟡 **部分完成**：B1 ✅（D-176，7）· B2 ✅（D-189，4，删孤儿组件）· B3 ✅（D-183/184，2） | 13 | **4**（`commands->ink` 1 · `buddy->components` 2 · `commands->ui` 1 ⇒ 均需**整模块拆 UI**） |
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
-| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）；⚠️ 余 6 条中 **5 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理） | **13** | **6**（`tools` 4 · `workspaces` 1 · `commands` 1 —— ⬅**下一个**：`tools` 组（类型下沉 + 端口）） |
+| **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）；⚠️ 余 5 条中 **4 条**属"规范数据模型"类（已裁定"**存量不迁移**" ⇒ 按**端口/门面**处理；`tools` 余 3 条更被 **`Tool` 双份定义**硬阻，见 D-218） | **14** | **5**（`tools` 3（⛔ 受阻于规范数据模型 `Tool`）· `workspaces` 1 · `commands` 1） |
 | **F** `session`+`runtime`（§3.6，最高风险） | 23 | ⬜ **未开始** | 0 | 23 |
 
-**门禁总账（实测）**：`已豁免` **151 → 49**（**−102**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **13**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）**＝ −103**，**＋1**（D-217 新模块身份 `compaction` 带来的必要跨层取用 `runtime → compaction`）。
+**门禁总账（实测）**：`已豁免` **151 → 48**（**−103**）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **14**（D-208/212/213/214/215 六条 + D-216 死代码删除 3 + D-217 `compact` 改归 app 4 + D-218 死文件删除 1）+ **门禁正确性修正 6**（D-190 剥离注释后被剔除的注释假阳性，**均非本次代码改动所致**）**＝ −104**，**＋1**（D-217 新模块身份 `compaction` 带来的必要跨层取用 `runtime → compaction`）。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -624,6 +624,17 @@ export interface AgentRunDto {
   - **门禁脚本同步**：`scripts/lint-architecture.ts` 例外清单 `services/compact/ContextEngine.ts` → `compaction/ContextEngine.ts`（R02-002 + R05-011 两处）。
   - **验证**：`已豁免 52 → 49` · `typecheck 0` · `lint:arch` **R03-002 = 0 违规**、总账 `错误 0 / 警告 3`（余 R02-002 · R07-004 · R00-003 均**预存、与本改动无关**）· 改动文件 eslint **0 error**（余 34 warning 均**随文件平移的存量**）· `bun test src/query/__tests__/CompactionIntegration.test.ts` = **19 pass / 10 skip / 0 fail**（含动态 `import('@modules/compaction')` 解析验证）。
   - **遗留（预存，非本次引入）**：`CompactServiceImpl.setAIService()` 全仓无调用方 ⇒ `generateAISummary` 恒走 `generateBasicSummary` 回退（见 D-215 记录），另册跟踪。
+
+**🔎 `tools` 组取证与执行（2026-10-01 D-218）—— 4 条中 1 条可清，3 条**硬阻**
+
+- **4 条实测**（`services -> tools`；去重口径 `file × tools`）：`mcp/MCPToolRegistry.ts`（`type Tool`）· `mcp/McpToolWrapper.ts`（`Tool`/`ToolInfo`/`ToolParam`/`ToolUseContext`/`ToolResult` + 值 `ToolExecutionStatus`）· `mcp/MCPToolBridge.ts`（值 `getToolManager` + `type Tool`）· `agent/builtInAgents.ts`（2 个 Agent 定义常量）。
+- **✅ 第 4 条 —— 零引用死代码，已删（用户裁定"丁"）**：`services/agent/builtInAgents.ts` 全仓**零 import / 零再导出 / 无 barrel**（`services/agent/` 无 `index.ts`）；其 `getBuiltInAgents()` 与 **app 侧** `agent/strategies/agentStrategy.ts:501` **重名不同物**，唯一消费方 `agent/managers/AgentSourceManager.ts:9` 取的是 **app 那个** ⇒ 属"陈旧重复死实现"（**非归属错误**）。`git rm` 删除 ⇒ **`已豁免 49 → 48`**（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` = 0 / 错误 0 警告 3（预存）。
+  - ⚠️ **原裁定被证伪（记档）**：用户先按"**甲·改归 agent 域**"裁定，取证却发现该文件**是死的**（前提不成立）⇒ 停下重新裁定为"**丁·删除**"（对齐"取证的结论推翻方案时立即停下重新裁定"）。
+- **⛔ 余 3 条硬阻 —— `Tool` 双份定义**：
+  - **事实**：`src/types/tool.ts` **已存在**，是**另一个**极简 `Tool`（22 行：`{name, description, parameters?, execute?}` + `ToolPermissionContext`）；`tools/types/Tool.ts` 是 **660 行完整工具契约**（`ToolTag` · `ToolParam` · `ToolInfo` · `ToolUseContext` · `ToolDef` · `buildTool` …）⇒ **两者不等价**（与 `Message` 同型）。
+  - **物理阻断**：Windows **大小写不敏感** ⇒ `git mv tools/types/Tool.ts types/Tool.ts` 会**覆盖**现有 `types/tool.ts`（数据丢失）⇒ 该迁移在本平台**不可执行**；即便绕过，也会在类型中心制造同名 `Tool` 冲突（当前 `0 处冲突`）。
+  - ⇒ **吻合 §3.5 前述预判**（`tools` 类型位与 `chat`/`commands` 同属"**规范数据模型**"阻塞）。**处置：挂起**，并入 [data-contract-unification.md](./data-contract-unification.md) 专项 —— 该专项范围须从 `Message` **扩到 `Tool` / `Command`**，先裁定"`types/tool.ts` 极简版 ↔ `tools/types/Tool.ts` 全量版"的关系。
+  - 注：`MCPToolBridge` 的**值位** `getToolManager` 本可独立改走 `getCoreAPI().getToolManager()`（`CoreAPIImpl.ts:5037`；D-207 已实证同一实例），但**该文件仍受 `type Tool` 阻塞** ⇒ 依"**改一半不减计数**"**不单独改**（不制造半成品）。
 
 **子批 E 建议顺序**：① **`ai` 组 5 条**（复用既有 `aiOpsPorts`，收益最大且不依赖数据契约）→ ② **`context` 组剩 1 条**（核 CoreAPI 既有方法）→ ③ `workspaces` 1 · `commands` 1（单点）→ ④ **数据契约专项后**再收 `chat` 6 + `tools` 类型位。
 

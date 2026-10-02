@@ -50,6 +50,7 @@
 > **参考副本的处理（2026-09-28 用户裁定：逻辑排除）**：
 > - **git 层面早已排除**：`.gitignore:233` 已有 `REF/*`（故 `git ls-files REF` = 0）；`REF/` 物理体量 **82,168 文件 / 2,659 MB**。
 > - **物理搬迁暂缓**：目录级 `rename` 被拒（`Move-Item` 与 `Directory.Move` 均报 `Access denied`，而 ACL 正常——无 Deny、属主为本人、非 junction、无只读 ⇒ 典型"**进程持有句柄/将其作为工作目录**"，最可能是 IDE 索引或后台 watcher）。
+> - **2026-10-01 补充实测（AI 侧再次尝试，记录新发现的第二层限制）**：同卷 `[System.IO.Directory]::Move(仓库REF → E:\PY\REF_backup)` **仍报 `Access denied`**；**且另有一层硬限制** —— 工具链沙箱对该路径**直接禁止**（`TRAE Sandbox Error: Not allow operate files: …\REF`，`hit restricted`）⇒ **AI 无法代为执行**（已在沙箱内与"请求批准"两种方式下各试一次，均被拒）。⇒ **处置必须由用户侧完成**：① 在 **设置 → Permission & Approval → Custom Configuration** 中放开该路径后重试；或 ② 关闭 IDE/索引器后手动执行同卷 `Move-Item`。⚠️ 该 warning 为**登记性**（`lint:arch` 只扫 `app/src`）⇒ **不影响门禁/构建/测试**，可长期留存。
 > - **约定（对所有人工统计与脚本生效）**：测量必须排除参考副本，例：
 >   `Where-Object { $_.FullName -notmatch 'node_modules|\\target\\|REF\\' }`。
 >   注：`lint:arch` 只扫 `app/src`（4008 个 TS 文件）⇒ **门禁不受影响**，该约定主要约束"人工/临时脚本"的口径。

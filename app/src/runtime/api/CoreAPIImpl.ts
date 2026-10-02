@@ -61,6 +61,7 @@ import type {
 import type { SkillsOpsPort } from './skillsOpsPorts';
 import type { AutoReplyPort } from './autoReplyPorts';
 import type { A2APort } from './a2aPorts';
+import type { BridgePort } from './bridgePorts';
 import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
@@ -1873,6 +1874,42 @@ export class CoreAPIImpl implements CoreAPI {
       completeTask: (taskId, state, artifacts, message) =>
         a2aTaskStore.complete(taskId, state, artifacts, message),
       getTask: (taskId: string) => a2aTaskStore.get(taskId),
+    };
+  }
+
+  // ---- Bridge 运行时（worktree 隔离；见 CoreAPI 声明处沿革 D-207）----
+
+  /**
+   * Bridge 域端口（2026-10-01 D-207，子批 D）
+   *
+   * `bridge/BridgeMain.ts` 原静态导入 app 层 `@modules/workspaces/...`
+   * （`createWorkspaceGit` · `pruneOrphanWorktrees`）⇒ `bridge -> workspaces` 倒挂。
+   * 现按既有模式**动态**取用（仅 R00-003 可见），并把返回值按调用方读取面**最小投影**。
+   */
+  async getBridgePort(): Promise<BridgePort> {
+    const { createWorkspaceGit } =
+      await import('@modules/workspaces/WorkspaceGit.js');
+    const { pruneOrphanWorktrees } =
+      await import('@modules/workspaces/WorkspacePruner.js');
+
+    return {
+      createWorktreeManager: ({ baseDir }) => {
+        const manager = createWorkspaceGit({ baseDir });
+        return {
+          createWorktree: async (sessionId: string) => {
+            const info = await manager.createWorktree(sessionId);
+            // 最小投影：BridgeMain 只读 worktreePath
+            return { worktreePath: info.worktreePath };
+          },
+          removeWorktree: async (sessionId: string) => {
+            await manager.removeWorktree(sessionId);
+          },
+          clearAllWorktrees: async () => {
+            await manager.clearAllWorktrees();
+          },
+        };
+      },
+      pruneOrphanWorktrees: (gitRoot: string) => pruneOrphanWorktrees(gitRoot),
     };
   }
 

@@ -17,8 +17,11 @@ import { createSimulatedBridgeApi } from './api/SimulatedBridgeApi.js';
 import { createPollManager } from './managers/PollManager.js';
 import { createSessionManager } from './managers/SessionManager.js';
 import { createHeartbeatManager } from './managers/HeartbeatManager.js';
-import { createWorkspaceGit } from '@modules/workspaces/WorkspaceGit.js';
-import { pruneOrphanWorktrees } from '@modules/workspaces/WorkspacePruner.js';
+// 2026-10-01 D-207（子批 D，`bridge -> workspaces` 倒挂收口）：原静态导入 app 层
+// `@modules/workspaces/...`（`createWorkspaceGit` · `pruneOrphanWorktrees`）⇒ 改经
+// **服务层端口** `getCoreAPI().getBridgePort()`（service→service 合法；实现内聚 CoreAPIImpl）。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { WorktreeManagerPort } from '@modules/runtime/api/bridgePorts';
 import { execSync } from 'child_process';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
@@ -106,7 +109,7 @@ export class BridgeMain {
   private sessionManager: ReturnType<typeof createSessionManager> | null = null;
   private heartbeatManager: ReturnType<typeof createHeartbeatManager> | null =
     null;
-  private worktreeManager: ReturnType<typeof createWorkspaceGit> | null = null;
+  private worktreeManager: WorktreeManagerPort | null = null;
   private abortController: AbortController | null = null;
   private isRunning = false;
 
@@ -179,7 +182,9 @@ export class BridgeMain {
         signal,
       });
 
-      this.worktreeManager = createWorkspaceGit({
+      this.worktreeManager = (
+        await getCoreAPI().getBridgePort()
+      ).createWorktreeManager({
         baseDir: this.config.dir,
       });
 
@@ -427,7 +432,9 @@ export class BridgeMain {
         return;
       }
       if (!gitRoot) return;
-      const pruned = await pruneOrphanWorktrees(gitRoot);
+      const pruned = await (
+        await getCoreAPI().getBridgePort()
+      ).pruneOrphanWorktrees(gitRoot);
       if (pruned.length > 0) {
         this.logger.logVerbose(
           `启动清理 ${pruned.length} 个孤儿 worktree: ${pruned.join(', ')}`

@@ -5,7 +5,9 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
-import { EffectScope } from '@modules/context';
+// 2026-10-01 D-207（子批 D，`channels -> context` 倒挂收口）：`EffectScope` 已**改归 infra**
+// （`utils/EffectScope.ts`，`context/` 仅转出）⇒ 改**相对直连 infra 模块根**。
+import { EffectScope } from '../../utils/EffectScope.js';
 import type { IChannelPlugin } from '../types/IChannel';
 
 const logger = getLogger('channels:bootstrap');

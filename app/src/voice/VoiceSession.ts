@@ -21,7 +21,11 @@ import type {
 } from './types';
 import { GeminiLiveAdapter } from './GeminiLiveAdapter';
 import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
-import { globalToolManager } from '@modules/tools';
+// 2026-10-01 D-207（子批 D，`voice -> tools` 倒挂收口）：原静态导入 app 层 `@modules/tools`
+// 的 `globalToolManager` ⇒ 改经 **CoreAPI 门面**（service→service 合法）。
+// 零语义变更实证：`CoreAPIImpl.ts:301` 为 `this.toolManager = options?.toolManager ?? globalToolManager`
+// ⇒ `getCoreAPI().getToolManager()` 与 `globalToolManager` 是**同一实例**（§1.16 亦如此记载）。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
 import type { SessionManager } from '@modules/session';
 import type { TranscriptManager } from '@modules/session';
@@ -279,11 +283,12 @@ export class VoiceSession {
       const apiKey = this.resolveApiKey(config.provider);
       this.adapter = new AdapterClass(apiKey);
 
-      // 设置工具桥接委托——连接 VoiceToolBridge 到全局 ToolManager
+      // 设置工具桥接委托——连接 VoiceToolBridge 到全局 ToolManager（D-207：经 CoreAPI 门面取同一实例）
+      const toolManager = getCoreAPI().getToolManager();
       const toolDelegate: ToolExecutorDelegate = {
         executeTool: async (name, input) => {
           try {
-            const result = await globalToolManager.executeTool(name, input, {
+            const result = await toolManager.executeTool(name, input, {
               sessionId: this.id,
             });
             return JSON.stringify(result);
@@ -298,7 +303,7 @@ export class VoiceSession {
           }
         },
         getToolDeclarations: () => {
-          return globalToolManager.getAllTools().map((t) => ({
+          return toolManager.getAllTools().map((t) => ({
             name: t.name,
             description: t.description,
             parameters: {

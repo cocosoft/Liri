@@ -187,6 +187,19 @@ function classifyAPIErrorByStatus(error: APIError): APISceneResult {
     };
   }
 
+  // 402 - 余额/配额不足（T-⑥09，2026-10-02）
+  // 取证：本类此前**无 402 分支** ⇒ OpenAI 风格的 402 落到通用兜底；而消息兜底原先只认
+  // Anthropic 文案（`Your credit balance is too low`），实测报错是 `Insufficient Balance`
+  // ⇒ 用户拿不到"余额不足"的归因与充值引导（导出 L2304 的现象）。
+  if (error.status === 402) {
+    return {
+      scene: APIScene.CREDIT_LOW,
+      userMessage: '余额不足（或配额用尽），本次生成已中断',
+      retryable: false,
+      actionHint: '请充值，或在「模型管理」中切换到其他可用模型后重发',
+    };
+  }
+
   // 413 - 请求过大
   if (error.status === 413) {
     return {
@@ -504,8 +517,12 @@ function classifyConnectionError(error: APIConnectionError): APISceneResult {
  * 根据错误消息分类（非 APIError）
  */
 function classifyErrorByMessage(error: Error): APISceneResult {
-  // 信用余额不足
-  if (error.message.includes('Your credit balance is too low')) {
+  // 信用余额不足（T-⑥09：补 OpenAI 兼容文案 —— 实测 `Insufficient Balance` / `insufficient_quota`
+  // 此前不命中 ⇒ 落到通用兜底，用户看不到"余额不足"的归因与充值引导）
+  if (
+    error.message.includes('Your credit balance is too low') ||
+    /insufficient[_ ](balance|quota|funds)/i.test(error.message)
+  ) {
     return {
       scene: APIScene.CREDIT_LOW,
       userMessage: '信用余额不足',

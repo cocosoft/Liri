@@ -450,3 +450,29 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 4. ⚠️ `security/SecurityAuditLogger.ts` 的 `AuditSessionContext` 与 `security/index.ts` 的转出**本已区分**，不在本簇内（佐证"按角色命名"是该仓既有做法）。
 
 ⏳ **执行状态**：**待执行**（B 为 6 文件机械改名；C 为 3 处）。
+
+---
+
+### 9.10 🟡 U5：`Message` 同名簇（**7 份** / 7 模块）—— 取证与裁定（2026-10-01）
+
+**判定表（7 份字段集全不相同 ⇒ 全员"同名不同物"）**：
+
+| # | 落点 | 形状 | 角色 |
+|---|---|---|---|
+| 1 | `agent/TitleGenerator.ts:37` | `{ role: string; content: string }` | 标题生成输入 |
+| 2 | `core/types.ts:33` | `{ role: 'system'\|'user'\|'assistant'\|'tool'; content; tool_calls?; tool_call_id? }` | **协议层**（snake_case；R05-011 已列 knownException） |
+| 3 | `chat/types/ToolUseBlock.ts:51` | `{ role; content: string\|ContentBlock[]; usage?; … }` | 工具块消息变体 |
+| 4 | **`chat/types/message.ts:399`** | 领域完整（`id` 起） | ⭐ **R05-011 认定的规范来源** |
+| 5 | `compaction/ContextEngine.ts:7` | `{ id; role; content; createdAt: Date; tokenCount?; metadata? }` | 压缩/上下文引擎 |
+| 6 | `ui/components/Messages.tsx:9` | `{ id; content; **sender**; timestamp?; type?; codeLanguage? }` | UI（用 `sender` 而非 `role`） |
+| 7 | `subagent/SubAgentCommunicator.ts:11` | `{ id; type; **content: any**; sender; receiver; timestamp }` | 子代理 IPC（**含 `any`**） |
+| ＋ | `session/types/Message.ts`（**文件名**同名，导出的是 `UnifiedMessage` 家族 322 行） | — | **文件名**冲突源（Windows 大小写），非类型同名 |
+
+**⇒ 裁定（§9.2 原则 2）**：**规范落点 = #4 `chat/types/message.ts`**（R05-011 + `project_rules §1.6` 双重认定）⇒ **其余 6 份改名**（建议名）：
+`TitleGenMessage`(#1) · `ProtocolMessage`(#2，⚠️ **波及最大** —— providers 广泛使用，须单独评估) · `ToolUseMessage`(#3) · `ContextEngineMessage`(#5) · `UIMessage`(#6) · `SubAgentMessage`(#7)。
+另：`session/types/Message.ts` **文件名**建议改 `UnifiedMessage.ts`（其导出名本就是 `UnifiedMessage`）⇒ 消除与 `chat/types/message.ts` 的**文件名**冲突。
+
+**⚠️ 更正（2026-10-01，重要的是非粉饰）**：**U2 并不能解锁 B11** —— B11（`session -> chat` 11 条）的阻断是 **① 文件名冲突**（`session/types/Message.ts` ⟷ `chat/types/message.ts`，Windows 大小写不敏感；**U2 改的是 Type 名，对文件名无效**，除非采纳上条"文件名改 `UnifiedMessage.ts`"）+ **② `eventPayloads → @modules/tasks`(app) / `@modules/utils/mermaidLint`(infra)** 的传递依赖（与 U2 完全无关）。⇒ **B11 的解锁依赖"级联下沉"（`TaskGoal*` + `MermaidLintIssue` → core）或另立 recipe**，U2 的价值是**消名 + 收敛 R05-011 的 6 条长期例外**。
+⇒ **U3 的 `tasks` 行**（U2 原写"解锁 B11"）**据此更正为"解锁：无直接解锁项；收益 = 消名 + R05-011 例外收敛"**。
+
+⏳ **执行状态**：**待执行**（#2 需单独立项评估，其余 5 份为中小面机械改名）。

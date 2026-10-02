@@ -666,6 +666,59 @@ export interface AgentRunDto {
 - **⇒ 处置（用户裁定）**：**B11 整组挂起**，并入数据契约专项（范围需含 `Message`(4 份) · `Tool` · `Command` · `LiriEvent`/`eventPayloads` 的 `TaskGoal*` / `MermaidLintIssue` 跨域依赖）；**先做 F 其余 5 条**（`session -> ai` 2 · `-> query` 2 · `-> context` 1），均**不涉**数据契约。
 - **取证产物（可复核，`chat/types/**` 出向全表）**：`checkpoint.ts`→`./message`+`./session` · `events.ts`→`@shared/events/eventNames`(值)+`./eventPayloads` · `eventPayloads.ts`→`@modules/core`+**`@modules/tasks`**+**`@modules/utils/mermaidLint`** · `knownEventTypes.ts`→`./events` · `session.ts`→`@modules/core`+`./message` · `message.ts`→**零出向**。
 
+**📌 B11 前置取证（2026-10-01，D-223）—— 两个前置项的证据与裁定建议**
+
+**前置项 P1：`TaskGoal*` / `MermaidLintIssue` 下沉 core**（解除 blocker ②③）
+
+| 类型 | 定义落点 | 形状 | 出向依赖 |
+|---|---|---|---|
+| `TaskGoalStatus` | `tasks/goal/TaskGoalStore.ts:37` | 6 值字面量联合 | **零** |
+| `TaskGoalUpdateReason` | `tasks/goal/TaskGoalStore.ts:64` | 16 值字面量联合 | **零** |
+| `GoalTemplateKind` | `tasks/goal/goalTemplates.ts:68` | 5 值字面量联合 | **零** |
+| `MermaidLintIssue` | `utils/mermaidLint.ts:50` | 3 字段纯接口（`number`/`number`/`string`） | **零** |
+
+- **消费方实测（全量）**：三个 goal 类型 → `chat/types/eventPayloads.ts`（**唯一跨域消费方**，即 B11 blocker）＋ `tasks/index.ts` 桶 ＋ `tasks/goal/*` 内部；`MermaidLintIssue` → `chat/types/eventPayloads.ts` ＋ `chat/ReActToolLoop.ts` ＋ `utils/mermaidLint.ts` 自身。⇒ **无任何 infra / service / core 消费方** ⇒ 落点 **core** 满足 §9.2 原则 3（落点层 ≤ 消费方最低层）。
+- **recipe**：`src/types/goal.ts`（3 个 goal 类型）＋ `src/types/mermaid.ts`（`MermaidLintIssue`）；**原址再导出 shim**（`export type { … } from '@modules/types/…'`）—— 与 A′ 步 `Context` 家族同法，依 R05-013 口径「**再导出不计入冲突**」。
+- **净差**：新增 `tasks → types` / `chat → types` / `utils → types` 三向**均为合法方向**（app→core / infra→core）⇒ **不新增任何跨层对**，`已豁免` **42 → 42**。
+- **同名核验**：`src/types/**` 内**无**这 4 个名字的定义 ⇒ **R05-013 无冲突** ✓。
+- **约定核验**：`@modules/types/<file>` 为仓内通行子入口（实测 **20 处**：`types/a2a` · `types/orchestrationEvents` · `types/tool.js` · `types/router` · `types/plugin.js` · `types/orchestrationSnapshot` · `types/agentEvents` …）✓。
+
+**前置项 P2：文件名去冲突 —— ⚠️ 实测 3 处，**多于**记录中的 1 处**
+
+`chat/types/*` 迁入 `session/types/` 时的**同名文件**（Windows 大小写不敏感）：
+
+| # | 冲突 | chat 侧 | session 侧 | 处置 |
+|---|---|---|---|---|
+| ① | `message.ts` ⟷ `Message.ts` | 领域消息模型（`Message`/`MessageStatus`…） | `UnifiedMessage` 家族（322 行） | `session/types/Message.ts` → **`UnifiedMessage.ts`**（导出名本就是 `UnifiedMessage`）⇒ **10 文件** |
+| ② | `session.ts` ⟷ `Session.ts` | `ChatSession` | `UnifiedSession`/`SessionType`/`SessionStatus` | `session/types/Session.ts` → **`UnifiedSession.ts`** ⇒ **2 文件** |
+| ③ | `index.ts` ⟷ `index.ts` | chat 类型聚合桶 | session 类型聚合桶 | **同名无法并存 ⇒ 必须合并为一个 barrel**（非覆盖） |
+
+- **① 波及面（10 文件）**：`channels/routing/messageRouter.ts`（动态 import）· `chat/ChatManager.ts` · `chat/services/ChatHelper.ts` · `chat/services/__tests__/ChatHelper.test.ts` · `voice/VoiceSession.ts` · `entrypoints/repl.ts`（动态）· `cli/handlers/sessionHandler.ts` · `runtime/InboxManager.ts` · `runtime/api/CoreAPIImpl.ts` · `tools/SessionsTool/SessionsTool.ts`（含 `import(...)` 内联型）。
+- **② 波及面（2 文件）**：`cli/handlers/sessionHandler.ts` · `tools/SessionsTool/SessionsTool.ts`。
+- **P2 净差 = 0**：改名只动**路径**，不动分层 —— 消费方 `chat(app)` / `channels(service)` / `voice(service)` / `runtime(service)` / `tools(app)` / `cli(ui)` / `entrypoints(entry)` → `session(service)` **均为合法方向**（app/ui/entry→service 允许；service→service 同层）⇒ **不新增跨层对** ✓。
+- **③ 的额外核验（barrel 合并前置）**：`chat/types` **桶**消费方实测 3 处 —— `compaction/autoCompact.ts:4`（`Message`）· `compaction/grouping.ts:9,10`（`Message` · `MessageRole`）· `docs/PluginDevGuide.ts:203`（该文件为**文档示例内容**，非真实 import）。⇒ 合并桶后须保证这些导出名仍在（两个桶的导出名实测**不重叠**：`Message`/`MessageRole`… 与 `UnifiedMessage`/`SessionType`…）。
+
+**B11 本体（11 条）现状全表（实测，去重 `file × chat` = 11 ✓）**
+
+| # | session 侧文件 | 取用符号 |
+|---|---|---|
+| 1 | `bootstrap/SessionSystemBootstrap.ts` | `ChatSession` |
+| 2 | `compaction/ServiceAdapters.ts` | **装配值**（`@modules/chat` 桶，与 D-217 同型） |
+| 3 | `hydration/SessionStateHydrator.ts` | `ChatSession` · `Message` |
+| 4 | `reconcile/ReconcileService.ts` | `LiriEvent` |
+| 5 | `SessionGateway.ts` | `LiriEvent` |
+| 6 | `storage/EventMessageDeriver.ts` | `LiriEvent` · `LiriEventType` · `KNOWN_SESSION_EVENT_TYPES` |
+| 7 | `storage/eventSanitize.ts` | `LiriEvent` |
+| 8 | `storage/EventLogStorage.ts` | `LiriEvent` · `LiriEventType` · `isLiriEvent` · `KNOWN_SESSION_EVENT_TYPES` |
+| 9 | `storage/MessageToEventMigrator.ts` | `LiriEvent` · `Message` · `MessageStatus` |
+| 10 | `storage/SessionSummaryReader.ts` | `LiriEvent` |
+| 11 | `storage/workflowRunProjection.ts` | `LiriEvent` |
+
+**⇒ 裁定建议**
+1. **P1 可立即执行**（净差 0 · 零同名 · 约定已核 · 4 个类型零出向依赖）；**P2 属机械改名 + barrel 合并**（~12 文件），可同批或紧随；
+2. P2 完成后 **B11 本体**方可做（`chat/types/*` 迁 `session/types/`）⇒ **收益 `已豁免 42 → 31`（−11）**；
+3. ⚠️ 两项均**不得顺手做**：P1 改的是类型落点（涉 4 文件定义 + 原址 shim），P2 涉 barrel 合并（③）—— 须各自独立成批并单独验收。
+
 **📌 B14b 立项单 —— `session -> context`（B14）的净负收口路径（2026-10-01，D-222 续）**
 
 **背景：同一条边、四次否决的完整记录**

@@ -12,7 +12,10 @@
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { ModelRegistry } from '@modules/ai';
+// 2026-10-01 B14b（甲′）：原静态导入 app 层 `@modules/ai` 的 ModelRegistry（同步路径读取）
+// ⇒ 改为 infra 级缓存（由 ModelRegistry 在装载/刷新模型时同步推入，DB 仍为唯一事实来源）。
+// 本站是该文件唯一的 app 层耦合点，解除后本文件 app-free，可下沉 infra（见 B14b 立项单）。
+import { getModelWindow } from '@modules/utils/ModelWindowCache';
 
 const logger = getLogger('context:window');
 
@@ -93,9 +96,8 @@ export function resolveContextWindow(
     return { tokens: configOverride, source: 'config' };
   }
 
-  // 2. DB 运行时缓存（model_registry 唯一事实来源，同步读取不回源 DB）
-  const registryModel = ModelRegistry.getInstance().getModel(model);
-  const dbWindow = registryModel?.contextWindow;
+  // 2. 模型窗口缓存（infra；由 ModelRegistry 装载/刷新时同步推入；DB 唯一事实来源）
+  const dbWindow = getModelWindow(model);
   if (dbWindow && dbWindow > 0) {
     return { tokens: dbWindow, source: 'db' };
   }
@@ -182,6 +184,9 @@ export async function calibrateContextWindow(
 ): Promise<boolean> {
   if (!model || !(actualLimit > 0)) return false;
   try {
+    // B14b（甲′）：本函数为 async ⇒ 用**动态**导入访问 app 层注册表（静态耦合已解除）。
+    // 迁移至 utils/(infra) 后，此动态边仅进 R00-003 上报，不计入已豁免。
+    const { ModelRegistry } = await import('@modules/ai');
     const registry = ModelRegistry.getInstance();
     const existing = registry.getModel(model);
     const current = existing?.contextWindow ?? 0;

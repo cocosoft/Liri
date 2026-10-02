@@ -25,6 +25,11 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError.js';
 import type { BillingMode, TimeBasedPrice } from './ModelPricingService.js';
+// 2026-10-01 B14b（甲′）：把模型窗口同步推入 infra 级缓存 `utils/ModelWindowCache`，
+// 使 `context/window/ContextWindowResolver` 无需再静态依赖本模块（app 层）⇒ 该文件 app-free。
+// 推入发生在内存映射变更的同一时刻（非异步预热）⇒ 与"同步读本注册表"语义等价、零竞态。
+// `ai(app) -> utils(infra)` 为合法方向，不新增跨层对。
+import { setModelWindow } from '@modules/utils/ModelWindowCache';
 
 const logger = getLogger('ai:registry');
 
@@ -111,6 +116,24 @@ export class ModelRegistry {
    */
   private refreshDoneSeq = 0;
 
+  /**
+   * B14b（甲′）：把当前内存映射中的模型窗口同步推入 infra 缓存（幂等，覆盖写）。
+   * ⚠️ 必须覆盖**两张表**：`builtinModels`（DB/YAML）+ `userModels`（用户配置覆盖），
+   * 且 user 在后 ⇒ 与 `getModel()` 的"用户覆盖优先"语义一致（否则用户配置的
+   * `contextWindow` 会被漏掉，导致同步路径回落默认值）。
+   */
+  private _pushWindowsToCache(): void {
+    for (const [id, cfg] of this.discoveredModels) {
+      setModelWindow(id, cfg.contextWindow);
+    }
+    for (const [id, cfg] of this.builtinModels) {
+      setModelWindow(id, cfg.contextWindow);
+    }
+    for (const [id, cfg] of this.userModels) {
+      setModelWindow(id, cfg.contextWindow);
+    }
+  }
+
   private constructor() {
     // 启动时通过 loadDefaultModels + loadDbPricing 初始化
   }
@@ -128,6 +151,7 @@ export class ModelRegistry {
     for (const [key, entry] of Object.entries(data.models)) {
       this.builtinModels.set(key, yamlEntryToModelConfig(entry, key));
     }
+    this._pushWindowsToCache();
   }
 
   /**
@@ -177,6 +201,7 @@ export class ModelRegistry {
     }
 
     this.builtinModels = dbModels;
+    this._pushWindowsToCache();
     logger.info(`从 DB 加载了 ${dbModels.size} 个模型定义`);
     // 上下文窗口排查锚点：列出本地/小窗口模型，便于确认 DB 值已正确入内存缓存。
     // llama.cpp/ollama 模型 window 错配会在此暴露（如 4096 被旧值 200K 覆盖）。
@@ -259,6 +284,7 @@ export class ModelRegistry {
         });
       }
     }
+    this._pushWindowsToCache();
   }
 
   getAllModels(): ModelConfig[] {

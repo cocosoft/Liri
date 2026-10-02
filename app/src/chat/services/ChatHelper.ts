@@ -7,11 +7,11 @@
  */
 import { getLogger } from '@modules/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
-import type { Message, UsageInfo } from '../types/message.js';
-import { MessageRole } from '../types/message.js';
+import type { Message, UsageInfo } from '@modules/session/types/message.js';
+import { MessageRole } from '@modules/session/types/message.js';
 import { DataSessionStatus } from '@modules/core';
-import type { ChatSession } from '../types/session.js';
-import type { ToolResult } from '../types/tool.js';
+import type { ChatSession } from '@modules/session/types/session.js';
+import type { ToolResult } from '@modules/session/types/tool.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
 import { MessageType as SessionMessageType } from '@modules/session/types/UnifiedMessage';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/UnifiedMessage';

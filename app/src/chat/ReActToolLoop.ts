@@ -43,11 +43,11 @@ import {
   EXTERNAL_FETCH_EXPANSION_TURNS,
   MAX_DYNAMIC_TOOL_TURNS_CAP,
 } from './loopTurnLimits.js';
-import type { ToolCall, ToolResult } from './types/tool.js';
+import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { TodoExpansionState, ToolTurnBudget } from '@modules/core';
-import type { Message } from './types/message.js';
-import { getToolCallName } from './types/tool.js';
+import type { Message } from '@modules/session/types/message.js';
+import { getToolCallName } from '@modules/session/types/tool.js';
 import { getLogger } from '@modules/monitoring';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
@@ -69,7 +69,7 @@ import {
   formatMermaidIssues,
   type MermaidLintIssue,
 } from '@modules/utils/mermaidLint';
-import type { LiriEvent } from './types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 // P1-2 / P1-4（B2-4，2026-09-23）：轮级熔断 / 压缩停滞 ⇒ **落 Goal**（目标层可见"为何停下"）。
 // 注意：`tasks/` 不是 `chat/`，此处不构成"反向层依赖"（与 goalTemplates 同向）。
 import { settleGoalForTurn, type GoalTurnReason } from '@modules/tasks';

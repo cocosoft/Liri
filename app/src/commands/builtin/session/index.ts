@@ -35,7 +35,7 @@ import type {
 } from '@modules/commands';
 import { createChatManager } from '@modules/chat';
 import type { ChatManager } from '@modules/chat';
-import type { ChatSession } from '@modules/chat/types/session';
+import type { ChatSession } from '@modules/session/types/session';
 
 class SessionCommand implements Command {
   type: CommandType = 'action';

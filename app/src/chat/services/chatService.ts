@@ -8,7 +8,7 @@ import {
   ChatService,
   ChatSessionOptions,
 } from '../models/types';
-import { ChatSession } from '../types/session';
+import { ChatSession } from '@modules/session/types/session';
 import { ChatSession as ChatSessionImpl } from '../sessions/chatSession';
 import { join } from 'path';
 import {

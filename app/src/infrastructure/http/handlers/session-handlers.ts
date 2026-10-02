@@ -24,10 +24,10 @@ import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import type { Message } from '@modules/chat/types/message';
-import { MessageRole } from '@modules/chat/types/message';
+import type { Message } from '@modules/session/types/message';
+import { MessageRole } from '@modules/session/types/message';
 import { dedupeMessagesToolCallBlocks } from '@modules/chat';
-import type { LiriEventType } from '@modules/chat/types/events';
+import type { LiriEventType } from '@modules/session/types/events';
 import { deriveSessionStats, getYieldRegistry } from '@modules/session';
 import {
   tryParseJson,

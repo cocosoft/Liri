@@ -10,12 +10,12 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { messageProjector } from '@modules/context';
-import type { ToolCall, ToolResult } from '../chat/types/tool.js';
+import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { ChatMessage, ToolDefinition } from '@modules/ai';
 import type { TAORLoopDeps } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
 import { CascadeAbortManager } from './CascadeAbortManager.js';
-import type { ToolCallEventDetail } from '../chat/types/message.js';
+import type { ToolCallEventDetail } from '@modules/session/types/message.js';
 import type {
   QuestionData,
   QuestionOption,

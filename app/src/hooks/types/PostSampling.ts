@@ -2,7 +2,7 @@
  * 采样后置Hook类型定义
  */
 
-import type { Message } from '@modules/chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext';
 
 /**

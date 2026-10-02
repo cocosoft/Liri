@@ -34,7 +34,7 @@ import type {
   Message,
   MessageRole,
   MessageType,
-} from '../../chat/types/message';
+} from '@modules/session/types/message';
 
 export class SendMessageTool extends BaseTool {
   name = 'send_message';

@@ -35,13 +35,13 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '@modules/error';
-import type { LiriEvent, LiriEventType } from '@modules/chat/types/events';
-import { isLiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
+import { isLiriEvent } from '@modules/session/types/events';
 import { sanitizeEvent } from './eventSanitize';
 import {
   assertEventReadable,
   assertEventWritable,
-} from '@modules/chat/types/knownEventTypes';
+} from '@modules/session/types/knownEventTypes';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../../monitoring/memProfile.js';
 import { getMemoryPressureMonitor } from '@modules/monitoring';

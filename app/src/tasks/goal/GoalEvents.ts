@@ -26,8 +26,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type { LiriEvent } from '../../chat/types/events';
-import type { LiriEventMap } from '../../chat/types/eventPayloads';
+import type { LiriEvent } from '@modules/session/types/events';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 // B3-2（2026-09-23）：注入片段**统一类型** —— 通道前缀由类型给出（调用方不再手写 `[SYSTEM] `）
 import {
   createFragment,

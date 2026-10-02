@@ -16,7 +16,7 @@
 
 // 2026-10-01 B11 前置 P1（D-223）：`MermaidLintIssue` 接口已下沉**类型中心**
 // `@modules/types/mermaid`（core —— 3 字段纯接口、零出向依赖）⇒ 使
-// `chat/types/eventPayloads.ts` 成为**纯 core 引用**的契约文件（解除 B11 方案甲的 `core -> infra`）。
+// `session/types/eventPayloads.ts` 成为**纯 core 引用**的契约文件（解除 B11 方案甲的 `core -> infra`）。
 // 本文件按 R05-013 口径**再导出**，既有消费方（`chat/ReActToolLoop.ts` 等）零改动。
 import type { MermaidLintIssue } from '@modules/types/mermaid';
 

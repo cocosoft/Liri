@@ -4,7 +4,7 @@
  * 配合 DeliveryRouter 实现可靠的消息投递
  */
 import type { EnhancedMessage } from './MessageService.js';
-import { MessagePriority } from '../types/message.js';
+import { MessagePriority } from '@modules/session/types/message.js';
 
 const PRIORITY_ORDER: Record<MessagePriority, number> = {
   [MessagePriority.CRITICAL]: 0,

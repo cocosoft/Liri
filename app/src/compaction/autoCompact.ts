@@ -1,7 +1,7 @@
 /**
  * 智能阈值 + 连续失败熔断 + 压缩策略
  */
-import type { Message } from '@modules/chat/types';
+import type { Message } from '@modules/session/types/chat';
 
 export interface CompactConfig {
   model: string;

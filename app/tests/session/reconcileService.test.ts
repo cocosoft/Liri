@@ -53,7 +53,7 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import { ReconcileService } from '../../src/session/reconcile/ReconcileService';
 import type { ReconcileDeps } from '../../src/session/reconcile/ReconcileService';
 import type { DerivedMessage } from '../../src/session/storage/EventMessageDeriver';

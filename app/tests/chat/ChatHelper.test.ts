@@ -4,7 +4,7 @@
 // isEmptyAssistantWithoutToolCalls — 空正文 assistant 消息过滤（避免污染 API 上下文）
 import { describe, it, expect } from 'bun:test';
 import { isEmptyAssistantWithoutToolCalls } from '../../src/chat/services/ChatHelper';
-import type { Message } from '../../src/chat/types/message.js';
+import type { Message } from '@modules/session/types/message.js';
 
 function asst(partial: Partial<Message>): Message {
   return { role: 'assistant', content: '', ...partial } as Message;

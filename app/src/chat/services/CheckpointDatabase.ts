@@ -1,8 +1,11 @@
 import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
-import type { SessionCheckpoint } from '../types/checkpoint';
-import type { CheckpointStorage } from '../types/checkpoint';
-import { CHECKPOINT_TABLE, CHECKPOINT_MAX_AUTO } from '../types/checkpoint';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
+import type { CheckpointStorage } from '@modules/session/types/checkpoint';
+import {
+  CHECKPOINT_TABLE,
+  CHECKPOINT_MAX_AUTO,
+} from '@modules/session/types/checkpoint';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';

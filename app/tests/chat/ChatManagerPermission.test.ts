@@ -35,7 +35,7 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
-import type { ToolCall } from '../../src/chat/types/tool.js';
+import type { ToolCall } from '@modules/session/types/tool.js';
 import {
   getApprovedCommandRegistry,
   hashCommand,

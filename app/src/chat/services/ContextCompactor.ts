@@ -32,7 +32,7 @@ import {
   type CompactArtifact,
 } from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
-import type { ChatSession } from '../types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import { getLocalSession } from './ChatHelper';
 import type { SessionCurrentIdPort } from './SessionLifecycleManager';
 

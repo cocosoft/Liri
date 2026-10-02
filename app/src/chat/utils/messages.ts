@@ -8,8 +8,8 @@ import type {
   UserMessage,
   AssistantMessage,
   SystemMessage,
-} from '../types/message.js';
-import { MessageRole, MessageType } from '../types/message.js';
+} from '@modules/session/types/message.js';
+import { MessageRole, MessageType } from '@modules/session/types/message.js';
 
 /**
  * 生成短消息ID（6位base36字符串）

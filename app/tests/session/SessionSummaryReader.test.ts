@@ -6,7 +6,7 @@ import { describe, expect, it, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import {
   parseSessionSummaries,
   findSummaryForSeq,

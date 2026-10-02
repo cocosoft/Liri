@@ -13,8 +13,8 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
-import type { LiriEvent } from '../../src/chat/types/events';
-import type { LiriEventMap } from '../../src/chat/types/eventPayloads';
+import type { LiriEvent } from '@modules/session/types/events';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 import { dispatchGoalRoutes } from '../../src/infrastructure/http/handlers/routes/goal-routes';
 import {
   TaskGoalStore,

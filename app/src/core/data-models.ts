@@ -8,8 +8,8 @@
  * 合并以下碎片化定义：
  *   - ai/models/types.ts → ChatMessage
  *   - session/types/UnifiedMessage.ts → UnifiedMessage
- *   - chat/types/message.ts → Message
- *   - chat/types/session.ts → ChatSession
+ *   - session/types/message.ts → Message
+ *   - session/types/session.ts → ChatSession
  *   - session/types/UnifiedSession.ts → UnifiedSession
  *   - security/audit/AuditTypes.ts → SecurityAuditReport
  *   - commands/framework/CommandAuditLogger.ts → AuditEntry
@@ -19,7 +19,7 @@
  * ⚠️ **迁移状态与角色边界（2026-10-01 台账 B′-①② 裁定，务必先读）**
  *
  * **角色**：本模块＝「**协议 / 存储边界模型**」＋「**新增数据契约的单一事实源**」，
- * 与各域**领域模型自持**（`chat/types/message.ts` · `session/types/*` · `tools/types/*` …）
+ * 与各域**领域模型自持**（`session/types/message.ts` · `session/types/*` · `tools/types/*` …）
  * **并存不争**。
  *
  * **已落地（活跃使用，应继续沿用）**：
@@ -27,7 +27,7 @@
  *     —— 见 spec `tool-turn-budget-persistence.md` / `todo-expansion-persistence.md`。
  *
  * **未迁移（存量，**当前不迁移**）**：`DataMessage` · `DataSession*` · `DataAudit*` 与
- * `chat/types/message.ts`（`Message`/`MessageRole`/…）· `session/types/*` · `ai/models/types.ts`
+ * `session/types/message.ts`（`Message`/`MessageRole`/…）· `session/types/*` · `ai/models/types.ts`
  * 等处**并存**，且**形状不等价**：
  *   - `DataMessage` 用 `timestamp: number` + **必填** `sessionId`/`type`；领域 `Message` 用
  *     `createdAt/updatedAt/startedAt: Date`、`sessionId` 可选；

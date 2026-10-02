@@ -15,7 +15,7 @@
  */
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import type { LiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 const logger = getLogger('session:workflow-run-projection');
 

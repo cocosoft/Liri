@@ -5,7 +5,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import type { ToolAwareClient } from '@modules/ai';
-import type { ChatSession } from '../types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import type { SessionAccessFacade } from './SessionAccessFacade';
 
 const logger = getLogger('chat:memoryManager');

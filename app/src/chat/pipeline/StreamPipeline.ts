@@ -41,8 +41,11 @@ import {
   type CompactionOutcome,
 } from '@modules/context';
 import { validatePathsInOutput } from '../services/PathGuardService';
-import type { ChatSession } from '../types/session.js';
-import type { Message, StreamMessageOptions } from '../types/message.js';
+import type { ChatSession } from '@modules/session/types/session.js';
+import type {
+  Message,
+  StreamMessageOptions,
+} from '@modules/session/types/message.js';
 import type {
   ChatResponse,
   ChatMessage,

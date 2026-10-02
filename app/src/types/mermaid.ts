@@ -1,12 +1,12 @@
 /**
  * 2026-10-01 B11 前置 P1（D-223）—— `MermaidLintIssue` 下沉类型中心（infra → core）。
  *
- * 动机：`chat/types/eventPayloads.ts` 引 `@modules/utils/mermaidLint`(infra) ⇒ 该契约文件
+ * 动机：`session/types/eventPayloads.ts` 引 `@modules/utils/mermaidLint`(infra) ⇒ 该契约文件
  * 若改走「下沉 `types/`」（B11 方案甲）会变成 `core -> infra`（更差）。把此**零出向依赖**
  * 的问题项接口下沉 core，可使 `eventPayloads.ts` 成为**纯 core 引用**的契约文件。
  *
  * 原址（`utils/mermaidLint.ts`）保留**再导出** ⇒ `@modules/utils/mermaidLint` 既有消费方
- * （`chat/types/eventPayloads.ts` · `chat/ReActToolLoop.ts` 等）零改动；
+ * （`session/types/eventPayloads.ts` · `chat/ReActToolLoop.ts` 等）零改动；
  * 依 R05-013 口径「再导出不计入类型中心冲突」。
  */
 

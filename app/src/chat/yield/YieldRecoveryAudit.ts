@@ -30,8 +30,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type { LiriEvent } from '../types/events';
-import type { LiriEventMap } from '../types/eventPayloads';
+import type { LiriEvent } from '@modules/session/types/events';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 
 const logger = getLogger('chat:yield:recoveryAudit');
 

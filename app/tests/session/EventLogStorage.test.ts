@@ -16,7 +16,7 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 const HASH = 'default';
 

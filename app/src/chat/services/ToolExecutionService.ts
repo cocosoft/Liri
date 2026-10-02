@@ -32,8 +32,12 @@ import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
 } from '../../utils/fileStateCache';
-import type { ToolCall, ToolResult, ToolIntegration } from '../types/tool.js';
-import type { ChatSession } from '../types/session.js';
+import type {
+  ToolCall,
+  ToolResult,
+  ToolIntegration,
+} from '@modules/session/types/tool.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 import type { RollbackIntegration, FileOperation } from '@modules/security';
 

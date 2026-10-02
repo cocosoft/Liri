@@ -4,7 +4,7 @@
  * 在当前进程中运行teammate
  * */
 
-import type { Message } from '@modules/chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import type {
   SubAgent,
   InProcessSubAgentConfig,

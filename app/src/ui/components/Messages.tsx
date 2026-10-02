@@ -8,7 +8,7 @@ import { MessageBubble, MessageBubbleProps } from './MessageBubble';
 
 /**
  * UI 渲染用消息（2026-10-01 数据契约专项 U2 #6：原名 `Message`，
- * 与规范来源 `chat/types/message.ts` 同名不同物（本版用 `sender` 而非 `role`）⇒ 依 §9.2 原则 2 改名 `UIMessage`）
+ * 与规范来源 `session/types/message.ts` 同名不同物（本版用 `sender` 而非 `role`）⇒ 依 §9.2 原则 2 改名 `UIMessage`）
  */
 export interface UIMessage {
   id: string;

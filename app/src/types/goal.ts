@@ -1,7 +1,7 @@
 /**
  * 2026-10-01 B11 前置 P1（D-223）—— 长程任务**目标域词表**下沉类型中心（app → core）。
  *
- * 动机：`chat/types/eventPayloads.ts` 直接引 `@modules/tasks`(app) 的这三个类型 ⇒ 该契约
+ * 动机：`session/types/eventPayloads.ts` 直接引 `@modules/tasks`(app) 的这三个类型 ⇒ 该契约
  * 文件按 B11 方案（改归 `session/types/`，service）迁移时，会经传递闭包新增
  * `session -> tasks`（service → app）**倒挂**（B11 blocker ②）。
  *

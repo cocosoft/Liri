@@ -23,7 +23,7 @@
  */
 
 import { AIMessage, AIModelType } from '@modules/ai';
-import { ChatSession } from '../types/session';
+import { ChatSession } from '@modules/session/types/session';
 
 /**
  * 聊天消息类型

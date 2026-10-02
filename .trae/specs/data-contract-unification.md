@@ -79,7 +79,7 @@
 
 | 变体 | 位置 | 语义 | 门禁现状 |
 |---|---|---|---|
-| 领域层 `Message` | `chat/types/message.ts` | 对话领域消息（camelCase，含 `ContentBlock` 等） | **R05-011 认定的规范来源** |
+| 领域层 `Message` | `session/types/chat/message.ts`（2026-10-01 B11 本体由 `chat/types/message.ts` 迁入） | 对话领域消息（camelCase，含 `ContentBlock` 等） | **R05-011 认定的规范来源** |
 | 协议层 `Message` | `core/types.ts` | LLM 协议消息（**snake_case** 工具字段） | R05-011 **已知例外**（`knownExceptions` 显式登记 `core/types.ts`） |
 | 其它域私有 | `agent/TitleGenerator.ts` · `chat/types/ToolUseBlock.ts` · `compaction/ContextEngine.ts` · `subagent/SubAgentCommunicator.ts` · `ui/components/Messages.tsx` | 域内私有变体 | R05-011 **已知例外** |
 
@@ -253,7 +253,7 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 
 | # | 名字 | 份数 | 落点 | 判定要点 |
 |---|---|---:|---|---|
-| 1 | `Message` | **4** | 协议层 `core/types.ts` · 领域层 `chat/types/message.ts` · 域私有变体 · **`session/types/UnifiedMessage.ts`（`UnifiedMessage` 家族 322 行；2026-10-01 P2 由 `Message.ts` 改名）** | §2.3 已证"**不是同一个东西、不得合并**"；**第 4 份为本次新增发现** |
+| 1 | `Message` | **4** | 协议层 `core/types.ts` · 领域层 `session/types/chat/message.ts`（2026-10-01 B11 本体由 `chat/types/` 迁入） · 域私有变体 · **`session/types/UnifiedMessage.ts`（`UnifiedMessage` 家族 322 行；2026-10-01 P2 由 `Message.ts` 改名）** | §2.3 已证"**不是同一个东西、不得合并**"；**第 4 份为本次新增发现** |
 | 2 | `SessionContext` | **3** | `context/types/Context.ts` · `memory/types/SessionContext.ts` · `security/SecurityAudit.ts:135` | 同名不同物；⚠️ **B14 类型下沉的唯一冲突源** |
 | 3 | `Context` | **2** | `context/types/Context.ts` · `docs/HelpSystem.ts:46` | 同上 |
 | 4 | `Tool` | **2** | `types/tool.ts`（22 行极简投影） · `tools/types/Tool.ts`（660 行完整契约） | 阻断 E 组 `tools` 3 条；**Windows 大小写不敏感 ⇒ `tool.ts`/`Tool.ts` 无法同目录并存** |
@@ -462,13 +462,13 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 | 1 | `agent/TitleGenerator.ts:37` | `{ role: string; content: string }` | 标题生成输入 |
 | 2 | `core/types.ts:33` | `{ role: 'system'\|'user'\|'assistant'\|'tool'; content; tool_calls?; tool_call_id? }` | **协议层**（snake_case；R05-011 已列 knownException） |
 | 3 | `chat/types/ToolUseBlock.ts:51` | `{ role; content: string\|ContentBlock[]; usage?; … }` | 工具块消息变体 |
-| 4 | **`chat/types/message.ts:399`** | 领域完整（`id` 起） | ⭐ **R05-011 认定的规范来源** |
+| 4 | **`session/types/chat/message.ts:399`**（2026-10-01 B11 本体迁入） | 领域完整（`id` 起） | ⭐ **R05-011 认定的规范来源** |
 | 5 | `compaction/ContextEngine.ts:7` | `{ id; role; content; createdAt: Date; tokenCount?; metadata? }` | 压缩/上下文引擎 |
 | 6 | `ui/components/Messages.tsx:9` | `{ id; content; **sender**; timestamp?; type?; codeLanguage? }` | UI（用 `sender` 而非 `role`） |
 | 7 | `subagent/SubAgentCommunicator.ts:11` | `{ id; type; **content: any**; sender; receiver; timestamp }` | 子代理 IPC（**含 `any`**） |
 | ＋ | `session/types/UnifiedMessage.ts`（**文件名**曾与 `chat/types/message.ts` 同名，导出的是 `UnifiedMessage` 家族 322 行） | — | **文件名**冲突源（Windows 大小写）；2026-10-01 P2 已改名 `UnifiedMessage.ts`（B11 前置） |
 
-**⇒ 裁定（§9.2 原则 2）**：**规范落点 = #4 `chat/types/message.ts`**（R05-011 + `project_rules §1.6` 双重认定）⇒ **其余 6 份改名**（建议名）：
+**⇒ 裁定（§9.2 原则 2）**：**规范落点 = #4 `session/types/chat/message.ts`**（R05-011 + `project_rules §1.6` 双重认定；2026-10-01 B11 本体由 `chat/types/message.ts` 迁入）⇒ **其余 6 份改名**（建议名）：
 `TitleGenMessage`(#1) · `ProtocolMessage`(#2，⚠️ **波及最大** —— providers 广泛使用，须单独评估) · `ToolUseMessage`(#3) · `ContextEngineMessage`(#5) · `UIMessage`(#6) · `SubAgentMessage`(#7)。
 另：✅ `session/types/Message.ts` **文件名**已改 `UnifiedMessage.ts`（2026-10-01，B11 前置 P2；其导出名本就是 `UnifiedMessage`）⇒ 消除与 `chat/types/message.ts` 的**文件名**冲突。同批 `session/types/Session.ts` → `UnifiedSession.ts`。
 
@@ -546,7 +546,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 | 落点 | 语义 | 消费者 |
 |---|---|---|
-| `chat/types/checkpoint.ts:35` | **会话检查点**存储 | `chat/services/SessionCheckpointService.ts`（4 处）· `chat/services/CheckpointDatabase.ts`（implements）· **`query/FileCheckpointStorage.ts`（implements）** |
+| `session/types/chat/checkpoint.ts:35`（2026-10-01 B11 本体迁入） | **会话检查点**存储 | `chat/services/SessionCheckpointService.ts`（4 处）· `chat/services/CheckpointDatabase.ts`（implements）· **`query/FileCheckpointStorage.ts`（implements）** |
 | `query/types.ts:81` | **TAOR** 检查点存储 | `query/FileTAORCheckpointStorage` · `query/DBTAORCheckpointStorage` · `query/ResumeManager` · `query/TAORLoop`（含 `MemoryCheckpointStorage`）|
 
 **裁定**：chat 侧**保留** `CheckpointStorage`（跨模块被 query 消费 ⇒ 更"规范"）；query 侧 → 改名 **`TAORCheckpointStorage`**（与既有 `TAORCheckpoint` 同族，语义准确）。

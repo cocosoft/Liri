@@ -18,7 +18,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import type { Message } from '@modules/chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI';
 
 export interface DisplayMessage {

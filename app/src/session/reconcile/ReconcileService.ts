@@ -39,7 +39,7 @@
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import { promises as fs } from 'fs';
-import type { LiriEvent } from '../../chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import {
   deriveMessagesFromEvents,
   extractCompactionRangesFromEvents,

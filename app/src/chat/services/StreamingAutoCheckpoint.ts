@@ -15,9 +15,12 @@ import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import { handleError } from '@modules/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
-import type { SessionCheckpoint } from '../types/checkpoint';
-import type { Message } from '../types/message';
-import type { SessionMetadata, DataSessionStatus } from '../types/session';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
+import type { Message } from '@modules/session/types/message';
+import type {
+  SessionMetadata,
+  DataSessionStatus,
+} from '@modules/session/types/session';
 import type { ToolCallSpec } from '@modules/runtime/api/CoreAPI';
 
 const logger = getLogger('chat:streamingAutoCheckpoint');

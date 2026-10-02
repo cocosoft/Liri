@@ -3,7 +3,7 @@
  * 在Token预算紧张时自动生成工具调用结果的摘要
  */
 
-import type { ToolCall, ToolResult } from '../chat/types/tool.js';
+import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 
 export interface ToolUseSummaryConfig {
   maxSummaryLength?: number;

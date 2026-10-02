@@ -37,7 +37,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { ChatOrchestrator } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
-import type { Message } from '../../../src/chat/types/message.js';
+import type { Message } from '@modules/session/types/message.js';
 import { createTestHost, sleep } from './helpers.js';
 
 /** 阈值/采样压到毫秒级，使"孤儿定时器"在用例时限内必然现身 */

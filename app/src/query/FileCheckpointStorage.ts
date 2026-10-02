@@ -3,7 +3,7 @@
  *
  * 文件系统检查点存储
  * 将 SessionCheckpoint 持久化到磁盘 JSON 文件
- * 实现 chat/types/checkpoint.CheckpointStorage 接口，可注入到 SessionCheckpointService
+ * 实现 session/types/checkpoint.CheckpointStorage 接口，可注入到 SessionCheckpointService
  * 存储路径遵循文件存储规范第二层：~/.pyapp/data/checkpoints/
  */
 import * as fs from 'fs';
@@ -12,8 +12,8 @@ import { resolveDataDir } from '@modules/core';
 import type {
   SessionCheckpoint,
   CheckpointStorage,
-} from '../chat/types/checkpoint.js';
-import { CHECKPOINT_MAX_AUTO } from '../chat/types/checkpoint.js';
+} from '@modules/session/types/checkpoint.js';
+import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint.js';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('query:fileCheckpointStorage');
 

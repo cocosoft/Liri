@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'bun:test';
 import { extractPendingToolCallsFromEvents } from '../../src/chat/utils/pendingToolCalls.js';
-import type { LiriEvent } from '../../src/chat/types/events.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
 
 const ev = (
   seq: number,

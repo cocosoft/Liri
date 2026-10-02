@@ -1,7 +1,7 @@
 /**
  * 会话事件名 —— 双端单一事实源（2026-09-30，台账 D-57）
  *
- * 背景：此前 app / client **各持一份手写事件名联合**（`app/src/chat/types/events.ts` 与
+ * 背景：此前 app / client **各持一份手写事件名联合**（`app/src/session/types/events.ts` 与
  * `client/src/types/events.ts`），双方文件头都写明"双端必须保持一致"，但**无任何机制保证**，
  * 曾**实证漂移**（台账 D-1：client 落后 5 个类型 —— `goal/*` ×4 + `agent/recovery`，2026-09-28）。
  *

@@ -3,7 +3,7 @@
  * 定义不同类型teammate的通用接口
  * */
 
-import type { Message } from '@modules/chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import type {
   SubAgent,
   SubAgentConfig,

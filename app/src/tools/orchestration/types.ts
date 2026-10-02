@@ -22,7 +22,7 @@
  * 工具编排类型定义
  */
 
-import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';
+import type { ToolUseBlock } from '@modules/session/types/ToolUseBlock';
 import { WRITE_TOOLS as SHARED_FILE_WRITE_TOOLS } from '@modules/query/tool-constants.js';
 
 /**

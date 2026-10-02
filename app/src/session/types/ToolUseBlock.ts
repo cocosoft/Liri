@@ -48,10 +48,10 @@ export interface ContentBlock {
 /**
  * 工具使用块消息变体
  *
- * 2026-10-01 数据契约专项 U2（#3）：原名 `Message`，与**规范来源** `chat/types/message.ts`
+ * 2026-10-01 数据契约专项 U2（#3）：原名 `Message`，与**规范来源** `session/types/message.ts`
  * 及其余 6 份同名不同物（本版含 `usage` 且 `content: string | ContentBlock[]`）⇒ 依
  * §9.2 原则 2「一名一规范落点」改名 `ToolUseMessage`（R05-011 长期例外项之一，本次收敛）。
- * ⚠️ 实测：本类型**零消费者**（`chat/types/index.ts` 未转出本文件；按路径 grep 亦零命中）
+ * ⚠️ 实测：本类型**零消费者**（`session/types/chat.ts` 未转出本文件；按路径 grep 亦零命中）
  * ⇒ 属"未被引用的域内变体"，后续可评估直接删除（另册）。
  */
 export interface ToolUseMessage {

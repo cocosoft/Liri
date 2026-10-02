@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
-import type { Message } from '../types/message.js';
+import type { Message } from '@modules/session/types/message.js';
 import {
   AwaySummaryService,
   hasSummarySinceLastUserTurn,

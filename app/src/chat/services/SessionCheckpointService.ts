@@ -1,12 +1,15 @@
-import type { Message } from '../types/message';
-import type { SessionMetadata, DataSessionStatus } from '../types/session';
+import type { Message } from '@modules/session/types/message';
+import type {
+  SessionMetadata,
+  DataSessionStatus,
+} from '@modules/session/types/session';
 import type {
   SessionCheckpoint,
   CheckpointService,
   CheckpointDiff,
   CreateCheckpointParams,
-} from '../types/checkpoint';
-import type { CheckpointStorage } from '../types/checkpoint';
+} from '@modules/session/types/checkpoint';
+import type { CheckpointStorage } from '@modules/session/types/checkpoint';
 import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

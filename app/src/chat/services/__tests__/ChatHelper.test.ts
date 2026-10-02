@@ -29,11 +29,11 @@ import {
   getOrCreateSessionMachine,
   persistChatMessage,
 } from '../ChatHelper';
-import type { ChatSession } from '../../types/session';
-import { MessageRole } from '../../types/message';
-// BUG：原 `import { SessionState } from '../../types/session'` 导入不存在的导出（session.ts 无 SessionState），
+import type { ChatSession } from '@modules/session/types/session';
+import { MessageRole } from '@modules/session/types/message';
+// BUG：原 `import { SessionState } from '@modules/session/types/session'` 导入不存在的导出（session.ts 无 SessionState），
 // bun 并发链接时抛 SyntaxError。mapSessionStatusToState 返回 DataSessionStatus，此处取别名保持断言不变。
-import { DataSessionStatus as SessionState } from '../../types/session';
+import { DataSessionStatus as SessionState } from '@modules/session/types/session';
 import { MessageType as SessionMessageType } from '@modules/session/types/UnifiedMessage';
 import { SessionStateMachine } from '../../../state/session/SessionStateMachine';
 

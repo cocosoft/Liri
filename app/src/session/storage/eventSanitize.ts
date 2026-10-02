@@ -12,7 +12,7 @@
  *     NaN/Infinity/-0/循环引用/稀疏数组/Map/Set/Date/class 实例。
  */
 
-import type { LiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 /** 校验结果 */
 export interface EventSanitizeResult {

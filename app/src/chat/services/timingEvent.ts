@@ -31,7 +31,7 @@
  *   "0/0 跳过"约定）；缓存字段**只有 >0 才写**（避免把"该 provider 不返回缓存字段"表达成
  *   "缓存命中 0"）。
  * - **回合级耗时**（`stage:'assistant'`）：真实墙钟 = `createdAt`(完成) − `startedAt`(流式开始)，
- *   与 `Message.startedAt` 的既有语义一致（`chat/types/message.ts:426`："用于导出显示开始时间与耗时"）。
+ *   与 `Message.startedAt` 的既有语义一致（`session/types/message.ts:426`："用于导出显示开始时间与耗时"）。
  *   `startedAt` 缺失 ⇒ **不产事件**（不用 `createdAt` 自身兜底成 0，那是伪造）。
  * - **不写 `ttft`**：现有 `ttfbMs` 在 provider 层、未挂到消息上；**取不到就不写**，不造近似值。
  */

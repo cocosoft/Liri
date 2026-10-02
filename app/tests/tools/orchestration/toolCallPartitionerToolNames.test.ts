@@ -29,7 +29,7 @@ import {
   isSearchTool,
   isConcurrencySafe,
 } from '../../../src/tools/orchestration/types';
-import type { ToolUseBlock } from '../../../src/chat/types/ToolUseBlock';
+import type { ToolUseBlock } from '@modules/session/types/ToolUseBlock';
 
 /** 造一个工具使用块（`name` 为本仓真实注册名） */
 function block(name: string): ToolUseBlock {

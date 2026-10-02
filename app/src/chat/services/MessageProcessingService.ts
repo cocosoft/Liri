@@ -5,8 +5,8 @@
  * 参考CC源码: cc_code/backend/utils/messages.ts
  */
 
-import type { ContentBlock, Message } from '../types/message.js';
-import { MessageRole } from '../types/message.js';
+import type { ContentBlock, Message } from '@modules/session/types/message.js';
+import { MessageRole } from '@modules/session/types/message.js';
 
 /**
  * 消息块类型

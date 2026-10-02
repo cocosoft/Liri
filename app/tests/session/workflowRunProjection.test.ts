@@ -14,8 +14,8 @@ import { describe, expect, it } from 'bun:test';
 
 import { MessageToEventMigrator } from '../../src/session/storage/MessageToEventMigrator';
 import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
-import type { Message } from '../../src/chat/types/message';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { Message } from '@modules/session/types/message';
+import type { LiriEvent } from '@modules/session/types/events';
 
 /** EventLogStorage 实例仅满足构造签名，convertMessage 不触达存储层 */
 const stubStorage = {} as unknown as ConstructorParameters<

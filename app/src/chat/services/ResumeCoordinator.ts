@@ -29,7 +29,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { createCheckpointService } from './SessionCheckpointService.js';
 import { getLocalSession } from './ChatHelper';
-import type { ChatSession, CreateSessionParams } from '../types/session.js';
+import type {
+  ChatSession,
+  CreateSessionParams,
+} from '@modules/session/types/session.js';
 import { DataSessionStatus } from '@modules/core';
 
 /**
@@ -100,13 +103,13 @@ export class ResumeCoordinator {
 
   async listCheckpoints(
     sessionId: string
-  ): Promise<import('../types/checkpoint').SessionCheckpoint[]> {
+  ): Promise<import('@modules/session/types/checkpoint').SessionCheckpoint[]> {
     return this.checkpointService.listCheckpoints(sessionId);
   }
 
   async rollbackToCheckpoint(checkpointId: string): Promise<{
     session: ChatSession;
-    diff: import('../types/checkpoint').CheckpointDiff;
+    diff: import('@modules/session/types/checkpoint').CheckpointDiff;
   }> {
     const checkpoint = await this.checkpointService.getCheckpoint(checkpointId);
     if (!checkpoint) {
@@ -144,7 +147,9 @@ export class ResumeCoordinator {
 
   async getLatestCheckpoint(
     sessionId: string
-  ): Promise<import('../types/checkpoint').SessionCheckpoint | null> {
+  ): Promise<
+    import('@modules/session/types/checkpoint').SessionCheckpoint | null
+  > {
     return this.checkpointService.getLatestCheckpoint(sessionId);
   }
 }

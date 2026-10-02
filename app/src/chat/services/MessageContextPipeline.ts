@@ -14,7 +14,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
-import type { ChatSession } from '../types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import {
   estimateMessagesTokens,

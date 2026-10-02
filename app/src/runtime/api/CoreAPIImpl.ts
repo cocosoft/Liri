@@ -156,13 +156,13 @@ import {
 import { ExecutionPhaseTracker } from '@modules/session';
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
 
-import type { LiriEvent } from '@modules/chat/types/events';
-import type { SessionManager } from '@modules/chat/types/session';
+import type { LiriEvent } from '@modules/session/types/events';
+import type { SessionManager } from '@modules/session/types/session';
 import type {
   UnifiedMessage,
   FrontendMessageBlock,
 } from '@modules/session/types/UnifiedMessage';
-import type { Message } from '@modules/chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import type { ToolManager } from '@modules/tools';
 import { globalToolManager } from '@modules/tools';
 import type { Coordinator } from '@modules/core';
@@ -1982,7 +1982,7 @@ export class CoreAPIImpl implements CoreAPI {
    *
    * `session/SessionGateway.ts` + `session/SessionManager.ts`（service）原先**静态**导入 app 层
    * `@modules/query` 的 `FileCheckpointStorage` ⇒ 2 条 `session -> query`(app) 倒挂。
-   * ⚠️ 该类引 `../chat/types/checkpoint` ⇒ **app 耦合、不可下沉** ⇒ 走门面（投影见
+   * ⚠️ 该类引 `../session/types/checkpoint` ⇒ **app 耦合、不可下沉** ⇒ 走门面（投影见
    * `./checkpointPorts#CheckpointCleanupPort`）。
    *
    * ⚠️ **为何同步**：调用点在**同步回调** `(id: string) => …` 内（拼装 `SessionPruner` 选项）⇒
@@ -4331,7 +4331,7 @@ export class CoreAPIImpl implements CoreAPI {
    * 3. 兜底返回 'web'（Web/Tauri 客户端等未显式标注来源的会话）
    */
   private _resolveSessionSource(
-    session: import('@modules/chat/types/session').ChatSession
+    session: import('@modules/session/types/session').ChatSession
   ): string {
     // 优先从 metadata.channel 获取
     const channel = session.metadata?.channel as string | undefined;

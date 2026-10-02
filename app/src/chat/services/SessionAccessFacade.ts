@@ -21,7 +21,7 @@ import { SessionStateHydrator } from '@modules/session';
 import { SessionMemoryExtractor } from '@modules/session';
 import type { MemoryExtractionLLM } from '@modules/session';
 import { MEMORY_TEMPLATE } from '@modules/session';
-import type { ChatSession } from '../types/session';
+import type { ChatSession } from '@modules/session/types/session';
 
 const logger = getLogger('chat:session-facade');
 

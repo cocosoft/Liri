@@ -32,7 +32,7 @@
  */
 /**
  * 协议层消息（2026-10-01 数据契约专项 U2 #2：原名 `Message`，
- * 与规范来源 `chat/types/message.ts` 同名不同物 —— 本版为协议形状（snake_case
+ * 与规范来源 `session/types/message.ts` 同名不同物 —— 本版为协议形状（snake_case
  * `tool_calls` / `tool_call_id`，供 providers 侧组装）⇒ 依 §9.2 原则 2 改名 `ProtocolMessage`）
  */
 export interface ProtocolMessage {

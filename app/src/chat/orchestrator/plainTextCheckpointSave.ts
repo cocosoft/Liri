@@ -29,7 +29,7 @@
 import { getLogger } from '@modules/monitoring';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '@modules/config';
-import type { ChatSession } from '../types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import type { ParsedToolCall } from '@modules/ai';
 
 const logger = getLogger('chat:streamFlow');

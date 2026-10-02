@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import {
   finishRequest,
   startRequest,

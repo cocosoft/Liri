@@ -18,7 +18,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import type { ToolCall, ToolResult } from '../types/tool.js';
+import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 
 const logger = getLogger('chat:toolTimeout');
 

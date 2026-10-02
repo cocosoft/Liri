@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 function ev(
   seq: number,

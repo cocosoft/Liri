@@ -35,8 +35,8 @@
  * - 布尔开关默认 false（跳过遥测/轨迹分支）
  */
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
-import type { ChatSession } from '../../../src/chat/types/session.js';
-import type { Message } from '../../../src/chat/types/message.js';
+import type { ChatSession } from '@modules/session/types/session.js';
+import type { Message } from '@modules/session/types/message.js';
 import type { SimpleMutex } from '../../../src/core/SimpleMutex.js';
 import type {
   ChatResponse,

@@ -21,7 +21,7 @@
 
 // 2026-10-01 B11 前置 P1（D-223）：`GoalTemplateKind` 键集已下沉**类型中心**
 // `@modules/types/goal`（core —— 纯字面量联合、零出向依赖）⇒ 解除
-// `chat/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。
+// `session/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。
 // 本文件按 R05-013 口径**再导出**，既有消费方（`GoalEvents.ts` · `@modules/tasks` 桶）零改动。
 import type { GoalTemplateKind } from '@modules/types/goal';
 

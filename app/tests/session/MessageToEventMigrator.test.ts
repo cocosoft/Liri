@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'bun:test';
 import { MessageToEventMigrator } from '../../src/session/storage/MessageToEventMigrator';
-import type { Message } from '../../src/chat/types/message';
+import type { Message } from '@modules/session/types/message';
 
 // EventLogStorage 实例仅用于满足构造签名，convertMessage 不触达存储层
 const stubStorage = {} as unknown as ConstructorParameters<

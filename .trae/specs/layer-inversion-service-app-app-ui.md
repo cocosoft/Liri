@@ -94,9 +94,9 @@
 | **C** `infrastructure -> app`（§3.3） | 19 | 🟡 **部分完成**：`SandboxPermission` ✅（D-186，4）· **`tools` 域 4 条 ✅**（D-192/194/197/199 —— 静态边归零 🎯）· **`sandbox` 域值类 ✅**（D-200，2）· **`chat` 域 ✅**（D-201，3，**同批修缺陷**）· **`auto-reply` 域 ✅**（D-202，1）· **`agent` 域枚举/类型 ✅**（D-203，2，**下沉 `types/`**）· **A2A 对外面 ✅**（D-204，2，**下沉 `types/a2a` + 新增 `a2aPorts`**） | **18** | **1**（`session-handlers` 1 —— ⛔ **已判定与子批 F 同源**（改 `getSessionEvents({types})` 契约 + 规范 `Message` 模型）⇒ **移交子批 F / 数据契约专项**，见 D-204 末节） |
 | **D** `service -> app` 低风险（§3.4） | ~~8~~ **实测 6** | ✅ **已完成（实测 6/6）**：⚠️ 原列 `mcp` 2 条实测不存在 ⇒ 实际 6 条全部收敛：`channels/registry`（D-205，1）· **`channels -> ai` 2 条**（D-206，2）· **`bridge -> workspaces`**（D-207，1）· **`voice -> tools`**（D-207，1）· **`channels/bootstrap`（EffectScope）**（D-207，1） | **6** | **0** |
 | **E** `services -> app`（§3.5） | ~~20~~ **实测 19** | 🟡 **部分完成**：已完成 **6**（`mcp/MCPToolBridge.ts -> context` D-208；`ai` 组 (a) `DiagnosticsReport` D-212；(b) `compact/utils.ts` D-213（死导入）· `PromptAssembler.ts` D-214（端口化）；(c) **`SystemPromptReport.ts`** · **`CompactService.ts`** D-215）⇒ **`ai` 组 6 条全部清零** 🎯 · **`chat` 组 7 条清零** 🎯（D-216 死代码删除 3 · D-217 `compact` 改归 app 4）· **`tools` 组 1 条清零**（D-218 删零引用死文件）· **`workspaces` 组 1 条清零**（D-219 删死 barrel + 改直连）· **`commands` 组 1 条清零**（D-220 去假依赖：不透明载荷改 `unknown[]`）；⚠️ 余 3 条**全属**"规范数据模型"类且**硬阻**（`tools` 3 被 `Tool` 双份定义阻塞，见 D-218）⇒ E 组**静态可清部分已清零**，余项待**数据契约专项**收口 | **16** | **3**（`tools` 3（⛔ 受阻于 `Tool` 双份定义）） |
-| **F** `session`+`runtime`（§3.6，最高风险） | 23 | 🟡 **部分完成**：**`session -> ai` 2**（B12）· **`session -> query` 2**（B13）· **`session -> context` 1**（B14，收口于 `45bf96ed8`）**已清零**（D-222）；**`session -> chat` 11**（B11，D-221）⛔ **移交数据契约专项 v2**（阻断为**文件名冲突** + `eventPayloads` 传递依赖，**非**同名类型 ⇒ 见 [data-contract-unification.md](./data-contract-unification.md) §9.10「更正」）；余 `runtime -> *` 7 条未动 | **5** | **18**（含挂起 11） |
+| **F** `session`+`runtime`（§3.6，最高风险） | 23 | 🟡 **部分完成**：**`session -> ai` 2**（B12）· **`session -> query` 2**（B13）· **`session -> context` 1**（B14，`45bf96ed8`）· **`session -> chat` 10/11**（B11 本体，**方案 A′**：`chat/types/*` 迁入 `session/types/chat/`）**已清零**；**`runtime -> chat` 1 已清零**（B11 同批附带，非 B11 收益）⇒ ⛔ **余 1 条**：`session/compaction/ServiceAdapters.ts` 的装配值 `getCheckpointService`（须**端口化**，见 B11 执行记录）；余 `runtime -> *` **6** 条未动 | **16** | **7**（B11 余 1 + `runtime -> *` 6） |
 
-**门禁总账（实测）**：`已豁免` **151 → 42**（**−109**，实测值）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **16**（D-208/212/213/214/215 六条 + D-216 死代码 3 + D-217 `compact` 改归 app 4 + D-218 死文件 1 + D-219 死 barrel 1 + D-220 去假依赖 1）+ 子批 F **5**（D-222 B12 −2 · B13 −1 · **B14 −1**（`45bf96ed8`））+ **门禁正确性修正 6**（D-190，**非本次代码改动所致**），**另计 D-217 新增 1 条 `runtime -> compaction`**。⚠️ 各项为**分账记账**，±1 的归属以各 `D-*` 记录为准。
+**门禁总账（实测）**：`已豁免` **151 → 31**（**−120**，实测值）= 子批 A 47 + 子批 B 13 + 子批 C **18** + 子批 D **6** + 子批 E **16**（D-208/212/213/214/215 六条 + D-216 死代码 3 + D-217 `compact` 改归 app 4 + D-218 死文件 1 + D-219 死 barrel 1 + D-220 去假依赖 1）+ 子批 F **16**（D-222 B12 −2 · B13 −1 · **B14 −1**（`45bf96ed8`）· **B11 本体 −10**（方案 A′）· **`runtime -> chat` −1**（B11 同批附带））+ **门禁正确性修正 6**（D-190，**非本次代码改动所致**），**另计 D-217 新增 1 条 `runtime -> compaction`**。⚠️ 各项为**分账记账**，±1 的归属以各 `D-*` 记录为准。
 **例外清单**：**13 → 7 条**（清掉 5 个空桶 + 1 个空桶 `BULK-011`）。
 **质量**：全程 `typecheck 0` · `lint:arch` 违规 0 · 改动文件 `eslint 0/0` · 无半成品残留。
 
@@ -729,6 +729,26 @@ export interface AgentRunDto {
 - **验证（本人独立复跑，非仅采信执行方）**：`typecheck` **exit 0** · **`已豁免 42`（不变）** · `违规 0` · `类型中心冲突 0` · `[Message 模型] 0`（R05-011 未受影响）· 碎片 0 · 警告 3（预存）· `bun test tests/session` = **289 pass / 0 fail**。
 - **⚠️ P2-③（`index.ts` barrel 合并）不在本批**：两个 `index.ts` 只有在 `chat/types/*` **实际迁入** `session/types/` 后才同目录；若**提前**合并，会让 session 桶凭空新增 `session -> chat` 取用（**+1 已豁免**，方向倒挂）⇒ **③ 必须并入 B11 本体**（迁移同批完成）。
 - **⇒ 现状**：B11 三处硬阻断的处置归位 —— **阻断 2/3**（`eventPayloads → @modules/tasks` / `→ @modules/utils/mermaidLint`）已由 **P1** 解除；**阻断 1**（文件名冲突）中 `Message.ts`/`Session.ts` 两项已由**本批**解除，仅剩 `index.ts`（P2-③）。⇒ **B11 本体可做**，预计 **`已豁免 42 → 31`（−11）**。
+
+**✅ B11 本体执行记录（2026-10-01，方案 A′）**
+
+- **⚠️ 执行中发现的第 4 处硬阻断（此前三项之外）**：**两个 `index.ts` 不可合并** —— `session/types/UnifiedMessage.ts` 与迁入的 `session/types/chat/message.ts` **各有一套值域不同的** `MessageType` / `MessageRole`；`export *` 遇同名项会被**静默排除（或取错一套）**，而 `compaction/grouping.ts:10` 正从 chat 桶取 `MessageRole` ⇒ 合并即「静默语义漂移」。**用户裁定改走方案 A′**（迁入子目录、**保留 chat 桶独立**）。
+- **实施**：`git mv app/src/chat/types/*`（**9 个文件**：`events` · `eventPayloads` · `knownEventTypes` · `message` · `session` · `checkpoint` · `tool` · `ToolUseBlock` · `index`）→ **`app/src/session/types/chat/`**；旧目录删除；**9 文件内部相对导入零改动**（整目录搬移）；`session/types/index.ts` **未动**（刻意不合并桶）；**不新建任何 shim**。
+- **引用更新**：外部说明符**统一收敛为绝对别名** `@modules/session/types/chat/<名>`，覆盖 `chat/**` · `session/**` · `query/**` · `compaction/**` · `subagent/**` · `tools/**` · `runtime/api/**` · `infrastructure/http` · `hooks/**` · `ink/**` · `commands/**` · `tasks/**` · `app/tests/**` 等，**合计 122 文件修改 + 9 文件重命名**。
+- **功能性耦合同步（3 处，缺一即回归）**：
+  1. `scripts/lint-architecture.ts` **12 处** —— 含 **R05-011 的 `canonicalPaths`（L1357-1359）**，不改则迁移后的 `message.ts` 会被误判为"自定 Message 类型"（门禁回归）；另有 R05-011 / R05-013 两个 `knownExceptions` 清单与 3 处错误文案；
+  2. `scripts/layer-exceptions.json` **1 处**（FSZ-036 超限文件登记的路径）；
+  3. `app/tests/chat/eventTypeParity.test.ts:28` 的**硬编码读取路径** `join(REPO_ROOT, 'app/src/chat/types/eventPayloads.ts')`。
+- **验证（本人独立复跑）**：`typecheck` **exit 0** · **`已豁免 42 → 31`** · `违规 0` · `类型中心冲突 0` · **`[Message 模型] 0`**（**规范来源已正确显示 `session/types/chat/message.ts`** ⇒ R05-011 无回归）· 碎片 0 · 警告 3（预存）· `bun test tests/session tests/chat tests/tasks tests/http` = **967 pass / 0 fail**。
+- **⚠️ 账目修正（−11 的构成，勿整体误记为 B11 收益）**：**42 → 31 = −11**，其中
+  - **B11 本体 −10**：10 个 session 文件的目标模块由 `chat` 变为**同模块 `session`** ⇒ 该「文件 × 模块」对消失；
+  - **子批 F 的 `runtime -> *` 桶 −1（非 B11）**：`runtime/api/CoreAPI.ts` 迁移前的**唯一** chat 依赖即 `@modules/chat/types/events`（`git diff` 实测该文件**仅此 1 行变化**）⇒ 改指后 `runtime(service) → session(service)` **同层合法**，其 `runtime -> chat` 豁免随之消失 ⇒ 子批 F 的 `runtime -> *` 余项 **7 → 6**。
+- **⛔ B11 尚余 1 条未清**：`session/compaction/ServiceAdapters.ts:10-11` 的**装配值** `getCheckpointService` 取自 `@modules/chat` 桶（与 D-217 同型）—— 移类型文件治不了它，须**端口化**（B13 手法；且需先核 `CoreAPIImpl` 引 chat 是**动态**边 ⇒ 加同步门面可能净 0，须另做取证）。本批**刻意未动**（`git diff` 实测该文件为空）⇒ **B11 现状 = 11 → 1**。
+
+**📌 口径说明（本次目录迁移的文档影响）**
+
+- `chat/types/*` 的实际路径自本批起为 **`session/types/chat/*`**；**新条目一律用新路径**。
+- **本 spec 与其余 spec（`api-metrics-surface.md` · `architecture-benchmark-20260928.md` · `data-contract-unification.md` · `goal-entity.md` 等）中的既往条目保留当时的 `chat/types/...` 写法** —— 那些是**带行号/日期的同期证据记录**，文件内容与行号均未变、仅目录迁移，改写会破坏证据可追溯性。**功能耦合（门禁脚本 / 例外清单 / 测试硬编码路径）已全部同步，无遗漏。**
 
 **📌 B14b 立项单 —— `session -> context`（B14）的净负收口路径（2026-10-01，D-222 续）**
 

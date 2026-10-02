@@ -19,8 +19,8 @@
  * 也与注册表恢复**重复**。故连同其专属辅助 `parseToolResult`（零其他调用方）一并删除。
  */
 
-import type { ChatSession } from '../../chat/types/session';
-import type { Message } from '../../chat/types/message';
+import type { ChatSession } from '@modules/session/types/session';
+import type { Message } from '@modules/session/types/message';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('session:hydration:SessionStateHydrator');

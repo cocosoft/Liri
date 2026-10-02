@@ -78,7 +78,7 @@ import {
 } from '@modules/memory';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
-import type { LiriEvent, LiriEventData } from '@modules/chat/types/events';
+import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 // TR-14 / TR-12-A（2026-09-22）：`metric/timing` 事件载荷构造（纯函数，可单测）
 import {
   buildAssistantTimingData,
@@ -173,14 +173,21 @@ import type {
   SendMessageOptions,
   StreamMessageOptions,
   ChatResponse,
-} from './types/message.js';
-import { createSystemMessage } from './types/message.js';
-import type { ChatSession, CreateSessionParams } from './types/session.js';
-import type { SessionMetadata } from './types/session.js';
-import type { SessionCheckpoint } from './types/checkpoint.js';
+} from '@modules/session/types/message.js';
+import { createSystemMessage } from '@modules/session/types/message.js';
+import type {
+  ChatSession,
+  CreateSessionParams,
+} from '@modules/session/types/session.js';
+import type { SessionMetadata } from '@modules/session/types/session.js';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint.js';
 import { DataSessionStatus } from '@modules/core';
-import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
-import { getToolCallName } from './types/tool.js';
+import type {
+  ToolCall,
+  ToolResult,
+  ToolIntegration,
+} from '@modules/session/types/tool.js';
+import { getToolCallName } from '@modules/session/types/tool.js';
 import {
   MessageService,
   createMessageService,
@@ -6873,13 +6880,13 @@ export class ChatManagerImpl implements ChatManager {
 
   async listCheckpoints(
     sessionId: string
-  ): Promise<import('./types/checkpoint').SessionCheckpoint[]> {
+  ): Promise<import('@modules/session/types/checkpoint').SessionCheckpoint[]> {
     return this.resumeCoordinator.listCheckpoints(sessionId);
   }
 
   async rollbackToCheckpoint(checkpointId: string): Promise<{
     session: ChatSession;
-    diff: import('./types/checkpoint').CheckpointDiff;
+    diff: import('@modules/session/types/checkpoint').CheckpointDiff;
   }> {
     return this.resumeCoordinator.rollbackToCheckpoint(checkpointId);
   }
@@ -6890,7 +6897,9 @@ export class ChatManagerImpl implements ChatManager {
 
   async getLatestCheckpoint(
     sessionId: string
-  ): Promise<import('./types/checkpoint').SessionCheckpoint | null> {
+  ): Promise<
+    import('@modules/session/types/checkpoint').SessionCheckpoint | null
+  > {
     return this.resumeCoordinator.getLatestCheckpoint(sessionId);
   }
 }

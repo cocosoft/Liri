@@ -12,9 +12,12 @@
  */
 
 import type { SessionCheckpointService } from './SessionCheckpointService';
-import type { SessionCheckpoint } from '../types/checkpoint';
-import type { Message } from '../types/message';
-import type { SessionMetadata, DataSessionStatus } from '../types/session';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
+import type { Message } from '@modules/session/types/message';
+import type {
+  SessionMetadata,
+  DataSessionStatus,
+} from '@modules/session/types/session';
 
 /** metadata 中标记普通对话检查点的字段 */
 const META_KEY = 'plainTextAutoCheckpoint';

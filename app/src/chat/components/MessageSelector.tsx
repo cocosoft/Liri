@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Message, UserMessage } from '../types/message.js';
+import type { Message, UserMessage } from '@modules/session/types/message.js';
 import { createUserMessage, isSyntheticMessage } from '../utils/messages.js';
 
 export type RestoreOption =

@@ -4,7 +4,10 @@
  * 配合 MessageQueue 实现无丢失的消息传递
  */
 import type { EnhancedMessage, MessageRouteTarget } from './MessageService.js';
-import { MessageStatus, MessagePriority } from '../types/message.js';
+import {
+  MessageStatus,
+  MessagePriority,
+} from '@modules/session/types/message.js';
 import { MessageQueue } from './MessageQueue.js';
 import type { MessageQueueStats } from './MessageQueue.js';
 

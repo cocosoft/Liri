@@ -1,7 +1,7 @@
 /**
  * 事件类型三端一致性门禁（2026-09-29 建立，2026-09-30 升级为「shared 单一事实源」）
  *
- * 背景：`client/src/types/events.ts` 曾是后端 `app/src/chat/types/events.ts` 的**手写镜像**，
+ * 背景：`client/src/types/events.ts` 曾是后端 `app/src/session/types/events.ts` 的**手写镜像**，
  * 文件头明文要求"双端必须保持一致"，但**此前无任何机制保证** ⇒ 2026-09-28 曾**实证**落后
  * 5 个类型（`goal/*` ×4 + `agent/recovery`，台账 D-1）。
  *
@@ -25,7 +25,7 @@ const REPO_ROOT = join(import.meta.dir, '../../..');
 /** 事件名单一事实源 */
 const SHARED = join(REPO_ROOT, 'shared/events/eventNames.ts');
 /** 后端载荷映射 */
-const APP_PAYLOADS = join(REPO_ROOT, 'app/src/chat/types/eventPayloads.ts');
+const APP_PAYLOADS = join(REPO_ROOT, 'app/src/session/types/eventPayloads.ts');
 /** 前端载荷映射（与事件名联合同文件） */
 const CLIENT = join(REPO_ROOT, 'client/src/types/events.ts');
 

@@ -33,7 +33,7 @@ export type TitleGenerationCallback = (
 
 /**
  * 标题生成用的极简消息（2026-10-01 数据契约专项 U2 #1：原名 `Message`，
- * 与规范来源 `chat/types/message.ts` 同名不同物 ⇒ 依 §9.2 原则 2 改名 `TitleGenMessage`）
+ * 与规范来源 `session/types/message.ts` 同名不同物 ⇒ 依 §9.2 原则 2 改名 `TitleGenMessage`）
  */
 export interface TitleGenMessage {
   role: string;

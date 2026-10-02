@@ -24,7 +24,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 // 2026-10-01 B11 前置 P1（D-223）：`TaskGoalStatus` / `TaskGoalUpdateReason` 词表已下沉
 // **类型中心** `@modules/types/goal`（core —— 二者均为纯字面量联合、零出向依赖）⇒ 解除
-// `chat/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。
+// `session/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。
 // 本文件按 R05-013 口径**再导出**（再导出不计入类型中心冲突），保持 `@modules/tasks` 桶
 // 与既有消费方零改动。
 import type { TaskGoalStatus, TaskGoalUpdateReason } from '@modules/types/goal';

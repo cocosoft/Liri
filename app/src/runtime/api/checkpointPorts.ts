@@ -24,7 +24,7 @@
  *
  * **为什么需要**：`session/SessionGateway.ts` 与 `session/SessionManager.ts`（service）原先
  * **静态**导入 app 层 `@modules/query` 的 `FileCheckpointStorage` ⇒ 2 条 `session -> query`(app) 倒挂。
- * ⚠️ 该类引 `../chat/types/checkpoint` ⇒ **app 耦合、不可下沉** ⇒ 走门面。
+ * ⚠️ 该类引 `../session/types/checkpoint` ⇒ **app 耦合、不可下沉** ⇒ 走门面。
  *
  * **实际取用面极窄**（实测两处完全相同）：`(id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)`
  * —— 即**一次性实例 + 单方法** ⇒ 投影只声明这 1 个方法（不做无谓的类替身）。

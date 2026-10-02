@@ -30,7 +30,7 @@
  *
  * 与 session_lookup（原始记录按 seq 取回）互补：先摘要定位区间，再取回原文。
  */
-import type { LiriEvent } from '../../chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 /** 会话远期摘要记录（= session/summary 事件的解析视图） */
 export interface SessionSummaryRecord {

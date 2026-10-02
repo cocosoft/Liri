@@ -64,8 +64,11 @@ import { resolveOutputDir } from '@modules/core/paths';
 import { agentTelemetry } from '@modules/agent';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
-import type { Message, SendMessageOptions } from '../types/message.js';
-import type { ChatSession } from '../types/session.js';
+import type {
+  Message,
+  SendMessageOptions,
+} from '@modules/session/types/message.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 
 const logger = getLogger('chat:sendFlow');

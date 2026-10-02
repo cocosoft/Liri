@@ -18,7 +18,7 @@ import { SessionMemoryManager } from '../memory/SessionMemoryManager';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { SessionActivityTracker } from '../activity/SessionActivityTracker';
 import { SessionStateHydrator } from '../hydration/SessionStateHydrator';
-import type { ChatSession } from '../../chat/types/session';
+import type { ChatSession } from '@modules/session/types/session';
 import path from 'path';
 
 const logger = getLogger('session:bootstrap');

@@ -200,7 +200,7 @@ export default plugin;
  */
 
 import type { PluginDefinition, PluginContext } from '@modules/plugins/types';
-import type { Message, ChatHandler } from '@modules/chat/types';
+import type { Message, ChatHandler } from '@modules/session/types/chat';
 
 const chatHandler: ChatHandler = {
   name: 'custom-chat-handler',

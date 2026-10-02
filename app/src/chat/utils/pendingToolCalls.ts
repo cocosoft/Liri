@@ -12,7 +12,7 @@
  * 供 ChatManager._rebuildTrailingTurnFromEvents（审批续跑 events 重建路径）使用。
  */
 
-import type { LiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 export interface PendingToolCall {
   toolCallId: string;

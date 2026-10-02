@@ -16,8 +16,8 @@
 import { describe, it, expect } from 'bun:test';
 import { buildCompactionDoneData } from '../../src/chat/orchestrator/streamMessageFlow.js';
 import { sanitizeEvent } from '../../src/session/storage/eventSanitize.js';
-import type { LiriEvent } from '../../src/chat/types/events.js';
-import type { LiriEventMap } from '../../src/chat/types/eventPayloads.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
 
 /** 用**真实**校验器走一遍（与落盘路径 `EventLogStorage.append` 同一函数） */
 function sanitize(data: LiriEventMap['context/compaction']): {

@@ -4,7 +4,7 @@
 
 import { describe, expect, it, spyOn } from 'bun:test';
 import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import type { DerivedMessage } from '../../src/session/storage/EventMessageDeriver';
 
 function ev(

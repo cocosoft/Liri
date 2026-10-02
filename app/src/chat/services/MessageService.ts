@@ -9,7 +9,7 @@ import type {
   CreateMessageParams,
   MessageCategory,
   MessageAttachment,
-} from '../types/message';
+} from '@modules/session/types/message';
 import {
   MessageRole,
   ContentBlockType,
@@ -18,8 +18,8 @@ import {
   createMessage,
   normalizeMessage,
   reorderMessages,
-} from '../types/message';
-import type { ToolUse, ToolResult } from '../types/tool';
+} from '@modules/session/types/message';
+import type { ToolUse, ToolResult } from '@modules/session/types/tool';
 
 /**
  * 消息路由目标

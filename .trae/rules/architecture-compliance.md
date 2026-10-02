@@ -133,7 +133,7 @@ LightweightAPIError, LightweightConfigError
 
 ### R02-001 [MUST] Message 模型唯一标准
 
-所有消息传递必须使用 `chat/types/message.ts` 的 `Message` 接口。
+所有消息传递必须使用 `session/types/chat/message.ts` 的 `Message` 接口。
 
 **禁止**：
 - 在 `core/types.ts` 中定义不同的 Message 接口
@@ -286,7 +286,7 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 
 ### R05-011 [SHOULD] Message 模型引用规范
 
-所有模块应引用 `chat/types/message.ts` 的 `Message` 接口，禁止自行定义同名的 `Message` 类型。
+所有模块应引用 `session/types/chat/message.ts` 的 `Message` 接口，禁止自行定义同名的 `Message` 类型。
 
 **允许**：
 - `Message*` 命名的子类型（如 `AIMessage`、`WhatsAppMessage`、`UnifiedMessage`）—— 属域级私有类型，不产生命名冲突

@@ -4,7 +4,7 @@
  * 管理in-process teammate的生命周期，包含团队身份、计划模式审批流和消息管理
  * */
 
-import type { Message } from '../chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus, isTerminalTaskStatus } from './types';
 import type { AgentDefinition, AgentProgress, ToolActivity } from './types';

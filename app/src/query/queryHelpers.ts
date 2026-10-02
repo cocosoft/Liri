@@ -4,8 +4,8 @@
  * 提供查询结果判断、权限处理等辅助功能
  */
 
-import type { Message } from '../chat/types/message.js';
-import type { ToolCall, ToolResult } from '../chat/types/tool.js';
+import type { Message } from '@modules/session/types/message.js';
+import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 
 /**
  * 工具进度跟踪配置

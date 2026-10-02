@@ -4,8 +4,8 @@
  * 参考CC源码 services/awaySummary.ts 实现
  */
 
-import type { Message } from '../types/message.js';
-import { MessageRole, MessageType } from '../types/message.js';
+import type { Message } from '@modules/session/types/message.js';
+import { MessageRole, MessageType } from '@modules/session/types/message.js';
 
 export interface AwaySummaryConfig {
   /** 离开多少分钟后生成摘要（默认5分钟） */

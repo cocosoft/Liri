@@ -1354,15 +1354,15 @@ class ArchitectureLinter {
   async checkMessageModelImports(): Promise<void> {
     // 定义规范的 Message 类型来源
     const canonicalPaths = [
-      'chat/types/message',
-      'chat/types/message.ts',
-      '@modules/chat/types/message',
+      'session/types/message',
+      'session/types/message.ts',
+      '@modules/session/types/message',
     ];
 
     // 已知例外的文件（域级私有 Message 类型，非规范类型冲突）
     const knownExceptions = [
       'agent/TitleGenerator.ts',
-      'chat/types/ToolUseBlock.ts',
+      'session/types/ToolUseBlock.ts',
       'compaction/ContextEngine.ts',
       'subagent/SubAgentCommunicator.ts',
       'ui/components/Messages.tsx',
@@ -1397,8 +1397,8 @@ class ArchitectureLinter {
         ruleId: 'R05-011',
         severity: 'warning',
         file: messageDefs[0].file,
-        message: `存在 ${messageDefs.length} 个文件自行定义了 Message 类型，未使用 chat/types/message.ts 的规范定义`,
-        suggestion: `请统一引用 chat/types/message.ts 的 Message 类型\n  受影响文件:\n${messageDefs
+        message: `存在 ${messageDefs.length} 个文件自行定义了 Message 类型，未使用 session/types/message.ts 的规范定义`,
+        suggestion: `请统一引用 session/types/message.ts 的 Message 类型\n  受影响文件:\n${messageDefs
           .slice(0, 10)
           .map((d) => `    - ${d.file} (${d.kind})`)
           .join(
@@ -1408,7 +1408,7 @@ class ArchitectureLinter {
     }
 
     console.log(
-      `\n[Message 模型] ${messageDefs.length} 个文件自定 Message 类型（规范来源: chat/types/message.ts）`
+      `\n[Message 模型] ${messageDefs.length} 个文件自定 Message 类型（规范来源: session/types/message.ts）`
     );
   }
 
@@ -1474,8 +1474,8 @@ class ArchitectureLinter {
       // 工具模块内部的类型定义（不同类型的 ToolResult，各有差异）
       'tools/types/ToolResult.ts',
       'tools/types/ToolTypes.ts',
-      'chat/types/tool.ts',
-      'chat/types/ToolUseBlock.ts',
+      'session/types/tool.ts',
+      'session/types/ToolUseBlock.ts',
       // 权限模块内部类型
       'permission/types/PermissionContext.ts',
       'security/permission/PermissionContext.ts',
@@ -1518,7 +1518,7 @@ class ArchitectureLinter {
       'bootstrap/StartupConfig.ts',
       'plugins/categories/PluginCategories.ts',
       'bridge/managers/SessionManager.ts',
-      'chat/types/session.ts',
+      'session/types/session.ts',
       'session/SessionManager.ts',
       'session/models/Session.ts',
       'chronos/service/TaskExpirationService.ts',
@@ -1531,12 +1531,12 @@ class ArchitectureLinter {
       'tools/types/PermissionContext.ts',
       'security/PermissionManager.ts',
       // 2026-08-29 R05-013 治理（二）：模块事实源 vs 类型中心死类型——冲突根源在类型中心
-      //   - chat/types/message.ts 是会话消息事实规范（@deprecated 迁 DataMessage 中），不应被报
+      //   - session/types/message.ts 是会话消息事实规范（@deprecated 迁 DataMessage 中），不应被报
       //   - utils/config.d.ts|config.ts 是 AppConfig 配置事实源；utils/settings/types.ts 是 HooksSettings 事实源（类型中心版为空壳/同构副本）
       //   - plugin-sdk/types.ts|plugins/types/Plugin.ts|plugins/utils/schemas.ts：PluginManifest/CommandMetadata 插件清单，schemas 为 zod 校验事实源
       //   - session/types/UnifiedMessage.ts：会话存储消息模型；plugins/PluginLoader.ts：插件加载器（与已豁免的 plugins/core 同类）
       //   待专项：清理类型中心零消费死类型（Message/ContentBlock/Tool/Session/Command/AppConfig/HooksSettings 等），使 @modules/types 收缩
-      'chat/types/message.ts',
+      'session/types/message.ts',
       'session/types/UnifiedMessage.ts',
       'plugin-sdk/types.ts',
       'plugins/types/Plugin.ts',

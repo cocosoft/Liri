@@ -8,10 +8,20 @@ import type {
   SendMessageOptions,
   StreamMessageOptions,
   ChatResponse,
-} from './types/message.js';
-import type { ChatSession, CreateSessionParams } from './types/session.js';
-import type { LiriEvent, LiriEventData } from './types/events.js';
-import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
+} from '@modules/session/types/message.js';
+import type {
+  ChatSession,
+  CreateSessionParams,
+} from '@modules/session/types/session.js';
+import type {
+  LiriEvent,
+  LiriEventData,
+} from '@modules/session/types/events.js';
+import type {
+  ToolCall,
+  ToolResult,
+  ToolIntegration,
+} from '@modules/session/types/tool.js';
 import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
 import type {
@@ -465,7 +475,7 @@ export interface ChatManager {
    */
   listCheckpoints(
     sessionId: string
-  ): Promise<import('./types/checkpoint').SessionCheckpoint[]>;
+  ): Promise<import('@modules/session/types/checkpoint').SessionCheckpoint[]>;
 
   /**
    * 回滚到指定检查点
@@ -474,7 +484,7 @@ export interface ChatManager {
    */
   rollbackToCheckpoint(checkpointId: string): Promise<{
     session: ChatSession;
-    diff: import('./types/checkpoint').CheckpointDiff;
+    diff: import('@modules/session/types/checkpoint').CheckpointDiff;
   }>;
 
   /**
@@ -490,7 +500,9 @@ export interface ChatManager {
    */
   getLatestCheckpoint(
     sessionId: string
-  ): Promise<import('./types/checkpoint').SessionCheckpoint | null>;
+  ): Promise<
+    import('@modules/session/types/checkpoint').SessionCheckpoint | null
+  >;
 
   /**
    * 确保会话已从磁盘加载（幂等）
@@ -544,7 +556,7 @@ export interface ChatManager {
     checkpointId: string
   ): AsyncGenerator<
     string | import('@modules/runtime/api/CoreAPI').ChatStreamChunk,
-    import('./types/message').Message,
+    import('@modules/session/types/message').Message,
     unknown
   >;
 }

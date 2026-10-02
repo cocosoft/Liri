@@ -49,10 +49,10 @@ import type {
   Message,
   SendMessageOptions,
   StreamMessageOptions,
-} from '../types/message.js';
-import type { LiriEvent } from '../types/events.js';
-import type { ChatSession } from '../types/session.js';
-import type { ToolResult } from '../types/tool.js';
+} from '@modules/session/types/message.js';
+import type { LiriEvent } from '@modules/session/types/events.js';
+import type { ChatSession } from '@modules/session/types/session.js';
+import type { ToolResult } from '@modules/session/types/tool.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { SessionCurrentIdPort } from '../services/SessionLifecycleManager.js';
 import type { MessageService } from '../services/MessageService.js';

@@ -7,8 +7,8 @@
  * 封装 ChatManager 的任务编排逻辑（Plan 生命周期管理）。
  * ChatManager 通过此门面委托任务执行，解耦 TaskRegistry/TaskOrchestrator 直接依赖。
  */
-import type { ChatSession } from '../types/session';
-import type { SendMessageOptions } from '../types/message';
+import type { ChatSession } from '@modules/session/types/session';
+import type { SendMessageOptions } from '@modules/session/types/message';
 import { taskRegistry } from '@modules/tasks';
 import { taskOrchestrator } from '@modules/tasks';
 

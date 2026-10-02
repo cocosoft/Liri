@@ -30,10 +30,13 @@
  * 使前端 loadConversation 可消费后端派生结果（评审 G7），前后端数出同源。
  */
 
-import type { LiriEvent, LiriEventType } from '../../chat/types/events.js';
+import type {
+  LiriEvent,
+  LiriEventType,
+} from '@modules/session/types/events.js';
 import { getLogger } from '@modules/monitoring';
 import { pickMoreCompleteContent } from '@modules/utils/common';
-import { KNOWN_SESSION_EVENT_TYPES } from '../../chat/types/knownEventTypes.js';
+import { KNOWN_SESSION_EVENT_TYPES } from '@modules/session/types/knownEventTypes.js';
 // 状态块 statusType 契约（CS02）：判据的单一事实来源，与前端共用同一集合
 import { isTransientStatusType } from '@shared/types';
 

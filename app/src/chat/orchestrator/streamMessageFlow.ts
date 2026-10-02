@@ -89,11 +89,14 @@ import type { ToolCategory } from '@modules/tools';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
 // P2-2（2026-09-23）：请求边界事件（request/start；requestId = 该事件的 seq）
 import { startRequest } from '../services/requestBoundary.js';
-import type { Message, StreamMessageOptions } from '../types/message.js';
-import type { ChatResponse } from '../types/message.js';
-import type { ChatSession } from '../types/session.js';
-import type { ToolResult } from '../types/tool.js';
-import type { LiriEventMap } from '../types/eventPayloads.js';
+import type {
+  Message,
+  StreamMessageOptions,
+} from '@modules/session/types/message.js';
+import type { ChatResponse } from '@modules/session/types/message.js';
+import type { ChatSession } from '@modules/session/types/session.js';
+import type { ToolResult } from '@modules/session/types/tool.js';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
 import type { ToolDefinition, ParsedToolCall } from '@modules/ai';
 import type { ChatMessage, ThinkingProviderChunk } from '@modules/ai';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';

@@ -26,8 +26,8 @@
  *
  * 已删除 18 个零消费死类型（ToolContext/ToolResult/CommandContext/PermissionContext/
  * SessionManager/Session/ContentBlock/Message/Tool/AppConfig/Command/ModelSetting 等）：
- * 各模块使用自身领域类型（tools/types、chat/types、permission/ 等），
- * 会话消息事实规范为 chat/types/message.ts（@deprecated 迁 @modules/core/data-models 的 DataMessage）。
+ * 各模块使用自身领域类型（tools/types、session/types/chat、permission/ 等），
+ * 会话消息事实规范为 session/types/message.ts（@deprecated 迁 @modules/core/data-models 的 DataMessage）。
  */
 
 /**

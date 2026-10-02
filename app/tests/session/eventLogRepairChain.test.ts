@@ -49,7 +49,7 @@ import { join } from 'path';
 
 import { getLogger } from '@modules/monitoring';
 import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
-import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 
 const HASH = 'default';
 const createdDirs: string[] = [];

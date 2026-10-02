@@ -93,10 +93,10 @@ export type {
 } from './services/DeliveryRouter.js';
 
 // 导出类型
-export type { Message, ContentBlock } from './types/message';
-export type { DataSessionStatus } from './types/session';
-export type { ToolCall, ToolResult } from './types/tool';
-export type { ToolUseBlock } from './types/ToolUseBlock';
+export type { Message, ContentBlock } from '@modules/session/types/message';
+export type { DataSessionStatus } from '@modules/session/types/session';
+export type { ToolCall, ToolResult } from '@modules/session/types/tool';
+export type { ToolUseBlock } from '@modules/session/types/ToolUseBlock';
 
 const chatService = createChatService();
 export default chatService;

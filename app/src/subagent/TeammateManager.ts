@@ -3,7 +3,7 @@
  * 管理多个teammate的生命周期
  * */
 
-import type { Message } from '../chat/types/message';
+import type { Message } from '@modules/session/types/message';
 import {
   TeammateBackend,
   TeammateConfig,

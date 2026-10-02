@@ -41,8 +41,8 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { ChatOrchestrator } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
-import type { ChatSession } from '../../../src/chat/types/session.js';
-import type { Message } from '../../../src/chat/types/message.js';
+import type { ChatSession } from '@modules/session/types/session.js';
+import type { Message } from '@modules/session/types/message.js';
 import { createTestHost, createTestSession, sleep } from './helpers.js';
 
 /** 装配带 mutex 探针的 host（acquire/release 事件写入 events） */

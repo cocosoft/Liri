@@ -3,10 +3,10 @@
  * 基于现有ChatManager和其他组件实现查询引擎核心功能
  */
 
-import type { Message } from '../chat/types/message.js';
-import type { ToolCall, ToolResult } from '../chat/types/tool.js';
-import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
-import type { ChatSession } from '../chat/types/session.js';
+import type { Message } from '@modules/session/types/message.js';
+import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
+import type { ToolUseBlock } from '@modules/session/types/ToolUseBlock.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import {
   PostSamplingHookManager,
   createPostSamplingHookManager,

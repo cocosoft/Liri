@@ -32,8 +32,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { FileCheckpointStorage } from '../../src/query/FileCheckpointStorage';
-import { CHECKPOINT_MAX_AUTO } from '../../src/chat/types/checkpoint';
-import type { SessionCheckpoint } from '../../src/chat/types/checkpoint';
+import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 
 function makeCp(
   sessionId: string,

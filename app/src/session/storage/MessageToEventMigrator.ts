@@ -27,9 +27,9 @@ import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
-import type { LiriEvent } from '@modules/chat/types/events';
-import type { Message } from '@modules/chat/types/message';
-import { MessageStatus } from '@modules/chat/types/message';
+import type { LiriEvent } from '@modules/session/types/events';
+import type { Message } from '@modules/session/types/message';
+import { MessageStatus } from '@modules/session/types/message';
 import { EventLogStorage } from './EventLogStorage';
 // ②b（2026-09-24）：工作流 run 记录投影（自包含，从本文件拆出以控行长）
 import { projectWorkflowRunEvents } from './workflowRunProjection';

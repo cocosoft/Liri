@@ -3,7 +3,7 @@
  * 参考CC源码 services/compact/compact.ts 实现
  */
 
-import type { Message, SystemMessage } from '../types/message.js';
+import type { Message, SystemMessage } from '@modules/session/types/message.js';
 import {
   createCompactBoundaryMessage,
   createMicrocompactBoundaryMessage,

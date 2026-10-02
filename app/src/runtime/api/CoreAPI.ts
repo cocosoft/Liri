@@ -27,7 +27,7 @@
 import type { ConversionResult, FileInfo } from '@modules/tools';
 import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
-import type { LiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
 // C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）

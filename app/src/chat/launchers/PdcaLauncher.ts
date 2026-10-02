@@ -19,7 +19,7 @@ import { pitfallRegistry } from '@modules/tasks';
 import { runResearchOrchestration } from '@modules/query';
 import type { ResearchCallModel } from '@modules/query';
 import type { TAORLoop } from '@modules/query';
-import type { ChatSession } from '../types/session.js';
+import type { ChatSession } from '@modules/session/types/session.js';
 import { MessageService } from '../services/MessageService.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { createProjectStore } from '../../workspace/ProjectStore.js';

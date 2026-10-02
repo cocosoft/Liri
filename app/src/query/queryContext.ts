@@ -3,8 +3,8 @@
  * 提供动态系统提示词构建、用户上下文和系统上下文的获取功能
  */
 import { getContextBuilder, type SystemPromptParts } from '../context/index';
-import type { Message } from '../chat/types/message.js';
-import type { ToolCall } from '../chat/types/tool.js';
+import type { Message } from '@modules/session/types/message.js';
+import type { ToolCall } from '@modules/session/types/tool.js';
 
 export type { SystemPromptParts };
 

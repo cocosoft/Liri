@@ -23,7 +23,7 @@ import { asyncContextStorage } from '@modules/utils/AsyncContextStorage';
 // ⇒ 本文件的**两条 `@modules/context` 取用**清零（第三条相对路径类型导入见下方 L29）。
 import { resolveContextWindow } from '@modules/utils/ContextWindowResolver';
 // 2026-10-01 D-222 B13（子批 F `query` 组）：原静态导入 app 层 `@modules/query` 的
-// `FileCheckpointStorage`（引 `../chat/types/checkpoint` ⇒ app 耦合不可下沉）⇒ 改经
+// `FileCheckpointStorage`（引 `../session/types/checkpoint` ⇒ app 耦合不可下沉）⇒ 改经
 // **CoreAPI 同步门面** `getCheckpointCleanup()`；调用点在同步回调内 ⇒ 不可异步。
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 B14b 步 3：本条为**相对路径**类型导入，此前未被识别为 `session -> context` 边
@@ -74,7 +74,7 @@ import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
 import type { SessionRebuildStats } from './recovery/RecoveryOrchestrator.js';
 
 import { SessionType, SessionStatus } from './types/UnifiedSession.js';
-import type { LiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent } from '@modules/session/types/events';
 import { StorageType } from './storage/UnifiedStorage.js';
 import type {
   UnifiedSession,

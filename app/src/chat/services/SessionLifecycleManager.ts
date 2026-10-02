@@ -42,9 +42,12 @@ import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
 import { createSystemAbortReason } from '@modules/query';
 import { getLocalSession, mapSessionStatusToState } from './ChatHelper';
-import type { ChatSession, CreateSessionParams } from '../types/session.js';
+import type {
+  ChatSession,
+  CreateSessionParams,
+} from '@modules/session/types/session.js';
 import { DataSessionStatus } from '@modules/core';
-import type { Message } from '../types/message.js';
+import type { Message } from '@modules/session/types/message.js';
 
 const logger = getLogger('chat:sessionLifecycle');
 

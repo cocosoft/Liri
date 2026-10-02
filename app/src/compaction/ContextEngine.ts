@@ -4,7 +4,7 @@
  * 定义压缩策略的统一接口，所有具体策略必须实现此接口
  */
 
-export interface Message {
+export interface ContextEngineMessage {
   id: string;
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
@@ -33,7 +33,7 @@ export interface CompactDecision {
 }
 
 export interface CompactResult {
-  messages: Message[];
+  messages: ContextEngineMessage[];
   originalTokenCount: number;
   compressedTokenCount: number;
   reductionRatio: number;
@@ -115,7 +115,7 @@ export abstract class ContextEngine {
    * 评估是否需要压缩
    */
   abstract evaluate(
-    messages: Message[],
+    messages: ContextEngineMessage[],
     context: CompactContext
   ): CompactDecision;
 
@@ -123,7 +123,7 @@ export abstract class ContextEngine {
    * 执行压缩
    */
   abstract compact(
-    messages: Message[],
+    messages: ContextEngineMessage[],
     options?: Partial<CompactConfig>
   ): CompactResult;
 
@@ -135,7 +135,7 @@ export abstract class ContextEngine {
   /**
    * 检查策略是否可以处理指定消息
    */
-  abstract canHandle(message: Message): boolean;
+  abstract canHandle(message: ContextEngineMessage): boolean;
 
   /**
    * 配置策略
@@ -168,7 +168,7 @@ export abstract class ContextEngine {
   /**
    * 估算可节省的 token 数
    */
-  estimateTokenReduction(messages: Message[]): number {
+  estimateTokenReduction(messages: ContextEngineMessage[]): number {
     if (
       messages.length <=
       this.config.protectFirstN + this.config.protectLastN
@@ -187,7 +187,7 @@ export abstract class ContextEngine {
   /**
    * 获取消息的 token 数
    */
-  getMessageTokenCount(message: Message): number {
+  getMessageTokenCount(message: ContextEngineMessage): number {
     if (message.tokenCount !== undefined) {
       return message.tokenCount;
     }
@@ -198,7 +198,7 @@ export abstract class ContextEngine {
   /**
    * 计算消息总 token 数
    */
-  getTotalTokenCount(messages: Message[]): number {
+  getTotalTokenCount(messages: ContextEngineMessage[]): number {
     return messages.reduce(
       (sum, msg) => sum + this.getMessageTokenCount(msg),
       0
@@ -343,14 +343,20 @@ export abstract class ContextEngine {
   /**
    * 保护前 N 条消息
    */
-  protected protectFirst(messages: Message[], n: number): Message[] {
+  protected protectFirst(
+    messages: ContextEngineMessage[],
+    n: number
+  ): ContextEngineMessage[] {
     return messages.slice(0, Math.min(n, messages.length));
   }
 
   /**
    * 保护后 N 条消息
    */
-  protected protectLast(messages: Message[], n: number): Message[] {
+  protected protectLast(
+    messages: ContextEngineMessage[],
+    n: number
+  ): ContextEngineMessage[] {
     return messages.slice(Math.max(0, messages.length - n));
   }
 
@@ -358,7 +364,7 @@ export abstract class ContextEngine {
    * 获取可移除的消息区间
    */
   protected getRemovableRange(
-    messages: Message[]
+    messages: ContextEngineMessage[]
   ): { start: number; end: number } | null {
     const firstN = this.config.protectFirstN;
     const lastN = this.config.protectLastN;

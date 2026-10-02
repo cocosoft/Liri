@@ -7,7 +7,7 @@
 
 import {
   ContextEngine,
-  type Message,
+  type ContextEngineMessage,
   type CompactContext,
   type CompactDecision,
   type CompactResult,
@@ -71,7 +71,7 @@ export class ContextCollapseStrategy extends ContextEngine {
     };
   }
 
-  canHandle(message: Message): boolean {
+  canHandle(message: ContextEngineMessage): boolean {
     return (
       message.role === 'user' ||
       message.role === 'assistant' ||
@@ -79,7 +79,10 @@ export class ContextCollapseStrategy extends ContextEngine {
     );
   }
 
-  evaluate(messages: Message[], context: CompactContext): CompactDecision {
+  evaluate(
+    messages: ContextEngineMessage[],
+    context: CompactContext
+  ): CompactDecision {
     this.recordEvaluation();
 
     const config = this.getConfig() as ContextCollapseConfig;
@@ -126,7 +129,7 @@ export class ContextCollapseStrategy extends ContextEngine {
   }
 
   compact(
-    messages: Message[],
+    messages: ContextEngineMessage[],
     options?: Partial<CompactConfig>
   ): CompactResult {
     const startTime = Date.now();
@@ -154,7 +157,7 @@ export class ContextCollapseStrategy extends ContextEngine {
       return result;
     }
 
-    const resultMessages: Message[] = [];
+    const resultMessages: ContextEngineMessage[] = [];
     const headMessages = this.protectFirst(messages, range.start);
     resultMessages.push(...headMessages);
 
@@ -216,7 +219,7 @@ export class ContextCollapseStrategy extends ContextEngine {
    * 将消息批量折叠为摘要块
    */
   private collapseMessages(
-    messages: Message[],
+    messages: ContextEngineMessage[],
     config: ContextCollapseConfig
   ): CollapsedBlock[] {
     const blocks: CollapsedBlock[] = [];
@@ -235,7 +238,7 @@ export class ContextCollapseStrategy extends ContextEngine {
    * 创建单个折叠块
    */
   private createCollapseBlock(
-    messages: Message[],
+    messages: ContextEngineMessage[],
     config: ContextCollapseConfig
   ): CollapsedBlock {
     const roles = new Set<string>();
@@ -291,7 +294,7 @@ export class ContextCollapseStrategy extends ContextEngine {
   /**
    * 创建折叠标记消息
    */
-  private createCollapsedMarker(block: CollapsedBlock): Message {
+  private createCollapsedMarker(block: CollapsedBlock): ContextEngineMessage {
     const summaryContent = [
       `<collapsed_context original_count="${block.originalCount}" original_tokens="${block.originalTokens}">`,
       `  ${block.summary}`,

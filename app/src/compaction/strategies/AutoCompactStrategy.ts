@@ -6,7 +6,7 @@
 
 import {
   ContextEngine,
-  type Message,
+  type ContextEngineMessage,
   type CompactContext,
   type CompactDecision,
   type CompactResult,
@@ -67,11 +67,14 @@ export class AutoCompactStrategy extends ContextEngine {
     };
   }
 
-  canHandle(message: Message): boolean {
+  canHandle(message: ContextEngineMessage): boolean {
     return ['user', 'assistant', 'tool'].includes(message.role);
   }
 
-  evaluate(messages: Message[], context: CompactContext): CompactDecision {
+  evaluate(
+    messages: ContextEngineMessage[],
+    context: CompactContext
+  ): CompactDecision {
     this.recordEvaluation();
 
     const config = this.getConfig() as AutoCompactConfig;
@@ -119,7 +122,7 @@ export class AutoCompactStrategy extends ContextEngine {
   }
 
   compact(
-    messages: Message[],
+    messages: ContextEngineMessage[],
     options?: Partial<CompactConfig>
   ): CompactResult {
     const startTime = Date.now();
@@ -129,8 +132,8 @@ export class AutoCompactStrategy extends ContextEngine {
     const firstN = config.protectFirstN;
     const lastN = config.protectLastN;
 
-    const protectedMessages: Message[] = [];
-    const removedMessages: Message[] = [];
+    const protectedMessages: ContextEngineMessage[] = [];
+    const removedMessages: ContextEngineMessage[] = [];
 
     const range = this.getRemovableRange(messages);
 

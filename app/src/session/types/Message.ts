@@ -3,7 +3,7 @@ import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 /**
  * 消息类型枚举
  *
- * @deprecated 使用 {@link DataMessageType} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessageType}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export enum MessageType {
   USER = 'user',
@@ -19,7 +19,7 @@ export enum MessageType {
 /**
  * 消息角色枚举
  *
- * @deprecated 使用 {@link DataMessageRole} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessageRole}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export enum MessageRole {
   USER = 'user',
@@ -31,7 +31,7 @@ export enum MessageRole {
 /**
  * 内容块类型
  *
- * @deprecated 使用 {@link DataContentBlock} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataContentBlock}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export enum ContentBlockType {
   TEXT = 'text',
@@ -148,7 +148,7 @@ export interface InboxBlockData {
 /**
  * 统一消息接口
  *
- * @deprecated 使用 {@link DataMessage} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessage}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface UnifiedMessage {
   id: string;

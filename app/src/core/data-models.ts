@@ -15,7 +15,32 @@
  *   - commands/framework/CommandAuditLogger.ts → AuditEntry
  *     (及其他 6 个审计相关类型)
  *
- * 新代码应从此文件导入类型，而非各处碎片定义。
+ * ════════════════════════════════════════════════════
+ * ⚠️ **迁移状态与角色边界（2026-10-01 台账 B′-①② 裁定，务必先读）**
+ *
+ * **角色**：本模块＝「**协议 / 存储边界模型**」＋「**新增数据契约的单一事实源**」，
+ * 与各域**领域模型自持**（`chat/types/message.ts` · `session/types/*` · `tools/types/*` …）
+ * **并存不争**。
+ *
+ * **已落地（活跃使用，应继续沿用）**：
+ *   - `ToolTurnBudget` · `TodoExpansionState` · `DataSessionMetadata.toolTurnBudget/todoExpansion`
+ *     —— 见 spec `tool-turn-budget-persistence.md` / `todo-expansion-persistence.md`。
+ *
+ * **未迁移（存量，**当前不迁移**）**：`DataMessage` · `DataSession*` · `DataAudit*` 与
+ * `chat/types/message.ts`（`Message`/`MessageRole`/…）· `session/types/*` · `ai/models/types.ts`
+ * 等处**并存**，且**形状不等价**：
+ *   - `DataMessage` 用 `timestamp: number` + **必填** `sessionId`/`type`；领域 `Message` 用
+ *     `createdAt/updatedAt/startedAt: Date`、`sessionId` 可选；
+ *   - `DataMessage.metadata` 为**固定字段集** `DataMessageMetadata`，领域侧为任意
+ *     `Record<string, unknown>`（写入 `persistedBy`/`replyToId` 等自定义键）；
+ *   - 领域独有 `blocks`/`lastEventSeq`/`status`/`priority`/`category`/`parentId`/`threadId`/
+ *     `processingTime`/`errorDetails`/`relatedMessageId` 等字段，本模块**没有**；
+ *   - ⚠️ `DataMessageType`（内容类型：text/image/file/…）与领域 `MessageType`
+ *     （消息形态：normal/compact_boundary/…）**同名不同义，禁止互换**。
+ *   ⇒ **勿把本模块的 `Data*` 与领域同名类型直接互换**（会丢字段 / 错语义）。
+ *     详见 spec `data-contract-unification.md` §2.4 对照表 / §2.5 裁定。
+ *
+ * 新代码如属**新增数据契约** ⇒ 应从本文件导入类型；如属**已有领域的模型** ⇒ 沿用该领域自持类型。
  * ════════════════════════════════════════════════════
  */
 

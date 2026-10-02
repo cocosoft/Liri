@@ -272,7 +272,7 @@ export interface ImageContentPart {
 export type ContentPart = TextContentPart | ImageContentPart;
 
 /**
- * @deprecated 使用 {@link DataMessage} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessage}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';

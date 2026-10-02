@@ -10,7 +10,7 @@ import type {
 } from '../PermissionContext.js';
 
 /**
- * @deprecated 使用 {@link DataAuditEventType} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataAuditEventType}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export type AuditEventType =
   | 'permission_check'
@@ -25,7 +25,7 @@ export type AuditEventType =
 /**
  * 审计日志条目
  *
- * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataAuditEvent}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface AuditLogEntry {
   id: string;

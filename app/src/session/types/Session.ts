@@ -14,7 +14,7 @@ export enum SessionType {
 /**
  * 会话状态枚举
  *
- * @deprecated 使用 {@link SessionState} — 从 `@modules/state/session` 导入
+ * @see {@link SessionState} — 从 `@modules/state/session` 导入
  */
 export enum SessionStatus {
   ACTIVE = 'active',
@@ -32,7 +32,7 @@ export enum SessionStatus {
 /**
  * 会话元数据接口
  *
- * @deprecated 使用 {@link DataSessionMetadata} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSessionMetadata}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface SessionMetadata {
   title?: string;
@@ -99,7 +99,7 @@ export interface SessionStorageInfo {
 /**
  * 统一会话接口
  *
- * @deprecated 使用 {@link DataSession} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSession}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface UnifiedSession {
   id: string;
@@ -129,7 +129,7 @@ export interface SessionConfig {
 /**
  * 会话过滤条件
  *
- * @deprecated 使用 {@link DataSessionFilter} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSessionFilter}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface SessionFilter {
   type?: SessionType;
@@ -153,7 +153,7 @@ export interface SessionFilter {
 /**
  * 会话统计信息
  *
- * @deprecated 使用 {@link DataSessionStats} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSessionStats}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface SessionStats {
   totalSessions: number;
@@ -168,7 +168,7 @@ export interface SessionStats {
 /**
  * 创建会话参数
  *
- * @deprecated 使用 {@link DataCreateSessionParams} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataCreateSessionParams}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface CreateSessionParams {
   id?: string;
@@ -181,7 +181,7 @@ export interface CreateSessionParams {
 /**
  * 会话信息（用于列表展示）
  *
- * @deprecated 使用 {@link DataSessionInfo} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSessionInfo}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface SessionInfo {
   id: string;

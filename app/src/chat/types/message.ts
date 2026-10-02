@@ -1,7 +1,7 @@
 /**
  * 消息角色
  *
- * @deprecated 使用 {@link DataMessageRole} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessageRole}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export enum MessageRole {
   /**
@@ -28,7 +28,7 @@ export enum MessageRole {
 /**
  * 消息类型枚举
  *
- * @deprecated 使用 {@link DataMessageType} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessageType}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export enum MessageType {
   /**
@@ -60,7 +60,7 @@ export enum MessageType {
 /**
  * 消息状态枚举
  *
- * @deprecated 使用 {@link DataMessageStatus} 或自行定义 — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessageStatus} 或自行定义 （协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export enum MessageStatus {
   PENDING = 'pending',
@@ -97,7 +97,7 @@ export type AttachmentType =
 /**
  * 消息附件
  *
- * @deprecated 使用 {@link DataAttachment} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataAttachment}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface MessageAttachment {
   id: string;
@@ -394,7 +394,7 @@ export interface AttachmentMessage {
 /**
  * 消息接口
  *
- * @deprecated 使用 {@link DataMessage} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataMessage}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface Message {
   /**

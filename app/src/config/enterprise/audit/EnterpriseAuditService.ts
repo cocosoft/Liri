@@ -32,7 +32,7 @@ export enum AuditEventType {
 export type AuditSeverity = 'info' | 'warning' | 'error' | 'critical';
 
 /**
- * @deprecated 使用 {@link DataAuditEvent} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataAuditEvent}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface AuditEvent {
   /** 事件唯一 ID */
@@ -66,7 +66,7 @@ export interface AuditEvent {
 }
 
 /**
- * @deprecated 使用 {@link DataAuditQuery} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataAuditQuery}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface AuditQuery {
   startTime?: number;

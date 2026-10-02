@@ -10,7 +10,7 @@ export { DataSessionStatus };
 /**
  * 会话元数据
  *
- * @deprecated 使用 {@link DataSessionMetadata} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSessionMetadata}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface SessionMetadata {
   /**
@@ -87,7 +87,7 @@ export interface SessionMetadata {
 /**
  * 会话接口
  *
- * @deprecated 使用 {@link DataSession} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataSession}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface ChatSession {
   /**
@@ -194,7 +194,7 @@ export interface SessionStorage {
 /**
  * 创建会话的参数
  *
- * @deprecated 使用 {@link DataCreateSessionParams} — 从 `@modules/core/data-models` 导入
+ * @see {@link DataCreateSessionParams}（协议/存储向模型；与领域模型形状不等价，勿直接互换）
  */
 export interface CreateSessionParams {
   /**

@@ -666,6 +666,35 @@ export interface AgentRunDto {
 - **⇒ 处置（用户裁定）**：**B11 整组挂起**，并入数据契约专项（范围需含 `Message`(4 份) · `Tool` · `Command` · `LiriEvent`/`eventPayloads` 的 `TaskGoal*` / `MermaidLintIssue` 跨域依赖）；**先做 F 其余 5 条**（`session -> ai` 2 · `-> query` 2 · `-> context` 1），均**不涉**数据契约。
 - **取证产物（可复核，`chat/types/**` 出向全表）**：`checkpoint.ts`→`./message`+`./session` · `events.ts`→`@shared/events/eventNames`(值)+`./eventPayloads` · `eventPayloads.ts`→`@modules/core`+**`@modules/tasks`**+**`@modules/utils/mermaidLint`** · `knownEventTypes.ts`→`./events` · `session.ts`→`@modules/core`+`./message` · `message.ts`→**零出向**。
 
+**📌 B14b 立项单 —— `session -> context`（B14）的净负收口路径（2026-10-01，D-222 续）**
+
+**背景：同一条边、四次否决的完整记录**
+
+| # | 尝试 | 否决原因 |
+|---|---|---|
+| 1 | 原「改归 `ai/` + `utils` + 原址转出」（D-222） | ① 13 符号转出枚举不全（9 处 `TS2305`）② 类型导出致**类型中心冲突** ③ 迁入 `ai/` 与 `ai/index.ts` 桶出口**同名**（`TS2300`） |
+| 2 | **A′/B′/C′ 三步**（本日，**已提交、树全绿**） | ✅ **未被否决** —— 这是**去耦前提**，已就位：`Context` 家族 5 类型下沉 `src/types/context.ts`（`d934caf64`，`[类型中心] 27 → 32`）· `AsyncContextStorage` 迁 `utils/`（`b1afd463d`）· `SessionGateway.ts:17` 改指 infra（`ecb4e51c7`） |
+| 3 | **D 步**：下沉 `ContextWindowResolver` 到 `utils/` | ❌ **净差判据否决** —— 该文件 L15 `import { ModelRegistry } from '@modules/ai'`（**app 耦合**）⇒ 迁 infra 新增 `utils -> ai` **+1**，与 `session -> context` **−1** 相抵 ⇒ **净 0** |
+| 4 | **端口化**（`session` 经 CoreAPI 门面取 `resolveContextWindow`） | ❌ **亦净 0** —— 实测 `runtime/**` **静态** `@modules/context` 边 = **0**；端口方在 runtime 层，提供该能力必须**静态**导入 `@modules/context` ⇒ 新增 `runtime -> context` 配对 **+1** ⇒ 相抵（⚠️ R00-003 报告内的 `runtime -> context` 是**动态**导入，**不计入** `已豁免`，故不能"免费搭车"） |
+
+**根因（唯一）**：这条边的**守卫者自身带 app 层耦合** ——
+`context/window/ContextWindowResolver.ts:15` → `import { ModelRegistry } from '@modules/ai'`。
+⇒ 它**既不能落 infra**（会引入 `infra -> ai`），**也不能被低层端口免费代理**（端口方同样必须静态引 app）。
+
+**本单所要实施的唯一净负路径**：
+
+1. **解除 `ContextWindowResolver` 的 `@modules/ai` 静态耦合**（把 `ModelRegistry` 的用法改为**端口化/注入化**获取模型窗口信息，例如经参数传入窗口查询函数，或经 `CoreAPI`/`AiOpsPort` 注入）⇒ 该文件变为**零 app 依赖**；
+2. 然后 `git mv context/window/ContextWindowResolver.ts → utils/`（**13 符号全量**）+ 原址**再导出 shim**（R05-013 口径：再导出不计入冲突；既有 ~9 个 `context` 消费方 + `tests/context/*` **零改动**）；
+3. `session/SessionGateway.ts:21` 改指 `@modules/utils/ContextWindowResolver` ⇒ **B14 整条边消失**。
+
+**影响面 / 成本评估**：该文件 **13 个导出** · `context` 内 ~9 个消费方 · `tests/context/ContextWindowResolver.test.ts`（75 tests）；步骤 1 改的是**依赖获取方式**（结构性），非纯改名 ⇒ 需**独立成批**（预计 2–3 轮），**不得顺手做**。
+
+**验收**：`已豁免 43 → 42` · `typecheck 0` · `类型中心冲突 0` · `R05-011 = 0` · `bun test tests/context` 全绿。
+
+**当前状态**：B14 **挂起**（A′/B′/C′ 已落地为去耦前提；等本单实施）。
+
+---
+
 **🔎 子批 F 其余 5 条 —— 首条落地 + 其余方案（D-222，2026-10-01）**
 
 - **范围**：`session -> ai` ×2（B12）· `session -> query` ×2（B13）· `session -> context` ×1（B14）。

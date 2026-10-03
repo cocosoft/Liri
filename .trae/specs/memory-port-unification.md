@@ -46,7 +46,7 @@
 |---|---|---|
 | **T1-0** | **补全未取证面**：① `AdvancedMemorySystem` 运行时可达性（构造点仅测试 ⇒ 需查 `agent/index.ts` 转出的消费方）；② RAM 侧 3 类的**全部引用点**（改名影响面）；③ `interface MemoryManager` 40 个方法的**逐条归属**（哪个属 Read/Write/Search/Forget；哪个属"非端口职责"如 PYApp 集成／团队同步 ⇒ 不迁入端口） | 产出三张清单，写入本 spec §4 附录 |
 | **T1-1** | ✅ **已完成（2026-10-03）**：新建 `memory/ports/MemoryPort.ts`（4 个窄端口 interface）+ 经 `memory/index.ts` 转出。**布局偏离原计划**：原定拆 4 文件，实测触发门禁 `R06-009-1`（4 个 <40 行微文件 → 要求聚合）⇒ 按门禁聚合为**单文件**。**签名依据换成"实现类真实能力"**：死契约里的 `createMemoryFromChat`/`searchMemoriesBySemantic`/`searchMemoriesByTags`/`generateMemoryPrompts`/`getMemoryUsageStats` 在实现类中不存在 ⇒ **不纳入**（见 §10.3-final） | ✅ `typecheck 0` · `lint:arch` `R06-009-1` 归零（警告回基线 2）· 分层检查 3855 → **3856**（+1 新文件 ✓）· `bun test tests/` **3812 pass / 0 fail** |
-| **T1-2** | **基座适配**：`MemoryManagerImpl` 声明 implement 四个窄端口（不改内部行为） | `typecheck 0`；现有测试全绿 |
+| **T1-2** | ✅ **已完成（2026-10-03）**：`MemoryManagerImpl` 增 `implements MemoryReadPort, MemoryWritePort, MemorySearchPort, MemoryForgetPort`（+ 一处 `import type`），**未改任何内部行为**。**该 `implements` 子句本身即回归守卫**：今后任何端口签名被改动都会在 `typecheck` 处失败 | ✅ `typecheck 0`（⇒ 四个端口**逐方法被实现类满足**）· `lint:arch` **0 错**（警告回基线 2、分层检查 **3856** 不变）· `bun test tests/` **3812 pass / 9 skip / 0 fail** |
 | **T1-3** | ✅ **已完成（2026-10-03）· 增强层 + agent 域悬空实现下线**：删 **5 文件** —— `memory/EnhancedMemoryManager.ts`、`memory/services/MemoryWeightExporter.ts`、`agent/memory/AdvancedMemorySystem.ts`（用户另裁"同法下线"）、`agent/memory/MemoryVectorizer.ts`（**仅** `AdvancedMemorySystem` 引用 ⇒ 随删）、`agent/AgentModuleTest.ts`（**唯一**构造 `AdvancedMemorySystem` 且自身无任何消费者）；订正 3 处引用：`memory/index.ts`（去 WeightExporter 块 + `export * ./EnhancedMemoryManager`）、`agent/index.ts`（去 import + export 成员）、`eslint.config.js`（去 AgentModuleTest 的 no-console 例外）。**保留** `memory/retrievers/MemoryRetriever.ts`（基座在用）、`memory/indexer/*` | ✅ `typecheck 0` · 零残留引用 · `lint:arch` **0 错**（3860 → **3855** = −5 ✓）· `modules:validate` 通过 + 快照一致 · `bun test tests/` **3812 pass / 9 skip / 0 fail** |
 | **T1-4** | **异域适配**（`SessionMemoryManager`）：按 T1-0③ 的归属，**只实现其真正具备的端口**（不强行补齐）。~~`AdvancedMemorySystem`~~ 已按用户裁定**同法下线**（见 T1-3） | `SessionMemoryManager` `implements` 其域内端口；无"空实现"桩 |
 | **T1-5** | **工厂收口**（D4）：新增 `getMemoryPort()`（或按端口分的 `getMemoryReadPort()` 等）；替换 ≥10 处裸 `new` | 防回退断言：全仓不再新增 `new MemoryManagerImpl()` |
@@ -109,6 +109,7 @@
 | 2026-10-03 | **T1-3 已完成：下线 5 文件**（本次提交） | `EnhancedMemoryManager` + `MemoryWeightExporter`（D2 复裁）+ `AdvancedMemorySystem`（用户另裁"同法下线"）+ 连带 `MemoryVectorizer` / `AgentModuleTest`（前者仅被删者引用、后者为删者的唯一构造点且自身零消费者）。验证：`typecheck 0` · 残留 0 · `lint:arch` **−5 文件** 与删除数逐数吻合 · 测试 **3812 pass / 0 fail** |
 | 2026-10-03 | **新登记（未处置）** | `SmartMemoryAnalyzer` 同族零消费者（§10.7 末），**本次未动** |
 | 2026-10-03 | **T1-1 已完成：建窄端口**（本次提交） | 新建 `memory/ports/MemoryPort.ts`（`MemoryReadPort` 3 / `MemoryWritePort` 5 / `MemorySearchPort` 1 / `MemoryForgetPort` 1）+ `memory/index.ts` 转出。**第三次取证更正**（读实现类）：`MemoryManagerImpl` **无 `implements`**、死契约近半方法在实现类中不存在 ⇒ 端口按**真实能力**定，5 个无实现声明**不纳入**。布局按门禁 `R06-009-1` 由 4 文件**聚合为 1 文件**。验证：`typecheck 0` · 警告回基线 2 · 分层检查 **+1 文件** · 测试 **3812 pass / 0 fail** |
+| 2026-10-03 | **T1-2 已完成：基座 implement 四端口**（本次提交） | `MemoryManagerImpl` 增 `implements`（+ `import type`），内部行为零改动；**`implements` 子句即契约回归守卫**。验证：`typecheck 0`（⇒ 端口逐方法被满足）· `lint:arch` 0 错 / 警告回基线 · 测试 **3812 pass / 0 fail** |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 

@@ -1,6 +1,15 @@
 import { resolveDataDir } from '@modules/core';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
+// T-①07（A5 记忆分层收敛）T1-2：声明实现四个窄端口（`memory/ports/MemoryPort.ts`）。
+// 端口只覆盖本类**真实具备**的能力；本类中不属端口的能力（团队记忆／PYApp 集成／provider／
+// 内部访问器等）不受影响。见 .trae/specs/memory-port-unification.md。
+import type {
+  MemoryReadPort,
+  MemoryWritePort,
+  MemorySearchPort,
+  MemoryForgetPort,
+} from './ports/MemoryPort';
 import {
   validateMemoryId,
   validateMemoryPath,
@@ -223,8 +232,17 @@ export function selectEvictions(
 
 /**
  * 记忆管理器实现
+ *
+ * T-①07（A5 记忆分层收敛）T1-2：`implements` 四个记忆窄端口，使"记忆能力契约"与实现**重新绑定**
+ * （此前 `interface MemoryManager` 是无人实现的死契约，且近半声明在本类中并不存在）。
  */
-export class MemoryManagerImpl {
+export class MemoryManagerImpl
+  implements
+    MemoryReadPort,
+    MemoryWritePort,
+    MemorySearchPort,
+    MemoryForgetPort
+{
   /**
    * 记忆存储
    */

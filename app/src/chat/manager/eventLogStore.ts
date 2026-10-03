@@ -16,12 +16,15 @@
  *
  * **日志 module 名保持 `chat:manager`**：拆分不改变日志口径（行为等价）。
  *
- * 后续批次（流缓冲/刷盘、摘要/游标）迁入需要跨簇共享状态的成员时，再为本类引入注入依赖。
+ * **注入依赖**（`ChatEventLogStoreDeps`）：跨簇共享状态（当前会话 ID / 代码上下文 /
+ * toolCallSeqMap 及其重建集合）仍归宿主所有，经 getter / 同引用访问 ⇒ 无反向依赖、无环。
  */
 
 import { EventLogStorage, MessageToEventMigrator } from '@modules/session';
+import type { LiriEvent } from '@modules/session/types/events';
 import { resolveWorktreeHash } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('chat:manager');
 
@@ -31,12 +34,26 @@ const logger = getLogger('chat:manager');
  */
 const EVENT_LOG_CACHE_MAX = 8;
 
+/** 本模块所需的注入依赖（跨簇共享状态仍归宿主 `ChatManager` 所有，经 getter / 同引用访问） */
+export interface ChatEventLogStoreDeps {
+  /** 当前会话 ID（`session_lookup` 的"仅当前会话"判定） */
+  getCurrentSessionId: () => string | null;
+  /** 是否代码/文档上下文（取回翻页字符预算翻倍） */
+  isCodeContext: () => boolean;
+  /** toolCallId → 事件 seq（与宿主共享同一 Map 实例） */
+  getToolCallSeqMap: () => Map<string, number>;
+  /** 已重建 toolCallSeqMap 的会话集合（与宿主共享同一 Set 实例） */
+  getToolCallSeqMapRebuilt: () => Set<string>;
+}
+
 export class ChatEventLogStore {
   /** per-session `EventLogStorage` 实例缓存（key = `${worktreeHash}:${sessionId}`） */
   private _eventLogCache: Map<string, EventLogStorage> = new Map();
 
   /** Fix2：`turn/end` 单写者幂等登记（sessionId → 已写 end 的 turn 集合） */
   private _endedTurnsBySession = new Map<string, Set<number>>();
+
+  constructor(private readonly deps: ChatEventLogStoreDeps) {}
 
   /**
    * 取（或懒建）某会话的事件日志实例。
@@ -180,6 +197,127 @@ export class ChatEventLogStore {
       }
     }
     return flushed;
+  }
+
+  /**
+   * M1 事件溯源：流式过程中追加事件到 events.jsonl
+   *
+   * 实现 `ChatOrchestratorHost` 接口，供 `streamMessageFlow` 在每个 chunk yield 前调用。
+   * - 失败不阻断流式（CS03）
+   * - duplicate-seq 视为正常幂等，不告警
+   * - 首次使用时若需迁移旧数据，触发迁移
+   */
+  async appendStreamEvent(
+    sessionId: string,
+    event: LiriEvent
+  ): Promise<{ ok: boolean; reason?: string; tailSeq: number }> {
+    try {
+      const eventLog = this.getOrCreateEventLog(sessionId);
+
+      // 首次使用时检测是否需要迁移旧数据
+      if (!eventLog.exists()) {
+        // TR-16（2026-09-22，N-52 同族）：原为字面量 `'default'` ⇒ 迁移器按
+        // `<sessionsRoot>/default/<sid>/` 找投影，与真实分区（worktree hash）不符 ⇒
+        // 此处的"流式前迁移检测"恒判错。改传 `resolveWorktreeHash()`（单一真源，与
+        // `ChatManager._appendEventsForMessage` 内的用法一致）。
+        const migrator = new MessageToEventMigrator(
+          eventLog,
+          sessionId,
+          resolveWorktreeHash()
+        );
+        if (migrator.needsMigration()) {
+          logger.info('chat:manager 流式前自动触发事件日志迁移', {
+            sessionId,
+          });
+          await migrator.migrate();
+        }
+      }
+
+      const result = await eventLog.append(event);
+      if (
+        !result.ok &&
+        result.reason !== 'duplicate-seq' &&
+        // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败（不告警/不触发对账）
+        result.reason !== 'session-dir-missing'
+      ) {
+        logger.warn('chat:manager 流式事件追加失败', {
+          sessionId,
+          seq: event.seq,
+          type: event.type,
+          reason: result.reason,
+        });
+      }
+      // P0-fix-4（2026-08-23）：流式实时写入的 assistant/tool_call 事件同样维护
+      // toolCallId→seq 映射，保证后续 tool/result 事件的 callSeq 能正确回填
+      // （与 `ChatManager._appendEventsForMessage` 中的回填逻辑保持一致）。
+      if (result.ok && event.type === 'assistant/tool_call') {
+        const data = event.data as { toolCallId: string };
+        if (data.toolCallId) {
+          // TR-19 修复（2026-09-22）：`append` **不写回** `event.seq`（调用方通常传 0 =
+          // 交由 mutex 原子分配）⇒ 必须取返回值，消除两处口径不一致。
+          this.deps.getToolCallSeqMap().set(data.toolCallId, result.tailSeq);
+        }
+      }
+      // Fix2（2026-09-05）：turn/end 幂等中央记录——任何写者（streamMessageFlow /
+      // finalize）追加成功的 turn/end 都登记，供 finalize 去重，杜绝同一 turn 双 end。
+      if (result.ok && event.type === 'turn/end') {
+        const turn = (event.data as { turn?: number }).turn ?? 0;
+        this.markTurnEnded(sessionId, turn);
+      }
+      return { ok: result.ok, reason: result.reason, tailSeq: result.tailSeq };
+    } catch (e) {
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'appendStreamEvent',
+        context: { sessionId, eventSeq: event.seq, eventType: event.type },
+      }).catch(() => {});
+      return { ok: false, reason: 'exception', tailSeq: 0 };
+    }
+  }
+
+  /**
+   * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条流式正文 chunk（存储层缓冲；
+   * 不落盘、不分配 seq；落盘由 `flushStreamEventBuffer` / 读路径自动 flush 驱动）。
+   */
+  async bufferStreamTextChunk(
+    sessionId: string,
+    messageId: string,
+    content: string
+  ): Promise<{ ok: boolean }> {
+    try {
+      const eventLog = await this.ensureEventLogReady(sessionId);
+      const r = await eventLog.bufferTextChunk(messageId, content);
+      return { ok: r.ok };
+    } catch (e) {
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'bufferStreamTextChunk',
+        context: { sessionId, messageId },
+      }).catch(() => {});
+      return { ok: false };
+    }
+  }
+
+  /**
+   * A-2①：flush 会话全部缓冲正文——按 messageId 聚合为 assistant/text-batch 落盘
+   * （F-2 schema），批量失败回退逐 chunk（A-1）。存储层 read/getTailSeq/append
+   * 前同样自动 flush（所有权闭环）。
+   */
+  async flushStreamEventBuffer(
+    sessionId: string
+  ): Promise<{ ok: boolean; flushed: number }> {
+    try {
+      const eventLog = await this.ensureEventLogReady(sessionId);
+      const flushed = await eventLog.flushTextBuffer();
+      return { ok: true, flushed };
+    } catch (e) {
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'flushStreamEventBuffer',
+        context: { sessionId },
+      }).catch(() => {});
+      return { ok: false, flushed: 0 };
+    }
   }
 
   /** 会话删除时摘除其事件日志实例（原 `ChatManager.deleteSession` 内联逻辑） */

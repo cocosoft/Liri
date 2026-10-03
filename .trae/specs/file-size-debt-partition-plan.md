@@ -219,3 +219,18 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **❗更正 §3 步骤 5**：`fileSizeExceptions` 条目的删除条件 = **文件真正降到阈值以下**，而非"每批拆分后即删"。本批后 ChatManager 仍 >1000 行 ⇒ **条目保留**（此时删会在 R04-001 立即报错）。
 
 **遗留（批 2/3 候选）**：`appendStreamEvent` · `bufferStreamTextChunk` · `flushStreamEventBuffer` · `_sessionLookup` · `_formatEventLine` · `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `_rebuildToolCallSeqMap` · `getStreamMaxTurn`（迁入需注入 `getCurrentSessionId` / `isCodeContext` / `toolCallSeqMap` / `toolCallSeqMapRebuilt`）。
+
+### 7.7 实施记录：批 2/3 —— 流式写入三件套（2026-10-03，**已落地**）
+
+**迁入成员（3）**：`appendStreamEvent` · `bufferStreamTextChunk` · `flushStreamEventBuffer`
+**新增注入依赖（`ChatEventLogStoreDeps`，全 getter ⇒ 无字段初始化顺序陷阱）**：
+`getCurrentSessionId` · `isCodeContext` · `getToolCallSeqMap` · `getToolCallSeqMapRebuilt`
+**ChatManager 侧**：3 方法改**薄转发**；`_eventLogStore` 构造传入 4 个 getter（宿主字段仍归宿主所有）。
+
+**门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0** · `bun test tests/` **3872 pass / 0 fail / 9 skip**（与改前逐字一致）。
+
+> **批 2 范围收窄说明**：原计划批 2 = 全部 10 个成员。实施时按"一次只动一个文件、逐批门槛"的方法论拆为
+> **批 2（写侧 3 个）** 与 **批 3（读回族 7 个）**，降低单批 blast radius。
+
+**遗留（批 3 候选，7 个）**：`_sessionLookup` · `_formatEventLine`（仅被 `_sessionLookup` 调用，随之迁入即可删）· `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `_rebuildToolCallSeqMap` · `getStreamMaxTurn`
+（所需注入依赖**批 2 已就位**：`getCurrentSessionId` / `isCodeContext` / `getToolCallSeqMapRebuilt`。）

@@ -792,7 +792,12 @@ export class ChatManagerImpl implements ChatManager {
    * 原字段 `_eventLogCache`、静态常量 `EVENT_LOG_CACHE_MAX` 及 LRU 淘汰/释放逻辑
    * 已随迁至该模块（`chat/manager/eventLogStore.ts`）；本类经同族方法**薄转发**。
    */
-  private readonly _eventLogStore = new ChatEventLogStore();
+  private readonly _eventLogStore = new ChatEventLogStore({
+    getCurrentSessionId: () => this._currentSessionId,
+    isCodeContext: () => this._lastStreamBuildCodeContext,
+    getToolCallSeqMap: () => this._toolCallSeqMap,
+    getToolCallSeqMapRebuilt: () => this._toolCallSeqMapRebuilt,
+  });
 
   /**
    * M1 事件溯源：toolCallId → seq 映射
@@ -1942,69 +1947,7 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }> {
-    try {
-      const eventLog = this._getOrCreateEventLog(sessionId);
-
-      // 首次使用时检测是否需要迁移旧数据
-      if (!eventLog.exists()) {
-        // TR-16（2026-09-22，N-52 同族）：原为字面量 `'default'` ⇒ 迁移器按
-        // `<sessionsRoot>/default/<sid>/` 找投影，与真实分区（worktree hash）不符 ⇒
-        // 此处的"流式前迁移检测"恒判错。改传 `resolveWorktreeHash()`（单一真源，与
-        // 本文件 `_appendEventsForMessage` 内的用法一致）。
-        const migrator = new MessageToEventMigrator(
-          eventLog,
-          sessionId,
-          resolveWorktreeHash()
-        );
-        if (migrator.needsMigration()) {
-          logger.info('chat:manager 流式前自动触发事件日志迁移', {
-            sessionId,
-          });
-          await migrator.migrate();
-        }
-      }
-
-      const result = await eventLog.append(event);
-      if (
-        !result.ok &&
-        result.reason !== 'duplicate-seq' &&
-        // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败（不告警/不触发对账）
-        result.reason !== 'session-dir-missing'
-      ) {
-        logger.warn('chat:manager 流式事件追加失败', {
-          sessionId,
-          seq: event.seq,
-          type: event.type,
-          reason: result.reason,
-        });
-      }
-      // P0-fix-4（2026-08-23）：流式实时写入的 assistant/tool_call 事件同样维护
-      // _toolCallSeqMap 映射，保证后续 tool/result 事件的 callSeq 能正确回填
-      // （与 _appendEventsForMessage 中的回填逻辑保持一致）。
-      if (result.ok && event.type === 'assistant/tool_call') {
-        const data = event.data as { toolCallId: string };
-        if (data.toolCallId) {
-          // TR-19 修复（2026-09-22）：`append` **不写回** `event.seq`（调用方通常传 0 =
-          // 交由 mutex 原子分配）⇒ 必须取返回值。与 `_appendEventsForMessage` 中同一映射
-          // 的既有写法（`result.tailSeq`）对齐，消除两处口径不一致。
-          this._toolCallSeqMap.set(data.toolCallId, result.tailSeq);
-        }
-      }
-      // Fix2（2026-09-05）：turn/end 幂等中央记录——任何写者（streamMessageFlow /
-      // finalize）追加成功的 turn/end 都登记，供 finalize 去重，杜绝同一 turn 双 end。
-      if (result.ok && event.type === 'turn/end') {
-        const turn = (event.data as { turn?: number }).turn ?? 0;
-        this._eventLogStore.markTurnEnded(sessionId, turn);
-      }
-      return { ok: result.ok, reason: result.reason, tailSeq: result.tailSeq };
-    } catch (e) {
-      await handleError(e, {
-        module: 'chat:manager',
-        action: 'appendStreamEvent',
-        context: { sessionId, eventSeq: event.seq, eventType: event.type },
-      }).catch(() => {});
-      return { ok: false, reason: 'exception', tailSeq: 0 };
-    }
+    return this._eventLogStore.appendStreamEvent(sessionId, event);
   }
 
   /**
@@ -2016,18 +1959,11 @@ export class ChatManagerImpl implements ChatManager {
     messageId: string,
     content: string
   ): Promise<{ ok: boolean }> {
-    try {
-      const eventLog = await this._ensureEventLogReady(sessionId);
-      const r = await eventLog.bufferTextChunk(messageId, content);
-      return { ok: r.ok };
-    } catch (e) {
-      await handleError(e, {
-        module: 'chat:manager',
-        action: 'bufferStreamTextChunk',
-        context: { sessionId, messageId },
-      }).catch(() => {});
-      return { ok: false };
-    }
+    return this._eventLogStore.bufferStreamTextChunk(
+      sessionId,
+      messageId,
+      content
+    );
   }
 
   /**
@@ -2038,18 +1974,7 @@ export class ChatManagerImpl implements ChatManager {
   async flushStreamEventBuffer(
     sessionId: string
   ): Promise<{ ok: boolean; flushed: number }> {
-    try {
-      const eventLog = await this._ensureEventLogReady(sessionId);
-      const flushed = await eventLog.flushTextBuffer();
-      return { ok: true, flushed };
-    } catch (e) {
-      await handleError(e, {
-        module: 'chat:manager',
-        action: 'flushStreamEventBuffer',
-        context: { sessionId },
-      }).catch(() => {});
-      return { ok: false, flushed: 0 };
-    }
+    return this._eventLogStore.flushStreamEventBuffer(sessionId);
   }
 
   /**

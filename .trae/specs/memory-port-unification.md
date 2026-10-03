@@ -10,7 +10,7 @@
 | # | 事实 | 证据 |
 |---|---|---|
 | 1 | **`MemoryPort` 全仓 0 命中**（`app/` 整树，含 `src` / `tests` / `scripts`） | `Grep "MemoryPort" → No matches found` |
-| **1b** | ⚠️ **首次表述更正**：`memory/MemoryManager.ts:63-169` **已存在 `interface MemoryManager`**，且 `MemoryManagerImpl` **确实 `implements` 它**（故接口有唯一实现）。它是**全能型契约** —— ~40 个方法横跨 **CRUD／检索／统计／团队记忆／老化／自动记忆／provider／PYApp 集成** 七类关注点，以 **type** 形式从 barrel 转出 | `memory/MemoryManager.ts:63`（`export interface MemoryManager`）、`:227`（`class MemoryManagerImpl implements …`）、`memory/index.ts:21`（`export type { MemoryManager }`） |
+| **1b** | ⚠️ **两处表述已更正（2026-10-03 二次取证）**：①`memory/MemoryManager.ts:63-169` **确已存在 `interface MemoryManager`**（~40 方法 · 七类关注点 · 以 type 从 barrel 转出）；②但 **`MemoryManagerImpl`（`:227`）没有 `implements` 子句** —— 该接口**无任何实现者**；③且接口中 `createMemoryFromChat`（`:88`）· `getMemoryUsageStats`（`:116`）· `searchMemoriesBySemantic`（`:106`）· `searchMemoriesByTags`（`:107`）· `generateMemoryPrompts`（`:110`）· 全部团队记忆（`:95-149`）与自动记忆（`:132-135`）方法，**在实现类中并不存在**（`Grep` 仅命中接口块行号）⇒ **它是"为某个从未完成的实现"写的死契约**，不是"有唯一实现的活契约" | `memory/MemoryManager.ts:63`（接口）· `:227`（`export class MemoryManagerImpl {` **无 implements**）· `:88/:106/:107/:110/:116/:132-135/:95-149`（仅声明、无实现） |
 | 2 | **细口径上唯一的"窄"接口**是 `IMemoryIndexer`（仅覆盖索引子集） | `memory/indexer/MemoryIndexer.ts:28`；barrel `memory/indexer/index.ts:26` |
 | 3 | **基座实现** `MemoryManagerImpl`（+ 类型 `MemoryManager`） | `memory/MemoryManager.ts:227`（barrel `memory/index.ts:21-26`） |
 | 4 | **包装层** `EnhancedMemoryManager` 内部 **new 基座**；其**独有能力面**（相对基座）= `storeMemoryEnhanced`／`retrieveMemoriesSmart`／`getConfig`／`updateConfig`／`clearAssociations`／`clearLifecycles`（其余为 private 打分/关联/生命周期辅助方法） | `memory/EnhancedMemoryManager.ts:72`、`:93`（`new MemoryManagerImpl()`）、`:102,141,677,684,691,698` |
@@ -24,12 +24,12 @@
 
 | 碎片 | 内容 | 性质 |
 |---|---|---|
-| **① 契约粒度错**（原写"无契约"，**已更正**） | 事实 1/1b/2：接口**存在**，但**全能型**（~40 方法 · 七类关注点）；唯一"窄"接口仅 `IMemoryIndexer`（索引子集）⇒ 缺的是**按能力切分的窄端口**，**不是"没有接口"** | **契约粒度缺失** |
-| **② 实现重复 + 域混淆**（**已更正分层**） | 事实 3-6：对 `interface MemoryManager` 而言，**真正实现它的只有基座**；`EnhancedMemoryManager` 是**包装基座的增强层**（事实 4）；`SessionMemoryManager`（事实 5）与 `AdvancedMemorySystem`（事实 6）是**另外的域** —— 原把三者并列成"同一接口的三套实现"**不准确** | **实现重复 + 域混淆**（R02） |
+| **① 死契约**（原写"无契约"→"契约粒度错"，**两次更正**） | 事实 1/1b/2：接口**存在但无人实现**（`MemoryManagerImpl` 无 `implements`），且**近半声明在实现类中不存在** ⇒ 不是"粒度问题"而是**契约与实现彻底脱节**；细口径上唯一的"活"接口是 `IMemoryIndexer`（索引子集） | **契约失效（死契约）** |
+| **② 实现重复 + 域混淆**（**已更正分层**） | 事实 3-6：对 `interface MemoryManager` 而言**无人实现**（见 ①）；**实际可用的基座**是 `MemoryManagerImpl`（未声明 implements）；已删除的 `EnhancedMemoryManager` 是**包装基座的增强层**（事实 4）；`SessionMemoryManager`（事实 5）与 `AdvancedMemorySystem`（事实 6）是**另外的域** —— 原把三者并列成"同一接口的三套实现"**不准确** | **实现重复 + 域混淆**（R02） |
 | **③ 同名不同域** | 事实 7：**"记忆"与"内存"英文同名 `MemoryManager`**（4 个不同域各一个）⇒ 只能靠路径区分，与 `§1.12 术语规范`（记忆 / 内存）冲突 | **命名歧义** |
 | **④ 多实例** | 事实 8-9：≥10 处各自 `new`，检索索引/缓存不共享；**已有 1 处因此被修** | **资源/一致性问题** |
 
-**结论**：台账所述"三套实现"**既高估又低估**——高估在"它们同属一个接口"（实为 1 实现 + 1 包装 + 2 个异域），低估在"接口其实已存在但形状不适用"。⇒ §4 M3 的方向（单一接口 + 适配器）成立，但**正确做法是：把已存在的全能接口按能力重构为窄端口，而非从零造一个新接口**。
+**结论**：台账所述"三套实现"**既高估又低估**——高估在"它们同属一个接口"（实为 1 个可用基座 + 1 个包装层 + 2 个异域），低估在"接口其实已存在但那是个**无人实现的死契约**"。⇒ §4 M3 的方向（单一接口 + 适配器）成立，但**正确做法是：以 `MemoryManagerImpl` 的真实能力为基准重建窄端口**（T1-1 已如此执行），**而非去"重构"那份与实现脱节的旧接口声明**。
 
 ## 3. T0 裁定结果（2026-10-03，用户已答）
 
@@ -45,7 +45,7 @@
 | 步骤 | 内容 | 完成判据 |
 |---|---|---|
 | **T1-0** | **补全未取证面**：① `AdvancedMemorySystem` 运行时可达性（构造点仅测试 ⇒ 需查 `agent/index.ts` 转出的消费方）；② RAM 侧 3 类的**全部引用点**（改名影响面）；③ `interface MemoryManager` 40 个方法的**逐条归属**（哪个属 Read/Write/Search/Forget；哪个属"非端口职责"如 PYApp 集成／团队同步 ⇒ 不迁入端口） | 产出三张清单，写入本 spec §4 附录 |
-| **T1-1** | **建窄端口**：`memory/ports/{MemoryReadPort,MemoryWritePort,MemorySearchPort,MemoryForgetPort}.ts`（方法签名**由 T1-0③ 的归属表确定**，不得预先编写） | 新文件存在 + 类型齐备 |
+| **T1-1** | ✅ **已完成（2026-10-03）**：新建 `memory/ports/MemoryPort.ts`（4 个窄端口 interface）+ 经 `memory/index.ts` 转出。**布局偏离原计划**：原定拆 4 文件，实测触发门禁 `R06-009-1`（4 个 <40 行微文件 → 要求聚合）⇒ 按门禁聚合为**单文件**。**签名依据换成"实现类真实能力"**：死契约里的 `createMemoryFromChat`/`searchMemoriesBySemantic`/`searchMemoriesByTags`/`generateMemoryPrompts`/`getMemoryUsageStats` 在实现类中不存在 ⇒ **不纳入**（见 §10.3-final） | ✅ `typecheck 0` · `lint:arch` `R06-009-1` 归零（警告回基线 2）· 分层检查 3855 → **3856**（+1 新文件 ✓）· `bun test tests/` **3812 pass / 0 fail** |
 | **T1-2** | **基座适配**：`MemoryManagerImpl` 声明 implement 四个窄端口（不改内部行为） | `typecheck 0`；现有测试全绿 |
 | **T1-3** | ✅ **已完成（2026-10-03）· 增强层 + agent 域悬空实现下线**：删 **5 文件** —— `memory/EnhancedMemoryManager.ts`、`memory/services/MemoryWeightExporter.ts`、`agent/memory/AdvancedMemorySystem.ts`（用户另裁"同法下线"）、`agent/memory/MemoryVectorizer.ts`（**仅** `AdvancedMemorySystem` 引用 ⇒ 随删）、`agent/AgentModuleTest.ts`（**唯一**构造 `AdvancedMemorySystem` 且自身无任何消费者）；订正 3 处引用：`memory/index.ts`（去 WeightExporter 块 + `export * ./EnhancedMemoryManager`）、`agent/index.ts`（去 import + export 成员）、`eslint.config.js`（去 AgentModuleTest 的 no-console 例外）。**保留** `memory/retrievers/MemoryRetriever.ts`（基座在用）、`memory/indexer/*` | ✅ `typecheck 0` · 零残留引用 · `lint:arch` **0 错**（3860 → **3855** = −5 ✓）· `modules:validate` 通过 + 快照一致 · `bun test tests/` **3812 pass / 9 skip / 0 fail** |
 | **T1-4** | **异域适配**（`SessionMemoryManager`）：按 T1-0③ 的归属，**只实现其真正具备的端口**（不强行补齐）。~~`AdvancedMemorySystem`~~ 已按用户裁定**同法下线**（见 T1-3） | `SessionMemoryManager` `implements` 其域内端口；无"空实现"桩 |
@@ -108,6 +108,7 @@
 | 2026-10-03 | **D2 复裁：按无消费者下线**（本次提交） | 依 §10.5（构造点为 0）；下线影响链见 §10.6（**保留** `MemoryRetrieverImpl`——基座在用；**一并下线** `MemoryWeightExporter`——零消费者）。**🆕 新遗留**：`AdvancedMemorySystem` 同为零可达，复裁未覆盖 ⇒ 待一句话裁定（§4 T1-4 已标注"未裁定前不动它"） |
 | 2026-10-03 | **T1-3 已完成：下线 5 文件**（本次提交） | `EnhancedMemoryManager` + `MemoryWeightExporter`（D2 复裁）+ `AdvancedMemorySystem`（用户另裁"同法下线"）+ 连带 `MemoryVectorizer` / `AgentModuleTest`（前者仅被删者引用、后者为删者的唯一构造点且自身零消费者）。验证：`typecheck 0` · 残留 0 · `lint:arch` **−5 文件** 与删除数逐数吻合 · 测试 **3812 pass / 0 fail** |
 | 2026-10-03 | **新登记（未处置）** | `SmartMemoryAnalyzer` 同族零消费者（§10.7 末），**本次未动** |
+| 2026-10-03 | **T1-1 已完成：建窄端口**（本次提交） | 新建 `memory/ports/MemoryPort.ts`（`MemoryReadPort` 3 / `MemoryWritePort` 5 / `MemorySearchPort` 1 / `MemoryForgetPort` 1）+ `memory/index.ts` 转出。**第三次取证更正**（读实现类）：`MemoryManagerImpl` **无 `implements`**、死契约近半方法在实现类中不存在 ⇒ 端口按**真实能力**定，5 个无实现声明**不纳入**。布局按门禁 `R06-009-1` 由 4 文件**聚合为 1 文件**。验证：`typecheck 0` · 警告回基线 2 · 分层检查 **+1 文件** · 测试 **3812 pass / 0 fail** |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 
@@ -139,9 +140,11 @@
 
 ⇒ D3 改名的**真实影响面很小**（最重的一处也只有 4 个代码文件 + 1 测试），可在 T1-6 一次完成。
 
-### 10.3 `interface MemoryManager` 方法归属（**草拟，待 T1-1 定稿**）
+### 10.3 方法归属（**已定稿 2026-10-03**；下表"草拟"列为首次读接口所得，**已被 §10.3-final 取代**）
 
-来源：`memory/MemoryManager.ts:63-169` 接口体逐条读取（重载合并计入 1）。分类**判据**：只有"与外域消费者真正相关的**核心记忆语义**"进入窄端口；**域内事务/集成**（团队记忆、PYApp 集成、provider、同步）**建议不迁入**。
+> ⚠️ **定稿依据变了**：首次草拟只读了 **接口声明**（`memory/MemoryManager.ts:63-169`）；T1-1 前补读**实现类**发现该接口是**无人实现的死契约**，且 `searchMemoriesBySemantic`/`searchMemoriesByTags`/`generateMemoryPrompts`/`getMemoryUsageStats`/`createMemoryFromChat`/团队记忆/自动记忆方法**在实现类中根本不存在** ⇒ 端口**必须**按实现类真实能力定（**定稿见本节末 §10.3-final**）。
+
+来源（草拟表）：`memory/MemoryManager.ts:63-169` 接口体逐条读取（重载合并计入 1）。分类**判据**：只有"与外域消费者真正相关的**核心记忆语义**"进入窄端口；**域内事务/集成**（团队记忆、PYApp 集成、provider、同步）不迁入。
 
 | 拟归端口 | 方法（草拟） | 计 |
 |---|---|---|
@@ -152,7 +155,21 @@
 | **域内事务（拟**不**入端口）** | 团队记忆 12：`createTeamMemory`×2 · `getTeamMemories`×2 · `updateTeamMemory` · `deleteTeamMemory` · `setTeamMemoryConfig` · `getTeamMemoryConfig` · `getTeamMemorySyncStatus` · `getTeamMemoryLastSyncTime` · `getTeamMemorySyncRecords` · `triggerTeamMemorySync`；PYApp 集成 10：`initializePYAppIntegration` · `getPYAppConfig` · `getPYAppRules` · `getPYAppRulesByCategory` · `getPYAppRulesByPriority` · `getPYAppPreferences` · `getPYAppPreference` · `getPYAppPreferenceValue` · `getPYAppRulesText` · `checkPYAppChanges`（+ `addPYAppChangeListener`/`removePYAppChangeListener` 2）；自动记忆 6：`processConversation` · `setAutoMemoryConfig` · `getAutoMemoryConfig` · `clearConversationMemory` · `clearAllConversationMemories` · `setMemoryExpiry`；provider 3：`addProvider` · `getProvider` · `removeProvider` | ~33 |
 | **待定（T1-1 逐条读实现后定）** | `setMemoryExpiry`（写 or 遗忘？）· `processConversation`（编排，跨读写）· `createMemoryFromChat`（写 or 领域编排？） | 3 |
 
-⚠️ **本表为草拟**：四个端口的**最终签名**须待 §5-#5 关闭（读 `EnhancedMemoryManager` 实现）后定稿；**不得**以本表直接开始 T1-1 建文件。
+⚠️ 上表为**首次草拟**（仅据接口声明），已作废保留以便追溯；**实际定稿如下**。
+
+#### §10.3-final 端口定稿（= T1-1 实际建成的内容）
+
+依据：`MemoryManagerImpl` **真实具备**的方法（Grep 逐条核验行号），**不含**死契约中不存在的声明。
+
+| 端口 | 方法（真实实现处） | 计 |
+|---|---|---|
+| **`MemoryReadPort`** | `getMemory`(:545) · `getAllMemories`(:751) · `getMemoryStats`(:774) | 3 |
+| **`MemoryWritePort`** | `createMemory`(:381) · `updateMemory`(:556) · `deleteMemory`(:603) · `deleteAllMemories`(:624) · `setMemoryExpiry`(:972 **归写**：语义为"写过期属性") | 5 |
+| **`MemorySearchPort`** | `getRelevantMemories`(:655) | 1 |
+| **`MemoryForgetPort`** | `cleanupExpiredMemories`(:858) | 1 |
+| **不迁入端口**（原因） | 死契约中无实现：`createMemoryFromChat` / `getMemoryUsageStats` / `searchMemoriesBySemantic` / `searchMemoriesByTags` / `generateMemoryPrompts` / 全部团队记忆与自动记忆方法；实现类中的域内事务：`processConversation`(:501 纯委派 `autoMemoryService`) · `provider` 3 件 · `PYApp` 12 件 · 内部访问器（`getStore`/`getScanner`/`getRetriever`/`buildMemoryIndex`/`loadRelationGraph`/`saveRelationGraph`/`getLastCleanupAt`/`getMemoryMarkdownPreview`/`runMaintenancePass`/`getExpiringMemories`/`delegateProcessConversation`） | — |
+
+**文件布局**：原计划 4 个文件（`memory/ports/{MemoryReadPort,…}.ts`），实测触发门禁 **`R06-009-1`（4 个 <40 行微文件，要求聚合）** ⇒ 按门禁指引**聚合为单文件** `memory/ports/MemoryPort.ts`（4 个 interface），经 `memory/index.ts` 转出。
 
 ### 10.4 具体实现的消费者分类（`@modules/memory` barrel 命中 ≥40 文件的细化）
 

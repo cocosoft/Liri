@@ -19,6 +19,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export type { MemoryManager } from './MemoryManager';
+// T-①07（A5 记忆分层收敛）：记忆能力的窄端口契约（取代上面那个无人实现的全能型接口，见
+// .trae/specs/memory-port-unification.md）。T1-1 已建端口；T1-2 由 MemoryManagerImpl 声明 implement。
+export type {
+  MemoryReadPort,
+  MemoryWritePort,
+  MemorySearchPort,
+  MemoryForgetPort,
+} from './ports/MemoryPort';
 export {
   MemoryManagerImpl,
   selectEvictions,

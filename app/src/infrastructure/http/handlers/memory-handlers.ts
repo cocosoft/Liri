@@ -29,9 +29,8 @@ const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
 async function getMemoryManager(): Promise<
   import('@modules/memory').MemoryManagerImpl
 > {
-  const { getMemoryManager: getSharedMemoryManager } = await import(
-    '@modules/memory'
-  );
+  const { getMemoryManager: getSharedMemoryManager } =
+    await import('@modules/memory');
   return getSharedMemoryManager();
 }
 

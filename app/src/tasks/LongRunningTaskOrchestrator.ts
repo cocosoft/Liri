@@ -53,6 +53,11 @@ import {
 // T-②02（2026-10-03）：目标偏差判定（纯函数，判定与接线分离）+ 事件落盘
 import { evaluateGoalDeviation } from './review/GoalDeviation.js';
 import { emitGoalDeviation } from './goal/GoalEvents';
+// T-②06（2026-10-03）：经验自动演化（PDCA 终态收口点触发；聚合式，跨任务）
+import {
+  runAdaptationEvolution,
+  createEvolutionDeps,
+} from './evolution/AdaptationEvolutionService';
 import { TAORLoop, createTAORLoopDeps } from '@modules/query';
 import type { TAORLoopDeps } from '@modules/query';
 import { VerifierAgent, createVerifierAgent } from '@modules/query';
@@ -2081,6 +2086,8 @@ ${replanSection}
     this._persistMemoryFromAudit('completed');
     // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
     this._persistReviewSample('pdca_completed');
+    // T-②06：终态收口点触发经验自动演化（聚合式；防抖见 AdaptationEvolutionService）
+    this._runAdaptationEvolution();
 
     // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
     const _finalStatus = this.getStatus();
@@ -2326,6 +2333,8 @@ ${replanSection}
     this._persistMemoryFromAudit('aborted');
     // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
     this._persistReviewSample('pdca_aborted');
+    // T-②06：中止路径同样触发演化（不因中止跳过可观测/演化面）
+    this._runAdaptationEvolution();
     // OBS（M2）：中止/取消 → pdca:stage:complete（status cancelled，独立通道；
     // 会话摘要落盘按设计只在终态——此处为纯实时事件，摘要由消费端/UI 决定）
     void emitPdcaLiveEvent(
@@ -2371,6 +2380,28 @@ ${replanSection}
           context: { taskId: this.taskId, stageId },
         });
       });
+  }
+
+  /**
+   * T-②06 阶段 2（2026-10-03）：PDCA 终态 ⇒ **经验自动演化**（聚合式，跨任务）。
+   *
+   * 读评审样本（`queryReviewSamples`）→ 归纳（LLM）→ 写回产物（提示覆盖层 / 技能侧车）
+   * + 审计事件 `evolution/applied`（`.trae/specs/adaptation-writeback-evolution.md` §3.3）。
+   *
+   * **聚合语义**：读的是**全量历史失败样本**（不局限于本次任务）⇒ 与 `_persistReviewSample`
+   * 的 fire-and-forget 之间**无需严格顺序**（本批样本可下次纳入；防抖保证不重复演化）。
+   * 失败经 `handleError` 留痕，不阻断收尾（CS03）。
+   */
+  private _runAdaptationEvolution(): void {
+    void runAdaptationEvolution(
+      createEvolutionDeps(this._sessionId ?? undefined)
+    ).catch((err) =>
+      handleError(err, {
+        module: 'tasks:longRunning',
+        action: 'adaptationEvolution',
+        context: { taskId: this.taskId },
+      })
+    );
   }
 
   /**

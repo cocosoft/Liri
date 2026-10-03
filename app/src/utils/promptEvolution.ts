@@ -167,6 +167,75 @@ function pruneOverlayVersions(dir: string): void {
   }
 }
 
+// ─── 演化状态（防抖）─────────────────────────────────────────────────────────
+
+/**
+ * 演化状态（防抖依据）—— 与覆盖层同目录 `state.json`。
+ *
+ * 字段均为**事实记录**（时间戳 / 内容签名），判定不在本模块做（见
+ * `tasks/evolution/AdaptationEvolutionService`）。
+ */
+export interface EvolutionState {
+  /** 上次成功演化时间（epoch ms；0 = 从未） */
+  lastAppliedAt: number;
+  /** 上次依据的失败样本签名（相同 ⇒ 无新经验，不重复演化） */
+  lastSampleSignature: string;
+}
+
+/** 演化最小间隔：同一批经验在 6 小时内不重复演化（防抖，非业务阈值） */
+export const EVOLUTION_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/** 状态文件路径（`<prompt-evolution>/state.json`） */
+export function getEvolutionStatePath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePromptEvolutionDir(env), 'state.json');
+}
+
+/** 读取演化状态（缺失 / 损坏 ⇒ 全零初值，等价"从未演化"） */
+export function readEvolutionState(
+  env: NodeJS.ProcessEnv = process.env
+): EvolutionState {
+  try {
+    const path = getEvolutionStatePath(env);
+    if (!existsSync(path)) return { lastAppliedAt: 0, lastSampleSignature: '' };
+    const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<EvolutionState>;
+    return {
+      lastAppliedAt:
+        typeof parsed.lastAppliedAt === 'number' &&
+        Number.isFinite(parsed.lastAppliedAt)
+          ? parsed.lastAppliedAt
+          : 0,
+      lastSampleSignature:
+        typeof parsed.lastSampleSignature === 'string'
+          ? parsed.lastSampleSignature
+          : '',
+    };
+  } catch {
+    // @ignore-catch — 状态不可读等同"从未演化"（不阻断演化本身）
+    return { lastAppliedAt: 0, lastSampleSignature: '' };
+  }
+}
+
+/** 写入演化状态 */
+export function writeEvolutionState(
+  state: EvolutionState,
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  try {
+    mkdirSync(resolvePromptEvolutionDir(env), { recursive: true });
+    writeFileSync(
+      getEvolutionStatePath(env),
+      JSON.stringify(state, null, 2),
+      'utf-8'
+    );
+    return true;
+  } catch {
+    // @ignore-catch — 状态落盘失败如实返回 false（调用方留痕）
+    return false;
+  }
+}
+
 // ─── 技能侧车（.evolution.md）───────────────────────────────────────────────
 
 /** 技能侧车路径（`<userSkillsDir>/<name>/.evolution.md`；名称越界 ⇒ `null`） */

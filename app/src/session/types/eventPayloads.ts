@@ -593,6 +593,24 @@ export interface LiriEventMap {
    * 供回放/审计读取历史标题变更轨迹。运行时读取仍走 metadata.titleStage
    * 快照（性能），本事件为事件溯源完整性的补充。
    */
+  /**
+   * 经验**自动演化**落盘审计（T-②06，2026-10-03；log-only，不入消息 surface）。
+   *
+   * 由失败/评审样本演化出的产物被写入时落一条 —— 与 `agent/recovery` / `session/wake`
+   * 同口径：它记录"**产物何时被自动改写**"这一可判定节点（此前只有 logger 文本）。
+   * 覆盖层正文本身的模型可见性由 `context/model-input` 的 sections 快照承担（§1.6 红线）。
+   */
+  'evolution/applied': {
+    /** 产物形态：提示覆盖层 / 技能侧车 */
+    scope: 'prompt' | 'skill';
+    /** 技能名（`scope='skill'` 时给出；`scope='prompt'` 缺省） */
+    target?: string;
+    /** 本次演化依据的**失败样本数**（如实计数，不臆造） */
+    sampleCount: number;
+    /** 落盘正文字节数 */
+    bytes: number;
+  };
+
   'session/title': {
     /** 标准化后的标题文本 */
     title: string;

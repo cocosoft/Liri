@@ -79,6 +79,16 @@ export type {
 } from './PlanDrivenLoop';
 // T-②05（2026-10-03）：快速路径判据的**运行时解析**（读 GlobalConfig.fastPath，缺省回退默认）
 export { resolveFastPathPolicy } from './fastPathPolicy';
+// T-②06（2026-10-03）：经验自动演化 —— 审计落盘出口（`ChatManager` 注入）+ 编排入口
+export { setEvolutionAuditSink } from './evolution/EvolutionAudit';
+export {
+  runAdaptationEvolution,
+  createEvolutionDeps,
+} from './evolution/AdaptationEvolutionService';
+export type {
+  EvolutionRunResult,
+  EvolutionDeps,
+} from './evolution/AdaptationEvolutionService';
 export { scheduleTopoBatches } from './topoBatches';
 export type { TopoBatchTask } from './topoBatches';
 export {

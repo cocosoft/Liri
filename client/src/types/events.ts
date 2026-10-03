@@ -229,6 +229,13 @@ export interface LiriEventMap {
     outcome: "resumed" | "resume_failed" | "handler_absent";
     error?: string;
   };
+  // T-②06（2026-10-03）：经验自动演化落盘审计（log-only，不入消息 surface；镜像 app 侧同名字段）
+  "evolution/applied": {
+    scope: "prompt" | "skill";
+    target?: string;
+    sampleCount: number;
+    bytes: number;
+  };
   /** 会话标题快照（D5，2026-08-24，log-only 不入消息 surface） */
   "session/title": {
     title: string;

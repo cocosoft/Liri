@@ -92,6 +92,11 @@ export const LIRI_EVENT_NAMES = [
   // 唤醒→续跑是系统自动发起（非用户触发），修复前四个可判定节点只有 logger 文本，
   // 崩溃后无法从持久层按序重建（与 `agent/recovery` B4-1 同一立项理由）。log-only。
   'session/wake',
+  // T-②06（2026-10-03）：经验**自动演化**落盘审计 —— 由失败/评审样本演化出的提示覆盖层或
+  // 技能侧车被写入时落一条（log-only，与 `agent/recovery` / `session/wake` 同口径：
+  // 它描述"产物何时被自动改写"，不改状态机、不入消息 surface）。
+  // 覆盖层正文本身的模型可见性由 `context/model-input` 的 sections 快照承担（§1.6 红线）。
+  'evolution/applied',
   // ─── 标题（D5，2026-08-24：标题事件化，log-only 不入消息 surface） ───
   'session/title',
   // ─── Code Mode（CM-5，2026-08-25：code_run 执行事件） ───

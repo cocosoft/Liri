@@ -36,7 +36,7 @@
 | ID | 问题 | **裁定** | 影响 |
 |---|---|---|---|
 | **D1** | 端口粒度 | **细分端口**（Read / Write / Search / Forget，同 `core/spi/*` 风格） | 需先产出"方法 → 端口"映射表（见 §4 T1-1） |
-| **D2** | 四实现去留 | **全保留 + `EnhancedMemoryManager` 并入基座** | 需按事实 4 的**独有能力面**做并入（6 个公开入口 + 私有辅助） |
+| **D2** | 四实现去留 | ~~全保留 + `EnhancedMemoryManager` 并入基座~~ ⇒ **复裁（2026-10-03，依 §10.5）：按无消费者下线** | 原判前提（增强层有消费者）被实测推翻；下线范围见 §10.6（含 `MemoryWeightExporter`） |
 | **D3** | RAM 侧 3 个同名类 | **随本项改名**（记忆/内存消歧，落 `§1.12`） | 需先统计改名引用面（见 §4 T1-0） |
 | **D4** | 实例化口径 | **收口到工厂/单例** | ≥10 处裸 `new` → 工厂（事实 9 已证明必要） |
 
@@ -47,8 +47,8 @@
 | **T1-0** | **补全未取证面**：① `AdvancedMemorySystem` 运行时可达性（构造点仅测试 ⇒ 需查 `agent/index.ts` 转出的消费方）；② RAM 侧 3 类的**全部引用点**（改名影响面）；③ `interface MemoryManager` 40 个方法的**逐条归属**（哪个属 Read/Write/Search/Forget；哪个属"非端口职责"如 PYApp 集成／团队同步 ⇒ 不迁入端口） | 产出三张清单，写入本 spec §4 附录 |
 | **T1-1** | **建窄端口**：`memory/ports/{MemoryReadPort,MemoryWritePort,MemorySearchPort,MemoryForgetPort}.ts`（方法签名**由 T1-0③ 的归属表确定**，不得预先编写） | 新文件存在 + 类型齐备 |
 | **T1-2** | **基座适配**：`MemoryManagerImpl` 声明 implement 四个窄端口（不改内部行为） | `typecheck 0`；现有测试全绿 |
-| **T1-3** | **增强层并入基座**（D2）：把事实 4 的 6 个公开入口与关联/生命周期状态并入 `MemoryManagerImpl`；`EnhancedMemoryManager` 保留为 `@deprecated` 转发壳（或按 T1-0 结论下线） | `MemoryWeightExporter` 等消费者行为不变；测试全绿 |
-| **T1-4** | **异域适配**（`SessionMemoryManager` / `AdvancedMemorySystem`）：按 T1-0③ 的归属，**只实现其真正具备的端口**（不强行补齐） | 各自 `implements` 其域内端口；无"空实现"桩 |
+| **T1-3** | **增强层下线**（D2 复裁：零构造点 ⇒ 同 §10.1 处理）：删 `memory/EnhancedMemoryManager.ts` + `memory/services/MemoryWeightExporter.ts`（自身零消费者，输入类型来自增强层）+ `memory/index.ts` 两处导出（`:64-70`、`:79`）。**保留** `memory/retrievers/MemoryRetriever.ts`（**基座在用**：`MemoryManager.ts:11,243,313,1069`）与 `memory/indexer/*` | `typecheck 0`；全量测试 0 fail；`Grep "EnhancedMemoryManager"` 仅剩本 spec/台账 |
+| **T1-4** | **异域适配**（`SessionMemoryManager` / `AdvancedMemorySystem`）：按 T1-0③ 的归属，**只实现其真正具备的端口**（不强行补齐）。⚠️ **`AdvancedMemorySystem` 与 `EnhancedMemoryManager` 同为零运行时可达（§10.1）**，D2 复裁**未覆盖它** ⇒ **待你一句话裁定**（同法下线 or 保留适配）；未裁定前**不对它做任何改动** | 各自 `implements` 其域内端口；无"空实现"桩 |
 | **T1-5** | **工厂收口**（D4）：新增 `getMemoryPort()`（或按端口分的 `getMemoryReadPort()` 等）；替换 ≥10 处裸 `new` | 防回退断言：全仓不再新增 `new MemoryManagerImpl()` |
 | **T1-6** | **RAM 同名消歧**（D3）：改名为 `HeapMemoryManager` 等 + 更新全部引用点 | `Grep "class MemoryManager"` 仅剩记忆域 1 处 |
 | **T1-7** | **测试与验收** | 见 §7 |
@@ -105,6 +105,7 @@
 | 2026-10-03 | **二次取证更正**（提交 `13292790d`） | 发现 `interface MemoryManager` **已存在**（`MemoryManager.ts:63`）⇒ 更正碎片①；发现 `SessionMemoryManager` 与接口**几乎零重叠** ⇒ 更正碎片②的"三套实现"表述 |
 | 2026-10-03 | **T1-0 完成 3/5**（提交 `e2ab076a4`） | 关闭 §5-#2（`AdvancedMemorySystem` **运行时不可达**）、#3（RAM 三类引用面：最重 4 代码文件 + 1 测试）；#1 出**草拟**归属表 |
 | 2026-10-03 | **T1-0 全部关闭（5/5）**（本次提交） | 关闭 §5-#4（真实调用面 = **生产 13 文件**，其余走函数/服务入口）、#5（`EnhancedMemoryManager` **确有附加语义但构造点为 0**）。**🆕 新增待裁定**：D2 前提被推翻 ⇒ T1-3 需复裁 **(i) 并入基座** or **(ii) 按无消费者下线**。**T1-1 仍不可开始**：§10.3 归属表仅"草拟"（`setMemoryExpiry`／`processConversation`／`createMemoryFromChat` 3 条待定 + 端口签名未定稿） |
+| 2026-10-03 | **D2 复裁：按无消费者下线**（本次提交） | 依 §10.5（构造点为 0）；下线影响链见 §10.6（**保留** `MemoryRetrieverImpl`——基座在用；**一并下线** `MemoryWeightExporter`——零消费者）。**🆕 新遗留**：`AdvancedMemorySystem` 同为零可达，复裁未覆盖 ⇒ 待一句话裁定（§4 T1-4 已标注"未裁定前不动它"） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 
@@ -174,3 +175,20 @@
 - **(i) 并入基座**（把上述附加语义搬进 `MemoryManagerImpl`，增强层降为 `@deprecated` 壳）—— **收益 = 能力可用但无人用**；
 - **(ii) 按"无消费者的增强层"下线**（同 §10.1 的 `AdvancedMemorySystem`）—— **收益 = 减面**，代价 = 放弃该能力（当前本就无人用）。
 ⇒ **两项都成立，取决于你是否要保留"记忆分析/关联/生命周期"这条能力线** —— 建议在 T1-3 前给一句话裁定即可。
+
+### 10.6 T1-3 下线影响链（**已裁定：按无消费者下线**）
+
+`Grep "MemoryWeightExporter|MemoryRetrieverImpl|from '.*MemoryRetriever'|weightExporter"`（`app/` 整树）结果：
+
+| 对象 | 消费者 | 可否随增强层删 |
+|---|---|---|
+| `memory/retrievers/MemoryRetriever.ts`（`MemoryRetrieverImpl`） | **基座 `MemoryManager.ts:11,243,313,1069`**（字段 + 构造 + `getRetriever()`） | ❌ **不可删**（基座依赖） |
+| `memory/indexer/*`（`MemoryIndexer` / `IMemoryIndexer`） | `memory/indexer/index.ts` barrel + 增强层内部 | ✅ 保留（与增强层解耦；其自有接口仍在用） |
+| `memory/services/MemoryWeightExporter.ts`（`MemoryWeightExporter`） | **仅** `memory/index.ts:64-70`（barrel）+ 自身；**零外部消费者**，且其两个输入类型 `MemoryAnalysis`／`SmartRetrievalResult` **就来自增强层** | ✅ **可一并下线**（否则须为其迁走 2 个类型 = 为死码做搬运） |
+
+**⇒ 删除集**：`memory/EnhancedMemoryManager.ts`、`memory/services/MemoryWeightExporter.ts`、`memory/index.ts` 的 `:64-70` 与 `:79` 两处导出。
+
+**附带发现（同名不同域，登记备查）**：
+- `MemoryAnalysis` **两份**：`EnhancedMemoryManager.ts:28`（将删）与 `sandbox/IntelligentSandboxAnalyzer.ts:300`（**无关的另一域**，保留）；
+- `MemoryQuery` **两份**：`memory/MemoryProvider.ts:16` 与 `memory/providers/ExternalMemoryProvider.ts:23`（均被 provider 在用，**均保留**）；
+⇒ 与碎片③（记忆/内存同名）同族，**本次不动**（属 T1-6 的消歧范畴，另行裁定）。

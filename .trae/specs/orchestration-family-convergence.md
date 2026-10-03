@@ -186,7 +186,7 @@
 6. **防回退**：全仓不再新增零可达的编排类；`Grep` 佐证。
    **✅ 达成（口径说明）**：T1-1 已清除全部 8 个零可达类；本轮新增的 `query/patternAssembly.ts` **非编排类**（解析层，契约用例消费）。20 个存活类**逐类有构造点**（T1-0 子代理逐类取证：3 硬死码 + 5 工厂/单例零调用者已删；其余 20 类均有 ≥1 生产构造点）。
 
-> **遗留（未处置 · 如实登记）**：① 文档引用 6 处（`app/docs/API.md` 3 · `app/docs/核心模块/auto-reply.md` 3）仍指向已删类；② 「通用可实例化装配（B）」须先重审 A7 seam 决策，另立专项（§10.6）。
+> **遗留（未处置 · 如实登记）**：① ~~文档引用 6 处仍指向已删类~~ ⇒ **✅ 已清（见 §9 末条）**；② 「通用可实例化装配（B）」须先重审 A7 seam 决策，另立专项（§10.6）。
 
 ---
 
@@ -214,6 +214,7 @@
 | 2026-10-03 | **T1-3 子设计 + 深度改判**（提交 `83eb412fc` / 本次提交） | 子设计初出 A/B/C 三档；用户初选 **B**，进一步取证后**改回 A**（依据见 §10.6：B 会推翻 A7 的 seam 内聚设计，且 ChatManager 消费点拿不到装配依赖 ⇒ 空转）。**CS01 重大更正**：8 位 provider 均已存在实现（此前判"3 位缺失"不成立） |
 | 2026-10-03 | **T1-3 已完成：方案 A 解析层**（本次提交） | ① `core/patterns/types.ts`：`PatternProvider` 由 `type` 联合改为 **`PATTERN_PROVIDERS` as const + 派生类型**（运行期可枚举，取值逐字不变）；② `core/index.ts` barrel 补出 `PATTERN_PROVIDERS`/`PATTERN_DESCRIPTORS`/`listPatterns`/`validatePatterns` + 4 个装配类型；③ 新增 app 层 `query/patternAssembly.ts`（`PATTERN_PROVIDER_BINDINGS` 闭集全覆盖 + `resolvePatternProvider`/`resolveAssemblyProviders`/`findUnboundProviders`），经 `query/index.ts` 转出；④ 契约用例 `tests/query/patternAssembly.test.ts`（4 用例 / 87 断言：闭集↔绑定双向一致 + 注册表引用全覆盖）。**不做实例化**（B 另立）。**验证**：目标文件 4 pass / 0 fail / 87 expect · `typecheck 0` · `lint:arch` 0 错（警告回基线 2；已扫描 3878 → **3879**、分层 3847 → **3848** = **+1** ✓）· 全量 **3821 pass**（3817 → **+4** ✓）/ **11540 expect**（+87 ✓）· 0 fail |
 | 2026-10-03 | **T1-6 已完成：测试与验收（T-①04 收尾）**（本次提交） | §7 六项**逐项核对达成**：① 已删类名代码残留 **0**（分层 3856→3847 = **−9** ✓，T1-3 后 +1 = 3848）· ② 20 类**无重名** · ③ `findUnboundProviders() = []`（闭集无悬空）· ④ `typecheck 0` + `lint:arch 0 错` · ⑤ **3821 pass / 0 fail**（+4 用例 = +87 断言，逐数吻合）· ⑥ 防回退（8 个零可达已清；新增 `patternAssembly.ts` 非编排类）。**遗留**：① 文档引用 6 处待同步；② 「可实例化装配（B）」另立专项 |
+| 2026-10-03 | **文档遗留清零（补 T1-6 遗留①）**（本次提交） | `app/docs/API.md`：删除「远程任务调度系统」整节（原为已删 `RemoteTaskScheduler` 的 import + 6 段运行示例，约 50 行）。`app/docs/核心模块/auto-reply.md`：原文档全部围绕已删 `ReplyOrchestrator`（`new`/`reply`/`replyChunked`/`replyBatch` 等示例），**重写为真实组件说明**（`ReplyDispatcher`/`HeartbeatManager`/`envelope`/`chunk`，逐个取自 `core/auto-reply/index.ts` 实际出口；**不新造 API 示例**，CS06）+ 顶部标注下线变更。**验证**：已删类名残留 grep **0**（仅剩 1 处为本次新增的"变更说明"，非失效引用） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 

@@ -1117,58 +1117,6 @@ const diff = await documentService.compareVersions('doc-id', version1.id, versio
 console.log('Version diff:', diff);
 ```
 
-## 远程任务调度系统
-
-### 导入
-
-```typescript
-import { createRemoteTaskScheduler } from './src/remote/RemoteTaskScheduler.js';
-```
-
-### 创建任务调度器
-
-```typescript
-const scheduler = createRemoteTaskScheduler({
-  maxRetries: 3,
-  retryDelay: 5000,
-  timeout: 30000,
-  concurrency: 5
-});
-```
-
-### 任务调度操作
-
-```typescript
-// 提交远程任务
-const taskId = await scheduler.submitTask({
-  type: 'file_sync',
-  payload: { source: '/path/to/source', target: '/path/to/target' },
-  priority: 'normal',
-  callback: (result) => console.log('Task completed:', result)
-});
-console.log('Task submitted:', taskId);
-
-// 获取任务状态
-const status = scheduler.getTaskStatus(taskId);
-console.log('Task status:', status);
-
-// 取消任务
-const cancelled = await scheduler.cancelTask(taskId);
-console.log('Task cancelled:', cancelled);
-
-// 获取任务结果
-const result = await scheduler.getTaskResult(taskId);
-console.log('Task result:', result);
-
-// 列出所有任务
-const tasks = scheduler.listTasks();
-console.log('All tasks:', tasks);
-
-// 获取任务统计
-const stats = scheduler.getStats();
-console.log('Scheduler stats:', stats);
-```
-
 ## 分析系统
 
 ### 导入

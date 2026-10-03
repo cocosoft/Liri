@@ -793,7 +793,7 @@ console.log('Logs exported to:', exportPath);
 ### 导入
 
 ```typescript
-import { getPerformanceOptimizer, getPerformanceProfiler, getMemoryManager, getMemoryCache } from './src/core/utils/Performance';
+import { getPerformanceOptimizer, getPerformanceProfiler, getPerformanceMemoryManager, getMemoryCache } from './src/core/utils/Performance';
 import type { PerformanceEvent, MemoryCacheConfig, PerformanceStats } from './src/core/utils/Performance';
 ```
 
@@ -854,27 +854,27 @@ await profiler.exportReport('./performance-report.json');
 
 ```typescript
 // 获取内存管理器
-const memoryManager = getMemoryManager();
+const performanceMemoryManager = getPerformanceMemoryManager();
 
 // 获取当前内存使用情况
-const usage = memoryManager.getCurrentUsage();
+const usage = performanceMemoryManager.getCurrentUsage();
 console.log('Memory usage:', usage);
 
 // 格式化内存使用情况
-const formatted = memoryManager.formatUsage(usage);
+const formatted = performanceMemoryManager.formatUsage(usage);
 console.log('Formatted usage:', formatted);
 
 // 开始内存监控
-memoryManager.startMonitoring(1000); // 每1秒监控一次
+performanceMemoryManager.startMonitoring(1000); // 每1秒监控一次
 
 // 停止内存监控
-memoryManager.stopMonitoring();
+performanceMemoryManager.stopMonitoring();
 
 // 优化内存使用
-await memoryManager.optimize();
+await performanceMemoryManager.optimize();
 
 // 获取内存趋势
-const trends = memoryManager.getTrends();
+const trends = performanceMemoryManager.getTrends();
 console.log('Memory trends:', trends);
 ```
 

@@ -40,8 +40,11 @@ export interface MemoryMonitorConfig {
 
 /**
  * 内存管理器
+ *
+ * T-①07 T1-6（D3 记忆/内存消歧）：原名 `MemoryManager`，与记忆域同名易混；
+ * RAM 侧统一改为 `Heap*` 前缀（本类侧重阈值/泄漏监控）。
  */
-export class MemoryManager {
+export class HeapMemoryMonitor {
   private config: MemoryMonitorConfig;
   private snapshots: MemorySnapshot[] = [];
   private monitorInterval: NodeJS.Timeout | null = null;
@@ -289,7 +292,7 @@ export class MemoryManager {
 /**
  * 全局内存管理器实例
  */
-export const memoryManager = new MemoryManager();
+export const memoryManager = new HeapMemoryMonitor();
 
 /**
  * 内存使用装饰器

@@ -13,7 +13,7 @@
 | `StartupProfiler`     | 启动性能分析器 | 跟踪应用启动过程中的各个阶段，生成启动性能报告   |
 | `SlowOperations`      | 慢操作检测器   | 检测和记录执行时间超过阈值的操作，支持按类型分类 |
 | `PerformanceAnalyzer` | 性能分析器     | 实时监控系统性能指标，如CPU、内存、负载等        |
-| `MemoryManager`       | 内存管理器     | 监控内存使用情况，提供内存优化建议               |
+| `HeapMemoryManager`       | 内存管理器     | 监控内存使用情况，提供内存优化建议               |
 | `CacheAndLazyLoading` | 缓存和延迟加载 | 提供LRU缓存和模块延迟加载功能                    |
 | `CodeOptimizer`       | 代码优化工具   | 提供节流、防抖、记忆化等代码优化工具             |
 | `PerformanceConfig`   | 性能配置管理   | 管理性能优化系统的配置参数                       |
@@ -324,7 +324,7 @@ console.log(summaryReport);
 
 2. **慢操作检测**：对数据库查询、API调用、文件操作等可能耗时的操作使用 `slowLogging` 或 `withSlowOperationDetection` 进行监控。
 
-3. **内存管理**：定期使用 `MemoryManager` 监控内存使用情况，及时发现和解决内存泄漏问题。
+3. **内存管理**：定期使用 `HeapMemoryManager` 监控内存使用情况，及时发现和解决内存泄漏问题。
 
 4. **缓存策略**：合理使用 `CacheAndLazyLoading` 提供的缓存功能，减少重复计算和提高响应速度。
 

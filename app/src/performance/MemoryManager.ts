@@ -51,8 +51,11 @@ export interface MemoryTrend {
 
 /**
  * 内存管理器
+ *
+ * T-①07 T1-6（D3 记忆/内存消歧）：原名 `MemoryManager`，与记忆域的
+ * `MemoryManagerImpl`/`interface MemoryManager` 同名易混；RAM 侧统一改为 `Heap*` 前缀。
  */
-export class MemoryManager {
+export class HeapMemoryManager {
   private snapshots: MemorySnapshot[] = [];
   private maxSnapshots: number = 100;
   private checkInterval: NodeJS.Timeout | null = null;
@@ -470,7 +473,7 @@ export class MemoryManager {
 /**
  * 全局内存管理器实例
  */
-export const memoryManager = new MemoryManager();
+export const memoryManager = new HeapMemoryManager();
 
 /**
  * 开始内存监控

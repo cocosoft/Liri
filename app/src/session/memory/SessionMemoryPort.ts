@@ -19,9 +19,8 @@
  *   `ensureIndexed` / `cosineSimilarity` / `isMemoryItemType` / `parseMemoryMarkdown` /
  *   `buildMemoryMarkdown` / `buildMemoryContextText`）。
  *
- * ⚠️ **类型方向（已知 · 可接受）**：本文件用 `import type` 从实现模块取 `SessionMemory` /
- * `MemoryItem` / `ExtractionInput`（三者声明在实现文件内）。`import type` 编译后擦除、不构成运行时环；
- * 若后续要把三者下沉到 `session/memory/types.ts`（使端口不再依赖实现模块），可单列一步。
+ * ⚠️ **类型方向（已消除）**：T-①07 T1-7 后续已把 `SessionMemory` / `MemoryItem` /
+ * `ExtractionInput` 下沉至 `./types` ⇒ 本端口与实现**共同依赖** `./types`，**不再回指实现模块**。
  *
  * 硬约束（spec §4）：本端口**不得**把任何调用改成异步化 —— `getSessionMemoryManager()` 是
  * **同步懒初始化**（`session/bootstrap/SessionSystemBootstrap.ts:16,50`），故 `accumulateTurn` /
@@ -31,7 +30,7 @@ import type {
   ExtractionInput,
   MemoryItem,
   SessionMemory,
-} from './SessionMemoryManager';
+} from './types';
 
 export interface SessionMemoryPort {
   /** 读取会话记忆 */

@@ -37,6 +37,13 @@ import { getLogger } from '@modules/monitoring';
 // 端口只覆盖本类**真实具备**的会话记忆对外能力；`shouldExtract`/`extractPerTurn`/`getMemoryPath`
 // 及全部私有方法不属端口（判据见端口文件注释）。见 .trae/specs/memory-port-unification.md。
 import type { SessionMemoryPort } from './SessionMemoryPort';
+// T-①07 T1-7 后续 · 类型下沉：三方共享类型（`MemoryItem`/`SessionMemory`/`ExtractionInput`）
+// 移至 `./types` ⇒ 端口与实现共同依赖之，端口不再回指本实现模块。
+import type {
+  ExtractionInput,
+  MemoryItem,
+  SessionMemory,
+} from './types';
 
 const logger = getLogger('session:memory');
 
@@ -72,43 +79,7 @@ export interface MemoryThresholdConfig {
   toolCallThreshold: number;
 }
 
-/** 记忆项（结构化） */
-export interface MemoryItem {
-  type:
-    | 'discussion'
-    | 'decision'
-    | 'file_change'
-    | 'code_reference'
-    | 'todo'
-    | 'session_summary';
-  content: string;
-}
-
-/** 记忆文件内容结构 */
-export interface SessionMemory {
-  /** 会话 ID */
-  sessionId: string;
-  /** 最后更新时间 */
-  updatedAt: string;
-  /** 累计处理的 token 数 */
-  processedTokens: number;
-  /** 累计工具调用次数 */
-  processedToolCalls: number;
-  /** 记忆项列表 */
-  items: MemoryItem[];
-}
-
-/** 提炼输入 */
-export interface ExtractionInput {
-  /** 用户消息内容 */
-  userMessage: string;
-  /** 助手回复内容 */
-  assistantResponse: string;
-  /** 本轮消耗的 token 数 */
-  tokens: number;
-  /** 本轮工具调用次数 */
-  toolCalls: number;
-}
+// `MemoryItem` / `SessionMemory` / `ExtractionInput` 已下沉至 `./types`（T-①07 T1-7 后续）。
 
 // ============================================================================
 // 默认配置

@@ -220,6 +220,11 @@ export * from './platform/index.js';
 export { ExecutionPhaseTracker } from './ExecutionPhaseTracker.js';
 export { SessionMemoryManager } from './memory/SessionMemoryManager.js';
 export type { SessionMemoryPort } from './memory/SessionMemoryPort.js';
+export type {
+  ExtractionInput,
+  MemoryItem,
+  SessionMemory,
+} from './memory/types.js';
 export { SessionMemoryExtractor } from './memory/SessionMemoryExtractor.js';
 export type { MemoryExtractionLLM } from './memory/SessionMemoryExtractor.js';
 export { MEMORY_TEMPLATE } from './memory/memoryTemplate.js';

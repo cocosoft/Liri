@@ -199,7 +199,9 @@ export function readEvolutionState(
   try {
     const path = getEvolutionStatePath(env);
     if (!existsSync(path)) return { lastAppliedAt: 0, lastSampleSignature: '' };
-    const parsed = JSON.parse(readFileSync(path, 'utf-8')) as Partial<EvolutionState>;
+    const parsed = JSON.parse(
+      readFileSync(path, 'utf-8')
+    ) as Partial<EvolutionState>;
     return {
       lastAppliedAt:
         typeof parsed.lastAppliedAt === 'number' &&

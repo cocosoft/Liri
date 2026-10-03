@@ -32,7 +32,9 @@ export type EvolutionAuditAppender = (
 let auditSink: EvolutionAuditAppender | null = null;
 
 /** 注入事件追加器（`ChatManager` 构造期调用一次；传 `null` 可解除，测试用） */
-export function setEvolutionAuditSink(sink: EvolutionAuditAppender | null): void {
+export function setEvolutionAuditSink(
+  sink: EvolutionAuditAppender | null
+): void {
   auditSink = sink;
 }
 

@@ -221,13 +221,15 @@ export function parseEvolutionOutput(text: string): EvolutionOutput | null {
       skill?: unknown;
       skillPatch?: unknown;
     };
-    const overlay = typeof parsed.overlay === 'string' ? parsed.overlay.trim() : '';
+    const overlay =
+      typeof parsed.overlay === 'string' ? parsed.overlay.trim() : '';
     const skill =
       typeof parsed.skill === 'string' && parsed.skill.trim().length > 0
         ? parsed.skill.trim()
         : undefined;
     const skillPatch =
-      typeof parsed.skillPatch === 'string' && parsed.skillPatch.trim().length > 0
+      typeof parsed.skillPatch === 'string' &&
+      parsed.skillPatch.trim().length > 0
         ? parsed.skillPatch.trim()
         : undefined;
     return { overlay, skill, skillPatch };
@@ -286,10 +288,21 @@ export async function runAdaptationEvolution(
     }
 
     // 技能侧车：**仅在候选清单内**才写（禁止臆造技能名；CS02：用标识符比对，非自由文本推断）
-    if (output.skill && output.skillPatch && skillCandidates.includes(output.skill)) {
-      const skillBytes = deps.writeSkillSidecar(output.skill, output.skillPatch);
+    if (
+      output.skill &&
+      output.skillPatch &&
+      skillCandidates.includes(output.skill)
+    ) {
+      const skillBytes = deps.writeSkillSidecar(
+        output.skill,
+        output.skillPatch
+      );
       if (skillBytes !== null) {
-        applied.push({ scope: 'skill', target: output.skill, bytes: skillBytes });
+        applied.push({
+          scope: 'skill',
+          target: output.skill,
+          bytes: skillBytes,
+        });
         logger.info('演化：技能侧车已更新', {
           skill: output.skill,
           sampleCount: samples.length,
@@ -306,11 +319,17 @@ export async function runAdaptationEvolution(
 
     if (applied.length === 0) {
       logger.warn('演化：无产物落盘成功', { sampleCount: samples.length });
-      return { applied: [], skipped: 'write-failed', sampleCount: samples.length };
+      return {
+        applied: [],
+        skipped: 'write-failed',
+        sampleCount: samples.length,
+      };
     }
 
     // 仅在**确有落盘**后推进状态 ⇒ 落盘失败不致"经验被吞"（下次仍可演化）
-    if (!deps.writeState({ lastAppliedAt: now, lastSampleSignature: signature })) {
+    if (
+      !deps.writeState({ lastAppliedAt: now, lastSampleSignature: signature })
+    ) {
       logger.warn('演化：状态落盘失败（下次可能重复演化）', {});
     }
     return { applied, sampleCount: samples.length };

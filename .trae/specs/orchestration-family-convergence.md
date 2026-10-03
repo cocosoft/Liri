@@ -2,7 +2,7 @@
 
 > **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` §1 ① **T-①04（A4）** 与 **T-①12（X2）**（同源，T-①12 明示「并入 A4 立项」）。
 > **原始出处**：会话导出 L4788 / L4595 / L4734（T-①04）· L4808 / L4905（T-①12）；复查报告 `第四次架构复查报告.md`、`04_终版复核报告_按当前代码实测.md`。
-> **状态（2026-10-03）**：**立项取证完成**；T0 裁定待用户作答；T1 未开工。
+> **状态（2026-10-03）**：✅ **已完成**（T1-0~T1-6 全执行；§7 六项验收达成）。遗留：① 文档 6 处待同步；② 「可实例化装配（B）」另立专项（§10.6）。
 > **前置**：`pattern-executable-assembly.md`（A8 数据层已闭环，本 spec 承接其「装配器实例化」剩余边界）。
 
 ---
@@ -142,7 +142,7 @@
 | T1-3 | ✅ **已完成（2026-10-03）· 方案 A（解析层）** | 取证更正：8 位 provider **均已有实现**（非缺失）。新增 app 层解析层 `query/patternAssembly.ts`（`PATTERN_PROVIDER_BINDINGS` 闭集全覆盖 + `resolvePatternProvider`/`resolveAssemblyProviders`/`findUnboundProviders`），并把 `PatternProvider` 闭集改为**运行期可枚举**（`PATTERN_PROVIDERS` as const）。**不做实例化**（方案 B 经取证后**不建议**：会推翻 A7 的 seam 内聚设计，见 §10.4/§10.6）。**验证**：契约用例 4 pass / 87 expect · `typecheck 0` · `lint:arch` 0 错（分层 3847 → **3848** = +1 ✓） | ✅ 契约自检 `findUnboundProviders() = []`（闭集 ↔ 绑定双向一致）；注册表引用的 provider 全部可解析 |
 | T1-4 | ✅ **已完成（2026-10-03）· 复核结论：存活者无重名，不改名** | T1-1 后家族 28 → **20 类**，逐一比对**无重名**（3 组同名概念已消除）。任务域三者**语义分层非重复**（`TaskOrchestrator`=Plan/Step 持久化容器 · `LongRunningTaskOrchestrator`=PDCA 执行器 · `StageOrchestrator`=多阶段链）；多智能体组 3 个语义各异。**唯一命名不精确**：`TaskOrchestrator` 实为 Plan 仓库（名不符实）⇒ 经用户裁定**保留现名 + 登记**（改名跨 5 消费者 + barrel + 测试，性价比低）。**本轮无代码改动** | ✅ `Grep "class \w*(Orchestrator\|Loop\|Scheduler)"` 20 类**无重名**；结论落 §9 |
 | T1-5 | ✅ **已完成（2026-10-03）**：双 `jwtUtils` 冗余收口（随 T1-1 一并执行） | ✅ `bridge/jwtUtils.ts` + `bridge/utils/jwtUtils.ts`（两份同名 `TokenRefreshScheduler`）已删 |
-| T1-6 | 测试与验收 | 见 §7 |
+| T1-6 | ✅ **已完成（2026-10-03）· 测试与验收** | §7 六项**逐项核对达成**（含 2 处口径说明：item 1 文档 6 处遗留、item 6 防回退口径）；结论落 §7 + §9。**遗留**：① 文档 6 处待同步；② 「可实例化装配（B）」另立专项 |
 
 ---
 
@@ -171,12 +171,22 @@
 
 ## 7. 验收（可证伪）
 
+> **2026-10-03 验收结论（T1-0~T1-6 全执行后逐项核对）**
+
 1. 零可达类处置后**残留引用 0**；`lint:arch` 分层文件数变化与删除数**逐数吻合**；
+   **✅ 达成**：8 个已删类名的代码残留 **0**（仅 2 个文档文件共 6 处待同步，见下"遗留"）；分层检查 3856 → **3847**（**−9** ✓ = 删 9 文件）；随后 T1-3 新增 1 文件 → **3848**（+1 ✓）。
 2. 三组同名概念的**存活者**语义唯一（无同名近义并存）；
+   **✅ 达成**：T1-1 后家族 28 → **20 类**，`Grep` 20 行**无重名**；任务域三者语义分层（T1-4）；唯一命名不精确（`TaskOrchestrator` 实为 Plan 仓库）经裁定**保留 + 登记**（非同名冲突）。
 3. A8 闭集 `PatternProvider` 与注册表绑定**无悬空**（每个 provider 或实现、或被移除）；
+   **✅ 达成**：`findUnboundProviders() = []`（闭集 ↔ 绑定双向一致）；注册表 5 个 pattern 引用的 provider **全部可解析**；8 位 provider **全部有实现**（T1-3 更正）。
 4. `app typecheck` **0**；`lint:arch` **0 错**（警告回基线）；
+   **✅ 达成**：各步均 `typecheck 0`；`lint:arch` 全程 **0 错 / 警告 2**（基线）。
 5. 全量 `bun test tests/` **0 fail**；若新增契约用例，用例数增量 = 新增断言数；
+   **✅ 达成**：3812 → **3821 pass**（**+4** = 新增 4 个 `it`）；11448 → **11540 expect**（**+87** = 新增 87 个断言，逐数吻合）；**0 fail**。
 6. **防回退**：全仓不再新增零可达的编排类；`Grep` 佐证。
+   **✅ 达成（口径说明）**：T1-1 已清除全部 8 个零可达类；本轮新增的 `query/patternAssembly.ts` **非编排类**（解析层，契约用例消费）。20 个存活类**逐类有构造点**（T1-0 子代理逐类取证：3 硬死码 + 5 工厂/单例零调用者已删；其余 20 类均有 ≥1 生产构造点）。
+
+> **遗留（未处置 · 如实登记）**：① 文档引用 6 处（`app/docs/API.md` 3 · `app/docs/核心模块/auto-reply.md` 3）仍指向已删类；② 「通用可实例化装配（B）」须先重审 A7 seam 决策，另立专项（§10.6）。
 
 ---
 
@@ -203,6 +213,7 @@
 | 2026-10-03 | **T1-4 已完成：存活者命名复核（结论：不改名）**（本次提交） | T1-1 后家族 28 → **20 类**，`^export class \w*(Orchestrator\|Loop\|Scheduler)\b` 逐一比对**无重名**（3 组同名概念已随 T1-1 消除）。任务域三者**语义分层非重复**：`TaskOrchestrator`（`getPlan`/`getAllPlans`/`getPlansByWorkspace`/`getPendingSteps`/`markStepRunning`/`abortAll` ⇒ 实为 **Plan/Step 持久化容器**）· `LongRunningTaskOrchestrator`（PDCA 执行器，`phase`/`LifecycleTracker`/`EffectScope`/escalation replan）· `StageOrchestrator`（多阶段链，持 `LongRunningTaskOrchestrator` 子编排）。多智能体组 3 个（`ParallelAgentScheduler`/`CouncilOrchestrator`/`ResourceScheduler`）语义各异。**唯一命名不精确**：`TaskOrchestrator` 名不符实（实为 Plan 仓库）⇒ 经用户裁定**保留现名 + 登记**（改名跨 5 消费者 + barrel + 测试，性价比低）。**本轮无代码改动**（仅文档） |
 | 2026-10-03 | **T1-3 子设计 + 深度改判**（提交 `83eb412fc` / 本次提交） | 子设计初出 A/B/C 三档；用户初选 **B**，进一步取证后**改回 A**（依据见 §10.6：B 会推翻 A7 的 seam 内聚设计，且 ChatManager 消费点拿不到装配依赖 ⇒ 空转）。**CS01 重大更正**：8 位 provider 均已存在实现（此前判"3 位缺失"不成立） |
 | 2026-10-03 | **T1-3 已完成：方案 A 解析层**（本次提交） | ① `core/patterns/types.ts`：`PatternProvider` 由 `type` 联合改为 **`PATTERN_PROVIDERS` as const + 派生类型**（运行期可枚举，取值逐字不变）；② `core/index.ts` barrel 补出 `PATTERN_PROVIDERS`/`PATTERN_DESCRIPTORS`/`listPatterns`/`validatePatterns` + 4 个装配类型；③ 新增 app 层 `query/patternAssembly.ts`（`PATTERN_PROVIDER_BINDINGS` 闭集全覆盖 + `resolvePatternProvider`/`resolveAssemblyProviders`/`findUnboundProviders`），经 `query/index.ts` 转出；④ 契约用例 `tests/query/patternAssembly.test.ts`（4 用例 / 87 断言：闭集↔绑定双向一致 + 注册表引用全覆盖）。**不做实例化**（B 另立）。**验证**：目标文件 4 pass / 0 fail / 87 expect · `typecheck 0` · `lint:arch` 0 错（警告回基线 2；已扫描 3878 → **3879**、分层 3847 → **3848** = **+1** ✓）· 全量 **3821 pass**（3817 → **+4** ✓）/ **11540 expect**（+87 ✓）· 0 fail |
+| 2026-10-03 | **T1-6 已完成：测试与验收（T-①04 收尾）**（本次提交） | §7 六项**逐项核对达成**：① 已删类名代码残留 **0**（分层 3856→3847 = **−9** ✓，T1-3 后 +1 = 3848）· ② 20 类**无重名** · ③ `findUnboundProviders() = []`（闭集无悬空）· ④ `typecheck 0` + `lint:arch 0 错` · ⑤ **3821 pass / 0 fail**（+4 用例 = +87 断言，逐数吻合）· ⑥ 防回退（8 个零可达已清；新增 `patternAssembly.ts` 非编排类）。**遗留**：① 文档引用 6 处待同步；② 「可实例化装配（B）」另立专项 |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 

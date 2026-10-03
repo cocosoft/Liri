@@ -31,6 +31,7 @@ import {
   mkdirSync,
   realpathSync,
   readFileSync,
+  statSync,
 } from 'fs';
 import { resolve, normalize, dirname, basename, extname, join } from 'path';
 
@@ -204,52 +205,58 @@ export class WriteProjectFileTool {
 
           // realpath 校验（sandbox 必须存在才能调用 realpath）
           const realSandbox = realpathSync(sandboxPath);
+          // 路径包含判定（保留既有 `\\` / `/` 双写口径）；**sandbox 根自身视为在内**
+          const isInsideSandbox = (p: string): boolean =>
+            p === realSandbox ||
+            p.startsWith(realSandbox + '\\') ||
+            p.startsWith(realSandbox + '/');
+          // 越界拒绝：**落 `error`**（原仅写 newMessages ⇒ 载荷 null 且无 error = 失败不可判定）
+          const rejectOutOfSandbox = (): ToolResult<null> => {
+            span.setStatus({ code: SpanStatusCode.OK });
+            logger.warn('安全拒绝：写入路径超出项目文件夹范围', {
+              projectId,
+              path: targetRelative,
+            });
+            return failResult(
+              '安全拒绝：文件路径超出项目文件夹范围',
+              ErrorLevel.RECOVERABLE
+            );
+          };
 
           // 如果目标文件已存在，检查是否在 sandbox 内
           if (existsSync(rawPath)) {
-            const realTarget = realpathSync(rawPath);
-            if (
-              !realTarget.startsWith(realSandbox + '\\') &&
-              !realTarget.startsWith(realSandbox + '/')
-            ) {
-              span.setStatus({ code: SpanStatusCode.OK });
-              return createToolResult(null, {
-                newMessages: [
-                  {
-                    role: 'assistant' as const,
-                    content: '安全拒绝：文件路径超出项目文件夹范围',
-                  },
-                ],
-              });
+            if (!isInsideSandbox(realpathSync(rawPath))) {
+              return rejectOutOfSandbox();
             }
           } else {
-            // 新文件：先创建父目录，再逐级 realpath 防 symlink 逃逸
+            // 新文件：**先做归一化路径围栏**（`resolve` 已消解 `..`）——必须在 mkdir 之前，
+            // 避免越界路径被 `mkdirSync(recursive)` 先在 sandbox 外创建目录
+            const sandboxAbs = resolve(sandboxPath);
+            if (
+              rawPath !== sandboxAbs &&
+              !rawPath.startsWith(sandboxAbs + '\\') &&
+              !rawPath.startsWith(sandboxAbs + '/')
+            ) {
+              return rejectOutOfSandbox();
+            }
             const parentDir = dirname(rawPath);
             if (!existsSync(parentDir)) {
               mkdirSync(parentDir, { recursive: true });
             }
-            // 逐级向上校验各级目录均在 sandbox 内
+            // T-⑥14 / T-④02 根因修复（2026-10-03）：逐级 realpath **只校验 sandbox 之下**的各级目录。
+            // 原实现把 sandbox 根自身也纳入判定，而 `realSandbox.startsWith(realSandbox + sep)`
+            // **恒为 false** ⇒ 循环走到根时必然拒绝 ⇒ **新文件写入一律被拒**（实测该会话 40+ 次
+            // `write_project_file` 全部落此分支，返回"无 error 的空载荷"= 与 T-④02 描述的
+            // "静默失败：不抛错、返回空对象、文件不落地"逐字吻合）。
             let checkDir = parentDir;
-            while (true) {
+            while (checkDir.length > realSandbox.length) {
               if (existsSync(checkDir)) {
-                const realCheck = realpathSync(checkDir);
-                if (
-                  !realCheck.startsWith(realSandbox + '\\') &&
-                  !realCheck.startsWith(realSandbox + '/')
-                ) {
-                  span.setStatus({ code: SpanStatusCode.OK });
-                  return createToolResult(null, {
-                    newMessages: [
-                      {
-                        role: 'assistant' as const,
-                        content: '安全拒绝：文件路径超出项目文件夹范围',
-                      },
-                    ],
-                  });
+                if (!isInsideSandbox(realpathSync(checkDir))) {
+                  return rejectOutOfSandbox();
                 }
               }
               const next = dirname(checkDir);
-              if (next === checkDir || next.length < realSandbox.length) break;
+              if (next === checkDir) break;
               checkDir = next;
             }
           }
@@ -293,7 +300,55 @@ export class WriteProjectFileTool {
 
           writeFileSync(rawPath, effectiveContent, 'utf-8');
 
-          logger.info('项目文件已写入', { projectId, path: targetRelative });
+          // T-⑥14 / T-④02（2026-10-03）：**写后回读校验（read-after-write）**。
+          //
+          // 背景（导出 `1790949654470` 实测）：会话中 `write_project_file` 返回结果不可判定
+          // （tool 消息 payload 缺失），模型与用户都无法确认是否落盘；叠加"宣称已写 → 自查
+          // 不存在"的矛盾（同会话 `output/01..17` 的 17 份建议文件**确实未落盘**）。
+          // 原实现写完 `writeFileSync` 即报成功，**不校验实际落地** ⇒ 静默失败可伪装成功。
+          // 现以「写前字节数 vs 写后 `statSync().size`」复核；不一致/不可读 ⇒ 显式 FATAL 失败
+          // （CS03：失败必须可诊断；CS05：修到根因，不给"看起来成功"的假象）。
+          const expectedBytes = Buffer.byteLength(effectiveContent, 'utf-8');
+          let readBackBytes: number;
+          try {
+            readBackBytes = statSync(rawPath).size;
+          } catch (e) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: 'read-after-write missing',
+            });
+            logger.error('项目文件写后回读失败（文件未落地）', {
+              projectId,
+              path: targetRelative,
+              error: e instanceof Error ? e.message : String(e),
+            });
+            return failResult(
+              `写入后回读失败：${targetRelative} 未在项目文件夹落地（${e instanceof Error ? e.message : String(e)}）`,
+              ErrorLevel.FATAL
+            );
+          }
+          if (readBackBytes !== expectedBytes) {
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: 'read-after-write size mismatch',
+            });
+            logger.error('项目文件写后回读字节数不一致', {
+              projectId,
+              path: targetRelative,
+              expectedBytes,
+              readBackBytes,
+            });
+            return failResult(
+              `写入后回读校验不通过：${targetRelative} 期望 ${expectedBytes} 字节，实际 ${readBackBytes} 字节（写盘未完整落地）`,
+              ErrorLevel.FATAL
+            );
+          }
+
+          logger.info('项目文件已写入（回读校验通过）', {
+            projectId,
+            path: targetRelative,
+            bytes: readBackBytes,
+          });
 
           // P0-1 方案一 1b：交付类文件自动登记为项目「成果」，让成果面板立即可见
           try {
@@ -325,10 +380,14 @@ export class WriteProjectFileTool {
           span.setStatus({ code: SpanStatusCode.OK });
           return createToolResult(
             // 方案六 P2-2：返回绝对沙箱路径 + 字节数，供 AI 落盘后校验（防误报交付）
+            // T-⑥14（2026-10-03）：增 `verified:true` / `readBackBytes` —— 由**写后回读校验**
+            // 产出（非"写完即报成功"），使"交付声明"自带可核验证据（防"宣称已写但不存在"）。
             JSON.stringify({
               path: targetRelative,
               sandboxPath,
-              size: Buffer.byteLength(effectiveContent, 'utf-8'),
+              size: readBackBytes,
+              verified: true,
+              readBackBytes,
             }),
             {
               newMessages: [

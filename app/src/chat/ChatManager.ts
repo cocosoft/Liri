@@ -51,7 +51,11 @@ import {
   isEmptyAssistantWithoutToolCalls,
   toToolResultRawText,
 } from './services/ChatHelper';
-import { ChatEventLogStore } from './manager/eventLogStore';
+import {
+  ChatEventLogStore,
+  type SessionLookupArgs,
+  type SessionLookupResult,
+} from './manager/eventLogStore';
 import {
   RequestSnapshotService,
   type ModelInputSnapshot,
@@ -60,8 +64,6 @@ import {
   EventLogStorage,
   MessageToEventMigrator,
   ReconcileService,
-  parseSessionSummaries,
-  findSummaryByKeyword,
   // P2-7（2026-09-25）：恢复编排（端口注入；`chat → session` 依赖方向合法，无环）
   RecoveryOrchestrator,
   getLineageSize,
@@ -2002,239 +2004,65 @@ export class ChatManagerImpl implements ChatManager {
     );
   }
 
-  /** 首次使用前的 eventLog 就绪（懒建 + 旧数据迁移；实现在 `ChatEventLogStore`） */
-  private async _ensureEventLogReady(
-    sessionId: string
-  ): Promise<EventLogStorage> {
-    return this._eventLogStore.ensureEventLogReady(sessionId);
-  }
-
   /**
-   * C 阶段（2026-09-02，P1，C 详设 §4）：session_lookup 取回实现。
-   * 按事件 seq 区间读取（复用 EventLogStorage.read + idx 二分），格式化为可读原文
-   * （assistant/text-batch 经 F-2 语义展开为正文），每页 ≤ 8K 字符（≈2K tokens），
-   * 截断点对齐用户轮次边界；nextFromSeq 支持续页。仅限当前会话（跨会话拒绝）。
+   * C 阶段（2026-09-02，P1，C 详设 §4）：`session_lookup` 取回实现
+   * （实现在 `ChatEventLogStore.sessionLookup`）。
    */
-  private async _sessionLookup(args: {
-    sessionId: string;
-    fromSeq?: number;
-    toSeq?: number;
-    offset?: number;
-    limit?: number;
-  }): Promise<{
-    ok: boolean;
-    content?: string;
-    nextFromSeq?: number;
-    reason?: string;
-  }> {
-    try {
-      const { sessionId, fromSeq, toSeq, offset } = args;
-      if (!sessionId || sessionId !== this._currentSessionId) {
-        return {
-          ok: false,
-          reason:
-            'sessionId 缺失或与当前会话不匹配（session_lookup 仅支持当前会话）',
-        };
-      }
-      const eventLog = await this._ensureEventLogReady(sessionId);
-      if (!eventLog.exists()) {
-        return { ok: true, content: '（会话暂无事件记录）' };
-      }
-      // 代码/文档会话翻倍（D5② 取回增强，2026-09-02）：代码原文按页取回更完整，
-      // 仍受 LLM 输出预算与 truncation 约束
-      const PAGE_CHARS = this._lastStreamBuildCodeContext ? 16000 : 8000; // ≈2K tokens（4 chars/token 保守口径）
-      const MAX_EVENTS = 3000;
-      const from = fromSeq && fromSeq > 0 ? fromSeq : 1;
-      const events = await eventLog.read({
-        fromSeq: from,
-        toSeq: toSeq ?? Number.MAX_SAFE_INTEGER,
-        limit: Math.min(args.limit ?? MAX_EVENTS, 10000),
-      });
-      const startIdx = offset && offset > 0 && !fromSeq ? offset : 0;
-      if (startIdx >= events.length) {
-        return { ok: true, content: '（无更多记录）' };
-      }
-      const lines: string[] = [];
-      let usedChars = 0;
-      let breakAt = events.length; // 首个未包含事件下标
-      for (let i = startIdx; i < events.length; i++) {
-        const e = events[i];
-        const line = this._formatEventLine(e);
-        if (!line) continue;
-        // 轮次边界（user/turn 起点）处允许收尾后截断；轮中断言则不截断在中间
-        const isRoundStart =
-          e.type === 'user/message' || e.type === 'turn/start';
-        if (usedChars + line.length > PAGE_CHARS) {
-          if (isRoundStart) {
-            breakAt = i;
-            break;
-          }
-          continue; // 大事件（巨型单行）直接跳过，避免撑爆单页
-        }
-        lines.push(line);
-        usedChars += line.length;
-      }
-      const content =
-        lines.length > 0 ? lines.join('\n') : '（区间内无可读内容）';
-      const nextFromSeq =
-        breakAt < events.length ? events[breakAt].seq : undefined;
-      return {
-        ok: true,
-        content,
-        ...(nextFromSeq ? { nextFromSeq } : {}),
-      };
-    } catch (err) {
-      return {
-        ok: false,
-        reason: err instanceof Error ? err.message : String(err),
-      };
-    }
-  }
-
-  /** C 阶段：单事件 → 可读行（无用户可读语义的事件返回 null 跳过） */
-  private _formatEventLine(e: LiriEvent): string | null {
-    const d = e.data as
-      | {
-          content?: unknown;
-          name?: string;
-          args?: unknown;
-          result?: unknown;
-          toolCallId?: string;
-          summary?: unknown;
-          keywords?: unknown;
-          text?: unknown;
-        }
-      | undefined;
-    const trunc = (s: string, n: number): string =>
-      s.length > n ? `${s.slice(0, n)}…[截断 ${s.length - n} 字符]` : s;
-    switch (e.type) {
-      case 'user/message':
-        return `用户: ${trunc(String(d?.content ?? ''), 2000)}`;
-      case 'assistant/text':
-      case 'assistant/text-batch':
-        return `助手: ${trunc(String(d?.content ?? ''), 4000)}`;
-      case 'assistant/thinking':
-        return `> 思考: ${trunc(String(d?.content ?? ''), 800)}`;
-      case 'assistant/tool_call':
-        return `工具调用: ${d?.name ?? 'unknown'}(${trunc(
-          JSON.stringify(d?.args ?? {}),
-          500
-        )})`;
-      case 'tool/result':
-        return `工具结果: ${trunc(String(d?.result ?? ''), 1500)}`;
-      case 'context/summary':
-        return `[历史摘要] ${trunc(
-          String(d?.summary ?? d?.content ?? ''),
-          1500
-        )}`;
-      case 'session/summary':
-        // D-1（2026-09-02）：会话远期摘要事件（取回原文的检索视图）
-        return `[会话摘要] ${trunc(String(d?.content ?? ''), 1500)}${
-          Array.isArray(d?.keywords) && (d.keywords as string[]).length > 0
-            ? `\n关键词: ${(d.keywords as string[]).join('、')}`
-            : ''
-        }`;
-      default:
-        return null; // 系统/状态/心跳类事件不进取回原文
-    }
+  private async _sessionLookup(
+    args: SessionLookupArgs
+  ): Promise<SessionLookupResult> {
+    return this._eventLogStore.sessionLookup(args);
   }
 
   /**
-   * D 阶段（2026-09-02，v4 §8）：读取会话远期摘要（检索视图，事件日志只读）。
-   * 返回 seq 升序的摘要记录；无事件日志/异常返回 []（CS03）。
+   * D 阶段（2026-09-02，v4 §8）：读取会话远期摘要
+   * （实现在 `ChatEventLogStore.getSessionSummaries`）。
    */
   async getSessionSummaries(
     sessionId: string,
     limit: number = 200
   ): Promise<SessionSummaryRecord[]> {
-    try {
-      const eventLog = this._getOrCreateEventLog(sessionId);
-      if (!eventLog.exists()) return [];
-      const events = await eventLog.read({
-        types: ['session/summary'],
-        limit: Math.min(limit, 1000),
-      });
-      return parseSessionSummaries(events);
-    } catch (err) {
-      await handleError(err, {
-        module: 'chat:manager',
-        action: 'getSessionSummaries',
-        context: { sessionId },
-      }).catch(() => {});
-      return [];
-    }
+    return this._eventLogStore.getSessionSummaries(sessionId, limit);
   }
 
   /**
-   * D 阶段：按关键词检索会话摘要（data.keywords 元数据命中优先，正文次之）。
-   * 供后续知识库/记忆联动与 UI 会话摘要视图使用。
+   * D 阶段：按关键词检索会话摘要
+   * （实现在 `ChatEventLogStore.searchSessionSummaries`）。
    */
   async searchSessionSummaries(
     sessionId: string,
     keyword: string,
     limit: number = 5
   ): Promise<SessionSummaryRecord[]> {
-    const summaries = await this.getSessionSummaries(sessionId, 500);
-    return findSummaryByKeyword(summaries, keyword, limit);
+    return this._eventLogStore.searchSessionSummaries(
+      sessionId,
+      keyword,
+      limit
+    );
   }
 
   /**
-   * M1 事件溯源：获取当前会话的 tailSeq（供 streamMessageFlow 分配新 seq）
+   * M1 事件溯源：获取当前会话的 tailSeq
+   * （实现在 `ChatEventLogStore.getStreamTailSeq`）。
    */
   async getStreamTailSeq(sessionId: string): Promise<number> {
-    const eventLog = this._getOrCreateEventLog(sessionId);
-    return eventLog.getTailSeq();
+    return this._eventLogStore.getStreamTailSeq(sessionId);
   }
 
   /**
-   * T2.2（2026-08-23）：从 events 重建 `_toolCallSeqMap`（toolCallId → 事件 seq）。
-   *
-   * 背景（A1④）：_toolCallSeqMap 原仅运行时维护（appendStreamEvent/落盘时增量 set），
-   * 后端重启后为空，同轮内 tool/result 回填 callSeq 走 -1 兜底。本方法按会话**懒重建**
-   * （首次需要回填且 Map 未命中时触发，每个会话只扫一次 events，结果缓存）。
+   * T2.2（2026-08-23）：从 events 重建 toolCallId → 事件 seq 映射
+   * （实现在 `ChatEventLogStore.rebuildToolCallSeqMap`）。
    */
   private async _rebuildToolCallSeqMap(sessionId: string): Promise<void> {
-    if (this._toolCallSeqMapRebuilt.has(sessionId)) return;
-    try {
-      const eventLog = this._getOrCreateEventLog(sessionId);
-      if (!eventLog.exists()) {
-        this._toolCallSeqMapRebuilt.add(sessionId);
-        return;
-      }
-      let fromSeq = 1;
-      for (;;) {
-        const batch = await eventLog.read({ fromSeq, limit: 10000 });
-        for (const e of batch) {
-          if (e.type === 'assistant/tool_call') {
-            const d = e.data as { toolCallId?: string };
-            if (d.toolCallId) this._toolCallSeqMap.set(d.toolCallId, e.seq);
-          }
-        }
-        if (batch.length < 10000) break;
-        fromSeq = batch[batch.length - 1].seq + 1;
-      }
-      logger.debug('chat:manager 重建 _toolCallSeqMap', {
-        sessionId,
-        entries: this._toolCallSeqMap.size,
-      });
-    } catch {
-      // @ignore-catch — 重建失败不影响主流程（回填走 -1 兜底）
-    }
-    this._toolCallSeqMapRebuilt.add(sessionId);
+    return this._eventLogStore.rebuildToolCallSeqMap(sessionId);
   }
 
   /**
    * M1 事件溯源：获取当前会话已有事件的最大 turn 编号（重启后恢复 turn 计数）
-   *
-   * 背景：turn 编号原由内存计数器 _toolRoundCount 生成，后端重启后归零，
-   * 导致同一会话的 events.jsonl 中出现重复 turn 号（如 turn=1 出现多次），
-   * 前端回放时误判为"重复回放"整块丢弃，造成重新进入会话信息不全/顺序错乱。
-   *
-   * 修复：写入 turn/start 前调用本方法取事件日志中的最大 turn，继续递增。
+   * （实现在 `ChatEventLogStore.getStreamMaxTurn`）。
    */
   async getStreamMaxTurn(sessionId: string): Promise<number> {
-    const eventLog = this._getOrCreateEventLog(sessionId);
-    return eventLog.getMaxTurn();
+    return this._eventLogStore.getStreamMaxTurn(sessionId);
   }
 
   /**

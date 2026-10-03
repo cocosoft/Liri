@@ -234,3 +234,31 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **遗留（批 3 候选，7 个）**：`_sessionLookup` · `_formatEventLine`（仅被 `_sessionLookup` 调用，随之迁入即可删）· `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `_rebuildToolCallSeqMap` · `getStreamMaxTurn`
 （所需注入依赖**批 2 已就位**：`getCurrentSessionId` / `isCodeContext` / `getToolCallSeqMapRebuilt`。）
+
+### 7.8 实施记录：批 3/3 —— 读回族 7 个成员（2026-10-03，**已落地**）
+
+**迁入成员（7）**：`sessionLookup` · `formatEventLine`（私，仅被前者调用）· `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `rebuildToolCallSeqMap` · `getStreamMaxTurn`
+**新增对外契约**：`SessionLookupArgs` / `SessionLookupResult`（由 store 导出，宿主转发共用 ⇒ 不重复定义）
+**ChatManager 侧**：6 个方法改**薄转发**；**删除** `_formatEventLine`（随之迁入）与 `_ensureEventLogReady`（迁后**已无调用者** ⇒ 死转发，删除）；移除随迁而不再使用的导入 `parseSessionSummaries` / `findSummaryByKeyword`；新增 `type SessionLookupArgs/Result` 导入。
+
+**门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0** · `bun test tests/` **3872 pass / 0 fail / 9 skip**（与改前逐字一致）。
+
+**⚠️ 过程记录：全量测试出现两次"疑似挂起"（>5min）** —— 经排查**与本批改动无关**：
+- 现象：`typecheck+lint:arch+test` 串在一条命令里跑时，测试段 >5min 未收口；单跑 `tests/chat`+`tests/session` 仅 19s（627 pass）；
+- 归因：**瞬时资源争抢**（同机存在 21:22/06:03 的 bun/node 长驻进程；且同一条命令内先跑完 typecheck+lint 再跑测试，负载叠加）；
+- 验证：改为**独立运行并落盘日志**后，全量 **79.11s 正常收口**（3872 pass / 0 fail）。
+- ⇒ 结论：非代码缺陷；后续验证请**单跑测试**，勿与 typecheck/lint 串联。
+
+---
+
+## 8. 批 1–3 汇总
+
+| 项 | 值 |
+|---|---|
+| 新模块 | `app/src/chat/manager/eventLogStore.ts`（`ChatEventLogStore`，**538 行**） |
+| 迁入成员 | **17**（批 1：9 · 批 2：3 · 批 3：7，其中 `_formatEventLine` 随之迁入） |
+| 删除死转发 | `_ensureEventLogReady`（迁后无调用者） |
+| `ChatManager.ts` | 6729 → **6377 行**（累计 −**352**） |
+| 门槛 | 三批均：`typecheck 0` · `lint:arch` 错误 0 · 全量 3872 pass / 0 fail |
+
+**仍未做**：C9–C11 之外的大簇（C12–C15/C17–C19 等，见 §7.2）——`ChatManager.ts` 距 <1000 行仍有较大差距 ⇒ 需后续批次（本 spec 范围仅到批 3）。

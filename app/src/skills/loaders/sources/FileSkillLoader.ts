@@ -17,7 +17,9 @@ import {
   createSkillCommand,
 } from '@modules/skills/utils/skillParser';
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
-import { join } from 'path';
+import { basename, dirname, join } from 'path';
+// T-②06（2026-10-03）：演化侧车 `.evolution.md`（自动产物，**不改写**用户 SKILL.md 本体）
+import { readSkillEvolutionFromDir } from '@modules/utils/promptEvolution';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('skills:fileLoader');
@@ -199,7 +201,11 @@ export class FileSkillLoader extends SkillLoader implements SkillProvider {
       const content = await fs.readFile(filePath, 'utf-8');
       const parsed = parseSkillFrontmatter(content);
       const frontmatter = parsed.frontmatter as SkillFrontmatter;
-      const markdownContent = parsed.content;
+      // T-②06：目录形态（SKILL.md）追加同目录 `.evolution.md` 侧车（自动演化产物）
+      const markdownContent = this.mergeEvolutionSidecar(
+        filePath,
+        parsed.content
+      );
 
       const validation = validateSkillFrontmatter(frontmatter, skillName);
       if (!validation.valid) {
@@ -225,6 +231,19 @@ export class FileSkillLoader extends SkillLoader implements SkillProvider {
       }).catch(() => {});
       return null;
     }
+  }
+
+  /**
+   * T-②06（2026-10-03）：目录形态（`SKILL.md`）追加**同目录** `.evolution.md` 侧车。
+   *
+   * 侧车是经验自动演化产物：**只追加、不改写**用户 `SKILL.md` 本体（可回滚，见
+   * `utils/promptEvolution`）。直接文件形态（`<dir>/<name>.md`）与无侧车 ⇒ 原文返回（零变化）。
+   */
+  private mergeEvolutionSidecar(filePath: string, content: string): string {
+    if (basename(filePath) !== this.config.skillFileName) return content;
+    const evolution = readSkillEvolutionFromDir(dirname(filePath));
+    if (!evolution) return content;
+    return `${content}\n\n---\n\n## 经验演化补充（自动生成 · 可回滚）\n\n${evolution}\n`;
   }
 
   /**

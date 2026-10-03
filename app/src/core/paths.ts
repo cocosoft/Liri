@@ -403,6 +403,18 @@ export function resolveTeamMemoryDir(
   return join(resolveDataDir(env), 'team-memory');
 }
 
+/**
+ * **提示演化覆盖层**目录（T-②06：经验自动演化产物）。
+ *
+ * 存放 `overlay.md`（当前生效正文）与 `versions/`（历史版本，供回滚）；
+ * 经 `promptEvolution` 系统提示词分段自动回灌（见 `utils/promptEvolution.ts`）。
+ */
+export function resolvePromptEvolutionDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveDataDir(env), 'prompt-evolution');
+}
+
 /** 人格/用户身份 */
 export function resolveSoulDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveDataDir(env), 'soul');

@@ -106,6 +106,8 @@ const SECTION_META = {
   localToolUse: { layer: 'L0' },
   // L3 检索型大块（仅 full 可见，维持现状；预算超限时先于 L2 被降级丢弃）
   memoryContext: { layer: 'L3' },
+  // T-②06（2026-10-03）：经验自动演化覆盖层（检索型大块，仅 full 可见，同 memoryContext）
+  promptEvolution: { layer: 'L3' },
   knowledgeContext: { layer: 'L3' },
   knowledgeDigest: { layer: 'L3' },
   fewShotExamples: { layer: 'L3' },

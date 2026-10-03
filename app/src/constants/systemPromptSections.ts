@@ -118,6 +118,8 @@ const SECTION_NAMES = [
   'userProfile',
   'personality',
   'memoryContext',
+  // T-②06（2026-10-03）：经验自动演化产物（受管覆盖层，空时不注入）
+  'promptEvolution',
   'gitContext',
   'projectMeta',
   'skills',

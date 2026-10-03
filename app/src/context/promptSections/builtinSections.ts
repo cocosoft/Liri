@@ -41,6 +41,8 @@ import { readProjectFiles } from '@modules/context';
 import { basename, join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 import { resolveDataDir } from '@modules/core/paths';
+// T-②06：经验自动演化覆盖层（受管文件；空 ⇒ 该段不注入）
+import { readPromptEvolutionOverlay } from '@modules/utils/promptEvolution';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -283,6 +285,21 @@ export const BUILTIN_SECTIONS = {
       return memoryBlock;
     },
     'Memory summaries change as new memories are created'
+  ),
+
+  // T-②06（2026-10-03）：经验**自动演化**覆盖层（受管文件 `<data>/prompt-evolution/overlay.md`）。
+  // 空 ⇒ 返回 null（不注入，零影响）；正文有界（≤4000 字符，见 utils/promptEvolution）。
+  // uncached：覆盖层由演化任务在**会话之外**重写，不能用会话内缓存（同 memoryContext 理由）。
+  promptEvolution: DANGEROUS_uncachedSystemPromptSection(
+    'promptEvolution',
+    () => {
+      const overlay = readPromptEvolutionOverlay();
+      if (!overlay) return null;
+      return `## 经验演化提示（自动生成 · 可回滚）
+
+${overlay}`;
+    },
+    'prompt-evolution overlay is rewritten by the adaptation job outside the conversation'
   ),
 
   gitContext: DANGEROUS_uncachedSystemPromptSection(

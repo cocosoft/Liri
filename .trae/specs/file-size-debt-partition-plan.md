@@ -143,3 +143,41 @@
 
 1. **依赖验证**：逐簇确认其私有字段/辅助方法引用（决定能否搬迁；**这是切分可行性的前置**）。
 2. **建议首个目标**：`eventLogStore.ts`（C9+C10+C11，内聚最好、跨簇引用最少）。
+
+### 7.4 依赖验证：C9+C10+C11 自洽性（2026-10-03）
+
+**方法**：读 `ChatManager.ts:1924-2456` **全文**（533 行），逐个登记 `this.*` 依赖并判其归属。
+
+**块内自洽项 ✓**
+- 块内**声明**的字段：`_endedTurnsBySession`（:2010）
+- 块内**定义并互调**的方法：`_getOrCreateEventLog` · `_evictOverflowEventLogs` · `_releaseEventLogMemory` · `_releaseInactiveEventLogSnapshots` · `hasTurnEnded` · `appendStreamEvent` · `bufferStreamTextChunk` · `flushStreamEventBuffer` · `flushAllPendingEventBuffers` · `_ensureEventLogReady` · `_sessionLookup` · `_formatEventLine` · `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `_rebuildToolCallSeqMap` · `getStreamMaxTurn`
+- 仅依赖**模块导入**：`resolveWorktreeHash` · `handleError` · `logger` · `EventLogStorage` · `MessageToEventMigrator` · `parseSessionSummaries` · `findSummaryByKeyword`
+
+**⚠️ 3 处跨簇耦合（提取前必须处置）**
+
+| # | 位置 | 触及**非本簇**字段 | 归属簇 | 建议 |
+|---|---|---|---|---|
+| A | `flushAllCheckpoints` :2169-2177 | `this._taorLoops`（:2171） | **C6** 运行器实例化 | **留在主类**（语义＝"退出兜底"，跨事件+运行器；不随 C10 搬走） |
+| B | `flushPendingPersists` :2433-2450 | `this._pendingPersistPromises`（:2434-2435） | **C7** 消息落盘 | **留在主类**（或在 C7 提取时一并处理；本批不搬） |
+| C | 静态常量 `ChatManagerImpl.EVENT_LOG_CACHE_MAX`（:1949） | 类静态成员 | 主类 | 随迁（移到新文件模块级常量）或经构造注入 |
+
+**⚠️ 外部字段依赖（5 个 ⇒ 决定提取形态：随迁 or 注入）**
+
+| 字段 | 使用点 | 建议 |
+|---|---|---|
+| `_eventLogCache` | :1928-1959 · :2154 · :2339 … | **随迁**（本簇核心状态） |
+| `_toolCallSeqMap` | :2074 · :2398 · :2406 | **注入**（C7/C15 也用；跨簇共享） |
+| `_toolCallSeqMapRebuilt` | :2385 · :2389 · :2411 | **注入**（同上） |
+| `_currentSessionId` | :2220 | **注入**（`_sessionLookup` 仅需"仅限当前会话"判定） |
+| `_lastStreamBuildCodeContext` | :2233 | **注入**（仅用于翻页字符预算） |
+
+**⚠️ 1 处边界问题**
+- `updateMessageBlocks`（签名 :2456，**方法体延伸至 :2589**，133 行）**不在所读块内** ⇒ 其是否随 C11 提取，需**单独读 :2456-2589** 后定（**未读，不臆断**）。
+
+**结论**
+C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事件写入/缓冲/刷盘 + 摘要/游标查询互调闭环），但**前置调整 3 条**：
+1. `flushAllCheckpoints`（A）与 `flushPendingPersists`（B）**留在主类**，不随迁；
+2. 5 个外部字段按上表**随迁 / 注入**分流；`EVENT_LOG_CACHE_MAX` 随迁为模块常量；
+3. `updateMessageBlocks` 的归属**待补读** :2456-2589 后确定。
+
+⇒ **首个提取批次可行**（预计净出 ≈530 行 − 两处留主类的方法 ≈60 行 ≈ **470 行**）。

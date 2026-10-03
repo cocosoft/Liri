@@ -191,10 +191,10 @@ describe('TaskCreateListTool — 另案 ④ 回归', () => {
 
   it('失败原因经真实 processResult 进入模型可见的错误通道', async () => {
     const tool = new TaskCreateListTool();
-    const r = await tool.execute({ tasks: [{ description: '   ' }] } as Record<
-      string,
-      unknown
-    >, {} as never);
+    const r = await tool.execute(
+      { tasks: [{ description: '   ' }] } as Record<string, unknown>,
+      {} as never
+    );
     const block = new ToolExecutor().processResult(tool as never, r, 'call_x');
     // 模型侧表达式 `error || '{}'` 的组合行为由 ChatHelper.test.ts 的
     // `toToolResultRawText` 用例覆盖；此处守住"块 error 不再为空"这一前提。

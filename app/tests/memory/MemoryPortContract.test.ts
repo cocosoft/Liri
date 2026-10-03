@@ -50,7 +50,10 @@ function portOf(prefix = 'memport-'): MemoryPorts {
   return new MemoryManagerImpl(dir);
 }
 
-function inputOf(content: string, name = 'contract-item'): {
+function inputOf(
+  content: string,
+  name = 'contract-item'
+): {
   content: string;
   metadata: MemoryMetadata;
 } {
@@ -67,9 +70,7 @@ function inputOf(content: string, name = 'contract-item'): {
 describe('记忆窄端口契约（MemoryManagerImpl 经四端口公共面）', () => {
   it('Write→Read 往返：createMemory 后可经 getMemory/getAllMemories 读回，stats 计数一致', async () => {
     const port = portOf();
-    const created = await port.createMemory(
-      inputOf('端口契约：一条用户事实')
-    );
+    const created = await port.createMemory(inputOf('端口契约：一条用户事实'));
     expect(created.id).toBeTruthy();
 
     const fetched = await port.getMemory(created.id);

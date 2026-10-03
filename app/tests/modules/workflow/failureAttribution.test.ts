@@ -87,12 +87,7 @@ describe('attributeFailure：沿上游依赖回溯', () => {
   it('limit 生效（有界输出）', () => {
     const result = attributeFailure({
       runId: 'wf_5_1',
-      steps: [
-        step('a'),
-        step('b', ['a']),
-        step('c', ['b']),
-        step('d', ['c']),
-      ],
+      steps: [step('a'), step('b', ['a']), step('c', ['b']), step('d', ['c'])],
       failedStep: 'd',
       limit: 2,
     })!;
@@ -123,7 +118,11 @@ describe('引擎接线：run 失败时把根因候选交给观察者', () => {
     engine: WorkflowEngine
   ): Promise<WorkflowRunEndInfo> {
     let end: WorkflowRunEndInfo | undefined;
-    const observer: WorkflowRunObserver = { onRunEnd: (info) => { end = info; } };
+    const observer: WorkflowRunObserver = {
+      onRunEnd: (info) => {
+        end = info;
+      },
+    };
     await engine.execute('attr-flow', {}, { observer });
     if (!end) throw new Error('观察者未收到 onRunEnd');
     return end;

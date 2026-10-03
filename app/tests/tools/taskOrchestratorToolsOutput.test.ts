@@ -141,7 +141,13 @@ describe('TaskOrchestratorTools 出参对象化', () => {
     const r = await tool.execute({}, {} as never);
     expect(r.data).toMatchObject({
       count: 1,
-      stats: { pending: 1, in_progress: 0, completed: 0, failed: 0, cancelled: 0 },
+      stats: {
+        pending: 1,
+        in_progress: 0,
+        completed: 0,
+        failed: 0,
+        cancelled: 0,
+      },
       tasks: [{ task_id: 'note-1', description: '写周报', status: 'pending' }],
     });
 
@@ -158,7 +164,8 @@ describe('TaskOrchestratorTools 出参对象化', () => {
   });
 
   it('get_task_list：空列表分支同形态（否则会被契约判为不合规）', async () => {
-    taskRegistry.getAllTaskInfos = (() => []) as unknown as typeof taskRegistry.getAllTaskInfos;
+    taskRegistry.getAllTaskInfos =
+      (() => []) as unknown as typeof taskRegistry.getAllTaskInfos;
     const outputSchema: OutputSchemaParam = GetTaskListOutputSchema;
 
     const r = await new TaskGetListTool().execute({}, {} as never);

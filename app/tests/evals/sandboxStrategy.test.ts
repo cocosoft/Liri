@@ -98,10 +98,14 @@ describe('A3-a: forEachAttemptSandbox —— "n 次尝试 = n 次沙箱启动"�
     const strategy = freshSandbox(create);
 
     const seen: Array<{ index: number; root: string }> = [];
-    const results = await forEachAttemptSandbox(strategy, 2, async (sb, index) => {
-      seen.push({ index, root: sb.root });
-      return index * 10;
-    });
+    const results = await forEachAttemptSandbox(
+      strategy,
+      2,
+      async (sb, index) => {
+        seen.push({ index, root: sb.root });
+        return index * 10;
+      }
+    );
 
     expect(createdCount()).toBe(2);
     expect(stops).toEqual([1, 2]);
@@ -149,7 +153,11 @@ describe('A3-a: forEachAttemptSandbox —— "n 次尝试 = n 次沙箱启动"�
   it('n=0 ⇒ 不创建任何沙箱（空跑）', async () => {
     const stops: number[] = [];
     const { create, createdCount } = makeSandboxFactory(stops);
-    const results = await forEachAttemptSandbox(freshSandbox(create), 0, async () => 1);
+    const results = await forEachAttemptSandbox(
+      freshSandbox(create),
+      0,
+      async () => 1
+    );
     expect(results).toEqual([]);
     expect(createdCount()).toBe(0);
     expect(stops).toEqual([]);
@@ -207,9 +215,14 @@ describe('A3-b: forEachItemWithFreshSandbox —— "每任务一份沙箱"（任
     const { create } = makeSandboxFactory(stops);
     const registered: string[] = [];
 
-    await forEachItemWithFreshSandbox(['a', 'b'], create, async () => null, (sb) => {
-      registered.push(sb.root);
-    });
+    await forEachItemWithFreshSandbox(
+      ['a', 'b'],
+      create,
+      async () => null,
+      (sb) => {
+        registered.push(sb.root);
+      }
+    );
 
     expect(registered).toEqual(['/tmp/fake-1', '/tmp/fake-2']);
   });

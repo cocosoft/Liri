@@ -83,19 +83,29 @@ describe('mermaidLint（零依赖结构预检）', () => {
 
   it('hasMermaidIssues 便捷判定与主函数一致', () => {
     expect(hasMermaidIssues('```mermaid\ngraph TD;\nA-->B;\n```')).toBe(false);
-    expect(hasMermaidIssues('```mermaid\n\ngraph TD;\nA-->B;\n```')).toBe(false);
+    expect(hasMermaidIssues('```mermaid\n\ngraph TD;\nA-->B;\n```')).toBe(
+      false
+    );
   });
 
   it('formatMermaidIssues：补"第几个 / 起始行"定位，reason 原样透传', () => {
     // 第 2 块起始于第 5 行（1 起），故 line=5、blockIndex=1 ⇒ 展示为"第 2 个图表"
-    const text = ['```mermaid', 'graph TD;', 'A-->B;', '```', '```mermaid', 'graphx TD;', '```'].join(
-      '\n'
-    );
+    const text = [
+      '```mermaid',
+      'graph TD;',
+      'A-->B;',
+      '```',
+      '```mermaid',
+      'graphx TD;',
+      '```',
+    ].join('\n');
     const issues = lintMermaidBlocks(text);
     expect(issues).toHaveLength(1);
 
     const rendered = formatMermaidIssues(issues);
-    expect(rendered).toBe(`- 第 2 个图表（起始行 ${issues[0].line}）：${issues[0].reason}`);
+    expect(rendered).toBe(
+      `- 第 2 个图表（起始行 ${issues[0].line}）：${issues[0].reason}`
+    );
     expect(rendered).toContain('无法识别');
   });
 

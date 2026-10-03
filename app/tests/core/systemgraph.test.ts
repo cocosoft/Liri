@@ -50,12 +50,12 @@ describe('SystemGraph 基础：拓扑序与结构校验', () => {
     expect(codeOf(() => g.addNode({ id: 'a', kind: 'task' }))).toBe(
       'SYSTEM_GRAPH_DUPLICATE_NODE'
     );
-    expect(codeOf(() => g.addEdge({ from: 'a', to: 'ghost', kind: 'dependsOn' }))).toBe(
-      'SYSTEM_GRAPH_DANGLING_EDGE'
-    );
-    expect(codeOf(() => g.addEdge({ from: 'a', to: 'a', kind: 'dependsOn' }))).toBe(
-      'SYSTEM_GRAPH_SELF_LOOP'
-    );
+    expect(
+      codeOf(() => g.addEdge({ from: 'a', to: 'ghost', kind: 'dependsOn' }))
+    ).toBe('SYSTEM_GRAPH_DANGLING_EDGE');
+    expect(
+      codeOf(() => g.addEdge({ from: 'a', to: 'a', kind: 'dependsOn' }))
+    ).toBe('SYSTEM_GRAPH_SELF_LOOP');
   });
 
   it('投影时依赖未声明 ⇒ 抛 SYSTEM_GRAPH_DEPENDENCY_MISSING（对齐 WorkflowEngine 的静默期）', () => {
@@ -164,9 +164,9 @@ describe('P0-2 根因候选检索（沿反向边 + 边权重排序 + 证据链�
       { id: 'c', dependsOn: ['b'] },
       { id: 'd', dependsOn: ['c'] },
     ]);
-    expect(g.findRootCauseCandidates('d', { maxDepth: 1 }).map((x) => x.nodeId)).toEqual([
-      'c',
-    ]);
+    expect(
+      g.findRootCauseCandidates('d', { maxDepth: 1 }).map((x) => x.nodeId)
+    ).toEqual(['c']);
     expect(g.findRootCauseCandidates('d', { limit: 2 })).toHaveLength(2);
   });
 });
@@ -184,7 +184,12 @@ describe('只读投影：与既有结构兼容（core 不 import 业务类型）
 
   it('projectAgentGraph 承载 capabilities/expertise（供后续按图分配）', () => {
     const g = projectAgentGraph([
-      { id: 'a1', role: 'reviewer', capabilities: ['code_review'], expertise: ['ts'] },
+      {
+        id: 'a1',
+        role: 'reviewer',
+        capabilities: ['code_review'],
+        expertise: ['ts'],
+      },
     ]);
     const node = g.getNode('a1')!;
     expect(node.kind).toBe('agent');

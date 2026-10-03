@@ -37,10 +37,7 @@ import {
 } from '../../src/evals/trace';
 import type { ToolCallRecord } from '../../src/evals/types';
 
-function call(
-  name: string,
-  args?: Record<string, unknown>
-): ToolCallRecord {
+function call(name: string, args?: Record<string, unknown>): ToolCallRecord {
   return { name, args };
 }
 
@@ -69,7 +66,11 @@ describe('A1: buildToolCallsDetail() 结构稳定 + 逐值截断', () => {
         limit: 50,
         follow: true,
       }),
-      call('file_edit', { file_path: '/w/a.txt', old: { a: 1 }, new: { b: 2 } }),
+      call('file_edit', {
+        file_path: '/w/a.txt',
+        old: { a: 1 },
+        new: { b: 2 },
+      }),
     ]);
 
     expect(detail[0].name).toBe('file_read');
@@ -107,16 +108,20 @@ describe('A1: buildToolCallsDetail() 结构稳定 + 逐值截断', () => {
 
   it('边界：长度恰等于上限 ⇒ **不裁剪**（无省略标记）', () => {
     const exact = 'y'.repeat(TOOL_CALL_ARG_MAX_CHARS);
-    const detail = buildToolCallsDetail([call('file_write', { content: exact })]);
+    const detail = buildToolCallsDetail([
+      call('file_write', { content: exact }),
+    ]);
     const args = detail[0].args as Record<string, unknown>;
     expect(args.content).toBe(exact);
   });
 
   it('超长对象/数组 ⇒ 降级为带省略标记的字符串（防报告体积失控）', () => {
     const detail = buildToolCallsDetail([
-      call('doc_generate', { nodes: Array.from({ length: 80 }, (_, i) => ({
-        title: `节 ${i}`,
-      })) }),
+      call('doc_generate', {
+        nodes: Array.from({ length: 80 }, (_, i) => ({
+          title: `节 ${i}`,
+        })),
+      }),
     ]);
     const args = detail[0].args as Record<string, unknown>;
     expect(typeof args.nodes).toBe('string');
@@ -126,7 +131,9 @@ describe('A1: buildToolCallsDetail() 结构稳定 + 逐值截断', () => {
   it('不可序列化（循环引用）⇒ 标记而非抛错（报告不因参数形状失败）', () => {
     const circular: Record<string, unknown> = { name: 'loop' };
     circular.self = circular;
-    const detail = buildToolCallsDetail([call('file_write', { content: circular })]);
+    const detail = buildToolCallsDetail([
+      call('file_write', { content: circular }),
+    ]);
     const args = detail[0].args as Record<string, unknown>;
     expect(args.content).toBe('[unserializable]');
   });

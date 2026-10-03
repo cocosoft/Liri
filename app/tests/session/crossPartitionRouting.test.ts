@@ -43,7 +43,10 @@ import * as path from 'path';
 import { StorageType } from '../../src/session/storage/UnifiedStorage';
 import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
 import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
-import { SessionStatus, SessionType } from '../../src/session/types/UnifiedSession';
+import {
+  SessionStatus,
+  SessionType,
+} from '../../src/session/types/UnifiedSession';
 
 const ID = 'session_xpart_1';
 
@@ -223,9 +226,9 @@ describe('A 分区路由：读 / 写 / 删均以实体所在分区为准', () =>
       timestamp: 1,
     } as never);
 
-    expect(fs.existsSync(path.join(fx.basePath, localId, 'messages.jsonl'))).toBe(
-      true
-    );
+    expect(
+      fs.existsSync(path.join(fx.basePath, localId, 'messages.jsonl'))
+    ).toBe(true);
     await storage.deleteSession(localId);
     expect(trashEntries(fx.basePath)).toHaveLength(1);
     expect(trashEntries(fx.legacyRoot)).toEqual([]);

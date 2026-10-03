@@ -83,8 +83,10 @@ describe('ToolAwareClient.getConfiguredModel（纯读 provider 默认模型）',
 
   it('回落构造选项 defaultModel', () => {
     expect(
-      clientOf({ id: 'p1', options: { defaultModel: 'opt-model' } })
-        .getConfiguredModel()
+      clientOf({
+        id: 'p1',
+        options: { defaultModel: 'opt-model' },
+      }).getConfiguredModel()
     ).toBe('opt-model');
   });
 

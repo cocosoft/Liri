@@ -27,10 +27,7 @@ interface Scripted {
 }
 
 /** 按 `args[0]`（子命令）脚本化回放的假执行器；`seen` 记录每次调用参数 */
-function scriptedRun(
-  script: Record<string, Scripted>,
-  seen: string[][] = []
-) {
+function scriptedRun(script: Record<string, Scripted>, seen: string[][] = []) {
   const run = async (args: string[]): Promise<DockerCliResult> => {
     seen.push(args);
     const s = script[args[0]] ?? { code: 0, stdout: '' };
@@ -66,7 +63,7 @@ async function initialized(
   const { run } = scriptedRun(
     {
       info: { code: 0 },
-      'image': { code: 0 },
+      image: { code: 0 },
       create: { code: 0, stdout: 'cid-123\n' },
       start: { code: 0 },
       ...script,
@@ -104,7 +101,9 @@ describe('B4: execute 用真实退出码判定成败', () => {
   });
 
   it('取不到退出码（spawn 失败）⇒ success=false、exitCode=-1、error 有说明', async () => {
-    const { sb, seen } = await initialized({ exec: { code: null, stderr: 'ENOENT' } });
+    const { sb, seen } = await initialized({
+      exec: { code: null, stderr: 'ENOENT' },
+    });
     const res = await sb.execute({ args: ['echo', 'hi'] });
 
     expect(res.success).toBe(false);

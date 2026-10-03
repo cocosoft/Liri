@@ -45,12 +45,14 @@ describe('DocOrchestratorProvider', () => {
       DocOrchestrator.getAvailableWorkflows()
     );
     expect(
-      engine.listWorkflows().every((w) => w.providerId === DOC_ORCHESTRATOR_PROVIDER_ID)
+      engine
+        .listWorkflows()
+        .every((w) => w.providerId === DOC_ORCHESTRATOR_PROVIDER_ID)
     ).toBe(true);
     // 注册期已通过 validate()（id 唯一 / 依赖存在 / 无环）—— 构造 setup() 未抛即证明
-    const meetingToAll = new DocOrchestratorProvider(
-      new DocOrchestrator()
-    ).listWorkflows().find((w) => w.name === 'meeting-to-all');
+    const meetingToAll = new DocOrchestratorProvider(new DocOrchestrator())
+      .listWorkflows()
+      .find((w) => w.name === 'meeting-to-all');
     expect(meetingToAll?.steps.map((s) => s.id)).toEqual([
       'calendar:list',
       'doc:create-docx',
@@ -81,7 +83,9 @@ describe('DocOrchestratorProvider', () => {
     expect(record.start?.workflow).toBe('send-report');
     expect(record.start?.providerId).toBe(DOC_ORCHESTRATOR_PROVIDER_ID);
     expect(record.end?.stopReason).toBe('completed');
-    expect(record.steps?.map((item) => [item.start.stepId, item.end?.outcome])).toEqual([
+    expect(
+      record.steps?.map((item) => [item.start.stepId, item.end?.outcome])
+    ).toEqual([
       ['doc:create-docx', 'completed'],
       ['mail:send', 'completed'],
     ]);
@@ -106,7 +110,9 @@ describe('DocOrchestratorProvider', () => {
       'calendar:list',
     ]);
     // 失败步骤的账本条目为 failed，成功的前序步骤为 completed
-    expect(record.steps?.map((item) => [item.start.stepId, item.end?.outcome])).toEqual([
+    expect(
+      record.steps?.map((item) => [item.start.stepId, item.end?.outcome])
+    ).toEqual([
       ['calendar:list', 'completed'],
       ['doc:create-docx', 'failed'],
     ]);

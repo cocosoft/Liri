@@ -30,7 +30,14 @@
  * `setUserDataDirOverride()` 盖过 —— 只设 `LIRI_HOME` 会读写**真实**数据目录（教训见台账「另案 ⑤」）。
  */
 import { describe, it, expect, afterAll } from 'bun:test';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, utimesSync } from 'fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  utimesSync,
+} from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 

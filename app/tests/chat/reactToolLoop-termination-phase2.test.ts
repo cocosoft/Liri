@@ -144,7 +144,9 @@ describe('ReActToolLoop 终止原因（二期 F2-0/F2-1/F2-2/F2-4）', () => {
     let calls = 0;
     const { ctx } = makeCtx({
       // 恒为"空回复"：每轮 run 都需一次 onIncompleteTurn 回捞
-      llmSequence: [() => ({ content: '', stop_reason: 'stop' }) as ChatResponse],
+      llmSequence: [
+        () => ({ content: '', stop_reason: 'stop' }) as ChatResponse,
+      ],
       onLlmCall: () => {
         calls += 1;
       },
@@ -222,8 +224,9 @@ describe('ReActToolLoop 终止原因（二期 F2-0/F2-1/F2-2/F2-4）', () => {
     // maxIterations 取大值：避免触发"接近上限"的强制收尾 steering（那会先短路本路径）
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 20 });
     // 实例级替身：模拟"压缩连续压不动且上下文吃紧"（真实判据依赖内部压缩状态）
-    (loop as unknown as { isCompactionStalled: () => boolean }).isCompactionStalled =
-      () => true;
+    (
+      loop as unknown as { isCompactionStalled: () => boolean }
+    ).isCompactionStalled = () => true;
 
     await drain(loop);
 

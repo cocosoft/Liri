@@ -40,12 +40,10 @@ const testDataDir = join(tmpdir(), `liri-pending-wake-${randomUUID()}.d`);
 const prevDataDir = process.env.PYAPP_DATA_DIR;
 process.env.PYAPP_DATA_DIR = testDataDir;
 
-const { createCg3Services, getCg3SelfWakeService } = await import(
-  '../../src/tasks/Cg3Bootstrap'
-);
-const { resolvePendingWake } = await import(
-  '../../src/infrastructure/http/handlers/sessionWaitFields'
-);
+const { createCg3Services, getCg3SelfWakeService } =
+  await import('../../src/tasks/Cg3Bootstrap');
+const { resolvePendingWake } =
+  await import('../../src/infrastructure/http/handlers/sessionWaitFields');
 
 describe('resolvePendingWake（会话待触发唤醒只读字段）', () => {
   beforeAll(() => {

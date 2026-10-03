@@ -111,11 +111,7 @@ describe('S1 题源筛选：机械筛（纯函数）', () => {
     const picked = selectFixCandidates(parseFixCommitLog(FIXTURE_LOG));
 
     // def456（feat）与 jkl012（无测试）被剔除
-    expect(picked.map((c) => c.commit)).toEqual([
-      'abc123',
-      'ghi789',
-      'mno345',
-    ]);
+    expect(picked.map((c) => c.commit)).toEqual(['abc123', 'ghi789', 'mno345']);
     expect(picked[0]).toEqual({
       commit: 'abc123',
       subject: 'fix(tools): 修复甲',

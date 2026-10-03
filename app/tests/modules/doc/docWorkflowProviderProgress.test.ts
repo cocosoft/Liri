@@ -39,8 +39,18 @@ function buildParams(onProgress: (d: DocWorkflowProgressData) => void) {
   return {
     input: { topic: '季度总结', format: 'docx' as const },
     llmNodes: [
-      { id: 'n1', kind: 'section' as const, title: '背景', content: '背景正文' },
-      { id: 'n2', kind: 'section' as const, title: '结论', content: '结论正文' },
+      {
+        id: 'n1',
+        kind: 'section' as const,
+        title: '背景',
+        content: '背景正文',
+      },
+      {
+        id: 'n2',
+        kind: 'section' as const,
+        title: '结论',
+        content: '结论正文',
+      },
     ],
     fillNode: async (node: { content?: string }) => node.content ?? '',
     generateImage: async () => '/tmp/img.png',
@@ -66,12 +76,17 @@ describe('DocWorkflowProvider · 方案 3 进度发射（seam 路径）', () => 
     const snapshots: DocWorkflowProgressData[] = [];
     const result = await provider.execute(
       definition!,
-      buildParams((d) => snapshots.push(d)) as unknown as Record<string, unknown>
+      buildParams((d) => snapshots.push(d)) as unknown as Record<
+        string,
+        unknown
+      >
     );
 
     // 运行成功 + 产出路径（seam 的 value = ComposeResult）
     expect(result.stopReason).toBe('completed');
-    expect(String((result.value as { filePath?: string })?.filePath)).toBe('/tmp/out.docx');
+    expect(String((result.value as { filePath?: string })?.filePath)).toBe(
+      '/tmp/out.docx'
+    );
 
     // 阶段序列：三阶段各自的 in_progress / completed 均出现
     const marks = snapshots.map(
@@ -89,8 +104,13 @@ describe('DocWorkflowProvider · 方案 3 进度发射（seam 路径）', () => 
     }
 
     // 保真度①：filling 阶段有节点清单（2 个，title 与来源一致）
-    const withNodes = snapshots.find((s) => (s.stages.filling.nodes?.length ?? 0) > 0);
-    expect(withNodes?.stages.filling.nodes?.map((n) => n.title)).toEqual(['背景', '结论']);
+    const withNodes = snapshots.find(
+      (s) => (s.stages.filling.nodes?.length ?? 0) > 0
+    );
+    expect(withNodes?.stages.filling.nodes?.map((n) => n.title)).toEqual([
+      '背景',
+      '结论',
+    ]);
 
     // 保真度②：逐节点百分比（2 节点 ⇒ 出现 50 与 100）
     const percents = snapshots
@@ -100,7 +120,9 @@ describe('DocWorkflowProvider · 方案 3 进度发射（seam 路径）', () => 
     expect(percents).toContain(100);
 
     // 终态：产出路径落在最后一个快照（前端据此显示"已生成"）
-    expect(snapshots[snapshots.length - 1].outputFilePath).toBe('/tmp/out.docx');
+    expect(snapshots[snapshots.length - 1].outputFilePath).toBe(
+      '/tmp/out.docx'
+    );
   });
 
   it('缺必需参数 ⇒ 抛 DOC_PIPELINE_PARAMS_MISSING（不静默降级）', async () => {

@@ -21,7 +21,11 @@ const GT = String.fromCharCode(62);
 const SL = String.fromCharCode(47);
 const DQ = String.fromCharCode(34);
 /** DSML 标记：两个 U+FF5C 包住 DSML，再接一个空格 */
-const DSML = String.fromCharCode(0xff5c, 0xff5c) + 'DSML' + String.fromCharCode(0xff5c, 0xff5c) + ' ';
+const DSML =
+  String.fromCharCode(0xff5c, 0xff5c) +
+  'DSML' +
+  String.fromCharCode(0xff5c, 0xff5c) +
+  ' ';
 
 /** 拼一个开标签：LT + 前缀 + 标签名 + 属性 + GT */
 const open = (prefix: string, tag: string, attrs = '') =>
@@ -36,7 +40,11 @@ function sample(prefix: string): string {
   return [
     open(prefix, 'calls'),
     open(prefix, 'invoke', attr('name', 'bash')),
-    open(prefix, 'parameter', attr('name', 'command') + attr('string', 'true')) +
+    open(
+      prefix,
+      'parameter',
+      attr('name', 'command') + attr('string', 'true')
+    ) +
       'pwd; ls -la' +
       close(prefix, 'parameter'),
     open(prefix, 'parameter', attr('name', 'description')) +
@@ -75,6 +83,8 @@ describe('InvokeXmlParser：前缀形态（T-⑥05）', () => {
 
   test('普通文本不受影响（阴性对照）', () => {
     const parser = new InvokeXmlParser();
-    expect(parser.parse('这只是一段普通回复，没有工具调用。').toolCalls).toBeNull();
+    expect(
+      parser.parse('这只是一段普通回复，没有工具调用。').toolCalls
+    ).toBeNull();
   });
 });

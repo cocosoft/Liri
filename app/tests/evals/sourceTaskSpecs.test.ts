@@ -84,15 +84,21 @@ describe('A7 任务源规格（12 条）：结构与资格线防漂移', () => {
 
   test('每条规格都有可观察行为描述与多条用例（用例只给输入）', () => {
     for (const spec of sourceTaskSpecs) {
-      expect(spec.behavior.length, `${spec.id} 缺行为描述`).toBeGreaterThanOrEqual(
-        3
+      expect(
+        spec.behavior.length,
+        `${spec.id} 缺行为描述`
+      ).toBeGreaterThanOrEqual(3);
+      expect(spec.cases.length, `${spec.id} 用例过少`).toBeGreaterThanOrEqual(
+        4
       );
-      expect(spec.cases.length, `${spec.id} 用例过少`).toBeGreaterThanOrEqual(4);
       for (const c of spec.cases) {
-        expect(c.name.length, `${spec.id} 存在无用例名的用例`).toBeGreaterThan(0);
-        expect(Array.isArray(c.args), `${spec.id}/${c.name} args 必须是数组`).toBe(
-          true
+        expect(c.name.length, `${spec.id} 存在无用例名的用例`).toBeGreaterThan(
+          0
         );
+        expect(
+          Array.isArray(c.args),
+          `${spec.id}/${c.name} args 必须是数组`
+        ).toBe(true);
         // 期望值一律由真实执行捕获 ⇒ 规格里**不得**出现 value/expected 字段
         expect(
           Object.prototype.hasOwnProperty.call(c, 'value'),

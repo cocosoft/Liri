@@ -108,7 +108,9 @@ describe('withPaginationSeq（P1-6b / Spec §10 分页键归一化）', () => {
       { id: 'd', timestamp: 4, lastEventSeq: 580 },
       { id: 'e', timestamp: 5 },
     ]);
-    expect(normalized.map((m) => m.lastEventSeq)).toEqual([326, 327, 328, 580, 581]);
+    expect(normalized.map((m) => m.lastEventSeq)).toEqual([
+      326, 327, 328, 580, 581,
+    ]);
   });
 
   test('不修改入参（回填仅落在浅拷贝上）', () => {

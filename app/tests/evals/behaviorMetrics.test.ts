@@ -57,7 +57,10 @@ function bash(command: string): ToolCallRecord {
 describe('A2 ① countSelfVerification：以首个编辑为界', () => {
   it('边界 1：无编辑 ⇒ 0', () => {
     expect(
-      countSelfVerification([call('file_read', { file_path: '/w/a' }), bash('npm test')])
+      countSelfVerification([
+        call('file_read', { file_path: '/w/a' }),
+        bash('npm test'),
+      ])
     ).toBe(0);
   });
 
@@ -94,7 +97,10 @@ describe('A2 ① countSelfVerification：以首个编辑为界', () => {
 
   it('编辑**之前**的命令不计入（只统计"其后的独立验证"）', () => {
     expect(
-      countSelfVerification([bash('npm test'), call('file_write', { file_path: '/w/a' })])
+      countSelfVerification([
+        bash('npm test'),
+        call('file_write', { file_path: '/w/a' }),
+      ])
     ).toBe(0);
   });
 
@@ -125,12 +131,18 @@ describe('A2 ② countExploration：首个编辑之前', () => {
 
   it('全程无编辑 ⇒ 计全部读/搜', () => {
     expect(
-      countExploration([call('file_read'), call('grep'), call('bash', { command: 'ls' })])
+      countExploration([
+        call('file_read'),
+        call('grep'),
+        call('bash', { command: 'ls' }),
+      ])
     ).toBe(2);
   });
 
   it('非读/搜工具不计（bash / file_write）', () => {
-    expect(countExploration([bash('ls'), call('file_write', { file_path: '/w/a' })])).toBe(0);
+    expect(
+      countExploration([bash('ls'), call('file_write', { file_path: '/w/a' })])
+    ).toBe(0);
   });
 });
 

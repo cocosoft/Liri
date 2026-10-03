@@ -65,7 +65,9 @@ describe('parseShieldedPaths：非法值 fail-closed（抛错），不静默失�
 describe('normalizeShieldPath：JSON 转义与写法差异的规整', () => {
   test('反斜杠 / 重复分隔符（JSON 转义的 `\\\\`）/ 大小写 / 尾分隔符 / `./` 被规整', () => {
     expect(normalizeShieldPath('E:\\PY\\App\\X.ts')).toBe('e:/py/app/x.ts');
-    expect(normalizeShieldPath('E:\\\\PY\\\\App\\\\X.ts')).toBe('e:/py/app/x.ts');
+    expect(normalizeShieldPath('E:\\\\PY\\\\App\\\\X.ts')).toBe(
+      'e:/py/app/x.ts'
+    );
     expect(normalizeShieldPath('./src/a.ts')).toBe('src/a.ts');
     expect(normalizeShieldPath('src/a.ts/')).toBe('src/a.ts');
   });
@@ -81,7 +83,9 @@ describe('buildShieldNeedles：同一文件的多种写法都要挡住', () => {
       'app/src/chat/services/bareexplorationstripper.ts'
     );
     expect(needles).toContain('src/chat/services/bareexplorationstripper.ts');
-    expect(needles).toContain('e:/py/documents/codes/py_app/app/src/chat/services');
+    expect(needles).toContain(
+      'e:/py/documents/codes/py_app/app/src/chat/services'
+    );
     // 每条都指向同一个声明路径
     expect(
       new Set(buildShieldNeedles(SRC_ABS, REPO).map((n) => n.path))
@@ -103,9 +107,7 @@ describe('findShieldedHit：命中判定', () => {
   };
 
   test('绝对路径（JSON 转义后）⇒ 命中', () => {
-    expect(
-      findShieldedHit({ file_path: SRC_ABS }, plan)
-    ).toBe(SRC_ABS);
+    expect(findShieldedHit({ file_path: SRC_ABS }, plan)).toBe(SRC_ABS);
   });
 
   test('相对仓库根 / 相对 <repoRoot>/app 两种写法 ⇒ 都命中（换写法不能绕过）', () => {
@@ -130,8 +132,12 @@ describe('findShieldedHit：命中判定', () => {
   });
 
   test('无关路径 ⇒ 不命中；空清单 ⇒ 不命中（零行为）', () => {
-    expect(findShieldedHit({ file_path: `${REPO}\\app\\src\\other.ts` }, plan)).toBeNull();
-    expect(findShieldedHit({ file_path: SRC_ABS }, { paths: [], needles: [] })).toBeNull();
+    expect(
+      findShieldedHit({ file_path: `${REPO}\\app\\src\\other.ts` }, plan)
+    ).toBeNull();
+    expect(
+      findShieldedHit({ file_path: SRC_ABS }, { paths: [], needles: [] })
+    ).toBeNull();
   });
 
   test('入参无法序列化 ⇒ 哨兵（fail-closed，不放行看不懂的调用）', () => {

@@ -50,9 +50,11 @@ import { OpenAIProvider } from '../../../src/ai/providers/OpenAIProvider.js';
  * Vertex 在 fetch **之前**要取访问令牌；无凭据时会在 `try` 之外抛错，测不到 catch 里的品牌位。
  * 这里仅桩掉"取令牌"这一步，其余（fetch 入口 + catch）走真实实现。
  */
-(VertexAIProvider.prototype as unknown as {
-  getAccessToken: () => Promise<string>;
-}).getAccessToken = async () => 'test-token';
+(
+  VertexAIProvider.prototype as unknown as {
+    getAccessToken: () => Promise<string>;
+  }
+).getAccessToken = async () => 'test-token';
 
 /** 让下一次 fetch 以给定原因失败 */
 function failFetch(reason: unknown): void {

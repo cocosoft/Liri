@@ -54,9 +54,7 @@ describe('attributeAgentRun（纯函数：图结构 + 归因）', () => {
     ]);
     // from = 因 → to = 果：执行者 → 任务；前一步 → 后一步
     // evidenceRef 指向**前提方**（与 workflow 侧 failureAttribution 约定一致）
-    expect(
-      edges.map((e) => [e.from, e.kind, e.to, e.evidenceRef])
-    ).toEqual([
+    expect(edges.map((e) => [e.from, e.kind, e.to, e.evidenceRef])).toEqual([
       ['architect', 'assignedTo', 'run:run-1', 'agent_run:run-1'],
       ['run:run-1', 'dependsOn', 'step:tu_1', 'agent_run:run-1'],
       ['step:tu_1', 'dependsOn', 'step:tu_2', 'tool_use:tu_1'],

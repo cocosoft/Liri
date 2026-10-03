@@ -23,7 +23,9 @@ import {
 } from '../../../src/modules/doc/workflow/DocWorkflowProvider.js';
 
 /** 组装一份最小合法 params（docx 格式避开 PPT 精炼规则，聚焦接线本身） */
-function params(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function params(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
   return {
     input: { topic: '测试主题', format: 'docx' },
     llmNodes: [
@@ -145,7 +147,9 @@ describe('doc 流水线接入 seam（第一刀）', () => {
     const engine = engineWithDocProvider();
     let code = '(no-throw)';
     try {
-      await engine.execute(DOC_PIPELINE_WORKFLOW, { input: { topic: 'x', format: 'docx' } });
+      await engine.execute(DOC_PIPELINE_WORKFLOW, {
+        input: { topic: 'x', format: 'docx' },
+      });
     } catch (e) {
       code = String((e as { code?: string }).code);
     }

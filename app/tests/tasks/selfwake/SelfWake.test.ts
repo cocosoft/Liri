@@ -1,6 +1,13 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
-import { describe, it, expect, beforeEach, afterEach, afterAll } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from 'bun:test';
 import { existsSync, rmSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

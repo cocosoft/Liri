@@ -55,10 +55,7 @@ describe('verifyShieldApplied：声明了就必须真的屏蔽上（否则拒绝
   });
 
   test('大小写 / 分隔符 / 尾分隔符差异不算缺失（用同一规整口径比较）', () => {
-    const verdict = verifyShieldApplied(
-      ['E:\\repo\\a.ts'],
-      ['e:/repo/a.ts/']
-    );
+    const verdict = verifyShieldApplied(['E:\\repo\\a.ts'], ['e:/repo/a.ts/']);
     expect(verdict.ok).toBe(true);
   });
 

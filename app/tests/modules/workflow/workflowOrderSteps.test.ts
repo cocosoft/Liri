@@ -89,12 +89,18 @@ describe('orderSteps：图不可用时回退（既有兜底语义，且不抛错
   it('成环 ⇒ 回退声明顺序，不抛错（validate 才负责抛 WORKFLOW_DEPENDENCY_CYCLE）', () => {
     const engine = new WorkflowEngine();
     const steps = [step('a', ['b']), step('b', ['a'])];
-    expect(engine.orderSteps(define(steps)).map((s) => s.id)).toEqual(['a', 'b']);
+    expect(engine.orderSteps(define(steps)).map((s) => s.id)).toEqual([
+      'a',
+      'b',
+    ]);
   });
 
   it('依赖缺失 ⇒ 回退声明顺序，不抛错', () => {
     const engine = new WorkflowEngine();
     const steps = [step('a'), step('b', ['ghost'])];
-    expect(engine.orderSteps(define(steps)).map((s) => s.id)).toEqual(['a', 'b']);
+    expect(engine.orderSteps(define(steps)).map((s) => s.id)).toEqual([
+      'a',
+      'b',
+    ]);
   });
 });

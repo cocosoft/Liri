@@ -30,7 +30,11 @@ import {
   compareOrderInvariance,
   formatOrderInvariance,
 } from '../../src/evals/orderInvariance';
-import type { EvalAttempt, EvalTask, EvalTaskResult } from '../../src/evals/types';
+import type {
+  EvalAttempt,
+  EvalTask,
+  EvalTaskResult,
+} from '../../src/evals/types';
 
 /** 用"结论序列"造一条任务结果（`asExpected` 序列即本轮逐次结论） */
 function result(taskId: string, seq: boolean[]): EvalTaskResult {
@@ -116,9 +120,13 @@ describe('A3-b: formatOrderInvariance（CLI 输出）', () => {
     const lines = formatOrderInvariance(
       compareOrderInvariance([result('t1', [true])], [result('t1', [false])])
     );
-    expect(lines.some((l) => l.includes('t1') && l.includes('[true]') && l.includes('[false]'))).toBe(
+    expect(
+      lines.some(
+        (l) => l.includes('t1') && l.includes('[true]') && l.includes('[false]')
+      )
+    ).toBe(true);
+    expect(lines.some((l) => l.includes('⚠️ 结论：**存在顺序依赖**'))).toBe(
       true
     );
-    expect(lines.some((l) => l.includes('⚠️ 结论：**存在顺序依赖**'))).toBe(true);
   });
 });

@@ -128,21 +128,14 @@ async function drain(loop: ReActToolLoop): Promise<void> {
 }
 
 describe('长任务端到端：不得因预算被误杀（真实用量安全 + 估算膨胀）', () => {
-  it(
-    '估算膨胀到 300k 但真实仅 29k ⇒ 长跑不因预算终止',
-    async () => {
-      const { loop, rounds } = makeHarness();
+  it('估算膨胀到 300k 但真实仅 29k ⇒ 长跑不因预算终止', async () => {
+    const { loop, rounds } = makeHarness();
 
-      await drain(loop);
+    await drain(loop);
 
-      // 旧实现（用估算记账）：第 2 轮即 `budget_exhausted` ⇒ 本断言转红
-      expect(loop.getTerminationReason()).not.toBe('budget_exhausted');
-      // 且确实跑了多轮（证明"长任务活下来了"，而非立刻以别的理由结束）
-      expect(rounds()).toBeGreaterThanOrEqual(5);
-    },
-    // 2026-09-27：本用例语义就是"跑满 maxIterations 的长跑"，Windows 在
-    // `--coverage` 插桩下实测 7.9s > bun 默认 5s 超时（CI 据此判失败，非断言失败）。
-    // 显式声明真实预算，避免把"用例确实很长"误判为挂起。
-    30_000
-  );
+    // 旧实现（用估算记账）：第 2 轮即 `budget_exhausted` ⇒ 本断言转红
+    expect(loop.getTerminationReason()).not.toBe('budget_exhausted');
+    // 且确实跑了多轮（证明"长任务活下来了"，而非立刻以别的理由结束）
+    expect(rounds()).toBeGreaterThanOrEqual(5);
+  }, 30_000); // 显式声明真实预算，避免把"用例确实很长"误判为挂起。 // `--coverage` 插桩下实测 7.9s > bun 默认 5s 超时（CI 据此判失败，非断言失败）。 // 2026-09-27：本用例语义就是"跑满 maxIterations 的长跑"，Windows 在
 });

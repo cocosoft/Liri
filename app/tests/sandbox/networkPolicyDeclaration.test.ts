@@ -39,7 +39,11 @@ describe('B2: 结构性断言（不再把执行权交给被约束方）', () => 
     { mode: 'bridge', allowedPorts: [443, 80] },
     { mode: 'host', allowedPorts: [443] },
     { mode: 'none', blockedDomains: ['evil.com'] },
-    { mode: 'custom', customNetworkName: 'mynet', allowedDomains: ['pypi.org'] },
+    {
+      mode: 'custom',
+      customNetworkName: 'mynet',
+      allowedDomains: ['pypi.org'],
+    },
   ];
 
   it('任何配置下 dockerArgs 都不含 --cap-add（NET_ADMIN 不再授予）', () => {

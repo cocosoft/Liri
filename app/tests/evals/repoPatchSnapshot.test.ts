@@ -276,9 +276,9 @@ describe('S1：真实修复类快照 + 判据（合成仓库，零模型）', ()
     mkdirSync(join(winDest, 'app'), { recursive: true });
     const win = supplyDeps(join(winDest, 'app'), real, 'win32');
     expect(win.ok).toBe(true);
-    expect(
-      existsSync(join(winDest, 'app', 'node_modules', 'marker.txt'))
-    ).toBe(true);
+    expect(existsSync(join(winDest, 'app', 'node_modules', 'marker.txt'))).toBe(
+      true
+    );
     removeRepoSapshot(winDest);
     expect(existsSync(winDest)).toBe(false);
     expect(existsSync(join(real, 'node_modules', 'marker.txt'))).toBe(true);

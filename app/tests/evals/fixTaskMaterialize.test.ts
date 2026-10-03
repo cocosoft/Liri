@@ -26,13 +26,22 @@
  */
 import { afterAll, describe, expect, test } from 'bun:test';
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { buildFixTask } from '../../src/evals/fixTaskMaterialize';
-import { discoverFixCommits, selectFixCandidates } from '../../src/evals/fixTaskScreening';
+import {
+  discoverFixCommits,
+  selectFixCandidates,
+} from '../../src/evals/fixTaskScreening';
 import type { EvalContext, EvalTask } from '../../src/evals/types';
 
 const execFileAsync = promisify(execFile);
@@ -122,7 +131,9 @@ describe('S1 物化：setup/assert 闭环（合成仓库，零模型）', () => 
     const repoDir = join(workspace, 'repo');
     // 快照已净化：无 `.git`；测试文件已就位（判据）
     expect(existsSync(join(repoDir, '.git'))).toBe(false);
-    expect(existsSync(join(repoDir, 'app', 'tests', 'impl.test.ts'))).toBe(true);
+    expect(existsSync(join(repoDir, 'app', 'tests', 'impl.test.ts'))).toBe(
+      true
+    );
 
     const ctx = ctxFor(workspace);
     expect((await task.assert(ctx)).pass).toBe(false); // 起点必红

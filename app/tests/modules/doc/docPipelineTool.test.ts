@@ -39,13 +39,19 @@ import type { Tool, ToolUseContext } from '../../../src/tools/types/Tool';
  */
 function makePipelineTool(): Tool {
   const docModule = new DocModule();
-  return (docModule as unknown as { createPipelineTool(): Tool }).createPipelineTool();
+  return (
+    docModule as unknown as { createPipelineTool(): Tool }
+  ).createPipelineTool();
 }
 
 /** 最小上下文：校验分支在触达任何工具前返回，故仅 `sessionId` 有意义 */
-const ctx = { sessionId: 'session_test_doc_pipeline' } as unknown as ToolUseContext;
+const ctx = {
+  sessionId: 'session_test_doc_pipeline',
+} as unknown as ToolUseContext;
 
-function baseInput(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function baseInput(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
   return {
     topic: '季度技术总结',
     format: 'docx',
@@ -73,19 +79,28 @@ describe('office:doc-pipeline · 元信息', () => {
 
 describe('office:doc-pipeline · 参数校验（不进入流水线即返回）', () => {
   it('topic 为空 ⇒ FAILURE', async () => {
-    const res = await makePipelineTool().execute(baseInput({ topic: '   ' }), ctx);
+    const res = await makePipelineTool().execute(
+      baseInput({ topic: '   ' }),
+      ctx
+    );
     expect(res.status).toBe(ToolExecutionStatus.FAILURE);
     expect(String(res.errorOutput)).toContain('topic 不能为空');
   });
 
   it('format=pdf ⇒ 显式拒绝（底层 doc_generate 取值域无 pdf，不得静默错映射）', async () => {
-    const res = await makePipelineTool().execute(baseInput({ format: 'pdf' }), ctx);
+    const res = await makePipelineTool().execute(
+      baseInput({ format: 'pdf' }),
+      ctx
+    );
     expect(res.status).toBe(ToolExecutionStatus.FAILURE);
     expect(String(res.errorOutput)).toContain('暂不支持 format=pdf');
   });
 
   it('format 非法值 ⇒ 明确报错并列出可选值', async () => {
-    const res = await makePipelineTool().execute(baseInput({ format: 'xlsx' }), ctx);
+    const res = await makePipelineTool().execute(
+      baseInput({ format: 'xlsx' }),
+      ctx
+    );
     expect(res.status).toBe(ToolExecutionStatus.FAILURE);
     expect(String(res.errorOutput)).toContain('format 非法');
     expect(String(res.errorOutput)).toContain('docx/pptx/html');
@@ -121,6 +136,8 @@ describe('office:doc-pipeline · 参数校验（不进入流水线即返回）',
       ctx
     );
     // 校验通过 ⇒ 不会因参数被拒；后续会因 image_generate/doc_generate 未注册而失败（非校验失败）
-    expect(String(res.errorOutput ?? '')).not.toContain('需提供 content 或非空 bullets');
+    expect(String(res.errorOutput ?? '')).not.toContain(
+      '需提供 content 或非空 bullets'
+    );
   });
 });

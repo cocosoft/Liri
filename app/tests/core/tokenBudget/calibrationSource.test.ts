@@ -199,13 +199,17 @@ describe('D1 校准数据源（metric/timing 事件载荷）', () => {
   it('③ 闭环：单样本 EMA 精确等于 alpha*raw + (1-alpha)*old', async () => {
     const tracker = makeTracker();
     const baseline = await setupBaseline(tracker);
-    const payload = buildRequestTimingData({ prompt_tokens: 2000, completion_tokens: 100 });
+    const payload = buildRequestTimingData({
+      prompt_tokens: 2000,
+      completion_tokens: 100,
+    });
     if (!payload) throw new Error('样本应可抽取');
 
     tracker.recordTimingUsage(payload);
 
     const raw =
-      ((payload.inputTokens ?? 0) - (OVERHEAD.systemPrompt + OVERHEAD.toolDefs)) /
+      ((payload.inputTokens ?? 0) -
+        (OVERHEAD.systemPrompt + OVERHEAD.toolDefs)) /
       baseline;
     expect(tracker.getCalibrationFactor()).toBeCloseTo(
       ALPHA * raw + (1 - ALPHA) * 1.0,

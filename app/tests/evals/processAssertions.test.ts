@@ -51,7 +51,11 @@ const bash = (command: string): ToolCallDetail => ({
 
 describe('S2 过程断言：P-a 交付前自验证', () => {
   test('写入后有命令类调用 ⇒ pass（合规）', () => {
-    const f = checkSelfVerification([read('a.ts'), write('a.ts'), bash('bun test')]);
+    const f = checkSelfVerification([
+      read('a.ts'),
+      write('a.ts'),
+      bash('bun test'),
+    ]);
     expect(f.pass).toBe(true);
     expect(f.detail).toContain('bash');
   });
@@ -98,9 +102,9 @@ describe('S2 过程断言：P-b 同一资源重复读', () => {
   test('资源键：取不到资源参数的调用不计入统计', () => {
     expect(resourceKeyOf({ name: 'file_read', args: {} })).toBeNull();
     expect(resourceKeyOf({ name: 'file_read' })).toBeNull();
-    expect(
-      resourceKeyOf({ name: 'grep', args: { pattern: 'foo' } })
-    ).toBe('grep:foo');
+    expect(resourceKeyOf({ name: 'grep', args: { pattern: 'foo' } })).toBe(
+      'grep:foo'
+    );
   });
 });
 
@@ -108,9 +112,9 @@ describe('S2 过程断言：P-c 未尝试访问被屏蔽路径', () => {
   const shielded = ['E:\\repo\\app\\src\\query\\shrink.ts'];
 
   test('参数未提及屏蔽路径 ⇒ pass（合规）', () => {
-    expect(checkShieldedUntouched([read('/tmp/ws/impl.ts')], shielded).pass).toBe(
-      true
-    );
+    expect(
+      checkShieldedUntouched([read('/tmp/ws/impl.ts')], shielded).pass
+    ).toBe(true);
   });
 
   test('参数提及屏蔽路径（反斜杠/正斜杠两种写法）⇒ fail（违规，这正是长期缺失的正向证据）', () => {
@@ -130,7 +134,9 @@ describe('S2 过程断言：P-c 未尝试访问被屏蔽路径', () => {
   });
 
   test('未声明屏蔽路径 ⇒ 不适用（pass）', () => {
-    expect(checkShieldedUntouched([read('E:\\repo\\x.ts')], []).pass).toBe(true);
+    expect(checkShieldedUntouched([read('E:\\repo\\x.ts')], []).pass).toBe(
+      true
+    );
   });
 });
 

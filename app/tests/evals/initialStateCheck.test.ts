@@ -60,7 +60,12 @@ function taskOf(
 
 describe('A4: judgeInitialState（纯判据）', () => {
   it('positive + 起始态断言失败 ⇒ 通过（fail-closed 满足）', () => {
-    const v = judgeInitialState('t', 'positive', false, 'eval_out/hello.txt 未创建');
+    const v = judgeInitialState(
+      't',
+      'positive',
+      false,
+      'eval_out/hello.txt 未创建'
+    );
     expect(v.checked).toBe(true);
     expect(v.ok).toBe(true);
     expect(v.detail).toContain('按预期失败');

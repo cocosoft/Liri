@@ -124,9 +124,7 @@ describe('finishRequest — 请求级 metric/timing（用量/延迟，能拿才�
   it('usage 与耗时**都拿不到** ⇒ 不产事件（不用空壳冒充"完成"）', async () => {
     const { appender, written } = makeAppender();
     expect(await finishRequest(appender, 's1', 7, {})).toBeNull();
-    expect(
-      await finishRequest(appender, 's1', 7, { usage: null })
-    ).toBeNull();
+    expect(await finishRequest(appender, 's1', 7, { usage: null })).toBeNull();
     expect(written).toHaveLength(0);
   });
 
@@ -201,9 +199,10 @@ describe('请求边界契约 — start 先于完成事件，且完成侧共享�
     const second = await startRequest(appender, 's1', { reason: 'compaction' });
 
     expect(second).toBeGreaterThan(first as number);
-    expect(
-      written.map((e) => (e.data as { reason?: string }).reason)
-    ).toEqual(['chat', 'compaction']);
+    expect(written.map((e) => (e.data as { reason?: string }).reason)).toEqual([
+      'chat',
+      'compaction',
+    ]);
   });
 });
 

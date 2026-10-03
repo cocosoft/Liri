@@ -48,7 +48,10 @@ const ENABLED = process.env.PERMISSION_SHIELD_E2E === '1';
  * 工具结果经 `JSON.stringify` 序列化 ⇒ 换行是 `\n` 两字符，直接用原文比对必然假失败。
  */
 function jsonEscapedHead(absPath: string): string {
-  return JSON.stringify(readFileSync(absPath, 'utf-8').slice(0, 60)).slice(1, -1);
+  return JSON.stringify(readFileSync(absPath, 'utf-8').slice(0, 60)).slice(
+    1,
+    -1
+  );
 }
 
 interface ToolInfoLike {
@@ -90,12 +93,15 @@ async function callTool(
   result?: unknown;
   data?: unknown;
 }> {
-  const res = await fetch(`${baseUrl}/v1/tools/${encodeURIComponent(toolName)}/execute`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId: 'shield-e2e', arguments: args }),
-    signal: AbortSignal.timeout(30_000),
-  });
+  const res = await fetch(
+    `${baseUrl}/v1/tools/${encodeURIComponent(toolName)}/execute`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: 'shield-e2e', arguments: args }),
+      signal: AbortSignal.timeout(30_000),
+    }
+  );
   return (await res.json()) as {
     success?: boolean;
     error?: string | null;
@@ -147,7 +153,9 @@ describe('A7 防泄题：真实沙箱端到端（HTTP 工具执行路径）', ()
           name: 'file_read',
           argKey: 'file_path',
         };
-        console.log(`[e2e] 使用工具=${readTool.name} 参数名=${readTool.argKey}`);
+        console.log(
+          `[e2e] 使用工具=${readTool.name} 参数名=${readTool.argKey}`
+        );
 
         // ① 命中屏蔽 ⇒ 拒绝，且原因指明被屏蔽路径
         const blocked = await callTool(sandbox.baseUrl, readTool.name, {
@@ -216,7 +224,9 @@ describe('A7 防泄题：真实沙箱端到端（HTTP 工具执行路径）', ()
           [readTool.argKey]: shieldedAbs,
         });
         if (!read.success) {
-          console.log(`[e2e] 对照组失败响应：${JSON.stringify(read).slice(0, 400)}`);
+          console.log(
+            `[e2e] 对照组失败响应：${JSON.stringify(read).slice(0, 400)}`
+          );
         }
         // 读到原文件内容 ⇒ 证明"前一个用例的拒绝"确实来自屏蔽，而非工具/路径本身不可用
         expect(read.success).toBe(true);

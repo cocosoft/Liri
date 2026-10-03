@@ -40,7 +40,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { StorageType } from '../../src/session/storage/UnifiedStorage';
 import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUnifiedStorage';
-import { SessionStatus, SessionType } from '../../src/session/types/UnifiedSession';
+import {
+  SessionStatus,
+  SessionType,
+} from '../../src/session/types/UnifiedSession';
 import type { UnifiedSession } from '../../src/session/types/UnifiedSession';
 import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
 

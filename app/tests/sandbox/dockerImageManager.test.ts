@@ -85,8 +85,12 @@ describe('B3-a: 成败分支（失败不抛，返回可判定的降级值）', (
       seen.push(args);
       return fail('pull failed');
     });
-    expect(await manager.pullImage('node:24-alpine', 'linux/amd64')).toBe(false);
-    expect(seen).toEqual([['pull', 'node:24-alpine', '--platform', 'linux/amd64']]);
+    expect(await manager.pullImage('node:24-alpine', 'linux/amd64')).toBe(
+      false
+    );
+    expect(seen).toEqual([
+      ['pull', 'node:24-alpine', '--platform', 'linux/amd64'],
+    ]);
 
     const fine = new DockerImageManager(async () => ok());
     expect(await fine.pullImage('node:24-alpine')).toBe(true);
@@ -145,7 +149,14 @@ describe('B3-a: 成败分支（失败不抛，返回可判定的降级值）', (
         buildArgs: { A: '1' },
       })
     ).toBe(true);
-    expect(seen[0]).toEqual(['build', '-t', 'my-img:1', '--build-arg', 'A=1', '/ctx']);
+    expect(seen[0]).toEqual([
+      'build',
+      '-t',
+      'my-img:1',
+      '--build-arg',
+      'A=1',
+      '/ctx',
+    ]);
   });
 
   it('pruneImages：成功 ⇒ 0；失败 ⇒ -1（不抛）', async () => {

@@ -46,7 +46,14 @@ const tasks = [{ id: 't1', name: '任务一', status: 'pending', dependsOn: [] }
 
 describe('extractTodoData · planId 透传（P2-1）', () => {
   it('生产方带 planId ⇒ 原样透传', () => {
-    const data = extractTodoData(withTodoData({ title: '计划A', phase: 'planning', planId: 'plan-1', tasks }));
+    const data = extractTodoData(
+      withTodoData({
+        title: '计划A',
+        phase: 'planning',
+        planId: 'plan-1',
+        tasks,
+      })
+    );
     expect(data?.planId).toBe('plan-1');
     expect(data?.title).toBe('计划A');
   });
@@ -66,7 +73,9 @@ describe('extractTodoData · planId 透传（P2-1）', () => {
   it('既有行为不回归：无 _todoData 或 tasks 非数组 ⇒ null', () => {
     expect(extractTodoData({} as unknown as ExtractInput)).toBeNull();
     expect(
-      extractTodoData({ metadata: { _todoData: { title: 'x', tasks: 'not-an-array' } } } as unknown as ExtractInput)
+      extractTodoData({
+        metadata: { _todoData: { title: 'x', tasks: 'not-an-array' } },
+      } as unknown as ExtractInput)
     ).toBeNull();
   });
 });

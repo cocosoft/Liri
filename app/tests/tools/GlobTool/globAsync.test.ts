@@ -35,26 +35,23 @@ const beforeAllWithTimeout = beforeAll as unknown as (
   timeout?: number
 ) => void;
 
-beforeAllWithTimeout(
-  () => {
-    tmpRoot = mkdtempSync(join(tmpdir(), 'glob-async-'));
-    projectDir = join(tmpRoot, 'proj');
-    mkdirSync(join(projectDir, 'src', 'a', 'b'), { recursive: true });
-    mkdirSync(join(projectDir, 'docs'), { recursive: true });
-    writeFileSync(join(projectDir, 'src', 'a', 'b', 'x.ts'), 'x\n');
-    writeFileSync(join(projectDir, 'src', 'index.ts'), 'x\n');
-    writeFileSync(join(projectDir, 'docs', 'readme.md'), 'x\n');
-    writeFileSync(join(projectDir, 'README.md'), 'x\n');
+beforeAllWithTimeout(() => {
+  tmpRoot = mkdtempSync(join(tmpdir(), 'glob-async-'));
+  projectDir = join(tmpRoot, 'proj');
+  mkdirSync(join(projectDir, 'src', 'a', 'b'), { recursive: true });
+  mkdirSync(join(projectDir, 'docs'), { recursive: true });
+  writeFileSync(join(projectDir, 'src', 'a', 'b', 'x.ts'), 'x\n');
+  writeFileSync(join(projectDir, 'src', 'index.ts'), 'x\n');
+  writeFileSync(join(projectDir, 'docs', 'readme.md'), 'x\n');
+  writeFileSync(join(projectDir, 'README.md'), 'x\n');
 
-    bigDir = join(tmpRoot, 'big');
-    mkdirSync(bigDir, { recursive: true });
-    for (let i = 0; i < 300; i++) {
-      mkdirSync(join(bigDir, `dir${i % 10}`), { recursive: true });
-      writeFileSync(join(bigDir, `dir${i % 10}`, `f${i}.txt`), `x\n`);
-    }
-  },
-  30_000
-);
+  bigDir = join(tmpRoot, 'big');
+  mkdirSync(bigDir, { recursive: true });
+  for (let i = 0; i < 300; i++) {
+    mkdirSync(join(bigDir, `dir${i % 10}`), { recursive: true });
+    writeFileSync(join(bigDir, `dir${i % 10}`, `f${i}.txt`), `x\n`);
+  }
+}, 30_000);
 
 afterAll(() => {
   try {

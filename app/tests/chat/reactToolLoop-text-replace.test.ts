@@ -108,7 +108,10 @@ describe('O2-4 正文取代标记（生产侧）', () => {
         () => ({ content: '', stop_reason: 'stop' }) as ChatResponse,
         // 第 2 轮（重试）：正常正文
         () =>
-          ({ content: '我先定位这两个文件。', stop_reason: 'stop' }) as ChatResponse,
+          ({
+            content: '我先定位这两个文件。',
+            stop_reason: 'stop',
+          }) as ChatResponse,
       ],
     });
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });

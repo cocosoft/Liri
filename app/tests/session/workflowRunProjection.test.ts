@@ -119,9 +119,7 @@ describe('workflowRun 落盘投影（MessageToEventMigrator）', () => {
   it('run 级事件携带计划步骤；步骤事件成对（stepId 一一对应）', () => {
     const { events } = convert({ workflowRun: runRecord() });
 
-    const start = events.find(
-      (e) => e.type === 'assistant/workflow_run_start'
-    );
+    const start = events.find((e) => e.type === 'assistant/workflow_run_start');
     expect((start!.data as { steps: string[] }).steps).toEqual([
       'doc:create-docx',
       'mail:send',
@@ -187,7 +185,12 @@ describe('workflowRun 落盘投影（MessageToEventMigrator）', () => {
         steps: [
           {
             start: { runId: RUN_ID, stepId: 's1', startedAt: 1 },
-            end: { runId: RUN_ID, stepId: 's1', outcome: 'completed', durationMs: 1 },
+            end: {
+              runId: RUN_ID,
+              stepId: 's1',
+              outcome: 'completed',
+              durationMs: 1,
+            },
           },
         ],
         // 非法 stopReason ⇒ run 级结束投影跳过

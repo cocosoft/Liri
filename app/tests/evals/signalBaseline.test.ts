@@ -9,10 +9,7 @@
  *  ④ **与退出码无关**：本函数是纯观测（其调用点（cli）不参与 process.exit）。
  */
 import { describe, expect, it } from 'bun:test';
-import {
-  summarizeSignal,
-  type Baseline,
-} from '../../src/evals/scoring';
+import { summarizeSignal, type Baseline } from '../../src/evals/scoring';
 import type {
   EvalRunSummary,
   EvalTask,
@@ -61,11 +58,16 @@ describe('A5: 零数据可用 —— 仅凭本次 run 识别"无信号 / 全挂"
 
     expect(s.saturated).toBe(1);
     expect(s.floored).toBe(1);
-    expect(s.findings.map((f) => f.taskId).sort()).toEqual(['t-fail', 't-pass']);
+    expect(s.findings.map((f) => f.taskId).sort()).toEqual([
+      't-fail',
+      't-pass',
+    ]);
     expect(s.findings.find((f) => f.taskId === 't-pass')?.label).toBe(
       'saturated'
     );
-    expect(s.findings.find((f) => f.taskId === 't-fail')?.label).toBe('floored');
+    expect(s.findings.find((f) => f.taskId === 't-fail')?.label).toBe(
+      'floored'
+    );
     // 未登记区间 ⇒ 不可能判越界
     expect(s.findings.every((f) => f.outOfRange === false)).toBe(true);
   });

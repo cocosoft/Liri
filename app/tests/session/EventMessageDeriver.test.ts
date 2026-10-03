@@ -215,12 +215,19 @@ describe('D4 压缩区间：事件为权威、metadata 为可重建缓存', () =
   it('缓存可用则用：事件侧无区间时沿用 metadata 缓存（历史会话兼容）', () => {
     const messages = deriveMessagesFromEvents(baseEvents(), [], {
       compactionRanges: [
-        { startSeq: 1, endSeq: 2, summary: '缓存摘要', summaryMessageId: 'sum-cache' },
+        {
+          startSeq: 1,
+          endSeq: 2,
+          summary: '缓存摘要',
+          summaryMessageId: 'sum-cache',
+        },
       ],
     });
 
     expect(messages.map((m) => m.id)).toEqual(['sum-cache', 'm3']);
-    expect(messages.find((m) => m.id === 'sum-cache')?.content).toBe('缓存摘要');
+    expect(messages.find((m) => m.id === 'sum-cache')?.content).toBe(
+      '缓存摘要'
+    );
   });
 
   it('缓存与事件冲突 ⇒ 事件胜（区间以事件为准）并记 warning', () => {
@@ -237,7 +244,12 @@ describe('D4 压缩区间：事件为权威、metadata 为可重建缓存', () =
     const messages = deriveMessagesFromEvents(events, [], {
       // 同 startSeq=1，但 endSeq/summary/summaryMessageId 全不一致 ⇒ 冲突
       compactionRanges: [
-        { startSeq: 1, endSeq: 2, summary: '缓存摘要', summaryMessageId: 'sum-cache' },
+        {
+          startSeq: 1,
+          endSeq: 2,
+          summary: '缓存摘要',
+          summaryMessageId: 'sum-cache',
+        },
       ],
     });
 

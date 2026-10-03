@@ -66,7 +66,7 @@ beforeAll(async () => {
       // ⚠️ 2026-09-29（台账 D-49）：pid 文件**由父进程立即写**（用 spawn 返回的 `g.pid`），
       // 不再依赖"孙进程自己写" —— 后者在孙进程早夭/竞态时会**缺失** ⇒ 清理分支被跳过
       // ⇒ 孤儿孙进程持续写心跳（污染环境 + 可能卡住 `afterAll` 的目录删除，即 D-47/D-48 的挂起）。
-      "try{fs.writeFileSync(pf,String(g.pid))}catch{};" +
+      'try{fs.writeFileSync(pf,String(g.pid))}catch{};' +
       'setInterval(()=>{},1000);'
   );
 });

@@ -29,7 +29,11 @@ interface TestResult {
  * 可配置子类：`incompleteBudget` / `validationBudget` 为各自钩子"还能返回几次 true"。
  * 用预算而非固定返回值，避免测试自身死循环（骨架另有 maxIterations 兜底）。
  */
-class BudgetedLoop extends ReActLoop<{ prompt: string }, undefined, TestResult> {
+class BudgetedLoop extends ReActLoop<
+  { prompt: string },
+  undefined,
+  TestResult
+> {
   reasonCount = 0;
   order: string[] = [];
   hookRounds: Array<{ hook: string; round: number }> = [];
@@ -146,9 +150,9 @@ class PlainLoop extends ReActLoop<{ prompt: string }, undefined, TestResult> {
 }
 
 /** 手动消费 generator 以取 return 值（for-await 拿不到） */
-async function drain<T extends ReActLoop<{ prompt: string }, undefined, TestResult>>(
-  loop: T
-): Promise<TestResult> {
+async function drain<
+  T extends ReActLoop<{ prompt: string }, undefined, TestResult>,
+>(loop: T): Promise<TestResult> {
   const iter = loop.run({ prompt: 'x' })[Symbol.asyncIterator]();
   let next = await iter.next();
   while (!next.done) next = await iter.next();

@@ -37,7 +37,12 @@ const NEVER: EvolutionState = { lastAppliedAt: 0, lastSampleSignature: '' };
 /** 构造可覆写的假依赖 */
 function fakeDeps(overrides: Partial<EvolutionDeps> = {}): {
   deps: EvolutionDeps;
-  written: { overlay: string[]; skills: Array<[string, string]>; state: EvolutionState[]; events: unknown[] };
+  written: {
+    overlay: string[];
+    skills: Array<[string, string]>;
+    state: EvolutionState[];
+    events: unknown[];
+  };
 } {
   const written = {
     overlay: [] as string[],
@@ -73,7 +78,12 @@ function fakeDeps(overrides: Partial<EvolutionDeps> = {}): {
 
 describe('纯函数：失败样本筛选（L7 三态口径）', () => {
   it('只用 converged===0（明确未收敛）；1/未决(null) 均不算失败', () => {
-    const rows = [sample('a', 1), sample('b', 0), sample('c', null), sample('d', 0)];
+    const rows = [
+      sample('a', 1),
+      sample('b', 0),
+      sample('c', null),
+      sample('d', 0),
+    ];
     const failures = selectFailureSamples(rows);
     expect(failures.map((f) => f.pdcaTaskId)).toEqual(['b', 'd']);
   });
@@ -158,9 +168,11 @@ describe('纯函数：提示词与输出解析', () => {
     expect(
       parseEvolutionOutput('{"overlay":"- a","skill":"","skillPatch":""}')
     ).toEqual({ overlay: '- a', skill: undefined, skillPatch: undefined });
-    expect(
-      parseEvolutionOutput('```json\n{"overlay":"- b"}\n```')
-    ).toEqual({ overlay: '- b', skill: undefined, skillPatch: undefined });
+    expect(parseEvolutionOutput('```json\n{"overlay":"- b"}\n```')).toEqual({
+      overlay: '- b',
+      skill: undefined,
+      skillPatch: undefined,
+    });
     expect(parseEvolutionOutput('不是 JSON')).toBeNull();
   });
 });
@@ -188,7 +200,11 @@ describe('编排：runAdaptationEvolution（假依赖）', () => {
     expect(written.state).toHaveLength(1);
     expect(written.state[0].lastSampleSignature).not.toBe('');
     expect(written.events).toEqual([
-      { scope: 'prompt', sampleCount: 2, bytes: Buffer.byteLength('- 要点一', 'utf-8') },
+      {
+        scope: 'prompt',
+        sampleCount: 2,
+        bytes: Buffer.byteLength('- 要点一', 'utf-8'),
+      },
     ]);
   });
 

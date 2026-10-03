@@ -101,12 +101,14 @@ describe('技能侧车（<name>/.evolution.md）', () => {
     expect(r).not.toBeNull();
     expect(r!.path).toBe(getSkillEvolutionPath('demo-skill', env));
     expect(readSkillEvolution('demo-skill', env)).toBe('经验：先跑 typecheck');
-    expect(existsSync(join(root, 'home', 'skills', 'demo-skill', 'SKILL.md'))).toBe(
-      false
-    );
-    expect(existsSync(join(root, 'home', 'skills', 'demo-skill', SKILL_EVOLUTION_FILE))).toBe(
-      true
-    );
+    expect(
+      existsSync(join(root, 'home', 'skills', 'demo-skill', 'SKILL.md'))
+    ).toBe(false);
+    expect(
+      existsSync(
+        join(root, 'home', 'skills', 'demo-skill', SKILL_EVOLUTION_FILE)
+      )
+    ).toBe(true);
   });
 
   it('名称越界（路径穿越）⇒ 拒绝读写', () => {

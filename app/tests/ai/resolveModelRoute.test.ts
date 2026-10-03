@@ -32,14 +32,7 @@
  * 本测试固化三层优先级与"解析不出模型名时不得返回空/UUID"的口径。
  */
 
-import {
-  describe,
-  expect,
-  test,
-  spyOn,
-  beforeEach,
-  afterEach,
-} from 'bun:test';
+import { describe, expect, test, spyOn, beforeEach, afterEach } from 'bun:test';
 import { RouteKey } from '../../src/ai/router/routes';
 import { ModelRouter } from '../../src/ai/modelRouter.js';
 import { appModelConfigService } from '../../src/ai/models/AppModelConfigService.js';

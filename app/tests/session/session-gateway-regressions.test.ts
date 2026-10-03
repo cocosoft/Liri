@@ -31,7 +31,10 @@ import {
   getFTS5SearchEngine,
   resetFTS5SearchEngine,
 } from '../../src/session/FTS5SearchEngine';
-import { MessageType, MessageRole } from '../../src/session/types/UnifiedMessage';
+import {
+  MessageType,
+  MessageRole,
+} from '../../src/session/types/UnifiedMessage';
 import type { UnifiedMessage } from '../../src/session/types/UnifiedMessage';
 import type { LiriEvent } from '@modules/session/types/events';
 

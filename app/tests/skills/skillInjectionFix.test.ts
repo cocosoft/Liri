@@ -136,8 +136,7 @@ describe('T2 展示=可执行（BUG-2）', () => {
 describe('T3b SkillTool 动态描述（BUG-6）', () => {
   it('getInfo 描述包含已注册 prompt 技能名清单', async () => {
     // 动态 import 避免顶层循环依赖（skillSingletons 构造 SkillRegistry 的 TDZ）
-    const { skillRegistry } =
-      await import('../../src/skills/skillSingletons');
+    const { skillRegistry } = await import('../../src/skills/skillSingletons');
     // 向全局 registry 注册临时技能，测完清理（避免污染其他用例）
     try {
       skillRegistry.register(makePromptSkill('zz-fix-test-skill'));

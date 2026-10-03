@@ -49,8 +49,14 @@ export const PATTERN_DESCRIPTORS: Readonly<
   long_task_pdl: {
     name: 'long_task_pdl',
     displayName: '长任务依赖图（PDL）',
-    when: '复杂任务走 PDL 分解，步骤带 dependsOn 依赖图（目标驱动主路径）',
-    matches: { complexity: 'complex' },
+    // D2（2026-10-04，pattern-assembly-runtime.md §5）：描述层改为**与运行时一致**。
+    // 原 when 写「复杂任务走 PDL 分解」与运行时相反 —— PlanDrivenLoop 实际承接的是
+    // 快速路径（simple 且无危险意图，`isEligibleForFastPath`），复杂任务走 PDCA 阶段链
+    // （见 ChatManager._shouldUsePlanDrivenLoop）。
+    // ⚠️ 遗留：`selectPattern` 对 complex 非研究仍返回本 pattern（N1 冻结判定规则），
+    // 与下方 matches 不一致 ⇒ 已登记为预存语义债（见 spec §9）。
+    when: '简单且无危险意图的任务走 PlanDrivenLoop 快速路径直接执行；复杂任务走 PDCA 阶段链（不经 PDL）',
+    matches: { complexity: 'simple' },
     roles: ['planner', 'step-executor'],
     assembly: {
       assembler: 'long_task_pdl',

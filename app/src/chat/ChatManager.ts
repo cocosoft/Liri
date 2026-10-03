@@ -261,6 +261,8 @@ import {
 } from '../tokenBudget/TokenBudgetController.js';
 import { UnifiedTokenTracker } from '../tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '@modules/query';
+// A8 最后一公里（B1，2026-10-04）：装配入口——assembler → 可执行路由（未接线者显式 unavailable）
+import { instantiatePattern } from '@modules/query';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../monitoring/memProfile.js';
@@ -4382,9 +4384,17 @@ export class ChatManagerImpl implements ChatManager {
       complexity: 'complex',
       research: hasResearchIntent(lastUserContent || ''),
     });
+    // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
+    // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
+    // 解析为可执行路由（未接线者显式 `unavailable`）。行为不变：
+    // `competitive_strategy` → `route === 'research'` → launchResearch。
+    const researchInstantiation = researchPattern
+      ? instantiatePattern(researchPattern)
+      : null;
     const researchMode =
       coreFeature('COMPETITIVE_STRATEGY') &&
-      researchPattern?.descriptor.assembly.assembler === 'competitive_strategy';
+      researchInstantiation?.status === 'ready' &&
+      researchInstantiation.route === 'research';
     if (researchMode) {
       logger.info('研究模式分流（P0-3）', {
         sessionId: session.id,

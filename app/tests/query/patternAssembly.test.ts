@@ -13,6 +13,12 @@ import {
   resolveAssemblyProviders,
   findUnboundProviders,
 } from '../../src/query/patternAssembly';
+import { instantiatePattern } from '../../src/query/patternAssembler';
+import {
+  selectPattern,
+  listPatterns,
+  getPatternDescriptor,
+} from '../../src/core/patterns/index';
 import { PATTERN_PROVIDERS } from '../../src/core/patterns/types';
 import { PATTERN_DESCRIPTORS } from '../../src/core/patterns/PatternRegistry';
 
@@ -63,6 +69,64 @@ describe('pattern 承担方解析层（A）：注册表引用全覆盖', () => {
           expect(closedSet.has(provider)).toBe(true);
         }
       }
+    }
+  });
+});
+
+// A8 最后一公里（B1，2026-10-04，pattern-assembly-runtime.md §4.1）：
+// 装配入口 instantiatePattern —— assembler → 可执行路由（未接线者显式 unavailable）
+describe('pattern 装配入口（B1）：assembler → 可执行路由', () => {
+  it('competitive_strategy → ready/research（复用 A7 装配点，不新增构造）', () => {
+    const sel = selectPattern({ complexity: 'complex', research: true });
+    if (!sel) throw new Error('研究型 complex 应选中 competitive_strategy');
+    const inst = instantiatePattern(sel);
+    expect(inst.status).toBe('ready');
+    expect(inst.assembler).toBe('competitive_strategy');
+    if (inst.status === 'ready') {
+      expect(inst.route).toBe('research');
+    }
+  });
+
+  it('long_task_pdl → unavailable（运行时由快速路径策略独立驱动，D2）', () => {
+    const sel = selectPattern({ complexity: 'complex' });
+    if (!sel) throw new Error('complex 非研究应选中 long_task_pdl');
+    const inst = instantiatePattern(sel);
+    expect(inst.status).toBe('unavailable');
+    expect(inst.assembler).toBe('long_task_pdl');
+    if (inst.status === 'unavailable') {
+      expect(inst.reason.length).toBeGreaterThan(0);
+      expect(inst.reason).toContain('PlanDrivenLoop');
+    }
+  });
+
+  it('三个未落地 pattern → unavailable 且原因非空（fail-closed，无占位 stub）', () => {
+    for (const name of [
+      'iterative_refine',
+      'parallel_distributed',
+      'self_verify',
+    ] as const) {
+      const descriptor = getPatternDescriptor(name);
+      if (!descriptor) throw new Error(`缺少 pattern 描述：${name}`);
+      const inst = instantiatePattern({ name, descriptor });
+      expect(inst.status).toBe('unavailable');
+      expect(inst.assembler).toBe(name);
+      if (inst.status === 'unavailable') {
+        expect(inst.reason.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('闭集全覆盖：5 个 pattern 均可装配（ready | unavailable，无异常/无 undefined）', () => {
+    const patterns = listPatterns();
+    expect(patterns).toHaveLength(5);
+    for (const descriptor of patterns) {
+      const inst = instantiatePattern({
+        name: descriptor.name,
+        descriptor,
+      });
+      expect(['ready', 'unavailable']).toContain(inst.status);
+      // assembler 必须回传选择结果里的装配入口标识（消费方据它判定去向）
+      expect(inst.assembler).toBe(descriptor.assembly.assembler);
     }
   });
 });

@@ -167,6 +167,12 @@ export {
   findUnboundProviders,
 } from './patternAssembly.js';
 export type { PatternProviderBinding } from './patternAssembly.js';
+// A8 最后一公里（B1，2026-10-04）：装配入口 —— assembler → 可执行路由（闭集 + fail-closed）
+export { instantiatePattern } from './patternAssembler.js';
+export type {
+  PatternInstantiation,
+  PatternRunRoute,
+} from './patternAssembler.js';
 export {
   CompetitiveStrategyOrchestrator,
   // A7（2026-10-01）：研究编排装配点——生产代码中该编排器只在此函数内构造

@@ -144,6 +144,7 @@ export {
 } from './patterns';
 export type {
   PatternProvider,
+  PatternAssemblerId,
   PatternAssembly,
   PatternSelection,
   PatternDescriptor,

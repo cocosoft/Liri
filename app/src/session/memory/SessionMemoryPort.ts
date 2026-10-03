@@ -26,11 +26,7 @@
  * **同步懒初始化**（`session/bootstrap/SessionSystemBootstrap.ts:16,50`），故 `accumulateTurn` /
  * `appendToMemory` / `getMemoryContext` / `readRawMemory` / `writeRawMemory` 保持**同步**签名。
  */
-import type {
-  ExtractionInput,
-  MemoryItem,
-  SessionMemory,
-} from './types';
+import type { ExtractionInput, MemoryItem, SessionMemory } from './types';
 
 export interface SessionMemoryPort {
   /** 读取会话记忆 */

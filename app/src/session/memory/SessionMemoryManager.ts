@@ -39,11 +39,7 @@ import { getLogger } from '@modules/monitoring';
 import type { SessionMemoryPort } from './SessionMemoryPort';
 // T-①07 T1-7 后续 · 类型下沉：三方共享类型（`MemoryItem`/`SessionMemory`/`ExtractionInput`）
 // 移至 `./types` ⇒ 端口与实现共同依赖之，端口不再回指本实现模块。
-import type {
-  ExtractionInput,
-  MemoryItem,
-  SessionMemory,
-} from './types';
+import type { ExtractionInput, MemoryItem, SessionMemory } from './types';
 
 const logger = getLogger('session:memory');
 

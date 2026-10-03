@@ -181,3 +181,24 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 3. `updateMessageBlocks` 的归属**待补读** :2456-2589 后确定。
 
 ⇒ **首个提取批次可行**（预计净出 ≈530 行 − 两处留主类的方法 ≈60 行 ≈ **470 行**）。
+
+### 7.5 边界问题消解：`updateMessageBlocks` 归属（2026-10-03 补读 :2456-2583）
+
+**已读全身**（128 行）。依赖实测：
+
+| 依赖 | 位置 | 归属判定 |
+|---|---|---|
+| `this._chatSessions` | :2464 | **会话消息投影**（C5 会话状态簇） |
+| `this.messageService` · `this.sessionGateway` | :2483 · :2491 · :2564 | 服务门面（投影落盘） |
+| `dedupeToolCallBlocks` · `persistChatMessage` · `pickMoreCompleteContent` · `toSessionMsgType` | 模块导入 | 消息投影/落盘 |
+| `this.getStreamTailSeq` | :2543 | 仅**单向 1 处**引用 C9–C11（写 `lastEventSeq`） |
+
+**判定：❌ 不属 C9–C11 ⇒ 留在主类**（与 `flushPendingPersists` 同族，归"消息投影/落盘"）。
+
+**依据**：① 主状态是 `_chatSessions`（会话投影）而非事件日志；② 落盘走 `sessionGateway.updateMessage` + `persistChatMessage`，职责属**消息落盘**（C7 同族）；③ 对 C9–C11 仅单向 1 处调用 ⇒ 若随迁会把"会话投影编辑"**拖进事件日志模块**（职责错位）。
+
+> 保留在主类**无循环依赖**：主类 → 新 `eventLogStore`（经其公开入口调 `getStreamTailSeq`）**单向**。
+
+**⇒ §7.4 的「边界问题」消解。首批 `eventLogStore.ts` 净出量**：≈530 行 − `flushAllCheckpoints`（:2169-2177）− `flushPendingPersists`（:2433-2450）− `updateMessageBlocks`（:2456-2583，本就不含在 530 内）⇒ **≈470 行**。
+
+**后续提示**：`flushPendingPersists` + `updateMessageBlocks` 同属"消息投影/落盘"族 ⇒ 未来提取 **C7 簇**（:1491-1924 + 这两个方法）时应一并搬走，使主类进一步瘦身。

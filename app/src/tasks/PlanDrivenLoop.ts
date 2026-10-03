@@ -34,6 +34,12 @@ import { goalMetricsService } from './db/GoalMetricsService.js';
 import type { Plan, PlanProgress } from './TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
 import { scheduleTopoBatches } from './topoBatches.js';
+// T-②05（2026-10-03）：分流判据配置化 —— 默认值/纯构造在 core 单一事实源，运行时解析在 fastPathPolicy
+import {
+  buildFastPathPolicy,
+  type FastPathPolicy,
+} from '@modules/types/fastPath';
+import { resolveFastPathPolicy } from './fastPathPolicy';
 
 const logger = getLogger('tasks:planDrivenLoop');
 
@@ -105,6 +111,13 @@ export interface PlanDrivenLoopConfig {
   onStepProgress?: (progress: PlanProgress) => void;
   /** 步骤完成回调 */
   onStepComplete?: (result: StepResult) => void;
+  /**
+   * T-②05（2026-10-03）：快速路径判据（阈值 + 危险意图正则）。
+   *
+   * 未注入 ⇒ 构造时经 `resolveFastPathPolicy()` 读 `GlobalConfig.fastPath`（缺省回退默认）。
+   * 显式注入供**测试**固定判据（避免依赖全局配置，保证确定性）。
+   */
+  fastPathPolicy?: FastPathPolicy;
 }
 
 /**
@@ -141,7 +154,7 @@ export interface PlanDrivenLoopResult {
   stepResults: StepResult[];
 }
 
-// ─── 复杂度判定（S0 行为冻结 2026-08-13，CS02 合规）──────────────
+// ─── 复杂度判定（S0 结构化判定 / T-②05 判据配置化，CS02 合规）──────────────
 
 /**
  * 任务复杂度（可持久化枚举标记）
@@ -150,57 +163,64 @@ export interface PlanDrivenLoopResult {
 export type TaskComplexity = 'simple' | 'complex';
 
 /**
- * 复杂度判定 —— 基于结构化特征（消息长度），无正则、无字符串匹配。
+ * 默认快速路径判据（未注入配置 / 配置缺失时的回退）。
  *
- * 阈值基线（冻结期固定，灰度 S1-S3 期间不得修改）：
- *   trimmed 长度 ≤ 60 → simple
- *   覆盖原正则的问候/致谢/短问题（≤30）与关键词问答（≤57）全部场景，
- *   31-60 字符的一般中文请求多为简单指令，纳入快速路径。
+ * 取值来自 core 单一事实源 `@modules/types/fastPath`（`config` 默认值同源）：
+ *   trimmed 长度 ≤ 60 → simple（覆盖原正则的问候/致谢/短问题 ≤30 与关键词问答 ≤57 场景）；
+ *   危险意图 = 删除/移除、发送、写入/覆盖 三类**不可逆**意图（中英文各一组）。
  *
- * 结果可持久化（消息/任务实体上记录 complexity 标记），供 S3 两层分流复用。
+ * ⚠️ 原「冻结基线（灰度 S1-S3 期间不得修改）」的**条件已失效** —— 灰度开关于 2026-09-01
+ * 阶段 3 退役（`ChatManager._shouldUseTAORLoop` 固化单一路径）；本值现为**默认值**，
+ * 可在 `GlobalConfig.fastPath` 覆盖（T-②05）。
  */
-export function classifyTaskComplexity(message: string): TaskComplexity {
-  const length = message.trim().length;
-  return length > 0 && length <= SIMPLE_TASK_MAX_LENGTH ? 'simple' : 'complex';
-}
+const DEFAULT_FAST_PATH_POLICY: FastPathPolicy = buildFastPathPolicy(null).policy;
 
-/** 简单任务最大字符数（冻结基线，见 classifyTaskComplexity） */
-export const SIMPLE_TASK_MAX_LENGTH = 60;
+/**
+ * 复杂度判定 —— 基于结构化特征（消息长度），无正则、无字符串匹配。
+ * @param maxSimpleTaskLength 简单任务长度上限（默认取默认判据；运行时由调用方传入配置值）
+ */
+export function classifyTaskComplexity(
+  message: string,
+  maxSimpleTaskLength: number = DEFAULT_FAST_PATH_POLICY.maxSimpleTaskLength
+): TaskComplexity {
+  const length = message.trim().length;
+  return length > 0 && length <= maxSimpleTaskLength ? 'simple' : 'complex';
+}
 
 /**
  * S3（P1-5 §5 S3）：危险工具意图过滤（安全准入）
  * 删除/发送/写入类工具（delete、send、write 前缀等）后果不可逆——即使任务简单可分解，
  * 无 REVIEW/DECIDE 质量门的快速路径也不适用，必须走经典路径。
  * 保守设计：命中即走经典路径（误报安全，漏报有风险）；本过滤是意图分类，非状态判断，与 CS02 不冲突。
+ *
+ * @param patterns 危险意图正则（默认取默认判据；运行时由调用方传入配置解析结果）
  */
-const DANGEROUS_TOOL_PATTERNS = [
-  /删除|移除|删掉|清除|清理/,
-  /\bdelete\w*\b/i,
-  /\b(?:rm|remove|unlink)\w*\b/i,
-  /发送|发信|寄送/,
-  /\bsend\w*\b/i,
-  /写入|覆盖/,
-  /\b(?:write|overwrite)\w*\b/i,
-];
-
-export function hasDangerousToolIntent(message: string): boolean {
+export function hasDangerousToolIntent(
+  message: string,
+  patterns: readonly RegExp[] = DEFAULT_FAST_PATH_POLICY.dangerousIntentPatterns
+): boolean {
   const text = message.toLowerCase();
-  return DANGEROUS_TOOL_PATTERNS.some((pattern) => pattern.test(text));
+  return patterns.some((pattern) => pattern.test(text));
 }
 
 /**
  * S3 快速路径准入：复杂度门（simple）且无危险工具意图
- * 供 ChatManager._shouldUsePlanDrivenLoop 两层分流第一层复用（与 S0 冻结判定同源）。
+ * 供 `ChatManager._shouldUsePlanDrivenLoop` 两层分流第一层复用（与复杂度判定同源）。
+ *
+ * @param policy 判据（未传 ⇒ 默认判据；生产侧经 `resolveFastPathPolicy()` 读配置）
  */
-export function isEligibleForFastPath(message: string): boolean {
+export function isEligibleForFastPath(
+  message: string,
+  policy: FastPathPolicy = DEFAULT_FAST_PATH_POLICY
+): boolean {
   return (
-    classifyTaskComplexity(message) === 'simple' &&
-    !hasDangerousToolIntent(message)
+    classifyTaskComplexity(message, policy.maxSimpleTaskLength) === 'simple' &&
+    !hasDangerousToolIntent(message, policy.dangerousIntentPatterns)
   );
 }
 
-function isSimpleTask(message: string): boolean {
-  return classifyTaskComplexity(message) === 'simple';
+function isSimpleTask(message: string, policy: FastPathPolicy): boolean {
+  return classifyTaskComplexity(message, policy.maxSimpleTaskLength) === 'simple';
 }
 
 // ─── PlanDrivenLoop ────────────────────────────────────
@@ -237,6 +257,8 @@ export class PlanDrivenLoop {
   private decomposer?: TaskDecomposer;
   private onStepProgress?: (progress: PlanProgress) => void;
   private onStepComplete?: (result: StepResult) => void;
+  /** T-②05：本次 run 生效的快速路径判据（构造时定：注入优先，否则读配置） */
+  private fastPathPolicy: FastPathPolicy;
 
   private plan: Plan | null = null;
   private stepResults: StepResult[] = [];
@@ -258,6 +280,8 @@ export class PlanDrivenLoop {
     this.enableAutoDecompose = config.enableAutoDecompose === true;
     this.onStepProgress = config.onStepProgress;
     this.onStepComplete = config.onStepComplete;
+    // T-②05：判据在构造时**定一次**（注入优先；否则读 GlobalConfig.fastPath，缺省回退默认）
+    this.fastPathPolicy = config.fastPathPolicy ?? resolveFastPathPolicy();
 
     if (config.decomposerProvider) {
       this.decomposer = new TaskDecomposer(null, config.decomposerProvider);
@@ -304,8 +328,8 @@ export class PlanDrivenLoop {
         enableAutoDecompose: this.enableAutoDecompose,
         hasDecomposer: !!this.decomposer,
       });
-      // 复杂度判定门：简单任务跳过分解，直接执行
-      if (isSimpleTask(userMessage)) {
+      // 复杂度判定门：简单任务跳过分解，直接执行（T-②05：阈值取本次生效判据）
+      if (isSimpleTask(userMessage, this.fastPathPolicy)) {
         span.addEvent('planDrivenLoop.simpleTask', {
           reason: 'complexity_gate',
         });

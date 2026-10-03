@@ -314,6 +314,7 @@ import {
   classifyTaskComplexity,
   hasDangerousToolIntent,
   isEligibleForFastPath,
+  resolveFastPathPolicy,
 } from '@modules/tasks';
 import type { PlanDrivenLoopResult } from '@modules/tasks';
 // 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
@@ -638,11 +639,16 @@ export class ChatManagerImpl implements ChatManager {
    * 简单任务走 PlanDrivenLoop 快速路径；复杂/危险任务走经典 PDCA 阶段链。
    */
   private _shouldUsePlanDrivenLoop(message: string): boolean {
-    if (!isEligibleForFastPath(message)) {
+    // T-②05（2026-10-03）：判据改为**配置驱动**（GlobalConfig.fastPath；缺省回退原冻结基线）
+    const policy = resolveFastPathPolicy();
+    if (!isEligibleForFastPath(message, policy)) {
       logger.debug('PlanDrivenLoop 分流：复杂度门/危险工具筛除', {
         messagePreview: message.slice(0, 50),
-        complexity: classifyTaskComplexity(message),
-        dangerousTool: hasDangerousToolIntent(message),
+        complexity: classifyTaskComplexity(message, policy.maxSimpleTaskLength),
+        dangerousTool: hasDangerousToolIntent(
+          message,
+          policy.dangerousIntentPatterns
+        ),
       });
       return false;
     }

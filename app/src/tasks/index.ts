@@ -77,6 +77,8 @@ export type {
   PlanDrivenLoopResult,
   PlanDrivenLoopConfig,
 } from './PlanDrivenLoop';
+// T-②05（2026-10-03）：快速路径判据的**运行时解析**（读 GlobalConfig.fastPath，缺省回退默认）
+export { resolveFastPathPolicy } from './fastPathPolicy';
 export { scheduleTopoBatches } from './topoBatches';
 export type { TopoBatchTask } from './topoBatches';
 export {

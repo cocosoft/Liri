@@ -24,6 +24,14 @@
  * 提供全局配置和项目级配置的完整类型支持
  */
 
+// T-②05（2026-10-03）：快速路径判据的**类型与默认值**下沉 core（`types/`）单一事实源
+// —— `config`(infra) 与 `tasks`(app) 同时引用，落任一侧都会造成反向依赖。
+import {
+  DEFAULT_DANGEROUS_INTENT_PATTERNS,
+  DEFAULT_FAST_PATH_MAX_LENGTH,
+  type FastPathConfig,
+} from '@modules/types/fastPath';
+
 /**
  * 项目配置接口
  */
@@ -453,6 +461,13 @@ export interface GlobalConfig {
   docWorkflow: DocWorkflowConfig;
   /** 协商式执行引擎配置（设计方案 §6 M3） */
   negotiation: NegotiationConfig;
+  /**
+   * 快速路径（PlanDrivenLoop 分流）判据配置（T-②05）
+   *
+   * 覆盖原硬编码的 `SIMPLE_TASK_MAX_LENGTH` 与「危险意图」正则清单；
+   * 默认值见 `@modules/types/fastPath`（单一事实源）。**留空/非法 ⇒ 回退默认**（fail-closed）。
+   */
+  fastPath: FastPathConfig;
 
   // ===== 已废弃（向后兼容，请使用分组字段） =====
 
@@ -574,6 +589,11 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       tier: 'moderate',
       responseTimeoutMs: 5 * 60 * 1000,
       autoDegradeOnTimeout: true,
+    },
+    // T-②05：快速路径判据（默认值来自 core 单一事实源；展开拷贝避免共享只读数组）
+    fastPath: {
+      maxSimpleTaskLength: DEFAULT_FAST_PATH_MAX_LENGTH,
+      dangerousIntentPatterns: [...DEFAULT_DANGEROUS_INTENT_PATTERNS],
     },
     ai: {
       provider: '', // 空字符串 → 从 DB/环境变量自动检测

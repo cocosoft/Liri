@@ -6,12 +6,13 @@
 import { describe, it, expect } from 'bun:test';
 import {
   classifyTaskComplexity,
-  SIMPLE_TASK_MAX_LENGTH,
   hasDangerousToolIntent,
   isEligibleForFastPath,
   PlanDrivenLoop,
   type TAORLoopFactoryOptions,
 } from '../../src/tasks/PlanDrivenLoop';
+// T-②05（2026-10-03）：默认阈值事实源已下沉 core（原 `SIMPLE_TASK_MAX_LENGTH` 为本地硬编码常量）
+import { DEFAULT_FAST_PATH_MAX_LENGTH } from '../../src/types/fastPath';
 import { MAX_SUBTASKS } from '../../src/ai/router/TaskDecomposer';
 import type { TAORLoop } from '../../src/query/TAORLoop';
 import type { TAORLoopDeps } from '../../src/query/TAORLoop';
@@ -30,19 +31,27 @@ describe('classifyTaskComplexity — 结构化判定（无正则）', () => {
   });
 
   it('恰好等于阈值的消息判定为 simple', () => {
-    const msg = '你'.repeat(SIMPLE_TASK_MAX_LENGTH);
-    expect(msg.length).toBe(SIMPLE_TASK_MAX_LENGTH);
+    const msg = '你'.repeat(DEFAULT_FAST_PATH_MAX_LENGTH);
+    expect(msg.length).toBe(DEFAULT_FAST_PATH_MAX_LENGTH);
     expect(classifyTaskComplexity(msg)).toBe('simple');
   });
 
   it('超过阈值的长任务判定为 complex', () => {
-    const msg = '请'.repeat(SIMPLE_TASK_MAX_LENGTH + 1);
+    const msg = '请'.repeat(DEFAULT_FAST_PATH_MAX_LENGTH + 1);
     expect(classifyTaskComplexity(msg)).toBe('complex');
   });
 
   it('trim 后按有效长度判定（首尾空白不计入）', () => {
-    const inner = '你'.repeat(SIMPLE_TASK_MAX_LENGTH);
+    const inner = '你'.repeat(DEFAULT_FAST_PATH_MAX_LENGTH);
     expect(classifyTaskComplexity(`  ${inner}  `)).toBe('simple');
+  });
+
+  it('T-②05：显式传入阈值即生效（配置驱动的前提）', () => {
+    const msg = '请'.repeat(DEFAULT_FAST_PATH_MAX_LENGTH + 1);
+    expect(classifyTaskComplexity(msg, DEFAULT_FAST_PATH_MAX_LENGTH + 1)).toBe(
+      'simple'
+    );
+    expect(classifyTaskComplexity('你好', 1)).toBe('complex');
   });
 });
 
@@ -83,8 +92,24 @@ describe('isEligibleForFastPath — S3 两层分流第一层', () => {
   });
 
   it('复杂任务不合格（复杂度门筛除）', () => {
-    const longMsg = '请'.repeat(SIMPLE_TASK_MAX_LENGTH + 1);
+    const longMsg = '请'.repeat(DEFAULT_FAST_PATH_MAX_LENGTH + 1);
     expect(isEligibleForFastPath(longMsg)).toBe(false);
+  });
+
+  it('T-②05：显式传入判据即生效（配置驱动的前提）', () => {
+    const longMsg = '请'.repeat(DEFAULT_FAST_PATH_MAX_LENGTH + 1);
+    expect(
+      isEligibleForFastPath(longMsg, {
+        maxSimpleTaskLength: longMsg.length,
+        dangerousIntentPatterns: [],
+      })
+    ).toBe(true);
+    expect(
+      isEligibleForFastPath('你好', {
+        maxSimpleTaskLength: 60,
+        dangerousIntentPatterns: [/你好/],
+      })
+    ).toBe(false);
   });
 });
 
@@ -114,5 +139,28 @@ describe('D1: taorLoopFactory 二元签名契约（PDL 侧）', () => {
       }
     ).taorLoopFactory;
     expect(stored).toBe(factory);
+  });
+});
+
+describe('T-②05: 快速路径判据可注入（测试确定性 / 生产读配置）', () => {
+  it('注入 fastPathPolicy 即生效；未注入则回退默认判据（60）', () => {
+    const fakeLoop = {} as TAORLoop;
+    const injected = {
+      maxSimpleTaskLength: 5,
+      dangerousIntentPatterns: [],
+    };
+    const pdl = new PlanDrivenLoop({
+      taorLoop: fakeLoop,
+      deps: {} as TAORLoopDeps,
+      sessionId: 's1',
+      fastPathPolicy: injected,
+    });
+    const stored = (
+      pdl as unknown as {
+        fastPathPolicy: { maxSimpleTaskLength: number };
+      }
+    ).fastPathPolicy;
+    expect(stored).toBe(injected);
+    expect(stored.maxSimpleTaskLength).toBe(5);
   });
 });

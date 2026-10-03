@@ -59,7 +59,7 @@
 
 - N1：**不新建编排运行时 / 不新造装配器**（不会因本 spec 而多出任何 `new XxxOrchestrator`）——归 T-①04。
 - N2：不改 `PatternSelector` 的**判定规则**（simple→null / research→competitive_strategy / 其余 complex→long_task_pdl 逐字不变）。
-- N3：不改 PDL 的分解/拓扑/失败门控语义，不改 `isSimpleTask` 门与 `SIMPLE_TASK_MAX_LENGTH=60`（属 T-②05）。
+- N3：不改 PDL 的分解/拓扑/失败门控语义，不改 `isSimpleTask` 门与长度阈值（原 `SIMPLE_TASK_MAX_LENGTH=60`）——**T-②05 已于 2026-10-03 完成配置化**（默认值与语义均不变），见 [`fast-path-policy-config.md`](./fast-path-policy-config.md)。
 - N4：不新增 HTTP/IPC 端点、不新增事件类型、不新增配置项/开关。
 - N5：不改前端（`client/`）；`PatternSelector` 无前端消费者。
 - N6：不处理 `PdcaLauncher` / `CoreAPIImpl` 的两处 `new CompetitiveStrategyOrchestrator` 装配点分散（属 **T-①03/A7**）。

@@ -57,13 +57,15 @@
 >
 > ⚠️ **顺序约束**：T1-0 **必须**先完成 —— 端口方法集与改名影响面都依赖它；跳过则端口形状是猜的（CS06）。
 
-## 5. 未取证（**如实登记；T1-0 负责关闭，关闭前不得当作已知**）
+## 5. 未取证（**T1-0 负责关闭**）
 
-1. `interface MemoryManager` 的 **40 个方法逐条归属**（Read/Write/Search/Forget vs 非端口职责）**未做** ⇒ 端口形状未定。
-2. `AdvancedMemorySystem` 的**运行时可达性**未取证（构造点仅 `agent/AgentModuleTest.ts`；barrel 转出但未见运行时消费者）。
-3. RAM 侧 3 个 `MemoryManager` 的**引用点未统计** ⇒ D3 改名影响面未知。
-4. `memory/index.ts` barrel 的**消费者未逐文件分类**（`@modules/memory` 命中 ≥40 文件，尚未统计"谁依赖哪个具体实现"）。
-5. `EnhancedMemoryManager` 的 6 个公开入口**是否有基座不具备的语义**（而非单纯包装）未逐条比对。
+| # | 项 | 状态（2026-10-03 更新） |
+|---|---|---|
+| 1 | `interface MemoryManager` 方法逐条归属 | **🟡 已出草拟归属表**（§10.3）；**待 T1-1 定稿**（须区分"核心记忆语义"与"域内事务"） |
+| 2 | `AdvancedMemorySystem` 运行时可达性 | **✅ 已关闭：运行时不可达**（§10.1） |
+| 3 | RAM 侧 3 个 `MemoryManager` 引用面 | **✅ 已关闭**（§10.2）：`performance/MemoryManager` 4 代码文件 + barrel + 1 测试；`utils/memoryManager` **零外部引用**；`core/utils/Performance` 仅文档引用 |
+| 4 | `memory/index.ts` barrel 的消费者逐文件分类 | **未做**（`@modules/memory` 命中 ≥40 文件，未统计"谁依赖哪个具体实现"） |
+| 5 | `EnhancedMemoryManager` 6 个公开入口的语义差 | **未做**（事实 4 只列**方法名**；"是否仅包装"须逐条读实现） |
 
 ## 6. 影响面（初估）
 
@@ -100,6 +102,50 @@
 |---|---|---|
 | 2026-10-03 | **立项 + 取证**（提交 `2a9c97066`） | 首版把碎片① 写成"无契约"、把 4 个类并列成"同接口多实现" |
 | 2026-10-03 | **T0 裁定**（D1 细分端口／D2 全保留 + 增强层并入基座／D3 RAM 随本项改名／D4 收口工厂） | 用户已答 |
-| 2026-10-03 | **二次取证更正**（尚未提交时写入本节） | 发现 `interface MemoryManager` **已存在**（`MemoryManager.ts:63`）⇒ 更正碎片①；发现 `SessionMemoryManager` 与接口**几乎零重叠** ⇒ 更正碎片②的"三套实现"表述。**本更正随本文件同批提交** |
+| 2026-10-03 | **二次取证更正**（提交 `13292790d`） | 发现 `interface MemoryManager` **已存在**（`MemoryManager.ts:63`）⇒ 更正碎片①；发现 `SessionMemoryManager` 与接口**几乎零重叠** ⇒ 更正碎片②的"三套实现"表述 |
+| 2026-10-03 | **T1-0 完成 3/5**（本次提交） | 关闭 §5-#2（`AdvancedMemorySystem` **运行时不可达**）、#3（RAM 三类引用面：最重 4 代码文件 + 1 测试）；#1 出**草拟**归属表。**仍未关闭**：#4 barrel 消费者分类、#5 增强入口语义差 ⇒ **T1-1 尚不可开始**（端口签名未定稿） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
+
+---
+
+## 10. 附录：T1-0 取证清单（2026-10-03）
+
+> 取证方式：`Grep`（模式与范围随条注明）+ `Read`。**本节只登记工具返回的事实**；任何未命中之处不得反推为"不存在"以外的结论。
+
+### 10.1 `AdvancedMemorySystem` 运行时可达性 ⇒ **不可达**（关闭）
+
+`Grep "AdvancedMemorySystem"`（`app/` 整树）**全部 6 处命中**（无遗漏）：
+
+| 命中 | 性质 |
+|---|---|
+| `agent/memory/AdvancedMemorySystem.ts:76` | 类定义 |
+| `agent/index.ts:42` / `:160` | import + barrel 转出 |
+| `agent/AgentModuleTest.ts:5` / `:16` / `:28` | **示例/测试文件**（唯一构造点） |
+
+⇒ **无任何文件以该符号名从 `@modules/agent` 消费** ⇒ 运行时不可达（仅"被转出"）。**注**：D2 裁定为"全保留"，故本结论**不**用于删除，仅说明 T1-4 对它做端口适配属"低优先级"。
+
+### 10.2 RAM 侧 3 个同名 `MemoryManager` 引用面（关闭）
+
+| 类 | 定义 | 引用点（全部命中） | 改名影响面 |
+|---|---|---|---|
+| `performance/MemoryManager.ts` | `:55 class MemoryManager`；`:473 export const memoryManager` | `performance/index.ts:60`（`export *`）、`performance/PerformanceReporter.ts:11`（`generateMemoryReport`）、`performance/MemoryOptimizer.ts:7,92,255,268,370`（`memoryManager`）、`performance/test-performance.ts:8`、`tests/ci/performance.test.ts:27` | **4 代码文件 + 1 barrel + 1 测试** |
+| `utils/memoryManager.ts` | `:44 class MemoryManager`；`:292 export const memoryManager` | **零外部引用**（`src/utils/index.ts` **不存在** ⇒ 无 barrel 转出；全仓无 `from '…memoryManager…'` 命中） | **仅自身**（可随 T1-6 直接改名或下线，另行裁定） |
+| `core/utils/Performance.ts` | `:458 class MemoryManager`；`:792 export function getMemoryManager()` | 代码内：仅自身 `:750 new MemoryManager({…})`；外部：**仅** `app/docs/API.md:796-797,857`（文档示例，非代码） | **仅自身 + 1 文档** |
+
+⇒ D3 改名的**真实影响面很小**（最重的一处也只有 4 个代码文件 + 1 测试），可在 T1-6 一次完成。
+
+### 10.3 `interface MemoryManager` 方法归属（**草拟，待 T1-1 定稿**）
+
+来源：`memory/MemoryManager.ts:63-169` 接口体逐条读取（重载合并计入 1）。分类**判据**：只有"与外域消费者真正相关的**核心记忆语义**"进入窄端口；**域内事务/集成**（团队记忆、PYApp 集成、provider、同步）**建议不迁入**。
+
+| 拟归端口 | 方法（草拟） | 计 |
+|---|---|---|
+| **Read** | `getMemory` · `getAllMemories` · `getMemoryStats` · `getMemoryUsageStats` | 4 |
+| **Write** | `createMemory` · `updateMemory` · `deleteMemory` · `createMemoryFromChat` | 4 |
+| **Search** | `getRelevantMemories` · `searchMemoriesBySemantic` · `searchMemoriesByTags` · `generateMemoryPrompts` | 4 |
+| **Forget** | `cleanupExpiredMemories` | 1 |
+| **域内事务（拟**不**入端口）** | 团队记忆 12：`createTeamMemory`×2 · `getTeamMemories`×2 · `updateTeamMemory` · `deleteTeamMemory` · `setTeamMemoryConfig` · `getTeamMemoryConfig` · `getTeamMemorySyncStatus` · `getTeamMemoryLastSyncTime` · `getTeamMemorySyncRecords` · `triggerTeamMemorySync`；PYApp 集成 10：`initializePYAppIntegration` · `getPYAppConfig` · `getPYAppRules` · `getPYAppRulesByCategory` · `getPYAppRulesByPriority` · `getPYAppPreferences` · `getPYAppPreference` · `getPYAppPreferenceValue` · `getPYAppRulesText` · `checkPYAppChanges`（+ `addPYAppChangeListener`/`removePYAppChangeListener` 2）；自动记忆 6：`processConversation` · `setAutoMemoryConfig` · `getAutoMemoryConfig` · `clearConversationMemory` · `clearAllConversationMemories` · `setMemoryExpiry`；provider 3：`addProvider` · `getProvider` · `removeProvider` | ~33 |
+| **待定（T1-1 逐条读实现后定）** | `setMemoryExpiry`（写 or 遗忘？）· `processConversation`（编排，跨读写）· `createMemoryFromChat`（写 or 领域编排？） | 3 |
+
+⚠️ **本表为草拟**：四个端口的**最终签名**须待 §5-#5 关闭（读 `EnhancedMemoryManager` 实现）后定稿；**不得**以本表直接开始 T1-1 建文件。

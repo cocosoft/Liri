@@ -33,6 +33,10 @@ import { dirname, join } from 'path';
 // 实测仅定义处，故改本地契约零破坏面）。
 import type { EmbeddingRefPort } from '@modules/runtime/api/embeddingPorts';
 import { getLogger } from '@modules/monitoring';
+// T-①07（A5 记忆分层收敛）T1-4 · 方案①：声明实现会话域端口（`session/memory/SessionMemoryPort.ts`）。
+// 端口只覆盖本类**真实具备**的会话记忆对外能力；`shouldExtract`/`extractPerTurn`/`getMemoryPath`
+// 及全部私有方法不属端口（判据见端口文件注释）。见 .trae/specs/memory-port-unification.md。
+import type { SessionMemoryPort } from './SessionMemoryPort';
 
 const logger = getLogger('session:memory');
 
@@ -158,7 +162,7 @@ _暂无记录_
 // SessionMemoryManager
 // ============================================================================
 
-export class SessionMemoryManager {
+export class SessionMemoryManager implements SessionMemoryPort {
   private config: MemoryThresholdConfig;
   private memoryDir: string;
   private embeddingManager?: EmbeddingRefPort;

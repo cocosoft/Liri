@@ -237,11 +237,7 @@ export function selectEvictions(
  * （此前 `interface MemoryManager` 是无人实现的死契约，且近半声明在本类中并不存在）。
  */
 export class MemoryManagerImpl
-  implements
-    MemoryReadPort,
-    MemoryWritePort,
-    MemorySearchPort,
-    MemoryForgetPort
+  implements MemoryReadPort, MemoryWritePort, MemorySearchPort, MemoryForgetPort
 {
   /**
    * 记忆存储

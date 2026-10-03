@@ -188,16 +188,12 @@ export interface SessionSummaryMemorySink {
  * 进程内共享实例（v5 P0-⑧）：默认复用同一 MemoryManagerImpl（同一磁盘 store +
  * 同一实例级 retriever 索引），避免每调用新建冷实例导致召回不一致与索引重复预热。
  * 测试/嵌入场景可注入独立 sink（manager 参数）。
- * lazy dynamic import：首次上卷时才装配实例，静态引用不连带加载 memory 运行时链。
+ * T-①07 T1-5：改走 `getMemoryManager()` 进程内共享工厂（不再自建单例）；仍保留
+ * lazy dynamic import —— 首次上卷时才装配实例，静态引用不连带加载 memory 运行时链。
  */
-let sharedManager: MemoryManagerImpl | null = null;
-
 async function getSharedManager(): Promise<MemoryManagerImpl> {
-  if (!sharedManager) {
-    const { MemoryManagerImpl: MMI } = await import('../MemoryManager');
-    sharedManager = new MMI();
-  }
-  return sharedManager;
+  const { getMemoryManager } = await import('../MemoryManager');
+  return getMemoryManager();
 }
 
 function isSafeSessionId(sessionId: string): boolean {

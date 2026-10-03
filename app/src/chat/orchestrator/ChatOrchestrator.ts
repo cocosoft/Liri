@@ -445,8 +445,8 @@ export class ChatOrchestrator {
         // 且 `IdleScaleMonitor.onIdle` 每次空闲只触发一次（`idleFired` 守卫）⇒ 无需重入保护。
         void (async () => {
           try {
-            const { MemoryManagerImpl } = await import('@modules/memory');
-            const mm = new MemoryManagerImpl();
+            const { getMemoryManager } = await import('@modules/memory');
+            const mm = getMemoryManager();
             const r = await mm.runMaintenancePass();
             if (r.removed > 0) {
               logger.info('记忆维护：空闲期全库去重完成', {

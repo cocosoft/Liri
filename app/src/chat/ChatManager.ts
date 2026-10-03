@@ -3564,8 +3564,8 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string
   ): Promise<void> {
     try {
-      const { MemoryManagerImpl } = await import('@modules/memory');
-      const mm = new MemoryManagerImpl();
+      const { getMemoryManager } = await import('@modules/memory');
+      const mm = getMemoryManager();
       const turnText = `用户: ${userContent}\n助手: ${assistantContent}`;
 
       /** 追加一轮对话并封顶（保留最近内容） */

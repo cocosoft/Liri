@@ -1283,3 +1283,30 @@ export class MemoryManagerImpl
     this.pyAppIntegrationService.removeChangeListener(listener);
   }
 }
+
+// ============================================================================
+// 共享单例工厂（T-①07 T1-5 · D4 工厂收口）
+// ============================================================================
+
+/**
+ * 进程内共享的 `MemoryManagerImpl` 单例（懒初始化）。
+ *
+ * 背景：此前全仓有 ≥9 处各自 `new MemoryManagerImpl()`（其中 4 处还各造了局部惰性单例），
+ * 多实例各自持有独立的内存 retriever 索引与关系图 ⇒ 召回不一致、索引重复预热，并在
+ * 异步 `saveIndex`/`saveRelationGraph` 下互相覆写（`tasks/LongRunningTaskOrchestrator`
+ * 已因此吃过一次亏）。本工厂是全仓**唯一共享入口**。
+ *
+ * 需要**惰性加载**的调用方（避免静态引用连带加载 memory 运行时链）可经
+ * `await import('@modules/memory')` 后调用本函数 —— 模块缓存保证仍返回同一实例。
+ *
+ * 显式隔离场景（如 `memory/cli/MemoryCLI` 可传自定义 `memoryDir`）仍可直接构造，
+ * 不纳入共享单例。
+ */
+let sharedMemoryManager: MemoryManagerImpl | null = null;
+
+export function getMemoryManager(): MemoryManagerImpl {
+  if (!sharedMemoryManager) {
+    sharedMemoryManager = new MemoryManagerImpl();
+  }
+  return sharedMemoryManager;
+}

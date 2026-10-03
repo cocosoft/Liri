@@ -600,13 +600,13 @@ async function startDeferredPrefetches(): Promise<void> {
       // 注册记忆查询提供者（MemorySummarizer → MemoryQueryProvider 适配）+ 启动老化清理
       (async () => {
         try {
-          const { MemoryManagerImpl } =
+          const { getMemoryManager } =
             await import('../memory/MemoryManager.js');
           const { MemorySummarizer } =
             await import('../memory/services/MemorySummarizer.js');
           const { setMemoryQueryProvider, getCurrentSessionContext } =
             await import('../services/prompt/MemoryPromptProvider.js');
-          const memoryManager = new MemoryManagerImpl();
+          const memoryManager = getMemoryManager();
           const summarizer = new MemorySummarizer(memoryManager);
           setMemoryQueryProvider({
             async getMemorySummaries(limit?: number) {

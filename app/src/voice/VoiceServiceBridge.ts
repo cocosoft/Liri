@@ -72,7 +72,7 @@ import { VoiceChannelIntegration } from './VoiceChannelIntegration';
 import type { VoiceChannelConfig } from './VoiceChannelIntegration';
 import { VoiceCommandRouter } from './VoiceCommandRouter';
 import type { VoiceCommandRouterConfig } from './VoiceCommandRouter';
-import { MemoryManagerImpl } from '@modules/memory';
+import { getMemoryManager } from '@modules/memory';
 
 import type { VoiceServiceConfig } from '@modules/services/voice/models/types';
 import type {
@@ -458,7 +458,7 @@ export class VoiceServiceBridge {
         }
       }
       return new VoiceSession(connection, {
-        memoryManager: new MemoryManagerImpl(),
+        memoryManager: getMemoryManager(),
       });
     };
 

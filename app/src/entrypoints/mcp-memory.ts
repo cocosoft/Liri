@@ -48,7 +48,7 @@ import {
   type ListToolsResult,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { MemoryManagerImpl, MemoryType } from '@modules/memory';
+import { getMemoryManager, MemoryType } from '@modules/memory';
 import type { MemoryMetadata } from '@modules/memory/types/MemoryMetadata';
 import { getLogger } from '@modules/monitoring';
 
@@ -146,7 +146,7 @@ function formatMemorySearchResults(
  * 启动记忆 MCP Server（stdio）。
  */
 export async function startMemoryMCPServer(): Promise<void> {
-  const memoryManager = new MemoryManagerImpl();
+  const memoryManager = getMemoryManager();
 
   const server = new McpServer(
     {

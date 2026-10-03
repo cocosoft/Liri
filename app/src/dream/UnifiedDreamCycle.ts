@@ -488,8 +488,8 @@ export class UnifiedDreamCycle {
       // 冷存储归档：60 天无更新的记忆移入冷存储
       try {
         const { pruneOldMemories } = await import('./ColdStorage');
-        const { MemoryManagerImpl } = await import('../memory/MemoryManager');
-        const mm = new MemoryManagerImpl();
+        const { getMemoryManager } = await import('../memory/MemoryManager');
+        const mm = getMemoryManager();
         coldArchived = await pruneOldMemories(mm);
         if (coldArchived > 0) {
           insights.push(`已将 ${coldArchived} 条旧记忆移入冷存储`);
@@ -709,8 +709,8 @@ export class UnifiedDreamCycle {
   /** 自动触发记忆回写 (AutoDream → MemoryDreamService) */
   private async triggerMemoryDream(): Promise<void> {
     try {
-      const { MemoryManagerImpl } = await import('../memory/MemoryManager');
-      const mm = new MemoryManagerImpl();
+      const { getMemoryManager } = await import('../memory/MemoryManager');
+      const mm = getMemoryManager();
       const { runMemoryDream } =
         await import('../memory/consolidation/MemoryDreamService');
       await runMemoryDream(mm);

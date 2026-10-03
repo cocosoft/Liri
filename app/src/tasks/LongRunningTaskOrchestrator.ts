@@ -115,14 +115,15 @@ interface MemoryWritebackManager {
  * 3-1 加固（评审 1，2026-09-03）：记忆写回 manager 惰性单例。
  * 原实现每次 PDCA 终态 new MemoryManagerImpl()——多实例各自持 store/retriever 检索索引与
  * 关系图，异步加载下 saveIndex/saveRelationGraph 整体覆写可能互相覆盖；且每次构造触发全量
- * refreshSummaryCache 扫描。改为共享单例（对齐 memory-handlers.ts 惰性单例模式）。
+ * refreshSummaryCache 扫描。改为共享单例（T-①07 T1-5 起统一走 `@modules/memory`
+ * `getMemoryManager()` 进程内共享工厂）。
  */
 let _memoryWritebackManager: MemoryWritebackManager | null = null;
 async function resolveMemoryWritebackManager(): Promise<MemoryWritebackManager | null> {
   if (!_memoryWritebackManager) {
     try {
-      const { MemoryManagerImpl } = await import('@modules/memory');
-      _memoryWritebackManager = new MemoryManagerImpl();
+      const { getMemoryManager } = await import('@modules/memory');
+      _memoryWritebackManager = getMemoryManager();
     } catch (err) {
       await handleError(err, {
         module: 'tasks:longRunning',

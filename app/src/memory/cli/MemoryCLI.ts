@@ -29,6 +29,8 @@ export class MemoryCLI {
    * @param memoryDir 记忆目录路径
    */
   constructor(memoryDir: string = join(resolveDataDir(), 'memory')) {
+    // T-①07 T1-5：此处显式构造（而非走 getMemoryManager() 共享工厂）—— CLI 支持传入自定义
+    // memoryDir，属显式隔离场景，不纳入进程内共享单例（见 MemoryManager.ts 工厂注释）。
     this.memoryManager = new MemoryManagerImpl(memoryDir);
     this.program = new Command();
     this.setupCommands();

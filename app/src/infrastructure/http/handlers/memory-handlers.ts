@@ -24,19 +24,15 @@ const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
   decision: 'knowledge',
 };
 
-// ---- Memory Manager Singleton ----
-
-let memoryManagerInstance: import('@modules/memory').MemoryManagerImpl | null =
-  null;
+// ---- Memory Manager（T-①07 T1-5：统一走 `@modules/memory` 进程内共享工厂，不再自建单例）----
 
 async function getMemoryManager(): Promise<
   import('@modules/memory').MemoryManagerImpl
 > {
-  if (!memoryManagerInstance) {
-    const { MemoryManagerImpl } = await import('@modules/memory');
-    memoryManagerInstance = new MemoryManagerImpl();
-  }
-  return memoryManagerInstance;
+  const { getMemoryManager: getSharedMemoryManager } = await import(
+    '@modules/memory'
+  );
+  return getSharedMemoryManager();
 }
 
 export async function handleListMemories(

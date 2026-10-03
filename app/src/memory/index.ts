@@ -29,6 +29,7 @@ export type {
 } from './ports/MemoryPort';
 export {
   MemoryManagerImpl,
+  getMemoryManager,
   selectEvictions,
   type EvictionCandidate,
 } from './MemoryManager';

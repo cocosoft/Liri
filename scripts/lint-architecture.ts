@@ -2305,7 +2305,10 @@ class ArchitectureLinter {
     if (violations.length > 0) {
       this.violations.push({
         ruleId: 'R03-002',
-        severity: 'warning',
+        // T-③01（2026-10-03 用户裁定）：由 warning 提升为 **error** —— 与 R00-001（分层）同级阻断
+        // （`errors>0 ⇒ exit 1`）。提升时实测本规则违规 **0**（783 处落在"规范子入口白名单"，
+        // 非违规）⇒ 零回归；目的是**防未来回流**（新增子目录直连即提交被拒）。
+        severity: 'error',
         file: violations[0].importer,
         message: `存在 ${violations.length} 处从模块子目录直接 import 的行为（应通过模块 index.ts 出口导入）；另有 ${exemptedCount} 处落在规范子入口白名单，不在此列`,
         suggestion: `请改为从模块 index.ts 出口导入\n  示例 (top 5):\n${violations

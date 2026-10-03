@@ -1920,7 +1920,9 @@ export class ChatManagerImpl implements ChatManager {
   private async _releaseInactiveEventLogSnapshots(
     activeSessionId: string
   ): Promise<void> {
-    return this._eventLogStore.releaseInactiveEventLogSnapshots(activeSessionId);
+    return this._eventLogStore.releaseInactiveEventLogSnapshots(
+      activeSessionId
+    );
   }
 
   /** Fix2：该会话的指定 turn 是否已写 turn/end（状态在 `ChatEventLogStore`） */

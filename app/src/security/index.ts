@@ -79,8 +79,8 @@ export {
 
 // 沙箱管理（security/SandboxManager 已删除：零消费遗留，P0 清理）
 
-// 权限管理
-export { PermissionManager } from './PermissionManager';
+// 权限管理（T-①05 D1/D3：改名消歧 —— 与 permission/PermissionManager 主管理器区分）
+export { SecurityPermissionView } from './PermissionManager';
 
 // 审计
 export { SecurityAudit } from './SecurityAudit';

@@ -2,7 +2,7 @@
 
 > **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` §1 ① **T-①05（A3）**。
 > **原始出处**：会话导出 L4787 / L4521；`architecture-benchmark`。
-> **状态（2026-10-03）**：**已立项取证**；T0 裁定待用户作答；T1 未开工。
+> **状态（2026-10-03）**：✅ **已完成**（T1-1~T1-3 执行；§7 五项验收达成）。遗留见 §7 末（① security 侧工厂 0 消费者 ② 预存文档错误）。
 > **前置**：无（D-157 收的是 `permission → sandbox` 另一条边，与本项正交）。
 
 ---
@@ -72,16 +72,20 @@
 | **D2** | **工厂函数同名** | 随 D1 一并处理：A 保留 `createPermissionManager()`，B 改名（如 `createSecurityPermissionView()`）—— 是否同意 |
 | **D3** | **barrel 出口** | `security/index.ts:83` 现转出 `PermissionManager`；改名后是否同步订正出口名（**建议是**，避免残留同名） |
 
+**裁定结果（2026-10-03，用户已答）**：D1 **改名消歧** · D2 **随 D1 一并改名工厂** · D3 **同步订正 barrel 出口**。
+
+⇒ 因 D1 选**改名**（非合并），§5-#1「A 是否有同步 `checkToolPermission`」**不再阻塞**本项（合并路径未采用）。
+
 ---
 
 ## 4. 计划（T1 草拟，待 D1 定后细化）
 
 | 步骤 | 内容 | 完成判据 |
 |------|------|----------|
-| T1-0 | 前置取证补全：① A 是否具备**同步** `checkToolPermission` 等价面（决定 D1(b) 可行性）；② `SecurityIntegration` 对 B 的**全部**方法/字段依赖（是否仅 `checkToolPermission`） | 逐项有 `Grep`/`Read` 证据 |
-| T1-1 | 依 D1 执行（改名 or 合并） | `Grep "class PermissionManager"`（限 `app/src`）**仅剩 1 处** |
-| T1-2 | 依 D2 处理同名工厂；依 D3 订正 barrel | 全仓无"同名不同语义"的 `createPermissionManager` |
-| T1-3 | 测试与验收 | 见 §7 |
+| T1-0 | ✅ **已关闭（D1=a 下不再需要）**：合并路径未采用 ⇒ 无需取证 A 的同步 `checkToolPermission` 等价面 | ✅ 说明见 §3 裁定结果 |
+| T1-1 | ✅ **已完成（2026-10-03）**：`security/PermissionManager.ts` 类 `PermissionManager` → **`SecurityPermissionView`**（含 private static `instance` 与 `getInstance()` 同步改名 + 类头 JSDoc 标注改名理由） | ✅ `Grep "class PermissionManager"`（限 `app/src`）**仅剩 1 处**（主管理器） |
+| T1-2 | ✅ **已完成（2026-10-03）**：工厂 `createPermissionManager` → **`createSecurityPermissionView`**（D2）· barrel `security/index.ts:83` 改为转出 `SecurityPermissionView`（D3）· 消费者订正 3 文件（`SecurityIntegration.ts` 导入/字段/单例/返回类型 · `CompleteSecuritySystem.ts` import type + 2 处返回类型） | ✅ 全仓无同名不同语义的 `createPermissionManager`（security 侧工厂本为 **0 消费者**，改名后仍仅定义处）；`typecheck 0` |
+| T1-3 | ✅ **已完成（2026-10-03）· 测试与验收** | §7 五项**逐项达成**；结论落 §7 + §9 |
 
 ---
 
@@ -108,11 +112,20 @@
 
 ## 7. 验收（可证伪）
 
+> **2026-10-03 验收结论（T1-1~T1-3 执行后逐项核对）**
+
 1. `Grep "class PermissionManager"`（限 `app/src`）**仅剩 1 处**；
+   **✅ 达成**：仅剩 `permission/PermissionManager.ts:72`（主管理器）；security 侧为 `class SecurityPermissionView`。
 2. 全仓无"同名不同语义"的 `createPermissionManager`（或已按 D2 区分）；
+   **✅ 达成**：security 侧工厂改为 `createSecurityPermissionView`（原工厂本就 **0 消费者**，改名后仍仅定义处）；`permission` 侧保留 `createPermissionManager()`（多方消费者）。
 3. `app typecheck` **0**；`lint:arch` **0 错**（警告回基线）；
+   **✅ 达成**：`typecheck 0`；`lint:arch` 0 错 / 警告 2（基线）；文件数不变（**3848**，纯改名）。
 4. 全量 `bun test tests/` **0 fail**；
+   **✅ 达成**：**3821 pass / 9 skip / 0 fail**（与改名前一致，无回归）。
 5. **防回退**：`security/index.ts` barrel 不残留旧名。
+   **✅ 达成**：`:83` 已改为转出 `SecurityPermissionView`。
+
+> **遗留（如实登记）**：① `security/` 侧工厂 `createSecurityPermissionView` 仍 **0 消费者**（改名前即如此，非本次引入）——是否下线待另行裁定；② **预存文档错误**：`app/docs/API.md:698` / `app/docs/DEVELOPMENT.md:553` 从 `./src/security` 导入 `getPermissionManager`/`getSandboxManager`/`getSecurityAudit`，但 `security/index.ts` **并未导出**这三者（`SandboxManager` 已于早前删除、`getPermissionManager` 是 `SecurityIntegration` 的**方法**而非模块导出）⇒ 文档示例失效，**不在本项范围**，另行登记。
 
 ---
 
@@ -132,5 +145,9 @@
 | 日期 | 事件 | 备注 |
 |---|---|---|
 | 2026-10-03 | **立项 + 取证**（本次提交） | 回仓实测 2 个同名 `PermissionManager`（`permission/:72` 主管理器 · `security/:118` 同步补充视图）；**定性为同名双轨（非死码）**；同名工厂 `createPermissionManager()` 各一份。**T0 裁定待用户作答**（D1–D3） |
+| 2026-10-03 | **T0 裁定**（用户已答） | D1 改名消歧 · D2 随 D1 一并改名工厂 · D3 同步订正 barrel 出口 |
+| 2026-10-03 | **T1-0 关闭**（D1=a 下不再需要） | 合并路径未采用 ⇒ 无需取证 A 的同步 `checkToolPermission` 等价面（§5-#1 不再阻塞） |
+| 2026-10-03 | **T1-1/T1-2 已完成：改名消歧 + 工厂/barrel/消费者订正**（本次提交） | `security/PermissionManager.ts`：`class PermissionManager` → **`SecurityPermissionView`**（+ private static `instance` / `getInstance()` 同步改名 + 类头 JSDoc 标注理由）；工厂 `createPermissionManager` → **`createSecurityPermissionView`**；barrel `security/index.ts:83` 同步订正；消费者订正 3 文件（`SecurityIntegration.ts` 导入/字段/单例/返回类型 · `CompleteSecuritySystem.ts` import type + 2 返回类型）。**文件路径保留**（沿 T-①07/T-①04 手法）。**验证**：`Grep "class PermissionManager"`（限 `app/src`）**仅剩 1 处**（主管理器）· `typecheck 0` · `lint:arch` 0 错 / 警告回基线 2 / 文件数 **3848** 不变（纯改名） |
+| 2026-10-03 | **T1-3 已完成：测试与验收（T-①05 收尾）**（本次提交） | §7 五项**逐项达成**（判据见 §7）。**验证**：全量 **3821 pass / 9 skip / 0 fail**（与改名前一致，无回归）。**遗留**：① `createSecurityPermissionView` 仍 0 消费者（改名前即如此）；② 预存文档错误（`docs/API.md:698`/`DEVELOPMENT.md:553` 导入 `security` 未导出的符号） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）

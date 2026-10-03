@@ -1,7 +1,7 @@
 import { securityIntegrationService } from './SecurityIntegration';
 import type { SecurityDecision } from './SecurityIntegration';
 import type { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
-import type { PermissionManager } from './PermissionManager';
+import type { SecurityPermissionView } from './PermissionManager';
 import type { PermissionMode } from '@modules/permission';
 import {
   filterMcpServersByPolicy as filterMcpPolicy,
@@ -132,7 +132,7 @@ export interface ICompleteSecuritySystem {
   getTrustLevelForPath(targetPath: string): string | undefined;
 
   getSecurityAnalyzer(): BashSecurityAnalyzer;
-  getPermissionManager(): PermissionManager;
+  getPermissionManager(): SecurityPermissionView;
   getStatus(): {
     sandboxEnabled: boolean;
     permissionMode: PermissionMode;
@@ -470,7 +470,7 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
     return securityIntegrationService.getSecurityAnalyzer();
   }
 
-  getPermissionManager(): PermissionManager {
+  getPermissionManager(): SecurityPermissionView {
     return securityIntegrationService.getPermissionManager();
   }
 

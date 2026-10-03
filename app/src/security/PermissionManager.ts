@@ -113,10 +113,14 @@ export interface PermissionContext {
 }
 
 /**
- * 权限管理�?
+ * 权限管理视图（T-①05 D1 改名消歧）
+ *
+ * 原名 `PermissionManager`，与 `permission/PermissionManager.ts`（主权限管理器）**同名**易混。
+ * 本类自述定位为 **SecurityIntegration 的同步补充视图**（与主模块共用同一规则存储，
+ * 见 `syncRulesFromMainModule()`），故改名以体现该语义。
  */
-export class PermissionManager {
-  private static instance: PermissionManager;
+export class SecurityPermissionView {
+  private static instance: SecurityPermissionView;
   private rules: Map<string, PermissionRule> = new Map();
   private defaultAllow: boolean = true;
 
@@ -158,11 +162,11 @@ export class PermissionManager {
     }
   }
 
-  public static getInstance(): PermissionManager {
-    if (!PermissionManager.instance) {
-      PermissionManager.instance = new PermissionManager();
+  public static getInstance(): SecurityPermissionView {
+    if (!SecurityPermissionView.instance) {
+      SecurityPermissionView.instance = new SecurityPermissionView();
     }
-    return PermissionManager.instance;
+    return SecurityPermissionView.instance;
   }
 
   /**
@@ -434,10 +438,10 @@ export class PermissionManager {
 }
 
 /**
- * 创建权限管理�?
+ * 创建权限管理视图（T-①05 D2：随 D1 一并改名，避免与主模块同名工厂混淆）
  */
-export function createPermissionManager(
+export function createSecurityPermissionView(
   defaultAllow: boolean = true
-): PermissionManager {
-  return new PermissionManager(defaultAllow);
+): SecurityPermissionView {
+  return new SecurityPermissionView(defaultAllow);
 }

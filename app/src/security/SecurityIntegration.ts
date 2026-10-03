@@ -6,7 +6,7 @@
 import { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import { SecurityAnalysisResult, SecurityBehavior } from './types';
 import { resolveSandbox } from '@modules/core/spi';
-import { PermissionManager } from './PermissionManager';
+import { SecurityPermissionView } from './PermissionManager';
 import { PermissionMode } from '@modules/permission';
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
@@ -32,12 +32,12 @@ export interface SecurityDecision {
  */
 export class SecurityIntegrationService {
   private securityAnalyzer: BashSecurityAnalyzer;
-  private permissionManager: PermissionManager;
+  private permissionManager: SecurityPermissionView;
   private permissionMode: PermissionMode;
 
   constructor() {
     this.securityAnalyzer = new BashSecurityAnalyzer();
-    this.permissionManager = PermissionManager.getInstance();
+    this.permissionManager = SecurityPermissionView.getInstance();
     this.permissionMode = 'default';
   }
 
@@ -268,7 +268,7 @@ export class SecurityIntegrationService {
    * 获取权限管理器
    * @returns 权限管理器
    */
-  getPermissionManager(): PermissionManager {
+  getPermissionManager(): SecurityPermissionView {
     return this.permissionManager;
   }
 

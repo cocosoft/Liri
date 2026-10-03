@@ -262,3 +262,54 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | 门槛 | 三批均：`typecheck 0` · `lint:arch` 错误 0 · 全量 3872 pass / 0 fail |
 
 **仍未做**：C9–C11 之外的大簇（C12–C15/C17–C19 等，见 §7.2）——`ChatManager.ts` 距 <1000 行仍有较大差距 ⇒ 需后续批次（本 spec 范围仅到批 3）。
+
+---
+
+## 9. 剩余拆分路线图（2026-10-03 立）
+
+### 9.1 已完成（基线）
+
+| 文件 | 原始 | 当前 | 已落地 |
+|---|---|---|---|
+| `chat/ChatManager.ts` | 6729 | **6377** | 批 1–3：EventLog 家族 **17 成员** → `chat/manager/eventLogStore.ts`（`ChatEventLogStore`，538 行） |
+
+### 9.2 优先序（依据 §2 判据 + 实测行数）
+
+| 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
+|---|---|---|---|---|
+| 1 | `chat/ChatManager.ts` | 6377 | 已开头（−352） | 按 §9.3 的 A1–A4 继续（**每批 1 个簇**） |
+| 2 | `runtime/api/CoreAPIImpl.ts` | 5022 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
+| 3 | `chat/ReActToolLoop.ts` | 3447 | **未取证** | 同上 |
+| 4 | `tools/AgentTool/AgentTool.ts` | 3115 | **未取证** | 同上 |
+
+### 9.3 ChatManager 后续批次（簇 → 目标文件）
+
+> ⚠️ §7.2 的簇划分为**批 1 之前**所测；批 1–3 已使行号整体位移 ⇒ **每批开工前必须重测该簇实际行段**，禁止沿用旧行号。
+
+| 批 | 目标新文件 | 收拢簇（§7.1 编号） | 预估净出 | 依赖 / 注意 |
+|---|---|---|---|---|
+| A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | 需注入 `requestSnapshot`（懒初始化服务） |
+| A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次 | ≈270 | 与 `RollbackIntegration` 交互 |
+| A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配 | ≈90 | 依赖 hook 链与服务 |
+| A4 | `chat/manager/bootstrap.ts` | C13 + C18 启动加载迁移 + 恢复/outbox/yield | ≈1090 | 体量最大；`_resumeSessionInternally` 与运行器强耦合 ⇒ **先依赖验证** |
+| A5 | `chat/manager/streamPipeline.ts` | 流管道段（`_buildApiMessagesForStream` 等） | ≈680 | 与 `sendMessage` 主链边界需先验证 |
+| A6 | `chat/manager/sessionCrud.ts` | C21 会话 CRUD/门面 | ≈280 | 多接口方法 ⇒ 宿主保留转发 |
+
+**停止条件（重要）**：`ChatManager` 要真正 <1000 行需再抽 **≈5400 行**，而 A1–A6 合计仅 **≈2600 行** ⇒ **A1–A4 完成后按收益重新评估**，不预设"必须打到 <1000"。
+
+### 9.4 每批纪律（复用 §3，不得省略）
+
+① 结构/依赖取证 → ② 只搬不改（转发/组合）→ ③ **出口与日志 module 名不变** → ④ 逐批 `typecheck 0` + `lint:arch` 错误 0 + 全量测试 0 fail（**测试单独跑**，勿与 typecheck/lint 串联 —— 见 §7.8 的挂起归因）→ ⑤ 提交（含钩子格式化残留的补提交）。
+
+### 9.5 不排期项（判据 §2）
+
+- `client/i18n/locales/en.ts`（5963）/ `zh.ts`（5886）：**纯词表、天然长且内聚** ⇒ **不建议拆**。
+- 123 个 1000–1500 行文件：**仅刚过线**，内聚度未评估 ⇒ 待 4 个巨型类完成后**抽样评估**再定。
+
+### 9.6 决策点（待裁定，非本轮执行）
+
+| # | 问题 | 选项 |
+|---|---|---|
+| 1 | 是否追 `ChatManager < 1000` | 甲 追（再 6+ 批）／**乙 收益优先**（A1–A4 后重评估；本路线图默认）／丙 只做已开头即停 |
+| 2 | `fileSizeExceptions` 条目何时删 | **仅当该文件真正降到阈值以下**（§7.6 已更正） |
+| 3 | 何时转做 `CoreAPIImpl`(5022) | 甲 与 ChatManager 交替（避免单文件疲劳）／乙 先把 ChatManager 做到 A4 |

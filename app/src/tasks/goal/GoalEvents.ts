@@ -37,15 +37,17 @@ import {
 import { renderGoalTemplate, type GoalTemplateKind } from './goalTemplates';
 import type { GoalRunSettlement } from './goalSettlementTypes';
 import type { TaskGoalStatus, TaskGoalUpdateReason } from './TaskGoalStore';
+import type { GoalDeviationSeverity } from '@modules/types/goal';
 
 const logger = getLogger('tasks:goal:events');
 
-/** 本模块负责落盘的 4 个目标事件类型（与 `LiriEventMap` 同源，不另立联合） */
+/** 本模块负责落盘的目标事件类型（与 `LiriEventMap` 同源，不另立联合） */
 export type GoalEventType =
   | 'goal/created'
   | 'goal/updated'
   | 'goal/status_changed'
-  | 'goal/injected';
+  | 'goal/injected'
+  | 'goal/deviation';
 
 /**
  * 事件追加器：与 `ChatManager.appendStreamEvent` 的返回结构一致（此处只依赖其子集）。
@@ -173,6 +175,35 @@ export async function emitGoalStatusChanged(params: {
     ...(params.noProgressStreak !== undefined
       ? { noProgressStreak: params.noProgressStreak }
       : {}),
+  });
+}
+
+/**
+ * 目标**偏差**落盘（T-②02，2026-10-03；`.trae/specs/goal-metrics-closure.md` §3.2 选项 1）。
+ *
+ * 生产者：PDCA 终态收口点（`LongRunningTaskOrchestrator._evaluateGoalDeviation`）——
+ * 按 `goal_metrics` 的 turn 预算消耗速率判定越阈值后，**逐条**落本事件（与结构化日志同批）。
+ *
+ * 与 `goal/status_changed` **互不混用**：偏差只是"指标偏离"，**不**代表状态迁移 ——
+ * 本事件不改 goal 状态机（是否据偏差收口由策略层决定，本批不做）。
+ * `severity` / `stage` 均由调用方给出（本模块不做任何文案或阈值推断，CS02）。
+ */
+export async function emitGoalDeviation(params: {
+  sessionId?: string;
+  goalId: string;
+  stage: string;
+  expected: number;
+  actual: number;
+  ratio: number;
+  severity: GoalDeviationSeverity;
+}): Promise<void> {
+  await appendGoalEvent(params.sessionId, 'goal/deviation', {
+    goalId: params.goalId,
+    stage: params.stage,
+    expected: params.expected,
+    actual: params.actual,
+    ratio: params.ratio,
+    severity: params.severity,
   });
 }
 

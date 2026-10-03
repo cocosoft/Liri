@@ -17,6 +17,7 @@ import type {
   TaskGoalStatus,
   TaskGoalUpdateReason,
   GoalTemplateKind,
+  GoalDeviationSeverity,
 } from '@modules/types/goal';
 // P1-1②（2026-09-28）：输出校验问题项复用校验器的既有形状（单一来源，不复制字段定义）
 // 2026-10-01 B11 前置 P1（D-223）：同上，问题项接口已下沉 `@modules/types/mermaid`(core)
@@ -454,6 +455,30 @@ export interface LiriEventMap {
     channel: 'tool_result' | 'user_message' | 'steering';
     /** **注入正文的完整文本**（§1.6：模型看到了什么必须可重建） */
     text: string;
+  };
+
+  /**
+   * 目标**偏差**（T-②02，2026-10-03；`.trae/specs/goal-metrics-closure.md` §3.2 选项 1）。
+   *
+   * 语义：PDCA 终态收口时，按 `goal_metrics` 的 **turn 预算消耗速率**
+   * （`actual / expected`）判定越过既有阈值（`UNIFIED_THRESHOLDS`）⇒ 如实落一条。
+   * 与 `goal/status_changed` **互不混用** —— 偏差**不**代表状态迁移（本事件不改状态机）。
+   *
+   * 阈值**零新增常量**：`warning = ratio ≥ WARNING(0.75)`、`critical = ratio ≥ CRITICAL(0.92)`。
+   */
+  'goal/deviation': {
+    /** 目标标识（PDCA 口径 = `taskId`，与 `goal_metrics.goal_id` 同源） */
+    goalId: string;
+    /** 阶段标识（`goal_metrics.stage_id`，如 `pdca_completed` / `pdca_aborted`） */
+    stage: string;
+    /** 该阶段的 turn 预算（`goal_metrics.max_turns`） */
+    expected: number;
+    /** 实际消耗的 turn（`goal_metrics.total_turns`） */
+    actual: number;
+    /** 消耗速率 `actual / expected`（> 1 表示超预算） */
+    ratio: number;
+    /** 严重度（复用既有预算阈值分层，机器可读，禁止按文案判定） */
+    severity: GoalDeviationSeverity;
   };
 
   /**

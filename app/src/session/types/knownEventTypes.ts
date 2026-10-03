@@ -80,6 +80,8 @@ const ALL_SESSION_EVENT_TYPES = [
   'goal/updated',
   'goal/status_changed',
   'goal/injected',
+  // T-②02（2026-10-03）：目标偏差事件（turn 预算消耗速率越阈值，log-only 不改状态机）
+  'goal/deviation',
   // ─── 输出校验回喂（P1-1②，2026-09-28） ───
   'validation/injected',
   // ─── 子代理恢复通路审计（B4-1，2026-09-23） ───

@@ -78,6 +78,12 @@ export type GoalTemplateKind =
   | "continue_goal"
   | "tool_execution_errors";
 
+/**
+ * T-②02（2026-10-03）：目标**偏差严重度** —— 镜像后端类型中心
+ * `app/src/types/goal.ts` 的 `GoalDeviationSeverity`（值必须逐字一致）。
+ */
+export type GoalDeviationSeverity = "warning" | "critical";
+
 export interface LiriEventMap {
   "turn/start": { turn: number; userMessageSeq?: number };
   "turn/end": {
@@ -463,6 +469,19 @@ export interface LiriEventMap {
     templateKind: GoalTemplateKind;
     channel: "tool_result" | "user_message" | "steering";
     text: string;
+  };
+  // T-②02（2026-10-03）：目标偏差（turn 预算消耗速率越既有阈值；不改状态机）
+  "goal/deviation": {
+    goalId: string;
+    /** 阶段标识（`goal_metrics.stage_id`） */
+    stage: string;
+    /** turn 预算 */
+    expected: number;
+    /** 实际消耗 turn */
+    actual: number;
+    /** actual / expected */
+    ratio: number;
+    severity: GoalDeviationSeverity;
   };
   "agent/recovery": {
     /** 动作：认领 / 恢复 / 放弃 */

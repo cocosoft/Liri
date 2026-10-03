@@ -71,6 +71,11 @@ export const LIRI_EVENT_NAMES = [
   'goal/updated',
   'goal/status_changed',
   'goal/injected',
+  // T-②02（2026-10-03）：目标**偏差**事件 —— PDCA 终态按 turn 预算消耗速率
+  // （`goal_metrics.total_turns / max_turns`）越过既有阈值（`UNIFIED_THRESHOLDS`）时的
+  // 可观测出口。与 `goal/status_changed` **互不混用**：偏差**不**触发状态迁移
+  // （那是收口策略职责），仅作指标偏差的可重建记录（`.trae/specs/goal-metrics-closure.md`）。
+  'goal/deviation',
   // P1-1②（2026-09-28）：**输出校验回喂**事件 —— 终稿未通过服务端结构预检（当前为 mermaid）
   // 时，注入模型的修正指令同样属"模型可见输入"，必须可重建（§1.6 红线，与 `goal/injected`
   // 同一理由：`text` 记注入原文，通道前缀由通道自身拼装）。

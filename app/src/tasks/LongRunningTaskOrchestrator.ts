@@ -50,6 +50,9 @@ import {
   GoalEvaluateGate,
   isGoalEvaluateEnabled,
 } from './review/GoalEvaluateGate.js';
+// T-②02（2026-10-03）：目标偏差判定（纯函数，判定与接线分离）+ 事件落盘
+import { evaluateGoalDeviation } from './review/GoalDeviation.js';
+import { emitGoalDeviation } from './goal/GoalEvents';
 import { TAORLoop, createTAORLoopDeps } from '@modules/query';
 import type { TAORLoopDeps } from '@modules/query';
 import { VerifierAgent, createVerifierAgent } from '@modules/query';
@@ -2070,7 +2073,10 @@ ${replanSection}
     this.persistAuditReport(this.auditReport);
     this._recordLifecycle('finalized', TaskStatus.COMPLETED, 'PDCA completed');
     // S2（2026-08-13）：阶段边界落库 goal_metrics（row_type='stage'）
-    this._recordGoalStageMetric('pdca_completed');
+    // T-②02：落库后读回按 turn 预算消耗速率判定目标偏差（顺序保证见 _evaluateGoalDeviation）
+    void this._recordGoalStageMetric('pdca_completed').then(() =>
+      this._evaluateGoalDeviation()
+    );
     // 3-1（2026-09-03）：PDCA 完成 → 轻量记忆回写（复盘决策入长期记忆，供跨会话 recall）
     this._persistMemoryFromAudit('completed');
     // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
@@ -2312,7 +2318,10 @@ ${replanSection}
     });
     syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
-    this._recordGoalStageMetric('pdca_aborted');
+    // T-②02：同上，中止路径也做偏差判定（不因中止跳过可观测面）
+    void this._recordGoalStageMetric('pdca_aborted').then(() =>
+      this._evaluateGoalDeviation()
+    );
     // 3-1（2026-09-03）：PDCA 中止 → 轻量记忆回写（记录已执行部分与中止状态）
     this._persistMemoryFromAudit('aborted');
     // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
@@ -2339,9 +2348,10 @@ ${replanSection}
    * S2（2026-08-13）：阶段边界落库 goal_metrics（row_type='stage'，P1-5 §5 S2 + StageOrchestrator §4.6）
    * 仅在真实任务完成/中止时记录；写入失败不阻断主流程（fire-and-forget + handleError 降级日志）。
    */
-  private _recordGoalStageMetric(stageId: string): void {
+  private _recordGoalStageMetric(stageId: string): Promise<void> {
     const metrics = this.getMetrics();
-    void goalMetricsService
+    // 返回值供终态收口点串接**偏差判定**（T-②02：落库 → 读回 → 判定，顺序由调用方保证）
+    return goalMetricsService
       .init()
       .then(() =>
         goalMetricsService.recordStageMetric({
@@ -2354,13 +2364,61 @@ ${replanSection}
           durationMs: this._startedAt > 0 ? Date.now() - this._startedAt : 0,
         })
       )
-      .catch((err) =>
-        handleError(err, {
+      .catch((err) => {
+        void handleError(err, {
           module: 'tasks:longRunning',
           action: 'goalMetricsRecord',
           context: { taskId: this.taskId, stageId },
-        })
+        });
+      });
+  }
+
+  /**
+   * T-②02（2026-10-03）：PDCA 终态**目标偏差判定**（`.trae/specs/goal-metrics-closure.md` T1/T2）。
+   *
+   * 只读查询 → 纯函数判定 → 落事件 + 结构化日志（不新增状态迁移）：
+   *   ① 读 `goal_metrics` 的 stage 行（`queryStageMetrics`，补齐其**零生产消费方**）；
+   *   ② `evaluateGoalDeviation`（纯函数，`tasks/review/GoalDeviation.ts`）算 turn 预算消耗速率；
+   *   ③ 越既有阈值（`UNIFIED_THRESHOLDS`）⇒ `emitGoalDeviation` 落 `goal/deviation` + INFO 日志。
+   *
+   * **时机**：在 `_recordGoalStageMetric` 落库**之后**（从持久层读回真相，对齐 §1.6 Write-Ahead）
+   * —— 故只在本文件两个终态点（completed / aborted）串接调用。
+   * 失败经 `handleError` 统一留痕，**不阻断**主流程（CS03：观测面失败不反灌业务）。
+   */
+  private async _evaluateGoalDeviation(): Promise<void> {
+    try {
+      await goalMetricsService.init();
+      const rows = await goalMetricsService.queryStageMetrics(this.taskId);
+      const findings = evaluateGoalDeviation(
+        rows.map((row) => ({
+          stage: row.stageId ?? 'unknown',
+          expected: row.maxTurns,
+          actual: row.totalTurns,
+        }))
       );
+      for (const finding of findings) {
+        logger.info('[orchestrator] 目标偏差：turn 预算消耗速率越阈值', {
+          taskId: this.taskId,
+          goalId: this.taskId,
+          stage: finding.stage,
+          expected: finding.expected,
+          actual: finding.actual,
+          ratio: finding.ratio,
+          severity: finding.severity,
+        });
+        await emitGoalDeviation({
+          sessionId: this._sessionId ?? undefined,
+          goalId: this.taskId,
+          ...finding,
+        });
+      }
+    } catch (err) {
+      await handleError(err, {
+        module: 'tasks:longRunning',
+        action: 'goalDeviation',
+        context: { taskId: this.taskId },
+      });
+    }
   }
 
   /**

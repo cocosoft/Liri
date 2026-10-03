@@ -63,6 +63,16 @@ export type TaskGoalUpdateReason =
   | 'manual';
 
 /**
+ * 目标**偏差严重度**（T-②02，2026-10-03）。
+ *
+ * 用途：事件载荷 `goal/deviation.severity` 与偏差判定纯函数
+ * （`tasks/review/GoalDeviation.ts`）的**机器可读**面 —— 判定一律用本枚举，
+ * **禁止**按文案推断（CS02）。分层沿用既有预算阈值
+ * （`UNIFIED_THRESHOLDS.WARNING` / `CRITICAL`）⇒ 本仓**零新增常量**。
+ */
+export type GoalDeviationSeverity = 'warning' | 'critical';
+
+/**
  * 长程任务专用模板的键集（模板文案仍在 `tasks/goal/goalTemplates.ts` 的 `GOAL_TEMPLATES`）。
  */
 export type GoalTemplateKind =

@@ -74,19 +74,24 @@ export const PATTERN_PROVIDER_BINDINGS: Readonly<
   },
   verifier_agent: {
     impl: 'VerifierAgent',
-    locator: 'query/VerifierAgent.ts#VerifierAgent:215（工厂 createVerifierAgent:456）',
+    locator:
+      'query/VerifierAgent.ts#VerifierAgent:215（工厂 createVerifierAgent:456）',
   },
 };
 
 /** 解析单个 provider ID → 实现定位（`Record` 保证存在，无 undefined 分支） */
-export function resolvePatternProvider(id: PatternProvider): PatternProviderBinding {
+export function resolvePatternProvider(
+  id: PatternProvider
+): PatternProviderBinding {
   return PATTERN_PROVIDER_BINDINGS[id];
 }
 
 /** 展开一个 `PatternAssembly` 的全部承担方（角色 → provider → 实现定位） */
-export function resolveAssemblyProviders(
-  assembly: PatternAssembly
-): Array<{ role: string; provider: PatternProvider; binding: PatternProviderBinding }> {
+export function resolveAssemblyProviders(assembly: PatternAssembly): Array<{
+  role: string;
+  provider: PatternProvider;
+  binding: PatternProviderBinding;
+}> {
   return assembly.bindings.flatMap((b) =>
     b.providers.map((provider) => ({
       role: b.role,

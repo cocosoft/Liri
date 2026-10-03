@@ -72,6 +72,8 @@
 4. `lint:arch` **0 错**（`R03-002` = 0）。
 5. **防回退**：全仓不再有 `--net-connect` / `net.allow` / `denyBind` 的**代码**用法（仅允许注释/台账中的沿革说明）。
 6. **未验（如实）**：C 侧 `main.c` 的**真实 enforce 行为待 Linux 实测**（本机 Windows，README 亦声明无法本地编译）⇒ 建议 Linux 侧按 README §构建 执行：`cc -static -O2 -o landlock-run main.c` + `--probe`，并各自用 `--net-deny` / 不带该 flag 跑一次 `curl` 对照。
+   - **2026-10-03（T-③06）环境探测**：本机仍**无可用 Linux 运行时** —— Docker CLI 29.7.2 **已安装**但引擎未运行（`npipe:////./pipe/dockerDesktopLinuxEngine` 不存在；`C:\Program Files\Docker\Docker\Docker Desktop.exe` 在），WSL **仅** `docker-desktop` 发行版且 **Stopped**，无 podman。**用户裁定「暂缓」** ⇒ 本轮**未做**实测，状态维持"待验证"，**不涉及代码改动**。
+   - **下次可直接执行的最小步骤**：① 启动 Docker Desktop（或 `wsl --install -d Ubuntu`）；② 容器内（如 `debian:stable-slim` + `gcc libc6-dev curl`）`cc -static -O2 -o landlock-run main.c`；③ `landlock-run --probe` —— 预期 ABI≥10 打印 `landlock: fully enforced`，ABI 4–9 打印 `landlock: partially enforced (older ABI)`；④ **对照两条**（注意 `--ro /` 不可省，否则 curl 连动态库都读不到）：`landlock-run --ro / -- curl -m 5 -o /dev/null -w '%{http_code}' http://1.1.1.1/`（应**连通**）与 `landlock-run --ro / --net-deny -- curl …`（应**被拒**，curl exit **7**）；⑤ 记录 `/proc/sys/kernel/osrelease` 与该 ABI（判定 `fully/partially` 的依据）。
 
 ## 6. 不在范围
 

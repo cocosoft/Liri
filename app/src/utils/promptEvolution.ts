@@ -174,7 +174,11 @@ export function getSkillEvolutionPath(
   skillName: string,
   env: NodeJS.ProcessEnv = process.env
 ): string | null {
-  if (!SAFE_SKILL_DIR.test(skillName) || skillName === '.' || skillName === '..') {
+  if (
+    !SAFE_SKILL_DIR.test(skillName) ||
+    skillName === '.' ||
+    skillName === '..'
+  ) {
     return null;
   }
   return join(resolveUserSkillsDir(env), skillName, SKILL_EVOLUTION_FILE);
@@ -189,7 +193,8 @@ export function readSkillEvolutionFromDir(dir: string): string | null {
   try {
     if (!existsSync(path)) return null;
     const text = readFileSync(path, 'utf-8').trim();
-    if (text.length === 0 || text.length > MAX_SKILL_EVOLUTION_CHARS) return null;
+    if (text.length === 0 || text.length > MAX_SKILL_EVOLUTION_CHARS)
+      return null;
     return text;
   } catch {
     // @ignore-catch — 读取失败等同"无侧车"
@@ -207,7 +212,8 @@ export function readSkillEvolution(
   try {
     if (!existsSync(path)) return null;
     const text = readFileSync(path, 'utf-8').trim();
-    if (text.length === 0 || text.length > MAX_SKILL_EVOLUTION_CHARS) return null;
+    if (text.length === 0 || text.length > MAX_SKILL_EVOLUTION_CHARS)
+      return null;
     return text;
   } catch {
     // @ignore-catch — 读取失败等同"无侧车"

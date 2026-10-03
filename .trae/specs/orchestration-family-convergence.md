@@ -203,3 +203,50 @@
 | 2026-10-03 | **T1-4 已完成：存活者命名复核（结论：不改名）**（本次提交） | T1-1 后家族 28 → **20 类**，`^export class \w*(Orchestrator\|Loop\|Scheduler)\b` 逐一比对**无重名**（3 组同名概念已随 T1-1 消除）。任务域三者**语义分层非重复**：`TaskOrchestrator`（`getPlan`/`getAllPlans`/`getPlansByWorkspace`/`getPendingSteps`/`markStepRunning`/`abortAll` ⇒ 实为 **Plan/Step 持久化容器**）· `LongRunningTaskOrchestrator`（PDCA 执行器，`phase`/`LifecycleTracker`/`EffectScope`/escalation replan）· `StageOrchestrator`（多阶段链，持 `LongRunningTaskOrchestrator` 子编排）。多智能体组 3 个（`ParallelAgentScheduler`/`CouncilOrchestrator`/`ResourceScheduler`）语义各异。**唯一命名不精确**：`TaskOrchestrator` 名不符实（实为 Plan 仓库）⇒ 经用户裁定**保留现名 + 登记**（改名跨 5 消费者 + barrel + 测试，性价比低）。**本轮无代码改动**（仅文档） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
+
+---
+
+## 10. 附录：T1-3 子设计（**待用户裁定深度**）
+
+### 10.1 取证（CS01 重大更正）—— 三位 provider **并非缺失，而是未绑定**
+
+§1.6 原判"`task_decomposer`/`result_aggregator`/`verifier_agent` 只有描述无运行时"。**本轮深挖更正**：三者**均已有现成实现**，全仓命中仅因**从未被引用**：
+
+| provider ID | 现有实现 | 位置 | 导出门径 |
+|---|---|---|---|
+| `task_decomposer` | `class TaskDecomposer` | `ai/router/TaskDecomposer.ts:137`（`decompose()` :153） | `ai/index.ts:256`（+ `SubTask`/`DecompositionResult`） |
+| `result_aggregator` | `class ResultAggregator` | `agent/moa/ResultAggregator.ts:146` | `agent/index.ts:277` · `agent/moa/index.ts:23` |
+| `verifier_agent` | `class VerifierAgent` + `createVerifierAgent()` | `query/VerifierAgent.ts:215` / `:456` | `query` 模块 |
+
+⇒ **8 位 provider 全部有实现**。T1-3 的"建运行时"实为**绑定 + 装配**，**不是**新建三个模块（CS01：能复用不新建）。
+
+### 10.2 消费链现状（取证）
+
+- `selectPattern` 的**唯一生产消费者** = `chat/ChatManager.ts:4726`（`tasks/PlanDrivenLoop.ts:331` 仅为注释说明"决策已归位"）。
+- `competitive_strategy` 的**装配点已存在** = `runResearchOrchestration`（`query/CompetitiveStrategyOrchestrator.ts:452`），由 `chat/launchers/PdcaLauncher.ts:492` 与 `runtime/api/CoreAPIImpl.ts:2923` 调用。
+- `instantiatePattern` 全仓 **0 命中** ⇒ 无通用装配执行器；其余 4 个 pattern 的 `assembly` 仅被 `selectPattern` 返回但无人消费装配。
+
+### 10.3 分层约束（决定性）
+
+`core/patterns/*` 属 **core 层**；三位 provider 分属 `ai`/`agent`/`query`（**app 层**）。层序 `entry > ui > app > service > infra > core` ⇒ **core 不得 import app**。故"装配/实例化"**不能**写在 `core/patterns` 内，必须：
+- 落在 **app 层**（如 `query/patternAssembly.ts` 或新 `app` 模块），或
+- 经 **SPI 端口注入**（沿 `core/spi/*` 既有手法，如 `IKnowledgeGraphPort`）。
+
+### 10.4 三个深度选项（**待裁定**）
+
+| 选项 | 内容 | 工作量 | 满足 §7-3 判据？ |
+|------|------|:------:|:---------------:|
+| **A. 解析层（最小）** | 新增 app 层 `resolvePatternProviders(assembly)`：把 8 个 `PatternProvider` ID **映射到现有类/工厂的引用**（不实例化）；闭集**无悬空**，`selectPattern` 消费方可据此取到承担方 | 小 | ✅ |
+| **B. 可实例化装配（完整）** | `instantiatePattern(selection, deps)`：定义 **provider 依赖契约**（8 位构造函数异构：`TaskDecomposer` 需 `AIProvider`、`VerifierAgent` 需 config、`ParallelAgentScheduler` 需 deps…），真正 `new`/`create` 并组装出编排 | **大**（新运行时 + 依赖契约 + 全链接线） | ✅ |
+| **C. 折中** | A + 为 4 个未落地 pattern（`iterative_refine`/`parallel_distributed`/`long_task_pdl`/`self_verify`）登记"装配描述 → 既有入口"映射，仍不 `new` | 中 | ✅ |
+
+> **倾向（供参考）**：`CS03 回退最小化` + `简洁优先` + §7-3 判据仅要求"无悬空 provider" ⇒ **A 已达标**；B 属"新增编排运行时"，本质是**新功能**而非"家族收敛"，且 provider 依赖异构会引入大量胶水代码。建议 **A（或 A+映射登记）**，B 另立专项。
+
+### 10.5 验收口径（依选项）
+
+- A/C：`Grep` 佐证 8 个 provider ID 全部可解析到现有实现（无悬空）；`selectPattern` 消费方可读到承担方；`typecheck 0` / `lint:arch 0 错` / 全量测试 0 fail；新增契约用例（provider 解析全覆盖）。
+- B：在 A 基础上，另需"装配出实例"的端到端用例（同一 selection 走装配 → 断言承担方实例类型/角色绑定齐备）。
+
+### 10.6 待裁定
+
+**T1-3 深度选 A / B / C？**（默认建议：**A**）

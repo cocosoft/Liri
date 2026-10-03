@@ -88,3 +88,58 @@
 |---|---|---|
 | 1 | 156 条文件大小例外 | **甲 收口**（按 §3 从 `ChatManager.ts` 起，逐批拆 4 个巨型类）／**乙 续期**（保持现状 + 例外续期）／**丙 混合**（4 个巨型类收口 + i18n 等 152 条续期） |
 | 2 | 若选收口 | 是否按 §2 的「不建议拆 i18n」判据执行（即候选=4） |
+
+---
+
+## 7. 实施记录：ChatManager.ts 结构取证（2026-10-03）
+
+**取证方法**：`grep` 方法签名（`^  (private|public|protected|static|async|get|set)[\w\s]*\(`）+ 行号分段；**未逐行读全文**（6729 行）。
+⇒ 下列簇为**「签名 + 行段连续性」推断**；⚠️ **各簇的私有字段依赖未验证**（实际搬迁时须逐个确认，禁止据此直接切分）。
+
+**实测：该文件不采用 `// ───` 分段注释风格**（0 命中）⇒ 聚类完全依据方法语义 + 行段。
+
+### 7.1 职责簇（21 组，行段为签名实测）
+
+| # | 行段 | 簇 | 代表方法 |
+|---|---|---|---|
+| C1 | :436-500 | 流中断控制 | `isSessionStreaming` · `abortSessionStream` · `_waitForAbortSettled` |
+| C2 | :596-606 | 工具轮次计数 | `incToolRound` · `getToolRound` · `clearToolRound` |
+| C3 | :636-709 | 运行器分流判定 | `_shouldUseTAORLoop` · `_shouldUsePlanDrivenLoop` · `_shouldUseCodeMode` · `_hashMessage` |
+| C4 | :709-876 | CodeRunner 依赖装配 | `_wireCodeRunnerDeps` |
+| C5 | :876-1271 | 会话/状态机取用 | `_getLocalSession` · `getSessionMachine` |
+| C6 | :1271-1491 | 运行器实例化 + 上下文 | `_getOrCreateTAORLoop` · `_getOrCreatePlanDrivenLoop` · `_buildTAORContext` |
+| C7 | :1491-1823 | 消息落盘 + 事件追加 | `_addAndPersistMessage` · `_appendEventsForMessage` |
+| C8 | :1823-1924 | 对账(reconcile) | `_requestReconcile` · `_scheduleReconcileDrain` · `runPendingReconciles` |
+| C9 | :1924-2013 | EventLog 生命周期/内存驱逐 | `_getOrCreateEventLog` · `_evictOverflowEventLogs` · `_releaseEventLogMemory` · `_releaseInactiveEventLogSnapshots` · `hasTurnEnded` |
+| C10 | :2025-2283 | 流事件写入/缓冲/刷盘 | `appendStreamEvent` · `bufferStreamTextChunk` · `flushStreamEventBuffer` · `flushAll*` · `_ensureEventLogReady` · `_sessionLookup` · `_formatEventLine` |
+| C11 | :2334-2456 | 会话摘要/游标查询 | `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `_rebuildToolCallSeqMap` · `getStreamMaxTurn` · `flushPendingPersists` · `updateMessageBlocks` |
+| C12 | :2589-2681 | 系统提示词装配 | `getHookChainManager` · `getOrAssembleSystemPrompt` · `resolvePromptClientForSystemPrompt` · `_extractCurrentGoal` |
+| C13 | :2681-3180 | 启动/加载/迁移 | `ensureSessionsLoaded` · `_cleanStalePidFiles` · `_migrateHomeFromProjectToUser` · `initialize` · `_resumePendingSessions` · `_loadSessionsFromGateway` |
+| C14 | :3180-3399 | 请求构建/快照/压缩 | `extractFilePathsFromText` · `_sanitizeApiMessages` · `requestSnapshot` · `_recordModelInputSnapshot` · `_recordToolsSnapshot` · `_buildToolDefinitions` · `_truncateApiMessages` · `_compressToolHistory` · `_estimateArrayTokens` · `_approxJsonLength` |
+| C15 | :3399-3839 | 发送主链（前半） | `_registerStopHooks` · `_persistTurnSummary` · `sendMessage` · `_sendMessageDowngradePath` · `triggerCouncilDebate` · `extractMemoryFromChat` · `recordChatResponseUsage` · `executeStepPrompt` · `executePlanSteps` |
+| C16 | :4516-4610 | 文本/相似度工具 | `_extractKeywords` · `_jaccardSimilarity` · `getSessionWorkspacePath` · `getSessionWorkspaceId` · `_recentUserText` · `_lastAssistantText` |
+| C17 | :4610-5109 | PDCA/DocWorkflow 接线 | `_escalateToPdcaViaBareSession` · `onLongTaskSignal` · `persistSessionMetadata` · `_maybeLaunchPdca` · `_persistPdcaSnapshot` · `persistDocWorkflowProgress` · `_autoCreateProject` |
+| C18 | :5109-5614 | 启动恢复/outbox/yield | `bootstrapYieldRecovery` · `bootstrapRecovery` · `_ensureYieldResumerInstalled` · `_resumeSessionInternally` · `_rebuildTrailingTurnFromEvents` |
+| C19 | :5700-5972 | 交互/回滚(round) | `resolveInteraction` · `_getRollbackIntegration` · `_startRollbackRound` · `_endRollbackRound` · `undoRoundsSince` · `_buildToolRoundMessages` · `_dedupeToolResultForStub` |
+| C20 | :6121-6246 | 工具执行/审批 | `executeTool` · `_isCommandApproved` · `_submitToolApproval` |
+| C21 | :6246-6527+ | 会话 CRUD/门面 | `createSession` · `forkSession` · `switchSession` · `getCurrentSession` · `getSessions` · `deleteSession` · `clearAllSessions` · `saveSession` · `loadSession(s)` · `getSessionMessages` · `getMessageService` · `getStreamService` · `getSessionGateway` · `getSessionManager` |
+
+> 流式管道簇（`_buildApiMessagesForStream` :3839 · `_prepareStreamSession` :3997 · `_createStreamPipeline` :4189 · `_finalizeStreamMessage` :4229）位于 C15 与 C16 之间的 :3839-4516 段。
+
+### 7.2 候选切分（**未验证依赖**，仅作初步方案）
+
+| 新文件 | 收拢簇 | 约行数 | 说明 |
+|---|---|---|---|
+| `chat/manager/eventLogStore.ts` | C9 + C10 + C11 | ≈530 | EventLog 生命周期/流缓冲刷盘/游标查询（**内聚最好**，建议首个提取） |
+| `chat/manager/streamPipeline.ts` | :3839-4516 流管道 | ≈680 | 消息构建/会话准备/管道创建/终态收口 |
+| `chat/manager/bootstrap.ts` | C13 + C18 | ≈1090 | 启动加载迁移 + 恢复/outbox/yield（启动期职责） |
+| `chat/manager/rollback.ts` | C19 | ≈270 | 交互/回滚轮次 |
+| `chat/manager/requestPrep.ts` | C14 | ≈220 | 请求快照/工具定义/截断压缩 |
+| 主类（保留） | C1–C8 · C12 · C15(前半) · C16 · C17 · C20 · C21 | ≈3900 | 编排门面 + 分流 + 落盘 + PDCA/工具接线 |
+
+⇒ 若按上表执行，`ChatManager.ts` 由 **6729 → ≈3900 行**（仍 >3000 ⇒ **需第二/三轮继续**，或先按 `R04-001` 阈值口径评估是否够）。
+
+### 7.3 下一步（待确认）
+
+1. **依赖验证**：逐簇确认其私有字段/辅助方法引用（决定能否搬迁；**这是切分可行性的前置**）。
+2. **建议首个目标**：`eventLogStore.ts`（C9+C10+C11，内聚最好、跨簇引用最少）。

@@ -124,6 +124,12 @@
 | **D3** | **A8 遗留 3 位 provider** | (a) **建运行时**（真正落地 `task_decomposer`/`result_aggregator`/`verifier_agent`）；(b) 从闭集**删除**（承认未实现，收敛描述层）；(c) 暂不动，仅登记 |
 | **D4** | **工具双轨**（`ToolOrchestrator` vs `EnhancedToolOrchestrator`） | (a) **合并为一条**（保留活跃语义、下线零可达者）；(b) 两条都下线（若工具编排另有 `@modules/tools` 出口）；(c) 暂不动 |
 
+**裁定结果（2026-10-03，用户已答）**：
+- **D1 = 先清零可达死码** ⇒ 执行顺序固定为 **T1-1（下线 8 个零可达类）→ 之后** 才谈同名收敛 / A8 运行时；
+- **D2 = 按无消费者下线**（沿用 T1-3 / T-①07 口径）；
+- **D3 = 建运行时**（A8 三位 `task_decomposer`/`result_aggregator`/`verifier_agent`）⇒ 作为 T1-3 独立子项，**不是**下线；
+- **D4 = 工具双轨两条都下线**（`ToolOrchestrator` + `EnhancedToolOrchestrator`）。
+
 ---
 
 ## 4. 计划（T1 草拟，待 D1 定后细化）
@@ -191,5 +197,8 @@
 | 日期 | 事件 | 备注 |
 |---|---|---|
 | 2026-10-03 | **立项 + 取证**（本次提交） | 回仓实测 28 类/28 文件（台账 32 为含归档/非导出口径）；分组 A4/B9/C5/D10；零可达 8（3 硬死码 + 5 工厂/单例零调用）；A8 遗留 3 位 provider 定位（`task_decomposer`/`result_aggregator`/`verifier_agent`）；附带双 jwtUtils。**T0 裁定待用户作答**（D1–D4） |
+| 2026-10-03 | **T0 裁定**（用户已答） | D1 先清零可达死码 · D2 按无消费者下线 · D3 A8 三 provider **建运行时** · D4 工具双轨两条都下线 |
+| 2026-10-03 | **T1-0 前置取证（逐类穷尽）** | 对 8 个零可达类逐个穷尽「构造点/工厂/单例/barrel/import 路径」：`TokenRefreshScheduler`（`bridge/jwtUtils.ts` 与 `bridge/utils/jwtUtils.ts` **两文件均 0 importer**）· `AgentDelegationOrchestrator`（`bridge/channel/` **无 barrel**，全仓仅类定义）· `ReplyOrchestrator`（仅 `core/auto-reply/index.ts:25` barrel 转出）· `ToolOrchestrator`（`\bToolOrchestrator\b` 3 命中**全在自身文件**）· `EnhancedToolOrchestrator`（仅 `tools/orchestration/index.ts:28` 转出）· `RemoteTaskScheduler`（`remote/` **无 barrel**，工厂 `createRemoteTaskScheduler` 0 调用）· `StaggerScheduler`（`chronos/stagger/` **无 barrel**，单例 `staggerScheduler` 0 消费者）· `TaskScheduler`（`chronos/service/index.ts:67-72` barrel 转出，`\bTaskScheduler\b`/`taskScheduler`/`TaskSchedulerOptions` **均 0 消费者**；注意其 `ScheduledTask` 与 `chronos/types.ts:33` **同名不同源**）。⇒ 8 类**全部**确认零可达 |
+| 2026-10-03 | **T1-1 已完成：下线 8 个零可达编排类**（本次提交） | **删 9 文件**：批次 A（硬死码 4）`bridge/jwtUtils.ts` · `bridge/utils/jwtUtils.ts` · `bridge/channel/AgentDelegationOrchestrator.ts` · `core/auto-reply/reply.ts`；批次 B（工厂/单例零调用 5）`tools/ToolOrchestrator.ts` · `tools/orchestration/EnhancedToolOrchestrator.ts` · `remote/RemoteTaskScheduler.ts` · `chronos/stagger/StaggerScheduler.ts` · `chronos/service/TaskScheduler.ts`。**订正 3 处 barrel**：`core/auto-reply/index.ts`（去 `ReplyOrchestrator` 行）· `tools/orchestration/index.ts`（去 `export * ./EnhancedToolOrchestrator`）· `chronos/service/index.ts`（去 `TaskScheduler`/`taskScheduler`/`TaskSchedulerOptions`/`SchedulerStats`/`ScheduledTask` 两段导出）。**验证**：代码残留 grep **0**（仅 2 处文档引用，见下）· `typecheck 0` · `lint:arch` 0 错（警告回基线 2；已扫描 3887 → **3878**、分层 3856 → **3847** = **−9** ✓ 逐数吻合）· 全量测试见 §7。**遗留（未处置）**：`app/docs/API.md:1125,1131`（`createRemoteTaskScheduler`）与 `app/docs/核心模块/auto-reply.md:10,12,62`（`ReplyOrchestrator`）仍引用已删类 ⇒ 文档待同步 |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）

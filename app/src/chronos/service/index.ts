@@ -63,10 +63,3 @@ export type {
 
 export { TaskJitterService, taskJitterService } from './TaskJitterService';
 export type { CronJitterConfig } from './TaskJitterService';
-
-export { TaskScheduler, taskScheduler } from './TaskScheduler';
-export type {
-  ScheduledTask,
-  TaskSchedulerOptions,
-  SchedulerStats,
-} from './TaskScheduler';

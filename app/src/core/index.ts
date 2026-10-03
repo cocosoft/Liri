@@ -133,7 +133,21 @@ export {
 
 // 2026-10-01 D-144：patterns 出口（供 tasks 层的 PlanDrivenLoop 消费，
 // 避免 `@modules/core/patterns/index.js` 子目录直连触发 R03-002）
-export { selectPattern } from './patterns';
+// T-①04 T1-3（A 解析层）：补出装配契约符号（`PATTERN_PROVIDERS` / `PatternProvider` /
+// `PatternAssembly`）——装配解析层（app 层）据此断言"闭集无悬空"，仍走本 barrel 出口。
+export {
+  selectPattern,
+  PATTERN_PROVIDERS,
+  PATTERN_DESCRIPTORS,
+  listPatterns,
+  validatePatterns,
+} from './patterns';
+export type {
+  PatternProvider,
+  PatternAssembly,
+  PatternSelection,
+  PatternDescriptor,
+} from './patterns';
 
 // 2026-08-29 R03-002 收敛：trajectory / utils 统一出口
 // 2026-10-01 D-144：PlanDrivenLoop 及其辅助判定函数已移至 tasks 层

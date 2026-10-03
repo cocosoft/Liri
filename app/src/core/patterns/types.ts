@@ -35,16 +35,23 @@ export type PatternAssemblerId =
 /**
  * 承担方稳定标识（模块/组件级）——**闭集**。
  * 非用户可见文案，仅作装配绑定用（CS02：状态/装配判定不得依赖用户可见字符串）。
+ *
+ * T-①04 T1-3（A 解析层）：由 `type` 联合改为 **`as const` 数组 + 派生类型**，使闭集
+ * **运行期可枚举** —— 装配解析层与契约自检据此断言"无悬空 provider"（`type` 联合
+ * 无法迭代）。**取值域逐字不变**。
  */
-export type PatternProvider =
-  | 'taor_loop'
-  | 'react_tool_loop'
-  | 'parallel_agent_scheduler'
-  | 'result_aggregator'
-  | 'plan_driven_loop'
-  | 'task_decomposer'
-  | 'competitive_strategy_orchestrator'
-  | 'verifier_agent';
+export const PATTERN_PROVIDERS = [
+  'taor_loop',
+  'react_tool_loop',
+  'parallel_agent_scheduler',
+  'result_aggregator',
+  'plan_driven_loop',
+  'task_decomposer',
+  'competitive_strategy_orchestrator',
+  'verifier_agent',
+] as const;
+
+export type PatternProvider = (typeof PATTERN_PROVIDERS)[number];
 
 /** 角色 → 承担方绑定（`role` 必须 ∈ `PatternDescriptor.roles`） */
 export interface PatternRoleBinding {

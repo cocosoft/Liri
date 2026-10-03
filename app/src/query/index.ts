@@ -159,6 +159,14 @@ export {
 export type { FileIOConfig, FileIOBlockResult } from './FileIOLoopDetector.js';
 export { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 export { verifyProject } from './verifyProject.js';
+// T-①04 T1-3（A 解析层）：pattern 承担方解析（ID → 现有实现定位；闭集无悬空）
+export {
+  PATTERN_PROVIDER_BINDINGS,
+  resolvePatternProvider,
+  resolveAssemblyProviders,
+  findUnboundProviders,
+} from './patternAssembly.js';
+export type { PatternProviderBinding } from './patternAssembly.js';
 export {
   CompetitiveStrategyOrchestrator,
   // A7（2026-10-01）：研究编排装配点——生产代码中该编排器只在此函数内构造

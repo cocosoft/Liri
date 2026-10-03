@@ -61,7 +61,8 @@ export function evaluateGoalDeviation(
   const findings: GoalDeviationFinding[] = [];
   for (const sample of samples) {
     const { expected, actual } = sample;
-    if (expected === null || !Number.isFinite(expected) || expected <= 0) continue;
+    if (expected === null || !Number.isFinite(expected) || expected <= 0)
+      continue;
     if (!Number.isFinite(actual)) continue;
     const ratio = actual / expected;
     if (ratio < UNIFIED_THRESHOLDS.WARNING) continue;
@@ -70,8 +71,7 @@ export function evaluateGoalDeviation(
       expected,
       actual,
       ratio,
-      severity:
-        ratio >= UNIFIED_THRESHOLDS.CRITICAL ? 'critical' : 'warning',
+      severity: ratio >= UNIFIED_THRESHOLDS.CRITICAL ? 'critical' : 'warning',
     });
   }
   return findings;

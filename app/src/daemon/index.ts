@@ -34,14 +34,15 @@ export type {
   IPCTransport,
 } from './IPCService';
 
-export { AutoUpdater } from './AutoUpdater';
-export type { UpdateInfo } from './AutoUpdater';
-
 // T-③05（2026-10-03，台账 D-139）**下线队列/健康链**：
 // `TaskQueue` / `CronBridge` / `QueueBackend` / `types` / `HealthServer` 已删除——
 // 全仓（含 `src-tauri`/`scripts`/`tests`）无 `new TaskQueue(` / `new CronBridge(`，
 // 无任何消费者；DAEMON 模式的定时任务已改由 `tasks/cron/startCronEngine` 承担
 //（`main.ts:launchDaemon()`，注释「KB-CRON-DAEMON，2026-08-29」），
 // 且 `bridge/ModuleBridgeRuntime` 对 `DaemonService` 命令直接回「未接入」。
-// 保留：`ProcessManager` / `IPCService`（+ `ProcessWatchdog`、`service/DaemonService`、
-// `diagnostics`、`audit` 子路径——`ProcessWatchdog` 由 `tasks/watchdog/WatchdogBridge` 动态导入）。
+// **第二批（同日，"存量未接线族"余项）**：再删 `AutoUpdater`（与 `cli/autoUpdater.ts` 同名两份，
+// daemon 版零消费者——应用实际用的是 `cli/` 版）、`GracefulShutdown`（应用实际用
+// `utils/gracefulShutdown.ts`，见 `entrypoints/init.ts`）、`audit/DaemonAudit`、`diagnostics/DaemonDiagnostics`
+// ⇒ 本 barrel 已不再转出 `AutoUpdater`。
+// 保留：`ProcessManager` / `IPCService` / `ProcessWatchdog`（由 `tasks/watchdog/WatchdogBridge`
+// **动态导入** ⇒ 不可删）、`service/DaemonService`（`scripts/install-service.ts` 用）。

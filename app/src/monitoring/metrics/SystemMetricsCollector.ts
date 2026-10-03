@@ -204,8 +204,8 @@ export function getDiskInfo(): DiskInfo {
       // 2026-09-28：弃用 `powershell Get-CimInstance`。事件循环探针实测该调用**同步**占用
       // 823–1225ms/次，而 `performFullCheck` 内连查两次；用同一份 cpuprofile 归因后确认它是
       // `spawnSync 3853ms` 阻塞的主因之一（详见 `.trae/specs/fts-index-per-session-sharding.md` §9）。
-      // 改用原生 `fs.statfsSync`（仓内既有先例：`DaemonDiagnostics.checkDiskSpace`、
-      // `ExpansionTools`；本机实测连续 3 次 0ms）。
+      // 改用原生 `fs.statfsSync`（仓内既有先例：`ExpansionTools`；本机实测连续 3 次 0ms）。
+      // （原并列先例 `DaemonDiagnostics.checkDiskSpace` 已随死文件下线，见 T-③05 / 台账 D-139。）
       //
       // 口径差异（如实标注）：原 PowerShell 用 `DriveType=3` **只统计本地固定盘**；此处按盘符探测，
       // 会把可移动盘/已映射网络盘一并计入（无子进程前提下无法获知 DriveType）。

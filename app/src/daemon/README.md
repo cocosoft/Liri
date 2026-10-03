@@ -14,6 +14,12 @@
 > / `QueueBackend` / `HealthServer` 全仓无装配点、无消费者 ⇒ 已删除。DAEMON 模式的定时任务由
 > `tasks/cron/startCronEngine` 承担（见 `main.ts:launchDaemon()`）。本节原列的「任务进度可查询」
 > 「AbortController 取消」随该队列一并移除。
+>
+> **第二批（同日，"存量未接线族"余项）**：`AutoUpdater.ts`（与 `cli/autoUpdater.ts` 同名两份，daemon 版
+> 零消费者 ⇒ 应用实际用 `cli/` 版）/ `GracefulShutdown.ts`（应用实际用 `utils/gracefulShutdown.ts`）/
+> `audit/DaemonAudit.ts` / `diagnostics/DaemonDiagnostics.ts` 亦零消费者 ⇒ 一并删除。
+> **仍在（勿删）**：`ProcessManager`、`IPCService`、`ProcessWatchdog`（由 `tasks/watchdog/WatchdogBridge`
+> 动态导入）、`service/DaemonService`（`scripts/install-service.ts` 使用）。
 
 ## 架构原则
 

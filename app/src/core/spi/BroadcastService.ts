@@ -27,6 +27,9 @@
  * `daemon/CronBridge` ⇒ 构成 `infra -> service` / `core -> service` 倒挂
  * （`R00-003` 盲区：其中 **4 处**为动态 `import()`，**1 处**为静态）。
  *
+ * ⚠️ T-③05（2026-10-03）：`daemon/CronBridge` **已随死链下线**（台账 D-139）⇒ 上述"1 处静态"
+ * 消费方**已不存在**；本 SPI 对余下消费方（state / PlanDrivenLoop）仍然必要。
+ *
  * **方案**：与 `LoggerService` / `OTelService` / `ProfilerService` **同构**的 SPI ——
  * core 定义端口与**转发代理**；实现在 `registerBroadcastSpi()`（组合根缝）内**动态导入**后注入
  * ⇒ core / infra 消费方只依赖 `core/spi`（core 内自洽），不再产生跨层引用。

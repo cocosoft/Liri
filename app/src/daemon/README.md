@@ -7,16 +7,18 @@
 ## 职责
 
 - **ProcessManager** — 进程管理器，负责进程注册、启停、健康检查和自动重启
-- **TaskQueue** — 优先级任务队列，支持取消、超时、重试和进度回调
 - **IPCService** — HTTP 通信层，支持 Windows 兼容的进程间消息传递
-- **DaemonService** — 跨平台系统服务管理（systemd / launchd / schtasks）
+- **DaemonService** — 跨平台系统服务管理（systemd / launchd / schtasks），见 `service/DaemonService.ts`
+
+> **已下线（T-③05，2026-10-03，台账 D-139）**：`TaskQueue`（优先级队列）/ `CronBridge`（cron 轮询桥）
+> / `QueueBackend` / `HealthServer` 全仓无装配点、无消费者 ⇒ 已删除。DAEMON 模式的定时任务由
+> `tasks/cron/startCronEngine` 承担（见 `main.ts:launchDaemon()`）。本节原列的「任务进度可查询」
+> 「AbortController 取消」随该队列一并移除。
 
 ## 架构原则
 
 - 进程崩溃自动重启（不超过 5 次/分钟）
 - 优雅关闭超时 ≤ 30 秒
-- 任务进度可查询（0-100%）
-- 后台任务通过 AbortController 支持取消
 
 ## 依赖
 

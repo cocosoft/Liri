@@ -26,13 +26,6 @@ export type {
   ComponentHealth,
 } from './ProcessManager';
 
-export { TaskQueue, TaskPriority } from './TaskQueue';
-export type {
-  Task,
-  TaskResult,
-  TaskPriority as TaskPriorityEnum,
-} from './TaskQueue';
-
 export { IPCService } from './IPCService';
 export type {
   IPCMessage,
@@ -41,14 +34,14 @@ export type {
   IPCTransport,
 } from './IPCService';
 
-export { CronBridge } from './CronBridge';
-export type { CronBridgeConfig } from './CronBridge';
-
 export { AutoUpdater } from './AutoUpdater';
 export type { UpdateInfo } from './AutoUpdater';
 
-export { startHealthServer, stopHealthServer } from './HealthServer';
-export type { HealthCheckConfig } from './HealthServer';
-
-export { InMemoryQueueBackend } from './QueueBackend';
-export type { QueueBackend, QueuedTaskEntry } from './QueueBackend';
+// T-③05（2026-10-03，台账 D-139）**下线队列/健康链**：
+// `TaskQueue` / `CronBridge` / `QueueBackend` / `types` / `HealthServer` 已删除——
+// 全仓（含 `src-tauri`/`scripts`/`tests`）无 `new TaskQueue(` / `new CronBridge(`，
+// 无任何消费者；DAEMON 模式的定时任务已改由 `tasks/cron/startCronEngine` 承担
+//（`main.ts:launchDaemon()`，注释「KB-CRON-DAEMON，2026-08-29」），
+// 且 `bridge/ModuleBridgeRuntime` 对 `DaemonService` 命令直接回「未接入」。
+// 保留：`ProcessManager` / `IPCService`（+ `ProcessWatchdog`、`service/DaemonService`、
+// `diagnostics`、`audit` 子路径——`ProcessWatchdog` 由 `tasks/watchdog/WatchdogBridge` 动态导入）。

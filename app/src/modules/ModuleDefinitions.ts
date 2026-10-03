@@ -365,8 +365,10 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: '守护进程模块',
     version: '1.0.0',
     category: ModuleCategory.INFRASTRUCTURE,
+    // T-③05（2026-10-03）：原描述含「任务队列（TaskQueue）」——该队列链已下线（无装配点/无消费者，见
+    // `daemon/README.md` 与 `daemon/index.ts` 注释），描述随之更正（避免文档承诺不存在的能力）。
     description:
-      '守护进程子系统，提供进程管理（ProcessManager）、任务队列（TaskQueue）和进程间通信（IPCService）',
+      '守护进程子系统，提供进程管理（ProcessManager）与进程间通信（IPCService）',
     dependencies: ['core', 'monitoring'],
     optionalDependencies: ['chronos'],
   },

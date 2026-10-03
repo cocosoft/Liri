@@ -29,6 +29,8 @@
  * **规则 43 双向取证（否决了"改归"路线）**：
  * - `chronos` 改归 app ⇒ 入向含 **infra** 的 `daemon/CronBridge`、`monitoring/archival` 与
  *   **service** 的 `services/BridgeChronosIntegration` ⇒ 反增 **3 处**违规；
+ *   （⚠️ T-③05，2026-10-03：`daemon/CronBridge` 已随死链下线 ⇒ 该条入向现为 2 处；
+ *   结论 **不受影响**——"chronos 确为 infra、只能走端口"仍成立）
  * - `memory` 改归 app ⇒ 入向含 `voice`/`constants`/`security` /`session`/`services` 等 ⇒ 更多。
  * ⇒ 二者**确为 infra**（被 infra/service 广泛消费），只能走端口。
  *

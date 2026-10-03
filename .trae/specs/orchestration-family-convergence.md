@@ -137,11 +137,11 @@
 | 步骤 | 内容 | 完成判据 |
 |------|------|----------|
 | T1-0 | 前置取证补全：逐类「零可达」二次确认（工厂间接实例化穷尽）+ 各组"存活语义"归属 | 8 个零可达类**逐一**有 `Grep` 证据 |
-| T1-1 | 依 D2 处置零可达类（3 硬死码 + 5 工厂/单例零调用） | 残留引用 0；`lint:arch` 文件数变化逐数吻合 |
-| T1-2 | 依 D4 收敛工具双轨 | `Grep "class \w*ToolOrchestrator"` 归并 |
+| T1-1 | ✅ **已完成（2026-10-03）**：依 D2 处置 8 个零可达类（3 硬死码 + 5 工厂/单例零调用） | ✅ 残留引用 **0**；`lint:arch` 已扫描 3887→3878、分层 3856→**3847**（**−9** ✓ 逐数吻合） |
+| T1-2 | ✅ **已完成（2026-10-03）**：依 D4 收敛工具双轨（随 T1-1 一并执行） | ✅ `ToolOrchestrator` + `EnhancedToolOrchestrator` 两文件已删，`tools/orchestration/index.ts` 转出行已订正 |
 | T1-3 | 依 D3 处置 A8 遗留 3 位 provider（建 or 删） | 闭集枚举与注册表**无悬空 provider** |
-| T1-4 | 命名消歧：任务三套（T-①12）与多智能体三套的**存活者**重新命名/归位 | `Grep "class \w*(TaskOrchestrator|TaskScheduler|LongRunningTaskOrchestrator)"` 语义清晰无歧义 |
-| T1-5 | 附带：双 `jwtUtils` 冗余收口 | 两份同名 `TokenRefreshScheduler` 归并 |
+| T1-4 | ✅ **已完成（2026-10-03）· 复核结论：存活者无重名，不改名** | T1-1 后家族 28 → **20 类**，逐一比对**无重名**（3 组同名概念已消除）。任务域三者**语义分层非重复**（`TaskOrchestrator`=Plan/Step 持久化容器 · `LongRunningTaskOrchestrator`=PDCA 执行器 · `StageOrchestrator`=多阶段链）；多智能体组 3 个语义各异。**唯一命名不精确**：`TaskOrchestrator` 实为 Plan 仓库（名不符实）⇒ 经用户裁定**保留现名 + 登记**（改名跨 5 消费者 + barrel + 测试，性价比低）。**本轮无代码改动** | ✅ `Grep "class \w*(Orchestrator\|Loop\|Scheduler)"` 20 类**无重名**；结论落 §9 |
+| T1-5 | ✅ **已完成（2026-10-03）**：双 `jwtUtils` 冗余收口（随 T1-1 一并执行） | ✅ `bridge/jwtUtils.ts` + `bridge/utils/jwtUtils.ts`（两份同名 `TokenRefreshScheduler`）已删 |
 | T1-6 | 测试与验收 | 见 §7 |
 
 ---
@@ -200,5 +200,6 @@
 | 2026-10-03 | **T0 裁定**（用户已答） | D1 先清零可达死码 · D2 按无消费者下线 · D3 A8 三 provider **建运行时** · D4 工具双轨两条都下线 |
 | 2026-10-03 | **T1-0 前置取证（逐类穷尽）** | 对 8 个零可达类逐个穷尽「构造点/工厂/单例/barrel/import 路径」：`TokenRefreshScheduler`（`bridge/jwtUtils.ts` 与 `bridge/utils/jwtUtils.ts` **两文件均 0 importer**）· `AgentDelegationOrchestrator`（`bridge/channel/` **无 barrel**，全仓仅类定义）· `ReplyOrchestrator`（仅 `core/auto-reply/index.ts:25` barrel 转出）· `ToolOrchestrator`（`\bToolOrchestrator\b` 3 命中**全在自身文件**）· `EnhancedToolOrchestrator`（仅 `tools/orchestration/index.ts:28` 转出）· `RemoteTaskScheduler`（`remote/` **无 barrel**，工厂 `createRemoteTaskScheduler` 0 调用）· `StaggerScheduler`（`chronos/stagger/` **无 barrel**，单例 `staggerScheduler` 0 消费者）· `TaskScheduler`（`chronos/service/index.ts:67-72` barrel 转出，`\bTaskScheduler\b`/`taskScheduler`/`TaskSchedulerOptions` **均 0 消费者**；注意其 `ScheduledTask` 与 `chronos/types.ts:33` **同名不同源**）。⇒ 8 类**全部**确认零可达 |
 | 2026-10-03 | **T1-1 已完成：下线 8 个零可达编排类**（本次提交） | **删 9 文件**：批次 A（硬死码 4）`bridge/jwtUtils.ts` · `bridge/utils/jwtUtils.ts` · `bridge/channel/AgentDelegationOrchestrator.ts` · `core/auto-reply/reply.ts`；批次 B（工厂/单例零调用 5）`tools/ToolOrchestrator.ts` · `tools/orchestration/EnhancedToolOrchestrator.ts` · `remote/RemoteTaskScheduler.ts` · `chronos/stagger/StaggerScheduler.ts` · `chronos/service/TaskScheduler.ts`。**订正 3 处 barrel**：`core/auto-reply/index.ts`（去 `ReplyOrchestrator` 行）· `tools/orchestration/index.ts`（去 `export * ./EnhancedToolOrchestrator`）· `chronos/service/index.ts`（去 `TaskScheduler`/`taskScheduler`/`TaskSchedulerOptions`/`SchedulerStats`/`ScheduledTask` 两段导出）。**验证**：代码残留 grep **0**（仅 2 处文档引用，见下）· `typecheck 0` · `lint:arch` 0 错（警告回基线 2；已扫描 3887 → **3878**、分层 3856 → **3847** = **−9** ✓ 逐数吻合）· 全量测试见 §7。**遗留（未处置）**：`app/docs/API.md:1125,1131`（`createRemoteTaskScheduler`）与 `app/docs/核心模块/auto-reply.md:10,12,62`（`ReplyOrchestrator`）仍引用已删类 ⇒ 文档待同步 |
+| 2026-10-03 | **T1-4 已完成：存活者命名复核（结论：不改名）**（本次提交） | T1-1 后家族 28 → **20 类**，`^export class \w*(Orchestrator\|Loop\|Scheduler)\b` 逐一比对**无重名**（3 组同名概念已随 T1-1 消除）。任务域三者**语义分层非重复**：`TaskOrchestrator`（`getPlan`/`getAllPlans`/`getPlansByWorkspace`/`getPendingSteps`/`markStepRunning`/`abortAll` ⇒ 实为 **Plan/Step 持久化容器**）· `LongRunningTaskOrchestrator`（PDCA 执行器，`phase`/`LifecycleTracker`/`EffectScope`/escalation replan）· `StageOrchestrator`（多阶段链，持 `LongRunningTaskOrchestrator` 子编排）。多智能体组 3 个（`ParallelAgentScheduler`/`CouncilOrchestrator`/`ResourceScheduler`）语义各异。**唯一命名不精确**：`TaskOrchestrator` 名不符实（实为 Plan 仓库）⇒ 经用户裁定**保留现名 + 登记**（改名跨 5 消费者 + barrel + 测试，性价比低）。**本轮无代码改动**（仅文档） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）

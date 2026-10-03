@@ -173,7 +173,8 @@ export type TaskComplexity = 'simple' | 'complex';
  * 阶段 3 退役（`ChatManager._shouldUseTAORLoop` 固化单一路径）；本值现为**默认值**，
  * 可在 `GlobalConfig.fastPath` 覆盖（T-②05）。
  */
-const DEFAULT_FAST_PATH_POLICY: FastPathPolicy = buildFastPathPolicy(null).policy;
+const DEFAULT_FAST_PATH_POLICY: FastPathPolicy =
+  buildFastPathPolicy(null).policy;
 
 /**
  * 复杂度判定 —— 基于结构化特征（消息长度），无正则、无字符串匹配。
@@ -220,7 +221,9 @@ export function isEligibleForFastPath(
 }
 
 function isSimpleTask(message: string, policy: FastPathPolicy): boolean {
-  return classifyTaskComplexity(message, policy.maxSimpleTaskLength) === 'simple';
+  return (
+    classifyTaskComplexity(message, policy.maxSimpleTaskLength) === 'simple'
+  );
 }
 
 // ─── PlanDrivenLoop ────────────────────────────────────

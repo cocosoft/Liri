@@ -202,3 +202,20 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **⇒ §7.4 的「边界问题」消解。首批 `eventLogStore.ts` 净出量**：≈530 行 − `flushAllCheckpoints`（:2169-2177）− `flushPendingPersists`（:2433-2450）− `updateMessageBlocks`（:2456-2583，本就不含在 530 内）⇒ **≈470 行**。
 
 **后续提示**：`flushPendingPersists` + `updateMessageBlocks` 同属"消息投影/落盘"族 ⇒ 未来提取 **C7 簇**（:1491-1924 + 这两个方法）时应一并搬走，使主类进一步瘦身。
+
+### 7.6 实施记录：批 1/3 —— EventLog 访问器族提取（2026-10-03，**已落地**）
+
+**新模块**：`app/src/chat/manager/eventLogStore.ts`（`ChatEventLogStore`）
+**提取成员（9）**：`getOrCreateEventLog` · `_evictOverflowEventLogs`（私）· `_releaseEventLogMemory`（私）· `releaseInactiveEventLogSnapshots` · `markTurnEnded` · `hasTurnEnded` · `ensureEventLogReady` · `flushAllPendingEventBuffers` · `dropSession`
+**随迁状态**：`_eventLogCache` · `_endedTurnsBySession` · `EVENT_LOG_CACHE_MAX`（→ 模块常量）
+
+**ChatManager 侧**：字段/常量随迁；5 个方法改为**薄转发**；`appendStreamEvent` 的 turn/end 登记改调 `markTurnEnded`；`deleteSession` 的缓存清理改调 `dropSession`；新增 `private readonly _eventLogStore`。
+**行为等价**：日志 module 名保持 `chat:manager`；所有对外签名不变。
+
+**门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0**（3855 文件 / 分层违规 0，仅预存 warning）· `bun test tests/` **3872 pass / 0 fail / 9 skip**（与改前逐字一致）。
+
+**测试同步**：`tests/session/eventLogCacheLru.test.ts` 由「以 `ChatManagerImpl.prototype` 造 host」改为「以 `ChatEventLogStore.prototype` 造 host」（7 用例重定向，行为等价断言不变）。
+
+**❗更正 §3 步骤 5**：`fileSizeExceptions` 条目的删除条件 = **文件真正降到阈值以下**，而非"每批拆分后即删"。本批后 ChatManager 仍 >1000 行 ⇒ **条目保留**（此时删会在 R04-001 立即报错）。
+
+**遗留（批 2/3 候选）**：`appendStreamEvent` · `bufferStreamTextChunk` · `flushStreamEventBuffer` · `_sessionLookup` · `_formatEventLine` · `getSessionSummaries` · `searchSessionSummaries` · `getStreamTailSeq` · `_rebuildToolCallSeqMap` · `getStreamMaxTurn`（迁入需注入 `getCurrentSessionId` / `isCodeContext` / `toolCallSeqMap` / `toolCallSeqMapRebuilt`）。

@@ -51,6 +51,7 @@ import {
   isEmptyAssistantWithoutToolCalls,
   toToolResultRawText,
 } from './services/ChatHelper';
+import { ChatEventLogStore } from './manager/eventLogStore';
 import {
   RequestSnapshotService,
   type ModelInputSnapshot,
@@ -786,22 +787,12 @@ export class ChatManagerImpl implements ChatManager {
   private _pendingPersistPromises: Set<Promise<void>> = new Set();
 
   /**
-   * M1 事件溯源：per-session EventLogStorage 实例缓存
+   * 事件日志实例缓存与生命周期（`ChatEventLogStore`，首批提取自本类）。
    *
-   * 同一会话复用同一 EventLogStorage 实例，避免重复初始化 tailSeq。
-   * P2-5：worktreeHash 改用单一真源 resolveWorktreeHash()（与存储分区一致），
-   * 缓存 key 带 hash 前缀（hash:sessionId），删除/复用会话时按同 key 清理。
+   * 原字段 `_eventLogCache`、静态常量 `EVENT_LOG_CACHE_MAX` 及 LRU 淘汰/释放逻辑
+   * 已随迁至该模块（`chat/manager/eventLogStore.ts`）；本类经同族方法**薄转发**。
    */
-  private _eventLogCache: Map<string, EventLogStorage> = new Map();
-
-  /**
-   * D2（2026-09-22）：`_eventLogCache` 的 LRU 上限（实例数）。
-   *
-   * 取值依据：每个实例可常驻 `eventsSnapshot`（预算 `min(10 000 事件, 200MB)`），
-   * 修复前**只增不减** ⇒ 触碰过的会话越多、常驻越高。8 覆盖"当前 + 少量并发会话"
-   * （如后台任务正在写的会话）的常见格局，超出者淘汰并释放快照（下次访问按需重建）。
-   */
-  private static readonly EVENT_LOG_CACHE_MAX = 8;
+  private readonly _eventLogStore = new ChatEventLogStore();
 
   /**
    * M1 事件溯源：toolCallId → seq 映射
@@ -1922,96 +1913,19 @@ export class ChatManagerImpl implements ChatManager {
    * `eventsSnapshot`（预算 `min(10 000 事件, 200MB)`）。
    */
   private _getOrCreateEventLog(sessionId: string): EventLogStorage {
-    // P2-5：hash 单一真源，缓存 key 带 hash 前缀（防不同分区同 sessionId 串实例）
-    const hash = resolveWorktreeHash();
-    const key = `${hash}:${sessionId}`;
-    const cached = this._eventLogCache.get(key);
-    if (cached) {
-      // LRU：Map 保序 ⇒ 删后再插即"移到最近使用端"
-      this._eventLogCache.delete(key);
-      this._eventLogCache.set(key, cached);
-      return cached;
-    }
-    const log = new EventLogStorage(sessionId, hash);
-    this._eventLogCache.set(key, log);
-    this._evictOverflowEventLogs(key);
-    return log;
+    return this._eventLogStore.getOrCreateEventLog(sessionId);
   }
 
-  /**
-   * D2：淘汰超出上限的**最久未用**实例（`protectedKey` = 刚刚使用的那一个，永不淘汰）。
-   *
-   * 淘汰动作分两步且**先摘牌再异步释放**：摘牌同步完成（上限即时生效），
-   * 释放（落盘缓冲正文 + 清快照）异步进行，失败只记日志——释放属"省内存"，
-   * 不承担正确性（实例被摘牌后仍是被引用对象，按其自身生命周期继续工作/被 GC）。
-   */
-  private _evictOverflowEventLogs(protectedKey: string): void {
-    while (this._eventLogCache.size > ChatManagerImpl.EVENT_LOG_CACHE_MAX) {
-      const oldestKey = this._eventLogCache.keys().next().value as
-        | string
-        | undefined;
-      if (oldestKey === undefined || oldestKey === protectedKey) break;
-      const evicted = this._eventLogCache.get(oldestKey);
-      this._eventLogCache.delete(oldestKey);
-      if (evicted) {
-        void this._releaseEventLogMemory(oldestKey, evicted, 'lru_evict');
-      }
-    }
-  }
-
-  /**
-   * D2：释放某个事件日志实例的常驻内存。
-   *
-   * 顺序不可颠倒：**先** `flushTextBuffer()` 把缓冲正文落盘（Write-Ahead：
-   * 正文缓冲不得因"省内存"而丢），**再** `releaseMemory()` 释放事件快照。
-   * 两处触发点：实例 LRU 淘汰（`lru_evict`）与会话切换（`session_switch`）。
-   */
-  private async _releaseEventLogMemory(
-    key: string,
-    log: EventLogStorage,
-    reason: 'lru_evict' | 'session_switch'
-  ): Promise<void> {
-    try {
-      await log.flushTextBuffer();
-      log.releaseMemory();
-      logger.debug('event-log: 已释放会话事件快照', { key, reason });
-    } catch (err) {
-      // @ignore-catch — 释放失败只影响内存占用，不影响会话数据正确性
-      logger.warn('event-log: 释放事件日志内存失败（不影响正确性）', {
-        key,
-        reason,
-        error: String(err),
-      });
-    }
-  }
-
-  /**
-   * D2：会话切换时释放**非当前会话**的事件快照（当前会话的快照仍按需复用）。
-   *
-   * 为什么放在切换点：这是"用户意图已转移"的最强信号，且是一次同步可枚举的窄路径
-   * （不引入定时器/后台扫描）。代价：被释放的会话若再次访问需重建快照
-   * （`read()` 的建快照分支，实测单会话毫秒~百毫秒级），属可接受换内存。
-   */
+  /** D2：会话切换时释放非当前会话的事件快照（实现在 `ChatEventLogStore`） */
   private async _releaseInactiveEventLogSnapshots(
     activeSessionId: string
   ): Promise<void> {
-    const activeKey = `${resolveWorktreeHash()}:${activeSessionId}`;
-    for (const [key, log] of this._eventLogCache) {
-      if (key === activeKey) continue;
-      await this._releaseEventLogMemory(key, log, 'session_switch');
-    }
+    return this._eventLogStore.releaseInactiveEventLogSnapshots(activeSessionId);
   }
 
-  /**
-   * Fix2（2026-09-05）：turn/end 单写者幂等——streamMessageFlow（无工具轮次即时写、
-   * 工具轮次由 finalize 写）可能对同一 turn 双写 end（实测 9 turn/start vs 11 turn/end，
-   * 冗余 2）。以 appendStreamEvent 中央记录已写 end 的 turn，finalize 据此跳过重复。
-   */
-  private _endedTurnsBySession = new Map<string, Set<number>>();
-
-  /** Fix2：该会话的指定 turn 是否已写 turn/end */
+  /** Fix2：该会话的指定 turn 是否已写 turn/end（状态在 `ChatEventLogStore`） */
   private hasTurnEnded(sessionId: string, turn: number): boolean {
-    return this._endedTurnsBySession.get(sessionId)?.has(turn) ?? false;
+    return this._eventLogStore.hasTurnEnded(sessionId, turn);
   }
 
   /**
@@ -2078,14 +1992,7 @@ export class ChatManagerImpl implements ChatManager {
       // finalize）追加成功的 turn/end 都登记，供 finalize 去重，杜绝同一 turn 双 end。
       if (result.ok && event.type === 'turn/end') {
         const turn = (event.data as { turn?: number }).turn ?? 0;
-        if (turn > 0) {
-          let set = this._endedTurnsBySession.get(sessionId);
-          if (!set) {
-            set = new Set<number>();
-            this._endedTurnsBySession.set(sessionId, set);
-          }
-          set.add(turn);
-        }
+        this._eventLogStore.markTurnEnded(sessionId, turn);
       }
       return { ok: result.ok, reason: result.reason, tailSeq: result.tailSeq };
     } catch (e) {
@@ -2150,15 +2057,7 @@ export class ChatManagerImpl implements ChatManager {
    * 单个失败不抛错（CS03），返回 flush 的 chunk 总数。
    */
   async flushAllPendingEventBuffers(): Promise<number> {
-    let flushed = 0;
-    for (const log of this._eventLogCache.values()) {
-      try {
-        flushed += await log.flushTextBuffer();
-      } catch {
-        // @ignore-catch — 退出路径 flush 失败不阻断其余会话（CS03）
-      }
-    }
-    return flushed;
+    return this._eventLogStore.flushAllPendingEventBuffers();
   }
 
   /**
@@ -2176,25 +2075,11 @@ export class ChatManagerImpl implements ChatManager {
     );
   }
 
-  /** 首次使用前的 eventLog 就绪（懒建 + 旧数据迁移；appendStreamEvent 同款逻辑收敛复用） */
+  /** 首次使用前的 eventLog 就绪（懒建 + 旧数据迁移；实现在 `ChatEventLogStore`） */
   private async _ensureEventLogReady(
     sessionId: string
   ): Promise<EventLogStorage> {
-    const eventLog = this._getOrCreateEventLog(sessionId);
-    if (!eventLog.exists()) {
-      const migrator = new MessageToEventMigrator(
-        eventLog,
-        sessionId,
-        resolveWorktreeHash()
-      );
-      if (migrator.needsMigration()) {
-        logger.info('chat:manager 流式前自动触发事件日志迁移', {
-          sessionId,
-        });
-        await migrator.migrate();
-      }
-    }
-    return eventLog;
+    return this._eventLogStore.ensureEventLogReady(sessionId);
   }
 
   /**
@@ -6297,7 +6182,7 @@ export class ChatManagerImpl implements ChatManager {
     // sessionId 复用时会继承旧 seq 计数，导致 events.tail 元数据错位
     // P2-5：缓存 key 带 hash 前缀，删除时按同 key 清理（否则残留实例在分区
     // 切换后可能串用旧分区事件日志）
-    this._eventLogCache.delete(`${resolveWorktreeHash()}:${sessionId}`);
+    this._eventLogStore.dropSession(sessionId);
     // 设计三（2026-08-26）：清理 per-session 轮次计数
     this.clearToolRound(sessionId);
     // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后

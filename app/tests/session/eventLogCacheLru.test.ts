@@ -17,50 +17,48 @@
  * 私有字段 + `Reflect` 取原型方法（不使用 `any` / `ts-ignore`）。
  */
 import { describe, test, expect } from 'bun:test';
-import { ChatManagerImpl } from '../../src/chat/ChatManager';
+import { ChatEventLogStore } from '../../src/chat/manager/eventLogStore';
 import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
 
 /** 承载私有字段的最小 host（原型方法经 Reflect 以它为 this 调用） */
 interface CacheHost {
   _eventLogCache: Map<string, EventLogStorage>;
-  sessionLifecycle: { switchSession: (id: string) => Promise<void> };
 }
 
-/** 与 ChatManager.EVENT_LOG_CACHE_MAX 对齐（用例的期望值来自契约，非实现常量直读） */
+/** 与 ChatEventLogStore 的 EVENT_LOG_CACHE_MAX 对齐（用例的期望值来自契约，非实现常量直读） */
 const MAX_CACHED = 8;
 
 function makeHost(): CacheHost {
-  // 关键：**继承真实原型** —— `_getOrCreateEventLog` 内部会调用
+  // 关键：**继承真实原型** —— `getOrCreateEventLog` 内部会调用
   // `this._evictOverflowEventLogs` 等兄弟私有方法，普通对象字面量取不到它们；
   // 走 `Object.create(prototype)` 即可在不跑重构造函数的前提下复用真实实现。
-  const host = Object.create(ChatManagerImpl.prototype) as CacheHost;
+  const host = Object.create(ChatEventLogStore.prototype) as CacheHost;
   host._eventLogCache = new Map<string, EventLogStorage>();
-  host.sessionLifecycle = { switchSession: async () => {} };
   return host;
 }
 
 type Fn = (this: unknown, ...args: unknown[]) => unknown;
 
 function proto(name: string): Fn {
-  const fn = Reflect.get(ChatManagerImpl.prototype, name) as Fn | undefined;
-  if (!fn) throw new Error(`ChatManagerImpl.prototype.${name} 不存在`);
+  const fn = Reflect.get(ChatEventLogStore.prototype, name) as Fn | undefined;
+  if (!fn) throw new Error(`ChatEventLogStore.prototype.${name} 不存在`);
   return fn;
 }
 
-/** 调用私有 `_getOrCreateEventLog` */
+/** 调用 `getOrCreateEventLog` */
 function getOrCreate(host: CacheHost, sessionId: string): EventLogStorage {
-  return Reflect.apply(proto('_getOrCreateEventLog'), host, [
+  return Reflect.apply(proto('getOrCreateEventLog'), host, [
     sessionId,
   ]) as EventLogStorage;
 }
 
-/** 调用私有 `switchSession`（真实方法，内部再委托 sessionLifecycle） */
-async function switchSession(
+/** 调用 `releaseInactiveEventLogSnapshots`（会话切换时的非当前会话快照释放） */
+async function releaseInactive(
   host: CacheHost,
-  sessionId: string
+  activeSessionId: string
 ): Promise<void> {
-  await (Reflect.apply(proto('switchSession'), host, [
-    sessionId,
+  await (Reflect.apply(proto('releaseInactiveEventLogSnapshots'), host, [
+    activeSessionId,
   ]) as Promise<void>);
 }
 
@@ -80,7 +78,7 @@ function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe('D2：_eventLogCache LRU', () => {
+describe('D2：ChatEventLogStore LRU', () => {
   test('同一会话复用同一实例（命中即复用）', () => {
     const host = makeHost();
     const first = getOrCreate(host, 's1');
@@ -141,20 +139,15 @@ describe('D2：_eventLogCache LRU', () => {
 });
 
 describe('D2：会话切换释放非当前会话快照', () => {
-  test('切换 ⇒ 非当前会话快照被释放、当前会话保留、切换动作仍被委托', async () => {
+  test('切换 ⇒ 非当前会话快照被释放、当前会话保留', async () => {
     const host = makeHost();
-    const switched: string[] = [];
-    host.sessionLifecycle.switchSession = async (id: string) => {
-      switched.push(id);
-    };
     const s1 = getOrCreate(host, 's1');
     const s2 = getOrCreate(host, 's2');
     const s3 = getOrCreate(host, 's3');
     [s1, s2, s3].forEach((l) => seedSnapshot(l));
 
-    await switchSession(host, 's2');
+    await releaseInactive(host, 's2');
 
-    expect(switched).toEqual(['s2']); // 委托未被破坏
     expect(snapshotOf(s2)).not.toBeNull(); // 当前会话保留
     expect(snapshotOf(s1)).toBeNull(); // 非当前会话释放
     expect(snapshotOf(s3)).toBeNull();
@@ -164,7 +157,7 @@ describe('D2：会话切换释放非当前会话快照', () => {
     const host = makeHost();
     const log = getOrCreate(host, 's1');
     seedSnapshot(log);
-    await switchSession(host, 's2');
+    await releaseInactive(host, 's2');
 
     expect(getOrCreate(host, 's1')).toBe(log); // 仍是同一实例
     expect(snapshotOf(log)).toBeNull(); // 但快照已释放

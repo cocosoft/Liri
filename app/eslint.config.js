@@ -169,7 +169,6 @@ export default [
   {
     // 模块测试文件：允许 console 输出
     files: [
-      'src/agent/AgentModuleTest.ts',
       'src/chat/ChatModuleTest.ts',
       'src/config/ConfigModuleTest.ts',
     ],

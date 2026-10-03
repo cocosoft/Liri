@@ -47,8 +47,8 @@
 | **T1-0** | **补全未取证面**：① `AdvancedMemorySystem` 运行时可达性（构造点仅测试 ⇒ 需查 `agent/index.ts` 转出的消费方）；② RAM 侧 3 类的**全部引用点**（改名影响面）；③ `interface MemoryManager` 40 个方法的**逐条归属**（哪个属 Read/Write/Search/Forget；哪个属"非端口职责"如 PYApp 集成／团队同步 ⇒ 不迁入端口） | 产出三张清单，写入本 spec §4 附录 |
 | **T1-1** | **建窄端口**：`memory/ports/{MemoryReadPort,MemoryWritePort,MemorySearchPort,MemoryForgetPort}.ts`（方法签名**由 T1-0③ 的归属表确定**，不得预先编写） | 新文件存在 + 类型齐备 |
 | **T1-2** | **基座适配**：`MemoryManagerImpl` 声明 implement 四个窄端口（不改内部行为） | `typecheck 0`；现有测试全绿 |
-| **T1-3** | **增强层下线**（D2 复裁：零构造点 ⇒ 同 §10.1 处理）：删 `memory/EnhancedMemoryManager.ts` + `memory/services/MemoryWeightExporter.ts`（自身零消费者，输入类型来自增强层）+ `memory/index.ts` 两处导出（`:64-70`、`:79`）。**保留** `memory/retrievers/MemoryRetriever.ts`（**基座在用**：`MemoryManager.ts:11,243,313,1069`）与 `memory/indexer/*` | `typecheck 0`；全量测试 0 fail；`Grep "EnhancedMemoryManager"` 仅剩本 spec/台账 |
-| **T1-4** | **异域适配**（`SessionMemoryManager` / `AdvancedMemorySystem`）：按 T1-0③ 的归属，**只实现其真正具备的端口**（不强行补齐）。⚠️ **`AdvancedMemorySystem` 与 `EnhancedMemoryManager` 同为零运行时可达（§10.1）**，D2 复裁**未覆盖它** ⇒ **待你一句话裁定**（同法下线 or 保留适配）；未裁定前**不对它做任何改动** | 各自 `implements` 其域内端口；无"空实现"桩 |
+| **T1-3** | ✅ **已完成（2026-10-03）· 增强层 + agent 域悬空实现下线**：删 **5 文件** —— `memory/EnhancedMemoryManager.ts`、`memory/services/MemoryWeightExporter.ts`、`agent/memory/AdvancedMemorySystem.ts`（用户另裁"同法下线"）、`agent/memory/MemoryVectorizer.ts`（**仅** `AdvancedMemorySystem` 引用 ⇒ 随删）、`agent/AgentModuleTest.ts`（**唯一**构造 `AdvancedMemorySystem` 且自身无任何消费者）；订正 3 处引用：`memory/index.ts`（去 WeightExporter 块 + `export * ./EnhancedMemoryManager`）、`agent/index.ts`（去 import + export 成员）、`eslint.config.js`（去 AgentModuleTest 的 no-console 例外）。**保留** `memory/retrievers/MemoryRetriever.ts`（基座在用）、`memory/indexer/*` | ✅ `typecheck 0` · 零残留引用 · `lint:arch` **0 错**（3860 → **3855** = −5 ✓）· `modules:validate` 通过 + 快照一致 · `bun test tests/` **3812 pass / 9 skip / 0 fail** |
+| **T1-4** | **异域适配**（`SessionMemoryManager`）：按 T1-0③ 的归属，**只实现其真正具备的端口**（不强行补齐）。~~`AdvancedMemorySystem`~~ 已按用户裁定**同法下线**（见 T1-3） | `SessionMemoryManager` `implements` 其域内端口；无"空实现"桩 |
 | **T1-5** | **工厂收口**（D4）：新增 `getMemoryPort()`（或按端口分的 `getMemoryReadPort()` 等）；替换 ≥10 处裸 `new` | 防回退断言：全仓不再新增 `new MemoryManagerImpl()` |
 | **T1-6** | **RAM 同名消歧**（D3）：改名为 `HeapMemoryManager` 等 + 更新全部引用点 | `Grep "class MemoryManager"` 仅剩记忆域 1 处 |
 | **T1-7** | **测试与验收** | 见 §7 |
@@ -106,6 +106,8 @@
 | 2026-10-03 | **T1-0 完成 3/5**（提交 `e2ab076a4`） | 关闭 §5-#2（`AdvancedMemorySystem` **运行时不可达**）、#3（RAM 三类引用面：最重 4 代码文件 + 1 测试）；#1 出**草拟**归属表 |
 | 2026-10-03 | **T1-0 全部关闭（5/5）**（本次提交） | 关闭 §5-#4（真实调用面 = **生产 13 文件**，其余走函数/服务入口）、#5（`EnhancedMemoryManager` **确有附加语义但构造点为 0**）。**🆕 新增待裁定**：D2 前提被推翻 ⇒ T1-3 需复裁 **(i) 并入基座** or **(ii) 按无消费者下线**。**T1-1 仍不可开始**：§10.3 归属表仅"草拟"（`setMemoryExpiry`／`processConversation`／`createMemoryFromChat` 3 条待定 + 端口签名未定稿） |
 | 2026-10-03 | **D2 复裁：按无消费者下线**（本次提交） | 依 §10.5（构造点为 0）；下线影响链见 §10.6（**保留** `MemoryRetrieverImpl`——基座在用；**一并下线** `MemoryWeightExporter`——零消费者）。**🆕 新遗留**：`AdvancedMemorySystem` 同为零可达，复裁未覆盖 ⇒ 待一句话裁定（§4 T1-4 已标注"未裁定前不动它"） |
+| 2026-10-03 | **T1-3 已完成：下线 5 文件**（本次提交） | `EnhancedMemoryManager` + `MemoryWeightExporter`（D2 复裁）+ `AdvancedMemorySystem`（用户另裁"同法下线"）+ 连带 `MemoryVectorizer` / `AgentModuleTest`（前者仅被删者引用、后者为删者的唯一构造点且自身零消费者）。验证：`typecheck 0` · 残留 0 · `lint:arch` **−5 文件** 与删除数逐数吻合 · 测试 **3812 pass / 0 fail** |
+| 2026-10-03 | **新登记（未处置）** | `SmartMemoryAnalyzer` 同族零消费者（§10.7 末），**本次未动** |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 
@@ -192,3 +194,21 @@
 - `MemoryAnalysis` **两份**：`EnhancedMemoryManager.ts:28`（将删）与 `sandbox/IntelligentSandboxAnalyzer.ts:300`（**无关的另一域**，保留）；
 - `MemoryQuery` **两份**：`memory/MemoryProvider.ts:16` 与 `memory/providers/ExternalMemoryProvider.ts:23`（均被 provider 在用，**均保留**）；
 ⇒ 与碎片③（记忆/内存同名）同族，**本次不动**（属 T1-6 的消歧范畴，另行裁定）。
+
+### 10.7 T1-3 执行记录 + 新登记（2026-10-03）
+
+**实际删除（5 文件，比 §10.6 的初步范围多 2 个连带项，均经取证）**：
+
+| 文件 | 删除理由 |
+|---|---|
+| `memory/EnhancedMemoryManager.ts` | D2 复裁（§10.5：零构造点） |
+| `memory/services/MemoryWeightExporter.ts` | 零外部消费者，且输入类型来自增强层（§10.6） |
+| `agent/memory/AdvancedMemorySystem.ts` | 用户裁定"同法下线"（§10.1：零运行时可达） |
+| `agent/memory/MemoryVectorizer.ts` | `Grep "MemoryVectorizer"` 全 app **仅** `AdvancedMemorySystem.ts:5` 一处 import ⇒ 随删即孤立 |
+| `agent/AgentModuleTest.ts` | `Grep "AgentModuleTest"` 全 app 仅 3 处（eslint 配置 + 自身类定义 + 自身调用）⇒ **无任何消费者**，且系 `AdvancedMemorySystem` 的**唯一**构造点 ⇒ 不删则编译失败 |
+
+**引用订正 3 处**：`memory/index.ts`（去 `MemoryWeightExporter` 块与 `export * from './EnhancedMemoryManager.js'`）· `agent/index.ts`（去 import 行与 export 成员）· `eslint.config.js`（去 `src/agent/AgentModuleTest.ts` 的 no-console 例外条目）。
+
+**验证**：`typecheck` 0 · 残留引用 grep **0** · `lint:arch` 0 错（分层检查 3860 → **3855** = **−5** ✓ 与删除数逐数吻合）· `modules:validate` 通过 + 快照一致 · `bun test tests/` **3812 pass / 9 skip / 0 fail**。
+
+**🆕 新登记（同族 · 未处置 · 待裁定）**：`memory/index.ts:70` 仍 `export * from './SmartMemoryAnalyzer.js'`，而 `Grep "SmartMemoryAnalyzer"` 全 app **仅 2 处**（类定义 `SmartMemoryAnalyzer.ts:71` + 该 barrel 行）⇒ **零消费者**，与 T1-3 所删者同族。**本次未动**（不在 D2 裁定范围内）。

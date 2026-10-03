@@ -60,15 +60,6 @@ export type {
   Preference,
 } from './services/PYAppIntegrationService';
 
-// 导出记忆权重可解释性服务
-export { MemoryWeightExporter } from './services/MemoryWeightExporter';
-export type {
-  WeightEntry,
-  WeightReport,
-  WeightReportSummary,
-  WeightDistribution,
-} from './services/MemoryWeightExporter';
-
 // 导出记忆摘要服务（记忆→提示词适配层）
 export { MemorySummarizer } from './services/MemorySummarizer';
 
@@ -76,7 +67,6 @@ export { MemorySummarizer } from './services/MemorySummarizer';
 export type { MemorySessionContext } from './types/SessionContext';
 
 // 导出增强功能
-export * from './EnhancedMemoryManager.js';
 export * from './SmartMemoryAnalyzer.js';
 
 // P2-5: 记忆类型扩展（FEEDBACK/REFERENCE + XML 模板）

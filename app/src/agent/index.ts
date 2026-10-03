@@ -39,7 +39,6 @@ import { MultiSourceAgentManager } from './managers/MultiSourceAgentManager';
 import { PluginLoader } from './managers/PluginLoader';
 import { AgentSourceManager } from './managers/AgentSourceManager';
 import { AgentConfigManager } from './managers/AgentConfigManager';
-import { AdvancedMemorySystem } from './memory/AdvancedMemorySystem';
 import { AgentUIManager } from './ui/AgentUIManager';
 
 import {
@@ -157,7 +156,6 @@ export {
   PluginLoader,
   AgentSourceManager,
   AgentConfigManager,
-  AdvancedMemorySystem,
   AgentUIManager,
   // Remote
   RemoteAgentExecutorImpl,

@@ -64,8 +64,8 @@
 | 1 | `interface MemoryManager` 方法逐条归属 | **🟡 已出草拟归属表**（§10.3）；**待 T1-1 定稿**（须区分"核心记忆语义"与"域内事务"） |
 | 2 | `AdvancedMemorySystem` 运行时可达性 | **✅ 已关闭：运行时不可达**（§10.1） |
 | 3 | RAM 侧 3 个 `MemoryManager` 引用面 | **✅ 已关闭**（§10.2）：`performance/MemoryManager` 4 代码文件 + barrel + 1 测试；`utils/memoryManager` **零外部引用**；`core/utils/Performance` 仅文档引用 |
-| 4 | `memory/index.ts` barrel 的消费者逐文件分类 | **未做**（`@modules/memory` 命中 ≥40 文件，未统计"谁依赖哪个具体实现"） |
-| 5 | `EnhancedMemoryManager` 6 个公开入口的语义差 | **未做**（事实 4 只列**方法名**；"是否仅包装"须逐条读实现） |
+| 4 | `memory/index.ts` barrel 的消费者逐文件分类 | **✅ 已关闭**（§10.4）：显式依赖具体实现的**只有** `MemoryManagerImpl`（生产 11 文件 + 2 scripts + 2 tests）；`EnhancedMemoryManager` **仅类型引用 1 处** |
+| 5 | `EnhancedMemoryManager` 6 个公开入口的语义差 | **✅ 已关闭**（§10.5）：**确有附加语义**（分析/关联/生命周期 + 独立检索通道 `MemoryRetrieverImpl`），**但其构造点为 0** ⇒ **D2「并入基座」的前提已被推翻**，须在 **T1-3 前复裁**（并入 or 按无消费者下线） |
 
 ## 6. 影响面（初估）
 
@@ -103,7 +103,8 @@
 | 2026-10-03 | **立项 + 取证**（提交 `2a9c97066`） | 首版把碎片① 写成"无契约"、把 4 个类并列成"同接口多实现" |
 | 2026-10-03 | **T0 裁定**（D1 细分端口／D2 全保留 + 增强层并入基座／D3 RAM 随本项改名／D4 收口工厂） | 用户已答 |
 | 2026-10-03 | **二次取证更正**（提交 `13292790d`） | 发现 `interface MemoryManager` **已存在**（`MemoryManager.ts:63`）⇒ 更正碎片①；发现 `SessionMemoryManager` 与接口**几乎零重叠** ⇒ 更正碎片②的"三套实现"表述 |
-| 2026-10-03 | **T1-0 完成 3/5**（本次提交） | 关闭 §5-#2（`AdvancedMemorySystem` **运行时不可达**）、#3（RAM 三类引用面：最重 4 代码文件 + 1 测试）；#1 出**草拟**归属表。**仍未关闭**：#4 barrel 消费者分类、#5 增强入口语义差 ⇒ **T1-1 尚不可开始**（端口签名未定稿） |
+| 2026-10-03 | **T1-0 完成 3/5**（提交 `e2ab076a4`） | 关闭 §5-#2（`AdvancedMemorySystem` **运行时不可达**）、#3（RAM 三类引用面：最重 4 代码文件 + 1 测试）；#1 出**草拟**归属表 |
+| 2026-10-03 | **T1-0 全部关闭（5/5）**（本次提交） | 关闭 §5-#4（真实调用面 = **生产 13 文件**，其余走函数/服务入口）、#5（`EnhancedMemoryManager` **确有附加语义但构造点为 0**）。**🆕 新增待裁定**：D2 前提被推翻 ⇒ T1-3 需复裁 **(i) 并入基座** or **(ii) 按无消费者下线**。**T1-1 仍不可开始**：§10.3 归属表仅"草拟"（`setMemoryExpiry`／`processConversation`／`createMemoryFromChat` 3 条待定 + 端口签名未定稿） |
 
 （后续每步由实施者注明提交号、各步验证输出、以及 §5 各"未取证"项的实测结论。）
 
@@ -149,3 +150,27 @@
 | **待定（T1-1 逐条读实现后定）** | `setMemoryExpiry`（写 or 遗忘？）· `processConversation`（编排，跨读写）· `createMemoryFromChat`（写 or 领域编排？） | 3 |
 
 ⚠️ **本表为草拟**：四个端口的**最终签名**须待 §5-#5 关闭（读 `EnhancedMemoryManager` 实现）后定稿；**不得**以本表直接开始 T1-1 建文件。
+
+### 10.4 具体实现的消费者分类（`@modules/memory` barrel 命中 ≥40 文件的细化）
+
+| 实现 | 显式依赖它的文件 | 计 |
+|---|---|---|
+| **`MemoryManagerImpl`** | 生产：`entrypoints/init.ts:603` · `entrypoints/mcp-memory.ts:51` · `infrastructure/http/handlers/memory-handlers.ts:29,33,36` · `voice/VoiceSession.ts:37,59,123` · `voice/VoiceServiceBridge.ts:75` · `dream/UnifiedDreamCycle.ts:491,712` · `chat/ChatManager.ts:3567` · `chat/orchestrator/ChatOrchestrator.ts:448` · `tasks/LongRunningTaskOrchestrator.ts:124` · `memory/cli/MemoryCLI.ts:4` · `memory/consolidation/MemoryDreamService.ts:29` · `memory/adapters/SessionSummaryAdapter.ts:52` · `memory/integrations/MemoryIntegration.ts:1`；脚本：`scripts/migrate-memory-v1-to-v2.ts:27` · `scripts/bench-memory-dedup.ts:48`；测试：`tests/memory/SessionSummaryAdapter.test.ts:11`（+6 构造点） | **生产 13 · 脚本 2 · 测试 1** |
+| **`EnhancedMemoryManager`** | **仅** `memory/services/MemoryWeightExporter.ts:7-10` —— 且是 **`import type`**（`MemoryAnalysis` / `SmartRetrievalResult`），**不构造** | **1（类型级）** |
+
+⇒ **结论**：其余 ≥40 个 `@modules/memory` 消费者走的是**函数/服务入口**（`MemorySummarizer`／`MemorySyncService`／`SessionSummaryAdapter`／`MemoryGetTool` 等），**不直接依赖实现类** ⇒ 端口化的真实调用面比"≥40 文件"小得多（**生产 13 文件**）。
+
+### 10.5 `EnhancedMemoryManager` 语义差 + **构造点为 0**（决定性）
+
+**（a）确有附加语义**（非纯转发）：
+- `storeMemoryEnhanced`（`:102-136`）= **包装基座** `createMemory()`（`:109`）+ 可选 `analyzeMemory`／`associateMemory` + `createLifecycle`；
+- `retrieveMemoriesSmart`（`:141-203`）= 走 **自己的检索通道** `this.memoryRetriever.retrieve()`（`:148`，`memoryRetriever = new MemoryRetrieverImpl()` `:96`）**而非基座的 `getRelevantMemories`** + 分析/推荐/置信度/策略 + 生命周期访问记录；
+- `getConfig`／`updateConfig`／`clearAssociations`／`clearLifecycles` = 关联与生命周期状态管理。
+- 其内部还持有 `new MemoryIndexer()`（`:95`）。
+
+**（b）但构造点为 0**：`Grep "new EnhancedMemoryManager|EnhancedMemoryManager(|createEnhancedMemoryManager"`（`app/` 整树）⇒ **No matches found** ⇒ **全仓没有任何地方实例化它**（仅 barrel `memory/index.ts:79 export *` 转出 + `MemoryWeightExporter` 的**类型**引用）。
+
+⇒ **对 D2 的影响（必须复裁）**：D2 原表述"全保留 + `EnhancedMemoryManager` 并入基座"，其隐含前提是"增强层有运行时消费者"。实测**前提不成立** ⇒ T1-3 的实际选项应为：
+- **(i) 并入基座**（把上述附加语义搬进 `MemoryManagerImpl`，增强层降为 `@deprecated` 壳）—— **收益 = 能力可用但无人用**；
+- **(ii) 按"无消费者的增强层"下线**（同 §10.1 的 `AdvancedMemorySystem`）—— **收益 = 减面**，代价 = 放弃该能力（当前本就无人用）。
+⇒ **两项都成立，取决于你是否要保留"记忆分析/关联/生命周期"这条能力线** —— 建议在 T1-3 前给一句话裁定即可。

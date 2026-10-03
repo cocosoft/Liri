@@ -75,9 +75,6 @@ export { MemorySummarizer } from './services/MemorySummarizer';
 // 导出会话上下文类型（记忆检索专用）
 export type { MemorySessionContext } from './types/SessionContext';
 
-// 导出增强功能
-export * from './SmartMemoryAnalyzer.js';
-
 // P2-5: 记忆类型扩展（FEEDBACK/REFERENCE + XML 模板）
 export {
   MemoryType,

@@ -8,9 +8,12 @@
 
 - **CronTasks** — Cron 任务持久化存储（JSON / SQLite）
 - **cron** — Cron 表达式解析和执行
-- **CronScheduler** — 基于检查点的 cron 调度引擎
-- **InMemoryScheduler** — 轻量级内存内调度器（系统级任务）
 - **autoDream** — 自动记忆整合系统（做梦机制）
+- ⚠️ **`CronScheduler` / `InMemoryScheduler` 已下线**（T-③05 遗留，2026-10-03）：本目录的
+  `CronScheduler.ts` 三导出（`createCronScheduler` / `createInMemoryScheduler` /
+  `buildMissedTaskNotification`）**全仓零消费者**、文件自述 `@deprecated` ⇒ 已删除（连同
+  仅其使用的 4 个类型）。**在用的调度器在 `tasks/cron/`**（`GlobalCronScheduler` /
+  `CronScheduler`），做梦定时由 `dream/DreamScheduler`（setInterval + cron 校验）承担。
 - **engine/** — 调度引擎
 - **types** — 时间任务类型定义
 
@@ -68,9 +71,9 @@
 startBackgroundHousekeeping()
  ├── initAutoDream()          ← 初始化做梦 Runner
  ├── setupDreamCronScheduler() ← 注册凌晨 2:00 定时任务
- │    └── InMemoryScheduler
- │         └── 每 60s 检查一次
- │              └── 到达 2:00 → executeAutoDream()
+ │    └── dream/DreamScheduler（setInterval + computeNextCronRunMs 校验）
+ │         └── 到达 2:00 → executeAutoDream()
+ │（原 `InMemoryScheduler` 已随 T-③05 遗留下线）
  │
  └── ... 其他后台维护
 ```
@@ -84,7 +87,7 @@ startBackgroundHousekeeping()
 | 自动记忆整合（做梦） | 每天 02:00 | 扫描新会话并生成洞察                           |
 | 日志清理             | 每天 03:00 | 清理过期日志和缓存（由 archivalCronTask 实现） |
 
-系统级任务由 `InMemoryScheduler` 调度，无需用户干预。
+系统级任务由 `dream/DreamScheduler`（做梦）与 `monitoring/archival`（日志清理）承担，无需用户干预。
 
 ## 集成
 
@@ -95,19 +98,10 @@ startBackgroundHousekeeping()
 ```typescript
 import { CronTasks } from '@modules/chronos';
 import { addCronTask, listAllCronTasks } from '@modules/chronos/CronTasks';
-import { createInMemoryScheduler } from '@modules/chronos/CronScheduler';
 import { executeAutoDream } from '@modules/chronos/autoDream';
 
 // 持久化添加 cron 任务
 await addCronTask('0 2 * * *', '每天2点执行', true, true);
-
-// 创建内存调度器
-const scheduler = createInMemoryScheduler({
-  onTaskExecute: async (task) => {
-    // 执行任务逻辑
-    return { success: true };
-  },
-});
 
 // 手动触发做梦
 await executeAutoDream();

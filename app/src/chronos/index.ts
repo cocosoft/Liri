@@ -23,14 +23,9 @@
  */
 
 export type { TaskStatus as ChronosTaskStatus } from './types';
-export type {
-  ScheduledTask,
-  CronSchedulerOptions,
-  CronJitterConfig,
-  CronScheduler as CronSchedulerInterface,
-  InMemorySchedulerOptions,
-  InMemoryScheduler,
-} from './types';
+// T-③05 遗留（2026-10-03）：`CronSchedulerOptions` / `CronScheduler`(=CronSchedulerInterface) /
+// `InMemoryScheduler*` 随死文件 `CronScheduler.ts` 一并移除（三者仅被该文件使用）。
+export type { ScheduledTask, CronJitterConfig } from './types';
 export { ChronosDatabase } from './ChronosDatabase';
 export {
   parseCronExpression,
@@ -78,11 +73,6 @@ export {
   releaseSchedulerLock,
   isLockHeld,
 } from './CronTasksLock';
-export {
-  createCronScheduler,
-  buildMissedTaskNotification,
-  createInMemoryScheduler,
-} from './CronScheduler';
 
 // SQLite 持久化存储
 export {

@@ -124,6 +124,9 @@ export {
   readLandlockConfig,
   resolveLandlockConfig,
   DEFAULT_LANDLOCK_CONFIG,
+  // P0-4 ②（2026-10-04）：评测期强制 bash 走 Landlock 的意图开关（capability 门控在下游 gate）
+  ENV_EVAL_BASH_LANDLOCK,
+  isEvalBashLandlockForced,
 } from './landlock';
 export type {
   LandlockPolicy,

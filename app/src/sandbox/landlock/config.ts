@@ -84,3 +84,22 @@ export function readLandlockConfig(): LandlockConfig {
   );
   return resolveLandlockConfig({ enabled, failClosed, bashEnabled });
 }
+
+/**
+ * P0-4 ②（2026-10-04）：**评测期**强制 `bash` 走 Landlock 的**意图**开关（由 `evals` CLI 置位）。
+ *
+ * ⚠️ 仅为**意图**；**真正的 capability 门控**在
+ * `tools/bash/bashLandlockExec.decideBashLandlockGate`：
+ *   能力可用 ⇒ 走 Landlock；不可用 ⇒ **回退 plain**（**绝不 `refuse`**）——
+ *   否则会在无 Landlock 的机器（Windows/macOS/无 helper 的 Linux）上**打断评测**。
+ * ⚠️ **需 Linux 真实评测运行验证**：开启后 bash 受 FS 白名单约束，
+ *   须确认评测所需路径不被误拒（helper 源码在外部参考仓库，本仓未内置）。
+ */
+export const ENV_EVAL_BASH_LANDLOCK = 'LIRI_EVAL_BASH_LANDLOCK';
+
+/** 评测期是否**请求**强制 bash 走 Landlock（纯 env 读取，零 IO / 零副作用，可单测） */
+export function isEvalBashLandlockForced(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return env[ENV_EVAL_BASH_LANDLOCK] === '1';
+}

@@ -40,5 +40,7 @@ export {
   DEFAULT_LANDLOCK_CONFIG,
   resolveLandlockConfig,
   readLandlockConfig,
+  ENV_EVAL_BASH_LANDLOCK,
+  isEvalBashLandlockForced,
 } from './config';
 export type { LandlockConfig } from './config';

@@ -61,6 +61,7 @@ import {
   isSandboxInitFailure,
   LandlockDetector,
   readLandlockConfig,
+  isEvalBashLandlockForced,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -182,6 +183,8 @@ export interface BashLandlockGate {
     | 'switch-off'
     | 'platform-unsupported'
     | 'capability-unavailable'
+    | 'eval-forced'
+    | 'eval-forced-fallback'
     | 'enabled';
   message?: string;
 }
@@ -190,15 +193,30 @@ export interface BashLandlockGate {
  * 纯判据：开关 / 平台 / 能力 → 走哪条路径（**零 IO**）。
  *
  * 三类结果：`plain`（开关关闭，走原路径）、`landlock`（真受限）、`refuse`（**开启但无法受限** ⇒ 拒绝）。
+ *
+ * P0-4 ②（2026-10-04）：`evalForced=true` 时走**评测期强制**分支 —— **capability-gated**：
+ *   能力可用 ⇒ `landlock`；不可用 ⇒ **`plain`（回退，绝不 `refuse`）**，避免打断非 Linux 评测。
+ *   ⚠️ 需 Linux 真实评测运行验证（开启后受 FS 白名单约束，须确认不误拒）。
  */
 export function decideBashLandlockGate(input: {
   config: LandlockConfig;
   platform: NodeJS.Platform;
   capability: LandlockCapability | null;
+  /** P0-4 ②：评测期**请求**强制（见 `sandbox/landlock/config.ts` 的 `ENV_EVAL_BASH_LANDLOCK`） */
+  evalForced?: boolean;
 }): BashLandlockGate {
-  const { config, platform, capability } = input;
+  const { config, platform, capability, evalForced = false } = input;
 
   if (!config.enabled) return { mode: 'plain', reason: 'master-off' };
+
+  // P0-4 ②（2026-10-04）：评测期强制 —— capability-gated；不可用**回退 plain**（不 refuse）
+  if (evalForced) {
+    if (platform === 'linux' && capability?.available) {
+      return { mode: 'landlock', reason: 'eval-forced' };
+    }
+    return { mode: 'plain', reason: 'eval-forced-fallback' };
+  }
+
   if (!config.bashEnabled) return { mode: 'plain', reason: 'switch-off' };
 
   if (platform !== 'linux') {
@@ -322,6 +340,8 @@ const defaultPlainRunner: PlainRunner = async (command, options) => {
 
 export interface BashExecDeps {
   config?: LandlockConfig;
+  /** P0-4 ②：评测期强制（默认读 env；测试可注入） */
+  evalForced?: boolean;
   platform?: NodeJS.Platform;
   detect?: () => Promise<LandlockCapability>;
   runHelper?: LandlockHelperRunner;
@@ -378,7 +398,9 @@ export async function execBashCommand(
     maxBuffer: input.maxBufferChars,
   };
 
-  if (!config.enabled || !config.bashEnabled) {
+  // P0-4 ②：评测期强制请求（env 置位；capability 门控在下面的 gate）
+  const evalForced = deps.evalForced ?? isEvalBashLandlockForced();
+  if (!config.enabled || (!config.bashEnabled && !evalForced)) {
     // G1-C（选项 C）的顾问性提示：能力可用却未接入时 WARN 一次
     await reportBashLandlockGapOnce();
     return runPlain(input.command, plainOptions);
@@ -396,7 +418,18 @@ export async function execBashCommand(
             }))
         )()
       : null;
-  const gate = decideBashLandlockGate({ config, platform, capability });
+  const gate = decideBashLandlockGate({
+    config,
+    platform,
+    capability,
+    evalForced,
+  });
+
+  // P0-4 ②：评测期强制但能力不可用 ⇒ **回退 plain**（非 refuse）
+  if (gate.mode === 'plain') {
+    await reportBashLandlockGapOnce();
+    return runPlain(input.command, plainOptions);
+  }
 
   if (gate.mode === 'refuse') {
     // fail-closed：显式开启却无法受限 ⇒ 拒绝执行（**不**静默降级）

@@ -89,7 +89,11 @@ import {
   runAdversarialPhase,
   type AdversarialProposal,
 } from './adversarialAgent.js';
-import { readLandlockConfig } from '@modules/sandbox';
+import {
+  ENV_EVAL_BASH_LANDLOCK,
+  isEvalBashLandlockForced,
+  readLandlockConfig,
+} from '@modules/sandbox';
 import {
   discoverFixCommits,
   screenFixCandidates,
@@ -102,6 +106,17 @@ import {
 import { checkGate, summarizeRun, summarizeSignal } from './scoring.js';
 import type { Baseline } from './scoring.js';
 import type { EvalTask, EvalTaskResult } from './types.js';
+
+/**
+ * P0-4 ②（2026-10-04）：评测期**请求**「强制 bash 走 Landlock」。
+ *
+ * - 仅为**意图**（置位 env）：真正的 capability 门控在
+ *   `tools/bash/bashLandlockExec.decideBashLandlockGate` —— 能力可用 ⇒ 真受限；
+ *   不可用 ⇒ **回退 plain**（**绝不 `refuse`**），故不会打断 Windows/macOS/无 helper 机器上的评测。
+ * - ⚠️ **需 Linux 真实评测运行验证**：开启后 bash 受 FS 白名单约束，
+ *   须确认评测任务所需路径不被误拒（helper `landlock-run` 源码在外部参考仓库，本仓未内置）。
+ */
+process.env[ENV_EVAL_BASH_LANDLOCK] = '1';
 
 /** CLI 输出（项目禁 console；与 WizardEngine/ProgressBar 一致走 stdout） */
 const out = (line = ''): void => void process.stdout.write(`${line}\n`);
@@ -541,7 +556,9 @@ const reportAntiCheatOnce = async (sandbox: EvalSandbox): Promise<void> => {
     reportDir: outDir,
     sandboxRoot: sandbox.root,
     platform: process.platform,
-    bashLandlockEnabled: readLandlockConfig().bashEnabled,
+    // P0-4 ②：评测期强制时，bash 的 Landlock **意图**为 on（实际是否生效由 capability 门控）
+    bashLandlockEnabled:
+      readLandlockConfig().bashEnabled || isEvalBashLandlockForced(),
   };
   const report = auditAntiCheatSurface(ctx);
   const blocked =

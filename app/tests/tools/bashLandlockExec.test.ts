@@ -23,6 +23,8 @@ import {
 } from '../../src/tools/bash/bashLandlockExec';
 import {
   DEFAULT_LANDLOCK_CONFIG,
+  ENV_EVAL_BASH_LANDLOCK,
+  isEvalBashLandlockForced,
   type LandlockCapability,
   type LandlockConfig,
 } from '../../src/sandbox';
@@ -108,6 +110,76 @@ describe('G1-A: 默认关闭 + 门控判据（纯函数）', () => {
         capability: AVAILABLE,
       })
     ).toEqual({ mode: 'landlock', reason: 'enabled' });
+  });
+});
+
+describe('P0-4 ②（2026-10-04）：评测期强制 bash 走 Landlock —— capability-gated', () => {
+  it('env 判定：仅字面 "1" 为真（未设/其他值均为假）', () => {
+    expect(
+      isEvalBashLandlockForced({
+        [ENV_EVAL_BASH_LANDLOCK]: '1',
+      } as NodeJS.ProcessEnv)
+    ).toBe(true);
+    expect(
+      isEvalBashLandlockForced({
+        [ENV_EVAL_BASH_LANDLOCK]: '0',
+      } as NodeJS.ProcessEnv)
+    ).toBe(false);
+    expect(isEvalBashLandlockForced({} as NodeJS.ProcessEnv)).toBe(false);
+  });
+
+  it('强制 + Linux + 能力可用 ⇒ 走 Landlock（即便 config.bashEnabled=false）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        capability: AVAILABLE,
+        evalForced: true,
+      })
+    ).toEqual({ mode: 'landlock', reason: 'eval-forced' });
+  });
+
+  it('强制 + 能力不可用 ⇒ **回退 plain**（关键：不 refuse，避免打断评测）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        capability: { available: false, abi: 0, reason: 'helper-missing' },
+        evalForced: true,
+      })
+    ).toEqual({ mode: 'plain', reason: 'eval-forced-fallback' });
+  });
+
+  it('强制 + 非 Linux ⇒ 回退 plain（不 refuse）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'win32',
+        capability: null,
+        evalForced: true,
+      })
+    ).toEqual({ mode: 'plain', reason: 'eval-forced-fallback' });
+  });
+
+  it('强制但总开关关闭 ⇒ 仍 plain（master-off 优先）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ enabled: false }),
+        platform: 'linux',
+        capability: AVAILABLE,
+        evalForced: true,
+      })
+    ).toEqual({ mode: 'plain', reason: 'master-off' });
+  });
+
+  it('未强制 ⇒ 行为不变（回归护栏）', () => {
+    expect(
+      decideBashLandlockGate({
+        config: cfg({ bashEnabled: false }),
+        platform: 'linux',
+        capability: AVAILABLE,
+      })
+    ).toEqual({ mode: 'plain', reason: 'switch-off' });
   });
 });
 

@@ -20,7 +20,6 @@ import {
   RECORDING_SAMPLE_RATE,
   RECORDING_CHANNELS,
   RECORDING_BITS_PER_SAMPLE,
-  hasCommand,
 } from './recordingDetector';
 import type { RecordingOptions, RecordingStateHandler } from '../models/types';
 

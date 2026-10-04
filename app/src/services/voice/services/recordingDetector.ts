@@ -41,15 +41,14 @@ export async function hasCommand(cmd: string): Promise<boolean> {
   const isWindows = process.platform === 'win32';
   const searchCmd = isWindows ? 'where' : 'which';
   try {
+    // where/which 命中时退出码为 0；未命中为非 0（execFileAsync 会 reject）
     await execFileAsync(searchCmd, [cmd], { timeout: 3000 });
     return true;
-  } catch (error) {
-    // 语义对齐原实现（`spawnSync(...).error === undefined`）：非零退出仍视为"存在"，
-    // 仅"命令无法启动"（ENOENT 等，code 为字符串）视为缺失。
-    // TODO: CS05-ROOTFIX — 该语义会把"命令不存在（where/which 退出码非 0）"误判为存在，
-    //   属预存缺陷（已登记台账），修复需独立评估，不在本次阻塞收敛范围内。
-    const code = (error as { code?: string | number }).code;
-    return typeof code === 'number';
+  } catch {
+    // 未命中（退出码非 0）或 where/which 本身不可用 ⇒ 视为"命令不存在"。
+    // 修复（2026-10-04，CS05）：原实现 `spawnSync(...).error === undefined` 把"非零退出"
+    // 也当作存在，导致缺失命令被误判为可用（如无 ffmpeg 时仍选 ffmpeg 录音链）⇒ 已按真实语义收敛。
+    return false;
   }
 }
 

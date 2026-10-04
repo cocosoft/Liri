@@ -1,6 +1,6 @@
 # Spec：对抗 Agent 形态 A（LLM 攻击者 / 红队提案器）
 
-> 版本 1.0 ｜ 创建 2026-10-04 ｜ 状态：📝 **待评审（未动码）**
+> 版本 1.2 ｜ 创建 2026-10-04 ｜ 状态：✅ **已实施（确定性半 + LLM 提案器适配器；真实模型端到端待额度）**
 > 来源：`dev_docs/20260926/liri-optimization-plan-20260926.md` **P1-1**（2026-09-28 用户裁定「形态 C」：先落机械攻击集 **B**，**A 另立 spec**）
 > ＋ `dev_docs/20261001/pending-tasks-consolidated-20261001.md` **T-⑤01**（"对抗 Agent 形态 A 另立 spec：需额度 + 新 spec"）
 > 前置已落地：形态 B = [`antiCheatAudit.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/evals/antiCheatAudit.ts)（**5 向量** + `tests/evals/antiCheatAudit.test.ts` **8 例**）
@@ -161,6 +161,39 @@ export interface AdversarialReport {
 
 > D1/D2 的选择决定 §4.3 的改动面；若 D1=(a) 且 D2=(a)，则 `cli.ts` 之外**零侵入**既有评测主链路。
 
+### 5.1 裁定结果（2026-10-04，用户已答）
+
+| ID | 裁定 |
+|:--:|---|
+| **D1** | **(b) 机械确认的提案汇入同一 `cheatReport`**（仍**不**参与 fail-closed） |
+| **D2** | **(a) 新增独立类型**（不动 `EvalTask` / `EvalAttempt`） |
+| **D3** | **(a) 默认关**（`--adversarial` opt-in） |
+| **D4 / D5** | 采用 spec 建议值；**实施边界追加裁定 = "先落确定性半"**（提案器以注入式接口预留，LLM 适配器待通道口径确定后补） |
+
+> **⚠️ 实施期新增的一个决定性事实（D5 的前提不成立）**：评测域（`evals/`）是**黑盒 HTTP 客户端** ——
+> 全仓 `evals/**` 内**无任何** `@modules/ai` / provider / `AIProvider` 引用，只 `streamChat(sandbox.baseUrl, …)`
+> （[`runner.ts:335-341`](file:///e:/PY/Documents/CODES/PY_APP/app/src/evals/runner.ts#L335-L341)）⇒ 「复用既有 Provider/模型分工」
+> 在 evals 内**没有现成实例**，通道口径存在两个互斥解释（沙箱后端 HTTP chat vs 引入 `@modules/ai`）
+> ⇒ 用户裁定**先落确定性半**，把该分叉显式留给后续（见 §11 遗留）。
+
+### 5.2 D5 通道口径裁定（2026-10-04，本次裁定）
+
+**证据（可复核）**
+- 评测 harness 是**黑盒 HTTP 客户端**：`streamChat(sandbox.baseUrl, sessionId, model, prompt, timeout)`（[`runner.ts:331-341`](file:///e:/PY/Documents/CODES/PY_APP/app/src/evals/runner.ts#L331-L341)）；`--model` 指**被测应用**的模型（[`cli.ts:26-38`](file:///e:/PY/Documents/CODES/PY_APP/app/src/evals/cli.ts#L26-L38)）。
+- `evals/**` 内**零** provider/AI 引用 ⇒ 「复用既有通道」**无现成实例**。
+- `@modules/ai` **有现成入口**：`aiService` · `syncDBProvidersToRegistry` · `ProviderRegistry`（[`ai/index.ts:404,407-408`](file:///e:/PY/Documents/CODES/PY_APP/app/src/ai/index.ts#L404-L408)）；`evals` 与 `ai` **同为 app 层** ⇒ 同层依赖**合法**（R00-001）。
+
+**裁定**
+
+| 项 | 裁定 | 理由 |
+|---|:--:|---|
+| **(a) 沙箱后端 HTTP chat** | ❌ **否决** | ① 攻击者 = 被测应用**自身**（同模型/同 agent/同提示词）⇒ **红队独立性丧失**，只能复述已知盲区；② 要让 SUT「攻击」必须把**已声明防线清单**喂给它，而它同时是**被测者** ⇒ **审计信息回灌被测者**，评测有效性受损；③ `--model` 是 SUT 模型，**无法为攻击者独立选型**，其调用还污染沙箱状态与统计 |
+| **(b) `@modules/ai` 既有入口** | ✅ **采用** | 独立攻击者（可独立选型/提示词）；同层依赖合法；入口已存在 ⇒ 不必引导整个应用，只需「DB → registry 同步 + `aiService` 调用」（**端到端引导步骤待实现时验证**，不预先断言 —— CS06） |
+| **落地形态** | 适配器独立模块 `evals/adversarialProposer.ts`，由 CLI **动态 `import()`**（仅 `--adversarial --adversarial-model=<m>` 时加载） | 默认关**零开销**、不进 harness 静态依赖图；harness **确定性**不受破坏（N1 不变） |
+| **参数** | `--adversarial-model=<m>`（**必填**，符合 model-usage「不得硬编码默认模型」）· `--adversarial-max-calls=N`（默认 5）· `--adversarial-timeout-ms`（默认 30000） | ✅ **已落地**（与适配器同批 —— 见 §10.1） |
+
+**闭环不变**：适配器产出 `AdversarialProposal[]` → 本模块**机械裁决**（闭集外记 `unmachineable`）→ 人工复核 `unmachineable` → 可机械化的手法**登记为形态 B 的一条向量**（§8.6）。
+
 ---
 
 ## 6. 验收（可证伪）
@@ -206,14 +239,102 @@ export interface AdversarialReport {
 
 ## 9. 待办（裁定后回填）
 
-- [ ] D1 / D2 / D3 裁定（D4/D5 建议值待确认）
-- [ ] 实施（见 §4.3）
-- [ ] 验证结果回填（§6）
-- [ ] §9.3 输入面落盘口径（§1.6 红线）确认
-- [ ] 真实模型端到端（需额度；可选）
+- [x] D1 / D2 / D3 裁定（见 §5.1；D4/D5 用建议值 + 追加边界裁定"**先落确定性半**"）
+- [x] 实施 —— **确定性半已落地**（见 §10）；**LLM 提案器适配器未实现**（通道口径待定）
+- [x] 验证结果回填（见 §10）
+- [x] §9.3 输入面落盘口径确认 —— 本轮**不涉及**（零模型调用、不进主会话事件流；提案集为本地文件）
+- [ ] 真实模型端到端（需额度；可选）—— **待提案器适配器**
 
 ### 9.3 §1.6 红线检查点（实施前必须明确）
 
 若提案器把「防线清单 / task 元信息 / 注入上下文」作为**模型可见输入**发出，则须同批新增一个 session 事件承载它
 （`LiriEventType` + `LiriEventMap` + `ALL_SESSION_EVENT_TYPES` **三处同步**，由编译期穷尽断言强制）。
 ⇒ 实施时优先**避免**让评测侧内容进入主会话事件流（评测为离线 harness，与主会话轨迹不同域）；若确需落盘，按 §1.6 三处同步执行。
+
+---
+
+## 10. 实施记录（2026-10-04 · 确定性半）
+
+> 用户裁定：D1=(b) / D2=(a) / D3=(a) / D4·D5 用建议值，且**先落确定性半**（提案器以注入式接口预留）。
+
+| 文件 | 改动 |
+|---|---|
+| `app/src/evals/adversarialAgent.ts` | **新增**：类型（`AdversarialProposal` / `AdversarialVerdict` / `AdversarialReport` / `AdversarialVerdictKind` / `AdversarialProposerInput` / `AdversarialProposer`）+ `adversarialTargets` · `buildProposerInput` · `judgeProposal` · `runAdversarialPhase` · `adversarialToCheatFindings` · `parseAdversarialProposals` |
+| `app/src/evals/cli.ts` | 改：`--adversarial`（默认关）+ `--adversarial-proposals=<file.json>`；`reportAntiCheatOnce` 抽 `ctx` 并在其后调 `reportAdversarialOnce`（复用既有 `AntiCheatContext`） |
+| `app/tests/evals/adversarialAgent.test.ts` | **新增**：**9 例**（解析宽松校验 / 闭集内外裁决 / 确定性 / N1 守住 / 合并 cheatReport / 输入面不含期望值） |
+
+**实现要点（对齐 spec 契约）**
+1. **提案与裁决分离**：`adversarialAgent.ts` **不认识 LLM** —— 提案经注入式 `AdversarialProposer` 提供；模块只做"给定提案集 ⇒ 确定性裁决"。⇒ 同提案集结果**可复现**。
+2. **单一判据（CS01）**：机械裁决**直接复用** `auditAntiCheatSurface`（按提案 `target` = 向量 id 取该向量裁决）⇒ 目标闭集由**既有判据派生**（`adversarialTargets(audit)`），**不手写第二份清单**。
+3. **闭集外 ⇒ `unmachineable`**：如实登记、**不臆断为漏洞**（CS06）；`adversarialToCheatFindings` **不**把它转成 `CheatFinding`（不冒充结论）。
+4. **N1 守住**：`--adversarial` 结果**不参与** `--cheat-gate` 的 fail-closed、不改退出码（§6 突变验证①的接口面：模块无 exit/throw 副作用，用例已断言）。
+5. **安全面**：`buildProposerInput` 只含 `declaredShields` + `targets`（**无隐藏期望值 / 无参考解** —— §8 风险 3，用例断言键集恰为二者）。
+
+**实施期偏离（如实，均为收窄/保守）**
+- 类型落在 **`evals/adversarialAgent.ts`**（spec §4.3 原写 `evals/types.ts`）⇒ **完全不触碰共享数据模型文件**，与 D2=(a)"新增独立类型"更贴。
+- 新增 **`--adversarial-proposals=<file.json>`**（spec 原只写 `--adversarial`）⇒ 作为"注入式接口"的**可用实例**（否则开启后无提案来源）；`--adversarial-max-calls` **暂不加**（仅 LLM 适配器需要 ⇒ 避免死开关，CS04）。
+- **LLM 提案器适配器未实现**（用户裁定"先落确定性半"）；通道分叉见 §5.1。
+
+**验证（实测）**
+
+| 项 | 结果 |
+|---|---|
+| `bun run typecheck` | **exit 0** |
+| `bun run lint:arch` | **错误 0 / 警告 1**（R07-004=0） |
+| `eslint`（3 改动文件） | **0 problem** |
+| `bun test tests/evals/adversarialAgent.test.ts` | **9 pass / 0 fail** |
+| `bun test tests/evals` | **141 pass / 2 skip / 0 fail**（19 文件；形态 B 既有 8 例全绿） |
+
+**遗留（明确）**
+- ~~LLM 提案器适配器~~ ⇒ ✅ **已落地（§10.1，通道口径裁定见 §5.2）**。
+- 真实模型端到端（需额度）—— 单元测试已用**注入式假 chat** 全覆盖（零额度）。
+
+### 10.1 LLM 提案器适配器落地（2026-10-04，第二轮：D5 通道口径裁定后）
+
+| 文件 | 改动 |
+|---|---|
+| `app/src/evals/adversarialProposer.ts` | **新增**：`createLlmProposer`（有界 `maxCalls` + 去重收敛 + 失败/超时**如实降级**）· `createAiServiceChat`（**`@modules/ai` 既有入口**，**动态 `import()`**；`syncDBProvidersToRegistry()` + `aiService.generate(..., { signal })`）· `buildRedTeamPrompt`（**安全面**：只给目标闭集 + 已声明防线）· `extractJsonArray`（容忍围栏/噪声；失败 ⇒ null） |
+| `app/src/evals/cli.ts` | 改：新增 `--adversarial-model` · `--adversarial-max-calls`（默认 5）· `--adversarial-timeout-ms`（默认 30000）；提案来源**二选一**（文件 / LLM，互斥校验）；`reportAdversarialOnce` 与 `reportAntiCheatOnce` 改 **async** |
+| `app/tests/evals/adversarialProposer.test.ts` | **新增**：**8 例**（解析容错 / 提示词安全面 / 单轮 / 跨轮去重收敛 / 上限恰好停在 maxCalls / 解析失败 / 调用抛错降级） |
+
+**实现要点**
+1. **动态 import**（`await import('@modules/ai')`）⇒ 本模块**不把 AI 拉进 harness 静态依赖图**；`evals` 与 `ai` **同为 app 层** ⇒ 依赖合法（`lint:arch` 实测 **违规 0**）。
+2. **有界**：`maxCalls` 轮（每轮新增为 0 即提前收敛）+ `timeoutMs` 经 `AbortSignal` **真正中断**底层请求。
+3. **如实降级**：调用抛错/超时 ⇒ **停止并保留已产出**；解析失败 ⇒ 该轮视为无产出；**不抛给判据、不伪造**。
+4. **模型名显式传入**（`--adversarial-model` **必填**）—— 符合 model-usage 规则。
+5. **N1 不变**：结果只进展示面与 `cheatReport` 合并，**不参与** fail-closed / 退出码。
+
+**验证（实测）**
+
+| 项 | 结果 |
+|---|---|
+| `bun run typecheck` | **exit 0** |
+| `bun run lint:arch` | **错误 0 / 警告 1 / 违规 0**（分层检查 3858 → **3860** = +2 新文件） |
+| `eslint`（5 改动/新增文件） | **0 problem** |
+| `bun test tests/evals/adversarialAgent.test.ts tests/evals/adversarialProposer.test.ts` | **17 pass / 0 fail** |
+| `bun test tests/evals` | **149 pass / 2 skip / 0 fail**（20 文件） |
+
+**未做**：`--adversarial-max-calls` 的实测调参。
+
+### 10.2 真实模型端到端（2026-10-04，实测）
+
+**环境**：攻击者模型 = **`deepseek-v4-flash`**（DB 已启用；通道 = `@modules/ai` 既有入口 ⇒ 实测同步 **6 个 DB 供应商** + 加载 **11 条凭据**）；`maxCalls=1`、`timeoutMs=60s`。
+
+**A. 首次实测 ⇒ 暴露 3 个真实缺陷（已修）**
+
+| # | 现象 | 证据（实测） | 修复 |
+|:--:|---|---|---|
+| 1 | 提案 **0 条**、且无任何报错 | `finish_reason="max_tokens"` + `completion_tokens:4096` + **`content:""`** —— 未显式给 `max_tokens` ⇒ 供应商默认 **4096**，预算被推理吃光、正文为空 | ① 适配器**显式** `max_tokens`（新 `maxTokens` 选项，默认 **8192**）+ CLI `--adversarial-max-tokens` |
+| 2 | 给到 8192 时**内容被截断** ⇒ JSON 数组不闭合 ⇒ 解析失败 ⇒ 仍 0 条 | `content` 1199 字符，末尾停在半个对象 | ② `extractJsonArray` 增**截断容错**：取「最后一个**完整顶层对象**」处收尾 ⇒ 只保留模型**已完整产出**的对象（不臆造、不补字段） |
+| 3 | 上述失败**静默无痕** | 原 `catch { break }` 无日志 | ③ 失败路径落 `logger.warn`（`chat_failed` / `parse_failed` / `empty`）—— CS03-002「回退不得掩盖错误」 |
+
+**B. 修复后实测（e2e 通过）**
+- 提案 **4 条**（`P-1`–`P-4`）：8.3 短名 / 尾随点·空格 / `..` 变体 / 硬链接 / 目录联接（symlink）/ UNC 与卷 GUID / Win32 扩展前缀 —— 均指向 `C-1` / `C-2`。
+- **机械裁决**：`A-P-1`–`A-P-3` → `blocked`（报告目录在屏蔽清单内）；`A-P-4` → `blocked`（2 条声明全部生效）。
+- 汇总：`提案 4 ｜ exposed 0 ｜ knownGap 0 ｜ unmachineable 0`。
+
+**C. 已知边界（**如实**，本轮实测暴露 → 重要）**
+- 机械裁决回答的是「该向量的防线在**配置上**是否成立」，**不是**「该攻击能否**真的绕过**」。
+  本轮 LLM 把"绕过型"手法（短名 / 硬链接 / symlink）**自映射到 `C-1`**（一个**配置检查**）⇒ 判 `blocked`（**偏乐观**）。
+- ⇒ 该相位的定位应为「**提案供人工复核**」；要成为"未挡证据"，须**为具体手法实现机械判据**（即 §8.6 的登记闭环：把 `unmachineable`/新手法登记为形态 B 的一条向量）。
+- 该边界**不改代码**即可明确（属方法论口径），已在此如实记录。

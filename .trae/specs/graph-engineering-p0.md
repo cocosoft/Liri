@@ -1,6 +1,7 @@
 # Graph Engineering P0 实施 Spec（运行时系统图 + 故障定位因果链）
 
 > **日期**：2026-09-24 ｜ **状态**：**基础期 + 接线期① 已实施**；接线期②③ 待实施 ｜ **来源**：`GraphEngineering_论文精读与代码对标优化建议.md` §四 P0-1 / P0-2
+> 状态复核（2026-10-04）：状态头 stale——正文接线期②③、§7 各刀均已实施；余项见 dev_docs/任务计划-20261004.md。
 > **论文依据**：§11.2「these structures are coupled: changes in task organization can alter capability requirements and agent allocation … runtime evidence can trigger revisions to task and agent structures」；§4.4.2 Fault Localization 为独立小节。
 > **判据**：论文核心尺子是「是否把**系统级关系**显式化」，而非"组件更多"。
 

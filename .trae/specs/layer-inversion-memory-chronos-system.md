@@ -1,6 +1,7 @@
 # Spec：分层倒挂收口 —— `memory` / `chronos` / `system` 三组（10 条边）
 
 > 版本 1.0 ｜ 创建 2026-10-01 ｜ 状态：**待批准**
+> 状态复核（2026-10-04）：状态头 stale——§3.0/§3.2.1/§3.3.1 显示 10 条边全部消除；仅 MemoryHookDispatcher 零消费者待裁定。
 > 来源：`pending-tasks-consolidated-20261001.md` §1 ① **T-①10**；边清单来自 **D-158**（门禁探针实测的 `infra` 源全量权威清单）
 > 前序：D-159 `oauth` · D-160 `performance` · D-161 `monitoring` · D-162 `config`（假阳性）· D-163 `state` 已完成 ⇒ `infra` 源 **17 → 10** 条边
 > 关联规则：GR15（Spec-Driven）/ CS01（归一化）/ CS03（回退最小化）/ **CS05（根因优先）** / §1.3（无兼容包袱）

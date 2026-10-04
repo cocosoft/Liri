@@ -1,4 +1,5 @@
 # Liri 优化方案（2026-09-26）
+> 状态复核（2026-10-04）：§0 结论「剩余=无」仍成立；P2-1 已改判「不适用」。
 
 > 来源材料：`E:\PY\Desktop\google ai  建议.txt`（Google AI 对话串：工作台截图分析 + 多 Agent 协作拆解 +
 > CodeMidas `arXiv:2609.22068v1` / DSec `arXiv:2609.22978v1` 的联想）。

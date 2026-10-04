@@ -1,6 +1,7 @@
 # Spec：分层倒挂收口 —— `service -> app` / `app -> ui` 两桶（134 条）
 
 > 版本 1.0 ｜ 创建 2026-10-01 ｜ 状态：**待批准**
+> 状态复核（2026-10-04）：状态头 stale——§3 执行台账 A–F 六子批剩余 0、已豁免归零；余项见 dev_docs/任务计划-20261004.md §2.2 P1-10。
 > 来源：`pending-tasks-consolidated-20261001.md` §1 ① **T-①10** 的后续批次（前序 spec §N4 明确"其他桶属 T-①10 后续批次"）
 > 前序：`layer-inversion-memory-chronos-system.md`（`system`/`memory`/`chronos` 三组 10 条边，**已完成**，`infra` 源**真实归零**）
 > 关联规则：GR15（Spec-Driven）/ CS01（归一化）/ **CS05（根因优先）** / CS03（回退最小化）/ §1.3（无兼容包袱）

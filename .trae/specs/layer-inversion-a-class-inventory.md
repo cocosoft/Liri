@@ -1,4 +1,5 @@
 # A 类分层倒挂盘点与分组（core → 上层）
+> 状态复核（2026-10-04）：盘点台账（无审批状态）；A 类倒挂治理已大量收口，剩余待裁定/未做项见 dev_docs/任务计划-20261004.md §2.2 P1-9。
 
 > 生成方式：临时摘除 `scripts/layer-exceptions.json` 的 5 条 A 类 bulk 例外后跑门禁取数 + 仓库外只读脚本复刻枚举，随后**原样还原**。
 > 判据规则：**R00-001**（`scripts/lint-architecture.ts`）+ `scripts/modules-to-layers.json`（`core: ["core"]`）。

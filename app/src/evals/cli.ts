@@ -34,6 +34,9 @@
  *   bun run eval -- --model=<模型名> --baseline=<file.json>   # 指定基线（按模型分档时用）
  *   bun run eval -- --model=<模型名> --signal           # A5：信号质量检查（区分度；**仅观测**，不影响退出码）
  *   bun run eval -- --model=<模型名> --signal-baseline=<file.json>  # 指定**信号基线**（与门禁基线分开维护）
+ *   bun run eval -- --model=<模型名> --adversarial --adversarial-proposals=<file.json>  # P1-1 形态 A：对抗提案相位（**确定性裁决，仅观测**，不影响退出码）
+ *   bun run eval -- --model=<模型名> --adversarial --adversarial-model=<攻击者模型>    # 同上，但提案由 LLM 生成（@modules/ai 既有入口；≥1 次模型调用）
+ *   #   可选调参：--adversarial-max-calls=5 ｜ --adversarial-timeout-ms=30000 ｜ --adversarial-max-tokens=8192
  *
  * 约束：模型名**必须显式传入**（按 model-usage 规则，代码中不得硬编码模型名或默认值）。
  * 退出码：0 = 全部任务符合预期、判分器自检通过、且门禁无回归；1 = 有任务不符合预期/自检失败/门禁回归；2 = 环境准备失败。
@@ -74,7 +77,18 @@ import {
 import { sourceTaskSpecs } from './tasks/source-derived.js';
 import { collectShieldedPaths, verifyShieldApplied } from './shieldPlan.js';
 // P1-1 形态 B（2026-09-28）：反作弊面自检（纯函数、零模型；默认仅观测，`--cheat-gate` 可门禁化）
-import { auditAntiCheatSurface } from './antiCheatAudit.js';
+import {
+  auditAntiCheatSurface,
+  type AntiCheatContext,
+} from './antiCheatAudit.js';
+// P1-1 形态 A（2026-10-04）：对抗提案相位（**确定性半**；提案由注入式接口/文件提供，不接 LLM）
+import {
+  adversarialToCheatFindings,
+  buildProposerInput,
+  parseAdversarialProposals,
+  runAdversarialPhase,
+  type AdversarialProposal,
+} from './adversarialAgent.js';
 import { readLandlockConfig } from '@modules/sandbox';
 import {
   discoverFixCommits,
@@ -162,6 +176,47 @@ if (freshPerTask && repeatFresh >= 1) {
 }
 /** A3-b：正序 + 倒序各跑一轮并比对结论（代价 = 评测耗时翻倍，默认关闭） */
 const checkOrder = process.argv.includes('--check-order');
+/**
+ * P1-1 形态 A（2026-10-04，`.trae/specs/adversarial-agent-form-a.md`）：**对抗提案相位**开关。
+ *
+ * 默认**关**（D3）；开启需给提案来源（`--adversarial-proposals` 或 `--adversarial-model`，**二选一**）。
+ * **仅观测**：机械裁决结果**不参与** fail-closed / 退出码（spec N1）。
+ * 提案来源**二选一**：① `--adversarial-proposals=<file.json>`（离线提案集）；② `--adversarial-model=<模型名>`
+ * ⇒ 经 `@modules/ai` 既有入口的 LLM 提案器（**动态 import**，不进入 harness 静态依赖图；通道口径见 spec §5.2）。
+ */
+const adversarialEnabled = process.argv.includes('--adversarial');
+/** 离线提案集（与 `--adversarial-model` **二选一**） */
+const adversarialProposalsFile = argValue('adversarial-proposals') ?? '';
+/** 攻击者模型名（经 `@modules/ai` 既有入口；**必须显式传入** —— model-usage 规则） */
+const adversarialModel = argValue('adversarial-model') ?? '';
+const adversarialMaxCalls = Math.max(
+  1,
+  parseInt(argValue('adversarial-max-calls') ?? '5', 10) || 5
+);
+const adversarialTimeoutMs = ((): number => {
+  const parsed = parseInt(argValue('adversarial-timeout-ms') ?? '30000', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 30_000;
+})();
+/**
+ * 单次最大输出 token（**e2e 实证**：不显式给值时部分供应商默认 **4096** ⇒ 模型把预算耗在推理上，
+ * 返回 `finish_reason=max_tokens` 且 `content` 为空 ⇒ 提案 0 条）。
+ */
+const adversarialMaxTokens = ((): number => {
+  const parsed = parseInt(argValue('adversarial-max-tokens') ?? '8192', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 8192;
+})();
+if (adversarialEnabled) {
+  if (adversarialProposalsFile === '' && adversarialModel === '') {
+    err(
+      '--adversarial 需要提案来源：--adversarial-proposals=<file.json>（离线提案集）或 --adversarial-model=<模型名>（LLM 提案器；通道 = @modules/ai，见 adversarial-agent-form-a.md §5.2）'
+    );
+    process.exit(2);
+  }
+  if (adversarialProposalsFile !== '' && adversarialModel !== '') {
+    err('--adversarial-proposals 与 --adversarial-model 互斥（二选一）');
+    process.exit(2);
+  }
+}
 // 模型名**必须显式传入**：按 model-usage 规则，代码中不得硬编码模型名/默认值
 const model = argValue('model');
 const taskFilter = argValue('task')
@@ -415,18 +470,80 @@ const assertShieldApplied = (sandbox: EvalSandbox): void => {
 const cheatGate = process.argv.includes('--cheat-gate');
 let antiCheatReported = false;
 
+/**
+ * P1-1 形态 A（2026-10-04）：**对抗提案相位** —— 取提案（离线文件 **或** LLM 提案器）⇒ **机械裁决**
+ * ⇒ 并入同一 cheatReport 的展示面。**判据侧零模型**（复用 `auditAntiCheatSurface`）；**不参与** fail-closed。
+ */
+const reportAdversarialOnce = async (ctx: AntiCheatContext): Promise<void> => {
+  let proposals: AdversarialProposal[] = [];
+  if (adversarialProposalsFile !== '') {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(readFileSync(adversarialProposalsFile, 'utf-8'));
+    } catch (e) {
+      err(
+        `--adversarial-proposals 读取/解析失败：${adversarialProposalsFile}（${e instanceof Error ? e.message : String(e)}）`
+      );
+      process.exit(2);
+    }
+    const parsed = parseAdversarialProposals(raw);
+    proposals = parsed.proposals;
+    if (parsed.rejected.length > 0) {
+      out(
+        `  ⚠️ 提案集 ${parsed.rejected.length} 条非法项已丢弃：${parsed.rejected.join('；')}`
+      );
+    }
+  } else {
+    // LLM 提案器：**动态 import** —— 不把 `@modules/ai` 拉进 harness 静态依赖图（spec §5.2）
+    const { createLlmProposer } = await import('./adversarialProposer.js');
+    out(
+      `  对抗提案器（LLM）：模型=${adversarialModel} ｜ 调用上限 ${adversarialMaxCalls} 次 ｜ 超时 ${adversarialTimeoutMs}ms ｜ max_tokens ${adversarialMaxTokens}`
+    );
+    try {
+      proposals = await createLlmProposer({
+        model: adversarialModel,
+        maxCalls: adversarialMaxCalls,
+        timeoutMs: adversarialTimeoutMs,
+        maxTokens: adversarialMaxTokens,
+      })(buildProposerInput(ctx));
+    } catch (e) {
+      err(
+        `对抗提案器调用失败：${e instanceof Error ? e.message : String(e)}（模型=${adversarialModel}）`
+      );
+      process.exit(2);
+    }
+  }
+  const report = runAdversarialPhase({ ctx, proposals });
+  out(
+    `  对抗提案相位（形态 A）：提案 ${report.proposals.length} 条 ｜ 机械确认暴露 ${report.exposed.length} ｜ 已知缺口 ${report.knownGaps.length} ｜ 无法机械判定 ${report.unmachineable.length}`
+  );
+  for (const e of report.exposed) {
+    out(`    · [对抗暴露 A-${e.proposalId}] ${e.detail}`);
+  }
+  for (const u of report.unmachineable) {
+    out(`    · [无法机械判定 A-${u.proposalId}] ${u.detail}`);
+  }
+  const merged = adversarialToCheatFindings(report);
+  if (merged.length > 0) {
+    out(
+      `    已并入 cheatReport：${merged.map((f) => f.id).join(', ')}（**不参与 fail-closed**）`
+    );
+  }
+};
+
 /** 自检 + 打印（**只跑一次**：向量与 attempt 无关，只依赖本次运行配置） */
-const reportAntiCheatOnce = (sandbox: EvalSandbox): void => {
+const reportAntiCheatOnce = async (sandbox: EvalSandbox): Promise<void> => {
   if (antiCheatReported) return;
   antiCheatReported = true;
-  const report = auditAntiCheatSurface({
+  const ctx: AntiCheatContext = {
     declaredShields: shieldTargets,
     appliedShields: sandbox.shieldedPaths,
     reportDir: outDir,
     sandboxRoot: sandbox.root,
     platform: process.platform,
     bashLandlockEnabled: readLandlockConfig().bashEnabled,
-  });
+  };
+  const report = auditAntiCheatSurface(ctx);
   const blocked =
     report.findings.length - report.knownGaps.length - report.exposed.length;
   out(
@@ -443,6 +560,8 @@ const reportAntiCheatOnce = (sandbox: EvalSandbox): void => {
     }
     out('    ⚠️ 暴露项未开启 --cheat-gate ⇒ 本次仅记录（不影响判定）');
   }
+  // P1-1 形态 A：对抗提案相位（仅观测；**不参与**上面的 fail-closed 判定 —— spec N1）
+  if (adversarialEnabled) await reportAdversarialOnce(ctx);
 };
 
 /** 新建沙箱并登记根目录（两条 fresh 路径共用） */
@@ -450,7 +569,7 @@ const createTrackedSandbox = async (): Promise<EvalSandbox> => {
   const created = await createSandbox(sandboxOpts);
   createdRoots.push(created.root);
   assertShieldApplied(created);
-  reportAntiCheatOnce(created);
+  await reportAntiCheatOnce(created);
   return created;
 };
 

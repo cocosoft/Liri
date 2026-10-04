@@ -407,7 +407,7 @@
 ⇒ **最刺眼的两处**：**`infrastructure`（整个 HTTP 层：`LocalHTTPService` + 80+ handler + 17 个业务子域路由）** 与 **`runtime`（CoreAPI）** 都在盲区里。
 ⇒ 与 §四 末尾那句"否则门禁本身会变成第二份事实源"**同族**：这里的具体形态是「**门禁的视野 ≠ 仓库的实际结构**」。
 
-### 5.2 例外清单有**硬到期日**：2026-10-18（距今 20 天），过期是 **error** 不是 warning
+### 5.2 例外清单有**硬到期日**：2026-10-18（距今 20 天），过期是 **error** 不是 warning —— ⚠️ **本段已过时（2026-10-04 标注）**
 
 - [`layer-exceptions.json`](file:///e:/PY/Documents/CODES/PY_APP/scripts/layer-exceptions.json#L11-L53)：`BULK-001~018` 与 `PM-*` **全部** `expiresAt: 2026-10-18`；含 `R00-001` 的 app→infra（`estimatedCount` 120）、service→infra（50）、app→service（40）等。
 - [`checkExceptionExpiry` L1106-1142](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L1106-L1142)：过期 ⇒ `EXC-EXPIRED` **severity: 'error'**；剩余 ≤7 天 ⇒ `EXC-EXPIRING` warning。
@@ -928,7 +928,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | ~~台账 D-36-① Landlock `--net-connect` 真机实测~~ | ✅ **已结案（2026-10-04，同上 WSL2 真机）**：网络两态（`--net-deny` 全禁 / 不 handle 不受限）已实测 |
 | ~~T-③07 Mermaid 真机端到端~~ | ✅ **已结案**：真机实测**未过**（无工具回合不进循环 ⇒ 校验从不触发）⇒ 根因定位 + 修复（spec [`final-output-guard-no-tool-turns.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/final-output-guard-no-tool-turns.md) §8/§9）⇒ post-fix **流式 + 非流式两路径**真机均落 `validation/injected` 且正文为修正后；`tests/chat/finalOutputGuard.test.ts` **5 pass** |
 | ~~T-④01 / P3-3 `REF/` 物理搬迁~~ | ✅ **已结案（2026-10-04）**：同卷 `Directory.Move` → `E:\PY\Documents\CODES\REF`（**82,196 文件 / 2,780.6 MB 逐数吻合**）；门禁 **R07-004 归零**（「发现 0 个参考副本目录」，告警 **2 → 1**）|
-| T-⑤01 对抗 Agent 形态 A（LLM 攻击者） | 📝 **spec 已立**（[`adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)，**待评审未动码**）；实施需模型额度 |
+| ~~T-⑤01 对抗 Agent 形态 A（LLM 攻击者）~~ | ✅ **已实施（2026-10-04）**：**确定性半**（`evals/adversarialAgent.ts`：提案 → 机械裁决 → 并入 `cheatReport`）+ **LLM 提案器适配器**（`evals/adversarialProposer.ts`；通道 = `@modules/ai` 既有入口，**动态 import**）+ CLI `--adversarial` / `--adversarial-proposals` / `--adversarial-model`（默认关、不参与 fail-closed）+ **17 例**；真实模型 e2e 待额度 |
 | 升级方案 **A1 / F5** | 已列"明确不做"（协商门已在位，收益未证） |
 | **文件尺寸债**（156 条 >1000 行；D-01 C 路径） | **用户裁定暂停**（批 1–3 已落地，ChatManager 6729→6377） |
 | ~~`pattern-assembly-runtime.md` 遗留（N4）~~ | ✅ **已结案（2026-10-04，D1=A 已实施）**：spec [`pattern-trigger-surfaces.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/pattern-trigger-surfaces.md) —— **选择层一致化**（消 §1.5 假产出 + 去悬空 `taskType`）；**运行期零行为变更**；三 pattern 仍 `unavailable`（**缺忠实信号 ⇒ 需产品场景 D3，如实不接线**）|
@@ -950,7 +950,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | §5.7 D-175 子批 B / D-180 本轮未动手 | 未动手 | ✅ 已闭环 | v0.4.56「已豁免 151 → 0」覆盖（子批 B/B3 均已落地） |
 | §7.3 T-③08 / D-36-① | 需 Linux 环境 | ✅ 已结案 | WSL2 Ubuntu 真机 **8/8**（本轮） |
 | §7.3 T-③07 Mermaid 端到端 | 需模型额度 | ✅ 已结案 | 真机未过 ⇒ 根因定位+修复 ⇒ post-fix 两路径均过（详见 §7.6） |
-| §7.3 T-⑤01 对抗 Agent 形态 A | 需额度 + 另立 spec | 📝 spec 已立（待评审） | [`adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)（详见 §7.6） |
+| §7.3 T-⑤01 对抗 Agent 形态 A | 需额度 + 另立 spec | ✅ 已结案（已实施） | [`adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md) §5.2/§10.1（详见 §7.6②） |
 | §7.3 T-④01 `REF/` 物理搬迁 | 需用户侧执行 | ✅ 已结案 | 同卷 move 至 `E:\PY\Documents\CODES\REF`，R07-004 归零（详见 §7.7） |
 | §7.3 三 pattern 触发面（N4） | 产品决策 | ✅ 已结案（D1=A 已实施） | [`pattern-trigger-surfaces.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/pattern-trigger-surfaces.md)（详见 §7.8） |
 
@@ -983,10 +983,12 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 - 本轮复核：`bun test tests/chat/finalOutputGuard.test.ts` = **5 pass / 0 fail** ✓
 - ⚠️ **文档滞后更正**：§7.3 / `pending-tasks` 原记 T-③07「未验证（需额度）」—— 该状态在 2026-10-04 完成真机验证+修复后**已过时**。
 
-**② T-⑤01（对抗 Agent 形态 A）—— 本轮 spec 立项**
-- 新增 [`.trae/specs/adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)（**待评审 · 未动码**）。
-- 核心裁定取向：**提案与裁决分离** —— LLM 只做"红队提案器（proposal-only）"，**裁决权仍归机械判据**（复用形态 B 的 `CheatFinding`/`CheatVerdict` 与既有 judge）⇒ 解决原设"形态 A 非确定、不可作门禁"的硬约束（CS03）。
-- 待裁定：D1 产物去向 / D2 是否改 `evals/types.ts` / D3 默认开关；D4 调用上限 / D5 LLM 通道 已给建议值。
+**② T-⑤01（对抗 Agent 形态 A）—— spec 立项 + 全部落地**
+- 新增 [`.trae/specs/adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)；裁定 **D1=(b) 汇入同一 cheatReport · D2=(a) 新增独立类型 · D3=(a) 默认关**。
+- **已实施（全部）**：① **确定性半** `evals/adversarialAgent.ts`（提案 → **机械裁决** → 并入 cheatReport；判据**复用**形态 B 的 `auditAntiCheatSurface`，闭集外记 `unmachineable`）；② **LLM 提案器适配器** `evals/adversarialProposer.ts`（通道口径**已裁定**见 spec §5.2：**否决**沙箱后端 HTTP chat ⇒ **采用** `@modules/ai` 既有入口，**动态 `import()`**）；③ CLI `--adversarial` / `--adversarial-proposals` / `--adversarial-model` / `-max-calls` / `-timeout-ms`（**默认关 · 不参与 fail-closed**）；④ 测试 **17 例**（含注入式假 chat，零额度）。
+- **真实模型 e2e**：✅ **已实测（2026-10-04，攻击者模型 `deepseek-v4-flash`）** —— 首轮暴露 **3 个真实缺陷**（① 未显式 `max_tokens` ⇒ 供应商默认 4096、`content` 为空；② 8192 时 JSON 被截断不可解析；③ 失败**静默无日志**）**已修**（显式 `maxTokens` 默认 8192 + 截断容错 + `logger.warn`）；修复后产出 **4 条提案**、机械裁决全链跑通（`提案 4 ｜ exposed 0 ｜ knownGap 0 ｜ unmachineable 0`）。
+- **已知边界（如实）**：机械裁决答的是「该向量的防线**配置上是否成立**」，**不是**「该攻击**能否真的绕过**」（本轮 LLM 把"绕过型"手法自映射到配置检查 `C-1` ⇒ 偏乐观）⇒ 定位为**提案供人工复核**；详见 spec §10.2。
+- 验证：`typecheck 0` · `lint:arch` 错误 0 / 警告 1 / 违规 0 · `eslint`（5 文件）0 · `tests/evals` **149 pass / 2 skip / 0 fail**。
 
 ### 7.7 T-④01 / P3-3 `REF/` 物理搬迁结案（2026-10-04，同卷 move）
 

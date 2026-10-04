@@ -8,8 +8,7 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
-import { execSync } from 'child_process';
-import { exitWorktree } from '@modules/workspaces/commands/session';
+import { exitWorktree, isInsideGitRepo } from '@modules/workspaces/commands/session';
 import { ExitWorktreeOutputSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';
@@ -91,13 +90,8 @@ export class ExitWorktreeTool extends BaseTool<
   override shouldDefer = true;
 
   override isEnabled(): boolean {
-    // 检查是否在git仓库中
-    try {
-      execSync('git rev-parse --git-dir', { stdio: 'pipe' });
-      return true;
-    } catch {
-      return false;
-    }
+    // 检查是否在 git 仓库中（同步 fs 探测：替代 spawn `git rev-parse --git-dir`，避免阻塞事件循环）
+    return isInsideGitRepo();
   }
 
   override isDestructive(): boolean {

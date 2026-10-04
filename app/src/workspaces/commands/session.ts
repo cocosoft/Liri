@@ -27,7 +27,7 @@
 import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { dirname, join, resolve } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('Workspace');
@@ -53,10 +53,30 @@ function validateSlug(slug: string): boolean {
  */
 async function getGitRoot(cwd: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync('git rev-parse --show-toplevel', { cwd });
+    const { stdout } = await execAsync('git rev-parse --show-toplevel', {
+      cwd,
+    });
     return stdout.trim();
   } catch {
     return null;
+  }
+}
+
+/**
+ * 是否处于 Git 工作树（**同步、非 spawn**）
+ *
+ * 阻塞源收敛 2026-10-04（台账 V-2）：供 `isEnabled()` 这类**同步契约**使用，
+ * 以上溯查找 `.git`（文件或目录，兼容 worktree/submodule 的 gitfile）替代
+ * `git rev-parse --git-dir`，避免同步 spawn 阻塞事件循环。
+ * 语义差异（如实）：不处理 `GIT_DIR` 环境变量与裸仓库；仅判定 `.git` 标记存在性。
+ */
+export function isInsideGitRepo(startDir: string = process.cwd()): boolean {
+  let current = resolve(startDir);
+  while (true) {
+    if (existsSync(join(current, '.git'))) return true;
+    const parent = dirname(current);
+    if (parent === current) return false;
+    current = parent;
   }
 }
 

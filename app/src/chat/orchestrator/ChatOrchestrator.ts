@@ -28,6 +28,14 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：非流式无工具回合终稿校验
+import { guardFinalOutput } from '../finalOutputGuard.js';
+import {
+  lintMermaidBlocks,
+  formatMermaidIssues,
+} from '@modules/utils/mermaidLint';
+import { renderGoalTemplate } from '../../tasks/goal/goalTemplates';
+import { createFragment, renderFragment } from '@modules/context';
 import { handleError } from '@modules/error';
 import { SimpleMutex } from '@modules/core';
 import type { ToolAwareClient } from '@modules/ai';
@@ -162,6 +170,17 @@ export interface ChatOrchestratorHost {
     sessionId: string,
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+  /**
+   * P0-1② 覆盖面补齐（2026-10-04，`final-output-guard-no-tool-turns.md`）：
+   * 更新消息 blocks —— 无工具回合的终稿 mermaid 修复后，用它**替换**已流出的正文
+   * （与工具轮 `_supersedeNextRoundText` 同语义；G4：不新造替换通道）。
+   */
+  updateMessageBlocks(
+    sessionId: string,
+    messageId: string,
+    blocks: Array<Record<string, unknown>>,
+    text?: string
+  ): Promise<void>;
   /**
    * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条流式正文 chunk 到事件日志存储层
    * （不落盘、不分配 seq；落盘由 flushStreamEventBuffer / 读路径自动 flush 驱动）。
@@ -720,6 +739,71 @@ export class ChatOrchestrator {
 
         // 路径幻觉校验（dry-run）
         await validateOutputPaths(ctx, assistantMessage.content as string);
+
+        // P0-1② 覆盖面补齐（2026-10-04）：**无工具回合**的终稿 mermaid 校验。
+        // 非流式：返回值尚未交给调用方 ⇒ 可直接替换，无需 supersede。
+        // 有工具回合仍由工具循环内的原钩子负责（本条不介入）。
+        if (!response.tool_calls || response.tool_calls.length === 0) {
+          const guardResult = await guardFinalOutput(
+            String(assistantMessage.content ?? ''),
+            {
+              lint: lintMermaidBlocks,
+              renderInstruction: (issues) =>
+                renderGoalTemplate('mermaid_repair', {
+                  issues: formatMermaidIssues(issues),
+                }),
+              emitValidationInjected: async (issues, instruction) => {
+                await this.host.appendStreamEvent(session.id, {
+                  type: 'validation/injected',
+                  schemaVersion: 1,
+                  seq: 0,
+                  time: Date.now(),
+                  sessionId: session.id,
+                  data: {
+                    kind: 'mermaid',
+                    issues,
+                    channel: 'steering',
+                    text: instruction,
+                  },
+                });
+              },
+              repair: async (instruction) => {
+                // 同源修复：复用同一 `invokeLlm`（CS01：不另起第二套装配）
+                const repairCtx = {
+                  ...ctx,
+                  apiMessages: [
+                    ...ctx.apiMessages,
+                    {
+                      role: 'user',
+                      content: renderFragment(
+                        createFragment({ kind: 'steering', text: instruction })
+                      ),
+                    },
+                  ],
+                };
+                const { response: repairResp } = await invokeLlm(
+                  repairCtx as typeof ctx,
+                  activeClient
+                );
+                return repairResp.content ?? null;
+              },
+            }
+          );
+          if (guardResult.repaired) {
+            assistantMessage.content = guardResult.text;
+            response.content = guardResult.text;
+            await this.host.updateMessageBlocks(
+              session.id,
+              assistantMessage.id,
+              [{ type: 'text', content: guardResult.text }],
+              guardResult.text
+            );
+            logger.info('sendMessage:no_tool_final_output_repaired', {
+              sessionId: session.id,
+              issueCount: guardResult.issues.length,
+            });
+          }
+        }
 
         // 阶段 7: 用量通知
         notifyUsage(ctx, response, Date.now() - llmStartTime);

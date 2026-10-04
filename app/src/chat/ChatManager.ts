@@ -1147,6 +1147,9 @@ export class ChatManagerImpl implements ChatManager {
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
         appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+        // P0-1② 覆盖面补齐（2026-10-04）：无工具回合终稿修复后替换正文（走既有实现）
+        updateMessageBlocks: (sid, mid, blocks, text) =>
+          this.updateMessageBlocks(sid, mid, blocks, text),
         bufferStreamTextChunk: (sid, mid, content) =>
           this.bufferStreamTextChunk(sid, mid, content),
         flushStreamEventBuffer: (sid) => this.flushStreamEventBuffer(sid),
@@ -2098,7 +2101,8 @@ export class ChatManagerImpl implements ChatManager {
   public async updateMessageBlocks(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
+    text?: string
   ): Promise<void> {
     // T1.1（2026-08-23）：落盘前对同 toolCallId 的 tool_call 块合并去重（终态优先 + 保留首非空 arguments），
     // 与前端 SaveQueue 同策略；对历史污染数据 + SSE 重复发送产生的重复做防御兜底。
@@ -2126,6 +2130,7 @@ export class ChatManagerImpl implements ChatManager {
         sessionId,
         id: messageId,
       });
+      if (text !== undefined) message.content = text;
       message.blocks = blocks;
       message.createdAt = new Date();
       message.updatedAt = new Date();
@@ -2140,6 +2145,9 @@ export class ChatManagerImpl implements ChatManager {
       });
     }
 
+    // P0-1②（2026-10-04）：无工具回合终稿修复时，content 必须与 blocks 同步
+    // （否则导出 / 下一轮上下文仍读到修复前的旧文本）
+    if (text !== undefined) message.content = text;
     message.blocks = blocks;
     session.updatedAt = new Date();
     session.metadata.lastActivityAt = new Date();

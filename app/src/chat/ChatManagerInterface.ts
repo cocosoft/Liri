@@ -228,11 +228,14 @@ export interface ChatManager {
    * @param sessionId 会话ID
    * @param messageId 消息ID
    * @param blocks blocks 结构
+   * @param text 可选：同时更新消息顶层 `content`（无工具回合终稿修复后需与 blocks 一致，
+   *   否则导出/下一轮上下文仍读旧文本）
    */
   updateMessageBlocks(
     sessionId: string,
     messageId: string,
-    blocks: Array<Record<string, unknown>>
+    blocks: Array<Record<string, unknown>>,
+    text?: string
   ): Promise<void>;
 
   /**

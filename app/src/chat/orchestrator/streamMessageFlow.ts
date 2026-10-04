@@ -77,7 +77,7 @@ import {
   logFinalRawResponse,
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
-import { compactionOrchestrator } from '@modules/context';
+import { compactionOrchestrator, createFragment, renderFragment } from '@modules/context';
 import { getModelThresholds } from '@modules/tokenBudget/UnifiedTokenTracker';
 import { getOTelTracing } from '@modules/monitoring';
 import { getSessionTracing } from '@modules/monitoring';
@@ -86,6 +86,13 @@ import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import { getToolExecErrorMessage } from './toolErrorMessages.js';
 import { filterToolsByTask } from '@modules/tools';
 import type { ToolCategory } from '@modules/tools';
+// P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：无工具回合终稿校验
+import { guardFinalOutput } from '../finalOutputGuard.js';
+import {
+  lintMermaidBlocks,
+  formatMermaidIssues,
+} from '@modules/utils/mermaidLint';
+import { renderGoalTemplate } from '../../tasks/goal/goalTemplates';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
 // P2-2（2026-09-23）：请求边界事件（request/start；requestId = 该事件的 seq）
 import { startRequest } from '../services/requestBoundary.js';
@@ -2043,6 +2050,83 @@ export async function* runStreamMessage(
       ...(assistantMessage.metadata ?? {}),
       __streamedEventsWritten: true,
     };
+
+    // P0-1② 覆盖面补齐（2026-10-04，`.trae/specs/final-output-guard-no-tool-turns.md`）：
+    // **无工具回合**的终稿校验。原自纠钩子只在 ReAct 工具循环内生效，而循环被
+    // `tool_calls>0` 门控（见本函数下方）⇒ 无工具回合**从不被校验**（运行时已证）。
+    // 此处复用共享守卫：命中 ⇒ 先落 `validation/injected` ⇒ 同源一次修复
+    // ⇒ 经 `updateMessageBlocks` **替换**已流出正文（与工具轮 supersede 同语义）。
+    // 有工具回合仍由循环内的原钩子负责（本条**不介入**，避免双写）。
+    if (!finalResponse?.tool_calls || finalResponse.tool_calls.length === 0) {
+      const guardResult = await guardFinalOutput(accumulatedContent, {
+        lint: lintMermaidBlocks,
+        renderInstruction: (issues) =>
+          renderGoalTemplate('mermaid_repair', {
+            issues: formatMermaidIssues(issues),
+          }),
+        emitValidationInjected: async (issues, instruction) => {
+          await host.appendStreamEvent(session.id, {
+            type: 'validation/injected',
+            schemaVersion: 1,
+            seq: 0,
+            time: Date.now(),
+            sessionId: session.id,
+            data: {
+              kind: 'mermaid',
+              issues,
+              channel: 'steering',
+              text: instruction,
+            },
+          });
+        },
+        repair: async (instruction) => {
+          // 同源修复：复用本轮同一 provider client 与消息装配（CS01：不另起第二套装配）。
+          // 修复指令按既有 `steering` 片段渲染，与工具轮回喂形态一致。
+          const repairStream = activeClient.streamMessage(
+            [
+              ...apiMessages,
+              {
+                role: 'user',
+                content: renderFragment(
+                  createFragment({ kind: 'steering', text: instruction })
+                ),
+              },
+            ] as unknown as Parameters<typeof activeClient.streamMessage>[0],
+            {
+              ...options,
+              maxTokens: retryState.nextMaxTokens,
+              signal: streamAbortController.signal,
+            }
+          );
+          let repaired = '';
+          // 与主流程同源擦洗（think 擦除 / response 标签剥离）——
+          // 否则修复轮会把 <response> 等协议标签带进正文（实测泄漏）。
+          const repairScrubber = new StreamingThinkScrubber();
+          for await (const ch of repairStream) {
+            if (typeof ch === 'string') {
+              repaired += repairScrubber.scrub({
+                content: ch,
+                isComplete: false,
+              }).content;
+            }
+          }
+          return repaired;
+        },
+      });
+      if (guardResult.repaired) {
+        accumulatedContent = guardResult.text;
+        await host.updateMessageBlocks(
+          session.id,
+          assistantMessage.id,
+          [{ type: 'text', content: guardResult.text }],
+          guardResult.text
+        );
+        logger.info('streamMessage:no_tool_final_output_repaired', {
+          sessionId: session.id,
+          issueCount: guardResult.issues.length,
+        });
+      }
+    }
 
     // 管线 — 记忆提取 + 路径校验 + post hooks
     await pipeline.postProcess(ctx.content);

@@ -395,23 +395,6 @@ async function startDeferredPrefetches(): Promise<void> {
   try {
     // 并行执行多个延迟预加载任�?
     const prefetchTasks = [
-      // 预加载系统上下文
-      (async () => {
-        try {
-          // @ts-ignore
-          const contextModule = await import('../context/context.js');
-          const { getSystemContext, getUserContext } =
-            contextModule as unknown as {
-              getSystemContext: () => unknown;
-              getUserContext: () => unknown;
-            };
-          void getSystemContext();
-          void getUserContext();
-        } catch (error) {
-          // 忽略预加载错�?
-        }
-      })(),
-
       // 预加载工具系统（如果尚未加载�?
       (async () => {
         try {

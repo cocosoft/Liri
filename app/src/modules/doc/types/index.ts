@@ -79,10 +79,3 @@ export interface AuditEntry {
   result: 'success' | 'fail';
   detail?: string;
 }
-
-/** 资源限制配置 */
-export interface ResourceLimits {
-  maxMemoryMB: number;
-  maxOutputSizeMB: number;
-  maxDiskUsageMB: number;
-}

@@ -34,7 +34,6 @@ import {
 } from './detection/elicitationPrompts';
 import { MCPRequestQueue } from './concurrency/MCPRequestQueue';
 import { ExecutionGuardian } from './execution/ExecutionGuardian';
-import { ResourceGuardian } from './execution/ResourceGuardian';
 import { docMetrics } from './observability/OfficeMetrics';
 import { OfficeAuditLogger } from './audit/OfficeAuditLogger';
 import { DocChannelHandler } from './channel/DocChannelHandler';
@@ -67,7 +66,6 @@ export class DocModule {
 
   /** 核心组件 */
   readonly executionGuardian = new ExecutionGuardian();
-  readonly resourceGuardian = new ResourceGuardian();
   readonly requestQueue = new MCPRequestQueue();
   readonly channelHandler = new DocChannelHandler();
 

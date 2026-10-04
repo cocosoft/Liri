@@ -19,7 +19,6 @@ export {
 
 export { MCPRequestQueue } from './concurrency/MCPRequestQueue';
 export { ExecutionGuardian } from './execution/ExecutionGuardian';
-export { ResourceGuardian } from './execution/ResourceGuardian';
 
 export { docMetrics } from './observability/OfficeMetrics';
 export { OfficeAuditLogger } from './audit/OfficeAuditLogger';
@@ -85,7 +84,6 @@ export type {
   MCPResponse,
   DocumentNode,
   AuditEntry,
-  ResourceLimits,
 } from './types';
 
 // 分阶段文档工作流类型（设计方案 §4.2）

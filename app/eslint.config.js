@@ -200,7 +200,6 @@ export default [
       'src/analytics/AnalyticsService.ts',
       'src/analytics/IntelligentAnalysisService.ts',
       'src/analytics/PerformanceMonitoringService.ts',
-      'src/context/context.ts',
     ],
     rules: {
       'no-console': 'off'

@@ -1668,8 +1668,6 @@ class ArchitectureLinter {
       'cli/handlers/utilHandler.ts',
       'commands/login/login.ts',
       'commands/logout/logout.ts',
-      // 系统上下文读取（非配置变量）
-      'context/context.ts',
       // 特性开关（Feature Flag）
       'core/AppCore.ts',
       'core/extensibility/ExtensibilityService.ts',

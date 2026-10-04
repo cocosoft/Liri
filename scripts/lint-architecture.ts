@@ -2230,7 +2230,11 @@ class ArchitectureLinter {
 
     for (const file of this.allFiles) {
       // 跳过测试文件
-      if (TEST_FILE_EXCLUSIONS.some((e) => file.includes(e))) continue;
+      // 跨平台修复（2026-10-04）：entries 用**正斜杠**（如 '/__tests__/'），而 Windows 下 file 为反斜杠
+      // ⇒ 直接 includes 永不命中（测试文件被误判为生产文件，实测 knowledge/__tests__/benchmark-baseline.ts
+      // 曾因此成为 R03-002 判定对象）。此处统一把路径归一为正斜杠再匹配。
+      if (TEST_FILE_EXCLUSIONS.some((e) => file.replace(/\\/g, '/').includes(e)))
+        continue;
 
       const content = readFileSync(file, 'utf-8');
       const relPath = relative(this.srcPath, file).replace(/\\/g, '/');

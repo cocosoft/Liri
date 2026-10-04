@@ -45,10 +45,12 @@ const gitCommand: Command = {
       },
     }),
 
-  isEnabled: () => {
+  isEnabled: async () => {
+    // 阻塞源收敛 2026-10-04：改异步（`isEnabled` 契约已放宽为 boolean | Promise<boolean>`）
     try {
-      const { execSync } = require('child_process');
-      execSync('git --version', { stdio: 'ignore' });
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      await promisify(exec)('git --version');
       return true;
     } catch {
       return false;

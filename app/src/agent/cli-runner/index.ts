@@ -24,7 +24,7 @@
  * bundle-mcp/execute/reliability
  */
 
-import { exec, execSync, spawn, type ChildProcess } from 'child_process';
+import { exec, spawn, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '@modules/config';
 
@@ -212,13 +212,14 @@ export class CliRunner {
     return this.execute(command, { ...options, timeout: timeoutMs });
   }
 
-  killProcess(id: string): boolean {
+  async killProcess(id: string): Promise<boolean> {
     const proc = this.activeProcesses.get(id);
     if (!proc || !proc.pid) return false;
 
     try {
       if (process.platform === 'win32') {
-        execSync(`taskkill /PID ${proc.pid} /F /T`, { stdio: 'ignore' });
+        // 阻塞源收敛（2026-10-04，台账 V-2）：`taskkill` 由 `execSync` 改异步，避免进程清理同步阻塞事件循环
+        await execAsync(`taskkill /PID ${proc.pid} /F /T`);
       } else {
         process.kill(-proc.pid, 'SIGTERM');
       }
@@ -229,9 +230,9 @@ export class CliRunner {
     }
   }
 
-  killAllProcesses(): void {
+  async killAllProcesses(): Promise<void> {
     for (const id of this.activeProcesses.keys()) {
-      this.killProcess(id);
+      await this.killProcess(id);
     }
   }
 

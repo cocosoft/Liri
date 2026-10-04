@@ -108,7 +108,7 @@ export class CommandManager {
     }
 
     // 检查命令是否启用（来自CC源码）
-    if (!this.isCommandEnabled(command)) {
+    if (!(await this.isCommandEnabled(command))) {
       return {
         success: false,
         error: `Command ${name} is not enabled`,
@@ -281,9 +281,9 @@ export class CommandManager {
    * @param command 命令对象
    * @returns 是否启用
    */
-  isCommandEnabled(command: Command): boolean {
+  async isCommandEnabled(command: Command): Promise<boolean> {
     if (command.isEnabled) {
-      return command.isEnabled();
+      return await command.isEnabled();
     }
     return true;
   }

@@ -47,11 +47,12 @@ const branchCommand: Command = {
   /**
    * 检查命令是否启用（来自CC源码）
    */
-  isEnabled: () => {
-    // 检查是否在Git仓库中
+  isEnabled: async () => {
+    // 检查是否在Git仓库中（阻塞源收敛 2026-10-04：改异步，`isEnabled` 契约已放宽为 boolean | Promise<boolean>）
     try {
-      const { execSync } = require('child_process');
-      execSync('git rev-parse --is-inside-work-tree', { stdio: 'ignore' });
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      await promisify(exec)('git rev-parse --is-inside-work-tree');
       return true;
     } catch {
       return false;

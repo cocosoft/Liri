@@ -403,7 +403,7 @@ export interface ParsedCommand {
 // 扩展Command接口（添加CC源码中的关键字段）
 declare module './index' {
   interface Command {
-    isEnabled?: () => boolean; // 条件启用
+    isEnabled?: () => boolean | Promise<boolean>; // 条件启用（允许异步探测，如 `git rev-parse`）
     availability?: string[]; // 可用性要求
     source?: string; // 来源
     supportsNonInteractive?: boolean; // 非交互支持

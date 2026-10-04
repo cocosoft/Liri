@@ -246,7 +246,8 @@ export type WorkMode = "plan" | "do";
 > - **#1/#2 请求体**：实测发送 `你好` 的请求体为 `{"model":"deepseek-v4-flash","messages":[…],"stream":true,"session_id":"session_mujh93m0ozq1ctj9s6f",…}` ⇒ **无 `work_mode`**；后端 `GET /v1/sessions` 该会话 `metadata.workMode` **不存在**。
 > - **根因（源码级）**：正常发送链路 [`ChatInput.tsx:801-806`](../../client/src/components/ChatArea/ChatInput.tsx#L801-L806) 传 `workMode = undefined`（`streamMessage(content, sessionId, undefined, …)`）⇒ 下游 [`chatService.ts:848`](../../client/src/services/chatService.ts#L848) 的 `if (options?.workMode) body.work_mode = …` **永不触发**；**唯一**传 `workMode` 的是**重新生成**路径（[`chat-message-actions.ts:152-158`](../../client/src/stores/chat/chat-message-actions.ts#L152-L158)）。
 > - **git 取证**：`WorkModeToggle.tsx` 仅出现在提交 `06f4384b4`（2026-09-15）且该提交**新增**它；但该提交**不是 HEAD 的祖先**、**无任何分支包含** ⇒ 该文件**从未进入 main**（HEAD 与磁盘均无）。
-> - **⇒ 结论**：前端管道（`workStore` / `Session.workMode` / `chatService`）**仍在**，缺的是**输入区开关组件 + 正常发送路径的 `workMode` 透传**。属**回归或未合入**，**本轮未改代码**，转裁定（是否恢复/合入）。详见台账 R-6f。
+> - **⇒ 定性更正（补充取证）：非"回归"** —— 该能力**从未落地 main**：① 后端 `Grep work_mode app/src` = **0**（`ExecutionPhaseTracker.setMode` 无调用者）；② `handleUpdateSessionMeta`（`session-handlers.ts:956-982`）**不处理 `work_mode`**（仅 `model`/`provider_id`/`workspace_id`/`tasks_override`/`pinned`）；③ client `sessionService.updateSessionMeta` 类型亦无 `workMode`。
+> - **⛔ 因此本项修复被 §4 产品决策阻塞**：`Q2`（`work_mode` 的后端语义 = 提示词差异 / 门禁 / 仅遥测）**未裁定**。只补"开关 + 透传"会**重造 §2 R2 所斥的"空投"**（"发送即遗忘…比没实现更糟"）。**本轮未改代码**，**转 §4 Q1–Q4 裁定**：`A + Q2①`（推荐组合，需 client + 后端 + 提示词分段）或 `方案 C`（收敛删除）。详见台账 R-6f。
 > - ⚠️ 上文「B6 浏览器点击走查 ✅ / 发送链路 ✅（2026-09-14）」在**当轮环境确实成立**，但其**依赖的组件未进入 main** ⇒ 不得据其判定**当前**行为（历史记录保留不删，取证可追溯）。
 
 ---

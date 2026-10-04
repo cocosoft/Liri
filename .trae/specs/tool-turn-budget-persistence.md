@@ -195,5 +195,6 @@ export interface DataSessionMetadata {
 2. **落盘节流与崩溃窗口**：节流 5 轮 ⇒ 崩溃最多丢 ≤5 轮计数（表现为续段额度略宽，不会越过 CAP 语义边界）。
 3. **会话 metadata 体积**：3 个标量字段，单会话增量可忽略；`persistSessionMetadata` 为既有读-合并-写路径（非全量重写其他字段）。
 4. **未验证项（实施时确认）**：① `ChatOrchestratorHost` 补声明后 `streamMessageFlow` 的 host 实例（ChatManager）确有该方法（已读实现，接线待跑通）；② 三条续跑通路的 `options.metadata` 在 loop 内可达（已读 `ctx.options = options` 与 `options.metadata` 消费先例，未跑端到端）。
+   - **运行期取证（2026-10-04，台账 V-4）**：② 的**消费点已实测可达** —— `chat:reactToolLoop:tool_turn_budget_inherited` 日志**3 次**（`baseline`/`cap=500` 均输出）且**全部 `systemResume:false`** ⇒ 走"用户消息 ⇒ `baseline=0` 并清零"分支；**持久值**在 **9 个** `session.json` 的 `metadata.toolTurnBudget` 中落盘。**仍未取证**：`systemResume:true` 的**继承分支**运行期未触发（需构造断点续跑）。
 5. **D3=任务级硬顶的副作用**：任务触顶后自动续跑被跳过 ⇒ 长任务**停止推进**（交回用户）。这是"有界"的代价，属**有意取向**；若希望"永久可续"，应选 §3.5 最小变体（每段可再至 CAP）。
 6. **不动既有 void 之外的语义**：`systemResume` 目前无人读，本 spec 使其成为判据；**不**改三条通路的写入值。

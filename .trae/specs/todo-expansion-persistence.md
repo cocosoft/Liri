@@ -179,6 +179,8 @@ export interface DataSessionMetadata {
 
 **未做（明确，如实）**：跨任务配额池 / UI / 新表·端点·事件类型 / `planId` 透传（D4）/ 历史计划淘汰（N6）；三条续跑通路的**端到端触发点**仍无集成用例（仅单测覆盖语义，同姊妹 spec §8.4 边界）。**生效前提**：运行实例必须重启/重建（见 §9）。
 
+> **运行期取证（2026-10-04，台账 V-4）**：**持久化载具成立** —— 215 个 `session.json` 中 **9 个**含 `metadata.todoExpansion`；消费点 `chat:reactToolLoop:todo_expansion_restored` 日志**3 次**且**全部 `systemResume:false`** ⇒ 实测走的是"**用户消息 ⇒ 清零**"分支（`restored:false`/`planCount:0`），**判据为结构化布尔 + `taskKey`（CS02）**。**仍未取证**：`systemResume:true` 的**继承分支**运行期从未触发（需构造断点续跑）；继承语义由单测覆盖。
+
 ---
 
 ## 7. 合规检查清单

@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     venvPython ? { pythonCmd: venvPython } : {}
   );
   console.log(`pythonCmd: ${provider ? (venvPython ?? 'python(PATH)') : ''}`);
-  console.log(`isAvailable(): ${provider.isAvailable()}`);
+  console.log(`isAvailable(): ${await provider.isAvailable()}`);
 
   const audio = synthWav(2.0);
   console.log(`合成测试音频: ${audio.length}B (2s, 16kHz mono PCM)`);

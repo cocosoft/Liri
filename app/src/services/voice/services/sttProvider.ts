@@ -67,7 +67,7 @@ export interface STTProvider {
    * 检查提供者是否可用
    * @returns true 表示提供者已配置且可正常使用
    */
-  isAvailable(): boolean;
+  isAvailable(): boolean | Promise<boolean>;
 
   /**
    * 文件级转录

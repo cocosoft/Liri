@@ -202,7 +202,7 @@ export async function handleSTTTranscribe(
               id: activeProvider.id,
               name: activeProvider.name,
               type: activeProvider.type,
-              available: activeProvider.isAvailable(),
+              available: await activeProvider.isAvailable(),
             }
           : null,
         status: status.length > 0 ? status.join('；') : undefined,
@@ -526,7 +526,7 @@ export async function handleListVoiceProviders(
         const { SenseVoiceSTTProvider } =
           await import('../../../services/voice/services/senseVoiceSTTProvider');
         const svProvider = new SenseVoiceSTTProvider();
-        if (svProvider.isAvailable()) {
+        if (await svProvider.isAvailable()) {
           STTRegistry.register(svProvider);
         }
       } catch (_err) {

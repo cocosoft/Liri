@@ -22,7 +22,8 @@
  * ```
  */
 
-import { spawn, ChildProcess, execFileSync } from 'child_process';
+import { spawn, ChildProcess, execFile } from 'child_process';
+import { promisify } from 'util';
 import { tmpdir } from 'os';
 import { join, isAbsolute, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -47,6 +48,9 @@ import type {
 } from '../models/types';
 
 const logger = getLogger('voice:stt:senseVoice');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：Python 探测原用 execFileSync 同步阻塞（可达 5s） */
+const execFileAsync = promisify(execFile);
 
 /** SenseVoice STT 提供者标识 */
 const PROVIDER_ID = 'sensevoice';
@@ -209,7 +213,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
    * 检查提供者是否可用
    * 通过检测 Python 环境和 sherpa-onnx 模块来判断
    */
-  isAvailable(): boolean {
+  async isAvailable(): Promise<boolean> {
     if (
       Date.now() - this._lastProbeAt <
       SenseVoiceSTTProvider.AVAILABILITY_TTL
@@ -218,12 +222,12 @@ export class SenseVoiceSTTProvider implements STTProvider {
     }
 
     try {
-      // 3.10/P2-6：execFileSync 参数数组（杜绝 shell 拼接注入）+ pythonCmd 白名单/路径校验
+      // 阻塞源收敛 2026-10-04（台账 V-2）：execFile 异步（参数数组，杜绝 shell 拼接注入）+ pythonCmd 校验
       assertSafePythonCmd(this.config.pythonCmd!);
-      execFileSync(
+      await execFileAsync(
         this.config.pythonCmd!,
         ['-c', "import sherpa_onnx; print('ok')"],
-        { stdio: 'pipe', timeout: 5000 }
+        { timeout: 5000 }
       );
       this._cachedAvailable = true;
       this._lastProbeAt = Date.now();

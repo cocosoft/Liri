@@ -650,25 +650,25 @@ export class STTRegistry {
   /**
    * 检查是否有可用的提供者
    */
-  static hasAvailableProvider(): boolean {
+  static async hasAvailableProvider(): Promise<boolean> {
     return STTRegistry.defaultInstance.hasAvailableProviderInstance();
   }
 
   /**
    * 获取第一个可用的提供者
    */
-  static getFirstAvailableProvider(): STTProvider | undefined {
+  static async getFirstAvailableProvider(): Promise<STTProvider | undefined> {
     return STTRegistry.defaultInstance.getFirstAvailableProviderInstance();
   }
 
   /**
    * 注册所有默认 STT 提供者
    */
-  static registerDefaults(
+  static async registerDefaults(
     cloudConfig?: { apiKey?: string; baseUrl?: string },
     streamConfig?: { apiKey?: string; wsUrl?: string }
-  ): void {
-    STTRegistry.defaultInstance.registerDefaultsInstance(
+  ): Promise<void> {
+    await STTRegistry.defaultInstance.registerDefaultsInstance(
       cloudConfig,
       streamConfig
     );
@@ -692,10 +692,10 @@ export class STTRegistry {
   /**
    * 创建流式转录连接
    */
-  static createStream(
+  static async createStream(
     options?: STTStreamOptions,
     providerId?: string
-  ): STTStreamConnection | null {
+  ): Promise<STTStreamConnection | null> {
     return STTRegistry.defaultInstance.createStreamInstance(
       options,
       providerId
@@ -705,7 +705,7 @@ export class STTRegistry {
   /**
    * 获取可用的提供者列表（按优先级排序）
    */
-  static getAvailableProviders(): STTProvider[] {
+  static async getAvailableProviders(): Promise<STTProvider[]> {
     return STTRegistry.defaultInstance.getAvailableProvidersInstance();
   }
 
@@ -822,9 +822,9 @@ export class STTRegistry {
   /**
    * 检查当前实例是否有可用的提供者
    */
-  private hasAvailableProviderInstance(): boolean {
+  private async hasAvailableProviderInstance(): Promise<boolean> {
     for (const provider of this.providers.values()) {
-      if (provider.isAvailable()) {
+      if (await provider.isAvailable()) {
         return true;
       }
     }
@@ -834,9 +834,11 @@ export class STTRegistry {
   /**
    * 获取当前实例的第一个可用提供者
    */
-  private getFirstAvailableProviderInstance(): STTProvider | undefined {
+  private async getFirstAvailableProviderInstance(): Promise<
+    STTProvider | undefined
+  > {
     for (const provider of this.providers.values()) {
-      if (provider.isAvailable()) {
+      if (await provider.isAvailable()) {
         return provider;
       }
     }
@@ -846,20 +848,20 @@ export class STTRegistry {
   /**
    * 在当前实例注册所有默认提供者
    */
-  private registerDefaultsInstance(
+  private async registerDefaultsInstance(
     cloudConfig?: { apiKey?: string; baseUrl?: string },
     streamConfig?: { apiKey?: string; wsUrl?: string }
-  ): void {
+  ): Promise<void> {
     const localProvider = new LocalSTTProvider();
     this.registerInstance(localProvider);
-    if (localProvider.isAvailable()) {
+    if (await localProvider.isAvailable()) {
       this.setDefaultProviderInstance(localProvider.id);
     }
 
     // SenseVoice（中文优化，sherpa-onnx，可用时优先级高于本地 Whisper）
     const senseVoiceProvider = new SenseVoiceSTTProvider();
     this.registerInstance(senseVoiceProvider);
-    if (senseVoiceProvider.isAvailable()) {
+    if (await senseVoiceProvider.isAvailable()) {
       this.setDefaultProviderInstance(senseVoiceProvider.id);
     }
 
@@ -869,7 +871,7 @@ export class STTRegistry {
         baseUrl: cloudConfig.baseUrl,
       });
       this.registerInstance(cloudProvider);
-      if (cloudProvider.isAvailable()) {
+      if (await cloudProvider.isAvailable()) {
         this.setDefaultProviderInstance(cloudProvider.id);
       }
     }
@@ -880,7 +882,7 @@ export class STTRegistry {
         wsUrl: streamConfig.wsUrl,
       });
       this.registerInstance(streamProvider);
-      if (streamProvider.isAvailable()) {
+      if (await streamProvider.isAvailable()) {
         this.setDefaultProviderInstance(streamProvider.id);
       }
     }
@@ -1141,14 +1143,14 @@ export class STTRegistry {
   /**
    * 在当前实例创建流式转录连接
    */
-  private createStreamInstance(
+  private async createStreamInstance(
     options?: STTStreamOptions,
     providerId?: string
-  ): STTStreamConnection | null {
+  ): Promise<STTStreamConnection | null> {
     const provider =
       this.getProviderInstance(providerId) ||
       this.getDefaultProviderInstance() ||
-      this.getFirstAvailableProviderInstance();
+      (await this.getFirstAvailableProviderInstance());
 
     if (!provider || !provider.createStream) {
       return null;
@@ -1160,8 +1162,14 @@ export class STTRegistry {
   /**
    * 获取当前实例的可用提供者列表
    */
-  private getAvailableProvidersInstance(): STTProvider[] {
-    return this.getAllProvidersInstance().filter((p) => p.isAvailable());
+  private async getAvailableProvidersInstance(): Promise<STTProvider[]> {
+    const available: STTProvider[] = [];
+    for (const provider of this.getAllProvidersInstance()) {
+      if (await provider.isAvailable()) {
+        available.push(provider);
+      }
+    }
+    return available;
   }
 
   /**
@@ -1333,7 +1341,7 @@ export class STTRegistry {
     if (this.degradedProviderIds.size === 0) return;
 
     this.healthCheckTimer = setInterval(() => {
-      this.performHealthCheck();
+      void this.performHealthCheck();
     }, this.healthCheckMs);
   }
 
@@ -1350,7 +1358,7 @@ export class STTRegistry {
   /**
    * 执行一轮健康探测：检查所有已降级的提供者是否已恢复
    */
-  private performHealthCheck(): void {
+  private async performHealthCheck(): Promise<void> {
     for (const providerId of this.degradedProviderIds) {
       const provider = this.providers.get(providerId);
       if (!provider) {
@@ -1358,7 +1366,7 @@ export class STTRegistry {
         continue;
       }
 
-      if (provider.isAvailable()) {
+      if (await provider.isAvailable()) {
         this.degradedProviderIds.delete(providerId);
         // 恢复为默认提供者
         this.defaultProviderId = providerId;

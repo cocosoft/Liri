@@ -21,7 +21,8 @@
  * ```
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execFile } from 'child_process';
+import { promisify } from 'util';
 import { tmpdir } from 'os';
 import { join, isAbsolute, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -47,6 +48,9 @@ import type {
 } from '../models/types';
 
 const logger = getLogger('voice:stt:local');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：Python 探测原用 execFileSync 同步阻塞（可达 5s） */
+const execFileAsync = promisify(execFile);
 
 /** 本地 STT 提供者标识 */
 const PROVIDER_ID = 'local';
@@ -256,20 +260,19 @@ export class LocalSTTProvider implements STTProvider {
    *
    * 通过检测 Python 环境和 faster-whisper 模块来判断，结果缓存 60 秒。
    */
-  isAvailable(): boolean {
+  async isAvailable(): Promise<boolean> {
     // 缓存有效期内直接返回
     if (Date.now() - this._lastProbeAt < LocalSTTProvider.AVAILABILITY_TTL) {
       return this._cachedAvailable;
     }
 
     try {
-      // 3.10/P2-6：execFileSync 参数数组（杜绝 shell 拼接注入）+ pythonCmd 白名单/路径校验
-      const { execFileSync } = require('child_process');
+      // 阻塞源收敛 2026-10-04（台账 V-2）：execFile 异步（参数数组，杜绝 shell 拼接注入）+ pythonCmd 校验
       assertSafePythonCmd(this.config.pythonCmd!);
-      execFileSync(
+      await execFileAsync(
         this.config.pythonCmd!,
         ['-c', 'import faster_whisper; print(faster_whisper.__version__)'],
-        { stdio: 'pipe', timeout: 5000 }
+        { timeout: 5000 }
       );
       this._cachedAvailable = true;
       this._lastProbeAt = Date.now();

@@ -51,7 +51,7 @@
 | 类型与架构 | `bun run typecheck` 0；`lint-architecture.ts` 0 |
 | 回归 | tasks 相关测试全绿（含 `TaskRegistry` / `TaskOrchestrator` 使用方） |
 | 语义一致 | `NoteTask.type === 'note'`；`getPillLabel([noteTaskState])` 返回 `1 note` |
-| ⚠ 未做 | 存量行迁移（D3 明确不做）；未做 UI 实测 |
+| ⚠ 未做 | 存量行迁移（D3 明确不做）；**UI 实测（2026-10-04 尝试，受环境限制未完成）**：`task_states` 表 **0 行** ⇒ 无 note 任务可渲染；`LaunchMode.CLI` 已删除（D-229）⇒ `/plan`·`/task` **无脚本化入口**；其余生产者（`TaskOrchestrator` 真实编排 / 模型调用任务工具 / 前端任务命令）均需真实运行或额度 ⇒ **本轮不为此构造数据**（CS04）。未验的**仅是 UI 像素层**；「语义一致」（`NoteTask.type==='note'` / `getPillLabel` 返回 `1 note`）已由单测覆盖。详见台账 R-6d |
 
 ## 6. 合规检查清单
 

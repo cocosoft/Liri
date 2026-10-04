@@ -180,7 +180,20 @@ ReActToolLoop.getLongTaskSignal()            ← 纯读数（todos / 已耗轮�
 `bun run typecheck` 0 · 改动文件 `eslint` 0 · `lint:arch` **0 错 0 警** · 后端定向（chat + commands）**308 pass / 0 fail** · 后端全量 **3706 pass / 19 skip / 0 fail**（3725 tests / 371 文件）。
 **前端（G4）**：`client` `bun run typecheck`（tsc --noEmit）**0 error** · 改动文件 `eslint` **0 error / 0 warning**（`taskCardSnapshot` 抽取后 `react-refresh` 警告归零）· `bun run test`（vitest）**41 files / 421 tests 全 pass**。**未做**：未起前后端做浏览器端到端点按验证（仅类型 + lint + 单测）。
 
-**未做（明确）**：异 loop 中途移交（N2）、PDCA 引擎与预算数值改动（N3）、浏览器端到端验证（见上"前端（G4）"）。
+**未做（明确）**：异 loop 中途移交（N2）、PDCA 引擎与预算数值改动（N3）、**浏览器端到端验证** → ⬇️ 已于 2026-10-04 补做（见下）。
+
+### 6.6 浏览器端到端验证（2026-10-04，G4 入口）
+
+| 项 | 实测结果 |
+|---|---|
+| PDCA 徽标 `PDCA 编排` | **命中 0** ⇒ 无进行中编排（条件②满足） |
+| G4 入口 `任务较多？用编排分步推进` | **可渲染**：把承载任务卡的消息读入前端后出现，`title="为当前 3 个未完成任务启动 PDCA 分步编排"` |
+| 任务卡与计数一致性 | 「Liri 架构复查（代码更新后）」4 任务 ⇒ **已完成 1 / in_progress 1 / pending 2**；状态栏「已完成 1/4」；未完成 3 = tooltip 计数 ⇒ **条件①判定正确（状态量，非文案）** |
+
+- ✅ **G4 入口的渲染与判据语义正确**（未完成 > 0 且无 PDCA ⇒ 显示；tooltip 计数与真实状态一致）。
+- ⚠️ **新发现（数据窗口，非硬缺陷，登记待裁定）**：**长会话默认只加载消息窗口**，任务卡所在消息在窗口外时 `findLatestTaskCard()` 取不到卡 ⇒ **入口默认态漏显**，需用户手动「加载更早」才出现（"设计上应显示、默认态下漏显"）。**未改代码**。
+- **刻意未做**：**未点击入口**（点击会真的启动一次 PDCA 长任务并消耗额度）⇒"点按后启动编排"这一动作**未实测**，如实标注。
+- 详见台账 R-6a。
 
 **附带发现（预存，未修，另行记录）**：① `OnboardHints` 的 `HINT_TOOL_PROGRESS`（`OnboardHintKey.TOOL_PROGRESS`）同样**零调用方**（仅定义）—— 与本项缺口 A 同类（"设计了但没接线"）；② `PdcaActivityStrip.tsx` 默认导出组件**已无渲染点**（职责由 `PdcaWorkflowCard` 取代，仅命名导出被复用），头注释自述与实际不符（已记入预存文档）。
 

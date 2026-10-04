@@ -155,5 +155,5 @@ export function deriveApiMetrics(events: LiriEvent[]): ApiMetricsSummary;
 
 ### 8.4 未覆盖 / 待跟进（如实记录，不粉饰）
 
-1. **本机数据中 `metric/timing` 事件数 = 0**（实测：`~/.pyapp/data/sessions/**/events.jsonl` 共 240 文件，按行首 `{"type":"metric/timing"` 命中 0 条；仅 4 个文件是 assistant/thinking 正文里的**文字提及**）⇒ e2e 用例在本机只走**空态分支**，"有数据态"的端到端渲染**未在 e2e 中实证**（数据态逻辑由 §2.2 单测 + 代码路径覆盖）。已同步登记到 `dev_docs/error_repairs/预存错误与待处理问题.md`。
-2. 待用**一次真实对话（当前代码）**确认 §8.1 两个写入点确实落盘；若仍为 0，按 CS05 追根因（属生产者侧，非本 Spec 读端）。
+1. ✅ **已闭合（2026-10-04）**：本机 `metric/timing` **已大量落盘**（`~/.pyapp/data/sessions/**/events.jsonl` 30+ 会话命中；三类生产者实测形状见台账 R-3）⇒ 原「事件数 = 0」**不再成立**。
+2. ✅ **已闭合（2026-10-04，真实浏览器）**：`ChatInspector → 轨迹 Tab →「请求指标」` **数据态渲染** —— `请求级事件 17 条` ｜ `TTFT p50 759 ms · p95 783 ms · n=3` ｜ `TTFB p50 686 ms · p95 769 ms · n=3` ｜ `输入 238.0K · 输出 1.3K · 合计 239.4K` ｜ `缓存读 50.7K · 缓存写 187.4K`；且以原始事件**独立复算**（最近秩）逐值一致 ⇒ 读端聚合正确。详见台账 R-3。

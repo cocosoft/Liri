@@ -49,9 +49,8 @@
 | 回归 | `bun test tests/http tests/tools/AgentTool tests/chat tests/session tests/tasks` | **740 pass / 0 fail**（基线 736 + 4） |
 | 类型/lint | app `bun run typecheck` + `bunx eslint`；client `tsc --noEmit` + `bunx eslint` | 全部 exit 0 |
 
-**未验证（诚实边界）**：**无浏览器/组件级验证** —— 滚动锚定的实际几何行为（补页后视野是否真停留）
-与"顶部哨兵自动加载"的交互，均**仅有代码级与 store 级证据**；参照侧有 e2e 几何门禁，我方本轮未补
-（属 P2-4「测试层级单薄」范围）。
+**✅ 浏览器几何验证已补（2026-10-04，Playwright `viewport 1440×1200`）**：会话 `session_mujh93m0ozq1ctj9s6f` 点「加载更早」触发补页 —— 补页前 `scrollHeight=40260 / scrollTop=0 / clientHeight=672`，补页后 `scrollHeight=80806 / scrollTop=40326 / clientHeight=672` ⇒ `Δheight=40546` 而 `ΔscrollTop=40326`（**补偿量 ≈ 新增内容高度，偏差 <0.6%**，源于虚拟化行测量滞后），与实现公式 `scrollTop = anchor.scrollTop + (newScrollHeight - oldScrollHeight)` **逐字吻合**；若缺锚定，`scrollTop` 会停在 ~0 ⇒ 视野被推到最旧事件。⇒ **滚动锚定的实际几何行为正确**（原先"无浏览器/组件级验证"的缺口闭合）。交叉印证：交互式浏览器侧向后分页链路（1000 → 11000 → 12000 条）亦可用。详见台账 R-6c。
+**仍未补**："顶部哨兵**自动**加载"的交互由同一 `handleTrajectoryScroll` 触发路径覆盖，但本轮以**显式点击**按钮触发（哨兵自动分支未单独断言）。
 
 **已知语义边界**：`hasEarlier = events[0].seq > 1` 是**基于 seq 的保守判据**。当查询带了
 `types` 过滤、且命中集不连续时，可能出现"`hasEarlier=true` 但再补一页为空"的情况

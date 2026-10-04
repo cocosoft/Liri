@@ -1,6 +1,7 @@
 # Spec：Plan/Do 工作模式（V-18 ⑤）根因修复设计
 
 > 状态：**设计待评审**（本文件只定义契约与步骤，不含实现）
+> 状态复核（2026-10-04）：状态头 stale——正文 B1–B5 已完成；**⚠️ B6（输入区开关）与验收 #1/#2/#7 在 2026-10-04 的真实浏览器复测中「不成立」（回归/未合入），见下方实测块**；§8 未决 Q1–Q4 待确认。
 > 触发：`dev_docs/error_repairs/预存错误与待处理问题.md` → V-18 ⑤（`activeWorkItem` 恒空 → plan/do 从未到达后端）
 > 关联：V-18 ②（UI 状态分层结论）、§1.6.1 接口清单（api-spec.md）、V-17（门禁协同）
 
@@ -239,6 +240,14 @@ export type WorkMode = "plan" | "do";
 > - **C｜从未设置过 mode 的会话（`session_mu0n753junr329t07w9`，**未触碰开关**）** → `{"work_mode":"plan","session_id":"session_mu0n753junr329t07w9"}` ⇒ **`"plan"`** ✅（全局默认 plan 生效；`session_id` 与目标逐字一致）
 > - ⇒ **验收 1 / 2 均通过**：请求体的 `work_mode` 与"会话 metadata / 缺省 plan"三者一致，**不再是空投**
 > - **新缺陷（同轮暴露，已登记台账 V-28）**：A / B 两次的助手回复**后端 2–3 秒已落盘**（`{"role":"assistant","content":"收到","timestamp":…}`）但**前端 60 秒未渲染**，输入区持续「AI 正在生成回复」，轮次计数 9→10→11 递增而气泡不出现，切走再切回仍不显示；C 次则正常渲染
+
+> **🔴 复测结果（2026-10-04，真实浏览器 + fetch 抓包）：验收 #1/#2/#7 在当前 main「不成立」**
+> - **#7 输入区开关**：`document.querySelectorAll('[title="计划/执行切换"]')` = **0**；全文档文本含「计划」= **0**；源码 `WorkModeToggle` **全仓 0 命中**。当前唯一的工作模式 UI 是**只读徽标** [`WorkModeBadge`](../../client/src/components/ChatArea/WorkModeBadge.tsx)（仅用于 `WorkbenchPage.tsx:187`），**不在聊天输入区**。输入区工具栏实测仅 `智能问答(选择模式) / 上传文件 / 表情 / 临时对话`（前者是**智能体模式**选择，非 plan/do）。
+> - **#1/#2 请求体**：实测发送 `你好` 的请求体为 `{"model":"deepseek-v4-flash","messages":[…],"stream":true,"session_id":"session_mujh93m0ozq1ctj9s6f",…}` ⇒ **无 `work_mode`**；后端 `GET /v1/sessions` 该会话 `metadata.workMode` **不存在**。
+> - **根因（源码级）**：正常发送链路 [`ChatInput.tsx:801-806`](../../client/src/components/ChatArea/ChatInput.tsx#L801-L806) 传 `workMode = undefined`（`streamMessage(content, sessionId, undefined, …)`）⇒ 下游 [`chatService.ts:848`](../../client/src/services/chatService.ts#L848) 的 `if (options?.workMode) body.work_mode = …` **永不触发**；**唯一**传 `workMode` 的是**重新生成**路径（[`chat-message-actions.ts:152-158`](../../client/src/stores/chat/chat-message-actions.ts#L152-L158)）。
+> - **git 取证**：`WorkModeToggle.tsx` 仅出现在提交 `06f4384b4`（2026-09-15）且该提交**新增**它；但该提交**不是 HEAD 的祖先**、**无任何分支包含** ⇒ 该文件**从未进入 main**（HEAD 与磁盘均无）。
+> - **⇒ 结论**：前端管道（`workStore` / `Session.workMode` / `chatService`）**仍在**，缺的是**输入区开关组件 + 正常发送路径的 `workMode` 透传**。属**回归或未合入**，**本轮未改代码**，转裁定（是否恢复/合入）。详见台账 R-6f。
+> - ⚠️ 上文「B6 浏览器点击走查 ✅ / 发送链路 ✅（2026-09-14）」在**当轮环境确实成立**，但其**依赖的组件未进入 main** ⇒ 不得据其判定**当前**行为（历史记录保留不删，取证可追溯）。
 
 ---
 

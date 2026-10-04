@@ -228,6 +228,8 @@ export const TRANSIENT_STATUS_TYPES: ReadonlySet<string> = new Set([
 
 触发一次长会话（含压缩 + 工具调用 + 图像工具），核对：① `🔧 Running tool` **不出现**为独立状态气泡（与现状一致）；② `✅/❌ Tool …` 不出现；③ 「正在压缩历史…」**出现**；④ `工具执行中 N%` **出现**（BUG-10 行为不变，锁 D8）；⑤ `truncated` 提示**出现**；⑥ console 无告警。
 
+> **实测结果（2026-10-04，真实浏览器，长会话 `session_mujh93m0ozq1ctj9s6f`）**：① 0 命中 ✅ ｜ ② 0 命中 ✅ ｜ ④ 出现 2 处（`工具执行中 20%`）✅ ｜ ⑥ 仅 SSE 重连噪声（非契约告警）｜ **③ ⑤ 未观测**（需实时流式触发压缩/截断；本轮静态态不可复现）⇒ 如实记「未验」。详见台账 R-6e。
+
 ---
 
 ## §7 合规清单
@@ -271,5 +273,5 @@ export const TRANSIENT_STATUS_TYPES: ReadonlySet<string> = new Set([
 | 3 | 生产者改用常量（禁字面量） | 🟡 **部分**：`CoreAPIImpl` 已全部改常量并引入契约；**其余待替换**：`reactEventsToChunks`（3 处）、`streamMessageFlow`（compaction×9 / retry×2）、`ChatManager`（2 处）、`chat-handlers`（1 处） |
 | 4 | 删双端字符串回退，判据收敛为 shared 集合 | ✅ 已完成（client `chat-toolcall.slice.ts`、app `EventMessageDeriver.ts` 均改为 `isTransientStatusType`，同一集合） |
 | 5 | 消费点对齐与注释澄清 | ✅ 已完成（两端函数注释已重写并指向本 spec；`content` 形参保留、判据不再使用） |
-| 6 | 单测 5 组 + 双端门禁 + 真机 | 🟡 **单测+门禁 ✅ / 真机 ⬜**：client 新增 `status-type-contract.test.ts` **10 例**（契约一致性 / 判据脱离文案 / D8 不变性守卫）；client **51 文件 486 用例全通过**；app `typecheck` 0 且 `tests/session tests/chat` **591 pass / 0 fail**；**真机（§6.3）未做** |
+| 6 | 单测 5 组 + 双端门禁 + 真机 | 🟡 **单测+门禁 ✅ / 真机 ◑ 部分（2026-10-04）**：client 新增 `status-type-contract.test.ts` **10 例**；client **51 文件 486 用例全通过**；app `typecheck` 0 且 `tests/session tests/chat` **591 pass / 0 fail**。**真机（§6.3）**：① `🔧 Running tool` **0 命中** ✅；② `✅/❌ Tool …` **0 命中** ✅（`✅ 已执行 N 个工具调用` 属工具组汇总，非禁用形态）；④ `工具执行中 20%` **出现** ✅（BUG-10 行为保持）；⑥ 仅 **SSE 重连** 1 error + 2 warn（非 status 契约告警）。**③「正在压缩历史」/ ⑤ `truncated` 未观测**（需**实时流式**触发压缩/截断，静态态不可复现）⇒ 记「未验」。⚠️ 附带观察：2 处 `工具执行中 20%` 出现在**已完成**的工具组行上、会话已空闲 ⇒ 疑"完成后标签残留"，**未做代码级判定**。详见台账 R-6e |
 | 7 | 台账回写 | ✅ 已完成（第 11 批 Tier 2 段） |

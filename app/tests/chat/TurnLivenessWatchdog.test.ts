@@ -56,20 +56,34 @@ describe('TurnLivenessWatchdog', () => {
   });
 
   it('touch 复位空闲计时（有产出不误判）', async () => {
+    // 2026-10-04 修 flaky：原写法 `timeoutMs:80` + `await sleep(50)` + 立即断言，
+    // 依赖**绝对时点**——全量并行高负载下 sleep 漂移可越过 80ms，导致 touch 前就误触发
+    // （实测偶发 fail）。改为**时点无关**：
+    //   ① 阈值取远大于正常调度的量级（1500ms），持续 touch 保证任何合理延迟下都不误判；
+    //   ② 触发用**有界等待**（不假定精确毫秒）。
+    // 另注：`pollMs` 会被 `MIN_POLL_MS=100` 夹取；`check()` 对"采样跳变 > pollMs*3"（此处 900ms）
+    // 视为事件循环阻塞并**重置空闲计时**，故 poll 取 300ms 以对负载停顿留足裕度。
     let fired: null | { idleSeconds: number } = null;
     const wd = new TurnLivenessWatchdog({
-      timeoutMs: 80,
-      pollMs: 20,
+      timeoutMs: 1500,
+      pollMs: 300,
       onStall: (s) => {
         fired = { idleSeconds: s.idleSeconds };
       },
     });
     wd.start('s2');
-    await sleep(50); // 未到超时
-    wd.touch(); // 复位
-    await sleep(50); // touch 后 50ms < 80ms（含一次 poll，idleMs=50）
+    // 持续产出：每次都在远小于阈值的间隔内复位 ⇒ 不应触发
+    for (let i = 0; i < 5; i++) {
+      await sleep(50);
+      wd.touch();
+    }
     expect(fired).toBeNull();
-    await sleep(150); // touch 后累计 200ms > 80ms（下一 poll 触发）
+
+    // 停止产出 ⇒ 等到触发（有界等待，勿依赖精确时点）
+    const deadline = Date.now() + 8000;
+    while (fired === null && Date.now() < deadline) {
+      await sleep(50);
+    }
     wd.stop();
     expect(fired).not.toBeNull();
   });

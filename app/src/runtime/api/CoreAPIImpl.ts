@@ -4929,16 +4929,21 @@ export class CoreAPIImpl implements CoreAPI {
       providerId?: string;
       tasksOverride?: Record<string, string>;
       pinned?: boolean;
+      /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入） */
+      workMode?: 'plan' | 'do';
     }
   ): Promise<void> {
     // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
     // 对齐 openworker conversations.py set_flags 语义：置顶/取消置顶不应导致
     // 会话在列表中因"最近更新"而重排（标题自动生成同理，由 rename 路径单独控制）。
+    // 2026-10-04：workMode 属"配置类"字段（同 model/workspaceId/tasksOverride），
+    // 计入 hasMetaField → 会 touch updatedAt。
     const hasMetaField =
       meta.model !== undefined ||
       meta.workspaceId !== undefined ||
       meta.providerId !== undefined ||
-      meta.tasksOverride !== undefined;
+      meta.tasksOverride !== undefined ||
+      meta.workMode !== undefined;
     const shouldTouchUpdatedAt = hasMetaField;
 
     // 1. 更新内存中的会话 metadata
@@ -4954,6 +4959,8 @@ export class CoreAPIImpl implements CoreAPI {
       if (meta.tasksOverride !== undefined)
         session.metadata.tasksOverride = meta.tasksOverride;
       if (meta.pinned !== undefined) session.metadata.pinned = meta.pinned;
+      if (meta.workMode !== undefined)
+        session.metadata.workMode = meta.workMode;
       if (shouldTouchUpdatedAt) session.updatedAt = new Date();
     }
 
@@ -4973,6 +4980,8 @@ export class CoreAPIImpl implements CoreAPI {
             storedSession.metadata.tasksOverride = meta.tasksOverride;
           if (meta.pinned !== undefined)
             storedSession.metadata.pinned = meta.pinned;
+          if (meta.workMode !== undefined)
+            storedSession.metadata.workMode = meta.workMode;
           await gateway.updateSession(storedSession);
         }
       }

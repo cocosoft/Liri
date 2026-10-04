@@ -147,3 +147,10 @@ export {
 export { extractTodoData, repairImageUrls } from './services/ChatHelper';
 export { getSettlementOutbox } from './yield/SettlementOutbox';
 export { notifyYieldSettled } from './yield/YieldSettlementBridge';
+// plan/do 工作模式契约（B1，2026-09-14）：经模块出口暴露，供 HTTP 层按 R03-002 导入
+export {
+  isWorkMode,
+  applyWorkModeToSystemPrompt,
+  PLAN_MODE_PROMPT,
+} from './workMode';
+export type { WorkMode } from './workMode';

@@ -3573,6 +3573,7 @@ const zh = {
     modelBinding: "模型绑定",
     agentGrid: "Agent 网格",
     planDoToggle: "计划/执行切换",
+    planDoSwitchFailed: "切换计划/执行模式失败，请稍后重试",
     plan: "计划",
     do: "执行",
     chatPanel: "对话面板",

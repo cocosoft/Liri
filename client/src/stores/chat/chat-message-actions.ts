@@ -43,7 +43,7 @@ function saveAbortCheckpoint(sessionId: string): void {
 }
 
 /** 检测工作模式：从会话级 workMode 读取 Plan/Do 模式（源：Session.workMode 展平） */
-async function resolveWorkMode(sessionId?: string): Promise<"plan" | "do"> {
+export async function resolveWorkMode(sessionId?: string): Promise<"plan" | "do"> {
   if (!sessionId) return "plan";
   try {
     const { useSessionStore } = await import("../sessionStore");

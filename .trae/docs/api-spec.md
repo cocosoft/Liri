@@ -186,6 +186,7 @@
 
 > P0-1（2026-08-26）：请求体新增可选 `continue_from: { content, messageId? }`——流中断续写：后端把已生成内容作为 assistant 上下文注入，"请从中断处继续"，用于自动恢复而非从头重发。
 > P1-1（2026-08-26）：SSE 事件 `__pyapp_error_code` 新增 `STREAM_INTERRUPTED`——前端据此识别"可恢复的流中断"并触发自动续写/重试。
+> `work_mode`（2026-10-04，Spec [plan-do-mode.md](../specs/plan-do-mode.md)）：请求体可选字段，取值 `plan` | `do`，来源=会话 `metadata.workMode`（前端按当前会话派生，缺省 `plan`）；后端消费语义：`plan` 追加规划系统提示（不产出最终交付物），`do`/缺省行为不变；非法值 ⇒ **400** `INVALID_WORK_MODE`（fail loud，不静默忽略）。
 
 #### §3.5.1 SSE 流式事件协议（P2-4 固化）
 
@@ -226,7 +227,7 @@
 | GET | `/v1/sessions/current` | ✅ | `sessionService.getCurrent` |
 | GET | `/v1/sessions/{id}` | ✅ | `sessionService.get` |
 | PUT | `/v1/sessions/{id}` | ✅ | `sessionService.rename` |
-| PATCH | `/v1/sessions/{id}/meta` | ✅ M1-T1.3 | `sessionService.updateSessionMeta` / `sessionService.setPinned`（body `{ model?, provider_id?, workspace_id?, tasks_override?, pinned? }`；**pinned-only 更新不 touch updatedAt**，防列表重排；`pinned` 必须严格 boolean，非法值 400；驱动侧栏「固定到顶部」持久化 + 会话列表置顶排序） |
+| PATCH | `/v1/sessions/{id}/meta` | ✅ M1-T1.3 | `sessionService.updateSessionMeta` / `sessionService.setPinned`（body `{ model?, provider_id?, workspace_id?, tasks_override?, pinned?, work_mode? }`；**pinned-only 更新不 touch updatedAt**，防列表重排；`pinned` 必须严格 boolean，非法值 400；`work_mode` 取值 `plan`\|`do`（写入会话 `metadata.workMode`，配置类字段会 touch updatedAt），非法值 400；驱动侧栏「固定到顶部」持久化 + 会话列表置顶排序 + 输入区 Plan/Do 切换） |
 | DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete`（**M2-T2.2** 级联：会话删除 → 引擎中止 ✓ → 孤儿审批项关闭（pending/processing → dismissed，/v1/inbox 不残留可答复项）→ 检查点/事件日志/协商状态清理 ✓；通道为 bot 级长连接，无 per-session 订阅需退订） |
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` / `sessionService.loadConversation`（KB-LONG-SESSION：支持 `?limit&before` 分页——`limit>0` 取末尾 limit 条并返回 `{ messages, hasMore }`，`before` 为 lastEventSeq 游标加载更早；不传 limit 返回数组全量，兼容旧格式） |

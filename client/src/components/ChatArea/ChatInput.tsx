@@ -31,6 +31,8 @@ import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
 // UI 期 UI-3（2026-09-23 修复计划 §十）：临时对话开关（并入工具栏行，替代原先独占一行）
 import TemporarySessionToggle from "./TemporarySessionToggle";
+// 计划/执行开关（emoji 之后，单击切换；写入会话 metadata.workMode）
+import WorkModeToggle from "./WorkModeToggle";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 import { toastError, toastWarning } from "../../stores/toastStore";
@@ -798,10 +800,15 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         // 会读取 editTarget 截断其后的消息（chat-message-stream.ts），
         // 截断完成后它自己会置 null。提前清空会导致截断分支永不执行。
         clearDraft();
+        // 工作模式：按**当前会话**派生（事实来源=后端会话 metadata.workMode）。
+        // 复用 chat-message-actions 的 resolveWorkMode（CS01，不另写解析器）。
+        const { resolveWorkMode } =
+          await import("../../stores/chat/chat-message-actions");
+        const workMode = await resolveWorkMode(sessionId);
         await streamMessage(
           messageContent,
           sessionId,
-          undefined,
+          workMode,
           uploadedImages.length > 0 ? uploadedImages : undefined,
         );
       }
@@ -840,7 +847,11 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
 
     setInput("");
     clearDraft();
-    await streamMessage(text.trim(), sessionId);
+    // 与 handleSubmit 一致：透传当前会话的 plan/do 模式（不再空投 work_mode）
+    const { resolveWorkMode } =
+      await import("../../stores/chat/chat-message-actions");
+    const workMode = await resolveWorkMode(sessionId);
+    await streamMessage(text.trim(), sessionId, workMode);
   };
 
   /**
@@ -1435,6 +1446,26 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                     />
                   </svg>
                 </button>
+                {/* 计划/执行开关（emoji 之后）——单击切换，写入会话 metadata.workMode；
+                    未设置时按全局默认 plan 显示（与 resolveWorkMode 缺省一致） */}
+                <WorkModeToggle
+                  sessionId={currentSession?.id}
+                  workMode={currentSession?.workMode}
+                  onChanged={(mode) => {
+                    // 就地更新本地会话缓存：事实来源仍是后端 DB，随后
+                    // session:meta_updated 广播回填以服务端为准
+                    const changedId = currentSession?.id;
+                    if (!changedId) return;
+                    useRootStore.setState((s) => ({
+                      chatSessions: s.chatSessions.map((item) =>
+                        item.id === changedId
+                          ? { ...item, workMode: mode }
+                          : item,
+                      ),
+                    }));
+                  }}
+                  disabled={isStreaming}
+                />
               </div>
               {/* UI 期 UI-3：临时对话开关并入本行（组件内 `ml-auto` 右对齐） */}
               <TemporarySessionToggle />

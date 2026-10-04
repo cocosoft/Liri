@@ -730,6 +730,8 @@ export interface CoreAPI {
     sessionId: string,
     meta: {
       model?: string;
+      /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入，缺省由前端按 plan 派生） */
+      workMode?: 'plan' | 'do';
       workspaceId?: string;
       providerId?: string;
       tasksOverride?: Record<string, string>;

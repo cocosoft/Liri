@@ -31,7 +31,12 @@ import { deriveYieldState } from './session-handlers';
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D1）：只读取本会话待触发唤醒
 import { resolvePendingWake } from './sessionWaitFields';
 import { getLogger } from '@modules/monitoring';
-import { handleError, AppError } from '@modules/error';
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -117,6 +122,13 @@ interface ChatCompletionRequest {
   workspace_path?: string;
   images?: Array<{ path: string; url: string; filename: string; size: number }>;
   system_prompt?: string;
+  /**
+   * 工作模式（Spec: `.trae/specs/plan-do-mode.md` §5.1）
+   *
+   * 取值 `plan` | `do`；**非该取值即 400 fail loud**（此前该字段在后端无读取点，
+   * 客户端发了也无人校验/消费，属"空投"）。缺省时行为与旧版完全一致。
+   */
+  work_mode?: string;
 }
 
 interface ChatCompletionResponse {
@@ -217,6 +229,45 @@ export async function handleChatCompletions(
   // 2026-10-04：`model` 允许按 `GET /v1/models` 的 `id`（DB UUID）传 —— 边界处解析为 modelId，
   // 否则 UUID 会被原样下发到供应商（实测 DeepSeek 400）。非 UUID 零行为变化。
   request.model = await resolveModelIdFromUuid(request.model);
+
+  // work_mode 边界校验 + 语义应用（Spec: .trae/specs/plan-do-mode.md §5.3）
+  // 纪律：外部输入非法则 fail loud（400 + ErrorTracker），禁止静默忽略。
+  // chat 归属 app 层、本文件属 service 层 ⇒ 按本文件既有 `await import('@modules/ai')`
+  // 模式动态导入，避免 service -> app 静态倒挂。
+  const { isWorkMode, applyWorkModeToSystemPrompt } = await import(
+    '@modules/chat'
+  );
+  const workMode = request.work_mode;
+  if (workMode !== undefined && !isWorkMode(workMode)) {
+    const error = new AppError(
+      `Invalid work_mode: ${JSON.stringify(workMode)} (expected "plan" | "do")`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      'INVALID_WORK_MODE',
+      { workMode }
+    );
+    await handleError(error, {
+      module: 'http:chat',
+      action: 'validateWorkMode',
+    });
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        error: {
+          message: error.message,
+          type: 'invalid_request_error',
+          code: 'INVALID_WORK_MODE',
+        },
+      })
+    );
+    return;
+  }
+
+  // plan → 追加规划要求（不产出最终交付物）；do / 缺省 → 原样透传（行为不变）
+  request.system_prompt = applyWorkModeToSystemPrompt(
+    request.system_prompt,
+    workMode
+  );
 
   if (request.stream) {
     return handleStreamingChat(res, request);

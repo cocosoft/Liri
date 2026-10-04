@@ -14,6 +14,8 @@ export interface SessionMetadata {
   title: string;
   tags: string[];
   mode: string;
+  /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；事实来源为后端会话 metadata） */
+  workMode?: 'plan' | 'do';
   model?: string;
   workspaceId?: string;
   providerId?: string;
@@ -82,6 +84,9 @@ export class SessionMetadata implements SessionMetadata {
     public pinned?: boolean
   ) {}
 
+  /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`） */
+  workMode?: 'plan' | 'do';
+
   addTag(tag: string): void {
     if (!this.tags.includes(tag)) {
       this.tags.push(tag);
@@ -107,6 +112,7 @@ export class SessionMetadata implements SessionMetadata {
       mode: this.mode,
       worktreeState: this.worktreeState,
       prLink: this.prLink,
+      ...(this.workMode !== undefined ? { workMode: this.workMode } : {}),
       ...(this.pinned !== undefined ? { pinned: this.pinned } : {}),
       ...(this.tokenUsage ? { tokenUsage: this.tokenUsage } : {}),
       ...(this.sessionSource ? { sessionSource: this.sessionSource } : {}),
@@ -114,7 +120,7 @@ export class SessionMetadata implements SessionMetadata {
   }
 
   static fromJSON(data: any): SessionMetadata {
-    return new SessionMetadata(
+    const meta = new SessionMetadata(
       data.title,
       data.tags || [],
       data.mode || 'default',
@@ -124,5 +130,10 @@ export class SessionMetadata implements SessionMetadata {
       data.sessionSource,
       data.pinned === true ? true : undefined
     );
+    // plan/do 工作模式：仅在合法取值时保留（非法/缺省视为未设置）
+    if (data.workMode === 'plan' || data.workMode === 'do') {
+      meta.workMode = data.workMode;
+    }
+    return meta;
   }
 }

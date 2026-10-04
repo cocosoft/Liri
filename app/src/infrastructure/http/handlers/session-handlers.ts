@@ -974,12 +974,22 @@ export async function handleUpdateSessionMeta(
       return;
     }
 
+    // 2026-10-04：plan/do 工作模式切换（输入区开关）——边界校验 fail loud，与
+    // chat-handlers 的 work_mode 校验同一套语义（非法值 → 400，不静默忽略）。
+    // chat 归属 app 层、本文件属 service 层 ⇒ 动态导入避免 service -> app 静态倒挂。
+    const { isWorkMode } = await import('@modules/chat');
+    if (data.work_mode !== undefined && !isWorkMode(data.work_mode)) {
+      sendBadRequest(res, 'work_mode must be "plan" | "do"');
+      return;
+    }
+
     await coreAPI.updateSessionMeta(sessionId, {
       model: data.model as string | undefined,
       workspaceId: data.workspace_id as string | undefined,
       providerId: data.provider_id as string | undefined,
       tasksOverride: data.tasks_override as Record<string, string> | undefined,
       pinned: data.pinned as boolean | undefined,
+      workMode: data.work_mode as 'plan' | 'do' | undefined,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

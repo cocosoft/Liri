@@ -3659,6 +3659,7 @@ const en = {
     modelBinding: "Model Binding",
     agentGrid: "Agent Grid",
     planDoToggle: "Plan/Do Toggle",
+    planDoSwitchFailed: "Failed to switch Plan/Do mode, please try again later",
     plan: "Plan",
     do: "Do",
     chatPanel: "Chat Panel",

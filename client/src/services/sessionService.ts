@@ -958,6 +958,8 @@ export const sessionService = {
       providerId?: string;
       workspaceId?: string;
       tasksOverride?: Record<string, string>;
+      /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入，后端 PATCH meta 落库） */
+      workMode?: "plan" | "do";
     },
   ): Promise<boolean> => {
     try {
@@ -967,6 +969,7 @@ export const sessionService = {
       if (meta.workspaceId !== undefined) body.workspace_id = meta.workspaceId;
       if (meta.tasksOverride !== undefined)
         body.tasks_override = meta.tasksOverride;
+      if (meta.workMode !== undefined) body.work_mode = meta.workMode;
       const res = await apiHttp.patch(`/v1/sessions/${sessionId}/meta`, body);
       if (res.ok) {
         _isUsingFallback = false;

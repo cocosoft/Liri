@@ -9,10 +9,18 @@
 //   测试策略：假 loop 的 run() 立即 done（触发 :1978 break，绕开 :2055 消费点），
 //   getPendingTodos() 返回待消费 todo → 断言 flush 落盘 + 前端 chunk 均产出。
 
-import { describe, expect, it, mock } from 'bun:test';
+import {
+  describe,
+  expect,
+  it,
+  spyOn,
+  beforeEach,
+  afterEach,
+} from 'bun:test';
 import { createTestHost } from './helpers';
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
 import type { ChatResponse, ToolAwareClient } from '@modules/ai';
+import * as createAgentLoopModule from '../../../src/chat/createAgentLoop.js';
 
 // 假 loop：run() 立即结束 → L1978 `if (done) break` → 进入 P5 flush（L2146）
 const fakeLoop = {
@@ -34,13 +42,28 @@ const fakeLoop = {
   getTerminationTip: () => null,
 };
 
-// 必须先于 streamMessageFlow 模块求值注册（其 L1901 动态 import '../createAgentLoop.js'）
-mock.module('@modules/chat/createAgentLoop', () => ({
-  createChatAgentLoop: () => fakeLoop,
-}));
+/**
+ * P0-8（2026-10-04）：原实现用 `mock.module('@modules/chat/createAgentLoop', …)` **替换整个模块**，
+ * 且**无还原** —— bun 的模块 mock 为**进程级全局且不可撤销**（探针实测 `mock.restore()` 无效）
+ * ⇒ 会泄漏给同进程后续文件。改用 `spyOn`（对象成员级、用例后 `mockRestore()` 还原）：
+ * `streamMessageFlow` 在**调用时**动态 `import('../createAgentLoop.js')` ⇒ spy 生效
+ * （同 `tests/ai/resolveModelRoute.test.ts` 先例）。
+ */
+let restoreLoop: (() => void) | undefined;
+beforeEach(() => {
+  restoreLoop = spyOn(
+    createAgentLoopModule,
+    'createChatAgentLoop'
+  ).mockImplementation(() => fakeLoop as never);
+});
+afterEach(() => {
+  restoreLoop?.();
+  restoreLoop = undefined;
+});
 
-const { runStreamMessage } =
-  await import('../../../src/chat/orchestrator/streamMessageFlow.js');
+const { runStreamMessage } = await import(
+  '../../../src/chat/orchestrator/streamMessageFlow.js'
+);
 
 /** 收集 appendStreamEvent 写入的事件列表 */
 function collectEvents(

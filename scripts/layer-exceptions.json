@@ -1578,6 +1578,66 @@
       "plan": "存量超限文件批量登记（2026-09-20 门禁修复后暴露：lint-file-size 的 rootDir 未读 PYAPP_PROJECT_DIR，本地 lint:size 假绿故该文件从未被计入），按模块拆分或重构",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-162",
+      "ruleId": "R04-001",
+      "file": "app/src/session/types/eventPayloads.ts",
+      "lines": 901,
+      "targetLines": 800,
+      "plan": "存量超限（HEAD 即 900 行）：session 事件载荷类型集中定义致超限；后续按事件域（chat/tools/compaction/…）拆分或提取公共载荷类型",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-163",
+      "ruleId": "R04-001",
+      "file": "client/src/components/ChatArea/ChatMessageList.tsx",
+      "lines": 877,
+      "targetLines": 800,
+      "plan": "存量超限（HEAD 即 876 行）：聊天消息列表（虚拟化/分组/滚动锚定集中）致超限；后续按渲染/navigation 分组拆分",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-164",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/ToolRegistry.ts",
+      "lines": 834,
+      "targetLines": 800,
+      "plan": "存量超限（HEAD 即 833 行）：工具注册表单点 + 生命周期集中致超限；后续按注册/查询/生命周期拆分子模块",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-165",
+      "ruleId": "R04-001",
+      "file": "client/src/components/views/CouncilAgentRolesPage.tsx",
+      "lines": 806,
+      "targetLines": 800,
+      "plan": "存量超限（HEAD 即 805 行）：Council Agent 角色管理页集中致超限；后续按表单/列表/详情拆分",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-166",
+      "ruleId": "R04-001",
+      "file": "app/src/tokenBudget/UnifiedTokenTracker.ts",
+      "lines": 802,
+      "targetLines": 800,
+      "plan": "存量超限（HEAD 即 801 行）：统一 token 追踪（估算/基线/检查）集中致超限；后续按估算/基线/检查拆分",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-167",
+      "ruleId": "R04-001",
+      "file": "app/src/core/utils/Performance.ts",
+      "lines": 801,
+      "targetLines": 800,
+      "plan": "存量超限（HEAD 即 800 行）：core 性能工具集合致超限；后续按指标/计时/上报拆分",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

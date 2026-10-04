@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.57-blue)
+![Version](https://img.shields.io/badge/version-0.4.58-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -363,7 +363,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.57**
+当前版本：**v0.4.58**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -371,6 +371,17 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.58 (2026-10-04)
+
+**事件循环阻塞源收敛（A/B/C 三档收官）+ 对抗 Agent 形态 A（红队提案器）+ 预存缺陷修复**
+
+- ✅ **阻塞源收敛 · A 档（死代码）** - 删除 7 个零消费者文件（`utils/git.ts`、`hooks/ShellHookDetector.ts`、`tools/ExpansionTools.ts`、`plugins/utils/{pluginVersioning,gitLoader}.ts`、`context/context.ts`、`modules/doc/execution/ResourceGuardian.ts`，**−3044 行**）并清理连带引用与例外清单
+- ✅ **阻塞源收敛 · B 档（交互热路径）** - `execSync`/`spawnSync` → `promisify(exec/execFile)` 异步：doc（`OfficeCLIDetector`、`PdfPageExtractor` 60s、`DocGenerateTool`）· tools（`VideoAnalysisTool`、`AgentRunStore`、`ClipboardTool`）· monitoring+voice（`MonitoringService` 死分支、`audioFormatConverter` 60s）· worktree 工具 `isEnabled`（改同步 fs 探测，不再 spawn）· `recorder` 与 `recordingDetector.hasCommand`；并**放宽 `STTProvider.isAvailable` 公共契约为 `boolean | Promise<boolean>`**（`STTRegistry` 静态门面 async 化）
+- ✅ **阻塞源收敛 · C 档（管理/安装）** - `DaemonService`（31 处）· 插件安装/分发（`NpmDistributor` / `PluginInstallManager` / `PythonPluginInstaller`）· `BackupCommand`
+- ✅ **预存缺陷修复** - `recordingDetector.hasCommand` 原把 `where`/`which` 的非零退出误判为"命令存在"（导致无 ffmpeg 时仍选 ffmpeg 录音链）⇒ 按真实语义修正
+- ✅ **对抗 Agent 形态 A** - 新增 LLM 红队**提案器**（proposal-only，裁决权仍归机械判据）+ 确定性半，`evals/cli` 接线
+- ✅ **质量** - `typecheck` 0 错 · `lint:arch` 违规 0（4 警告基线）· 定向测试全绿
 
 #### v0.4.57 (2026-10-04)
 

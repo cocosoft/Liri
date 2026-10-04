@@ -155,3 +155,42 @@ describe('shrinkToolResultMessageForPersistence — 持久化侧同口径改写�
     expect(r2.changed).toBe(false);
   });
 });
+
+describe('shrinkToolResultMessageForPersistence — 持久化侧单轮聚合（P0-3 / D-238 第1条）', () => {
+  const msgOf = (id: string, n: number) => ({
+    id: `m-${id}`,
+    toolCallId: id,
+    content: [
+      { type: 'tool_result', value: JSON.stringify('x'.repeat(n)), toolCallId: id },
+    ],
+    metadata: {} as Record<string, unknown>,
+  });
+
+  it('轮内累计超 TURN_BUDGET_CHARS ⇒ 后续单条未超限者也被 spill', async () => {
+    const turnAcc = { chars: 0 };
+    // 4 条各 45,000（单条 ≤ 50,000）⇒ 累计 180,000 ≤ 200,000 ⇒ 均不改写
+    for (let i = 0; i < 4; i++) {
+      const r = await shrinkToolResultMessageForPersistence(
+        msgOf(`c-p0-${i}`, 45_000),
+        { turnAcc }
+      );
+      expect(r.changed).toBe(false);
+    }
+    expect(turnAcc.chars).toBe(180_000);
+    // 第 5 条 ⇒ 累计 225,000 > 200,000 ⇒ 强制 spill（单条仍 ≤ 50,000）
+    const r5 = await shrinkToolResultMessageForPersistence(
+      msgOf('c-p0-4', 45_000),
+      { turnAcc }
+    );
+    expect(r5.changed).toBe(true);
+    expect(r5.toolResultPath).toBeTruthy();
+    expect(turnAcc.chars).toBe(225_000);
+  });
+
+  it('未传 turnAcc ⇒ 与历史一致：单条 ≤ 阈值不改写（零回归）', async () => {
+    const r = await shrinkToolResultMessageForPersistence(
+      msgOf('c-noacc', 45_000)
+    );
+    expect(r.changed).toBe(false);
+  });
+});

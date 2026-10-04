@@ -1491,6 +1491,13 @@ export class ChatManagerImpl implements ChatManager {
    * P4-fix: 返回的 Promise 自动加入 _pendingPersistPromises，
    *         确保 flushPendingPersists() 可等待全部落盘。
    */
+  /**
+   * P0-3（2026-10-04，D-238 第 1 条）：持久化侧**单轮聚合**窗口（按会话累计工具结果载荷字符）。
+   * 用户消息落盘 = 新用户轮 ⇒ 归零；由 `shrinkToolResultMessageForPersistence` 在累计超
+   * `TURN_BUDGET_CHARS` 时对后续大块强制 spill（与上下文侧同预算、同文案）。
+   */
+  private _turnToolChars: Map<string, number> = new Map();
+
   private async _addAndPersistMessage(
     sessionId: string,
     message: Message,
@@ -1535,16 +1542,25 @@ export class ChatManagerImpl implements ChatManager {
     // `ContentBlock[]`（`MessageService.createToolResultMessage` 构造），原 `typeof === 'string'`
     // 门禁恒 false ⇒ 整条 T2 未生效。现放行「字符串（历史/JSONL 形态）或 数组（内存活形态）」，
     // 判定与改写全部收敛到 `shrinkToolResultMessageForPersistence`（单一事实源）。
+    // P0-3（2026-10-04，D-238 第 1 条）：持久化侧单轮聚合窗口。
+    // 用户消息落盘 = 新用户轮开始 ⇒ 归零；否则沿用本会话累计值（供 T2 判定"轮内合计超限"）。
+    if (message.role === 'user') this._turnToolChars.set(sessionId, 0);
+    const turnAcc = { chars: this._turnToolChars.get(sessionId) ?? 0 };
     if (message.content !== undefined && message.content !== null) {
       try {
-        const shrunk = await shrinkToolResultMessageForPersistence({
-          id: message.id,
-          // 落盘文件名取 `Message.toolCallId`（生产实况）—— 与上下文侧 `normalizedToolCall.id`
-          // 同名同物，避免同一结果在两侧各写一份文件
-          toolCallId: message.toolCallId,
-          content: message.content,
-          metadata: message.metadata,
-        });
+        const shrunk = await shrinkToolResultMessageForPersistence(
+          {
+            id: message.id,
+            // 落盘文件名取 `Message.toolCallId`（生产实况）—— 与上下文侧 `normalizedToolCall.id`
+            // 同名同物，避免同一结果在两侧各写一份文件
+            toolCallId: message.toolCallId,
+            content: message.content,
+            metadata: message.metadata,
+          },
+          { turnAcc }
+        );
+        // 写回累计（无论本次是否改写都要记，供本轮后续消息判定）
+        this._turnToolChars.set(sessionId, turnAcc.chars);
         if (shrunk.changed) {
           message.content = shrunk.content as Message['content'];
           // D-238 第 2 条（2026-10-02）：回写落盘路径/长度，与上下文侧 `metadata.toolResultPath`

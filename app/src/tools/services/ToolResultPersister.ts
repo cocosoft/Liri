@@ -56,14 +56,27 @@ const PATH_REF_MARKER = '[工具结果超出上下文预算';
  * 故**先还原为可读文本**再比阈值 / 落盘 / 取预览 —— 与上下文侧 `extractResultText()` 同口径；
  * 原实现直接对含引号的 JSON 文本切片，预览会以引号开头、落盘内容也与上下文侧不一致。
  */
-export async function shrinkToolResultMessageForPersistence(message: {
-  id?: string;
-  type?: string;
-  /** 工具调用 id（`Message.toolCallId`）—— 优先用于落盘文件名，与上下文侧同名同物 */
-  toolCallId?: string;
-  content?: string | unknown;
-  metadata?: { toolCallId?: string };
-}): Promise<{
+export async function shrinkToolResultMessageForPersistence(
+  message: {
+    id?: string;
+    type?: string;
+    /** 工具调用 id（`Message.toolCallId`）—— 优先用于落盘文件名，与上下文侧同名同物 */
+    toolCallId?: string;
+    content?: string | unknown;
+    metadata?: { toolCallId?: string };
+  },
+  /**
+   * D-238 第 1 条（2026-10-04）：**单轮聚合窗口**。
+   *
+   * 上下文侧按"工具轮"聚合（`prepareToolResultsForContext`，`TURN_BUDGET_CHARS`），而持久化在
+   * 工具轮内**逐条发生**（`ReActToolLoop:1684`，早于该聚合）⇒ 持久化侧拿不到轮总量 ⇒
+   * "多块合计超限但单块不超限"者不被改写。此参数传入**由调用方按会话维护的累计器**
+   * （跨本用户轮累加），使本函数在累计超 `TURN_BUDGET_CHARS` 时对后续大块**强制 spill**。
+   *
+   * 未传入 ⇒ 与历史行为**逐字段一致**（零回归）。
+   */
+  options?: { turnAcc?: { chars: number } }
+): Promise<{
   content: string | unknown;
   changed: boolean;
   /** 落盘路径（与上下文侧 `metadata.toolResultPath` 同字段，供下游检索全量） */
@@ -74,7 +87,8 @@ export async function shrinkToolResultMessageForPersistence(message: {
   const raw = message.content;
   const isString = typeof raw === 'string';
   if (!isString && !Array.isArray(raw)) return { content: raw, changed: false };
-  if (isString) {
+  // 有 turnAcc 时不做"整串 ≤ 阈值即返回"的提前退出——该判定只看单条，会漏掉"轮内累计超限"。
+  if (isString && !options?.turnAcc) {
     const text = raw as string;
     // 字符串形态下信封长度 ≥ 载荷长度 ⇒ 提前零开销返回是安全的
     if (
@@ -114,12 +128,15 @@ export async function shrinkToolResultMessageForPersistence(message: {
       if (blk?.type !== 'tool_result' || typeof blk.value !== 'string')
         return b;
       const payload = decodeBlockValue(blk.value);
-      if (
-        payload.length <= SINGLE_RESULT_LIMIT_CHARS ||
-        payload.includes(PATH_REF_MARKER)
-      ) {
-        return b;
-      }
+      if (payload.includes(PATH_REF_MARKER)) return b;
+      // D-238 第 1 条（2026-10-04）：单轮聚合 —— 累计本轮工具结果载荷；超 TURN_BUDGET_CHARS 后
+      // 对本块也强制 spill（与上下文侧 prepareToolResultsForContext 同预算、同文案）。
+      const turnAcc = options?.turnAcc;
+      if (turnAcc) turnAcc.chars += payload.length;
+      const overTurn = (turnAcc?.chars ?? 0) > TURN_BUDGET_CHARS;
+      if (payload.length <= SINGLE_RESULT_LIMIT_CHARS && !overTurn) return b;
+      // 过小载荷外置得不偿失（引用文案本身更长）⇒ 跳过；避免"轮超限后连小结果也外置"
+      if (payload.length <= PREVIEW_CHARS) return b;
       // 落盘幂等：路径由 toolCallId 决定，与上下文侧一致（重复写同内容）
       const path = await persistToolResult(toolCallId, payload);
       changed = true;

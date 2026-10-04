@@ -29,12 +29,21 @@
  * 安全边界：仅删除 worktrees 目录下的子目录，且该目录未被 git 注册——绝不触碰
  * 主项目或其他用户目录。
  */
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { existsSync, readdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('workspaces:pruner');
+
+/**
+ * 外部命令执行（**异步**，阻塞源收敛 2026-10-04，台账 V-2）。
+ *
+ * 原 `execSync` 会让 `git worktree prune` / `list` 同步阻塞事件循环（`list` 在大仓可达秒级）。
+ * 本函数本就是 async ⇒ 改 `promisify(exec)`，零签名变化。
+ */
+const execAsync = promisify(nodeExec);
 
 /** 路径归一化（Windows 反斜杠 → 正斜杠），供 git 输出与 join 结果比较 */
 function normPath(p: string): string {
@@ -51,7 +60,7 @@ export async function pruneOrphanWorktrees(gitRoot: string): Promise<string[]> {
 
   // 1. git 侧清理失效注册（崩溃导致 gitdir 引用丢失的条目）
   try {
-    execSync('git worktree prune', { cwd: gitRoot, stdio: 'ignore' });
+    await execAsync('git worktree prune', { cwd: gitRoot });
   } catch {
     // @ignore-catch — prune 失败不阻断目录扫描
   }
@@ -59,10 +68,8 @@ export async function pruneOrphanWorktrees(gitRoot: string): Promise<string[]> {
   // 2. 获取当前注册的 worktree 路径
   const registered = new Set<string>();
   try {
-    const list = execSync('git worktree list --porcelain', {
+    const { stdout: list } = await execAsync('git worktree list --porcelain', {
       cwd: gitRoot,
-      encoding: 'utf8',
-      stdio: 'pipe',
     });
     for (const line of list.split('\n')) {
       if (line.startsWith('worktree ')) {

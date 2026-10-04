@@ -24,12 +24,21 @@
  * 负责 Agent 会话级别的 Git Worktree 进入/退出
  * 同时暴露为 CLI 子命令 (workspace enter/exit) 和 Agent 工具 (EnterWorktreeTool/ExitWorktreeTool)
  */
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('Workspace');
+
+/**
+ * 外部命令执行（**异步**，阻塞源收敛 2026-10-04，台账 V-2）。
+ *
+ * 原 `execSync` 让 worktree 的 add/remove/status 等 git 调用同步阻塞事件循环
+ * （`git worktree add`/`status` 在中大仓可达秒级）。两个对外函数本就 async ⇒ 改 `promisify(exec)`。
+ */
+const execAsync = promisify(nodeExec);
 
 /**
  * 验证 worktree slug 格式
@@ -42,14 +51,10 @@ function validateSlug(slug: string): boolean {
 /**
  * 获取 Git 根目录
  */
-function getGitRoot(cwd: string): string | null {
+async function getGitRoot(cwd: string): Promise<string | null> {
   try {
-    const result = execSync('git rev-parse --show-toplevel', {
-      encoding: 'utf8',
-      stdio: 'pipe',
-      cwd,
-    });
-    return result.trim();
+    const { stdout } = await execAsync('git rev-parse --show-toplevel', { cwd });
+    return stdout.trim();
   } catch {
     return null;
   }
@@ -85,7 +90,7 @@ export async function enterWorktree(
     };
   }
 
-  const gitRoot = getGitRoot(cwd);
+  const gitRoot = await getGitRoot(cwd);
   if (!gitRoot) {
     return {
       success: false,
@@ -109,16 +114,12 @@ export async function enterWorktree(
 
   try {
     try {
-      execSync(`git show-ref --verify --quiet refs/heads/${branchName}`, {
-        stdio: 'pipe',
-      });
+      await execAsync(`git show-ref --verify --quiet refs/heads/${branchName}`);
     } catch {
-      execSync(`git branch ${branchName}`, { stdio: 'pipe' });
+      await execAsync(`git branch ${branchName}`);
     }
 
-    execSync(`git worktree add "${worktreePath}" ${branchName}`, {
-      stdio: 'pipe',
-    });
+    await execAsync(`git worktree add "${worktreePath}" ${branchName}`);
 
     logger.info(`Worktree 已创建: ${slug} (${worktreePath})`);
 
@@ -161,16 +162,13 @@ export async function exitWorktree(
   }
 
   try {
-    const currentBranch = execSync('git branch --show-current', {
-      encoding: 'utf8',
-      stdio: 'pipe',
-    }).trim();
+    const currentBranch = (
+      await execAsync('git branch --show-current')
+    ).stdout.trim();
 
     const isInWorktree =
-      execSync('git rev-parse --is-inside-work-tree', {
-        encoding: 'utf8',
-        stdio: 'pipe',
-      }).trim() === 'true';
+      (await execAsync('git rev-parse --is-inside-work-tree')).stdout.trim() ===
+      'true';
 
     if (!isInWorktree) {
       return {
@@ -181,10 +179,9 @@ export async function exitWorktree(
       };
     }
 
-    const worktreeList = execSync('git worktree list --porcelain', {
-      encoding: 'utf8',
-      stdio: 'pipe',
-    });
+    const { stdout: worktreeList } = await execAsync(
+      'git worktree list --porcelain'
+    );
 
     // 首条 worktree 条目 = 主仓库路径（linked worktree 的 --show-toplevel 返回
     // worktree 自身，不能用作 chdir 目标）；后续按 slug 匹配目标 worktree。
@@ -214,7 +211,7 @@ export async function exitWorktree(
     // Windows 用反斜杠（C:\...），原直接 === 比较在 Windows 恒不等 → 未 chdir 离开
     // worktree → `git worktree remove` 因 cwd 在待删目录内而 Permission denied。
     const normPath = (p: string): string => p.replace(/\\/g, '/');
-    const chdirTarget = mainRepoPath || getGitRoot(cwd);
+    const chdirTarget = mainRepoPath || (await getGitRoot(cwd));
     if (normPath(worktreePath) === normPath(cwd) && chdirTarget) {
       process.chdir(chdirTarget);
     }
@@ -224,11 +221,9 @@ export async function exitWorktree(
     // 会被静默丢弃。此处统一先拦截：有改动则拒绝移除，要求先 commit/stash/生成 diff。
     let porcelain = '';
     try {
-      porcelain = execSync('git status --porcelain', {
-        encoding: 'utf8',
-        stdio: 'pipe',
-        cwd: worktreePath,
-      }).trim();
+      porcelain = (
+        await execAsync('git status --porcelain', { cwd: worktreePath })
+      ).stdout.trim();
     } catch {
       // @ignore-catch — status 执行失败不阻断（git worktree remove 自身仍有保护）
     }
@@ -253,9 +248,7 @@ export async function exitWorktree(
     }
 
     const flag = remove ? '' : '--force';
-    execSync(`git worktree remove ${flag} "${worktreePath}"`.trim(), {
-      stdio: 'pipe',
-    });
+    await execAsync(`git worktree remove ${flag} "${worktreePath}"`.trim());
 
     logger.info(`Worktree 已移除: ${slug}`);
 

@@ -23,7 +23,8 @@
  * Git Worktree 工作空间管理
  * 基于 git worktree 为 Agent 会话创建隔离的代码工作目录
  */
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { join } from 'path';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import {
@@ -33,6 +34,14 @@ import {
   handleError,
 } from '@modules/error';
 import type { WorktreeInfo } from './types';
+
+/**
+ * 外部命令执行（**异步**，阻塞源收敛 2026-10-04，台账 V-2）。
+ *
+ * 原 `execSync` 让 `git worktree add/remove`、`git rev-parse` 同步阻塞事件循环
+ * （worktree 操作在大仓可达秒级）。本类公开方法本就 async ⇒ 改 `promisify(exec)`。
+ */
+const execAsync = promisify(nodeExec);
 
 /**
  * WorkspaceGit 构造选项
@@ -65,7 +74,7 @@ export class WorkspaceGit {
 
     const worktreeName = `bridge-${this.safeFilenameId(sessionId)}`;
 
-    const gitRoot = this.getGitRoot();
+    const gitRoot = await this.getGitRoot();
     if (!gitRoot) {
       throw new AppError(
         'Not in a git repository',
@@ -83,14 +92,12 @@ export class WorkspaceGit {
       // 为 Unix 命令，在 Windows 的 execSync 环境失败，导致 worktree 创建不可用。
       mkdirSync(join(gitRoot, '..', 'worktrees'), { recursive: true });
 
-      execSync(`git worktree add --detach "${worktreePath}"`, {
+      await execAsync(`git worktree add --detach "${worktreePath}"`, {
         cwd: gitRoot,
-        stdio: 'ignore',
       });
 
-      execSync(`git checkout -b "${worktreeBranch}"`, {
+      await execAsync(`git checkout -b "${worktreeBranch}"`, {
         cwd: worktreePath,
-        stdio: 'ignore',
       });
 
       const worktreeInfo: WorktreeInfo = {
@@ -126,9 +133,8 @@ export class WorkspaceGit {
     try {
       // --force：隔离区内 execute 必然产生未提交改动（agent 写入的文件），
       // git 默认拒绝删除含未提交改动的 worktree；force 直接丢弃并清除元数据
-      execSync(`git worktree remove --force "${worktreeInfo.worktreePath}"`, {
+      await execAsync(`git worktree remove --force "${worktreeInfo.worktreePath}"`, {
         cwd: worktreeInfo.gitRoot,
-        stdio: 'ignore',
       });
     } catch {
       void handleError(new Error('removeWorktree'), {
@@ -163,13 +169,12 @@ export class WorkspaceGit {
   /**
    * 获取 Git 根目录
    */
-  private getGitRoot(): string | null {
+  private async getGitRoot(): Promise<string | null> {
     try {
-      const result = execSync('git rev-parse --show-toplevel', {
+      const { stdout } = await execAsync('git rev-parse --show-toplevel', {
         cwd: this.baseDir,
-        stdio: 'pipe',
       });
-      return result.toString().trim();
+      return stdout.trim();
     } catch {
       void handleError(new Error('getGitRoot'), {
         module: 'workspaces:git',

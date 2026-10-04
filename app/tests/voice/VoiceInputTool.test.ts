@@ -11,7 +11,16 @@
  * - 边界情况（重复 start、未录音时 stop、未知 action）
  */
 
-import { describe, it, expect, mock, afterAll, beforeEach } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  mock,
+  beforeEach,
+  afterEach,
+  spyOn,
+} from 'bun:test';
+import voiceService from '@modules/services/voice';
 
 // ============================================================
 // Mock voiceService：模拟录音、识别、依赖检查
@@ -50,11 +59,38 @@ const mockVoiceService = {
   ),
 };
 
-mock.module('@modules/services/voice', () => ({
-  default: mockVoiceService,
-  VoiceService: class {},
-  createVoiceService: () => mockVoiceService,
-}));
+/**
+ * P0-8（2026-10-04）：原实现用 `mock.module('@modules/services/voice', …)` **替换整个模块**
+ * —— bun 的模块 mock 为**进程级全局且不可撤销**（`mock.restore()` 无效）⇒ 会泄漏给同进程
+ * 后续文件。改用 `spyOn`：把**真实默认单例**（`VoiceInputTool` 以
+ * `import voiceService from '@modules/services/voice'` 使用的**同一对象**）的各方法**重定向**到
+ * 本文件的 mock 对象（对象成员级、`afterEach` 还原；同 `resolveModelRoute.test.ts` 先例）。
+ * 保留 `mockVoiceService.*` 的 `mockClear` / `mockImplementationOnce` / `toHaveBeenCalled` 用法不变。
+ */
+let restoreSpies: Array<() => void> = [];
+beforeEach(() => {
+  restoreSpies = [
+    spyOn(voiceService, 'startRecording').mockImplementation((...a) =>
+      mockVoiceService.startRecording(...a)
+    ),
+    spyOn(voiceService, 'stopRecording').mockImplementation(() =>
+      mockVoiceService.stopRecording()
+    ),
+    spyOn(voiceService, 'recognize').mockImplementation((...a) =>
+      mockVoiceService.recognize(...a)
+    ),
+    spyOn(voiceService, 'checkRecordingAvailability').mockImplementation(() =>
+      mockVoiceService.checkRecordingAvailability()
+    ),
+    spyOn(voiceService, 'checkVoiceDependencies').mockImplementation(() =>
+      mockVoiceService.checkVoiceDependencies()
+    ),
+  ].map((s) => () => s.mockRestore());
+});
+afterEach(() => {
+  for (const r of restoreSpies) r();
+  restoreSpies = [];
+});
 
 // 动态导入
 const { VoiceInputTool } =
@@ -63,13 +99,6 @@ const { validateVoiceInputInput } =
   await import('../../src/tools/VoiceInputTool/schemas');
 const { VOICE_INPUT_TOOL_NAME, VOICE_INPUT_DESCRIPTION, VOICE_INPUT_ALIASES } =
   await import('../../src/tools/VoiceInputTool/constants');
-
-// 恢复
-afterAll(() => {
-  mock.module('@modules/services/voice', () =>
-    require('@modules/services/voice')
-  );
-});
 
 // ============================================================
 // schemas 验证函数测试

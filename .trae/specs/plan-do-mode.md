@@ -197,7 +197,20 @@ export type WorkMode = "plan" | "do";
 
 **验收（真实浏览器 + 真实 HTTP，2026-10-04）**：① 开关紧随 `表情`、单击 `计划 ⇄ 执行` 即时反映 ✅；② 切换经 `PATCH .../meta` 落库 ⇒ `metadata.workMode="do"` + SSE `session:meta_updated` ✅；③ 发送请求体携带 `"work_mode":"do"`（同会话）✅；④ F5 刷新后仍为「执行」✅；⑤ fail-loud：chat `{"work_mode":"execute"}` → **400**（响应体逐字 `INVALID_WORK_MODE`）、meta `{"work_mode":"bogus"}` → **400**、合法 → **200** ✅。静态：app `typecheck` 0 / client `tsc` 0 / `app/tests/chat/workMode.test.ts` **6 pass** / client `vitest` **329 pass** / `lint:arch` 0 违规。
 
-**仍未落地（如实）**：**B3（Q3：`DeliverableCard.onEnterWorkMode` → 工作项 + 工作空间会话）** 与 **B5/Q4（工作区页显式入口）**；**Q2① 的"模型实际收到的系统提示"未做端到端观测**（由单测 + `system_prompt` 消费点覆盖）。
+**仍未落地（如实）**：**Q2① 的"模型实际收到的系统提示"未做端到端观测**（由单测 + `system_prompt` 消费点覆盖）。
+
+### 6.2 B3 / Q3 / Q4 / B5 落地（2026-10-04，提交 `0640c77f2`）
+
+| 项 | 结果 |
+|---|---|
+| **Q4**（工作区页「新建工作项」） | **复核为 main 已实现**：`WorkbenchPage.tsx` 有 `createWorkItem` + `workspaceSource==="user"` 闸门 + `workspace.needProject` 提示。浏览器实测：无项目时给提示、控件不渲染；进入项目后出现「工作项标题」输入 + 「新建工作项」+「进入规划」（均禁用，因标题为空）✅ |
+| **B5**（「进入规划」） | **复核为 main 已实现**：`handleEnterPlanning` → `workspaceService.createSession(wsId,{mode:"plan"})` + `workspace.enterPlanning`/`enterPlanningHint`。按钮 `title` 与 i18n 逐字一致 ✅ |
+| **B3-b/B3-c**（交付物「进入工作模式」） | **本轮新增**：`BlockRenderer.tsx` 的 `DeliverableBlock` 包装 —— ① `createWorkItem(summary)` ② `resolveBackendWorkspaceId` → `createSession(wsId,{title,mode:"do"})` → `switchSession` ③ `navigate("/work")`；`workModeReady` = 当前工作空间 `workspaceSource==="user"` |
+| **V-22**（B3 入口可达性前置） | **本轮补齐**：`deliverable` SSE chunk 在 HTTP 写出侧无分支被静默丢弃 + client 无 `__pyapp_deliverable` 映射（主流式 + resume）⇒ 已按 `doc_workflow` 形状补三处 |
+
+- **静态/测试**：app `typecheck` 0 ｜ client `tsc` 0 ｜ `app/tests/http` **76 pass** ｜ client `vitest` **329 pass**。
+- **未验（如实）**：Q4/B5/B3 的**启用态与点击链路**（会**真实**建工作项/会话 ⇒ 只读验证未执行）。
+- **新发现（预存，未定位）**：某历史会话后端**有** `deliverable` 块但**前端未渲染**交付物卡片（该消息为中断态）⇒ **V-22 只覆盖实时流**，历史渲染路径另有缺口。登记在台账。
 
 ---
 

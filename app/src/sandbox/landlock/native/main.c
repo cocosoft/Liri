@@ -45,6 +45,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
+// 2026-10-04（Linux 真机实测补）：`offsetof` 来自 <stddef.h> —— 此前依赖传递包含，
+// 在 GCC 15 / glibc 2.43 下报 `implicit declaration of function 'offsetof'` ⇒ 编译失败。
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

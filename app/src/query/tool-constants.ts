@@ -74,9 +74,6 @@ const WRITE_TOOL_NAMES = [
   'file_write',
   'file_edit',
   'notebook',
-  // P0-9（2026-10-04）：`write_project_file` 带 `relativePath`，此前既未列写类、其路径键也不在
-  // `PATH_ARG_KEYS` ⇒ 注册表分支求交为空 ⇒ 可写向 `**/auth/**` 等拒绝目录而不被拦（fail-OPEN）。
-  'write_project_file',
 ] as const satisfies readonly ToolName[];
 export const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
 

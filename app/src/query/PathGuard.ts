@@ -167,7 +167,16 @@ const SEARCH_TOOL_NAMES = new Set([
 ]);
 
 /** 写类（入参键 `file_path` / `notebook_path`）+ 别名 */
-const WRITE_TOOL_NAMES = new Set([...SHARED_WRITE_TOOLS, 'write', 'echo']);
+const WRITE_TOOL_NAMES = new Set([
+  ...SHARED_WRITE_TOOLS,
+  'write',
+  'echo',
+  // P0-9（2026-10-04）：`write_project_file` 带 `relativePath`（可写向拒绝目录而不被拦，fail-OPEN）。
+  // 收敛到**本文件本地写集**而非共享 `WRITE_TOOLS` —— 后者被 `promptSuggestion.SPECULATION_WRITE_TOOLS`
+  // 再导出且受 `toolNameLists` 守卫约束（该守卫的 REGISTERED 扫描不识别本工具的对象字面量 `name:` 声明）
+  // ⇒ 放共享集会误触发漂移守卫。此处仅 PathGuard 需要「写」语义。
+  'write_project_file',
+]);
 
 /** 「路径语义」键集合（只读视图；单一事实源见 `tool-constants.ts`） */
 const PATH_ARG_KEY_SET = new Set<string>(PATH_ARG_KEYS);

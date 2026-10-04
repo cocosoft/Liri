@@ -5,7 +5,8 @@
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   existsSync,
   mkdirSync,
@@ -18,6 +19,9 @@ import { join, basename } from 'path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 
 const logger = getLogger('BackupCommand');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：tar 压缩/清理原用 execSync 同步阻塞（大目录可达秒级） */
+const execAsync = promisify(exec);
 
 interface BackupManifest {
   timestamp: string;
@@ -129,14 +133,11 @@ async function createBackup(
 
   // 压缩
   try {
-    execSync(
-      `tar -czf "${join(outputDir, backupName)}.tar.gz" -C "${outputDir}" "${backupName}"`,
-      {
-        stdio: 'pipe',
-      }
+    await execAsync(
+      `tar -czf "${join(outputDir, backupName)}.tar.gz" -C "${outputDir}" "${backupName}"`
     );
     // 清理临时目录
-    execSync(`rmdir /s /q "${backupDir}"`, { stdio: 'pipe', shell: 'cmd.exe' });
+    await execAsync(`rmdir /s /q "${backupDir}"`, { shell: 'cmd.exe' });
   } catch (err) {
     // 压缩/清理失败，保留未压缩的目录
   }

@@ -1,8 +1,8 @@
 # Spec：治理项 G 组（《Liri 优化方案》§4 G1–G3）
 
-> **状态**：G1 ✅ **可执行部分 + 选项 C（探测+告警）+ 选项 A（bash 真接入 Landlock，默认关闭）+ G1-A2（`code_run` 接入 `sandbox.landlock` 配置）全部完成**；G2 ✅ 已办（方案自述）；G3 ✅ 已在排查计划 P3-2 处置
+> **状态**：G1 ✅ **可执行部分 + 选项 C（探测+告警）+ 选项 A（bash 真接入 Landlock，默认关闭）+ G1-A2（`code_run` 接入 `sandbox.landlock` 配置）全部完成**；**§3-1 Linux 真机验证 ✅ 已完成（2026-10-04，WSL2 Ubuntu，内核 6.18.33.2）**；G2 ✅ 已办（方案自述）；G3 ✅ 已在排查计划 P3-2 处置
 > **来源方案**：[`Liri优化方案-20260925.md`](../../dev_docs/Liri优化方案-20260925.md) §4「G 组：治理项」
-> **最后更新**：2026-09-26
+> **最后更新**：2026-10-04（§3-1 Linux 真机验证完成）
 
 ---
 
@@ -65,7 +65,7 @@
 
 **A/B**：同时变异"去掉一次性标记 + 去掉兜底" ⇒ **恰 3 红**且可分归（一次性 1 例 / 兜底 2 例）。
 
-**仍未做（如实）**：**Linux 真机验证未做**（本机 Windows ⇒ 实际走 `not-linux` 分支，告警分支只在**注入依赖**下被覆盖）；**未接入执行路径**（这正是选项 C 的定义：只提示、不改行为）。
+**仍未做（如实）**：~~**Linux 真机验证未做**（本机 Windows ⇒ 实际走 `not-linux` 分支，告警分支只在**注入依赖**下被覆盖）~~ ✅ **已完成（2026-10-04，WSL2，含"告警恰一次 + 二次短路"）见 §3-1**；**未接入执行路径**（这正是选项 C 的定义：只提示、不改行为）—— 注：选项 A 已另批实施（§1.6）。
 
 ### 1.6 选项 A 已实施：bash 接入 Landlock（**默认关闭**，2026-09-26 用户指令）
 
@@ -94,7 +94,7 @@
 
 **A/B（各自单变量）**：① 把"拒绝"改成静默回退 ⇒ **恰 2 红**（两条拒绝用例）；② 把命令二次拼壳（`"${command}"`）⇒ **恰 1 红**（argv 形状用例）。合计 3 红，可按用例名归属。
 
-**未做/未验（如实）**：① **真实 Linux 上的 enforce 行为未验证**（本机 Windows）；② `defaultLandlockHelperRunner` 的截断未单测（复用 B1 助手，其自身有单测）；③ 策略是"够用优先"的**固定清单、不可配置** —— 若用户需要额外可写路径会被**拦到正常命令**（这正是默认关闭的理由）；④ **未提供 UI 开关** —— 开启需手改 `~/.pyapp/config.json` 的 `sandbox.landlock.bashEnabled`；⑤ `enabled` / `failClosed` 原本无消费者的问题**已另批修复**（见 §1.7 的 G1-A2）。
+**未做/未验（如实）**：① ~~**真实 Linux 上的 enforce 行为未验证**（本机 Windows）~~ ✅ **已验证（2026-10-04，WSL2）**：见 §3-1（域内放行 / 白名单外读写拒绝 / `~/.pyapp` 只读生效）；② `defaultLandlockHelperRunner` 的截断未单测（复用 B1 助手，其自身有单测）；③ 策略是"够用优先"的**固定清单、不可配置** —— 若用户需要额外可写路径会被**拦到正常命令**（这正是默认关闭的理由；**真机上以 `/opt`、`/root` 为例实测被拒**，见 §3-1）；④ **未提供 UI 开关** —— 开启需手改 `~/.pyapp/config.json` 的 `sandbox.landlock.bashEnabled`；⑤ `enabled` / `failClosed` 原本无消费者的问题**已另批修复**（见 §1.7 的 G1-A2）。
 
 ### 1.7 已修（G1-A2，2026-09-26 用户指令）：`code_run` **接入** `sandbox.landlock` 配置（原为"名义契约"）
 
@@ -138,7 +138,33 @@
 
 ## 3. 未做 / 未验（如实）
 
-1. **Linux 真机验证未做（选项 A 与 C 的共同缺口）**：本机为 Windows ⇒ Landlock 的 **enforce 行为**与**告警分支**都**未在真实 Linux 上观察过**；离线用例覆盖的是门控判据、策略形状、argv 形状与成败分支（执行器/探测器可注入）。
+1. ~~**Linux 真机验证未做（选项 A 与 C 的共同缺口）**~~ ✅ **已于 2026-10-04 在 WSL2 Ubuntu 完成（内核 `6.18.33.2-microsoft-standard-WSL2`）**：
+
+   **前置（两处环境事实）**：① WSL2 默认**未挂 securityfs** ⇒ `/sys/kernel/security/lsm` 读不到（`LandlockDetector` 会判 `not-in-lsm`、选项 C 判"未启用"）⇒ 需 `mount -t securityfs none /sys/kernel/security`（uid=0 可挂）后 LSM 才可读（实测 `capability,landlock,yama,safesetid,selinux,ima`，**含 `landlock`**）；② WSL 内 `bun` 是 **Windows 互操作**（非 Linux 原生）⇒ 需 Linux 版 bun（本次离线放入 `bun-linux-x64`，WSL 无外网）。
+
+   **helper/内核层 enforce 矩阵（`landlock-run` 直接调用，`--probe` = `partially enforced (older ABI)`）**：
+
+   | 例 | 策略/命令 | 实测 |
+   |---|---|---|
+   | 读域内 | `--rw <work>` `cat <work>/inside.txt` | ✅ `INSIDE`，exit 0 |
+   | 读域外（未声明路径） | 同上 `cat /tmp/ll-verify/outside/secret.txt` | ✅ **Permission denied**，exit 1 |
+   | 写域内 | `echo hi > <work>/new.txt` | ✅ exit 0 |
+   | 写域外 | `echo hi > <work>/../outside/new.txt` | ✅ **Permission denied**，exit 2 |
+   | `~/.pyapp` 只读 | `--ro <home>/.pyapp` 后写 `config.json` | ✅ **Permission denied**（只读生效） |
+
+   **项目代码路径端到端（Linux bun + `execBashCommand`，`enabled=true` + `bashEnabled=true` + `failClosed=true`，注入 `helperPath`）**：
+
+   | 例 | 实测 |
+   |---|---|
+   | 选项 C：`reportBashLandlockGapOnce()`**不注入** | ✅ `{report:true, reason:'landlock-available-but-unused'}`，告警**恰 1 次**；二次调用 `already-reported`、warnCount 仍 1 |
+   | A1 读 cwd 内 / A3 写 cwd 内 / A5 `pwd` | ✅ exit 0（域内放行） |
+   | **A6 写 `~/.pyapp/config.json`** | ✅ **拒绝**（exit 2 / Permission denied）—— spec §1.6"`~/.pyapp` 整体只读"**端到端成立** |
+   | **A7 写 `/opt/l1-out`**（策略白名单外） | ✅ **拒绝**（mkdir: Permission denied） |
+   | **A8 读 `/root/.bashrc`**（白名单外） | ✅ **拒绝**（Permission denied） |
+   | 反例说明 | A2/A4 落在 `/tmp` 下**被放行** —— 因策略显式声明 `/tmp`/`/var/tmp` 可写（§1.6 清单），**非缺陷**；取样点须在白名单之外 |
+
+   ⇒ **选项 A 的"开启即真受限"与选项 C 的"能力可用却未接入 ⇒ 提示一次"两个分支均在真实 Linux 上成立**。
+   **仍未验（如实）**：① **网络放行/阻断**因 WSL 无外网（`curl` 两种策略均返回 `000`）**无法区分**（此前 T-③06 已用 `curl exit=7` 单独验证过 `--net-deny`）；② 真机上 `exit 125`（helper 初始化失败）分流**未端到端**（离线用例覆盖）。
 2. **bash 的 Landlock 策略是"够用优先"的固定清单、不可配置**：若用户需要清单外的可写路径（自定义工作目录之外的落点）会被**拦到正常命令** —— 这正是 `bashEnabled` 默认关闭的原因；"可配置可写路径"属后续增强（未做）。
 3. ~~**`sandbox.landlock.enabled` / `failClosed` 原先无消费者的问题未修**（§1.7）~~ ✅ **已修（G1-A2）**：`code_run` 现按 `enabled` / `failClosed` 分流（§1.7）。
 4. **选项 C 的告警信号强度有限（已知，非缺陷）**：只读 LSM 列表、不做功能 probe（理由见 §1.5），故可能有"LSM 列出但内核拒绝 enforce"的假阳性 ⇒ 提示只作线索。

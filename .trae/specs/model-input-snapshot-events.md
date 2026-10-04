@@ -1,6 +1,6 @@
 # Spec：模型输入快照事件（TR-12-B）
 
-> 版本: 1.0 ｜ 创建: 2026-09-22 ｜ 状态: **已实施（2026-09-22）**
+> 版本: 1.0 ｜ 创建: 2026-09-22 ｜ 状态: **已实施（2026-09-22）｜ 真实浏览器端到端已验证（2026-10-04，localhost:1420）**
 > 验收（实测）：app `bun run typecheck` **0** ｜ `bun x eslint` **0** ｜ 全量 `bun test` **3290 pass / 19 skip / 0 fail**（306 files）；client `bun x tsc --noEmit` **0** ｜ `bun x eslint` **0** ｜ `bun x vitest run` **287 pass / 0 fail**（31 files）
 > 关联: GR15（Spec-Driven Development）／ GR16-002（跨模块变更必须建 Spec）／ R01（基础设施复用）／ R02（数据模型统一）／ CS01（归一化）／ CS03（回退最小化）／ CS04（零 Mock）／ CS06（证据驱动）／ project_rules **§1.6「模型可见 ⇔ 已落盘」红线（v7.12.0）**
 > 来源: 轨迹模块对标 `dev_docs/20260922/trajectory-benchmark/` 的 **TR-12-B**；立项评估见 [TR-12-TR-14-决策记录.md](../../dev_docs/20260922/trajectory-benchmark/TR-12-TR-14-决策记录.md) §3.3
@@ -157,7 +157,10 @@ record(sessionId: string, input: {
 **其余诚实边界**：
 
 - ✅ **组件级验证已补（2026-09-22）**：`trajectory-detail.test.tsx` 新增 5 例（含全量 / 引用如实标注 / 引用超窗 / 未传 `allEvents` / 非该类型）。期间发现并修正一处**措辞不准确** —— 引用被一跳还原后，UI 曾按"还原成功"显示"本轮含全量" ⇒ 改为按 `refSeq` 是否存在判定（引用式 vs 含全量），避免误导。
-- ⏳ **真实浏览器端到端仍未验证**（需实际配置模型并发消息才会产生 `context/model-input` 事件）—— 属环境限制，非代码缺口。
+- ✅ **真实浏览器端到端已验证（2026-10-04，`localhost:1420` + ChatInspector 轨迹 Tab）**：
+  - **写端**（真实多轮会话，非单测）：`~/.pyapp/data/sessions/57971aa3/session_mut07zma5m93tafuzcq` 等已产出 `context/model-input` —— 首轮落全量（工具 `count=75` + 11 段全文）；后续轮 **`toolsRefSeq=1`（工具未变仅引用）+ 逐段独立 `refSeq`（稳定段引用、`sessionContext`/`sessionMemory` 重落）** ⇒ 去重不变式成立。
+  - **读端**（浏览器实测）：轨迹 Tab 渲染 `context/model-input` 行；点击打开 `TrajectoryDetail` 浮层显示 **「模型输入（本轮）」**；引用段标注 **`引用 seq=<n>（未变）`**、工具条目标注 **`引用 seq=<n>（内容未变）`**、内联段显示 `N 字符` ⇒ 与 §3.1 读端语义一致；控制台无渲染错误。
+- ⚠️ **实测边界（2026-10-04 新发现）**：§7 所写"读端取**最近一次含该单元**的事件（工具/提示词**各自独立**还原）"**与实现不一致** —— `resolveModelInputSnapshot(allEvents)` 仅取**最后一条** `context/model-input` 并在**其内**解析，且 `TrajectoryDetail` 用 `allEvents` 而非被点击的 `event`；写端又将"工具"与"分段"拆成**两条**事件 ⇒ **单面板每轮只呈现其一**（实测不存在同时含 `tools` 与 `sections` 的事件）。**待裁定**：订正本节口径 或 让读端回溯"含该单元"的最近事件。详见台账 R-2。
 
 ## 6. 合规
 
@@ -191,7 +194,7 @@ record(sessionId: string, input: {
 
 **实现与本文的差异（诚实记录）**：
 
-- **每轮可能产生 2 条 `context/model-input` 事件**：工具清单在装配点、系统提示词在 `getOrAssembleSystemPrompt`，两者时机不同 ⇒ 各自调用一次 `record`（载荷字段均可选，符合 §3.1 契约）。读端取"最近一次含该单元的事件"（工具 / 提示词各自独立还原）；**轮次级严格对齐不做**（价值低、成本高）。
+- **每轮可能产生 2 条 `context/model-input` 事件**：工具清单在装配点、系统提示词在 `getOrAssembleSystemPrompt`，两者时机不同 ⇒ 各自调用一次 `record`（载荷字段均可选，符合 §3.1 契约）。读端取"最近一次含该单元的事件"（工具 / 提示词各自独立还原）；**轮次级严格对齐不做**（价值低、成本高）。⚠️ **订正（2026-10-04 实测）**：实现**并非**如此 —— `resolveModelInputSnapshot` 只取**最后一条** `context/model-input` 并在**其内**解析（不回溯"含该单元"的更早事件），故单面板每轮**只呈现其一**；详见 §5"实测边界"与台账 R-2。
 - **`hashContent` 经门面导出**：安全模块禁止子路径导入（eslint `no-restricted-imports`）⇒ 在 `security/index.ts` 补 `export { hashContent }`（该门面已导出同类 services，符合既有模式）。
 - **引用索引只登记"含全量"的事件** ⇒ 读端 `refSeq` **一跳**即可取回，无需链式回溯（写端 `_ensureIndex` 与 `record` 均遵循此不变量）。
 - **`context/model-input` 的归类无需改动**：`categorizeEvent` 按 `context/` 前缀映射为 `context` 类（`CATEGORY_TO_SOURCE.context = "system"`），前端筛选/来源自动覆盖。

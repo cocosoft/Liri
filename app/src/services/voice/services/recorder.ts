@@ -7,7 +7,8 @@
  * 从 voiceService.ts 提取，聚焦于"如何录音"的执行逻辑。
  */
 
-import { spawn, type ChildProcess } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
+import { promisify } from 'util';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -24,6 +25,9 @@ import {
 import type { RecordingOptions, RecordingStateHandler } from '../models/types';
 
 const logger = getLogger('voice:recorder');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：设备枚举原用 spawnSync 同步阻塞 */
+const execFileAsync = promisify(execFile);
 
 /** 录音方法 */
 export type RecordingMethod = 'ffmpeg' | 'sox' | 'arecord' | 'powershell';
@@ -181,20 +185,20 @@ export class Recorder {
   /**
    * 枚举 Windows DirectShow 音频输入设备
    */
-  private getFFmpegAudioDevice(): string | null {
-    const { spawnSync } = require('child_process');
-    const result = spawnSync(
-      'ffmpeg',
-      ['-list_devices', 'true', '-f', 'dshow', '-i', 'dummy'],
-      {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 5000,
-      }
-    );
-
-    const stderr = result.stderr?.toString() ?? '';
-    const stdout = result.stdout?.toString() ?? '';
-    const output = stderr || stdout;
+  private async getFFmpegAudioDevice(): Promise<string | null> {
+    // ffmpeg -list_devices 以非零码退出并把设备清单写到 stderr ⇒ 用 catch 读取输出
+    let output = '';
+    try {
+      const { stdout, stderr } = await execFileAsync(
+        'ffmpeg',
+        ['-list_devices', 'true', '-f', 'dshow', '-i', 'dummy'],
+        { timeout: 5000, encoding: 'utf-8', windowsHide: true }
+      );
+      output = String(stderr) || String(stdout);
+    } catch (error) {
+      const e = error as { stdout?: string | Buffer; stderr?: string | Buffer };
+      output = String(e.stderr ?? '') || String(e.stdout ?? '');
+    }
 
     const audioDeviceMatch =
       output.match(/"([^"]+)"\s*\(audio\)/i) ??
@@ -223,13 +227,13 @@ export class Recorder {
   /**
    * FFmpeg 流式录音（Windows dshow → stdout）
    */
-  private startFFmpegStream(
+  private async startFFmpegStream(
     onData: (chunk: Buffer) => void,
     onEnd: () => void,
     options?: RecordingOptions
   ): Promise<boolean> {
     const maxSecs = options?.maxDurationSecs ?? 30;
-    const device = this.getFFmpegAudioDevice();
+    const device = await this.getFFmpegAudioDevice();
     if (!device) {
       logger.warn('FFmpeg · 未找到音频输入设备，回退到 PowerShell');
       return this.startPowerShellStream(onData, onEnd, options);
@@ -569,12 +573,12 @@ $stdout.Close()
   /**
    * FFmpeg 录音到文件
    */
-  private recordWithFFmpeg(
+  private async recordWithFFmpeg(
     outputFile: string,
     maxSecs: number,
     onState?: RecordingStateHandler
   ): Promise<void> {
-    const device = this.getFFmpegAudioDevice();
+    const device = await this.getFFmpegAudioDevice();
 
     return new Promise((resolve, reject) => {
       if (!device) {

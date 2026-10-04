@@ -6,7 +6,8 @@
  * 从 voiceService.ts 提取，聚焦于"能否录音"的判断逻辑。
  */
 
-import { spawnSync, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
+import { promisify } from 'util';
 import { readFile } from 'fs/promises';
 import { getPlatform } from '@modules/utils/platform';
 import { getLogger } from '@modules/monitoring';
@@ -15,6 +16,9 @@ import { configManager } from '@modules/config';
 import type { VoiceDependencies } from '../models/types';
 
 const logger = getLogger('voice:recording:detector');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：`hasCommand` 原用 spawnSync 同步阻塞 */
+const execFileAsync = promisify(execFile);
 
 // ===========================================================
 // 常量
@@ -33,14 +37,20 @@ export const SILENCE_THRESHOLD = '3%';
 /**
  * 检查命令是否存在于 PATH 中
  */
-export function hasCommand(cmd: string): boolean {
+export async function hasCommand(cmd: string): Promise<boolean> {
   const isWindows = process.platform === 'win32';
   const searchCmd = isWindows ? 'where' : 'which';
-  const result = spawnSync(searchCmd, [cmd], {
-    stdio: 'ignore',
-    timeout: 3000,
-  });
-  return result.error === undefined;
+  try {
+    await execFileAsync(searchCmd, [cmd], { timeout: 3000 });
+    return true;
+  } catch (error) {
+    // 语义对齐原实现（`spawnSync(...).error === undefined`）：非零退出仍视为"存在"，
+    // 仅"命令无法启动"（ENOENT 等，code 为字符串）视为缺失。
+    // TODO: CS05-ROOTFIX — 该语义会把"命令不存在（where/which 退出码非 0）"误判为存在，
+    //   属预存缺陷（已登记台账），修复需独立评估，不在本次阻塞收敛范围内。
+    const code = (error as { code?: string | number }).code;
+    return typeof code === 'number';
+  }
 }
 
 /**
@@ -122,9 +132,9 @@ type PackageManagerInfo = {
 /**
  * 检测当前系统的包管理器
  */
-export function detectPackageManager(): PackageManagerInfo | null {
+export async function detectPackageManager(): Promise<PackageManagerInfo | null> {
   if (process.platform === 'darwin') {
-    if (hasCommand('brew')) {
+    if (await hasCommand('brew')) {
       return {
         cmd: 'brew',
         args: ['install', 'sox'],
@@ -135,21 +145,21 @@ export function detectPackageManager(): PackageManagerInfo | null {
   }
 
   if (process.platform === 'linux') {
-    if (hasCommand('apt-get')) {
+    if (await hasCommand('apt-get')) {
       return {
         cmd: 'sudo',
         args: ['apt-get', 'install', '-y', 'sox'],
         displayCommand: 'sudo apt-get install sox',
       };
     }
-    if (hasCommand('dnf')) {
+    if (await hasCommand('dnf')) {
       return {
         cmd: 'sudo',
         args: ['dnf', 'install', '-y', 'sox'],
         displayCommand: 'sudo dnf install sox',
       };
     }
-    if (hasCommand('pacman')) {
+    if (await hasCommand('pacman')) {
       return {
         cmd: 'sudo',
         args: ['pacman', '-S', '--noconfirm', 'sox'],
@@ -178,9 +188,9 @@ export async function checkVoiceDependencies(): Promise<VoiceDependencies> {
   let method: string | null = null;
 
   if (process.platform === 'win32') {
-    if (hasCommand('ffmpeg') || hasCommand('ffmpeg.exe')) {
+    if ((await hasCommand('ffmpeg')) || (await hasCommand('ffmpeg.exe'))) {
       method = 'ffmpeg';
-    } else if (hasCommand('sox') || hasCommand('sox.exe')) {
+    } else if ((await hasCommand('sox')) || (await hasCommand('sox.exe'))) {
       method = 'sox';
     } else {
       method = 'powershell';
@@ -189,14 +199,14 @@ export async function checkVoiceDependencies(): Promise<VoiceDependencies> {
   }
 
   if (process.platform === 'darwin') {
-    if (hasCommand('sox')) {
+    if (await hasCommand('sox')) {
       method = 'sox';
     } else {
       missing.push('sox');
       return {
         available: false,
         missing,
-        installCommand: hasCommand('brew')
+        installCommand: (await hasCommand('brew'))
           ? 'brew install sox'
           : 'Install SoX from https://sox.sourceforge.net/',
         method: null,
@@ -206,18 +216,18 @@ export async function checkVoiceDependencies(): Promise<VoiceDependencies> {
   }
 
   if (process.platform === 'linux') {
-    if (hasCommand('sox')) {
+    if (await hasCommand('sox')) {
       method = 'sox';
-    } else if (hasCommand('arecord')) {
+    } else if (await hasCommand('arecord')) {
       method = 'arecord';
     } else {
       missing.push('sox or arecord');
       let installCmd: string | null = null;
-      if (hasCommand('apt-get')) {
+      if (await hasCommand('apt-get')) {
         installCmd = 'sudo apt-get install -y sox';
-      } else if (hasCommand('dnf')) {
+      } else if (await hasCommand('dnf')) {
         installCmd = 'sudo dnf install -y sox';
-      } else if (hasCommand('pacman')) {
+      } else if (await hasCommand('pacman')) {
         installCmd = 'sudo pacman -S sox';
       }
       return {

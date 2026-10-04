@@ -20,7 +20,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
-import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
+import { imageSanitizationPolicy } from '@modules/security';
 import { resolveOutputDir } from '@modules/core';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 import { ImageGenerationRouter } from './ImageGenerationRouter';

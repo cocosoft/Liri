@@ -17,7 +17,7 @@ import {
   type ImageFormat,
   type ProcessResult,
 } from '../../media/image/ImageProcessor';
-import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
+import { imageSanitizationPolicy } from '@modules/security';
 
 const logger = getLogger('tools:imageTool');
 

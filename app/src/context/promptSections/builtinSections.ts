@@ -24,7 +24,7 @@ import { buildUserSection } from '@modules/services/soul/UserReader';
 import {
   readAgentsMd,
   readToolsMd,
-} from '@modules/workspaces/WorkspaceScanner';
+} from '@modules/workspaces';
 import {
   getMemoryQueryProvider,
   getCurrentSessionContext,

@@ -57,3 +57,5 @@ export type {
   ChannelPermissionCallbacks,
   DefaultChannelPermissionCallbacks,
 } from './ChannelPermission';
+
+export { imageSanitizationPolicy } from './ImageSanitizationPolicy';

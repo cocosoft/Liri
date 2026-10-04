@@ -11,7 +11,7 @@ import type { ToolCallProgress } from '../types/Tool';
 import {
   exitWorktree,
   isInsideGitRepo,
-} from '@modules/workspaces/commands/session';
+} from '@modules/workspaces';
 import { ExitWorktreeOutputSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';

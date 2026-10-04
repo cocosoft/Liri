@@ -130,6 +130,8 @@ export {
   checkToolPermission,
   isResourceAccessAllowed,
   isToolAccessAllowed,
+  channelPermissions,
+  imageSanitizationPolicy,
 } from './policy';
 export type {
   MCPServerPolicy,

@@ -2142,14 +2142,26 @@ class ArchitectureLinter {
       //   ✅ 收口批次①已完成（提交见 git log）：tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget} ·
       //     streaming/scrubbers · constants{common,systemPromptSections} · security/injection ·
       //     skills/SkillRegistry —— 对应子路径导入已改走各模块 barrel，登记键已移除。
-      //     ⚠️ `security/policy` 本批**未收口**（存在 barrel 未导出符号的残留消费方）：
-      //       `channelPermissions` 值未由 security barrel 转出、`imageSanitizationPolicy` 未由
-      //       security/policy 导出 ⇒ `services/mcp/channelPermissions.ts` 与 3 个 ImageTool 仍按
-      //       子路径直连 ⇒ 键保留（归批次②：为 barrel 增补导出后再收口）。
-      //   收口批次②、③：其余（含 docs/analytics/workspaces/knowledge/bootstrap/components/…）
+      //   ✅ 收口批次②已完成（安全子集 A/B/C 三组）：
+      //     A `security/policy`：为 `security/policy` barrel 增补 `imageSanitizationPolicy` 值导出，
+      //       为 `security` barrel 的 policy 再导出块增补 `channelPermissions`/`imageSanitizationPolicy`
+      //       ⇒ `services/mcp/channelPermissions.ts` 与 3 个 ImageTool 改走 `@modules/security`。
+      //     B `workspaces/WorkspaceScanner`：barrel 已 `export * from './WorkspaceScanner'`
+      //       ⇒ `context/promptSections/{index,builtinSections}.ts` 改走 `@modules/workspaces`。
+      //     C `workspaces/commands`：为 `workspaces` barrel 增补 `export * from './commands/session'`
+      //       （session.ts 仅 **type** 导入 `@modules/commands`，无运行期环）
+      //       ⇒ `EnterWorktreeTool`/`ExitWorktreeTool` 改走 `@modules/workspaces`。
+      //   保留项（批次②明确不收口 + 原因）：
+      //     - `workspace/CouncilOrchestrator`：`chat/ChatManager.ts` **静态**引用其叶子
+      //       `containsComplexKeywords`（workspace barrel 未聚合该子路径），且另有 `CouncilOrchestrator`
+      //       的动态导入（打破环）；静态改走 `@modules/workspace` 桶会把重依赖/环风险引入 chat 静态图
+      //       ⇒ 保留为「唯一入口」。
+      //     - `components/TaskListV2`、`components/ui`：`components/index.ts` 当前几乎为空壳
+      //       （仅转出 ink 的 Text/Box），聚合 UI 面待评估 ⇒ 保留。
+      //     - `skills/loaders`、`skills/services`、`skills/cli`：barrel 无对应聚合出口 ⇒ 保留。
+      //   收口批次③：其余（docs/analytics/knowledge/bootstrap/security 其余键/…）
       'tokenBudget/TokenBudgetController', // barrel 仅命名导出 Controller/type；`UNIFIED_THRESHOLDS` 等未导出
       'tokenBudget/UnifiedTokenTracker', // barrel 未导出（叶子令牌跟踪）
-      'security/policy', // ⚠️残留消费方（见上）；barrel 未导出 channelPermissions/imageSanitizationPolicy
       'security/patterns', // barrel 仅导出 patterns 的 **type**（值未导出）→ 收口：评估为 barrel 增补值导出
       'security/redact', // barrel 仅导出 redact 的 type
       'security/scanners', // 子路径唯一入口（barrel 导出件在 `scanner/secret`，命名不一致）
@@ -2159,11 +2171,9 @@ class ArchitectureLinter {
       'skills/loaders', // 子路径唯一入口（barrel 逐件导出，无 `./loaders` 聚合出口）
       'skills/services', // 子路径唯一入口（barrel 未导出）
       'skills/cli', // 子路径唯一入口（barrel 未导出）
-      'workspace/CouncilOrchestrator', // ②（workspace 域；收口批次待检视 barrel）
-      'workspaces/WorkspaceScanner', // ②
-      'workspaces/commands', // ②（命令子域）
-      'components/TaskListV2', // ②（UI 组件）
-      'components/ui', // ②
+      'workspace/CouncilOrchestrator', // 保留：ChatManager 静态引用叶子 containsComplexKeywords（barrel 未聚合）+ CouncilOrchestrator 动态导入打破环
+      'components/TaskListV2', // 保留：components/index.ts 近乎空壳（仅 ink Text/Box），聚合 UI 面待评估
+      'components/ui', // 保留：同上
       'docs/FileDocsProvider', // ③
       'docs/DocumentVersionService', // ③
       'docs/TemplateService', // ③

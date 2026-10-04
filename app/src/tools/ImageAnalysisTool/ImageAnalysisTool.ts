@@ -21,7 +21,7 @@ import { ImageProcessor } from '../../media/image/ImageProcessor';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import { providerRegistry } from '@modules/ai';
 import { RouteKey } from '@modules/ai';
-import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
+import { imageSanitizationPolicy } from '@modules/security';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '@modules/ai';
 import { imageDownloader } from '@modules/chat';

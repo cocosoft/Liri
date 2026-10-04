@@ -20,7 +20,7 @@ export {
   isResourceAccessAllowed,
   isToolAccessAllowed,
   channelPermissions,
-} from '../../security/policy/ChannelPermission';
+} from '@modules/security';
 export type {
   PermissionBehavior,
   ResourcePermission,
@@ -29,4 +29,4 @@ export type {
   ChannelPermissionResponse,
   ChannelPermissionCallbacks,
   DefaultChannelPermissionCallbacks,
-} from '../../security/policy/ChannelPermission';
+} from '@modules/security';

@@ -38,3 +38,5 @@ export * from './provider/SnapshotCopyProvider';
 export * from './WorkspacePruner';
 // D1-Step2 闭环：自主执行编排（隔离 → 执行 → 回灌 → 清理）
 export * from './AutonomousRunner';
+// R03-002 收口批次②：会话级 worktree 命令（enter/exit/isInsideGitRepo）
+export * from './commands/session';

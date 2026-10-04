@@ -2037,54 +2037,15 @@ class ArchitectureLinter {
 
   /** R03-002: 检查模块是否从子目录直接 import（应通过 index.ts 出口） */
   async checkModuleSingleExport(): Promise<void> {
-    // 定义已知的模块根目录
-    const moduleRoots = new Set([
-      'acp',
-      'agent',
-      'ai',
-      'bridge',
-      'cache',
-      'channels',
-      'chat',
-      'chronos',
-      'cli',
-      'commands',
-      'config',
-      'context',
-      'core',
-      'cost',
-      'diagnostics',
-      'error',
-      'gateway',
-      'hooks',
-      'infrastructure',
-      'ink',
-      'llm',
-      'mcp',
-      'memory',
-      'monitoring',
-      'oauth',
-      'permission',
-      'performance',
-      'plugins',
-      'promptSuggestion',
-      'query',
-      'remote',
-      'runtime',
-      'sandbox',
-      'services',
-      'session',
-      'skillCode',
-      'state',
-      'subagent',
-      'subagents',
-      'tasks',
-      'tools',
-      'types',
-      'ui',
-      'utils',
-      'voice',
-    ]);
+    // R03-002 moduleRoots **单一事实源**（2026-10-04，P0-6 D-3-c；spec `r03-002-module-roots-single-source`）：
+    // 从 `modules-to-layers.json` 派生，取代此前 45 项硬编码 Set（已漂移）。
+    // ⚠️ **必须直接读文件**：`loadLayerMapping()`（填充 `this.moduleToLayer`）在 R 检查**之后**执行，
+    //   依赖它会得**空集**、**静默关闭本规则**（实测白名单 786→0 的假绿）。
+    const r03002MappingPath = resolve(__dirname, 'modules-to-layers.json');
+    const r03002Mapping = JSON.parse(
+      readFileSync(r03002MappingPath, 'utf-8')
+    ) as { modules: Record<string, unknown> };
+    const moduleRoots = new Set(Object.keys(r03002Mapping.modules));
 
     // 测试文件排除集已提升为**模块级**常量 `TEST_FILE_EXCLUSIONS`（2026-10-01 口径统一，见其 JSDoc）
 
@@ -2173,6 +2134,57 @@ class ArchitectureLinter {
       // 若不让 infra 按此**精确子路径**导入，就只能退回 `@modules/docs`（即原 infra -> app 倒挂）。
       // 与 `core/taskStatus`、`core/paths` 同属规范子入口。
       'core/knowledge-types',
+      // ── D-3-c 存量登记（2026-10-04，P0-6 / spec `r03-002-module-roots-single-source` 裁定 D1(b)）──
+      // `moduleRoots` 改为从 `modules-to-layers.json` 派生后，以下子入口**首次被计入** R03-002。
+      // 按 D1(b)：**显式登记为存量例外**并**分批收口**（不是静默放宽 —— 这些模块此前**根本不在**
+      // moduleRoots 内、同为零检查；本批把「隐式盲区」变为「显式债」，并把新增直连纳入拦截）。
+      // TODO(D-3-c 收口)：逐项判定 barrel 是否已导出 → 改走桶；未导出者为其增补 barrel 导出。
+      //   收口批次①（barrel 已 `export *`/显式导出，最易）：tokenBudget{BudgetPolicy,PriceManager,
+      //     CacheAwareBudget} · streaming/scrubbers · constants{common,systemPromptSections} ·
+      //     security{policy,injection} · skills/SkillRegistry
+      //   收口批次②、③：其余（含 docs/analytics/workspaces/knowledge/bootstrap/components/…）
+      'tokenBudget/BudgetPolicy', // ①barrel export* ⇒ 可改走桶
+      'tokenBudget/PriceManager', // ①barrel export* ⇒ 可改走桶
+      'tokenBudget/CacheAwareBudget', // ①barrel export* ⇒ 可改走桶
+      'tokenBudget/TokenBudgetController', // barrel 仅命名导出 Controller/type；`UNIFIED_THRESHOLDS` 等未导出
+      'tokenBudget/UnifiedTokenTracker', // barrel 未导出（叶子令牌跟踪）
+      'streaming/scrubbers', // ①barrel `export * from './scrubbers'` ⇒ 可改走桶
+      'constants/common', // ①barrel `export * from './common.js'` ⇒ 可改走桶
+      'constants/systemPromptSections', // ①barrel `export * from './systemPromptSections.js'` ⇒ 可改走桶
+      'security/policy', // ①barrel 显式导出 policy 面 ⇒ 可改走桶
+      'security/injection', // ①barrel 导出 injection 值 ⇒ 可改走桶
+      'security/patterns', // barrel 仅导出 patterns 的 **type**（值未导出）→ 收口：评估为 barrel 增补值导出
+      'security/redact', // barrel 仅导出 redact 的 type
+      'security/scanners', // 子路径唯一入口（barrel 导出件在 `scanner/secret`，命名不一致）
+      'security/validators', // 子路径唯一入口（barrel 未导出）
+      'security/bash', // 子路径唯一入口（barrel 导出件在 `BashAllowlistMatcher`）
+      'security/files', // 子路径唯一入口（barrel 未导出）
+      'skills/loaders', // 子路径唯一入口（barrel 逐件导出，无 `./loaders` 聚合出口）
+      'skills/services', // 子路径唯一入口（barrel 未导出）
+      'skills/cli', // 子路径唯一入口（barrel 未导出）
+      'skills/SkillRegistry', // ②barrel 已 `export { SkillRegistry }` ⇒ 可改走桶
+      'workspace/CouncilOrchestrator', // ②（workspace 域；收口批次待检视 barrel）
+      'workspaces/WorkspaceScanner', // ②
+      'workspaces/commands', // ②（命令子域）
+      'components/TaskListV2', // ②（UI 组件）
+      'components/ui', // ②
+      'docs/FileDocsProvider', // ③
+      'docs/DocumentVersionService', // ③
+      'docs/TemplateService', // ③
+      'docs/knowledge-types', // ③（类型叶子）
+      'analytics/PassesService', // ③
+      'analytics/AnalyticsService', // ③
+      'analytics/PerformanceMonitorService', // ③
+      'knowledge/KnowledgeDigestInjector', // ③
+      'knowledge/graph', // ③
+      'knowledge/frontmatter', // ③
+      'knowledge/KnowledgeBaseWriter', // ③
+      'bootstrap/StartupChainProfiler', // ③（entry 层）
+      'bootstrap/StartupYamlLoader', // ③
+      'bootstrap/StartupConfig', // ③
+      'common/utils', // ③（infra 叶子）
+      'modules/ModuleDefinitions', // ③（模块注册表叶子）
+      'governance/managers', // ③
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

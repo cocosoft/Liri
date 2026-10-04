@@ -1,12 +1,21 @@
 # Spec：`R03-002` 模块根单一事实源（`moduleRoots` 由 `modules-to-layers.json` 派生）
 
-> 版本 1.0 ｜ 创建 2026-10-04 ｜ 状态：📝 **立项待评审（未动码）**
+> 版本 1.2 ｜ 创建 2026-10-04 ｜ 状态：✅ **G1/G2 已实施**（派生单一事实源 + 存量显式登记）；存量**收口**（分批走桶 / 为 barrel 增补导出）待做
 > 来源：台账 **D-3-c**（2026-10-01 D-219 执行 `workspaces` 组时发现）· `dev_docs/任务计划-20261004.md` §2.1 **P0-6（方案 C1）**
 > 关联规则：GR01（归一化）/ GR02（实现唯一性）/ GR03（证据驱动）/ R06-008（分层）/ R03-002（模块出口单一）
 
+## 0. 实施记录（2026-10-04）
+
+- **G1 达成**：`checkModuleSingleExport()` 的 `moduleRoots` 由 45 项硬编码 Set → **从 `scripts/modules-to-layers.json` 直接读取派生**（规避 §5 的时序陷阱）。
+- **G2 达成**：判定语义不变（仍"有 `index.ts` 才要求出口"；`canonicalEntryKeys`/`types` 段白名单保留）。
+- **存量按 D1(b) 显式登记**：派生后首次计入的 **42 个子入口**（原 99 处导入）登记入 `canonicalEntryKeys`，**逐条附理由 + 收口批次**（① barrel 已导出最易 → ② ③）。**非静默放宽**：这些模块此前**不在** `moduleRoots` 内、同为零检查；本批把「隐式盲区」变为「显式债」。
+- **可证伪（§6 判据 4）**：注入 `import { IntelligentAnalysisService } from '@modules/analytics/IntelligentAnalysisService'`（`analytics` 派生后才计入、且未登记）⇒ `R03-002` 报 **1 处违规**、`错误: 1`；删除后归零。
+- **验证**：`lint:arch` **0 错误 / 4 警告**（白名单 `786 → 909`）；`typecheck` **0**。
+- **待做（收口）**：批次①（`tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget}` · `streaming/scrubbers` · `constants{common,systemPromptSections}` · `security{policy,injection}` · `skills/SkillRegistry`）→ 改走桶；批次②③ 逐项检视 barrel 后处置（未导出者为其**增补 barrel 导出**，而非长期白名单）。
+
 ## 1. Problem Statement
 
-`scripts/lint-architecture.ts` 的 `checkModuleSingleExport()`（`R03-002` 模块出口单一）用一份**独立硬编码的 `moduleRoots` Set**（`scripts/lint-architecture.ts:2043` 起，约 39 项）判定"模块子目录直连 import"是否违规。
+`scripts/lint-architecture.ts` 的 `checkModuleSingleExport()`（`R03-002` 模块出口单一）用一份**独立硬编码的 `moduleRoots` Set**（`scripts/lint-architecture.ts:2041-2087`，**实测 45 项**）判定"模块子目录直连 import"是否违规。
 
 而分层映射的**唯一事实源**是 `scripts/modules-to-layers.json`（**86 模块**）。两者**已漂移**：`moduleRoots` 缺 `workspaces` / `compaction` / `workspace` / `docs` / `knowledge` / `governance` / `evals` / `project` / `models` / `flows` / `wizard` / `tool` / `testing` / `plugin-sdk` / `context-engine` / `analytics` / `common` / `constants` / `media` / `i18n` / `lsp` / `security` / `system` / `trace-recording` / `daemon` / `modules` / `appState` 等。
 
@@ -25,16 +34,26 @@
 | D1 | (a) 直接派生并**一次性暴露存量** / (b) 派生 + 存量登记例外分批收口 | 派生会暴露一批此前"看不见"的违规 ⇒ 需配套收口/续期策略 |
 | D2 | 是否**本次即改门禁口径** | 依 T-③01 口径：**门禁判定变更须用户裁定**（D-3-c 原文已明示"须另立专项裁定"） |
 
+**推荐（2026-10-04 量化后）**：
+- **D1 = (b)（派生的存量与门禁切换必须同批）**：先**逐点判定** 99 处 —— 确属"循环安全子入口 / 唯一入口"者**补入 `canonicalEntryKeys`（逐条附理由）**；其余**改走桶**（`@modules/<mod>`）。**禁止**整批白名单化（＝静默放宽，违背本 spec §4 非目标）。
+- **D2 = 是（须用户裁定）**：单一事实源本身是 GR01/GR02 的正确收敛；但 `R03-002` 自 2026-10-03 起为 **error 级阻断** ⇒ 必须"派生 + 存量处置"**同一批**落地，使切入口径那一刻 `lint:arch` 仍为 **0 错**。
+
 ## 4. 非目标（明确不做）
 
 - **不**改 `R03-002` 的判定语义（仍"有 index 才要求出口"）。
 - **不**收口业务代码里的存量直连（属另一批任务；本 spec 只负责"口径单一化 + 暴露"）。
 - **不**改 `modules-to-layers.json` 的层归属。
 
-## 5. 影响面（预计）
+## 5. 影响面（**已量化**，2026-10-04 本地实跑）
 
 - `scripts/lint-architecture.ts`：`checkModuleSingleExport()` 的 `moduleRoots` 构造改为读 `modules-to-layers.json`（+ 保留既有白名单）。
-- 派生后**首次运行**预计暴露一批 `R03-002` 违规（数量未量化 ⇒ 属 D1(a) 的代价）；须先在**本地**跑一次量化。
+- **实测量化**（试派生后跑 `lint:arch`，随后**已回滚**）：
+  - 硬编码 Set = **45 项**（`lint-architecture.ts:2041-2087`）vs 映射 `modules-to-layers.json` = **86 模块**；
+  - 派生后 `[R03-002]` 违规 **0 → 99 处**、门禁 **`错误: 0 → 1`**（白名单 `786 → 810`）⇒ **一次性放出 99 处存量**（确认 D1(a) 代价「大」）。
+  - **违规按目标子入口聚合（top）**：`streaming/scrubbers` 8 · `security/*`（policy/injection/patterns/validators/scanners/redact/bash/files）≈17 · `constants/*`（systemPromptSections/common）≈15 · `tokenBudget/*`（UnifiedTokenTracker/BudgetPolicy/TokenBudgetController/PriceManager/CacheAwareBudget）≈14 · `skills/*`（loaders/services/cli/SkillRegistry）≈11 · `docs/*`（FileDocsProvider/knowledge-types/TemplateService/DocumentVersionService）≈10 · `components/*`（ui/TaskListV2）4 · `knowledge/*` 4 · `workspaces/*` 3 · `bootstrap/*` 3 · `analytics/*` 3 · 其余零散。
+  - **性质**：多数为"该模块**已有 barrel** 但消费方直连子路径"，其中**一部分是良性的循环安全 / 唯一入口**（如 `constants/systemPromptSections`），另一部分应按 GR02 改走桶 ⇒ **须逐点判定**，不可机械放宽。
+
+- ⚠️ **实现约束（重要 · 2026-10-04 新发现）**：`loadLayerMapping()`（填充 `this.moduleToLayer`）在 **R 检查之后**执行 ⇒ 派生**禁止**依赖 `this.moduleToLayer`（会得**空集**、**静默关闭 R03-002**；实测白名单 `786 → 0` 的**假绿**）；**必须直接读 `modules-to-layers.json`**（或先调整加载时序）。
 
 ## 6. 验收判据
 

@@ -161,7 +161,11 @@ describe('shrinkToolResultMessageForPersistence — 持久化侧单轮聚合（P
     id: `m-${id}`,
     toolCallId: id,
     content: [
-      { type: 'tool_result', value: JSON.stringify('x'.repeat(n)), toolCallId: id },
+      {
+        type: 'tool_result',
+        value: JSON.stringify('x'.repeat(n)),
+        toolCallId: id,
+      },
     ],
     metadata: {} as Record<string, unknown>,
   });

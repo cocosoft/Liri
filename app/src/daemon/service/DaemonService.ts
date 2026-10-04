@@ -128,7 +128,9 @@ export class DaemonService {
   /**
    * systemd 执行
    */
-  private async executeSystemd(action: ServiceAction): Promise<ServiceActionResult> {
+  private async executeSystemd(
+    action: ServiceAction
+  ): Promise<ServiceActionResult> {
     try {
       const serviceName = `${this.config.name}.service`;
       const unitPath = `/etc/systemd/system/${serviceName}`;
@@ -199,7 +201,9 @@ export class DaemonService {
   /**
    * launchd 执行
    */
-  private async executeLaunchd(action: ServiceAction): Promise<ServiceActionResult> {
+  private async executeLaunchd(
+    action: ServiceAction
+  ): Promise<ServiceActionResult> {
     try {
       const plistName = `dev.pyapp.${this.config.name}.plist`;
       const plistPath = path.join(
@@ -253,16 +257,21 @@ export class DaemonService {
   /**
    * schtasks 执行 (Windows)
    */
-  private async executeSchtasks(action: ServiceAction): Promise<ServiceActionResult> {
+  private async executeSchtasks(
+    action: ServiceAction
+  ): Promise<ServiceActionResult> {
     try {
       const taskName = `LIRI_${this.config.name}`;
 
       switch (action) {
         case 'install': {
           const xmlPath = this.writeSchtasksXml();
-          await execAsync(`schtasks /create /xml "${xmlPath}" /tn "${taskName}" /f`, {
-            shell: 'cmd.exe',
-          });
+          await execAsync(
+            `schtasks /create /xml "${xmlPath}" /tn "${taskName}" /f`,
+            {
+              shell: 'cmd.exe',
+            }
+          );
           return { success: true, action, message: `任务 ${taskName} 已创建` };
         }
 
@@ -314,7 +323,9 @@ export class DaemonService {
    * nssm 执行 (Windows) — 注册为真正的 Windows 服务
    * 需要先通过 nssmPath 配置提供 nssm.exe 路径
    */
-  private async executeNssm(action: ServiceAction): Promise<ServiceActionResult> {
+  private async executeNssm(
+    action: ServiceAction
+  ): Promise<ServiceActionResult> {
     const nssm = this.config.nssmPath!;
     const serviceName = this.config.name;
 
@@ -453,9 +464,12 @@ export class DaemonService {
    */
   private async getLaunchdStatus(): Promise<ServiceStatus> {
     try {
-      const { stdout } = await execAsync(`launchctl list | grep ${this.config.name}`, {
-        encoding: 'utf-8',
-      });
+      const { stdout } = await execAsync(
+        `launchctl list | grep ${this.config.name}`,
+        {
+          encoding: 'utf-8',
+        }
+      );
       const output = stdout.toString();
       return { running: output.length > 0, enabled: true };
     } catch {
@@ -487,10 +501,13 @@ export class DaemonService {
   private async getNssmStatus(): Promise<ServiceStatus> {
     try {
       const nssm = this.config.nssmPath!;
-      const { stdout } = await execAsync(`"${nssm}" status "${this.config.name}"`, {
-        encoding: 'utf-8',
-        shell: 'cmd.exe',
-      });
+      const { stdout } = await execAsync(
+        `"${nssm}" status "${this.config.name}"`,
+        {
+          encoding: 'utf-8',
+          shell: 'cmd.exe',
+        }
+      );
       const output = stdout.trim();
       const running = output.includes('SERVICE_RUNNING');
       return { running, enabled: true };

@@ -502,7 +502,10 @@ export class HardwareDetector {
       }
       // 检查 vulkaninfo 是否可执行
       try {
-        await execAsync('where vulkaninfo', { encoding: 'utf-8', timeout: 2000 });
+        await execAsync('where vulkaninfo', {
+          encoding: 'utf-8',
+          timeout: 2000,
+        });
         return true;
       } catch {
         // 继续
@@ -521,7 +524,10 @@ export class HardwareDetector {
         if (existsSync(p)) return true;
       }
       try {
-        await execAsync('which vulkaninfo', { encoding: 'utf-8', timeout: 2000 });
+        await execAsync('which vulkaninfo', {
+          encoding: 'utf-8',
+          timeout: 2000,
+        });
         return true;
       } catch {
         return false;

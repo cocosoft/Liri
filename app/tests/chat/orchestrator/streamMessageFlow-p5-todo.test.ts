@@ -9,14 +9,7 @@
 //   测试策略：假 loop 的 run() 立即 done（触发 :1978 break，绕开 :2055 消费点），
 //   getPendingTodos() 返回待消费 todo → 断言 flush 落盘 + 前端 chunk 均产出。
 
-import {
-  describe,
-  expect,
-  it,
-  spyOn,
-  beforeEach,
-  afterEach,
-} from 'bun:test';
+import { describe, expect, it, spyOn, beforeEach, afterEach } from 'bun:test';
 import { createTestHost } from './helpers';
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
 import type { ChatResponse, ToolAwareClient } from '@modules/ai';
@@ -61,9 +54,8 @@ afterEach(() => {
   restoreLoop = undefined;
 });
 
-const { runStreamMessage } = await import(
-  '../../../src/chat/orchestrator/streamMessageFlow.js'
-);
+const { runStreamMessage } =
+  await import('../../../src/chat/orchestrator/streamMessageFlow.js');
 
 /** 收集 appendStreamEvent 写入的事件列表 */
 function collectEvents(

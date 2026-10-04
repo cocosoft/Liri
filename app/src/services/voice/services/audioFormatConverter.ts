@@ -113,9 +113,7 @@ let ffmpegAvailableCache: boolean | null = null;
  * @param customPath 自定义 ffmpeg 路径
  * @returns ffmpeg 是否可用
  */
-export async function isFFmpegAvailable(
-  customPath?: string
-): Promise<boolean> {
+export async function isFFmpegAvailable(customPath?: string): Promise<boolean> {
   if (ffmpegAvailableCache !== null && !customPath) {
     return ffmpegAvailableCache;
   }

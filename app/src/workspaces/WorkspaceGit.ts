@@ -133,9 +133,12 @@ export class WorkspaceGit {
     try {
       // --force：隔离区内 execute 必然产生未提交改动（agent 写入的文件），
       // git 默认拒绝删除含未提交改动的 worktree；force 直接丢弃并清除元数据
-      await execAsync(`git worktree remove --force "${worktreeInfo.worktreePath}"`, {
-        cwd: worktreeInfo.gitRoot,
-      });
+      await execAsync(
+        `git worktree remove --force "${worktreeInfo.worktreePath}"`,
+        {
+          cwd: worktreeInfo.gitRoot,
+        }
+      );
     } catch {
       void handleError(new Error('removeWorktree'), {
         module: 'workspaces:git',

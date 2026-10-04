@@ -118,11 +118,14 @@ function extractVersion(output: string): string | null {
 async function checkCJKCompatibility(): Promise<void> {
   const tmpFile = path.join(os.tmpdir(), `test-cjk-compat-${process.pid}.docx`);
   try {
-    await execAsync(`officecli create "${tmpFile}" --content "中文测试" --json`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-      windowsHide: true,
-    });
+    await execAsync(
+      `officecli create "${tmpFile}" --content "中文测试" --json`,
+      {
+        encoding: 'utf-8',
+        timeout: 10000,
+        windowsHide: true,
+      }
+    );
 
     const { stdout: viewOutput } = await execAsync(
       `officecli view "${tmpFile}" text`,

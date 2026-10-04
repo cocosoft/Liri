@@ -348,6 +348,14 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
         chunk.__pyapp_doc_workflow as StreamChunk["docWorkflowData"],
     };
   }
+  if (pyappType === "deliverable" && chunk.__pyapp_deliverable) {
+    return {
+      type: "deliverable",
+      content: deltaContent || "",
+      deliverableData:
+        chunk.__pyapp_deliverable as StreamChunk["deliverableData"],
+    };
+  }
   if (deltaContent) {
     return {
       type: "text",
@@ -1014,6 +1022,17 @@ export const chatService = {
                 content: chunk.choices?.[0]?.delta?.content || "",
                 docWorkflowData:
                   chunk.__pyapp_doc_workflow as StreamChunk["docWorkflowData"],
+              };
+            } else if (
+              pyappType === "deliverable" &&
+              chunk.__pyapp_deliverable
+            ) {
+              // V-22（2026-09-14）：补齐主链路内联解析（此前服务端也不写该 chunk ⇒ 整条链断）
+              yield {
+                type: "deliverable",
+                content: chunk.choices?.[0]?.delta?.content || "",
+                deliverableData:
+                  chunk.__pyapp_deliverable as StreamChunk["deliverableData"],
               };
             } else if (pyappType === "usage" && chunk.usage) {
               yield {

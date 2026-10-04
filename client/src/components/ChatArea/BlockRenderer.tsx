@@ -12,8 +12,9 @@
  * - diff → DiffBlock
  * - text / default → MarkdownRenderer
  */
-import type { MessageBlock } from "../../types";
+import type { MessageBlock, DeliverableData } from "../../types";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ThinkingBlock from "./ThinkingBlock";
 import StatusBlock from "./StatusBlock";
@@ -28,6 +29,7 @@ import { DocWorkflowProgress } from "./DocWorkflowProgress";
 import PdcaWorkflowCard from "./PdcaWorkflowCard";
 import CodeRunCard from "./CodeRunCard";
 import { useChatStore } from "../../stores/chat";
+import { useRootStore } from "../../stores/root-store";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("BlockRenderer");
@@ -62,6 +64,65 @@ function MissingDataFallback({
     <div className="text-xs text-gray-400 italic px-2 py-1">
       {t("chat.blockDataMissing", { type: label })}
     </div>
+  );
+}
+
+/**
+ * 交付物块 +「进入工作模式」接线（Spec: `.trae/specs/plan-do-mode.md` B3-b/B3-c）
+ *
+ * 点击 → 以**交付物标题**在当前项目工作空间登记工作项（`root-store.createWorkItem`
+ * → `POST /v1/workspaces/:id/items`）→ 新建 `mode:'do'` 的工作空间会话并切过去
+ * （`work_mode` 只存在于**会话 metadata**，而 `resolveWorkMode()` 按当前会话派生）
+ * → 跳转工作区 `/work`。
+ *
+ * 闸门：工作项在后端只属于**项目工作空间**（`workspaceSource === "user"`）⇒ 非项目时
+ * `workModeReady=false` 由卡片禁用按钮（不造"点了必然失败"的入口）。
+ */
+function DeliverableBlock({ data }: { data: DeliverableData }) {
+  const navigate = useNavigate();
+  const isProjectWorkspace = useRootStore(
+    (s) => s.worktrees[s.currentWorkspaceId ?? ""]?.workspaceSource === "user",
+  );
+
+  const handleEnterWorkMode = async (): Promise<void> => {
+    try {
+      const { currentWorkspaceId } = useRootStore.getState();
+      if (!currentWorkspaceId) return;
+
+      // ① 以交付物标题登记工作项（归属当前项目工作空间）
+      await useRootStore.getState().createWorkItem(data.summary);
+
+      // ② 新建 `mode:'do'` 的工作空间会话并切过去
+      const { workspaceService } = await import("@/services/workspaceService");
+      // currentWorkspaceId 是**项目 id**，需换成后端**工作空间 id**（V-24 方案 B）
+      const backendWsId =
+        await workspaceService.resolveBackendWorkspaceId(currentWorkspaceId);
+      if (!backendWsId) {
+        throw new Error(
+          `无法解析项目所属工作空间（projectId=${currentWorkspaceId}），未创建执行会话`,
+        );
+      }
+      const workSession = await workspaceService.createSession(backendWsId, {
+        title: data.summary,
+        mode: "do",
+      });
+      const { useSessionStore } = await import("@/stores/sessionStore");
+      await useSessionStore.getState().switchSession(workSession.id);
+
+      // ③ 进入工作区
+      navigate("/work");
+    } catch (err) {
+      // 失败：界面错误态由 root-store.error 承载，此处只留可排查日志
+      logger.error(`进入工作模式失败: ${String(err)}`);
+    }
+  };
+
+  return (
+    <DeliverableCard
+      data={data}
+      onEnterWorkMode={handleEnterWorkMode}
+      workModeReady={isProjectWorkspace}
+    />
   );
 }
 
@@ -132,7 +193,7 @@ function BlockRenderer({
       return <MissingDataFallback type="progress" block={block} />;
     case "deliverable":
       if (block.deliverableData) {
-        return <DeliverableCard data={block.deliverableData} />;
+        return <DeliverableBlock data={block.deliverableData} />;
       }
       return <MissingDataFallback type="deliverable" block={block} />;
     case "diff":

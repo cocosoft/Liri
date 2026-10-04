@@ -234,9 +234,8 @@ export async function handleChatCompletions(
   // 纪律：外部输入非法则 fail loud（400 + ErrorTracker），禁止静默忽略。
   // chat 归属 app 层、本文件属 service 层 ⇒ 按本文件既有 `await import('@modules/ai')`
   // 模式动态导入，避免 service -> app 静态倒挂。
-  const { isWorkMode, applyWorkModeToSystemPrompt } = await import(
-    '@modules/chat'
-  );
+  const { isWorkMode, applyWorkModeToSystemPrompt } =
+    await import('@modules/chat');
   const workMode = request.work_mode;
   if (workMode !== undefined && !isWorkMode(workMode)) {
     const error = new AppError(
@@ -829,6 +828,32 @@ async function handleStreamingChat(
                 __pyapp_todo: chunk.todoData,
                 choices: [
                   { index: 0, delta: { content: '' }, finish_reason: null },
+                ],
+              })}\n\n`
+            );
+            safeFlush(res);
+          }
+          break;
+        case 'deliverable':
+          // V-22（2026-09-14）：此前该 chunk 在 SSE 写出侧**既无 case 也无 default**
+          // ⇒ 交付物被静默丢弃，前端「进入工作模式」入口因此永不可达
+          //（消费侧 EventBasedStreamAggregator / deriveConversationBlocks 早已就绪，
+          //  缺的只是这一跳的线格式：__pyapp_type + __pyapp_deliverable）
+          if (chunk.deliverableData) {
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'deliverable',
+                __pyapp_deliverable: chunk.deliverableData,
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: chunk.content || '' },
+                    finish_reason: null,
+                  },
                 ],
               })}\n\n`
             );

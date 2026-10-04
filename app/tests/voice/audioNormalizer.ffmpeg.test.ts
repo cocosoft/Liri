@@ -6,6 +6,8 @@
 
 import { describe, it, expect, mock, afterAll } from 'bun:test';
 import { EventEmitter } from 'events';
+import { spawn as realSpawn } from 'child_process';
+import { setSpawnImpl, type SpawnFn } from '../../src/utils/spawnPort.js';
 
 type FakeProc = {
   stdin: { write: ReturnType<typeof mock>; end: ReturnType<typeof mock> };
@@ -18,33 +20,37 @@ type FakeProc = {
 const spawnCalls: Array<{ cmd: string; args: string[] }> = [];
 const procs: FakeProc[] = [];
 
-mock.module('child_process', () => ({
-  spawn: (cmd: string, args: string[]) => {
-    spawnCalls.push({ cmd, args });
-    const stdout = new EventEmitter();
-    const stderr = new EventEmitter();
-    const stdin = { write: mock(), end: mock() };
-    const handlers: Record<string, (payload: unknown) => void> = {};
-    const proc = {
-      stdin,
-      stdout,
-      stderr,
-      on: (evt: string, cb: (payload: unknown) => void) => {
-        handlers[evt] = cb;
-        return proc;
-      },
-      _emit: (evt: string, ...payload: unknown[]) => {
-        handlers[evt]?.(payload[0]);
-      },
-    } as FakeProc;
-    procs.push(proc);
-    return proc;
-  },
-}));
+/**
+ * 假 spawn（P0-8，2026-10-04）：经 DI 端口注入，替代此前的 `mock.module('child_process')`
+ * —— bun 的模块 mock 进程级不可撤销、会跨文件泄漏；DI 只改本进程内 `getSpawnImpl()` 的读取。
+ */
+const fakeSpawn = ((cmd: string, args: string[]) => {
+  spawnCalls.push({ cmd, args });
+  const stdout = new EventEmitter();
+  const stderr = new EventEmitter();
+  const stdin = { write: mock(), end: mock() };
+  const handlers: Record<string, (payload: unknown) => void> = {};
+  const proc = {
+    stdin,
+    stdout,
+    stderr,
+    on: (evt: string, cb: (payload: unknown) => void) => {
+      handlers[evt] = cb;
+      return proc;
+    },
+    _emit: (evt: string, ...payload: unknown[]) => {
+      handlers[evt]?.(payload[0]);
+    },
+  } as FakeProc;
+  procs.push(proc);
+  return proc;
+}) as unknown as SpawnFn;
 
-// 文件结束后恢复真实 child_process（避免 mock 泄漏污染同进程其他测试文件）
+setSpawnImpl(fakeSpawn);
+
+// 文件结束后还原真实 spawn（DI 端口，非模块替换）
 afterAll(() => {
-  mock.module('child_process', () => require('child_process'));
+  setSpawnImpl(realSpawn);
 });
 
 import {

@@ -24,6 +24,8 @@ import { EventEmitter } from 'events';
 import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { spawn as realSpawn } from 'child_process';
+import { setSpawnImpl, type SpawnFn } from '../../../src/utils/spawnPort.js';
 import AdmZip from 'adm-zip';
 import {
   LlamaCppServerManager,
@@ -39,7 +41,7 @@ import {
   resolveLlamaDir,
 } from '../../../src/core/paths.js';
 
-// ── mock child_process.spawn ────────────────────────────────
+// ── 假 child_process.spawn（经 DI 端口注入）────────────────────
 
 type FakeProc = {
   kill: () => void;
@@ -50,30 +52,35 @@ type FakeProc = {
 const spawnCalls: Array<{ cmd: string; args: string[] }> = [];
 const procs: FakeProc[] = [];
 
-mock.module('child_process', () => ({
-  spawn: (cmd: string, args: string[]) => {
-    spawnCalls.push({ cmd, args });
-    const handlers: Record<string, (...args: unknown[]) => void> = {};
-    const proc = {
-      kill: () => {
-        // no-op
-      },
-      on: (evt: string, cb: (...args: unknown[]) => void) => {
-        handlers[evt] = cb;
-        return proc;
-      },
-      _emit: (evt: string, ...args: unknown[]) => {
-        handlers[evt]?.(...args);
-      },
-    } as FakeProc;
-    procs.push(proc);
-    return proc;
-  },
-}));
+/**
+ * P0-8（2026-10-04）：原实现用 `mock.module('child_process', …)` **替换整个模块**
+ * —— bun 的模块 mock 为**进程级全局且不可撤销** ⇒ 泄漏给同进程后续文件。
+ * 改为经 DI 端口注入（`utils/spawnPort.ts`）：只改本进程内 `getSpawnImpl()` 的读取，不触模块注册表。
+ */
+const fakeSpawn = ((cmd: string, args: string[]) => {
+  spawnCalls.push({ cmd, args });
+  const handlers: Record<string, (...args: unknown[]) => void> = {};
+  const proc = {
+    kill: () => {
+      // no-op
+    },
+    on: (evt: string, cb: (...args: unknown[]) => void) => {
+      handlers[evt] = cb;
+      return proc;
+    },
+    _emit: (evt: string, ...args: unknown[]) => {
+      handlers[evt]?.(...args);
+    },
+  } as FakeProc;
+  procs.push(proc);
+  return proc;
+}) as unknown as SpawnFn;
 
-// 文件结束后恢复真实 child_process（避免 mock 泄漏污染同进程其他测试文件）
+setSpawnImpl(fakeSpawn);
+
+// 文件结束后还原真实 spawn（DI 端口，非模块替换）
 afterAll(() => {
-  mock.module('child_process', () => require('child_process'));
+  setSpawnImpl(realSpawn);
 });
 
 // ── fetch mock 工具 ─────────────────────────────────────────

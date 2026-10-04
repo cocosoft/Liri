@@ -30,7 +30,8 @@
  * 配置来源优先级：configProvider（config.json llama 段）→ 环境变量 → 默认值
  */
 
-import { execFile, execSync, spawn, type ChildProcess } from 'child_process';
+import { execFile, execSync, type ChildProcess } from 'child_process';
+import { getSpawnImpl } from '@modules/utils/spawnPort';
 import { createHash } from 'crypto';
 import { EventEmitter } from 'events';
 import {
@@ -1294,7 +1295,7 @@ export class LlamaCppServerManager {
       `拉起 llama-server: ${resolveLlamaBinaryPath()} ${args.join(' ')}`
     );
     // stdio 捕获 stderr/stdout 尾部：llama-server 缺 DLL / 参数非法时，失败原因可追溯
-    this.serverProcess = spawn(resolveLlamaBinaryPath(), args, {
+    this.serverProcess = getSpawnImpl()(resolveLlamaBinaryPath(), args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     this.serverProcess.stderr?.on('data', (d: Buffer) => {

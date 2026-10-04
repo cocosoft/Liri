@@ -8,7 +8,7 @@
  * （由调用方对 cloud Provider 放行——OpenAI Whisper API 原生支持 webm/ogg）。
  */
 
-import { spawn } from 'child_process';
+import { getSpawnImpl } from '@modules/utils/spawnPort';
 
 import { getLogger } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter.js';
@@ -117,7 +117,7 @@ export function ffmpegPipeConvert(
   opts: FfmpegPipeOptions
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', [
+    const proc = getSpawnImpl()('ffmpeg', [
       '-i',
       'pipe:0',
       '-f',

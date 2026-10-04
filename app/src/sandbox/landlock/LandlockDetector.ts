@@ -24,7 +24,8 @@
  *
  * 检测顺序（对齐方案 §4.2(3)）：
  *   1. 平台门控（非 Linux 直接不可用）
- *   2. `/sys/kernel/security/lsm` 快速预检（是否含 landlock）
+ *   2. `/sys/kernel/security/lsm` 快速预检（三态：可读且不含 landlock 才定论不可用；
+ *      不可读 ⇒ unknown，转 3，避免 securityfs 未挂载时误判 —— 2026-10-05 WSL2 真机修正）
  *   3. 功能 probe：`landlock-run --probe`（真实构建 ruleset，验证内核实际允许 enforce）
  *
  * 结果缓存：运行期内核能力不变，避免每次命令执行都 spawn probe。
@@ -70,9 +71,11 @@ async function detectInternal(options: {
   if (process.platform !== 'linux') {
     return { available: false, abi: 0, reason: 'no-linux' };
   }
-  // 2. LSM 快速预检
-  const inLsm = await landlockInLsm();
-  if (!inLsm) {
+  // 2. LSM 快速预检（三态）：**仅"可读且明确不含 landlock"才是定论**；
+  //    不可读（WSL2/精简容器默认未挂载 securityfs）不得据此判不可用 —— 否则会漏掉
+  //    能力其实可用的内核（假阴性）⇒ 交由第 3 步功能 probe 定论。
+  const lsm = await landlockInLsm();
+  if (lsm === 'absent') {
     return { available: false, abi: 0, reason: 'not-in-lsm' };
   }
   // 3. 功能 probe：真实构建 ruleset 验证 enforce 被允许（LSM 列表有盲区）
@@ -82,12 +85,19 @@ async function detectInternal(options: {
   );
 }
 
-async function landlockInLsm(): Promise<boolean> {
+/** LSM 预检三态：present（列表含 landlock）/ absent（可读但不含）/ unknown（不可读） */
+type LsmPrecheck = 'present' | 'absent' | 'unknown';
+
+async function landlockInLsm(): Promise<LsmPrecheck> {
   try {
     const content = await readFile(LSM_PATH, 'utf8');
-    return content.split(',').some((s) => s.trim().includes('landlock'));
+    return content.split(',').some((s) => s.trim().includes('landlock'))
+      ? 'present'
+      : 'absent';
   } catch {
-    return false;
+    // 读失败（securityfs 未挂载 / 路径缺失 / 权限不足）≠ 内核无 landlock
+    // ⇒ 返回 unknown，交由功能 probe 定论（WSL2/精简容器默认即此情形）
+    return 'unknown';
   }
 }
 

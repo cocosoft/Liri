@@ -93,7 +93,13 @@ export function readLandlockConfig(): LandlockConfig {
  *   能力可用 ⇒ 走 Landlock；不可用 ⇒ **回退 plain**（**绝不 `refuse`**）——
  *   否则会在无 Landlock 的机器（Windows/macOS/无 helper 的 Linux）上**打断评测**。
  * ⚠️ **需 Linux 真实评测运行验证**：开启后 bash 受 FS 白名单约束，
- *   须确认评测所需路径不被误拒（helper 源码在外部参考仓库，本仓未内置）。
+ *   须确认评测所需路径不被误拒。helper `landlock-run` 源码在**本仓**：
+ *   `app/src/sandbox/landlock/native/main.c`（README/build.sh 同目录），仅编译产物不入库。
+ * ⚠️ **WSL2 真机复验（2026-10-05）**：门控路由（eval-forced ⇒ landlock）与敏感路径拒绝均正确、
+ *   普通命令无误拒；但发现两处**环境相关**缺口 —— ①WSL2 默认未挂载 securityfs ⇒
+ *   `LandlockDetector` 的 LSM 预检误判 `not-in-lsm` ⇒ evalForced 静默回退 plain（未真正受限）；
+ *   ②WSL2 `/etc/resolv.conf` 为符号链接指向 `/mnt/wsl/resolv.conf`（不在白名单）⇒ 域内 DNS 被拒。
+ *   详见 `dev_docs/error_repairs/预存错误与待处理问题.md` 的「P0-4 ② 真机验证」段。
  */
 export const ENV_EVAL_BASH_LANDLOCK = 'LIRI_EVAL_BASH_LANDLOCK';
 

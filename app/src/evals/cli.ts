@@ -114,7 +114,9 @@ import type { EvalTask, EvalTaskResult } from './types.js';
  *   `tools/bash/bashLandlockExec.decideBashLandlockGate` —— 能力可用 ⇒ 真受限；
  *   不可用 ⇒ **回退 plain**（**绝不 `refuse`**），故不会打断 Windows/macOS/无 helper 机器上的评测。
  * - ⚠️ **需 Linux 真实评测运行验证**：开启后 bash 受 FS 白名单约束，
- *   须确认评测任务所需路径不被误拒（helper `landlock-run` 源码在外部参考仓库，本仓未内置）。
+ *   须确认评测任务所需路径不被误拒。helper `landlock-run` 源码在**本仓**
+ *   （`sandbox/landlock/native/main.c`），仅编译产物不入库。
+ *   （2026-10-05 WSL2 真机复验：门控路由与拒绝面均正确，另见两处环境相关缺口记录。）
  */
 process.env[ENV_EVAL_BASH_LANDLOCK] = '1';
 

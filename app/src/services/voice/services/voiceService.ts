@@ -700,7 +700,7 @@ export class VoiceService {
         }
 
         // 需要格式转换但 ffmpeg 不可用，降级返回原始数据
-        if (!isFFmpegAvailable()) {
+        if (!(await isFFmpegAvailable())) {
           logger.warn('synthesizeSpeech · ffmpeg 不可用，返回原始音频');
           return result.audioData;
         }
@@ -713,7 +713,7 @@ export class VoiceService {
         try {
           await writeFile(tmpInput, result.audioData);
 
-          const convResult = AudioFormatConverter.convert({
+          const convResult = await AudioFormatConverter.convert({
             inputPath: tmpInput,
             outputPath: tmpOutput,
             targetFormat,

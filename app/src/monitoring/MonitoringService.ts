@@ -462,27 +462,13 @@ export class MonitoringService {
     const networkInterfaces = require('os').networkInterfaces();
 
     // 简化的磁盘使用情况
-    let disk = {
+    // （原 Unix `df -k` 分支已删除：结果从未被解析/使用，属死分支；阻塞源收敛 2026-10-04 台账 V-2）
+    const disk = {
       total: 0,
       free: 0,
       used: 0,
       usage: 0,
     };
-
-    try {
-      if (process.platform !== 'win32') {
-        // Unix 系统：获取磁盘信息
-        const { execSync } = require('child_process');
-        const output = execSync('df -k', { encoding: 'utf8' });
-        // 解析输出（暂未实现）
-      }
-    } catch (error) {
-      // 非关键磁盘信息收集，仅 Unix 系统可用，获取失败不影响主流程
-      handleError(error, {
-        module: 'monitoring:service',
-        action: '获取磁盘信息',
-      });
-    }
 
     return {
       uptime,

@@ -6,12 +6,16 @@
  * 自动检测系统 ffmpeg 可用性，并提供降级策略。
  */
 
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { dirname, basename, extname, join } from 'path';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:voice:services:audioFormatConverter');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：`convert` 的 ffmpeg 超时 60s，原 `execSync` 会同步阻塞 */
+const execAsync = promisify(exec);
 
 /**
  * 支持的音频格式
@@ -109,15 +113,16 @@ let ffmpegAvailableCache: boolean | null = null;
  * @param customPath 自定义 ffmpeg 路径
  * @returns ffmpeg 是否可用
  */
-export function isFFmpegAvailable(customPath?: string): boolean {
+export async function isFFmpegAvailable(
+  customPath?: string
+): Promise<boolean> {
   if (ffmpegAvailableCache !== null && !customPath) {
     return ffmpegAvailableCache;
   }
 
   try {
     const cmd = customPath || 'ffmpeg';
-    execSync(`"${cmd}" -version 2>nul || ${cmd} -version 2>/dev/null`, {
-      stdio: 'ignore',
+    await execAsync(`"${cmd}" -version 2>nul || ${cmd} -version 2>/dev/null`, {
       timeout: 5000,
     });
 
@@ -153,7 +158,9 @@ export class AudioFormatConverter {
    * @param options 转换选项
    * @returns 转换结果
    */
-  static convert(options: AudioConvertOptions): AudioConvertResult {
+  static async convert(
+    options: AudioConvertOptions
+  ): Promise<AudioConvertResult> {
     if (!existsSync(options.inputPath)) {
       return {
         success: false,
@@ -161,7 +168,7 @@ export class AudioFormatConverter {
       };
     }
 
-    if (!isFFmpegAvailable()) {
+    if (!(await isFFmpegAvailable())) {
       return {
         success: false,
         error:
@@ -201,7 +208,7 @@ export class AudioFormatConverter {
       args.push(`"${outputPath}"`);
 
       const cmd = `ffmpeg ${args.join(' ')}`;
-      execSync(cmd, { stdio: 'ignore', timeout: 60000 });
+      await execAsync(cmd, { timeout: 60000 });
 
       return {
         success: true,
@@ -222,7 +229,10 @@ export class AudioFormatConverter {
    * @param outputPath 输出文件路径（可选）
    * @returns 转换结果
    */
-  static toWav(inputPath: string, outputPath?: string): AudioConvertResult {
+  static async toWav(
+    inputPath: string,
+    outputPath?: string
+  ): Promise<AudioConvertResult> {
     return AudioFormatConverter.convert({
       inputPath,
       outputPath,
@@ -238,11 +248,11 @@ export class AudioFormatConverter {
    * @param bitrate 比特率（可选）
    * @returns 转换结果
    */
-  static toMp3(
+  static async toMp3(
     inputPath: string,
     outputPath?: string,
     bitrate?: string
-  ): AudioConvertResult {
+  ): Promise<AudioConvertResult> {
     return AudioFormatConverter.convert({
       inputPath,
       outputPath,
@@ -259,11 +269,11 @@ export class AudioFormatConverter {
    * @param bitrate 比特率（可选）
    * @returns 转换结果
    */
-  static toOpus(
+  static async toOpus(
     inputPath: string,
     outputPath?: string,
     bitrate?: string
-  ): AudioConvertResult {
+  ): Promise<AudioConvertResult> {
     return AudioFormatConverter.convert({
       inputPath,
       outputPath,
@@ -279,7 +289,10 @@ export class AudioFormatConverter {
    * @param outputPath 输出文件路径（可选）
    * @returns 转换结果
    */
-  static toPCM16(inputPath: string, outputPath?: string): AudioConvertResult {
+  static async toPCM16(
+    inputPath: string,
+    outputPath?: string
+  ): Promise<AudioConvertResult> {
     return AudioFormatConverter.convert({
       inputPath,
       outputPath,

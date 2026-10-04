@@ -479,7 +479,7 @@ export class AudioPipeline {
     sampleRate: number;
     channels: number;
   }): Promise<Buffer> {
-    if (!isFFmpegAvailable()) {
+    if (!(await isFFmpegAvailable())) {
       return this.tryJSWavFallback(opts);
     }
 

@@ -133,7 +133,7 @@ export class PlaybackManager {
       return this.stripWavHeader(audioData);
     }
 
-    if (isFFmpegAvailable()) {
+    if (await isFFmpegAvailable()) {
       // 非 PCM16 格式（如 MP3/Opus）：ffmpeg 管道转 PCM16 16k mono
       try {
         return await transcodeToPcm16(audioData);

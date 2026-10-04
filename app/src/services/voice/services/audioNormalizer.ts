@@ -169,7 +169,7 @@ export async function normalizeAudioForSTT(
     return { buffer: input, container, converted: false };
   }
 
-  if (!isFFmpegAvailable()) {
+  if (!(await isFFmpegAvailable())) {
     logger.warn(
       '检测到非 WAV 音频且 ffmpeg 不可用，原样透传（cloud Provider 可识别）',
       {

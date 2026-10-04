@@ -50,7 +50,7 @@ v<主版本>.<次版本>.<修订号>
 
 ## 三、版本文件清单
 
-所有组件版本号必须保持一致，每次升级统一更新以下 **6 个文件**：
+所有组件版本号必须保持一致，每次升级统一更新以下 **6 个版本文件**，并**强制同步 `README.md`**（不得只改其一）：
 
 | 组件 | 版本文件 | 版本字段 |
 |------|---------|---------|
@@ -60,18 +60,21 @@ v<主版本>.<次版本>.<修订号>
 | 前端客户端 | `client/package.json` | `version` |
 | Tauri 配置 | `client/src-tauri/tauri.conf.json` | `version` |
 | Tauri Rust 模块 | `client/src-tauri/Cargo.toml` | `[package] version` |
-| 项目主页 | `README.md` | badge URL 中的版本号 |
+| 项目主页 | `README.md` | **三处必须同步**：① badge URL 版本号（`badge/version-X.Y.Z-blue`）；②「📋 版本」下的「当前版本：**vX.Y.Z**」；③「🚀 版本更新记录」新增本版 changelog 段落 |
+
+> **强制要求（2026-10-04 用户明确）**：版本升级时**必须同步 README.md** —— 上述 badge / 「当前版本」/ changelog 三处缺一不可（v0.4.58 起执行）。
 
 ## 四、发布流程
 
 ```bash
 # 1. 更新版本号（手动或跑 sync-version.ts 脚本）
 # 2. 同步到所有版本文件（共 6 个）
-# 3. 更新 CHANGELOG.md
-# 4. git commit -m "chore: bump version to vX.Y.Z"
-# 5. git tag -a "vX.Y.Z" -m "Release vX.Y.Z"
-# 6. git push && git push --tags
-# 7. GitHub Actions 自动构建 Release
+# 3. 同步 README.md（强制）：badge URL + 「当前版本」文案 + 新增本版 changelog 段落
+# 4. 更新 CHANGELOG.md
+# 5. git commit -m "chore: bump version to vX.Y.Z"
+# 6. git tag -a "vX.Y.Z" -m "Release vX.Y.Z"
+# 7. git push && git push --tags
+# 8. GitHub Actions 自动构建 Release
 ```
 
 详细操作步骤见 [RELEASE.md](file:///E:/PY/CODES/Liri/RELEASE.md)。

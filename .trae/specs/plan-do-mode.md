@@ -1,7 +1,7 @@
 # Spec：Plan/Do 工作模式（V-18 ⑤）根因修复设计
 
 > 状态：**设计待评审**（本文件只定义契约与步骤，不含实现）
-> 状态复核（2026-10-04）：状态头 stale——正文 B1–B5 已完成；**⚠️ B6（输入区开关）与验收 #1/#2/#7 在 2026-10-04 的真实浏览器复测中「不成立」（回归/未合入），见下方实测块**；§8 未决 Q1–Q4 待确认。
+> 状态复核（2026-10-04）：状态头 stale。**⚠️ 重要更正**：正文 B1–B5 的「✅ 已完成」实为**悬空分支 `06f4384b4` 的状态**（该提交**不是 HEAD 祖先、无任何分支包含**）⇒ 在 main **从未落地**。**2026-10-04 用户裁定 `Q1=A + Q2=①`，并已把 `mode` 主线（B1 后端语义 + B6 写入侧/开关/透传）重新落地到 main 并验收通过**（提交 `7cc906e29`，见 §6.1）；**B3/Q3/Q4（工作项/工作区入口）仍未落地**。§8 未决 Q1–Q4 中 Q1/Q2 已裁定，Q3/Q4 待定。
 > 触发：`dev_docs/error_repairs/预存错误与待处理问题.md` → V-18 ⑤（`activeWorkItem` 恒空 → plan/do 从未到达后端）
 > 关联：V-18 ②（UI 状态分层结论）、§1.6.1 接口清单（api-spec.md）、V-17（门禁协同）
 
@@ -183,6 +183,21 @@ export type WorkMode = "plan" | "do";
 > **禁止**：先做 B2 而不做 B1（会继续空投，只是把空投搬到别处）。
 
 | **B6** ✅ **已完成（2026-09-14，用户追加要求：输入区两态开关）** | **把 mode 做成输入区开关（用户：只要两态 plan/do、聊天默认 plan、单击切换、位置在 emoji 之后）**。① 后端：`handleUpdateSessionMeta` 接受 `work_mode`（`isWorkMode()` 校验，非法 400）+ `CoreAPI`/`CoreAPIImpl.updateSessionMeta` 增加 `workMode`（**内存 `session.metadata` 与持久化 `storedSession.metadata` 两处都写**）+ `SessionMetadata` 类型补 `workMode`；② 前端：`sessionService.updateSessionMeta` 增加 `workMode` → `body.work_mode`；新建 `WorkModeToggle`（复用 `WorkModeBadge` 视觉，单击 → PATCH → 就地更新本地缓存，失败 toast 不假装成功）挂到 `ChatInput` emoji 按钮之后；③ 契约收敛：`resolveWorkMode` 缺省由 `undefined` 改为 **`plan`**（原"未设置即不发送"作废）+ `useInitApp` 订阅 `session:meta_updated` 回填 | ✅ 两端 `tsc --noEmit` **0**；后端 `bun test` **3797 pass / 0 fail**；client **268 pass / 0 fail**（含新增 `workModeToggle.test.tsx` 6 例 + 更新 `workMode.test.ts` 3 例、`retry-tail-guard.test.ts` 1 例的旧契约断言）；定向 ESLint 0 error；**隔离 HTTP 实测**：`PATCH work_mode:"do"` → 200 → 回读 `metadata.workMode="do"`；改 `"plan"` → 回读 `"plan"`；非法 `"bogus"` → **400**；`session.json` 落盘含 `"workMode":"plan"`（持久化成立） |
+
+### 6.1 重新落地记录（2026-10-04，提交 `7cc906e29`，16 文件）
+
+**背景**：B1–B5 的「✅ 已完成」实为**悬空分支 `06f4384b4`**（非 HEAD 祖先、无分支包含）⇒ main 上**从未落地**（取证见台账 R-6f）。用户裁定 **`Q1=A` + `Q2=①`**（mode 归会话；后端按 `work_mode` **注入规划提示**）。
+
+| 层 | 落地内容 |
+|---|---|
+| 后端语义（B1/Q2①） | 🆕 `app/src/chat/workMode.ts`（`WorkMode` / `isWorkMode` / `PLAN_MODE_PROMPT` / `applyWorkModeToSystemPrompt`）+ `chat/index.ts` 出口；`chat-handlers.ts` 在 HTTP 边界**fail-loud 校验**并对 `plan` 追加规划提示（`do`/缺省原样）。service→app 用**动态 `import('@modules/chat')`**（与既有 `import('@modules/ai')` 同法，避免分层倒挂） |
+| 写入侧（B6-write） | `session-handlers.ts#handleUpdateSessionMeta` 校验 `data.work_mode` 并透传 `workMode`；`CoreAPI`/`CoreAPIImpl.updateSessionMeta` 支持 `workMode`（计入 `hasMetaField`）；`session/models/SessionMetadata.ts` 与 `session/types/UnifiedSession.ts` 的 `SessionMetadata` **最小白名单**补 `workMode`（**未**引入 V-27 整体透传重构） |
+| 前端（B6） | `sessionService.updateSessionMeta` 映射 `body.work_mode`；🆕 `WorkModeToggle.tsx`（复用 `WorkModeBadge`，紧随 emoji 按钮，单击切换）；`ChatInput` 正常/语音发送均透传 `resolveWorkMode(sessionId)`（复用既有实现，缺省 `plan`，**不再空投**）；i18n 补 `workspace.planDoSwitchFailed`（zh/en） |
+| 契约文档 | `.trae/docs/api-spec.md`：chat 请求体补 `work_mode` 契约 + `PATCH /v1/sessions/{id}/meta` 行补 `work_mode?` |
+
+**验收（真实浏览器 + 真实 HTTP，2026-10-04）**：① 开关紧随 `表情`、单击 `计划 ⇄ 执行` 即时反映 ✅；② 切换经 `PATCH .../meta` 落库 ⇒ `metadata.workMode="do"` + SSE `session:meta_updated` ✅；③ 发送请求体携带 `"work_mode":"do"`（同会话）✅；④ F5 刷新后仍为「执行」✅；⑤ fail-loud：chat `{"work_mode":"execute"}` → **400**（响应体逐字 `INVALID_WORK_MODE`）、meta `{"work_mode":"bogus"}` → **400**、合法 → **200** ✅。静态：app `typecheck` 0 / client `tsc` 0 / `app/tests/chat/workMode.test.ts` **6 pass** / client `vitest` **329 pass** / `lint:arch` 0 违规。
+
+**仍未落地（如实）**：**B3（Q3：`DeliverableCard.onEnterWorkMode` → 工作项 + 工作空间会话）** 与 **B5/Q4（工作区页显式入口）**；**Q2① 的"模型实际收到的系统提示"未做端到端观测**（由单测 + `system_prompt` 消费点覆盖）。
 
 ---
 

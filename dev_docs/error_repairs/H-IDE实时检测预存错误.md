@@ -14,31 +14,18 @@
 
 ## H 类：TypeScript 编译错误
 
-### H-001 ❌ P0 — `LocalHTTPService.ts:6119` MCP marketplace.toggleTool 不存在
+### H-001 ✅ 已修复（原 P0）— MCP marketplace.toggleTool 已存在且调用点已迁移
 
-- **状态**: 未修复
-- **位置**: `app/src/core/gateway/local/LocalHTTPService.ts` 第 6119 行
-- **完整方法**: `handleMCPToggleTool` (6096-6130 行)
-- **代码**:
-  ```typescript
-  // 工具级启用/禁用通过 marketplace 的 tool toggle 实现
-  const { mcpSystem } = await import('@modules/services/mcp');
-  await mcpSystem.marketplace.toggleTool(
-    serverName || toolName,
-    toolName,
-    enabled
-  );
-  ```
-- **错误信息**: `类型"MCPMarketplace"上不存在属性"toggleTool"`
-- **影响**: `PATCH /v1/mcp/tools/:toolName/toggle` 端点会编译失败
-- **范围**: 该路由在 1022-1031 行注册（`/v1/mcp/tools/:toolName/toggle`）
-- **修复建议**:
-  1. 核查 `app/src/services/mcp/` 下 `MCPMarketplace` 接口定义
-  2. 若不存在 `toggleTool` 方法：实现该方法或使用现有 `enableTool`/`disableTool` 替代
-  3. 若签名不匹配：调整参数顺序（建议签名：`toggleTool(serverName: string, toolName: string, enabled: boolean)`）
-- **关联文件**:
-  - `app/src/services/mcp/MCPMarketplace`（待定位）
-  - `app/src/services/mcp/officialRegistry.ts`（含 marketplace 逻辑）
+- **状态**: ✅ **已修复 / 已不成立**（2026-10-04 复核：`bun run typecheck` **exit 0**）
+- **原位置（已迁移）**: `app/src/core/gateway/local/LocalHTTPService.ts:6119` —— 该路径**已不存在**；`LocalHTTPService` 现位于 `app/src/infrastructure/http/LocalHTTPService.ts`（拆分为 `LocalHTTPService` / `LocalHTTPServiceHelpers` / `LocalHTTPServiceSSE`）
+- **现调用点**: `app/src/infrastructure/http/handlers/mcp-marketplace-handlers.ts:517`（`handleMCPToggleTool`），第 540 行调用 `mcpSystem.marketplace.toggleTool(serverName || toolName, toolName, enabled)`
+- **现方法定义**: `app/src/services/mcp/marketplace/MCPMarketplace.ts:243` —— `toggleTool(serverName: string, toolName: string, enabled: boolean): void`
+- **结论**: 原报"类型 `MCPMarketplace` 上不存在属性 `toggleTool`"**已不成立** —— 方法已实现（签名与调用点一致），且全量 `tsc --noEmit`（app / scripts / root-scripts 三配置）**0 error**。**无需改码**。
+- **复核记录（2026-10-04，证据驱动）**:
+  - `MCPMarketplace.toggleTool` 存在：`app/src/services/mcp/marketplace/MCPMarketplace.ts:243-248`
+  - 调用点签名匹配：`mcp-marketplace-handlers.ts:540-544`
+  - 路由 `PATCH /v1/mcp/tools/:toolName/toggle` 注册于 `handlers/routes/marketplace-mcp-routes.ts:214-215`
+  - `bun run typecheck`（`app/`）**exit 0**
 
 ---
 
@@ -46,10 +33,10 @@
 
 **H 类问题数**: 1 项
 - P0: 1 项
-- 状态: 全部未修复
+- 状态: **全部已修复 / 已不成立**（H-001 于 2026-10-04 复核关闭；`bun run typecheck` exit 0）
 
 ---
 
-**文档版本**: v1.0
-**最后更新**: 2026-06-03 07:29
+**文档版本**: v1.1
+**最后更新**: 2026-10-04（H-001 复核关闭）
 **检测来源**: IDE 实时 TypeScript 检查

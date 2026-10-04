@@ -4,7 +4,7 @@
 > **关联规则**：GR15（Spec-Driven）/ GR01（基础设施复用）/ CS01（归一化）/ CS03（回退最小化）/ CS04（零 Mock）/ CS05（根因优先）/ R06-008（分层）
 > **来源**：[`Liri优化方案-20260925.md`](../../dev_docs/Liri优化方案-20260925.md) §2 A7 的后续（A7 实测结论：本仓纯函数派生**区分度不足**）
 > **代码面**：`app/src/evals/`（题源与判据）、`app/src/evals/tasks/`
-> **最后更新**：2026-09-26
+> **最后更新**：2026-10-04（POSIX `..` 穿符号链接语义已在真实 Linux 实测确认）
 
 ---
 
@@ -136,10 +136,16 @@ Agent 的关键面（合规、自验证、探索收敛）。
 
 **链接方式的平台差异（更正我先前的假设）**：实测本机（Windows）`fs.realpathSync('<snap>/app/node_modules/../src/…')`
 **仍解析到快照内路径**（先做词法 `..`）⇒ junction **未**造成越界，我先前"junction ⇒ 必然越界"的判断**不成立**。
-但**POSIX 语义下 `..` 会穿出符号链接**（业界已知语义；本机为 Windows，**无法在此实测**）⇒ 若评测在 Linux/容器内
-运行，**禁止**用 symlink/junction 供给依赖，应改为**物理拷贝**，或"快照置于仓内 + 整仓屏蔽 + 快照白名单"
+但**POSIX 语义下 `..` 会穿出符号链接** —— **✅ 已于 2026-10-04 在真实 Linux（WSL2 Ubuntu，内核 6.18.33.2）实测确认**（此前仅"业界已知语义"、本机 Windows 无法实测）：
+
+| 场景 | `realpath -m <snap>/app/node_modules/../secret.txt` | 实际 `cat` |
+|---|---|---|
+| **symlink 供给**（`node_modules -> /tmp/l2-verify/real_node_modules`） | **`/tmp/l2-verify/secret.txt`**（**穿出 snap**；词法应为 `<snap>/app/secret.txt`） | **`LEAKED_SECRET`**（读到了 snap 之外的文件）⇒ **越界 = YES** |
+| **真实目录对照**（无 symlink） | `<snap2>/app/secret.txt`（词法一致） | `LEXICAL_ONLY` ⇒ 不越界 |
+
+⇒ 若评测在 Linux/容器内运行，**禁止**用 symlink/junction 供给依赖，应改为**物理拷贝**，或"快照置于仓内 + 整仓屏蔽 + 快照白名单"
 （后者需给 `pathShield` 增加**例外**能力，属新增能力，**未做**）。
-**✅ 已落地（2026-09-26）：POSIX ⇒ 物理拷贝**（`supplyDeps` 的 `copy` 分支 + 体积闸 `POSIX_DEPS_MAX_COPY_BYTES` 默认 1 GiB，超限 **fail-closed 拒绝**并把出路写进原因）；`removeRepoSapshot` 已**区分两种供给方式**（链接 ⇒ `rmdirSync` **不跟随**；真目录 ⇒ 递归删）。
+**✅ 已落地（2026-09-26）：POSIX ⇒ 物理拷贝**（`supplyDeps` 的 `copy` 分支 + 体积闸 `POSIX_DEPS_MAX_COPY_BYTES` 默认 1 GiB，超限 **fail-closed 拒绝**并把出路写进原因）；`removeRepoSapshot` 已**区分两种供给方式**（链接 ⇒ `rmdirSync` **不跟随**；真目录 ⇒ 递归删）。**实现与实测语义一致**（[`repoSnapshot.ts`](../../app/src/evals/repoSnapshot.ts)：`win32 ⇒ junction` / **其它平台 ⇒ `cpSync` 物理拷贝**）。
 ⚠️ 该修正是**由新用例实测抓出**的：对**拷贝目录**用 `rmdirSync` 会报 `ENOTEMPTY`（原实现只考虑 junction）。"仓内快照 + 白名单例外"仍未做（现有方案已够）。
 
 **三项处置已落地（2026-09-26，零模型）**：

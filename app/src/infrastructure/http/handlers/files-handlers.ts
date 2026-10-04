@@ -447,7 +447,7 @@ export async function handleFileHealth(
     // 2. 磁盘空间检查
     try {
       const monitor = new DiskSpaceMonitor();
-      const disks = monitor.check();
+      const disks = await monitor.check();
       const pyappDir = resolvePyappHome();
       const mainDisk =
         disks.find((d) => pyappDir.startsWith(d.drive)) || disks[0];

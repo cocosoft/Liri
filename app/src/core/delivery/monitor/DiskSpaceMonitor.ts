@@ -1,8 +1,18 @@
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { getLogger } from '../../loggerFacade.js';
 import { handleError } from '../../errorHandler.js';
 
 const logger = getLogger('core:delivery:monitor:diskSpaceMonitor');
+
+/**
+ * 外部命令执行（**异步**）。
+ *
+ * 阻塞源收敛（2026-10-04，台账 V-2）：原 `execSync`（5s 超时）在 **HTTP 处理器**
+ * （`handleFileHealth`）内同步执行 PowerShell 查询 ⇒ 每次请求都可阻塞事件循环数秒。
+ * 改为 `promisify(exec)`；`check()` / `checkAndAlert()` 随之改为 async（唯一调用方已是 async）。
+ */
+const execAsync = promisify(nodeExec);
 
 export interface DiskInfo {
   drive: string;
@@ -35,10 +45,10 @@ export class DiskSpaceMonitor {
     this.trackedDrives = trackedDrives || [];
   }
 
-  check(): DiskInfo[] {
+  async check(): Promise<DiskInfo[]> {
     try {
       // 使用 PowerShell Get-CimInstance（wmic 已在 Win11 中弃用）
-      const output = execSync(
+      const { stdout: output } = await execAsync(
         'powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk | ForEach-Object { \\"$($_.DeviceID),$($_.Size),$($_.FreeSpace)\\" }"',
         { encoding: 'utf-8', timeout: 5000 }
       );
@@ -72,8 +82,8 @@ export class DiskSpaceMonitor {
     }
   }
 
-  checkAndAlert(): DiskAlert[] {
-    const disks = this.check();
+  async checkAndAlert(): Promise<DiskAlert[]> {
+    const disks = await this.check();
     const alerts: DiskAlert[] = [];
 
     for (const disk of disks) {

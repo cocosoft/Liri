@@ -13,12 +13,24 @@
 
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('query:verifyProject');
+
+/**
+ * 外部命令执行（**异步**）。
+ *
+ * 阻塞源收敛（2026-10-04，台账 V-2 证据）：原实现用 `execSync`（check 30s / test 60s 超时）
+ * ⇒ 事件循环可被**同步阻塞**最多 90s；loop-probe 转储实测 `spawnSync` 自记 **19.6s / 24.9s 采样窗**
+ * 且与对应 `lag=14891ms` 吻合（该函数处于 `toolround:execute` 阶段）。改为 `promisify(exec)`
+ * ⇒ 不阻塞事件循环，**超时/错误形状不变**（非零退出仍在 error 上带 `stdout`/`stderr`）。
+ */
+const execAsync = promisify(nodeExec);
 
 type ProjectType = 'bun' | 'npm' | 'pnpm' | 'yarn' | 'cargo' | 'python' | null;
 
@@ -109,8 +121,7 @@ export async function verifyProject(
     const checkCmd = getCheckCommand(projectType);
     if (checkCmd) {
       try {
-        const { execSync } = await import('child_process');
-        execSync(checkCmd, { cwd, timeout: 30000, encoding: 'utf-8' });
+        await execAsync(checkCmd, { cwd, timeout: 30000, encoding: 'utf-8' });
         results.push({
           step: `${projectType}_check`,
           passed: true,
@@ -135,8 +146,7 @@ export async function verifyProject(
     const testCmd = getTestCommand(projectType);
     if (testCmd) {
       try {
-        const { execSync } = await import('child_process');
-        execSync(testCmd, { cwd, timeout: 60000, encoding: 'utf-8' });
+        await execAsync(testCmd, { cwd, timeout: 60000, encoding: 'utf-8' });
         results.push({
           step: `${projectType}_test`,
           passed: true,

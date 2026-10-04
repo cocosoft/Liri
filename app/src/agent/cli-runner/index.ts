@@ -24,11 +24,21 @@
  * bundle-mcp/execute/reliability
  */
 
-import { execSync, spawn, type ChildProcess } from 'child_process';
+import { exec, execSync, spawn, type ChildProcess } from 'child_process';
+import { promisify } from 'util';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent:cli-runner:index');
+
+/**
+ * 外部命令执行（**异步**）。
+ *
+ * 阻塞源收敛（2026-10-04，台账 V-2）：`execute()` 本就是 async，内部却用 `execSync`
+ * ⇒ 一次 CLI 调用会把事件循环**同步阻塞到命令结束**（`opts.timeout` 可达长时）。
+ * 改为 `promisify(exec)`；错误形状不变（非零退出仍在 error 上带 `stdout`/`stderr`/`status`）。
+ */
+const execAsync = promisify(exec);
 
 export type CliRunnerMode = 'direct' | 'bundle-mcp' | 'pipe';
 
@@ -97,7 +107,7 @@ export class CliRunner {
           'cmd.exe'
         : undefined;
 
-      const stdout = execSync(command, {
+      const { stdout } = await execAsync(command, {
         cwd: opts.cwd,
         env: { ...process.env, ...opts.env },
         timeout: opts.timeout,

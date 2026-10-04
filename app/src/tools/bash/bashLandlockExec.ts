@@ -45,11 +45,14 @@
  * 内核上会让 helper 直接 **exit 125**（"requested NET access beyond kernel ABI"）⇒ 该问题随
  * "不传网络参数"一并消失。
  *
- * ⚠️ **未验（如实）**：本机为 Windows ⇒ **真实 Linux 上的 enforce 行为未验证**；离线用例覆盖的是
- * 门控判据、策略形状、argv 形状与成败分支（执行器可注入）。
+ * ✅ **真机已验（2026-10-05，WSL2）**：门控路由（`eval-forced ⇒ landlock`）与敏感路径拒绝均正确、
+ * 普通命令**无误拒**。**缺口②已处置**：WSL2 域内 DNS 曾因 `/etc/resolv.conf` 的符号链接目标
+ * （`/mnt/wsl/resolv.conf`）不在白名单而被拒（`curl: (6) Could not resolve host`）⇒ 现按**存在性**
+ * 只读放行 `/mnt/wsl`（见 `buildBashLandlockPolicy`）。离线用例覆盖门控判据、策略形状、argv 形状与成败分支。
  */
 
 import { exec, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -142,8 +145,11 @@ export function buildBashLandlockPolicy(input: {
   cwd: string;
   abi: number;
   homeDir?: string;
+  /** 路径存在性判定（默认 `fs.existsSync`；测试可注入）—— 用于**按存在性**添加平台特有路径 */
+  pathExists?: (path: string) => boolean;
 }): LandlockPolicy {
   const homeDir = input.homeDir ?? homedir();
+  const pathExists = input.pathExists ?? existsSync;
 
   const fs: LandlockFsRule[] = [
     ...SYSTEM_READ_EXECUTE_PATHS.map((path) => ({
@@ -165,6 +171,15 @@ export function buildBashLandlockPolicy(input: {
     { path: join(homeDir, '.npm'), allow: FS_READ_WRITE },
     { path: join(homeDir, '.cache'), allow: FS_READ_WRITE },
   ];
+
+  // 缺口②（2026-10-05 WSL2 真机）：域内 DNS 依赖 `/etc/resolv.conf` → `/mnt/wsl/resolv.conf`，
+  // 而该符号链接**目标**不在任何其它白名单内 ⇒ 只读放行 `/mnt/wsl`（WSL 内部挂载，只含
+  // resolv.conf 等只读配置，放行只读的扩面极小）。
+  // ⚠️ **必须按存在性条件化**：`landlock-run` 对**不存在的规则路径**直接 `exit 125`（沙箱初始化
+  //   失败）⇒ 无条件添加会在非 WSL Linux 上触发回退/拒绝，反而**全域失效**（比误伤更糟）。
+  if (pathExists('/mnt/wsl')) {
+    fs.push({ path: '/mnt/wsl', allow: FS_READ_EXECUTE });
+  }
 
   return {
     cwd: input.cwd,

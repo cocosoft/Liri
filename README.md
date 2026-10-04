@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.56-blue)
+![Version](https://img.shields.io/badge/version-0.4.57-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -363,7 +363,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.56**
+当前版本：**v0.4.57**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -371,6 +371,23 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.57 (2026-10-04)
+
+**Agentic Design Patterns 对标推进（A3/A4/A8 闭环）+ Landlock 真机实测结案 + 组②/组⑥ 缺陷修复 + ChatManager 拆分首批**
+
+- ✅ **A8 模式装配闭环** - 新增装配入口 `instantiatePattern`（描述 → 可执行路由），补上「模式清单」到「运行时装配」的最后一公里（B1）
+- ✅ **A4 编排家族收敛（T-①04）** - 下线 **8 个零可达编排类**；存活者命名复核（无重名）；新增 **L2 窄契约 `SchedulerLifecycle`** 并让 4 个调度器（`DiscoveryScheduler` / `DreamScheduler` / `CronScheduler` / `KnowledgeCompileScheduler`）实现之（D1=a/D2=b/D3=a）
+- ✅ **A3 权限命名消歧（T-①05）** - `security/PermissionManager.ts` 同名双轨收敛，类改名 `SecurityPermissionView`（文件路径保留系既定裁定）
+- ✅ **记忆分层收敛（T-①07）** - 新建记忆窄端口 `MemoryPort`（Read/Write/Search/Forget）；`MemoryManagerImpl` 声明实现四端口；会话域另立 `SessionMemoryPort`；RAM 侧同名 `MemoryManager` 消歧；会话记忆三类型下沉 `session/memory/types.ts`；下线增强层与悬空实现（5 文件）及 2 处零消费者
+- ✅ **Landlock 真机验证结案（T-③06/③07/③08）** - `native/main.c` 补 `<stddef.h>`（GCC 15 / glibc 2.43 隐式声明修复）；WSL2 Ubuntu 真机实测：网络两态（`--net-deny`）与文件系统侧（`~/.pyapp/config.json` EACCES 拒绝）**8/8 符合预期**（假阴性风暴根因为 PowerShell→WSL 引号污染，非应用缺陷）
+- ✅ **组② 契约与单一事实源** - **T-②02** 目标监控闭环接线（新增 `goal/deviation` + turn 预算偏差判定）；**T-②04** 路由决策可观测性（`context/model-input` 补 `model/route`，resolve 出口落 INFO 决策）；**T-②05** 分流判据配置化（阈值 + 危险意图正则入 config）；**T-②06** 经验自动演化（写回面 + 自动回灌 + 可观测）
+- ✅ **组⑥ 缺陷修复与取证** - **T-⑥01/⑥02** 导出侧去重与时间戳兜底；**T-⑥04** 工具卡失败原因可见（提取器按既有契约逐级取数）；**T-⑥05** 工具调用协议前缀形态漏解析修复（任意非 `>` 前缀 + 真实样本回归守卫）；**T-⑥08** 空回复兜底补结构化诊断；**T-⑥09** 402 余额不足归类与引导；**T-⑥11** 长任务静默心跳（45s 补发 status chunk）；**T-⑥12** 自唤醒续跑审计事件 `session/wake`（可回放）；**T-⑥14/④02** `write_project_file` 新文件被拒修复 + 写后回读校验
+- ✅ **HTTP / 模型链路修复** - `/v1/chat/completions` 的 `model` 支持 DB UUID 解析；DeepSeek wire 名对齐；无工具回合终稿 mermaid 校验补齐（P0-1② 覆盖面）
+- ✅ **ChatManager 拆分首批（文件尺寸债）** - 提取 `ChatEventLogStore`（批 1/3）→ 迁入流式写入三件套（批 2/3）→ 迁入读回族 7 成员（批 3/3），主类 **6729 → 6377 行**；出拆分路线图（4 巨型类优先序 + A1-A6 批次）
+- ✅ **基础设施归一与门禁** - **D-241** SQLite 连接统一封装补齐（归一化 5 处直连）；**D-239/D-240** 工具结果二级/三级防御两侧形态订正（此前在生产整体空转）；**T-③01** `R03-002` 提升为 `error`（违规即阻断 pre-commit/CI）；`tests` 纳入 lint（一次性收敛 379 处 prettier）
+- ✅ **死代码与资产清理** - 下线 `chronos/CronScheduler.ts`、daemon 队列/健康链（5 文件）与「存量未接线族」4 文件；更新 liri logo（根目录与 `client/public` 统一）
+- ✅ **质量** - `typecheck` 0 错 · `lint:arch` 违规 0 · 定向 515 pass/0 fail · **全量 3883 pass / 9 skip / 0 fail（426 文件）**；预存问题逐项登记
 
 #### v0.4.56 (2026-10-02)
 

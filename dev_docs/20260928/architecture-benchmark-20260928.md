@@ -11,7 +11,7 @@
 
 ## 一、矩阵
 
-> ⚠️ **状态以 [§六 状态回填（2026-09-29）](#六状态回填2026-09-29逐项取证后) 为准**：本矩阵中 #5（工具数口径）、#10（MCP→PathGuard）、#15（ACP/A2A 边界与端点）、#18（沙箱 deny 语义）、#19（`evals/` 能力）的「待核/未核」**均已闭环**，逐项证据见 §6.1。
+> ⚠️ **状态以 [§六 状态回填（2026-09-29）](#六状态回填2026-09-29逐项取证后) 与 [§七 状态回填（2026-10-04）](#七状态回填2026-10-04工具实测2121-对齐达成) 为准**：本矩阵中 #5（工具数口径）、#10（MCP→PathGuard）、#15（ACP/A2A 边界与端点）、#18（沙箱 deny 语义）、#19（`evals/` 能力）的「待核/未核」**均已闭环**，逐项证据见 §6.1；**#3（并行化）已于 §7.1 结案** ⇒ **21/21 对齐达成（🟡 清零）**，见 §7.2。
 
 | # | 模式 | 现状 | 证据（file:line） | 缺口 / 根因 / 下一步 |
 |:--:|---|:--:|---|---|
@@ -873,3 +873,64 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | 2 | `context/model-input` 事件**是否携带路由结果** | ❌ **不携带** | 载荷仅 `tools` / `toolsRefSeq` / `sections` / `mode` / `tokens`（[`chat/types/eventPayloads.ts:227-252`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/types/eventPayloads.ts#L227-L252)）⇒ **无 model / route / provider 字段**。结合 §6.4 #2（路由命中/回退**仅 `debug` 日志**、默认 INFO 不落盘）⇒ **路由决策可观测性缺口就此确认**（既无事件承载，也默认不落盘） |
 | 3 | `SkillCurator` 是否有 **HTTP/前端消费者** | ❌ **仅后端生命周期管理器消费** | `client/src` 搜 `SkillCurator` / `curator` **0 命中**；app 侧消费点仅 [`skills/persistence/SkillLifecycleManager.ts:86-91`](file:///e:/PY/Documents/CODES/PY_APP/app/src/skills/persistence/SkillLifecycleManager.ts#L86-L91)（`getSkillCurator(skillDB)`）⇒ **无 HTTP 路由、无前端面**（§6.4 #9「无反馈写回」结论不变） |
 | 4 | ⑤ 中"用户回答"是否**同时**以 `user/message` 落盘 | ❌ **不落** | `recordAnswer(` 调用点**唯一**（[`chat/ReActToolLoop.ts:1429`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ReActToolLoop.ts#L1429)）；其上下文（`:1428-1437`）只写 `NegotiationState` + 会话判断，**无** `user/message` 事件追加。配合 §6.4 #13（审批裁决亦不落盘）⇒ **HITL 的"裁决"整体不可审计**（`assistant/question` 落**问题文本**，**答案不落**） |
+
+---
+
+## 七、状态回填（2026-10-04，工具实测；**21/21 对齐达成**）
+
+> 口径：本次逐项**回仓取证**（`Grep` / `Read`，排除 `REF/`）；只记"当前事实"。与 §一 / §六 冲突处**以本节为准**。
+> 触发：`dev_docs/20260926`+ 各计划与 `pending-tasks-consolidated-20261001.md` 的收口批次（T-①04/05/07、T-②01–06、T-③04/05、T-⑥ 等）+ A8 最后一公里（`pattern-assembly-runtime.md`）。
+
+### 7.1 本轮**结案**的唯一遗留：§一 #3 Parallelization
+
+| 待核内容 | 结论 | 证据（实测） |
+|---|:--:|---|
+| "可独立子任务的通用 Map-Reduce 并行（**含并发上限 + 失败聚合**）是否存在" | ✅ **已具备**（此前仅取证 Council 事件族，未核通用并行） | ① [`ParallelAgentScheduler.ts:195-243`](file:///e:/PY/Documents/CODES/PY_APP/app/src/agent/moa/ParallelAgentScheduler.ts#L195-L243) `executeAll()`：**信号量并发上限**（`:165-174` 构造入参 `maxConcurrency`）+ **`Promise.allSettled` 失败不中断**（`:206`）+ **失败聚合**（`completed/failed/timeout` 三计数 + `totalTokens`，`:220-242`）；② 归约侧 `ResultAggregator`（`MAJORITY_VOTE`/`WEIGHTED`/`BEST_SELECTION`，[`ResultAggregator.ts:17-26`](file:///e:/PY/Documents/CODES/PY_APP/app/src/agent/moa/ResultAggregator.ts#L17-L26)）；③ 另有 **多形态并行**：`tasks/swarm/AgentSwarm.ts:273`（`maxConcurrency`）· `tasks/BatchRunner.ts:153-154`（按并发分批）· `tools/scheduler/ToolScheduler.ts`（`createToolScheduler(N)`，CLI `parallel` 命令）· `chat/ReActToolLoop.ts:1564`（`concurrencySafe` 工具并跑）|
+
+> **附注（如实 · 属另一层）**：上述为**能力面**（✅）。但**声明式 pattern** `parallel_distributed`
+> 仍不可由 `selectPattern` 触发（选择器只产出 `competitive_strategy` / `long_task_pdl`）⇒ 该 pattern 的
+> **装配运行时**在 `pattern-assembly-runtime.md` 中如实标 `unavailable`（无触发场景，N4）。二者不矛盾：
+> 「并行能力具备」≠「该 pattern 有触发面」。
+
+### 7.2 21 项当前判定（对齐总表）
+
+| # | 模式 | §一 原判 | 2026-10-04 实测 | 收官依据 |
+|:--:|---|:--:|:--:|---|
+| 1 | Prompt Chaining | 🟡 | ✅ | DocWorkflow 序列双份已收口（`runDocWorkflow` 已删，2026-09-26 方案 3） |
+| 2 | Routing | ✅ | ✅ | 补 `context/model-input` 载荷 `model`/`route`（[`eventPayloads.ts:264-266`](file:///e:/PY/Documents/CODES/PY_APP/app/src/session/types/eventPayloads.ts#L264-L266)）+ `ModelRouter.resolve` INFO 决策日志（T-②04） |
+| 3 | Parallelization | 🟡 | ✅ **（本轮结案，见 §7.1）** | 并发上限 + 失败聚合 + 归约三件套齐备 |
+| 4 | Reflection | 🟡 | ✅ | 前端 `mermaid.parse` 预校验 + 服务端 [`mermaidLint.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/utils/mermaidLint.ts) + 事件 `validation/injected`（`knownEventTypes.ts:86`）本轮内回喂 |
+| 5 | Tool Use | ✅ | ✅ | 出参 schema A/B/C 档完成 + 门禁 **R15-001/R15-002**（`lint-architecture.ts:3616/3696`） |
+| 6 | Planning | ✅ | ✅ | 分流判据配置化（`GlobalConfig.fastPath`，T-②05） |
+| 7 | Multi-Agent | ✅ | ✅ | §6.4：#7「单例口径分裂」**不成立** |
+| 8 | Memory | ✅ | ✅ | 端口化（T-①07）+ 单例工厂收口 |
+| 9 | Learning/Adaptation | 🟡 | ✅ | [`promptEvolution.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/utils/promptEvolution.ts) 写回闭环（T-②06） |
+| 10 | MCP | ✅ | ✅ | PathGuard 注册表驱动（`pathguard-registry-driven-args.md`） |
+| 11 | Goal Setting/Monitoring | 🟡 | ✅ | `addUsageAndPromote` 原子晋升 + `goal/deviation` 事件监控闭环（T-②01/02） |
+| 12 | Exception Recovery | ✅ | ✅ | §6.4 #12：旧重试器**残留 = 0** |
+| 13 | Human-in-the-Loop | ✅ | ✅ | T-②03：`AskUserQuestionTool` 的 `answers` **随 `tool/result` 落盘** ⇒ "谁批/何时"可重建（原"不可审计"前提证伪） |
+| 14 | Knowledge Retrieval | ✅ | ✅ | 全链路完整 |
+| 15 | A2A | 🟡 | ✅ | ACP 对内 / A2A 对外（T0–T6，`a2a-external-exposure.md`） |
+| 16 | Resource-Aware | ✅ | ✅ | 悲观预扣经取证**不实施**（判定点恒在真实记账后） |
+| 17 | Reasoning | ✅ | ➖ 不实施 | T-②07：与既有预算/收敛重叠，收益未证 |
+| 18 | Guardrails/Safety | ✅ | ✅ | 多层路径护栏 + 拦截可交代 + Landlock 两态 |
+| 19 | Evaluation/Monitoring | ✅ | ✅ | 探针 + evals + antiCheatAudit |
+| 20 | Prioritization | 🟡 | ➖ 不实施 | T-②08：无"统一入口"但无真实争抢场景（CS03） |
+| 21 | Exploration | 🟡 | ➖ 不实施 | T-②09：验证侧已有等价能力，新机制属重复建设（CS01） |
+
+**统计**：✅ **18** · ➖ 不实施 **3**（#17/#20/#21）· ❌/🟡 **0** ⇒ **21/21 对齐达成**（🟡 清零）。
+
+### 7.3 仍在位（非"对齐缺口"，为环境/裁定/暂停项）
+
+| 项 | 阻塞 |
+|---|---|
+| T-③07 Mermaid 真机端到端 / T-③08 Linux 端到端 | 需模型额度 / 需 Linux 环境 |
+| 台账 D-36-① Landlock `--net-connect` 真机实测 | 需 Linux 环境 |
+| T-④01 / P3-3 `REF/` 物理搬迁 | 目录被进程占用 + 工具链沙箱禁写 ⇒ 需用户侧执行 |
+| T-⑤01 对抗 Agent 形态 A（LLM 攻击者） | 需额度 + 另立 spec |
+| 升级方案 **A1 / F5** | 已列"明确不做"（协商门已在位，收益未证） |
+| **文件尺寸债**（156 条 >1000 行；D-01 C 路径） | **用户裁定暂停**（批 1–3 已落地，ChatManager 6729→6377） |
+| `pattern-assembly-runtime.md` 遗留 | `parallel_distributed` / `iterative_refine` / `self_verify` 三 pattern 无触发面（N4）|
+
+> **结论**：自 2026-09-28 起，`dev_docs/20260926`+ 各计划与台账所列的**可执行对齐项已全部收口或经取证裁定不做**；
+> 本矩阵的 21 项已无 🟡/❌。后续若要继续深化，方向应落在 **7.3 的裁定项**（非"模式对齐"缺口）。 |

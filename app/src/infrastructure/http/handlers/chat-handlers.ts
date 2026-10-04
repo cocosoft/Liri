@@ -139,6 +139,34 @@ interface ChatCompletionResponse {
 
 // ── 公共导出 ──────────────────────────────────────────────────────
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 把请求里的 `model` **UUID**（即 `GET /v1/models` 的 `id` 字段）解析为 `modelId`。
+ *
+ * 背景（2026-10-04 实测）：`GET /v1/models` 对外暴露 `id = DB UUID`（`modelId` 为真实模型名），
+ * 客户端按 `id` 回传时，原实现会把 **UUID 原样下发到供应商** ⇒ 实测 DeepSeek 直接 400
+ * （`The supported API model names are …`）。在**系统边界**统一解析一次，后续链路行为不变。
+ *
+ * 非 UUID（已是 `modelId` / 供应商 wire 名）⇒ 原样返回，零行为变化。
+ */
+async function resolveModelIdFromUuid(
+  model: string | undefined
+): Promise<string | undefined> {
+  const raw = model?.trim();
+  if (!raw || !UUID_RE.test(raw)) return model;
+  try {
+    const { modelPricingService } = await import('@modules/ai');
+    await modelPricingService.initialize();
+    const rec = await modelPricingService.getPricingById(raw);
+    return rec?.modelId || model;
+  } catch {
+    // @ignore-catch — 解析失败不改写入参（保持原行为，由下游如实报错）
+    return model;
+  }
+}
+
 /**
  * POST /v1/chat/completions — 聊天完成请求（流式/非流式分发）
  */
@@ -185,6 +213,10 @@ export async function handleChatCompletions(
   // 方案 C 修正（P2-4 会话上下文化）：不再设置全局 SandboxConfigBuilder.defaultWorkspacePath
   // （跨会话/并发污染源）。项目模块会话的工作区路径由 ChatManager 在工具执行上下文注入
   // （仅项目模块），普通对话不受影响，统一回退 process.cwd()。
+
+  // 2026-10-04：`model` 允许按 `GET /v1/models` 的 `id`（DB UUID）传 —— 边界处解析为 modelId，
+  // 否则 UUID 会被原样下发到供应商（实测 DeepSeek 400）。非 UUID 零行为变化。
+  request.model = await resolveModelIdFromUuid(request.model);
 
   if (request.stream) {
     return handleStreamingChat(res, request);

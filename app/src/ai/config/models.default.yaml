@@ -60,7 +60,10 @@ models:
       inputPer1M: 0.3
       outputPer1M: 1.2
     providers:
-      deepseek: deepseek-v4-flash
+      # 2026-10-04：与 DB（model_registry.provider_mappings）对齐 —— 供应商实际受支持的
+      # wire 名为 `deepseek-flash`（`deepseek-v4-flash` 仅为其别名）。`firstParty` 仍为
+      # app 内部规范名（= modelId），不随 wire 名变化。
+      deepseek: deepseek-flash
       firstParty: deepseek-v4-flash
 
   # ==================== OpenAI GPT 系列 ====================

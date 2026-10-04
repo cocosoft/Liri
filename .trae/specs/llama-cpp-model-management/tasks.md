@@ -1,8 +1,17 @@
 # Implementation Plan: llama.cpp Model Management
 
-> **Spec**: [spec.md](.trae/specs/llama-cpp-model-management/spec.md)
-> **Status**: Planned
-> **Date**: 2026-08-19
+> **Spec**: [spec.md](./spec.md)
+> **Status**: ✅ **已实施**（2026-10-04 复核回填；原标 `Planned` 系**状态未回填** —— 功能与单测**均已落地**）
+> **Date**: 2026-08-19（状态复核 2026-10-04）
+>
+> **复核证据（2026-10-04，证据驱动；详见 `dev_docs/任务计划-20261004.md` §2.1 P0-10）**：
+> - **Phase 1**：`LlamaCppServerManager.ts` 含 `modelsDir` 配置（`:123/144`）、`validateModelsDir()`（被 `:704` 调用）、`ensureSafeMigrationPath()`（导出，见 `app/tests/ai/llama/MigrationSafety.test.ts:15-18`）；`resolveLlamaModelsDir(modelsDir?)` 支持可选参数（`ModelDownloadService.ts:67`、`LlamaCppServerManager.ts:878`）。
+> - **Phase 2**：迁移 SSE `handleLlamaMigrate` / `handleLlamaMigrateCancel`（`infrastructure/http/handlers/llama-handlers.ts:364/476`）+ 路由（`routes/llama-routes.ts:103/107`）+ 单测 `MigrationSafety.test.ts`。
+> - **Phase 3**：`HardwareDetector.ts` 在；`GET /v1/llama/hardware`（`llama-routes.ts:89`）。
+> - **Phase 4**：`ModelRecommender.ts` + `ModelDownloadService.ts`；路由 `GET /v1/llama/recommendations`、`POST /v1/llama/download`、`DELETE /v1/llama/models/:filename`（`llama-routes.ts:93/97`、`llama-handlers.ts:495`）。
+> - **Phase 5**：`client/src/services/llamaService.ts`（`detectHardware`/`getRecommendations`/`startMigration`/`cancelMigration`/`downloadModel`/`deleteModel`）+ `client/src/components/settings/LlamaConfigPanel.tsx`。
+> - **验证**：`bun test tests/ai/llama` ⇒ **29 pass / 0 fail**（3 文件）。
+> - **未逐项留痕（如实）**：Phase 6 的 **rubric 类**（"新手可完成首次部署"等人工场景）与 macOS/Linux 真机适配**未逐条取证**；本复核只断言"实现与单测在位"，不对人工场景背书。
 
 ---
 

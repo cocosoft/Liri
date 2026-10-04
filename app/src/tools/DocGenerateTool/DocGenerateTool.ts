@@ -4,7 +4,8 @@
  * 管线：用户数据 → Handlebars 渲染 → officecli batch → .docx/.xlsx/.pptx
  */
 
-import { execSync, spawnSync } from 'child_process';
+import { exec, execFile } from 'child_process';
+import { promisify } from 'util';
 import {
   existsSync,
   mkdirSync,
@@ -30,6 +31,10 @@ import {
   type LangKey,
 } from '@modules/system/i18n/languageProfiles';
 const logger = getLogger('tools:DocGenerateTool');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：officecli 探测/调用原为 `execSync`/`spawnSync` */
+const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /** 支持的文档类型（html 为原生生成，不依赖 officecli） */
 const VALID_TYPES = ['docx', 'xlsx', 'pptx', 'html'] as const;
@@ -86,9 +91,9 @@ function sanitizeFileName(name: string): string {
  * 检测 officecli 是否可用
  * 导出供 file_convert 等工具复用
  */
-export function isOfficeCLIAvailable(): boolean {
+export async function isOfficeCLIAvailable(): Promise<boolean> {
   try {
-    execSync('officecli --version', {
+    await execAsync('officecli --version', {
       encoding: 'utf-8',
       timeout: 3000,
       windowsHide: true,
@@ -100,39 +105,44 @@ export function isOfficeCLIAvailable(): boolean {
 }
 
 /**
- * 调用 officecli 子命令（spawnSync，无 shell 转义问题）
+ * 调用 officecli 子命令（execFile 异步，无 shell 转义问题）
  */
-function runOfficeCLI(args: string[]): {
+async function runOfficeCLI(args: string[]): Promise<{
   ok: boolean;
   error?: string;
   stdout?: string;
-} {
+}> {
   logger.info('DocGenerateTool: 调用 officecli', { args: args.slice(0, 4) });
 
-  const result = spawnSync('officecli', args, {
-    encoding: 'utf-8',
-    timeout: 30000,
-    windowsHide: true,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  try {
+    const { stdout } = await execFileAsync('officecli', args, {
+      encoding: 'utf-8',
+      timeout: 30000,
+      windowsHide: true,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return { ok: true, stdout: String(stdout).trim() };
+  } catch (error) {
+    const e = error as {
+      code?: number | string;
+      stdout?: string | Buffer;
+      stderr?: string | Buffer;
+      message?: string;
+    };
+    logger.warn('DocGenerateTool: officecli 调用失败', {
+      code: e.code,
+      stderr: String(e.stderr ?? '').slice(0, 300),
+      error: e.message,
+    });
 
-  if (result.status === 0) {
-    return { ok: true, stdout: result.stdout?.trim() };
+    return {
+      ok: false,
+      error:
+        String(e.stderr ?? '').trim() ||
+        e.message ||
+        'officecli 返回非零状态码',
+    };
   }
-
-  logger.warn('DocGenerateTool: officecli 调用失败', {
-    status: result.status,
-    stderr: result.stderr?.slice(0, 300),
-    error: result.error?.message,
-  });
-
-  return {
-    ok: false,
-    error:
-      result.stderr?.trim() ||
-      result.error?.message ||
-      'officecli 返回非零状态码',
-  };
 }
 
 /**
@@ -234,12 +244,12 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
  * 使用 officecli batch 创建 Office 文档
  * 导出供 file_convert 等工具复用（docx 本地直转）
  */
-export function createWithOfficeCLI(
+export async function createWithOfficeCLI(
   title: string,
   content: string,
   type: DocType,
   outputDir: string
-): { fileName: string; filePath: string } {
+): Promise<{ fileName: string; filePath: string }> {
   const safeName = sanitizeFileName(title);
   const fileName = `${safeName}.${type}`;
   const filePath = join(outputDir, fileName);
@@ -258,7 +268,7 @@ export function createWithOfficeCLI(
 
   // 1. 创建空白文档
   logger.info('DocGenerateTool: 步骤1 - 创建空白文档', { filePath });
-  const createResult = runOfficeCLI(['create', filePath, '--json']);
+  const createResult = await runOfficeCLI(['create', filePath, '--json']);
   if (!createResult.ok) {
     throw new Error(`创建文档失败：${createResult.error}`);
   }
@@ -292,7 +302,7 @@ export function createWithOfficeCLI(
   });
 
   try {
-    const batchResult = runOfficeCLI([
+    const batchResult = await runOfficeCLI([
       'batch',
       filePath,
       '--input',
@@ -315,7 +325,7 @@ export function createWithOfficeCLI(
             }
           }
           addArgs.push('--json');
-          runOfficeCLI(addArgs);
+          await runOfficeCLI(addArgs);
         }
       }
     }
@@ -329,8 +339,8 @@ export function createWithOfficeCLI(
 
   // 4. 保存并关闭文档
   logger.info('DocGenerateTool: 步骤4 - 保存并关闭');
-  runOfficeCLI(['save', filePath, '--json']);
-  runOfficeCLI(['close', filePath, '--json']);
+  await runOfficeCLI(['save', filePath, '--json']);
+  await runOfficeCLI(['close', filePath, '--json']);
 
   const fileExists = existsSync(filePath);
   const fileSize = fileExists ? statSync(filePath).size : 0;
@@ -1456,13 +1466,14 @@ export class DocGenerateTool extends BaseTool {
       const { resolveOutputDir } = await import('@modules/core');
       const outputDir = resolveOutputDir();
 
+      const officecliAvailable = await isOfficeCLIAvailable();
       logger.info('DocGenerateTool: 输出目录', {
         outputDir,
         exists: existsSync(outputDir),
         title: finalTitle,
         type: docType,
         contentLength: finalContent.length,
-        officecliAvailable: isOfficeCLIAvailable(),
+        officecliAvailable,
       });
 
       let result: { fileName: string; filePath: string };
@@ -1477,8 +1488,8 @@ export class DocGenerateTool extends BaseTool {
       const fontSizeOpt =
         typeof params.fontSize === 'number' ? params.fontSize : undefined;
 
-      // 检测 officecli 可用性，选择生成路径
-      const cliAvailable = isOfficeCLIAvailable();
+      // 检测 officecli 可用性，选择生成路径（复用上方探测结果，避免二次 spawn）
+      const cliAvailable = officecliAvailable;
       if (docType === 'html') {
         // html 不依赖 officecli，始终走原生生成
         logger.info('DocGenerateTool: 使用原生 html 生成', { lang });
@@ -1487,7 +1498,7 @@ export class DocGenerateTool extends BaseTool {
         });
       } else if (cliAvailable) {
         logger.info('DocGenerateTool: 使用 officecli 路径');
-        result = createWithOfficeCLI(
+        result = await createWithOfficeCLI(
           finalTitle,
           finalContent,
           docType,

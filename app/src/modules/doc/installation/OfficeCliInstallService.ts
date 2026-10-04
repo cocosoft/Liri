@@ -73,10 +73,10 @@ class OfficeCliInstallServiceImpl {
   /**
    * 获取当前安装状态（含实时检测结果）
    */
-  getStatus(): OfficeCliInstallStatus {
+  async getStatus(): Promise<OfficeCliInstallStatus> {
     return {
       state: this.state,
-      info: detectOfficeCLI(),
+      info: await detectOfficeCLI(),
       constraint: getVersionConstraint(),
       startedAt: this.startedAt,
       finishedAt: this.finishedAt,
@@ -91,18 +91,18 @@ class OfficeCliInstallServiceImpl {
   async install(): Promise<OfficeCliInstallStatus> {
     if (this.state === 'running') {
       logger.info('OfficeCLI 安装已在进行中，跳过重复触发');
-      return this.getStatus();
+      return await this.getStatus();
     }
 
     // 已安装且兼容则无需重装（R08-002 skip 事件）
-    const info = detectOfficeCLI();
+    const info = await detectOfficeCLI();
     if (info.installed && !info.incompatible) {
       logger.info('OfficeCLI 已安装且版本兼容，跳过安装', {
         version: info.version,
       });
       this.state = 'idle';
       this.error = undefined;
-      return this.getStatus();
+      return await this.getStatus();
     }
 
     const { cmd, args } = buildInstallCommand();
@@ -147,7 +147,7 @@ class OfficeCliInstallServiceImpl {
       });
 
       // re-detect：安装成功后立即检测（新安装的二进制已落盘）
-      const recheck = detectOfficeCLI();
+      const recheck = await detectOfficeCLI();
       if (recheck.installed && !recheck.incompatible) {
         this.state = 'completed';
         this.finishedAt = Date.now();

@@ -200,8 +200,8 @@ export class FileConvertTool extends BaseTool {
         const { createWithOfficeCLI, createNativeDocx, isOfficeCLIAvailable } =
           await import('../DocGenerateTool/DocGenerateTool');
 
-        const gen = isOfficeCLIAvailable()
-          ? createWithOfficeCLI(baseName, fullMarkdown, 'docx', outputDir)
+        const gen = (await isOfficeCLIAvailable())
+          ? await createWithOfficeCLI(baseName, fullMarkdown, 'docx', outputDir)
           : createNativeDocx(baseName, fullMarkdown, outputDir);
 
         if (onProgress) {

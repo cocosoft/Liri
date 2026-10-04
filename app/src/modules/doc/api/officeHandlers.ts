@@ -136,7 +136,7 @@ export async function handleOfficeCLIStatus(
   try {
     const { officeCliInstallService } =
       await import('../installation/OfficeCliInstallService');
-    const status = officeCliInstallService.getStatus();
+    const status = await officeCliInstallService.getStatus();
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ code: 200, message: 'ok', data: status }));
@@ -304,7 +304,7 @@ export async function handleDocDetect(
     // 先尝试重新检测本地 PATH 上的 officecli
     const { detectOfficeCLI, buildOfficeCLIMcpConfig } =
       await import('../detection/OfficeCLIDetector');
-    const info = detectOfficeCLI();
+    const info = await detectOfficeCLI();
 
     // 再动态刷新 MCP 状态：即使用户通过 UI 连接，也能识别
     await doc.refreshMCPStatus();

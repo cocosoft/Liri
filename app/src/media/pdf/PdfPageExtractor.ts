@@ -29,13 +29,17 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveTempDir } from '@modules/core/paths';
 
 const logger = getLogger('media:pdf-extractor');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：pdftoppm 超时 60s，原 `execSync` 会同步阻塞到结束 */
+const execAsync = promisify(exec);
 
 /** 提取的单页图片 */
 export interface ExtractedPage {
@@ -98,7 +102,7 @@ export async function extractPdfPages(
 
   // 尝试 pdftoppm
   try {
-    return extractWithPdfToPpm(pdfPath, outputDir, dpi, format, options);
+    return await extractWithPdfToPpm(pdfPath, outputDir, dpi, format, options);
   } catch (err) {
     logger.warn('PdfPageExtractor · pdftoppm 不可用，尝试 pdf.js', {
       error: (err as Error).message,
@@ -115,13 +119,13 @@ export async function extractPdfPages(
 }
 
 /** 使用 pdftoppm 提取（cc_code 方案） */
-function extractWithPdfToPpm(
+async function extractWithPdfToPpm(
   pdfPath: string,
   outputDir: string,
   dpi: number,
   format: string,
   options: PdfExtractOptions
-): ExtractedPage[] {
+): Promise<ExtractedPage[]> {
   fs.mkdirSync(outputDir, { recursive: true });
 
   const outputPrefix = path.join(outputDir, 'page');
@@ -136,10 +140,11 @@ function extractWithPdfToPpm(
   const cmd = `pdftoppm ${args.map((a) => `"${a}"`).join(' ')}`;
 
   try {
-    execSync(cmd, { timeout: 60000, stdio: 'pipe' });
+    await execAsync(cmd, { timeout: 60000 });
   } catch (err) {
     // 检测密码保护
-    const stderr = (err as { stderr?: Buffer })?.stderr?.toString() || '';
+    const stderr =
+      (err as { stderr?: Buffer | string })?.stderr?.toString() || '';
     if (stderr.includes('password') || stderr.includes('encrypted')) {
       throw new Error('PDF 文件受密码保护，无法提取页面');
     }

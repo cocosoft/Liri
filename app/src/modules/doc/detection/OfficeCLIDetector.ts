@@ -3,7 +3,8 @@
  * 负责检测本地 OfficeCLI 安装状态、版本校验、中文兼容性检查
  */
 
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -11,6 +12,9 @@ import { getLogger } from '../../../core/loggerFacade.js';
 import type { OfficeCLIInfo, OfficeCLIVersionConstraint } from '../types';
 
 const logger = getLogger('doc:detection');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：`detectOfficeCLI` 在 HTTP 处理器/启动路径被调用 */
+const execAsync = promisify(exec);
 
 /** OfficeCLI 版本兼容约束 */
 const OFFICECLI_CONSTRAINT: OfficeCLIVersionConstraint = {
@@ -31,14 +35,15 @@ const KNOWN_PATHS: string[] = [
 /**
  * 检测 OfficeCLI 是否已安装及其版本
  */
-export function detectOfficeCLI(): OfficeCLIInfo {
+export async function detectOfficeCLI(): Promise<OfficeCLIInfo> {
   try {
     // 检测可执行文件
-    const versionOutput = execSync('officecli --version', {
+    const { stdout } = await execAsync('officecli --version', {
       encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true,
-    }).trim();
+    });
+    const versionOutput = stdout.trim();
 
     const version = extractVersion(versionOutput);
     if (!version) {
@@ -62,7 +67,7 @@ export function detectOfficeCLI(): OfficeCLIInfo {
     }
 
     // 中文兼容性快速检查
-    checkCJKCompatibility();
+    await checkCJKCompatibility();
 
     logger.info('OfficeCLI 检测完成', { version });
     return { installed: true, version, path: 'officecli' };
@@ -110,20 +115,23 @@ function extractVersion(output: string): string | null {
  * 中文兼容性检查
  * 在系统临时目录创建测试文档并验证中文输出（D-3/G-20：避免污染 cwd，失败时清理）
  */
-function checkCJKCompatibility(): void {
+async function checkCJKCompatibility(): Promise<void> {
   const tmpFile = path.join(os.tmpdir(), `test-cjk-compat-${process.pid}.docx`);
   try {
-    execSync(`officecli create "${tmpFile}" --content "中文测试" --json`, {
+    await execAsync(`officecli create "${tmpFile}" --content "中文测试" --json`, {
       encoding: 'utf-8',
       timeout: 10000,
       windowsHide: true,
     });
 
-    const viewOutput = execSync(`officecli view "${tmpFile}" text`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-      windowsHide: true,
-    });
+    const { stdout: viewOutput } = await execAsync(
+      `officecli view "${tmpFile}" text`,
+      {
+        encoding: 'utf-8',
+        timeout: 10000,
+        windowsHide: true,
+      }
+    );
 
     if (!viewOutput.includes('中文测试')) {
       logger.warn('OfficeCLI 中文输出异常，请检查字体配置');

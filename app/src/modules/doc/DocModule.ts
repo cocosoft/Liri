@@ -105,7 +105,7 @@ export class DocModule {
     const startMs = Date.now();
 
     // 检测 OfficeCLI（含 CJK 检查和版本约束校验）
-    const info = detectOfficeCLI();
+    const info = await detectOfficeCLI();
     docMetrics.cliDetectDuration.record(Date.now() - startMs);
 
     if (info.installed) {

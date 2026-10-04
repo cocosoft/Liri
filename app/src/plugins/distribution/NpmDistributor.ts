@@ -6,7 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { resolvePluginsInstalledDir } from '@modules/core';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   existsSync,
   readFileSync,
@@ -19,6 +20,12 @@ import { join } from 'path';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('plugins:distribution:npmDistributor');
+
+/**
+ * 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：npm install/uninstall/update 原用 `execSync`
+ * 同步阻塞事件循环（install 超时 120s）。各方法本就是 async ⇒ 改 `promisify(exec)`，零签名变化。
+ */
+const execAsync = promisify(exec);
 
 export interface NpmInstallResult {
   success: boolean;
@@ -65,10 +72,9 @@ export class NpmDistributor {
       }
 
       logger.info(`安装插件: ${spec}`);
-      execSync(
+      await execAsync(
         `npm install ${spec} --prefix "${this.pluginsDir}" --no-save --registry ${this.registry}`,
         {
-          stdio: 'pipe',
           timeout: 120000,
         }
       );
@@ -107,9 +113,7 @@ export class NpmDistributor {
         logger.warning(`插件未安装: ${name}`);
         return false;
       }
-      execSync(`npm uninstall ${name} --prefix "${this.pluginsDir}"`, {
-        stdio: 'pipe',
-      });
+      await execAsync(`npm uninstall ${name} --prefix "${this.pluginsDir}"`);
       // 清理残留目录
       const pluginDir = join(this.pluginsDir, name.replace('/', '-'));
       if (existsSync(pluginDir)) {
@@ -140,10 +144,9 @@ export class NpmDistributor {
       }
       for (const pkg of packages) {
         try {
-          execSync(
+          await execAsync(
             `npm update ${pkg} --prefix "${this.pluginsDir}" --registry ${this.registry}`,
             {
-              stdio: 'pipe',
               timeout: 60000,
             }
           );

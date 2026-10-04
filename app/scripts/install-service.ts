@@ -261,7 +261,7 @@ function getPlatformLabel(forceSchtasks = false): string {
 /**
  * 执行服务操作并打印结果
  */
-function executeAction(service: DaemonService, action: Action): void {
+async function executeAction(service: DaemonService, action: Action): Promise<void> {
   const actionLabels: Record<Action, string> = {
     install: '安装',
     uninstall: '卸载',
@@ -273,7 +273,7 @@ function executeAction(service: DaemonService, action: Action): void {
 
   console.log(`\n🔧 正在${actionLabels[action]}服务...`);
 
-  const result = service.execute(action);
+  const result = await service.execute(action);
 
   if (result.success) {
     console.log(`✅ ${actionLabels[action]}成功: ${result.message}`);
@@ -286,12 +286,12 @@ function executeAction(service: DaemonService, action: Action): void {
 /**
  * 显示服务详细信息
  */
-function showServiceInfo(
+async function showServiceInfo(
   service: DaemonService,
   config: ServiceConfig,
   forceSchtasks = false
-): void {
-  const status = service.getStatus();
+): Promise<void> {
+  const status = await service.getStatus();
 
   console.log('');
   console.log('═══════════════════════════════════════');
@@ -328,7 +328,7 @@ function showServiceInfo(
 /**
  * 主函数
  */
-function main(): void {
+async function main(): Promise<void> {
   const options = parseArgs();
 
   console.log('');
@@ -350,11 +350,11 @@ function main(): void {
     }
   }
 
-  executeAction(service, options.action);
+  await executeAction(service, options.action);
 
   if (options.action === 'install' || options.action === 'status') {
-    showServiceInfo(service, config, options.forceSchtasks);
+    await showServiceInfo(service, config, options.forceSchtasks);
   }
 }
 
-main();
+void main();

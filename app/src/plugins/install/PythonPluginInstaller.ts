@@ -8,7 +8,8 @@
  *
  * 安全策略（3.6）：独立 venv 隔离；依赖白名单/用户确认由安装入口层执行，本模块仅安装。
  */
-import { spawnSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
@@ -16,6 +17,14 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { PythonPluginConfig } from '../core/PythonPluginAdapter';
 
 const logger = getLogger('plugins:install:pythonPluginInstaller');
+
+/**
+ * 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：创建 venv / pip install 原用 `spawnSync`
+ * 同步阻塞（超时 120s/300s）。`installPythonPlugin` 本就是 async ⇒ 改 `promisify(execFile)`
+ * （保留参数数组语义，杜绝 shell 拼接）；非 0 退出会 reject（错误对象带 stdout/stderr）⇒
+ * 在原 `status !== 0` 处用 try/catch 等价还原。
+ */
+const execFileAsync = promisify(execFile);
 
 /** Python 安装结果 */
 export interface PythonInstallResult {
@@ -121,16 +130,17 @@ export async function installPythonPlugin(
 
   // 1. 创建独立 venv
   const venvDir = join(pluginDir, '.venv');
-  const create = spawnSync(pythonPath, ['-m', 'venv', venvDir], {
-    stdio: 'pipe',
-    encoding: 'utf-8',
-    timeout: 120_000,
-  });
-  if (create.status !== 0) {
+  try {
+    await execFileAsync(pythonPath, ['-m', 'venv', venvDir], {
+      encoding: 'utf-8',
+      timeout: 120_000,
+    });
+  } catch (error) {
     rmSync(venvDir, { recursive: true, force: true });
+    const e = error as { stdout?: string; stderr?: string };
     return {
       success: false,
-      error: `创建 venv 失败: ${create.stderr?.trim() || create.stdout?.trim() || 'unknown'}`,
+      error: `创建 venv 失败: ${e.stderr?.trim() || e.stdout?.trim() || 'unknown'}`,
     };
   }
   const py = venvPythonPath(venvDir);
@@ -146,16 +156,17 @@ export async function installPythonPlugin(
     };
   }
   if (requirements.length > 0) {
-    const pip = spawnSync(py, ['-m', 'pip', 'install', ...requirements], {
-      stdio: 'pipe',
-      encoding: 'utf-8',
-      timeout: 300_000,
-    });
-    if (pip.status !== 0) {
+    try {
+      await execFileAsync(py, ['-m', 'pip', 'install', ...requirements], {
+        encoding: 'utf-8',
+        timeout: 300_000,
+      });
+    } catch (error) {
       rmSync(venvDir, { recursive: true, force: true });
+      const e = error as { stdout?: string; stderr?: string };
       return {
         success: false,
-        error: `pip install 失败: ${pip.stderr?.trim() || pip.stdout?.trim() || 'unknown'}`,
+        error: `pip install 失败: ${e.stderr?.trim() || e.stdout?.trim() || 'unknown'}`,
       };
     }
   }

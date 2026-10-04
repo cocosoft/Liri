@@ -57,8 +57,8 @@ export interface ModuleBridgeDependencies {
     getTaskCount(): number;
   };
   daemonService?: {
-    getStatus(): { running: boolean; pid?: number; uptime?: number };
-    execute(action: string): { success: boolean; message?: string };
+    getStatus(): Promise<{ running: boolean; pid?: number; uptime?: number }>;
+    execute(action: string): Promise<{ success: boolean; message?: string }>;
   };
   chronosScheduler?: {
     isRunning(): boolean;
@@ -400,7 +400,7 @@ export class ModuleBridgeRuntime implements AcpRuntime {
       ];
     }
 
-    const status = this.deps.daemonService.getStatus();
+    const status = await this.deps.daemonService.getStatus();
     const lines: string[] = [
       '守护进程状态:\n',
       `  运行中:  ${status.running ? '是' : '否'}`,
@@ -437,7 +437,7 @@ export class ModuleBridgeRuntime implements AcpRuntime {
       ];
     }
 
-    const result = this.deps.daemonService.execute(action);
+    const result = await this.deps.daemonService.execute(action);
     if (result.success) {
       return [
         { type: 'text_delta', text: `守护进程 ${action} 操作成功。` },
@@ -508,7 +508,7 @@ export class ModuleBridgeRuntime implements AcpRuntime {
       summary.push(`任务: ${this.deps.taskRegistry.getTaskCount()} 个`);
     }
     if (this.deps.daemonService) {
-      const status = this.deps.daemonService.getStatus();
+      const status = await this.deps.daemonService.getStatus();
       summary.push(`守护进程: ${status.running ? '运行中' : '已停止'}`);
     }
     if (this.deps.chronosScheduler) {

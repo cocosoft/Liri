@@ -2,13 +2,16 @@
  * DaemonService 跨平台守护进程服务管理
  * 支持 systemd (Linux)、launchd (macOS)、schtasks (Windows) 三平台
  */
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('daemon:service:DaemonService');
+// 阻塞源收敛：同步子进程调用改为 promisify 后的异步 exec
+const execAsync = promisify(exec);
 
 /**
  * 平台类型
@@ -82,17 +85,17 @@ export class DaemonService {
    * 执行服务操作
    * Windows 平台优先使用 nssm（若提供了 nssmPath），否则回退 schtasks
    */
-  execute(action: ServiceAction): ServiceActionResult {
+  async execute(action: ServiceAction): Promise<ServiceActionResult> {
     switch (this.platform) {
       case 'linux':
-        return this.executeSystemd(action);
+        return await this.executeSystemd(action);
       case 'darwin':
-        return this.executeLaunchd(action);
+        return await this.executeLaunchd(action);
       case 'win32':
         if (this.config.nssmPath) {
-          return this.executeNssm(action);
+          return await this.executeNssm(action);
         }
-        return this.executeSchtasks(action);
+        return await this.executeSchtasks(action);
       default:
         return {
           success: false,
@@ -106,17 +109,17 @@ export class DaemonService {
    * 获取服务状态
    * Windows 平台优先使用 nssm（若提供了 nssmPath），否则回退 schtasks
    */
-  getStatus(): ServiceStatus {
+  async getStatus(): Promise<ServiceStatus> {
     switch (this.platform) {
       case 'linux':
-        return this.getSystemdStatus();
+        return await this.getSystemdStatus();
       case 'darwin':
-        return this.getLaunchdStatus();
+        return await this.getLaunchdStatus();
       case 'win32':
         if (this.config.nssmPath) {
-          return this.getNssmStatus();
+          return await this.getNssmStatus();
         }
-        return this.getSchtasksStatus();
+        return await this.getSchtasksStatus();
       default:
         return { running: false, enabled: false };
     }
@@ -125,7 +128,7 @@ export class DaemonService {
   /**
    * systemd 执行
    */
-  private executeSystemd(action: ServiceAction): ServiceActionResult {
+  private async executeSystemd(action: ServiceAction): Promise<ServiceActionResult> {
     try {
       const serviceName = `${this.config.name}.service`;
       const unitPath = `/etc/systemd/system/${serviceName}`;
@@ -133,8 +136,8 @@ export class DaemonService {
       switch (action) {
         case 'install':
           this.writeSystemdUnit(unitPath);
-          execSync('systemctl daemon-reload', { stdio: 'pipe' });
-          execSync(`systemctl enable ${serviceName}`, { stdio: 'pipe' });
+          await execAsync('systemctl daemon-reload');
+          await execAsync(`systemctl enable ${serviceName}`);
           return {
             success: true,
             action,
@@ -142,10 +145,10 @@ export class DaemonService {
           };
 
         case 'uninstall':
-          execSync(`systemctl stop ${serviceName}`, { stdio: 'pipe' });
-          execSync(`systemctl disable ${serviceName}`, { stdio: 'pipe' });
+          await execAsync(`systemctl stop ${serviceName}`);
+          await execAsync(`systemctl disable ${serviceName}`);
           if (fs.existsSync(unitPath)) fs.unlinkSync(unitPath);
-          execSync('systemctl daemon-reload', { stdio: 'pipe' });
+          await execAsync('systemctl daemon-reload');
           return {
             success: true,
             action,
@@ -153,7 +156,7 @@ export class DaemonService {
           };
 
         case 'start':
-          execSync(`systemctl start ${serviceName}`, { stdio: 'pipe' });
+          await execAsync(`systemctl start ${serviceName}`);
           return {
             success: true,
             action,
@@ -161,7 +164,7 @@ export class DaemonService {
           };
 
         case 'stop':
-          execSync(`systemctl stop ${serviceName}`, { stdio: 'pipe' });
+          await execAsync(`systemctl stop ${serviceName}`);
           return {
             success: true,
             action,
@@ -169,7 +172,7 @@ export class DaemonService {
           };
 
         case 'restart':
-          execSync(`systemctl restart ${serviceName}`, { stdio: 'pipe' });
+          await execAsync(`systemctl restart ${serviceName}`);
           return {
             success: true,
             action,
@@ -177,7 +180,7 @@ export class DaemonService {
           };
 
         case 'status':
-          const status = this.getSystemdStatus();
+          const status = await this.getSystemdStatus();
           return {
             success: true,
             action,
@@ -196,7 +199,7 @@ export class DaemonService {
   /**
    * launchd 执行
    */
-  private executeLaunchd(action: ServiceAction): ServiceActionResult {
+  private async executeLaunchd(action: ServiceAction): Promise<ServiceActionResult> {
     try {
       const plistName = `dev.pyapp.${this.config.name}.plist`;
       const plistPath = path.join(
@@ -209,29 +212,29 @@ export class DaemonService {
       switch (action) {
         case 'install':
           this.writeLaunchdPlist(plistPath);
-          execSync(`launchctl load ${plistPath}`, { stdio: 'pipe' });
+          await execAsync(`launchctl load ${plistPath}`);
           return { success: true, action, message: `服务 ${plistName} 已安装` };
 
         case 'uninstall':
-          execSync(`launchctl unload ${plistPath}`, { stdio: 'pipe' });
+          await execAsync(`launchctl unload ${plistPath}`);
           if (fs.existsSync(plistPath)) fs.unlinkSync(plistPath);
           return { success: true, action, message: `服务 ${plistName} 已卸载` };
 
         case 'start':
-          execSync(`launchctl start ${plistPath}`, { stdio: 'pipe' });
+          await execAsync(`launchctl start ${plistPath}`);
           return { success: true, action, message: `服务 ${plistName} 已启动` };
 
         case 'stop':
-          execSync(`launchctl stop ${plistPath}`, { stdio: 'pipe' });
+          await execAsync(`launchctl stop ${plistPath}`);
           return { success: true, action, message: `服务 ${plistName} 已停止` };
 
         case 'restart':
-          execSync(`launchctl stop ${plistPath}`, { stdio: 'pipe' });
-          execSync(`launchctl start ${plistPath}`, { stdio: 'pipe' });
+          await execAsync(`launchctl stop ${plistPath}`);
+          await execAsync(`launchctl start ${plistPath}`);
           return { success: true, action, message: `服务 ${plistName} 已重启` };
 
         case 'status':
-          const isRunning = this.getLaunchdStatus();
+          const isRunning = await this.getLaunchdStatus();
           return {
             success: true,
             action,
@@ -250,54 +253,48 @@ export class DaemonService {
   /**
    * schtasks 执行 (Windows)
    */
-  private executeSchtasks(action: ServiceAction): ServiceActionResult {
+  private async executeSchtasks(action: ServiceAction): Promise<ServiceActionResult> {
     try {
       const taskName = `LIRI_${this.config.name}`;
 
       switch (action) {
         case 'install': {
           const xmlPath = this.writeSchtasksXml();
-          execSync(`schtasks /create /xml "${xmlPath}" /tn "${taskName}" /f`, {
-            stdio: 'pipe',
+          await execAsync(`schtasks /create /xml "${xmlPath}" /tn "${taskName}" /f`, {
             shell: 'cmd.exe',
           });
           return { success: true, action, message: `任务 ${taskName} 已创建` };
         }
 
         case 'uninstall':
-          execSync(`schtasks /delete /tn "${taskName}" /f`, {
-            stdio: 'pipe',
+          await execAsync(`schtasks /delete /tn "${taskName}" /f`, {
             shell: 'cmd.exe',
           });
           return { success: true, action, message: `任务 ${taskName} 已删除` };
 
         case 'start':
-          execSync(`schtasks /run /tn "${taskName}"`, {
-            stdio: 'pipe',
+          await execAsync(`schtasks /run /tn "${taskName}"`, {
             shell: 'cmd.exe',
           });
           return { success: true, action, message: `任务 ${taskName} 已启动` };
 
         case 'stop':
-          execSync(`schtasks /end /tn "${taskName}"`, {
-            stdio: 'pipe',
+          await execAsync(`schtasks /end /tn "${taskName}"`, {
             shell: 'cmd.exe',
           });
           return { success: true, action, message: `任务 ${taskName} 已停止` };
 
         case 'restart':
-          execSync(`schtasks /end /tn "${taskName}"`, {
-            stdio: 'pipe',
+          await execAsync(`schtasks /end /tn "${taskName}"`, {
             shell: 'cmd.exe',
           });
-          execSync(`schtasks /run /tn "${taskName}"`, {
-            stdio: 'pipe',
+          await execAsync(`schtasks /run /tn "${taskName}"`, {
             shell: 'cmd.exe',
           });
           return { success: true, action, message: `任务 ${taskName} 已重启` };
 
         case 'status':
-          const status = this.getSchtasksStatus();
+          const status = await this.getSchtasksStatus();
           return {
             success: true,
             action,
@@ -317,7 +314,7 @@ export class DaemonService {
    * nssm 执行 (Windows) — 注册为真正的 Windows 服务
    * 需要先通过 nssmPath 配置提供 nssm.exe 路径
    */
-  private executeNssm(action: ServiceAction): ServiceActionResult {
+  private async executeNssm(action: ServiceAction): Promise<ServiceActionResult> {
     const nssm = this.config.nssmPath!;
     const serviceName = this.config.name;
 
@@ -325,10 +322,9 @@ export class DaemonService {
       switch (action) {
         case 'install': {
           // 安装服务并配置参数
-          execSync(
+          await execAsync(
             `"${nssm}" install "${serviceName}" "${this.config.execPath}"`,
             {
-              stdio: 'pipe',
               shell: 'cmd.exe',
             }
           );
@@ -360,8 +356,7 @@ export class DaemonService {
           );
 
           for (const [key, val] of sets) {
-            execSync(`"${nssm}" set "${serviceName}" ${key} "${val}"`, {
-              stdio: 'pipe',
+            await execAsync(`"${nssm}" set "${serviceName}" ${key} "${val}"`, {
               shell: 'cmd.exe',
             });
           }
@@ -374,12 +369,10 @@ export class DaemonService {
         }
 
         case 'uninstall': {
-          execSync(`"${nssm}" stop "${serviceName}"`, {
-            stdio: 'pipe',
+          await execAsync(`"${nssm}" stop "${serviceName}"`, {
             shell: 'cmd.exe',
           });
-          execSync(`"${nssm}" remove "${serviceName}" confirm`, {
-            stdio: 'pipe',
+          await execAsync(`"${nssm}" remove "${serviceName}" confirm`, {
             shell: 'cmd.exe',
           });
           return {
@@ -390,8 +383,7 @@ export class DaemonService {
         }
 
         case 'start':
-          execSync(`"${nssm}" start "${serviceName}"`, {
-            stdio: 'pipe',
+          await execAsync(`"${nssm}" start "${serviceName}"`, {
             shell: 'cmd.exe',
           });
           return {
@@ -401,8 +393,7 @@ export class DaemonService {
           };
 
         case 'stop':
-          execSync(`"${nssm}" stop "${serviceName}"`, {
-            stdio: 'pipe',
+          await execAsync(`"${nssm}" stop "${serviceName}"`, {
             shell: 'cmd.exe',
           });
           return {
@@ -412,8 +403,7 @@ export class DaemonService {
           };
 
         case 'restart':
-          execSync(`"${nssm}" restart "${serviceName}"`, {
-            stdio: 'pipe',
+          await execAsync(`"${nssm}" restart "${serviceName}"`, {
             shell: 'cmd.exe',
           });
           return {
@@ -423,7 +413,7 @@ export class DaemonService {
           };
 
         case 'status': {
-          const st = this.getNssmStatus();
+          const st = await this.getNssmStatus();
           return {
             success: true,
             action,
@@ -443,17 +433,15 @@ export class DaemonService {
   /**
    * 获取 systemd 状态
    */
-  private getSystemdStatus(): ServiceStatus {
+  private async getSystemdStatus(): Promise<ServiceStatus> {
     try {
-      const output = execSync(
+      const { stdout } = await execAsync(
         `systemctl is-active ${this.config.name}.service`,
         {
-          stdio: 'pipe',
           encoding: 'utf-8',
         }
-      )
-        .toString()
-        .trim();
+      );
+      const output = stdout.trim();
       return { running: output === 'active', enabled: true };
     } catch {
       return { running: false, enabled: false };
@@ -463,12 +451,12 @@ export class DaemonService {
   /**
    * 获取 launchd 状态
    */
-  private getLaunchdStatus(): ServiceStatus {
+  private async getLaunchdStatus(): Promise<ServiceStatus> {
     try {
-      const output = execSync(`launchctl list | grep ${this.config.name}`, {
-        stdio: 'pipe',
+      const { stdout } = await execAsync(`launchctl list | grep ${this.config.name}`, {
         encoding: 'utf-8',
-      }).toString();
+      });
+      const output = stdout.toString();
       return { running: output.length > 0, enabled: true };
     } catch {
       return { running: false, enabled: false };
@@ -479,12 +467,13 @@ export class DaemonService {
    * 获取 schtasks 状态
    * 兼容中英文系统输出：任务运行中时状态列为 "Running"（英文）或 "正在运行"（中文）
    */
-  private getSchtasksStatus(): ServiceStatus {
+  private async getSchtasksStatus(): Promise<ServiceStatus> {
     try {
-      const output = execSync(
+      const { stdout } = await execAsync(
         `schtasks /query /tn "LIRI_${this.config.name}" /v /fo csv`,
-        { stdio: 'pipe', encoding: 'utf-8', shell: 'cmd.exe' }
-      ).toString();
+        { encoding: 'utf-8', shell: 'cmd.exe' }
+      );
+      const output = stdout.toString();
       const running = output.includes('Running') || output.includes('正在运行');
       return { running, enabled: true };
     } catch {
@@ -495,16 +484,14 @@ export class DaemonService {
   /**
    * 获取 nssm 服务状态
    */
-  private getNssmStatus(): ServiceStatus {
+  private async getNssmStatus(): Promise<ServiceStatus> {
     try {
       const nssm = this.config.nssmPath!;
-      const output = execSync(`"${nssm}" status "${this.config.name}"`, {
-        stdio: 'pipe',
+      const { stdout } = await execAsync(`"${nssm}" status "${this.config.name}"`, {
         encoding: 'utf-8',
         shell: 'cmd.exe',
-      })
-        .toString()
-        .trim();
+      });
+      const output = stdout.trim();
       const running = output.includes('SERVICE_RUNNING');
       return { running, enabled: true };
     } catch {

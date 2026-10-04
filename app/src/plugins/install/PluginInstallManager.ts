@@ -4,6 +4,8 @@
  */
 import path from 'path';
 import fs from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   AppError,
   ErrorCategory,
@@ -18,6 +20,12 @@ import { installPythonPlugin } from './PythonPluginInstaller.js';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins:install:PluginInstallManager');
+
+/**
+ * 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：`git clone` 原用 `execSync` 同步阻塞（超时 120s）。
+ * `installFromGit` 本就是 async ⇒ 改 `promisify(exec)`，零签名变化。
+ */
+const execAsync = promisify(exec);
 
 /**
  * 安装源类型
@@ -354,7 +362,6 @@ export class PluginInstallManager {
     options: InstallOptions,
     targetPath: string
   ): Promise<void> {
-    const { execSync } = await import('child_process');
     const cloneUrl = options.version
       ? `${options.sourcePath}#${options.version}`
       : options.sourcePath;
@@ -372,8 +379,7 @@ export class PluginInstallManager {
       fs.rmSync(targetPath, { recursive: true, force: true });
     }
 
-    execSync(`git clone ${cloneUrl} ${targetPath}`, {
-      stdio: 'pipe',
+    await execAsync(`git clone ${cloneUrl} ${targetPath}`, {
       timeout: 120000,
     });
   }

@@ -20,19 +20,19 @@
 | P2-3 工具名 codegen | ✅ **已完成** | runtime wire codec（`tool-name-wire-codec.md`，2026-09-14）+ **编译期枚举全链**（spec [`tool-name-compile-time-enum.md`](./tool-name-compile-time-enum.md)）：**T0** 清单参数化 → **T1** 生成物 `src/constants/toolNames.generated.ts`（71 名，`bun run gen:toolnames`）→ **T2** 4 处清单 `as const satisfies readonly ToolName[]` 收敛 → **T3-①②** 两条门禁；**顺带换出 7 例漂移**（`file_search` 及死类集群 D-32/D-33）并**收敛 D-15 待注册 4 名**（D-34）· **工具名统一 snake_case**（10 项 PascalCase 改名，去 `Tool` 后缀；spec [`tool-name-snake-case-rename.md`](./tool-name-snake-case-rename.md)，含"实际 10 个而非 9 个"的计数更正 **D-36-②**）⇒ 见台账 **D-29 ~ D-37** |
 | P3-1 A2A 对外暴露 | ✅ **已完成（T0–T6）** | spec：[`a2a-external-exposure.md`](./a2a-external-exposure.md)。取证：模型**已就绪**（`buildAgentCard` / `computeAgentCardEtag` / `A2A_PROTOCOL_VERSION`），且 `capabilities.streaming/pushNotifications` **已如实声明 `false`**；**真缺口＝未接线**（三符号**零消费者**）+ 挂载点已定位（[`route-table.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/infrastructure/http/handlers/route-table.ts)）。**已实施**：T0 边界裁定（ACP 对内 / A2A 对外）→ 发现端点（ETag/304/405/401）→ 委派端点（`POST /v1/a2a/tasks`，有界等待 15s，超时 202+working）→ 鉴权（`A2A_API_KEY` **fail-closed**）→ 部署/轮换文档化；实现 `handlers/routes/a2a-{routes,delegator}.ts` + 测试 `tests/http/a2a{Routes,Delegator}.test.ts` |
 | P3-2 工具链级 checkpoint + 原子回滚 | ⛔ **不实施（能力已具备）** | 前置取证发现**第三块拼图**：[`security/rollback/`](file:///e:/PY/Documents/CODES/PY_APP/app/src/security/rollback)（10 文件）**已实现且已接线** —— **轮粒度快照**（`RollbackIntegration.onRoundEnd`）+ **每工具调用前文件追踪**（`ToolExecutionService:602-620`）+ **undo/redo**（`UndoManager`/`RedoManager`）⇒ 原"缺口"判定**不成立**。**衍生项已闭环**：`snapshots/` 治理经取证为"**配额淘汰已在位**（5GB + 最旧优先，实测 527 文件 / 5007 MB 未超限）"，缺的是可观测性 ⇒ ✅ 已另立 [`snapshot-storage-governance.md`](./snapshot-storage-governance.md) 并完成补强 |
-| P3-3 工作区卫生 | 🟡 **部分** | 逻辑排除已完成（`.gitignore:233` + 门禁 `R07-004`）；**物理搬迁待办**（用户裁定暂缓——目录被进程占用） |
+| P3-3 工作区卫生 | ✅ **已完成（2026-10-04）** | 逻辑排除（`.gitignore` + 门禁 `R07-004`）+ **物理搬迁均已结案**：`REF/` 经同卷 `Directory.Move` → `E:\PY\Documents\CODES\REF`（82,196 文件 / 2,780.6 MB 逐数吻合）⇒ `R07-004` **归零**（`lint:arch` 告警 2 → 1）|
 | §5 未核实项 2–10 | ✅ **已全部回填** | #2/#3/#4/#5/#6/#7/#8/#9/#10 **均已核实并回填**（#6/#9 于 2026-09-29 结案，见台账 **D-35**；#6 残留风险见 **D-36-①**） |
 
-**结论**：P1 三项中 **P1-1 ✅ / P1-3 ✅（A + B + C 档，2026-10-01）**，**P1-2 ➖ 不适用（前提证伪）**；P2/P3 —— **P2-1 ❌ 不实施**、**P2-2 ➖ 不实施（前置 = 0 条运行历史）**、**P2-3 ✅ 已完成（T0–T3 + 去重）**、**P3-2 ⛔ 不实施（能力已具备）**、**P3-1 ✅ 已完成（T0–T6）**、**P3-3 🟡 部分**（仅剩物理搬迁，需用户侧）。
+**结论**：P1 三项中 **P1-1 ✅ / P1-3 ✅（A + B + C 档，2026-10-01）**，**P1-2 ➖ 不适用（前提证伪）**；P2/P3 —— **P2-1 ❌ 不实施**、**P2-2 ➖ 不实施（前置 = 0 条运行历史）**、**P2-3 ✅ 已完成（T0–T3 + 去重）**、**P3-2 ⛔ 不实施（能力已具备）**、**P3-1 ✅ 已完成（T0–T6）**、**P3-3 ✅ 已完成（物理搬迁 2026-10-04 结案）**。
 
 **🆕 2026-10-02 复核（逐条回仓取证；§2 各表的旧状态已随之订正）**：**20 个议题中已无"未开工且可执行"的项** —— 绝大多数落在「✅ 已完成」或「❌/⛔ 取证后裁定不做」，**仍在位仅 3 项**（**A1** 结构化挂起清单 / **F5** AI Contract 治理 / **F1** 动态思考预算；后两者已列入"明确不做"）。订正要点：P1-3 补 **B/C 档已完成**（并更正 B2 档的一处**误收**，台账 D-239）· A2 / C1 / C3 / D1 / D3 / D4 / E5 / F2 / F3 / F4 / G3 / G4 / B2 / B3 / D2 的旧状态（❌/🟡/未核实/待实施）已按实测订正 · 批次 2/3/4 均已收口。
 **剩余项与其阻塞原因（全部非"可立即执行"）**：
 | 剩余项 | 阻塞原因 |
 |---|---|
 | **A1**（结构化挂起清单 + 显式 `cancel_requested` 语义） | 属**设计性增量**（现已有协商门）；未排期 ⇒ 需裁定 |
-| **P3-3** 物理搬迁 | 目录被进程占用（IDE/watcher）+ **工具链沙箱禁写该路径** ⇒ **须用户侧执行** |
+| ~~**P3-3** 物理搬迁~~ | ✅ **已结案（2026-10-04）** —— 用户侧放开沙箱该路径后，同卷 `Directory.Move` → `E:\PY\Documents\CODES\REF` 秒级完成；`R07-004` 归零 |
 | **F5** / **F1** | 已列"明确不做"（收益未证 / 与既有机制重叠） |
-| 台账 **D-36-①**（Landlock `--net-connect` 语义） | 已收敛两态；**需 Linux 实测**（本机 Windows） |
+| ~~台账 **D-36-①**（Landlock `--net-connect` 语义）~~ | ✅ **已结案（2026-10-04，WSL2 Ubuntu 真机）**：网络两态实测通过（`--net-deny` ⇒ `curl exit=7` 全禁 / 不 handle ⇒ `exit=0` 放行）；另修 `main.c` 缺 `<stddef.h>` 编译缺陷 |
 | 台账 **D-36-③**（4 个 PascalCase 类） | **2026-10-02 复核后已闭环**：`EnterPlanModeTool`/`ExitPlanModeTool` **已不存在**（0 命中）；`TeamCreate(Tool)`/`TeamDelete(Tool)` 是 **feature-flag 条件工具**（`isToolEnabled('ENABLE_TEAM_CREATE'/'ENABLE_TEAM_DELETE')`），与 browser/code_run 同类，**非缺陷** ⇒ 无需处置 |
 | 台账 **D-241**（3 文件 5 处直连 `bun:sqlite`） | **✅ 已处置（2026-10-02）** —— 按用户裁定扩展封装（`openBunDatabase()`，PRAGMA 单一事实源 + `readonly`）并归一化 5 处；`typecheck 0` / 视频测试 35 pass / `lint:arch` 0 违规 |
 **2026-09-29 汇总（本计划相关多轮累计，台账 D-16 ~ D-36）**
@@ -166,7 +166,7 @@
 |---|---|---|
 | **P3-1 A2A 对外暴露** ✅ **已完成（T0–T6）** | `/.well-known/agent.json` + 任务委派端点（数据模型已就绪） | ✅ 已核并出 spec（[`a2a-external-exposure.md`](./a2a-external-exposure.md)）：模型已就绪、**零消费者 ⇒ 无端点**、挂载点 = `route-table.ts`；**前置 T0 ＝ 划 ACP / A2A 边界** |
 | **P3-2 工具链级 checkpoint + 原子回滚** ⛔ **不实施（能力已具备）** | 在多步工具链前自动 checkpoint，失败原子回滚到已验证点 | 已核（[spec](./toolchain-checkpoint-atomic-rollback.md) §1.3）：`security/rollback/` 的**轮快照 + 工具级文件追踪 + undo/redo** 已接线 ⇒ 无需新建；剩余 `snapshots/` **4.4 GB 无淘汰** = 存储治理，另立 spec |
-| **P3-3 工作区卫生** 🟡 **部分**（逻辑排除已完成；物理搬迁待办） | 参考副本 `REF/`（2.6GB / 82k 文件）的排除：**逻辑排除已完成**（`.gitignore:233` 早有 `REF/*`；门禁 `R07-004` 已落地；§1 已写入口径约定）；**物理搬迁待办**（2026-09-28 用户裁定暂缓——目录被进程占用导致 rename 被拒，见 §1） | 待你择机关闭 IDE/索引器后，用同卷 `Directory.Move` 秒级完成 |
+| **P3-3 工作区卫生** ✅ **已完成（2026-10-04）** | 参考副本 `REF/`（82k 文件 / 2.6GB）的排除：**逻辑排除**（`.gitignore` 早有 `REF/*`；门禁 `R07-004` 已落地；§1 已写入口径约定）+ **物理搬迁已结案** | `REF/` 同卷 `Directory.Move` → `E:\PY\Documents\CODES\REF`（82,196 文件 / 2,780.6 MB 逐数吻合）⇒ `R07-004` **归零** |
 
 ### v2 增补要点（来自第二轮 4 条）
 
@@ -193,7 +193,7 @@
 1. **批次 1（止血，最小）** ✅ **已完成**：P1-1 ① 前端 Mermaid 降级；P1-3 出参 schema 覆盖高频工具（**7/10 已接线**，余 3 个为多形态出口、经取证不宜声明）。
 2. **批次 2（能力）** ✅ **已收口**：P1-1 ② 服务端校验 + 回喂 ✅；**P1-2 沙箱快照 ➖ 改判"不适用"**（前置沙箱实例层已删，D-16/D-25）⇒ 本批无遗留。
 3. **批次 3（治理）** ✅ **已收口**：**P2-1 ❌ 不实施**（前提证伪）；**P2-2 ✅ 已实施**（2026-09-29，`pathguard-registry-driven-args.md`）；**P2-3 ✅ 已完成**（T0–T3 + 去重）。
-4. **批次 4（可选）** 🟡 **基本收口**：**P3-1 ✅ 已完成（T0–T6）**；**P3-2 ⛔ 不实施（能力已具备）**，其衍生 `snapshot-storage-governance` ✅ 已实施；**P3-3 🟡 逻辑排除已完成、物理搬迁待办**（被进程占用 + 工具链沙箱禁写该路径 ⇒ 需用户侧执行）。
+4. **批次 4（可选）** ✅ **已收口**：**P3-1 ✅ 已完成（T0–T6）**；**P3-2 ⛔ 不实施（能力已具备）**，其衍生 `snapshot-storage-governance` ✅ 已实施；**P3-3 ✅ 已完成（2026-10-04：逻辑排除 + 物理搬迁）**。
 
 **统一验收原则**：每批必须给出**运行时可观测判据**（如"无红字 + 事件链完整"、"环境就绪耗时下降 ≥50%"、"下游载荷符合 schema"），并在台账记录实测值；`typecheck` / 相关测试 / `eslint` / `lint:arch` 必须为 0 违规。
 

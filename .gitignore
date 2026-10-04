@@ -150,11 +150,6 @@ app/my-project
 app/config.json
 app/settings.json
 
-# 参考 / 第三方代码（提取后的档案）
-BA_REF/
-UI_REF/
-CJL_REF/
-
 # 项目规则文件
 # ⚠️ 必须写 `.trae/*` 而非 `.trae/`：**父目录被整体排除时 git 不会进入该目录，子目录的 `!` 反排除会失效**
 #（2026-09-23 实测：写成 `.trae/` 时 `.trae/specs/` 仍被忽略 ⇒ Specs 永远进不了版本控制）
@@ -176,7 +171,6 @@ dev_docs/*
 app/data/
 app/.test_exports/
 app/output.txt
-UI_REF/
 
 # Root-level orphan directories (not used at root level)
 chat_sessions/
@@ -237,7 +231,6 @@ temp _url.txt
 temp_url2.txt
 test.txt
 dev_docs/*
-REF/*
 # 例外（必须放在所有 `dev_docs/*` 规则之后，gitignore 以"最后匹配者胜"）：
 # `error_repairs/` 是 .trae/rules 指定的「发现即记录」目的地（预存错误与待处理问题.md），
 # 若不入库则该制度在版本层面不成立（2026-09-23）。其余 dev_docs 内容仍全部忽略。

@@ -87,10 +87,12 @@ describe('pattern 装配入口（B1）：assembler → 可执行路由', () => {
     }
   });
 
-  it('long_task_pdl → unavailable（运行时由快速路径策略独立驱动，D2）', () => {
-    const sel = selectPattern({ complexity: 'complex' });
-    if (!sel) throw new Error('complex 非研究应选中 long_task_pdl');
-    const inst = instantiatePattern(sel);
+  // D4（2026-10-04，pattern-trigger-surfaces.md §5）：selectPattern 不再产出 long_task_pdl
+  // ⇒ 直接经描述构造 selection 断言其装配结果（运行时由快速路径策略独立驱动）。
+  it('long_task_pdl → unavailable（运行时由快速路径策略独立驱动，D2/D4）', () => {
+    const descriptor = getPatternDescriptor('long_task_pdl');
+    if (!descriptor) throw new Error('缺少 long_task_pdl 描述');
+    const inst = instantiatePattern({ name: 'long_task_pdl', descriptor });
     expect(inst.status).toBe('unavailable');
     expect(inst.assembler).toBe('long_task_pdl');
     if (inst.status === 'unavailable') {

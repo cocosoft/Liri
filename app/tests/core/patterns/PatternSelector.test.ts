@@ -17,11 +17,26 @@ describe('PatternSelector（Teamwork P2a）', () => {
     expect(sel?.name).toBe('competitive_strategy');
   });
 
-  test('complex 非研究 → long_task_pdl（目标驱动主路径）', () => {
-    const sel = selectPattern({ complexity: 'complex' });
-    expect(sel?.name).toBe('long_task_pdl');
-    const sel2 = selectPattern({ complexity: 'complex', taskType: 'write' });
-    expect(sel2?.name).toBe('long_task_pdl');
+  // D4（2026-10-04，pattern-trigger-surfaces.md §5 裁定 A）：complex 非研究**不再**返回
+  // long_task_pdl —— 其描述层声明 matches=simple、运行时由快速路径策略独立驱动
+  // ⇒ 选择层如实返回 null（§1.5 选择层↔描述层不一致已消除）。
+  test('complex 非研究 → null（不再假称 long_task_pdl）', () => {
+    expect(selectPattern({ complexity: 'complex' })).toBeNull();
+  });
+
+  // D2：三个未接线 pattern 的 matches 不得再含悬空 `taskType`（本仓无 write/execute/verify 生产者）
+  test('D2：三个未接线 pattern 的 matches 已去悬空 taskType', () => {
+    for (const name of [
+      'iterative_refine',
+      'parallel_distributed',
+      'self_verify',
+    ] as const) {
+      const d = getPatternDescriptor(name);
+      expect(d).toBeDefined();
+      const matches = (d?.matches ?? {}) as Record<string, unknown>;
+      expect(matches.taskType).toBeUndefined();
+      expect(Object.keys(matches).sort()).toEqual(['complexity']);
+    }
   });
 
   // A8（2026-10-01）：选择结果必须携带可消费的装配描述——原仅 {name}，消费方无从决策
@@ -31,8 +46,9 @@ describe('PatternSelector（Teamwork P2a）', () => {
     expect(sel?.descriptor.assembly.assembler).toBe('competitive_strategy');
     expect(sel?.descriptor.assembly.bindings.length).toBeGreaterThan(0);
 
-    const pdl = selectPattern({ complexity: 'complex' });
-    expect(pdl?.descriptor.assembly.assembler).toBe('long_task_pdl');
+    // long_task_pdl 不再由 selectPattern 产出（D4）⇒ 直接取描述断言其装配入口
+    const pdl = getPatternDescriptor('long_task_pdl');
+    expect(pdl?.assembly.assembler).toBe('long_task_pdl');
   });
 });
 

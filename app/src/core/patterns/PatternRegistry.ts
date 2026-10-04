@@ -21,7 +21,9 @@ export const PATTERN_DESCRIPTORS: Readonly<
     name: 'iterative_refine',
     displayName: '迭代精修',
     when: '单步生成类任务（需多轮修改打磨产出）',
-    matches: { complexity: 'complex', taskType: 'write' },
+    // D2（2026-10-04，pattern-trigger-surfaces.md）：原 `taskType: 'write'` 在本仓**无生产者**
+    // （真实 `TaskType` 见 ai/modelRouter.ts，是另一套词表）⇒ 悬空判定依据已移除，语义由 `when` 表达。
+    matches: { complexity: 'complex' },
     roles: ['generator', 'reviewer'],
     assembly: {
       assembler: 'iterative_refine',
@@ -35,7 +37,8 @@ export const PATTERN_DESCRIPTORS: Readonly<
     name: 'parallel_distributed',
     displayName: '并行分治',
     when: '可拆分为互不依赖子任务的执行型任务',
-    matches: { complexity: 'complex', taskType: 'execute' },
+    // D2：原 `taskType: 'execute'` 悬空（无生产者）⇒ 已移除；语义由 `when` 表达。
+    matches: { complexity: 'complex' },
     roles: ['planner', 'worker', 'aggregator'],
     assembly: {
       assembler: 'parallel_distributed',
@@ -97,7 +100,8 @@ export const PATTERN_DESCRIPTORS: Readonly<
     name: 'self_verify',
     displayName: '自我验证',
     when: '需要内置验证环节的步骤（执行后校验质量）',
-    matches: { complexity: 'complex', taskType: 'verify' },
+    // D2：原 `taskType: 'verify'` 悬空（无生产者）⇒ 已移除；语义由 `when` 表达。
+    matches: { complexity: 'complex' },
     roles: ['executor', 'verifier'],
     assembly: {
       assembler: 'self_verify',

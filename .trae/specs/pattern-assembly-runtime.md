@@ -246,6 +246,7 @@ export function instantiatePattern(
    但 `selectPattern` 对 **complex 非研究**仍返回 `long_task_pdl`（N1 冻结判定规则）⇒ **selector 与描述层不一致**。
    该分支的返回值下游**被忽略**（ChatManager 只消费 `competitive_strategy`），故**无行为影响**；
    根因修复需重审 `selectPattern` 的 `long_task_pdl` 分支语义（属独立议题，不在本 spec）。
+   - **✅ 已结案（2026-10-04）**：由 [`pattern-trigger-surfaces.md`](./pattern-trigger-surfaces.md) **D4=(a)** 落地 —— `selectPattern` **删除**该分支（complex 非研究改如实返回 `null`）；选择层↔描述层不一致**已消除**，运行期零行为变更（唯一消费点只认 `route==='research'`）。
 
 ---
 

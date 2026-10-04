@@ -100,6 +100,4 @@ export interface PatternMatchSpec {
   complexity: 'simple' | 'complex';
   /** 研究型标志（P0-3 门控信号，来自 hasResearchIntent） */
   research?: boolean;
-  /** 任务类型（TaskType；可为空——selector 不强依赖） */
-  taskType?: string;
 }

@@ -396,7 +396,7 @@ src/<module>/
 ### R06-008 [MUST] 分层架构（GR07）
 
 > **唯一事实源**：`scripts/modules-to-layers.json`（`layerOrder` / `allowedDependencies` / `modules`）。
-> 门禁实现：`scripts/lint-architecture.ts` —— **R00-001**（静态跨层：违规/豁免）；**R00-003**（动态跨层：**仅上报**）。
+> 门禁实现：`scripts/lint-architecture.ts` —— **R00-001**（静态跨层：违规/豁免）；**R00-003**（动态/延迟跨层：`import('…')` 与 `require('…')`，**仅上报**，2026-10-04 D-190② 追加 `require` 可见化）。
 > ⚠️ 本节于 **2026-10-01 按事实源重写**：此前为「表示层/业务层/核心层/工具层」**4 层旧模型**，与事实源**多处冲突**（旧表把 `chat`/`tools` 当"业务层"、把 `utils`/`types` 并列为"工具层"、且**完全没有 `entry`/`ui`/`service` 三层**）。
 
 **层序（6 层，自高到低）**：`entry > ui > app > service > infra > core`

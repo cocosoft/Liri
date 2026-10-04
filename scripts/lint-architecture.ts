@@ -30,7 +30,6 @@ const TEST_FILE_EXCLUSIONS = [
   '/node_modules/', // 跳过
 ];
 
-
 // JS/TS 保留字，排除被误判为"方法名"的控制流语句
 const RESERVED_WORDS = new Set([
   'if',
@@ -2698,36 +2697,48 @@ class ArchitectureLinter {
   }
 
   /**
-   * R00-003（B 组治理）：解析文件中的**动态导入** `import('…')` 目标模块。
+   * R00-003（B 组治理）：解析文件中的**动态 / 延迟导入**目标模块 —— `import('…')` 与 `require('…')`。
    *
-   * 为什么需要：`parseModuleImports` 只匹配 `from '…'` 形式 ⇒ 动态 `import('…')`
-   * **完全不参与** R00-001 / R03-002，core 层可借此"把依赖藏起来"（A 类盘点发现，
-   * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.6）。
-   * 本方法只收集目标模块名；**是否倒挂**由调用方用同一套 `allowedDependencies` 判定。
+   * 为什么需要：`parseModuleImports` 只匹配 `from '…'` 形式 ⇒ 动态 `import('…')` 与 CommonJS
+   * `require('…')` **完全不参与** R00-001 / R03-002，模块可借此"把依赖藏起来"（A 类盘点发现，
+   * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.6；`require` 盲区见 D-190②）。
+   * 本方法只收集目标模块名 + 形态（kind）；**是否倒挂**由调用方用同一套 `allowedDependencies` 判定。
    *
-   * 裁定（用户批准 2026-09-30）：**仅 warning 级上报** —— 不计入 `违规` / `已豁免`，
-   * 不建 composition-root 白名单，不阻断提交。
+   * 裁定（用户批准 2026-09-30；D-190② 2026-10-04 追加 `require`）：**仅 warning 级上报** ——
+   * 不计入 `违规` / `已豁免`，不建 composition-root 白名单，不阻断提交（先"可见"再加严）。
    */
-  parseDynamicImports(filePath: string): Set<string> {
-    // 同 parseModuleImports：剥离注释，避免"注释里复写 import()"造成 R00-003 假阳性（D-190）。
+  parseDynamicImports(
+    filePath: string
+  ): Array<{ module: string; kind: 'import' | 'require' }> {
+    // 同 parseModuleImports：剥离注释，避免"注释里复写 import()/require()"造成 R00-003 假阳性（D-190）。
     const content = this.stripComments(readFileSync(filePath, 'utf-8'));
-    const imports = new Set<string>();
+    const seen = new Set<string>();
+    const imports: Array<{ module: string; kind: 'import' | 'require' }> = [];
 
-    // 统一捕获 import('…') 的说明符，再按「别名 / 相对路径 / 裸包」分类
-    const dynRegex = /import\(\s*['"]([^'"]+)['"]/g;
-    let match: RegExpExecArray | null;
-    while ((match = dynRegex.exec(content)) !== null) {
-      const spec = match[1];
+    // 统一按「别名 / 相对路径 / 裸包」分类；裸包（第三方依赖）与其它形式跳过
+    const collect = (spec: string, kind: 'import' | 'require'): void => {
+      let moduleName: string | null = null;
       const aliasMatch = /^@modules\/([^'"/]+)/.exec(spec);
       if (aliasMatch) {
-        imports.add(aliasMatch[1]);
-        continue;
+        moduleName = aliasMatch[1];
+      } else if (spec.startsWith('.')) {
+        const resolved = resolve(dirname(filePath), spec);
+        if (resolved.startsWith(this.srcPath)) {
+          moduleName = this.resolveModuleName(resolved);
+        }
       }
-      // 裸包（第三方依赖）与其它形式跳过
-      if (!spec.startsWith('.')) continue;
-      const resolved = resolve(dirname(filePath), spec);
-      if (!resolved.startsWith(this.srcPath)) continue;
-      imports.add(this.resolveModuleName(resolved));
+      if (!moduleName) return;
+      const key = `${kind}:${moduleName}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      imports.push({ module: moduleName, kind });
+    };
+
+    // 统一捕获 import('…') 与 require('…') 的说明符（D-190②）
+    const dynRegex = /\b(import|require)\(\s*['"]([^'"]+)['"]/g;
+    let match: RegExpExecArray | null;
+    while ((match = dynRegex.exec(content)) !== null) {
+      collect(match[2], match[1] as 'import' | 'require');
     }
 
     return imports;
@@ -2767,6 +2778,8 @@ class ArchitectureLinter {
       srcLayer: string;
       tgtModule: string;
       tgtLayer: string;
+      /** `import('…')` 或 `require('…')`（D-190② 2026-10-04 追加 require 可见化） */
+      kind: 'import' | 'require';
     }> = [];
 
     /**
@@ -2839,18 +2852,19 @@ class ArchitectureLinter {
         violationCount++;
       }
 
-      // R00-003：动态 import 的跨层引用（仅收集，不计数）
-      for (const dynModule of this.parseDynamicImports(file)) {
-        if (dynModule === srcModule) continue;
-        const dynLayer = this.moduleToLayer.get(dynModule);
+      // R00-003：动态 / 延迟导入（import() / require()）的跨层引用（仅收集，不计数）
+      for (const dyn of this.parseDynamicImports(file)) {
+        if (dyn.module === srcModule) continue;
+        const dynLayer = this.moduleToLayer.get(dyn.module);
         if (!dynLayer) continue;
         if (allowedLayers.includes(dynLayer)) continue;
         dynamicCrossLayerRefs.push({
           file: relative(process.cwd(), file),
           srcModule,
           srcLayer,
-          tgtModule: dynModule,
+          tgtModule: dyn.module,
           tgtLayer: dynLayer,
+          kind: dyn.kind,
         });
       }
       checked++;
@@ -2904,12 +2918,17 @@ class ArchitectureLinter {
         .sort((a, b) => b[1].count - a[1].count)
         .map(([key, v]) => `    - ${key} × ${v.count}（如 ${v.sample}）`)
         .join('\n');
+      const requireRefs = dynamicCrossLayerRefs.filter(
+        (r) => r.kind === 'require'
+      ).length;
       this.violations.push({
         ruleId: 'R00-003',
         severity: 'warning',
         file: 'app/src (全局)',
-        message: `存在 ${dynamicCrossLayerRefs.length} 处**动态导入**（import('…')）造成的跨层引用，覆盖 ${grouped.size} 个「源模块 → 目标模块」组合 —— 门禁 R00-001/R03-002 的 from 正则匹配不到（盲区）；本规则仅上报，不计入违规/已豁免`,
-        suggestion: `下列依赖**真实存在**但静态正则看不见。治理口径（2026-09-30 用户裁定）为**仅 warning 级上报**：不建白名单、不改判定。\n**按（源模块 → 目标模块）聚合（合计 ${dynamicCrossLayerRefs.length} 处）**：\n${list}`,
+        message: `存在 ${dynamicCrossLayerRefs.length} 处**动态 / 延迟导入**（import('…') / require('…')）造成的跨层引用${
+          requireRefs > 0 ? `（其中 require('…') 形式 ${requireRefs} 处）` : ''
+        }，覆盖 ${grouped.size} 个「源模块 → 目标模块」组合 —— 门禁 R00-001/R03-002 的 from 正则匹配不到（盲区）；本规则仅上报，不计入违规/已豁免`,
+        suggestion: `下列依赖**真实存在**但静态正则看不见。治理口径（2026-09-30 用户裁定；2026-10-04 D-190② 追加 require 可见化）为**仅 warning 级上报**：不建白名单、不改判定。\n**按（源模块 → 目标模块）聚合（合计 ${dynamicCrossLayerRefs.length} 处）**：\n${list}`,
       });
     }
   }

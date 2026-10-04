@@ -1,18 +1,26 @@
 /**
  * PatternSelector — 编排模式选择器（Teamwork P2a，2026-09-06）
  *
- * 输入 = 任务特征（复杂度 + 研究型标志 + 可选任务类型），输出 = pattern 选择结果或 null。
+ * 输入 = 任务特征（复杂度 + 研究型标志），输出 = pattern 选择结果或 null。
  * 规则（简单判定表，描述层）：
- *   1. simple 复杂度 → 走快速路径，不套 pattern（null → PDL `_executeDirect` 现状）
- *   2. 研究型复杂任务 → competitive_strategy（P0-3 门控同信号）
- *   3. 其余 complex → long_task_pdl（目标驱动主路径，拓扑依赖图）
- *   4. taskType 辅助区分 write/execute/verify 描述偏好，不改变上述主判定
+ *   1. simple 复杂度 → 走快速路径，不套 pattern（null）
+ *   2. 研究型复杂任务 → competitive_strategy（P0-3 门控同信号；当前**唯一**已接线运行时的 pattern）
+ *   3. 其余（含 complex 非研究）→ **null** —— 如实"无 pattern 适用"
  *
- * 未命中 → null（调用方回退现状，行为零变化——验收 #4）。
+ * D2/D4（2026-10-04，[`pattern-trigger-surfaces.md`](../../../../.trae/specs/pattern-trigger-surfaces.md) §4.1/§5 裁定「A 选择层一致化」）：
+ *   · 原规则 3「其余 complex → long_task_pdl」与**描述层**（`matches = { complexity: 'simple' }`，D2 运行时对齐）
+ *     及**运行时**（complex 走 PDCA 阶段链；`long_task_pdl` 的 PDL 由 ChatManager 快速路径策略独立驱动、
+ *     不经 pattern 装配）均矛盾 ⇒ **已删除**（消除 §1.5 选择层↔描述层不一致）。
+ *   · 原规则 4 依赖的 `taskType` 在本仓**无生产者**（真实 `TaskType` 见 `ai/modelRouter.ts`，是另一套词表）
+ *     ⇒ 该悬空输入已从 `PatternMatchSpec` 移除；`iterative_refine`/`parallel_distributed`/`self_verify`
+ *     三者的 `matches.taskType` 同步去悬空（语义由各自 `when` 表达）。
+ *
+ * 未命中 → null（调用方回退现状）。**运行期行为零变化**：唯一消费点
+ * （`ChatManager._maybeLaunchPdca`）只认 `route === 'research'`。
  * 与 agent 层 StrategySelector（agent 类型→路由）职责区分，不混用。
  *
  * A1（2026-10-01）：返回值改为携带完整 `descriptor`（含 `assembly`）——原仅有 `name`，
- * 消费方拿到名字也无从决策。规则本身逐字不变。
+ * 消费方拿到名字也无从决策。
  */
 
 import { getLogger } from '../loggerFacade.js';
@@ -50,9 +58,9 @@ export function selectPattern(spec: PatternMatchSpec): PatternSelection | null {
     logger.info('pattern.selected', { name: 'competitive_strategy', ...spec });
     return selectionOf('competitive_strategy');
   }
-  // complex 非研究 → 目标驱动主路径（依赖图 / 前驱注入语义由 PDL 承担）
-  logger.info('pattern.selected', { name: 'long_task_pdl', ...spec });
-  return selectionOf('long_task_pdl');
+  // D4：complex 非研究**不再**返回 long_task_pdl（见头注）—— 如实返回 null。
+  logger.debug('pattern.none', { ...spec });
+  return null;
 }
 
 /**

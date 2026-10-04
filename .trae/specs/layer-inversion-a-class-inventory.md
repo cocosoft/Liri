@@ -1327,13 +1327,15 @@
 ### 3.17.6 取证说明
 
 - 逐文件盘点由检索子代理完成，**实查 30 处 = 门禁 30 处**（20 组合逐一吻合，无差异、无凑数）。
-- 计数口径复核：`parseDynamicImports` 用 `Set<string>` 收集 ⇒ **同一文件对同一目标模块的多行 `import()` 只算 1 处**；`require('…') as typeof import('…')` 的**类型位置 `import()` 计入**，`require()` 本身不计（这解释了 `state/**` 3 处与 `permission` 1 处的来源）。
+- 计数口径复核：`parseDynamicImports` 用 `Set<string>` 收集 ⇒ **同一文件对同一目标模块的多行 `import()` 只算 1 处**；`require('…') as typeof import('…')` 的**类型位置 `import()` 计入**，`require()` 本身**当时**不计（这解释了 `state/**` 3 处与 `permission` 1 处的来源）。
+  - **⚠️ 口径更新（2026-10-04，D-190②）**：`require('…')` **现已计入** —— `parseDynamicImports` 改为同时识别 `import('…')` 与 `require('…')`（返回 `Array<{ module; kind }>`）。故"`require()` 本身不计"**仅适用于 2026-10-04 之前**；实测该口径使 `R00-003` **34 → 35**（新增 `permission(infra) → tools(app)` 1 处隐藏依赖，见台账 D-190②）。
 
 ### 3.17.19 🔎 **遗留盲区取证：字符串路径表（`R00-003` 视野之外），2026-09-30**
 
 > 触发：§3.17.18 收官后，按 **D-65「把依赖藏起来不可接受」** 原则做的**只读取证**。**未改任何代码 / 门禁**，仅登记 + 报请裁定（台账 D-133）。
 
 **门禁可见性边界（已核实）**：`parseDynamicImports` 用正则 `/import\(\s*['"]([^'"]+)['"]/g`（[`lint-architecture.ts:2506`](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-architecture.ts#L2506)）⇒ **只认字面量**；`import(变量)` / `` import(`模板`) `` **一律不匹配**（`tools/DependencyGraphScanner.extractImports:270` 同型）。
+> **⚠️ 2026-10-04（D-190②）更新**：该正则已扩展为 `/\b(import|require)\(\s*['"]([^'"]+)['"]/` ⇒ **CommonJS `require('字面量')` 亦可识别**（此前是另一类盲区）；"只认字面量"的边界不变（`import(变量)` / 模板串仍不匹配）。
 
 **最大盲区：`core/LazyModuleStrategy.ts:338-353` 的 `DYNAMIC_IMPORT_PATHS`（14 条字符串路径）**，唯一消费点 `:447` / `:458`（`await import(importPath)`）。该文件层 = **core**，而 `core.allowedDependencies = ["core"]` ⇒ **14 条全部构成 core → 上层**，且**门禁零可见**。
 

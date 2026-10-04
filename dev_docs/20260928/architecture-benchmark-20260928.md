@@ -18,9 +18,9 @@
 | 1 | Prompt Chaining 提示链 | 🟡 | `modules/doc/workflow/DocWorkflowProvider.ts:24-33`（把 `runDocWorkflow` 四阶段声明为 seam 可调度 `WorkflowDefinition`）；`config/types.ts:217 DocWorkflowConfig`（分阶段执行 / 默认格式 / 图片并发 / 失败降级）；`chat/ChatManager.ts:4814 persistDocWorkflowProgress` | **阶段序列双份**：`DocWorkflowProvider` 与 `runDocWorkflow` 各持同一序列（代码内已标 `TODO: CS05-ROOTFIX`「临时双轨，第二刀收口」）⇒ 根因＝同一编排序列两处事实源；**下一步：按该 TODO 收口为唯一序列**（P2，改动面中等） |
 | 2 | Routing 路由 | ✅ | `ai/modelRouter.ts`（任务→模型映射；`getPhaseMapping`/`setTasks`/`validateTaskAssignment`）；`ai/complexity` 的 `TaskComplexityClassifier`（启动日志 `ai:complexity`）；`chat/ChatManager.ts:629 _shouldUsePlanDrivenLoop`（复杂/危险分流）；`ChatHelper.resolveEffectiveTurnModel`（发送前模型归属，台账 4704） | 层次完整（任务路由 / 复杂度分流 / 归属防漂移）；**缺口仅疑在"路由决策可观测性"**（未核）⇒ 待核 |
 | 3 | Parallelization 并行化 | 🟡 | `agent/events/OrchestrationEvents.ts:70-85`（Council 辩论事件族：`COUNCIL_START`/`ROUND_START`/`AGENT_SPEAKING`/`AGENT_DELTA`/`ROUND`/`END`/`DETAIL`） | Council 已具"多智能体并发发言 + 回合聚合"；**"可独立子任务的通用 Map-Reduce 并行（含并发上限与失败聚合）"是否存在未证** ⇒ 下一批取证 |
-| 4 | Reflection 反思 | 🟡 | `tools/ToolInputSelfCorrector.ts`（JSON 入参自纠循环；对标 cc `formatZodValidationError` + PilotDeck `jsonSelfCorrect`）；`query/ErrorRecoveryManager.ts:93`（自纠错上限 3 次）；`query/CompetitiveStrategyOrchestrator.ts:345 _critique`；`tasks/LongRunningTaskOrchestrator.ts:1268 reviewStep`（PDCA review gate） | **产物类输出的自纠缺失**：图表/Mermaid/长文等**生成物**无"语法/结构校验 → 回喂同一子代理重试"回路 ⇒ 前端直接暴露 `Syntax error in text mermaid`（用户截图实证）。根因＝校验点不在"产物出口"；**下一步 = P1-1**：① 前端降级 **✅ 已落地（2026-09-28）** —— `MarkdownRenderer` 先 `mermaid.parse` 预校验（实测非法语法在此即抛 `Parse error on line 1`）⇒ **错误图根本不进 DOM**（原缺陷：mermaid 自行注入 "Syntax error in text mermaid version …"，即截图红字）+ 兜底清理残留节点 + 通俗提示（i18n `chat.mermaidRenderFailed`）+ 源码原样保留（不再红字）+ 2 例回归守卫；② 服务端校验回喂 **待做** |
-| 5 | Tool Use 工具使用 | ✅ | 运行时 `GET /v1/tools` = **60**；`tools/ToolRegistry.ts`（唯一写入口）；`tools/toolNameCodec.ts`（wire 名安全）；`ToolInputSelfCorrector`（入参 zod + 自纠）；`decodeToolResultContent`（出参解包统一） | 缺口：**出参无强制 schema**（入参已有 zod）⇒ 边界处无法阻断噪声入下一链；**下一步 = P1-3（先覆盖高频 10 工具）**，P1。另：工具数口径 60 vs 建议 81 待核 |
-| 6 | Planning 规划 | ✅ | `core/loop/PlanDrivenLoop.ts`（快速路径；`chat/ChatManager.ts:962 enablePlanDrivenLoop: true` 恒启用）；`tasks/LongRunningTaskOrchestrator.ts`（复杂/危险任务走 LRTO + PDCA 阶段链）；docWorkflow 四阶段（同 #1） | 双轨路由（快速路径 vs LRTO）已成型；**分流判据 `_shouldUsePlanDrivenLoop` 的阈值与危险工具清单未核**（是否与"验收标准/目标"绑定）⇒ 待核 |
+| 4 | Reflection 反思 | 🟡 | `tools/ToolInputSelfCorrector.ts`（JSON 入参自纠循环；对标 cc `formatZodValidationError` + PilotDeck `jsonSelfCorrect`）；`query/ErrorRecoveryManager.ts:93`（自纠错上限 3 次）；`query/CompetitiveStrategyOrchestrator.ts:345 _critique`；`tasks/LongRunningTaskOrchestrator.ts:1268 reviewStep`（PDCA review gate） | **产物类输出的自纠缺失**：图表/Mermaid/长文等**生成物**无"语法/结构校验 → 回喂同一子代理重试"回路 ⇒ 前端直接暴露 `Syntax error in text mermaid`（用户截图实证）。根因＝校验点不在"产物出口"；**下一步 = P1-1**：① 前端降级 **✅ 已落地（2026-09-28）** —— `MarkdownRenderer` 先 `mermaid.parse` 预校验（实测非法语法在此即抛 `Parse error on line 1`）⇒ **错误图根本不进 DOM**（原缺陷：mermaid 自行注入 "Syntax error in text mermaid version …"，即截图红字）+ 兜底清理残留节点 + 通俗提示（i18n `chat.mermaidRenderFailed`）+ 源码原样保留（不再红字）+ 2 例回归守卫；② 服务端校验回喂 **✅ 已落地（2026-10-01）** —— `app/src/utils/mermaidLint.ts` 结构预检命中 ⇒ 落 `validation/injected` 事件并经 `steeringQueue` **同一轮内**回喂（≤1 次/run）|
+| 5 | Tool Use 工具使用 | ✅ | 运行时 `GET /v1/tools` = **60**；`tools/ToolRegistry.ts`（唯一写入口）；`tools/toolNameCodec.ts`（wire 名安全）；`ToolInputSelfCorrector`（入参 zod + 自纠）；`decodeToolResultContent`（出参解包统一） | 缺口：**出参无强制 schema**（入参已有 zod）⇒ 边界处无法阻断噪声入下一链；**下一步 = P1-3** ✅ **已完成（A/B/C 档 + 门禁 R15-001/R15-002，2026-10-01）**。工具数口径 ✅ **已核**（生效 **60** / 全量 **71**；"81" 无本仓支撑，见 §6.1）|
+| 6 | Planning 规划 | ✅ | `core/loop/PlanDrivenLoop.ts`（快速路径；`chat/ChatManager.ts:962 enablePlanDrivenLoop: true` 恒启用）；`tasks/LongRunningTaskOrchestrator.ts`（复杂/危险任务走 LRTO + PDCA 阶段链）；docWorkflow 四阶段（同 #1） | 双轨路由（快速路径 vs LRTO）已成型；**分流判据 ✅ 已核并配置化**（`GlobalConfig.fastPath`：阈值 + 危险意图正则，T-②05；原"未与验收标准绑定"的判断已在 T-②05 更正）|
 | 7 | Multi-Agent Collaboration | ✅ | `tools/AgentTool/SubAgentEngine.ts`（`getSubAgentEngine`；子代理轮次上限 **200**，对标 cc_code fork，见 `chat/loopTurnLimits.ts:57`）；`tools/AgentTool/AgentRunStore.ts`（子代理台账：幂等 DDL + `schema_version`）；`agent/utils/TeamHelper.ts:95`（Team 目录/团队组织）；`commands/tools/ai/agent.ts`（CLI 侧调度） | 能力齐备；**唯一记录的隐患**＝`AgentTool.ts:372` 注释提及"与 `SubAgentEngine`、`AgentRunStore` 的**单例口径分裂**" ⇒ 需细核是否真有第二套单例来源（P2，属 CS01/双轨类风险） |
 | 8 | Memory Management | ✅ | `memory/MemoryManager.ts`（scanner / retriever / relationGraph：`memory-relation-graph.json`）；`memory/consolidation/MemoryConsolidator.ts`；`memory/consolidation/MemoryDreamService.ts`（梦境精炼管道）；`chronos/autoDream/AutoDream.ts:10` 明确"MemoryDreamService = 唯一 LLM 记忆精炼器 + 知识文件→记忆桥（`createMemory` 写源唯一）" | 体系完整（短期检索 + 长期关系图 + 精炼）；本轮已补 **D5-B 保留上限护栏**（dry-run 默认开）。缺口：`.trash` 自身无回收节拍（已登记为风险缓解项） |
 | 9 | Learning and Adaptation | 🟡 | `dream/UnifiedDreamCycle.ts`（`executeAutoDream` + `runKnowledgeRain` 阶段编排）、`dream/DreamEngine.ts`（调度/状态持久化）、`chronos/autoDream/AutoDream.ts`、`memory/consolidation/MemoryDreamService.ts`、`entrypoints/init.ts:769`（KnowledgeCompiler 编译入库 → 可搜索）、`buddy/dreamIntegration.ts`（梦境事件 → 前端反馈） | "从历史经验中固化知识"路径已成型（dream 周期 + 知识编译 + 记忆精炼）；**"动态调整策略/提示/行为"（适配层）是否有闭环未证** ⇒ 下一批细核（含 `skills/` 的 SkillCurator 是否存在） |
@@ -44,7 +44,7 @@
 | 优先级 | 缺口 | 根因 | 下一步 |
 |:--:|---|---|---|
 | ~~**P1**~~ **✅** | 产物类生成物（Mermaid/图表/长文）**无自纠回路**（#4） | 校验点不在"产物出口"，错误直达前端 | **✅ 2026-09-28 已完成**：① 前端降级止血（`MarkdownRenderer` 改用 `mermaid.parse()` 预校验 + 琥珀降级卡片）；② 服务端 `app/src/utils/mermaidLint.ts`（零依赖结构预检）命中 ⇒ **落 `validation/injected` 事件**（三处同步：`events.ts` + `eventPayloads.ts` + `knownEventTypes.ts`）并经 `steeringQueue` **同一轮内**回喂修正指令（每 run **≤1 次**）。详见 `liri-optimization-plan-20260926.md` 的 P0-1② |
-| **P1** | 工具**出参无 schema 契约**（#5） | 入参有 zod、出参只有解包 —— **⚠️ 2026-09-28 复查更正**：原写的依据 `decodeToolResultContent` **全仓零命中（该函数不存在）**；实测真实形态见下 | ⬜ **未执行**，且**需先出方案**（见下方"复查更正"） |
+| ~~**P1**~~ **✅** | 工具**出参无 schema 契约**（#5） | 入参有 zod、出参只有解包 —— **⚠️ 2026-09-28 复查更正**：原写的依据 `decodeToolResultContent` **全仓零命中（该函数不存在）**；实测真实形态见下 | **✅ 已完成（2026-09-30 / 10-01）**：A 档（`outputSchema` 结构化 + `validateToolOutputShape` 接线）· B 档（`data`/`result` 收敛、`result?: T` 已删）· C 档（死目录删除 + 6 视图判定固化）+ 门禁 **R15-001/R15-002**；详见 §2.2 / §6.3 |
 
 > **⚠️ 2026-09-28 复查更正（P1-3 的前提有误，问题比原描述更根本）**：
 > - 原依据 `decodeToolResultContent` **不存在**（`grep` 全仓零命中）⇒ 原表述"出参只有解包"**不成立**。
@@ -102,7 +102,7 @@
 
 - **实测验收**：`typecheck` **0** · `eslint` **0** · 该测试 **5 pass / 0 fail**。
 - **阴性证据**：把 `unknown` 收窄为结构化接口后 `typecheck` 仍 **0 错** ⇒ **全仓无一处真正使用 `outputSchema`**（此前是纯占位）。
-- **⬜ 尚未做（如实）**：① **top-10 填充**：**已接线 7/10（覆盖 89.4%）**，余 3 个（`web_fetch` / `web_search` / `sessions`）经取证判为**多形态出口、不宜声明**（见下）；② **门禁判据**尚未加 —— 且 2026-09-29 取证发现**更该先做的判据是**「`*OutputSchema` 全仓无消费者 ⇒ warning」（见 `tool-output-schema-layer-audit.md` T6）；③ **44 个零消费者 schema 的分批处置**（同上）。
+- **✅ 上述三项后续已全部落地（2026-09-30 / 10-01）**：① **top-10 填充**：**已接线 7/10（覆盖 89.4%）**，余 3 个（`web_fetch` / `web_search` / `sessions`）经取证判为**多形态出口、不宜声明**（见下）；② **门禁判据**已落地 —— 实证「工具出参必须过 schema」**无法静态判定**（运行期属性）⇒ 改为机械判据 **R15-001**（`*OutputSchema` 零消费者 ⇒ warning）+ **R15-002**（零 importer 的 `schemas.ts`）；③ **44 个零消费者 schema 已分批处置清零**（接线 21 / 删除 24）。详见 [`tool-output-schema-layer-audit.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-output-schema-layer-audit.md) 与 §三收尾行。
 - **统计口径（可复现）**：扫 `~/.pyapp/data/sessions/**/events.jsonl` 中 `assistant/tool_call` 的 `name`（263 个会话文件、36 种工具、**26,103** 次调用）。
 
 **✅ top-N 填充进展：7/10 已接线（覆盖 89.4%）** —— 下表为其中的 6 个；第 7 个（`todo_write`，466 次）见下 T2/T4
@@ -354,10 +354,10 @@
 
 | 根因类 | 涉及模式 | 可机械检测的判据 | 状态 |
 |---|---|---|---|
-| ① **单一事实源收口**（同一序列 / 单例 / 协议不得两份） | #1 DocWorkflow 序列双份（代码自带 `TODO: CS05-ROOTFIX`）、#7 单例口径分裂（待核）、#15 **ACP 与 A2A 协议双轨** | 「同一编排序列不得两处定义」—— 需先定"派生物"形式（一份为源、另一份由 codegen 生成）；协议侧同理 | 待设计 |
-| ② **边界契约覆盖双侧**（入参与出参都要 schema） | #5 工具出参无 schema、#4 产物出口无校验 | 「工具出参必须过 schema」（P1-3 落地后即可加门禁） | 待 P1-3 |
-| ③ **原子性 / 单向写入**（状态迁移一步完成） | #11 Goal 预算两步记账竞态（spec `goal-entity.md` D4 已记） | 「状态晋升不得跨两条语句」（需 SQL / AST 级检查） | 待设计 |
-| ④ **动态清单同步**（注册表变更必须同步派生物） | #10 MCP 动态工具未入安全清单（升级方案 C2） | 「动态注册的工具必须出现在安全清单派生物中」 | 待设计 |
+| ① **单一事实源收口**（同一序列 / 单例 / 协议不得两份） | #1 DocWorkflow 序列双份（代码自带 `TODO: CS05-ROOTFIX`）、#7 单例口径分裂（待核）、#15 **ACP 与 A2A 协议双轨** | 「同一编排序列不得两处定义」—— 需先定"派生物"形式（一份为源、另一份由 codegen 生成）；协议侧同理 | ✅ **已闭环**：#1 `runDocWorkflow` 已删（§二 P2 行）；#7「单例口径分裂」**不成立**（§6.4）；#15 ACP 对内 / A2A 对外已实施（T0–T6） |
+| ② **边界契约覆盖双侧**（入参与出参都要 schema） | #5 工具出参无 schema、#4 产物出口无校验 | 「工具出参必须过 schema」（P1-3 落地后即可加门禁） | ✅ **已闭环**：P1-3 A/B/C 档 + 门禁 **R15-001/R15-002**（§2.2 / §三收尾） |
+| ③ **原子性 / 单向写入**（状态迁移一步完成） | #11 Goal 预算两步记账竞态（spec `goal-entity.md` D4 已记） | 「状态晋升不得跨两条语句」（需 SQL / AST 级检查） | ✅ **已闭环**：`addUsageAndPromote` 单条条件 UPDATE 原子晋升（T-②01）+ `goal/deviation` 监控闭环（T-②02） |
+| ④ **动态清单同步**（注册表变更必须同步派生物） | #10 MCP 动态工具未入安全清单（升级方案 C2） | 「动态注册的工具必须出现在安全清单派生物中」 | ✅ **已闭环**：PathGuard 注册表驱动（`pathguard-registry-driven-args.md`） |
 | ⑤ 附录：**工作区卫生**（参考副本不得留在仓库内） | 本轮实测（统计口径污染，致我得出过相反结论） | **R07-004（已落地，warning 级，不阻断提交）** | ✅ 2026-09-28 |
 
 > ⑤ 严格说不属"设计模式"缺口，但它是本轮**唯一可直接机械化、且已真实致错**的一条（"Rust 193 万行" vs 真实 3,919 行），
@@ -797,7 +797,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
   | # | 事项 | 裁定 | 状态 |
   |---|---|---|---|
   | ① | 扫描器**是否剥离注释** | **改** —— 纯降假阳性、零副作用（本会话实证 **3 次**误报致返工：D-162 · D-172 ×2） | **✅ 已执行** |
-  | ② | 是否识别 **`require()`** | **暂不改判定**：先进 **R00-003 只上报**（与 `import()` 同待遇）。直接计入 R00-001 会把多处 `require` 立刻暴露为**新违规**（含 `toolsPorts` 注释记录的 **8 个方法面**）⇒ 需配套治理，先"可见"再加严 | 待排期（设计已定） |
+  | ② | 是否识别 **`require()`** | **暂不改判定**：先进 **R00-003 只上报**（与 `import()` 同待遇）。直接计入 R00-001 会把多处 `require` 立刻暴露为**新违规**（含 `toolsPorts` 注释记录的 **8 个方法面**）⇒ 需配套治理，先"可见"再加严 | ✅ **已执行（2026-10-04）**：`parseDynamicImports` 现同时识别 `import('…')` 与 `require('…')`（带 `kind`），接入 R00-003（**仅 warning**）；实测 `R00-003` **34 → 35（+1）**、**警告仍 2 / 违规 0 / exit 0** ⇒ 揪出唯一一处此前隐藏的跨层 `require`（详见 §7.5） |
   | ③ | `BULK-011`（`core -> service`，实测 0）是否删除 | **删** —— 同 D-172 已删 4 空桶的理由（空桶会**静默豁免未来回归**）；⚠️ 因 D-143 曾**误删过**（当时确有 1 处命中）⇒ **必须与门禁实跑同批自证**，出现违规即回滚 | **✅ 已执行（自证通过）** |
   | ④ | `R02-002 ToolSearchOutput` 三处重复定义 | **不属门禁口径** ⇒ 列入"**数据契约统一**"专项（与 `types/` 低位出口、`AgentEventType`/`OrchestrationSnapshot` 下沉同批） | 已立项待排期 |
   - **① 执行内容**：`scripts/lint-architecture.ts` 新增 `stripComments()`（**逐字符状态机**：仅在 code 态识别 `//` 与 `/* */`；**字符串/模板串内原样保留**含转义；**保留换行 ⇒ 行号不变**），并在 `parseModuleImports` + `parseDynamicImports` 两处入口套用。**不用简单正则的原因**：`from '…'` 的说明符本身是字符串，且源码含带 `//` 的字符串（URL）⇒ 正则会误伤。
@@ -823,7 +823,7 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 | （同上衍生）Landlock **网络语义与注释相反** | 未发现 | ✅ **已修** | 网络**收敛为两态**（`--net-deny` = 全禁 / 不 handle = 不受限），bash 真放行、code_run 真全禁；spec [`landlock-net-policy-two-state.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/landlock-net-policy-two-state.md)；台账 **D-38**（⚠️ C 侧待 Linux 实测） |
 | §一 #19「`app/src/evals/` 的实际能力」 | 待核 | ✅ **已核** | `evals/antiCheatAudit.ts`（**5 条机械攻击向量**）+ `tests/evals/antiCheatAudit.test.ts`（**8 例**）⇒ 对抗性/泄漏过滤用例**已落地**。台账 **D-35** |
 | §四 ③「#11 Goal 预算**两步记账竞态**」 | 待设计 | 🟡 **部分**：spec [`goal-entity.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/goal-entity.md) 已记录；本轮**未动**（属"原子晋升"改造） | — |
-| §四 ⑤ 工作区卫生 | ✅ | ✅（无变化） | `R07-004` 仍是**唯一**常驻告警（每轮 `lint:arch` 均为"0 错 1 警"） |
+| §四 ⑤ 工作区卫生 | ✅ | ✅ **已彻底结案（2026-10-04）** | `REF/` 已**物理搬迁出仓**（同卷 `Directory.Move` → `E:\PY\Documents\CODES\REF`）⇒ `R07-004` **归零**（"发现 0 个参考副本目录"）；`lint:arch` 由「0 错 / 2 警」变为「**0 错 / 1 警**」（仅剩 R00-003 动态跨层，仅上报）|
 
 ### 6.2 本轮**新增发现并已处置**的架构级问题（原文档未列）
 
@@ -924,13 +924,103 @@ PM-002 是 `core -> types`，其 `rationale` 自称"types 是全局类型共享�
 
 | 项 | 阻塞 |
 |---|---|
-| T-③07 Mermaid 真机端到端 / T-③08 Linux 端到端 | 需模型额度 / 需 Linux 环境 |
-| 台账 D-36-① Landlock `--net-connect` 真机实测 | 需 Linux 环境 |
-| T-④01 / P3-3 `REF/` 物理搬迁 | 目录被进程占用 + 工具链沙箱禁写 ⇒ 需用户侧执行 |
-| T-⑤01 对抗 Agent 形态 A（LLM 攻击者） | 需额度 + 另立 spec |
+| ~~T-③08 Linux 端到端~~ | ✅ **已结案（2026-10-04，WSL2 Ubuntu 真机实测）**：`cc -static` 编译通过 + FS/net 两态用例 **8/8 符合预期**（`native/main.c` 已补 `<stddef.h>`）|
+| ~~台账 D-36-① Landlock `--net-connect` 真机实测~~ | ✅ **已结案（2026-10-04，同上 WSL2 真机）**：网络两态（`--net-deny` 全禁 / 不 handle 不受限）已实测 |
+| ~~T-③07 Mermaid 真机端到端~~ | ✅ **已结案**：真机实测**未过**（无工具回合不进循环 ⇒ 校验从不触发）⇒ 根因定位 + 修复（spec [`final-output-guard-no-tool-turns.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/final-output-guard-no-tool-turns.md) §8/§9）⇒ post-fix **流式 + 非流式两路径**真机均落 `validation/injected` 且正文为修正后；`tests/chat/finalOutputGuard.test.ts` **5 pass** |
+| ~~T-④01 / P3-3 `REF/` 物理搬迁~~ | ✅ **已结案（2026-10-04）**：同卷 `Directory.Move` → `E:\PY\Documents\CODES\REF`（**82,196 文件 / 2,780.6 MB 逐数吻合**）；门禁 **R07-004 归零**（「发现 0 个参考副本目录」，告警 **2 → 1**）|
+| T-⑤01 对抗 Agent 形态 A（LLM 攻击者） | 📝 **spec 已立**（[`adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)，**待评审未动码**）；实施需模型额度 |
 | 升级方案 **A1 / F5** | 已列"明确不做"（协商门已在位，收益未证） |
 | **文件尺寸债**（156 条 >1000 行；D-01 C 路径） | **用户裁定暂停**（批 1–3 已落地，ChatManager 6729→6377） |
-| `pattern-assembly-runtime.md` 遗留 | `parallel_distributed` / `iterative_refine` / `self_verify` 三 pattern 无触发面（N4）|
+| ~~`pattern-assembly-runtime.md` 遗留（N4）~~ | ✅ **已结案（2026-10-04，D1=A 已实施）**：spec [`pattern-trigger-surfaces.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/pattern-trigger-surfaces.md) —— **选择层一致化**（消 §1.5 假产出 + 去悬空 `taskType`）；**运行期零行为变更**；三 pattern 仍 `unavailable`（**缺忠实信号 ⇒ 需产品场景 D3，如实不接线**）|
+
+### 7.4 复查回填（2026-10-04，二次核对；仅标注 + 校验，未改代码）
+
+> 触发：用户"复查本文任务、完成的请标注、继续尚未执行任务"。方法：逐标记回仓取证（`Grep` / `Read` / `Glob`，排除 `REF/`）。
+
+| 原位置 | 原标记 | 复查结论 | 依据 |
+|---|:--:|:--:|---|
+| §一 #4 服务端校验回喂 | 待做 | ✅ 已落地 | `app/src/utils/mermaidLint.ts` 存在；`validation/injected` 同轮回喂（§7.2 #4） |
+| §一 #5 工具数口径 60 vs 81 | 待核 | ✅ 已核 | §6.1：生效 **60** / 全量 **71** |
+| §一 #5 出参 schema（P1-3） | ⬜ 未执行 | ✅ 已完成 | §2.2（A/B/C 档）+ 门禁 **R15-001/R15-002**（`lint-architecture.ts:3568/3633` 实测存在） |
+| §一 #6 分流判据 | 待核 | ✅ 已核并配置化 | `GlobalConfig.fastPath`（T-②05） |
+| §二 P1 行 | ⬜ 未执行 | ✅ 已完成 | 同上 |
+| §2.1 | ⬜ 尚未做 | ✅ 已全部落地 | 门禁 R15-001/002 上线 + 零消费者 schema 44 → **0** |
+| §四 ①②③④ | 待设计 / 待 P1-3 | ✅ 全部闭环 | 逐类见上表（#1 删函数 · #7 不成立 · #15 A2A · P1-3+R15 · #11 原子晋升+deviation · #10 PathGuard 注册表驱动） |
+| §5.7 D-190② `require()` 识别 | 待排期（设计已定） | ✅ **已执行（2026-10-04）** | `parseDynamicImports` 现识别 `import('…')` + `require('…')`；实测 R00-003 **34 → 35**、警告 2 / 违规 0 不变（详见 §7.5） |
+| §5.7 D-175 子批 B / D-180 本轮未动手 | 未动手 | ✅ 已闭环 | v0.4.56「已豁免 151 → 0」覆盖（子批 B/B3 均已落地） |
+| §7.3 T-③08 / D-36-① | 需 Linux 环境 | ✅ 已结案 | WSL2 Ubuntu 真机 **8/8**（本轮） |
+| §7.3 T-③07 Mermaid 端到端 | 需模型额度 | ✅ 已结案 | 真机未过 ⇒ 根因定位+修复 ⇒ post-fix 两路径均过（详见 §7.6） |
+| §7.3 T-⑤01 对抗 Agent 形态 A | 需额度 + 另立 spec | 📝 spec 已立（待评审） | [`adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)（详见 §7.6） |
+| §7.3 T-④01 `REF/` 物理搬迁 | 需用户侧执行 | ✅ 已结案 | 同卷 move 至 `E:\PY\Documents\CODES\REF`，R07-004 归零（详见 §7.7） |
+| §7.3 三 pattern 触发面（N4） | 产品决策 | ✅ 已结案（D1=A 已实施） | [`pattern-trigger-surfaces.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/pattern-trigger-surfaces.md)（详见 §7.8） |
+
+### 7.5 D-190② 落地：`require('…')` 门禁可见化（2026-10-04）
+
+> 用户裁定「继续尚未执行任务」⇒ 本轮续做 §5.7 D-190②（设计已定、原"待排期"）。
+
+**改动**（`scripts/lint-architecture.ts`，仅门禁脚本）：
+- `parseDynamicImports` 的正则由 `import\(\s*['"]([^'"]+)['"]` 扩展为 `/\b(import|require)\(\s*['"]([^'"]+)['"]/`；
+  返回值由 `Set<string>` 改为 `Array<{ module: string; kind: 'import' | 'require' }>`（去重键 `kind:module`）；
+- R00-003 收集项增 `kind` 字段；报告文案注明 `require('…')` 形式处数。
+- **不改判定**：仍**仅 warning 级上报**，不计入 `违规` / `已豁免`，不阻断提交（与 D-190 裁定一致）。
+
+**验收（实测）**：`R00-003` **34 → 35（+1）** · `违规 0` / `已豁免 0`（不变）· **错误 0 / 警告 2**（不变，仍为 R07-004 + R00-003）· `exit 0` · `bun run typecheck`（含 `tsconfig.scripts`）**exit 0** · 分层检查 3858 文件。
+
+**🆕 揪出的隐藏依赖（本次唯一 +1，即 require 形式）**：
+`app/src/permission/integrations/BashPermission.ts:121`
+`const { … } = require('@modules/tools/SmartApprovalObserver')`
+⇒ 方向 **`permission` (infra) → `tools` (app)** —— 属**非法方向**（infra 只能依赖 core），且**此前因用 `require` 而完全不在门禁视野内**。这正是 D-190② 要消除的盲区。
+**处置（如实）**：按裁定**仅登记、仅上报**（"先可见再加严"），本项**未修**；根因修复（改走端口/SPI 或改判层）属独立议题。
+
+**相关文件**：另有 `.trae/rules/architecture-compliance.md#R06-008` 的门禁实现说明已同步（R00-003 补注 `require`）。
+
+### 7.6 T-③07 结案复核 + T-⑤01 spec 立项（2026-10-04，本轮续做）
+
+**① T-③07（Mermaid 真机端到端）—— 实为"已执行"，本轮仅复核并改正文档滞后**
+- 真机实测**未通过**（无工具回合不创建循环 ⇒ 终稿校验从不被调用）；根因定位后**已修复**并经真机复验：
+  spec [`final-output-guard-no-tool-turns.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/final-output-guard-no-tool-turns.md) §8/§9 —— 新增共享守卫 `app/src/chat/finalOutputGuard.ts`，接入**流式**（`streamMessageFlow` 无工具分支）与**非流式**（`ChatOrchestrator.sendMessage`）。
+- **post-fix 真机证据**：流式会话 `session_mut2jmri9lnwuzvyy4j` / 非流式 `session_mut2jhxn855vjvulklf` 均落 `validation/injected`，且最终 `content`/`blocks` 为**修正后**（pre-fix 为原样坏块）。
+- 本轮复核：`bun test tests/chat/finalOutputGuard.test.ts` = **5 pass / 0 fail** ✓
+- ⚠️ **文档滞后更正**：§7.3 / `pending-tasks` 原记 T-③07「未验证（需额度）」—— 该状态在 2026-10-04 完成真机验证+修复后**已过时**。
+
+**② T-⑤01（对抗 Agent 形态 A）—— 本轮 spec 立项**
+- 新增 [`.trae/specs/adversarial-agent-form-a.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/adversarial-agent-form-a.md)（**待评审 · 未动码**）。
+- 核心裁定取向：**提案与裁决分离** —— LLM 只做"红队提案器（proposal-only）"，**裁决权仍归机械判据**（复用形态 B 的 `CheatFinding`/`CheatVerdict` 与既有 judge）⇒ 解决原设"形态 A 非确定、不可作门禁"的硬约束（CS03）。
+- 待裁定：D1 产物去向 / D2 是否改 `evals/types.ts` / D3 默认开关；D4 调用上限 / D5 LLM 通道 已给建议值。
+
+### 7.7 T-④01 / P3-3 `REF/` 物理搬迁结案（2026-10-04，同卷 move）
+
+> 用户裁定「继续执行 T-④01 物理搬迁」。
+
+**做法与结果**：
+
+| 步骤 | 事实 |
+|---|---|
+| 搬迁前取证 | `REF/` = **82,196 文件 / 2,780.6 MB**（4 子目录：`0912REF` 1045.5MB · `BA_REF` 1549.8MB · `CJL_REF` 61.2MB · `UI_REF` 124.1MB）；`git ls-files REF` = **0**；`.gitignore:240` 已有 `REF/*` |
+| 沙箱阻碍（首次两次尝试均被拒） | 工具链沙箱**单独禁止对 `...\PY_APP\REF` 这一路径节点**做写操作（其**内部文件可写**、仓库根与仓外均**可写** —— 已用探针逐项证实）；`Directory.Move` 报 `Access to the path ... is denied` |
+| 解密 | **用户侧放开沙箱该路径**后重试 ⇒ `MOVE_OK` |
+| 目标 | `E:\PY\Documents\CODES\REF`（**同卷 E:**，故为原子 rename，秒级；失败不会产生半成品） |
+| 搬迁后核验 | 源 `...\PY_APP\REF` **不存在**；目标 82,196 文件 / 2,780.6 MB **逐数吻合**，4 子目录完整 |
+| 门禁 | `R07-004` = **发现 0 个参考副本目录**（**归零**）；`lint:arch` **错误 0 / 告警 2 → 1**（仅剩 R00-003，仅上报）|
+| git | 工作树**无新增变更**（`REF` 本就未跟踪）|
+
+**教训（沉淀）**：该路径此前被判"目录被进程占用"（rename 被拒）；本次证明**真因另有一层 = 工具链沙箱对 `REF` 节点的写禁**。判别方法：在目标路径**内部**写探针文件（若可写，则非"整目录只读/被占用"，而是**节点级限制**）。**同卷 `Directory.Move` 应是首选**（原子、可回退、不复制 2.7GB）。
+
+### 7.8 三 pattern 触发面 spec 立项 + 根级 `native/` 陈旧缓存清理（2026-10-04）
+
+**① 三 pattern 触发面 —— spec 立项 + **D1=A 已实施**（用户裁定"产品决策"方向）**
+- [`.trae/specs/pattern-trigger-surfaces.md`](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/pattern-trigger-surfaces.md)：**D1=A（选择层一致化）已落地**；裁定 D2=(b) 删悬空字段 · D4=(a) 修 §1.5 · D5=(b) 不加 `wired`（避免与 `instantiatePattern` 构成第二份事实源 · CS01）。
+- **决定性取证**：三者的 `matches.taskType = 'write'/'execute'/'verify'` **在本仓无任何生产者** —— 真实 `TaskType` 是 [`modelRouter.ts:63`](file:///e:/PY/Documents/CODES/PY_APP/app/src/ai/modelRouter.ts#L63-L77) 的另一套词表（`default/chat/coding/…`），而唯一调用点 [`ChatManager.ts:4391`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ChatManager.ts#L4391-L4394) **只传 `complexity` + `research`** ⇒ 三者 `matches` **从未可命中**（不是"规则没接线"，是**信号不存在**）。
+- **零件不缺**：8 位 provider **全部有实现**（T-①04 T1-3 已更正）⇒ 缺的是**信号 + 消费方**。
+- **实施（4 源文件 + 2 测试）**：`selectPattern` 删除「complex 非研究 → `long_task_pdl`」假分支（改如实 `null`，消 §1.5）；三者 `matches.taskType` 去悬空；`PatternMatchSpec.taskType` 删除。
+- **⚠️ 实施期更正（如实）**：spec §4.1 原写的"`isExecutionTaskIntent` ⇒ `parallel_distributed`"**不成立**（该信号混含 检查/验证，≠"可分解并行"）⇒ **不凭空接线**（否则即不可达分支，违 CS03/CS04）。故 **"覆盖 5 个 pattern"未达成** —— 余 4 者**缺忠实信号**，属产品场景（D3）。
+- **验证**：`typecheck` **0** · `lint:arch` **错误 0 / 警告 1** · `eslint`（5 文件）**0** · `tests/core tests/query` **19 pass** · `tests/core tests/query tests/chat` **593 pass / 0 fail** · **运行期零行为变更**（`ChatManager` 研究分流逐字等价）。
+
+**② 根级 `native/` 陈旧缓存清理（用户裁定 · 同族工作区卫生）**
+- **事实**：根级 `native/` 仅含 `target/`（cargo 缓存，含 `CACHEDIR.TAG`），最后写入 **2026-07-23**；真活动目录为其兄弟 `app/native/target`（2026-08-13）。
+- **处置**：删除 `native/`；`app/native/target` **完好**；`git status` **无新增**（该目录本就未跟踪、内容被 `.gitignore` 的 `target/` 规则忽略）⇒ 非 R07-004 覆盖对象（其判据只查顶层 `REF`/`codex-main`），属顺带清理。
 
 > **结论**：自 2026-09-28 起，`dev_docs/20260926`+ 各计划与台账所列的**可执行对齐项已全部收口或经取证裁定不做**；
-> 本矩阵的 21 项已无 🟡/❌。后续若要继续深化，方向应落在 **7.3 的裁定项**（非"模式对齐"缺口）。 |
+> 本矩阵的 21 项已无 🟡/❌。**§7.3 的裁定项本轮全部收敛**：T-③08 / D-36-①、T-③07、T-④01 均已结案，
+> 三 pattern 触发面**已结案（D1=A 已实施）**，T-⑤01 已立 spec（待评审）；**剩余仅「文件尺寸债」一项**（你此前裁定暂停）。
+> 本轮另完成 §5.7 **D-190②**（`require()` 门禁可见化，见 §7.5）与 `.gitignore` 失效 REF 规则清理。 |

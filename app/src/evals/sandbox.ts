@@ -43,8 +43,8 @@ import {
 } from 'node:fs';
 import { copyFileSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { resolveDataSubDir } from '@modules/core/paths';
 import { ENV_SHIELDED_PATHS } from '../tools/pathShield';
 
 export interface EvalSandbox {
@@ -196,7 +196,12 @@ export async function createSandbox(opts: {
    */
   shieldedPaths?: string[];
 }): Promise<EvalSandbox> {
-  const root = mkdtempSync(join(tmpdir(), 'liri-eval-'));
+  // P0-4（2026-10-04，D-5）：沙箱根**不得落在 `/tmp`** —— bash 的 Landlock 白名单放行 `/tmp` 可写
+  //（`tools/bash/bashLandlockExec.ts`），落在其中的凭据副本可被同级/其它并发 attempt 遍历读取。
+  // 改挂到 `~/.pyapp/data/eval-sandbox/`（**不在**任何 bash 白名单路径下）⇒ 跨 attempt 不可读。
+  const evalBase = resolveDataSubDir('eval-sandbox');
+  mkdirSync(evalBase, { recursive: true });
+  const root = mkdtempSync(join(evalBase, 'liri-eval-'));
   const home = join(root, 'home');
   const dataDir = join(root, 'data');
   const workspace = join(root, 'workspace');
@@ -275,6 +280,10 @@ export async function createSandbox(opts: {
       cwd: join(opts.repoRoot, 'app'),
       env: {
         ...process.env,
+        // P0-4（2026-10-04，D-5）：重定向 `HOME`（POSIX）/ `USERPROFILE`（Windows）到隔离 home ——
+        // 否则 shell 的 `~` 仍指**真实** home ⇒ 沙箱内 bash 可读真实 `~/.pyapp/config.json` / `credentials.json`。
+        HOME: home,
+        USERPROFILE: home,
         LIRI_HOME: home,
         LIRI_DATA_DIR: dataDir,
         LIRI_PROJECT_DIR: opts.repoRoot,

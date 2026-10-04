@@ -38,8 +38,8 @@ import type {
   IKnowledgeSearch,
   KnowledgeRoute,
   KnowledgeRouterOptions,
-} from '@modules/docs/knowledge-types';
-import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
+  FileDocsProvider,
+} from '@modules/docs';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';

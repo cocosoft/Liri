@@ -14,7 +14,9 @@
 - **✅ 收口批次① 已完成**（2026-10-04）：`tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget}` · `streaming/scrubbers` · `constants{common,systemPromptSections}` · `security/injection` · `skills/SkillRegistry` —— 共 **41 处**导入改走模块 barrel（含 4 处相对路径子目录、6 文件重复 import 合并），并从 `canonicalEntryKeys` **移除对应 8 个登记键**（R03-002 白名单 `909 → 873`）。**未收口**：`security/policy`（barrel 未导出 `channelPermissions` / `imageSanitizationPolicy` 残留符号）⇒ 键**保留**，归批次②（先为 barrel 增补导出）。
 - **✅ 收口批次② 已完成（安全子集 A/B/C）**（2026-10-04）：`security/policy`（为 `security` barrel **增补** `channelPermissions` / `imageSanitizationPolicy` 值导出后收口 4 处）· `workspaces/WorkspaceScanner`（barrel 已 `export *` ⇒ 收口 2 处）· `workspaces/commands`（`workspaces` barrel **增补** `export * from './commands/session'` 后收口 2 处）；移除 3 个登记键（白名单 `873 → 864`）。
 - **保留为「唯一入口」（非债，附原因）**：`workspace/CouncilOrchestrator`（barrel 未聚合该子路径，且 Council 系为动态导入打破环）· `components/{TaskListV2,ui}`（`components` 桶当前近乎空壳）· `skills/{loaders,services,cli}`（无聚合出口）。
-- **待做（收口批次③）**：`docs/*` · `analytics/*` · `knowledge/*` · `bootstrap/*` · `common/utils` · `modules/ModuleDefinitions` · `governance/managers`。
+- **✅ 收口批次③ 已完成（收尾）**（2026-10-04）：`docs/*`(4 键) · `analytics/*`(3) · `knowledge/{KnowledgeDigestInjector,KnowledgeBaseWriter,graph}` · `bootstrap/*`(3) · `common/utils` · `modules/ModuleDefinitions` —— 共 **15 个键**收口（白名单 `864 → 843`）；barrel 增补 `knowledgeDocsProvider` / `FileDocEntry` / `IKnowledgeSearch` / `PerformanceMonitorService` 等轻量导出。
+- **保留为「唯一入口」（非债，环证据）**：`knowledge/frontmatter`（改走 `@modules/knowledge` 桶 → 经 `tools/KnowledgeWriteTool` 回指 `docs/FileDocsProvider`，构成**模块自环**）· `governance/managers`（改走 `@modules/governance` 桶 → 经 `GovernanceManager` 回指 `@modules/tools` 桶，构成 **tools ↔ governance 双向环**）；精确文件导入正是破环入口。
+- **收口收官**：批次①②③ 共**移除 26 个登记键**（白名单引用 `909 → 843`），其余约 16 键经证据判定为「唯一入口」（barrel 未导出 / 命名不一致 / 环安全）**永久保留**。附带修复：`knowledge/__tests__/benchmark-baseline.ts` 因 Windows 路径分隔符致 `TEST_FILE_EXCLUSIONS` 失配、测试文件被误判为生产文件（已连同 2 处导入改走 barrel 消除，并登记台账）。
 
 ## 1. Problem Statement
 

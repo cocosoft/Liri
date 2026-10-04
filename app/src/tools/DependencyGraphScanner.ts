@@ -17,7 +17,7 @@ import { join, relative, resolve, dirname, sep } from 'path';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
-} from '@modules/modules/ModuleDefinitions';
+} from '@modules/modules';
 import { getLogger } from '@modules/monitoring';
 import { resolveCacheDir } from '@modules/core';
 import { resolveProjectRoot } from '@modules/core/paths';

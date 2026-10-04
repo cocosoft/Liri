@@ -24,7 +24,7 @@
  *
  * **问题**：**infra** 层的 `chronos/autoDream/DreamGraphPhase` 需把 wiki 目录的
  * `[[link]]` 双链写入 **app** 层 `knowledge` 的 `kg_edges` 表
- * ⇒ 直接 `import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph'` 等
+ * ⇒ 直接静态导入 `@modules/knowledge/graph/KnowledgeGraph` 等
  * **3 条 import** ⇒ 构成 **`infra -> app` 倒挂**。
  *
  * **方案**：与既有 SPI 同构 —— core 定义端口与**转发代理**；实现由组合根

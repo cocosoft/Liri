@@ -6,8 +6,7 @@
  */
 /* eslint-disable no-console */
 import { KnowledgeRouter } from '../KnowledgeRouter';
-import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
-import type { FileDocEntry } from '@modules/docs/FileDocsProvider';
+import type { FileDocsProvider, FileDocEntry } from '@modules/docs';
 
 /** 测试查询词集（中英文混合） */
 const TEST_QUERIES = [

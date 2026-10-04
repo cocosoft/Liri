@@ -3,9 +3,11 @@
  * 用户知识库管理
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { knowledgeDocsProvider } from '@modules/docs/FileDocsProvider.js';
-import { getDefaultDocumentVersionService } from '@modules/docs/DocumentVersionService.js';
-import { getDefaultTemplateService } from '@modules/docs/TemplateService.js';
+import {
+  knowledgeDocsProvider,
+  getDefaultDocumentVersionService,
+  getDefaultTemplateService,
+} from '@modules/docs';
 import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { join, basename, dirname, extname } from 'path';
 import { existsSync } from 'fs';

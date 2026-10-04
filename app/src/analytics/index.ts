@@ -29,6 +29,8 @@ export * from './types.js';
 
 export { AnalyticsService, analyticsService } from './AnalyticsService.js';
 
+export { PerformanceMonitorService } from './PerformanceMonitorService.js';
+
 export {
   AnalyticsPersistenceService,
   getDefaultStorageConfig,

@@ -21,10 +21,7 @@ import { buildSoulSection } from '@modules/services/soul/SoulReader';
 import { buildUserSection } from '@modules/services/soul/UserReader';
 // 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@modules/services/workspace` 转出 barrel
 // ⇒ 改直连 app 同层 `@modules/workspaces`（见 `promptSections/index.ts` 同批说明）。
-import {
-  readAgentsMd,
-  readToolsMd,
-} from '@modules/workspaces';
+import { readAgentsMd, readToolsMd } from '@modules/workspaces';
 import {
   getMemoryQueryProvider,
   getCurrentSessionContext,
@@ -34,7 +31,7 @@ import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
 } from '@modules/services/prompt/KnowledgePromptProvider';
-import { generateDigestContext } from '@modules/knowledge/KnowledgeDigestInjector';
+import { generateDigestContext } from '@modules/knowledge';
 import { truncateMemoryContent } from '@modules/memory';
 import { getGitInfo } from '@modules/context';
 import { readProjectFiles } from '@modules/context';

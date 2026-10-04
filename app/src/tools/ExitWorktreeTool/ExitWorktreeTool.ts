@@ -8,10 +8,7 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
-import {
-  exitWorktree,
-  isInsideGitRepo,
-} from '@modules/workspaces';
+import { exitWorktree, isInsideGitRepo } from '@modules/workspaces';
 import { ExitWorktreeOutputSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';

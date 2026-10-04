@@ -35,6 +35,7 @@ export {
   getDefaultDocumentVersionService,
 } from './DocumentVersionService.js';
 export type {
+  IKnowledgeSearch,
   KnowledgeRoute,
   KnowledgeRouterOptions,
 } from './knowledge-types.js';
@@ -44,7 +45,13 @@ export {
   getDefaultTemplateService,
 } from './TemplateService.js';
 export { TemplateRecommender } from './TemplateRecommender.js';
-export { FileDocsProvider, fileDocsProvider } from './FileDocsProvider.js';
+export {
+  FileDocsProvider,
+  fileDocsProvider,
+  knowledgeDocsProvider,
+} from './FileDocsProvider.js';
+
+export type { FileDocEntry } from './FileDocsProvider.js';
 
 export type {
   DocumentVersionMetadata,

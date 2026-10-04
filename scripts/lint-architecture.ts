@@ -2159,7 +2159,33 @@ class ArchitectureLinter {
       //     - `components/TaskListV2`、`components/ui`：`components/index.ts` 当前几乎为空壳
       //       （仅转出 ink 的 Text/Box），聚合 UI 面待评估 ⇒ 保留。
       //     - `skills/loaders`、`skills/services`、`skills/cli`：barrel 无对应聚合出口 ⇒ 保留。
-      //   收口批次③：其余（docs/analytics/knowledge/bootstrap/security 其余键/…）
+      //   ✅ 收口批次③已完成（2026-10-04）：docs / analytics / knowledge / bootstrap / common / modules /
+      //     governance 共 17 键逐一判定，15 键改走各模块 barrel（对应登记键已移除），2 键保留（见下）：
+      //       - `docs/FileDocsProvider`、`docs/DocumentVersionService`、`docs/TemplateService`、
+      //         `docs/knowledge-types`：为 `docs` barrel 增补 `knowledgeDocsProvider` / `FileDocEntry`
+      //         / `IKnowledgeSearch` 轻量导出 ⇒ `commands/builtin/{knowledge,docs}`、
+      //         `knowledge/KnowledgeRouter`、`knowledge/search/UnifiedSearchService` 改走 `@modules/docs`。
+      //       - `analytics/{PassesService,AnalyticsService,PerformanceMonitorService}`：为 `analytics`
+      //         barrel 增补 `PerformanceMonitorService` 导出 ⇒ `commands/builtin/passes/PassesCommand`、
+      //         `infrastructure/http/LocalHTTPService` 改走 `@modules/analytics`。
+      //       - `knowledge/KnowledgeDigestInjector`、`knowledge/KnowledgeBaseWriter`：barrel 已导出
+      //         `generateDigestContext` / `createKnowledgeBaseWriter` ⇒
+      //         `context/promptSections/builtinSections`、`tools/KnowledgeSaveTool` 改走 `@modules/knowledge`。
+      //       - `knowledge/graph`：判定范围内**零跨模块静态导入**（同模块内部引用不计入）⇒ 直接移除键。
+      //       - `bootstrap/{StartupChainProfiler,StartupYamlLoader,StartupConfig}`：barrel 已全量导出
+      //         ⇒ `entrypoints/init` 改走 `@modules/bootstrap`。
+      //       - `common/utils`、`modules/ModuleDefinitions`：barrel 已聚合 ⇒
+      //         `services/teamMemorySync/SecretScanner`、`tools/DependencyGraphScanner` 改走
+      //         `@modules/common` / `@modules/modules`。
+      //   保留项（批次③明确不收口 + 原因）：
+      //     - `knowledge/frontmatter`：唯一判定消费方 `docs/FileDocsProvider` 若改走 `@modules/knowledge`
+      //       桶，会经 `knowledge/tools/KnowledgeWriteTool → ../../docs/FileDocsProvider` 回到自身，
+      //       构成**模块自环**（求值期 TDZ 风险）⇒ 保留子路径直连。
+      //     - `governance/managers`：唯一判定消费方 `tools/ToolExecutor` 若改走 `@modules/governance`
+      //       桶，该桶经 `GovernanceManager → @modules/tools` 桶回指 `tools/ToolExecutor`，构成
+      //       tools ↔ governance **双向环**；`GovernanceManager` 精确文件导入正是打破该环的入口
+      //       ⇒ 保留子路径直连。
+      //   其余未收口键（批次②保留 + 后续批：tokenBudget / security / skills / workspace / components）：
       'tokenBudget/TokenBudgetController', // barrel 仅命名导出 Controller/type；`UNIFIED_THRESHOLDS` 等未导出
       'tokenBudget/UnifiedTokenTracker', // barrel 未导出（叶子令牌跟踪）
       'security/patterns', // barrel 仅导出 patterns 的 **type**（值未导出）→ 收口：评估为 barrel 增补值导出
@@ -2174,23 +2200,8 @@ class ArchitectureLinter {
       'workspace/CouncilOrchestrator', // 保留：ChatManager 静态引用叶子 containsComplexKeywords（barrel 未聚合）+ CouncilOrchestrator 动态导入打破环
       'components/TaskListV2', // 保留：components/index.ts 近乎空壳（仅 ink Text/Box），聚合 UI 面待评估
       'components/ui', // 保留：同上
-      'docs/FileDocsProvider', // ③
-      'docs/DocumentVersionService', // ③
-      'docs/TemplateService', // ③
-      'docs/knowledge-types', // ③（类型叶子）
-      'analytics/PassesService', // ③
-      'analytics/AnalyticsService', // ③
-      'analytics/PerformanceMonitorService', // ③
-      'knowledge/KnowledgeDigestInjector', // ③
-      'knowledge/graph', // ③
-      'knowledge/frontmatter', // ③
-      'knowledge/KnowledgeBaseWriter', // ③
-      'bootstrap/StartupChainProfiler', // ③（entry 层）
-      'bootstrap/StartupYamlLoader', // ③
-      'bootstrap/StartupConfig', // ③
-      'common/utils', // ③（infra 叶子）
-      'modules/ModuleDefinitions', // ③（模块注册表叶子）
-      'governance/managers', // ③
+      'knowledge/frontmatter', // 保留：改走 @modules/knowledge 桶会经 knowledge/tools 回到 docs/FileDocsProvider 自身（自环）——见上
+      'governance/managers', // 保留：改走 @modules/governance 桶构成 tools ↔ governance 双向环——见上
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

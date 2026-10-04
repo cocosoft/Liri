@@ -42,12 +42,12 @@ import {
   ensureDataDirectories,
   globalEventBus,
 } from '@modules/core';
-import { getStartupChainProfiler } from '@modules/bootstrap/StartupChainProfiler.js';
 import {
+  getStartupChainProfiler,
   loadStartupConfig,
   formatConfigSummary,
-} from '@modules/bootstrap/StartupYamlLoader.js';
-import type { StartupConfig } from '@modules/bootstrap/StartupConfig.js';
+  type StartupConfig,
+} from '@modules/bootstrap';
 
 const logger = getLogger('entrypoints:init');
 

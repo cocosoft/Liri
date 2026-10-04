@@ -32,7 +32,7 @@
 import { Tool, ToolInfo, ToolTag } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { createKnowledgeBaseWriter } from '@modules/knowledge/KnowledgeBaseWriter';
+import { createKnowledgeBaseWriter } from '@modules/knowledge';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('tools:KnowledgeSaveTool');

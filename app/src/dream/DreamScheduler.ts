@@ -31,6 +31,7 @@ import { computeNextCronRunMs } from '@modules/tasks';
 import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { getLogger } from '@modules/monitoring';
+import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 const logger = getLogger('dream:dreamScheduler');
 
 export type DreamTriggerCallback = (
@@ -40,7 +41,7 @@ export type DreamTriggerCallback = (
 const DREAM_CRON_EXPRESSION = '0 2 * * *';
 const CHECK_INTERVAL_MS = 60_000;
 
-export class DreamScheduler {
+export class DreamScheduler implements SchedulerLifecycle {
   private idleDetector: DreamIdleDetector;
   private persistence: DreamPersistence;
   private cronTimerId: ReturnType<typeof setInterval> | null = null;

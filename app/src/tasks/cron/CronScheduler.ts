@@ -25,6 +25,7 @@ import { computeNextCronRun, isValidCronExpr } from '@modules/utils/cron';
 import { CronTimer } from './CronTimer';
 import { resolveCronStaggerMs, resolveStaggerOffsetMs } from './CronStagger';
 import { CronAlertService } from './CronAlertService';
+import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 
 const logger = getLogger('tasks:cron:scheduler');
 
@@ -77,7 +78,7 @@ function releaseLock(identity: string): void {
   lockRegistry.delete(identity);
 }
 
-export class CronScheduler {
+export class CronScheduler implements SchedulerLifecycle {
   private store: CronJobStore;
   private callbacks: SchedulerCallbacks;
   private config: Required<CronSchedulerConfig>;

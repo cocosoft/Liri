@@ -4,8 +4,9 @@
  * P0-2: 对标 PilotDeck DiscoveryScheduler。
  */
 import { cg3Log } from '../cg3Env';
+import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 
-export class DiscoveryScheduler {
+export class DiscoveryScheduler implements SchedulerLifecycle {
   private intervalMs: number;
   private callback: () => Promise<void>;
   private timer: NodeJS.Timeout | null = null;

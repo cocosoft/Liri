@@ -14,6 +14,7 @@ import type { CompileResult } from './KnowledgeCompiler';
 import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
 import { globalEventBus } from '@modules/core/events/EventBus';
 import type { EventSubscription } from '@modules/core/events/EventBus';
+import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 
 const logger = getLogger('knowledge:knowledgeCompileScheduler');
 
@@ -40,7 +41,7 @@ export type SchedulerState = 'idle' | 'running' | 'waiting' | 'stopped';
 /**
  * 定时编译调度器
  */
-export class KnowledgeCompileScheduler {
+export class KnowledgeCompileScheduler implements SchedulerLifecycle {
   private config: SchedulerConfig;
   private intervalTimer: ReturnType<typeof setInterval> | null = null;
   private delayTimer: ReturnType<typeof setTimeout> | null = null;
@@ -61,6 +62,16 @@ export class KnowledgeCompileScheduler {
    */
   getState(): SchedulerState {
     return this.state;
+  }
+
+  /**
+   * 是否处于已启动状态（`SchedulerLifecycle` 契约；T1-1）
+   *
+   * 判据取 `intervalTimer !== null` —— 与 `start()` 自身的「已启动则 no-op」守卫
+   * （`if (this.intervalTimer) return;`）**同一判据**，故不引入新状态、不改现有行为。
+   */
+  isRunning(): boolean {
+    return this.intervalTimer !== null;
   }
 
   /**

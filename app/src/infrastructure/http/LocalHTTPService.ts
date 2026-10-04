@@ -12,7 +12,10 @@ import { handleError } from '@modules/error';
 import type { ServerResponse } from 'http';
 import { costTracker } from '@modules/cost';
 import { getCostRecordRepository } from '@modules/cost';
-import { analyticsService, PerformanceMonitorService } from '@modules/analytics';
+import {
+  analyticsService,
+  PerformanceMonitorService,
+} from '@modules/analytics';
 import { configManager } from '@modules/config';
 // 3.4/P1-1：流式 STT WebSocket 端点（前端按住说话实时字幕 + 统一转录链路）
 import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';

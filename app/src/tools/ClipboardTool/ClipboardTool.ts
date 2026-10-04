@@ -5,7 +5,7 @@
  */
 
 import * as os from 'os';
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { BaseTool } from '../BaseTool';
@@ -81,40 +81,60 @@ function getWriteCommand(): string[] {
 }
 
 /**
+ * 执行剪贴板命令（spawn 异步；阻塞源收敛 2026-10-04，台账 V-2：原 `spawnSync` 会同步阻塞）
+ * @param cmd 命令数组
+ * @param input 可选 stdin 内容（写入剪贴板用）
+ */
+function runClipboardCommand(cmd: string[], input?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const [file, ...args] = cmd;
+    const child = spawn(file, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 5000,
+      shell: PLATFORM === 'win32' ? 'cmd.exe' : true,
+    });
+
+    let stdout = '';
+    child.stdout?.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr?.resume();
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+        return;
+      }
+      reject(
+        new AppError(
+          `Clipboard command exited with code ${code}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.MEDIUM,
+          'CLIPBOARD_ERROR'
+        )
+      );
+    });
+
+    if (input !== undefined) {
+      child.stdin?.write(input);
+    }
+    child.stdin?.end();
+  });
+}
+
+/**
  * 读取剪贴板内容
  */
-function readClipboard(): string {
-  const cmd = getReadCommand();
-  const result = spawnSync(cmd[0], cmd.slice(1), {
-    encoding: 'utf-8',
-    timeout: 5000,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    shell: PLATFORM === 'win32' ? 'cmd.exe' : true,
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  return (result.stdout || '').trim();
+async function readClipboard(): Promise<string> {
+  return runClipboardCommand(getReadCommand());
 }
 
 /**
  * 写入剪贴板内容
  */
-function writeClipboard(content: string): void {
-  const cmd = getWriteCommand();
-  const result = spawnSync(cmd[0], cmd.slice(1), {
-    input: content,
-    encoding: 'utf-8',
-    timeout: 5000,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    shell: PLATFORM === 'win32' ? 'cmd.exe' : true,
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
+async function writeClipboard(content: string): Promise<void> {
+  await runClipboardCommand(getWriteCommand(), content);
 }
 
 export class ClipboardTool extends BaseTool {
@@ -155,9 +175,9 @@ export class ClipboardTool extends BaseTool {
 
       switch (action) {
         case 'read':
-          return this.handleRead(params);
+          return await this.handleRead(params);
         case 'write':
-          return this.handleWrite(params);
+          return await this.handleWrite(params);
         default:
           return {
             success: false,
@@ -175,8 +195,8 @@ export class ClipboardTool extends BaseTool {
   /**
    * 读取剪贴板内容
    */
-  private handleRead(params: ClipboardInput): ToolResult {
-    const content = readClipboard();
+  private async handleRead(params: ClipboardInput): Promise<ToolResult> {
+    const content = await readClipboard();
     const maxChars = params.full ? content.length : MAX_DEFAULT_CHARS;
     const truncated = content.length > maxChars;
     const displayContent = truncated ? content.substring(0, maxChars) : content;
@@ -200,7 +220,7 @@ export class ClipboardTool extends BaseTool {
   /**
    * 写入剪贴板内容
    */
-  private handleWrite(params: ClipboardInput): ToolResult {
+  private async handleWrite(params: ClipboardInput): Promise<ToolResult> {
     if (!params.content) {
       return {
         success: false,
@@ -208,7 +228,7 @@ export class ClipboardTool extends BaseTool {
       };
     }
 
-    writeClipboard(params.content);
+    await writeClipboard(params.content);
 
     const data: ClipboardOutput = {
       action: 'write',

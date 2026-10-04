@@ -32,13 +32,17 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
 import { getLogger } from '@modules/monitoring';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveTempDir } from '@modules/core/paths';
 
 const logger = getLogger('tools:video-analysis');
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：ffmpeg/ffprobe 属模型工具路径，原 `execSync` 会同步阻塞 */
+const execAsync = promisify(exec);
 
 /** 支持的视频格式 */
 const SUPPORTED_VIDEO_FORMATS = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'mpeg'];
@@ -135,7 +139,7 @@ export class VideoAnalysisTool extends BaseTool {
     // 提取关键帧
     let frames: FrameInfo[];
     try {
-      frames = this.extractKeyFrames(videoPath, maxFrames);
+      frames = await this.extractKeyFrames(videoPath, maxFrames);
     } catch (err) {
       return {
         success: false,
@@ -193,7 +197,7 @@ export class VideoAnalysisTool extends BaseTool {
     }
 
     // 汇总
-    const videoInfo = this.getVideoInfo(videoPath);
+    const videoInfo = await this.getVideoInfo(videoPath);
     const summary = [
       `=== 视频分析报告 ===`,
       `文件: ${path.basename(videoPath)}`,
@@ -248,10 +252,13 @@ export class VideoAnalysisTool extends BaseTool {
   }
 
   /** 使用 ffmpeg 提取关键帧 */
-  private extractKeyFrames(videoPath: string, maxFrames: number): FrameInfo[] {
+  private async extractKeyFrames(
+    videoPath: string,
+    maxFrames: number
+  ): Promise<FrameInfo[]> {
     // 检查 ffmpeg 可用性
     try {
-      execSync('ffmpeg -version', { stdio: 'pipe', timeout: 5000 });
+      await execAsync('ffmpeg -version', { timeout: 5000 });
     } catch (err) {
       throw new Error(
         'ffmpeg 不可用。请安装 ffmpeg: https://ffmpeg.org/download.html'
@@ -266,19 +273,19 @@ export class VideoAnalysisTool extends BaseTool {
     // 使用 scene 检测提取关键帧（场景变化检测）
     // 若 ffmpeg 编译时不支持 scene 滤镜，回退到均匀间隔抽取
     try {
-      execSync(
+      await execAsync(
         `ffmpeg -i "${videoPath}" -vf "select='gt(scene,0.3)',scale=1024:-1" -vsync vfr -frames:v ${maxFrames} "${outputPattern}"`,
-        { timeout: DEFAULT_TIMEOUT_S * 1000, stdio: 'pipe' }
+        { timeout: DEFAULT_TIMEOUT_S * 1000 }
       );
     } catch (err) {
       // 回退：均匀间隔抽取
-      const videoInfo = this.getVideoInfo(videoPath);
+      const videoInfo = await this.getVideoInfo(videoPath);
       const duration = videoInfo?.duration || 60;
       const interval = Math.max(1, duration / maxFrames);
 
-      execSync(
+      await execAsync(
         `ffmpeg -i "${videoPath}" -vf "fps=1/${interval},scale=1024:-1" -frames:v ${maxFrames} "${outputPattern}"`,
-        { timeout: DEFAULT_TIMEOUT_S * 1000, stdio: 'pipe' }
+        { timeout: DEFAULT_TIMEOUT_S * 1000 }
       );
     }
 
@@ -297,14 +304,15 @@ export class VideoAnalysisTool extends BaseTool {
   }
 
   /** 获取视频基本信息（使用 ffprobe） */
-  private getVideoInfo(
+  private async getVideoInfo(
     videoPath: string
-  ): { duration: number; width: number; height: number } | null {
+  ): Promise<{ duration: number; width: number; height: number } | null> {
     try {
-      const json = execSync(
+      const { stdout: jsonOut } = await execAsync(
         `ffprobe -v quiet -print_format json -show_format -show_streams "${videoPath}"`,
-        { timeout: 10000, stdio: 'pipe' }
-      ).toString();
+        { timeout: 10000 }
+      );
+      const json = String(jsonOut);
 
       const info = JSON.parse(json) as {
         format?: { duration?: string };

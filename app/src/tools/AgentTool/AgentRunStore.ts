@@ -24,11 +24,15 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { getLogger } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/core';
 
 import type { AgentRunAttribution } from './runAttribution';
+
+/** 异步执行（阻塞源收敛 2026-10-04，台账 V-2） */
+const execFileAsync = promisify(execFile);
 
 const logger = getLogger('tools:AgentTool:AgentRunStore');
 
@@ -135,11 +139,13 @@ export const PROCESS_START_TOLERANCE_MS = 5000;
  * 避免解析本地化日期）；POSIX 走 `ps -o lstart=`（`LC_ALL=C` 固定英文格式）。
  * 失败（进程已退出 / 权限不足 / 命令不可用）⇒ `null` ⇒ 调用方**保持保守行为**（fail-safe）。
  */
-export function readProcessStartTime(pid: number): number | null {
+export async function readProcessStartTime(
+  pid: number
+): Promise<number | null> {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   try {
     if (process.platform === 'win32') {
-      const out = execFileSync(
+      const { stdout } = await execFileAsync(
         'powershell',
         [
           '-NoProfile',
@@ -150,16 +156,21 @@ export function readProcessStartTime(pid: number): number | null {
             `[int64]($p.StartTime.ToUniversalTime().Ticks / 10000 - 62135596800000)`,
         ],
         { encoding: 'utf8', timeout: 10_000, windowsHide: true }
-      ).trim();
-      const ms = Number(out);
+      );
+      const ms = Number(String(stdout).trim());
       return Number.isFinite(ms) && ms > 0 ? ms : null;
     }
 
-    const out = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
-      encoding: 'utf8',
-      timeout: 10_000,
-      env: { ...process.env, LC_ALL: 'C' },
-    }).trim();
+    const { stdout } = await execFileAsync(
+      'ps',
+      ['-o', 'lstart=', '-p', String(pid)],
+      {
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { ...process.env, LC_ALL: 'C' },
+      }
+    );
+    const out = String(stdout).trim();
     if (!out) return null;
     const ms = new Date(out).getTime();
     return Number.isFinite(ms) ? ms : null;
@@ -325,7 +336,7 @@ export class AgentRunStore {
         // 判定：能读到活进程启动时间、且与记录值相差超过容差 ⇒ 该 pid 已被别的进程占用
         // ⇒ 原 owner 已死 ⇒ 该行陈旧（继续往下判 unknown）。
         // 读不到（权限/平台不支持）⇒ 保持原保守行为（fail-safe，不误回收在途 run）。
-        const liveStart = readProcessStartTime(row.owner_pid);
+        const liveStart = await readProcessStartTime(row.owner_pid);
         const recordedStart = row.owner_started_at;
         const pidReused =
           liveStart !== null &&

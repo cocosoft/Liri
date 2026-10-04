@@ -300,8 +300,8 @@ describe('AgentRunStore：终态幂等（O13）', () => {
 });
 
 describe('AgentRunStore：PID 复用判定（O6② / v7.1）', () => {
-  test('readProcessStartTime：本进程可读，且与 `Date.now() - uptime()` 同源（容差内）', () => {
-    const start = readProcessStartTime(process.pid);
+  test('readProcessStartTime：本进程可读，且与 `Date.now() - uptime()` 同源（容差内）', async () => {
+    const start = await readProcessStartTime(process.pid);
     expect(start).not.toBeNull();
 
     const expected = Date.now() - Math.round(process.uptime() * 1000);
@@ -310,10 +310,10 @@ describe('AgentRunStore：PID 复用判定（O6② / v7.1）', () => {
     );
   });
 
-  test('readProcessStartTime：不存在的/非法 pid ⇒ null（调用方保持保守）', () => {
-    expect(readProcessStartTime(999999999)).toBeNull();
-    expect(readProcessStartTime(0)).toBeNull();
-    expect(readProcessStartTime(-1)).toBeNull();
+  test('readProcessStartTime：不存在的/非法 pid ⇒ null（调用方保持保守）', async () => {
+    expect(await readProcessStartTime(999999999)).toBeNull();
+    expect(await readProcessStartTime(0)).toBeNull();
+    expect(await readProcessStartTime(-1)).toBeNull();
   });
 
   test('markStaleRunsUnknown：pid 存活但启动时间不符（PID 复用）⇒ 判 `unknown`', async () => {

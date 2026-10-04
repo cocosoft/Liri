@@ -316,6 +316,8 @@ export class PathGuard {
         'notebook_path',
         'path',
         'filePath',
+        // P0-9（2026-10-04）：`write_project_file` 的路径入参键
+        'relativePath',
       ]);
     }
     // 搜索/glob 类

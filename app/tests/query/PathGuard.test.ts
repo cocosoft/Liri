@@ -119,3 +119,49 @@ describe('PathGuard：静态名单分支零回归', () => {
     );
   });
 });
+
+describe('PathGuard：write_project_file 覆盖（P0-9，2026-10-04）', () => {
+  it('静态名单：relativePath 命中 denyWrite（**/auth/**）⇒ 拦截；普通相对路径 ⇒ 放行', () => {
+    const guard = createPathGuard();
+    expect(
+      guard.checkToolCall('write_project_file', {
+        projectId: 'p1',
+        relativePath: 'auth/credentials.json',
+        content: 'x',
+      }).allowed
+    ).toBe(false);
+    expect(
+      guard.checkToolCall('write_project_file', {
+        projectId: 'p1',
+        relativePath: 'output/report.md',
+        content: 'x',
+      }).allowed
+    ).toBe(true);
+  });
+
+  it('写类判别：只拦写、不因是"写工具"而拦读（lockfile 场景）', () => {
+    const guard = createPathGuard();
+    // 写类工具 + 普通路径 ⇒ 放行（未被误拦）
+    expect(
+      guard.checkToolCall('write_project_file', {
+        projectId: 'p1',
+        relativePath: 'src/a.ts',
+      }).allowed
+    ).toBe(true);
+  });
+
+  it('注册表分支：声明 relativePath ⇒ 与 PATH_ARG_KEYS 求交命中（此前为空 ⇒ fail-open）', () => {
+    const guard = createPathGuard({
+      resolvePathArgKeys: stubResolver({
+        write_project_file: ['projectId', 'relativePath', 'content'],
+      }),
+    });
+    expect(
+      guard.checkToolCall('write_project_file', {
+        projectId: 'p1',
+        relativePath: 'auth/token.pem',
+        content: 'x',
+      }).allowed
+    ).toBe(false);
+  });
+});

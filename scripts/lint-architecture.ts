@@ -2139,20 +2139,17 @@ class ArchitectureLinter {
       // 按 D1(b)：**显式登记为存量例外**并**分批收口**（不是静默放宽 —— 这些模块此前**根本不在**
       // moduleRoots 内、同为零检查；本批把「隐式盲区」变为「显式债」，并把新增直连纳入拦截）。
       // TODO(D-3-c 收口)：逐项判定 barrel 是否已导出 → 改走桶；未导出者为其增补 barrel 导出。
-      //   收口批次①（barrel 已 `export *`/显式导出，最易）：tokenBudget{BudgetPolicy,PriceManager,
-      //     CacheAwareBudget} · streaming/scrubbers · constants{common,systemPromptSections} ·
-      //     security{policy,injection} · skills/SkillRegistry
+      //   ✅ 收口批次①已完成（提交见 git log）：tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget} ·
+      //     streaming/scrubbers · constants{common,systemPromptSections} · security/injection ·
+      //     skills/SkillRegistry —— 对应子路径导入已改走各模块 barrel，登记键已移除。
+      //     ⚠️ `security/policy` 本批**未收口**（存在 barrel 未导出符号的残留消费方）：
+      //       `channelPermissions` 值未由 security barrel 转出、`imageSanitizationPolicy` 未由
+      //       security/policy 导出 ⇒ `services/mcp/channelPermissions.ts` 与 3 个 ImageTool 仍按
+      //       子路径直连 ⇒ 键保留（归批次②：为 barrel 增补导出后再收口）。
       //   收口批次②、③：其余（含 docs/analytics/workspaces/knowledge/bootstrap/components/…）
-      'tokenBudget/BudgetPolicy', // ①barrel export* ⇒ 可改走桶
-      'tokenBudget/PriceManager', // ①barrel export* ⇒ 可改走桶
-      'tokenBudget/CacheAwareBudget', // ①barrel export* ⇒ 可改走桶
       'tokenBudget/TokenBudgetController', // barrel 仅命名导出 Controller/type；`UNIFIED_THRESHOLDS` 等未导出
       'tokenBudget/UnifiedTokenTracker', // barrel 未导出（叶子令牌跟踪）
-      'streaming/scrubbers', // ①barrel `export * from './scrubbers'` ⇒ 可改走桶
-      'constants/common', // ①barrel `export * from './common.js'` ⇒ 可改走桶
-      'constants/systemPromptSections', // ①barrel `export * from './systemPromptSections.js'` ⇒ 可改走桶
-      'security/policy', // ①barrel 显式导出 policy 面 ⇒ 可改走桶
-      'security/injection', // ①barrel 导出 injection 值 ⇒ 可改走桶
+      'security/policy', // ⚠️残留消费方（见上）；barrel 未导出 channelPermissions/imageSanitizationPolicy
       'security/patterns', // barrel 仅导出 patterns 的 **type**（值未导出）→ 收口：评估为 barrel 增补值导出
       'security/redact', // barrel 仅导出 redact 的 type
       'security/scanners', // 子路径唯一入口（barrel 导出件在 `scanner/secret`，命名不一致）
@@ -2162,7 +2159,6 @@ class ArchitectureLinter {
       'skills/loaders', // 子路径唯一入口（barrel 逐件导出，无 `./loaders` 聚合出口）
       'skills/services', // 子路径唯一入口（barrel 未导出）
       'skills/cli', // 子路径唯一入口（barrel 未导出）
-      'skills/SkillRegistry', // ②barrel 已 `export { SkillRegistry }` ⇒ 可改走桶
       'workspace/CouncilOrchestrator', // ②（workspace 域；收口批次待检视 barrel）
       'workspaces/WorkspaceScanner', // ②
       'workspaces/commands', // ②（命令子域）

@@ -8,7 +8,7 @@
 import {
   registerBuiltinSections,
   registerSectionCacheClearers,
-} from '@modules/constants/systemPromptSections';
+} from '@modules/constants';
 import { clearSoulCache } from '@modules/services/soul/SoulReader';
 import { clearUserCache } from '@modules/services/soul/UserReader';
 // 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@modules/services/workspace`

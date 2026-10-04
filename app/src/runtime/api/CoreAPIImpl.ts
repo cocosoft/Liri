@@ -181,7 +181,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '@modules/error';
-import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
+import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
 // 状态块 statusType 契约（CS02：判据为结构化标记，勿写字面量）
 import { STATUS_TYPE } from '@shared/types';
 // D-227（2026-10-02，B12 `runtime -> app` 收口）：`@modules/ai` 仅保留**类型位**。

@@ -27,7 +27,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
+import { getPromptInjectionDetector } from '@modules/security';
 import type { WorkspaceFile, WorkspaceFiles } from './types';
 
 export type { WorkspaceFile, WorkspaceFiles };

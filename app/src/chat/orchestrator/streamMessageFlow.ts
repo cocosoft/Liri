@@ -37,7 +37,7 @@ import {
 } from '@modules/error';
 import { configManager } from '@modules/config';
 import { SimpleMutex } from '@modules/core';
-import { StreamingThinkScrubber } from '@modules/streaming/scrubbers';
+import { StreamingThinkScrubber } from '@modules/streaming';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import {

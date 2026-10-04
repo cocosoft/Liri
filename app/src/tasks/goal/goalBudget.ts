@@ -25,10 +25,7 @@ import {
 } from './GoalEvents';
 import { renderGoalTemplate } from './goalTemplates';
 // P2-10（2026-09-25）：任务级触顶判定收敛到**统一预算策略层**（纯计算、无 IO）
-import {
-  evaluateGoalBudget,
-  TokenBudgetStatus,
-} from '@modules/tokenBudget/BudgetPolicy';
+import { evaluateGoalBudget, TokenBudgetStatus } from '@modules/tokenBudget';
 
 /** 一次记账的结果 */
 export interface GoalBudgetChargeResult {

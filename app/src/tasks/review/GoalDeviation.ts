@@ -20,7 +20,7 @@
  * 本模块**不**读库、**不**落事件、**不**改 goal 状态机（偏差 ≠ 状态迁移）。
  */
 
-import { UNIFIED_THRESHOLDS } from '@modules/tokenBudget/BudgetPolicy';
+import { UNIFIED_THRESHOLDS } from '@modules/tokenBudget';
 import type { GoalDeviationSeverity } from '@modules/types/goal';
 
 /** 一条 stage 的 turn 预算消耗样本（调用方从 `goal_metrics` 行派生，本模块不依赖其类型） */

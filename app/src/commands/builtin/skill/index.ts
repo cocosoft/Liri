@@ -24,7 +24,7 @@
  */
 import { join } from 'path';
 import type { Command, CommandContext } from '@modules/commands';
-import { SkillRegistry } from '@modules/skills/SkillRegistry.js';
+import { SkillRegistry } from '@modules/skills';
 import { SkillSource } from '@modules/skills/types';
 import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader.js';
 import { PluginSkillLoader } from '@modules/skills/loaders/sources/PluginSkillLoader.js';

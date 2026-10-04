@@ -10,5 +10,5 @@ export {
   doesEnterpriseMcpConfigExist,
   excludeCommandsByServer,
   excludeResourcesByServer,
-} from '../../security/policy/MCPServerPolicy';
-export type { MCPServerPolicy } from '../../security/policy/MCPServerPolicy';
+  type MCPServerPolicy,
+} from '@modules/security';

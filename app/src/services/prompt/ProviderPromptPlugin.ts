@@ -7,7 +7,7 @@
 import {
   getRegisteredSections,
   type SystemPromptSection,
-} from '@modules/constants/systemPromptSections';
+} from '@modules/constants';
 
 /**
  * 提供者可覆盖的段落名称集合

@@ -8,7 +8,7 @@ import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 import { readBody, json } from '../handler-utils';
 import { sleepMonitor } from '@modules/core';
-import { APP_VERSION } from '@modules/constants/common';
+import { APP_VERSION } from '@modules/constants';
 import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
 import {
   engageEstop,

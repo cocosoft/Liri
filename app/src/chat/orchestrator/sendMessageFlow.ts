@@ -53,7 +53,7 @@ import {
   isCodeContextMessage,
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
-import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
+import { StreamingToolCallScrubber } from '@modules/streaming';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { getModelPricing } from '@modules/cost';

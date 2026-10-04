@@ -31,7 +31,7 @@ import type { ImageContextService } from './ImageContextService';
 import {
   DANGEROUS_uncachedSystemPromptSection,
   type SystemPromptSection,
-} from '@modules/constants/systemPromptSections';
+} from '@modules/constants';
 import { skillInjectionService } from '@modules/skills';
 import { handleError } from '@modules/error';
 

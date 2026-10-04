@@ -25,7 +25,7 @@ import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error/utils.js';
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { APP_VERSION } from '@modules/constants/common';
+import { APP_VERSION } from '@modules/constants';
 const logger = getLogger('monitoring\otel\OTelTracing');
 
 /**

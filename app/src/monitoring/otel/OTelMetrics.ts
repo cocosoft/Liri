@@ -25,7 +25,7 @@ import { errorMessage } from '@modules/error';
 import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
 
 import { getLogger } from '@modules/monitoring';
-import { APP_VERSION } from '@modules/constants/common';
+import { APP_VERSION } from '@modules/constants';
 const logger = getLogger('monitoring\otel\OTelMetrics');
 
 /**

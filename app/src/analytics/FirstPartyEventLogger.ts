@@ -2,7 +2,7 @@ import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { APP_VERSION } from '@modules/constants/common';
+import { APP_VERSION } from '@modules/constants';
 
 const logger = getLogger('FirstPartyEventLogger');
 

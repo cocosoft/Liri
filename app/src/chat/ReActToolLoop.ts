@@ -86,8 +86,10 @@ import {
   truncateApiMessages,
   sanitizeApiMessages,
 } from './services/MessageContextPipeline';
-import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
-import { StreamingThinkScrubber } from '../streaming/scrubbers/StreamingThinkScrubber';
+import {
+  StreamingToolCallScrubber,
+  StreamingThinkScrubber,
+} from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { repairImageUrls, extractTodoData } from './services/ChatHelper';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';

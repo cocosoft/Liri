@@ -9,7 +9,7 @@
  */
 
 import { BaseTransport } from './BaseTransport';
-import { CACHE_BOUNDARY } from '@modules/constants/systemPromptSections';
+import { CACHE_BOUNDARY } from '@modules/constants';
 import {
   DEFAULT_CACHE_CONFIG,
   STRATEGY_SPEC,

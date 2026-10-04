@@ -1,4 +1,4 @@
-import type { SystemPromptSection } from '@modules/constants/systemPromptSections';
+import type { SystemPromptSection } from '@modules/constants';
 import type { PromptMode } from './types';
 // 2026-10-01 D-215（子批 E，`services -> ai` 倒挂收口）：
 // ① `getCachedTiktokenEncoder` 实现已改归 infra（D-212）⇒ 相对直连 infra 模块根；

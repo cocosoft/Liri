@@ -4,7 +4,7 @@ import {
   CACHE_BOUNDARY,
   type SystemPromptSection,
   localToolUseSection,
-} from '@modules/constants/systemPromptSections';
+} from '@modules/constants';
 // 2026-10-01 D-214（子批 E，`services -> ai` 倒挂收口）：原静态导入 app 层 `@modules/ai`
 // 的 4 个符号（`buildSystemPrompt` · `modelManager` · `providerRegistry` · `estimateTokens`
 // + 类型 `SystemPromptContext`）⇒ 改经 **服务层端口** `getCoreAPI().getAiOpsPort()`

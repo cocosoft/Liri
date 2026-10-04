@@ -13,7 +13,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
-import { APP_VERSION } from '@modules/constants/common';
+import { APP_VERSION } from '@modules/constants';
 import {
   isSpanCovered,
   markSpanCovered,

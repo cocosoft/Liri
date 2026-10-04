@@ -44,7 +44,7 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
+import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
 
 const logger = getLogger('http:chat');
 

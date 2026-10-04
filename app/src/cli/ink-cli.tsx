@@ -11,7 +11,7 @@ import {
   AlternateScreen,
 } from '@modules/ink';
 import { getLogger } from '@modules/monitoring';
-import { SkillRegistry } from '@modules/skills/SkillRegistry';
+import { SkillRegistry } from '@modules/skills';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools';
 import { profileReport } from '@modules/performance';

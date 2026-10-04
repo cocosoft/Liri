@@ -16,8 +16,10 @@ import {
   buildSystemContext,
   type SystemPromptParts,
 } from './PromptTemplates';
-import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
-import { getUnicodeSanitizer } from '../security/injection/UnicodeSanitizer';
+import {
+  getPromptInjectionDetector,
+  getUnicodeSanitizer,
+} from '@modules/security';
 import { resolveContextWindow } from './window/ContextWindowResolver';
 
 /**

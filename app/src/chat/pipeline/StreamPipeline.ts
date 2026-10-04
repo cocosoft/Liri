@@ -33,7 +33,7 @@ import {
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { repairImageUrls } from '../services/ChatHelper';
-import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
+import { StreamingToolCallScrubber } from '@modules/streaming';
 import { getModelPricing } from '@modules/cost';
 import { calculateTotalCost } from '@modules/cost';
 import {

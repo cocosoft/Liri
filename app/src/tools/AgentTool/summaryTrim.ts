@@ -22,8 +22,8 @@ import {
   SUMMARY_MIN_CHARS,
   SUMMARY_HEAD_RATIO,
   evaluateSummaryCharBudget,
-} from '@modules/tokenBudget/BudgetPolicy';
-import type { SummaryBudgetInput } from '@modules/tokenBudget/BudgetPolicy';
+  type SummaryBudgetInput,
+} from '@modules/tokenBudget';
 
 // 常量与输入类型的**公共 API 保持不变**（实现迁入策略层后在此 re-export）
 export { SUMMARY_HARD_MAX_CHARS, SUMMARY_MIN_CHARS, SUMMARY_HEAD_RATIO };

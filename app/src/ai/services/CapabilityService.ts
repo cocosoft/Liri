@@ -31,7 +31,7 @@ import { resolveDbPath, resolveProjectRoot } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { APP_VERSION } from '@modules/constants/common';
+import { APP_VERSION } from '@modules/constants';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import path from 'path';

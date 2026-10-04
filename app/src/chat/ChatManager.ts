@@ -115,7 +115,7 @@ import {
   stripThinkResponseTags,
   stripOrphanToolTags,
 } from './services/MessageContextPipeline';
-import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
+import { StreamingToolCallScrubber } from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { deleteNegotiationState } from './services/NegotiationState';
 import { SessionAccessFacade } from './services/SessionAccessFacade';

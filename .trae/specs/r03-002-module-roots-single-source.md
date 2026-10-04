@@ -11,7 +11,8 @@
 - **存量按 D1(b) 显式登记**：派生后首次计入的 **42 个子入口**（原 99 处导入）登记入 `canonicalEntryKeys`，**逐条附理由 + 收口批次**（① barrel 已导出最易 → ② ③）。**非静默放宽**：这些模块此前**不在** `moduleRoots` 内、同为零检查；本批把「隐式盲区」变为「显式债」。
 - **可证伪（§6 判据 4）**：注入 `import { IntelligentAnalysisService } from '@modules/analytics/IntelligentAnalysisService'`（`analytics` 派生后才计入、且未登记）⇒ `R03-002` 报 **1 处违规**、`错误: 1`；删除后归零。
 - **验证**：`lint:arch` **0 错误 / 4 警告**（白名单 `786 → 909`）；`typecheck` **0**。
-- **待做（收口）**：批次①（`tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget}` · `streaming/scrubbers` · `constants{common,systemPromptSections}` · `security{policy,injection}` · `skills/SkillRegistry`）→ 改走桶；批次②③ 逐项检视 barrel 后处置（未导出者为其**增补 barrel 导出**，而非长期白名单）。
+- **✅ 收口批次① 已完成**（2026-10-04）：`tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget}` · `streaming/scrubbers` · `constants{common,systemPromptSections}` · `security/injection` · `skills/SkillRegistry` —— 共 **41 处**导入改走模块 barrel（含 4 处相对路径子目录、6 文件重复 import 合并），并从 `canonicalEntryKeys` **移除对应 8 个登记键**（R03-002 白名单 `909 → 873`）。**未收口**：`security/policy`（barrel 未导出 `channelPermissions` / `imageSanitizationPolicy` 残留符号）⇒ 键**保留**，归批次②（先为 barrel 增补导出）。
+- **待做（收口）**：批次②③ 逐项检视 barrel 后处置（未导出者为其**增补 barrel 导出**，而非长期白名单）。
 
 ## 1. Problem Statement
 

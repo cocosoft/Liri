@@ -20,14 +20,23 @@ const pythonAvailable = (() => {
   }
 })();
 
+/**
+ * 执行超时（P0-8，2026-10-04）：全量并行（140+ 文件同进程抢 CPU）下 python REPL 的启动/应答
+ * 会明显变慢，固定 4000ms 会偶发"假红"（台账 2026-09-24：全量并行下本文件**必现 1 例失败**、
+ * 单跑却 5/5 通过）。改为**可按环境变量放宽**（`REPL_TEST_TIMEOUT_MS`，默认 8000ms）。
+ */
+const EXEC_TIMEOUT_MS = Number(process.env.REPL_TEST_TIMEOUT_MS) || 8000;
+
 describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
   const tool = new REPLToolImpl();
   let session: REPLSession | undefined;
 
   beforeAll(async () => {
     if (!pythonAvailable) return;
-    session = await tool.startREPL('python', { timeout: 4000 });
+    session = await tool.startREPL('python', { timeout: EXEC_TIMEOUT_MS });
   });
+  // 注（P0-8）：bun 的 per-test timeout **不覆盖钩子/加载期**，而 `beforeAll` 的类型不接受超时参数
+  //（传第二参会 `TS2554`）⇒ 钩子期若挂死仍无法靠超时兜底（属 P0-8 死锁的已知边界，另行专项）。
 
   afterAll(async () => {
     if (session) await tool.stopREPL(session);
@@ -42,8 +51,8 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
       expect(r.success).toBe(true);
       expect(r.output).toContain('repl-ok-123');
       expect(r.error).toBeUndefined();
-      // 完成标记协议应在 4s 超时前返回；留足余量避免慢机误判
-      expect(elapsed).toBeLessThan(3000);
+      // 完成标记协议应在超时前**明显提前**返回（与超时之差留 1s 余量，避免慢机误判）
+      expect(elapsed).toBeLessThan(EXEC_TIMEOUT_MS - 1000);
     }
   );
 

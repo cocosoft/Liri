@@ -2,7 +2,8 @@
  * IDE 命令实现
  * 检测系统上已安装的 IDE，支持在当前 IDE 中打开项目目录
  */
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
@@ -12,6 +13,9 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:ide:ide');
+
+// 阻塞源收敛（2026-10-04）：IDE 探测/启动改用异步 exec，避免同步阻塞事件循环
+const execAsync = promisify(nodeExec);
 
 /**
  * IDE 定义接口
@@ -196,16 +200,17 @@ IDE 命令帮助:
 /**
  * 通过 PATH 检测 IDE 是否安装
  */
-function detectByPath(def: IDEDefinition): {
+async function detectByPath(def: IDEDefinition): Promise<{
   installed: boolean;
   path?: string;
-} {
+}> {
   try {
-    const result = execSync(`where ${def.command}`, {
-      encoding: 'utf8',
-      stdio: 'pipe',
-      timeout: 3000,
-    }).trim();
+    const result = (
+      await execAsync(`where ${def.command}`, {
+        encoding: 'utf8',
+        timeout: 3000,
+      })
+    ).stdout.trim();
     const firstPath = result.split('\n')[0].trim();
     if (firstPath) {
       return { installed: true, path: firstPath };
@@ -297,46 +302,42 @@ function scanStartMenuPrograms(): IDEDetection[] {
 /**
  * 检测所有 IDE 安装状态（三级别检测）
  */
-function detectIDEs(): IDEDetection[] {
+async function detectIDEs(): Promise<IDEDetection[]> {
   const scanResults = scanStartMenuPrograms();
 
-  return SUPPORTED_IDES.map((def) => {
-    const fromScan = scanResults.find((r) => r.name === def.name);
-    if (fromScan) return fromScan;
+  return Promise.all(
+    SUPPORTED_IDES.map(async (def) => {
+      const fromScan = scanResults.find((r) => r.name === def.name);
+      if (fromScan) return fromScan;
 
-    const pathResult = detectByPath(def);
-    if (pathResult.installed) {
-      return { ...def, ...pathResult };
-    }
+      const pathResult = await detectByPath(def);
+      if (pathResult.installed) {
+        return { ...def, ...pathResult };
+      }
 
-    const commonResult = detectByCommonPaths(def);
-    if (commonResult.installed) {
-      return { ...def, ...commonResult };
-    }
+      const commonResult = detectByCommonPaths(def);
+      if (commonResult.installed) {
+        return { ...def, ...commonResult };
+      }
 
-    return { name: def.name, installed: false, command: def.command };
-  });
+      return { name: def.name, installed: false, command: def.command };
+    })
+  );
 }
 
 /**
  * 在指定 IDE 中打开项目目录
  */
-function openInIDE(
+async function openInIDE(
   command: string,
   cwd: string,
   installedPath?: string
-): boolean {
+): Promise<boolean> {
   try {
     if (installedPath) {
-      execSync(`"${installedPath}" "${cwd}"`, {
-        stdio: 'ignore',
-        timeout: 5000,
-      });
+      await execAsync(`"${installedPath}" "${cwd}"`, { timeout: 5000 });
     } else {
-      execSync(`${command} "${cwd}"`, {
-        stdio: 'ignore',
-        timeout: 5000,
-      });
+      await execAsync(`${command} "${cwd}"`, { timeout: 5000 });
     }
     return true;
   } catch {
@@ -363,8 +364,8 @@ function idesToJson(ides: IDEDetection[]): Record<string, unknown> {
 /**
  * 处理列表子命令
  */
-function handleList(showJson: boolean): CommandResult {
-  const ides = detectIDEs();
+async function handleList(showJson: boolean): Promise<CommandResult> {
+  const ides = await detectIDEs();
   const installed = ides.filter((i) => i.installed);
 
   if (showJson) {
@@ -397,8 +398,8 @@ function handleList(showJson: boolean): CommandResult {
 /**
  * 处理打开子命令
  */
-function handleOpen(context: CommandContext): CommandResult {
-  const ides = detectIDEs();
+async function handleOpen(context: CommandContext): Promise<CommandResult> {
+  const ides = await detectIDEs();
   const installed = ides.filter((i) => i.installed);
 
   if (installed.length === 0) {
@@ -408,7 +409,7 @@ function handleOpen(context: CommandContext): CommandResult {
   const cwd = context.cwd || process.cwd();
   const preferred = installed.find((i) => i.command === 'code') || installed[0];
 
-  const opened = openInIDE(preferred.command, cwd, preferred.path);
+  const opened = await openInIDE(preferred.command, cwd, preferred.path);
 
   if (opened) {
     return {
@@ -448,11 +449,11 @@ const ideCommand = {
       }
 
       if (action === 'open') {
-        return handleOpen(context);
+        return await handleOpen(context);
       }
 
       if (action === '' || action === 'list') {
-        return handleList(showJson);
+        return await handleList(showJson);
       }
 
       return {

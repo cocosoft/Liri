@@ -6,11 +6,15 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';
 
 // KB-R11-LOGGER（2026-08-29）：new Logger 直接构造 → getLogger 门面（R11-001 合规）
 const logger = getLogger('ai:llama:hardware');
+
+// 阻塞源收敛（2026-10-04）：硬件探测改用异步 exec，避免同步阻塞事件循环（检测链整体 async 化）
+const execAsync = promisify(nodeExec);
 
 export interface HardwareInfo {
   platform: 'win32' | 'darwin' | 'linux';
@@ -97,9 +101,9 @@ export class HardwareDetector {
 
     try {
       if (platform === 'win32') {
-        return this._detectMemoryWindows();
+        return await this._detectMemoryWindows();
       } else if (platform === 'darwin') {
-        const output = execSync('sysctl hw.memsize', {
+        const { stdout: output } = await execAsync('sysctl hw.memsize', {
           encoding: 'utf-8',
           timeout: 5000,
         });
@@ -124,14 +128,14 @@ export class HardwareDetector {
   /**
    * Windows 内存检测（PowerShell，替代已弃用的 WMIC）
    */
-  private _detectMemoryWindows(): number {
+  private async _detectMemoryWindows(): Promise<number> {
     try {
       // 优先使用 PowerShell（Win10+ 均可用）
-      const output = execSync(
+      const { stdout } = await execAsync(
         'powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize"',
         { encoding: 'utf-8', timeout: 8000 }
       );
-      const kb = parseInt(output.trim());
+      const kb = parseInt(stdout.trim());
       if (!isNaN(kb) && kb > 0) {
         return Math.round(kb / (1024 * 1024));
       }
@@ -141,11 +145,11 @@ export class HardwareDetector {
 
     try {
       // 回退：WMIC（旧版 Windows）
-      const output = execSync('wmic OS get TotalVisibleMemorySize /Value', {
-        encoding: 'utf-8',
-        timeout: 5000,
-      });
-      const match = output.match(/TotalVisibleMemorySize=(\d+)/);
+      const { stdout } = await execAsync(
+        'wmic OS get TotalVisibleMemorySize /Value',
+        { encoding: 'utf-8', timeout: 5000 }
+      );
+      const match = stdout.match(/TotalVisibleMemorySize=(\d+)/);
       if (match) {
         return Math.round(parseInt(match[1]) / (1024 * 1024));
       }
@@ -161,11 +165,11 @@ export class HardwareDetector {
 
     try {
       if (platform === 'win32') {
-        return this._detectGpuWindows();
+        return await this._detectGpuWindows();
       } else if (platform === 'darwin') {
-        return this._detectGpuMacOS();
+        return await this._detectGpuMacOS();
       } else if (platform === 'linux') {
-        return this._detectGpuLinux();
+        return await this._detectGpuLinux();
       }
     } catch (err) {
       logger.warn('GPU 检测失败', { error: String(err) });
@@ -177,7 +181,7 @@ export class HardwareDetector {
   /**
    * Windows GPU 检测（PowerShell + 多 GPU + 精准显存）
    */
-  private _detectGpuWindows(): HardwareInfo['gpu'] {
+  private async _detectGpuWindows(): Promise<HardwareInfo['gpu']> {
     const candidates: Array<{
       name: string;
       memoryGB: number;
@@ -186,7 +190,7 @@ export class HardwareDetector {
 
     // 1. 通过 PowerShell 获取所有 GPU
     try {
-      const psOutput = execSync(
+      const { stdout: psOutput } = await execAsync(
         'powershell -NoProfile -Command "Get-WmiObject Win32_VideoController | Select-Object Name, AdapterRAM | ConvertTo-Csv -NoTypeInformation"',
         { encoding: 'utf-8', timeout: 10000 }
       );
@@ -215,7 +219,7 @@ export class HardwareDetector {
     // 2. 回退：WMIC（旧版 Windows）
     if (candidates.length === 0) {
       try {
-        const wmicOutput = execSync(
+        const { stdout: wmicOutput } = await execAsync(
           'wmic path win32_VideoController get Name,AdapterRAM /Value',
           { encoding: 'utf-8', timeout: 10000 }
         );
@@ -252,7 +256,7 @@ export class HardwareDetector {
 
     // 5. NVIDIA 优先用 nvidia-smi 获取精确显存（WMI AdapterRAM 有 32 位溢出问题）
     if (best.name?.toLowerCase().includes('nvidia')) {
-      const nvidiaVram = this._getNvidiaVramGB();
+      const nvidiaVram = await this._getNvidiaVramGB();
       if (nvidiaVram > 0 && nvidiaVram !== best.memoryGB) {
         logger.info(
           `NVIDIA 显存校准: WMI=${best.memoryGB}GB, nvidia-smi=${nvidiaVram}GB`
@@ -269,7 +273,7 @@ export class HardwareDetector {
     });
 
     // 5. 推断后端
-    const backend = this._inferWindowsBackend(best.name);
+    const backend = await this._inferWindowsBackend(best.name);
 
     return {
       name: best.name,
@@ -314,16 +318,18 @@ export class HardwareDetector {
   /**
    * 推断 Windows 上的 llama.cpp 后端
    */
-  private _inferWindowsBackend(gpuName: string): 'cuda' | 'vulkan' | 'cpu' {
+  private async _inferWindowsBackend(
+    gpuName: string
+  ): Promise<'cuda' | 'vulkan' | 'cpu'> {
     const nameLower = gpuName.toLowerCase();
 
     // NVIDIA：检查 CUDA
     if (nameLower.includes('nvidia')) {
-      if (this._checkNvidiaCuda()) {
+      if (await this._checkNvidiaCuda()) {
         return 'cuda';
       }
       logger.info('检测到 NVIDIA GPU 但 nvidia-smi 不可用，回退 Vulkan');
-      return this._checkVulkan('win32') ? 'vulkan' : 'cpu';
+      return (await this._checkVulkan('win32')) ? 'vulkan' : 'cpu';
     }
 
     // Intel：Arc / HD / Iris / UHD 系列均支持 Vulkan
@@ -334,7 +340,7 @@ export class HardwareDetector {
         return 'vulkan';
       }
       // Intel 核显也支持 Vulkan（Gen 8+）
-      if (this._checkVulkan('win32')) {
+      if (await this._checkVulkan('win32')) {
         logger.info('检测到 Intel GPU 且 Vulkan 可用，使用 Vulkan 后端');
         return 'vulkan';
       }
@@ -343,7 +349,7 @@ export class HardwareDetector {
 
     // AMD：Radeon 系列支持 Vulkan
     if (nameLower.includes('amd') || nameLower.includes('radeon')) {
-      if (this._checkVulkan('win32')) {
+      if (await this._checkVulkan('win32')) {
         logger.info('检测到 AMD GPU 且 Vulkan 可用，使用 Vulkan 后端');
         return 'vulkan';
       }
@@ -351,7 +357,7 @@ export class HardwareDetector {
     }
 
     // 其他 GPU：检查 Vulkan
-    if (this._checkVulkan('win32')) {
+    if (await this._checkVulkan('win32')) {
       return 'vulkan';
     }
 
@@ -361,7 +367,7 @@ export class HardwareDetector {
   /**
    * 检查 NVIDIA CUDA 是否可用（Windows）
    */
-  private _checkNvidiaCuda(): boolean {
+  private async _checkNvidiaCuda(): Promise<boolean> {
     const nvidiaPaths = [
       'nvidia-smi',
       'C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe',
@@ -371,7 +377,7 @@ export class HardwareDetector {
 
     for (const p of nvidiaPaths) {
       try {
-        execSync(`"${p}"`, { encoding: 'utf-8', timeout: 3000 });
+        await execAsync(`"${p}"`, { encoding: 'utf-8', timeout: 3000 });
         logger.info(`检测到 nvidia-smi: ${p}`);
         return true;
       } catch {
@@ -384,7 +390,7 @@ export class HardwareDetector {
   /**
    * 获取 NVIDIA GPU 精确显存（GB），通过 nvidia-smi
    */
-  private _getNvidiaVramGB(): number {
+  private async _getNvidiaVramGB(): Promise<number> {
     const nvidiaPaths = [
       'nvidia-smi',
       'C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe',
@@ -394,11 +400,11 @@ export class HardwareDetector {
 
     for (const p of nvidiaPaths) {
       try {
-        const output = execSync(
+        const { stdout } = await execAsync(
           `"${p}" --query-gpu=memory.total --format=csv,noheader,nounits`,
           { encoding: 'utf-8', timeout: 5000 }
         );
-        const memMB = parseFloat(output.trim());
+        const memMB = parseFloat(stdout.trim());
         if (memMB > 0) {
           return Math.round(memMB / 1024);
         }
@@ -412,12 +418,12 @@ export class HardwareDetector {
   /**
    * macOS GPU 检测
    */
-  private _detectGpuMacOS(): HardwareInfo['gpu'] {
+  private async _detectGpuMacOS(): Promise<HardwareInfo['gpu']> {
     try {
-      const output = execSync('system_profiler SPDisplaysDataType', {
-        encoding: 'utf-8',
-        timeout: 10000,
-      });
+      const { stdout: output } = await execAsync(
+        'system_profiler SPDisplaysDataType',
+        { encoding: 'utf-8', timeout: 10000 }
+      );
 
       const nameMatch = output.match(/Chipset Model:\s*(.+)/);
       const name = nameMatch?.[1]?.trim() || null;
@@ -439,10 +445,10 @@ export class HardwareDetector {
   /**
    * Linux GPU 检测
    */
-  private _detectGpuLinux(): HardwareInfo['gpu'] {
+  private async _detectGpuLinux(): Promise<HardwareInfo['gpu']> {
     // 先尝试 NVIDIA
     try {
-      const output = execSync(
+      const { stdout: output } = await execAsync(
         'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits',
         { encoding: 'utf-8', timeout: 5000 }
       );
@@ -459,12 +465,12 @@ export class HardwareDetector {
 
     // 尝试 lspci
     try {
-      const output = execSync("lspci | grep -i 'vga\\|3d\\|display'", {
-        encoding: 'utf-8',
-        timeout: 5000,
-      });
+      const { stdout: output } = await execAsync(
+        "lspci | grep -i 'vga\\|3d\\|display'",
+        { encoding: 'utf-8', timeout: 5000 }
+      );
       if (output) {
-        const backend = this._checkVulkan('linux') ? 'vulkan' : 'cpu';
+        const backend = (await this._checkVulkan('linux')) ? 'vulkan' : 'cpu';
         return {
           name: output.trim(),
           memoryGB: 0,
@@ -481,7 +487,7 @@ export class HardwareDetector {
   /**
    * 检查 Vulkan 可用性（平台感知）
    */
-  private _checkVulkan(platform: string): boolean {
+  private async _checkVulkan(platform: string): Promise<boolean> {
     // Windows：检查 DLL 和工具
     if (platform === 'win32') {
       const dllPaths = [
@@ -496,7 +502,7 @@ export class HardwareDetector {
       }
       // 检查 vulkaninfo 是否可执行
       try {
-        execSync('where vulkaninfo', { encoding: 'utf-8', timeout: 2000 });
+        await execAsync('where vulkaninfo', { encoding: 'utf-8', timeout: 2000 });
         return true;
       } catch {
         // 继续
@@ -515,7 +521,7 @@ export class HardwareDetector {
         if (existsSync(p)) return true;
       }
       try {
-        execSync('which vulkaninfo', { encoding: 'utf-8', timeout: 2000 });
+        await execAsync('which vulkaninfo', { encoding: 'utf-8', timeout: 2000 });
         return true;
       } catch {
         return false;

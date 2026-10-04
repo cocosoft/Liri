@@ -34,7 +34,8 @@ import {
   writeFileSync,
 } from 'fs';
 import { join, resolve } from 'path';
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { initHooksCommand } from '@modules/hooks';
 import { getHelpSystem } from '../docs/HelpSystem';
 import { getToolGuideSystem } from '../docs/ToolGuide';
@@ -56,6 +57,9 @@ import * as print from './print';
 import type { CommandImplementation, CommandContext } from '@modules/commands';
 
 const logger = getLogger('cli\index');
+
+// 阻塞源收敛（2026-10-04）：exec 命令改用异步 exec，避免同步阻塞事件循环
+const execAsync = promisify(nodeExec);
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });
@@ -285,13 +289,12 @@ program
       console.log(chalk.gray(`$ ${command}`));
       console.log(chalk.cyan('─'.repeat(60)));
 
-      const result = execSync(command, {
+      const { stdout } = await execAsync(command, {
         cwd: resolve(options.directory),
         encoding: 'utf-8',
-        stdio: 'pipe',
       });
 
-      console.log(result);
+      console.log(stdout);
       console.log(chalk.cyan('─'.repeat(60)));
       console.log(chalk.green('✓'), 'Command executed successfully');
     } catch (error: unknown) {

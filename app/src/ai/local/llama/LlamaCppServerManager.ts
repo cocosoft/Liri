@@ -30,7 +30,8 @@
  * 配置来源优先级：configProvider（config.json llama 段）→ 环境变量 → 默认值
  */
 
-import { execFile, execSync, type ChildProcess } from 'child_process';
+import { exec as nodeExec, execFile, type ChildProcess } from 'child_process';
+import { promisify } from 'util';
 import { getSpawnImpl } from '@modules/utils/spawnPort';
 import { createHash } from 'crypto';
 import { EventEmitter } from 'events';
@@ -68,6 +69,9 @@ import {
 } from '@modules/core/paths';
 
 const logger = getLogger('ai:llama');
+
+// 阻塞源收敛（2026-10-04）：进程清理/统计改用异步 exec，避免同步阻塞事件循环
+const execAsync = promisify(nodeExec);
 
 /** 锁定 llama.cpp Release 版本（不追 latest，升级需显式更新；格式 b<5位数字>） */
 export const LLAMA_VERSION = 'b10225';
@@ -1378,13 +1382,14 @@ export class LlamaCppServerManager {
     try {
       if (process.platform === 'win32') {
         // Windows: 用 taskkill 强制终止
-        const output = execSync('taskkill /F /IM llama-server.exe /T 2>&1', {
-          encoding: 'utf-8',
-        });
-        logger.info('taskkill 执行结果', { output });
+        const { stdout } = await execAsync(
+          'taskkill /F /IM llama-server.exe /T 2>&1',
+          { encoding: 'utf-8' }
+        );
+        logger.info('taskkill 执行结果', { output: stdout });
       } else {
         // Unix: 用 pkill -9
-        execSync('pkill -9 -f llama-server', { encoding: 'utf-8' });
+        await execAsync('pkill -9 -f llama-server', { encoding: 'utf-8' });
       }
     } catch (e) {
       logger.warn('forceKill 执行异常', {
@@ -1412,16 +1417,16 @@ export class LlamaCppServerManager {
   private async countLlamaProcesses(): Promise<number> {
     try {
       if (process.platform === 'win32') {
-        const output = execSync(
+        const { stdout } = await execAsync(
           'tasklist /FI "IMAGENAME eq llama-server.exe" /NH 2>&1',
           { encoding: 'utf-8' }
         );
-        return output.includes('llama-server') ? 1 : 0;
+        return stdout.includes('llama-server') ? 1 : 0;
       }
-      const output = execSync('pgrep -f llama-server || true', {
+      const { stdout } = await execAsync('pgrep -f llama-server || true', {
         encoding: 'utf-8',
       });
-      return output.trim() ? output.trim().split('\n').length : 0;
+      return stdout.trim() ? stdout.trim().split('\n').length : 0;
     } catch {
       return 0;
     }

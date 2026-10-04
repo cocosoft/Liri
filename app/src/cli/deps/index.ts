@@ -24,7 +24,11 @@
  * 运行时依赖检测
  */
 
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
+
+// 阻塞源收敛（2026-10-04）：依赖探测改用异步 exec，避免同步阻塞事件循环
+const execAsync = promisify(nodeExec);
 
 export interface DependencyInfo {
   name: string;
@@ -97,7 +101,9 @@ async function checkBinary(
 ): Promise<DependencyInfo> {
   try {
     const cmd = verifyCommand ?? `${name} --version`;
-    const output = execSync(cmd, { encoding: 'utf-8', timeout: 5000 }).trim();
+    const output = (
+      await execAsync(cmd, { encoding: 'utf-8', timeout: 5000 })
+    ).stdout.trim();
     const firstLine = output.split('\n')[0].trim();
 
     const versionMatch = firstLine.match(/(\d+\.\d+\.\d+)/);
@@ -108,10 +114,12 @@ async function checkBinary(
       satisfied = compareVersions(version, minVersion);
     }
 
-    const binaryPath = execSync(
-      process.platform === 'win32' ? `where ${name}` : `which ${name}`,
-      { encoding: 'utf-8', timeout: 3000 }
-    ).trim();
+    const binaryPath = (
+      await execAsync(
+        process.platform === 'win32' ? `where ${name}` : `which ${name}`,
+        { encoding: 'utf-8', timeout: 3000 }
+      )
+    ).stdout.trim();
 
     return {
       name,
@@ -200,10 +208,9 @@ export async function checkDependency(
   }
 
   try {
-    const output = execSync(`${name} --version`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-    }).trim();
+    const output = (
+      await execAsync(`${name} --version`, { encoding: 'utf-8', timeout: 5000 })
+    ).stdout.trim();
     const versionMatch = output.match(/(\d+\.\d+\.\d+)/);
     return {
       name,

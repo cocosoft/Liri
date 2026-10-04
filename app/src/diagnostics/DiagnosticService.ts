@@ -6,11 +6,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { homedir } from 'os';
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { realpath } from 'fs/promises';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('diagnostics:service');
+
+// 阻塞源收敛（2026-10-04）：安装类型探测/诊断改用异步 exec，避免同步阻塞事件循环
+const execAsync = promisify(nodeExec);
 
 /**
  * 安装类型
@@ -69,13 +73,10 @@ export type PackageManager =
 /**
  * 检测Homebrew安装
  */
-function detectHomebrew(): boolean {
+async function detectHomebrew(): Promise<boolean> {
   try {
-    const result = execSync('which brew', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('brew');
+    const { stdout } = await execAsync('which brew', { encoding: 'utf8' });
+    return stdout.includes('brew');
   } catch (err) {
     return false;
   }
@@ -84,16 +85,13 @@ function detectHomebrew(): boolean {
 /**
  * 检测Winget安装
  */
-function detectWinget(): boolean {
+async function detectWinget(): Promise<boolean> {
   if (process.platform !== 'win32') {
     return false;
   }
   try {
-    const result = execSync('where winget', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('winget');
+    const { stdout } = await execAsync('where winget', { encoding: 'utf8' });
+    return stdout.includes('winget');
   } catch (err) {
     return false;
   }
@@ -102,13 +100,10 @@ function detectWinget(): boolean {
 /**
  * 检测Mise安装
  */
-function detectMise(): boolean {
+async function detectMise(): Promise<boolean> {
   try {
-    const result = execSync('which mise', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('mise');
+    const { stdout } = await execAsync('which mise', { encoding: 'utf8' });
+    return stdout.includes('mise');
   } catch (err) {
     return false;
   }
@@ -117,13 +112,10 @@ function detectMise(): boolean {
 /**
  * 检测Asdf安装
  */
-function detectAsdf(): boolean {
+async function detectAsdf(): Promise<boolean> {
   try {
-    const result = execSync('which asdf', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('asdf');
+    const { stdout } = await execAsync('which asdf', { encoding: 'utf8' });
+    return stdout.includes('asdf');
   } catch (err) {
     return false;
   }
@@ -137,11 +129,8 @@ async function detectPacman(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which pacman', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('pacman');
+    const { stdout } = await execAsync('which pacman', { encoding: 'utf8' });
+    return stdout.includes('pacman');
   } catch (err) {
     return false;
   }
@@ -155,11 +144,8 @@ async function detectDeb(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which dpkg', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('dpkg');
+    const { stdout } = await execAsync('which dpkg', { encoding: 'utf8' });
+    return stdout.includes('dpkg');
   } catch (err) {
     return false;
   }
@@ -173,11 +159,8 @@ async function detectRpm(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which rpm', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('rpm');
+    const { stdout } = await execAsync('which rpm', { encoding: 'utf8' });
+    return stdout.includes('rpm');
   } catch (err) {
     return false;
   }
@@ -191,11 +174,8 @@ async function detectApk(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which apk', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return result.includes('apk');
+    const { stdout } = await execAsync('which apk', { encoding: 'utf8' });
+    return stdout.includes('apk');
   } catch (err) {
     return false;
   }
@@ -249,10 +229,10 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
   if (isBundled) {
     // 检查包管理器安装
     if (
-      detectHomebrew() ||
-      detectWinget() ||
-      detectMise() ||
-      detectAsdf() ||
+      (await detectHomebrew()) ||
+      (await detectWinget()) ||
+      (await detectMise()) ||
+      (await detectAsdf()) ||
       (await detectPacman()) ||
       (await detectDeb()) ||
       (await detectRpm()) ||
@@ -265,10 +245,9 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
 
   // 检查npm路径
   try {
-    const npmPrefix = execSync('npm config get prefix', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    const npmPrefix = (
+      await execAsync('npm config get prefix', { encoding: 'utf8' })
+    ).stdout.trim();
 
     if (invokedPath.startsWith(npmPrefix)) {
       return 'npm-global';
@@ -328,10 +307,9 @@ export async function detectMultipleInstallations(): Promise<
 
   // 检查全局npm安装
   try {
-    const npmPrefix = execSync('npm config get prefix', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    const npmPrefix = (
+      await execAsync('npm config get prefix', { encoding: 'utf8' })
+    ).stdout.trim();
 
     const isWindows = process.platform === 'win32';
     const globalBinPath = isWindows
@@ -410,9 +388,8 @@ export async function detectConfigurationIssues(
   // 检查本地安装不在PATH中
   if (type === 'npm-local') {
     try {
-      const whichResult = execSync('which claude', {
+      const { stdout: whichResult } = await execAsync('which claude', {
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
       });
       if (!whichResult.includes('claude')) {
         warnings.push({

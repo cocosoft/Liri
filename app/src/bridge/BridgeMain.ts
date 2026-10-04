@@ -22,12 +22,16 @@ import { createHeartbeatManager } from './managers/HeartbeatManager.js';
 // **服务层端口** `getCoreAPI().getBridgePort()`（service→service 合法；实现内聚 CoreAPIImpl）。
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { WorktreeManagerPort } from '@modules/runtime/api/bridgePorts';
-import { execSync } from 'child_process';
+import { exec as nodeExec } from 'child_process';
+import { promisify } from 'util';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('bridge:BridgeMain');
+
+// 阻塞源收敛（2026-10-04）：git 探测改用异步 exec，避免同步阻塞事件循环
+const execAsync = promisify(nodeExec);
 
 /**
  * 默认退避配置
@@ -422,11 +426,11 @@ export class BridgeMain {
     try {
       let gitRoot = '';
       try {
-        gitRoot = execSync('git rev-parse --show-toplevel', {
+        const { stdout } = await execAsync('git rev-parse --show-toplevel', {
           cwd: this.config.dir,
           encoding: 'utf8',
-          stdio: 'pipe',
-        }).trim();
+        });
+        gitRoot = stdout.trim();
       } catch {
         // 非 git 仓库：跳过（worktree 隔离仅用于 git 项目）
         return;

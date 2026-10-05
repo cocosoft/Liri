@@ -38,11 +38,56 @@ const CODE_MAX_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 /** 首版 callTool 显式工具白名单（方案待确认②建议：只读工具） */
-const DEFAULT_TOOL_WHITELIST: ReadonlySet<string> = new Set([
+export const DEFAULT_TOOL_WHITELIST: ReadonlySet<string> = new Set([
   'file_read',
   'grep',
   'glob',
 ]);
+
+/** 清单内单条工具描述的截断上限（控制 token 成本） */
+const MANIFEST_TOOL_DESC_MAX = 120;
+
+/** 当前**生效**的工具白名单（运行期注入优先，缺省为只读三件套） */
+export function resolveCodeRunnerToolWhitelist(): ReadonlySet<string> {
+  return runtimeDeps.toolWhitelist ?? DEFAULT_TOOL_WHITELIST;
+}
+
+/**
+ * 构建沙箱内**可调用工具的轻量清单**（"SDK 声明"，T-2 ①，2026-10-05）。
+ *
+ * 背景：沙箱只暴露 `__liriRuntime.callTool(name, args)` —— 模型此前**无从得知有哪些
+ * 工具可调、参数形状如何**，只能靠猜测（与本仓「懒加载注册的工具模型侧不可见」同源）。
+ * 本函数把清单由**工具注册表**按**生效白名单**生成，直接拼进 `code_run` 的描述
+ * （即模型读取工具契约的位置）。
+ *
+ * **不编造**（CS06）：白名单项在注册表查不到 ⇒ 跳过；一条都取不到 ⇒ 返回空串（不写清单段）。
+ */
+export function buildCodeRunnerToolManifest(): string {
+  const registry = getToolRegistry();
+  if (!registry) return '';
+
+  const entries: string[] = [];
+  for (const name of resolveCodeRunnerToolWhitelist()) {
+    const tool = registry.getTool(name);
+    if (!tool) continue;
+    const params = (tool.params ?? [])
+      .map((p) => `${p.name}${p.required ? '' : '?'}: ${p.type}`)
+      .join(', ');
+    const description = (tool.description ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, MANIFEST_TOOL_DESC_MAX);
+    entries.push(
+      `- ${name}(${params})${description ? ` — ${description}` : ''}`
+    );
+  }
+  if (entries.length === 0) return '';
+
+  return (
+    '\n\nTools callable inside the sandbox via __liriRuntime.callTool(name, args):\n' +
+    entries.join('\n')
+  );
+}
 
 /** 会话上下文读取器注入点 */
 export interface CodeRunnerRuntimeDeps {
@@ -71,11 +116,24 @@ export function configureCodeRunner(deps: CodeRunnerRuntimeDeps): void {
 
 export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
   name = 'code_run';
-  description =
+
+  /** 基础契约（英文，与既有工具描述同风格）；工具清单段由 getter 动态拼接 */
+  private static readonly BASE_DESCRIPTION =
     'Execute TypeScript orchestration code in a restricted sandbox. ' +
     'The code must not contain any import/require statements; capabilities are provided ' +
     'via the global __liriRuntime API (callTool/readContext/writeOutput/emitEvent/done). ' +
     'Call __liriRuntime.done(result) when finished. Use for complex multi-step tasks.';
+
+  /**
+   * 工具描述 = 基础契约 + **沙箱内可调用工具清单**（T-2 ①，2026-10-05）。
+   *
+   * 必须用 **getter** 而非字段：模型每轮的工具定义取自
+   * `ToolRegistry.getToolSchemas() → tool.getInfo()`（`ToolRegistry.ts:282`），getter 才能
+   * 反映**运行期**注册表（含懒加载后新注册的工具）。
+   */
+  get description(): string {
+    return CodeRunnerTool.BASE_DESCRIPTION + buildCodeRunnerToolManifest();
+  }
   params: ToolParam[] = [
     {
       name: 'code',

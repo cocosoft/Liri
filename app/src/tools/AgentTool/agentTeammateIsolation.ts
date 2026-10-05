@@ -29,8 +29,24 @@ import {
   buildChildMessage,
 } from './ForkSubagent';
 import { getLogger } from '@modules/monitoring';
+import type { ToolName } from '@modules/constants/toolNames.generated';
 
 const logger = getLogger('tools:agentTool');
+
+/**
+ * 提示词中引用的文件工具名（§3-7 G3 守卫化，2026-10-05）。
+ *
+ * **单一来源 = 注册表生成物** `constants/toolNames.generated.ts`（由
+ * `getAllBuiltinToolLoaders()` 生成）。`satisfies readonly ToolName[]` 使其在**拼错**或
+ * **上游改名未同步**时直接触发 `bun run typecheck` 报错 —— 杜绝 2026-09-26 那类漂移
+ * （提示词原写作 `read_file/write_file/edit_file`，而真实注册名是 `file_read/file_write/file_edit`，
+ * ⇒ 提示模型调用不存在的工具）。
+ */
+const WORKTREE_FILE_TOOL_NAMES = [
+  'file_read',
+  'file_write',
+  'file_edit',
+] as const satisfies readonly ToolName[];
 
 /**
  * 队友（teammate）注册 / 注销 / 隔离 / fork 组装（C8）。
@@ -217,10 +233,9 @@ export class AgentTeammateIsolation {
             systemPrompt +=
               '\n\nThis agent runs in an isolated git worktree.\n' +
               `Your working directory is: ${info.worktreePath}\n` +
-              // 台账「隔离提示词工具名漂移」修复（2026-09-26）：真实注册名为
-              // file_read/file_write/file_edit（FileReadTool.ts:238 等），原写
-              // read_file/write_file/edit_file ⇒ 提示模型调用不存在的工具。
-              'Relative file paths in file_read/file_write/file_edit resolve to this directory.\n' +
+              // §3-7 G3 守卫化（2026-10-05）：工具名取自 `WORKTREE_FILE_TOOL_NAMES`
+              //（注册表生成物 + 编译期校验），不再写裸字面量。
+              `Relative file paths in ${WORKTREE_FILE_TOOL_NAMES.join('/')} resolve to this directory.\n` +
               'All file modifications must be inside the worktree, never in the parent workspace.';
             logger.info('Worktree isolation: 已程序化创建 worktree', {
               agentId,

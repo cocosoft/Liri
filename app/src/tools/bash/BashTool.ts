@@ -27,13 +27,11 @@ import {
   isDangerousCommand,
   type ParseForSecurityResult,
 } from '@modules/security/bash/BashAST';
-import { exec, ExecOptions } from 'child_process';
-import { promisify } from 'util';
+import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // G1-A（2026-09-26）：bash 执行的唯一收敛入口 —— 配置显式开启时在 Landlock 域内执行
 // （G1-C 的顾问性提示已随之收敛到该入口的"普通路径"分支内）
 import { execBashCommand } from './bashLandlockExec';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@modules/security';
 
@@ -61,8 +59,6 @@ import {
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\bash\BashTool');
-
-const execAsync = promisify(exec);
 
 /**
  * BashTool 输入模式 - 对标CC Zod校验
@@ -757,31 +753,6 @@ export class BashTool extends BaseTool {
   }
 
   /**
-   * 静态执行命令方法 - 对标CC源码
-   * @param command 命令
-   * @param options 选项
-   * @returns 执行结果
-   */
-  static async executeCommand(
-    command: string,
-    options: ExecOptions
-  ): Promise<{ stdout: string; stderr: string }> {
-    // K-5 P1 内存治理：静态入口同样加 16MB 硬 maxBuffer 与 2MB 软截断，
-    // 杜绝任何外部调用（测试/CLI/其他工具）绕过源头截断的路径
-    const optsWithBuffer: ExecOptions = { ...options };
-    if (
-      !Number.isFinite((optsWithBuffer as { maxBuffer?: number }).maxBuffer)
-    ) {
-      optsWithBuffer.maxBuffer = BASH_EXEC_MAX_BUFFER_BYTES;
-    }
-    const { stdout, stderr } = await execAsync(command, optsWithBuffer);
-    return {
-      stdout: applyBashOutputSoftTruncate(stdout as string, 'stdout'),
-      stderr: applyBashOutputSoftTruncate(stderr as string, 'stderr'),
-    };
-  }
-
-  /**
    * 检查命令是否安全 - 对标CC源码
    * @param command 命令
    * @returns 是否安全
@@ -809,27 +780,6 @@ export class BashTool extends BaseTool {
     }
 
     return false;
-  }
-
-  /**
-   * 安全执行命令 - 对标CC源码
-   * @param command 命令
-   * @param options 选项
-   * @returns 执行结果
-   */
-  static async safeExecute(
-    command: string,
-    options: ExecOptions
-  ): Promise<{ stdout: string; stderr: string }> {
-    if (BashTool.isDangerousCommand(command)) {
-      throw new AppError(
-        `Dangerous command detected: ${command}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-    return BashTool.executeCommand(command, options);
   }
 
   /**

@@ -145,6 +145,11 @@ export function buildBashLandlockPolicy(input: {
   cwd: string;
   abi: number;
   homeDir?: string;
+  /**
+   * §3-2（2026-10-05 治理）：用户显式声明的**额外可写路径**
+   * （`sandbox.landlock.bashExtraWritablePaths`）。缺省 `[]` ⇒ 与治理前策略逐条等价。
+   */
+  extraWritablePaths?: string[];
 }): LandlockPolicy {
   const homeDir = input.homeDir ?? homedir();
 
@@ -173,6 +178,12 @@ export function buildBashLandlockPolicy(input: {
     // 此处**无条件声明**：非 WSL 环境该路径不存在，由 `buildLandlockArgv` 的**存在性过滤**统一丢弃
     // （否则 helper 对缺失路径 exit 125，整只沙箱失效）。
     { path: '/mnt/wsl', allow: FS_READ_EXECUTE },
+    // §3-2（2026-10-05）：用户声明的额外可写路径（默认空 ⇒ 策略与治理前逐条等价）。
+    // 缺失路径由 `buildLandlockArgv` 的存在性过滤统一丢弃（与上列各条同一机制）。
+    ...(input.extraWritablePaths ?? []).map((path) => ({
+      path,
+      allow: FS_READ_WRITE,
+    })),
   ];
 
   return {
@@ -456,6 +467,7 @@ export async function execBashCommand(
   const policy = buildBashLandlockPolicy({
     cwd: input.cwd ?? process.cwd(),
     abi: capability?.abi ?? 0,
+    extraWritablePaths: config.bashExtraWritablePaths,
   });
   const result = await (deps.runHelper ?? defaultLandlockHelperRunner)({
     helperPath,

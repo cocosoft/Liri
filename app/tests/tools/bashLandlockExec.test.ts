@@ -25,6 +25,7 @@ import {
   DEFAULT_LANDLOCK_CONFIG,
   ENV_EVAL_BASH_LANDLOCK,
   isEvalBashLandlockForced,
+  resolveLandlockConfig,
   type LandlockCapability,
   type LandlockConfig,
 } from '../../src/sandbox';
@@ -225,6 +226,55 @@ describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () =
   it('cwd 与 abi 原样带出', () => {
     expect(policy.cwd).toBe('/work/x');
     expect(policy.abi).toBe(3);
+  });
+});
+
+describe('§3-2（2026-10-05 治理）：bash 额外可写路径可配置', () => {
+  const base = buildBashLandlockPolicy({
+    cwd: '/work/x',
+    abi: 3,
+    homeDir: '/home/u',
+  });
+  const extra = buildBashLandlockPolicy({
+    cwd: '/work/x',
+    abi: 3,
+    homeDir: '/home/u',
+    extraWritablePaths: ['/data/shared', '/srv/out'],
+  });
+
+  it('缺省 `[]` ⇒ 策略与治理前逐条等价（零行为漂移）', () => {
+    expect(base.fs).toEqual(
+      buildBashLandlockPolicy({ cwd: '/work/x', abi: 3, homeDir: '/home/u' }).fs
+    );
+    // 未声明时不应出现任何指向这些路径的规则
+    expect(base.fs.find((r) => r.path === '/data/shared')).toBeUndefined();
+  });
+
+  it('声明后 ⇒ 逐条追加 `read+write` 规则', () => {
+    const shared = extra.fs.find((r) => r.path === '/data/shared')?.allow;
+    expect(shared).toContain('write');
+    expect(shared).toContain('read');
+    expect(extra.fs.find((r) => r.path === '/srv/out')?.allow).toContain(
+      'write'
+    );
+  });
+
+  it('`resolveLandlockConfig` 归一化：去空白 / 丢空串 / 去重', () => {
+    const resolved = resolveLandlockConfig({
+      bashExtraWritablePaths: ['  /a  ', '', '/a', '   ', '/b'],
+    });
+    expect(resolved.bashExtraWritablePaths).toEqual(['/a', '/b']);
+    // 非法形态（非数组 / 非字符串项）⇒ 空列表，不抛错
+    expect(
+      resolveLandlockConfig({
+        bashExtraWritablePaths: 'not-array' as unknown as string[],
+      }).bashExtraWritablePaths
+    ).toEqual([]);
+    expect(
+      resolveLandlockConfig({
+        bashExtraWritablePaths: [1 as unknown as string, '/c'],
+      }).bashExtraWritablePaths
+    ).toEqual(['/c']);
   });
 });
 

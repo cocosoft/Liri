@@ -53,6 +53,17 @@ export interface LandlockConfig {
    * 仅在 `enabled === true` 时才有意义（总开关关闭 ⇒ 本项不生效）。
    */
   bashEnabled: boolean;
+  /**
+   * §3-2（2026-10-05 治理）：bash 域内**额外可写路径**（默认 `[]`）。
+   *
+   * 背景：bash 的 Landlock 策略是"够用优先"的**固定清单**（工作区 / 受管产物目录 / `/tmp`
+   * 等，见 `tools/bash/bashLandlockExec.buildBashLandlockPolicy`）—— 用户若需往清单外落点写文件
+   * 会被拦到正常命令。此项允许**逐条显式声明**额外可写目录（缓解"误伤"）。
+   *
+   * ⚠️ 仅 `bashEnabled === true`（且 `enabled === true`）时生效；**不改变**「`~/.pyapp` 整树不放行」
+   * 的既定形态（P0-3-a）—— 即便在此声明 `~/.pyapp`，也等同于用户主动放弃该保护，属显式选择。
+   */
+  bashExtraWritablePaths: string[];
 }
 
 /** 默认配置（兼容优先；bash 接入属安全面行为变更 ⇒ 默认关闭） */
@@ -60,7 +71,21 @@ export const DEFAULT_LANDLOCK_CONFIG: LandlockConfig = {
   enabled: true,
   failClosed: false,
   bashEnabled: false,
+  bashExtraWritablePaths: [],
 };
+
+/** 规整路径列表：去首尾空白、丢空串、去重（保持声明顺序） */
+function normalizePathList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!trimmed || out.includes(trimmed)) continue;
+    out.push(trimmed);
+  }
+  return out;
+}
 
 /** 纯函数：应用默认值（可单测） */
 export function resolveLandlockConfig(
@@ -70,6 +95,7 @@ export function resolveLandlockConfig(
     enabled: raw?.enabled ?? DEFAULT_LANDLOCK_CONFIG.enabled,
     failClosed: raw?.failClosed ?? DEFAULT_LANDLOCK_CONFIG.failClosed,
     bashEnabled: raw?.bashEnabled ?? DEFAULT_LANDLOCK_CONFIG.bashEnabled,
+    bashExtraWritablePaths: normalizePathList(raw?.bashExtraWritablePaths),
   };
 }
 
@@ -82,7 +108,15 @@ export function readLandlockConfig(): LandlockConfig {
   const bashEnabled = configManager.getValue<boolean>(
     'sandbox.landlock.bashEnabled'
   );
-  return resolveLandlockConfig({ enabled, failClosed, bashEnabled });
+  const bashExtraWritablePaths = configManager.getValue<string[]>(
+    'sandbox.landlock.bashExtraWritablePaths'
+  );
+  return resolveLandlockConfig({
+    enabled,
+    failClosed,
+    bashEnabled,
+    bashExtraWritablePaths,
+  });
 }
 
 /**

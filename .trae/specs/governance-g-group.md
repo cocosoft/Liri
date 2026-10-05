@@ -1,8 +1,8 @@
 # Spec：治理项 G 组（《Liri 优化方案》§4 G1–G3）
 
-> **状态**：G1 ✅ **可执行部分 + 选项 C（探测+告警）+ 选项 A（bash 真接入 Landlock，默认关闭）+ G1-A2（`code_run` 接入 `sandbox.landlock` 配置）全部完成**；**§3-1 Linux 真机验证 ✅ 已完成（2026-10-04，WSL2 Ubuntu，内核 6.18.33.2）**；G2 ✅ 已办（方案自述）；G3 ✅ 已在排查计划 P3-2 处置
+> **状态**：G1 ✅ **可执行部分 + 选项 C（探测+告警）+ 选项 A（bash 真接入 Landlock，默认关闭）+ G1-A2（`code_run` 接入 `sandbox.landlock` 配置）全部完成**；**§3-1 Linux 真机验证 ✅ 已完成（2026-10-04，WSL2 Ubuntu，内核 6.18.33.2）**；G2 ✅ 已办（方案自述）；G3 ✅ 已办 + **守卫化已完成（2026-10-05，§3-7）**；**§3 剩余 5 项（§3-2 策略可配置 / §3-5 打包大小写校验 / §3-6 同名目录守卫 / §3-7 G3 守卫化 / §3-8 死调用点处置）✅ 全部收口（2026-10-05，见 §4.1）**
 > **来源方案**：[`Liri优化方案-20260925.md`](../../dev_docs/Liri优化方案-20260925.md) §4「G 组：治理项」
-> **最后更新**：2026-10-04（§3-1 Linux 真机验证完成）
+> **最后更新**：2026-10-05（§3 剩余 5 项治理轮收口）
 
 ---
 
@@ -165,13 +165,14 @@
 
    ⇒ **选项 A 的"开启即真受限"与选项 C 的"能力可用却未接入 ⇒ 提示一次"两个分支均在真实 Linux 上成立**。
    **仍未验（如实）**：① **网络放行/阻断**因 WSL 无外网（`curl` 两种策略均返回 `000`）**无法区分**（此前 T-③06 已用 `curl exit=7` 单独验证过 `--net-deny`）；② 真机上 `exit 125`（helper 初始化失败）分流**未端到端**（离线用例覆盖）。
-2. **bash 的 Landlock 策略是"够用优先"的固定清单、不可配置**：若用户需要清单外的可写路径（自定义工作目录之外的落点）会被**拦到正常命令** —— 这正是 `bashEnabled` 默认关闭的原因；"可配置可写路径"属后续增强（未做）。
+2. ~~**bash 的 Landlock 策略是"够用优先"的固定清单、不可配置**~~ ✅ **已修（2026-10-05，§3-2）**：新增配置项 `sandbox.landlock.bashExtraWritablePaths`（字符串数组，默认 `[]`）—— 逐条声明**额外可写路径**，在 `buildBashLandlockPolicy` 末尾追加 `FS_READ_WRITE` 规则；仅 `bashEnabled === true`（且 `enabled === true`）时生效。**默认 `[]` ⇒ 策略与治理前逐条等价（零行为漂移）**；缺失路径由 `buildLandlockArgv` 的存在性过滤统一丢弃（同一机制）。⚠️ **不改变**「`~/.pyapp` 整树不放行」（P0-3-a）。
 3. ~~**`sandbox.landlock.enabled` / `failClosed` 原先无消费者的问题未修**（§1.7）~~ ✅ **已修（G1-A2）**：`code_run` 现按 `enabled` / `failClosed` 分流（§1.7）。
 4. **选项 C 的告警信号强度有限（已知，非缺陷）**：只读 LSM 列表、不做功能 probe（理由见 §1.5），故可能有"LSM 列出但内核拒绝 enforce"的假阳性 ⇒ 提示只作线索。
-5. **G1 的"Windows 大小写不敏感"打包风险未验**：本机实测两目录**并存**（说明当前文件系统按大小写敏感处理），但**未验证** git 检出 / 打包 / tsc 大小写校验在 CI 与目标机上的行为差异。
-6. 未做"同名目录"防回归守卫（例如一个扫描脚本检测 `tools/` 下仅大小写不同的目录）。
-7. G3 的"守卫化"（提示词工具名取自注册表）未做。
-8. **`BashTool.safeExecute` / `BashTool.executeCommand` 无活调用点**（实测：`safeExecute` 全仓仅定义处 1 命中）⇒ 它们**绕过**本次接入的 Landlock 入口；本次**未**动（不删预存死代码，仅记录）。
+5. ~~**G1 的"Windows 大小写不敏感"打包风险未验**~~ ✅ **已验证（2026-10-05，§3-5）**：app 侧 `forceConsistentCasingInFileNames: true`（显式，`app/tsconfig.json:19`）；**实证**：故意用错大小写 `import './targetname'` 引用 `TargetName.ts` ⇒ `tsc --noEmit` 报 **TS1261**（"...differs from file name ... only in casing"）**并 exit 2**（fixture 已删）。client 侧原**依赖 TS≥5 隐式默认 true**，已**显式化**（`client/tsconfig.json`）⇒ 不再依赖编译器版本默认；`client` `tsc --noEmit` 保持 **exit 0**。⚠️ **仍未验（如实）**：git 检出 / 打包（`bun build --compile`）在**大小写不敏感 CI 与目标机**上的行为差异——本机文件系统为**大小写不敏感**（实测 `Foo`/`foo` 无法同目录并存），**无法**在本地复现"Linux 可提交、Windows 检出丢失"的形态。
+6. ~~未做"同名目录"防回归守卫~~ ✅ **已做（2026-10-05，§3-6）**：新增脚本 `scripts/lint-case-collision.ts`（`bun run lint:case`，已纳入 `app/package.json` 的 `ci` 链）递归扫描项目树，按 `toLowerCase()` 对**同一父目录**下的直接子项分组，组内出现 >1 个互异名即判违规（exit 1）；忽略 `node_modules`/`.git`/`dist`/`target` 等。**含自检控制组**（合成 `['Foo','foo']` 必须命中、`['Foo','bar']` 必须不命中）防"空集假绿"。**当前实测通过**（无仅大小写不同的同级条目）。
+7. ~~G3 的"守卫化"（提示词工具名取自注册表）未做~~ ✅ **已做（2026-10-05，§3-7）**：`tools/AgentTool/agentTeammateIsolation.ts` 的 worktree 隔离提示词改为引用常量 `WORKTREE_FILE_TOOL_NAMES`，其类型为 `as const satisfies readonly ToolName[]`（`ToolName` 来自**注册表生成物** `constants/toolNames.generated.ts`，由 `getAllBuiltinToolLoaders()` 生成）⇒ 拼错 / 上游改名未同步将直接触发 **`typecheck` 报错**，杜绝 2026-09-26 那类漂移。
+8. ~~**`BashTool.safeExecute` / `BashTool.executeCommand` 无活调用点**~~ ✅ **已处置（2026-10-05，§3-8）**：两静态方法连同其专属 import（`promisify`/`execAsync`/`AppError`/`ErrorCategory`/`ErrorSeverity`）一并删除，`child_process` import 收窄为 `import type { ExecOptions }`；删除前全仓 grep 确认**无活引用**（仅 spec / 台账文档命中）。
+   - ⚠️ **同批新发现（如实，属"无关预存死代码"⇒ 只记录不删除，依 `PY_APP.md` §3）**：静态 `BashTool.isDangerousCommand()`（`BashTool.ts:760`）**同样 0 引用**（全仓 grep 仅定义处命中；实例路径用的是 `@modules/security/bash/BashAST` 的**同名函数**，见 `BashTool.ts:27`/`:564`）。它**不绕过** Landlock（纯黑名单校验，无执行分支）⇒ 不在 §3-8 的处置理由内，**本次保留未动**，仅记入台账。
 
 ---
 
@@ -182,3 +183,25 @@
 > 时点对照：G1-C = 3902 pass·3921 tests·400 files（72.87s）；G1-A = 3923 pass·3942 tests·401 files（74.51s）；G1-A2 = 3936 pass·3955 tests·402 files（74.07s）。
 > 过程说明（如实）：`eslint` 在**本轮改动**的文件上报 6 处 prettier 格式问题（非预存），已 `--fix` 后归零并**重跑**门禁。
 > 口径提醒：全量门禁**不要**经 PowerShell 管道（`| Select-Object -Last`）—— 该形态曾 ≥5 分钟未结束；改用**重定向到文件**后稳定在 72–75s（详见台账 2026-09-26 补充数据点）。
+
+### 4.1 §3 剩余 5 项治理轮（2026-10-05）
+
+**改动文件**（9）：`app/src/tools/bash/BashTool.ts` · `app/src/tools/bash/bashLandlockExec.ts` · `app/src/sandbox/landlock/config.ts` · `app/src/tools/AgentTool/agentTeammateIsolation.ts` · `app/tests/tools/bashLandlockExec.test.ts` · `client/tsconfig.json` · `app/scripts/gen-tool-names.ts`（顺带修 `lint:exit`）· 新增 `scripts/lint-case-collision.ts` · `app/package.json`（注册 `lint:case` 并纳入 `ci`）。
+
+**门槛（逐项我亲自独立重跑，不采信子代理自述）**：
+
+| 项 | 结果 |
+|---|---|
+| `bun run typecheck`（app，含 `tsconfig.scripts` / `tsconfig.root-scripts`） | ✅ exit 0 |
+| `client` `tsc --noEmit` | ✅ exit 0 |
+| `eslint`（本轮改动文件） | ✅ 0 错（先 `--fix` 归零后重跑） |
+| `lint:scripts`（`../scripts/**`） | ✅ 0 错（28 warning 为预存，非本轮） |
+| `lint:arch` | ✅ exit 0（warning 为预存） |
+| `lint:size` | ✅ exit 0（461 warning / 16 豁免为预存） |
+| `lint:case`（新增） | ✅ 通过（自检控制组同步通过） |
+| `lint:legacy-env` / `lint:unref` / `lint:refs` / `check:paths` / `i18n:check` | ✅ 全部 exit 0 |
+| **`lint:exit`** | ✅ **已修复（2026-10-05，随本轮）**：原报 `app/package.json#gen:toolnames → scripts/gen-tool-names.ts` 缺显式退出（**预存**，与本轮无关：该文件最后改动 2026-10-01）⇒ 已在其末尾补 `process.exit(0)`；现 `✅ 入口脚本显式退出检查通过（已检查 30 个入口脚本）` |
+| 全量 `bun test` | ✅ **4445 pass / 21 skip / 0 fail / 4466 tests / 469 files**（84.65s） |
+
+**新增/更新用例**：`tests/tools/bashLandlockExec.test.ts` 新增 3 例（§3-2 额外可写路径：缺省等价 / 声明生效 / `resolveLandlockConfig` 归一化），该文件 **30 pass**（原 27 → 30）。
+

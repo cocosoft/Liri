@@ -1,30 +1,19 @@
 /**
  * 压缩服务实现
- * * 支持AI驱动的对话压缩、边界检测、摘要生成、关键信息提取和制品注入。
- * 使用API轮次分组(groupMessagesByApiRound)确保压缩边界的语义完整性。
+ *
+ * 边界检测 + 摘要生成 + 关键信息提取 + 制品注入；摘要为**本地生成**
+ * （`generateBasicSummary`）。使用轮次分组(`groupMessagesByApiRound`)确保压缩边界的语义完整性。
+ *
+ * ⚠️ 2026-10-05（P1-10）**删除 AI 摘要死注入面**：`CompactAiService` 注入契约（D-215 引入）
+ * 的**生产调用方为 0** —— 构造参数与 `setAIService()` 均无任何调用点 ⇒ `aiService` **恒为 null**、
+ * `generateAISummary` 分支**不可达**。按「永不命中的预留能力＝死代码」清除：删注入契约（含
+ * `CompactAiMessage`）+ `aiService` 字段 + `setAIService()` + `generateAISummary()` 及 3 处分支
+ * （**运行期行为逐字不变**：届时本就恒走本地摘要）。
  */
-
 import type { SessionMessage } from '@modules/session';
 import { groupMessagesByApiRound, getMessageTextContent } from './grouping';
-import { getCompactPrompt, getCompactUserSummaryMessage } from './prompt';
+import { getCompactUserSummaryMessage } from './prompt';
 import { roughTokenCountEstimationForMessages } from './utils';
-// 2026-10-01 D-215（子批 E，`services -> ai` 倒挂收口）：原先静态导入 app 层
-// `AIService`/`AIMessage`（类型）+ `AIMessageRole`/`AIModelType`（值）⇒ 改为**本服务自持的
-// 注入契约**（最小结构面；注入方向不变、结构性兼容）。
-// ⚠️ 实测 `AIModelType` 本就**未被使用**（死导入）；`AIMessageRole` 仅用于构造下述消息 ⇒ 以字面量替代。
-/** 注入契约：压缩所需的最小 AI 消息面（结构镜像自 app 层 `AIMessage` 的两字段） */
-export interface CompactAiMessage {
-  role: string;
-  content: string;
-}
-/** 注入契约：压缩所需的最小 AI 服务面（仅 `generate`） */
-export interface CompactAiService {
-  generate(
-    messages: CompactAiMessage[],
-    model: string,
-    options: { max_tokens: number; temperature: number }
-  ): Promise<{ content: string }>;
-}
 
 import {
   getCompactConfig,
@@ -123,23 +112,9 @@ export interface CompactConversationOptions {
   isAutoCompact?: boolean;
 }
 
-const DEFAULT_COMPACT_MODEL = '';
-const SUMMARY_MAX_OUTPUT_TOKENS = 20000;
-
 export class CompactServiceImpl implements CompactService {
   private boundaries: Map<string, CompactBoundary> = new Map();
   private artifacts: Map<string, CompactArtifact[]> = new Map();
-  private aiService: CompactAiService | null = null;
-
-  constructor(aiService?: CompactAiService) {
-    if (aiService) {
-      this.aiService = aiService;
-    }
-  }
-
-  setAIService(service: CompactAiService): void {
-    this.aiService = service;
-  }
 
   async detectCompactBoundary(
     sessionId: string,
@@ -209,13 +184,7 @@ export class CompactServiceImpl implements CompactService {
     messages: SessionMessage[],
     sessionId: string
   ): Promise<CompactArtifact> {
-    let summary: string;
-
-    if (this.aiService) {
-      summary = await this.generateAISummary(messages);
-    } else {
-      summary = this.generateBasicSummary(messages);
-    }
+    const summary = this.generateBasicSummary(messages);
 
     return {
       id: `summary_${Date.now()}`,
@@ -226,40 +195,6 @@ export class CompactServiceImpl implements CompactService {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-  }
-
-  private async generateAISummary(messages: SessionMessage[]): Promise<string> {
-    if (!this.aiService) {
-      return this.generateBasicSummary(messages);
-    }
-
-    const prompt = getCompactPrompt();
-    const aiMessages: CompactAiMessage[] = [
-      { role: 'system', content: prompt },
-      {
-        role: 'user',
-        content:
-          'Please summarize the following conversation:\n\n' +
-          messages
-            .map((msg) => `[${msg.type}] ${msg.content.substring(0, 2000)}`)
-            .join('\n\n'),
-      },
-    ];
-
-    try {
-      const response = await this.aiService.generate(
-        aiMessages,
-        DEFAULT_COMPACT_MODEL,
-        {
-          max_tokens: SUMMARY_MAX_OUTPUT_TOKENS,
-          temperature: 0.3,
-        }
-      );
-      return response.content;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      return `[AI summary generation failed: ${errorMsg}]\n\n${this.generateBasicSummary(messages)}`;
-    }
   }
 
   private generateBasicSummary(messages: SessionMessage[]): string {
@@ -308,12 +243,7 @@ export class CompactServiceImpl implements CompactService {
       })) as any
     );
 
-    let summary: string;
-    if (this.aiService) {
-      summary = await this.generateAISummary(messages);
-    } else {
-      summary = this.generateBasicSummary(messages);
-    }
+    const summary = this.generateBasicSummary(messages);
 
     const boundaryMarker = `[Compaction boundary - ${options?.isAutoCompact ? 'auto' : 'manual'} - ${new Date().toISOString()}]`;
 
@@ -375,17 +305,12 @@ export class CompactServiceImpl implements CompactService {
         ? messages.slice(pivotIndex).map((m) => m.id)
         : messages.slice(0, pivotIndex).map((m) => m.id);
 
-    let summary: string;
-    if (this.aiService) {
-      summary = await this.generateAISummary(messagesToSummarize);
-    } else {
-      const basicSummary = 'Partial Session Summary:\n\n';
-      summary =
-        basicSummary +
-        messagesToSummarize
-          .map((msg) => `[${msg.type}] ${msg.content.substring(0, 200)}`)
-          .join('\n');
-    }
+    const basicSummary = 'Partial Session Summary:\n\n';
+    const summary =
+      basicSummary +
+      messagesToSummarize
+        .map((msg) => `[${msg.type}] ${msg.content.substring(0, 200)}`)
+        .join('\n');
 
     const boundaryMarker = `[Partial compaction boundary - ${direction} - ${new Date().toISOString()}]`;
     const summaryMessage = getCompactUserSummaryMessage(summary);

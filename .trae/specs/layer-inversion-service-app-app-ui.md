@@ -690,7 +690,7 @@
 
 **验收**：`typecheck` **0** · `lint:arch` 违规 **0** / **`已豁免 75 → 72`（恰 −3）** / `R03-002` **0** · 改动 3 文件 eslint **0/0**（首轮 3 处 `prettier` 折行，经 `bun x eslint --fix` 收口，纯格式）· `bun test tests/http tests/chat` = **411 pass / 0 fail**。
 
-**⚠️ 遗留（独立议题，已记入 `预存错误与待处理问题.md`）**：这 6 个 checkpoint 端点**无任何测试覆盖** ⇒ 上述缺陷长期静默；建议补 `tests/http` 用例。
+**✅ 测试盲区已补（2026-10-05，P1-10）**：新增 `tests/http/checkpoint-handlers.test.ts`（**11 例 / 0 fail**）锁定这 6 端点的响应形状、取用面与错误承接（含 `handleGetCheckpoint` 的「列表命中 / `getCheckpoint` 兜底 / 404」三分支、`handleSaveLatestCheckpoint` 的默认 `abort_*` label、`handleDeleteLatestCheckpoint` 的 `abortRecovery` 标记判据、错误 ⇒ `sendError` 500）。⚠️ **仍保留**：D-201 的根因（`createChatManager()` 工厂语义）未复现于此测试（测试以注入 stub 隔离），故该例锁的是**契约**而非当时的缺陷现场。
 
 **手法要点（补充第 ④ 条，供 `auto-reply` 域复用）**：**先查"是否已有 sanctioned 取用缝"，再决定是否新建端口** —— 本表 ③ 原预案（新增 `chatPorts`）在取证后**被推翻**：既有 `CoreAPI` 门面已满足"handler 只依赖 service 层"，新增端口反而是多余抽象（PY_APP §2 简洁优先 + CS01 归一化）。
 
@@ -713,7 +713,7 @@
 
 **⚠️ 连带影响（如实记录）**：`R00-003` 动态跨层引用 **29 → 30**（新增 `runtime → auto-reply`）—— 与本批 `toolsPorts`（`runtime → tools`）**同性质**：静态边消除的代价是动态边增加 1 处，仅 warning 级上报、不计违规。
 
-**⚠️ 测试盲区（本轮发现，未处理）**：全仓 grep `AutoReplyEngine|autoReplyEngine|auto-reply` 于 `*.test.ts` ⇒ **0 命中** ⇒ 本域 4 个端点**无任何用例覆盖**。本批为**行为保持型**改动（响应逐字不变）故风险可控；建议后续补 `tests/http` 用例。
+**✅ 测试盲区已补（2026-10-05，P1-10）**：新增 `tests/http/auto-reply-handlers.test.ts`（**7 例 / 0 fail**）覆盖本域 **4 个端点**：list 的规则序列化（`RegExp → {type:'regexp',value,flags}` / `string → substring` / 函数 `response → ''`）、create 的必填校验 400 与 `pattern` 结构非法 400、update 的 404 与「仅传出现字段」、delete 的 `{deleted}` 布尔。
 
 **✅ 第五步已完成（2026-10-01 D-203）：`agent` 域枚举/类型 2 条 —— 下沉 core `types/`（D-67 手法）**
 
@@ -951,7 +951,7 @@ export interface AgentRunDto {
   - **消费方**：**8 处**改走 `@modules/compaction`（`chat/ChatManager.ts` · `chat/ChatManagerInterface.ts` · `chat/services/ContextCompactor.ts` · `query/ContextCollapse.ts` · `query/ReactiveCompact.ts` · `commands/builtin/compact/Compact.ts` · `runtime/api/CoreAPIImpl.ts` + `query/__tests__/CompactionIntegration.test.ts` 9 处动态 `import()`）。
   - **门禁脚本同步**：`scripts/lint-architecture.ts` 例外清单 `services/compact/ContextEngine.ts` → `compaction/ContextEngine.ts`（R02-002 + R05-011 两处）。
   - **验证**：`已豁免 52 → 49` · `typecheck 0` · `lint:arch` **R03-002 = 0 违规**、总账 `错误 0 / 警告 3`（余 R02-002 · R07-004 · R00-003 均**预存、与本改动无关**）· 改动文件 eslint **0 error**（余 34 warning 均**随文件平移的存量**）· `bun test src/query/__tests__/CompactionIntegration.test.ts` = **19 pass / 10 skip / 0 fail**（含动态 `import('@modules/compaction')` 解析验证）。
-  - **遗留（预存，非本次引入）**：`CompactServiceImpl.setAIService()` 全仓无调用方 ⇒ `generateAISummary` 恒走 `generateBasicSummary` 回退（见 D-215 记录），另册跟踪。
+  - ~~**遗留（预存，非本次引入）**：`CompactServiceImpl.setAIService()` 全仓无调用方 ⇒ `generateAISummary` 恒走 `generateBasicSummary` 回退（见 D-215 记录），另册跟踪。~~ **✅ 已处置（2026-10-05，P1-10；用户裁定「删除死注入面」）**：取证确认**整条注入面**（`CompactAiService`/`CompactAiMessage` 契约 + 构造参数 + `setAIService()` + `aiService` 字段 + `generateAISummary()`）**全链不可达**（无任何生产调用方传参或设值）⇒ 连同 3 处 `if (this.aiService)` 分支一并删除（`generateCompactSummary` 恒本地摘要、`compactConversation`/`partialCompactConversation` 同）。**运行期行为逐字不变**（届时本就恒走本地摘要）。`typecheck 0` · 改动文件 `eslint 0 错`（11 warning 均预存）· `CompactionIntegration.test.ts` + `tests/context` + `tests/chat/compactionEventPayload` = **99 pass / 10 skip / 0 fail**。
 
 **🔎 `tools` 组取证与执行（2026-10-01 D-218）—— 4 条中 1 条可清，3 条**硬阻**
 
@@ -1115,7 +1115,7 @@ export interface AgentRunDto {
 | 4 | `CoreAPIImpl.ts` × **agent** | **✅ 可去（非必要）** | `getTitleGenerator` 的**唯一**使用点在 **async** 方法 `generateSessionTitle()`（L4851）内 ⇒ 无 sync 约束 |
 | 5 | `CoreAPIImpl.ts` × **compaction** | **保留（已裁定的诚实代价）** | D-217：改归 app 后必需；其注释明写「清 4 增 1 ⇒ 净 −3，优于嵌入 chat 版的 −4」 |
 | 6 | `CoreAPIImpl.ts` × **query** | ✅ **已清**（上一批：`FileCheckpointStorage` 下沉 `session/storage/`） | — |
-| 7 | `CoreAPI.ts` × **tools** | ⚠️ **纯 `import type`（待裁定）** | L27 `import type { ConversionResult, FileInfo }`；`lint:arch` **计** type-only，而 eslint 规则明确**豁免** type-only（"类型导入无运行时依赖，不会导致循环依赖"）⇒ **两条门禁口径不一致** |
+| 7 | `CoreAPI.ts` × **tools** | ✅ **已解决（2026-10-05，P1-10 复核）** | L27 `import type { ConversionResult, FileInfo }`。原记「`lint:arch` 计 type-only、与 eslint 豁免口径不一致」⇒ **该不一致已于 2026-10-01 的 R00-001 口径变更（用户裁定「甲」）消除**：现门禁实测 `违规 0 | 已豁免 0 | type-only 跨层引用 9 处（仅上报）` ⇒ 该边**不再计豁免/违规，仅上报** ⇒ **待裁定项自动消解，无需代码改动**（「2 个类型下沉 core」方案随之作废） |
 
 **⇒ 本轮处置：清 #4。**
 
@@ -1125,7 +1125,7 @@ export interface AgentRunDto {
 - **⚠️ 如实说明（口径边界）**：本处置**不改变依赖本身**，只把它从「已豁免（上桥 · 参与启动期求值）」转为「R00-003（可见但不上桥）」，与 D-217 `getToolsPort()` 的动态取用**同性质**，故沿用既有模式。**但不得据此把 #1/#2/#3 也"动态化"** —— 这三条被**构造函数初始化与同步门面刚性约束**，改了会破坏初始化语义（或须先重构装配方向，属 C1/C2 级风险）。
 - **验证**：`typecheck 0` · **`已豁免 29 → 28`** · `违规 0` · `eslint src` = 0 errors / 46 warnings · `bun test tests/session tests/chat tests/tasks` = **891 pass / 0 fail**。
 
-**尚未处置**：#7 待用户裁定（**门禁口径对齐** vs **2 个类型下沉 core**）；#1/#2/#3/#5 保留，均已在例外清单内（`service -> app`，`expiresAt 2027-04-18`）。
+**✅ 全部处置完毕（2026-10-05 复核）**：#7 **已由 2026-10-01 的 R00-001 口径变更（用户裁定「甲」）自动消解**（实测 `已豁免 0 / type-only 9 处仅上报` ⇒ 不再计豁免/违规；「2 个类型下沉 core」方案作废）；#1/#2/#3/#5 保留，均已在例外清单内（`service -> app`，`expiresAt 2027-04-18`）。
 
 **📌 B14b 立项单 —— `session -> context`（B14）的净负收口路径（2026-10-01，D-222 续）**
 
@@ -1234,7 +1234,7 @@ buildSystemPromptText(base: string, ctx: SystemPromptContextDto): string; // 原
 
 **✅ D-208 首条已完成**：`services/mcp/MCPToolBridge.ts → context`（`dependencyRegistry` 早在 D-157 即下沉 core ⇒ 改**相对直连 core 模块根**）⇒ `已豁免 61 → 60`（恰 −1）· typecheck 0 · `lint:arch` 违规 0 / `R03-002` 0 · 改动文件 eslint 0/0。
 ⚠️ 同文件仍持 `@modules/tools`（`getToolManager` 值 + `Tool` 类型位）⇒ **`tools` 边未消**（须与类型下沉同批，故本轮**未**改 `getToolManager`，避免"改了不减计数"）。
-⚠️ **测试盲区**：全仓 `*.test.ts` grep `MCPToolBridge` ⇒ **0 命中**（该文件无覆盖）。
+**✅ 测试盲区已补（2026-10-05，P1-10）**：新增 `tests/services/mcp/MCPToolBridge.test.ts`（**5 例 / 0 fail**）锁定：① `initialize(port)` 经注入端口注册「已连接」服务器全部工具（名字 `server__tool`，含 `originalToolName` 优先）；② **未连接 / 空工具集**服务器被跳过（零注册副作用）；③ **未注入端口 ⇒ `refreshAllTools()` 明确抛 `AppError`**（B18-a 的「必填端口、不静默降级」契约）；④ `refreshAllTools()` 先注销旧工具再重同步并返回计数；⑤ `cleanup()` 逆序（LIFO）注销全部并复位 `isInitialized`。依赖单例一律 `spyOn(实例方法)` 隔离（不用 `mock.module`）。
 
 
 ### 3.6 子批 F —— `session -> *`(16) + `runtime -> *`(7) = **23**（**最高风险，最后做**）

@@ -23,8 +23,8 @@
  * L3（2026-09-01）：跨重启审批续跑 e2e
  *
  * 验证：PDCA 审批挂起（plan_pending）→ 进程重启 → 审批通过 → 续跑执行。
- * checkpoint 为文件持久化（~/.pyapp/data/pdca/<taskId>.json），
- * "写入 checkpoint → 新 orchestrator 实例（无内存状态）" 即等价于跨进程重启。
+ * GAI-3（2026-10-05）：checkpoint 已迁入 `app.db`；"写入 checkpoint → 新 orchestrator
+ * 实例（无内存状态）" 即等价于跨进程重启。
  *
  * 修复前：重启后新实例 phase='plan'（默认），resumeAfterApproval 抛 PDCA_NOT_PENDING，
  * 审批恢复必然失败（inbox 审批入口吞错降级）。
@@ -44,11 +44,15 @@ import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 import {
   writePdcaCheckpoint,
   readPdcaCheckpoint,
+  closePdcaCheckpointStore,
 } from '../../src/tasks/PdcaWorkItemBridge';
-import { resolveDataSubDir } from '@modules/core';
 
 // 隔离计划持久化目录：避免污染用户数据（~/.pyapp/data/plans/）
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-l3-restart-')));
+
+// GAI-3：checkpoint / WorkItem 迁入 app.db ⇒ 隔离临时库，避免污染真实 ~/.pyapp/data/app.db
+const dataDir = mkdtempSync(join(tmpdir(), 'pdca-l3-restart-'));
+process.env.LIRI_DATA_DIR = dataDir;
 
 const taskId = `l3-cross-restart-${Date.now()}`;
 const sessionId = `session-${taskId}`;
@@ -60,13 +64,14 @@ type OrchestratorWithPrivates = LongRunningTaskOrchestrator & {
 
 describe('L3 跨重启审批续跑（T2.1）', () => {
   afterAll(() => {
-    // 清理 checkpoint 残留（独立 taskId，避免污染真实 pdca 数据）
-    const ckPath = join(resolveDataSubDir('pdca'), `${taskId}.json`);
-    rmSync(ckPath, { force: true });
+    // 先关闭 DB 连接（WAL 句柄），否则 Windows 下 rmSync 报 EBUSY
+    closePdcaCheckpointStore();
+    delete process.env.LIRI_DATA_DIR;
+    rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it('模拟进程 A：审批挂起时 checkpoint 落盘 plan_pending + 步骤快照', () => {
-    writePdcaCheckpoint(taskId, {
+  it('模拟进程 A：审批挂起时 checkpoint 落盘 plan_pending + 步骤快照', async () => {
+    await writePdcaCheckpoint(taskId, {
       taskId,
       sessionId,
       phase: 'plan_pending',
@@ -87,7 +92,7 @@ describe('L3 跨重启审批续跑（T2.1）', () => {
       lastEscalations: [],
     });
 
-    const ck = readPdcaCheckpoint(taskId);
+    const ck = await readPdcaCheckpoint(taskId);
     expect(ck?.phase).toBe('plan_pending');
     expect((ck?.steps as Array<{ id: string }>)?.map((s) => s.id)).toEqual([
       's1',

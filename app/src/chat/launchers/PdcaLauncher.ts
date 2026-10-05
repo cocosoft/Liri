@@ -237,7 +237,7 @@ export class PdcaLauncher {
           const { writePdcaCheckpoint } =
             await import('../../tasks/PdcaWorkItemBridge');
           const startedAt = new Date().toISOString();
-          writePdcaCheckpoint(taskId, {
+          await writePdcaCheckpoint(taskId, {
             taskId,
             phase: 'execute',
             status: 'running',
@@ -257,7 +257,7 @@ export class PdcaLauncher {
             const aborted = result.aborted === true;
             // PR8（#9）：预算耗尽（成本护栏中止）按 failed 收尾，不误标 completed
             const budgetExhausted = result.budgetExhausted === true;
-            writePdcaCheckpoint(taskId, {
+            await writePdcaCheckpoint(taskId, {
               taskId,
               phase: 'execute',
               status: aborted
@@ -288,7 +288,7 @@ export class PdcaLauncher {
               totalDurationMs: result.totalDurationMs,
             });
           } catch (e) {
-            writePdcaCheckpoint(taskId, {
+            await writePdcaCheckpoint(taskId, {
               taskId,
               phase: 'execute',
               status: 'failed',

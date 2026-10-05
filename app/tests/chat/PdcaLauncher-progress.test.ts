@@ -54,8 +54,12 @@ describe('P2-C: PDCA 进度回写失败补 warn 日志', () => {
     logger.warn = warnSpy;
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     logger.warn = (() => {}) as unknown as (...args: unknown[]) => unknown;
+    // GAI-3：checkpoint 迁入 app.db ⇒ 先关闭 DB 连接（WAL 句柄），再清理临时目录
+    const { closePdcaCheckpointStore } =
+      await import('../../src/tasks/PdcaWorkItemBridge.js');
+    closePdcaCheckpointStore();
     delete process.env.LIRI_DATA_DIR;
     rmSync(dataDir, { recursive: true, force: true });
   });

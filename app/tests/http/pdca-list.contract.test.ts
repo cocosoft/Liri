@@ -21,7 +21,10 @@ import { join } from 'path';
 import { Readable } from 'stream';
 import type http from 'http';
 
-process.env.LIRI_HOME = mkdtempSync(join(tmpdir(), 'pdca-list-http-'));
+const isolateDir = mkdtempSync(join(tmpdir(), 'pdca-list-http-'));
+process.env.LIRI_HOME = isolateDir;
+// GAI-3：checkpoint 迁入 app.db ⇒ 同时隔离数据目录（LIRI_DATA_DIR 优先于 setUserDataDirOverride）
+process.env.LIRI_DATA_DIR = isolateDir;
 
 const { writePdcaCheckpoint } =
   await import('../../src/tasks/PdcaWorkItemBridge');
@@ -74,7 +77,7 @@ async function call(body?: object) {
 }
 
 // 预写 checkpoint（模拟跨重启遗留任务，无内存 orchestrator）
-writePdcaCheckpoint('pdca_ck_a', {
+await writePdcaCheckpoint('pdca_ck_a', {
   taskId: 'pdca_ck_a',
   workItemId: 'wi_a',
   status: 'running',
@@ -83,7 +86,7 @@ writePdcaCheckpoint('pdca_ck_a', {
   workspaceId: 'ws1',
   projectId: 'proj_x',
 });
-writePdcaCheckpoint('pdca_ck_b', {
+await writePdcaCheckpoint('pdca_ck_b', {
   taskId: 'pdca_ck_b',
   workItemId: 'wi_b',
   status: 'completed',

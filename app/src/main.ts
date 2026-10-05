@@ -1958,14 +1958,14 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 无「启动完成」行）。原实现把该扫描放在尾部 ⇒ **DAEMON 模式下从未执行过**。
     //
     // 背景（台账「另案 ⑥」）：真实目录 3394 个 json，全量 `readFileSync`+`JSON.parse`
-    // 首次 ≈1.1s（而每个 HTTP 请求都触发它）。故先**分批异步预热**索引（每批让出事件循环，
-    // 单批 ≈30ms），预热完成后再执行扫描（走同一索引 ⇒ 已热，≈33ms）。
-    // 整体不阻塞启动，失败也不影响主流程。
+    // 首次 ≈1.1s（而每个 HTTP 请求都触发它）。GAI-3（2026-10-05）：检查点 / WorkItem 已迁入
+    // `app.db`（SQLite）⇒ 启动时一次性**幂等迁移**历史 JSON（不删原文件、失败不阻断），
+    // 迁移后再执行启动扫描（读 DB，不再逐文件解析）。整体不阻塞启动，失败也不影响主流程。
     void (async () => {
       try {
         const bridge = await import('./tasks/PdcaWorkItemBridge.js');
-        // 1) 分批异步预热索引（不阻塞启动与事件循环）
-        await bridge.prewarmPdcaCheckpointIndex();
+        // 1) 一次性幂等迁移：<pdca>/*.json → app.db（已存在则跳过）
+        await bridge.migratePdcaCheckpointsFromJson();
         // 2) 启动扫描：把崩溃遗留的 started/running 标为 abort
         const { scanAndAbortStalePdcaTasks } =
           await import('./infrastructure/http/handlers/pdca-handlers.js');
@@ -1975,9 +1975,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 3) 留存清理（仅"终态 + 超期 30 天"，非终态一律保留）
         //    ⚠️ **必须在启动扫描之后**：扫描刚给遗留任务刷新 `updatedAt` ⇒ 它们会因"新鲜"被保留，
         //    不会被"刚标完就删掉"。
-        bridge.prunePdcaCheckpoints();
+        await bridge.prunePdcaCheckpoints();
       } catch {
-        // @ignore-catch: 预热/扫描/留存失败不影响主流程
+        // @ignore-catch: 迁移/扫描/留存失败不影响主流程
       }
     })();
 

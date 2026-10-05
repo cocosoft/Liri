@@ -28,16 +28,12 @@
  *
  * ⚠️ **隔离必须用 `LIRI_DATA_DIR`**：`resolveDataDir()` 先读它，而 `LIRI_HOME` 会被
  * `setUserDataDirOverride()` 盖过 —— 只设 `LIRI_HOME` 会读写**真实**数据目录（教训见台账「另案 ⑤」）。
+ *
+ * **GAI-3（2026-10-05）**：检查点已迁入 `app.db`；本测试以"写 JSON → 迁移入库 → prune"驱动
+ * （`exists` 改为查 DB 行）。断言语义与文件版**逐字一致**。
  */
 import { describe, it, expect, afterAll } from 'bun:test';
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  rmSync,
-  existsSync,
-  utimesSync,
-} from 'fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -50,6 +46,9 @@ const pdcaDir = join(dataDir, 'pdca');
 const {
   prunePdcaCheckpoints,
   listPdcaCheckpoints,
+  migratePdcaCheckpointsFromJson,
+  readPdcaCheckpoint,
+  closePdcaCheckpointStore,
   PDCA_CHECKPOINT_RETENTION_DAYS,
 } = await import('../../src/tasks/PdcaWorkItemBridge');
 
@@ -58,10 +57,21 @@ const OLD_ISO = new Date(Date.now() - 40 * DAY_MS).toISOString();
 const FRESH_ISO = new Date().toISOString();
 const OLD_MTIME_SEC = (Date.now() - 40 * DAY_MS) / 1000;
 
-/** 在隔离目录写一份检查点（filename == taskId，与生产写入路径一致） */
-function writeCk(taskId: string, body: Record<string, unknown>): string {
-  mkdirSync(pdcaDir, { recursive: true });
-  const filePath = join(pdcaDir, `${taskId}.json`);
+/** 每个用例独立子目录：避免"已 prune 的旧 JSON 被后续 migrate 重新导入"的跨用例串扰 */
+let dirSeq = 0;
+function freshSeedDir(): string {
+  dirSeq++;
+  return join(pdcaDir, `case-${dirSeq}`);
+}
+
+/** 在指定目录写一份检查点 JSON（filename == taskId，与生产迁移源一致） */
+function writeCkFile(
+  dir: string,
+  taskId: string,
+  body: Record<string, unknown>
+): string {
+  mkdirSync(dir, { recursive: true });
+  const filePath = join(dir, `${taskId}.json`);
   writeFileSync(
     filePath,
     JSON.stringify({ taskId, ...body }, null, 2),
@@ -70,45 +80,61 @@ function writeCk(taskId: string, body: Record<string, unknown>): string {
   return filePath;
 }
 
-const exists = (taskId: string) => existsSync(join(pdcaDir, `${taskId}.json`));
+/** 写 JSON 并迁移入库（幂等），使 prune/list 立即可见 */
+async function seed(
+  dir: string,
+  taskId: string,
+  body: Record<string, unknown>
+): Promise<void> {
+  writeCkFile(dir, taskId, body);
+  await migratePdcaCheckpointsFromJson(dir);
+}
+
+/** 检查点是否存在于 DB（等价旧实现的文件存在性判据） */
+const exists = async (taskId: string): Promise<boolean> =>
+  (await readPdcaCheckpoint(taskId)) !== null;
 
 describe('PDCA 检查点留存清理（另案 ⑥ · 留存）', () => {
   it('默认留存 30 天（用户裁定）', () => {
     expect(PDCA_CHECKPOINT_RETENTION_DAYS).toBe(30);
   });
 
-  it('终态 + 超期 ⇒ 删除；非终态 / 未超期 ⇒ 保留', () => {
-    writeCk('r_done_old', { status: 'completed', updatedAt: OLD_ISO });
-    writeCk('r_abort_old', { phase: 'abort', updatedAt: OLD_ISO });
-    writeCk('r_failed_old', { status: 'failed', updatedAt: OLD_ISO });
-    writeCk('r_done_fresh', { status: 'completed', updatedAt: FRESH_ISO });
-    writeCk('r_running_old', { status: 'running', updatedAt: OLD_ISO });
-    writeCk('r_started_old', { status: 'started', updatedAt: OLD_ISO });
+  it('终态 + 超期 ⇒ 删除；非终态 / 未超期 ⇒ 保留', async () => {
+    const d = freshSeedDir();
+    await seed(d, 'r_done_old', { status: 'completed', updatedAt: OLD_ISO });
+    await seed(d, 'r_abort_old', { phase: 'abort', updatedAt: OLD_ISO });
+    await seed(d, 'r_failed_old', { status: 'failed', updatedAt: OLD_ISO });
+    await seed(d, 'r_done_fresh', {
+      status: 'completed',
+      updatedAt: FRESH_ISO,
+    });
+    await seed(d, 'r_running_old', { status: 'running', updatedAt: OLD_ISO });
+    await seed(d, 'r_started_old', { status: 'started', updatedAt: OLD_ISO });
     // 待审批（非终态）必须留到用户处理 —— 与启动扫描的同类豁免一致
-    writeCk('r_await_old', {
+    await seed(d, 'r_await_old', {
       phase: 'stage_awaiting_approval',
       status: 'started',
       updatedAt: OLD_ISO,
     });
-    writeCk('r_plan_pending_old', {
+    await seed(d, 'r_plan_pending_old', {
       phase: 'plan_pending',
       status: 'started',
       updatedAt: OLD_ISO,
     });
 
-    const r = prunePdcaCheckpoints();
+    const r = await prunePdcaCheckpoints();
 
     // 删除：3 个"终态 + 超期"
-    expect(exists('r_done_old')).toBe(false);
-    expect(exists('r_abort_old')).toBe(false);
-    expect(exists('r_failed_old')).toBe(false);
+    expect(await exists('r_done_old')).toBe(false);
+    expect(await exists('r_abort_old')).toBe(false);
+    expect(await exists('r_failed_old')).toBe(false);
     // 保留：终态但新鲜
-    expect(exists('r_done_fresh')).toBe(true);
+    expect(await exists('r_done_fresh')).toBe(true);
     // 保留：非终态（含待审批）
-    expect(exists('r_running_old')).toBe(true);
-    expect(exists('r_started_old')).toBe(true);
-    expect(exists('r_await_old')).toBe(true);
-    expect(exists('r_plan_pending_old')).toBe(true);
+    expect(await exists('r_running_old')).toBe(true);
+    expect(await exists('r_started_old')).toBe(true);
+    expect(await exists('r_await_old')).toBe(true);
+    expect(await exists('r_plan_pending_old')).toBe(true);
 
     expect(r.scanned).toBe(8);
     expect(r.pruned).toBe(3);
@@ -117,79 +143,93 @@ describe('PDCA 检查点留存清理（另案 ⑥ · 留存）', () => {
     expect(r.errors).toBe(0);
   });
 
-  it('`updatedAt` 缺失 ⇒ 回退文件 mtime（老 mtime 的终态仍被删）', () => {
-    const filePath = writeCk('r_no_ts_old', { status: 'completed' });
+  it('`updatedAt` 缺失 ⇒ 回退文件 mtime（老 mtime 的终态仍被删）', async () => {
+    const d = freshSeedDir();
+    const filePath = writeCkFile(d, 'r_no_ts_old', { status: 'completed' });
     utimesSync(filePath, OLD_MTIME_SEC, OLD_MTIME_SEC);
+    await migratePdcaCheckpointsFromJson(d);
 
-    const r = prunePdcaCheckpoints();
+    const r = await prunePdcaCheckpoints();
 
-    expect(exists('r_no_ts_old')).toBe(false);
+    expect(await exists('r_no_ts_old')).toBe(false);
     expect(r.pruned).toBe(1);
   });
 
-  it('`maxAgeDays` 参数生效：传 0 时连"新鲜"终态也删（非终态仍保留）', () => {
-    writeCk('r_zero_target', { status: 'completed', updatedAt: FRESH_ISO });
+  it('`maxAgeDays` 参数生效：传 0 时连"新鲜"终态也删（非终态仍保留）', async () => {
+    const d = freshSeedDir();
+    await seed(d, 'r_zero_target', {
+      status: 'completed',
+      updatedAt: FRESH_ISO,
+    });
 
-    const r = prunePdcaCheckpoints(0);
+    const r = await prunePdcaCheckpoints(0);
 
-    expect(exists('r_zero_target')).toBe(false);
+    expect(await exists('r_zero_target')).toBe(false);
     expect(r.pruned).toBeGreaterThanOrEqual(1);
     // 非终态不受天数影响
-    expect(exists('r_running_old')).toBe(true);
-    expect(exists('r_await_old')).toBe(true);
+    expect(await exists('r_running_old')).toBe(true);
+    expect(await exists('r_await_old')).toBe(true);
   });
 
-  it('超期"孤儿"（非终态、非活跃、非待审批）⇒ 删除；在跑 / 待审批 ⇒ 保留', () => {
+  it('超期"孤儿"（非终态、非活跃、非待审批）⇒ 删除；在跑 / 待审批 ⇒ 保留', async () => {
+    const d = freshSeedDir();
     // 孤儿（实测真实目录里 8/16 的 d2-test-* / d5-replan-* 即此类）
-    writeCk('o_review_old', { phase: 'review', updatedAt: OLD_ISO });
-    writeCk('o_plan_old', { phase: 'plan', status: '', updatedAt: OLD_ISO });
+    await seed(d, 'o_review_old', { phase: 'review', updatedAt: OLD_ISO });
+    await seed(d, 'o_plan_old', {
+      phase: 'plan',
+      status: '',
+      updatedAt: OLD_ISO,
+    });
     // 未超期 ⇒ 无论形态一律保留
-    writeCk('o_review_fresh', { phase: 'review', updatedAt: FRESH_ISO });
+    await seed(d, 'o_review_fresh', { phase: 'review', updatedAt: FRESH_ISO });
     // 在跑（活跃 status）⇒ 保留
-    writeCk('o_running_old', {
+    await seed(d, 'o_running_old', {
       phase: 'execute',
       status: 'running',
       updatedAt: OLD_ISO,
     });
-    writeCk('o_started_old', {
+    await seed(d, 'o_started_old', {
       phase: 'plan',
       status: 'started',
       updatedAt: OLD_ISO,
     });
     // 待审批（活跃 status + 豁免 phase）⇒ 保留
-    writeCk('o_await_old', {
+    await seed(d, 'o_await_old', {
       phase: 'plan_pending',
       status: 'started',
       updatedAt: OLD_ISO,
     });
     // 待审批 phase 但 status 缺失 ⇒ 仍保留（豁免按 phase 判定）
-    writeCk('o_await_nostatus_old', {
+    await seed(d, 'o_await_nostatus_old', {
       phase: 'stage_awaiting_approval',
       updatedAt: OLD_ISO,
     });
 
-    const r = prunePdcaCheckpoints();
+    const r = await prunePdcaCheckpoints();
 
-    expect(exists('o_review_old')).toBe(false);
-    expect(exists('o_plan_old')).toBe(false);
-    expect(exists('o_review_fresh')).toBe(true);
-    expect(exists('o_running_old')).toBe(true);
-    expect(exists('o_started_old')).toBe(true);
-    expect(exists('o_await_old')).toBe(true);
-    expect(exists('o_await_nostatus_old')).toBe(true);
+    expect(await exists('o_review_old')).toBe(false);
+    expect(await exists('o_plan_old')).toBe(false);
+    expect(await exists('o_review_fresh')).toBe(true);
+    expect(await exists('o_running_old')).toBe(true);
+    expect(await exists('o_started_old')).toBe(true);
+    expect(await exists('o_await_old')).toBe(true);
+    expect(await exists('o_await_nostatus_old')).toBe(true);
 
     expect(r.prunedOrphan).toBe(2);
     expect(r.prunedTerminal).toBe(0);
   });
 
-  it('删除后索引同步：`listPdcaCheckpoints()` 不再返回已删项', () => {
-    const ids = listPdcaCheckpoints().map((ck) => ck.taskId);
+  it('删除后索引同步：`listPdcaCheckpoints()` 不再返回已删项', async () => {
+    const ids = (await listPdcaCheckpoints()).map((ck) => ck.taskId);
     expect(ids).not.toContain('r_done_old');
     expect(ids).not.toContain('r_failed_old');
     expect(ids).toContain('r_running_old');
   });
 
   afterAll(() => {
+    // 先关闭 DB 连接（WAL 句柄），否则 Windows 下 rmSync 报 EBUSY
+    closePdcaCheckpointStore();
+    delete process.env.LIRI_DATA_DIR;
     rmSync(dataDir, { recursive: true, force: true });
   });
 });

@@ -6,8 +6,8 @@
  * 验证 executeAllSteps 在注入每步独立 TAORLoop 工厂后并行执行独立步骤；
  * 未注入工厂时回退串行（现状零回归）。
  */
-import { describe, it, expect } from 'bun:test';
-import { mkdtempSync } from 'node:fs';
+import { describe, it, expect, afterAll } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LongRunningTaskOrchestrator } from '../../src/tasks/LongRunningTaskOrchestrator';
@@ -15,6 +15,18 @@ import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 
 // 隔离计划持久化目录：测试计划写入临时目录，避免污染用户数据（~/.pyapp/data/plans/）
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-test-')));
+
+// GAI-3：checkpoint 迁入 app.db ⇒ 隔离临时库，避免污染真实 ~/.pyapp/data/app.db
+const dataDir = mkdtempSync(join(tmpdir(), 'pdca-batch-parallel-'));
+process.env.LIRI_DATA_DIR = dataDir;
+
+afterAll(async () => {
+  const { closePdcaCheckpointStore } =
+    await import('../../src/tasks/PdcaWorkItemBridge');
+  closePdcaCheckpointStore();
+  delete process.env.LIRI_DATA_DIR;
+  rmSync(dataDir, { recursive: true, force: true });
+});
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));

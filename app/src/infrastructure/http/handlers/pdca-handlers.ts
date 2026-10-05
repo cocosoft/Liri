@@ -21,8 +21,8 @@
 
 import type http from 'http';
 import { join } from 'path';
-import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'fs';
-import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
+import { existsSync, writeFileSync, readFileSync } from 'fs';
+import { resolvePyappHome } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
@@ -83,23 +83,6 @@ export async function handlePdcaDecisionLog(
   }
 }
 
-/**
- * WorkItem 持久化目录（**惰性解析**，2026-09-29 台账「另案 ⑤」）。
- *
- * ⚠️ 原实现是**模块顶层常量** ⇒ 路径在模块**求值**时被冻结。`bun test` 的 preload 链
- * （`tests/setupIsolateAgentStore.ts`）会**先于**测试文件加载本模块，测试再设
- * `LIRI_HOME` / `LIRI_DATA_DIR` 已不生效 ⇒ 单测实际读写**真实**数据目录。改为**调用时解析**，
- * 与 [`CheckpointLogConfig`](../config/settings/CheckpointLogConfig.ts) 的"不在模块顶层解析路径"
- * 既有约定一致。
- *
- * 注：**检查点目录**已不在本文件解析 —— 台账「另案 ⑥」后统一走
- * [`getPdcaCheckpointIndex()`](../tasks/PdcaWorkItemBridge.ts)（同一惰性口径在其内部实现），
- * 故本文件只保留 WorkItem 目录。
- */
-function workitemDir(): string {
-  return resolveDataSubDir('workitems');
-}
-
 interface WorkItemRecord {
   id: string;
   workspaceId: string;
@@ -113,21 +96,6 @@ interface WorkItemRecord {
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
-}
-
-function ensureWorkItemDir(): void {
-  if (!existsSync(workitemDir())) {
-    mkdirSync(workitemDir(), { recursive: true });
-  }
-}
-
-function writeWorkItem(item: WorkItemRecord): void {
-  ensureWorkItemDir();
-  writeFileSync(
-    join(workitemDir(), `${item.id}.json`),
-    JSON.stringify(item, null, 2),
-    'utf-8'
-  );
 }
 
 /** 幂等键检查：相同 sessionId 的进行中 PDCA 任务 */
@@ -265,7 +233,10 @@ export async function handlePdcaStart(
       createdAt: now,
       updatedAt: now,
     };
-    writeWorkItem(workItem);
+    // 创建关联 WorkItem（GAI-3：WorkItem 迁入 app.db.workitems，经端口直通桥接层）
+    await (
+      await getCoreAPI().getTaskOpsPort()
+    ).writePdcaWorkItem({ ...workItem });
 
     const orchestrator = await (
       await getCoreAPI().getTaskOpsPort()

@@ -42,7 +42,7 @@ export default {
 
   /** /goal list — 列出进行中的 PDCA 任务（跨重启恢复入口） */
   async handleList(): Promise<CommandResult> {
-    const all = listPdcaCheckpoints();
+    const all = await listPdcaCheckpoints();
     const active = all.filter(
       (ck) => !PDCA_TERMINAL_PHASES.has(ck.phase as string)
     );
@@ -103,7 +103,7 @@ export default {
     }
 
     // 幂等：同会话已有进行中任务时复用现有 taskId（对齐 /v1/pdca/start 行为）
-    const existing = listPdcaCheckpoints().find(
+    const existing = (await listPdcaCheckpoints()).find(
       (ck) =>
         ck.sessionId === sessionId &&
         !PDCA_TERMINAL_PHASES.has(ck.phase as string)
@@ -123,7 +123,7 @@ export default {
     const taskId = `pdca_${Date.now().toString(36)}`;
     try {
       // 初始 checkpoint 立即落盘：保证 /goal list 立即可见、跨重启可恢复
-      writePdcaCheckpoint(taskId, {
+      await writePdcaCheckpoint(taskId, {
         taskId,
         status: 'started',
         description,
@@ -181,7 +181,7 @@ export default {
       };
     }
 
-    const all = listPdcaCheckpoints();
+    const all = await listPdcaCheckpoints();
     const active = all.filter(
       (ck) => !PDCA_TERMINAL_PHASES.has(ck.phase as string)
     );
@@ -205,7 +205,7 @@ export default {
 
     const taskId = String(target.taskId);
     try {
-      const ck = readPdcaCheckpoint(taskId);
+      const ck = await readPdcaCheckpoint(taskId);
       if (!ck) {
         return {
           success: false,
@@ -264,7 +264,7 @@ export default {
       try {
         const { StageOrchestrator, createDefaultStageRunner } =
           await import('@modules/tasks/StageOrchestrator.js');
-        const stageOrch = StageOrchestrator.fromCheckpoint(taskId, {
+        const stageOrch = await StageOrchestrator.fromCheckpoint(taskId, {
           // 默认阶段执行器：child 走默认 executor（纯 LLM）继续阶段链
           runStage: createDefaultStageRunner(),
         });
@@ -306,7 +306,7 @@ export default {
       };
     }
     try {
-      const ck = readPdcaCheckpoint(taskId);
+      const ck = await readPdcaCheckpoint(taskId);
       const sessionId = (ck?.sessionId as string | undefined) ?? '';
       const status = await orchestrator.resumeAfterApproval(sessionId);
       context.onDone?.(`任务 ${taskId} 已批准并继续执行`, {

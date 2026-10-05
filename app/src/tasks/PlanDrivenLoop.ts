@@ -575,7 +575,7 @@ export class PlanDrivenLoop {
     // 此前快速路径启动即在 PdcaLauncher 写 'execute'，真正 createPlan 时刻被抹掉，
     // checkpoint 从不出现 'plan'（两套体系一套在另一套影子下）。执行前再切回 'execute'。
     if (this.taskId) {
-      writePdcaCheckpoint(this.taskId, {
+      await writePdcaCheckpoint(this.taskId, {
         taskId: this.taskId,
         phase: 'plan',
         status: 'running',
@@ -622,7 +622,7 @@ export class PlanDrivenLoop {
 
     // B5（架构归一 Step4）：计划已创建，进入执行前切回 phase:'execute'。
     if (this.taskId) {
-      writePdcaCheckpoint(this.taskId, {
+      await writePdcaCheckpoint(this.taskId, {
         taskId: this.taskId,
         phase: 'execute',
         status: 'running',

@@ -14,7 +14,10 @@ import { join } from 'path';
 import { Readable } from 'stream';
 import type http from 'http';
 
-process.env.LIRI_HOME = mkdtempSync(join(tmpdir(), 'pdca-status-http-'));
+const isolateDir = mkdtempSync(join(tmpdir(), 'pdca-status-http-'));
+process.env.LIRI_HOME = isolateDir;
+// GAI-3：checkpoint 迁入 app.db ⇒ 同时隔离数据目录（LIRI_DATA_DIR 优先于 setUserDataDirOverride）
+process.env.LIRI_DATA_DIR = isolateDir;
 
 const { writePdcaCheckpoint } =
   await import('../../src/tasks/PdcaWorkItemBridge');
@@ -100,7 +103,7 @@ function makeStep(id: string, description: string, status: string): CkStep {
 }
 
 // 活跃：execute 阶段，2 步（1 completed + 1 running）→ percent 50
-writePdcaCheckpoint('pdca_st_active', {
+await writePdcaCheckpoint('pdca_st_active', {
   taskId: 'pdca_st_active',
   planId: 'plan_st_active',
   phase: 'execute',
@@ -117,7 +120,7 @@ writePdcaCheckpoint('pdca_st_active', {
 });
 
 // review 阶段，3 步（2 completed + 1 pending）→ percent 67
-writePdcaCheckpoint('pdca_st_review', {
+await writePdcaCheckpoint('pdca_st_review', {
   taskId: 'pdca_st_review',
   planId: 'plan_st_review',
   phase: 'review',
@@ -134,7 +137,7 @@ writePdcaCheckpoint('pdca_st_review', {
 });
 
 // 无 steps 快照（阶段链父任务等）：不编造 plan/progress
-writePdcaCheckpoint('pdca_st_nosteps', {
+await writePdcaCheckpoint('pdca_st_nosteps', {
   taskId: 'pdca_st_nosteps',
   planId: 'stage_parent',
   phase: 'plan_pending',

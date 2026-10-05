@@ -369,10 +369,10 @@ export class LongRunningTaskOrchestrator {
   }
 
   /** 设置阶段并同步 WorkItem 状态 */
-  private setPhase(phase: PdcaPhase): void {
+  private async setPhase(phase: PdcaPhase): Promise<void> {
     this.phase = phase;
-    syncPdcaWorkItemStatus(this.taskId, phase);
-    this._persistCheckpoint(); // P0(M2)：阶段变更即落盘步骤级快照（跨重启恢复）
+    await syncPdcaWorkItemStatus(this.taskId, phase);
+    await this._persistCheckpoint(); // P0(M2)：阶段变更即落盘步骤级快照（跨重启恢复）
   }
 
   /**
@@ -431,12 +431,12 @@ export class LongRunningTaskOrchestrator {
    * 跨重启恢复依赖此快照——原实现仅写 lastPdcaPhase 单字段，重启后无法恢复步骤进度。
    * 快照失败不影响任务执行（@ignore-catch）。
    */
-  private _persistCheckpoint(): void {
+  private async _persistCheckpoint(): Promise<void> {
     try {
       const plan = this.planId
         ? taskOrchestrator.getPlan(this.planId)
         : undefined;
-      writePdcaCheckpoint(this.taskId, {
+      await writePdcaCheckpoint(this.taskId, {
         taskId: this.taskId,
         phase: this.phase,
         // Gap D（1-0b）：status 随 phase 联动演进（findExistingTask 排除依赖终态 status）
@@ -538,7 +538,7 @@ export class LongRunningTaskOrchestrator {
     sessionId: string
   ): Promise<Plan> {
     throwIfAborted(this.isolation);
-    this.setPhase('plan');
+    await this.setPhase('plan');
     this._recordLifecycle('started', TaskStatus.RUNNING, 'Plan phase started');
 
     const otel = getOTelTracing();
@@ -660,7 +660,7 @@ ${replanSection}
     throwIfAborted(this.isolation);
     if (!this.planId) throw new Error('No plan created');
 
-    this.setPhase('execute');
+    await this.setPhase('execute');
     const plan = taskOrchestrator.getPlan(this.planId)!;
     plan.status = 'running';
 
@@ -697,7 +697,7 @@ ${replanSection}
     }
 
     // 检查全部完成
-    this.setPhase('review');
+    await this.setPhase('review');
     // OBS/C3（2026-09-06）：链条 C 阶段广播——此前 review/decide 从不发 pdca:stage 事件，
     // 前端 C/A 胶囊永不亮（快路径单步无审查属设计；经典链须能显示）
     void emitPdcaLiveEvent(
@@ -844,7 +844,7 @@ ${replanSection}
 
   private async executeSingleStep(step: PlanStep, plan: Plan): Promise<void> {
     taskOrchestrator.markStepRunning(step.id);
-    this._persistCheckpoint(); // P0(M2)：步骤状态变更即落盘
+    await this._persistCheckpoint(); // P0(M2)：步骤状态变更即落盘
     this.stepDurations.set(step.id, { startMs: Date.now() });
     this._recordLifecycle(
       'progress',
@@ -1080,7 +1080,7 @@ ${replanSection}
           // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
           { terminationReason: result.terminationReason }
         );
-        this._persistCheckpoint(); // P0(M2)
+        await this._persistCheckpoint(); // P0(M2)
         const log = (loop as any).getLastRunLog?.();
         const dur = this.stepDurations.get(step.id);
         if (dur) dur.endMs = Date.now();
@@ -1139,7 +1139,7 @@ ${replanSection}
             stepId: step.id,
           });
           taskOrchestrator.markStepCancelled(step.id, '用户中止');
-          this._persistCheckpoint();
+          await this._persistCheckpoint();
           return;
         }
         const taorElapsedOnFail = Date.now() - taorStart;
@@ -1176,7 +1176,7 @@ ${replanSection}
       const executorElapsed = Date.now() - executorStart;
 
       taskOrchestrator.markStepCompleted(step.id, result);
-      this._persistCheckpoint(); // P0(M2)
+      await this._persistCheckpoint(); // P0(M2)
       const dur = this.stepDurations.get(step.id);
       if (dur) dur.endMs = Date.now();
       const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
@@ -1210,7 +1210,7 @@ ${replanSection}
           stepId: step.id,
         });
         taskOrchestrator.markStepCancelled(step.id, '用户中止');
-        this._persistCheckpoint();
+        await this._persistCheckpoint();
         return;
       }
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -1234,14 +1234,14 @@ ${replanSection}
           maxRetries,
           error: errMsg.slice(0, 200),
         });
-        this._persistCheckpoint();
+        await this._persistCheckpoint();
         return;
       }
       // 超限 → 升级 escalate（缺陷落 _lastEscalations → replan 通道；与 #5/#6 验收口径一致）
       step.status = 'failed';
       step.decision = 'escalate';
       step.error = `Exceeded max retries (${maxRetries}): ${errMsg}`;
-      this._recordEscalation(step);
+      await this._recordEscalation(step);
       await handleError(
         new AppError(
           step.error,
@@ -1253,7 +1253,7 @@ ${replanSection}
         { module: 'tasks:longRunning', action: 'executor_exhausted' }
       );
       taskOrchestrator.markStepFailed(step.id, step.error);
-      this._persistCheckpoint(); // P0(M2)
+      await this._persistCheckpoint(); // P0(M2)
       // §5 P1: 失败也回写执行摘要
       this._emitTaskMessage([
         {
@@ -1373,7 +1373,7 @@ ${replanSection}
             step.status = 'failed';
             step.error = `Exceeded max retries (${maxRetries})`;
             // D5（M6）：重试上限升级 escalate 同样捕获缺陷 → 增量 replan
-            this._recordEscalation(step);
+            await this._recordEscalation(step);
             this._recordLifecycle(
               'progress',
               TaskStatus.RUNNING,
@@ -1437,7 +1437,7 @@ ${replanSection}
             `Escalated: ${step.description}`
           );
           // D5（M6）：捕获缺陷清单 → 增量 replan 输入（基线 + 缺陷 → 局部修订）
-          this._recordEscalation(step);
+          await this._recordEscalation(step);
           break;
       }
 
@@ -1458,7 +1458,7 @@ ${replanSection}
    * D5（M6，2026-08-13）：捕获 escalate 缺陷 → 增量 replan 输入（基线 + 缺陷清单）
    * 缺陷取自步骤 reviewResult.issues（severity + description），落 checkpoint 支持跨重启恢复。
    */
-  private _recordEscalation(step: PlanStep): void {
+  private async _recordEscalation(step: PlanStep): Promise<void> {
     const defects = (step.reviewResult?.issues ?? [])
       .map((issue) => {
         const i = issue as { severity?: string; description?: string };
@@ -1471,7 +1471,7 @@ ${replanSection}
       stepDescription: step.description,
       defects,
     });
-    this._persistCheckpoint();
+    await this._persistCheckpoint();
     logger.info('[orchestrator] escalate 已捕获缺陷（增量 replan 输入）', {
       taskId: this.taskId,
       stepId: step.id,
@@ -1598,7 +1598,7 @@ ${replanSection}
 
     // Plan
     const plan = await this.executePlanPhase(description, sessionId);
-    this.setPhase('plan');
+    await this.setPhase('plan');
     // OBS/C3（2026-09-06）：链条 P 阶段 start 广播（快路径由 PlanDrivenLoop 发；链条补位）
     void emitPdcaLiveEvent(
       'pdca:stage:start',
@@ -1612,7 +1612,7 @@ ${replanSection}
 
     // 计划前置审批：在 EXECUTE 前插入审批断点
     if (requireApproval) {
-      this.setPhase('plan_pending');
+      await this.setPhase('plan_pending');
 
       // 提交到 Inbox
       const planSummary = plan.steps
@@ -1812,7 +1812,7 @@ ${replanSection}
    */
   async resumeAfterApproval(sessionId: string): Promise<PdcaStatus> {
     if (this.phase !== 'plan_pending') {
-      const ck = readPdcaCheckpoint(this.taskId);
+      const ck = await readPdcaCheckpoint(this.taskId);
       if (ck && ck.phase === 'plan_pending') {
         logger.info('跨重启审批恢复：从 checkpoint 恢复 plan_pending', {
           taskId: this.taskId,
@@ -1831,7 +1831,7 @@ ${replanSection}
       );
     }
 
-    this.setPhase('execute');
+    await this.setPhase('execute');
     logger.info('Plan approved, resuming PDCA execution', {
       taskId: this.taskId,
       planId: this.planId,
@@ -2042,12 +2042,12 @@ ${replanSection}
         // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /
         // replanFailCount（半自动闭环，决策 4/6/7）。计数持久化、跨 resume/重启累计；
         // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
-        const prevCk = readPdcaCheckpoint(this.taskId) ?? {};
+        const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
         const prevFail = Number(prevCk.replanFailCount) || 0;
         const next = prevFail + 1;
         const maxReplan = replanMaxRetries();
         const replanPending = next < maxReplan;
-        writePdcaCheckpoint(this.taskId, {
+        await writePdcaCheckpoint(this.taskId, {
           taskId: this.taskId,
           phase: 'execute',
           status: 'failed',
@@ -2073,7 +2073,7 @@ ${replanSection}
     }
 
     // 生成审计报告
-    this.setPhase('completed');
+    await this.setPhase('completed');
     this.auditReport = this.generateReport();
     this.persistAuditReport(this.auditReport);
     this._recordLifecycle('finalized', TaskStatus.COMPLETED, 'PDCA completed');
@@ -2258,7 +2258,7 @@ ${replanSection}
       TaskStatus.RUNNING,
       'PDCA resumed from checkpoint'
     );
-    this._persistCheckpoint();
+    await this._persistCheckpoint();
 
     logger.info('[orchestrator] 从 checkpoint 恢复', {
       taskId: this.taskId,
@@ -2268,10 +2268,10 @@ ${replanSection}
     });
 
     if (phase === 'plan_pending') {
-      this.setPhase('plan_pending');
+      await this.setPhase('plan_pending');
       return this.getStatus(); // 等待审批
     }
-    this.setPhase('execute');
+    await this.setPhase('execute');
     return this._runExecuteDecideLoop();
   }
 
@@ -2318,12 +2318,12 @@ ${replanSection}
     // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
     // /goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
     // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件。
-    writePdcaCheckpoint(this.taskId, {
+    await writePdcaCheckpoint(this.taskId, {
       phase: 'abort',
       status: 'abort',
       abortedAt: new Date().toISOString(),
     });
-    syncPdcaWorkItemStatus(this.taskId, 'abort');
+    await syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
     // T-②02：同上，中止路径也做偏差判定（不因中止跳过可观测面）
     void this._recordGoalStageMetric('pdca_aborted').then(() =>

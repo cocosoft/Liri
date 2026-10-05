@@ -328,13 +328,25 @@ export interface TaskOpsPort {
   listPdcaDecisionRows(limit: number): Promise<PdcaDecisionRowDto[]>;
   /** 原 `readPdcaCheckpoint(taskId)`（`null` = 无检查点） */
   readPdcaCheckpoint(taskId: string): Promise<Record<string, unknown> | null>;
-  /** 原 `writePdcaCheckpoint(taskId, patch)`（app 侧为**同步**函数 ⇒ 端口包一层 Promise） */
+  /**
+   * 原 `writePdcaCheckpoint(taskId, patch)`。
+   * GAI-3（2026-10-05）：app 侧已迁 SQLite ⇒ **本就是 async**，端口**直通**（不再包 Promise）。
+   */
   writePdcaCheckpoint(
     taskId: string,
     patch: Record<string, unknown>
   ): Promise<void>;
-  /** 原 `syncPdcaWorkItemStatus(taskId, phase)`（app 侧为**同步**函数） */
+  /**
+   * 原 `syncPdcaWorkItemStatus(taskId, phase)`。
+   * GAI-3（2026-10-05）：app 侧**已是** async（WorkItem 迁入 SQLite）。
+   */
   syncPdcaWorkItemStatus(taskId: string, phase: string): Promise<void>;
+  /**
+   * 原 `pdca-handlers.writeWorkItem(item)`（`handlePdcaStart` 创建关联 WorkItem）。
+   * GAI-3（2026-10-05）：WorkItem 由 JSON 文件迁入 `app.db.workitems`（`syncPdcaWorkItemStatus`
+   * 按同一表读取），故写入统一经端口直通桥接层。
+   */
+  writePdcaWorkItem(record: Record<string, unknown>): Promise<void>;
   /** 原 `getPdcaCheckpointIndex()`（带记忆索引；`Map<taskId, checkpoint>`） */
   getPdcaCheckpointIndex(): Promise<Map<string, Record<string, unknown>>>;
   /** 原三个模块级只读状态集（终态 / 活跃 / 待审批阶段） */

@@ -1014,18 +1014,18 @@ export class DomainSnapshotOps {
         const store = new SqliteTaskStore();
         return store.listAuditLogByEvent('pdca_decision', limit);
       },
+      // GAI-3（2026-10-05）：app 侧已迁 SQLite（async）⇒ 端口**直通**（去掉多余 Promise 包装）
       readPdcaCheckpoint: async (taskId: string) =>
         (await pdcaBridge()).readPdcaCheckpoint(taskId),
       writePdcaCheckpoint: async (
         taskId: string,
         patch: Record<string, unknown>
-      ) => {
-        (await pdcaBridge()).writePdcaCheckpoint(taskId, patch);
-      },
-      syncPdcaWorkItemStatus: async (taskId: string, phase: string) => {
+      ) => (await pdcaBridge()).writePdcaCheckpoint(taskId, patch),
+      syncPdcaWorkItemStatus: async (taskId: string, phase: string) =>
         // phase 原实参为字符串字面量（无端口侧静态类型可依）⇒ 边界收窄
-        (await pdcaBridge()).syncPdcaWorkItemStatus(taskId, phase as never);
-      },
+        (await pdcaBridge()).syncPdcaWorkItemStatus(taskId, phase as never),
+      writePdcaWorkItem: async (record: Record<string, unknown>) =>
+        (await pdcaBridge()).writePdcaWorkItem(record),
       getPdcaCheckpointIndex: async () =>
         (await pdcaBridge()).getPdcaCheckpointIndex(),
       getPdcaStatusSets: async () => {

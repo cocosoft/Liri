@@ -1,21 +1,22 @@
 /**
  * PDCA ↔ WorkItem 状态桥接
  *
- * 共享模块，供 pdca-handlers（HTTP 层）和 LongRunningTaskOrchestrator（任务层）共同引用。
- * 避免 tasks → infrastructure/http/handlers 的反向依赖。
+ * 共享模块，供 pdca-handlers（HTTP 层，经 `TaskOpsPort` 端口）和
+ * LongRunningTaskOrchestrator（任务层）共同引用。
+ *
+ * **存储（GAI-3，2026-10-05）**：检查点 / WorkItem 由"每任务一个 JSON 文件"
+ * 迁入唯一 `app.db`（SQLite WAL + 事务），消除（a）全目录解析开销与
+ * （b）读改写（RMW）竞态 —— 原实现"读整文件 → 合并 → 覆盖写"，多通道并发写同一
+ * taskId 时后写覆盖前写（丢失 workItemId/status/…）。范式对齐
+ * [`CheckpointDatabase`](../chat/services/CheckpointDatabase.ts)（R01 基础设施复用）。
+ *
+ * **模型**：`data` 列存完整检查点 JSON（字段自由演进），热字段提升为独立列供索引/过滤。
  */
 
 import { join } from 'path';
-import {
-  mkdirSync,
-  existsSync,
-  writeFileSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  unlinkSync,
-} from 'fs';
-import { resolveDataSubDir } from '@modules/core';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { Database } from '@modules/core/external/sqlite3';
+import { resolveDbPath, resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import {
   type PdcaPhase,
@@ -27,165 +28,459 @@ export { PDCA_TERMINAL_PHASES } from '@modules/core';
 
 const logger = getLogger('tasks:pdcaBridge');
 
-/**
- * PDCA 检查点目录（**惰性解析**，2026-09-29 台账「另案 ⑤」）。
- *
- * ⚠️ 原实现是**模块顶层常量** ⇒ 路径在模块求值时被冻结，测试设置 `LIRI_HOME` /
- * `LIRI_DATA_DIR` 后仍读写**真实**目录（详见 `infrastructure/http/handlers/pdca-handlers.ts`
- * 同名函数处的完整取证）。改为**调用时解析**。
- */
-function pdcaCheckpointDir(): string {
-  return resolveDataSubDir('pdca');
+// ─── 表名（新增表；`app.db` 无同名表，见 spec §3.1 冲突前置校验） ───
+const CHECKPOINT_TABLE = 'pdca_checkpoints';
+const WORKITEM_TABLE = 'workitems';
+
+/** 从记录中取非空字符串（否则 null，用于提升列） */
+function strOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null;
 }
 
-/** WorkItem 持久化目录（惰性解析，同上） */
-function workitemDir(): string {
-  return resolveDataSubDir('workitems');
+/** 解析 ISO 时间戳；无法解析返回 null */
+function parseTimestampMs(value: unknown): number | null {
+  if (typeof value !== 'string' || !value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
 }
 
-// ──── 文件 I/O ────
-
-function ensureDir(dir: string): void {
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-}
-
-function readJson<T>(filePath: string): T | null {
-  if (!existsSync(filePath)) return null;
+/** 读取文件 mtime（ISO）；失败返回 null */
+function fileMtimeIso(filePath: string): string | null {
   try {
-    return JSON.parse(readFileSync(filePath, 'utf-8'));
+    return statSync(filePath).mtime.toISOString();
+  } catch {
+    // @ignore-catch: readdir 与 stat 之间文件被删除的竞态 ⇒ 视为无 mtime
+    return null;
+  }
+}
+
+/** 解析 `data` 列 JSON；损坏时留痕并返回 null（KB-PDCA-READ-LOG 保留） */
+function parseCheckpointData(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw !== 'string') return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch (err) {
-    // KB-PDCA-READ-LOG（2026-08-29）：文件损坏/读取失败静默返回 null → 上层按
-    // "无文件"处理，工作项丢失无提示
-    logger.warn('PDCA/WorkItem 文件读取失败，按无文件处理', {
-      filePath,
+    logger.warn('PDCA 检查点 JSON 解析失败，按无记录处理', {
       error: err instanceof Error ? err.message : String(err),
     });
     return null;
   }
 }
 
-function writeJson(filePath: string, data: unknown): void {
-  ensureDir(join(filePath, '..'));
-  writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+/**
+ * PDCA 检查点 / WorkItem 的 SQLite 存储（惰性单例，照 `CheckpointDatabase` 范式）。
+ *
+ * - `constructor(dbPath = resolveDbPath())` + 惰性 `init()` + `createTables()`；
+ * - 写入经 `enqueue` **串行化**后做"读改写 + UPSERT"：bun:sqlite 为单连接，
+ *   一次 RMW 跨 `await` 边界时并发写会交错 ⇒ 必须以队列串行化（这才是消除
+ *   RMW 覆盖的根因；DB 事务/原子 UPSERT 是存储层保证，队列仅守本模块单连接）。
+ */
+class PdcaCheckpointStore {
+  private db: Database | null = null;
+  /** 首次连接 + 建表的 Promise（缓存以消除并发首调重复建连） */
+  private initPromise: Promise<Database> | null = null;
+  /** 写操作串行链（保证"读改写"不并发交错） */
+  private writeChain: Promise<unknown> = Promise.resolve();
+
+  constructor(private readonly dbPath: string = resolveDbPath()) {}
+
+  private init(): Promise<Database> {
+    if (this.db) return Promise.resolve(this.db);
+    this.initPromise ??= this.openAndCreateTables();
+    return this.initPromise;
+  }
+
+  private async openAndCreateTables(): Promise<Database> {
+    const db = await new Promise<Database>((resolve, reject) => {
+      const d = new Database(this.dbPath, (err) => {
+        if (err) reject(err);
+        else resolve(d);
+      });
+    });
+    try {
+      await this.createTables(db);
+    } catch (err) {
+      // 建表失败 ⇒ 释放连接并允许后续重试（不留半初始化状态）
+      db.close(() => {
+        // @ignore-catch: 建表失败路径下尽力释放连接，关闭错误无需再上报
+      });
+      this.initPromise = null;
+      throw err;
+    }
+    this.db = db;
+    return db;
+  }
+
+  private async createTables(db: Database): Promise<void> {
+    const ddl = [
+      `CREATE TABLE IF NOT EXISTS ${CHECKPOINT_TABLE} (
+        task_id       TEXT PRIMARY KEY,
+        data          TEXT NOT NULL,
+        phase         TEXT,
+        status        TEXT,
+        work_item_id  TEXT,
+        workspace_id  TEXT,
+        project_id    TEXT,
+        updated_at    TEXT NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_pdca_checkpoints_updated_at ON ${CHECKPOINT_TABLE}(updated_at)`,
+      `CREATE TABLE IF NOT EXISTS ${WORKITEM_TABLE} (
+        work_item_id  TEXT PRIMARY KEY,
+        data          TEXT NOT NULL,
+        status        TEXT,
+        updated_at    TEXT NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_workitems_status ON ${WORKITEM_TABLE}(status)`,
+    ];
+    for (const sql of ddl) {
+      await new Promise<void>((resolve, reject) => {
+        db.run(sql, (err) => (err ? reject(err) : resolve()));
+      });
+    }
+  }
+
+  private async run(sql: string, params: unknown[] = []): Promise<void> {
+    const db = await this.init();
+    await new Promise<void>((resolve, reject) => {
+      db.run(sql, params, (err) => (err ? reject(err) : resolve()));
+    });
+  }
+
+  private async getRow(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<Record<string, unknown> | null> {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve((row as Record<string, unknown> | undefined) ?? null);
+      });
+    });
+  }
+
+  private async allRows(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<Array<Record<string, unknown>>> {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else
+          resolve((rows as Array<Record<string, unknown>> | undefined) ?? []);
+      });
+    });
+  }
+
+  /** 串行执行写操作（失败不阻断后续链） */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.writeChain.then(fn, fn);
+    this.writeChain = next.then(
+      () => undefined,
+      () => undefined
+    );
+    return next;
+  }
+
+  /** 关闭并释放连接（供测试切换 DB 路径 / 清理前调用） */
+  close(): void {
+    const db = this.db;
+    this.db = null;
+    this.initPromise = null;
+    if (!db) return;
+    db.close((err) => {
+      if (err) {
+        logger.warn('PDCA 检查点 DB 关闭失败', {
+          dbPath: this.dbPath,
+          error: err.message,
+        });
+      }
+    });
+  }
+
+  async readCheckpoint(
+    taskId: string
+  ): Promise<Record<string, unknown> | null> {
+    const row = await this.getRow(
+      `SELECT data FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`,
+      [taskId]
+    );
+    return row ? parseCheckpointData(row.data) : null;
+  }
+
+  /**
+   * **原子合并写**：读改写经写队列串行化，UPSERT 单条 SQL 落库。
+   * 合并语义与旧实现逐字一致（`{...existing, ...patch, updatedAt: now}`）。
+   */
+  async writeCheckpoint(
+    taskId: string,
+    patch: Record<string, unknown>
+  ): Promise<void> {
+    await this.enqueue(async () => {
+      const row = await this.getRow(
+        `SELECT data FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`,
+        [taskId]
+      );
+      const existing = row ? (parseCheckpointData(row.data) ?? {}) : {};
+      const merged: Record<string, unknown> = {
+        ...existing,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.upsertCheckpoint(taskId, merged, merged.updatedAt as string);
+    });
+  }
+
+  /** 迁移导入（幂等：表中已存在该 task_id ⇒ 跳过；`updatedAt` 取源值，不刷新为 now） */
+  async importCheckpoint(
+    taskId: string,
+    data: Record<string, unknown>,
+    updatedAt: string
+  ): Promise<boolean> {
+    return this.enqueue(async () => {
+      const existing = await this.getRow(
+        `SELECT 1 AS present FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`,
+        [taskId]
+      );
+      if (existing) return false;
+      await this.upsertCheckpoint(taskId, data, updatedAt);
+      return true;
+    });
+  }
+
+  private async upsertCheckpoint(
+    taskId: string,
+    data: Record<string, unknown>,
+    updatedAt: string
+  ): Promise<void> {
+    await this.run(
+      `INSERT INTO ${CHECKPOINT_TABLE}
+        (task_id, data, phase, status, work_item_id, workspace_id, project_id, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(task_id) DO UPDATE SET
+         data = excluded.data,
+         phase = excluded.phase,
+         status = excluded.status,
+         work_item_id = excluded.work_item_id,
+         workspace_id = excluded.workspace_id,
+         project_id = excluded.project_id,
+         updated_at = excluded.updated_at`,
+      [
+        taskId,
+        JSON.stringify(data),
+        strOrNull(data.phase),
+        strOrNull(data.status),
+        strOrNull(data.workItemId),
+        strOrNull(data.workspaceId),
+        strOrNull(data.projectId),
+        updatedAt,
+      ]
+    );
+  }
+
+  async listCheckpoints(): Promise<Array<Record<string, unknown>>> {
+    const rows = await this.allRows(
+      `SELECT data FROM ${CHECKPOINT_TABLE} ORDER BY task_id`
+    );
+    const out: Array<Record<string, unknown>> = [];
+    for (const row of rows) {
+      const data = parseCheckpointData(row.data);
+      if (data) out.push(data);
+    }
+    return out;
+  }
+
+  async checkpointIndex(): Promise<Map<string, Record<string, unknown>>> {
+    const index = new Map<string, Record<string, unknown>>();
+    for (const ck of await this.listCheckpoints()) {
+      if (typeof ck.taskId === 'string') index.set(ck.taskId, ck);
+    }
+    return index;
+  }
+
+  /** 留存清理（判据不变）：按条件 DELETE，分类/计数语义与旧文件实现一致 */
+  async prune(maxAgeDays: number): Promise<PdcaCheckpointPruneResult> {
+    const result: PdcaCheckpointPruneResult = {
+      scanned: 0,
+      pruned: 0,
+      prunedTerminal: 0,
+      prunedOrphan: 0,
+      keptFresh: 0,
+      keptActive: 0,
+      errors: 0,
+    };
+
+    const rows = await this.allRows(
+      `SELECT task_id, phase, status, updated_at FROM ${CHECKPOINT_TABLE}`
+    );
+    const cutoff = Date.now() - maxAgeDays * DAY_MS;
+    const toDelete: Array<{ taskId: string; terminal: boolean }> = [];
+
+    for (const row of rows) {
+      result.scanned++;
+
+      const taskId = typeof row.task_id === 'string' ? row.task_id : '';
+      const phase = typeof row.phase === 'string' ? row.phase : '';
+      const status = typeof row.status === 'string' ? row.status : '';
+
+      const isTerminal =
+        PDCA_TERMINAL_PHASES.has(phase) || PDCA_TERMINAL_STATUSES.has(status);
+      // 孤儿：非终态、且"没在跑、也不在等审批" ⇒ 历史残留（判据说明见 PDCA_CHECKPOINT_RETENTION_DAYS）
+      const isOrphan =
+        !isTerminal &&
+        !PDCA_ACTIVE_STATUSES.has(status) &&
+        !PDCA_AWAITING_APPROVAL_PHASES.has(phase);
+
+      if (!taskId || !(isTerminal || isOrphan)) {
+        result.keptActive++;
+        continue;
+      }
+
+      const at = parseTimestampMs(row.updated_at);
+      if (at === null || at > cutoff) {
+        result.keptFresh++;
+        continue;
+      }
+      toDelete.push({ taskId, terminal: isTerminal });
+    }
+
+    for (const { taskId, terminal } of toDelete) {
+      try {
+        await this.run(`DELETE FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`, [
+          taskId,
+        ]);
+        result.pruned++;
+        if (terminal) result.prunedTerminal++;
+        else result.prunedOrphan++;
+      } catch (err) {
+        result.errors++;
+        logger.warn('PDCA 检查点留存删除失败（跳过）', {
+          taskId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    if (result.pruned > 0 || result.errors > 0) {
+      logger.info('PDCA 检查点留存清理完成', {
+        maxAgeDays,
+        ...result,
+      });
+    }
+    return result;
+  }
+
+  async readWorkItem(
+    workItemId: string
+  ): Promise<Record<string, unknown> | null> {
+    const row = await this.getRow(
+      `SELECT data FROM ${WORKITEM_TABLE} WHERE work_item_id = ?`,
+      [workItemId]
+    );
+    return row ? parseCheckpointData(row.data) : null;
+  }
+
+  /** WorkItem UPSERT（`work_item_id` = 记录 `id`） */
+  async writeWorkItem(record: Record<string, unknown>): Promise<void> {
+    const workItemId = strOrNull(record.id);
+    if (!workItemId) return; // 无 id 不落库（旧实现由调用方保证 item.id 存在）
+    const updatedAt =
+      parseTimestampMs(record.updatedAt) === null
+        ? new Date().toISOString()
+        : (record.updatedAt as string);
+    await this.enqueue(() =>
+      this.run(
+        `INSERT INTO ${WORKITEM_TABLE} (work_item_id, data, status, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(work_item_id) DO UPDATE SET
+           data = excluded.data,
+           status = excluded.status,
+           updated_at = excluded.updated_at`,
+        [
+          workItemId,
+          JSON.stringify(record),
+          strOrNull(record.status),
+          updatedAt,
+        ]
+      )
+    );
+  }
+}
+
+// ─── 惰性单例（按 DB 路径键控：测试切换隔离目录时自动重建并释放旧连接） ───
+
+let store: PdcaCheckpointStore | null = null;
+let storePath: string | null = null;
+
+function getStore(): PdcaCheckpointStore {
+  const path = resolveDbPath();
+  if (store && storePath === path) return store;
+  if (store) store.close();
+  store = new PdcaCheckpointStore(path);
+  storePath = path;
+  return store;
+}
+
+/** 关闭并重置单例（供测试隔离/清理前调用；生产不调用） */
+export function closePdcaCheckpointStore(): void {
+  const current = store;
+  store = null;
+  storePath = null;
+  if (current) current.close();
 }
 
 /** 读取 PDCA 检查点 */
 export function readPdcaCheckpoint(
   taskId: string
-): Record<string, unknown> | null {
-  return readJson(join(pdcaCheckpointDir(), `${taskId}.json`));
+): Promise<Record<string, unknown> | null> {
+  return getStore().readCheckpoint(taskId);
 }
 
-/** 写入 PDCA 检查点 */
+/**
+ * 写入 PDCA 检查点。
+ *
+ * Gap D（1-0a，2026-09-03）：合并式写模型。原实现整文件覆盖会把
+ * workItemId/status/workspaceId/projectId/lastPdcaPhase 等归属字段整体抹掉。
+ * GAI-3（2026-10-05）：改为 DB 内**原子合并写**（消除 RMW 竞态）。
+ */
 export function writePdcaCheckpoint(
   taskId: string,
   data: Record<string, unknown>
-): void {
-  // Gap D（1-0a，2026-09-03）：合并式写模型（read-modify-write）。
-  // 原实现整文件覆盖，_persistCheckpoint 等部分字段写入会把
-  // workItemId/status/workspaceId/projectId/lastPdcaPhase 等归属字段整体抹掉，
-  // 连锁导致 WorkItem 同步空转、幂等排除失效、项目过滤无数据。
-  const existing = readPdcaCheckpoint(taskId) ?? {};
-  writeJson(join(pdcaCheckpointDir(), `${taskId}.json`), {
-    ...existing,
-    ...data,
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-/**
- * 检查点**文件级记忆**（2026-09-29 台账「另案 ⑥」）。
- *
- * **为什么需要**：`listPdcaCheckpoints()` 与 `handlePdcaList` 每次调用都对整个目录
- * `readdirSync` + **逐文件 `readFileSync`+`JSON.parse`**。真实目录实测 **3394** 个 json、
- * 3MB ⇒ 成本拆解（实测）：`readdir` **2ms** / 全量 `stat` **30ms** / 全量 `read+parse`
- * **1032ms** ⇒ **97% 的时间花在"重新解析未变的文件"上**，且该目录**只增不减** ⇒ 随时间持续劣化。
- *
- * **方案**：以 `(mtimeMs, size)` 为"内容未变"的判据，命中则复用已解析对象 ⇒ 每次调用只付
- * `readdir + stat`（实测 ≈32ms，**约 30× 提升**），仅在**变更过的文件**上重新解析。
- * 判据为 mtime+size：本模块**唯一写入路径**（`writePdcaCheckpoint`）每次都重写文件，
- * 二者必变 ⇒ 不会漏判。
- */
-interface CkFileMemo {
-  mtimeMs: number;
-  size: number;
-  data: Record<string, unknown> | null;
-}
-
-let ckFileMemo = new Map<string, CkFileMemo>();
-
-/**
- * 扫描检查点目录并返回全部检查点数据（带**文件级记忆**；顺序同 `readdir`）。
- *
- * 每次调用都会**重建 memo 表**（只含当前仍存在的文件）⇒ 自动清理已删除文件的陈旧条目，
- * 不会无界增长。
- */
-function scanCheckpoints(): Array<Record<string, unknown>> {
-  const dir = pdcaCheckpointDir();
-  if (!existsSync(dir)) {
-    ckFileMemo = new Map();
-    return [];
-  }
-
-  const names = readdirSync(dir).filter((f) => f.endsWith('.json'));
-  const nextMemo = new Map<string, CkFileMemo>();
-  const out: Array<Record<string, unknown>> = [];
-
-  for (const name of names) {
-    const full = join(dir, name);
-    let mtimeMs: number;
-    let size: number;
-    try {
-      const st = statSync(full);
-      mtimeMs = st.mtimeMs;
-      size = st.size;
-    } catch {
-      // @ignore-catch: readdir 与 stat 之间文件被删除的竞态 ⇒ 跳过该文件
-      continue;
-    }
-
-    const memo = ckFileMemo.get(full);
-    if (memo && memo.mtimeMs === mtimeMs && memo.size === size) {
-      nextMemo.set(full, memo);
-      if (memo.data) out.push(memo.data);
-      continue;
-    }
-
-    const data = readJson<Record<string, unknown>>(full);
-    nextMemo.set(full, { mtimeMs, size, data });
-    if (data) out.push(data);
-  }
-
-  ckFileMemo = nextMemo;
-  return out;
+): Promise<void> {
+  return getStore().writeCheckpoint(taskId, data);
 }
 
 /** P0(M9)：列出全部 PDCA checkpoint（含终态与非终态，供 /goal list 过滤） */
-export function listPdcaCheckpoints(): Array<Record<string, unknown>> {
-  return scanCheckpoints();
+export function listPdcaCheckpoints(): Promise<Array<Record<string, unknown>>> {
+  return getStore().listCheckpoints();
 }
 
 /**
  * 检查点**索引**（taskId → 检查点）—— 供 HTTP 层按 taskId 回填归属字段。
- *
- * 与 `listPdcaCheckpoints()` **共用同一次带记忆的扫描**（GR02 实现唯一性：原
- * `handlePdcaList` 内联了同一份扫描逻辑）。
  */
-export function getPdcaCheckpointIndex(): Map<string, Record<string, unknown>> {
-  const index = new Map<string, Record<string, unknown>>();
-  for (const ck of scanCheckpoints()) {
-    if (typeof ck.taskId === 'string') index.set(ck.taskId, ck);
-  }
-  return index;
+export function getPdcaCheckpointIndex(): Promise<
+  Map<string, Record<string, unknown>>
+> {
+  return getStore().checkpointIndex();
+}
+
+/** 写入 PDCA WorkItem（`pdca-handlers.handlePdcaStart` 创建关联工作项） */
+export function writePdcaWorkItem(
+  record: Record<string, unknown>
+): Promise<void> {
+  return getStore().writeWorkItem(record);
 }
 
 /**
  * 检查点**终态 status** 集合（2026-09-29，另案 ⑥ 留存）。
  *
  * 与 [`pdca-handlers.findExistingTask`](../infrastructure/http/handlers/pdca-handlers.ts) 的
- * "非活跃"判据**同源**（原先该处内联 `status !== 'abort' && status !== 'failed' && !== 'completed'`）
- * ⇒ 收敛为单一事实源（GR02），并与 `core` 的 `PDCA_TERMINAL_PHASES`（按 **phase** 判定）互为补充：
- * 本仓检查点**两个字段并用**（`phase` 见 PhaseVocabulary，`status` 见各写入点）⇒ 二者任一为终态即算终态。
+ * "非活跃"判据**同源** ⇒ 收敛为单一事实源（GR02），并与 `core` 的 `PDCA_TERMINAL_PHASES`
+ * （按 **phase** 判定）互为补充：本仓检查点**两个字段并用** ⇒ 二者任一为终态即算终态。
  */
 export const PDCA_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
   'completed',
@@ -195,7 +490,6 @@ export const PDCA_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 
 /**
  * **活跃 status**（2026-09-29，另案 ⑥ 留存扩展）：这些状态视为"正在跑"，留存**一律保留**。
- * 与 `pdca-handlers.scanAndAbortStalePdcaTasks` 的命中判据同源。
  */
 export const PDCA_ACTIVE_STATUSES: ReadonlySet<string> = new Set([
   'started',
@@ -204,7 +498,6 @@ export const PDCA_ACTIVE_STATUSES: ReadonlySet<string> = new Set([
 
 /**
  * **待审批 phase**（同批）：等待用户/审批入口处理，留存**一律保留**。
- * 与 `pdca-handlers.scanAndAbortStalePdcaTasks` 的豁免判据同源（收敛为单一事实源，GR02）。
  */
 export const PDCA_AWAITING_APPROVAL_PHASES: ReadonlySet<string> = new Set([
   'plan_pending',
@@ -216,14 +509,11 @@ export const PDCA_AWAITING_APPROVAL_PHASES: ReadonlySet<string> = new Set([
  *
  * **可删条件 = 超期 且 下列任一**：
  * 1. **终态**：`phase ∈ PDCA_TERMINAL_PHASES` **或** `status ∈ PDCA_TERMINAL_STATUSES`；
- * 2. **孤儿**（2026-09-29 扩展，用户裁定"纳入"）：非终态 **且** `status ∉ PDCA_ACTIVE_STATUSES`
- *    **且** `phase ∉ PDCA_AWAITING_APPROVAL_PHASES` —— 即"既没在跑、也不在等审批"的历史残留
- *    （实测真实目录里 8/16 的 `d2-test-*` / `d5-replan-*` 即此类：`phase=review/plan` 且 `status` 为空）。
+ * 2. **孤儿**：非终态 **且** `status ∉ PDCA_ACTIVE_STATUSES`
+ *    **且** `phase ∉ PDCA_AWAITING_APPROVAL_PHASES`。
  *
  * **一律保留**：`started`/`running`（可能在跑）、`plan_pending`/`stage_awaiting_approval`（待审批）、
- * 以及**未超期**的一切。
- *
- * 超期判据：`updatedAt`（缺失时回退文件 mtime）早于 `now - 天数`。
+ * 以及**未超期**的一切。超期判据：`updated_at` 早于 `now - 天数`。
  */
 export const PDCA_CHECKPOINT_RETENTION_DAYS = 30;
 
@@ -247,167 +537,95 @@ export interface PdcaCheckpointPruneResult {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** 解析 ISO 时间戳；无法解析返回 null */
-function parseTimestampMs(value: unknown): number | null {
-  if (typeof value !== 'string' || !value) return null;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : null;
-}
-
-/** 读取文件 mtime；失败返回 null */
-function fileMtimeMs(filePath: string): number | null {
-  try {
-    return statSync(filePath).mtimeMs;
-  } catch {
-    // @ignore-catch: 竞态删除 ⇒ 视为无 mtime（上层会保留该文件，不做删除）
-    return null;
-  }
-}
-
 /**
- * **留存清理**：删除"终态 + 超期"的检查点（2026-09-29，另案 ⑥ 留存策略）。
+ * **留存清理**：删除"终态/孤儿 + 超期"的检查点（2026-09-29，另案 ⑥ 留存策略）。
  *
- * **调用时机**：DAEMON/CLI 启动时一次（`main.ts` 的启动链，**在启动扫描之后** —— 扫描刚把
- * 崩溃遗留的 `running` 标为 `abort` 并刷新 `updatedAt`，因而它们会因"新鲜"被保留，
- * 不会被"刚标完就删掉"）。参照既有范式 [`MemoryManager.cleanupExpiredMemories()`](../memory/MemoryManager.ts)
- *（启动时运行 + 日志计数），不再新建机制。
- *
- * **安全性**：只删终态且超期；`unlinkSync` 失败仅计数并 warn，不抛出；同时清理对应记忆条目
- * （`ckFileMemo`）以免陈旧条目残留。目录不存在时为空操作。
+ * **调用时机**：DAEMON/CLI 启动时一次（`main.ts` 的启动链，**在启动扫描之后**）。
  *
  * @param maxAgeDays 保留天数（默认 {@link PDCA_CHECKPOINT_RETENTION_DAYS}）
  */
 export function prunePdcaCheckpoints(
   maxAgeDays: number = PDCA_CHECKPOINT_RETENTION_DAYS
-): PdcaCheckpointPruneResult {
-  const result: PdcaCheckpointPruneResult = {
-    scanned: 0,
-    pruned: 0,
-    prunedTerminal: 0,
-    prunedOrphan: 0,
-    keptFresh: 0,
-    keptActive: 0,
-    errors: 0,
-  };
-
-  const dir = pdcaCheckpointDir();
-  if (!existsSync(dir)) return result;
-
-  const cutoff = Date.now() - maxAgeDays * DAY_MS;
-
-  // 复用带记忆的扫描：只对"内容未变"的文件免重复解析（无需为留存单独再读一遍目录）
-  for (const ck of scanCheckpoints()) {
-    result.scanned++;
-
-    const taskId = typeof ck.taskId === 'string' ? ck.taskId : '';
-    const phase = typeof ck.phase === 'string' ? ck.phase : '';
-    const status = typeof ck.status === 'string' ? ck.status : '';
-
-    const isTerminal =
-      PDCA_TERMINAL_PHASES.has(phase) || PDCA_TERMINAL_STATUSES.has(status);
-    // 孤儿：非终态、且"没在跑、也不在等审批" ⇒ 历史残留（判据说明见 PDCA_CHECKPOINT_RETENTION_DAYS）
-    const isOrphan =
-      !isTerminal &&
-      !PDCA_ACTIVE_STATUSES.has(status) &&
-      !PDCA_AWAITING_APPROVAL_PHASES.has(phase);
-
-    if (!taskId || !(isTerminal || isOrphan)) {
-      result.keptActive++;
-      continue;
-    }
-
-    const filePath = join(dir, `${taskId}.json`);
-    const at = parseTimestampMs(ck.updatedAt) ?? fileMtimeMs(filePath);
-    if (at === null || at > cutoff) {
-      result.keptFresh++;
-      continue;
-    }
-
-    try {
-      unlinkSync(filePath);
-      ckFileMemo.delete(filePath);
-      result.pruned++;
-      if (isTerminal) result.prunedTerminal++;
-      else result.prunedOrphan++;
-    } catch (err) {
-      result.errors++;
-      logger.warn('PDCA 检查点留存删除失败（跳过）', {
-        taskId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  if (result.pruned > 0 || result.errors > 0) {
-    logger.info('PDCA 检查点留存清理完成', {
-      maxAgeDays,
-      ...result,
-    });
-  }
-  return result;
+): Promise<PdcaCheckpointPruneResult> {
+  return getStore().prune(maxAgeDays);
 }
 
-/** 预热 Promise（幂等：并发调用复用同一次预热；见 `prewarmPdcaCheckpointIndex`） */
-let prewarmPromise: Promise<void> | null = null;
+/** 检查点一次性迁移结果 */
+export interface PdcaCheckpointMigrationResult {
+  /** 成功导入数 */
+  imported: number;
+  /** 表中已存在而跳过数 */
+  skipped: number;
+  /** 失败数（仅 warn，不抛出） */
+  errors: number;
+}
 
 /**
- * **启动异步预热**检查点索引（2026-09-29 台账「另案 ⑥」）。
+ * **一次性、幂等迁移**：把 `<dir>/*.json` 中"表中不存在该 task_id"的检查点导入 DB。
  *
- * **为什么必须分批**：`scanCheckpoints()` 是**同步**实现（`statSync` + `readFileSync`），
- * 首次对 3394 个文件解析实测 ≈**1.1s**。若只把它丢进 `setImmediate`，只是把这段**同步阻塞**
- * 从"启动路径"挪到"首个 tick"，事件循环（含 HTTP 服务）照样被卡 1.1s。故此处按 `batchSize`
- * 分批解析，**每批之间 `await` 一个宏任务让出事件循环**（单批 ≈30ms）⇒ 启动与请求都不被卡。
+ * - **幂等**：已存在的 task_id 一律跳过（重复调用不重复导入）；
+ * - **不删原 JSON**（可回滚、安全）；
+ * - **失败不抛出**：逐文件 warn + 计数，不阻断启动。
  *
- * **不覆盖已有记忆**（只"补空缺"）：与并发进行的 `scanCheckpoints()` 互不干扰 ——
- * 后者每次整体重建 memo 表；预热只填空缺，且每条记忆都携带**读取当时的 `mtimeMs`**，
- * 若期间文件已变，下一次扫描会因 mtime 不匹配而**自动重读**（自愈，不会投毒）。
- *
- * **幂等**：重复调用复用同一 Promise。**失败不抛出**：下次读取自然回退到同步扫描。
- *
- * @param batchSize 每批文件数（默认 100 ⇒ 单批 ≈30ms 的事件循环占用）
+ * @param dir 检查点目录（默认 `~/.pyapp/data/pdca/`）
  */
-export function prewarmPdcaCheckpointIndex(batchSize = 100): Promise<void> {
-  if (prewarmPromise) return prewarmPromise;
+export async function migratePdcaCheckpointsFromJson(
+  dir: string = resolveDataSubDir('pdca')
+): Promise<PdcaCheckpointMigrationResult> {
+  const result: PdcaCheckpointMigrationResult = {
+    imported: 0,
+    skipped: 0,
+    errors: 0,
+  };
+  if (!existsSync(dir)) return result;
 
-  prewarmPromise = (async () => {
-    const startedAt = Date.now();
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((f) => f.endsWith('.json'));
+  } catch (err) {
+    logger.warn('PDCA 检查点迁移：目录读取失败（跳过迁移）', {
+      dir,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return result;
+  }
+
+  const s = getStore();
+  for (const name of names) {
+    const taskId = name.slice(0, -'.json'.length);
+    if (!taskId) continue;
     try {
-      const dir = pdcaCheckpointDir();
-      if (!existsSync(dir)) return;
-
-      const names = readdirSync(dir).filter((f) => f.endsWith('.json'));
-      let filled = 0;
-
-      for (let i = 0; i < names.length; i++) {
-        const full = join(dir, names[i]);
-        if (!ckFileMemo.has(full)) {
-          try {
-            const st = statSync(full);
-            const data = readJson<Record<string, unknown>>(full);
-            ckFileMemo.set(full, { mtimeMs: st.mtimeMs, size: st.size, data });
-            filled++;
-          } catch {
-            // @ignore-catch: readdir 与 stat 之间文件被删除的竞态 ⇒ 跳过该文件
-          }
-        }
-        if ((i + 1) % batchSize === 0) {
-          await new Promise((resolve) => setImmediate(resolve));
-        }
+      const full = join(dir, name);
+      const parsed = JSON.parse(readFileSync(full, 'utf-8')) as Record<
+        string,
+        unknown
+      >;
+      if (!parsed || typeof parsed !== 'object') {
+        result.errors++;
+        continue;
       }
-
-      logger.info('PDCA 检查点索引预热完成', {
-        files: names.length,
-        parsed: filled,
-        elapsedMs: Date.now() - startedAt,
-      });
+      // updated_at：优先 JSON.updatedAt（ISO），否则回退文件 mtime（对齐原留存判据）；
+      // 二者皆无 ⇒ 视为 fresh（now），与旧实现"无时间戳即保留"一致。
+      const updatedAt =
+        parseTimestampMs(parsed.updatedAt) !== null
+          ? (parsed.updatedAt as string)
+          : (fileMtimeIso(full) ?? new Date().toISOString());
+      const imported = await s.importCheckpoint(taskId, parsed, updatedAt);
+      if (imported) result.imported++;
+      else result.skipped++;
     } catch (err) {
-      logger.warn('PDCA 检查点索引预热失败（下次读取回退同步扫描）', {
+      result.errors++;
+      logger.warn('PDCA 检查点迁移失败（跳过该文件）', {
+        file: name,
         error: err instanceof Error ? err.message : String(err),
       });
     }
-  })();
+  }
 
-  return prewarmPromise;
+  if (result.imported > 0 || result.errors > 0) {
+    logger.info('PDCA 检查点迁移完成', { dir, ...result });
+  }
+  return result;
 }
 
 /**
@@ -416,19 +634,16 @@ export function prewarmPdcaCheckpointIndex(batchSize = 100): Promise<void> {
  * @param taskId PDCA 任务 ID
  * @param pdcaPhase 当前 PDCA 阶段
  */
-export function syncPdcaWorkItemStatus(
+export async function syncPdcaWorkItemStatus(
   taskId: string,
   pdcaPhase: PdcaPhase
-): void {
-  const ck = readPdcaCheckpoint(taskId);
+): Promise<void> {
+  const ck = await readPdcaCheckpoint(taskId);
   if (!ck?.workItemId) return;
 
-  const wiPath = join(workitemDir(), `${ck.workItemId}.json`);
-  const wi = readJson<{
-    status?: string;
-    updatedAt?: string;
-    completedAt?: string;
-  }>(wiPath);
+  const workItemId = ck.workItemId as string;
+  const s = getStore();
+  const wi = await s.readWorkItem(workItemId);
   if (!wi) return;
 
   const newStatus = PDCA_TO_WORKITEM[pdcaPhase] || 'running';
@@ -439,8 +654,8 @@ export function syncPdcaWorkItemStatus(
   if (newStatus === 'done' || newStatus === 'failed') {
     wi.completedAt = new Date().toISOString();
   }
-  writeJson(wiPath, wi);
+  await s.writeWorkItem(wi);
 
   // 更新检查点中的阶段信息
-  writePdcaCheckpoint(taskId, { ...ck, lastPdcaPhase: pdcaPhase });
+  await writePdcaCheckpoint(taskId, { ...ck, lastPdcaPhase: pdcaPhase });
 }

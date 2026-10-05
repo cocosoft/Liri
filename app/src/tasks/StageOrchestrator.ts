@@ -234,11 +234,11 @@ export class StageOrchestrator {
   }
 
   /** 从 checkpoint 恢复（非阶段链 checkpoint 返回 null） */
-  static fromCheckpoint(
+  static async fromCheckpoint(
     taskId: string,
     deps: StageOrchestratorDeps
-  ): StageOrchestrator | null {
-    const ck = readPdcaCheckpoint(taskId);
+  ): Promise<StageOrchestrator | null> {
+    const ck = await readPdcaCheckpoint(taskId);
     if (!ck || !Array.isArray(ck.stages)) return null;
     return new StageOrchestrator(ck as unknown as StageChainRecord, deps);
   }
@@ -247,9 +247,9 @@ export class StageOrchestrator {
     return this.record;
   }
 
-  private persist(): void {
+  private async persist(): Promise<void> {
     this.record.updatedAt = new Date().toISOString();
-    writePdcaCheckpoint(this.record.taskId, {
+    await writePdcaCheckpoint(this.record.taskId, {
       ...this.record,
       phase: this.record.phase,
     });
@@ -262,7 +262,7 @@ export class StageOrchestrator {
       if (stage.status === 'awaiting_approval') {
         // 审批门：等用户 approve，停在这里
         this.record.phase = 'stage_awaiting_approval';
-        this.persist();
+        await this.persist();
         return this.record;
       }
 
@@ -270,7 +270,7 @@ export class StageOrchestrator {
       if (stage.id === 'delivery') {
         stage.status = 'completed';
         this.record.currentStage = stage.id;
-        this.persist();
+        await this.persist();
         continue;
       }
 
@@ -278,7 +278,7 @@ export class StageOrchestrator {
       stage.status = 'running';
       this.record.currentStage = stage.id;
       this.record.phase = 'running';
-      this.persist();
+      await this.persist();
 
       try {
         const result = await this.deps.runStage(stage, this.record);
@@ -302,7 +302,7 @@ export class StageOrchestrator {
               budgetLimitTokens: limit,
             });
             this.record.phase = 'failed';
-            this.persist();
+            await this.persist();
             return this.record;
           }
           logger.warn('StageOrchestrator 成本护栏触发（warn，继续执行）', {
@@ -315,22 +315,22 @@ export class StageOrchestrator {
       } catch (err) {
         stage.status = 'failed';
         this.record.phase = 'failed';
-        this.persist();
+        await this.persist();
         throw err;
       }
 
       if (stage.status === 'awaiting_approval') {
         this.record.phase = 'stage_awaiting_approval';
-        this.persist();
+        await this.persist();
         return this.record;
       }
-      this.persist();
+      await this.persist();
     }
 
     // 全部阶段完成 → D6（M8）：生成交付清单（打包产物 + 部署说明 + 验收标记）
     this.record.phase = 'completed';
     this.record.deliveryManifest = this.buildDeliveryManifest();
-    this.persist();
+    await this.persist();
     return this.record;
   }
 
@@ -376,7 +376,7 @@ export class StageOrchestrator {
     }
     this.record.deliveryAccepted = true;
     this.record.deliveryManifest.acceptance = 'accepted';
-    this.persist();
+    await this.persist();
     return this.record;
   }
 
@@ -398,7 +398,7 @@ export class StageOrchestrator {
     );
     if (pending) pending.status = 'completed';
     this.record.phase = 'running';
-    this.persist();
+    await this.persist();
     return this.run();
   }
 }

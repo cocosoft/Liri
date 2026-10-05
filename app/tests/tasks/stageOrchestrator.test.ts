@@ -6,12 +6,28 @@
  * 阶段流转（requirement→design）、审批门（stage_awaiting_approval）、
  * checkpoint 恢复、buildStagePrompt 基线注入。
  */
-import { describe, it, expect } from 'bun:test';
+import { afterAll, describe, it, expect } from 'bun:test';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import {
   StageOrchestrator,
   buildStagePrompt,
   type StageChainRecord,
 } from '../../src/tasks/StageOrchestrator';
+
+// GAI-3：checkpoint / WorkItem 迁入 app.db（`resolveDbPath()` 读 LIRI_DATA_DIR）
+// ⇒ 隔离临时库，避免污染真实 ~/.pyapp/data/app.db
+const dataDir = mkdtempSync(join(tmpdir(), 'stage-orchestrator-'));
+process.env.LIRI_DATA_DIR = dataDir;
+
+afterAll(async () => {
+  const { closePdcaCheckpointStore } =
+    await import('../../src/tasks/PdcaWorkItemBridge');
+  closePdcaCheckpointStore();
+  delete process.env.LIRI_DATA_DIR;
+  rmSync(dataDir, { recursive: true, force: true });
+});
 
 const deps = (calls: string[], tokens = 10) => ({
   runStage: async (stage: { id: string }, chain: StageChainRecord) => {
@@ -77,7 +93,10 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
     );
     await orch.run(); // 停在审批门并落 checkpoint
 
-    const restored = StageOrchestrator.fromCheckpoint('stage-test-4', deps([]));
+    const restored = await StageOrchestrator.fromCheckpoint(
+      'stage-test-4',
+      deps([])
+    );
     expect(restored).not.toBeNull();
     const status = restored!.getStatus();
     expect(status.phase).toBe('stage_awaiting_approval');
@@ -221,7 +240,10 @@ describe('StageOrchestrator — 交付阶段（D6/M8）', () => {
     expect(accepted.deliveryManifest!.acceptance).toBe('accepted');
 
     // 持久化后 fromCheckpoint 恢复可见
-    const restored = StageOrchestrator.fromCheckpoint('d6-test-2', deps([]));
+    const restored = await StageOrchestrator.fromCheckpoint(
+      'd6-test-2',
+      deps([])
+    );
     expect(restored!.getStatus().deliveryAccepted).toBe(true);
     expect(restored!.getStatus().deliveryManifest!.acceptance).toBe('accepted');
   });

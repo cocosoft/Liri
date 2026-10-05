@@ -136,14 +136,14 @@ export class ChatSessionTeardown {
       try {
         const { listPdcaCheckpoints, writePdcaCheckpoint } =
           await import('../../tasks/PdcaWorkItemBridge.js');
-        const rows = listPdcaCheckpoints().filter(
+        const rows = (await listPdcaCheckpoints()).filter(
           (c) => (c as { sessionId?: unknown }).sessionId === sessionId
         );
         let closed = 0;
         for (const row of rows) {
           const taskId = row.taskId as string | undefined;
           if (!taskId) continue;
-          writePdcaCheckpoint(taskId, {
+          await writePdcaCheckpoint(taskId, {
             status: 'abort',
             abortedAt: new Date().toISOString(),
           });

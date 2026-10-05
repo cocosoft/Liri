@@ -37,39 +37,23 @@ export type LiriEventType = (typeof LIRI_EVENT_NAMES)[number];
 
 // ─── 事件载荷映射 ───────────────────────────────
 
-/**
- * D-1 补镜像（2026-09-28）：以下 3 个联合镜像自后端，**值必须逐字一致** ——
- * `app/src/tasks/goal/TaskGoalStore.ts`（`TaskGoalStatus` / `TaskGoalUpdateReason`）与
- * `app/src/tasks/goal/goalTemplates.ts`（`GoalTemplateKind`）。
- *
- * ⚠️ 这是**治标**：根治应由「跨端契约单一事实源」消除双端手工镜像（见
- * `architecture-benchmark-20260928.md` §5.3 / §四 根因类 ①）；在此之前，
- * 后端改动这 3 个联合时**必须同步本文件**。
- */
-export type TaskGoalStatus =
-  | "active"
-  | "blocked"
-  | "completed"
-  | "budget_limited"
-  | "failed"
-  | "cancelled";
+// ─── 目标域词表（单一事实源：`shared/types/goal-types.ts`） ───
+// 2026-10-05 P1-18 / L4：以下 4 个联合曾为「治标」手写镜像（D-1 补镜像，2026-09-28），
+// 且与后端定义分处两份 ⇒ 已下沉 `shared/types/goal-types.ts` **单一事实源**，
+// 本文件**再导出**（对外导出名/成员逐字不变，既有消费方零改动）。
+import type {
+  TaskGoalStatus,
+  TaskGoalUpdateReason,
+  GoalTemplateKind,
+  GoalDeviationSeverity,
+} from "@shared/types/goal-types";
 
-export type TaskGoalUpdateReason =
-  | "batch_completed"
-  | "batch_blocked"
-  | "batch_failed"
-  | "batch_cancelled"
-  | "budget_limit"
-  | "stop_threshold"
-  | "turn_error"
-  | "compaction_stalled"
-  | "turn_limit"
-  | "turn_timeout"
-  | "turn_budget_exhausted"
-  | "turn_interrupted"
-  | "user_aborted"
-  | "system_aborted"
-  | "manual";
+export type {
+  TaskGoalStatus,
+  TaskGoalUpdateReason,
+  GoalTemplateKind,
+  GoalDeviationSeverity,
+};
 
 /**
  * 目标实体投影（X11，2026-10-05；与后端 `app/src/tasks/goal/TaskGoalStore.ts` 的
@@ -93,19 +77,6 @@ export interface TaskGoalDto {
   updatedAt: number;
 }
 
-export type GoalTemplateKind =
-  | "budget_limit"
-  | "objective_updated"
-  | "progress_stalled"
-  | "continue_goal"
-  | "tool_execution_errors";
-
-/**
- * T-②02（2026-10-03）：目标**偏差严重度** —— 镜像后端类型中心
- * `app/src/types/goal.ts` 的 `GoalDeviationSeverity`（值必须逐字一致）。
- */
-export type GoalDeviationSeverity = "warning" | "critical";
-
 export interface LiriEventMap {
   "turn/start": { turn: number; userMessageSeq?: number };
   "turn/end": {
@@ -125,7 +96,20 @@ export interface LiriEventMap {
   };
   "user/message": {
     content: string;
-    attachments?: Array<{ path: string; filename: string; size: number }>;
+    /**
+     * 附件列表。形状 = 后端 `DataAttachment`（`app/src/core/data-models.ts`，经
+     * `@modules/core` 导出）—— 该类型属 app 侧（client 不引用 app 内部类型）⇒ 此处**按
+     * 线上形状内联**。
+     * L2/L3（2026-10-05 P1-18）：原误写为 `{path,filename,size}`，与后端产出**字段级不符**
+     * （`eventTypeParity` 编译期门禁抓出，两端已对齐）。
+     */
+    attachments?: Array<{
+      type: string;
+      url: string;
+      name: string;
+      size?: number;
+      contentType?: string;
+    }>;
     /** 归属消息 id（P1-5：SSE/事件透传，非流式落盘消息为投影 id） */
     messageId?: string;
     /** F4（2026-08-25）：被回复消息 id（回复引用，刷新后透传到派生消息） */
@@ -280,7 +264,8 @@ export interface LiriEventMap {
   "assistant/status": {
     content: string;
     statusType?: "compaction" | "watermark" | "reconnect" | "error" | string;
-    phase?: "compacting" | "done";
+    /** L2/L3（2026-10-05 P1-18）：补 `"error"`，与后端 `assistant/status.phase` 取值域对齐 */
+    phase?: "compacting" | "done" | "error";
     /** 工具状态块关联的 toolCallId（P1-6：按 toolCallId 去重，替代内容正则） */
     toolCallId?: string;
     /** 结构化水位数据（statusType='watermark' 时存在，P1-3：替代内容正则解析） */

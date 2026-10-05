@@ -138,3 +138,14 @@ export {
   isTransientStatusType,
 } from './status-types';
 export type { SharedStatusType } from './status-types';
+
+// ============================================================
+// 目标域词表（goal）契约（前后端唯一事实来源）
+// ============================================================
+
+export type {
+  TaskGoalStatus,
+  TaskGoalUpdateReason,
+  GoalDeviationSeverity,
+  GoalTemplateKind,
+} from './goal-types';

@@ -20,11 +20,17 @@
 
 import {
   getTaskGoalStore,
+  type TaskGoal,
   type TaskGoalStatus,
   type TaskGoalStore,
   type TaskGoalUpdateReason,
 } from './TaskGoalStore';
-import { emitGoalStatusChanged, emitGoalUpdated } from './GoalEvents';
+import {
+  emitGoalCreated,
+  emitGoalStatusChanged,
+  emitGoalUpdated,
+} from './GoalEvents';
+import { handleError } from '@modules/error';
 import { chargeGoalUsage } from './goalBudget';
 import { renderGoalTemplate } from './goalTemplates';
 import { enqueueIdleContinuation } from './goalIdleContinuation';
@@ -378,4 +384,52 @@ export async function settleGoalForTurn(params: {
     statusChanged,
     ...(stopInstruction ? { stopInstruction } : {}),
   };
+}
+
+/**
+ * X11（2026-10-05）：批次启动 ⇒ 该会话**无未终结目标**时**自动创建**一个目标
+ * （`.trae/specs/goal-entity.md` §11.1）。
+ *
+ * 与 `settleGoalForRun`（收口落状态）互补：本函数是**唯一自动创建入口** —— 让
+ * "批次跑起来就自动有目标"成立（此前目标只能靠人显式 `POST /v1/goals`）。
+ *
+ * 语义：
+ * - `sessionId` 缺失（`undefined`/空）⇒ `null`，**零副作用**（与既有"无目标 ⇒ null"同口径）；
+ * - 该会话已有未终结目标（`active`/`blocked`，`listActive` 判据）⇒ `null`，
+ *   **绝不覆盖**（守「一会话一目标」；幂等由该判据保证）；
+ * - 否则 `create` ⇒ `emitGoalCreated` ⇒ 返回新 goal；
+ * - 建目标失败（DB 异常）⇒ `handleError` 记录后返回 `null`，**不抛**（不阻断批次）。
+ *
+ * 注：`emitGoalCreated` 是 fire-and-forget 观测面（内部 `@ignore-catch`，失败只 warn），
+ * 不会导致建行回滚。
+ */
+export async function ensureGoalForBatch(params: {
+  sessionId?: string;
+  objective: string;
+  /** 可注入 store（测试用）；缺省取全局单例 */
+  store?: TaskGoalStore;
+}): Promise<TaskGoal | null> {
+  const { sessionId, objective } = params;
+  if (!sessionId) return null; // 无归属会话 ⇒ 零副作用
+  const store = params.store ?? getTaskGoalStore();
+
+  try {
+    const active = await store.listActive(sessionId);
+    if (active.length > 0) return null; // 已有未终结目标 ⇒ 绝不覆盖（一会话一目标）
+
+    const goal = await store.create({ objective, sessionId });
+    await emitGoalCreated({
+      goalId: goal.id,
+      objective: goal.objective,
+      sessionId: goal.sessionId,
+    });
+    return goal;
+  } catch (err) {
+    // @ignore-catch — 建目标失败不得阻断批次（与 settleGoalForRun 的观测面口径一致）
+    await handleError(err, {
+      module: 'tasks:goal:binding',
+      action: 'ensureGoalForBatch',
+    });
+    return null;
+  }
 }

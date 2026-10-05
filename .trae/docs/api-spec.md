@@ -276,9 +276,9 @@
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| POST | `/v1/goals` | ✅ | —（暂无前端消费者） |
-| GET | `/v1/goals?sessionId=<id>[&active=1]` | ✅ | —（暂无前端消费者） |
-| PATCH | `/v1/goals/{id}` | ✅ | —（暂无前端消费者） |
+| POST | `/v1/goals` | ✅ | `client/src/services/goalService.ts#create`（聊天区 `GoalBar`）；另：**后端内部自动创建**（`AgentTool.runSwarmPath` → `ensureGoalForBatch`，X11，2026-10-05） |
+| GET | `/v1/goals?sessionId=<id>[&active=1]` | ✅ | `client/src/services/goalService.ts#list`（`GoalBar` 挂载时拉取） |
+| PATCH | `/v1/goals/{id}` | ✅ | `client/src/services/goalService.ts#update`（`GoalBar` 内联编辑） |
 
 **POST 契约**：body `{ objective: string（必填，trim 非空）, sessionId?: string（会话 id 白名单格式）, tokenBudget?: number（正有限数）, id?: string }`
 

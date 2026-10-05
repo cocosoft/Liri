@@ -80,6 +80,8 @@ import {
 } from '@modules/tasks';
 // M-6/M-7 接线（2026-09-22）：批次收口 ⇒ 落定该会话未终结目标的状态
 import { settleGoalForRun } from '@modules/tasks';
+// X11（2026-10-05）：swarm 批次启动 ⇒ 无未终结目标时自动创建目标（Spec §11.1）
+import { ensureGoalForBatch } from '@modules/tasks';
 import { takeBatchGoalInstruction } from '@modules/tasks';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
 import { renderFragment, type ContextualFragment } from '@modules/context';
@@ -1714,6 +1716,29 @@ export class AgentTool implements Tool {
         agentType: t.subagent_type,
         name: t.name,
       })),
+    });
+
+    // X11（2026-10-05，.trae/specs/goal-entity.md §11.1）：**仅 swarm 批次路径**在启动时
+    // 尝试为目标（`task_goals`）自动建行 —— 该会话无未终结目标才建；direct / foreground /
+    // background 路径不建（避免"用户随口一问就产生目标"）。
+    // objective 来源：`agentInput.description` → `tasks[].description` 拼接（≤200 字）→ 占位。
+    let objective = agentInput.description.trim();
+    if (!objective) {
+      objective = tasks
+        .map((t) => t.description.trim())
+        .filter((d) => d.length > 0)
+        .join('；')
+        .slice(0, 200);
+    }
+    if (!objective) objective = '(swarm batch)';
+    const createdGoal = await ensureGoalForBatch({
+      sessionId: context?.sessionId,
+      objective,
+    });
+    logger.info('swarm 批次目标自动创建检查完成', {
+      hasSession: Boolean(context?.sessionId),
+      created: createdGoal !== null,
+      goalId: createdGoal?.id ?? null,
     });
 
     // P1-C + R2（2026-09-21）：批次按 **worker 数占位**并发额度。

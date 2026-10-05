@@ -2,6 +2,8 @@
 
 > **版本**: v0.1 ｜ **创建**: 2026-09-23 ｜ **状态**: **待评审**
 > 状态复核（2026-10-04）：状态头 stale——正文 §2 已有 B2-1/3/5 等落地记录；缺口 X1–X11 与 §9 S1–S5 仍未实施，见 dev_docs/任务计划-20261004.md §2.2 P1-2。
+> **状态复核（2026-10-05，实证）**：**X1–X10 与 §9 S1–S5 已全部落地**（上文 2026-10-04 复核结论**不成立**，属 stale）。逐项证据：X1 事件族（`session/types/knownEventTypes.ts:80-82` + `eventPayloads.ts:402/422/444` + `tasks/goal/GoalEvents.ts`）；X2 `goal/injected`（`GoalEvents.ts:248/292/334`）；X3 `objective_updated` 消费者（`GoalEvents.ts:282-286` + `chat/manager/recovery.ts:271`）；X4 `PATCH /v1/goals/{id}`（`goal-routes.ts:278-280`）；X5 模板化（`TAORLoop.ts:1057` + `ResumeAgent.ts:86`）；X6 `run_id`（`TaskGoalStore.ts:190/setRunId` + `goalRunBinding.ts:138/154`）；X7 `goal:settle:<status>` 相位（`goalRunBinding.ts:110`）；X8 主会话记账（`goalBudget.ts:131 chargeSessionGoalUsage` + `ChatManager.ts:2717`）；X9/X10 `settleGoalForTurn`（`ReActToolLoop.ts:1782/2061`）。**实证**：`bun test tests/tasks/goal tests/http/goal-routes.test.ts tests/chat/goalUsageAccounting.test.ts` ⇒ **122 pass / 0 fail**。
+> **✅ X11 亦已落地（2026-10-05，用户裁定「后端自动 + 前端入口」）**：后端 `ensureGoalForBatch`（`goalRunBinding.ts`）+ 接入 `AgentTool.runSwarmPath`；前端 `goalService` + 聊天区 `GoalBar` + i18n；api-spec §3.8.1 同步。**⇒ 缺口 X1–X11 全部闭环**。设计见 §11、实施记录见 §12。
 > **上游文档**：
 > - `dev_docs/多Agent协作与长程任务-升级方案-20260922.md` **§5 B2 批次**（B2-1 ~ B2-5，:204-216）
 > - `dev_docs/20260922/Liri_Deficiency_Report.md` **P0-1**（:26-33）/ **P0-2**（:35-42）/ **P0-3**（:44-50）/ **P1-2**（:77）/ **P1-4**（:79）
@@ -478,8 +480,96 @@ CREATE TABLE IF NOT EXISTS task_goals (
 | U3 | `core/templates/goals/*` 与 `ext/goal/templates/goals/*` **两份同名模板**的差异**未比对** | 两者均存在（glob 实测）；本 Spec 以 `core/templates/goals/` 为准 |
 | U4 | `AgentTool.ts` 中 `runId` 的可得性**未逐行核实** | §5.4 假设 `settleRun` 侧持有 `agent_runs` 行 id；V10 落地前须先核实该 id 是否可获取（若不可得，需先补 `agent_runs` 读端） |
 | U5 | `loopProbe` 的"阻塞转储"消费路径**未逐行核实** | §5.4 的 `goal:settle:*` 相位标签依赖 `phaseStack`+`ArtifactRetention` 的现有消费；V12 前须核实转储产物确实暴露 phase 标签 |
-| U6 | `client/src` 是否**应**消费 `GET /v1/goals` | 现状"暂无前端消费者"（`api-spec.md:276`）；本 Spec **不**排期前端（N 系列未列，属范围外） |
+| ~~U6~~ | ~~`client/src` 是否**应**消费 `GET /v1/goals`~~ | ✅ **已排期（2026-10-05，§11 X11）**：前端 `goalService` + 聊天区会话级目标条 |
 
 ---
 
-*（本 Spec 为 v0.1 待评审稿；评审通过后按 §9 分步实施，并在文末追加「实施记录」节。）*
+## §11 X11 设计（2026-10-05）—— 目标自动创建入口（后端 + 前端）
+
+> **背景**：X1–X10 与 §9 S1–S5 已落地（见状态头实证）。本 § 仅设计 **X11**（原缺口："无自动创建入口 ⇒ 目标仍靠人显式 POST；'批次跑起来自动有目标'未成立"）。
+> **用户裁定（2026-10-05）**：**后端自动创建 + 前端入口**；前端落点 = **聊天区会话级「目标条」**（**不**并入 PDCA `/goal` 面板，遵守 §D6「两个目标实体不得混放」）。
+
+### 11.1 后端：批次启动自动创建（swarm 路径）
+
+| 项 | 设计 |
+|---|---|
+| **落点** | `app/src/tools/AgentTool/AgentTool.ts` 的 `runSwarmPath(...)` 开头（`agentInput`/`context` 已确定，紧邻既有 `PARALLEL_START` 之后） |
+| **新 helper** | `app/src/tasks/goal/goalRunBinding.ts` 新增导出 `ensureGoalForBatch(params: { sessionId?: string; objective: string })`（与既有 `settleGoalForRun` 同模块，复用 `listActive` 判据） |
+| **语义** | ① `sessionId` 缺失 ⇒ 返回 `null`（**零副作用**，与既有"无目标 ⇒ null"口径一致）；② `store.listActive(sessionId).length > 0` ⇒ 返回 `null`（**已有未终结目标，绝不覆盖**，守 §N4「一会话一目标」）；③ 否则 `store.create({objective, sessionId})` + `emitGoalCreated(...)` ⇒ 返回新 goal |
+| **objective 来源** | `agentInput.description`（`trim()` 非空）；为空 ⇒ 以 `tasks[].description` 拼接（截断至 ≤200 字符），仍空 ⇒ 字面量 `'(swarm batch)'`（不臆造语义，仅占位可读） |
+| **幂等** | 由 `listActive` 判据保证：同会话已有未终结目标 ⇒ 不重复建（同批次重复调用亦安全） |
+| **边界（不越权）** | **仅** swarm 批次路径（`runSwarmPath`）触发；单代理 direct / foreground / background 路径**不自动建**（避免"用户随口一问就产生目标"）。既有 `settleGoalForRun` 语义**不变**（仍取 `listActive()[0]`） |
+| **失败语义** | 建目标失败（DB 异常）⇒ `handleError` 记录后**不阻断批次**（与 `settleGoalForRun` 的观测面口径一致） |
+
+### 11.2 前端：聊天区会话级「目标条」
+
+| 项 | 设计 |
+|---|---|
+| **service** | 新建 `client/src/services/goalService.ts`：`list({ sessionId, activeOnly? })`（GET `/v1/goals`）、`create({ objective, sessionId, tokenBudget? })`（POST `/v1/goals`）、`update(id, { objective?, tokenBudget? })`（PATCH `/v1/goals/{id}`） |
+| **类型** | 复用 `client/src/types/events.ts` 的 `TaskGoalStatus`；新增 `TaskGoalDto`（`{ id, objective, status, tokenBudget?, tokensUsed, noProgressStreak, sessionId?, createdAt, updatedAt }`，与后端 `TaskGoalDto` 同形） |
+| **组件** | 新建 `client/src/components/ChatArea/GoalBar.tsx`：会话级目标条 —— 展示当前未终结目标（objective/状态/进度 `tokensUsed[/tokenBudget]`）+ 内联创建/编辑表单 + 历史目标折叠列表；无目标时仅显示"＋ 设目标"入口 |
+| **挂载** | `client/src/components/ChatArea/` 内（会话作用域顶栏下方）；仅在有 `sessionId` 时渲染 |
+| **i18n** | `client/src/i18n/locales/{zh,en}.ts` 新增 `goalBar.*` keys（无硬编码中文） |
+| **不混放** | **不**修改 `LoopPanel.tsx`（PDCA `/goal`）—— 目标条 `task_goals` 与 PDCA `goal_metrics` 分治（§D6） |
+
+### 11.3 api-spec 同步
+
+`.trae/docs/api-spec.md` §3.8.1 的"（暂无前端消费者）"注释 ⇒ 更新为前端 `goalService` 消费（POST/GET/PATCH 三条）。
+
+### 11.4 验收（新增）
+
+| # | 判据 | 验证方式 | 修复前必失败 |
+|---|---|---|:---:|
+| **V18** | swarm 批次启动、该会话无未终结目标 ⇒ 自动创建 goal（`task_goals` 有行 + `goal/created` 事件）；已有未终结目标 ⇒ **不新建**（幂等）；无 `sessionId` ⇒ 零副作用 | 单测（`tests/tasks/goal/goalAutoCreate.test.ts`，测试缝 `setTaskGoalStoreForTest`） | **是** |
+| **V19** | 前端目标条：无目标时渲染"设目标"入口；有目标时渲染 objective/状态；创建后列表刷新 | vitest（`client/src/tests/goalBar.test.tsx`） | **是**（组件不存在） |
+
+### 11.5 合规
+
+- 复用既有 `TaskGoalStore.create` / `goal/created` 事件 / `TaskOpsPort`（**不新建表/事件/端口**）；CS01/CS04 满足。
+- 事件落盘遵循 `project_rules.md §1.6`（`emitGoalCreated` 已有）。
+- 前端 service 走既有 `httpClient`（唯一入口），不新增 HTTP 客户端。
+- 后端新代码零 `any`；错误走 `handleError`；日志走 `getLogger('tasks:goal:*')`。
+
+---
+
+## §12 实施记录：X11 目标自动创建入口（2026-10-05，**已落地**）
+
+**范围**：仅 X11（后端自动创建 + 前端聊天区目标条）。X1–X10 与 §9 S1–S5 此前已落地（见状态头实证）。
+
+### 12.1 后端（V18）
+
+- **新 helper** `ensureGoalForBatch({ sessionId?, objective, store? })` —— `app/src/tasks/goal/goalRunBinding.ts`（+51 行）：`sessionId` 缺失 ⇒ `null`；`listActive` 非空 ⇒ `null`（不覆盖）；否则 `create` + `emitGoalCreated`；失败经 `handleError` 后返回 `null`（不阻断批次）。
+- **接入** `AgentTool.runSwarmPath`（+24 行，`PARALLEL_START` 之后）：objective 取 `agentInput.description` → 兜底 `tasks[].description` 拼接（≤200）→ `'(swarm batch)'`；**仅 swarm 路径**；既有 `settleGoalForRun` 语义不变。
+- **导出** `app/src/tasks/index.ts` 补 `ensureGoalForBatch`。
+- **单测** `app/tests/tasks/goal/goalAutoCreate.test.ts`（新增 155 行，**6 用例**：缺 sessionId 零副作用 / 无目标建行+事件 / 已有 active 幂等 / blocked 不新建 / 仅终态仍可建 / 缺省 store 走单例）。
+
+### 12.2 前端（V19）
+
+- **service** `client/src/services/goalService.ts`（新增 79 行）：复用 `http` 唯一入口（`./httpClient`），`list`/`create`/`update`；失败 `logger.warn` + 返回 `null`（沿用 `taskService` 范式）。
+- **类型** `TaskGoalDto` —— 加入 `client/src/types/events.ts`（紧邻 `TaskGoalStatus`）。
+- **组件** `client/src/components/ChatArea/GoalBar.tsx`（新增 252 行）：会话级目标条（当前未终结目标 + 内联创建/编辑 + 历史折叠）。
+- **挂载** `ChatArea.tsx`：`{currentSid && <GoalBar sessionId={currentSid} />}`（SessionHeader 下方、消息区上方）。
+- **i18n** `zh.ts`/`en.ts` 各 +18 keys（`goalBar.*`），零硬编码中文。
+- **单测** `client/src/tests/goalBar.test.tsx`（新增 84 行，**3 用例**）。
+- **不改** `LoopPanel.tsx`（遵守 §D6 两目标实体分治）。
+
+### 12.3 api-spec 同步（§11.3）
+
+`.trae/docs/api-spec.md` §3.8.1 三条的"前端调用方"列由"（暂无前端消费者）"更新为 `goalService` 消费 + 后端自动创建（X11）。
+
+### 12.4 测试断言变更（用户授权，2026-10-05）
+
+`app/tests/tools/AgentTool/swarmDescriptorResolution.test.ts:740-747`：原用例断言"该会话无目标 ⇒ **不建行**（`toEqual([])`）"，与 X11 §11.1「无未终结目标 ⇒ 自动建行」**直接对立**。按用户裁定更新为新契约（`toHaveLength(1)` + 同步用例标题），并注明"属设计预期变更，非弱化断言"。**仅此 1 处**、影响面收敛。
+
+### 12.5 门槛（全绿，独立复核）
+
+- **后端**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；疑似僵尸方法 0）· `lint:size` **0 错误** · `tests/tasks/goal` 106 pass · `tests/tools/AgentTool` 183 pass · 全量测试 **4394 pass / 21 skip / 0 fail**（462 文件，**我亲自重跑**）。
+- **前端**：`client typecheck 0` · eslint（7 文件）**0** · `vitest goalBar` **3 pass** · 客户端全量 **491 pass / 0 fail**（**我亲自复核 typecheck + goalBar**）。
+
+### 12.6 结论
+
+**⇒ X11 收官 ⇒ `goal-entity` 缺口 X1–X11 全部完成**（X1–X10 与 §9 S1–S5 此前已落地）。新增/改：后端 3 文件 + 1 新测试；前端 4 文件 + 2 新文件（service/组件/测试）+ i18n + api-spec。
+
+---
+
+*（本 Spec：X1–X11 与 §9 S1–S5 均已落地；§11 为 X11 设计、§12 为 X11 实施记录。D1–D7 裁决见 §8。）*

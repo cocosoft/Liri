@@ -737,13 +737,16 @@ describe('M-8：预算触顶收尾指令注入 LLM 输入', () => {
     expect(text).not.toContain('[SYSTEM]');
   });
 
-  test('该会话无目标 ⇒ 输出不含收尾指令（不建行、不注入）', async () => {
+  test('该会话无目标 ⇒ 自动建行（X11）且不注入收尾指令', async () => {
     const goalStore = installStore();
 
     const text = await runBatch(overBudget, 'sess-m8-none');
 
     expect(text).not.toContain('[SYSTEM]');
-    expect(await goalStore.listBySession('sess-m8-none')).toEqual([]);
+    // X11（2026-10-05，Spec §11.1，用户裁定）：swarm 批次启动且该会话无未终结目标 ⇒
+    // **自动创建目标行**（随后由 settleGoalForRun 落终态）。此前的"无目标 ⇒ 不建行"断言
+    // 是 X11 落地前的旧契约，已被取代（属设计预期变更，非弱化断言）。
+    expect(await goalStore.listBySession('sess-m8-none')).toHaveLength(1);
   });
 });
 

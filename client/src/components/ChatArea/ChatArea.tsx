@@ -15,6 +15,8 @@ import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
 // N-45：会话级"已让出 / 等待结算"提示条（读会话运行态，不经消息管道）
 import YieldNoticeBar from "./YieldNoticeBar";
+// X11（2026-10-05）：会话级「目标条」（`task_goals`；与 PDCA `/goal` 分治，见 goal-entity.md §D6）
+import GoalBar from "./GoalBar";
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D3）：会话级等待态的单一拉取点
 import { useWaitState } from "./useWaitState";
 import { usePdcaAutoAppend } from "./usePdcaAutoAppend";
@@ -426,6 +428,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
   return (
     <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex flex-col min-h-0">
+      {/* X11：会话级目标条（顶栏下方、消息区上方；无 sessionId 时不渲染） */}
+      {currentSid && <GoalBar sessionId={currentSid} />}
       <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
         <div ref={contentRef}>
           {/* 错误提示（1.10-4：删除文档流重复渲染，保留底部绝对定位浮层版本，始终可见） */}

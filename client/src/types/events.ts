@@ -71,6 +71,28 @@ export type TaskGoalUpdateReason =
   | "system_aborted"
   | "manual";
 
+/**
+ * 目标实体投影（X11，2026-10-05；与后端 `app/src/tasks/goal/TaskGoalStore.ts` 的
+ * `TaskGoal` 同形，字段名逐字对齐）。
+ *
+ * 契约（`app/src/infrastructure/http/handlers/routes/goal-routes.ts`）：
+ * - `GET /v1/goals` ⇒ `{ goals: TaskGoalDto[], count }`
+ * - `POST /v1/goals` / `PATCH /v1/goals/{id}` ⇒ `{ goal: TaskGoalDto }`
+ */
+export interface TaskGoalDto {
+  id: string;
+  sessionId?: string;
+  objective: string;
+  status: TaskGoalStatus;
+  tokenBudget?: number;
+  tokensUsed: number;
+  noProgressStreak: number;
+  runId?: string;
+  updatedReason?: TaskGoalUpdateReason;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type GoalTemplateKind =
   | "budget_limit"
   | "objective_updated"

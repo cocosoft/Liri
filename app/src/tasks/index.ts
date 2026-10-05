@@ -302,7 +302,11 @@ export type {
   GoalTemplateKind,
   ContinuationVariant,
 } from './goal/goalTemplates';
-export { settleGoalForRun, settleGoalForTurn } from './goal/goalRunBinding';
+export {
+  settleGoalForRun,
+  settleGoalForTurn,
+  ensureGoalForBatch,
+} from './goal/goalRunBinding';
 export type { GoalTurnReason } from './goal/goalRunBinding';
 export {
   chargeGoalUsage,

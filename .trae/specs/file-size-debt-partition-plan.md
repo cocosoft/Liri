@@ -1,7 +1,7 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：📝 **方案已立（只读设计，2026-10-03）· 未动码** —— 待用户选起点
+- **状态**：� **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）**已落地**；**批 A1（请求构建/快照/压缩）已落地**（见 §9.7）；批 A2–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
 ---
@@ -271,7 +271,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 文件 | 原始 | 当前 | 已落地 |
 |---|---|---|---|
-| `chat/ChatManager.ts` | 6729 | **6377** | 批 1–3：EventLog 家族 **17 成员** → `chat/manager/eventLogStore.ts`（`ChatEventLogStore`，538 行） |
+| `chat/ChatManager.ts` | 6729 | **6674** | 批 1–3：EventLog 家族 **17 成员** → `chat/manager/eventLogStore.ts`（538 行）；**批 A1**：请求构建/快照/压缩 **9 成员** → `chat/manager/requestPrep.ts`（278 行，见 §9.7） |
 
 ### 9.2 优先序（依据 §2 判据 + 实测行数）
 
@@ -288,7 +288,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 批 | 目标新文件 | 收拢簇（§7.1 编号） | 预估净出 | 依赖 / 注意 |
 |---|---|---|---|---|
-| A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | 需注入 `requestSnapshot`（懒初始化服务） |
+| A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | ✅ **已落地（2026-10-05，见 §9.7；实得 −141 行）** |
 | A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次 | ≈270 | 与 `RollbackIntegration` 交互 |
 | A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配 | ≈90 | 依赖 hook 链与服务 |
 | A4 | `chat/manager/bootstrap.ts` | C13 + C18 启动加载迁移 + 恢复/outbox/yield | ≈1090 | 体量最大；`_resumeSessionInternally` 与运行器强耦合 ⇒ **先依赖验证** |
@@ -313,3 +313,24 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | 1 | 是否追 `ChatManager < 1000` | 甲 追（再 6+ 批）／**乙 收益优先**（A1–A4 后重评估；本路线图默认）／丙 只做已开头即停 |
 | 2 | `fileSizeExceptions` 条目何时删 | **仅当该文件真正降到阈值以下**（§7.6 已更正） |
 | 3 | 何时转做 `CoreAPIImpl`(5022) | 甲 与 ChatManager 交替（避免单文件疲劳）／乙 先把 ChatManager 做到 A4 |
+
+---
+
+## 10. 实施记录：批 A1 —— 请求构建/快照/压缩（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/manager/requestPrep.ts`（`ChatRequestPrep`，**278 行**）
+
+**迁入成员（9）**：`extractFilePathsFromText` · `sanitizeApiMessages` · `recordModelInputSnapshot` · `recordToolsSnapshot` · `buildToolDefinitions` · `truncateApiMessages` · `compressToolHistory` · `estimateArrayTokens` · `approxJsonLength`（私）
+> 原私有字段 `_requestSnapshot` 与 `requestSnapshot` getter 一并迁入（快照服务改为绑定注入的 `getOrCreateEventLog`）。
+
+**注入依赖（`ChatRequestPrepDeps`，**全 getter** ⇒ 无字段初始化顺序陷阱）**：`getOrCreateEventLog` · `getChatSessions` · `getContextTracker` · `getToolRound`
+
+**ChatManager 侧**：新增 `private readonly _requestPrep`；8 个方法改**薄转发**；**删除** `_approxJsonLength`（迁后无调用者）与 `_requestSnapshot` 字段 / `requestSnapshot` getter；移除随迁而**不再使用**的导入 `toWireToolName` / `sanitizeApiMessages` / `compressToolHistory` / `truncateApiMessages` / `resolvePyappHome` / `RequestSnapshotService`（`ModelInputSnapshot` 保留为 type 导入）。
+
+**行数**：`ChatManager.ts` **6815 → 6674**（本批 −141；自 v0.4.58 起累计 6729 → 6674）
+> 注：与 §9.3 预估「≈220」有差 —— 因 C14 中部分方法本就只是薄封装（`_sanitizeApiMessages` 等），宿主净出量低于预估；**新模块 278 行**含头部与逐方法注释。
+
+**门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0**（3856 文件 / 分层违规 0，仅预存 4 warning）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 80.97s，**单独跑**）· 定向 eslint/prettier ✓
+
+**行为等价**：日志 module 名、对外签名、import 路径均不变 ⇒ **未改任何测试**（0 fail 即等价守卫）。
+**例外台账**：`fileSizeExceptions` 中 `ChatManager.ts` 条目**保留**（仍 >1000 行，§9.6 决策点 2）。

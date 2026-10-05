@@ -56,10 +56,8 @@ import {
   type SessionLookupArgs,
   type SessionLookupResult,
 } from './manager/eventLogStore';
-import {
-  RequestSnapshotService,
-  type ModelInputSnapshot,
-} from './services/RequestSnapshotService';
+import { ChatRequestPrep } from './manager/requestPrep';
+import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
   MessageToEventMigrator,
@@ -94,17 +92,10 @@ import {
   type RequestEventAppender,
 } from './services/requestBoundary';
 import { feature as coreFeature, selectPattern } from '@modules/core';
+import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
 import {
-  configureCodeRunner,
-  getSubAgentEngine,
-  toWireToolName,
-} from '@modules/tools';
-import {
-  sanitizeApiMessages,
-  compressToolHistory,
   persistTurnSummary,
   extractCurrentGoal,
-  truncateApiMessages,
   assembleContextualSystemPrompt,
   computePaginationPoint,
   contextLayeringEnabled,
@@ -355,11 +346,7 @@ import type {
   MessageMetadata,
 } from '@modules/session/types/UnifiedMessage';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/UnifiedMessage';
-import {
-  resolveProjectRoot,
-  resolveOutputDir,
-  resolvePyappHome,
-} from '@modules/core/paths';
+import { resolveProjectRoot, resolveOutputDir } from '@modules/core/paths';
 import {
   AppError,
   ErrorCategory,
@@ -801,6 +788,21 @@ export class ChatManagerImpl implements ChatManager {
     isCodeContext: () => this._lastStreamBuildCodeContext,
     getToolCallSeqMap: () => this._toolCallSeqMap,
     getToolCallSeqMapRebuilt: () => this._toolCallSeqMapRebuilt,
+  });
+
+  /**
+   * 请求构建 / 快照 / 压缩（`ChatRequestPrep`，A1 批提取自本类）。
+   *
+   * 原 C14 簇（`extractFilePathsFromText` / `_sanitizeApiMessages` / `requestSnapshot` 家族 /
+   * `_buildToolDefinitions` / `_truncateApiMessages` / `_compressToolHistory` /
+   * `_estimateArrayTokens` / `_approxJsonLength`）已随迁至该模块；本类经同族方法**薄转发**。
+   * 对外签名与日志口径不变（行为等价）；跨簇状态经全 getter 注入（无初始化顺序陷阱）。
+   */
+  private readonly _requestPrep = new ChatRequestPrep({
+    getOrCreateEventLog: (sid) => this._getOrCreateEventLog(sid),
+    getChatSessions: () => this._chatSessions,
+    getContextTracker: () => this.contextTracker,
+    getToolRound: (sid) => this.getToolRound(sid),
   });
 
   /**
@@ -2838,116 +2840,39 @@ export class ChatManagerImpl implements ChatManager {
     }
   }
 
-  /**
-   * 从用户消息文本中提取绝对文件路径
-   * 支持 Markdown 链接格式 [文件名](绝对路径) 和行内绝对路径
-   * 仅返回存在于磁盘上且属于用户数据目录（attachments/output/downloads）的路径
-   */
+  /** A1 拆分：文件路径提取已迁至 `ChatRequestPrep.extractFilePathsFromText`（薄转发） */
   private extractFilePathsFromText(text: string): string[] {
-    const paths: string[] = [];
-    if (!text || typeof text !== 'string') return paths;
-
-    // 匹配 Markdown 链接: [name](path)
-    const mdLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
-    let match: RegExpExecArray | null;
-    while ((match = mdLinkRegex.exec(text)) !== null) {
-      const rawPath = match[2];
-      if (path.isAbsolute(rawPath) && fs.existsSync(rawPath)) {
-        paths.push(rawPath);
-      }
-    }
-
-    // 匹配行内的绝对 Windows 路径（E:\... 或 C:\...）
-    const absPathRegex = /([A-Za-z]:\\[^\s)\]]+)/g;
-    while ((match = absPathRegex.exec(text)) !== null) {
-      const rawPath = match[1];
-      if (fs.existsSync(rawPath) && !paths.includes(rawPath)) {
-        paths.push(rawPath);
-      }
-    }
-
-    // 仅保留用户数据目录下的路径，避免注册系统路径
-    const pyappHome = resolvePyappHome();
-    const projectRoot = resolveProjectRoot();
-    return paths.filter(
-      (p) => p.startsWith(pyappHome) || p.startsWith(projectRoot)
-    );
+    return this._requestPrep.extractFilePathsFromText(text);
   }
 
-  /**
-   * 清理 API 消息列表中的孤立 tool_calls 和 tool 消息。
-   *
-   * DeepSeek API 要求：每个 assistant 含 tool_calls 之后，
-   * 紧随其后的 tool 消息必须响应其所有 tool_call_id，
-   * 中间不能插入非 tool 消息。
-   *
-   * 此方法从后往前遍历所有 assistant 含 tool_calls，
-   * 逐条检查紧随其后的 tool 消息是否全部响应。
-   */
+  /** A1 拆分：API 消息 sanitize 已迁至 `ChatRequestPrep.sanitizeApiMessages`（薄转发） */
   private _sanitizeApiMessages(apiMessages: Record<string, unknown>[]): void {
-    sanitizeApiMessages(apiMessages);
+    this._requestPrep.sanitizeApiMessages(apiMessages);
   }
 
   /**
-   * TR-12-B（2026-09-22）：模型输入快照服务（惰性单例，绑定本实例的事件日志缓存）。
-   *
-   * 复用 `_getOrCreateEventLog` 的 per-session 实例（**禁止自建**，避免 tailSeq 分裂）。
-   */
-  private _requestSnapshot?: RequestSnapshotService;
-
-  private get requestSnapshot(): RequestSnapshotService {
-    this._requestSnapshot ??= new RequestSnapshotService((sid) =>
-      this._getOrCreateEventLog(sid)
-    );
-    return this._requestSnapshot;
-  }
-
-  /**
-   * TR-12-B：落一条模型输入快照（工具清单 / 系统提示词分段，引用式去重）。
-   *
-   * 失败不阻断主路径（服务内仅 warn）；调用方按需 await。
+   * A1 拆分：模型输入快照（TR-12-B）已迁至 `ChatRequestPrep`（含其 `_requestSnapshot` 惰性单例）。
+   * 快照服务仍复用宿主的事件日志访问器（`_getOrCreateEventLog`）⇒ 无 tailSeq 分裂。
    */
   private _recordModelInputSnapshot(
     sessionId: string,
     input: ModelInputSnapshot
   ): Promise<void> {
-    return this.requestSnapshot.record(sessionId, input);
+    return this._requestPrep.recordModelInputSnapshot(sessionId, input);
   }
 
   /** TR-12-B：工具清单快照（3 个装配点的统一出口） */
   private _recordToolsSnapshot(sessionId: string, schemas: ToolSchema[]): void {
-    void this._recordModelInputSnapshot(sessionId, { tools: schemas });
+    this._requestPrep.recordToolsSnapshot(sessionId, schemas);
   }
 
-  /**
-   * 将 ToolSchema[] 转换为 OpenAI 兼容的 ToolDefinition[]
-   */
+  /** A1 拆分：`ToolSchema[] → ToolDefinition[]` 已迁至 `ChatRequestPrep.buildToolDefinitions` */
   private _buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[] {
-    return schemas.map((schema) => ({
-      type: 'function' as const,
-      function: {
-        // wire codec：出站必须用 wire 安全名。OpenAI 兼容 `tools[].function.name` 只接受
-        // `^[a-zA-Z0-9_-]+$`（禁冒号）——原样下发冒号命名空间工具（`calendar:add` /
-        // `office:workflow` / `mail:send`）会被 provider 以 400 拒绝
-        // （`Invalid 'tools[N].function.name'…`）⇒ `chunkCount:0` ⇒ 走空回复兜底
-        // ⇒ 用户感知「长程任务中断」。入站由 `ToolRegistry.resolveRegisteredName()` 回真名。
-        name: toWireToolName(schema.name),
-        description: schema.description,
-        parameters: {
-          type: 'object' as const,
-          properties:
-            (schema.input_schema as { properties?: unknown })?.properties || {},
-          required:
-            (schema.input_schema as { required?: string[] })?.required || [],
-        },
-      },
-    }));
+    return this._requestPrep.buildToolDefinitions(schemas);
   }
 
   /**
-   * 上下文长度保护（委托给 MessageContextPipeline）
-   * 压缩失败或压缩不足时退化为截断旧消息（保留 system prompt + 最近 N 条消息）。
-   * 截断后重新 sanitize 以修复 tool/tool_calls 配对完整性。
+   * 上下文长度保护（委托给 MessageContextPipeline；已随 A1 拆入 `ChatRequestPrep`）
    *
    * @param apiMessages - 待发送的消息列表（会被原地修改）
    * @param maxContextTokens - 模型上下文窗口上限（如 1_000_000），
@@ -2959,17 +2884,16 @@ export class ChatManagerImpl implements ChatManager {
     sessionId?: string,
     outputBudgetTokens?: number
   ): Promise<void> {
-    await truncateApiMessages(
+    await this._requestPrep.truncateApiMessages(
       apiMessages,
       maxContextTokens,
-      this._chatSessions,
       sessionId,
       outputBudgetTokens
     );
   }
 
   /**
-   * 压缩工具循环历史消息（委托给 MessageContextPipeline）
+   * 压缩工具循环历史消息（委托给 MessageContextPipeline；已随 A1 拆入 `ChatRequestPrep`）
    */
   private async _compressToolHistory(
     currentRoundMessages: Record<string, unknown>[],
@@ -2977,86 +2901,21 @@ export class ChatManagerImpl implements ChatManager {
     assistantMsg: Record<string, unknown>,
     toolResults: Record<string, unknown>[]
   ): Promise<Record<string, unknown>[]> {
-    const beforeTokens = await this._estimateArrayTokens(currentRoundMessages);
-
-    const result = compressToolHistory(
+    return this._requestPrep.compressToolHistory(
       currentRoundMessages,
       sessionId,
       assistantMsg,
       toolResults
     );
-
-    const afterTokens = await this._estimateArrayTokens(result);
-
-    this.contextTracker.record({
-      timestamp: Date.now(),
-      turnCount: this.getToolRound(sessionId),
-      engineName: 'default',
-      beforeTokens,
-      afterTokens,
-      compressionRatio: beforeTokens > 0 ? afterTokens / beforeTokens : 1,
-      messageCountBefore: currentRoundMessages.length,
-      messageCountAfter: result.length,
-      hasFocusTopic: false,
-    });
-
-    return result;
   }
 
   /**
-   * 估算消息数组的 token 数（流式近似估算）
-   *
-   * 2026-08-24 优化：原实现 JSON.stringify(messages).length / 4 会对超大消息数组
-   * 做同步全量序列化——字符串拼接 + 转义开销大，压缩边界单次可达数百 ms~秒级，
-   * 阻塞事件循环（心跳/SSE 全停，触发"流式响应超时"）。
-   * 现改为逐字段近似累加：
-   *   1. 不构造完整 JSON 字符串，峰值内存从 O(总量) 降为 O(1)
-   *   2. 每 1000 条让出一次事件循环（setImmediate），长数组不阻塞
-   * 近似模型与 JSON 序列化长度线性相关（键名 + 固定开销 + 值长度），/4 取 token，
-   * 压缩触发阈值行为与之前一致。
+   * 估算消息数组的 token 数（已随 A1 拆入 `ChatRequestPrep.estimateArrayTokens`）
    */
   private async _estimateArrayTokens(
     messages: Record<string, unknown>[]
   ): Promise<number> {
-    let totalChars = 0;
-    let processed = 0;
-    for (const msg of messages) {
-      // 每 1000 条让出事件循环，避免长数组同步遍历阻塞（心跳/SSE 停更）
-      if (++processed % 1000 === 0) {
-        await new Promise<void>((resolve) => setImmediate(resolve));
-      }
-      totalChars += this._approxJsonLength(msg);
-    }
-    return Math.max(1, Math.ceil(totalChars / 4));
-  }
-
-  /**
-   * 近似 JSON 序列化长度（不构造字符串，逐字段 O(1) 累加）
-   */
-  private _approxJsonLength(value: unknown): number {
-    if (value === null || value === undefined) return 4; // null / undefined
-    switch (typeof value) {
-      case 'string':
-        return value.length + 2; // 引号
-      case 'number':
-        return String(value).length;
-      case 'boolean':
-        return value ? 4 : 5; // true / false
-      case 'object': {
-        if (Array.isArray(value)) {
-          let len = 2; // []
-          for (const item of value) len += this._approxJsonLength(item) + 1; // 逗号
-          return len;
-        }
-        let len = 2; // {}
-        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-          len += k.length + 4 + this._approxJsonLength(v); // 键 + 引号/冒号/逗号
-        }
-        return len;
-      }
-      default:
-        return 4; // function/symbol 等（JSON.stringify 会省略）
-    }
+    return this._requestPrep.estimateArrayTokens(messages);
   }
 
   /**

@@ -46,7 +46,7 @@
 | 状态判断用字符串？ | [CS02 禁止字符串匹配](.trae/rules/coding-standards.md) |
 | 需要 try-catch 回退吗？ | [CS03 回退策略最小化](.trae/rules/coding-standards.md) |
 | 能写 Mock 数据吗？ | [CS04 Mock 零容忍](.trae/rules/coding-standards.md) |
-| 文件能超过 800 行吗？ | [R04-001 文件行数限制](.trae/rules/architecture-compliance.md) |
+| 文件能超过 2000 行吗？ | [R04-001 文件行数限制](.trae/rules/architecture-compliance.md) |
 | 新增 HTTP 端点往哪放？ | [api-spec.md](.trae/docs/api-spec.md) + [R03 模块边界](.trae/rules/architecture-compliance.md) |
 | 日志怎么写？ | [project_rules.md §1.8](.trae/rules/project_rules.md) — 唯一入口 Logger.ts |
 | 错误怎么处理？ | [project_rules.md §1.9](.trae/rules/project_rules.md) — 唯一入口 handleError() |
@@ -70,7 +70,7 @@
 | R01 | 基础设施复用（EventBus/Error/Cache/Retry） | architecture-compliance.md |
 | R02 | 数据模型统一（禁止重复定义类型） | architecture-compliance.md |
 | R03 | 模块边界控制（禁止跨层依赖） | architecture-compliance.md |
-| R04-001 | 文件行数不超过 800 行 | architecture-compliance.md |
+| R04-001 | 文件行数不超过 2000 行 | architecture-compliance.md |
 | R06-001 | Handler 注册模式（禁止 if/else 路由） | architecture-compliance.md |
 | R06-005 | 文件命名规范（禁止 utils/helpers 垃圾桶） | architecture-compliance.md |
 | R06-006 | 文件职责单一（禁止薄转发僵尸方法） | architecture-compliance.md |

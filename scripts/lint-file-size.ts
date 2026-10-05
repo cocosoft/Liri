@@ -2,7 +2,7 @@
  * 巨型文件检查器 (File Size Linter)
  *
  * 在 CI 中运行：bun run scripts/lint-file-size.ts
- * 检查项目中的巨型文件（>500 行警告，>1000 行错误）。
+ * 检查项目中的巨型文件（>500 行警告，>2000 行错误）。
  *
  * 对应 .trae/rules/project_rules.md §6 优化项 E：巨型文件拆分。
  */
@@ -15,8 +15,8 @@ import { EOL } from 'node:os';
 
 /** 超过此行数为警告 */
 const WARN_LINES = 500;
-/** 超过此行数为错误（与 R04-001 MUST 800 行对齐） */
-const ERROR_LINES = 800;
+/** 超过此行数为错误（与 R04-001 MUST 2000 行对齐；2026-10-05 由 800 上调） */
+const ERROR_LINES = 2000;
 /** 排除目录 */
 const EXCLUDE_DIRS = new Set([
   'node_modules',
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
 
   // 退出码：有错误则失败（例外豁免不计入）
   if (errorCount > 0) {
-    console.log('存在 >800 行且未登记例外的文件需要拆分（阻塞合并）。');
+    console.log('存在 >2000 行且未登记例外的文件需要拆分（阻塞合并）。');
     console.log(
       '历史巨型文件请登记到 scripts/layer-exceptions.json 的 fileSizeExceptions（R04-001）。'
     );

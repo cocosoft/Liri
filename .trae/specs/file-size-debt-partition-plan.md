@@ -1,12 +1,15 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1**、**批 A2**、**批 A3**、**批 A4a（C13 启动加载/迁移）** 已落地（见 §10–§13）；**批 A4b（C18）** 与 A5–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证
+- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1**、**批 A2**、**批 A3**、**批 A4a（C13 启动加载/迁移）** 已落地（见 §10–§13）；**批 A4b（C18）** 与 A5–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证。
+- **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**A5/A6 的"降至阈值以下"收益已消失**，后续批次是否继续**待裁定**。详见 **§14**。
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
 ---
 
 ## 1. 重算数据（确凿，2026-10-03）
+
+> ⚠️ **口径已变更（2026-10-05）**：`R04-001` 上限由 **1000 → 2000** ⇒ 本节「156 条」为**旧口径**数据（保留作历史）；**新口径实测（>2000 = 16 个文件）见 §14**。
 
 **例外源**：`scripts/layer-exceptions.json`（**不在** `modules-to-layers.json`）
 
@@ -311,7 +314,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | # | 问题 | 选项 |
 |---|---|---|
 | 1 | 是否追 `ChatManager < 1000` | 甲 追（再 6+ 批）／**乙 收益优先**（A1–A4 后重评估；本路线图默认）／丙 只做已开头即停 |
-| 2 | `fileSizeExceptions` 条目何时删 | **仅当该文件真正降到阈值以下**（§7.6 已更正） |
+| 2 | `fileSizeExceptions` 条目何时删 | **仅当该文件真正降到阈值以下**（§7.6 已更正）；⚠️ **2026-10-05 阈值升到 2000 后，~145 条已陈旧待清理（见 §14）** |
 | 3 | 何时转做 `CoreAPIImpl`(5022) | 甲 与 ChatManager 交替（避免单文件疲劳）／乙 先把 ChatManager 做到 A4 |
 
 ---
@@ -404,3 +407,28 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **行为等价**：日志 module 名、对外签名、接口契约不变 ⇒ **未改任何测试**（0 fail 且用例数与 A3 后逐字一致）。
 **例外台账**：`ChatManager.ts` 条目**保留**（仍 >1000 行）。
+
+---
+
+## 14. 口径变更：R04-001 上限 1000 → 2000（2026-10-05，用户裁定）
+
+**变更（两处门槛必须同步，否则 800 仍会拦截）**：
+- `scripts/lint-architecture.ts`：`MAX_FILE_LINES` 默认 **1000 → 2000**（`ARCH_MAX_LINES` 仍可覆盖）；
+- `scripts/lint-file-size.ts`：`ERROR_LINES` **800 → 2000**（其**头注释原写「>1000 行错误」与代码 800 不一致**，本次一并订正为 2000）；
+- 规则/文档同步：`architecture-compliance.md`（R04-001 1000→2000）、`AGENTS.md`（原写 **800**→2000）、`development-workflow.md`（>800→>2000）、`FTSIndexStore.ts` 注释（"千行硬约束"→"两千行"）。
+
+**→ 需处置面（实测重算，2026-10-05）**：
+
+| 口径 | 需拆/需例外的文件数 |
+|---|---|
+| 旧（>1000） | **156** |
+| 新（>2000） | **16**（全部已登记例外） |
+
+> 实测 `bun run lint:size`：**错误 1 → 0**（原唯一错误为 `app/src/evals/cli.ts` 868 行）；例外豁免 **151 → 16**。
+> 16 个 >2000 行文件（实测行数）：
+> `chat/ChatManager.ts` 5969 · `client/i18n/locales/en.ts` 5966 · `client/i18n/locales/zh.ts` 5889 · `runtime/api/CoreAPIImpl.ts` 5337 · `chat/ReActToolLoop.ts` 3595 · `tools/AgentTool/AgentTool.ts` 3289 · `chat/orchestrator/streamMessageFlow.ts` 2771 · `tasks/LongRunningTaskOrchestrator.ts` 2715 · `channels/qq/QQChannel.ts` 2394 · `infrastructure/http/handlers/knowledge-handlers.ts` 2376 · `session/SessionGateway.ts` 2364 · `query/TAORLoop.ts` 2290 · `session/storage/EventLogStorage.ts` 2274 · `ai/local/llama/LlamaCppServerManager.ts` 2185 · `main.ts` 2118 · `client/.../MediaPage.tsx` 2038
+
+**对本路线图的影响（如实）**：
+- §9.3 的 **A5（≈680）** / **A6（≈280）** 的"降到阈值以下"收益**已消失**（即便完成，ChatManager 仍 >5000 行）⇒ 是否继续**改按 §2「变更隔离 / 单测粒度」收益**判定，**待用户裁定**；
+- ✅ **`fileSizeExceptions` 已清理（2026-10-05）**：**161 → 16 条**（仅保留实测 >2000 行者，并刷新其 `lines` / `targetLines=2000`）；`lint:arch` / `lint:size` 均 **0 错误**。⇒ 已消除"陈旧登记在 `expiresAt` 到期时误报 `EXC-EXPIRED`（指向已不超限文件）"的隐患。
+- 两个 i18n 词表按 §2 判据仍**不建议拆**。

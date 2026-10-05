@@ -22,7 +22,7 @@
  * FTSIndexStore — FTS 索引的**磁盘布局层**（spec `fts-index-per-session-sharding.md` §8）
  *
  * 独立于 `FTS5SearchEngine`（索引/检索逻辑）的原因：磁盘布局是单一职责，且引擎已近
- * 千行硬约束（`ARCH_MAX_LINES`），片读写无处安放。
+ * 两千行硬约束（`ARCH_MAX_LINES`），片读写无处安放。
  *
  * 布局：`<indexDir>/manifest.json` + `<indexDir>/shards/<safeSessionId>.json`
  * （临时文件 `.tmp.<hex>`，由 `AtomicWriter` 写、`rename` 原子替换）

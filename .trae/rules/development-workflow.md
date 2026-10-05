@@ -222,7 +222,7 @@ bun run modules:snapshot # 6. 更新依赖快照
 
 **强制规则**：
 1. **新增/修改代码前**必须 `bun run lint:arch`，error 级违规不得合入（见 2.13 提交前检查）
-2. **超限文件（>800 行）** 必须登记 `scripts/layer-exceptions.json` 的 `fileSizeExceptions`，带 owner + 截止日期 + 拆分计划；例外到期未修复由 `checkExceptionExpiry` 阻断
+2. **超限文件（>2000 行）** 必须登记 `scripts/layer-exceptions.json` 的 `fileSizeExceptions`，带 owner + 截止日期 + 拆分计划；例外到期未修复由 `checkExceptionExpiry` 阻断
 3. **迭代健康度报告**由 owner 在迭代评审中审查，碎片/僵尸/桶等 SHOULD 级技术债持续下降为合格
 4. **季度复盘**只改规则本身（阈值/强制级别），不回退到"重新写文档"
 

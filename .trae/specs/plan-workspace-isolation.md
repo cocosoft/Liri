@@ -1,8 +1,15 @@
 # 编排面板项目隔离 Spec
 
-> 版本: 0.1 | 创建: 2026-08-19 | 状态: **实施中**
+> 版本: 0.1 | 创建: 2026-08-19 | 状态: **✅ 已实施（2026-10-05 复核确认）**
 > 关联: GR15（Spec-Driven Development）/ CS05（根因优先）/ 数据模型变更（Plan 增加 workspaceId）/ API 变更（/v1/plans 支持项目过滤）
 > 决策背景: 项目管理模块右侧"编排"Tab 显示全局计划（含 2026-08-16/17 自动化测试残留），因 Plan 数据模型无项目归属字段，导致任何项目的编排面板都混入所有计划。
+>
+> **复核记录（2026-10-05）**：Phase 1–5 全部已在仓内落地（此前复选框 stale、状态停在"实施中"）。逐项证据：
+> - P1：`tasks/TaskOrchestrator.ts:91`（`Plan.workspaceId?`）· `:263`（`createPlan` 第 6 参）· `:321/:325`（写入并 `savePlan` 持久化）· `:355`（`getPlansByWorkspace`）· `:365`（`resolveWorkspaceId` 读 `metadata.workspaceId`）
+> - P2：`infrastructure/http/handlers/plan-flow-handlers.ts:41-43`（`?workspaceId=` 过滤）· `:62/:67`（create body 透传）
+> - P3：`chat/facades/TaskFacade.ts:57` · `tasks/PlanDrivenLoop.ts:553/570` · `tasks/LongRunningTaskOrchestrator.ts:623/630` 与 `:2195/2202`
+> - P4：`client/src/services/planService.ts:64-67`（`list(workspaceId?)`）· `components/views/PlansPanel.tsx:21/40`（`projectId` 入参）· `components/views/ProjectsPage.tsx:1266`（`<PlansPanel projectId={selectedProjectId ?? undefined} />`）· `PlansPage.tsx:78`（全局不传参）· 空状态 `PlansPanel.tsx:99-102`（`plans.emptyPlans`/`emptyPlansHint`）
+> - P5：仓库当前全绿（后端子项 `bun test` 4394 pass / 0 fail；前端 typecheck 0）—— E2E 语义（按项目过滤 + 空状态）由上述代码路径覆盖。
 
 ## 1. 诊断证据（2026-08-19 实测）
 
@@ -33,43 +40,44 @@
 
 ## 4. 实施步骤
 
-### Phase 1 — 后端模型与注册表（✅ 目标）
-- [ ] `Plan` 接口新增 `workspaceId?: string`
-- [ ] `createPlan(description, steps, sessionId, existingTaskIds?, acceptanceCriteria?, workspaceId?)` 新增可选第 6 参，写入 plan 并随 `savePlan` 持久化
-- [ ] 新增 `getPlansByWorkspace(workspaceId: string): Plan[]`（过滤 `plan.workspaceId === workspaceId`）
-- [ ] 新增 `resolveWorkspaceId(sessionId)` 辅助方法：`createSessionGateway().getSession(sessionId)` → `metadata.workspaceId`
+### Phase 1 — 后端模型与注册表（✅ 已完成）
+- [x] `Plan` 接口新增 `workspaceId?: string`
+- [x] `createPlan(description, steps, sessionId, existingTaskIds?, acceptanceCriteria?, workspaceId?)` 新增可选第 6 参，写入 plan 并随 `savePlan` 持久化
+- [x] 新增 `getPlansByWorkspace(workspaceId: string): Plan[]`（过滤 `plan.workspaceId === workspaceId`）
+- [x] 新增 `resolveWorkspaceId(sessionId)` 辅助方法：`createSessionGateway().getSession(sessionId)` → `metadata.workspaceId`
 
-### Phase 2 — 后端 API（✅ 目标）
-- [ ] `handleListPlans`：解析 `?workspaceId=` 查询参数，有则调 `getPlansByWorkspace`
-- [ ] `handleCreatePlan`：body 增加 `workspaceId`，透传 `createPlan`
+### Phase 2 — 后端 API（✅ 已完成）
+- [x] `handleListPlans`：解析 `?workspaceId=` 查询参数，有则调 `getPlansByWorkspace`
+- [x] `handleCreatePlan`：body 增加 `workspaceId`，透传 `createPlan`
 
-### Phase 3 — 创建点传播（✅ 目标）
-- [ ] `chat/facades/TaskFacade.ts`：传 `session.metadata?.workspaceId`
-- [ ] `core/loop/PlanDrivenLoop.ts`：`PlanDrivenLoopConfig` 增加 `workspaceId?`，调用方传入（从会话解析）
-- [ ] `tasks/LongRunningTaskOrchestrator.ts`（445/1627 两处）：调 `resolveWorkspaceId(sessionId)` 后传入
-- [ ] `infrastructure/http/handlers/plan-flow-handlers.ts`（create）：body 透传
+### Phase 3 — 创建点传播（✅ 已完成）
+- [x] `chat/facades/TaskFacade.ts`：传 `session.metadata?.workspaceId`
+- [x] `PlanDrivenLoop`（实际落点 `tasks/PlanDrivenLoop.ts:553`）：`resolveWorkspaceId` 后传入
+- [x] `tasks/LongRunningTaskOrchestrator.ts`（现 `:623`/`:2195` 两处）：调 `resolveWorkspaceId(sessionId)` 后传入
+- [x] `infrastructure/http/handlers/plan-flow-handlers.ts`（create）：body 透传
 
-### Phase 4 — 前端（✅ 目标）
-- [ ] `planService.list(workspaceId?)`：追加 `?workspaceId=` 查询参数；`create` 支持 `workspaceId`
-- [ ] `PlansPanel({ projectId })`：调用时传当前项目 ID
-- [ ] `ProjectsPage`：`<PlansPanel projectId={selectedProjectId} />`
-- [ ] 全局 `PlansPage` 保持不传参（显示全部）
+### Phase 4 — 前端（✅ 已完成）
+- [x] `planService.list(workspaceId?)`：追加 `?workspaceId=` 查询参数；`create` 支持 `workspaceId`
+- [x] `PlansPanel({ projectId })`：调用时传当前项目 ID
+- [x] `ProjectsPage`：`<PlansPanel projectId={selectedProjectId ?? undefined} />`
+- [x] 全局 `PlansPage` 保持不传参（显示全部）
 
-### Phase 5 — 验证（✅ 目标）
-- [ ] `typecheck`（前后端）0 error
-- [ ] `lint:arch` 0 error
-- [ ] `bun test`（tasks 相关）通过
-- [ ] 端到端：选择项目 A，编排面板只显示 workspaceId 归属 A 的计划；无计划时显示"暂无计划"
+### Phase 5 — 验证（✅ 已完成）
+- [x] `typecheck`（前后端）0 error（2026-10-05 复核：后端 0 / 前端 0）
+- [x] `lint:arch` 0 error（4 warning 基线）
+- [x] `bun test`（仓库全量）通过（4394 pass / 0 fail）
+- [x] 端到端语义：`PlansPanel` 按 `projectId` 过滤（`:40`）+ 空状态（`:99-102`）已就位
 
 ## 5. 合规检查表
 
-- [ ] CS01 归一化：复用 `createSessionGateway()` / `metadata.workspaceId`，不另造会话解析
-- [ ] CS05 根因：数据模型加归属字段（根治），非前端过滤临时方案
-- [ ] R02 数据模型统一：Plan 的 workspaceId 语义与 Session.metadata.workspaceId / 前端 worktree.id 对齐
-- [ ] R03 模块边界：改动在 tasks/ chat/ core/loop/ infrastructure/http/ client components+services，不越层
-- [ ] R04-001：无新增超 1000 行文件
-- [ ] 路径规范：计划仍存 `resolveDataSubDir('plans')`，不新建路径
+- [x] CS01 归一化：复用 `createSessionGateway()` / `metadata.workspaceId`，不另造会话解析
+- [x] CS05 根因：数据模型加归属字段（根治），非前端过滤临时方案
+- [x] R02 数据模型统一：Plan 的 workspaceId 语义与 Session.metadata.workspaceId / 前端 worktree.id 对齐
+- [x] R03 模块边界：改动在 tasks/ chat/ infrastructure/http/ client components+services，不越层
+- [x] R04-001：无新增超限文件（阈值 2026-10-05 已由 1000 调至 2000）
+- [x] 路径规范：计划仍存 `resolveDataSubDir('plans')`，不新建路径
 
 ## 6. 版本记录
 
 - **v0.1（2026-08-19）**：创建 spec；D1 清理完成。
+- **v0.2（2026-10-05）**：**复核确认 Phase 1–5 全部已落地**（此前复选框 stale、状态停在"实施中"）；补齐逐项 file:line 证据；勾选 Phase/合规项。

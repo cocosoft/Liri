@@ -18,7 +18,11 @@ import {
   buildCodeRunnerToolManifest,
   configureCodeRunner,
   CodeRunnerTool,
-  DEFAULT_TOOL_WHITELIST,
+  parseCodeModeToolTier,
+  resolveCodeRunnerToolWhitelist,
+  TIER1_TOOL_WHITELIST,
+  TIER2_TOOL_WHITELIST,
+  whitelistForTier,
 } from '../../src/tools/CodeRunner/CodeRunnerTool';
 import { getToolRegistry } from '../../src/tools/ToolRegistry';
 import type { Tool, ToolParam } from '../../src/tools/types';
@@ -79,7 +83,7 @@ describe('code_run 工具清单注入（T-2 ①）', () => {
     expect(manifest).toContain('glob(');
     // 清单必须与沙箱可调集一致 ⇒ 白名单外工具不得出现
     expect(manifest).not.toContain('bash(');
-    expect([...DEFAULT_TOOL_WHITELIST].sort()).toEqual([
+    expect([...TIER1_TOOL_WHITELIST].sort()).toEqual([
       'file_read',
       'glob',
       'grep',
@@ -143,6 +147,49 @@ describe('code_run 工具清单注入（T-2 ①）', () => {
     });
     try {
       expect(buildCodeRunnerToolManifest()).toBe('');
+    } finally {
+      resetWhitelist();
+    }
+  });
+
+  it('Tier2 opt-in：档位解析（缺省/非法/低于 2 ⇒ 收紧为 1）', () => {
+    expect(parseCodeModeToolTier(undefined)).toBe(1);
+    expect(parseCodeModeToolTier('')).toBe(1);
+    expect(parseCodeModeToolTier('1')).toBe(1);
+    expect(parseCodeModeToolTier('0')).toBe(1);
+    expect(parseCodeModeToolTier('abc')).toBe(1);
+    expect(parseCodeModeToolTier('2')).toBe(2);
+    expect(parseCodeModeToolTier('3')).toBe(2);
+  });
+
+  it('Tier2 opt-in：档位 → 生效白名单（Tier2 恒为 Tier1 超集）', () => {
+    expect([...whitelistForTier(1)].sort()).toEqual([
+      'file_read',
+      'glob',
+      'grep',
+    ]);
+    const tier2 = whitelistForTier(2);
+    // 超集：Tier1 全含
+    for (const name of TIER1_TOOL_WHITELIST) expect(tier2.has(name)).toBe(true);
+    // Tier2 全部 10 项在册 + 与 Tier1 无重叠
+    expect(TIER2_TOOL_WHITELIST.size).toBe(10);
+    for (const name of TIER2_TOOL_WHITELIST) expect(tier2.has(name)).toBe(true);
+    expect(tier2.size).toBe(13);
+  });
+
+  it('未开启（未注入运行期白名单且 env 缺省）⇒ 生效白名单 = Tier1', () => {
+    resetWhitelist();
+    const effective = resolveCodeRunnerToolWhitelist();
+    expect([...effective].sort()).toEqual(['file_read', 'glob', 'grep']);
+  });
+
+  it('Tier2 生效时清单随之扩展（web_fetch 等出现在 code_run 描述里）', () => {
+    ensureTool('web_fetch', 'Fetch a URL', [p('url', 'string', true)]);
+    configureCodeRunner({ toolWhitelist: whitelistForTier(2) });
+    try {
+      const manifest = buildCodeRunnerToolManifest();
+      expect(manifest).toContain('web_fetch(');
+      expect(manifest).toContain('file_read(');
     } finally {
       resetWhitelist();
     }

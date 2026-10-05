@@ -23,6 +23,7 @@ import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import { getLogger } from '@modules/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { PermissionManager } from '@modules/permission';
+import { configManager } from '@modules/config';
 
 import { validateCodeRunnerCode } from './staticValidation';
 import { runCodeRunnerSafely } from './LinuxSandboxRunner';
@@ -37,19 +38,70 @@ const CODE_MAX_BYTES = 64 * 1024;
 /** 默认超时（ms） */
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-/** 首版 callTool 显式工具白名单（方案待确认②建议：只读工具） */
-export const DEFAULT_TOOL_WHITELIST: ReadonlySet<string> = new Set([
+/**
+ * **Tier1**（默认启用）：本地只读文件检索 —— 沙箱的默认能力面。
+ */
+export const TIER1_TOOL_WHITELIST: ReadonlySet<string> = new Set([
   'file_read',
   'grep',
   'glob',
 ]);
 
+/**
+ * **Tier2**（**默认关**，需显式开启）：只读扩展集。
+ *
+ * 开启方式：`CODE_MODE_TOOL_TIER=2`（env 统一出入口 `configManager.env`，R05-012）。
+ * 成员口径 = 任务计划 §12 T-2② 裁定（2026-10-05）：
+ * 网络检索 / 工具与技能元数据 / 跨会话读取 / 本地媒介·项目只读。
+ *
+ * 注意：**Tier3（写 / 执行类）永不入白名单** —— 那些工具必须走主循环逐次审批。
+ */
+export const TIER2_TOOL_WHITELIST: ReadonlySet<string> = new Set([
+  // 网络检索（**出网**：参数/上下文会发往外部服务）
+  'web_fetch',
+  'web_search',
+  // 工具与技能元数据（纯元数据查询）
+  'tool_search',
+  'skills_list',
+  'skill_view',
+  // 跨会话读取（读会话/消息内容）
+  'sessions',
+  // 本地媒介 / 项目只读（与 Tier1 同性质）
+  'media_info',
+  'media_pdf_extract',
+  'media_qr_decode',
+  'read_project_file',
+]);
+
+/** 工具层级：1 = 仅 Tier1（默认）；2 = Tier1 ∪ Tier2 */
+export type CodeModeToolTier = 1 | 2;
+
 /** 清单内单条工具描述的截断上限（控制 token 成本） */
 const MANIFEST_TOOL_DESC_MAX = 120;
 
-/** 当前**生效**的工具白名单（运行期注入优先，缺省为只读三件套） */
+/** 解析层级档位（纯函数，可单测）：缺省 / 非法 / <2 ⇒ **1**（收紧，不放开） */
+export function parseCodeModeToolTier(
+  raw: string | undefined
+): CodeModeToolTier {
+  return raw !== undefined && Number(raw) >= 2 ? 2 : 1;
+}
+
+/** 某档位对应的**生效白名单**（Tier2 恒为 Tier1 的超集） */
+export function whitelistForTier(tier: CodeModeToolTier): ReadonlySet<string> {
+  return tier >= 2
+    ? new Set([...TIER1_TOOL_WHITELIST, ...TIER2_TOOL_WHITELIST])
+    : TIER1_TOOL_WHITELIST;
+}
+
+/**
+ * 当前**生效**的工具白名单：运行期注入优先（宿主/测试覆盖）→ 否则按
+ * `CODE_MODE_TOOL_TIER` 档位解析（缺省 Tier1）。
+ */
 export function resolveCodeRunnerToolWhitelist(): ReadonlySet<string> {
-  return runtimeDeps.toolWhitelist ?? DEFAULT_TOOL_WHITELIST;
+  if (runtimeDeps.toolWhitelist) return runtimeDeps.toolWhitelist;
+  return whitelistForTier(
+    parseCodeModeToolTier(configManager.env('CODE_MODE_TOOL_TIER'))
+  );
 }
 
 /**
@@ -255,7 +307,7 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
         (async () => {
           /* 未接线时忽略（CM-5 后接入） */
         }),
-      toolWhitelist: runtimeDeps.toolWhitelist ?? DEFAULT_TOOL_WHITELIST,
+      toolWhitelist: resolveCodeRunnerToolWhitelist(),
     });
 
     // 5. 执行（安全选择器：Linux landlock → 跨平台降级）

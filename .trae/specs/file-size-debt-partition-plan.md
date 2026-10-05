@@ -1,7 +1,7 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1**（请求构建/快照/压缩）、**批 A2**（交互/回滚轮次）、**批 A3**（系统提示词组装）已落地（见 §10 / §11 / §12）；批 A4–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证
+- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1**、**批 A2**、**批 A3**、**批 A4a（C13 启动加载/迁移）** 已落地（见 §10–§13）；**批 A4b（C18）** 与 A5–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
 ---
@@ -271,13 +271,13 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 文件 | 原始 | 当前 | 已落地 |
 |---|---|---|---|
-| `chat/ChatManager.ts` | 6729 | **6433** | 批 1–3：EventLog 家族 **17 成员** → `chat/manager/eventLogStore.ts`（538 行）；**批 A1**：请求构建/快照/压缩 **9 成员** → `chat/manager/requestPrep.ts`（278 行，见 §10）；**批 A2**：交互/回滚 **5 成员** → `chat/manager/rollback.ts`（350 行，见 §11）；**批 A3**：系统提示词组装 **2 成员** → `chat/manager/promptAssembly.ts`（124 行，见 §12） |
+| `chat/ChatManager.ts` | 6729 | **5968** | 批 1–3：EventLog 家族 **17 成员** → `eventLogStore.ts`（538 行，§7）；**A1**：请求构建/快照/压缩 **9 成员** → `requestPrep.ts`（278 行，§10）；**A2**：交互/回滚 **5 成员** → `rollback.ts`（350 行，§11）；**A3**：系统提示词组装 **2 成员** → `promptAssembly.ts`（124 行，§12）；**A4a**：启动加载/迁移 **6 成员** → `bootstrap.ts`（581 行，§13） |
 
 ### 9.2 优先序（依据 §2 判据 + 实测行数）
 
 | 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
 |---|---|---|---|---|
-| 1 | `chat/ChatManager.ts` | 6377 | 已开头（−352） | 按 §9.3 的 A1–A4 继续（**每批 1 个簇**） |
+| 1 | `chat/ChatManager.ts` | 5968 | 已开工（−761） | 继续 §9.3 的 **A4b（C18）** / A5 / A6（**每批 1 个簇**） |
 | 2 | `runtime/api/CoreAPIImpl.ts` | 5022 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
 | 3 | `chat/ReActToolLoop.ts` | 3447 | **未取证** | 同上 |
 | 4 | `tools/AgentTool/AgentTool.ts` | 3115 | **未取证** | 同上 |
@@ -291,7 +291,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | ✅ **已落地（2026-10-05，见 §10；实得 −141 行）** |
 | A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次（**收窄为 5 成员**） | ≈270 | ✅ **已落地（2026-10-05，见 §11；实得 −202 行）**；`_buildToolRoundMessages`/`_dedupeToolResultForStub` **移出本批** ⇒ 归 A5（流管道职责） |
 | A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配（**收窄为 2 成员**） | ≈90 | ✅ **已落地（2026-10-05，见 §12；实得 −39 行）**；`getHookChainManager`（通用 getter）与 `_extractCurrentGoal`（**全仓无调用者**）**不并入** |
-| A4 | `chat/manager/bootstrap.ts` | C13 + C18 启动加载迁移 + 恢复/outbox/yield | ≈1090 | 体量最大；`_resumeSessionInternally` 与运行器强耦合 ⇒ **先依赖验证** |
+| A4 | `chat/manager/bootstrap.ts` | C13 启动加载/迁移 + C18 恢复/outbox/yield（**拆为 A4a / A4b**） | ≈1090 | ✅ **A4a（C13，6 成员）已落地（2026-10-05，见 §13；实得 −465 行）**；⚠️ **A4b（C18 五方法）未开工** —— `_resumeSessionInternally` 与运行器强耦合、且 `cleanup()` 消费其卸载句柄 ⇒ **须先依赖验证** |
 | A5 | `chat/manager/streamPipeline.ts` | 流管道段（`_buildApiMessagesForStream` 等） | ≈680 | 与 `sendMessage` 主链边界需先验证 |
 | A6 | `chat/manager/sessionCrud.ts` | C21 会话 CRUD/门面 | ≈280 | 多接口方法 ⇒ 宿主保留转发 |
 
@@ -379,4 +379,28 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0**（3858 文件 / 分层违规 0，仅预存 4 warning；**僵尸转发 0 / 疑似僵尸方法 0**）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 79.62s，**单独跑**）· 定向 eslint/prettier ✓
 
 **行为等价**：签名与调用面不变 ⇒ **未改任何测试**（0 fail 且用例数与 A2 后逐字一致）。
+**例外台账**：`ChatManager.ts` 条目**保留**（仍 >1000 行）。
+
+---
+
+## 13. 实施记录：批 A4a —— 启动加载/迁移/初始化（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/manager/bootstrap.ts`（`ChatBootstrap`，**581 行**）
+
+**迁入成员（6）**：`ensureSessionsLoaded` · `cleanStalePidFiles`（私）· `migrateHomeFromProjectToUser`（私）· `initialize` · `resumePendingSessions`（私）· `loadSessionsFromGateway`（私）
+> 原字段 `_sessionsLoaded`（幂等标记）与 `_resumeFailCount`（Durable Resume 熔断计数）随之迁入。
+
+**⚠️ 批次拆分的依据（spec §3「一次只动一个文件 + 降低 blast radius」）**：A4 原含 **C13 + C18** 共 11 方法（≈1090 行）⇒ 拆为 **A4a（C13，本批）** 与 **A4b（C18，恢复/outbox/yield）**。理由：C18 的 `_resumeSessionInternally` 与运行器强耦合，且 `cleanup()` 消费其卸载句柄（`_yieldResumerUninstall`）⇒ 需独立依赖验证，不宜与启动链同批。
+
+**注入依赖（`ChatBootstrapDeps`，全 getter ⇒ 无初始化顺序陷阱）**：`getSessionGateway` · `getChatSessions` · `getSessionAccess` · `getTokenBudget` · `getOrCreateTAORLoop` · `getLlmClient` · `isDurableResumeEnabled` · `shouldPersistRecalculatedTotal`
+
+> **`shouldPersistRecalculatedTotal` 处理（如实）**：该纯函数定义并导出在 `ChatManager.ts`，且被 `tests/chat/recalcTotalMessagesPersist.test.ts` **按该路径导入** ⇒ 为**零测试改动**，本轮**不搬迁**该函数，改为**注入**（`shouldPersistRecalculatedTotal: (before, after) => shouldPersistRecalculatedTotal(before, after)`）。
+
+**ChatManager 侧**：新增 `private readonly _bootstrap`；`ensureSessionsLoaded` / `initialize`（均为对外入口，后者在 `ChatManagerInterface.ts:514` 契约内）改**薄转发**；4 个私有方法**整体迁出**（无对外调用者）；删除字段 `_sessionsLoaded` / `_resumeFailCount`。
+
+**行数**：`ChatManager.ts` **6433 → 5968**（本批 −465；自 v0.4.58 起累计 6729 → 5968，**首次降至 6000 以下**）
+
+**门槛（全绿）**：`typecheck 0` · eslint 0 · `lint:arch` **错误 0**（3859 文件 / 分层违规 0，仅预存 4 warning；**僵尸转发 0**）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 78.89s，**单独跑**）· prettier ✓
+
+**行为等价**：日志 module 名、对外签名、接口契约不变 ⇒ **未改任何测试**（0 fail 且用例数与 A3 后逐字一致）。
 **例外台账**：`ChatManager.ts` 条目**保留**（仍 >1000 行）。

@@ -132,6 +132,47 @@ describe('projectPendingSuspensions（A1 T3 挂起清单投影）', () => {
     const pending = projectPendingSuspensions(events, { sessionId: SID });
     expect(pending[0].deadline).toBe(1000 + DEFAULT_SUSPENSION_TIMEOUT_MS);
   });
+
+  // ─── §8 验收 1：可枚举（投影等价性 / 重启后一致）───────
+
+  it('投影等价性：同一事件流重复投影结果一致（纯函数 ⇒ 重启后一致）', () => {
+    const events = [
+      ev('turn/start', { turn: 1 }, 1000, 1),
+      ev('assistant/question', { questionId: 'q2' }, 2200, 2),
+      ev('assistant/question', { questionId: 'q1' }, 2100, 3),
+    ];
+    const a = projectPendingSuspensions(events, { sessionId: SID });
+    const b = projectPendingSuspensions(events, { sessionId: SID });
+    expect(a).toEqual(b);
+    expect(a.map((p) => p.refId)).toEqual(['q1', 'q2']); // 稳定升序
+  });
+
+  // ─── §8 验收 3：不静默（结算后不再挂起 = 无永久静默项）──
+
+  it('结算收敛且幂等：补入结算事件后重新投影 ⇒ 不再挂起', () => {
+    const events = [
+      ev('turn/start', { turn: 1 }, 1000, 1),
+      ev('assistant/question', { questionId: 'q1' }, 1200, 2),
+    ];
+    expect(projectPendingSuspensions(events, { sessionId: SID })).toHaveLength(
+      1
+    );
+
+    const settled = [
+      ...events,
+      ev(
+        'assistant/status',
+        {
+          statusType: SUSPENSION_SETTLED_STATUS_TYPE,
+          questionId: 'q1',
+        },
+        1800,
+        3
+      ),
+    ];
+    // 结算后（重启/重投影）不再挂起 ⇒ 不存在"永久静默等待项"
+    expect(projectPendingSuspensions(settled, { sessionId: SID })).toEqual([]);
+  });
 });
 
 describe('planSuspensionSettlement（A1 T4 结算决策）', () => {

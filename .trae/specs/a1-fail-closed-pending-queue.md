@@ -1,6 +1,6 @@
 # Spec：A1 Fail-Closed 受阻机制（结构化挂起清单 + 显式 `cancel_requested`）
 
-> **状态**：🟡 **T1–T5 已实施（2026-10-05）；T6 待收尾** —— T6 = §8 门禁与验收的最终归档
+> **状态**：� **已实施（T1–T6，2026-10-05）** —— 全部任务交付并按 §8 验收通过（门禁见 §8-5）
 > **来源**：[`liri-upgrade-plan-20260928.md`](../../dev_docs/20260928/liri-upgrade-plan-20260928.md) §2-A **A1**（外部 CodeMidas/多 Agent 测试类建议）；任务计划 `dev_docs/任务计划-20261004.md` §2.4 **B-13**
 > **关联规则**：GR15（Spec-Driven）/ GR01（基础设施复用）/ GR02（实现唯一性）/ GR03（证据驱动）/ CS01（归一化）/ **CS02（状态检测禁止字符串匹配）** / CS03（回退最小化）/ CS05（根因优先）/ `project_rules.md §1.6`（**「模型可见 ⇔ 已落盘」红线**）/ §1.9（错误处理）/ §1.14（通道规范，仅涉及不破）
 > **明确不重复**：`wait-state-visibility`（等待态**可见性**）/ `system-abort-reason-hardening`（**中止标记判据**）/ `agent-run-ports`（子代理台账**取消端口**）/ `workflow-bounded-cancel`（工作流有界取消）—— 边界见 §3
@@ -130,7 +130,7 @@
 | **T3** ✅ | **挂起清单单一事实源**：事件投影 + 启动重建 | ✅ **已交付（2026-10-05）**：①`user/message.questionId` 结构化解析标记（补 §1.6 缺口——原事件日志**无法判定提问是否已答**，`MessageToEventMigrator` 透传）②纯投影 `chat/services/pendingSuspensions.ts#projectPendingSuspensions`（尾轮 + questionId 配对）③启动重建 `chat/manager/recovery.ts#bootstrapPendingRecovery`（`negotiation/*.json` 作廉价索引，**事件投影为权威**）④接线 `hasPendingRestoration`（Q2「接线并对齐」）+ `clearPendingState` | Q1①/Q2 已裁定 |
 | **T4** ✅ | **Fail-Closed 结算**：超时/无通道 ⇒ 明确结算 + 事件 | ✅ **已交付（2026-10-05）**：①启动期对无恢复通道的挂起项**逐项结算** → 落 `assistant/status`（`statusType='suspension_settled'` + `questionId`）作**结构化结算标记**（用户可见 + 幂等）②`deadline` 统一（`askedAt + timeoutMs`，默认 5min）③实时等待超时/中止（`ReActToolLoop._awaitAnswersWithHeartbeat`）也落结算事件（不静默）④删除死分支 `_interactionTimedOut`（从未置 true，声称的"超时保留 entry 宽限"从未生效） | T3 |
 | **T5** ✅ | 前端投影：复用 `useWaitState`（**不新造 UI**） | ✅ **已交付（2026-10-05，口径经取证修正）**：取证发现**字面 T5 冗余** —— T4 的 `assistant/status`（`statusType='suspension_settled'`）**不在瞬态集合**（`TRANSIENT_STATUS_TYPES` 仅 5 项）⇒ 前端**已**渲染为 status block（`deriveConversationBlocks.ts:550-575`）；live 提问/审批/yield 均已有 UI ⇒ 再加轮询投影常态为空且有每 poll 事件读成本。**改为补真实缺口**：live 超时/中止的结算**同时 yield status chunk**（新 `ReActEvent` 变体 `suspension_settled` + `reactEventsToChunks` 映射 + 共享契约 `STATUS_TYPE.SUSPENSION_SETTLED`）⇒ **实时可见，无需重载**；零新 UI 组件 | T3 |
-| **T6** | 门禁与验收 | 见 §8 | T1–T5 |
+| **T6** ✅ | 门禁与验收 | ✅ **已交付（2026-10-05）**：按 §8 五项逐条验收通过（含新增**投影等价性**与**结算收敛幂等**用例）；门禁全绿（app 4493/21/0 · client 506/0） | T1–T5 |
 
 ---
 
@@ -164,13 +164,16 @@
 
 ---
 
-## 8. 验收标准（开工后按此验收）
+## 8. 验收标准（T6 已按此验收，2026-10-05）
 
-1. **可枚举**：任一时刻，可由 `events.jsonl` 重建出**完整挂起清单**（含 kind/refId/askedAt/deadline）——重启后一致（**投影等价性测试**）。
-2. **可取消（结构化）**：`cancel_requested` 由**结构化输入**触发；**删掉**字符串匹配后，改文案/换语言**仍生效**（证伪用例）。
-3. **不静默**：模拟"恢复通道缺失/超时" ⇒ **必有明确结算结果 + 事件**（测试断言"无静默路径"）。
-4. **fail-closed 登记**：前提不成立时**拒绝挂起**（沿用 `yieldTurnRegistration` 范式），不产生永久等待项。
-5. 门禁：`typecheck 0` · `eslint 0 错` · `lint:arch 0 错` · 全量测试 0 fail（基线上只增不减）。
+| # | 标准 | 结果 | 证据 |
+|---|---|---|---|
+| 1 | **可枚举**：任一时刻可由 `events.jsonl` 重建完整挂起清单（kind/refId/askedAt/deadline），重启后一致（**投影等价性测试**） | ✅ | 纯投影 `projectPendingSuspensions`（无 IO、确定性排序）；测试 `app/tests/chat/pendingSuspensions.test.ts`：同输入重复投影 `toEqual` 一致（纯函数 ⇒ 重启后一致）+ 字段完整（含 `deadline`） |
+| 2 | **可取消（结构化）**：由结构化输入触发；删字符串匹配后改文案/换语言**仍生效**（**证伪用例**） | ✅ | T2：`isGateCancelled()` 依 `outcome` 判定；`app/tests/chat/DecisionGate.test.ts` 含证伪用例「取消项文案改为『算了』仍生效」+「未知 label 不误判」 |
+| 3 | **不静默**：恢复通道缺失/超时 ⇒ 必有明确结算结果 + 事件（断言"无静默路径"） | ✅ | T4：结算落 `assistant/status`（`statusType='suspension_settled'`+`questionId`）+ `planSuspensionSettlement` 恒产非空文案（超时/无通道两分支用例）；T5：`reactEventsToChunks` 映射为 `status` chunk 且**不在瞬态集合**（fail-visible 断言）；测试断言结算后**重投影不再挂起**（无永久静默项） |
+| 4 | **fail-closed 登记**：前提不成立 ⇒ 拒绝挂起（沿用 `yieldTurnRegistration` 范式），不产生永久等待项 | ✅（目标达成，实现口径为"无通道即结算"） | ①**同轮重复登记**：门控/交互两条路径均有「已有待处理交互 ⇒ 跳过 + warn」守卫（`reactToolLoop:gate_already_pending` / `interaction_already_pending`）②**无恢复通道**（重启）：启动期**逐项结算**（T4）⇒ 不残留永久等待项。⚠️ 如实：A1 **未新增**登记守卫（门控前提在进程内恒成立）；"无通道"按 §4.3 走**结算**而非拒绝登记 |
+| 5 | 门禁：`typecheck 0` · `eslint 0 错` · `lint:arch 0 错` · 全量测试 0 fail（只增不减） | ✅ | app `typecheck` 0 · client `typecheck` 0 · app `eslint` **0 错**（56 存量 warning）· client `eslint` **0 错**（136 存量 warning）· `lint:arch` **0 错**（4 存量 warning）· `lint:size` 0 错 · `lint:unref`/`lint:case`/`check:paths`/`i18n:check` 通过 · **app 4493 pass / 21 skip / 0 fail** · **client 506 pass / 0 fail** |
+
 
 ---
 
@@ -180,11 +183,14 @@
 - ❌ **不改** `wait-state-visibility.md` 的 D2（不为其新增事件类型）。
 - ❌ **不动**子代理台账的 `cancel_requested`（`agent-run-ports` 域）。
 - ❌ **不做**通道侧/通道进程隔离相关改动（见 `channel-process-isolation.md`，另案）。
-- ⚠️ **未验**：① 审批挂起（载体③）的 inbox 持久化细节（本 spec 未展开，实施 T3 时须补取证）；② 是否存在**第三方**消费 `NegotiationState.pending`（T3 前置须 grep 复核）。
+- ⚠️ **未验 / 未覆盖（如实）**：
+  1. **投影仅覆盖 `kind='question'`**：§4.1 曾列 `{kind:'question'|'approval'|'yield'|'subagent'}`，但 T3 实施的 `projectPendingSuspensions` **只投影提问**（`assistant/question`）。`approval`（inbox 自有持久化 + `_attachPendingApprovalBlocks` 呈现）/ `yield`（`YieldWaitingStore` + `rebuildYieldWaitingSet`）/ `subagent`（`AgentRunLedger`）**各有既有权威源与恢复通路**，A1 **未归一**（避免与 `wait-state-visibility`/`agent-run-ports` 域重叠，见 §3）。
+  2. **审批挂起（载体③）**的 inbox 持久化细节未展开（未纳入 A1 实现）。
+  3. ✅ **已复核（T3 前置）**：`NegotiationState.pending` **无第三方消费者**（全仓生产消费点仅 `ReActToolLoop` 读写 + `sessionTeardown` 删除）——Q2「接线并对齐」据此成立。
 
 ---
 
-## 10. 待裁定（开工前必须拍板）
+## 10. 决策记录（Q1–Q4 均已裁定，2026-10-05）
 
 | Q | 问题 | 选项 | 建议 |
 |---|---|---|---|

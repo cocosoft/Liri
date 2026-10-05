@@ -1,7 +1,7 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1**、**批 A2**、**批 A3**、**批 A4a（C13 启动加载/迁移）** 已落地（见 §10–§13）；**批 A4b（C18）** 与 A5–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证。
+- **状态**：🚧 **计划内批次收官（2026-10-05）** —— 批 1–3（EventLog 家族）+ **A1/A2/A3/A4a/A5a/A6** 全部落地（见 §10–§16，ChatManager **6729 → 5525，−1204**）；**剩 A4b（C18）与 A5b（会话准备/终态收口）**（均重度耦合，**待裁定**）；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证。
 - **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**A5/A6 的"降至阈值以下"收益已消失**，后续批次是否继续**待裁定**。详见 **§14**。
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
@@ -274,14 +274,14 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 文件 | 原始 | 当前 | 已落地 |
 |---|---|---|---|
-| `chat/ChatManager.ts` | 6729 | **5968** | 批 1–3：EventLog 家族 **17 成员** → `eventLogStore.ts`（538 行，§7）；**A1**：请求构建/快照/压缩 **9 成员** → `requestPrep.ts`（278 行，§10）；**A2**：交互/回滚 **5 成员** → `rollback.ts`（350 行，§11）；**A3**：系统提示词组装 **2 成员** → `promptAssembly.ts`（124 行，§12）；**A4a**：启动加载/迁移 **6 成员** → `bootstrap.ts`（581 行，§13） |
+| `chat/ChatManager.ts` | 6729 | **5525** | 批 1–3：EventLog 家族 **17 成员** → `eventLogStore.ts`（538 行，§7）；**A1** → `requestPrep.ts`（278 行，§10）；**A2** → `rollback.ts`（350 行，§11）；**A3** → `promptAssembly.ts`（124 行，§12）；**A4a** → `bootstrap.ts`（581 行，§13）；**A5a** → `pipeline/streamMessageLifecycle.ts`（389 行，§15）；**A6** → `sessionTeardown.ts`（256 行，§16）。累计 **−1204 行** |
 
 ### 9.2 优先序（依据 §2 判据 + 实测行数）
 
 | 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
 |---|---|---|---|---|
-| 1 | `chat/ChatManager.ts` | 5968 | 已开工（−761） | 继续 §9.3 的 **A4b（C18）** / A5 / A6（**每批 1 个簇**） |
-| 2 | `runtime/api/CoreAPIImpl.ts` | 5022 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
+| 1 | `chat/ChatManager.ts` | 5525 | **A1–A6 计划内已收官**（−1204） | 仅剩 **A4b（C18）** / **A5b（会话准备/终态收口）**（重度耦合，待裁定） |
+| 2 | `runtime/api/CoreAPIImpl.ts` | 5337 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
 | 3 | `chat/ReActToolLoop.ts` | 3447 | **未取证** | 同上 |
 | 4 | `tools/AgentTool/AgentTool.ts` | 3115 | **未取证** | 同上 |
 
@@ -295,8 +295,8 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次（**收窄为 5 成员**） | ≈270 | ✅ **已落地（2026-10-05，见 §11；实得 −202 行）**；`_buildToolRoundMessages`/`_dedupeToolResultForStub` **移出本批** ⇒ 归 A5（流管道职责） |
 | A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配（**收窄为 2 成员**） | ≈90 | ✅ **已落地（2026-10-05，见 §12；实得 −39 行）**；`getHookChainManager`（通用 getter）与 `_extractCurrentGoal`（**全仓无调用者**）**不并入** |
 | A4 | `chat/manager/bootstrap.ts` | C13 启动加载/迁移 + C18 恢复/outbox/yield（**拆为 A4a / A4b**） | ≈1090 | ✅ **A4a（C13，6 成员）已落地（2026-10-05，见 §13；实得 −465 行）**；⚠️ **A4b（C18 五方法）未开工** —— `_resumeSessionInternally` 与运行器强耦合、且 `cleanup()` 消费其卸载句柄 ⇒ **须先依赖验证** |
-| A5 | `chat/manager/streamPipeline.ts` | 流管道段（`_buildApiMessagesForStream` 等） | ≈680 | 与 `sendMessage` 主链边界需先验证 |
-| A6 | `chat/manager/sessionCrud.ts` | C21 会话 CRUD/门面 | ≈280 | 多接口方法 ⇒ 宿主保留转发 |
+| A5 | `chat/pipeline/streamMessageLifecycle.ts` | 流管道段（`_buildApiMessagesForStream` 等，**拆为 A5a / A5b**） | ≈680 | ✅ **A5a（消息构建 3 成员 + A2 移交的 2 方法）已落地（2026-10-05，见 §15；实得 −276 行）**；⚠️ **A5b（会话准备/管道创建/终态收口）未开工**（15+ 宿主依赖，须先依赖验证）。命名由 `chat/manager/streamPipeline.ts` 改为 `chat/pipeline/streamMessageLifecycle.ts`（避与既有 `StreamPipeline.ts` 同名） |
+| A6 | `chat/manager/sessionTeardown.ts` | C21 会话拆除/级联收口（**收窄为 5 成员**） | ≈280 | ✅ **已落地（2026-10-05，见 §16；实得 −167 行）**；C21 的 11 个**薄委托/访问器不迁**（R06-006）；目标名由 `sessionCrud.ts` 改为 `sessionTeardown.ts` |
 
 **停止条件（重要）**：`ChatManager` 要真正 <1000 行需再抽 **≈5400 行**，而 A1–A6 合计仅 **≈2600 行** ⇒ **A1–A4 完成后按收益重新评估**，不预设"必须打到 <1000"。
 
@@ -405,7 +405,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **门槛（全绿）**：`typecheck 0` · eslint 0 · `lint:arch` **错误 0**（3859 文件 / 分层违规 0，仅预存 4 warning；**僵尸转发 0**）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 78.89s，**单独跑**）· prettier ✓
 
-**行为等价**：日志 module 名、对外签名、接口契约不变 ⇒ **未改任何测试**（0 fail 且用例数与 A3 后逐字一致）。
+**行为等价**：日志 module 名、对外签名不变 ⇒ **未改任何测试**（0 fail 且用例数与 A3 后逐字一致）。
 **例外台账**：`ChatManager.ts` 条目**保留**（仍 >1000 行）。
 
 ---
@@ -432,3 +432,53 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 - §9.3 的 **A5（≈680）** / **A6（≈280）** 的"降到阈值以下"收益**已消失**（即便完成，ChatManager 仍 >5000 行）⇒ 是否继续**改按 §2「变更隔离 / 单测粒度」收益**判定，**待用户裁定**；
 - ✅ **`fileSizeExceptions` 已清理（2026-10-05）**：**161 → 16 条**（仅保留实测 >2000 行者，并刷新其 `lines` / `targetLines=2000`）；`lint:arch` / `lint:size` 均 **0 错误**。⇒ 已消除"陈旧登记在 `expiresAt` 到期时误报 `EXC-EXPIRED`（指向已不超限文件）"的隐患。
 - 两个 i18n 词表按 §2 判据仍**不建议拆**。
+
+---
+
+## 15. 实施记录：批 A5a —— 流式请求消息构建（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/pipeline/streamMessageLifecycle.ts`（`ChatStreamMessageLifecycle`，**389 行**）
+
+**迁入成员（3 + 1 缓存）**：`buildApiMessagesForStream` · `buildToolRoundMessages` · `dedupeToolResultForStub`（私）+ 字段 `_toolResultStubCache`
+> 后两者即 **A2 移交**的 `_buildToolRoundMessages` / `_dedupeToolResultForStub`（见 §11）。
+
+**⚠️ 与 §9.3 的偏差（依据 §2「可命名职责簇」+「降低 blast radius」）**：A5 原含 4 成员（消息构建 + 会话准备 + 管道创建 + 终态收口）⇒ 拆为 **A5a（本批 = 消息构建）** 与 **A5b（`_prepareStreamSession` / `_createStreamPipeline` / `_finalizeStreamMessage`，未开工）**。后者**重度宿主耦合**（securityService / sessionLifecycle / mutex / checkpoint / hookChainManager / PDCA / ImplicitEngineHook / memoryManager 等 **15+ 依赖**）⇒ 需独立依赖验证。
+
+**命名说明（用户裁定）**：原计划目标名 `chat/manager/streamPipeline.ts` **与既有** `chat/pipeline/StreamPipeline.ts`（727 行，"流式消息前后处理管线"）同名近义 ⇒ 改置 **`chat/pipeline/streamMessageLifecycle.ts`**。
+
+**随迁常量**：`_WRITE_PRODUCTIVE_TOOLS` / `_WRITE_CONCLUDE_HINT`（仅 `_buildToolRoundMessages` 使用）→ 模块级常量。
+
+**注入依赖（`ChatStreamMessageLifecycleDeps`，全 getter/setter）**：`setLastStreamBuildWindowed` · `setLastStreamBuildCodeContext` · `getLastStreamBuildCodeContext` · `getCurrentSessionId`
+> 切窗标记 `_lastStreamBuild*` **仍归宿主**（被 `streamMessageFlow` 与事件日志 store 读取）⇒ 以 **setter/getter 注入（写回宿主）**，不随迁。
+
+**ChatManager 侧**：新增 `private readonly _streamMessageLifecycle`；2 方法改**薄转发**；`_dedupeToolResultForStub` 与 `_toolResultStubCache` **整体迁出**；清理 8 项随迁后无消费者的导入（ChatHelper ×4 / MessageContextPipeline ×4）+ `memProfile` / `yieldToEventLoop`。
+
+**行数**：`ChatManager.ts` **5968 → 5692**（本批 −276；自 v0.4.58 起累计 6729 → 5692）
+
+**门槛（全绿）**：`typecheck 0` · eslint 0 · `lint:arch` **错误 0**（仅预存 4 warning；僵尸转发 0）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 82.55s，**单独跑**）· prettier ✓
+
+**行为等价**：日志 module 名（`chat:manager`）、对外签名不变 ⇒ **未改任何测试**（用例数与 A4a 后逐字一致）。
+**例外台账**：`ChatManager.ts` 条目**保留**（仍 >2000 行）。
+
+---
+
+## 16. 实施记录：批 A6 —— 会话拆除 / 级联收口（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/manager/sessionTeardown.ts`（`ChatSessionTeardown`，**256 行**）
+
+**迁入成员（5）**：`deleteSession` · `clearAllSessions` + 3 私有级联助手 `dismissSessionInboxItems` / `closeSessionPdca` / `deleteSessionCheckpoints`
+
+**⚠️ 与 §9.3 的偏差（依据 §2「可命名职责簇」+ **R06-006「禁止薄转发僵尸方法」**）**：C21 原列 14 成员，经取证 **11 个为 1 行薄委托 / 平凡访问器**（`createSession` / `forkSession` / `switchSession` / `getCurrentSession` / `getSessions` / `saveSession` / `loadSession(s)` / `getSessionMessages` / `searchMessages` / `addMessage` / `getMessageService` / `getStreamService` / `getSessionGateway` / `getSessionManager` —— 真实实现早已在 `SessionLifecycleManager`）⇒ **不迁**（迁出只会制造薄转发）；本批只收**含真实逻辑**的拆除族 ⇒ 目标名由 `sessionCrud.ts` 调整为 **`sessionTeardown.ts`**。
+
+**注入依赖（`ChatSessionTeardownDeps`，全 getter）**：`getSessionLifecycle` · `getSessionGateway` · `getCheckpointService` · `dropEventLogSession` · `clearToolRound`
+
+**ChatManager 侧**：新增 `private readonly _sessionTeardown`；2 个对外入口改**薄转发**；3 个私有助手整体迁出；清理随迁导入 `deleteNegotiationState`。
+
+**行数**：`ChatManager.ts` **5692 → 5525**（本批 −167；自 v0.4.58 起累计 6729 → 5525）
+
+**门槛（全绿）**：`typecheck 0` · eslint 0 · `lint:arch` **错误 0**（仅预存 4 warning；僵尸转发 0）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 85.28s，**单独跑**）· prettier ✓
+
+**行为等价**：日志 module 名（`chat:manager`）、对外签名（含 `ChatManagerInterface` 契约）不变 ⇒ **未改任何测试**。
+**例外台账**：`ChatManager.ts` 条目**保留**（仍 >2000 行）。
+
+> **⇒ A1–A6 计划内批次（含 A4a / A5a 拆分）本轮收官**：ChatManager 累计 **6729 → 5525（−1204）**，新建 6 个模块（`eventLogStore` / `requestPrep` / `rollback` / `promptAssembly` / `bootstrap` / `streamMessageLifecycle` / `sessionTeardown` = 7）。**仍未开工：A4b（C18）、A5b（会话准备/终态收口）** —— 两者均**重度宿主耦合**，待用户裁定是否继续。

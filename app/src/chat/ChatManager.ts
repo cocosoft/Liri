@@ -43,13 +43,9 @@ import {
   extractTodoData,
   resolveMaxContextTokens,
   repairImageUrls,
-  TOOL_RESULT_MAX_LENGTH,
-  truncateToolResult,
   getLocalSession,
   getOrCreateSessionMachine,
   persistChatMessage,
-  isEmptyAssistantWithoutToolCalls,
-  toToolResultRawText,
 } from './services/ChatHelper';
 import {
   ChatEventLogStore,
@@ -60,6 +56,8 @@ import { ChatRequestPrep } from './manager/requestPrep';
 import { ChatRollback, type PendingInteractionEntry } from './manager/rollback';
 import { ChatPromptAssembly } from './manager/promptAssembly';
 import { ChatBootstrap } from './manager/bootstrap';
+import { ChatStreamMessageLifecycle } from './pipeline/streamMessageLifecycle';
+import { ChatSessionTeardown } from './manager/sessionTeardown';
 import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
@@ -99,18 +97,13 @@ import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
 import {
   persistTurnSummary,
   extractCurrentGoal,
-  computePaginationPoint,
   contextLayeringEnabled,
-  LAYERING_HINT,
-  LAYERING_HINT_CODE,
-  isCodeContextMessage,
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
-import { deleteNegotiationState } from './services/NegotiationState';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
 import { ResumeCoordinator } from './services/ResumeCoordinator.js';
@@ -131,22 +124,6 @@ import {
 import { shouldEscalateLongTask } from './longTaskEscalation';
 
 const logger = getLogger('chat:manager');
-
-// R1（2026-09-06，走查 W1/W9）：产出型写入工具集合（成功即视为"已交付文件产物"）
-const _WRITE_PRODUCTIVE_TOOLS = new Set([
-  'file_write',
-  'write_file',
-  'FileWriteTool',
-  'file_edit',
-  'edit_file',
-  'FileEditTool',
-]);
-
-// R1：产出后的收敛引导（system 注入，防"写完继续埋头思考不总结"）
-const _WRITE_CONCLUDE_HINT =
-  '[交付收敛] 本轮已完成文件产出（见上方工具结果），这是本次实际交付物。' +
-  '请直接在回复中给出简短交付说明（文件位置、用途、如何运行/验证）并结束本轮；' +
-  '不要在没有新需求的情况下继续内部扩展或重写。如需进一步完善，请先说明下一步再继续。';
 
 import { SimpleMutex } from '@modules/core';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
@@ -257,12 +234,9 @@ import { ContextTracker } from '@modules/query';
 // A8 最后一公里（B1，2026-10-04）：装配入口——assembler → 可执行路由（未接线者显式 unavailable）
 import { instantiatePattern } from '@modules/query';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
-// 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
-import { memProfile } from '../monitoring/memProfile.js';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
 import { getMemoryPressureMonitor } from '@modules/monitoring';
 import { estimateMessagesTokens } from '@modules/ai';
-import { yieldToEventLoop } from '@modules/ai';
 import { FileCheckpointStorage } from '@modules/session';
 import {
   StopHookManager,
@@ -847,6 +821,43 @@ export class ChatManagerImpl implements ChatManager {
     isDurableResumeEnabled: () => this.ENABLE_DURABLE_RESUME,
     shouldPersistRecalculatedTotal: (before, after) =>
       shouldPersistRecalculatedTotal(before, after),
+  });
+
+  /**
+   * 流式请求**消息构建**（`ChatStreamMessageLifecycle`，A5a 批提取自本类）。
+   *
+   * 原 `_buildApiMessagesForStream` / `_buildToolRoundMessages` / `_dedupeToolResultForStub`
+   * （含 `_toolResultStubCache`）已随迁至该模块；本类经**薄转发**。
+   * 切窗标记 `_lastStreamBuild*` 仍归宿主（被 `streamMessageFlow` 与事件日志 store 读取），
+   * 经 setter/getter 注入。日志/签名不变（行为等价）。
+   */
+  private readonly _streamMessageLifecycle = new ChatStreamMessageLifecycle({
+    setLastStreamBuildWindowed: (v) => {
+      this._lastStreamBuildWindowed = v;
+    },
+    setLastStreamBuildCodeContext: (v) => {
+      this._lastStreamBuildCodeContext = v;
+    },
+    getLastStreamBuildCodeContext: () => this._lastStreamBuildCodeContext,
+    getCurrentSessionId: () => this._currentSessionId,
+  });
+
+  /**
+   * 会话拆除 / 级联收口（`ChatSessionTeardown`，A6 批提取自本类）。
+   *
+   * 原 `deleteSession` / `clearAllSessions` 及三个私有级联助手
+   * （`_dismissSessionInboxItems` / `_closeSessionPdca` / `_deleteSessionCheckpoints`）
+   * 已随迁至该模块；本类经 2 个对外入口**薄转发**。
+   * 其余 C21 成员（`createSession` / `forkSession` / `getSessions` …）**均为 1 行薄委托**
+   * （真实实现早已在 `SessionLifecycleManager`）⇒ **不迁**（避免制造薄转发僵尸方法）。
+   * 日志/签名不变（行为等价）。
+   */
+  private readonly _sessionTeardown = new ChatSessionTeardown({
+    getSessionLifecycle: () => this.sessionLifecycle,
+    getSessionGateway: () => this.sessionGateway,
+    getCheckpointService: () => this._checkpointService,
+    dropEventLogSession: (sid: string) => this._eventLogStore.dropSession(sid),
+    clearToolRound: (sid: string) => this.clearToolRound(sid),
   });
 
   /**
@@ -2870,152 +2881,11 @@ export class ChatManagerImpl implements ChatManager {
     maxContextTokens?: number,
     outputBudgetTokens?: number
   ): Promise<Array<Record<string, unknown>>> {
-    // 内存画像（MEM_PROFILE=1）：上下文构建前采样——定位构建期瞬时大分配
-    //（排查 agentic 运行期 RSS 2-4.4GB 尖峰与 GC STW，证据见监控 memProfile:*）
-    memProfile('stream-build:pre', { totalMessages: messages.length });
-    // 内存水位 tick（请求边界驱动；正常路径零日志，仅级别变化时动作）
-    getMemoryPressureMonitor().tick();
-    // C-2（2026-09-02，v4 §7.2）：map 前置预算切窗——超窗大会话先丢头部旧轮次，
-    // 使下方 filter/map/stringify 只处理幸存窗口，构建期内存 O(全量)→O(窗口)。
-    // 语义不变：预算/尾保护区与 truncateApiMessages 同口径；最终输入仍由
-    // compactContext/truncate 决定（对本窗口大概率早退）。仅当构建方传入预算时启用。
-    let windowed = messages;
-    let cutIndex = 0;
-    if (maxContextTokens && maxContextTokens > 0 && messages.length > 2) {
-      const point = await computePaginationPoint(
-        messages as Array<{ role: string; content: unknown }>,
-        maxContextTokens,
-        outputBudgetTokens
-      );
-      cutIndex = point.cutIndex;
-      if (cutIndex > 0) {
-        windowed = messages.slice(cutIndex);
-        // C 阶段（P1）：标记本次构建发生切窗，供 streamMessageFlow 注入 session_lookup
-        this._lastStreamBuildWindowed = true;
-        // D5②（2026-09-02）：代码/长文档任务 + 切窗 → 取回增强（更强提示 + session_lookup 加大页）
-        this._lastStreamBuildCodeContext = isCodeContextMessage(messages);
-        logger.info('stream:build 分页切点生效（C 阶段）', {
-          totalMessages: messages.length,
-          cutIndex,
-          keptMessages: windowed.length,
-          codeContext: this._lastStreamBuildCodeContext,
-        });
-      } else {
-        this._lastStreamBuildWindowed = false;
-        this._lastStreamBuildCodeContext = false;
-      }
-    } else {
-      this._lastStreamBuildWindowed = false;
-      this._lastStreamBuildCodeContext = false;
-    }
-    // §5.3: 排除 isTaskMessage 消息（任务摘要仅用户可见，不进入 LLM 上下文，避免污染）
-    // 2026-08-19 根因①修复：filter/map 改为分批 for 循环 + 让出事件循环，
-    // 避免大会话（数百条/大 JSON 序列化）同步构建阻塞事件循环数秒
-    const apiMessages: Array<Record<string, unknown>> = [];
-    let builtCount = 0;
-    for (const msg of windowed) {
-      if (msg.metadata?.isTaskMessage === true) continue;
-      // 空正文且无 tool_calls 的 assistant 消息跳过（工具循环中间空消息，避免污染上下文）
-      if (isEmptyAssistantWithoutToolCalls(msg)) continue;
-
-      let content =
-        typeof msg.content === 'string'
-          ? msg.content
-          : JSON.stringify(msg.content);
-
-      if (
-        msg.role === 'tool' &&
-        typeof content === 'string' &&
-        content.length > TOOL_RESULT_MAX_LENGTH
-      ) {
-        content = truncateToolResult(content);
-      }
-
-      const chatMessage: Record<string, unknown> = {
-        role: msg.role,
-        content,
-      };
-
-      if (msg.role === 'tool') {
-        const tcId =
-          msg.toolCallId ||
-          (msg.metadata?.toolCallId as string) ||
-          (msg.metadata?.tool_call_id as string);
-        if (tcId) {
-          chatMessage.tool_call_id = tcId;
-        }
-      }
-
-      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-        const toolCalls = msg.metadata.tool_calls as Record<string, unknown>[];
-        chatMessage.tool_calls = toolCalls.map(
-          (tc: Record<string, unknown>) => {
-            if (tc.type && tc.function) {
-              return tc;
-            }
-            return {
-              id: tc.id,
-              type: 'function',
-              function: {
-                name: tc.name,
-                arguments:
-                  typeof tc.arguments === 'string'
-                    ? tc.arguments
-                    : JSON.stringify(tc.arguments || {}),
-              },
-            };
-          }
-        );
-      }
-
-      apiMessages.push(chatMessage);
-      builtCount++;
-      if (builtCount % 25 === 0) {
-        await yieldToEventLoop();
-      }
-    }
-
-    // 防止跨轮 tool_calls 污染
-    let lastUserMsgIdx = -1;
-    for (let i = apiMessages.length - 1; i >= 0; i--) {
-      if (apiMessages[i].role === 'user') {
-        lastUserMsgIdx = i;
-        break;
-      }
-    }
-    // 日志刷屏修复（2026-08-14 排查）：与 sendMessageFlow 同款——循环内逐条 info
-    // 改为计数后单条 debug 汇总（历史 100+ 条时每轮刷屏 100+ 行）
-    let cleanedToolCallCount = 0;
-    for (let i = 0; i < lastUserMsgIdx; i++) {
-      const msg = apiMessages[i];
-      if (msg.role === 'assistant' && msg.tool_calls) {
-        delete msg.tool_calls;
-        cleanedToolCallCount++;
-      }
-    }
-    if (cleanedToolCallCount > 0) {
-      logger.debug('清除旧轮次 assistant tool_calls，防止跨轮污染', {
-        cleanedCount: cleanedToolCallCount,
-      });
-    }
-
-    // P2-a（2026-09-02，C 详设 §5.2）：切窗生效 → 保留段首条 user 注入"可取回"提示
-    if (cutIndex > 0 && contextLayeringEnabled()) {
-      const firstUser = apiMessages.find(
-        (m) => m.role === 'user' && typeof m.content === 'string'
-      );
-      if (firstUser) {
-        // D5②（2026-09-02）：代码/长文档会话用更强取回提示（代码原文可按区间原样取回）
-        const hint = this._lastStreamBuildCodeContext
-          ? LAYERING_HINT_CODE
-          : LAYERING_HINT;
-        firstUser.content = `${hint}\n${firstUser.content}`;
-      }
-    }
-
-    // 内存画像（MEM_PROFILE=1）：构建完成采样（apiMessages 峰值驻留）
-    memProfile('stream-build:post', { apiMessagesCount: apiMessages.length });
-    return apiMessages;
+    return this._streamMessageLifecycle.buildApiMessagesForStream(
+      messages,
+      maxContextTokens,
+      outputBudgetTokens
+    );
   }
 
   /**
@@ -4793,8 +4663,7 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * P1-2: 构建工具轮次的 LLM 请求消息（纯数据，无 yield，无 this 副作用）
-   * 从 streamMessage 工具循环提取，降低巨型方法复杂度
+   * P1-2: 构建工具轮次的 LLM 请求消息（已随 A5a 拆入 `ChatStreamMessageLifecycle`）
    */
   private _buildToolRoundMessages(
     currentMessages: Record<string, unknown>[],
@@ -4805,139 +4674,12 @@ export class ChatManagerImpl implements ChatManager {
       result: ToolResult;
     }>
   ): Record<string, unknown>[] {
-    // P2-3（2026-09-02）：诊断日志——确认工具结果是否真正拼入下一轮请求
-    logger.info('reactToolLoop:_buildToolRoundMessages', {
-      currentMessages: currentMessages.length,
-      toolCalls: currentToolCalls.length,
-      processedResults: processedResults.length,
-      assistantMsgContentLength:
-        typeof currentAssistantMsg.content === 'string'
-          ? currentAssistantMsg.content.length
-          : -1,
-      resultChars: processedResults.map((pr) => {
-        // 空值判定收敛到 ChatHelper.toToolResultRawText（原 truthiness 会把 ''/0/false 误判为无载荷）
-        const raw = toToolResultRawText(pr.result.result, pr.result.error);
-        return { id: pr.normalizedToolCall.id, chars: raw.length };
-      }),
-    });
-    const built: Record<string, unknown>[] = [
-      ...currentMessages,
-      {
-        role: 'assistant',
-        content:
-          typeof currentAssistantMsg.content === 'string'
-            ? currentAssistantMsg.content
-            : null,
-        tool_calls: currentToolCalls.map((tc: ParsedToolCall) => ({
-          id: tc.id,
-          type: 'function' as const,
-          function: {
-            name: tc.name,
-            arguments:
-              typeof tc.arguments === 'string'
-                ? tc.arguments
-                : JSON.stringify(tc.arguments || {}),
-          },
-        })),
-      },
-      ...processedResults.map((pr) => {
-        // 空值判定收敛到 ChatHelper.toToolResultRawText（与上方诊断日志共用同一实现）
-        const raw = toToolResultRawText(pr.result.result, pr.result.error);
-        // P0-2（2026-09-02，对标 hermes observe_call 结果 stub）：同会话同工具同参数
-        // 的大结果（≥1024 字符）重复时替换为引用 stub——缓解上下文膨胀（实测工具循环
-        // 输入 token 44 万，大量为重复的 web_fetch/grep 全文）。落盘消息保留完整内容，
-        // 仅发送给 LLM 的请求消息被 stub（持久化/轨迹不受影响）。
-        const stub = this._dedupeToolResultForStub(
-          pr.normalizedToolCall.name,
-          pr.normalizedToolCall.arguments,
-          raw
-        );
-        return {
-          role: 'tool' as const,
-          content: stub ?? raw,
-          tool_call_id: pr.normalizedToolCall.id,
-        };
-      }),
-    ];
-    // R1（2026-09-06，走查 W1/W9）：本轮含【产出型写入工具】成功（无 error）→ 注入
-    // 收敛提示，防"文件已写完却继续埋头思考、迟迟不交付确认"（超级玛丽走查实证：HTML
-    // 早落盘，模型 20+ 分钟不总结，用户三次催"挂了吗/请继续"）。
-    const hasSuccessfulWrite = processedResults.some(
-      (pr) =>
-        _WRITE_PRODUCTIVE_TOOLS.has(pr.normalizedToolCall.name) &&
-        !pr.result.error
+    return this._streamMessageLifecycle.buildToolRoundMessages(
+      currentMessages,
+      currentAssistantMsg,
+      currentToolCalls,
+      processedResults
     );
-    if (hasSuccessfulWrite) {
-      logger.info('reactToolLoop:write_done_should_conclude', {
-        tools: processedResults
-          .filter((pr) =>
-            _WRITE_PRODUCTIVE_TOOLS.has(pr.normalizedToolCall.name)
-          )
-          .map((pr) => pr.normalizedToolCall.name),
-      });
-      built.push({
-        role: 'system' as const,
-        content: _WRITE_CONCLUDE_HINT,
-      });
-    }
-    return built;
-  }
-
-  /** P0-2：工具结果去重 stub 缓存——key: sessionId:toolName:参数归一化 → {hash, stubCount} */
-  private readonly _toolResultStubCache = new Map<
-    string,
-    { hash: number; stubCount: number }
-  >();
-
-  /**
-   * P0-2（2026-09-02）P2-修复（2026-09-02）：大工具结果去重 stub。
-   * 首次/内容变化返回 null（正常全文）；同会话同工具同参数内容未变化 → 返回引用 stub。
-   * 仅对 ≥1024 字符的大结果生效（小结果省不了多少 token，避免误 stub 语义）。
-   *
-   * P2-修复（死循环根因，实测 session_mtjihry4f5u2nzyb8k）：
-   * 原 stub 文案"若无法引用（如结果已被压缩），请重新调用该工具获取完整结果"直接
-   * 驱动工具死循环：模型（deepseek-v4-flash）按指引重调同一工具 → 又命中同一 stub →
-   * 循环守卫 3 轮熔断 → "工具循环无实质进展，任务已结束"。修复：
-   * 1. stub 文案不再引导重调：明确结果已在上文上下文、直接使用、不要重复调用；
-   *    如确需分段查看，改用 offset/limit 读取不同行段（结果不同、不触发去重）。
-   * 2. 同一内容连续出现只 stub 一次：第 3 次起返回全文（模型可能因压缩/窗口丢失
-   *    上文，必须给真实内容才能打破循环；循环守卫仍兜底 3 轮熔断，防 token 膨胀）。
-   * 3. `_currentSessionId` 为空时禁用 stub：避免 key 退化为全局（:tool:args）
-   *    导致跨会话首次读取同一文件即被误 stub。
-   */
-  private _dedupeToolResultForStub(
-    toolName: string,
-    args: unknown,
-    content: string
-  ): string | null {
-    if (content.length < 1024) return null;
-    // P2：会话 id 缺失时禁用 stub（防 key 退化为全局、跨会话污染）
-    if (!this._currentSessionId) return null;
-    let argsKey: string;
-    try {
-      const j = JSON.stringify(args ?? {});
-      argsKey = j.length > 500 ? j.slice(0, 500) : j;
-    } catch {
-      argsKey = '';
-    }
-    const key = `${this._currentSessionId}:${toolName}:${argsKey}`;
-    let h = 5381;
-    for (let i = 0; i < content.length; i++) {
-      h = ((h << 5) + h + content.charCodeAt(i)) | 0;
-    }
-    const hash = h >>> 0;
-    const prev = this._toolResultStubCache.get(key);
-    if (!prev || prev.hash !== hash) {
-      // 首次出现 / 内容变化：重置计数，返回全文
-      this._toolResultStubCache.set(key, { hash, stubCount: 1 });
-      return null;
-    }
-    prev.stubCount++;
-    if (prev.stubCount >= 3) {
-      // P2：连续第 3 次相同 → 返回全文（模型可能无法引用上文，需真实内容打破循环）
-      return null;
-    }
-    return `[工具结果与上一轮调用完全相同（${content.length} 字符，此处省略以节省上下文）。该结果已在上文上下文中，请直接基于已有内容继续分析，不要重复调用同一工具；如需按段查看内容，请改用 file_read 的 offset/limit 参数读取不同行段。]`;
   }
 
   /**
@@ -5102,196 +4844,11 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    const startedAt = Date.now();
-    logger.info('deleteSession:开始删除会话', { sessionId });
-    // BUG-3 修复：持久化删除失败不再吞错——原 try/catch 只记日志不 rethrow，
-    // handleDeleteSession 仍返回 200 → 前端本地移除但磁盘残留，刷新后会话"复活"。
-    // 错误上抛由 handler 返回 500，前端据此不清理本地记录。
-    await this.sessionLifecycle.deleteSession(sessionId);
-    logger.info('deleteSession:会话删除完成', {
-      sessionId,
-      elapsedMs: Date.now() - startedAt,
-    });
-    // 4.2-5 共同前置（2026-09-05，审计 §9.8 ①）：删会话 PDCA 收口——
-    // 活跃 PDL abort + 该会话任务 checkpoint 置 abort 终态（幂等，不阻塞删除主流程）
-    this._closeSessionPdca(sessionId);
-    // 联动清理该会话全部检查点（不阻塞删除主流程，记录执行情况，避免残留孤儿检查点）
-    void this._deleteSessionCheckpoints(sessionId);
-    // 清理协商状态文件（避免残留）
-    deleteNegotiationState(sessionId);
-    // BUG-J 修复（2026-08-26）：清理事件日志缓存——原 deleteSession 不删
-    // _eventLogCache，EventLogStorage 实例（文件句柄/seq 状态）常驻内存；
-    // sessionId 复用时会继承旧 seq 计数，导致 events.tail 元数据错位
-    // P2-5：缓存 key 带 hash 前缀，删除时按同 key 清理（否则残留实例在分区
-    // 切换后可能串用旧分区事件日志）
-    this._eventLogStore.dropSession(sessionId);
-    // 设计三（2026-08-26）：清理 per-session 轮次计数
-    this.clearToolRound(sessionId);
-    // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后
-    // /v1/inbox 不再残留可答复项（对齐 openworker 五步级联的审批项关闭）
-    void this._dismissSessionInboxItems(sessionId);
-  }
-
-  /** M2-T2.2：关闭会话所有待处理审批项（失败不阻塞删除主流程）*/
-  private async _dismissSessionInboxItems(sessionId: string): Promise<void> {
-    try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
-      const closed = await inboxManager.dismissBySession(sessionId);
-      if (closed > 0) {
-        logger.info('deleteSession:关闭孤儿审批项', { sessionId, closed });
-      }
-    } catch (e) {
-      logger.warn('deleteSession:关闭孤儿审批项失败', {
-        sessionId,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-
-  /**
-   * 4.2-5 共同前置（2026-09-05，审计 §9.8 ①）：删除会话时的 PDCA 收口——
-   * ① 同步 abort 该会话活跃 PDL（abortSessionPlans，S3 键化后遍历该会话全部）；
-   * ② 异步将该会话全部 PDCA 任务 checkpoint 置 abort 终态（防 in-flight 复活
-   * completed、/goal list 与审计一致）。幂等；任何失败仅告警、不阻塞删除主流程。
-   */
-  private _closeSessionPdca(sessionId: string): void {
-    try {
-      abortSessionPlans(sessionId);
-    } catch (e) {
-      logger.warn('deleteSession:abortSessionPlans 失败', {
-        sessionId,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-    void (async () => {
-      try {
-        // S4（PR9，③）：会话级联中止——该会话 LRTO 任务 abort（taskId 私有
-        // 实例安全；abort 会级联中止其当前步骤私有 loop）。动态 import 防顶层循环。
-        const { getAllOrchestrators } =
-          await import('../tasks/LongRunningTaskOrchestrator.js');
-        for (const orch of getAllOrchestrators()) {
-          if (orch.getSessionId() === sessionId) {
-            void orch.abort();
-          }
-        }
-      } catch (e) {
-        logger.warn('deleteSession:级联中止 orchestrator 失败', {
-          sessionId,
-          error: e instanceof Error ? e.message : String(e),
-        });
-      }
-      try {
-        const { listPdcaCheckpoints, writePdcaCheckpoint } =
-          await import('../tasks/PdcaWorkItemBridge.js');
-        const rows = listPdcaCheckpoints().filter(
-          (c) => (c as { sessionId?: unknown }).sessionId === sessionId
-        );
-        let closed = 0;
-        for (const row of rows) {
-          const taskId = row.taskId as string | undefined;
-          if (!taskId) continue;
-          writePdcaCheckpoint(taskId, {
-            status: 'abort',
-            abortedAt: new Date().toISOString(),
-          });
-          closed++;
-        }
-        if (closed > 0) {
-          logger.info('deleteSession:PDCA 任务已收口为 abort', {
-            sessionId,
-            closed,
-          });
-        }
-      } catch (e) {
-        logger.warn('deleteSession:PDCA 任务收口失败', {
-          sessionId,
-          error: e instanceof Error ? e.message : String(e),
-        });
-      }
-    })();
-  }
-
-  /**
-   * 清理指定会话的检查点并记录执行情况（fire-and-forget，不阻塞删除主流程）
-   * 耗时日志：listMs（检查点列表查询）/ cleanupMs（删除）/ totalMs（总耗时），供性能分析
-   */
-  private async _deleteSessionCheckpoints(sessionId: string): Promise<void> {
-    let count = 0;
-    const startedAt = Date.now();
-    try {
-      const t0 = Date.now();
-      const before = await this._checkpointService.listCheckpoints(sessionId);
-      const listMs = Date.now() - t0;
-      count = before.length;
-      if (count === 0) {
-        logger.info('deleteSession:该会话无检查点，跳过清理', {
-          sessionId,
-          listMs,
-        });
-        return;
-      }
-      logger.info('deleteSession:开始清理会话检查点', {
-        sessionId,
-        count,
-        listMs,
-      });
-      const t1 = Date.now();
-      await this._checkpointService.deleteSessionCheckpoints(sessionId);
-      const cleanupMs = Date.now() - t1;
-      logger.info('deleteSession:会话检查点清理完成', {
-        sessionId,
-        removed: count,
-        listMs,
-        cleanupMs,
-        totalMs: Date.now() - startedAt,
-      });
-    } catch (e) {
-      logger.warn('deleteSession:会话检查点清理失败', {
-        sessionId,
-        count,
-        elapsedMs: Date.now() - startedAt,
-        error: e instanceof Error ? e.message : String(e),
-      });
-      await handleError(e, {
-        module: 'chat:manager',
-        action: 'deleteSession:清理检查点失败',
-      });
-    }
+    await this._sessionTeardown.deleteSession(sessionId);
   }
 
   async clearAllSessions(moduleType?: string): Promise<void> {
-    const startedAt = Date.now();
-    logger.info('clearAllSessions:开始批量清空会话', {
-      moduleType: moduleType ?? 'all',
-    });
-    // 批量删除前先清理所有存储会话的检查点（失败不阻塞清空主流程；按 moduleType 过滤）
-    const stored = await this.sessionGateway.listSessions();
-    logger.info('clearAllSessions:发现待清理存储会话', {
-      count: stored.length,
-    });
-    await Promise.all(
-      stored
-        .filter(
-          (s) =>
-            !moduleType ||
-            (s.metadata as Record<string, unknown> | undefined)?.moduleType ===
-              moduleType
-        )
-        .map((s) =>
-          this._checkpointService.deleteSessionCheckpoints(s.id).catch((e) =>
-            handleError(e, {
-              module: 'chat:manager',
-              action: 'clearAllSessions:清理检查点失败',
-              context: { sessionId: s.id },
-            })
-          )
-        )
-    );
-    await this.sessionLifecycle.clearAllSessions(moduleType);
-    logger.info('clearAllSessions:批量清空完成', {
-      sessions: stored.length,
-      elapsedMs: Date.now() - startedAt,
-    });
+    await this._sessionTeardown.clearAllSessions(moduleType);
   }
 
   async saveSession(session: ChatSession): Promise<void> {

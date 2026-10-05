@@ -120,6 +120,11 @@ CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_records(date);
 --   row_type='goal'    → goal 聚合行（原单行语义，stage_id 为 NULL）
 --   row_type='stage'   → stage 粒度行（每阶段一行，含 stage_id，StageOrchestrator §4.6 成本双粒度）
 -- message 粒度成本由 usage_records 表（会话 usage 行）单独记录，见 GoalMetricsService
+--
+-- ⚠️ 命名消歧（2026-10-05，goal-entity D6）：本表 goal_id 实为 **PDCA 任务 id**
+--   （FOREIGN KEY (goal_id) REFERENCES task_states(id)），与 task_goals 表的**长程目标**
+--   是**两个不同实体** ⇒ **不得混用**（读作 pdca_task_id 更准确）。字段名**保留不改**，避免
+--   破坏既有 schema 与查询；仅在此显式标注语义边界。
 CREATE TABLE IF NOT EXISTS goal_metrics (
   id TEXT PRIMARY KEY,
   goal_id TEXT NOT NULL,

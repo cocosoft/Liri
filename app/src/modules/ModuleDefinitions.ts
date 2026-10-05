@@ -993,7 +993,9 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'extensions',
   'insights',
   'wizard',
-  // 办公模块（已在 eager 阶段加载）
+  // 办公模块（mail/calendar）—— 归 **DEFERRED** 阶段：启动后由 `scheduleDeferredModules` 后台批次加载
+  // （2026-10-05 订正：原注释写「已在 eager 阶段加载」与本处 DEFERRED 段自相矛盾；
+  //  与 `LazyModuleStrategy` 的 `ModulePriority.DEFERRED` 声明对齐。⚠️ 同族的 `doc` 属 **CRITICAL**（见 :941），勿混）
   'mail',
   'calendar',
 ];

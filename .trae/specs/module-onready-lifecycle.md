@@ -1,11 +1,26 @@
 # 模块 `onReady` 生命周期驱动缺失 —— 设计方案
 
-> 状态：**✅ 已实施（方案 C）** ｜ 建立 2026-09-14 ｜ 实施并验收 2026-09-14 ｜ 关联台账：V-17（残余）、V-30（遗留）
-> 结论摘要：`mail` / `calendar` / `doc` 三模块的 `onReady()` **无统一驱动方** → 其工具永不注册 → 相关能力（含 V-17 名单中 5 项）在运行期不可用。**已按方案 C（统一生命周期驱动）修复**，`GET /v1/tools` **78 → 84 项**。
+> 状态：**⛔ 未实施（2026-10-05 复核订正；原写「✅ 已实施（方案 C）」** —— **实测在 HEAD 未找到实现**，见下）｜ 建立 2026-09-14 ｜ 关联台账：V-17（残余）、V-30（遗留）
+> 结论摘要：`mail` / `calendar` / `doc` 三模块的 `onReady()` **无统一驱动方** → 其工具永不注册 → 相关能力（含 V-17 名单中 5 项）在运行期不可用。（**此结论仍成立** —— 2026-10-05 复核确认三模块 `onReady` 至今无统一驱动。）
 
-## 实施记录（2026-09-14）
+## ⚠️ 2026-10-05 复核订正（任务计划 §2.4 B-3）
 
-| 项 | 实施内容 |
+**原状态行声称「✅ 已实施（方案 C）」、实施记录称落点 `ModuleRegistry.initialize()` + `MODULE_DEFINITIONS` 三模块新增 `onReady`；但逐条实测均不成立**：
+
+| 声称 | 实测（file:line） |
+|---|---|
+| 统一驱动在 `ModuleRegistry.initialize()` | ❌ `app/src/modules/ModuleRegistry.ts:185-213` `initialize()` 仅做依赖递归 + `module.initialize()`，**无任何 `onReady` 调用** |
+| `MODULE_DEFINITIONS` 的 `doc`/`mail`/`calendar` 新增 `onReady` | ❌ `app/src/modules/ModuleDefinitions.ts` 中三模块定义**无 `onReady` 字段**（grep `onready` 该文件 0 命中） |
+| 三模块 `onReady` 被驱动 | ❌ `MailModule.onReady`（`modules/mail/MailModule.ts:37`）与 `CalendarModule.onReady`（`modules/calendar/CalendarModule.ts:43`）**无调用方** |
+| （可能的 DI 路径） | ❌ 亦不覆盖：`core/di/ContainerScope.ts:171-188` `readyAll()` 对 `!desc?.onReady` 直接 `continue`，而模块实例经 `ModuleRegistry.registerWithContainer → registerInstance` 注册（`DIContainer.ts:54-61` 的 descriptor 仅 `{id,factory,scope}`） |
+
+**判定**：**失实自称**（与 `workflow-*` 四篇的 2026-09-26 核实声明同型）。**已登记** `dev_docs/error_repairs/预存错误与待处理问题.md`。
+**⚠️ 待补核**：本 spec 称「实施并验收 2026-09-14」「`/v1/tools` 78 → 84」—— 若确曾实现，须核其**是否落在 `main` 的 git 历史**（同 `workflow-template-persistence` §6 的「非 main 祖先」先例）；**当前结论：HEAD 无该实现**。
+**后续**：① 如实订正本文（本批已完成）② 若要修复，按下方方案 C 重新实施（另立排期）。
+
+## 原实施记录（2026-09-14，**2026-10-05 复核后判定为「未落地」**）
+
+| 项 | 原声称实施内容 |
 |---|---|
 | 落点（优化） | 统一驱动放在 **`ModuleRegistry.initialize()`**（紧随既有 `module.initialize()`）→ **覆盖 eager / 延迟 / 按需全部路径**（原方案写的是 `ModuleInitializer`，实施时改到更居中的位置） |
 | 声明式挂载 | `MODULE_DEFINITIONS` 的 `doc` / `mail` / `calendar` 三项新增 `onReady`（动态 import + `getInstance().onReady()`）；**新增模块只需声明即自动获得驱动** |

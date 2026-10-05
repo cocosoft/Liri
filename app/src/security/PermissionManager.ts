@@ -436,12 +436,3 @@ export class SecurityPermissionView {
     logger.info(`Set default allow to ${defaultAllow}`);
   }
 }
-
-/**
- * 创建权限管理视图（T-①05 D2：随 D1 一并改名，避免与主模块同名工厂混淆）
- */
-export function createSecurityPermissionView(
-  defaultAllow: boolean = true
-): SecurityPermissionView {
-  return new SecurityPermissionView(defaultAllow);
-}

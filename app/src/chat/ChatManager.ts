@@ -259,6 +259,9 @@ import {
   setEvolutionAuditSink,
 } from '@modules/tasks';
 import { setGoalEventSink } from '@modules/tasks';
+// P1-19 ①（2026-10-05）：工作流成员级事件实时落盘 —— 本模块持有会话事件日志，
+// 故在此注入唯一写入出口（与 setGoalEventSink 同一手法；避免 workflow/ → chat/ 反向依赖）。
+import { setWorkflowRunEventSink } from '@modules/workflow';
 // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
 import { chargeSessionGoalUsage } from '@modules/tasks';
 import {
@@ -1016,6 +1019,10 @@ export class ChatManagerImpl implements ChatManager {
     // 故在此注入 `EvolutionAudit` 的唯一写入出口（`evolution/applied`：提示覆盖层/技能侧车
     // 被自动改写时各一条）。通道为既有 `events.jsonl`，不新建审计通道、不改 UI。
     setEvolutionAuditSink((sid, event) => this.appendStreamEvent(sid, event));
+    // P1-19 ①（2026-10-05）：工作流成员级 run/step 事件实时落盘 —— 同上手法的唯一写入出口。
+    // 使 `office:workflow` / `office:doc-pipeline` 在 run 执行期即逐条落 `assistant/workflow_*`
+    // 事件（不再等工具结束后批末投影）；批末投影据 `metadata.workflowRun.liveEmitted` 去重。
+    setWorkflowRunEventSink((sid, event) => this.appendStreamEvent(sid, event));
     // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
     // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
     registerSessionSummaryMemoryType();

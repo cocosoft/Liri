@@ -224,6 +224,15 @@ export interface WorkflowRunRecord {
   end?: WorkflowRunEndInfo;
   /** 成员级步骤记录（按执行序） */
   steps?: WorkflowStepRecord[];
+  /**
+   * 实时落盘标记（P1-19 ①，2026-10-05）：本 run 的 4 类事件已由**实时路径**（执行期）
+   * 写入会话事件日志 ⇒ `projectWorkflowRunEvents` 批末投影**跳过**，避免同
+   * `runId`+`stepId` 重复落盘。
+   *
+   * 持久化布尔标记（CS02：状态判定不作字符串匹配）；缺省（旧数据 / 实时路径未生效）
+   * ⇒ 走批末投影兜底（完整）。
+   */
+  liveEmitted?: boolean;
 }
 
 /**

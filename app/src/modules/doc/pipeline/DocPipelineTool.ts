@@ -273,12 +273,19 @@ export function createDocPipelineTool(): Tool {
       };
 
       try {
-        const { observer, record: workflowRun } = createRunRecordCollector();
+        // P1-19 ①（2026-10-05）：传 sessionId ⇒ 成员级事件执行期实时落盘；drain() 保证
+        // 实时事件（含 run_end）先于 tool/result 落盘。
+        const {
+          observer,
+          record: workflowRun,
+          drain,
+        } = createRunRecordCollector({ sessionId });
         const runResult = await getWorkflowEngine().execute(
           DOC_PIPELINE_WORKFLOW,
           pipelineParams as unknown as Record<string, unknown>,
           { observer }
         );
+        await drain();
         const success = runResult.stopReason === 'completed';
         const composed = success
           ? (runResult.value as

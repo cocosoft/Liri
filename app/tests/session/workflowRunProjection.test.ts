@@ -139,6 +139,21 @@ describe('workflowRun 落盘投影（MessageToEventMigrator）', () => {
     expect(events.map((e) => e.type)).toEqual(['tool/result']);
   });
 
+  it('实时已落盘（liveEmitted=true）⇒ 批末投影整体跳过，去重不重复（P1-19 ①）', () => {
+    const { events } = convert({
+      workflowRun: runRecord({ liveEmitted: true }),
+    });
+    // 同 runId+stepId 的 6 条工作流事件已由实时路径写入 ⇒ 批末不得再产（否则重复落盘）
+    expect(events.map((e) => e.type)).toEqual(['tool/result']);
+  });
+
+  it('liveEmitted 非布尔真值（如 false / 缺省）⇒ 仍走批末兜底投影', () => {
+    const { events } = convert({
+      workflowRun: runRecord({ liveEmitted: false }),
+    });
+    expect(events.map((e) => e.type)).toEqual(EXPECTED_TYPES);
+  });
+
   it('失败 run ⇒ run_end 携带 failedStep 与上游根因候选（P0-2 端到端）', () => {
     const { events } = convert({
       workflowRun: runRecord({

@@ -16,7 +16,7 @@ import type {
 } from './types';
 
 import { DocModuleStatus as Status } from './types';
-import type { Tool } from '@modules/tools/types/Tool';
+import type { Tool, ToolUseContext } from '@modules/tools/types/Tool';
 import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 
 // P1-3（2026-09-26）：office:doc-pipeline 接线（实现已拆至子目录，见 R04-001）
@@ -317,15 +317,22 @@ export class DocModule {
       isDestructive: () => false,
       isConcurrencySafe: () => false,
 
-      async execute(input: Record<string, unknown>) {
+      async execute(input: Record<string, unknown>, context?: ToolUseContext) {
         const workflow = input.workflow as string;
         const params = (input.params ?? {}) as Record<string, unknown>;
         // P0-1 接入点第二刀：执行改走 workflow seam（拓扑序 + 成员级账本 + 失败归因），
         // 并由 seam 侧的装配器把 run 记录随 ToolResult.metadata 带出。
-        const { observer, record: workflowRun } = createRunRecordCollector();
+        // P1-19 ①（2026-10-05）：传入 sessionId ⇒ 成员级事件**执行期实时落盘**（不再等批末投影）；
+        // `drain()` 保证实时事件（含 run_end）先于 tool/result 落盘。
+        const {
+          observer,
+          record: workflowRun,
+          drain,
+        } = createRunRecordCollector({ sessionId: context?.sessionId });
         const runResult = await getWorkflowEngine().execute(workflow, params, {
           observer,
         });
+        await drain();
         const success = runResult.stopReason === 'completed';
         const output =
           typeof runResult.value === 'string' ? runResult.value : undefined;

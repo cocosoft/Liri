@@ -52,6 +52,11 @@ export function projectWorkflowRunEvents(
   const record = asRecord(metadata.workflowRun);
   if (!record) return [];
 
+  // 去重（P1-19 ①，2026-10-05）：实时路径已在执行期写入本 run 的 4 类事件
+  // （`WorkflowRunRecord.liveEmitted`，持久化布尔标记 —— CS02）⇒ 批末投影**整体跳过**，
+  // 避免同 runId+stepId 重复落盘。缺省（旧数据 / 实时路径未生效）⇒ 走下方投影兜底。
+  if (record.liveEmitted === true) return [];
+
   const events: LiriEvent[] = [];
   let seq = ctx.startSeq;
 

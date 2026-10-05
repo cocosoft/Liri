@@ -32,6 +32,7 @@
  * 配对不变式由账本保证，此处只需忠实装配。
  */
 
+import { createLiveRunEmitter, type LiveRunEmitter } from './WorkflowRunEvents';
 import type {
   WorkflowRunObserver,
   WorkflowRunRecord,
@@ -41,39 +42,61 @@ import type {
 export interface RunRecordCollector {
   /** 注入 `WorkflowExecuteOptions.observer` */
   observer: WorkflowRunObserver;
-  /** 执行结束后即为完整记录（`record.end` 已回填） */
+  /** 执行结束后即为完整记录（`record.end` 已回填；实时路径生效时 `record.liveEmitted === true`） */
   record: WorkflowRunRecord;
+  /** 实时写入是否生效（有 `sessionId` 且已注入追加器） */
+  liveActive: boolean;
+  /** 等待全部实时事件按序落盘（未实时 ⇒ no-op）；调用方应在 `execute()` 返回后 await */
+  drain(): Promise<void>;
 }
 
 /**
  * 创建 run 记录装配器。
  *
+ * 传入 `sessionId` 且宿主已注入追加器（`setWorkflowRunEventSink`）⇒ 观察者回调除装配
+ * `record` 外，**同时**把 4 类事件实时落盘（P1-19 ①）；未生效 ⇒ 仅装配，由批末投影兜底。
+ *
  * @example
- * const { observer, record } = createRunRecordCollector();
+ * const { observer, record, drain } = createRunRecordCollector({ sessionId });
  * await engine.execute(name, params, { observer });
+ * await drain(); // 保证实时事件（含 run_end）先于 tool/result 落盘
  * return { metadata: { workflowRun: record } };
  */
-export function createRunRecordCollector(): RunRecordCollector {
+export function createRunRecordCollector(options?: {
+  sessionId?: string;
+}): RunRecordCollector {
   const steps: WorkflowStepRecord[] = [];
   const record: WorkflowRunRecord = { steps };
+  const live: LiveRunEmitter = createLiveRunEmitter(options?.sessionId);
 
   const observer: WorkflowRunObserver = {
     onRunStart: (info) => {
+      live.observer.onRunStart?.(info);
       record.start = info;
     },
     onStepStart: (info) => {
+      live.observer.onStepStart?.(info);
       steps.push({ start: info });
     },
     onStepEnd: (info) => {
+      live.observer.onStepEnd?.(info);
       const entry = steps.find(
         (item) => item.start.stepId === info.stepId && item.end === undefined
       );
       if (entry) entry.end = info;
     },
     onRunEnd: (info) => {
+      live.observer.onRunEnd?.(info);
       record.end = info;
+      // 实时路径已生效 ⇒ 批末投影跳过（去重，见 workflowRunProjection）
+      if (live.active) record.liveEmitted = true;
     },
   };
 
-  return { observer, record };
+  return {
+    observer,
+    record,
+    liveActive: live.active,
+    drain: () => live.drain(),
+  };
 }

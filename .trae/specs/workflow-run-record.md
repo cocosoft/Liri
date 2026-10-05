@@ -212,6 +212,7 @@
 
 **已知边界（如实记录）**：
 1. 成员级事件**实时性**：步骤起止随 `ToolResult.metadata` 在**工具结束后**统一投影 ⇒ 前端在运行中看不到逐步进度，只有回放/流式结束后可见（专用工作流卡片属 §10.2 #4 剩余项）。
+   > **⬆️ 2026-10-05（P1-19 ①）已订正**：生产点已前移到**执行期实时落盘**（注入 `appendStreamEvent`），批末投影退为兜底并用 `liveEmitted` 去重 —— 见 **§13**。仍需注意的边界：本仓**无**会话事件实时桥（`assistant/workflow_*` 无 SSE chunk 生产者），故"浏览器端 run 期直接可见"仍未成立（详见 §13.7）。
 2. 被放弃 Provider 的**步骤结果**：宽限期强制结算后 Provider 仍在后台跑完，其上报被账本丢弃 ⇒ 该步骤记为 `cancelled` + `synthesized: true`，真实结果不落盘（与 P2-2 有界结算同源）。
 3. 未做浏览器实测（复用 `status` 块渲染，无专用卡片 —— **§12 已补专用卡片**，卡片亦未做浏览器实测）。
 
@@ -268,3 +269,98 @@
 2. **续跑恢复不在范围内**（D16）：中断后的重试由用户决策，系统只给指导文案。
 3. 卡片标签硬编码中文（D17）。**浏览器走查已完成**（2026-09-15，深色模式，两态逐项核对通过）：受控会话经 `POST /v1/sessions` 创建、事件经 `EventLogStorage.append()` 播种（**为何不走 HTTP 播种**：`POST /v1/sessions/{id}/messages` 只映射 user/assistant 角色，而工作流事件投影位于 migrator 的 **tool 分支**，需要 `role:'tool'`），走查后会话已删除、临时脚本已移除 —— 无残留数据。
 4. 走查期间曾连带记一条"预存性能问题"（首次 `/messages` 阻塞 ~120s）—— **2026-09-15 经 TRAE-debugger 取证确认为误报并已更正**：120s 出在一次性播种脚本的**进程退出**上（工作 10s 内完成却**不退出**），**不是 HTTP 路径**；实测 `/messages` 冷/热路径均 **7–44ms**（常态 0–40ms）。真问题另立台账 **V-47**（一次性脚本 import 应用模块图后不退出）。
+
+> ⚠️ **§12 现状复核（2026-10-05，P1-19 ① 开工取证）—— 与 §12 声称不符，务必以此为准**：
+> 本仓**不存在** §12 声称的 `WorkflowRunCard.tsx` / `workflow-run-card.test.tsx` / `markOrphanWorkflowBlocks`（`grep` 全仓零命中）。实际状态：
+> - **D14 未落地**：4 类事件在两端仍各派生为**独立 `status` 块**（D12 口径）——后端 `EventMessageDeriver.ts:393-427`、前端 `deriveConversationBlocks.ts:767-776`（`type:"status"`），**无 `workflow_run` 块类型、无聚合卡片、无中断合成**。
+> - **D15/D16 未落地**：`markOrphanWorkflowBlocks` 不存在 ⇒ 重放期**不合成** `interrupted`；半写 run 只是缺 `run_end` 行（如实呈现"结果未知"，恰好符合 D15"前端不得自行判中断"的字面要求）。
+> - **前端无"会话事件实时桥"**：`assistant/workflow_*` **无 SSE chunk 生产者**（`chat-handlers.ts:896` 的 `doc_workflow` 分支同样无生产者）；全局 `/v1/events` 仅广播显式 `broadcastEvent`（不含 `assistant/*`）。故前端**只能经事件日志读取/派生**观测到这些事件。
+> 本批（P1-19 ①）在此基础上做**后端生产时序实时化**，详见 §13。
+
+---
+
+## 13. 成员级事件实时化（P1-19 ①，2026-10-05）
+
+> 承接 §11.4「已知边界 1」：成员级事件原为**工具结束后批末投影**（`MessageToEventMigrator` 在 tool 消息转换时一次性投影 4×N+2 条），前端在 run 运行期看不到逐步进度。本批把生产点**前移到执行期**。
+
+### 13.1 取证（决定设计的事实）
+
+| 事实 | 证据 |
+|---|---|
+| **seam 观察者已按真实时序回调**（run_start → step_start/end → run_end），但消费方只在结束后取记录 | `WorkflowEngine.ts:284-448`（`notifyRunStart`/账本回调/`notifyRunEnd`）；`runRecordCollector.ts:60-76`（仅装配到内存 `record`） |
+| **唯一落盘路径 = 注入的追加器**（跨模块"写入能力"用注入而非 import） | `tasks/goal/GoalEvents.ts:55-70`（`setGoalEventSink`）、`chat/ChatManager.ts:1004-1018`（注入点）、`chat/services/requestBoundary.ts:57-60` |
+| **工具执行期能拿到 `sessionId`** | `ToolRegistry.executeTool` → `tool.execute(input, context)`（`ToolRegistry.ts:403-407`）；`ToolUseContext.sessionId`（`context/types/ToolUseContext.ts:6`）；`ToolExecutionService.ts:805` 填充 |
+| **批末投影的唯一入口**是 `projectWorkflowRunEvents`（被 `convertMessage` tool 分支调用） | `MessageToEventMigrator.ts:341-347`；`workflowRunProjection.ts:48` |
+| **工具 `metadata` 随消息落盘**（可作为去重判据的持久载体） | §9 注 1；`ChatManager._appendEventsForMessage`（`ChatManager.ts:1733`） |
+
+### 13.2 决策
+
+| ID | 决策 | 理由 |
+|---|---|---|
+| D18 | **承载通道 = 既有会话事件日志**（`ChatManager.appendStreamEvent`，经**注入**进入 seam，不在 seam/tool 内直连 `EventLogStorage`） | 与 `GoalEvents`/`requestBoundary`/`persistDocWorkflowProgress` 同源；写权仍集中于唯一权威（R01 / R06-008 分层） |
+| D19 | **产出点 = seam 观察者回调处**（run 执行期）。新增 `modules/workflow/WorkflowRunEvents.ts`（唯一实时写实现），由 `runRecordCollector` 组合：回调既装配 `record`，又**即时**（经串行 promise 链保证顺序）append 对应事件 | 复用既有两级观察者（CS01）；顺序由链式 await 保证，不引入第二个循环 |
+| D20 | **批末投影保留为兜底**（历史回放 / 实时路径未生效时仍完整），**由 `metadata.workflowRun.liveEmitted` 布尔标记去重**：为 `true` 时 `projectWorkflowRunEvents` 直接返回空 | 持久化布尔标记（CS02：禁止字符串匹配）；单点判据、可测 |
+| D21 | **`liveEmitted` 的语义 = "本次 run 的实时路径已生效"**（有 `sessionId` 且已注入追加器）。partial 写失败 ⇒ 不回退批末（避免同 `runId`+`stepId` 重复落盘），run 呈"缺 `run_end`"由读端如实呈现（D15 字面：前端不合成） | 去重优先；不编造（CS06）；CS03 不为罕见写失败引入重复回退 |
+| D22 | **调用方在 `engine.execute()` 返回后 `await collector.drain()`**，再返回 `ToolResult` | 保证实时事件（含 `run_end`）在 `tool/result` **之前**按序落盘，维持"回放序=发生序" |
+| D23 | **前端本批不改**：事件载荷/形状与批末投影**逐字段同形**，现有派生（`status` 块）零改动即可消费；是否新增专用卡片属 D14 范畴（本仓未落地） | 规避新块类型风险（与 §9 注 2 同口径） |
+
+### 13.3 影响文件
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `modules/workflow/WorkflowRunEvents.ts` | **新建**：`WorkflowRunEventAppender` / `setWorkflowRunEventSink` / `createLiveRunEmitter`（4 类事件构造 + 串行 append + `drain`） |
+| 2 | `modules/workflow/types.ts` | `WorkflowRunRecord.liveEmitted?: boolean`（去重标记） |
+| 3 | `modules/workflow/runRecordCollector.ts` | 接受 `{ sessionId? }`；组合实时发射器；`liveActive` / `drain()`；`onRunEnd` 时置 `record.liveEmitted` |
+| 4 | `modules/workflow/index.ts` | 导出新增符号 |
+| 5 | `session/storage/workflowRunProjection.ts` | 去重：`record.liveEmitted === true ⇒ return []` |
+| 6 | `chat/ChatManager.ts` | 注入 `setWorkflowRunEventSink((sid, event) => this.appendStreamEvent(sid, event))` |
+| 7 | `modules/doc/DocModule.ts` | `office:workflow` 工具 `execute(input, context)`：传 `sessionId`，`await drain()` |
+| 8 | `modules/doc/pipeline/DocPipelineTool.ts` | 同上（`office:doc-pipeline`） |
+
+### 13.4 逐条对照硬约束
+
+| 硬约束 | 保证方式 |
+|---|---|
+| 1 实时性（run 期可观测、顺序） | D19：观察者回调即时入链；D22：`drain()` 在 `tool/result` 前完成 ⇒ 落盘序 = `run_start → step_start/end… → run_end → tool/result` |
+| 2 D11 结算即封闭 | **不改账本**；`liveEmitted` 仅在 `onRunEnd`（账本 `close()` 之后、`notifyRunEnd` 处）置位。晚到上报仍被 `WorkflowStepLedger.closed` 丢弃（新增回归用例） |
+| 3 D15/D16 不回退 | 实时化**不新增**任何"前端判中断"逻辑；本仓 D15 合成逻辑本就不存在（见 §12 复核），故无回退。前端仍不合成 |
+| 4 配对不变式由账本单点保证 | 实时事件**直接来自账本已校验的 `WorkflowStep{Start,End}Info`**，不绕过账本；少报合成/错报丢弃/结算封闭逻辑零改动 |
+| 5 D14 卡片聚合 | 本仓 D14 未落地（详见 §12 复核）；实时化后事件形状与数量与批末投影一致，两端派生结果**逐字节不变**（仅时序前移） |
+| 6 分层（注入而非直连） | D18：`modules/workflow` 只声明 `WorkflowRunEventAppender` 并接收注入；`ChatManager` 注入其 `appendStreamEvent`。**无** `workflow → chat` import、**无** `EventLogStorage` 引用 |
+
+### 13.5 去重判据（唯一）
+
+> **`metadata.workflowRun.liveEmitted === true` ⇒ `projectWorkflowRunEvents` 返回 `[]`。**
+
+- 载体：工具消息 `metadata`（随 `messages.jsonl` 落盘，跨进程可读；CS02 持久化布尔标记）。
+- 覆盖：实时路径生效（`sessionId` + 追加器齐备）时批末**不再投影**；历史/无实时数据（旧 `messages.jsonl`、非 chat 调用）标记缺省 ⇒ 批末正常投影（兜底完整）。
+- 幂等：同一 `runId`/`stepId` 的实时事件与批末事件**不共存**——二者互斥由该标记保证。
+
+### 13.6 验证（门禁实跑，2026-10-05）
+
+| 项 | 结果 |
+|---|---|
+| `cd app && bun run typecheck` | **0 error** |
+| `bun run lint:arch` | **错误 0 / 警告 4（基线）**；分层 R00-001 违规 0；**疑似僵尸方法 0** |
+| `bun run lint:size` | **0 错误**（461 警告，均为存量文件行数建议） |
+| 定向 ESLint（10 个改动文件 `--fix` 后复跑） | **0 error** |
+| 定向测试（workflow 系列 + `tests/modules/doc` + `tests/session/workflowRunProjection` + `MessageToEventMigrator`） | **106 pass / 0 fail**（含新增 `workflowRunEvents.test.ts` 5 例 + `workflowRunProjection.test.ts` +2 例） |
+| 全量 `bun test`（app） | **4405 pass / 21 skip / 0 fail**（464 文件） |
+| `cd client && bun x tsc --noEmit` | **0** |
+| `cd client && bun run test` | **500 pass / 0 fail**（54 文件） |
+
+新增/扩展用例与关键断言：
+1. `tests/modules/workflow/workflowRunEvents.test.ts`（**新建** 5 例）：
+   - **实时顺序**：真实 `WorkflowEngine` + `DocOrchestratorProvider`，捕获桩追加器断言事件序 = `run_start → step_start/end×N → run_end`；`run_end` 恒为最后一条、`run_start` 先于首个 `step_start`、同一 `runId` 贯穿、无 `undefined` 键（D1 无损）。
+   - **去重**：实时生效后把同一 `record`（`liveEmitted` 已置）喂给 `MessageToEventMigrator.convertMessage` ⇒ 仅 `tool/result`（无重复工作流事件）。
+   - **兜底**：未注入追加器 ⇒ `liveActive=false`、`record.liveEmitted` 缺省、批末投影仍完整（6+1 条）。
+   - **无会话**：无 `sessionId` ⇒ 不落任何实时事件。
+   - **封闭（D11）**：`WorkflowStepLedger.close()` 后晚到的 `onStepStart`/`onStepEnd` 一律丢弃（`synthesized` 步骤不受二次上报影响）。
+2. `tests/session/workflowRunProjection.test.ts`（**+2 例**）：`liveEmitted=true` ⇒ 批末跳过；`liveEmitted=false`/缺省 ⇒ 仍走批末投影。
+
+### 13.7 已知边界（如实记录）
+
+1. **前端"运行期实时渲染"受既有缺口限制**：本仓**无**"会话事件实时桥"——`assistant/workflow_*` 无 SSE chunk 生产者（`chat-handlers.ts` 的 `doc_workflow` 分支同样无生产者），全局 `/v1/events` 仅广播显式 `broadcastEvent`（不含 `assistant/*`）。故本批保证的是**事件在 run 执行期即已按序落盘**（任何实时读取方/未来 chunk 桥均可在运行期取到），而**非**"浏览器端 run 期直接可见"；后者需另立一条 chunk/SSE 桥（跨端），不在本批范围。
+2. **D14 聚合卡片、D15/D16 中断合成在本仓未落地**（见 §12 复核）：实时化不引入、不改动这两者；事件形状/数量与批末投影一致，现有 `status` 块派生结果不变。
+3. **partial 写失败策略**（D21）：`liveEmitted` 按"实时路径已生效"置位，不按"全部写成功"置位 ⇒ 罕见写失败时该 run 可能缺 `run_end`（读端如实呈现"结果未知"），以此换取"绝不重复落盘"。
+4. **浏览器的端到端走查未做**（无实时桥，且本批不改前端）。

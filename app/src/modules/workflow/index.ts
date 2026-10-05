@@ -27,6 +27,15 @@ export type { WorkflowProvider } from './WorkflowEngine';
 export { WorkflowModule, getWorkflowEngine } from './WorkflowModule';
 export { createRunRecordCollector } from './runRecordCollector';
 export type { RunRecordCollector } from './runRecordCollector';
+export {
+  createLiveRunEmitter,
+  setWorkflowRunEventSink,
+} from './WorkflowRunEvents';
+export type {
+  LiveRunEmitter,
+  WorkflowRunEventAppender,
+  WorkflowRunEventType,
+} from './WorkflowRunEvents';
 export { WorkflowError, isFatalWorkflowError } from './WorkflowError';
 export type { WorkflowErrorOptions } from './WorkflowError';
 export type {

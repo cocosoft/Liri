@@ -99,6 +99,8 @@ import {
   type GateTier,
   type PendingOption,
 } from './services/DecisionGate';
+import { SUSPENSION_SETTLED_STATUS_TYPE } from './services/pendingSuspensions';
+import { handleError } from '@modules/error';
 import {
   loadNegotiationState,
   createNegotiationState,
@@ -306,8 +308,6 @@ export class ReActToolLoop extends ReActLoop<
   /** 实例级可配置（测试缩短心跳间隔用），默认取 static 常量 */
   private heartbeatMs: number;
   private maxWaitMs: number;
-  /** 候选 C（2026-09-05）：本次等待是否因超时结束（timeout 保留 entry 宽限） */
-  private _interactionTimedOut: boolean = false;
   /** DecisionGate 门控强度（undefined 表示门控未启用，对齐设计方案 §5.1） */
   private gateTier?: GateTier;
   /** 协商状态（跨消息持久化，null 表示未启用协商引擎） */
@@ -2513,6 +2513,14 @@ export class ReActToolLoop extends ReActLoop<
             reason: winner.kind,
             waitMs: Date.now() - waitStart,
           });
+          const content =
+            winner.kind === 'timeout'
+              ? '本次提问等待已超时（未获回答），已按 fail-closed 结算。'
+              : '本次提问等待被中止，已按 fail-closed 结算。';
+          // A1 T4：落盘结算标记事件（持久化 + 幂等，重载后回放可见）
+          await this._emitSuspensionSettled(questionId, content);
+          // A1 T5：同一结算**实时**下发 status chunk（前端即时可见，无需重载会话）
+          yield { type: 'suspension_settled', content };
           return undefined;
         }
         // 心跳事件（高频：仅 debug，避免刷屏；配合 wait_start/resolved 可还原完整等待曲线）
@@ -2526,14 +2534,47 @@ export class ReActToolLoop extends ReActLoop<
     } finally {
       // v3：显式移除 abort 监听器，避免跨轮多次提问累积
       if (sig) sig.removeEventListener('abort', onAbort);
-      // 候选 C（2026-09-05）：abort 立即清理；timeout 保留 entry 宽限——晚到回答
-      // 不再命中「未找到待处理交互」warn，而走 answeredAfterExpiry 落盘语义。
-      // 注：保留 entry 无监听方（生成器已返回），resolve 仅作幂等记录与清理；
-      // 「超时窗口内自动续跑」需产品化 re-run（§10.7 C 边界，未在本改动实现）。
-      if (!this._interactionTimedOut) {
-        this.ctx.pendingInteractions.delete(this.ctx.session.id);
-      }
-      this._interactionTimedOut = false;
+      // A1 T4（2026-10-05）：等待结束即**结算** —— 移除 entry（超时/中止后晚到回答走
+      // `answeredAfterExpiry` 兜底落盘，不复活已完成的任务）。
+      // ⚠️ 原 `_interactionTimedOut` 判据**从未被置 true**（死分支），声称的"timeout 保留 entry
+      // 宽限"从未生效；已删除该字段，行为即"结算即移除"（与 T4 语义一致，无行为变化）。
+      this.ctx.pendingInteractions.delete(this.ctx.session.id);
+    }
+  }
+
+  /**
+   * A1 T4（2026-10-05）：落盘**挂起结算标记**事件（`assistant/status` / `suspension_settled`）。
+   *
+   * 用途：① 持久化（重载/回放可见）；② 挂起清单投影据此把该问视为**已解析**（幂等）。
+   * 实时下发由调用方另 yield `suspension_settled` 事件承担（T5）。
+   * 复用 `_emitValidationInjected` 同款原始事件追加路径（`seq:0` 由 append 原子分配）；
+   * 观测面能力缺失（单测替身）⇒ 如实不落（不伪造）；落盘失败经 `handleError()` 上报，不抛。
+   */
+  private async _emitSuspensionSettled(
+    questionId: string,
+    content: string
+  ): Promise<void> {
+    const { appendStreamEvent } = this.ctx;
+    if (!appendStreamEvent) return;
+    const event: LiriEvent<'assistant/status'> = {
+      type: 'assistant/status',
+      schemaVersion: 1,
+      seq: 0,
+      time: Date.now(),
+      sessionId: this.ctx.session.id,
+      data: {
+        content,
+        statusType: SUSPENSION_SETTLED_STATUS_TYPE,
+        questionId,
+      },
+    };
+    try {
+      await appendStreamEvent(this.ctx.session.id, event);
+    } catch (err) {
+      await handleError(err, {
+        module: 'chat:reactToolLoop',
+        action: 'emitSuspensionSettled',
+      });
     }
   }
 

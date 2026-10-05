@@ -6,11 +6,11 @@
  *
  * 持久化：
  *   序列化到 ~/.pyapp/data/negotiation/<sessionId>.json
- *   ⚠️ **「启动时恢复挂起提问」尚未接线（2026-10-05 复核订正）**：本文件曾声称
- *   「应用启动时检测 awaitingUser=true 则恢复挂起提问」，但恢复判据 `hasPendingRestoration()`
- *   （本文件 `:239`）在 `app/src` 内**零调用点** ⇒ 该能力**不存在**（会话重启后挂起提问不会
- *   自动恢复）。⇒ 待 `.trae/specs/a1-fail-closed-pending-queue.md` **T3**（挂起清单单一事实源 +
- *   启动重建）落地后接线；台账：`dev_docs/error_repairs/预存错误与待处理问题.md`（2026-10-05「失实自称」节）
+ *   **重启恢复（A1 T3 已接线，2026-10-05）**：本文件原声称"启动时检测 awaitingUser=true 则
+ *   恢复挂起提问"但未接线（2026-10-05 复核为失实自称，已记台账）。现由 `chat/manager/recovery.ts`
+ *   的 `bootstrapPendingRecovery()` 接线：以**事件日志投影**（`chat/services/pendingSuspensions.ts`）
+ *   为权威事实源（Q1 裁定①），本 JSON 作**廉价索引 + 状态对齐**（Q2 裁定「接线并对齐」）；
+ *   启动期对无恢复通道的挂起项做 **fail-closed 结算**（T4）。
  *
  * 生命周期：创建于首轮分析、随会话销毁清理
  */
@@ -240,12 +240,51 @@ export function recordAnswer(
 /**
  * 检测是否有挂起的提问需要恢复（应用重启后）
  *
- * ⚠️ **当前零调用点（2026-10-05 复核）** —— 即"重启恢复"**未接线**（本文件头注已订正，不再声称已具备）。
- * 接线属 `.trae/specs/a1-fail-closed-pending-queue.md` **T3**（挂起清单单一事实源 + 启动重建）；
- * 接线前**不得**在文档/注释中把它当作既有能力。
+ * A1 T3（2026-10-05）：**已接线** —— 启动期由 `chat/manager/recovery.ts` 的
+ * `bootstrapPendingRecovery()` 经此判据识别"曾挂起"的会话，再以**事件日志投影**为准
+ * （`chat/services/pendingSuspensions.ts`）做对齐与 fail-closed 结算。
  */
 export function hasPendingRestoration(
   state: NegotiationState | null
 ): state is NegotiationState {
   return state !== null && state.awaitingUser && state.pending.length > 0;
+}
+
+// ─── A1 T3：启动重建支持 ──────────────────────────────────
+
+/**
+ * 列出存在协商状态的会话 id（**廉价索引**：仅 readdir，不解析内容）。
+ *
+ * 用途：启动期挂起重建的**候选集** —— 只对"曾进入协商"的会话做事件投影，
+ * 避免全量扫描所有会话的事件日志。
+ *
+ * ⚠️ **权威事实源仍是事件日志**（Q1 裁定①）：本索引仅用于**缩小扫描范围**；
+ * 投影结果与索引不一致时**以投影为准**（Q2「接线并对齐」）。
+ */
+export function listNegotiationSessionIds(): string[] {
+  try {
+    const dir = resolveNegotiationDir();
+    if (!fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => f.slice(0, -'.json'.length));
+  } catch (err) {
+    logger.warn('negotiationState:list_failed', { error: String(err) });
+    return [];
+  }
+}
+
+/**
+ * 按事实源（事件投影）**对齐**协商状态：清空挂起项并复位 `awaitingUser`。
+ *
+ * 调用时机：启动期投影已产出"当前仍挂起清单"并**逐项结算**之后 —— 结算后不再有挂起项，
+ * 故对齐为"无挂起"。事件日志读失败时**不得**调用本函数（避免误清有效状态）。
+ */
+export function clearPendingState(state: NegotiationState): void {
+  if (state.pending.length === 0 && !state.awaitingUser) return;
+  state.pending = [];
+  state.awaitingUser = false;
+  state.askedAt = undefined;
+  saveNegotiationState(state);
 }

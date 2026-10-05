@@ -61,6 +61,7 @@ describe("statusType 契约：瞬态集合", () => {
       STATUS_TYPE.TASK_ALL_DONE,
       STATUS_TYPE.RESUME,
       STATUS_TYPE.ERROR,
+      STATUS_TYPE.SUSPENSION_SETTLED,
     ]) {
       expect(TRANSIENT_STATUS_TYPES.has(visible)).toBe(false);
     }

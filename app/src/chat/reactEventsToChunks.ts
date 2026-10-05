@@ -221,6 +221,18 @@ export function reactEventsToChunks(
         } as ChatStreamChunk,
       ];
 
+    case 'suspension_settled':
+      // A1 T5（2026-10-05）：挂起提问 fail-closed 结算 → status chunk（前端**实时**可见，不静默）。
+      // statusType 取共享契约值 ⇒ 不在瞬态集合内 ⇒ 前端按既有 status block 渲染（零新 UI）。
+      return [
+        {
+          type: 'status',
+          content: event.content,
+          sessionId,
+          statusType: 'suspension_settled',
+        },
+      ];
+
     case 'yielded':
       // 阶段 A（A1-d）：本轮以 sessions_yield 让出 turn。
       // 不产出额外 chunk（语义由 turn/end 的 finishReason='yielded' 承载；

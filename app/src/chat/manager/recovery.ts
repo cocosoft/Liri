@@ -65,7 +65,22 @@ import {
   type SessionGateway,
   type RecoveryReport,
   type YieldRecoveryStats,
+  type PendingRecoveryStats,
 } from '@modules/session';
+import type { LiriEvent } from '@modules/session/types/events.js';
+import { handleError } from '@modules/error';
+import {
+  listNegotiationSessionIds,
+  loadNegotiationState,
+  clearPendingState,
+  hasPendingRestoration,
+} from '../services/NegotiationState.js';
+import {
+  projectPendingSuspensions,
+  planSuspensionSettlement,
+  SUSPENSION_SETTLED_STATUS_TYPE,
+  type PendingSuspension,
+} from '../services/pendingSuspensions.js';
 import type {
   Message,
   StreamMessageOptions,
@@ -81,6 +96,9 @@ import type { MessageService } from '../services/MessageService.js';
 import type { UnifiedTokenTracker } from '../../tokenBudget/UnifiedTokenTracker.js';
 
 const logger = getLogger('chat:manager');
+
+/** 挂起重建的事件扫描窗口（从 tailSeq 向前回溯的事件数上限；挂起态必在未完结轮尾部） */
+const PENDING_SCAN_WINDOW = 2000;
 
 /** 本模块所需的注入依赖（跨簇共享状态仍归宿主 `ChatManager` 所有，经 getter 访问） */
 export interface ChatRecoveryDeps {
@@ -158,6 +176,101 @@ export class ChatRecovery {
   }
 
   /**
+   * A1 T3/T4（2026-10-05）：**挂起提问重建 + fail-closed 结算**（启动期）。
+   *
+   * 事实源 = **事件日志投影**（`chat/services/pendingSuspensions.ts`，Q1 裁定①）；
+   * `~/.pyapp/data/negotiation/*.json` 仅作**廉价索引**缩小扫描范围（Q2「接线并对齐」）。
+   *
+   * 启动期**必无 live 恢复通道**（`pendingInteractions` 是纯内存 Map，随进程丢失）⇒
+   * 对投影出的每一项做**明确结算**（落盘 `assistant/status` 结算标记 + 清空挂起态），
+   * **绝不静默挂起**（spec §4.3 / CS03-002）。幂等：结算标记随事件落盘 ⇒ 二次启动视为已解析。
+   */
+  async bootstrapPendingRecovery(): Promise<PendingRecoveryStats> {
+    const stats: PendingRecoveryStats = {
+      scanned: 0,
+      pendingFound: 0,
+      settled: 0,
+      failures: 0,
+    };
+    for (const sessionId of listNegotiationSessionIds()) {
+      stats.scanned++;
+      try {
+        const state = loadNegotiationState(sessionId);
+        // 索引粗筛：只处理"曾声称有挂起"的会话（权威判定仍由事件投影给出）
+        if (!hasPendingRestoration(state)) continue;
+        const log = this.deps.getOrCreateEventLog(sessionId);
+        const tailSeq = await log.getTailSeq();
+        // 只读尾部窗口：挂起态必在**未完结轮尾部**（投影按尾轮判定）
+        const events = await log.read({
+          fromSeq: Math.max(1, tailSeq - PENDING_SCAN_WINDOW),
+          types: [
+            'turn/start',
+            'turn/end',
+            'assistant/question',
+            'user/message',
+            'assistant/status',
+          ],
+        });
+        const pending = projectPendingSuspensions(events, {
+          sessionId,
+          timeoutMs: state.timeoutMs,
+        });
+        stats.pendingFound += pending.length;
+        for (const item of pending) {
+          await this.settleSuspension(sessionId, item);
+          stats.settled++;
+        }
+        // 对齐（Q2）：事件投影为事实源；读成功 ⇒ 无残留挂起
+        clearPendingState(state);
+      } catch (err) {
+        stats.failures++;
+        await handleError(err, {
+          module: 'chat:manager',
+          action: 'bootstrapPendingRecovery',
+        });
+      }
+    }
+    if (stats.scanned > 0) {
+      logger.info('挂起提问重建完成（启动期）', stats);
+    }
+    return stats;
+  }
+
+  /**
+   * fail-closed 结算一条挂起提问：落盘 `assistant/status`（`statusType=suspension_settled`）
+   * 作为**结构化结算标记** —— 前端可见（可观测），且投影据此视为已解析（幂等）。
+   */
+  private async settleSuspension(
+    sessionId: string,
+    item: PendingSuspension
+  ): Promise<void> {
+    const plan = planSuspensionSettlement(item, Date.now());
+    const event: LiriEvent = {
+      type: 'assistant/status',
+      schemaVersion: 1,
+      seq: 0, // 由 EventLogStorage.append 原子分配
+      time: Date.now(),
+      sessionId,
+      data: {
+        content: plan.content,
+        statusType: SUSPENSION_SETTLED_STATUS_TYPE,
+        questionId: plan.questionId,
+      },
+    };
+    const result = await this.deps.getOrCreateEventLog(sessionId).append(event);
+    if (!result.ok) {
+      throw new Error(
+        `挂起结算事件落盘失败（${result.reason}）：sessionId=${sessionId} questionId=${plan.questionId}`
+      );
+    }
+    logger.info('挂起提问已结算（fail-closed）', {
+      sessionId,
+      questionId: plan.questionId,
+      expired: plan.expired,
+    });
+  }
+
+  /**
    * P2-7（2026-09-25）：**恢复编排入口** —— 启动期用**一个入口**替代分散装配。
    *
    * 顺序与失败语义由 `RecoveryOrchestrator` 负责
@@ -177,6 +290,7 @@ export class ChatRecovery {
       sessionCrash: { recover: () => gateway.recoverAfterCrash() },
       sessionState: { rebuild: (o) => gateway.rebuildDerivedState(o) },
       yieldRecovery: { bootstrap: () => this.bootstrapYieldRecovery() },
+      pendingRecovery: { bootstrap: () => this.bootstrapPendingRecovery() },
       lineage: {
         describe: () => ({ size: getLineageSize() }),
         // P3-1（2026-09-26，裁定 A）：**启动期从盘重建血缘** —— 数据源 = 会话 `metadata.parentSessionId`

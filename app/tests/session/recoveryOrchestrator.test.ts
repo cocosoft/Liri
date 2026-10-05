@@ -55,8 +55,14 @@ function makePorts(
         return { restored: 4, resumerInstalled: true };
       },
     },
+    pendingRecovery: {
+      bootstrap: async () => {
+        order.push('pendingRecovery');
+        return { scanned: 1, pendingFound: 0, settled: 0, failures: 0 };
+      },
+    },
     lineage: {
-      // ④ 现在**从盘重建**（P3-1）；`describe` 只在重建失败时兜底取规模 ⇒ 不参与顺序标记
+      // ⑤ 现在**从盘重建**（P3-1）；`describe` 只在重建失败时兜底取规模 ⇒ 不参与顺序标记
       describe: () => ({ size: 5 }),
       rebuild: async () => {
         order.push('lineage');
@@ -72,7 +78,12 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
     const order: string[] = [];
     const report = await new RecoveryOrchestrator(makePorts(order)).bootstrap();
 
-    expect(order).toEqual(['sessionCrash', 'yieldRecovery', 'lineage']);
+    expect(order).toEqual([
+      'sessionCrash',
+      'yieldRecovery',
+      'pendingRecovery',
+      'lineage',
+    ]);
     expect(report.failures).toEqual([]);
   });
 
@@ -86,6 +97,7 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
       'sessionCrash',
       'sessionState',
       'yieldRecovery',
+      'pendingRecovery',
       'lineage',
     ]);
     expect(report.sessionState).toEqual({
@@ -120,7 +132,12 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
     const report = await new RecoveryOrchestrator(ports).bootstrap();
 
     // 失败被隔离：后续步骤照常执行
-    expect(order).toEqual(['sessionCrash', 'yieldRecovery', 'lineage']);
+    expect(order).toEqual([
+      'sessionCrash',
+      'yieldRecovery',
+      'pendingRecovery',
+      'lineage',
+    ]);
     expect(report.sessionCrash).toBeNull();
     expect(report.failures).toEqual([
       { step: 'sessionCrash', error: '磁盘不可用' },
@@ -145,7 +162,12 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
 
     const report = await new RecoveryOrchestrator(ports).bootstrap();
 
-    expect(order).toEqual(['sessionCrash', 'yieldRecovery', 'lineage']);
+    expect(order).toEqual([
+      'sessionCrash',
+      'yieldRecovery',
+      'pendingRecovery',
+      'lineage',
+    ]);
     expect(report.yieldRecovery).toBeNull();
     expect(report.failures[0]).toEqual({
       step: 'yieldRecovery',
@@ -153,7 +175,53 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
     });
   });
 
-  test('④ lineage 从盘重建成功 ⇒ rebuilt=true，reason 带出扫描/登记数', async () => {
+  test('④ pendingRecovery 的结构化统计进入报告（A1 T3/T4）', async () => {
+    const order: string[] = [];
+    const ports = makePorts(order, {
+      pendingRecovery: {
+        bootstrap: async () => {
+          order.push('pendingRecovery');
+          return { scanned: 3, pendingFound: 2, settled: 2, failures: 0 };
+        },
+      },
+    });
+
+    const report = await new RecoveryOrchestrator(ports).bootstrap();
+
+    expect(report.pendingRecovery).toEqual({
+      scanned: 3,
+      pendingFound: 2,
+      settled: 2,
+      failures: 0,
+    });
+  });
+
+  test('④ pendingRecovery 失败被隔离（lineage 仍执行）', async () => {
+    const order: string[] = [];
+    const ports = makePorts(order, {
+      pendingRecovery: {
+        bootstrap: async () => {
+          order.push('pendingRecovery');
+          throw new Error('协商目录不可读');
+        },
+      },
+    });
+
+    const report = await new RecoveryOrchestrator(ports).bootstrap();
+
+    expect(order).toEqual([
+      'sessionCrash',
+      'yieldRecovery',
+      'pendingRecovery',
+      'lineage',
+    ]);
+    expect(report.pendingRecovery).toBeNull();
+    expect(report.failures).toEqual([
+      { step: 'pendingRecovery', error: '协商目录不可读' },
+    ]);
+  });
+
+  test('⑤ lineage 从盘重建成功 ⇒ rebuilt=true，reason 带出扫描/登记数', async () => {
     const report = await new RecoveryOrchestrator(makePorts([])).bootstrap();
 
     expect(report.lineage.rebuilt).toBe(true);
@@ -162,7 +230,7 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
     expect(report.lineage.reason).toContain('登记 5');
   });
 
-  test('④ 有边被净化丢弃 ⇒ reason 带出"原因×条数"摘要（不逐一列 id）', async () => {
+  test('⑤ 有边被净化丢弃 ⇒ reason 带出"原因×条数"摘要（不逐一列 id）', async () => {
     const ports = makePorts([], {
       lineage: {
         describe: () => ({ size: 1 }),
@@ -187,7 +255,7 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
     expect(report.lineage.reason).toContain('too-deep×1');
   });
 
-  test('④ 重建失败 ⇒ **如实** rebuilt=false（不谎报）、记入 failures、并用 describe 兜底规模', async () => {
+  test('⑤ 重建失败 ⇒ **如实** rebuilt=false（不谎报）、记入 failures、并用 describe 兜底规模', async () => {
     const ports = makePorts([], {
       lineage: {
         describe: () => ({ size: 3 }),

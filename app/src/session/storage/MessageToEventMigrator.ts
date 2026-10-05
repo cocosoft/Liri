@@ -303,10 +303,13 @@ export class MessageToEventMigrator {
       // 存入 metadata.replyToId（顶层无该键），仅读顶层会导致数据丢失 + undefined 键。
       const msgWithReply = message as unknown as {
         replyToId?: string;
-        metadata?: { replyToId?: string };
+        metadata?: { replyToId?: string; questionId?: string };
       };
       const replyToId =
         msgWithReply.replyToId || msgWithReply.metadata?.replyToId || '';
+      // A1 T3（2026-10-05）：透传 metadata.questionId —— 标记"本条消息是对哪一问的答复"，
+      // 供挂起清单投影判定提问是否已解析（无该字段 ⇒ 投影无法从事件日志重建挂起态）。
+      const questionId = msgWithReply.metadata?.questionId || '';
       events.push({
         type: 'user/message',
         schemaVersion: 1,
@@ -317,6 +320,7 @@ export class MessageToEventMigrator {
           content: this.extractStringContent(message.content),
           messageId: message.id,
           ...(replyToId ? { replyToId } : {}),
+          ...(questionId ? { questionId } : {}),
         },
       });
     } else if (message.role === 'assistant') {

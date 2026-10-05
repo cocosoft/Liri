@@ -33,4 +33,5 @@ export type {
   RecoveryReport,
   SessionRebuildStats,
   YieldRecoveryStats,
+  PendingRecoveryStats,
 } from './RecoveryOrchestrator';

@@ -174,7 +174,9 @@ export interface StreamChunk {
     | "task_all_done"
     | "resume"
     | "tool_retry"
-    | "compaction";
+    | "compaction"
+    // A1 T4/T5（2026-10-05）：挂起提问 fail-closed 结算（用户可见）
+    | "suspension_settled";
   /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 */
   phase?: "compacting" | "done";
   /** 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */

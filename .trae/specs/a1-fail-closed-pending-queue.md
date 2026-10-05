@@ -1,6 +1,6 @@
 # Spec：A1 Fail-Closed 受阻机制（结构化挂起清单 + 显式 `cancel_requested`）
 
-> **状态**：🟡 **T1/T2 已实施（2026-10-05）；T3–T6 待实施** —— 本文设计性增量，T3 开工前须先裁定 §10 的 Q1–Q2
+> **状态**：🟡 **T1–T5 已实施（2026-10-05）；T6 待收尾** —— T6 = §8 门禁与验收的最终归档
 > **来源**：[`liri-upgrade-plan-20260928.md`](../../dev_docs/20260928/liri-upgrade-plan-20260928.md) §2-A **A1**（外部 CodeMidas/多 Agent 测试类建议）；任务计划 `dev_docs/任务计划-20261004.md` §2.4 **B-13**
 > **关联规则**：GR15（Spec-Driven）/ GR01（基础设施复用）/ GR02（实现唯一性）/ GR03（证据驱动）/ CS01（归一化）/ **CS02（状态检测禁止字符串匹配）** / CS03（回退最小化）/ CS05（根因优先）/ `project_rules.md §1.6`（**「模型可见 ⇔ 已落盘」红线**）/ §1.9（错误处理）/ §1.14（通道规范，仅涉及不破）
 > **明确不重复**：`wait-state-visibility`（等待态**可见性**）/ `system-abort-reason-hardening`（**中止标记判据**）/ `agent-run-ports`（子代理台账**取消端口**）/ `workflow-bounded-cancel`（工作流有界取消）—— 边界见 §3
@@ -108,6 +108,17 @@
 
 **红线**：任何"拒绝/降级"分支**必须** `handleError()` 或发事件（§1.9），**不得静默**（CS03-002）。
 
+### 4.4 实施落点（T3/T4，2026-10-05）
+
+| 件 | 落点 | 说明 |
+|---|---|---|
+| **解析标记** | `session/types/eventPayloads.ts`：`user/message.questionId?` | 补 **§1.6 缺口**——⚠️ 取证发现原 `user/message` 事件**不含 questionId**（`MessageToEventMigrator.convertMessage` 只写 content/messageId/replyToId）⇒ 事件日志**无法判定提问是否已答**（答复的 questionId 只在 `messages.jsonl` 投影里）⇒ 投影前必须先补此标记 |
+| **结算标记** | `session/types/eventPayloads.ts`：`assistant/status.questionId?` | 复用**既有**事件类型（Q3① 精神：不新增类型）；`statusType='suspension_settled'` |
+| **投影** | `chat/services/pendingSuspensions.ts` | 纯函数：尾轮（最后 `turn/start` 之后且无 `turn/end`）+ `questionId` 结构化配对（CS02）；`planSuspensionSettlement` 纯决策（超时 vs 无通道） |
+| **启动重建** | `chat/manager/recovery.ts#bootstrapPendingRecovery` + `RecoveryOrchestrator` 第 ④ 步（`pendingRecovery` 端口） | 复用既有恢复编排（`main.ts` 无需改：入口未变）；`negotiation/*.json` 仅作**廉价索引** |
+| **实时结算** | `chat/ReActToolLoop.ts#_emitSuspensionSettled`（等待超时/中止时） | 落结算事件（不静默）；同批删除死字段 `_interactionTimedOut` |
+| **实时可见（T5）** | `query/ReActLoop.ts` 新 `ReActEvent` 变体 `suspension_settled` → `chat/reactEventsToChunks.ts` 映射为 `status` chunk；`statusType` 取共享契约 `STATUS_TYPE.SUSPENSION_SETTLED`（`shared/types/status-types.ts`） | 前端**实时**渲染（复用既有 status block，零新 UI）；取值不在瞬态集合 ⇒ fail-visible |
+
 ---
 
 ## 5. 任务分解（T1–T6，逐个可独立交付）
@@ -116,9 +127,9 @@
 |---|---|---|---|
 | **T1** ✅ | **§2.2 失实自称处置**：`hasPendingRestoration` 未接线 —— 接线 or 订正文档 + 台账 | ✅ **已交付（2026-10-05）**：`NegotiationState.ts` 头注 + `hasPendingRestoration` JSDoc 改为**如实标注"未接线"**（接线归 T3） | 无 |
 | **T2** ✅ | **§2.3 CS02 根因修复**：取消判定去字符串匹配 | ✅ **已交付（2026-10-05）**：`PendingOption{label,outcome}` + `isGateCancelled()`（依据结构化 `outcome`，不再匹配 label）+ `assistant/question` 落盘 `outcome` + 守卫含**证伪**用例（文案改「算了」仍生效）。⚠️ 采用「构造处语义」路径，**无跨端 wire 变更**（Q3① 未被 T2 触发，见 §10） | ~~Q3~~ 已解耦 |
-| **T3** | **挂起清单单一事实源**：事件投影 + 启动重建 | 投影函数 + 恢复接线 + 测试（重启后清单可重建） | Q1/Q2 裁定 |
-| **T4** | **Fail-Closed 结算**：超时/无通道 ⇒ 明确结算 + 事件 | 结算逻辑 + `deadline` 统一 + 测试（**不得静默**） | T3 |
-| **T5** | 前端投影：复用 `useWaitState`（**不新造 UI**） | 前端仅消费投影字段 | T3 |
+| **T3** ✅ | **挂起清单单一事实源**：事件投影 + 启动重建 | ✅ **已交付（2026-10-05）**：①`user/message.questionId` 结构化解析标记（补 §1.6 缺口——原事件日志**无法判定提问是否已答**，`MessageToEventMigrator` 透传）②纯投影 `chat/services/pendingSuspensions.ts#projectPendingSuspensions`（尾轮 + questionId 配对）③启动重建 `chat/manager/recovery.ts#bootstrapPendingRecovery`（`negotiation/*.json` 作廉价索引，**事件投影为权威**）④接线 `hasPendingRestoration`（Q2「接线并对齐」）+ `clearPendingState` | Q1①/Q2 已裁定 |
+| **T4** ✅ | **Fail-Closed 结算**：超时/无通道 ⇒ 明确结算 + 事件 | ✅ **已交付（2026-10-05）**：①启动期对无恢复通道的挂起项**逐项结算** → 落 `assistant/status`（`statusType='suspension_settled'` + `questionId`）作**结构化结算标记**（用户可见 + 幂等）②`deadline` 统一（`askedAt + timeoutMs`，默认 5min）③实时等待超时/中止（`ReActToolLoop._awaitAnswersWithHeartbeat`）也落结算事件（不静默）④删除死分支 `_interactionTimedOut`（从未置 true，声称的"超时保留 entry 宽限"从未生效） | T3 |
+| **T5** ✅ | 前端投影：复用 `useWaitState`（**不新造 UI**） | ✅ **已交付（2026-10-05，口径经取证修正）**：取证发现**字面 T5 冗余** —— T4 的 `assistant/status`（`statusType='suspension_settled'`）**不在瞬态集合**（`TRANSIENT_STATUS_TYPES` 仅 5 项）⇒ 前端**已**渲染为 status block（`deriveConversationBlocks.ts:550-575`）；live 提问/审批/yield 均已有 UI ⇒ 再加轮询投影常态为空且有每 poll 事件读成本。**改为补真实缺口**：live 超时/中止的结算**同时 yield status chunk**（新 `ReActEvent` 变体 `suspension_settled` + `reactEventsToChunks` 映射 + 共享契约 `STATUS_TYPE.SUSPENSION_SETTLED`）⇒ **实时可见，无需重载**；零新 UI 组件 | T3 |
 | **T6** | 门禁与验收 | 见 §8 | T1–T5 |
 
 ---
@@ -177,7 +188,7 @@
 
 | Q | 问题 | 选项 | 建议 |
 |---|---|---|---|
-| **Q1** | 挂起清单**事实源** | ①**事件日志**（满足 §1.6 红线）②`NegotiationState` JSON ③双写 | **①**（红线要求 + 可重建） |
-| **Q2** | `NegotiationState` 去留 | ①接线并与投影对齐 ②**降为投影**（删自持 JSON）③删除 | **②/③**（视 T3 取证：若投影可完全替代 ⇒ ③） |
+| **Q1** | 挂起清单**事实源** | ①**事件日志**（满足 §1.6 红线）②`NegotiationState` JSON ③双写 | ✅ **已裁定 ①（2026-10-05，用户）** ⇒ T3 落地：投影函数以事件为唯一权威，JSON 仅作索引 |
+| **Q2** | `NegotiationState` 去留 | ①接线并与投影对齐 ②**降为投影**（删自持 JSON）③删除 | ✅ **已裁定 ①「接线并对齐」（2026-10-05，用户）** ⇒ 保留 JSON 作**廉价索引**，接线 `hasPendingRestoration` 并在启动期按投影**对齐**（`clearPendingState`） |
 | **Q3** | `cancel_requested` 表达 | ①复用 `turn/end` 载荷字段（不新增事件）②新增事件类型 | ✅ **已裁定 ①（2026-10-05，用户）**。⚠️ **但 T2 未触发该载体**：门控取消是**单工具跳过**（非会话/轮级取消），其意图已由 `assistant/question`（含 `outcome`）+ `user/message` 结构化落盘；Q3① 留待 **T3/T4**（会话/轮级取消 + fail-closed 结算） |
 | **Q4** | 首批范围 | ①**只做 T1+T2**（均为真缺陷：失实自称 + CS02 违规）②T1–T4 全做 | ✅ **已裁定 ①（2026-10-05，用户）** ⇒ T1/T2 已交付（见 §5） |

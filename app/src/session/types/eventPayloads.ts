@@ -80,6 +80,14 @@ export interface LiriEventMap {
     messageId?: string;
     /** F4（2026-08-25）：被回复消息 id（回复引用，刷新后透传到派生消息） */
     replyToId?: string;
+    /**
+     * A1 T3（2026-10-05）：**本条用户消息是对哪一问的答复**（`assistant/question.questionId`）。
+     *
+     * 挂起清单投影（`chat/services/pendingSuspensions.ts`）据此判定"提问是否已被回答"——
+     * 是"事件日志可重建挂起态"的**结构化解析标记**（CS02：以 id 配对，不匹配文案）。
+     * 非答复型用户消息无此字段。
+     */
+    questionId?: string;
   };
 
   /** AI 思考（纯文本，无 RichMediaReference 标签） */
@@ -635,6 +643,13 @@ export interface LiriEventMap {
     toolCallId?: string;
     /** 结构化水位数据（statusType='watermark' 时存在，C-1 schema 对齐前端 P1-3） */
     watermark?: { pct: number; severity: 'warn' | 'compact' };
+    /**
+     * A1 T4（2026-10-05）：**挂起提问的结算标记**（`statusType='suspension_settled'` 时写入）。
+     *
+     * 含义：`questionId` 对应的挂起提问已被 fail-closed **明确结算**（超时 / 无恢复通道），
+     * 不再是待答状态。挂起清单投影据此把该提问视为**已解析**（幂等：重启不会重复结算）。
+     */
+    questionId?: string;
   };
 
   /**

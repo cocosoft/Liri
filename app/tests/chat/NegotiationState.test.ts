@@ -20,6 +20,7 @@ import {
   saveNegotiationState,
   loadNegotiationState,
   deleteNegotiationState,
+  clearPendingState,
   type NegotiationState,
 } from '../../src/chat/services/NegotiationState.js';
 import type { PendingQuestion } from '../../src/chat/services/DecisionGate.js';
@@ -251,6 +252,38 @@ describe('NegotiationState', () => {
       deleteNegotiationState(TEST_SESSION_ID);
       const loaded = loadNegotiationState(TEST_SESSION_ID);
       expect(loaded).toBeNull();
+    });
+  });
+
+  // ─── clearPendingState（A1 T3：按事实源对齐）───────────
+
+  describe('clearPendingState', () => {
+    it('清空挂起项并复位 awaitingUser（并落盘）', () => {
+      const question: PendingQuestion = {
+        id: 'q_a1',
+        type: 'confirm',
+        question: '继续？',
+        rationale: '测试',
+        stage: 'execute',
+      };
+      addPendingQuestion(state, question);
+      expect(state.awaitingUser).toBe(true);
+
+      clearPendingState(state);
+
+      expect(state.pending).toEqual([]);
+      expect(state.awaitingUser).toBe(false);
+      expect(state.askedAt).toBeUndefined();
+      // 已落盘（重新加载一致）
+      const loaded = loadNegotiationState(TEST_SESSION_ID);
+      expect(loaded!.pending).toEqual([]);
+      expect(loaded!.awaitingUser).toBe(false);
+    });
+
+    it('已无挂起时为空操作（不改变状态）', () => {
+      clearPendingState(state);
+      expect(state.awaitingUser).toBe(false);
+      expect(state.pending).toEqual([]);
     });
   });
 });

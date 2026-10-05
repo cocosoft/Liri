@@ -325,6 +325,8 @@ export type ReActEvent =
   // v3：交互工具提问（act generator 化后由 ReActToolLoop 产出，穿透 generator 挂起链路）
   | { type: 'question'; questionData: QuestionData }
   | { type: 'question_waiting' }
+  // A1 T5（2026-10-05）：挂起提问的 fail-closed 结算 → status chunk，前端**实时**可见（不静默）
+  | { type: 'suspension_settled'; content: string }
   // 阶段 A（A1-d）：本轮以 sessions_yield 让出 turn（骨架据此收尾，不再进入下一轮）
   | { type: 'yielded' };
 

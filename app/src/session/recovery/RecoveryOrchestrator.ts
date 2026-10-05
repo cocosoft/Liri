@@ -42,6 +42,18 @@ export interface YieldRecoveryStats {
   resumerInstalled: boolean;
 }
 
+/** ④ 挂起提问重建 + fail-closed 结算统计（A1 T3/T4） */
+export interface PendingRecoveryStats {
+  /** 扫描的候选会话数（= 存在协商状态的会话数） */
+  scanned: number;
+  /** 事件投影出的仍挂起提问数 */
+  pendingFound: number;
+  /** 已 fail-closed 结算的挂起项数 */
+  settled: number;
+  /** 处理失败的会话数（读事件/结算异常） */
+  failures: number;
+}
+
 /**
  * 各步骤的可注入实现（由上层 `ChatManager` 组装真实实现）。
  *
@@ -56,7 +68,14 @@ export interface RecoveryPorts {
   };
   /** ③ yield 等待集重建 + 回放装配 */
   yieldRecovery: { bootstrap(): Promise<YieldRecoveryStats> };
-  /** ④ lineage：**启动期从盘重建**（P3-1 裁定 A）+ 现状描述 */
+  /**
+   * ④ 挂起提问重建 + fail-closed 结算（A1 T3/T4）。
+   *
+   * 事实源 = 事件日志投影；启动期**必无 live 恢复通道**（`pendingInteractions` 纯内存）
+   * ⇒ 逐项**明确结算**（发事件，不静默）。实现方自保证幂等（结算标记随事件落盘）。
+   */
+  pendingRecovery: { bootstrap(): Promise<PendingRecoveryStats> };
+  /** ⑤ lineage：**启动期从盘重建**（P3-1 裁定 A）+ 现状描述 */
   lineage: {
     describe(): { size: number };
     /** 从盘重建血缘链（幂等）；实现方负责取数（编排层不碰存储，维持 R06-008 无环） */
@@ -77,6 +96,7 @@ export interface RecoveryReport {
   /** 未执行 ⇒ `null`（未执行原因见 `skipped`） */
   sessionState: SessionRebuildStats | null;
   yieldRecovery: YieldRecoveryStats | null;
+  pendingRecovery: PendingRecoveryStats | null;
   lineage: { size: number; rebuilt: boolean; reason: string };
   skipped: Array<{ step: string; reason: string }>;
   failures: Array<{ step: string; error: string }>;
@@ -112,7 +132,7 @@ export class RecoveryOrchestrator {
   /**
    * 按固定顺序编排恢复并返回聚合报告。
    *
-   * **顺序**：`sessionCrash` →（可选）`sessionState` → `yieldRecovery` → `lineage.describe()`。
+   * **顺序**：`sessionCrash` →（可选）`sessionState` → `yieldRecovery` → `pendingRecovery` → `lineage.describe()`。
    * 理由：yield 回放会经内部 `streamMessage` **写会话与事件** ⇒ 必须在会话存储与索引就绪之后
    * （与既有 `main.ts` 启动序列一致）。
    *
@@ -132,6 +152,7 @@ export class RecoveryOrchestrator {
       sessionCrash: null,
       sessionState: null,
       yieldRecovery: null,
+      pendingRecovery: null,
       lineage: { size: 0, rebuilt: false, reason: LINEAGE_PENDING_REASON },
       skipped: [],
       failures: [],
@@ -173,7 +194,14 @@ export class RecoveryOrchestrator {
       report.failures.push({ step: 'yieldRecovery', error: errText(err) });
     }
 
-    // ④ lineage：**从盘重建**（P3-1 裁定 A）
+    // ④ 挂起提问重建 + fail-closed 结算（A1 T3/T4）：事件投影为事实源；启动期无 live 通道 ⇒ 明确结算
+    try {
+      report.pendingRecovery = await this.ports.pendingRecovery.bootstrap();
+    } catch (err) {
+      report.failures.push({ step: 'pendingRecovery', error: errText(err) });
+    }
+
+    // ⑤ lineage：**从盘重建**（P3-1 裁定 A）
     //    成功 ⇒ rebuilt=true 并带出"登记 N 条 / 丢弃 M 条（按原因计数）"；
     //    失败 ⇒ **如实** rebuilt=false（行为回到"链为空 ⇒ 相关判定 fail-closed"），**不谎报已重建**。
     try {
@@ -217,6 +245,7 @@ export class RecoveryOrchestrator {
           }
         : 'skipped',
       yieldRecovery: report.yieldRecovery,
+      pendingRecovery: report.pendingRecovery,
       lineage: { size: report.lineage.size, rebuilt: report.lineage.rebuilt },
     };
     if (report.failures.length > 0) {

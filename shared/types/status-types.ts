@@ -49,6 +49,11 @@ export const STATUS_TYPE = {
   RESUME: "resume",
   /** 错误提示（前端自制） */
   ERROR: "error",
+  /**
+   * A1 T4/T5（2026-10-05）：**挂起提问的 fail-closed 结算**提示
+   * （超时 / 会话中断后无恢复通道 ⇒ 明确结算，用户可见，不静默）
+   */
+  SUSPENSION_SETTLED: "suspension_settled",
 } as const;
 
 export type SharedStatusType = (typeof STATUS_TYPE)[keyof typeof STATUS_TYPE];

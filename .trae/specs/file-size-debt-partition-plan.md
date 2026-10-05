@@ -1,7 +1,7 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1（请求构建/快照/压缩）**、**批 A2（交互/回滚轮次）** 已落地（见 §10 / §11）；批 A3–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证
+- **状态**：🚧 **部分实施（2026-10-05）** —— ChatManager 批 1–3（EventLog 家族）、**批 A1**（请求构建/快照/压缩）、**批 A2**（交互/回滚轮次）、**批 A3**（系统提示词组装）已落地（见 §10 / §11 / §12）；批 A4–A6 未开工；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
 ---
@@ -271,7 +271,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 文件 | 原始 | 当前 | 已落地 |
 |---|---|---|---|
-| `chat/ChatManager.ts` | 6729 | **6472** | 批 1–3：EventLog 家族 **17 成员** → `chat/manager/eventLogStore.ts`（538 行）；**批 A1**：请求构建/快照/压缩 **9 成员** → `chat/manager/requestPrep.ts`（278 行，见 §10）；**批 A2**：交互/回滚 **5 成员** → `chat/manager/rollback.ts`（350 行，见 §11） |
+| `chat/ChatManager.ts` | 6729 | **6433** | 批 1–3：EventLog 家族 **17 成员** → `chat/manager/eventLogStore.ts`（538 行）；**批 A1**：请求构建/快照/压缩 **9 成员** → `chat/manager/requestPrep.ts`（278 行，见 §10）；**批 A2**：交互/回滚 **5 成员** → `chat/manager/rollback.ts`（350 行，见 §11）；**批 A3**：系统提示词组装 **2 成员** → `chat/manager/promptAssembly.ts`（124 行，见 §12） |
 
 ### 9.2 优先序（依据 §2 判据 + 实测行数）
 
@@ -290,7 +290,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 |---|---|---|---|---|
 | A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | ✅ **已落地（2026-10-05，见 §10；实得 −141 行）** |
 | A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次（**收窄为 5 成员**） | ≈270 | ✅ **已落地（2026-10-05，见 §11；实得 −202 行）**；`_buildToolRoundMessages`/`_dedupeToolResultForStub` **移出本批** ⇒ 归 A5（流管道职责） |
-| A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配 | ≈90 | 依赖 hook 链与服务 |
+| A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配（**收窄为 2 成员**） | ≈90 | ✅ **已落地（2026-10-05，见 §12；实得 −39 行）**；`getHookChainManager`（通用 getter）与 `_extractCurrentGoal`（**全仓无调用者**）**不并入** |
 | A4 | `chat/manager/bootstrap.ts` | C13 + C18 启动加载迁移 + 恢复/outbox/yield | ≈1090 | 体量最大；`_resumeSessionInternally` 与运行器强耦合 ⇒ **先依赖验证** |
 | A5 | `chat/manager/streamPipeline.ts` | 流管道段（`_buildApiMessagesForStream` 等） | ≈680 | 与 `sendMessage` 主链边界需先验证 |
 | A6 | `chat/manager/sessionCrud.ts` | C21 会话 CRUD/门面 | ≈280 | 多接口方法 ⇒ 宿主保留转发 |
@@ -355,4 +355,28 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0**（3857 文件 / 分层违规 0，仅预存 4 warning）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 81.35s，**单独跑**）· 定向 eslint/prettier ✓
 
 **行为等价**：日志 module 名、对外签名（含 `CoreAPIImpl` 处的 `undoRoundsSince` 调用）不变 ⇒ **未改任何测试**（0 fail 且用例数与 A1 后逐字一致）。
+**例外台账**：`ChatManager.ts` 条目**保留**（仍 >1000 行）。
+
+---
+
+## 12. 实施记录：批 A3 —— 系统提示词组装（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/manager/promptAssembly.ts`（`ChatPromptAssembly`，**124 行**）
+
+**迁入成员（2）**：`getOrAssembleSystemPrompt` · `resolvePromptClientForSystemPrompt`（私）
+> 原静态常量 `ChatManagerImpl.PROMPT_ASSEMBLY_ROUTE` 随迁为**模块级常量** `PROMPT_ASSEMBLY_ROUTE`（仅本簇使用）。
+
+**⚠️ 与 §9.3 的偏差（依据 §2「可命名职责簇」判据）**：
+- `getHookChainManager`：**通用 HookChain 管理器 getter**（非"提示词装配"）⇒ 不并入（留宿主；避免产生无调用者的僵尸转发）；
+- `_extractCurrentGoal`：**全仓零调用者**（预存死私有方法）⇒ 不并入、留在宿主原地（按"不清理他人遗留"不删除）；已在台账登记。
+
+**注入依赖（`ChatPromptAssemblyDeps`，全 getter ⇒ 无初始化顺序陷阱）**：`getImageContextService` · `getSessionAccess` · `recordModelInputSnapshot` · `getClientForModel` · `getLlmClient`
+
+**ChatManager 侧**：新增 `private readonly _promptAssembly`；`getOrAssembleSystemPrompt` 改**薄转发**（`:1169` 处作为回调传入的用法不变）；**删除** `resolvePromptClientForSystemPrompt`（无对外调用者）；**删除**静态常量 `PROMPT_ASSEMBLY_ROUTE`；随迁清理导入 `assembleContextualSystemPrompt`。
+
+**行数**：`ChatManager.ts` **6472 → 6433**（本批 −39；自 v0.4.58 起累计 6729 → 6433）
+
+**门槛（全绿）**：`typecheck 0` · `lint:arch` **错误 0**（3858 文件 / 分层违规 0，仅预存 4 warning；**僵尸转发 0 / 疑似僵尸方法 0**）· 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 79.62s，**单独跑**）· 定向 eslint/prettier ✓
+
+**行为等价**：签名与调用面不变 ⇒ **未改任何测试**（0 fail 且用例数与 A2 后逐字一致）。
 **例外台账**：`ChatManager.ts` 条目**保留**（仍 >1000 行）。

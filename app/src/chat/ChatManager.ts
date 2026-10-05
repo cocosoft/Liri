@@ -58,6 +58,7 @@ import {
 } from './manager/eventLogStore';
 import { ChatRequestPrep } from './manager/requestPrep';
 import { ChatRollback, type PendingInteractionEntry } from './manager/rollback';
+import { ChatPromptAssembly } from './manager/promptAssembly';
 import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
@@ -97,7 +98,6 @@ import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
 import {
   persistTurnSummary,
   extractCurrentGoal,
-  assembleContextualSystemPrompt,
   computePaginationPoint,
   contextLayeringEnabled,
   LAYERING_HINT,
@@ -811,6 +811,22 @@ export class ChatManagerImpl implements ChatManager {
     getRollbackIntegrations: () => this.rollbackIntegrations,
     getPermissionManager: () => this.permissionManager,
     getSessionGateway: () => this.sessionGateway,
+  });
+
+  /**
+   * 系统提示词组装（`ChatPromptAssembly`，A3 批提取自本类）。
+   *
+   * 原 C12 的 2 个成员（`getOrAssembleSystemPrompt` / `resolvePromptClientForSystemPrompt`）
+   * 已随迁至该模块（`resolvePromptClientForSystemPrompt` 无对外调用者 ⇒ 整体迁出）；
+   * 本类经 `getOrAssembleSystemPrompt` **薄转发**。日志/签名不变（行为等价）。
+   */
+  private readonly _promptAssembly = new ChatPromptAssembly({
+    getImageContextService: () => this.imageContextService,
+    getSessionAccess: () => this.sessionAccess,
+    recordModelInputSnapshot: (sid, input) =>
+      this._recordModelInputSnapshot(sid, input),
+    getClientForModel: (model?: string) => this.getClientForModel(model),
+    getLlmClient: () => this.llmClient,
   });
 
   /**
@@ -2267,73 +2283,18 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 系统提示词组装所依据的 `ModelRouter.resolve` **路由键**（T-②04，2026-10-02）——
-   * 与快照落盘的 `route` 同源 ⇒"本轮走了哪条路由"可从事件读出。
-   */
-  private static readonly PROMPT_ASSEMBLY_ROUTE = 'default';
-
-  /**
-   * 获取或组装系统提示词（委托给 MessageContextPipeline）
+   * A3 拆分：系统提示词组装已迁至 `ChatPromptAssembly.getOrAssembleSystemPrompt`（薄转发）。
+   * 原 `resolvePromptClientForSystemPrompt` 仅被本方法调用 ⇒ 整体迁出；原静态常量
+   * `PROMPT_ASSEMBLY_ROUTE` 随之迁出为该模块的模块级常量（`PROMPT_ASSEMBLY_ROUTE`）。
    */
   private async getOrAssembleSystemPrompt(
     session: ChatSession,
     currentMessage?: string
   ): Promise<string> {
-    // 修复（2026-08-22）：this.llmClient 可能停留在初始化时的 provider——
-    // 用户切换模型后未重建，直接用它组装 system prompt 会导致 isLocal 判定错误：
-    // 本地模型（llama.cpp）收到远程版"强制 think/response 标签"规则（system prompt
-    // 3653 tokens，且诱导模型输出 <response> 包装 → 前端正文重复显示）。
-    // 改用当前模型路由对应 client 组装，isLocal 判定与实际请求一致。
-    const { client: promptClient, model: promptModel } =
-      await this.resolvePromptClientForSystemPrompt();
-    return assembleContextualSystemPrompt(
+    return this._promptAssembly.getOrAssembleSystemPrompt(
       session,
-      currentMessage,
-      promptClient,
-      this.imageContextService,
-      (sessionId: string) =>
-        this.sessionAccess.getMemoryManager().getMemoryContext(sessionId),
-      // TR-12-B（2026-09-22）：系统提示词逐段快照 → "模型当时看到的提示词"可重建（§1.6）
-      (sections, contents, mode) => {
-        void this._recordModelInputSnapshot(session.id, {
-          sections: sections.map((s, i) => ({
-            name: s.name,
-            content: contents[i] ?? null,
-          })),
-          mode,
-          // T-②04（2026-10-02）：一并落"本轮模型 / 路由键" ⇒ 路由决策可从事件重建；
-          // 模型未解析出 ⇒ 两字段均省略（不写占位，CS04）
-          model: promptModel,
-          route: promptModel
-            ? ChatManagerImpl.PROMPT_ASSEMBLY_ROUTE
-            : undefined,
-        });
-      }
+      currentMessage
     );
-  }
-
-  /**
-   * 解析用于组装 system prompt 的 LLM client，并**回传模型名**（T-②04：供快照落盘）。
-   * 优先当前模型路由（`modelRouter.resolve(PROMPT_ASSEMBLY_ROUTE)`）对应 client；
-   * 路由不可用时回退全局 llmClient（组装不阻断）。
-   */
-  private async resolvePromptClientForSystemPrompt(): Promise<{
-    client: ToolAwareClient | undefined;
-    /** 解析出的模型名；未解析出 ⇒ `undefined`（此时调用方一并省略 `route`） */
-    model?: string;
-  }> {
-    try {
-      const { modelRouter } = await import('@modules/ai');
-      const modelName = modelRouter.resolve(
-        ChatManagerImpl.PROMPT_ASSEMBLY_ROUTE
-      );
-      if (modelName) {
-        return { client: this.getClientForModel(modelName), model: modelName };
-      }
-    } catch {
-      // @ignore-catch 模型路由不可用时回退全局 llmClient
-    }
-    return { client: this.llmClient };
   }
 
   /**

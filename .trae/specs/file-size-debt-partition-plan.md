@@ -1,7 +1,7 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。后续目标 `CoreAPIImpl`(5337) / `ReActToolLoop`(3595) / `AgentTool`(3289) **未取证**。
+- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。**Top-2/3 已结构取证**（§18 `CoreAPIImpl` / §19 `ReActToolLoop`；**仅方案，未实施、待裁定**）；`tools/AgentTool/AgentTool.ts`(3289) **未取证**。
 - **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**A5/A6 的"降至阈值以下"收益已消失**，后续批次是否继续**待裁定**。详见 **§14**。
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
@@ -280,10 +280,10 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
 |---|---|---|---|---|
-| 1 | `chat/ChatManager.ts` | 5238 | **A1–A6 + A4b 收官**（−1491） | ✅ 本文件批次全部收官；**A5b 判「不拆」**（用户裁定）⇒ 后续转其他目标（Top-2/3/4 未取证） |
-| 2 | `runtime/api/CoreAPIImpl.ts` | 5337 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
-| 3 | `chat/ReActToolLoop.ts` | 3447 | **未取证** | 同上 |
-| 4 | `tools/AgentTool/AgentTool.ts` | 3115 | **未取证** | 同上 |
+| 1 | `chat/ChatManager.ts` | 5238 | **A1–A6 + A4b 收官**（−1491） | ✅ 本文件批次全部收官；**A5b 判「不拆」**（用户裁定） |
+| 2 | `runtime/api/CoreAPIImpl.ts` | 5336 | ✅ **已取证（§18）** | 20 簇 / 98 方法；**C4–C9 ≈1740 行「零宿主依赖」**（建议首拆 **B1**）；主链 `chat`+`chatStream`（855 行）**判不拆**。**未实施，待裁定** |
+| 3 | `chat/ReActToolLoop.ts` | 3595 | ✅ **已取证（§19）** | 9 簇 / 57 方法；**C8（Todo/轮次预算/长任务信号）≈290 行内聚最高**（建议首拆 **B1**）；骨架 `reason`/`act`（590 行）**判不拆**。**未实施，待裁定** |
+| 4 | `tools/AgentTool/AgentTool.ts` | 3289 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
 
 ### 9.3 ChatManager 后续批次（簇 → 目标文件）
 
@@ -511,3 +511,104 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **行为等价**：日志 module 名（`chat:manager`）、对外签名（含 `ChatManagerInterface`）不变 ⇒ **未改任何测试**。
 
 > **⇒ A4 全部（A4a + A4b）收官**；**A5b 按用户裁定不拆**（见 §9.3 A5 行）。
+
+---
+
+## 18. 结构取证：`runtime/api/CoreAPIImpl.ts`（2026-10-05，**只读取证，未动码**）
+
+**规模**：实测末行 **5336**；`class CoreAPIImpl implements CoreAPI`（`:310`）；契约 `runtime/api/CoreAPI.ts`（`interface CoreAPI` `:360`）。
+**成员**：**方法 ≈98**（含 `constructor:351`、6 个 `get` 访问器、`chatStream:769` 与 `_paginateMessages:3723` 两个多行签名）；**字段 15**。
+
+### 18.1 职责簇（覆盖全部 98 成员）
+
+| 簇 | 行段 | 成员 | 代表方法（行） | 约行 | 注入数 |
+|---|---|---|---|---|---|
+| C0 懒解析访问器 | 384-428 | 6 | `get appDeps:384` | 45 | 1 |
+| C1 构造+模型路由+LLM 初始化 | 351-383,433-673 | 11 | `ensureLLMClientInitialized:502` `resolveSmartModel:628` | 270 | 6–7 |
+| **C2 聊天主链** | 674-1528 | 2 | `chat:674` `chatStream:769` | **855** | **≥8（跨 C1/C17）** |
+| C3 工具执行 | 1529-1598 | 1 | `executeTool:1529` | 70 | 1 |
+| C4 领域只读快照 | 1599-1672 | 6 | `getGitContextSnapshot:1599` | 74 | **0** |
+| C5 梦境 | 1673-1714 | 4 | `listDreamCycles:1677` | 42 | **0** |
+| C6 知识库文档 | 1716-1746 | 2 | `buildKnowledgeDocsIndex:1718` | 31 | **0** |
+| C7 技能/插件/通道端口 | 1747-2066 | 10 | `getToolsPort:1843` `getBridgePort:2025` | 320 | **0** |
+| C8 同步门面端口 | 2067-2145 | 3 | `createAutoCompactService:2067` | 79 | 1 |
+| **C9 Ops 端口聚合** | 2146-3418 | 9 | `getKnowledgeOpsPort:2146` `getTaskOpsPort:2447` | **1273** | **0** |
+| C10 工具清单 | 3419-3465 | 2 | `listTools:3419` | 47 | 1 |
+| C11 会话创建/取用 | 3466-3559 | 3 | `createSession:3466` | 94 | 2 |
+| C12 消息读取/事件派生 | 3560-3970 | 5 | `getSessionMessages:3560` `_deriveSessionMessagesFromEvents:3871` | 411 | 3 |
+| C13 派生校验/事件流/审批块 | 3971-4157 | 3 | `getSessionEvents:4075` | 187 | 1 |
+| C14 消息编辑/回滚 | 4158-4476 | 4 | `deleteMessage:4169` `truncateMessages:4345` | 319 | 2+2 |
+| C15 会话列表/检索 | 4477-4623 | 4 | `searchMessagesFTS:4553` | 147 | 2 |
+| C16 会话生命周期委托 | 4624-4674 | 5 | `deleteSession:4624` `compactSession:4654` | 51 | 2 |
+| C17 标题/元数据/阶段追踪 | 4675-5125 | 10 | `renameSession:4675` `autoGenerateTitle:5025` | 451 | 4 |
+| C18 Agent/文件转换 | 5126-5223 | 4 | `executeAgentTask:5126` | 98 | 3 |
+| C19 公开门面/薄委托 | 5224-5246 | 3 | `getChatManager:5224` | 23 | 2 |
+| C20 附件清理 | 5248-5336 | 1 | `cleanupOrphanAttachments:5252` | 89 | 1 |
+
+**关键证据（`this.*` 两轮 Grep）**：`:1541 → :2069` 之间**无任何 `this.` 命中** ⇒ **C4/C5/C6/C7 注入数 ≈ 0**；`:2146-3418` 亦无命中 ⇒ **C9 注入数 ≈ 0**（纯动态 import 聚合）。
+**跨簇共享最重**：`chatManager`（C1/C2/C3/C10–C20 全域）、`sessionManager`（C11/C12/C14/C15/C17/C20）、`toolManager`（C1/C3/C10）、`appDeps`（C0/C1/C8）。
+
+### 18.2 候选批次（**仅方案，未实施**）
+
+| 批 | 目标新文件（建议名） | 收拢簇 | 预估净出 | 依赖/风险 |
+|---|---|---|---|---|
+| B1 | `runtime/api/domainSnapshotOps.ts`（可按域再拆） | C4+C5+C6+C7+C9 | **≈1740** | **零宿主依赖（反证）**；风险＝动态 import 相对路径深度需重算（`:1686/1697/1707/1712/1962/3368/3378/3391/3400/3405/3413`）；宿主留 ≈31 个 1 行薄转发 |
+| B2 | `runtime/api/sessionMessagesRead.ts` | C12+C13 | ≈598 | 注入 `chatManager`/`sessionManager`；`_derivedMessagesCache` 随迁 |
+| B3 | `runtime/api/messageMutation.ts` | C14 | ≈319 | 跨簇依赖 C12（`:4229`）与 C20（`:4284,4430`）⇒ 需 B2 先行 |
+| B4 | `runtime/api/sessionTitling.ts` | C17 | ≈451 | 注入 4 项（含 `_titleInFlight` 自持） |
+
+**不建议拆（理由）**：**C2 `chat`/`chatStream`（855 行）** ≥8 依赖 + 跨 C1/C17 回调（`:866/:858/:860/:1491/:1393`）⇒ 与 ChatManager **A5b 判「不拆」同形**；**C16** 全为 1 行薄委托（违 R06-006）；**C0/C1** 被全域消费，抽走制造注入回环；C8/C10/C11/C18/C19/C20 单簇 ≤99 行、收益低。
+
+### 18.3 未取证（如实）
+- **未逐行读 `:1747-3418`（C7+C9，≈1670 行）**："无 `this.*`" 系**两轮 Grep 反证**，仍可能用模块级符号 ⇒ 落地前需逐段确认（CS06）。
+- `chat(` 的跨模块显式调用**未命中**（`.chat(` 仅命中 `chatStream` 与 provider）⇒ 消费方式**未确认**。
+- 动态 import 相对路径**未全量清点**；`getSkillsOpsPort` 是否在 `CoreAPI` 声明**未见**。
+- B1–B4 的"净出"为**行段跨度估算**（未 `git numstat` 实测）—— ChatManager 经验（§10/§13）显示**实得常低于预估**。
+
+---
+
+## 19. 结构取证：`chat/ReActToolLoop.ts`（2026-10-05，**只读取证，未动码**）
+
+**规模**：**3595 行**；`export class ReActToolLoop`（`:239`，无独立导出函数/类型）。
+**成员**：**方法 57**（含 `constructor:412`）；**字段 44**（实例 32 + `static readonly` 常量 12，行段 `:243-:409`）；另 2 个模块内接口 `ReActToolLoopState:197` / `ParallelBatchItem:227`。
+
+### 19.1 职责簇（覆盖全部 57 成员）
+
+| 簇 | 行段 | 成员 | 代表方法（行） | 约行 | 注入数 |
+|---|---|---|---|---|---|
+| **C1 骨架主循环** | 412-457,466-472,1087-1273,1274-1864,2280-2319,2591-2631 | 7 | `run` · `reason:1087` · **`act:1274`（590 行）** · `shouldContinue:2280` | ~920 | 骨架本身 |
+| C2 前置编排（压缩/goal 预算/清洗） | 477-768,769-832 | 2 | `beforeReasoning:477` | ~356 | **≈10–12** |
+| C3 工具结果后处理/循环守卫 | 1865-2279 | 5 | `_detectReadReExplore:1939` `_detectFileWriteLoop:1996` `_postProcessToolResult:2060` | ~415 | ≈6–7 |
+| C4 LLM 流式/清洗/用量 | 3012-3443 | 11 | `_streamLlm:3172` `_appendStreamEvent` `_reportUsage` | ~470 | ≈7–8 |
+| C5 回合重试/终稿校验/steering 回调 | 2388-2590 | 4 | `onIncompleteTurn:2388` `onFinalOutputValidation:2499` `onSteering:2565` | ~203 | ≈6–7 |
+| C6 终止判定/收尾/finalize | 2320-3011 | 9 | `onMaxIterations:2320` `finalize:2648` `settleTerminalState:2712` `resolveTerminationOutput:2834` | ~560 | ≈8–9 |
+| C7 交互等待 | 3444-3559 | 2 | `_registerInteraction:3444` `_awaitAnswersWithHeartbeat:3480` | ~116 | ≈6–7 |
+| **C8 Todo 扩容/轮次预算/长任务信号** | 833-1086 | 13 | `_initToolTurnBudget:923` `getLongTaskSignal:1021` `_resolveDynamicMaxIterations:1034` | ~318 | ≈8–9 |
+| C9 对外读数 getter | 3560-3595 | 4 | `getAssistantMessage:3560` | ~36 | 薄读数 |
+
+**跨簇共享最重三项**：`_activeToolRoundMessageId`（`act` 与 C4 双向读写）· `_incompleteRetries` + `_boost/_supersede` 标志（C5 写 / C4 读）· `_terminalSettle`（C5 与 C6 共享）。
+
+### 19.2 对外契约面
+- **构造唯一入口**：`createAgentLoop.ts:150` `new ReActToolLoop(...)`（经 `streamMessageFlow` mode='stream' 的统一工厂）。
+- **实例消费者（全仓 grep）**：`streamMessageFlow.ts` 调 `getHeartbeatData`(:2325,2485) · `getPendingTodos`(:2433,2524) · `getAssistantMessage`(:2561) · `flushTerminalSettlement`(:2586) · `getLongTaskSignal`(:2603) · `getTerminationTip`(:2621)。
+- **基类覆写位**（`query/ReActLoop.ts`，**必须保持 `protected` 覆写**）：`reason`/`act`/`shouldContinue`/`finalize`/`beforeReasoning`/`onMaxIterations`/`isLoopDetectedReason`/`onIncompleteTurn`/`onFinalOutputValidation`/`onSteering`/`getCurrentMessageId`/`resetRunState`。
+- **必须保持 public/薄转发**：`run` · C9 四 getter · `getLongTaskSignal` · `flushTerminalSettlement` · `getCurrentMessageId`。
+
+### 19.3 候选批次（**仅方案，未实施**）
+
+| 批 | 目标新文件（建议名） | 收拢簇 | 预估净出 | 依赖/风险 |
+|---|---|---|---|---|
+| B1 | `chat/loop/toolTurnBudget.ts` | C8（13 成员） | ≈290 | **内聚最高** ⇒ 建议首个提取；≈8–9 注入（getter 型），被 C1/C2 单向调用 |
+| B2 | `chat/loop/terminationSettlement.ts` | C6（9 成员） | ≈530 | 终止文案**单一来源** ⇒ 风险中；3 个对外 getter 保薄转发 |
+| B3 | `chat/loop/streamingLlm.ts` | C4（11 成员） | ≈450 | **前置**：`_activeToolRoundMessageId` 与 `act` 双向共享（`:1679/1772/2215`）⇒ 须先改 getter/setter |
+| B4 | `chat/loop/toolResultPostProcess.ts` | C3（5 成员） | ≈395 | `writtenFiles`/`readReExploreCounts` 自洽；依赖基类 `queueSteering` |
+
+**不建议拆（理由）**：**C1 骨架主循环**（`reason`/`act`/`shouldContinue`）＝本类身份本身、`act` 590 行总调度（跨调 C3/C7）⇒**搬空骨架**；**C9** 纯读数转发（违 R06-006）；**C7** 与 `act`/`negotiationState` 紧耦合（注入 ≈6–7）；**C2** 依赖面最宽（≈10–12）⇒ 抽出近乎"事事回调宿主"，不符内聚判据。
+
+### 19.4 未取证（如实）
+- **`act`(:1274-1864) 与 `beforeReasoning`(:477-768) 未逐行读全**（≈880 行）：仅按签名/注释/调用点推断，**其是否可再拆细粒度子簇未取证**。
+- `beforeReasoning` 与 goal 预算/内存水位模块的**边界未逐行核对**。
+- `_interactionTimedOut`(:406) 的**写入点未定位**（C7 注入数估计可能 ±1）。
+- 本次为**静态只读**取证，**未跑测试/构建** —— 落地时须按 §9.4 逐批守卫。
+
+> **共同结论**：两个文件的"高价值低耦合"可拆面分别为 **CoreAPIImpl C4–C9（≈1740 行，零宿主依赖）** 与 **ReActToolLoop C8（≈290 行，内聚最高）**；两者的"主链/骨架"（`chat`+`chatStream`、`reason`/`act`）应**判不拆**。**均未实施，待用户裁定**。

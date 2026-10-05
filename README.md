@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.58-blue)
+![Version](https://img.shields.io/badge/version-0.4.59-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -363,7 +363,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.58**
+当前版本：**v0.4.59**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -371,6 +371,17 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.59 (2026-10-05)
+
+**R03-002 单一事实源专项收官 + 评测沙箱 Landlock 加固（capability-gated）+ WSL2 真机验证**
+
+- ✅ **R03-002 模块出口单一 · 单一事实源（D-3-c 专项）** - `moduleRoots` 由**硬编码 45 项**改为**派生自 `modules-to-layers.json`**（消除漂移；一次性暴露存量违规以正式收口）；收口批次①②③共**移除 26 个登记键**（白名单引用 909 → 843）
+- ✅ **门禁缺陷修复** - `TEST_FILE_EXCLUSIONS` 跨平台分隔符失效（Windows 反斜杠路径下 `__tests__` 排除**永不命中**）⇒ 消费点归一正斜杠
+- ✅ **P0-4 ② 评测期强制 bash 走 Landlock（capability-gated）** - 新增意图开关 `LIRI_EVAL_BASH_LANDLOCK`：能力可用 ⇒ 真受限；不可用 ⇒ **回退 plain（绝不 `refuse`）**，不打断非 Linux 评测
+- ✅ **Landlock 三处加固（WSL2 真机驱动）** - ①`LandlockDetector` LSM 预检改**三态**（securityfs 未挂载不再误判 `not-in-lsm`）；②只读放行 `/mnt/wsl`（WSL2 域内 **DNS 不再被拒**）；③`buildLandlockArgv` **统一按存在性过滤**规则路径（缺失路径不再令 helper `exit 125`、整只沙箱失效）
+- ✅ **WSL2 真机验证** - 内核 `6.18.33.2`：门控路由 / 敏感路径拒绝 / DNS / 普通命令**全部符合预期**（`curl` HTTP:200、`~/.pyapp/config.json` EACCES）
+- ✅ **质量** - `typecheck` 0 错 · `lint:arch` 违规 0（4 警告基线）· 定向测试全绿
 
 #### v0.4.58 (2026-10-04)
 

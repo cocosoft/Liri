@@ -534,4 +534,11 @@
 - 本轮 e2e 重跑（2 轮）：检测已由 **SSE 子串匹配**改为**结构化轮询事件流**（`assistant/tool_call` 的 `name === 'office:workflow'`）—— 前者会被"模型 tool 参数内嵌同形 JSON"**假阳性**污染（实测两次误命中 `skill`/`tool_search` 参数）。改进后模型**未调用**该工具（仅 `tool_search`），故未取得会话级 `cancelled` 观测；临时脚本与临时会话均已清理。
 - ✅ **已裁定（2026-10-05，用户裁定 `grace=0`）并已实施**：`office:workflow`（`DocModule.ts`）与 `office:doc-pipeline`（`DocPipelineTool.ts`）在注入 `signal` 的同时传 **`gracePeriodMs: 0`** ⇒ 用户中止**立即**结算为 `cancelled`（在飞步骤仍跑完，其结果被账本**封闭丢弃** —— 与 P2-2 既有语义一致）。
   守卫：`tests/modules/doc/docPipelineAbortSignal.test.ts` 新增「运行中中止 ⇒ grace=0 立即结算 cancelled」（**该例对 grace 敏感**：不传则 Provider 150ms 内先返回 ⇒ 工具返回 SUCCESS 而非取消）。门槛：定向 **3 pass** · typecheck 0 · eslint 0 · 全量 **4460 tests / 0 fail**。
-  > ⚠️ **会话级 e2e 仍未跑通**：需先解决 §16.5④「模型侧工具可见性不同步」（8 轮仅 2 轮真调用 `office:workflow`）。
+- ✅ **会话级 e2e —— 已跑通并观测到 `cancelled`（2026-10-05，N-45 修复后）**
+  - **方法**：预热 doc（`GET /v1/doc/status`，本实例 `degraded`）→ `POST /v1/sessions` 建会话 → 结构化轮询 `GET /v1/sessions/{id}/events` → **检测到 `assistant/workflow_run_start` 即中止**（依赖 P1-19① 的**实时落盘**，这是唯一可靠的"已在运行期"信号）→ 读事件时间线 + 派生卡片。
+  - **结果（`office:doc-pipeline`，真实生成）**：`workflow_events=10`，**`run_end@+142ms(stopReason=cancelled)`**；卡片 **`status=cancelled` / `stopReason=cancelled`**；步骤 `[outline:completed, fill_content:completed, images:completed, compose:cancelled]` ⇒ **已完成步骤保留 · 在飞步骤结算 cancelled · run 与卡片一致 cancelled**（P1-4 语义端到端成立）。
+  - **N-45 印证**：模型本轮**直接**调用 office 工具（`office_workflow` / `office_doc-pipeline`），无 `tool_search` 循环、无"工具不存在"表述 —— 与修复前（8 轮仅 2 轮真调用）形成对照。
+  - **关键时序发现（如实，含失败路径）**：
+    - `send-report` 本机 **24ms** 跑完 ⇒ 窗口 **≪** 中止传播（客户端→服务端→signal）⇒ 对**快工作流**"中止 → cancelled"在会话级**不可观测**；且这**不是缺陷**（run 确实已完成）。语义已由确定性测试锁定（宽限语义 2 例 + 传输行 3 例）。
+    - **SSE 通道不可用作触发点**：工具名出现时**尚未 dispatch**；`finish_reason` 与 dispatch 之间另有窗口 ⇒ 在此时中止 ⇒ 工具**从不执行**（`workflow_events=0`、无卡片）。正确触发点是**运行期事件**（`workflow_run_start`）。
+    - **控制组**（`NO_ABORT=1`，同一提示）：pipeline 在 `degraded` 下**仍可用** —— 771ms、4 步全 completed、卡片 `completed`（排除"degraded 导致 pipeline 不跑"的替代解释）。

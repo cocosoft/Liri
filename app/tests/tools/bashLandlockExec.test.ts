@@ -228,29 +228,6 @@ describe('G1-A: 策略形状（写权限最小化 + 网络显式放行）', () =
   });
 });
 
-describe('缺口②（2026-10-05）：WSL2 `/mnt/wsl` 只读放行 —— **按存在性条件化**', () => {
-  const build = (pathExists: (p: string) => boolean) =>
-    buildBashLandlockPolicy({
-      cwd: '/work/x',
-      abi: 3,
-      homeDir: '/home/u',
-      pathExists,
-    });
-  const wslRule = (p: ReturnType<typeof build>) =>
-    p.fs.find((r) => r.path === '/mnt/wsl');
-
-  it('路径存在（WSL2）⇒ 只读放行 `/mnt/wsl`（使域内 DNS 可解析）', () => {
-    expect(wslRule(build((p) => p === '/mnt/wsl'))?.allow).toEqual([
-      'read',
-      'execute',
-    ]);
-  });
-
-  it('路径不存在（常规 Linux）⇒ **不加该规则**（否则 helper 对缺失路径 exit 125 致全域失效）', () => {
-    expect(wslRule(build(() => false))).toBeUndefined();
-  });
-});
-
 describe('G1-A: 开关关闭 ⇒ 与改造前等价（且不探测）', () => {
   it('走普通执行器，参数含 timeout / maxBuffer / cwd / env', async () => {
     const spy = plainSpy();
@@ -334,6 +311,8 @@ describe('G1-A: Landlock 域内执行（argv 形状 + 成败承接）', () => {
     config: cfg({ bashEnabled: true }),
     platform: 'linux' as NodeJS.Platform,
     detect: async () => AVAILABLE,
+    // 断言 argv 形状 ⇒ 视全部路径存在（否则合成路径被存在性过滤丢弃）
+    pathExists: () => true,
     runHelper,
   });
 

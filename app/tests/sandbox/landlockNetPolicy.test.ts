@@ -36,6 +36,13 @@ function policy(over: Partial<LandlockPolicy> = {}): LandlockPolicy {
   return { cwd: '/work', fs, abi: 5, ...over };
 }
 
+/**
+ * argv 组装断言用：**不过滤路径**（全部视为存在）。
+ * 存在性过滤本身由下方 `argv 统一存在性过滤` 用例专门覆盖。
+ */
+const argvOf = (p: LandlockPolicy): string[] =>
+  buildLandlockArgv(p, () => true);
+
 function permissions(
   over: Partial<SandboxPermissions> = {}
 ): SandboxPermissions {
@@ -51,7 +58,7 @@ function permissions(
 
 describe('网络策略两态：argv 组装', () => {
   it('`denyAll` ⇒ 恰好一个 `--net-deny`', () => {
-    expect(buildLandlockArgv(policy({ net: { denyAll: true } }))).toEqual([
+    expect(argvOf(policy({ net: { denyAll: true } }))).toEqual([
       '--ro',
       '/work',
       '--net-deny',
@@ -59,14 +66,14 @@ describe('网络策略两态：argv 组装', () => {
   });
 
   it('不设 `net` ⇒ **不传任何网络参数**', () => {
-    const argv = buildLandlockArgv(policy());
+    const argv = argvOf(policy());
     expect(argv).toEqual(['--ro', '/work']);
     expect(argv.some((a) => a.includes('net'))).toBe(false);
   });
 
   it('`--rw` 规则与 `--net-deny` 可组合', () => {
     const fs: LandlockFsRule[] = [{ path: '/work', allow: ['read', 'write'] }];
-    expect(buildLandlockArgv(policy({ fs, net: { denyAll: true } }))).toEqual([
+    expect(argvOf(policy({ fs, net: { denyAll: true } }))).toEqual([
       '--rw',
       '/work',
       '--net-deny',
@@ -79,11 +86,47 @@ describe('网络策略两态：argv 组装', () => {
       policy({ net: { denyAll: true } }),
       policy({ fs: [{ path: '/x', allow: ['read', 'write'] }] }),
     ]) {
-      const argv = buildLandlockArgv(p);
+      const argv = argvOf(p);
       expect(argv).not.toContain('--net-connect');
       expect(argv).not.toContain('tcp');
       expect(argv).not.toContain('udp');
     }
+  });
+});
+
+describe('argv 统一存在性过滤（2026-10-05）：缺失路径跳过，避免 helper exit 125', () => {
+  it('缺失路径 ⇒ 该规则不进 argv，其余规则保留', () => {
+    const fs: LandlockFsRule[] = [
+      { path: '/exists-ro', allow: ['read'] },
+      { path: '/missing-ro', allow: ['read'] },
+      { path: '/exists-rw', allow: ['read', 'write'] },
+    ];
+    expect(
+      buildLandlockArgv(policy({ fs }), (p) => p !== '/missing-ro')
+    ).toEqual(['--ro', '/exists-ro', '--rw', '/exists-rw']);
+  });
+
+  it('全部缺失 ⇒ 无任何路径参数（`--net-deny` 不受影响）', () => {
+    const fs: LandlockFsRule[] = [{ path: '/gone', allow: ['read'] }];
+    expect(
+      buildLandlockArgv(policy({ fs, net: { denyAll: true } }), () => false)
+    ).toEqual(['--net-deny']);
+  });
+
+  it('WSL2 `/mnt/wsl`：策略**无条件声明**；存在则只读入 argv，缺失则被丢弃（非 WSL）', () => {
+    const p = buildBashLandlockPolicy({
+      cwd: '/work',
+      abi: 5,
+      homeDir: '/home/u',
+    });
+    expect(p.fs.find((r) => r.path === '/mnt/wsl')?.allow).toEqual([
+      'read',
+      'execute',
+    ]);
+    expect(buildLandlockArgv(p, (x) => x === '/mnt/wsl')).toContain('/mnt/wsl');
+    expect(buildLandlockArgv(p, (x) => x !== '/mnt/wsl')).not.toContain(
+      '/mnt/wsl'
+    );
   });
 });
 
@@ -98,7 +141,7 @@ describe('网络策略两态：三个 policy 生产者的意图', () => {
   it('code_run（`LinuxSandboxRunner`）：`denyAll` ⇒ 网络全禁（对齐该模块"全禁"意图）', () => {
     const p = buildBunLandlockPolicy('/work', 5);
     expect(p.net).toEqual({ denyAll: true });
-    expect(buildLandlockArgv(p)).toContain('--net-deny');
+    expect(argvOf(p)).toContain('--net-deny');
   });
 
   it('`LandlockPolicyBuilder`：按 `permissions.network` 映射（false ⇒ 全禁；true ⇒ 不设 net）', () => {

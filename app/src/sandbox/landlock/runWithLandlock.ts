@@ -32,6 +32,7 @@
  * - 非 125 退出码 = 目标命令本身结果（消费者归因仅看 exit 125）
  */
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -61,14 +62,25 @@ export interface RunWithLandlockOptions {
  * - 仅 read/execute 的规则 → `--ro`（read+execute）
  * - `net.denyAll === true` → `--net-deny`（网络全禁）；**不设 `net` ⇒ 不传网络参数**（网络不受限）
  *
+ * **统一按存在性过滤（2026-10-05）**：`landlock-run` 对**不存在的规则路径**直接 `exit 125`
+ * （沙箱初始化失败 ⇒ 按 `failClosed` 拒绝或回退，**整只沙箱失效**）—— 实测 `--ro /NOPE` 即 125。
+ * 而策略里的系统路径（`/lib32`/`/opt`…）与平台特有路径（WSL 的 `/mnt/wsl`…）在部分发行版/环境
+ * 可能不存在 ⇒ 此处**缺失即跳过该规则**（策略声明意图、argv 只保留真实存在的路径）。
+ * `pathExists` 可注入，便于离线断言两分支（默认 `fs.existsSync`）。
+ *
  * ⚠️ 2026-09-29（台账 D-36-① / D-38）：原实现对 `net.allow` 里的 `connect_tcp`/`connect_udp`
  * 逐个输出 `--net-connect tcp|udp` —— 而该 flag 在内核侧的实际语义是**拒绝**该协议 CONNECT
  * 且**放行** bind（详见 `types.ts` 的 `LandlockNetRule` 注释）⇒ 与调用方意图相反。现按
  * **可表达的两态**输出。
  */
-export function buildLandlockArgv(policy: LandlockPolicy): string[] {
+export function buildLandlockArgv(
+  policy: LandlockPolicy,
+  pathExists: (path: string) => boolean = existsSync
+): string[] {
   const args: string[] = [];
   for (const rule of policy.fs) {
+    // 缺失路径 ⇒ 跳过（否则 helper exit 125，整只沙箱失效）
+    if (!pathExists(rule.path)) continue;
     if (rule.allow.includes('write')) {
       args.push('--rw', rule.path);
     } else {

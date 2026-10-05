@@ -172,7 +172,7 @@
 6. ~~未做"同名目录"防回归守卫~~ ✅ **已做（2026-10-05，§3-6）**：新增脚本 `scripts/lint-case-collision.ts`（`bun run lint:case`，已纳入 `app/package.json` 的 `ci` 链）递归扫描项目树，按 `toLowerCase()` 对**同一父目录**下的直接子项分组，组内出现 >1 个互异名即判违规（exit 1）；忽略 `node_modules`/`.git`/`dist`/`target` 等。**含自检控制组**（合成 `['Foo','foo']` 必须命中、`['Foo','bar']` 必须不命中）防"空集假绿"。**当前实测通过**（无仅大小写不同的同级条目）。
 7. ~~G3 的"守卫化"（提示词工具名取自注册表）未做~~ ✅ **已做（2026-10-05，§3-7）**：`tools/AgentTool/agentTeammateIsolation.ts` 的 worktree 隔离提示词改为引用常量 `WORKTREE_FILE_TOOL_NAMES`，其类型为 `as const satisfies readonly ToolName[]`（`ToolName` 来自**注册表生成物** `constants/toolNames.generated.ts`，由 `getAllBuiltinToolLoaders()` 生成）⇒ 拼错 / 上游改名未同步将直接触发 **`typecheck` 报错**，杜绝 2026-09-26 那类漂移。
 8. ~~**`BashTool.safeExecute` / `BashTool.executeCommand` 无活调用点**~~ ✅ **已处置（2026-10-05，§3-8）**：两静态方法连同其专属 import（`promisify`/`execAsync`/`AppError`/`ErrorCategory`/`ErrorSeverity`）一并删除，`child_process` import 收窄为 `import type { ExecOptions }`；删除前全仓 grep 确认**无活引用**（仅 spec / 台账文档命中）。
-   - ⚠️ **同批新发现（如实，属"无关预存死代码"⇒ 只记录不删除，依 `PY_APP.md` §3）**：静态 `BashTool.isDangerousCommand()`（`BashTool.ts:760`）**同样 0 引用**（全仓 grep 仅定义处命中；实例路径用的是 `@modules/security/bash/BashAST` 的**同名函数**，见 `BashTool.ts:27`/`:564`）。它**不绕过** Landlock（纯黑名单校验，无执行分支）⇒ 不在 §3-8 的处置理由内，**本次保留未动**，仅记入台账。
+   - ✅ **同批新发现并已处置（2026-10-05）**：静态 `BashTool.isDangerousCommand()`（原 `BashTool.ts:760`）经全仓 grep 确认为**同类死代码**（**0 引用**、**无动态访问**；实例路径用的是 `@modules/security/bash/BashAST` 的**同名函数**，见 `BashTool.ts:27`/`:564`），且与 `execute()` 内联的安全拦截段（`:502-554`）**重复**。**用户裁定「删除」** ⇒ 已删除（零级联：三常量/函数仍被实例路径 `:508`/`:523`/`:542` 使用；文件 **973 → 943 行**）。验证：`typecheck` 0 · 定向 `eslint` 0 · bash 相关测试 **44 pass / 0 fail**。
 
 ---
 

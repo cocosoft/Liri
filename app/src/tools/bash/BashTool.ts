@@ -753,36 +753,6 @@ export class BashTool extends BaseTool {
   }
 
   /**
-   * 检查命令是否安全 - 对标CC源码
-   * @param command 命令
-   * @returns 是否安全
-   */
-  static isDangerousCommand(command: string): boolean {
-    const lowerCommand = command.toLowerCase();
-
-    if (
-      DANGEROUS_COMMANDS.some((dangerousCommand) =>
-        lowerCommand.includes(dangerousCommand.toLowerCase())
-      )
-    ) {
-      return true;
-    }
-
-    if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
-      return true;
-    }
-
-    const pathMatch = command.match(
-      /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\\\[^\s'"]+))['"]?/
-    );
-    if (pathMatch && !isPathSafe(pathMatch[1])) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
    * 检查命令是否安全
    */
   checkSecurity(command: string) {

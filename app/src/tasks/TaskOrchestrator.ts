@@ -22,7 +22,11 @@ import {
   unlinkSync,
 } from 'fs';
 import { taskRegistry } from './TaskRegistry';
-import { resolveDataSubDir } from '@modules/core';
+import {
+  resolveDataSubDir,
+  parseSuccessCriteria,
+  type SuccessCriteria,
+} from '@modules/core';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';
@@ -67,8 +71,13 @@ export interface PlanStep {
   partialOutput?: string;
   /** E1①（2026-09-05，方案甲）：本步骤执行终局终止原因（max_turns/loop_detected/...） */
   terminationReason?: string;
-  /** PDCA：验收标准 */
+  /** PDCA：验收标准（自由文本，保留兼容；结构化派生见 `successCriteria`） */
   acceptanceCriteria?: string;
+  /**
+   * 13-P0-2（2026-10-05）：由 `acceptanceCriteria` 文本解析出的**结构化验收标准**，
+   * 作为验证器 `checks[]` 的判定骨架（见 `core/successCriteria.ts`）。
+   */
+  successCriteria?: SuccessCriteria;
   /** PDCA：审查结果 */
   reviewResult?: PlanReview;
   /** PDCA：重试计数 */
@@ -286,6 +295,8 @@ export class TaskOrchestrator {
         retryCount: 0,
         maxRetries: 3,
         acceptanceCriteria: acceptanceCriteria?.[i],
+        // 13-P0-2：自由文本 → 结构化骨架（无有效条目 ⇒ undefined，保持旧路径）
+        successCriteria: parseSuccessCriteria(acceptanceCriteria?.[i]),
       };
     });
 

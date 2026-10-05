@@ -37,6 +37,70 @@
 export interface TopoBatchTask {
   id: string;
   dependsOn?: string[];
+  /**
+   * 13-P1-1（2026-10-05，《Agentic Design Patterns》21 模式复查 A3）：
+   * 本任务对其 `dependsOn` 的处理模式。
+   * - `'hard'`：任一前驱 `failed`/`skipped` ⇒ 本任务**跳过**（`block` 传播，fail-closed）
+   * - `'soft'`（缺省，= 现状）：**不阻断**（`continue` 传播；调用方可自行消费降级产物）
+   *
+   * ⚠️ 与复查建议的差异（如实）：建议"默认 `hard`、先用开关"；本仓取**默认 `soft` + 任务级 opt-in**，
+   * 理由 = 零行为回归（两处调用方 `PlanDrivenLoop`/`OrchEngine` 现有语义不变）。是否翻转为默认 hard 待评估迁移风险。
+   */
+  dependsOnMode?: TopoDependencyMode;
+}
+
+/** 节点执行状态（13-P1-1；仅前批已执行的任务会有条目） */
+export type TopoTaskStatus = 'ok' | 'failed' | 'skipped';
+
+/** 依赖模式（见 `TopoBatchTask.dependsOnMode`） */
+export type TopoDependencyMode = 'hard' | 'soft';
+
+/**
+ * 13-P1-1：按**已产出的前驱状态**计算需跳过（阻断）的后继任务。
+ *
+ * 语义（`block` 传播）：
+ * - 仅当任务 `dependsOnMode === 'hard'`（或全局 `defaultDependencyMode === 'hard'`）时参与阻断；
+ * - 任一**真实存在**的前驱状态为 `failed`/`skipped`（或被本次判定跳过，**传递性**）⇒ 本任务跳过；
+ * - 引用不存在的前驱 ⇒ 视为满足（与 `scheduleTopoBatches` 的自愈口径一致）；
+ * - ⚠️ 第三种传播 `degrade`（用降级产物继续）**未实现** —— 需产物级语义，本纯函数层不具备；如实记录。
+ *
+ * @returns taskId → 跳过原因（未跳过的任务无条目）
+ */
+export function computeTopoSkips<T extends TopoBatchTask>(
+  tasks: T[],
+  statusById: ReadonlyMap<string, TopoTaskStatus>,
+  opts?: { defaultDependencyMode?: TopoDependencyMode }
+): Map<string, string> {
+  const defaultMode: TopoDependencyMode = opts?.defaultDependencyMode ?? 'soft';
+  const byId = new Set(tasks.map((t) => t.id));
+  const skips = new Map<string, string>();
+
+  // 传递性：被跳过的前驱对下游等价于 failed ⇒ 多趟推进至不动点
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const task of tasks) {
+      if (skips.has(task.id)) continue;
+      const mode = task.dependsOnMode ?? defaultMode;
+      if (mode !== 'hard') continue;
+      for (const depId of task.dependsOn ?? []) {
+        if (!byId.has(depId)) continue;
+        const depStatus = statusById.get(depId);
+        const blocked =
+          depStatus === 'failed' || depStatus === 'skipped' || skips.has(depId);
+        if (!blocked) continue;
+        skips.set(
+          task.id,
+          skips.has(depId)
+            ? `前驱 ${depId} 因依赖阻断被跳过（传递）`
+            : `前驱 ${depId} 执行失败`
+        );
+        changed = true;
+        break;
+      }
+    }
+  }
+  return skips;
 }
 
 /**

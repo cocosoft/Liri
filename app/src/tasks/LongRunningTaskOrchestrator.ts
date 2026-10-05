@@ -62,6 +62,8 @@ import { TAORLoop, createTAORLoopDeps } from '@modules/query';
 import type { TAORLoopDeps } from '@modules/query';
 import { VerifierAgent, createVerifierAgent } from '@modules/query';
 import type { VerificationResult } from '@modules/query';
+// 13-P0-2（2026-10-05）：验收标准结构化（存档回填时由文本重派生）
+import { parseSuccessCriteria } from '@modules/core';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import {
@@ -2217,6 +2219,10 @@ ${replanSection}
       step.retryCount = (s.retryCount as number) ?? 0;
       step.maxRetries = (s.maxRetries as number) ?? 3;
       step.acceptanceCriteria = s.acceptanceCriteria as string | undefined;
+      // 13-P0-2（2026-10-05）：结构化验收标准回填（旧存档无该字段 ⇒ 由文本重新派生）
+      step.successCriteria =
+        (s.successCriteria as ReturnType<typeof parseSuccessCriteria>) ??
+        parseSuccessCriteria(step.acceptanceCriteria);
       // E1①/B（2026-09-05）：终止原因回填（扩容判定/审计输入；先前丢失）
       step.terminationReason = s.terminationReason as string | undefined;
       // S2/B（PR9）：扩容候选步骤置回 pending 重跑（决策谓词见纯函数 shouldReRollMaxTurnsStep，

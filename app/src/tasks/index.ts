@@ -89,8 +89,12 @@ export type {
   EvolutionRunResult,
   EvolutionDeps,
 } from './evolution/AdaptationEvolutionService';
-export { scheduleTopoBatches } from './topoBatches';
-export type { TopoBatchTask } from './topoBatches';
+export { scheduleTopoBatches, computeTopoSkips } from './topoBatches';
+export type {
+  TopoBatchTask,
+  TopoDependencyMode,
+  TopoTaskStatus,
+} from './topoBatches';
 export {
   PitfallRegistry,
   pitfallRegistry,

@@ -76,8 +76,13 @@ export interface SubTask {
   tier?: RouterTier;
   /** 依赖的子任务 ID 列表（这些子任务完成后才能执行本任务） */
   dependsOn: string[];
-  /** 执行状态 */
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  /**
+   * 13-P1-1（2026-10-05）：依赖模式 —— `'hard'` = 前驱失败则本步跳过（阻断传播）；
+   * `'soft'`（缺省，= 现状）= 不阻断。分解 prompt 未产出该字段 ⇒ 缺省 soft，零行为回归。
+   */
+  dependsOnMode?: 'hard' | 'soft';
+  /** 执行状态（`'skipped'` = 13-P1-1 硬依赖失败被阻断，未执行） */
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
   /** 执行结果 */
   result?: string;
 }

@@ -33,7 +33,11 @@ import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
 import { goalMetricsService } from './db/GoalMetricsService.js';
 import type { Plan, PlanProgress } from './TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
-import { scheduleTopoBatches } from './topoBatches.js';
+import {
+  scheduleTopoBatches,
+  computeTopoSkips,
+  type TopoTaskStatus,
+} from './topoBatches.js';
 // T-②05（2026-10-03）：分流判据配置化 —— 默认值/纯构造在 core 单一事实源，运行时解析在 fastPathPolicy
 import {
   buildFastPathPolicy,
@@ -614,9 +618,15 @@ export class PlanDrivenLoop {
     // 批次启动前检查，批内并行步骤不再逐个中断）
     const runTokenCap = pdlRunTokenCap();
     let budgetExhausted = false;
-    const topoBatches = scheduleTopoBatches(
-      subtasks.map((t) => ({ id: t.id, dependsOn: t.dependsOn }))
-    );
+    const topoTaskShapes = subtasks.map((t) => ({
+      id: t.id,
+      dependsOn: t.dependsOn,
+      dependsOnMode: t.dependsOnMode,
+    }));
+    const topoBatches = scheduleTopoBatches(topoTaskShapes);
+    // 13-P1-1（2026-10-05）：依赖状态簿 —— 前批产出写入；仅显式 `dependsOnMode:'hard'` 的任务
+    // 会被 `computeTopoSkips` 阻断 ⇒ 缺省 soft 时 `depSkips` 恒空，**行为与现状完全一致**。
+    const depStatusById = new Map<string, TopoTaskStatus>();
     // P0-1：每步真实产出捕获（stepId → 末条 assistant 文本），供前驱注入/审计/重试引用
     const stepOutputs = new Map<string, string>();
 
@@ -639,6 +649,8 @@ export class PlanDrivenLoop {
       }
 
       // batch 内拓扑任务 → subtasks 原序映射（保持计划顺序语义，供日志/进度/前驱注入用）
+      // 13-P1-1：先按已产出前驱状态算阻断（soft 缺省 ⇒ 恒空）
+      const depSkips = computeTopoSkips(topoTaskShapes, depStatusById);
       const runnable: Array<{
         task: DecompositionResult['subTasks'][number];
         i: number;
@@ -647,10 +659,30 @@ export class PlanDrivenLoop {
       for (const topoTask of batch) {
         const i = subtasks.findIndex((t) => t.id === topoTask.id);
         if (i < 0) continue;
+        const stepId = this.plan?.steps[i]?.id || subtasks[i].id;
+        const skipReason = depSkips.get(topoTask.id);
+        if (skipReason) {
+          // 13-P1-1：硬依赖失败 ⇒ 本步**不执行**，如实标注（plan 步标 cancelled + 明确原因）
+          depStatusById.set(topoTask.id, 'skipped');
+          subtasks[i].status = 'skipped';
+          subtasks[i].result = `[DEPENDENCY_BLOCKED] ${skipReason}`;
+          taskOrchestrator.markStepCancelled(
+            stepId,
+            `[DEPENDENCY_BLOCKED] ${skipReason}`
+          );
+          this._broadcastStepProgress(stepId, 'cancelled', i, subtasks.length);
+          logger.warn('步骤因硬依赖失败被阻断（13-P1-1）', {
+            sessionId: this.sessionId,
+            planId: this.plan?.id,
+            stepId,
+            reason: skipReason,
+          });
+          continue;
+        }
         runnable.push({
           task: subtasks[i],
           i,
-          stepId: this.plan?.steps[i]?.id || subtasks[i].id,
+          stepId,
         });
       }
       if (runnable.length === 0) continue;
@@ -664,7 +696,7 @@ export class PlanDrivenLoop {
           batchSize: runnable.length,
           stepIds: runnable.map((r) => r.stepId),
         });
-        await Promise.allSettled(
+        const settled = await Promise.allSettled(
           runnable.map((r) =>
             this._executeOneStep(
               r.task,
@@ -676,10 +708,17 @@ export class PlanDrivenLoop {
             )
           )
         );
+        // 13-P1-1：记录本批状态（供后续批次 hard 依赖阻断判定）
+        settled.forEach((s, k) => {
+          depStatusById.set(
+            runnable[k].task.id,
+            s.status === 'fulfilled' ? s.value : 'failed'
+          );
+        });
       } else {
         for (const r of runnable) {
           if (this.aborted) break;
-          await this._executeOneStep(
+          const st = await this._executeOneStep(
             r.task,
             subtasks,
             r.i,
@@ -687,6 +726,7 @@ export class PlanDrivenLoop {
             idxById,
             stepOutputs
           );
+          depStatusById.set(r.task.id, st);
         }
       }
     }
@@ -782,7 +822,7 @@ export class PlanDrivenLoop {
     stepId: string,
     idxById: Map<string, number>,
     stepOutputs: Map<string, string>
-  ): Promise<void> {
+  ): Promise<TopoTaskStatus> {
     const stepStart = Date.now();
 
     logger.info(`步骤 ${i + 1}/${subtasks.length}`, {
@@ -865,7 +905,7 @@ export class PlanDrivenLoop {
               sessionId: this.sessionId,
               stepId,
             });
-            return; // P0-2：中止不重试，本步结束（外层批次循环随即因 aborted break）
+            return 'skipped'; // P0-2：中止不重试，本步结束（外层批次循环随即因 aborted break）
           }
 
           // P0-1（2026-09-06）：步骤产出捕获——末条 assistant 文本作为本步真实结论，
@@ -943,7 +983,7 @@ export class PlanDrivenLoop {
               stepId,
               reason: String(err),
             });
-            return; // P0-2：中止不重试
+            return 'skipped'; // P0-2：中止不重试
           } else if (attempt === 0) {
             // P0-2（2026-09-06）：首败注入 objection 重试一次（API/工具异常亦仅限 1 次，
             // 有界成本由 run 级 token 预算兜底；attempt=1 的 prompt 携带本步失败原因）
@@ -1021,7 +1061,7 @@ export class PlanDrivenLoop {
               action: 'executeStep',
               context: { sessionId: this.sessionId, stepId },
             });
-            return; // P0-2：本步终败，重试循环结束
+            return 'failed'; // P0-2：本步终败，重试循环结束
           }
         }
       }
@@ -1031,6 +1071,7 @@ export class PlanDrivenLoop {
     }
 
     this._notifyProgress();
+    return 'ok';
   }
 
   /** 构建步骤执行的 prompt（P0-1：可注入依赖前驱产出摘要；P0-2：可携带上次失败 objection） */

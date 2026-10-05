@@ -99,6 +99,8 @@ export {
 // 2026-08-29 R03-002 收敛：子模块统一出口
 export * from './data-models';
 export * from './ports';
+// 13-P0-2（2026-10-05）：验收标准结构化契约（纯模块，无出向依赖 ⇒ 放 core 供 tasks/query 共用）
+export * from './successCriteria';
 export type { HealthStatus, UnifiedHealthStatus } from './health';
 export { HEALTH_SEVERITY, isAcceptable, mergeHealthStatuses } from './health';
 export * from './performance';

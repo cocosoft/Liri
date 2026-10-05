@@ -19,6 +19,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
+// 13-P0-2（2026-10-05）：验收标准结构化（注入验证器骨架）
+import { parseSuccessCriteria } from '@modules/core';
 import { parseReviewFromText } from '../PlanReview.js';
 import type { PlanReview, ReviewDecision, ReviewIssue } from '../PlanReview.js';
 import type { AgentIsolation } from '@modules/agent';
@@ -255,6 +257,11 @@ export class DefaultReviewGate implements ReviewGate {
             toolResults: [],
             turnCount: 0,
             sessionId: ctx.taskId,
+            // 13-P0-2（2026-10-05）：注入结构化验收标准 —— 验证器 checks[] 必须以该骨架为准
+            // （无验收标准 ⇒ undefined ⇒ 行为与现状一致）
+            successCriteria:
+              step.successCriteria ??
+              parseSuccessCriteria(step.acceptanceCriteria),
           },
           isolation.abortController.signal
         );

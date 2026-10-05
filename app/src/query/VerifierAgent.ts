@@ -17,7 +17,12 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { feature } from '@modules/core';
+import {
+  feature,
+  alignChecksToCriteria,
+  renderCriteriaSkeleton,
+  type SuccessCriteria,
+} from '@modules/core';
 
 const logger = getLogger('query:verifierAgent');
 
@@ -109,6 +114,14 @@ export interface VerificationInput {
    * 判定机制（checks 通过率 + confidence + 默认立场 REJECT）不变；未注入时行为与现状一致。
    */
   reviewGuidelines?: string;
+  /**
+   * 13-P0-2（2026-10-05）：**结构化验收标准**（= 判定骨架）。
+   *
+   * 注入后：① 提示词追加骨架（要求 `checks[]` 逐条照抄、按序、禁止增删）；
+   * ② 解析后由 `alignChecksToCriteria` 对齐 —— 漏项按 `passed:false` 记（**漏项不复行**）。
+   * 未注入 ⇒ 行为与现状完全一致（单指标路径）。
+   */
+  successCriteria?: SuccessCriteria;
 }
 
 const DEFAULT_CONFIG: VerifierAgentConfig = {
@@ -125,6 +138,10 @@ const DEFAULT_CONFIG: VerifierAgentConfig = {
  * 指令核心：默认拒绝，需制造者证明修改正确性
  */
 function buildVerificationPrompt(input: VerificationInput): string {
+  // 13-P0-2（2026-10-05）：注入结构化验收标准骨架 —— 要求 checks[] 逐条照抄、按序，禁止增删
+  const criteriaSkeleton = input.successCriteria
+    ? renderCriteriaSkeleton(input.successCriteria)
+    : '';
   const toolResultsSummary = input.toolResults
     .map((tr) => {
       if (tr.error) {
@@ -149,6 +166,7 @@ function buildVerificationPrompt(input: VerificationInput): string {
       '',
       '**审查准则**：',
       input.reviewGuidelines,
+      ...(criteriaSkeleton ? ['', criteriaSkeleton] : []),
       '',
       '**审查原则**：',
       '1. 默认立场是 REJECT（假设待审对象有问题，需证明其合格）',
@@ -183,6 +201,14 @@ function buildVerificationPrompt(input: VerificationInput): string {
     '',
     '**审查原则**：',
     '1. 默认立场是 REJECT（假设修改有问题，需证明其正确性）',
+    ...(criteriaSkeleton
+      ? [
+          '',
+          criteriaSkeleton,
+          '',
+          '（有骨架时，`checks[]` 必须且只能由上述条目构成，按原序、`item` 照抄）',
+        ]
+      : []),
     '2. 检查以下维度：',
     '   - 修改是否完成了用户要求的目标？',
     '   - 修改是否引入了新的错误（语法错误、类型错误、逻辑错误）？',
@@ -333,7 +359,7 @@ export class VerifierAgent {
       }
 
       const responseText = chunks.join('');
-      const result = this._parseResponse(responseText);
+      const result = this._parseResponse(responseText, input.successCriteria);
 
       logger.info('验证完成', {
         sessionId: input.sessionId,
@@ -397,7 +423,10 @@ export class VerifierAgent {
   /**
    * 解析验证模型的 JSON 响应（Phase 2b: 双指标判定）
    */
-  private _parseResponse(text: string): VerificationResult {
+  private _parseResponse(
+    text: string,
+    criteria?: SuccessCriteria
+  ): VerificationResult {
     // 尝试提取 JSON 块
     const jsonMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
     const jsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
@@ -417,12 +446,17 @@ export class VerifierAgent {
           : 0.5;
 
       // Phase 2b: 解析 checks[] 数组并计算 CheckPassRate
-      const checks: CheckItem[] = Array.isArray(parsed.checks)
+      const rawChecks: CheckItem[] = Array.isArray(parsed.checks)
         ? parsed.checks.map((c: { item: string; passed: boolean }) => ({
             item: c.item || '未知检查项',
             passed: Boolean(c.passed),
           }))
         : [];
+
+      // 13-P0-2（2026-10-05）：注入验收标准骨架时**对齐**（漏项 ⇒ passed:false；骨架外项丢弃）
+      const checks: CheckItem[] = criteria
+        ? alignChecksToCriteria(rawChecks, criteria)
+        : rawChecks;
 
       const totalChecks = checks.length;
       const passedChecks = checks.filter((c) => c.passed).length;

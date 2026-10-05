@@ -1,7 +1,7 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **计划内批次收官（2026-10-05）** —— 批 1–3（EventLog 家族）+ **A1/A2/A3/A4a/A5a/A6** 全部落地（见 §10–§16，ChatManager **6729 → 5525，−1204**）；**剩 A4b（C18）与 A5b（会话准备/终态收口）**（均重度耦合，**待裁定**）；`CoreAPIImpl`/`ReActToolLoop`/`AgentTool` 未取证。
+- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。后续目标 `CoreAPIImpl`(5337) / `ReActToolLoop`(3595) / `AgentTool`(3289) **未取证**。
 - **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**A5/A6 的"降至阈值以下"收益已消失**，后续批次是否继续**待裁定**。详见 **§14**。
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
@@ -274,13 +274,13 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 | 文件 | 原始 | 当前 | 已落地 |
 |---|---|---|---|
-| `chat/ChatManager.ts` | 6729 | **5525** | 批 1–3：EventLog 家族 **17 成员** → `eventLogStore.ts`（538 行，§7）；**A1** → `requestPrep.ts`（278 行，§10）；**A2** → `rollback.ts`（350 行，§11）；**A3** → `promptAssembly.ts`（124 行，§12）；**A4a** → `bootstrap.ts`（581 行，§13）；**A5a** → `pipeline/streamMessageLifecycle.ts`（389 行，§15）；**A6** → `sessionTeardown.ts`（256 行，§16）。累计 **−1204 行** |
+| `chat/ChatManager.ts` | 6729 | **5238** | 批 1–3 → `eventLogStore.ts`（538，§7）；**A1** → `requestPrep.ts`（278，§10）；**A2** → `rollback.ts`（350，§11）；**A3** → `promptAssembly.ts`（124，§12）；**A4a** → `bootstrap.ts`（581，§13）；**A4b** → `recovery.ts`（444，§17）；**A5a** → `pipeline/streamMessageLifecycle.ts`（389，§15）；**A6** → `sessionTeardown.ts`（256，§16）。累计 **−1491 行** |
 
 ### 9.2 优先序（依据 §2 判据 + 实测行数）
 
 | 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
 |---|---|---|---|---|
-| 1 | `chat/ChatManager.ts` | 5525 | **A1–A6 计划内已收官**（−1204） | 仅剩 **A4b（C18）** / **A5b（会话准备/终态收口）**（重度耦合，待裁定） |
+| 1 | `chat/ChatManager.ts` | 5238 | **A1–A6 + A4b 收官**（−1491） | ✅ 本文件批次全部收官；**A5b 判「不拆」**（用户裁定）⇒ 后续转其他目标（Top-2/3/4 未取证） |
 | 2 | `runtime/api/CoreAPIImpl.ts` | 5337 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
 | 3 | `chat/ReActToolLoop.ts` | 3447 | **未取证** | 同上 |
 | 4 | `tools/AgentTool/AgentTool.ts` | 3115 | **未取证** | 同上 |
@@ -294,8 +294,8 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | ✅ **已落地（2026-10-05，见 §10；实得 −141 行）** |
 | A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次（**收窄为 5 成员**） | ≈270 | ✅ **已落地（2026-10-05，见 §11；实得 −202 行）**；`_buildToolRoundMessages`/`_dedupeToolResultForStub` **移出本批** ⇒ 归 A5（流管道职责） |
 | A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配（**收窄为 2 成员**） | ≈90 | ✅ **已落地（2026-10-05，见 §12；实得 −39 行）**；`getHookChainManager`（通用 getter）与 `_extractCurrentGoal`（**全仓无调用者**）**不并入** |
-| A4 | `chat/manager/bootstrap.ts` | C13 启动加载/迁移 + C18 恢复/outbox/yield（**拆为 A4a / A4b**） | ≈1090 | ✅ **A4a（C13，6 成员）已落地（2026-10-05，见 §13；实得 −465 行）**；⚠️ **A4b（C18 五方法）未开工** —— `_resumeSessionInternally` 与运行器强耦合、且 `cleanup()` 消费其卸载句柄 ⇒ **须先依赖验证** |
-| A5 | `chat/pipeline/streamMessageLifecycle.ts` | 流管道段（`_buildApiMessagesForStream` 等，**拆为 A5a / A5b**） | ≈680 | ✅ **A5a（消息构建 3 成员 + A2 移交的 2 方法）已落地（2026-10-05，见 §15；实得 −276 行）**；⚠️ **A5b（会话准备/管道创建/终态收口）未开工**（15+ 宿主依赖，须先依赖验证）。命名由 `chat/manager/streamPipeline.ts` 改为 `chat/pipeline/streamMessageLifecycle.ts`（避与既有 `StreamPipeline.ts` 同名） |
+| A4 | `chat/manager/bootstrap.ts`（A4a）+ `manager/recovery.ts`（A4b） | C13 启动加载/迁移 + C18 恢复/outbox/yield（**A4a / A4b**） | ≈1090 | ✅ **A4a（C13，6 成员）已落地（2026-10-05，见 §13；实得 −465 行）**；✅ **A4b（C18，5 成员）已落地（2026-10-05，见 §17；实得 −287 行）** —— 目标文件由 `bootstrap.ts` 改为独立的 **`manager/recovery.ts`**（恢复族独立命名；`bootstrap.ts` 仅存 C13） |
+| A5 | `chat/pipeline/streamMessageLifecycle.ts` | 流管道段（`_buildApiMessagesForStream` 等，**拆为 A5a / A5b**） | ≈680 | ✅ **A5a（消息构建 3 成员 + A2 移交的 2 方法）已落地（2026-10-05，见 §15；实得 −276 行）**；⛔ **A5b 经用户裁定「不拆」（2026-10-05）** —— `_prepareStreamSession`/`_createStreamPipeline`/`_finalizeStreamMessage`（≈480 行）需 **≈25–30 个宿主依赖**（安全校验/会话生命周期/AbortController/Mutex/Checkpoint/HookChain/消息服务/落盘/状态机/OTel/图像上下文/LLM client/路由/用量/记忆提炼/流式游标/turn 收尾/PDCA 升级/ImplicitEngineHook…）⇒ 抽出后新类**几乎事事回调宿主**，得到的是"转发层"而非"内聚单元"（不符 §2 判据）⇒ **判不拆、留宿主** |
 | A6 | `chat/manager/sessionTeardown.ts` | C21 会话拆除/级联收口（**收窄为 5 成员**） | ≈280 | ✅ **已落地（2026-10-05，见 §16；实得 −167 行）**；C21 的 11 个**薄委托/访问器不迁**（R06-006）；目标名由 `sessionCrud.ts` 改为 `sessionTeardown.ts` |
 
 **停止条件（重要）**：`ChatManager` 要真正 <1000 行需再抽 **≈5400 行**，而 A1–A6 合计仅 **≈2600 行** ⇒ **A1–A4 完成后按收益重新评估**，不预设"必须打到 <1000"。
@@ -481,4 +481,33 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **行为等价**：日志 module 名（`chat:manager`）、对外签名（含 `ChatManagerInterface` 契约）不变 ⇒ **未改任何测试**。
 **例外台账**：`ChatManager.ts` 条目**保留**（仍 >2000 行）。
 
-> **⇒ A1–A6 计划内批次（含 A4a / A5a 拆分）本轮收官**：ChatManager 累计 **6729 → 5525（−1204）**，新建 6 个模块（`eventLogStore` / `requestPrep` / `rollback` / `promptAssembly` / `bootstrap` / `streamMessageLifecycle` / `sessionTeardown` = 7）。**仍未开工：A4b（C18）、A5b（会话准备/终态收口）** —— 两者均**重度宿主耦合**，待用户裁定是否继续。
+> **⇒ 计划内批次（含 A4a / A5a 拆分）本轮收官**：ChatManager 累计 **6729 → 5525（−1204）**。**后续**：A4b 已在 §17 落地（→ **5238**）；**A5b 经用户裁定不拆**（见 §9.3 A5 行）。
+
+---
+
+## 17. 实施记录：批 A4b —— 启动恢复 / yield 恢复器 / 会话内部续跑（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/manager/recovery.ts`（`ChatRecovery`，**444 行**）
+
+**迁入成员（5）**：`bootstrapYieldRecovery` · `bootstrapRecovery` · `ensureYieldResumerInstalled`（原 `_ensureYieldResumerInstalled`）· `resumeSessionInternally`（原 `_resumeSessionInternally`，整体迁出）· `rebuildTrailingTurnFromEvents`（原 `_rebuildTrailingTurnFromEvents`）
+> 方法名按既有 `ChatBootstrap` / `ChatRollback` 约定去下划线；**被迁代码体 / 注释 / 日志文案逐字保留**。
+
+**⚠️ 与 §13 预估的偏差（如实，以实测为准）**：§13 记 A4b「≈640 行」系**按行段跨度**估算（其中含**不迁的** `resumeStream` 等宿主方法）⇒ **实测迁出 ≈290 行**（`git numstat`：ChatManager **+44 / −334**）。
+
+**两处必须留宿主的项（均按依赖注入处理）**：
+- 字段 `_yieldResumerInstalled` / `_yieldResumerUninstall` —— 被 `cleanup()` 直接读写 ⇒ **留宿主**，经 `getYieldResumerInstalled` / `setYieldResumerInstalled` / `setYieldResumerUninstall` 注入；
+- `_rebuildTrailingTurnFromEvents` **确有宿主调用者**（宿主 `resumeStream()` 内；修正 §13 的"仅簇内调用"判断）⇒ 宿主 `resumeStream()` 改为**直调** `this._recovery.rebuildTrailingTurnFromEvents(...)`（**非**薄转发）。
+
+**宿主保留薄转发**：`bootstrapYieldRecovery` / `bootstrapRecovery`（**接口契约** + `main.ts:1950` 调用 + `tests/chat/bootstrapYieldRecovery.test.ts` 以 `cm.bootstrapYieldRecovery({ registry, store, outbox })` 调用 ⇒ 签名/出参逐字不变）、`_ensureYieldResumerInstalled`（宿主 2 处调用）。
+
+**注入依赖（`ChatRecoveryDeps`，10 项，全 getter / 闭包）**：`getSessionGateway` · `getStreamMaxTurn` · `getUnifiedTracker` · `getYieldResumerInstalled` · `setYieldResumerInstalled` · `setYieldResumerUninstall` · `streamMessage`（带参 ⇒ 函数型字段，与 `ChatRollbackDeps.addAndPersistMessage` 同型）· `getOrCreateEventLog` · `getSessionLifecycle` · `getMessageService`
+
+**ChatManager 侧**：新增 `private readonly _recovery`；3 个入口**薄转发** + `resumeStream()` 1 处**直调改写**；清理 **17 项**随迁孤儿导入（含 `RecoveryOrchestrator` / `getLineageSize` / `rebuildSessionLineage` / `installYieldResumer` / `replayPendingSettlements` / `getYieldWaitingStore` / `SessionMetadata` 等）。
+
+**行数**：`ChatManager.ts` **5525 → 5238**（本批 −287；自 v0.4.58 起累计 6729 → 5238）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；僵尸转发 0）· `lint:size` **0 错误** · eslint 0 · 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 80.38s，**单独跑**）· prettier ✓
+
+**行为等价**：日志 module 名（`chat:manager`）、对外签名（含 `ChatManagerInterface`）不变 ⇒ **未改任何测试**。
+
+> **⇒ A4 全部（A4a + A4b）收官**；**A5b 按用户裁定不拆**（见 §9.3 A5 行）。

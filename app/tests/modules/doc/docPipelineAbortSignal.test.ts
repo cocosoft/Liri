@@ -32,6 +32,9 @@ class StubProvider implements WorkflowProvider {
   readonly providerId = PROVIDER_ID;
   executeCalled = 0;
 
+  /** `delayMs > 0` 时模拟"运行中"（供 grace=0 的即时结算用例） */
+  constructor(private readonly delayMs = 0) {}
+
   listWorkflows(): WorkflowDefinition[] {
     return [
       {
@@ -44,6 +47,9 @@ class StubProvider implements WorkflowProvider {
 
   async execute(): Promise<WorkflowRunResult> {
     this.executeCalled += 1;
+    if (this.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+    }
     return {
       stopReason: 'completed',
       completedSteps: ['s1'],
@@ -68,12 +74,21 @@ function makeContext(abortController: AbortController): ToolUseContext {
   } as unknown as ToolUseContext;
 }
 
-function installStub(): StubProvider {
+function installStub(delayMs = 0): StubProvider {
   const engine = getWorkflowEngine();
   engine.unregisterProvider(PROVIDER_ID);
-  const stub = new StubProvider();
+  const stub = new StubProvider(delayMs);
   engine.registerProvider(stub);
   return stub;
+}
+
+/** 等待条件成立（上限 2s，避免竞态下无限等待） */
+async function waitFor(cond: () => boolean, timeoutMs = 2000): Promise<void> {
+  const start = Date.now();
+  while (!cond()) {
+    if (Date.now() - start > timeoutMs) throw new Error('waitFor 超时');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
 }
 
 afterAll(() => {
@@ -109,5 +124,23 @@ describe('doc 编排工具透传会话中止信号（P1-19 ⑤ 传输行守卫�
     expect(stub.executeCalled).toBe(1);
     expect(result.status).toBe(ToolExecutionStatus.SUCCESS);
     expect(String(result.output)).toContain('/tmp/stub.docx');
+  });
+
+  it('运行中中止 ⇒ grace=0 立即结算 cancelled（不再等默认 5000ms 宽限）', async () => {
+    const stub = installStub(150); // Provider 需 150ms 才结束
+    const controller = new AbortController();
+
+    const pending = createDocPipelineTool().execute(
+      INPUT,
+      makeContext(controller)
+    );
+    // 等 Provider 真正进入（此后中止 ⇒ 落在"运行中"而非 pre-check）
+    await waitFor(() => stub.executeCalled === 1);
+    controller.abort();
+    const result = await pending;
+
+    // 若工具未传 gracePeriodMs（默认 5000ms）⇒ Provider 会在 150ms 内先返回 ⇒ 结果取胜（ERROR 而非取消）
+    expect(result.status).toBe(ToolExecutionStatus.FAILURE);
+    expect(String(result.output)).toContain('取消');
   });
 });

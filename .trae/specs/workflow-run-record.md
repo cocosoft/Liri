@@ -528,4 +528,6 @@
   ② 同 Provider + **`gracePeriodMs: 0`** ⇒ `stopReason='cancelled'` + 在飞步骤 `synthesized: true` / `outcome='cancelled'`。
 - ⇒ 对 `send-report`（实测 **~200ms**）这类快工作流，**无论中止多及时都得不到 `cancelled`** —— 与"窗口极窄"并列的另一半根因。要可观测需：给工具传**更小 `gracePeriodMs`**，或工作流步骤本身慢于宽限（如 `office:doc-pipeline`）。
 - 本轮 e2e 重跑（2 轮）：检测已由 **SSE 子串匹配**改为**结构化轮询事件流**（`assistant/tool_call` 的 `name === 'office:workflow'`）—— 前者会被"模型 tool 参数内嵌同形 JSON"**假阳性**污染（实测两次误命中 `skill`/`tool_search` 参数）。改进后模型**未调用**该工具（仅 `tool_search`），故未取得会话级 `cancelled` 观测；临时脚本与临时会话均已清理。
-- **待裁定**：是否为 `office:workflow` / `office:doc-pipeline` 传显式更小 `gracePeriodMs`（如 `0` / `1000`）—— 决定"用户中止 → 卡片 `cancelled`"是否对**快工作流**生效（代价：中止瞬间结算、丢弃在飞结果，与 P2-2 既有语义一致）。
+- ✅ **已裁定（2026-10-05，用户裁定 `grace=0`）并已实施**：`office:workflow`（`DocModule.ts`）与 `office:doc-pipeline`（`DocPipelineTool.ts`）在注入 `signal` 的同时传 **`gracePeriodMs: 0`** ⇒ 用户中止**立即**结算为 `cancelled`（在飞步骤仍跑完，其结果被账本**封闭丢弃** —— 与 P2-2 既有语义一致）。
+  守卫：`tests/modules/doc/docPipelineAbortSignal.test.ts` 新增「运行中中止 ⇒ grace=0 立即结算 cancelled」（**该例对 grace 敏感**：不传则 Provider 150ms 内先返回 ⇒ 工具返回 SUCCESS 而非取消）。门槛：定向 **3 pass** · typecheck 0 · eslint 0 · 全量 **4460 tests / 0 fail**。
+  > ⚠️ **会话级 e2e 仍未跑通**：需先解决 §16.5④「模型侧工具可见性不同步」（8 轮仅 2 轮真调用 `office:workflow`）。

@@ -286,9 +286,10 @@ export function createDocPipelineTool(): Tool {
           {
             observer,
             // P1-19 ⑤：与 office:workflow 同源 —— 透传会话级中止信号
-            // （未注入 abortController 时不传，行为不变）
+            // （未注入 abortController 时不传，行为不变）；
+            // grace=0：用户中止 ⇒ 立即结算 cancelled（用户裁定，2026-10-05）
             ...(context?.abortController
-              ? { signal: context.abortController.signal }
+              ? { signal: context.abortController.signal, gracePeriodMs: 0 }
               : {}),
           }
         );

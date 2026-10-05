@@ -338,7 +338,14 @@ export class DocModule {
           // 中断后 run 仍以 completed/error 收尾。未注入时（无会话 / 非流式调用）不传，
           // 行为与既有完全一致。
           ...(context?.abortController
-            ? { signal: context.abortController.signal }
+            ? {
+                signal: context.abortController.signal,
+                // P1-19 ⑤b（2026-10-05，**用户裁定 grace=0**）：用户中止 ⇒ **立即**结算为
+                // `cancelled`。默认宽限 5000ms 下，快工作流（实测 ~200ms）的 Provider 会先返回
+                // ⇒ 其结果取胜 ⇒ "中止"形同无效（运行时证据见 spec §16.5⑤）。
+                // 在飞步骤仍会跑完，但其结果被账本**封闭丢弃**（既有 P2-2 语义）。
+                gracePeriodMs: 0,
+              }
             : {}),
         });
         await drain();

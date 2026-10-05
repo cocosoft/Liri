@@ -462,3 +462,38 @@
 | §10「3 用例 / 42 断言」、§11「62 断言」 | ✅ 已以 **4 例**实建（口径对齐；断言按新卡片口径重写，**不追认**原数字） |
 | §11.4「10 pass」 | ✅ 已以 **10 例**实建 |
 | §12.3「`WorkflowRuntime.integration.test.ts` 改断卡片」 | ✅ 已实现（该文件即本批新建，卡片断言见 §15.1） |
+
+---
+
+## 16. 生产取消链路接线 + 真实会话中止 e2e（P1-19 ⑤，2026-10-05）
+
+### 16.1 取证（修正先前判断）
+
+| 事实 | 证据 |
+|---|---|
+| 取消通道**早已存在**：工具上下文携带**会话级** `abortController` | `ToolExecutionService.ts:799-826`（R3，2026-09-21）—— 取 `ChatManager._sessionAbortControllers.get(sid)` 注入（取不到则不注入） |
+| 该 controller 由**用户停止 / SSE 连接关闭**触发 | `ChatManager.abortSessionStream`（`req.on('close')` → `controller.abort()`） |
+| **缺口**：两个编排工具**未读取**它 | `office:workflow` 调 `engine.execute(name, params, { observer })`（无 signal）；`office:doc-pipeline` 同 |
+| ⇒ 中断后 run 恒以 `completed`/`error` 收尾，seam 的取消/宽限期（P1-4 / P2-2）在生产链路**不可达** | 同上 |
+
+### 16.2 修复（2026-10-05）
+
+| 文件 | 改动 |
+|---|---|
+| `modules/doc/DocModule.ts` | `office:workflow`：`engine.execute(..., { observer, ...(context?.abortController ? { signal: context.abortController.signal } : {}) })` |
+| `modules/doc/pipeline/DocPipelineTool.ts` | `office:doc-pipeline`：同上（同源缺口，一并修） |
+
+未注入 `abortController`（无会话 / 非流式调用）时**不传** ⇒ 行为与既有完全一致。
+
+### 16.3 验证
+
+| 项 | 结果 |
+|---|---|
+| `bun run typecheck` / 定向 ESLint | **0 / 0** |
+| 全量 `bun test` | **4445 tests / 0 fail** |
+| **真实会话中止 e2e** | ⛔ **环境阻塞（未达成）**：本实例 `GET /v1/tools` 75 项**未注册** `office:workflow`（也无任何 `mail*` 工具）⇒ 模型无法触发工作流（两次 `tool_search` 均 `matches: []`）⇒ "运行中中止"无从发生。**已做的运行期动作**：真实 `POST /v1/chat/completions`（SSE）+ 断连触发 `abortSessionStream`（2 轮；临时脚本与 2 个临时会话均已清理，无残留）。**待具备真实 doc+mail 模块环境时重跑**。 |
+
+### 16.4 已知边界（如实）
+
+1. signal 透传**只是接线**：`DocOrchestratorProvider` 仍忽略 `signal`，取消只经 `WorkflowEngine.raceWithCancelGrace`（默认宽限 **5000ms**）生效 —— **在飞的步骤不会被中断**，其上报由账本封闭丢弃（属既有 P1-4 / P2-2 局限）。
+2. 上述 e2e 未达成 ⇒ **生产链路**的"中止 → `cancelled`"尚无运行期证据；seam 侧的取消/封闭已由 §15 的集成测试覆盖（`取消（执行中）` / `取消（调用前）`）。

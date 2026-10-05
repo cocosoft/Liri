@@ -283,7 +283,14 @@ export function createDocPipelineTool(): Tool {
         const runResult = await getWorkflowEngine().execute(
           DOC_PIPELINE_WORKFLOW,
           pipelineParams as unknown as Record<string, unknown>,
-          { observer }
+          {
+            observer,
+            // P1-19 ⑤：与 office:workflow 同源 —— 透传会话级中止信号
+            // （未注入 abortController 时不传，行为不变）
+            ...(context?.abortController
+              ? { signal: context.abortController.signal }
+              : {}),
+          }
         );
         await drain();
         const success = runResult.stopReason === 'completed';

@@ -331,6 +331,15 @@ export class DocModule {
         } = createRunRecordCollector({ sessionId: context?.sessionId });
         const runResult = await getWorkflowEngine().execute(workflow, params, {
           observer,
+          // P1-19 ⑤（2026-10-05）：**透传会话级中止信号**。该 controller 由
+          // `ToolExecutionService` 注入工具上下文（R3，2026-09-21）；用户点"停止" /
+          // SSE 连接关闭时 `ChatManager.abortSessionStream` 会 abort 它。
+          // 此前只传 observer ⇒ seam 的取消 / 宽限期结算（P1-4 / P2-2）**永不生效**，
+          // 中断后 run 仍以 completed/error 收尾。未注入时（无会话 / 非流式调用）不传，
+          // 行为与既有完全一致。
+          ...(context?.abortController
+            ? { signal: context.abortController.signal }
+            : {}),
         });
         await drain();
         const success = runResult.stopReason === 'completed';

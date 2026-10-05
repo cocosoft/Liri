@@ -491,9 +491,32 @@
 |---|---|
 | `bun run typecheck` / 定向 ESLint | **0 / 0** |
 | 全量 `bun test` | **4445 tests / 0 fail** |
-| **真实会话中止 e2e** | ⛔ **环境阻塞（未达成）**：本实例 `GET /v1/tools` 75 项**未注册** `office:workflow`（也无任何 `mail*` 工具）⇒ 模型无法触发工作流（两次 `tool_search` 均 `matches: []`）⇒ "运行中中止"无从发生。**已做的运行期动作**：真实 `POST /v1/chat/completions`（SSE）+ 断连触发 `abortSessionStream`（2 轮；临时脚本与 2 个临时会话均已清理，无残留）。**待具备真实 doc+mail 模块环境时重跑**。 |
+| **真实会话中止 e2e** | 🟡 **部分达成 + 已知障碍（见 §16.5 重跑实录）**：模型**确实触发** `office:workflow` 且工作流**完整落盘 6 条事件并派生卡片**；但**未观测到 `cancelled`** —— 障碍为「模型可见工具清单与注册表不同步」+「工作流本机执行 ~200ms、中止窗口极窄」。**传输行**改由新增的确定性守卫测试覆盖（§16.5 ③，2 例 0 fail）。 |
+| **传输行守卫测试** | ✅ `app/tests/modules/doc/docPipelineAbortSignal.test.ts`（**2 例 / 0 fail**）：已中止 controller ⇒ 引擎入口短路 `cancelled` 且 **Provider 调用 0**；对照（未中止）⇒ 进入 Provider 并 completed |
 
 ### 16.4 已知边界（如实）
 
 1. signal 透传**只是接线**：`DocOrchestratorProvider` 仍忽略 `signal`，取消只经 `WorkflowEngine.raceWithCancelGrace`（默认宽限 **5000ms**）生效 —— **在飞的步骤不会被中断**，其上报由账本封闭丢弃（属既有 P1-4 / P2-2 局限）。
-2. 上述 e2e 未达成 ⇒ **生产链路**的"中止 → `cancelled`"尚无运行期证据；seam 侧的取消/封闭已由 §15 的集成测试覆盖（`取消（执行中）` / `取消（调用前）`）。
+2. seam 侧的取消/封闭已由 §15 的集成测试覆盖（`取消（执行中）` / `取消（调用前）`）；**传输行**由 §16.5 ③ 的守卫测试覆盖。**生产会话级**的"中止 → cancelled"仍缺运行期证据（障碍见 §16.5 ②）。
+
+### 16.5 e2e 重跑实录 + 传输行守卫测试（2026-10-05 续）
+
+**① 关键修正：`doc` 模块是「按需懒加载」，接线无需修改**
+- `GET /v1/doc/status`（`handleDocStatus`）内**显式** `if (status === 'uninitialized') await doc.onReady()`（`modules/doc/api/officeHandlers.ts:203-208`）—— 设计上由首次访问触发初始化；`POST /v1/doc/detect` 等其它端点**不含**该触发。
+- 实测：调用后 `status=full`（OfficeCLI **v1.0.153**）、`GET /v1/tools` **75 → 77**（`office:workflow` + `office:doc-pipeline` 就位）。故**未改任何模块接线**（§16.3 的"未注册"仅指"本次会话未触发懒加载"）。
+
+**② 会话级 e2e 进展（真实 `POST /v1/chat/completions` + 断连中止，共 6 轮）**
+- ✅ 模型**确实触发** `office:workflow`；工作流**完整落盘 6 条事件**（run_start → 2×step_start/end → run_end）并派生卡片（该次 `status=failed`，`mail:send` 因无邮件配置失败）。
+- ⛔ **未观测到 `cancelled`**，两个真实障碍：
+  1. **模型可见工具清单与注册表不同步**：注册表含该工具（77 项），但模型多次回复"工具列表里不存在 `office:workflow`"（6 次尝试仅 2 次真调用）。
+  2. **中止窗口极窄**：该工作流本机执行 **~200ms** —— 延后 200ms 中止时 `run_end` 已落盘；改为"见 tool_call 即中止"则落在循环层短路点之前（`workflow_events=0`）。SSE 字符串匹配亦无法可靠区分真实 tool_call 与工具参数中的同名字符串。
+- 清理：临时脚本已删；7 个临时会话已删除（进入应用自带 `.trash` 回收）；无残留。
+
+**③ 传输行守卫（新增，确定性）**
+`app/tests/modules/doc/docPipelineAbortSignal.test.ts`（**2 例 / 0 fail**）：对已导出的 `createDocPipelineTool()` 注入 stub provider（顶替 `doc_pipeline` 定义）——
+- 已中止 controller ⇒ 引擎入口短路为 `cancelled`、**Provider 调用数 0**、工具返回 FAILURE（含"取消"）；
+- 对照（未中止）⇒ Provider 调用 1 次、工具 SUCCESS。
+若信号未透传，第一例会进入 Provider 并返回 completed ⇒ **该用例即传输行的回归守卫**。`office:workflow` 为同源同形的三行透传（以 doc-pipeline 覆盖，避免为测试改动 `office:workflow` 的私有构造）。
+
+**④ 新发现（独立缺陷，待专项）**
+模型侧工具清单在**运行期新注册工具**后不同步：懒加载预热后注册表已有 `office:workflow`，但模型仍称"不存在"且 `tool_search` 返回 `matches: []`。影响面：用户打开 Office 页触发懒加载后，**同一会话**的模型可能仍看不到 office 工具。

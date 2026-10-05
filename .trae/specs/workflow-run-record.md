@@ -1,7 +1,7 @@
 # 工作流 Run 记录落盘 Spec（P1-3）
 
 > ⚠️ **部分交付物不在本仓（2026-09-26 核实）**：本 spec 声称的"已完成"中**有若干交付物在本仓 git 历史中从未存在**（据台账逐项反证：`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
-> 🔄 **进展（2026-10-05，P1-19 ③）**：上列**前端 `WorkflowRunCard` 及 §12 D14–D17 已实建**（见 **§14**）；其余 `WorkflowRuntime.integration.test.ts` / `WorkflowStepObserver.test.ts` 仍不在仓（转入 P1-19 ④）。
+> 🔄 **进展（2026-10-05，P1-19 ③/④）**：上列**前端 `WorkflowRunCard`（§12 D14–D17）与集成/观察者测试均已实建**（见 **§14 / §15**）——本 spec 头部所列"从未存在"的交付物现已全部落地。
 > ✅ 但 seam 的**通用构件确实在代码里**（`WorkflowEngine.ts` / `WorkflowStepLedger.ts` / `types.ts` / `WorkflowError.ts`）。
 > 📌 详见 `dev_docs/error_repairs/预存错误与待处理问题.md` → 「4 份 `workflow-*` Spec 声称"已完成"，但对应代码在本仓**不存在**」条。**读本 spec 时不要把"已完成"的声明当作能力已可用。**
 
@@ -418,9 +418,47 @@
 | `cd client && bun x tsc --noEmit` | **0** |
 | `cd client && bun run test` | **506 pass / 0 fail**（56 文件） |
 | `cd client && bun run build` | **✓ built**（vite 21.25s） |
-| **浏览器走查** | ⏳ **未做** —— 卡片已建（本批），走查转入 **P1-19 ⑤**（需真实服务 + 受控会话播种事件） |
+| **浏览器走查（受控会话 + 真实事件链路）** | ✅ **两态均通过（2026-10-05）**：**完成态** `✔ send-report 已完成 2.1s 2/2`（步骤 `✔ 生成周报文档 620ms` / `✔ 发送邮件给团队 1.3s`）；**半写态** `⚠ send-report 已中断 1/2`（步骤 `✔ 生成周报文档 540ms` / `⚠ 发送邮件给团队`）+ 琥珀色指导横幅（`工作流执行中断，运行结果未知。…`）。**关键反查**：全页 `工作流步骤` 子串 **0 次**（旧的逐条 status 行确已消失）。方法：`POST /v1/sessions` 建受控会话 → `EventLogStorage.append()` 播种两段真实事件（17 条）→ 真实前端 1420 / 后端 18990 核验；走查后**会话已删除、临时脚本已移除**（无残留）。控制台仅 1 条与本改动无关的 `net::ERR_ABORTED /v1/events`（SSE 连接中断）。 |
 
 ### 14.5 已知边界
 
 1. **实时视图**：仍受"本仓无会话事件实时桥"限制（§13.7-1）—— 卡片在**回放/派生**路径可见；run 期实时渲染需另立 chunk 桥。
 2. **前端不合成中断**（D15）；**不做续跑恢复**（D16）。
+
+---
+
+## 15. §10/§11 集成与观察者测试实建（P1-19 ④，2026-10-05）
+
+> §10 声称的 `WorkflowRuntime.integration.test.ts`（"3 用例 / 42 断言"，§11 自称扩至 62 断言）与
+> §11.4 的 `WorkflowStepObserver.test.ts`（"10 pass"）**在本仓从未存在**（见台账 / §12 复核）。
+> 本批按 §10/§11 的**口径**实建二者，并接入 ③ 的卡片断言（§12.3 第 9 项）。
+
+### 15.1 交付物（均在仓）
+
+| 文件 | 例数 | 覆盖 |
+|---|---|---|
+| `app/tests/modules/workflow/WorkflowStepObserver.test.ts`（**新建**） | 10 | 正常配对（runId 注入 + tool/description 回填 + durationMs）/ 少报合成（`synthesized`）/ 抛错路径（先结算 failed 再 run_end=error，异常上抛）/ 宽限强结算 + **封闭**（晚到上报丢弃）/ 计划外 stepId / 重复 start / 孤儿 end / 预检取消（不进 Provider，仍成对 start/end）/ 未注入观察者（reporter=undefined）/ 观察者自身抛错 |
+| `app/tests/modules/workflow/WorkflowRuntime.integration.test.ts`（**新建**） | 4 | ① 执行 → run 记录（D13 `end` 回填）→ 投影 7 事件 → **真实落盘 + 磁盘原文/回读** ② 派生 → **单张 `workflow_run` 卡片**（completed，含描述/耗时，**无 status 残留**）③ 取消（执行中）→ cancelled + 卡片 cancelled + 落盘含 cancelled + 晚到上报被封闭丢弃 ④ 取消（调用前）→ 零步骤执行，仍成对 start/end ⇒ 卡片 cancelled + 步骤全 `pending` |
+
+**边界替身范围**（与 §10 口径一致）：仅最外层"工具执行器"（`DocOrchestrator.setToolExecutor`）；其余全真实（`WorkflowEngine` + `DocOrchestratorProvider` + `MessageToEventMigrator` + `EventLogStorage` 真实文件 + `EventMessageDeriver`）。隔离：事件写入 `mkdtemp` 临时目录，`afterAll` 清理。
+
+**实现细节（本次发现，供后续参考）**：`EventLogStorage.append` 对**不存在的会话目录**采取"跳过落盘（不重建已删除会话）"语义 ⇒ 测试须先 `mkdirSync` 建目录（生产路径由 `POST /v1/sessions` 建目录），否则落盘静默为空（初版即因此 4 例全红）。
+
+### 15.2 验证（门禁实跑，2026-10-05）
+
+| 项 | 结果 |
+|---|---|
+| 定向两文件 | **14 pass / 0 fail** |
+| `cd app && bun run typecheck` | **0 error** |
+| 定向 ESLint | **0 error / 0 warning** |
+| `bun run lint:arch` | 错误 **0** / 警告 **4**（基线） |
+| `bun run lint:size` | **0 错误 / 461 警告**（基线，未新增） |
+| 全量 `bun test` | **4445 tests / 0 fail**（467 文件；较 ③ 后 +14 例） |
+
+### 15.3 §10/§11 失实自称的结案
+
+| 原自称 | 现状 |
+|---|---|
+| §10「3 用例 / 42 断言」、§11「62 断言」 | ✅ 已以 **4 例**实建（口径对齐；断言按新卡片口径重写，**不追认**原数字） |
+| §11.4「10 pass」 | ✅ 已以 **10 例**实建 |
+| §12.3「`WorkflowRuntime.integration.test.ts` 改断卡片」 | ✅ 已实现（该文件即本批新建，卡片断言见 §15.1） |

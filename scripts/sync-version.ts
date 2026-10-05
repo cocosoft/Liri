@@ -38,6 +38,25 @@ const TARGETS: SyncTarget[] = [
     transform: (v: string) => (content: string) =>
       content.replace(/^version = ".*"/m, `version = "${v}"`),
   },
+  // Rust 锁文件的**根包版本**（防漂移：原缺此两项，导致 lock 内根包版本长期落后，
+  // 实测 app/native/Cargo.lock 曾停 0.4.39、client/src-tauri/Cargo.lock 曾停 0.4.49）。
+  // 仅改根包条目（`[[package]]` + 紧随其后的 name/version），不触碰依赖行。
+  {
+    file: 'app/native/Cargo.lock',
+    transform: (v: string) => (content: string) =>
+      content.replace(
+        /(\[\[package\]\]\r?\nname = "liri-native"\r?\nversion = ")[^"]*(")/,
+        `$1${v}$2`
+      ),
+  },
+  {
+    file: 'client/src-tauri/Cargo.lock',
+    transform: (v: string) => (content: string) =>
+      content.replace(
+        /(\[\[package\]\]\r?\nname = "liri_client"\r?\nversion = ")[^"]*(")/,
+        `$1${v}$2`
+      ),
+  },
   // 项目主页 badge
   {
     file: 'README.md',
@@ -96,7 +115,15 @@ function main(): void {
         // 自定义转换
         const newContent = target.transform(version)(content);
         if (newContent === content) {
-          console.warn(`  ⚠ 未找到版本占位符: ${target.file}`);
+          // 内容未变：若已含目标版本 ⇒ 该文件本就最新；否则才是"占位符未命中"。
+          // （原实现一律 warn 且随后又打印"已更新" ⇒ 同一文件自相矛盾，已订正为如实报告）
+          if (content.includes(version)) {
+            console.log(`  ✓ 已是最新: ${target.file} (v${version})`);
+          } else {
+            console.warn(`  ⚠ 未找到版本占位符: ${target.file}`);
+          }
+          successCount++;
+          continue;
         }
         content = newContent;
       }

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.59-blue)
+![Version](https://img.shields.io/badge/version-0.4.60-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -363,7 +363,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.59**
+当前版本：**v0.4.60**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -371,6 +371,21 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.60 (2026-10-05)
+
+**文件规模债拆分收官（ChatManager / CoreAPIImpl / ReActToolLoop / AgentTool）+ 行数上限 1000→2000 + P1 遗留多项补齐**
+
+- ✅ **文件规模债拆分 · ChatManager（批 A1–A6）** - 6729 → **5238**（−1491）；新模块 `chat/manager/{requestPrep,rollback,promptAssembly,bootstrap,recovery,sessionTeardown}.ts` + `chat/pipeline/streamMessageLifecycle.ts`
+- ✅ **三处宿主文件拆分收官** - `CoreAPIImpl` 5336 → **2521**（−2815；新 `domainSnapshotOps` / `sessionMessagesRead` / `messageMutation` / `sessionTitling`）· `ReActToolLoop` 3595 → **2543**（−1052；新 `toolTurnBudget` / `streamingLlm` / `toolResultPostProcess`）· `AgentTool` 3288 → **2652**（−636；新 `agentToolPool` / `agentTeammateIsolation` / `agentLedgerLifecycle`）；`ReActToolLoop` B2 经判据裁定「不建议拆」
+- ✅ **R04-001 行数上限 1000/800 → 2000** - 并清理陈旧 `fileSizeExceptions`（161 → 16 条）
+- ✅ **目标实体 X11** - 目标自动创建入口（后端 swarm 路径 `ensureGoalForBatch` + 前端聊天区目标条 `GoalBar` / `goalService`）
+- ✅ **通道监控加固（P1-23③）** - `ChannelRealtimeMonitor` 探测超时 → 不确定态 + `consecutiveProbeFailures` 连续失败确认（≥2），消除忙时误判自愈
+- ✅ **context-contract（P1-7）** - §5.2 全 **12 条**裸前缀拼接迁移为 `ContextualFragment` + `renderFragment()`（渲染文本逐字不变）；**#5 读取侧 CS02 改结构化标记** `FRAGMENT_KIND_FIELD`（移除 `startsWith` 判定）；新增**单条注入 token 上限运行时护栏**（>10K error / >1K warn，非阻断；动态 import 破环）
+- ✅ **请求边界补齐（P1-16）** - 工具轮与非流式路径现均产 `request/start` 并透传 `requestId`；`CompactionSummaryEnvelope.usage` 聚合填充；**根因修正** `ToolLoopContext.appendStreamEvent` 返回类型（原 `Promise<void>` 与运行期不符，被 `as unknown as` 掩盖）
+- ✅ **PDCA / WorkItem 检查点迁入 app.db（GAI-3）** - 新表 `pdca_checkpoints` / `workitems` + **写链串行化原子 UPSERT**，根治 read-modify-write 竞态；删除 `prewarm` 与文件 I/O；`list` 实测 **9.2ms**（旧首次 ≈1.1s）；WAL 经统一封装继承（未新增 PRAGMA）
+- ✅ **P1 现状核对 sweep** - 26 项专项逐项 file:line 取证并订正文档（含 `plan-workspace-isolation` Phase 1–5 全部已落地）
+- ✅ **质量** - `typecheck` 0 错 · `lint:arch` 违规 0（4 警告基线）· 全量测试 **4398 pass / 0 fail**
 
 #### v0.4.59 (2026-10-05)
 

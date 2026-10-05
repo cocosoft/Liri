@@ -1162,6 +1162,7 @@ export interface AgentRunDto {
 - **旁注（R00-003）**：动态跨层引用 **31 → 32**（`utils/ContextWindowResolver.ts` 的 `await import('../ai/...')`，仅上报、不计入 `已豁免`）。
 
 **当前状态**：B14 **已清零** ✅（`已豁免 42`，与验收一致）。
+> ⚠️ **路线归属澄清（2026-10-05，D-222 复核）**：本节「✅ 已清零」指的是 **B14b 路线**（`ContextWindowResolver` **改归 `utils/`** + 原址再导出 shim），**已采纳**；而下文「❌ 回滚挂起」指的是**另一条被否决的替代路线**（改归 `ai/` —— `resolveContextWindow` 系列与 `ai` 桶出口**同名** ⇒ 封死）。**两者是不同方案，不构成矛盾**；实际生效 = B14b（文件现位于 `app/src/utils/ContextWindowResolver.ts`）。
 
 ---
 

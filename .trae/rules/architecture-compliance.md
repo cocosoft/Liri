@@ -629,7 +629,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 - 判定：`bun test tests/error/errorLogLevel.test.ts`（含于 `bun test` / `ci` 链，**阻断级**）——核心是**全表穷尽往返**：对 `ErrorCodes` **每一个**码断言 `def.level → severity → 日志级别` 与声明一致。
 - **为什么是测试而非独立 lint 脚本（如实）**：该不变量需要**真实 import** `ErrorCodes`、`AppError.fromCode`、`resolveErrorLogLevel`；而仓库根的 `scripts/*.ts` 无法解析 app 的 `@modules/*` 别名（根脚本历来只做纯文本扫描）。放在 `app/tests/**` 可正常解析，且 `bun test` 本就在 `ci` 链内 ⇒ 门禁效力等价。
 - **存量口径（2026-09-25）**：修复见台账**附带发现 12**（`handleError` 原硬编码 `LogLevel.ERROR`）；原用例只**手工抽样 8 个码**，现已改为全表穷尽（新增码/改错 level 会被立刻发现）。
-- **已知未表达档**：`ErrorCodeDef.level` 联合类型含 `INFO`，但 `ErrorSeverity` **无 INFO 档**（`levelToSeverity` 走 `default → LOW` ⇒ 落 warn）⇒ 一旦真的声明 `level: 'INFO'`，声明与落盘**必然不一致**。门禁对此**显式判红**（`expected: null`）而非静默按 warn 记录；当前全表**未使用** `INFO`。根因方案（二选一，**未做**）：① 从联合类型删除 `INFO`；② 给 `ErrorSeverity` 增档并扩展映射。
+- ~~**已知未表达档**：`ErrorCodeDef.level` 联合类型含 `INFO`……根因方案（二选一，**未做**）：① 从联合类型删除 `INFO`；② 给 `ErrorSeverity` 增档并扩展映射。~~ ✅ **已处置（2026-10-05，P2-13；采纳方案 ①）**：`ErrorCodeDef.level` **已删去 `INFO`**（`core/errorCodes.ts`，仅留 `CRITICAL/ERROR/WARN`）⇒ "类型可声明" ⇔ "链路可表达"一致。**同时**：`tests/error/errorLogLevel.test.ts` 的 `expectedByDeclared` 由含 `INFO: null` 改为**三档** —— 今后若有人再往联合里加**不可表达的档**，该 `Record<ErrorCodeDef['level'], …>` 会**编译期报缺键**（把 R14 的守卫从"运行期判红"提前到**编译期**）。
 - **守卫限度（如实）**：另含 1 条**文本级**断言，仅证明 `handleError` 仍调用 `resolveErrorLogLevel`（防"映射被内联回写、单一事实源沦为死代码"）；它**不能**证明仓内不存在第二份内联映射。
 
 ---

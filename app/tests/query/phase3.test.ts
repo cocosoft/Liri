@@ -1,20 +1,26 @@
 /**
  * 阶段三工程化增强 — 集成测试
  * 覆盖 ParallelToolExecutor / ToolErrorCollector / InsightsEngine
+ *
+ * 2026-10-05（P2-13）：自 `src/query/phase3.test.ts` **迁入 `tests/`**（与项目 `app/tests/` 约定一致；
+ * 原位置亦使其**不进 typecheck** —— app tsconfig 排除 `src` 下的测试文件）。仅改相对导入前缀。
  */
 import { describe, test, expect } from 'bun:test';
 import {
   ParallelToolExecutor,
   createParallelToolExecutor,
-} from './ParallelToolExecutor';
-import type { ToolExecutorFn } from './ParallelToolExecutor';
+} from '../../src/query/ParallelToolExecutor';
+import type { ToolExecutorFn } from '../../src/query/ParallelToolExecutor';
 import {
   ToolErrorCollector,
   createToolErrorCollector,
-} from './ToolErrorCollector';
-import type { ToolExecutionError } from './ToolErrorCollector';
-import { InsightsEngine, insightsEngine } from '../analytics/InsightsEngine';
-import type { ConversationMessage } from '../analytics/InsightsEngine';
+} from '../../src/query/ToolErrorCollector';
+import type { ToolErrorRecord } from '../../src/query/ToolErrorCollector';
+import {
+  InsightsEngine,
+  insightsEngine,
+} from '../../src/analytics/InsightsEngine';
+import type { ConversationMessage } from '../../src/analytics/InsightsEngine';
 
 describe('ParallelToolExecutor', () => {
   test('executes all tools and returns results in order', async () => {
@@ -126,7 +132,10 @@ describe('ToolErrorCollector', () => {
     expect(collector.count).toBe(0);
     expect(collector.hasErrors).toBe(false);
 
-    const error: ToolExecutionError = {
+    // 2026-10-05（P2-13）：原写 `ToolExecutionError`（`ToolErrorCollector` **无此导出**）——
+    // 因该测试此前位于 `src/` 且被 tsconfig 排除，**漂移长期不可见**；迁入 `tests/` 后由
+    // typecheck 暴露 ⇒ 按真实导出名 `ToolErrorRecord` 订正。
+    const error: ToolErrorRecord = {
       turn: 1,
       toolName: 'file_write',
       arguments: '{"path":"/tmp/x.txt"}',

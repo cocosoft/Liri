@@ -96,14 +96,14 @@ describe('错误级别口径（附带发现 12）', () => {
     // 为什么要穷尽：上面用例 2 只覆盖 8 个**手工挑选**的码 ⇒ 新增一个码（或把某个已存在的
     // 码 level 改错）不会被任何检查发现。"表驱动断言只测样本"正是附带发现 12 得以长期隐瞒的
     // 同型原因 ⇒ 这里对 `ErrorCodes` 全表做 声明 → severity → 日志级别 的**往返**校验。
+    // 2026-10-05（P2-13）：原 `INFO: null` 分支已随根因修复删除 —— `ErrorCodeDef.level`
+    // 联合**不再含 `INFO`**（该档无法被 `ErrorSeverity`/`levelToSeverity` 表达）；
+    // 若有人再往联合里加回不可表达的档，此 `Record<ErrorCodeDef['level'], …>` 会**编译期报缺键**，
+    // 从而在类型层面挡住"声明值与落盘级别必然不一致"的同族缺口。
     const expectedByDeclared: Record<ErrorCodeDef['level'], LogLevel | null> = {
       CRITICAL: LogLevel.ERROR,
       ERROR: LogLevel.ERROR,
       WARN: LogLevel.WARN,
-      // 当前链路**无法表达 INFO**：`ErrorSeverity` 无 INFO 档，`levelToSeverity` 对未知值走
-      // `default → LOW`，再经映射落到 warn ⇒ 一旦有人真的声明 `level: 'INFO'`，**声明与落盘
-      // 必然不一致**。这里留 `null` 让该情形**立即变红**，而不是静默按 warn 记（同族缺口）。
-      INFO: null,
     };
 
     const inconsistent = Object.entries(ErrorCodes)

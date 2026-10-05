@@ -28,7 +28,15 @@
 export interface ErrorCodeDef {
   code: number;
   message: string;
-  level: 'CRITICAL' | 'ERROR' | 'WARN' | 'INFO';
+  /**
+   * 声明级别 —— **仅 CRITICAL / ERROR / WARN 三档**。
+   *
+   * ⚠️ 2026-10-05（P2-13）：原联合含 `'INFO'`，但 `ErrorSeverity` **无 INFO 档**
+   * （`levelToSeverity` 对未知值走 `default → LOW`）⇒ 一旦声明 `level: 'INFO'`，
+   * **声明与落盘必然不一致**（全表此前从未使用 `INFO`）。按根因方案 ① 删除该档
+   * （方案 ②=给 `ErrorSeverity` 增档未采纳），使"类型可声明"⇔"链路可表达"一致。
+   */
+  level: 'CRITICAL' | 'ERROR' | 'WARN';
 }
 
 export const ErrorCodes = {

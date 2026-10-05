@@ -1,8 +1,8 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。**Top-2/3 已结构取证**（§18 `CoreAPIImpl` / §19 `ReActToolLoop`；**仅方案，未实施、待裁定**）；`tools/AgentTool/AgentTool.ts`(3289) **未取证**。
-- **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**A5/A6 的"降至阈值以下"收益已消失**，后续批次是否继续**待裁定**。详见 **§14**。
+- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。**Top-2/3 已取证**（§18 `CoreAPIImpl` / §19 `ReActToolLoop`），**两者首拆批 B1 均已落地**：`CoreAPIImpl` **5336 → 3754**（§20，新模块 `domainSnapshotOps.ts` 1800 行）、`ReActToolLoop` **3595 → 3354**（§21，新模块 `toolTurnBudget.ts` 367 行）⇒ 余下候选 B2/B3/B4（§18.2 / §19.3）**未实施**；`tools/AgentTool/AgentTool.ts`(3289) **未取证**。
+- **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**"降至阈值以下"收益已消失** ⇒ 后续批次改按「**变更隔离 / 单测粒度**」收益裁决（已裁：A4b 做、A5b 不拆；CoreAPIImpl B1 做、主链不拆）。详见 **§14**。
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
 ---
@@ -281,8 +281,8 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
 |---|---|---|---|---|
 | 1 | `chat/ChatManager.ts` | 5238 | **A1–A6 + A4b 收官**（−1491） | ✅ 本文件批次全部收官；**A5b 判「不拆」**（用户裁定） |
-| 2 | `runtime/api/CoreAPIImpl.ts` | 5336 | ✅ **已取证（§18）** | 20 簇 / 98 方法；**C4–C9 ≈1740 行「零宿主依赖」**（建议首拆 **B1**）；主链 `chat`+`chatStream`（855 行）**判不拆**。**未实施，待裁定** |
-| 3 | `chat/ReActToolLoop.ts` | 3595 | ✅ **已取证（§19）** | 9 簇 / 57 方法；**C8（Todo/轮次预算/长任务信号）≈290 行内聚最高**（建议首拆 **B1**）；骨架 `reason`/`act`（590 行）**判不拆**。**未实施，待裁定** |
+| 2 | `runtime/api/CoreAPIImpl.ts` | **3754** | ✅ **已取证（§18）+ 批 B1 已落地（§20，−1582）** | 20 簇 / 98 方法；**C4–C9（31 方法）已外迁 → `runtime/api/domainSnapshotOps.ts`（1800 行，零宿主依赖）**；余下候选 **B2/B3/B4**；主链 `chat`+`chatStream`（855 行）**判不拆** |
+| 3 | `chat/ReActToolLoop.ts` | **3354** | ✅ **已取证（§19）+ 批 B1 已落地（§21，−241）** | 9 簇 / 57 方法；**C8（Todo/轮次预算/长任务信号，13 成员）已外迁 → `chat/toolTurnBudget.ts`（367 行，依赖仅 3 项）**；余下候选 **B2/B3/B4**；骨架 `reason`/`act`（590 行）**判不拆** |
 | 4 | `tools/AgentTool/AgentTool.ts` | 3289 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
 
 ### 9.3 ChatManager 后续批次（簇 → 目标文件）
@@ -546,6 +546,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | C20 附件清理 | 5248-5336 | 1 | `cleanupOrphanAttachments:5252` | 89 | 1 |
 
 **关键证据（`this.*` 两轮 Grep）**：`:1541 → :2069` 之间**无任何 `this.` 命中** ⇒ **C4/C5/C6/C7 注入数 ≈ 0**；`:2146-3418` 亦无命中 ⇒ **C9 注入数 ≈ 0**（纯动态 import 聚合）。
+> ⚠️ **订正（2026-10-05 实施时实测，见 §20）**：上式"`:1541 → :2069`"**不精确** —— `:2069`/`:2117`/`:2141` **确有** `this.appDeps.*`（属 **C8**，**不在 B1 清单**）。**真正零依赖区间为 `:1592-2050` 与 `:2144-3417`**。不影响 B1 结论（C8 未迁）。
 **跨簇共享最重**：`chatManager`（C1/C2/C3/C10–C20 全域）、`sessionManager`（C11/C12/C14/C15/C17/C20）、`toolManager`（C1/C3/C10）、`appDeps`（C0/C1/C8）。
 
 ### 18.2 候选批次（**仅方案，未实施**）
@@ -611,4 +612,62 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 - `_interactionTimedOut`(:406) 的**写入点未定位**（C7 注入数估计可能 ±1）。
 - 本次为**静态只读**取证，**未跑测试/构建** —— 落地时须按 §9.4 逐批守卫。
 
-> **共同结论**：两个文件的"高价值低耦合"可拆面分别为 **CoreAPIImpl C4–C9（≈1740 行，零宿主依赖）** 与 **ReActToolLoop C8（≈290 行，内聚最高）**；两者的"主链/骨架"（`chat`+`chatStream`、`reason`/`act`）应**判不拆**。**均未实施，待用户裁定**。
+> **共同结论**：两个文件的"高价值低耦合"可拆面分别为 **CoreAPIImpl C4–C9（≈1740 行，零宿主依赖）** 与 **ReActToolLoop C8（≈290 行，内聚最高）**；两者的"主链/骨架"（`chat`+`chatStream`、`reason`/`act`）应**判不拆**。**CoreAPIImpl B1 已落地（见 §20）；ReActToolLoop 候选批次未实施。**
+
+---
+
+## 20. 实施记录：CoreAPIImpl 批 B1 —— 领域快照 / 端口聚合外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/runtime/api/domainSnapshotOps.ts`（`class DomainSnapshotOps`，**1800 行**，**与宿主同目录**）
+
+**迁入 31 方法**（＝ §18 的 C4+C5+C6+C7+C9 全部）：
+- **C4 领域只读快照 ×6**：`getGitContextSnapshot` `getPathGuardMetrics` `resetPathGuardMetrics` `listWorkspaceEntries` `getWorkspacePath` `deleteWorkspace`
+- **C5 梦境 ×4**：`listDreamCycles` `queryDreamCycles` `getDreamCycle` `readDreamMetrics`
+- **C6 知识库文档 ×2**：`buildKnowledgeDocsIndex` `clearKnowledgeDocsCache`
+- **C7 技能/插件/通道端口 ×10**：`getClawHubSkillAdapter` `validateSkillId` `sanitizeSkillId` `skillMdRequiresApproval` `parseSkillFrontmatter` `getPluginAdminPort` `getToolsPort` `getAutoReplyPort` `getA2APort` `getBridgePort`
+- **C9 Ops 端口 ×9**：`getKnowledgeOpsPort` `getTaskOpsPort` `getAiOpsPort` `getQueryOpsPort` `getBuddyOpsPort` `getCommandsOpsPort` `getWorkspaceOpsPort` `getSkillsOpsPort` `getProjectOpsPort`
+
+**「零宿主依赖」经逐段穷举确认**（`this.` 与 `\bthis\b` 双模式，**逐簇 0 命中**）⇒ 新类**不设 deps 对象**（`private readonly domainSnapshotOps = new DomainSnapshotOps()`，无参构造；未预注入任何"将来可能用到"的东西）。
+
+**⚠️ 订正 §18.1 行段表述（如实）**：见 §18.1 的订正注 —— 真正零依赖区间为 `:1592-2050` 与 `:2144-3417`；`:2069`/`:2117`/`:2141` 的 `this.appDeps.*` 属 **C8**（未迁），**不影响本批**。
+
+**关键简化**：新文件**与宿主同目录** ⇒ **全部相对 / 动态 import 的层级原样不变**（无需重算 `../` 深度，亦无新增 R03-002 风险）。
+
+**宿主侧**：保留 **31 个 1 行薄转发**（`return this.domainSnapshotOps.xxx()`；签名 / `async` / 返回类型**逐字不变** ⇒ `implements CoreAPI` 与外部 `getCoreAPI()` 调用不受影响）；清理 **16 项**随迁孤儿导入（含整块 `./workspaceOpsPorts`、`./projectOpsPorts` 类型与 `import type http`）。
+
+**行数**：`CoreAPIImpl.ts` **5336 → 3754**（本批 **−1582**；**已 < 4000**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；**僵尸转发 0**；R03-002 子目录 import 违规 **0**）· `lint:size` **0 错误** · eslint（2 文件）**0** · 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 82.59s，**单独跑**）· prettier ✓
+
+**附带**：`R00-003`（动态跨层，**仅 warning**）中源自 `CoreAPIImpl.ts` 的条目随迁至 `domainSnapshotOps.ts`；**警告总数仍为 4，无新增违规**。
+
+**⇒ B1 收官**。后续候选（§18.2）：**B2** `sessionMessagesRead`(≈598) · **B3** `messageMutation`(≈319) · **B4** `sessionTitling`(≈451)；主链 `chat`+`chatStream`（855）与 C16 仍**判不拆**。
+
+---
+
+## 21. 实施记录：ReActToolLoop 批 B1 —— Todo / 轮次预算 / 长任务信号外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/toolTurnBudget.ts`（`class ToolTurnBudget`，**367 行**，**与宿主同目录**）
+
+**迁入 13 成员**（＝ §19 的 C8 全部）：`_recordPendingTodo` · `countUnfinishedTodoTasks`(private static) · `_publishTodoExpansion` · `_snapshotTodoExpansion` · `_initTodoExpansion` · `_sessionMetadata` · `_initToolTurnBudget` · `_taskConsumedTurns` · `_publishToolTurnBudget` · `_pendingTodoCount` · `_isLongTaskSignal` · `getLongTaskSignal` · `_resolveDynamicMaxIterations`；**随迁自有字段** `todoExpansionSnapshot` / `budgetBaseline` / `budgetTaskKey` / `budgetIsContinuation` 与常量 `DEFAULT_BUDGET_TASK_KEY` / `LONG_TASK_PENDING_TODO_THRESHOLD`。
+
+**硬检查点（逐行穷举 `:833-1086`）实测**：宿主依赖**仅 3 项**（`loopState` / `ctx` / `baseMaxToolTurns`）—— **远低于 §19.1 的 ≈8–9 估计**（该估计把 `config`、`hasExternalFetchActivity` 计为宿主依赖；实测后者是 `loopState` 的**字段**，且 C8 **未引用 `config`**）。三项停止条件**均未触发**：依赖 3 ≤ 12；基类 `query/ReActLoop.ts` 对 13 个成员名 **0 命中**（无覆写位）；`:1087-2730` 之外宿主调用点 **5** ≤ 6。
+
+**注入（`ToolTurnBudgetDeps`，3 项全 getter）**：`getLoopState` · `getCtx` · `getBaseMaxToolTurns`
+
+**宿主保留 6 个转发（各有实测调用者 ⇒ 僵尸转发 0）**：`_recordPendingTodo`(:1743/1921) · `_initToolTurnBudget`(:470) · `_publishToolTurnBudget`(:502) · `_isLongTaskSignal`(:2877) · `getLongTaskSignal`（外部 `streamMessageFlow.ts:2603` + 测试）· `_resolveDynamicMaxIterations`(:471/490)。**无宿主调用者的 7 个内部成员不留转发**（`countUnfinishedTodoTasks`/`_publishTodoExpansion`/`_snapshotTodoExpansion`/`_initTodoExpansion`/`_sessionMetadata`/`_taskConsumedTurns`/`_pendingTodoCount`）⇒ 合规（R06-006）。
+
+**`protected override resetRunState()`（宿主 :2354）保留**：仍 `super.resetRunState()` + 委派 `this.toolTurnBudget.resetRunState()`（4 行字段复位随迁）。
+
+**⚠️ 两处必要外观改动（如实）**：
+1. 新类中 **5 个被宿主调用的方法由 `private` 提为 `public`**（跨类调用所必需）；其余 6 个保持 `private`，`countUnfinishedTodoTasks` 保持 `private static`。
+2. 新文件需同时持有**类名** `ToolTurnBudget` 与 `@modules/core` 的**同名持久载具类型** ⇒ 后者 `import type ... as ToolTurnBudgetState`（仅 1 处引用改写）。
+
+**关键简化**：新文件**与宿主同目录** ⇒ 相对 import 层级**原样不变**。
+
+**行数**：`ReActToolLoop.ts` **3595 → 3354**（本批 **−241**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；**僵尸转发 0**）· `lint:size` **0 错误** · eslint（2 文件）**0** · 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 78.86s，**单独跑**）· 定向 `tests/chat` **349 pass / 0 fail** · prettier ✓
+> 过程如实：首轮全量测试在 `tests/workspaces/apply/WorkspaceSnapshot.test.ts` 处**偶发停滞**（该文件单独跑 3.4s 通过、`bun test tests/workspaces` 亦通过）；**重跑正常收尾**（78.86s）⇒ 判定**环境性偶发**（Windows 下 afterAll 清理临时 git 仓库），**与本次改动无关**。
+
+**⇒ ReActToolLoop B1 收官**。后续候选（§19.3）：**B2** `terminationSettlement`(≈530) · **B3** `streamingLlm`(≈450，须先改 `_activeToolRoundMessageId` 注入) · **B4** `toolResultPostProcess`(≈395)。

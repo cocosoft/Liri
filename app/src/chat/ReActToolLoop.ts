@@ -49,7 +49,11 @@ import type { Message } from '@modules/session/types/message.js';
 import { getToolCallName } from '@modules/session/types/tool.js';
 import { getLogger } from '@modules/monitoring';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
-import { createFragment, renderFragment } from '@modules/context';
+import {
+  createFragment,
+  renderFragment,
+  FRAGMENT_KIND_FIELD,
+} from '@modules/context';
 import { registerYieldFromResults } from '../session/yield';
 // M-7（2026-09-22）：续接指令文案**单一来源**（原为本文件内 4 个硬编码常量，逐字迁移）
 // 保留子路径直连（不走 `@modules/tasks` 桶）：本文件在**模块顶层**读取
@@ -710,7 +714,8 @@ export class ReActToolLoop extends ReActLoop<
    * P11（2026-09-01）：新对话轮次首轮清理旧任务残留——解决"用户发新消息，模型仍按
    * 旧任务执行"（实测：模型 thinking 已看到"升级 CLI"新要求，但因旧任务上下文 +
    * [STEERING] 求助指令主导，行动上继续旧任务探索）。
-   * 1) 移除 [STEERING]/[SYSTEM] 注入指令残留（旧任务求助指令干扰）；
+   * 1) 移除注入指令残留（旧任务求助指令干扰）——按结构化标记 `FRAGMENT_KIND_FIELD`
+   *    判别（`system`/`steering`），**不再**匹配 `[STEERING]`/`[SYSTEM]` 前缀字符串；
    * 2) 成对移除探索类工具（skill_view/glob/grep/web_fetch 等）的 assistant(tool_calls)
    *    + tool 结果——旧任务探索结果污染上下文（首轮时这些均为历史残留，无当前轮配对）；
    * 3) 若清理过旧任务残留，注入任务切换提示（最新用户指令优先）。
@@ -722,11 +727,13 @@ export class ReActToolLoop extends ReActLoop<
     let skipExplorePair = false; // 正在跳过一组探索类工具结果
     let removedCount = 0;
     for (const m of msgs) {
-      const content = typeof m.content === 'string' ? m.content : '';
-      // 1) 移除系统注入指令残留
+      // 1) 移除系统注入指令残留（CS02：按**结构化标记**判别，禁止前缀字符串匹配）
+      //    标记 `FRAGMENT_KIND_FIELD` 由所有注入指令的 push 点（本文件 4 处 + onSteering，
+      //    以及 cross-loop 的 TAORLoop 注入点）写入；前缀口径变化不再影响本判别。
+      const fragmentKind = m[FRAGMENT_KIND_FIELD];
       if (
         m.role === 'user' &&
-        (content.startsWith('[STEERING]') || content.startsWith('[SYSTEM]'))
+        (fragmentKind === 'system' || fragmentKind === 'steering')
       ) {
         removedCount++;
         continue;
@@ -768,8 +775,13 @@ export class ReActToolLoop extends ReActLoop<
       this.loopState.messages = cleaned;
       this.loopState.messages.push({
         role: 'user',
-        content:
-          '[SYSTEM] 请以最新一条用户消息为准重新规划当前任务；之前工具循环中未完成的工作仅在与最新消息直接相关时继续，否则忽略，不要重复执行旧任务步骤。',
+        content: renderFragment(
+          createFragment({
+            kind: 'system',
+            text: '请以最新一条用户消息为准重新规划当前任务；之前工具循环中未完成的工作仅在与最新消息直接相关时继续，否则忽略，不要重复执行旧任务步骤。',
+          })
+        ),
+        [FRAGMENT_KIND_FIELD]: 'system',
       });
       logger.info('reactToolLoop:new_task_sanitized', {
         sessionId: this.ctx.session.id,
@@ -1654,11 +1666,17 @@ export class ReActToolLoop extends ReActLoop<
         ...this.loopState.messages,
         {
           role: 'user',
-          content:
-            '[SYSTEM] 工具轮次已用尽，请只用文字总结（不要调用任何工具）：\n' +
-            '1) 已完成的工作；\n' +
-            '2) 未完成的工作；\n' +
-            '3) 若要继续，最少需要哪几步（≤3 步，避免再次超限）。',
+          content: renderFragment(
+            createFragment({
+              kind: 'system',
+              text:
+                '工具轮次已用尽，请只用文字总结（不要调用任何工具）：\n' +
+                '1) 已完成的工作；\n' +
+                '2) 未完成的工作；\n' +
+                '3) 若要继续，最少需要哪几步（≤3 步，避免再次超限）。',
+            })
+          ),
+          [FRAGMENT_KIND_FIELD]: 'system',
         },
       ] as unknown as ChatMessage[];
       const response = await this.ctx.activeClient.sendMessage(
@@ -1804,7 +1822,10 @@ export class ReActToolLoop extends ReActLoop<
     // 注入重试指令：下一轮 reason 的 LLM 输入会携带（对齐 openclaw 重试语义）
     this.loopState.messages.push({
       role: 'user',
-      content: `[SYSTEM] ${instruction}`,
+      content: renderFragment(
+        createFragment({ kind: 'system', text: instruction })
+      ),
+      [FRAGMENT_KIND_FIELD]: 'system',
     } as Record<string, unknown>);
     logger.info('reactToolLoop:incomplete_turn_retry', {
       sessionId: this.ctx.session.id,
@@ -1896,9 +1917,11 @@ export class ReActToolLoop extends ReActLoop<
     for (const sm of messages) {
       // B3-2（2026-09-23）：片段类型化 —— `[STEERING] ` 由 `kind:'steering'` 给出，
       // 渲染唯一走 `renderFragment()`（拼接结果与迁移前**逐字一致**）。
+      // 同时写入结构化标记 `FRAGMENT_KIND_FIELD`：供 `_sanitizeForNewTask` 按标记判别残留（CS02）。
       this.loopState.messages.push({
         role: 'user',
         content: renderFragment(createFragment({ kind: 'steering', text: sm })),
+        [FRAGMENT_KIND_FIELD]: 'steering',
       } as Record<string, unknown>);
     }
     logger.info('reactToolLoop:steering_injected', {
@@ -2361,11 +2384,17 @@ export class ReActToolLoop extends ReActLoop<
     const names = [...new Set(calls.map((c) => c.name))].join('、');
     this.loopState.messages.push({
       role: 'user',
-      content:
-        `[SYSTEM] 你刚刚重复调用了与上一轮完全相同的工具（${names}，参数相同）。` +
-        `该工具的结果已在上文上下文中，请直接基于已有内容分析并作答，` +
-        `不要再调用相同的工具与参数。如确需查看不同部分，请使用不同的参数` +
-        `（例如 file_read 的 offset/limit 分页读取不同行段）。`,
+      content: renderFragment(
+        createFragment({
+          kind: 'system',
+          text:
+            `你刚刚重复调用了与上一轮完全相同的工具（${names}，参数相同）。` +
+            `该工具的结果已在上文上下文中，请直接基于已有内容分析并作答，` +
+            `不要再调用相同的工具与参数。如确需查看不同部分，请使用不同的参数` +
+            `（例如 file_read 的 offset/limit 分页读取不同行段）。`,
+        })
+      ),
+      [FRAGMENT_KIND_FIELD]: 'system',
     } as Record<string, unknown>);
     logger.warn('reactToolLoop:repeat_call_correction_injected', {
       sessionId: this.ctx.session.id,

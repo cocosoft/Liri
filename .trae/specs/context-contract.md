@@ -2,7 +2,7 @@
 
 > **来源**：`dev_docs/多Agent协作与长程任务-升级方案-20260922.md` §5 **B3-1**（2026-09-23）
 > **对标依据**：`REF/BA_REF/codex-main/codex-rs/AGENTS.md`「Model visible context」6 条 + 「Change size guidance」
-> **状态**：生效中（B3-1 落文档；B3-2 已完成试点迁移，其余落点见 §5 待迁移清单）
+> **状态**：生效中（B3-1 落文档；B3-2 试点迁移；**P1-7（2026-10-05）：§5.2 全 12 条已迁移完毕 + §4 单项 token 上限已落地为运行时护栏**）
 
 ---
 
@@ -148,7 +148,7 @@ messages.push({ role: 'user', content: renderFragment(createFragment({ kind: 'st
 | CC-06 类型与唯一渲染入口存在 | `renderFragment()` 是导出函数；`grep -rn "renderFragment(" app/src` 的调用点均为注入点 | ✅ 已落地（B3-2） |
 | CC-06 试点迁移无文案变化 | 既有逐字断言（`tests/tasks/goal/goalEvents.test.ts`、`goalMainSessionWrapUp.test.ts`）全绿 | ✅ 已落地（B3-2） |
 | 漏登记/形态回退可被编译期捕获 | `bun run typecheck`（新注入点若绕过类型，评审按 CC-06 判） | ✅ 命令可用 |
-| 单项 token 上限 | 按 `estimateMessagesTokens([item])` 实测；>10K 判违规，>1K 按 P0 复核 | ⚠ 尚无自动化门禁（`lint:models` 同类的脚本化检查未落地，见 `model-usage.md` 同款说明） |
+| 单项 token 上限 | 按 `estimateMessagesTokens([item])` 实测；>10K 判违规，>1K 按 P0 复核 | ✅ **已落地为运行时护栏（P1-7，2026-10-05）**：唯一渲染入口 `renderFragment()` 内 `guardFragmentSize()` 异步度量（**动态 import** `@modules/ai` 破环）；>10K ⇒ `logger.error('context:fragment_oversized')`；>1K ⇒ `logger.warn('context:fragment_large')`；判级纯函数 `classifyFragmentSize()`（可测）；**非阻断**（不抛错、不改写正文；快路径 <2K 字符跳过） |
 | compaction 失败不得静默 | `context/compaction{phase:'failed'}` 事件 + `CompactionOutcome.failure` 结构化归因（B3-3） | ✅ 已落地（B3-3） |
 
 **验收命令**：
@@ -175,7 +175,15 @@ bun test tests/tasks/goal tests/chat tests/http
 | 4 | `app/src/chat/ReActToolLoop.ts:2079-2085`（`onSteering`） | `` content: `[STEERING] ${sm}` `` | `renderFragment(createFragment({kind:'steering', text: sm}))`（**逐字不变**） |
 | 5 | `app/src/tools/AgentTool/AgentTool.ts:2529-2531` | `` `${aggregatedOutput}\n\n[SYSTEM] ${goalInstruction}` `` | 改为渲染 #1 返回的 `fragment`（**逐字不变**） |
 
-### 5.2 待迁移清单（**本批不迁移**，含风险）
+### 5.2 待迁移清单（✅ **已全部迁移（2026-10-05，P1-7）**）
+
+> **迁移记录（2026-10-05）**：12 条**全部迁移**为 `ContextualFragment`（`kind:'system'`/`'steering'`）+ `renderFragment()`；渲染出的文本**逐字不变**（goal 系列逐字断言 + 全量 4394 pass 全绿）。关键决策：
+> - **#5 读取侧（CS02）**：`_sanitizeForNewTask` 的 `content.startsWith('[STEERING]')||startsWith('[SYSTEM]')` **已移除**，改为**结构化标记** `m[FRAGMENT_KIND_FIELD] === 'system'|'steering'`（新增导出 `FRAGMENT_KIND_FIELD`；所有注入指令 push 点写入该标记）；可行性已取证（发送路径逐字段重建、不落盘、token 估算只看 role/content）。
+> - **#10**：`ErrorRecoveryManager` **对外仍返回 `string`**（内部拆 `getRecoveryText` 正文 + `getRecoveryMessage` 渲染），避免签名扩散。
+> - **#11**：检测面前缀集合改由 `getAllFragmentPrefixes()`（`FragmentKind` 派生）+ 显式非片段标记（`[FILE_OPERATION]` 等）派生；检测语义逐条等价。
+> - 涉及文件：`chat/ReActToolLoop.ts` · `query/TAORLoop.ts` · `query/ErrorRecoveryManager.ts` · `tools/KnowledgeSaveTool/KnowledgeSaveTool.ts` · `context/fragments/ContextualFragment.ts`（+2 导出） · `context/index.ts`。
+>
+> 下表保留为**迁移前**的历史记录（file:line 为 2026-09-23 旧值）。
 
 | # | file:line | 当前形态 | 风险 |
 |---|---|---|---|
@@ -202,3 +210,4 @@ bun test tests/tasks/goal tests/chat tests/http
 | 日期 | 变更 |
 |---|---|
 | 2026-09-23 | 初版：6 条约束 + 落点清单（B3-1）；B3-2 试点迁移 4 处；B3-3 compaction 失败可见化 |
+| 2026-10-05 | **P1-7**：§5.2 全 **12 条**迁移为结构化片段（`renderFragment(createFragment(...))`，逐字不变）；**#5 读取侧 CS02 改结构化标记** `FRAGMENT_KIND_FIELD`（新增导出）+ `getAllFragmentPrefixes()`（#11 检测面）；`ErrorRecoveryManager` 对外仍返回 `string`；**§4 单项 token 上限已落地为运行时护栏**（`renderFragment()` 内 `guardFragmentSize()` + 纯判级 `classifyFragmentSize()`；动态 import 破环；>10K ⇒ error / >1K ⇒ warn；非阻断）+ 单测 |

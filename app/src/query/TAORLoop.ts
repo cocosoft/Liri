@@ -18,7 +18,13 @@ import { handleError } from '@modules/error';
 import { CONTINUATION_TEMPLATES, renderGoalTemplate } from '@modules/tasks';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
-import { messageProjector, resolveContextWindow } from '@modules/context';
+import {
+  messageProjector,
+  resolveContextWindow,
+  createFragment,
+  renderFragment,
+  FRAGMENT_KIND_FIELD,
+} from '@modules/context';
 import { resolveToolParamNames } from '@modules/tools';
 import {
   TokenBudgetController,
@@ -1053,10 +1059,16 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.messages.push({
         role: 'user',
         // B2-3（2026-09-23）：文案取自 `GOAL_TEMPLATES.tool_execution_errors`（`{{count}}` 占位）；
-        // `[SYSTEM] ` 是**注入通道标记**（协议，非文案）⇒ 由注入点拼装（§5.3.1 #2/#4）。
-        content: `[SYSTEM] ${renderGoalTemplate('tool_execution_errors', {
-          count: calls.length,
-        })}`,
+        // B3-2/CC-06：`[SYSTEM] ` 是**注入通道标记**（协议，非文案）⇒ 由片段类型拼装（§5.3.1 #2/#4）。
+        content: renderFragment(
+          createFragment({
+            kind: 'system',
+            text: renderGoalTemplate('tool_execution_errors', {
+              count: calls.length,
+            }),
+          })
+        ),
+        [FRAGMENT_KIND_FIELD]: 'system',
       } as ChatMessage);
     }
 
@@ -1183,8 +1195,13 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         );
         this.messages.push({
           role: 'user',
-          content:
-            '[SYSTEM] 自动验证未通过（编译/测试失败），请修复后重新执行。',
+          content: renderFragment(
+            createFragment({
+              kind: 'system',
+              text: '自动验证未通过（编译/测试失败），请修复后重新执行。',
+            })
+          ),
+          [FRAGMENT_KIND_FIELD]: 'system',
         } as ChatMessage);
       }
     } else if (
@@ -1349,7 +1366,13 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   /** 下沉自骨架（2026-09-01）：steering 注入到 messages（骨架每轮 reason 前调用） */
   protected override async onSteering(messagesList: string[]): Promise<void> {
     for (const sm of messagesList) {
-      this.messages.push({ role: 'user', content: `[STEERING] ${sm}` });
+      // B3-2/CC-06：与 `ReActToolLoop.onSteering` 同口径 —— `[STEERING] ` 由片段类型给出，
+      // 并写入结构化标记（CS02）。此前两处各手写前缀 ⇒ 双轨（Spec §5.2 #8）。
+      this.messages.push({
+        role: 'user',
+        content: renderFragment(createFragment({ kind: 'steering', text: sm })),
+        [FRAGMENT_KIND_FIELD]: 'steering',
+      } as ChatMessage);
     }
     logger.info('taorLoop:steering_injected', {
       sessionId: this.taorConfig.sessionId,
@@ -1534,12 +1557,17 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this._incompleteRetries[kind]++;
     this.messages.push({
       role: 'user',
-      content: `[SYSTEM] ${
-        kind === 'empty'
-          ? TAOR_EMPTY_RETRY_INSTRUCTION
-          : TAOR_PLANNING_ONLY_RETRY_INSTRUCTION
-      }`,
-    });
+      content: renderFragment(
+        createFragment({
+          kind: 'system',
+          text:
+            kind === 'empty'
+              ? TAOR_EMPTY_RETRY_INSTRUCTION
+              : TAOR_PLANNING_ONLY_RETRY_INSTRUCTION,
+        })
+      ),
+      [FRAGMENT_KIND_FIELD]: 'system',
+    } as ChatMessage);
     logger.info('taorLoop:incomplete_turn_retry', {
       sessionId: this.taorConfig.sessionId,
       turnCount: this.turnCount,

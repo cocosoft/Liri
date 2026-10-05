@@ -12,6 +12,9 @@ import { describe, test, expect } from 'bun:test';
 import {
   createFragment,
   renderFragment,
+  classifyFragmentSize,
+  FRAGMENT_MAX_TOKENS,
+  FRAGMENT_REVIEW_TOKENS,
   type FragmentKind,
 } from '../../src/context/fragments/ContextualFragment';
 
@@ -72,5 +75,21 @@ describe('B3-2 逐字不变：迁移前调用方写法 == 迁移后类型渲染'
     expect(now).toBe(body);
     expect(now.startsWith('[STEERING]')).toBe(false);
     expect(now.startsWith('[SYSTEM]')).toBe(false);
+  });
+});
+
+describe('CC-04 / CC-05 运行时护栏：单条注入体量判级（P1-7）', () => {
+  test('判级边界：≤1K ⇒ ok；>1K ⇒ review；>10K ⇒ oversized', () => {
+    expect(classifyFragmentSize(0)).toBe('ok');
+    expect(classifyFragmentSize(FRAGMENT_REVIEW_TOKENS)).toBe('ok');
+    expect(classifyFragmentSize(FRAGMENT_REVIEW_TOKENS + 1)).toBe('review');
+    expect(classifyFragmentSize(FRAGMENT_MAX_TOKENS)).toBe('review');
+    expect(classifyFragmentSize(FRAGMENT_MAX_TOKENS + 1)).toBe('oversized');
+  });
+
+  test('护栏非阻断：renderFragment 对超大片段不抛错、正文不被改写', () => {
+    const text = 'z'.repeat(500_000);
+    const rendered = renderFragment(createFragment({ kind: 'system', text }));
+    expect(rendered).toBe(`[SYSTEM] ${text}`);
   });
 });

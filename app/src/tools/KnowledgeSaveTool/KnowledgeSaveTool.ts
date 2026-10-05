@@ -34,8 +34,56 @@ import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { createKnowledgeBaseWriter } from '@modules/knowledge';
 import { getLogger } from '@modules/monitoring';
+// CC-06（Spec §5.2 #11）：检测面前缀**从 FragmentKind 派生**，不手写前缀字面量。
+import { getAllFragmentPrefixes } from '@modules/context';
 
 const logger = getLogger('tools:KnowledgeSaveTool');
+
+/**
+ * 非 `FragmentKind` 的协议标记（显式常量）。
+ *
+ * 为什么显式：这些前缀不对应 `ContextualFragment` 的 `kind` ——
+ * `[FILE_OPERATION]` 是 Shell 文件操作声明协议（`context/promptSections/builtinSections.ts`
+ * 与 `security/rollback/FileOperationTracker.ts`），其余为历史系统提示/上下文标记。
+ * `SYSTEM` / `STEERING` **不在此列**：由 `getAllFragmentPrefixes()`（FragmentKind 派生）提供。
+ */
+const NON_FRAGMENT_MARKERS = [
+  'SYSTEM_PROMPT',
+  'TOOL RESULT',
+  'TOOL_CALL_RESULT',
+  'FILE_OPERATION',
+  'AVAILABLE_SKILLS',
+  'MODEL_CONTEXT',
+  'DEEPSEEK',
+  'THINKING',
+] as const;
+
+/** `'[SYSTEM] '` → `'SYSTEM'`（正则/文案用的裸标记名） */
+function toMarkerName(prefix: string): string {
+  return prefix.trim().replace(/^\[/, '').replace(/\]$/, '');
+}
+
+/** FragmentKind 派生的裸标记名（顺序随 `PREFIX_BY_KIND`；`goal_continuation` 空前缀被滤除） */
+const FRAGMENT_MARKER_NAMES = getAllFragmentPrefixes().map(toMarkerName);
+
+/**
+ * 检测面标记集合 = **FragmentKind 派生** + 显式非片段标记。
+ *
+ * 迁移前该列表为手写字面量 —— 协议前缀变更时会**静默放宽**检测（Spec §5.2 #11）。
+ * 派生后 `[SYSTEM]`/`[STEERING]` 跟随 `ContextualFragment` 单一事实源；其余标记保持显式，
+ * 检测语义与迁移前**逐条等价**（不新增、不删除任何标记）。
+ */
+const SYSTEM_MARKERS: readonly string[] = [
+  ...FRAGMENT_MARKER_NAMES,
+  ...NON_FRAGMENT_MARKERS,
+];
+const SYSTEM_MARKER_RE = new RegExp(`\\[(${SYSTEM_MARKERS.join('|')})\\]`, 'i');
+
+/** 供拒绝文案列举的标记（`[SYSTEM]/[STEERING]/[FILE_OPERATION]` 等） */
+const SYSTEM_MARKER_LABELS = [
+  ...FRAGMENT_MARKER_NAMES.map((m) => `[${m}]`),
+  '[FILE_OPERATION]',
+].join('/');
 
 /**
  * KnowledgeSaveTool参数定义
@@ -169,8 +217,8 @@ export class KnowledgeSaveTool implements Tool {
     // 2026-09-01 P3 防污染校验：模型曾在"请继续"指令下把系统提示词/占位文本
     // 作为 content 保存并覆盖已有文件（action:updated）。检测系统指令协议标记
     // （结构化标记，非业务字符串匹配）：命中即拒绝，防止上下文文本污染知识库。
-    const SYSTEM_MARKER_RE =
-      /\[(SYSTEM|SYSTEM_PROMPT|STEERING|TOOL RESULT|TOOL_CALL_RESULT|FILE_OPERATION|AVAILABLE_SKILLS|MODEL_CONTEXT|DEEPSEEK|THINKING)\]/i;
+    // CC-06（Spec §5.2 #11）：标记集合由 `FragmentKind` 派生（见文件头常量），
+    // 前缀口径变更时检测**不会**静默放宽。
     if (SYSTEM_MARKER_RE.test(content) || SYSTEM_MARKER_RE.test(title)) {
       logger.warn('knowledge_save 拒绝写入：内容含系统指令标记', {
         title,
@@ -180,8 +228,7 @@ export class KnowledgeSaveTool implements Tool {
         status: ToolExecutionStatus.FAILURE,
         toolName: this.name,
         data: null,
-        error:
-          '内容疑似引用系统指令/上下文（检测到 [SYSTEM]/[STEERING]/[FILE_OPERATION] 等标记），已拒绝写入。请提供真实文档内容后重试。',
+        error: `内容疑似引用系统指令/上下文（检测到 ${SYSTEM_MARKER_LABELS} 等标记），已拒绝写入。请提供真实文档内容后重试。`,
       };
     }
 

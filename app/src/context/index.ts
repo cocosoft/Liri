@@ -107,6 +107,8 @@ export type {
 export {
   createFragment,
   renderFragment,
+  getAllFragmentPrefixes,
+  FRAGMENT_KIND_FIELD,
   type ContextualFragment,
   type FragmentKind,
 } from './fragments/ContextualFragment';

@@ -27,6 +27,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// CC-06（Spec §5.2 #10）：`[SYSTEM] ` 前缀由片段类型给出，渲染唯一走 `renderFragment()`。
+import { createFragment, renderFragment } from '@modules/context';
 const logger = getLogger('query:errorRecovery');
 
 /** 恢复类型 */
@@ -175,30 +177,42 @@ function isDeterministicLocalError(error: Error): boolean {
   );
 }
 
-/** 各恢复类型的注入消息 */
-function getRecoveryMessage(type: RecoveryType, errorMsg?: string): string {
+/**
+ * 恢复消息**正文**（不含通道前缀）。
+ *
+ * Spec §5.2 #10：原文案与 `[SYSTEM] ` 前缀"混装"在同一字面量里；此处把正文与前缀分离，
+ * 前缀统一由 `getRecoveryMessage` 经 `createFragment({kind:'system'})` 拼装（CC-06）。
+ */
+function getRecoveryText(type: RecoveryType, errorMsg?: string): string {
   switch (type) {
     case 'empty_response':
-      return '[SYSTEM] 模型返回了空响应。请继续回答。';
+      return '模型返回了空响应。请继续回答。';
     case 'max_output':
-      return '[SYSTEM] 模型输出达到上限。请继续未完成的回答。';
+      return '模型输出达到上限。请继续未完成的回答。';
     case 'server_error':
-      return `[SYSTEM] 服务端错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
+      return `服务端错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
     case 'rate_limit':
-      return '[SYSTEM] 请求频率过高，请稍后重试。';
+      return '请求频率过高，请稍后重试。';
     case 'network_error':
-      return `[SYSTEM] 网络连接错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
+      return `网络连接错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
     case 'unknown':
-      return `[SYSTEM] 请求异常（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
+      return `请求异常（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
     // C1：非法工具参数 → 提示重新输出合法 JSON
     case 'invalid_tool_arguments':
-      return '[SYSTEM] 工具调用参数无效（JSON 解析失败）。请重新输出 tool_calls，确保每个 arguments 都是合法 JSON，且字段与 schema 一致。';
+      return '工具调用参数无效（JSON 解析失败）。请重新输出 tool_calls，确保每个 arguments 都是合法 JSON，且字段与 schema 一致。';
     // C1：prompt 超长 → 截头后重试
     case 'prompt_too_long':
-      return '[SYSTEM] 上下文过长，已截断早期历史消息，请重试。';
+      return '上下文过长，已截断早期历史消息，请重试。';
     default:
-      return '[SYSTEM] 请继续。';
+      return '请继续。';
   }
+}
+
+/** 各恢复类型的注入消息（正文 + `kind:'system'` 通道前缀；对外仍返回 `string`） */
+function getRecoveryMessage(type: RecoveryType, errorMsg?: string): string {
+  return renderFragment(
+    createFragment({ kind: 'system', text: getRecoveryText(type, errorMsg) })
+  );
 }
 
 /** 日志用：按类型映射将返回的恢复动作（供 assess 日志记录） */
@@ -335,7 +349,12 @@ export class ErrorRecoveryManager {
           return {
             recovered: true,
             action: 'retry_higher_output',
-            message: '[SYSTEM] 已提高输出上限，请继续未完成的回答。',
+            message: renderFragment(
+              createFragment({
+                kind: 'system',
+                text: '已提高输出上限，请继续未完成的回答。',
+              })
+            ),
           };
         }
         return {

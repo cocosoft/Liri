@@ -518,8 +518,12 @@
 - 对照（未中止）⇒ Provider 调用 1 次、工具 SUCCESS。
 若信号未透传，第一例会进入 Provider 并返回 completed ⇒ **该用例即传输行的回归守卫**。`office:workflow` 为同源同形的三行透传（以 doc-pipeline 覆盖，避免为测试改动 `office:workflow` 的私有构造）。
 
-**④ 新发现（独立缺陷，待专项）**
-模型侧工具清单在**运行期新注册工具**后不同步：懒加载预热后注册表已有 `office:workflow`，但模型仍称"不存在"且 `tool_search` 返回 `matches: []`。影响面：用户打开 Office 页触发懒加载后，**同一会话**的模型可能仍看不到 office 工具。
+**④ 独立缺陷：模型侧工具清单缺失 office 工具 —— 已定位并修复（N-45，2026-10-05）**
+- **现象**：doc 模块懒加载预热后注册表已有 `office:workflow`（`GET /v1/tools` 75 → 77），但模型多轮称"不存在该工具"。
+- **根因（非"刷新时机"，而是名字形态错配）**：出站 `ChatRequestPrep.buildToolDefinitions()` 把名字转 **wire 安全名**（`office:workflow` → `office_workflow`，`requestPrep.ts:151`），而随后的按任务裁剪 `filterToolsByTask()` 读的是定义里的名字 ⇒ `getToolCategory('office_workflow')` 查不到（表按**真名**建）⇒ 落 `'misc'` ⇒ **被静默裁剪**（`misc` 不在任何任务白名单）。两工具均 `deferred: false` ⇒ 本应直接出现在函数清单。
+- **解读订正**：`tool_search` 返回 `matches: []` 属**设计内**（非 deferred 工具不经 tool_search 发现），不计入本缺陷症状。
+- **修复**：`tools/toolCategories.ts` 新增 `WIRE_KEYED_CATEGORIES`（wire 名索引）⇒ `getToolCategory()` 三级解析（真名 → wire 名 → `misc`）；补登记 `'office:doc-pipeline': 'doc'`（此前完全未登记）。
+- **验证**：探针（运行期 77 工具 × 类别判定）被裁剪 **43 → 41**、形态不一致 **1 → 0**；`tests/tools/toolCategories.test.ts` **16 pass / 0 fail**（含系统性不变量守卫）。
 
 **⑤ 根因（决定性，2026-10-05 **运行时证实**）：默认宽限 5000ms 使"快工作流的中止"不可观测**
 - 机制：`WorkflowEngine.raceWithCancelGrace` 收到 abort 只**起宽限计时**（`DEFAULT_CANCEL_GRACE_MS = 5000`）；**若 Provider 在宽限内先返回，则其结果取胜**（`WorkflowEngine.ts:347-381`）。

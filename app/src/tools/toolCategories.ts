@@ -9,9 +9,12 @@
  * 设计约束：
  *  - 映射以**工具名**为 key（ToolRegistry.getToolSchemas 的 schema.name），
  *    不改工具注册结构，纯静态常量，零侵入。
- *  - 未列出的工具默认归 `misc`（保留在默认集，避免裁剪后无工具可用）。
+ *  - 未列出的工具默认归 `misc`；⚠️ `misc` **不在任何任务白名单 ⇒ 会被裁剪**
+ *    （2026-10-05 订正：本行原写"保留在默认集"，与实现相悖，见 N-44/N-45）。
  *  - 类别为英文内部 key；任务类型对齐 modelRouter.ts 的 TaskType。
  */
+
+import { toWireToolName } from './toolNameCodec';
 
 // ============================================================
 // Step 1: 工具类别定义
@@ -152,6 +155,8 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── doc 文档 ──
   doc_generate: 'doc',
   'office:workflow': 'doc',
+  // N-45（2026-10-05）：懒加载注册的编排工具此前**完全未登记** ⇒ misc ⇒ 被裁剪
+  'office:doc-pipeline': 'doc',
 
   // ── notify 消息/通知 ──
   send_message: 'notify',
@@ -203,7 +208,29 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
 };
 
 /**
- * 获取工具类别。
+ * **wire 名 → 类别** 索引（N-45，2026-10-05）。
+ *
+ * 为什么必需：**出站工具定义用 wire 安全名**（`ChatRequestPrep.buildToolDefinitions`
+ * 经 `toWireToolName()`：`office:workflow` → `office_workflow`），而按任务裁剪
+ * （`filterToolsByTask`）读的正是定义里的名字。若只按真名建表，**冒号命名空间工具
+ * 会全部查不到类别** ⇒ 落 `'misc'` ⇒ 被裁剪 ⇒ 模型函数清单里根本没有该工具。
+ *
+ * 实测（2026-10-05，探针核对运行期 77 个工具）：`office:workflow` 真名判为 `doc`
+ * （default/chat 白名单内），wire 名却判为 `misc` ⇒ **被静默裁剪**，
+ * 与"模型称该工具不存在 / `tool_search` 返回空"的现场一致。
+ * 同机制适用于 `calendar:*`（4 个）与 `mail:send`（未在本实例注册，故未实测）。
+ */
+const WIRE_KEYED_CATEGORIES: Record<string, ToolCategory> = {};
+for (const [name, category] of Object.entries(TOOL_CATEGORIES)) {
+  const wire = toWireToolName(name);
+  // 真名优先（下方查找顺序）；此处仅补 wire 形态，冲突时首个登记者胜出
+  if (WIRE_KEYED_CATEGORIES[wire] === undefined) {
+    WIRE_KEYED_CATEGORIES[wire] = category;
+  }
+}
+
+/**
+ * 获取工具类别（真名与 wire 名两种形态均可解析）。
  *
  * N-44（2026-09-20）两处更正：
  * 1. **未命中 → `'misc'`，而 `'misc'` 不在任何任务白名单 ⇒ 会被裁剪** ——
@@ -211,10 +238,16 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
  *    否则即便已注册进 toolRegistry，对模型仍**永久不可见**（N-27 / N-37 / N-41 同族）。
  * 2. **MCP 动态工具**：`McpToolWrapper` 将其命名为 `${server}__${tool}`，无法预先登记 ⇒
  *    按双下划线判据归类为 `'mcp'`（实测现有内置工具名**均不含 `__`** ⇒ 判据无碰撞）。
+ *
+ * N-45（2026-10-05）补第 3 点：
+ * 3. **形态陷阱**：登记用真名、裁剪用 wire 名 ⇒ 冒号工具全部落 misc 被裁。
+ *    现按"真名 → wire 名 → misc"三级解析（见 `WIRE_KEYED_CATEGORIES`）。
+ *    ⚠️ 回归警示：原测试用**真名**断言 `filterToolsByTask`，与生产（wire 名）不一致，
+ *    故该缺陷长期漏检；测试须用 `function.name`（wire 形态）覆盖。
  */
 export function getToolCategory(toolName: string): ToolCategory {
   if (toolName.includes('__')) return 'mcp';
-  return TOOL_CATEGORIES[toolName] ?? 'misc';
+  return TOOL_CATEGORIES[toolName] ?? WIRE_KEYED_CATEGORIES[toolName] ?? 'misc';
 }
 
 // ============================================================

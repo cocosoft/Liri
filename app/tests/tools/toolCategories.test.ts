@@ -32,7 +32,9 @@ import { describe, expect, test } from 'bun:test';
 import {
   filterToolsByTask,
   getToolCategory,
+  TOOL_CATEGORIES,
 } from '../../src/tools/toolCategories';
+import { toWireToolName } from '../../src/tools/toolNameCodec';
 
 const CORE_TOOLS = [
   'knowledge_save',
@@ -179,6 +181,49 @@ describe('toolCategories — P0 工具可见性回归', () => {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
       expect(kept).toContain('github__create_issue');
       expect(kept).toContain('bash'); // 反证：该任务集本身有效（非全量放行）
+    }
+  });
+
+  test('N-45: 冒号命名空间工具的真名与 wire 名两种形态都能解析类别', () => {
+    // 根因（2026-10-05 实测）：出站定义用 wire 名（buildToolDefinitions →
+    // toWireToolName），而裁剪按定义里的名字查类别 ⇒ 冒号工具全部落 misc 被裁。
+    // 注：wire 变换只替换 `:`（`-` 属合法字符）⇒ `office:doc-pipeline` → `office_doc-pipeline`
+    expect(getToolCategory('office:workflow')).toBe('doc');
+    expect(getToolCategory('office_workflow')).toBe('doc');
+    expect(getToolCategory('office:doc-pipeline')).toBe('doc');
+    expect(getToolCategory(toWireToolName('office:doc-pipeline'))).toBe('doc');
+    expect(getToolCategory('calendar:add')).toBe('calendar');
+    expect(getToolCategory('calendar_add')).toBe('calendar');
+    expect(getToolCategory('mail:send')).toBe('mail');
+    expect(getToolCategory('mail_send')).toBe('mail');
+  });
+
+  test('N-45: 生产形态（function.name = wire 名）裁剪后 office 工具对模型可见', () => {
+    // 修复前：office_workflow → misc → 被裁 ⇒ 模型函数清单无该工具
+    //（现场：模型称"工具不存在"、tool_search 返回空）
+    const wfWire = toWireToolName('office:workflow');
+    const pipeWire = toWireToolName('office:doc-pipeline');
+    const defs = [
+      { type: 'function' as const, function: { name: wfWire } },
+      { type: 'function' as const, function: { name: pipeWire } },
+      { type: 'function' as const, function: { name: 'bash' } },
+    ];
+    for (const taskType of ['chat', 'default', undefined]) {
+      const kept = filterToolsByTask(defs, taskType).map(
+        (t) => t.function.name
+      );
+      expect(kept).toContain(wfWire);
+      expect(kept).toContain(pipeWire);
+      expect(kept).not.toContain('bash'); // 反证：裁剪仍生效（非全量放行）
+    }
+  });
+
+  test('N-45: 系统性不变量 —— 登记表每项的 wire 形态都解析到同一类别', () => {
+    // 防回归：任何未来新增的冒号命名空间工具，若只登记真名而不支持 wire 形态，
+    // 本用例立即失败（这正是 N-45 缺陷长期漏检的原因：原测试只用真名断言）。
+    for (const [name, category] of Object.entries(TOOL_CATEGORIES)) {
+      if (name.includes('__')) continue; // 动态 MCP 名走双下划线判据
+      expect(getToolCategory(toWireToolName(name))).toBe(category);
     }
   });
 

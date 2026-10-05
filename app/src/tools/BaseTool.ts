@@ -16,6 +16,8 @@ import type {
   ToolProgressData,
 } from './types';
 import { createAllowResult } from './types/PermissionResult';
+// 13-P1-2（2026-10-05）：幂等/副作用声明（唯一事实源）
+import { resolveToolEffect } from './toolEffects';
 
 export type { ToolDef } from './types/Tool';
 export { buildTool } from './types/Tool';
@@ -202,6 +204,8 @@ export abstract class BaseTool<
    * @returns 工具信息
    */
   getInfo(): ToolInfo {
+    // 13-P1-2（2026-10-05）：幂等/副作用声明来自唯一事实源；未声明（MCP/插件）⇒ 保守取值
+    const effect = resolveToolEffect(this.name);
     return {
       name: this.name,
       description: this.description,
@@ -212,6 +216,8 @@ export abstract class BaseTool<
       readOnly: this.isReadOnly(),
       destructive: this.isDestructive?.() || false,
       concurrencySafe: this.isConcurrencySafe(),
+      idempotent: effect?.idempotent ?? false,
+      sideEffect: effect?.sideEffect ?? 'external',
       deferred: this.shouldDefer || false,
       alwaysLoad: this.alwaysLoad || false,
       interruptBehavior: this.interruptBehavior?.() || 'block',

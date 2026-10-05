@@ -81,6 +81,14 @@ export interface ToolInfo {
   readOnly: boolean;
   destructive: boolean;
   concurrencySafe: boolean;
+  /**
+   * 13-P1-2（2026-10-05）：重复调用是否与单次等价（唯一事实源 `tools/toolEffects.ts`，经
+   * `BaseTool.getInfo()` 暴露）。**可选**：模块/插件类工具（knowledge/calendar/doc/MCP…）不在
+   * 内建清单内，未提供时消费方按**保守**处理（`undefined` = 不可盲重试）。
+   */
+  idempotent?: boolean;
+  /** 13-P1-2：副作用范围（未提供 ⇒ 消费方按 `'external'` 保守） */
+  sideEffect?: 'none' | 'local' | 'external';
   deferred: boolean;
   alwaysLoad: boolean;
   interruptBehavior: InterruptBehavior;

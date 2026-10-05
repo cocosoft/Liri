@@ -198,6 +198,8 @@ import {
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
 import { shrinkToolResultMessageForPersistence } from '@modules/tools';
+// 13-P1-2（2026-10-05）：非幂等工具失败时的重试告诫（模型是实际"重试方"）
+import { resolveToolEffect } from '@modules/tools';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -2544,9 +2546,20 @@ export class ChatManagerImpl implements ChatManager {
           },
           { useErrorHandler: true }
         );
+        // 13-P1-2（2026-10-05）：非幂等工具失败 ⇒ 明确告知模型**不要盲目重试**
+        // （模型是实际的"重试方"，此处是唯一能约束它的位置；策略事实源 = tools/toolEffects.ts）
+        const effect = resolveToolEffect(tc.name);
+        const retryCaution =
+          toolResult.error && effect && effect.idempotent === false
+            ? `\n\n[重试注意] 该工具已声明为**非幂等**（sideEffect=${effect.sideEffect}）：` +
+              '重复执行可能导致副作用重复。请先确认上一次调用的实际影响，再决定是否重试；' +
+              '必要时改为向用户确认或执行补偿，禁止直接原样重试。'
+            : '';
         apiMessages.push({
           role: 'tool',
-          content: JSON.stringify(toolResult.result ?? toolResult.error ?? ''),
+          content:
+            JSON.stringify(toolResult.result ?? toolResult.error ?? '') +
+            retryCaution,
           tool_call_id: tc.id,
         });
       }

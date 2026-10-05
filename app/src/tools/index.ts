@@ -307,6 +307,15 @@ export type { ToolExample, FewShotEntry } from './FewShotRegistry';
 export { getToolManager, createToolManager } from './ToolManager';
 export type { ToolSchema } from './ToolRegistry';
 export { createToolRegistry } from './ToolRegistry';
+
+// 13-P1-2（2026-10-05）：工具幂等/副作用声明（唯一事实源）
+export {
+  TOOL_EFFECTS,
+  TOOL_EFFECTS_COUNT,
+  resolveToolEffect,
+  shouldBlindRetryTool,
+} from './toolEffects';
+export type { ToolEffect, ToolSideEffect } from './toolEffects';
 // wire codec（工具名两种语义：内部标识 `模块:动作` vs OpenAI wire 安全名）
 export { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 export { ToolFilterManager } from './ToolFilterManager';

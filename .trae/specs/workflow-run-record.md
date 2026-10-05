@@ -542,3 +542,5 @@
     - `send-report` 本机 **24ms** 跑完 ⇒ 窗口 **≪** 中止传播（客户端→服务端→signal）⇒ 对**快工作流**"中止 → cancelled"在会话级**不可观测**；且这**不是缺陷**（run 确实已完成）。语义已由确定性测试锁定（宽限语义 2 例 + 传输行 3 例）。
     - **SSE 通道不可用作触发点**：工具名出现时**尚未 dispatch**；`finish_reason` 与 dispatch 之间另有窗口 ⇒ 在此时中止 ⇒ 工具**从不执行**（`workflow_events=0`、无卡片）。正确触发点是**运行期事件**（`workflow_run_start`）。
     - **控制组**（`NO_ABORT=1`，同一提示）：pipeline 在 `degraded` 下**仍可用** —— 771ms、4 步全 completed、卡片 `completed`（排除"degraded 导致 pipeline 不跑"的替代解释）。
+  - ✅ **前端可视化走查（2026-10-05，真实浏览器）**：前端 1420 + 后端 18990 打开该会话 ⇒ 卡片实见 **`■ doc_pipeline 已取消 23ms 3/4`**；步骤 `✔ 整理大纲（含 PPT 精炼校验）0ms` / `✔ 填充各节点内容 2ms` / `✔ 按 imageHint 生成配图 0ms` / **`■ 合成文档并落盘 强制结算 20ms（步骤未上报结束，由 seam 按运行结果强制结算）`**；独立结论行 **`⚠ 运行已取消`**（浅黄底）。全页 `工作流步骤` **0 次**（旧逐条 status 行未回退）；控制台仅 1 条与本卡片无关的 `net::ERR_ABORTED /v1/events`（SSE 断连告警）。
+    > **澄清（避免误判）**：卡片标题显示 `doc_pipeline` 属**正确数据** —— 它是 seam 内工作流名（`DOC_PIPELINE_WORKFLOW = 'doc_pipeline'`，见 `DocWorkflowProvider.ts:70`），与**工具名** `office:doc-pipeline` 本就是两个标识，非"丢了命名空间前缀"。

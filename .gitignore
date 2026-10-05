@@ -227,6 +227,9 @@ codemidas_extract.md
 !/README.md
 !/AGENTS.md
 !/CONTRIBUTING.md
+# 例外（2026-10-05）：`CHANGELOG.md` 是 `.trae/rules/versioning.md` §三 的**版本变更完整历史（单一事实源）**
+# —— 发版必更新（§四 步骤 3），必须入库，否则发布记录不可评审、GitHub 上也看不到
+!/CHANGELOG.md
 temp _url.txt
 temp_url2.txt
 test.txt

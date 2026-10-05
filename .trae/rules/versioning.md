@@ -62,24 +62,30 @@ v<主版本>.<次版本>.<修订号>
 | Tauri 配置 | `client/src-tauri/tauri.conf.json` | `version` |
 | Tauri Rust 模块 | `client/src-tauri/Cargo.toml` | `[package] version` |
 | Tauri Rust 锁文件 | `client/src-tauri/Cargo.lock` | 根包 `liri_client` 的 `version` |
-| 项目主页 | `README.md` | **三处必须同步**：① badge URL 版本号（`badge/version-X.Y.Z-blue`）；②「📋 版本」下的「当前版本：**vX.Y.Z**」；③「🚀 版本更新记录」新增本版 changelog 段落 |
+| 项目主页 | `README.md` | **三处必须同步**：① badge URL 版本号（`badge/version-X.Y.Z-blue`）；②「📋 版本」下的「当前版本：**vX.Y.Z**」；③「🚀 版本更新记录」**仅保留最新一版摘要**并指向 `CHANGELOG.md` |
+| 更新日志 | `CHANGELOG.md` | **版本变更的完整历史（单一事实源）**：每次发版**追加**本版段落（最新在上）；历史条目为 2026-10-05 由 README 原「版本更新记录」17 条**逐字迁移**，不改写 |
 
-> **强制要求（2026-10-04 用户明确）**：版本升级时**必须同步 README.md** —— 上述 badge / 「当前版本」/ changelog 三处缺一不可（v0.4.58 起执行）。
+> **强制要求（2026-10-04 用户明确）**：版本升级时**必须同步 README.md** —— 上述 badge / 「当前版本」/ 最新版摘要**三处缺一不可**（v0.4.58 起执行）。
+>
+> **单一事实源分工（2026-10-05 用户裁定）**：`CHANGELOG.md` 为**完整历史**的权威落点；`README.md` 的「🚀 版本更新记录」**只留最新一版 + 指向链接** ⇒ **不得两处重复维护同一份条目**（避免双源漂移，CS01）。
+> ⚠️ 本文 §四 原引用的 `RELEASE.md` **在仓内不存在**（该链接指向旧目录 `E:/PY/CODES/Liri/`）⇒ 已改为以本文件 §四 为准。
 
 ## 四、发布流程
 
 ```bash
-# 1. 更新版本号（手动或跑 sync-version.ts 脚本）
+# 1. 改版本号：app/package.json 的 version = "X.Y.Z"
 # 2. 同步到所有版本文件（6 个版本文件 + 2 个 Rust 锁文件根包 = 8 处；推荐 `bun run scripts/sync-version.ts`）
-# 3. 同步 README.md（强制）：badge URL + 「当前版本」文案 + 新增本版 changelog 段落
-# 4. 更新 CHANGELOG.md
-# 5. git commit -m "chore: bump version to vX.Y.Z"
-# 6. git tag -a "vX.Y.Z" -m "Release vX.Y.Z"
-# 7. git push && git push --tags
-# 8. GitHub Actions 自动构建 Release
+#    —— 该脚本同时写入 README 的 ① badge 与 ②「当前版本」，故这两处无需手改
+# 3. 写 CHANGELOG.md：在「## [未发布]」之后**新增本版段落**（最新在上）   ← 完整历史（单一事实源）
+# 4. 同步 README.md「🚀 版本更新记录」：**只留最新一版摘要**（旧条目不再在 README 累积；完整历史看 CHANGELOG.md）
+# 5. 校验：`bun run version:check`（6 个 JSON/TOML 版本文件必须一致）
+# 6. git commit -m "chore: bump version to vX.Y.Z"
+# 7. git tag -a "vX.Y.Z" -m "Release vX.Y.Z"
+# 8. git push && git push origin vX.Y.Z
+# 9. GitHub Actions 自动构建 Release
 ```
 
-详细操作步骤见 [RELEASE.md](file:///E:/PY/CODES/Liri/RELEASE.md)。
+> 详细操作以**本文**为准；原引用的 `RELEASE.md` 在仓内**不存在**（链接指向旧目录 `E:/PY/CODES/Liri/`）。
 
 ## 五、v0 → v1 的退出条件
 

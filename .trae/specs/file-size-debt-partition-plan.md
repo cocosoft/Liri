@@ -639,7 +639,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；**僵尸转发 0**；R03-002 子目录 import 违规 **0**）· `lint:size` **0 错误** · eslint（2 文件）**0** · 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 82.59s，**单独跑**）· prettier ✓
 
-**附带**：`R00-003`（动态跨层，**仅 warning**）中源自 `CoreAPIImpl.ts` 的条目随迁至 `domainSnapshotOps.ts`；**警告总数仍为 4，无新增违规**。
+**附带（如实，2026-10-05 提交钩子实测）**：`R00-003`（动态跨层，**仅 warning**）条目随迁至 `domainSnapshotOps.ts`；**计数由 37 → 40**（`runtime → ai` / `runtime → chat` / `runtime → agent` 各由 ×1 变 ×2 —— 拆分后**宿主与新文件各自持有部分**动态 import）⇒ **规则级 warning 仍为 4**、**无新增违规**（本条变化是 **warning 内部计数**，不是规则触发数）。
 
 **⇒ B1 收官**。后续候选（§18.2）：**B2** `sessionMessagesRead`(≈598) · **B3** `messageMutation`(≈319) · **B4** `sessionTitling`(≈451)；主链 `chat`+`chatStream`（855）与 C16 仍**判不拆**。
 

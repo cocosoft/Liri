@@ -154,7 +154,8 @@ export interface ToolLoopContext {
   unifiedTracker: UnifiedTokenTracker;
   /**
    * 用量记账。P2-2（2026-09-23）：`requestId` 为**可选透传**（= 同请求 `request/start`
-   * 的 seq）；工具轮当前**不产** request/start ⇒ 不传（读端视为无可配对区间，不硬凑）。
+   * 的 seq）。P1-16（2026-10-05）：工具轮现由 `StreamingLlm` 每次请求前产
+   * `request/start` 并透传 requestId；缺失能力（无 `appendStreamEvent`）⇒ 不传。
    */
   recordChatResponseUsage: (
     sessionId: string,
@@ -212,6 +213,10 @@ export interface ToolLoopContext {
 
   // M1 事件溯源（2026-08-23）：工具轮 text/thinking chunk 写 events.jsonl
   //（对齐 streamMessageFlow 主循环，缺失导致工具轮正文/思考不进事件流，重新打开正文缺失）
+  // P1-16（2026-10-05）：返回类型据实修正 —— 运行期 `ChatManager.appendStreamEvent`
+  // 返回 `{ok,reason?,tailSeq}`（`ChatManager.ts:2030`），此前声明为 `Promise<void>`
+  // 与事实不符，被 `as unknown as ToolLoopContext` 掩盖。工具轮请求边界（request/start）
+  // 需要读取 `tailSeq` 作 requestId，故按真实返回结构声明。
   appendStreamEvent?: (
     sessionId: string,
     event: {
@@ -222,7 +227,7 @@ export interface ToolLoopContext {
       sessionId: string;
       data: unknown;
     }
-  ) => Promise<void>;
+  ) => Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
   getStreamTailSeq?: (sessionId: string) => Promise<number>;
 
   /**

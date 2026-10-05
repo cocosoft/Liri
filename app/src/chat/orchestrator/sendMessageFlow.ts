@@ -57,6 +57,7 @@ import { StreamingToolCallScrubber } from '@modules/streaming';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { getModelPricing } from '@modules/cost';
+import { startRequest } from '../services/requestBoundary';
 
 import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '@modules/context';
@@ -541,6 +542,15 @@ export async function invokeLlm(
     providerId: activeClient?.getProviderId(),
   });
 
+  // P1-16（2026-10-05）：非流式请求发出**前**落 `request/start`（一次请求一条），
+  // 返回其 seq 作 requestId，透传到下方用量条 ⇒ 非流式路径请求区间可闭合。
+  // 复用 `chat/services/requestBoundary` 唯一实现；落盘失败 ⇒ undefined（不伪造）。
+  const requestId = await startRequest(
+    (sid, ev) => host.appendStreamEvent(sid, ev),
+    session.id,
+    { model: options?.model, reason: 'chat' }
+  );
+
   const response = await activeClient.sendMessage(
     ctx.apiMessages as unknown as ChatMessage[],
     {
@@ -561,7 +571,7 @@ export async function invokeLlm(
     usage &&
     (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) > 0
   ) {
-    host.recordChatResponseUsage(session.id, response.usage);
+    host.recordChatResponseUsage(session.id, response.usage, requestId);
 
     // 异步记录使用量
     trackUsage(response, {

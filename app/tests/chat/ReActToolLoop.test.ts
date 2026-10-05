@@ -769,6 +769,8 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
         ev: { type: string; data: Record<string, unknown> }
       ) => {
         capturedEvents.push(ev);
+        // P1-16：类型据实同步（真实 appendStreamEvent 返回 {ok,tailSeq}）
+        return { ok: true, tailSeq: 0 };
       },
       getStreamTailSeq: async () => 0,
       // 预填：模拟 streamMessageFlow 已在 tool_start 时写入 assistant/tool_call 事件
@@ -878,6 +880,8 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
         ev: { type: string; data: Record<string, unknown> }
       ) => {
         capturedEvents.push(ev);
+        // P1-16：类型据实同步（真实 appendStreamEvent 返回 {ok,tailSeq}）
+        return { ok: true, tailSeq: 0 };
       },
       getStreamTailSeq: async () => 0,
       activeClient: {

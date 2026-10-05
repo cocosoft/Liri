@@ -159,6 +159,35 @@ export interface CompactionSummaryEnvelope {
   structured: boolean;
 }
 
+/**
+ * P1-16（2026-10-05）：Tier3 迭代折叠的**跨批 usage 累加器**。
+ *
+ * 迭代折叠为多次摘要调用 ⇒ 单次 usage 不代表整体；用本累加器把各批
+ * `aiService.generate` 返回的 usage 逐批累加，最终写入 `CompactionSummaryEnvelope.usage`。
+ * 一批都拿不到 ⇒ 各字段保持 `undefined` ⇒ 调用方**省略** `usage`（不写空壳）。
+ */
+export interface CompactionUsageCollector {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
+/** 把 provider 原始 usage 累加进累加器（数值经有限性守卫；非数值视为缺失，不累加脏值）。 */
+function accumulateCompactionUsage(
+  collector: CompactionUsageCollector,
+  usage: unknown
+): void {
+  if (!usage || typeof usage !== 'object') return;
+  const u = usage as Record<string, unknown>;
+  const add = (key: keyof CompactionUsageCollector, value: unknown): void => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return;
+    collector[key] = (collector[key] ?? 0) + value;
+  };
+  add('promptTokens', u.prompt_tokens ?? u.promptTokens);
+  add('completionTokens', u.completion_tokens ?? u.completionTokens);
+  add('totalTokens', u.total_tokens ?? u.totalTokens);
+}
+
 export interface CompactionOrchestratorOptions {
   /** C7 收敛：评估统一走 UnifiedTokenTracker（checkBeforeRequest），不再使用 AutoCompactionPolicy */
   tracker?: UnifiedTokenTracker;
@@ -760,6 +789,9 @@ export class CompactionOrchestrator {
       const folded: string[] = []; // 已摘除早轮摘要（按旧→新顺序）
       let pool = [...toCompress]; // 尚未处理的中间+近期消息（旧→新）
       let iteration = 0;
+      // P1-16（2026-10-05）：跨批 usage 累加器——迭代折叠的各批摘要调用用量逐批累加，
+      // 最终写入 summaryEnvelope.usage；一批都拿不到 ⇒ 保持空 ⇒ 省略 usage。
+      const usageCollector: CompactionUsageCollector = {};
 
       while (pool.length > 0 && iteration < FOLD_MAX_ITERATIONS) {
         // P0 压缩超时治理：每个批折叠前再查一次信号，避免超时后仍发起请求
@@ -796,7 +828,9 @@ export class CompactionOrchestrator {
           headMessages,
           batch,
           ctx,
-          signal
+          signal,
+          // P1-16：把本批摘要调用的 usage 累加进跨批累加器
+          usageCollector
         );
         if (summary === null) break;
 
@@ -892,15 +926,25 @@ export class CompactionOrchestrator {
         iterations: iteration,
       });
 
+      // P1-16（2026-10-05）：迭代折叠为多次摘要调用——把各批 usage 累加后写入信封
+      // （可重建整体用量）；一批都拿不到 ⇒ 各字段 undefined ⇒ **省略 usage**（不写空壳）。
+      const summaryEnvelope: CompactionSummaryEnvelope = {
+        model: ctx.model,
+        maxTokens: 2560,
+        structured: true,
+      };
+      if (
+        usageCollector.promptTokens !== undefined ||
+        usageCollector.completionTokens !== undefined ||
+        usageCollector.totalTokens !== undefined
+      ) {
+        summaryEnvelope.usage = { ...usageCollector };
+      }
+
       return {
         messages: compacted,
         applied: true,
-        // 迭代折叠为多次摘要调用，单次 usage 不代表整体——故省略可重建信封，仅保留 structured 标记
-        summaryEnvelope: {
-          model: ctx.model,
-          maxTokens: 2560,
-          structured: true,
-        },
+        summaryEnvelope,
       };
     } catch (err) {
       await handleError(err, { module: 'context:compaction', action: 'full' });
@@ -924,6 +968,9 @@ export class CompactionOrchestrator {
    * R1（2026-09-16）：折叠**单批**消息为结构化摘要（temperature 0.3 / max_tokens 2560）。
    * 摘要请求 = head system prompt + 被折叠批原始结构 + 压缩指令收尾（P1-1 KV 前缀复用）。
    * 失败（LLM 报错 / 返回空 / 超时 signal）返回 null，由调用方保留残余并停止折叠。
+   *
+   * P1-16（2026-10-05）：`usageCollector` 为可选的跨批用量累加器（返回类型保持
+   * `string | null` 不变）；传入时把本批 provider usage 累加进去，供信封汇总。
    */
   private async _foldBatchSummary(
     aiService: { generate: Function },
@@ -935,7 +982,8 @@ export class CompactionOrchestrator {
     headMessages: ChatMessage[],
     batch: ChatMessage[],
     ctx: CompactionContext,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    usageCollector?: CompactionUsageCollector
   ): Promise<string | null> {
     // P2-2（2026-09-23）：本批摘要调用**也是一次请求**：发出前落 `request/start`
     // （reason='compaction'，与普通请求共用编号序列），结束后补请求级 `metric/timing`
@@ -972,9 +1020,12 @@ export class CompactionOrchestrator {
       });
 
       // 完成侧：usage 取自 provider 原始返回（**能拿才写**；缺失/全 0 由宿主侧守卫处理）
-      await closeRequest(
-        (response as { usage?: unknown } | null | undefined)?.usage
-      );
+      const responseUsage = (response as { usage?: unknown } | null | undefined)
+        ?.usage;
+      // P1-16：累加进跨批累加器（传入时），供 runFullCompaction 汇总写入信封
+      if (usageCollector)
+        accumulateCompactionUsage(usageCollector, responseUsage);
+      await closeRequest(responseUsage);
 
       const raw = response.content?.trim();
       if (!raw) return null;

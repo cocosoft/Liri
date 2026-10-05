@@ -35,6 +35,7 @@ import {
   StreamingThinkScrubber,
 } from '@modules/streaming';
 import { repairImageUrls } from './services/ChatHelper';
+import { startRequest } from './services/requestBoundary';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('chat:reactToolLoop');
@@ -82,6 +83,9 @@ export class StreamingLlm {
   /** 非流式 LLM 调用（对齐旧类 _nonStreamingLlmRound）：tools 透传 + usage 上报 */
   async callLlmNonStreaming(): Promise<ChatResponse> {
     this.deps.getLoopState().llmCallCount++;
+    // P1-16（2026-10-05）：请求发出**前**落 `request/start`（一次请求一条），
+    // requestId 透传到用量条 ⇒ 工具轮请求区间可闭合。
+    const requestId = await this._beginRequest();
     const response = await this.deps
       .getCtx()
       .activeClient.sendMessage(
@@ -94,7 +98,7 @@ export class StreamingLlm {
               : undefined,
         }
       );
-    this._reportUsage(response);
+    this._reportUsage(response, requestId);
     // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
     this._chargeStreamBudget(this._usageOf(response));
     return response;
@@ -221,6 +225,9 @@ export class StreamingLlm {
       : retried
         ? Math.min(Math.max(toolRoundBaseMaxTokens * 2, 8192), 64000)
         : toolRoundBaseMaxTokens;
+    // P1-16（2026-10-05）：**每次**流式请求发出前落 `request/start`（一次请求一条，
+    // 非每 chunk）；requestId 透传到本轮用量条 ⇒ 工具轮请求区间可闭合。
+    const requestId = await this._beginRequest();
     const gen = this.deps
       .getCtx()
       .activeClient.streamMessage(
@@ -350,7 +357,7 @@ export class StreamingLlm {
       | undefined;
     onStream?.(cleanContent);
 
-    this._reportUsage(final);
+    this._reportUsage(final, requestId);
     // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
     this._chargeStreamBudget(this._usageOf(final));
 
@@ -395,8 +402,21 @@ export class StreamingLlm {
     }
   }
 
+  /** P1-16（2026-10-05）：工具轮每次 LLM 请求发出前落 `request/start`（一次请求一条），返回其
+   *  seq 作 requestId。复用 `requestBoundary` 唯一实现；`appendStreamEvent` 缺失 ⇒ undefined。 */
+  private async _beginRequest(): Promise<number | undefined> {
+    const ctx = this.deps.getCtx();
+    const append = ctx.appendStreamEvent;
+    if (!append) return undefined;
+    const model = ctx.options?.model;
+    return startRequest((sid, ev) => append(sid, ev), ctx.session.id, {
+      model: typeof model === 'string' ? model : undefined,
+      reason: 'chat',
+    });
+  }
+
   /** usage 上报（对齐旧类：recordChatResponseUsage + onToolUsage + trackUsage） */
-  private _reportUsage(response: ChatResponse): void {
+  private _reportUsage(response: ChatResponse, requestId?: number): void {
     const usage = this._usageOf(response);
     // 成本 0/0 修复（2026-08-14 复检 #5）：provider 流式返回的 usage 缺失（undefined）
     // 时跳过空记录——原实现无条件 trackUsage，产生 "LLM call recorded: 0/0 tokens"
@@ -411,7 +431,7 @@ export class StreamingLlm {
     }
     this.deps
       .getCtx()
-      .recordChatResponseUsage(this.deps.getCtx().session.id, usage);
+      .recordChatResponseUsage(this.deps.getCtx().session.id, usage, requestId);
     this.deps.getCtx().onToolUsage?.((usage as Record<string, unknown>) ?? {});
     trackUsage(response as unknown as Record<string, unknown>, {
       // 2026-09-27 修 `LLM call recorded: unknown`：服务端自发轮次（系统续跑 / 自唤醒 /

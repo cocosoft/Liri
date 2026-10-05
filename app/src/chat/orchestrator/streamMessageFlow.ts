@@ -2232,8 +2232,9 @@ export async function* runStreamMessage(
           streamingCheckpoint,
           activeClient,
           unifiedTracker: host.unifiedTracker,
-          // P2-2（2026-09-23）：`requestId` 可选透传 —— 工具轮是**另一次** LLM 请求，
-          // 当前未为其产 `request/start` ⇒ 调用方不传，用量条如实不带 requestId。
+          // P2-2（2026-09-23）：`requestId` 可选透传 —— 工具轮是**另一次** LLM 请求。
+          // P1-16（2026-10-05）：工具轮现由 `StreamingLlm` 在每次请求发出前自行产
+          // `request/start` 并把 seq 作 requestId 透传（见 `chat/streamingLlm.ts`）。
           recordChatResponseUsage: (
             sid: string,
             usage: Record<string, number>,

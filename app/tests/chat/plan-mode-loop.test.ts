@@ -146,6 +146,8 @@ describe('propose_plan 计划模式闭环（M3-T3.1）', () => {
         streamedEvents.push(
           ev as { type: string; data?: Record<string, unknown> }
         );
+        // P1-16：类型据实同步（真实 appendStreamEvent 返回 {ok,tailSeq}）
+        return { ok: true, tailSeq: 0 };
       },
       getStreamTailSeq: async () => 0,
       activeClient: {

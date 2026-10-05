@@ -98,11 +98,11 @@
 | 用量条 ctx 接线 | `streamMessageFlow.ts:1858`（`pipeline.ctx.requestId = …`，与 TB-11 的 `ctx.finalResponse` 同一手法）→ `app/src/chat/pipeline/StreamPipeline.ts:486-490` | 管线 `recordUsage()` 透传第三参 |
 | compaction start + 完成 | `app/src/context/compaction/CompactionOrchestrator.ts:892`（start）/`:899`（成功闭合）/`:948`（失败也闭合） | compaction 属 `context/`、拿不到事件日志 ⇒ 由 `ChatManager.ts:855` 注入 `CompactionRequestReporter`（复用 `requestBoundary` 唯一实现） |
 
-**已知"拿不到 requestId"的路径（如实缺省，不硬凑）**：
+**~~已知"拿不到 requestId"的路径~~（P1-16 已补齐，保留原缺省口径）**：
 
-- **工具轮 LLM 请求**（`ReActToolLoop._reportUsage` → `ctx.recordChatResponseUsage`）：本轮**未**为其产 `request/start` ⇒ 其用量条**不带** `requestId`（实测见 §5：seq 17 / seq 31 两条用量条无 `requestId`）。工具轮的"请求边界"未纳入本项范围。
-- **非流式路径**（`sendMessageFlow` 的 `recordChatResponseUsage`）：同样不产 start ⇒ 不写 `requestId`。
-- start 落盘失败 / 无 `sessionId` 的 compaction 调用 ⇒ 完成侧不写 `requestId`（`startRequest` 返回 `undefined`）。
+- ✅ **工具轮 LLM 请求 —— 已补齐（P1-16，2026-10-05）**：`StreamingLlm` 在 `callLlmNonStreaming`/`_streamLlm` 每请求发出前调 `_beginRequest()` 产 `request/start`（`reason:'chat'`），requestId 经 `_reportUsage(response, requestId)` → `recordChatResponseUsage` 透传到用量条。**根因修正**：`ToolLoopContext.appendStreamEvent` 返回类型据实由 `Promise<void>` 改为 `Promise<{ok,reason?,tailSeq}>`（原声明与运行期 `ChatManager.appendStreamEvent` 不符、被 `as unknown as` 掩盖）。
+- ✅ **非流式路径 —— 已补齐（P1-16）**：`sendMessageFlow` 在 `activeClient.sendMessage` 前产 start，:574 透传 `requestId`。
+- start 落盘失败 / 无 `sessionId` 的 compaction 调用 ⇒ 完成侧仍不写 `requestId`（`startRequest` 返回 `undefined`，不硬凑）。
 
 ### 3.4 读端（前端）
 
@@ -210,8 +210,14 @@
 3. **compaction**：`CompactionOrchestrator` 增 `CompactionRequestReporter` 注入点（`setRequestReporter`，与既有 `setTracker` 同一手法，避免 `context/` → `chat/` 反向 import）；`_foldBatchSummary` 在 `aiService.generate` 前后上报，**成功与失败都闭合区间**（失败时只写真实墙钟耗时，不写用量）。
 4. **前端**：类型镜像 + `deriveRequestSpans` 纯函数 + 时间线「请求」轨 + turn 头 `R#n` + i18n 双端 6 键 + vitest 覆盖率 include/门槛。
 5. **测试**：后端 14 例、前端 9 例 + 2 例 + 1 快照、e2e +1 例；全量验收结论见 §5。
-6. **未纳入范围（如实登记）**：工具轮 LLM 请求与非流式路径**未产** `request/start` ⇒ 其用量条无 `requestId`（§3.3）；`CompactionSummaryEnvelope.usage` 历史上从未被填充（P1-2 遗留缺口，本轮未动）。
+6. **~~未纳入范围~~ → ✅ 已于 P1-16（2026-10-05）全部补齐**：工具轮 LLM 请求与非流式路径现均产 `request/start` 并透传 `requestId`（§3.3）；`CompactionSummaryEnvelope.usage` 现由迭代折叠的各批 usage **聚合填充**（注入 `CompactionUsageCollector`；全部拿不到则仍省略）。详见 §8.8。
 7. **环境副作用（如实登记）**：为取得"可滚动"的 e2e 基座数据，本机新建并保留了会话「E2E 长轨迹基座」（`session_mudpbztg7f2a9e7w45y`，34 事件，1 次真实请求）；另建的 `session_mudp6s8hyw4h3i0jp5` 已删除。e2e 的短会话脆弱性登记为 TB-13。
+8. **P1-16 三项遗留补齐（2026-10-05）**：
+   - ① **工具轮**：`app/src/chat/streamingLlm.ts` 新增私有 `_beginRequest()`，在 `callLlmNonStreaming` 的 `sendMessage` 前 / `_streamLlm` 的 `streamMessage` 前各调一次（**每请求一条**）；`requestId` 经 `_reportUsage(response, requestId)` 透传。**根因修正**：`app/src/chat/ToolLoopRunner.ts` 的 `ToolLoopContext.appendStreamEvent` 返回类型据实由 `Promise<void>` 改为 `Promise<{ok:boolean; reason?:string; tailSeq:number}>`（字段仍可选）；typecheck 连带同步 **2 个测试桩**（`tests/chat/plan-mode-loop.test.ts`、`tests/chat/ReActToolLoop.test.ts`，仅补返回值 `{ok:true,tailSeq:0}`，未改断言）。
+   - ② **非流式**：`app/src/chat/orchestrator/sendMessageFlow.ts` 发请求前产 start，`:574` 透传 `requestId`。
+   - ③ **信封 usage**：`app/src/context/compaction/CompactionOrchestrator.ts` 新增 `CompactionUsageCollector` + `accumulateCompactionUsage()`，折叠循环外建 collector 作**末位可选参**传入 `_foldBatchSummary`（**返回类型仍为 `string|null`**，既有测试桥不受影响），成功返回时任一字段有值才写 `summaryEnvelope.usage`；**全拿不到 ⇒ 省略**。
+   - 陈旧注释同步：`streamMessageFlow.ts` / `ToolLoopRunner.ts` 关于"工具轮未产 request/start"的说明。
+   - 门槛：`typecheck 0` · `lint:arch` 错 0（4 warning 基线，僵尸 0）· `lint:size` 错 0 · 全量 **4396 pass / 21 skip / 0 fail**。
 
 ---
 

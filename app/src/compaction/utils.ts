@@ -154,6 +154,10 @@ export function calculateTokenWarningState(
   };
 }
 
+/**
+ * 单文本粗估（**保留** —— `microCompact` 对单条 tool_result 估值的轻量路径用；设计 §3.2 步 3）。
+ * ⚠️ 它是"逐文本"原语，**不含**角色开销/工具调用；消息级估算请用 `estimateMessagesTokens()`。
+ */
 export function roughTokenCountEstimation(text: string): number {
   const native = lazyInitNative();
   if (native) {
@@ -162,6 +166,26 @@ export function roughTokenCountEstimation(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+/**
+ * @deprecated（BUG-L，2026-10-05 标记）请改用 `@modules/ai` 的 **`estimateMessagesTokens()`**
+ * —— **唯一统一估算入口**（tiktoken BPE → CJK 感知 → chars/4，**含角色开销 4–5/msg 与工具调用**，
+ * 另有 EMA 校准因子）。
+ *
+ * **为何废弃**：本函数只是 `roughTokenCountEstimation`（Rust native → chars/4）的**逐消息求和**，
+ * **不含**角色开销 / 工具调用 / 校准因子 ⇒ 与统一入口对同一批消息可差 **2–3 倍**，正是 BUG-L
+ * 问题定义所述"压缩触发时机不可预测"的根源
+ * （`.trae/designs/BUG-L-token估算统一.md` §1）。
+ *
+ * **现状（2026-10-05 实测）**：统一入口已在主链路生效（`ContextFolder` / `TAORLoop` /
+ * `CompactionOrchestrator` / `streamMessageFlow` 等，`estimateMessagesTokens` 全仓 **84 处**；
+ * 旧第 3 套 `countMessageTokens` 已删除）。本函数**仍有 6 文件 / 13 处**遗留引用：
+ * `compaction/{CompactService, AutoCompactService, reactiveCompact, partialCompact}` ·
+ * `query/{ReactiveCompact, ContextCollapse}`。
+ *
+ * ⚠️ **不得直接批量替换**：这些调用点参与**压缩阈值判定** ⇒ 换成 `estimateMessagesTokens`
+ * 会使估算值系统性升高、**压缩更早触发**（**行为变更**，须先灰度观察 —— 设计 §6 风险表）。
+ * ⇒ **计划**：随遗留压缩模块清理一并删除（设计 §3.2 步 4）。
+ */
 export function roughTokenCountEstimationForMessages(messages: any[]): number {
   let total = 0;
   for (const msg of messages) {

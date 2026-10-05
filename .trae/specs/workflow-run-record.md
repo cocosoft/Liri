@@ -520,3 +520,12 @@
 
 **④ 新发现（独立缺陷，待专项）**
 模型侧工具清单在**运行期新注册工具**后不同步：懒加载预热后注册表已有 `office:workflow`，但模型仍称"不存在"且 `tool_search` 返回 `matches: []`。影响面：用户打开 Office 页触发懒加载后，**同一会话**的模型可能仍看不到 office 工具。
+
+**⑤ 根因（决定性，2026-10-05 **运行时证实**）：默认宽限 5000ms 使"快工作流的中止"不可观测**
+- 机制：`WorkflowEngine.raceWithCancelGrace` 收到 abort 只**起宽限计时**（`DEFAULT_CANCEL_GRACE_MS = 5000`）；**若 Provider 在宽限内先返回，则其结果取胜**（`WorkflowEngine.ts:347-381`）。
+- 运行时证据（新增 2 例，`tests/modules/workflow/WorkflowStepObserver.test.ts`，均 pass）：
+  ① Provider 150ms + **默认宽限** ⇒ 中止后 `stopReason='completed'`（Provider 取胜，step end **非** `synthesized`）；
+  ② 同 Provider + **`gracePeriodMs: 0`** ⇒ `stopReason='cancelled'` + 在飞步骤 `synthesized: true` / `outcome='cancelled'`。
+- ⇒ 对 `send-report`（实测 **~200ms**）这类快工作流，**无论中止多及时都得不到 `cancelled`** —— 与"窗口极窄"并列的另一半根因。要可观测需：给工具传**更小 `gracePeriodMs`**，或工作流步骤本身慢于宽限（如 `office:doc-pipeline`）。
+- 本轮 e2e 重跑（2 轮）：检测已由 **SSE 子串匹配**改为**结构化轮询事件流**（`assistant/tool_call` 的 `name === 'office:workflow'`）—— 前者会被"模型 tool 参数内嵌同形 JSON"**假阳性**污染（实测两次误命中 `skill`/`tool_search` 参数）。改进后模型**未调用**该工具（仅 `tool_search`），故未取得会话级 `cancelled` 观测；临时脚本与临时会话均已清理。
+- **待裁定**：是否为 `office:workflow` / `office:doc-pipeline` 传显式更小 `gracePeriodMs`（如 `0` / `1000`）—— 决定"用户中止 → 卡片 `cancelled`"是否对**快工作流**生效（代价：中止瞬间结算、丢弃在飞结果，与 P2-2 既有语义一致）。

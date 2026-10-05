@@ -27,7 +27,7 @@ import {
 import { WorkflowStepLedger } from '../../../src/modules/workflow/WorkflowStepLedger.js';
 
 /** Provider 行为模式（桩：精确控制上报以验证账本不变式） */
-type StubMode = 'pair' | 'no-end' | 'throw' | 'hang';
+type StubMode = 'pair' | 'no-end' | 'throw' | 'hang' | 'slow';
 
 class StubProvider implements WorkflowProvider {
   readonly providerId = 'stub-provider';
@@ -37,7 +37,9 @@ class StubProvider implements WorkflowProvider {
 
   constructor(
     private readonly stepIds: string[],
-    private readonly mode: StubMode
+    private readonly mode: StubMode,
+    /** `slow` 模式的单步耗时（ms） */
+    private readonly stepDelayMs = 0
   ) {}
 
   listWorkflows(): WorkflowDefinition[] {
@@ -93,6 +95,10 @@ class StubProvider implements WorkflowProvider {
         description: step.description,
         startedAt: Date.now(),
       });
+      // slow：步骤耗时可控（用于验证"宽限期 vs Provider 速度"的取消语义）
+      if (this.mode === 'slow' && this.stepDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, this.stepDelayMs));
+      }
       // 少报：只上报 start，不上报 end（由账本在 run 出口合成）
       if (this.mode !== 'no-end') {
         stepReporter?.onStepEnd?.({
@@ -352,5 +358,44 @@ describe('WorkflowStepObserver（成员级配对不变式）', () => {
 
     expect(result.stopReason).toBe('completed');
     expect(runEndCalled).toBe(1);
+  });
+
+  it('宽限语义①：Provider 快于宽限期（默认 5000ms）⇒ 中止后 Provider 结果取胜（非 cancelled）', async () => {
+    const provider = new StubProvider(['a'], 'slow', 150);
+    const r = recorder();
+    const controller = new AbortController();
+    const exec = engineWith(provider).execute(
+      'stub-wf',
+      {},
+      { observer: r.observer, signal: controller.signal }
+    );
+    await waitFor(() => r.starts.length === 1);
+    controller.abort();
+    const result = await exec;
+
+    // ⚠️ P1-19 ⑤b 的根因：默认宽限 5000ms 下，快工作流（实测 ~200ms）的"中止"
+    //    **不会**变成 cancelled —— 中止只起计时，Provider 先返回则其结果取胜。
+    expect(result.stopReason).toBe('completed');
+    expect(r.ends).toHaveLength(1);
+    expect(r.ends[0].synthesized).toBeUndefined();
+  });
+
+  it('宽限语义②：gracePeriodMs=0 ⇒ 中止即结算为 cancelled（在飞步骤被强制结算并封闭）', async () => {
+    const provider = new StubProvider(['a'], 'slow', 150);
+    const r = recorder();
+    const controller = new AbortController();
+    const exec = engineWith(provider).execute(
+      'stub-wf',
+      {},
+      { observer: r.observer, signal: controller.signal, gracePeriodMs: 0 }
+    );
+    await waitFor(() => r.starts.length === 1);
+    controller.abort();
+    const result = await exec;
+
+    expect(result.stopReason).toBe('cancelled');
+    expect(r.ends).toHaveLength(1);
+    expect(r.ends[0].synthesized).toBe(true);
+    expect(r.ends[0].outcome).toBe('cancelled');
   });
 });

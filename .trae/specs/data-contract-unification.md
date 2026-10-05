@@ -71,9 +71,9 @@
 | `Message` 全域（`message.ts` 全表 26 个导出：`MessageRole`/`MessageType`/`MessageStatus`/`MessagePriority`/`AttachmentType`/`MessageAttachment`/`MessageCategory`/`UserMessage`/`AssistantMessage`/`SystemMessage`/`ContentBlockType`/`ContentBlock`/`CompactBoundaryType`/`CompactBoundaryMessage`/`ToolUseSummary(Msg)`/`AttachmentMessage`/`Message`/`NormalizedMessage`/`UsageInfo`/`ToolCallEventDetail`/`SendMessageOptions`/`StreamMessageOptions`/`CreateMessageParams`/`ChatResponse`/`StreamChunk`） | `chat/types/message.ts` | ✅ **零项目导入**（900+ 行，纯类型 + 枚举） | ✅ **整文件下沉可行**（D-204 手法） |
 | `Tool` 类型组（7 文件：`Tool` · `ToolUseContext` · `ToolResult` · `ToolProgress` · `ToolDef` · `PermissionContext` · `PermissionResult`） | `tools/types/**` | ✅ 仅**内部相互引用** + `@modules/core`（`Tool.ts:9` 取 core 的协议层 `Message`）⇒ **无 app 依赖** | ✅ **整组下沉可行**；⚠️ `tools/types/index.ts` 另转出 2 个 app 产物（`ClipboardOutput`/`ImageEditOutput`）**须留在原址** |
 | `Command` | 三处并存：`commands/types/index.ts:39` · `lsp/types.ts:243` · **`types/index.ts:36`（已在类型中心！）** | 待逐处核 | ⚠️ **须先辨析**（是否同形）；若同形 ⇒ 消费者直接改走 `@modules/types` 即可（**零新文件**） |
-| `ChatMessage` | `ai/models/types.ts:277`（另有 `chat/models/types.ts:43` extends `AIMessage`） | 待核（同文件含 `AIService`/`AIMessage`/`AIMessageRole`/`AIModelType`） | ⏳ 待取证 |
-| `AIService` / `AIMessage` / `AIMessageRole` / `AIModelType` | `ai/models/types.ts:223/167/160/29` | 待核 | ⏳ 待取证 |
-| `SystemPromptContext` | `ai/prompts/SystemPromptBuilder.ts:15`（与 `buildSystemPrompt` 同文件） | 待核 | ⏳ 待取证（**值 + 类型同源** ⇒ 类型下沉与值的取用需同批） |
+| `ChatMessage` | `ai/models/types.ts:277`（另有 `chat/models/types.ts:43` extends `AIMessage`） | ✅ **零 app 导入**（文件仅 `import { readFileSync } from 'node:fs'`，`types.ts:21`；`ContentPart`/`ToolCall` 均同文件局部） | ✅ **可下沉**（→ `@modules/types`）；⚠️ **先须辨析同名**（`chat/models/types.ts:43` 域类型 / `components/ui/ChatMessage.tsx` React 组件 / `tools/repair/types.ts`）—— D3 不得合并；`DataMessage` 与之**不等价**（无 `id/sessionId/type/timestamp`，多 `tool_result`，定义处注释已声明「勿直接互换」） |
+| `AIService` / `AIMessage` / `AIMessageRole` / `AIModelType` | `ai/models/types.ts:223/167/160/29` | ✅ **零 app 导入**（同文件仅 `node:fs`；引用全为同文件局部类型） | ✅ **四个均可下沉**（→ `@modules/types`，非 `core/data-models`）；`AIMessageRole` ↔ `DataMessageRole`(`data-models.ts:50`) **取值域相同、形态不同**（enum vs union）⇒ 归一为非零改动；`AIMessage`/`ChatMessage` 与 `DataMessage` **不等价**（见左）。消费方：`AIModelType` 9 · `AIMessageRole` 25 · `AIMessage` 14 · `AIService` 15（真 import 9）文件 |
+| `SystemPromptContext` | `ai/prompts/SystemPromptBuilder.ts:15`（与 `buildSystemPrompt` 同文件） | ❌ **含 app 依赖**：字段 `modelGuidanceMode` ← `./ModelGuidance`（`ModelGuidanceMode`，ai=**app** 层）；同文件值还依赖 `@modules/error`/`security`/`monitoring`(infra)+`./PlatformHints`(app) | ❌ **不下沉 ⇒ 端口/门面**（D6：下沉会在 core 新增 `core -> app` 边）。✅ **端口已落地**：`runtime/api/aiOpsPorts.ts:173-181` 的 `SystemPromptContextDto`（`modelGuidanceMode` 收宽为 `string`）+ `buildSystemPromptText`（`:288`），消费方 `services/prompt/PromptAssembler.ts:16/53` 已改用；**值+类型同源 ⇒ 唯一合 D6 形态即"类型留原地 + 跨层走端口"** |
 
 ### 2.3 ⚠️ 三分辨析：`Message` **不是**同一个东西（**不得合并**）
 
@@ -104,8 +104,8 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 | 5 | `MessageAttachment`(:102) | `id` 必填 · `type: AttachmentType`(9 值) · `url?` · `data?` · `size?` · `contentType?` · `metadata?` | `DataAttachment`(:147) | ❌ **不等价**：Data 侧 `url` **必填**、**无 `id`/`data`/`metadata`**、`type: string` |
 | 6 | `Tool` 组（`tools/types/**` 7 文件） | `Tool`/`ToolInfo`/`ToolParam`/`ToolUseContext`/`ToolResult`/`ToolProgress`/`PermissionResult` | **无** | ❌ **无对应物** ⇒ 只能**端口/门面** |
 | 7 | `Command`（3 处并存：`commands/types/index.ts:39` · `lsp/types.ts:243` · **`types/index.ts:36`**） | CLI 命令接口 | **无**（`data-models` 未收 `Command`） | ⚠️ 须**三处辨析**（是否同形）⇒ 同形者可在"`types/` 自身"内收口（不涉 `data-models`） |
-| 8 | `AIService`/`AIMessage`/`AIMessageRole`/`AIModelType`/`ChatMessage`（`ai/models/types.ts:223/167/160/29/277`） | AI 服务与消息（**协议向**） | **无** | ❌ **无对应物** ⇒ 端口/门面 |
-| 9 | `SystemPromptContext`（`ai/prompts/SystemPromptBuilder.ts:15`） | 提示词组装上下文 | **无** | ❌ **无对应物** ⇒ 与值 `buildSystemPrompt` 同批（端口/门面） |
+| 8 | `AIService`/`AIMessage`/`AIMessageRole`/`AIModelType`/`ChatMessage`（`ai/models/types.ts:223/167/160/29/277`） | AI 服务与消息（**协议向**） | **无** | ⚠️ **订正（T6 取证，2026-10-05）**：**无对应物 ≠ 必须端口** —— D6 判据是"出向依赖是否含 app"；该 5 类型所在文件**仅 import `node:fs`** ⇒ **可下沉至 `@modules/types`**（落点非 `core/data-models`） |
+| 9 | `SystemPromptContext`（`ai/prompts/SystemPromptBuilder.ts:15`） | 提示词组装上下文 | **无** | ✅ **端口/门面**（**理由订正为 D6**：字段引 app 层 `ModelGuidanceMode` ⇒ 下沉会给 core 添 `core -> app` 边）；与值 `buildSystemPrompt` 同批，端口 `SystemPromptContextDto` 已落地 |
 
 ### 📌 对照表结论（决定 B 的落地形态）
 
@@ -203,7 +203,7 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 | **T3** | ~~`tools/types/**` 7 文件 → `types/tools/**`~~ | ⛔ **作废（见 §0）** | — | ⛔ |
 | **T4** | ~~消费方切低位：子批 E `tools` 组 4 文件~~ | ⛔ **作废（见 §0）** | — | ⛔ |
 | **T5** | `Command` 辨析与收口：核 `types/index.ts:36` ↔ `commands/types/index.ts:39` ↔ `lsp/types.ts:243` 是否同形；同形 ⇒ 消费者直接改 `@modules/types`（**零新文件**）；不同形 ⇒ 按 D3 处理 | **−1**（`mcp/MCPCacheManager.ts`） | 辨析结论写入本 spec 附注 | ⬜ |
-| **T6** | `ai` 组待取证项：`AIService`/`AIMessage`/`AIMessageRole`/`AIModelType`/`ChatMessage`/`SystemPromptContext` 逐项按 D6 判"下沉 or 端口" | 取决于取证 | 取证结论回填本表；`ai` 组剩余边随 `layer-inversion` §3.5 (b)/(c) 推进 | ⬜ |
+| **T6** | `ai` 组待取证项：`AIService`/`AIMessage`/`AIMessageRole`/`AIModelType`/`ChatMessage`/`SystemPromptContext` 逐项按 D6 判"下沉 or 端口" | 取决于取证 | ✅ **取证已完成并回填 §2.2（2026-10-05）**：前 5 项（同出 `ai/models/types.ts`，该文件**仅 import `node:fs`** ⇒ 出向零 app 依赖）按 D6 判 **可下沉**（落点 `@modules/types`）；`SystemPromptContext` 因字段引 app 层 `ModelGuidanceMode` ⇒ **不下沉，端口已落地**（`aiOpsPorts.ts:173`）。⚠️ **关键纠正**：D6 判据是"出向依赖是否含 app"，**非**"有无 `Data*` 对应物"（§2.4 #8/#9 原由"无对应物"推"只能端口"的口径已订正）；且 `AIMessageRole`↔`DataMessageRole` 值集相同、`AIMessage`/`ChatMessage`↔`DataMessage` **不等价** ⇒ 落点是类型中心非 `core/data-models`。实际搬迁随 `layer-inversion` §3.5 (b)/(c) 推进 | ✅ |
 | **T7（可选）** | R02-002 现存告警：`ToolSearchOutput` 三处重复定义（`components/ui/toolUIs/ToolSearchTool/UI.tsx` · `tools/ToolSearchTool/schemas.ts` · `tools/ToolSearchTool/ToolSearchTool.ts`）统一到单一模块 | 清 `R02-002` 1 条 | 门禁 `R02-002` 归零 | ⬜ |
 
 **建议顺序**：T1 → T2（一次 −7，收益最大）→ T3 → T4 → T5 → T6 → T7。

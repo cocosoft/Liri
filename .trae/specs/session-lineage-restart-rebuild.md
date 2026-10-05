@@ -109,7 +109,7 @@ export function rebuildSessionLineage(
 | `app/src/session/lineage/sessionLineage.ts` | 新增 `LineageRebuildStats` + `rebuildSessionLineage()`（纯函数）；改写头注释的失效边界与 L11-16 第②条 |
 | `app/src/session/recovery/RecoveryOrchestrator.ts` | 端口加 `rebuild()`；④ 步骤改调用；报告 `rebuilt: boolean` + 真实 reason（成功带"扫描 N/登记 M/净化丢弃 K（原因×条数）"）；删除 `LINEAGE_NOT_REBUILT_REASON`（改 `LINEAGE_PENDING_REASON` 占位）+ 新增 `describeDropped()` |
 | `app/src/chat/ChatManager.ts` | L4997-5013 端口实现：读取全量会话（`includeTemporary: true`）→ `rebuildSessionLineage` |
-| `app/src/session/types/Session.ts` | **（实现期新发现，需此可选项才能不漏 temporary 会话）** `SessionFilter` 增 `includeTemporary?: boolean` |
+| `app/src/session/types/UnifiedSession.ts` | **（实现期新发现，需此可选项才能不漏 temporary 会话）** `SessionFilter` 增 `includeTemporary?: boolean`。⚠️ **路径订正（2026-10-05）**：原写 `types/Session.ts`，该文件不存在；实际为 `types/UnifiedSession.ts` |
 | `app/src/session/SessionGateway.ts` | `listSessions()` 兑现 `includeTemporary`（默认 `false` ⇒ 既有调用方行为不变） |
 | `app/src/session/index.ts` | 桶导出 `rebuildSessionLineage` 与三个重建类型 |
 | `app/tests/session/sessionLineageRebuild.test.ts` | **新建** 9 例（基本 / 顺序无关 / 空字段 / 自环 / 环 / 超深 / parent-unknown / 幂等 / 重建后 fork 守卫恢复） |

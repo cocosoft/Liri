@@ -17,6 +17,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { feature } from '@modules/core';
 
 const logger = getLogger('query:verifierAgent');
 
@@ -59,6 +60,17 @@ export interface VerifierAgentConfig {
   confidenceThreshold: number;
   /** 验证超时（毫秒），默认 60_000 */
   timeoutMs: number;
+  /**
+   * 13-P0-1（2026-10-05，《Agentic Design Patterns》21 模式复查 P0）：
+   * **降级路径 fail-closed**（默认 true）。
+   *
+   * 语义：验证器**自身不可用/异常/响应不可解析**时 ⇒ 返回 `passed:false`（`verdict='ESCALATE'`，
+   * 交调用方按"不放行"处理），而不再降级为 `APPROVE`（原实现 = "验证器故障 ⇒ 验收通过"）。
+   *
+   * 灰度：不传时取 feature flag `VERIFIER_FAIL_CLOSED`（默认 true，可经 `FEATURE_VERIFIER_FAIL_CLOSED=false` 回退旧行为）。
+   * 注意：`enabled=false`（用户显式关闭验证）**不受本项影响**，仍视为放行（用户已选择不验证）。
+   */
+  failClosed?: boolean;
   /**
    * Teamwork P2b（2026-09-06）：REJECT 时 pitfall 记录钩子（P1-2 pitfall 注册表写入点）。
    * 由上层（编排器）注入 PitfallRegistry.record；未注入 no-op——现状零变化。
@@ -229,6 +241,16 @@ export class VerifierAgent {
   }
 
   /**
+   * 13-P0-1（2026-10-05）：降级路径是否 **fail-closed**。
+   *
+   * 取值优先级：显式配置 `config.failClosed` → feature flag `VERIFIER_FAIL_CLOSED`
+   * （默认 true；可经 `FEATURE_VERIFIER_FAIL_CLOSED=false` 回退旧 fail-open 行为）。
+   */
+  private _isFailClosed(): boolean {
+    return this.config.failClosed ?? feature('VERIFIER_FAIL_CLOSED');
+  }
+
+  /**
    * 设置模型调用函数（由 TAORLoop 注入）
    */
   setCallModel(
@@ -271,6 +293,16 @@ export class VerifierAgent {
 
     if (!this.callModel) {
       logger.warn('VerifierAgent 未设置 callModel，跳过验证');
+      if (this._isFailClosed()) {
+        // 13-P0-1：验证器不可用 ⇒ 不放行（原为 APPROVE：「验证器不可用 ⇒ 验收通过」）
+        return {
+          passed: false,
+          confidence: 0,
+          verdict: 'ESCALATE',
+          feedback:
+            '验证器未配置模型（callModel 未注入），按 fail-closed 不放行；请人工确认工具结果是否正确。',
+        };
+      }
       return { passed: true, confidence: 0.5, verdict: 'APPROVE' };
     }
 
@@ -329,7 +361,16 @@ export class VerifierAgent {
         action: '验证过程',
       });
 
-      // 验证本身失败 → 降级为 APPROVE（不阻断主流程，但置信度极低）
+      if (this._isFailClosed()) {
+        // 13-P0-1：验证过程异常 ⇒ 不放行（原为 APPROVE：「验证器故障 ⇒ 验收通过」）
+        return {
+          passed: false,
+          confidence: 0,
+          verdict: 'ESCALATE',
+          feedback: `验证过程异常（${String(error).slice(0, 100)}），按 fail-closed 不放行；请人工确认工具结果是否正确。`,
+        };
+      }
+      // 回退旧行为（fail-open；仅当显式关闭 fail-closed 时）
       return {
         passed: true,
         confidence: 0.1, // 从 0.3 降到 0.1，明确表达不确定性
@@ -438,10 +479,19 @@ export class VerifierAgent {
             : undefined,
       };
     } catch (err) {
-      // JSON 解析失败 → 降级为 APPROVE
-      logger.warn('验证响应 JSON 解析失败，降级通过', {
+      logger.warn('验证响应 JSON 解析失败', {
         responsePreview: text.slice(0, 200),
+        failClosed: this._isFailClosed(),
       });
+      if (this._isFailClosed()) {
+        // 13-P0-1：响应不可解析 ⇒ 不放行（原为 APPROVE：「验证失败 ⇒ 验收通过」）
+        return {
+          passed: false,
+          confidence: 0,
+          verdict: 'ESCALATE',
+          feedback: '验证响应解析失败，按 fail-closed 不放行；请人工确认。',
+        };
+      }
       return {
         passed: true,
         confidence: 0.3,

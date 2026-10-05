@@ -105,8 +105,10 @@ export function setMemoryContentHash(hash: string): void {
  *
  * `StaticPromptSectionName` 由其**推导**（非手工联合）；app 侧内置段落对象按键名与之对齐，
  * 未注册前的段顺序由本清单决定（见 `getRegisteredSections()`）。
+ *
+ * 导出供测试锁定「注册后段顺序 == 本清单顺序」（P1-4 T4①，2026-10-05）。
  */
-const SECTION_NAMES = [
+export const SECTION_NAMES = [
   'identity',
   'projectRules',
   'toolsConvention',
@@ -169,6 +171,20 @@ export function registerSectionCacheClearers(
   clearers: Array<() => void>
 ): void {
   _sectionCacheClearers = clearers;
+}
+
+/**
+ * 测试专用：把注入槽重置为**未注册态**（`_builtinSections = null`）。
+ *
+ * 用途：锁定「未注册 ⇒ `getRegisteredSections()` 返回空数组」这一兜底契约
+ * （P1-4 T4②，2026-10-05）—— 该分支在生产只在启动注册前短暂存在，进程级单例下
+ * 无法用常规用例触达。**测后必须重新 `registerPromptSections()` 复原**
+ * （见 `promptSectionLayersGate.test.ts` 的 afterAll）。
+ */
+export function resetBuiltinSectionsForTest(): void {
+  _builtinSections = null;
+  registeredSections = [];
+  _warnedUnregisteredSections = false;
 }
 
 /**

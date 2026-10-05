@@ -47,6 +47,13 @@ export const FEATURE_FLAGS = {
   AGENT_TRIGGERS_REMOTE: false,
   /** 验证代理 */
   VERIFICATION_AGENT: true,
+  /**
+   * 13-P0-1（2026-10-05）：验证器**降级路径 fail-closed**（默认开）。
+   *
+   * 验证器自身不可用/异常/响应不可解析 ⇒ `passed:false`（ESCALATE），不再降级为 APPROVE。
+   * 灰度回退旧行为：`FEATURE_VERIFIER_FAIL_CLOSED=false`（`feature()` 的 env 覆盖约定）。
+   */
+  VERIFIER_FAIL_CLOSED: true,
   /** 代理协调模式 */
   COORDINATOR_MODE: false,
   /** 主动模式 */

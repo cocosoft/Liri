@@ -34,7 +34,12 @@
  *    并对 N-60 的具体场景加回归锁。
  */
 import { describe, it, expect, beforeAll } from 'bun:test';
-import { getRegisteredSections } from '../../src/constants/systemPromptSections';
+import {
+  getRegisteredSections,
+  resolveSystemPromptSections,
+  resetBuiltinSectionsForTest,
+  SECTION_NAMES,
+} from '../../src/constants/systemPromptSections';
 import {
   isSectionDeclared,
   isSectionVisibleIn,
@@ -75,5 +80,24 @@ describe('提示词段落登记门禁', () => {
     expect(text).toContain('向用户询问项目');
     expect(text).toContain('不要用 `grep`/`glob`/`read` 在工作区里搜寻项目');
     expect(text).toContain('write_project_file');
+  });
+
+  // ─── P1-4 T4：拆分后必须锁定的两条精确断言（2026-10-05）───
+
+  it('T4①：注册后段集合与顺序 == SECTION_NAMES（顺序唯一事实源，无重复）', () => {
+    const names = getRegisteredSections().map((s) => s.name);
+    expect(names).toEqual([...SECTION_NAMES]);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('T4②：未注册 ⇒ getRegisteredSections()/resolveSystemPromptSections() 返回空（兜底契约，不抛错）', async () => {
+    try {
+      resetBuiltinSectionsForTest();
+      expect(getRegisteredSections()).toEqual([]);
+      expect(await resolveSystemPromptSections()).toEqual([]);
+    } finally {
+      // 复原注入槽，避免污染同进程后续测试文件（进程级单例）
+      registerPromptSections();
+    }
   });
 });

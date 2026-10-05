@@ -1,6 +1,6 @@
 # Spec：A1 Fail-Closed 受阻机制（结构化挂起清单 + 显式 `cancel_requested`）
 
-> **状态**：� **已实施（T1–T6，2026-10-05）** —— 全部任务交付并按 §8 验收通过（门禁见 §8-5）
+> **状态**：✅ **已实施（T1–T6，2026-10-05）** —— 全部任务交付并按 §8 验收通过（门禁见 §8-5）
 > **来源**：[`liri-upgrade-plan-20260928.md`](../../dev_docs/20260928/liri-upgrade-plan-20260928.md) §2-A **A1**（外部 CodeMidas/多 Agent 测试类建议）；任务计划 `dev_docs/任务计划-20261004.md` §2.4 **B-13**
 > **关联规则**：GR15（Spec-Driven）/ GR01（基础设施复用）/ GR02（实现唯一性）/ GR03（证据驱动）/ CS01（归一化）/ **CS02（状态检测禁止字符串匹配）** / CS03（回退最小化）/ CS05（根因优先）/ `project_rules.md §1.6`（**「模型可见 ⇔ 已落盘」红线**）/ §1.9（错误处理）/ §1.14（通道规范，仅涉及不破）
 > **明确不重复**：`wait-state-visibility`（等待态**可见性**）/ `system-abort-reason-hardening`（**中止标记判据**）/ `agent-run-ports`（子代理台账**取消端口**）/ `workflow-bounded-cancel`（工作流有界取消）—— 边界见 §3

@@ -95,7 +95,9 @@ import type {
 } from '@modules/runtime/api/CoreAPI.js';
 import {
   shouldAsk as decisionGateCheck,
+  isGateCancelled,
   type GateTier,
+  type PendingOption,
 } from './services/DecisionGate';
 import {
   loadNegotiationState,
@@ -1120,19 +1122,24 @@ export class ReActToolLoop extends ReActLoop<
             'execute'
           );
           if (gateQuestion) {
+            // 选项的结构化语义（CS02）：label 仅供展示，outcome 才是判定依据。
+            // gateQuestion.options 缺省（confirm 类问题）时下发「继续 / 取消」兜底选项。
+            const gateOptions: PendingOption[] = gateQuestion.options ?? [
+              { label: '继续', outcome: 'continue' },
+              { label: '取消', outcome: 'cancel' },
+            ];
             const gateQuestionData: QuestionData = {
               questionId: gateQuestion.id,
               question: gateQuestion.question,
               header: '决策确认',
-              options: gateQuestion.options
-                ? gateQuestion.options.map((o: string) => ({
-                    label: o,
-                    description: gateQuestion.rationale,
-                  }))
-                : [
-                    { label: '继续', description: gateQuestion.rationale },
-                    { label: '取消', description: '跳过此操作' },
-                  ],
+              options: gateOptions.map((o) => ({
+                label: o.label,
+                // 保留既有文案：显式选项统一用 rationale；兜底的「取消」用「跳过此操作」
+                description:
+                  gateQuestion.options || o.outcome === 'continue'
+                    ? gateQuestion.rationale
+                    : '跳过此操作',
+              })),
               multiSelect: false,
               questionType: gateQuestion.type,
             };
@@ -1168,9 +1175,12 @@ export class ReActToolLoop extends ReActLoop<
               questionId: gateQuestionData.questionId,
               question: gateQuestionData.question,
               header: gateQuestionData.header,
-              options: gateQuestionData.options.map((o) => ({
+              options: gateQuestionData.options.map((o, i) => ({
                 label: o.label,
                 description: o.description,
+                // CS02：结构化语义一并落盘 —— 回放 / 审计据此重建「取消」判定，
+                // 无需再对 label 做字面量匹配（事件日志即结构化事实源，用既有事件类型）
+                outcome: gateOptions[i]?.outcome,
               })),
               multiSelect: gateQuestionData.multiSelect,
             });
@@ -1188,13 +1198,8 @@ export class ReActToolLoop extends ReActLoop<
             if (this.negotiationState && gateAnswers) {
               recordAnswer(this.negotiationState, gateQuestion.id, gateAnswers);
             }
-            if (
-              !gateAnswers ||
-              gateAnswers.length === 0 ||
-              gateAnswers[0] === '取消' ||
-              gateAnswers[0] === '跳过' ||
-              gateAnswers[0] === '中止'
-            ) {
+            // CS02：判定依据选项的结构化 outcome（isGateCancelled），不再匹配 label 字面量
+            if (isGateCancelled(gateOptions, gateAnswers)) {
               logger.info('reactToolLoop:gate_rejected', {
                 sessionId: this.ctx.session.id,
                 toolCallId: tc.id,

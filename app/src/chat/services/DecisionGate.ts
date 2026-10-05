@@ -28,12 +28,23 @@ export type GateSignal =
   | { kind: 'external_action'; toolName: string }
   | { kind: 'unexpected_result'; toolName: string; detail: string };
 
+/**
+ * 门控选项（CS02 结构化语义）。
+ *
+ * `label` 仅作展示（可本地化 / 改名）；`outcome` 才是**业务判定依据**（唯一事实源）。
+ * 禁止在业务逻辑里匹配 `label` 字面量 —— 取消判定统一走 `isGateCancelled()`。
+ */
+export interface PendingOption {
+  label: string;
+  outcome: 'continue' | 'cancel';
+}
+
 /** 待确认问题（对齐设计方案 §5.2 PendingQuestion） */
 export interface PendingQuestion {
   id: string;
   type: 'choice' | 'open' | 'confirm';
   question: string;
-  options?: string[];
+  options?: PendingOption[];
   rationale: string;
   stage: 'plan' | 'execute' | 'review';
   signal?: GateSignal;
@@ -202,7 +213,13 @@ function buildPendingQuestion(
         id,
         type: 'choice',
         question: `工具 ${signal.toolName} 上一步执行失败：${signal.detail}。如何处理？`,
-        options: ['重试', '跳过', '中止'],
+        // CS02：outcome 在构造处声明（重试=继续 / 跳过·中止=取消）；
+        // 判定不得匹配 label 字面量，改文案（如「算了」）不影响语义。
+        options: [
+          { label: '重试', outcome: 'continue' },
+          { label: '跳过', outcome: 'cancel' },
+          { label: '中止', outcome: 'cancel' },
+        ],
         rationale: '工具执行结果与预期不符，需用户决策后续动作。',
         stage: phase,
         signal,
@@ -283,10 +300,36 @@ export function defaultAnswerForTimeout(
 ): string[] | null {
   switch (question.type) {
     case 'choice':
-      return question.options?.slice(0, 1) ?? null;
+      return question.options?.slice(0, 1).map((o) => o.label) ?? null;
     case 'confirm':
       return ['确认'];
     case 'open':
       return null; // 跳过
   }
+}
+
+// ─── 门控答复判定（CS02：结构化语义，禁止匹配 label 字面量）───────
+
+/**
+ * 判定门控答复是否表示「取消执行」。
+ *
+ * **CS02 根因修复**：判定依据是选项的**结构化 `outcome`**，而非 `label` 文案 ——
+ * 文案本地化 / 改名（如把「取消」改为「算了」）**不影响**判定，因为 `outcome`
+ * 在选项**构造处**（`buildPendingQuestion` / 兜底选项）一次性声明。
+ *
+ * `label` 仅作"用户在本题选了哪一项"的**定位键**（现有答复链路只回传 label 文本，
+ * `PendingQuestion.options` 无 wire id，见 `a1-fail-closed-pending-queue.md` §4.2）。
+ *
+ * @param options 本题下发过的选项（含结构化 outcome）
+ * @param answers 用户答复（取首项）
+ * @returns 空答复（未答 / 超时）= true（fail-closed）；选中项 `outcome='cancel'` = true；
+ *          未知 label（如"其他"自由文本）或选中项 `outcome='continue'` = false
+ */
+export function isGateCancelled(
+  options: PendingOption[],
+  answers?: string[]
+): boolean {
+  if (!answers || answers.length === 0) return true;
+  const selected = options.find((o) => o.label === answers[0]);
+  return selected?.outcome === 'cancel';
 }

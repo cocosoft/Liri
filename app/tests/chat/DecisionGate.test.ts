@@ -15,9 +15,11 @@ import {
   shouldAsk,
   checkTimeout,
   defaultAnswerForTimeout,
+  isGateCancelled,
   type GateTier,
   type StepContext,
   type PendingQuestion,
+  type PendingOption,
 } from '../../src/chat/services/DecisionGate.js';
 
 describe('DecisionGate', () => {
@@ -182,7 +184,7 @@ describe('DecisionGate', () => {
       expect(q!.stage).toBe('plan');
     });
 
-    it('unexpected_result 返回 choice 类型并带选项', () => {
+    it('unexpected_result 返回 choice 类型并带结构化选项', () => {
       const step: StepContext = {
         toolName: 'read_file',
         toolInput: {},
@@ -191,7 +193,11 @@ describe('DecisionGate', () => {
       const q = shouldAsk(step, 'moderate');
       expect(q).not.toBeNull();
       expect(q!.type).toBe('choice');
-      expect(q!.options).toEqual(['重试', '跳过', '中止']);
+      expect(q!.options).toEqual([
+        { label: '重试', outcome: 'continue' },
+        { label: '跳过', outcome: 'cancel' },
+        { label: '中止', outcome: 'cancel' },
+      ]);
     });
   });
 
@@ -222,7 +228,11 @@ describe('DecisionGate', () => {
         id: 'test',
         type: 'choice',
         question: 'test',
-        options: ['重试', '跳过', '中止'],
+        options: [
+          { label: '重试', outcome: 'continue' },
+          { label: '跳过', outcome: 'cancel' },
+          { label: '中止', outcome: 'cancel' },
+        ],
         rationale: 'test',
         stage: 'execute',
       };
@@ -249,6 +259,44 @@ describe('DecisionGate', () => {
         stage: 'execute',
       };
       expect(defaultAnswerForTimeout(q)).toBeNull();
+    });
+  });
+
+  // ─── isGateCancelled（CS02 结构化判定）──────────────────
+
+  describe('isGateCancelled', () => {
+    // 证伪控制组：label 不是「取消」，仍必须判为取消 —— 证明判定依据是 outcome 而非文案
+    const falsifyOptions: PendingOption[] = [
+      { label: '开始', outcome: 'continue' },
+      { label: '算了', outcome: 'cancel' },
+    ];
+
+    it('证伪用例：取消项文案改为「算了」仍生效', () => {
+      expect(isGateCancelled(falsifyOptions, ['算了'])).toBe(true);
+    });
+
+    it('继续项（文案任意）→ false', () => {
+      expect(isGateCancelled(falsifyOptions, ['开始'])).toBe(false);
+    });
+
+    it('真实门控选项：跳过 / 中止 → true，重试 → false', () => {
+      const opts: PendingOption[] = [
+        { label: '重试', outcome: 'continue' },
+        { label: '跳过', outcome: 'cancel' },
+        { label: '中止', outcome: 'cancel' },
+      ];
+      expect(isGateCancelled(opts, ['跳过'])).toBe(true);
+      expect(isGateCancelled(opts, ['中止'])).toBe(true);
+      expect(isGateCancelled(opts, ['重试'])).toBe(false);
+    });
+
+    it('空答复 / 未答 → true（fail-closed）', () => {
+      expect(isGateCancelled(falsifyOptions, [])).toBe(true);
+      expect(isGateCancelled(falsifyOptions, undefined)).toBe(true);
+    });
+
+    it('未知 label（「其他」自由文本）→ false（不误判取消）', () => {
+      expect(isGateCancelled(falsifyOptions, ['随便说说'])).toBe(false);
     });
   });
 });

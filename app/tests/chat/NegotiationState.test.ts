@@ -165,7 +165,10 @@ describe('NegotiationState', () => {
         id: 'q_test_2',
         type: 'choice',
         question: '选择方案？',
-        options: ['A', 'B'],
+        options: [
+          { label: 'A', outcome: 'continue' },
+          { label: 'B', outcome: 'cancel' },
+        ],
         rationale: '需要用户选择',
         stage: 'plan',
       };
@@ -217,7 +220,10 @@ describe('NegotiationState', () => {
         id: 'q_persist',
         type: 'choice',
         question: '选择？',
-        options: ['A', 'B'],
+        options: [
+          { label: 'A', outcome: 'continue' },
+          { label: 'B', outcome: 'cancel' },
+        ],
         rationale: '持久化测试',
         stage: 'plan',
       };

@@ -6,7 +6,11 @@
  *
  * 持久化：
  *   序列化到 ~/.pyapp/data/negotiation/<sessionId>.json
- *   应用启动时检测 awaitingUser=true 则恢复挂起提问
+ *   ⚠️ **「启动时恢复挂起提问」尚未接线（2026-10-05 复核订正）**：本文件曾声称
+ *   「应用启动时检测 awaitingUser=true 则恢复挂起提问」，但恢复判据 `hasPendingRestoration()`
+ *   （本文件 `:239`）在 `app/src` 内**零调用点** ⇒ 该能力**不存在**（会话重启后挂起提问不会
+ *   自动恢复）。⇒ 待 `.trae/specs/a1-fail-closed-pending-queue.md` **T3**（挂起清单单一事实源 +
+ *   启动重建）落地后接线；台账：`dev_docs/error_repairs/预存错误与待处理问题.md`（2026-10-05「失实自称」节）
  *
  * 生命周期：创建于首轮分析、随会话销毁清理
  */
@@ -235,6 +239,10 @@ export function recordAnswer(
 
 /**
  * 检测是否有挂起的提问需要恢复（应用重启后）
+ *
+ * ⚠️ **当前零调用点（2026-10-05 复核）** —— 即"重启恢复"**未接线**（本文件头注已订正，不再声称已具备）。
+ * 接线属 `.trae/specs/a1-fail-closed-pending-queue.md` **T3**（挂起清单单一事实源 + 启动重建）；
+ * 接线前**不得**在文档/注释中把它当作既有能力。
  */
 export function hasPendingRestoration(
   state: NegotiationState | null

@@ -674,6 +674,12 @@ export interface LiriEventMap {
     options: Array<{
       label: string;
       description?: string;
+      /**
+       * CS02（2026-10-05）：选项的**结构化语义**（决策门控下发时写入）。
+       * 回放 / 审计据此重建「取消」判定，无需对 `label` 做字面量匹配。
+       * 非门控提问（普通 question 工具）无此字段。
+       */
+      outcome?: 'continue' | 'cancel';
     }>;
     multiSelect?: boolean;
   };

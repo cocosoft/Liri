@@ -90,6 +90,15 @@ interface ChannelStateEntry {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   /** 重连执行中守卫，防止并发 connect */
   reconnecting: boolean;
+  /**
+   * 连续探测失败计数（BUG-04 遗留加固，2026-10-05）。
+   *
+   * 进程忙/GC 阻塞时（单线程 JS，心跳处理与探测共用被阻塞的事件循环）心跳 ACK
+   * 长时间不更新 ⇒ 探测判"不健康"，但连接实际存活。故**单次失败不判死**：
+   * 仅 `healthy===false && channel.connected` 时递增；`healthy===true` 清零；
+   * 超时（不确定态）不改。
+   */
+  consecutiveProbeFailures: number;
 }
 
 export interface ChannelRealtimeMonitorConfig {
@@ -101,6 +110,14 @@ export interface ChannelRealtimeMonitorConfig {
   reconnectMaxMs: number;
   /** 错误快照最大长度 */
   maxErrorSnapshot: number;
+  /**
+   * 单次健康探测的超时（ms，默认 3000，BUG-04 遗留加固 2026-10-05）。
+   * 超时视为**不确定态**（`healthy=null`，本轮不参与判定）——防慢探测阻塞 probeAll，
+   * 也避免进程忙时误判为死链。
+   */
+  healthCheckTimeoutMs: number;
+  /** 连续探测失败达该阈值才转入 error 并自愈（默认 2，防忙时单次/瞬时误判） */
+  maxConsecutiveProbeFailures: number;
 }
 
 const DEFAULT_CONFIG: ChannelRealtimeMonitorConfig = {
@@ -108,6 +125,8 @@ const DEFAULT_CONFIG: ChannelRealtimeMonitorConfig = {
   reconnectBaseMs: 2000,
   reconnectMaxMs: 300000,
   maxErrorSnapshot: 2000,
+  healthCheckTimeoutMs: 3000,
+  maxConsecutiveProbeFailures: 2,
 };
 
 export class ChannelRealtimeMonitor {
@@ -350,8 +369,20 @@ export class ChannelRealtimeMonitor {
 
     await this.probeChannel(channelId);
 
-    // 状态校正：内存态 connected 但探测不健康 → error + 自愈
-    const probeFailed = entry.healthy === false && channel.connected;
+    // BUG-04 遗留加固（2026-10-05）：维护"连续探测失败"计数 ——
+    // 探测健康 ⇒ 清零；"connected 但不可达" ⇒ 递增；超时不确定态 ⇒ 不变。
+    if (entry.healthy === true) {
+      entry.consecutiveProbeFailures = 0;
+    } else if (entry.healthy === false && channel.connected) {
+      entry.consecutiveProbeFailures += 1;
+    }
+
+    // 状态校正：内存态 connected 但**连续**探测不健康达阈值 → error + 自愈。
+    // （单次/瞬时误判只计数不触发，避免进程忙时无谓自愈风暴；真死链下一轮即达阈值。）
+    const probeFailed =
+      entry.healthy === false &&
+      channel.connected &&
+      entry.consecutiveProbeFailures >= this.config.maxConsecutiveProbeFailures;
     if (probeFailed) {
       entry.lastError = '渠道健康探测不可达';
       logger.warning(
@@ -374,6 +405,16 @@ export class ChannelRealtimeMonitor {
       });
       this.setStatus(channelId, 'error', { reason: 'probe-failed' });
       this.scheduleReconnect(channelId);
+    } else if (entry.healthy === false && channel.connected) {
+      // 未达连续失败阈值：仅记录，待下一轮确认（忙时单次/瞬时误判不触发自愈）
+      logger.warning(
+        `探测分支：内存态 connected 但探测不可达（未达连续失败阈值，暂不自愈）— ${channelId}`,
+        {
+          consecutiveProbeFailures: entry.consecutiveProbeFailures,
+          threshold: this.config.maxConsecutiveProbeFailures,
+          latencyMs: entry.latencyMs,
+        }
+      );
     } else if (entry.healthy === false && entry.status === 'error') {
       // error 态持续探测失败但无定时器（如曾因禁用被清理）→ 恢复自愈调度
       logger.info(
@@ -408,7 +449,7 @@ export class ChannelRealtimeMonitor {
 
   /** 真实健康探测：优先 lifecycle.healthCheck()，legacy 通道回退 connected 布尔 */
   private async probeChannel(channelId: string): Promise<{
-    healthy: boolean;
+    healthy: boolean | null;
     latencyMs: number;
   } | null> {
     const channel = channelRegistry.get(channelId);
@@ -416,14 +457,35 @@ export class ChannelRealtimeMonitor {
 
     const entry = this.ensureEntry(channelId);
     const start = Date.now();
-    let healthy: boolean;
+    let healthy: boolean | null;
     let latencyMs: number;
     let usedRealProbe = false;
 
     if (typeof channel.healthCheck === 'function') {
-      const probe = await channel.healthCheck();
-      healthy = probe.healthy;
-      latencyMs = probe.latencyMs || Date.now() - start;
+      // BUG-04 遗留加固（2026-10-05）：探测加超时 ⇒ 进程被高负载/GC 阻塞时，
+      // 心跳 ACK 处理与探测同抢被阻塞的事件循环，慢探测既会阻塞 probeAll，
+      // 又会被误判为死链。超时判为**不确定态**（`healthy=null`，本轮不参与判定）。
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timeoutId = setTimeout(
+          () => resolve(null),
+          this.config.healthCheckTimeoutMs
+        );
+      });
+      const raced = await Promise.race([channel.healthCheck(), timeoutPromise]);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (raced === null) {
+        logger.warn(
+          `渠道健康探测超时（不确定态，本轮不参与判定）: ${channelId}`,
+          { timeoutMs: this.config.healthCheckTimeoutMs }
+        );
+        entry.healthy = null;
+        entry.latencyMs = null;
+        entry.lastProbeAt = Date.now();
+        return { healthy: null, latencyMs: this.config.healthCheckTimeoutMs };
+      }
+      healthy = raced.healthy;
+      latencyMs = raced.latencyMs || Date.now() - start;
       usedRealProbe = true;
     } else {
       // legacy 直注册的 ChannelInterface 无 healthCheck（Gateway 遗留通道）
@@ -434,7 +496,7 @@ export class ChannelRealtimeMonitor {
     entry.healthy = healthy;
     entry.latencyMs = latencyMs;
     entry.lastProbeAt = Date.now();
-    if (healthy) {
+    if (healthy === true) {
       logger.debug(`渠道探测完成（健康）: ${channelId}`, {
         healthy,
         latencyMs,
@@ -655,6 +717,7 @@ export class ChannelRealtimeMonitor {
         lastErrorSnapshot: '',
         reconnectTimer: null,
         reconnecting: false,
+        consecutiveProbeFailures: 0,
       };
       this.states.set(channelId, entry);
     }

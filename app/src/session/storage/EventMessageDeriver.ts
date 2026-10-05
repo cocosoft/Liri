@@ -188,35 +188,60 @@ function isRichBlockEvent(type: LiriEventType): boolean {
   return RICH_BLOCK_TYPES.has(type);
 }
 
-/**
- * run 结束行文案（P0-1 接入点第二刀 ②b，2026-09-24）。
- *
- * 仅陈述事件载荷里**已有**的字段（CS06）：失败时附首个失败步骤、错误原因，以及
- * （P0-2 提供的）上游根因候选，便于在回放里直接看出"为什么失败"。
- * 缺字段时省略对应片段，不补默认值（如无 `durationMs` 就不显示耗时）。
- */
-function formatWorkflowRunEnd(data: Record<string, unknown>): string {
-  const workflow = typeof data.workflow === 'string' ? data.workflow : '';
-  const durationMs =
-    typeof data.durationMs === 'number' ? `，耗时 ${data.durationMs}ms` : '';
-  const done = Array.isArray(data.completedSteps)
-    ? `${data.completedSteps.length} 步`
-    : '未知步数';
-  const base = `工作流「${workflow}」`;
+// ─── 工作流 run 聚合卡片（P1-3 §12 D14，2026-10-05）────────────────────────
+//
+// 4 类事件原地聚合为**一张** `workflow_run` 卡片（替换原先各产一条 `status` 块），
+// 与前端 `deriveConversationBlocks` **逐字段同形**（镜像派生，保证回放与实时视图一致）。
+// 缺 `run_start` 的 step/run_end 事件**不建卡**（如实丢弃，不编造 —— CS06）。
 
-  if (data.stopReason === 'completed') {
-    return `${base}完成（${done}已全部完成${durationMs}）`;
-  }
-  if (data.stopReason === 'cancelled') {
-    return `${base}已取消（已完成 ${done}${durationMs}）`;
-  }
-  const failedStep =
-    typeof data.failedStep === 'string'
-      ? `失败于步骤 ${data.failedStep}`
-      : '失败';
-  const reason = typeof data.error === 'string' ? `：${data.error}` : '';
-  const upstream = rootCauseSummary(data.rootCauseCandidates);
-  return `${base}${failedStep}（已完成 ${done}${durationMs}）${reason}${upstream}`;
+function findWorkflowBlockIndex(
+  blocks: Array<Record<string, unknown>>,
+  runId: string
+): number {
+  return blocks.findIndex(
+    (b) =>
+      b.type === 'workflow_run' &&
+      (b.workflowData as { runId?: unknown } | undefined)?.runId === runId
+  );
+}
+
+function workflowDataOf(
+  block: Record<string, unknown>
+): Record<string, unknown> | undefined {
+  const d = block.workflowData;
+  return typeof d === 'object' && d !== null
+    ? (d as Record<string, unknown>)
+    : undefined;
+}
+
+function asStepRecords(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value.filter(
+        (s): s is Record<string, unknown> => typeof s === 'object' && s !== null
+      )
+    : [];
+}
+
+function readStr(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+/** 步骤结果归一：仅接受账本封闭联合（未知值 ⇒ undefined，不猜测 —— CS06） */
+function toWorkflowStepOutcome(
+  value: unknown
+): 'completed' | 'failed' | 'cancelled' | undefined {
+  return value === 'completed' || value === 'failed' || value === 'cancelled'
+    ? value
+    : undefined;
+}
+
+/** 停止原因归一（与 `workflowRunProjection.toStopReason` 同口径） */
+function toWorkflowStopReason(
+  value: unknown
+): 'completed' | 'cancelled' | 'error' | undefined {
+  return value === 'completed' || value === 'cancelled' || value === 'error'
+    ? value
+    : undefined;
 }
 
 /** 上游根因候选摘要（P0-2）；无候选或形状不符时不给该片段 */
@@ -229,7 +254,39 @@ function rootCauseSummary(value: unknown): string {
         : undefined
     )
     .filter((nodeId): nodeId is string => typeof nodeId === 'string');
-  return nodeIds.length > 0 ? `｜上游可疑：${nodeIds.join(' → ')}` : '';
+  return nodeIds.length > 0 ? `上游可疑：${nodeIds.join(' → ')}` : '';
+}
+
+// ─── D15/D16 工作流中断语义合成（P1-3 §12，2026-10-05，与 D8 工具中断同型） ───
+//
+// **只在后端重放期做**（D15：前端实时视图中 run 尚在运行，"运行中"才是准确语义，
+// 前端合成会把正在跑的 run 误判为中断）。半写残留（缺 `run_end` / 缺 `step_end`）⇒
+// run 与**仍在运行中**的步骤标 `interrupted` + 语义化指导文案；计划内未开始的步骤
+// 保持 `pending`（如实，不夸大为中断）。**不做续跑恢复**（D16：步骤是带副作用的工具
+// 调用，重放会重复副作用）。
+const WORKFLOW_INTERRUPTED_HINT =
+  '工作流执行中断，运行结果未知。若含对外副作用（如已发出邮件 / 已写入文件），请先确认外部状态，再决定是否重试。';
+
+function markOrphanWorkflowBlocks(
+  blocks: Array<Record<string, unknown>>
+): Array<Record<string, unknown>> {
+  return blocks.map((b) => {
+    if (b.type !== 'workflow_run') return b;
+    const data = workflowDataOf(b);
+    if (!data || data.status !== 'running') return b;
+    const steps = asStepRecords(data.steps).map((s) =>
+      s.status === 'running' ? { ...s, status: 'interrupted' } : s
+    );
+    return {
+      ...b,
+      workflowData: {
+        ...data,
+        status: 'interrupted',
+        steps,
+        interruptedHint: WORKFLOW_INTERRUPTED_HINT,
+      },
+    };
+  });
 }
 
 // ─── D8 工具中断语义合成（2026-08-24，对齐 deepseek-harness repair.ts） ─────
@@ -387,42 +444,118 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
       });
       break;
     }
-    // ─── 工作流 run 记录（P0-1 接入点第二刀 ②b，2026-09-24）───────────────
-    // 复用既有 `status` 块：零新增块类型、零前端渲染改动（P1-3 §11 D12 口径）。
-    // 文本只陈述事件里的**事实**，无数据时不编造（CS06）。
+    // ─── 工作流 run 记录（P1-3 §12 D14 聚合卡片，2026-10-05）────────────────
+    // 4 类事件原地聚合为一张 `workflow_run` 卡片（与前端 deriveConversationBlocks 同形）。
+    // step/run_end 在缺 run_start 时不建卡（如实丢弃，不编造 —— CS06）。
     case 'assistant/workflow_run_start': {
-      const steps = Array.isArray(data.steps) ? data.steps.length : 0;
-      blocks.push({
+      const runId = readStr(data.runId);
+      const workflow = readStr(data.workflow);
+      const planned = Array.isArray(data.steps)
+        ? data.steps.filter((s): s is string => typeof s === 'string')
+        : [];
+      const block: Record<string, unknown> = {
         id: `blk_${ev.seq}`,
-        type: 'status',
-        content: `工作流「${data.workflow}」开始（计划 ${steps} 步）`,
-      });
+        type: 'workflow_run',
+        content: workflow,
+        workflowData: {
+          runId,
+          workflow,
+          status: 'running',
+          steps: planned.map((stepId) => ({
+            stepId,
+            tool: stepId,
+            description: '',
+            status: 'pending',
+          })),
+        },
+      };
+      const idx = findWorkflowBlockIndex(blocks, runId);
+      if (idx !== -1) blocks[idx] = block;
+      else blocks.push(block);
       break;
     }
     case 'assistant/workflow_step_start': {
-      blocks.push({
-        id: `blk_${ev.seq}`,
-        type: 'status',
-        content: `工作流步骤 ${data.tool} 开始`,
-      });
+      const idx = findWorkflowBlockIndex(blocks, readStr(data.runId));
+      const prev = idx !== -1 ? workflowDataOf(blocks[idx]) : undefined;
+      if (!prev) break; // 未见 run_start ⇒ 不建卡（CS06）
+      const stepId = readStr(data.stepId);
+      const tool = readStr(data.tool) || stepId;
+      const description = readStr(data.description);
+      const steps = asStepRecords(prev.steps);
+      const found = steps.some((s) => s.stepId === stepId);
+      const nextSteps = found
+        ? steps.map((s) =>
+            s.stepId === stepId
+              ? { ...s, tool, description, status: 'running' }
+              : s
+          )
+        : [...steps, { stepId, tool, description, status: 'running' }];
+      blocks[idx] = {
+        ...blocks[idx],
+        workflowData: { ...prev, steps: nextSteps },
+      };
       break;
     }
     case 'assistant/workflow_step_end': {
-      const outcome = data.synthesized === true ? '已强制结算' : data.outcome;
-      const reason = data.error ? `：${data.error}` : '';
-      blocks.push({
-        id: `blk_${ev.seq}`,
-        type: 'status',
-        content: `工作流步骤 ${data.tool} ${outcome}（${data.durationMs}ms）${reason}`,
-      });
+      const idx = findWorkflowBlockIndex(blocks, readStr(data.runId));
+      const prev = idx !== -1 ? workflowDataOf(blocks[idx]) : undefined;
+      if (!prev) break; // 未见 run_start ⇒ 不建卡（CS06）
+      const stepId = readStr(data.stepId);
+      const tool = readStr(data.tool) || stepId;
+      const description = readStr(data.description);
+      const outcome = toWorkflowStepOutcome(data.outcome);
+      const patch: Record<string, unknown> = { tool, description };
+      if (outcome) patch.status = outcome;
+      if (typeof data.durationMs === 'number')
+        patch.durationMs = data.durationMs;
+      if (data.synthesized === true) patch.synthesized = true;
+      const stepError = readStr(data.error);
+      if (stepError) patch.error = stepError;
+      const steps = asStepRecords(prev.steps);
+      const found = steps.some((s) => s.stepId === stepId);
+      const nextSteps = found
+        ? steps.map((s) => (s.stepId === stepId ? { ...s, ...patch } : s))
+        : [
+            ...steps,
+            {
+              stepId,
+              tool,
+              description,
+              status: outcome ?? 'running',
+              ...patch,
+            },
+          ];
+      blocks[idx] = {
+        ...blocks[idx],
+        workflowData: { ...prev, steps: nextSteps },
+      };
       break;
     }
     case 'assistant/workflow_run_end': {
-      blocks.push({
-        id: `blk_${ev.seq}`,
-        type: 'status',
-        content: formatWorkflowRunEnd(data),
-      });
+      const idx = findWorkflowBlockIndex(blocks, readStr(data.runId));
+      const prev = idx !== -1 ? workflowDataOf(blocks[idx]) : undefined;
+      if (!prev) break; // 未见 run_start ⇒ 不建卡（CS06）
+      const stopReason = toWorkflowStopReason(data.stopReason);
+      const nextData: Record<string, unknown> = {
+        ...prev,
+        status:
+          stopReason === 'completed'
+            ? 'completed'
+            : stopReason === 'cancelled'
+              ? 'cancelled'
+              : 'failed',
+      };
+      if (stopReason) nextData.stopReason = stopReason;
+      if (typeof data.durationMs === 'number') {
+        nextData.durationMs = data.durationMs;
+      }
+      const failedStep = readStr(data.failedStep);
+      if (failedStep) nextData.failedStep = failedStep;
+      const err = readStr(data.error);
+      if (err) nextData.error = err;
+      const summary = rootCauseSummary(data.rootCauseCandidates);
+      if (summary) nextData.rootCauseSummary = summary;
+      blocks[idx] = { ...blocks[idx], workflowData: nextData };
       break;
     }
     case 'assistant/truncation': {
@@ -831,8 +964,9 @@ export function deriveMessagesFromEvents(
           proj.finishReason ?? interruptedTurnFinish ?? yieldTurnFinish,
         // FIX(2026-08-23)：读时归一化——投影 blocks 可能按流式 chunk 碎片化
         //（每 token 一个 text block），合并相邻 text/thinking 防前端渲染卡死
-        blocks: markOrphanToolBlocks(
-          mergeAdjacentTextBlocks(proj.blocks ?? [])
+        // D15/D16：投影覆盖路径同样做工作流中断合成（重放期，与工具中断同型）
+        blocks: markOrphanWorkflowBlocks(
+          markOrphanToolBlocks(mergeAdjacentTextBlocks(proj.blocks ?? []))
         ),
       });
     } else {
@@ -846,7 +980,7 @@ export function deriveMessagesFromEvents(
         // 2026-08-24 中断提示链路（3.5）：中断 turn 的消息补 finishReason
         // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
         finishReason: interruptedTurnFinish ?? yieldTurnFinish,
-        blocks: markOrphanToolBlocks(agg.blocks),
+        blocks: markOrphanWorkflowBlocks(markOrphanToolBlocks(agg.blocks)),
         tool_calls: agg.tool_calls.length > 0 ? agg.tool_calls : undefined,
       });
     }
@@ -863,7 +997,10 @@ export function deriveMessagesFromEvents(
         ...proj,
         lastEventSeq: resolveFallbackSeq(proj, events),
         // FIX(2026-08-23)：同投影覆盖分支，读时归一化碎片化 blocks
-        blocks: mergeAdjacentTextBlocks(proj.blocks ?? []),
+        // D15/D16：纯投影兜底路径同样做工作流中断合成（重放期）
+        blocks: markOrphanWorkflowBlocks(
+          mergeAdjacentTextBlocks(proj.blocks ?? [])
+        ),
       });
     }
   }

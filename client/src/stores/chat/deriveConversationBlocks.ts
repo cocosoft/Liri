@@ -44,6 +44,10 @@ import type {
   MessageBlock,
   DeliverableData,
   DiffData,
+  WorkflowRunData,
+  WorkflowRunStepData,
+  WorkflowRunStatus,
+  WorkflowRunStepStatus,
 } from "@/types";
 import {
   createThinkExtractor,
@@ -104,52 +108,30 @@ const KNOWN_EVENT_TYPES = new Set([
 ]);
 
 /**
- * 工作流 run 记录 → status 块文案（P0-1 接入点第二刀 ②b，2026-09-24）。
+ * 工作流 run 聚合卡片辅助（P1-3 §12 D14，2026-10-05）。
  *
- * **与后端 `EventMessageDeriver.formatWorkflowRunEnd` 文案逐字同形**（前后端镜像拷贝，
- * 保证流式视图与回放视图一致）；仅陈述事件里已有的字段，缺字段则省略片段（CS06）。
+ * 4 类事件**原地聚合**为一张 `workflow_run` 卡片（与后端 `EventMessageDeriver`
+ * 逐字段同形：镜像派生，保证流式视图与回放视图一致）。缺 `run_start` 的
+ * step/run_end 事件**不建卡**（如实丢弃，不编造 —— CS06）。
  */
-function formatWorkflowEventLine(
-  type: string,
-  data: Record<string, unknown>,
-): string {
-  const workflow = typeof data.workflow === "string" ? data.workflow : "";
-  const durationSuffix =
-    typeof data.durationMs === "number" ? `，耗时 ${data.durationMs}ms` : "";
-  const done = Array.isArray(data.completedSteps)
-    ? `${data.completedSteps.length} 步`
-    : "未知步数";
-  const base = `工作流「${workflow}」`;
+function findWorkflowCardIndex(blocks: MessageBlock[], runId: string): number {
+  return blocks.findIndex(
+    (b) => b.type === "workflow_run" && b.workflowData?.runId === runId,
+  );
+}
 
-  switch (type) {
-    case "assistant/workflow_run_start": {
-      const steps = Array.isArray(data.steps) ? data.steps.length : 0;
-      return `工作流「${workflow}」开始（计划 ${steps} 步）`;
-    }
-    case "assistant/workflow_step_start":
-      return `工作流步骤 ${String(data.tool)} 开始`;
-    case "assistant/workflow_step_end": {
-      const outcome =
-        data.synthesized === true ? "已强制结算" : String(data.outcome);
-      const reason = typeof data.error === "string" ? `：${data.error}` : "";
-      return `工作流步骤 ${String(data.tool)} ${outcome}（${String(data.durationMs)}ms）${reason}`;
-    }
-    default: {
-      if (data.stopReason === "completed") {
-        return `${base}完成（${done}已全部完成${durationSuffix}）`;
-      }
-      if (data.stopReason === "cancelled") {
-        return `${base}已取消（已完成 ${done}${durationSuffix}）`;
-      }
-      const failed =
-        typeof data.failedStep === "string"
-          ? `失败于步骤 ${data.failedStep}`
-          : "失败";
-      const reason = typeof data.error === "string" ? `：${data.error}` : "";
-      const upstream = rootCauseSummary(data.rootCauseCandidates);
-      return `${base}${failed}（已完成 ${done}${durationSuffix}）${reason}${upstream}`;
-    }
-  }
+/** 步骤结果归一：仅接受账本封闭联合（未知值 ⇒ undefined，不猜测 —— CS06） */
+function toStepStatus(value: unknown): WorkflowRunStepStatus | undefined {
+  return value === "completed" || value === "failed" || value === "cancelled"
+    ? value
+    : undefined;
+}
+
+/** run 终态映射：stopReason → run status（封闭联合；非 completed/cancelled 即失败） */
+function toRunStatus(stopReason: unknown): WorkflowRunStatus {
+  if (stopReason === "completed") return "completed";
+  if (stopReason === "cancelled") return "cancelled";
+  return "failed";
 }
 
 /** 上游根因候选摘要（P0-2）；与后端 `rootCauseSummary` 同形 */
@@ -162,7 +144,7 @@ function rootCauseSummary(value: unknown): string {
         : undefined,
     )
     .filter((nodeId): nodeId is string => typeof nodeId === "string");
-  return nodeIds.length > 0 ? `｜上游可疑：${nodeIds.join(" → ")}` : "";
+  return nodeIds.length > 0 ? `上游可疑：${nodeIds.join(" → ")}` : "";
 }
 
 interface DeriveContext {
@@ -762,22 +744,165 @@ function handleEvent(
       break;
     }
 
-    // ─── 工作流 run 记录（P0-1 接入点第二刀 ②b，2026-09-24）───────────────
-    // 复用既有 status 块与前端基线同形（零新增块类型、零新渲染组件）
-    case "assistant/workflow_run_start":
-    case "assistant/workflow_step_start":
-    case "assistant/workflow_step_end":
+    // ─── 工作流 run 记录（P1-3 §12 D14 聚合卡片，2026-10-05）────────────────
+    // 4 类事件原地聚合为**一张** `workflow_run` 卡片（替换原先各产一条 status 提示行）。
+    // 与后端 EventMessageDeriver 逐字段同形；step/run_end 在缺 run_start 时不建卡（CS06）。
+    case "assistant/workflow_run_start": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = event.data as {
+        runId?: string;
+        workflow?: string;
+        steps?: unknown;
+      };
+      const runId = String(data.runId ?? "");
+      const workflow = String(data.workflow ?? "");
+      const planned = Array.isArray(data.steps)
+        ? data.steps.filter((s): s is string => typeof s === "string")
+        : [];
+      const card: WorkflowRunData = {
+        runId,
+        workflow,
+        status: "running",
+        steps: planned.map((stepId) => ({
+          stepId,
+          tool: stepId,
+          description: "",
+          status: "pending" as const,
+        })),
+      };
+      const blocks = state.current!.blocks!;
+      const newBlock: MessageBlock = {
+        id: generateBlockId(),
+        type: "workflow_run",
+        content: workflow,
+        workflowData: card,
+        isStreaming: false,
+        groupId: state.currentGroupId,
+      };
+      const idx = findWorkflowCardIndex(blocks, runId);
+      if (idx !== -1) blocks[idx] = newBlock;
+      else blocks.push(newBlock);
+      break;
+    }
+
+    case "assistant/workflow_step_start": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = event.data as {
+        runId?: string;
+        stepId?: string;
+        tool?: string;
+        description?: string;
+      };
+      const blocks = state.current!.blocks!;
+      const idx = findWorkflowCardIndex(blocks, String(data.runId ?? ""));
+      const prev = idx !== -1 ? blocks[idx].workflowData : undefined;
+      if (!prev) break; // 未见 run_start ⇒ 不建卡（CS06）
+      const stepId = String(data.stepId ?? "");
+      const tool = String(data.tool ?? stepId);
+      const description = String(data.description ?? "");
+      const found = prev.steps.some((s) => s.stepId === stepId);
+      const steps = found
+        ? prev.steps.map((s) =>
+            s.stepId === stepId
+              ? { ...s, tool, description, status: "running" as const }
+              : s,
+          )
+        : [
+            ...prev.steps,
+            { stepId, tool, description, status: "running" as const },
+          ];
+      blocks[idx] = { ...blocks[idx], workflowData: { ...prev, steps } };
+      break;
+    }
+
+    case "assistant/workflow_step_end": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = event.data as {
+        runId?: string;
+        stepId?: string;
+        tool?: string;
+        description?: string;
+        outcome?: string;
+        durationMs?: number;
+        error?: string;
+        synthesized?: boolean;
+      };
+      const blocks = state.current!.blocks!;
+      const idx = findWorkflowCardIndex(blocks, String(data.runId ?? ""));
+      const prev = idx !== -1 ? blocks[idx].workflowData : undefined;
+      if (!prev) break; // 未见 run_start ⇒ 不建卡（CS06）
+      const stepId = String(data.stepId ?? "");
+      const tool = String(data.tool ?? stepId);
+      const description = String(data.description ?? "");
+      const status = toStepStatus(data.outcome);
+      const patch: Partial<WorkflowRunStepData> = {
+        tool,
+        description,
+        ...(status ? { status } : {}),
+        ...(typeof data.durationMs === "number"
+          ? { durationMs: data.durationMs }
+          : {}),
+        ...(data.synthesized === true ? { synthesized: true } : {}),
+        ...(typeof data.error === "string" && data.error
+          ? { error: data.error }
+          : {}),
+      };
+      const found = prev.steps.some((s) => s.stepId === stepId);
+      const steps = found
+        ? prev.steps.map((s) => (s.stepId === stepId ? { ...s, ...patch } : s))
+        : [
+            ...prev.steps,
+            {
+              stepId,
+              tool,
+              description,
+              status: status ?? ("running" as const),
+              ...patch,
+            },
+          ];
+      blocks[idx] = { ...blocks[idx], workflowData: { ...prev, steps } };
+      break;
+    }
+
     case "assistant/workflow_run_end": {
       ensureCurrent(state, event, sessionId, assistantMessageId);
-      state.current!.blocks!.push({
-        id: generateBlockId(),
-        type: "status",
-        content: formatWorkflowEventLine(
-          event.type,
-          event.data as Record<string, unknown>,
-        ),
-        isStreaming: false,
-      });
+      const data = event.data as {
+        runId?: string;
+        stopReason?: string;
+        durationMs?: number;
+        failedStep?: string;
+        error?: string;
+        rootCauseCandidates?: unknown;
+      };
+      const blocks = state.current!.blocks!;
+      const idx = findWorkflowCardIndex(blocks, String(data.runId ?? ""));
+      const prev = idx !== -1 ? blocks[idx].workflowData : undefined;
+      if (!prev) break; // 未见 run_start ⇒ 不建卡（CS06）
+      const summary = rootCauseSummary(data.rootCauseCandidates);
+      const stopReason =
+        data.stopReason === "completed" ||
+        data.stopReason === "cancelled" ||
+        data.stopReason === "error"
+          ? data.stopReason
+          : undefined;
+      blocks[idx] = {
+        ...blocks[idx],
+        workflowData: {
+          ...prev,
+          status: toRunStatus(data.stopReason),
+          ...(stopReason ? { stopReason } : {}),
+          ...(typeof data.durationMs === "number"
+            ? { durationMs: data.durationMs }
+            : {}),
+          ...(typeof data.failedStep === "string" && data.failedStep
+            ? { failedStep: data.failedStep }
+            : {}),
+          ...(typeof data.error === "string" && data.error
+            ? { error: data.error }
+            : {}),
+          ...(summary ? { rootCauseSummary: summary } : {}),
+        },
+      };
       break;
     }
 

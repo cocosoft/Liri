@@ -30,6 +30,10 @@ export type {
   InboxBlockData,
   Tool,
   DocWorkflowProgressData,
+  WorkflowRunData,
+  WorkflowRunStepData,
+  WorkflowRunStatus,
+  WorkflowRunStepStatus,
   CodeRunBlockData,
 } from "./message";
 

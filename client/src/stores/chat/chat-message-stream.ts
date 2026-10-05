@@ -695,7 +695,9 @@ export async function streamMessageImpl(
           b.type === "question" ||
           b.type === "todo" ||
           // CM-5（2026-08-25）：code_run 执行块是用户可见成果，避免触发无内容兜底
-          b.type === "code_run",
+          b.type === "code_run" ||
+          // P1-3 §12 D14（2026-10-05）：工作流 run 卡片是用户可见成果
+          b.type === "workflow_run",
       );
       if (!hasVisibleResult) {
         noVisibleResultTriggered = true;

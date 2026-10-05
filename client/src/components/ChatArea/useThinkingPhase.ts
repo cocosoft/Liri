@@ -50,6 +50,8 @@ export function deriveThinkingPhase(
       case "question":
       case "todo":
       case "code_run":
+      // P1-3 §12 D14（2026-10-05）：工作流 run 卡片到达视为"已出正文阶段"
+      case "workflow_run":
         return "content";
       default:
         break;

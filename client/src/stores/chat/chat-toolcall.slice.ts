@@ -973,6 +973,8 @@ const MEANINGFUL_BLOCK_TYPES: ReadonlySet<MessageBlock["type"]> = new Set([
   "tool_call",
   "question",
   "doc_workflow",
+  // P1-3 §12 D14（2026-10-05）：工作流 run 卡片是用户可见成果（default 分支按 type 命中即算）
+  "workflow_run",
   "task_decomposition",
   "todo",
   "deliverable",
@@ -1076,6 +1078,8 @@ export function ensureTextBlockFromContent(
       (b) =>
         b.type === "tool_call" ||
         b.type === "doc_workflow" ||
+        // P1-3 §12 D14（2026-10-05）：工作流 run 卡片是执行面成果，正文须排在其前
+        b.type === "workflow_run" ||
         b.type === "todo" ||
         b.type === "question",
     );

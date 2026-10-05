@@ -4,10 +4,10 @@
  * 工作流 run 记录：落盘投影 + 派生（P0-1 接入点第二刀 ②b，2026-09-24）
  *
  * 链路：工具 `metadata.workflowRun`（seam 观察者装配）→ `MessageToEventMigrator`
- * 投影为 4 类持久事件 → `EventMessageDeriver` 派生为 `status` 块。
+ * 投影为 4 类持久事件 → `EventMessageDeriver` 派生为 `workflow_run` 聚合卡片（D14）。
  *
  * 覆盖：投影顺序与 seq 单调 / 无元数据零额外事件 / 失败 run 携带 failedStep + 根因候选 /
- * 形状不合法则跳过（不编造）/ 派生文案。
+ * 形状不合法则跳过（不编造）/ 派生聚合卡片。
  */
 
 import { describe, expect, it } from 'bun:test';
@@ -223,7 +223,7 @@ describe('workflowRun 落盘投影（MessageToEventMigrator）', () => {
     expect(events.map((e) => e.type)).toEqual(['tool/result']);
   });
 
-  it('派生为 status 块（复用既有块类型，文案含失败步骤与上游可疑）', () => {
+  it('派生为 workflow_run 聚合卡片（单块，含步骤与失败根因；不再各产 status 行）', () => {
     const { events } = convert({
       workflowRun: runRecord({
         end: {
@@ -261,17 +261,35 @@ describe('workflowRun 落盘投影（MessageToEventMigrator）', () => {
 
     const messages = deriveMessagesFromEvents(projection, []);
     const asst = messages.find((m) => m.id === 'asst-1');
-    const statusContents = asst?.blocks
-      ?.filter((b) => b.type === 'status')
-      .map((b) => b.content);
 
-    expect(statusContents).toEqual([
-      '工作流「send-report」开始（计划 2 步）',
-      '工作流步骤 doc:create-docx 开始',
-      '工作流步骤 doc:create-docx completed（5ms）',
-      '工作流步骤 mail:send 开始',
-      '工作流步骤 mail:send completed（5ms）',
-      '工作流「send-report」失败于步骤 mail:send（已完成 1 步，耗时 30ms）：mail:send 失败｜上游可疑：doc:create-docx',
+    // 4 类事件聚合为单张卡片（D14），不再各产一条 status 提示行
+    const cards = asst?.blocks?.filter((b) => b.type === 'workflow_run');
+    expect(cards).toHaveLength(1);
+    expect(asst?.blocks?.filter((b) => b.type === 'status')).toHaveLength(0);
+
+    const data = cards![0].workflowData as {
+      runId: string;
+      workflow: string;
+      status: string;
+      stopReason: string;
+      durationMs: number;
+      failedStep: string;
+      error: string;
+      rootCauseSummary: string;
+      steps: Array<{ stepId: string; status: string; durationMs?: number }>;
+    };
+    expect(data.runId).toBe(RUN_ID);
+    expect(data.workflow).toBe('send-report');
+    expect(data.status).toBe('failed');
+    expect(data.stopReason).toBe('error');
+    expect(data.durationMs).toBe(30);
+    expect(data.failedStep).toBe('mail:send');
+    expect(data.error).toBe('mail:send 失败');
+    expect(data.rootCauseSummary).toBe('上游可疑：doc:create-docx');
+    expect(data.steps.map((s) => s.stepId)).toEqual([
+      'doc:create-docx',
+      'mail:send',
     ]);
+    expect(data.steps.every((s) => s.status === 'completed')).toBe(true);
   });
 });

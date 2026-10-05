@@ -92,6 +92,7 @@ export interface MessageBlock {
     | "inbox"
     | "doc_workflow"
     | "pdca_workflow"
+    | "workflow_run"
     | "code_run";
   content: string;
   toolCall?: ToolCall;
@@ -114,6 +115,7 @@ export interface MessageBlock {
   inboxData?: InboxBlockData;
   docWorkflowData?: DocWorkflowProgressData;
   pdcaWorkflowData?: PdcaWorkflowProgressData;
+  workflowData?: WorkflowRunData;
   codeRunData?: CodeRunBlockData;
 }
 
@@ -313,6 +315,55 @@ export interface PdcaWorkflowProgressData {
   message: string;
   projectId?: string;
   reasons?: string[];
+}
+
+/** 工作流 run 状态（run 级；P1-3 §12 D14 聚合卡片） */
+export type WorkflowRunStatus =
+  "running" | "completed" | "failed" | "cancelled" | "interrupted";
+
+/** 工作流步骤状态（成员级；`pending` = 计划内但未开始） */
+export type WorkflowRunStepStatus =
+  "pending" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
+
+/** 工作流步骤数据（由 workflow_step_* 事件聚合；`stepId === tool` 见 docWorkflows.ts） */
+export interface WorkflowRunStepData {
+  stepId: string;
+  /** 工具名 */
+  tool: string;
+  description: string;
+  status: WorkflowRunStepStatus;
+  /** 步骤耗时（workflow_step_end.durationMs） */
+  durationMs?: number;
+  /** 步骤级错误（workflow_step_end.error） */
+  error?: string;
+  /** 由账本强制结算（Provider 未上报 end）——如实标注，不编造 */
+  synthesized?: boolean;
+}
+
+/**
+ * 工作流 run 卡片数据（P1-3 §12 D14，2026-10-05 实建）。
+ *
+ * 由 4 类事件**原地聚合**为一张卡片（不再各产一条 status 提示行）：
+ * `workflow_run_start` 建卡（含计划步骤）→ `workflow_step_start`/`_end` 更新步骤 →
+ * `workflow_run_end` 收尾。前后端**逐字段同形**（后端镜像派生，保证回放一致）。
+ *
+ * 中断合成仅由**后端重放期**写入（D15：`interruptedHint`），前端实时视图不含。
+ */
+export interface WorkflowRunData {
+  runId: string;
+  workflow: string;
+  status: WorkflowRunStatus;
+  /** 计划步骤按 `workflow_run_start.steps[]` 预置，随事件推进更新状态 */
+  steps: WorkflowRunStepData[];
+  /** 总耗时（workflow_run_end.durationMs；未收尾时缺省） */
+  durationMs?: number;
+  stopReason?: "completed" | "cancelled" | "error";
+  failedStep?: string;
+  error?: string;
+  /** 上游根因候选摘要（P0-2） */
+  rootCauseSummary?: string;
+  /** 重放期中断合成文案（D16，仅后端派生写入） */
+  interruptedHint?: string;
 }
 
 /** MessageContent 子组件 Props */

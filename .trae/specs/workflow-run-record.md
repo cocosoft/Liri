@@ -1,6 +1,7 @@
 # 工作流 Run 记录落盘 Spec（P1-3）
 
 > ⚠️ **部分交付物不在本仓（2026-09-26 核实）**：本 spec 声称的"已完成"中**有若干交付物在本仓 git 历史中从未存在**（据台账逐项反证：`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
+> 🔄 **进展（2026-10-05，P1-19 ③）**：上列**前端 `WorkflowRunCard` 及 §12 D14–D17 已实建**（见 **§14**）；其余 `WorkflowRuntime.integration.test.ts` / `WorkflowStepObserver.test.ts` 仍不在仓（转入 P1-19 ④）。
 > ✅ 但 seam 的**通用构件确实在代码里**（`WorkflowEngine.ts` / `WorkflowStepLedger.ts` / `types.ts` / `WorkflowError.ts`）。
 > 📌 详见 `dev_docs/error_repairs/预存错误与待处理问题.md` → 「4 份 `workflow-*` Spec 声称"已完成"，但对应代码在本仓**不存在**」条。**读本 spec 时不要把"已完成"的声明当作能力已可用。**
 
@@ -276,6 +277,8 @@
 > - **D15/D16 未落地**：`markOrphanWorkflowBlocks` 不存在 ⇒ 重放期**不合成** `interrupted`；半写 run 只是缺 `run_end` 行（如实呈现"结果未知"，恰好符合 D15"前端不得自行判中断"的字面要求）。
 > - **前端无"会话事件实时桥"**：`assistant/workflow_*` **无 SSE chunk 生产者**（`chat-handlers.ts:896` 的 `doc_workflow` 分支同样无生产者）；全局 `/v1/events` 仅广播显式 `broadcastEvent`（不含 `assistant/*`）。故前端**只能经事件日志读取/派生**观测到这些事件。
 > 本批（P1-19 ①）在此基础上做**后端生产时序实时化**，详见 §13。
+>
+> ➡️ **2026-10-05 同日续（P1-19 ③）：以上三处"未落地"已实建**（D14 聚合卡片 / D15–D16 后端重放期中断合成 / 前端渲染接线），实现、测试与偏差见 **§14**。
 
 ---
 
@@ -362,5 +365,62 @@
 
 1. **前端"运行期实时渲染"受既有缺口限制**：本仓**无**"会话事件实时桥"——`assistant/workflow_*` 无 SSE chunk 生产者（`chat-handlers.ts` 的 `doc_workflow` 分支同样无生产者），全局 `/v1/events` 仅广播显式 `broadcastEvent`（不含 `assistant/*`）。故本批保证的是**事件在 run 执行期即已按序落盘**（任何实时读取方/未来 chunk 桥均可在运行期取到），而**非**"浏览器端 run 期直接可见"；后者需另立一条 chunk/SSE 桥（跨端），不在本批范围。
 2. **D14 聚合卡片、D15/D16 中断合成在本仓未落地**（见 §12 复核）：实时化不引入、不改动这两者；事件形状/数量与批末投影一致，现有 `status` 块派生结果不变。
+   > ⬆️ **2026-10-05 同日 P1-19 ③ 已实建**（见 §14）。本批（①）交付的事件**形状/数量与之完全兼容**（§14 未改事件契约，仅改读侧聚合），故 ① 的 `liveEmitted` 去重与新卡片共存无冲突。
 3. **partial 写失败策略**（D21）：`liveEmitted` 按"实时路径已生效"置位，不按"全部写成功"置位 ⇒ 罕见写失败时该 run 可能缺 `run_end`（读端如实呈现"结果未知"），以此换取"绝不重复落盘"。
 4. **浏览器的端到端走查未做**（无实时桥，且本批不改前端）。
+
+---
+
+## 14. §12 实建记录（P1-19 ③，2026-10-05）
+
+> §12 的 D14–D17 原为"自称已完成、实际不存在"（见 §12 复核 / 台账）。本批**据 §12 口径实建**，并如实登记与 §12.3 的偏差。**14.4 的门槛数字为本批唯一有效验证口径**（§12.4 的历史数字非本批产出）。
+
+### 14.1 交付物（均在仓，可复核）
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `client/src/types/message.ts` | 块类型联合 + `"workflow_run"`；`WorkflowRunStatus` / `WorkflowRunStepStatus` / `WorkflowRunStepData` / `WorkflowRunData`；`MessageBlock.workflowData` |
+| 2 | `client/src/types/index.ts` | 4 处类型 re-export |
+| 3 | `client/src/components/ChatArea/WorkflowRunCard.tsx` | **新建**：run 头（名/状态/总耗时/步骤计数）+ 步骤列表（状态图标/描述/耗时/步骤级错误/强制结算标记；>6 条内部滚动）+ 结论行（失败/取消/中断） |
+| 4 | `client/src/components/ChatArea/BlockRenderer.tsx` | 渲染 case + `MissingDataFallback`（数据缺失回退原 type 名，不新增 i18n —— D17） |
+| 5 | `client/src/components/ChatArea/useThinkingPhase.ts` | `workflow_run` → 视为"已出正文阶段"（**替代** §12.3 所指 `DeepThinkingHint.tsx` —— 该文件在本仓不存在，其判定逻辑 UI-1 已迁入本钩子） |
+| 6 | `client/src/stores/chat/chat-toolcall.slice.ts` | `MEANINGFUL_BLOCK_TYPES` 收录 `workflow_run`；`ensureTextBlockFromContent` 插入位置表收录（正文须排卡片之前） |
+| 7 | `client/src/stores/chat/chat-message-stream.ts` | 无可见成果兜底排除 `workflow_run`（卡片即用户可见成果） |
+| 8 | `client/src/stores/chat/deriveConversationBlocks.ts` | 4 case 改为**原地聚合**（`findWorkflowCardIndex` 按 `runId` 定位） |
+| 9 | `app/src/session/storage/EventMessageDeriver.ts` | 同形聚合（`findWorkflowBlockIndex`）+ `markOrphanWorkflowBlocks`（D15/D16） |
+
+### 14.2 与 §12.3 的偏差（如实）
+
+1. **`DeepThinkingHint.tsx` 不存在**：§12.3 第 5 项所指文件在本仓零命中（其判定逻辑已由 UI-1 迁入 `useThinkingPhase.ts`）⇒ 改在该钩子接线（最小等价改动）。
+2. **中断合成接入 3 条消息构建路径**（§12.3 第 8 项写"两条"）：除「投影覆盖」「事件聚合」外，**纯投影兜底**路径同样渲染 blocks ⇒ 一并接入（否则该路径的卡片不会被标中断，语义不一致）。
+3. **D15 前端不做**：前端派生**不**合成 `interrupted`（实时流中"运行中"才准确）；`interruptedHint` 仅后端重放期写入 —— 已由前端测试断言（`interruptedHint === undefined`）。
+4. **步骤状态新增 `pending`**：`run_start.steps[]` 预置为 `pending`，使"计划内但未开始"与"运行中被中断"可区分（CS06：不把未开始夸大为中断；§12.3 未列该状态）。
+5. **未做**：`WorkflowRuntime.integration.test.ts`「改断卡片」（§12.3 第 9 项）—— 该文件本就不存在（§11 ④ 真剩余）。
+
+### 14.3 测试（新增/改动）
+
+| 文件 | 内容 |
+|---|---|
+| `app/tests/session/workflowCardDerivation.test.ts`（**新建**） | 5 例：聚合单卡 / `error`→failed（failedStep+error+根因）/ 半写→interrupted（运行中步骤标记、未开始保持 pending）/ 正常收尾不误伤 / 孤儿不建卡 |
+| `app/tests/session/workflowRunProjection.test.ts`（改） | 末例由「派生为 status 块」改为**断言单张聚合卡片**（含"不再各产 status 行"） |
+| `client/src/stores/chat/__tests__/deriveConversationBlocks.workflowCard.test.ts`（**新建**） | 2 例：前端同形聚合 / 孤儿不建卡（独立文件，避免使原测试文件越过行数警告阈值） |
+| `client/src/tests/workflow-run-card.test.tsx`（**新建**） | 4 例渲染冒烟：完成 / 失败 / 中断 / 最小数据 |
+
+### 14.4 验证（门禁实跑，2026-10-05）
+
+| 项 | 结果 |
+|---|---|
+| `cd app && bun run typecheck` | **0 error** |
+| `bun run lint:arch` | 错误 **0** / 警告 **4**（基线）/ 分层违规 0 |
+| `bun run lint:size` | **0 错误 / 461 警告**（基线，未新增） |
+| 定向 ESLint（app + client 改动文件） | **0 error / 0 warning** |
+| 全量 `bun test`（app） | **4410 pass / 21 skip / 0 fail** |
+| `cd client && bun x tsc --noEmit` | **0** |
+| `cd client && bun run test` | **506 pass / 0 fail**（56 文件） |
+| `cd client && bun run build` | **✓ built**（vite 21.25s） |
+| **浏览器走查** | ⏳ **未做** —— 卡片已建（本批），走查转入 **P1-19 ⑤**（需真实服务 + 受控会话播种事件） |
+
+### 14.5 已知边界
+
+1. **实时视图**：仍受"本仓无会话事件实时桥"限制（§13.7-1）—— 卡片在**回放/派生**路径可见；run 期实时渲染需另立 chunk 桥。
+2. **前端不合成中断**（D15）；**不做续跑恢复**（D16）。

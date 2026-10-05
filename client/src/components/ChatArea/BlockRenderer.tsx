@@ -27,6 +27,7 @@ import DiffBlock from "./DiffBlock";
 import InboxBlock from "./InboxBlock";
 import { DocWorkflowProgress } from "./DocWorkflowProgress";
 import PdcaWorkflowCard from "./PdcaWorkflowCard";
+import WorkflowRunCard from "./WorkflowRunCard";
 import CodeRunCard from "./CodeRunCard";
 import { useChatStore } from "../../stores/chat";
 import { useRootStore } from "../../stores/root-store";
@@ -226,6 +227,11 @@ function BlockRenderer({
         );
       }
       return <MissingDataFallback type="pdca_workflow" block={block} />;
+    case "workflow_run":
+      if (block.workflowData) {
+        return <WorkflowRunCard data={block.workflowData} />;
+      }
+      return <MissingDataFallback type="workflow_run" block={block} />;
     case "code_run":
       if (block.codeRunData) {
         return <CodeRunCard data={block.codeRunData} />;

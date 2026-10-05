@@ -57,6 +57,7 @@ import {
   type SessionLookupResult,
 } from './manager/eventLogStore';
 import { ChatRequestPrep } from './manager/requestPrep';
+import { ChatRollback, type PendingInteractionEntry } from './manager/rollback';
 import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
@@ -356,12 +357,8 @@ import {
 
 import { TaskStatus } from '@modules/tasks/types';
 
-import {
-  RollbackIntegration,
-  SensitiveErrorType,
-  FileOperationTracker,
-} from '@modules/security';
-import type { FileOperation, FileChange } from '@modules/security';
+import { RollbackIntegration, SensitiveErrorType } from '@modules/security';
+import type { FileOperation } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks';
 import { taskOrchestrator } from '@modules/tasks';
@@ -548,14 +545,7 @@ export class ChatManagerImpl implements ChatManager {
    * 然后 await 此 Promise，直到 UI 层调用 resolveInteraction() 解析
    * 多会话并行时互不覆盖（原为单例，会话 B 的交互会覆盖 A 的 Promise）
    */
-  private _pendingInteractions = new Map<
-    string,
-    {
-      questionId: string;
-      promise: Promise<string[]>;
-      resolve: (answers: string[]) => void;
-    }
-  >();
+  private _pendingInteractions = new Map<string, PendingInteractionEntry>();
 
   /**
    * 查询引擎
@@ -803,6 +793,24 @@ export class ChatManagerImpl implements ChatManager {
     getChatSessions: () => this._chatSessions,
     getContextTracker: () => this.contextTracker,
     getToolRound: (sid) => this.getToolRound(sid),
+  });
+
+  /**
+   * 交互解析 + 文件回滚轮次（`ChatRollback`，A2 批提取自本类）。
+   *
+   * 原 C19 的 5 个成员（`resolveInteraction` / `_getRollbackIntegration` /
+   * `_startRollbackRound` / `_endRollbackRound` / `undoRoundsSince`）已随迁至该模块；
+   * 本类经同族方法**薄转发**（`_getRollbackIntegration` 无对外调用者 ⇒ 整体迁出）。
+   * 对外签名与日志口径不变（行为等价）；跨簇状态经全 getter 注入。
+   */
+  private readonly _rollback = new ChatRollback({
+    getPendingInteractions: () => this._pendingInteractions,
+    getMessageService: () => this.messageService,
+    addAndPersistMessage: (sid, msg, opts) =>
+      this._addAndPersistMessage(sid, msg, opts),
+    getRollbackIntegrations: () => this.rollbackIntegrations,
+    getPermissionManager: () => this.permissionManager,
+    getSessionGateway: () => this.sessionGateway,
   });
 
   /**
@@ -5226,119 +5234,13 @@ export class ChatManagerImpl implements ChatManager {
    * @param answers 用户选择的答案列表
    * @returns 是否成功解析
    */
-  // P0-1: sessionId 可选 — 传入时按会话精确定位；不传时遍历按 questionId 匹配（兼容旧调用方）
-  // 问题二-1/2（2026-08-26）：改 async——① 落盘强一致：先 await 持久化用户回答再注入
-  // 循环，失败上抛（HTTP 500，前端可重试），杜绝"显示成功但刷新后回答消失"；
-  // ② entry 不存在（交互超时/中止已清理）时兜底落盘，回答不丢失。
+  // A2 拆分：交互解析已迁至 `ChatRollback.resolveInteraction`（薄转发）
   async resolveInteraction(
     questionId: string,
     answers: string[],
     sessionId?: string
   ): Promise<boolean> {
-    const entry = sessionId
-      ? this._pendingInteractions.get(sessionId)?.questionId === questionId
-        ? this._pendingInteractions.get(sessionId)
-        : undefined
-      : Array.from(this._pendingInteractions.entries()).find(
-          ([, e]) => e.questionId === questionId
-        )?.[1];
-    if (entry) {
-      const sid =
-        sessionId ??
-        Array.from(this._pendingInteractions.entries()).find(
-          ([, e]) => e.questionId === questionId
-        )?.[0];
-      logger.info('解析用户交互', { sessionId: sid, questionId, answers });
-      // R5 + 问题二-1：先落盘（throwOnError 强一致），成功后才注入循环；
-      // 回答 metadata 记录 questionId，供前端回放时恢复已提交态
-      if (sid && answers.length > 0) {
-        const answerMsg = this.messageService.createUserMessage(
-          answers.join('\n'),
-          {
-            sessionId: sid,
-            metadata: { questionId },
-          }
-        );
-        await this._addAndPersistMessage(sid, answerMsg, {
-          throwOnError: true,
-        });
-      }
-      entry.resolve(answers);
-      if (sid) this._pendingInteractions.delete(sid);
-      return true;
-    }
-    // 问题二-2：交互已过期/中止（entry 已清理）→ 回答兜底落盘，不注入循环。
-    // PR10（#12，B-1，2026-09-05）：实证（§10.7）确认等待超时（maxWait 600s）后
-    // 晚到回答命中本分支且无自动续跑。此处升级为「落盘 + 显式标记」，使：
-    //   ① 回答不丢（进入消息历史，用户后续消息自动携带）；
-    //   ② 前端/审计可区分「已回答但任务已结束」与「未回答」；
-    //   ③ 不复活已终态任务（与 #6 replan 语义一致）。
-    // 注：等待循环超时后已无存活执行方可唤醒，「超时窗口内的自动续跑」需
-    // entry 宽限保留（候选 C，§10.7）——该产品决策未定，不在本分支实现。
-    if (sessionId && answers.length > 0) {
-      try {
-        const answerMsg = this.messageService.createUserMessage(
-          answers.join('\n'),
-          {
-            sessionId,
-            metadata: {
-              questionId,
-              answeredAfterExpiry: true,
-              answeredAt: new Date().toISOString(),
-            },
-          }
-        );
-        await this._addAndPersistMessage(sessionId, answerMsg, {
-          throwOnError: true,
-        });
-        logger.info('交互已过期：回答已兜底落盘（任务已结束，未自动续跑）', {
-          sessionId,
-          questionId,
-        });
-        return true;
-      } catch (e) {
-        await handleError(e, {
-          module: 'chat:manager',
-          action: 'resolveInteractionOrphan',
-        });
-        return false;
-      }
-    }
-    logger.warn('未找到匹配的待处理交互', { questionId });
-    return false;
-  }
-
-  /**
-   * 获取或创建回滚集成实例
-   * @param sessionId 会话 ID
-   * @returns 回滚集成实例
-   */
-  private _getRollbackIntegration(sessionId: string): RollbackIntegration {
-    let integration = this.rollbackIntegrations.get(sessionId);
-    if (!integration) {
-      integration = new RollbackIntegration(sessionId);
-
-      // 连接撤消/重做权限控制
-      // 将 undo_round / redo_round 作为虚拟工具名，复用 PermissionManager
-      if (this.permissionManager) {
-        const pm = this.permissionManager as {
-          checkPermissionForTool: (
-            name: string,
-            args: Record<string, unknown>
-          ) => Promise<{ allowed: boolean; reason?: string }>;
-        };
-        integration.setPermissionChecker(async (action, roundId) => {
-          const result = await pm.checkPermissionForTool(
-            action === 'undo' ? 'undo_round' : 'redo_round',
-            { sessionId, roundId }
-          );
-          return { allowed: result.allowed, reason: result.reason };
-        });
-      }
-
-      this.rollbackIntegrations.set(sessionId, integration);
-    }
-    return integration;
+    return this._rollback.resolveInteraction(questionId, answers, sessionId);
   }
 
   /**
@@ -5350,9 +5252,7 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     roundId: number
   ): Promise<void> {
-    const integration = this._getRollbackIntegration(sessionId);
-    const scanPaths = [resolveProjectRoot()];
-    await integration.onRoundStart(sessionId, roundId, scanPaths);
+    await this._rollback.startRollbackRound(sessionId, roundId);
   }
 
   /**
@@ -5366,91 +5266,11 @@ export class ChatManagerImpl implements ChatManager {
     messageSummary: string,
     assistantContent?: string
   ): Promise<void> {
-    const integration = this.rollbackIntegrations.get(sessionId);
-    if (integration) {
-      const snapshot = await integration.onRoundEnd(messageSummary);
-
-      // P1: Shell 声明-校验 — 解析 AI 的 [FILE_OPERATION] 声明，补录 detectShellSideEffects 漏掉的操作
-      if (snapshot && assistantContent) {
-        try {
-          const declarations =
-            FileOperationTracker.parseFileOperationDeclarations(
-              assistantContent,
-              resolveProjectRoot()
-            );
-          if (declarations.length > 0) {
-            // 将声明中未被 detectShellSideEffects 检测到的操作补充到变更列表
-            const existingPaths = new Set(
-              snapshot.changedFiles.map((c: { path: string }) => c.path)
-            );
-            const missedChanges: FileChange[] = [];
-
-            for (const decl of declarations) {
-              const absPath = decl.path;
-              if (!existingPaths.has(absPath)) {
-                // 声明但未检测到的文件操作
-                if (decl.type === 'created') {
-                  // 创建声明：文件可能已创建但不在扫描范围内
-                  missedChanges.push({ path: absPath, type: 'created' });
-                } else if (decl.type === 'deleted') {
-                  // 删除声明：文件可能已被删除
-                  missedChanges.push({ path: absPath, type: 'deleted' });
-                } else if (decl.type === 'modified') {
-                  missedChanges.push({ path: absPath, type: 'modified' });
-                }
-              }
-            }
-
-            if (missedChanges.length > 0) {
-              integration.mergeChanges(missedChanges);
-              logger.debug(
-                'Shell声明校验：补录detectShellSideEffects漏掉的操作',
-                {
-                  sessionId,
-                  declaredCount: declarations.length,
-                  missedCount: missedChanges.length,
-                }
-              );
-            }
-          }
-        } catch {
-          // @ignore-catch — 非关键路径
-        }
-      }
-
-      // P1: 子 Agent 操作继承 — 将子 Agent 的 Shell 副作用（file_create / file_delete）合并到父会话 tracker
-      if (snapshot && snapshot.changedFiles.length > 0) {
-        try {
-          const session = await this.sessionGateway.getSession(sessionId);
-          const parentSessionId = session?.metadata?.parentSessionId as
-            | string
-            | undefined;
-          if (parentSessionId) {
-            const parentIntegration =
-              this.rollbackIntegrations.get(parentSessionId);
-            if (parentIntegration) {
-              // 只合并 Shell 副作用产生的 created / deleted 类型变更
-              // modified 类型已通过 ChatManager 工具拦截（Write/Edit）直接转发
-              const shellChanges = snapshot.changedFiles.filter(
-                (c: { type: string }) =>
-                  c.type === 'created' || c.type === 'deleted'
-              );
-              if (shellChanges.length > 0) {
-                parentIntegration.mergeChanges(shellChanges);
-                logger.debug('子Agent操作继承：Shell副作用已合并到父会话', {
-                  childSessionId: sessionId,
-                  parentSessionId,
-                  changeCount: shellChanges.length,
-                });
-              }
-            }
-          }
-        } catch (err) {
-          // 非关键路径，继承失败不影响子 Agent 自身的回滚
-          logger.debug('subAgent mergeChanges skipped', { error: String(err) });
-        }
-      }
-    }
+    await this._rollback.endRollbackRound(
+      sessionId,
+      messageSummary,
+      assistantContent
+    );
   }
 
   /**
@@ -5468,34 +5288,12 @@ export class ChatManagerImpl implements ChatManager {
     maxRound: number,
     roundIndex: Record<string, number>
   ): Promise<Array<{ roundId: number; success: boolean; error?: string }>> {
-    const integration = this.rollbackIntegrations.get(sessionId);
-    if (!integration) return [];
-
-    const results: Array<{
-      roundId: number;
-      success: boolean;
-      error?: string;
-    }> = [];
-
-    // 倒序撤消（从最新轮次往最早）
-    for (let r = maxRound; r > sinceRoundId; r--) {
-      try {
-        await integration.undoRound(r);
-        results.push({ roundId: r, success: true });
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        results.push({ roundId: r, success: false, error: errorMsg });
-        // 失败不阻塞后续回滚
-      }
-      // 清理 roundIndex 中对应轮次的条目
-      for (const [msgId, rid] of Object.entries(roundIndex)) {
-        if (rid === r) {
-          delete roundIndex[msgId];
-        }
-      }
-    }
-
-    return results;
+    return this._rollback.undoRoundsSince(
+      sessionId,
+      sinceRoundId,
+      maxRound,
+      roundIndex
+    );
   }
 
   /**

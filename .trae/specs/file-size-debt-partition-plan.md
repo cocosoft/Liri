@@ -1,8 +1,8 @@
 # 文件规模债拆分方案（D-01 C 路径 ≡ D-03）— Spec
 
 - **来源**：`dev_docs/20261001/pending-tasks-consolidated-20261001.md` **D-01 / D-03**（原始出处 `architecture-benchmark` §5.5 L450 / §5.2 L414）
-- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。**Top-2/3 已取证**（§18 `CoreAPIImpl` / §19 `ReActToolLoop`），**两者首拆批 B1 均已落地**：`CoreAPIImpl` **5336 → 3754**（§20，新模块 `domainSnapshotOps.ts` 1800 行）、`ReActToolLoop` **3595 → 3354**（§21，新模块 `toolTurnBudget.ts` 367 行）⇒ 余下候选 B2/B3/B4（§18.2 / §19.3）**未实施**；`tools/AgentTool/AgentTool.ts`(3289) **未取证**。
-- **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**"降至阈值以下"收益已消失** ⇒ 后续批次改按「**变更隔离 / 单测粒度**」收益裁决（已裁：A4b 做、A5b 不拆；CoreAPIImpl B1 做、主链不拆）。详见 **§14**。
+- **状态**：🚧 **ChatManager 批次全部收官（2026-10-05）** —— 批 1–3 + **A1/A2/A3/A4a/A4b/A5a/A6** 落地（见 §10–§17，ChatManager **6729 → 5238，−1491**）；**A5b 按用户裁定「不拆」**。**Top-2/3 已取证**（§18 `CoreAPIImpl` / §19 `ReActToolLoop`），**首拆批 B1 均已落地**（§20 / §21）；**CoreAPIImpl B2 亦已落地**（§22：3754 → **3168**，新模块 `sessionMessagesRead.ts` 706 行）、**B3 已落地**（§25：3168 → **2907**，新模块 `messageMutation.ts` 389 行）、**B4 已落地**（§26：2907 → **2521**，新模块 `sessionTitling.ts` 543 行）⇒ **CoreAPIImpl 计划内候选（B1–B4）收官**；**ReActToolLoop B2 判「不建议拆」**（§23）、**B3 已落地**（§24：3354 → **2986**，新模块 `streamingLlm.ts` 475 行）、**B4 已落地**（§27：2986 → **2543**，新模块 `toolResultPostProcess.ts` 558 行）⇒ **ReActToolLoop 计划内候选（B1/B3/B4，B2 不拆）收官**；`tools/AgentTool/AgentTool.ts`(3288) **已取证（§28）**、**B1 已落地**（§29：3288 → **3068**，新模块 `agentToolPool.ts` 323 行）、**B3 已落地**（§30：3068 → **2849**，新模块 `agentTeammateIsolation.ts` 274 行）、**B2 已落地**（§31：2849 → **2652**，新模块 `agentLedgerLifecycle.ts` 303 行）⇒ **AgentTool 计划内候选（B1/B2/B3）收官**（B4/C2 判低优先）。
+- **⚠️ 口径变更（2026-10-05，用户裁定）**：`R04-001` 上限 **1000 → 2000** ⇒ 需处置文件 **156 → 16**；**"降至阈值以下"收益已消失** ⇒ 后续批次改按「**变更隔离 / 单测粒度**」收益裁决（已裁：A4b 做、A5b 不拆；CoreAPIImpl B1–B4 做、主链不拆；ReActToolLoop B1/B3/B4 做、B2 不拆；AgentTool B1/B2/B3 做、B4 低优先）。详见 **§14**。
 - **一句话**：把「156 条文件大小例外」的处置收敛为**分批拆分方案**，并给出**筛选判据**与起点建议。
 
 ---
@@ -281,9 +281,9 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 | 序 | 文件 | 当前行数 | 状态 | 下一个动作 |
 |---|---|---|---|---|
 | 1 | `chat/ChatManager.ts` | 5238 | **A1–A6 + A4b 收官**（−1491） | ✅ 本文件批次全部收官；**A5b 判「不拆」**（用户裁定） |
-| 2 | `runtime/api/CoreAPIImpl.ts` | **3754** | ✅ **已取证（§18）+ 批 B1 已落地（§20，−1582）** | 20 簇 / 98 方法；**C4–C9（31 方法）已外迁 → `runtime/api/domainSnapshotOps.ts`（1800 行，零宿主依赖）**；余下候选 **B2/B3/B4**；主链 `chat`+`chatStream`（855 行）**判不拆** |
-| 3 | `chat/ReActToolLoop.ts` | **3354** | ✅ **已取证（§19）+ 批 B1 已落地（§21，−241）** | 9 簇 / 57 方法；**C8（Todo/轮次预算/长任务信号，13 成员）已外迁 → `chat/toolTurnBudget.ts`（367 行，依赖仅 3 项）**；余下候选 **B2/B3/B4**；骨架 `reason`/`act`（590 行）**判不拆** |
-| 4 | `tools/AgentTool/AgentTool.ts` | 3289 | **未取证** | 先结构取证（签名 + 行段），再定簇 |
+| 2 | `runtime/api/CoreAPIImpl.ts` | **2521** | ✅ **已取证（§18）+ B1–B4 全部落地（§20/§22/§25/§26）** | 20 簇 / 98 方法；已外迁 **C4–C9**（→ `domainSnapshotOps.ts` 1800 行）、**C12+C13**（→ `sessionMessagesRead.ts` 706 行）、**C14**（→ `messageMutation.ts` 389 行）、**C17**（→ `sessionTitling.ts` 543 行）；计划内候选**收官**；主链 `chat`+`chatStream`（855 行）**判不拆**；自 v0.4.58 起 5336 → 2521（**−2815**） |
+| 3 | `chat/ReActToolLoop.ts` | **2543** | ✅ **已取证（§19）+ B1（§21，−241）+ B2 判「不建议拆」（§23）+ B3（§24，−368）+ B4（§27，−443）** | 9 簇 / 57 方法；已外迁 **C8**（→ `toolTurnBudget.ts` 367 行）、**C4**（→ `streamingLlm.ts` 475 行）、**C3**（→ `toolResultPostProcess.ts` 558 行）；**C6 判不拆**（§23）；计划内候选**收官**；骨架 `reason`/`act`（590 行）**判不拆**；自 v0.4.58 起 3595 → 2543（**−1052**） |
+| 4 | `tools/AgentTool/AgentTool.ts` | **2652** | ✅ **已取证（§28）+ B1（§29，−220）+ B3（§30，−219）+ B2（§31，−197）** | 10 簇 / 56 成员；已外迁 **C3+C4**（→ `agentToolPool.ts` 323 行）、**C8**（→ `agentTeammateIsolation.ts` 274 行）、**C7**（→ `agentLedgerLifecycle.ts` 303 行）；**计划内候选收官**（B4/C2 判低优先：<100 行）；**判不拆**：C1 契约面 + C6 主链 + C5 `executeGuard` + C9 控制面；自本轮起 3288 → 2652（**−636**） |
 
 ### 9.3 ChatManager 后续批次（簇 → 目标文件）
 
@@ -549,14 +549,14 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 > ⚠️ **订正（2026-10-05 实施时实测，见 §20）**：上式"`:1541 → :2069`"**不精确** —— `:2069`/`:2117`/`:2141` **确有** `this.appDeps.*`（属 **C8**，**不在 B1 清单**）。**真正零依赖区间为 `:1592-2050` 与 `:2144-3417`**。不影响 B1 结论（C8 未迁）。
 **跨簇共享最重**：`chatManager`（C1/C2/C3/C10–C20 全域）、`sessionManager`（C11/C12/C14/C15/C17/C20）、`toolManager`（C1/C3/C10）、`appDeps`（C0/C1/C8）。
 
-### 18.2 候选批次（**仅方案，未实施**）
+### 18.2 候选批次（**B1–B4 全部已落地**；§20/§22/§25/§26）
 
 | 批 | 目标新文件（建议名） | 收拢簇 | 预估净出 | 依赖/风险 |
 |---|---|---|---|---|
-| B1 | `runtime/api/domainSnapshotOps.ts`（可按域再拆） | C4+C5+C6+C7+C9 | **≈1740** | **零宿主依赖（反证）**；风险＝动态 import 相对路径深度需重算（`:1686/1697/1707/1712/1962/3368/3378/3391/3400/3405/3413`）；宿主留 ≈31 个 1 行薄转发 |
-| B2 | `runtime/api/sessionMessagesRead.ts` | C12+C13 | ≈598 | 注入 `chatManager`/`sessionManager`；`_derivedMessagesCache` 随迁 |
-| B3 | `runtime/api/messageMutation.ts` | C14 | ≈319 | 跨簇依赖 C12（`:4229`）与 C20（`:4284,4430`）⇒ 需 B2 先行 |
-| B4 | `runtime/api/sessionTitling.ts` | C17 | ≈451 | 注入 4 项（含 `_titleInFlight` 自持） |
+| ~~B1~~ | `runtime/api/domainSnapshotOps.ts` | C4+C5+C6+C7+C9 | **✅ §20（实得 −1582；新文件 1800 行）** | 已落地 |
+| ~~B2~~ | `runtime/api/sessionMessagesRead.ts` | C12+C13 | **✅ §22（实得 −586；新文件 706 行）** | 已落地 |
+| ~~B3~~ | `runtime/api/messageMutation.ts` | C14（**实测 4 成员**） | **✅ §25（实得 −261；新文件 389 行）** | 已落地；`_filterDeletedRanges` **随迁**（用户裁定） |
+| ~~B4~~ | `runtime/api/sessionTitling.ts` | C17（**实测 10 成员**） | **✅ §26（实得 −386；新文件 543 行）** | 已落地；`_executionPhaseTrackers`/`_titleInFlight` 自持；`shouldAutoTitle` 测试耦合经宿主转发满足（未改测试） |
 
 **不建议拆（理由）**：**C2 `chat`/`chatStream`（855 行）** ≥8 依赖 + 跨 C1/C17 回调（`:866/:858/:860/:1491/:1393`）⇒ 与 ChatManager **A5b 判「不拆」同形**；**C16** 全为 1 行薄委托（违 R06-006）；**C0/C1** 被全域消费，抽走制造注入回环；C8/C10/C11/C18/C19/C20 单簇 ≤99 行、收益低。
 
@@ -595,16 +595,16 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 - **基类覆写位**（`query/ReActLoop.ts`，**必须保持 `protected` 覆写**）：`reason`/`act`/`shouldContinue`/`finalize`/`beforeReasoning`/`onMaxIterations`/`isLoopDetectedReason`/`onIncompleteTurn`/`onFinalOutputValidation`/`onSteering`/`getCurrentMessageId`/`resetRunState`。
 - **必须保持 public/薄转发**：`run` · C9 四 getter · `getLongTaskSignal` · `flushTerminalSettlement` · `getCurrentMessageId`。
 
-### 19.3 候选批次（**仅方案，未实施**）
+### 19.3 候选批次（**B1/B3/B4 已落地（§21/§24/§27） · B2 判「不建议拆」（§23）**）
 
 | 批 | 目标新文件（建议名） | 收拢簇 | 预估净出 | 依赖/风险 |
 |---|---|---|---|---|
-| B1 | `chat/loop/toolTurnBudget.ts` | C8（13 成员） | ≈290 | **内聚最高** ⇒ 建议首个提取；≈8–9 注入（getter 型），被 C1/C2 单向调用 |
-| B2 | `chat/loop/terminationSettlement.ts` | C6（9 成员） | ≈530 | 终止文案**单一来源** ⇒ 风险中；3 个对外 getter 保薄转发 |
-| B3 | `chat/loop/streamingLlm.ts` | C4（11 成员） | ≈450 | **前置**：`_activeToolRoundMessageId` 与 `act` 双向共享（`:1679/1772/2215`）⇒ 须先改 getter/setter |
-| B4 | `chat/loop/toolResultPostProcess.ts` | C3（5 成员） | ≈395 | `writtenFiles`/`readReExploreCounts` 自洽；依赖基类 `queueSteering` |
+| ~~B1~~ | ~~`chat/loop/toolTurnBudget.ts`~~ | C8（13 成员） | **✅ §21（实得 −241；新文件 367 行）** | 已落地 |
+| ~~B2~~ | ~~`chat/loop/terminationSettlement.ts`~~ | C6（**实测 8 成员**） | ❌ **不建议拆（§23）** | 宿主依赖 12–13 项；`onMaxIterations`/`finalize` 覆写位须留宿主；`_terminalSettle` 被 C5/C6/`resetRunState` 三方共享；`isCompactionStalled`/`mapTerminationToGoalReason` 测试耦合（猴补 + 脱绑定）⇒ 纯搬迁不可行 |
+| ~~B3~~ | ~~`chat/streamingLlm.ts`~~ | C4（**实测 9 方法 + 2 字段**） | **✅ §24（实得 −368；新文件 475 行）** | 已落地；`_injectRepeatCallCorrection`（循环守卫）/`getCurrentMessageId`（覆写位）留宿主；**已授权改 1 行测试路径** |
+| ~~B4~~ | ~~`chat/toolResultPostProcess.ts`~~ | C3（**实测 5 成员**） | **✅ §27（实得 −443；新文件 558 行）** | 已落地；4 状态字段随迁、`steeringQueue`/`completedWork` 经访问器；宿主转发 0 |
 
-**不建议拆（理由）**：**C1 骨架主循环**（`reason`/`act`/`shouldContinue`）＝本类身份本身、`act` 590 行总调度（跨调 C3/C7）⇒**搬空骨架**；**C9** 纯读数转发（违 R06-006）；**C7** 与 `act`/`negotiationState` 紧耦合（注入 ≈6–7）；**C2** 依赖面最宽（≈10–12）⇒ 抽出近乎"事事回调宿主"，不符内聚判据。
+**不建议拆（理由）**：**C1 骨架主循环**（`reason`/`act`/`shouldContinue`）＝本类身份本身、`act` 590 行总调度（跨调 C3/C7）⇒**搬空骨架**；**C6** 终止判定/收尾（依赖 12–13 + 覆写位 + 跨簇共享 + 测试耦合，详见 **§23**）；**C9** 纯读数转发（违 R06-006）；**C7** 与 `act`/`negotiationState` 紧耦合（注入 ≈6–7）；**C2** 依赖面最宽（≈10–12）⇒ 抽出近乎"事事回调宿主"，不符内聚判据。
 
 ### 19.4 未取证（如实）
 - **`act`(:1274-1864) 与 `beforeReasoning`(:477-768) 未逐行读全**（≈880 行）：仅按签名/注释/调用点推断，**其是否可再拆细粒度子簇未取证**。
@@ -612,7 +612,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 - `_interactionTimedOut`(:406) 的**写入点未定位**（C7 注入数估计可能 ±1）。
 - 本次为**静态只读**取证，**未跑测试/构建** —— 落地时须按 §9.4 逐批守卫。
 
-> **共同结论**：两个文件的"高价值低耦合"可拆面分别为 **CoreAPIImpl C4–C9（≈1740 行，零宿主依赖）** 与 **ReActToolLoop C8（≈290 行，内聚最高）**；两者的"主链/骨架"（`chat`+`chatStream`、`reason`/`act`）应**判不拆**。**CoreAPIImpl B1 已落地（见 §20）；ReActToolLoop 候选批次未实施。**
+> **共同结论**：两个文件的"高价值低耦合"可拆面分别为 **CoreAPIImpl C4–C9（≈1740 行，零宿主依赖）** 与 **ReActToolLoop C8（≈290 行，内聚最高）**；两者的"主链/骨架"（`chat`+`chatStream`、`reason`/`act`）应**判不拆**。**CoreAPIImpl B1/B2 已落地（见 §20/§22）；ReActToolLoop B1/B3 已落地（§21/§24）、B2 判「不建议拆」（§23）。**
 
 ---
 
@@ -670,4 +670,403 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 **门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；**僵尸转发 0**）· `lint:size` **0 错误** · eslint（2 文件）**0** · 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 78.86s，**单独跑**）· 定向 `tests/chat` **349 pass / 0 fail** · prettier ✓
 > 过程如实：首轮全量测试在 `tests/workspaces/apply/WorkspaceSnapshot.test.ts` 处**偶发停滞**（该文件单独跑 3.4s 通过、`bun test tests/workspaces` 亦通过）；**重跑正常收尾**（78.86s）⇒ 判定**环境性偶发**（Windows 下 afterAll 清理临时 git 仓库），**与本次改动无关**。
 
-**⇒ ReActToolLoop B1 收官**。后续候选（§19.3）：**B2** `terminationSettlement`(≈530) · **B3** `streamingLlm`(≈450，须先改 `_activeToolRoundMessageId` 注入) · **B4** `toolResultPostProcess`(≈395)。
+**⇒ ReActToolLoop B1 收官**。后续候选（§19.3）：**B2** `terminationSettlement` **判「不建议拆」（§23）** · **B3** `streamingLlm` **已落地（§24，−368）** · **B4** `toolResultPostProcess`(≈395)。
+
+---
+
+## 22. 实施记录：CoreAPIImpl 批 B2 —— 消息读取 / 事件派生外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/runtime/api/sessionMessagesRead.ts`（`class SessionMessagesRead`，**706 行**，**与宿主同目录**）
+
+**迁入 8 成员 + 1 字段**（＝ §18 的 C12+C13）：
+- **C12**：`getSessionMessages` · `_paginateMessages` · `_loadDerivationHead` · `_loadDerivationEvents` · `_deriveSessionMessagesFromEvents`；**字段** `_derivedMessagesCache`
+- **C13**：`verifySessionDerivation` · `_attachPendingApprovalBlocks` · `getSessionEvents`
+> 另随迁**本地** `type DerivedSessionMessages` 与 `function cloneDerivedMessages`（原宿主 `:100`/`:119`）。
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **3 项** —— `chatManager`（`:2032/2203/2209/2515`）· `sessionManager`（`:2070/2216`）· **`_filterDeletedRanges`（`:2005`）**。停止条件**均未触发**：依赖 3 ≤ 12；`CoreAPIImpl` **无基类**（仅 `implements CoreAPI`）⇒ **无覆写位**；必须保留的转发 **3** < 10。
+
+**⚠️ 一处裁定项（如实，可供复核）**：`_filterDeletedRanges` 按 §18 归属 **C14（消息编辑/回滚）**，但其**唯一代码调用者**是 `getSessionMessages`。本批按"不越批"原则**留宿主并注入**（`getFilterDeletedRanges`）。
+> **✅ 已结清（2026-10-05，用户裁定 + §25 落地）**：该成员**随 B3 迁入 `messageMutation.ts`**（public 名 `filterDeletedRanges`）；`SessionMessagesRead` 的 `getFilterDeletedRanges` 已改接 `this.messageMutation.filterDeletedRanges`。§25 记录。
+
+**注入（`SessionMessagesReadDeps`，3 项全 getter）**：`getChatManager` · `getSessionManager` · `getFilterDeletedRanges`（第 3 项为"getter 返回过滤函数"）
+
+**宿主侧**：**3 个 public 转发**（签名/`async`/返回类型**逐字不变**）——
+| 转发 | 调用者证据 |
+|---|---|
+| `getSessionMessages` | `session-handlers.ts:390/497/506` + `CoreAPI.ts:638` |
+| `getSessionEvents` | `session-handlers.ts:348/1216/1273/1442` + `CoreAPI.ts:659` |
+| `verifySessionDerivation` | **无生产消费者**，仅 `CoreAPI.ts:628` 接口声明 ⇒ 因 `implements CoreAPI` **必需**（R06-006 实测僵尸转发 0，`return this.x()` 形态不触发） |
+
+**1 处直调**：宿主 `deleteMessage` → `this.sessionMessagesRead._deriveSessionMessagesFromEvents(...)`。**5 个纯簇内成员不留转发**（`_paginateMessages`/`_loadDerivationHead`/`_loadDerivationEvents`/`_attachPendingApprovalBlocks` 保持 `private`）。清理 **9 组**孤儿导入。
+
+**行数**：`CoreAPIImpl.ts` **3754 → 3168**（本批 **−586**；自 v0.4.58 起 5336 → 3168，**−2168**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；**僵尸转发 0**）· `lint:size` **0 错误** · eslint（2 文件）**0** · 全量测试 **3924 pass / 9 skip / 0 fail**（429 文件 / 80.07s，**单独跑**）· 定向 `tests/runtime` **32 pass / 0 fail** · prettier ✓
+> **偏差如实**：新文件 **706 行**高于 §18.2 的 ≈598 估计（差额为文件头 / import / `Deps` 接口 / `cloneDerivedMessages` 等脚手架）；**宿主净减 −586 与估计基本吻合**。
+
+**⇒ B2 收官**。后续候选（§18.2）：**B3** `messageMutation`(≈319) · **B4** `sessionTitling`(≈451)。
+
+---
+
+## 23. 裁定记录：ReActToolLoop 批 B2 —— 终止判定 / 收尾（**判「不建议拆」**，2026-10-05）
+
+**背景**：§19.3 将 `chat/loop/terminationSettlement.ts`（C6，预估 ≈530 行）列为 B2 候选。按 §9.4 逐批守卫委派实施，**触发硬停止条件 ⇒ 停手回报、未改任何代码**（`ReActToolLoop.ts` 仍 **3354 行**）。
+
+**候选成员（实测 8 名，非 §19.2 所记 9 成员）**：
+`onMaxIterations`(:2083) · `isCompactionStalled`(:2140) · `finalize`(:2408) · `computeFinalMessage`(:2426) · `settleTerminalState`(:2472) · `flushTerminalSettlement`(:2518) · `mapTerminationToGoalReason`(:2529) · `resolveTerminationOutput`(:2594)。
+**C6 无任何自有字段 / 常量**（`_terminalSettled` / `_terminalSettle` 归宿主，见条件 ③）。
+
+**停止条件（三项全部命中）**：
+
+| # | 条件 | 实测证据（已独立复核） |
+|---|---|---|
+| ① | 宿主依赖 > 12 | **12–13 项**：`loopState` · `ctx` · `config` · `state` · `getTerminationReason` · `settleGoalForTurnNow` · `_isLongTaskSignal` · `droppedToolCallsAtStop` + `_terminalSettle`/`_terminalSettled` 访问器 + 3 个不可随迁 `static` 常量（`COMPACT_NO_EFFECT_SKIP_THRESHOLD`/`COMPACT_STEADY_RATIO` 等） |
+| ② | 覆写位 + 转发 > 10 | 覆写位 **2**：`onMaxIterations`（`ReActLoop.ts:555` protected hook）、`finalize`（`ReActLoop.ts:538` abstract）；+ 对外转发 `flushTerminalSettlement`（消费方 `pipeline/streamMessageFlow.ts:2586`）+ 其余 private 转发 |
+| ③ | **C5↔C6 双向共享状态** | `_terminalSettle`/`_terminalSettled`（宿主字段 `:301/:308`）**三方共享**：C5 `onIncompleteTurn` **写**（`:2215`）· C6 `settleTerminalState` **读写**（`:2473/:2490/:2491`）· C6 `flushTerminalSettlement` **读**（`:2519`）；宿主 `resetRunState`（`:2354`，基类覆写位）**重置**二者（`:2361-2362`）。C5 `onIncompleteTurn`（`:2151`）系基类 hook（`ReActLoop.ts:613`）⇒ **必须留宿主** |
+
+**测试耦合硬阻断（任何委派形态必挂）**：
+- `isCompactionStalled` 被**实例级猴补**：`reactToolLoop-termination-phase2.test.ts:227-229`、`reactToolLoop-termination-o2.test.ts:246-248`（`(loop as …).isCompactionStalled = () => true`）⇒ 抽走后宿主内部调用点（`onIncompleteTurn:2200`）与猴补目标脱钩；
+- `mapTerminationToGoalReason` 被**脱绑定提取调用**：`reactToolLoop-termination-o2.test.ts:165`（`const map = internals(loop).mapTerminationToGoalReason; map('no_progress')`）⇒ 宿主若保留 `this` 型薄转发（`return this.x.map(…)`）必 `TypeError`；
+- 重构约定为「**纯搬迁 + 不改测试**」（D-01/D-03）⇒ 两处耦合均**不可通过改测试规避**。
+
+**⇒ 裁定：ReActToolLoop B2「不建议拆」（用户已接受，2026-10-05）** —— 与 ChatManager **A5b 判「不拆」同理**：依赖面过宽 + 覆写位需留宿主 + 跨簇共享状态 + 测试耦合。**B2 就此结案，不实施**。
+
+**若坚持推进**：唯一路径是**降级为非纯搬迁**（`mapTerminationToGoalReason` 宿主保留原实现、宿主保留多委派、`_terminalSettle` 宿主暴露 get/set、内部调用经注入回宿主）⇒ 偏离纯搬迁约定，且净出（≈530 行估）与注入复杂度/回归风险不匹配。**默认不实施**。
+
+**未改码**：`ReActToolLoop.ts` 保持 **3354 行**；工作区无 B2 相关改动。
+
+---
+
+## 24. 实施记录：ReActToolLoop 批 B3 —— LLM 流式 / 清洗 / 用量外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/streamingLlm.ts`（`class StreamingLlm`，**475 行**，与宿主同目录）
+
+**迁入 9 方法 + 2 字段**（＝ §19.1 的 C4）：
+- 方法：`_callLlmNonStreaming`→`callLlmNonStreaming` · `_appendStreamEvent`→`appendStreamEvent` · `_writeToolRoundText` · `_flushToolRoundText` · `_streamLlm`（async generator）· `_consumeStreamingLlm`→`consumeStreamingLlm`（generator）· `_reportUsage` · `_chargeStreamBudget` · `_usageOf`
+- 字段：`_llmRecovery`（宿主 `:254`）· `_activeToolRoundMessageId`（宿主 `:258`）
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **11 项**（全 getter/setter 闭包）——`getCtx` · `getLoopState` · `getConfig` · `getState` · `getInput` · `get/setBoostNextReasonMaxTokens` · `get/setSupersedeNextRoundText` · `get/setLastRoundHadThinking`。
+停止条件：依赖 **11 ≤ 12** ✓；覆写位 + 转发 **1**（仅 `getCurrentMessageId`）✓；**无跨簇双向状态** ✓。
+
+**留宿主（不迁）**：
+| 成员 | 理由 |
+|---|---|
+| `getCurrentMessageId`(:2928) | 基类覆写位（`ReActLoop` protected override）⇒ 宿主改委派 `this.streamingLlm.currentMessageId()` |
+| `_injectRepeatCallCorrection`(:2804) | 循环守卫语义 + 写基类 protected 字段 `repeatCorrectionPending`（`ReActLoop.ts:418`）⇒ 判**不属 C4**，留宿主；其依赖字段 `_lastToolCallKeys`(:349) 随之留宿主 |
+
+**`_activeToolRoundMessageId` 读取方案**：模块暴露双出口——`activeToolRoundMessageId(): string`（**逐字保留空串语义**，供宿主 `act`/`reason` 4 处落盘复用：`:999` id、`:1453`/`:1989` parentMessageId、`:1546` `|| fallback`）+ `currentMessageId(): string \| undefined`（供 `getCurrentMessageId()` 委派）。理由：`createAssistantMessage(id?: string)` 原实现空值落 `''`，统一走 `|| undefined` 会改语义 ⇒ 保零行为变更。
+
+**宿主侧**：`reason` 内 `_callLlmNonStreaming`/`_consumeStreamingLlm` 调用改为**直调模块**；3 处 `_appendStreamEvent` 改为直调模块；**无转发壳**。清理 **9 组**孤儿导入（`createErrorRecoveryManager`/`BudgetControllerLike`/`ensureThinkResponseTags`/`stripThinkResponseTags`/`stripOrphanToolTags`/`StreamingToolCallScrubber`/`repairImageUrls`/`trackUsage`/`extractModelFromResponse`）。
+
+**⚠️ 已授权测试改动（用户裁定，2026-10-05；唯一 1 行）**：`app/tests/ai/usageModelAttribution.test.ts` 的 `STRICT_SITES`(`:72`)：`'chat/ReActToolLoop.ts'` → `'chat/streamingLlm.ts'`。
+**理由**：该测试是**按文件路径**做的源码内容守卫（断言目标文件含 `extractModelFromResponse(`），而该调用在宿主中**仅**存在于 `_reportUsage`（`:3148`）。记账点随迁后守卫路径须跟随；**守卫语义 / 断言零改动**（非"改测试以过关"，属搬迁的必要同步）。此为全仓**唯一**的路径守卫（已 grep 确认）。
+
+**行数**：`ReActToolLoop.ts` **3354 → 2986**（本批 **−368**；自 v0.4.58 起 3595 → 2986，**−609**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线）· `lint:size` **0 错误** · eslint（2 文件）**0** · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 85.55s，**我亲自重跑**）· `tests/chat` 349 pass · `tests/query` 133 pass · `usageModelAttribution` 10 pass
+
+> **偏差如实**：新文件 **475 行**高于 §19.3 的 ≈450 估计（差额为文件头 / import / `Deps` 接口等脚手架）；宿主净减 **−368**（低于 ≈450 估计，因 `_injectRepeatCallCorrection` 与 `_lastToolCallKeys` 留宿主）。
+
+**⇒ B3 收官**。后续候选（§19.3）：**B4** `toolResultPostProcess`(≈395)。
+
+---
+
+## 25. 实施记录：CoreAPIImpl 批 B3 —— 消息编辑 / 回滚外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/runtime/api/messageMutation.ts`（`class MessageMutation`，**389 行**，与宿主同目录）
+
+**迁入 4 成员**（＝ §18.1 的 C14）：
+`updateMessageBlocks` · `deleteMessage` · `_filterDeletedRanges`→**`filterDeletedRanges`**（public 改名）· `truncateMessages`
+
+**⚠️ 关键裁定落地（用户 2026-10-05）**：`_filterDeletedRanges` **随迁**（语义属 C14：删除墓碑的读侧过滤）⇒ `SessionMessagesRead`（B2）的 `getFilterDeletedRanges` 改接 `this.messageMutation.filterDeletedRanges`（**只改宿主接线，B2 模块自身零改动**）。**§22 裁定项就此结清**。
+> 两模块形成**惰性引用环**（C12 读 C14 的 `filterDeletedRanges`；C14 读 C12 的 `_deriveSessionMessagesFromEvents`）——两者均经宿主闭包**调用时**求值 ⇒ **无构造顺序问题、无运行时递归**（`derive` 不调 `filter`，`filter` 不调 `derive`）。
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **4 项**（全 getter 闭包）——`getChatManager` · `getSessionManager` · `getCleanupOrphanAttachments`（C20）· `getDeriveSessionMessagesFromEvents`（B2 模块 public `_deriveSessionMessagesFromEvents`）。
+停止条件：依赖 **4 ≤ 12** ✓；覆写位 + 转发 **0 + 3 = 3** ≤ 10 ✓；**无测试耦合** ✓。
+
+**宿主侧**：**3 个 public 转发**（签名 / `async` / 返回类型逐字不变）——`updateMessageBlocks`（`session-handlers.ts:586`）· `deleteMessage`（`message-handlers.ts:40`）· `truncateMessages`（`message-handlers.ts:103`）；三者均因 `implements CoreAPI`（`CoreAPI.ts:679/686/695`）必需，`return this.x()` 形态（僵尸转发 0）。**删除宿主 `_filterDeletedRanges`**。清理孤儿导入 `addDeletedRange`/`isSeqInDeletedRanges`（grep 确认仅 C14 使用）。日志 module 名沿用 `runtime:api:CoreAPIImpl`。
+**额外必要改动（计划外，如实）**：`sessionMessagesRead`/`messageMutation` 两字段加**显式类型标注**——初始化器互指触发 `TS7022/TS2347` 循环类型推断，标注即破环；**`sessionMessagesRead.ts` 自身未改一行**。
+
+**行数**：`CoreAPIImpl.ts` **3168 → 2907**（本批 **−261**；自 v0.4.58 起 5336 → 2907，**−2429**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；僵尸转发 0）· `lint:size` **0 错误** · `tests/runtime` 32 pass · `tests/session` 289 pass · `tests/http` 76 pass · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 82.59s，**我亲自重跑**）
+
+> **偏差如实**：宿主净减 **−261**（低于 §18.2 的 ≈319 估计；新文件 389 行含脚手架）。
+
+**⇒ B3 收官**。后续候选（§18.2）：**B4** `sessionTitling`(≈451)。
+
+---
+
+## 26. 实施记录：CoreAPIImpl 批 B4 —— 标题 / 元数据 / 执行阶段追踪外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/runtime/api/sessionTitling.ts`（`class SessionTitling`，**543 行**，与宿主同目录）
+
+**迁入 10 成员 + 2 字段**（＝ §18.1 的 C17）：
+`renameSession` · `setPreliminaryTitle` · `sanitizePlaceholderTitle` · `_getExecutionPhaseTracker`→**`getExecutionPhaseTracker`** · `shouldAutoTitle` · `_appendTitleEvent` · `updateSessionMeta` · `generateSessionTitle` · `autoGenerateTitle`；**字段** `_titleInFlight` · `_executionPhaseTrackers`。
+另随迁**模块级 helper** `messagePlainText`/`firstUserText`/`firstAssistantText`（grep 确认仅 `autoGenerateTitle` 使用）。
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **1 项**（`getChatManager`）。
+停止条件：依赖 **1 ≤ 12** ✓；覆写位 + 转发 **0 + 5 = 5** ≤ 10 ✓；`_executionPhaseTrackers` 由本簇拥有、宿主**单向消费**（无写路径）✓；无脱绑定式测试耦合 ✓。
+
+**跨簇接线**：
+- **C2**（`chat`/`chatStream`）对标题成员的既有调用点全部改为**直调模块**（保留原 `void` / fire-and-forget 语义）；`getExecutionPhaseTracker` 2 处同理。
+- **C16**：`deleteSession`/`clearAllSessions` 的 `_executionPhaseTrackers.delete/clear` → 模块 `deleteTracker` / `clearTrackers`（只搬不改 Map 语义）。
+- 宿主保留 **5 个薄转发**：`renameSession`（`session-handlers.ts:877,931` + `Rename.ts:68`）· `updateSessionMeta`（`session-handlers.ts:986`）· `generateSessionTitle`（`session-handlers.ts:922`）· `setPreliminaryTitle`（测试）· `shouldAutoTitle`（测试 `coreapi-title-lifecycle.test.ts:132/147/160`）。
+> **测试耦合澄清**：该测试为**接收者方法调用**形态（`(api as …).shouldAutoTitle('sess-1')`）⇒ 宿主转发即可满足（**非** §23 那种脱绑定提取）；**未改任何测试**。
+
+**行数**：`CoreAPIImpl.ts` **2907 → 2521**（本批 **−386**；自 v0.4.58 起 5336 → 2521，**−2815**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；**疑似僵尸方法 0**）· `lint:size` **0 错误** · `tests/runtime` 32 pass · `tests/http` 76 pass · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 83.94s，**我亲自重跑**）
+
+> **偏差如实**：宿主净减 **−386**（低于 §18.2 的 ≈451 估计）；§18.1 记 C17 "注入数 4"，实测为 **1**（`_titleInFlight`/`_executionPhaseTrackers` 属自持字段，非注入项）。
+
+**⇒ B4 收官 ⇒ CoreAPIImpl 计划内候选批次（B1–B4）全部完成**。累计 **5336 → 2521（−2815）**，新建 4 个同目录模块（`domainSnapshotOps` 1800 · `sessionMessagesRead` 706 · `messageMutation` 389 · `sessionTitling` 543）。
+
+---
+
+## 27. 实施记录：ReActToolLoop 批 B4 —— 工具结果后处理 / 循环守卫外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/chat/toolResultPostProcess.ts`（`class ToolResultPostProcess`，**558 行**，与宿主同目录）
+
+**迁入 5 成员 + 4 字段 + 3 常量**（＝ §19.1 的 C3）：
+- 成员：`_raceToolAbort` · `_flushParallelBatch` · `_detectReadReExplore` · `_detectFileWriteLoop` · `_postProcessToolResult`
+- 字段：`writtenFiles` · `readReExploreCounts` · `readReExploreSteered` · `fileWriteLoopPrompted`（均仅本簇用，随迁）
+- `static` 常量：`FILE_WRITE_LOOP_THRESHOLD` · `FILE_CONTENT_HEAD_LENGTH` · `READ_REEXPLORE_STEER_THRESHOLD`
+- 另随迁模块级 `safeStringify`（export，宿主 import 复用）与 `ParallelBatchItem` 接口（export type）
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **6 项**（全 getter/闭包）——`getCtx` · `getLoopState` · `getActiveToolRoundMessageId`（B3 模块）· `pushSteering`（基类 `steeringQueue`）· `getCompletedWork`（基类 `completedWork`）· `recordPendingTodo`（宿主薄壳 → B1 模块）。
+停止条件：依赖 **6 ≤ 12** ✓；宿主**转发 0**（5 成员皆 `private`，无 public 消费者）✓；4 状态字段**完全随迁、宿主 0 残留** ✓；**无测试耦合** ✓。
+
+**跨簇接线**：宿主 `act` 的 4 处调用改直调模块（`_flushParallelBatch` ×2 · `_raceToolAbort` ×1 · `_detectFileWriteLoop` ×1）。
+> ⚠️ **订正（实施时实测）**：取证曾记"`_postProcessToolResult` 由 `act` 串行路径直接调用"——**不成立**。宿主 `act` 串行段是**内联后处理**；`_postProcessToolResult` **仅**被 `_flushParallelBatch` 调用（该调用点随成员迁入模块）。
+
+**行数**：`ReActToolLoop.ts` **2986 → 2543**（本批 **−443**；自 v0.4.58 起 3595 → 2543，**−1052**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；疑似僵尸方法 0）· `lint:size` **0 错误** · `tests/chat` 349 pass · `tests/query` 133 pass · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 82.81s，**我亲自重跑**）
+
+> **存量观察（如实，非本批引入）**：`safeStringify` 全仓有 **3 处独立实现**（本模块 ← 迁自宿主 / `query/ChatManagerTAORAdapter.ts` / `performance/SlowOperationDetector.ts`）。本批按"纯搬迁"将该 host-local 实现随 C3 迁出并 `export` 供宿主 `import`；**重复实现的归一化不在本批范围**，已记台账。
+
+**⇒ B4 收官 ⇒ ReActToolLoop 计划内候选批次（B1–B4）全部完成**（B2 判不拆）。累计 **3595 → 2543（−1052）**，新建 3 模块（`toolTurnBudget` 367 · `streamingLlm` 475 · `toolResultPostProcess` 558）。
+
+---
+
+## 28. 结构取证：`tools/AgentTool/AgentTool.ts`（2026-10-05，只读取证，未动码）
+
+**规模**：实测末行 **3288**（`(Get-Content …).Count = 3288`；任务书作 3289，差 1，疑为末尾空行计数口径，**按实测 3288 记**）；`export class AgentTool implements Tool`（`:384`）。
+**契约**：`interface Tool` 声明于 `app/src/utils/toolContract/Tool.ts:206`（必实现项见 §28.3）。
+**成员**：**方法 47 + `get params` 访问器 1 = 48**（含 `constructor:503`）；**实例字段 8**（无 `static` 成员）；另 **模块级导出函数 7**（含 `getAllTools` 私有）、**模块级接口 2**、**模块级常量 6**。
+
+### 28.1 方法 / 字段逐个（行段）
+
+**实例字段 ×8**：`name:386` · `description:389` · `aliases:420` · `searchHint:423` · `config:426` · `engine:429` · `_ledger:441` · `agentTeammateHandles:448`。
+
+**方法 ×48**（名 | 行段，按文件顺序）：
+
+| 方法 | 行段 | 方法 | 行段 |
+|---|---|---|---|
+| `registerTeammate` | 451-480 | `runWithEngine` | 1193-1318 |
+| `unregisterTeammate` | 483-497 | `spillSummaryToDisk` | 1334-1368 |
+| `constructor` | 503-509 | `resolveSwarmTaskDescriptors` | 1378-1409 |
+| `getInfo` | 514-529 | `buildSwarmExecutor` | 1424-1659 |
+| `isEnabled` | 534-536 | `runDirectCall` | 1664-1749 |
+| `isReadOnly` | 541-543 | `execute` | 1757-1986 |
+| `isDestructive` | 548-550 | `beginRun` | 1995-2050 |
+| `isConcurrencySafe` | 555-557 | `recordDescriptorSource` | 2057-2070 |
+| `getAgentType` | 563-586 | `settleRun` | 2089-2145 |
+| `resolveAgentDescriptor` | 596-625 | `bindTeammate` | 2154-2202 |
+| `getBuiltInAgent` | 631-634 | `applyIsolationAndFork` | 2210-2313 |
+| `validateInput` | 640-677 | `runSwarmPath` | 2321-2750 |
+| `userFacingName` | 682-689 | `runBackgroundPath` | 2759-2885 |
+| `getActivityDescription` | 694-701 | `runForegroundPath` | 2894-3039 |
+| `getToolUseSummary` | 706-713 | `getEngine` | 3044-3046 |
+| `createAgentId` | 718-722 | `notifyYieldSettlement` | 3062-3099 |
+| `failureResult` | 731-748 | `getActiveAgents` | 3107-3115 |
+| `executeGuard` | 757-910 | `getAgentStatus` | 3137-3166 |
+| `executeToolsets` | 923-968 | `stopAgent` | 3176-3280 |
+| `toToolNameList` | 971-982 | `get params`（访问器） | 398-417 |
+| `getInheritableToolPool` | 990-1020 | | |
+| `resolveDelegationGrant` | 1032-1039 | | |
+| `emitStart` | 1045-1061 | | |
+| `emitComplete` | 1063-1080 | | |
+| `emitError` | 1082-1099 | | |
+| `getDefaultSystemPrompt` | 1105-1120 | | |
+| `filterToolPool`（私有） | 1128-1134 | | |
+| `buildToolDefinitions` | 1146-1188 | | |
+
+**模块级（类外）成员**：`setAgentToolManager:135` · `resetAgentToolManager:143` · `refreshAvailableSubagentTypeNames:159` · `getAllTools:174`（私有）· `resolveDeniedTools:344` · `filterToolPool:357` · `createAgentTool:3286`；接口 `SwarmTaskDescriptor:299` · `SwarmToolDefinition:312`；常量 `_getAllTools:133` · `logger:185` · `MAX_SUBAGENT_DEPTH:190` · `AGENT_PARAMS:195` · `DEFAULT_AGENT_CONFIG:286` · `BUILTIN_AGENT_DEFINITIONS_BY_TYPE:327`。
+
+### 28.2 职责簇（覆盖全部 56 成员 = 48 方法/访问器 + 8 字段）
+
+| 簇 | 行段 | 成员数 | 代表方法（行） | 约行 | 注入数（估） |
+|---|---|---|---|---|---|
+| **C1 工具契约面（+构造）** | 386-423 · 398-417 · 503-509 · 514-713 | **15**（4 readonly 字段 + ctor + 访问器 + 9 方法） | `getInfo:514` · `params:398` · `validateInput:640` | ~265 | 自身契约字段（=类身份） |
+| C2 类型/描述符解析 | 563-634 · 1105-1120 | 4 | `resolveAgentDescriptor:596` · `getAgentType:563` | ~88 | **1**（`config`） |
+| C3 工具池/授权/定义 | 923-982 · 990-1039 · 1128-1188 | 6 | `executeToolsets:923` · `getInheritableToolPool:990` · `buildToolDefinitions:1146` | ~171 | **≈0**（仅簇内自调 + 模块） |
+| C4 事件发射 | 1045-1099 | 3 | `emitStart:1045` · `emitComplete:1063` · `emitError:1082` | ~55 | **0**（纯入参） |
+| C5 前置守卫 | 757-910 | 1 | `executeGuard:757` | ~154 | **≈6–7** |
+| **C6 执行主链** | 1193-1318 · 1378-1409 · 1424-1659 · 1664-1749 · 1757-1986 · 2321-2750 · 2759-2885 · 2894-3039 | 8 | **`execute:1757`** · **`runSwarmPath:2321`** · `buildSwarmExecutor:1424` | **~1413** | **≥20（骨架）** |
+| C7 台账/结算/血缘 | 718-722 · 731-748 · 1334-1368 · 1995-2050 · 2057-2070 · 2089-2145 · 3062-3099 | 7 | `settleRun:2089` · `beginRun:1995` · `notifyYieldSettlement:3062` | ~223 | **≈4** |
+| C8 队友/隔离 | 451-497 · 2154-2202 · 2210-2313 | 4 | `bindTeammate:2154` · `applyIsolationAndFork:2210` | ~200 | **1**（`agentTeammateHandles`） |
+| C9 对外读数/停控 | 3044-3046 · 3107-3115 · 3137-3166 · 3176-3280 | 4 | `stopAgent:3176` · `getAgentStatus:3137` | ~147 | **2**（`_ledger`/`engine`） |
+| **C0 实例可变状态字段** | 426 · 429 · 441 · 448 | 4 字段 | `config`/`engine`/`_ledger`/`agentTeammateHandles` | ~4 | 跨簇共享（见 §28.4） |
+
+> **C3 注入数 ≈0 的证据（两轮 Grep）**：`:923-1188` 的 `this.` 命中**仅** `this.filterToolPool`(:1155)/`this.getInheritableToolPool`(:1158)/`this.filterToolPool`(:1133 内部委托) —— 均为**簇内自调**，无簇外宿主字段；依赖全部来自模块级（`getAllTools`/`isValidMcpName`/`validateToolsetRequest`/`toWireToolName`/`getToolCategory`/`ALWAYS_BLOCKED_TOOLS`/`DELEGATE_BLOCKED_TOOLS`）。**C4** 的 `:1045-1099` 零 `this.` 命中 ⇒ 纯入参。
+
+### 28.3 对外契约面
+
+**`interface Tool` 必实现项（`utils/toolContract/Tool.ts`）与本类实装**：
+| 契约项 | 声明 | AgentTool 实装 |
+|---|---|---|
+| `name: string` | :214 | `:386` |
+| `description: string` | :219 | `:389` |
+| `params: ToolParam[]` | :224 | `get params:398` |
+| `isEnabled()` | :269 | `:534` |
+| `isReadOnly()` | :274 | `:541` |
+| `isConcurrencySafe()` | :289 | `:555` |
+| `execute()` | :304 | `:1757` |
+| `getInfo()` | :342 | `:514` |
+
+可选契约中本类实装：`aliases:420` · `searchHint:423` · `isDestructive:548` · `validateInput:640` · `userFacingName:682` · `getActivityDescription:694` · `getToolUseSummary:706`。
+
+**实例消费者（非测试，全仓 grep）**：
+- `tools/ToolFactory.ts:363-364` —— `createAgentTool(): Tool { return new AgentTool(); }`（直接 `new`）。
+- `tools/AgentTool/AgentTool.ts:3286-3287` —— 模块级 `createAgentTool()` → `new AgentTool(config)`。
+- `tools/ToolManager.ts:11,461` —— `import { setAgentToolManager }` + `setAgentToolManager(() => this.getAllTools())`（**唯一生产调用点**）。
+- `commands/tools/ai/agents.ts:151`（`agentTool?.getActiveAgents()`）· `:309`（`agentTool.stopAgent(name, { privileged: true })`）。
+- `commands/tools/ai/agent.ts:202`（`getActiveAgents()`）· `:203`（`getEngine()`）· `:361`（`getAgentStatus(id)`）· `:466`（`stopAgent(id, { privileged: true })`）。
+- `runtime/api/domainSnapshotOps.ts:356`（`resolveAgentToolInstance()?.getActiveAgents()`）· `:363`（`…?.stopAgent(agentId, opts)`）· `:364`（`isAgentToolAvailable`）；端口契约 `runtime/api/toolsPorts.ts:113,122-124,138`。
+- `infrastructure/http/handlers/agent-control-handlers.ts:53`（`tools.getActiveAgents()`）· `:160`（`tools.isAgentToolAvailable()`）· `:169`（`tools.stopAgent(...)`）。
+- `core/Coordinator.ts:180`（`this.agentTool.stopAgent(taskId, { privileged: true })`）；`core/spi/AgentToolService.ts:81`（`stopAgent: (taskId, options) => _requireService().stopAgent(...)`）。
+- `entrypoints/spiWiring.ts:117-119`（动态 `import { resolveAgentToolInstance }`）；`tools/utils/resolveAgentToolInstance.ts:45`（**鸭子类型能力判定**：`typeof c.stopAgent === 'function' && typeof c.getActiveAgents === 'function'`，`:31-37`）。
+
+**模块级导出消费者**：
+- `setAgentToolManager`：`ToolManager.ts:11,461`（生产唯一）；测试多处（见 §28.6）。
+- `resetAgentToolManager`：**仅测试** `agentToolPoolSource.test.ts:20,56,71`。
+- `refreshAvailableSubagentTypeNames`：`tools/index.ts:338`（re-export）· `runtime/api/domainSnapshotOps.ts:322,348-349`（端口转发）· 自用 `AgentTool.ts:508`（构造函数 fire-and-forget）· 测试 `subagentTypeSchema.test.ts:14,99`。
+- `resolveDeniedTools`：生产内部 `AgentTool.ts:1233,1461`；测试 `definitionDisallowedTools.test.ts:23,108-118`。
+- `filterToolPool`：生产内部 `AgentTool.ts:1133,1155,1237,1492`；测试 `definitionDisallowedTools.test.ts:22,118`。
+- `createAgentTool`（模块级）：`ToolFactory.ts:363-364` 另有同名方法；测试 `agentInputFrozen.test.ts:15,21,44`。
+
+### 28.4 跨簇共享状态（最重几项）
+
+| 字段 | 定义 | 读写点（行） | 共享簇 |
+|---|---|---|---|
+| `_ledger` | :441 | 写/读 `:876`（C5 `tryReserve`）· `:889`（C5 `liveCount`）· `:2098`/`:2101`（C7 `settle`/`claimTerminalSideEffects`）· `:3114`（C9 `listActive`）· `:3143`（C9 `view`）· `:3190`（C9 `ownerSessionId`）· `:3221`（C9 `requestCancel`） | **C5 / C7 / C9**（+测试反射守卫） |
+| `engine` | :429 | 写 `:505`（C1 ctor）· 读 `:1300`（C6 `runWithEngine`）· `:1601`（C6 `buildSwarmExecutor`）· `:3045`（C9 `getEngine`）· `:3191`（C9 `ownerSessionId`）· `:3227`/`:3248-3249`（C9 `abort` 扇出） | **C1 / C6 / C9** |
+| `config` | :426 | 写 `:504`（C1 ctor）· 读 `:565`（C2 `getAgentType`）· `:864`/`:884`/`:890`（C5 `executeGuard`）· `:2788`（C6 `runBackgroundPath`） | **C1 / C2 / C5 / C6** |
+| `agentTeammateHandles` | :448 | `:464`/`:484`/`:486`（C8 `register`/`unregister`） | **单簇 C8（可随迁）** |
+
+> **解耦判据**：`_ledger` 是**进程内单例**（`getAgentRunLedger()`）⇒ C7 外迁只需宿主/模块各取同一单例，**无需注入访问器**（但见 §28.6 反射守卫）。`engine` 同理是单例（`getSubAgentEngine()`），C9 可直取。`config` 是**实例私有**且被 4 簇读 ⇒ 外迁任读它的簇需宿主注入（或用"拥有簇 + 访问器"）。
+
+### 28.5 候选批次（**B1/B2/B3 已落地（§29/§31/§30）**；B4 仅方案；净出 = 行段跨度，**未 numstat 实测**）
+
+| 批 | 目标新文件（建议名，与宿主同目录） | 收拢簇 | 预估净出 | 依赖 / 风险 |
+|---|---|---|---|---|
+| ~~**B1**~~ | `tools/AgentTool/agentToolPool.ts` | **C3 + C4**（6+3 成员） | **✅ §29（实得 −220；新文件 323 行）** | 已落地；2 个同名宿主转发（反射测试，接收者绑定）；模块级符号注入（避循环 import） |
+| ~~**B2**~~ | `tools/AgentTool/agentLedgerLifecycle.ts` | **C7**（7 成员） | **✅ §31（实得 −197；新文件 303 行）** | 已落地；迁 6 成员；`_ledger` 字段（反射）+ `notifyYieldSettlement`（猴补）**留宿主**，模块经注入回指 |
+| ~~**B3**~~ | `tools/AgentTool/agentTeammateIsolation.ts` | **C8**（4 成员） | **✅ §30（实得 −219；新文件 274 行）** | 已落地；宿主依赖 **0**（空构造）、`agentTeammateHandles` 随迁、无转发 |
+| **B4** | `tools/AgentTool/agentDescriptorResolve.ts` | **C2**（4 成员） | ~88 | 注入 1（`config`）；**单簇过小（<100 行）**，收益低 ⇒ 优先级最低，或与 C5 合并评估 |
+
+**判不拆（明确理由）**：
+- **C1 工具契约面（15 成员）+ C6 执行主链（8 成员，~1413）**：C1 是 `implements Tool` 的**身份本身**（9 个 1–4 行 getter/校验，抽走即"薄转发违 R06-006"）；C6 的 `execute`（骨架总调度）+ `runSwarmPath`（430 行）+ `buildSwarmExecutor` 是**主链骨架**，注入 ≥20 ⇒ 抽出即"事事回调宿主"（与 §18 的 `chat/chatStream`、§19 的 `reason/act`、§23 判不拆同形）。
+- **C5 前置守卫**（单方法 `executeGuard:757`，~154 行）：注入 ≈6–7，且**返回 `reservation` 句柄**与 `execute` 的 `finally` 强绑定 ⇒ 抽为独立文件属"单方法薄搬运"，收益/风险不匹配；**建议并入 C6 一起判不拆**。
+- **C9 对外读数/停控**：`stopAgent:3176`（105 行，真逻辑）**不可薄转**；但 `getEngine:3044`/`getActiveAgents:3107`/`getAgentStatus:3137` 是控制面**契约面**，且 `resolveAgentToolInstance`（`:31-37`）**鸭子类型判定要求实例自带 `stopAgent` 与 `getActiveAgents`** ⇒ 若外迁须在宿主保留同名转发；`getEngine`/`getActiveAgents` 本身即薄读数（R06-006）⇒ **判不拆**（保留在宿主契约面）。
+
+### 28.6 测试耦合取证（`app/tests/tools/AgentTool/`）
+
+**唯一命中 = 反射读私有字段（"按实例成员的源码守卫"变体）**：
+- `agentControlOwnership.test.ts:250-251` —— `expect(Reflect.get(first, '_ledger')).toBe(getAgentRunLedger())` / `Reflect.get(second, '_ledger')`。
+  - 形态：**反射读实例私有字段 `_ledger`**（只读断言"多实例共用同一台账单例"）。
+  - 判定：**不构成"纯搬迁"硬阻断**，但**约束边界**——任何批次**不得把 `_ledger` 字段本体的所有权搬出 `AgentTool`**（字段须仍存在于实例上）；B2 若采用"宿主保留 `_ledger` 字段 + 模块经 `getAgentRunLedger()` 取同一单例"，则不触发该守卫。
+
+**未发现的形态（如实报告）**：`app/tests` 内**无**对 AgentTool 私有方法的猴补（`(x as any).member = `）、**无**脱绑定提取（`internals(x).member`）、**无** `readFileSync(... 'tools/AgentTool/AgentTool.ts')` 源码守卫。`descriptorFailClosedSeam.test.ts:5`、`swarmDescriptorResolution.test.ts:642` 中出现的 `AgentTool.ts:NNNN` 仅是**注释里的行号引用**，非文件读取断言。
+
+**消费者仅为公开面**：测试全部经 `new AgentTool()` / `createAgentTool()` + 公开方法 `execute` / `stopAgent` / `getAgentStatus` / `params`，以及模块级 `setAgentToolManager` / `resetAgentToolManager` / `refreshAvailableSubagentTypeNames` / `filterToolPool` / `resolveDeniedTools`（见 §28.3 与前述 grep）。⇒ **就测试而言，B1/B2/B3 的"纯搬迁 + 宿主薄转发"路径可行**（B2 需满足上述 `_ledger` 边界）。
+
+### 28.7 未取证（如实）
+
+- **已逐行读全 `:1-3288`**（9 段连续 Read 全覆盖），但以下**超长方法未做细粒度内部子簇拆解**，其归类依据为**签名 / 注释 / 调用点**而非逐行：`execute`（1757-1986）· `runSwarmPath`（2321-2750）· `buildSwarmExecutor`（1424-1659）· `executeGuard`（757-910）⇒ 若后续要"拆细 C6"，须补逐行。
+- **各簇"注入数"为估算**：仅 `config`/`engine`/`_ledger`/`agentTeammateHandles` 四字段做了**全量 `this.*` 行号穷举**（§28.4）；其余按方法签名/体量估计，误差可能 ±2（参照 §18 曾对 `:2069` 区间误判的先例）。
+- **消费者 grep 范围**：实例方法消费者仅扫 `app/src`；`dev_docs/`、`.trae/specs/` 中的同名命中（文档/台账）未计为消费者。
+- **"净出"为行段跨度估算**，**未 `git numstat` 实测**（ChatManager 经验 §10/§13：实得常低于预估）。
+- 本次为**静态只读**取证，**未跑测试/构建**。
+
+### 28.8 一句话结论
+
+**高价值低耦合可拆面 = C3+C4（`agentToolPool`，约 226 行，注入≈0）+ C8（`agentTeammateIsolation`，约 200 行，1 字段可随迁）+ C7（`agentLedgerLifecycle`，约 223 行，注意 `_ledger` 字段本体留在宿主）**；**应判不拆的骨架 = C1 工具契约面（`implements Tool` 身份）+ C6 执行主链（`execute`/`runSwarmPath`/`buildSwarmExecutor`）+ C5 `executeGuard`（单方法、与 `reservation` 强绑）+ C9 控制面读数/停控（`resolveAgentToolInstance` 鸭子类型契约面）**。
+
+---
+
+## 29. 实施记录：AgentTool 批 B1 —— 工具池 / 授权 / 定义 + 事件发射外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/tools/AgentTool/agentToolPool.ts`（`class AgentToolPool`，**323 行**，与宿主同目录）
+
+**迁入 9 成员**（＝ §28 的 C3+C4）：`executeToolsets` · `toToolNameList` · `getInheritableToolPool` · `resolveDelegationGrant` · `filterToolPool`（类方法 private）· `buildToolDefinitions` + `emitStart` · `emitComplete` · `emitError`
+
+**⚠️ 用户裁定落地（2026-10-05）**：测试 `agentToolPoolSource.test.ts:36-41` / `agentDelegationGrant.test.ts:113-119` 以 `Reflect.get(tool,'<成员>')` + **`fn.call(tool, …)`（接收者绑定）** 消费 `getInheritableToolPool` / `resolveDelegationGrant` ⇒ **宿主保留 2 个同名 private 薄转发**（两者另有宿主 C6 调用者 ⇒ 转发非僵尸，R06-006 不报）。**未改任何测试**。
+> **判据（与 §23 对比）**：**接收者绑定调用**可由同名转发满足；§23 的 B2 是**无接收者**的脱绑定调用（`map(...)`）⇒ 转发必挂。这是"硬阻断"与"可解耦合"的分界。
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **3 项**（全 getter/闭包，且皆为**模块级符号注入**以避 `AgentTool.ts ↔ agentToolPool.ts` 循环 import）——`getAllTools` · `getMaxSubagentDepth` · `filterToolPool`（**模块级函数**，与同名的随迁**类方法**不同物）。
+停止条件：依赖 **3 ≤ 12** ✓；覆写位 + 转发 **0 + 2 = 2** ≤ 10 ✓；无字段双向读写 ✓。
+
+**宿主侧**：2 个同名转发（C6 调用点保持调用转发）；其余 7 成员的 **11 处**调用点改直调模块。清理孤儿 import **4 组**（`toWireToolName` / `AgentToolsetContract` 三件 / `isValidMcpName` 等）。
+
+**行数**：`AgentTool.ts` **3288 → 3068**（本批 **−220**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；疑似僵尸方法 0）· `lint:size` **0 错误** · `tests/tools/AgentTool` 183 pass · `tests/tools` 590 pass · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 83.23s，**我亲自重跑**）
+
+> **偏差如实**：§28.5 估 ≈226，实得宿主净减 **−220**（吻合）；新文件 323 行含文件头/import/`Deps` 脚手架。
+
+**⇒ B1 收官**。后续（§28.5）：**B3** `agentTeammateIsolation`(C8，≈200) → **B2** `agentLedgerLifecycle`(C7，≈223，注意 `_ledger` 字段本体留宿主)。
+
+---
+
+## 30. 实施记录：AgentTool 批 B3 —— 队友注册 / 隔离 / fork 外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/tools/AgentTool/agentTeammateIsolation.ts`（`class AgentTeammateIsolation`，**274 行**，与宿主同目录）
+
+**迁入 4 成员 + 1 字段**（＝ §28 的 C8）：`registerTeammate` · `unregisterTeammate` · `bindTeammate` · `applyIsolationAndFork` + 字段 `agentTeammateHandles`
+
+**硬检查点（逐行穷举）实测**：**宿主依赖 = 0**（无实例字段 / 宿主方法引用）⇒ 新类**空构造**（`new AgentTeammateIsolation()`，与 §20 `domainSnapshotOps` 零依赖同形）。
+- `agentTeammateHandles` 仅 C8 用（grep：定义 + :470/:490/:492）⇒ **随迁为模块私有字段**；其余依赖全为**模块级 import**（`getTeammateManager` / `WorkspaceGit` / `buildForkSystemPrompt` / `buildForkContextMessages` / `buildChildMessage`）⇒ **无循环 import**。
+- 停止条件：依赖 **0 ≤ 12** ✓；覆写位 + 转发 **0** ✓；无字段双向读写 ✓；无测试耦合 ✓。
+
+**宿主侧**：C6 的 **7 处**调用改直调模块（`bindTeammate` :1627 · `applyIsolationAndFork` :1637 · `unregisterTeammate` ×5）；**4 成员皆 private、无 public/测试消费者 ⇒ 无转发壳**。清理孤儿 import **2 组**（`getTeammateManager`；`ForkSubagent` import 由 5 名收敛为 2 名）。
+
+**行数**：`AgentTool.ts` **3068 → 2849**（本批 **−219**；本轮自 3288 起 3288 → 2849，**−439**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；疑似僵尸方法 0）· `lint:size` **0 错误** · `tests/tools/AgentTool` 183 pass · `tests/tools` 590 pass · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 82.11s，**我亲自重跑**）
+
+> **偏差如实**：§28.5 估 ≈200，实得 **−219**（略高，因字段 `agentTeammateHandles` 随迁）。
+
+**⇒ B3 收官**。后续（§28.5）：**B2** `agentLedgerLifecycle`(C7，≈223，注意 `_ledger` 字段本体留宿主)。
+
+---
+
+## 31. 实施记录：AgentTool 批 B2 —— 台账 / 结算 / 血缘外迁（2026-10-05，**已落地**）
+
+**新模块**：`app/src/tools/AgentTool/agentLedgerLifecycle.ts`（`class AgentLedgerLifecycle`，**303 行**，与宿主同目录）
+
+**迁入 6 成员**（§28 C7 的 6/7 项）：`createAgentId` · `failureResult` · `spillSummaryToDisk` · `beginRun` · `recordDescriptorSource` · `settleRun`
+
+**⚠️ 留宿主 2 项（关键裁定，测试耦合）**：
+| 留宿主 | 约束（测试耦合） | 处置 |
+|---|---|---|
+| 字段 `_ledger`(:429) | `agentControlOwnership.test.ts:250-251` `Reflect.get(tool,'_ledger')` 反射断言"共用同一台账单例" | 字段留宿主；模块内改用 `getAgentRunLedger()` **同一单例**（等价） |
+| 方法 `notifyYieldSettlement`(:2623) | `swarmDescriptorResolution.test.ts:462/:580` `Reflect.set(tool,'notifyYieldSettlement', spy)` **猴补实例成员**，期望 `settleRun` 经实例调用 | 方法留宿主；模块 `settleRun` 经**注入闭包** `(sid) => this.notifyYieldSettlement(sid)` 调用（调用时动态解析 ⇒ 猴补生效） |
+
+> **判据（承接 §29/§30）**：**猴补实例成员**若被"迁出逻辑"调用 ⇒ 该成员须**留宿主**（或宿主保留同名转发）并经注入回指宿主动态成员，方能让猴补生效。这是"猴补型耦合"的通用解法。
+
+**硬检查点（逐行穷举）实测**：宿主依赖 **3 项**（全 getter/闭包）——`getName` · `emitStart`（→ B1 模块 `agentToolPool`）· `notifyYieldSettlement`（→ 宿主）。
+停止条件：依赖 **3 ≤ 12** ✓；覆写位 + 转发 **0** ✓；`_ledger` 宿主仅声明处写、迁出成员只读 ⇒ 非双向 ✓；除上述 2 条已知耦合外无新耦合 ✓。
+
+**宿主侧**：**19 处**调用点改直调模块（`failureResult` ×7 · `settleRun` ×8 · `createAgentId`/`spillSummaryToDisk`/`beginRun`/`recordDescriptorSource` 各 ×1）；**无转发壳**；**无孤儿 import**。
+
+**行数**：`AgentTool.ts` **2849 → 2652**（本批 **−197**；本轮自 3288 起 3288 → 2652，**−636**）
+
+**门槛（全绿，独立复核）**：`typecheck 0` · `lint:arch` **错误 0**（4 warning 基线；疑似僵尸方法 0）· `lint:size` **0 错误** · `tests/tools/AgentTool` 183 pass · `tests/tools` 590 pass · 全量测试 **4388 pass / 21 skip / 0 fail**（461 文件 / 95.46s，**我亲自重跑**）
+
+> **偏差如实**：§28.5 估 ≈223，实得 **−197**（`notifyYieldSettlement` 留宿主所致）。
+> **预存观察（非本批引入）**：宿主 :1034-1041 存在一段描述 `buildSwarmExecutor` 的**孤立 JSDoc**（`buildSwarmExecutor` 仍在宿主）——预存注释错位，已记台账。
+
+**⇒ B2 收官 ⇒ AgentTool 计划内候选（B1/B2/B3）全部完成**（B4/C2 判低优先）。累计 **3288 → 2652（−636）**，新建 3 模块（`agentToolPool` 323 · `agentTeammateIsolation` 274 · `agentLedgerLifecycle` 303）。

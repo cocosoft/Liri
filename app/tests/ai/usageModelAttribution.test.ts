@@ -69,7 +69,7 @@ function stripComments(src: string): string {
  *   已登记台账待后续统一处理 ⇒ 此处只断言该调用点已改为 `extractModelFromResponse`。
  */
 const STRICT_SITES = [
-  'chat/ReActToolLoop.ts', // 工具轮（系统续跑 / 自唤醒 / PDCA 走这条）
+  'chat/streamingLlm.ts', // 工具轮（系统续跑 / 自唤醒 / PDCA 走这条）
   'chat/pipeline/StreamPipeline.ts', // 流式主路径（recordUsage + notifyUsage 预估价）
   'chat/orchestrator/sendMessageFlow.ts', // 非流式发送路径
 ] as const;

@@ -25,12 +25,10 @@
 import { ReActLoop, EXTERNAL_FETCH_TOOLS } from '@modules/query';
 // 二期 F2-1（2026-09-23 修复计划 §六）：终止原因类型（单一来源 = ReActLoop 判别器）
 import type { TerminationReason } from '@modules/query';
-import { createErrorRecoveryManager } from '@modules/query';
 import { createPathGuard } from '@modules/query';
 import { configManager } from '@modules/config';
 import type {
   ReActLoopConfig,
-  BudgetControllerLike,
   ReasonResult,
   ActResult,
   ToolCallEntry,
@@ -39,12 +37,17 @@ import type {
 } from '@modules/query';
 import type { ToolLoopContext, ToolLoopInput } from './ToolLoopRunner.js';
 import { ToolTurnBudget } from './toolTurnBudget.js';
+import { StreamingLlm } from './streamingLlm.js';
+import {
+  ToolResultPostProcess,
+  safeStringify,
+  type ParallelBatchItem,
+} from './toolResultPostProcess.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from '@modules/session/types/message.js';
 import { getToolCallName } from '@modules/session/types/tool.js';
 import { getLogger } from '@modules/monitoring';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
 import { createFragment, renderFragment } from '@modules/context';
 import { registerYieldFromResults } from '../session/yield';
@@ -75,24 +78,17 @@ import {
   resolveToolParamNames,
 } from '@modules/tools';
 import {
-  ensureThinkResponseTags,
-  stripThinkResponseTags,
-  stripOrphanToolTags,
   truncateApiMessages,
   sanitizeApiMessages,
 } from './services/MessageContextPipeline';
-import {
-  StreamingToolCallScrubber,
-  StreamingThinkScrubber,
-} from '@modules/streaming';
+import { StreamingThinkScrubber } from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
-import { repairImageUrls, extractTodoData } from './services/ChatHelper';
+import { extractTodoData } from './services/ChatHelper';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 import type {
   QuestionData,
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
-import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import {
   shouldAsk as decisionGateCheck,
   type GateTier,
@@ -155,24 +151,6 @@ const UNKNOWN_FINISH_REASON = 'unknown';
 const EMPTY_OUTPUT_FALLBACK_TEXT =
   '\n\n⚠️ 本次未能生成回复（模型本轮未产出可见内容，可能因输出被截断或空回复重试已达上限）。请重发消息或换个问法重试。';
 
-/**
- * 安全序列化（遗漏 3，2026-08-14 复查）：
- * ToolResult.result 类型为 unknown，工具可返回任意结构；循环引用/BigInt 会抛
- * TypeError → ReActLoop.run() 外层 catch 中断整轮剩余工具执行。失败降级为空串。
- */
-function safeStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value) ?? '';
-  } catch (err) {
-    // 序列化失败（循环引用/BigInt 等异常结构）：降级空串，记录来源便于排查
-    logger.warn('reactToolLoop:safeStringify failed', {
-      error: String(err),
-      valueType: typeof value,
-    });
-    return '';
-  }
-}
-
 /** P2-3（2026-09-02）：工具调用参数归一化——键排序 + 字符串化（截断防超长 key） */
 function _toolCallArgsKey(args: Record<string, unknown>): string {
   try {
@@ -219,18 +197,6 @@ interface ReActToolLoopState {
   lastCompactRatio?: number;
 }
 
-/** M3-T3.2：并发批次项——isConcurrencySafe 工具执行延迟到 flush（Promise.all） */
-interface ParallelBatchItem {
-  tc: ToolCallEntry;
-  progressEvents: number[];
-  run: () => Promise<ToolResult>;
-  remainingToolCalls: Array<{
-    id: string;
-    name: string;
-    arguments: unknown;
-  }>;
-}
-
 export class ReActToolLoop extends ReActLoop<
   ToolLoopInput,
   ToolLoopContext,
@@ -241,21 +207,6 @@ export class ReActToolLoop extends ReActLoop<
 
   private loopState: ReActToolLoopState;
 
-  /**
-   * P3-6（2026-09-02）：文件产出循环检测（根治"换文件名反复写相似文件"死循环）。
-   * 记录会话内已写入文件（path + 内容骨架），配合 FILE_WRITE_LOOP_THRESHOLD 判定。
-   */
-  private readonly writtenFiles: Array<{ path: string; contentHead: string }> =
-    [];
-  /** 文件产出循环已注入 steering（每会话仅 1 次，避免反复打扰） */
-  private fileWriteLoopPrompted = false;
-
-  /** P1-2（2026-08-26）：LLM 调用错误恢复判定（复用 TAOR 的 errorRecovery，CS01） */
-  private readonly _llmRecovery = createErrorRecoveryManager();
-
-  /** P1-3（2026-08-23）：当前工具轮 assistant 消息 id——工具轮入口（首次 _streamLlm 前）预分配，
-   *  chunk 事件写入与 createAssistantMessage 复用（N4/A3） */
-  private _activeToolRoundMessageId = '';
   /** 分层窗口压缩最近触发时间（2026-09-02，防抖用，见 LAYER_COMPACT_MIN_INTERVAL_MS） */
   private _lastLayerCompactAt = 0;
   /** 本轮 reason 是否产出 thinking（reasoning-only 检测，对标 openclaw 2026-09-01） */
@@ -320,12 +271,6 @@ export class ReActToolLoop extends ReActLoop<
   /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
   private static readonly INTERACTION_HEARTBEAT_MS = 10_000;
   private static readonly INTERACTION_MAX_WAIT_MS = 10 * 60_000;
-  /** P3-6（2026-09-02）：文件产出循环判定阈值——同内容骨架文件 ≥3 个即视为重复产出循环 */
-  private static readonly FILE_WRITE_LOOP_THRESHOLD = 3;
-  /** P3-6：内容骨架长度（取内容前 N 字符比较，覆盖 HTML/文档模板开头一致性） */
-  private static readonly FILE_CONTENT_HEAD_LENGTH = 200;
-  /** BUG-05（2026-09-16）：重读收敛阈值——同一资源（文件/搜索 pattern）被非连续重读数次即注入强制收尾 steering */
-  private static readonly READ_REEXPLORE_STEER_THRESHOLD = 5;
   /** R2（2026-09-16）：压缩稳态豁免比例——上下文占用低于模型窗口该比例（0.6）视为"容量充足" */
   private static readonly COMPACT_STEADY_RATIO = 0.6;
   /** R2：压缩连续 no_effect 达到该次数后，才允许在低占用时稳态跳过本轮压缩 */
@@ -347,10 +292,6 @@ export class ReActToolLoop extends ReActLoop<
   private readonly startedAt = Date.now();
   /** P2-3（2026-09-02）：同工具同参数重复调用纠偏——记录上一轮工具调用 key（工具名+归一化参数） */
   private _lastToolCallKeys: string[] | null = null;
-  /** BUG-05（2026-09-16）：重读收敛——被重读/重搜资源 → 累计次数（键 = 工具名:资源） */
-  private readReExploreCounts = new Map<string, number>();
-  /** BUG-05：是否已注入一次"重读收敛" steering（避免重复刷屏） */
-  private readReExploreSteered = false;
   /** R4（2026-09-16）：任务硬收敛——是否已注入强制收尾 steering（每会话仅 1 次，避免反复打扰） */
   private convergeSteeringPrompted = false;
   /** 动态上限固定基础值（构造时确定，env MAX_TOOL_TURNS/MAX_TAOR_TURNS 覆盖），
@@ -374,6 +315,48 @@ export class ReActToolLoop extends ReActLoop<
     getLoopState: () => this.loopState,
     getCtx: () => this.ctx,
     getBaseMaxToolTurns: () => this.baseMaxToolTurns,
+  });
+
+  /**
+   * LLM 流式/清洗/用量（C4 纯搬迁，2026-10-05，见 `streamingLlm.ts`）。
+   * 宿主状态经 getter/setter 读写（`loopState`/`ctx`/`config`/`state`/`input` 与三个
+   * 跨簇标记字段均在构造期后就绪，且 run 期内可变）。
+   */
+  private readonly streamingLlm = new StreamingLlm({
+    getCtx: () => this.ctx,
+    getLoopState: () => this.loopState,
+    getConfig: () => this.config,
+    getState: () => this.state,
+    getInput: () => this.input,
+    getBoostNextReasonMaxTokens: () => this._boostNextReasonMaxTokens,
+    setBoostNextReasonMaxTokens: (value) => {
+      this._boostNextReasonMaxTokens = value;
+    },
+    getSupersedeNextRoundText: () => this._supersedeNextRoundText,
+    setSupersedeNextRoundText: (value) => {
+      this._supersedeNextRoundText = value;
+    },
+    getLastRoundHadThinking: () => this._lastRoundHadThinking,
+    setLastRoundHadThinking: (value) => {
+      this._lastRoundHadThinking = value;
+    },
+  });
+
+  /**
+   * 工具结果后处理 / 循环守卫（C3 纯搬迁，2026-10-05，见 `toolResultPostProcess.ts`）。
+   * 宿主状态经 getter/闭包读写（`loopState`/`ctx` 与基类 `steeringQueue`/`completedWork`，
+   * 以及 B1/B3 模块读数均在构造期后就绪，且 run 期内可变）。
+   */
+  private readonly toolResultPostProcess = new ToolResultPostProcess({
+    getCtx: () => this.ctx,
+    getLoopState: () => this.loopState,
+    getActiveToolRoundMessageId: () =>
+      this.streamingLlm.activeToolRoundMessageId(),
+    pushSteering: (text) => {
+      this.steeringQueue.push(text);
+    },
+    getCompletedWork: () => this.completedWork,
+    recordPendingTodo: (todoData) => this._recordPendingTodo(todoData),
   });
 
   constructor(
@@ -889,10 +872,10 @@ export class ReActToolLoop extends ReActLoop<
     let response: ChatResponse;
     let cleanContent = '';
     if (this.input.nonStreaming) {
-      response = await this._callLlmNonStreaming();
+      response = await this.streamingLlm.callLlmNonStreaming();
       cleanContent = response.content ?? '';
     } else {
-      response = yield* this._consumeStreamingLlm(false);
+      response = yield* this.streamingLlm.consumeStreamingLlm(false);
       cleanContent = response.content ?? '';
     }
 
@@ -907,9 +890,9 @@ export class ReActToolLoop extends ReActLoop<
       });
       // 5. 残缺重试时 maxTokens 加倍（对齐旧类 _streamLlmRound L868-870），提高完整输出概率
       if (this.input.nonStreaming) {
-        response = await this._callLlmNonStreaming();
+        response = await this.streamingLlm.callLlmNonStreaming();
       } else {
-        response = yield* this._consumeStreamingLlm(true);
+        response = yield* this.streamingLlm.consumeStreamingLlm(true);
       }
       cleanContent = response.content ?? '';
     }
@@ -985,7 +968,7 @@ export class ReActToolLoop extends ReActLoop<
         {
           sessionId: this.ctx.session.id,
           // P1-3：复用工具轮入口预分配的 id（A3），保证 chunk 事件与落盘 id 一致
-          id: this._activeToolRoundMessageId,
+          id: this.streamingLlm.activeToolRoundMessageId(),
         }
       );
       assistantMsg.finishReason =
@@ -1169,7 +1152,7 @@ export class ReActToolLoop extends ReActLoop<
               addPendingQuestion(this.negotiationState, gateQuestion);
             }
             // P0 落盘缺口（2026-08-25）：assistant/question 落盘（data 对齐前端聚合器结构）
-            await this._appendStreamEvent('assistant/question', {
+            await this.streamingLlm.appendStreamEvent('assistant/question', {
               questionId: gateQuestionData.questionId,
               question: gateQuestionData.question,
               header: gateQuestionData.header,
@@ -1247,7 +1230,7 @@ export class ReActToolLoop extends ReActLoop<
               questionId: questionData.questionId,
             });
             // P0 落盘缺口（2026-08-25）：assistant/question 落盘（data 对齐前端聚合器结构）
-            await this._appendStreamEvent('assistant/question', {
+            await this.streamingLlm.appendStreamEvent('assistant/question', {
               questionId: questionData.questionId,
               question: questionData.question,
               header: questionData.header,
@@ -1344,17 +1327,20 @@ export class ReActToolLoop extends ReActLoop<
           continue;
         }
         // 非并发安全：先 flush 前面已收集的并发批次（保持执行顺序），再串行执行
-        yield* this._flushParallelBatch(
+        yield* this.toolResultPostProcess._flushParallelBatch(
           parallelBatch,
           results,
           processedResults
         );
         // 2026-09-01 P1：abort 时立即以"已中止"错误结果 fallback（见 _raceToolAbort）
-        const toolResult = await this._raceToolAbort(executeRun, () => ({
-          toolCallId: tc.id,
-          toolName: tc.name,
-          error: '工具执行被中止（会话停止，abort signal）',
-        }));
+        const toolResult = await this.toolResultPostProcess._raceToolAbort(
+          executeRun,
+          () => ({
+            toolCallId: tc.id,
+            toolName: tc.name,
+            error: '工具执行被中止（会话停止，abort signal）',
+          })
+        );
 
         // 工具完成后批量产出 tool_progress 事件（细粒度百分比进度）
         for (const percentage of progressEvents) {
@@ -1439,7 +1425,7 @@ export class ReActToolLoop extends ReActLoop<
               ...(toolResult.metadata as Record<string, unknown> | undefined),
               parentMessageId:
                 this.loopState.assistantMessage?.id ??
-                this._activeToolRoundMessageId,
+                this.streamingLlm.activeToolRoundMessageId(),
               ...(this.ctx.toolCallSeqMap?.has(tc.id)
                 ? { callSeq: this.ctx.toolCallSeqMap.get(tc.id) }
                 : {}),
@@ -1449,7 +1435,7 @@ export class ReActToolLoop extends ReActLoop<
         this.ctx.addAndPersistMessage(this.ctx.session.id, toolResultMsg);
 
         // P3-6（2026-09-02）：文件产出循环检测（串行路径——非并发安全工具走此处）
-        this._detectFileWriteLoop(tc);
+        this.toolResultPostProcess._detectFileWriteLoop(tc);
 
         // G. 流式检查点（对齐旧类 L707-724）：断点续跑依赖此数据
         if (!this.loopState.completedToolNames.includes(tc.name)) {
@@ -1516,7 +1502,11 @@ export class ReActToolLoop extends ReActLoop<
       }
 
       // M3-T3.2：循环结束 flush 剩余并发批次（并发安全工具的统一后处理）
-      yield* this._flushParallelBatch(parallelBatch, results, processedResults);
+      yield* this.toolResultPostProcess._flushParallelBatch(
+        parallelBatch,
+        results,
+        processedResults
+      );
 
       // C. 下一轮消息回填（对齐旧类 L406-411）+ 轮次推进 + unifiedTracker（L413-419）
       // 2026-08-31 工具结果二级防御：超限结果落盘 + 路径引用（防 822KB 工具结果
@@ -1532,7 +1522,7 @@ export class ReActToolLoop extends ReActLoop<
         this.loopState.assistantMessage ??
         ({
           id:
-            this._activeToolRoundMessageId ||
+            this.streamingLlm.activeToolRoundMessageId() ||
             `msg-round-${this.loopState.toolTurnCount}`,
           role: 'assistant',
           content: '',
@@ -1597,7 +1587,7 @@ export class ReActToolLoop extends ReActLoop<
         for (const tc of calls) {
           if (this.loopState.completedToolCallIds.includes(tc.id)) continue;
           if (!this.ctx.toolCallSeqMap?.has(tc.id)) continue; // 未发 tool_call 事件
-          await this._appendStreamEvent('tool/canceled', {
+          await this.streamingLlm.appendStreamEvent('tool/canceled', {
             toolCallId: tc.id,
             callSeq: this.ctx.toolCallSeqMap.get(tc.id) ?? 0,
             reason: '工具调用未完成（工具循环结束/中止）',
@@ -1615,429 +1605,6 @@ export class ReActToolLoop extends ReActLoop<
         });
       }
     }
-  }
-
-  /**
-   * M2（2026-09-01 P1）：等待工具执行，同时响应 abort signal。
-   *
-   * 背景：工具循环挂起在 await 工具执行（如 grep 全项目 83s）时，generator.return()
-   * 无法中断挂起的 await → 旧流互斥锁无法释放 → 后续同一会话请求 acquire 30s 超时。
-   * 方案：Promise.race 让 abort 时立即返回 fallback（工具显示"已中止"），
-   * 生成器得以继续/退出 → finally 释放锁。
-   */
-  private async _raceToolAbort<T>(
-    run: () => Promise<T>,
-    fallback: () => T
-  ): Promise<T> {
-    const sig = this.ctx.abortSignal;
-    if (!sig) return run();
-    if (sig.aborted) return fallback();
-    const abortP = new Promise<T>((resolve) => {
-      sig.addEventListener('abort', () => resolve(fallback()), { once: true });
-    });
-    return Promise.race([run(), abortP]);
-  }
-
-  /**
-   * M3-T3.2（2026-08-31）：flush 并发批次——Promise.all 批量执行并发安全工具，
-   * 结果按调用顺序统一后处理（_postProcessToolResult），保证 tool/result 消息、
-   * 检查点与进度事件的顺序与串行路径一致。
-   */
-  private async *_flushParallelBatch(
-    batch: ParallelBatchItem[],
-    results: ToolResultEntry[],
-    processedResults: Array<{
-      normalizedToolCall: ToolCall;
-      result: ToolResult;
-    }>
-  ): AsyncGenerator<ReActEvent, void> {
-    enterPhase('toolround:execute');
-    try {
-      if (batch.length === 0) return;
-      const items = batch.slice(); // 快照——batch.length=0 会清空原数组，items 必须独立引用
-      batch.length = 0;
-      logger.info('reactToolLoop:parallel_batch_execute', {
-        sessionId: this.ctx.session.id,
-        batchCount: items.length,
-        tools: items.map((i) => i.tc.name),
-      });
-      // 2026-09-01 P1：abort 时不再等待长工具（Promise.all 不可中断），
-      // 立即以"已中止"错误结果 fallback，释放生成器/互斥锁。
-      const toolResults = await this._raceToolAbort(
-        () => Promise.all(items.map((i) => i.run())),
-        () =>
-          items.map((i) => ({
-            toolCallId: i.tc.id,
-            toolName: i.tc.name,
-            error: '工具执行被中止（会话停止，abort signal）',
-          }))
-      );
-      for (let i = 0; i < items.length; i++) {
-        const out = yield* this._postProcessToolResult(
-          items[i].tc,
-          toolResults[i],
-          items[i].progressEvents,
-          items[i].remainingToolCalls
-        );
-        if (out) {
-          results.push(out.resultEntry);
-          if (out.todoData) this._recordPendingTodo(out.todoData);
-          processedResults.push(out.processedEntry);
-        }
-      }
-    } finally {
-      exitPhase('toolround:execute');
-    }
-  }
-
-  /**
-   * BUG-05（2026-09-16）：重读数收敛。修复"35 分钟空转"——agent 非连续反复
-   * 重读/重搜同一批文件或 pattern，每次都"再看一眼"却无新产出，且因交错调用
-   * 逃过了 generic_repeat（只判与上一轮**连续**相同）与 ping_pong（只判双工具交替）。
-   * 判定：读类工具（read/search/grep/glob 等，排除写/改类）对同一资源累计重访
-   * ≥ READ_REEXPLORE_STEER_THRESHOLD → 注入一次 [STEERING] 强制收尾（非硬熔断，
-   * 不误伤正常深度探索），由模型自纠收敛。
-   * 串行/并行路径共用（在 _postProcessToolResult 中与 _detectFileWriteLoop 并列）。
-   */
-  private _detectReadReExplore(tc: ToolCallEntry): void {
-    const name = tc.name;
-    // 写/改/执行类工具排除：避免把"反复编辑同一文件/重复运行"误判为"重读"
-    if (
-      /(write|edit|create|delete|remove|save|append|apply|run|exec|bash)/i.test(
-        name
-      )
-    )
-      return;
-    // 只关心读/搜/列目录类工具
-    if (!/(read|grep|glob|search|view|list|explore|cat|open)/i.test(name))
-      return;
-
-    const inp = (tc.input ?? {}) as Record<string, unknown>;
-    // 取"被重读的资源"签名：文件路径或搜索 pattern（读类工具的核心是资源本身）
-    const resource =
-      (typeof inp.file_path === 'string' ? inp.file_path : undefined) ??
-      (typeof inp.path === 'string' ? inp.path : undefined) ??
-      (typeof inp.pattern === 'string' ? inp.pattern : undefined) ??
-      (typeof inp.query === 'string' ? inp.query : undefined);
-    if (!resource) return;
-
-    const key = `${name}:${resource}`;
-    const count = (this.readReExploreCounts.get(key) ?? 0) + 1;
-    this.readReExploreCounts.set(key, count);
-    if (
-      count < ReActToolLoop.READ_REEXPLORE_STEER_THRESHOLD ||
-      this.readReExploreSteered
-    ) {
-      return;
-    }
-
-    this.readReExploreSteered = true;
-    this.steeringQueue.push(
-      `你已反复读取/搜索同一资源（${name}: ${resource}，累计 ${count} 次）未获得新结论。` +
-        '请立即收敛：要么基于当前已掌握的信息直接向用户交付最终结论，' +
-        '要么在继续读取前先明确说明你仍在尝试解决的具体未决问题；' +
-        '不要重复读取/搜索相同的文件或模式。'
-    );
-    logger.warn('reactToolLoop:read_reexplore_detected', {
-      sessionId: this.ctx.session.id,
-      toolName: name,
-      resource,
-      count,
-      toolTurn: this.loopState.toolTurnCount,
-    });
-  }
-
-  /**
-   * P3-6（2026-09-02）：文件产出循环检测——模型反复写"相似内容/不同文件名"文件不收敛。
-   *
-   * 实测：deepseek-v4-flash 连续 14+ 轮 file_write 生成 AI-Agent 日报 HTML，文件名每次微调
-   * （AI-Agent-日报/技术日报/前沿动态日报...）→ P15 的 file_path+contentLength 签名永不重复
-   * → no_progress 熔断失效，每轮 40s+5000 tokens 白白消耗。判定：内容骨架相同（HTML/文档
-   * 模板开头一致）的文件 ≥3 个 → 视为重复产出循环，注入 [STEERING] 强制收尾（非硬熔断）。
-   * 串行路径（非并发安全工具）与并行批处理（_postProcessToolResult）共用本方法。
-   */
-  private _detectFileWriteLoop(tc: ToolCallEntry): void {
-    if (
-      tc.name !== 'file_write' &&
-      tc.name !== 'FileWriteTool' &&
-      tc.name !== 'write_file' &&
-      tc.name !== 'file_edit' &&
-      tc.name !== 'FileEditTool' &&
-      tc.name !== 'edit_file'
-    ) {
-      return;
-    }
-    const inp = (tc.input ?? {}) as Record<string, unknown>;
-    const fp =
-      typeof inp.file_path === 'string'
-        ? inp.file_path
-        : typeof inp.path === 'string'
-          ? inp.path
-          : '';
-    if (!fp) return;
-    const content = typeof inp.content === 'string' ? inp.content : '';
-    const contentHead = content.slice(
-      0,
-      ReActToolLoop.FILE_CONTENT_HEAD_LENGTH
-    );
-    const existing = this.writtenFiles.find((w) => w.path === fp);
-    if (existing) {
-      existing.contentHead = contentHead;
-    } else {
-      this.writtenFiles.push({ path: fp, contentHead });
-    }
-    if (
-      this.fileWriteLoopPrompted ||
-      this.loopState.loopDetected ||
-      this.writtenFiles.length < ReActToolLoop.FILE_WRITE_LOOP_THRESHOLD
-    ) {
-      return;
-    }
-    const sameHeadCount = this.writtenFiles.filter(
-      (w) => w.contentHead === contentHead
-    ).length;
-    if (sameHeadCount < ReActToolLoop.FILE_WRITE_LOOP_THRESHOLD) return;
-    this.fileWriteLoopPrompted = true;
-    const paths = this.writtenFiles.map((w) => w.path).join('、');
-    this.steeringQueue.push(
-      `你已成功写入 ${this.writtenFiles.length} 个文件（${paths}），其中多个文件内容结构相同。` +
-        '如果任务已产出所需文件，请立即停止生成新文件，直接用文字向用户交付最终总结' +
-        '（说明已生成的文件、核心内容与使用方式）；若需要调整，请用 file_edit 修改已有文件，不要新建文件。'
-    );
-    logger.warn('reactToolLoop:file_write_loop_detected', {
-      sessionId: this.ctx.session.id,
-      writtenFiles: this.writtenFiles.length,
-      sameHeadCount,
-      paths,
-      toolTurn: this.loopState.toolTurnCount,
-    });
-  }
-
-  /**
-   * M3-T3.2（2026-08-31）：标准工具执行的统一后处理。
-   *
-   * 提取自 act 标准执行段（onToolCall end / 进度 / 结果注册 / 落盘 / 检查点），
-   * 供串行执行与并发批次共用——保证并发工具的结果落盘与检查点按调用顺序一致。
-   * yield tool_progress 事件；return 后处理产物（results/processedResults/todo 项）。
-   */
-  private async *_postProcessToolResult(
-    tc: ToolCallEntry,
-    toolResult: ToolResult,
-    progressEvents: number[],
-    remainingToolCalls: Array<{
-      id: string;
-      name: string;
-      arguments: unknown;
-    }>
-  ): AsyncGenerator<
-    ReActEvent,
-    {
-      resultEntry: ToolResultEntry;
-      processedEntry: { normalizedToolCall: ToolCall; result: ToolResult };
-      todoData?: ReturnType<typeof extractTodoData>;
-    }
-  > {
-    // P10（2026-09-01）：标记外部获取/技能探索活动——供无 todo 时的动态轮次扩容。
-    if (EXTERNAL_FETCH_TOOLS.has(tc.name)) {
-      this.loopState.hasExternalFetchActivity = true;
-    }
-    // P3-6（2026-09-02）：文件产出循环检测（串行/并行路径共用）
-    this._detectFileWriteLoop(tc);
-    // BUG-05（2026-09-16）：重读/重搜收敛（串行/并行路径共用）
-    this._detectReadReExplore(tc);
-    // P7（2026-09-01）：跨轮收集"已完成工作"摘要——组合任务熔断（no_progress）时，
-    // 已完成子任务（如知识库保存）的结果必须呈现给用户，不能随熔断一起丢失。
-    // P12（2026-09-01）：created/skipped 统一为"已保存到知识库"，按 title 去重——
-    // 此前 created（"已保存"）与 skipped（"已在知识库中"）文案不同导致同一文档
-    // 列两条，且模型微调换 title 产生多条重复，用户看到的汇报混乱。
-    if (
-      tc.name === 'knowledge_save' &&
-      !toolResult.error &&
-      toolResult.result
-    ) {
-      const detail = toolResult.result as {
-        title?: string;
-        action?: string;
-      };
-      if (detail.title) {
-        const done = `已保存到知识库：《${detail.title}》`;
-        if (!this.completedWork.includes(done)) {
-          this.completedWork.push(done);
-        }
-      }
-    }
-    // P15（2026-09-01）：跨轮收集"已生成/更新文件"——模型多轮 file_write 同一文件
-    // 被 no_progress 熔断时（增量完善模式，content 前 200 字符相同误判无进展），
-    // 已写入的文件必须呈现给用户，不能随熔断一起丢失。
-    if (
-      (tc.name === 'file_write' ||
-        tc.name === 'FileWriteTool' ||
-        tc.name === 'write_file' ||
-        tc.name === 'file_edit' ||
-        tc.name === 'FileEditTool' ||
-        tc.name === 'edit_file') &&
-      !toolResult.error
-    ) {
-      const inp = (tc.input ?? {}) as Record<string, unknown>;
-      const fp =
-        typeof inp.file_path === 'string'
-          ? inp.file_path
-          : typeof inp.path === 'string'
-            ? inp.path
-            : '';
-      if (fp) {
-        const done = `已生成/更新文件：${fp}`;
-        if (!this.completedWork.includes(done)) {
-          this.completedWork.push(done);
-        }
-      }
-    }
-
-    // 工具完成后批量产出 tool_progress 事件（细粒度百分比进度）
-    for (const percentage of progressEvents) {
-      yield { type: 'tool_progress', callId: tc.id, progress: percentage };
-    }
-
-    // 遗漏 2（2026-08-14 复查）：审批等待态判定提前（原 L381 重复计算，现合并）。
-    // 审批等待工具不触发 onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、
-    // 前端聚合把审批中工具计入 completed++（显示 "2/3 完成"），与 pendingApproval 徽标矛盾。
-    const isPendingApproval =
-      (toolResult as { result?: { pendingApproval?: boolean } })?.result
-        ?.pendingApproval === true;
-
-    const rawResultJson = safeStringify(toolResult.result);
-    const resultMessage = toolResult.error
-      ? `失败: ${toolResult.error.slice(0, 200)}`
-      : `成功: ${rawResultJson.slice(0, 200)}`;
-    // 排查锚点：工具执行结果默认可见。失败用 WARN（circuit_breaker 触发时必须能
-    // 看到每轮失败原因），成功用 INFO（避免 DEBUG 默认不可见导致排查断链）。
-    const toolStatus = toolResult.error ? 'failed' : 'success';
-    if (toolResult.error) {
-      logger.warn('reactToolLoop:onToolCall end', {
-        sessionId: this.ctx.session.id,
-        toolName: tc.name,
-        toolCallId: tc.id,
-        status: toolStatus,
-        detail: resultMessage,
-        onToolCallRegistered: !!this.ctx.onToolCall,
-        pendingApproval: isPendingApproval,
-      });
-    } else {
-      logger.info('reactToolLoop:onToolCall end', {
-        sessionId: this.ctx.session.id,
-        toolName: tc.name,
-        toolCallId: tc.id,
-        status: toolStatus,
-        detail: resultMessage,
-        onToolCallRegistered: !!this.ctx.onToolCall,
-        pendingApproval: isPendingApproval,
-      });
-    }
-    if (!isPendingApproval) {
-      this.ctx.onToolCall?.('end', tc.name, tc.id, {
-        ok: !toolResult.error,
-        message: resultMessage,
-        result: toolResult.result,
-      });
-    }
-
-    // 工具结果注册表 + 循环检测记录 + 心跳进度数据（5）
-    try {
-      this.ctx.toolResultRegistry.storeResult(
-        this.ctx.session.id,
-        tc.id,
-        tc.name,
-        tc.input,
-        { result: toolResult.result, error: toolResult.error },
-        this.ctx.toolResultRegistry.getCurrentRound(this.ctx.session.id)
-      );
-      this.ctx.loopDetector.recordToolCallOutcome(
-        tc.name,
-        tc.input,
-        toolResult.result,
-        toolResult.error
-      );
-    } catch {
-      // 注册/记录失败不影响执行
-    }
-
-    // B. 工具结果消息落盘（对齐旧类 _executeToolRound L673-680）
-    // P1-4（2026-08-23）：metadata 携带 parentMessageId（= 归属 assistant 消息 id，G1/N6/A2），
-    // convertMessage 的 tool 分支据此生成 tool/result.messageId。
-    // T2.3（2026-08-23）：metadata 携带 callSeq（= tool_call 事件 seq，A1③ 闭环）——
-    // streamMessageFlow 在写 assistant/tool_call 事件时填充 toolCallSeqMap，
-    // convertMessage tool 分支据此直读生成 tool/result.callSeq，不再依赖 _toolCallSeqMap 回填。
-    const toolResultMsg = this.ctx.messageService.createToolResultMessage(
-      toolResult,
-      {
-        sessionId: this.ctx.session.id,
-        metadata: {
-          ...(toolResult.metadata as Record<string, unknown> | undefined),
-          parentMessageId:
-            this.loopState.assistantMessage?.id ??
-            this._activeToolRoundMessageId,
-          ...(this.ctx.toolCallSeqMap?.has(tc.id)
-            ? { callSeq: this.ctx.toolCallSeqMap.get(tc.id) }
-            : {}),
-        },
-      }
-    );
-    this.ctx.addAndPersistMessage(this.ctx.session.id, toolResultMsg);
-
-    // G. 流式检查点（对齐旧类 L707-724）：断点续跑依赖此数据
-    if (!this.loopState.completedToolNames.includes(tc.name)) {
-      this.loopState.completedToolNames.push(tc.name);
-    }
-    this.loopState.totalCompletedToolCount++;
-    if (!isPendingApproval) {
-      this.loopState.completedToolCallIds.push(tc.id);
-    }
-    try {
-      await this.ctx.streamingCheckpoint.onToolCompleted({
-        newMessagesSinceLastCheckpoint: [
-          this.loopState.assistantMessage,
-          toolResultMsg,
-        ],
-        messagesSnapshot: this.ctx.session.messages.slice(),
-        currentToolCalls: remainingToolCalls,
-        completedToolCallIds: [...this.loopState.completedToolCallIds],
-        generatorState: {
-          toolTurnCount: this.loopState.toolTurnCount,
-          llmCallCount: this.loopState.llmCallCount,
-        },
-        metadata: { model: this.ctx.options?.model },
-        sessionState: this.ctx.session.state,
-      });
-    } catch {
-      // 流式检查点失败不影响执行（@ignore-catch）
-    }
-
-    const resultEntry: ToolResultEntry = {
-      toolCallId: tc.id,
-      name: tc.name,
-      status: toolResult.error ? 'error' : 'success',
-      // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
-      // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
-      // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
-      output:
-        typeof toolResult.result === 'string'
-          ? toolResult.result
-          : toolResult.result !== undefined
-            ? safeStringify(toolResult.result)
-            : undefined,
-      error: toolResult.error,
-    };
-    // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
-    const todoData = extractTodoData(toolResult);
-    const processedEntry = {
-      normalizedToolCall: {
-        id: tc.id,
-        name: tc.name,
-        arguments: tc.input,
-      },
-      result: toolResult,
-    };
-    return { resultEntry, processedEntry, todoData: todoData ?? undefined };
   }
 
   protected shouldContinue(
@@ -2768,30 +2335,6 @@ export class ReActToolLoop extends ReActLoop<
 
   // ─── 私有辅助 ───────────────────────────────────────
 
-  /** 非流式 LLM 调用（对齐旧类 _nonStreamingLlmRound）：tools 透传 + usage 上报 */
-  private async _callLlmNonStreaming(): Promise<ChatResponse> {
-    this.loopState.llmCallCount++;
-    const response = await this.ctx.activeClient.sendMessage(
-      this.loopState.messages as unknown as ChatMessage[],
-      {
-        ...this.ctx.options,
-        tools:
-          this.ctx.toolDefinitions.length > 0
-            ? this.ctx.toolDefinitions
-            : undefined,
-      }
-    );
-    this._reportUsage(response);
-    // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
-    this._chargeStreamBudget(this._usageOf(response));
-    return response;
-  }
-
-  /**
-   * 流式 LLM 调用（generator，M4 方案 A）：逐 chunk 增量 yield reasoning_delta / thinking_delta
-   * （P0-C 恢复 + thinking 转发），return 携带清洗后的 ChatResponse。
-   * @param retried 残缺工具重试标记：maxTokens 加倍（对齐旧类 _streamLlmRound）
-   */
   /**
    * P2-3（2026-09-02）：同工具同参数重复调用纠偏。
    *
@@ -2835,366 +2378,12 @@ export class ReActToolLoop extends ReActLoop<
     this.repeatCorrectionPending = true;
   }
 
-  /** M1 事件溯源（2026-08-23）：工具轮 text/thinking chunk 写 events.jsonl。
-   * 对齐 streamMessageFlow 主循环（首轮已实时写）——此前缺失导致工具轮正文/思考
-   * 不进事件流，重新打开会话（events 派生）时正文缺失，仅靠 legacy 合并兜底。
-   */
-  private async _appendStreamEvent(
-    type:
-      | 'assistant/text'
-      | 'assistant/thinking'
-      | 'tool/canceled'
-      | 'assistant/question',
-    data: unknown
-  ): Promise<void> {
-    const { appendStreamEvent, getStreamTailSeq } = this.ctx;
-    if (!appendStreamEvent || !getStreamTailSeq) return;
-    try {
-      const ts = await getStreamTailSeq(this.ctx.session.id);
-      await appendStreamEvent(this.ctx.session.id, {
-        type,
-        schemaVersion: 1,
-        seq: ts + 1,
-        time: Date.now(),
-        sessionId: this.ctx.session.id,
-        // P1-3：工具轮 chunk 事件携带预分配的 assistant 消息 id
-        data: {
-          ...(data as Record<string, unknown>),
-          messageId: this._activeToolRoundMessageId,
-        },
-      });
-    } catch {
-      // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
-    }
-  }
-
-  /**
-   * A 缺口修复（2026-09-02，P3-7f 基准）：工具轮 text chunk 写入——
-   * 优先走 ctx.bufferTextChunk 聚合缓冲（随下次 append 自动 flush 为
-   * assistant/text-batch，F-2 语义等价），缺失时回退逐 chunk
-   * assistant/text（旧行为，兼容其它调用方）。失败不抛错（CS03）。
-   */
-  private async _writeToolRoundText(
-    content: string,
-    replace = false
-  ): Promise<void> {
-    const buffer = this.ctx.bufferTextChunk;
-    if (buffer) {
-      // O2-4：**取代语义要求顺序正确** —— 必须先把被取代的正文落定，再写取代标记；
-      // 否则回放顺序变成 [取代标记] → [被取代正文] → [新正文]，清空后又被旧正文追加回来。
-      if (replace) {
-        await this._flushToolRoundText();
-        await this._appendStreamEvent('assistant/text', {
-          content,
-          replace: true,
-        });
-        return;
-      }
-      try {
-        await buffer(
-          this.ctx.session.id,
-          this._activeToolRoundMessageId,
-          content
-        );
-      } catch {
-        // @ignore-catch — 缓冲失败不阻断工具循环（CS03）
-      }
-      return;
-    }
-    // O2-4：带上"正文取代"标记 ⇒ 回放/轨迹派生与实时流同源（否则刷新后重复段落复发）
-    await this._appendStreamEvent(
-      'assistant/text',
-      replace ? { content, replace: true } : { content }
-    );
-  }
-
-  /**
-   * A 缺口修复：冲刷工具轮正文缓冲（流结束/异常路径调用，防止尾部正文滞留缓冲）
-   */
-  private async _flushToolRoundText(): Promise<void> {
-    const flush = this.ctx.flushTextBuffer;
-    if (!flush) return;
-    try {
-      await flush(this.ctx.session.id);
-    } catch {
-      // @ignore-catch — 冲刷失败不阻断工具循环（CS03）
-    }
-  }
-
   /**
    * G12（2026-08-23）：骨架 run() 产出的 tool_start/tool_end 事件携带工具轮消息 id，
    * 供 reactEventsToChunks 透传到 SSE chunk（前端工具轮块归属对位）。
    */
   protected override getCurrentMessageId(): string | undefined {
-    return this._activeToolRoundMessageId || undefined;
-  }
-
-  private async *_streamLlm(
-    retried = false
-  ): AsyncGenerator<ReActEvent, ChatResponse> {
-    this.loopState.llmCallCount++;
-    // P1-3（2026-08-23）：工具轮 assistant 消息 id 预分配——必须在首个 chunk 事件写入前确定，
-    // 首次工具轮 loopState.assistantMessage 尚不存在（N4/A3）；已有则复用其 id。
-    this._activeToolRoundMessageId =
-      this.loopState.assistantMessage?.id ||
-      `msg-turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const toolRoundBaseMaxTokens =
-      (this.ctx.options?.maxTokens as number | undefined) ?? 4096;
-    // 截断续接放大（2026-09-03）：onIncompleteTurn truncated 分支置位后，本轮预算 base×4
-    //（封顶 64K），一次性消费掉标记，避免后续轮次持续放大。
-    const boostMaxTokens = this._boostNextReasonMaxTokens;
-    if (boostMaxTokens) this._boostNextReasonMaxTokens = false;
-    const toolRoundMaxTokens = boostMaxTokens
-      ? Math.min(Math.max(toolRoundBaseMaxTokens * 4, 32768), 64000)
-      : retried
-        ? Math.min(Math.max(toolRoundBaseMaxTokens * 2, 8192), 64000)
-        : toolRoundBaseMaxTokens;
-    const gen = this.ctx.activeClient.streamMessage(
-      this.loopState.messages as unknown as ChatMessage[],
-      {
-        ...this.ctx.options,
-        maxTokens: toolRoundMaxTokens,
-        signal: this.ctx.abortSignal,
-        tools:
-          this.ctx.toolDefinitions.length > 0
-            ? this.ctx.toolDefinitions
-            : undefined,
-      }
-    );
-    const textChunks: string[] = [];
-    // P13（2026-09-01）：工具轮 LLM 流式 text chunk 过 StreamingThinkScrubber——
-    // 模型输出 <think> 内容时此前原样流式输出（仅最终 content 有清洗链），
-    // 前端实时看到思考内容泄露到正文。流式逐 chunk 擦除 think/response/XML 标签。
-    const thinkScrubber = new StreamingThinkScrubber();
-    // KB-EVENT-BATCH（2026-08-29）：工具轮 thinking 事件防抖合并——推理模型
-    // thinking chunk 逐条落盘使 events.jsonl 膨胀，会话加载 O(N²) 卡死。
-    const THINKING_BATCH_SIZE = 50;
-    const THINKING_BATCH_MS = 2000;
-    let thinkingAccum: string[] = [];
-    let lastThinkingFlushAt = Date.now();
-    const flushThinkingEvents = async () => {
-      if (thinkingAccum.length === 0) return;
-      const joined = thinkingAccum.join('');
-      thinkingAccum = [];
-      lastThinkingFlushAt = Date.now();
-      try {
-        await this._appendStreamEvent('assistant/thinking', {
-          content: joined,
-        });
-      } catch {
-        // @ignore-catch — 事件追加失败不阻断流式（CS03）
-      }
-    };
-    let next = await gen.next();
-    // O2-4：本轮流式正文的"取代"标记（一次性，只挂在**首个**正文 delta 上）——
-    // 两个来源：① 回捞重试轮（`_supersedeNextRoundText`）；② 本轮内对 LLM 的再次调用
-    //（残缺工具调用重试 ⇒ `retried=true`，其文本取代本类前一次调用已下发的正文）。
-    let pendingReplace = this._supersedeNextRoundText || retried;
-    this._supersedeNextRoundText = false;
-    while (!next.done) {
-      const chunk = next.value;
-      if (typeof chunk === 'string') {
-        // P13（2026-09-01）：流式擦除 think/response/XML 标签——此前原样输出，
-        // 前端实时看到 <think> 思考内容泄露到正文（仅最终 content 有清洗链）。
-        const scrubbed = thinkScrubber.scrub({
-          content: chunk,
-          isComplete: false,
-        }).content;
-        if (scrubbed) {
-          textChunks.push(scrubbed);
-          const replace = pendingReplace;
-          pendingReplace = false;
-          // 增量文本即时输出（对齐旧类 P0-C：工具轮 LLM 文本逐 chunk SSE）
-          yield {
-            type: 'reasoning_delta',
-            text: scrubbed,
-            messageId: this._activeToolRoundMessageId,
-            // O2-4：首 delta 携带"取代"标记 ⇒ 前端清空本消息已累积正文后重建（与落盘同源）
-            ...(replace ? { replace: true } : {}),
-          };
-          // M1 事件溯源：工具轮 text chunk 补写事件（A 缺口修复：优先聚合缓冲 →
-          // flush 为 assistant/text-batch，消除逐 chunk 写放大；缺失能力时回退
-          // 逐 chunk assistant/text，兼容其它调用方）
-          // O2-4：取代标记同步落事件（回放/轨迹视图与实时流同源）
-          await this._writeToolRoundText(scrubbed, replace);
-        }
-      } else if (chunk?.type === 'thinking') {
-        // 本轮产出 thinking 标记（reasoning-only 检测用，对标 openclaw 2026-09-01）
-        this._lastRoundHadThinking = true;
-        yield {
-          type: 'thinking_delta',
-          content: chunk.content,
-          messageId: this._activeToolRoundMessageId,
-        };
-        // KB-EVENT-BATCH：thinking 防抖合并落盘
-        const thinkingContent =
-          typeof chunk.content === 'string'
-            ? chunk.content
-            : JSON.stringify(chunk.content);
-        thinkingAccum.push(thinkingContent);
-        if (
-          thinkingAccum.length >= THINKING_BATCH_SIZE ||
-          Date.now() - lastThinkingFlushAt >= THINKING_BATCH_MS
-        ) {
-          await flushThinkingEvents();
-        }
-      }
-      try {
-        next = await gen.next();
-      } catch (err) {
-        // KB-EVENT-BATCH-FLUSH（2026-08-29）：流中断/异常时 flush thinking 防抖缓冲，
-        // 避免最后一批 thinking 丢失（原异常路径直接跳过 flush），再传播异常。
-        await this._flushToolRoundText().catch(() => {});
-        await flushThinkingEvents().catch(() => {});
-        throw err;
-      }
-    }
-    // 流结束：先 flush 工具轮正文缓冲（A 缺口修复，防尾部正文滞留），
-    // 再 flush 剩余 thinking 增量（KB-EVENT-BATCH）
-    await this._flushToolRoundText();
-    await flushThinkingEvents();
-    // P13：flush 未闭合的 think 标签残留（不应输出到正文）
-    const thinkResidual = thinkScrubber.flush();
-    if (thinkResidual) textChunks.push(thinkResidual);
-    const final = next.value as ChatResponse;
-    const rawContent = final.content ?? textChunks.join('');
-
-    // 清洗链：think 标签修复 → 图片修复 → strip think → scrubber → orphan 标签
-    const repairedContent = ensureThinkResponseTags(
-      repairImageUrls(rawContent)
-    );
-    const strippedContent = stripThinkResponseTags(repairedContent);
-    const scrubber = new StreamingToolCallScrubber();
-    const scrubbed = scrubber.scrub({
-      content: strippedContent,
-      isComplete: true,
-    });
-    const residual = scrubber.flush();
-    const cleanContent = stripOrphanToolTags(scrubbed.content + residual);
-    const onStream = this.ctx.options?.onStream as
-      | ((content: string) => void)
-      | undefined;
-    onStream?.(cleanContent);
-
-    this._reportUsage(final);
-    // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
-    this._chargeStreamBudget(this._usageOf(final));
-
-    return {
-      ...final,
-      content: cleanContent,
-    };
-  }
-
-  /** 转发流式 LLM 的增量事件，收集 return 值（供 reason generator 使用） */
-  private async *_consumeStreamingLlm(
-    retried: boolean
-  ): AsyncGenerator<ReActEvent, ChatResponse> {
-    try {
-      const iter = this._streamLlm(retried);
-      let r = await iter.next();
-      while (!r.done) {
-        yield r.value;
-        r = await iter.next();
-      }
-      return r.value;
-    } catch (error) {
-      // P1-2（2026-08-26）：LLM 流中断兜底——复用 TAOR errorRecovery 判定，
-      // 网络/服务端/限流/超时等瞬态错误重试一次（走非流式，避免流式事件重复）；
-      // abort 类（上下文溢出等需上层降级）才抛出。
-      const e = error instanceof Error ? error : new Error(String(error));
-      const recovery = this._llmRecovery.assess(e, {
-        turnCount: this.loopState.toolTurnCount,
-        tokenUsage: 0,
-      });
-      if (recovery.action !== 'abort') {
-        logger.warn('reactToolLoop:llm_interrupt_retry', {
-          sessionId: this.ctx.session.id,
-          error: e.message.slice(0, 200),
-          action: recovery.action,
-          turnCount: this.loopState.toolTurnCount,
-        });
-        // 非流式重试一次：优先保证 agent 循环继续（长程任务无人值守前提）
-        return await this._callLlmNonStreaming();
-      }
-      throw error;
-    }
-  }
-
-  /** usage 上报（对齐旧类：recordChatResponseUsage + onToolUsage + trackUsage） */
-  private _reportUsage(response: ChatResponse): void {
-    const usage = this._usageOf(response);
-    // 成本 0/0 修复（2026-08-14 复检 #5）：provider 流式返回的 usage 缺失（undefined）
-    // 时跳过空记录——原实现无条件 trackUsage，产生 "LLM call recorded: 0/0 tokens"
-    // + warn"成本累加" 空条，污染 LLMTracker 与成本统计。有 usage 时经
-    // recordChatResponseUsage → `metric/timing` 事件（D1：校准的唯一数据源）驱动校准，
-    // 此处空记录不丢真实数据。
-    if (
-      !usage ||
-      (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) === 0
-    ) {
-      return;
-    }
-    this.ctx.recordChatResponseUsage(this.ctx.session.id, usage);
-    this.ctx.onToolUsage?.((usage as Record<string, unknown>) ?? {});
-    trackUsage(response as unknown as Record<string, unknown>, {
-      // 2026-09-27 修 `LLM call recorded: unknown`：服务端自发轮次（系统续跑 / 自唤醒 /
-      // 目标空闲续接 / PDCA）**不带 `options.model`**，原写法 `options?.model || 'unknown'`
-      // 恒为 'unknown' ⇒ 归因丢失，且 `getModelPricing('unknown')` 回落**兜底价**
-      // （$3/M in、$15/M out）⇒ **金额也失真**（真机两次记录与兜底价公式精确相等）。
-      // 改用既有助手取 **provider 回显的真实模型名**（`ChatResponse.model`），
-      // 回落顺序：response.model → options.model → 'unknown'（复用 `extractModelFromResponse`，
-      // 与 `SessionSummarizer` 同源，不新增实现）。
-      model: extractModelFromResponse(
-        response,
-        (this.ctx.options?.model as string | undefined) || 'unknown'
-      ),
-      providerId: this.ctx.activeClient.getProviderId(),
-      latencyMs: 0,
-      isStreaming: !this.input.nonStreaming,
-      sessionId: this.ctx.session.id,
-    }).catch(() => {});
-  }
-
-  /**
-   * 每轮 LLM 响应后向骨架预算记账。
-   *
-   * ⚠️ 2026-09-26 **根因修复（量纲）**：原实现记账
-   * `this.ctx.estimateMessagesTokens(this.loopState.messages)` —— 同一份运行日志实测该值与
-   * provider 真实用量相差 **6.4 倍**（真实 `prompt_tokens` 29,143 vs 记账 185,195/200,000 = 93%），
-   * 且它在真实会话里**单调不降**（0→…→185,195，压缩期间零回落）⇒ 对称记账的"退款"分支永不触发
-   * ⇒ 长任务在第 **114/190** 轮被**误杀**（本地 2026-09-26 23:06；证据见 `dev_docs/error_repairs`）。
-   *
-   * 现改为直接采用 **provider 返回的真实 `prompt_tokens`**（= 本轮请求的真实输入量，即
-   * "当前上下文占用"的 ground truth）—— 不引入任何估算，也就不存在两套口径打架的问题。
-   * 真实用量缺失（少数 provider 不返回 usage）时**不记账**（fail-open）：用已知高估 6× 的估算值
-   * 记账会复现误杀；宁可少一道兜底也不误杀（其余护栏仍在：压缩管线 / maxIterations / 循环检测）。
-   *
-   * 仅当 config.budget 为工厂注入的可记账预算（含 chargeContextEstimate）时生效；
-   * 显式传入的普通 BudgetControllerLike 不记账（由外部负责耗尽判定）。
-   */
-  private _chargeStreamBudget(usage?: ChatResponse['usage']): void {
-    const budget = this.config.budget as
-      | (BudgetControllerLike & {
-          chargeContextEstimate?: (estimatedTokens: number) => void;
-        })
-      | undefined;
-    if (!budget?.chargeContextEstimate) return;
-
-    const real = usage?.prompt_tokens;
-    if (typeof real === 'number' && Number.isFinite(real) && real > 0) {
-      budget.chargeContextEstimate(real);
-      return;
-    }
-    logger.debug('reactToolLoop:budget_charge_skipped_no_usage', {
-      sessionId: this.ctx.session.id,
-      iteration: this.state.iteration,
-    });
-  }
-
-  /** 提取响应 usage（与 `_reportUsage` 同源口径，避免两处各自写 `as` 断言） */
-  private _usageOf(response: ChatResponse): ChatResponse['usage'] | undefined {
-    return (response as unknown as { usage?: ChatResponse['usage'] }).usage;
+    return this.streamingLlm.currentMessageId();
   }
 
   /**

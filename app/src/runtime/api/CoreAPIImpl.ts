@@ -51,8 +51,10 @@ import type { SessionCheckpointRefPort } from './sessionCheckpointPorts';
 // 2026-10-01（子批 F `runtime -> query` 收口）：B13 的「检查点清理同步门面」已**作废**
 // —— `FileCheckpointStorage` 已下沉 `session/storage/`(service)，`session/**` 回归同模块直连
 // ⇒ 本文件不再需要静态导入 `@modules/query`（该「文件 × 模块」对随之消失）。
-import { withPaginationSeq } from './paginationSeq';
 import { DomainSnapshotOps } from './domainSnapshotOps';
+import { SessionMessagesRead } from './sessionMessagesRead';
+import { MessageMutation } from './messageMutation';
+import { SessionTitling } from './sessionTitling';
 import type {
   ChatRequest,
   ChatResponse,
@@ -81,73 +83,17 @@ import type { ChatManager } from '@modules/chat';
 // D-227（2026-10-02，B12 `runtime -> app` 收口）：原静态值导入 `createChatManager` / `computeUnifiedDiff` /
 // `eventNotificationService` / `getCheckpointService` 分别改经 `CoreApiAppDeps` 注入（同步门面）
 // 或**方法内动态导入**（异步路径）⇒ 删除 `@modules/chat` 静态值导入（该「文件 × 模块」豁免对随之消失）。
-// 2026-10-01（子批 C 第 19 条收口）：`dedupeMessagesToolCallBlocks` 已**下沉** `utils/chatBlocks.ts`(infra)
-// ⇒ 本处改指 infra（`service -> infra` 合法），不再经 `@modules/chat`(app) 取值。
-import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
-import { MessageToEventMigrator } from '@modules/session';
-// N-50 墓碑（与 N-52 修复同批）：删除轮次后按 seq 区间过滤事件派生消息
-// R03-002（2026-09-24）：墓碑 API 经模块桶出口导入（原为子路径直连）
-import {
-  EventLogStorage,
-  addDeletedRange,
-  isSeqInDeletedRanges,
-} from '@modules/session';
-import { LRUCache } from '../../utils/cache';
-
-/**
- * N-55（2026-09-20，长会话读性能）：事件派生结果的消息形状（供派生缓存复用）。
- */
-type DerivedSessionMessages = Array<{
-  id: string;
-  role: string;
-  content: string;
-  timestamp: number;
-  startedAt?: number;
-  finishReason?: string;
-  tool_calls?: Array<Record<string, unknown>>;
-  toolCallId?: string;
-  blocks?: Array<Record<string, unknown>>;
-  metadata?: Record<string, unknown>;
-}>;
-
-/**
- * N-55：派生结果缓存的**副本**。
- *
- * 消费方 `_attachPendingApprovalBlocks` 会往最后一条助手消息的 `blocks` 里追加审批卡片
- *（直接改写入参）⇒ 命中缓存时必须返回副本，否则缓存被污染、后续读会带上别人的卡片。
- */
-function cloneDerivedMessages(
-  messages: DerivedSessionMessages
-): DerivedSessionMessages {
-  return messages.map((m) => ({
-    ...m,
-    blocks: Array.isArray(m.blocks)
-      ? (m.blocks as Array<Record<string, unknown>>).map((b) => ({ ...b }))
-      : m.blocks,
-  }));
-}
-import {
-  deriveMessagesFromEvents,
-  diffDerivationMessages,
-  type DerivationDiff,
-  type DerivedMessage,
-} from '@modules/session';
-// E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
-import { ExecutionPhaseTracker } from '@modules/session';
+// B2（2026-10-05）：`verifySessionDerivation` 转发签名所需的类型位（实现已外迁 `sessionMessagesRead.ts`）
+import type { DerivationDiff } from '@modules/session';
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
 
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
-import type {
-  UnifiedMessage,
-  FrontendMessageBlock,
-} from '@modules/session/types/UnifiedMessage';
 import type { Message } from '@modules/session/types/message';
 import type { ToolManager } from '@modules/tools';
 // D-227（2026-10-02，B12）：`globalToolManager` 值改经 `CoreApiAppDeps.toolManager` 注入 ⇒ 删除静态值导入。
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
-import { resolveWorktreeHash } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -192,35 +138,6 @@ function countUserMessages(
 ): number {
   if (!messages) return 0;
   return messages.filter((m) => m.role === 'user').length;
-}
-
-/** 提取消息纯文本（兼容 string 与 ContentBlock[]） */
-function messagePlainText(message: Message | undefined): string | undefined {
-  if (!message?.content) return undefined;
-  if (typeof message.content === 'string')
-    return message.content.trim() || undefined;
-  return (
-    message.content
-      .map((block) => ('value' in block ? block.value : ''))
-      .join('')
-      .trim() || undefined
-  );
-}
-
-/** 取会话首条用户消息文本（2.1/2.8：精化素材须基于首条，非当轮） */
-function firstUserText(
-  session: { messages: Message[] } | undefined
-): string | undefined {
-  if (!session) return undefined;
-  return messagePlainText(session.messages.find((m) => m.role === 'user'));
-}
-
-/** 取会话首条助手消息文本（2.1/2.8：精化素材须基于首条，非当轮） */
-function firstAssistantText(
-  session: { messages: Message[] } | undefined
-): string | undefined {
-  if (!session) return undefined;
-  return messagePlainText(session.messages.find((m) => m.role === 'assistant'));
 }
 
 /**
@@ -303,6 +220,35 @@ export class CoreAPIImpl implements CoreAPI {
   private _modelName: string;
   /** B1（2026-10-05）：领域只读快照 / 梦境 / 知识库文档 / 端口聚合实现（外迁 `domainSnapshotOps.ts`） */
   private readonly domainSnapshotOps = new DomainSnapshotOps();
+  /** B2（2026-10-05）：消息读取 / 事件派生 / 派生校验 / 事件流 / 审批块实现（外迁 `sessionMessagesRead.ts`） */
+  private readonly sessionMessagesRead: SessionMessagesRead =
+    new SessionMessagesRead({
+      getChatManager: () => this.chatManager,
+      getSessionManager: () => this.sessionManager,
+      // B3（2026-10-05）：`_filterDeletedRanges` 已随 C14 外迁并改名 public `filterDeletedRanges`。
+      getFilterDeletedRanges:
+        () =>
+        <T>(sessionId: string, messages: T[]) =>
+          this.messageMutation.filterDeletedRanges<T>(sessionId, messages),
+    });
+
+  /** B3（2026-10-05）：消息编辑 / 回滚实现（外迁 `messageMutation.ts`） */
+  private readonly messageMutation: MessageMutation = new MessageMutation({
+    getChatManager: () => this.chatManager,
+    getSessionManager: () => this.sessionManager,
+    getCleanupOrphanAttachments: () => (sid, ids) =>
+      this.cleanupOrphanAttachments(sid, ids),
+    // ⚠️ 闭包惰性求值：`sessionMessagesRead` 的 `getFilterDeletedRanges` 与
+    // `messageMutation` 的 `getDeriveSessionMessagesFromEvents` 互指（两模块形成惰性引用环），
+    // 因均为**调用时**求值 ⇒ 无构造顺序问题、无运行时递归。
+    getDeriveSessionMessagesFromEvents: () => (sid) =>
+      this.sessionMessagesRead._deriveSessionMessagesFromEvents(sid),
+  });
+
+  /** B4（2026-10-05）：标题 / 元数据 / 执行阶段追踪实现（外迁 `sessionTitling.ts`） */
+  private readonly sessionTitling: SessionTitling = new SessionTitling({
+    getChatManager: () => this.chatManager,
+  });
 
   /** SmartRouter 智能路由实例（可选，未设置时使用 modelRouter.resolve 静态路由） */
   private smartRouter: SmartRouter | null = null;
@@ -312,15 +258,6 @@ export class CoreAPIImpl implements CoreAPI {
 
   /** LLM 客户端延迟初始化标记 */
   private _llmReady = false;
-
-  /**
-   * E-1 接入（2026-08-23）：per-session 执行阶段追踪器
-   * 工具完成自动记录交付物 → 流结束时 buildDeliverableData 发射 deliverable chunk + 写事件。
-   */
-  private readonly _executionPhaseTrackers = new Map<
-    string,
-    ExecutionPhaseTracker
-  >();
 
   /**
    * E-1 diff（2026-08-23）：文件写入工具执行前的内容缓存（key: 文件路径，供 end 时计算 unified diff）
@@ -664,12 +601,14 @@ export class CoreAPIImpl implements CoreAPI {
         configManager.env('TITLE_STAGE') !== 'false' &&
         request.sessionId &&
         request.content &&
-        this.shouldAutoTitle(request.sessionId)
+        this.sessionTitling.shouldAutoTitle(request.sessionId)
       ) {
-        void this.setPreliminaryTitle(
-          request.sessionId,
-          this.sanitizePlaceholderTitle(request.content)
-        ).catch(() => {});
+        void this.sessionTitling
+          .setPreliminaryTitle(
+            request.sessionId,
+            this.sessionTitling.sanitizePlaceholderTitle(request.content)
+          )
+          .catch(() => {});
       }
       const { model, tier } = await this.resolveSmartModel(
         request.content,
@@ -718,7 +657,11 @@ export class CoreAPIImpl implements CoreAPI {
 
       // 非流式路径也触发自动标题生成（fire-and-forget，不阻塞响应）
       if (content && request.sessionId) {
-        this.autoGenerateTitle(request.sessionId, request.content, content);
+        this.sessionTitling.autoGenerateTitle(
+          request.sessionId,
+          request.content,
+          content
+        );
       }
 
       otel.endSpan(span, SpanStatusCode.OK);
@@ -834,12 +777,14 @@ export class CoreAPIImpl implements CoreAPI {
         configManager.env('TITLE_STAGE') !== 'false' &&
         finalSessionId &&
         request.content &&
-        this.shouldAutoTitle(finalSessionId)
+        this.sessionTitling.shouldAutoTitle(finalSessionId)
       ) {
-        void this.setPreliminaryTitle(
-          finalSessionId,
-          this.sanitizePlaceholderTitle(request.content)
-        ).catch(() => {});
+        void this.sessionTitling
+          .setPreliminaryTitle(
+            finalSessionId,
+            this.sessionTitling.sanitizePlaceholderTitle(request.content)
+          )
+          .catch(() => {});
       }
 
       const { model, tier } = await this.resolveSmartModel(
@@ -1047,7 +992,8 @@ export class CoreAPIImpl implements CoreAPI {
               }
               // E-1 接入（2026-08-23）：文件写入工具完成 → 记录交付物到 ExecutionPhaseTracker
               if (winPathMatch) {
-                const tracker = this._getExecutionPhaseTracker(finalSessionId);
+                const tracker =
+                  this.sessionTitling.getExecutionPhaseTracker(finalSessionId);
                 if (!tracker.getCurrentPhase()) {
                   tracker.enter('implementing', '工具执行');
                 }
@@ -1369,7 +1315,8 @@ export class CoreAPIImpl implements CoreAPI {
     // （复用 ExecutionPhaseTracker.buildDeliverableData，纯事件回放由前端聚合器/后端派生器重建）
     try {
       if (finalSessionId && !streamFailed) {
-        const tracker = this._getExecutionPhaseTracker(finalSessionId);
+        const tracker =
+          this.sessionTitling.getExecutionPhaseTracker(finalSessionId);
         const deliverable = tracker.buildDeliverableData();
         if (deliverable && deliverable.files.length > 0) {
           yield {
@@ -1467,7 +1414,11 @@ export class CoreAPIImpl implements CoreAPI {
       } as ChatStreamChunk;
 
       if (fullContent && finalSessionId) {
-        this.autoGenerateTitle(finalSessionId, request.content, fullContent);
+        this.sessionTitling.autoGenerateTitle(
+          finalSessionId,
+          request.content,
+          fullContent
+        );
       }
     } catch (err) {
       // @ignore-catch — 流已关闭，yield 失败说明客户端已断开
@@ -1975,6 +1926,10 @@ export class CoreAPIImpl implements CoreAPI {
     };
   }
 
+  // ---- B2 纯搬迁（2026-10-05）：以下「消息读取 / 事件派生 / 派生校验 / 事件流 / 审批块」
+  // 的实现已外迁至同目录 `sessionMessagesRead.ts`（`SessionMessagesRead`）；
+  // 此处仅保留对外入口（`implements CoreAPI` + HTTP 消费者）的薄转发。
+
   async getSessionMessages(
     sessionId: string,
     query?: { limit?: number; before?: number }
@@ -1989,507 +1944,17 @@ export class CoreAPIImpl implements CoreAPI {
     }>;
     hasMore: boolean;
   }> {
-    // P2-1（2026-08-23）：优先 events 统一派生（评审 G7）——事件聚合为基线 +
-    // 投影做版本覆盖。事件派生返回 user/assistant 聚合消息（tool 信息嵌入 blocks），
-    // 与前端渲染契约一致；投影（messages.jsonl）含独立 tool 消息（1601/1634）且
-    // lastEventSeq 覆盖低，不宜作主源（方案 B 验证否决，2026-08-29）。
-    // N-55 分段计时（2026-09-20）：定位命中路径的残余成本（派生或投影读取 / 审批查询 / 分页）
-    const perfStart = Date.now();
-    try {
-      const derived = await this._deriveSessionMessagesFromEvents(sessionId);
-      if (derived) {
-        const afterDerive = Date.now();
-        // N-50（2026-09-20）：过滤"已删除轮次"（元数据墓碑的 seq 区间）——派生路径生效后
-        // 仅删投影不足以移除该轮（agg 会按事件重新派生）⇒ 必须在此按 `lastEventSeq` 过滤；
-        // 下方 catch 的投影回退路径依赖投影条目已由 `deleteMessage` 整轮删除。
-        const visible = this._filterDeletedRanges(sessionId, derived);
-        await this._attachPendingApprovalBlocks(
-          sessionId,
-          visible as unknown as UnifiedMessage[]
-        );
-        const afterApproval = Date.now();
-        const out = this._paginateMessages(visible, query);
-        // N-55 分段计时：日志级别为 DEBUG（2026-09-20 由 INFO 降级）—— 常规会话读
-        // 每次都打计时行属噪音，需要观测时把日志级别调到 DEBUG 即可。
-        logger.debug('[perf] getSessionMessages', {
-          path: 'derived',
-          sessionId,
-          deriveMs: afterDerive - perfStart,
-          approvalMs: afterApproval - afterDerive,
-          totalMs: Date.now() - perfStart,
-          messages: visible.length,
-          returned: out.messages.length,
-          hasMore: out.hasMore,
-        });
-        return out;
-      }
-    } catch {
-      // @ignore-catch — 派生失败回退投影路径
-    }
-
-    // 投影兜底（事件派生为空/失败：存量 v0 会话等）
-    try {
-      const gateway = this.chatManager.getSessionGateway();
-      if (gateway) {
-        const storedMessages = await gateway.getMessages(sessionId);
-        if (storedMessages && storedMessages.length > 0) {
-          // 读时合成 pending 审批卡片：提交期的 blocks 注入存在竞态（详见 InboxManager），
-          // 读取时按会话动态附加，确保前端实时拿到审批交互卡片。
-          await this._attachPendingApprovalBlocks(sessionId, storedMessages);
-          // T1.3（2026-08-23）：投影返回前 blocks 去重（同 toolCallId 合并，终态优先）
-          const mapped = storedMessages.map((m: UnifiedMessage) => ({
-            id: m.id,
-            role: m.role.toLowerCase(),
-            content: typeof m.content === 'string' ? m.content : '',
-            session_id: sessionId,
-            timestamp: m.timestamp,
-            // 1.6：流式开始时间回传前端（导出显示开始时间与耗时）
-            startedAt: m.startedAt,
-            // AB-11：finishReason 随消息持久化后回传前端（区分截断/错误/正常）
-            finishReason: m.finishReason,
-            tool_calls: m.metadata?.tool_calls as
-              | Array<Record<string, unknown>>
-              | undefined,
-            toolCallId: m.metadata?.toolCallId as string | undefined,
-            blocks: m.blocks as Array<Record<string, unknown>> | undefined,
-            metadata: m.metadata as Record<string, unknown> | undefined,
-            // 分页游标透传（方案 C）
-            lastEventSeq: m.lastEventSeq,
-          }));
-          return this._paginateMessages(
-            dedupeMessagesToolCallBlocks(mapped),
-            query
-          );
-        }
-      }
-    } catch (_err) {
-      // 持久化读取失败，降级到内存缓存
-    }
-
-    // fallback: 从内存缓存读取
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      return { messages: [], hasMore: false };
-    }
-
-    // T1.3（2026-08-23）：内存 fallback 返回前 blocks 去重（同 toolCallId 合并，终态优先）
-    const mapped = (session.messages || []).map((msg) => {
-      let content: string;
-      if (typeof msg.content === 'string') {
-        content = msg.content;
-      } else if (Array.isArray(msg.content)) {
-        const textBlocks = msg.content.filter((b) => b.type === 'text');
-        if (textBlocks.length > 0) {
-          content = textBlocks
-            .map((b) => (b as unknown as { type: 'text'; text: string }).text)
-            .join('');
-        } else {
-          const toolResultBlock = msg.content.find(
-            (b) => b.type === 'tool_result'
-          );
-          if (toolResultBlock) {
-            content =
-              (
-                toolResultBlock as unknown as {
-                  type: 'tool_result';
-                  content: string;
-                }
-              ).content || '';
-          } else {
-            content = '';
-          }
-        }
-      } else {
-        content = '';
-      }
-
-      return {
-        id: msg.id,
-        role: msg.role.toLowerCase(),
-        content,
-        session_id: sessionId,
-        timestamp:
-          msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
-        // AB-11：内存 fallback 路径同样回传 finishReason
-        finishReason: msg.finishReason,
-        tool_calls: msg.tool_calls as
-          | Array<Record<string, unknown>>
-          | undefined,
-        toolCallId:
-          msg.toolCallId || (msg.metadata?.toolCallId as string | undefined),
-        blocks: msg.blocks,
-        metadata: msg.metadata as Record<string, unknown> | undefined,
-      };
-    });
-    return this._paginateMessages(dedupeMessagesToolCallBlocks(mapped), query);
+    return this.sessionMessagesRead.getSessionMessages(sessionId, query);
   }
 
-  /**
-   * KB-LONG-SESSION（2026-08-29）：getSessionMessages 分页——消息按首事件 seq 升序，
-   * 取末尾 limit 条（最近的），hasMore 精确表示是否还有更早。排序键 lastEventSeq
-   * 优先，回退 timestamp（投影/内存 fallback 路径无 lastEventSeq）。不传 limit 时
-   * 返回全量（行为不变），小会话前端传大 limit 也等效全量。
-   *
-   * P1-6b（2026-09-27，Spec §10）：**分页键归一化**（`withPaginationSeq`）。
-   * 原键 `lastEventSeq ?? timestamp` 混比两种量纲（事件序号 ~1e3 vs epoch 毫秒 ~1.7e12）：
-   * 一旦 `before` 落在 timestamp 量纲，`key(m) <= before` 对所有条目恒真 ⇒ **过滤失效**、
-   * 每页恒返回同一批尾部消息（前端 id 去重后"点了没反应"、`hasMore` 恒 true）；
-   * 且前端游标只读 `messages[0].lastEventSeq` ⇒ 尾页首条缺该字段时游标为 null。
-   * 故**仅在分页启用时**（limit > 0）先回填单调键：量纲统一 + 每页首条恒有键。
-   * 不传 limit 的全量响应**保持原样**（不改动其他消费者可见字段）。
-   */
-  private _paginateMessages<
-    T extends { lastEventSeq?: number; timestamp?: number },
-  >(
-    messages: T[],
-    query?: { limit?: number; before?: number }
-  ): { messages: T[]; hasMore: boolean } {
-    const limit = query?.limit;
-    if (limit == null || limit <= 0) {
-      return { messages, hasMore: false };
-    }
-    const normalized = withPaginationSeq(messages);
-    const key = (m: T): number => m.lastEventSeq ?? m.timestamp ?? 0;
-    let filtered = normalized;
-    if (query?.before != null) {
-      // N-57（2026-09-20）：排序键 `lastEventSeq` **存在重复值**（同轮多条消息共享 seq，
-      // 实测会话开头有 `1,1 / 2,2 / 3,3`）⇒ 用 `<` 会把与边界同 seq 的消息漏掉
-      // （总条数落在 limit+1..limit+5 的会话会丢条）。改用 `<=` 保证不丢，
-      // 边界条目会重复返回，由前端 `loadOlderMessagesImpl` 按 id 去重消除。
-      filtered = filtered.filter((m) => key(m) <= (query.before as number));
-    }
-    const hasMore = filtered.length > limit;
-    // N-57（2026-09-20）：filtered.length <= limit 时必须返回全部 —— 原
-    // `filtered.slice(filtered.length - limit)` 在"剩余条数不足一页"时退化为负索引，
-    // 等价于 `slice(-|残余|)` 只取尾部若干条（实测 92 条只回 8 条）且 hasMore=false ⇒
-    // 最后一页丢失、中间消息永久不可达。
-    const page = hasMore ? filtered.slice(filtered.length - limit) : filtered;
-    return { messages: page, hasMore };
-  }
-
-  /**
-   * N-55（2026-09-20）：事件派生结果缓存（key=sessionId；命中要求指纹一致；命中返回副本）。
-   * 容量 32 会话（LRU 淘汰），无 TTL —— 正确性由指纹保证（tailSeq/投影/压缩区间任一变化即重算）。
-   */
-  private readonly _derivedMessagesCache = new LRUCache<{
-    fingerprint: string;
-    messages: DerivedSessionMessages;
-  }>(32);
-
-  /**
-   * P2-7/G4（2026-09-25）：派生读路径的**取数头部**（**不含 events**）。
-   *
-   * 与 `_deriveSessionMessagesFromEvents` 共用，避免两处重复"分区解析 + 投影读取 + 压缩区间解析"；
-   * **不含 events** 是为保持既有缓存语义：派生缓存命中时**不应读事件**（N-55 的省算语义）。
-   *
-   * @returns `null` = 无事件日志（未落盘 / 已删除）⇒ 无法派生
-   */
-  private async _loadDerivationHead(sessionId: string): Promise<{
-    eventLog: EventLogStorage;
-    tailSeq: number;
-    projections: UnifiedMessage[];
-    mappedProjections: DerivedMessage[];
-    compactionRanges?: Array<{
-      startSeq: number;
-      endSeq: number;
-      summaryMessageId?: string;
-    }>;
-  } | null> {
-    // N-52 修复（2026-09-20）：与 `getSessionEvents` 用**同一访问器**取事件日志 ——
-    // worktreeHash 走 `resolveWorktreeHash()` 单一真源（P2-5）并复用 ChatManager 的实例缓存。
-    // 原实现 `new EventLogStorage(sessionId, 'default')` 把 `'default'` 当 worktreeHash
-    // （真实分区为 worktree hash，如 `57971aa3`）⇒ `exists()` 恒 false ⇒ 派生恒返回 null、
-    // 事件派生路径沦为死代码。详见 `.trae/specs/event-derivation-read-path-rootfix.md`。
-    const chatManager = this.chatManager as unknown as {
-      _getOrCreateEventLog?(sessionId: string): EventLogStorage;
-    };
-    const eventLog = chatManager._getOrCreateEventLog?.(sessionId);
-    if (!eventLog || !eventLog.exists()) return null;
-
-    const gateway = this.chatManager.getSessionGateway();
-    const projections: UnifiedMessage[] = gateway
-      ? await gateway.getMessages(sessionId)
-      : [];
-    // A-3（2026-08-23）/ D4（2026-09-23）：派生时传入会话 metadata 压缩区间表
-    // （trajectoryCompactions）作为**可重建缓存** —— 命中优先，但与 `context/compaction`
-    // 事件冲突时**以事件为准**（并在派生器内记 warning）；缓存缺失 ⇒ 仅凭事件重建。
-    const sessionMeta = this.sessionManager.getSession(sessionId)?.metadata as
-      | Record<string, unknown>
-      | undefined;
-    const compactionRanges = sessionMeta?.trajectoryCompactions as
-      | Array<{
-          startSeq: number;
-          endSeq: number;
-          summaryMessageId?: string;
-        }>
-      | undefined;
-
-    const tailSeq = await eventLog.getTailSeq();
-    const mappedProjections: DerivedMessage[] = projections.map((m) => ({
-      id: m.id,
-      role: m.role.toLowerCase(),
-      content: typeof m.content === 'string' ? m.content : '',
-      timestamp: m.timestamp,
-      startedAt: m.startedAt,
-      finishReason: m.finishReason,
-      tool_calls: m.metadata?.tool_calls as
-        | Array<Record<string, unknown>>
-        | undefined,
-      toolCallId: m.metadata?.toolCallId as string | undefined,
-      blocks: m.blocks as Array<Record<string, unknown>> | undefined,
-      metadata: m.metadata as Record<string, unknown> | undefined,
-      lastEventSeq: m.lastEventSeq,
-    }));
-
-    return {
-      eventLog,
-      tailSeq,
-      projections,
-      mappedProjections,
-      compactionRanges,
-    };
-  }
-
-  /**
-   * P2-7/G4（2026-09-25）：读取派生所需事件（**排除** `assistant/thinking`）。
-   *
-   * @returns `null` = 无 v1（`messageId`）事件 ⇒ 不可派生（与既有 `hasV1` 判据一致）
-   */
-  private async _loadDerivationEvents(
-    eventLog: EventLogStorage
-  ): Promise<LiriEvent[] | null> {
-    // 循环拉取 events（G5：read limit≤10000 无分页，防静默截断）
-    // KB-LONG-SESSION（2026-08-29）：排除 assistant/thinking 高频细节事件——
-    // 长会话 events.jsonl 中 thinking 占 90%+，载入跳过可降事件处理量一个量级，
-    // 派生消息不依赖 thinking（thinking 块仅回放展示用，流式时已实时推送）。
-    const events: LiriEvent[] = [];
-    let fromSeq = 1;
-    for (;;) {
-      const batch = await eventLog.read({
-        fromSeq,
-        limit: 10000,
-        excludeTypes: ['assistant/thinking'],
-      });
-      events.push(...batch);
-      if (batch.length < 10000) break;
-      fromSeq = batch[batch.length - 1].seq + 1;
-    }
-    const hasV1 = events.some((e) => {
-      const d = e.data as { messageId?: string };
-      return typeof d.messageId === 'string';
-    });
-    return hasV1 ? events : null;
-  }
-
-  /**
-   * P2-1（2026-08-23）：从 events 统一派生消息（事件聚合 + 投影覆盖，评审 G7/A1'）。
-   * 仅当 events 含 v1（messageId）事件时返回派生结果，否则返回 null（回退投影路径，
-   * 存量 v0 会话安全兼容）。
-   */
-  private async _deriveSessionMessagesFromEvents(
-    sessionId: string
-  ): Promise<Array<{
-    id: string;
-    role: string;
-    content: string;
-    timestamp: number;
-    startedAt?: number;
-    finishReason?: string;
-    tool_calls?: Array<Record<string, unknown>>;
-    toolCallId?: string;
-    blocks?: Array<Record<string, unknown>>;
-    metadata?: Record<string, unknown>;
-  }> | null> {
-    // P2-7/G4（2026-09-25）：取数拆到 `_loadDerivationHead` / `_loadDerivationEvents`，
-    // 与 `verifySessionDerivation` 共用（避免两处重复"分区解析 + 事件循环"）。
-    // ⚠️ 缓存命中路径**顺序不变**：head 不含 events ⇒ 命中时不会读事件（N-55 的省算语义保持）。
-    const head = await this._loadDerivationHead(sessionId);
-    if (!head) return null;
-    const {
-      eventLog,
-      tailSeq,
-      projections,
-      mappedProjections,
-      compactionRanges,
-    } = head;
-
-    // N-55（2026-09-20，长会话读性能）：**派生结果缓存**。
-    // 实测：3847 事件 / 192 消息的长会话，热读 ~34ms —— 其中"读 events"已被 EventLogStorage 的
-    // 事件快照缓存覆盖（P1-2），余下主要是**每次重算派生**（聚合 + 覆盖 + 块合并 + 去重）。
-    // 指纹 = tailSeq + 投影规模/末条 id + 压缩区间数：任一变化即失效重算（无 TTL，正确性靠指纹）。
-    const lastProjection = projections[projections.length - 1];
-    const fingerprint = [
-      tailSeq,
-      projections.length,
-      lastProjection?.id ?? '',
-      compactionRanges?.length ?? 0,
-    ].join('|');
-    const cached = this._derivedMessagesCache.get(sessionId);
-    if (cached && cached.fingerprint === fingerprint) {
-      // 命中 ⇒ 返回**副本**（消费方 `_attachPendingApprovalBlocks` 会改写 blocks）
-      return cloneDerivedMessages(cached.messages);
-    }
-    logger.debug('deriveCache:未命中（重算派生）', {
-      sessionId,
-      tailSeq,
-      projections: projections.length,
-      hasCached: Boolean(cached),
-    });
-    const deriveStart = Date.now();
-
-    const events = await this._loadDerivationEvents(eventLog);
-    if (!events) return null;
-    const derived = deriveMessagesFromEvents(events, mappedProjections, {
-      compactionRanges,
-    });
-    // T1.3（2026-08-23）：派生结果返回前对 blocks 去重（合并同 toolCallId 的 tool_call 块，
-    // 终态优先 + 保留首非空 arguments），消除 SSE 层重复发送在投影/内存中残留的污染块。
-    const mapped = derived.map((m) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      session_id: sessionId,
-      timestamp: m.timestamp,
-      startedAt: m.startedAt,
-      finishReason: m.finishReason,
-      tool_calls: m.tool_calls,
-      toolCallId: m.toolCallId,
-      blocks: m.blocks,
-      metadata: m.metadata,
-      // B-2（2026-08-23）：透传排序键（事件派生序），前端 setMessages 据此排序
-      lastEventSeq: m.lastEventSeq,
-    }));
-    const result = dedupeMessagesToolCallBlocks(mapped);
-    // N-55：诊断用（DEBUG）—— 长会话冷派生实测 ~1.2s（3847 事件），命中缓存后每次读不再重算
-    logger.debug('deriveCache:计算完成', {
-      sessionId,
-      deriveMs: Date.now() - deriveStart,
-      events: events.length,
-      messages: result.length,
-    });
-    // N-55：写入派生缓存（指纹与上面的命中判据一致）
-    this._derivedMessagesCache.set(sessionId, {
-      fingerprint,
-      messages: result as DerivedSessionMessages,
-    });
-    return result;
-  }
-
-  /**
-   * P2-7/G4（2026-09-25）：**派生一致性校验** —— 比对"纯事件派生基线"与"落盘投影"。
-   *
-   * **只报告、不改写**（自动修复会掩盖根因，CS05）。基线取法：
-   * `deriveMessagesFromEvents(events, [])`（`projections` 传空 ⇒ 不做投影覆盖）。
-   *
-   * ⚠️ 语义边界：基线与投影来自**两条写入路径**，不一致**未必**是缺陷
-   * （如压缩摘要只存在于事件侧）⇒ 返回的是**事实差异报告**，本方法不判错。
-   *
-   * @returns `available=false` ⇒ 无事件日志 / 无 v1 事件（**无法校验**，不是"一致"）
-   */
   async verifySessionDerivation(sessionId: string): Promise<{
     available: boolean;
     diff?: DerivationDiff;
     reason?: string;
   }> {
-    const head = await this._loadDerivationHead(sessionId);
-    if (!head) {
-      return { available: false, reason: '无事件日志（未落盘或已删除）' };
-    }
-    const events = await this._loadDerivationEvents(head.eventLog);
-    if (!events) {
-      return {
-        available: false,
-        reason: '无 v1 事件（缺 messageId），不可派生',
-      };
-    }
-
-    const baseline = deriveMessagesFromEvents(events, [], {
-      compactionRanges: head.compactionRanges,
-    });
-    return {
-      available: true,
-      diff: diffDerivationMessages(baseline, head.projections),
-    };
+    return this.sessionMessagesRead.verifySessionDerivation(sessionId);
   }
 
-  /**
-   * 读时合成 pending 审批卡片 blocks（P0-2 审批链路）
-   * 提交期的 blocks 注入（InboxManager._injectInboxBlock）会被流式持久化覆盖，
-   * 改为消息读取时按会话动态附加，确保前端实时拿到审批交互卡片。
-   */
-  private async _attachPendingApprovalBlocks(
-    sessionId: string,
-    messages: UnifiedMessage[]
-  ): Promise<void> {
-    try {
-      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
-      // 直查 inbox_items.session_id（而非 JOIN session_inbox_map）：
-      // Web 提交的审批项无 channelSessionId 不写 map 表，getBySession 会漏掉。
-      const { items } = await inboxManager.list({
-        sessionId,
-        status: 'pending',
-        type: 'approval',
-      });
-      const pending = items;
-      // 排查 J-1.3：记录读时合成的待审批项数量，确认审批卡片能注入会话消息
-      logger.info('attachPendingApprovalBlocks: 查询待审批项', {
-        sessionId,
-        pendingCount: pending.length,
-      });
-      if (pending.length === 0) return;
-
-      const lastAssistant = messages
-        .filter((m) => m.role === 'assistant')
-        .pop();
-      if (!lastAssistant) return;
-
-      const existing =
-        (lastAssistant.blocks as unknown as FrontendMessageBlock[]) ?? [];
-      const blocks = pending.map(
-        (item) =>
-          ({
-            id: item.id,
-            type: 'inbox',
-            content: '',
-            inboxData: {
-              inboxId: item.id,
-              type: item.type,
-              title: item.title,
-              content: item.message || '',
-              status: 'pending',
-              priority: 'normal',
-              actions: (item.options?.length
-                ? item.options
-                : ['approve', 'deny']
-              ).map((o) => ({
-                label: o === 'approve' ? '批准' : o === 'deny' ? '拒绝' : o,
-                reply: o,
-                style:
-                  o === 'deny' ? ('danger' as const) : ('primary' as const),
-              })),
-              channelSource: item.channelId,
-            },
-          }) as FrontendMessageBlock
-      );
-      lastAssistant.blocks = [...existing, ...blocks];
-    } catch (err) {
-      // 合成失败不影响消息读取
-      void handleError(err, {
-        module: 'runtime:api',
-        action: 'attach_pending_approval_blocks',
-      });
-    }
-  }
-
-  /**
-   * M1 事件溯源：获取会话事件流
-   *
-   * 通过 ChatManager 持有的 EventLogStorage 读取事件。
-   * 首次访问时若 events.jsonl 不存在但 messages.jsonl 存在，ChatManager 自动触发迁移。
-   *
-   * recent=true（P8 补充，2026-08-26）：未传 fromSeq 时从会话尾部向前取 limit 条
-   * （日志/轨迹面板显示最近事件，避免长会话只看到开头 1000 条）。
-   */
   async getSessionEvents(
     sessionId: string,
     query?: {
@@ -2511,66 +1976,7 @@ export class CoreAPIImpl implements CoreAPI {
     hasEarlier: boolean;
     hasMore: boolean;
   }> {
-    // 复用 ChatManager 的事件日志能力（ChatManager 持有 EventLogStorage 实例缓存）
-    const chatManager = this.chatManager as unknown as {
-      _getOrCreateEventLog?(sessionId: string): EventLogStorage;
-    };
-
-    const log = chatManager._getOrCreateEventLog?.(sessionId);
-    if (!log) {
-      return { events: [], tailSeq: 0, hasEarlier: false, hasMore: false };
-    }
-
-    // 首次访问时触发迁移（与 ChatManager._appendEventsForMessage 一致）
-    if (!log.exists()) {
-      // N-52 同族修复（2026-09-22）：迁移器同样需要正确的 worktreeHash 才能找到该会话
-      // 投影（`messages.jsonl`）所在分区 —— 传字面量 `'default'` 会查错目录、迁移恒不生效。
-      const migrator = new MessageToEventMigrator(
-        log,
-        sessionId,
-        resolveWorktreeHash()
-      );
-      if (migrator.needsMigration()) {
-        await migrator.migrate();
-      }
-    }
-
-    const limit = query?.limit ?? 1000;
-
-    // recent=true 且未传 fromSeq：尾部优先窗口（最后 limit 条），
-    // 覆盖长会话"只看到开头 1000 条"的展示缺口
-    let effectiveFrom = query?.fromSeq;
-    let effectiveTo = query?.toSeq;
-    if (query?.recent && effectiveFrom === undefined) {
-      const realTail = await log.getTailSeq();
-      effectiveFrom = Math.max(1, realTail - limit + 1);
-    }
-    // 向前补页（P1-1，2026-09-22）：取 `[beforeSeq - limit, beforeSeq)` 这一页。
-    // 说明：`EventLogStorage.read` 的语义是"从 `fromSeq` 向后至多 `limit` 条"，故把
-    // `fromSeq` 预置到 `beforeSeq - limit`、`toSeq` 收到 `beforeSeq - 1` 即恰好命中该窗口
-    //（**无需在存储层新增反向读能力**）。到顶时 `fromSeq` 被钳到 1 ⇒ 自然返回不足一页。
-    if (query?.beforeSeq !== undefined) {
-      effectiveTo = query.beforeSeq - 1;
-      effectiveFrom = Math.max(1, query.beforeSeq - limit);
-    }
-
-    // types: string[] → LiriEventType[]（HTTP 入参为字符串，运行时已校验）
-    const logQuery = query
-      ? {
-          fromSeq: effectiveFrom,
-          toSeq: effectiveTo,
-          types: query.types as Array<LiriEvent['type']> | undefined,
-          limit: query.limit,
-        }
-      : undefined;
-    const events = await log.read(logQuery);
-    const tailSeq = await log.getTailSeq();
-    const hasMore =
-      events.length > 0 && events[events.length - 1].seq < tailSeq;
-    // 更早方向是否还有：首条 seq > 1 即说明该侧存在更早事件（seq 自 1 起单调）
-    const hasEarlier = events.length > 0 && events[0].seq > 1;
-
-    return { events, tailSeq, hasEarlier, hasMore };
+    return this.sessionMessagesRead.getSessionEvents(sessionId, query);
   }
 
   async updateMessageBlocks(
@@ -2578,7 +1984,11 @@ export class CoreAPIImpl implements CoreAPI {
     messageId: string,
     blocks: Array<Record<string, unknown>>
   ): Promise<void> {
-    await this.chatManager.updateMessageBlocks(sessionId, messageId, blocks);
+    return this.messageMutation.updateMessageBlocks(
+      sessionId,
+      messageId,
+      blocks
+    );
   }
 
   /**
@@ -2588,173 +1998,7 @@ export class CoreAPIImpl implements CoreAPI {
     sessionId: string,
     messageId: string
   ): Promise<{ success: boolean; messages: Array<Record<string, unknown>> }> {
-    const gateway = this.chatManager.getSessionGateway();
-    if (!gateway) {
-      throw new Error('SessionGateway not available');
-    }
-
-    // 并发防护：检查是否正在流式输出
-    const session = this.sessionManager.getSession(sessionId);
-    if (session?.metadata?.isStreaming) {
-      const err = new Error('Cannot delete message while streaming');
-      (err as unknown as Record<string, unknown>).statusCode = 409;
-      throw err;
-    }
-
-    // 校验消息存在且是 user 消息
-    const messages = await gateway.getMessages(sessionId);
-    const targetMsg = messages.find((m) => m.id === messageId);
-    if (!targetMsg) {
-      const err = new Error('Message not found');
-      (err as unknown as Record<string, unknown>).statusCode = 404;
-      throw err;
-    }
-    if (targetMsg.role !== 'user') {
-      const err = new Error('Only user messages can be deleted');
-      (err as unknown as Record<string, unknown>).statusCode = 400;
-      throw err;
-    }
-
-    // ── N-50（2026-09-20）修复：删除**整轮**（该提问 + 其助手/工具回复），避免遗留孤儿回复 ──
-    //
-    // 原实现只删该条 user 消息，其助手/工具回复仍留在投影（`messages.jsonl`）⇒ 界面上出现
-    // "没有提问的回复气泡"（实测证据见台账 N-50）。改为删除该轮全部条目：
-    // 从该 user 消息起，到下一个 user 消息之前止。
-    //
-    // 注（N-52，2026-09-20 修复 / 2026-09-22 复核）：`_deriveSessionMessagesFromEvents` 已改走
-    // `_getOrCreateEventLog()`（`resolveWorktreeHash()` 单一真源 + LRU 缓存）⇒ **事件派生读路径已生效**
-    //（旧实现把 `'default'` 当 worktreeHash ⇒ `exists()` 恒 false ⇒ 当时实际读源确为投影）。
-    // 与之配套的"按轮次 seq 墓碑 + 读时过滤"（`_filterDeletedRanges`）已同批落地（见下方
-    // `startSeq`/`endSeq`）—— 否则被删轮次会被事件重新派生出来。
-    const targetIndex = messages.findIndex((m) => m.id === messageId);
-    let turnEndIndex = messages.length;
-    for (let i = targetIndex + 1; i < messages.length; i++) {
-      if (messages[i].role === 'user') {
-        turnEndIndex = i;
-        break;
-      }
-    }
-    const turnMessageIds = messages
-      .slice(targetIndex, turnEndIndex)
-      .map((m) => m.id);
-
-    // N-50 墓碑（与 N-52 修复同批）：记录该轮的**事件 seq 区间** —— 派生读路径生效后，仅删
-    // 投影不足以移除该轮（agg 会按事件重新派生）⇒ 读时按墓碑过滤（`_filterDeletedRanges`）。
-    // 区间边界取**派生结果**的 `lastEventSeq` —— 与读时过滤比较的是同一 seq 空间。
-    let startSeq: number | undefined;
-    let endSeq: number | null = null;
-    try {
-      const derived = (await this._deriveSessionMessagesFromEvents(
-        sessionId
-      )) as Array<{ id: string; role: string; lastEventSeq?: number }> | null;
-      const idx = derived?.findIndex((m) => m.id === messageId) ?? -1;
-      const from = idx >= 0 ? derived?.[idx]?.lastEventSeq : undefined;
-      if (idx >= 0 && typeof from === 'number' && Number.isFinite(from)) {
-        startSeq = from;
-        const nextUser = derived?.slice(idx + 1).find((m) => m.role === 'user');
-        const nextSeq = nextUser?.lastEventSeq;
-        endSeq =
-          typeof nextSeq === 'number' && Number.isFinite(nextSeq)
-            ? Math.max(nextSeq - 1, from)
-            : null;
-      }
-    } catch (err) {
-      await handleError(err, {
-        module: 'runtime:api',
-        action: 'deleteMessage:computeDeletedRange',
-        context: { sessionId, messageId },
-      });
-    }
-
-    if (startSeq === undefined) {
-      logger.warn(
-        'deleteMessage: 未能定位该轮的事件 seq 区间，墓碑未写入（投影侧仍已整轮删除）',
-        { sessionId, messageId, turnMessageIds }
-      );
-    } else {
-      const ranges = addDeletedRange(session?.metadata?.deletedMessageRanges, {
-        startSeq,
-        endSeq,
-      });
-      if (session?.metadata) {
-        session.metadata.deletedMessageRanges = ranges;
-        this.sessionManager.updateSession?.(session);
-      }
-      try {
-        const storedSession = await gateway.getSession(sessionId);
-        if (storedSession) {
-          storedSession.metadata.deletedMessageRanges = ranges;
-          await gateway.updateSession(storedSession);
-        }
-      } catch (err) {
-        await handleError(err, {
-          module: 'runtime:api',
-          action: 'deleteMessage:persistDeletedRange',
-          context: { sessionId, messageId, ranges },
-        });
-      }
-    }
-
-    // 投影侧：删除该轮全部条目（用户消息 + 其助手/工具回复）
-    await gateway.deleteMessages(sessionId, turnMessageIds);
-
-    // 附件清理（引用计数归零时删除文件）
-    this.cleanupOrphanAttachments(sessionId, turnMessageIds).catch((err) => {
-      logger.debug('附件清理失败（非关键）', { error: String(err) });
-    });
-
-    // 审计日志
-    logger.info('Message deleted', {
-      module: 'audit:message',
-      sessionId,
-      messageId,
-      // N-50：记录整轮删除范围 + 事件 seq 墓碑，便于追溯"连带删了哪些回复"
-      deletedMessageIds: turnMessageIds,
-      deletedRange: startSeq === undefined ? null : { startSeq, endSeq },
-      timestamp: new Date().toISOString(),
-    });
-
-    // 返回更新后的消息列表
-    const updatedMessages = await gateway.getMessages(sessionId);
-    return {
-      success: true,
-      messages: updatedMessages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: typeof m.content === 'string' ? m.content : '',
-        timestamp: m.timestamp,
-      })),
-    };
-  }
-
-  /**
-   * N-50（2026-09-20）：按会话元数据的"删除墓碑"过滤**事件派生**消息。
-   *
-   * 无墓碑时零成本返回原数组（绝大多数会话）；过滤键为派生消息的 `lastEventSeq`
-   * （事件派生两条分支都会带上：`agg.maxChunkSeq`）。仅作用于事件派生路径 ——
-   * 投影回退路径依赖 `deleteMessage` 已整轮删除投影条目。
-   */
-  private _filterDeletedRanges<T>(sessionId: string, messages: T[]): T[] {
-    const ranges =
-      this.sessionManager.getSession(sessionId)?.metadata?.deletedMessageRanges;
-    if (!ranges || ranges.length === 0) return messages;
-    const kept = messages.filter(
-      (m) =>
-        !isSeqInDeletedRanges(
-          (m as { lastEventSeq?: unknown }).lastEventSeq,
-          ranges
-        )
-    );
-    if (kept.length !== messages.length) {
-      logger.info('已按删除墓碑过滤事件派生消息', {
-        module: 'runtime:api',
-        sessionId,
-        before: messages.length,
-        after: kept.length,
-        ranges,
-      });
-    }
-    return kept;
+    return this.messageMutation.deleteMessage(sessionId, messageId);
   }
 
   /**
@@ -2770,118 +2014,7 @@ export class CoreAPIImpl implements CoreAPI {
     deletedMessageIds: string[];
     undoResults: Array<{ roundId: number; success: boolean; error?: string }>;
   }> {
-    const gateway = this.chatManager.getSessionGateway();
-    if (!gateway) {
-      throw new Error('SessionGateway not available');
-    }
-
-    // 并发防护：检查是否正在流式输出
-    const session = this.sessionManager.getSession(sessionId);
-    if (session?.metadata?.isStreaming) {
-      const err = new Error('Cannot rollback while streaming');
-      (err as unknown as Record<string, unknown>).statusCode = 409;
-      throw err;
-    }
-
-    // 回退次数限制检查
-    const rollbackCount: number =
-      (session?.metadata?.rollbackCount as number) ?? 0;
-    const MAX_ROLLBACKS = 5;
-    if (rollbackCount >= MAX_ROLLBACKS) {
-      const err = new Error('Rollback limit reached (max 5)');
-      (err as unknown as Record<string, unknown>).statusCode = 429;
-      throw err;
-    }
-
-    // 收集要删除的消息 ID（beforeMessageId 及之后的所有消息）
-    const messages = await gateway.getMessages(sessionId);
-    const targetIndex = messages.findIndex((m) => m.id === beforeMessageId);
-    if (targetIndex === -1) {
-      const err = new Error('Target message not found');
-      (err as unknown as Record<string, unknown>).statusCode = 404;
-      throw err;
-    }
-    if (messages[targetIndex].role !== 'user') {
-      const err = new Error('Can only rollback to a user message');
-      (err as unknown as Record<string, unknown>).statusCode = 400;
-      throw err;
-    }
-
-    const messagesToDelete = messages.slice(targetIndex);
-    const deletedMessageIds = messagesToDelete.map((m) => m.id);
-
-    // === 文件回滚（核心新增） ===
-    let undoResults: Array<{
-      roundId: number;
-      success: boolean;
-      error?: string;
-    }> = [];
-    const roundIndex = session?.metadata?.roundIndex;
-    if (roundIndex && beforeMessageId in roundIndex) {
-      const targetRoundId = roundIndex[beforeMessageId];
-      const maxRound =
-        (session?.metadata?.roundCounter as number) ?? targetRoundId;
-      try {
-        undoResults = await this.chatManager.undoRoundsSince(
-          sessionId,
-          targetRoundId,
-          maxRound,
-          roundIndex
-        );
-        logger.info('File rollback completed', {
-          sessionId,
-          targetRoundId,
-          undoCount: undoResults.length,
-          failedCount: undoResults.filter((r) => !r.success).length,
-        });
-      } catch (err) {
-        logger.warn('File rollback failed, continuing with message deletion', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    // 批量软删除
-    await gateway.deleteMessages(sessionId, deletedMessageIds);
-
-    // 附件清理（引用计数归零时删除文件）
-    this.cleanupOrphanAttachments(sessionId, deletedMessageIds).catch((err) => {
-      logger.debug('附件清理失败（非关键）', { error: String(err) });
-    });
-
-    // 审计日志
-    logger.info('Messages truncated (rollback)', {
-      module: 'audit:message',
-      sessionId,
-      beforeMessageId,
-      deletedMessageIds,
-      undoResults: undoResults.map((r) => ({
-        roundId: r.roundId,
-        success: r.success,
-      })),
-      timestamp: new Date().toISOString(),
-    });
-
-    // 递增回退计数
-    if (session) {
-      session.metadata.rollbackCount = rollbackCount + 1;
-      this.sessionManager.updateSession?.(session);
-    }
-
-    // 返回更新后的消息列表
-    const updatedMessages = await gateway.getMessages(sessionId);
-    return {
-      success: true,
-      messages: updatedMessages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: typeof m.content === 'string' ? m.content : '',
-        timestamp: m.timestamp,
-      })),
-      remainingRollbacks: MAX_ROLLBACKS - (rollbackCount + 1),
-      deletedMessageIds,
-      undoResults,
-    };
+    return this.messageMutation.truncateMessages(sessionId, beforeMessageId);
   }
 
   /**
@@ -3044,14 +2177,16 @@ export class CoreAPIImpl implements CoreAPI {
     // 原实现走 sessionManager(轻量 adapter) 仅删内存，导致磁盘会话与检查点残留
     await this.chatManager.deleteSession(sessionId);
     // D-LIFE（2026-09-17）：会话删除 → 释放其执行阶段追踪器（防 per-session Map 永久驻留）
-    this._executionPhaseTrackers.delete(sessionId);
+    // B4（2026-10-05）：Map 随 C17 外迁 ⇒ 经模块方法删除。
+    this.sessionTitling.deleteTracker(sessionId);
   }
 
   async clearAllSessions(moduleType?: string): Promise<void> {
     // moduleType 可选：仅清空指定模块会话（防其他调用方误删项目会话）
     await this.chatManager.clearAllSessions(moduleType);
     // D-LIFE（2026-09-17）：清空会话 → 同步释放全部执行阶段追踪器
-    this._executionPhaseTrackers.clear();
+    // B4（2026-10-05）：Map 随 C17 外迁 ⇒ 经模块方法清空。
+    this.sessionTitling.clearTrackers();
   }
 
   async switchSession(sessionId: string): Promise<void> {
@@ -3083,261 +2218,33 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
-   * 重命名会话标题
-   *
-   * E-3（2026-08-23，方案 D2-B）：来源区分 + titleStage
-   * - source='user' → 用户手动改名 → titleStage='manual'（preliminary/final 均不覆盖）
-   * - source='ai' → AI 精化完成 → titleStage='final'（不再覆盖）
-   * 存量 titleAutoGenerated=true → 一并迁移为 final。
+   * 重命名会话标题（实现已外迁 `sessionTitling.ts`；`implements CoreAPI` + HTTP/命令/测试消费者）
    */
   async renameSession(
     sessionId: string,
     title: string,
     source: 'user' | 'ai' = 'user'
   ): Promise<void> {
-    const stage: 'manual' | 'final' = source === 'user' ? 'manual' : 'final';
-    // 方案 A（2026-09-15）：终态（manual/final）置单向锁，永不回退；占位绝不置锁。
-    // 方案 B（修 2.7）：同步 metadata.title；备份原始值到 titleOriginal 供回滚（P1-1）。
-    const current = this.chatManager
-      .getSessions()
-      .find((s) => s.id === sessionId);
-    const curMeta = current?.metadata as Record<string, unknown> | undefined;
-    const metadataPatch: Record<string, unknown> = {
-      titleStage: stage,
-      // 存量兼容：同步保留旧标记，避免旧判断路径误覆盖
-      titleAutoGenerated: true,
-      titleLocked: true,
-      title,
-    };
-    if (curMeta?.title != null && !curMeta.titleOriginal) {
-      metadataPatch.titleOriginal = curMeta.title;
-    }
-    // 更新内存中的会话标题
-    const session = current;
-    if (session) {
-      session.title = title;
-      session.metadata = { ...session.metadata, ...metadataPatch };
-    } else {
-      logger.warn(
-        `renameSession: 会话 ${sessionId} 不在内存中，仅持久化到存储`,
-        { sessionId, title, source }
-      );
-    }
-
-    // 持久化标题变更到存储
-    try {
-      const gateway = this.chatManager.getSessionGateway();
-      if (gateway) {
-        const storedSession = await gateway.getSession(sessionId);
-        if (storedSession) {
-          if (
-            !(metadataPatch.titleOriginal as unknown) &&
-            (storedSession.metadata as Record<string, unknown> | undefined)
-              ?.title != null
-          ) {
-            metadataPatch.titleOriginal = (
-              storedSession.metadata as Record<string, unknown>
-            ).title;
-          }
-          storedSession.title = title;
-          storedSession.metadata = {
-            ...storedSession.metadata,
-            ...metadataPatch,
-          };
-          await gateway.updateSession(storedSession);
-        } else {
-          logger.warn(
-            `renameSession: 会话 ${sessionId} 不在存储中，持久化被跳过`,
-            { sessionId, title }
-          );
-        }
-      }
-    } catch (e) {
-      await handleError(e, {
-        module: 'runtime:api',
-        action: 'persist_session_title',
-        context: { sessionId },
-      });
-    }
-
-    // 广播事件通知前端更新左侧会话列表
-    const { broadcastEvent } =
-      await import('@modules/infrastructure/http/handlers/handler-utils');
-    broadcastEvent('session:renamed', { id: sessionId, title });
-    // D5（2026-08-24）：标题事件化——追加 session/title 事件（回放/审计轨迹）
-    await this._appendTitleEvent(
-      sessionId,
-      title,
-      source === 'user' ? 'manual' : 'final'
-    );
+    return this.sessionTitling.renameSession(sessionId, title, source);
   }
 
   /**
-   * E-3（2026-08-23，方案 D2-B）：设置占位标题（preliminary，不调 LLM）
-   *
-   * 发消息时（LLM 调用前）立即调用，用户可立即看到新标题；
-   * 回复完成后由 autoGenerateTitle 用 LLM 精化覆盖（若未变 manual/final）。
+   * E-3（2026-08-23，方案 D2-B）：设置占位标题（实现已外迁 `sessionTitling.ts`；测试消费者）
    */
   async setPreliminaryTitle(sessionId: string, title: string): Promise<void> {
-    // 方案 A（2026-09-15）：
-    //  - 分级锁：终态(tileLocked)拒绝被占位覆盖；占位绝不置锁。
-    //  - P0-1：仅首轮（roundCount===0）允许写占位，标题一旦可读/已多轮绝不覆盖。
-    //    这同时修复 2.8（崩溃停在 preliminary 的会话后续轮不再改写标题）。
-    //  - P1-2：写入前原子复查以磁盘为准（gateway.getSession），对抗多端内存陈旧。
-    const current = this.chatManager
-      .getSessions()
-      .find((s) => s.id === sessionId);
-    const curMeta = current?.metadata as Record<string, unknown> | undefined;
-    if (curMeta?.titleLocked === true) return;
-    if (((curMeta?.roundCount as number | undefined) ?? 0) > 0) return;
-
-    const metadataPatch: Record<string, unknown> = {
-      titleStage: 'preliminary',
-      // 方案 B（修 2.7）：占位标题同样同步 metadata.title
-      title,
-    };
-    if (curMeta?.title != null && !curMeta.titleOriginal) {
-      metadataPatch.titleOriginal = curMeta.title;
-    }
-
-    // 持久化（含写入前原子复查）
-    try {
-      const gateway = this.chatManager.getSessionGateway();
-      if (gateway) {
-        const storedSession = await gateway.getSession(sessionId);
-        if (storedSession) {
-          const storedMeta = storedSession.metadata as
-            | Record<string, unknown>
-            | undefined;
-          if (storedMeta?.titleLocked === true) return;
-          if (((storedMeta?.roundCount as number | undefined) ?? 0) > 0) return;
-          if (
-            !(metadataPatch.titleOriginal as unknown) &&
-            storedMeta?.title != null
-          ) {
-            metadataPatch.titleOriginal = storedMeta.title;
-          }
-          storedSession.title = title;
-          storedSession.metadata = {
-            ...storedSession.metadata,
-            ...metadataPatch,
-          };
-          await gateway.updateSession(storedSession);
-        }
-      }
-    } catch (e) {
-      await handleError(e, {
-        module: 'runtime:api',
-        action: 'persist_preliminary_title',
-        context: { sessionId },
-      });
-    }
-    // 内存（与磁盘一致；持久化失败时仅更新内存，广播仍发生，保持旧语义）
-    if (current) {
-      current.title = title;
-      current.metadata = { ...current.metadata, ...metadataPatch };
-    }
-    // 广播
-    const { broadcastEvent } =
-      await import('@modules/infrastructure/http/handlers/handler-utils');
-    broadcastEvent('session:renamed', { id: sessionId, title });
-    // D5（2026-08-24）：标题事件化——占位标题追加 session/title 事件
-    await this._appendTitleEvent(sessionId, title, 'preliminary');
+    return this.sessionTitling.setPreliminaryTitle(sessionId, title);
   }
-
-  /**
-   * E-3（2026-08-23，方案 D2-B）：占位标题清洗截断
-   *
-   * 去除首尾空白/常见敏感前缀，超 30 字截断加省略号；清洗后为空 → '新对话'。
-   */
-  private sanitizePlaceholderTitle(raw: string): string {
-    let text = (raw ?? '')
-      .trim()
-      .replace(/^[#>*\- ]+/, '')
-      .trim();
-    if (!text) return '新对话';
-    if (text.length > 30) {
-      text = text.slice(0, 30) + '…';
-    }
-    return text;
-  }
-
-  /**
-   * E-1 接入（2026-08-23）：获取 per-session 执行阶段追踪器（懒创建）
-   */
-  private _getExecutionPhaseTracker(sessionId: string): ExecutionPhaseTracker {
-    let tracker = this._executionPhaseTrackers.get(sessionId);
-    if (!tracker) {
-      tracker = new ExecutionPhaseTracker(sessionId, () => {
-        // 阶段事件由流式 progress/execution_phase 通道推送，此处不额外处理
-      });
-      this._executionPhaseTrackers.set(sessionId, tracker);
-    }
-    return tracker;
-  }
-
-  /**
-   * T-1 修复（2026-08-23）：标题精化 in-flight 标记——首轮精化进行中（LLM 生成耗时
-   * 2~30s）拒绝后续占位/精化，防止"非首轮标题被下一轮覆盖"竞态。精化完成/失败后
-   * 由 autoGenerateTitle 删除。见 dev_docs/20260823/会话标题生成问题-排查报告-20260823.md。
-   */
-  private readonly _titleInFlight = new Set<string>();
 
   /**
    * E-3（2026-08-23，方案 D2-B）：是否需要生成/精化标题
-   *
-   * 返回 false 的条件：titleStage=final/manual，或存量 titleAutoGenerated=true（视为 final）。
+   * （实现已外迁 `sessionTitling.ts`；测试消费者经实例方法调用形态访问宿主）
    */
   private shouldAutoTitle(sessionId: string): boolean {
-    // T-1 修复：精化 in-flight 期间不触发占位/新精化（竞态守卫）
-    if (this._titleInFlight.has(sessionId)) return false;
-    const session = this.chatManager
-      .getSessions()
-      .find((s) => s.id === sessionId);
-    if (!session) return false;
-    const meta = session.metadata as Record<string, unknown> | undefined;
-    // 方案 A：终态单向锁（titleLocked）优先放行即拒绝——占位/精化都不再改写
-    if (meta?.titleLocked === true) return false;
-    const stage = meta?.titleStage;
-    if (stage === 'final' || stage === 'manual') return false;
-    // 存量迁移：titleAutoGenerated=true 且无 titleStage → 视为 final
-    if (stage === undefined && meta?.titleAutoGenerated === true) return false;
-    return true;
+    return this.sessionTitling.shouldAutoTitle(sessionId);
   }
 
   /**
-   * D5（2026-08-24）：追加 session/title 事件（标题事件化，log-only 回放审计）。
-   *
-   * 与 metadata.titleStage 快照双写：运行时读取仍走 metadata（性能），
-   * 事件提供完整标题变更轨迹（对齐 deepseek-harness session/title）。
-   * 写事件失败不阻断标题主流程（fire-and-forget + catch）。
-   */
-  private async _appendTitleEvent(
-    sessionId: string,
-    title: string,
-    source: 'preliminary' | 'final' | 'manual'
-  ): Promise<void> {
-    try {
-      const ts = await this.chatManager.getStreamTailSeq(sessionId);
-      await this.chatManager.appendStreamEvent(sessionId, {
-        type: 'session/title',
-        seq: ts + 1,
-        time: Date.now(),
-        sessionId,
-        data: { title, source },
-      } as LiriEvent);
-    } catch (e) {
-      logger.debug('session/title 事件写入失败（不影响标题主流程）', {
-        sessionId,
-        title,
-        source,
-        error: String(e),
-      });
-    }
-  }
-
-  /**
-   * 更新会话元数据（模型绑定、工作空间等）
+   * 更新会话元数据（实现已外迁 `sessionTitling.ts`；`implements CoreAPI` + HTTP 消费者）
    */
   async updateSessionMeta(
     sessionId: string,
@@ -3351,162 +2258,22 @@ export class CoreAPIImpl implements CoreAPI {
       workMode?: 'plan' | 'do';
     }
   ): Promise<void> {
-    // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
-    // 对齐 openworker conversations.py set_flags 语义：置顶/取消置顶不应导致
-    // 会话在列表中因"最近更新"而重排（标题自动生成同理，由 rename 路径单独控制）。
-    // 2026-10-04：workMode 属"配置类"字段（同 model/workspaceId/tasksOverride），
-    // 计入 hasMetaField → 会 touch updatedAt。
-    const hasMetaField =
-      meta.model !== undefined ||
-      meta.workspaceId !== undefined ||
-      meta.providerId !== undefined ||
-      meta.tasksOverride !== undefined ||
-      meta.workMode !== undefined;
-    const shouldTouchUpdatedAt = hasMetaField;
-
-    // 1. 更新内存中的会话 metadata
-    const session = this.chatManager
-      .getSessions()
-      .find((s) => s.id === sessionId);
-    if (session) {
-      if (meta.model !== undefined) session.metadata.model = meta.model;
-      if (meta.workspaceId !== undefined)
-        session.metadata.workspaceId = meta.workspaceId;
-      if (meta.providerId !== undefined)
-        session.metadata.providerId = meta.providerId;
-      if (meta.tasksOverride !== undefined)
-        session.metadata.tasksOverride = meta.tasksOverride;
-      if (meta.pinned !== undefined) session.metadata.pinned = meta.pinned;
-      if (meta.workMode !== undefined)
-        session.metadata.workMode = meta.workMode;
-      if (shouldTouchUpdatedAt) session.updatedAt = new Date();
-    }
-
-    // 2. 持久化到存储
-    try {
-      const gateway = this.chatManager.getSessionGateway();
-      if (gateway) {
-        const storedSession = await gateway.getSession(sessionId);
-        if (storedSession) {
-          if (meta.model !== undefined)
-            storedSession.metadata.model = meta.model;
-          if (meta.workspaceId !== undefined)
-            storedSession.metadata.workspaceId = meta.workspaceId;
-          if (meta.providerId !== undefined)
-            storedSession.metadata.providerId = meta.providerId;
-          if (meta.tasksOverride !== undefined)
-            storedSession.metadata.tasksOverride = meta.tasksOverride;
-          if (meta.pinned !== undefined)
-            storedSession.metadata.pinned = meta.pinned;
-          if (meta.workMode !== undefined)
-            storedSession.metadata.workMode = meta.workMode;
-          await gateway.updateSession(storedSession);
-        }
-      }
-    } catch (e) {
-      await handleError(e, {
-        module: 'runtime:api',
-        action: 'update_session_meta',
-        context: { sessionId },
-      });
-    }
+    return this.sessionTitling.updateSessionMeta(sessionId, meta);
   }
 
+  /**
+   * 生成会话标题（实现已外迁 `sessionTitling.ts`；`implements CoreAPI` + HTTP 消费者）
+   */
   async generateSessionTitle(
     sessionId: string,
     userMessage: string,
     assistantResponse: string
   ): Promise<string | null> {
-    try {
-      // 子批 F `runtime -> agent` 收口：唯一取用点，async 上下文 ⇒ 动态导入（本文件既有模式）
-      const { getTitleGenerator } = await import('@modules/agent');
-      const titleGenerator = getTitleGenerator();
-      const title = await titleGenerator.generateTitle(
-        userMessage,
-        assistantResponse,
-        async (messages) => {
-          const llmClient = this.chatManager.getLLMClient();
-          const response = await llmClient.sendMessage(
-            messages as import('@modules/ai').ChatMessage[],
-            {}
-          );
-          return response?.content || null;
-        }
-      );
-      return title;
-    } catch (error) {
-      logger.warning('Failed to generate session title', error);
-      return null;
-    }
-  }
-
-  private autoGenerateTitle(
-    sessionId: string,
-    userMessage: string,
-    assistantResponse: string
-  ): void {
-    // 后台 fire-and-forget：不影响流式响应速度
-    setImmediate(async () => {
-      // T-1 修复：精化开始前标记 in-flight（防后续占位/精化竞态覆盖）
-      if (!this.shouldAutoTitle(sessionId)) {
-        return;
-      }
-      this._titleInFlight.add(sessionId);
-      try {
-        // 2.1/2.8 根治（2026-09-16）：精化素材改从会话**首条**消息取，
-        // 阻断"当轮消息喂 LLM → 标题跟最后一轮走"的直接机制。
-        // 崩溃恢复会话（roundCount>1 仍 preliminary）同样基于首条对话精化，
-        // 不再因"第 N 轮恢复触发精化"而生成第 N 轮标题。
-        const session = this.chatManager
-          .getSessions()
-          .find((s) => s.id === sessionId);
-        const refineUser = firstUserText(session) ?? userMessage;
-        const refineAssistant =
-          firstAssistantText(session) ?? assistantResponse;
-        const title =
-          (await this.generateSessionTitle(
-            sessionId,
-            refineUser,
-            refineAssistant
-          )) ??
-          // BUG-B 修复：generateSessionTitle 内部 catch 返回 null（从不抛异常），
-          // 原 catch 分支的"首条消息前 30 字符"兜底永远不会执行。
-          // 降级标题直接在此生成，LLM 失败时不再停留在"新对话"。
-          refineUser.slice(0, 30) + (refineUser.length > 30 ? '…' : '');
-        // P3-2 修复（前端交互专项 2026-08-30）：提交前复查 titleStage——
-        // shouldAutoTitle 只在生成前检查（起点），LLM 生成期间（2~30s）用户手动
-        // 重命名会把 titleStage 置为 manual，此时无条件 rename 会用 AI 标题覆盖
-        // 用户标题。此处复查不能用 shouldAutoTitle（自身 _titleInFlight 会自阻塞），
-        // 直接读 titleStage：manual/final 均跳过 AI 提交。
-        const aiSession = this.chatManager
-          .getSessions()
-          .find((s) => s.id === sessionId);
-        const aiMeta = aiSession?.metadata as
-          | Record<string, unknown>
-          | undefined;
-        const aiStage = aiMeta?.titleStage;
-        if (
-          aiStage === 'manual' ||
-          aiStage === 'final' ||
-          aiMeta?.titleLocked === true
-        ) {
-          logger.info('Auto title skipped: user renamed during generation', {
-            sessionId,
-            stage: aiStage,
-          });
-          return;
-        }
-        // AI 精化完成 → source='ai' → titleStage='final'（不再覆盖）
-        await this.renameSession(sessionId, title, 'ai');
-        logger.info('Auto-generated session title', { sessionId, title });
-      } catch (_error) {
-        // 仅 renameSession 等异常走到这里（标题已保证非空），不重复兜底
-        logger.debug('Auto title generation skipped', { sessionId });
-      } finally {
-        // T-1 修复：精化结束（成功/失败）清除 in-flight，允许后续新一轮占位/精化
-        this._titleInFlight.delete(sessionId);
-      }
-    });
+    return this.sessionTitling.generateSessionTitle(
+      sessionId,
+      userMessage,
+      assistantResponse
+    );
   }
 
   async getCurrentSession(): Promise<SessionInfo | undefined> {

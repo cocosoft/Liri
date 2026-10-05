@@ -23,7 +23,6 @@ import {
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { WorkspaceGit } from '../../workspaces/WorkspaceGit';
-import { toWireToolName } from '../toolNameCodec';
 import {
   AGENT_TOOL_NAME,
   LEGACY_AGENT_TOOL_NAME,
@@ -48,11 +47,6 @@ import {
   setEnabledRoleNames,
   type AgentDescriptorResult,
 } from './AgentDescriptorResolver';
-import {
-  ALWAYS_BLOCKED_TOOLS,
-  DELEGATE_BLOCKED_TOOLS,
-  validateToolsetRequest,
-} from './AgentToolsetContract';
 import { getToolCategory } from '../toolCategories';
 import { getAgentRunStore } from './AgentRunStore';
 // 接线期③ ③-A（2026-09-24）：未完成 run 的失败归因类型（随台账落盘）
@@ -74,13 +68,7 @@ import { VERIFICATION_SYSTEM_PROMPT } from './strategies/VerificationStrategy';
 import { VERIFICATION_AGENT_DEFINITION } from './strategies/VerificationStrategy';
 import { STATUSLINE_SYSTEM_PROMPT } from './strategies/StatuslineStrategy';
 import { STATUSLINE_SETUP_AGENT_DEFINITION } from './strategies/StatuslineStrategy';
-import {
-  FORK_SUBAGENT_TYPE,
-  isForkSubagentEnabled,
-  buildForkSystemPrompt,
-  buildForkContextMessages,
-  buildChildMessage,
-} from './ForkSubagent';
+import { FORK_SUBAGENT_TYPE, isForkSubagentEnabled } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 // B-4（2026-09-20）：并行执行统一走 AgentSwarm 单引擎（原 ParallelOrchestrator 已删除），
 // 并在此发布 PARALLEL_* 事件以保持前端 SSE 时间线不断供。
@@ -110,7 +98,6 @@ import {
   OrchestrationEventType,
   deriveParallelEndData,
 } from '@modules/agent';
-import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -122,9 +109,12 @@ import { trackUsage } from '@modules/ai';
 import { subAgentTokenListeners } from '../../tokenBudget/SubAgentTokenBridge';
 // N-41（2026-09-21 真机实证）：工具池兜底来源 —— 唯一注册表（project_rules §1.16）
 import { getToolRegistry } from '../ToolRegistry';
-// N-42（2026-09-21）：工具名合法性（OpenAI 兼容 `^[a-zA-Z0-9_-]+$`）——
-// 复用 MCP 归一化的唯一实现（CS01 归一化，禁止重复正则）
-import { isValidMcpName } from '../../services/mcp/normalization';
+// B1（2026-10-05 文件规模债拆分）：工具池/授权/定义 + 进度发射簇（C3+C4）外迁
+import { AgentToolPool } from './agentToolPool';
+// B3（2026-10-05 文件规模债拆分）：队友注册/注销/隔离/fork 簇（C8）外迁
+import { AgentTeammateIsolation } from './agentTeammateIsolation';
+// B2（2026-10-05 文件规模债拆分）：台账/结算/血缘簇（C7）外迁
+import { AgentLedgerLifecycle } from './agentLedgerLifecycle';
 
 /**
  * 工具管理器引用（DI 注入，避免循环依赖）
@@ -441,60 +431,44 @@ export class AgentTool implements Tool {
   private _ledger: AgentRunLedgerPort = getAgentRunLedger();
 
   /**
-   * 活跃子 agent 的 teammate handle 映射（设计二 2026-08-26）：
-   * 注册时机前移到 execute 入口（agentId 确定后），生命周期绑定执行全程；
-   * 前台在 execute 返回时清理，后台在 bgTask 完成/失败回调中清理。
+   * B1（2026-10-05 文件规模债拆分）：工具池/授权/定义 + 进度发射簇（C3+C4）外迁
+   * （见 `.trae/specs/file-size-debt-partition-plan.md` §28.5）。
+   *
+   * 被迁出成员引用的宿主模块级符号（`getAllTools` / `MAX_SUBAGENT_DEPTH` / `filterToolPool`）
+   * 经 getter/闭包注入，避免 `AgentTool.ts ↔ agentToolPool.ts` 循环 import。
    */
-  private agentTeammateHandles: Map<string, string> = new Map();
+  private readonly agentToolPool: AgentToolPool = new AgentToolPool({
+    getAllTools,
+    getMaxSubagentDepth: () => MAX_SUBAGENT_DEPTH,
+    filterToolPool,
+  });
 
-  /** 注册子 agent 为可寻址 teammate（返回 handleId；失败返回 null 不阻断执行） */
-  private async registerTeammate(
-    agentId: string,
-    name: string | undefined,
-    systemPrompt: string,
-    model?: string
-  ): Promise<string | null> {
-    if (!name) return null;
-    try {
-      const handle = await getTeammateManager().spawnTeammate('in_process', {
-        name,
-        model,
-        systemPrompt,
-      });
-      this.agentTeammateHandles.set(agentId, handle.id);
-      logger.info('子 agent 已注册为可寻址 teammate', {
-        agentId,
-        name,
-        handleId: handle.id,
-      });
-      return handle.id;
-    } catch (error) {
-      // 注册失败（重名/上限）不阻断主流程：子 agent 仅不可寻址
-      logger.warning('子 agent teammate 注册失败（仅不可寻址，不影响执行）', {
-        agentId,
-        name,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    }
-  }
+  /**
+   * B3（2026-10-05 文件规模债拆分）：队友注册/注销/隔离/fork 簇（C8）外迁
+   * （见 `.trae/specs/file-size-debt-partition-plan.md` §28.5）。
+   *
+   * 零宿主依赖 ⇒ 被迁 `agentTeammateHandles` 字段随迁至模块内，无参构造。
+   */
+  private readonly agentTeammateIsolation: AgentTeammateIsolation =
+    new AgentTeammateIsolation();
 
-  /** 注销子 agent 的 teammate（幂等，失败仅记录） */
-  private async unregisterTeammate(agentId: string): Promise<void> {
-    const handleId = this.agentTeammateHandles.get(agentId);
-    if (!handleId) return;
-    this.agentTeammateHandles.delete(agentId);
-    try {
-      await getTeammateManager().killTeammate(handleId);
-      logger.info('子 agent teammate 已清理', { agentId, handleId });
-    } catch (error) {
-      logger.warning('teammate 清理失败', {
-        agentId,
-        handleId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
+  /**
+   * B2（2026-10-05 文件规模债拆分）：台账/结算/血缘簇（C7）外迁
+   * （见 `.trae/specs/file-size-debt-partition-plan.md` §28.5）。
+   *
+   * 被迁出成员引用的宿主实例依赖经闭包注入：`getName`（`this.name`）·
+   * `emitStart`（`this.agentToolPool.emitStart`）· `notifyYieldSettlement`（宿主方法，
+   * 箭头闭包在**调用时**解析实例成员 ⇒ 测试猴补生效）。`_ledger` 字段本体仍留宿主
+   * （`agentControlOwnership.test.ts` 反射守卫），模块侧改用 `getAgentRunLedger()` 同一单例。
+   */
+  private readonly agentLedgerLifecycle: AgentLedgerLifecycle =
+    new AgentLedgerLifecycle({
+      getName: () => this.name,
+      emitStart: (onProgress, agentId, agentName) =>
+        this.agentToolPool.emitStart(onProgress, agentId, agentName),
+      notifyYieldSettlement: (sessionId?: string) =>
+        this.notifyYieldSettlement(sessionId),
+    });
 
   /**
    * 构造函数
@@ -713,41 +687,6 @@ export class AgentTool implements Tool {
   }
 
   /**
-   * 创建Agent ID
-   */
-  private createAgentId(type: AgentType, name?: string): string {
-    const prefix = type === 'general' ? 'a' : 'x';
-    const uuid = randomUUID().replace(/-/g, '').substring(0, 8);
-    return `${prefix}-${name || 'agent'}-${uuid}`;
-  }
-
-  /**
-   * 失败结果构造（O5 seam：消除逐字复制的失败字面量）。
-   *
-   * 字段与原内联实现逐条一致：`status: FAILURE` / `result: null` / `executionTime: 0` /
-   * `output: ''` / `progress: []` / `metadata: {}` / `toolName: this.name`；
-   * `errorOutput` 缺省等于 `error`（深度守卫例外，显式传入短文案）。
-   */
-  private failureResult(
-    error: string,
-    executionId = '',
-    errorOutput: string = error
-  ): ToolResult<unknown> {
-    return {
-      status: ToolExecutionStatus.FAILURE,
-      data: null,
-      error,
-      executionTime: 0,
-      output: '',
-      errorOutput,
-      metadata: {},
-      executionId,
-      toolName: this.name,
-      timestamp: Date.now(),
-    };
-  }
-
-  /**
    * 执行前置守卫（O5 seam `executeGuard`）：校验 → 解析 → 两道拒绝（深度 / 并发）。
    *
    * **行为中性**：判定顺序与原地实现逐条一致 ——
@@ -779,7 +718,9 @@ export class AgentTool implements Tool {
     if (!validation.result) {
       return {
         ok: false,
-        error: this.failureResult(validation.message || ''),
+        error: this.agentLedgerLifecycle.failureResult(
+          validation.message || ''
+        ),
       };
     }
 
@@ -807,7 +748,7 @@ export class AgentTool implements Tool {
       });
       return {
         ok: false,
-        error: this.failureResult(
+        error: this.agentLedgerLifecycle.failureResult(
           `Subagent nesting depth exceeded (max ${MAX_SUBAGENT_DEPTH})`,
           '',
           'Subagent nesting depth exceeded'
@@ -824,7 +765,7 @@ export class AgentTool implements Tool {
       });
       return {
         ok: false,
-        error: this.failureResult(
+        error: this.agentLedgerLifecycle.failureResult(
           `子代理 spawn 已暂停（原因：${pauseState.reason ?? '未提供'}）。` +
             '在途子代理不受影响；恢复（resume）后可继续委派。'
         ),
@@ -832,14 +773,17 @@ export class AgentTool implements Tool {
     }
 
     // Phase 3: 解析工具过滤 + **O7 两段校验**（未知工具集 / 禁止扩权 / fail-closed 空清单）
-    const toolsetError = this.executeToolsets(agentInput);
+    const toolsetError = this.agentToolPool.executeToolsets(agentInput);
     if (toolsetError) {
       logger.warning('Agent execution rejected: invalid toolset request', {
         allowedTools: agentInput.allowedTools ?? null,
         deniedTools: agentInput.deniedTools ?? null,
         error: toolsetError,
       });
-      return { ok: false, error: this.failureResult(toolsetError) };
+      return {
+        ok: false,
+        error: this.agentLedgerLifecycle.failureResult(toolsetError),
+      };
     }
 
     // R2（2026-09-21）：**准入即预留**。
@@ -868,7 +812,7 @@ export class AgentTool implements Tool {
     // （`tryReserve`），并把"释放义务"交给返回的 guard（`execute` 的 finally 释放）。
     // 修复前此处只做纯判定（`checkConcurrencyLimit(): boolean`），与 `beginRun` 的
     // `register()` 分离 ⇒ 两者之间任一提前 return / 抛错都会**泄漏并发槽位**。
-    const agentId = this.createAgentId(
+    const agentId = this.agentLedgerLifecycle.createAgentId(
       isFork ? 'custom' : agentType,
       agentInput.name
     );
@@ -891,7 +835,9 @@ export class AgentTool implements Tool {
       });
       return {
         ok: false,
-        error: this.failureResult('Maximum concurrent agents reached'),
+        error: this.agentLedgerLifecycle.failureResult(
+          'Maximum concurrent agents reached'
+        ),
       };
     }
 
@@ -910,192 +856,28 @@ export class AgentTool implements Tool {
   }
 
   /**
-   * 工具集入口（O5 seam `executeToolsets` + **O7 契约**）：归一 + **两段校验**。
-   *
-   * 契约（O7④）：
-   * `子代理可用工具 = 父级可继承工具（父级全量 − DELEGATE_BLOCKED_TOOLS）`
-   * `∩ allowedTools（若有） − deniedTools` —— 模型**只能收窄，不能扩权**。
-   *
-   * 校验在**登记台账之前**执行（`executeGuard` 内），失败即拒绝，不产生任何运行态副作用。
-   *
-   * @returns 拒绝原因；通过时返回 `null`（并把归一后的清单回写 `agentInput`）
-   */
-  private executeToolsets(agentInput: AgentInput): string | null {
-    // 归一：仅当传入**字符串**时按逗号切分去空白（非字符串不在此处改动）
-    if (typeof agentInput.allowedTools === 'string') {
-      agentInput.allowedTools = (agentInput.allowedTools as string)
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean);
-    }
-    if (typeof agentInput.deniedTools === 'string') {
-      agentInput.deniedTools = (agentInput.deniedTools as string)
-        .split(',')
-        .map((s: string) => s.trim())
-        .filter(Boolean);
-    }
-
-    const allowed = this.toToolNameList(agentInput.allowedTools);
-    const denied = this.toToolNameList(agentInput.deniedTools);
-    if (allowed === 'invalid' || denied === 'invalid') {
-      return 'allowedTools / deniedTools 必须是字符串或字符串数组。';
-    }
-
-    const result = validateToolsetRequest({
-      allowedTools: allowed,
-      deniedTools: denied,
-      // F3（2026-09-21）：父级工具池改为**与实际继承同源**（`getInheritableToolPool()`）。
-      // 修复前传 `getAllTools()` 全量：它包含 N-42 判定为非法名的工具
-      //（如 `media:image:*`，provider 命名约束 `^[a-zA-Z0-9_-]+$` 之外的冒号形式），
-      // 而 worker 实际拿到的池经 `getInheritableToolPool()` 过滤 ⇒ 校验说"父级有、可授予"，
-      // 执行侧池里却没有（"校验通过但工具缺失"）。同源后第①段即拒绝这类名字。
-      contract: {
-        parentToolNames: this.getInheritableToolPool().map((t) => t.name),
-      },
-    });
-    if (!result.ok) {
-      return result.error;
-    }
-
-    // 校验通过 ⇒ 以归一值回写，保证与 `buildToolDefinitions` 的口径一致
-    if (allowed !== undefined) {
-      agentInput.allowedTools = allowed;
-    }
-    if (denied !== undefined) {
-      agentInput.deniedTools = denied;
-    }
-    return null;
-  }
-
-  /** 工具名清单归一（`undefined` 表示"未提供"；类型非法返回 `'invalid'`） */
-  private toToolNameList(value: unknown): string[] | undefined | 'invalid' {
-    if (value === undefined || value === null) {
-      return undefined;
-    }
-    if (Array.isArray(value)) {
-      if (!value.every((v) => typeof v === 'string')) {
-        return 'invalid';
-      }
-      return value as string[];
-    }
-    return 'invalid';
-  }
-
-  /**
-   * 子代理**可继承**工具池（O7①）：父级全量 − `DELEGATE_BLOCKED_TOOLS`（单一入口）。
-   *
-   * 修复前只有 `runWithEngine` 内联排除了 `agent`/`Task`，而 `runDirectCall` 传的是
-   * **全量池**（含 `agent`/`Task`/`sessions_yield`）—— 同一契约两处实现、且其中一处漏排除。
+   * B1 薄转发（2026-10-05 文件规模债拆分，见 `.trae/specs/file-size-debt-partition-plan.md` §28.5）：
+   * 保留同名 private 方法 —— 测试以 `Reflect.get(tool,'getInheritableToolPool') + fn.call(tool,…)`
+   * **接收者绑定**消费（`agentToolPoolSource.test.ts`），且宿主执行主链调用点继续调用本转发
+   * （实现已外迁 `AgentToolPool#getInheritableToolPool`，故本转发非僵尸方法）。
    */
   private getInheritableToolPool(
     options: { allowDelegation?: boolean } = {}
   ): Tool[] {
-    // T9：被授权的角色不再剔除**委派入口**（`agent`/`Task`）；`sessions_yield` 等
-    // `ALWAYS_BLOCKED_TOOLS` 与授权无关，**始终**剔除（yield 属会话级语义）
-    const blockedNames = options.allowDelegation
-      ? ALWAYS_BLOCKED_TOOLS
-      : DELEGATE_BLOCKED_TOOLS;
-    const blocked = new Set(blockedNames.map((n) => n.toLowerCase()));
-    // N-42（2026-09-21 真机实证）：工具名必须满足 provider 的命名约束
-    // （OpenAI 兼容 `^[a-zA-Z0-9_-]+$`）—— 否则**整个 tools 数组被上游 400 拒绝**，
-    // 子代理连一个工具都用不上（实证 `Invalid 'tools[60].function.name'`，来源是
-    // media 模块的 `media:image:*` 等 15 个含冒号的工具名）。
-    // 与 O7 同源约束：**定义侧与执行侧共用此池**（`buildToolDefinitions` 与
-    // `toolInstances` 均取自本方法）⇒ 此处剔除即两侧同时生效，不会出现
-    // "定义侧过滤、执行侧放行"的错配。
-    const all = getAllTools();
-    const illegal = all.filter((t) => !isValidMcpName(t.name));
-    if (illegal.length > 0) {
-      logger.warn(
-        'AgentTool 工具池剔除名称不合法的工具（避免整个 tools 被上游拒绝）',
-        {
-          dropped: illegal.length,
-          sample: illegal.slice(0, 5).map((t) => t.name),
-        }
-      );
-    }
-    return all.filter(
-      (t) => !blocked.has(t.name.toLowerCase()) && isValidMcpName(t.name)
-    );
+    return this.agentToolPool.getInheritableToolPool(options);
   }
 
   /**
-   * T9：**能否再委派**的双判据合取 —— 角色策略（用户配置）× 父侧深度上限。
-   *
-   * - 角色策略：`canDelegate`（缺省 `false` ⇒ fail-closed）；
-   * - 深度：判据与 `executeGuard` 同源（`context.subagentDepth < MAX_SUBAGENT_DEPTH`），
-   *   避免出现"工具可见、但一调用就被深度守卫拒绝"的错配。
-   *
-   * **模型不能自选**：策略位来自 DB 角色（用户设定），模型只能在 `subagent_type` 里
-   * 选择"用户已授权的角色"，无法把授权授予自己（即提权）。
+   * B1 薄转发（2026-10-05 文件规模债拆分，见 `.trae/specs/file-size-debt-partition-plan.md` §28.5）：
+   * 保留同名 private 方法 —— 测试以 `Reflect.get(tool,'resolveDelegationGrant') + fn.call(tool,…)`
+   * **接收者绑定**消费（`agentDelegationGrant.test.ts`），且宿主执行主链调用点继续调用本转发
+   * （实现已外迁 `AgentToolPool#resolveDelegationGrant`，故本转发非僵尸方法）。
    */
   private resolveDelegationGrant(
     canDelegate: boolean | undefined,
     context?: ToolUseContext
   ): boolean {
-    if (canDelegate !== true) return false;
-    const depth = context?.subagentDepth ?? 0;
-    return depth < MAX_SUBAGENT_DEPTH;
-  }
-
-  /**
-   * 进度发射（O5 seam `executeProgress`）：三处内联 `onProgress?.({…})` 的 payload
-   * 形状收敛于此（单一来源），字段与原地实现逐条一致。
-   */
-  private emitStart(
-    onProgress: ToolCallProgress<AgentToolProgress> | undefined,
-    agentId: string,
-    agentName: string
-  ): void {
-    onProgress?.({
-      toolUseID: agentId,
-      data: {
-        type: 'agent_tool',
-        agentName,
-        action: 'start',
-        message: `Starting agent: ${agentName}`,
-        isRunning: true,
-        isComplete: false,
-      },
-    });
-  }
-
-  private emitComplete(
-    onProgress: ToolCallProgress<AgentToolProgress> | undefined,
-    agentId: string,
-    agentName: string,
-    message: string
-  ): void {
-    onProgress?.({
-      toolUseID: agentId,
-      data: {
-        type: 'agent_tool',
-        agentName,
-        action: 'complete',
-        message,
-        isRunning: false,
-        isComplete: true,
-      },
-    });
-  }
-
-  private emitError(
-    onProgress: ToolCallProgress<AgentToolProgress> | undefined,
-    agentId: string,
-    agentName: string,
-    message: string
-  ): void {
-    onProgress?.({
-      toolUseID: agentId,
-      data: {
-        type: 'agent_tool',
-        agentName,
-        action: 'error',
-        message,
-        isRunning: false,
-        isComplete: true,
-      },
-    });
+    return this.agentToolPool.resolveDelegationGrant(canDelegate, context);
   }
 
   /**
@@ -1117,74 +899,6 @@ export class AgentTool implements Tool {
       default:
         return 'You are a helpful AI agent. You have access to various tools to help complete tasks.';
     }
-  }
-
-  /**
-   * 按 `allowedTools` / `deniedTools` 过滤工具池（O7：**定义侧与执行侧的单一过滤源**）。
-   *
-   * 白名单先于黑名单（与原实现一致）；比较**大小写不敏感**。
-   * 逻辑已抽为模块级纯函数 `filterToolPool`（便于守卫测试），此处仅委托 —— 行为不变。
-   */
-  private filterToolPool(
-    allowedTools: string[] | undefined,
-    deniedTools: string[] | undefined,
-    toolPool: Tool[]
-  ): Tool[] {
-    return filterToolPool(allowedTools, deniedTools, toolPool);
-  }
-
-  /**
-   * 构建工具定义列表（支持 allowedTools/deniedTools 过滤）
-   *
-   * **O7 契约（两段校验由 `executeToolsets` 在登记前完成，此处只做过滤）**：
-   * `子代理可用工具 = 父级可继承工具（父级全量 − DELEGATE_BLOCKED_TOOLS）`
-   * `∩ allowedTools（若有） − deniedTools`；模型**只能收窄，不能扩权**。
-   *
-   * @param toolPool 工具池（**默认即可继承池**，已排除 `agent`/`Task`/`sessions_yield`；
-   *                 调用方仅在需要更窄的池时才显式传入）
-   */
-  private buildToolDefinitions(
-    allowedTools?: string[],
-    deniedTools?: string[],
-    toolPool?: Tool[]
-  ): Array<{
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-  }> {
-    const tools = this.filterToolPool(
-      allowedTools,
-      deniedTools,
-      toolPool ?? this.getInheritableToolPool()
-    );
-
-    return tools.map((tool) => {
-      const info = tool.getInfo();
-      return {
-        // wire codec：出站用 wire 安全名（禁冒号，否则 provider 400 ⇒ 整轮失败）
-        name: toWireToolName(tool.name),
-        description: info.description,
-        parameters: {
-          type: 'object' as const,
-          properties: info.params.reduce(
-            (acc, param) => {
-              acc[param.name] = {
-                type: param.type,
-                description: param.description,
-              };
-              if (param.default !== undefined) {
-                (acc[param.name] as any).default = param.default;
-              }
-              return acc;
-            },
-            {} as Record<string, unknown>
-          ),
-          required: info.params
-            .filter((param) => param.required)
-            .map((param) => param.name),
-        },
-      };
-    });
   }
 
   /**
@@ -1234,12 +948,12 @@ export class AgentTool implements Tool {
       input.deniedTools,
       definitionDeniedTools
     );
-    const filteredPool = this.filterToolPool(
+    const filteredPool = this.agentToolPool.filterToolPool(
       input.allowedTools,
       deniedTools,
       subAgentPool
     );
-    const toolDefinitions = this.buildToolDefinitions(
+    const toolDefinitions = this.agentToolPool.buildToolDefinitions(
       input.allowedTools,
       deniedTools,
       subAgentPool
@@ -1325,48 +1039,6 @@ export class AgentTool implements Tool {
    * 因此 AgentSwarm 无需自建 LLM 通路，token 记账仍走同一子代理引擎链路。
    *     该字段已在 AgentSwarm 契约中预留，待引擎支持后再接。
    */
-  /**
-   * O9③：摘要**超限时把全文落盘**（`resolveOutputDir()`，规则要求 AI 生成文件走该目录）。
-   *
-   * 只写文件，不做裁剪 —— 裁剪由 `trimSummaryWithFooter` 负责，二者职责分离。
-   * 失败返回 `undefined`：调用方退化为"无指针"的裁剪标记，**不阻断汇总**。
-   */
-  private async spillSummaryToDisk(params: {
-    agentId: string;
-    taskKey: string;
-    text: string;
-  }): Promise<string | undefined> {
-    try {
-      const [{ writeFile, mkdir }, { join }, { resolveOutputDir }] =
-        await Promise.all([
-          import('fs/promises'),
-          import('path'),
-          import('@modules/core/paths'),
-        ]);
-      const dir = resolveOutputDir();
-      await mkdir(dir, { recursive: true });
-      // 路径安全：任务键可能含 `::` / 斜杠等，统一净化后再拼文件名
-      const safeKey = params.taskKey.replace(/[^A-Za-z0-9_.-]/g, '_');
-      const file = join(dir, `agent-summary-${safeKey}.md`);
-      await writeFile(file, params.text, 'utf8');
-      logger.info('子代理摘要全文已落盘', {
-        agentId: params.agentId,
-        taskKey: params.taskKey,
-        file,
-        chars: params.text.length,
-      });
-      return file;
-    } catch (err) {
-      // @ignore-catch — 落盘失败仅失去指针，摘要仍以头尾裁剪形式进入父上下文
-      logger.warn('子代理摘要全文落盘失败（退化为无指针标记）', {
-        agentId: params.agentId,
-        taskKey: params.taskKey,
-        error: String(err),
-      });
-      return undefined;
-    }
-  }
-
   /**
    * O12-1：swarm **per-task 描述符解析**（`tasks[].subagent_type` ⇒ 角色提示词 + 推荐模型）。
    *
@@ -1476,24 +1148,24 @@ export class AgentTool implements Tool {
         allowedCategories.has(getToolCategory(tool.name))
       );
       const entry = {
-        definitions: this.buildToolDefinitions(
-          allowedTools,
-          effectiveDeniedTools,
-          categoryPool
-        ).map((t) => ({
-          type: 'function' as const,
-          function: {
-            name: t.name,
-            description: t.description,
-            parameters: t.parameters,
-          },
-        })),
-        instances: new Map(
-          this.filterToolPool(
+        definitions: this.agentToolPool
+          .buildToolDefinitions(
             allowedTools,
             effectiveDeniedTools,
             categoryPool
-          ).map((t) => [t.name, t])
+          )
+          .map((t) => ({
+            type: 'function' as const,
+            function: {
+              name: t.name,
+              description: t.description,
+              parameters: t.parameters,
+            },
+          })),
+        instances: new Map(
+          this.agentToolPool
+            .filterToolPool(allowedTools, effectiveDeniedTools, categoryPool)
+            .map((t) => [t.name, t])
         ),
       };
       toolsetCache.set(cacheKey, entry);
@@ -1684,18 +1356,20 @@ export class AgentTool implements Tool {
 
     // O7①：与 `runWithEngine` 共用**同一**可继承池（修复前此处传的是全量池，
     // 含 `agent`/`Task`/`sessions_yield` ⇒ 简单任务路径会把委派入口暴露给子代理）
-    const toolDefinitions = this.buildToolDefinitions(
-      input.allowedTools,
-      input.deniedTools,
-      this.getInheritableToolPool({ allowDelegation })
-    ).map((t) => ({
-      type: 'function' as const,
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: t.parameters,
-      },
-    }));
+    const toolDefinitions = this.agentToolPool
+      .buildToolDefinitions(
+        input.allowedTools,
+        input.deniedTools,
+        this.getInheritableToolPool({ allowDelegation })
+      )
+      .map((t) => ({
+        type: 'function' as const,
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        },
+      }));
 
     const messages = [
       { role: 'system' as const, content: systemPrompt },
@@ -1781,7 +1455,7 @@ export class AgentTool implements Tool {
       // O5 seam `executeLifecycle`：登记（prologue）。
       // 0b（M-9）：台账条目已由 `executeGuard.tryReserve()` 登记并占位 ⇒ 本调用只补
       // 磁盘行/事件/日志；并**移入 try**，使其抛错同样被 finally 兜住（释放预留）。
-      await this.beginRun({
+      await this.agentLedgerLifecycle.beginRun({
         agentInput,
         effectiveType,
         isFork,
@@ -1823,8 +1497,11 @@ export class AgentTool implements Tool {
       if (!descriptor.ok) {
         // fail-closed（O11-1）：显式拒绝；**同时结算台账**，否则该条目会以
         // 'running' 永久占用并发槽位（与并发上限判定同源）
-        await this.settleRun(agentId, 'failed');
-        return this.failureResult(descriptor.error, agentId);
+        await this.agentLedgerLifecycle.settleRun(agentId, 'failed');
+        return this.agentLedgerLifecycle.failureResult(
+          descriptor.error,
+          agentId
+        );
       }
       systemPrompt = descriptor.systemPrompt;
       if (descriptor.model && !agentInput.model) {
@@ -1838,7 +1515,10 @@ export class AgentTool implements Tool {
       });
       // O19：来源落盘（**此刻即写**，早于终态）—— 排障第一问"这条 run 用的是 DB 角色还是内置"
       // 必须能在"解析后、结算前"崩溃的行上作答
-      await this.recordDescriptorSource(agentId, descriptor.source);
+      await this.agentLedgerLifecycle.recordDescriptorSource(
+        agentId,
+        descriptor.source
+      );
 
       // T9：授权位 = 角色策略（用户配置）× 父侧深度上限（双判据合取，模型不可自选）
       const canDelegate = this.resolveDelegationGrant(
@@ -1848,7 +1528,7 @@ export class AgentTool implements Tool {
 
       // O5 seam `executeLifecycle`：teammate 绑定（含 isSimpleTaskNow 判定）
       const { teammateHandleId, mailbox, isSimpleTaskNow } =
-        await this.bindTeammate({
+        await this.agentTeammateIsolation.bindTeammate({
           agentInput,
           agentId,
           systemPrompt,
@@ -1858,14 +1538,15 @@ export class AgentTool implements Tool {
       // O5 seam `executeLifecycle`：隔离与 fork 提示词组装。
       // **陷阱处置**：两者均**就地改写** `systemPrompt`（逐段 `+=`）与 `agentInput.prompt`
       // ⇒ 前者必须以**返回值回写**，后者靠传入同一对象引用自然生效（与原实现等价）。
-      const isolationApplied = await this.applyIsolationAndFork({
-        agentInput,
-        agentId,
-        systemPrompt,
-        context,
-        isFork,
-        isBackground,
-      });
+      const isolationApplied =
+        await this.agentTeammateIsolation.applyIsolationAndFork({
+          agentInput,
+          agentId,
+          systemPrompt,
+          context,
+          isFork,
+          isBackground,
+        });
       systemPrompt = isolationApplied.systemPrompt;
       worktreeGit = isolationApplied.worktreeGit;
       worktreeContext = isolationApplied.worktreeContext;
@@ -1893,7 +1574,7 @@ export class AgentTool implements Tool {
           // 的结算点永不执行，而 `finally` 的释放被 `isBackground` 守卫跳过
           // （见 :1860 注释）⇒ 条目永久 `running`、并发槽位泄漏。
           // `settleRun` 落终态即释放槽位；重复结算为幂等 no-op（claim 闸门）。
-          await this.settleRun(agentId, 'failed');
+          await this.agentLedgerLifecycle.settleRun(agentId, 'failed');
           throw err;
         }
       }
@@ -1917,9 +1598,9 @@ export class AgentTool implements Tool {
         onProgress,
       });
     } catch (error) {
-      await this.settleRun(agentId, 'failed');
+      await this.agentLedgerLifecycle.settleRun(agentId, 'failed');
       // 设计二：失败路径同样清理 teammate（防泄漏）
-      await this.unregisterTeammate(agentId);
+      await this.agentTeammateIsolation.unregisterTeammate(agentId);
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -1929,7 +1610,7 @@ export class AgentTool implements Tool {
         action: 'execute',
       });
 
-      this.emitError(
+      this.agentToolPool.emitError(
         onProgress,
         agentId,
         agentInput.name || agentId,
@@ -1983,333 +1664,6 @@ export class AgentTool implements Tool {
       // O2：不再做全表扫描清理 —— 条目由 `_ledger.settle()` 在各自收尾点**就地**注销
       // （原来的 `cleanupCompletedAgents()` 会删掉其他在途路径的条目，见 AgentRunLedger 注释）
     }
-  }
-
-  /**
-   * 执行生命周期：登记（O5 seam `executeLifecycle` / prologue）。
-   *
-   * 0b（2026-09-22，M-9）：**台账登记已上移到 `executeGuard` 的 `tryReserve()`**
-   *（准入判定与占位同一次同步调用 + RAII 释放义务）⇒ 本方法只保留
-   * 启动日志 / 进度发射 / 磁盘落盘的副作用，**不再 register、不再自建 id 与起跑时间**。
-   */
-  private async beginRun(params: {
-    agentInput: AgentInput;
-    effectiveType: AgentType;
-    isFork: boolean;
-    isBackground: boolean;
-    context?: ToolUseContext;
-    onProgress?: ToolCallProgress<AgentToolProgress>;
-    /** 0b：`executeGuard.tryReserve()` 已登记（含额度占位）的 run id */
-    agentId: string;
-    /** 0b：与预留条目**同源**的起跑时间 */
-    startTime: number;
-  }): Promise<{ agentId: string; startTime: number }> {
-    const {
-      agentInput,
-      effectiveType,
-      isFork,
-      isBackground,
-      context,
-      onProgress,
-      agentId,
-      startTime,
-    } = params;
-
-    // 0b（2026-09-22，M-9）：台账登记已由 `executeGuard` 的 `tryReserve()` 完成
-    //（**判定与占位同一次同步调用**）⇒ 本方法不再 `register()`、也不再自建 id/起跑时间，
-    // 只补**磁盘行 / 事件 / 日志**（保留原有副作用与执行顺序）。
-    logger.info('Agent execution started', {
-      agentId,
-      agentType: effectiveType,
-      isBackground,
-      isFork,
-      promptLength: agentInput.prompt?.length || 0,
-    });
-
-    this.emitStart(onProgress, agentId, agentInput.name || agentId);
-
-    // O6（B4）：起跑即落盘（durable completion ≠ durable execution —— 只保证终态/归因可查）
-    await getAgentRunStore().startRun({
-      toolCallId: agentId,
-      agentId,
-      sessionId: context?.sessionId,
-      name: agentInput.name || agentId,
-      // N-43 修复（2026-09-21）：落**真实类型名**（`subagent_type` 原值）。
-      // 原落 `effectiveType` 经 `getAgentType()` 归一 —— 该函数只认 6 个内置类型，
-      // 其余一律 `default: return 'custom'` ⇒ DB 角色（architect / security …）被记成
-      // 无意义的 `custom`，前端「运行态」面板（`CouncilAgentRolesPage` 直接渲染
-      // `run.agentType`）无法区分角色。此口径与 swarm 分支一致
-      // （`buildSwarmExecutor` 的 `agentType ?? 'general'`，即 O12-2「落盘真实类型」）。
-      // 未显式指定 `subagent_type`（fork / 走默认）时才回退归一值。
-      agentType: agentInput.subagent_type || effectiveType,
-      status: 'running',
-      startedAt: startTime,
-    });
-
-    return { agentId, startTime };
-  }
-
-  /**
-   * O19：落盘**描述符来源**（可观测性）。
-   *
-   * 与 `settleRun` 同约定：落盘失败只记日志，不影响执行（台账是观测面，不是正确性前置）。
-   */
-  private async recordDescriptorSource(
-    agentId: string,
-    source: string
-  ): Promise<void> {
-    try {
-      await getAgentRunStore().setDescriptorSource(agentId, source);
-    } catch (err) {
-      logger.warn('子代理描述符来源落盘失败（不影响执行）', {
-        agentId,
-        source,
-        error: String(err),
-      });
-    }
-  }
-
-  /**
-   * 落终态（O6/B4）：**先**内存台账（同步临界区）**再**持久化（失败不影响已落定的内存终态）。
-   *
-   * 持久化失败只记日志 —— 台账落盘是"可观测性"而非"正确性前置"，
-   * 不得因磁盘问题让一次已完成的委派对外表现为失败。
-   *
-   * O13：**内存拒绝的写，磁盘不得写** —— 原实现丢弃 `settle()` 的返回值并**无条件**落盘，
-   * 使内存侧的终态幂等保护（"已完成、收尾组装抛错"不被反向写失败）在磁盘上原样敞着
-   * ⇒ 同一事实两个答案（内存 `completed` / 磁盘 `failed`）。
-   * M-5b 口径：落盘取**台账的终态**（`claimTerminalSideEffects().status`）而非调用方请求值
-   * ⇒ 内存拒绝的改写同样到不了磁盘，O13 以更小的闸门宽度继续成立。
-   *
-   * §3.0 实施顺序约束（2026-09-22）：磁盘 `AgentRunStore.settleRun` 同样带终态幂等守卫
-   * （`WHERE status NOT IN ('completed','failed')`，命中失败时 `changed=0` 且**无日志**）
-   * ⇒ **必须在唯一写入点按真实结果派生终态**，不得"先落 completed、再由补偿写入改 failed"
-   * —— 反序时补偿会 100% 静默空转。
-   */
-  private async settleRun(
-    agentId: string,
-    status: 'completed' | 'failed',
-    opts: { error?: string; attribution?: AgentRunAttribution } = {}
-  ): Promise<void> {
-    // M-5b（2026-09-25）：内存终态 + **副作用闸门**分两步 —— 步骤 1 落定/补读终态。
-    // 引擎在 `execute()` 出口已先行 `settle()`（`SubAgentEngine.endRun`）⇒ 此处的
-    // `settle()` 对引擎路径必然返回 `false`，**不可**拿它当"是否由本路径落定"的判据
-    //（修复前正是如此：本方法提前 return ⇒ 磁盘行永久 `running` + yield 通知永不发出）。
-    this._ledger.settle(agentId, status);
-    // 步骤 2：认领副作用（幂等，与 `settle()` 同源但**独立于其返回值**），
-    // 并取回**台账的**终态与归属会话 —— 同一次同步调用内完成，无交错窗口。
-    const claim = this._ledger.claimTerminalSideEffects(agentId);
-    if (!claim) {
-      logger.debug('终态副作用跳过：台账无该终态或已执行过', {
-        agentId,
-        status,
-      });
-      return;
-    }
-    try {
-      // opts 透传（`error` 用于把"未通过原因"钉在磁盘行上；store 侧本就支持，无需新增方法）
-      // 返回值为 false = 磁盘**守卫未命中**（该行已是终态）⇒ 本次写被静默丢弃。
-      // §3.0 顺序约束的**运行时兜底**（2026-09-22）：反过来改错顺序时，日志会当场叫出来，
-      // 不必等用例兜（磁盘侧命中失败本无任何日志，故障静默）。
-      // O13 口径（改写）：**磁盘按台账的终态落盘** —— 调用方请求的 status 被终态幂等拒绝时
-      //（例：引擎已落 `completed`、收尾组装随后抛错试图改写 `failed`），落盘取台账答案，
-      // ⇒ "内存拒绝的写"不会在磁盘上造出第二个答案。
-      const persisted = await getAgentRunStore().settleRun(
-        agentId,
-        claim.status,
-        opts
-      );
-      if (!persisted) {
-        logger.warn('终态落盘未命中：磁盘行已是终态，本次写被丢弃', {
-          agentId,
-          status: claim.status,
-        });
-      }
-    } catch (err) {
-      logger.warn('子代理运行台账落盘失败（不影响内存终态）', {
-        agentId,
-        status: claim.status,
-        error: String(err),
-      });
-    }
-
-    // M-5（P0-8）：**结算即通知** —— 通知收敛到本方法这**唯一入口**，
-    // 从结构上消除"某条结算路径忘了调 `notifyYieldSettlement`"。
-    // 修复前 7 处 `settleRun` 调用点里只有 3 处手工补了通知，**单代理前台结算**与
-    // **descriptor fail-closed** 两条路径漏掉 ⇒ 其上的 yield 等待永不收敛
-    //（"子代理结算"是该等待唯一的恢复触发源）。
-    // 用 `await`：使"结算 → 落盘 → 通知（内含 outbox 落行）"成为**确定序列**，
-    // 而非 fire-and-forget 的竞态（P1-7 关注的正是该顺序，见 §2.5）。
-    // 归属缺失（无父会话可恢复）⇒ 内部静默跳过。
-    await this.notifyYieldSettlement(claim.sessionId);
-  }
-
-  /**
-   * 执行生命周期：teammate 绑定（O5 seam `executeLifecycle` / bind）。
-   *
-   * 行为中性：注册时机（systemPrompt 确定后、后台回调清理）与
-   * `isSimpleTaskNow` 判定（`prompt.length < 500 && !isFork && !subagent_type`）逐字保留；
-   * 信箱订阅与日志字段不变。返回 `isSimpleTaskNow` 供前台路径复用（原实现同源复用）。
-   */
-  private async bindTeammate(params: {
-    agentInput: AgentInput;
-    agentId: string;
-    systemPrompt: string;
-    isFork: boolean;
-  }): Promise<{
-    teammateHandleId: string | null;
-    mailbox: Array<{ role: 'user'; content: string }>;
-    isSimpleTaskNow: boolean;
-  }> {
-    const { agentInput, agentId, systemPrompt, isFork } = params;
-
-    // 设计二（2026-08-26）：teammate 注册前移到 execute 入口（systemPrompt 确定后）——
-    // 原在 runWithEngine 内注册+finally kill，后台模式会在主线程返回时被过早清理。
-    // 现注册时机提前，生命周期绑定执行全程（前台 execute 返回清理，后台 bgTask 回调清理）。
-    let teammateHandleId: string | null = null;
-    const mailbox: Array<{ role: 'user'; content: string }> = [];
-    // BUG 6 修复（2026-08-27）：simple task（runDirectCall，无 SubAgentEngine
-    // messageSource 消费）不注册 teammate——原注册后 mailbox 无人消费，消息堆积丢弃
-    const isSimpleTaskNow =
-      agentInput.prompt.length < 500 && !isFork && !agentInput.subagent_type;
-    if (!isSimpleTaskNow) {
-      teammateHandleId = await this.registerTeammate(
-        agentId,
-        agentInput.name,
-        systemPrompt,
-        agentInput.model
-      );
-    }
-    if (teammateHandleId && agentInput.name) {
-      const handleName = agentInput.name;
-      getTeammateManager().onTeammateMessage(teammateHandleId, (message) => {
-        const content =
-          typeof message.content === 'string'
-            ? message.content
-            : JSON.stringify(message.content);
-        mailbox.push({
-          role: 'user',
-          content: `[来自 ${String(message.metadata?.sender ?? 'teammate')} 的消息] ${content}`,
-        });
-        logger.info('teammate 消息已进入子 agent 信箱', {
-          agentId,
-          name: handleName,
-        });
-      });
-    }
-
-    return { teammateHandleId, mailbox, isSimpleTaskNow };
-  }
-
-  /**
-   * 执行生命周期：隔离与 fork 提示词组装（O5 seam `executeLifecycle` / isolation+prompt）。
-   *
-   * 行为中性：worktree 三条分支（后台降级 / 前台创建 / 创建失败降级）的日志与提示词
-   * **逐字保留**；fork 上下文组装与 `agentInput.prompt` 就地改写保留（同一对象引用）。
-   */
-  private async applyIsolationAndFork(params: {
-    agentInput: AgentInput;
-    agentId: string;
-    systemPrompt: string;
-    context?: ToolUseContext;
-    isFork: boolean;
-    isBackground: boolean;
-  }): Promise<{
-    systemPrompt: string;
-    worktreeGit?: WorkspaceGit;
-    worktreeContext?: ToolUseContext;
-  }> {
-    const { agentInput, agentId, context, isFork, isBackground } = params;
-    let systemPrompt = params.systemPrompt;
-    let worktreeGit: WorkspaceGit | undefined;
-    let worktreeContext: ToolUseContext | undefined;
-
-    // G3 接线（2026-08-31）：isolation='worktree' 程序化创建隔离 worktree，
-    // 将 cwd 注入子代理工具上下文（文件工具相对路径解析到 worktree 内）。
-    if (agentInput.isolation === 'worktree') {
-      if (isBackground) {
-        // 后台任务生命周期复杂（execute 返回后任务仍在运行），保留提示词注入降级
-        systemPrompt +=
-          '\n\nThis agent runs in an isolated git worktree.\n' +
-          `Use EnterWorktree to create a worktree with slug "${agentInput.name || agentId}" before making changes.\n` +
-          'After completing work, use ExitWorktree to clean up the worktree.\n' +
-          'All file modifications must be done inside the worktree, never in the parent workspace.';
-        logger.warn(
-          'Worktree isolation: 后台任务不程序化创建 worktree，降级为提示词引导',
-          {
-            agentId,
-          }
-        );
-      } else {
-        try {
-          const baseDir = context?.options?.cwd;
-          if (baseDir) {
-            const git = new WorkspaceGit({ baseDir });
-            const info = await git.createWorktree(agentId);
-            worktreeGit = git;
-            worktreeContext = {
-              ...context,
-              options: {
-                ...(context?.options ?? {}),
-                cwd: info.worktreePath,
-              },
-            } as ToolUseContext;
-            systemPrompt +=
-              '\n\nThis agent runs in an isolated git worktree.\n' +
-              `Your working directory is: ${info.worktreePath}\n` +
-              // 台账「隔离提示词工具名漂移」修复（2026-09-26）：真实注册名为
-              // file_read/file_write/file_edit（FileReadTool.ts:238 等），原写
-              // read_file/write_file/edit_file ⇒ 提示模型调用不存在的工具。
-              'Relative file paths in file_read/file_write/file_edit resolve to this directory.\n' +
-              'All file modifications must be inside the worktree, never in the parent workspace.';
-            logger.info('Worktree isolation: 已程序化创建 worktree', {
-              agentId,
-              worktreePath: info.worktreePath,
-            });
-          }
-        } catch (error) {
-          // 创建失败（非 git 仓库等）→ 降级为提示词引导
-          logger.warn('Worktree isolation: 程序化创建失败，降级为提示词引导', {
-            agentId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          systemPrompt +=
-            '\n\nThis agent runs in an isolated git worktree.\n' +
-            `Use EnterWorktree to create a worktree with slug "${agentInput.name || agentId}" before making changes.\n` +
-            'After completing work, use ExitWorktree to clean up the worktree.\n';
-        }
-      }
-    }
-
-    if (isFork) {
-      const parentMessages: Array<{
-        role: 'user' | 'assistant';
-        content: string;
-      }> = context?.messages
-        ? context.messages.map((m: { role: string; content: string }) => ({
-            role: m.role as 'user' | 'assistant',
-            content:
-              typeof m.content === 'string'
-                ? m.content
-                : JSON.stringify(m.content),
-          }))
-        : [];
-
-      systemPrompt = buildForkSystemPrompt(systemPrompt, {
-        renderedSystemPrompt: systemPrompt,
-        parentMessages,
-        directive: agentInput.description,
-      });
-
-      const forkMessages = buildForkContextMessages(parentMessages);
-      const childInstruction = buildChildMessage(agentInput.prompt);
-      agentInput.prompt =
-        forkMessages.map((m) => `${m.role}: ${m.content}`).join('\n\n') +
-        '\n\n' +
-        childInstruction;
-    }
-
-    return { systemPrompt, worktreeGit, worktreeContext };
   }
 
   /**
@@ -2513,7 +1867,7 @@ export class AgentTool implements Tool {
     // 修复前只发 `cancelledTasks`（投递缺口）⇒ 消费端读不到取消事实。
     globalEventBus.publish(OrchestrationEventType.PARALLEL_END, pe);
 
-    await this.settleRun(
+    await this.agentLedgerLifecycle.settleRun(
       agentId,
       batchOk ? 'completed' : 'failed',
       batchOk ? {} : { error: batchError }
@@ -2640,7 +1994,7 @@ export class AgentTool implements Tool {
         summaryTextByWorkerId.set(w.id, probe.text);
         continue;
       }
-      const spillPath = await this.spillSummaryToDisk({
+      const spillPath = await this.agentLedgerLifecycle.spillSummaryToDisk({
         agentId,
         taskKey: w.id,
         text: rawText,
@@ -2696,7 +2050,7 @@ export class AgentTool implements Tool {
       ? `${aggregatedOutput}\n\n${renderFragment(goalInstruction)}`
       : aggregatedOutput;
 
-    this.emitComplete(
+    this.agentToolPool.emitComplete(
       onProgress,
       agentId,
       agentInput.name || agentId,
@@ -2788,10 +2142,13 @@ export class AgentTool implements Tool {
     if (!this.config.allowBackground) {
       logger.warning('Background execution disabled', { agentId });
       // 泄漏修复（2026-08-27）：该分支 return 前清理已注册的 teammate
-      await this.unregisterTeammate(agentId);
+      await this.agentTeammateIsolation.unregisterTeammate(agentId);
       // 台账泄漏修复（B3）：早期返回必须落终态，否则条目以 'running' 永久占用并发槽位
-      await this.settleRun(agentId, 'failed');
-      return this.failureResult('Background execution is disabled', agentId);
+      await this.agentLedgerLifecycle.settleRun(agentId, 'failed');
+      return this.agentLedgerLifecycle.failureResult(
+        'Background execution is disabled',
+        agentId
+      );
     }
 
     const taskId = `bg-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
@@ -2840,9 +2197,12 @@ export class AgentTool implements Tool {
           completedAt: Date.now(),
           durationMs: Date.now() - bgInfo.createdAt,
         });
-        await this.settleRun(agentId, taskCompleted ? 'completed' : 'failed');
+        await this.agentLedgerLifecycle.settleRun(
+          agentId,
+          taskCompleted ? 'completed' : 'failed'
+        );
         // 设计二：后台任务完成时才清理 teammate（保留整个后台窗口期的可寻址性）
-        await this.unregisterTeammate(agentId);
+        await this.agentTeammateIsolation.unregisterTeammate(agentId);
         // B1/O1-3 / M-5：后台 run 的结算同样经 `settleRun()` ⇒ 通知由其统一发出
         logger.info('Background agent completed', { agentId, taskId });
       })
@@ -2858,9 +2218,9 @@ export class AgentTool implements Tool {
           completedAt: Date.now(),
           durationMs: Date.now() - bgInfo.createdAt,
         });
-        await this.settleRun(agentId, 'failed');
+        await this.agentLedgerLifecycle.settleRun(agentId, 'failed');
         // 设计二：失败也清理 teammate
-        await this.unregisterTeammate(agentId);
+        await this.agentTeammateIsolation.unregisterTeammate(agentId);
         // B1/O1-3 / M-5：失败同属结算 ⇒ 通知同样由 `settleRun()` 统一发出
       });
 
@@ -2969,7 +2329,7 @@ export class AgentTool implements Tool {
     }
 
     // 设计二：前台执行路径结束后统一清理 teammate（directCall 与 engine 共用）
-    await this.unregisterTeammate(agentId);
+    await this.agentTeammateIsolation.unregisterTeammate(agentId);
 
     // 将子 Agent 的 token 消耗汇聚到父会话的 UnifiedTokenTracker
     if (result.tokenUsage && context?.sessionId) {
@@ -2996,19 +2356,23 @@ export class AgentTool implements Tool {
     // N1 修复（2026-08-27）：按 engine 真实结果置状态——原无条件置
     // 'completed'，被 stopAgent 中止的任务显示"已完成"
     // 接线期③ ③-A：未完成时把**失败归因**（图快照 + 根因候选）一并落盘
-    await this.settleRun(agentId, result.completed ? 'completed' : 'failed', {
-      ...(result.attribution ? { attribution: result.attribution } : {}),
-    });
+    await this.agentLedgerLifecycle.settleRun(
+      agentId,
+      result.completed ? 'completed' : 'failed',
+      {
+        ...(result.attribution ? { attribution: result.attribution } : {}),
+      }
+    );
 
     if (result.completed) {
-      this.emitComplete(
+      this.agentToolPool.emitComplete(
         onProgress,
         agentId,
         agentInput.name || agentId,
         'Agent task completed successfully'
       );
     } else {
-      this.emitError(
+      this.agentToolPool.emitError(
         onProgress,
         agentId,
         agentInput.name || agentId,

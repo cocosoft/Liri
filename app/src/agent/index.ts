@@ -108,14 +108,6 @@ import type {
   AgentIdentitySystemConfig,
 } from './identity';
 
-import { StrategySelector } from './StrategySelector';
-import {
-  TaskComplexity,
-  ContextSize,
-  type TaskFeature,
-  type StrategyRule,
-  type StrategySelection,
-} from './types';
 import { ToolCallBatch } from './ToolCallBatch';
 import type {
   ToolCallItem,
@@ -212,10 +204,6 @@ export {
   resolveResponsePrefix,
   resolveEffectiveMessagesConfig,
   resolveHumanDelayConfig,
-  // Strategy Selector
-  StrategySelector,
-  TaskComplexity,
-  ContextSize,
   // ToolCallBatch
   ToolCallBatch,
   // ContextCompressor

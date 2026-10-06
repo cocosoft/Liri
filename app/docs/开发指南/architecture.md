@@ -32,7 +32,6 @@ app/src/
 │   ├── agent.ts            AIAgentImpl 核心代理
 │   ├── strategies/         策略工厂 + 多策略
 │   ├── swarm/              Swarm 多代理编排
-│   ├── router/             AgentRouter 智能路由
 │   ├── moa/                MoA 混合代理
 │   ├── trajectory/         执行轨迹记录
 │   └── btw/                代理间通信

@@ -453,6 +453,12 @@ class ArchitectureLinter {
         //   （详见 architecture-compliance.md 已知例外 R01-003 channel-handlers 条目）
         'infrastructure\\http\\handlers\\channel-handlers.ts',
         'infrastructure/http/handlers/channel-handlers.ts',
+        // 大文件拆分（spec file-size-debt-partition-plan，2026-10-06）：`main.ts` 的启动前检查/首次引导
+        // 簇外迁至本文件 ⇒ 命中的是**首启引导重试计数**（`.onboard_retry` 持久化计数 + `MAX_ONBOARD_RETRIES`
+        // 判定），语义是"引导未完成则下次启动再试"，**非** R01-003 所禁的"对单个请求做线性重试"
+        // ⇒ 套 `withRetry` 不适用（无被重试的操作，只有计数落盘）。
+        'bootstrap\\preflight.ts',
+        'bootstrap/preflight.ts',
         // 第二组：2026-Q3 前计划迁移
         'core\\utils\\ErrorHandler.ts',
         'core/utils/ErrorHandler.ts',

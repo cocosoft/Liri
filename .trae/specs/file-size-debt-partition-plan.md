@@ -1070,3 +1070,66 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 > **预存观察（非本批引入）**：宿主 :1034-1041 存在一段描述 `buildSwarmExecutor` 的**孤立 JSDoc**（`buildSwarmExecutor` 仍在宿主）——预存注释错位，已记台账。
 
 **⇒ B2 收官 ⇒ AgentTool 计划内候选（B1/B2/B3）全部完成**（B4/C2 判低优先）。累计 **3288 → 2652（−636）**，新建 3 模块（`agentToolPool` 323 · `agentTeammateIsolation` 274 · `agentLedgerLifecycle` 303）。
+
+---
+
+## 32. 未评估巨型文件结构取证 + 批 C1（`main.ts` 外迁，2026-10-06）
+
+### 32.1 触发与口径订正（重要）
+
+**触发**：用户裁定「继续推进 P2-8 ① 大文件拆分」。回仓实测发现：§9.2 只评估过 **4 个巨型类**，而 `fileSizeExceptions` 中**另有 12 个 >2000 行文件从未做结构取证** ⇒ 本批先补齐取证面。
+
+**⚠️ 行数口径订正（务必采用 lint:size 口径）**：本 spec 早前各表混用过 `Measure-Object -Line`（**会跳过空行**，系统性偏低）。
+**权威口径 = `scripts/lint-file-size.ts#countLines`（`content.split(/\r?\n/).length`）**。实测订正：
+
+| 文件 | 本 spec 旧记 | **权威实测** |
+|---|---|---|
+| `chat/ChatManager.ts` | 5238 / 5246 | **5309** |
+| `tools/AgentTool/AgentTool.ts` | 2652 / 2678 | **2678** |
+| `chat/ReActToolLoop.ts` | 2543 | **2619** |
+| `runtime/api/CoreAPIImpl.ts` | 2521 / 2522 | **2544** |
+| `session/SessionGateway.ts` | 2364 | **2391** |
+| `query/TAORLoop.ts` | 2318 | **2327** |
+| `main.ts` | 2118 | **2129** |
+
+**⇒ 例外条目无一条陈旧**（本批**前** 16/16 实测仍 >2000 ⇒ 无一可删；本批**后** `main.ts` 降到 1730 ⇒ 例外 **16 → 15**，见 32.3）。
+
+### 32.2 结构取证（只读，4 文件并行子代理）
+
+| 文件 | 职责簇 | 高价值低耦合候选 | 判不拆（理由） |
+|---|---|---|---|
+| `chat/orchestrator/streamMessageFlow.ts` (2808) | C1 探针 / C2 助手 / C3 骨架 / C4 预压缩 / C5 消息构建 / C6 管线 / C7 前置态 / C8 重试主循环 / C9 收尾 / C10 后处理 / C11 工具循环 / C12 后台压缩 / C13 finally | ①`streamMessageProbes.ts`←C1(≈84) ②`streamMessageHelpers.ts`←C2(≈91) ③C5(≈152) ④C11(≈535,风险最高) | C3/C7/C8/C13 = 闭包骨架/主循环/唯一释放点；C4 深度耦合 |
+| `tasks/LongRunningTaskOrchestrator.ts` (2721) | C1 基础设施 / C2 类骨架 / C3 PLAN / C4 EXECUTE / C5 REVIEW-DECIDE / C6 循环恢复 / C7 报告查询 / C8 终态收口 / C9 dispose / C10 注册表 | B1 纯函数(≈25) · B2 终态钩子(≈230) · B3 报告投影(≈160) · B4 任务消息(≈90) | C2（注入源）/C3–C6（强耦合）/C9（反写注册表）/C10 注册表 |
+| `channels/qq/QQChannel.ts` (2394) | A 生命周期-Token / B 出站 / C 媒体 / D 被动回复 / E WS / F 入站事件 / G 类型 / H 导出面 | 批1 `qq/types.ts`(≈100) · 批2 出站(≈330) · 批3 入站事件(≈350) · 批5 被动回复(≈80) | A（`getAccessToken` 为全簇注入锚点）/ H（导出与 logger 名契约） |
+| `session/SessionGateway.ts` (2391) | 配置装配/生命周期/CRUD/Fork/Lite/FTS/恢复/消息读写/Transcript/Token-剪枝/QoS/统计 | A FTS(≈300) · **B `LiteSessionLister`(≈140，风险最低)** · C Fork(≈280) · D 消息读写(≈90) | DI 访问器/薄委托/QoS 区（R06-006-2）/`initialize`+`close` 编排/工厂 |
+
+**测试耦合（取证要点）**：`streamMessageFlow.ts` 有**源码文件读取断言**（`tests/ai/usageModelAttribution.test.ts:98/116-118/130-141` 读该文件并正则断言 `logInferenceUsage(...)` / `resolveEffectiveTurnModel` **须在本文件内**）⇒ C5/C9 不可搬出该文件，C1/C2 不受影响。`SessionGateway` 有反射读私有 `initialized`/`crashRecoveryManager` + 猴补 `CrashRecoveryManager.prototype`。`QQChannel` 无测试耦合。
+
+### 32.3 批 C1（已落地）：`main.ts` 启动前检查/首次引导 → `bootstrap/preflight.ts`
+
+**选批理由**：`main.ts` **2129 → 目标 <2000**（仅需 −129），且四个簇内聚、跨簇调用点仅 4 处 ⇒ **本批即可**删除 `FSZ-019` 例外（§7.6 判据：文件真正降到阈值以下才删条目）。
+
+**新模块**：`app/src/bootstrap/preflight.ts`（**451 行**；`bootstrap` 为 **entry 层**模块，可依赖 config/utils/commands/ai/core/error/monitoring 全部合法）
+
+**迁入**（4 簇，14 个模块级符号）：`MAX_ONBOARD_RETRIES` · `PLACEHOLDER_API_KEYS` · `getOnboardedFlagPath` · `getEnvFilePath` · `getEnvExamplePath` · `getOnboardRetryFlagPath` · `getDataDir` · `isValidApiKey` · `isAIConfigured` · `ensureEnvFileExists` · `reloadEnvFromFile` · `checkCriticalDependencies` · `migrateSoulAndUserToConfigManager` · `checkFirstRunAndOnboard`
+
+**宿主侧**（无转发壳，改 import）：
+- 新增 `import { ensureEnvFileExists, checkCriticalDependencies, migrateSoulAndUserToConfigManager, checkFirstRunAndOnboard } from './bootstrap/preflight.js'` + `export { isValidApiKey } from './bootstrap/preflight.js'`（**对外导出面不变**）；
+- **孤儿导入清理 4 处**：`probeExternalModule`（仅簇内用）· `resolveOnboardedFlagPath`（同上）· `isOfflineMode, setOfflineMode`（`setOfflineMode` 仅簇内用，`isOfflineMode` 本就未使用）· （`handleError`/`logger`/fs/path/`resolveProjectRoot`/`resolveDataDir` 宿主仍在用 ⇒ 保留）。
+- 4 处原调用点（:1016 `checkFirstRunAndOnboard` · :1430 `ensureEnvFileExists` · :1600 `checkCriticalDependencies` · :1920 `migrateSoulAndUserToConfigManager`）改直调模块。
+
+**⚠️ logger module 名保持 `main`**（新文件同样 `getLogger('main')`）⇒ 日志输出逐字不变。
+
+**配套门禁改动 3 处**：
+1. `app/eslint.config.js`：把 `src/bootstrap/preflight.ts` 加入「独立终端 UI 文件」`no-console: off` 豁免列表（**与 `main.ts` 同口径**——首启引导本就向终端打印用户可见提示）；
+2. `scripts/lint-architecture.ts`：把 `bootstrap/preflight.ts` 登记进 **R01-003 跳过表**（命中的词是**首启引导重试计数** `.onboard_retry` + `MAX_ONBOARD_RETRIES`，语义非"单请求线性重试"，属**误报**）；
+3. `scripts/layer-exceptions.json`：**删除 `FSZ-019`**（`app/src/main.ts`）—— 依据 = 实测降到 **1730 行 < 2000**（§7.6 判据）。
+
+**行数**：`main.ts` **2129 → 1730**（−**399**）· 新模块 451 行 · `lint:size` **例外 16 → 15**（`main.ts` 由 `[EXEMPT]` 降为 `[WARN]`，不再阻塞）。
+
+**门槛**：`typecheck 0` · 改动文件 `eslint` **0 错误**（2 warning = 随码搬迁的预存未用 catch 形参，净变化 0）· `lint:arch` **错误 0 / 警告 4（基线）** · `lint:size` **0 错误 / 15 例外** · 全量测试见 §32.4。
+
+### 32.4 后续候选（未执行，按 §9.4 纪律串行）
+
+`SessionGateway` B（LiteSessionLister，风险最低）→ `streamMessageFlow` ①②（探针+助手，低风险）→ `QQChannel` 批1（types，纯类型）→ …。**每批仍须"取证 → 只搬不改 → 逐批门槛 → 提交"**。
+

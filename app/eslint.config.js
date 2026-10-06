@@ -180,6 +180,9 @@ export default [
     // 独立终端 UI 文件：与 CLI 目录分离的终端输出文件
     files: [
       'src/main.ts',
+      // 大文件拆分（spec file-size-debt-partition-plan）：`main.ts` 的启动前检查/首次引导
+      // 簇外迁至此 ⇒ 与宿主同口径（首启引导本就向终端打印用户可见提示）
+      'src/bootstrap/preflight.ts',
       'src/healthcheck.ts',
       'src/monitor.ts',
       'src/performance/**/*.ts',

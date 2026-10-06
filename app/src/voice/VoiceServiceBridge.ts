@@ -272,7 +272,18 @@ export class VoiceServiceBridge {
   /** 通道集成 */
   readonly channel: VoiceChannelIntegration;
 
-  /** 语音命令路由器 */
+  /**
+   * 语音命令路由器
+   *
+   * ⚠️ 未启用（2026-10-06 §21.6 复核，用户裁定「维持现状 + 本注释」）：
+   * 本字段**只被构造、全仓无任何方法调用**（`commandRouter.` 零命中）。它要把「唤醒词 + 转录文本」
+   * 映射到工具/命令，但当前**上游无转录文本来源** —— `checkWakeWord()` 零调用、
+   * `VoiceContext.tsx` 无转录处理、`/voice` 命令仅 status/enable/disable、`ToolExecutorDelegate`
+   * 从未注入 ⇒ 属**设计完成但未接线**的能力，不是死代码，故保留。
+   *
+   * 启用前提（勿在无上游时接用，否则造出无消费者调用链）：先定义**转录文本回流**（谁在何处把
+   * 识别结果交进来）并注入工具委托；届时应同步立 spec（GR15）并补守卫用例。
+   */
   readonly commandRouter: VoiceCommandRouter;
 
   constructor(config?: VoiceBridgeConfig) {

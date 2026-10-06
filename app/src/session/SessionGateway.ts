@@ -325,6 +325,7 @@ export class SessionGateway {
       tracker.subscribeToCostEvents();
       this.setTokenTracker(tracker);
       this.setCompactionBridge(createWiredCompactionBridge());
+      this.ensureSessionRouterWired();
     }
   }
 
@@ -385,8 +386,11 @@ export class SessionGateway {
   }
 
   /**
-   * 一键注入真实服务（TokenTracker + CompactionBridge + CheckpointService + SessionRouter）
-   * 适用于 ChatManager / SessionHandler 等使用方，免去手动装配
+   * 一键注入真实服务（TokenTracker + CompactionBridge + **SessionRouter**）
+   * 适用于 ChatManager / SessionHandler 等使用方，免去手动装配。
+   *
+   * ⚠️ 订正（2026-10-06）：原 JSDoc 列了 `CheckpointService` 但实现从未注入 ⇒ 已据实删除该表述
+   * （需要时由调用方 `setCheckpointService()`）。
    */
   wireWithRealServices(): this {
     const tracker = new SessionTokenTracker();
@@ -394,7 +398,30 @@ export class SessionGateway {
     tracker.subscribeToCostEvents();
     this.setTokenTracker(tracker);
     this.setCompactionBridge(createWiredCompactionBridge());
+    this.ensureSessionRouterWired();
     return this;
+  }
+
+  /**
+   * 接线「按来源解析会话键」—— 注入 `SessionRouter`（**需 `keyFactory` 已就绪**，幂等）。
+   *
+   * U7/§21.6（2026-10-06，用户裁定「接线」）：此前 `sessionRouter` **恒为 `null`**
+   * （无 `new SessionRouter`、无 `setSessionRouter` 调用）⇒ `createSession` 的
+   * `sessionSource` 分支（`createSession:662`）**永不生效**。
+   *
+   * ⚠️ **行为中性（如实）**：该分支还要求调用方传入 `params.sessionSource` 且**未传 `id`**；
+   * 当前生产**无此类调用方**（渠道侧自建会话键，见 `channels/routing/messageRouter.ts:549-551`）
+   * ⇒ 本注入**不改变任何现有行为**，只是让"设计好的能力"从"恒 null 的死分支"变为"可被调用方启用"。
+   *
+   * ⚠️ **语义订正（如实，勿误读为"确定性"）**：`SessionRouter.route()` 产出的键
+   * **内含 `timestamp + uuid`**（`SessionKeyFactory.create()`）⇒ **同一来源两次调用得到不同 id**。
+   * 其真实收益是「键**结构化**」—— 带 `userId`/`chatType` 段，可被 `SessionRouter.resolve()`
+   * / `resolveShared()` **反解**（键格式 `sess:<userId>:<chatType>:<ts>:<uuid>`）。
+   */
+  private ensureSessionRouterWired(): void {
+    if (this.keyFactory && !this.sessionRouter) {
+      this.setSessionRouter(new SessionRouter(this.keyFactory));
+    }
   }
 
   /**

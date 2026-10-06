@@ -16,6 +16,8 @@ import { DEFAULT_FAST_PATH_MAX_LENGTH } from '../../src/types/fastPath';
 import { MAX_SUBTASKS } from '../../src/ai/router/TaskDecomposer';
 import type { TAORLoop } from '../../src/query/TAORLoop';
 import type { TAORLoopDeps } from '../../src/query/TAORLoop';
+// 13-P2-2（2026-10-05）：行为反馈回流
+import { TaskOutcomeLedger } from '../../src/tasks/behaviorFeedback';
 
 describe('classifyTaskComplexity — 结构化判定（无正则）', () => {
   it('空/空白消息判定为 complex（不误入快速路径）', () => {
@@ -162,5 +164,48 @@ describe('T-②05: 快速路径判据可注入（测试确定性 / 生产读配�
     ).fastPathPolicy;
     expect(stored).toBe(injected);
     expect(stored.maxSimpleTaskLength).toBe(5);
+  });
+});
+
+describe('13-P2-2: 行为反馈回流接入路径选择（最小回流点）', () => {
+  const POLICY = { maxSimpleTaskLength: 60, dangerousIntentPatterns: [] };
+  const makeLoop = () =>
+    ({
+      reset: () => {},
+      runCollect: async () => ({ totalTokens: 1, turnCount: 1 }),
+    }) as unknown as TAORLoop;
+
+  it('无历史样本 ⇒ 简单任务仍走快速路径（结果记入 simple 桶）', async () => {
+    const ledger = new TaskOutcomeLedger();
+    const pdl = new PlanDrivenLoop({
+      taorLoop: makeLoop(),
+      deps: {} as TAORLoopDeps,
+      sessionId: 's1',
+      fastPathPolicy: POLICY,
+      outcomeLedger: ledger,
+      outcomeKey: 'k',
+    });
+    await pdl.run('你好');
+    expect(ledger.signal('k::simple')?.sampleCount).toBe(1);
+    expect(ledger.signal('k::direct')).toBeUndefined();
+  });
+
+  it('简单路径近期失败率偏高 ⇒ 升级：不再走快速路径（落到 direct 桶）', async () => {
+    const ledger = new TaskOutcomeLedger();
+    for (let i = 0; i < 3; i++) {
+      ledger.record('k::simple', { path: 'simple', success: false });
+    }
+    const pdl = new PlanDrivenLoop({
+      taorLoop: makeLoop(),
+      deps: {} as TAORLoopDeps,
+      sessionId: 's1',
+      fastPathPolicy: POLICY,
+      outcomeLedger: ledger,
+      outcomeKey: 'k',
+    });
+    await pdl.run('你好');
+    // 升级后未再写入 simple 桶（样本数不变），而是走了降级直执行
+    expect(ledger.signal('k::simple')?.sampleCount).toBe(3);
+    expect(ledger.signal('k::direct')?.sampleCount).toBe(1);
   });
 });

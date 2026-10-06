@@ -44,6 +44,15 @@ import {
   type FastPathPolicy,
 } from '@modules/types/fastPath';
 import { resolveFastPathPolicy } from './fastPathPolicy';
+// 13-P2-2（2026-10-05）：行为反馈回流——任务结果率回灌到路径选择（见模块头注边界）
+import {
+  DEFAULT_ESCALATE_FAILURE_RATE,
+  DEFAULT_ESCALATE_MIN_SAMPLES,
+  getTaskOutcomeLedger,
+  shouldEscalateGranularity,
+  TaskOutcomeLedger,
+} from './behaviorFeedback.js';
+import type { PlanPathKind } from './behaviorFeedback.js';
 
 const logger = getLogger('tasks:planDrivenLoop');
 
@@ -122,6 +131,18 @@ export interface PlanDrivenLoopConfig {
    * 显式注入供**测试**固定判据（避免依赖全局配置，保证确定性）。
    */
   fastPathPolicy?: FastPathPolicy;
+  /**
+   * 13-P2-2（2026-10-05）：行为反馈回流——任务结果账本（缺省用全局单例）。
+   *
+   * 用途：简单路径近期失败率偏高时**升级为分解路径**（见 `behaviorFeedback.ts` 边界）。
+   */
+  outcomeLedger?: TaskOutcomeLedger;
+  /** 13-P2-2：结果分桶键（缺省 `'pdl_default'`；组合根可按 PDCA stage 等传入以细分） */
+  outcomeKey?: string;
+  /** 13-P2-2：升级判据——最小样本数（缺省 3；样本不足不干预） */
+  escalateMinSamples?: number;
+  /** 13-P2-2：升级判据——失败率阈值（缺省 0.5） */
+  escalateFailureRate?: number;
 }
 
 /**
@@ -266,6 +287,11 @@ export class PlanDrivenLoop {
   private onStepComplete?: (result: StepResult) => void;
   /** T-②05：本次 run 生效的快速路径判据（构造时定：注入优先，否则读配置） */
   private fastPathPolicy: FastPathPolicy;
+  /** 13-P2-2：任务结果账本 + 分桶键 + 升级判据 */
+  private outcomeLedger: TaskOutcomeLedger;
+  private outcomeKey: string;
+  private escalateMinSamples: number;
+  private escalateFailureRate: number;
 
   private plan: Plan | null = null;
   private stepResults: StepResult[] = [];
@@ -289,6 +315,13 @@ export class PlanDrivenLoop {
     this.onStepComplete = config.onStepComplete;
     // T-②05：判据在构造时**定一次**（注入优先；否则读 GlobalConfig.fastPath，缺省回退默认）
     this.fastPathPolicy = config.fastPathPolicy ?? resolveFastPathPolicy();
+    // 13-P2-2：回流账本/分桶键/判据（缺省全局单例 + 默认阈值）
+    this.outcomeLedger = config.outcomeLedger ?? getTaskOutcomeLedger();
+    this.outcomeKey = config.outcomeKey ?? 'pdl_default';
+    this.escalateMinSamples =
+      config.escalateMinSamples ?? DEFAULT_ESCALATE_MIN_SAMPLES;
+    this.escalateFailureRate =
+      config.escalateFailureRate ?? DEFAULT_ESCALATE_FAILURE_RATE;
 
     if (config.decomposerProvider) {
       this.decomposer = new TaskDecomposer(null, config.decomposerProvider);
@@ -336,14 +369,39 @@ export class PlanDrivenLoop {
         hasDecomposer: !!this.decomposer,
       });
       // 复杂度判定门：简单任务跳过分解，直接执行（T-②05：阈值取本次生效判据）
-      if (isSimpleTask(userMessage, this.fastPathPolicy)) {
+      // 13-P2-2：接**最小回流点**——简单路径近期失败率偏高 ⇒ 不走近路（升级为分解/经典路径）
+      let useSimplePath = isSimpleTask(userMessage, this.fastPathPolicy);
+      if (useSimplePath) {
+        const signal = this.outcomeLedger.signal(this._ledgerKey('simple'));
+        if (
+          shouldEscalateGranularity(signal, {
+            minSamples: this.escalateMinSamples,
+            failureRate: this.escalateFailureRate,
+          })
+        ) {
+          useSimplePath = false;
+          span.addEvent('planDrivenLoop.granularityEscalated', {
+            sampleCount: signal?.sampleCount ?? 0,
+            failureRate: signal?.failureRate ?? 0,
+          });
+          logger.info('反馈回流：简单路径近期失败率偏高，升级为分解/经典路径', {
+            sessionId: this.sessionId,
+            sampleCount: signal?.sampleCount,
+            failureRate: signal?.failureRate,
+          });
+        }
+      }
+      if (useSimplePath) {
         span.addEvent('planDrivenLoop.simpleTask', {
           reason: 'complexity_gate',
         });
         logger.info('简单任务，跳过分解直接执行', {
           sessionId: this.sessionId,
         });
-        return this._executeDirect(userMessage);
+        return this._recordOutcome(
+          'simple',
+          await this._executeDirect(userMessage)
+        );
       }
 
       // 尝试分解
@@ -363,7 +421,10 @@ export class PlanDrivenLoop {
             // 执行后果（PDL 只能分解/直执行，无法承接 competitive_strategy），且输入是硬编码
             // 字面量 ⇒ 必然退化为日志。决策权已归位到分流层（ChatManager._maybeLaunchPdca，
             // 见 .trae/specs/pattern-executable-assembly.md §3.3），本层不再重复选择。
-            return this._executeDecomposed(userMessage, decomposition);
+            return this._recordOutcome(
+              'decomposed',
+              await this._executeDecomposed(userMessage, decomposition)
+            );
           }
           span.addEvent('planDrivenLoop.decompose.singleTask');
         } catch (err) {
@@ -378,8 +439,11 @@ export class PlanDrivenLoop {
       }
 
       span.addEvent('planDrivenLoop.directExecute');
-      // 降级：直接执行
-      return this._executeDirect(userMessage);
+      // 降级：直接执行（13-P2-2：计入 'direct' 分桶，与快速路径 'simple' 隔离）
+      return this._recordOutcome(
+        'direct',
+        await this._executeDirect(userMessage)
+      );
     } finally {
       // S2（2026-08-13）：message 粒度成本落库 usage_records（avgTokenCostPerTask 数据源，P1-5 §4）
       void goalMetricsService
@@ -478,6 +542,30 @@ export class PlanDrivenLoop {
   }
 
   // ─── 私有方法 ─────────────────────────────────────────
+
+  /**
+   * 13-P2-2：结果分桶键（`<outcomeKey>::<path>`）——按路径隔离，
+   * 否则升级后走的 decomposed/direct 失败会污染 simple 桶信号。
+   */
+  private _ledgerKey(path: PlanPathKind): string {
+    return `${this.outcomeKey}::${path}`;
+  }
+
+  /**
+   * 13-P2-2：把本次 run 结果记入账本，并原样返回结果（供 return 处一行包裹）。
+   * 成功 = 无失败步 且 未中止 且 未耗尽预算。
+   */
+  private _recordOutcome(
+    path: PlanPathKind,
+    result: PlanDrivenLoopResult
+  ): PlanDrivenLoopResult {
+    const success =
+      result.failedSteps === 0 &&
+      result.aborted !== true &&
+      result.budgetExhausted !== true;
+    this.outcomeLedger.record(this._ledgerKey(path), { path, success });
+    return result;
+  }
 
   /**
    * B1（2026-09-04）：统一以 messages+deps 驱动 TAORLoop。

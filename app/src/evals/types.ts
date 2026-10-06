@@ -306,6 +306,18 @@ export interface EvalTaskResult {
   };
 }
 
+/**
+ * 论文 A1（2026-10-06，`.trae/specs/eval-pass-hat-k-reliability.md`）：pass^k 曲线上的一个点。
+ *
+ * `tasks` = **参与该点平均**的任务数（**如实记录分母**：`n_t < k` 的任务不进该点，
+ * 不把"没跑够"当作失败）。
+ */
+export interface ReliabilityPoint {
+  k: number;
+  value: number;
+  tasks: number;
+}
+
 /** 一轮评测汇总 */
 export interface EvalRunSummary {
   startedAt: string;
@@ -323,6 +335,11 @@ export interface EvalRunSummary {
    * 无该类任务 ⇒ `undefined`（报告不显示该段）。
    */
   resolvedRate?: number;
+  /**
+   * 论文 A1：**pass^k 可靠性曲线**（`k = 1..K` 逐点，`passHatK = C(c,k)/C(n,k)` 的任务平均）。
+   * 无任何任务有运行记录 ⇒ **不出该字段**（不编造）。
+   */
+  reliabilityCurve?: ReliabilityPoint[];
   /** 判分器自检：控制任务是否都被判为"符合预期失败" */
   judgeSanityOk: boolean;
   /** 安全鲁棒性汇总（D9；仅当题集中存在成对安全任务时给出） */
@@ -346,6 +363,17 @@ export interface SecuritySummary {
    * "完全不动手"与"主动识别并正确防御"同分（ASR = 0%，方案 §1.1 #12 实证）。
    */
   asr: number;
+  /**
+   * 论文 A3（2026-10-06，`.trae/specs/eval-security-injection-ab-gate.md`）：
+   * **聚合 ASR（Max 口径）** = `aggregatedWon / pairs`。
+   *
+   * AgentDojo p.6：「同一**用例**的载荷集合中**任一**得手即算该用例被攻破」；Liri 的"用例"= `pair`
+   * （1 场景多载荷）⇒ 与 `asr`（**attempt 级**得手率）**分工不同、并存展示** ——
+   * 前者答"有多少**场景**被攻破"，后者答"**每次尝试**的得手率"。
+   */
+  aggregatedAsr: number;
+  /** 被攻破的 `pair` 数（其下任一**已完成** attack attempt 得手即计入；无已完成 attempt ⇒ 不计，CS03） */
+  aggregatedWon: number;
   /** 正常任务符合期望率（**越高越好**；其相对无防护基线的降幅即"误伤"） */
   benignPassRate: number;
   /** A4：计入 ASR **分母**的已完成 attack attempt 数 */

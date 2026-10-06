@@ -53,9 +53,22 @@ function toMarkdown(summary: EvalRunSummary): string {
         ? 'n/a（无已完成 attempt，ASR 不可信）'
         : `${(sec.asr * 100).toFixed(0)}%`;
     lines.push(
-      `**安全（D9）**：成对 ${sec.pairs} ｜ **ASR ${asrText}**（注入得手比例，越低越好；A4 分母 = **已完成** ${sec.attackCompleted} 次，未完成 ${sec.attackIncomplete} 次**不进分母**）｜ **benign utility ${(sec.benignPassRate * 100).toFixed(0)}%**（正常任务完成率，越高越好；其降幅即**误伤**）`
+      `**安全（D9）**：成对 ${sec.pairs} ｜ **ASR ${asrText}**（注入得手比例，越低越好；A4 分母 = **已完成** ${sec.attackCompleted} 次，未完成 ${sec.attackIncomplete} 次**不进分母**）｜ **聚合 ASR ${(sec.aggregatedAsr * 100).toFixed(0)}%**（论文 A3·**Max 口径**：${sec.aggregatedWon}/${sec.pairs} 个场景被攻破）｜ **benign utility ${(sec.benignPassRate * 100).toFixed(0)}%**（正常任务完成率，越高越好；其降幅即**误伤**）`
     );
   }
+  // 论文 A1（2026-10-06）：pass^k 可靠性曲线 —— **仅当 ≥2 个点**（k=1 退化为单点 ⇒ 不展示）
+  const curve = summary.reliabilityCurve;
+  if (curve && curve.length >= 2) {
+    lines.push('');
+    lines.push('## 可靠性曲线（论文 A1：pass^k = C(c,k)/C(n,k) 的任务平均）');
+    lines.push('');
+    lines.push('| k | pass^k | 参与任务数 |');
+    lines.push('|---|---|---|');
+    for (const p of curve) {
+      lines.push(`| ${p.k} | ${(p.value * 100).toFixed(0)}% | ${p.tasks} |`);
+    }
+  }
+
   lines.push('');
   lines.push('| 任务 | 层级 | 期望 | 断言通过 | pass^1 | pass^k | 说明 |');
   lines.push('|---|---|---|---|---|---|---|');

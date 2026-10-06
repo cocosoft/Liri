@@ -749,6 +749,15 @@ for (const r of results) {
       ` ｜ pass^1 ${(r.pass1 * 100).toFixed(0)}% ｜ pass^k ${r.passK ? '✅' : '❌'}`
   );
 }
+// 论文 A1（2026-10-06）：可靠性曲线（**仅当 ≥2 个点**，避免 k=1 的单点噪声）
+if (summary.reliabilityCurve && summary.reliabilityCurve.length >= 2) {
+  out(
+    `可靠性曲线（论文 A1）：` +
+      summary.reliabilityCurve
+        .map((p) => `pass^${p.k}=${(p.value * 100).toFixed(0)}%`)
+        .join(' → ')
+  );
+}
 if (summary.security) {
   const sec = summary.security;
   // A4：ASR 分母 = 已完成 attempt；为 0 时显式 n/a
@@ -759,6 +768,7 @@ if (summary.security) {
   out(
     `安全（D9）：成对 ${sec.pairs} ｜ ASR ${asrText}` +
       `（分母=已完成 ${sec.attackCompleted} / 未完成 ${sec.attackIncomplete} 不进分母）` +
+      ` ｜ 聚合 ASR ${(sec.aggregatedAsr * 100).toFixed(0)}%（论文 A3·Max 口径：${sec.aggregatedWon}/${sec.pairs} 场景被攻破）` +
       ` ｜ benign utility ${(sec.benignPassRate * 100).toFixed(0)}%`
   );
 }

@@ -42,6 +42,8 @@ import {
 import type { MessageSet, MessageGet } from "./chat-message.types";
 import { EventBasedStreamAggregator } from "./streaming/EventBasedStreamAggregator";
 import { trajectoryService } from "@/services/trajectoryService";
+// 每轮助手回复耗时写入判据（纯函数单一事实源；口径见该模块 JSDoc）
+import { shouldRecordTurnDuration } from "./turnDuration";
 
 // P8（2026-08-25）：稀疏基线——骨架（turn/tool_call/result 全量，重建 toolCallSeqMap）
 // + 最近 N 条完整事件（尾部正文可见），更早正文按需 loadMore，降低长会话常驻内存。
@@ -890,11 +892,14 @@ export async function streamMessageImpl(
             ? { finishReason: "error" as const }
             : {}),
         // 整轮耗时：用户发送 → 助手回复完成（复用已有 streamStartTime，避免重复计时）。
-        // 仅"正常完成"写入，被停止(abort)/报错(error)的轮次不显示耗时，避免"已完成"误读。
-        ...(streamStartTime > 0 &&
-        !abnormallyEnded &&
-        !controller.signal.aborted &&
-        !receivedError
+        // 仅"正常完成"写入（判据见 shouldRecordTurnDuration）；被停止(abort)/报错(error)的
+        // 轮次不显示耗时，避免"已完成"误读。
+        ...(shouldRecordTurnDuration({
+          streamStartTime,
+          abnormallyEnded,
+          aborted: controller.signal.aborted,
+          receivedError,
+        })
           ? { durationMs: Date.now() - streamStartTime }
           : {}),
       };

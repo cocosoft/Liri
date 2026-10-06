@@ -21,6 +21,21 @@
 
 ---
 
+#### v0.4.65 (2026-10-06)
+
+**评测体系四项扩展（A1 / A2 / A3 / A6）+ 协议与可观测性对齐（A5 / A4）+ README 特色重写**
+
+- ✅ **A1 可靠性口径：pass^k 曲线** - 新增 `passHatK()`（`C(c,k)/C(n,k)` 组合式**无偏估计**，逐步连乘避免溢出）+ `computeReliabilityCurve()`（逐点任务平均，**只算跑够 k 次的任务并记录参与数**，`n_t < k` 的任务**退出该点**而非记失败）；报告与 CLI 新增「可靠性曲线」段（仅 k≥2 点，k=1 退化为单点不展示）；**不改**既有 `pass1`/`passK`/`checkGate` 与 `baseline.json`；新增 `tests/evals/passHatK.test.ts` **10 例**
+- ✅ **A2 真实任务级回归基线** - 新增逐用例 JUnit 解析 `parseJunitCases()`（`<testcase>` 三态 + 实体解码）+ 稳定键 `junitCaseKey()`；由**双实测自动派生** `F2P`（起点红→修后绿）/ `P2P`（起点绿→保持绿），物化期 **fail-closed**（F2P 为空即拒绝出题）；打分新增 `resolved` / `breaking` / `no-op` 与 `resolvedRate`（仅双清单任务进分母）；用例 **17 例**
+- ✅ **A3 安全评测：聚合 ASR（Max 口径）** - `SecuritySummary` 增 `aggregatedAsr`/`aggregatedWon`：同一场景**任一**已完成攻击得手即该场景记"被攻破"（**空转不算**，与 `asr` 分母口径同源），与 attempt 级 ASR **并存展示**（各自标注口径，防误读）；**不改**题集 / 运行时防护 / 退出码；用例 **5 例**
+- ✅ **A4 可观测性：OTel GenAI 语义约定** - LLM 请求 span **并存**写入 `gen_ai.operation.name` / `gen_ai.request.model`（span 创建时）+ `gen_ai.usage.input_tokens` / `output_tokens`（结束时）；span 名与 `Liri.*` 指标**零改名**（避免破坏覆盖去重键与客户端 trace 视图）；内容类属性按规范**默认不采集**
+- ✅ **A5 A2A 对齐 v1.0.0** - 发现路径 → `/.well-known/agent-card.json`；`A2ATaskState` → **9 值 `TASK_STATE_*`**（补齐 `UNSPECIFIED` / `AUTH_REQUIRED`）；`A2A_METHODS` 值 → v1.0 PascalCase 抽象操作名；枚举改名的**编译期强约束实测**精确捕获 4 处残留状态字面量
+- ✅ **A6 检索基准：真实语料 + 对照口径** - **删除模拟语料生成器**（`${topic}${w}${p}` 式假词），改用仓库自身 **143 篇真实文档**（复用既有 `FileDocsProvider`）；查询词由语料标题派生；新增 `benchRetrievalModes()` 对照 `exact-title` / `keyword` / `hybrid` / `vector` / `graph` × `recall@1/5/10` · `MRR` · 延迟 · `matchType` 分布；不可得模式**显式标记不可用 + 原因**（不填 0 冒充）
+- ✅ **README 重写（非仅版本说明）** - 新增「**🌟 为什么是 Liri**」6 条工程取向（可复现优先 / 写前持久化 / 自带评测与回归门禁 / 架构门禁化 / DB 为唯一事实源 / 真实语料自测）；新增 5 个功能小节：**评测与回归门禁** · **可复现与回放** · **知识库与知识图谱** · **多智能体协作与工作流** · **协议面**
+- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）**、分层 **3886** · 全量 **4644 pass / 21 skip / 0 fail**（4665 tests / 492 files）
+
+---
+
 #### v0.4.64 (2026-10-06)
 
 **A10 协作编排单一构造点 + CLI 退出码（O6）/ 知识图谱 domain round-trip（P2-12）修复 + 记忆分层文档化 + A2 立项**

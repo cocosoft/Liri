@@ -12,6 +12,17 @@
 ## [未发布]
 
 ---
+#### v0.4.62 (2026-10-06)
+
+**A1 Fail-Closed 受阻机制全链闭环 + §13 七项建议全部落地 + A5 跨会话资源治理（新模块）**
+
+- ✅ **A1 Fail-Closed 受阻机制（T1–T6）全链闭环** - ① **取消判定去字符串匹配**（`PendingOption{label,outcome}` 结构化 + `isGateCancelled()`，订正 `NegotiationState` 失实自称）；② **挂起清单事件投影 + 启动重建**（`pendingSuspensions.ts` + `bootstrapPendingRecovery()`）；③ **fail-closed 结算**（不可判定 ⇒ 不放行）；④ **结算实时可见**（`suspension_settled` → chunk 映射）；⑤ 验收归档（投影等价性 + 结算收敛幂等 + spec §8 验收表）
+- ✅ **§13 七项建议全部落地（《Agentic Design Patterns》21 模式复查）** - ① **13-P0-1** 验证器三条降级路径 **fail-closed**（`passed:false` + `ESCALATE`，开关 `VERIFIER_FAIL_CLOSED` 默认 true）；② **13-P0-2** `SuccessCriteria` **一等对象化**（新增 `core/successCriteria.ts`：解析 / 骨架 / 判定对齐，漏项不复行）；③ **13-P1-1** 拓扑分批**依赖失败传播**（`computeTopoSkips` + `block/continue` 传播 + `skipped` 终态）；④ **13-P1-2** 工具**幂等 / 副作用声明**（新增 `tools/toolEffects.ts`，71 个内建工具逐一声明、编译期联合防漏；非幂等禁盲重试）；⑤ **13-P1-3** 装配升级为**执行配方**（`PatternRecipe` + `self_verify` 升 `ready`，复用既有 `VerifierAgent`）；⑥ **13-P2-1** **输出侧内容护栏**（core `outputGuard` 统一契约 + 注册表；PII 打码 / 敏感拦截 / 注入回显，**默认关**）；⑦ **13-P2-2** **评估指标回流**（新增 `tasks/behaviorFeedback.ts`，任务结果率回灌 `PlanDrivenLoop` 路径选择）
+- ✅ **A5 跨会话资源治理（新 app 模块 `resourceGovernor`）** - 在飞会话**只读视图**（`snapshot()`）+ 并发上限**告警**（`overLimit`，不拦截）+ `admit`/`release` 生命周期；两条请求路径（流式 `streamMessageFlow` / 非流式 `sendMessage`）接入；开关 `FEATURE_RESOURCE_GOVERNOR` **默认关**（关闭时零行为变更）。⚠️ 如实边界：**抢占 / 排队未做**（用户裁定最小范围）、**优先级透传未做**（生产侧恒 `interactive`）
+- ✅ **治理与文档** - `CHANGELOG.md` **建库**（版本变更单一事实源）+ `README` 精简（只留最新一版 + 指回本文件）+ `version:check` 覆盖 README/CHANGELOG；任务计划 §2.4 **逐项裁定与执行**（onReady 失实订正 / 通道进程隔离立项 / 删死工厂 / 注释与计数订正 / 7 篇 stale 状态头）；`roughTokenCountEstimationForMessages` 标记 `@deprecated`
+- ✅ **质量** - `typecheck` 0 错 · `eslint` 0 错 · `lint:arch` 违规 **0**（4 警告基线）· 全量测试 **4577 pass / 21 skip / 0 fail / 4598 tests / 484 files**
+
+---
 #### v0.4.61 (2026-10-05)
 
 **工作流运行记录（P1-19）全链闭环 + 工具链（Code Mode）升级 + 治理 G 组 §3 收口 + 测试盲区补齐**

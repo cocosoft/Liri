@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.61-blue)
+![Version](https://img.shields.io/badge/version-0.4.62-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -363,7 +363,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.61**
+当前版本：**v0.4.62**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -372,18 +372,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.61 (2026-10-05)
+#### v0.4.62 (2026-10-06)
 
-**工作流运行记录（P1-19）全链闭环 + 工具链（Code Mode）升级 + 治理 G 组 §3 收口 + 测试盲区补齐**
+**A1 Fail-Closed 受阻机制全链闭环 + §13 七项建议全部落地 + A5 跨会话资源治理（新模块）**
 
-- ✅ **工作流运行记录（P1-19 系列）** - ①**成员级事件实时化**：run 执行期即按序落盘（注入式 `WorkflowRunEventAppender`，去重判据 = 持久化布尔 `metadata.workflowRun.liveEmitted`，非字符串匹配）；②**前端专用卡片** `WorkflowRunCard`：`run_start`/`step_start`/`step_end`/`run_end` 四类事件**原地聚合**为单张卡 + 重放期中断合成；③集成/观察者测试 **14 例**（真实 `DocOrchestrator` / `EventLogStorage` 落盘 / `EventMessageDeriver` 派生）；④**中止链路闭环**：编排工具透传会话中止信号 + 注入 `gracePeriodMs: 0` ⇒ 中止**立即**结算 `cancelled`（在飞步骤被账本封闭丢弃），并跑通**会话级 e2e**（观测到 `run_end@+142ms(stopReason=cancelled)` 与卡片 `cancelled`）
-- ✅ **工具链 · Code Mode（T-2）** - ① `code_run` **注入可调用工具清单**（由工具注册表按生效白名单生成轻量声明 `name(param: type) — description`，经 `description` getter 反映运行期注册表）；② **Tier2 opt-in 开关** `CODE_MODE_TOOL_TIER`（**Tier1** 本地只读默认 / **Tier2** 只读扩展 10 项需显式开启 / **Tier3** 写执行类**永不放开**，须走主循环逐次审批）
-- ✅ **修复：冒号命名空间工具在模型侧不可见（N-45）** - 根因＝出站 **wire 安全名**（`office:workflow` → `office_workflow`）与**类别表真名**错配 ⇒ 落 `misc` 被按任务**静默裁剪**；已加 wire 名索引三级解析 + 补登记 `office:doc-pipeline`，并加**系统性不变量**测试（探针复核裁剪 43→41、形态不一致 1→0）
-- ✅ **事件契约单一事实源（P1-18）** - 4 个联合下沉 `shared/types/goal-types.ts`；app↔client **字段级**契约校验（分配式条件类型）升级 + client 守卫用例；**顺带修复 2 处真实跨端漂移**（`user/message.attachments` / `assistant/status.phase`）
-- ✅ **治理 G 组 §3 剩余 5 项收口** - ①**§3-2** bash Landlock 新增 `sandbox.landlock.bashExtraWritablePaths`（默认 `[]` ⇒ 与治理前策略逐条等价）；②**§3-5** 打包大小写校验（实证 `tsc` 报 **TS1261**；client 显式化 `forceConsistentCasingInFileNames`）；③**§3-6** 新增 `lint:case` 同名目录防回归守卫（仅大小写不同的同级条目，含**自检控制组**防"空集假绿"，已纳入 `ci`）；④**§3-7** G3 守卫化（隔离提示词工具名取自**注册表生成物**，漂移即 typecheck 报错）；⑤**§3-8** 删除 `BashTool.safeExecute`/`executeCommand` 死调用点及 `isDangerousCommand` 死静态方法
-- ✅ **P1-10 测试盲区补齐 + 死注入面清理** - 新增 `checkpoint-handlers`（**6 端点 / 11 例**）· `auto-reply-handlers`（**4 端点 / 7 例**）· `MCPToolBridge`（**5 例**，含"未注入端口 ⇒ 明确抛 AppError"契约）；删除 `CompactServiceImpl` **AI 摘要死注入面**（全链不可达，运行期行为逐字不变）
-- ✅ **P2-13 台账遗留清理** - `phase3.test.ts` 迁出 `src/`（迁移即**暴露被隐藏的类型漂移** `ToolExecutionError` → 订正为 `ToolErrorRecord`）· `ErrorCodeDef.level` **删 `INFO` 档**（不可表达档将编译期报缺键）· 4 项 stale 订正；修复 `lint:exit`（`gen:toolnames` 补显式退出，`ci` 链恢复全绿）
-- ✅ **质量** - `typecheck` 0 错 · `eslint` 0 错 · `lint:arch` 违规 **0**（4 警告基线）· 全量测试 **4468 pass / 21 skip / 0 fail / 4489 tests / 472 files**
+- ✅ **A1 Fail-Closed 受阻机制（T1–T6）全链闭环** - ① 取消判定**去字符串匹配**（`PendingOption{label,outcome}` 结构化 + `isGateCancelled()`，订正 `NegotiationState` 失实自称）；② **挂起清单事件投影 + 启动重建**（`pendingSuspensions.ts` + `bootstrapPendingRecovery()`）；③ **fail-closed 结算**（不可判定 ⇒ 不放行）；④ **结算实时可见**（`suspension_settled` → chunk 映射）；⑤ 验收归档（投影等价性 + 结算收敛幂等 + spec §8 验收表）
+- ✅ **§13 七项建议全部落地（《Agentic Design Patterns》21 模式复查）** - **13-P0-1** 验证器三条降级路径 **fail-closed**（`passed:false` + `ESCALATE`）· **13-P0-2** `SuccessCriteria` **一等对象化**（新增 `core/successCriteria.ts`）· **13-P1-1** 拓扑分批**依赖失败传播**（`computeTopoSkips` + `block/continue` + `skipped` 终态）· **13-P1-2** 工具**幂等/副作用声明**（新增 `tools/toolEffects.ts`，71 个内建工具编译期防漏）· **13-P1-3** 装配升级为**执行配方**（`PatternRecipe` + `self_verify` 升 `ready`）· **13-P2-1** **输出侧内容护栏**（core `outputGuard` 统一契约 + 注册表，默认关）· **13-P2-2** **评估指标回流**（新增 `tasks/behaviorFeedback.ts`，任务结果率回灌 PDL 路径选择）
+- ✅ **A5 跨会话资源治理（新 app 模块 `resourceGovernor`）** - 在飞会话**只读视图**（`snapshot()`）+ 并发上限**告警**（`overLimit`，不拦截）+ `admit`/`release` 生命周期；两条请求路径（流式 / 非流式）接入；开关 `FEATURE_RESOURCE_GOVERNOR` **默认关**（关闭时零行为变更）。⚠️ 如实边界：**抢占/排队未做**（用户裁定最小范围）、**优先级透传未做**
+- ✅ **质量** - `typecheck` 0 错 · `eslint` 0 错 · `lint:arch` 违规 **0**（4 警告基线）· 全量测试 **4577 pass / 21 skip / 0 fail / 4598 tests / 484 files**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

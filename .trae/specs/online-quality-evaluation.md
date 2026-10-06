@@ -127,6 +127,15 @@ export interface TurnScore {
 - **复用** [`VerifierAgent`](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/VerifierAgent.ts)（三态 + `failClosed` + `checkPassRate`），**不新造判分器**（CS01）。
 - **模型来源**：`TaskModelConfig.verifier`（经既有 `modelRouter` 解析）；**未配置 ⇒ 跳过复核**，分数只取启发式（`reviewSkipped: 'no-model'`）—— ⚠️ **不得**回退到"随便挑一个模型"。
 - **复核输入**（最小必要）：该轮**助手终稿文本**（可截断）+ 工具调用摘要；**不**整库回灌（避免 token 爆炸）。
+- **🛠 实施取证（2026-10-06，接线时必须遵守的三点）**：
+  1. **每轮新建 `VerifierAgent` 实例**（`{ maxCycles: 1 }`）：`cycleCount` 是**实例态**，`verify()` 在
+     `cycleCount >= maxCycles` 时**直接 `ESCALATE`**（[`VerifierAgent.ts:315-327`](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/VerifierAgent.ts#L315-L327)）
+     ⇒ 空闲期一张 pass 连评多轮，若复用实例会让**第 2 轮起全部被误判**。有回归测试锁定。
+  2. **双指标可"推翻"模型自报 verdict**：响应带 `checks[]` 时，最终 verdict 由
+     `checkPassRate` + `confidence` 重算（[`:470-501`](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/VerifierAgent.ts#L470-L501)）；
+     实测：模型自报 `REJECT` + checks 全过 ⇒ 最终 `APPROVE`（这正是要复用的既有语义，勿自造）。
+  3. **无正文 ⇒ 跳过复核**（返回 `null`，记 `reviewSkipped:'no-model'`）：纯工具轮/被中断轮没有可评文本，
+     不得凭信号臆断质量（CS06）。
 - 结论落 `TurnScore.review`（含 `type/confidence/checkPassRate/reason`）。
 
 ### D4 时机与让出（空闲期异步；不阻塞主链）
@@ -246,9 +255,16 @@ export interface TurnScore {
 7. ✅ **单测**：`turnQuality` 16 例 + `turnQualityEvaluator` 14 例 + `summarizeTurnQuality` 5 例 = **35 例**；§5 用例 1–7 已覆盖（含变异验证）；**用例 8（消费方端到端）**以"摘要纯函数 + SPI 装配"覆盖 —— **未做**"真跑一次梦境"的端到端（如实：梦境执行体涉及 LLM，不在单测范围）。
 8. ✅ **回填**：本 spec + `dev_docs/任务计划-20261004.md` §19.4-U4。
 
-> **仍未接线（如实，留待后续）**：
-> ① **LLM 复核（D3）** —— 需把 `VerifierAgent` + `TaskModelConfig.verifier` 装配为端口的 `reviewTurn`；当前可疑轮一律记 `reviewSkipped: 'no-model'`；
-> ② **历史会话补评** —— 当前空闲 pass 只覆盖**本进程已加载**的会话；补评需在装配侧接 `listSessionsTouchedSince`。
+> **接线进展**：
+> ① ✅ **LLM 复核（D3）= 已完成（2026-10-06）**：🆕 [`chat/quality/turnQualityReviewer.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/quality/turnQualityReviewer.ts) 把 **`VerifierAgent` 装配为 `reviewTurn`**（模型**只**取 `modelRouter.resolveRole('verifier')`；未配置 ⇒ 工厂返回 `null` ⇒ 记 `reviewSkipped:'no-model'`，**不回退选模型**）；[`deriveTurnSignals`](file:///e:/PY/Documents/CODES/PY_APP/app/src/evals/online/deriveTurnSignals.ts) 增"该轮**正文摘录**"（≤4000 字符 + `replace:true` 清空重建语义）作为复核**最小输入**；接线于 `ChatOrchestrator.onIdle`。单测 +10 例（含**连续 4 轮不退化**的关键回归）。
+> ② ✅ **历史会话补评 = 已完成（2026-10-06）**：会话范围改为 **本进程已加载 ∪ 磁盘层"最近更新的 N 个"** ——
+> 经**既有** `SessionGateway.listSessions()`（与 `chat/manager/bootstrap.ts:413` 同源 ⇒ **不新增第二套会话枚举**）
+> + 🆕 纯函数 [`rankRecentSessionIds`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/quality/sessionScan.ts)
+> （`updatedAt` 降序 / 按 id 去重 / 截断到 30；时间解析不出者**排最后**而非丢弃）；枚举失败 ⇒ `handleError` + 降级为
+> "只用已加载会话"（不中断本次评估）。
+> **口径说明（为何不取"全部会话"）**：更早的会话**不在梦境视野内**（梦境的会话来源本就是"最近被触碰的会话"）
+> ⇒ 不为它们付费读事件。
+> ⇒ **U4 至此无遗留**（D1–D6 全部落地）。
 
 ---
 

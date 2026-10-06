@@ -32,6 +32,8 @@ import {
   listLiteSessions,
   type LiteSessionSummary,
 } from './gateway/LiteSessionLister.js';
+// 大文件拆分（spec §34 批 C3）：FTS5 分片索引簇外迁（存储/引擎/定时器/重建/检索）
+import { SessionGatewayFtsIndex } from './gateway/GatewayFtsIndex.js';
 // 2026-10-01 B14b 步 3：本条为**相对路径**类型导入，此前未被识别为 `session -> context` 边
 // （写的是 `../context/...` 而非 `@modules/context`），故 B14 长期未清零的**真实根因**在此。
 // 依 B′ 步已确立约定改指类型中心（core）⇒ `session -> context` 的「文件 × 模块」对**整条消失**。
@@ -98,12 +100,7 @@ import type {
   PermissionResponse,
 } from './types/UnifiedMessage.js';
 import type { Transcript } from './types/Transcript.js';
-import type { FTSDocument, FTSSearchResult } from './FTS5SearchEngine.js';
-import {
-  getFTS5SearchEngine,
-  type FTS5SearchEngine,
-} from './FTS5SearchEngine.js';
-import { FTSIndexStore } from './persistence/FTSIndexStore.js';
+import type { FTSSearchResult } from './FTS5SearchEngine.js';
 
 import { SessionTokenTracker } from './TokenTracker.js';
 import type { PruningDecider } from './pruning/PruningDecider.js';
@@ -117,7 +114,6 @@ import type { SessionSource } from './key/SessionSource.js';
 import {
   SessionLifecycleEventBus,
   createSessionLifecycleEvent,
-  SessionLifecycleEvent,
 } from './lifecycle/index.js';
 import { SessionStore } from './SessionStore.js';
 import type { SessionStoreOptions } from './SessionStore.js';
@@ -262,18 +258,11 @@ export class SessionGateway {
    */
   private crashRecoveryInFlight: Promise<CrashRecoveryResult> | null = null;
   private initialized = false;
-  private static readonly FTS_SAVE_INTERVAL_MS = 60_000;
   /**
-   * 整目录重建时的**分批落盘**批大小。
-   *
-   * 为什么必须分批：`rebuildSession` 会把新建片放入 store 缓存，若全部会话建完再一次性
-   * flush，则**整个索引同时驻留内存**（实测 156 片 / 358MB ⇒ RSS 峰值 3.2GB）。每批落盘后
-   * store 会把已转干净的片压回缓存上限（64 片 / 64 MiB），峰值即与批大小同阶。
+   * FTS5 分片索引（大文件拆分，spec §34）：存储层/引擎/落盘定时器/重建与检索
+   * 已外迁 `session/gateway/GatewayFtsIndex.ts`；本类只持有其门面。
    */
-  private static readonly FTS_REBUILD_FLUSH_BATCH = 16;
-  private ftsSaveInterval: ReturnType<typeof setInterval> | null = null;
-  /** FTS 索引存储层（分片重构 §11.3：索引目录归属 store，引擎不再持有路径） */
-  private ftsStore: FTSIndexStore | null = null;
+  private readonly fts: SessionGatewayFtsIndex;
 
   // Phase A: 从 SessionManager 收敛的组件
   private sessionStore: SessionStore | null = null;
@@ -295,6 +284,8 @@ export class SessionGateway {
         basePath: resolveSessionsDir(),
       }
     );
+    // FTS 簇门面（依赖已就绪的 storage；构造期无 IO —— 与拆分前一致）
+    this.fts = new SessionGatewayFtsIndex({ storage: this.storage });
     // P0-0-2：打印 SessionGateway 构造处 basePath 冻结点实例值（评审#3 增量一）
     // P2-3：basePath 空串不生效（?? 不拦截空串），统一回退默认目录。
     const gatewayBasePath = this.storage.getStorageInfo()?.basePath;
@@ -571,80 +562,16 @@ export class SessionGateway {
     // 与 public `recoverAfterCrash()`（启动期编排路径）共用，保证"只真正执行一次"。
     await this.runCrashRecoveryOnce();
 
-    await this.rebuildFTSIndex();
-    this.startFTSIndexPersistence();
+    await this.fts.rebuildIndex();
+    this.fts.startPersistence();
 
     // 迁移：为已有 session 计算 roundCount（幂等）
-    await this.migrateRoundCount();
+    await this.fts.migrateRoundCount();
 
     if (this.eventBus) {
-      this.eventBus.on('message:created', (event: SessionLifecycleEvent) => {
-        const { messageId, type, role, content, sessionKey, temporary } =
-          event.metadata ?? {};
-        // A1 临时对话：temporary 消息不写 FTS 倒排索引
-        if (!temporary && messageId && typeof content === 'string') {
-          // §8-4：index 为异步（分片存储需读盘）⇒ 不阻塞事件总线，失败仅记日志
-          void this.ftsEngine()
-            .index({
-              id: `msg_${messageId}`,
-              title: '',
-              category: 'message',
-              content: content,
-              timestamp: event.timestamp,
-              metadata: {
-                messageId,
-                sessionId: event.sessionId,
-                sessionKey,
-                type,
-                role,
-              },
-            })
-            .catch((err: unknown) => {
-              logger.warn('FTS 索引写入失败', {
-                sessionId: event.sessionId,
-                messageId,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            });
-        }
-      });
-
-      this.eventBus.on('session:deleted', (event: SessionLifecycleEvent) => {
-        // BUG-3 修复：消费 deleteSession 携带的 messageIds（删除前已取），
-        // 不再删除后重新 getMessages（会得空数组导致 FTS 索引残留）。
-        const messageIds: string[] =
-          (event.metadata?.messageIds as string[]) ?? [];
-        // §8-4：remove 需按会话定位片（异步）⇒ 不阻塞事件总线
-        for (const msgId of messageIds) {
-          void this.ftsEngine()
-            .remove(event.sessionId, `msg_${msgId}`)
-            .catch((err: unknown) => {
-              logger.warn('FTS 索引删除失败', {
-                sessionId: event.sessionId,
-                messageId: msgId,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            });
-        }
-      });
-
-      // 单条/批量消息删除时的 FTS5 索引清理
-      this.eventBus.on('messages:deleted', (event: SessionLifecycleEvent) => {
-        const messageIds: string[] =
-          (event.metadata?.messageIds as string[]) ?? [];
-        // §8-4：remove 需按会话定位片（异步）⇒ 不阻塞事件总线
-        for (const msgId of messageIds) {
-          void this.ftsEngine()
-            .remove(event.sessionId, `msg_${msgId}`)
-            .catch((err: unknown) => {
-              logger.warn('FTS 索引删除失败', {
-                sessionId: event.sessionId,
-                messageId: msgId,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            });
-        }
-      });
+      // FTS 索引维护监听（message:created / session:deleted / messages:deleted）
+      // 已随 FTS 簇外迁（spec §34）；装配时机与顺序不变
+      this.fts.wireLifecycleListeners(this.eventBus);
     }
 
     // 启动定时修剪（如果有修剪器）
@@ -1217,7 +1144,7 @@ export class SessionGateway {
     // FTS 索引此前依赖 eventBus 上 'message:created' 装配时序，晚装配即永不进索引，
     // indexMessageToFTS 在 initialize 之外无调用点（死代码）。
     if (!isTemporary) {
-      await this.indexMessageToFTS(sessionId, message);
+      await this.fts.indexMessage(sessionId, message);
     }
     // M2：直写 storage 追加消息后失效 SessionStore 消息缓存
     this.sessionStore?.invalidate(sessionId);
@@ -1245,49 +1172,6 @@ export class SessionGateway {
       }
     }
     this.sessionStore?.invalidate(sessionId);
-  }
-
-  /**
-   * 将消息索引到 FTS5 全文搜索引擎（分片：按 `sessionId` 归属片）
-   */
-  private async indexMessageToFTS(
-    sessionId: string,
-    message: UnifiedMessage
-  ): Promise<void> {
-    try {
-      await this.ftsEngine().index(this.toFTSDocument(sessionId, message));
-    } catch (err) {
-      // KB-FTS-INDEX-LOG（2026-08-29）：单条消息索引失败静默 → 搜索漏索引无日志
-      logger.warn('FTS 索引写入失败', {
-        sessionId,
-        messageId: message.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  /** 消息 → FTS 文档（增量索引与片级重建共用同一映射，避免两处字段漂移） */
-  private toFTSDocument(
-    sessionId: string,
-    message: UnifiedMessage
-  ): FTSDocument {
-    const content =
-      typeof message.content === 'string'
-        ? message.content
-        : JSON.stringify(message.content);
-    return {
-      id: `msg_${message.id}`,
-      title: `会话 ${sessionId} 的消息`,
-      content,
-      category: 'message',
-      timestamp: message.timestamp ?? Date.now(),
-      metadata: {
-        sessionId,
-        messageId: message.id,
-        type: message.type,
-        role: message.role,
-      },
-    };
   }
 
   /**
@@ -1360,11 +1244,11 @@ export class SessionGateway {
       const sessions = await this.storage.listSessions();
       let ftsIndexed = 0;
       try {
-        ftsIndexed = await this.rebuildFTSIndex();
+        ftsIndexed = await this.fts.rebuildIndex();
       } catch (err) {
         failures.push({ error: errText(err) });
       }
-      const migrated = await this.migrateRoundCount();
+      const migrated = await this.fts.migrateRoundCount();
       if (migrated.error) failures.push({ error: migrated.error });
       return {
         scopes: sessions.length,
@@ -1380,7 +1264,7 @@ export class SessionGateway {
     let roundCountFixed = 0;
     try {
       const messages = await this.storage.getMessages(sessionId);
-      for (const msg of messages) await this.indexMessageToFTS(sessionId, msg);
+      for (const msg of messages) await this.fts.indexMessage(sessionId, msg);
       ftsDocs = messages.length;
 
       const session = await this.getSession(sessionId);
@@ -1399,181 +1283,6 @@ export class SessionGateway {
       failures.push({ sessionId, error: errText(err) });
     }
     return { scopes: 1, ftsDocs, roundCountFixed, failures };
-  }
-
-  /**
-   * 启动时建立 FTS5 分片索引（§8-4 / §8-6）：
-   * ① 清理崩溃残留临时文件；② 以**清单为目录**，仅对"清单无记录的会话"从存储整片重建；
-   * ③ 落盘本次重建的片。清单齐备时零重建（对比整索引时代：每次启动读 403MB + `JSON.parse`）。
-   */
-  private async rebuildFTSIndex(): Promise<number> {
-    const store = this.getFTSStore();
-    const engine = this.ftsEngine();
-
-    await store.scanTmpResidue();
-    const manifest = await store.readManifest();
-    const sessions = await this.storage.listSessions();
-
-    let indexedCount = 0;
-    let pendingFlush = 0;
-    for (const session of sessions) {
-      // 已有片 ⇒ 跳过（不加载、不逐片校验：启动读盘量不随片数增长）
-      if (manifest.shards[session.id]) continue;
-      const messages = await this.storage.getMessages(session.id);
-      if (messages.length === 0) continue;
-      await engine.rebuildSession(
-        session.id,
-        messages.map((msg) => this.toFTSDocument(session.id, msg))
-      );
-      indexedCount += messages.length;
-      pendingFlush++;
-      // 分批落盘：每批 flush 后干净片被压回缓存上限，避免"整索引同时驻留"（见常量注释）
-      if (pendingFlush >= SessionGateway.FTS_REBUILD_FLUSH_BATCH) {
-        await engine.flush();
-        pendingFlush = 0;
-      }
-    }
-
-    if (indexedCount > 0) {
-      logger.info('FTS5 分片索引已从存储重建', {
-        indexedCount,
-        sessions: sessions.length,
-      });
-    }
-    await engine.flush();
-
-    // P2-7（2026-09-25）：返回**本次重建写入的文档数**（供恢复编排层汇总；
-    // 清单齐备时返回 0 —— 口径是"重建了多少"，不是"总共有多少"）
-    return indexedCount;
-  }
-
-  /**
-   * 迁移：为已有 session 计算 roundCount（幂等）
-   * 仅当 metadata.roundCount 不存在时计算
-   */
-  private async migrateRoundCount(): Promise<{
-    migrated: number;
-    error?: string;
-  }> {
-    try {
-      const sessions = await this.storage.listSessions();
-      let migratedCount = 0;
-
-      for (const s of sessions) {
-        const metadata = s.metadata as Record<string, unknown> | undefined;
-        if (metadata && metadata.roundCount == null) {
-          const messages = await this.storage.getMessages(s.id);
-          const userMsgCount = messages.filter((m) => m.role === 'user').length;
-          // L6：浅拷贝 metadata 再写 roundCount——原实现直接改共享引用，
-          // 污染 listSessions 返回对象的 metadata，导致内存缓存会话被意外改写
-          s.metadata = {
-            ...s.metadata,
-            roundCount: userMsgCount,
-          } as SessionMetadata;
-          // #15 修复：改用接口的 updateSession（原 (this.storage as any).saveSession?.()
-          // 对 UnifiedSessionStorage 为 undefined，可选调用静默 no-op，迁移从未落盘）
-          await this.storage.updateSession(s);
-          migratedCount++;
-        }
-      }
-
-      if (migratedCount > 0) {
-        logger.info('roundCount 迁移完成', { migratedCount });
-      }
-      // P2-7（2026-09-25）：返回迁移计数 + 失败原因（供恢复编排层汇总；
-      // 既有调用方 `initialize()` 忽略返回值 ⇒ 行为不变）
-      return { migrated: migratedCount };
-    } catch (err) {
-      logger.warn('roundCount 迁移失败（非致命）', { error: errText(err) });
-      return { migrated: 0, error: errText(err) };
-    }
-  }
-
-  /**
-   * 获取 FTS5 索引持久化目录
-   *
-   * 分片重构 §8-1：路径接口由「单文件路径」改为「目录」
-   * （spec `fts-index-per-session-sharding.md`）。现状（过渡）目录内只有整索引
-   * `fts-index.json`；分片落地后为 `manifest.json` + `shards/`。
-   */
-  private getFTSIndexDir(): string {
-    return path.join(resolveDataDir(), 'fts-index');
-  }
-
-  /** FTS 索引存储层（进程内单例；索引目录在此注入） */
-  private getFTSStore(): FTSIndexStore {
-    this.ftsStore ??= new FTSIndexStore(this.getFTSIndexDir());
-    return this.ftsStore;
-  }
-
-  /** FTS 引擎（首次调用注入 store；引擎不持有索引数据，见 FTS5SearchEngine 类注释） */
-  private ftsEngine(): FTS5SearchEngine {
-    return getFTS5SearchEngine(this.getFTSStore());
-  }
-
-  /**
-   * 启动 FTS5 索引定期磁盘持久化
-   */
-  private startFTSIndexPersistence(): void {
-    // P2-4（2026-09-26）：重入守卫 —— 并发的懒 `initialize()` 会重复调用本方法，而
-    // `ftsSaveInterval` 只保存**最后一个**句柄 ⇒ 前一个定时器永不被 clear（定时器泄漏）。
-    if (this.ftsSaveInterval) return;
-
-    this.ftsSaveInterval = setInterval(() => {
-      // §8-4：仅落盘**脏片**（无脏片 ⇒ 不建目录、不写盘、不重写清单）；定时器回调不 await。
-      void this.flushFTSIndex('interval');
-    }, SessionGateway.FTS_SAVE_INTERVAL_MS);
-    // P1-14 修复：unref 避免进程被 FTS 定时器钉住（close() 仍会 clear）
-    this.ftsSaveInterval.unref();
-  }
-
-  /**
-   * FTS 落盘（§8-4 驱动 + §8-6 损坏片重建）：先按会话重建损坏片，再落盘全部脏片。
-   * 失败按 KB-FTS-SAVE-LOG 记录（静默丢索引不可接受）。
-   */
-  private async flushFTSIndex(trigger: 'interval' | 'close'): Promise<void> {
-    try {
-      await this.repairCorruptFTSShards();
-      // 落盘字节数作为可核对证据（分片后单会话变更只写该片；整索引时代每次 60s 全量 403MB）
-      const bytes = await this.ftsEngine().flush();
-      if (bytes > 0) {
-        logger.info('FTS 分片落盘', { trigger, bytes });
-      }
-    } catch (err) {
-      logger.warn('FTS 索引落盘失败', {
-        trigger,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  /**
-   * §8-6 片级重建：消费 store 的"损坏待重建"登记，从会话消息**整片**重建。
-   *
-   * 只在落盘驱动 tick 中执行 —— **不在检索路径内重建**，避免搜索被全量重建阻塞
-   * （损坏期间该片检索结果为缺失，属已知降级）。
-   */
-  private async repairCorruptFTSShards(): Promise<void> {
-    const corrupt = this.getFTSStore().takeCorruptShardIds();
-    if (corrupt.length === 0) return;
-
-    let repaired = 0;
-    for (const sessionId of corrupt) {
-      try {
-        const messages = await this.storage.getMessages(sessionId);
-        await this.ftsEngine().rebuildSession(
-          sessionId,
-          messages.map((msg) => this.toFTSDocument(sessionId, msg))
-        );
-        repaired++;
-      } catch (err) {
-        logger.warn('FTS 损坏片重建失败（下轮再试）', {
-          sessionId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-    logger.info('FTS 损坏片已重建', { repaired, total: corrupt.length });
   }
 
   /**
@@ -1748,22 +1457,8 @@ export class SessionGateway {
     limit?: number,
     allowedSessionIds?: Set<string>
   ): Promise<FTSSearchResult[]> {
-    // 片选择（作用域）与谓词（N-66 下推）各司其职：前者决定读哪些片，后者保证
-    // 「命中先于 limit 截断」的语义与整索引时代一致
-    const sessionIds = allowedSessionIds ?? (sessionId ? [sessionId] : null);
-    const metadataFilter = allowedSessionIds
-      ? (doc: { metadata?: Record<string, unknown> }) =>
-          allowedSessionIds.has(String(doc.metadata?.sessionId ?? ''))
-      : sessionId
-        ? (doc: { metadata?: Record<string, unknown> }) =>
-            doc.metadata?.sessionId === sessionId
-        : undefined;
-    return this.ftsEngine().search(query, {
-      category: 'message',
-      limit,
-      sessionIds,
-      metadataFilter,
-    });
+    // 实现已外迁 `session/gateway/GatewayFtsIndex.ts`（spec §34）；本方法保留为对外契约入口
+    return this.fts.search(query, sessionId, limit, allowedSessionIds);
   }
 
   /**
@@ -2186,10 +1881,7 @@ export class SessionGateway {
   async close(): Promise<void> {
     this.initialized = false;
 
-    if (this.ftsSaveInterval) {
-      clearInterval(this.ftsSaveInterval);
-      this.ftsSaveInterval = null;
-    }
+    this.fts.stopPersistence();
 
     // 停止定时修剪
     this.stopPruneInterval();
@@ -2201,8 +1893,8 @@ export class SessionGateway {
     await this.lock?.releaseAll();
 
     // KB-FTS-CLOSE-LOG（2026-08-29）：关闭时 FTS 索引持久化失败静默 → 索引损坏无从排查。
-    // §8-4：落盘只写脏片；await 保证关闭前索引真正写完（日志由 flushFTSIndex 按 trigger 记）。
-    await this.flushFTSIndex('close');
+    // §8-4：落盘只写脏片；await 保证关闭前索引真正写完（日志由 flush 按 trigger 记）。
+    await this.fts.flush('close');
 
     for (const remoteSession of this.remoteSessions.values()) {
       remoteSession.disconnect();

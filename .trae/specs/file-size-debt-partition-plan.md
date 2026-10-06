@@ -1157,4 +1157,40 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **取证结论的后续**：`SessionGateway` 余下候选（A FTS ≈300 / C Fork ≈280 / D 消息读写 ≈90）**均未做**；`initialize`/`close` 编排、DI 访问器、QoS/Token 薄委托区已判「不拆」（§32.2）。
 
+---
+
+## 34. 实施记录：批 C3 —— `SessionGateway` FTS5 分片索引外迁（2026-10-06，**已落地**）
+
+**新模块**：`app/src/session/gateway/GatewayFtsIndex.ts`（`class SessionGatewayFtsIndex`，**433 行**，与宿主同模块）
+
+**迁入（15 项）**：`FTS_SAVE_INTERVAL_MS` / `FTS_REBUILD_FLUSH_BATCH`（→ 类内 private static）· `ftsSaveInterval` / `ftsStore`（→ 实例字段 `saveInterval` / `store`）· `rebuildFTSIndex` · `migrateRoundCount` · `getFTSIndexDir` · `getFTSStore` · `ftsEngine` · `startFTSIndexPersistence` · `flushFTSIndex` · `repairCorruptFTSShards` · `indexMessageToFTS` · `toFTSDocument` · `searchMessagesFTS` 的方法体；**另迁入 `initialize()` 内的 3 个 eventBus 监听**（`message:created` / `session:deleted` / `messages:deleted`，合成 `wireLifecycleListeners(bus)`）—— 它们本就是 FTS 索引维护逻辑，随簇一并外迁方使簇自洽。
+
+**新契约（2 个）**：
+- `FtsIndexStoragePort`（`listSessions` / `getMessages` / `updateSession`）—— `UnifiedSessionStorage` 的**结构子集**，避免为 FTS 簇引入整个存储接口；
+- `FtsIndexDeps`（`{ storage }`）。
+
+**宿主侧（无转发壳，改直调）**：
+- 构造器 `new SessionGatewayFtsIndex({ storage: this.storage })`（**紧随 `this.storage` 赋值之后** ⇒ 初始化顺序不变；构造期无 IO）；
+- `initialize()`：`this.fts.rebuildIndex()` / `this.fts.startPersistence()` / `this.fts.migrateRoundCount()` + `if (this.eventBus) this.fts.wireLifecycleListeners(this.eventBus)`（**监听装配时机与顺序不变**）；
+- `sendMessage()` / `rebuildDerivedState()`：改 `this.fts.indexMessage(...)` / `rebuildIndex()` / `migrateRoundCount()`；
+- `close()`：`this.fts.stopPersistence()` + `await this.fts.flush('close')`（**先 clear 定时器、再落盘**的既有顺序不变）；
+- **公开契约** `searchMessagesFTS(query, sessionId?, limit?, allowedSessionIds?)` 保留为**薄委托**（对外签名不变）；
+- **删除**宿主 2 个 static 常量 + 2 个实例字段；**孤儿导入清理 5 处**：`FTSDocument` · `FTSIndexStore` · `getFTS5SearchEngine` · `FTS5SearchEngine`（类型）· `SessionLifecycleEvent`（类型）。
+
+**⚠️ logger module 名保持 `session:gateway`**（新文件同值）⇒ 日志输出逐字不变。
+
+**⚠️ 小裁定（避免重复造轮子）**：宿主既有模块级 `errText()` 未随迁（`rebuildDerivedState` 仍用）；簇内 `migrateRoundCount` 的 2 处错误文本改用**簇内既有的内联写法** `err instanceof Error ? err.message : String(err)`（与本文件其余 5 处一致），**不新增共享 helper**（CS01）。
+
+**行数**：`SessionGateway.ts` **2260 → 1952**（−**308**）· 新模块 433 行。
+**★ `FSZ-024` 例外已删**（依据 §7.6 判据：实测降到 **1952 < 2000**）⇒ `fileSizeExceptions` **15 → 14**；`SessionGateway.ts` 由 `[EXEMPT]` 降为 `[WARN]`。
+
+**门槛（全绿）**：`typecheck 0` · 改动文件 `eslint` **0 问题** · `lint:arch` **错误 0 / 警告 4（基线）· 僵尸转发 0** · `lint:size` **0 错误 / 14 例外** · 定向 `tests/session` **302 pass / 0 fail** · 全量 **4750 pass / 21 skip / 0 fail**。
+
+**行为保真要点（逐条对照）**：① 三个监听的**注册顺序与条件**（`if (this.eventBus)`）不变；② 定时器 `unref()` 与"重入守卫"（并发 `initialize()` 不泄漏定时器）不变；③ 重建的**分批落盘批大小 16** 与"清单齐备零重建"语义不变；④ 检索的**作用域片选择 + N-66 谓词下推（命中先于 limit 截断）**不变；⑤ `roundCount` 迁移的"浅拷贝 metadata 再回写"不变。
+
+**C 系列累计（§32–§34）**：新建 3 模块（`bootstrap/preflight.ts` 451 · `session/gateway/LiteSessionLister.ts` 199 · `session/gateway/GatewayFtsIndex.ts` 433）· `main.ts` −399、`SessionGateway.ts` −439 ⇒ **例外 16 → 14**。
+
+**`SessionGateway` 余下候选（未做）**：C Fork(≈280) · D 消息读写(≈90)；`initialize`/`close` 编排、DI 访问器、QoS/Token 薄委托区**判不拆**。
+
+
 

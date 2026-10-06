@@ -136,13 +136,23 @@ function readdirSyncFull(
 class ArchitectureLinter {
   private violations: RuleViolation[] = [];
   private srcPath: string;
+  /**
+   * 项目根目录（解析后的绝对路径）。
+   *
+   * AR-2（2026-10-06）：本类中**需要定位仓库文件**的检查必须用它，❌ 不得用 `process.cwd()`
+   * —— 后者随调用方 cwd 漂移（如从 `app/` 运行时解析到不存在的 `app/app/tsconfig.json`），
+   * 命中 `existsSync` 判否后**静默 return**，检查形同关闭（实测 R05-007 从未真正执行）。
+   * 仅用于**展示**的 `relative(process.cwd(), file)` 不在此列。
+   */
+  private projectDir: string;
   private allFiles: string[] = [];
   private moduleToLayer: Map<string, string> = new Map();
   private allowedDeps: Record<string, string[]> = {};
   private layerOrder: string[] = [];
 
-  constructor(srcPath: string) {
+  constructor(srcPath: string, projectDir: string) {
     this.srcPath = srcPath;
+    this.projectDir = projectDir;
   }
 
   /** 加载所有源文件 */
@@ -1743,7 +1753,7 @@ class ArchitectureLinter {
 
   /** R05-008: 重复依赖检查 — 扫描 package.json 中功能重叠的依赖 */
   async checkDuplicateDependencies(): Promise<void> {
-    const packageJsonPath = resolve(process.cwd(), 'app', 'package.json');
+    const packageJsonPath = resolve(this.projectDir, 'app', 'package.json');
     if (!existsSync(packageJsonPath)) return;
 
     const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
@@ -1794,7 +1804,7 @@ class ArchitectureLinter {
 
   /** R05-007: tsconfig/ESLint 一致性检查 — 比较两者的 include/exclude 列表 */
   async checkTsconfigEslintConsistency(): Promise<void> {
-    const tsconfigPath = resolve(process.cwd(), 'app', 'tsconfig.json');
+    const tsconfigPath = resolve(this.projectDir, 'app', 'tsconfig.json');
     if (!existsSync(tsconfigPath)) return;
 
     // D-138 收网（2026-09-30）：显式声明读取到的配置形状 —— 原先 `JSON.parse` 结果为 `any`，
@@ -1832,7 +1842,7 @@ class ArchitectureLinter {
 
     // 检查 tsconfig.eslint.json 是否覆盖更广
     const eslintTsconfigPath = resolve(
-      process.cwd(),
+      this.projectDir,
       'app',
       'tsconfig.eslint.json'
     );
@@ -4215,8 +4225,16 @@ function checkFrontendStoreSubscription(projectDir: string): RuleViolation[] {
 }
 
 async function main(): Promise<void> {
-  // 解析 src 路径：优先使用环境变量 PYAPP_PROJECT_DIR，其次是 cwd
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  // 项目根目录解析（AR-2，2026-10-06）：
+  //   ① 显式覆盖：PYAPP_PROJECT_DIR 优先（CI / 特殊布局）；
+  //   ② 默认：**由本脚本位置推导**（`scripts/` 的上级 = 仓库根），而非 `process.cwd()`。
+  //      用 cwd 会使行为随调用方漂移：从 `app/` 运行时解析出 `app/app/tsconfig.json`，
+  //      命中 `existsSync` 判否后**静默 return** ⇒ 检查形同关闭（实测 R05-007 从未真正执行）；
+  //      同时 `app/package.json` 的 `PYAPP_PROJECT_DIR=..` 为 bash 式前缀赋值，Windows 下不生效。
+  // 归一为**绝对路径**后注入检查器——检查器内定位仓库文件一律用它。
+  const projectDir = resolve(
+    process.env.PYAPP_PROJECT_DIR || resolve(__dirname, '..')
+  );
   const srcPath = resolve(projectDir, 'app', 'src');
 
   if (!existsSync(srcPath)) {
@@ -4225,7 +4243,7 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  const linter = new ArchitectureLinter(srcPath);
+  const linter = new ArchitectureLinter(srcPath, projectDir);
   const violations = await linter.runAll();
   // P0-5: 前端高频路径 store 订阅检查（独立扫描 client/src，不并入 app/src 扫描集）
   violations.push(...checkFrontendStoreSubscription(projectDir));

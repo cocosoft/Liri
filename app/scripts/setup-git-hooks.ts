@@ -65,10 +65,18 @@ if [ -f "scripts/lint-architecture.ts" ]; then
   echo "  检查架构合规..."
   $RUNNER scripts/lint-architecture.ts
   RESULT=$?
-  if [ $RESULT -ne 0 ] && [ $RESULT -ne 2 ]; then
+  # AR-3（2026-10-06）：**不再容忍 exit 2**。原条件（-ne 0 且 -ne 2）把
+  # "检查器自身崩溃（如配置 JSON 解析失败）"当作通过 ⇒ 门禁静默降级为"只跑了一部分检查"。
+  if [ $RESULT -ne 0 ]; then
     echo ""
-    echo "❌ 架构合规检查失败！提交已阻止。"
-    echo "   请修复上述违规后重新提交。"
+    if [ $RESULT -eq 2 ]; then
+      echo "❌ 架构合规检查器异常退出（exit 2）！提交已阻止。"
+      echo "   这表示检查器自身崩溃（配置解析失败 / 路径不存在等），"
+      echo "   此时结果不可信（可能只完成了一部分检查）。请先修复检查器。"
+    else
+      echo "❌ 架构合规检查失败！提交已阻止。"
+      echo "   请修复上述违规后重新提交。"
+    fi
     echo "   检查规则: .trae/rules/architecture-compliance.md"
     exit 1
   fi

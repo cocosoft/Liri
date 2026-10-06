@@ -63,27 +63,48 @@ function toMarkerName(prefix: string): string {
   return prefix.trim().replace(/^\[/, '').replace(/\]$/, '');
 }
 
-/** FragmentKind 派生的裸标记名（顺序随 `PREFIX_BY_KIND`；`goal_continuation` 空前缀被滤除） */
-const FRAGMENT_MARKER_NAMES = getAllFragmentPrefixes().map(toMarkerName);
-
 /**
- * 检测面标记集合 = **FragmentKind 派生** + 显式非片段标记。
+ * FragmentKind 派生的裸标记名（顺序随 `PREFIX_BY_KIND`；`goal_continuation` 空前缀被滤除）。
  *
- * 迁移前该列表为手写字面量 —— 协议前缀变更时会**静默放宽**检测（Spec §5.2 #11）。
- * 派生后 `[SYSTEM]`/`[STEERING]` 跟随 `ContextualFragment` 单一事实源；其余标记保持显式，
- * 检测语义与迁移前**逐条等价**（不新增、不删除任何标记）。
+ * **TDZ 修复（2026-10-06）**：原为**模块顶层** `const … = getAllFragmentPrefixes().map(toMarkerName)`。
+ * 本模块与 `context/fragments/ContextualFragment` 构成**循环导入**；当本模块先于
+ * `PREFIX_BY_KIND` 完成初始化被加载时，模块顶层即抛
+ * `ReferenceError: Cannot access 'PREFIX_BY_KIND' before initialization`
+ * （实测：**单独运行** `tests/skills/skillInjectionFix.test.ts` 必现；全量跑仅靠模块加载顺序偶然通过）。
+ * 消费点仅在 `validateInput` ⇒ 改为**首次使用时求值并缓存**，彻底消除顺序依赖。
  */
-const SYSTEM_MARKERS: readonly string[] = [
-  ...FRAGMENT_MARKER_NAMES,
-  ...NON_FRAGMENT_MARKERS,
-];
-const SYSTEM_MARKER_RE = new RegExp(`\\[(${SYSTEM_MARKERS.join('|')})\\]`, 'i');
+let cachedFragmentMarkerNames: string[] | null = null;
+function fragmentMarkerNames(): string[] {
+  if (!cachedFragmentMarkerNames) {
+    cachedFragmentMarkerNames = getAllFragmentPrefixes().map(toMarkerName);
+  }
+  return cachedFragmentMarkerNames;
+}
+
+/** 检测用正则（惰性 + 记忆化；`i` 无 `g` ⇒ 无状态，可安全复用） */
+let cachedSystemMarkerRe: RegExp | null = null;
+function systemMarkerRe(): RegExp {
+  if (!cachedSystemMarkerRe) {
+    const markers: readonly string[] = [
+      ...fragmentMarkerNames(),
+      ...NON_FRAGMENT_MARKERS,
+    ];
+    cachedSystemMarkerRe = new RegExp(`\\[(${markers.join('|')})\\]`, 'i');
+  }
+  return cachedSystemMarkerRe;
+}
 
 /** 供拒绝文案列举的标记（`[SYSTEM]/[STEERING]/[FILE_OPERATION]` 等） */
-const SYSTEM_MARKER_LABELS = [
-  ...FRAGMENT_MARKER_NAMES.map((m) => `[${m}]`),
-  '[FILE_OPERATION]',
-].join('/');
+let cachedSystemMarkerLabels: string | null = null;
+function systemMarkerLabels(): string {
+  if (!cachedSystemMarkerLabels) {
+    cachedSystemMarkerLabels = [
+      ...fragmentMarkerNames().map((m) => `[${m}]`),
+      '[FILE_OPERATION]',
+    ].join('/');
+  }
+  return cachedSystemMarkerLabels;
+}
 
 /**
  * KnowledgeSaveTool参数定义
@@ -219,7 +240,7 @@ export class KnowledgeSaveTool implements Tool {
     // （结构化标记，非业务字符串匹配）：命中即拒绝，防止上下文文本污染知识库。
     // CC-06（Spec §5.2 #11）：标记集合由 `FragmentKind` 派生（见文件头常量），
     // 前缀口径变更时检测**不会**静默放宽。
-    if (SYSTEM_MARKER_RE.test(content) || SYSTEM_MARKER_RE.test(title)) {
+    if (systemMarkerRe().test(content) || systemMarkerRe().test(title)) {
       logger.warn('knowledge_save 拒绝写入：内容含系统指令标记', {
         title,
         contentPreview: content.slice(0, 80),
@@ -228,7 +249,7 @@ export class KnowledgeSaveTool implements Tool {
         status: ToolExecutionStatus.FAILURE,
         toolName: this.name,
         data: null,
-        error: `内容疑似引用系统指令/上下文（检测到 ${SYSTEM_MARKER_LABELS} 等标记），已拒绝写入。请提供真实文档内容后重试。`,
+        error: `内容疑似引用系统指令/上下文（检测到 ${systemMarkerLabels()} 等标记），已拒绝写入。请提供真实文档内容后重试。`,
       };
     }
 

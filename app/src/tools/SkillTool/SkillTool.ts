@@ -91,9 +91,20 @@ export class SkillTool implements Tool {
 
   /**
    * 注册内置Skills
+   *
+   * SK-2 修复（2026-10-06）：**只注册 `type:'prompt'` 的内置技能**。
+   *
+   * 根因：`BUILTIN_SKILLS` 含 7 个 `type:'agent'` 空壳（仅有 name/description/tags，
+   * 无任何提示词或执行内容），其执行只能落到占位文案；且由构造期先注册 ⇒ 会**同名遮蔽**
+   * 注册表（BundledSkillLoader）里的真实 prompt 型技能（如 `verify`）。
+   *
+   * 依据：`project_rules §1.15-4`（verify 不是技能，机械验证是工具函数）/ `§1.15-6`
+   * （技能仅提示词注入，禁 shell 执行）⇒ 非 prompt 型**不注册**（不展示、不假执行），
+   * 同名交给注册表真实现；`ensureSyncedFromRegistry` 亦只同步 prompt 型（口径一致）。
    */
   private registerBuiltinSkills(): void {
     for (const skill of Object.values(BUILTIN_SKILLS)) {
+      if (skill.type !== 'prompt') continue;
       this.registerSkill({
         ...skill,
         deferred: false,
@@ -327,16 +338,17 @@ export class SkillTool implements Tool {
     args?: Record<string, unknown>,
     _context?: ToolUseContext
   ): Promise<string> {
-    switch (skill.type) {
-      case 'prompt':
-        return await this.executePromptSkill(skill, args);
-      case 'command':
-        return await this.executeCommandSkill(skill, args);
-      case 'agent':
-        return await this.executeAgentSkill(skill, args);
-      default:
-        return await this.executeGenericSkill(skill, args);
+    // SK-2（2026-10-06）：本工具只承载 prompt 型技能（见 registerBuiltinSkills 注释）。
+    // 非 prompt 型仅可能由外部 `registerSkill` 注入 ⇒ 在**边界**如实拒绝，不再输出
+    // "This is a placeholder. In production…" 假执行文案（防模型据假结果继续推理）。
+    if (skill.type !== 'prompt') {
+      return (
+        `[Skill: ${skill.name}]\n\n` +
+        `该技能类型（${skill.type}）不可通过 Skill 工具执行 —— ` +
+        `请按其描述在主循环中直接使用相应工具，或用注册表中同名 prompt 型技能。`
+      );
     }
+    return await this.executePromptSkill(skill, args);
   }
 
   /**
@@ -351,62 +363,21 @@ export class SkillTool implements Tool {
       const rendered = await skill.promptProvider(args);
       return `[Prompt Skill: ${skill.name}]\n\n${rendered}`;
     }
-    const template = skill.promptTemplate || `Execute skill: ${skill.name}`;
-    const rendered = this.renderTemplate(template, args);
-
+    if (skill.promptTemplate) {
+      const rendered = this.renderTemplate(skill.promptTemplate, args);
+      return (
+        `[Prompt Skill: ${skill.name}]\n\n` +
+        `Description: ${skill.description}\n\n` +
+        `Rendered Prompt:\n${rendered}`
+      );
+    }
+    // SK-2：未携带提示词内容的内置 prompt 型技能（仅 name/description/tags）⇒ 如实说明，
+    // 不再输出 "This is a placeholder. In production…"（假执行文案）。
     return (
       `[Prompt Skill: ${skill.name}]\n\n` +
       `Description: ${skill.description}\n\n` +
-      `Rendered Prompt:\n${rendered}\n\n` +
-      `This is a placeholder. In production, this would be sent to the LLM for execution.`
-    );
-  }
-
-  /**
-   * 执行Command类型的Skill
-   */
-  private async executeCommandSkill(
-    skill: SkillDefinition,
-    args?: Record<string, unknown>
-  ): Promise<string> {
-    const command = skill.command || `echo "Skill ${skill.name} executed"`;
-
-    return (
-      `[Command Skill: ${skill.name}]\n\n` +
-      `Description: ${skill.description}\n\n` +
-      `Command: ${command}\n\n` +
-      `Args: ${JSON.stringify(args || {}, null, 2)}\n\n` +
-      `This is a placeholder. In production, this would execute the command.`
-    );
-  }
-
-  /**
-   * 执行Agent类型的Skill
-   */
-  private async executeAgentSkill(
-    skill: SkillDefinition,
-    args?: Record<string, unknown>
-  ): Promise<string> {
-    return (
-      `[Agent Skill: ${skill.name}]\n\n` +
-      `Description: ${skill.description}\n\n` +
-      `Args: ${JSON.stringify(args || {}, null, 2)}\n\n` +
-      `This is a placeholder. In production, this would spawn an agent to execute the task.`
-    );
-  }
-
-  /**
-   * 执行通用Skill
-   */
-  private async executeGenericSkill(
-    skill: SkillDefinition,
-    args?: Record<string, unknown>
-  ): Promise<string> {
-    return (
-      `[Skill: ${skill.name}]\n\n` +
-      `Description: ${skill.description}\n\n` +
-      `Type: ${skill.type}\n\n` +
-      `Args: ${JSON.stringify(args || {}, null, 2)}`
+      `该技能未内置提示词内容 —— 请依据上述描述在主循环中执行；` +
+      `如需真实提示词，请使用注册表中同名技能（BundledSkillLoader / 用户技能）。`
     );
   }
 

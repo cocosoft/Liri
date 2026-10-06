@@ -270,3 +270,85 @@ describe('T4 注入块截断保护（BUG-4）', () => {
     ).toBe(true);
   });
 });
+
+// SK-2（2026-10-06，`.pyapp/output/技能系统缺陷排查报告.md`）：
+// 内置表含 7 个 `type:'agent'` 空壳 ⇒ 执行只落占位文案，且**同名遮蔽**注册表真实现。
+// 修复口径：SkillTool 只承载 prompt 型（对齐 project_rules §1.15-4 / §1.15-6）。
+const SHIM_AGENT_BUILTINS = [
+  'verify',
+  'loop',
+  'batch',
+  'optimize',
+  'document',
+  'refactor',
+  'test',
+];
+const PROMPT_BUILTINS = [
+  'debug',
+  'stuck',
+  'analyze',
+  'summarize',
+  'explain',
+  'file-explorer',
+];
+
+describe('SK-2 内置技能只含可执行（prompt）型', () => {
+  it('构造后不含空壳 agent 型内置（消除同名遮蔽源）', () => {
+    const tool = new SkillTool();
+    for (const name of SHIM_AGENT_BUILTINS) {
+      expect(tool.getSkill(name)).toBeUndefined();
+    }
+  });
+
+  it('仍注册 prompt 型内置', () => {
+    const tool = new SkillTool();
+    for (const name of PROMPT_BUILTINS) {
+      expect(tool.getSkill(name)?.type).toBe('prompt');
+    }
+  });
+
+  it('执行「无提示词内容」的内置 prompt 技能：如实说明，且**不含** placeholder 假执行文案', async () => {
+    const tool = new SkillTool();
+    const r = await tool.execute(
+      { name: 'debug' },
+      {} as unknown as ToolUseContext
+    );
+    const text = String(r.data ?? '');
+    expect(r.error).toBeUndefined();
+    expect(text).not.toContain('This is a placeholder');
+    expect(text).toContain('未内置提示词内容');
+  });
+
+  it('外部注入非 prompt 型 ⇒ 边界如实拒绝（无 placeholder 文案）', async () => {
+    const tool = new SkillTool();
+    tool.registerSkill({
+      name: 'agent-x',
+      description: 'd',
+      type: 'agent',
+      source: 'builtin',
+      enabled: true,
+      deferred: false,
+    });
+    const r = await tool.execute(
+      { name: 'agent-x' },
+      {} as unknown as ToolUseContext
+    );
+    const text = String(r.data ?? '');
+    expect(r.error).toBeUndefined();
+    expect(text).not.toContain('This is a placeholder');
+    expect(text).toContain('不可通过 Skill 工具执行');
+  });
+
+  it('同名遮蔽消除：注册表 prompt 型技能在同步后接管同名（loop）', async () => {
+    const { skillRegistry } = await import('../../src/skills/skillSingletons');
+    try {
+      skillRegistry.register(makePromptSkill('loop'));
+      const tool = new SkillTool();
+      // 构造期不再占用 'loop' ⇒ 同步时注册表 prompt 型可接管
+      await tool.execute({ name: 'loop' }, {} as unknown as ToolUseContext);
+      expect(tool.getSkill('loop')?.type).toBe('prompt');
+    } finally {
+      if (skillRegistry.has('loop')) skillRegistry.unregister('loop');
+    }
+  });
+});

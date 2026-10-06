@@ -132,9 +132,10 @@ export class SkillRegistry {
     logger.info('SkillRegistry.register', {
       skillName: skill.name,
       source: skill.source,
-      // 2026-08-30：impl 可选（测试 mock/部分技能可能无 impl）——可选访问防
-      // "undefined is not an object (evaluating 'skill.impl.kind')"（SkillLifecycle 测试回归）
-      implKind: skill.impl?.kind,
+      // 2026-10-06：`impl` 为**必填**（§1.15-11 已订正）—— 原先的 `skill.impl?.kind`
+      // 是针对一处**已不存在**的测试 mock 回归的容错，现按类型真值直读（CS03：不为
+      // 生产中不可达的形态写防御）。若未来确需支持无 impl 技能，须先改规则与类型契约。
+      implKind: skill.impl.kind,
     });
   }
 

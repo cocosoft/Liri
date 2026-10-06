@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.13.0 | **更新**: 2026-09-24
+**版本**: 7.15.0 | **更新**: 2026-10-06
 
 ## §1 基础规则
 
@@ -281,7 +281,8 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 8. **文档一致性**：`app/docs/SKILLS.md` 与 `插件系统/skills.md` 列出的内置技能必须与 BundledSkillLoader 实际数组一致，禁止虚构技能名
 9. **统一来源契约（SkillProvider）**：新增技能来源必须实现 `SkillProvider`（`skills/loaders/SkillProvider.ts`：name/list/get/invalidate，候选含 rank/locator）；Bundled/File/MCP/Plugin 四加载器 + ClawHub 适配器已实现。❌ 禁止新增"只实现 loadSkills 的来源"——统一经 `collectSkillsFromProviders` 聚合
 10. **技能注入索引全量（2026-09-01 根源修复）**：`<available_skills>` 注入必须列出**全部** prompt 型启用技能名（渐进披露仅列名，token 极小）；❌ 禁止按数量截断注入列表（曾致用户新增技能按注册顺序靠后被挤出、模型永不可见——"添加的技能死活找不到"根因）。`SkillInjectionService.maxActiveSkills` 仅作历史兼容字段，不再参与截断
-11. **`impl` 为可选（2026-09-13 V-14 类型契约收敛）**：`Skill.impl?: SkillImplementation`——**运行期允许技能无 `impl`**（`SkillRegistry.register` 历来如此，测试 mock / 部分来源技能亦可能缺失）。**所有读取方必须处理缺失分支**：展示层显示"未知/不可用"、执行器返回明确失败、校验判为不通过、需要抛错处抛 `AppError`。❌ 禁止 `!` 非空断言、`as any`、`@ts-ignore` 绕过；**`bun run typecheck` 是这条契约的强制检查点**（改回必填或新增未保护读取点即编译失败）
+11. **`impl` 为必填（2026-10-06 订正；原「可选」表述失实）**：`skills/types/index.ts` 的 `Skill.impl: SkillImplementation` **必填** —— 全部 **6 处生产构造点**均提供 `impl`（`skills/services/skillService.ts` · `skills/services/SkillInjectionService.ts` · `skills/utils/skillParser.ts` · `skills/loaders/sources/BundledSkillLoader.ts` · `skills/loaders/adapter/RemoteSkillHubAdapter.ts` · `skills/loaders/adapter/clawhub/{ClawHubConverter,ClawHubAdapter}.ts`；2026-10-06 取证）。**不存在「合法的无 `impl` 技能」**：无 `impl` 既不能展示也不能执行，无对应语义 ⇒ 读取点**无需**写缺失回退（CS03：不为生产中不可达的形态加防御）。`SkillRegistry.register` 内的 `skill.impl?.kind` **仅**为历史测试 mock 的容错（其注释所指回归用例现已不存在）。❌ 禁止 `!` 非空断言、`as any`、`@ts-ignore` 绕过类型；新增读取点以 `impl` 必填为准，`bun run typecheck` 是强制检查点
+    > ⚠️ **订正依据**：原表述（"2026-09-13 V-14 类型契约收敛：`Skill.impl?` 可选 + 所有读取方必须处理缺失 + 改回必填即编译失败"）**在代码与台账中均无落地证据**（类型始终为必填；台账无 V-14 记录）⇒ 按**代码事实**订正。取证见 `dev_docs/任务计划-20261004.md §17.4-B`。
 
 **前端展示**：`GET /v1/skills/system` 的 `source` 按真实来源映射（builtin/official/third_party/user）；`handleListSystemSkills` 用户扫描必须 `exclude:['vendor']` 避免用户/第三方混淆。
 
@@ -300,6 +301,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.15.0**: §1.15-11 **订正** —— 「`impl` 为可选（V-14 契约收敛）」**表述失实**（类型始终必填、台账无 V-14 记录、6 处生产构造点全部提供 `impl`）⇒ 改为如实表述「**`impl` 为必填**；无合法的无 `impl` 技能，读取点无需缺失回退」。取证：`dev_docs/任务计划-20261004.md §17.4-B`（来源 `.pyapp/output/技能系统缺陷排查报告.md` 复核）
 - **v7.14.0**: §1.4 增补 `A2A_*` 环境变量前缀（对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）—— 承接 A2A 对外面（P3-1 / F2，2026-09-29；分发=OS 环境变量、轮换=单钥文档化，见 `.trae/specs/a2a-external-exposure.md` §8）
 - **v7.13.0**: §1.8 日志规范口径与门禁 R11-001 对齐 —— 优先 `getLogger(module)`（默认 INFO/json，同 module 复用单例）；仅需自定义配置（level/format/source/colorize/otelTraceEnabled）时才直接构造并注明理由。同批已按此收敛 `memProfile.ts`、`MemoryPressureMonitor.ts` 两处默认形态
 - **v7.12.0**: §1.6 新增「模型可见 ⇔ 已落盘」红线（事件类型三处同步改为**编译期强制**：`ALL_SESSION_EVENT_TYPES` 清单 + 穷尽断言；`KNOWN_SESSION_EVENT_TYPES` 从清单派生）—— 对标 deepseek-harness 仓库级约束，补齐"可重建性"的制度落点（轨迹对标 P0-2）

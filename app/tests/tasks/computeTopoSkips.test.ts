@@ -7,7 +7,9 @@
  * 背景：《Agentic Design Patterns》21 模式复查 §13 A3 —— `scheduleTopoBatches` 分批
  * 只看依赖 id 是否已出批、**不看被依赖节点是否执行成功** ⇒ 前驱失败不阻断后继。
  *
- * 本批新增 `block` 传播（`dependsOnMode:'hard'`）+ 阻断原因；缺省 `soft` = 现状（零行为变化）。
+ * 本批新增 `block` 传播（`dependsOnMode:'hard'`）+ 阻断原因。
+ * **Step 2（2026-10-06，§20.6）已把有效默认翻转为 `'hard'`**（原 `'soft'`）——
+ * 逃生门 = 任务级显式 `'soft'`（分解 prompt/schema 已产出该字段）。
  * ⚠️ 第三种传播 `degrade` **未实现**（需产物级语义，见 `topoBatches.ts` 注释）。
  */
 import { describe, it, expect } from 'bun:test';
@@ -27,11 +29,40 @@ function task(
 }
 
 describe('computeTopoSkips（13-P1-1 依赖失败传播）', () => {
-  it('缺省 soft：前驱失败**不阻断**后继（= 现状零变化）', () => {
+  it('缺省 hard（Step 2 翻转 2026-10-06）：前驱失败 ⇒ 未声明 mode 的后继被阻断', () => {
     const tasks = [task('a'), task('b', ['a'])];
     const skips = computeTopoSkips(
       tasks,
       new Map<string, TopoTaskStatus>([['a', 'failed']])
+    );
+    expect(skips.get('b')).toContain('a');
+    expect(skips.get('b')).toContain('失败');
+  });
+
+  it('缺省 hard：前驱成功（ok）⇒ 不阻断（翻转不误伤正常链）', () => {
+    const tasks = [task('a'), task('b', ['a'])];
+    const skips = computeTopoSkips(
+      tasks,
+      new Map<string, TopoTaskStatus>([['a', 'ok']])
+    );
+    expect(skips.size).toBe(0);
+  });
+
+  it('任务级 soft（**逃生门**，模型按步 opt-out）⇒ 缺省翻转后仍不阻断', () => {
+    const tasks = [task('a'), task('b', ['a'], 'soft')];
+    const skips = computeTopoSkips(
+      tasks,
+      new Map<string, TopoTaskStatus>([['a', 'failed']])
+    );
+    expect(skips.size).toBe(0);
+  });
+
+  it('显式 defaultDependencyMode:soft（显式回退）⇒ 未声明 mode 的任务不阻断', () => {
+    const tasks = [task('a'), task('b', ['a'])];
+    const skips = computeTopoSkips(
+      tasks,
+      new Map<string, TopoTaskStatus>([['a', 'failed']]),
+      { defaultDependencyMode: 'soft' }
     );
     expect(skips.size).toBe(0);
   });

@@ -50,6 +50,13 @@ export const parsedSubTaskSchema = z.object({
   description: z.string().optional(),
   tier: z.string().optional(),
   dependsOn: z.array(z.string()).optional(),
+  /**
+   * 13-P1-1 Step 2（2026-10-06）：依赖模式 —— 逃生门**生产可用**（原 `hard` 仅代码层可达）。
+   * **宽进**（与同文件的 `tier` 同策略）：LLM 噪声值（`"degrade"` / `"硬"` / 带空白等）由
+   * `TaskDecomposer.normalizeDependencyMode()` 归一，非法 ⇒ `undefined`（= 用全局默认）。
+   * 不在此处判失败 —— 一个**可选新字段**的取值噪声不应把整次分解降级为单步。
+   */
+  dependsOnMode: z.string().optional(),
 });
 
 export type ParsedSubTaskJson = z.infer<typeof parsedSubTaskSchema>;

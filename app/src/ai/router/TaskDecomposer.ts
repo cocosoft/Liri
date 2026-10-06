@@ -80,8 +80,12 @@ export interface SubTask {
   /** 依赖的子任务 ID 列表（这些子任务完成后才能执行本任务） */
   dependsOn: string[];
   /**
-   * 13-P1-1（2026-10-05）：依赖模式 —— `'hard'` = 前驱失败则本步跳过（阻断传播）；
-   * `'soft'`（缺省，= 现状）= 不阻断。分解 prompt 未产出该字段 ⇒ 缺省 soft，零行为回归。
+   * 13-P1-1：依赖模式 —— `'hard'` = 前驱失败则本步跳过（阻断传播）；`'soft'` = 不阻断
+   * （前驱失败时仍执行，但会收到显式 `[DEPENDENCY_DEGRADED]` 标注，见 Step 1）。
+   *
+   * ✅ **Step 2（2026-10-06）**：分解 prompt/schema **已产出**该字段（逃生门生产可用）；
+   * **全局缺省已翻转为 `'hard'`**（`computeTopoSkips` 的有效默认值）⇒ 未声明者按阻断处理；
+   * 模型仅当"确实可在部分/缺失输入下继续"时才应显式给 `'soft'`。
    */
   dependsOnMode?: 'hard' | 'soft';
   /** 执行状态（`'skipped'` = 13-P1-1 硬依赖失败被阻断，未执行） */
@@ -111,6 +115,13 @@ Rules:
 3. Identify dependencies between subtasks (e.g., subtask B depends on subtask A's result)
 4. Assign a complexity tier to each subtask: simple, medium, complex, reasoning
 5. The overall task also gets a main tier
+6. For every subtask that has dependencies, also set "dependsOnMode":
+   - "hard" (the default): skip this subtask when any dependency fails — use it whenever the
+     subtask needs the dependency's real output to be correct
+   - "soft": run this subtask anyway when a dependency fails — use it ONLY when the subtask can
+     legitimately proceed with partial or missing input (e.g. optional enrichment or best-effort
+     context gathering). A soft subtask receives an explicit [DEPENDENCY_DEGRADED] notice.
+   Omitting the field accepts the default ("hard").
 
 Respond with ONLY a JSON object:
 {
@@ -121,7 +132,8 @@ Respond with ONLY a JSON object:
       "id": "step-1",
       "description": "clear description of what this subtask does",
       "tier": "simple|medium|complex|reasoning",
-      "dependsOn": []
+      "dependsOn": [],
+      "dependsOnMode": "hard"
     }
   ]
 }
@@ -250,6 +262,8 @@ export class TaskDecomposer {
           description: st.description || st.name || `步骤 ${index + 1}`,
           tier: this.normalizeTier(st.tier || ''),
           dependsOn: st.dependsOn ?? [],
+          // 13-P1-1 Step 2（2026-10-06）：透传模型给出的依赖模式（逃生门）；缺省/噪声 ⇒ undefined
+          dependsOnMode: this.normalizeDependencyMode(st.dependsOnMode),
           status: 'pending' as const,
         }));
 
@@ -277,5 +291,19 @@ export class TaskDecomposer {
       return normalized as RouterTier;
     }
     return 'medium';
+  }
+
+  /**
+   * 归一化依赖模式（13-P1-1 Step 2）。
+   *
+   * 与 `normalizeTier` 同策略：**宽进** —— LLM 取值噪声（大小写/空白/未识别词）不判失败，
+   * 未识别 ⇒ `undefined`（由 `computeTopoSkips` 的全局默认 `'hard'` 决定），
+   * 避免一个可选字段的噪声把整次分解降级为单步。
+   */
+  private normalizeDependencyMode(mode?: string): 'hard' | 'soft' | undefined {
+    const normalized = mode?.toLowerCase().trim();
+    return normalized === 'hard' || normalized === 'soft'
+      ? normalized
+      : undefined;
   }
 }

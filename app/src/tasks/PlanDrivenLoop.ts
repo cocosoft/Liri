@@ -155,6 +155,17 @@ function pdlRunTokenCap(): number {
   return Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
+/**
+ * 13-P1-1：被依赖阻断（未执行）的步骤明细。
+ * 供 `PlanDrivenLoopResult` 回灌——`PdcaLauncher` 据此落**模型可见**的会话消息（Step 2）。
+ */
+export interface BlockedStepInfo {
+  stepId: string;
+  description: string;
+  /** 阻断原因（`[DEPENDENCY_BLOCKED]` 原因部分，来自 `computeTopoSkips`） */
+  reason: string;
+}
+
 /** PlanDrivenLoop 运行结果 */
 export interface PlanDrivenLoopResult {
   /** 最终汇总文本 */
@@ -167,6 +178,10 @@ export interface PlanDrivenLoopResult {
   completedSteps: number;
   /** 失败子任务数 */
   failedSteps: number;
+  /** 13-P1-1：因依赖阻断**未执行**的子任务数（plan 步 `cancelled`；不计入 completed/failed） */
+  skippedSteps: number;
+  /** 13-P1-1：被阻断步骤明细（模型可见回灌的载体，见 `BlockedStepInfo`） */
+  blockedSteps: BlockedStepInfo[];
   /** 是否被用户中止（abort 不抛错、run 正常返回；上游据此写中止终态而非 completed） */
   aborted?: boolean;
   /** run 级 token 预算耗尽（成本护栏中止；上游按 failed 收尾而非 completed） */
@@ -763,11 +778,15 @@ export class PlanDrivenLoop {
       dependsOnMode: t.dependsOnMode,
     }));
     const topoBatches = scheduleTopoBatches(topoTaskShapes);
-    // 13-P1-1（2026-10-05）：依赖状态簿 —— 前批产出写入；仅显式 `dependsOnMode:'hard'` 的任务
-    // 会被 `computeTopoSkips` 阻断 ⇒ 缺省 soft 时 `depSkips` 恒空，**行为与现状完全一致**。
+    // 13-P1-1（2026-10-05）：依赖状态簿 —— 前批产出写入。
+    // ✅ Step 2（2026-10-06，§20.6）：`computeTopoSkips` 的**有效默认已翻转为 `hard`**
+    //    ⇒ 未声明 `dependsOnMode` 的步骤在前驱失败/被阻断时**会**被阻断（fail-closed）；
+    //    逃生门 = 模型在分解结果里按步显式声明 `'soft'`（此时走 Step 1 的显式降级标注）。
     const depStatusById = new Map<string, TopoTaskStatus>();
     // P0-1：每步真实产出捕获（stepId → 末条 assistant 文本），供前驱注入/审计/重试引用
     const stepOutputs = new Map<string, string>();
+    // 13-P1-1 Step 2（2026-10-06，§20.6）：被阻断步骤明细 —— 回灌为模型可见内容（见 `_buildResult`）
+    const blockedSteps: BlockedStepInfo[] = [];
 
     // B5（架构归一 Step4）：计划已创建，进入执行前切回 phase:'execute'。
     if (this.taskId) {
@@ -805,6 +824,12 @@ export class PlanDrivenLoop {
           depStatusById.set(topoTask.id, 'skipped');
           subtasks[i].status = 'skipped';
           subtasks[i].result = `[DEPENDENCY_BLOCKED] ${skipReason}`;
+          // Step 2（2026-10-06）：登记明细 ⇒ 随 result 回灌为**模型可见**内容（原只落 plan/SSE）
+          blockedSteps.push({
+            stepId,
+            description: subtasks[i].description,
+            reason: skipReason,
+          });
           taskOrchestrator.markStepCancelled(
             stepId,
             `[DEPENDENCY_BLOCKED] ${skipReason}`
@@ -947,7 +972,12 @@ export class PlanDrivenLoop {
       }
     );
 
-    return this._buildResult(true, this.stepResults);
+    return this._buildResult(
+      true,
+      this.stepResults,
+      subtasks.length,
+      blockedSteps
+    );
   }
 
   /**
@@ -1357,20 +1387,33 @@ export class PlanDrivenLoop {
   /** 构建最终结果 */
   private _buildResult(
     decomposed: boolean,
-    stepResults: StepResult[]
+    stepResults: StepResult[],
+    totalSteps: number = stepResults.length,
+    blockedSteps: readonly BlockedStepInfo[] = []
   ): PlanDrivenLoopResult {
     const completed = stepResults.filter((r) => r.state === 'completed').length;
     const failed = stepResults.filter((r) => r.state === 'failed').length;
+    const blocked = blockedSteps.length;
 
     let summary: string;
     if (decomposed) {
       // 轮数/总 token 等内部指标不进入 summary（用户可见），仅留在 StepResult 字段与日志
+      // 13-P1-1 Step 2（2026-10-06）：分母改用**真实子任务数**——被阻断步骤不进 stepResults，
+      // 原 `stepResults.length` 会把"2/4 被阻断"粉饰成"2/2 步骤成功"（CS06：不粉饰）。
       const parts = [
-        `任务分解执行完成：${completed}/${stepResults.length} 步骤成功`,
+        `任务分解执行完成：${completed}/${totalSteps} 步骤成功`,
         failed > 0 ? `，${failed} 步骤失败` : '',
+        blocked > 0 ? `，${blocked} 步骤因依赖阻断未执行` : '',
         `。总耗时 ${((Date.now() - this.startTime) / 1000).toFixed(1)}s`,
       ];
       summary = parts.join('');
+      // 13-P1-1 Step 2：**阻断原因回灌** —— `[DEPENDENCY_BLOCKED]` 原先只落 plan 步 + SSE
+      // （用户可见），模型侧完全不可见（F8 取证）⇒ 随 summary 进入会话消息。
+      if (blocked > 0) {
+        summary += `\n[依赖阻断明细]\n${blockedSteps
+          .map((b) => `- ${b.description}：${b.reason}`)
+          .join('\n')}`;
+      }
     } else {
       summary = stepResults[0]?.output || '任务完成';
     }
@@ -1381,6 +1424,8 @@ export class PlanDrivenLoop {
       stepCount: stepResults.length,
       completedSteps: completed,
       failedSteps: failed,
+      skippedSteps: blocked,
+      blockedSteps: [...blockedSteps],
       aborted: this.aborted,
       budgetExhausted: this.budgetExhausted,
       totalDurationMs: Date.now() - this.startTime,

@@ -4,6 +4,9 @@
 // S0 行为冻结（2026-08-13）：复杂度判定结构化（CS02）+ 子任务上限唯一来源
 // S3（2026-08-13）：快速路径准入（isEligibleForFastPath：复杂度门 + 危险工具过滤）
 import { describe, it, expect } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   buildPredecessorSummary,
   classifyTaskComplexity,
@@ -20,6 +23,9 @@ import type { TAORLoop } from '../../src/query/TAORLoop';
 import type { TAORLoopDeps } from '../../src/query/TAORLoop';
 // 13-P2-2（2026-10-05）：行为反馈回流
 import { TaskOutcomeLedger } from '../../src/tasks/behaviorFeedback';
+// 13-P1-1 Step 2：分解路径（PDL 阻断行为）+ 计划持久化隔离
+import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
+import type { AIProvider } from '../../src/ai/providers/AIProvider';
 
 describe('classifyTaskComplexity — 结构化判定（无正则）', () => {
   it('空/空白消息判定为 complex（不误入快速路径）', () => {
@@ -285,5 +291,93 @@ describe('13-P1-1 Step 1: soft 路径依赖降级显式标注（buildPredecessor
     ];
     const { summary } = buildPredecessorSummary(probes);
     expect(summary).toBe(`- 步骤A：${'x'.repeat(500)}`);
+  });
+});
+
+// ── 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：缺省 hard 翻转后的 PDL 行为 ──
+// 覆盖三件事：① 前驱失败 ⇒ 后继**被阻断且不执行**（缺省 hard）；
+//   ② `result.blockedSteps/skippedSteps` 暴露明细（供 PdcaLauncher 回灌模型）；
+//   ③ `summary` 分母用**真实子任务数**且含阻断原因（原实现把"1/2 被阻断"显示成"1/1 成功"）。
+describe('13-P1-1 Step 2: 缺省 hard 翻转后 PDL 阻断行为', () => {
+  it('前驱失败 ⇒ 后继被阻断（不执行）、blockedSteps 有值、summary 含原因', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'pdl-step2-'));
+    const prevDataDir = process.env.LIRI_DATA_DIR;
+    process.env.LIRI_DATA_DIR = dataDir;
+    // 计划持久化隔离（默认写 ~/.pyapp/data/plans/）
+    taskOrchestrator.setPlansDir(join(dataDir, 'plans'));
+
+    // 假 TAORLoop：任何一步都失败（前驱失败 ⇒ 后继应被阻断 ⇒ 不应该有第 2 个不同的步骤执行）
+    let runCount = 0;
+    const loop = {
+      reset: () => {},
+      runCollect: async () => {
+        runCount += 1;
+        throw new Error('simulated step failure');
+      },
+      getLastAssistantText: () => '',
+    } as unknown as TAORLoop;
+
+    const provider = {
+      id: 'test-provider',
+      displayName: 'Test Provider',
+      chat: async () => ({
+        content: JSON.stringify({
+          mainTier: 'complex',
+          reasoning: 'r',
+          subTasks: [
+            { id: 'step-1', description: '步骤A' },
+            { id: 'step-2', description: '步骤B', dependsOn: ['step-1'] },
+          ],
+        }),
+        model: 'test-model',
+      }),
+      listModels: async () => [],
+      validateConfig: () => ({ valid: true, errors: [] }),
+    } as unknown as AIProvider;
+
+    try {
+      const pdl = new PlanDrivenLoop({
+        taorLoop: loop,
+        deps: {} as TAORLoopDeps,
+        sessionId: 's-step2',
+        enableAutoDecompose: true,
+        decomposerProvider: provider,
+        // 注入判据：阈值压到 10 ⇒ 本消息必为 complex（走分解，不进快速路径）
+        fastPathPolicy: {
+          maxSimpleTaskLength: 10,
+          dangerousIntentPatterns: [],
+        },
+      });
+      const result = await pdl.run(
+        '这是一个足够长的复杂任务描述，用于强制走分解路径而不是快速路径'
+      );
+
+      // ① 仅前驱被执行（1 次 + P0-2 重试 1 次）；后继被阻断，从未进入执行
+      expect(runCount).toBe(2);
+      expect(result.skippedSteps).toBe(1);
+      // ② 明细可被上游（PdcaLauncher）消费回灌
+      expect(result.blockedSteps).toHaveLength(1);
+      expect(result.blockedSteps[0]!.description).toBe('步骤B');
+      expect(result.blockedSteps[0]!.reason).toContain('step-1');
+      // ③ 分母为真实子任务数（2），且阻断原因可见
+      expect(result.summary).toContain('0/2 步骤成功');
+      expect(result.summary).toContain('1 步骤因依赖阻断未执行');
+      expect(result.summary).toContain('[依赖阻断明细]');
+      expect(result.summary).toContain('步骤B');
+    } finally {
+      if (prevDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+      else process.env.LIRI_DATA_DIR = prevDataDir;
+      // app.db 句柄可能未即时释放（Windows EBUSY）⇒ 重试删除，且清理失败不影响断言结果
+      try {
+        rmSync(dataDir, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+      } catch {
+        /* 临时目录清理失败不影响测试结论 */
+      }
+    }
   });
 });

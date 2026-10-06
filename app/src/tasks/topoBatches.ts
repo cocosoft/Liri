@@ -38,25 +38,17 @@ export interface TopoBatchTask {
   id: string;
   dependsOn?: string[];
   /**
-   * 13-P1-1（2026-10-05，《Agentic Design Patterns》21 模式复查 A3）：
-   * 本任务对其 `dependsOn` 的处理模式。
-   * - `'hard'`：任一前驱 `failed`/`skipped` ⇒ 本任务**跳过**（`block` 传播，fail-closed）
-   * - `'soft'`（缺省，= 现状）：**不阻断**（`continue` 传播；调用方可自行消费降级产物）
+   * 13-P1-1（《Agentic Design Patterns》21 模式复查 A3）：本任务对其 `dependsOn` 的处理模式。
+   * - `'hard'`（**缺省**，Step 2 起）：任一前驱 `failed`/`skipped` ⇒ 本任务**跳过**（`block` 传播，fail-closed）
+   * - `'soft'`：**不阻断**（`continue` 传播）—— 前驱失败时本任务仍执行，但会收到显式
+   *   `[DEPENDENCY_DEGRADED]` 标注（Step 1）；仅当"可在部分/缺失输入下继续"时才应使用
    *
-   * ⚠️ 与复查建议的差异（如实）：建议"默认 `hard`、先用开关"；本仓取**默认 `soft` + 任务级 opt-in**，
-   * 理由 = 零行为回归（两处调用方 `PlanDrivenLoop`/`OrchEngine` 现有语义不变）。
-   *
-   * ✅ **迁移评估已完成（2026-10-06，`dev_docs/任务计划-20261004.md` §20.6）**：
-   * 结论 = **应当翻转，但"不能单独翻转"**（须先消除 soft 的"静默降级"、并让模型可**按步** opt-out 后同批翻转）。
-   *
-   * ⚠️ **当前 `hard` 在生产不可达**（同批取证）：分解 prompt **不产出**本字段、无 config/UI/env 开关、
-   * 调用方也未传 `defaultDependencyMode` ⇒ 本分支**仅测试可达**。
-   * 因此**不得**据本字段的存在推断"A3 缺陷已修复"—— soft 路径仍**不阻断**后继。
-   *
-   * ✅ **Step 1 已落地（2026-10-06，§20.6）**：soft 下的降级不再**静默** —— 前驱 `failed`/`skipped`
-   * 时下游注入 `[DEPENDENCY_DEGRADED]` 标注行并留痕于 plan 步 result
-   * （`PlanDrivenLoop.buildPredecessorSummary`）；**阻断语义与默认值未变**。
-   * ⏳ 仍缺 **Step 2**（默认翻 `hard` + 模型可按步 opt-out + F8"阻断回灌模型"取证）。
+   * ✅ **Step 1 + Step 2 均已落地（2026-10-06，`dev_docs/任务计划-20261004.md` §20.6）**：
+   * - **Step 1**：soft 降级不再静默 —— `PlanDrivenLoop.buildPredecessorSummary` 注入
+   *   `[DEPENDENCY_DEGRADED]` 并留痕于 plan 步 result。
+   * - **Step 2**：**全局默认翻转为 `'hard'`**（`computeTopoSkips` 的有效默认值）；分解
+   *   prompt/schema 产出本字段（`decompositionSchema.parsedSubTaskSchema`）⇒ 逃生门**生产可用**；
+   *   被阻断步骤经 `PlanDrivenLoopResult.blockedSteps` 回灌为**模型可见**的会话消息（`PdcaLauncher`）。
    */
   dependsOnMode?: TopoDependencyMode;
 }
@@ -76,6 +68,9 @@ export type TopoDependencyMode = 'hard' | 'soft';
  * - 引用不存在的前驱 ⇒ 视为满足（与 `scheduleTopoBatches` 的自愈口径一致）；
  * - ⚠️ 第三种传播 `degrade`（用降级产物继续）**未实现** —— 需产物级语义，本纯函数层不具备；如实记录。
  *
+ * @param opts.defaultDependencyMode 未声明 `dependsOnMode` 的任务沿用此默认。
+ *   ⚠️ **Step 2（2026-10-06，§20.6）起默认值为 `'hard'`**（翻转；原为 `'soft'`）——
+ *   逃生门由**模型按步显式声明 `'soft'`** 承担（分解 prompt/schema 已产出该字段）。
  * @returns taskId → 跳过原因（未跳过的任务无条目）
  */
 export function computeTopoSkips<T extends TopoBatchTask>(
@@ -83,7 +78,7 @@ export function computeTopoSkips<T extends TopoBatchTask>(
   statusById: ReadonlyMap<string, TopoTaskStatus>,
   opts?: { defaultDependencyMode?: TopoDependencyMode }
 ): Map<string, string> {
-  const defaultMode: TopoDependencyMode = opts?.defaultDependencyMode ?? 'soft';
+  const defaultMode: TopoDependencyMode = opts?.defaultDependencyMode ?? 'hard';
   const byId = new Set(tasks.map((t) => t.id));
   const skips = new Map<string, string>();
 

@@ -161,3 +161,62 @@ describe('M1 TaskDecomposer 接线 — 畸形 ⇒ 降级单步', () => {
     expect(result.reasoning).toContain('简单模式');
   });
 });
+
+// 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：逃生门生产可用 ——
+// 分解 prompt/schema 产出 `dependsOnMode`，使模型能**按步**选择 soft（opt-out）。
+describe('13-P1-1 Step 2: dependsOnMode 结构校验与接线', () => {
+  it('合法值 hard / soft ⇒ ok:true（原样透传）', () => {
+    const shape = validateDecompositionShape(
+      {
+        subTasks: [
+          { id: 'a', description: 'A', dependsOnMode: 'hard' },
+          {
+            id: 'b',
+            description: 'B',
+            dependsOn: ['a'],
+            dependsOnMode: 'soft',
+          },
+        ],
+      },
+      5
+    );
+    expect(shape.ok).toBe(true);
+    if (!shape.ok) return;
+    expect(shape.data.subTasks[0]!.dependsOnMode).toBe('hard');
+    expect(shape.data.subTasks[1]!.dependsOnMode).toBe('soft');
+  });
+
+  it('未识别取值 ⇒ 仍 ok:true（**宽进**，与 tier 同策略：不因取值噪声判整次分解失败）', () => {
+    const shape = validateDecompositionShape(
+      { subTasks: [{ id: 'a', description: 'A', dependsOnMode: 'degrade' }] },
+      5
+    );
+    expect(shape.ok).toBe(true);
+  });
+
+  it('TaskDecomposer 归一：soft 保留（含大小写/空白）、噪声值 ⇒ undefined（走全局默认）', async () => {
+    const decomposer = new TaskDecomposer(
+      null,
+      fakeProvider(
+        JSON.stringify({
+          mainTier: 'complex',
+          reasoning: 'r',
+          subTasks: [
+            { id: 'step-1', description: 'A', dependsOnMode: ' SOFT ' },
+            {
+              id: 'step-2',
+              description: 'B',
+              dependsOn: ['step-1'],
+              dependsOnMode: 'degrade',
+            },
+            { id: 'step-3', description: 'C' },
+          ],
+        })
+      )
+    );
+    const result = await decomposer.decompose('do something');
+    expect(result.subTasks[0]!.dependsOnMode).toBe('soft');
+    expect(result.subTasks[1]!.dependsOnMode).toBeUndefined();
+    expect(result.subTasks[2]!.dependsOnMode).toBeUndefined();
+  });
+});

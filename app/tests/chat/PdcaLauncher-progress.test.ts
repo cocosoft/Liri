@@ -103,3 +103,106 @@ describe('P2-C: PDCA 进度回写失败补 warn 日志', () => {
     expect(calls.some((c) => c[0] === 'PDCA 进度回写失败')).toBe(true);
   });
 });
+
+// ── 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：阻断结果回灌 ──
+// 取证（F8）：被阻断步骤原先只落 plan 步 `cancelled` + SSE（用户可见），**模型侧完全不可见**。
+// 本批要求：`run()` 返回 `blockedSteps` 时，PdcaLauncher 落一条**模型可见**的助手消息
+// （复用既有 `pdca-progress` 通道 ⇒ 落盘后进入后续轮次上下文）。
+class FakeBlockedPlanDrivenLoop {
+  static result: Record<string, unknown> = {};
+  constructor(_config: Record<string, unknown>) {}
+  async run(): Promise<Record<string, unknown>> {
+    return FakeBlockedPlanDrivenLoop.result;
+  }
+}
+
+describe('13-P1-1 Step 2: 依赖阻断结果回灌会话（模型可见）', () => {
+  let dataDir: string;
+
+  beforeAll(() => {
+    // writePdcaCheckpoint 写 ~/.pyapp/data/pdca/ —— 隔离到独立临时目录
+    dataDir = mkdtempSync(join(tmpdir(), 'pdca-launcher-blocked-'));
+    process.env.LIRI_DATA_DIR = dataDir;
+  });
+
+  afterAll(async () => {
+    const { closePdcaCheckpointStore } =
+      await import('../../src/tasks/PdcaWorkItemBridge.js');
+    closePdcaCheckpointStore();
+    delete process.env.LIRI_DATA_DIR;
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  type PersistedMsg = {
+    content: string;
+    metadata?: Record<string, unknown>;
+  };
+
+  function makeDeps(persisted: PersistedMsg[]): PdcaLauncherDeps {
+    return {
+      enablePlanDrivenLoop: true,
+      taorLoopFactory: () => ({}) as never,
+      buildTAORContext: () => ({}),
+      sessionMap: new Map(),
+      messageService: {
+        createAssistantMessage: (
+          content: string,
+          opts?: { metadata?: Record<string, unknown> }
+        ) => ({ content, metadata: opts?.metadata }),
+      },
+      persistMessage: (_sessionId: string, msg: PersistedMsg) => {
+        persisted.push(msg);
+      },
+      planLoopFactory: (config: Record<string, unknown>) =>
+        new FakeBlockedPlanDrivenLoop(config) as unknown as PlanDrivenLoop,
+    } as unknown as PdcaLauncherDeps;
+  }
+
+  it('blockedSteps 非空 ⇒ 落一条含阻断原因的助手消息（taskType=pdca-progress）', async () => {
+    FakeBlockedPlanDrivenLoop.result = {
+      aborted: false,
+      budgetExhausted: false,
+      decomposed: true,
+      stepCount: 2,
+      completedSteps: 1,
+      failedSteps: 1,
+      skippedSteps: 1,
+      blockedSteps: [
+        { stepId: 'step-3', description: '步骤C', reason: '前驱 a 执行失败' },
+      ],
+      totalDurationMs: 1,
+    };
+    const persisted: PersistedMsg[] = [];
+    const launcher = new PdcaLauncher(makeDeps(persisted));
+
+    await launcher.launch('proj1', 'desc', 'sess1', undefined, true);
+
+    const blockedMsg = persisted.find((m) => m.content.includes('依赖阻断'));
+    expect(blockedMsg).toBeDefined();
+    expect(blockedMsg?.content).toContain('步骤C');
+    expect(blockedMsg?.content).toContain('前驱 a 执行失败');
+    // 复用既有进度通道 ⇒ 前端渲染与模型可见性都不依赖新类型
+    expect(blockedMsg?.metadata?.taskType).toBe('pdca-progress');
+    expect(blockedMsg?.metadata?.isTaskMessage).toBe(true);
+  });
+
+  it('blockedSteps 为空 ⇒ 不额外落阻断消息（零回归）', async () => {
+    FakeBlockedPlanDrivenLoop.result = {
+      aborted: false,
+      budgetExhausted: false,
+      decomposed: true,
+      stepCount: 1,
+      completedSteps: 1,
+      failedSteps: 0,
+      skippedSteps: 0,
+      blockedSteps: [],
+      totalDurationMs: 1,
+    };
+    const persisted: PersistedMsg[] = [];
+    const launcher = new PdcaLauncher(makeDeps(persisted));
+
+    await launcher.launch('proj1', 'desc', 'sess2', undefined, true);
+
+    expect(persisted.some((m) => m.content.includes('依赖阻断'))).toBe(false);
+  });
+});

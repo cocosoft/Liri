@@ -287,6 +287,38 @@ export class PdcaLauncher {
               failedSteps: result.failedSteps,
               totalDurationMs: result.totalDurationMs,
             });
+            // 13-P1-1 Step 2（2026-10-06，`任务计划-20261004.md` §20.6）：**阻断结果回灌模型**。
+            // 取证（F8）：被阻断步骤原先只落 plan 步 `cancelled` + SSE 广播（**用户**可见），
+            // 模型侧完全不可见 ⇒ 模型无法据此重规划。此处改以助手消息**落盘**（复用既有
+            // pdca-progress 通道）—— 落盘后即进入后续轮次的模型上下文（§1.6 模型可见 ⇔ 已落盘）。
+            if (result.blockedSteps.length > 0) {
+              try {
+                this.deps.persistMessage(
+                  sessionId,
+                  this.deps.messageService.createAssistantMessage(
+                    `⛔ 依赖阻断：${result.blockedSteps.length} 步未执行\n${result.blockedSteps
+                      .map((b) => `- ${b.description}：${b.reason}`)
+                      .join('\n')}`,
+                    {
+                      sessionId,
+                      metadata: {
+                        taskId,
+                        isTaskMessage: true,
+                        taskType: 'pdca-progress',
+                      },
+                    }
+                  )
+                );
+              } catch (error) {
+                // @ignore-catch：回灌消息写入失败**不得**改变任务终态（下方 catch 会把任务误标 failed）
+                logger.warn('依赖阻断回灌消息写入失败', {
+                  sessionId,
+                  taskId,
+                  blocked: result.blockedSteps.length,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            }
           } catch (e) {
             await writePdcaCheckpoint(taskId, {
               taskId,

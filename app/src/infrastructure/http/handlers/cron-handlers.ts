@@ -19,35 +19,68 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-101，`tasks` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type { CronJobRecord } from '@modules/runtime/api/taskOpsPorts';
+
+/** 前端 CronTask 响应格式（`jobToCronTask` 的产物） */
+interface CronTaskResponse {
+  id: string | undefined;
+  name: string | undefined;
+  expression: string;
+  description: string | undefined;
+  prompt: string;
+  enabled: boolean;
+  scheduleMode: string;
+  scheduleDisplay: unknown;
+  silent: boolean;
+  lastRun: number | undefined;
+  nextRun: number | undefined;
+  lastDurationMs: undefined;
+  lastStatus: unknown;
+  lastError: unknown;
+  consecutiveErrors: number;
+  model: unknown;
+  provider: unknown;
+  status: 'running' | 'error' | 'idle';
+}
+
+/**
+ * 调度输入 —— `parseSchedule()` 的三种形态，叠加本处理器按 `scheduleMode`
+ * 覆盖后的字段（`interval` / `minutes`）。
+ */
+type CronScheduleInput = {
+  kind: string;
+  expr?: string | undefined;
+  display?: string | undefined;
+  minutes?: number | undefined;
+};
 
 /** 将 CronJob 转为前端 CronTask 响应格式 */
-function jobToCronTask(job: any): any {
+function jobToCronTask(job: CronJobRecord): CronTaskResponse {
   const ms = (iso: string | undefined) =>
     iso ? new Date(iso).getTime() : undefined;
+  const schedule = job.schedule ?? {};
   return {
     id: job.id,
     name: job.name,
-    expression: job.schedule?.expr ?? '',
+    expression: (schedule.expr as string | undefined) ?? '',
     description: job.prompt ?? job.name,
     prompt: job.prompt || '',
     enabled: job.enabled ?? true,
-    scheduleMode: job.schedule?.kind ?? 'cron',
-    scheduleDisplay: job.schedule?.display ?? job.scheduleDisplay,
+    scheduleMode: (schedule.kind as string | undefined) ?? 'cron',
+    scheduleDisplay: schedule.display ?? job.scheduleDisplay,
     silent: job.silent ?? false,
     lastRun: ms(job.lastRunAt),
     nextRun: ms(job.nextRunAt),
     lastDurationMs: undefined,
-    lastStatus: job.lastStatus ?? undefined,
-    lastError: job.lastError ?? undefined,
-    consecutiveErrors: job.consecutiveErrors ?? 0,
+    lastStatus: job.lastStatus,
+    lastError: job.lastError,
+    consecutiveErrors: (job.consecutiveErrors as number | undefined) ?? 0,
     model: job.model,
     provider: job.provider,
     status:
@@ -75,7 +108,7 @@ export async function handleListCron(
     const store = await taskOps.createCronJobStore();
     await store.init();
     const jobs = await store.loadJobs();
-    const result = jobs.map((j: any) => jobToCronTask(j));
+    const result = jobs.map((j) => jobToCronTask(j));
     await store.close();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
@@ -94,21 +127,16 @@ export async function handleCreateCron(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const rawBody: Record<string, any> = JSON.parse(body);
-    const {
-      name,
-      expression,
-      description,
-      prompt: bodyPrompt,
-      enabled,
-      scheduleMode,
-      silent,
-      deliver,
-      model,
-      provider,
-    } = rawBody;
-    const cronExpr = (expression || rawBody.cron || '').trim();
-    const jobName = (name || rawBody.prompt || cronExpr || 'Untitled').trim();
+    const rawBody = JSON.parse(body) as Record<string, unknown>;
+    /** 请求体中取字符串（非字符串一律视为空 ⇒ 边界归一化） */
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+    const name = str(rawBody.name);
+    const expression = str(rawBody.expression);
+    const description = str(rawBody.description);
+    const bodyPrompt = str(rawBody.prompt);
+    const { enabled, scheduleMode, silent, deliver, model, provider } = rawBody;
+    const cronExpr = (expression || str(rawBody.cron)).trim();
+    const jobName = (name || bodyPrompt || cronExpr || 'Untitled').trim();
     const jobPrompt = (bodyPrompt || description || jobName).trim();
 
     if (!cronExpr && !jobName) {
@@ -122,7 +150,7 @@ export async function handleCreateCron(
     const { parseSchedule } = await import('@modules/chronos');
     const taskOps = await getCoreAPI().getTaskOpsPort();
 
-    const parsed: any = parseSchedule(cronExpr) || {
+    const parsed: CronScheduleInput = parseSchedule(cronExpr) ?? {
       kind: 'cron',
       expr: cronExpr,
       display: cronExpr,
@@ -131,14 +159,16 @@ export async function handleCreateCron(
     // 根据 scheduleMode 覆盖调度解析
     if (scheduleMode === 'every') {
       parsed.kind = 'interval';
-      parsed.minutes = parseInt(rawBody.everyValue, 10) || 30;
+      parsed.minutes = parseInt(String(rawBody.everyValue), 10) || 30;
       parsed.expr = undefined;
     } else if (scheduleMode === 'at') {
       parsed.kind = 'cron';
-      parsed.expr = `${rawBody.atMinute || '00'} ${rawBody.atHour || '14'} * * *`;
+      parsed.expr = `${String(rawBody.atMinute || '00')} ${String(
+        rawBody.atHour || '14'
+      )} * * *`;
     }
 
-    const job: any = {
+    const job: CronJobRecord = {
       id: `cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: jobName,
       prompt: jobPrompt,
@@ -147,7 +177,7 @@ export async function handleCreateCron(
       enabled: enabled !== false,
       state: 'scheduled',
       createdAt: new Date().toISOString(),
-      silent: silent ?? false,
+      silent: typeof silent === 'boolean' ? silent : false,
       deliver: deliver ?? 'local',
       model: model ?? undefined,
       provider: provider ?? undefined,

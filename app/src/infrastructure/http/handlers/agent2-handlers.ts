@@ -19,12 +19,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error';
+
+/**
+ * 任务消息**可选能力探测**（duck typing，替代原 `as any`）。
+ *
+ * ⚠️ 实测（2026-10-06）：当前实现**均未提供**这些方法 ——
+ * `sendTaskMessage` 全仓零定义、`Coordinator` 只有 `getTaskStatus()` 而无 `getTask()`
+ * ⇒ 两条探测**当前恒失败**，`handleAgentTaskChat` 恒返回 `(Agent未响应)` 兜底。
+ * 此处仅按结构类型如实表达"探测意图"，待目标方法补齐后自动生效。
+ */
+interface TaskMessageSender {
+  sendTaskMessage?: (
+    taskId: string,
+    message: string
+  ) => string | undefined | Promise<string | undefined>;
+}
+
+interface TaskLookup {
+  getTask?: (taskId: string) => unknown;
+}
+
+interface MessageEndpoint {
+  sendMessage: (message: string) => string | Promise<string>;
+}
 
 // ========== Agent2 Handlers ==========
 
@@ -256,13 +277,14 @@ export async function handleAgentTaskChat(
     let reply = '';
     try {
       const coreAPI = getCoreAPI();
-      reply = (await (coreAPI as any).sendTaskMessage?.(taskId, message)) || '';
+      const sender = coreAPI as unknown as TaskMessageSender;
+      reply = (await sender.sendTaskMessage?.(taskId, message)) || '';
     } catch {
       // 降级：通过 executor 直接执行
       const { coordinator } = await import('@modules/core/Coordinator');
-      const task = (coordinator as any).getTask(taskId);
-      if (task && typeof (task as any).sendMessage === 'function') {
-        reply = await (task as any).sendMessage(message);
+      const task = (coordinator as unknown as TaskLookup).getTask?.(taskId);
+      if (task && typeof (task as MessageEndpoint).sendMessage === 'function') {
+        reply = await (task as MessageEndpoint).sendMessage(message);
       }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });

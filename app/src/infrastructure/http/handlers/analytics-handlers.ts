@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 /**
  * analytics-handlers.ts — 分析面板、成本统计、健康报告处理器（从 LocalHTTPService 提取）
  */
@@ -43,6 +41,23 @@ import type {
 } from '@modules/runtime/api/queryOpsPorts';
 
 const logger = getLogger('infrastructure:http:handlers:analytics-handlers');
+
+/**
+ * 埋点事件的**最小读取面**。
+ *
+ * `analyticsService.getEvents()` 端口声明为 `unknown[]`（见下方注入类型）
+ * ⇒ 此处按结构收窄，替代原 `(e: any)` 标注。
+ */
+interface AnalyticsEventLike {
+  type?: string;
+  name?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** 将 `unknown` 事件收窄到最小读取面（仅类型层断言，无运行期改行为） */
+function asEvent(e: unknown): AnalyticsEventLike {
+  return e as AnalyticsEventLike;
+}
 
 // ── 依赖注入（由 LocalHTTPService 在构造时注入） ─────────────────
 
@@ -217,21 +232,23 @@ export async function handleAnalyticsDashboard(
     const events = analyticsService!.getEvents();
     const stats = analyticsService!.getStats();
 
-    const toolEvents = events.filter((e: any) =>
-      ['tool_call', 'tool_execute', 'tool_result'].includes(e.type)
+    const toolEvents = events.filter((e) =>
+      ['tool_call', 'tool_execute', 'tool_result'].includes(
+        asEvent(e).type ?? ''
+      )
     );
-    const errorEvents = events.filter((e: any) =>
-      ['error', 'api_error'].includes(e.type)
+    const errorEvents = events.filter((e) =>
+      ['error', 'api_error'].includes(asEvent(e).type ?? '')
     );
-    const perfEvents = events.filter((e: any) => e.type === 'performance');
-    const llmEvents = events.filter((e: any) =>
+    const perfEvents = events.filter((e) => asEvent(e).type === 'performance');
+    const llmEvents = events.filter((e) =>
       [
         'llm_request',
         'api_call',
         'api_retry',
         'query_start',
         'query_complete',
-      ].includes(e.type)
+      ].includes(asEvent(e).type ?? '')
     );
 
     // 工具调用统计
@@ -269,9 +286,9 @@ export async function handleAnalyticsDashboard(
 
     // 延迟数据
     const latencies = perfEvents
-      .map((e: any) => e.metadata?.metricValue)
-      .filter((v: any) => typeof v === 'number' && v > 0)
-      .sort((a: number, b: number) => a - b);
+      .map((e) => asEvent(e).metadata?.metricValue)
+      .filter((v): v is number => typeof v === 'number' && v > 0)
+      .sort((a, b) => a - b);
 
     if (performanceMonitorService) {
       const perfService = performanceMonitorService.getInstance();

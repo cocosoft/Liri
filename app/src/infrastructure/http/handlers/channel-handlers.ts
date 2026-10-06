@@ -19,8 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
-
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { getLogger, getMetricsService } from '@modules/monitoring';
@@ -28,6 +26,7 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { messageTraceBuffer } from '@modules/channels';
 import { getChannelCatalogEntry } from '@modules/channels/ChannelCatalog';
+import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 
 const logger = getLogger('infrastructure:http:handlers:channel-handlers');
 
@@ -60,7 +59,7 @@ export async function handleListChannels(
       await import('@modules/channels/setupChannels');
 
     // 已注册通道 → map
-    const registeredMap = new Map<string, any>();
+    const registeredMap = new Map<string, Record<string, unknown>>();
     for (const ch of channelRegistry.getAll()) {
       const cfg = channelRegistry.getConfig(ch.name);
       registeredMap.set(ch.name, {
@@ -69,30 +68,32 @@ export async function handleListChannels(
         type: ch.type,
         // 优先使用 DB 持久化的 enabled 状态，而非 ChannelInterface 的硬编码值
         enabled: cfg?.enabled ?? ch.enabled,
-        connected: (ch as any).connected ?? false,
+        connected: ch.connected,
         // P0-4：敏感字段密文落库，回显前解密
         config: cfg?.options ? await getDecryptedOptions(ch.name) : {},
       });
     }
 
     // 合并：全部候选 + 已注册数据
-    const result = ALL_CHANNEL_DEFS.map((def) => {
-      const registered = registeredMap.get(def.type);
-      if (registered) {
-        // 已注册的保留实际数据，但名使用定义中的显示名
-        return { ...registered, name: def.name, registered: true };
+    const result: Array<Record<string, unknown>> = ALL_CHANNEL_DEFS.map(
+      (def) => {
+        const registered = registeredMap.get(def.type);
+        if (registered) {
+          // 已注册的保留实际数据，但名使用定义中的显示名
+          return { ...registered, name: def.name, registered: true };
+        }
+        // 未注册的显示为已知但未配置
+        return {
+          id: def.type,
+          name: def.name,
+          type: def.type,
+          enabled: false,
+          connected: false,
+          registered: false,
+          config: {},
+        };
       }
-      // 未注册的显示为已知但未配置
-      return {
-        id: def.type,
-        name: def.name,
-        type: def.type,
-        enabled: false,
-        connected: false,
-        registered: false,
-        config: {},
-      };
-    });
+    );
 
     // 追加注册了但不在候选表中的通道（如有）
     for (const [name, reg] of registeredMap) {
@@ -409,7 +410,7 @@ async function tryDynamicRegister(
   try {
     // 动态导入插件模块
     const mod = await entry.load();
-    const plugin = (mod as Record<string, unknown>)[entry.exportKey] as any;
+    const plugin = mod[entry.exportKey] as IChannelPlugin | undefined;
     if (!plugin) {
       logger.warning(
         `tryDynamicRegister: 未找到插件导出 — ${channelType}/${entry.exportKey}`
@@ -456,8 +457,10 @@ async function tryDynamicRegister(
 }
 
 /** 绑定入站消息 → AI → 出站 回路 */
-function bindInboundHandler(channelType: string, plugin: any): void {
-  if (!plugin.inbound) return;
+function bindInboundHandler(channelType: string, plugin: IChannelPlugin): void {
+  // 捕获到局部量：闭包内 `plugin.inbound` 的窄化会失效，故先取出并判空
+  const inbound = plugin.inbound;
+  if (!inbound) return;
 
   const _processingMessages = new Set<string>();
 
@@ -531,7 +534,7 @@ function bindInboundHandler(channelType: string, plugin: any): void {
     }, 15_000);
   }
 
-  plugin.inbound.setMessageHandler(async (message: any) => {
+  inbound.setMessageHandler(async (message) => {
     // 帧级去重兜底（routeChannelMessage 内部另有 messageId/内容级去重）
     if (_processingMessages.has(message.messageId)) return;
     _processingMessages.add(message.messageId);

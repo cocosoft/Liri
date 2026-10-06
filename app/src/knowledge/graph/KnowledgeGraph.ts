@@ -19,7 +19,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- legacy code with dynamic types */
 /**
  * 通用图引擎 — KnowledgeGraph
  *
@@ -68,6 +67,42 @@ export interface Edge {
   createdAt: number;
   /** 更新时间戳 */
   updatedAt: number;
+}
+
+/**
+ * `kg_edges` 表**行的列形状**。
+ *
+ * 驱动层 `Database.all/get` 的回参声明为 `any` ⇒ 在此按**表结构**收窄，
+ * 替代原 `(row: any)` / `params: any[]` 标注（建表见 `init()` 的 CREATE TABLE）。
+ */
+interface KgEdgeRow {
+  edge_id: string;
+  from_id: string;
+  to_id: string;
+  edge_type: string;
+  direction: Edge['direction'];
+  domain?: string | null;
+  attributes?: string | Record<string, unknown> | null;
+  created_at: number;
+  updated_at: number;
+}
+
+/** `cleanupOrphans` 只取三列的行 */
+interface OrphanEdgeRow {
+  edge_id: string;
+  from_id: string;
+  to_id: string;
+}
+
+/** 聚合查询行（`SELECT COUNT(*) AS count`） */
+interface CountRow {
+  count?: number;
+}
+
+/** 分组聚合行（`SELECT edge_type, COUNT(*) AS count … GROUP BY`） */
+interface EdgeTypeCountRow {
+  edge_type: string;
+  count: number;
 }
 
 /**
@@ -311,7 +346,7 @@ export class KnowledgeGraph {
       this.db!.get(
         `SELECT * FROM ${KG_EDGES_TABLE} WHERE edge_id = ?`,
         [id],
-        (err, row: any) => {
+        (err, row: KgEdgeRow | null) => {
           if (err) {
             reject(err);
             return;
@@ -349,7 +384,7 @@ export class KnowledgeGraph {
     if (!this.db) await this.init();
 
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     // 按实体 ID + 方向过滤
     if (filters.entityId) {
@@ -399,7 +434,7 @@ export class KnowledgeGraph {
     const sql = `SELECT * FROM ${KG_EDGES_TABLE} ${whereClause} ORDER BY created_at DESC ${limitClause}`;
 
     return new Promise((resolve, reject) => {
-      this.db!.all(sql, params, (err, rows: any[]) => {
+      this.db!.all(sql, params, (err, rows: KgEdgeRow[]) => {
         if (err) {
           reject(err);
           return;
@@ -418,22 +453,24 @@ export class KnowledgeGraph {
     const totalEdges = await new Promise<number>((resolve, reject) => {
       this.db!.get(
         `SELECT COUNT(*) AS count FROM ${KG_EDGES_TABLE}`,
-        (err, row: any) => {
+        (err, row: CountRow | null) => {
           if (err) reject(err);
           else resolve(row?.count ?? 0);
         }
       );
     });
 
-    const byTypeRows = await new Promise<any[]>((resolve, reject) => {
-      this.db!.all(
-        `SELECT edge_type, COUNT(*) AS count FROM ${KG_EDGES_TABLE} GROUP BY edge_type ORDER BY count DESC`,
-        (err: Error | null, rows: any[]) => {
-          if (err) reject(err);
-          else resolve(rows ?? []);
-        }
-      );
-    });
+    const byTypeRows = await new Promise<EdgeTypeCountRow[]>(
+      (resolve, reject) => {
+        this.db!.all(
+          `SELECT edge_type, COUNT(*) AS count FROM ${KG_EDGES_TABLE} GROUP BY edge_type ORDER BY count DESC`,
+          (err: Error | null, rows: EdgeTypeCountRow[]) => {
+            if (err) reject(err);
+            else resolve(rows ?? []);
+          }
+        );
+      }
+    );
 
     const byType: Record<string, number> = {};
     for (const row of byTypeRows) {
@@ -447,7 +484,7 @@ export class KnowledgeGraph {
           UNION
           SELECT to_id AS eid FROM ${KG_EDGES_TABLE}
         )`,
-        (err, row: any) => {
+        (err, row: CountRow | null) => {
           if (err) reject(err);
           else resolve(row?.count ?? 0);
         }
@@ -485,7 +522,7 @@ export class KnowledgeGraph {
   /**
    * 将数据库行转换为 Edge 对象
    */
-  private rowToEdge(row: any): Edge {
+  private rowToEdge(row: KgEdgeRow): Edge {
     return {
       id: row.edge_id,
       from: row.from_id,
@@ -550,7 +587,7 @@ export class KnowledgeGraph {
     if (!this.db) await this.init();
 
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     // domain 过滤
     if (domain) {
@@ -575,10 +612,8 @@ export class KnowledgeGraph {
       ...Array.from(validEntityIds),
     ];
 
-    const orphans = await new Promise<
-      Array<{ edge_id: string; from_id: string; to_id: string }>
-    >((resolve, reject) => {
-      this.db!.all(sql, allParams, (err, rows: any[]) => {
+    const orphans = await new Promise<OrphanEdgeRow[]>((resolve, reject) => {
+      this.db!.all(sql, allParams, (err, rows: OrphanEdgeRow[]) => {
         if (err) reject(err);
         else resolve(rows ?? []);
       });

@@ -1225,6 +1225,52 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§35）**：新建 **5 模块**（`bootstrap/preflight.ts` 451 · `session/gateway/LiteSessionLister.ts` 199 · `session/gateway/GatewayFtsIndex.ts` 433 · `LlamaServerLogs.ts` 238 · `LlamaModelsDirGuard.ts` 208）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329 ⇒ **例外 16 → 13**。
 
+---
+
+## 36. 实施记录：批 C5a —— `EventLogStorage` 流式正文缓冲外迁（2026-10-06，**已落地**）
+
+**新模块**：`app/src/session/storage/EventLogTextBuffer.ts`（`class EventLogTextBuffer`，**211 行**，与宿主同目录）
+
+**迁入**：`textChunkBuffer` / `textChunkBufferBytes` / `streamedTextMessageIds`（3 字段）+ `hasStreamedTextForMessage` / `bufferTextChunk` / `flushTextBuffer`；新增 `hasPending()`（供宿主 `getTailSeq` 的廉价判据）+ `TEXT_BUFFER_SAFETY_BYTES`（512KB，随迁为模块常量）。
+
+**注入面**：`EventLogTextBufferDeps { sessionId; append(event): Promise<{ok; reason?}> }` —— `append` 结果的**结构子集**（`TextBatchAppendResult`）**刻意不反向 import 宿主类型**，避免循环依赖。
+
+**宿主侧**：构造器（末行、`sessionId`/路径字段就绪后）注入门面；3 个公开方法保留**薄委托**；**4 处状态读改写**：`this.textChunkBufferBytes > 0` → `this.textBuffer.hasPending()`（位于 `getTailSeq` / `append` / `read` 各 1 处 + `append` 内 1 处）；**孤儿清理**：`getMemoryPressureMonitor` 导入 + `TEXT_BUFFER_SAFETY_BYTES` 常量（`memProfile`/`enterPhase`/`exitPhase` 宿主他处仍在用 ⇒ 保留）。
+
+**⚠️ logger module 名保持 `session:event-log`** ⇒ 日志输出不变。
+
+**行数**：`EventLogStorage.ts` **2274 → 2159**（−**115**）。⚠️ **仍 >2000 ⇒ 例外 `FSZ-140` 未删**（本批为 C5a；C5b 见下）。
+
+**门槛（全绿）**：`typecheck 0` · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4（基线）· 僵尸转发 0** · 全量 **4750 pass / 21 skip / 0 fail**。
+
+### 36.1 结构取证结论（**该文件不能按 `FSZ-140` 的 plan 原样切分**）
+
+`plan` 写的是「按 append / read / repair / fork 子模块拆分」。回仓取证（逐簇穷举字段与调用点）显示：**6 个簇共享同一组可变状态**，且 `append`(229 行) 与 `read`(201 行) 是**贯穿各簇的单一大方法**（内部内联修改 idx / snapshot / textBuffer 三类状态）：
+
+| 簇 | 行段 | 与 `append`/`read` 的交织点 |
+|---|---|---|
+| tail-seq（`getTailSeq`/`getMaxTurn`） | 442-554 | `append` 分配 seq 写 `tailSeq`；`read` 调 `flushTextBuffer` |
+| text 缓冲（**本批已外迁**） | 556-695 | `getTailSeq`/`append`/`read` 各 1 处状态读 |
+| idx（`ensureIdxLoaded`/`persistIdxEntry`/`findIdxStartOffset`） | ~880-1010 | **`append` :885-905 内联写 idx 批记账**（`idxBytesTotal`/`idxBatch*`） |
+| snapshot（`getFreshSnapshot`/`buildSnapshot`/`trimSnapshotToFit`/`clearSnapshotCache`/`releaseMemory`） | ~1530-1770 | **`append` :860-879 内联 push/裁剪快照**；`read` :1170-1215 内联取快照窗口 |
+| tail 恢复（`createReadlineInterface`/`recoverTailSeq`/`write·readPersistedTailSeq`/`scanTailForMaxSeq`） | ~1770-1920 | `append`/`commitTornRepair` 均写 `tailSeq` 并落 `events.tail` |
+| repair（`emitRepairAlert`/`scanForTornTail`/`commitTornRepair`/`interruptedTurnClosers`/`commitInterruptedRepair`/`ensureRepairChecked`） | 1993-2271 | `read` :1156 调 `ensureRepairChecked`；`commitTornRepair` 重置 `tailSeq`/`maxTurn` + 清快照 |
+
+**⇒ 结论**：**无「既内聚又零反向依赖」的大簇**（与 §2 判据「抽出后只是转发层 ⇒ 判不拆」同形）。因此**不采用 plan 的原样切分**，改为**按"耦合最轻"分批**（C5a 已落地 = text 缓冲）。
+
+**硬约束（下一批必读）**：`copyPrefixTo`（:1354-1455）**必须留在 `EventLogStorage`** —— `tests/session/session-gateway-regressions.test.ts:132-134/155-161/319/197-203` 直接**猴补 `EventLogStorage.prototype.copyPrefixTo`**；外迁会使该猴补不再影响宿主调用路径 ⇒ 测试必失败。
+
+### 36.2 批 C5b（**待执行**）：repair 簇外迁（可令该文件出例外）
+
+**前置**：`splitJsonLine`（:178，导出）被宿主 5 处 + `app/scripts/verify-derive.ts:10` 消费，且 repair 的 `interruptedTurnClosers` 也依赖它 ⇒ 需先下沉为**共享小模块**（`eventLineParse.ts`，含 `splitJsonLine` + `filterSnapshotEvents`，约 75 行），宿主**再导出**以保住两条既有 import 路径。
+
+**目标**：`EventLogRepair.ts`（`class EventLogRepair`），收拢 repair 6 方法 + `_repairChecked` / `lastRepairAlertAt` / `REPAIR_ALERT_COOLDOWN_MS`；注入面（**显式端口**，非"事事回调"——repair 逻辑本身为 ~280 行实质算法，非转发层）：
+`sessionId` · `filePath` · `exists()` · `resetTailState()`（宿主新增 4 行适配：`tailSeq=0`/`tailSeqInitialized=false`/`maxTurn=null`）· `getTailSeq(force?)` · `writePersistedTailSeq(seq)` · `createReadlineInterface(file?)` · `clearSnapshotCache()` · `append(event)`。
+宿主保留 4 个公开方法薄委托（`scanForTornTail`/`commitTornRepair`/`interruptedTurnClosers`/`commitInterruptedRepair` —— 被 `eventLogRepairChain.test.ts` 与 `reconcileService.test.ts` 的端口桩消费）+ `ensureRepairChecked` 私有委托。
+
+**预估**：净出 ≈ `eventLineParse` 60 + `repair` 250 = **≈ −310** ⇒ `EventLogStorage` **2159 → ≈1850 < 2000** ⇒ 可删 `FSZ-140`（例外 **13 → 12**）。
+
+
 
 
 

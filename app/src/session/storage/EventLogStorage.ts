@@ -38,13 +38,14 @@ import {
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 import { isLiriEvent } from '@modules/session/types/events';
 import { sanitizeEvent } from './eventSanitize';
+// 大文件拆分（spec file-size-debt-partition-plan §36）：流式正文缓冲簇外迁
+import { EventLogTextBuffer } from './EventLogTextBuffer';
 import {
   assertEventReadable,
   assertEventWritable,
 } from '@modules/session/types/knownEventTypes';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../../monitoring/memProfile.js';
-import { getMemoryPressureMonitor } from '@modules/monitoring';
 
 const logger = getLogger('session:event-log');
 
@@ -87,11 +88,6 @@ const SNAPSHOT_HOT_EVENTS = 10_000;
 const SNAPSHOT_MAX_BYTES = 200 * 1024 * 1024;
 /** P0-3/P1-5（2026-08-30）：stale/IO 失败后的重建冷却期，防跨实例持续写期间反复全量扫描 */
 const SNAPSHOT_COOLDOWN_MS = 5_000;
-/**
- * A-2（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲安全阈值——调用方（流式路径）
- * 负责 64KB/2s 策略；本层仅在调用方异常路径下无限缓冲时兜底自动 flush。
- */
-const TEXT_BUFFER_SAFETY_BYTES = 512 * 1024;
 
 // ─── P3-8 事件字节索引（2026-09-02，v4 方案 B-1/D7 索引独立先行）───────
 // 目标：read(fromSeq>1) 分页续读从"readline 从头逐行扫描（O(N)）"降为
@@ -314,12 +310,12 @@ export class EventLogStorage {
    */
   private snapshotCosts: number[] = [];
 
-  // ─── A-2①（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲（下沉存储层） ───
-  /** messageId → 已缓冲 text chunk（未落盘；flush 时聚合为一条 assistant/text-batch） */
-  private textChunkBuffer: Map<string, { chunks: string[]; bytes: number }> =
-    new Map();
-  /** 缓冲总字节（UTF-16 近似，安全阈值判定用） */
-  private textChunkBufferBytes = 0;
+  // ─── A-2①（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲（已外迁） ───
+  /**
+   * 流式正文缓冲门面（大文件拆分 spec §36）：`textChunkBuffer*` /
+   * `streamedTextMessageIds` 与缓冲/flush 逻辑已外迁 `./EventLogTextBuffer.ts`。
+   */
+  private readonly textBuffer: EventLogTextBuffer;
 
   // ─── P3-8 事件字节索引（2026-09-02）──────────────────────────────────
   /** 索引区间内存视图（按 fromSeq 升序；与磁盘 .idx 同源） */
@@ -396,6 +392,11 @@ export class EventLogStorage {
     this.tailSeqMetaPath = join(this.sessionDir, 'events.tail');
     /** P3-8：事件字节索引文件（派生物，可重建/丢失降级） */
     this.idxFilePath = join(this.sessionDir, 'events.idx');
+    // 流式正文缓冲门面（spec §36）：flush 时经宿主 append 落盘（seq 由 append 分配）
+    this.textBuffer = new EventLogTextBuffer({
+      sessionId: this.sessionId,
+      append: (event) => this.append(event),
+    });
   }
 
   /**
@@ -441,7 +442,7 @@ export class EventLogStorage {
    */
   async getTailSeq(force: boolean = false): Promise<number> {
     // A-2①：先 flush 缓冲正文（其 seq 在落盘时分配），返回的逻辑尾部才含缓冲内容
-    if (this.textChunkBufferBytes > 0) {
+    if (this.textBuffer.hasPending()) {
       await this.flushTextBuffer();
     }
     if (this.tailSeqInitialized && !force) {
@@ -553,145 +554,29 @@ export class EventLogStorage {
     return maxTurn;
   }
 
-  /**
-   * N-59 修复（2026-09-24）：本进程内**已写入过正文**的 messageId 集合（事实登记，非传递标记）。
-   *
-   * 为什么需要：正文有两条落盘通道 —— 流式 `assistant/text-batch`（缓冲聚合）与
-   * `ChatManager._appendEventsForMessage` 经 `convertMessage` 生成的 `assistant/text`
-   * （由完整正文派生）。去重此前**只认** `message.metadata.__streamedEventsWritten`
-   * 一个**传递标记**，而实测落盘的 assistant 消息**完全没有 metadata**（最小复现：
-   * 「只回复两个字：收到」⇒ 落盘 `收到收到`）⇒ 标记丢失时两条通道都落 ⇒ 回放/导出重复。
-   * 按 CS02（状态判断基于事实而非易失标记）改为**问事件层事实**。
-   *
-   * 进程内集合：重启后为空（此时不存在"流式刚写完正文"的并发窗口，不会双写）。
-   */
-  private readonly streamedTextMessageIds = new Set<string>();
+  // ─── A-2① / N-59：流式正文缓冲（大文件拆分 spec §36）────────────────
+  // `streamedTextMessageIds`（N-59 事实登记）与 `textChunkBuffer*` + 缓冲/flush 逻辑
+  // 已外迁 `./EventLogTextBuffer.ts`；以下 3 个方法保留为对外契约入口（薄委托）。
 
   /**
    * 该 messageId 是否已写入过正文（`assistant/text` 或 `assistant/text-batch`）。
-   * 供落盘侧去重判据使用（N-59）：`_appendEventsForMessage` 据此过滤
-   * `convertMessage` 派生的完整正文，避免与流式正文双份写入。
+   * 供落盘侧去重判据使用（N-59）—— 实现见 `EventLogTextBuffer`。
    */
   hasStreamedTextForMessage(messageId: string): boolean {
-    return this.streamedTextMessageIds.has(messageId);
+    return this.textBuffer.hasStreamedTextForMessage(messageId);
   }
 
-  /**
-   * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条 text chunk（不落盘、不分配 seq）。
-   *
-   * 聚合/flush 策略（64KB/2s）由调用方（streamMessageFlow）驱动；本层保证
-   * read/getTailSeq/append 前自动 flush（所有权闭环）——读路径永远看到已入缓冲
-   * 的正文，打破"流进行中读到不完整 text"的竞态。seq 在 flush 落盘时原子分配。
-   * 安全阈值（512KB）超限自动 flush：防调用方异常路径无限缓冲（CS03 兜底）。
-   */
+  /** A-2①：缓冲一条 text chunk（不落盘、不分配 seq）—— 实现见 `EventLogTextBuffer` */
   async bufferTextChunk(
     messageId: string,
     content: string
   ): Promise<{ ok: boolean }> {
-    if (!content) return { ok: true };
-    // N-59：登记"该 messageId 的正文已进入流式通道"（事实）——供落盘侧去重判据
-    this.streamedTextMessageIds.add(messageId);
-    let entry = this.textChunkBuffer.get(messageId);
-    if (!entry) {
-      entry = { chunks: [], bytes: 0 };
-      this.textChunkBuffer.set(messageId, entry);
-    }
-    entry.chunks.push(content);
-    const bytes = content.length; // UTF-16 近似（与 snapshotBytes 口径一致）
-    entry.bytes += bytes;
-    this.textChunkBufferBytes += bytes;
-    if (this.textChunkBufferBytes >= TEXT_BUFFER_SAFETY_BYTES) {
-      await this.flushTextBuffer();
-    }
-    return { ok: true };
+    return this.textBuffer.bufferTextChunk(messageId, content);
   }
 
-  /**
-   * A-2①：flush 全部缓冲 text —— 每 messageId 聚合一条 `assistant/text-batch`
-   * 落盘（F-2 schema；seq 由 append 原子分配，P3-7a）。批量 append 失败 → 回退
-   * 逐 chunk 为 `assistant/text` 落盘（A-1：丢失窗口不放大到整批，M1-INV① 可观测）。
-   * 失败不抛错（CS03）。
-   *
-   * @returns 实际 flush 的 chunk 数（含回退路径）
-   */
+  /** A-2①：flush 全部缓冲 text —— 实现见 `EventLogTextBuffer` */
   async flushTextBuffer(): Promise<number> {
-    enterPhase('eventlog:flushText');
-    try {
-      if (this.textChunkBuffer.size === 0) return 0;
-      const pending = this.textChunkBuffer;
-      const bufferedBytes = this.textChunkBufferBytes; // 治理度量（external 归因）
-      this.textChunkBuffer = new Map();
-      this.textChunkBufferBytes = 0;
-      let flushed = 0;
-      let maxJoinedBytes = 0;
-      for (const [messageId, entry] of pending) {
-        const joined = entry.chunks.join('');
-        const joinedBytes = joined.length; // UTF-16 近似
-        if (joinedBytes > maxJoinedBytes) maxJoinedBytes = joinedBytes;
-        const joinedResult = await this.append({
-          type: 'assistant/text-batch',
-          schemaVersion: 1,
-          seq: 0,
-          time: Date.now(),
-          sessionId: this.sessionId,
-          data: { content: joined, messageId },
-        });
-        if (!joinedResult.ok) {
-          // A-1：单批失败 → 回退逐 chunk（避免"一次失败丢整批"）
-          logger.warn(
-            'event-log: text-batch 聚合落盘失败，回退逐 chunk（A-1）',
-            {
-              sessionId: this.sessionId,
-              messageId,
-              chunkCount: entry.chunks.length,
-              reason: joinedResult.reason,
-            }
-          );
-          for (const chunkContent of entry.chunks) {
-            const r = await this.append({
-              type: 'assistant/text',
-              schemaVersion: 1,
-              seq: 0,
-              time: Date.now(),
-              sessionId: this.sessionId,
-              data: { content: chunkContent, messageId },
-            });
-            if (!r.ok) {
-              logger.warn('event-log: assistant/text 回退落盘失败', {
-                sessionId: this.sessionId,
-                messageId,
-                contentLength: chunkContent.length,
-                reason: r.reason,
-              });
-            }
-          }
-        }
-        flushed += entry.chunks.length;
-      }
-      // 内存画像（MEM_PROFILE=1）：text-batch 聚合落盘完成（join 大字符串的驻留窗口）
-      memProfile('eventlog:flush-text', {
-        sessionId: this.sessionId,
-        flushed,
-        bufferedBytes, // 治理度量：本次 flush 前缓冲总字节（external 归因）
-        maxJoinedBytes, // 治理度量：单条聚合后最大字节（join 瞬态上限）
-      });
-      // external 治理（2026-09-02 选项②）：单条聚合 >1MB 属超常（常规 ≤64KB 触发/512KB
-      // 安全阈值）——告警供归因（若确认 join 瞬态是 external 尖峰主源，再做分段拆分）
-      if (maxJoinedBytes > 1024 * 1024) {
-        logger.warn('event-log: text-batch 单条聚合超常（>1MB）', {
-          sessionId: this.sessionId,
-          maxJoinedBytes,
-          bufferedBytes,
-          pendingEntries: pending.size,
-        });
-      }
-      // 内存水位 tick（2026-09-02 标定：flush-text 实测单步 +507MB/驻留 external 1.39GB，
-      // 是流式写路径主要瞬时分配点 → 落盘后立即做一次水位评估）
-      getMemoryPressureMonitor().tick();
-      return flushed;
-    } finally {
-      exitPhase('eventlog:flushText');
-    }
+    return this.textBuffer.flushTextBuffer();
   }
 
   /**
@@ -712,7 +597,7 @@ export class EventLogStorage {
     try {
       // A-2①：直接 append 前先 flush 缓冲正文——保证 seq 顺序（缓冲正文先落盘，
       // 后续 tool/status 等事件 seq 在其后，不破坏事件流单调与消息内顺序）
-      if (this.textChunkBufferBytes > 0) {
+      if (this.textBuffer.hasPending()) {
         await this.flushTextBuffer();
       }
       // 串行化：所有 append 调用排队执行
@@ -1160,7 +1045,7 @@ export class EventLogStorage {
 
     // A-2①：read 前 flush 缓冲正文——流进行中读路径也看到已入缓冲的正文
     //（所见即所存；缓冲正文 seq 在 flush 时分配，先于任何后续直接 append）
-    if (this.textChunkBufferBytes > 0) {
+    if (this.textBuffer.hasPending()) {
       await this.flushTextBuffer();
     }
 

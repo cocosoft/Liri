@@ -253,6 +253,12 @@ export class SessionTracing {
       attributes['query_source'] = options.querySource;
     }
 
+    // 论文 A4（2026-10-06，`.trae/specs/otel-genai-semconv-alignment.md`）：**并存新增** OTel GenAI
+    // 语义约定属性（§4.1），**不改**任何既有 `Liri.*` / `llm_request.*` 名。
+    // 规范要求"采样相关属性 SHOULD 在 span **创建时**提供" ⇒ 这两项在此写。
+    attributes['gen_ai.operation.name'] = 'chat';
+    attributes['gen_ai.request.model'] = model;
+
     const tracer = this.getTracer();
     const ctx = parentSpanCtx
       ? trace.setSpan(context.active(), parentSpanCtx.span)
@@ -324,9 +330,13 @@ export class SessionTracing {
     if (metadata) {
       if (metadata.inputTokens !== undefined) {
         span.setAttribute('llm_request.input_tokens', metadata.inputTokens);
+        // 论文 A4：OTel `gen_ai.usage.input_tokens` **并存**（规范：SHOULD 含 cache 读/建 token）
+        span.setAttribute('gen_ai.usage.input_tokens', metadata.inputTokens);
       }
       if (metadata.outputTokens !== undefined) {
         span.setAttribute('llm_request.output_tokens', metadata.outputTokens);
+        // 论文 A4：OTel `gen_ai.usage.output_tokens` **并存**（规范：SHOULD 含 reasoning token）
+        span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
       }
       if (metadata.success !== undefined) {
         span.setAttribute('llm_request.success', metadata.success);

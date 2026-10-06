@@ -576,17 +576,6 @@ export class MemoryManagerImpl
   }
 
   /**
-   * Phase 0: 委派对话处理（向后兼容旧系统 BuiltinMemoryTool）
-   * @deprecated 请使用 processConversation() 替代
-   */
-  async delegateProcessConversation(
-    conversationId: string,
-    messages: Array<{ role: string; content: string; timestamp: Date }>
-  ): Promise<Memory[]> {
-    return this.processConversation(conversationId, messages);
-  }
-
-  /**
    * v1.2: 获取即将过期的记忆列表（age > 80% TTL）
    * 供 HTTP handler stats 端点使用
    */

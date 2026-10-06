@@ -373,6 +373,3 @@ export class MessagesApiTransport extends BaseTransport {
     }
   }
 }
-
-/** @deprecated 使用 MessagesApiTransport */
-export { MessagesApiTransport as AnthropicMessagesTransport };

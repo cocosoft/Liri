@@ -33,29 +33,6 @@ const STREAM_TRANSITIONS: TransitionRules<StreamState> = {
   [StreamState.CANCELLED]: [StreamState.IDLE],
 };
 
-/**
- * 状态转换历史记录条目
- *
- * @deprecated 使用 {@link TransitionRecord} — 从 `@modules/state/engine` 导入
- */
-export interface StateTransitionRecord {
-  from: StreamState;
-  to: StreamState;
-  reason?: string;
-  timestamp: number;
-}
-
-/**
- * 状态变更监听器
- *
- * @deprecated 使用 {@link import('@modules/state/engine').StateChangeListener} — 从 `@modules/state/engine` 导入
- */
-export type StateChangeListener = (
-  from: StreamState,
-  to: StreamState,
-  reason?: string
-) => void;
-
 export class StreamStateMachine extends StateMachine<StreamState> {
   /**
    * @param streamId - 关联的流 ID，用于日志标识和上下文追踪
@@ -131,25 +108,6 @@ export class StreamStateMachine extends StateMachine<StreamState> {
       this.history = [];
     }
     return result;
-  }
-
-  /**
-   * 注册状态变更监听器
-   *
-   * @deprecated 使用 {@link onStateChange} — 功能相同，命名更一致
-   * @returns 取消监听的函数
-   */
-  addListener(listener: StateChangeListener): () => void {
-    return this.onStateChange(listener);
-  }
-
-  /**
-   * 移除状态变更监听器
-   *
-   * @deprecated 使用 {@link offStateChange} — 功能相同，命名更一致
-   */
-  removeListener(listener: StateChangeListener): void {
-    this.offStateChange(listener);
   }
 
   /**

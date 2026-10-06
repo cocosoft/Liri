@@ -91,10 +91,7 @@ export {
   TransportRegistry,
   transportRegistry,
 } from './transports/TransportRegistry';
-export {
-  MessagesApiTransport,
-  AnthropicMessagesTransport,
-} from './transports/AnthropicMessagesTransport';
+export { MessagesApiTransport } from './transports/AnthropicMessagesTransport';
 export { ChatCompletionsTransport } from './transports/ChatCompletionsTransport';
 export { GeminiTransport } from './transports/GeminiTransport';
 export type {

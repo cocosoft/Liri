@@ -21,7 +21,7 @@
 /**
  * 上下文模块统一导出
  */
-export { ContextBuilder, getContextBuilder } from './ContextBuilder';
+export { ContextBuilder } from './ContextBuilder';
 export { getGitInfo, clearGitCache, type GitInfo } from './GitDetector';
 export {
   readProjectFiles,

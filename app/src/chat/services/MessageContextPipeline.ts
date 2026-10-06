@@ -1027,20 +1027,6 @@ export async function assembleContextualSystemPrompt(
 }
 
 /**
- * @deprecated 自 2026-07-13。ChatManager 已内联输入校验 + TokenBudget，此函数无调用方。
- */
-export function recordChatResponseUsage(
-  sessionId: string,
-  usage: Record<string, number> | null | undefined
-): void {
-  if (!usage) return;
-  const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
-  const outputTokens = usage.completion_tokens ?? usage.outputTokens ?? 0;
-  if (inputTokens === 0 && outputTokens === 0) return;
-  // 仅做输入校验，实际追踪由 trackUsage() 完成（ChatManager.recordChatResponseUsage 中调用）
-}
-
-/**
  * 检测指定位置是否在 markdown fenced code block (```) 内部
  */
 function isInsideFencedBlock(content: string, pos: number): boolean {

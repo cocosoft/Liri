@@ -313,17 +313,3 @@ export class ContextBuilder {
     this.cacheBuster++;
   }
 }
-
-let defaultBuilder: ContextBuilder | null = null;
-
-/**
- * 获取默认 ContextBuilder 实例
- * @deprecated ContextBuilder 的提示词构造功能已迁移至 systemPromptSections。
- *             如需读取 Git 信息或项目文件，请直接使用 GitDetector / ProjectFileReader。
- */
-export function getContextBuilder(cwd?: string): ContextBuilder {
-  if (!defaultBuilder || cwd) {
-    defaultBuilder = new ContextBuilder(cwd);
-  }
-  return defaultBuilder;
-}

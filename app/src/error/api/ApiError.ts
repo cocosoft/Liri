@@ -1,17 +1,6 @@
 import { APIError as BaseAPIError, ErrorSeverity } from '../types';
 
 /**
- * 轻量 API 错误类型
- * 替代 @anthropic-ai/sdk/error.js，消除 SDK 依赖
- *
- * @deprecated 保留用于 API 场景分类（含 headers 字段）。
- *   新代码直接使用 @modules/error/types 中的 APIError。
-
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('error\api\ApiError');
- */
-
-/**
  * Anthropic SDK APIError 的轻量替代。
  * APISceneClassifier 依赖的字段：status、message、headers
  */

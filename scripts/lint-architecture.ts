@@ -189,8 +189,6 @@ class ArchitectureLinter {
       'agent\\events\\index.ts',
       'core\\auto-reply\\dispatch.ts',
       'core/auto-reply/dispatch.ts',
-      'core\\extensibility\\EventBus.ts',
-      'core/extensibility/EventBus.ts',
       'core\\node-host\\NodeInvoke.ts',
       'core/node-host/NodeInvoke.ts',
       'plugins\\core\\PluginEventSystem.ts',

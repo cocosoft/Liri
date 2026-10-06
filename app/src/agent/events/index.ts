@@ -108,18 +108,6 @@ export class InternalEventBus {
     new Map();
 
   /**
-   * 订阅一次事件
-   * @deprecated 使用 globalEventBus.once() 替代
-   */
-  subscribeOnce(
-    type: string,
-    handler: EventHandler,
-    priority?: EventPriority
-  ): string {
-    return this.subscribe(type, handler, { priority, once: true });
-  }
-
-  /**
    * 取消订阅
    * @deprecated 使用 subscription.unsubscribe() 替代
    */
@@ -155,18 +143,6 @@ export class InternalEventBus {
     globalEventBus.publish(type, event);
 
     return event;
-  }
-
-  /**
-   * 异步发射事件（emit 的别名）
-   * @deprecated 使用 emit() 或 globalEventBus.publish() 替代
-   */
-  async emitAsync(
-    type: string,
-    data?: unknown,
-    options?: { source?: string; target?: string; priority?: EventPriority }
-  ): Promise<AgentEvent> {
-    return this.emit(type, data, options);
   }
 
   /**
@@ -231,34 +207,4 @@ export class InternalEventBus {
       eventsByType,
     };
   }
-
-  /**
-   * 检查是否有订阅者
-   * @deprecated 使用 globalEventBus.hasListeners() 替代
-   */
-  hasSubscribers(type: string): boolean {
-    return (
-      globalEventBus.hasListeners(type) || globalEventBus.hasListeners('*')
-    );
-  }
-
-  /**
-   * 获取订阅者数量
-   * @deprecated 使用 globalEventBus.listenerCount() 替代
-   */
-  subscriberCount(type: string): number {
-    return (
-      globalEventBus.listenerCount(type) + globalEventBus.listenerCount('*')
-    );
-  }
-}
-
-/**
- * 创建 InternalEventBus 实例
- *
- * @deprecated 请直接使用全局 globalEventBus 实例。
- *   本函数保留仅为兼容旧调用方。
- */
-export function createEventBus(maxHistorySize?: number): InternalEventBus {
-  return new InternalEventBus(maxHistorySize);
 }

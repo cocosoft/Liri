@@ -20,10 +20,7 @@
 // SOFTWARE.
 export { BaseTransport } from './BaseTransport';
 export { TransportRegistry, transportRegistry } from './TransportRegistry';
-export {
-  MessagesApiTransport,
-  MessagesApiTransport as AnthropicMessagesTransport,
-} from './AnthropicMessagesTransport';
+export { MessagesApiTransport } from './AnthropicMessagesTransport';
 export { ChatCompletionsTransport } from './ChatCompletionsTransport';
 export { GeminiTransport } from './GeminiTransport';
 export { TransportProviderAdapter } from './TransportProviderAdapter';

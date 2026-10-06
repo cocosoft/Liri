@@ -52,8 +52,11 @@ import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError.js';
+import { ValidationError, ErrorSeverity } from '@modules/error';
 import { trackUsage } from '../UsageTracker.js';
 import { getTaskConcurrencyLimits } from '../../tasks/limits.js';
+// M1（2026-10-06）：分解结果结构校验（单一事实源 `decompositionSchema.ts`；CS01）
+import { validateDecompositionShape } from './decompositionSchema.js';
 
 const logger = getLogger('ai:task-decomposer');
 
@@ -129,15 +132,7 @@ User message: {MESSAGE}`;
  * TaskDecomposer 分解复杂请求为结构化子任务
  */
 
-/** LLM 返回的 JSON 中单个子任务的结构 */
-interface ParsedSubTaskJson {
-  id?: string;
-  description?: string;
-  /** 修复 3（2026-08-25）：LLM 可能用 name 字段替代 description */
-  name?: string;
-  tier?: string;
-  dependsOn?: string[];
-}
+/** LLM 返回的 JSON 中单个子任务的**宽进**结构：已上移至 `decompositionSchema.ts`（M1）单一事实源 */
 
 export class TaskDecomposer {
   /**
@@ -224,27 +219,42 @@ export class TaskDecomposer {
 
   /**
    * 解析 LLM 返回的 JSON 分解结果
+   *
+   * M1（2026-10-06）：`JSON.parse` 之后**先做结构校验** —— 畸形 ⇒ 抛 `ValidationError`
+   * （被 `decompose()` 的 catch 捕获 ⇒ 回退 `simpleDecompose()` 单步），
+   * 不再被就地兜底**静默接受**。归一化（`name` 兜底 / `id` 自动编号 / 超发截断）仍在本方法。
    */
   private parseDecomposition(content: string): DecompositionResult {
     try {
       const jsonMatch = content.match(/\{[\s\S]*"subTasks"[\s\S]*\}/);
       const json = jsonMatch ? jsonMatch[0] : content;
-      const parsed = JSON.parse(json);
+      const rawParsed: unknown = JSON.parse(json);
 
-      const subTasks: SubTask[] = (parsed.subTasks || [])
-        .map((st: ParsedSubTaskJson, index: number) => ({
+      const shape = validateDecompositionShape(rawParsed, MAX_SUBTASKS);
+      if (!shape.ok) {
+        throw new ValidationError(
+          '任务分解结果结构非法',
+          ErrorSeverity.LOW,
+          'DECOMPOSITION_SCHEMA_INVALID',
+          { issues: shape.issues }
+        );
+      }
+      const parsed = shape.data;
+
+      const subTasks: SubTask[] = parsed.subTasks
+        // S0 冻结（2026-08-13）：上限以 MAX_SUBTASKS 为唯一事实来源，LLM 超发时强制截断
+        .slice(0, MAX_SUBTASKS)
+        .map((st, index) => ({
           id: st.id || `step-${index + 1}`,
           // 修复 3（2026-08-25）：LLM 缺 description 时用 name 兜底，仍缺用"步骤 N"，避免空名称
           description: st.description || st.name || `步骤 ${index + 1}`,
           tier: this.normalizeTier(st.tier || ''),
-          dependsOn: Array.isArray(st.dependsOn) ? st.dependsOn : [],
+          dependsOn: st.dependsOn ?? [],
           status: 'pending' as const,
-        }))
-        // S0 冻结（2026-08-13）：上限以 MAX_SUBTASKS 为唯一事实来源，LLM 超发时强制截断
-        .slice(0, MAX_SUBTASKS);
+        }));
 
       return {
-        mainTier: this.normalizeTier(parsed.mainTier),
+        mainTier: this.normalizeTier(parsed.mainTier ?? ''),
         subTasks,
         reasoning: parsed.reasoning || 'LLM 自动分解',
       };

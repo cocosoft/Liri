@@ -1426,6 +1426,68 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§41）**：新建 **17 模块**（共 3752 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` **−742**（§40 −440 + §41 −302）⇒ **例外 16 → 9**（已关 7 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`/`FSZ-010`）。
 
+---
+
+## 42. 实施记录：批 C10 —— `query/TAORLoop.ts` 契约类型 / 检查点存储 / 停止钩子 / 纯助手外迁（2026-10-06，**已落地**）
+
+**取证（本批为本文件首次结构取证）**：2327 行。选批口径沿用 §40 的「**零/低状态内聚簇**」原则 —— 只搬**不依赖宿主实例状态**（或仅需可注入的窄端口）的块，以保证逐字/近逐字搬迁。
+
+**新模块（4 个，置于新建子目录 `app/src/query/taor/`，同模块 ⇒ 无新跨层边）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `types.ts` | `TAORLoopDeps` 契约（品牌唯一符号）+ 工厂 `createTAORLoopDeps` + `TAORInput` / `TAORPhaseInfo` / `TAORLoopConfig` / `TAORLoopResult` / `TAORPhaseCallback` | **197** |
+| `stopHooks.ts` | 原私有方法 `registerDefaultStopHooks()` 的 **8 个默认钩子**（`taor_token_budget` / `taor_max_turns` / `taor_completion` / `taor_audit_trail` / `taor_cleanup` / `extract_memories` / `classify_task` / `auto_dream` / `computer_use_cleanup`）+ 窄端口 `TAORStopHookDeps` | **131** |
+| `MemoryCheckpointStorage.ts` | 内存检查点存储实现（含全部 9 个方法） | **68** |
+| `helpers.ts` | `TAOR_EMPTY_RETRY_INSTRUCTION` / `TAOR_PLANNING_ONLY_RETRY_INSTRUCTION` / `TAOR_PLANNING_ONLY_RE` / `truncateForTrace` / `mapTaorStopReasonToTermination` | **57** |
+
+**依赖方向（无循环）**：4 个新模块**零依赖宿主**（仅依赖 `@modules/*` 与 `query/` 兄弟模块的类型）；宿主单向 import + **re-export 全部外迁公开名**。
+
+**★ 公开面保持（关键）**：`TAORLoop.ts` 顶部对 `TAORLoopDeps` / `TAORInput` / `TAORPhaseInfo` / `TAORLoopConfig` / `TAORLoopResult` / `TAORPhaseCallback` / `createTAORLoopDeps` / `MemoryCheckpointStorage` / `mapTaorStopReasonToTermination` 做 **re-export** ⇒ **7 处外部消费者零改动**（`tasks/PlanDrivenLoop.ts` · `tasks/LongRunningTaskOrchestrator.ts` · `query/ChatManagerTAORAdapter.ts` · `query/index.ts` · 3 个测试）。
+
+**⚠️ `stopHooks` 的注入口径（如实）**：8 个钩子中 **6 个只读 `context` 参数**；仅两处触及宿主状态 —— `taor_completion`（读 `turnCount` / `startTime`）、`taor_cleanup`（写三个守卫 `resetAll/reset/reset`）⇒ 以 `TAORStopHookDeps` **窄端口**注入（`getTurnCount` / `getStartTime` / `resetGuards`）。**钩子名、优先级、日志文案与拆分前逐字一致**。
+
+**宿主侧改动**：4 组 import + 1 组 re-export；删除 4 个块（原 :81-101 常量与 `truncateForTrace` · :103-279 契约与类型 · :280-340 `MemoryCheckpointStorage` · :1735-1758 `mapTaorStopReasonToTermination`）；`registerDefaultStopHooks()` 由 107 行实现改为 **14 行委托**。**连带订正 1 处 stale 定位串**：`query/patternAssembly.ts` 的 `locator` 行号 `createTAORLoop:2283` → **`:1977`**。
+
+**行数**：`TAORLoop.ts` **2327 → 1984**（−**343**）⇒ **★ `FSZ-012` 例外已删**（依据 §7.6 判据：实测 **1984 < 2000**）⇒ `fileSizeExceptions` **9 → 8**。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · 改动文件 `eslint` **0**（首轮 4 条 `prettier/prettier` ⇒ `--fix`；新模块均 **≥40 行**，未新增「文件下限」警告） · `lint:arch` **违规 0 / 警告 4（基线）· 碎片 3 · 薄桶 0 · 僵尸转发 0** · `lint:size` **0 错误 / 8 例外** · 全量 `bun test` **504 files / 4752 pass / 21 skip / 0 fail**（81.80s）。
+
+**行为保真**：类型/常量/助手/存储**逐字搬迁**；`stopHooks` 仅把 `this.x` 换成 `deps.getX()`（值语义不变）。
+
+**C 系列累计（§32–§42）**：新建 **21 模块**（共 4205 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343 ⇒ **例外 16 → 8**（已关 8 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`/`FSZ-010`/`FSZ-012`）。
+
+---
+
+## 43. 实施记录：批 C11 —— `chat/orchestrator/streamMessageFlow.ts` 顶层纯助手外迁（2026-10-06，**已落地**）
+
+**⚠️ 本批为「单批不足以出例外」的如实记录**：文件 **2808** 行，出闸需 **−809**；而本文件的可安全外迁面**远小于**该值（见下）。
+
+**结构取证（本批实测，订正 §32.2 的估计口径）**：本文件 = **6 个顶层助手** + **一个 2504 行的巨型异步生成器 `runStreamMessage`**（§32.2 所列 C1–C13 全部是**该函数内的内联块/闭包**，非独立函数）。故：
+- **可安全外迁 = 顶层助手**（零状态依赖，逐字搬迁）；
+- **生成器内各簇**（C1 探针 / C3 骨架 / C5 消息构建 / C8 重试主循环 / C11 工具循环 / C13 finally）**需把闭包重写为显式参数传递** ⇒ 非「只搬不改」，且 **C5/C9 被测试硬锁**：`tests/ai/usageModelAttribution.test.ts:98/116-118/130-141` 会**读取本文件源码**并正则断言 `logInferenceUsage(...)` / `resolveEffectiveTurnModel` **必须在本文件内**。
+
+**新模块（1 个）**：`app/src/chat/orchestrator/streamMessageHelpers.ts`（**212 行**）
+| 迁入 | 说明 |
+|---|---|
+| `isStreamedContentSuperset`（O2-4 探针判据） | 纯函数（导出，测试用） |
+| `resolveCompactionFailureAttribution`（O3-1 归因） | 纯函数（导出，测试用） |
+| `buildCompactionDoneData`（`context/compaction` 载荷构造） | 纯函数（导出，测试用；含 D1 无 undefined 键说明） |
+| `_DEGRADE_CONVERGE_HINT` | R2 收敛重试指令常量 |
+| `sleep` | 保活心跳定时等待 |
+| `extractSummaryKeywords` | D-1 轻量关键词提取（含 48 项停止词表） |
+
+**公开面保持**：3 个 `export` 助手由宿主 **re-export** ⇒ 3 个测试（`compactionEventPayload` / `o3-probes` / `streamedContentSuperset`）导入路径**零改动**；同时宿主**import** 三者（其内部仍在用）。
+
+**行数**：`streamMessageFlow.ts` **2808 → 2651**（−**157**）。**例外保留**（`2651 > 2000`，需**后续批次**：C11 工具循环 ≈535 为最大候选，但须重写闭包 + 避开 C5/C9 的源码断言）。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）** · `lint:size` **0 错误 / 8 例外** · 全量 `bun test` **504 files / 4752 pass / 21 skip / 0 fail**（83.17s）。
+
+**★ 本批教训（供后续批次）**：判断「能否一批出例外」**必须先量可安全外迁面**，不能只看总行数。本文件 2808 行看似与 §40 的 `QQChannel`（2394 → 1954）同量级，但后者有 **5 个零状态簇**可搬，本文件只有 **6 个顶层助手**（157 行）——**巨型单函数文件**（生成器/主循环）的拆分成本显著更高。
+
+**C 系列累计（§32–§43）**：新建 **22 模块**（共 4417 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157 ⇒ **例外 16 → 8**（已关 8 条，同上）。
+
+
+
 
 
 

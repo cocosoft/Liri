@@ -25,6 +25,7 @@ import { GallerySearchBar } from "./media/GallerySearchBar";
 import { GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
 import { MasonryGallery } from "./media/MasonryGallery";
+import { ActionMenu } from "./media/ActionMenu";
 import { BottomInputBar } from "./media/BottomInputBar";
 import { EditLayer } from "./media/EditLayer";
 import { videoService } from "../../services/videoService";
@@ -600,14 +601,10 @@ function MediaPage() {
     [updateGenerationTask, loadGallery],
   );
 
-  const { activeTasks, submitTask, cancelTask } =
-    useVideoTaskPolling(handleTaskCompleted);
-  // 次要项（2026-08-26）：图片生成中（generationTasks running）也计入，
-  // 此前仅统计视频 activeTasks → 图片生成时按钮不禁用可重复提交
-  const generating =
-    activeTasks.some((t) =>
-      ["pending", "queued", "running"].includes(t.status),
-    ) || generationTasks.some((t) => t.status === "running");
+  const { submitTask, cancelTask } = useVideoTaskPolling(handleTaskCompleted);
+  // MD-2（2026-10-06）：状态源已收敛为单一事实源 `generationTasks`（图片/视频统一）
+  // ⇒ 「生成中」判定只看它（原实现还叠加 `activeTasks`，属双轨影子副本）
+  const generating = generationTasks.some((t) => t.status === "running");
 
   // ──── 选中项切换时重置视频元数据 + 拉取图片元数据 ────
   useEffect(() => {
@@ -690,6 +687,102 @@ function MediaPage() {
   );
 
   // ──── 生成（图片 / 视频） ────
+  /**
+   * 提交视频生成任务（MD-10，2026-10-06 抽取：`handleGenerate` 与「重试」共用，
+   * 避免同一提交流程两处实现 —— 见 `project_rules §1.3`「方法禁止重复」）。
+   *
+   * 写入 `generationTasks`（含 `videoParams` 供重试**忠实重放**）→ 调后端 →
+   * 记录 `remoteTaskId` → 启动轮询（MD-2：轮询直接读写该列表，无影子副本）。
+   */
+  const submitVideoTask = useCallback(
+    async (args: {
+      prompt: string;
+      imageUrl: string | null;
+      duration: number;
+      aspectRatio: string;
+    }): Promise<void> => {
+      const taskId = `vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      addGenerationTask({
+        id: taskId,
+        type: "video",
+        status: "running",
+        progress: 10,
+        prompt: args.prompt,
+        videoParams: {
+          duration: args.duration,
+          aspectRatio: args.aspectRatio,
+        },
+        sourceImageUrl: args.imageUrl,
+        resultUrl: null,
+        error: null,
+        createdAt: Date.now(),
+      });
+
+      try {
+        const result = await videoService.createVideoTask({
+          mode: args.imageUrl ? "image-to-video" : "text-to-video",
+          prompt: args.prompt,
+          imageUrl: args.imageUrl || undefined,
+          duration: args.duration,
+          aspectRatio: args.aspectRatio,
+        });
+        if (result.taskId) {
+          // P2：记录后端 taskId（generationTask.id 是本地 vid_xxx，回调时需关联）
+          updateGenerationTask(taskId, {
+            progress: 30,
+            remoteTaskId: result.taskId,
+          });
+          submitTask(result.taskId);
+        } else {
+          // 次要项（2026-08-26）：异常响应兜底，避免任务卡 running
+          updateGenerationTask(taskId, {
+            status: "failed",
+            error: t("media.videoTaskNoId"),
+          });
+          addToast("error", t("media.videoGenerateNoIdFailed"));
+        }
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        updateGenerationTask(taskId, {
+          status: "failed",
+          error: errMsg,
+        });
+        // 对用户显示友好信息，原始错误保留在任务详情中便于排查
+        addToast(
+          "error",
+          t("media.videoGenerateFailed", { error: friendlyErrorSummary(e) }),
+        );
+        logger.error("视频生成失败", { error: errMsg });
+      }
+    },
+    [addGenerationTask, updateGenerationTask, submitTask, addToast, t],
+  );
+
+  /**
+   * MD-10（2026-10-06）：失败任务「重试」。
+   *
+   * **仅视频任务**：原请求参数（`prompt` / `sourceImageUrl` / `videoParams`）已完整留存
+   * ⇒ 可忠实重放。图片任务缺 model/size 等原始参数 ⇒ 不给按钮（避免用不同参数静默重跑）。
+   */
+  const handleRetryTask = useCallback(
+    async (id: string) => {
+      const task = useMediaStore
+        .getState()
+        .generationTasks.find((t) => t.id === id);
+      if (!task || task.type !== "video") return;
+
+      // 移除失败卡，避免新旧任务在任务栏重复占位
+      removeGenerationTask(id);
+      await submitVideoTask({
+        prompt: task.prompt,
+        imageUrl: task.sourceImageUrl,
+        duration: task.videoParams?.duration ?? 5,
+        aspectRatio: task.videoParams?.aspectRatio ?? "16:9",
+      });
+    },
+    [removeGenerationTask, submitVideoTask],
+  );
+
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() && !selectedImageUrl) return;
 
@@ -757,6 +850,9 @@ function MediaPage() {
               .galleryItems.find((i) => i.url === urls[0]);
             if (first) {
               useMediaStore.getState().setSelectedImage(first.url, first.id);
+              // MD-9（2026-10-06）：补**自动定位** —— 此前仅自动选中，用户仍需在列表里
+              // 自己找新图（报告 P2-9）。滚动到可见区，与选中形成完整反馈。
+              scrollMediaItemIntoView(first.id);
             }
           });
           useMediaStore.getState().setPrompt("");
@@ -793,57 +889,14 @@ function MediaPage() {
         );
         return;
       }
-      // 视频生成（纳入任务队列）
-      const taskId = `vid_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      addGenerationTask({
-        id: taskId,
-        type: "video",
-        status: "running",
-        progress: 10,
+      // 视频生成（纳入任务队列）—— MD-10：抽到 `submitVideoTask`，与「重试」共用同一实现
+      await submitVideoTask({
         prompt: prompt.trim(),
-        sourceImageUrl: selectedImageUrl || null,
-        resultUrl: null,
-        error: null,
-        createdAt: Date.now(),
+        imageUrl: selectedImageUrl || null,
+        duration: params.duration || 5,
+        aspectRatio: params.aspectRatio || "16:9",
       });
-
-      try {
-        const result = await videoService.createVideoTask({
-          mode: selectedImageUrl ? "image-to-video" : "text-to-video",
-          prompt: prompt.trim(),
-          imageUrl: selectedImageUrl || undefined,
-          duration: params.duration || 5,
-          aspectRatio: params.aspectRatio || "16:9",
-        });
-        if (result.taskId) {
-          // P2：记录后端 taskId（generationTask.id 是本地 vid_xxx，回调时需关联）
-          updateGenerationTask(taskId, {
-            progress: 30,
-            remoteTaskId: result.taskId,
-          });
-          submitTask(result.taskId);
-          useMediaStore.getState().setPrompt("");
-        } else {
-          // 次要项（2026-08-26）：异常响应兜底，避免任务卡 running
-          updateGenerationTask(taskId, {
-            status: "failed",
-            error: t("media.videoTaskNoId"),
-          });
-          addToast("error", t("media.videoGenerateNoIdFailed"));
-        }
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : String(e);
-        updateGenerationTask(taskId, {
-          status: "failed",
-          error: errMsg,
-        });
-        // 对用户显示友好信息，原始错误保留在任务详情中便于排查
-        addToast(
-          "error",
-          t("media.videoGenerateFailed", { error: friendlyErrorSummary(e) }),
-        );
-        logger.error("视频生成失败", { error: errMsg });
-      }
+      useMediaStore.getState().setPrompt("");
     }
   }, [
     prompt,
@@ -851,7 +904,7 @@ function MediaPage() {
     selectedImageUrl,
     imageMeta,
     params,
-    submitTask,
+    submitVideoTask,
     addToast,
     loadGallery,
     addGenerationTask,
@@ -1471,7 +1524,7 @@ function MediaPage() {
       </div>
 
       {/* ========== 浮动任务状态栏（始终可见） ========== */}
-      {(generationTasks.length > 0 || activeTasks.length > 0) && (
+      {generationTasks.length > 0 && (
         <div className="border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
           <div className="max-w-3xl mx-auto">
             <GenerationTaskList
@@ -1488,9 +1541,10 @@ function MediaPage() {
                 }
                 removeGenerationTask(id);
               }}
+              onRetry={handleRetryTask}
             />
-            {/* P0-2（2026-08-26）：展示源收敛——activeTasks 仅作轮询内部状态（信息为空），
-                任务进度/完成态统一由 generationTasks 展示，移除 TaskList 重复渲染（双卡问题） */}
+            {/* P0-2（2026-08-26）：展示源收敛——任务进度/完成态统一由 generationTasks 展示，
+                移除 TaskList 重复渲染（双卡问题）；MD-2（2026-10-06）进一步删除 activeTasks 影子副本 */}
           </div>
         </div>
       )}
@@ -1811,6 +1865,22 @@ const MenuItem: React.FC<{
   </button>
 );
 
+/**
+ * MD-9（2026-10-06，`.pyapp/output/媒体页排查报告.md` P2-9）：把指定画廊项滚动到可见区。
+ *
+ * 生成完成 → `loadGallery()` 全量刷新会重建列表 ⇒ 需**等两帧**（React 提交 DOM 后）
+ * 再查询；卡片以 `data-media-id` 标注（瀑布流与网格视图均已加）。
+ * 用 `block:'nearest'` 避免整页跳动（只保证"可见"，不强制置顶）。
+ */
+function scrollMediaItemIntoView(id: string): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-media-id="${id}"]`);
+      el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  });
+}
+
 /** 网格列表视图 */
 const GridView: React.FC<{
   items: GalleryItem[];
@@ -1868,6 +1938,7 @@ const GridView: React.FC<{
           return (
             <div
               key={item.id}
+              data-media-id={item.id}
               onClick={() => !disabled && onSelect(item.id)}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -1875,7 +1946,7 @@ const GridView: React.FC<{
               }}
               draggable={item.type === "image"}
               onDragStart={(e) => onDragStart?.(e, item)}
-              className={`relative cursor-pointer rounded-lg border-2 p-1.5 transition-all ${
+              className={`group relative cursor-pointer rounded-lg border-2 p-1.5 transition-all ${
                 selected
                   ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                   : isDark
@@ -1930,6 +2001,20 @@ const GridView: React.FC<{
                       ◧
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* 操作菜单（MD-6：网格视图原先**完全不渲染** ActionMenu ⇒ 图片的
+                  编辑/图生视频/下载/删除不可达、视频无菜单）。下移 24px 避让右上角
+                  「收藏/对比」按钮；卡片已加 `group` 以支持 hover 显隐。 */}
+              {!batchMode && (
+                <div className="absolute right-1 top-7 h-6 w-6">
+                  <ActionMenu
+                    itemId={item.id}
+                    itemUrl={item.url}
+                    itemType={item.type}
+                    isDark={isDark}
+                  />
                 </div>
               )}
 

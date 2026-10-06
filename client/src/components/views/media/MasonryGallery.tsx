@@ -116,6 +116,7 @@ export const MasonryGallery: React.FC<Props> = ({
           return (
             <div
               key={item.id}
+              data-media-id={item.id}
               onClick={() => !disabled && onSelect(item.id)}
               onContextMenu={(e) => onContextMenu?.(e, item)}
               draggable={item.type === "image"}
@@ -181,8 +182,9 @@ export const MasonryGallery: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* 操作菜单（图片卡片） */}
-              {item.type === "image" && (selected || hovered) && (
+              {/* 操作菜单（MD-6：图片/视频**均**渲染 —— 原先限 `type === "image"`，
+                  致视频卡片无任何菜单；动作集由 ActionMenu 按类型裁剪） */}
+              {(selected || hovered) && (
                 <ActionMenu
                   itemId={item.id}
                   itemUrl={item.url}

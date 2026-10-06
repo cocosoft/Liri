@@ -4596,6 +4596,7 @@ const zh = {
     videoGenerateNoIdFailed: "视频生成失败：未返回任务 ID",
     videoGenerateFailed: "视频生成失败：{{error}}",
     imageDeleted: "图片已删除",
+    videoDeleted: "视频已删除",
     deleteFailed: "删除失败，请重试",
     deleted: "已删除",
     batchDeleted: "已删除 {{count}} 项",

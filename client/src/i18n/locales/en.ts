@@ -4710,6 +4710,7 @@ const en = {
     videoGenerateNoIdFailed: "Video generation failed: no task ID returned",
     videoGenerateFailed: "Video generation failed: {{error}}",
     imageDeleted: "Image deleted",
+    videoDeleted: "Video deleted",
     deleteFailed: "Delete failed. Please try again",
     deleted: "Deleted",
     batchDeleted: "Deleted {{count}} item(s)",

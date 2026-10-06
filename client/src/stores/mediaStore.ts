@@ -25,28 +25,25 @@ export interface GalleryItem {
   sourceImageUrl?: string;
 }
 
-/** 视频异步任务（向后兼容） */
-export interface VideoTaskItem {
-  taskId: string;
-  status:
-    "pending" | "queued" | "running" | "completed" | "failed" | "cancelled";
-  mode: "text-to-video" | "image-to-video";
-  progress: number;
-  sourceImageUrl: string | null;
-  resultVideoUrl: string | null;
-  prompt: string;
-  error: string | null;
-  createdAt: string;
-  completedAt: string | null;
-}
-
-/** 统一生成任务（Phase 7: 图片 + 视频任务队列） */
+/**
+ * 统一生成任务（图片 + 视频任务队列）—— **唯一展示源 + 唯一轮询状态源**
+ *
+ * MD-2（2026-10-06，`.pyapp/output/媒体页排查报告.md`）：原 `VideoTaskItem`（`activeTasks`）
+ * 与 `GenerationTask`（`generationTasks`）**两套状态并存** —— 视频轮询进度写 `activeTasks`、
+ * 展示读 `generationTasks`，靠"双写 + `remoteTaskId` 匹配"同步（结构性易漂移）。
+ * 现收敛为**单一事实源**：轮询直接读写本列表（按 `remoteTaskId` 匹配），`activeTasks` 已删除。
+ */
 export interface GenerationTask {
   id: string;
   type: "image" | "video";
   status: "running" | "completed" | "failed";
   progress: number; // 0-100
   prompt: string;
+  /**
+   * MD-10（2026-10-06）：视频任务的**原始请求参数** —— 供「重试」忠实重放同一请求。
+   * 仅 `video` 类型记录；图片缺 model/size 等原始参数 ⇒ 不提供重试（避免用不同参数静默重跑）。
+   */
+  videoParams?: { duration: number; aspectRatio: string };
   sourceImageUrl: string | null;
   resultUrl: string | null;
   /** BUG-8（2026-08-26）：多图生成全量结果（resultUrl 为首张） */
@@ -133,8 +130,7 @@ interface MediaStore {
   // ──── 搜索 ────
   searchParams: GallerySearchParams;
 
-  // ──── 任务 ────
-  activeTasks: VideoTaskItem[];
+  // ──── 任务（MD-2：单一事实源，`activeTasks` 已删除） ────
   generationTasks: GenerationTask[];
 
   // ──── 模板 ────
@@ -167,11 +163,6 @@ interface MediaStore {
   setGalleryItems: (items: GalleryItem[], hasMore: boolean) => void;
   appendGalleryItems: (items: GalleryItem[], hasMore: boolean) => void;
   removeGalleryItem: (id: string) => void;
-
-  addTask: (task: VideoTaskItem) => void;
-  updateTask: (taskId: string, update: Partial<VideoTaskItem>) => void;
-  removeTask: (taskId: string) => void;
-  setActiveTasks: (tasks: VideoTaskItem[]) => void;
 
   addGenerationTask: (task: GenerationTask) => void;
   updateGenerationTask: (id: string, update: Partial<GenerationTask>) => void;
@@ -211,8 +202,7 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
   // ──── 搜索 ────
   searchParams: { keyword: "", dateRange: "all" },
 
-  // ──── 任务 ────
-  activeTasks: [],
+  // ──── 任务（MD-2：单一事实源） ────
   generationTasks: [],
 
   // ──── 模板 ────
@@ -276,6 +266,9 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
       // BUG-12（2026-08-26）：删除时同步清理收藏，避免收藏虚高/对不上
       const nextFavs = new Set(s.favoriteIds);
       nextFavs.delete(id);
+      // MD-11（2026-10-06）：内存清了收藏后必须**回写 localStorage** —— 否则刷新后
+      // 已删项从持久化收藏集合"复活"（对照 toggleFavorite 的 saveFavorites 落盘）。
+      saveFavorites(nextFavs);
       return {
         galleryItems: s.galleryItems.filter((item) => item.id !== id),
         selectedId: s.selectedId === id ? null : s.selectedId,
@@ -283,22 +276,6 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
         favoriteIds: nextFavs,
       };
     }),
-
-  addTask: (task) => set((s) => ({ activeTasks: [task, ...s.activeTasks] })),
-
-  updateTask: (taskId, update) =>
-    set((s) => ({
-      activeTasks: s.activeTasks.map((t) =>
-        t.taskId === taskId ? { ...t, ...update } : t,
-      ),
-    })),
-
-  removeTask: (taskId) =>
-    set((s) => ({
-      activeTasks: s.activeTasks.filter((t) => t.taskId !== taskId),
-    })),
-
-  setActiveTasks: (tasks) => set({ activeTasks: tasks }),
 
   addGenerationTask: (task) =>
     set((s) => ({

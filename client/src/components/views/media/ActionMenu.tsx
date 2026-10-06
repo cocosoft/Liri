@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useMediaStore } from "../../../stores/mediaStore";
 import { imageService } from "../../../services/imageService";
+import { videoService } from "../../../services/videoService";
 import { useToastStore } from "../../../stores/toastStore";
 
 interface ActionMenuProps {
@@ -108,18 +109,28 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
     setOpen(!open);
   };
 
-  if (itemType !== "image") return null;
+  // MD-6（2026-10-06，`.pyapp/output/媒体页排查报告.md`）：原 `if (itemType !== "image") return null;`
+  // 使**视频卡片完全没有操作菜单**（下载/删除不可达）。现图片/视频均渲染，
+  // **动作集按类型裁剪**：视频无「图生视频 / 编辑图片」语义 ⇒ 仅保留 下载 / 删除。
+  const isVideo = itemType === "video";
 
-  /** 执行删除 */
+  /** 执行删除（按类型分流后端 API） */
   const handleDelete = async () => {
     setDeleting(true);
     setConfirming(false);
     setOpen(false);
 
     try {
-      await imageService.deleteImage(itemUrl);
+      if (isVideo) {
+        await videoService.deleteVideo(itemUrl);
+      } else {
+        await imageService.deleteImage(itemUrl);
+      }
       removeGalleryItem(itemId);
-      addToast("success", t("media.imageDeleted"));
+      addToast(
+        "success",
+        t(isVideo ? "media.videoDeleted" : "media.imageDeleted"),
+      );
     } catch {
       addToast("error", t("media.deleteFailed"));
     } finally {
@@ -171,18 +182,22 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
             }`}
             style={menuStyle}
           >
-            <button
-              onClick={() => handleAction("generate-video")}
-              className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
-            >
-              🎬 {t("media.generateVideo")}
-            </button>
-            <button
-              onClick={() => handleAction("edit-image")}
-              className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
-            >
-              ✏️ {t("media.editImage")}
-            </button>
+            {!isVideo && (
+              <>
+                <button
+                  onClick={() => handleAction("generate-video")}
+                  className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  🎬 {t("media.generateVideo")}
+                </button>
+                <button
+                  onClick={() => handleAction("edit-image")}
+                  className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  ✏️ {t("media.editImage")}
+                </button>
+              </>
+            )}
             <button
               onClick={() => handleAction("download")}
               className="block w-full px-3 py-1.5 text-left text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20"
@@ -203,7 +218,9 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
       {confirming &&
         createPortal(
           <ConfirmDialog
-            message={t("media.confirmDeleteImage")}
+            message={t(
+              isVideo ? "media.confirmDeleteVideo" : "media.confirmDeleteImage",
+            )}
             isDark={isDark}
             onConfirm={handleDelete}
             onCancel={() => setConfirming(false)}

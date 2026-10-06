@@ -227,6 +227,36 @@ describe('toolCategories — P0 工具可见性回归', () => {
     }
   });
 
+  test('2026-10-06 订正: 非命名空间键（无 `:`）一律不得使用连字符形态', () => {
+    // 根因（N-45 家族，2026-10-06 实测）：`media_video_extract-audio` / `-thumbnail` 曾以
+    // **连字符**入表，而工具真名是下划线（`VideoExtractAudioTool.ts:18`）；wire codec 只替换
+    // `:`（`-` 属合法 wire 字符 ⇒ 不归一）⇒ 真名与 wire 名**两路都查不到** ⇒ 落 `misc`
+    // ⇒ 在 video 类任务下被静默裁剪（同族 `media_video_compress` 正常）。
+    // ⚠️ 上一条 N-45 不变量**查不出**该缺陷（连字符键的 wire 形态 = 自身 ⇒ 与自身同类），
+    // 故本条补足"键形态合法性"这一维度。
+    // 口径：含 `:` 的**命名空间形态**允许 `-`（既有 `office:doc-pipeline`，其 wire 形态
+    // `office_doc-pipeline` 仍保留连字符，属合法）；**非命名空间**键则必须与内置工具真名
+    // （下划线）同形。
+    const suspicious = Object.keys(TOOL_CATEGORIES).filter(
+      (k) => !k.includes(':') && k.includes('-')
+    );
+    expect(suspicious).toEqual([]);
+  });
+
+  test('2026-10-06 回归锁: media 视频提取工具的**真名**解析为 video 且不被 video 任务裁剪', () => {
+    expect(getToolCategory('media_video_extract_audio')).toBe('video');
+    expect(getToolCategory('media_video_extract_thumbnail')).toBe('video');
+    expect(getToolCategory('media_video_compress')).toBe('video'); // 同族对照
+    const defs = [
+      { name: 'media_video_extract_audio' },
+      { name: 'media_video_extract_thumbnail' },
+      { name: 'bash' },
+    ];
+    const kept = filterToolsByTask(defs, 'video').map((t) => t.name);
+    expect(kept).toContain('media_video_extract_audio');
+    expect(kept).toContain('media_video_extract_thumbnail');
+  });
+
   test('N-44 扩展: sleep_for / sleep_until 归 system，通用任务集内可见', () => {
     // 与同族的阻塞式 `sleep`（亦为 'system'）保持同一类别口径。
     expect(getToolCategory('sleep_for')).toBe('system');

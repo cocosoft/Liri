@@ -97,8 +97,12 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   video_display: 'video',
   browser_vision: 'video',
   media_video_compress: 'video',
-  'media_video_extract-audio': 'video',
-  'media_video_extract-thumbnail': 'video',
+  // 2026-10-06 订正：原键写作连字符形态（`media_video_extract-audio` / `-thumbnail`），
+  // 与工具**真名**（下划线，见 `VideoExtractAudioTool.ts:18`）不一致，且 `toWireToolName()`
+  // 视 `-` 为 wire-safe ⇒ 不会归一 ⇒ 真名两路都查不到该类目 ⇒ 落 `misc` ⇒ 被任务裁剪
+  // （同族 `media_video_compress` 正常）。现改为与 `tool.name` 一致的形态。
+  media_video_extract_audio: 'video',
+  media_video_extract_thumbnail: 'video',
 
   // ── media 其他媒体 ──
   audio_play: 'media',

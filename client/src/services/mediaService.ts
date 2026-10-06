@@ -167,7 +167,10 @@ export const mediaService = {
     input: string,
     output: string,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media_video_extract-audio", {
+    // 2026-10-06 订正：改用工具真名（下划线）。原写连字符形态，注册表 `getTool()` 只按
+    // 真名/声明别名解析（`tool.name = media_video_extract_audio`；别名仅 `video_extract_audio`）
+    // ⇒ 连字符形态**必然解析不到**（本条当前无调用方，属死包装方法，但留着即为隐患）。
+    const result = await toolService.execute("media_video_extract_audio", {
       input,
       output,
     });
@@ -180,7 +183,7 @@ export const mediaService = {
     output: string,
     time?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media_video_extract-thumbnail", {
+    const result = await toolService.execute("media_video_extract_thumbnail", {
       input,
       output,
       time,

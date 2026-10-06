@@ -43,7 +43,7 @@ import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
 import { getLogger, flush } from '../monitoring/logs/Logger';
-import { handleError } from '@modules/error';
+import { handleError as recordError } from '@modules/error';
 
 import { getThemeManager } from '@modules/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';
@@ -64,6 +64,20 @@ const execAsync = promisify(nodeExec);
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });
 const autoUpdater = createAutoUpdater({ verbose: true });
+
+/**
+ * O6 修复（2026-10-06）：CLI 失败必须返回**非零**退出码。
+ *
+ * 原 17 处 `.action()` 的 catch 只调 `handleError()` 而**不置码** ⇒ 运行期失败仍以 0 退出
+ * （再叠加原 `process.on('exit', () => exitHandler.exit(0))` —— 连 commander 的 `exit(1)` 也被改回 0）。
+ * 此处统一在记录后置 `process.exitCode = 1`；**不在此 `process.exit`** —— 让 'exit' 钩子的清理
+ * 与日志 `flush()` 正常走完。调用点保持原样（同文件内 17 处 `handleError(...)` 自动走本包装）。
+ */
+const handleError: typeof recordError = async (error, options) => {
+  const result = await recordError(error, options);
+  process.exitCode = 1;
+  return result;
+};
 
 // 进度条函数
 function showProgress(current: number, total: number, message: string): void {
@@ -1049,8 +1063,11 @@ program
   });
 
 // 注册退出处理器
+// O6 修复（2026-10-06）：原为 `exitHandler.exit(0)` —— 该调用内的 `process.exit(0)` 会把
+// **已确定的退出码强制改为 0**（实测 `process.exitCode=3` ⇒ 退出码 0）⇒ commander 的
+// `exit(1)`（未知选项/缺参）与 action 失败码全部失效。现改为**只做清理、不改退出码**。
 process.on('exit', () => {
-  exitHandler.exit(0);
+  void exitHandler.runExitCleanup();
   flush().catch(() => {
     /* @ignore-catch: 日志刷新为清理操作，失败不影响退出流程 */
   });

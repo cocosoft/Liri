@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 退出处理器
  * 处理CLI应用的退出逻辑
  */
@@ -43,6 +43,24 @@ export class ExitHandler {
   }
 
   /**
+   * 仅执行注册的退出清理处理器，**不调用 `process.exit`**。
+   *
+   * O6（2026-10-06）：供 `process.on('exit')` 使用 —— 原该钩子内调 `exitHandler.exit(0)`，
+   * 其中的 `process.exit(0)` 会把**已确定的退出码强制改为 0**（实测：`process.exitCode=3`
+   * 经该钩子后退出码变 **0**）⇒ commander 的 `exit(1)`（未知选项/缺参）与 action 失败码全部失效。
+   * 本方法只做清理，退出码由进程自身保留。
+   */
+  async runExitCleanup(): Promise<void> {
+    for (const handler of this.exitHandlers) {
+      try {
+        await handler();
+      } catch (error) {
+        console.error(chalk.yellow('⚠'), `Error during exit handler: ${error}`);
+      }
+    }
+  }
+
+  /**
    * 执行退出流程
    */
   async exit(code: number = 0, reason?: string): Promise<void> {
@@ -51,13 +69,7 @@ export class ExitHandler {
     }
 
     // 执行所有注册的退出处理器
-    for (const handler of this.exitHandlers) {
-      try {
-        await handler();
-      } catch (error) {
-        console.error(chalk.yellow('⚠'), `Error during exit handler: ${error}`);
-      }
-    }
+    await this.runExitCleanup();
 
     if (reason) {
       if (code === 0) {

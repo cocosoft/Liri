@@ -492,7 +492,10 @@ export class KnowledgeGraph {
       to: row.to_id,
       type: row.edge_type,
       direction: row.direction as 'directed' | 'symmetric',
-      domain: row.domain || undefined,
+      // P2-12（2026-10-06）：统一保留 ''（原为 `row.domain || undefined` —— 导出时该字段消失、
+      // 导入又还原 ''，round-trip 不保真）。与 INSERT 侧 `edge.domain || ''`（:237）及唯一索引
+      // `COALESCE(domain,'')` 口径一致 ⇒ 导出/导入/查询三处同源。
+      domain: row.domain || '',
       attributes:
         typeof row.attributes === 'string'
           ? JSON.parse(row.attributes)

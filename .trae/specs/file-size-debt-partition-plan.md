@@ -1394,6 +1394,39 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§40）**：新建 **16 模块**（共 3380 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −440 ⇒ **例外 16 → 9**（已关 7 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`/`FSZ-010`）。
 
+---
+
+## 41. 实施记录：批 C9 —— `channels/qq/QQChannel.ts` 入站事件族外迁（2026-10-06，**已落地**）
+
+**来由**：§32.2 候选批的**批3「入站事件(≈350)」**；§40 因「需 `this` 重写」而**明确延后**，本批承接。文件虽已于 §40 降至闸下（1954），仍按用户裁定继续瘦身。
+
+**新模块（1 个）**：`app/src/channels/qq/inboundEvents.ts`（**372 行**）
+| 迁入 | 说明 |
+|---|---|
+| `QQInboundEvents` 类（6 方法，原 :1148-1458，**311 行**） | `handleAtMessageCreate` · `handleC2cMessageCreate` · `pickMediaAttachment` · `downloadQQAttachment` · `handleGroupAtMessageCreate` · `handleDirectMessageCreate` |
+| `QQInboundDeps` 接口 | `logger` / `dedupGuard` / `passiveReply`（**同一实例注入**）+ `handleIncomingMessage` / `handleInboundFile`（**回调**）|
+| `MENTION_PATTERN` 模块常量 | 原宿主私有字段 `mentionPattern`（`/<@!\d+>/g`）随迁；宿主仅此处使用 ⇒ 字段删除 |
+
+**⚠️ 本批与 §40 的性质差异（如实）**：§40 是 **100% 逐字搬迁**；本批**必然含 `this.` 改写** ——
+`this.logger` / `this.dedupGuard` / `this.passiveReply` → `this.deps.*`（同实例）；`this.mentionPattern` → `MENTION_PATTERN`；
+`this.handleIncomingMessage` / `this.handleInboundFile`（均为 `BaseChannelPlugin` 的 **protected**）→ **以回调注入**（`(m) => this.handleIncomingMessage(m)`），**避免新模块反向 import 宿主**（否则成环）。
+**未变项**：全部日志文案与结构化字段、`MessageContext` 构造、去重**判断顺序**（isDuplicate → 跨事件 → 内容级）、附件降级文案（下载失败/无链接）、`handleError` 的 module/action、`conversationId` 形态（`c2c:` / `group:`）。
+
+**宿主侧改动**：
+- 新增 `import { QQInboundEvents }` + `inboundEvents` 字段 + `ctor` 装配（含上述两个回调）；
+- **删除** `mentionPattern` 字段；**孤儿类型导入清理 4 处**（`QQAtMessageCreatePayload` / `QQAttachment` / `QQGroupAtMessageCreatePayload` / `QQDirectMessageCreatePayload`）；
+- **调用点 1 处**：`handleDispatch` 的 C2C 分支 → `this.inboundEvents.handleC2cMessageCreate(...)`；
+- 删除点留**指针注释**指向 `./inboundEvents` 与 spec §41。
+
+**⚠️ 预存行为如实记录（未改）**：`handleDispatch` 当前**仅派发 C2C 私聊**，`AT_MESSAGE_CREATE` / `GROUP_AT_MESSAGE_CREATE` / `DIRECT_MESSAGE_CREATE` 三个分支为 **BYPASS 注释态** ⇒ 对应三个处理函数在运行期**不可达**。按「不删预存死代码」原则**原样搬迁**，**未删**（如需清理应单独立项裁定）。
+
+**行数**：`QQChannel.ts` **1954 → 1652**（−**302**）。**例外无变更**（`FSZ-010` 已于 §40 删除 ⇒ 仍 **9**）。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · `eslint src/channels/qq` **0**（首轮 10 条 `prettier/prettier`，均加前缀后的行宽/换行 ⇒ `--fix` 收敛） · `lint:arch` **违规 0 / 警告 4（基线）· 碎片 3（基线）· 重复实现 0** · `lint:size` **0 错误 / 9 例外** · 全量 `bun test` **503 files / 4750 pass / 21 skip / 0 fail**（85.80s）。
+
+**C 系列累计（§32–§41）**：新建 **17 模块**（共 3752 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` **−742**（§40 −440 + §41 −302）⇒ **例外 16 → 9**（已关 7 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`/`FSZ-010`）。
+
+
 
 
 

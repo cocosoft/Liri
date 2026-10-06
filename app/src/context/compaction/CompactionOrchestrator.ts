@@ -46,6 +46,13 @@ import {
 } from './toolPairIntegrity';
 import { hookRegistry } from '../hooks/CompactionHooks';
 import { compactionMetricsTracker } from './CompactionMetrics';
+// M5（2026-10-06）：压缩后关键实体保留度探针（纯函数；仅 Tier 3 折叠区口径、仅告警）
+import {
+  measureRetention,
+  mergeRetention,
+  DEFAULT_RETENTION_WARN_RATIO,
+  type RetentionResult,
+} from './retentionProbe';
 import { compactionLockStore } from './CompactionLockStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -258,6 +265,11 @@ export type CompactionOutcome = {
    * 与"未触发/无效果"（`applied:false` 但无 `failure`）区分开。
    */
   failure?: CompactionFailure;
+  /**
+   * M5（2026-10-06）：Tier 3 折叠后「关键实体保留度」（跨批按实体总量加权聚合）。
+   * 仅 **Tier 3** 产出（Tier 1/2 按设计有损、无摘要 ⇒ 缺省）。**仅观测，不改压缩行为**。
+   */
+  retention?: RetentionResult;
 };
 
 export class CompactionOrchestrator {
@@ -692,7 +704,26 @@ export class CompactionOrchestrator {
       decisions: [
         decision.reason ?? `ratio=${decision.snapshot.ratio.toFixed(2)}`,
       ],
+      // M5（2026-10-06）：仅 Tier 3 折叠后产出；其余 tier 为 undefined（如实缺省）
+      retention: result.retention,
     });
+
+    // M5（2026-10-06）：保留度不达标 ⇒ **仅告警**（不改压缩行为，fail-open；M5 裁定 D3=(a)）
+    if (
+      result.retention &&
+      result.retention.total > 0 &&
+      result.retention.ratio < DEFAULT_RETENTION_WARN_RATIO
+    ) {
+      logger.warn('compaction:low_retention', {
+        tier,
+        trigger: triggerLabel,
+        ratio: Number(result.retention.ratio.toFixed(3)),
+        total: result.retention.total,
+        retained: result.retention.retained,
+        missing: result.retention.missing,
+        sessionId: ctx.sessionId,
+      });
+    }
 
     logger.info('compaction:applied', {
       tier,
@@ -787,6 +818,8 @@ export class CompactionOrchestrator {
       } = await import('./StructuredCompactionPrompt');
 
       const folded: string[] = []; // 已摘除早轮摘要（按旧→新顺序）
+      // M5（2026-10-06）：各批「折叠区保留度」——source = 被折叠批原文 / target = 该批摘要
+      const retentionResults: RetentionResult[] = [];
       let pool = [...toCompress]; // 尚未处理的中间+近期消息（旧→新）
       let iteration = 0;
       // P1-16（2026-10-05）：跨批 usage 累加器——迭代折叠的各批摘要调用用量逐批累加，
@@ -850,6 +883,16 @@ export class CompactionOrchestrator {
         }
 
         folded.push(summary);
+        // M5（2026-10-06）：折叠区保留度探针（纯函数、无 LLM）—— 度量"摘要是否保留了被折叠批
+        // 的关键实体"。**仅观测**（不改变压缩结果）；不达标在记录处告警（阈值 DEFAULT_RETENTION_WARN_RATIO）。
+        retentionResults.push(
+          measureRetention(
+            batch
+              .map((m) => (typeof m.content === 'string' ? m.content : ''))
+              .join('\n'),
+            summary
+          )
+        );
         iteration++;
 
         // 目标窗口检查：head + 已折叠占位 + 未折叠 pool 已进入目标 → 停
@@ -945,6 +988,8 @@ export class CompactionOrchestrator {
         messages: compacted,
         applied: true,
         summaryEnvelope,
+        // M5（2026-10-06）：跨批按实体总量加权聚合（无可测批次 ⇒ total=0/ratio=1 ⇒ 不告警）
+        retention: mergeRetention(retentionResults),
       };
     } catch (err) {
       await handleError(err, { module: 'context:compaction', action: 'full' });

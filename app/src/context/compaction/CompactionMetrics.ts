@@ -9,6 +9,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { getModelThresholds } from '@modules/tokenBudget/UnifiedTokenTracker';
+import type { RetentionResult } from './retentionProbe';
 const logger = getLogger('context:compaction:diag');
 
 const MAX_HISTORY_ENTRIES = 50;
@@ -23,6 +24,11 @@ export interface CompactionHistoryEntry {
   durationMs: number;
   sessionId?: string;
   decisions: string[];
+  /**
+   * M5（2026-10-06）：压缩后「关键实体保留度」——仅 **Tier 3 折叠区口径**产出
+   * （`source` = 被折叠批原文 / `target` = 摘要文本；Tier 1/2 按设计有损、不产出摘要 ⇒ 缺省）。
+   */
+  retention?: RetentionResult;
 }
 
 export interface ContextSnapshot {

@@ -17,9 +17,9 @@
 | `UnifiedTokenTracker` | 状态**按会话**（`streamSessions: Map`） | `app/src/tokenBudget/UnifiedTokenTracker.ts:189/243/289` |
 | `DailyBudgetManager` | 全局日账本，但**多实例并存** | 单例：`chat/orchestrator/preSendContextProtection.ts:65-76`；**TAORLoop 又各建一个**：`query/TAORLoop.ts:516` ⇒ 同进程多份互不共享账本 |
 | `DailyBudgetManager` 存储 | **纯内存**（`restore()` 无消费者 ⇒ 重启丢失） | `query/DailyBudgetManager.ts:215` |
-| `MoaCostController` | **死代码**（无生产实例化，仅 re-export） | `agent/moa/MoaCostController.ts:86`；`agent/moa/index.ts:24` |
+| ~~`MoaCostController`~~ | ~~**死代码**（无生产实例化，仅 re-export）~~ ⇒ ✅ **已删除（2026-10-06，用户裁定）**：整文件（class + `getModelCostPerToken` + `MoaBudget`/`CostEstimate`/`CostSnapshot`）5 个导出**全部 0 消费**；`MODEL_COST_MAP` 已退化为空 `{}`；同步移除 `agent/moa/index.ts` 的两处 re-export。**本行原证据地址已随删除失效**（台账 N-77） |
 | `CostBudgetManager`（美元） | 仅 HTTP 查询消费，不参与准入 | `cost/CostBudgetManager.ts:71/525`；`infrastructure/http/handlers/cost-handlers.ts:77/157` |
-| `session/budget/BudgetEnforcer` | 按 sessionId 的 allow/warn/downgrade/reject | `session/budget/BudgetEnforcer.ts:8` |
+| `session/budget/BudgetEnforcer` | 按 sessionId 的 allow/warn/reject（**2026-10-06 收敛**：原含 `downgrade` + `downgradeThreshold` —— 因 **不可达**（`setSessionBudget` **0 调用方** ⇒ `budgetConfigs` 恒空 ⇒ `evaluate()` 恒 `allow`）、**0 消费者**，且「预算吃紧 ⇒ 自动换模型」与「模型选择不得擅自变更用户所选」**冲突** ⇒ 已删除；见台账 N-80 / 计划 U5） | `session/budget/BudgetEnforcer.ts:8`。**附带核实**：`checkBudget` / `canProceedWithBudget` **亦 0 调用方**；整模块唯一在用的是 `recordTokenConsumption`（`voice/VoiceSession.ts:590`） |
 | 策略契约 | `BudgetPolicy` + 注册表（已实施） | `budget-policy-layer.md §6.5` |
 
 ### 1.2 调度 / 抢占**完全缺失**（本 spec 的主体缺口）

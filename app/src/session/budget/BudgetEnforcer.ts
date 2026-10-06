@@ -47,9 +47,6 @@ export class BudgetEnforcer {
     if (percentage >= config.rejectThreshold) {
       action = 'reject';
       reason = `Token budget exceeded: ${projectedUsage}/${config.maxTokens} (${Math.round(percentage * 100)}%)`;
-    } else if (percentage >= config.downgradeThreshold) {
-      action = 'downgrade';
-      reason = `Token budget near limit, downgrading: ${projectedUsage}/${config.maxTokens} (${Math.round(percentage * 100)}%)`;
     } else if (percentage >= config.warnThreshold) {
       action = 'warn';
       reason = `Token budget warning: ${projectedUsage}/${config.maxTokens} (${Math.round(percentage * 100)}%)`;

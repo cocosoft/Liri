@@ -44,8 +44,6 @@ export { TaskDecomposer, MAX_SUBTASKS } from './TaskDecomposer.js';
 export type { SubTask, DecompositionResult } from './TaskDecomposer.js';
 export { OrchEngine } from './OrchEngine.js';
 export type { OrchResult, SubTaskResult } from './OrchEngine.js';
-export { AdaptiveRouter } from './AdaptiveRouter.js';
-export type { ModelTierScore } from './AdaptiveRouter.js';
 
 export type {
   RouterTier,

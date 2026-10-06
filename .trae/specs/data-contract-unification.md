@@ -81,7 +81,9 @@
 |---|---|---|---|
 | 领域层 `Message` | `session/types/message.ts`（2026-10-01 B11 本体由 `chat/types/message.ts` 迁入） | 对话领域消息（camelCase，含 `ContentBlock` 等） | **R05-011 认定的规范来源** |
 | 协议层 `Message` | `core/types.ts` | LLM 协议消息（**snake_case** 工具字段） | R05-011 **已知例外**（`knownExceptions` 显式登记 `core/types.ts`） |
-| 其它域私有 | `agent/TitleGenerator.ts` · `chat/types/ToolUseBlock.ts` · `compaction/ContextEngine.ts` · `subagent/SubAgentCommunicator.ts` · `ui/components/Messages.tsx` | 域内私有变体 | R05-011 **已知例外** |
+| 其它域私有 | `agent/TitleGenerator.ts` · `chat/types/ToolUseBlock.ts` · `compaction/ContextEngine.ts` · `ui/components/Messages.tsx` | 域内私有变体 | R05-011 **已知例外** |
+
+> **2026-10-06 订正（N-78）**：本行原含 `subagent/SubAgentCommunicator.ts` —— 该文件连同整个 `subagent/communication/` 家族（`MessageBus` / `MailboxSystem` / `PermissionSync`）**已删除**（4 文件 0 消费者、被 `TeammateManager` 真实通路取代；详见台账 N-78）。上表已按现状移除。
 
 ⇒ 本专项**只下沉领域层 `Message`**，**不触碰**协议层与域私有变体（避免制造语义混淆 —— CS05 根因优先，不做"看着像就合并"）。
 
@@ -465,7 +467,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 | 4 | **`session/types/message.ts:399`**（2026-10-01 B11 本体迁入） | 领域完整（`id` 起） | ⭐ **R05-011 认定的规范来源** |
 | 5 | `compaction/ContextEngine.ts:7` | `{ id; role; content; createdAt: Date; tokenCount?; metadata? }` | 压缩/上下文引擎 |
 | 6 | `ui/components/Messages.tsx:9` | `{ id; content; **sender**; timestamp?; type?; codeLanguage? }` | UI（用 `sender` 而非 `role`） |
-| 7 | `subagent/SubAgentCommunicator.ts:11` | `{ id; type; **content: any**; sender; receiver; timestamp }` | 子代理 IPC（**含 `any`**） |
+| 7 | ~~`subagent/SubAgentCommunicator.ts:11`~~ **（2026-10-06 已删除，见台账 N-78）** | `{ id; type; **content: any**; sender; receiver; timestamp }`（**历史记录**） | 子代理 IPC（**含 `any`**）—— 该文件为**纯占位模拟**且 0 消费者，连同 `subagent/communication/` 家族一并删除 |
 | ＋ | `session/types/UnifiedMessage.ts`（**文件名**曾与 `chat/types/message.ts` 同名，导出的是 `UnifiedMessage` 家族 322 行） | — | **文件名**冲突源（Windows 大小写）；2026-10-01 P2 已改名 `UnifiedMessage.ts`（B11 前置） |
 
 **⇒ 裁定（§9.2 原则 2）**：**规范落点 = #4 `session/types/message.ts`**（R05-011 + `project_rules §1.6` 双重认定；2026-10-01 B11 本体由 `chat/types/message.ts` 迁入）⇒ **其余 6 份改名**（建议名）：
@@ -484,7 +486,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 | 序 | 目标 | 消费者面（按路径） | 备注 |
 |---|---|---|---|
-| **1** | `subagent/SubAgentCommunicator.ts`（#7） | **2 个**：`subagent/communication/MessageBus.ts:4` · `MailboxSystem.ts:4`（均**显式** `import { Message }`） | ✅ **最小、面最清** ⇒ **建议首个执行** |
+| **1** | `subagent/SubAgentCommunicator.ts`（#7） | **2 个**：`subagent/communication/MessageBus.ts:4` · `MailboxSystem.ts:4`（均**显式** `import { Message }`） | ✅ **最小、面最清** ⇒ **建议首个执行**。**2026-10-06 注**：这"2 个消费者"**同属被取代的家族**（两者均已随 N-78 删除）⇒ 该"面最清"结论成立，且已顺势整族清除 |
 | **2** | `compaction/ContextEngine.ts`（#5） | **3 个**：`compaction/strategies/{AutoCompact,ContextCollapse,ReactiveCompact}Strategy.ts`（经 `'../ContextEngine'`） | ⚠️ 需核这 3 处是否**导入了 `Message`**（它们导入了其他符号也可能） |
 | 3 | `agent/TitleGenerator.ts`（#1） | 路径 grep **零命中** | ⚠️ **前置**：核 `agent/index.ts` 是否 `export *`/转出 `./TitleGenerator` ⇒ 若有，`Message` 会经 barrel 逃逸（外部按名导入 ⇒ 路径 grep 不可见） |
 | 4 | `chat/types/ToolUseBlock.ts`（#3） | 该文件另导出 `ToolUseBlock`（`chat/index.ts:99` + `tools/orchestration/*` ×3） | ⚠️ 同上，需核 `Message` 是否经 `chat/types/index.ts`（`export *`）逃逸 |
@@ -508,7 +510,7 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 
 #### ✅ 进度（U2 执行）
 
-- ✅ **#7** `subagent/SubAgentCommunicator.ts` → `SubAgentMessage`（`f440c535a`；3 文件）
+- ✅ **#7** `subagent/SubAgentCommunicator.ts` → `SubAgentMessage`（`f440c535a`；3 文件）—— ⚠️ **2026-10-06 该文件已删除**（N-78：纯 mock + 0 消费者）；本次改名价值在于**当时**收敛 R05-011 例外，随文件删除一并消亡
 - ✅ **#5** `compaction/ContextEngine.ts` → `ContextEngineMessage`（`11ef62824`；4 文件；收敛 R05-011 例外 1 条）
 - ✅ **#3** → `ToolUseMessage` · ✅ **#1** → `TitleGenMessage` · ✅ **#6** → `UIMessage` · ✅ **#2** → `ProtocolMessage`（`64dd5a077`）⇒ **本清单全部收口**（#4 `chat/types/message.ts` 保留为规范来源）
 

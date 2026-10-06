@@ -22,18 +22,10 @@
  * 权限工具模块导出
  */
 
-export {
-  PermissionUpdateValidator,
-  PermissionUpdateManager,
-  permissionUpdateManager,
-} from './PermissionUpdate.js';
-export type {
-  PermissionUpdate,
-  PermissionUpdateType,
-  PermissionUpdateScope,
-  PermissionUpdateValidation,
-  PermissionUpdateConfig,
-} from './PermissionUpdate.js';
+// 2026-10-06（N-82/N-83）：原此处再导出 `./PermissionUpdate`（`PermissionUpdateValidator` /
+// `PermissionUpdateManager` / `permissionUpdateManager` 及 `PermissionUpdate*` 类型）——
+// 该文件为**未接线的 CC 对标实现**、`0 消费者`，已删除（详见台账 N-82 / N-83）。
+// 注意：`permission/index.ts` 的 `PermissionUpdate` **类型**来自 `./PermissionUpdateSchema`，与本块无关，未受影响。
 
 export {
   ShadowedRuleDetector,

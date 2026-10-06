@@ -92,7 +92,6 @@ import { feature as coreFeature, selectPattern } from '@modules/core';
 import { configureCodeRunner } from '@modules/tools';
 import {
   persistTurnSummary,
-  extractCurrentGoal,
   contextLayeringEnabled,
   ensureThinkResponseTags,
   stripThinkResponseTags,
@@ -2344,16 +2343,6 @@ export class ChatManagerImpl implements ChatManager {
       session,
       currentMessage
     );
-  }
-
-  /**
-   * 从会话中提取当前对话目标（委托给 MessageContextPipeline）
-   */
-  private _extractCurrentGoal(
-    session: ChatSession,
-    currentMessage?: string
-  ): string | null {
-    return extractCurrentGoal(session, currentMessage);
   }
 
   /**

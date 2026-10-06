@@ -21,7 +21,6 @@
 export { MoARouter } from './MoARouter';
 export { ParallelAgentScheduler } from './ParallelAgentScheduler';
 export { ResultAggregator, AggregationStrategy } from './ResultAggregator';
-export { MoaCostController, getModelCostPerToken } from './MoaCostController';
 export {
   buildAggregatorPrompt,
   AGGREGATOR_PROMPT_TEMPLATE,
@@ -38,8 +37,3 @@ export type {
   AggregatedResult,
   AggregationStats,
 } from './ResultAggregator';
-export type {
-  MoaBudget,
-  CostEstimate,
-  CostSnapshot,
-} from './MoaCostController';

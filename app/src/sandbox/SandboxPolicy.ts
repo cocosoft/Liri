@@ -5,7 +5,8 @@
  * （`SandboxToolPolicy` / `SandboxMode` / `SandboxGlobalPolicy` / `createSandboxPolicy` /
  * `isToolAllowed` / `getAllowedTools` / `getDeniedTools` / `restrictToolSet` / `validateToolAccess` /
  * `PRODUCTION_SANDBOX_POLICY`）。经核实该门禁**全仓零生产消费者**（外部同名
- * `PermissionSyncManager.isToolAllowed` 是**另一个符号**；`evals/cli.ts` 的 `SandboxMode`
+ * `PermissionSyncManager.isToolAllowed` 当时是**另一个符号** —— 它**同样零消费者**，
+ * 已于 **2026-10-06 删除**，见台账 **N-82**；`evals/cli.ts` 的 `SandboxMode`
  * 亦为**本地独立类型**）⇒ 属**死门禁**；且其默认集**大面积漂移**
  * （`DEFAULT_ALLOWED_BASE_TOOLS` 12 项里 **9 项**是 CC 名，真名仅 `bash`/`grep`/`glob`）
  * ⇒ 与 **N-27 / D-25** 同族，**整段删除**（连同其唯一"消费者"—— 仅断言自身字段的测试用例）。

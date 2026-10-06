@@ -680,7 +680,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-002 | `services/api/errors.ts` | 面向外部 API，与内部错误体系不同 | 待评估 |
 | R01-004 | `context/ContextCacheService.ts` | 已修复，改用 TTLCache | ✅ |
 | R01-004 | `permission/cache/PermissionCache.ts` | 已修复，改用 TTLCache | ✅ |
-| R01-004 | `subagent/communication/PermissionSync.ts` | 已修复，改用 TTLCache | ✅ |
+| R01-004 | ~~`subagent/communication/PermissionSync.ts`~~ | 已修复（改用 TTLCache）；**2026-10-06 该文件已删除**（N-78：整套 `subagent/communication/` 家族 0 消费者、被 `TeammateManager` 取代）⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
 | R01-004 | `cost/CostCache.ts` | 已使用 CacheService（非自建 Map），不违反 R01-004 | ✅ |
 | R01-004 | `tools/cache/ToolCacheManager.ts` | 自建持久缓存 + ICache 实现，待委托到标准实现 | 2026-Q3 |
 | R01-004 | `chat/services/PerformanceOptimizationService.ts` | 缓存+批处理+事件混合服务，需模块级重构 | 2026-Q3 |

@@ -1386,7 +1386,6 @@ class ArchitectureLinter {
       'agent/TitleGenerator.ts',
       'session/types/ToolUseBlock.ts',
       'compaction/ContextEngine.ts',
-      'subagent/SubAgentCommunicator.ts',
       'ui/components/Messages.tsx',
       // 2026-08-29 治理：core/types.ts 是 LLM 协议层 Message（snake_case 工具字段），领域变体
       'core/types.ts',
@@ -1511,9 +1510,6 @@ class ArchitectureLinter {
       'core/types.ts',
       // 代理内部消息类型
       'agent/TitleGenerator.ts',
-      'agent/utils/PermissionSyncManager.ts',
-      // 子代理消息（独立概念）
-      'subagent/SubAgentCommunicator.ts',
       // 压缩域上下文引擎消息（2026-10-01 D-217：由 services/compact 改归独立 app 模块 compaction）
       'compaction/ContextEngine.ts',
       // UI 组件消息

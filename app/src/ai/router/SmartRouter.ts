@@ -57,7 +57,6 @@ import type { RetryableResponse } from './RetryPolicy.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import { OrchEngine } from './OrchEngine.js';
 import type { OrchResult } from './OrchEngine.js';
-import { AdaptiveRouter } from './AdaptiveRouter.js';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
 import {
   RouteKey,
@@ -110,7 +109,6 @@ export class SmartRouter {
   private modelRouter: ModelRouter;
   private taskDecomposer: TaskDecomposer;
   private orchEngine: OrchEngine;
-  private adaptiveRouter: AdaptiveRouter;
 
   constructor(options: SmartRouterOptions) {
     this.config = options.config;
@@ -125,7 +123,6 @@ export class SmartRouter {
     );
     this.sessionStore = options.sessionStore ?? null;
     this.modelRouter = ModelRouter.getInstance();
-    this.adaptiveRouter = new AdaptiveRouter(options.config);
 
     // 初始化 TaskDecomposer
     const classifyFn = options.classifyLocal
@@ -333,7 +330,6 @@ export class SmartRouter {
   updateConfig(config: RouterConfig): void {
     this.config = config;
     this.tierResolver.updateConfig(config);
-    this.adaptiveRouter.updateConfig(config);
     // 重建 JudgeService 时需从旧实例提取 private 字段（classifyLocal、cloudProvider）
     const oldJudge = this.judgeService;
     type JudgeInternals = {
@@ -464,14 +460,6 @@ export class SmartRouter {
    */
   async orchestrate(message: string): Promise<OrchResult> {
     return this.orchEngine.orchestrate(message);
-  }
-
-  /**
-   * 获取自适应路由器（Phase 3）
-   * 用于外部记录执行结果、查询推荐模型
-   */
-  getAdaptiveRouter(): AdaptiveRouter {
-    return this.adaptiveRouter;
   }
 
   /**

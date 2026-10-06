@@ -83,8 +83,11 @@ const DOMAIN_CONFIG_FILENAME = '.domain.yaml';
  *
  * 职责：
  * - 列出/创建/删除域
- * - 根据用户查询自动匹配目标域（detectDomain）
  * - 提供域注册表（汇总信息）
+ *
+ * ⚠️ 2026-10-06：原类注释另列「根据用户查询自动匹配目标域（detectDomain）」——
+ * 该能力**从未接线**，两个死方法（`detectDomain` / `getDomainSummaryText`，均 0 调用）
+ * 已按用户裁定删除（见台账 N-76）⇒ 注释一并订正，不再承诺不存在的功能。
  */
 export class DomainManager {
   private domainsRoot: string;
@@ -193,54 +196,6 @@ export class DomainManager {
       logger.warning('读取域配置失败', { name, error });
       return null;
     }
-  }
-
-  /**
-   * 检测用户查询最可能匹配哪个域
-   * 用 queryHints.keywords 做简单关键词匹配
-   */
-  async detectDomain(query: string): Promise<string> {
-    const domains = await this.list();
-    if (domains.length === 0) return 'default';
-
-    const queryLower = query.toLowerCase();
-    let bestMatch = 'default';
-    let bestScore = 0;
-
-    for (const domain of domains) {
-      let score = 0;
-      for (const kw of domain.keywordTags) {
-        if (queryLower.includes(kw.toLowerCase())) {
-          score++;
-        }
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = domain.name;
-      }
-    }
-
-    return bestMatch;
-  }
-
-  /**
-   * 获取所有域汇总信息（用于 system prompt 注入）
-   */
-  async getDomainSummaryText(): Promise<string> {
-    const domains = await this.list();
-    if (domains.length === 0) return '';
-
-    const lines: string[] = ['可用知识域：'];
-
-    for (const d of domains) {
-      const tags =
-        d.keywordTags.length > 0
-          ? ` [关键词: ${d.keywordTags.join(', ')}]`
-          : '';
-      lines.push(`- ${d.label}（${d.description}）${tags}`);
-    }
-
-    return lines.join('\n');
   }
 
   /**

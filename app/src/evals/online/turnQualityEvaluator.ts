@@ -57,6 +57,9 @@ const SIGNAL_EVENT_TYPES: LiriEventType[] = [
   'turn/end',
   'assistant/tool_call',
   'metric/timing',
+  // D3（LLM 复核）：正文摘录（复核的最小输入，见 `deriveTurnSignals` 的截断口径）
+  'assistant/text',
+  'assistant/text-batch',
 ];
 
 /** 回溯多少条历史 `turn/quality` 事件用于"连续低分"与水位（够覆盖阈值即可） */
@@ -106,6 +109,12 @@ export interface TurnQualityEvaluatorPorts {
   reviewTurn?(input: {
     sessionId: string;
     turnNumber: number;
+    /**
+     * 该轮**助手正文摘录**（已按 `MAX_TEXT_EXCERPT_CHARS` 截断）。
+     *
+     * 无正文（纯工具轮 / 被中断）⇒ `undefined`；复核器**应据此跳过**（不臆断质量）。
+     */
+    assistantText?: string;
   }): Promise<TurnQualityReview | null>;
 }
 
@@ -281,6 +290,9 @@ async function evaluateSession(
       const review = await reviewer({
         sessionId,
         turnNumber: item.turn.turnNumber,
+        ...(item.turn.assistantTextExcerpt
+          ? { assistantText: item.turn.assistantTextExcerpt }
+          : {}),
       });
       if (review) {
         reviewByTurn.set(item.turn.turnNumber, review);

@@ -41,12 +41,25 @@
 import type { LiriEvent } from '@modules/session/types/events';
 import type { TurnQualitySignals, TurnStatus } from './types.js';
 
+/**
+ * D3（LLM 复核）用：喂给复核器的**该轮助手正文摘录上限**。
+ *
+ * 复核只需"这轮答复长什么样"，不需全文；截断同时是**成本护栏**
+ * （规格 §D3"最小必要输入，不整库回灌"）。
+ */
+const MAX_TEXT_EXCERPT_CHARS = 4000;
+
 /** 派生所得的单轮信号（含该轮**结束 seq** —— 供水位使用） */
 export interface DerivedTurn {
   turnNumber: number;
   signals: TurnQualitySignals;
   /** 该轮 `turn/end` 事件的 seq（无 `turn/end` 的未收轮不产出） */
   endSeq: number;
+  /**
+   * 该轮**助手正文摘录**（≤ `MAX_TEXT_EXCERPT_CHARS`，超长截断并标注）；
+   * 供 D3 LLM 复核使用。无正文（纯工具轮/被中断）⇒ `undefined`。
+   */
+  assistantTextExcerpt?: string;
 }
 
 /** 未收轮（有 `turn/start` 无 `turn/end`）的累积态 */
@@ -56,6 +69,10 @@ interface OpenTurn {
   durationMs: number;
   inputTokens: number;
   outputTokens: number;
+  /** 累积的助手正文（超长即停止追加，见 `MAX_TEXT_EXCERPT_CHARS`） */
+  text: string;
+  /** 是否因超长被截断 */
+  truncated: boolean;
 }
 
 /** 把 `turn/end.finishReason` 映射为**结构化** `TurnStatus`（`undefined` = 正常收尾） */
@@ -88,11 +105,36 @@ export function deriveTurnSignals(events: LiriEvent[]): DerivedTurn[] {
           durationMs: 0,
           inputTokens: 0,
           outputTokens: 0,
+          text: '',
+          truncated: false,
         };
         break;
       }
       case 'assistant/tool_call': {
         if (open) open.toolCalls += 1;
+        break;
+      }
+      case 'assistant/text':
+      case 'assistant/text-batch': {
+        if (!open) break;
+        const d = ev.data as { content?: string; replace?: boolean };
+        if (typeof d.content !== 'string') break;
+        // `replace: true` = 该 delta **取代**此前累积的正文（续接/重试轮的首个 delta，
+        // 见 `eventPayloads.ts` 的 `assistant/text.replace` 文档）⇒ 先清空再追加，
+        // 否则复核会看到"重试前后的重复段"而误判。
+        if (ev.type === 'assistant/text' && d.replace === true) {
+          open.text = '';
+          open.truncated = false;
+        }
+        if (!open.truncated) {
+          const room = MAX_TEXT_EXCERPT_CHARS - open.text.length;
+          if (d.content.length <= room) {
+            open.text += d.content;
+          } else {
+            open.text += d.content.slice(0, Math.max(0, room));
+            open.truncated = true;
+          }
+        }
         break;
       }
       case 'metric/timing': {
@@ -123,6 +165,14 @@ export function deriveTurnSignals(events: LiriEvent[]): DerivedTurn[] {
             inputTokens: open.inputTokens,
             outputTokens: open.outputTokens,
           },
+          // 纯工具轮/被中断轮可能没有正文 ⇒ 保持 `undefined`（复核侧据此跳过，不臆断）
+          ...(open.text.length > 0
+            ? {
+                assistantTextExcerpt: open.truncated
+                  ? `${open.text}\n…[已截断]`
+                  : open.text,
+              }
+            : {}),
         });
         open = null;
         break;

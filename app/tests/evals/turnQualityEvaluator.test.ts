@@ -365,3 +365,43 @@ describe('U4 runTurnQualityPass：让出与错误隔离', () => {
     expect(r.scored).toBe(1);
   });
 });
+
+describe('U4 deriveTurnSignals：正文摘录（D3 复核输入）', () => {
+  it('assistant/text 与 text-batch 按 seq 累积为摘录', () => {
+    const events = [
+      ev(1, 'turn/start', { turn: 1 }),
+      ev(2, 'assistant/text', { content: '你好，' }),
+      ev(3, 'assistant/text-batch', { content: '这是答复。' }),
+      ev(4, 'turn/end', { turn: 1 }),
+    ];
+    expect(deriveTurnSignals(events)[0].assistantTextExcerpt).toBe(
+      '你好，这是答复。'
+    );
+  });
+
+  it('replace:true ⇒ 清空重建（重试轮不残留上一版正文）', () => {
+    const events = [
+      ev(1, 'turn/start', { turn: 1 }),
+      ev(2, 'assistant/text', { content: '旧稿' }),
+      ev(3, 'assistant/text', { content: '新稿', replace: true }),
+      ev(4, 'turn/end', { turn: 1 }),
+    ];
+    expect(deriveTurnSignals(events)[0].assistantTextExcerpt).toBe('新稿');
+  });
+
+  it('超长截断并标注；纯工具轮无正文 ⇒ undefined', () => {
+    const long = 'x'.repeat(5000);
+    const events = [
+      ev(1, 'turn/start', { turn: 1 }),
+      ev(2, 'assistant/text-batch', { content: long }),
+      ev(3, 'turn/end', { turn: 1 }),
+      ev(4, 'turn/start', { turn: 2 }),
+      ev(5, 'assistant/tool_call', { toolCallId: 'c1', name: 'grep' }),
+      ev(6, 'turn/end', { turn: 2 }),
+    ];
+    const d = deriveTurnSignals(events);
+    expect(d[0].assistantTextExcerpt!.endsWith('…[已截断]')).toBe(true);
+    expect(d[0].assistantTextExcerpt!.length).toBeLessThanOrEqual(4008);
+    expect(d[1].assistantTextExcerpt).toBeUndefined();
+  });
+});

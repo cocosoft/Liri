@@ -50,7 +50,7 @@
 | T1 | 新增 `a2a-routes.ts`（`dispatchA2ARoutes`）+ `route-table.ts` 注册（**默认关闭**） | ✅ **已完成** | 用例①：未启用 ⇒ **不处理、不写响应**（上层自然 404） |
 | T2 | `baseUrl` 装配（`A2A_PUBLIC_URL` 优先，缺省按请求 `Host`；**不硬编码**） | ✅ **已完成** | 用例②③：Host 推导 / 显式 URL 优先 |
 | T3 | ETag / 条件请求（复用 `computeAgentCardEtag`） | ✅ **已完成** | 用例④：`If-None-Match` 命中 ⇒ **304**（无 body）；另 405 / 非目标路径用例 |
-| T4 | 委派端点（`POST /v1/a2a/tasks` + `GET /v1/a2a/tasks/{id}`；有界等待 ⇒ 超阈值 `working`，**不做 HTTP 长挂**） | ✅ **已完成**（后端按**方案①**接入：`createCoreApiDelegator` → `CoreAPI` 对话轮） | 端点 5 态（501 兜底 / 400 / 200+`completed` / 202+`working` → 回查 `completed` / 404）+ 后端自身 **4 例**（会话创建 / 人格降级 / 空正文） |
+| T4 | 委派端点（`POST /v1/a2a/tasks` + `GET /v1/a2a/tasks/{id}`；有界等待 ⇒ 超阈值 `working`，**不做 HTTP 长挂**） | ✅ **已完成**（后端按**方案①**接入：`createCoreApiDelegator` → `CoreAPI` 对话轮） | 端点 5 态（**503+`Retry-After`** 兜底 / 400 / 200+`completed` / 202+`working` → 回查 `completed` / 404）+ 后端自身 **4 例**（会话创建 / 人格降级 / 空正文） |
 | T5 | `api-spec.md` 同步（§1.6.1 强制） | ✅ **已完成** | 已新增 **§3.8.2**（发现 + 委派 + 鉴权契约）+ 版本 **2.4.0 / 2.5.0 / 2.6.0** |
 | **T6** | **鉴权：专用密钥 + fail-closed**（`A2A_API_KEY`；未配置 ⇒ **401**，不回退"本地信任基线"） | ✅ **已完成（2026-09-29 用户裁定）** | 用例②×2：未配密钥 ⇒ 401 / 头缺失或错 ⇒ 401 / 正确 ⇒ 放行 |
 
@@ -94,13 +94,13 @@
 - ✅ **后端已接入（方案①，2026-09-29 用户裁定）**：新增 [`routes/a2a-delegator.ts`](../../app/src/infrastructure/http/handlers/routes/a2a-delegator.ts) 的 `createCoreApiDelegator()` —— **每次委派新建独立会话**（`mode: 'a2a'`，隔离外部调用者之间的上下文）→ `CoreAPI.chat({ content, sessionId, stream: false, systemPrompt? })` → 返回助手正文；`agentId` 命中注册表时用该 Agent 的 `systemPrompt` 作本轮人格（**未命中 ⇒ WARN + 按默认人格**，**不臆造**）。
   · **装配点**：[`getLocalHTTPService()`](../../app/src/infrastructure/http/LocalHTTPService.ts#L485-L496) 内**同步** `installA2ADelegator()`（静态 import ⇒ 消除"首个请求早于装配"的竞态）；装配异常**不阻断** HTTP 启动。
   · **可测性**：后端只依赖**窄端口** `A2ADelegationCore`（仅 `createSession` + `chat`）⇒ 单测注入假实现，**不触碰真实 `CoreAPI`、不产生对话成本**（**4 例**）。
-  · ⚠️ **边界（如实）**：这是**一条完整对话轮** ⇒ 会走既有**模型路由 / 工具执行 / 权限门 / 成本记账**；`501` 退化为**装配失败时的兜底**（正常装配后不可达）。
+  · ⚠️ **边界（如实）**：这是**一条完整对话轮** ⇒ 会走既有**模型路由 / 工具执行 / 权限门 / 成本记账**；未就绪态（`503`）退化为**装配失败时的兜底**（正常装配后不可达）。A12（2026-10-06）：未就绪态由 **501** 改为 **503 + `Retry-After`**（501="永不支持" 与"装配后即恢复"语义不符）。
 
 **实施期一处**架构约束**（如实记录）**：初版在 route 里**深路径** `import ... from '@modules/agent/a2a/agentCard'` ⇒ 被 **`module-registry/no-direct-module-import`** 拦下（`infrastructure` 只允许 `@modules/agent` **barrel**，深路径须走 `moduleRegistry.resolve`）⇒ 改为**经 barrel 导出**所需 4 个符号（GR01 复用既有 barrel，不新增 `allowedPaths` 例外）。
 
 **验收（实测）**：新增守卫 **5 pass / 0 fail** · `typecheck` **0** · 改动文件 `eslint` **0** · `prettier` ✓ · `lint:arch` **违规 0**、检查文件 **3970 → 3971**（+1 = 新模块，**逐数吻合**）、告警仍 1（预存 R07-004）、`R03-002 模块出口单一 0 处违规`。
 
-**未做/已闭环（如实）**：① ~~委派后端未接线 ⇒ `POST /v1/a2a/tasks` 返回 501~~ ⇒ ✅ **已于同日接入**（**方案①：CoreAPI 对话轮**；`501` 退化为装配失败兜底）· ② **未做真机端到端**（需 `A2A_ENABLED=true` 起 daemon 后从外部 `curl`）—— 由单测覆盖：卡 4 态 + 委派 5 态 + **鉴权 3 态** · ③ ~~鉴权强度未决策~~ ⇒ ✅ **已定**（**专用密钥 + fail-closed**）；**分发与轮换见 §8**。
+**未做/已闭环（如实）**：① ~~委派后端未接线 ⇒ `POST /v1/a2a/tasks` 返回 501~~ ⇒ ✅ **已于同日接入**（**方案①：CoreAPI 对话轮**；未就绪态**已由 501 改为 503 + `Retry-After`**，见 A12）· ② **未做真机端到端**（需 `A2A_ENABLED=true` 起 daemon 后从外部 `curl`）—— 由单测覆盖：卡 4 态 + 委派 5 态 + **鉴权 3 态** · ③ ~~鉴权强度未决策~~ ⇒ ✅ **已定**（**专用密钥 + fail-closed**）；**分发与轮换见 §8**。
 
 ---
 

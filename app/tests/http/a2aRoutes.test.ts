@@ -8,7 +8,7 @@
  *   ③ Card：`200`，`capabilities.streaming` / `pushNotifications` **如实为 `false`**（G2）；
  *   ④ `baseUrl`：优先 `A2A_PUBLIC_URL`；缺省按请求 Host 推导（**不硬编码**）；
  *   ⑤ Card：`If-None-Match` 命中 ⇒ **304**；非 GET ⇒ **405**；
- *   ⑥ 委派：**未装配后端 ⇒ 501**（如实，**不伪造**成功）；
+ *   ⑥ 委派：**未装配后端 ⇒ 503 + `Retry-After`**（如实，**不伪造**成功；A12：原 501 ⇒ 503）；
  *   ⑦ 委派：`message` 缺失 / 非法 JSON ⇒ **400**；
  *   ⑧ 委派：阈值内完成 ⇒ **200 + `completed`**（含产物）；
  *   ⑨ 委派：超有界等待 ⇒ **202 + `working`**（**不做 HTTP 长挂**，G3），随后回查 ⇒ `completed`；
@@ -191,7 +191,7 @@ describe('A2A Agent Card（发现）', () => {
 });
 
 describe('A2A 委派（T4）', () => {
-  it('⑥ 未装配委派后端 ⇒ 501（如实，不建任务）', async () => {
+  it('⑥ 未装配委派后端 ⇒ 503 + Retry-After（如实，不建任务）', async () => {
     enableA2A();
     expect(hasA2ADelegator()).toBe(false);
     const { handled, cap } = await call(
@@ -201,7 +201,9 @@ describe('A2A 委派（T4）', () => {
       JSON.stringify({ message: 'ping' })
     );
     expect(handled).toBe(true);
-    expect(cap.status).toBe(501);
+    // A12（2026-10-06）：501（"永不支持"）→ 503（"暂不可用"，装配后恢复）+ Retry-After
+    expect(cap.status).toBe(503);
+    expect(cap.headers['Retry-After']).toBe('5');
     expect(a2aTaskStore.list()).toHaveLength(0);
   });
 

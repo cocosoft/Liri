@@ -16,7 +16,9 @@
  * - 委派：`POST /v1/a2a/tasks`，body `{ message: string（必填）, agentId?: string }`；
  *   **有界等待**（`A2A_DELEGATE_MAX_WAIT_MS`，默认 15000ms）⇒ 在阈值内完成返回 **200 + 终态任务**，
  *   超阈值返回 **202 + `working` 任务**（**不做 HTTP 长挂**，spec G3）；
- * - **未注入委派后端 ⇒ 501**（如实"未接线"，**不伪造**成功）；
+ * - **未注入委派后端 ⇒ 503 + `Retry-After`**（如实"未就绪"，**不伪造**成功）。
+ *   A12（2026-10-06）：原为 **501** —— 501 语义是"服务器**永不支持**"，而此处是"服务端**暂不可用**"
+ *   （装配期注入 `A2ADelegator` 后即恢复）⇒ 按协议互操作惯例改 **503 + `Retry-After`**；
  * - `GET /v1/a2a/tasks/{id}` ⇒ `200` + 任务 / **404**（未知 id，含进程重启后 —— 见 `taskStore` 头注释）；
  * - 卡片**不内嵌密钥**（`agentCard.ts:26` 纪律）；`capabilities.streaming`/`pushNotifications` **如实为 `false`**（G2）。
  */
@@ -55,11 +57,13 @@ const ENV_A2A_PUBLIC_URL = 'A2A_PUBLIC_URL';
 /** 环境变量：委派的**有界等待**上限（毫秒；超时即返回 `working`，spec G3） */
 const ENV_A2A_DELEGATE_MAX_WAIT_MS = 'A2A_DELEGATE_MAX_WAIT_MS';
 const DEFAULT_DELEGATE_MAX_WAIT_MS = 15_000;
+/** A12：委派后端未就绪时的 `Retry-After`（秒）—— 告诉外部调用方"稍后重试"的合理间隔 */
+const RETRY_AFTER_SECONDS = 5;
 
 /**
  * 委派后端（**端口**，GR01：不新造框架）。
  *
- * 由装配方注入（`setA2ADelegator`）。**未注入 ⇒ 委派端点返回 501**（如实"未接线"）。
+ * 由装配方注入（`setA2ADelegator`）。**未注入 ⇒ 委派端点返回 503 + `Retry-After`**（如实"未就绪"）。
  * 后端形态（走 `CoreAPI` 对话轮 / 走某个 Agent）属**装配决策**，本模块不替它选 ——
  * 见 spec §6「T4 后端待接」。
  */
@@ -218,11 +222,14 @@ async function handleCreateTask(
     json(res, 405, { error: { message: '仅支持 POST' } });
     return true;
   }
-  // 如实：后端未接线 ⇒ 501（**不**创建任务、不伪造成功）
+  // 如实：后端未接线 ⇒ 503 + `Retry-After`（**不**创建任务、不伪造成功）
+  // A12（2026-10-06）：原 501 ⇒ 改 503 —— 501 = "永不支持"，503 = "暂不可用"（可恢复），
+  // 与"装配期注入后即恢复"的真实语义一致；`Retry-After` 便于外部调用方退避重试。
   if (!delegator) {
-    json(res, 501, {
+    res.setHeader('Retry-After', String(RETRY_AFTER_SECONDS));
+    json(res, 503, {
       error: {
-        message: 'A2A 委派后端未接线（需装配期注入 A2ADelegator）',
+        message: 'A2A 委派后端未就绪（需装配期注入 A2ADelegator）',
       },
     });
     return true;

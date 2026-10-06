@@ -41,6 +41,14 @@ const DEFAULT_CONFIG: ConflictDetectionConfig = {
   enabled: true,
 };
 
+/**
+ * 分片让出的默认比较数（D3）。
+ *
+ * 与 `MemoryConsolidator` 的 `DEFAULT_DEDUP_CHUNK_PAIRS` **同量级** ——
+ * 空闲维护用，单次同步块保持毫秒级，不冻结事件循环。
+ */
+const DEFAULT_CONFLICT_CHUNK_PAIRS = 5000;
+
 const FACT_PATTERNS = [
   /(?:\b\w+\s+)(?:是|为|叫|属于|位于|来自|拥有|包含)(?:\s+\w+)/g,
   /(?:\b\w+\s+)(?:is|was|are|were|has|have|belongs? to|located in|comes? from)\s+\w+/g,
@@ -101,12 +109,54 @@ export class MemoryConflictDetector {
    * @returns 冲突检测结果列表
    */
   detect(memories: Memory[]): ConflictResult[] {
+    const it = this.conflictCore(memories, 0);
+    let step = it.next();
+    while (!step.done) step = it.next();
+    return step.value;
+  }
+
+  /**
+   * 分片版冲突检测（D3）：每 `chunkPairs` 次比较让出一次事件循环。
+   * **结果与 `detect` 逐条相同**（同一核心、同一判据），差别仅在让出。
+   * 供空闲期维护使用（不在写入热路径调用）。
+   */
+  async detectChunked(
+    memories: Memory[],
+    chunkPairs: number = DEFAULT_CONFLICT_CHUNK_PAIRS
+  ): Promise<ConflictResult[]> {
+    const it = this.conflictCore(memories, Math.max(1, chunkPairs));
+    let step = it.next();
+    while (!step.done) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      step = it.next();
+    }
+    return step.value;
+  }
+
+  /**
+   * 冲突检测核心（**单一实现**，D2/D3）。
+   *
+   * - **D2 预抽取**：进入双重循环前，按位置**每条只算一次** `extractFacts` / `hasNegation`；
+   *   循环内只做 Map 查找。原实现每对都重算（O(n²) 次 regex）⇒ 全库接入会重演
+   *   `memory-dedup-blocking-rootfix.md` 记的 41.9s 事件循环冻结。
+   * - **D3 分片让出**：每累积 `chunkPairs` 次比较 `yield` 一次；`chunkPairs <= 0` 表示不让出
+   *   （同步路径）。判据与语义**逐字不变** ⇒ 与改造前结果等价。
+   */
+  private *conflictCore(
+    memories: Memory[],
+    chunkPairs: number
+  ): Generator<number, ConflictResult[], void> {
     if (!this.config.enabled || memories.length < 2) {
       return [];
     }
 
+    // D2：每条记忆只抽取一次（与 MemoryConsolidator 的 D2′ 预分词同手法）
+    const factsByIndex = memories.map((m) => extractFacts(m.content));
+    const negations = memories.map((m) => hasNegation(m.content));
+
     const conflicts: ConflictResult[] = [];
     const processed = new Set<string>();
+    let compared = 0;
 
     for (let i = 0; i < memories.length; i++) {
       const memA = memories[i];
@@ -120,10 +170,19 @@ export class MemoryConflictDetector {
 
         if (memB.content.length < this.config.minContentLength) continue;
 
-        const result = this.comparePair(memA, memB);
+        const result = this.comparePair(
+          memA,
+          memB,
+          factsByIndex[i],
+          factsByIndex[j],
+          negations[i],
+          negations[j]
+        );
+        compared++;
         if (result) {
           conflicts.push(result);
         }
+        if (chunkPairs > 0 && compared % chunkPairs === 0) yield compared;
       }
     }
 
@@ -131,16 +190,17 @@ export class MemoryConflictDetector {
   }
 
   /**
-   * 比较一对记忆是否存在冲突
+   * 比较一对记忆是否存在冲突（事实/否定均由核心预抽取后传入）
    */
-  private comparePair(memA: Memory, memB: Memory): ConflictResult | null {
-    const factsA = extractFacts(memA.content);
-    const factsB = extractFacts(memB.content);
-
+  private comparePair(
+    memA: Memory,
+    memB: Memory,
+    factsA: Map<string, string[]>,
+    factsB: Map<string, string[]>,
+    negationA: boolean,
+    negationB: boolean
+  ): ConflictResult | null {
     if (factsA.size === 0 || factsB.size === 0) return null;
-
-    const negationA = hasNegation(memA.content);
-    const negationB = hasNegation(memB.content);
 
     for (const [subject, valuesA] of factsA) {
       const valuesB = factsB.get(subject);

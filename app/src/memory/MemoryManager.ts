@@ -46,6 +46,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
+import {
+  MemoryConflictDetector,
+  type ConflictResult,
+} from './consolidation/MemoryConflictDetector';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // D-146（2026-10-01）：`trackUsage` 改经 core SPI（`infra -> app` 倒挂收口）
@@ -192,6 +196,14 @@ const MEMORY_MAX_COUNT = 1000;
  */
 const MEMORY_RETENTION_DRY_RUN = true;
 
+/**
+ * 冲突样本上限（U3，`.trae/specs/memory-conflict-detection.md` D5）。
+ *
+ * 返回值与日志**只带前 N 条**样本（含 `subject`/双方 id/`confidence`，**不含完整正文**）
+ * ⇒ 大库多报时不会造成日志/返回值膨胀。
+ */
+const CONFLICT_SAMPLE_LIMIT = 5;
+
 /** 保留上限的候选字段（与 `Memory` 解耦，便于纯函数单测） */
 export interface EvictionCandidate {
   id: string;
@@ -284,6 +296,15 @@ export class MemoryManagerImpl
    * 记忆去重合并器，在 createMemory 时自动检测内容重复
    */
   private consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
+
+  /**
+   * 记忆冲突检测器（N-79 接线，2026-10-06）。
+   *
+   * 依据 `.trae/specs/memory-conflict-detection.md`：原实现**0 消费者**（能力静默无效），
+   * 现接入空闲期 `runMaintenancePass()` —— **只检测与记录，不改写任何记忆**
+   * （用户裁定：regex 启发式 confidence 0.5，不足以驱动自动消解）。
+   */
+  private conflictDetector = new MemoryConflictDetector();
 
   /**
    * 记忆提示服务
@@ -461,7 +482,7 @@ export class MemoryManagerImpl
   }
 
   /**
-   * 空闲期维护：**全库相似度去重**（D1 的落点；不在写入热路径）。
+   * 空闲期维护：**全库相似度去重**（D1 的落点；不在写入热路径）+ **全库冲突检测**（U3）。
    *
    * 依据（`.trae/specs/memory-dedup-blocking-rootfix.md`）：
    * - 该工作原在 `createMemory` 内、每轮对话同步跑一次 ⇒ 实测 576 条库 **41.9 秒**阻塞主线程；
@@ -469,11 +490,19 @@ export class MemoryManagerImpl
    *   `setImmediate` 让出）⇒ 单次同步块毫秒级，**不冻结事件循环**；
    * - D2′ 预分词后全库一遍约 1 秒（原 41.9 秒），故不再需要"单轮比较数上限"。
    *
+   * 冲突检测（U3，2026-10-06，`.trae/specs/memory-conflict-detection.md`）：
+   * - 复用**同一份** `getAllMemories()` 快照（零额外 I/O），经 `detectChunked` 分片让出；
+   * - **只检测与记录**：不改写任何记忆（不删除/不更新/不写 metadata），结果仅进返回值与日志。
+   *
    * 调用方：`ChatOrchestrator` 的 `IdleScaleMonitor.onIdle`（复用既有空闲缝）。
    */
-  async runMaintenancePass(opts?: {
-    chunkPairs?: number;
-  }): Promise<{ total: number; removed: number; elapsedMs: number }> {
+  async runMaintenancePass(opts?: { chunkPairs?: number }): Promise<{
+    total: number;
+    removed: number;
+    elapsedMs: number;
+    conflicts: number;
+    conflictSamples: ConflictResult[];
+  }> {
     const startedAt = Date.now();
     const all = await this.getAllMemories();
     const input = all.map((m) => ({
@@ -501,10 +530,37 @@ export class MemoryManagerImpl
       await this.retriever.saveIndex();
     }
 
+    // U3（2026-10-06，`.trae/specs/memory-conflict-detection.md`）：冲突检测接线。
+    // **只检测与记录** —— 不删除/不更新/不写 metadata（用户裁定）。
+    // 复用同一次 `all` 快照（零额外 I/O）；`detectChunked` 分片让出 ⇒ 不冻结事件循环。
+    const found = await this.conflictDetector.detectChunked(
+      all,
+      opts?.chunkPairs
+    );
+    if (found.length > 0) {
+      // 措辞为「潜在冲突」：检测器是 regex 启发式（confidence 0.5），不是判定
+      logger.info(
+        `记忆维护：发现 ${found.length} 处潜在冲突（只记录，不改写）`,
+        {
+          total: input.length,
+          conflicts: found.length,
+          samples: found.slice(0, CONFLICT_SAMPLE_LIMIT).map((c) => ({
+            conflictType: c.conflictType,
+            subject: c.subject,
+            memoryIdA: c.memoryIdA,
+            memoryIdB: c.memoryIdB,
+            confidence: c.confidence,
+          })),
+        }
+      );
+    }
+
     return {
       total: input.length,
       removed: result.totalRemoved,
       elapsedMs: Date.now() - startedAt,
+      conflicts: found.length,
+      conflictSamples: found.slice(0, CONFLICT_SAMPLE_LIMIT),
     };
   }
 

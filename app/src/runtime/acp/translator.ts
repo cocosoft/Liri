@@ -132,6 +132,3 @@ export class AcpTranslator {
     return message.payload as T;
   }
 }
-
-/** @deprecated 使用 AcpTranslator */
-export { AcpTranslator as AclTranslator };

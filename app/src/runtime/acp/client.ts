@@ -283,6 +283,3 @@ export class AcpTransportClient extends EventEmitter {
     }
   }
 }
-
-/** @deprecated 使用 AcpTransportClient */
-export { AcpTransportClient as AclClient };

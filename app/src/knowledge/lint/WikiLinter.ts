@@ -297,9 +297,10 @@ async function checkSchemaFieldMatch(wikiDir: string): Promise<LintResult[]> {
   }>;
   try {
     const raw = readFileSync(entitiesPath, 'utf-8');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parsed = load(raw) as any;
-    schemaEntities = (parsed?.entities || []) as typeof schemaEntities;
+    const parsed = load(raw) as { entities?: unknown } | null;
+    schemaEntities = (
+      Array.isArray(parsed?.entities) ? parsed.entities : []
+    ) as typeof schemaEntities;
   } catch {
     results.push({
       rule: 'schema-mismatch',

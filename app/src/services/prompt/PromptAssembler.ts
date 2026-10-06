@@ -473,20 +473,3 @@ function resolveDynamicBudgetTokens(explicit?: number): number | undefined {
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
-
-/**
- * 使用默认段落列表组装系统提示词
- * @deprecated 请直接使用 assembleSystemPrompt({ strategyExtra, mode, providerId })
- */
-export async function assembleDefaultSystemPrompt(
-  strategyExtra?: string,
-  mode?: PromptMode,
-  providerId?: string
-): Promise<string> {
-  return assembleSystemPrompt({
-    sections: getRegisteredSections(),
-    strategyExtra,
-    mode,
-    providerId,
-  });
-}

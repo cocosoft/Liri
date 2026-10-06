@@ -11,8 +11,7 @@ TaskRegistry（注册表中心）
   ├── BaseTask（任务基类）
   │   ├── LocalBashTask（本地 bash 执行）
   │   ├── DreamTask（AI Agent 任务）
-  │   ├── NoteTask（笔记任务）
-  │   └── LocalMainSessionTask（主会话任务）
+  │   └── NoteTask（笔记任务）
   ├── HeartbeatManager（心跳保活）
   ├── TaskAuditService（审计服务）
   ├── TaskReconciliationService（一致性核对）

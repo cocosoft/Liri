@@ -1039,7 +1039,6 @@ class ArchitectureLinter {
       //（lint 报告准确，但文件头已声明"请使用 @modules/config/ConfigManager 替代"，按计划清理）
       'cli\\config.ts',
       'core\\extensibility\\ConfigManager.ts',
-      'core\\RemoteConfigManager.ts',
     ];
 
     for (const file of this.allFiles) {

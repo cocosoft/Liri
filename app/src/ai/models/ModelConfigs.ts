@@ -251,36 +251,6 @@ export function getModelContextWindow(modelName: string): number {
 }
 
 /**
- * 完整的模型定价（含缓存价格）
- * @deprecated 迁移中，请使用 ModelRegistry.getModelPricing()
- */
-export interface CompleteModelPricing {
-  inputPer1M: number;
-  outputPer1M: number;
-  cacheReadPer1M: number;
-  cacheWritePer1M: number;
-}
-
-/**
- * 获取模型的完整定价（含缓存）
- * 优先从 ModelRegistry 获取，回退到内置值
- */
-export function getModelCompletePricing(
-  modelName: string
-): CompleteModelPricing | null {
-  const config = getModelConfigById(modelName);
-  if (config?.pricing) {
-    return {
-      inputPer1M: config.pricing.inputPer1M,
-      outputPer1M: config.pricing.outputPer1M,
-      cacheReadPer1M: config.pricing.cacheReadPer1M ?? 0,
-      cacheWritePer1M: config.pricing.cacheWritePer1M ?? 0,
-    };
-  }
-  return null;
-}
-
-/**
  * 获取指定提供商支持的所有模型
  * @param provider API提供商
  * @returns 该提供商可用的模型键列表

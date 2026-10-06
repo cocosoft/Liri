@@ -2,31 +2,11 @@
  * 查询上下文（基于 ContextBuilder 重构）
  * 提供动态系统提示词构建、用户上下文和系统上下文的获取功能
  */
-import { getContextBuilder, type SystemPromptParts } from '../context/index';
+import type { SystemPromptParts } from '../context/index';
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolCall } from '@modules/session/types/tool.js';
 
 export type { SystemPromptParts };
-
-/**
- * 获取系统提示词部件
- * @deprecated 功能已迁移至 systemPromptSections。请使用 PromptAssembler.assembleSystemPrompt() 替代。
- */
-export async function fetchSystemPromptParts(options?: {
-  customSystemPrompt?: string;
-}): Promise<SystemPromptParts> {
-  if (options?.customSystemPrompt) {
-    return {
-      basePrompt: [options.customSystemPrompt],
-      userContext: { platform: process.platform, cwd: process.cwd() },
-      systemContext: {},
-    };
-  }
-
-  const builder = getContextBuilder();
-  await builder.initialize();
-  return builder.buildSystemPrompt();
-}
 
 export function isResultSuccessful(
   message: Message | undefined,

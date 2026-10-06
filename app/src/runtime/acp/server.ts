@@ -312,6 +312,3 @@ export class AcpTransportServer extends EventEmitter {
     }
   }
 }
-
-/** @deprecated 使用 AcpTransportServer */
-export { AcpTransportServer as AclServer };

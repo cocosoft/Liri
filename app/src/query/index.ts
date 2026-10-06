@@ -58,7 +58,6 @@ export type { RetryConfig, APIErrorClassification } from './withRetry.js';
 export { processUserInput, sanitizeUserInput } from './processUserInput.js';
 export type { ProcessedInput } from './processUserInput.js';
 export {
-  fetchSystemPromptParts,
   isResultSuccessful,
   normalizeMessage,
   handleOrphanedPermission,

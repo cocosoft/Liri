@@ -101,7 +101,7 @@ export * from './data-models';
 export * from './ports';
 // 13-P0-2（2026-10-05）：验收标准结构化契约（纯模块，无出向依赖 ⇒ 放 core 供 tasks/query 共用）
 export * from './successCriteria';
-export type { HealthStatus, UnifiedHealthStatus } from './health';
+export type { HealthStatus } from './health';
 export { HEALTH_SEVERITY, isAcceptable, mergeHealthStatuses } from './health';
 export * from './performance';
 export { getBuildVariant } from './featureFlags';

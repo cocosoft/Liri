@@ -334,56 +334,6 @@ export function resolveWorktreeHash(
   return createHash('sha256').update(normalized).digest('hex').slice(0, 8);
 }
 
-/**
- * @deprecated 死代码（2026-09-18 P0.5）：数据已全部 hash 化（sessions/<hash>/session_xxx/），
- * 该函数语义（无 hash 旧版平级布局→hash 化）已无存在意义；且 legacyDir 恰为 hash 目录
- * 的父目录，hash 变更瞬间调用必致整层套娃 rename。原调用点（ChatManager.initialize）已删除。
- */
-export function migrateSessionsToWorktree(
-  env: NodeJS.ProcessEnv = process.env
-): void {
-  const {
-    existsSync,
-    renameSync,
-    mkdirSync,
-    writeFileSync,
-    readdirSync,
-  } = require('fs');
-  const { join } = require('path');
-  const legacyDir = resolveLegacySessionsDir(env);
-  const newDir = resolveSessionsDir(env);
-
-  // 已迁移：新路径存在
-  if (existsSync(newDir)) return;
-
-  // 无需迁移：旧路径不存在或无数据
-  if (!existsSync(legacyDir)) return;
-
-  const entries = readdirSync(legacyDir);
-  if (entries.length === 0) return;
-
-  // 幂等迁移：先创建目标目录，再逐项移动（不能 rename 父目录到自身子目录）
-  try {
-    mkdirSync(newDir, { recursive: true });
-    for (const entry of entries) {
-      const from = join(legacyDir, entry);
-      const to = join(newDir, entry);
-      try {
-        renameSync(from, to);
-      } catch (err) {
-        // 单项移动失败，跳过
-      }
-    }
-    // 迁移成功标记
-    writeFileSync(
-      join(newDir, '.worktree_migrated_at'),
-      new Date().toISOString()
-    );
-  } catch (err) {
-    // 迁移失败，静默降级
-  }
-}
-
 /** 会话转录 */
 export function resolveTranscriptsDir(
   env: NodeJS.ProcessEnv = process.env
@@ -1083,8 +1033,6 @@ export const DOWNLOADS_DIR = resolveDownloadsDir();
 export const MEDIA_DIR = resolveMediaDir();
 export const DOCS_DIR = resolveDocsDir();
 export const KNOWLEDGE_BASE_DIR = resolveKnowledgeBaseDir();
-/** @deprecated 使用 resolveConfigDir() 或 CONFIG_DIR */
-export const CONFIGS_DIR = resolveConfigDir();
 export const PROJECT_CONFIG_PATH = resolveProjectConfigPath();
 export const PROJECT_SETTINGS_PATH = resolveProjectSettingsPath();
 

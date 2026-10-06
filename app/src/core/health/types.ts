@@ -45,12 +45,6 @@ export type HealthStatus =
   | 'critical';
 
 /**
- * UnifiedHealthStatus 是 HealthStatus 的兼容别名
- * @deprecated 请直接使用 HealthStatus
- */
-export type UnifiedHealthStatus = HealthStatus;
-
-/**
  * 健康状态严重程度映射
  */
 export const HEALTH_SEVERITY: Record<HealthStatus, number> = {

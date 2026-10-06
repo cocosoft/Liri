@@ -169,6 +169,87 @@ describe('会话黏性路由接线（U7/§21.4）', () => {
     // 开关只关"读"，层 6 仍会写（保证后续开启时可直接命中）
     expect(calls.set).toBe(1);
   });
+
+  it('④ 上界保护：黏性档位偏低（simple）+ 当前消息更长 ⇒ **不复用**，交回 Judge', async () => {
+    let judgeCalls = 0;
+    const { store, calls } = makeFakeStore({
+      tier: 'simple',
+      provider: 'p',
+      model: 'm-sticky',
+    });
+    const router = new SmartRouter({
+      config: makeConfig(true),
+      providerRegistry: new ProviderRegistry(),
+      classifyLocal: async () => {
+        judgeCalls += 1;
+        return 'complex';
+      },
+      sessionStore: store,
+    });
+
+    // 长度 80 > DEFAULT_FAST_PATH_MAX_LENGTH(60) ⇒ 复杂度突增，禁止按 simple 复用
+    const decision = await router.decide('长'.repeat(80), 'sess-4');
+
+    expect(calls.get).toBe(1); // 查过黏性
+    expect(judgeCalls).toBe(1); // 但被上界保护否决 ⇒ 真跑了 Judge
+    expect(decision.tier).toBe('complex');
+    expect(decision.model).toBe('m-complex');
+  });
+
+  it('⑤ 上界保护**反向不设限**：黏性档位 ≥ complex ⇒ 长消息仍复用', async () => {
+    let judgeCalls = 0;
+    const { store } = makeFakeStore({
+      tier: 'reasoning',
+      provider: 'p',
+      model: 'm-sticky-high',
+    });
+    const router = new SmartRouter({
+      config: makeConfig(true),
+      providerRegistry: new ProviderRegistry(),
+      classifyLocal: async () => {
+        judgeCalls += 1;
+        return 'simple';
+      },
+      sessionStore: store,
+    });
+
+    const decision = await router.decide('长'.repeat(80), 'sess-5');
+
+    expect(judgeCalls).toBe(0); // over-provision 只多花成本、不降质量 ⇒ 无需保护
+    expect(decision.tier).toBe('reasoning');
+    expect(decision.model).toBe('m-sticky-high');
+  });
+
+  it('⑥ 边界：长度 == 阈值(60) ⇒ 复用；== 61 ⇒ 不复用', async () => {
+    const makeRouter = (judgeTier: 'complex' = 'complex') => {
+      let judgeCalls = 0;
+      const { store } = makeFakeStore({
+        tier: 'simple',
+        provider: 'p',
+        model: 'm-sticky',
+      });
+      const router = new SmartRouter({
+        config: makeConfig(true),
+        providerRegistry: new ProviderRegistry(),
+        classifyLocal: async () => {
+          judgeCalls += 1;
+          return judgeTier;
+        },
+        sessionStore: store,
+      });
+      return { router, judgeCalls: () => judgeCalls };
+    };
+
+    const atThreshold = makeRouter();
+    const d1 = await atThreshold.router.decide('x'.repeat(60), 'sess-6a');
+    expect(atThreshold.judgeCalls()).toBe(0);
+    expect(d1.model).toBe('m-sticky');
+
+    const overThreshold = makeRouter();
+    const d2 = await overThreshold.router.decide('x'.repeat(61), 'sess-6b');
+    expect(overThreshold.judgeCalls()).toBe(1);
+    expect(d2.model).toBe('m-complex');
+  });
 });
 
 describe('getSessionRouterStore 进程级单例（接线唯一构造点）', () => {

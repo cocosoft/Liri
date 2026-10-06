@@ -58,6 +58,9 @@ import { TaskDecomposer } from './TaskDecomposer.js';
 import { OrchEngine } from './OrchEngine.js';
 import type { OrchResult } from './OrchEngine.js';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
+import { ALL_ROUTER_TIERS } from './types.js';
+// 上界保护的阈值事实源（与 PlanDrivenLoop 快路径门**同源**：core `types/fastPath`）
+import { DEFAULT_FAST_PATH_MAX_LENGTH } from '@modules/types/fastPath';
 import {
   RouteKey,
   ROUTE_TO_TASK,
@@ -176,12 +179,21 @@ export class SmartRouter {
       return this.fallbackToModelRouter(message, '用户已关闭智能路由');
     }
 
-    // 层 3：会话黏性（跳过分级+Judge）
+    // 层 3：会话黏性（跳过分级+Judge）—— **含上界保护**（2026-10-06 加固）：
+    // 当前消息明显更长（> 简单任务阈值）而黏性档位偏低（< complex）时**不复用**，
+    // 交回 Judge 重新分级，避免同会话内任务复杂度突增被"欠配"。
     if (sessionId && this.config.sessionSticky !== false) {
       const sticky = await this.trySessionSticky(sessionId);
-      if (sticky) {
+      if (sticky && !this.shouldRevalidateSticky(message, sticky.tier)) {
         otel.endSpan(span, SpanStatusCode.OK);
         return sticky;
+      }
+      if (sticky) {
+        logger.debug('SmartRouter: 黏性档位不足以覆盖当前消息，交回 Judge', {
+          sessionId,
+          stickyTier: sticky.tier,
+          messageLength: message.trim().length,
+        });
       }
     }
 
@@ -479,6 +491,34 @@ export class SmartRouter {
       reason: `${reason} → ModelRouter.${taskType} → ${model}`,
       fastPath: true,
     };
+  }
+
+  /**
+   * 黏性复用的**上界保护**（2026-10-06，`任务计划-20261004.md` §21.5 残余风险加固）——
+   * **纯函数、零模型调用**（若为此再调一次 LLM，就失去了黏性"省一次 Judge"的意义）。
+   *
+   * **背景**：黏性键为 `sessionId`、TTL 30min ⇒ 同会话内任务复杂度**突增**时，盲目复用上轮
+   * 档位会**欠配**（实测场景：首轮"你好" ⇒ `simple`，随后一个复杂重构请求仍走 `simple` 档）。
+   *
+   * **判据**（两条同时成立才拒绝复用）：
+   * ① 当前消息（`trim` 后）长度 **>** `DEFAULT_FAST_PATH_MAX_LENGTH` —— 该默认值与
+   *    `PlanDrivenLoop` 的**快路径门同源**（唯一事实源 `@modules/types/fastPath`，非本处自建阈值）；
+   * ② 黏性档位排名 **<** `complex`（`simple` / `medium`，或未知档位 ⇒ 视为最低 ⇒ fail-closed）。
+   *
+   * **反向不设限**：黏性档位 ≥ `complex` 时，即便当前消息很短也**照常复用** ——
+   * over-provision 只多花成本、不降质量，无需保护。
+   * 档位顺序取 `ALL_ROUTER_TIERS`（同模块事实源），不硬编码序号。
+   *
+   * @returns `true` = 黏性不足以覆盖当前消息 ⇒ **不复用**，交回 Judge 重新分级（层 6 会覆盖旧档位）
+   */
+  private shouldRevalidateSticky(
+    message: string,
+    stickyTier: RouterTier
+  ): boolean {
+    if (message.trim().length <= DEFAULT_FAST_PATH_MAX_LENGTH) return false;
+    const stickyRank = ALL_ROUTER_TIERS.indexOf(stickyTier);
+    const complexRank = ALL_ROUTER_TIERS.indexOf('complex');
+    return stickyRank < complexRank;
   }
 
   /**

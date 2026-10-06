@@ -1863,9 +1863,20 @@ export async function launch(options: LaunchOptions): Promise<void> {
           stats: savedRouter.stats,
         };
 
+        // U7/§21.4（2026-10-06，用户裁定「接线」）：注入**会话黏性存储** —— 开启
+        // `SmartRouter.decide()` 层 3（同会话命中即**跳过 LLM Judge**，复用上次档位）。
+        // 唯一构造点 = `ai/router/SessionRouterStore.ts#getSessionRouterStore`；
+        // 初始化失败 ⇒ 返回 null ⇒ 退回"每轮 Judge"（= 接线前行为，不影响正确性）。
+        // 用户显式配置的任务分工**不受影响**（`resolveModelRoute` 先查用户显式配置，
+        // 见 `ai/router/resolveModelRoute.ts:52-101`）；可由 `models.router.sessionSticky:false` 关闭。
+        const { getSessionRouterStore } =
+          await import('./ai/router/SessionRouterStore.js');
+        const sessionStore = await getSessionRouterStore();
+
         const smartRouter = new SmartRouter({
           config: routerConfig,
           providerRegistry,
+          ...(sessionStore ? { sessionStore } : {}),
         });
 
         // 注入 CoreAPIImpl 全局单例

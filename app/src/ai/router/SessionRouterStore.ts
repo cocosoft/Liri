@@ -28,6 +28,7 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
+import { handleError } from '@modules/error/handleError';
 
 /** sqlite3 run() 回调中的 this 上下文 */
 interface SqliteRunContext {
@@ -228,4 +229,66 @@ export class SessionRouterStore {
       await this.init();
     }
   }
+}
+
+// ─── 进程级单例 + 接线（2026-10-06，`任务计划-20261004.md` §21.4）─────────────
+
+/**
+ * 会话黏性存储的**进程级单例**（惰性初始化）。
+ *
+ * **接线背景**：本能力（`SmartRouter.decide()` 层 3：命中即**跳过 LLM Judge**，
+ * 直接复用同会话上次档位）此前**生产不可达** —— `sessionStore` 从未被注入
+ * （`main.ts` / `BootPipelineIntegrator` 构造 `SmartRouter` 时未传）。用户 2026-10-06
+ * 裁定「接线」，本函数即**唯一构造点**（CS01：不再散落 new）。
+ *
+ * **与红线的关系（已取证）**：不违反 `model-usage.md`「模型选择遵循用户显式选择」——
+ * `resolveModelRoute` 对 chat 类 route **先查用户显式配置**（`EXPLICIT_CONFIG_PREFERRED_ROUTES`
+ * 优先返回，见 `ai/router/resolveModelRoute.ts:52-101`）⇒ 用户在「任务分工」里显式保存过时
+ * **根本不会走到 SmartRouter**；黏性只影响"未显式配置"的自动档位选择。
+ *
+ * **开关**：`RouterConfig.sessionSticky === false` 时 `decide()` 层 3 直接跳过（配置已就绪，
+ * 见 `main.ts` 的 `sessionSticky: savedRouter.sessionSticky !== false`）。
+ *
+ * **失败语义（如实）**：初始化失败 ⇒ `handleError` 留痕并返回 `null`；`sessionStore` 是
+ * **可选能力**，缺失时 SmartRouter 退回"每轮 Judge"（= 接线前行为），不影响请求正确性
+ * ⇒ 此处降级而非抛出（CS03 允许的"外部依赖不可用"场景 + CS03-002 必须留痕）。
+ *
+ * **清理**：初始化成功后顺带 `cleanExpired()` 一次（无定时器），避免历史过期行长期滞留。
+ */
+let _sessionRouterStore: SessionRouterStore | null = null;
+let _sessionRouterStoreInitPromise: Promise<SessionRouterStore | null> | null =
+  null;
+
+export function getSessionRouterStore(): Promise<SessionRouterStore | null> {
+  if (_sessionRouterStore) return Promise.resolve(_sessionRouterStore);
+  // 并发调用共用同一次初始化（避免重复建连 / 重复 DDL）
+  _sessionRouterStoreInitPromise ??= (async () => {
+    try {
+      const store = new SessionRouterStore();
+      await store.init();
+      const cleaned = await store.cleanExpired();
+      if (cleaned > 0) {
+        logger.info('会话黏性存储启动清理', { expiredRemoved: cleaned });
+      }
+      _sessionRouterStore = store;
+      return store;
+    } catch (error) {
+      await handleError(error, {
+        module: 'ai:session-store',
+        action: 'getSessionRouterStore',
+      });
+      logger.warning('会话黏性存储初始化失败，SmartRouter 退回每轮 Judge', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  })();
+  return _sessionRouterStoreInitPromise;
+}
+
+/** 测试缝：重置单例（**仅供测试**；生产不调用） */
+export function resetSessionRouterStoreForTest(): void {
+  _sessionRouterStore?.close();
+  _sessionRouterStore = null;
+  _sessionRouterStoreInitPromise = null;
 }

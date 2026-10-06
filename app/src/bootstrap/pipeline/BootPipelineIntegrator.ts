@@ -336,6 +336,9 @@ export function registerStandardHandlers(): void {
           },
         };
 
+        // ⚠️ 本路径**有意不注入** `sessionStore`（会话黏性）：它是 benchmark 启动路径
+        // （见上方 @deprecated 说明），黏性会让**同会话后续轮复用首轮档位** ⇒ 破坏基准
+        // 逐轮判定的确定性。生产接线在 `main.ts`（U7/§21.4，2026-10-06）。
         const smartRouter = new SmartRouter({
           config: routerConfig,
           providerRegistry,

@@ -251,6 +251,57 @@ function isSimpleTask(message: string, policy: FastPathPolicy): boolean {
   );
 }
 
+// ─── 13-P1-1 Step 1：soft 路径的显式降级标注 ──────────────
+
+/** `buildPredecessorSummary` 的前驱探针 */
+export interface DependencyProbe {
+  /** 前驱步骤描述（注入行前缀） */
+  description: string;
+  /** 前驱已产出正文（无产出 = 空串） */
+  output: string;
+  /** 前驱执行状态（未执行 / 无记录 = `undefined`） */
+  status?: TopoTaskStatus;
+}
+
+/**
+ * 13-P1-1 **Step 1**（2026-10-06，见 `dev_docs/任务计划-20261004.md` §20.6）：
+ * soft 路径的**显式降级标注** —— 前驱失败/被阻断而本步仍执行时，不再静默丢弃前驱。
+ *
+ * **背景**：缺省 `dependsOnMode:'soft'` 下后继**不阻断**，但原实现只注入"确实已产出的前驱文本"，
+ * 前驱失败（无产出）时该前驱**从 prompt 中静默消失** ⇒ 后继带着不完整输入继续跑而无任何痕迹
+ * （违反 CS03-002：回退不得掩盖错误）。
+ *
+ * 本函数**不改阻断语义**（默认仍 soft、后继仍执行），只把"降级"变成可见：
+ * - 有产出 ⇒ 注入产出摘要（与既有行为一致，截断 500 字符）；
+ * - 无产出且前驱 `failed` / `skipped` ⇒ 注入 `[DEPENDENCY_DEGRADED]` 标注行，并登记**降级项**；
+ * - 无产出但前驱 `ok`（纯工具轮无文本）或状态未知 ⇒ 不注入（与既有行为一致）。
+ *
+ * 纯函数（无 IO / 无状态），供 `_executeOneStep` 调用并由单测直接覆盖。
+ *
+ * @param probes 前驱探针（按 `dependsOn` 顺序）
+ * @returns `summary` = 待注入 prompt 的文本（无内容 ⇒ 空串）；`degraded` = 降级前驱描述（无降级 ⇒ 空数组）
+ */
+export function buildPredecessorSummary(probes: readonly DependencyProbe[]): {
+  summary: string;
+  degraded: string[];
+} {
+  const lines: string[] = [];
+  const degraded: string[] = [];
+  for (const probe of probes) {
+    if (probe.output) {
+      lines.push(`- ${probe.description}：${probe.output.slice(0, 500)}`);
+      continue;
+    }
+    if (probe.status !== 'failed' && probe.status !== 'skipped') continue;
+    const statusZh = probe.status === 'failed' ? '执行失败' : '依赖阻断被跳过';
+    degraded.push(`${probe.description}（${statusZh}）`);
+    lines.push(
+      `- ${probe.description}：⚠️ [DEPENDENCY_DEGRADED] 前驱${statusZh}，无可用产出，本步输入可能不完整`
+    );
+  }
+  return { summary: lines.join('\n'), degraded };
+}
+
 // ─── PlanDrivenLoop ────────────────────────────────────
 
 export class PlanDrivenLoop {
@@ -792,7 +843,8 @@ export class PlanDrivenLoop {
               r.i,
               r.stepId,
               idxById,
-              stepOutputs
+              stepOutputs,
+              depStatusById
             )
           )
         );
@@ -812,7 +864,8 @@ export class PlanDrivenLoop {
             r.i,
             r.stepId,
             idxById,
-            stepOutputs
+            stepOutputs,
+            depStatusById
           );
           depStatusById.set(r.task.id, st);
         }
@@ -902,6 +955,7 @@ export class PlanDrivenLoop {
    * 由 _executeDecomposed 按拓扑批次调用——批次内可并行（注入 taorLoopFactory 时每步
    * 独立 TAOR 实例，杜绝共享实例状态串扰）或逐步骤串行（复用 this.taorLoop，现状零回归）。
    * 产出写入 stepOutputs（供依赖者前驱注入/审计）；终态落盘与广播逻辑与串行版一致。
+   * 13-P1-1 Step 1：另读 `depStatusById`（前批已执行前驱状态）以标注依赖降级。
    */
   private async _executeOneStep(
     task: DecompositionResult['subTasks'][number],
@@ -909,7 +963,8 @@ export class PlanDrivenLoop {
     i: number,
     stepId: string,
     idxById: Map<string, number>,
-    stepOutputs: Map<string, string>
+    stepOutputs: Map<string, string>,
+    depStatusById: ReadonlyMap<string, TopoTaskStatus>
   ): Promise<TopoTaskStatus> {
     const stepStart = Date.now();
 
@@ -956,17 +1011,37 @@ export class PlanDrivenLoop {
     try {
       // P0-1（2026-09-06）：依赖前驱产出摘要——仅注入确实已产出的前驱文本（拓扑序保证
       // 前驱先执行；无文本/无依赖则不注入，遵守 B2 每步独立上下文的防污染意图）
-      const predecessorLines = (task.dependsOn ?? [])
-        .map((depId) => {
-          const depIdx = idxById.get(depId);
-          if (depIdx === undefined || depIdx >= subtasks.length) return '';
-          const depStepId = this.plan?.steps[depIdx]?.id;
-          const depOut = depStepId ? (stepOutputs.get(depStepId) ?? '') : '';
-          const depDesc = subtasks[depIdx]?.description ?? depId;
-          return depOut ? `- ${depDesc}：${depOut.slice(0, 500)}` : '';
-        })
-        .filter(Boolean)
-        .join('\n');
+      // 13-P1-1 Step 1（2026-10-06，§20.6）：前驱 failed/skipped 而本步仍执行（soft 缺省）时，
+      // 由 `buildPredecessorSummary` 改为**显式标注** [DEPENDENCY_DEGRADED]（CS03-002）。
+      const { summary: predecessorSummary, degraded: degradedDeps } =
+        buildPredecessorSummary(
+          (task.dependsOn ?? []).map((depId) => {
+            const depIdx = idxById.get(depId);
+            if (depIdx === undefined || depIdx >= subtasks.length) {
+              return { description: depId, output: '' };
+            }
+            const depStepId = this.plan?.steps[depIdx]?.id;
+            return {
+              description: subtasks[depIdx]?.description ?? depId,
+              output: depStepId ? (stepOutputs.get(depStepId) ?? '') : '',
+              status: depStatusById.get(depId),
+            };
+          })
+        );
+      const degradedNote = degradedDeps.length
+        ? `[DEPENDENCY_DEGRADED] 前驱 ${degradedDeps.join('、')} 未产出可用结果，本步在输入不完整的情况下继续执行`
+        : '';
+      if (degradedNote) {
+        logger.warn(
+          '步骤在依赖降级（前驱失败/被阻断）下继续执行（13-P1-1 Step 1）',
+          {
+            sessionId: this.sessionId,
+            planId: this.plan?.id,
+            stepId,
+            degradedDeps,
+          }
+        );
+      }
 
       let lastErr: unknown;
       // P0-2（2026-09-06）：失败类型门控重试——aborted 不重试；其余失败注入 objection 重跑 1 次
@@ -979,7 +1054,7 @@ export class PlanDrivenLoop {
             task,
             subtasks,
             i,
-            predecessorLines,
+            predecessorSummary,
             attempt > 0 ? String(lastErr ?? '') : undefined
           );
           // B1（2026-09-04）：同 _executeDirect——传 messages+deps 真实执行工具
@@ -999,9 +1074,15 @@ export class PlanDrivenLoop {
           // P0-1（2026-09-06）：步骤产出捕获——末条 assistant 文本作为本步真实结论，
           // 落 plan step.result + stepOutputs（供前驱注入/审计）；无文本时回退占位
           const stepText = stepLoop.getLastAssistantText();
+          // 13-P1-1 Step 1（2026-10-06）：降级输入需**留痕**在 plan 步 result（与
+          // [DEPENDENCY_BLOCKED] 对称，供用户/审计可见）；⚠️ 不并入 stepOutputs——避免降级
+          // 标注污染下游注入与审计所读的"前驱正文"。
+          const stepResultText = stepText.slice(0, 2000) || '完成';
           taskOrchestrator.markStepCompleted(
             stepId,
-            stepText.slice(0, 2000) || '完成',
+            degradedNote
+              ? `${degradedNote}\n${stepResultText}`
+              : stepResultText,
             {
               // E1①（2026-09-05，方案甲）：步骤执行终止原因透传落 PlanStep
               terminationReason: result.terminationReason,

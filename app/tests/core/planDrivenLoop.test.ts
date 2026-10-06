@@ -5,10 +5,12 @@
 // S3（2026-08-13）：快速路径准入（isEligibleForFastPath：复杂度门 + 危险工具过滤）
 import { describe, it, expect } from 'bun:test';
 import {
+  buildPredecessorSummary,
   classifyTaskComplexity,
   hasDangerousToolIntent,
   isEligibleForFastPath,
   PlanDrivenLoop,
+  type DependencyProbe,
   type TAORLoopFactoryOptions,
 } from '../../src/tasks/PlanDrivenLoop';
 // T-②05（2026-10-03）：默认阈值事实源已下沉 core（原 `SIMPLE_TASK_MAX_LENGTH` 为本地硬编码常量）
@@ -207,5 +209,81 @@ describe('13-P2-2: 行为反馈回流接入路径选择（最小回流点）', (
     // 升级后未再写入 simple 桶（样本数不变），而是走了降级直执行
     expect(ledger.signal('k::simple')?.sampleCount).toBe(3);
     expect(ledger.signal('k::direct')?.sampleCount).toBe(1);
+  });
+});
+
+describe('13-P1-1 Step 1: soft 路径依赖降级显式标注（buildPredecessorSummary）', () => {
+  it('有产出 ⇒ 注入产出摘要，且无降级项（既有行为不变）', () => {
+    const probes: DependencyProbe[] = [
+      { description: '步骤A', output: 'A 的结论', status: 'ok' },
+    ];
+    const { summary, degraded } = buildPredecessorSummary(probes);
+    expect(summary).toBe('- 步骤A：A 的结论');
+    expect(degraded).toEqual([]);
+  });
+
+  it('无产出 + failed ⇒ 注入 [DEPENDENCY_DEGRADED] 标注行并登记降级项', () => {
+    const probes: DependencyProbe[] = [
+      { description: '步骤A', output: '', status: 'failed' },
+    ];
+    const { summary, degraded } = buildPredecessorSummary(probes);
+    // 关键：前驱**不再静默消失**（原实现该行被 filter 掉）
+    expect(summary).toContain('步骤A');
+    expect(summary).toContain('[DEPENDENCY_DEGRADED]');
+    expect(summary).toContain('执行失败');
+    expect(degraded).toEqual(['步骤A（执行失败）']);
+  });
+
+  it('无产出 + skipped ⇒ 同样标注（措辞为「依赖阻断被跳过」）', () => {
+    const probes: DependencyProbe[] = [
+      { description: '步骤B', output: '', status: 'skipped' },
+    ];
+    const { summary, degraded } = buildPredecessorSummary(probes);
+    expect(summary).toContain('[DEPENDENCY_DEGRADED]');
+    expect(summary).toContain('依赖阻断被跳过');
+    expect(degraded).toEqual(['步骤B（依赖阻断被跳过）']);
+  });
+
+  it('无产出 + ok（纯工具轮无文本）⇒ 不注入也不登记（与既有行为一致）', () => {
+    const probes: DependencyProbe[] = [
+      { description: '步骤A', output: '', status: 'ok' },
+    ];
+    expect(buildPredecessorSummary(probes)).toEqual({
+      summary: '',
+      degraded: [],
+    });
+  });
+
+  it('无产出 + 状态未知（未执行/无记录）⇒ 不注入也不登记（与既有行为一致）', () => {
+    const probes: DependencyProbe[] = [{ description: '步骤A', output: '' }];
+    expect(buildPredecessorSummary(probes)).toEqual({
+      summary: '',
+      degraded: [],
+    });
+  });
+
+  it('混合：正常前驱注入产出、失败前驱标注降级（仅失败项进 degraded）', () => {
+    const probes: DependencyProbe[] = [
+      { description: '步骤A', output: 'A 的结论', status: 'ok' },
+      { description: '步骤B', output: '', status: 'failed' },
+    ];
+    const { summary, degraded } = buildPredecessorSummary(probes);
+    const lines = summary.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe('- 步骤A：A 的结论');
+    expect(lines[1]).toContain('[DEPENDENCY_DEGRADED]');
+    expect(degraded).toEqual(['步骤B（执行失败）']);
+  });
+
+  it('空探针 ⇒ 空摘要与空降级（无依赖步骤零影响）', () => {
+    expect(buildPredecessorSummary([])).toEqual({ summary: '', degraded: [] });
+  });
+
+  it('产出摘要仍按 500 字符截断（既有语义不变）', () => {
+    const probes: DependencyProbe[] = [
+      { description: '步骤A', output: 'x'.repeat(600), status: 'ok' },
+    ];
+    const { summary } = buildPredecessorSummary(probes);
+    expect(summary).toBe(`- 步骤A：${'x'.repeat(500)}`);
   });
 });

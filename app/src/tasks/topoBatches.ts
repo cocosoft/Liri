@@ -51,7 +51,12 @@ export interface TopoBatchTask {
    *
    * ⚠️ **当前 `hard` 在生产不可达**（同批取证）：分解 prompt **不产出**本字段、无 config/UI/env 开关、
    * 调用方也未传 `defaultDependencyMode` ⇒ 本分支**仅测试可达**。
-   * 因此**不得**据本字段的存在推断"A3 缺陷已修复"—— 现状仍是 **soft 静默降级**（后继带空输入继续跑）。
+   * 因此**不得**据本字段的存在推断"A3 缺陷已修复"—— soft 路径仍**不阻断**后继。
+   *
+   * ✅ **Step 1 已落地（2026-10-06，§20.6）**：soft 下的降级不再**静默** —— 前驱 `failed`/`skipped`
+   * 时下游注入 `[DEPENDENCY_DEGRADED]` 标注行并留痕于 plan 步 result
+   * （`PlanDrivenLoop.buildPredecessorSummary`）；**阻断语义与默认值未变**。
+   * ⏳ 仍缺 **Step 2**（默认翻 `hard` + 模型可按步 opt-out + F8"阻断回灌模型"取证）。
    */
   dependsOnMode?: TopoDependencyMode;
 }

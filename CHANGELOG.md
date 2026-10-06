@@ -21,6 +21,18 @@
 
 ---
 
+#### v0.4.64 (2026-10-06)
+
+**A10 协作编排单一构造点 + CLI 退出码（O6）/ 知识图谱 domain round-trip（P2-12）修复 + 记忆分层文档化 + A2 立项**
+
+- ✅ **A10 协作编排单一构造点（零行为变更）** - 原 `new CouncilOrchestrator(...)` **散落 2 处**（`chat/ChatManager.ts` / `runtime/api/domainSnapshotOps.ts`，无共享工厂）⇒ 新增 `workspace/CouncilOrchestrator.ts#getCouncilOrchestrator()` 模块内单例，两处改走该入口 ⇒ **模块外构造点 2 → 0**；`lint:arch` 与基线**逐数一致（零新边）**；立项 spec `.trae/specs/collaboration-orchestration-contract.md`（G3 窄端口按 CS03 暂缓——无消费者即死抽象）
+- ✅ **O6 CLI 失败路径返回非零退出码** - 根因**实证**：退出钩子内 `process.exit(0)` 会把已确定的退出码**强制改 0**（实测 `exitCode=3` ⇒ **0**），令 commander 的 `exit(1)`（未知选项/缺参）与 action 失败码全部失效。① `cli/exitHandler.ts` 新增 `runExitCleanup()`（**只清理、不 `process.exit`**），退出钩子改调它；② CLI 局部 `handleError` 包装（import 改名 `recordError`）统一置 `process.exitCode = 1`（17 处 action 失败，**零调用点改动**）；新增 `tests/cli/exitHandler.test.ts` **3 例**
+- ✅ **P2-12 知识图谱 `domain` round-trip 保真** - `KnowledgeGraph.ts#rowToEdge` 由 `row.domain || undefined` 改 **`|| ''`**（与 INSERT 侧 `edge.domain || ''` 及唯一索引 `COALESCE(domain,'')` 同源）⇒ 消除"导出时字段消失、导入又还原 `''`"的 round-trip 不保真；新增 `tests/knowledge/knowledgeGraphDomainRoundTrip.test.ts` **3 例**
+- ✅ **记忆分层文档化 + 端口注释行号订正** - `app/src/memory/README.md` 重写为**分层 + 端口文档**（域边界表 / 关系图 / 四窄端口实现者行号 / 命名消歧 4 条 / 域外同名易混清单）；顺带订正 `memory/ports/MemoryPort.ts` 注释内 `MemoryManager.ts` **行号整体陈旧**（实现者 10 处 +14 行、死契约 `:63`→`:72`，共 **11 处**按实测订正；纯注释）
+- ✅ **A2 立项：S1 真实任务级回归基线** - 新增 `.trae/specs/eval-s1-real-task-baseline.md`（SWE-bench 精读落地项 A2：**F2P/P2P 双清单判据** + `resolved/breaking/no-op` 语义；D1–D4 待裁定，**未动码**）；同批登记 `.trae/specs/dsh-plugin-shim-contract.md`（T-3 契约）与 `orchestration-lifecycle-contract.md §9`（`LoopLifecycle` 维持排除）
+- ✅ **文档回填 + 质量** - `data-contract-unification.md **§9.14**`（P1-8 收官：E 组 type-only 仅上报 + R02-002 维持 `≥3`）· `layer-inversion-a-class-inventory.md **§3.17.20**`（P1-9 收官）· 提示词中文化报告 **v2.0**（原 6 项对账 + ~35 文件现存英文提示词面 + 排期建议）· 台账。门槛：`typecheck` **0** · `eslint` **0** · `lint:arch` **错误 0 / 警告 4（基线）** · 全量 **4612 pass / 21 skip / 0 fail**（4633 tests / 488 files；较上版 **+6 例 / +2 文件**，逐数吻合）
+
+---
 #### v0.4.63 (2026-10-06)
 
 **技能系统收口（SK-2 + `impl` 契约）+ 媒体页任务重试与状态单一事实源 + CHANGELOG 历史补录**

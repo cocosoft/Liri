@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.63-blue)
+![Version](https://img.shields.io/badge/version-0.4.64-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -363,7 +363,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.63**
+当前版本：**v0.4.64**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -372,16 +372,16 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.63 (2026-10-06)
+#### v0.4.64 (2026-10-06)
 
-**技能系统收口（SK-2 + `impl` 契约）+ 媒体页任务重试与状态单一事实源 + CHANGELOG 历史补录**
+**A10 协作编排单一构造点 + CLI 退出码（O6）/ 知识图谱 domain round-trip（P2-12）修复 + 记忆分层文档化 + A2 立项**
 
-- ✅ **SK-2 内置技能收敛为 prompt 型** - 内置 7 个 `type:'agent'` **空壳**无条件注册 ⇒ ① 三处 placeholder **假执行**；② **同名遮蔽**（真 prompt 型 `verify` 不可达）。改为**只注册 `type:'prompt'`**，删除三处假执行分支，`executeSkill` 收敛 prompt-only + 边界**如实拒绝**；新增测试 **5 例**
-- ✅ **`Skill.impl` 类型契约订正** - 取证：类型一直**必填**、6 处生产构造点**全部提供** `impl`、全仓无「无 `impl` 技能」、台账无 V-14 记录 ⇒ 原规则「`impl` 可选」**失真**。订正 `project_rules §1.15-11` 为「**必填**」（规则版本 → **v7.15.0**），并收口 `SkillRegistry` 唯一防御点（CS03）
-- ✅ **媒体页 MD-2/6/9/10/11 收口** - ① **MD-2** 删除 `activeTasks` **影子副本**，`useVideoTaskPolling` 重写为**派生自 `generationTasks`** 的单一事实源 ⇒ 消除「双写 + `remoteTaskId` 匹配」的结构性易漂移；② **MD-10** 失败视频卡新增「**重试**」（`videoParams` 留存原始参数 + **忠实重放**）；③ **MD-6** `ActionMenu` 支持视频 + **GridView 补渲染**（原图片编辑/图生视频/下载/删除全不可达）；④ **MD-9** 生成后自动定位新图；⑤ **MD-11** 补 `saveFavorites`（消除收藏复活）
-- ✅ **`KnowledgeSaveTool` 模块顶层 TDZ 修复（预存缺陷）** - 顶层求值 + 循环导入 ⇒ 单独运行技能测试**必现** `ReferenceError`（全量跑靠加载顺序偶然通过）⇒ 改**惰性 + 记忆化**
-- ✅ **CHANGELOG 历史补录** - 自 `v0.1` 起按 git tag/log 补录 **38 个版本段**（+411 行）+ `versioning.md §3.1` **补录标记约定**
-- ✅ **质量** - `typecheck` 0 错（前后端）· `eslint` **0 error**（136 警告基线）· `vitest` **506 pass / 56 files / 0 fail** · 服务端全量 **4582 pass / 21 skip / 0 fail**
+- ✅ **A10 协作编排单一构造点（零行为变更）** - 原 `new CouncilOrchestrator(...)` **散落 2 处** ⇒ 新增 `getCouncilOrchestrator()` 模块内单例，两处改走该入口 ⇒ **模块外构造点 2 → 0**；`lint:arch` 与基线**逐数一致（零新边）**；立项 spec `collaboration-orchestration-contract.md`
+- ✅ **O6 CLI 失败路径返回非零退出码** - 根因**实证**：退出钩子内 `process.exit(0)` 会把已确定的退出码**强制改 0**（`exitCode=3` ⇒ **0**）⇒ 新增 `ExitHandler.runExitCleanup()`（只清理、不 `process.exit`）+ CLI 局部 `handleError` 包装置 `process.exitCode = 1`；新增契约用例 **3 例**
+- ✅ **P2-12 知识图谱 `domain` round-trip 保真** - `rowToEdge` 由 `|| undefined` 改 **`|| ''`**（与 INSERT 侧及唯一索引 `COALESCE` 同源），消除"导出丢字段/导入还原"；新增用例 **3 例**
+- ✅ **记忆分层文档化** - `memory/README.md` 重写为分层 + 端口文档；顺带订正 `MemoryPort.ts` 注释内陈旧行号 **11 处**（纯注释）
+- ✅ **A2 立项 + 文档回填** - 新增 `eval-s1-real-task-baseline.md`（SWE-bench 精读落地：**F2P/P2P 双清单 + `resolved/breaking/no-op`**，待裁定）；回填 `data-contract-unification §9.14` / `layer-inversion-a-class-inventory §3.17.20` / 提示词中文化报告 **v2.0**
+- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **错误 0 / 警告 4（基线）** · 全量 **4612 pass / 21 skip / 0 fail**（4633 tests / 488 files）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

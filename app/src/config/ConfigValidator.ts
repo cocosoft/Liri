@@ -25,67 +25,11 @@ export class ConfigValidator {
     { key: 'features', type: 'object', required: true, default: {} },
     { key: 'internal', type: 'object', required: true, default: {} },
 
-    // ===== 向后兼容的已废弃字段 =====
-    { key: 'numStartups', type: 'number', required: false, default: 0 },
-    {
-      key: 'preferredNotifChannel',
-      type: 'string',
-      required: false,
-      default: 'auto',
-    },
-    {
-      key: 'autoCompactEnabled',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    {
-      key: 'showTurnDuration',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    {
-      key: 'messageIdleNotifThresholdMs',
-      type: 'number',
-      required: false,
-      default: 60000,
-    },
-    {
-      key: 'fileCheckpointingEnabled',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    {
-      key: 'terminalProgressBarEnabled',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    {
-      key: 'respectGitignore',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    {
-      key: 'copyFullResponse',
-      type: 'boolean',
-      required: false,
-      default: false,
-    },
-    { key: 'tipsHistory', type: 'object', required: false, default: {} },
-    { key: 'memoryUsageCount', type: 'number', required: false, default: 0 },
-    { key: 'promptQueueUseCount', type: 'number', required: false, default: 0 },
-    { key: 'btwUseCount', type: 'number', required: false, default: 0 },
-    {
-      key: 'todoFeatureEnabled',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    { key: 'cachedStatsigGates', type: 'object', required: false, default: {} },
+    // 2026-10-06（P2-8 ② 配置字段迁移收尾）：原 14 条「向后兼容的已废弃字段」
+    // （`numStartups` / `preferredNotifChannel` / `autoCompactEnabled` / `showTurnDuration` /
+    //  `tipsHistory` / `cachedStatsigGates` …）规则已删除 —— 这些扁平键已由
+    // `ConfigMigration.migrateToV2` 折入 `notifications`/`features`/`internal` 并清除，
+    // 保留只会对「不存在的键」做无意义校验（`required:false` 且未定义即跳过 ⇒ 从来只空转）。
   ];
 
   /**

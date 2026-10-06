@@ -155,23 +155,29 @@ export class ConfigMigration {
       migrationVersion: 2,
     };
 
-    // 保留旧字段 @deprecated
-    // 不清除旧字段以保证向后兼容
-
-    // 删除 version1 中的 null keys
-    const oldFlatKeys = [
+    // 迁移收尾（2026-10-06，P2-8 ②）：源扁平字段的值已折入
+    // notifications / features / internal ⇒ **折叠后一律清除**
+    //（与 `migrateToV3` 的 `delete migrated['permission.*']` 同口径）。
+    // ⚠️ 此前仅清「值为 undefined」者 ⇒ 有值的旧扁平键**永久驻留** config.json
+    //    （声明已于同批从 `GlobalConfig` 删除，且生产代码零读取）。
+    // ⚠️ `migrationVersion` **不在**此列 —— 它是顶层版本标记，由 `migrate()` 统一写。
+    const legacyFlatKeys = [
       'preferredNotifChannel',
       'messageIdleNotifThresholdMs',
       'taskCompleteNotifEnabled',
       'inputNeededNotifEnabled',
       'agentPushNotifEnabled',
       'autoCompactEnabled',
+      'showTurnDuration',
       'fileCheckpointingEnabled',
       'terminalProgressBarEnabled',
       'showStatusInTerminalTab',
+      'respectGitignore',
+      'copyFullResponse',
       'todoFeatureEnabled',
       'showExpandedTodos',
       'numStartups',
+      'userID',
       'tipsHistory',
       'memoryUsageCount',
       'promptQueueUseCount',
@@ -179,10 +185,8 @@ export class ConfigMigration {
       'firstStartTime',
       'cachedStatsigGates',
     ];
-    for (const key of oldFlatKeys) {
-      if (migrated[key] === undefined) {
-        delete migrated[key];
-      }
+    for (const key of legacyFlatKeys) {
+      delete migrated[key];
     }
 
     return migrated;

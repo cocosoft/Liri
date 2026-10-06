@@ -113,7 +113,10 @@ export function rollWithSeed(seed: string): Roll {
 
 export function companionUserId(): string {
   const config = getGlobalConfig();
-  return config.oauthAccount?.accountUuid ?? config.userID ?? 'anon';
+  // 2026-10-06（P2-8 ② 配置字段迁移收尾）：改读**嵌套形态** `internal.userID`
+  // —— 旧扁平 `config.userID` 已随 `ConfigMigration.migrateToV2` 折入 `internal`
+  // 并删声明；`oauthAccount.accountUuid` 优先级不变（常规安装取它）。
+  return config.oauthAccount?.accountUuid ?? config.internal?.userID ?? 'anon';
 }
 
 // Regenerate bones from userId, merge with stored soul. Bones never persist

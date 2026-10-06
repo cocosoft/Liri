@@ -235,3 +235,56 @@ describe('ConfigManager 点号路径读写一致（M0 语义统一，§六b）',
     expect(permission['trustedWorkspaces']).toEqual([]);
   });
 });
+
+/**
+ * v2 收尾（2026-10-06，P2-8 ② 配置字段迁移收尾）
+ *
+ * 变更：`migrateToV2` 折叠后**一律清除**源扁平键（此前仅清「值为 undefined」者
+ * ⇒ 有值的旧扁平键永久驻留 config.json）。此处锁三件事：值折入且不丢失 ·
+ * 源扁平键已清除 · 顶层 `migrationVersion` 保留（版本标记，不在清除列）。
+ */
+describe('ConfigMigration v2（flat → 分组 + 收尾清除）', () => {
+  it('折叠进 notifications/features/internal 后清除源扁平键', () => {
+    const migrated = ConfigMigration.migrate({
+      migrationVersion: 1,
+      preferredNotifChannel: 'native',
+      messageIdleNotifThresholdMs: 12345,
+      autoCompactEnabled: false,
+      showTurnDuration: false,
+      numStartups: 7,
+      userID: 'u-42',
+      tipsHistory: { tipA: 3 },
+    }) as Record<string, unknown>;
+
+    // ① 值折入分组（无丢失）
+    expect(migrated['notifications']).toMatchObject({
+      preferredChannel: 'native',
+      idleThresholdMs: 12345,
+    });
+    expect(migrated['features']).toMatchObject({
+      autoCompact: false,
+      showTurnDuration: false,
+    });
+    expect(migrated['internal']).toMatchObject({
+      numStartups: 7,
+      userID: 'u-42',
+      tipsHistory: { tipA: 3 },
+    });
+
+    // ② 源扁平键已清除
+    for (const key of [
+      'preferredNotifChannel',
+      'messageIdleNotifThresholdMs',
+      'autoCompactEnabled',
+      'showTurnDuration',
+      'numStartups',
+      'userID',
+      'tipsHistory',
+    ]) {
+      expect(migrated[key]).toBeUndefined();
+    }
+
+    // ③ 顶层版本标记保留
+    expect(migrated['migrationVersion']).toBe(3);
+  });
+});

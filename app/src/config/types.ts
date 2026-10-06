@@ -469,54 +469,15 @@ export interface GlobalConfig {
    */
   fastPath: FastPathConfig;
 
-  // ===== 已废弃（向后兼容，请使用分组字段） =====
-
-  /** @deprecated 使用 notifications.preferredChannel */
-  preferredNotifChannel?: NotificationChannel;
-  /** @deprecated 使用 notifications.idleThresholdMs */
-  messageIdleNotifThresholdMs?: number;
-  /** @deprecated 使用 notifications.taskCompleteEnabled */
-  taskCompleteNotifEnabled?: boolean;
-  /** @deprecated 使用 notifications.inputNeededEnabled */
-  inputNeededNotifEnabled?: boolean;
-  /** @deprecated 使用 notifications.agentPushEnabled */
-  agentPushNotifEnabled?: boolean;
-  /** @deprecated 使用 features.autoCompact */
-  autoCompactEnabled?: boolean;
-  /** @deprecated 使用 features.showTurnDuration */
-  showTurnDuration?: boolean;
-  /** @deprecated 使用 features.fileCheckpointing */
-  fileCheckpointingEnabled?: boolean;
-  /** @deprecated 使用 features.terminalProgressBar */
-  terminalProgressBarEnabled?: boolean;
-  /** @deprecated 使用 features.showStatusInTerminalTab */
-  showStatusInTerminalTab?: boolean;
-  /** @deprecated 使用 features.respectGitignore */
-  respectGitignore?: boolean;
-  /** @deprecated 使用 features.copyFullResponse */
-  copyFullResponse?: boolean;
-  /** @deprecated 使用 features.todoEnabled */
-  todoFeatureEnabled?: boolean;
-  /** @deprecated 使用 features.showExpandedTodos */
-  showExpandedTodos?: boolean;
-  /** @deprecated 使用 internal.numStartups */
-  numStartups?: number;
-  /** @deprecated 使用 internal.userID */
-  userID?: string;
-  /** @deprecated 使用 internal.tipsHistory */
-  tipsHistory?: { [tipId: string]: number };
-  /** @deprecated 使用 internal.memoryUsageCount */
-  memoryUsageCount?: number;
-  /** @deprecated 使用 internal.promptQueueUseCount */
-  promptQueueUseCount?: number;
-  /** @deprecated 使用 internal.btwUseCount */
-  btwUseCount?: number;
-  /** @deprecated 使用 internal.firstStartTime */
-  firstStartTime?: string;
-  /** @deprecated 使用 internal.cachedStatsigGates */
-  cachedStatsigGates?: { [gateName: string]: boolean };
-  /** @deprecated 使用 internal.migrationVersion */
-  migrationVersion?: number;
+  // ===== 旧扁平字段（已删声明）=====
+  // 2026-10-06（P2-8 ② 配置字段迁移收尾）：原 23 个 `@deprecated` 扁平字段
+  // （preferredNotifChannel / messageIdleNotifThresholdMs / … / migrationVersion）的
+  // **类型声明已删除** —— 它们已由 `ConfigMigration.migrateToV2` 折入
+  // `notifications` / `features` / `internal`，且生产代码**零读取**（唯一读取点
+  // `companion.ts` 已改读 `internal.userID`）。旧配置文件仍由迁移器兼容处理
+  // （其读取走 `any` + 字符串键，不依赖此声明）。
+  // ⚠️ 形如 `migrationVersion` 的**顶层**字段由 `ConfigMigration` 直接读写，属**在用**字段，
+  //    仅其「扁平业务字段」身份被取消 ⇒ 见索引签名兜底。
 
   /** 自定义配置项 */
   [key: string]: any;

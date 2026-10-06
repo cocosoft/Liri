@@ -79,6 +79,14 @@ import type { ToolUseContext } from '../tools/types/Tool.js';
 // 大文件拆分（spec file-size-debt-partition-plan §44）：类型契约与任务消息助手外迁 `./lro/*`；
 // 下述 re-export 保持**公开面不变**（原 `export` 的 4 个类型仍可从本文件取）。
 import { PLANNER_ROLE, EXECUTOR_ROLE } from './lro/contracts.js';
+import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
+import {
+  recordGoalStageMetric,
+  runAdaptationEvolutionHook,
+  evaluateGoalDeviationHook,
+  persistMemoryFromAudit,
+  persistReviewSample,
+} from './lro/terminalHooks.js';
 import type {
   PdcaStatus,
   PdcaMetrics,
@@ -102,78 +110,8 @@ const logger = getLogger('tasks:longRunning');
 
 export type { PdcaPhase };
 
-/** 1-3（2026-09-03）：task_audit_log 写入面（复用 SqliteTaskStore.writeAuditLog，TaskRegistry 同模式） */
-interface AuditLogEntry {
-  taskId: string;
-  eventType: string;
-  oldStatus: string | null;
-  newStatus: string;
-  timestamp: number;
-}
-
-type AuditStoreLike = { writeAuditLog(entry: AuditLogEntry): Promise<void> };
-
-/**
- * 1-3（2026-09-03）：审计存储惰性单例（动态加载避免启动期循环依赖）。
- * 复用 SqliteTaskStore 与 goalMetricsService 同款独立实例模式，不侵入 TaskRegistry。
- * 注：曾用"每次短连接"（开→写→关），但每 lifecycle 事件都全量建表 DDL 开销过大，
- * 改回单例长连接；Windows 测试清理 EBUSY 由测试 afterEach 容错处理。
- */
-let _auditStorePromise: Promise<AuditStoreLike | null> | null = null;
-async function resolveAuditStore(): Promise<AuditStoreLike | null> {
-  _auditStorePromise ??= (async () => {
-    try {
-      const { createSqliteTaskStore } = await import('./db/SqliteTaskStore.js');
-      const store = createSqliteTaskStore(resolveDbPath());
-      await store.init();
-      return store;
-    } catch (err) {
-      await handleError(err, {
-        module: 'tasks:longRunning',
-        action: 'resolveAuditStore',
-      });
-      return null;
-    }
-  })();
-  return _auditStorePromise;
-}
-
-/** 记忆写回的最小接口（评审 1 修复：复用共享 manager，避免多实例索引竞态） */
-interface MemoryWritebackManager {
-  createMemory(args: { content: string; metadata: unknown }): Promise<unknown>;
-}
-
-/**
- * 3-1 加固（评审 1，2026-09-03）：记忆写回 manager 惰性单例。
- * 原实现每次 PDCA 终态 new MemoryManagerImpl()——多实例各自持 store/retriever 检索索引与
- * 关系图，异步加载下 saveIndex/saveRelationGraph 整体覆写可能互相覆盖；且每次构造触发全量
- * refreshSummaryCache 扫描。改为共享单例（T-①07 T1-5 起统一走 `@modules/memory`
- * `getMemoryManager()` 进程内共享工厂）。
- */
-let _memoryWritebackManager: MemoryWritebackManager | null = null;
-async function resolveMemoryWritebackManager(): Promise<MemoryWritebackManager | null> {
-  if (!_memoryWritebackManager) {
-    try {
-      const { getMemoryManager } = await import('@modules/memory');
-      _memoryWritebackManager = getMemoryManager();
-    } catch (err) {
-      await handleError(err, {
-        module: 'tasks:longRunning',
-        action: 'resolveMemoryWriteback',
-      });
-    }
-  }
-  return _memoryWritebackManager;
-}
-
-/**
- * PR5（#6/决策 7）：replan 连续失败收敛阈值——达上限终态 failed 转人工介入。
- * env `PDCA_REPLAN_MAX_RETRIES` 可调（默认 3）。
- */
-function replanMaxRetries(): number {
-  const v = Number(configManager.env('PDCA_REPLAN_MAX_RETRIES'));
-  return Number.isFinite(v) && v > 0 ? v : 3;
-}
+// （审计存储/记忆回写两个惰性端口解析器 + `AuditLogEntry`/`AuditStoreLike`/
+//  `MemoryWritebackManager` + `replanMaxRetries` 已外迁 `./lro/portResolvers`，spec §45）
 
 // （`PdcaStatus` / `PdcaMetrics` / `SubAgentHandle` / `RoleConfig` / `PLANNER_ROLE` /
 //  `EXECUTOR_ROLE` / `ExecutorFn` / `TaskMessage` / `EscalationRecord` 已外迁
@@ -2227,27 +2165,17 @@ ${replanSection}
    */
   private _recordGoalStageMetric(stageId: string): Promise<void> {
     const metrics = this.getMetrics();
+    // spec §45：实现外迁 `./lro/terminalHooks`；此处仅注入宿主状态（调用点不变）。
     // 返回值供终态收口点串接**偏差判定**（T-②02：落库 → 读回 → 判定，顺序由调用方保证）
-    return goalMetricsService
-      .init()
-      .then(() =>
-        goalMetricsService.recordStageMetric({
-          goalId: this.taskId,
-          sessionId: this._sessionId ?? '',
-          stageId,
-          maxTurns: this._maxTurns > 0 ? this._maxTurns : undefined,
-          totalTurns: metrics.totalSteps,
-          totalTokens: this._totalTokensTracked,
-          durationMs: this._startedAt > 0 ? Date.now() - this._startedAt : 0,
-        })
-      )
-      .catch((err) => {
-        void handleError(err, {
-          module: 'tasks:longRunning',
-          action: 'goalMetricsRecord',
-          context: { taskId: this.taskId, stageId },
-        });
-      });
+    return recordGoalStageMetric({
+      taskId: this.taskId,
+      sessionId: this._sessionId,
+      stageId,
+      maxTurns: this._maxTurns,
+      totalSteps: metrics.totalSteps,
+      totalTokens: this._totalTokensTracked,
+      durationMs: this._startedAt > 0 ? Date.now() - this._startedAt : 0,
+    });
   }
 
   /**
@@ -2261,15 +2189,10 @@ ${replanSection}
    * 失败经 `handleError` 留痕，不阻断收尾（CS03）。
    */
   private _runAdaptationEvolution(): void {
-    void runAdaptationEvolution(
-      createEvolutionDeps(this._sessionId ?? undefined)
-    ).catch((err) =>
-      handleError(err, {
-        module: 'tasks:longRunning',
-        action: 'adaptationEvolution',
-        context: { taskId: this.taskId },
-      })
-    );
+    runAdaptationEvolutionHook({
+      taskId: this.taskId,
+      sessionId: this._sessionId,
+    });
   }
 
   /**
@@ -2285,39 +2208,10 @@ ${replanSection}
    * 失败经 `handleError` 统一留痕，**不阻断**主流程（CS03：观测面失败不反灌业务）。
    */
   private async _evaluateGoalDeviation(): Promise<void> {
-    try {
-      await goalMetricsService.init();
-      const rows = await goalMetricsService.queryStageMetrics(this.taskId);
-      const findings = evaluateGoalDeviation(
-        rows.map((row) => ({
-          stage: row.stageId ?? 'unknown',
-          expected: row.maxTurns,
-          actual: row.totalTurns,
-        }))
-      );
-      for (const finding of findings) {
-        logger.info('[orchestrator] 目标偏差：turn 预算消耗速率越阈值', {
-          taskId: this.taskId,
-          goalId: this.taskId,
-          stage: finding.stage,
-          expected: finding.expected,
-          actual: finding.actual,
-          ratio: finding.ratio,
-          severity: finding.severity,
-        });
-        await emitGoalDeviation({
-          sessionId: this._sessionId ?? undefined,
-          goalId: this.taskId,
-          ...finding,
-        });
-      }
-    } catch (err) {
-      await handleError(err, {
-        module: 'tasks:longRunning',
-        action: 'goalDeviation',
-        context: { taskId: this.taskId },
-      });
-    }
+    await evaluateGoalDeviationHook({
+      taskId: this.taskId,
+      sessionId: this._sessionId,
+    });
   }
 
   /**
@@ -2331,58 +2225,12 @@ ${replanSection}
   private _persistMemoryFromAudit(outcome: 'completed' | 'aborted'): void {
     if (this._memoryWriteDone) return;
     this._memoryWriteDone = true;
-    void (async () => {
-      try {
-        const plan = this.planId
-          ? taskOrchestrator.getPlan(this.planId)
-          : undefined;
-        if (!plan || plan.steps.length === 0) return;
-        const goal = plan.description;
-        const lines = plan.steps.map((s, i) => {
-          const review = s.reviewResult
-            ? `评分${s.reviewResult.score ?? '-'}${s.reviewResult.pass ? '(通过)' : '(未过)'}`
-            : '';
-          const deps =
-            s.dependsOn && s.dependsOn.length > 0
-              ? `(依赖${s.dependsOn.length}个前序)`
-              : '';
-          return `${i + 1}. ${s.description.slice(0, 120)} [${s.status}] 决策=${s.decision ?? '无'} ${review} ${deps}`.trim();
-        });
-        const content =
-          `PDCA ${outcome === 'completed' ? '完成' : '中止'}复盘\n目标: ${goal.slice(0, 200)}\n步骤:\n${lines.join('\n')}`.slice(
-            0,
-            4000
-          );
-
-        const [mm, { createMemoryMetadata }, { MemoryType }] =
-          await Promise.all([
-            resolveMemoryWritebackManager(),
-            import('../memory/types/MemoryMetadata.js'),
-            import('../memory/types/MemoryType.js'),
-          ]);
-        if (!mm) return;
-        await mm.createMemory({
-          content,
-          metadata: createMemoryMetadata({
-            name: `PDCA ${outcome}: ${goal.slice(0, 40)}`,
-            type: MemoryType.DECISION,
-            tags: ['pdca', outcome, `task:${this.taskId}`],
-            priority: 15,
-          }),
-        });
-        logger.info('[orchestrator] PDCA 终态记忆回写完成', {
-          taskId: this.taskId,
-          outcome,
-          stepCount: plan.steps.length,
-        });
-      } catch (err) {
-        await handleError(err, {
-          module: 'tasks:longRunning',
-          action: 'memoryWriteback',
-          context: { taskId: this.taskId, outcome },
-        });
-      }
-    })();
+    // spec §45：幂等 guard 留在宿主（写宿主状态），实现外迁 `./lro/terminalHooks`
+    persistMemoryFromAudit({
+      taskId: this.taskId,
+      planId: this.planId,
+      outcome,
+    });
   }
 
   /**
@@ -2395,66 +2243,19 @@ ${replanSection}
   private _persistReviewSample(stage: 'pdca_completed' | 'pdca_aborted'): void {
     if (this._sampleWriteDone) return;
     this._sampleWriteDone = true;
-    void (async () => {
-      try {
-        const plan = this.planId
-          ? taskOrchestrator.getPlan(this.planId)
-          : undefined;
-        if (!plan || plan.steps.length === 0) return;
-        const stepsJson = JSON.stringify(
-          plan.steps.map((s) => ({
-            id: s.id,
-            description: s.description,
-            status: s.status,
-            decision: s.decision ?? null,
-            dependsOn: s.dependsOn ?? [],
-            retryCount: s.retryCount,
-            maxRetries: s.maxRetries,
-            reviewScore: s.reviewResult?.score ?? null,
-            reviewPass: s.reviewResult?.pass ?? null,
-            error: s.error ?? null,
-          }))
-        );
-        const hasDeps = plan.steps.some(
-          (s) => s.dependsOn && s.dependsOn.length > 0
-        );
-        // 自主度启发（对齐方向 4 Spec §4：可人工回填修正）
-        const autonomyLevel =
-          plan.steps.length >= 2 && hasDeps
-            ? 5
-            : plan.steps.length >= 2
-              ? 4
-              : 3;
-        const metrics = this.getMetrics();
-        await goalMetricsService.init();
-        await goalMetricsService.recordReviewSample({
-          pdcaTaskId: this.taskId,
-          sessionId: this._sessionId ?? undefined,
-          goalText: plan.description,
-          stage,
-          stepsJson,
-          reviewPassRate: metrics.reviewPassRate,
-          converged: this._goalEvaluation?.converged,
-          confidence: this._goalEvaluation?.confidence,
-          reason: this._goalEvaluation?.reason,
-          autonomyLevel,
-          totalTokens: this._totalTokensTracked,
-          durationMs:
-            this._startedAt > 0 ? Date.now() - this._startedAt : undefined,
-        });
-        logger.info('[orchestrator] PDCA 终态评估样例已落库', {
-          taskId: this.taskId,
-          stage,
-          stepCount: plan.steps.length,
-        });
-      } catch (err) {
-        await handleError(err, {
-          module: 'tasks:longRunning',
-          action: 'persistReviewSample',
-          context: { taskId: this.taskId, stage },
-        });
-      }
-    })();
+    const metrics = this.getMetrics();
+    // spec §45：幂等 guard 留在宿主；实现外迁 `./lro/terminalHooks`
+    persistReviewSample({
+      taskId: this.taskId,
+      planId: this.planId,
+      sessionId: this._sessionId,
+      stage,
+      reviewPassRate: metrics.reviewPassRate,
+      totalTokens: this._totalTokensTracked,
+      durationMs:
+        this._startedAt > 0 ? Date.now() - this._startedAt : undefined,
+      goalEvaluation: this._goalEvaluation,
+    });
   }
 
   async shutdown(): Promise<void> {

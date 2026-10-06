@@ -34,9 +34,55 @@ import { handleError } from '@modules/error/handleError';
 const logger = getLogger('AutoDream');
 // D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
 import { resolveTaskRegistry } from '@modules/core/spi';
+// U4（2026-10-06）：会话在线质量分改经 core SPI（同上动因 —— `turn/quality` 事件在 chat 持有）
+import { resolveSessionQuality } from '@modules/core/spi';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
+
+/**
+ * 单次整合**最多**取多少个会话的质量摘要（成本上限）。
+ *
+ * 每次取数 = 一次会话事件日志读；会话多时全取会拖长梦里准备阶段。
+ * 超出部分**不追加**质量行（会话本身仍在清单里）—— 少给增益，不给假数据。
+ */
+const MAX_QUALITY_SUMMARY_SESSIONS = 30;
+
+/**
+ * 构造"会话清单"行（U4 §D6）：每条会话一行，**尽力**追加在线质量摘要。
+ *
+ * - 未注册 SPI / 无 `turn/quality` 数据 ⇒ **只输出会话 id**（不追加、不造 0 分）；
+ * - 取数失败 ⇒ `logger.warn` + 跳过该会话（**@ignore-catch**：质量摘要属**可选增益**输入，
+ *   失败不得影响梦境主流程 —— CS03；同时不静默，便于排查）。
+ */
+async function buildSessionLines(sessionIds: string[]): Promise<string> {
+  const port = resolveSessionQuality();
+  const lines: string[] = [];
+  for (let i = 0; i < sessionIds.length; i++) {
+    const id = sessionIds[i];
+    let suffix = '';
+    if (i < MAX_QUALITY_SUMMARY_SESSIONS) {
+      try {
+        const s = await port.getTurnQualitySummary(id);
+        if (s && s.total > 0) {
+          const high = s.highValueTurns.length
+            ? s.highValueTurns.join(',')
+            : '无';
+          const low = s.lowValueTurns.length ? s.lowValueTurns.join(',') : '无';
+          suffix = `（在线质量：均分 ${s.avgScore.toFixed(2)}；高价值轮 ${high}；低价值轮 ${low}）`;
+        }
+      } catch (e: unknown) {
+        // @ignore-catch: 可选增益输入；失败只降级"无质量行"，不影响梦境整合
+        logger.warn('取会话在线质量摘要失败（跳过该会话）', {
+          sessionId: id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    lines.push(`- ${id}${suffix}`);
+  }
+  return lines.join('\n');
+}
 
 export interface DreamTask {
   id: string;
@@ -303,12 +349,18 @@ export async function initAutoDream(): Promise<void> {
       configManager.env('AUTO_MEM_PATH') || resolveKnowledgeDir();
     const transcriptDir = process.cwd();
 
+    // U4（2026-10-06，`.trae/specs/online-quality-evaluation.md` §D6）：**消费在线质量分**。
+    // 梦境原本只拿到"会话清单"（哪几个会话被触碰过），没有任何"哪几轮值得看"的信号；
+    // 这里在会话行**追加**质量摘要（经 core SPI 取数 ⇒ 不引 chat、不造成 infra→app 倒挂）。
+    // 边界：**只增一路输入**，不改梦境既有判据（规格 D6「最小接入」）；无数据即不追加。
+    const sessionLines = await buildSessionLines(sessionIds);
+
     const extra = `
 
 **Tool constraints for this run:** Bash is restricted to read-only commands (\`ls\`, \`find\`, \`grep\`, \`cat\`, \`stat\`, \`wc\`, \`head\`, \`tail\`, and similar). Anything that writes, redirects to a file, or modifies state will be denied. Plan your exploration with this in mind — no need to probe.
 
 Sessions since last consolidation (${sessionIds.length}):
-${sessionIds.map((id) => `- ${id}`).join('\n')}`;
+${sessionLines}`;
 
     const prompt = buildConsolidationPrompt({
       memoryRoot,

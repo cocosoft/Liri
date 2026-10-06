@@ -187,6 +187,12 @@ export interface ChatOrchestratorHost {
     query: EventLogQuery
   ): Promise<LiriEvent[]>;
   /**
+   * U4 历史会话补评（2026-10-06）：列出**最近更新**的会话 id（**磁盘层**，
+   * 含本进程未加载的会话）。排序口径 `updatedAt` 降序 + 截断 —— 与消费方
+   * （梦境只处理"最近被触碰的会话"）同源，**主链不调用**。
+   */
+  listRecentSessionIds(limit: number): Promise<string[]>;
+  /**
    * P0-1② 覆盖面补齐（2026-10-04，`final-output-guard-no-tool-turns.md`）：
    * 更新消息 blocks —— 无工具回合的终稿 mermaid 修复后，用它**替换**已流出的正文
    * （与工具轮 `_supersedeNextRoundText` 同语义；G4：不新造替换通道）。
@@ -505,14 +511,47 @@ export class ChatOrchestrator {
         //   （`EventLogStorage` 由 chat 持有，同 `_wireCodeRunnerDeps` 手法）；
         // - 幂等：以事件水位为准 ⇒ 同一批轮次不重复评分。
         //
-        // ⚠️ v1 现状（如实，勿当成已完成）：
-        //   ① **LLM 复核（spec D3）尚未接线** ⇒ 可疑轮记 `reviewSkipped: 'no-model'`
-        //      —— 端口设计就是要**暴露**这个事实，而不是伪造"已复核"；
-        //   ② 只评**本进程已加载**的会话（`host.chatSessions`）；历史会话补评需接
-        //      `listSessionsTouchedSince`（spec §D6 的后续扩展点）。
+        // 覆盖范围（2026-10-06 收口）：**本进程已加载的会话**（`host.chatSessions`）
+        // ∪ **磁盘层最近更新的 N 个会话**（`host.listRecentSessionIds`）⇒ 历史会话不再漏评。
+        //
+        // 边界（如实）：① 更早的会话**不在梦境视野内**（梦境的会话来源本就是"最近被触碰"），
+        // 故不为它们付费读事件；② 未配置"任务分工 → verifier"时复核**整体跳过**并记
+        // `reviewSkipped:'no-model'` —— 刻意**暴露**"没评"这个事实，不伪造"已复核"。
         void (async () => {
           try {
             const { runTurnQualityPass } = await import('@modules/evals');
+            // D3（2026-10-06）：**可疑轮的 LLM 复核**（复用 VerifierAgent，见该模块头注）。
+            // 模型**只**取"任务分工 → verifier"（`resolveRole('verifier')`）；未配置 ⇒ 工厂返回
+            // `null` ⇒ 评估器记 `reviewSkipped:'no-model'`（**不**回退选模型，`model-usage.md`）。
+            const { createVerifierTurnReviewer } =
+              await import('../quality/turnQualityReviewer');
+            const reviewer = await createVerifierTurnReviewer({
+              resolveVerifierModelName: async () => {
+                const { modelRouter } = await import('@modules/ai');
+                return modelRouter.resolveRole('verifier');
+              },
+              getClientForModel: (modelName) =>
+                this.host.getClientForModel(modelName),
+            });
+
+            // 历史会话补评（2026-10-06 收口）：并**磁盘层**"最近更新"的会话。
+            // 原先只评本进程已加载的 `chatSessions` ⇒ 磁盘上更早的会话**永不评分**。
+            // 上限 = 成本护栏；口径与消费方同源（梦境只处理"最近被触碰的会话"）。
+            const MAX_QUALITY_SCAN_SESSIONS = 30;
+            const sessionIds = new Set(this.host.chatSessions.keys());
+            try {
+              const recent = await this.host.listRecentSessionIds(
+                MAX_QUALITY_SCAN_SESSIONS
+              );
+              for (const id of recent) sessionIds.add(id);
+            } catch (err) {
+              // 降级（真实场景：会话存储读失败）⇒ 只用本进程已加载的会话，不中断本次评估
+              await handleError(err, {
+                module: 'chat:orchestrator',
+                action: 'idleTurnQuality:listSessions',
+              });
+            }
+
             const r = await runTurnQualityPass(
               {
                 readEvents: (sid, query) =>
@@ -528,8 +567,9 @@ export class ChatOrchestrator {
                     data: ev.data,
                   });
                 },
+                ...(reviewer ? { reviewTurn: reviewer } : {}),
               },
-              { sessionIds: [...this.host.chatSessions.keys()] }
+              { sessionIds: [...sessionIds] }
             );
             if (r.scored > 0 || r.errors.length > 0) {
               logger.info('空闲期在线质量评估完成（U4）', {

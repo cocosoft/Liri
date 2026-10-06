@@ -59,6 +59,8 @@ import { ChatBootstrap } from './manager/bootstrap';
 import { ChatStreamMessageLifecycle } from './pipeline/streamMessageLifecycle';
 import { ChatSessionTeardown } from './manager/sessionTeardown';
 import { ChatRecovery } from './manager/recovery';
+// U4 历史会话补评（2026-10-06）：磁盘会话的"最近更新优先"排序（纯函数）
+import { rankRecentSessionIds } from './quality/sessionScan';
 import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
@@ -1225,6 +1227,8 @@ export class ChatManagerImpl implements ChatManager {
         // U4（2026-10-06）：读会话事件（与 appendStreamEvent 成对）——
         // 空闲期在线质量评估器经此按水位增量读；**主链不调用**。
         readSessionEvents: (sid, query) => this.readSessionEvents(sid, query),
+        // U4（2026-10-06）：磁盘层"最近更新"会话（历史会话补评用）
+        listRecentSessionIds: (limit) => this.listRecentSessionIds(limit),
         // P0-1② 覆盖面补齐（2026-10-04）：无工具回合终稿修复后替换正文（走既有实现）
         updateMessageBlocks: (sid, mid, blocks, text) =>
           this.updateMessageBlocks(sid, mid, blocks, text),
@@ -2161,6 +2165,23 @@ export class ChatManagerImpl implements ChatManager {
     query: EventLogQuery
   ): Promise<LiriEvent[]> {
     return this._getOrCreateEventLog(sessionId).read(query);
+  }
+
+  /**
+   * U4（2026-10-06）：列出**最近更新**的会话 id（**磁盘层**，含本进程未加载的会话）。
+   *
+   * 用途：空闲期在线质量评估的"历史会话补评" —— 原先只覆盖 `chatSessions`（本进程已加载），
+   * 磁盘上更早的会话永不评分。排序口径由 `rankRecentSessionIds` 决定（`updatedAt` 降序 + 截断）。
+   *
+   * 数据源复用启动期加载会话的同一入口（`SessionGateway.listSessions`，见
+   * `chat/manager/bootstrap.ts:413`）⇒ **不新增第二套会话枚举**。
+   */
+  async listRecentSessionIds(limit: number): Promise<string[]> {
+    const stored = await this.getSessionGateway().listSessions();
+    return rankRecentSessionIds(
+      stored.map((s) => ({ id: s.id, updatedAt: s.updatedAt })),
+      limit
+    );
   }
 
   /**

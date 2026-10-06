@@ -129,6 +129,14 @@ export interface ChatManager {
   ): Promise<LiriEvent[]>;
 
   /**
+   * U4（2026-10-06，`.trae/specs/online-quality-evaluation.md`）：列出**最近更新**的
+   * 会话 id（**磁盘层**，含本进程未加载的会话）。
+   *
+   * 供空闲期在线质量评估的「历史会话补评」；**主链不调用**。
+   */
+  listRecentSessionIds(limit: number): Promise<string[]>;
+
+  /**
    * P1-3（2026-09-26）：持久化 doc_pipeline 逐阶段进度为 assistant/doc_workflow 富块事件
    * （供 office:doc-pipeline 工具在 seam onProgress 中调用；复用唯一事件写入入口）
    */

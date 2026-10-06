@@ -20,6 +20,19 @@
 ## [未发布]
 
 ---
+
+#### v0.4.63 (2026-10-06)
+
+**技能系统收口（SK-2 + `impl` 契约）+ 媒体页任务重试与状态单一事实源 + CHANGELOG 历史补录**
+
+- ✅ **SK-2 内置技能收敛为 prompt 型** - 内置 7 个 `type:'agent'` **空壳**（verify/loop/batch/optimize/document/refactor/test）**无条件注册** ⇒ ① 三处 placeholder **假执行**；② **同名遮蔽**（真 prompt 型 `verify` 不可达）。改为**只注册 `type:'prompt'`**，删除 `executeCommandSkill`/`executeAgentSkill`/`executeGenericSkill`，`executeSkill` 收敛 prompt-only + 边界**如实拒绝**（§1.15-6 技能仅提示词注入）；新增 SK-2 测试 **5 例**
+- ✅ **`Skill.impl` 类型契约订正** - **取证**：类型一直**必填**、6 处生产构造点**全部提供** `impl`、全仓无「无 `impl` 技能」、台账无 V-14 记录 ⇒ 原规则「`impl` 可选」**失真**。订正 `project_rules §1.15-11` 为「**必填**」（规则版本 → **v7.15.0**），并收口 `SkillRegistry` 唯一防御点 `skill.impl?.kind` → `skill.impl.kind`（CS03：不为生产中不可达的形态写防御）
+- ✅ **媒体页 MD-2/6/9/10/11 收口** - ① **MD-2** 删除 `VideoTaskItem`/`activeTasks` **影子副本**及其 4 个 action，`useVideoTaskPolling` 重写为**派生自 `generationTasks`** 的单一事实源（轮询直写、`submitTask` 不再补写占位条目）⇒ 消除「双写 + `remoteTaskId` 匹配」的结构性易漂移；② **MD-10** `GenerationTask` 新增 `videoParams`（留存原始请求参数）⇒ 失败视频卡新增「**重试**」（移除失败卡 + `submitVideoTask` **忠实重放**，与 `handleGenerate` 共用，§1.3 方法禁止重复）；③ **MD-6** `ActionMenu` 去掉「非图片返回 null」+ **GridView 补渲染**（原图片编辑/图生视频/下载/删除全不可达）；④ **MD-9** 新增 `scrollMediaItemIntoView`，生成后自动定位新图；⑤ **MD-11** `removeGalleryItem` 补 `saveFavorites`（消除删除后刷新收藏复活）
+- ✅ **`KnowledgeSaveTool` 模块顶层 TDZ 修复（预存缺陷）** - 顶层 `getAllFragmentPrefixes()` 与 `ContextualFragment` 循环导入 ⇒ 单独运行技能测试**必现** `ReferenceError: Cannot access 'PREFIX_BY_KIND' before initialization`（全量跑靠模块加载顺序偶然通过；已 `git stash` 复现证实非本批引入）⇒ 改**惰性 + 记忆化**
+- ✅ **CHANGELOG 历史补录** - 自 `v0.1` 起按 git tag/log 补录 **38 个版本段**（+411 行），全文件按版本号降序归并（数值相等时更具体者更大）；新增 `versioning.md **§3.1**` **补录标记约定**（触发条件 / 事实统计 / 顺序 / 异常标注 / 工具与粒度红线）
+- ✅ **质量** - `typecheck` 0 错（前后端）· `eslint` **0 error / 136 警告**（基线）· `vitest` **506 pass / 56 files / 0 fail** · 服务端全量 **4582 pass / 21 skip / 0 fail**
+
+---
 #### v0.4.62 (2026-10-06)
 
 **A1 Fail-Closed 受阻机制全链闭环 + §13 七项建议全部落地 + A5 跨会话资源治理（新模块）**

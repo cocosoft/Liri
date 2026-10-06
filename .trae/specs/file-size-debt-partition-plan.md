@@ -1270,6 +1270,35 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **预估**：净出 ≈ `eventLineParse` 60 + `repair` 250 = **≈ −310** ⇒ `EventLogStorage` **2159 → ≈1850 < 2000** ⇒ 可删 `FSZ-140`（例外 **13 → 12**）。
 
+---
+
+## 37. 实施记录：批 C5b —— `EventLogStorage` 崩溃修复链外迁（2026-10-06，**已落地**）
+
+**新模块（2 个，与宿主同目录）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `eventLineParse.ts` | `splitJsonLine` + `filterSnapshotEvents`（纯函数；**被宿主多处与 repair 共用 ⇒ 下沉以破环**） | **120** |
+| `EventLogRepair.ts`（`class EventLogRepair`） | repair 簇 6 方法（`emitRepairAlert` · `scanForTornTail` · `commitTornRepair` · `interruptedTurnClosers` · `commitInterruptedRepair` · `ensureRepairChecked`）+ `_repairChecked` / `lastRepairAlertAt` / `REPAIR_ALERT_COOLDOWN_MS` | **365** |
+
+**注入面（`EventLogRepairDeps`，显式端口 9 项）**：`sessionId` · `filePath` · `exists()` · `resetTailState()` · `getTailSeq(force?)` · `writePersistedTailSeq(seq)` · `createReadlineInterface(file?)`（结构子集 `AsyncIterable<string>`）· `clearSnapshotCache()` · `append(event)`（结构子集 `{ok}`）。
+> **判据**：repair 是 **~280 行实质算法**（torn-tail 字节级扫描/JSON 行恢复/closers 合成/防递归），非"转发层"⇒ 抽取有真实收益（变更隔离 + 可单测），故不适用 §2 的"判不拆"。
+
+**宿主侧**：`resetTailState()`（**新增 4 行适配**：`tailSeq=0`/`tailSeqInitialized=false`/`maxTurn=null`）；构造器注入门面（**显式端口**写法）；**4 个公开方法 + `ensureRepairChecked` 保留薄委托**（公开契约不变）；`splitJsonLine`/`filterSnapshotEvents` 改为 **import + 再导出**（保 `verify-derive.ts` 等既有 import 路径）；删除 2 字段 + 1 常量。
+
+**⚠️ logger module 名保持 `session:event-log`** ⇒ 日志输出不变。
+
+**行数**：`EventLogStorage.ts` **2159 → 1817**（−**342**；C5a+C5b 累计 **2274 → 1817 = −457**）。
+**★ `FSZ-140` 例外已删**（依据 §7.6 判据：实测 **1817 < 2000**）⇒ `fileSizeExceptions` **13 → 12**。
+
+**测试同步 1 处（按 §7.6 先例"改指新宿主"，断言语义不变）**：`tests/session/eventLogRepairChain.test.ts:273` 的 `storage as unknown as RepairThrottleState` → `(storage as unknown as { repair: RepairThrottleState }).repair`（`lastRepairAlertAt` 随簇外迁）。
+
+**门槛（全绿）**：`typecheck 0` · 改动文件 `eslint` **0**（`--fix` 后）· `lint:arch` **错误 0 / 警告 4（基线）· 僵尸转发 0** · `lint:size` **0 错误 / 12 例外** · 定向 `tests/session` **302 pass / 0 fail** · 全量 **4750 pass / 21 skip / 0 fail**。
+
+**行为保真要点**：① torn-tail 的**双重判定**（无换行 + JSON 不可解析）与 KB-TORN-CUT/KB-TORN-PRESERVE 两处根因修复逐字保留；② `commitTornRepair` 的**顺序**（truncate → 重置 tail → 清快照 → `getTailSeq(true)` → 告警 → 落 `events.tail`）不变；③ `ensureRepairChecked` 的**先置标记再执行**防递归语义不变；④ `interruptedTurnClosers` 仍**直接扫文件而非调 `read()`**（避免抢先落盘导致二次扫描返空）；⑤ repair 告警节流与 append 失败告警**互不干扰**（独立时间戳）。
+
+**C 系列累计（§32–§37）**：新建 **8 模块**（preflight 451 · LiteSessionLister 199 · GatewayFtsIndex 433 · LlamaServerLogs 238 · LlamaModelsDirGuard 208 · EventLogTextBuffer 211 · EventLogRepair 365 · eventLineParse 120）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457 ⇒ **例外 16 → 12**。
+
+
 
 
 

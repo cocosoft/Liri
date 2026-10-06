@@ -270,7 +270,11 @@ describe('D4 撕裂修复链（EventLogStorage）', () => {
 
   it('⑥ 修复告警冷却：冷却窗内不重复告警，窗外再次告警', async () => {
     const { storage, dir } = makeStorage('cooldown-a');
-    const state = storage as unknown as RepairThrottleState;
+    // 大文件拆分（spec §37）：`lastRepairAlertAt` 随 repair 簇外迁至门面
+    // `EventLogRepair` ⇒ 反射目标改指门面（断言语义不变）。
+    const state = (
+      storage as unknown as { repair: RepairThrottleState }
+    ).repair;
     const torn = completeTwoLines + halfLine;
 
     await withRepairWarnSpy(async (warnCount) => {

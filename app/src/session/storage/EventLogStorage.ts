@@ -38,8 +38,10 @@ import {
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 import { isLiriEvent } from '@modules/session/types/events';
 import { sanitizeEvent } from './eventSanitize';
-// 大文件拆分（spec file-size-debt-partition-plan §36）：流式正文缓冲簇外迁
+// 大文件拆分（spec file-size-debt-partition-plan §36/§37）
 import { EventLogTextBuffer } from './EventLogTextBuffer';
+import { EventLogRepair } from './EventLogRepair';
+import { splitJsonLine, filterSnapshotEvents } from './eventLineParse';
 import {
   assertEventReadable,
   assertEventWritable,
@@ -57,14 +59,6 @@ const APPEND_ALERT_COOLDOWN_MS = 60_000;
 const APPEND_FAIL_THRESHOLD = 5;
 /** 熔断持续时长：暂停对账/重试 5 分钟，防风暴（方案 T-B#1，评审 v0.3#11） */
 const APPEND_CIRCUIT_DURATION_MS = 5 * 60_000;
-/**
- * D4 修复类告警节流窗口（2026-09-23）：1 分钟合并同类修复告警。
- *
- * 与 `APPEND_ALERT_COOLDOWN_MS` **独立**——append 失败与撕裂修复是两条互不相干的
- * 路径，复用同一时间戳会让一侧的告警压掉另一侧的（或反之）。修复告警原先**完全无
- * 节流** ⇒ 同一份损坏被反复读取（每次 read 都触发 ensureRepairChecked）时刷屏。
- */
-const REPAIR_ALERT_COOLDOWN_MS = 60_000;
 
 /**
  * P1-2（2026-08-30）：事件快照缓存默认上限。
@@ -156,91 +150,9 @@ export interface EventLogAppendBatchResult {
   firstRejected?: { seq: number; reason: EventLogAppendResult['reason'] };
 }
 
-// ─── 损坏行拆分恢复（2026-08-24 根因修复）───────────────────────────────────
-
-/**
- * 从可能损坏的 JSONL 行中提取完整的 JSON 对象数组
- *
- * 背景（2026-08-24 根因修复）：跨实例并发 append（多进程/多实例各自持有
- * per-session EventLogStorage，mutex 互不共享）可能把多个事件拼接/截断进同一
- * 物理行，如 {"type":"assistant/text",...,"content":"x{"type":"user/message",...}}
- * ——整行 JSON.parse 失败导致事件丢失、tailSeq 少算、投影兜底消息乱序置顶。
- *
- * 策略：
- *   - 快路径：整行即完整 JSON，直接返回（正常行零开销）
- *   - 慢路径：跳过行首无法解析的截断前缀，从每个 '{' 起点贪心匹配第一个
- *     闭合 '}' 并尝试解析；成功后提取并继续解析剩余部分（多段恢复）。
- *     行内字符串中的 '}' 不会误判边界（未闭合字符串 JSON.parse 天然失败）。
- *
- * 防护：超大损坏行（> 64KB）与候选起点过多（> 64）时放弃恢复，防 O(n²)
- * 解析拖垮读取路径（损坏行为罕见路径，正常行不受影响）。
- */
-export function splitJsonLine(line: string): unknown[] {
-  const rest = line.trim();
-  if (!rest) return [];
-  // 快路径：整行即为完整 JSON
-  try {
-    return [JSON.parse(rest)];
-  } catch {
-    // 进入慢路径
-  }
-  const MAX_REPAIR_LINE_LEN = 64 * 1024;
-  if (rest.length > MAX_REPAIR_LINE_LEN) return [];
-  const results: unknown[] = [];
-  let cursor = 0;
-  let guard = 0;
-  const MAX_CANDIDATES = 64;
-  while (cursor < rest.length && guard++ < MAX_CANDIDATES) {
-    let recovered: unknown | undefined;
-    let consumedTo = -1;
-    for (let start = cursor; start < rest.length; start++) {
-      if (rest[start] !== '{') continue;
-      for (let end = start + 1; end < rest.length; end++) {
-        if (rest[end] !== '}') continue;
-        const candidate = rest.slice(start, end + 1);
-        try {
-          recovered = JSON.parse(candidate);
-          consumedTo = end;
-          break;
-        } catch {
-          // 边界未到（含嵌套 '}' 或字符串内 '}'），继续找下一个 '}'
-        }
-      }
-      if (recovered !== undefined) break;
-    }
-    if (recovered === undefined || consumedTo < 0) break;
-    results.push(recovered);
-    cursor = consumedTo + 1;
-  }
-  return results;
-}
-
-/**
- * P1-2（2026-08-30）：从事件快照内存过滤（对齐 read() 的过滤语义）
- *
- * 快照内事件已深冻结（D1），直接共享引用；返回新数组（浅拷贝事件引用），
- * 调用方对其排序/修改不影响缓存。顺序保持快照 seq 升序。
- */
-export function filterSnapshotEvents(
-  snapshot: LiriEvent[],
-  q: {
-    fromSeq: number;
-    toSeq: number;
-    types?: LiriEventType[];
-    excludeTypes?: LiriEventType[];
-    limit: number;
-  }
-): LiriEvent[] {
-  const results: LiriEvent[] = [];
-  for (const ev of snapshot) {
-    if (results.length >= q.limit) break;
-    if (ev.seq < q.fromSeq || ev.seq > q.toSeq) continue;
-    if (q.types && !q.types.includes(ev.type)) continue;
-    if (q.excludeTypes && q.excludeTypes.includes(ev.type)) continue;
-    results.push(ev);
-  }
-  return results;
-}
+// ─── 损坏行拆分恢复 / 快照过滤（大文件拆分 spec §37）：已外迁 `./eventLineParse.ts` ───
+// 宿主**再导出** ⇒ 既有 import 路径不变（`app/scripts/verify-derive.ts` 仍从本文件取 `splitJsonLine`）。
+export { splitJsonLine, filterSnapshotEvents } from './eventLineParse';
 
 // ─── EventLogStorage ────────────────────────────────────────────────────────
 
@@ -265,12 +177,10 @@ export class EventLogStorage {
   /** A-5（2026-08-23）：熔断截止时间戳（0=未熔断） */
   private circuitOpenUntil = 0;
   /**
-   * D4 修复告警（2026-09-23）：上次修复类告警时间戳（节流窗口用，0=未告警过）。
-   *
-   * 与 append 失败路径的 `lastAlertAt` / `circuitOpenUntil` **独立**：两条路径的
-   * 告警节奏互不干扰（append 失败风暴不应顺带压掉撕裂修复告警，反之亦然）。
+   * 崩溃修复链门面（大文件拆分 spec §37）：torn-tail 检测/截断、未闭合轮次合成、
+   * 首读自动修复与修复告警节流已外迁 `./EventLogRepair.ts`。
    */
-  private lastRepairAlertAt = 0;
+  private readonly repair: EventLogRepair;
 
   /** 当前 tailSeq（0 表示未初始化，需读盘） */
   private tailSeq: number = 0;
@@ -343,12 +253,6 @@ export class EventLogStorage {
   private readonly snapshotPreCommitHook?: () => Promise<void>;
 
   /**
-   * D4-4（2026-08-24）：崩溃修复已检查标记——首次 read 时自动执行 torn-tail 截断
-   * + 合成 closers；内存标记防重复扫描（每次进程生命周期仅一次）。
-   */
-  private _repairChecked = false;
-
-  /**
    * 串行化 append 操作的 mutex queue
    *
    * 同一实例内并发 append 时，按调用顺序排队执行，保证 seq 单调。
@@ -395,6 +299,18 @@ export class EventLogStorage {
     // 流式正文缓冲门面（spec §36）：flush 时经宿主 append 落盘（seq 由 append 分配）
     this.textBuffer = new EventLogTextBuffer({
       sessionId: this.sessionId,
+      append: (event) => this.append(event),
+    });
+    // 崩溃修复链门面（spec §37）：显式端口（路径/存在性 + tail 状态 + 逐行读 + 快照失效 + append）
+    this.repair = new EventLogRepair({
+      sessionId: this.sessionId,
+      filePath: this.filePath,
+      exists: () => this.exists(),
+      resetTailState: () => this.resetTailState(),
+      getTailSeq: (force) => this.getTailSeq(force),
+      writePersistedTailSeq: (seq) => this.writePersistedTailSeq(seq),
+      createReadlineInterface: (file) => this.createReadlineInterface(file),
+      clearSnapshotCache: () => this.clearSnapshotCache(),
       append: (event) => this.append(event),
     });
   }
@@ -1859,300 +1775,42 @@ export class EventLogStorage {
     return maxSeq;
   }
 
-  // ─── D4 torn-tail 崩溃修复（2026-08-24，对齐 deepseek-harness SessionLogScanner） ───
+  // ─── D4 torn-tail 崩溃修复（大文件拆分 spec §37）：已外迁 `./EventLogRepair.ts` ───
+  // 以下 4 个公开方法 + `ensureRepairChecked` 保留为**对外契约入口**（薄委托）；
+  // `eventLogRepairChain.test.ts` 与 `reconcileService.test.ts` 的端口桩经公开 API 消费。
 
-  /**
-   * D4 修复告警节流（2026-09-23）
-   *
-   * 修复告警原先无节流 ⇒ 同一份损坏被反复读取（同一进程内多次构造实例、多次 read
-   * 触发 ensureRepairChecked）时会刷屏。冷却窗口内**降级为 debug**（保留可观测性，
-   * 但不重复占用告警端），窗外输出原级别并推进 `lastRepairAlertAt`。
-   *
-   * 选择"降级 debug"而非"直接不输出"的理由：修复告警是损坏发生的唯一线索，
-   * 直接静默会让"冷却窗内究竟有没有发生修复"不可观测（CS03-002 不掩盖错误）。
-   *
-   * 与 append 失败告警（lastAlertAt / circuitOpenUntil）**独立**，互不干扰。
-   *
-   * @param level 窗外输出级别（撕裂/closers 用 warn；首次读取修复汇总是 info）
-   */
-  private emitRepairAlert(
-    message: string,
-    context: Record<string, unknown>,
-    level: 'warn' | 'info' = 'warn'
-  ): void {
-    const now = Date.now();
-    if (now - this.lastRepairAlertAt < REPAIR_ALERT_COOLDOWN_MS) {
-      logger.debug(`${message}（冷却窗内降级）`, {
-        ...context,
-        cooldownMs: REPAIR_ALERT_COOLDOWN_MS,
-      });
-      return;
-    }
-    this.lastRepairAlertAt = now;
-    if (level === 'info') {
-      logger.info(message, context);
-    } else {
-      logger.warn(message, context);
-    }
+  /** 重置 tail 状态（供 `EventLogRepair.commitTornRepair` 截断后重算真实尾 seq） */
+  private resetTailState(): void {
+    this.tailSeq = 0;
+    this.tailSeqInitialized = false;
+    this.maxTurn = null;
   }
 
-  /**
-   * D4-1：检测 events.jsonl 末尾是否存在半写行（torn tail）
-   *
-   * 应用崩溃时 fs.appendFile 可能中断，末尾残留半写 JSON 行。判定规则：
-   *   1. 文件末尾无换行符（\n 结尾）→ 最后一条记录可能不完整
-   *   2. 或最后一条记录 JSON.parse 失败 → 半写
-   * 双重判定（对齐 deepseek-harness finish()："ignoring a final record without
-   * a newline as a torn tail"），避免误判正常文件。
-   *
-   * @returns { offset: number, torn: boolean }——offset 为安全截断位置（= 最后一个
-   *   完整记录末尾字节数，含换行），torn=true 表示存在需要截断的半写行
-   */
+  /** D4-1：检测 events.jsonl 末尾是否存在半写行（torn tail）—— 实现见 `EventLogRepair` */
   async scanForTornTail(): Promise<{ offset: number; torn: boolean }> {
-    if (!this.exists()) return { offset: 0, torn: false };
-    try {
-      const stat = await fs.stat(this.filePath);
-      if (stat.size === 0) return { offset: 0, torn: false };
-
-      // 读末尾 64KB（足够覆盖典型半写；超大单行理论上可能超限，但事件行通常 < 10KB）
-      const tailSize = Math.min(64 * 1024, stat.size);
-      const buf = Buffer.alloc(tailSize);
-      const fd = await fs.open(this.filePath, 'r');
-      try {
-        await fd.read(buf, 0, tailSize, stat.size - tailSize);
-      } finally {
-        await fd.close();
-      }
-
-      const text = buf.toString('utf-8');
-      // 逐行解析，最后一条完整行的结束字节偏移
-      let lastCompleteEnd = 0;
-      let lineStart = 0;
-      let sawTorn = false;
-
-      // KB-TORN-CUT（2026-09-02 根因修复，P3-8 测试暴露）：读的是"文件末尾 64KB
-      // 块"（stat.size-64KB 起），块起点可能切在多字节 UTF-8 字符**中间** → 块首
-      // "行"是上一行内容的尾部残片，JSON.parse 必失败——若参与 torn 判定会把正常
-      // 文件误报 torn，导致 commitTornRepair 截断删除末尾完整事件（实测中文长文件
-      // 600 行被误删 29 行，newTailSeq 回退到 571）。块起点非文件开头时，跳过
-      // 首残缺行（推进到第一个 \n 之后）再开始判定。
-      if (stat.size > tailSize) {
-        const firstNl = text.indexOf('\n');
-        if (firstNl >= 0) {
-          lineStart = firstNl + 1;
-        }
-      }
-
-      for (let i = lineStart; i < text.length; i++) {
-        if (text[i] === '\n') {
-          const line = text.slice(lineStart, i);
-          const trimmed = line.trim();
-          if (trimmed.length > 0) {
-            try {
-              JSON.parse(trimmed);
-              lastCompleteEnd = i + 1; // 完整行（含换行）
-            } catch {
-              // 中间损坏行（非末尾）——保守视为 torn（可能是崩溃点）
-              sawTorn = true;
-            }
-          }
-          lineStart = i + 1;
-        }
-      }
-
-      // 剩余无换行的尾行：若 trim 非空且 JSON 不可解析 → torn
-      const lastLine = text.slice(lineStart);
-      const lastTrimmed = lastLine.trim();
-      if (lastTrimmed.length > 0) {
-        try {
-          JSON.parse(lastTrimmed);
-          // KB-TORN-PRESERVE（2026-08-29）：可解析尾行 = JSON 内容完整（半写内容
-          // 不可能 parse 成功），无换行仅缺 '\n' 终止符，非数据损坏。原实现把
-          // "可解析但无换行"判为 torn 并截断（lastCompleteEnd 停在倒数第二行），
-          // 丢弃了完整事件（外部工具/异常落盘的假阳性）。改为整条保留。
-          lastCompleteEnd = text.length;
-        } catch {
-          // 尾行不可解析 → 明确的半写 torn
-          sawTorn = true;
-        }
-      }
-
-      // 全局偏移：读的是末尾 64KB，需加上文件头偏移
-      const baseOffset = stat.size - tailSize;
-      return {
-        offset: baseOffset + lastCompleteEnd,
-        torn: sawTorn,
-      };
-    } catch (e) {
-      await handleError(e, {
-        module: 'session:event-log',
-        action: 'scanForTornTail',
-        context: { sessionId: this.sessionId },
-      }).catch(() => {});
-      return { offset: 0, torn: false };
-    }
+    return this.repair.scanForTornTail();
   }
 
-  /**
-   * D4-2：截断 torn tail 至最后一个完整记录，并同步 tailSeq/持久化值
-   *
-   * 调用方（D4-4 启动钩子 / 首次 read）先 scanForTornTail 确认 torn=true 后再调本方法。
-   * 截断失败不抛错（CS03）：返回 false 由调用方决定是否继续降级。
-   *
-   * @returns 截断后是否成功（false = 无 torn 或截断失败）
-   */
+  /** D4-2：截断 torn tail 至最后一个完整记录并同步 tailSeq/持久化值 —— 实现见 `EventLogRepair` */
   async commitTornRepair(): Promise<boolean> {
-    const { offset, torn } = await this.scanForTornTail();
-    if (!torn) return false;
-    try {
-      await fs.truncate(this.filePath, offset);
-      // 重置 tailSeq：截断后重新扫描真实最大 seq
-      this.tailSeq = 0;
-      this.tailSeqInitialized = false;
-      this.maxTurn = null;
-      // P1-2：文件被截断，快照失效
-      this.clearSnapshotCache();
-      const realTail = await this.getTailSeq(true);
-      // 2026-09-23：修复告警加独立节流（冷却窗内降级 debug）
-      this.emitRepairAlert('event-log: torn tail 已截断修复', {
-        sessionId: this.sessionId,
-        truncatedOffset: offset,
-        newTailSeq: realTail,
-      });
-      await this.writePersistedTailSeq(realTail);
-      return true;
-    } catch (e) {
-      await handleError(e, {
-        module: 'session:event-log',
-        action: 'commitTornRepair',
-        context: { sessionId: this.sessionId, offset },
-      }).catch(() => {});
-      return false;
-    }
+    return this.repair.commitTornRepair();
   }
 
-  /**
-   * D4-3：检测未闭合轮次并生成合成 turn/end（interruptedTurnClosers）
-   *
-   * 应用崩溃可能留下 turn/start 无配对 turn/end 的残缺轮次。扫描事件日志，
-   * 对每个"已 start 未 end"的 turn 合成 `turn/end { finishReason: 'canceled' }`
-   * （对齐 B 方案"未完成=已中断"语义，前端已有 canceled 终态处理）。
-   *
-   * 对齐 deepseek-harness `interruptedTurnClosers`：崩溃恢复仅合成缺失的 closers，
-   * 不修改已存在事件。
-   *
-   * @returns 合成的 turn/end 事件数组（seq 从当前 tailSeq+1 连续分配，未落盘）
-   *   与需要合成的未闭合 turn 号列表
-   */
+  /** D4-3：检测未闭合轮次并生成合成 turn/end closers —— 实现见 `EventLogRepair` */
   async interruptedTurnClosers(): Promise<{
     closers: LiriEvent[];
     openTurns: number[];
   }> {
-    // 直接流式扫描文件（不调 read()）——read() 会触发 ensureRepairChecked（D4-4），
-    // 首次调用即抢先合成 closers 落盘，导致本方法二次扫描时 turn 已闭合返回空。
-    // 本方法作为"原始状态查询"应只看文件真实内容（repair 闭环由 ensureRepairChecked 驱动）。
-    const openTurns = new Set<number>();
-    if (this.exists()) {
-      try {
-        const rl = this.createReadlineInterface();
-        for await (const line of rl) {
-          if (!line.trim()) continue;
-          // 2026-08-24 根因修复：损坏行（半写/拼接）用 splitJsonLine 恢复——
-          // 裸 JSON.parse 会跳过拼接行，行内真实的 turn/end 丢失 → turn 误判
-          // 未闭合 → 每次启动都重复合成 canceled closers（前端全部回复显示中断）。
-          for (const obj of splitJsonLine(line)) {
-            const event = obj as LiriEvent;
-            if (event.type === 'turn/start') {
-              openTurns.add((event.data as { turn: number }).turn);
-            } else if (event.type === 'turn/end') {
-              openTurns.delete((event.data as { turn: number }).turn);
-            }
-          }
-        }
-      } catch (e) {
-        await handleError(e, {
-          module: 'session:event-log',
-          action: 'interruptedTurnClosers',
-          context: { sessionId: this.sessionId },
-        }).catch(() => {});
-      }
-    }
-    const sorted = [...openTurns].sort((a, b) => a - b);
-    const tailSeq = await this.getTailSeq();
-    const time = Date.now();
-    const closers: LiriEvent[] = sorted.map((turn, i) => ({
-      type: 'turn/end',
-      seq: tailSeq + i + 1,
-      time,
-      sessionId: this.sessionId,
-      data: { turn, finishReason: 'canceled' as const },
-    }));
-    return { closers, openTurns: sorted };
+    return this.repair.interruptedTurnClosers();
   }
 
-  /**
-   * D4-3：将合成的 turn/end closers 落盘（崩溃恢复收尾）
-   *
-   * 调用方先 interruptedTurnClosers() 获取 closers，确认非空后调本方法。
-   * 逐条 append（append 内含 sanitize + 版本校验 + seq 单调守卫）。
-   *
-   * @returns 成功写入的 closers 数量（0 = 无未闭合轮次或写入失败）
-   */
+  /** D4-3：将合成的 turn/end closers 落盘（崩溃恢复收尾）—— 实现见 `EventLogRepair` */
   async commitInterruptedRepair(): Promise<number> {
-    const { closers } = await this.interruptedTurnClosers();
-    if (closers.length === 0) return 0;
-    let written = 0;
-    for (const closer of closers) {
-      const result = await this.append(closer);
-      if (result.ok) written++;
-    }
-    if (written > 0) {
-      // 2026-09-23：修复告警加独立节流（与撕裂告警共用窗口，冷却窗内降级 debug）
-      this.emitRepairAlert('event-log: 崩溃恢复合成 turn/end closers', {
-        sessionId: this.sessionId,
-        openTurns: closers.map((c) => (c.data as { turn: number }).turn),
-        written,
-      });
-    }
-    return written;
+    return this.repair.commitInterruptedRepair();
   }
 
-  /**
-   * D4-4：首次读取前自动崩溃修复（内存标记防重复 + 防递归）
-   *
-   * 修复链（对齐 deepseek-harness load-time repair）：
-   *   1. torn-tail 截断（半写行清理）——见 commitTornRepair
-   *   2. 未闭合轮次合成 turn/end closers——见 commitInterruptedRepair
-   *
-   * 防递归：commitInterruptedRepair → interruptedTurnClosers → read()
-   * 会再次进入本方法，靠 `_repairChecked` 在真正执行前已置 true 短路。
-   * 失败不抛错（CS03）：修复失败仅告警，读取照常降级（损坏行跳过）。
-   */
+  /** D4-4：首次读取前自动崩溃修复（内存标记防重复 + 防递归）—— 实现见 `EventLogRepair` */
   private async ensureRepairChecked(): Promise<void> {
-    if (this._repairChecked) return;
-    // 先置标记再执行——防递归（修复内部 read() 再次进入）
-    this._repairChecked = true;
-    try {
-      const tornRepaired = await this.commitTornRepair();
-      const closersWritten = await this.commitInterruptedRepair();
-      if (tornRepaired || closersWritten > 0) {
-        // 2026-09-23：修复告警加独立节流（本处原级别为 info；冷却窗内降级 debug）
-        this.emitRepairAlert(
-          'event-log: 首次读取触发崩溃修复',
-          {
-            sessionId: this.sessionId,
-            tornRepaired,
-            closersWritten,
-          },
-          'info'
-        );
-      }
-    } catch (e) {
-      await handleError(e, {
-        module: 'session:event-log',
-        action: 'ensureRepairChecked',
-        context: { sessionId: this.sessionId },
-      }).catch(() => {});
-    }
+    return this.repair.ensureRepairChecked();
   }
 }

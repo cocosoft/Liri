@@ -1127,9 +1127,34 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **行数**：`main.ts` **2129 → 1730**（−**399**）· 新模块 451 行 · `lint:size` **例外 16 → 15**（`main.ts` 由 `[EXEMPT]` 降为 `[WARN]`，不再阻塞）。
 
-**门槛**：`typecheck 0` · 改动文件 `eslint` **0 错误**（2 warning = 随码搬迁的预存未用 catch 形参，净变化 0）· `lint:arch` **错误 0 / 警告 4（基线）** · `lint:size` **0 错误 / 15 例外** · 全量测试见 §32.4。
+**门槛**：`typecheck 0` · 改动文件 `eslint` **0 错误 / 0 警告**（初版 2 warning = 随码搬迁的未用 catch 形参 ⇒ 已同批清除，commit `03bd7c6c4`；仓库全量 eslint 警告数回到 **56 基线**）· `lint:arch` **错误 0 / 警告 4（基线）** · `lint:size` **0 错误 / 15 例外** · 全量测试 **4750 pass / 21 skip / 0 fail**（4771 tests / 503 files）。
 
 ### 32.4 后续候选（未执行，按 §9.4 纪律串行）
 
 `SessionGateway` B（LiteSessionLister，风险最低）→ `streamMessageFlow` ①②（探针+助手，低风险）→ `QQChannel` 批1（types，纯类型）→ …。**每批仍须"取证 → 只搬不改 → 逐批门槛 → 提交"**。
+
+---
+
+## 33. 实施记录：批 C2 —— `SessionGateway` 轻量会话扫描外迁（2026-10-06，**已落地**）
+
+**新模块**：`app/src/session/gateway/LiteSessionLister.ts`（**199 行**，与宿主同模块；`session` = **service 层**）
+
+**迁入**（1 方法，146 行）：`listLiteSessions`（原 `SessionGateway.ts:1182-1327`，即 §32.2 的 Lite 列表簇）
+
+**对外契约（新导出 2 个）**：
+- `LiteSessionSummary`（`{ id; title?; status?; updatedAt? }`）—— 与宿主原声明的匿名返回类型**逐字同形**；
+- `LiteSessionListSource`（`{ getStorageInfo(): { basePath?: string } | null | undefined }`）—— `UnifiedSessionStorage.getStorageInfo(): StorageConfig` 的**结构子集**（本簇只读 `basePath`），避免为单方法引入整个 `UnifiedSessionStorage` 依赖面。
+
+**宿主侧**：`listLiteSessions()` 保留为**对外契约入口**（薄委托 `return listLiteSessions(this.storage)`）；新增相对导入；**无孤儿导入**（`resolveSessionsDir` 宿主 :295/:305/:311 仍在用 ⇒ 保留）。
+
+**⚠️ logger module 名保持 `session:gateway`**（新文件同值）⇒ 日志输出逐字不变。
+
+**行数**：`SessionGateway.ts` **2391 → 2260**（−**131**）。⚠️ **仍 >2000** ⇒ **例外 `FSZ-024` 保留**（§7.6 判据：降到阈值以下才删）。
+
+**门槛（全绿）**：`typecheck 0` · 改动文件 `eslint` **0 问题** · `lint:arch` **错误 0 / 警告 4（基线）· 僵尸转发 0** · 定向 `tests/session` **302 pass / 0 fail** · 全量 **4750 pass / 21 skip / 0 fail**。
+
+**测试覆盖（既有用例直接覆盖本簇）**：`tests/session/session-gateway-regressions.test.ts` 的 **M1** 用例（`:250-274`）经**公开 API** `gateway.listLiteSessions()` 断言「扫描根 = `storageConfig.basePath` 而非默认 `sessions` 目录」⇒ 本批外迁**由该用例端到端验证**，无需改测试。
+
+**取证结论的后续**：`SessionGateway` 余下候选（A FTS ≈300 / C Fork ≈280 / D 消息读写 ≈90）**均未做**；`initialize`/`close` 编排、DI 访问器、QoS/Token 薄委托区已判「不拆」（§32.2）。
+
 

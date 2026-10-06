@@ -148,6 +148,7 @@ A4 本体（家族收敛）**已闭环**，本 spec 只处理它留下的**更�
 | 2026-10-04 | **T1-2 实施** | 新增契约用例 `app/tests/core/schedulerLifecycleContract.test.ts`（编译期守卫 4 类 + 运行期 `start/stop/isRunning` 状态转移与幂等 2 例） |
 | 2026-10-04 | **验证** | `bun run typecheck` **exit 0** · `bun run lint:arch` **错误 0 / 警告 2（基线）** · 契约用例 **2 pass / 0 fail** · 定向回归（`tests/core`+`tests/tasks`+`tests/chronos`+`tests/knowledge`）**515 pass / 0 fail** · **全量 `bun test tests/` = 3883 pass / 9 skip / 0 fail**（426 文件）· 反例守卫见 §7-5（导出类 `extends ReActLoop` = 2） |
 | 2026-10-04 | **T1-3 交付** | 见 §11「L1/L2/L3 三分法与命名约定」 |
+| 2026-10-06 | **P1-3 / `LoopLifecycle` 裁定：维持排除（用户裁定，零改码）** | 外部报告 09 §六-3 建议「循环族生命周期统一（`LoopLifecycle`：`ReActLoop` 的 init/step/observe/checkpoint/terminate，PDL 与 4 个 `SchedulerLifecycle` 共用）」。**用户裁定：维持排除 + 登记**。依据：① 本 spec **§1.3 已明示排除**「LLM 回合循环」与「一次性编排」；② `PlanDrivenLoop` 是 `run()` + `abort()` 的**计划驱动编排器**（think→act→observe **已委托 `TAORLoop`**，见 §1.4），纳入需凭空造 `start`/`stop`/`isRunning` 语义 ⇒ **空实现**（违 CS03）；③ 现 4 实现者均为**时间驱动**，语义同源；④ 与本 spec **D3=a**（PDL 保持组合、不 reparent）一致。⇒ **`LoopLifecycle` 宽契约不立项**；PDL 的"非实现者"身份是**按契约边界的有意排除**，非遗漏 |
 
 > **签名取证（T1-0 实测，4 类逐条）**：`DiscoveryScheduler.start(): void`(19) · `DreamScheduler.start(): Promise<void>`(77) · `CronScheduler.start(): Promise<void>`(135) · `KnowledgeCompileScheduler.start(): void`(69)；`stop(): void` 四类一致；`isRunning(): boolean` 前三类已有、第四类本次新增。⇒ 接口取 `void | Promise<void>` 以容纳两种（TS 中 `() => void` 可赋给 `() => void | Promise<void>`，故两类同步实现无需改动）。
 

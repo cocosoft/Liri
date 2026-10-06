@@ -580,3 +580,15 @@ bun -e "…matchAll(/export[ ]+(interface|type|enum|class)[ ]+([A-Za-z_][A-Za-z0
 - **门禁验收（提交 `45bf96ed8` 实测）**：`[Message 模型] 0 个文件自定 Message 类型` ⇒ **R05-011 归零** · `[类型中心冲突] 0` · `[R02-003 Session 模型] 0` · `违规 0` · `已豁免 42`（本会话 **151 → 42**）· `typecheck 0`。
 - **⚠️ 未纳入处置（如实记录，不粉饰）**：`Command` 同名**实测 4 处定义** —— `types/index.ts:36` · `commands/types/index.ts:39`（即 §9.1 所列 2 份）＋ **`commands/types/index.ts:405`（嵌套声明）** ＋ **`lsp/types.ts:243`（LSP 协议 `Command`，外部规范绑定）**。后两者 §9.1 **未列**、**不在本专项范围**；LSP 那份属"协议适配白名单"性质（**不得改名**）。
 - **遗留（转下批，不在本专项内）**：① **B11** 前置取证 = 级联下沉 `TaskGoalStatus` / `TaskGoalUpdateReason` / `GoalTemplateKind`（app→core）+ `MermaidLintIssue`（infra→core）；② **E 组 `tools` 余 3 条** 仍受阻于 `Tool` 双份 + Windows 大小写不敏感；③ 门禁 **R02-002 检测面远窄于实况**（453 个跨模块同名 vs 1 条违规）—— §9.4 已记口径，**扩检测面尚未实施**。
+
+---
+
+### 9.14 ✅ 遗留项收尾（2026-10-06，回仓实测；来源 `dev_docs/任务计划-20261004.md` §2.2 P1-8）
+
+| §9.13 遗留 | 2026-10-06 实测（CS06 证据） | 结论 |
+|---|---|---|
+| ② E 组 `tools` 余 3 条 | `services/mcp` 下 `from '@modules/tools…'` 实测**仅 1 条代码**：`MCPToolRegistry.ts:27 import type { Tool } from '@modules/tools/types'`（`MCPToolBridge.ts:16` 为**已删导入的注释**，非代码）。该条为 **type-only**，按 2026-10-01 **R00-001 口径变更（裁定「甲」）** ⇒ **仅上报、不计违规** | ✅ **实质消解**：`lint:arch` 实测 **`违规 0`** · 已豁免 0 · **type-only 跨层引用 9 处（仅上报）** ⇒ **无需改码**。（`Tool` 双份已由 §9.7 U3 改名 `AppStateToolRef` 消除；Windows 大小写障碍不复存在） |
+| ③ R02-002 检测面远窄于实况（453 vs 1） | 实测 **R02-002 现报 0 违规** —— `ToolSearchOutput` 已按 §5 **T7** 收敛为单一事实源（`tools/ToolSearchTool/schemas.ts`，另经 `tools/index.ts:331-332` barrel 转出）。“扩检测面”＝将阈值 `≥3` 降至 `≥2`；但门禁注释（`lint-architecture.ts:929-931`）载明 583 条中 **553 条（95%）仅在 2 个模块定义、属领域局部变体/巧合** ⇒ 降阈值将引入 **~553 条噪声** | ① **维持阈值 `≥3`**（“扩检测面”**有意不做**，理由=信噪比；记此防误读为遗漏）；② §9.4 口径“**不得以 R02-002=1 推断重名问题只有 1 个**”保留有效 |
+| ① B11 前置级联下沉 | 4 个联合（`TaskGoalStatus` / `TaskGoalUpdateReason` / `GoalTemplateKind` / `GoalDeviationSeverity`）已由 `shared-event-name-single-source`（2026-10-05，L4）下沉 `shared/types/goal-types.ts` | ✅ 已完成（他项） |
+
+> **⇒ P1-8 收官**：① 已完成（他项）；② 实质消解（type-only）；③ 裁定**维持 `≥3`**（不做）。**无待改代码**。

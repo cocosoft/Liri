@@ -83,15 +83,6 @@ export type {
   IChatEcosystem,
 } from './ecosystem/ChatEcosystem';
 
-export { MessageQueue } from './services/MessageQueue.js';
-export type { MessageQueueStats } from './services/MessageQueue.js';
-export { DeliveryRouter } from './services/DeliveryRouter.js';
-export type {
-  DeliveryRouterConfig,
-  DeliveryResult,
-  DeliveryRouterStats,
-} from './services/DeliveryRouter.js';
-
 // 导出类型
 export type { Message, ContentBlock } from '@modules/session/types/message';
 export type { DataSessionStatus } from '@modules/session/types/session';

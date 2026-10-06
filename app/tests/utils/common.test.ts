@@ -9,7 +9,6 @@ import {
   ensureArray,
   isObject,
   safeJsonParse,
-  retry,
   debounce,
   throttle,
   lazySingleton,
@@ -337,33 +336,7 @@ describe('lazySingleton', () => {
   });
 });
 
-describe('retry', () => {
-  it('should resolve on successful call', async () => {
-    const result = await retry(async () => 'success');
-    expect(result).toBe('success');
-  });
-
-  it('should retry on failure and eventually succeed', async () => {
-    let attempts = 0;
-    const result = await retry(
-      async () => {
-        attempts++;
-        if (attempts < 3) throw new Error('temporary failure');
-        return 'success';
-      },
-      { maxRetries: 3, delay: 5 }
-    );
-    expect(result).toBe('success');
-    expect(attempts).toBe(3);
-  });
-
-  it('should reject after max retries', async () => {
-    const fn = async () => {
-      throw new Error('persistent failure');
-    };
-
-    expect(retry(fn, { maxRetries: 2, delay: 5 })).rejects.toThrow(
-      'persistent failure'
-    );
-  });
-});
+// 2026-10-06（P2-8 ② C 类迁移）：原 `describe('retry')` 3 例已迁至
+// `tests/utils/withRetry.test.ts` —— 被测符号 `utils/common.retry` 与规范实现
+// `withRetry` **能力不等价**（固定延迟 + 无条件重试 vs 可重试性门控 + 指数退避），
+// 故按后者真实语义重写断言（并补「不可重试错误立即抛出」用例），随后删除该符号与本块。

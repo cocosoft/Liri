@@ -199,8 +199,14 @@ function expandField(field: string, range: FieldRange): number[] | null {
 /**
  * Parse 5-field cron expression
  *
- * @deprecated 请使用 @modules/tasks/cron/CronParser 中的 computeNextCronRun / isValidCronExpr。
- * 此函数将在未来版本中移除。
+ * ⚠️ 2026-10-06 标签订正（P2-8 ② C 类复核，CS06）：原文指向
+ * `@modules/tasks/cron/CronParser` —— **该路径已不存在**（台账 D-161 已把 `CronParser.ts`
+ * 整模块搬迁至 **`@modules/utils/cron`**，见 `utils/cron.ts` 头注）。
+ * 规范替代 = `@modules/utils/cron` 的 `computeNextCronRunMs` / `isValidCronExpr`。
+ * **非死码**：仍有 4 处生产消费者（`chronos/recovery/CronLostTaskDetector.ts:2` ·
+ * `chronos/CronTasks.ts:11` · `chronos/cronJitterConfig.ts:135` · `chronos/index.ts:39` 桶），
+ * 且本函数返回 `CronFields` **字段集**（规范侧只给「下一次运行时刻」）⇒
+ * **迁移需类型/语义改写 ⇒ 暂不删除、不排期**。
  *
  * @param expr cron expression string
  * @returns Parsed fields or null
@@ -228,8 +234,11 @@ export function parseCronExpression(expr: string): CronFields | null {
 /**
  * Compute next cron run time
  *
- * @deprecated 请使用 @modules/tasks/cron/CronParser 中的 computeNextCronRun。
- * 此函数将在未来版本中移除。
+ * ⚠️ 2026-10-06 标签订正（P2-8 ② C 类复核，CS06）：原文指向已不存在的
+ * `@modules/tasks/cron/CronParser`（D-161 已迁 `@modules/utils/cron`）。
+ * **非死码**：仍有生产消费者（`CronLostTaskDetector.ts:64` · `cronJitterConfig.ts:145`）；
+ * 且本函数入参为 `CronFields`、返回 `Date`，规范侧 `computeNextCronRun(expr, nowMs)`
+ * 入参为字符串、返回 **ISO 字符串** ⇒ **迁移需语义改写 ⇒ 暂不删除、不排期**。
  *
  * @param fields Parsed cron fields
  * @param from Start time
@@ -410,8 +419,11 @@ export function cronToHuman(cron: string, utc: boolean = false): string {
 /**
  * Validate a schedule expression (supports cron, every, at, macro).
  *
- * @deprecated 请使用 @modules/tasks/cron/CronParser 中的 isValidCronExpr。
- * 此函数将在未来版本中移除。
+ * ⚠️ 2026-10-06 标签订正（P2-8 ② C 类复核，CS06）：原文指向已不存在的
+ * `@modules/tasks/cron/CronParser`（D-161 已迁 `@modules/utils/cron`）。
+ * **非死码**：仍有生产消费者（`CronTasks.ts:58/101`）；且本函数额外支持
+ * `every` / `at` / macro 三种 **非 cron** 形态（规范侧 `isValidCronExpr` 只管 croner
+ * 表达式）⇒ **能力并不等价 ⇒ 暂不删除、不排期**。
  *
  * @param expr schedule expression string
  * @returns Whether valid

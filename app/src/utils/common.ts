@@ -103,39 +103,6 @@ export function safeJsonParse<T>(text: string, fallback: T): T {
   }
 }
 
-/**
- * 带重试的函数执行
- * @deprecated 请使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync
- */
-export function retry<T>(
-  fn: () => Promise<T>,
-  options: {
-    maxRetries?: number;
-    delay?: number;
-    onRetry?: (attempt: number, error: Error) => void;
-  } = {}
-): Promise<T> {
-  const { maxRetries = 3, delay = 1000, onRetry } = options;
-  return new Promise((resolve, reject) => {
-    const attempt = (n: number) => {
-      fn()
-        .then(resolve)
-        .catch((error: Error) => {
-          if (n >= maxRetries) {
-            reject(error);
-            return;
-          }
-          if (onRetry) onRetry(n + 1, error);
-          logger.warning(`操作失败，${n + 1}/${maxRetries} 次重试`, {
-            error: error.message,
-          });
-          setTimeout(() => attempt(n + 1), delay);
-        });
-    };
-    attempt(0);
-  });
-}
-
 export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number

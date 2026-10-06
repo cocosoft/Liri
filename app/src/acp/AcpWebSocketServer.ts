@@ -73,12 +73,16 @@ export class AcpWebSocketServer {
       sessionStore || getDefaultSessionStore(),
       options
     );
-    this.config = {
+    const merged: AcpWebSocketServerConfig = {
       host: '127.0.0.1',
       path: '/acp',
       maxMessageSize: 1 * 1024 * 1024,
       ...config,
     };
+    // N-81（2026-10-06）：`...config` 会把 `host: undefined` / `''` 也展开进来，
+    // 而 `listen(port, host)` 在 host 为 falsy 时**绑定所有网卡**（非回环）⇒ 与
+    // 「默认只监听本机」的取向相反（fail-open）。此处显式兜底回环，使"未指定"永远等于回环。
+    this.config = { ...merged, host: config.host || '127.0.0.1' };
   }
 
   /**

@@ -110,6 +110,7 @@
 - ❌ **不引入** A2A SDK 依赖（当前为自建类型 + 手写端点）。
 - ❌ **不改** `acp/`（其去留由 **T0** 结论决定）。
 - ✅ **已核并闭环（2026-09-29）**：`acp/` **确为对内** —— 远程 WS 服务**默认不启动**（`ACP_REMOTE_PORT` 未设 ⇒ `resolveAcpRemoteConfig()` 返回 `null`，[`ModuleBridgeSetup.ts:29-44`](../../app/src/bridge/ModuleBridgeSetup.ts#L29-L44)），且门控**在活的启动链上**（`main.ts:1821` / `BootPipelineIntegrator.ts:246`）；**运行期实证**：本机 5 次启动**全部**输出「ACP 远程服务未启用」、**零**「服务已启动」。⇒ 所谓"协议双轨"实为 **「A2A 对外（新接线）+ ACP 对内（默认关、双显式 opt-in 才能开）」**，边界清晰，**无需下线任何一套**。
+- ✅ **ACP 侧暴露加固（2026-10-06，台账 N-81，用户裁定 = fail-closed）**：**ACP 的"对内"不再只是约定** —— [`resolveAcpRemoteRefusalReason`](../../app/src/bridge/ModuleBridgeSetup.ts#L78-L91)（纯函数）+ [`startAcpRemoteServer` 门控](../../app/src/bridge/ModuleBridgeSetup.ts#L145-L159)：**`ACP_REMOTE_HOST` 非回环（非 `localhost`/`127.0.0.0/8`/`::1`）且未配 `ACP_REMOTE_AUTH_TOKEN` ⇒ 拒绝启动**（不建服务器、不绑端口）。同时修掉同族根因：`AcpWebSocketServer` 构造函数原用 `...config` ⇒ `host: undefined/''` **可覆盖回环默认**（`listen(port, undefined)` 绑所有网卡，潜在 fail-open），现显式兜底回环。**回环下行为零变化**（默认 `127.0.0.1` + 可选 token 的"本机信任基线"保留）。
 - ✅ **鉴权强度已定（2026-09-29，用户裁定「专用密钥 + fail-closed」）**：新增环境变量 **`A2A_API_KEY`** —— **未配置/空白 ⇒ 一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行（本地信任基线）"回退，因为 A2A 是**对外**面）；配置了则复用 [`verifyRequestAuth`](../../app/src/infrastructure/http/LocalHTTPServiceHelpers.ts#L176) 的**同一头部语义**（`x-api-key` / `Bearer`）。⇒ 与 `A2A_ENABLED` 构成**双闸**（启用 + 有密钥）。
 - ✅ **分发与轮换已定（2026-09-29 用户裁定）**：**分发 = OS 环境变量**（`A2A_API_KEY`）；**轮换 = 单钥 + 文档化流程**（含回滚点 + "旧钥必须 401"的必验项）—— 完整运营说明见 **§8**（**零代码改动**）。`A2A_ENABLED` 仍**默认关闭**。
 - **未做（属新需求，另立 spec）**：多钥并存窗口 / 密钥使用审计 / 轮换脚本 —— 见 §8.4。

@@ -8,6 +8,7 @@
  * ACP 客户端可以通过网络连接进行任务管理和模块查询。
  */
 
+import { isIP } from 'node:net';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 import { initModuleBridge } from './ModuleBridgeInit.js';
@@ -24,7 +25,8 @@ const logger = getLogger('bridge:moduleSetup');
  *
  * - ACP_REMOTE_HOST: 监听地址，默认 127.0.0.1
  * - ACP_REMOTE_PORT: 监听端口，未设置或为 0 表示禁用远程服务
- * - ACP_REMOTE_AUTH_TOKEN: 可选的 Bearer 认证 Token
+ * - ACP_REMOTE_AUTH_TOKEN: Bearer 认证 Token —— **可选，但非回环监听地址下必填**
+ *   （见 {@link resolveAcpRemoteRefusalReason}）
  */
 function resolveAcpRemoteConfig(): AcpWebSocketServerConfig | null {
   const portStr = configManager.env('ACP_REMOTE_PORT') || '';
@@ -41,6 +43,51 @@ function resolveAcpRemoteConfig(): AcpWebSocketServerConfig | null {
     authToken: configManager.env('ACP_REMOTE_AUTH_TOKEN') || undefined,
     maxMessageSize: 1 * 1024 * 1024,
   };
+}
+
+/**
+ * 监听地址是否为本机回环（`localhost` / `127.0.0.0/8` / `::1`）。
+ *
+ * 其它一切取值（`0.0.0.0`、`::`、局域网 IP、主机名）都视为**非回环** ——
+ * 宁可误判为"对外"（触发下面的拒绝），也不放过真实暴露。
+ */
+function isLoopbackHost(host: string | undefined): boolean {
+  // 未指定 / 空白 ⇒ `AcpWebSocketServer` 会兜底为回环（见其构造函数注释）⇒ 视为回环
+  if (host === undefined) return true;
+  const h = host
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '');
+  if (h === '') return true;
+  if (h === 'localhost') return true;
+  const ipVersion = isIP(h);
+  if (ipVersion === 6) return h === '::1';
+  if (ipVersion === 4) return h.startsWith('127.');
+  return false;
+}
+
+/**
+ * ACP 远程暴露的 fail-closed 判据（**纯函数**，便于单测）。
+ *
+ * 背景（台账 **N-81**，2026-10-06 用户裁定）：`AcpWebSocketServerConfig.authToken` 本就是**可选**
+ * —— 其免认证取向是"**本机信任基线**"（与 `LocalHTTPService` 一致，也刻意区别于 A2A 对外面的
+ * "专用密钥 + fail-closed"）。但该基线成立的前提是**只监听本机**；一旦经 `ACP_REMOTE_HOST`
+ * 显式放开到非回环地址，前提即失效 —— 此时若无 token，即可被**无鉴权**连接。
+ *
+ * ⇒ 本判据：**非回环 且 无 token ⇒ 拒绝启动**（不以"能连上但无鉴权"的形态暴露）。
+ *
+ * @returns `null` = 允许启动；否则为**拒绝原因**（供日志与单测断言）
+ */
+export function resolveAcpRemoteRefusalReason(config: {
+  host?: string;
+  authToken?: string;
+}): string | null {
+  if (isLoopbackHost(config.host)) return null;
+  if (config.authToken?.trim()) return null;
+  return (
+    `监听地址 ${config.host} 非本机回环，且未配置 ACP_REMOTE_AUTH_TOKEN —— ` +
+    'ACP 的免认证仅适用于回环地址；请配置 token，或把 ACP_REMOTE_HOST 改回 127.0.0.1'
+  );
 }
 
 /**
@@ -106,6 +153,14 @@ async function startAcpRemoteServer(runtime: AcpRuntime): Promise<void> {
 
   if (!config) {
     logger.info('[Bridge] ACP 远程服务未启用（设置 ACP_REMOTE_PORT 以启用）');
+    return;
+  }
+
+  // N-81（2026-10-06，用户裁定「非回环 + 无 token ⇒ 拒绝启动」，fail-closed）：
+  // 不以"能连上但无鉴权"的形态对外暴露；判据与背景见 resolveAcpRemoteRefusalReason。
+  const refusal = resolveAcpRemoteRefusalReason(config);
+  if (refusal) {
+    logger.error(`[Bridge] ACP 远程服务**拒绝启动**：${refusal}`);
     return;
   }
 

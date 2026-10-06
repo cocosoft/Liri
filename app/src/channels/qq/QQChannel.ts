@@ -10,8 +10,6 @@
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
-  ChannelMeta,
-  ChannelCapabilities,
   SendResult,
   InteractiveCard,
   MessageContext,
@@ -21,107 +19,47 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
+// 大文件拆分（spec file-size-debt-partition-plan §40）：协议常量/类型与四个内聚簇外迁
+import {
+  QQ_META,
+  QQ_CAPABILITIES,
+  QQOpCode,
+  QQEventType,
+  QQ_INTENT_FULL,
+  RECONNECT_DELAYS,
+  MAX_RECONNECT_ATTEMPTS,
+  RATE_LIMIT_DELAY,
+  QUICK_DISCONNECT_THRESHOLD,
+  TOKEN_REFRESH_AHEAD_MS,
+  MAX_CONSECUTIVE_SESSION_FAILURES,
+  MAX_MISSED_HEARTBEAT_ACKS,
+  LONG_BACKOFF_DELAY_MS,
+} from './types';
+import type {
+  QQGatewayPayload,
+  QQReadyPayload,
+  QQAtMessageCreatePayload,
+  QQAttachment,
+  QQC2cMessageCreatePayload,
+  QQGroupAtMessageCreatePayload,
+  QQDirectMessageCreatePayload,
+} from './types';
+import { QQDedupGuard } from './dedupGuard';
+import { QQPassiveReplyTracker } from './passiveReplyTracker';
+import { analyzeCloseCode } from './closeCodeAnalysis';
+import { parseTarget, getMessageApiUrl, getMediaUploadApiUrl } from './apiUrls';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:qq:QQChannel');
 
-const QQ_META: ChannelMeta = {
-  id: 'qq',
-  displayName: 'QQ Bot',
-  vendor: '腾讯 (Tencent)',
-  vendorSite: 'https://q.qq.com/',
-  icon: '🐧',
-  markdownCapable: true,
-  maxMessageLength: 2048,
-  supportedMessageTypes: ['text', 'image', 'markdown'],
-};
+// 通道元数据 / 能力声明（`QQ_META` / `QQ_CAPABILITIES`）与协议常量、网关负载类型
+// 已外迁 `./types`（大文件拆分，spec file-size-debt-partition-plan §40）。
 
-const QQ_CAPABILITIES: ChannelCapabilities = {
-  directMessage: true,
-  groupMessage: true,
-  groupMention: true,
-  threading: false,
-  reactions: false,
-  interactive: false,
-  voiceCall: false,
-  // 2026-08-20 spec qq-file-transfer：c2c/群支持富媒体文件上传（频道由 sendFileMessage 守卫拦截）
-  fileUpload: true,
-  imageMessage: true,
-  webhook: true,
-  // AC-5③：QQ 官方被动回复窗口（5 分钟），声明后 router 才发送长任务占位提示
-  passiveReplyWindow: true,
-};
-
-/** QQ Bot WebSocket OP Code */
-const enum QQOpCode {
-  DISPATCH = 0,
-  HEARTBEAT = 1,
-  IDENTIFY = 2,
-  RESUME = 6,
-  RECONNECT = 7,
-  INVALID_SESSION = 9,
-  HELLO = 10,
-  HEARTBEAT_ACK = 11,
-}
-
-/** QQ Bot WebSocket 关闭码 */
-const enum QQCloseCode {
-  NORMAL = 1000,
-  AUTH_FAILED = 4004,
-  INVALID_SESSION = 4006,
-  SEQ_OUT_OF_RANGE = 4007,
-  RATE_LIMITED = 4008,
-  SESSION_TIMEOUT = 4009,
-  SERVER_ERROR_START = 4900,
-  SERVER_ERROR_END = 4913,
-  INSUFFICIENT_INTENTS = 4914,
-  DISALLOWED_INTENTS = 4915,
-}
-
-/** QQ Bot WebSocket 事件类型 */
-const QQEventType = {
-  READY: 'READY',
-  RESUMED: 'RESUMED',
-  AT_MESSAGE_CREATE: 'AT_MESSAGE_CREATE',
-  C2C_MESSAGE_CREATE: 'C2C_MESSAGE_CREATE',
-  GROUP_AT_MESSAGE_CREATE: 'GROUP_AT_MESSAGE_CREATE',
-  DIRECT_MESSAGE_CREATE: 'DIRECT_MESSAGE_CREATE',
-} as const;
-
-/**
- * QQ Bot 网关意图（OpenClaw FULL_INTENTS 标准）
- * 1 << 30: PUBLIC_GUILD_MESSAGES（频道消息）
- * 1 << 25: GROUP_AND_C2C（群聊和私信）
- * 1 << 12: DIRECT_MESSAGE（频道私信）
- */
-const QQ_INTENT_FULL = (1 << 30) | (1 << 25) | (1 << 12);
-
-/** 重连指数退避延迟（毫秒） */
-const RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000, 60000] as const;
-
-/** 最大重连尝试次数 */
-const MAX_RECONNECT_ATTEMPTS = 50;
-
-/** 限流等待延迟（毫秒） */
-const RATE_LIMIT_DELAY = 60000;
-
-/** 快速断开检测阈值（毫秒） */
-const QUICK_DISCONNECT_THRESHOLD = 5000;
-
-/** Token 后台刷新提前量（毫秒）：过期前 5 分钟刷新 */
-const TOKEN_REFRESH_AHEAD_MS = 5 * 60 * 1000;
-
-/** 连续会话失败上限（鉴权级错误阈值）：超过此值 → 熔断停连 + 告警推送
- *  2026-08-21 从 5 降为 3：日志实证 1.4s 一轮×68 次 ERROR，
- *  对于 intents 权限未审核这种静态配置错误，降频重试毫无意义
- *  （符合 CS02：intents 审核状态是持久化标记，非字符串匹配）。 */
-const MAX_CONSECUTIVE_SESSION_FAILURES = 3;
-
-/** 连续丢失心跳 ACK 上限：达到即判定为死链（半开连接，NAT 超时/网络静默断开） */
-const MAX_MISSED_HEARTBEAT_ACKS = 2;
-
-/** 停连降频自愈的长期退避延迟（毫秒）：会话连续失败/重连次数耗尽后 5 分钟再试，不永久放弃 */
-const LONG_BACKOFF_DELAY_MS = 300_000;
+// （协议常量 `QQOpCode` / `QQCloseCode` / `QQEventType` / `QQ_INTENT_FULL` /
+//  `RECONNECT_DELAYS` / `MAX_RECONNECT_ATTEMPTS` / `RATE_LIMIT_DELAY` /
+//  `QUICK_DISCONNECT_THRESHOLD` / `TOKEN_REFRESH_AHEAD_MS` /
+//  `MAX_CONSECUTIVE_SESSION_FAILURES` / `MAX_MISSED_HEARTBEAT_ACKS` /
+//  `LONG_BACKOFF_DELAY_MS` 已外迁 `./types`，spec §40）
 
 class QQChannelPlugin extends BaseChannelPlugin {
   readonly id = 'qq';
@@ -184,43 +122,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /** 上次连接断开时间戳（用于度量自愈全流程恢复耗时） */
   private lastDisconnectAt = 0;
 
-  /** 消息去重缓存：message_id → 时间戳 */
-  private readonly dedupCache = new Map<string, number>();
-
-  /** 消息去重窗口（毫秒） */
-  private readonly dedupWindowMs = 300_000;
+  /** 入站消息三级去重（message_id / 跨事件 / 内容级）——已外迁 `./dedupGuard`（spec §40） */
+  private readonly dedupGuard: QQDedupGuard;
 
   /** QQ 提及正则（@bot） */
   private readonly mentionPattern = /<@!\d+>/g;
 
-  /** 跨事件类型去重缓存:content_hash -> 时间戳 */
-  private readonly crossEventDedupCache = new Map<string, number>();
-
-  /** 跨事件去重窗口(毫秒) */
-  private readonly crossEventDedupWindowMs = 10_000;
-
-  /** 内容级去重缓存（纯内容哈希，不依赖 senderId）
-   *  QQ 对同一条群 @消息可能同时发送 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE，
-   *  两者 author.id 不同（guild user ID vs open ID），导致 isCrossEventDuplicate 不生效。
-   *  此缓存仅基于消息内容本身做去重，窗口 60s，覆盖 LLM 响应时间。 */
-  private readonly contentDedupCache = new Map<string, number>();
-
-  /** 内容级去重窗口（毫秒） */
-  private readonly contentDedupWindowMs = 60000;
-
-  /** AC-5（2026-08-20）：被动回复上下文 — target → 最近入站消息。
-   *  QQ 被动回复窗口内出站携带原消息 msg_id/msg_seq 可走被动回复通道，
-   *  不占用主动消息每日配额。 */
-  private readonly passiveReplyByTarget = new Map<
-    string,
-    { msgId: string; receivedAt: number; lastSeq: number }
-  >();
-
-  /** AC-5：QQ 被动回复窗口（官方 5 分钟，留安全余量） */
-  private static readonly PASSIVE_REPLY_WINDOW_MS = 270_000;
-
-  /** AC-5：QQ 服务端对同一 msg_id 仅保留最近 5 条被动回复（msg_seq 超出被静默丢弃） */
-  private static readonly PASSIVE_REPLY_MAX_SEQ = 5;
+  /** AC-5（2026-08-20）：被动回复上下文——已外迁 `./passiveReplyTracker`（spec §40） */
+  private readonly passiveReply: QQPassiveReplyTracker;
 
   /**
    * 鉴权级失败熔断：true 时 scheduleReconnect 直接 no-op，停止一切自动重连。
@@ -232,6 +141,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   constructor() {
     super();
+
+    // spec §40：两个状态簇外迁为独立类，logger 注入**同一实例**（`this.logger`）
+    // ⇒ 日志 module 字段与拆分前逐字一致。
+    this.dedupGuard = new QQDedupGuard(this.logger);
+    this.passiveReply = new QQPassiveReplyTracker(this.logger);
 
     this.security = {
       ...this.security,
@@ -420,7 +334,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.accessTokenExpiresAt = 0;
     this.sessionId = null;
     this.lastSeq = null;
-    this.dedupCache.clear();
+    this.dedupGuard.clear();
   }
 
   protected override async checkHealth(): Promise<{
@@ -451,135 +365,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
     return { healthy: ackFresh, latencyMs: now - start };
   }
 
-  /**
-   * 解析 target 格式，返回目标类型和真实 ID
-   * "c2c:{openid}" → { scope: "c2c", targetId: "{openid}" }
-   * "group:{group_openid}" → { scope: "group", targetId: "{group_openid}" }
-   * "{channel_id}" → { scope: "guild", targetId: "{channel_id}" }
-   * 对标 OpenClaw routes.ts messagePath
-   */
-  private parseTarget(target: string): {
-    scope: 'c2c' | 'group' | 'guild';
-    targetId: string;
-  } {
-    if (target.startsWith('c2c:')) {
-      return { scope: 'c2c', targetId: target.slice(4) };
-    }
-    if (target.startsWith('group:')) {
-      return { scope: 'group', targetId: target.slice(6) };
-    }
-    return { scope: 'guild', targetId: target };
-  }
-
-  /**
-   * AC-5（2026-08-20）：记录入站消息的被动回复上下文。
-   * target 与出站 sendMessage 的 target 同格式（c2c:{openid} / group:{group_openid}）。
-   */
-  private recordPassiveReplyContext(target: string, msgId: string): void {
-    this.passiveReplyByTarget.set(target, {
-      msgId,
-      receivedAt: Date.now(),
-      lastSeq: 0,
-    });
-    // 防膨胀兜底：超窗条目顺手清理（正常路径由 consume 清理）
-    if (this.passiveReplyByTarget.size > 200) {
-      const now = Date.now();
-      for (const [k, v] of this.passiveReplyByTarget) {
-        if (now - v.receivedAt > QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS) {
-          this.passiveReplyByTarget.delete(k);
-        }
-      }
-    }
-    this.logger.debug('QQ 被动回复上下文已记录', { target, msgId });
-  }
-
-  /**
-   * AC-5：消费被动回复字段。窗口内返回 {msg_id, msg_seq}（seq 递增保证同一
-   * 消息的多条回复不被 QQ 去重）。以下情况返回空对象（降级主动消息通道）：
-   * - 超过被动回复窗口（270s）
-   * - seq 已达 QQ 服务端保留上限（同 msg_id 仅保留最近 5 条，超出被静默丢弃）
-   */
-  private consumePassiveReplyFields(
-    target: string
-  ): { msg_id: string; msg_seq: number } | Record<string, never> {
-    const ctx = this.passiveReplyByTarget.get(target);
-    if (!ctx) {
-      // 降级原因①：无入站上下文（定时任务/主动通知，或上下文已被清理）
-      this.logger.debug(
-        'QQ 被动回复降级：target 无入站消息上下文，本次走主动消息通道',
-        { target, contextSize: this.passiveReplyByTarget.size }
-      );
-      return {};
-    }
-    const elapsed = Date.now() - ctx.receivedAt;
-    if (elapsed > QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS) {
-      // 降级原因②：超过被动回复窗口（官方 5 分钟，本地留余量 270s）
-      this.passiveReplyByTarget.delete(target);
-      this.logger.info(
-        `QQ 被动回复降级：窗口已过期(elapsed=${elapsed}ms > window=${QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS}ms)，本次走主动消息通道`,
-        { target, msgId: ctx.msgId, elapsedMs: elapsed }
-      );
-      return {};
-    }
-    // seq 上限保护：QQ 服务端仅保留同 msg_id 最近 5 条被动回复，
-    // 第 6 条起会被静默丢弃——必须降级主动消息，否则消息丢失
-    if (ctx.lastSeq >= QQChannelPlugin.PASSIVE_REPLY_MAX_SEQ) {
-      // 降级原因③：seq 达到 QQ 服务端保留上限
-      this.logger.warning(
-        `QQ 被动回复降级：seq 已达上限(lastSeq=${ctx.lastSeq} >= max=${QQChannelPlugin.PASSIVE_REPLY_MAX_SEQ}，超出部分 QQ 服务端静默丢弃)，本次走主动消息通道`,
-        { target, msgId: ctx.msgId, lastSeq: ctx.lastSeq, elapsedMs: elapsed }
-      );
-      return {};
-    }
-    // 成功路径：seq 递增（0→1 为首条回复，QQ 规范 seq 从 1 开始）
-    ctx.lastSeq += 1;
-    this.logger.debug(
-      `QQ 被动回复字段生成：seq 递增 ${ctx.lastSeq - 1} → ${ctx.lastSeq}（同 msg_id 第 ${ctx.lastSeq} 条被动回复）`,
-      {
-        target,
-        msgId: ctx.msgId,
-        seq: ctx.lastSeq,
-        elapsedMs: elapsed,
-        remainingWindowMs: QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS - elapsed,
-        remainingSeqQuota: QQChannelPlugin.PASSIVE_REPLY_MAX_SEQ - ctx.lastSeq,
-      }
-    );
-    return { msg_id: ctx.msgId, msg_seq: ctx.lastSeq };
-  }
-
-  /**
-   * 构建消息发送 API URL（对标 OpenClaw routes.ts messagePath）
-   */
-  private getMessageApiUrl(target: string): string {
-    const parsed = this.parseTarget(target);
-    const base = 'https://api.sgroup.qq.com';
-
-    switch (parsed.scope) {
-      case 'c2c':
-        return `${base}/v2/users/${parsed.targetId}/messages`;
-      case 'group':
-        return `${base}/v2/groups/${parsed.targetId}/messages`;
-      case 'guild':
-        return `${base}/channels/${parsed.targetId}/messages`;
-    }
-  }
-
-  /**
-   * 构建媒体上传 API URL（对标 OpenClaw routes.ts mediaUploadPath）
-   */
-  private getMediaUploadApiUrl(target: string): string {
-    const parsed = this.parseTarget(target);
-    const base = 'https://api.sgroup.qq.com';
-
-    switch (parsed.scope) {
-      case 'c2c':
-        return `${base}/v2/users/${parsed.targetId}/files`;
-      case 'group':
-        return `${base}/v2/groups/${parsed.targetId}/files`;
-      case 'guild':
-        return `${base}/channels/${parsed.targetId}/files`;
-    }
-  }
+  // （target 解析与两个 API URL 构造已外迁 `./apiUrls`，spec §40）
+  // （被动回复上下文 record/consume 已外迁 `./passiveReplyTracker`，spec §40）
 
   protected async sendTextMessage(
     target: string,
@@ -602,13 +389,13 @@ class QQChannelPlugin extends BaseChannelPlugin {
       const token = await this.getAccessToken();
       // AC-5（2026-08-20）：窗口内携带 msg_id/msg_seq 走被动回复通道，
       // 不占用主动消息每日配额；超窗自动降级（consume 内处理）
-      const passiveFields = this.consumePassiveReplyFields(target);
+      const passiveFields = this.passiveReply.consumePassiveReplyFields(target);
       const body: Record<string, unknown> = {
         msg_type: 0,
         content: content.slice(0, QQ_META.maxMessageLength),
         ...passiveFields,
       };
-      const url = this.getMessageApiUrl(target);
+      const url = getMessageApiUrl(target);
 
       this.logger.info('[TRACE] QQ sendTextMessage 发送 HTTP 请求', {
         url,
@@ -683,9 +470,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
         markdown: { content },
         // AC-5（2026-08-20）：替换原假 msg_id（时间戳冒充，无法关联原消息）；
         // 窗口内携带真实 msg_id/msg_seq 走被动回复，超窗省略（主动消息）
-        ...this.consumePassiveReplyFields(target),
+        ...this.passiveReply.consumePassiveReplyFields(target),
       };
-      const url = this.getMessageApiUrl(target);
+      const url = getMessageApiUrl(target);
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -727,7 +514,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     fileType: number
   ): Promise<{ fileUuid?: string; error?: string }> {
     try {
-      const uploadUrlApi = this.getMediaUploadApiUrl(target);
+      const uploadUrlApi = getMediaUploadApiUrl(target);
       const token = await this.getAccessToken();
       const isRemoteUrl =
         fileUrlOrPath.startsWith('http://') ||
@@ -809,7 +596,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const token = await this.getAccessToken();
-      const url = this.getMessageApiUrl(target);
+      const url = getMessageApiUrl(target);
 
       const sendOnce = async (
         payload: Record<string, unknown>
@@ -825,7 +612,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
         return { resp, data: (await resp.json()) as Record<string, unknown> };
       };
 
-      const passiveFields = this.consumePassiveReplyFields(target);
+      const passiveFields = this.passiveReply.consumePassiveReplyFields(target);
       const body: Record<string, unknown> = {
         msg_type: 7,
         media: { file_uuid: fileUuid },
@@ -866,12 +653,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
     imageUrl: string
   ): Promise<SendResult> {
     if (!this.appId) return { success: false, error: '未连接' };
-    const { scope } = this.parseTarget(target);
+    const { scope } = parseTarget(target);
     // 频道消息：使用 image 字段直接发送
     if (scope === 'guild') {
       try {
         const token = await this.getAccessToken();
-        const url = this.getMessageApiUrl(target);
+        const url = getMessageApiUrl(target);
         const resp = await fetch(url, {
           method: 'POST',
           headers: {
@@ -912,7 +699,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     filePath: string
   ): Promise<SendResult> {
     if (!this.appId) return { success: false, error: '未连接' };
-    const { scope } = this.parseTarget(target);
+    const { scope } = parseTarget(target);
     // 频道消息不支持文件发送
     if (scope === 'guild') {
       return { success: false, error: 'QQ 频道消息不支持文件发送' };
@@ -1356,87 +1143,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.logger.info('QQ Bot 鉴权成功，开始监听消息');
   }
 
-  /**
-   * 检查消息是否重复（参考 Hermes _is_duplicate）
-   */
-  private isDuplicate(messageId: string): boolean {
-    if (!messageId) return false;
-    const now = Date.now();
-    const lastTime = this.dedupCache.get(messageId);
-    if (lastTime && now - lastTime < this.dedupWindowMs) {
-      return true;
-    }
-    this.dedupCache.set(messageId, now);
-    // 定期清理过期条目
-    if (this.dedupCache.size > 1000) {
-      for (const [key, time] of this.dedupCache) {
-        if (now - time > this.dedupWindowMs) {
-          this.dedupCache.delete(key);
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 跨事件类型去重检查
-   * QQ 开放平台可能对同一条群聊 @消息同时发送 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE,
-   * 两者 messageId 不同但内容相同。基于 content + senderId 生成哈希做二次去重。
-   */
-  private isCrossEventDuplicate(content: string, senderId: string): boolean {
-    const hash = `${senderId}:${content}`;
-    const now = Date.now();
-    const lastTime = this.crossEventDedupCache.get(hash);
-    if (lastTime && now - lastTime < this.crossEventDedupWindowMs) {
-      this.logger.info('QQ Bot 跨事件去重命中', { hash });
-      return true;
-    }
-    this.crossEventDedupCache.set(hash, now);
-    if (this.crossEventDedupCache.size > 1000) {
-      for (const [key, time] of this.crossEventDedupCache) {
-        if (now - time > this.crossEventDedupWindowMs) {
-          this.crossEventDedupCache.delete(key);
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 内容级去重检查（纯内容哈希，不依赖 senderId）
-   *
-   * QQ 开放平台对同一条群 @消息可能同时推送 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE，
-   * 两者 author.id 分属不同 ID 体系（guild user ID vs open ID），导致 isCrossEventDuplicate()
-   * 的 "${senderId}:${content}" 哈希 Key 不同、无法命中。
-   *
-   * 此方法仅基于内容本身做去重，作为跨事件去重的兜底层。
-   * 窗口 60s，覆盖 LLM 响应时间，确保同一消息的两个事件不会触发两次 AI 调用。
-   */
-  private isContentDuplicate(content: string): boolean {
-    const now = Date.now();
-    const lastTime = this.contentDedupCache.get(content);
-    if (lastTime && now - lastTime < this.contentDedupWindowMs) {
-      this.logger.info('QQ Bot 内容级去重命中', {
-        content: content.slice(0, 50),
-      });
-      return true;
-    }
-    this.contentDedupCache.set(content, now);
-    if (this.contentDedupCache.size > 1000) {
-      for (const [key, time] of this.contentDedupCache) {
-        if (now - time > this.contentDedupWindowMs) {
-          this.contentDedupCache.delete(key);
-        }
-      }
-    }
-    return false;
-  }
+  // （三级去重 isDuplicate / isCrossEventDuplicate / isContentDuplicate 已外迁
+  //  `./dedupGuard`，spec §40；调用点走 `this.dedupGuard`）
 
   /**
    * 处理 AT_MESSAGE_CREATE 事件（频道内 @机器人 的消息）
    */
   private handleAtMessageCreate(data: QQAtMessageCreatePayload): void {
-    if (this.isDuplicate(data.id)) {
+    if (this.dedupGuard.isDuplicate(data.id)) {
       this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 重复消息已跳过', {
         messageId: data.id,
       });
@@ -1447,7 +1161,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     // 跨事件去重
     if (
-      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
+      this.dedupGuard.isCrossEventDuplicate(
+        cleanContent || data.content,
+        data.author.id
+      )
     ) {
       this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 跨事件去重已跳过', {
         messageId: data.id,
@@ -1456,7 +1173,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     }
 
     // 内容级去重兜底（纯内容哈希，不依赖 senderId）
-    if (this.isContentDuplicate(cleanContent || data.content)) {
+    if (this.dedupGuard.isContentDuplicate(cleanContent || data.content)) {
       this.logger.info('[TRACE] QQ AT_MESSAGE_CREATE 内容级去重已跳过', {
         messageId: data.id,
       });
@@ -1501,7 +1218,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private async handleC2cMessageCreate(
     data: QQC2cMessageCreatePayload
   ): Promise<void> {
-    if (this.isDuplicate(data.id)) {
+    if (this.dedupGuard.isDuplicate(data.id)) {
       this.logger.info('[TRACE] QQ C2C_MESSAGE_CREATE 重复消息已跳过', {
         messageId: data.id,
       });
@@ -1560,7 +1277,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     // AC-5：记录被动回复上下文（5 分钟窗口内出站携带 msg_id/msg_seq）
-    this.recordPassiveReplyContext(`c2c:${data.author.id}`, data.id);
+    this.passiveReply.recordPassiveReplyContext(
+      `c2c:${data.author.id}`,
+      data.id
+    );
 
     this.handleIncomingMessage(message).catch((error) => {
       handleError(error, {
@@ -1633,7 +1353,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private handleGroupAtMessageCreate(
     data: QQGroupAtMessageCreatePayload
   ): void {
-    if (this.isDuplicate(data.id)) {
+    if (this.dedupGuard.isDuplicate(data.id)) {
       this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 重复消息已跳过', {
         messageId: data.id,
       });
@@ -1644,7 +1364,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     // 跨事件去重
     if (
-      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
+      this.dedupGuard.isCrossEventDuplicate(
+        cleanContent || data.content,
+        data.author.id
+      )
     ) {
       this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 跨事件去重已跳过', {
         messageId: data.id,
@@ -1653,7 +1376,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     }
 
     // 内容级去重兜底（纯内容哈希，不依赖 senderId）
-    if (this.isContentDuplicate(cleanContent || data.content)) {
+    if (this.dedupGuard.isContentDuplicate(cleanContent || data.content)) {
       this.logger.info('[TRACE] QQ GROUP_AT_MESSAGE_CREATE 内容级去重已跳过', {
         messageId: data.id,
       });
@@ -1682,7 +1405,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     // AC-5：记录被动回复上下文（5 分钟窗口内出站携带 msg_id/msg_seq）
-    this.recordPassiveReplyContext(`group:${data.group_openid}`, data.id);
+    this.passiveReply.recordPassiveReplyContext(
+      `group:${data.group_openid}`,
+      data.id
+    );
 
     this.handleIncomingMessage(message).catch((error) => {
       handleError(error, {
@@ -1696,7 +1422,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 处理 DIRECT_MESSAGE_CREATE 事件（频道私信）
    */
   private handleDirectMessageCreate(data: QQDirectMessageCreatePayload): void {
-    if (this.isDuplicate(data.id)) {
+    if (this.dedupGuard.isDuplicate(data.id)) {
       this.logger.info('[TRACE] QQ DIRECT_MESSAGE_CREATE 重复消息已跳过', {
         messageId: data.id,
       });
@@ -1885,90 +1611,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.missedHeartbeatAcks = 0;
   }
 
-  /**
-   * 分析 WebSocket 关闭码并返回重连策略
-   * 对标 OpenClaw ReconnectState.handleClose
-   */
-  private analyzeCloseCode(code: number): {
-    shouldReconnect: boolean;
-    clearSession: boolean;
-    refreshToken: boolean;
-    delay?: number;
-    fatal: boolean;
-  } {
-    switch (code) {
-      case QQCloseCode.INSUFFICIENT_INTENTS:
-      case QQCloseCode.DISALLOWED_INTENTS:
-        this.logger.error(`QQ Bot 被平台封禁/下线 (${code})，停止重连`);
-        return {
-          shouldReconnect: false,
-          clearSession: false,
-          refreshToken: false,
-          fatal: true,
-        };
-
-      case QQCloseCode.AUTH_FAILED:
-        this.logger.info('QQ Bot Token 无效 (4004)，刷新 Token 后重连');
-        return {
-          shouldReconnect: true,
-          clearSession: false,
-          refreshToken: true,
-          fatal: false,
-        };
-
-      case QQCloseCode.RATE_LIMITED:
-        this.logger.info('QQ Bot 被限流 (4008)，等待 60s 后重连');
-        return {
-          shouldReconnect: true,
-          clearSession: false,
-          refreshToken: false,
-          delay: RATE_LIMIT_DELAY,
-          fatal: false,
-        };
-
-      case QQCloseCode.INVALID_SESSION:
-      case QQCloseCode.SEQ_OUT_OF_RANGE:
-      case QQCloseCode.SESSION_TIMEOUT:
-        this.logger.info(`QQ Bot 会话异常 (${code})，清理后重连`);
-        return {
-          shouldReconnect: true,
-          clearSession: true,
-          refreshToken: true,
-          fatal: false,
-        };
-
-      default:
-        if (
-          code >= QQCloseCode.SERVER_ERROR_START &&
-          code <= QQCloseCode.SERVER_ERROR_END
-        ) {
-          this.logger.info(`QQ Bot 服务端内部错误 (${code})，清理后重连`);
-          return {
-            shouldReconnect: true,
-            clearSession: true,
-            refreshToken: true,
-            fatal: false,
-          };
-        }
-        // 1006 (异常关闭) / 1001 (离开) / 1005 (无状态码) 等：会话可能已失效，清理后重连
-        if (code === 1006 || code === 1001 || code === 1005) {
-          this.logger.info(`QQ Bot 连接异常关闭 (${code})，清理会话后重连`);
-          return {
-            shouldReconnect: true,
-            clearSession: true,
-            refreshToken: false,
-            fatal: false,
-          };
-        }
-        // 正常关闭或其他未知码
-        return {
-          shouldReconnect: code !== QQCloseCode.NORMAL,
-          clearSession: false,
-          refreshToken: false,
-          fatal: false,
-        };
-    }
-  }
+  // （关闭码 → 重连策略已外迁 `./closeCodeAnalysis` 的 `analyzeCloseCode(code, logger)`，spec §40）
+  //  （原 `analyzeCloseCode` 方法体逐字搬迁，含全部日志文案）
 
   /**
    * 处理断开连接（集成结束码分析和快速断开检测）
@@ -2055,7 +1699,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
     }
 
     // 分析关闭码
-    const action = this.analyzeCloseCode(this.lastCloseCode);
+    const action = analyzeCloseCode(this.lastCloseCode, this.logger);
 
     // 快速断开检测
     const connectionDuration = Date.now() - this.lastConnectTime;
@@ -2296,93 +1940,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 }
 
-/** QQ Bot 网关消息负载 */
-interface QQGatewayPayload {
-  op: QQOpCode;
-  s?: number;
-  t?: string;
-  d: unknown;
-}
-
-/** QQ Bot Ready 事件数据 */
-interface QQReadyPayload {
-  version: number;
-  session_id: string;
-  user: {
-    id: string;
-    username: string;
-    avatar?: string;
-  };
-  shard: [number, number];
-}
-
-/** QQ Bot AT_MESSAGE_CREATE 事件数据（频道 @消息） */
-interface QQAtMessageCreatePayload {
-  id: string;
-  channel_id: string;
-  guild_id: string;
-  content: string;
-  author: {
-    id: string;
-    username: string;
-    avatar?: string;
-  };
-  member?: {
-    joined_at?: string;
-    roles?: string[];
-  };
-}
-
-/** QQ Bot 富媒体附件（C2C/群媒体事件携带，url 为 CDN 临时链接有时效） */
-interface QQAttachment {
-  /** 富媒体子类型：0=文本 1=图片 2=视频 3=语音 4=文件 */
-  content_type: number;
-  filename?: string;
-  height?: number;
-  width?: number;
-  size?: number;
-  url?: string;
-}
-
-/** QQ Bot C2C_MESSAGE_CREATE 事件数据（私聊） */
-interface QQC2cMessageCreatePayload {
-  id: string;
-  content: string;
-  author: {
-    id: string;
-    username: string;
-    avatar?: string;
-  };
-  timestamp?: string;
-  /** 富媒体附件（用户发图片/文件时存在） */
-  attachments?: QQAttachment[];
-}
-
-/** QQ Bot GROUP_AT_MESSAGE_CREATE 事件数据（群聊 @消息） */
-interface QQGroupAtMessageCreatePayload {
-  id: string;
-  group_openid: string;
-  content: string;
-  author: {
-    id: string;
-    username: string;
-    avatar?: string;
-  };
-  timestamp?: string;
-}
-
-/** QQ Bot DIRECT_MESSAGE_CREATE 事件数据（频道私信） */
-interface QQDirectMessageCreatePayload {
-  id: string;
-  guild_id: string;
-  content: string;
-  author: {
-    id: string;
-    username: string;
-    avatar?: string;
-  };
-  timestamp?: string;
-}
+// （网关负载类型 `QQGatewayPayload` / `QQReadyPayload` / `QQAtMessageCreatePayload` /
+//  `QQAttachment` / `QQC2cMessageCreatePayload` / `QQGroupAtMessageCreatePayload` /
+//  `QQDirectMessageCreatePayload` 已外迁 `./types`，spec §40）
 
 export function createQQChannel(): IChannelPlugin {
   return new QQChannelPlugin();

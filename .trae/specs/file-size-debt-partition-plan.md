@@ -1356,6 +1356,45 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§39）**：新建 **11 模块**（共 2786 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413 ⇒ **例外 16 → 10**（已关 6 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`）。
 
+---
+
+## 40. 实施记录：批 C8 —— `channels/qq/QQChannel.ts` 协议常量/类型 + 四个零状态簇外迁（2026-10-06，**已落地**）
+
+**⚠️ 与 §32.2 候选批的差异（如实）**：§32.2 原计划按「批1 types / 批2 出站 / 批3 入站事件 / 批5 被动回复」串行。本轮**改按「零状态内聚簇」重新选批**：只搬**不依赖宿主实例状态**（或仅依赖可注入的 logger）的簇 —— 这样可保证 **100% 逐字搬迁**（无需把 `this` 重写为参数）。**入站事件簇（F，≈350）需要 `this` 重写**（`this.dedupGuard` / `this.passiveReply` / `this.logger` / 出站回执交织）⇒ **非「只搬不改」**，本批**未动**；WS 生命周期（A）仍**判不拆**（§32.2 已证 `getAccessToken` 为全簇注入锚点）。
+
+**新模块（5 个，置于既有 `app/src/channels/qq/`，同模块 ⇒ 无新跨层边）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `types.ts` | 通道元数据 `QQ_META` / `QQ_CAPABILITIES` + 协议常量（`QQOpCode` / `QQCloseCode`（改 `export const enum`）/ `QQEventType` / `QQ_INTENT_FULL` / `RECONNECT_DELAYS` / `MAX_RECONNECT_ATTEMPTS` / `RATE_LIMIT_DELAY` / `QUICK_DISCONNECT_THRESHOLD` / `TOKEN_REFRESH_AHEAD_MS` / `MAX_CONSECUTIVE_SESSION_FAILURES` / `MAX_MISSED_HEARTBEAT_ACKS` / `LONG_BACKOFF_DELAY_MS`）+ 7 个网关负载接口 | **200** |
+| `dedupGuard.ts` | 「三级去重」状态簇：3 个缓存 + 3 个窗口 + `isDuplicate` / `isCrossEventDuplicate` / `isContentDuplicate` + `clear()` | **119** |
+| `passiveReplyTracker.ts` | AC-5 被动回复状态簇：`byTarget` + `PASSIVE_REPLY_WINDOW_MS` / `PASSIVE_REPLY_MAX_SEQ` + `recordPassiveReplyContext` / `consumePassiveReplyFields` | **111** |
+| `closeCodeAnalysis.ts` | `analyzeCloseCode`（关闭码 → 重连策略，含全部日志文案） | **102** |
+| `apiUrls.ts` | 纯函数 `parseTarget` / `getMessageApiUrl` / `getMediaUploadApiUrl` | **62** |
+
+**依赖方向（全部单向，无循环）**：5 个新模块**零依赖宿主**（`closeCodeAnalysis` → `types`）；宿主单向 import 它们。
+
+**⚠️ 关键约束：`this.logger` 的真实 module 是 `channels:base`（取证）**
+`BaseChannelPlugin.ts:176` 构造期 `this.logger = getLogger('channels:base')`；宿主全部日志走 `this.logger`（**文件顶部 `const logger = getLogger('channels:qq:QQChannel')` 为预存未使用死代码**，本轮**未动**，仅记录）。
+⇒ 两个状态类**不接受"自建 logger"**，改为**构造函数注入宿主同一实例**（`new QQDedupGuard(this.logger)` / `new QQPassiveReplyTracker(this.logger)`）——**否则日志 `module` 字段会从 `channels:base` 漂移**。`closeCodeAnalysis` 同理以 `logger` 形参注入（不进模块）。**⇒ 日志输出与拆分前逐字一致**。
+
+**宿主侧改动**：
+- 新增 5 组 import；**孤儿类型导入清理 2 处**（`ChannelMeta` / `ChannelCapabilities` —— 仅 `QQ_META` / `QQ_CAPABILITIES` 使用，已随之外迁）；补 `RATE_LIMIT_DELAY` 导入（`:1762` 仍用）。
+- 字段：删 3 个去重缓存 + 3 个窗口 + 被动回复 Map + 2 个静态常量 ⇒ 换为 `dedupGuard` / `passiveReply` 两个注入字段（`mentionPattern`、`_authFuseBlown` **留宿主**）。
+- **调用点 13 处改线**：`this.isDuplicate(` ×4 · `this.isCrossEventDuplicate(` ×2 · `this.isContentDuplicate(` ×2 · `this.consumePassiveReplyFields(` ×3 · `this.recordPassiveReplyContext(` ×2（以上均加 `dedupGuard.` / `passiveReply.` 前缀）；另 `this.dedupCache.clear()` → `this.dedupGuard.clear()`；`this.analyzeCloseCode(c)` → `analyzeCloseCode(c, this.logger)`。
+- **纯函数调用点 9 处改线**：`this.parseTarget(` ×4（含 `const { scope } = …` ×2）· `this.getMessageApiUrl(` ×4 · `this.getMediaUploadApiUrl(` ×1。
+- 删除点各留**指针注释**指向新模块与 spec §40。
+
+**行数**：`QQChannel.ts` **2394 → 1954**（−**440**）。
+**★ `FSZ-010` 例外已删**（依据 §7.6 判据：实测 **1954 < 2000**）⇒ `fileSizeExceptions` **10 → 9**；该文件由 `[EXEMPT]` 降为 `[WARN]`。（另注：本条 `plan` 中「按入站/出站/WS 子模块拆分」为本轮**部分达成** —— 出站纯函数与两个状态簇已迁，**入站事件与 WS 未拆**，理由见上文。）
+
+**门槛（全绿）**：app `bun run typecheck` **0** · `eslint src/channels/qq` **0**（首轮 6 条 `prettier/prettier` —— 均为「加前缀后行超宽」⇒ `--fix` 收敛） · `lint:arch` **违规 0 / 警告 4（基线）· 子目录 import 违规 0** · `lint:size` **0 错误 / 9 例外** · 全量 `bun test` **503 files / 4750 pass / 21 skip / 0 fail**（87.74s）。
+
+**行为保真**：搬迁代码**逐字未改**（含注释与全部日志文案）；**唯一非逐字处 = `this` → 调用方主体**（`this.passiveReplyByTarget` → `this.byTarget`、`QQChannelPlugin.PASSIVE_REPLY_*` → `QQPassiveReplyTracker.PASSIVE_REPLY_*`），**取值与语义不变**（日志模板插值的是**值**，非常量名）。
+**跨文件 `const enum` 合法性**：本仓已有先例（`services/voice/services/edgeTTSTransport.ts#WsOpcode` 被 `edgeTTSProvider.ts` 跨文件导入）⇒ `QQOpCode` / `QQCloseCode` 改 `export const enum` 后 `typecheck` 通过（实测）。
+
+**C 系列累计（§32–§40）**：新建 **16 模块**（共 3380 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −440 ⇒ **例外 16 → 9**（已关 7 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`/`FSZ-010`）。
+
+
 
 
 

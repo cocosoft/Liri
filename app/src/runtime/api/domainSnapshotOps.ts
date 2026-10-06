@@ -1663,12 +1663,10 @@ export class DomainSnapshotOps {
         setCouncilEmitter(cb as never);
       },
       runCouncilDebate: async (sessionId: string): Promise<void> => {
-        const { CouncilOrchestrator } =
+        // A10（2026-10-06）：走单一构造点 —— 原 `new CouncilOrchestrator(getCouncilEngine())`
+        const { getCouncilOrchestrator } =
           await import('@modules/workspace/CouncilOrchestrator');
-        const { getCouncilEngine } =
-          await import('@modules/workspace/CouncilEngine');
-        const orchestrator = new CouncilOrchestrator(getCouncilEngine());
-        await orchestrator.runDebate(sessionId);
+        await getCouncilOrchestrator().runDebate(sessionId);
       },
       emitCouncilEvent: async (event: unknown): Promise<void> => {
         const { getCouncilEngine } =

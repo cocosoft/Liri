@@ -2621,15 +2621,10 @@ export class ChatManagerImpl implements ChatManager {
     topic: string,
     context: string
   ): Promise<void> {
-    const { getCouncilEngine } =
-      await import('@modules/workspace/CouncilEngine');
-    const { CouncilOrchestrator } =
+    // A10（2026-10-06）：走单一构造点 —— 原 `new CouncilOrchestrator(getCouncilEngine())`
+    const { getCouncilOrchestrator } =
       await import('@modules/workspace/CouncilOrchestrator');
-
-    const engine = getCouncilEngine();
-    const orchestrator = new CouncilOrchestrator(engine);
-
-    await orchestrator.startCouncil(workspaceId, topic, context);
+    await getCouncilOrchestrator().startCouncil(workspaceId, topic, context);
   }
 
   /**

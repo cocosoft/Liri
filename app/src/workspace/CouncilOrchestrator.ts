@@ -10,7 +10,7 @@
  * 6. Token 优化（规则拼接摘要）
  */
 
-import { CouncilEngine } from './CouncilEngine.js';
+import { CouncilEngine, getCouncilEngine } from './CouncilEngine.js';
 import type {
   CouncilSession,
   CouncilAgentRole,
@@ -660,4 +660,27 @@ function toCouncilAgentRole(def: AgentDefinition): CouncilAgentRole {
     weight: def.weight,
     systemPrompt: def.systemPrompt,
   };
+}
+
+// ============================================================
+// 全局单例（A10 单一构造点）
+// ============================================================
+
+let _defaultOrchestrator: CouncilOrchestrator | null = null;
+
+/**
+ * 获取 `CouncilOrchestrator` 的**唯一实例**（A10 单一构造点，2026-10-06）。
+ *
+ * 原 `new CouncilOrchestrator(getCouncilEngine())` **散落 2 处**
+ * （`chat/ChatManager.ts` · `runtime/api/domainSnapshotOps.ts`）⇒ 收敛为本模块唯一入口。
+ * 零行为变更：两处原调用即传 `getCouncilEngine()`（其 emit 由 `setCouncilEmitter()` 重设，
+ * 单例安全）；本入口复用同一引擎单例。
+ *
+ * @see .trae/specs/collaboration-orchestration-contract.md（A10 · D1=b）
+ */
+export function getCouncilOrchestrator(): CouncilOrchestrator {
+  if (!_defaultOrchestrator) {
+    _defaultOrchestrator = new CouncilOrchestrator(getCouncilEngine());
+  }
+  return _defaultOrchestrator;
 }

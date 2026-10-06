@@ -44,7 +44,14 @@ export interface TopoBatchTask {
    * - `'soft'`（缺省，= 现状）：**不阻断**（`continue` 传播；调用方可自行消费降级产物）
    *
    * ⚠️ 与复查建议的差异（如实）：建议"默认 `hard`、先用开关"；本仓取**默认 `soft` + 任务级 opt-in**，
-   * 理由 = 零行为回归（两处调用方 `PlanDrivenLoop`/`OrchEngine` 现有语义不变）。是否翻转为默认 hard 待评估迁移风险。
+   * 理由 = 零行为回归（两处调用方 `PlanDrivenLoop`/`OrchEngine` 现有语义不变）。
+   *
+   * ✅ **迁移评估已完成（2026-10-06，`dev_docs/任务计划-20261004.md` §20.6）**：
+   * 结论 = **应当翻转，但"不能单独翻转"**（须先消除 soft 的"静默降级"、并让模型可**按步** opt-out 后同批翻转）。
+   *
+   * ⚠️ **当前 `hard` 在生产不可达**（同批取证）：分解 prompt **不产出**本字段、无 config/UI/env 开关、
+   * 调用方也未传 `defaultDependencyMode` ⇒ 本分支**仅测试可达**。
+   * 因此**不得**据本字段的存在推断"A3 缺陷已修复"—— 现状仍是 **soft 静默降级**（后继带空输入继续跑）。
    */
   dependsOnMode?: TopoDependencyMode;
 }

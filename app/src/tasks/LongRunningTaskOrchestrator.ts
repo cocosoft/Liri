@@ -76,6 +76,28 @@ import { pdcaCheckpointStatus } from '@modules/core';
 import { globalToolManager } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
+// 大文件拆分（spec file-size-debt-partition-plan §44）：类型契约与任务消息助手外迁 `./lro/*`；
+// 下述 re-export 保持**公开面不变**（原 `export` 的 4 个类型仍可从本文件取）。
+import { PLANNER_ROLE, EXECUTOR_ROLE } from './lro/contracts.js';
+import type {
+  PdcaStatus,
+  PdcaMetrics,
+  ExecutorFn,
+  TaskMessage,
+  EscalationRecord,
+} from './lro/contracts.js';
+export type {
+  PdcaStatus,
+  PdcaMetrics,
+  TaskMessage,
+  EscalationRecord,
+} from './lro/contracts.js';
+import {
+  emitTaskEvent,
+  createToolContext,
+  emitTaskMessage,
+} from './lro/taskMessaging.js';
+
 const logger = getLogger('tasks:longRunning');
 
 export type { PdcaPhase };
@@ -153,103 +175,9 @@ function replanMaxRetries(): number {
   return Number.isFinite(v) && v > 0 ? v : 3;
 }
 
-/** PDCA 状态快照（前端查询用） */
-export interface PdcaStatus {
-  taskId: string;
-  planId: string;
-  phase: PdcaPhase;
-  plan?: Plan;
-  progress?: PlanProgress;
-  currentStep?: PlanStep;
-  awaitUserDecision: boolean;
-  decisionPrompt?: string;
-  audit?: AuditReport;
-  lifecycle: LifecycleEvent[];
-}
-
-/** PDCA 监控指标 */
-export interface PdcaMetrics {
-  /** 总 PDCA 循环次数 */
-  totalCycles: number;
-  /** 总步骤数 */
-  totalSteps: number;
-  /** 完成步骤数 */
-  completedSteps: number;
-  /** 失败步骤数 */
-  failedSteps: number;
-  /** 平均每步耗时（ms） */
-  avgStepDurationMs: number;
-  /** 平均 Review 分数（0-100） */
-  avgReviewScore: number;
-  /** Review 通过率 */
-  reviewPassRate: number;
-  /** 工具调用失败导致步骤失败数 */
-  toolFailureSteps: number;
-  /** 中断率（aborted / total） */
-  abortRate: number;
-}
-
-/** 子 Agent 执行句柄 */
-interface SubAgentHandle {
-  agentId: string;
-  isolation: ReturnType<typeof createAgentIsolation>;
-  output: string;
-  completed: boolean;
-  error?: string;
-}
-
-/**
- * 角色配置
- */
-interface RoleConfig {
-  name: string;
-  toolsets: string[];
-  systemPrompt: string;
-}
-
-const PLANNER_ROLE: RoleConfig = {
-  name: 'Planner',
-  toolsets: ['research', 'search', 'file'],
-  systemPrompt:
-    '你是一个任务规划师。分析用户需求，将复杂任务拆解为可执行的步骤序列。每个步骤需包含验收标准（完成后可验证的标准）。只输出分析结果，不执行任何代码或文件修改。',
-};
-
-const EXECUTOR_ROLE: RoleConfig = {
-  name: 'Executor',
-  toolsets: ['terminal', 'code', 'file', 'browser', 'search'],
-  systemPrompt:
-    '你是一个任务执行者。严格按照给定的步骤描述和验收标准执行。完成后汇报执行结果。',
-};
-
-/** 默认执行器函数类型 */
-type ExecutorFn = (params: {
-  systemPrompt: string;
-  userPrompt: string;
-  tools: string[];
-  isolation: ReturnType<typeof createAgentIsolation>;
-}) => Promise<string>;
-
-/**
- * §5 P1: 任务消息回写格式（长程任务 → 对话会话）
- * RC-C（08-09）：任务内工具已从 LLM 模拟改为真实执行（globalToolManager），
- * content 为真实执行摘要文本，前端据 isTaskMessage 渲染为摘要样式。
- */
-export interface TaskMessage {
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
-  toolCallId?: string;
-}
-
-/**
- * D5（M6，2026-08-13）：阶段回退增量 replan 记录
- * escalate 时捕获失败步骤与缺陷清单，重开循环时注入增量 replan 指令。
- */
-export interface EscalationRecord {
-  stepId: string;
-  stepDescription: string;
-  /** 缺陷清单（severity + description） */
-  defects: string[];
-}
+// （`PdcaStatus` / `PdcaMetrics` / `SubAgentHandle` / `RoleConfig` / `PLANNER_ROLE` /
+//  `EXECUTOR_ROLE` / `ExecutorFn` / `TaskMessage` / `EscalationRecord` 已外迁
+//  `./lro/contracts`，并由本文件 import + re-export 保持公开面，spec §44）
 
 export class LongRunningTaskOrchestrator {
   private taskId: string;
@@ -757,91 +685,25 @@ ${replanSection}
     event: 'task:progress' | 'task:completed' | 'task:error',
     payload: Record<string, unknown>
   ): Promise<void> {
-    try {
-      const { broadcastEvent } = await import('@modules/infrastructure');
-      await broadcastEvent(event, { taskId: this.taskId, ...payload });
-    } catch (e) {
-      // @ignore-catch — 事件广播失败不影响任务执行
-      logger.debug('任务事件广播失败', {
-        taskId: this.taskId,
-        event,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
+    // spec §44：实现外迁 `./lro/taskMessaging`；此处仅注入宿主状态（调用点不变）
+    await emitTaskEvent(this.taskId, event, payload);
   }
 
-  /**
-   * §5 P1: 将任务消息回写到对话会话（注入的回调不存在或回写失败不阻断任务）
-   */
-  /**
-   * RC-C 修复：为长程任务内工具执行创建最小 ToolUseContext。
-   * 复用对话侧 ToolExecutor 真实执行，豁免审批（任务启动即用户授权）。
-   */
   private _createToolContext(): ToolUseContext {
-    return {
+    return createToolContext({
       abortController: this.isolation.abortController,
-      sessionId: this._sessionId ?? undefined,
-      options: {
-        commands: [],
-        debug: false,
-        mainLoopModel: '',
-        tools: globalToolManager.getAllTools(),
-        verbose: false,
-        thinkingConfig: {},
-        mcpClients: [],
-        mcpResources: {},
-        isNonInteractiveSession: true,
-        agentDefinitions: {},
-        cwd: this.isolation.workspace,
-      },
-      readFileState: {},
-      getAppState: () => ({}),
-      setAppState: () => {},
-      setInProgressToolUseIDs: () => {},
-      setResponseLength: (f) => f(0),
-      updateFileHistoryState: () => {},
-      updateAttributionState: () => {},
-      messages: [],
-    };
+      sessionId: this._sessionId,
+      workspace: this.isolation.workspace,
+    });
   }
 
   private _emitTaskMessage(msgs: TaskMessage[]): void {
-    if (!this._sessionId || !this._onTaskMessage) {
-      logger.debug(
-        '[orchestrator] _emitTaskMessage 跳过（无 sessionId 或回调）',
-        {
-          taskId: this.taskId,
-          hasSessionId: !!this._sessionId,
-          hasCallback: !!this._onTaskMessage,
-          msgCount: msgs.length,
-        }
-      );
-      return;
-    }
-    try {
-      logger.info('[orchestrator] _emitTaskMessage 回写消息', {
-        taskId: this.taskId,
-        sessionId: this._sessionId,
-        msgCount: msgs.length,
-        roles: msgs.map((m) => m.role),
-        contentPreviews: msgs.map((m) => m.content.slice(0, 60)),
-      });
-      this._onTaskMessage(this._sessionId, msgs);
-    } catch (e) {
-      logger.warn('任务消息回写失败（不影响任务执行）', {
-        taskId: this.taskId,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-    // §5 P2: 顺带广播进度事件（fire-and-forget，限频由调用方控制：step 级）
-    const last = msgs[msgs.length - 1];
-    if (last) {
-      void this._emitTaskEvent('task:progress', {
-        sessionId: this._sessionId,
-        status: 'running',
-        stepDesc: last.content.slice(0, 120),
-      });
-    }
+    emitTaskMessage({
+      taskId: this.taskId,
+      sessionId: this._sessionId,
+      onTaskMessage: this._onTaskMessage,
+      msgs,
+    });
   }
 
   private async executeSingleStep(step: PlanStep, plan: Plan): Promise<void> {

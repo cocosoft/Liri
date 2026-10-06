@@ -38,6 +38,9 @@ import { renderGoalTemplate } from '../../tasks/goal/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
 import { handleError } from '@modules/error';
 import { SimpleMutex, getOutputGuardRegistry } from '@modules/core';
+// A5（2026-10-05）：跨会话资源治理（非流式路径准入点）
+import { getResourceGovernor } from '@modules/resourceGovernor';
+import { DEFAULT_REQUEST_PRIORITY } from '@modules/types/requestPriority';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
@@ -558,7 +561,13 @@ export class ChatOrchestrator {
       );
     }
 
-    return mutex.run(async () => {
+    // A5（2026-10-05）：准入登记（非流式路径；开关关闭时治理器内部 no-op）
+    getResourceGovernor().admit({
+      sessionId: session.id,
+      priority: options?.priority ?? DEFAULT_REQUEST_PRIORITY,
+    });
+
+    const sendPromise = mutex.run(async () => {
       // hook 前置
       const preMsgResult = await this.host.hookChainManager.execute('chat', {
         event: 'chat.pre-message',
@@ -1048,6 +1057,10 @@ export class ChatOrchestrator {
       // 修复：非流式 sendMessage 完成后 turn 计数 +1，确保下次 turn 编号唯一
       this.host.incrementToolRoundCount();
       return assistantMessage;
+    });
+    // A5（2026-10-05）：释放治理器名额（与请求同生命周期，成功/失败都释放）
+    return sendPromise.finally(() => {
+      getResourceGovernor().release(session.id);
     });
   }
 

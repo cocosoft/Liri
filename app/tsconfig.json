@@ -158,6 +158,8 @@
       "@modules/workspace/*": ["workspace/*"],
       "@modules/workspaces": ["workspaces"],
       "@modules/workspaces/*": ["workspaces/*"],
+      "@modules/resourceGovernor": ["resourceGovernor"],
+      "@modules/resourceGovernor/*": ["resourceGovernor/*"],
       "@shared/*": ["../../shared/*"]
     }
   },

@@ -1,3 +1,5 @@
+import type { RequestPriority } from '@modules/types/requestPriority';
+
 /**
  * 消息角色
  *
@@ -630,6 +632,12 @@ export interface SendMessageOptions {
    * 会话ID
    */
   sessionId?: string;
+
+  /**
+   * A5（2026-10-05）：请求优先级（跨会话资源治理用；未声明 ⇒ `interactive`）。
+   * 渠道/定时/后台任务入口应显式传 `'background'`。
+   */
+  priority?: RequestPriority;
 
   /**
    * 元数据

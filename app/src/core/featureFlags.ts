@@ -254,6 +254,15 @@ export const FEATURE_FLAGS = {
    * 仅在 `OUTPUT_GUARD=true` 时生效：`FEATURE_OUTPUT_GUARD_BLOCK=true`。
    */
   OUTPUT_GUARD_BLOCK: false,
+  /**
+   * A5（2026-10-05）：**跨会话资源治理**开关（默认关）。
+   *
+   * 开启后 `streamMessageFlow` / `ChatOrchestrator.sendMessage` 的准入点会经
+   * `resourceGovernor` 登记在飞会话并提供只读视图 + 并发达上限**告警**（不拦截）。
+   * 默认关：整链零行为变更（`admit` 不登记、`snapshot()` 为空）。
+   * `FEATURE_RESOURCE_GOVERNOR=true`。
+   */
+  RESOURCE_GOVERNOR: false,
 
   // ───── 性能与监控 ─────
   /** 内存监控 */

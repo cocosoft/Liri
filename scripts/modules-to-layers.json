@@ -67,6 +67,7 @@
     "tool":     { "layer": "app", "description": "工具结果/作用域注册（与 tools 同域）" },
     "workspace": { "layer": "app", "description": "工作空间域（.liri 目录管理/工作项生命周期）" },
     "workspaces": { "layer": "app", "description": "工作区注册/扫描/清理/Git" },
+    "resourceGovernor": { "layer": "app", "description": "跨会话资源治理（在飞会话视图 + 并发上限观测；A5，2026-10-05）。归 app：需读 chat（在飞集合）与 tokenBudget（水位），而 `core → [core]` / `service → [service,infra,core]` / `infra → [infra,core]` 均够不到 app 模块。请求优先级枚举为避 service→app 倒挂，落在 core 的 `types/requestPriority`。" },
 
     "session":  { "layer": "service", "description": "会话管理" },
     "bridge":   { "layer": "service", "description": "桥接模块" },

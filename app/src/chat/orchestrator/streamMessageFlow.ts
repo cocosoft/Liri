@@ -93,6 +93,9 @@ import type { ToolCategory } from '@modules/tools';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
 import { getOutputGuardRegistry } from '@modules/core';
+// A5（2026-10-05）：跨会话资源治理准入点
+import { getResourceGovernor } from '@modules/resourceGovernor';
+import { DEFAULT_REQUEST_PRIORITY } from '@modules/types/requestPriority';
 import {
   lintMermaidBlocks,
   formatMermaidIssues,
@@ -340,6 +343,10 @@ export async function* runStreamMessage(
   // 与 try Block 平行，看不到 try 块内声明的 let（此前 tsc 报 Cannot find name）。
   // 声明后供 try 内 acquire（置 true）与最外层 finally（释放）共享。
   let mutexHeld = false;
+
+  // A5（2026-10-05）：跨会话资源治理 —— 与 mutexHeld 同生命周期（准入一次、释放一次）。
+  // 开关关闭时治理器内部为 no-op（见 `resourceGovernor/index.ts` 头注）。
+  let governorAdmitted = false;
 
   // TR-20 续（2026-09-22）：启用 **`interaction` 父 span** —— 使本轮内的 `llm_request`
   // 嵌套在"一次用户交互"之下（`SessionTracing` 经 AsyncLocalStorage 传递父 span，
@@ -1339,6 +1346,12 @@ export async function* runStreamMessage(
 
       if (!mutexHeld) {
         logger.info('获取互斥锁(首轮)', { sessionId: session.id });
+        // A5：准入登记（在飞视图 + 并发达上限仅告警；不拦截）
+        getResourceGovernor().admit({
+          sessionId: session.id,
+          priority: options?.priority ?? DEFAULT_REQUEST_PRIORITY,
+        });
+        governorAdmitted = true;
         await mutex.acquire();
         mutexHeld = true;
       }
@@ -2770,6 +2783,10 @@ export async function* runStreamMessage(
     // 内层工具循环已不再 release（见上），此处是唯一释放点，保证释放恰好一次。
     if (mutexHeld) {
       mutex.release();
+    }
+    // A5：释放治理器名额（与 mutex 同一唯一释放点，保证恰好一次）
+    if (governorAdmitted) {
+      getResourceGovernor().release(session.id);
     }
     // TR-20 续：结束 interaction span —— 与 mutex 同在**唯一释放点**，保证恰好一次
     // （`endInteractionSpan` 自身有 `spanContext` 与 `ended` 双重守卫，重复调用无害）

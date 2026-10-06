@@ -7,6 +7,7 @@
 | [配置指南](configuration.md) | 配置详解 |
 | [治理系统](governance.md) | 治理策略配置 |
 | [权限系统](permissions.md) | 用户和工具权限 |
+| [工具调用安全检查链路](工具调用安全检查链路.md) | 逐跳链路契约：谁能裁决 / 谁只读，含旁路与降级清单 |
 | [沙箱安全](sandbox.md) | 沙箱执行环境 |
 | [密钥管理](secrets.md) | 密钥安全存储 |
 | [OAuth 认证](oauth.md) | OAuth 认证流程 |

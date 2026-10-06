@@ -16,13 +16,11 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
-import { mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath } from '@modules/core/paths';
 import { trackUsage } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
-import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
+import type { Plan, PlanStep } from './TaskOrchestrator';
 import { TaskStatus } from './types';
 import {
   AppError,
@@ -40,7 +38,6 @@ import {
 } from '@modules/agent';
 import { EffectScope } from '@modules/context';
 import { computeToolNames, resolveToolsets } from '../tools/toolsets';
-import { generateAuditReport } from './AuditReport';
 import type { AuditReport } from './AuditReport';
 import { formatReviewSummary } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
@@ -105,6 +102,23 @@ import {
   createToolContext,
   emitTaskMessage,
 } from './lro/taskMessaging.js';
+// 大文件拆分（spec file-size-debt-partition-plan §46）：报告投影 + 纯函数判定外迁 `./lro/*`。
+import {
+  renderAuditReport,
+  persistAuditReportFile,
+  projectPdcaStatus,
+  projectPdcaMetrics,
+} from './lro/reporting.js';
+import type { PdcaReportView } from './lro/reporting.js';
+import {
+  planTurnsExtensionDecision,
+  shouldReRollMaxTurnsStep,
+} from './lro/pureDecisions.js';
+// 纯函数判定原为公开导出 ⇒ re-export 保持公开面（spec §46）
+export {
+  planTurnsExtensionDecision,
+  shouldReRollMaxTurnsStep,
+} from './lro/pureDecisions.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -1453,26 +1467,21 @@ ${replanSection}
 
   // ─── 报告 ───────────────────────────────────────────
 
-  generateReport(): AuditReport {
-    if (!this.planId) throw new Error('No plan created');
-
-    const plan = taskOrchestrator.getPlan(this.planId)!;
-    return generateAuditReport({
+  /** 报告投影所需的宿主状态只读快照（spec §46） */
+  private reportView(): PdcaReportView {
+    return {
       taskId: this.taskId,
       planId: this.planId,
-      steps: plan.steps.map((s) => {
-        const dur = this.stepDurations.get(s.id);
-        return {
-          id: s.id,
-          description: s.description,
-          status: s.status,
-          reviewResult: s.reviewResult,
-          retryCount: s.retryCount,
-          durationMs: dur ? (dur.endMs ?? Date.now()) - dur.startMs : 0,
-          error: s.error,
-        };
-      }),
-    });
+      phase: this.phase,
+      decisionAwait: this.decisionAwait,
+      auditReport: this.auditReport,
+      lifecycle: this.lifecycle.getHistory(),
+      stepDurations: this.stepDurations,
+    };
+  }
+
+  generateReport(): AuditReport {
+    return renderAuditReport(this.reportView());
   }
 
   /**
@@ -1480,120 +1489,18 @@ ${replanSection}
    * 保存路径: ~/.pyapp/data/task-audits/{taskId}.json
    */
   private persistAuditReport(report: AuditReport): void {
-    try {
-      const dir = join(resolveDataDir(), 'task-audits');
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(
-        join(dir, `${report.taskId}.json`),
-        JSON.stringify(report, null, 2),
-        'utf-8'
-      );
-    } catch (err) {
-      // 持久化失败不影响任务完成状态
-      logger.warn('审计报告持久化失败', {
-        taskId: report.taskId,
-        error: String(err),
-      });
-    }
+    persistAuditReportFile(report);
   }
 
   // ─── 状态查询 ───────────────────────────────────────
 
   getStatus(): PdcaStatus {
-    const plan = this.planId
-      ? taskOrchestrator.getPlan(this.planId)
-      : undefined;
-    const progress = this.planId
-      ? taskOrchestrator.getPlanProgress(this.planId)
-      : undefined;
-
-    let currentStep: PlanStep | undefined;
-    if (plan) {
-      currentStep = plan.steps.find((s) => s.status === 'running');
-    }
-
-    return {
-      taskId: this.taskId,
-      planId: this.planId || '',
-      phase: this.phase,
-      plan,
-      progress,
-      currentStep,
-      awaitUserDecision: this.decisionAwait !== null,
-      audit: this.auditReport || undefined,
-      lifecycle: this.lifecycle.getHistory(),
-    };
+    return projectPdcaStatus(this.reportView());
   }
 
   /** 获取 PDCA 监控指标 */
   getMetrics(): PdcaMetrics {
-    const plan = this.planId
-      ? taskOrchestrator.getPlan(this.planId)
-      : undefined;
-    const steps = plan?.steps ?? [];
-    const lifecycle = this.lifecycle.getHistory();
-
-    const totalSteps = steps.length;
-    const completedSteps = steps.filter((s) => s.status === 'completed').length;
-    const failedSteps = steps.filter((s) => s.status === 'failed').length;
-
-    // 平均每步耗时（1-1d 口径：per-step 墙钟跨度均值）。
-    // 依赖批次并行时各步同时计时，此为"每步平均占用跨度"而非任务总耗时；
-    // 任务级成本口径看 _totalTokensTracked / goal_metrics.total_tokens。
-    const durations = Array.from(this.stepDurations.values())
-      .filter((d) => d.endMs)
-      .map((d) => d.endMs! - d.startMs);
-    const avgStepDurationMs =
-      durations.length > 0
-        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-        : 0;
-
-    // Review 指标
-    const reviewedSteps = steps.filter(
-      (s) => s.reviewResult?.score !== undefined
-    );
-    const avgReviewScore =
-      reviewedSteps.length > 0
-        ? Math.round(
-            reviewedSteps.reduce(
-              (sum, s) => sum + (s.reviewResult?.score ?? 0),
-              0
-            ) / reviewedSteps.length
-          )
-        : 0;
-    const passedReviews = reviewedSteps.filter(
-      (s) => s.reviewResult?.pass
-    ).length;
-    const reviewPassRate =
-      reviewedSteps.length > 0
-        ? Math.round((passedReviews / reviewedSteps.length) * 100)
-        : 100;
-
-    // 工具调用失败
-    const toolFailureSteps = steps.filter(
-      (s) => s.error && s.error.includes('tool')
-    ).length;
-
-    // 中断率
-    const abortedEvents = lifecycle.filter(
-      (e) => e.phase === 'finalized' && e.status === TaskStatus.FAILED
-    ).length;
-    const abortRate =
-      lifecycle.length > 0
-        ? Math.round((abortedEvents / lifecycle.length) * 100)
-        : 0;
-
-    return {
-      totalCycles: lifecycle.filter((e) => e.phase === 'progress').length,
-      totalSteps,
-      completedSteps,
-      failedSteps,
-      avgStepDurationMs,
-      avgReviewScore,
-      reviewPassRate,
-      toolFailureSteps,
-      abortRate,
-    };
+    return projectPdcaMetrics(this.reportView());
   }
 
   /**
@@ -2334,32 +2241,6 @@ setInterval(
   },
   30 * 60 * 1000
 ).unref();
-
-/**
- * B-任务（2026-09-05）：max_turns 扩容续跑判定（纯函数，可单测）。
- * steps 含 max_turns 终止步骤且续跑次数未达上限 → 本轮放大轮次预算（×2）并计数+1。
- */
-export function planTurnsExtensionDecision(
-  steps: Array<{ terminationReason?: string }>,
-  currentExtensions: number,
-  limit: number
-): { apply: boolean; multiplier: number; count: number } {
-  const candidates = steps.filter(
-    (s) => s.terminationReason === 'max_turns'
-  ).length;
-  if (candidates > 0 && currentExtensions < limit) {
-    return { apply: true, multiplier: 2, count: currentExtensions + 1 };
-  }
-  return { apply: false, multiplier: 1, count: currentExtensions };
-}
-
-/** B-任务：扩容激活时，max_turns 终止的步骤置回 pending 重跑（loop_detected 拒绝） */
-export function shouldReRollMaxTurnsStep(
-  multiplierActive: boolean,
-  terminationReason?: string
-): boolean {
-  return multiplierActive && terminationReason === 'max_turns';
-}
 
 export function getOrCreateOrchestrator(
   taskId: string

@@ -1541,6 +1541,37 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§45）**：新建 **26 模块**（共 5030 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157、`LongRunningTaskOrchestrator.ts` **−337** ⇒ **例外 16 → 8**（已关 8 条，同上）。
 
+---
+
+## 46. 实施记录：批 C14 —— `tasks/LongRunningTaskOrchestrator.ts` 报告投影 + 纯函数判定外迁（2026-10-06，**已落地**）
+
+**来由**：用户裁定「继续处理 `LongRunningTaskOrchestrator.ts` 的剩余部分」⇒ 取 §32.2 候选 **B3 报告投影**，并顺带外迁 **B1 纯函数**（同为低耦合面）。
+
+**取证明细（B3 报告投影，实测 4 方法）**：`generateReport` · `persistAuditReport` · `getStatus` · `getMetrics` —— 只读宿主字段（`taskId` / `planId` / `phase` / `decisionAwait` / `auditReport` / `lifecycle.getHistory()` / `stepDurations`），**零写入宿主状态** ⇒ 用 **`PdcaReportView` 只读窄端口快照**外迁（宿主新增 `reportView()` 私有访问器）。
+`getTokenUsage()`（3 行，仅返回 `_totalTokensTracked`）**留在宿主**（抽走仅增脚手架，违最小搬迁）。
+
+**取证明细（B1 纯函数，实测 2 个）**：`planTurnsExtensionDecision` · `shouldReRollMaxTurnsStep` —— 全仓 grep 确认**仅宿主内部两道调用点**（`:1981` / `:2031`，无外部消费者、无测试引用）⇒ 零依赖搬迁，宿主 **re-export** 保持公开面。
+
+**新模块（2 个，`app/src/tasks/lro/`）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `reporting.ts` | 报告生成 `renderAuditReport` · 审计报告落盘 `persistAuditReportFile` · 状态投影 `projectPdcaStatus` · 指标投影 `projectPdcaMetrics` + `PdcaReportView` 窄端口 | **180** |
+| `pureDecisions.ts` | resume 扩容续跑纯函数 2 个（`planTurnsExtensionDecision` / `shouldReRollMaxTurnsStep`） | **34** |
+
+**宿主侧改动**：新增 2 组 import（含 1 行 **re-export** 保持纯函数公开面）；**4 个报告方法改为薄委托**（各 1 行）+ 新增 `reportView()` 私有访问器；**全部调用点零改动**（含宿主内部 `_recordGoalStageMetric` / `_persistReviewSample` 对 `this.getMetrics()` 的复用）；日志文案 `'审计报告持久化失败'` 与 `module: 'tasks:longRunning'` 逐字保留。
+**连带清理（本轮修改导致的孤儿导入）**：`mkdirSync` / `writeFileSync`（`fs`）· `join`（`path`）· `resolveDataDir`（`core/paths`）· `generateAuditReport`（`AuditReport`）· `PlanProgress`（`TaskOrchestrator` 类型）——本次外迁后不再被宿主使用，随批删除。
+
+**门禁无新警告**：本批外迁的导出名（`renderAuditReport` / `persistAuditReportFile` / `projectPdcaStatus` / `projectPdcaMetrics` / `PdcaReportView` / 两个纯函数）经全仓核对**无同名冲突** ⇒ **R02-002 未触发**，警告保持基线 4（对照 §45 教训：私有类型转导出前先扫同名导出）。
+
+**行数**：`LongRunningTaskOrchestrator.ts` **2384 → 2265**（本批 −**119**；**C12+C13+C14 累计 2721 → 2265 = −456**）。**例外保留**（`2265 > 2000`；按 §7.6 判据需实测 <2000 才可删条目）。
+**剩余可拆面（未做，如实）**：§32.2 计划内候选（B1–B4）**已全部落地**；余下仅**类内 EXECUTE / REVIEW 主流程簇**（C4/C5：`executeSingleStep` ≈430 行、`_runExecuteDecideLoop` ≈250 行，强耦合 `this`/模块单例/工具上下文，**判不拆首选**）与 **C10 注册表**（`activeOrchestrators` + 工厂函数，与类互指 ⇒ 外迁将成环，**判不拆**）。⇒ 该文件按 §7.6 判据**无法降至 <2000**，**维持例外条目**（`FSZ-015`），不再排期。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · 改动文件 `eslint` **0**（首轮 1 条 `prettier/prettier` ⇒ `--fix`） · `lint:arch` **违规 0 / 警告 4（基线，R02-002 未触发）· 碎片 3 · 薄桶 0 · 僵尸转发 0 · 循环依赖 0** · `lint:size` **0 错误 / 8 例外** · 定向 `bun test tests/tasks tests/http/pdca-*.contract.test.ts tests/chat/PdcaLauncher-progress.test.ts` **362 pass / 0 fail**（42 文件） · 全量 `bun test` **504 files / 4752 pass / 21 skip / 0 fail**（89.17s）。
+
+**行为保真**：4 个报告方法函数体**逐字搬迁**（仅 `this.x` → `view.x`；`getStatus`/`getMetrics` 的 `getPlan`/`getPlanProgress` 调用与空值语义原样保留）；纯函数逐字搬迁；`reportView()` 每次调用取一次 `lifecycle.getHistory()`，与原 `getStatus`/`getMetrics` 各自取一次**次数一致**。
+
+**C 系列累计（§32–§46）**：新建 **28 模块**（共 5244 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157、`LongRunningTaskOrchestrator.ts` **−456** ⇒ **例外 16 → 8**（已关 8 条，同上）。
+
 
 
 

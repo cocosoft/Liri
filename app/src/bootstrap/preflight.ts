@@ -217,7 +217,7 @@ export async function checkCriticalDependencies(): Promise<{
   // 2. 检查 bun:sqlite（数据库核心依赖）
   try {
     require.resolve('bun:sqlite');
-  } catch (err) {
+  } catch {
     issues.push(
       '缺少 bun:sqlite 模块（数据库核心依赖）。请确保使用 Bun 运行时启动应用。'
     );
@@ -344,7 +344,7 @@ export async function checkFirstRunAndOnboard(): Promise<void> {
   if (existsSync(onboardRetryFlag)) {
     try {
       retryCount = parseInt(readFileSync(onboardRetryFlag, 'utf-8').trim(), 10);
-    } catch (err) {
+    } catch {
       retryCount = 0;
     }
   }

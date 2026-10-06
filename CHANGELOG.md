@@ -7,6 +7,14 @@
 > - 条目**倒序**（最新在上）；`## [未发布]` 段用于累积下一次发版内容。
 > - 条目格式沿用 `README.md` 原「版本更新记录」的写法（`#### vX.Y.Z (日期)` + 摘要 + `- ✅` 列表），**逐字迁移、未改写**（2026-10-05 建库）。
 
+> **说明（2026-10-06 补录）**：标「（git 历史补录）」的段落由**版本 tag 区间的真实 git 提交**归纳生成
+> （精炼版：最多 6 条，按 `feat > fix > perf > refactor > 其它` 排序；全文见 `git log <prev>..<tag>`）。
+> 与 2026-10-05 由 README **逐字迁移**的条目**来源不同**；要点为**原提交描述**，未改写、未编造。
+> 该标记的完整约定（触发条件 / 事实统计 / 顺序 / 异常标注 / 工具与粒度红线）见 [`.trae/rules/versioning.md`](.trae/rules/versioning.md) **§3.1**。
+>
+> - 本次补录 **38** 个此前缺失的版本 tag（自 `v0.1` 起），使本文件覆盖 **56 个版本 tag / 1843 次提交**（局部历史见 `https://github.com/cocosoft/PY_APP`，即转入 Liri 仓库前的提交）。
+> - ⚠️ **已知 tag 日期异常**：`v0.1.0` 的 tag 日期（2026-05-30）**晚于** `v0.1.1`（2026-05-28）。本文件统一按**版本号**降序（故 `v0.1.1` 在 `v0.1.0` 之前）；两段各自的提交区间为 `v0.1..v0.1.1` 与 `v0.1.1..v0.1.0`。
+
 ---
 
 ## [未发布]
@@ -23,6 +31,7 @@
 - ✅ **质量** - `typecheck` 0 错 · `eslint` 0 错 · `lint:arch` 违规 **0**（4 警告基线）· 全量测试 **4577 pass / 21 skip / 0 fail / 4598 tests / 484 files**
 
 ---
+
 #### v0.4.61 (2026-10-05)
 
 **工作流运行记录（P1-19）全链闭环 + 工具链（Code Mode）升级 + 治理 G 组 §3 收口 + 测试盲区补齐**
@@ -190,6 +199,50 @@
 - ✅ **稳定性修复** - 连接状态机 `start()` 幂等判定与真实资源脱钩致健康检查停摆（N-47，修复后后端真掉线可正常转 `disconnected`）；长任务编排误调 `AIService` 上不存在的 `chat()`（N-44）；代码执行器改用进程组终止消除孙进程残留（O4）；测试写入隔离避免污染生产台账（N-46）
 - ✅ **CI 全绿** - `bun run ci` 全链 EXIT=0 · 3029 tests / 0 fail · 双端 typecheck 绿 · client 244 passed
 
+#### v0.4.49 (2026-09-10) （git 历史补录）
+
+> 实质提交 **3** 条：fix 1 · build 1 · style 1
+
+- tauri.conf.json version 0.4.48→0.4.49（bump 漏改此处）
+- 单档矩阵收敛——退役 personal/pro 双档，full 全量构建为运行时 tier 预留
+- eslint --fix 格式化资产选择链（单档收敛后续）
+
+#### v0.4.48 (2026-09-09) （git 历史补录）
+
+> 实质提交 **19** 条：fix 10 · style 4 · build 3 · feat 1 · refactor 1
+
+- personal 双档运行时隔离 + CI/产物/updater edition 化（专项 P1-P3）
+- NSIS smoke sidecar 去后缀事实修正 + Rust cache 跨档污染 + bundle 残留二次后缀
+- sidecar cwd 锚定安装目录修复 bun compile external 解析 + NSIS smoke 路径事实修正
+- Windows zip 打包 pkg\* 经 bash 转义致条目带 pkg/ 前缀，smoke 找不到运行时
+- bun runtime shim 误复制根因修复 + portable 变体参数化 + smoke 注解诊断
+- Windows smoke 解压改用 Expand-Archive（Git-Bash 无 unzip）+ 失败诊断写 step summary
+- …（另有 13 条实质提交，详见 `git log v0.4.47..v0.4.48`）
+
+#### v0.4.47 (2026-09-09) （git 历史补录）
+
+> 实质提交 **35** 条：feat 16 · fix 9 · style 5 · chore 2 · refactor 1 · docs 1 · build 1
+
+- 打包资源契约——ffmpeg 内置化（内置优先/PATH 兜底）
+- openai-gateway 通道完善（dawate 私有化网关路由/UI/API 规格）
+- 新增「私有化部署」供应商（dawate 智能体平台 v3/chat 协议）
+- 文件管理与知识库协同收敛（去重呈现/记录出处回链/已入知识库状态）
+- 知识库优化收官 B0-B10/F1-F5/D1-D5 + UI 走查 P1/P2 全量
+- R5 引用锚点渲染（识别 #p.N/#L42-L58 → 点击打开本地文件定位）
+- …（另有 29 条实质提交，详见 `git log v0.4.46..v0.4.47`）
+
+#### v0.4.46 (2026-09-07) （git 历史补录）
+
+> 实质提交 **40** 条：fix 20 · feat 18 · refactor 1 · chore 1
+
+- 文件管理 P0-P2/L 修复、chat 轨迹与 PDCA 收口、research/pattern 模块批次
+- 会话删除联动 PDCA 终态化收口（阶段一 4.2-5）
+- project 会话判定收敛单一换算（阶段一 4.2.1）
+- 注册 project 模块实体 + emoji meta（阶段一 4.2.2）
+- /v1/sessions 项目会话判定收敛（阶段一 4.2.3 双读）
+- PDL 快速路径注册 checkpoint 任务实体（4.0-2 N1）
+- …（另有 34 条实质提交，详见 `git log v0.4.45..v0.4.46`）
+
 #### v0.4.45 (2026-09-02)
 
 **上下文治理与内存水位机制（OS 内存管理式）**
@@ -198,6 +251,63 @@
 - ✅ **内存水位触发机制** - OS kswapd 式 L0/L1/L2 分级回收（flush 脏页/后台让位/窗口收紧 45K→32K），内置事件循环滞后探针（GC STW ≥2s→L1 / ≥5s→hard）+ 反向放宽（thrashing 防护）+ 压力期自动逐点采样
 - ✅ **基准验收** - P3-7f 同源长任务真实重测：事件数 PASS、单请求 inputTokens 封顶 ≈45K（较基线 124,475 降 64%）、会话数据内存 4-24MB/会话达标
 - ✅ **D5② 代码/长文档取回增强** - 代码/文档类任务分层切窗时注入更强"原文可取回"提示，`session_lookup` 页预算 8K→16K chars（判定 `isCodeContextMessage`，stream/send 双路径；内存仍受 ctx 压缩点保护）
+
+#### v0.4.44 (2026-08-31) （git 历史补录）
+
+> 实质提交 **13** 条：fix 8 · refactor 1 · test 1 · chore 1 · ci 1 · style 1
+
+- P3 前端交互专项 — 标题双写竞态/确认框防连点/虚拟滚动前插测量缓存
+- 前端遗留专项 — 补 DELETE /v1/workspaces/:id 路由 + 删除 projectStore 死代码
+- tests/ 类型错误 491 个清零并纳入 typecheck 覆盖
+- child_process mock 泄漏修复 — 全量 bun test 隔离污染根因
+- 修复预存测试失败 — Python 子进程编码、ReActLoop 桶 TDZ、知识库路径重设、ai 桶导出补齐
+- Release 测试范围统一（bun test tests/）+ Dockerfile external yoga-layout 修复构建
+- …（另有 7 条实质提交，详见 `git log v0.4.43..v0.4.44`）
+
+#### v0.4.43 (2026-08-30) （git 历史补录）
+
+> 实质提交 **153** 条：fix 89 · feat 25 · refactor 25 · chore 6 · style 3 · perf 2 · test 2 · docs 1
+
+- 事件快照缓存补齐对标短板（dsh eventsSnapshot）+ 损坏行恢复 excludeTypes 修复
+- 记忆索引/关系图谱接入统一信封格式(gzip+checksum)
+- 记忆文件压缩 + checksum 校验（L1 深化，对标 dsh 存储工程化）
+- 对标报告短板补齐 - 存储工程化 / MCP 开放接口 / 真实 embedding
+- 长会话分页懒加载（阈值触发：超 100 条显示加载更早，后端 limit/before 分页）
+- 错误面板新增继续按钮（先落盘再基于已生成内容续写）
+- …（另有 147 条实质提交，详见 `git log v0.4.42..v0.4.43`）
+
+#### v0.4.42 (2026-08-18) （git 历史补录）
+
+> 实质提交 **6** 条：feat 2 · fix 2 · chore 2
+
+- 渠道模块 26 项问题修复 + 可观测性指标 + 僵尸代码清理
+- fetchWithConnectionRetry 增加详细重试日志（间隔/原因/底层 cause）
+- Provider 连接错误与 SSL 证书验证兼容 Bun 运行时
+- OpenAI 流式连接失败诊断增强（展开 fetch cause：DNS/端口/超时）
+- 续期 20 条分层例外（BULK-001~018 + PM-001/002，60 天衰减到期）
+- BaseAIProvider 重试日志 cause 断言格式化（eslint --fix）
+
+#### v0.4.41 (2026-08-17) （git 历史补录）
+
+> 实质提交 **5** 条：fix 3 · feat 1 · chore 1
+
+- handleCreateCustomModel 与邮件读取关键分支加详细日志便于排查报错
+- 办公模块复查 N-3~N-9 修复（邮件 UID/正文拉取、日历提醒与生命周期）
+- 前后端同步 isCustom 字段（创建模型标记自定义）
+- 模型管理添加模型失败（20 values for 21 columns）
+- eslint 自动修复 + 版本升级 V0.4.41
+
+#### v0.4.40 (2026-08-17) （git 历史补录）
+
+> 实质提交 **38** 条：fix 24 · style 5 · feat 3 · ci 3 · refactor 1 · test 1 · chore 1
+
+- extractMailBody 关键分支加日志便于排查 MIME 解析异常
+- 模型价格体系——官方价格源/分时/按次计费 + 前端价格展示与一键同步
+- AI 回复气泡导出（md/html/word，含数学/物理/化学公式渲染）
+- 邮件详情显示真实正文（IMAP body 解析纯文本）
+- 办公模块复查 N-1/N-2 打通下载与上传 + 遗留低危项
+- OpenAI 流式断连自动重试 + 修复 OfficeCLIDetector prettier 格式（CI lint 失败根因）
+- …（另有 32 条实质提交，详见 `git log v0.4.39..v0.4.40`）
 
 #### v0.4.39 (2026-08-15)
 
@@ -222,6 +332,272 @@
 - ✅ **会话不物理删除** - SSE 鉴权白名单、fetch 补充 Bearer
 - ✅ **知识库编码支持** - GBK/GB18030 编码自动检测
 
+#### v0.4.36 (2026-08-04) （git 历史补录）
+
+> 实质提交 **11** 条：fix 8 · feat 2 · chore 1
+
+- 阶段偏好改为直接选择模型（phase → modelId）
+- 任务分工新增「知识库编译」任务类型，支持独立配置编译模型
+- CI lint 失败 — 修复 6e61f4d4 引入的 prettier 格式违规
+- 打包后 sharp 找不到 — Bun compile external 解析修复（autoload flag + chdir + 同级 node_modules）
+- 语义索引构建刷屏 — rootDir 兜底 + embedding 失败熔断 + 进度日志节流
+- Dream 精炼与记忆精选模型显式走 modelRouter，消除同类 Kimi-K2.6 400
+- …（另有 5 条实质提交，详见 `git log v0.4.35..v0.4.36`）
+
+#### v0.4.35 (2026-08-04) （git 历史补录）
+
+> 实质提交 **137** 条：fix 53 · feat 45 · refactor 17 · chore 11 · docs 8 · other 3
+
+- 全模块监控覆盖 — handleError/OTel 统一入口
+- PDCA 思维注入普通聊天 + 项目桥接建议
+- 隐性引擎升级通道 — 检测到 goal 自动发起完整 PDCA 循环
+- Project.pdcaIds 归属字段 — PDCA 任务反向索引到项目
+- 讨论记录 — ProjectHistoryStore 追加式落盘 + 两级展开面板
+- PDCA 后台集成 — WorkItem 联动 + 归属打通 + 幂等 + 启动扫描
+- …（另有 131 条实质提交，详见 `git log v0.4.34..v0.4.35`）
+
+#### v0.4.34 (2026-07-16) （git 历史补录）
+
+> 实质提交 **2** 条：fix 1 · refactor 1
+
+- 恢复 Tauri sidecar 编译脚本（build:win:coding/build:mac/build:linux --compile）
+- 废弃 standalone-exe，全量切换到 portable-bundle
+
+#### v0.4.33 (2026-07-16) （git 历史补录）
+
+> 实质提交 **6** 条：feat 2 · fix 2 · chore 1 · ci 1
+
+- Office 模块（Doc/Calendar/Mail）+ CronScheduler 状态转移修复
+- 便携 Bun + bundle 打包 CI/CD 完善，版本升级至 v0.4.33
+- copy-bun-runtime 跨平台兼容（Linux/macOS which + bun 无 exe 后缀）
+- CronScheduler inFlightJobs 去重防止 catchUpMissedJobs/tick 竞跑双次执行
+- 版本同步至 v0.4.33（6 个文件统一）
+- lint-test 中 bun test 允许预存 flaky 测试失败不阻断 pipeline
+
+#### v0.4.32 (2026-07-16) （git 历史补录）
+
+> 实质提交 **3** 条：fix 2 · feat 1
+
+- 便携 Bun + bundle 打包架构（方案 C）
+- 媒体页面图片编辑、对比、删除交互问题修复
+- security-full-audit-report 全面修复整改
+
+#### v0.4.31 (2026-07-15) （git 历史补录）
+
+> 实质提交 **9** 条：feat 6 · chore 2 · fix 1
+
+- media page comprehensive optimization — 33/33 tasks complete
+- Loop optimization Phase 4 complete -- VerifierAgent, StreamingToolExecutor, failure modes & anti-patterns docs
+- Loop module comprehensive optimization — Phase 1-3.5 planning + eslint fixes
+- loop-engine optimization + chat UI redesign + media tools
+- loop-engine 优化 + 聊天界面 UI 改造 + 多媒体工具
+- add path utilities — traversal check, cross-platform compare, tilde expand, display path, sanitize
+- …（另有 3 条实质提交，详见 `git log v0.4.30..v0.4.31`）
+
+#### v0.4.30 (2026-07-13) （git 历史补录）
+
+> 实质提交 **61** 条：feat 25 · fix 21 · docs 5 · refactor 3 · chore 3 · test 2 · perf 1 · bench 1
+
+- translation page full optimization — voice input, live translate, OCR image translate, alternatives, compare mode, share, UI polish
+- P1-3 content templates (4 templates), P1-6 batch move-to-base, P2-3 send-to-chat button, P2-6 search snippet expand + keyword highlight
+- P1-9 soft-delete trash/restore, P1-10 knowledge export (JSON manifest download)
+- P1-5 compile progress bar, P1-1 concurrent batch upload (5x), P1-2 source distribution chart
+- P0-1 server-side pagination (offset/limit + pagination UI controls)
+- P1-4 SaveKnowledgeModal combobox, P1-7 auto-save + draft recovery, P1-8 empty state guide buttons
+- …（另有 55 条实质提交，详见 `git log v0.4.29..v0.4.30`）
+
+#### v0.4.29 (2026-07-09) （git 历史补录）
+
+> 实质提交 **1** 条：feat 1
+
+- image recognition pipeline overhaul — enforce task-routing, remove hardcoded provider fallbacks, bump to v0.4.29
+
+#### v0.4.28 (2026-07-09) （git 历史补录）
+
+> 实质提交 **44** 条：fix 31 · refactor 5 · chore 4 · feat 3 · ci 1
+
+- runtime architecture hardening (4 optimizations)
+- ChatManager模块拆分 Step 3-6 完成 + 安全网脚本
+- ChatManager模块拆分 Step 1-2 + 图片URL固化
+- CanvasTool — add element validation, enhance element structure docs, support custom export path
+- remove non-existent configs/ COPY from Dockerfile runtime stage
+- expand Docker build context to include shared/ for @shared/* path aliases
+- …（另有 38 条实质提交，详见 `git log v0.4.27..v0.4.28`）
+
+#### v0.4.27 (2026-07-06) （git 历史补录）
+
+> 实质提交 **25** 条：fix 24 · feat 1
+
+- 测试环境使用 :memory: 内存数据库，消除文件系统依赖
+- build.rs 动态创建 externalBin 所需的精确文件名占位符
+- Build sidecar 步骤添加调试输出，诊断 liri_coding 二进制是否产出
+- 增强 sidecar 复制容错性，用通配符查找二进制 + 构建后归一化文件名
+- sidecar 二进制路径从 app/dist 改回 dist，匹配构建脚本 --outfile
+- 修复 sidecar 复制路径 ../dist 为 ../app/dist + build.rs 在 binaries/ 下放占位文件
+- …（另有 19 条实质提交，详见 `git log v0.4.26..v0.4.27`）
+
+#### v0.4.26 (2026-07-05) （git 历史补录）
+
+> 实质提交 **5** 条：fix 3 · chore 2
+
+- CI编译失败 — CommandEvent match 添加 #[non_exhaustive] 通配分支
+- 后端 sidecar 崩溃诊断 — 捕获 stderr/退出码，前端展示错误信息
+- GrokProvider 缺少 logger 导入 + BaseAIProvider dispatcher 类型断言
+- pre-commit hook 添加 ESLint 检查 + ESLint auto-fix
+- 版本号更新至 v0.4.26
+
+#### v0.4.25 (2026-07-05) （git 历史补录）
+
+> 实质提交 **9** 条：fix 3 · chore 3 · feat 2 · docs 1
+
+- 聊天输入区增加图片上传与多模态发送（P1-2.1）
+- 重构图像模块，新增 Canvas 编辑器 -- 画笔/橡皮擦/形状/文字/选区/油漆桶等工具, ImagePage 组件拆分, ErrorBoundary, 修复 ToolCallGroup 图片显示, 删除 ImagePasteReceiver
+- 修复客户端测试 — Path2D/ImageData polyfill + services.test 断言适配
+- Windows 新环境部署兼容性修复 -- .env 路径、BashTool 平台适配、Git SSL
+- 图像生成 Provider 路由和 fallback 链修复 -- ProviderSyncService 移除 generateImage stub, getRouter 改为模型驱动精确匹配, Router generate 修复 break 后未 return 的 Bug, RegistryImageProvider 新增 providerId getter
+- 图像模块与聊天模块集成方案（P1-P3 三阶段渐进式）
+- …（另有 3 条实质提交，详见 `git log v0.4.20..v0.4.25`）
+
+#### v0.4.20 (2026-07-03) （git 历史补录）
+
+> 实质提交 **14** 条：feat 8 · fix 5 · chore 1
+
+- 基础设施升级完善 — 日志系统整改、监测覆盖补齐、预存类型错误修复
+- 图像模块全栈优化 — 多Provider架构、生图路由、Bug修复、ESLint格式化
+- v1 P1-2 agent filter tab in sidebar + v1 doc status corrections
+- v2 Phase 1-3 complete - http migration, compression events, blocks fix, race fix, knownFilePaths, i18n, cache, reentry
+- session system v2 optimization Phase 1-3 - http migration, compression events, blocks consistency, race fix, i18n, cache
+- session system v1 optimization - memory vectorization, REST API, pruning/compaction, frontend UX
+- …（另有 8 条实质提交，详见 `git log v0.4.10..v0.4.20`）
+
+#### v0.4.10 (2026-06-28) （git 历史补录）
+
+> 实质提交 **1** 条：fix 1
+
+- STT model path standardization, Tauri startup, and React Hook deps
+
+#### v0.4.9 (2026-06-28) （git 历史补录）
+
+> 实质提交 **8** 条：fix 3 · feat 2 · i18n 2 · tools 1
+
+- 图像工具全栈优化 + 前端全量 i18n 国际化
+- P0 StdIO bridge — Python vision_worker + process lifecycle + watchdog
+- use findAllByRole (async) for e2e delete button queries
+- e2e tests — i18n mock, aria-label, role-based queries
+- i18n full coverage + install env compat + Vite proxy + ESLint zero
+- settings config page fully translated — 71 hardcoded Chinese strings fixed
+- …（另有 2 条实质提交，详见 `git log v0.4.8..v0.4.9`）
+
+#### v0.4.8 (2026-06-27) （git 历史补录）
+
+> 实质提交 **12** 条：fix 8 · feat 3 · chore 1
+
+- 语音模块 P0 级优化 — STT/TTS 缓存、故障转移链、音频前处理、分片合成
+- ESLint 格式修复 + 聊天/会话/工作区模块功能增强
+- TTS 模块功能增强 — Edge TTS 修复、日志/错误归一化、Persona 管理及前端页面
+- LSP 性能测试 CI 失败 — 放宽阈值 + 添加 getAllLanguages 缓存
+- 修复新环境 C:\Users\Default 路径错误导致后端无法启动
+- 修复 client 端 12 个 TypeScript 错误
+- …（另有 6 条实质提交，详见 `git log v0.4.7..v0.4.8`）
+
+#### v0.4.7 (2026-06-25) （git 历史补录）
+
+> 实质提交 **3** 条：feat 2 · fix 1
+
+- TTS 模块补充 OTel/Logger/HandlerError 全路径监控覆盖
+- 语音服务模块重构 — TTS/STT 优化 Phase 0-2 方案落地
+- 提交 bun.lock 文件并修复 workflow 中 lockfile 引用路径
+
+#### V0.4.6 (2026-06-24) （git 历史补录）
+
+> 实质提交 **6** 条：fix 3 · feat 1 · chore 1 · style 1
+
+- 实现多 Agent 编排系统、AI 提问渲染修复及 Prettier 格式修正
+- 将 console 调用迁移至 Logger，修复 CI Console usage gate 超标问题
+- 修复 AI 提问面板选项显示异常及会话上下文断裂问题，扩展多 Agent 编排事件系统
+- 修复 Tauri 编译错误及添加 question block 调试工具
+- 移除 .trae/rules/project_rules.md
+- 修复 SwarmCoordinator.ts Prettier 格式问题（多行字符串折叠为单行）
+
+#### v0.4.5 (2026-06-23) （git 历史补录）
+
+> 实质提交 **5** 条：fix 3 · feat 1 · style 1
+
+- 新增安全审计日志系统与操作回滚模块
+- 修复 AI 提问面板不显示、增加危险操作警示音与任务完成提示音
+- PermissionPolicies.ts platform 变量使用 UnifiedRulePlatform 类型
+- 修复删除规则 TC03 缺口、cmd 平台支持及循环依赖问题
+- Prettier 格式化修复 PermissionPolicies.ts 第 10 行 import 换行
+
+#### v0.4.4 (2026-06-23) （git 历史补录）
+
+> 实质提交 **4** 条：fix 3 · feat 1
+
+- 实现 Agent Council 理事会功能 + 专家角色数据库持久化管理
+- 修复会话标题自动生成缺失及跨轮对话失忆问题
+- 统一中文文件名处理逻辑，复用 fileNaming.ts 共享工具函数
+- 修复 route-table.ts 中 ctx→handlerCtx 命名错误及 CouncilTypes.ts 缺少 agentId/agentName 字段
+
+#### v0.4.3 (2026-06-23) （git 历史补录）
+
+> 实质提交 **12** 条：fix 4 · chore 3 · feat 2 · style 2 · ci 1
+
+- 工具执行块头部摘要"说人话"及间距优化
+- 将工作空间切换从侧栏迁移至 Header 右上角
+- 修复首次安装后后端启动失败(Windows error 267) + 移除本地注册登录
+- 修复 BootPipelineIntegrator 编译错误，ESLint 格式化
+- 已完成工具执行块在页面加载时应自动折叠
+- 移除工具参数的 Unicode 清理，防止 NFKC 归一化破坏全角文件路径
+- …（另有 6 条实质提交，详见 `git log v0.4.2..v0.4.3`）
+
+#### v0.4.2 (2026-06-21) （git 历史补录）
+
+> 实质提交 **84** 条：fix 52 · feat 14 · refactor 8 · other 4 · chore 2 · style 2 · docs 1 · ci 1
+
+- 实现工作模块完整骨架（Phase 0 + Phase 1-A/B/C）
+- 会话来源标签 + 欢迎页开始聊天按钮
+- 方案C结构化进度管道 — ProgressEvent 类型定义 + ChatManager 8处进度注入 + channel-handlers onProgress 消费
+- 新增 StatusFloatingBar 组件并修复 CI YAML 语法及多项细节
+- 实现状态机引擎并完成全量迁移（阶段 1-5）
+- 完成 Logger 迁移和 ESLint 治理 Phase 3 — console 门禁 + no-unused-vars 清零
+- …（另有 78 条实质提交，详见 `git log v0.4.1..v0.4.2`）
+
+#### v0.4.1 (2026-06-15) （git 历史补录）
+
+> 实质提交 **1** 条：fix 1
+
+- Provider fetch 层添加连接自动重试，提升网络瞬断稳定性
+
+#### v0.4.0 (2026-06-15) （git 历史补录）
+
+> 实质提交 **11** 条：fix 7 · refactor 2 · feat 1 · perf 1
+
+- MarkdownRenderer react-markdown 重构 + 版本升级 0.4.0
+- 恢复手写 MarkdownRenderer，移除 V2 版本
+- 修复 310 个预存 TS 错误并优化对话响应性能
+- 添加自定义模型时增加供应商选择下拉框
+- EmbeddingManager 对接 ModelRouter 读取用户配置，不再硬编码 openai
+- EmbeddingManager 无 OpenAI Key 时自动降级为本地提供者
+- …（另有 5 条实质提交，详见 `git log v0.3.1..v0.4.0`）
+
+#### v0.3.1 (2026-06-14) （git 历史补录）
+
+> 实质提交 **1** 条：bump 1
+
+- 版本升级至 v0.3.1 + 修复细节
+
+#### v0.3.0 (2026-06-14) （git 历史补录）
+
+> 实质提交 **27** 条：fix 9 · feat 8 · refactor 8 · docs 1 · bump 1
+
+- 模型全链路排查整改 + FileRegistry 增强 + 前端文件管理重构
+- 知识库升级 — Domain-First 架构 + many-to-many 编译 + 轻量搜索
+- FileRegistry 文件注册中心 — 全模块文件入站统一注册与 MD5 去重（WebFetch/媒体生成/FileWrite/会话制品/知识编译/附件/上传 全覆盖）
+- 非流式交互支持 + 工具调用参数显示优化 + AskUserQuestionTool 修复
+- 工作空间信任机制完整实现 — P1基础能力+P2前端UI+P3权限分级
+- 全量提交 - AI工作流文件管理系统升级
+- …（另有 21 条实质提交，详见 `git log v0.2.0..v0.3.0`）
+
 #### v0.2.0 (2026-06-05)
 
 **新增核心能力**
@@ -235,3 +611,39 @@
 **架构升级**
 - 路径管理架构重构，部署更安全
 - 梦境引擎与守护进程分离
+
+#### v0.1.1 (2026-05-28) （git 历史补录）
+
+> 实质提交 **21** 条：fix 8 · refactor 5 · feat 4 · chore 2 · ci 2
+
+- 会话整合方案B实施 + 模块系统注册 + 新功能模块落地
+- macOS 独立二进制打包支持
+- Docker 多阶段编译打包 + Windows 独立 exe 编译 + 架构修复
+- 通道系统全面重构与基础设施升级
+- 锁定 @tauri-apps/api 版本至 2.10.x 并提交 bun.lock
+- 修复 GitHub Actions 多平台构建的路径和依赖问题
+- …（另有 15 条实质提交，详见 `git log v0.1..v0.1.1`）
+
+#### v0.1.0 (2026-05-30) （git 历史补录）
+
+> 实质提交 **13** 条：fix 5 · feat 4 · ci 2 · refactor 1 · style 1
+
+- 模块集成与预存错误修复
+- MCP 市场/Skill 市场/语音服务全功能集成 + source 字段统一为 builtin/third_party
+- 用户数据目录可配置及数据迁移功能
+- 为所有源代码文件添加 MIT 开源协议头
+- 补齐 UI 组件 & 修复语音模块类型错误
+- 修复 SettingsPage httpClient 导入错误
+- …（另有 7 条实质提交，详见 `git log v0.1.1..v0.1.0`）
+
+#### v0.1 (2026-05-25) （git 历史补录）
+
+> 实质提交 **100** 条：feat 39 · fix 19 · refactor 18 · other 9 · docs 7 · chore 6 · style 1 · update 1
+
+- Ink REPL 图标优化 + 通道消息防重复 + Logger 路径改进
+- 通道模块化重构 — 新增 accounts/config-schema/doctor/monitor/probe/runtime 子模块体系 + streaming-message 流式消息支持
+- 入站消息接收架构 + 通道配置体系 + QQ Bot Access Token 鉴权升级
+- 知识库模块化升级—桶导出+混合搜索+AI写删工具
+- 大规模架构重构 — SessionGateway 集成、ChatManager 会话管理层重构、Task 系统模块重组
+- 实现 gaps.md 全部 12 项差距分析改进
+- …（另有 94 条实质提交，详见 `git log v0.1`）

@@ -141,6 +141,33 @@ function countUserMessages(
 }
 
 /**
+ * 模型路由**窄契约**（U7 试点，2026-10-06）。
+ *
+ * 缘起：`dev_docs/任务计划-20261004.md` §19.4-**U7**「为 14 个 `*Router` 定义 `IRouter` 基契约」
+ * 原判「不排期」。回仓做 **13 个 `*Router` 全量族普查**后**订正试点对象**：
+ * - ❌ 原建议的「3 个 generation Router」前提**不成立** —— `ImageInputRouter` 是**决策**路由器
+ *   （`route()` 返回 `ImageInputDecision`，且该 `route()` **生产零调用**），与两个生成编排器不同族；
+ *   `ImageGenerationRouter` / `VideoGenerationRouter` **各只有 1 个生产消费者**（各自 Tool）⇒ 抽公共
+ *   契约只会得到"零多态消费者的死契约"（违反 06 报告判据「收口靠删非合」与 CS03 不做投机抽象）。
+ * - ✅ 全仓**唯一**满足「≥1 真实多态消费者」的角色 = **模型路由**：`ai/router/resolveModelRoute.ts:103-126`
+ *   与 `CoreAPIImpl.resolveSmartModel()` 在 `SmartRouter` / `ModelRouter` 间真实二选一；且本端口
+ *   已有**两个实现**（生产适配 = 组合根 `BootPipelineIntegrator.ts:66-71`；测试桩）。
+ *
+ * 因此本契约**不新增抽象层**，只把此处**既有的内联匿名类型具名化**（零行为变更），
+ * 使其可被单测直接锁定（`app/tests/runtime/modelRouteResolverContract.test.ts` 穷尽断言）。
+ *
+ * ⚠️ 字段一律用 `unknown` / 基础类型，**不引入 app 类型导入**（沿用本文件端口约定，见下）。
+ */
+export interface ModelRouteResolver {
+  /** 默认任务档的模型名（空串表示未配置） */
+  resolveDefault(): string;
+  /** 按阶段上下文解析（`phase` 用 `unknown`，落点由组合根收窄） */
+  resolveWithPhase(phase: unknown): string | null;
+  /** 对话档模型名（异步：需读任务分工 / DB） */
+  resolveChat(): Promise<string>;
+}
+
+/**
  * app 层能力注入包（组合根注册；CoreAPIImpl 属 service 层，禁止静态依赖 app 层）
  *
  * D-227（2026-10-02，B12 `runtime -> app` 收口）：`CoreAPIImpl` 原**静态**值导入
@@ -155,13 +182,8 @@ export interface CoreApiAppDeps {
   toolManager: unknown; // ToolManager
   converterEngine: unknown; // ReturnType<typeof getConverterEngine>
   fileTypeDetector: unknown; // FileTypeDetector
-  /** ai 路由器：**已绑定**操作（隐藏 modelRouter + RouteKey + resolveModelRoute 三符号） */
-  router: {
-    resolveDefault(): string;
-    /** `phase` 用 `unknown` 以免暴露 app 侧 `PhaseContext`（落点由组合根收窄） */
-    resolveWithPhase(phase: unknown): string | null;
-    resolveChat(): Promise<string>;
-  };
+  /** ai 路由器：**已绑定**操作（隐藏 modelRouter + RouteKey + resolveModelRoute 三符号）；契约见 `ModelRouteResolver` */
+  router: ModelRouteResolver;
   /** chat 的检查点服务（同步门面 getSessionCheckpointRef 用） */
   getCheckpointService: () => unknown;
   /** compaction 的每调用新建工厂（createAutoCompactService 用） */

@@ -1,7 +1,7 @@
 /**
  * A2A 对外面守卫（P3-1 / F2 / G2 / G3 + 鉴权，2026-09-29）。
  *
- * 锁十条：
+ * 锁十一条：
  *   ① **默认关闭** —— 未设 `A2A_ENABLED` ⇒ **不处理、不写响应**（上层自然 404，不泄露端点存在性，G4）；
  *   ② **鉴权 fail-closed** —— 启用但 **`A2A_API_KEY` 未配置** ⇒ **401**（**不**沿用"本地信任基线"放行）；
  *      配置了但头缺失/错 ⇒ **401**；`x-api-key` 正确 ⇒ 放行；
@@ -12,7 +12,8 @@
  *   ⑦ 委派：`message` 缺失 / 非法 JSON ⇒ **400**；
  *   ⑧ 委派：阈值内完成 ⇒ **200 + `completed`**（含产物）；
  *   ⑨ 委派：超有界等待 ⇒ **202 + `working`**（**不做 HTTP 长挂**，G3），随后回查 ⇒ `completed`；
- *   ⑩ 未知 taskId ⇒ **404**；非 A2A 路径 ⇒ 不处理。
+ *   ⑩ 未知 taskId ⇒ **404**；非 A2A 路径 ⇒ 不处理；
+ *   ⑪ 方法守卫：委派端点非 `POST` ⇒ **405**；任务回查非 `GET` ⇒ **405**。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { Readable } from 'node:stream';
@@ -277,5 +278,17 @@ describe('A2A 委派（T4）', () => {
       404
     );
     expect((await call('GET', auth(), '/v1/goals')).handled).toBe(false);
+  });
+
+  it('⑪ 委派端点非 POST ⇒ 405；任务回查非 GET ⇒ 405', async () => {
+    enableA2A();
+
+    const create = await call('GET', auth(), TASKS_PATH);
+    expect(create.handled).toBe(true);
+    expect(create.cap.status).toBe(405);
+
+    const query = await call('POST', auth(), `${TASKS_PATH}/any-id`);
+    expect(query.handled).toBe(true);
+    expect(query.cap.status).toBe(405);
   });
 });

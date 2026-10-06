@@ -39,7 +39,11 @@ function toMarkdown(summary: EvalRunSummary): string {
   lines.push(`> 起止：${summary.startedAt} → ${summary.finishedAt}`);
   lines.push('');
   lines.push(
-    `**汇总**：pass^k 全通过任务占比 **${(summary.passKRate * 100).toFixed(0)}%**（${summary.tasks.filter((t) => t.passK).length}/${summary.tasks.length}）；pass^1 均值 **${(summary.pass1Mean * 100).toFixed(1)}%**；判分器自检 **${summary.judgeSanityOk ? '通过' : '未通过'}**`
+    `**汇总**：pass^k 全通过任务占比 **${(summary.passKRate * 100).toFixed(0)}%**（${summary.tasks.filter((t) => t.passK).length}/${summary.tasks.length}）；pass^1 均值 **${(summary.pass1Mean * 100).toFixed(1)}%**；判分器自检 **${summary.judgeSanityOk ? '通过' : '未通过'}**` +
+      // A2（2026-10-06）：resolved 率 —— **仅** F2P/P2P 任务参与分母；无该类任务则**不出该段**
+      (summary.resolvedRate === undefined
+        ? ''
+        : `；**resolved 率 ${(summary.resolvedRate * 100).toFixed(0)}%**（k 次全 resolved 的 F2P/P2P 任务占比）`)
   );
   if (summary.security) {
     const sec = summary.security;
@@ -63,6 +67,28 @@ function toMarkdown(summary: EvalRunSummary): string {
         `${t.passK ? '✅' : '❌'} | ${lastFail?.assertion.reason ?? ''} |`
     );
   }
+
+  // A2（2026-10-06）：F2P/P2P 明细 —— **仅当题集中存在声明了双清单的任务**时出现
+  // （无该类任务 ⇒ 报告与改造前**逐字一致**）。
+  const withLists = summary.tasks.filter((t) => t.f2pP2P);
+  if (withLists.length > 0) {
+    lines.push('');
+    lines.push('## F2P / P2P（SWE-bench 语义；仅声明了双清单的 S1 类任务）');
+    lines.push('');
+    lines.push(
+      '| 任务 | F2P 用例 | P2P 用例 | resolved | breaking | no-op | 未归类 |'
+    );
+    lines.push('|---|---|---|---|---|---|---|');
+    for (const t of withLists) {
+      const s = t.f2pP2P!;
+      // "未归类" = 既非 resolved/breaking 也非 no-op 的 attempt（F2P 部分过、或该 attempt 无逐用例结果）
+      const unclassified = s.attempts - s.resolved - s.breaking - s.noOp;
+      lines.push(
+        `| ${t.task.id} | ${s.f2pTotal} | ${s.p2pTotal} | ${s.resolved}/${s.attempts} | ${s.breaking} | ${s.noOp} | ${unclassified} |`
+      );
+    }
+  }
+
   lines.push('');
   lines.push('## 逐次明细');
   for (const t of summary.tasks) {

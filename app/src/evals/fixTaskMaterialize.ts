@@ -32,10 +32,13 @@
  *     见 `repoTestJudge.ts` 的实测依据）。
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
   discoverFixCommits,
+  screenFixCandidate,
   selectFixCandidates,
   type FixCandidate,
 } from './fixTaskScreening';
@@ -44,7 +47,7 @@ import {
   overlayFromCommit,
   supplyDeps,
 } from './repoSnapshot';
-import { runRepoTest } from './repoTestJudge';
+import { junitCaseKey, runRepoTest } from './repoTestJudge';
 import type { EvalTask } from './types';
 
 /**
@@ -97,7 +100,30 @@ export async function materializeFixTask(
       `commit ${commit} 不在双实测准入清单内 —— 请先跑 \`--screen-fix-tasks\` 取得准入（fail-closed）`
     );
   }
-  return buildFixTask(await resolveFixCandidate(repoRoot, commit), repoRoot);
+  const candidate = await resolveFixCandidate(repoRoot, commit);
+
+  // A2/G2（D1=a）：用**双实测**派生 F2P/P2P，并随题物化**固化**。
+  // 代价：物化期多 2 次测试运行（**每任务一次**，非每次 attempt）——已于 spec §9 如实登记。
+  const destRoot = mkdtempSync(join(tmpdir(), 'liri-s1-lists-'));
+  try {
+    const screen = await screenFixCandidate(candidate, { repoRoot, destRoot });
+    if (!screen.eligible) {
+      throw new Error(
+        `S1 复核未通过（${screen.reason ?? '未知原因'}）⇒ 拒绝物化（fail-closed）`
+      );
+    }
+    if (!screen.f2p || screen.f2p.length === 0) {
+      throw new Error(
+        'F2P 清单为空 —— 该题无 fail→pass 用例，不是"修复类" ⇒ 拒绝物化'
+      );
+    }
+    return buildFixTask(candidate, repoRoot, {
+      f2p: screen.f2p,
+      p2p: screen.p2p ?? [],
+    });
+  } finally {
+    rmSync(destRoot, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -106,7 +132,9 @@ export async function materializeFixTask(
  */
 export function buildFixTask(
   candidate: FixCandidate,
-  repoRoot: string
+  repoRoot: string,
+  /** A2/G2：由双实测派生的 F2P/P2P 双清单（缺省 ⇒ 不声明，行为与改造前一致） */
+  lists?: { f2p: string[]; p2p: string[] }
 ): EvalTask {
   /** 快照在工作区内的落点：`<workspace>/repo` */
   const repoDirOf = (workspace: string): string => join(workspace, 'repo');
@@ -117,6 +145,8 @@ export function buildFixTask(
     name: `S1 真实修复：${candidate.subject}`,
     level: 'L1',
     assertionPolarity: 'positive',
+    // A2/G2：F2P/P2P 随题固化（缺省不声明 ⇒ scoring 不产出 resolved/breaking/no-op 段）
+    ...(lists ? { f2p: lists.f2p, p2p: lists.p2p } : {}),
     // 防泄题：真实仓库整根屏蔽（答案是它的当前状态 + `.git` 历史）
     shieldedPaths: [repoRoot],
     prompt: (ws) =>
@@ -160,10 +190,17 @@ export function buildFixTask(
         appDir: join(repoDir, 'app'),
         testPaths,
       });
-      if (run.verdict === 'green') return { pass: true };
+      // A2/G3：回传**逐用例通过键** ⇒ `scoring.ts` 可判 resolved / breaking / no-op
+      const passedCases = run.cases
+        ?.filter((c) => c.status === 'passed')
+        .map(junitCaseKey);
+      if (run.verdict === 'green') {
+        return { pass: true, ...(passedCases ? { passedCases } : {}) };
+      }
       return {
         pass: false,
         reason: `测试未通过（verdict=${run.verdict}）：${run.detail}`,
+        ...(passedCases ? { passedCases } : {}),
       };
     },
   };

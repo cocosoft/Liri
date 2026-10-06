@@ -46,6 +46,7 @@ import {
   supplyDeps,
 } from './repoSnapshot';
 import {
+  deriveF2pP2P,
   judgeS1Eligibility,
   runRepoTest,
   type RepoTestVerdict,
@@ -188,6 +189,13 @@ export interface FixScreenResult {
   reason?: string;
   /** 依赖供给的说明（不 ok 时为拒绝原因；供如实报告） */
   depsNote?: string;
+  /**
+   * A2（2026-10-06）：由**同一次双实测**自动派生的 F2P / P2P 双清单
+   * （起点红 ⇒ F2P；起点绿 ⇒ P2P；起点 `skipped` 两不入）。
+   * 任一侧逐用例结果缺失 ⇒ `undefined`（fail-closed，不猜）。
+   */
+  f2p?: string[];
+  p2p?: string[];
 }
 
 /**
@@ -238,6 +246,9 @@ export async function screenFixCandidate(
     fixedVerdict: fixed.verdict,
   });
 
+  // A2/G2：F2P/P2P 由**同一次双实测**机械派生（起点红⇒F2P、起点绿⇒P2P）
+  const lists = deriveF2pP2P(start.cases, fixed.cases);
+
   return {
     candidate,
     snapshotFiles: snapshot.files,
@@ -248,6 +259,7 @@ export async function screenFixCandidate(
     eligible: gate.eligible,
     reason: gate.eligible ? undefined : gate.reason,
     depsNote,
+    ...(lists ? { f2p: lists.f2p, p2p: lists.p2p } : {}),
   };
 }
 

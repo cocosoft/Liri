@@ -59,13 +59,81 @@ export function summarizeTask(
 ): EvalTaskResult {
   const assertPassCount = attempts.filter((a) => a.assertion.pass).length;
   const asExpectedCount = attempts.filter((a) => a.asExpected).length;
+  const f2pP2P = summarizeF2pP2P(task, attempts);
   return {
     task,
     attempts,
     assertPassCount,
     pass1: attempts.length === 0 ? 0 : asExpectedCount / attempts.length,
     passK: attempts.length > 0 && asExpectedCount === attempts.length,
+    // 未声明 F2P/P2P 的任务**不带该字段** ⇒ 旧题输出逐字不变
+    ...(f2pP2P ? { f2pP2P } : {}),
   };
+}
+
+/**
+ * A2（2026-10-06，`.trae/specs/eval-s1-real-task-baseline.md` G3）：F2P / P2P 任务级汇总。
+ *
+ * 三态在**逐 attempt** 上判定（用 `attempt.assertion.passedCases` 与 `task.f2p`/`task.p2p` 比对）：
+ * - `resolved` = F2P **全过** ∧ P2P **全过**
+ * - `breaking` = F2P 全过 ∧ P2P **有破**（"改坏了"）
+ * - `noOp`     = F2P **全不过**（"没改动"）
+ *
+ * **如实留白**：F2P 只过一部分、或该 attempt 无逐用例结果（执行异常等）⇒ **三态皆不计**
+ * （不硬塞进最近的一类）。`task.f2p` 未声明 ⇒ 返回 `undefined`。
+ */
+function summarizeF2pP2P(
+  task: EvalTask,
+  attempts: EvalAttempt[]
+): EvalTaskResult['f2pP2P'] {
+  const f2p = task.f2p;
+  if (!f2p || f2p.length === 0) return undefined;
+  const p2p = task.p2p ?? [];
+
+  let resolved = 0;
+  let breaking = 0;
+  let noOp = 0;
+  for (const a of attempts) {
+    const passedCases = a.assertion.passedCases;
+    if (passedCases === undefined) continue;
+    const passed = new Set(passedCases);
+    const f2pPassed = f2p.filter((k) => passed.has(k)).length;
+    if (f2pPassed === 0) {
+      noOp++;
+    } else if (f2pPassed < f2p.length) {
+      continue;
+    } else if (p2p.every((k) => passed.has(k))) {
+      resolved++;
+    } else {
+      breaking++;
+    }
+  }
+
+  return {
+    f2pTotal: f2p.length,
+    p2pTotal: p2p.length,
+    resolved,
+    breaking,
+    noOp,
+    attempts: attempts.length,
+  };
+}
+
+/**
+ * A2（G3）：**resolved 率** —— **仅对声明了 F2P/P2P 的任务**计算。
+ *
+ * 口径与 `pass^k` 同构：某任务 k 次 attempt **全部 `resolved`** 才计入分子。
+ * 无该类任务 ⇒ `undefined`（报告不显示该段，避免"0%"的假信号）。
+ */
+function computeResolvedRate(
+  tasks: readonly EvalTaskResult[]
+): number | undefined {
+  const withLists = tasks.filter((t) => t.f2pP2P !== undefined);
+  if (withLists.length === 0) return undefined;
+  const fullyResolved = withLists.filter(
+    (t) => t.f2pP2P!.attempts > 0 && t.f2pP2P!.resolved === t.f2pP2P!.attempts
+  ).length;
+  return fullyResolved / withLists.length;
 }
 
 /**
@@ -112,6 +180,7 @@ export function summarizeRun(args: {
         ? 0
         : tasks.reduce((sum, t) => sum + t.pass1, 0) / tasks.length,
     judgeSanityOk: judgeSanityOk(tasks, expectControls),
+    resolvedRate: computeResolvedRate(tasks),
     security: summarizeSecurity(tasks),
   };
 }

@@ -1,6 +1,6 @@
 # Spec：S1 真实任务级回归基线（F2P / P2P 双清单判据）—— A2
 
-> 版本 1.0 ｜ 创建 2026-10-06 ｜ 状态：📋 **待评审（未动码）** —— 实施须先答 **§4 决策点 D1–D4**
+> 版本 1.1 ｜ 创建 2026-10-06 ｜ 状态：� **已实施（2026-10-06，用户裁定 D1=a · D2=a · D3=a · D4=a）** —— **T1–T4 已落地**；**T5 在 D3/D4=a 下「无接线动作」**（默认题集与退出码均未改）。见 **§3.0 如实偏差** 与 **§11 实施记录**。
 > **来源**：`dev_docs/papers/精读笔记-优先级论文-2026-10-06.md` 行动 **A2**；依据 `dev_docs/papers/notes/swe-bench.md` §6（可直接采用 / 需改造）与 **§7.1**
 > **关联规则**：GR15（Spec-Driven）· GR01（基础设施复用）· CS01（归一化）· CS02（状态禁字符串）· CS03（回退最小化）· CS04（零 Mock）· CS06（证据驱动）· R12-001（门禁基线）· R06-008（分层）
 > **前置 spec**：`eval-framework-a-group.md`（A1–A7 已交付，含 A5「回归门禁 ≠ 信号基线」分层）· `eval-task-source-expansion.md`（S1 流水线已实施）
@@ -64,6 +64,15 @@ Liri 的 S1 题源（取自真实修复提交）**筛选、判据、隔离、准
 
 ## 3. 设计
 
+### 3.0 如实偏差（实施后订正，CS06）
+
+| # | 原设计（v1.0） | 实际实现（v1.1） | 理由 |
+|:--:|---|---|---|
+| 1 | 用例稳定键 = `classname::name` | **`file::classname::name`**（`file` 缺失时退化为原式） | **实测**：bun 的 `<testcase classname>` 只带**最近一层** `describe` 名 ⇒ 不同外层组下的同名用例会**撞键**；加 `file` 后唯一，且对齐 SWE-bench 的 `file::test_name` 惯例 |
+| 2 | `JunitCaseResult.passed: boolean` | **`status: 'passed' \| 'failed' \| 'skipped'`** | **必需**：本仓测试存在**跳过**用例（全量 21 skip）⇒ 若把 `skipped` 当 `passed`，会把它误列进 **P2P**（P2P 语义 = 修复前后都**真的**通过） |
+| 3 | 物化期由双实测派生（D1=a） | 同左；代价已量化：`materializeFixTask` **多跑 2 次判据**（**每任务一次**，非每次 attempt） | 这是"清单必须固定于题"的必然代价。「在 `--screen-fix-tasks` 时把清单与 `ELIGIBLE_FIX_COMMITS` **一并留档**以避免重复派生」列为**后续优化（本轮未做）** |
+| 4 | T5「按 D3/D4 接线门禁」 | **无接线动作** | D3=a（不改默认题集）+ D4=a（仅观测）⇒ 无门禁改动；`checkGate` 与 `tasks/index.ts#allTasks` **逐字未动** |
+
 ### 3.1 逐用例判据（G1）
 
 新增**纯解析**（复用既有 fail-closed 取向）：
@@ -118,6 +127,8 @@ p2p?: string[];
 | **D3** | S1 与默认题集 | (a) **维持 `--fix-tasks` 显式**（不改默认）／(b) 纳入 `allTasks` 默认／(c) 新增显式"回归基线档" | **(a) 或 (c)** —— (b) 会让默认评测变慢并引入 11 条地板（含 2 条 0 地板），收益未证 |
 | **D4** | F2P/P2P 是否进退出码 | (a) **仅观测**（对齐 A2/A5 既有约定）／(b) 进 `checkGate` | **(a)** —— 与 `expectedPassRange` 同取向；进码须先有多轮数据 |
 
+> **✅ 用户裁定（2026-10-06）**：**D1=a · D2=a · D3=a · D4=a**（推荐组合）。执行结果与如实偏差见 **§3.0** / **§11**。
+
 ---
 
 ## 5. 任务分解（T1–T5，D1/D2 定后执行）
@@ -155,6 +166,8 @@ p2p?: string[];
 6. 全量 `bun test` → **0 fail**（当前基线：**4612 pass / 21 skip / 0 fail / 4633 tests / 488 files**）；
 7. **S1 子集 `--gate` 实跑**不引入假红（含 2 条 0 地板题仍按 0 期望）。
 
+> **实测结果（2026-10-06，D1–D4=a）**：1–6 **全部达成**；**第 7 项未跑**（`--gate` 实跑需真实模型额度）⇒ **如实标注为未验边界**。逐项数据见 **§11**。
+
 ---
 
 ## 8. 合规检查清单
@@ -177,10 +190,10 @@ p2p?: string[];
 
 | # | 项 | 说明 |
 |:--:|---|---|
-| **U1** | JUnit XML 中 `classname` 的稳定性 | 需实测 `bun test --reporter=junit` 在嵌套 `describe` 下的命名形态 —— **未测** |
-| **U2** | `fixTaskScreening` 双实测能否**逐用例**留存 | 现接口只回 `verdict`，是否需扩展签名 —— **未核** |
-| **U3** | 11 条 `fix-*` 的 F2P/P2P 实际规模 | 未统计（影响"难度分层"判断） |
-| **U4** | S1 纳入默认题集后的耗时 | 未测 |
+| **U1** | JUnit XML 中 `classname` 的稳定性 | ✅ **已取证（2026-10-06 实测）**：`bun test --reporter=junit` —— 通过 = 自闭合 `<testcase … />`；失败 = 带 `<failure>` 子元素；跳过 = 带 `<skipped>`；`classname` = **最近一层** `describe` 名；`<testcase>` 另带 `file` / `line`。⇒ **据此调整了稳定键**（见 §3.0-1） |
+| **U2** | `fixTaskScreening` 双实测能否**逐用例**留存 | ✅ **已取证**：`runRepoTest` 原只回 `{verdict, exitCode, summary, detail}`（无逐用例）⇒ **需扩展**（已加 `cases`）；`screenFixCandidate` 两次运行都持有该结果 ⇒ 可派生（见 §3.2） |
+| **U3** | 11 条 `fix-*` 的 F2P/P2P 实际规模 | **未统计**（影响"难度分层"判断）—— 需真机跑 `--screen-fix-tasks` |
+| **U4** | S1 纳入默认题集后的耗时 | **未测** —— 本批**未纳入默认**（D3=a）⇒ 暂不阻塞 |
 
 ---
 
@@ -199,3 +212,12 @@ p2p?: string[];
 | 日期 | 事件 | 详情 |
 |---|---|---|
 | 2026-10-06 | **立项（未动码）** | 本 spec 创建（来源 `papers/精读笔记-优先级论文-2026-10-06.md` **A2**）。取证：既有 S1 已对齐 SWE-bench（§1.1），净增量为 G-A/G-B/G-C（§1.2）。**状态=待评审**，实施须先答 **§4 D1–D4** |
+| 2026-10-06 | **裁定 + U1/U2 先行取证** | 用户裁定 **D1=a · D2=a · D3=a · D4=a**。动码前先补 §9 的两项未取证（**结论见 §9**）：U1 用真实 `bun test --reporter=junit` 探出**通过/失败/跳过**三种 XML 形态与 `classname` 语义；U2 确认 `runRepoTest` **无**逐用例 ⇒ 需扩展 |
+| 2026-10-06 | **T1 实施** | `repoTestJudge.ts` 新增 `parseJunitCases()`（最小 XML 实体解码 + 属性**按名**取值 + 三态判定）+ `junitCaseKey()`；**不动**既有 `parseJunitSummary` / `classifyRepoTestRun`。测试 `tests/evals/junitCases.test.ts` **8 例** |
+| 2026-10-06 | **T2 实施** | `runRepoTest` 返回增 `cases`；新增**纯函数** `deriveF2pP2P(startCases, fixedCases)`（起点 missed → F2P、起点 passed → P2P、`skipped` 两不入；任一侧 `null` ⇒ `null`）；`screenFixCandidate` 派生并回填 `FixScreenResult.f2p/p2p`；`buildFixTask(candidate, repoRoot, lists?)` 固化到 `EvalTask.f2p/p2p`；`materializeFixTask` 物化期跑双实测派生（**F2P 为空 ⇒ 拒绝物化**，fail-closed） |
+| 2026-10-06 | **T3 实施** | `types.ts`：`AssertResult.passedCases?` · `EvalTask.f2p/p2p?` · `EvalTaskResult.f2pP2P?` · `EvalRunSummary.resolvedRate?`（**全部可选** ⇒ 旧题输出逐字不变）。`scoring.ts`：`summarizeTask` 增 `summarizeF2pP2P()`（逐 attempt 判 `resolved`/`breaking`/`noOp`，**未归类如实留白**）；`summarizeRun` 增 `computeResolvedRate()`（**仅**声明了 F2P/P2P 的任务进分母）。`buildFixTask.assert` 回传逐用例通过键。测试 `tests/evals/f2pP2P.test.ts` **9 例** |
+| 2026-10-06 | **T4 实施** | `report.ts`：汇总行追加 **resolved 率**（无该类任务则**不出该段**）+ 新增「F2P / P2P」明细表（含"未归类"列）；JSON 报告随 `EvalRunSummary` 自动带出 |
+| 2026-10-06 | **T5** | **无接线动作**（D3=a / D4=a）——`checkGate` 与 `allTasks` **逐字未动**。**未跑**：S1 子集 `--gate` 实跑（需真实模型额度） |
+| 2026-10-06 | **验证（四证）** | `typecheck` **0** · `eslint`（8 文件）**0** · `lint:arch` **错误 0 / 警告 4（基线）**、分层文件数 **3886 不变** · 定向 `bun test tests/evals` **169 pass / 2 skip / 0 fail** · **全量 `bun test` 4629 pass / 21 skip / 0 fail**（4650 tests / 490 files；较基线 **+17 例 / +2 文件 = 本批新增**，逐数吻合） |
+
+> **未验边界（如实）**：① 第 7 项 `--gate` 实跑未做（需模型额度）；② **U3/U4 未取**（11 条 `fix-*` 的 F2P/P2P 实际规模、纳入默认后的耗时）；③ 物化期额外 2 次判据运行的**真实耗时未测**（§3.0-3）。

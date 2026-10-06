@@ -44,6 +44,14 @@ export interface AssertResult {
    * `initialStateCheck.ts` / `tasks/security-injection.ts` 注释。
    */
   completed?: boolean;
+  /**
+   * A2（2026-10-06，`eval-s1-real-task-baseline.md`）：本次 assert 运行中**通过**的用例
+   * **稳定键**（`file::classname::name`，见 `repoTestJudge.ts#junitCaseKey`）。
+   *
+   * 仅**逐用例判据**的 S1 类任务提供；未提供（`undefined`）⇒ 该 attempt 不参与 F2P/P2P
+   * 三态归类（执行异常等场景如实留白，**不猜**）。
+   */
+  passedCases?: string[];
 }
 
 /** 一次工具调用（L2 过程断言用；来自持久化消息，见 `trace.ts`） */
@@ -162,6 +170,17 @@ export interface EvalTask {
    *   'fail' — **控制任务**：断言应当失败，用于证明判分器"能判会失败"（防判分器恒真）
    */
   expect?: 'pass' | 'fail';
+  /**
+   * A2（2026-10-06，`eval-s1-real-task-baseline.md`）：**F2P / P2P 双清单**（SWE-bench 语义）。
+   *
+   * - `f2p`（fail→pass）：起点必须**失败**、修复后必须**转绿**的用例稳定键
+   * - `p2p`（pass→pass）：起点已通过、修复后必须**仍绿**的用例稳定键
+   *
+   * 由 S1 **双实测自动派生**并随题物化固化（D1=a）。**仅 S1 类任务声明**；
+   * 未声明 ⇒ `resolved/breaking/no-op` 语义不参与，指标**逐字不变**。
+   */
+  f2p?: string[];
+  p2p?: string[];
   /** 任务前置（可选）：在隔离工作区里预置初始状态 */
   setup?: (
     ctx: Pick<EvalContext, 'workspace' | 'home' | 'dataDir'>
@@ -271,6 +290,20 @@ export interface EvalTaskResult {
   pass1: number;
   /** k 次全部符合预期 */
   passK: boolean;
+  /**
+   * A2（2026-10-06）：F2P/P2P 任务级汇总 —— **仅声明了 `task.f2p` 的任务提供**。
+   *
+   * 三态在**逐 attempt** 上判定后计数（判据见 `scoring.ts#summarizeF2pP2P`）：
+   * `resolved`（F2P 全过 ∧ P2P 全过）/ `breaking`（F2P 全过 ∧ P2P 有破）/ `noOp`（F2P 全不过）。
+   */
+  f2pP2P?: {
+    f2pTotal: number;
+    p2pTotal: number;
+    resolved: number;
+    breaking: number;
+    noOp: number;
+    attempts: number;
+  };
 }
 
 /** 一轮评测汇总 */
@@ -284,6 +317,12 @@ export interface EvalRunSummary {
   passKRate: number;
   /** 全部任务 pass^1 的均值 */
   pass1Mean: number;
+  /**
+   * A2（2026-10-06）：**resolved 率** —— **仅对声明了 F2P/P2P 的任务**计算
+   * （口径与 `pass^k` 同构：k 次 attempt 全 `resolved` 才计入分子）。
+   * 无该类任务 ⇒ `undefined`（报告不显示该段）。
+   */
+  resolvedRate?: number;
   /** 判分器自检：控制任务是否都被判为"符合预期失败" */
   judgeSanityOk: boolean;
   /** 安全鲁棒性汇总（D9；仅当题集中存在成对安全任务时给出） */

@@ -424,13 +424,6 @@ class ArchitectureLinter {
       // 跳过测试文件
       if (file.endsWith('.test.ts') || file.endsWith('.spec.ts')) continue;
 
-      // 跳过已知的已废弃兼容层
-      if (
-        file.includes('streaming\\retry.ts') ||
-        file.includes('streaming/retry.ts')
-      )
-        continue;
-
       // R01-003 已知例外：领域内建重试（记录在 architecture-compliance.md 已知例外表中）
       const skipExceptions = [
         'services\\api\\client.ts',

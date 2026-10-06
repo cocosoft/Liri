@@ -29,12 +29,6 @@ export {
   StreamAccumulator,
 } from './SSEParser';
 export { ApiStream } from './apiStream';
-export {
-  StreamingCircuitBreaker,
-  retryWithBackoff,
-  shouldRetryStreaming,
-} from './retry';
-export type { RetryConfig } from './retry';
 
 export {
   IncrementalRetryHandler,

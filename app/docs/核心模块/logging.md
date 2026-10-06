@@ -7,15 +7,15 @@
 ## 基本用法
 
 ```typescript
-import { Logger } from "./core/logger/index.js";
+import { getLogger } from '@modules/monitoring';
 
-const logger = new Logger({ name: "app" });
+const logger = getLogger('app');
 
 // 不同级别的日志
-logger.debug("调试信息");
-logger.info("应用启动");
-logger.warn("资源使用率较高");
-logger.error("发生错误", error);
+logger.debug('调试信息');
+logger.info('应用启动');
+logger.warning('资源使用率较高');
+logger.error('发生错误', { error });
 ```
 
 ## 日志级别

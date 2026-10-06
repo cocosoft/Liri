@@ -277,39 +277,6 @@ export class ModuleManager {
   }
 
   /**
-   * 获取提供者
-   *
-   * @deprecated 请使用模块注册表（ModuleRegistry）的 resolve 方法替代。
-   *   本方法遍历所有模块查找提供者，是三套服务定位入口之一。
-   *   统一服务定位入口为 modules/ModuleRegistry。
-   *   此方法将在未来版本中移除。
-   */
-  async getProvider<T>(name: string): Promise<T | undefined> {
-    for (const module of this.modules.values()) {
-      const provider = module.getProvider<T>(name);
-      if (provider) {
-        return provider;
-      }
-    }
-
-    for (const [moduleId, lazyModule] of this.lazyModules.entries()) {
-      if (!lazyModule.loaded) {
-        try {
-          const module = await this.loadLazyModule(moduleId);
-          const provider = module.getProvider<T>(name);
-          if (provider) {
-            return provider;
-          }
-        } catch {
-          continue;
-        }
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
    * 注册全局提供者
    */
   registerGlobalProvider(name: string, provider: unknown): void {

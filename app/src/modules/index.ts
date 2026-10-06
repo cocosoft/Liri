@@ -22,9 +22,12 @@
  * 模块管理模块入口文件
  * 统一导出所有模块管理相关功能
  *
- * @deprecated 请使用 ModuleRegistry.bootstrap() 替代 quickInitialize()，
- * 使用 moduleRegistry.resolve<T>() 替代直接 import 模块。
- * 此文件提供的 API 将在未来版本中废弃。
+ * ⚠️ 2026-10-06 注释订正（P2-8 ② D 类消歧）：原文写「请使用 `ModuleRegistry.bootstrap()`
+ * 替代 `quickInitialize()`」—— **`quickInitialize()` 早已不存在**（桶内现导出
+ * `moduleInitializer` / `initializeModules` 等）。方向仍成立：**新代码优先使用
+ * `moduleRegistry` / `ModuleInitializer` 的显式 API**，而非从本桶取便利导出。
+ * 本桶**仍有生产消费者**（`tools/DependencyGraphScanner.ts` 取
+ * `MODULE_DEFINITIONS` / `MODULE_INITIALIZATION_ORDER`）⇒ **保留（非死码）**。
  */
 
 import { moduleInitializer } from './ModuleInitializer';

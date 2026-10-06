@@ -79,49 +79,6 @@ export class InternalEventBus {
   }
 
   /**
-   * 订阅事件
-   * @deprecated 使用 globalEventBus.subscribe() 替代
-   */
-  subscribe(
-    type: string,
-    handler: EventHandler,
-    options?: { priority?: EventPriority; once?: boolean }
-  ): string {
-    const id = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    const wrappedHandler: EventListener = (data: unknown) => {
-      return handler(data as AgentEvent);
-    };
-
-    const sub = options?.once
-      ? globalEventBus.once(type, wrappedHandler)
-      : globalEventBus.subscribe(type, wrappedHandler);
-
-    // Store subscription ref for unsubscribe by id
-    this.subRefs.set(id, sub);
-
-    return id;
-  }
-
-  /** 订阅引用映射 (id → EventSubscription) */
-  private subRefs: Map<string, ReturnType<typeof globalEventBus.subscribe>> =
-    new Map();
-
-  /**
-   * 取消订阅
-   * @deprecated 使用 subscription.unsubscribe() 替代
-   */
-  unsubscribe(id: string): boolean {
-    const sub = this.subRefs.get(id);
-    if (sub) {
-      sub.unsubscribe();
-      this.subRefs.delete(id);
-      return true;
-    }
-    return false;
-  }
-
-  /**
    * 发射事件
    * 委托给 globalEventBus.publish()
    */
@@ -143,46 +100,6 @@ export class InternalEventBus {
     globalEventBus.publish(type, event);
 
     return event;
-  }
-
-  /**
-   * 获取历史记录
-   * @deprecated 使用 globalEventBus.getHistory() 替代
-   */
-  getHistory(filter?: {
-    type?: string;
-    source?: string;
-    limit?: number;
-  }): AgentEvent[] {
-    const history = globalEventBus.getHistory({
-      event: filter?.type,
-      limit: filter?.limit,
-    });
-
-    let result = history.map(
-      (entry): AgentEvent => ({
-        id: '',
-        type: entry.event,
-        source: 'history',
-        data: entry.data,
-        priority: 'normal',
-        timestamp: entry.timestamp,
-      })
-    );
-
-    if (filter?.source) {
-      result = result.filter((e) => e.source === filter.source);
-    }
-
-    return result;
-  }
-
-  /**
-   * 清空历史记录
-   * @deprecated 使用 globalEventBus.clearHistory() 替代
-   */
-  clearHistory(): void {
-    globalEventBus.clearHistory();
   }
 
   /**

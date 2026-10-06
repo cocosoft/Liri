@@ -138,11 +138,11 @@ export {
   ChannelPermissionRelay,
   getChannelPermissionRelay,
   clearChannelPermissionRelay,
-} from '../services/mcp/channelPermissions.js';
+} from '@modules/security';
 export type {
   ChannelPermissionResponse,
   ChannelPermissionCallbacks,
-} from '../services/mcp/channelPermissions.js';
+} from '@modules/security';
 
 export {
   normalizeNameForMCP,

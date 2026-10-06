@@ -160,7 +160,6 @@ export default [
       'src/utils/monitoring.ts',
       'src/utils/startupProfiler.ts',
       'src/error/safeLog.ts',
-      'src/core/logger/index.ts',
     ],
     rules: {
       'no-console': 'off'

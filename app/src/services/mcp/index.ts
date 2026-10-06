@@ -68,7 +68,7 @@ import {
   checkToolPermission,
   isResourceAccessAllowed,
   isToolAccessAllowed,
-} from './channelPermissions';
+} from '@modules/security';
 import { mcpMarketplace } from './marketplace/MCPMarketplace';
 import type { ScopedMcpServerConfig } from './types';
 
@@ -423,7 +423,7 @@ export {
   checkToolPermission,
   isResourceAccessAllowed,
   isToolAccessAllowed,
-} from './channelPermissions';
+} from '@modules/security';
 export { mcpToolBridge, MCPToolBridge } from './MCPToolBridge';
 export { McpToolWrapper } from './McpToolWrapper';
 export { mcpMarketplace, MCPMarketplace } from './marketplace/MCPMarketplace';

@@ -35,7 +35,7 @@
 - ✅ **死代码簇清理（N-78 / N-82 / N-83）** - 删除 `AdaptiveRouter` 整类 + `subagent/communication/` 4 文件族（`SubAgentCommunicator` 占位模拟 + `receivePermissionResponse` 无条件 `granted:true` = CS04 + fail-open）+ 权限同步双轨孤儿 3 文件 + MOA 成本死码；同步清理 `lint-architecture` 例外与 barrel 再导出
 - ✅ **N-74 i18n en 补齐** - 96 键 + 键一致性守卫（防再漂移）；**媒体提取工具命名统一为下划线** + 守卫测试
 - ✅ **契约测试补齐** - A2A 委派/回查 405 两态 + ACP 全契约
-- ✅ **D2 迁移评估（`dependsOnMode`）** - 取证结论：`hard` 在**生产不可达**（分解 prompt 不产出该字段、无 config/UI/env 开关、调用方未传）⇒ 13-P1-1 的修复在生产上不生效、A3 缺陷原样存在；结论 = **应当翻转但不能单独翻转**（两步走方案已入台账 §20.6）；`topoBatches.ts` 注释补入该结论
+- ✅ **D2 迁移评估（`dependsOnMode`）** - 取证结论：`hard` 在**生产不可达**（分解 prompt 不产出该字段、无 config/UI/env 开关、调用方未传）⇒ 13-P1-1 的修复在生产上不生效、A3 缺陷原样存在；结论 = **应当翻转但不能单独翻转**（两步走方案已入台账 §20.6）；`topoBatches.ts` 注释补入该结论。**订正（2026-10-07）**：该评估的**两步均已落地（2026-10-06）** —— `topoBatches.ts` 默认已翻转为 `?? 'hard'`（Step 2）+ Step 1 显式降级 + F8 回灌，详见台账 §20.6 ⇒ 本条为**评估当时**的中间结论，**最终状态＝已翻转**
 - ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4718 pass / 21 skip / 0 fail**（500 files；较上版 **+74 例**，逐数吻合）
 
 ---

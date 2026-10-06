@@ -17,6 +17,7 @@ import type {
   LiriEvent,
   LiriEventData,
 } from '@modules/session/types/events.js';
+import type { EventLogQuery } from '@modules/session';
 import type {
   ToolCall,
   ToolResult,
@@ -114,6 +115,18 @@ export interface ChatManager {
 
   /** M1 事件溯源：获取会话当前 tailSeq（O(1) 缓存，事件 seq 分配用） */
   getStreamTailSeq(sessionId: string): Promise<number>;
+
+  /**
+   * U4（2026-10-06，`.trae/specs/online-quality-evaluation.md`）：**读**会话事件
+   * （与 `appendStreamEvent` 成对；入参用既有查询契约 `EventLogQuery`）。
+   *
+   * 消费者：空闲期在线质量评估器 + 会话质量 SPI 实现（供梦境按分取数）。
+   * **主链不调用**。
+   */
+  readSessionEvents(
+    sessionId: string,
+    query: EventLogQuery
+  ): Promise<LiriEvent[]>;
 
   /**
    * P1-3（2026-09-26）：持久化 doc_pipeline 逐阶段进度为 assistant/doc_workflow 富块事件

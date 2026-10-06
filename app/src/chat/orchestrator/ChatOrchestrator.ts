@@ -63,6 +63,7 @@ import type {
   StreamMessageOptions,
 } from '@modules/session/types/message.js';
 import type { LiriEvent } from '@modules/session/types/events.js';
+import type { EventLogQuery } from '@modules/session';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -173,6 +174,18 @@ export interface ChatOrchestratorHost {
     sessionId: string,
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+  /**
+   * U4（2026-10-06，`.trae/specs/online-quality-evaluation.md`）：**读**会话事件
+   * （薄包 `EventLogStorage.read`，与 `appendStreamEvent` 成对）。
+   *
+   * 用途：空闲期在线质量评估器按水位增量读事件（**主链不调用**）。
+   * 之所以由宿主提供：`EventLogStorage` **由 `chat/` 持有**（`CompactionOrchestrator.ts:208` 明文），
+   * 非 chat 模块一律走注入（同 `RequestSnapshotService` / `requestPrep` / `requestBoundary`）。
+   */
+  readSessionEvents(
+    sessionId: string,
+    query: EventLogQuery
+  ): Promise<LiriEvent[]>;
   /**
    * P0-1② 覆盖面补齐（2026-10-04，`final-output-guard-no-tool-turns.md`）：
    * 更新消息 blocks —— 无工具回合的终稿 mermaid 修复后，用它**替换**已流出的正文
@@ -481,6 +494,64 @@ export class ChatOrchestrator {
             await handleError(err, {
               module: 'chat:orchestrator',
               action: 'idleMemoryMaintenance',
+            });
+          }
+        })();
+
+        // U4（2026-10-06，`.trae/specs/online-quality-evaluation.md`）：空闲期**在线质量评估**。
+        //
+        // - 主链**零调用**（`streamMessageFlow` / `TAORLoop` 都不碰）⇒ 不增 TTFB；
+        // - 读写句柄**全部经 host 注入** ⇒ 评估器不接触任何存储实现
+        //   （`EventLogStorage` 由 chat 持有，同 `_wireCodeRunnerDeps` 手法）；
+        // - 幂等：以事件水位为准 ⇒ 同一批轮次不重复评分。
+        //
+        // ⚠️ v1 现状（如实，勿当成已完成）：
+        //   ① **LLM 复核（spec D3）尚未接线** ⇒ 可疑轮记 `reviewSkipped: 'no-model'`
+        //      —— 端口设计就是要**暴露**这个事实，而不是伪造"已复核"；
+        //   ② 只评**本进程已加载**的会话（`host.chatSessions`）；历史会话补评需接
+        //      `listSessionsTouchedSince`（spec §D6 的后续扩展点）。
+        void (async () => {
+          try {
+            const { runTurnQualityPass } = await import('@modules/evals');
+            const r = await runTurnQualityPass(
+              {
+                readEvents: (sid, query) =>
+                  this.host.readSessionEvents(sid, query),
+                appendEvent: async (sid, ev) => {
+                  const tail = await this.host.getStreamTailSeq(sid);
+                  await this.host.appendStreamEvent(sid, {
+                    type: ev.type,
+                    schemaVersion: 1,
+                    seq: tail + 1,
+                    time: Date.now(),
+                    sessionId: sid,
+                    data: ev.data,
+                  });
+                },
+              },
+              { sessionIds: [...this.host.chatSessions.keys()] }
+            );
+            if (r.scored > 0 || r.errors.length > 0) {
+              logger.info('空闲期在线质量评估完成（U4）', {
+                sessions: r.sessions,
+                scored: r.scored,
+                reviewed: r.reviewed,
+                skippedReviews: r.skippedReviews,
+                elapsedMs: r.elapsedMs,
+                errors: r.errors.length,
+              });
+            }
+            for (const e of r.errors) {
+              await handleError(new Error(e.message), {
+                module: 'chat:orchestrator',
+                action: 'idleTurnQuality',
+                context: { sessionId: e.sessionId },
+              });
+            }
+          } catch (err) {
+            await handleError(err, {
+              module: 'chat:orchestrator',
+              action: 'idleTurnQuality',
             });
           }
         })();

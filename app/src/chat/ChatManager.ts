@@ -64,6 +64,7 @@ import {
   EventLogStorage,
   MessageToEventMigrator,
   ReconcileService,
+  type EventLogQuery,
   type SessionSummaryRecord,
   type RecoveryReport,
   type YieldRecoveryStats,
@@ -1221,6 +1222,9 @@ export class ChatManagerImpl implements ChatManager {
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
         appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+        // U4（2026-10-06）：读会话事件（与 appendStreamEvent 成对）——
+        // 空闲期在线质量评估器经此按水位增量读；**主链不调用**。
+        readSessionEvents: (sid, query) => this.readSessionEvents(sid, query),
         // P0-1② 覆盖面补齐（2026-10-04）：无工具回合终稿修复后替换正文（走既有实现）
         updateMessageBlocks: (sid, mid, blocks, text) =>
           this.updateMessageBlocks(sid, mid, blocks, text),
@@ -2142,6 +2146,21 @@ export class ChatManagerImpl implements ChatManager {
    */
   async getStreamTailSeq(sessionId: string): Promise<number> {
     return this._eventLogStore.getStreamTailSeq(sessionId);
+  }
+
+  /**
+   * U4（2026-10-06，`.trae/specs/online-quality-evaluation.md`）：**读**会话事件
+   * （与上方 `getStreamTailSeq` 同族：都是对事件日志的薄包）。
+   *
+   * 消费者：① 空闲期在线质量评估器（经宿主 `ChatOrchestratorHost.readSessionEvents` 注入）；
+   * ② 会话质量 SPI 实现（`entrypoints/spiWiring.ts`，供梦境按分取数）。
+   * **主链不调用** ⇒ 不影响 TTFB。
+   */
+  async readSessionEvents(
+    sessionId: string,
+    query: EventLogQuery
+  ): Promise<LiriEvent[]> {
+    return this._getOrCreateEventLog(sessionId).read(query);
   }
 
   /**

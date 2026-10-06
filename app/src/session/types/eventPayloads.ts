@@ -71,6 +71,58 @@ export interface LiriEventMap {
     error?: string;
   };
 
+  /**
+   * 每轮在线质量分（U4，2026-10-06；`.trae/specs/online-quality-evaluation.md`）。
+   *
+   * **定位 = 离线消费**（梦境/离线聚合按分取"高价值轮"）。当前**不注入任何提示词**
+   * ⇒ 尚不构成「模型可见输入」；本事件的价值是**可重建性**（分数口径可回溯）
+   * 与**前瞻回注**（若将来回注，按 §1.6 红线走注入登记）。
+   *
+   * 生产者：空闲期评估器（分片让出，主链零调用）；`evaluatorVersion` 供消费方区分口径
+   * —— `score` 是**相对质量分**（完成度/验证器结论/代价），**不是**正确率。
+   *
+   * 载荷**刻意内联**（不 import 评测域类型）：与 `assistant/doc_workflow` / 工作流 run 记录
+   * 同口径 —— 事件载荷是前后端共享的**自包含 schema**，导入实现域类型会让契约随实现漂移。
+   */
+  'turn/quality': {
+    /** 轮次编号（与该轮 `turn/start` / `turn/end` 的 `turn` 同源） */
+    turnNumber: number;
+    /** 合成分 0..1（**相对分**，非正确率） */
+    score: number;
+    /** 评分口径版本（`evals/online/weights.ts` 的 `EVALUATOR_VERSION`） */
+    evaluatorVersion: string;
+    /** 各分量（可解释"为何是这个分"） */
+    components: {
+      /** 完成度：completed=1 / aborted 部分 / error=0 */
+      completion: number;
+      /** 验证器结论：APPROVE=1 / ESCALATE 偏低 / REJECT=0 / 未知=中点 */
+      verdict: number;
+      /** 工具反复度：软阈内=1，超出后线性衰减 */
+      toolThrash: number;
+      /** 代价：时长与出参 token 的软阈衰减 */
+      cost: number;
+    };
+    /** 打分所依据的**结构化信号**（回放可复核，禁按文案推断 —— CS02） */
+    signals: {
+      status: 'running' | 'completed' | 'error' | 'aborted';
+      toolCalls: number;
+      durationMs?: number;
+      inputTokens: number;
+      outputTokens: number;
+    };
+    /** 是否触发了 LLM 复核 */
+    reviewed: boolean;
+    /** 未复核的**结构化原因**（禁按文案判定） */
+    reviewSkipped?: 'no-model' | 'budget';
+    /** LLM 复核结论（复用 `VerifierAgent` 三态产物的**精简视图**） */
+    review?: {
+      verdict: 'APPROVE' | 'REJECT' | 'ESCALATE';
+      confidence: number;
+      checkPassRate?: number;
+      reason?: string;
+    };
+  };
+
   /** 用户输入 */
   'user/message': {
     content: string;

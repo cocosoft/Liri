@@ -79,6 +79,41 @@ export interface TaskGoalDto {
 
 export interface LiriEventMap {
   "turn/start": { turn: number; userMessageSeq?: number };
+  /**
+   * 每轮在线质量分（U4，2026-10-06；`app` 侧 spec `.trae/specs/online-quality-evaluation.md`）。
+   *
+   * **离线消费**（梦境/离线聚合按分取"高价值轮"）；**不注入提示词** ⇒ 前端目前
+   * 不参与渲染，仅作事件可重建性与审计读取视图。形状与后端载荷**逐字对齐**
+   * （门禁 `app/tests/chat/eventTypeParity.test.ts` 的编译期字段级校验会抓漂移）。
+   *
+   * `score` 是**相对质量分**，不是正确率；消费时必须看 `evaluatorVersion` 区分口径。
+   */
+  "turn/quality": {
+    turnNumber: number;
+    score: number;
+    evaluatorVersion: string;
+    components: {
+      completion: number;
+      verdict: number;
+      toolThrash: number;
+      cost: number;
+    };
+    signals: {
+      status: "running" | "completed" | "error" | "aborted";
+      toolCalls: number;
+      durationMs?: number;
+      inputTokens: number;
+      outputTokens: number;
+    };
+    reviewed: boolean;
+    reviewSkipped?: "no-model" | "budget";
+    review?: {
+      verdict: "APPROVE" | "REJECT" | "ESCALATE";
+      confidence: number;
+      checkPassRate?: number;
+      reason?: string;
+    };
+  };
   "turn/end": {
     turn: number;
     /** `'yielded'`（N-45，2026-09-20）：本轮以 `sessions_yield` 让出，等待子任务结算后续跑 */

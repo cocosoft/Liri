@@ -20,6 +20,8 @@ export const LIRI_EVENT_NAMES = [
   // ─── 对话核心 ───
   'turn/start',
   'turn/end',
+  // U4（2026-10-06，`.trae/specs/online-quality-evaluation.md`）：每轮在线质量分（离线/梦境消费）
+  'turn/quality',
   'user/message',
   'assistant/thinking',
   'assistant/text',

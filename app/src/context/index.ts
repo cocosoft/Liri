@@ -27,12 +27,7 @@ export {
   readUserPyAppMd,
   type ProjectFiles,
 } from './ProjectFileReader';
-export {
-  buildBasePrompt,
-  buildUserContext,
-  buildSystemContext,
-  type SystemPromptParts,
-} from './PromptTemplates';
+export { type SystemPromptParts } from './PromptTemplates';
 export {
   ProjectRulesLoaderImpl,
   createProjectRulesLoader,

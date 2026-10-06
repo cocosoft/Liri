@@ -276,7 +276,6 @@ export { HealthMonitor, getHealthMonitor } from './HealthMonitor.js';
 export type {
   HealthConfig,
   HealthReport,
-  HealthStatus as MonitorHealthStatus,
   HealthEvent,
 } from './HealthMonitor.js';
 

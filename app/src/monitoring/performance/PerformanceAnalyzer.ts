@@ -2,9 +2,11 @@
  * 性能分析器
  * 提供详细的性能分析和报告功能
  *
- * @deprecated 请使用 @modules/performance/PerformanceAnalyzer 替代。
- * 此文件为完全冗余的实现（零外部引用），与 performance/PerformanceAnalyzer.ts 功能重叠。
- * 此文件将在未来版本中移除。
+ * @deprecated 请优先使用 @modules/performance/PerformanceAnalyzer（功能重叠）。
+ *   ⚠️ B 类复核订正（2026-10-07）：原注释称本文件"完全冗余（零外部引用）"**失实** ——
+ *   实测生产消费者：`cli/index.ts:44,800`（`getPerformanceAnalyzer`）与
+ *   `monitoring/archival/DataArchivalStrategy.ts:29,234`。⇒ **非死码、暂不移除**；
+ *   如需下线，须先把上述两处消费者迁至 `@modules/performance/PerformanceAnalyzer`。
  */
 
 import chalk from 'chalk';

@@ -190,6 +190,20 @@ export function instantiatePattern(
 | `app/src/chat/ChatManager.ts` | 改：研究分流改消费 `instantiatePattern`（行为逐字不变） |
 | `app/tests/query/patternAssembly.test.ts` | 改：补 4 个装配入口用例 |
 
+### 5.3 后续更新：装配升为「执行配方」（13-P1-3，2026-10-05）
+
+上文 §1.1 / §4.1 把 `self_verify` 记为"无运行时 ⇒ `unavailable`"，**该结论已被本项修订**：
+
+- `self_verify` 由 `unavailable` 升为 **`ready`**（`route: 'verify'`）—— 复用**既有** `VerifierAgent`
+  （不带新运行时），配方 `{ verifyPolicy: 'blocking', budgetPolicy: 'strict' }`。
+- `PatternInstantiation`（`ready`）新增 `recipe: PatternRecipe`；装配入口规格改携 `{ route, recipe }`。
+- 新增 `verifierConfigForRecipe(recipe)`（配方 → `VerifierAgent` 配置）与
+  `VerifierAgent.configure()` / `TAORLoop.applyVerifierConfig()`；`ChatManager` 装配点应用配方。
+- ⚠️ **如实边界（N4 不变）**：`self_verify` 仍**无触发场景** ⇒ `ChatManager` 内该分支当前**不可达**；
+  "接线就位、待触发面补齐"——不宣称已在生产路径生效。
+- 仍 `unavailable` 者收敛为 `iterative_refine` / `parallel_distributed`。
+- 口径来源：`dev_docs/任务计划-20261004.md` §13.3（13-P1-3）。
+
 ---
 
 ## 6. 影响面（按 D1=(a) 预估）

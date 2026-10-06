@@ -1,7 +1,8 @@
 # Spec：终稿校验补齐「无工具回合」（mermaid 自纠覆盖面）
 
-> 版本 1.0 ｜ 创建 2026-10-04 ｜ 状态：📝 **待评审（未动码）**
+> 版本 1.1 ｜ 创建 2026-10-04 ｜ 状态：🟢 **已实施**（§8 流式 + §9 非流式 + §10 收编统一输出护栏 13-P2-1）
 > 状态复核（2026-10-04）：状态头 stale——§8/§9 显示 D1–D5 已裁定、finalOutputGuard.ts 已实施并实测；全量 bun test 未收口。
+> 状态复核（2026-10-05）：§10 追加（13-P2-1 收编）；全量 bun test 已收口 **4557 pass / 0 fail**。
 > 来源：运行时调试会话 `debug-mermaid-selfheal-miss.md`（根因已证）+ `dev_docs/20260926/liri-optimization-plan-20260926.md` **P0-1②**
 > 关联规则：GR15（Spec-Driven）/ **CS01**（归一化）/ **CS02**（状态判定）/ **CS03**（回退最小化）/ **CS05**（根因优先）/ §1.6（模型可见 ⇔ 已落盘）/ §1.3（无兼容包袱）
 
@@ -209,3 +210,39 @@ export async function guardFinalOutput(
 **门槛（本轮复跑）**：`typecheck 0` · `lint:arch` **错误 0 / 警告 2（基线）**，分层 3856 → **3857**（+1 新文件）· `tests/chat` **343 pass / 0 fail**（另 `tests/query` 同批 **473 pass / 0 fail**）。
 
 ⇒ 本 spec 的 G1–G4 与 §5 验收项**均已达成**（全量套件未收口一事见 §8 说明）。
+
+---
+
+## 10. 后续更新：收编为统一输出护栏入口（13-P2-1，2026-10-05）
+
+**来源**：`dev_docs/任务计划-20261004.md` §13.3（13-P2-1，源自 Agentic Design Patterns 21 模式复查 A6「护栏单侧」）。
+
+**改动**（`outputGuards` 为**可选**依赖 ⇒ 不注入时本 spec 全部既有行为/验收不变）：
+
+- **core 层新增统一契约 + 注册表**：`app/src/core/outputGuard/{types,registry,index}.ts`
+  —— `OutputGuard{name,priority,check}` / `OutputGuardVerdict{action:'pass'|'redact'|'block',text?,issues}` /
+  `runOutputGuards(guards,text)` 顺序管线（priority 升序；`redact` 累积改写、`block` 短路）/
+  `OutputGuardRegistry` + `getOutputGuardRegistry()`（唯一实例）。
+- **app 层具体护栏**：`app/src/chat/outputGuards/`
+  —— `sensitive_content`（**PII/密钥打码**，复用 `SensitiveDataService.sanitize`；`FEATURE_OUTPUT_GUARD_BLOCK=true` ⇒ **敏感拦截**）·
+  `injection_echo`（**注入回显观测**，复用 `PromptInjectionDetector.detect`，仅 info/warn）。
+- **收编**：`guardFinalOutput` 在 mermaid 校验**前/后**各跑一次统一管线（`deps.outputGuards`）：
+  打码改写正文 → mermaid 校验作用于打码后文本 → **修复产物再复检一次**（防修复轮带回敏感内容）；
+  阻断 ⇒ 提前返回 `{blocked,blockReason,text=安全替代文本}`，不再修复。
+  结果新增 `guardIssues` / `blocked` / `blockReason` / `redacted`。
+- **两条路径**接入：`streamMessageFlow`（阻断/打码 ⇒ `updateMessageBlocks` 替换，日志 `*_blocked`）·
+  `ChatOrchestrator.sendMessage`（同步更新 `content` + `response.content` + blocks）。
+- **组合根**：`ChatManager` 构造调 `registerDefaultOutputGuards()`（幂等）。
+- **开关**：`FEATURE_OUTPUT_GUARD`（默认 **false** ⇒ 空注册、零行为变更）· `FEATURE_OUTPUT_GUARD_BLOCK`（默认 false ⇒ 打码）。
+
+**如实边界**
+
+1. **mermaid 的 lint 未下沉为护栏**：它需要 LLM/事件落盘（异步 + IO），不满足「同步纯文本」契约
+   ⇒ 保留为本函数内的 remediation；「收编」指**统一管线入口 + 内容护栏合流**，非把修复搬进注册表。
+2. **输入侧 3 套检测器未迁移**：报告原建议的完整 `IGuardrail{phase}` 含 input 相位；本轮按 §13.3 收敛口径**只落地输出相位**。
+3. **默认关闭**：开启后邮箱/卡号等会被打码（可见行为变更）⇒ 需显式 `FEATURE_OUTPUT_GUARD=true`；当前生产路径**未开启**。
+4. **既存缺陷（另记台账）**：`SensitiveDataService.detectSensitiveData()` 用 `/g` 正则 + `.test()` 判定，连续调用会因 `lastIndex` 残留交替返回 ⇒ 本护栏**刻意改用 `sanitize()` 的"文本是否变化"判定**规避。
+
+**门槛（本轮实测）**：`typecheck 0` · `eslint` 新增文件 0 error · `lint:arch 错误 0`（警告回基线）·
+`lint:size 错误 0`（警告回基线 463）· 定向 `tests/core/outputGuard` + `tests/chat/outputGuards` + `tests/chat/finalOutputGuard` **24 pass / 0 fail** ·
+全量 `bun test` **4557 pass / 0 fail**（4578 tests / 482 files）。

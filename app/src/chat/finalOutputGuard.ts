@@ -17,9 +17,17 @@
  * - 只覆盖**助手终稿**里的 mermaid 块（与 P0-1② 既有边界一致），不覆盖工具返回值。
  * - 修复**至多 1 次**；失败/无产出 ⇒ **如实原样放行**（不静默、不阻塞；CS03）。
  * - 校验器/指令模板/事件类型全部**复用**既有唯一实现（CS01），本模块不重写文案。
+ *
+ * 13-P2-1（2026-10-05）**收编为统一输出护栏入口**：本函数在 mermaid 校验前/后各跑一次
+ * `core/outputGuard` 的统一护栏管线（由调用方从注册表注入 `outputGuards`）：
+ * - 打码（`redact`）⇒ 改写正文，后续 mermaid 校验与最终产物都作用于打码后文本；
+ * - 阻断（`block`）⇒ 提前返回 `blocked`（`text` 为安全替代文本），不再做修复；
+ * - 修复产物再跑一次 ⇒ 防止修复轮把敏感内容带回（如实：这是一次额外同步检查，非回退）。
  */
 
 import type { MermaidLintIssue } from '@modules/types/mermaid';
+import { runOutputGuards } from '@modules/core';
+import type { OutputGuard, OutputGuardIssue } from '@modules/core';
 
 /** 守卫依赖（由调用方注入，保持本模块零重依赖、可单测） */
 export interface FinalOutputGuardDeps {
@@ -34,13 +42,27 @@ export interface FinalOutputGuardDeps {
   ) => Promise<void>;
   /** 一次有界修复；失败/无法产出 ⇒ 返回 null */
   repair: (instruction: string) => Promise<string | null>;
+  /**
+   * 统一输出护栏（13-P2-1；由调用方从 `getOutputGuardRegistry().list()` 注入）。
+   * 省略/为空 ⇒ 只做 mermaid 校验（行为与 13-P2-1 前一致）。
+   */
+  outputGuards?: readonly OutputGuard[];
 }
 
 /** 守卫结果：最终正文 + 是否已修复 + 命中问题（便于调用方记录/断言） */
 export interface FinalOutputGuardResult {
   text: string;
   repaired: boolean;
+  /** mermaid 结构问题（既有语义不变） */
   issues: MermaidLintIssue[];
+  /** 统一护栏命中（13-P2-1；PII 打码 / 注入回显等） */
+  guardIssues?: OutputGuardIssue[];
+  /** 被统一护栏阻断（13-P2-1）：调用方应阻断外发，`text` 为安全替代文本 */
+  blocked?: boolean;
+  /** 阻断原因（`blocked=true` 时非空） */
+  blockReason?: string;
+  /** 正文被统一护栏打码改写（13-P2-1） */
+  redacted?: boolean;
 }
 
 /**
@@ -52,19 +74,70 @@ export async function guardFinalOutput(
   text: string,
   deps: FinalOutputGuardDeps
 ): Promise<FinalOutputGuardResult> {
-  const issues = deps.lint(text);
-  if (issues.length === 0) return { text, repaired: false, issues };
+  const guards = deps.outputGuards ?? [];
 
-  const instruction = deps.renderInstruction(issues);
-  await deps.emitValidationInjected(issues, instruction);
-
-  let repaired: string | null = null;
-  try {
-    repaired = await deps.repair(instruction);
-  } catch {
-    // @ignore-catch — 修复属增强路径，失败必须如实原样放行（CS03），由调用方日志兜底
-    repaired = null;
+  // ① 统一护栏管线（13-P2-1）：打码 / 阻断 / 回显观测
+  const gateBefore = guards.length ? runOutputGuards(guards, text) : null;
+  if (gateBefore?.blocked) {
+    return {
+      text: gateBefore.text,
+      repaired: false,
+      issues: [],
+      guardIssues: gateBefore.issues,
+      blocked: true,
+      blockReason: gateBefore.blockReason,
+      redacted: gateBefore.redactedBy.length > 0,
+    };
   }
-  if (!repaired || !repaired.trim()) return { text, repaired: false, issues };
-  return { text: repaired, repaired: true, issues };
+  const guarded = gateBefore ? gateBefore.text : text;
+
+  // ② mermaid 结构校验 + 有界修复（既有逻辑，作用于打码后文本）
+  const issues = deps.lint(guarded);
+  let finalText = guarded;
+  let repaired = false;
+  if (issues.length > 0) {
+    const instruction = deps.renderInstruction(issues);
+    await deps.emitValidationInjected(issues, instruction);
+
+    let candidate: string | null = null;
+    try {
+      candidate = await deps.repair(instruction);
+    } catch {
+      // @ignore-catch — 修复属增强路径，失败必须如实原样放行（CS03），由调用方日志兜底
+      candidate = null;
+    }
+    if (candidate && candidate.trim()) {
+      finalText = candidate;
+      repaired = true;
+    }
+  }
+
+  // ③ 修复产物再过一次统一护栏（仅当发生修复；否则 finalText 已通过 ①）
+  const gateAfter =
+    repaired && guards.length ? runOutputGuards(guards, finalText) : null;
+  if (gateAfter?.blocked) {
+    return {
+      text: gateAfter.text,
+      repaired: false,
+      issues,
+      guardIssues: gateAfter.issues,
+      blocked: true,
+      blockReason: gateAfter.blockReason,
+      redacted: true,
+    };
+  }
+
+  const outText = gateAfter ? gateAfter.text : finalText;
+  const redacted =
+    (gateBefore?.redactedBy.length ?? 0) > 0 ||
+    (gateAfter?.redactedBy.length ?? 0) > 0;
+
+  return {
+    text: outText,
+    repaired,
+    issues,
+    guardIssues: [...(gateBefore?.issues ?? []), ...(gateAfter?.issues ?? [])],
+    blocked: false,
+    redacted,
+  };
 }

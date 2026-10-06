@@ -277,6 +277,15 @@ export class VerifierAgent {
   }
 
   /**
+   * 13-P1-3（2026-10-05）：**运行期更新部分配置**（供 pattern 执行配方应用）。
+   *
+   * 与 `reset()` 正交：不重置 `cycleCount`；未提供的字段保持原值。
+   */
+  configure(partial: Partial<VerifierAgentConfig>): void {
+    this.config = { ...this.config, ...partial };
+  }
+
+  /**
    * 设置模型调用函数（由 TAORLoop 注入）
    */
   setCallModel(

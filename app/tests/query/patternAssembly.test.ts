@@ -101,12 +101,11 @@ describe('pattern 装配入口（B1）：assembler → 可执行路由', () => {
     }
   });
 
-  it('三个未落地 pattern → unavailable 且原因非空（fail-closed，无占位 stub）', () => {
-    for (const name of [
-      'iterative_refine',
-      'parallel_distributed',
-      'self_verify',
-    ] as const) {
+  // 13-P1-3（2026-10-05）：self_verify 由 unavailable 升为 ready（复用既有 VerifierAgent）
+  // ⇒ 本用例收敛为"仍未落地的两个"；self_verify 的 ready/verify 断言见
+  // `patternAssemblerRecipe.test.ts`（携带 recipe 一并校验）。
+  it('两个未落地 pattern → unavailable 且原因非空（fail-closed，无占位 stub）', () => {
+    for (const name of ['iterative_refine', 'parallel_distributed'] as const) {
       const descriptor = getPatternDescriptor(name);
       if (!descriptor) throw new Error(`缺少 pattern 描述：${name}`);
       const inst = instantiatePattern({ name, descriptor });

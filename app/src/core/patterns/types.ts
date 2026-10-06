@@ -78,6 +78,29 @@ export interface PatternAssembly {
   bindings: PatternRoleBinding[];
 }
 
+/**
+ * 执行配方（13-P1-3，2026-10-05）——把装配从「是否走某条路线」升级为**可执行参数**。
+ *
+ * 背景：《Agentic Design Patterns》21 模式复查 §13 A1 —— 装配结果原只回答"是否走研究编排"
+ * 一个布尔问题，未携带 Pattern 应有的执行配方（并发度 / 验证策略 / 预算策略）。
+ *
+ * 消费方式：由装配入口规格（`query/patternAssembler.ts#ASSEMBLER_SPECS`）携带，并在
+ * `instantiatePattern()` 结果里返回；消费方据此配置**既有**运行时（**不新建运行时**）。
+ *
+ * ⚠️ 落点说明（如实）：配方放在装配入口规格（app 层）而非描述符数据 —— 它是**运行期关切**，
+ * 单一落点避免与描述符目录（声明式数据）耦合；类型契约在此共享。
+ */
+export interface PatternRecipe {
+  /** 运行线路（决定使用哪个既有运行时） */
+  loopKind: 'research' | 'verify';
+  /** 并发度上限（未声明 ⇒ 用运行时默认；**不臆造值**） */
+  concurrency?: number;
+  /** 验证策略：`off` 不验证 / `advisory` 记录不阻断 / `blocking` 不通过即不放行 */
+  verifyPolicy: 'off' | 'advisory' | 'blocking';
+  /** 预算策略：`strict` 收紧重试与循环上限 / `default` 运行时默认 */
+  budgetPolicy: 'default' | 'strict';
+}
+
 /** 声明式 pattern 描述 */
 export interface PatternDescriptor {
   /** 唯一名 */

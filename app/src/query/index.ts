@@ -168,7 +168,11 @@ export {
 } from './patternAssembly.js';
 export type { PatternProviderBinding } from './patternAssembly.js';
 // A8 最后一公里（B1，2026-10-04）：装配入口 —— assembler → 可执行路由（闭集 + fail-closed）
-export { instantiatePattern } from './patternAssembler.js';
+// 13-P1-3（2026-10-05）：新增执行配方（recipe）与配方→验证器配置
+export {
+  instantiatePattern,
+  verifierConfigForRecipe,
+} from './patternAssembler.js';
 export type {
   PatternInstantiation,
   PatternRunRoute,

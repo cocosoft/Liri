@@ -92,6 +92,7 @@ import { filterToolsByTask } from '@modules/tools';
 import type { ToolCategory } from '@modules/tools';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
+import { getOutputGuardRegistry } from '@modules/core';
 import {
   lintMermaidBlocks,
   formatMermaidIssues,
@@ -2064,6 +2065,8 @@ export async function* runStreamMessage(
     if (!finalResponse?.tool_calls || finalResponse.tool_calls.length === 0) {
       const guardResult = await guardFinalOutput(accumulatedContent, {
         lint: lintMermaidBlocks,
+        // 13-P2-1：统一输出护栏（默认空注册 ⇒ 行为与原状一致）
+        outputGuards: getOutputGuardRegistry().list(),
         renderInstruction: (issues) =>
           renderGoalTemplate('mermaid_repair', {
             issues: formatMermaidIssues(issues),
@@ -2117,7 +2120,20 @@ export async function* runStreamMessage(
           return repaired;
         },
       });
-      if (guardResult.repaired) {
+      if (guardResult.blocked) {
+        // 13-P2-1：统一护栏阻断 ⇒ 以安全替代文本覆盖已流出正文（不再做 mermaid 修复）
+        accumulatedContent = guardResult.text;
+        await host.updateMessageBlocks(
+          session.id,
+          assistantMessage.id,
+          [{ type: 'text', content: guardResult.text }],
+          guardResult.text
+        );
+        logger.warn('streamMessage:no_tool_final_output_blocked', {
+          sessionId: session.id,
+          reason: guardResult.blockReason,
+        });
+      } else if (guardResult.repaired || guardResult.redacted) {
         accumulatedContent = guardResult.text;
         await host.updateMessageBlocks(
           session.id,
@@ -2128,6 +2144,9 @@ export async function* runStreamMessage(
         logger.info('streamMessage:no_tool_final_output_repaired', {
           sessionId: session.id,
           issueCount: guardResult.issues.length,
+          repaired: guardResult.repaired,
+          redacted: guardResult.redacted === true,
+          guardIssueCount: guardResult.guardIssues?.length ?? 0,
         });
       }
     }

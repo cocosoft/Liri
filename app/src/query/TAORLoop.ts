@@ -525,6 +525,15 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.registerDefaultStopHooks();
   }
 
+  /**
+   * 13-P1-3（2026-10-05）：应用 **pattern 执行配方** → 验证器配置（供装配点调用）。
+   *
+   * 只改既有 `VerifierAgent` 的配置，不新建/替换运行时；不重置 `cycleCount`。
+   */
+  applyVerifierConfig(partial: Partial<VerifierAgentConfig>): void {
+    this.verifier.configure(partial);
+  }
+
   private registerDefaultStopHooks(): void {
     this.stopHookManager.registerHook({
       name: 'taor_token_budget',

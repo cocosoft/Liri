@@ -37,7 +37,7 @@ import {
 import { renderGoalTemplate } from '../../tasks/goal/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
 import { handleError } from '@modules/error';
-import { SimpleMutex } from '@modules/core';
+import { SimpleMutex, getOutputGuardRegistry } from '@modules/core';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
@@ -748,6 +748,8 @@ export class ChatOrchestrator {
             String(assistantMessage.content ?? ''),
             {
               lint: lintMermaidBlocks,
+              // 13-P2-1：统一输出护栏（默认空注册 ⇒ 行为与原状一致）
+              outputGuards: getOutputGuardRegistry().list(),
               renderInstruction: (issues) =>
                 renderGoalTemplate('mermaid_repair', {
                   issues: formatMermaidIssues(issues),
@@ -789,7 +791,21 @@ export class ChatOrchestrator {
               },
             }
           );
-          if (guardResult.repaired) {
+          if (guardResult.blocked) {
+            // 13-P2-1：统一护栏阻断 ⇒ 以安全替代文本作为终稿（不再做 mermaid 修复）
+            assistantMessage.content = guardResult.text;
+            response.content = guardResult.text;
+            await this.host.updateMessageBlocks(
+              session.id,
+              assistantMessage.id,
+              [{ type: 'text', content: guardResult.text }],
+              guardResult.text
+            );
+            logger.warn('sendMessage:no_tool_final_output_blocked', {
+              sessionId: session.id,
+              reason: guardResult.blockReason,
+            });
+          } else if (guardResult.repaired || guardResult.redacted) {
             assistantMessage.content = guardResult.text;
             response.content = guardResult.text;
             await this.host.updateMessageBlocks(
@@ -801,6 +817,9 @@ export class ChatOrchestrator {
             logger.info('sendMessage:no_tool_final_output_repaired', {
               sessionId: session.id,
               issueCount: guardResult.issues.length,
+              repaired: guardResult.repaired,
+              redacted: guardResult.redacted === true,
+              guardIssueCount: guardResult.guardIssues?.length ?? 0,
             });
           }
         }

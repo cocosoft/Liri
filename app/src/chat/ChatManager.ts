@@ -228,7 +228,10 @@ import {
 import { UnifiedTokenTracker } from '../tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '@modules/query';
 // A8 最后一公里（B1，2026-10-04）：装配入口——assembler → 可执行路由（未接线者显式 unavailable）
-import { instantiatePattern } from '@modules/query';
+// 13-P1-3（2026-10-05）：新增执行配方（recipe）与配方→验证器配置
+import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';
+// 13-P2-1（2026-10-05）：输出侧统一护栏组合根注册（默认关 ⇒ 空注册）
+import { registerDefaultOutputGuards } from './outputGuards/index.js';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
 import { getMemoryPressureMonitor } from '@modules/monitoring';
@@ -962,6 +965,8 @@ export class ChatManagerImpl implements ChatManager {
    * 构造函数
    */
   constructor() {
+    // 13-P2-1：注册输出侧统一护栏（幂等；`OUTPUT_GUARD=false` 默认 ⇒ 空注册，零行为变更）
+    registerDefaultOutputGuards();
     this.messageService = createMessageService();
     this.streamService = createStreamService();
     this.sessionGateway = createSessionGateway();
@@ -3672,6 +3677,27 @@ export class ChatManagerImpl implements ChatManager {
     const researchInstantiation = researchPattern
       ? instantiatePattern(researchPattern)
       : null;
+    // 13-P1-3（2026-10-05）：装配结果的**执行配方**应用 —— `self_verify` 线路 ⇒ 把配方
+    // 落到**既有** VerifierAgent（blocking + 严格预算），不新建运行时。
+    // ⚠️ 如实边界：`self_verify` 目前**无触发场景**（N4）⇒ 本分支当前**不可达**；
+    // 接线就位，待触发面补齐后即生效（不谎报为"已生效"）。
+    if (
+      researchInstantiation?.status === 'ready' &&
+      researchInstantiation.route === 'verify'
+    ) {
+      const recipeVerifierConfig = verifierConfigForRecipe(
+        researchInstantiation.recipe
+      );
+      this._getOrCreateTAORLoop(session.id).applyVerifierConfig(
+        recipeVerifierConfig
+      );
+      logger.info('pattern 配方应用（self_verify ⇒ 验证器配置）', {
+        sessionId: session.id,
+        verifyPolicy: researchInstantiation.recipe.verifyPolicy,
+        budgetPolicy: researchInstantiation.recipe.budgetPolicy,
+        verifier: recipeVerifierConfig,
+      });
+    }
     const researchMode =
       coreFeature('COMPETITIVE_STRATEGY') &&
       researchInstantiation?.status === 'ready' &&

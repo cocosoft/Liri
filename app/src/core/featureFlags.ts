@@ -240,6 +240,20 @@ export const FEATURE_FLAGS = {
   SECURITY_SCAN: true,
   /** 安全审计 */
   SECURITY_AUDIT: true,
+  /**
+   * 13-P2-1（2026-10-05）：**输出侧内容护栏**总开关（默认关）。
+   *
+   * 开启后 `chat/finalOutputGuard` 在终稿 mermaid 校验前/后跑统一护栏管线
+   * （PII 脱敏 / 敏感拦截 / 注入回显，见 `chat/outputGuards/`）。
+   * 默认关：脱敏会改写既有回复中的邮箱/卡号等，属可见行为变更 ⇒ 显式开启：
+   * `FEATURE_OUTPUT_GUARD=true`。
+   */
+  OUTPUT_GUARD: false,
+  /**
+   * 13-P2-1：护栏命中敏感内容时**阻断**而非打码（默认关 ⇒ 打码）。
+   * 仅在 `OUTPUT_GUARD=true` 时生效：`FEATURE_OUTPUT_GUARD_BLOCK=true`。
+   */
+  OUTPUT_GUARD_BLOCK: false,
 
   // ───── 性能与监控 ─────
   /** 内存监控 */

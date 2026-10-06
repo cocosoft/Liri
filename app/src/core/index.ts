@@ -148,9 +148,25 @@ export type {
   PatternProvider,
   PatternAssemblerId,
   PatternAssembly,
+  PatternRecipe,
   PatternSelection,
   PatternDescriptor,
 } from './patterns';
+
+// 13-P2-1（2026-10-05）：输出侧护栏统一契约 + 注册表（core 层；具体护栏在 app 层注册）
+export {
+  OutputGuardRegistry,
+  getOutputGuardRegistry,
+  resetOutputGuardRegistryForTest,
+  runOutputGuards,
+} from './outputGuard';
+export type {
+  OutputGuard,
+  OutputGuardAction,
+  OutputGuardIssue,
+  OutputGuardVerdict,
+  OutputGuardRunResult,
+} from './outputGuard';
 
 // 2026-08-29 R03-002 收敛：trajectory / utils 统一出口
 // 2026-10-01 D-144：PlanDrivenLoop 及其辅助判定函数已移至 tasks 层

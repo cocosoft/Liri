@@ -985,7 +985,6 @@ class ArchitectureLinter {
     const knownExceptions = [
       // R01-001 EventBus 治理例外
       'agent\\events\\index.ts',
-      'core\\extensibility\\EventBus.ts',
       'voice\\VoiceEventBus.ts',
       'session\\lifecycle\\SessionLifecycleEventBus.ts',
       // R01-003 重试治理例外
@@ -1035,7 +1034,6 @@ class ArchitectureLinter {
       // 2026-08-29 R03-001 治理（B 类）：已 @deprecated 的 ConfigManager 变体，待移除
       //（lint 报告准确，但文件头已声明"请使用 @modules/config/ConfigManager 替代"，按计划清理）
       'cli\\config.ts',
-      'core\\extensibility\\ConfigManager.ts',
     ];
 
     for (const file of this.allFiles) {
@@ -1526,7 +1524,6 @@ class ArchitectureLinter {
       //   - ToolContext/ConversationMessage/PluginSource/Task/Command/PermissionContext/ToolResult/Tool/TaskState：语义不同的领域模型
       //   - ToolPermissionContext：核心字段一致但精度不同，事实源为 tools/types/PermissionContext.ts
       'agent/managers/PluginLoader.ts',
-      'core/extensibility/PluginLoader.ts',
       'plugins/core/PluginLoader.ts',
       'plugins/core/PluginRegistry.ts',
       'plugins/managers/PluginManager.ts',
@@ -1673,7 +1670,6 @@ class ArchitectureLinter {
       'commands/logout/logout.ts',
       // 特性开关（Feature Flag）
       'core/AppCore.ts',
-      'core/extensibility/ExtensibilityService.ts',
       // 诊断/系统检测
       'diagnostics/DiagnosticsService.ts',
       // 标准 OpenTelemetry 环境变量

@@ -83,7 +83,7 @@ export class ToolManager extends EventEmitter {
 
     profileCheckpoint('tool_manager_constructor_start');
     // 统一使用全局 ToolRegistry 单例作为唯一注册入口；
-    // 显式传入 registry 时（如 EnhancedToolSystem）保持隔离，但不覆盖全局。
+    // 显式传入 registry 时保持隔离，但不覆盖全局。
     this.registry = options.registry || getToolRegistry();
     this.factory = options.factory || new ToolFactory();
 

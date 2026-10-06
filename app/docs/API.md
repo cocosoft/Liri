@@ -1200,39 +1200,19 @@ console.log('Alerts:', alerts);
 ### 导入
 
 ```typescript
-import { createEnhancedToolSystem } from './src/tools/EnhancedToolSystem.js';
+import { getToolRegistry, initializeToolSystem } from '@modules/tools';
 ```
 
-### 创建工具系统
+### 初始化工具系统
 
 ```typescript
-const toolSystem = createEnhancedToolSystem({
-  maxTools: 100,
-  timeout: 30000,
-  enableCache: true
-});
+await initializeToolSystem();
+const registry = getToolRegistry(); // 工具注册表（唯一写入口）
 ```
 
-### 工具系统操作
-
-```typescript
-// 获取工具管理器
-const toolManager = toolSystem.getToolManager();
-
-// 执行工具
-const result = await toolManager.executeTool('file_read', {
-  path: 'package.json'
-});
-console.log('Tool result:', result);
-
-// 获取所有工具
-const tools = toolManager.getAllTools();
-console.log('All tools:', tools);
-
-// 获取工具信息
-const toolInfo = toolManager.getToolInfo('file_read');
-console.log('Tool info:', toolInfo);
-```
+> 说明：原文档所示的 `createEnhancedToolSystem`（`tools/EnhancedToolSystem.ts`）为**零源码消费者**的遗留实现，
+> 已于 2026-10-07 随 P2-8 ② B 类复核**整链删除**（连同其唯一依赖 `core/extensibility/{PluginLoader,ModuleManager,ConfigManager}`）。
+> 工具系统实际入口为 `@modules/tools`（`ToolRegistry` + `ToolManager` 门面）。
 
 ## 工具函数库
 

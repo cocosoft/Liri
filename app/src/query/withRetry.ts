@@ -1,33 +1,24 @@
 /**
- * 实现指数退避重试、529过载处理、瞬态错误检测
- * 支持可配置的重试条件和自定义重试判断
+ * 查询层重试工具（指数退避 + 529 过载 + 瞬态错误分类）。
  *
- * @deprecated 核心重试功能已迁移至 @modules/utils/withRetry。
- *   新代码优先使用 @modules/utils/withRetry 中的 withRetry / withRetryAsync。
- *   categorizaAPIError / APIErrorClassification / RetryableErrorType 已迁移至 utils/withRetry。
- *   本模块的扩展功能（withRetryGenerator, withRetryEnhanced, withRetryWithTimeout,
- *   createExponentialBackoffStrategy, createFixedDelayStrategy）将在后续版本中迁移。
+ * @deprecated 核心重试功能已迁移至 @modules/utils/withRetry；新代码优先使用
+ *   `@modules/utils/withRetry` 的 `withRetry` / `withRetryAsync`。
+ *   本模块保留仅供 `query/QueryEngine.ts` 消费（`withRetry` / `categorizeAPIError` /
+ *   `DEFAULT_RETRY_CONFIG` / `RetryConfig`）。
  *
- *   已知冲突（不可直接 re-export，因命名冲突）：
- *   - withRetry / RetryConfig / DEFAULT_RETRY_CONFIG：本模块与 utils/withRetry 签名不同
+ *   ⚠️ B 类复核（2026-10-07）：原模块的扩展导出（`withRetryGenerator` /
+ *   `withRetryEnhanced` / `withRetryWithTimeout` / `createExponentialBackoffStrategy` /
+ *   `createFixedDelayStrategy` / `is529Error` / `isTransientCapacityError` /
+ *   `isStaleConnectionError` / `CannotRetryError` / `RetryState` / `RetryResult` /
+ *   `MAX_529_RETRIES` 等）经全仓 grep **零消费者** ⇒ 已删除；内部常量与助手收紧为模块私有。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('query\withRetry');
-
-const INITIAL_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 60000;
 const JITTER_FACTOR = 0.1;
-const MAX_TOTAL_RETRY_TIME_MS = 300000; // 5分钟最大重试时间
-
-/** 529过载错误最大重试次数（参考CC源码 MAX_529_RETRIES=3） */
-export const MAX_529_RETRIES = 3;
-/** 默认最大重试次数（参考CC源码 DEFAULT_MAX_RETRIES=10） */
-export const MAX_RETRIES_DEFAULT = 10;
-/** 基础退避延迟（参考CC源码 BASE_DELAY_MS=500） */
-export const BASE_DELAY_MS = 500;
+/** 默认最大重试次数 */
+const MAX_RETRIES_DEFAULT = 10;
+/** 基础退避延迟（毫秒） */
+const BASE_DELAY_MS = 500;
 
 /**
  * 可重试错误类型枚举
@@ -73,25 +64,7 @@ export interface RetryConfig {
 }
 
 /**
- * 重试状态信息
- */
-export interface RetryState {
-  attempt: number;
-  totalDelayMs: number;
-  lastError?: unknown;
-}
-
-/**
- * 重试结果
- */
-export interface RetryResult<T> {
-  result: T;
-  attempts: number;
-  totalDelayMs: number;
-}
-
-/**
- * 默认重试配置（对齐CC源码）
+ * 默认重试配置
  */
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: MAX_RETRIES_DEFAULT,
@@ -99,52 +72,6 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelayMs: MAX_RETRY_DELAY_MS,
   jitterFactor: JITTER_FACTOR,
 };
-
-/**
- * 判断是否为529过载错误
- */
-export function is529Error(error: unknown): boolean {
-  const err = error as Record<string, unknown>;
-  return err?.status === 529 || err?.statusCode === 529;
-}
-
-/**
- * 判断是否为瞬态容量错误（529或429）
- */
-export function isTransientCapacityError(error: unknown): boolean {
-  const err = error as Record<string, unknown>;
-  const status = err?.status || err?.statusCode;
-  return status === 529 || status === 429;
-}
-
-/**
- * 判断是否为过期连接错误（ECONNRESET/EPIPE）
- */
-export function isStaleConnectionError(error: unknown): boolean {
-  const err = error as Record<string, unknown>;
-  const msg = String(err?.message || '').toLowerCase();
-  return msg.includes('econnreset') || msg.includes('epipe');
-}
-
-/**
- * 不可重试错误（参考CC源码 CannotRetryError）
- */
-export class CannotRetryError extends AppError {
-  constructor(
-    public readonly originalError: unknown,
-    message?: string
-  ) {
-    super(
-      message || 'Cannot retry error',
-      ErrorCategory.OPERATION,
-      ErrorSeverity.LOW
-    );
-    this.name = 'CannotRetryError';
-    if (originalError instanceof Error && originalError.stack) {
-      this.stack = originalError.stack;
-    }
-  }
-}
 
 /**
  * 分类API错误
@@ -251,7 +178,7 @@ export function categorizeAPIError(error: unknown): APIErrorClassification {
  * @param config 重试配置
  * @returns 延迟时间（毫秒）
  */
-export function calculateBackoffDelay(
+function calculateBackoffDelay(
   attempt: number,
   config: RetryConfig = DEFAULT_RETRY_CONFIG
 ): number {
@@ -300,172 +227,4 @@ export async function withRetry<T>(
   }
 
   throw lastError;
-}
-
-/**
- * 使用重试机制执行异步生成器
- * @param generatorFactory 生成器工厂
- * @param config 重试配置
- * @param onRetry 重试回调
- * @returns 异步生成器
- */
-export async function* withRetryGenerator<T>(
-  generatorFactory: () => AsyncGenerator<T>,
-  config: RetryConfig = DEFAULT_RETRY_CONFIG,
-  onRetry?: (error: unknown, attempt: number, delayMs: number) => void
-): AsyncGenerator<T> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    try {
-      const generator = generatorFactory();
-      for await (const item of generator) {
-        yield item;
-      }
-      return;
-    } catch (error) {
-      lastError = error;
-      const classification = categorizeAPIError(error);
-
-      if (!classification.retryable || attempt >= config.maxRetries) {
-        throw error;
-      }
-
-      const delayMs =
-        classification.retryAfterMs ?? calculateBackoffDelay(attempt, config);
-
-      if (onRetry) {
-        onRetry(error, attempt + 1, delayMs);
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  throw lastError;
-}
-
-/**
- * 增强的重试机制 - 支持更多配置选项
- * @param operation 要执行的操作
- * @param config 重试配置
- * @returns 重试结果
- */
-export async function withRetryEnhanced<T>(
-  operation: () => Promise<T>,
-  config: RetryConfig = DEFAULT_RETRY_CONFIG
-): Promise<RetryResult<T>> {
-  const maxTotalTime = config.maxTotalRetryTimeMs ?? MAX_TOTAL_RETRY_TIME_MS;
-  let totalDelayMs = 0;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    try {
-      const result = await operation();
-      return {
-        result,
-        attempts: attempt + 1,
-        totalDelayMs,
-      };
-    } catch (error) {
-      lastError = error;
-
-      // 检查是否应该重试
-      const shouldRetry = config.retryOn
-        ? config.retryOn(error)
-        : categorizeAPIError(error).retryable;
-
-      if (!shouldRetry || attempt >= config.maxRetries) {
-        if (config.onRetryFailed) {
-          config.onRetryFailed(error, attempt + 1, totalDelayMs);
-        }
-        throw error;
-      }
-
-      // 检查总重试时间
-      const delayMs = config.delayCalculator
-        ? config.delayCalculator(attempt, error)
-        : calculateBackoffDelay(attempt, config);
-
-      if (totalDelayMs + delayMs > maxTotalTime) {
-        if (config.onRetryFailed) {
-          config.onRetryFailed(error, attempt + 1, totalDelayMs);
-        }
-        throw error;
-      }
-
-      // 执行重试前回调
-      if (config.onBeforeRetry) {
-        config.onBeforeRetry(error, attempt + 1, delayMs);
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      totalDelayMs += delayMs;
-
-      // 执行重试后回调
-      if (config.onAfterRetry) {
-        config.onAfterRetry(error, attempt + 1, delayMs);
-      }
-    }
-  }
-
-  if (config.onRetryFailed && lastError) {
-    config.onRetryFailed(lastError, config.maxRetries + 1, totalDelayMs);
-  }
-
-  throw lastError;
-}
-
-/**
- * 创建带超时的重试操作
- * @param operation 要执行的操作
- * @param timeoutMs 超时时间（毫秒）
- * @param config 重试配置
- * @returns 操作结果
- */
-export async function withRetryWithTimeout<T>(
-  operation: () => Promise<T>,
-  timeoutMs: number,
-  config: RetryConfig = DEFAULT_RETRY_CONFIG
-): Promise<T> {
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`Retry operation timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
-
-  const retryPromise = withRetry(operation, config);
-
-  return Promise.race([retryPromise, timeoutPromise]);
-}
-
-/**
- * 创建延迟重试策略
- * @param delaysMs 延迟数组（毫秒）
- * @returns 延迟计算函数
- */
-export function createExponentialBackoffStrategy(
-  initialDelay: number = BASE_DELAY_MS,
-  maxDelay: number = MAX_RETRY_DELAY_MS,
-  jitterFactor: number = JITTER_FACTOR
-): (attempt: number) => number {
-  return (attempt: number) => {
-    const exponentialDelay = Math.min(
-      initialDelay * Math.pow(2, attempt),
-      maxDelay
-    );
-    const jitter = exponentialDelay * jitterFactor * (Math.random() - 0.5) * 2;
-    return Math.max(0, Math.floor(exponentialDelay + jitter));
-  };
-}
-
-/**
- * 创建固定间隔重试策略
- * @param delayMs 固定延迟（毫秒）
- * @returns 延迟计算函数
- */
-export function createFixedDelayStrategy(
-  delayMs: number
-): (attempt: number) => number {
-  return () => delayMs;
 }

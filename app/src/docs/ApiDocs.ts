@@ -243,29 +243,6 @@ if (available) {
     ],
   },
   {
-    name: 'getSkillService',
-    category: '技能系统',
-    description: '获取技能服务实例',
-    signature: 'getSkillService(): SkillService',
-    parameters: [],
-    returns: 'SkillService - 技能服务实例',
-    examples: [
-      {
-        title: '使用技能服务',
-        code: `import { getSkillService } from '../skills';
-
-const skillService = getSkillService();
-
-// 获取所有技能
-const skills = skillService.getSkills();
-
-// 执行技能
-const result = await skillService.executeSkill('debug', '', context);
-console.log(result);`,
-      },
-    ],
-  },
-  {
     name: 'createToolManager',
     category: '工具管理',
     description: '创建工具管理器实例',

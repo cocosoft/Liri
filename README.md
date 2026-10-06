@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.65-blue)
+![Version](https://img.shields.io/badge/version-0.4.66-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.65**
+当前版本：**v0.4.66**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,18 +435,21 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.65 (2026-10-06)
+#### v0.4.66 (2026-10-06)
 
-**评测体系四项扩展（A1 / A2 / A3 / A6）+ 协议与可观测性对齐（A5 / A4）+ README 特色重写**
+**U4 在线质量评估器全链闭环（D1–D6）+ ACP 远程暴露 fail-closed + 记忆冲突检测接线 + 死代码簇清理**
 
-- ✅ **A1 可靠性口径：pass^k 曲线** - 新增 `passHatK()`（`C(c,k)/C(n,k)` 组合式**无偏估计**，逐步连乘避免溢出）+ `computeReliabilityCurve()`（逐点任务平均，**只算跑够 k 次的任务并记录参与数**）；报告与 CLI 新增「可靠性曲线」段（仅 k≥2 点，k=1 退化为单点不展示）；**不改**既有 `pass1`/`passK` 与门禁；用例 **10 例**
-- ✅ **A2 真实任务级回归基线** - 新增逐用例 JUnit 解析（`<testcase>` 三态 + 实体解码）+ 由**双实测自动派生** `F2P`/`P2P`（起点红→F2P、起点绿→P2P），物化期 **fail-closed**（F2P 为空即拒绝出题）；打分新增 `resolved` / `breaking` / `no-op` 与 `resolvedRate`（仅双清单任务进分母）；用例 **17 例**
-- ✅ **A3 安全评测：聚合 ASR（Max 口径）** - `SecuritySummary` 增 `aggregatedAsr`/`aggregatedWon`：同一场景**任一**已完成攻击得手即该场景记"被攻破"（**空转不算**），与 attempt 级 ASR **并存展示**（各自标注口径）；**不改**题集 / 运行时防护 / 退出码；用例 **5 例**
-- ✅ **A4 可观测性：OTel GenAI 语义约定** - LLM 请求 span **并存**写入 `gen_ai.operation.name` / `gen_ai.request.model`（创建时）+ `gen_ai.usage.input_tokens` / `output_tokens`（结束时）；span 名与 `Liri.*` 指标**零改名**（避免破坏覆盖去重键与客户端 trace 视图）；内容类属性按规范**默认不采集**
-- ✅ **A5 A2A 对齐 v1.0.0** - 发现路径 → `/.well-known/agent-card.json`；`A2ATaskState` → **9 值 `TASK_STATE_*`**（补齐 `UNSPECIFIED` / `AUTH_REQUIRED`）；`A2A_METHODS` 值 → v1.0 PascalCase 抽象操作名；枚举改名的**编译期强约束实测**精确捕获 4 处残留状态字面量
-- ✅ **A6 检索基准：真实语料 + 对照口径** - **删除模拟语料生成器**（`${topic}${w}${p}` 式假词），改用仓库自身 **143 篇真实文档**（复用既有 `FileDocsProvider`）；查询词由语料标题派生；新增 `benchRetrievalModes()` 对照 `exact-title` / `keyword` / `hybrid` / `vector` / `graph` × `recall@1/5/10` · `MRR` · 延迟 · `matchType` 分布；不可得模式**显式标记不可用 + 原因**（不填 0 冒充）
-- ✅ **README 重写（非仅版本说明）** - 新增「**🌟 为什么是 Liri**」6 条工程取向（可复现优先 / 写前持久化 / 自带评测与回归门禁 / 架构门禁化 / DB 为唯一事实源 / 真实语料自测）；新增 5 个功能小节：**评测与回归门禁** · **可复现与回放** · **知识库与知识图谱** · **多智能体协作与工作流** · **协议面**
-- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）**、分层 **3886** · 全量 **4644 pass / 21 skip / 0 fail**（4665 tests / 492 files）
+- ✅ **U4 在线质量评估器（新模块 `evals/online`）** - 纯函数 `scoreTurn()`（4 维加权：完成度 0.4 / 裁决 0.3 / 工具空转 0.15 / 成本 0.15）+ 4 条结构化可疑规则（`not-completed` / `verdict-negative` / `low-score` / `low-score-streak` 连续 3 轮）+ `deriveTurnSignals()` 从事件日志派生每轮信号（含正文摘录，处理 `assistant/text.replace` 清空重建）+ `runTurnQualityPass()`（水位去重 + 回看窗口 + 上限 5 最低分优先 + 分片让出 + 单会话错误隔离）+ 会话级摘要 `summarizeTurnQuality()`；**不消费 `BehaviorMetrics`**（其「仅观测、不得作判据」契约由反向锁定测试守住）
+- ✅ **U4 D3 可疑轮 LLM 复核** - `createVerifierTurnReviewer()` 复用 `VerifierAgent`（**每轮新建实例**——`cycleCount` 为实例态，复用会使第 2 轮起恒 `ESCALATE`）；模型只取 `modelRouter.resolveRole('verifier')`，未配置即返回 `null` 跳过；实测边界：**无正文 ⇒ 跳过复核**
+- ✅ **U4 D4 空闲期接线（主链零调用）** - 挂在 `ChatOrchestrator._ensureIdleScaleMonitor().onIdle`（每次空闲只触发一次）；会话范围 = 活跃会话 ∪ 最近 30 个历史会话（`rankRecentSessionIds` 按 `updatedAt` 降序去重截断）⇒ **历史会话补评**同步落地
+- ✅ **U4 D5 事件契约四处同批** - `turn/quality` 新增：`shared/events/eventNames.ts` 名字 + `session/types/eventPayloads.ts` 后端载荷 + `client/src/types/events.ts` 前端载荷 + `knownEventTypes.ts` 登记清单（编译期穷尽断言强制，漏一处即 `TS2322`）
+- ✅ **U4 D6 消费点 = core SPI** - 新增 `ISessionQualityPort` + 转发代理（未注册返回 `null`），实现由 `entrypoints/spiWiring.ts` 注入 ⇒ 梦境（`chronos/autoDream`）可读在线质量分而**零 infra→app 倒挂**；`AutoDream.buildSessionLines` 追加质量摘要（失败只 `warn`）
+- ✅ **N-81 ACP 远程暴露 fail-closed** - 非回环地址 + 无 token ⇒ **拒绝启动**（不再默认放行）；配套 ACP / A2A 契约测试
+- ✅ **记忆冲突检测接线** - 空闲期只检测与记录，**零数据改写**
+- ✅ **死代码簇清理（N-78 / N-82 / N-83）** - 删除 `AdaptiveRouter` 整类 + `subagent/communication/` 4 文件族（`SubAgentCommunicator` 占位模拟 + `receivePermissionResponse` 无条件 `granted:true` = CS04 + fail-open）+ 权限同步双轨孤儿 3 文件 + MOA 成本死码；同步清理 `lint-architecture` 例外与 barrel 再导出
+- ✅ **N-74 i18n en 补齐** - 96 键 + 键一致性守卫（防再漂移）；**媒体提取工具命名统一为下划线** + 守卫测试
+- ✅ **D2 迁移评估（`dependsOnMode`）** - 取证结论：`hard` 在**生产不可达**（分解 prompt 不产出该字段、无 config/UI/env 开关、调用方未传）⇒ 13-P1-1 的修复在生产上不生效、A3 缺陷原样存在；结论 = **应当翻转但不能单独翻转**（两步走方案已入台账 §20.6）
+- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4718 pass / 21 skip / 0 fail**（500 files；较上版 **+74 例**）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

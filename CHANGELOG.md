@@ -21,6 +21,25 @@
 
 ---
 
+#### v0.4.66 (2026-10-06)
+
+**U4 在线质量评估器全链闭环（D1–D6）+ ACP 远程暴露 fail-closed + 记忆冲突检测接线 + 死代码簇清理**
+
+- ✅ **U4 在线质量评估器（新模块 `evals/online`）** - 纯函数 `scoreTurn()`（4 维加权：完成度 0.4 / 裁决 0.3 / 工具空转 0.15 / 成本 0.15）+ 4 条结构化可疑规则（`not-completed` / `verdict-negative` / `low-score` / `low-score-streak` 连续 3 轮）+ `deriveTurnSignals()` 从事件日志派生每轮信号（含正文摘录，处理 `assistant/text.replace` 清空重建）+ `runTurnQualityPass()`（水位去重 + 回看窗口 + 上限 5 最低分优先 + 分片让出 + 单会话错误隔离）+ 会话级摘要 `summarizeTurnQuality()`；**不消费 `BehaviorMetrics`**（其「仅观测、不得作判据」契约由反向锁定测试守住）
+- ✅ **U4 D3 可疑轮 LLM 复核** - `createVerifierTurnReviewer()` 复用 `VerifierAgent`（**每轮新建实例**——`cycleCount` 为实例态，复用会使第 2 轮起恒 `ESCALATE`）；模型只取 `modelRouter.resolveRole('verifier')`，未配置即返回 `null` 跳过；实测边界：**无正文 ⇒ 跳过复核**
+- ✅ **U4 D4 空闲期接线（主链零调用）** - 挂在 `ChatOrchestrator._ensureIdleScaleMonitor().onIdle`（每次空闲只触发一次）；会话范围 = 活跃会话 ∪ 最近 30 个历史会话（`rankRecentSessionIds` 按 `updatedAt` 降序去重截断）⇒ **历史会话补评**同步落地
+- ✅ **U4 D5 事件契约四处同批** - `turn/quality` 新增：`shared/events/eventNames.ts` 名字 + `session/types/eventPayloads.ts` 后端载荷 + `client/src/types/events.ts` 前端载荷 + `knownEventTypes.ts` 登记清单（编译期穷尽断言强制，漏一处即 `TS2322`）
+- ✅ **U4 D6 消费点 = core SPI** - 新增 `ISessionQualityPort` + 转发代理（未注册返回 `null`），实现由 `entrypoints/spiWiring.ts` 注入 ⇒ 梦境（`chronos/autoDream`）可读在线质量分而**零 infra→app 倒挂**；`AutoDream.buildSessionLines` 追加质量摘要（失败只 `warn` + `@ignore-catch`）
+- ✅ **N-81 ACP 远程暴露 fail-closed** - 非回环地址 + 无 token ⇒ **拒绝启动**（不再默认放行）；配套 `acpContract.test.ts` / `acpRemoteExposure.test.ts`
+- ✅ **记忆冲突检测接线** - 空闲期只检测与记录，**零数据改写**
+- ✅ **死代码簇清理（N-78 / N-82 / N-83）** - 删除 `AdaptiveRouter` 整类 + `subagent/communication/` 4 文件族（`SubAgentCommunicator` 占位模拟 + `receivePermissionResponse` 无条件 `granted:true` = CS04 + fail-open）+ 权限同步双轨孤儿 3 文件 + MOA 成本死码；同步清理 `lint-architecture` 例外与 barrel 再导出
+- ✅ **N-74 i18n en 补齐** - 96 键 + 键一致性守卫（防再漂移）；**媒体提取工具命名统一为下划线** + 守卫测试
+- ✅ **契约测试补齐** - A2A 委派/回查 405 两态 + ACP 全契约
+- ✅ **D2 迁移评估（`dependsOnMode`）** - 取证结论：`hard` 在**生产不可达**（分解 prompt 不产出该字段、无 config/UI/env 开关、调用方未传）⇒ 13-P1-1 的修复在生产上不生效、A3 缺陷原样存在；结论 = **应当翻转但不能单独翻转**（两步走方案已入台账 §20.6）；`topoBatches.ts` 注释补入该结论
+- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4718 pass / 21 skip / 0 fail**（500 files；较上版 **+74 例**，逐数吻合）
+
+---
+
 #### v0.4.65 (2026-10-06)
 
 **评测体系四项扩展（A1 / A2 / A3 / A6）+ 协议与可观测性对齐（A5 / A4）+ README 特色重写**

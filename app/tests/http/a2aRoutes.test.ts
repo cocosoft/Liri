@@ -33,7 +33,7 @@ interface Captured {
   ended: boolean;
 }
 
-const CARD_PATH = '/.well-known/agent.json';
+const CARD_PATH = '/.well-known/agent-card.json';
 const TASKS_PATH = '/v1/a2a/tasks';
 const API_KEY = 'test-a2a-key';
 const noop = (): void => undefined;
@@ -235,7 +235,7 @@ describe('A2A 委派（T4）', () => {
       status: { state: string };
       artifacts: { parts: { text?: string }[] }[];
     };
-    expect(task.status.state).toBe('completed');
+    expect(task.status.state).toBe('TASK_STATE_COMPLETED');
     expect(task.artifacts[0]?.parts[0]?.text).toBe('a1:ping');
   });
 
@@ -258,7 +258,7 @@ describe('A2A 委派（T4）', () => {
       id: string;
       status: { state: string };
     };
-    expect(created.status.state).toBe('working');
+    expect(created.status.state).toBe('TASK_STATE_WORKING');
 
     await delay(80);
     const polled = await call('GET', auth(), `${TASKS_PATH}/${created.id}`);
@@ -267,7 +267,7 @@ describe('A2A 委派（T4）', () => {
       status: { state: string };
       artifacts: { parts: { text?: string }[] }[];
     };
-    expect(task.status.state).toBe('completed');
+    expect(task.status.state).toBe('TASK_STATE_COMPLETED');
     expect(task.artifacts[0]?.parts[0]?.text).toBe('late-reply');
   });
 

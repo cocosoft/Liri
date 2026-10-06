@@ -49,7 +49,10 @@ export class A2ATaskStore {
     const task: A2ATask = {
       id: randomUUID(),
       contextId: contextId ?? randomUUID(),
-      status: { state: 'submitted', timestamp: new Date().toISOString() },
+      status: {
+        state: 'TASK_STATE_SUBMITTED',
+        timestamp: new Date().toISOString(),
+      },
       artifacts: [],
       history: [],
     };
@@ -106,7 +109,10 @@ export class A2ATaskStore {
       );
     }
 
-    task.status = { state: 'canceled', timestamp: new Date().toISOString() };
+    task.status = {
+      state: 'TASK_STATE_CANCELED',
+      timestamp: new Date().toISOString(),
+    };
     return task;
   }
 

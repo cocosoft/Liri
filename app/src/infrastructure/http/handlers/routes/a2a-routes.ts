@@ -2,7 +2,7 @@
  * a2a-routes.ts — dispatchA2ARoutes
  *
  * **A2A 对外暴露**（P3-1 / F2 / G2，2026-09-29）：
- * - `GET  /.well-known/agent.json` —— Agent Card 发现（T1–T3）
+ * - `GET  /.well-known/agent-card.json` —— Agent Card 发现（T1–T3）
  * - `POST /v1/a2a/tasks`          —— **委派**（T4）：创建任务并把消息交给委派后端
  * - `GET  /v1/a2a/tasks/{id}`     —— 任务状态/产物回查（T4）
  *
@@ -41,7 +41,7 @@ import type { A2AArtifact, A2AMessage } from '@modules/types/a2a';
 const logger = getLogger('http:a2a');
 
 /** A2A 规范的 Agent Card 发现路径 */
-const WELL_KNOWN_AGENT_JSON = '/.well-known/agent.json';
+const WELL_KNOWN_AGENT_CARD = '/.well-known/agent-card.json';
 /** 委派端点（本仓自定路径，非 A2A JSON-RPC 绑定；见 api-spec §3.8.2） */
 const TASKS_PATH = '/v1/a2a/tasks';
 
@@ -124,7 +124,7 @@ function resolveBaseUrl(req: http.IncomingMessage): string {
 /** 是否为 A2A 管辖路径（未启用时用于"完全不管"的判定） */
 function isA2APath(url: string): boolean {
   return (
-    url === WELL_KNOWN_AGENT_JSON ||
+    url === WELL_KNOWN_AGENT_CARD ||
     url === TASKS_PATH ||
     url.startsWith(`${TASKS_PATH}/`)
   );
@@ -167,7 +167,7 @@ export async function dispatchA2ARoutes(
     return true;
   }
 
-  if (url === WELL_KNOWN_AGENT_JSON) {
+  if (url === WELL_KNOWN_AGENT_CARD) {
     return handleAgentCard(req, res);
   }
   if (url === TASKS_PATH) {
@@ -176,7 +176,7 @@ export async function dispatchA2ARoutes(
   return handleGetTask(req, res, url.slice(TASKS_PATH.length + 1));
 }
 
-/** `GET /.well-known/agent.json` —— Agent Card（T1–T3） */
+/** `GET /.well-known/agent-card.json` —— Agent Card（T1–T3） */
 async function handleAgentCard(
   req: http.IncomingMessage,
   res: http.ServerResponse
@@ -274,7 +274,12 @@ async function handleCreateTask(
 
   if (outcome !== 'timeout') {
     const { artifacts, message: reply } = toDeliverables(outcome.value);
-    const done = port.completeTask(task.id, 'completed', artifacts, reply);
+    const done = port.completeTask(
+      task.id,
+      'TASK_STATE_COMPLETED',
+      artifacts,
+      reply
+    );
     logger.info('A2A 委派完成（同步）', { taskId: task.id, agentId });
     json(res, 200, done);
     return true;
@@ -282,7 +287,7 @@ async function handleCreateTask(
 
   // 超阈值：**有界等待**结束 ⇒ 标记 working 并立刻返回（不做 HTTP 长挂）；完成后由同一 Promise 收尾
   try {
-    port.completeTask(task.id, 'working', []);
+    port.completeTask(task.id, 'TASK_STATE_WORKING', []);
   } catch (error) {
     // @ignore-catch: 任务可能已在竞态窗口内完成（终态不可改写）⇒ 以已完成态返回即可
     await handleError(error, {
@@ -294,7 +299,7 @@ async function handleCreateTask(
   void pending
     .then((value) => {
       const { artifacts, message: reply } = toDeliverables(value);
-      port.completeTask(task.id, 'completed', artifacts, reply);
+      port.completeTask(task.id, 'TASK_STATE_COMPLETED', artifacts, reply);
     })
     .catch((error: unknown) =>
       handleError(error, {

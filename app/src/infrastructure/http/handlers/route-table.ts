@@ -130,7 +130,7 @@ export async function dispatchRoute(
   // M-6 接线（2026-09-22）：长程任务目标入口（`/v1/goals`）
   if (await dispatchGoalRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
-  // P3-1（2026-09-29）：A2A 对外发现（`/.well-known/agent.json`，默认关闭 ⇒ 未启用时自然 404）
+  // P3-1（2026-09-29）：A2A 对外发现（`/.well-known/agent-card.json`，默认关闭 ⇒ 未启用时自然 404）
   if (await dispatchA2ARoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
 

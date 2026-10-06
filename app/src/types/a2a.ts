@@ -74,25 +74,34 @@ export interface A2AArtifact {
   metadata?: Record<string, unknown>;
 }
 
-/** 任务状态（§3） */
+/**
+ * 任务状态（§3；**v1.0.0** 枚举，`SCREAMING_SNAKE_CASE` 以符合 ProtoJSON）。
+ *
+ * 论文 A5（2026-10-06，`.trae/specs/a2a-v1-naming-alignment.md`）：原为 v0.3 的 kebab-case
+ * （`'submitted'` / `'input-required'` …），v1.0 属**破坏性改名**；本批同时补齐
+ * `TASK_STATE_UNSPECIFIED` 与 `TASK_STATE_AUTH_REQUIRED`。
+ */
 export type A2ATaskState =
-  | 'submitted'
-  | 'working'
-  | 'input-required'
-  | 'completed'
-  | 'canceled'
-  | 'failed'
-  | 'rejected';
+  | 'TASK_STATE_UNSPECIFIED'
+  | 'TASK_STATE_SUBMITTED'
+  | 'TASK_STATE_WORKING'
+  | 'TASK_STATE_INPUT_REQUIRED'
+  | 'TASK_STATE_COMPLETED'
+  | 'TASK_STATE_CANCELED'
+  | 'TASK_STATE_FAILED'
+  | 'TASK_STATE_REJECTED'
+  | 'TASK_STATE_AUTH_REQUIRED';
 
 /**
  * 终态集合（§3.4 任务不可变性）：进入终态后**不可重启**。
  * 细化请求必须走同一 `contextId` 新建任务，而不是复用终态任务。
+ * 注：`TASK_STATE_INPUT_REQUIRED` / `TASK_STATE_AUTH_REQUIRED` 属**中断态**（非终态）。
  */
 export const A2A_TERMINAL_STATES: readonly A2ATaskState[] = [
-  'completed',
-  'canceled',
-  'failed',
-  'rejected',
+  'TASK_STATE_COMPLETED',
+  'TASK_STATE_CANCELED',
+  'TASK_STATE_FAILED',
+  'TASK_STATE_REJECTED',
 ];
 
 export function isTerminalState(state: A2ATaskState): boolean {
@@ -195,29 +204,34 @@ export const JsonRpcErrorCode = {
   TaskNotCancelable: -32002,
 } as const;
 
-/** 支持的 RPC 方法名（§4.4 抽象操作 ↔ JSON-RPC 绑定名） */
+/**
+ * 支持的 RPC 方法名（§4.2 抽象操作 ↔ §9.3 JSON-RPC 绑定）。
+ *
+ * **v1.0.0**：JSON-RPC 的 `method` 取值**即抽象操作名（PascalCase）**；v0.3 的绑定名
+ * （`message/send` / `tasks/get` / `tasks/cancel`）属**破坏性改名**（论文 A5，2026-10-06）。
+ */
 export const A2A_METHODS = {
   /** 发送消息并（同步）执行 */
-  SendMessage: 'message/send',
+  SendMessage: 'SendMessage',
   /** 按 id 取任务 */
-  GetTask: 'tasks/get',
+  GetTask: 'GetTask',
   /** 取消任务 */
-  CancelTask: 'tasks/cancel',
+  CancelTask: 'CancelTask',
 } as const;
 
 /**
  * 方法名别名（§11.3 v0.3→v1.0 更名属破坏性变更；§12.4 建议渐进迁移）。
- * 同时接受 v1.0 抽象操作名（PascalCase）与早期 JSON-RPC 绑定名，避免对端因命名差异无法互操作。
+ * canonical = v1.0 抽象操作名（PascalCase）；别名 = v0.3 绑定名（含更早的 `tasks/send`）。
  */
 export const A2A_METHOD_ALIASES: Record<string, string> = {
-  // canonical（JSON-RPC 绑定名）
+  // canonical（v1.0 抽象操作名）
   [A2A_METHODS.SendMessage]: A2A_METHODS.SendMessage,
   [A2A_METHODS.GetTask]: A2A_METHODS.GetTask,
   [A2A_METHODS.CancelTask]: A2A_METHODS.CancelTask,
-  // v1.0 抽象操作名（PascalCase）
-  SendMessage: A2A_METHODS.SendMessage,
-  GetTask: A2A_METHODS.GetTask,
-  CancelTask: A2A_METHODS.CancelTask,
-  // 早期绑定名
+  // v0.3 绑定名（迁移别名）
+  'message/send': A2A_METHODS.SendMessage,
+  'tasks/get': A2A_METHODS.GetTask,
+  'tasks/cancel': A2A_METHODS.CancelTask,
+  // 更早的绑定名
   'tasks/send': A2A_METHODS.SendMessage,
 };

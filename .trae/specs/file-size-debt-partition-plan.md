@@ -1486,6 +1486,32 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§43）**：新建 **22 模块**（共 4417 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157 ⇒ **例外 16 → 8**（已关 8 条，同上）。
 
+---
+
+## 44. 实施记录：批 C12 —— `tasks/LongRunningTaskOrchestrator.ts` 契约类型 + 任务消息助手外迁（2026-10-06，**已落地**）
+
+**取证（本文件首次结构取证）**：2721 行 = 前置工具（审计存储/记忆回写/`replanMaxRetries`）+ 类型与角色常量 + 类（≈2390）+ 模块级注册表（5 个导出函数）。§32.2 候选 B1/B2/B3/B4 中，本批取**零/低风险两项**（B4 任务消息 ≈90 行 + 类型契约 ≈97 行）。
+
+**新模块（2 个，置于新建 `app/src/tasks/lro/`）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `contracts.ts` | `PdcaStatus` · `PdcaMetrics` · `SubAgentHandle` · `RoleConfig` · `PLANNER_ROLE` · `EXECUTOR_ROLE` · `ExecutorFn` · `TaskMessage` · `EscalationRecord`（含全部原注释） | **126** |
+| `taskMessaging.ts` | 原 3 个私有方法 `_emitTaskEvent`（事件广播）/ `_createToolContext`（最小 ToolUseContext）/ `_emitTaskMessage`（消息回写 + 顺带进度广播）；**全部依赖改为显式参数** | **128** |
+
+**公开面保持**：原 `export` 的 4 个类型（`PdcaStatus` / `PdcaMetrics` / `TaskMessage` / `EscalationRecord`）由宿主 **re-export** ⇒ 外部导入路径零改动；原**私有**的 `SubAgentHandle` / `RoleConfig` / `ExecutorFn` / 两个 ROLE 常量仅在 `contracts.ts` 内导出（宿主 import 使用，**不**re-export ⇒ 公开面无扩张）。
+
+**宿主侧改动**：新增 2 组 import + 1 组 re-export；**3 个私有方法保留为薄委托**（各自把 `this.taskId` / `this._sessionId` / `this._onTaskMessage` / `this.isolation.*` 显式传入）⇒ **5 处内部调用点零改动**（`:962` `_createToolContext` · `:1121/:1195/:1260` `_emitTaskMessage` · `:2096` `_emitTaskEvent`）。**logger 模块名沿用 `tasks:longRunning`** ⇒ 日志输出逐字不变。
+
+**行数**：`LongRunningTaskOrchestrator.ts` **2721 → 2583**（−**138**）。**例外保留**（`2583 > 2000`）。
+**剩余候选（未做）**：§32.2 的 **B2 终态钩子 ≈230**（`_runAdaptationEvolution` / `_evaluateGoalDeviation` / `_persistMemoryFromAudit` / `_persistReviewSample` / `_recordGoalStageMetric` —— 状态耦合较重，需端口注入）· **B3 报告投影 ≈160** · B1 纯函数 ≈22。三者合计 ≈410 ⇒ **再一批可望出闸**（2583 − 410 ≈ 2173… 仍需第三批；**如实记录**）。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 碎片 3 · 薄桶 0 · 僵尸转发 0** · `lint:size` **0 错误 / 8 例外** · 全量 `bun test` **504 files / 4752 pass / 21 skip / 0 fail**（81.42s）。
+
+**行为保真**：类型/角色常量/注释**逐字搬迁**；`taskMessaging` 的 3 个函数体**逐字搬迁**（仅 `this.x` → 显式参数/解构），全部日志文案与结构化字段不变。
+
+**C 系列累计（§32–§44）**：新建 **24 模块**（共 4671 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157、`LongRunningTaskOrchestrator.ts` −138 ⇒ **例外 16 → 8**（已关 8 条，同上）。
+
+
 
 
 

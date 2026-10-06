@@ -19,13 +19,26 @@ import { useRootStore } from "../../stores/root-store";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useShallow } from "zustand/shallow";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
-import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { GallerySearchBar } from "./media/GallerySearchBar";
 import { GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
 import { MasonryGallery } from "./media/MasonryGallery";
-import { ActionMenu } from "./media/ActionMenu";
+// 大文件拆分（spec file-size-debt-partition-plan §38）：网格视图 + 共享类型/纯函数外迁
+import { MediaGridView } from "./media/MediaGridView";
+import {
+  extractFileName,
+  ratioToSize,
+  extractFormat,
+  extractDate,
+  formatFileSize,
+  formatDate,
+  type FilterType,
+  type SortBy,
+  type ImageApiItem,
+  type VideoApiItem,
+  type ImageMetadata,
+} from "./media/mediaUtils";
 import { BottomInputBar } from "./media/BottomInputBar";
 import { EditLayer } from "./media/EditLayer";
 import { videoService } from "../../services/videoService";
@@ -43,99 +56,16 @@ import type { VideoMeta } from "./media/VideoPlayer";
 const logger = createLogger("MediaPage");
 const PAGE_SIZE = 30;
 
-/** 筛选类型 */
-type FilterType = "all" | "image" | "video" | "favorites";
-/** 排序方式 */
-type SortBy = "date_desc" | "date_asc" | "name";
+// `FilterType` / `SortBy` 定义已随共享类型外迁 `./media/mediaUtils`（spec §38）
 
 // TODO: Phase 6.5 — 缩略图本地缓存（30 分钟 TTL），在 gallery 图片加载时使用
 // import { getCachedThumb, setCachedThumb } from "./media/thumbCache";
-
-/** 从 URL 路径提取文件名 */
-function extractFileName(url: string): string {
-  const parts = url.split("/");
-  return parts[parts.length - 1] || url;
-}
-
-/**
- * 长宽比 → 像素 size（长边 1024，8 的倍数对齐）
- * 2026-08-26：图片生成后端 size 为像素格式（如 "1024x576"），
- * 长宽比选择器/自定义比例经此映射后生效
- */
-function ratioToSize(ratio: string): string {
-  const [w, h] = ratio.split(":").map(Number);
-  if (!w || !h || w < 1 || h < 1) return "1024x1024";
-  const LONG = 1024;
-  if (w >= h) {
-    const height = Math.max(8, Math.round((LONG * h) / w / 8) * 8);
-    return `${LONG}x${height}`;
-  }
-  const width = Math.max(8, Math.round((LONG * w) / h / 8) * 8);
-  return `${width}x${LONG}`;
-}
-
-/** 从文件名提取格式 */
-function extractFormat(name: string, fallback: string): string {
-  const ext = name.split(".").pop()?.toUpperCase();
-  return ext || fallback;
-}
-
-/** 从 URL 路径提取日期 */
-function extractDate(url: string): string {
-  const match = url.match(/(\d{4}-\d{2}-\d{2})/);
-  return match ? match[1] : "";
-}
-
-/** 格式化文件大小 */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/** 格式化时间戳为日期字符串 */
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
 
 /** 右键菜单位置 */
 interface ContextMenuState {
   x: number;
   y: number;
   item: GalleryItem;
-}
-
-/** API 响应中的图片条目 */
-interface ImageApiItem {
-  path?: string;
-  url: string;
-  width?: number;
-  height?: number;
-  alt?: string;
-}
-
-/** API 响应中的视频条目 */
-interface VideoApiItem {
-  path?: string;
-  url: string;
-  duration?: number;
-  width?: number;
-  height?: number;
-}
-
-/** 元数据响应 */
-interface ImageMetadata {
-  path: string;
-  size: number;
-  format: string;
-  width: number | null;
-  height: number | null;
-  createdAt: number;
-  modifiedAt: number;
 }
 
 function MediaPage() {
@@ -1268,7 +1198,7 @@ function MediaPage() {
                 onDragStart={handleDragStart}
               />
             ) : (
-              <GridView
+              <MediaGridView
                 items={filteredItems}
                 selectedId={selectedId}
                 isDark={isDark}
@@ -1880,201 +1810,6 @@ function scrollMediaItemIntoView(id: string): void {
     });
   });
 }
-
-/** 网格列表视图 */
-const GridView: React.FC<{
-  items: GalleryItem[];
-  selectedId: string | null;
-  isDark: boolean;
-  onSelect: (id: string) => void;
-  batchMode?: boolean;
-  selectedIds?: Set<string> | null;
-  favoriteIds?: Set<string> | null;
-  onToggleFavorite?: (id: string) => void;
-  onDragStart?: (e: React.DragEvent, item: GalleryItem) => void;
-  onCompareToggle?: (id: string) => void;
-  /** P0-3（2026-08-26）：右键菜单触发点 */
-  onContextMenu?: (e: React.MouseEvent, item: GalleryItem) => void;
-  /** P0-4（2026-08-26）：无限滚动分页 */
-  hasMore?: boolean;
-  loading?: boolean;
-  onLoadMore?: () => void;
-  /** 编辑锁：true 时禁用点击（与 MasonryGallery 一致） */
-  disabled?: boolean;
-}> = ({
-  items,
-  selectedId,
-  isDark,
-  onSelect,
-  batchMode,
-  selectedIds,
-  favoriteIds,
-  onToggleFavorite,
-  onDragStart,
-  onCompareToggle,
-  onContextMenu,
-  hasMore = false,
-  loading = false,
-  onLoadMore,
-  disabled = false,
-}) => {
-  const { t } = useTranslation();
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  // P0-4：复用共享无限滚动 hook（与 MasonryGallery 一致）
-  useInfiniteScroll(sentinelRef, hasMore, loading, onLoadMore ?? (() => {}));
-
-  return (
-    <div className="h-full overflow-y-auto p-3">
-      {/* P2（2026-08-26）：响应式列数，替代固定 3 列 */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        {items.map((item) => {
-          const selected = batchMode
-            ? selectedIds?.has(item.id)
-            : selectedId === item.id;
-          const isFav = favoriteIds?.has(item.id);
-          const fileName = extractFileName(item.url);
-          const fileDate = extractDate(item.url);
-
-          return (
-            <div
-              key={item.id}
-              data-media-id={item.id}
-              onClick={() => !disabled && onSelect(item.id)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                onContextMenu?.(e, item);
-              }}
-              draggable={item.type === "image"}
-              onDragStart={(e) => onDragStart?.(e, item)}
-              className={`group relative cursor-pointer rounded-lg border-2 p-1.5 transition-all ${
-                selected
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                  : isDark
-                    ? "border-gray-700 bg-gray-800 hover:border-gray-500"
-                    : "border-gray-200 bg-white hover:border-gray-400"
-              }`}
-              style={{
-                contentVisibility: "auto",
-                containIntrinsicSize: "auto 150px",
-              }}
-            >
-              {/* 批量选择复选框 */}
-              {batchMode && (
-                <div className="absolute left-1.5 top-1.5 z-10">
-                  <input
-                    type="checkbox"
-                    checked={selected || false}
-                    onChange={() => onSelect(item.id)}
-                    className="h-3.5 w-3.5 accent-blue-500"
-                  />
-                </div>
-              )}
-
-              {/* 收藏星标 + 对比按钮 */}
-              {!batchMode && (
-                <div className="absolute right-1 top-1 z-10 flex gap-0.5">
-                  {onToggleFavorite && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(item.id);
-                      }}
-                      className={`rounded bg-black/30 p-0.5 text-[10px] transition-colors hover:bg-black/50 ${
-                        isFav ? "text-yellow-400" : "text-white/60"
-                      }`}
-                      title={
-                        isFav ? t("media.unfavorite") : t("media.favorite")
-                      }
-                    >
-                      {isFav ? "★" : "☆"}
-                    </button>
-                  )}
-                  {onCompareToggle && item.type === "image" && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCompareToggle(item.id);
-                      }}
-                      className="rounded bg-black/30 p-0.5 text-[10px] text-white/60 transition-colors hover:bg-black/50"
-                      title={t("media.addToCompare")}
-                    >
-                      ◧
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* 操作菜单（MD-6：网格视图原先**完全不渲染** ActionMenu ⇒ 图片的
-                  编辑/图生视频/下载/删除不可达、视频无菜单）。下移 24px 避让右上角
-                  「收藏/对比」按钮；卡片已加 `group` 以支持 hover 显隐。 */}
-              {!batchMode && (
-                <div className="absolute right-1 top-7 h-6 w-6">
-                  <ActionMenu
-                    itemId={item.id}
-                    itemUrl={item.url}
-                    itemType={item.type}
-                    isDark={isDark}
-                  />
-                </div>
-              )}
-
-              {/* 缩略图 */}
-              <div className="mb-1 aspect-square overflow-hidden rounded bg-gray-100 dark:bg-gray-700">
-                {item.type === "video" ? (
-                  <video
-                    src={item.url}
-                    poster={item.thumbnailUrl}
-                    muted
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                    onMouseEnter={(e) => e.currentTarget.play()}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.pause();
-                      e.currentTarget.currentTime = 0;
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={item.thumbnailUrl || item.url}
-                    alt={item.alt || ""}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
-
-              <div className="overflow-hidden">
-                <p
-                  className="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300"
-                  title={fileName}
-                >
-                  {fileName}
-                </p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                  {item.type === "video" ? t("media.video") : t("media.image")}{" "}
-                  · {fileDate}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {items.length === 0 && (
-        <div className="flex items-center justify-center py-12 text-xs text-gray-400">
-          {t("media.noContent")}
-        </div>
-      )}
-
-      {/* 触底哨兵 + 加载指示器（P0-4 无限滚动） */}
-      <div ref={sentinelRef} className="h-1" />
-      {loading && (
-        <div className="flex items-center justify-center py-4">
-          <span className="text-xs text-gray-400">{t("media.loadMore")}</span>
-        </div>
-      )}
-    </div>
-  );
-};
 
 export default MediaPage;
 

@@ -1298,6 +1298,30 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§37）**：新建 **8 模块**（preflight 451 · LiteSessionLister 199 · GatewayFtsIndex 433 · LlamaServerLogs 238 · LlamaModelsDirGuard 208 · EventLogTextBuffer 211 · EventLogRepair 365 · eventLineParse 120）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457 ⇒ **例外 16 → 12**。
 
+---
+
+## 38. 实施记录：批 C6 —— `MediaPage.tsx` 网格视图 + 共享类型/纯函数外迁（2026-10-06，**已落地**）
+
+**⚠️ 例外记录 stale（如实）**：`FSZ-111` 记 `lines: 2038`（2026-08-15 批量登记时），**实测 2123** ⇒ 本批以实测值为准（需 **−124**）。
+
+**新模块（2 个，置于既有同层目录 `client/src/components/views/media/`）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `mediaUtils.ts` | 6 个纯函数（`extractFileName` / `ratioToSize` / `extractFormat` / `extractDate` / `formatFileSize` / `formatDate`）+ 5 个类型（`FilterType` / `SortBy` / `ImageApiItem` / `VideoApiItem` / `ImageMetadata`） | **93** |
+| `MediaGridView.tsx` | `GridView`（原 :1885-2077，**193 行**；导出名 `MediaGridView` 以可辨识） | **210** |
+
+**宿主侧**：新增 2 处 import；**孤儿导入清理 2 处**（`useInfiniteScroll` · `ActionMenu` —— 二者仅被 GridView 使用）；JSX 使用点 `<GridView` → `<MediaGridView`；`PAGE_SIZE` 与 `ContextMenuState`（引用 `GalleryItem`，宿主专用）**保留在宿主**。
+
+**行数**：`MediaPage.tsx` **2123 → 1858**（−**265**）。
+**★ `FSZ-111` 例外已删**（依据 §7.6 判据：实测 **1858 < 2000**）⇒ `fileSizeExceptions` **12 → 11**；该文件由 `[EXEMPT]` 降为 `[WARN]`。
+
+**门槛（全绿）**：client `tsc --noEmit` **0** · 改动文件 `eslint` **0 错**（2 条 `react-hooks/exhaustive-deps` 警告为**预存**，位于未触碰的 useEffect）· `lint:arch` **错误 0 / 警告 4（基线）· 僵尸转发 0** · `lint:size` **0 错误 / 11 例外** · client `vitest run` **58 files / 514 tests pass**（app 侧源码未改动 ⇒ 未重复跑全量）。
+
+**行为保真**：组件 JSX/逻辑/类名/tooltip key **逐字未改**（仅组件名与所在文件变化）；纯函数与类型定义逐字搬迁（**含注释**）。
+
+**C 系列累计（§32–§38）**：新建 **10 模块**（共 2348 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265 ⇒ **例外 16 → 11**（已关 5 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`）。
+
+
 
 
 

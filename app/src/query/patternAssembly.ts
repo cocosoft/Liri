@@ -45,7 +45,8 @@ export const PATTERN_PROVIDER_BINDINGS: Readonly<
 > = {
   taor_loop: {
     impl: 'TAORLoop',
-    locator: 'query/TAORLoop.ts#TAORLoop（工厂 createTAORLoop:2283）',
+    // 2026-10-06（spec file-size-debt-partition-plan §42 拆分后订正行号）
+    locator: 'query/TAORLoop.ts#TAORLoop（工厂 createTAORLoop:1977）',
   },
   react_tool_loop: {
     impl: 'ReActToolLoop',

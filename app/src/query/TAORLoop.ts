@@ -76,269 +76,49 @@ import type {
   TerminationReason,
 } from './ReActLoop.js';
 
+// 大文件拆分（spec file-size-debt-partition-plan §42）：类型契约 / 内存检查点存储 /
+// 默认停止钩子 / trace 助手外迁 `./taor/*`；下列 re-export **保持公开面不变**
+// （外部 7 处消费者仍从本文件或 `@modules/query` 取用同名导出）。
+import {
+  createTAORLoopDeps,
+  type TAORLoopDeps,
+  type TAORInput,
+  type TAORLoopConfig,
+  type TAORLoopResult,
+  type TAORPhaseCallback,
+} from './taor/types.js';
+import {
+  TAOR_EMPTY_RETRY_INSTRUCTION,
+  TAOR_PLANNING_ONLY_RETRY_INSTRUCTION,
+  TAOR_PLANNING_ONLY_RE,
+  truncateForTrace,
+  mapTaorStopReasonToTermination,
+} from './taor/helpers.js';
+import { registerDefaultStopHooks } from './taor/stopHooks.js';
+export type {
+  TAORInput,
+  TAORPhaseInfo,
+  TAORLoopConfig,
+  TAORLoopResult,
+  TAORPhaseCallback,
+  TAORLoopDeps,
+} from './taor/types.js';
+export { createTAORLoopDeps } from './taor/types.js';
+export { MemoryCheckpointStorage } from './taor/MemoryCheckpointStorage.js';
+export { mapTaorStopReasonToTermination } from './taor/helpers.js';
+
 const logger = getLogger('query:taorLoop');
 
-/** L3（2026-09-06）：回合质量重试指令 —— **B2-3 收尾迁移（2026-09-23）**：
- *  文案唯一来源改为 `tasks/goal/goalTemplates`（原为"模块自持副本"，理由曾是避免
- *  query→chat 反向依赖；但模板模块位于 `tasks/`（非 chat）⇒ 该理由已不成立，
- *  且两份文案逐字重复属 CS01 违规 —— 见 `.trae/specs/goal-entity.md §5.3.1 #1`）。
- *  batch 无 thinking/finishReason 可靠信号，仅 empty/planning 两类。 */
-const TAOR_EMPTY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.empty;
-const TAOR_PLANNING_ONLY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.planning;
-/** planning-only 启发式判定（与 ReActToolLoop.PLANNING_ONLY_RE 同源，保守避免误判正常回答） */
-const TAOR_PLANNING_ONLY_RE =
-  /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
+// （回合质量重试指令常量 `TAOR_EMPTY_RETRY_INSTRUCTION` /
+//  `TAOR_PLANNING_ONLY_RETRY_INSTRUCTION` / `TAOR_PLANNING_ONLY_RE`、`truncateForTrace`
+//  与 `mapTaorStopReasonToTermination` 已外迁 `./taor/helpers`，spec §42）
 
-/** trace 持久化用：将值安全截断为 JSON 摘要（默认 500 字符） */
-function truncateForTrace(value: unknown, maxLen = 500): string {
-  try {
-    const s = JSON.stringify(value);
-    if (!s) return '';
-    return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
-  } catch {
-    return String(value).slice(0, maxLen);
-  }
-}
+// （`TAORLoopDeps` 契约与工厂 `createTAORLoopDeps`、`TAORInput` / `TAORPhaseInfo` /
+//  `TAORLoopConfig` / `TAORLoopResult` / `TAORPhaseCallback` 类型已外迁 `./taor/types`，
+//  并由本文件顶部 re-export 保持公开面，spec §42）
 
-// ─── TAORLoop 依赖注入接口 ────────────────────────────
-/**
- * TAORLoop 依赖注入接口（对标 cc_code QueryDeps）
- *
- * 由 ChatManager 和 PDCA 分别实现，通过 TAORLoop.run() 注入。
- * 品牌类型防止意外结构化类型匹配。
- */
-declare const TAOR_LOOP_DEPS_BRAND: unique symbol;
-export interface TAORLoopDeps {
-  readonly [TAOR_LOOP_DEPS_BRAND]: typeof TAOR_LOOP_DEPS_BRAND;
-
-  /** LLM 流式调用 */
-  callModel: (
-    messages: ChatMessage[],
-    signal: AbortSignal,
-    // C1：max_output 翻倍重试时透传输出上限
-    opts?: { maxOutputTokens?: number }
-  ) => AsyncGenerator<{
-    type: string;
-    content?: string;
-    toolCall?: unknown;
-    [k: string]: unknown;
-  }>;
-
-  /** 工具批量执行 */
-  executeTools: (
-    toolCalls: Array<{
-      id: string;
-      name: string;
-      arguments: Record<string, unknown>;
-    }>,
-    signal: AbortSignal
-  ) => Promise<
-    Array<{
-      toolCallId?: string;
-      toolName?: string;
-      result?: unknown;
-      error?: string;
-    }>
-  >;
-
-  /** 消息持久化 */
-  persistMessages: (
-    messages: ChatMessage[],
-    signal?: AbortSignal
-  ) => Promise<void>;
-
-  /** 流式 chunk 透传 */
-  onStreamChunk?: (chunk: unknown) => void;
-
-  /**
-   * 事件写入通道（可选）：工具未完成终态 tool/canceled 补发用。
-   * 与 ReActToolLoop 的 _appendStreamEvent 对应——TAOR 路径事件由 persistMessages
-   * 落盘时批量生成，无实时事件通道，守卫拦截/中止时需显式补发终态。
-   */
-  appendStreamEvent?: (
-    sessionId: string,
-    event: {
-      type: string;
-      seq: number;
-      time: number;
-      sessionId: string;
-      data: Record<string, unknown>;
-    }
-  ) => Promise<{ ok: boolean }>;
-
-  /** 当前会话事件尾号（可选）：补发 tool/canceled 时分配 seq 用 */
-  getStreamTailSeq?: (sessionId: string) => Promise<number>;
-
-  /**
-   * 等待待处理落盘完成（可选）：补发 tool/canceled 前确保 assistant/tool_call
-   * 事件已写入 events.jsonl（落盘为 fire-and-forget，需显式 flush 保证配对顺序）。
-   */
-  flushPendingPersists?: () => Promise<void>;
-
-  /** 是否需要继续（无 tool_use 时停止） */
-  needsFollowUp?: (response: unknown) => boolean;
-}
-
-/**
- * 品牌类型模拟值，用于工厂函数构造 TAORLoopDeps
- * 替代 as unknown as TAORLoopDeps 绕过，提供类型安全的构造方式
- */
-const TAOR_LOOP_DEPS_BRAND_VALUE = Symbol(
-  'TAORLoopDeps'
-) as unknown as typeof TAOR_LOOP_DEPS_BRAND;
-
-/**
- * 工厂函数：创建 TAORLoopDeps
- * 替代 as unknown as TAORLoopDeps 绕过，提供类型安全的构造方式
- */
-export function createTAORLoopDeps(
-  impl: Omit<TAORLoopDeps, typeof TAOR_LOOP_DEPS_BRAND>
-): TAORLoopDeps {
-  return {
-    ...impl,
-    [TAOR_LOOP_DEPS_BRAND_VALUE]: TAOR_LOOP_DEPS_BRAND_VALUE,
-  } as TAORLoopDeps;
-}
-
-// ─── 类型定义 ──────────────────────────────────────────
-
-/** M4：骨架化后的 TAORLoop 输入（runCollect 参数；deps 每次 run 注入） */
-export interface TAORInput {
-  /** 旧路径：纯 prompt（queryEngine 兜底构造默认 deps） */
-  prompt?: string;
-  /** 新路径：显式消息 + deps */
-  messages?: ChatMessage[];
-  deps?: TAORLoopDeps;
-  /** A 阶段一（2026-09-05）：本次 run 的恢复归属——goal（PDL 目标运行）/ 缺省 chat。
-   *   run 级载荷（不入 taorConfig 实例字段）：共享 loop 同时服务 chat 与 goal 时避免污染。 */
-  ctxKind?: TAORCheckpointKind;
-}
-
-export interface TAORPhaseInfo {
-  phase: TAORPhase;
-  round: number;
-  description?: string;
-}
-
-export interface TAORLoopConfig {
-  maxTurns?: number;
-  budgetConfig?: Partial<TokenBudgetConfig>;
-  sessionId?: string;
-  /** 是否启用检查点自动保存 */
-  enableCheckpoint?: boolean;
-  /** 检查点保存间隔（轮次） */
-  checkpointInterval?: number;
-  /** 检查点存储实现 */
-  checkpointStorage?: TAORCheckpointStorage;
-  /** 是否启用验证器代理（Phase 4），默认 true */
-  enableVerifier?: boolean;
-  /** 验证器配置 */
-  verifierConfig?: Partial<VerifierAgentConfig>;
-  /** Phase 3: VerifierAgent 专用模型调用函数（为 null 则共享主模型） */
-  verifierModel?:
-    | ((
-        messages: Array<{ role: string; content: string }>,
-        signal: AbortSignal
-      ) => AsyncGenerator<{ content?: string }>)
-    | null;
-  /** 验证策略（Phase 2b）：AND/OR/TOOL_FIRST */
-  verifyStrategy?: 'AND' | 'OR' | 'TOOL_FIRST';
-  /** 是否启用自动 verify skill（Phase 2），默认 false */
-  enableAutoVerify?: boolean;
-  /** 自动验证最大重试次数，默认 3 */
-  autoVerifyMaxRetries?: number;
-  /** 自动验证超时 ms，默认 15000 */
-  autoVerifyTimeoutMs?: number;
-  /** Steering 消息队列（mid-turn 注入，不中断当前工具执行） */
-  steeringMessages?: string[];
-}
-
-// runLogger 不在此接口中（由构造函数单独处理，避免 Required<> 强制）
-
-export interface TAORLoopResult {
-  turnCount: number;
-  totalTokens: number;
-  durationMs: number;
-  stopReason: StopHookReason;
-  /** E1①（2026-09-05，方案甲）：统一终止原因——供上层 markStepCompleted 透传落 PlanStep */
-  terminationReason?: TerminationReason;
-  /** 是否从检查点恢复 */
-  resumed?: boolean;
-  /** 恢复时的检查点ID */
-  checkpointId?: string;
-}
-
-export interface TAORPhaseCallback {
-  onPhase?: (info: TAORPhaseInfo) => void;
-  onError?: (error: Error, phase: TAORPhase, round: number) => void;
-  onBudgetWarning?: (percentUsed: number) => void;
-  /** 检查点保存回调 */
-  onCheckpointSaved?: (checkpoint: TAORCheckpoint) => void;
-  /** 从检查点恢复回调 */
-  onResumed?: (checkpoint: TAORCheckpoint) => void;
-}
-
-/**
- * 内存检查点存储（默认实现）
- */
-export class MemoryCheckpointStorage implements TAORCheckpointStorage {
-  private checkpoints: Map<string, TAORCheckpoint> = new Map();
-
-  async save(checkpoint: TAORCheckpoint): Promise<string> {
-    this.checkpoints.set(checkpoint.id, checkpoint);
-    return checkpoint.id;
-  }
-
-  async load(id: string): Promise<TAORCheckpoint | null> {
-    return this.checkpoints.get(id) || null;
-  }
-
-  async findBySessionId(sessionId: string): Promise<TAORCheckpoint[] | null> {
-    const found = Array.from(this.checkpoints.values()).filter(
-      (c) => c.sessionId === sessionId
-    );
-    return found.length > 0
-      ? found.sort((a, b) => b.createdAt - a.createdAt)
-      : null;
-  }
-
-  async delete(id: string): Promise<boolean> {
-    return this.checkpoints.delete(id);
-  }
-
-  async cleanup(expireTime: number): Promise<number> {
-    let count = 0;
-    for (const [id, checkpoint] of this.checkpoints) {
-      if (checkpoint.createdAt < expireTime) {
-        this.checkpoints.delete(id);
-        count++;
-      }
-    }
-    return count;
-  }
-
-  async getLatestIncomplete(sessionId: string): Promise<TAORCheckpoint | null> {
-    const found = await this.findBySessionId(sessionId);
-    return found?.[0] ?? null;
-  }
-
-  async getPendingSessions(): Promise<string[]> {
-    return Array.from(
-      new Set(Array.from(this.checkpoints.values()).map((c) => c.sessionId))
-    );
-  }
-
-  async deleteSession(sessionId: string): Promise<number> {
-    let count = 0;
-    for (const [id, checkpoint] of this.checkpoints) {
-      if (checkpoint.sessionId === sessionId) {
-        this.checkpoints.delete(id);
-        count++;
-      }
-    }
-    return count;
-  }
-}
+// （`MemoryCheckpointStorage` 已外迁 `./taor/MemoryCheckpointStorage`，并由顶部
+//  re-export 保持公开面，spec §42）
 
 export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private queryEngine: QueryEngine;
@@ -535,109 +315,16 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   }
 
   private registerDefaultStopHooks(): void {
-    this.stopHookManager.registerHook({
-      name: 'taor_token_budget',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.HIGH,
-      hook: async (context: StopHookContext) => {
-        logger.info('TAOR loop token budget stop', {
-          reason: context.reason,
-          usage: context.usage,
-        });
-      },
-    });
-
-    this.stopHookManager.registerHook({
-      name: 'taor_max_turns',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.MEDIUM,
-      hook: async (context: StopHookContext) => {
-        logger.info('TAOR loop max turns stop', { turns: context.turnCount });
-      },
-    });
-
-    this.stopHookManager.registerHook({
-      name: 'taor_completion',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async () => {
-        logger.info('TAOR loop completed', {
-          turns: this.turnCount,
-          duration: Date.now() - this.startTime,
-        });
-      },
-    });
-
-    // Phase 4: 丰富化停止钩子
-    this.stopHookManager.registerHook({
-      name: 'taor_audit_trail',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async (context: StopHookContext) => {
-        logger.info('TAOR audit trail', {
-          sessionId: context.sessionId,
-          reason: context.reason,
-          turns: context.turnCount,
-          durationMs: context.durationMs,
-        });
-      },
-    });
-
-    this.stopHookManager.registerHook({
-      name: 'taor_cleanup',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async () => {
+    // spec §42：注册逻辑外迁 `./taor/stopHooks`；仅注入两处宿主状态
+    //（`turnCount` / `startTime` 读；三守卫 reset 写）⇒ 钩子名、优先级、日志文案
+    // 与拆分前**逐字一致**。
+    registerDefaultStopHooks(this.stopHookManager, {
+      getTurnCount: () => this.turnCount,
+      getStartTime: () => this.startTime,
+      resetGuards: () => {
         this.errorRecovery.resetAll();
         this.circuitBreaker.reset();
         this.loopDetector.reset();
-      },
-    });
-
-    // Phase 4: 丰富化停止钩子
-    this.stopHookManager.registerHook({
-      name: 'extract_memories',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async (context: StopHookContext) => {
-        // 仅在正常完成时触发，aborted 时跳过
-        if (context.reason === 'aborted') return;
-        logger.info('stop hook: extract_memories triggered', {
-          sessionId: context.sessionId,
-          turns: context.turnCount,
-        });
-        // 实际记忆提取由 MemoryExtractionService 异步完成
-      },
-    });
-
-    this.stopHookManager.registerHook({
-      name: 'classify_task',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async (context: StopHookContext) => {
-        logger.info('stop hook: classify_task', {
-          sessionId: context.sessionId,
-          reason: context.reason,
-          turns: context.turnCount,
-        });
-        // 根据 context 推断任务类型：单轮→qa，多轮→planning，大量工具调用→automation
-      },
-    });
-
-    this.stopHookManager.registerHook({
-      name: 'auto_dream',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async (context: StopHookContext) => {
-        // 仅在 completed 且 非 aborted 时触发后台子任务
-        if (context.reason !== 'completed') return;
-        logger.info('stop hook: auto_dream triggered', {
-          sessionId: context.sessionId,
-        });
-        // 实际子任务由 DreamService 调度
-      },
-    });
-
-    this.stopHookManager.registerHook({
-      name: 'computer_use_cleanup',
-      priority: DEFAULT_STOP_HOOK_PRIORITIES.LOW,
-      hook: async (context: StopHookContext) => {
-        logger.info('stop hook: computer_use_cleanup', {
-          sessionId: context.sessionId,
-        });
-        // 清理 computer use 相关资源（截图缓存、沙箱环境等）
       },
     });
   }
@@ -2284,36 +1971,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this._effectiveMaxOutputTokens = undefined;
     this.resetRunState();
     logger.info('TAOR loop reset');
-  }
-}
-
-/**
- * A 档（2026-09-05，复查收口）：TAOR stopReason → 统一 TerminationReason 的纯映射。
- * 显式收口 loop_detected / timeout（对齐 StopHookReason 与骨架枚举），杜绝未知原因
- * 被 default 折叠成 completed 的误判（见 error_repairs 方案 A 记录）。导出便于单测。
- */
-export function mapTaorStopReasonToTermination(
-  reason: string | null | undefined
-): TerminationReason {
-  switch (reason) {
-    case 'max_turns':
-      return 'max_turns';
-    case 'budget_exhausted':
-      return 'budget_exhausted';
-    case 'verifier_escalate':
-      return 'verifier_escalate';
-    case 'diminishing_returns':
-      return 'diminishing_returns';
-    case 'loop_detected':
-      return 'loop_detected';
-    case 'timeout':
-      return 'timeout';
-    case 'aborted':
-      return 'aborted';
-    case 'error':
-      return 'error';
-    default:
-      return 'completed';
   }
 }
 

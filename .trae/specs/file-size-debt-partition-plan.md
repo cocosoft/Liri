@@ -1511,6 +1511,37 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§44）**：新建 **24 模块**（共 4671 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157、`LongRunningTaskOrchestrator.ts` −138 ⇒ **例外 16 → 8**（已关 8 条，同上）。
 
+---
+
+## 45. 实施记录：批 C13 —— `tasks/LongRunningTaskOrchestrator.ts` 终态钩子 + 端口解析器外迁（2026-10-06，**已落地**）
+
+**来由**：用户裁定「继续处理 `LongRunningTaskOrchestrator.ts` 的剩余部分」⇒ 取 §32.2 候选 **B2 终态钩子**，并顺带外迁其依赖的**前置端口解析器**。
+
+**取证明细（B2 五个终态钩子）**：`_recordGoalStageMetric` · `_runAdaptationEvolution` · `_evaluateGoalDeviation` · `_persistMemoryFromAudit` · `_persistReviewSample` —— 实测**只读少量实例字段**（`taskId` / `planId` / `_sessionId` / `_maxTurns` / `_totalTokensTracked` / `_startedAt` / `_goalEvaluation` / `getMetrics()`），**写入仅两处幂等 guard**（`_memoryWriteDone` / `_sampleWriteDone`）⇒ 可用**显式参数**外迁（无需端口对象）。
+
+**新模块（2 个，`app/src/tasks/lro/`）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `terminalHooks.ts` | 5 个终态钩子（阶段指标落库 / 经验演化 / 目标偏差判定 / 记忆回写 / 评估样例），全部改为显式参数函数 | **269** |
+| `portResolvers.ts` | 审计存储惰性单例 `resolveAuditStore` · 记忆回写惰性单例 `resolveMemoryWritebackManager` · `replanMaxRetries` + 相关类型 | **90** |
+
+**宿主侧改动**：新增 2 组 import；**5 个私有方法保留为薄委托**（各自显式传入状态 + **guard 留在宿主**，因其写宿主状态）⇒ **全部调用点零改动**；日志与 `handleError` 的 `module: 'tasks:longRunning'` 逐字保留。
+
+**⚠️ 门禁新警告与处置（如实记录 —— 本批唯一一次「警告 4 → 5」）**：
+外迁时必须导出 `AuditLogEntry`，而该名在 `knowledge/KnowledgeAuditLogger.ts` 与 `security/permission/logging/PermissionAuditLogger.ts` **已有同名导出接口** ⇒ 触发 **R02-002**（同一名在 ≥3 模块定义）⇒ 警告升到 5。
+**处置**：改名为 **`TaskAuditLogEntry`**（并在注释中写明理由：三者语义各异 —— 任务生命周期审计 / 知识审计 / 权限审计 —— **不合并**，避免"为消警告而错误统一"）⇒ **警告回到基线 4**。
+**教训**：**搬运私有类型到新模块会使其"转为导出"，从而可能触发原本不触发的同名导出类门禁（R02-002 等）** ⇒ 拆分类私有类型时须先扫全仓同名导出。
+
+**行数**：`LongRunningTaskOrchestrator.ts` **2583 → 2384**（本批 −**199**；**C12+C13 累计 2721 → 2384 = −337**）。**例外保留**（`2384 > 2000`；按 §7.6 判据需实测 <2000 才可删条目）。
+**剩余可拆面（未做）**：§32.2 的 **B3 报告投影 ≈160** · B1 纯函数 ≈22 · 类内 EXECUTE/REVIEW 主流程簇（强耦合，判不拆首选）。⇒ 再一批 ≈180 后仍需第三批；**本文件总计需 ≥3 批**。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · 改动文件 `eslint` **0**（首轮 3 条 `prettier/prettier` ⇒ `--fix`） · `lint:arch` **违规 0 / 警告 4（基线，R02-002 已处置）· 碎片 3 · 薄桶 0 · 僵尸转发 0** · `lint:size` **0 错误 / 8 例外** · 全量 `bun test` **504 files / 4752 pass / 21 skip / 0 fail**（82.03s）。
+
+**行为保真**：5 个钩子的函数体**逐字搬迁**（仅 `this.x` → 参数/解构 + `?? ''` 等原样保留）；两个 guard 语义不变（仍为"先置位再执行"）。
+
+**C 系列累计（§32–§45）**：新建 **26 模块**（共 5030 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413、`QQChannel.ts` −742、`TAORLoop.ts` −343、`streamMessageFlow.ts` −157、`LongRunningTaskOrchestrator.ts` **−337** ⇒ **例外 16 → 8**（已关 8 条，同上）。
+
+
 
 
 

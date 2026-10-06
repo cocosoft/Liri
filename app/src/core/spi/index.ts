@@ -68,6 +68,16 @@ export {
   resolveTaskRegistry,
 } from './TaskRegistryService';
 
+// 2026-10-06 U4（`.trae/specs/online-quality-evaluation.md` §D6）：会话在线质量端口
+// （消除 chronos/autoDream 读 turn/quality 事件的 infra → app 倒挂，同 D-148 的 KnowledgeGraph 先例）
+export {
+  type ISessionQualityPort,
+  type TurnQualitySummaryDto,
+  SESSION_QUALITY_SERVICE_ID,
+  registerSessionQualitySpi,
+  resolveSessionQuality,
+} from './SessionQualityService';
+
 // 2026-10-01 D-148：知识图谱端口（消除 chronos/autoDream 的 infra → app 倒挂，3 处）
 export {
   type IKnowledgeGraphPort,

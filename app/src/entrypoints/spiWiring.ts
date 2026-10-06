@@ -318,6 +318,36 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- 会话在线质量 SPI（2026-10-06 U4，`.trae/specs/online-quality-evaluation.md` §D6）----
+  // chronos/autoDream 需按"在线质量分"取进化素材，而 `turn/quality` 事件落在 **chat（app）
+  // 层持有**的事件日志里 ⇒ 梦境直读即构成 `infra → app` 倒挂（同 D-148 的 KnowledgeGraph 动因）。
+  // 实现装配在此：读事件（经 chat 的 `readSessionEvents`）+ 纯函数摘要（`evals/online`）。
+  {
+    const { registerSessionQualitySpi } = await import('@modules/core/spi');
+    const { summarizeTurnQuality } = await import('@modules/evals');
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+
+    await registerSessionQualitySpi(container, {
+      getTurnQualitySummary: async (sessionId) => {
+        const chat = getCoreAPI().getChatManager();
+        const events = await chat.readSessionEvents(sessionId, {
+          types: ['turn/quality'],
+          limit: 1000,
+        });
+        // 无数据 ⇒ **null**（消费方跳过该路输入；不造 0 分假摘要，CS04）
+        if (events.length === 0) return null;
+        const s = summarizeTurnQuality(events);
+        if (s.total === 0) return null;
+        return {
+          total: s.total,
+          avgScore: s.avgScore,
+          highValueTurns: s.highValueTurns,
+          lowValueTurns: s.lowValueTurns,
+        };
+      },
+    });
+  }
+
   // ---- 诊断采集 SPI（2026-09-30 D-123；D-128 转推送模型）----
   {
     const { STTRegistry } =

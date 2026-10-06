@@ -305,7 +305,11 @@ export function isSystemAbortReason(reason: unknown): boolean {
 　　　　　• `CoreAPIImpl.chatStream` 的 `finally` 补同款 —— **并因块级作用域把 `let generator` 声明提升到 `try` 之外**（原 `const generator` 在 try 块内，catch/finally **不可见**；typecheck 实测报 `TS2304: Cannot find name 'generator'`，正是它把位置错误挡了下来）；
 　　　　　⇒ 与 [chat-handlers.ts:572](file:///e:/PY/Documents/CODES/PY_APP/app/src/infrastructure/http/handlers/chat-handlers.ts#L557-L576) 的 `generator.return()` 形成**三层闭环**。
 　　　• **✅ 验证**：⑴ 回归用例（`tests/chat/orchestrator/innerGeneratorClose.test.ts`）2 例 —— 正常完成 `release` 恰一次、**提前 `return` 后 `release` 恰一次**（修复前为 0 次）**全绿**；⑵ `bun test tests/chat tests/http tests/runtime` = **392 pass / 0 fail**（64 文件）；⑶ `bun run typecheck` 0 / `eslint` 0；⑷ **端到端冒烟**：同一会话连续两轮流式均 `saw_DONE`，各记 `获取互斥锁(首轮)` + `chatStream:完成 {finishReason:"stop"}`，且第二轮仅隔 **2.5s** 即拿到锁 ⇒ **锁已释放且可重入**；全日志 `acquire timeout` **0 命中**。
-　　　• **同批未解异常（不归因，另行排查）**：上述实验中跟进请求（`stream:false`、`max_tokens:64`）**耗时 41722ms** 才返回 —— 其 LLM 调用实测仅约 1s（`LLM call recorded: … 17674/64 tokens` 于 `.583`），而 HTTP 响应直到 `13:08:22.182` 才完成（`contentLength:0 / finishReason:"stop"`）。**阻塞点未查明**，仅记录、不下结论（避免"无证据归因"）。
+　　　• ~~**同批未解异常（不归因，另行排查）**~~ ⇒ ✅ **根因已查明并已修复（2026-10-06 复核，任务计划 §2.2 P1-22 的 41722ms）**：上述实验中跟进请求（`stream:false`、`max_tokens:64`）**耗时 41722ms** 才返回 —— 其 LLM 调用实测仅约 1s（`LLM call recorded: … 17674/64 tokens` 于 `.583`），而 HTTP 响应直到 `13:08:22.182` 才完成（`contentLength:0 / finishReason:"stop"`）。
+　　　　　❶ **机制**：同刻 `13:08:22.219 diagnostics:infrastructure-diagnostics Event Loop 滞后: 37580ms {actualDelay:42611, memRssMb:6133}` ⇒ **事件循环被同步阻塞 37.6s，期间定时器与 HTTP 响应整体顺延**（故 `Chat completed {durationMs:41709}` 与"LLM 仅 ~1s"不矛盾）。**⚠️ 同一根因台账「附带发现 6」已于 2026-09-25 先行破案并修复**（`memory-dedup-blocking-rootfix.md`；基准 41,921ms→963ms）—— 本处 2026-10-06 复核的**净增价值** = artifact 级独立复核 + 灭绝实证 + P2-4 命名订正。
+　　　　　❷ **归因（探针 artifact 自证）**：`~/.pyapp/data/artifacts/eventloop-blocks/2026-09-25T13-09-36-318Z_lag38966/summary.md` ⇒ 文件级聚合 **`MemoryConsolidator.ts` 23722ms（32%）**（`tokenize` 13879ms + `(anonymous)@:73` 9300ms + `jaccardSimilarity` 493ms），疑似阻塞阶段 **`pipeline:postProcess` 42478ms**（与热点互相印证）；**GC 0%**。同签名共 **7 份 dump**（≤`13:18Z`）。
+　　　　　❸ **已修复**：提交 **`ef7cfc762`**（2026-09-25 23:20 +0800，「并根治记忆库去重阻塞」）—— D2′ 预分词 + D2 分片让出（`findDuplicatesChunked`）+ 调用点移出写入热路径。**灭绝实证**：`MemoryConsolidator.ts` 帧**仅出现在 ≤2026-09-25 的日志**，09-26 起 **0 命中**。
+　　　　　❹ **遗留（不同族）**：修复后仍有大 lag（`2026-09-27` 59177ms · `2026-09-30` 50599ms · `2026-10-02` ×3 最大 57437ms），归因族换为 `spawnSync`/`networkInterfaces`/`openSync`；**10-02 三例无 dump ⇒ 无归因**。详见台账「附带发现 1 → 同批未解异常」段。
 
 ---
 

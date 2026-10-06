@@ -293,7 +293,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 |---|---|---|---|---|
 | A1 | `chat/manager/requestPrep.ts` | C14 请求构建/快照/压缩 | ≈220 | ✅ **已落地（2026-10-05，见 §10；实得 −141 行）** |
 | A2 | `chat/manager/rollback.ts` | C19 交互/回滚轮次（**收窄为 5 成员**） | ≈270 | ✅ **已落地（2026-10-05，见 §11；实得 −202 行）**；`_buildToolRoundMessages`/`_dedupeToolResultForStub` **移出本批** ⇒ 归 A5（流管道职责） |
-| A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配（**收窄为 2 成员**） | ≈90 | ✅ **已落地（2026-10-05，见 §12；实得 −39 行）**；`getHookChainManager`（通用 getter）与 `_extractCurrentGoal`（**全仓无调用者**）**不并入** |
+| A3 | `chat/manager/promptAssembly.ts` | C12 系统提示词装配（**收窄为 2 成员**） | ≈90 | ✅ **已落地（2026-10-05，见 §12；实得 −39 行）**；`getHookChainManager`（通用 getter）与 `_extractCurrentGoal`（**全仓无调用者**）**不并入** —— ⚠️ 后者**已于 2026-10-06 按用户裁定从 `ChatManager.ts` 删除**（见本 spec「与 §9.3 的偏差」条） |
 | A4 | `chat/manager/bootstrap.ts`（A4a）+ `manager/recovery.ts`（A4b） | C13 启动加载/迁移 + C18 恢复/outbox/yield（**A4a / A4b**） | ≈1090 | ✅ **A4a（C13，6 成员）已落地（2026-10-05，见 §13；实得 −465 行）**；✅ **A4b（C18，5 成员）已落地（2026-10-05，见 §17；实得 −287 行）** —— 目标文件由 `bootstrap.ts` 改为独立的 **`manager/recovery.ts`**（恢复族独立命名；`bootstrap.ts` 仅存 C13） |
 | A5 | `chat/pipeline/streamMessageLifecycle.ts` | 流管道段（`_buildApiMessagesForStream` 等，**拆为 A5a / A5b**） | ≈680 | ✅ **A5a（消息构建 3 成员 + A2 移交的 2 方法）已落地（2026-10-05，见 §15；实得 −276 行）**；⛔ **A5b 经用户裁定「不拆」（2026-10-05）** —— `_prepareStreamSession`/`_createStreamPipeline`/`_finalizeStreamMessage`（≈480 行）需 **≈25–30 个宿主依赖**（安全校验/会话生命周期/AbortController/Mutex/Checkpoint/HookChain/消息服务/落盘/状态机/OTel/图像上下文/LLM client/路由/用量/记忆提炼/流式游标/turn 收尾/PDCA 升级/ImplicitEngineHook…）⇒ 抽出后新类**几乎事事回调宿主**，得到的是"转发层"而非"内聚单元"（不符 §2 判据）⇒ **判不拆、留宿主** |
 | A6 | `chat/manager/sessionTeardown.ts` | C21 会话拆除/级联收口（**收窄为 5 成员**） | ≈280 | ✅ **已落地（2026-10-05，见 §16；实得 −167 行）**；C21 的 11 个**薄委托/访问器不迁**（R06-006）；目标名由 `sessionCrud.ts` 改为 `sessionTeardown.ts` |
@@ -371,7 +371,7 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **⚠️ 与 §9.3 的偏差（依据 §2「可命名职责簇」判据）**：
 - `getHookChainManager`：**通用 HookChain 管理器 getter**（非"提示词装配"）⇒ 不并入（留宿主；避免产生无调用者的僵尸转发）；
-- `_extractCurrentGoal`：**全仓零调用者**（预存死私有方法）⇒ 不并入、留在宿主原地（按"不清理他人遗留"不删除）；已在台账登记。
+- `_extractCurrentGoal`：**全仓零调用者**（预存死私有方法）⇒ 不并入（留宿主原地）。**✅ 后续（2026-10-06，用户裁定）：该方法已从 `ChatManager.ts` 删除**（连同随之无用的 `extractCurrentGoal` 导入），故本行"留在宿主原地"仅为**当时**的处置决定；台账 N/A（登记于 `预存错误与待处理问题.md:9613`，同批与 N-76/N-77 一并删除）。
 
 **注入依赖（`ChatPromptAssemblyDeps`，全 getter ⇒ 无初始化顺序陷阱）**：`getImageContextService` · `getSessionAccess` · `recordModelInputSnapshot` · `getClientForModel` · `getLlmClient`
 

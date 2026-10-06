@@ -1192,5 +1192,39 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **`SessionGateway` 余下候选（未做）**：C Fork(≈280) · D 消息读写(≈90)；`initialize`/`close` 编排、DI 访问器、QoS/Token 薄委托区**判不拆**。
 
+---
+
+## 35. 实施记录：批 C4 —— `LlamaCppServerManager` 日志簇 + 路径安全簇外迁（2026-10-06，**已落地**）
+
+**新模块（2 个，均与宿主同目录 `app/src/ai/local/llama/`）**：
+| 模块 | 收拢簇 | 行数 |
+|---|---|---|
+| `LlamaServerLogs.ts`（`class LlamaServerLogs`） | 日志簇：`initLogFile` · `getLogContent` · `getLogSize` · `getLogSincePosition` · `subscribeLogs` · `ensureLogWatcher` · `startLogPolling` · `stopLogPolling` · `stopLogWatcher` · `emitLogUpdate` · `appendLog` + 6 个私有字段 | **238** |
+| `LlamaModelsDirGuard.ts` | 路径安全簇：`FORBIDDEN_DIRS` · `getForbiddenPaths` · `isPathWithin` · `validateModelsDir` · `ensureSafeMigrationPath`（原 :1671-1835，**连续 165 行**） | **208** |
+
+**⚠️ 与例外 `plan` 字段的偏差（如实）**：`FSZ-136` 的 `plan` 写的是「随 llama 子模块拆分（**配置/生命周期/下载/同步**）收敛」。回仓取证后**改取「日志 / 路径安全」两簇**，理由：
+1. **下载簇（`ensureBinary`/`downloadBinary`/`extractTarGz`/`flattenDirTo`）与模块级符号循环耦合** —— 它依赖 `LLAMA_VERSION` / `EXPECTED_SHA256` / `resolveDownloadUrl` / `resolveDownloadVariant` / `verifySha256`，而**这些符号被 `LlamaCppServerManager.test.ts` 直接 import 并就地改写**（`:172-175` 临时 `delete EXPECTED_SHA256[LLAMA_VERSION]`）⇒ 外迁会使新模块反向 import 宿主（**循环依赖**，与 `lint` 的「循环依赖: 0」门禁冲突）；
+2. **配置簇**的 `this.config` 被 start/日志/参数构建等多簇读 ⇒ 外迁需大范围改签名（不符「只搬不改」）；
+3. 本批所选两簇**零反向依赖**（日志簇仅被宿主 `start()` 的 stdout/stderr 回调调用；路径安全簇为纯函数），且**本批即已达标**（见下）⇒ 无需再动下载/配置。
+
+**宿主侧**：
+- 新增 `private readonly logs = new LlamaServerLogs()`；构造器 `this.initLogFile()` → `this.logs.initLogFile()`；
+- **4 个公开日志方法保留为薄委托**（对外签名不变；`getLogContent`/`subscribeLogs` 经 `domainSnapshotOps.ts:1223-1224` 被 HTTP 面消费）；
+- 2 处 `this.appendLog(...)`（`start()` 的 stderr/stdout 回调）改直调 `this.logs.appendLog(...)`；
+- 路径安全：宿主 `validateConfig`（:709）仍调 `validateModelsDir` ⇒ **import**；同时**再导出** `validateModelsDir` / `ensureSafeMigrationPath`，保持 `MigrationSafety.test.ts` 的既有 import 路径不变；
+- **孤儿导入清理 6 处**：`EventEmitter` · `appendFileSync` · `watch` · `dirname` · `resolve` · `normalize`（其余 fs/path 符号宿主他处仍在用）。
+
+**⚠️ logger module 名保持 `ai:llama`**（新模块同值）⇒ 日志输出逐字不变。
+
+**行数**：`LlamaCppServerManager.ts` **2185 → 1856**（−**329**）· 新模块 238 + 208。
+**★ `FSZ-136` 例外已删**（依据 §7.6 判据：实测 **1856 < 2000**）⇒ `fileSizeExceptions` **14 → 13**；该文件由 `[EXEMPT]` 降为 `[WARN]`。
+
+**门槛（全绿）**：`typecheck 0` · 改动文件 `eslint` **0 问题**（`--fix` 后）· `lint:arch` **错误 0 / 警告 4（基线）· 僵尸转发 0 · 循环依赖 0** · `lint:size` **0 错误 / 13 例外** · 定向 `tests/ai/llama` **29 pass / 0 fail**（含 `LlamaCppServerManager.test.ts` 与 `MigrationSafety.test.ts`）· 全量 **4750 pass / 21 skip / 0 fail**。
+
+**行为保真要点**：① 日志文件路径推导（`join(resolveLlamaDir(), '..','..','..','logs')`）与写日志头时机（构造期）不变；② `fs.watch` + **300ms 轮询兜底**、监听者计数归零即停监听、`lastEmittedSize` 增量语义不变；③ 轮询异常仍按 `KB-R08-POLL` 落 fail 日志；④ 路径安全的**禁止目录表与三条判据**（源=目标 / 目标为源子目录 / 系统路径）与"写权限试探后删除"不变；⑤ 全部方法/字段名**逐字未改名**（降低审阅成本）。
+
+**C 系列累计（§32–§35）**：新建 **5 模块**（`bootstrap/preflight.ts` 451 · `session/gateway/LiteSessionLister.ts` 199 · `session/gateway/GatewayFtsIndex.ts` 433 · `LlamaServerLogs.ts` 238 · `LlamaModelsDirGuard.ts` 208）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329 ⇒ **例外 16 → 13**。
+
+
 
 

@@ -34,7 +34,6 @@ import { exec as nodeExec, execFile, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { getSpawnImpl } from '@modules/utils/spawnPort';
 import { createHash } from 'crypto';
-import { EventEmitter } from 'events';
 import {
   existsSync,
   mkdirSync,
@@ -45,13 +44,11 @@ import {
   statSync,
   unlinkSync,
   renameSync,
-  appendFileSync,
-  watch,
   openSync,
   readSync,
   closeSync,
 } from 'fs';
-import { basename, dirname, extname, join, resolve, normalize } from 'path';
+import { basename, extname, join } from 'path';
 import { createServer, type Server } from 'net';
 import AdmZip from 'adm-zip';
 import { configManager } from '@modules/config';
@@ -67,6 +64,14 @@ import {
   resolveLlamaDir,
   resolveLlamaModelsDir,
 } from '@modules/core/paths';
+// 大文件拆分（spec file-size-debt-partition-plan §35）：日志簇 / 路径安全簇外迁。
+// 路径安全函数经**再导出**保持既有 import 路径不变（`MigrationSafety.test.ts` 依赖）。
+import { LlamaServerLogs } from './LlamaServerLogs.js';
+import { validateModelsDir } from './LlamaModelsDirGuard.js';
+export {
+  validateModelsDir,
+  ensureSafeMigrationPath,
+} from './LlamaModelsDirGuard.js';
 
 const logger = getLogger('ai:llama');
 
@@ -458,8 +463,11 @@ export class LlamaCppServerManager {
   private stopping = false;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly configProvider: () => Partial<LlamaServerConfig>;
-  /** llama-server 日志文件路径 */
-  private logFilePath: string = '';
+  /**
+   * 日志存储门面（大文件拆分 spec §35）：文件路径 / 订阅 / 追加与 fs.watch + 轮询兜底
+   * 已外迁 `./LlamaServerLogs.ts`。
+   */
+  private readonly logs = new LlamaServerLogs();
   /** spawn 子进程 stderr 尾部（失败诊断） */
   private lastStderr = '';
   /** 最近一次健康探测时间（getStatus 节流） */
@@ -468,12 +476,6 @@ export class LlamaCppServerManager {
   private lastScannedModels: string[] | null = null;
   /** 模型注册同步进行中（防重入） */
   private modelSyncInFlight = false;
-  /** 日志事件发射器（用于 SSE 实时推送） */
-  private logEventEmitter = new EventEmitter();
-  /** 日志监听者数量 */
-  private logListeners = 0;
-  /** fs.watch 监听器引用 */
-  private logWatcher: ReturnType<typeof watch> | null = null;
   /**
    * 配置级失败标记（模型文件不存在 / 路径不可访问等静态错误）。
    * 一旦置位，onProcessExit 不再触发退避重启（CS03：本地配置错误不是概率可观的外部故障，
@@ -500,187 +502,27 @@ export class LlamaCppServerManager {
   constructor(configProvider?: () => Partial<LlamaServerConfig>) {
     this.configProvider = configProvider ?? defaultConfigProvider;
     this.reloadConfig();
-    this.initLogFile();
+    this.logs.initLogFile();
   }
 
-  /** 初始化日志文件路径，日志写入 ~/.pyapp/logs/llama-server.log */
-  private initLogFile(): void {
-    try {
-      const logDir = join(resolveLlamaDir(), '..', '..', '..', 'logs');
-      if (!existsSync(logDir)) {
-        mkdirSync(logDir, { recursive: true });
-      }
-      this.logFilePath = join(logDir, 'llama-server.log');
-      // 写日志头
-      const header = `\n===== llama-server 日志 ${new Date().toISOString()} =====\n`;
-      appendFileSync(this.logFilePath, header);
-      logger.info('llama-server 日志文件已初始化', { path: this.logFilePath });
-    } catch (e) {
-      logger.warn('llama-server 日志文件初始化失败', {
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-
-  /** 获取日志文件内容（用于诊断） */
+  /** 获取日志文件内容（用于诊断）—— 实现见 `LlamaServerLogs`（spec §35） */
   getLogContent(maxLines = 200): string {
-    try {
-      if (!this.logFilePath || !existsSync(this.logFilePath)) {
-        return '日志文件不存在';
-      }
-      const content = readFileSync(this.logFilePath, 'utf-8');
-      const lines = content.split('\n');
-      return lines.slice(-maxLines).join('\n');
-    } catch (e) {
-      return `读取日志失败: ${e instanceof Error ? e.message : String(e)}`;
-    }
+    return this.logs.getLogContent(maxLines);
   }
 
-  /** 获取日志文件当前字节数（用于增量读取） */
+  /** 获取日志文件当前字节数（用于增量读取）—— 实现见 `LlamaServerLogs` */
   getLogSize(): number {
-    try {
-      if (!this.logFilePath || !existsSync(this.logFilePath)) {
-        return 0;
-      }
-      return statSync(this.logFilePath).size;
-    } catch {
-      return 0;
-    }
+    return this.logs.getLogSize();
   }
 
-  /** 从指定位置读取增量日志 */
+  /** 从指定位置读取增量日志 —— 实现见 `LlamaServerLogs` */
   getLogSincePosition(fromPosition: number): string {
-    try {
-      if (!this.logFilePath || !existsSync(this.logFilePath)) {
-        return '';
-      }
-      const content = readFileSync(this.logFilePath, 'utf-8');
-      if (content.length <= fromPosition) {
-        return '';
-      }
-      return content.slice(fromPosition);
-    } catch {
-      return '';
-    }
+    return this.logs.getLogSincePosition(fromPosition);
   }
 
-  /** 订阅日志实时推送 */
+  /** 订阅日志实时推送 —— 实现见 `LlamaServerLogs` */
   subscribeLogs(callback: (newContent: string) => void): () => void {
-    this.logListeners++;
-    this.logEventEmitter.on('log', callback);
-
-    // 启动文件监听（如果还没启动）
-    this.ensureLogWatcher();
-
-    // 返回取消订阅函数
-    return () => {
-      this.logEventEmitter.off('log', callback);
-      this.logListeners--;
-      if (this.logListeners <= 0) {
-        this.stopLogWatcher();
-      }
-    };
-  }
-
-  /** 确保文件监听器正在运行 */
-  private ensureLogWatcher(): void {
-    if (this.logWatcher || !this.logFilePath) return;
-
-    try {
-      const dir = dirname(this.logFilePath);
-      const targetName = basename(this.logFilePath);
-      this.logWatcher = watch(
-        dir,
-        (eventType: string, filename: string | null) => {
-          if (filename === targetName) {
-            this.emitLogUpdate();
-          }
-        }
-      );
-      // Windows 上 fs.watch 对 appendFileSync 场景可能漏事件，叠加低频轮询兜底
-      this.startLogPolling();
-      logger.info('llama-server 日志文件监听器已启动');
-    } catch (e) {
-      logger.warn('llama-server 日志文件监听器启动失败', {
-        error: e instanceof Error ? e.message : String(e),
-      });
-      // fs.watch 在某些平台不稳定，回退到轮询模式
-      this.startLogPolling();
-    }
-  }
-
-  /** 轮询模式（fs.watch 失败时的后备方案） */
-  private logPollingTimer: ReturnType<typeof setInterval> | null = null;
-
-  private startLogPolling(): void {
-    if (this.logPollingTimer) return;
-    let lastSize = this.getLogSize();
-    this.logPollingTimer = setInterval(() => {
-      try {
-        const currentSize = this.getLogSize();
-        if (currentSize > lastSize) {
-          const newContent = this.getLogSincePosition(lastSize);
-          if (newContent) {
-            this.logEventEmitter.emit('log', newContent);
-          }
-          lastSize = currentSize;
-        }
-      } catch (pollErr) {
-        // KB-R08-POLL（2026-08-29）：日志轮询异常记录（R08-002 后台循环必须有
-        // fail 日志落盘——getLogSize 内部已兜底，此 catch 覆盖未来改动的异常路径）
-        logger.warn('llama-server 日志轮询异常', {
-          error: pollErr instanceof Error ? pollErr.message : String(pollErr),
-        });
-      }
-    }, 300);
-    logger.info('llama-server 日志轮询模式已启动（300ms 间隔）');
-  }
-
-  private stopLogPolling(): void {
-    if (this.logPollingTimer) {
-      clearInterval(this.logPollingTimer);
-      this.logPollingTimer = null;
-    }
-  }
-
-  /** 停止文件监听器 */
-  private stopLogWatcher(): void {
-    if (this.logWatcher) {
-      this.logWatcher.close();
-      this.logWatcher = null;
-      logger.info('llama-server 日志文件监听器已停止');
-    }
-    this.stopLogPolling();
-  }
-
-  /** 触发日志更新事件 */
-  private lastEmittedSize = 0;
-  private emitLogUpdate(): void {
-    const currentSize = this.getLogSize();
-    if (currentSize > this.lastEmittedSize) {
-      const newContent = this.getLogSincePosition(this.lastEmittedSize);
-      if (newContent) {
-        this.lastEmittedSize = currentSize;
-        this.logEventEmitter.emit('log', newContent);
-      }
-    }
-  }
-
-  /** 追加日志到文件（带时间戳） */
-  private appendLog(stream: 'stdout' | 'stderr', data: string): void {
-    if (!this.logFilePath) return;
-    try {
-      const timestamp = new Date().toISOString();
-      const lines = data.split('\n').filter((l) => l.length > 0);
-      for (const line of lines) {
-        appendFileSync(
-          this.logFilePath,
-          `[${timestamp}] [${stream}] ${line}\n`
-        );
-      }
-    } catch {
-      // 日志写入失败静默处理
-    }
+    return this.logs.subscribeLogs(callback);
   }
 
   /**
@@ -1305,10 +1147,10 @@ export class LlamaCppServerManager {
     this.serverProcess.stderr?.on('data', (d: Buffer) => {
       const text = d.toString();
       this.lastStderr = (this.lastStderr + text).slice(-2000);
-      this.appendLog('stderr', text);
+      this.logs.appendLog('stderr', text);
     });
     this.serverProcess.stdout?.on('data', (d: Buffer) => {
-      this.appendLog('stdout', d.toString());
+      this.logs.appendLog('stdout', d.toString());
     });
     this.serverProcess.on('exit', (code, signal) => {
       this.serverProcess = null;
@@ -1662,177 +1504,6 @@ export const EXPECTED_SHA256: Record<string, Record<string, string>> = {
       'd087717d40d30d8bcf88cd84a67189d3c8891a572fd87b22e7d0dfcafac84dd6',
   },
 };
-
-// ============================================================
-// 路径安全检查（Task 1.2）
-// ============================================================
-
-/** 跨平台禁止作为模型目录的系统路径 */
-const FORBIDDEN_DIRS: Record<string, string[]> = {
-  win32: [
-    'C:\\Windows',
-    'C:\\Program Files',
-    'C:\\Program Files (x86)',
-    'C:\\ProgramData',
-    'C:\\Users\\All Users',
-  ],
-  darwin: ['/System', '/Library', '/Applications', '/private', '/dev'],
-  linux: [
-    '/etc',
-    '/usr',
-    '/bin',
-    '/sbin',
-    '/lib',
-    '/lib64',
-    '/boot',
-    '/dev',
-    '/proc',
-    '/sys',
-    '/run',
-    '/var',
-  ],
-};
-
-/**
- * 获取当前平台禁止的路径列表
- */
-function getForbiddenPaths(): string[] {
-  return FORBIDDEN_DIRS[process.platform] || [];
-}
-
-/**
- * 检查路径是否在父目录内（安全检查）
- */
-function isPathWithin(parent: string, child: string): boolean {
-  const resolvedParent = resolve(parent);
-  const resolvedChild = resolve(child);
-  return (
-    resolvedChild.startsWith(resolvedParent + require('path').sep) ||
-    resolvedChild === resolvedParent
-  );
-}
-
-/**
- * 校验模型目录是否有效
- * @param dir 目录路径
- * @returns 校验结果
- */
-export function validateModelsDir(dir: string): {
-  valid: boolean;
-  errors: string[];
-  resolvedPath?: string;
-} {
-  const errors: string[] = [];
-
-  if (!dir || typeof dir !== 'string') {
-    return { valid: false, errors: ['目录路径不能为空'] };
-  }
-
-  try {
-    // 规范化路径
-    const normalized = normalize(dir);
-    const resolved = resolve(normalized);
-
-    // 检查是否为禁止路径
-    const forbiddenPaths = getForbiddenPaths();
-    for (const forbidden of forbiddenPaths) {
-      if (resolved === forbidden || isPathWithin(forbidden, resolved)) {
-        errors.push(`禁止将模型目录设置到系统路径: ${forbidden}`);
-        return { valid: false, errors };
-      }
-    }
-
-    // 尝试创建目录（如不存在）
-    if (!existsSync(resolved)) {
-      try {
-        mkdirSync(resolved, { recursive: true });
-      } catch (err) {
-        errors.push(`无法创建目录: ${resolved}`);
-        return { valid: false, errors };
-      }
-    }
-
-    // 检查是否为目录
-    const stat = statSync(resolved);
-    if (!stat.isDirectory()) {
-      errors.push(`路径不是目录: ${resolved}`);
-      return { valid: false, errors };
-    }
-
-    // 测试写入权限（创建临时文件然后删除）
-    const testFile = join(resolved, `.llama-test-${Date.now()}`);
-    try {
-      writeFileSync(testFile, 'test');
-      unlinkSync(testFile);
-    } catch (err) {
-      errors.push(`目录不可写: ${resolved}`);
-      return { valid: false, errors };
-    }
-
-    return { valid: true, errors: [], resolvedPath: resolved };
-  } catch (err) {
-    errors.push(`路径检查失败: ${(err as Error).message}`);
-    return { valid: false, errors };
-  }
-}
-
-/**
- * 确保迁移路径安全
- * @param targetPath 目标路径
- * @param sourceDir 源目录
- * @returns 安全的目标路径
- */
-export function ensureSafeMigrationPath(
-  targetPath: string,
-  sourceDir: string
-): {
-  valid: boolean;
-  errors: string[];
-  safePath?: string;
-} {
-  const errors: string[] = [];
-
-  try {
-    // 1. 规范化并解析路径
-    const normalizedTarget = normalize(targetPath);
-    const resolvedTarget = resolve(normalizedTarget);
-    const resolvedSource = resolve(normalize(sourceDir));
-
-    // 2. 检查目标是否为源或源的子目录
-    if (resolvedTarget === resolvedSource) {
-      errors.push('目标目录与源目录相同');
-      return { valid: false, errors };
-    }
-
-    if (isPathWithin(resolvedSource, resolvedTarget)) {
-      errors.push('目标目录不能是源目录的子目录');
-      return { valid: false, errors };
-    }
-
-    // 3. 检查是否为禁止路径
-    const forbiddenPaths = getForbiddenPaths();
-    for (const forbidden of forbiddenPaths) {
-      if (
-        resolvedTarget === forbidden ||
-        isPathWithin(forbidden, resolvedTarget)
-      ) {
-        errors.push(`禁止迁移到系统路径: ${forbidden}`);
-        return { valid: false, errors };
-      }
-    }
-
-    // 4. 校验目录有效性
-    const validation = validateModelsDir(resolvedTarget);
-    if (!validation.valid) {
-      return { valid: false, errors: validation.errors };
-    }
-
-    return { valid: true, errors: [], safePath: resolvedTarget };
-  } catch (err) {
-    errors.push(`路径检查失败: ${(err as Error).message}`);
-    return { valid: false, errors };
-  }
-}
 
 // ============================================================
 // 模型迁移功能（Task 2.1）

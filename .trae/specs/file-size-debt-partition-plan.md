@@ -1321,6 +1321,42 @@ C9+C10+C11 主体**可提取**（内聚度高：EventLog 生命周期 + 流事�
 
 **C 系列累计（§32–§38）**：新建 **10 模块**（共 2348 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265 ⇒ **例外 16 → 11**（已关 5 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`）。
 
+---
+
+## 39. 实施记录：批 C7 —— `knowledge-handlers.ts` 维护类 handlers 外迁（2026-10-06，**已落地**）
+
+**⚠️ 例外记录 stale（如实）**：`FSZ-011` 记 `lines: 2376`（2026-08-09 批量登记），**本批实测起点即 2376**（一致，无需换算）。
+
+**新模块（1 个，置于同目录）**：
+| 模块 | 收拢 | 行数 |
+|---|---|---|
+| `knowledge-maintenance-handlers.ts` | **10 个维护类 handler**（原 :1956-2374 的 419 行）：`handleKnowledgeHealth` · `handleListSnapshots` · `handleRestoreSnapshot` · `handleTrashKnowledge` · `handleRestoreTrash` · `handleListKnowledgeTrash` · `handlePurgeKnowledgeTrash` · `handleExportKnowledge` · `handleGetKnowledgeConfig` · `handleUpdateKnowledgeConfig` | **438** |
+
+**划分依据（文件自带分区）**：健康巡检（:1956）+ 快照（:2059）+ 回收站（:2106）+ ZIP 导出（:2281）+ 知识库配置（:2341）五段构成**内聚的「维护类」簇**，与宿主的「文档 CRUD / 检索 / 编译」核业务零交叉。
+
+**依赖方向（单向，无循环）**：新模块 → 宿主（`assertDocPathWithin` + `publishKnowledgeChanged`）；宿主**不反向 import** ⇒ 不触碰「循环依赖 0」门禁。为支撑该方向，把宿主 `function publishKnowledgeChanged(` 改为 **`export function publishKnowledgeChanged(`**（唯一宿主侧签名变化）。
+
+**宿主侧**：**孤儿 JSDoc 清理**（`handleKnowledgeHealth` 的 `/** GET /v1/knowledge/health … */` 注释块随 handler 外迁一并移除）；五段删除点各留下**指针注释**指向新模块与 spec §39，便于后续检索。
+
+**路由**：`routes/knowledge-routes.ts` 共 **10 处**改线 —— 6 个静态名（`handleExportKnowledge`/`handleKnowledgeHealth`/`handleListSnapshots`/`handleRestoreSnapshot`/`handleRestoreTrash`/`handleTrashKnowledge`）从 `'../knowledge-handlers'` 导出块移出至新导入块；4 处**动态 import** 路径改指 `@modules/infrastructure/http/handlers/knowledge-maintenance-handlers`。另 2 处动态 import（`handleKnowledgeRawPreview` / `handleKnowledgeLineage`）**未外迁，保持原路径**。
+
+**行数**：`knowledge-handlers.ts` **2376 → 1963**（−**413** = 删除 419 行 + 新增 6 行指针注释）；新模块 **438** = 搬迁 419 行 + 19 行自有模块头/导入骨架。
+**★ `FSZ-011` 例外已删**（依据 §7.6 判据：实测 **1963 < 2000**）⇒ `fileSizeExceptions` **11 → 10**；该文件由 `[EXEMPT]` 降为 `[WARN]`。
+
+**门槛（全绿）**：app `bun run typecheck` **0** · 改动 3 文件 `eslint` **0** · `lint:arch` **违规 0 / 已豁免 0 / 警告 4（基线：R06-009-1 ×3 + R00-003 ×1）** · `lint:size` **0 错误 / 10 例外** · 全量 `bun test` **503 files / 4750 pass / 21 skip / 0 fail**（88.73s）。
+
+**行为保真**：10 个 handler **逐字搬迁**（含全部分区注释与 `KB-*` 根因修复说明）；签名/状态码/广播事件/缓存清理顺序**未改**。
+
+**★ 教训：分块删除法（本批方法论产物）**
+- **上轮失败**：首次拆分时以**单次 Edit 删除 419 行**（`old_string` 长达 419 行）⇒ 报 `String to replace not found in file`（逐字转录偏差），且**该状态下宿主与新模块重复实现 10 个 handler**（CS01 违规）⇒ 用户裁定**改用分块删除方案重做**（回滚两文件至干净基线）。
+- **本轮做法**：按 **handler 粒度切 6 块**（20–100 行/块）逐块删除 ⇒ **5 块一次成功、1 块失败（块 3：`handleTrashKnowledge` + `handleRestoreTrash`）**，**失败被隔离**——其余 5 块与全部路由改线已正确落地，无需整体回滚。
+- **块 3 根因**：`old_string` 中 `// 原 docPath.replace(/[/\\]/g,'_') …` 一行的**转义写法逐字转录偏差**（正则字符类内的 `\\`）。
+- **修复**：**先 `Read` 该区间取回文件确切文本**（不再凭记忆转录），再以**更小 `old_string`** 重做 ⇒ 一次成功。
+- **推广口径**：大文件拆分的「删除宿主旧副本」阶段，**一律按函数/分区粒度分块 Edit**，禁止 >200 行的单次 Edit；块失败时**先 Read 定位确切文本**再重做，禁止凭记忆二次转录。
+
+**C 系列累计（§32–§39）**：新建 **11 模块**（共 2786 行）· `main.ts` −399、`SessionGateway.ts` −439、`LlamaCppServerManager.ts` −329、`EventLogStorage.ts` −457、`MediaPage.tsx` −265、`knowledge-handlers.ts` −413 ⇒ **例外 16 → 10**（已关 6 条：`FSZ-019`/`FSZ-024`/`FSZ-136`/`FSZ-140`/`FSZ-111`/`FSZ-011`）。
+
+
 
 
 

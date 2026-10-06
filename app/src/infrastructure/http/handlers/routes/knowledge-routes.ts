@@ -45,27 +45,30 @@ import {
   handleDeleteKnowledge,
   handleDeleteKnowledgeBase,
   handleDuplicateKnowledgeBase,
-  handleExportKnowledge,
   handleExportToNotebook,
   handleGetRawFiles,
   handleGetKnowledgeDoc,
   handleImportFromFile,
   handleKnowledgeCompile,
   handleKnowledgeCompileStatus,
-  handleKnowledgeHealth,
   handleKnowledgeUpload,
   handleListKnowledge,
   handleListKnowledgeBases,
-  handleListSnapshots,
-  handleRestoreSnapshot,
-  handleRestoreTrash,
   handleSaveFromChat,
   handleSearchKnowledge,
-  handleTrashKnowledge,
   handleUpdateKnowledge,
   handleUpdateKnowledgeBase,
   handleUpdateKnowledgeDoc,
 } from '../knowledge-handlers';
+// 大文件拆分（spec file-size-debt-partition-plan §39）：维护类 handlers 外迁
+import {
+  handleExportKnowledge,
+  handleKnowledgeHealth,
+  handleListSnapshots,
+  handleRestoreSnapshot,
+  handleRestoreTrash,
+  handleTrashKnowledge,
+} from '../knowledge-maintenance-handlers';
 import {
   handleBatchDeleteFAQ,
   handleCreateFAQ,
@@ -269,13 +272,13 @@ export async function dispatchKnowledgeRoutes(
   }
   if (method === 'GET' && url === '/v1/knowledge/config') {
     const { handleGetKnowledgeConfig } =
-      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+      await import('@modules/infrastructure/http/handlers/knowledge-maintenance-handlers');
     await handleGetKnowledgeConfig(req, res);
     return true;
   }
   if (method === 'PUT' && url === '/v1/knowledge/config') {
     const { handleUpdateKnowledgeConfig } =
-      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+      await import('@modules/infrastructure/http/handlers/knowledge-maintenance-handlers');
     await handleUpdateKnowledgeConfig(req, res);
     return true;
   }
@@ -334,13 +337,13 @@ export async function dispatchKnowledgeRoutes(
   // P2#18：回收站查看/永久删除
   if (method === 'GET' && url.startsWith('/v1/knowledge/trash')) {
     const { handleListKnowledgeTrash } =
-      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+      await import('@modules/infrastructure/http/handlers/knowledge-maintenance-handlers');
     await handleListKnowledgeTrash(req, res);
     return true;
   }
   if (method === 'DELETE' && url.startsWith('/v1/knowledge/trash')) {
     const { handlePurgeKnowledgeTrash } =
-      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+      await import('@modules/infrastructure/http/handlers/knowledge-maintenance-handlers');
     await handlePurgeKnowledgeTrash(req, res);
     return true;
   }

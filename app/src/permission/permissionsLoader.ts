@@ -1,8 +1,11 @@
 import * as fs from 'fs';
-import * as path from 'path';
-import { resolvePyappHome, resolveDataDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import {
+  getUserSettingsPath,
+  getProjectSettingsPath,
+  getLocalSettingsPath,
+} from '@modules/config';
 import { PermissionRuleSource } from './types/PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';
@@ -70,30 +73,20 @@ export function loadPermissionsFromSettings(
 export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
   let context = getEmptyToolPermissionContext();
 
-  const userSettings = path.join(resolvePyappHome(), 'settings.json');
-  const projectSettings = path.join(
-    resolveDataDir(),
-    'settings',
-    'settings.json'
-  );
-  const localSettings = path.join(
-    resolveDataDir(),
-    'settings',
-    'local_settings.json'
-  );
-
+  // 路径统一取自配置层的规范解析器（与 ConfigManager 的 settings 来源同源），
+  // 禁止在此自行拼接 —— 曾因自建 `{dataDir}/settings/…` 与真实来源不一致而读不到规则。
   context = loadPermissionsFromSettings(
-    userSettings,
+    getUserSettingsPath(),
     PermissionRuleSource.USER_SETTINGS,
     context
   );
   context = loadPermissionsFromSettings(
-    projectSettings,
+    getProjectSettingsPath(),
     PermissionRuleSource.PROJECT_SETTINGS,
     context
   );
   context = loadPermissionsFromSettings(
-    localSettings,
+    getLocalSettingsPath(),
     PermissionRuleSource.LOCAL_SETTINGS,
     context
   );

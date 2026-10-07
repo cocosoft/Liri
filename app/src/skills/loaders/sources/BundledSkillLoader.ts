@@ -294,7 +294,7 @@ Liri 的设置有多个来源与文件，按优先级（后者覆盖前者）加
 
 选择原则：个人偏好改用户设置；团队共享改项目设置；只影响本机改本地设置；应用级配置（模型 / 权限 / 通道 / 功能开关）改 \`~/.pyapp/config.json\`。
 
-（权限的 \`allow\` / \`deny\` / \`ask\` 数组写在上述 settings 文件的 \`permissions\` 段；工具级规则见下方「Permissions」。）
+（权限设置见下方「Permissions」：工具级规则写 \`tool_rules.json\`，命令级规则写 \`permission.customRules.commandRules\`。）
 
 ## 配置区块
 

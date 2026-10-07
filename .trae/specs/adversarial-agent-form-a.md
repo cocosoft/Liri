@@ -255,13 +255,15 @@ export interface AdversarialReport {
 
 ## 10. 实施记录（2026-10-04 · 确定性半）
 
+> ⚠️ **本节为第一轮（确定性半）的历史记录**；后续轮次见 **§10.1**（LLM 提案器适配器，2026-10-04 第二轮）与 **§10.3**（R-1 真机调优，2026-10-07）。凡本节与后两节冲突处，**以后者为准**（已在冲突项就地标注）。
+
 > 用户裁定：D1=(b) / D2=(a) / D3=(a) / D4·D5 用建议值，且**先落确定性半**（提案器以注入式接口预留）。
 
 | 文件 | 改动 |
 |---|---|
 | `app/src/evals/adversarialAgent.ts` | **新增**：类型（`AdversarialProposal` / `AdversarialVerdict` / `AdversarialReport` / `AdversarialVerdictKind` / `AdversarialProposerInput` / `AdversarialProposer`）+ `adversarialTargets` · `buildProposerInput` · `judgeProposal` · `runAdversarialPhase` · `adversarialToCheatFindings` · `parseAdversarialProposals` · `dedupeProposalsById`（**2026-10-08，D-244③b**：离线提案集 id 唯一性守卫——保留首次、其余丢弃并回传重复 id） |
-| `app/src/evals/cli.ts` | 改：`--adversarial`（默认关）+ `--adversarial-proposals=<file.json>`；`reportAntiCheatOnce` 抽 `ctx` 并在其后调 `reportAdversarialOnce`（复用既有 `AntiCheatContext`） |
-| `app/tests/evals/adversarialAgent.test.ts` | **新增**：**9 例**（解析宽松校验 / 闭集内外裁决 / 确定性 / N1 守住 / 合并 cheatReport / 输入面不含期望值） |
+| `app/src/evals/cli.ts` | 改：`--adversarial`（默认关）+ `--adversarial-proposals=<file.json>`；`reportAntiCheatOnce` 抽 `ctx` 并在其后调 `reportAdversarialOnce`（复用既有 `AntiCheatContext`）。<br>**后续轮次追加**：`--adversarial-model` / `--adversarial-max-calls` / `--adversarial-timeout-ms` / `--adversarial-max-tokens`（**§10.1 / §10.3**，来源**二选一**互斥校验）+ 离线分支接入 `dedupeProposalsById` 唯一性守卫并告警（**2026-10-08，D-244③b**） |
+| `app/tests/evals/adversarialAgent.test.ts` | **新增**：**11 例**（解析宽松校验 / 闭集内外裁决 / 确定性 / N1 守住 / 合并 cheatReport / 输入面不含期望值；**2026-10-08 D-244③·③b 追加 2 例**：离线 fixture 全链可复现 + id 唯一性守卫）<br>配套 fixture：`app/tests/evals/fixtures/adversarial-proposals.sample.json` |
 
 **实现要点（对齐 spec 契约）**
 1. **提案与裁决分离**：`adversarialAgent.ts` **不认识 LLM** —— 提案经注入式 `AdversarialProposer` 提供；模块只做"给定提案集 ⇒ 确定性裁决"。⇒ 同提案集结果**可复现**。
@@ -272,8 +274,8 @@ export interface AdversarialReport {
 
 **实施期偏离（如实，均为收窄/保守）**
 - 类型落在 **`evals/adversarialAgent.ts`**（spec §4.3 原写 `evals/types.ts`）⇒ **完全不触碰共享数据模型文件**，与 D2=(a)"新增独立类型"更贴。
-- 新增 **`--adversarial-proposals=<file.json>`**（spec 原只写 `--adversarial`）⇒ 作为"注入式接口"的**可用实例**（否则开启后无提案来源）；`--adversarial-max-calls` **暂不加**（仅 LLM 适配器需要 ⇒ 避免死开关，CS04）。
-- **LLM 提案器适配器未实现**（用户裁定"先落确定性半"）；通道分叉见 §5.1。
+- 新增 **`--adversarial-proposals=<file.json>`**（spec 原只写 `--adversarial`）⇒ 作为"注入式接口"的**可用实例**（否则开启后无提案来源）；`--adversarial-max-calls` **暂不加**（仅 LLM 适配器需要 ⇒ 避免死开关，CS04）。<br>⚠️ **已被 §10.1 取代**：第二轮落地 LLM 适配器后，该开关**已加**（默认 5），并新增 `--adversarial-model` / `--adversarial-timeout-ms` / `--adversarial-max-tokens`。
+- **LLM 提案器适配器未实现**（用户裁定"先落确定性半"）；通道分叉见 §5.1。<br>⚠️ **已被 §10.1 取代**：适配器已于 2026-10-04 第二轮落地（`adversarialProposer.ts`，通道口径 = `@modules/ai` 既有入口；见 §5.2）。
 
 **验证（实测）**
 
@@ -294,7 +296,7 @@ export interface AdversarialReport {
 | 文件 | 改动 |
 |---|---|
 | `app/src/evals/adversarialProposer.ts` | **新增**：`createLlmProposer`（有界 `maxCalls` + 去重收敛 + 失败/超时**如实降级**）· `createAiServiceChat`（**`@modules/ai` 既有入口**，**动态 `import()`**；`syncDBProvidersToRegistry()` + `aiService.generate(..., { signal })`）· `buildRedTeamPrompt`（**安全面**：只给目标闭集 + 已声明防线）· `extractJsonArray`（容忍围栏/噪声；失败 ⇒ null）<br>**2026-10-07（D-244 修复，台账 D-244）**：新增 `ProposerDiagnostics` + `LlmProposerOptions.onDiagnostics`（**空轮可见化**：`rounds`/`productiveRounds`/`emptyRounds`/`parseFailures{emptyContent,unparsable}`/`stoppedBy`）· `parse_failed` 增 `kind` 分类 · `chat_empty_content` 增可操作 `hint` · **提案 id 改为出口重编号**（`P-1..P-n` 全局唯一 —— 模型自报 id 每轮从 `P-1` 起，曾致合并结果重复且缺口）。**接口未变**（仍是 `=> Promise<AdversarialProposal[]>`）⇒ 离线提案路径与既有单测零改动 |
-| `app/src/evals/cli.ts` | 改：新增 `--adversarial-model` · `--adversarial-max-calls`（默认 5）· `--adversarial-timeout-ms`（默认 30000）；提案来源**二选一**（文件 / LLM，互斥校验）；`reportAdversarialOnce` 与 `reportAntiCheatOnce` 改 **async** |
+| `app/src/evals/cli.ts` | 改：新增 `--adversarial-model` · `--adversarial-max-calls`（默认 5）· `--adversarial-timeout-ms` · `--adversarial-max-tokens`；提案来源**二选一**（文件 / LLM，互斥校验）；`reportAdversarialOnce` 与 `reportAntiCheatOnce` 改 **async**。<br>**默认值已由 §10.3（R-1 真机调优）上修**：`timeout-ms` **30000 → 60000**、`max-tokens` **8192 → 16384**（本行原写的 30000 为 R-1 之前取值）。离线分支另接入 `dedupeProposalsById` 守卫（**2026-10-08**）。 |
 | `app/tests/evals/adversarialProposer.test.ts` | **新增**：**8 例**（解析容错 / 提示词安全面 / 单轮 / 跨轮去重收敛 / 上限恰好停在 maxCalls / 解析失败 / 调用抛错降级） |
 | `app/tests/evals/fixtures/adversarial-proposals.sample.json` | **新增**（**2026-10-08，D-244③**）：离线提案集 fixture —— 即 `--adversarial-proposals=<file>` 的**输入形态**（4 条：3 条落闭集内 + 1 条闭集外 `C-9`）⇒ "端到端可复现"不再只有**构造保证** |
 

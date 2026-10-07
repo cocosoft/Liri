@@ -1,6 +1,6 @@
 # Spec：护栏双侧闭环（P26-2）
 
-> 版本 1.3 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施** · 🟢 **A2（`OUTPUT_GUARD` 常开评估）已完成（结论：不翻默认）** · 方案 B 按 D10=a 不实施 —— 见 §9 实施记录
+> 版本 1.4 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施** · 🟢 **A2（`OUTPUT_GUARD` 常开评估）已完成（结论：不翻默认）** · 🟢 **PC-1（护栏结果前端可见 = A2 的 P3 前置）已实施** · 方案 B 按 D10=a 不实施 —— 见 §9 实施记录
 > 来源：台账 `dev_docs/任务计划-20261004.md` §26.2-**A6** 残余（"输入侧 3 检测器仍未统一接口 / 输出侧默认关"）⇒ §26.5 **P26-2**
 > 前置：输出侧内容护栏已由 **13-P2-1（2026-10-05）** 落地（`core/outputGuard` + `chat/outputGuards`）
 > 关联规则：GR15（Spec-Driven）/ GR01（基础设施复用）/ **CS01（归一化）** / **CS03（回退最小化）** / CS02 / R12-1（防 CS03 滥用）；对标《Agentic Design Patterns》Ch.18 Guardrails
@@ -222,8 +222,46 @@
 |:--:|---|---|
 | P1 | **收窄 secrets 模式为"值形态"判定** | 改判据为真实密钥形态（前缀 `sk-`/`ghp_`/`AKIA` + 高熵/长度下限），**不以字段名命中** |
 | P2 | **豁免 MIT 协议头邮箱** | 排除 `Copyright (c) …` 行或白名单作者邮箱（否则与 `project_rules.md §1.2` 互斥） |
-| P3 | **先落地 PC-1**（护栏结果前端可见 + 原因） | 否则不得**静默**改写用户可见内容 |
+| P3 | **先落地 PC-1**（护栏结果前端可见 + 原因） | ✅ **已完成（2026-10-07）** —— 见 §9.3；否则不得**静默**改写用户可见内容 |
 | P4 | **补"护栏前原文"留痕** | 事件或字段，避免不可逆改写且无审计 |
 | P5 | **量化门槛** | 用本仓语料回归（对 `app/`+`client/` 的 md/ts 抽样跑 `sanitize()` 统计命中率），命中率达标才允许翻默认 |
 
 ⇒ D11 仍**未裁定**；本评估为 D11 提供上述依据（如需推进，建议按 P1→P2→P3 顺序先行）。
+
+### 9.3 PC-1 —— 护栏结果前端可见（**A2 的 P3 前置**；用户裁定「通知 SSE」）—— 🟢 **已落地 2026-10-07**
+
+**背景（= 台账 §27.3-PC-1）**：`OUTPUT_GUARD` 命中后，调用方以安全文本**替换**已流出正文
+（`updateMessageBlocks`）并只落 `logger.warn/info` ⇒ 前端**无任何字段/事件**（`redact|blockReason|outputGuard`
+0 命中）⇒ 用户看到"语义不同的替代文本"却**不知**被阻断/打码 —— 即 §9.2④-2「静默改写」。
+
+**落点（实测回仓）**
+
+| # | 落点 | 改动 |
+|:--:|---|---|
+| 1 | `chat/outputGuards/liveEvents.ts` | **新建**：`OUTPUT_GUARD_SSE_EVENT = 'system:output_guard'` + `OutputGuardNotice`/`Action` + 纯函数 `buildOutputGuardNotice()`（`blocked` 优先 `redacted`，皆否 ⇒ `null`）+ `buildOutputGuardPayload()`（JSON 安全）+ `emitOutputGuardNotice()`（**懒加载** `@modules/infrastructure#broadcastEvent`）+ 便捷入口 `notifyOutputGuardResult()` |
+| 2 | `chat/outputGuards/index.ts` | 转出 #1 的 5 值 + 2 类型 |
+| 3 | `chat/orchestrator/streamMessageFlow.ts`（流式，无工具回合终稿） | 护栏分支后**单点调用** `notifyOutputGuardResult(session.id, assistantMessage.id, guardResult)`（未命中 ⇒ 内部不下发） |
+| 4 | `chat/orchestrator/ChatOrchestrator.ts`（非流式，同上） | 同上 |
+| 5 | `client/src/stores/outputGuardStore.ts` | **新建**：按 **`messageId`** 记录 `{ action, at }`；非法载荷忽略 |
+| 6 | `client/src/hooks/useNotificationSSE.ts` | 订阅 `sseService.on('system:output_guard')` → store（复用既有单一事件源，遵 TB-5） |
+| 7 | `client/src/components/ChatArea/OutputGuardTag.tsx` | **新建**：**消息级**小标签（阻断=红 / 打码=琥珀；🛡️ + 可读文案） |
+| 8 | `client/src/components/ChatArea/ChatMessageList.tsx` | 在**每条助手消息**的 `data-msg-id` 容器内渲染 #7（按 `message.id` 索引） |
+| 9 | `client/src/i18n/locales/{zh,en}.ts` | `chat.outputGuardBlocked` / `chat.outputGuardRedacted`（**双语同批**，PC-4；**去技术化**，PC-5） |
+| 10 | `app/tests/chat/outputGuardLiveEvents.test.ts` | **新建（5 例）**：事件名逐字契约 / 阻断优先 / 仅打码 / 未命中⇒null / 载荷仅三字段 |
+| 11 | `client/src/tests/outputGuardStore.test.ts` | **新建（3 例）**：按消息记录 / 非法载荷忽略 / 重复事件收敛 |
+
+**语义细节（如实）**
+- **只发动作，不发原因原文**：载荷仅 `{ sessionId, messageId, action }`。**不发** `blockReason` 原文与护栏名 ——
+  ① PC-5（去技术化，不暴露内部串）；② 避免前端耦合后端护栏标识符（新增护栏不需改前端）。
+  原文/护栏名仍由调用方 `logger` 留痕（可诊断）。
+- **消息级而非会话级**：命中发生在**具体一条助手终稿**上 ⇒ 标注挂在 `messageId`（对齐 `WatermarkTag` 的"结构化标记驱动"形态），
+  不用会话级横幅（后者无法指认是哪条）。
+- **覆盖范围 = 既有护栏作用域**（终稿；流式 chunk / 工具返回值 / 文件写入**不受**护栏约束，见 §9.2①）⇒ 标注亦只可能出现在终稿消息上。
+- **不触发 §1.6 红线**：本通道只发 UI 通知，**不含任何"模型可见输入"** ⇒ 无需新增 `LiriEventType`/载荷/登记三处同步。
+- **不做（明确）**：**刷新后仍显示**（SSE 为瞬时通道，重载即丢）—— 属"留痕/持久化"范畴，与 **P4**（护栏前原文留痕）同域，另立；
+  亦**不做**单条关闭按钮（信息性标注，无状态可关）。
+- 开关沿用 `OUTPUT_GUARD`（默认关）⇒ 默认下**不会**产生本事件（无护栏命中即无通知）。
+
+**门禁（全绿）**：`typecheck`（app + client）**0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外（基线）** · `lint:doc-code` **18 断言一致** · 全量 `bun test`（app）**510 files / 4796 pass / 21 skip / 0 fail** · `vitest`（client）**60 files / 521 pass**。
+
+**前置清单更新**：**P3 ✅ 已完成**；剩余 **P1 / P2 / P4 / P5** 仍 open ⇒ D11 仍**未裁定**、`OUTPUT_GUARD` 维持 `false`。

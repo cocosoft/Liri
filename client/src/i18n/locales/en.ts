@@ -451,6 +451,11 @@ const en = {
       "This session was preempted by a higher-priority task and its reply was interrupted. Send a message again to continue.",
     queuedNotice:
       "Concurrency limit reached; this session is queued and waiting for resources…",
+    // PC-1 (output-guard result surfaced to the client, 2026-10-07): message-level tag
+    outputGuardBlocked:
+      "This reply was blocked by the safety guardrail; content was replaced.",
+    outputGuardRedacted:
+      "Sensitive information in this reply was automatically redacted.",
     tokenInfo: "Token Details",
     actionsMore: "More",
     contentUnchanged: "Content unchanged",

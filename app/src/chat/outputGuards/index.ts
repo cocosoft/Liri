@@ -26,6 +26,18 @@ export {
   createInjectionEchoGuard,
   INJECTION_ECHO_GUARD,
 } from './injectionEchoGuard.js';
+// PC-1（2026-10-07）：护栏结果经全局 SSE 下发前端（消息级"已打码/已阻断"标注）
+export {
+  OUTPUT_GUARD_SSE_EVENT,
+  buildOutputGuardNotice,
+  buildOutputGuardPayload,
+  emitOutputGuardNotice,
+  notifyOutputGuardResult,
+} from './liveEvents.js';
+export type {
+  OutputGuardNotice,
+  OutputGuardNoticeAction,
+} from './liveEvents.js';
 
 /** 注册默认输出护栏（幂等；未开启 `OUTPUT_GUARD` 时为空注册） */
 export function registerDefaultOutputGuards(

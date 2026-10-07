@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import ChatMessage from "./ChatMessage";
+// PC-1（2026-10-07）：消息级"已打码 / 已阻断"标注（后端 SSE `system:output_guard`）
+import OutputGuardTag from "./OutputGuardTag";
 import SessionTitle from "./SessionTitle";
 import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
@@ -865,6 +867,10 @@ export default function ChatMessageList({
                       sessionUsage={sessionUsage}
                     />
                   </ErrorBoundary>
+                  {/* PC-1：本轮回复被安全护栏打码/阻断的标注（后端 SSE 下发，按 messageId 索引） */}
+                  {message.role === "assistant" && (
+                    <OutputGuardTag messageId={message.id} />
+                  )}
                 </div>
               </div>
             );

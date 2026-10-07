@@ -438,6 +438,9 @@ const zh = {
     preemptedNotice:
       "本会话被更高优先级的任务抢占，回复已中断。如需继续，请重新发送消息。",
     queuedNotice: "当前并发已满，本会话正在排队等待资源，请稍候…",
+    // PC-1（输出护栏结果前端呈现，2026-10-07）：消息级标注（去技术化文案，见 PC-5）
+    outputGuardBlocked: "本回复被安全护栏阻断，内容已替换为安全提示",
+    outputGuardRedacted: "本回复中的敏感信息已被自动打码",
     tokenInfo: "Token 详情",
     actionsMore: "更多",
     contentUnchanged: "内容未变更",

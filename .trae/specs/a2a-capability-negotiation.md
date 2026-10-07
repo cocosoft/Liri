@@ -1,6 +1,6 @@
 # Spec：A2A 能力协商字段与独立健康探针（R11-3）
 
-> 版本 1.0 ｜ 创建 2026-10-07 ｜ 状态：🟡 **部分实施（2026-10-07）** —— D1/D2 已落地；**D3（binding 声明如实化）待裁定**
+> 版本 1.1 ｜ 创建 2026-10-07 ｜ 状态：🟢 **已实施（2026-10-07）** —— D1/D2/D3 全部落地（**D3 由用户裁定取 (b) 撤销 JSON-RPC 声明**）
 > 来源：台账 `dev_docs/任务计划-20261004.md` §24.4 **R11-3**（报告 11 §五-P2；§25.2 细化为「能力协商字段 + 独立健康探针」）
 > 关联规则：GR15（Spec-Driven，**本项含 API 变更**）/ GR01（复用）/ CS01（归一化）/ CS03（回退最小化）/ CS06（证据驱动）/ R06-008（分层）
 > 关联文档：`.trae/specs/a2a-external-exposure.md`（对外面主 spec，**G2"不得虚报 capabilities"**）· `.trae/specs/a2a-v1-naming-alignment.md`（**T4 待裁定**）· `.trae/docs/api-spec.md` §3.8.2
@@ -48,33 +48,32 @@
 - 非 `GET` ⇒ **405**（与既有两处端点同风格）。
 - **不**返回密钥/版本/Agent 数（避免探针成为额外信息面；版本可由 Agent Card 发现端点取）。
 
-### D3 —— `supportedInterfaces` 的 binding 声明如实化 ⏸ **待裁定**（本批**不改**）
+### D3 —— `supportedInterfaces` 的 binding 声明如实化 ✅ **已实施（用户裁定取 (b)）**
 
-| 选项 | 内容 | 代价 |
+| 选项 | 内容 | 结论 |
 |---|---|---|
-| **(a)** | 实现 A2A JSON-RPC 绑定（= **T4**） | 属新能力；无对端可验 ⇒ 已裁定暂缓 |
-| **(b)（本 spec 建议）** | **撤销** `supportedInterfaces` 声明（未实现任何标准 binding 时不得声明），并在卡片描述/文档注明"当前为自定义 REST，对接见 `api-spec.md` §3.8.2" | 改**外部契约形状**（无正式用户 ⇒ 无兼容负担，§1.3） |
-| **(c)** | 维持现状 + 在 spec/文档**显式登记该偏差** | 保留"虚报"，与 G2 纪律相悖 |
-
-> ⇒ **本批不选、只登记**（finding 已入 `预存错误与待处理问题.md` **A2A-1**）。建议下一步取 **(b)**。
+| **(a)** | 实现 A2A JSON-RPC 绑定（= **T4**） | ❌ 未采纳（属新能力；无对端可验） |
+| **(b)（用户裁定，已实施）** | **撤销** `supportedInterfaces` 声明（未实现任何标准 binding 时不得声明），卡片**省略该字段**；对接以 `api-spec.md` §3.8.2 的**自定义 REST** 契约为准 | ✅ **已落地**：`agentCard.ts` 移除该字段（就地注释）；`types/a2a.ts` 的 `supportedInterfaces` / `A2AAgentInterface` 保留为**可选协议形状**并注明"当前不填充"；`a2aRoutes.test.ts` ③ 增 **`'supportedInterfaces' in card === false`** 断言锁定 |
+| **(c)** | 维持现状 + 文档化偏差 | ❌ 未采纳（保留虚报，与 G2 纪律相悖） |
 
 ## 4. 影响文件
 
 | # | 文件 | 改动 |
 |:-:|---|---|
-| 1 | [`app/src/types/a2a.ts`](../../app/src/types/a2a.ts) | `A2AAgentCapabilities` 增 `stateTransitionHistory: boolean` |
-| 2 | [`app/src/agent/a2a/agentCard.ts`](../../app/src/agent/a2a/agentCard.ts) | 卡片 `capabilities` 增 `stateTransitionHistory: false` + 注释 |
-| 3 | [`app/src/infrastructure/http/handlers/routes/a2a-routes.ts`](../../app/src/infrastructure/http/handlers/routes/a2a-routes.ts) | 新增 `HEALTH_PATH` + `isA2APath` 纳入 + `handleHealth()` |
-| 4 | [`app/tests/http/a2aRoutes.test.ts`](../../app/tests/http/a2aRoutes.test.ts) | 更新 ③（capabilities 三字段如实）；新增健康探针用例（就绪/未就绪/非 GET/未授权/未启用） |
-| 5 | `.trae/docs/api-spec.md` §3.8.2 | 补 `GET /v1/a2a/health` 契约 |
+| 1 | [`app/src/types/a2a.ts`](../../app/src/types/a2a.ts) | `A2AAgentCapabilities` 增 `stateTransitionHistory: boolean`；`supportedInterfaces` / `A2AAgentInterface` 加注释说明**当前不填充**（D3） |
+| 2 | [`app/src/agent/a2a/agentCard.ts`](../../app/src/agent/a2a/agentCard.ts) | 卡片 `capabilities` 增 `stateTransitionHistory: false`；**移除** `supportedInterfaces` 声明（D3）+ 就地注释 |
+| 3 | [`app/src/infrastructure/http/handlers/routes/a2a-routes.ts`](../../app/src/infrastructure/http/handlers/routes/a2a-routes.ts) | 新增 `HEALTH_PATH` + `isA2APath` 纳入 + `handleHealth()`（D2） |
+| 4 | [`app/tests/http/a2aRoutes.test.ts`](../../app/tests/http/a2aRoutes.test.ts) | ③ 改断言三字段 **+ 断言 `supportedInterfaces` 缺省**（D3 回归锁）；新增健康探针用例（就绪/未就绪/非 GET/未授权/未启用） |
+| 5 | `.trae/docs/api-spec.md` §3.8.2（**2.8.0**） | 补 `GET /v1/a2a/health` 契约 + **绑定声明口径**（不声明 `supportedInterfaces`）+ 订正过时路径 `agent.json`→`agent-card.json` |
 
 ## 5. 验收
 
-- [ ] `capabilities` == `{ streaming: false, pushNotifications: false, stateTransitionHistory: false }`（如实，**三字段**）。
-- [ ] `GET /v1/a2a/health`：已装配后端 ⇒ `delegatorReady: true`；未装配 ⇒ `false`；两者均 `status:'ok'`。
-- [ ] 探针：非 GET ⇒ 405；未授权 ⇒ 401；未启用 ⇒ **不处理**（`handled=false`，不泄露存在性）。
-- [ ] `bun run typecheck` **0** · 定向 `bun test tests/http/a2aRoutes.test.ts` **0 fail** · 全量 `bun test` 绿 · `lint:arch` 违规 0（**动态跨层引用不增**）。
-- [ ] D3 已登记（spec + 预存错误），**未改** `supportedInterfaces`。
+- [x] `capabilities` == `{ streaming: false, pushNotifications: false, stateTransitionHistory: false }`（如实，**三字段**）。
+- [x] 卡片 **不含** `supportedInterfaces` 键（D3）。
+- [x] `GET /v1/a2a/health`：已装配后端 ⇒ `delegatorReady: true`；未装配 ⇒ `false`；两者均 `status:'ok'`。
+- [x] 探针：非 GET ⇒ 405；未授权 ⇒ 401；未启用 ⇒ **不处理**（`handled=false`，不泄露存在性）。
+- [x] `bun run typecheck` **0** · 定向 `bun test tests/http/a2aRoutes.test.ts` **19 pass** · 全量 `bun test` 绿 · `lint:arch` 违规 0（**动态跨层引用 41 不增**）。
+- [x] D3 已按 (b) 实施；finding 已在 `预存错误与待处理问题.md` **A2A-1** 回写"已修"。
 
 ## 6. 合规检查清单
 
@@ -83,18 +82,19 @@
 | **GR15**（Spec-Driven） | ✅ API 变更先立本 spec（D1/D2/D3） |
 | **GR01**（复用） | ✅ 探针复用 `hasA2ADelegator()`（与 503 判据**同源**）；不新造就绪判据 |
 | **CS01**（归一化） | ✅ 复用既有双闸（`isA2AEnabled` + `isA2AAuthorized`）与路径常量风格 |
-| **CS03**（回退最小化） | ✅ 探针无缓存/心跳；D3 三选项给出**拒绝实施**的理由 |
+| **CS03**（回退最小化） | ✅ 探针无缓存/心跳；D3 三选项均给出取舍，**不保留**虚报面 |
 | **CS06**（证据驱动） | ✅ §1 全 file:line；A2A 规范字段集经官方 spec 核对 |
 | **R06-008 / R00-001** | ✅ 不静态 import app（沿用 `A2APort` 缝）；零新增倒挂 |
 
 ## 7. 风险与边界（如实）
 
-1. **D3 未闭环**：卡片仍声称 `JSONRPC` binding ⇒ 真实 A2A 客户端按 JSON-RPC 对接会失败。**本批只登记，不改契约**（改法需裁定，见 §3-D3）。
-2. **"能力协商"的完整实现仍属 T4**（JSON-RPC/SSE/扩展卡）；本批只做**字段如实化 + 探针**，**不**声称已实现协商协议。
+1. **D3 已按 (b) 收口，但更深的协议形状问题未解**：A2A **v1.0** 把 `supportedInterfaces` 设为**必需**（且移除了顶层 `protocolVersion`），而本仓卡片仍是 **v0.x 形状**（顶层 `protocolVersion` + 无 binding）。⇒ 本批只做到"**不虚报**"，**未**做到"v1.0 完全合规"（那属 T4 的 `AgentInterface` 重声明）。
+2. **"能力协商"的完整实现仍属 T4**（JSON-RPC/SSE/扩展卡）；本批只做**字段如实化 + 探针 + 撤销虚报**，**不**声称已实现协商协议。
 3. **探针的信息面**：`delegatorReady` 会暴露"后端未就绪"这一状态 —— 但该状态本已由 `POST` 的 503 暴露，**无新增泄露**。
 4. **无对端可验**：本批仅**单元级**验证（卡片形状 + 探针语义），未与真实 A2A 客户端互操作。
 
 ## 8. 实施记录
 
-**2026-10-07（R11-3）**：D1（`stateTransitionHistory: false`）+ D2（`GET /v1/a2a/health`）已实施；
-**D3 待裁定**（finding 登记为 `预存错误与待处理问题.md` **A2A-1**）。
+**2026-10-07（R11-3）**：**D1**（`stateTransitionHistory: false`）+ **D2**（`GET /v1/a2a/health`）+ **D3**（撤销 `supportedInterfaces` 声明，用户裁定取 (b)）**全部落地**。
+取证期发现的 binding 虚报（`预存错误与待处理问题.md` **A2A-1**）已随 D3 **关闭**。
+门禁：全量 `bun test` **4858 pass / 21 skip / 0 fail** · `typecheck` 0 · 定向 `a2aRoutes.test.ts` 19 pass（+3 探针 +1 缺省断言）· `lint:arch` 违规 0 / 动态跨层引用 **41（未增）** · `lint:doc-code` 19 断言一致。

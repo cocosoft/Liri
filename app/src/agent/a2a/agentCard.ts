@@ -103,13 +103,12 @@ export function buildAgentCard(
     defaultInputModes: DEFAULT_INPUT_MODES,
     defaultOutputModes: DEFAULT_OUTPUT_MODES,
     skills,
-    supportedInterfaces: [
-      {
-        url: options.baseUrl,
-        protocolBinding: 'JSONRPC',
-        protocolVersion: A2A_PROTOCOL_VERSION,
-      },
-    ],
+    // R11-3 D3（2026-10-07，用户裁定 = 撤销声明）：**不声明** `supportedInterfaces`。
+    // 原声明 `protocolBinding: 'JSONRPC'` 与实现不符 —— 本仓**未实现**任何 A2A 标准绑定
+    // （JSON-RPC 派发属 T4「待裁定」；`A2A_METHODS` 无生产消费者），对外只有**自定义 REST**
+    // `POST/GET /v1/a2a/tasks[...]`（对接契约见 `.trae/docs/api-spec.md` §3.8.2）。
+    // ⇒ 按"未支持的能力/绑定**不得虚报**"（同 G2 纪律）**省略该字段**（A2A 卡片该字段为可选）。
+    // 若将来实现标准绑定（T4），按 A2A v1.0 的 `AgentInterface` 重新声明。
     // 只声明方案，不内嵌任何凭证（§5.3）
     securitySchemes: {
       bearer: { type: 'http', scheme: 'bearer' },

@@ -107,6 +107,7 @@
 ## 7. 不在范围 / 未验（如实）
 
 - ❌ **不实现** A2A 的 `streaming` / `pushNotifications`（G2 要求**如实声明为 `false`**；实现它们属另一议题）。
+- ✅ **不声明传输绑定（R11-3 D3，2026-10-07 用户裁定）**：卡片**省略** `supportedInterfaces` —— 本仓**未实现**任何 A2A 标准绑定（JSON-RPC 派发属 **T4** 待裁定）⇒ 不得虚报 `protocolBinding: 'JSONRPC'`（G2 纪律的同一精神）；对外对接以 [api-spec §3.8.2](../docs/api-spec.md) 的**自定义 REST** 为准。详见 [`a2a-capability-negotiation.md`](./a2a-capability-negotiation.md) §3-D3。⚠️ 残留：A2A v1.0 该字段为**必需** ⇒ 本仓卡片仍属 v0.x 形状，"v1.0 完全合规"待 T4。
 - ❌ **不引入** A2A SDK 依赖（当前为自建类型 + 手写端点）。
 - ❌ **不改** `acp/`（其去留由 **T0** 结论决定）。
 - ✅ **已核并闭环（2026-09-29）**：`acp/` **确为对内** —— 远程 WS 服务**默认不启动**（`ACP_REMOTE_PORT` 未设 ⇒ `resolveAcpRemoteConfig()` 返回 `null`，[`ModuleBridgeSetup.ts:29-44`](../../app/src/bridge/ModuleBridgeSetup.ts#L29-L44)），且门控**在活的启动链上**（`main.ts:1821` / `BootPipelineIntegrator.ts:246`）；**运行期实证**：本机 5 次启动**全部**输出「ACP 远程服务未启用」、**零**「服务已启动」。⇒ 所谓"协议双轨"实为 **「A2A 对外（新接线）+ ACP 对内（默认关、双显式 opt-in 才能开）」**，边界清晰，**无需下线任何一套**。

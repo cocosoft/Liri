@@ -148,7 +148,13 @@ export interface A2AAgentCapabilities {
   extensions?: string[];
 }
 
-/** 绑定与多租户路由条目（§6.2 / §6.3） */
+/**
+ * 绑定与多租户路由条目（§6.2 / §6.3）。
+ *
+ * ⚠️ **当前不在卡片中声明**（R11-3 D3，2026-10-07 用户裁定「撤销 JSON-RPC 声明」）：
+ * 本仓**未实现**任何 A2A 标准绑定（JSON-RPC 派发属 T4 待裁定）⇒ 不得声明 `protocolBinding`。
+ * 类型保留以镜像协议形状；若将来实现标准绑定，须按 A2A v1.0 的 `AgentInterface` 重引入并**如实**取值。
+ */
 export interface A2AAgentInterface {
   url: string;
   protocolBinding: 'JSONRPC';
@@ -169,6 +175,10 @@ export interface A2AAgentCard {
   defaultInputModes: string[];
   defaultOutputModes: string[];
   skills: A2AAgentSkill[];
+  /**
+   * 传输绑定声明（§6.2）。**可选**；本仓**当前不填充**（R11-3 D3 —— 未实现标准绑定 ⇒ 不得虚报）。
+   * 对接方式以 `.trae/docs/api-spec.md` §3.8.2 的**自定义 REST** 契约为准。
+   */
   supportedInterfaces?: A2AAgentInterface[];
   /** 安全声明（§5.3）：**禁止**内嵌静态密钥 */
   securitySchemes?: Record<string, unknown>;

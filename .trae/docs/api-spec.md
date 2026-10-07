@@ -337,6 +337,7 @@
 **不**返回密钥/版本/Agent 数（避免成为额外信息面）。非 GET ⇒ **405**；未鉴权 ⇒ **401**；未启用 ⇒ **404**（同上，不泄露存在性）。
 
 **能力声明口径**：`capabilities.streaming` / `pushNotifications` / **`stateTransitionHistory`** **恒为 `false`**（未支持的能力须**如实**声明；R11-3 D1 补第三项）；"长任务"以 **Task 状态机**表达（`submitted`→`working`→终态），**不用** `pushNotifications`。
+**绑定声明口径（R11-3 D3，2026-10-07 裁定）**：卡片**不声明** `supportedInterfaces` —— 本仓**未实现**任何 A2A 标准绑定（JSON-RPC 派发属 T4 未做）⇒ 不得虚报 `protocolBinding`；对接以本节的**自定义 REST** 契约为准（`POST/GET /v1/a2a/tasks[...]` + `GET /v1/a2a/health`）。
 **安全**：卡片**不内嵌密钥**（只声明 `securitySchemes`，凭证经 HTTP Header 带外传递）。
 **部署与轮换**：密钥经 **OS 环境变量** `A2A_API_KEYS`（**清单**）分发（改后**需重启**，无热加载）；**单钥轮换流程 + 回滚点**见 `.trae/specs/a2a-external-exposure.md` **§8**、**多钥零中断轮换（含可选过期）**见 `.trae/specs/a2a-multikey-rotation.md`（全清单含 `A2A_ENABLED` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）。
 
@@ -1040,7 +1041,7 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| 2.8.0 | 2026-10-07 | §3.8.2 新增 **`GET /v1/a2a/health`**（R11-3 D2 独立就绪探针：`{ status, delegatorReady }`，判据与委派 `503` **同源**）+ 卡片 `capabilities` 补 **`stateTransitionHistory: false`**（R11-3 D1，如实）；同批订正 §3.8.2 标题/表格中**过时路径** `agent.json` → `agent-card.json` |
+| 2.8.0 | 2026-10-07 | §3.8.2 新增 **`GET /v1/a2a/health`**（R11-3 D2 独立就绪探针：`{ status, delegatorReady }`，判据与委派 `503` **同源**）+ 卡片 `capabilities` 补 **`stateTransitionHistory: false`**（R11-3 D1，如实）+ 卡片**不再声明** `supportedInterfaces`（R11-3 D3 裁定：未实现标准绑定 ⇒ 不虚报 `protocolBinding: 'JSONRPC'`）；同批订正 §3.8.2 标题/表格中**过时路径** `agent.json` → `agent-card.json` |
 | 2.7.0 | 2026-10-07 | §3.29.1 新增 **`GET /v1/patterns`**（编排模式只读目录：注册表 + 装配状态）；§3.8.2 鉴权改为 **多钥**（`A2A_API_KEY` → **`A2A_API_KEYS`**，清单 + 每钥可选 `@<ISO-8601>` 过期；**无有效钥 ⇒ 401** 不变）+ 标注**常量时间比较** |
 | 2.6.0 | 2026-09-29 | §3.8.2 新增 **A2A 鉴权**（`A2A_API_KEY`，**fail-closed**：未配置 ⇒ 401）—— 与 `A2A_ENABLED` 构成**双闸**；发现/委派端点均返回 **401** |
 | 2.5.0 | 2026-09-29 | §3.8.2 新增 **A2A 委派**（`POST /v1/a2a/tasks` / `GET /v1/a2a/tasks/{id}`）—— 有界等待（`A2A_DELEGATE_MAX_WAIT_MS`）+ Task 状态机；委派后端 = **CoreAPI 对话轮**（方案①） |

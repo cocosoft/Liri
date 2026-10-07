@@ -185,8 +185,6 @@ interface ReActToolLoopState {
   totalCompletedToolCount: number;
   completedToolCallIds: string[];
   loopDetected: { detector: string; message: string } | null;
-  /** 一期 O1-2（2026-09-24）：PathGuard 拦截留痕（与"循环检测"分通道，供收尾文案如实交代） */
-  guardBlocked: { toolName: string; reason: string } | null;
   /** 工具结果携带的 todo 数据（供转换层产出 todo chunk，对齐旧类 extractTodoData） */
   pendingTodos: TodoBlockData[];
   /** 达上限收尾总结（对标 hermes 2026-09-01：onMaxIterations 不带 tools 总结请求的结果，finalize 使用） */
@@ -406,7 +404,6 @@ export class ReActToolLoop extends ReActLoop<
       totalCompletedToolCount: 0,
       completedToolCallIds: [],
       loopDetected: null,
-      guardBlocked: null,
       pendingTodos: [],
       /** R2（2026-09-16）：工具轮内压缩连续 no_effect 次数——达到阈值后在低用量时稳态跳过，避免每轮白跑重 token */
       consecutiveCompactNoEffect: 0,
@@ -1067,25 +1064,25 @@ export class ReActToolLoop extends ReActLoop<
 
       // L2（2026-09-06）：PathGuard 越界路径防护（对齐 batch 三守卫，TAORLoop.ts:938-951）。
       // 仅命中 deny 列表（.env/凭据/密钥/锁文件等）才拦截；无路径参数或未命中 → 放行，正常工具不受影响。
+      //
+      // 2026-10-07 修复（用户裁定「如果被拦截，可以跳过」）：原实现对任一命中即
+      // `return { results: [], ... }` ⇒ **丢弃整批工具调用并终止本轮**，模型再无机会改用
+      // 其它路径继续（表现为「被安全护栏拦一次，整个任务就死掉」）。
+      // 现改为**按调用粒度跳过**：命中的调用在下方执行循环里回填为失败结果（PAIR-FILL 配对
+      // 完整），同批其余调用照常执行、本轮继续；模型收到该失败结果后可自行改用允许的路径。
+      // 护栏本身**不放宽**——被命中的调用始终不执行，只是不再牵连整批、不再终止本轮。
+      const guardBlockedReasonById = new Map<string, string>();
       for (const tc of calls) {
         const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
         if (!pathCheck.allowed) {
-          // 一期 O1-2（2026-09-24）：**不再复用 `loopDetected` 通道**。原实现（L1000 注释
-          // "复用 loopDetected 终止通道"）使收尾文案固定为"检测到工具调用循环 [pathGuard]"
-          // ⇒ 把**安全护栏拦截**说成"模型陷入循环"，语义误导（问题清单 G3）。
-          // 此处只**留痕**；终止判据与相位置位在 `shouldContinue`（判据返回 false 的同一处，
-          // 与 timeout 同款）——否则相位会被下一轮 reason 前的 `phase='reasoning'` 覆盖。
-          this.loopState.guardBlocked = {
-            toolName: tc.name,
-            reason: pathCheck.reason ?? '未知原因',
-          };
+          const reason = pathCheck.reason ?? '未知原因';
+          guardBlockedReasonById.set(tc.id, reason);
           logger.warn('reactToolLoop:pathguard_blocked', {
             sessionId: this.ctx.session.id,
             toolName: tc.name,
-            reason: pathCheck.reason,
+            reason,
             turn: this.loopState.toolTurnCount,
           });
-          return { results: [], allSucceeded: false, anyAborted: false };
         }
       }
 
@@ -1114,6 +1111,15 @@ export class ReActToolLoop extends ReActLoop<
             },
           });
         };
+        // 2026-10-07：PathGuard 命中的调用 ⇒ **仅跳过本次**（回填失败结果，配对完整），
+        // 同批其余调用照常执行、本轮继续（详见上方 guardBlockedReasonById 注释）。
+        const guardReason = guardBlockedReasonById.get(tc.id);
+        if (guardReason) {
+          recordSkippedTool(
+            `路径被安全护栏拦截（本次调用未执行）：${guardReason}`
+          );
+          continue;
+        }
         // DecisionGate 门控检查（设计方案 §5.3）：执行前检查是否需要用户确认
         if (this.gateTier) {
           const gateQuestion = decisionGateCheck(
@@ -1630,13 +1636,6 @@ export class ReActToolLoop extends ReActLoop<
   ): boolean {
     // 4. 循环检测触发后停止
     if (this.loopState.loopDetected) return false;
-    // 一期 O1-2（2026-09-24）：PathGuard 拦截 ⇒ 显式终止。相位必须**在此处置位**
-    // （判据返回 false 的同一处，与下方 timeout 同款）——若只在 act() 里置位，会被下一轮
-    // reason 前的 `phase='reasoning'` 覆盖，判别器又只能退化为 'completed'。
-    if (this.loopState.guardBlocked) {
-      this.state.phase = 'guard_blocked';
-      return false;
-    }
     // 观察点修复（2026-08-26）：会话级总时长上限——300 轮 × 每轮 LLM 可达数小时，
     // 防极端长任务资源占用。env REACT_LOOP_MAX_DURATION_MS 可覆盖，默认 3 小时。
     if (Date.now() - this.startedAt > ReActToolLoop.MAX_TOTAL_DURATION_MS) {
@@ -1955,8 +1954,6 @@ export class ReActToolLoop extends ReActLoop<
     this.droppedToolCallsAtStop = 0;
     this._terminalSettled = false;
     this._terminalSettle = null;
-    // 一期 O1-2：PathGuard 留痕随 run 归零（与 _incompleteRetries 同批，防跨 run 误判"被拦截"）
-    this.loopState.guardBlocked = null;
     // 缺陷 C（2026-09-25）：扩容快照随 run 归零（`pendingTodos` 队列本身由消费侧自然清空，
     // 无需在此处理）。**归零不等于丢弃**：若本次 run 是**同任务续跑**，紧随其后的
     // `_initTodoExpansion()` 会从 `session.metadata.todoExpansion` 回填（口径与预算基线同源）
@@ -2151,11 +2148,6 @@ export class ReActToolLoop extends ReActLoop<
       // 二期 O2-1：系统中止 ≠ 用户主动放弃 ⇒ 独立原因码（只记录）
       case 'system_aborted':
         return 'system_aborted';
-      // 一期 O1-2（2026-09-24）：PathGuard 拦截**不是"无进展"** —— 模型没有陷入循环，
-      // 而是触碰了受限路径 ⇒ 走"只记录"路径，不推进 `no_progress_streak`
-      //（语义边界见 N2 注释：混入计数会把目标误判为 failed）。
-      case 'guard_blocked':
-        return 'turn_interrupted';
       // 三期 F3-2：压缩停滞**已由 `onIncompleteTurn` 直接落** `compaction_stalled`
       //（判点在压缩停滞处）⇒ 此处返回 null，避免同一次终止落两次目标状态。
       case 'compaction_failed':
@@ -2303,16 +2295,6 @@ export class ReActToolLoop extends ReActLoop<
       case 'compaction_failed':
         suffix = `\n\n⚠️ 上下文压缩未能生效（连续压不动且上下文已吃紧），本轮已停止继续执行。你可以重试、精简上下文，或新开一个会话继续。`;
         break;
-      // 一期 O1-2（2026-09-24）：PathGuard 拦截 ⇒ 如实交代"被安全护栏拦了哪个工具、为什么"。
-      // 此前复用了 `loop_detected` 的文案 ⇒ 用户被告知"检测到工具调用循环"（语义相反）。
-      case 'guard_blocked': {
-        const guard = this.loopState.guardBlocked;
-        finishReason = 'guard_blocked';
-        suffix = guard
-          ? `\n\n⚠️ 已拦截对受限路径的访问（${guard.toolName}：${guard.reason}），本轮提前结束。如需继续，请改用允许的路径。`
-          : `\n\n⚠️ 已拦截对受限路径的访问，本轮提前结束。如需继续，请改用允许的路径。`;
-        break;
-      }
       // 无专属文案的原因（正常完成 / 其余子类专属 stop reason）：是否兜底取决于正文是否
       // 为空 —— 见下方统一兜底（一期 F1-1）。
       case 'completed':

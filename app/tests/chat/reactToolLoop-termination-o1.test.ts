@@ -1,9 +1,11 @@
 /**
- * 一期 O1-1 / O1-2（2026-09-24「会话暴露问题分析与优化方案」§五）：
+ * 一期 O1-1（2026-09-24「会话暴露问题分析与优化方案」§五）：
  *  - O1-1：`loop_detected` 被 `max_turns` 遮蔽时，必须**并列上报到 metadata**（此前只进文案）；
- *  - O1-2：PathGuard 拦截走**专门原因 + 专属文案**（此前复用 loop_detected ⇒ 告诉用户"循环"）。
  *
- * 每个用例均为「修复前必失败」（断言点已标注）。
+ * PathGuard 处置粒度（2026-10-07 修复，承接原 O1-2）：
+ *  - 原 O1-2 只修正了**文案**（不再谎称"工具调用循环"），但仍**整批丢弃 + 终止本轮**；
+ *    用户裁定「如果被拦截，可以跳过」⇒ 改为**按调用粒度跳过**：命中调用回填失败结果、
+ *    同批其余调用照常执行、本轮继续（终止原因不再是 `guard_blocked`）。
  *
  * 参照 plan：dev_docs/会话暴露问题分析与优化方案-20260924.md §五 一期
  */
@@ -95,7 +97,7 @@ async function drain(loop: ReActToolLoop): Promise<void> {
   }
 }
 
-describe('ReActToolLoop 终止语义（一期 O1-1 / O1-2）', () => {
+describe('ReActToolLoop 终止语义（一期 O1-1 / PathGuard 处置粒度）', () => {
   it('O1-1：max_turns 与 loop_detected 同时命中 ⇒ 循环信号并列落 metadata（此前只在文案里）', async () => {
     const { ctx } = makeCtx({
       llmSequence: [
@@ -135,46 +137,57 @@ describe('ReActToolLoop 终止语义（一期 O1-1 / O1-2）', () => {
     expect(meta.concurrentReasons).toEqual(['loop_detected']);
   });
 
-  it('O1-2：PathGuard 拦截 ⇒ 专门原因 guard_blocked + 专属文案（不再谎称"工具调用循环"）', async () => {
+  it('2026-10-07：PathGuard 拦截 ⇒ 仅跳过该调用（不丢弃整批、不终止本轮）', async () => {
+    const executedArgs: string[] = [];
     const { ctx } = makeCtx({
       llmSequence: [
         () =>
           ({
             content: '',
             stop_reason: 'tool_calls',
-            // `.env` 命中 PathGuard 默认拒绝列表（**/.env）
+            // `.env` 命中 PathGuard 默认拒绝列表（**/.env）；同批另一调用为普通路径。
             // ⚠️ 必须用**真实注册名 + 真实参数名**（`file_read`/`file_path`）：原用例用漂移名
             // `read_file`/`path`，与 PathGuard 的漂移清单"同频"⇒ 守卫实际已失效却仍绿灯（2026-09-26 修）。
             tool_calls: [
               {
-                id: 'tc1',
+                id: 'tc-blocked',
                 name: 'file_read',
                 arguments: { file_path: '.env' },
+              },
+              {
+                id: 'tc-ok',
+                name: 'file_read',
+                arguments: { file_path: 'src/a.ts' },
               },
             ],
           }) as ChatResponse,
         () => ({ content: '（收尾）', stop_reason: 'stop' }) as ChatResponse,
       ],
+      executeTool: async (
+        call: Parameters<ToolLoopContext['executeTool']>[0]
+      ) => {
+        executedArgs.push(String(call.arguments.file_path));
+        return { toolCallId: call.id, toolName: call.name, result: 'ok' };
+      },
     });
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });
     await drain(loop);
 
-    // 修复前：复用 loop_detected 通道 ⇒ 'loop_detected' ⇒ 失败
-    expect(loop.getTerminationReason()).toBe('guard_blocked');
-
-    const final = loop.getAssistantMessage();
-    const content = String(final.content);
-    expect(content).toContain('已拦截对受限路径的访问');
-    // 修复前：文案是"检测到工具调用循环 [pathGuard] …"（把安全拦截说成循环）⇒ 失败
-    expect(content).not.toContain('工具调用循环');
-
-    const meta =
-      (final as unknown as { metadata?: Record<string, unknown> }).metadata ??
-      {};
-    expect(meta.finishReason).toBe('guard_blocked');
+    // 修复前：任一命中即 `return { results: [], ... }` + `guard_blocked` 终止本轮
+    // ⇒ 整批调用被丢弃、任务死掉（用户裁定「如果被拦截，可以跳过」）。
+    // 修复后：仅跳过命中调用、本轮继续 ⇒ 正常收尾。
+    expect(loop.getTerminationReason()).toBe('completed');
+    // 被拦截调用始终**不执行**（护栏不放宽）；同批其余调用照常执行（不再牵连整批）
+    expect(executedArgs).not.toContain('.env');
+    expect(executedArgs).toContain('src/a.ts');
+    // 旧文案「本轮提前结束」不再出现
+    expect(String(loop.getAssistantMessage().content)).not.toContain(
+      '本轮提前结束'
+    );
   });
 
   it('⑤ PathGuard 写类判别：真实写工具走 checkWrite（锁文件只在**写**拒绝列表）', async () => {
+    const executedArgs: string[] = [];
     const { ctx } = makeCtx({
       llmSequence: [
         () =>
@@ -193,14 +206,19 @@ describe('ReActToolLoop 终止语义（一期 O1-1 / O1-2）', () => {
           }) as ChatResponse,
         () => ({ content: '（收尾）', stop_reason: 'stop' }) as ChatResponse,
       ],
+      executeTool: async (
+        call: Parameters<ToolLoopContext['executeTool']>[0]
+      ) => {
+        executedArgs.push(String(call.arguments.file_path));
+        return { toolCallId: call.id, toolName: call.name, result: 'ok' };
+      },
     });
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });
     await drain(loop);
 
-    // 修复前：`file_write` 不在漂移清单里 ⇒ 取不到路径 + 判为非写 ⇒ 守卫放行 ⇒ 终止原因为 max_turns
-    expect(loop.getTerminationReason()).toBe('guard_blocked');
-    expect(String(loop.getAssistantMessage().content)).toContain(
-      '已拦截对受限路径的访问'
-    );
+    // 修复前：`file_write` 不在漂移清单里 ⇒ 取不到路径 + 判为非写 ⇒ 守卫放行（会执行）
+    // 写类判定正确 ⇒ 该调用被拦下、**未执行**
+    expect(executedArgs).toEqual([]);
+    expect(loop.getTerminationReason()).toBe('completed');
   });
 });

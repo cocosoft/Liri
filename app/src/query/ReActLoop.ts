@@ -112,11 +112,7 @@ export type TerminationReason =
   | 'timeout'
   // 三期 F3-2（2026-09-23 修复计划 §六）：上下文压缩失败 ⇒ 终止。此前该支不置相位，
   // 收尾文案与"压缩失败"无任何关联（用户只看到一句通用兜底）。
-  | 'compaction_failed'
-  // 一期 O1-2（2026-09-24「会话暴露问题分析与优化方案」§五）：路径守卫（PathGuard）拦截。
-  // 此前该路径**复用 `loop_detected` 通道**收尾 ⇒ 用户可见文案是"检测到工具调用循环"
-  // ——把**安全护栏拦截**说成"模型陷入循环"，语义误导（G3）。
-  | 'guard_blocked';
+  | 'compaction_failed';
 
 /** 中止来源（二期 O2-1）：`user` = 用户主动停止；`system` = 传输/生命周期等系统侧中止 */
 export type AbortSource = 'user' | 'system';
@@ -220,8 +216,6 @@ export interface ReActState {
     | 'timeout'
     // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 专门相位（收尾可见"为何停下"）。
     | 'compaction_failed'
-    // 一期 O1-2（2026-09-24）：PathGuard 拦截 ⇒ 专门相位（与"循环检测"区分，文案不误导）。
-    | 'guard_blocked'
     // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾相位（既非完成也非截断）
     | 'yielded';
   pendingToolCalls: ToolCallEntry[];
@@ -595,9 +589,6 @@ export abstract class ReActLoop<
     if (this.state.phase === 'timeout') return 'timeout';
     // 三期 F3-2（2026-09-23）：压缩失败同理——必须在 completed 之前判别。
     if (this.state.phase === 'compaction_failed') return 'compaction_failed';
-    // 一期 O1-2（2026-09-24）：PathGuard 拦截——必须在 max_turns 之前判别，否则
-    // "拦截恰好发生在最后一轮"时会被 max_turns 遮蔽，用户看到的是"轮次用尽"而非"被拦截"。
-    if (this.state.phase === 'guard_blocked') return 'guard_blocked';
     if (
       this.state.phase === 'truncated' ||
       this.state.iteration >= this.config.maxIterations

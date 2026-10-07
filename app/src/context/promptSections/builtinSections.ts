@@ -643,9 +643,9 @@ ${overlay}`;
   fewShotExamples: systemPromptSection('fewShotExamples', () => {
     if (!BUILTIN_EXAMPLES || BUILTIN_EXAMPLES.length === 0) return null;
     const parts = [
-      '## Tool Usage Examples',
+      '## 工具使用示例',
       '',
-      'Below are examples of correct tool usage to guide your behavior:',
+      '以下为正确工具调用的示例，用于引导你的行为：',
       '',
     ];
     for (const entry of BUILTIN_EXAMPLES) {

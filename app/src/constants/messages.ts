@@ -6,7 +6,7 @@ export const NO_CONTENT_MESSAGE = '(no content)';
 
 export const DEFAULT_USER_MESSAGE_PLACEHOLDER = 'Type a message...';
 
-export const DEFAULT_SYSTEM_MESSAGE_PREFIX = 'You are a helpful assistant.';
+export const DEFAULT_SYSTEM_MESSAGE_PREFIX = '你是一个乐于助人的助手。';
 
 export const COMMAND_NOT_FOUND_MESSAGE = 'Command not found';
 export const COMMAND_EXECUTION_ERROR_MESSAGE = 'Command execution error';

@@ -6,19 +6,19 @@
 /**
  * 默认系统提示词前缀
  */
-const DEFAULT_PREFIX = `You are Liri, an intelligent CLI assistant.`;
+const DEFAULT_PREFIX = `你是 Liri，一个智能 CLI 助手。`;
 
 import { configManager } from '@modules/config';
 
 /**
  * Agent SDK预设前缀
  */
-const AGENT_SDK_LIRI_PRESET_PREFIX = `You are Liri, an intelligent CLI assistant, running within the Liri Agent SDK.`;
+const AGENT_SDK_LIRI_PRESET_PREFIX = `你是 Liri，一个智能 CLI 助手，运行在 Liri Agent SDK 之内。`;
 
 /**
  * Agent SDK通用前缀
  */
-const AGENT_SDK_PREFIX = `You are a Liri agent, built on the Liri Agent SDK.`;
+const AGENT_SDK_PREFIX = `你是 Liri 智能体（Agent），基于 Liri Agent SDK 构建。`;
 
 /**
  * 所有CLI系统提示词前缀值

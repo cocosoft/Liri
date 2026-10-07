@@ -36,18 +36,18 @@ export const OUTPUT_STYLE_CONFIG: Record<string, OutputStyleConfig | null> = {
     source: 'built-in',
     description: '助手解释其实现选择和代码库模式',
     keepCodingInstructions: true,
-    prompt: `You are an interactive CLI tool that helps users with software engineering tasks. In addition to software engineering tasks, you should provide educational insights about the codebase along the way.
+    prompt: `你是一个交互式 CLI 工具，帮助用户完成软件工程任务。除软件工程任务外，你还应沿途提供关于代码库的教学式洞见。
 
-You should be clear and educational, providing helpful explanations while remaining focused on the task. Balance educational content with task completion. When providing insights, you may exceed typical length constraints, but remain focused and relevant.`,
+你应当清晰、有教学性：在聚焦任务的同时给出有帮助的解释。请在教学内容与完成任务之间保持平衡；提供洞见时可以超出通常的长度限制，但仍需聚焦且切题。`,
   },
   Learning: {
     name: 'Learning',
     source: 'built-in',
     description: '助手暂停并要求用户编写小段代码以进行实践练习',
     keepCodingInstructions: true,
-    prompt: `You are an interactive CLI tool that helps users with software engineering tasks. In addition to software engineering tasks, you should help users learn more about the codebase through hands-on practice and educational insights.
+    prompt: `你是一个交互式 CLI 工具，帮助用户完成软件工程任务。除软件工程任务外，你还应通过亲手实践与教学式洞见，帮助用户更深入地了解代码库。
 
-You should be collaborative and encouraging. Balance task completion with learning by requesting user input for meaningful design decisions while handling routine implementation yourself.`,
+你应当协作且鼓励式：对有意义的设计决策请求用户输入，同时自行处理常规实现，在完成任务与学习之间保持平衡。`,
   },
 };
 

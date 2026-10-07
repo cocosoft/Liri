@@ -36,7 +36,8 @@
  *   bun run eval -- --model=<模型名> --signal-baseline=<file.json>  # 指定**信号基线**（与门禁基线分开维护）
  *   bun run eval -- --model=<模型名> --adversarial --adversarial-proposals=<file.json>  # P1-1 形态 A：对抗提案相位（**确定性裁决，仅观测**，不影响退出码）
  *   bun run eval -- --model=<模型名> --adversarial --adversarial-model=<攻击者模型>    # 同上，但提案由 LLM 生成（@modules/ai 既有入口；≥1 次模型调用）
- *   #   可选调参：--adversarial-max-calls=5 ｜ --adversarial-timeout-ms=30000 ｜ --adversarial-max-tokens=8192
+ *   #   可选调参：--adversarial-max-calls=5 ｜ --adversarial-timeout-ms=60000 ｜ --adversarial-max-tokens=16384
+ *   #   ⚠️ 思考型（thinking）模型须上调：--adversarial-timeout-ms=180000（deepseek-v4-pro 实测 127s）
  *
  * 约束：模型名**必须显式传入**（按 model-usage 规则，代码中不得硬编码模型名或默认值）。
  * 退出码：0 = 全部任务符合预期、判分器自检通过、且门禁无回归；1 = 有任务不符合预期/自检失败/门禁回归；2 = 环境准备失败。
@@ -211,16 +212,19 @@ const adversarialMaxCalls = Math.max(
   parseInt(argValue('adversarial-max-calls') ?? '5', 10) || 5
 );
 const adversarialTimeoutMs = ((): number => {
-  const parsed = parseInt(argValue('adversarial-timeout-ms') ?? '30000', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 30_000;
+  // R-1 调优（2026-10-07 实测）：默认 60000（flash 产出 12 条耗时 34.5s）；原 30000 必然截断。
+  const parsed = parseInt(argValue('adversarial-timeout-ms') ?? '60000', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
 })();
 /**
  * 单次最大输出 token（**e2e 实证**：不显式给值时部分供应商默认 **4096** ⇒ 模型把预算耗在推理上，
  * 返回 `finish_reason=max_tokens` 且 `content` 为空 ⇒ 提案 0 条）。
+ *
+ * R-1 调优（2026-10-07 实测）：默认 8192 → **16384**（`deepseek-v4-flash`：8192 ⇒ 0 条；16384 ⇒ 12 条）。
  */
 const adversarialMaxTokens = ((): number => {
-  const parsed = parseInt(argValue('adversarial-max-tokens') ?? '8192', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 8192;
+  const parsed = parseInt(argValue('adversarial-max-tokens') ?? '16384', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 16_384;
 })();
 if (adversarialEnabled) {
   if (adversarialProposalsFile === '' && adversarialModel === '') {

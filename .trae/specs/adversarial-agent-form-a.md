@@ -190,7 +190,7 @@ export interface AdversarialReport {
 | **(a) 沙箱后端 HTTP chat** | ❌ **否决** | ① 攻击者 = 被测应用**自身**（同模型/同 agent/同提示词）⇒ **红队独立性丧失**，只能复述已知盲区；② 要让 SUT「攻击」必须把**已声明防线清单**喂给它，而它同时是**被测者** ⇒ **审计信息回灌被测者**，评测有效性受损；③ `--model` 是 SUT 模型，**无法为攻击者独立选型**，其调用还污染沙箱状态与统计 |
 | **(b) `@modules/ai` 既有入口** | ✅ **采用** | 独立攻击者（可独立选型/提示词）；同层依赖合法；入口已存在 ⇒ 不必引导整个应用，只需「DB → registry 同步 + `aiService` 调用」（**端到端引导步骤待实现时验证**，不预先断言 —— CS06） |
 | **落地形态** | 适配器独立模块 `evals/adversarialProposer.ts`，由 CLI **动态 `import()`**（仅 `--adversarial --adversarial-model=<m>` 时加载） | 默认关**零开销**、不进 harness 静态依赖图；harness **确定性**不受破坏（N1 不变） |
-| **参数** | `--adversarial-model=<m>`（**必填**，符合 model-usage「不得硬编码默认模型」）· `--adversarial-max-calls=N`（默认 5）· `--adversarial-timeout-ms`（默认 30000） | ✅ **已落地**（与适配器同批 —— 见 §10.1） |
+| **参数** | `--adversarial-model=<m>`（**必填**，符合 model-usage「不得硬编码默认模型」）· `--adversarial-max-calls=N`（默认 5）· `--adversarial-timeout-ms`（**默认 60000**，R-1 调优 2026-10-07）· `--adversarial-max-tokens`（**默认 16384**，R-1 调优 2026-10-07） | ✅ **已落地**（与适配器同批 —— 见 §10.1）；**默认值经 R-1 真机调优上修**（见 §10.3） |
 
 **闭环不变**：适配器产出 `AdversarialProposal[]` → 本模块**机械裁决**（闭集外记 `unmachineable`）→ 人工复核 `unmachineable` → 可机械化的手法**登记为形态 B 的一条向量**（§8.6）。
 
@@ -338,3 +338,25 @@ export interface AdversarialReport {
   本轮 LLM 把"绕过型"手法（短名 / 硬链接 / symlink）**自映射到 `C-1`**（一个**配置检查**）⇒ 判 `blocked`（**偏乐观**）。
 - ⇒ 该相位的定位应为「**提案供人工复核**」；要成为"未挡证据"，须**为具体手法实现机械判据**（即 §8.6 的登记闭环：把 `unmachineable`/新手法登记为形态 B 的一条向量）。
 - 该边界**不改代码**即可明确（属方法论口径），已在此如实记录。
+
+### 10.3 R-1：提案器模型选型 / 参数调优（2026-10-07，真机实测）
+
+> **来由**：台账 §10.3 **R-1** —— 形态 A 的 LLM 提案相位**实测 0 条**（`flash/pro` 预算耗尽 `max_tokens`；`glm-5.2` / `qwen3.6-27b` 超时）⇒ 转「模型选型 / 调优待办」。
+> **方法**：临时探针（已删除）直接经 `createLlmProposer`（**跳过评测沙箱**）以**真实** `@modules/ai` 通道跑候选模型/参数；目标闭集由 `buildProposerInput` 从真实反作弊面派生（实测 **C-1 … C-5** 共 5 项）。提示词 / 目标集 / `maxCalls=1` 全程一致。
+
+| 候选（模型 @ `maxTokens` / `timeoutMs`） | 提案数 | 耗时 | 观测（如实） |
+|---|:--:|:--:|---|
+| `deepseek-v4-flash` @ **8192** / 60s | **0** | 43.7s | 输出 8192（**= 上限**）+ `adversarial.proposer.chat_empty_content`（`content=""`）⇒ `finish_reason` 截断 |
+| `deepseek-v4-flash` @ **16384** / 150s | **12** ✅ | **34.5s** | 同提示词下完整产出 ⇒ **推荐攻击者**（快 + 产出多） |
+| `deepseek-v4-pro` @ **16384** / 150s | **6** ✅ | 127.2s | 思考型；输出 13126 < 16384（完整）⇒ 可用但慢（3.7×） |
+| `qwen3.6-27b:latest`（本地 Ollama）@ 8192 / 180s | **0** | 65.0s | 输出仅 **128** token（近乎空）⇒ 本地小模型在此任务上不可用；`num_ctx` 未传（服务端默认 ~2048） |
+
+**结论（选型）**：攻击者**首选快（非思考型）chat 模型**（实测 `deepseek-v4-flash`）；思考型模型需 **≥150s** 超时；本地 Ollama 小模型**不适用**本任务。
+
+**结论（调优 → 已落地）**：
+- `DEFAULT_MAX_TOKENS`：**8192 → 16384**（根因：模型把输出预算耗在推理上，`content` 为空 ⇒ 提案 0 条；仅抬高上限、非强制消耗）。
+- `DEFAULT_TIMEOUT_MS`：**30000 → 60000**（原值对实测 34.5s 的快模型**也必然截断**）。
+- `DEFAULT_MAX_CALLS`：维持 5。
+- CLI 帮助文本同步（`evals/cli.ts` 头注 + 参数解析默认值），并注明「思考型模型须显式 `--adversarial-timeout-ms=180000`」。
+
+**如实（边界）**：① 每候选仅 **1 次调用**（`maxCalls=1`）⇒ 数据为**单样本**，非统计显著性；② 若供应商侧模型实现变更，数值可能漂移；③ 本次运行**消耗真实额度**（`deepseek` 两条候选合计约 **$0.33**）。

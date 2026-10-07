@@ -77,8 +77,23 @@ export interface LlmProposerOptions {
 }
 
 export const DEFAULT_MAX_CALLS = 5;
-export const DEFAULT_TIMEOUT_MS = 30_000;
-export const DEFAULT_MAX_TOKENS = 8192;
+/**
+ * 单次调用超时（**R-1 调优**，2026-10-07 真机实测）。
+ *
+ * 原值 `30000`ms 在实测下**必然截断**：`deepseek-v4-flash` 产出 12 条提案耗时 **34.5s**（> 30s）。
+ * 现取 `60000`ms —— 对**推荐的非思考型快模型**留约 1.7× 余量。
+ * ⚠️ **思考型（thinking）模型须显式上调**：`deepseek-v4-pro` 实测 **127s** ⇒
+ * 用 `--adversarial-timeout-ms=180000`（`AbortSignal` 会真正中断，不会无限挂起）。
+ */
+export const DEFAULT_TIMEOUT_MS = 60_000;
+/**
+ * 单次最大输出 token（**R-1 调优**，2026-10-07 真机实测）。
+ *
+ * 原值 `8192` 会让快模型也**推理耗尽**：`deepseek-v4-flash` @8192 ⇒ `finish_reason=length`
+ * + `content=""` ⇒ **提案 0 条**；同提示词同目标闭集下 @16384 ⇒ **12 条**。
+ * ⇒ 上调整为 16384（仅**抬高上限**，非强制消耗；JSON 截断仍由 {@link extractJsonArray} 兜底）。
+ */
+export const DEFAULT_MAX_TOKENS = 16_384;
 
 /**
  * 红队系统提示词（**安全面**：只给"已声明防线 + 目标闭集"，**不含隐藏期望值/参考解** —— spec §8 风险 3）。

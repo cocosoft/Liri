@@ -60,6 +60,7 @@ import type {
 import type { SkillsOpsPort } from './skillsOpsPorts';
 import type { AutoReplyPort } from './autoReplyPorts';
 import type { A2APort } from './a2aPorts';
+import { isTerminalState } from '@modules/types/a2a';
 import type { BridgePort } from './bridgePorts';
 
 export class DomainSnapshotOps {
@@ -484,6 +485,16 @@ export class DomainSnapshotOps {
       completeTask: (taskId, state, artifacts, message) =>
         a2aTaskStore.complete(taskId, state, artifacts, message),
       getTask: (taskId: string) => a2aTaskStore.get(taskId),
+      // T4 批次 B：显式判定终态（而非捕获 `cancel` 抛错）—— 避免异常作为控制流、避免消息匹配（CS02/CS03）
+      listTasks: () => a2aTaskStore.list(),
+      cancelTask: (taskId: string) => {
+        const task = a2aTaskStore.get(taskId);
+        if (!task) return { ok: false as const, reason: 'not_found' as const };
+        if (isTerminalState(task.status.state)) {
+          return { ok: false as const, reason: 'not_cancelable' as const };
+        }
+        return { ok: true as const, task: a2aTaskStore.cancel(taskId) };
+      },
     };
   }
 

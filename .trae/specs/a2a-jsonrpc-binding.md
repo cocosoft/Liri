@@ -118,3 +118,10 @@
 | 日期 | 批次 | 详情 |
 |---|---|---|
 | 2026-10-07 | **立项 + 批次 A** | 用户裁定「全量 T4」⇒ 拉取官方 spec/proto（11 操作 / DTO / 流事件 / 扩展 / 卡片 v1.0 / 错误码）⇒ 本 spec + `types/a2a.ts` 协议类型补全 |
+| 2026-10-07 | **批次 B** | `POST /v1/a2a/rpc` 单入口 dispatcher（11 方法分派 + 能力门控 + 错误映射）；`A2APort` 补 `listTasks`/`cancelTask`（**结构化结果**，避免异常控制流与字符串匹配）；`runDelegation` 抽为 REST/RPC **共用核心**（CS01）；新增 `tests/http/a2aRpc.test.ts`（**11 例**，含帧/错误码/门控/分页/`returnImmediately` 不阻塞）。门禁：`typecheck` 0 · `lint:arch` 违规 0/警告 4（基线）/动态跨层引用 **41（未增）** · 定向 **11 pass** · 全量 **4869 pass / 21 skip / 0 fail** |
+
+**⚠️ 门禁计数变化（如实登记，批次 E 收口）**：`a2a-routes.ts` 因并入 RPC 绑定增至 **~880 行** ⇒ 超过 500 行阈值，`lint:size` 警告 **470 → 471**。该门禁明确"**建议拆分但不阻塞合并**"；**批次 E 须拆出 `routes/a2a-rpc.ts`**（RPC 绑定 + 委派核心 `runDelegation`/`toDeliverables`，经依赖注入取 `delegator`/`maxWaitMs` 以避免循环依赖），把计数**回落到 470**。
+
+**批次 B 的两处**如实**口径**：
+1. **协议级错误以 HTTP 200 + `error` 对象**返回（JSON-RPC 2.0 惯例）。spec §5.4 另给 HTTP 状态列，属 **REST 绑定**视角；本仓无对端可验，取惯例并在此登记（§9-1）。
+2. `SendMessage` 在**未装配** `A2ADelegator` 时返回 **`-32603 InternalError`**（JSON-RPC 无 503 语义）—— 与 REST 侧的 `503 + Retry-After` **同口径**（如实"未就绪"，不伪造成功）。

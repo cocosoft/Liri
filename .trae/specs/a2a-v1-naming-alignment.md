@@ -86,7 +86,7 @@ export const A2A_METHODS = {
 | **T1** | `a2a-routes.ts` 路径 + 注释；`route-table.ts` 注释；`tests/http/a2aRoutes.test.ts` 常量 | ✅ 已实施 |
 | **T2** | `types/a2a.ts` 枚举 + 终态；`taskStore.ts` 状态字面量 | ✅ 已实施 |
 | **T3** | `types/a2a.ts` `A2A_METHODS` + 别名表 + 注释 | ✅ 已实施 |
-| **T4** | JSON-RPC 分发（11 操作）/ SSE / 扩展卡 / 能力协商 | ⏸ **待裁定** |
+| **T4** | JSON-RPC 分发（11 操作）/ SSE / 扩展卡 / 能力协商 | 🟡 **已裁定并立项（2026-10-07，用户裁定「全量 T4」）** ⇒ 见 [`a2a-jsonrpc-binding.md`](./a2a-jsonrpc-binding.md)（批次 A–E）；本文件不再承载 T4 |
 
 ---
 

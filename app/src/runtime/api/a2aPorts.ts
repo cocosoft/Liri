@@ -77,4 +77,21 @@ export interface A2APort {
   ): A2ATask;
   /** 按 id 取任务；未知 id ⇒ `undefined`（不跨重启，见 `taskStore` 头注释） */
   getTask(taskId: string): A2ATask | undefined;
+  /**
+   * 列出全部任务（**插入序**；过滤 / 排序 / 分页由调用方按 A2A §3.1.4 施加）。
+   *
+   * T4 批次 B 新增（`.trae/specs/a2a-jsonrpc-binding.md`）。
+   */
+  listTasks(): A2ATask[];
+  /**
+   * 取消任务（A2A §3.1.5）。**返回结构化结果**（不抛错、不做错误消息匹配 —— CS02）：
+   * `not_found` ⇒ JSON-RPC `-32001`；`not_cancelable`（已终态）⇒ `-32002`。
+   *
+   * T4 批次 B 新增。
+   */
+  cancelTask(
+    taskId: string
+  ):
+    | { ok: true; task: A2ATask }
+    | { ok: false; reason: 'not_found' | 'not_cancelable' };
 }

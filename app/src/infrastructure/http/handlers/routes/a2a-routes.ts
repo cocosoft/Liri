@@ -6,6 +6,8 @@
  * - `POST /v1/a2a/tasks`          —— **委派**（T4）：创建任务并把消息交给委派后端
  * - `GET  /v1/a2a/tasks/{id}`     —— 任务状态/产物回查（T4）
  * - `GET  /v1/a2a/health`         —— **独立就绪探针**（R11-3 D2）：`{ status, delegatorReady }`
+ * - `POST /v1/a2a/rpc`            —— **A2A v1.0 JSON-RPC 绑定**（T4 批次 B）：11 个方法单入口分派
+ *   （见 `.trae/specs/a2a-jsonrpc-binding.md`）
  *
  * 边界（2026-09-29 用户裁定）：**ACP 对内、A2A 对外** ⇒ 本模块是**唯一对外**的 Agent 面
  * （ACP 保持默认 loopback 不变）。完整取证与任务清单见 `.trae/specs/a2a-external-exposure.md`。
@@ -37,9 +39,34 @@ import { verifyRequestAuth } from '../../LocalHTTPServiceHelpers';
 // app 层 `agent/a2a/types.ts` 原址转出），**值**（注册表 / Agent Card 构建 / etag / 任务台账）
 // 改经 **服务层端口** `getCoreAPI().getA2APort()`。
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import type { A2AArtifact, A2AMessage } from '@modules/types/a2a';
+import {
+  A2A_LIST_TASKS_DEFAULT_PAGE_SIZE,
+  A2A_LIST_TASKS_MAX_PAGE_SIZE,
+  A2A_LIST_TASKS_MIN_PAGE_SIZE,
+  A2A_METHOD_ALIASES,
+  A2A_METHODS,
+  JsonRpcErrorCode,
+} from '@modules/types/a2a';
+import type {
+  A2AArtifact,
+  A2AMessage,
+  A2AListTasksResponse,
+  A2ATask,
+  A2ATaskState,
+} from '@modules/types/a2a';
 
 const logger = getLogger('http:a2a');
+
+/**
+ * A2A 端口类型（**从 `getCoreAPI()` 派生**）。
+ *
+ * 刻意**不** `import type { A2APort } from '@modules/runtime/api/a2aPorts'` ——
+ * 那是 service 层模块的**子目录路径**，静态引用会撞 R03-002「模块出口单一」的白名单判定
+ * （T4 批次 B 实测该风险）；用派生类型等价且零新跨模块边。
+ */
+type A2APortSlice = Awaited<
+  ReturnType<ReturnType<typeof getCoreAPI>['getA2APort']>
+>;
 
 /** A2A 规范的 Agent Card 发现路径 */
 const WELL_KNOWN_AGENT_CARD = '/.well-known/agent-card.json';
@@ -47,6 +74,13 @@ const WELL_KNOWN_AGENT_CARD = '/.well-known/agent-card.json';
 const TASKS_PATH = '/v1/a2a/tasks';
 /** 独立就绪探针（R11-3 D2；非 A2A 规范路径，本仓自定，见 api-spec §3.8.2） */
 const HEALTH_PATH = '/v1/a2a/health';
+/**
+ * A2A v1.0 **JSON-RPC 绑定**单入口（T4 批次 B）。
+ *
+ * 规范形态即"单端点 + `method` 分派"（spec §9.4）；与方法名常量同源于
+ * `@modules/types/a2a` 的 `A2A_METHODS`（不含路径前缀，故此处自行定义）。
+ */
+const RPC_PATH = '/v1/a2a/rpc';
 
 /**
  * 环境变量：是否对外暴露 A2A（**默认关闭**，spec G4）。
@@ -206,6 +240,7 @@ function isA2APath(url: string): boolean {
   return (
     url === WELL_KNOWN_AGENT_CARD ||
     url === HEALTH_PATH ||
+    url === RPC_PATH ||
     url === TASKS_PATH ||
     url.startsWith(`${TASKS_PATH}/`)
   );
@@ -253,6 +288,9 @@ export async function dispatchA2ARoutes(
   }
   if (url === HEALTH_PATH) {
     return handleHealth(req, res);
+  }
+  if (url === RPC_PATH) {
+    return handleRpc(req, res);
   }
   if (url === TASKS_PATH) {
     return handleCreateTask(req, res);
@@ -355,24 +393,55 @@ async function handleCreateTask(
   const agentId =
     typeof body['agentId'] === 'string' ? body['agentId'] : undefined;
 
-  // D-204：任务台账改经 A2A 端口（原静态 `a2aTaskStore`）
+  // D-204：任务台账改经 A2A 端口（原静态 `a2aTaskStore`）。
+  // T4 批次 B：委派核心抽为 `runDelegation`，与 JSON-RPC `SendMessage` **共用**（CS01）。
   const port = await getCoreAPI().getA2APort();
-  const task = port.createTask();
-  const pending = delegator(message, agentId);
+  const { completed, task } = await runDelegation(
+    port,
+    message,
+    agentId,
+    resolveMaxWaitMs()
+  );
+  json(res, completed ? 200 : 202, task);
+  return true;
+}
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<'timeout'>((resolve) => {
-    timer = setTimeout(() => resolve('timeout'), resolveMaxWaitMs());
-  });
+/**
+ * **委派执行核心**（唯一实现；T4 批次 B 自 `handleCreateTask` 抽出）。
+ *
+ * 流程：创建任务 → 有界等待（G3）→ 阈值内完成则写 `TASK_STATE_COMPLETED`；超阈值则写
+ * `TASK_STATE_WORKING` 并立刻返回，**由同一 Promise 收尾**（无轮询、不跨重启）。
+ * REST（`POST /v1/a2a/tasks`）与 JSON-RPC（`SendMessage`）**共用**（CS01）。
+ *
+ * @param waitMs `<= 0` ⇒ 不等（对应 JSON-RPC `configuration.returnImmediately: true`）
+ * @returns `completed=false` ⇒ 调用方按 `202 + working` 返回（REST 口径）
+ */
+async function runDelegation(
+  port: A2APortSlice,
+  message: string,
+  agentId: string | undefined,
+  waitMs: number
+): Promise<{ completed: boolean; task: A2ATask }> {
+  const task = port.createTask();
+  // `delegator` 由 `handleCreateTask` / `handleRpc` 的分支前置保证非空（未装配 ⇒ 已 503）
+  const pending = (delegator as A2ADelegator)(message, agentId);
 
   let outcome: { kind: 'done'; value: string } | 'timeout';
-  try {
-    outcome = await Promise.race([
-      pending.then((value) => ({ kind: 'done' as const, value })),
-      timeout,
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
+  if (waitMs > 0) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), waitMs);
+    });
+    try {
+      outcome = await Promise.race([
+        pending.then((value) => ({ kind: 'done' as const, value })),
+        timeout,
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } else {
+    outcome = 'timeout';
   }
 
   if (outcome !== 'timeout') {
@@ -384,8 +453,7 @@ async function handleCreateTask(
       reply
     );
     logger.info('A2A 委派完成（同步）', { taskId: task.id, agentId });
-    json(res, 200, done);
-    return true;
+    return { completed: true, task: done };
   }
 
   // 超阈值：**有界等待**结束 ⇒ 标记 working 并立刻返回（不做 HTTP 长挂）；完成后由同一 Promise 收尾
@@ -413,8 +481,7 @@ async function handleCreateTask(
     );
 
   logger.info('A2A 委派超出有界等待，转 working', { taskId: task.id, agentId });
-  json(res, 202, port.getTask(task.id));
-  return true;
+  return { completed: false, task: port.getTask(task.id) ?? task };
 }
 
 /** `GET /v1/a2a/tasks/{id}` —— 任务回查（T4） */
@@ -435,4 +502,387 @@ async function handleGetTask(
   }
   json(res, 200, task);
   return true;
+}
+
+/* ==========================================================================
+ * A2A v1.0 JSON-RPC 绑定（T4 批次 B）—— `POST /v1/a2a/rpc`
+ *
+ * 规范形态 = **单端点 + `method` 分派**（spec §9.4）；方法名与错误码取自 core `types/a2a.ts`
+ * （单一事实源）。**误差口径（如实）**：协议级错误按 JSON-RPC 惯例以 **HTTP 200 + `error`
+ * 对象**返回（spec §5.4 亦给出 HTTP 状态列，属 REST 绑定视角；本仓无对端可验，见 spec §9-1）。
+ * ========================================================================== */
+
+/** 本仓服务的 A2A 协议版本（`A2A-Version` 头，spec §3.6.1；**未发送按 0.3 处理** ⇒ 不支持） */
+const SUPPORTED_A2A_VERSION = '1.0';
+
+/** JSON-RPC 成功响应（HTTP 200 + `result`） */
+function rpcResult(
+  res: http.ServerResponse,
+  id: unknown,
+  result: unknown
+): void {
+  json(res, 200, { jsonrpc: '2.0', id: id ?? null, result });
+}
+
+/** JSON-RPC 失败响应（HTTP 200 + `error`；**不含 `data`** —— 本仓不产 ProtoJSON `Any`） */
+function rpcError(
+  res: http.ServerResponse,
+  id: unknown,
+  code: number,
+  message: string
+): void {
+  json(res, 200, { jsonrpc: '2.0', id: id ?? null, error: { code, message } });
+}
+
+/** `POST /v1/a2a/rpc` —— 信封校验后交 {@link dispatchRpcMethod} 分派 */
+async function handleRpc(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
+  if ((req.method ?? 'GET') !== 'POST') {
+    json(res, 405, { error: { message: '仅支持 POST' } });
+    return true;
+  }
+
+  // spec §3.6.1：客户端 MUST 每请求发送 `A2A-Version`；**空值/缺失按 0.3 处理** ⇒ 本仓只服务 1.0
+  const version = req.headers[A2A_HEADER_VERSION_LOWER];
+  if (typeof version !== 'string' || version.trim() !== SUPPORTED_A2A_VERSION) {
+    rpcError(
+      res,
+      null,
+      JsonRpcErrorCode.VersionNotSupported,
+      `仅支持 A2A 协议版本 ${SUPPORTED_A2A_VERSION}（未发送该头按 0.3 处理，spec §3.6.1）`
+    );
+    return true;
+  }
+
+  let raw: string;
+  try {
+    raw = await readBody(req);
+  } catch (error) {
+    await handleError(error, { module: 'http:a2a', action: 'rpc-read-body' });
+    rpcError(res, null, JsonRpcErrorCode.ParseError, 'Invalid JSON payload');
+    return true;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw || '');
+  } catch {
+    rpcError(res, null, JsonRpcErrorCode.ParseError, 'Invalid JSON payload');
+    return true;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    rpcError(
+      res,
+      null,
+      JsonRpcErrorCode.InvalidRequest,
+      'JSON-RPC 请求必须是对象（批量请求未支持）'
+    );
+    return true;
+  }
+
+  const envelope = parsed as Record<string, unknown>;
+  const id = envelope['id'] ?? null;
+  if (envelope['jsonrpc'] !== '2.0' || typeof envelope['method'] !== 'string') {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.InvalidRequest,
+      '需要 jsonrpc:"2.0" 与 method'
+    );
+    return true;
+  }
+  // v1.0 canonical 名 + v0.3 迁移别名（`A2A_METHOD_ALIASES` 单一事实源）
+  const canonical = A2A_METHOD_ALIASES[envelope['method']];
+  if (!canonical) {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.MethodNotFound,
+      `未知方法：${envelope['method']}`
+    );
+    return true;
+  }
+
+  const rawParams = envelope['params'];
+  const params = (
+    typeof rawParams === 'object' && rawParams !== null
+      ? (rawParams as Record<string, unknown>)
+      : {}
+  ) as Record<string, unknown>;
+
+  return dispatchRpcMethod(
+    res,
+    id,
+    canonical,
+    params,
+    await getCoreAPI().getA2APort()
+  );
+}
+
+/**
+ * 按 canonical 方法名分派（spec §3.1.1–3.1.11）。
+ *
+ * **能力门控**（spec §3.3.4：能力未声明时的操作 **MUST 报标准错误**，**不得**静默成功）：
+ * 两个流操作 ⇒ `-32004`（`streaming` 尚未实现，T4 批次 C）；4 个推送配置 ⇒ `-32003`；
+ * 扩展卡 ⇒ `-32004`（`extendedAgentCard` 不做）。
+ */
+async function dispatchRpcMethod(
+  res: http.ServerResponse,
+  id: unknown,
+  method: string,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): Promise<boolean> {
+  switch (method) {
+    case A2A_METHODS.SendMessage:
+      return rpcSendMessage(res, id, params, port);
+    case A2A_METHODS.GetTask:
+      return rpcGetTask(res, id, params, port);
+    case A2A_METHODS.ListTasks:
+      return rpcListTasks(res, id, params, port);
+    case A2A_METHODS.CancelTask:
+      return rpcCancelTask(res, id, params, port);
+    case A2A_METHODS.SendStreamingMessage:
+    case A2A_METHODS.SubscribeToTask:
+      rpcError(
+        res,
+        id,
+        JsonRpcErrorCode.UnsupportedOperation,
+        '未声明 capabilities.streaming ⇒ 不支持流式操作'
+      );
+      return true;
+    case A2A_METHODS.CreateTaskPushNotificationConfig:
+    case A2A_METHODS.GetTaskPushNotificationConfig:
+    case A2A_METHODS.ListTaskPushNotificationConfigs:
+    case A2A_METHODS.DeleteTaskPushNotificationConfig:
+      rpcError(
+        res,
+        id,
+        JsonRpcErrorCode.PushNotificationNotSupported,
+        '未声明 capabilities.pushNotifications ⇒ 不支持推送通知配置'
+      );
+      return true;
+    case A2A_METHODS.GetExtendedAgentCard:
+      rpcError(
+        res,
+        id,
+        JsonRpcErrorCode.UnsupportedOperation,
+        '未声明 capabilities.extendedAgentCard ⇒ 不支持扩展 Agent Card'
+      );
+      return true;
+    default:
+      rpcError(res, id, JsonRpcErrorCode.MethodNotFound, `未知方法：${method}`);
+      return true;
+  }
+}
+
+/** `SendMessage`（§3.1.1）—— 复用 {@link runDelegation}；`returnImmediately` ⇒ 不等 */
+async function rpcSendMessage(
+  res: http.ServerResponse,
+  id: unknown,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): Promise<boolean> {
+  if (!delegator) {
+    // 与 REST 同口径：**如实**"未就绪"，不伪造成功（JSON-RPC 无 503 语义 ⇒ 内部错误码）
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.InternalError,
+      'A2A 委派后端未就绪（需装配期注入 A2ADelegator）'
+    );
+    return true;
+  }
+
+  const message = params['message'];
+  if (typeof message !== 'object' || message === null) {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.InvalidParams,
+      'message 必填（A2AMessage）'
+    );
+    return true;
+  }
+  // 本项目当前只处理文本（`defaultInputModes = ['text/plain']`）⇒ 拼接 `parts[].text`
+  const parts = (message as Record<string, unknown>)['parts'];
+  const text = Array.isArray(parts)
+    ? parts
+        .map((p) =>
+          typeof p === 'object' &&
+          p !== null &&
+          typeof (p as Record<string, unknown>)['text'] === 'string'
+            ? ((p as Record<string, unknown>)['text'] as string)
+            : ''
+        )
+        .join('')
+        .trim()
+    : '';
+  if (!text) {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.InvalidParams,
+      'message.parts 至少需一个非空 text part'
+    );
+    return true;
+  }
+
+  const configuration = params['configuration'];
+  const returnImmediately =
+    typeof configuration === 'object' &&
+    configuration !== null &&
+    (configuration as Record<string, unknown>)['returnImmediately'] === true;
+
+  const { task } = await runDelegation(
+    port,
+    text,
+    undefined,
+    returnImmediately ? 0 : resolveMaxWaitMs()
+  );
+  // `SendMessageResponse` 为 oneof（task | message）：本仓委派**恒产出任务** ⇒ 返回 `task` 分支
+  rpcResult(res, id, { task });
+  return true;
+}
+
+/** `GetTask`（§3.1.3；`historyLength` 语义见 §3.2.4） */
+function rpcGetTask(
+  res: http.ServerResponse,
+  id: unknown,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): boolean {
+  const taskId = typeof params['id'] === 'string' ? params['id'] : '';
+  if (!taskId) {
+    rpcError(res, id, JsonRpcErrorCode.InvalidParams, 'id 必填');
+    return true;
+  }
+  const task = port.getTask(taskId);
+  if (!task) {
+    rpcError(res, id, JsonRpcErrorCode.TaskNotFound, `任务不存在：${taskId}`);
+    return true;
+  }
+  rpcResult(res, id, applyHistoryLength(task, params['historyLength']));
+  return true;
+}
+
+/** `ListTasks`（§3.1.4）：过滤 → **status timestamp 降序** → cursor 分页 */
+function rpcListTasks(
+  res: http.ServerResponse,
+  id: unknown,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): boolean {
+  const pageSize = resolvePageSize(params['pageSize']);
+  const contextId =
+    typeof params['contextId'] === 'string' ? params['contextId'] : undefined;
+  const status =
+    typeof params['status'] === 'string'
+      ? (params['status'] as A2ATaskState)
+      : undefined;
+  const includeArtifacts = params['includeArtifacts'] === true;
+  const offset = parsePageToken(params['pageToken']);
+
+  let tasks = port.listTasks();
+  if (contextId) tasks = tasks.filter((t) => t.contextId === contextId);
+  if (status) tasks = tasks.filter((t) => t.status.state === status);
+  // §3.1.4：MUST 按 status timestamp **降序**（同级保持插入序 ⇒ 稳定排序）
+  tasks = [...tasks].sort((a, b) =>
+    a.status.timestamp < b.status.timestamp
+      ? 1
+      : a.status.timestamp > b.status.timestamp
+        ? -1
+        : 0
+  );
+
+  const totalSize = tasks.length;
+  const page = tasks.slice(offset, offset + pageSize);
+  const nextOffset = offset + page.length;
+  const response: A2AListTasksResponse = {
+    // `includeArtifacts=false` ⇒ `artifacts` 必须**整体省略**（不得空数组，§3.1.4）
+    tasks: includeArtifacts ? page : page.map(withoutArtifacts),
+    // 无更多结果 ⇒ **空串**（§3.1.4）
+    nextPageToken: nextOffset < totalSize ? String(nextOffset) : '',
+    pageSize,
+    totalSize,
+  };
+  rpcResult(res, id, response);
+  return true;
+}
+
+/** `CancelTask`（§3.1.5）：端口返回结构化结果 ⇒ 直接映射 `-32001` / `-32002` */
+function rpcCancelTask(
+  res: http.ServerResponse,
+  id: unknown,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): boolean {
+  const taskId = typeof params['id'] === 'string' ? params['id'] : '';
+  if (!taskId) {
+    rpcError(res, id, JsonRpcErrorCode.InvalidParams, 'id 必填');
+    return true;
+  }
+  const outcome = port.cancelTask(taskId);
+  if (!outcome.ok) {
+    rpcError(
+      res,
+      id,
+      outcome.reason === 'not_found'
+        ? JsonRpcErrorCode.TaskNotFound
+        : JsonRpcErrorCode.TaskNotCancelable,
+      outcome.reason === 'not_found'
+        ? `任务不存在：${taskId}`
+        : `任务已处于终态，不可取消：${taskId}`
+    );
+    return true;
+  }
+  rpcResult(res, id, outcome.task);
+  return true;
+}
+
+/* ---------------- JSON-RPC 纯函数辅助（可单测） ---------------- */
+
+/** `A2A-Version` 头的**小写**键（HTTP 头名大小写不敏感，spec §9.2） */
+const A2A_HEADER_VERSION_LOWER = 'a2a-version';
+
+/** §3.1.4 分页大小：非法 ⇒ 默认 50；再夹到 [1, 100] */
+function resolvePageSize(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    return A2A_LIST_TASKS_DEFAULT_PAGE_SIZE;
+  }
+  return Math.min(
+    Math.max(Math.trunc(raw), A2A_LIST_TASKS_MIN_PAGE_SIZE),
+    A2A_LIST_TASKS_MAX_PAGE_SIZE
+  );
+}
+
+/**
+ * 解析分页游标。
+ *
+ * 本仓游标 = **十进制偏移量字符串**（cursor 对客户端**不透明** ⇒ 形态由服务端定义，§3.1.4）；
+ * 非法/缺失 ⇒ `0`（从首页开始，**不报错** —— 与"客户端只需回传上次 token"的用法一致）。
+ */
+function parsePageToken(raw: unknown): number {
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return 0;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+/** 省略 `artifacts` 键（§3.1.4：**整体省略**，不得空数组） */
+function withoutArtifacts(task: A2ATask): A2ATask {
+  const { artifacts: _omitted, ...rest } = task;
+  return rest;
+}
+
+/** §3.2.4：未设置 ⇒ 原样；`0` ⇒ 省略 `history`；`>0` ⇒ 最近 N 条 */
+function applyHistoryLength(task: A2ATask, raw: unknown): A2ATask {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return task;
+  const limit = Math.trunc(raw);
+  if (limit <= 0) {
+    const { history: _omitted, ...rest } = task;
+    return rest;
+  }
+  return { ...task, history: (task.history ?? []).slice(-limit) };
 }

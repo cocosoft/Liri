@@ -84,6 +84,27 @@ describe('alignChecksToCriteria（判定骨架对齐）', () => {
     expect(aligned).toHaveLength(3);
     expect(aligned.every((c) => !c.passed)).toBe(true);
   });
+
+  // R07-5 补强（2026-10-07）：以下两条为原有用例**未覆盖**的属性
+  it('同一返回项不被两条验收项重复消费（`pool.splice` 逐项移除）', () => {
+    // 两条验收项文本相同时，只有第一条能消费该返回项 ⇒ 第二条必须 passed:false
+    const dup = parseSuccessCriteria('甲\n甲')!;
+    const aligned = alignChecksToCriteria([{ item: '甲', passed: true }], dup);
+    expect(aligned.map((c) => c.passed)).toEqual([true, false]);
+  });
+
+  it('包含匹配为**双向宽松**对齐（锁定现状，防无意收紧/放宽）', () => {
+    // 返回项包含验收描述 ⇒ 命中
+    const c1 = parseSuccessCriteria('测试通过')!;
+    expect(
+      alignChecksToCriteria([{ item: '确认测试通过了吗', passed: true }], c1)
+    ).toEqual([{ item: '测试通过', passed: true }]);
+    // 验收描述包含返回项 ⇒ 亦命中（故意宽松；**非**精确匹配）
+    const c2 = parseSuccessCriteria('测试通过且无回归')!;
+    expect(
+      alignChecksToCriteria([{ item: '测试通过', passed: false }], c2)
+    ).toEqual([{ item: '测试通过且无回归', passed: false }]);
+  });
 });
 
 describe('VerifierAgent × successCriteria（端到端）', () => {
@@ -132,5 +153,20 @@ describe('VerifierAgent × successCriteria（端到端）', () => {
       new AbortController().signal
     );
     expect(r.checks).toEqual([{ item: '自由项', passed: true }]);
+  });
+
+  // R07-5 补强（2026-10-07）：骨架存在时**单指标路径不可绕过**
+  it('骨架存在且模型未给 checks 字段 ⇒ 全项 false ⇒ 即使 APPROVE/0.95 也不放行', async () => {
+    const agent = new VerifierAgent({ failClosed: true });
+    agent.setCallModel(async function* () {
+      yield {
+        content: JSON.stringify({ verdict: 'APPROVE', confidence: 0.95 }),
+      };
+    });
+    const r = await agent.verify(input, new AbortController().signal);
+    expect(r.checks?.map((c) => c.item)).toEqual(['甲', '乙', '丙']);
+    expect(r.checks?.every((c) => !c.passed)).toBe(true);
+    // checkPassRate = 0 ⇒ 直接 REJECT（**不会**因 checks 缺失退回单指标按 verdict 放行）
+    expect(r.passed).toBe(false);
   });
 });

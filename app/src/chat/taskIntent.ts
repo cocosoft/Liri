@@ -93,3 +93,20 @@ export function hasResearchIntent(text: string): boolean {
     text
   );
 }
+
+/**
+ * 自校验意图判定（2026-10-07，`.trae/specs/pattern-wiring-closure.md` §4「P1」）
+ *
+ * 用途：`self_verify` 编排模式的**触发信号** —— 与 `hasResearchIntent` 同款（消息意图分类，
+ * 非状态判断）。词表**保守**聚焦"要求内置校验环节/质量把关"，避免与
+ * `isExecutionTaskIntent` 的泛化"检查/验证"混淆（后者是"是否属执行类任务"，本函数是
+ * "是否要求产出后校验"）。
+ *
+ * ⚠️ 生效受门控 `SELF_VERIFY_PATTERN`（**默认 false**）约束 —— 命中不等于启用。
+ */
+export function hasVerifyIntent(text: string): boolean {
+  if (!text) return false;
+  return /(?:自检|自查|自我验证|质量把关|质量校验|校验质量|逐项核对|逐条核对|验收标准|不得有误|确保无误|结果校验|输出校验|验证后再|先验证再)/.test(
+    text
+  );
+}

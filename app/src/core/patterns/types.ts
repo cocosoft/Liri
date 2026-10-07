@@ -125,6 +125,11 @@ export interface PatternMatchSpec {
   complexity: 'simple' | 'complex';
   /** 研究型标志（P0-3 门控信号，来自 hasResearchIntent） */
   research?: boolean;
+  /**
+   * 自校验意图标志（2026-10-07，`pattern-wiring-closure.md` §4）：来自 `hasVerifyIntent`。
+   * 供 `self_verify` 模式的触发规则消费。
+   */
+  verify?: boolean;
 }
 
 /**
@@ -142,6 +147,8 @@ export interface PatternSelectionRule {
   complexity: 'simple' | 'complex';
   /** 声明 `true` ⇒ 要求 `spec.research === true`（缺省 = 不约束） */
   research?: true;
+  /** 声明 `true` ⇒ 要求 `spec.verify === true`（缺省 = 不约束；2026-10-07 新增） */
+  verify?: true;
   /** 命中后**仍需**开启的功能开关（缺省 = 无门控）；只声明名，解析走 `core#feature` */
   feature?: FeatureFlag;
 }

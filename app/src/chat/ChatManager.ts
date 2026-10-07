@@ -121,6 +121,7 @@ import {
   isExecutionTaskIntent,
   isStrongBuildIntent,
   hasResearchIntent,
+  hasVerifyIntent,
 } from './taskIntent';
 // D3（2026-09-25）：运行中长任务信号 ⇒ 自动升级闸门（纯判定，见 `.trae/specs/long-task-routing.md` §3.6）
 import { shouldEscalateLongTask } from './longTaskEscalation';
@@ -3695,9 +3696,13 @@ export class ChatManagerImpl implements ChatManager {
     // （P0-3 起即无复杂度门），固定值用于维持该语义逐字不变；复杂度维度属 PDL 快速路径门
     // （`_shouldUsePlanDrivenLoop`），与本决策正交（见 spec §6.5 记录）。
     const researchIntent = hasResearchIntent(lastUserContent || '');
+    // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §4「P1」）：`self_verify` 的触发信号。
+    // 规则表顺序保证：研究意图命中 ⇒ 仍取 competitive_strategy（既有行为逐字不变）。
+    const verifyIntent = hasVerifyIntent(lastUserContent || '');
     const researchPattern = selectPattern({
       complexity: 'complex',
       research: researchIntent,
+      verify: verifyIntent,
     });
     // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
     // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
@@ -3706,11 +3711,23 @@ export class ChatManagerImpl implements ChatManager {
     const researchInstantiation = researchPattern
       ? instantiatePattern(researchPattern)
       : null;
-    // 13-P1-3（2026-10-05）：装配结果的**执行配方**应用 —— `self_verify` 线路 ⇒ 把配方
-    // 落到**既有** VerifierAgent（blocking + 严格预算），不新建运行时。
-    // ⚠️ 如实边界：`self_verify` 目前**无触发场景**（N4）⇒ 本分支当前**不可达**；
-    // 接线就位，待触发面补齐后即生效（不谎报为"已生效"）。
+    // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md` §3.2）：门控**声明**
+    // 收敛到选择规则（`PATTERN_SELECTION_RULES[].feature`）⇒ 本层不再硬编码开关名（CS01 单点）。
+    const patternFeature = researchPattern
+      ? patternFeatureFlag(researchPattern.name)
+      : undefined;
+    const patternGateEnabled = patternFeature
+      ? coreFeature(patternFeature)
+      : true;
+    // 13-P1-3（2026-10-05）：装配结果的**执行配方**应用 —— `self_verify` 线路 ⇒ 把配方落到
+    // **既有** VerifierAgent（blocking + 严格预算），不新建运行时。
+    // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §4）：① **触发面已补齐**（选择规则新增
+    // `verify`）⇒ 本分支由"当前不可达"变为**可达**；② **补门控** —— 修复前本分支**无门控**，
+    // 触发面一旦补齐会绕过 `SELF_VERIFY_PATTERN` 直接改回合质量判定（必须挡住）；③ 记录
+    // `verifyApplied` 供下方 `applied` 语义（= 该模式分支**实际生效**）。
+    let verifyApplied = false;
     if (
+      patternGateEnabled &&
       researchInstantiation?.status === 'ready' &&
       researchInstantiation.route === 'verify'
     ) {
@@ -3720,6 +3737,7 @@ export class ChatManagerImpl implements ChatManager {
       this._getOrCreateTAORLoop(session.id).applyVerifierConfig(
         recipeVerifierConfig
       );
+      verifyApplied = true;
       logger.info('pattern 配方应用（self_verify ⇒ 验证器配置）', {
         sessionId: session.id,
         verifyPolicy: researchInstantiation.recipe.verifyPolicy,
@@ -3727,21 +3745,15 @@ export class ChatManagerImpl implements ChatManager {
         verifier: recipeVerifierConfig,
       });
     }
-    // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md` §3.2）：门控**声明**
-    // 收敛到选择规则（`PATTERN_SELECTION_RULES[].feature`）⇒ 本层不再硬编码开关名（CS01 单点）。
-    const researchFeature = researchPattern
-      ? patternFeatureFlag(researchPattern.name)
-      : undefined;
-    const researchFeatureEnabled = researchFeature
-      ? coreFeature(researchFeature)
-      : true;
     const researchMode =
-      researchFeatureEnabled &&
+      patternGateEnabled &&
       researchInstantiation?.status === 'ready' &&
       researchInstantiation.route === 'research';
-    // 2026-10-07（§3.5）：模式**决策轨迹** —— 仅"研究意图命中"时落一条（无意图 = 噪声）。
+    // 2026-10-07（§3.5）：模式**决策轨迹** —— 仅"意图命中"时落一条（无意图 = 噪声）。
     // 记录两类可判定事实：**命中并生效** / **命中但被拦**（门控关 / 装配 `unavailable`）。
-    if (researchIntent) {
+    // `applied` 语义 = **该模式分支实际生效**（研究分流生效 ∨ 验证配方已应用）—— 修复前恒等于
+    // `researchMode`，在新增 `verify` route 后会**失真**（把已生效的 verify 记成未生效）。
+    if (researchIntent || verifyIntent) {
       this._persistPatternDecision(session.id, {
         site: 'research_dispatch',
         selected: researchPattern?.name ?? null,
@@ -3750,15 +3762,15 @@ export class ChatManagerImpl implements ChatManager {
             ? { status: 'ready' as const, route: researchInstantiation.route }
             : { status: 'unavailable' as const }
           : {}),
-        ...(researchFeature
+        ...(patternFeature
           ? {
               featureGate: {
-                flag: researchFeature,
-                enabled: researchFeatureEnabled,
+                flag: patternFeature,
+                enabled: patternGateEnabled,
               },
             }
           : {}),
-        applied: researchMode,
+        applied: researchMode || verifyApplied,
       }).catch((e: unknown) => {
         // @ignore-catch — 轨迹落盘失败不影响编排分流（CS03）
         logger.debug('pattern:decision_persist_failed', { error: String(e) });

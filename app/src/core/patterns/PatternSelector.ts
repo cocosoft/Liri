@@ -75,8 +75,11 @@ export function resolvePattern(name: string): PatternSelection | undefined {
  * 字段语义：
  * - `complexity`：任务复杂度必须相等；
  * - `research`：声明 `true` ⇒ 要求 `spec.research === true`（缺省 = 不约束）；
+ * - `verify`：声明 `true` ⇒ 要求 `spec.verify === true`（缺省 = 不约束；2026-10-07 新增）；
  * - `feature`：命中后**仍需**开启的功能开关（缺省 = 无门控）；解析走既有唯一入口
  *   `@modules/core#feature`，本表**只声明名**，不自行读环境。
+ *
+ * **顺序即优先级**（`find` 取首个命中）：`research` 规则在前 ⇒ 研究意图命中的既有行为不变。
  *
  * ⚠️ `as const` 必须保留：`name` 的字面量联合被 §「无触发面原因」的 `Exclude<>` 穷尽断言消费。
  */
@@ -86,6 +89,16 @@ export const PATTERN_SELECTION_RULES = [
     complexity: 'complex',
     research: true,
     feature: 'COMPETITIVE_STRATEGY',
+  },
+  // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §4「P1 触发面补齐」）：`self_verify`
+  // 原为「接线在、触发永不产出」⇒ 面板只能标「已接线 · 不可达」。现补触发面：`verify` 信号
+  // 命中即产出（**顺序在后** ⇒ 研究意图命中的既有行为逐字不变）。
+  // ⚠️ 生效受门控 `SELF_VERIFY_PATTERN`（默认 false）约束 —— 命中 ≠ 启用。
+  {
+    name: 'self_verify',
+    complexity: 'complex',
+    verify: true,
+    feature: 'SELF_VERIFY_PATTERN',
   },
 ] as const satisfies readonly PatternSelectionRule[];
 
@@ -105,7 +118,6 @@ const PATTERN_TRIGGER_ABSENCE_REASON: Readonly<
   parallel_distributed: '选择层无触发规则（无触发场景，N4）',
   long_task_pdl:
     '选择层无触发规则（其运行时由 ChatManager 快速路径策略独立驱动，不经 pattern 选择与装配）',
-  self_verify: '选择层无触发规则（装配接线已就位，触发面未定义 —— N4）',
 };
 
 /** 该 pattern 是否有**触发面**（= 是否出现在 `PATTERN_SELECTION_RULES` 中） */
@@ -136,10 +148,15 @@ export function patternFeatureFlag(name: PatternName): FeatureFlag | undefined {
  * @returns PatternSelection | null（未命中走现状）
  */
 export function selectPattern(spec: PatternMatchSpec): PatternSelection | null {
-  const rule = PATTERN_SELECTION_RULES.find(
+  // 宽化到契约类型再消费：`PATTERN_SELECTION_RULES` 的 `as const` 让**缺省的可选键真正缺席**
+  // （字面量对象类型）⇒ 直接访问 `r.research` / `r.verify` 会报 TS2339。此处只需契约视图
+  // （`name` 的字面量仍由**常量本身**供 `Exclude<>` 穷尽推导，不受本处宽化影响）。
+  const rules: readonly PatternSelectionRule[] = PATTERN_SELECTION_RULES;
+  const rule = rules.find(
     (r) =>
       r.complexity === spec.complexity &&
-      (r.research === undefined || spec.research === r.research)
+      (r.research === undefined || spec.research === r.research) &&
+      (r.verify === undefined || spec.verify === r.verify)
   );
   if (!rule) {
     logger.debug('pattern.none', { ...spec });

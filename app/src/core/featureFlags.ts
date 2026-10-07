@@ -312,6 +312,16 @@ export const FEATURE_FLAGS = {
   /** 候选生成 + 对抗批评（VerifierAgent）收敛总开关——研究型意图/显式研究模式下启用 */
   COMPETITIVE_STRATEGY: false,
 
+  // ───── 编排模式：自校验（2026-10-07，`pattern-wiring-closure.md` §4「P1」）─────
+  /**
+   * `self_verify` 模式总开关（**默认关闭**）。
+   *
+   * 开启后：`complex + 自校验意图` 的任务将由该模式命中，并把配方落到**既有** VerifierAgent
+   * （`verifyPolicy:'blocking'` + `failClosed:true` + `maxCycles:2`）⇒ 回合质量判定**更严**
+   * （可能增加重试）。**默认关**是刻意的（不静默改变既有编排行为）；命中 ≠ 启用。
+   */
+  SELF_VERIFY_PATTERN: false,
+
   // ───── 工作流脚本 ─────
   /** 工作流脚本 */
   WORKFLOW_SCRIPTS: false,

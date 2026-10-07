@@ -64,19 +64,24 @@ describe('PatternSelector（Teamwork P2a）', () => {
  * 且与 `selectPattern` **同源**（本组用例即断言该同源关系）。
  */
 describe('PatternSelector 可达性（2026-10-07）', () => {
-  test('触发规则表：当前唯一规则 = competitive_strategy（complex + research + 门控）', () => {
+  test('触发规则表：research → competitive_strategy；verify → self_verify（顺序即优先级）', () => {
     expect(PATTERN_SELECTION_RULES.map((r) => r.name)).toEqual([
       'competitive_strategy',
+      'self_verify',
     ]);
     expect(PATTERN_SELECTION_RULES[0].feature).toBe('COMPETITIVE_STRATEGY');
+    expect(PATTERN_SELECTION_RULES[1].feature).toBe('SELF_VERIFY_PATTERN');
   });
 
   test('可达 ⇔ 选择层能产出（派生自规则表，不另建第二张表）', () => {
     const specs = [
       { complexity: 'simple' as const },
       { complexity: 'simple' as const, research: true },
+      { complexity: 'simple' as const, verify: true },
       { complexity: 'complex' as const },
       { complexity: 'complex' as const, research: true },
+      { complexity: 'complex' as const, verify: true },
+      { complexity: 'complex' as const, research: true, verify: true },
     ];
     for (const p of listPatterns()) {
       const producible = specs.some((s) => selectPattern(s)?.name === p.name);
@@ -84,7 +89,7 @@ describe('PatternSelector 可达性（2026-10-07）', () => {
     }
   });
 
-  test('无触发面者必有原因（与可达性互补，`self_verify` 亦不例外）', () => {
+  test('无触发面者必有原因（可达者不得有原因）', () => {
     for (const p of listPatterns()) {
       const reason = patternUnreachableReason(p.name);
       if (isPatternReachable(p.name)) {
@@ -93,18 +98,35 @@ describe('PatternSelector 可达性（2026-10-07）', () => {
         expect((reason ?? '').length).toBeGreaterThan(0);
       }
     }
-    expect(patternUnreachableReason('self_verify')).toBeDefined();
   });
 
-  test('门控声明单点：仅 competitive_strategy 带门控', () => {
+  // 「P1」（`.trae/specs/pattern-wiring-closure.md` §4）：self_verify 的触发面已补齐 ⇒
+  // 由「已接线 · 不可达」转为「已接线**且可达**」（修复前本断言方向相反）。
+  test('P1：`self_verify` 已可达（触发面补齐）', () => {
+    expect(isPatternReachable('self_verify')).toBe(true);
+    expect(patternUnreachableReason('self_verify')).toBeUndefined();
+    expect(selectPattern({ complexity: 'complex', verify: true })?.name).toBe(
+      'self_verify'
+    );
+  });
+
+  // 顺序语义（研究规则在前）：两信号同时命中 ⇒ 仍取 competitive_strategy（既有行为不变）
+  test('顺序优先级：研究意图优先于自校验意图', () => {
+    expect(
+      selectPattern({ complexity: 'complex', research: true, verify: true })
+        ?.name
+    ).toBe('competitive_strategy');
+  });
+
+  test('门控声明单点：两条规则各带一门控，其余无', () => {
     expect(patternFeatureFlag('competitive_strategy')).toBe(
       'COMPETITIVE_STRATEGY'
     );
+    expect(patternFeatureFlag('self_verify')).toBe('SELF_VERIFY_PATTERN');
     for (const n of [
       'iterative_refine',
       'parallel_distributed',
       'long_task_pdl',
-      'self_verify',
     ] as const) {
       expect(patternFeatureFlag(n)).toBeUndefined();
     }

@@ -101,17 +101,16 @@ describe('listPatternCatalog 可达性（2026-10-07 收口）', () => {
     const byName = Object.fromEntries(
       listPatternCatalog().map((c) => [c.name, c])
     );
-    // 唯一有触发面的模式（complex + research），且声明了功能门控
+    // 两条有触发面（各带门控）：research → competitive_strategy；verify → self_verify
     expect(byName.competitive_strategy.reachable).toBe(true);
     expect(byName.competitive_strategy.featureGate?.flag).toBe(
       'COMPETITIVE_STRATEGY'
     );
-    expect(typeof byName.competitive_strategy.featureGate?.enabled).toBe(
-      'boolean'
-    );
-    // `self_verify`：装配 `ready` 但**不可达** —— 正是修复前被谎报的那一条
+    // 「P1」（`.trae/specs/pattern-wiring-closure.md` §4）：`self_verify` 触发面已补齐 ⇒
+    // 由「已接线 · 不可达」转为「已接线**且可达**」（修复前本断言为 `false`）
     expect(byName.self_verify.status).toBe('ready');
-    expect(byName.self_verify.reachable).toBe(false);
+    expect(byName.self_verify.reachable).toBe(true);
+    expect(byName.self_verify.featureGate?.flag).toBe('SELF_VERIFY_PATTERN');
     // 其余三条同样无触发面（`long_task_pdl` 的运行时由快速路径独立驱动）
     for (const n of [
       'long_task_pdl',
@@ -121,10 +120,11 @@ describe('listPatternCatalog 可达性（2026-10-07 收口）', () => {
       expect(byName[n].reachable).toBe(false);
     }
     // 门控只出现在声明了门控的模式上
+    const gated = new Set(['competitive_strategy', 'self_verify']);
     for (const c of listPatternCatalog()) {
-      if (c.name !== 'competitive_strategy') {
-        expect(c.featureGate).toBeUndefined();
-      }
+      expect(typeof c.featureGate?.enabled).toBe(
+        gated.has(c.name) ? 'boolean' : 'undefined'
+      );
     }
   });
 

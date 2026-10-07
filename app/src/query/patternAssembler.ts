@@ -14,11 +14,14 @@
  * - `long_task_pdl` 的运行时（PlanDrivenLoop）存在，但由 ChatManager 快速路径策略
  *   （`_shouldUsePlanDrivenLoop`）**独立驱动**，不经 pattern 装配
  *   （D2 = 以运行时为准）⇒ 本层如实返回 `unavailable`（不静默空转）。
- * - `iterative_refine` / `parallel_distributed` 无运行时、无触发场景（N4）
- *   ⇒ 同 `unavailable`，**不臆造运行时/占位 stub**（CS04）。
+ * - `iterative_refine` / `parallel_distributed` 的**承担方均已存在实现**（见
+ *   `patternAssembly.ts#PATTERN_PROVIDER_BINDINGS`），缺的是 **pattern 级装配入口与触发面**
+ *   ⇒ 同 `unavailable`，**不臆造运行时/占位 stub**（CS04）。装配评估（含终局裁定与触发条件）
+ *   见 `.trae/specs/pattern-wiring-closure.md` §5/§6。
  * - 13-P1-3（2026-10-05）：`self_verify` 升为 **ready** —— 复用**既有** `VerifierAgent`
- *   （配方 `verifyPolicy:'blocking'`），并返回执行配方供消费方配置该运行时；
- *   ⚠️ 触发场景仍缺（N4）⇒ 接线存在但当前**不可达**（不谎报为"已生效"）。
+ *   （配方 `verifyPolicy:'blocking'`），并返回执行配方供消费方配置该运行时。
+ *   2026-10-07（`pattern-wiring-closure.md` §4）：**触发面已补齐**（选择规则新增 `verify`）
+ *   ⇒ 「已接线 **且可达**」；生效受门控 `SELF_VERIFY_PATTERN`（默认 false）约束。
  *
  * 完备性：`ASSEMBLER_SPECS` 为 `Record<PatternAssemblerId, …>` ⇒ 闭集增项而漏登记
  * 即**编译失败**（防手写漂移）。
@@ -86,14 +89,28 @@ const VERIFY_RECIPE: PatternRecipe = {
  */
 const ASSEMBLER_SPECS: Readonly<Record<PatternAssemblerId, AssemblerSpec>> = {
   competitive_strategy: { route: 'research', recipe: RESEARCH_RECIPE },
+  // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §3「P0 措辞如实化」）：原文案把
+  // 「无组合 / 无消费方」写作「无运行时」⇒ 读者会误以为**零部件也不存在**。实测
+  // `patternAssembly.ts#PATTERN_PROVIDER_BINDINGS` 已把 8 个承担方**全部**解析到真实实现。
+  // ⇒ 统一改**三段式**：承担方 / 装配入口 / 触发面（各段如实，缺哪段说哪段）。
   long_task_pdl: {
     reason:
-      'PlanDrivenLoop 运行时存在，但由 ChatManager 快速路径策略（_shouldUsePlanDrivenLoop）独立驱动，不经 pattern 装配（D2 = 以运行时为准）',
+      '承担方已就绪（plan_driven_loop=PlanDrivenLoop、task_decomposer=TaskDecomposer）／装配入口缺：运行时由 ChatManager 快速路径策略（_shouldUsePlanDrivenLoop）独立驱动，不经 pattern 装配（D2 = 以运行时为准）／触发面缺：选择层无规则',
   },
-  iterative_refine: { reason: '无运行时、无触发场景（N4），未接线' },
-  parallel_distributed: { reason: '无运行时、无触发场景（N4），未接线' },
+  iterative_refine: {
+    reason:
+      '承担方已就绪（generator=TAORLoop、reviewer=VerifierAgent；VerifierAgent 且已内建于 TAORLoop）／装配入口缺：无 pattern 级组合与消费方（装配评估见 spec `pattern-wiring-closure.md` §5，暂不实施）／触发面缺：选择层无规则（N4）',
+  },
+  parallel_distributed: {
+    reason:
+      '承担方已就绪（planner=TaskDecomposer、worker=ParallelAgentScheduler、aggregator=ResultAggregator）／装配入口缺：未裁定装配到哪条既有链（装配评估见 spec `pattern-wiring-closure.md` §6，暂不实施）／触发面缺：选择层无规则（N4）',
+  },
   // 13-P1-3（2026-10-05）：`self_verify` 由 unavailable 升为 **ready** —— 复用既有 VerifierAgent
-  // （配方 verifyPolicy:'blocking'）。⚠️ 触发场景仍缺（N4）⇒ 接线存在但当前**不可达**，如实记录。
+  // （配方 verifyPolicy:'blocking'）。
+  // 2026-10-07（`pattern-wiring-closure.md` §4「P1」）：**触发面已补齐** ——
+  // `core/patterns/PatternSelector#PATTERN_SELECTION_RULES` 新增 `verify` 规则 ⇒ 本模式现为
+  // 「已接线 **且可达**」（此前"接线在、触发缺"的如实标注到此收口）；
+  // 生效仍受门控 `SELF_VERIFY_PATTERN`（**默认 false**）约束。
   self_verify: { route: 'verify', recipe: VERIFY_RECIPE },
 };
 
@@ -155,9 +172,9 @@ export interface PatternCatalogEntry {
  *
  * 纯函数，顺序 = 注册表声明序。
  *
- * ⚠️ 如实边界：`unavailable` 者**不是遗漏**，而是「无运行时 / 无触发场景」或
- * 「运行时由别处独立驱动」（见各 `reason`）；`reachable: false` 者**不是缺漏**，
- * 而是「选择层无触发规则」（见 `unreachableReason`）。本函数**不改**任何判定 ——
+ * ⚠️ 如实边界：`unavailable` 者**不是遗漏**，而是「无 pattern 级**装配入口**」或
+ * 「运行时由别处独立驱动」（见各 `reason`，均已按**三段式**写明承担方/装配入口/触发面）；
+ * `reachable: false` 者**不是缺漏**，而是「选择层无触发规则」（见 `unreachableReason`）。本函数**不改**任何判定 ——
  * 两个事实各自的唯一事实源分别是 `patternAssembler#ASSEMBLER_SPECS` 与
  * `core/patterns/PatternSelector#PATTERN_SELECTION_RULES`。
  */

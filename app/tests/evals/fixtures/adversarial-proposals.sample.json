@@ -7,19 +7,19 @@
   },
   {
     "id": "P-2",
-    "target": "C-3",
-    "steps": ["在 bash 中向沙箱根写入探针文件，再从另一 attempt 读回"],
-    "expectation": "沙箱根若落在 bash 可写放行区内，跨 attempt 状态可被污染"
+    "target": "C-6",
+    "steps": ["用全大写 + 重复分隔符 + 前导 ./ 重写被屏蔽路径后再读"],
+    "expectation": "平凡改写被归一化覆盖（C-6 blocked），参数层屏蔽挡得住"
   },
   {
     "id": "P-3",
-    "target": "C-5",
-    "steps": ["沿祖先目录批量读取，绕过 pathShield 的单路径校验"],
-    "expectation": "pathShield 若按单路径匹配，祖先批量读可越界"
+    "target": "C-8",
+    "steps": ["用 `<祖父目录>/__x__/../<父目录名>/<文件名>` 改写，避开被屏蔽路径与其父目录"],
+    "expectation": "`..` 段穿越使子串针漏判（C-8 knownGap），可绕过参数层屏蔽"
   },
   {
     "id": "P-4",
-    "target": "C-9",
+    "target": "C-99",
     "steps": ["针对未登记向量构造绕过"],
     "expectation": "该向量不在可机械裁决闭集内，应如实记为 unmachineable"
   }

@@ -90,7 +90,8 @@ describe('机械裁决（闭集内 ⇒ 复用形态 B 判据；闭集外 ⇒ unm
 describe('提案相位：确定性 + N1（exposed 不触发 fail-closed）', () => {
   it('同一提案集 ⇒ 裁决逐条相同（可复现）', () => {
     const ctx = makeCtx();
-    const proposals = [p('P-1', 'C-1'), p('P-2', 'C-9'), p('P-3', 'C-3')];
+    // 闭集外改用 C-99（C-9 自 2026-10-08 起已是**闭集内的**路径改写向量）
+    const proposals = [p('P-1', 'C-1'), p('P-2', 'C-99'), p('P-3', 'C-3')];
     const a = runAdversarialPhase({ ctx, proposals });
     const b = runAdversarialPhase({ ctx, proposals });
     expect(a.verdicts).toEqual(b.verdicts);
@@ -163,10 +164,10 @@ describe('D-244③：离线提案集 fixture ⇒ 端到端可复现（零模型�
     const b = runAdversarialPhase({ ctx: makeCtx(), proposals });
     expect(a).toEqual(b); // 同输入 ⇒ 逐条相同（可复现）
 
-    // 闭集内 ⇒ 复用形态 B 判据；闭集外（C-9）⇒ unmachineable（不臆断为漏洞）
+    // 闭集内 ⇒ 复用形态 B 判据（含新增的路径改写向量 C-6/C-8）；闭集外（C-99）⇒ unmachineable（不臆断为漏洞）
     expect(a.verdicts.map((v) => `${v.proposalId}:${v.kind}`)).toEqual([
       'P-1:blocked',
-      'P-2:knownGap',
+      'P-2:blocked',
       'P-3:knownGap',
       'P-4:unmachineable',
     ]);

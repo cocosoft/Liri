@@ -34,16 +34,20 @@ describe('反作弊面自检（P1-1 形态 B）', () => {
   it('基线（报告已屏蔽 + 声明=生效 + 沙箱根不在临时区 + bash 有约束）⇒ 无 exposed', () => {
     const r = auditAntiCheatSurface(baseCtx());
     expect(r.exposed).toEqual([]);
-    // 5 条向量恒被覆盖（不因"全通过"而少报）
+    // 9 条向量恒被覆盖（不因"全通过"而少报）
     expect(r.findings.map((f) => f.id)).toEqual([
       'C-1',
       'C-2',
       'C-3',
       'C-4',
       'C-5',
+      'C-6',
+      'C-7',
+      'C-8',
+      'C-9',
     ]);
-    // 仅 C-5（pathShield 能力边界）是恒定的 knownGap
-    expect(r.knownGaps.map((f) => f.id)).toEqual(['C-5']);
+    // 常态 knownGap：C-5（能力边界）+ C-8（`..` 穿越漏判）+ C-9（需 FS 解析的间接引用）
+    expect(r.knownGaps.map((f) => f.id)).toEqual(['C-5', 'C-8', 'C-9']);
   });
 
   it('C-1：报告目录**不在**屏蔽清单内 ⇒ exposed（防 k>1 经报告读到期望值）', () => {
@@ -98,7 +102,7 @@ describe('反作弊面自检（P1-1 形态 B）', () => {
     expect(on.findings.find((f) => f.id === 'C-4')!.verdict).toBe('blocked');
   });
 
-  it('三态互斥：exposed 与 knownGaps 不重叠，且覆盖全部 5 条向量', () => {
+  it('三态互斥：exposed 与 knownGaps 不重叠，且覆盖全部 9 条向量', () => {
     const r = auditAntiCheatSurface(
       baseCtx({
         declaredShields: [],
@@ -108,10 +112,78 @@ describe('反作弊面自检（P1-1 形态 B）', () => {
       })
     );
     const ids = new Set(r.findings.map((f) => f.id));
-    expect(r.exposed.length + r.knownGaps.length + 1).toBe(5); // 余下 1 条为 blocked
+    expect(r.exposed.length + r.knownGaps.length + 1).toBe(9); // 余下 1 条为 blocked
     for (const f of r.exposed) expect(ids.has(f.id)).toBe(true);
     // 无重叠
     const exposedIds = new Set(r.exposed.map((f) => f.id));
     for (const f of r.knownGaps) expect(exposedIds.has(f.id)).toBe(false);
+  });
+});
+
+/**
+ * C-6 … C-9（2026-10-08，spec `adversarial-agent-form-a.md` §10.2-C 闭环）：
+ * 把"路径改写技法"登记为**可机械判定**向量 —— 判据取 `pathShield` 的**真实匹配器**
+ * （`findShieldedHit`，与工具执行期同一函数），而非读代码推断。
+ *
+ * 起源：对抗相位实测中 LLM 把"短名 / 硬链接 / symlink"等绕过手法自映射到 C-1（配置检查）
+ * ⇒ 判 blocked **偏乐观**；本组向量给出准确落点。
+ */
+describe('C-6 … C-9 路径改写技法（真实匹配器机械判定）', () => {
+  const verdictOf = (
+    r: ReturnType<typeof auditAntiCheatSurface>,
+    id: string
+  ): string => r.findings.find((f) => f.id === id)!.verdict;
+
+  it('C-6 平凡改写（大小写/重复分隔符/前导 ./ /尾随点·空格）⇒ blocked（归一化已覆盖）', () => {
+    const r = auditAntiCheatSurface(baseCtx());
+    expect(verdictOf(r, 'C-6')).toBe('blocked');
+    expect(r.findings.find((f) => f.id === 'C-6')!.detail).toContain(
+      '10 项改写探测全部命中'
+    );
+  });
+
+  it('C-7 Win32 扩展前缀 `\\\\?\\` ⇒ blocked（子串针恰好仍可见盘符路径）', () => {
+    expect(verdictOf(auditAntiCheatSurface(baseCtx()), 'C-7')).toBe('blocked');
+  });
+
+  it('C-8 `..` 段穿越 ⇒ **knownGap**（改写后不含被屏蔽路径或其直接父目录 ⇒ 子串针漏判）', () => {
+    const r = auditAntiCheatSurface(baseCtx());
+    expect(verdictOf(r, 'C-8')).toBe('knownGap');
+    const detail = r.findings.find((f) => f.id === 'C-8')!.detail;
+    expect(detail).toContain('未命中');
+    expect(detail).toContain('保守下界');
+    // 关键：**不**参与 fail-closed（否则 --cheat-gate 恒红）
+    expect(r.exposed).toEqual([]);
+  });
+
+  it('C-9 需 FS 解析的间接引用 ⇒ **恒定 knownGap**（结构性，字符串针原理上不可判定）', () => {
+    const detail = auditAntiCheatSurface(baseCtx()).findings.find(
+      (f) => f.id === 'C-9'
+    )!.detail;
+    expect(detail).toContain('8.3 短名');
+    expect(detail).toContain('symlink');
+  });
+
+  it('无声明屏蔽路径 ⇒ C-6/C-7 也**不判** blocked（无从判定，如实降级为 knownGap）', () => {
+    const r = auditAntiCheatSurface(
+      baseCtx({ declaredShields: [], appliedShields: [] })
+    );
+    expect(verdictOf(r, 'C-6')).toBe('knownGap');
+    expect(verdictOf(r, 'C-7')).toBe('knownGap');
+    expect(r.findings.find((f) => f.id === 'C-6')!.detail).toContain(
+      '无从判定'
+    );
+  });
+
+  it('C-6 多写法探测与 C-7/C-8 的探测数随声明路径条数线性展开', () => {
+    const one = auditAntiCheatSurface(
+      baseCtx({ declaredShields: ['C:\\repo\\src\\answer.ts'] })
+    );
+    expect(one.findings.find((f) => f.id === 'C-6')!.detail).toContain(
+      '5 项改写探测'
+    );
+    expect(one.findings.find((f) => f.id === 'C-7')!.detail).toContain(
+      '1 项改写探测'
+    );
   });
 });

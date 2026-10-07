@@ -5,6 +5,7 @@
  */
 
 import http from 'http';
+import { createHash, timingSafeEqual } from 'crypto';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -18,7 +19,17 @@ const logger = getLogger('infrastructure:http:localHTTPServiceHelpers');
 //（缺 whatsapp / signal / matrix）⇒ 与另两处漂移，已收敛到单一事实源。
 
 /**
- * 验证请求的共享密钥
+ * 验证请求的共享密钥（**常量时间比较** —— R07-4②，2026-10-07）
+ *
+ * - 头部语义（**未变**）：`Authorization: Bearer <token>` 优先，其次 `x-api-key`；
+ * - 比较改为**常量时间**：两侧先做 SHA-256 **定长摘要**再 `timingSafeEqual`
+ *   —— 直接对原文 `timingSafeEqual` 需等长，长度不等只能提前返回 ⇒ **泄露密钥长度**；
+ *   摘要化同时消除**长度侧信道**与**逐字节短路的时序侧信道**；
+ * - **语义与旧实现完全等价**（仅计时不同）：相等 ⇒ `true`，否则 `false`。
+ *
+ * 覆盖面（如实）：本函数是**共享**实现 ⇒ `A2A_API_KEY`（对外面）与 `LIRI_API_SECRET`
+ * （本机 API）**同时**受益；对调用方无可观察行为变化。
+ *
  * @param req - HTTP 请求对象
  * @param apiSecret - 服务端配置的 API 密钥
  * @returns 是否通过验证
@@ -31,7 +42,14 @@ export function verifyRequestAuth(
     req.headers['authorization']?.replace('Bearer ', '') ||
     (req.headers['x-api-key'] as string) ||
     '';
-  return token === apiSecret;
+  return timingSafeEqualString(token, apiSecret);
+}
+
+/** 常量时间字符串比较（经 SHA-256 定长摘要 ⇒ 不泄露长度、不逐字节短路） */
+function timingSafeEqualString(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a, 'utf8').digest();
+  const hb = createHash('sha256').update(b, 'utf8').digest();
+  return timingSafeEqual(ha, hb);
 }
 
 /**

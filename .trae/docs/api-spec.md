@@ -303,7 +303,7 @@
 | GET | `/v1/a2a/tasks/{id}` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**） |
 
 **开关**：环境变量 `A2A_ENABLED === 'true'` 才启用；**未启用 ⇒ 不处理任何 A2A 路径**（由上层回落 **404**，**不泄露端点存在性**，fail-closed）。
-**鉴权（fail-closed，2026-09-29 裁定）**：`A2A_API_KEY` **未配置 ⇒ 一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；配置了则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`）。**与 `A2A_ENABLED` 构成双闸**。
+**鉴权（fail-closed，2026-09-29 裁定）**：`A2A_API_KEY` **未配置 ⇒ 一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；配置了则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`，**常量时间比较** —— 2026-10-07 R07-4②；同时作用于本机 API）。**与 `A2A_ENABLED` 构成双闸**。
 **基址**：优先 `A2A_PUBLIC_URL`；缺省按请求 `Host` 推导（**不硬编码域名/端口**）。
 
 **发现端点状态码**

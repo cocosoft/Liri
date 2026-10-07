@@ -8,7 +8,11 @@
  *  - 返回**助手正文**（`ChatResponse.content`）。
  *
  * ⚠️ **边界（如实）**：这是一条**完整对话轮** ⇒ 会走既有模型路由 / 工具执行 / 权限门 / 成本记账。
- * 对外暴露前**必须先开 `A2A_ENABLED`**（默认关闭）；**鉴权强度**尚未决策（spec §7）。
+ * 对外暴露前**必须先开 `A2A_ENABLED`**（默认关闭），且必须配 `A2A_API_KEY`（未配 ⇒ 401）。
+ *
+ * **鉴权（结论已定，勿再引旧注释）**：2026-09-29 裁定「**专用密钥 + fail-closed**」；
+ * 2026-10-07（R07-4②）把密钥比较改为**常量时间**（`verifyRequestAuth`）。
+ * 完整口径见 `.trae/specs/a2a-external-exposure.md` §7 / §8。
  */
 
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';

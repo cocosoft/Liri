@@ -382,3 +382,26 @@ export function getResourceGovernor(): ResourceGovernor;
 **门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外** · 全量 `bun test` **506 files / 4763 pass / 21 skip / 0 fail**（+1 文件 / +4 例，逐数吻合）。
 
 **下一步**：§9.2（B 案抢占，D6=a）+ §9.4（排队，D7=b）—— 仍未动码。
+
+#### 9.9.2 步骤 2（§9.2 **B 案抢占**，D6=a）—— 🟢 **已落地 2026-10-07**
+
+**落点（实测回仓）**
+
+| # | 落点 | 改动 |
+|:--:|---|---|
+| 1 | `resourceGovernor/types.ts` | `InFlightEntry` 增 `preempted?: boolean`（**幂等 + 留痕**双用途）；新增 `PreemptHandler` 类型；`AdmissionDecision` 增必填 `preempted: string[]`；`ResourceGovernorOptions` 增 `onPreempt?` |
+| 2 | `resourceGovernor/index.ts` | 新增纯函数 `selectPreemptionVictim()` + `PRIORITY_RANK`（CS02：枚举映射，禁字符串比较）；`admit()` 超限分支改为**尝试抢占**（先标记 → 告警 → 回调）；新增类方法 `setPreemptHandler()` 与全局注入 `setResourceGovernorPreemptHandler()` |
+| 3 | `bootstrap/pipeline/BootPipelineIntegrator.ts` | **组合根装配**（复用同处 `createChatManager()` 实例）：`setResourceGovernorPreemptHandler(victim => chatManager.abortSessionStream(victim))` —— 治理器**不硬依赖** chat 层（注入缝，同 `setCoreApiAppDeps` 先例） |
+| 4 | `app/tests/resourceGovernor/preemption.test.ts` | **新建（11 例）**：victim 六规则（含**不得同会话**专测 · `background` 不得抢 `interactive` · 幂等跳过已抢占 · 最低优先 · 同级最早 · 无候选）+ 抢占生效（返回/标记/回调）+ 幂等（不重复回调）+ **未注入回调退回仅告警** + 开关关零变更 |
+
+**victim 规则（四条，顺序不可调换）**：① 排除同 `sessionId`（硬约束）→ ② 排除**优先级不低于**请求者（防 `background` 抢 `interactive`，§9.8-1）→ ③ 排除已 `preempted`（幂等）→ ④ **最低优先**，同级取 **`startedAt` 最早**。
+
+**语义细节（如实）**
+- victim **保留在飞**（仅打标记；由 victim 自身 `release()` 移除）⇒ `preempted` 可持续供 UI/日志区分"用户中止"与"被抢占"。
+- **未注入回调 ⇒ 退回阶段 1「仅告警」**（`preempted` 恒空）⇒ 默认零行为变更。
+- **未加** `AdmissionDecision.reason`（本 spec 原记该字段"已定义"，**实测不存在**）：`overLimit: boolean` 已承载该信号且无消费者 ⇒ 不加（CS03）。
+- `admit()` **保持同步**、不加 try/catch（回调为同进程内部调用；CS03 回退最小化）。
+
+**门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外** · 全量 `bun test` **507 files / 4774 pass / 21 skip / 0 fail**（+1 文件 / +11 例，逐数吻合）。
+
+**遗留（明确）**：§9.4（排队，D7=b）**仍未落地**；`preempted` 标记目前**仅治理器内部 + 日志**，**未下发** UI/SSE ⇒ "用户可见区分"仍缺（= 台账 §27.3 **PC-2**）。

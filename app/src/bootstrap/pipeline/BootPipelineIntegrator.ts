@@ -53,9 +53,13 @@ export async function registerCoreApiAppDeps(): Promise<void> {
   const { modelRouter, resolveModelRoute, RouteKey, globalEmbeddingManager } =
     await import('@modules/ai');
   const { AutoCompactService } = await import('@modules/compaction');
+  const { setResourceGovernorPreemptHandler } =
+    await import('@modules/resourceGovernor');
+
+  const chatManager = createChatManager();
 
   setCoreApiAppDeps({
-    chatManager: createChatManager(),
+    chatManager,
     // ⚠️ 必须是 `globalToolManager`（CC 兼容**包装层**，即原 `CoreAPIImpl` 的默认值）——
     // 它同时暴露 `getTools/getTool/executeTool`（包装层）与 `getInner()`（→ 增强层
     // `loadBuiltinTools`/`getRegistry`）。若注入 `getToolManager()`（**增强层**本体）会缺失
@@ -73,6 +77,13 @@ export async function registerCoreApiAppDeps(): Promise<void> {
     createAutoCompactService: () => new AutoCompactService(),
     globalEmbeddingManager,
   });
+
+  // P26-1 §9.2（D6=B，2026-10-07）：跨会话抢占 = **中止并丢弃**被抢占会话的流。
+  // 治理器不硬依赖 chat 层 ⇒ 由**入口层组合根**注入回调（同上方 `setCoreApiAppDeps` 先例）。
+  setResourceGovernorPreemptHandler((victimSessionId) => {
+    chatManager.abortSessionStream(victimSessionId);
+  });
+
   _appDepsRegistered = true;
 }
 

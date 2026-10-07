@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SaveConversationTool
  *
  * 当用户要求保存对话记录时，使用此工具总结整个对话并保存到文件
@@ -25,8 +25,7 @@ export interface SaveConversationInput {
 
 export class SaveConversationTool extends BaseTool<SaveConversationInput> {
   name = 'save_conversation';
-  description =
-    'Save a conversation summary to a file. Use this when the user wants to save or record the current conversation.';
+  description = '将对话摘要保存到文件。当用户希望保存或记录当前对话时使用。';
 
   override tags = [ToolTag.WRITE];
 

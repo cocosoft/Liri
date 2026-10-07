@@ -16,34 +16,33 @@ const logger = getLogger('memory:tools:MemoryTool');
  */
 export class MemoryTool implements Tool {
   public name: string = 'memory_search';
-  public description: string =
-    'Search and retrieve memories from the memory system';
+  public description: string = '从记忆系统中搜索并检索记忆';
   public params = [
     {
       name: 'query',
       type: 'string' as const,
-      description: 'Search query string',
+      description: '搜索查询字符串',
       required: false,
       example: 'project ideas',
     },
     {
       name: 'type',
       type: 'string' as const,
-      description: 'Memory type filter (conversation|fact|preference|learning)',
+      description: '记忆类型过滤（conversation|fact|preference|learning）',
       required: false,
       example: 'conversation',
     },
     {
       name: 'tags',
       type: 'array' as const,
-      description: 'Tags to filter memories by',
+      description: '用于过滤记忆的标签',
       required: false,
       example: ['work', 'important'],
     },
     {
       name: 'limit',
       type: 'number' as const,
-      description: 'Maximum number of results to return',
+      description: '返回结果的最大数量',
       required: false,
       default: 10,
       example: 5,
@@ -51,7 +50,7 @@ export class MemoryTool implements Tool {
     {
       name: 'sortBy',
       type: 'string' as const,
-      description: 'Sort results by (createdAt|updatedAt|relevance)',
+      description: '结果排序依据（createdAt|updatedAt|relevance）',
       required: false,
       default: 'relevance',
       example: 'createdAt',

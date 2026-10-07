@@ -9,33 +9,33 @@ const logger = getLogger('memory:tools:MemoryGetTool');
 
 export class MemoryGetTool implements Tool {
   public name: string = 'memory_get';
-  public description: string = 'Read stored memory entries';
+  public description: string = '读取已存储的记忆条目';
   public params = [
     {
       name: 'id',
       type: 'string' as const,
-      description: 'Specific memory ID to retrieve. If omitted, lists entries.',
+      description: '要检索的特定记忆 ID。省略时将列出条目。',
       required: false,
       example: 'mem_abc123',
     },
     {
       name: 'type',
       type: 'string' as const,
-      description: 'Memory type filter (conversation|fact|preference|learning)',
+      description: '记忆类型过滤（conversation|fact|preference|learning）',
       required: false,
       example: 'fact',
     },
     {
       name: 'tags',
       type: 'array' as const,
-      description: 'Tags to filter memories by',
+      description: '用于过滤记忆的标签',
       required: false,
       example: ['important'],
     },
     {
       name: 'limit',
       type: 'number' as const,
-      description: 'Maximum number of results to return (default: 20)',
+      description: '返回结果的最大数量（默认：20）',
       required: false,
       default: 20,
       example: 10,

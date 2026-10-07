@@ -12,19 +12,18 @@ const logger = getLogger('memory:tools:UnifiedSearchTool');
 export class UnifiedSearchTool implements Tool {
   public name: string = 'unified_search';
   public description: string =
-    'Unified search across both the knowledge base (docs, guides, references) and the memory system (stored facts, user preferences, project context). Use this to find any stored information without worrying about which system stores it.';
+    '统一搜索知识库（文档、指南、参考资料）与记忆系统（已存储事实、用户偏好、项目上下文）。当需要查找任何已存储信息、又不想关心它由哪个系统保存时使用本工具。';
   public params: ToolParam[] = [
     {
       name: 'query',
       type: 'string',
-      description:
-        'Search query to find matching information across all sources',
+      description: '用于在所有来源中查找匹配信息的搜索查询',
       required: true,
     },
     {
       name: 'limit',
       type: 'number',
-      description: 'Maximum number of results to return',
+      description: '返回结果的最大数量',
       required: false,
       default: 10,
     },
@@ -32,7 +31,7 @@ export class UnifiedSearchTool implements Tool {
       name: 'source',
       type: 'string',
       description:
-        'Limit search to specific source: "knowledge", "memory", or "all" (default)',
+        '将搜索限制在指定来源："knowledge"、"memory" 或 "all"（默认）',
       required: false,
       default: 'all',
       enum: ['all', 'knowledge', 'memory'],

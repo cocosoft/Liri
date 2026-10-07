@@ -1,13 +1,69 @@
 import { EventEmitter } from 'events';
 
 import { getLogger } from '@modules/monitoring';
+// P26-2 P1（2026-10-07）：秘密**形态**规则复用既有唯一事实源（`memory` 侧 gitleaks 式规则表）
+// —— 不再在此维护第二套"字段名"正则（CS01）。
+import { redactSecretsFully } from '../scanner/secret/index.js';
+
 const logger = getLogger('security\services\SensitiveDataService');
 
-const SENSITIVE_PATTERNS = [
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+/** 邮箱（**豁免 MIT 协议头行** —— 见 `redactEmails`，P26-2 P2） */
+const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+/** 协议头标记（`Copyright …` / `©`）—— 命中的**整行**跳过邮箱打码 */
+const COPYRIGHT_LINE_PATTERN = /copyright|©/i;
+/** PII（SSN / 卡号） */
+const PII_PATTERNS: RegExp[] = [
   /\b\d{3}-\d{2}-\d{4}\b/g,
   /\b\d{4}-\d{4}-\d{4}-\d{4}\b/g,
-  /\b(?:api[_-]?key|secret[_-]?key|password|token)\s*[:=]\s*\S+/gi,
+];
+
+/** 打码结果（`hit` = 文本是否被改动；CS02：结构化信号，非文案匹配） */
+interface RedactResult {
+  text: string;
+  hit: boolean;
+}
+
+/**
+ * 邮箱打码（**豁免 MIT 协议头行** —— P26-2 **P2**，2026-10-07）
+ *
+ * **为什么**：`.trae/rules/project_rules.md §1.2` **要求**源码携带 MIT 协议头（含作者邮箱），
+ * 而本仓协议头由模板生成 ⇒ 若对邮箱**无差别**打码，模型新建文件时**无法产出合规协议头**
+ * （旧实现实测命中 **≥202 处 / ≥200 文件**，见 `guardrails-dual-side.md` §9.2②-1）。
+ *
+ * **实现**：**按行**判定 —— 该行含 copyright 标记 ⇒ 整行**跳过**邮箱打码。
+ * 这是**结构性豁免**（不硬编码作者邮箱，也不依赖固定的 `(c)` 写法）。
+ */
+function redactEmails(text: string): RedactResult {
+  let hit = false;
+  const out: string[] = [];
+  for (const line of text.split('\n')) {
+    if (COPYRIGHT_LINE_PATTERN.test(line)) {
+      out.push(line);
+      continue;
+    }
+    const next = line.replace(EMAIL_PATTERN, '[REDACTED]');
+    if (next !== line) hit = true;
+    out.push(next);
+  }
+  return { text: out.join('\n'), hit };
+}
+
+/** PII（SSN / 卡号）打码 */
+function redactPii(text: string): RedactResult {
+  let out = text;
+  for (const pattern of PII_PATTERNS) out = out.replace(pattern, '[REDACTED]');
+  return { text: out, hit: out !== text };
+}
+
+/**
+ * 统一打码器清单 —— **`sanitize` 与 `detectSensitiveData` 共用同一组**
+ * ⇒ 两者口径**必然一致**（旧实现一个走 `replace`、一个走 `/g` + `.test()`，
+ * 后者因 `lastIndex` 残留会**交替误判**；本批顺带消除，见 `guardrails-dual-side.md`）。
+ */
+const REDACTORS: ReadonlyArray<(text: string) => RedactResult> = [
+  redactEmails,
+  redactPii,
+  redactSecretsFully,
 ];
 
 export enum SensitiveErrorType {
@@ -67,12 +123,8 @@ export class SensitiveDataService extends EventEmitter {
     if (!this.config.enableSensitiveDataDetection) {
       return false;
     }
-    for (const pattern of SENSITIVE_PATTERNS) {
-      if (pattern.test(text)) {
-        return true;
-      }
-    }
-    return false;
+    // 与 `sanitize()` **同源**（同一组 REDACTORS）⇒ 判定与打码口径不可能漂移
+    return REDACTORS.some((redact) => redact(text).hit);
   }
 
   sanitize(text: string): string {
@@ -80,8 +132,8 @@ export class SensitiveDataService extends EventEmitter {
       return text;
     }
     let sanitized = text;
-    for (const pattern of SENSITIVE_PATTERNS) {
-      sanitized = sanitized.replace(pattern, '[REDACTED]');
+    for (const redact of REDACTORS) {
+      sanitized = redact(sanitized).text;
     }
     return sanitized;
   }

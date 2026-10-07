@@ -121,6 +121,8 @@ export {
   scanForSecrets,
   containsSecrets,
   sanitizeSecrets,
+  // P26-2 P1（2026-10-07）：全量遮蔽版本（供 SensitiveDataService 复用同一规则表，CS01）
+  redactSecretsFully,
   scanMemoryContent,
   validateMemoryContent,
 } from './scanners/MemorySecretScanner';

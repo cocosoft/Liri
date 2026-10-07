@@ -33,6 +33,8 @@ export {
   scanForSecrets as scanMemoryForSecrets,
   containsSecrets,
   sanitizeSecrets,
+  // P26-2 P1（2026-10-07）：全量遮蔽（供 `SensitiveDataService` 复用同一规则表）
+  redactSecretsFully,
   scanMemoryContent,
   validateMemoryContent,
 } from '@modules/memory';

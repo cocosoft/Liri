@@ -48,7 +48,11 @@ describe('敏感内容护栏（13-P2-1）', () => {
 
   it('OUTPUT_GUARD_BLOCK=true ⇒ 阻断并给出可读替代文本', () => {
     process.env[ENV_BLOCK] = 'true';
-    const v = createSensitiveContentGuard().check('token: sk-abcdefghijklmnop');
+    // ⚠️ 2026-10-07（P26-2 **P1**）：原用例输入 `'token: sk-abcdefghijklmnop'` —— 那是**旧**的
+    // 「字段名 + 任意值」判据；P1 已把 secrets 判据收窄为**值形态**（provider 前缀 / 值长度下限）
+    // ⇒ `token: <短值>` **有意**不再命中（见 `guardrails-dual-side.md` §10.2/§10.4）。
+    // 本用例改用一个**真实密钥形态**（AWS Access Key 样式，20 字符），语义仍为"命中即阻断"。
+    const v = createSensitiveContentGuard().check('key=AKIAIOSFODNN7EXAMPLE');
     expect(v.action).toBe('block');
     expect(v.issues[0]?.severity).toBe('block');
     // 复用既有用户可读文案（非技术堆栈）

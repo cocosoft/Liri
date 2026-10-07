@@ -276,6 +276,35 @@ export function sanitizeSecrets(
 }
 
 /**
+ * **全量遮蔽**秘密 —— 与 `sanitizeSecrets` 的"保留首尾 4 字符"不同：**整段**替换为占位符。
+ *
+ * 用途（P26-2 **P1**，2026-10-07）：`SensitiveDataService.sanitize()` 需要**不改写语义**的
+ * 整段打码（对外呈现/输入脱敏），但**不应**另建第二套"秘密形态"规则（CS01）⇒ 复用本文件
+ * 的 `SECRET_RULES`（唯一事实源）。
+ *
+ * 同时返回 `hit`（文本是否变化）⇒ 消费者无需再用 `/g` + `.test()` 判定
+ * （后者会因 `lastIndex` 残留而**交替误判**，见 `final-output-guard-no-tool-turns.md` 注）。
+ */
+export function redactSecretsFully(
+  content: string,
+  placeholder: string = '[REDACTED]'
+): { text: string; hit: boolean } {
+  let sanitized = content;
+  for (const rule of SECRET_RULES) {
+    try {
+      sanitized = sanitized.replace(compileRule(rule), placeholder);
+    } catch (err) {
+      // @ignore-catch — 单条规则异常不应使整段文本失去保护之外的语义（CS03：不掩盖，最低限度留痕）
+      logger.warn('secret rule replace failed', {
+        ruleId: rule.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return { text: sanitized, hit: sanitized !== content };
+}
+
+/**
  * 扫描记忆内容
  */
 export function scanMemoryContent(content: string): SecretScanResult {

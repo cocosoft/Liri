@@ -140,6 +140,22 @@ export interface OrchestrationPatternDto {
   status: 'ready' | 'unavailable';
   route?: string;
   reason?: string;
+  /** 触发可达性（2026-10-07）：选择层是否会产出本模式（与 `status` 正交） */
+  reachable: boolean;
+  /** 无触发面原因（仅 `reachable === false`） */
+  unreachableReason?: string;
+  /** 命中后仍需开启的功能开关（仅出现在有门控的模式上） */
+  featureGate?: { flag: string; enabled: boolean };
+}
+
+/**
+ * 模式目录**静态快照**的落盘结果（2026-10-07，PC-6 可达性收口配套）
+ *
+ * `path` 为**绝对路径**（供 UI 回显，用户据此找到文件）。
+ */
+export interface PatternCatalogSnapshotResultDto {
+  path: string;
+  entryCount: number;
 }
 
 /** 查询日志运维端口（调用方均**不传 `limit`** ⇒ 端口不收参，用 app 侧默认值） */
@@ -167,4 +183,11 @@ export interface QueryOpsPort {
    * （注册表 + 装配状态），供 `GET /v1/patterns` 展示；不含任何会话/运行期状态。
    */
   listOrchestrationPatterns(): Promise<OrchestrationPatternDto[]>;
+
+  /**
+   * 原 `writePatternCatalogSnapshot()`（`query/patternAssembler.ts`，2026-10-07）——
+   * 把当前模式目录落盘为**静态快照**（`~/.pyapp/data/reports/pattern_catalog.json`）。
+   * **按需**调用（UI 导出按钮），非常驻、不轮询。
+   */
+  exportPatternCatalogSnapshot(): Promise<PatternCatalogSnapshotResultDto>;
 }

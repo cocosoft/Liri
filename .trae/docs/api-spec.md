@@ -764,17 +764,20 @@ data: {"type":"done","result":{...}}
 ### §3.29.1 编排模式目录（PC-6，2026-10-07 新增登记）
 
 > 路由注册：`plan-flow-routes.ts`（`dispatchPlanFlowRoutes`，编排域）；handler `plan-flow-handlers.ts#handleListPatterns`。
-> 数据源：app 层纯函数 `query/patternAssembler.ts#listPatternCatalog()`（= 模式注册表 `core/patterns` + **装配状态** `instantiatePattern`），经服务层端口 `getQueryOpsPort().listOrchestrationPatterns()` 转调（不新增第二套判定）。
+> 数据源：app 层纯函数 `query/patternAssembler.ts#listPatternCatalog()`（= 模式注册表 `core/patterns` + **装配状态** `instantiatePattern` + **触发可达性** `isPatternReachable`），经服务层端口 `getQueryOpsPort().listOrchestrationPatterns()` 转调（不新增第二套判定）；导出端点同链路（`handleExportPatternCatalog` → `exportPatternCatalogSnapshot()` → `writePatternCatalogSnapshot()`）。
 > 前端调用方：`ChatInspector` 的「模式」Tab（`components/ChatInspector/PatternsTab.tsx` → `services/planService.ts#patternService.list`）。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/patterns` | ✅ | ChatInspector「模式」Tab（只读；无参数、无会话上下文） |
+| POST | `/v1/patterns/export` | ✅ | ChatInspector「模式」Tab 的「导出快照」按钮（**有写盘副作用** ⇒ POST） |
 
-**响应**：`{ patterns: [{ name, displayName, when, roles, bindings:[{role,providers[]}], assembler, status:'ready'\|'unavailable', route?, reason? }] }`
+**响应**：`{ patterns: [{ name, displayName, when, roles, bindings:[{role,providers[]}], assembler, status:'ready'\|'unavailable', route?, reason?, reachable, unreachableReason?, featureGate? }] }`
 
 - **如实语义**：`unavailable` **不是缺漏** —— 表示「无运行时 / 无触发场景」或「运行时由别处独立驱动」（`reason` 给出原因，原样透传，前端不改写）；
 - `route` 仅 `ready` 时存在（当前闭集：`research` / `verify`）；`reason` 仅 `unavailable` 时存在。
+- **可达性维度（2026-10-07 新增）**：`reachable`（选择层是否会产出本模式）与 `status`（装配层）**正交**；`status==='ready' && !reachable` = 「接线已就位但当前**不可达**」（如 `self_verify`）；`unreachableReason` 仅 `!reachable` 时存在（**原样透传不改写**）；`featureGate`（`{flag, enabled}`）仅出现在声明了门控的模式上（`enabled` 为**读取时刻**的值）。唯一事实源：`patternAssembler#ASSEMBLER_SPECS`（装配）+ `core/patterns/PatternSelector#PATTERN_SELECTION_RULES`（触发）。
+- **导出端点**（`POST /v1/patterns/export`）：把当前目录落盘为静态快照 `~/.pyapp/data/reports/pattern_catalog.json`（留档 / 跨版本 diff），返回 `{ path, entryCount }`（`path` = **绝对路径**，供 UI 回显）；写盘失败 ⇒ 非 2xx（不静默）。
 
 ```json
 {
@@ -1043,6 +1046,7 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.10.0 | 2026-10-07 | §3.29.1 补 **`POST /v1/patterns/export`**（静态目录快照导出 ⇒ `~/.pyapp/data/reports/pattern_catalog.json`，返回 `{path, entryCount}`）；`GET /v1/patterns` 响应增 **`reachable` / `unreachableReason?` / `featureGate?`**（触发可达性，与 `status` 正交）+ 新增 session 事件 **`pattern/decision`**（模式决策轨迹，log-only） |
 | 2.9.0 | 2026-10-07 | §3.8.2 **A2A v1.0 标准绑定（T4 批次 A–D）**：新增 **`POST /v1/a2a/rpc`**（JSON-RPC 2.0 单入口：11 操作 + v0.3 别名 + 能力门控 `-32003`/`-32004` + `A2A-Version` 校验 `-32009` + **SSE 流式** `SendStreamingMessage`/`SubscribeToTask`）；卡片改为 **v1.0 形状**（`supportedInterfaces[]` 承载端点/绑定/版本，**移除顶层 `url`/`protocolVersion`**）、`capabilities.streaming` 翻 **`true`** |
 | 2.8.0 | 2026-10-07 | §3.8.2 新增 **`GET /v1/a2a/health`**（R11-3 D2 独立就绪探针：`{ status, delegatorReady }`，判据与委派 `503` **同源**）+ 卡片 `capabilities` 补 **`stateTransitionHistory: false`**（R11-3 D1，如实）+ 卡片**不再声明** `supportedInterfaces`（R11-3 D3 裁定：未实现标准绑定 ⇒ 不虚报 `protocolBinding: 'JSONRPC'`）；同批订正 §3.8.2 标题/表格中**过时路径** `agent.json` → `agent-card.json` |
   > ⚠️ **2.8.0 的"不声明 `supportedInterfaces`"已被 2.9.0 取代**（T4 批次 B/C 实现后**如实恢复**）—— 保留本行以存史。

@@ -99,6 +99,9 @@ const ALL_SESSION_EVENT_TYPES = [
   'evolution/applied',
   // ─── 标题（D5，2026-08-24） ───
   'session/title',
+  // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md`）：
+  // 编排模式决策轨迹（研究分流点；log-only，不入消息 surface）
+  'pattern/decision',
 ] as const satisfies readonly LiriEventType[];
 
 /**

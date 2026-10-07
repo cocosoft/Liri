@@ -173,11 +173,15 @@ export {
   verifierConfigForRecipe,
   // PC-6（2026-10-07）：编排模式只读目录（注册表 + 装配状态）
   listPatternCatalog,
+  // 2026-10-07：静态目录快照落盘（按需；沿 reports/ 既有约定）
+  writePatternCatalogSnapshot,
+  patternCatalogSnapshotPath,
 } from './patternAssembler.js';
 export type {
   PatternInstantiation,
   PatternRunRoute,
   PatternCatalogEntry,
+  PatternCatalogSnapshot,
 } from './patternAssembler.js';
 export {
   CompetitiveStrategyOrchestrator,

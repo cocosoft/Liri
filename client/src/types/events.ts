@@ -564,6 +564,16 @@ export interface LiriEventMap {
     /** 仅 `OUTPUT_GUARD_KEEP_ORIGINAL=true` 时存在（默认不落盘原文） */
     originalText?: string;
   };
+  // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md`）：编排模式
+  // **决策轨迹**（log-only，不入消息 surface；镜像 app 侧同名字段，勿单端改）
+  "pattern/decision": {
+    site: "research_dispatch";
+    selected: string | null;
+    status?: "ready" | "unavailable";
+    route?: string;
+    featureGate?: { flag: string; enabled: boolean };
+    applied: boolean;
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────

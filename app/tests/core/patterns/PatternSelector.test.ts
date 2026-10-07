@@ -4,6 +4,10 @@ import {
   listPatterns,
   getPatternDescriptor,
   validatePatterns,
+  PATTERN_SELECTION_RULES,
+  isPatternReachable,
+  patternFeatureFlag,
+  patternUnreachableReason,
 } from '@modules/core/patterns/index.js';
 
 describe('PatternSelector（Teamwork P2a）', () => {
@@ -49,6 +53,61 @@ describe('PatternSelector（Teamwork P2a）', () => {
     // long_task_pdl 不再由 selectPattern 产出（D4）⇒ 直接取描述断言其装配入口
     const pdl = getPatternDescriptor('long_task_pdl');
     expect(pdl?.assembly.assembler).toBe('long_task_pdl');
+  });
+});
+
+/**
+ * 可达性（2026-10-07，`.trae/specs/pattern-catalog-reachability-and-persistence.md`）
+ *
+ * 修复背景：选择层原为**命令式 if** ⇒ 无处声明"哪些模式有触发面"，展示层只能另判或撒谎
+ * （`self_verify` 装配 ready 却永不产出）。现由 `PATTERN_SELECTION_RULES` **派生**，
+ * 且与 `selectPattern` **同源**（本组用例即断言该同源关系）。
+ */
+describe('PatternSelector 可达性（2026-10-07）', () => {
+  test('触发规则表：当前唯一规则 = competitive_strategy（complex + research + 门控）', () => {
+    expect(PATTERN_SELECTION_RULES.map((r) => r.name)).toEqual([
+      'competitive_strategy',
+    ]);
+    expect(PATTERN_SELECTION_RULES[0].feature).toBe('COMPETITIVE_STRATEGY');
+  });
+
+  test('可达 ⇔ 选择层能产出（派生自规则表，不另建第二张表）', () => {
+    const specs = [
+      { complexity: 'simple' as const },
+      { complexity: 'simple' as const, research: true },
+      { complexity: 'complex' as const },
+      { complexity: 'complex' as const, research: true },
+    ];
+    for (const p of listPatterns()) {
+      const producible = specs.some((s) => selectPattern(s)?.name === p.name);
+      expect(isPatternReachable(p.name)).toBe(producible);
+    }
+  });
+
+  test('无触发面者必有原因（与可达性互补，`self_verify` 亦不例外）', () => {
+    for (const p of listPatterns()) {
+      const reason = patternUnreachableReason(p.name);
+      if (isPatternReachable(p.name)) {
+        expect(reason).toBeUndefined();
+      } else {
+        expect((reason ?? '').length).toBeGreaterThan(0);
+      }
+    }
+    expect(patternUnreachableReason('self_verify')).toBeDefined();
+  });
+
+  test('门控声明单点：仅 competitive_strategy 带门控', () => {
+    expect(patternFeatureFlag('competitive_strategy')).toBe(
+      'COMPETITIVE_STRATEGY'
+    );
+    for (const n of [
+      'iterative_refine',
+      'parallel_distributed',
+      'long_task_pdl',
+      'self_verify',
+    ] as const) {
+      expect(patternFeatureFlag(n)).toBeUndefined();
+    }
   });
 });
 

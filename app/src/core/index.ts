@@ -140,6 +140,10 @@ export {
 export {
   selectPattern,
   resolvePattern,
+  isPatternReachable,
+  patternUnreachableReason,
+  patternFeatureFlag,
+  PATTERN_SELECTION_RULES,
   PATTERN_PROVIDERS,
   PATTERN_DESCRIPTORS,
   listPatterns,
@@ -152,6 +156,7 @@ export type {
   PatternRecipe,
   PatternSelection,
   PatternDescriptor,
+  PatternSelectionRule,
 } from './patterns';
 
 // 13-P2-1（2026-10-05）：输出侧护栏统一契约 + 注册表（core 层；具体护栏在 app 层注册）

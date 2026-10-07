@@ -1321,6 +1321,9 @@ export class DomainSnapshotOps {
       // PC-6（2026-10-07）：编排模式只读目录（注册表 + 装配状态）；app 侧纯函数，本端口只转调
       listOrchestrationPatterns: async () =>
         (await queryModule()).listPatternCatalog(),
+      // 2026-10-07：模式目录**静态快照**落盘（按需，非轮询）；app 侧负责取路径与写盘
+      exportPatternCatalogSnapshot: async () =>
+        (await queryModule()).writePatternCatalogSnapshot(),
     };
   }
 

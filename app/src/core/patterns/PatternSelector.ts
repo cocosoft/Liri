@@ -24,11 +24,13 @@
  */
 
 import { getLogger } from '../loggerFacade.js';
+import type { FeatureFlag } from '../featureFlags.js';
 import { PATTERN_DESCRIPTORS, listPatterns } from './PatternRegistry.js';
 import type {
   PatternDescriptor,
   PatternMatchSpec,
   PatternName,
+  PatternSelectionRule,
 } from './types.js';
 
 const logger = getLogger('core:patterns:selector');
@@ -64,21 +66,87 @@ export function resolvePattern(name: string): PatternSelection | undefined {
 }
 
 /**
+ * 触发规则（**唯一事实源**，2026-10-07 新增）—— 既驱动 `selectPattern`，也驱动
+ * 目录的「**可达性**」判定（`isPatternReachable`）。
+ *
+ * 为什么需要：原 `selectPattern` 是**命令式 if** ⇒ 没有任何声明能回答"哪些模式**有触发面**"，
+ * 面板因此把 `self_verify`（接线在、触发永不产出）**谎报为可用**。
+ *
+ * 字段语义：
+ * - `complexity`：任务复杂度必须相等；
+ * - `research`：声明 `true` ⇒ 要求 `spec.research === true`（缺省 = 不约束）；
+ * - `feature`：命中后**仍需**开启的功能开关（缺省 = 无门控）；解析走既有唯一入口
+ *   `@modules/core#feature`，本表**只声明名**，不自行读环境。
+ *
+ * ⚠️ `as const` 必须保留：`name` 的字面量联合被 §「无触发面原因」的 `Exclude<>` 穷尽断言消费。
+ */
+export const PATTERN_SELECTION_RULES = [
+  {
+    name: 'competitive_strategy',
+    complexity: 'complex',
+    research: true,
+    feature: 'COMPETITIVE_STRATEGY',
+  },
+] as const satisfies readonly PatternSelectionRule[];
+
+/** 规则已覆盖的 pattern 名（字面量联合） */
+type ReachablePatternName = (typeof PATTERN_SELECTION_RULES)[number]['name'];
+
+/**
+ * **无触发面**的原因（编译期穷尽：`PatternName` 新增成员而既无规则、又无原因 ⇒ 编译失败）。
+ *
+ * 语义边界：这里说的是"**选择层永远不会产出它**"，与"装配层是否有运行路由"是**两件事**
+ * （后者见 `query/patternAssembler.ts#ASSEMBLER_SPECS`）。两者都有各自的原因文案，不互相替代。
+ */
+const PATTERN_TRIGGER_ABSENCE_REASON: Readonly<
+  Record<Exclude<PatternName, ReachablePatternName>, string>
+> = {
+  iterative_refine: '选择层无触发规则（无触发场景，N4）',
+  parallel_distributed: '选择层无触发规则（无触发场景，N4）',
+  long_task_pdl:
+    '选择层无触发规则（其运行时由 ChatManager 快速路径策略独立驱动，不经 pattern 选择与装配）',
+  self_verify: '选择层无触发规则（装配接线已就位，触发面未定义 —— N4）',
+};
+
+/** 该 pattern 是否有**触发面**（= 是否出现在 `PATTERN_SELECTION_RULES` 中） */
+export function isPatternReachable(name: PatternName): boolean {
+  return PATTERN_SELECTION_RULES.some((r) => r.name === name);
+}
+
+/** 无触发面时的原因（可达 ⇒ `undefined`） */
+export function patternUnreachableReason(
+  name: PatternName
+): string | undefined {
+  return PATTERN_TRIGGER_ABSENCE_REASON[
+    name as keyof typeof PATTERN_TRIGGER_ABSENCE_REASON
+  ];
+}
+
+/** 该 pattern 命中后仍需开启的功能开关（无门控 ⇒ `undefined`） */
+export function patternFeatureFlag(name: PatternName): FeatureFlag | undefined {
+  return PATTERN_SELECTION_RULES.find((r) => r.name === name)?.feature;
+}
+
+/**
  * 按任务特征选编排 pattern。
+ *
+ * 规则**全部**来自 `PATTERN_SELECTION_RULES`（见该表头注）；`simple` 复杂度不套 pattern
+ * （规则均要求 `complex`）⇒ 未命中即 `null`（调用方回退现状）。
+ *
  * @returns PatternSelection | null（未命中走现状）
  */
 export function selectPattern(spec: PatternMatchSpec): PatternSelection | null {
-  if (spec.complexity !== 'complex') {
-    // simple 快速路径不套 pattern
+  const rule = PATTERN_SELECTION_RULES.find(
+    (r) =>
+      r.complexity === spec.complexity &&
+      (r.research === undefined || spec.research === r.research)
+  );
+  if (!rule) {
+    logger.debug('pattern.none', { ...spec });
     return null;
   }
-  if (spec.research === true) {
-    logger.info('pattern.selected', { name: 'competitive_strategy', ...spec });
-    return selectionOf('competitive_strategy');
-  }
-  // D4：complex 非研究**不再**返回 long_task_pdl（见头注）—— 如实返回 null。
-  logger.debug('pattern.none', { ...spec });
-  return null;
+  logger.info('pattern.selected', { name: rule.name, ...spec });
+  return selectionOf(rule.name);
 }
 
 /**

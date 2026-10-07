@@ -32,7 +32,17 @@ import type {
   PatternRecipe,
   PatternSelection,
 } from '@modules/core';
-import { listPatterns, resolvePattern } from '@modules/core';
+import {
+  feature,
+  isPatternReachable,
+  listPatterns,
+  patternFeatureFlag,
+  patternUnreachableReason,
+  resolvePattern,
+} from '@modules/core';
+import { resolveDataSubDir } from '@modules/core/paths';
+import { mkdir, writeFile } from 'fs/promises';
+import { dirname, join } from 'path';
 
 /** 已接线的运行路由（闭集；13-P1-3 新增 `verify`） */
 export type PatternRunRoute = 'research' | 'verify';
@@ -123,13 +133,33 @@ export interface PatternCatalogEntry {
   route?: PatternRunRoute;
   /** 未接线原因（仅 `unavailable`） */
   reason?: string;
+  /**
+   * **触发可达性**（2026-10-07 新增）：选择层是否会产出本模式。
+   *
+   * 与 `status`（装配层）是**两件事**：`status==='ready' && !reachable` 表示
+   * 「接线已就位但当前**不可达**」（缺触发面）—— 面板此前把它谎报为可用。
+   */
+  reachable: boolean;
+  /** 无触发面原因（仅 `reachable === false`） */
+  unreachableReason?: string;
+  /**
+   * 命中后**仍需**开启的功能开关（仅出现在有门控的模式上）。
+   *
+   * `enabled` 为**本次读取时刻**的值（`core#feature` 读环境/常量）⇒ 非历史回放值。
+   */
+  featureGate?: { flag: string; enabled: boolean };
 }
 
 /**
- * 列出**全部**编排模式及其装配状态（PC-6）—— 纯函数，顺序 = 注册表声明序。
+ * 列出**全部**编排模式及其装配状态 + 触发可达性（PC-6 / 2026-10-07 可达性收口）。
+ *
+ * 纯函数，顺序 = 注册表声明序。
  *
  * ⚠️ 如实边界：`unavailable` 者**不是遗漏**，而是「无运行时 / 无触发场景」或
- * 「运行时由别处独立驱动」（见各 `reason`）；本函数**不改**任何装配判定。
+ * 「运行时由别处独立驱动」（见各 `reason`）；`reachable: false` 者**不是缺漏**，
+ * 而是「选择层无触发规则」（见 `unreachableReason`）。本函数**不改**任何判定 ——
+ * 两个事实各自的唯一事实源分别是 `patternAssembler#ASSEMBLER_SPECS` 与
+ * `core/patterns/PatternSelector#PATTERN_SELECTION_RULES`。
  */
 export function listPatternCatalog(): PatternCatalogEntry[] {
   return listPatterns().map((descriptor) => {
@@ -137,7 +167,9 @@ export function listPatternCatalog(): PatternCatalogEntry[] {
       // 注册表键与描述同名 ⇒ 必有结果（`resolvePattern` 是 `PatternSelection` 唯一构造点）
       resolvePattern(descriptor.name)
     );
-    const base: Omit<PatternCatalogEntry, 'status'> = {
+    const reachable = isPatternReachable(descriptor.name);
+    const flag = patternFeatureFlag(descriptor.name);
+    const base: PatternCatalogEntry = {
       name: descriptor.name,
       displayName: descriptor.displayName,
       when: descriptor.when,
@@ -147,15 +179,54 @@ export function listPatternCatalog(): PatternCatalogEntry[] {
         providers: [...b.providers],
       })),
       assembler: descriptor.assembly.assembler,
+      status: instantiation.status,
+      reachable,
+      // CS02：可达性与门控都是**结构化字段**；`flag` 名非空才给门控
+      ...(flag ? { featureGate: { flag, enabled: feature(flag) } } : {}),
+      ...(reachable
+        ? {}
+        : { unreachableReason: patternUnreachableReason(descriptor.name) }),
+      ...(instantiation.status === 'ready'
+        ? { route: instantiation.route }
+        : { reason: instantiation.reason }),
     };
-    return instantiation.status === 'ready'
-      ? { ...base, status: 'ready' as const, route: instantiation.route }
-      : {
-          ...base,
-          status: 'unavailable' as const,
-          reason: instantiation.reason,
-        };
+    return base;
   });
+}
+
+/** 静态快照结构（`~/.pyapp/data/reports/pattern_catalog.json` 的内容） */
+export interface PatternCatalogSnapshot {
+  generatedAt: string;
+  entries: PatternCatalogEntry[];
+}
+
+/** 快照文件绝对路径（沿既有 `reports/` 约定，`project_rules §1.13`：不新建目录/不拼路径） */
+export function patternCatalogSnapshotPath(
+  dirPath: string = resolveDataSubDir('reports')
+): string {
+  return join(dirPath, 'pattern_catalog.json');
+}
+
+/**
+ * 把当前模式目录**落盘**为静态快照（按需调用；用户诉求：留档 / 跨版本 diff）。
+ *
+ * 边界（如实）：
+ * - 内容**确定性**（同版本恒定）⇒ 它不是运行期诊断主通道（那是 `pattern/decision` 事件）；
+ * - 失败**不吞**：由调用方 `handleError` 决定呈现（本函数不静默返回伪成功）；
+ * - `dirPath` 可注入（沿本仓 `resolveDataSubDir(...)` 默认值惯例）⇒ 便于用例指向临时目录。
+ */
+export async function writePatternCatalogSnapshot(dirPath?: string): Promise<{
+  path: string;
+  entryCount: number;
+}> {
+  const path = patternCatalogSnapshotPath(dirPath);
+  const snapshot: PatternCatalogSnapshot = {
+    generatedAt: new Date().toISOString(),
+    entries: listPatternCatalog(),
+  };
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify(snapshot, null, 2), 'utf8');
+  return { path, entryCount: snapshot.entries.length };
 }
 
 /**

@@ -10,6 +10,8 @@
  * 运行时 agent 选择；本层 `PatternSelector` 是**编排模式选择**（整条任务的组合形状）。
  */
 
+import type { FeatureFlag } from '../featureFlags.js';
+
 /** 编排模式名（注册表首批） */
 export type PatternName =
   | 'iterative_refine'
@@ -123,4 +125,23 @@ export interface PatternMatchSpec {
   complexity: 'simple' | 'complex';
   /** 研究型标志（P0-3 门控信号，来自 hasResearchIntent） */
   research?: boolean;
+}
+
+/**
+ * 触发规则项（2026-10-07）—— selector 的**声明式**规则（唯一事实源）。
+ *
+ * 用途（CS01 归一化）：既驱动 `selectPattern`，也驱动目录的「可达性」判定
+ * （`isPatternReachable`）—— 避免"选择层命令式 if"与"展示层另写的可用性判断"两处漂移。
+ *
+ * ⚠️ 本类型只描述**匹配条件与门控**；装配/运行时归属见 `PatternAssembly`（两件事，不混用）。
+ */
+export interface PatternSelectionRule {
+  /** 命中的模式名 */
+  name: PatternName;
+  /** 任务复杂度必须相等（simple 快速路径不套 pattern ⇒ 规则均声明 complex） */
+  complexity: 'simple' | 'complex';
+  /** 声明 `true` ⇒ 要求 `spec.research === true`（缺省 = 不约束） */
+  research?: true;
+  /** 命中后**仍需**开启的功能开关（缺省 = 无门控）；只声明名，解析走 `core#feature` */
+  feature?: FeatureFlag;
 }

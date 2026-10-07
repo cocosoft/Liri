@@ -199,6 +199,31 @@ export async function handleListPatterns(
 }
 
 /**
+ * 导出**编排模式目录静态快照**（2026-10-07）—— `POST /v1/patterns/export`
+ *
+ * 把当前目录（含新增的 `reachable` / `unreachableReason` / `featureGate`）落盘到
+ * `~/.pyapp/data/reports/pattern_catalog.json`，供**留档与跨版本 diff**（用户诉求）。
+ *
+ * 语义：
+ * - **POST**（有副作用：写盘）—— 不是 GET；
+ * - 返回**落盘绝对路径**供 UI 回显（用户据此找到文件）；
+ * - 写盘失败**不吞**：交 `sendError`（不静默返回"已成功"）。
+ */
+export async function handleExportPatternCatalog(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const queryOps = await getCoreAPI().getQueryOpsPort();
+    const result = await queryOps.exportPatternCatalogSnapshot();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 获取计划 DAG（步骤依赖拓扑）
  * GET /v1/plans/:id/dag
  * 从 PlanStep.dependsOn 构建 nodes + edges，供前端 DAG 可视化

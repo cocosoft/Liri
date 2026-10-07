@@ -91,7 +91,11 @@ import {
   startRequest,
   type RequestEventAppender,
 } from './services/requestBoundary';
-import { feature as coreFeature, selectPattern } from '@modules/core';
+import {
+  feature as coreFeature,
+  patternFeatureFlag,
+  selectPattern,
+} from '@modules/core';
 import { configureCodeRunner } from '@modules/tools';
 import {
   persistTurnSummary,
@@ -3690,9 +3694,10 @@ export class ChatManagerImpl implements ChatManager {
     // 注（如实）：此处 `complexity` 固定为 complex —— 本分流点的**唯一**判据历来是"消息意图"
     // （P0-3 起即无复杂度门），固定值用于维持该语义逐字不变；复杂度维度属 PDL 快速路径门
     // （`_shouldUsePlanDrivenLoop`），与本决策正交（见 spec §6.5 记录）。
+    const researchIntent = hasResearchIntent(lastUserContent || '');
     const researchPattern = selectPattern({
       complexity: 'complex',
-      research: hasResearchIntent(lastUserContent || ''),
+      research: researchIntent,
     });
     // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
     // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
@@ -3722,10 +3727,43 @@ export class ChatManagerImpl implements ChatManager {
         verifier: recipeVerifierConfig,
       });
     }
+    // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md` §3.2）：门控**声明**
+    // 收敛到选择规则（`PATTERN_SELECTION_RULES[].feature`）⇒ 本层不再硬编码开关名（CS01 单点）。
+    const researchFeature = researchPattern
+      ? patternFeatureFlag(researchPattern.name)
+      : undefined;
+    const researchFeatureEnabled = researchFeature
+      ? coreFeature(researchFeature)
+      : true;
     const researchMode =
-      coreFeature('COMPETITIVE_STRATEGY') &&
+      researchFeatureEnabled &&
       researchInstantiation?.status === 'ready' &&
       researchInstantiation.route === 'research';
+    // 2026-10-07（§3.5）：模式**决策轨迹** —— 仅"研究意图命中"时落一条（无意图 = 噪声）。
+    // 记录两类可判定事实：**命中并生效** / **命中但被拦**（门控关 / 装配 `unavailable`）。
+    if (researchIntent) {
+      this._persistPatternDecision(session.id, {
+        site: 'research_dispatch',
+        selected: researchPattern?.name ?? null,
+        ...(researchInstantiation
+          ? researchInstantiation.status === 'ready'
+            ? { status: 'ready' as const, route: researchInstantiation.route }
+            : { status: 'unavailable' as const }
+          : {}),
+        ...(researchFeature
+          ? {
+              featureGate: {
+                flag: researchFeature,
+                enabled: researchFeatureEnabled,
+              },
+            }
+          : {}),
+        applied: researchMode,
+      }).catch((e: unknown) => {
+        // @ignore-catch — 轨迹落盘失败不影响编排分流（CS03）
+        logger.debug('pattern:decision_persist_failed', { error: String(e) });
+      });
+    }
     if (researchMode) {
       logger.info('研究模式分流（P0-3）', {
         sessionId: session.id,
@@ -3854,6 +3892,27 @@ export class ChatManagerImpl implements ChatManager {
       .finally(() => {
         this._pdcaLaunchingSessions.delete(session.id);
       });
+  }
+
+  /**
+   * 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md` §3.5）：
+   * 编排模式**决策轨迹**落 session 事件（log-only，**不入消息 surface**）。
+   *
+   * 与 `_persistPdcaSnapshot` 同法：seq 由 `tailSeq` 分配、写入走**唯一入口** `appendStreamEvent`
+   * （不绕过事件写入链路与 seq 分配）。CS03：落盘失败不阻断分流（调用方 `.catch` + 本链路已有兜底）。
+   */
+  private async _persistPatternDecision(
+    sessionId: string,
+    data: LiriEventData<'pattern/decision'>
+  ): Promise<void> {
+    const ts = await this.getStreamTailSeq(sessionId);
+    await this.appendStreamEvent(sessionId, {
+      type: 'pattern/decision',
+      seq: ts + 1,
+      time: Date.now(),
+      sessionId,
+      data,
+    });
   }
 
   /**

@@ -107,6 +107,12 @@ export const LIRI_EVENT_NAMES = [
   'evolution/applied',
   // ─── 标题（D5，2026-08-24：标题事件化，log-only 不入消息 surface） ───
   'session/title',
+  // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md`）：编排模式
+  // **决策轨迹** —— 研究分流点命中研究意图时落一条（选了哪个模式 / 装配与可达状态 /
+  // 功能门控是否开启 / 是否实际生效）。立项理由 = **可排查**（此前仅 logger ⇒ 会话结束后
+  // 无法按序重建"为什么这次没走研究模式"）。log-only，不入消息 surface。
+  // ⚠️ 如实边界：pattern 选择**不直接进入模型请求** ⇒ 本事件**非** `§1.6` 红线所迫。
+  'pattern/decision',
   // ─── Code Mode（CM-5，2026-08-25：code_run 执行事件） ───
   'assistant/code_run',
 ] as const;

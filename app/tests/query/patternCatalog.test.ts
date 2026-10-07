@@ -10,8 +10,15 @@
  *   ④ 冻结**当前实况**（哪些已接线、哪些未接线）—— 接线状态变化必须显式改本用例。
  */
 import { describe, it, expect } from 'bun:test';
+import { mkdtemp, readFile, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-import { listPatternCatalog } from '../../src/query/patternAssembler.js';
+import {
+  listPatternCatalog,
+  patternCatalogSnapshotPath,
+  writePatternCatalogSnapshot,
+} from '../../src/query/patternAssembler.js';
 import { listPatterns } from '../../src/core/patterns/index.js';
 
 describe('listPatternCatalog（PC-6 编排模式目录）', () => {
@@ -70,5 +77,74 @@ describe('listPatternCatalog（PC-6 编排模式目录）', () => {
     expect(listPatternCatalog()[0].bindings[0].providers).not.toContain(
       '__mutated__'
     );
+  });
+});
+
+/**
+ * 可达性维度（2026-10-07，`.trae/specs/pattern-catalog-reachability-and-persistence.md`）
+ *
+ * 修复背景：原目录只有二元 `status` ⇒ `self_verify`（装配 `ready` 但选择层**永不产出**）
+ * 被展示为「已接线」（谎报可用）。本组锁「触发可达性」与「装配状态」**正交**且如实。
+ */
+describe('listPatternCatalog 可达性（2026-10-07 收口）', () => {
+  it('⑤ 可达性自洽：可达 ⇒ 无原因；不可达 ⇒ 非空原因', () => {
+    for (const c of listPatternCatalog()) {
+      if (c.reachable) {
+        expect(c.unreachableReason).toBeUndefined();
+      } else {
+        expect((c.unreachableReason ?? '').length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('⑥ 冻结可达性实况 + 门控（触发面/开关变化须显式改本用例）', () => {
+    const byName = Object.fromEntries(
+      listPatternCatalog().map((c) => [c.name, c])
+    );
+    // 唯一有触发面的模式（complex + research），且声明了功能门控
+    expect(byName.competitive_strategy.reachable).toBe(true);
+    expect(byName.competitive_strategy.featureGate?.flag).toBe(
+      'COMPETITIVE_STRATEGY'
+    );
+    expect(typeof byName.competitive_strategy.featureGate?.enabled).toBe(
+      'boolean'
+    );
+    // `self_verify`：装配 `ready` 但**不可达** —— 正是修复前被谎报的那一条
+    expect(byName.self_verify.status).toBe('ready');
+    expect(byName.self_verify.reachable).toBe(false);
+    // 其余三条同样无触发面（`long_task_pdl` 的运行时由快速路径独立驱动）
+    for (const n of [
+      'long_task_pdl',
+      'iterative_refine',
+      'parallel_distributed',
+    ]) {
+      expect(byName[n].reachable).toBe(false);
+    }
+    // 门控只出现在声明了门控的模式上
+    for (const c of listPatternCatalog()) {
+      if (c.name !== 'competitive_strategy') {
+        expect(c.featureGate).toBeUndefined();
+      }
+    }
+  });
+
+  it('⑦ 静态快照落盘（可注入目录）：文件可读、内容 = 目录 + generatedAt', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'pattern-catalog-'));
+    try {
+      expect(patternCatalogSnapshotPath(dir)).toBe(
+        join(dir, 'pattern_catalog.json')
+      );
+      const res = await writePatternCatalogSnapshot(dir);
+      expect(res.path).toBe(join(dir, 'pattern_catalog.json'));
+      expect(res.entryCount).toBe(listPatternCatalog().length);
+      const parsed = JSON.parse(await readFile(res.path, 'utf8')) as {
+        generatedAt: string;
+        entries: unknown[];
+      };
+      expect(typeof parsed.generatedAt).toBe('string');
+      expect(parsed.entries).toHaveLength(res.entryCount);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

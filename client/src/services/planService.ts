@@ -311,13 +311,30 @@ export interface OrchestrationPattern {
   status: "ready" | "unavailable";
   route?: string;
   reason?: string;
+  /**
+   * 触发可达性（2026-10-07）：选择层是否会产出本模式（与 `status` **正交**）。
+   * `status === "ready" && !reachable` = 「接线已就位但当前**不可达**」。
+   */
+  reachable: boolean;
+  /** 无触发面原因（仅 `reachable === false`） */
+  unreachableReason?: string;
+  /** 命中后仍需开启的功能开关（仅出现在有门控的模式上） */
+  featureGate?: { flag: string; enabled: boolean };
+}
+
+/** 模式目录静态快照的落盘结果（`POST /v1/patterns/export`） */
+export interface PatternCatalogSnapshotResult {
+  /** 落盘绝对路径（供 UI 回显） */
+  path: string;
+  entryCount: number;
 }
 
 export const patternService = {
   /**
-   * 列出全部编排模式及其装配状态（只读；无参数）
+   * 列出全部编排模式及其装配状态 + 触发可达性（只读；无参数）
    *
-   * `unavailable` 为**如实标注**（无运行时 / 无触发场景 / 运行时由别处驱动），非缺漏。
+   * `unavailable` 为**如实标注**（无运行时 / 无触发场景 / 运行时由别处驱动），非缺漏；
+   * `reachable: false` 为**如实标注**（选择层无触发规则），亦非缺漏。
    * 失败时向调用方抛出，由 UI 呈现错误（不静默当成"空列表"）。
    */
   async list(): Promise<OrchestrationPattern[]> {
@@ -327,5 +344,14 @@ export const patternService = {
     return (
       (res as { patterns?: OrchestrationPattern[] } | null)?.patterns ?? []
     );
+  },
+
+  /**
+   * 导出**静态目录快照**到后端磁盘（`~/.pyapp/data/reports/pattern_catalog.json`）。
+   *
+   * POST（有写盘副作用）；返回落盘**绝对路径**供 UI 回显。失败时抛出（不静默）。
+   */
+  async exportSnapshot(): Promise<PatternCatalogSnapshotResult> {
+    return http.post<PatternCatalogSnapshotResult>("/v1/patterns/export");
   },
 };

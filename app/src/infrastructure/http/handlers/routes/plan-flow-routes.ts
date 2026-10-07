@@ -32,6 +32,7 @@ import {
   handleAbortPlan,
   handleCreatePlan,
   handleExecutePlan,
+  handleExportPatternCatalog,
   handleGetFlow,
   handleGetPlan,
   handleGetPlanDAG,
@@ -115,6 +116,11 @@ export async function dispatchPlanFlowRoutes(
   // PC-6（2026-10-07）：编排模式只读目录（注册表 + 装配状态；无参数、无会话上下文）
   if (method === 'GET' && url === '/v1/patterns') {
     await handleListPatterns(req, res);
+    return true;
+  }
+  // 2026-10-07：模式目录**静态快照**导出（POST —— 有写盘副作用；非幂等 GET）
+  if (method === 'POST' && url === '/v1/patterns/export') {
+    await handleExportPatternCatalog(req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/flows\/([^/]+)$/)) {

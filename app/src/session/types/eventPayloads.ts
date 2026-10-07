@@ -709,8 +709,33 @@ export interface LiriEventMap {
     source: 'preliminary' | 'final' | 'manual';
   };
 
-  // ─── 富块事件载荷（M4-1-a 扩展） ───
+  /**
+   * 编排模式**决策轨迹**（2026-10-07，`.trae/specs/pattern-catalog-reachability-and-persistence.md`；
+   * log-only，**不入消息 surface**，与 `agent/recovery` / `session/wake` / `evolution/applied` 同口径）。
+   *
+   * 立项理由 = **可排查**：此前模式选择只有 `logger.info('pattern.selected')` /
+   * `logger.debug('pattern.none')` ⇒ 会话结束后无法按序重建"这次为什么没走研究模式"
+   * （选了哪个 / 装配是否 `ready` / 是否被功能门控挡下 / 最终有没有生效）。
+   *
+   * ⚠️ 如实边界：pattern 选择**不直接进入模型请求** ⇒ 本事件**非** `project_rules §1.6`
+   * 「模型可见 ⇔ 已落盘」红线所迫；它记录的是**编排决策**，不宣称对红线有贡献。
+   */
+  'pattern/decision': {
+    /** 决策发生点（闭集；将来新增 pattern 消费点须**同批**扩此联合，否则轨迹不完整） */
+    site: 'research_dispatch';
+    /** 选择层产出的模式名（`null` = 无匹配，**如实记录**，不臆造） */
+    selected: string | null;
+    /** 装配状态（仅 `selected` 非空时给出） */
+    status?: 'ready' | 'unavailable';
+    /** 可执行路由（仅 `status === 'ready'`） */
+    route?: string;
+    /** 命中模式声明的功能门控（仅该模式有门控时；`enabled` = 本次判定时刻的值） */
+    featureGate?: { flag: string; enabled: boolean };
+    /** 是否**因此实际进入**该模式分支（`false` = 命中但被门控 / 装配拦截） */
+    applied: boolean;
+  };
 
+  // ─── 富块事件载荷（M4-1-a 扩展） ───
   /**
    * 富状态块（上下文压缩、重连提示、异常水位、错误提示等一次性提示块）
    * 不参与 meaningful 判断，仅作为 UI 装饰层。

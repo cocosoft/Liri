@@ -20,7 +20,7 @@ export class BroadcastTool extends BaseTool {
   name = 'broadcast';
 
   description =
-    'Send messages to one or all channels. Supports single channel send, broadcast to all enabled channels, home channel messages, and thread replies.';
+    '向一个或全部通道发送消息。支持单通道发送、向所有已启用通道广播、主页通道消息，以及话题回复。';
 
   params: ToolParam[] = [
     {
@@ -28,25 +28,25 @@ export class BroadcastTool extends BaseTool {
       type: 'string',
       enum: ['send', 'broadcast', 'home', 'thread'],
       description:
-        'send: to one channel | broadcast: to all enabled channels | home: to home channel | thread: reply in thread',
+        'send：发送到一个通道 | broadcast：发送到所有已启用通道 | home：发送到主页通道 | thread：在话题中回复',
       required: true,
     },
     {
       name: 'message',
       type: 'string',
-      description: 'Message content to send',
+      description: '要发送的消息内容',
       required: true,
     },
     {
       name: 'channel',
       type: 'string',
-      description: 'Target channel name (required for send/home/thread)',
+      description: '目标通道名称（send/home/thread 时必填）',
       required: false,
     },
     {
       name: 'threadId',
       type: 'string',
-      description: 'Thread ID for thread reply (required for action=thread)',
+      description: '话题回复的话题 ID（action=thread 时必填）',
       required: false,
     },
   ];

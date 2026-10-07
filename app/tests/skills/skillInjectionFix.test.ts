@@ -144,7 +144,7 @@ describe('T3b SkillTool 动态描述（BUG-6）', () => {
       // 等待惰性 registry 预热（SkillTool 首次 getInfo 触发异步 import）
       await new Promise((r) => setTimeout(r, 30));
       const info = tool.getInfo();
-      expect(info.description).toContain('Execute a registered skill');
+      expect(info.description).toContain('执行已注册的技能');
       expect(info.description).toContain('zz-fix-test-skill');
       // 技能名可从 available_skills 获取的提示
       expect(info.description).toContain('<available_skills>');
@@ -155,12 +155,12 @@ describe('T3b SkillTool 动态描述（BUG-6）', () => {
     }
   });
 
-  it('描述恒以 Execute a registered skill 开头（静态或带清单）', async () => {
+  it('描述恒以 执行已注册的技能 开头（静态或带清单）', async () => {
     const tool = new SkillTool();
     await new Promise((r) => setTimeout(r, 30));
-    expect(
-      tool.getInfo().description.startsWith('Execute a registered skill')
-    ).toBe(true);
+    expect(tool.getInfo().description.startsWith('执行已注册的技能')).toBe(
+      true
+    );
   });
 });
 

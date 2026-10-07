@@ -45,7 +45,7 @@ const SKILL_VIEW_PARAMS: Tool['params'] = [
     name: 'name',
     type: 'string',
     description:
-      'The skill name (use skills_list to see available skills). 参数名 name 或 skillName 均可。',
+      '技能名称（使用 skills_list 查看可用技能）。参数名 name 或 skillName 均可。',
     required: true,
   },
 ];
@@ -59,7 +59,7 @@ export class SkillViewTool implements Tool {
 
   /** 工具描述 */
   readonly description: string =
-    "Load a skill's full content by name. Use skills_list to see available skills.";
+    '按名称加载技能的完整内容。使用 skills_list 查看可用技能。';
 
   /** 工具参数 */
   readonly params = SKILL_VIEW_PARAMS;

@@ -46,8 +46,11 @@ describe('subagent_type 描述动态生成（O18）', () => {
     for (const name of BUILTIN_NAMES) {
       expect(text).toContain(name);
     }
-    expect(text).toContain('(builtin)');
-    expect(text).not.toContain('Agent 管理页');
+    expect(text).toContain('（内置）');
+    expect(text).not.toContain('（在 Agent 管理页配置）');
+    // 主体句：类型说明 + 默认值提示（中文化后仍逐句断言）
+    expect(text).toContain('要使用的专用代理类型');
+    expect(text).toContain('留空以使用默认值');
   });
 
   test('快照含 DB 角色 ⇒ 描述可见（模型事前知道能调用）', () => {
@@ -60,8 +63,8 @@ describe('subagent_type 描述动态生成（O18）', () => {
     expect(text).toContain('architect');
     expect(text).toContain('security');
     // 三类来源并列，便于模型区分"内置"与"用户配置"
-    expect(text).toContain('(builtin)');
-    expect(text).toContain('Agent 管理页');
+    expect(text).toContain('（内置）');
+    expect(text).toContain('（在 Agent 管理页配置）');
   });
 
   test('运行时注册名去重列出（与内置重名不重复出现）', () => {
@@ -71,7 +74,7 @@ describe('subagent_type 描述动态生成（O18）', () => {
     });
 
     expect(text).toContain('plugin-agent');
-    expect(text).toContain('(runtime registered)');
+    expect(text).toContain('（运行时注册）');
     // 内置名只出现一次（即不在运行时注册段重复）
     expect(text.indexOf(BUILTIN_NAMES[0])).toBe(
       text.lastIndexOf(BUILTIN_NAMES[0])

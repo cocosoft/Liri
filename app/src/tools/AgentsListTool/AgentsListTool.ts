@@ -41,41 +41,40 @@ export interface AgentsListResult {
 export class AgentsListTool extends BaseTool {
   name = 'agents_list';
 
-  description =
-    'List all running agents and sessions. Supports filtering by type, status, and pagination.';
+  description = '列出所有运行中的 Agent 与会话。支持按类型、状态过滤与分页。';
 
   params: ToolParam[] = [
     {
       name: 'type',
       type: 'string',
       enum: ['agent', 'task', 'shell', 'monitor'],
-      description: 'Filter by agent type',
+      description: '按 Agent 类型过滤',
       required: false,
     },
     {
       name: 'status',
       type: 'string',
       enum: ['running', 'paused', 'completed', 'failed', 'killed'],
-      description: 'Filter by agent status',
+      description: '按 Agent 状态过滤',
       required: false,
     },
     {
       name: 'parentSessionId',
       type: 'string',
-      description: 'Filter by parent session',
+      description: '按父会话过滤',
       required: false,
     },
     {
       name: 'limit',
       type: 'number',
-      description: 'Maximum entries to return',
+      description: '返回的最大条目数',
       required: false,
       default: 50,
     },
     {
       name: 'offset',
       type: 'number',
-      description: 'Pagination offset',
+      description: '分页偏移量',
       required: false,
       default: 0,
     },

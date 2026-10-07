@@ -32,7 +32,7 @@ export class SkillListTool implements Tool {
 
   /** 工具描述 */
   readonly description: string =
-    'List available skills (name + description). Use skill_view(name) to load full content.';
+    '列出可用技能（名称 + 描述）。使用 skill_view(name) 加载完整内容。';
 
   /** 工具参数 */
   readonly params = SKILL_LIST_PARAMS;

@@ -38,7 +38,7 @@ export class NodesTool extends BaseTool {
   name = 'nodes';
 
   description =
-    'Manage distributed nodes and worker processes. Supports listing, status check, adding, removing, and pinging nodes.';
+    '管理分布式节点与工作进程。支持列出、状态检查、添加、移除和 ping 节点。';
 
   override tags = [ToolTag.SYSTEM];
 
@@ -47,37 +47,37 @@ export class NodesTool extends BaseTool {
       name: 'action',
       type: 'string',
       enum: ['list', 'status', 'add', 'remove', 'ping'],
-      description: 'Action to perform on nodes',
+      description: '要对节点执行的操作',
       required: true,
     },
     {
       name: 'nodeId',
       type: 'string',
-      description: 'Target node ID (required for status/remove/ping)',
+      description: '目标节点 ID（status/remove/ping 时必填）',
       required: false,
     },
     {
       name: 'name',
       type: 'string',
-      description: 'Node name (required for add)',
+      description: '节点名称（add 时必填）',
       required: false,
     },
     {
       name: 'host',
       type: 'string',
-      description: 'Node host address (required for add)',
+      description: '节点主机地址（add 时必填）',
       required: false,
     },
     {
       name: 'port',
       type: 'number',
-      description: 'Node port number (required for add)',
+      description: '节点端口号（add 时必填）',
       required: false,
     },
     {
       name: 'capabilities',
       type: 'array',
-      description: 'Node capabilities list (optional for add)',
+      description: '节点能力列表（add 时可选）',
       required: false,
     },
   ];

@@ -38,25 +38,25 @@ import type {
 
 export class SendMessageTool extends BaseTool {
   name = 'send_message';
-  description = 'Send a message to another agent';
+  description = '向另一个代理发送消息';
 
   params: ToolParam[] = [
     {
       name: 'to',
       type: 'string',
-      description: 'The recipient agent',
+      description: '接收方代理',
       required: true,
     },
     {
       name: 'message',
       type: 'string',
-      description: 'The message content',
+      description: '消息内容',
       required: true,
     },
     {
       name: 'priority',
       type: 'string',
-      description: 'Message priority (normal, high, low)',
+      description: '消息优先级（normal、high、low）',
       required: false,
     },
   ];

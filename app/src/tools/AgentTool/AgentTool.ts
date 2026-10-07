@@ -188,13 +188,13 @@ const AGENT_PARAMS = [
   {
     name: 'description',
     type: 'string' as const,
-    description: 'A short (3-5 word) description of the task',
+    description: '任务的简短描述（3-5 个词）',
     required: true,
   },
   {
     name: 'prompt',
     type: 'string' as const,
-    description: 'The task for the agent to perform',
+    description: '子代理要执行的任务',
     required: true,
   },
   {
@@ -205,69 +205,66 @@ const AGENT_PARAMS = [
     // 脱节（新增角色/注册项不会出现在此处）；若后来者直接消费该常量即拿到过期名单。
     // 已核实：`AGENT_PARAMS` 为本模块私有 const，**无外部消费方**（仅 getter 与定义处）。
     // ⇒ 改为中性占位，禁止在此再枚举具体名单（名单唯一来源 = `renderSubagentTypeDescription`）。
-    description: 'The type of specialized agent to use',
+    description: '要使用的专用代理类型',
     required: false,
     default: 'general',
   },
   {
     name: 'model',
     type: 'string' as const,
-    description: 'Optional model override: a registered model ID',
+    description: '可选的模型覆盖：已注册的模型 ID',
     required: false,
   },
   {
     name: 'run_in_background',
     type: 'boolean' as const,
-    description: 'Set to true to run this agent in the background',
+    description: '设为 true 以在后台运行此代理',
     required: false,
     default: false,
   },
   {
     name: 'name',
     type: 'string' as const,
-    description:
-      'Name for the spawned agent. Makes it addressable via SendMessage',
+    description: '所创建子代理的名称。使其可通过 SendMessage 寻址',
     required: false,
   },
   {
     name: 'cwd',
     type: 'string' as const,
-    description: 'Absolute path to run the agent in',
+    description: '运行该代理的绝对路径',
     required: false,
   },
   {
     name: 'allowedTools',
     type: 'string' as const,
     description:
-      'Comma-separated tool names the sub-agent is allowed to use. If empty, all tools are available.',
+      '逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。',
     required: false,
   },
   {
     name: 'deniedTools',
     type: 'string' as const,
-    description:
-      'Comma-separated tool names the sub-agent is denied from using.',
+    description: '逗号分隔的工具名，表示子代理被禁止使用哪些工具。',
     required: false,
   },
   {
     name: 'goal',
     type: 'string' as const,
     description:
-      'Overall goal for parallel execution (used by verifier/synthesizer). Defaults to description.',
+      '并行执行的总体目标（供 verifier/synthesizer 使用）。默认为 description。',
     required: false,
   },
   {
     name: 'verify',
     type: 'boolean' as const,
     description:
-      'After parallel execution, run a verifier gate on each worker result (per-worker verified + allPassed). Default false.',
+      '并行执行后，对每个 worker 的结果运行验证关卡（每个 worker 的 verified + allPassed）。默认 false。',
     required: false,
   },
   {
     name: 'synthesize',
     type: 'boolean' as const,
-    description:
-      'After parallel execution, synthesize all worker results into a single report. Default false.',
+    description: '并行执行后，将所有 worker 的结果综合为单一报告。默认 false。',
     required: false,
   },
 ];
@@ -378,8 +375,7 @@ export class AgentTool implements Tool {
   readonly name: string = AGENT_TOOL_NAME;
 
   /** 工具描述 */
-  readonly description: string =
-    'Create a specialized sub-agent to perform a specific task';
+  readonly description: string = '创建一个专用子代理来执行特定任务';
 
   /**
    * 工具参数（O18：`subagent_type` 的描述**动态生成**）。

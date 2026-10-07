@@ -146,12 +146,10 @@ export function renderSubagentTypeDescription(params: {
   builtinTypeNames: string[];
   registeredNames?: string[];
 }): string {
-  const sections: string[] = [
-    `${params.builtinTypeNames.join(', ')} (builtin)`,
-  ];
+  const sections: string[] = [`${params.builtinTypeNames.join(', ')} （内置）`];
   const roles = getEnabledRoleNames();
   if (roles.length > 0) {
-    sections.push(`${roles.join(', ')} (configured in Agent 管理页)`);
+    sections.push(`${roles.join(', ')} （在 Agent 管理页配置）`);
   }
   // F2（2026-09-21）：**大小写归一后去重**。
   // 解析链用 `key = raw.toLowerCase()` 匹配（内置判定 `builtinTypeNames.includes(key)`、
@@ -169,11 +167,11 @@ export function renderSubagentTypeDescription(params: {
     return true;
   });
   if (registered.length > 0) {
-    sections.push(`${registered.join(', ')} (runtime registered)`);
+    sections.push(`${registered.join(', ')} （运行时注册）`);
   }
   return (
-    `The type of specialized agent to use. Available: ${sections.join(' / ')}. ` +
-    'Leave empty to use the default.'
+    `要使用的专用代理类型。可用值：${sections.join(' / ')}。` +
+    '留空以使用默认值。'
   );
 }
 

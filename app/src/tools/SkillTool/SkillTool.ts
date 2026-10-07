@@ -35,13 +35,13 @@ const SKILL_PARAMS = [
   {
     name: 'name',
     type: 'string' as const,
-    description: 'The name of the skill to execute',
+    description: '要执行的技能名称',
     required: true,
   },
   {
     name: 'arguments',
     type: 'object' as const,
-    description: 'Arguments to pass to the skill',
+    description: '传递给技能的参数',
     required: false,
   },
 ];
@@ -56,7 +56,7 @@ export class SkillTool implements Tool {
   readonly name: string = SKILL_TOOL_NAME;
 
   /** 工具描述 */
-  readonly description: string = 'Execute a registered skill';
+  readonly description: string = '执行已注册的技能';
 
   /** 工具参数 */
   readonly params = SKILL_PARAMS;
@@ -183,7 +183,7 @@ export class SkillTool implements Tool {
       const list =
         names.slice(0, 15).join(', ') +
         (names.length > 15 ? `, +${names.length - 15} more` : '');
-      return `Execute a registered skill. Available: ${list}. 技能名可从上下文 <available_skills> 获取。`;
+      return `执行已注册的技能。可用：${list}。技能名可从上下文 <available_skills> 获取。`;
     } catch {
       // registry 不可用回退静态描述
       return this.description;

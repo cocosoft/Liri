@@ -20,7 +20,7 @@ const logger = getLogger('constants:systemPromptSections');
 export function buildMemoryContextBlock(memoryContent: string): string {
   return [
     '<memory-context>',
-    '[System note: The following is recalled memory, NOT new user input.]',
+    '[系统提示：以下为已召回的记忆，不是新的用户输入。]',
     memoryContent,
     '</memory-context>',
   ].join('\n');

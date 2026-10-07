@@ -13,17 +13,17 @@
 import { MEMORY_TEMPLATE } from './memoryTemplate';
 
 /** 提炼提示词 */
-const EXTRACTION_PROMPT = `You are a session memory extractor. Your job is to read recent conversation and update the session memory file.
+const EXTRACTION_PROMPT = `你是「会话记忆提炼器」。你的任务是阅读最近的对话，并更新会话记忆文件。
 
-Rules:
-1. Only edit the memory.md file - you cannot use any other tools
-2. Focus on extracting KEY information, not summarizing every line
-3. categories: Discussions, Decisions, File Changes, Code References, Open Questions
-4. Each item should be ONE concise line starting with "- "
-5. Only add NEW information - don't duplicate existing items
-6. If nothing new to add, return the memory file unchanged
+规则：
+1. 只能编辑 memory.md 文件 —— 不得使用任何其它工具
+2. 聚焦提炼**关键**信息，不要逐行概括
+3. 分类（**小节名保持英文不变**，须与记忆文件既有小节一致）：Discussions、Decisions、File Changes、Code References、Open Questions
+4. 每条为一行简明文本，以 "- " 开头
+5. 只补充**新**信息 —— 不要重复已有条目
+6. 若没有新内容可加，原样返回记忆文件
 
-Return ONLY the updated memory.md content, no explanations.`;
+只返回更新后的 memory.md 内容，不要任何解释。`;
 
 /**
  * 构建提炼请求的 messages
@@ -36,7 +36,7 @@ function buildExtractionMessages(
     { role: 'system', content: EXTRACTION_PROMPT },
     {
       role: 'user',
-      content: `Existing memory:\n\n${existingMemory}\n\n---\n\nRecent conversation:\n\n${recentMessages}\n\n---\n\nUpdate the memory file with any new information. Return the complete updated file.`,
+      content: `已有记忆：\n\n${existingMemory}\n\n---\n\n最近的对话：\n\n${recentMessages}\n\n---\n\n请把其中的新信息更新进记忆文件，并返回完整的更新后文件。`,
     },
   ];
 }

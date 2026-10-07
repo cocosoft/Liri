@@ -65,7 +65,7 @@
 | **B** | **JSON-RPC dispatcher**：`POST /v1/a2a/rpc`（单入口，同双闸）；11 方法分派 + 错误映射；`A2APort` 补 `listTasks`/`cancelTask` | ✅ |
 | **C** | **SSE 流式**：`SendStreamingMessage` / `SubscribeToTask`（`text/event-stream` + 终态关流 + 订阅广播）+ `streaming` 如实翻 `true` | ✅ |
 | **D** | **卡片 v1.0 形状 + 如实重声明**：`supportedInterfaces`（指向 `/v1/a2a/rpc`）、**移除顶层 `url`/`protocolVersion`**、`security`→`securityRequirements` ⇒ **关闭预存 A2A-1** | ✅ |
-| **E** | api-spec 收口 + **拆 `routes/a2a-rpc.ts`**（回落 `lint:size` 计数）+ 台账 | ⏸ |
+| **E** | api-spec 收口 + **拆 `routes/a2a-rpc.ts`**（回落 `lint:size` 计数）+ 台账 | ✅ |
 
 ## 5. 决策点（本批已定）
 
@@ -78,12 +78,14 @@
 
 | # | 文件 | 改动 |
 |:-:|---|---|
-| 1 | `app/src/types/a2a.ts` | 11 方法 + 别名 + DTO + 流事件 + 扩展/接口类型（**A**） |
-| 2 | `app/src/runtime/api/a2aPorts.ts` | 端口补 `listTasks` / `cancelTask`（**B**） |
-| 3 | `app/src/infrastructure/http/handlers/routes/a2a-routes.ts` | `POST /v1/a2a/rpc` + 11 方法分派 + 错误映射 + SSE（**B/C**） |
-| 4 | `app/src/agent/a2a/agentCard.ts` | 卡片 v1.0 形状 + `supportedInterfaces`（**D**） |
-| 5 | `app/tests/http/a2aRoutes.test.ts`（或新增 `a2aRpc.test.ts`） | 帧/错误码/能力门控/流/卡片用例 |
-| 6 | `.trae/docs/api-spec.md` §3.8.2 | 新端点契约（**E**） |
+| 1 | `app/src/types/a2a.ts` | 11 方法 + 别名 + DTO + 流事件 + 扩展/接口/卡片 v1.0 形状 + `A2A_RPC_PATH`（**A/D**） |
+| 2 | `app/src/runtime/api/a2aPorts.ts` | 端口补 `listTasks` / `cancelTask` / `subscribeTask`（**B/C**） |
+| 3 | `app/src/infrastructure/http/handlers/routes/a2a-routes.ts` | 卡片 v1.0 / 探针 / 自定义 REST + 委派核心（**D/E**） |
+| 3b | `app/src/infrastructure/http/handlers/routes/a2a-rpc.ts` | **E 拆出**：JSON-RPC 单入口 + 非流式方法 + 共用纯函数（461 行） |
+| 3c | `app/src/infrastructure/http/handlers/routes/a2a-rpc-stream.ts` | **E 第二拆**：SSE 流式（`SendStreamingMessage` / `SubscribeToTask`） |
+| 4 | `app/src/agent/a2a/agentCard.ts` · `taskStore.ts` | 卡片 v1.0 形状（**D**）· 订阅/广播（**C**） |
+| 5 | `app/tests/http/a2aRpc.test.ts`（新建）· `a2aRoutes.test.ts` | 帧/错误码/门控/分页/流/卡片 |
+| 6 | `.trae/docs/api-spec.md` §3.8.2 | 新端点契约 + 卡片/基址口径 + **2.9.0**（**E**） |
 
 ## 7. 验收
 
@@ -125,7 +127,11 @@
 
 | 2026-10-07 | **批次 D** | **卡片 v1.0 形状**（依据官方 "What's New in v1.0" §AgentCard，2026-10-07 核对）：新增 `supportedInterfaces`（**REQUIRED**，`url = <base>/v1/a2a/rpc`）；**移除**顶层 `url` / `protocolVersion` / `security`⇒`securityRequirements`（依 v1.0 proto）；`A2A_RPC_PATH` 提为 core 常量（**卡片与路由共用单一事实源**）；`A2AAgentCard.supportedInterfaces` 由可选改**必填**；同批同步 api-spec §3.8.2（含 **2.9.0** 版本行）+ `a2a-external-exposure.md` §7 + `a2a-capability-negotiation.md` §7-1 ⇒ **预存 A2A-1 关闭**。门禁：`typecheck` 0 · 定向 **32 pass** |
 
-**⚠️ 门禁计数变化（如实登记，批次 E 收口）**：`a2a-routes.ts` 因并入 RPC 绑定增至 **~880 行** ⇒ 超过 500 行阈值，`lint:size` 警告 **470 → 471**。该门禁明确"**建议拆分但不阻塞合并**"；**批次 E 须拆出 `routes/a2a-rpc.ts`**（RPC 绑定 + 委派核心 `runDelegation`/`toDeliverables`，经依赖注入取 `delegator`/`maxWaitMs` 以避免循环依赖），把计数**回落到 470**。
+| 2026-10-07 | **批次 E** | **两次文件拆分**（回落 `lint:size`）：`a2a-routes.ts` → **`a2a-rpc.ts`**（JSON-RPC 单入口 + 非流式方法 + 共用纯函数，**461 行**；委派状态经 **`A2ARpcDeps` 注入** ⇒ 单向依赖、无静态环）→ **`a2a-rpc-stream.ts`**（SSE；由 `a2a-rpc` **懒加载**调用）；api-spec `§3.8.2` 实现行同步为新文件；`a2a-routes.ts` 的本地 `A2APortSlice`/`toDeliverables` 改为自 `a2a-rpc` 导入。门禁：`typecheck` 0 · 改动 `eslint` 0 · `lint:arch` 违规 0/警告 4/动态跨层引用 **41（未增）** · **`lint:size` 470（回到基线）** · 定向 **32 pass** · 全量 **4871 pass / 21 skip / 0 fail** |
+
+**✅ 门禁计数已回落（批次 E 收口）**：批次 B 曾使 `a2a-routes.ts` 超 500 行（`lint:size` 警告 470 → 471）。批次 E 两次拆分后：
+`a2a-routes.ts`（卡片/探针/REST + 委派核心）· `a2a-rpc.ts`（**461 行**）· `a2a-rpc-stream.ts`（SSE）**三者均在阈值内** ⇒ **`lint:size` 警告回到 470（基线）**。
+拆分手法：**依赖注入**（`A2ARpcDeps`，避免 `a2a-routes` ⇄ `a2a-rpc` 静态环）+ **懒加载**（`a2a-rpc` 对 `a2a-rpc-stream` 用 `await import`，同仓既有断环手法）。
 
 **批次 B 的两处**如实**口径**：
 1. **协议级错误以 HTTP 200 + `error` 对象**返回（JSON-RPC 2.0 惯例）。spec §5.4 另给 HTTP 状态列，属 **REST 绑定**视角；本仓无对端可验，取惯例并在此登记（§9-1）。

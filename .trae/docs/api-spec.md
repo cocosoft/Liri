@@ -293,7 +293,7 @@
 
 ### §3.8.2 A2A 对外发现（`/.well-known/agent-card.json`，2026-09-29 新增；2026-10-07 增补健康探针）
 
-实现：`app/src/infrastructure/http/handlers/routes/a2a-routes.ts`（经 `route-table.ts` 统一注册）。
+实现：`app/src/infrastructure/http/handlers/routes/a2a-routes.ts`（经 `route-table.ts` 统一注册；**卡片 / 探针 / 自定义 REST / 委派核心**）· `a2a-rpc.ts`（**JSON-RPC 单入口 + 非流式方法**）· `a2a-rpc-stream.ts`（**SSE 流式**）—— 后两者系 T4 批次 E 自 `a2a-routes.ts` 拆出（原文件超 `lint:size` 500 行阈值）。
 **边界（用户裁定 2026-09-29）：`ACP 对内` / `A2A 对外`** —— 本端点是**唯一对外**的 Agent 发现面（ACP 侧默认仅 `127.0.0.1`）。见 `.trae/specs/a2a-external-exposure.md`。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |

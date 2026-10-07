@@ -46,6 +46,24 @@ function selectionOf(name: PatternName): PatternSelection {
 }
 
 /**
+ * 按名取选择结果 —— **`PatternSelection` 的唯一构造点**（PC-6，2026-10-07）
+ *
+ * 用途：只读目录 / 装配入口在**不经 `selectPattern`**（无任务特征）时仍需构造 `PatternSelection`
+ * （例如把注册表整体列给前端）；收敛于此避免第二处手工拼 `{ name, descriptor }`。
+ *
+ * @param name 闭集内名 ⇒ 必有结果（重载）；宽松 `string` ⇒ 未知名返回 `undefined`
+ *   （与 `getPatternDescriptor` 同口径）
+ */
+export function resolvePattern(name: PatternName): PatternSelection;
+export function resolvePattern(name: string): PatternSelection | undefined;
+export function resolvePattern(name: string): PatternSelection | undefined {
+  if (!Object.prototype.hasOwnProperty.call(PATTERN_DESCRIPTORS, name)) {
+    return undefined;
+  }
+  return selectionOf(name as PatternName);
+}
+
+/**
  * 按任务特征选编排 pattern。
  * @returns PatternSelection | null（未命中走现状）
  */

@@ -1304,6 +1304,9 @@ export class DomainSnapshotOps {
         // 原 `new + as never` 收窄随之删除，配置由类型化 DTO 在边界上守住）
         return runResearchOrchestration(description, signal, config);
       },
+      // PC-6（2026-10-07）：编排模式只读目录（注册表 + 装配状态）；app 侧纯函数，本端口只转调
+      listOrchestrationPatterns: async () =>
+        (await queryModule()).listPatternCatalog(),
     };
   }
 

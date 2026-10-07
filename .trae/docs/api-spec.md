@@ -753,6 +753,40 @@ data: {"type":"done","result":{...}}
 |------|------|------|
 | **GET** | `/v1/usage` | 获取用量统计（支持 ?range=today\|7d\|30d&sessionId=） |
 
+### §3.29.1 编排模式目录（PC-6，2026-10-07 新增登记）
+
+> 路由注册：`plan-flow-routes.ts`（`dispatchPlanFlowRoutes`，编排域）；handler `plan-flow-handlers.ts#handleListPatterns`。
+> 数据源：app 层纯函数 `query/patternAssembler.ts#listPatternCatalog()`（= 模式注册表 `core/patterns` + **装配状态** `instantiatePattern`），经服务层端口 `getQueryOpsPort().listOrchestrationPatterns()` 转调（不新增第二套判定）。
+> 前端调用方：`ChatInspector` 的「模式」Tab（`components/ChatInspector/PatternsTab.tsx` → `services/planService.ts#patternService.list`）。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/patterns` | ✅ | ChatInspector「模式」Tab（只读；无参数、无会话上下文） |
+
+**响应**：`{ patterns: [{ name, displayName, when, roles, bindings:[{role,providers[]}], assembler, status:'ready'\|'unavailable', route?, reason? }] }`
+
+- **如实语义**：`unavailable` **不是缺漏** —— 表示「无运行时 / 无触发场景」或「运行时由别处独立驱动」（`reason` 给出原因，原样透传，前端不改写）；
+- `route` 仅 `ready` 时存在（当前闭集：`research` / `verify`）；`reason` 仅 `unavailable` 时存在。
+
+```json
+{
+  "patterns": [
+    {
+      "name": "competitive_strategy",
+      "displayName": "对抗竞争策略",
+      "when": "研究/决策型任务（多方案权衡、选型建议）——需候选生成 + 对抗批评收敛",
+      "roles": ["generator", "adversarial-reviewer", "aggregator"],
+      "bindings": [
+        { "role": "generator", "providers": ["competitive_strategy_orchestrator", "parallel_agent_scheduler"] }
+      ],
+      "assembler": "competitive_strategy",
+      "status": "ready",
+      "route": "research"
+    }
+  ]
+}
+```
+
 ### §3.30 媒体（Media，2026-08-26 新增登记）
 
 > 路由注册：`tool-media-routes.ts`（`dispatchToolMediaRoutes`）。

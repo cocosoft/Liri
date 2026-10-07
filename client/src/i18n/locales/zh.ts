@@ -5834,6 +5834,18 @@ const zh = {
     tabFiles: "文件",
     tabLog: "日志",
     tabSettings: "设置",
+    // PC-6（2026-10-07）：编排模式只读清单（模式注册表 + 装配状态）
+    tabPatterns: "模式",
+    patternsTitle: "编排模式",
+    patternsDesc:
+      "本应用可用的编排模式（模式注册表 + 装配状态）；「未接线」为如实标注，非缺漏。",
+    patternsReady: "已接线",
+    patternsUnavailable: "未接线",
+    patternsWhen: "适用场景",
+    patternsRoles: "角色",
+    patternsBindings: "装配绑定",
+    patternsLoadFailed: "加载失败：{{error}}",
+    patternsEmpty: "暂无编排模式",
     collapsePanel: "收起面板",
     scopeSession: "仅当前会话",
     scopeGlobal: "全局默认（影响新对话）",

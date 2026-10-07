@@ -176,6 +176,29 @@ export async function handleListFlows(
 }
 
 /**
+ * 列出**全部编排模式**及其装配状态（PC-6，2026-10-07）—— `GET /v1/patterns`
+ *
+ * 只读、无参数、无会话上下文：展示注册表（显示名 / 适用场景 / 角色绑定）+ **装配状态**
+ * （`ready` 已接线 / `unavailable` + 原因）⇒ 让「模式选择」在前端**可见**（此前 `client/src`
+ * 对 `pattern` **0 命中**）。
+ *
+ * 数据来源 = app 侧纯函数 `listPatternCatalog()`（经服务层端口转调，不新增第二套判定）。
+ */
+export async function handleListPatterns(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const queryOps = await getCoreAPI().getQueryOpsPort();
+    const patterns = await queryOps.listOrchestrationPatterns();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ patterns }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 获取计划 DAG（步骤依赖拓扑）
  * GET /v1/plans/:id/dag
  * 从 PlanStep.dependsOn 构建 nodes + edges，供前端 DAG 可视化

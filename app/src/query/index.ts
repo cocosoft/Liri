@@ -171,10 +171,13 @@ export type { PatternProviderBinding } from './patternAssembly.js';
 export {
   instantiatePattern,
   verifierConfigForRecipe,
+  // PC-6（2026-10-07）：编排模式只读目录（注册表 + 装配状态）
+  listPatternCatalog,
 } from './patternAssembler.js';
 export type {
   PatternInstantiation,
   PatternRunRoute,
+  PatternCatalogEntry,
 } from './patternAssembler.js';
 export {
   CompetitiveStrategyOrchestrator,

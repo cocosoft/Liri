@@ -289,3 +289,43 @@ export const researchService = {
     }
   },
 };
+
+/* ========== 编排模式（PC-6，2026-10-07） ========== */
+
+/**
+ * 编排模式目录项（后端 `GET /v1/patterns`）
+ *
+ * 结构镜像后端 `runtime/api/queryOpsPorts.OrchestrationPatternDto`
+ * （源头 = `query/patternAssembler.PatternCatalogEntry`）。
+ */
+export interface OrchestrationPattern {
+  name: string;
+  displayName: string;
+  /** 适用场景（人类可读） */
+  when: string;
+  roles: string[];
+  /** 角色 → 承担方绑定 */
+  bindings: { role: string; providers: string[] }[];
+  assembler: string;
+  /** `ready` 已接线可执行 / `unavailable` 未接线（`reason` 说明） */
+  status: "ready" | "unavailable";
+  route?: string;
+  reason?: string;
+}
+
+export const patternService = {
+  /**
+   * 列出全部编排模式及其装配状态（只读；无参数）
+   *
+   * `unavailable` 为**如实标注**（无运行时 / 无触发场景 / 运行时由别处驱动），非缺漏。
+   * 失败时向调用方抛出，由 UI 呈现错误（不静默当成"空列表"）。
+   */
+  async list(): Promise<OrchestrationPattern[]> {
+    const res = await http.get<{ patterns: OrchestrationPattern[] }>(
+      "/v1/patterns",
+    );
+    return (
+      (res as { patterns?: OrchestrationPattern[] } | null)?.patterns ?? []
+    );
+  },
+};

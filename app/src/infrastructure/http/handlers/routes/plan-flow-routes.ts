@@ -37,6 +37,7 @@ import {
   handleGetPlanDAG,
   handleListFlows,
   handleListPlans,
+  handleListPatterns,
 } from '../plan-flow-handlers';
 import {
   handlePdcaAudit,
@@ -109,6 +110,11 @@ export async function dispatchPlanFlowRoutes(
   }
   if (method === 'GET' && url === '/v1/flows') {
     await handleListFlows(req, res);
+    return true;
+  }
+  // PC-6（2026-10-07）：编排模式只读目录（注册表 + 装配状态；无参数、无会话上下文）
+  if (method === 'GET' && url === '/v1/patterns') {
+    await handleListPatterns(req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/flows\/([^/]+)$/)) {

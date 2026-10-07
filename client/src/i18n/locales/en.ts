@@ -6018,6 +6018,18 @@ const en = {
     tabFiles: "Files",
     tabLog: "Log",
     tabSettings: "Settings",
+    // PC-6 (2026-10-07): read-only orchestration-pattern catalog (registry + assembly status)
+    tabPatterns: "Patterns",
+    patternsTitle: "Orchestration Patterns",
+    patternsDesc:
+      'Orchestration patterns available in this app (registry + assembly status); "Not wired" is stated honestly, not an omission.',
+    patternsReady: "Wired",
+    patternsUnavailable: "Not wired",
+    patternsWhen: "When to use",
+    patternsRoles: "Roles",
+    patternsBindings: "Assembly bindings",
+    patternsLoadFailed: "Failed to load: {{error}}",
+    patternsEmpty: "No orchestration patterns",
     collapsePanel: "Collapse panel",
     scopeSession: "Current session only",
     scopeGlobal: "Global default (applies to new chats)",

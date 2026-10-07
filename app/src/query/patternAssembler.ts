@@ -32,6 +32,7 @@ import type {
   PatternRecipe,
   PatternSelection,
 } from '@modules/core';
+import { listPatterns, resolvePattern } from '@modules/core';
 
 /** 已接线的运行路由（闭集；13-P1-3 新增 `verify`） */
 export type PatternRunRoute = 'research' | 'verify';
@@ -99,6 +100,62 @@ export function instantiatePattern(
   return 'route' in spec
     ? { status: 'ready', assembler, route: spec.route, recipe: spec.recipe }
     : { status: 'unavailable', assembler, reason: spec.reason };
+}
+
+/**
+ * 编排模式**只读目录项**（PC-6，2026-10-07）
+ *
+ * 面向「可见性」：把注册表（`PatternDescriptor`）+ **装配状态**（`instantiatePattern`）
+ * 合成一条可序列化的投影，供前端「编排模式」清单展示（含**未接线**者及其原因）。
+ */
+export interface PatternCatalogEntry {
+  name: string;
+  displayName: string;
+  /** 适用场景（人类可读；取自描述层的 `when`） */
+  when: string;
+  roles: string[];
+  /** 角色 → 承担方绑定（装配契约） */
+  bindings: { role: string; providers: string[] }[];
+  assembler: string;
+  /** 装配状态：`ready` 已接线可执行 / `unavailable` 未接线（`reason` 说明） */
+  status: 'ready' | 'unavailable';
+  /** 可执行运行路由（仅 `ready`） */
+  route?: PatternRunRoute;
+  /** 未接线原因（仅 `unavailable`） */
+  reason?: string;
+}
+
+/**
+ * 列出**全部**编排模式及其装配状态（PC-6）—— 纯函数，顺序 = 注册表声明序。
+ *
+ * ⚠️ 如实边界：`unavailable` 者**不是遗漏**，而是「无运行时 / 无触发场景」或
+ * 「运行时由别处独立驱动」（见各 `reason`）；本函数**不改**任何装配判定。
+ */
+export function listPatternCatalog(): PatternCatalogEntry[] {
+  return listPatterns().map((descriptor) => {
+    const instantiation = instantiatePattern(
+      // 注册表键与描述同名 ⇒ 必有结果（`resolvePattern` 是 `PatternSelection` 唯一构造点）
+      resolvePattern(descriptor.name)
+    );
+    const base: Omit<PatternCatalogEntry, 'status'> = {
+      name: descriptor.name,
+      displayName: descriptor.displayName,
+      when: descriptor.when,
+      roles: [...descriptor.roles],
+      bindings: descriptor.assembly.bindings.map((b) => ({
+        role: b.role,
+        providers: [...b.providers],
+      })),
+      assembler: descriptor.assembly.assembler,
+    };
+    return instantiation.status === 'ready'
+      ? { ...base, status: 'ready' as const, route: instantiation.route }
+      : {
+          ...base,
+          status: 'unavailable' as const,
+          reason: instantiation.reason,
+        };
+  });
 }
 
 /**

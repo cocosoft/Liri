@@ -139,6 +139,7 @@ export {
 // `PatternAssembly`）——装配解析层（app 层）据此断言"闭集无悬空"，仍走本 barrel 出口。
 export {
   selectPattern,
+  resolvePattern,
   PATTERN_PROVIDERS,
   PATTERN_DESCRIPTORS,
   listPatterns,

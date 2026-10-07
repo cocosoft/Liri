@@ -10,7 +10,13 @@ import { create } from "zustand";
 // ─── 类型 ─────────────────────────────────────────
 
 export type InspectorTab =
-  "context" | "trajectory" | "files" | "log" | "settings";
+  | "context"
+  | "trajectory"
+  | "files"
+  | "log"
+  | "settings"
+  // PC-6（2026-10-07）：编排模式只读清单
+  | "patterns";
 
 /** 合法 Tab 列表（localStorage 旧值防护：旧版 "tools" 已废弃） */
 const VALID_TABS: readonly InspectorTab[] = [
@@ -19,6 +25,7 @@ const VALID_TABS: readonly InspectorTab[] = [
   "files",
   "log",
   "settings",
+  "patterns",
 ];
 
 export interface ChatInspectorState {

@@ -120,6 +120,28 @@ export interface ResearchOrchestrationConfigDto {
   }) => void;
 }
 
+/**
+ * 编排模式目录项（**PC-6**，2026-10-07）—— 结构镜像 app 层 `PatternCatalogEntry`
+ * （`query/patternAssembler.ts`）。
+ *
+ * ⚠️ 按端口约定**不引 app 类型**（`R00-001` 连类型导入也计）⇒ 此处为**结构镜像**；
+ * `route` 收敛为 `string`（闭集 `PatternRunRoute` 的单一事实源在 app 层）。
+ */
+export interface OrchestrationPatternDto {
+  name: string;
+  displayName: string;
+  /** 适用场景（人类可读） */
+  when: string;
+  roles: string[];
+  /** 角色 → 承担方绑定 */
+  bindings: { role: string; providers: string[] }[];
+  assembler: string;
+  /** 装配状态：`ready` 已接线 / `unavailable` 未接线（`reason` 说明） */
+  status: 'ready' | 'unavailable';
+  route?: string;
+  reason?: string;
+}
+
 /** 查询日志运维端口（调用方均**不传 `limit`** ⇒ 端口不收参，用 app 侧默认值） */
 export interface QueryOpsPort {
   /** 原 `getQueryLogStore().getToolStats()` */
@@ -139,4 +161,10 @@ export interface QueryOpsPort {
     signal: AbortSignal,
     config: ResearchOrchestrationConfigDto
   ): Promise<CompetitiveOrchestrationResultDto>;
+
+  /**
+   * 原 `listPatternCatalog()`（`query/patternAssembler.ts`，PC-6）—— 编排模式**只读目录**
+   * （注册表 + 装配状态），供 `GET /v1/patterns` 展示；不含任何会话/运行期状态。
+   */
+  listOrchestrationPatterns(): Promise<OrchestrationPatternDto[]>;
 }

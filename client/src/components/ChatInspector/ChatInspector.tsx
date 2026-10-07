@@ -23,6 +23,8 @@ import CollapsedBar from "./CollapsedBar";
 import ApiMetricsSection from "./ApiMetricsSection";
 import FilesTab from "./FilesTab";
 import SettingsTab from "./SettingsTab";
+// PC-6（2026-10-07）：编排模式只读清单（`GET /v1/patterns`）
+import PatternsTab from "./PatternsTab";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import { TrajectoryFilter } from "../Trajectory/TrajectoryFilter";
@@ -126,6 +128,24 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; labelKey: string }[] = [
       </svg>
     ),
     labelKey: "chatInspector.tabSettings",
+  },
+  {
+    // PC-6（2026-10-07）：编排模式只读清单（注册表 + 装配状态；数据源 GET /v1/patterns）
+    id: "patterns",
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+        <circle cx="5" cy="5" r="2.2" />
+        <circle cx="15" cy="5" r="2.2" />
+        <circle cx="10" cy="15" r="2.2" />
+        <path
+          d="M6.6 6.6l2.8 6.8M13.4 6.6l-2.8 6.8M7.2 5h5.6"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          fill="none"
+        />
+      </svg>
+    ),
+    labelKey: "chatInspector.tabPatterns",
   },
 ];
 
@@ -609,6 +629,8 @@ function TabContentImpl({ tabId }: { tabId: InspectorTab }) {
       return <LogTab />;
     case "settings":
       return <SettingsTab />;
+    case "patterns":
+      return <PatternsTab />;
   }
 }
 const TabContent = React.memo(TabContentImpl);

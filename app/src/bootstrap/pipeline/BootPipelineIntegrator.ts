@@ -53,8 +53,11 @@ export async function registerCoreApiAppDeps(): Promise<void> {
   const { modelRouter, resolveModelRoute, RouteKey, globalEmbeddingManager } =
     await import('@modules/ai');
   const { AutoCompactService } = await import('@modules/compaction');
-  const { setResourceGovernorPreemptHandler } =
-    await import('@modules/resourceGovernor');
+  const {
+    setResourceGovernorPreemptHandler,
+    setResourceGovernorObserver,
+    emitResourceGovernorEvent,
+  } = await import('@modules/resourceGovernor');
 
   const chatManager = createChatManager();
 
@@ -83,6 +86,11 @@ export async function registerCoreApiAppDeps(): Promise<void> {
   setResourceGovernorPreemptHandler((victimSessionId) => {
     chatManager.abortSessionStream(victimSessionId);
   });
+
+  // PC-2（前端相位，2026-10-07）：抢占/排队/放行事件经**全局 SSE** 下发，
+  // 前端 `useNotificationSSE` 订阅 `system:resource_governor` ⇒ 区分"被抢占"与"用户中止"。
+  // 治理器零传输依赖 ⇒ 观察者同样由组合根注入（`liveEvents.ts`）。
+  setResourceGovernorObserver(emitResourceGovernorEvent);
 
   _appDepsRegistered = true;
 }

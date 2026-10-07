@@ -12,6 +12,8 @@
  *    （标记 `preempted` + 经**注入回调**中止其流；未注入回调 ⇒ 退回"仅告警"）；
  * 5. **阶段 2（P26-1 §9.4，D7=b）**：超限且**无可抢占候选** ⇒ `acquire()` **排队等待名额**
  *    （优先级降序 + 同级 FIFO；`release()` 1:1 移交）；**超时 = D12「告警 + 放行」**（不拒绝）。
+ * 6. **前端相位 PC-2（2026-10-07）**：抢占/排队/放行时经**注入的观察者**（`onEvent`）下发
+ *    `GovernanceEvent` ⇒ 前端区分"被抢占 / 排队中"与"用户中止"（`liveEvents.ts` 接 SSE）。
  *
  * **不做**（明确边界）：跨作用域预算合并、拒绝（D7=c）。
  *
@@ -29,6 +31,7 @@ import type { RequestPriority } from '@modules/types/requestPriority';
 import type {
   AdmissionDecision,
   AdmissionRequest,
+  GovernanceObserver,
   InFlightEntry,
   PreemptHandler,
   QueueOptions,
@@ -36,6 +39,11 @@ import type {
 } from './types.js';
 
 export * from './types.js';
+export {
+  RESOURCE_GOVERNOR_SSE_EVENT,
+  buildResourceGovernorPayload,
+  emitResourceGovernorEvent,
+} from './liveEvents.js';
 
 const logger = getLogger('resourceGovernor');
 
@@ -118,6 +126,8 @@ export class ResourceGovernor {
   private readonly inflight = new Map<string, InFlightEntry>();
   /** 抢占回调（组合根注入；缺省 ⇒ 不抢占） */
   private onPreempt?: PreemptHandler;
+  /** 治理事件观察者（组合根注入；缺省 ⇒ 仅日志，不下发 —— PC-2） */
+  private onEvent?: GovernanceObserver;
   /** 排队等待者（**优先级降序 + 同级 FIFO**；§9.4 D7=b） */
   private readonly waiters: QueueWaiter[] = [];
 
@@ -126,11 +136,17 @@ export class ResourceGovernor {
       options.maxInflight ?? DEFAULT_MAX_INFLIGHT_SESSIONS
     );
     this.onPreempt = options.onPreempt;
+    this.onEvent = options.onEvent;
   }
 
   /** 注入/替换抢占回调（组合根专用；见 `setResourceGovernorPreemptHandler`） */
   setPreemptHandler(handler: PreemptHandler): void {
     this.onPreempt = handler;
+  }
+
+  /** 注入/替换治理事件观察者（组合根专用；见 `setResourceGovernorObserver`） */
+  setEventObserver(observer: GovernanceObserver): void {
+    this.onEvent = observer;
   }
 
   /** 上限（供调用方/日志用） */
@@ -194,6 +210,7 @@ export class ResourceGovernor {
         // 先标记后回调（幂等 + 防重入再次选中同一 victim）
         victim.preempted = true;
         preempted.push(victim.sessionId);
+        this.onEvent?.({ sessionId: victim.sessionId, state: 'preempted' });
         logger.warn('抢占在飞会话（D6=B：中止并丢弃，不落检查点）', {
           victimSessionId: victim.sessionId,
           victimPriority: victim.priority,
@@ -289,6 +306,7 @@ export class ResourceGovernor {
         if (waiter.settled) return;
         waiter.settled = true;
         this.removeWaiter(waiter);
+        this.onEvent?.({ sessionId, state: 'released' }); // D12 放行 ⇒ 清除前端"排队中"
         logger.warn('排队等待超时，按 D12 放行（告警 + 放行，不拒绝）', {
           sessionId,
           priority,
@@ -308,6 +326,11 @@ export class ResourceGovernor {
       if (idx === -1) this.waiters.push(waiter);
       else this.waiters.splice(idx, 0, waiter);
 
+      this.onEvent?.({
+        sessionId,
+        state: 'queued',
+        queuePosition: this.waiters.indexOf(waiter) + 1,
+      });
       logger.info('超限排队等待名额', {
         sessionId,
         priority,
@@ -326,6 +349,7 @@ export class ResourceGovernor {
       if (waiter.settled) continue;
       waiter.settled = true;
       clearTimeout(waiter.timer);
+      this.onEvent?.({ sessionId: waiter.sessionId, state: 'released' });
       waiter.resolve();
       return;
     }
@@ -373,4 +397,16 @@ export function setResourceGovernorPreemptHandler(
   handler: PreemptHandler
 ): void {
   getResourceGovernor().setPreemptHandler(handler);
+}
+
+/**
+ * 注入治理事件观察者（P26-1 前端相位 **PC-2**）—— **组合根专用**（`BootPipelineIntegrator`）
+ *
+ * 治理器**不依赖传输层**：由入口层装配为 `emitResourceGovernorEvent`（`liveEvents.ts`，
+ * 经全局 SSE 下发 `/v1/events`）。未注入 ⇒ 抢占/排队仅落日志，**不下发**（零行为变更）。
+ */
+export function setResourceGovernorObserver(
+  observer: GovernanceObserver
+): void {
+  getResourceGovernor().setEventObserver(observer);
 }

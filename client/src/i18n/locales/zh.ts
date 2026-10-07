@@ -434,6 +434,10 @@ const zh = {
     waitingYield: "⏳ 等待子任务结算中（已 {{seconds}} 秒）",
     yieldUnresolved:
       "本轮已让出，但未能自动恢复（可能因应用重启或子任务结算丢失）。直接发送消息即可继续。",
+    // PC-2（跨会话资源治理，2026-10-07）：抢占/排队提示（去技术化文案，见 PC-5）
+    preemptedNotice:
+      "本会话被更高优先级的任务抢占，回复已中断。如需继续，请重新发送消息。",
+    queuedNotice: "当前并发已满，本会话正在排队等待资源，请稍候…",
     tokenInfo: "Token 详情",
     actionsMore: "更多",
     contentUnchanged: "内容未变更",

@@ -21,6 +21,7 @@ import { chatCoordinator } from "../stores/chat/chatCoordinator";
 import { sseService } from "../services/sseService";
 import { useSleepNoticeStore } from "../stores/sleepNoticeStore";
 import { useEstopStore } from "../stores/estopStore";
+import { useResourceGovernorStore } from "../stores/resourceGovernorStore";
 
 /** P1-1: inbox 事件若属于当前打开的会话，则刷新该会话消息（追加/更新 InboxBlock） */
 function refreshSessionIfActive(sessionId?: string): void {
@@ -100,6 +101,11 @@ export function useNotificationSSE() {
       useEstopStore.getState().setStatus(d.engaged === true, d.state ?? null);
     };
 
+    // PC-2：跨会话资源治理事件（抢占 / 排队 / 放行）→ 会话级提示条即时同步
+    const onResourceGovernor = (data: unknown): void => {
+      useResourceGovernorStore.getState().applyEvent(data);
+    };
+
     // P0-5：连接建立/重建后增量补拉列表 + 刷新计数（原先依赖 `EventSource.onopen`）
     const onConnectionOpen = (): void => {
       void syncLatest();
@@ -117,6 +123,7 @@ export function useNotificationSSE() {
     sseService.on("session:continued", onSessionContinued);
     sseService.on("system:sleep_detected", onSleepDetected);
     sseService.on("system:estop_changed", onEstopChanged);
+    sseService.on("system:resource_governor", onResourceGovernor);
     sseService.on("connection:open", onConnectionOpen);
 
     return () => {
@@ -131,6 +138,7 @@ export function useNotificationSSE() {
       sseService.off("session:continued", onSessionContinued);
       sseService.off("system:sleep_detected", onSleepDetected);
       sseService.off("system:estop_changed", onEstopChanged);
+      sseService.off("system:resource_governor", onResourceGovernor);
       sseService.off("connection:open", onConnectionOpen);
     };
   }, [

@@ -446,6 +446,11 @@ const en = {
     waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
     yieldUnresolved:
       "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
+    // PC-2 (cross-session resource governance, 2026-10-07): preemption / queue notices
+    preemptedNotice:
+      "This session was preempted by a higher-priority task and its reply was interrupted. Send a message again to continue.",
+    queuedNotice:
+      "Concurrency limit reached; this session is queued and waiting for resources…",
     tokenInfo: "Token Details",
     actionsMore: "More",
     contentUnchanged: "Content unchanged",

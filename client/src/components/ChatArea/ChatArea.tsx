@@ -15,6 +15,8 @@ import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
 // N-45：会话级"已让出 / 等待结算"提示条（读会话运行态，不经消息管道）
 import YieldNoticeBar from "./YieldNoticeBar";
+// PC-2（2026-10-07）：会话级"被抢占 / 排队中"提示条（后端 SSE `system:resource_governor`）
+import ResourceGovernanceNoticeBar from "./ResourceGovernanceNoticeBar";
 // X11（2026-10-05）：会话级「目标条」（`task_goals`；与 PDCA `/goal` 分治，见 goal-entity.md §D6）
 import GoalBar from "./GoalBar";
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D3）：会话级等待态的单一拉取点
@@ -640,6 +642,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         {/* N-45：会话级"已让出但未能自动恢复"告警（`waiting` 已迁入浮动栏，见 useWaitState） */}
         <YieldNoticeBar fluid={fluid} unresolved={wait.unresolved} />
+        {/* PC-2：会话级"被更高优先级任务抢占 / 排队等待中"提示（后端 SSE 下发） */}
+        <ResourceGovernanceNoticeBar
+          fluid={fluid}
+          sessionId={currentSession?.id}
+        />
         {/* UI 期 UI-1/UI-2：浮动栏统一承载 运行状态 / 等待态 / 深度思考等待 / PDCA 入口 / 任务进度 */}
         <StatusFloatBar
           fluid={fluid}

@@ -16,6 +16,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { ResourceGovernor } from '../../src/resourceGovernor/index';
+import type { GovernanceEvent } from '../../src/resourceGovernor/index';
 
 const ENV = 'FEATURE_RESOURCE_GOVERNOR';
 const ORIGINAL = process.env[ENV];
@@ -128,6 +129,69 @@ describe('acquire：排队等待名额（D7=b）', () => {
     expect(gov.queueLength()).toBe(1);
     gov.release('a');
     await Promise.all([first, second]);
+  });
+});
+
+describe('acquire：排队事件下发（PC-2 观察者）', () => {
+  it('入队 ⇒ queued（带 queuePosition 1-based）；release 移交 ⇒ released', async () => {
+    process.env[ENV] = 'true';
+    const events: GovernanceEvent[] = [];
+    const gov = new ResourceGovernor({
+      maxInflight: 1,
+      onEvent: (e) => events.push(e),
+    });
+    gov.admit({ sessionId: 'a', priority: 'interactive' });
+
+    const pending = gov.acquire(
+      { sessionId: 'b', priority: 'background' },
+      { timeoutMs: 2000 }
+    );
+    await sleep(10);
+
+    expect(events).toEqual([
+      { sessionId: 'b', state: 'queued', queuePosition: 1 },
+    ]);
+
+    gov.release('a');
+    await pending;
+    expect(events).toEqual([
+      { sessionId: 'b', state: 'queued', queuePosition: 1 },
+      { sessionId: 'b', state: 'released' },
+    ]);
+  });
+
+  it('排队超时放行 ⇒ released（清除前端"排队中"）', async () => {
+    process.env[ENV] = 'true';
+    const events: string[] = [];
+    const gov = new ResourceGovernor({
+      maxInflight: 1,
+      onEvent: (e) => events.push(e.state),
+    });
+    gov.admit({ sessionId: 'a', priority: 'interactive' });
+
+    await gov.acquire(
+      { sessionId: 'b', priority: 'background' },
+      { timeoutMs: 20 }
+    );
+
+    expect(events).toEqual(['queued', 'released']);
+  });
+
+  it('开关关闭 ⇒ 不下发（零行为变更）', async () => {
+    delete process.env[ENV];
+    const events: string[] = [];
+    const gov = new ResourceGovernor({
+      maxInflight: 1,
+      onEvent: (e) => events.push(e.state),
+    });
+    gov.admit({ sessionId: 'a', priority: 'interactive' });
+
+    await gov.acquire(
+      { sessionId: 'b', priority: 'background' },
+      { timeoutMs: 1000 }
+    );
+
+    expect(events).toEqual([]);
   });
 });
 

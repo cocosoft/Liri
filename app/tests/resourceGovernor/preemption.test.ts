@@ -169,6 +169,52 @@ describe('admit：超限抢占（开关开启 + 注入回调）', () => {
   });
 });
 
+describe('admit：抢占事件下发（PC-2 观察者）', () => {
+  it('抢占 ⇒ 观察者收到 victim 的 preempted 事件（仅一条）', () => {
+    process.env[ENV] = 'true';
+    const events: Array<{ sessionId: string; state: string }> = [];
+    const gov = new ResourceGovernor({
+      maxInflight: 1,
+      onPreempt: () => {},
+      onEvent: (e) => events.push({ sessionId: e.sessionId, state: e.state }),
+    });
+
+    gov.admit({ sessionId: 'bg-job', priority: 'background' });
+    gov.admit({ sessionId: 'user-ui', priority: 'interactive' });
+
+    expect(events).toEqual([{ sessionId: 'bg-job', state: 'preempted' }]);
+  });
+
+  it('未抢占（无候选 / 未注入回调）⇒ 下发空', () => {
+    process.env[ENV] = 'true';
+    const events: string[] = [];
+    const gov = new ResourceGovernor({
+      maxInflight: 1,
+      onEvent: (e) => events.push(e.state),
+    });
+
+    gov.admit({ sessionId: 'user-ui', priority: 'interactive' });
+    gov.admit({ sessionId: 'bg-job', priority: 'background' });
+
+    expect(events).toEqual([]);
+  });
+
+  it('开关关闭 ⇒ 不下发（零行为变更）', () => {
+    delete process.env[ENV];
+    const events: string[] = [];
+    const gov = new ResourceGovernor({
+      maxInflight: 1,
+      onPreempt: () => {},
+      onEvent: (e) => events.push(e.state),
+    });
+
+    gov.admit({ sessionId: 'bg-job', priority: 'background' });
+    gov.admit({ sessionId: 'user-ui', priority: 'interactive' });
+
+    expect(events).toEqual([]);
+  });
+});
+
 describe('admit：开关关闭 ⇒ 抢占零行为变更（默认关）', () => {
   it('不登记 / 不抢占 / 不回调', () => {
     delete process.env[ENV];

@@ -436,4 +436,37 @@ export function getResourceGovernor(): ResourceGovernor;
 **门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）** · `lint:size` **0 错 / 470 警告 / 8 例外** · 全量 `bun test` **508 files / 4780 pass / 21 skip / 0 fail**（+1 文件 / +6 例，逐数吻合）。
 
 **阶段 2 完成度**：§9.1 ✅ · §9.2 ✅ · §9.4 ✅ · §9.3（C 案）按裁定**不做**。
-**仍开放**：`preempted` / 排队状态**未下发 UI/SSE** ⇒ 用户可见区分与"排队中"提示仍缺（= 台账 §27.3 **PC-2**）。
+
+#### 9.9.4 前端配套（**PC-2** 抢占/排队状态下发，用户裁定「通知 SSE」）—— 🟢 **已落地 2026-10-07**
+
+**背景（= 台账 §27.3-PC-2）**：D6=B 的抢占复用 `abortSessionStream`（**不落检查点**）⇒ 被抢占会话
+的可见回复被丢弃；`InFlightEntry.preempted` 此前**仅落日志**，前端无法区分"**被更高优先级任务抢占**"
+与"**用户自己中止**"。用户裁定下发通道 = **通知 SSE**（同 `system:estop_changed` / `system:sleep_detected` 族）。
+
+**落点（实测回仓）**
+
+| # | 落点 | 改动 |
+|:--:|---|---|
+| 1 | `resourceGovernor/types.ts` | 新增 `GovernanceState`（`preempted｜queued｜released`）· `GovernanceEvent { sessionId, state, queuePosition? }` · `GovernanceObserver`；`ResourceGovernorOptions` 增 `onEvent?`（**CS02：结构化枚举，非文案匹配**） |
+| 2 | `resourceGovernor/liveEvents.ts` | **新建**：`RESOURCE_GOVERNOR_SSE_EVENT = 'system:resource_governor'` + `buildResourceGovernorPayload()`（JSON 安全，省略 `undefined`）+ `emitResourceGovernorEvent()`（**懒加载** `@modules/infrastructure#broadcastEvent`，失败不下发不影响治理决策） |
+| 3 | `resourceGovernor/index.ts` | 类增 `onEvent` 字段 + `setEventObserver()`；**四个下发点**：抢占（`preempted`）· 入队（`queued` + `queuePosition`）· `wakeOneWaiter()` 移交（`released`）· 排队超时放行（`released`）；新增全局注入 `setResourceGovernorObserver()`；`index.ts` **转出** `liveEvents` 三符号 |
+| 4 | `bootstrap/pipeline/BootPipelineIntegrator.ts` | **组合根装配**：`setResourceGovernorObserver(emitResourceGovernorEvent)`（治理器零传输依赖，同 `setResourceGovernorPreemptHandler` 注入缝） |
+| 5 | `client/src/stores/resourceGovernorStore.ts` | **新建**：按会话记录 `{ state, queuePosition?, at }`；`released` ⇒ **删除**条目；非法载荷忽略 |
+| 6 | `client/src/hooks/useNotificationSSE.ts` | 订阅 `sseService.on('system:resource_governor')` → store（**复用既有单一事件源**，不自建 `EventSource`，遵 TB-5） |
+| 7 | `client/src/components/ChatArea/ResourceGovernanceNoticeBar.tsx` | **新建**：会话级提示条（`preempted` 琥珀色 + 可关闭；`queued` 天蓝色），挂 `ChatArea` 底部区（同 `YieldNoticeBar` 形态） |
+| 8 | `client/src/i18n/locales/{zh,en}.ts` | `chat.preemptedNotice` / `chat.queuedNotice`（**双语同批**，PC-4；文案**去技术化**，PC-5） |
+| 9 | `app/tests/resourceGovernor/liveEvents.test.ts` | **新建（2 例）**：事件名逐字契约（跨端）+ 载荷 JSON 安全 |
+| 10 | `app/tests/resourceGovernor/{preemption,queueing}.test.ts` | 各 +3 例：抢占下发 / 入队+移交下发 / 超时放行下发 / 开关关不下发 |
+| 11 | `client/src/tests/resourceGovernorStore.test.ts` | **新建（4 例）**：记录 / `released` 清除 / 非法载荷忽略 / `clear` 幂等 |
+
+**语义细节（如实）**
+- **victim 恒为 `background` 会话**（`selectPreemptionVictim` 只选优先级**严格更低**者，而枚举仅 `background < interactive`）⇒ 「被抢占」提示条主要面向**后台/渠道会话**；人工对话不会被抢占（§9.8-1「后台不挤占人工」）。
+- **`released` 双语义**：名额移交 与 排队**超时放行**（D12）——两者都意味着"已不再排队"，前端一律**清除**提示（避免"排队中"永久残留）。
+- **仅前端提示，不改数据面**：不下发任何"模型可见输入"⇒ **不触发** §1.6「模型可见 ⇔ 已落盘」红线（无需新增会话事件）。
+- 开关**共用** `FEATURE_RESOURCE_GOVERNOR`（D13）⇒ 默认关时四类事件**均不产生**（实测守卫已锁）。
+
+**门禁（全绿）**：`typecheck`（app + client）**0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）** · `lint:size` **0 错 / 470 警告 / 8 例外** · `lint:doc-code` **18 断言一致** · 全量 `bun test`（app）**509 files / 4791 pass / 21 skip / 0 fail** · `vitest`（client）**59 files / 518 pass**。
+
+**阶段 2 完成度（更新）**：§9.1 ✅ · §9.2 ✅ · §9.4 ✅ · §9.3（C 案）按裁定**不做** · **前端配套 PC-2 ✅**。
+**不再开放**：原"`preempted` / 排队状态未下发 UI/SSE"已由本节关闭。
+

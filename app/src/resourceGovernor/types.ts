@@ -39,6 +39,26 @@ export type PreemptHandler = (
 ) => void;
 
 /**
+ * 治理事件状态（**前端相位 PC-2**，2026-10-07；CS02：结构化枚举，非文案匹配）
+ *
+ * - `preempted`：本会话被**更高优先级**的跨会话请求抢占（流已中止、回复丢弃）；
+ * - `queued`：本会话超限且无可抢占候选 ⇒ 正在排队等待名额；
+ * - `released`：名额已移交 / 排队超时放行 ⇒ 前端**清除**该会话的排队提示。
+ */
+export type GovernanceState = 'preempted' | 'queued' | 'released';
+
+/** 治理事件（供前端**区分**"被抢占"/"排队中"与"用户中止"） */
+export interface GovernanceEvent {
+  sessionId: string;
+  state: GovernanceState;
+  /** 排队位置（1-based；仅 `queued` 携带） */
+  queuePosition?: number;
+}
+
+/** 治理事件观察者（**组合根**注入 ⇒ 治理器零传输依赖；缺省 ⇒ 仅日志，不下发） */
+export type GovernanceObserver = (event: GovernanceEvent) => void;
+
+/**
  * 准入决策。
  *
  * ⚠️ `admitted` **恒为 `true`**（D4 语义未变；抢占**不改变本次请求的准入结果**）。
@@ -61,6 +81,8 @@ export interface ResourceGovernorOptions {
   maxInflight?: number;
   /** 抢占回调（见 `PreemptHandler`）；**缺省 ⇒ 不抢占**（超限退回阶段 1 的"仅告警"） */
   onPreempt?: PreemptHandler;
+  /** 治理事件观察者（见 `GovernanceObserver`）；**缺省 ⇒ 仅日志，不下发** */
+  onEvent?: GovernanceObserver;
 }
 
 /** 排队等待选项（D7=b，P26-1 §9.4） */

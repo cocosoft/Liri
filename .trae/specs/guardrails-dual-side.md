@@ -1,6 +1,6 @@
 # Spec：护栏双侧闭环（P26-2）
 
-> 版本 1.2 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施（2026-10-07）** · 🟡 **A2（`OUTPUT_GUARD` 常开评估）待做** · 方案 B 按 D10=a 不实施 —— 见 §9 实施记录
+> 版本 1.3 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施** · 🟢 **A2（`OUTPUT_GUARD` 常开评估）已完成（结论：不翻默认）** · 方案 B 按 D10=a 不实施 —— 见 §9 实施记录
 > 来源：台账 `dev_docs/任务计划-20261004.md` §26.2-**A6** 残余（"输入侧 3 检测器仍未统一接口 / 输出侧默认关"）⇒ §26.5 **P26-2**
 > 前置：输出侧内容护栏已由 **13-P2-1（2026-10-05）** 落地（`core/outputGuard` + `chat/outputGuards`）
 > 关联规则：GR15（Spec-Driven）/ GR01（基础设施复用）/ **CS01（归一化）** / **CS03（回退最小化）** / CS02 / R12-1（防 CS03 滥用）；对标《Agentic Design Patterns》Ch.18 Guardrails
@@ -179,3 +179,51 @@
 **门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告**（471 → 470：删副本使 `PromptInjectionDetector.ts` 回落阈值下）/ 8 例外 · 全量 `bun test` **505 files / 4759 pass / 21 skip / 0 fail**（+1 文件 / +7 例，逐数吻合）。
 
 **未做（明确）**：§3.1-**A2**（`OUTPUT_GUARD` 常开评估）仍 open；§3.2 **方案 B（统一输入护栏注册表）按 D10=a 不实施**。
+
+### 9.2 A2 —— `OUTPUT_GUARD` 常开可行性评估（**已评估 2026-10-07**）
+
+> 范围：**只评估、不翻默认值**（D11 未裁定 ⇒ `featureFlags.ts:251` 维持 `OUTPUT_GUARD: false`）。**本批无代码改动。**
+
+**① 现状取证（回仓）**
+
+| 项 | 事实 |
+|---|---|
+| 开关 | `featureFlags.ts:251` `OUTPUT_GUARD: false`（默认关）；`:256` `OUTPUT_GUARD_BLOCK: false` |
+| 注册 | `chat/outputGuards/index.ts:34` —— `if (!feature('OUTPUT_GUARD')) return;` ⇒ **默认不注册任何护栏**（零回归） |
+| 护栏 1 | `sensitive_content`（priority 10）：`SensitiveDataService.sanitize()` 命中 ⇒ **redact**（默认）或 **block**（需 `OUTPUT_GUARD_BLOCK`） |
+| 护栏 2 | `injection_echo`（priority 20）：**永不阻断**（`action:'pass'`，仅 info/warn）⇒ 常开**零行为风险** |
+| 接线 | `streamMessageFlow.ts:1926` / `ChatOrchestrator.ts:873` 注入 `getOutputGuardRegistry().list()` ⇒ **已接主链路**（真实生效面） |
+| 作用域 | 仅**助手终稿**（`finalOutputGuard.ts:17` 自陈）：**流式 chunk、工具返回值、文件写入**均**不受**护栏约束 |
+
+⇒ **唯一有行为后果的只有 `sensitive_content`**，其行为完全由 `SensitiveDataService.SENSITIVE_PATTERNS`（**仅 4 条**）决定。
+
+**② FP 量化（以本仓自身语料为测试集，2026-10-07 实测）**
+
+| # | 模式 | 本仓实测命中 | 判定 |
+|:--:|---|---|---|
+| 1 | `\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z\|a-z]{2,}\b`（email） | `190615273@qq.com`（MIT 协议头）**≥202 处 / ≥200 文件**（`head_limit` 截断；实测 ≈ 每个 `.ts` 文件 1 处 ⇒ 与 `app/src` 源文件总数同量级） | ⚠️ **与仓库规则直接冲突** —— `project_rules.md §1.2` **要求** Rust 文件必须带 MIT 头、TS 建议带；常开后**模型新建文件的协议头会被 `[REDACTED]`**（作者邮箱被抹），即**模型无法产出合规文件** |
+| 4 | `\b(?:api[_-]?key\|secret[_-]?key\|password\|token)\s*[:=]\s*\S+`（secrets） | **722 处 / ≥200 文件** | ⚠️ **本仓领域即"密钥/令牌管理"**（`oauth/services/TokenManager.ts` 18 处、`channels/secrets/ChannelSecretStore.ts` 12 处…）⇒ 该模式命中**主流正当内容**；且**不区分真实密钥与字段名/占位符**（`password: ''`、`token: string` 亦命中）⇒ **FP 极高、真阳性低**（它不识别 `sk-`/`ghp_`/`AKIA` 等真实前缀） |
+| 2/3 | SSN `\d{3}-\d{2}-\d{4}` / card `\d{4}-\d{4}-\d{4}-\d{4}` | 中文/本仓语境命中低 | FP 低，但**真阳性亦低**（无 Luhn 校验 ⇒ 无关 16 位串同样被抹） |
+
+**③ 结构性代价（常开前必须知悉）**
+
+1. **安全覆盖面被高估**：仅护栏**终稿**；真实泄漏路径（工具把 `.env` 读出并写入文件 / 流式已发出的 chunk）**不经此护栏**。
+2. **静默改写**：调用方仅记日志，`redacted`/`blocked` **不下发**前端（见台账 §27.3-**PC-1** 取证）⇒ 用户只见"正文被换过"，无法区分"模型就这么答"与"被打码"。
+3. **不可逆落盘**：打码文本经 `updateMessageBlocks` 落盘 ⇒ 历史消息与模型上下文**永久变为 `[REDACTED]`**，且护栏前原文**无独立留痕**（与 §1.6「模型可见 ⇔ 已落盘」的可重建精神相悖）。
+
+**④ 结论与建议**
+
+> **结论：现阶段不建议翻转默认值**（维持 `OUTPUT_GUARD=false`）。
+> 理由：唯一有效护栏的模式库**以字段名/占位符为主**（真阳性低），却与本仓两条**最高频正当内容**正面冲突（MIT 协议头作者邮箱 ≥200 文件、密钥/令牌字段 722 处）；叠加"仅终稿 + 静默改写 + 不可逆落盘"三项结构性代价 ⇒ **常开的净收益为负**。
+
+**若未来要常开，前置条件（最小集，按重要性排序）**
+
+| # | 前置 | 说明 |
+|:--:|---|---|
+| P1 | **收窄 secrets 模式为"值形态"判定** | 改判据为真实密钥形态（前缀 `sk-`/`ghp_`/`AKIA` + 高熵/长度下限），**不以字段名命中** |
+| P2 | **豁免 MIT 协议头邮箱** | 排除 `Copyright (c) …` 行或白名单作者邮箱（否则与 `project_rules.md §1.2` 互斥） |
+| P3 | **先落地 PC-1**（护栏结果前端可见 + 原因） | 否则不得**静默**改写用户可见内容 |
+| P4 | **补"护栏前原文"留痕** | 事件或字段，避免不可逆改写且无审计 |
+| P5 | **量化门槛** | 用本仓语料回归（对 `app/`+`client/` 的 md/ts 抽样跑 `sanitize()` 统计命中率），命中率达标才允许翻默认 |
+
+⇒ D11 仍**未裁定**；本评估为 D11 提供上述依据（如需推进，建议按 P1→P2→P3 顺序先行）。

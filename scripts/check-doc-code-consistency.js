@@ -80,6 +80,21 @@ const ASSERTIONS = [
         },
         docs: [],
     },
+    {
+        id: 'long-task-pdl-assembly-unavailable',
+        why:
+            '`long_task_pdl` 的运行时语义是「**简单任务**快速路径」（`ChatManager._shouldUsePlanDrivenLoop`：简单/非危险 ⇒ PDL 快速路径，复杂/危险 ⇒ 经典 PDCA 阶段链）—— ' +
+            '**与 pattern 名「long_task」相反**。装配层**刻意**登记为 unavailable（`patternAssembler` 自陈「D2 = 以运行时为准」）。' +
+            '若有人以「补齐装配」为由给它接 route，会让**简单任务**误走长任务装配 ⇒ R07-1 取证（2026-10-07）要求：此处改动必须**人工决策 + 更新本断言**，不得静默「修好」',
+        code: {
+            file: 'app/src/query/patternAssembler.ts',
+            // 正向：刻意 unavailable 形态（仅 reason、无 route）仍在位
+            contains: /long_task_pdl:\s*\{\s*reason:/,
+            // 负向：一旦出现 route ⇒ 说明被「补齐装配」（高风险误改）
+            notContains: /long_task_pdl:\s*\{[^}]*\broute:/,
+        },
+        docs: [],
+    },
 ];
 
 /**

@@ -11,7 +11,7 @@
 
 | 事实 | 证据 |
 |---|---|
-| **A2A 数据模型已就绪（3 文件）** | [`agent/a2a/`](../../app/src/agent/a2a)：`agentCard.ts` / `taskStore.ts` / `types.ts`（`A2AAgentCard` 定义见 [`types.ts:138`](../../app/src/agent/a2a/types.ts#L138)） |
+| **A2A 数据模型已就绪（3 文件）** | [`agent/a2a/`](../../app/src/agent/a2a)：`agentCard.ts` / `taskStore.ts` / `types.ts`（**转出层**；协议类型已由 **2026-10-01 D-204** 下沉 core ⇒ `A2AAgentCard` 定义见 [`types/a2a.ts:167`](../../app/src/types/a2a.ts#L167)） |
 | **卡片构建器已实现** | [`buildAgentCard(definitions, options)`](../../app/src/agent/a2a/agentCard.ts#L80-L100)：`AgentDefinition[]` → `A2AAgentCard`；协议版本常量 `A2A_PROTOCOL_VERSION = '1.0'`（[:34](../../app/src/agent/a2a/agentCard.ts#L34)）；另有 [`computeAgentCardEtag()`](../../app/src/agent/a2a/agentCard.ts#L119)（供 ETag / 条件请求） |
 | **G2 要求"声明 streaming / 长任务 pending" —— builder 内**已按"未支持须声明"处理 | [`agentCard.ts:95-99`](../../app/src/agent/a2a/agentCard.ts#L95-L99)：`capabilities: { streaming: false, pushNotifications: false }` + 就地注释"当前实现为同步委派…未支持须在卡片声明" |
 | **纪律已定：卡片不内嵌密钥** | [`agentCard.ts:26`](../../app/src/agent/a2a/agentCard.ts#L26)："卡片**不得内嵌静态密钥** —— 只声明 `securitySchemes`，凭证经 HTTP Header 带外传递" |

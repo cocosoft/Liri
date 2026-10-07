@@ -132,7 +132,7 @@ ToolExecutionService.execute（主链唯一工具执行入口）
 
 **与 spec 的偏离（如实）**
 1. **新增 `deepEqualArgs`（本地私有）**：spec §4 未预列。理由 —— 参数比对必须**键序无关**（同一参数对象经不同装配路径键序可能不同），而全仓既有的 `stableStringify` 均为**各模块私有**（`query/LoopDetector.ts:136` / `config/ConfigManager.ts:185`），**无导出的公共实现**；直接 `JSON.stringify` 会引入键序敏感 → 漏判。故写入最小深比较（~15 行），并在此登记（**非**第三份 `stableStringify`：不做序列化、不产出字符串）。
-2. **`dontAsk` 的实际语义与预期不同**：实测 `handleDontAsk`（`PermissionManager.ts:525-547`）为「允许则 allow；否则记拒绝 ⇒ `shouldAsk` 时 ask，否则 **deny**」——并非"恒放行"。⇒ 该模式的测试断言改为「**不注入 ask**」（`decision.behavior !== 'ask'`）而非"仍 allow"，与 D2 的真实意图（不改变"不询问"语义）一致。
+2. **`dontAsk` 的实际语义与预期不同**：实测 `handleDontAsk`（`permission/PermissionManager.ts:525-547`）为「允许则 allow；否则记拒绝 ⇒ `shouldAsk` 时 ask，否则 **deny**」——并非"恒放行"。⇒ 该模式的测试断言改为「**不注入 ask**」（`decision.behavior !== 'ask'`）而非"仍 allow"，与 D2 的真实意图（不改变"不询问"语义）一致。
 3. **提交 Inbox 时 `reason` 被改写**：`submitAskToInbox` 成功后会以 `'<tool>' queued in Inbox (risk: …). Awaiting approval.` 覆盖 reason ⇒ 升级理由本身改由**关闭 `PERMISSION_INBOX_APPROVAL_ENABLED`** 的用例（①b）验证（那里保留原始 ask 决策）。
 
 **门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外（基线）** · `lint:doc-code` **18 断言一致** · 全量 `bun test` **511 files / 4809 pass / 21 skip / 0 fail**（+1 文件 / +13 例，逐数吻合）。

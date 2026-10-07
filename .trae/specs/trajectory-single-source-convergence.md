@@ -13,7 +13,7 @@
 | 事实 | 证据 |
 |---|---|
 | **始终启用、不可配置关闭** | `app/src/trace-recording/index.ts:113`（"始终启用，**不可配置关闭**"）、`:163-164`（"Trace 始终启动（必选项）"） |
-| 落盘**完整请求体 + 完整响应 + SSE 原始事件** | `TraceWriter.ts:57-96`（`fs.appendFileSync(this.filePath, JSON.stringify(record))`、`trace_${date}.jsonl`）；`types.ts:26-62`（`TraceRecord{ request.body, response.body, response.sseEvents }`） |
+| 落盘**完整请求体 + 完整响应 + SSE 原始事件** | `TraceWriter.ts:57-96`（`fs.appendFileSync(this.filePath, JSON.stringify(record))`、`trace_${date}.jsonl`）；`trace-recording/types.ts:26-62`（`TraceRecord{ request.body, response.body, response.sseEvents }`） |
 | **被业务消费（以它为准）** | `core/tokenBudget/UnifiedTokenTracker.ts:31` `import { traceUsageListeners } from '../../trace-recording/AITracePlugin'` → `:525-533` 用真实 usage 更新 `calibrationFactor` 并 `persistCalibrationFactor(...)` → `:294` 以该 factor 修正 token 估算（影响上下文预算/压缩决策）<br>**（本条已由主分析者亲自复核）** |
 | 与事件在"模型可见输入"上重叠 | 完整 `request.body`（含 messages）与 `context/model-input` 事件（TR-12-B）覆盖同一事实 |
 
@@ -180,7 +180,7 @@
 | 保留策略（**唯一实现**） | `session/ArtifactRetention.ts#DEFAULT_ARTIFACT_RETENTION.traceKeepDays = 7`（按 **mtime** 判龄，匹配 `trace_*.jsonl`，由 `SessionGateway.startPruneInterval` 的 5 分钟节拍驱动）。**取值依据**：真机实测增速 ~190MB/天（单日最高 662MB），7 天覆盖排查窗口且把上限收敛到 ~1.3GB；按龄（而非"目录总大小上限"）可保证"刚发生的请求一定可查" |
 | 为何不在 `TraceWriter` 内实现 | 实施中核实发现 `ArtifactRetention` **已实现同一策略**（2026-09-22 D3）⇒ 在 `TraceWriter` 再加一套（文件名日期判定）将是**第二套清理机制**，违反 CS01/§3.11 实现唯一性。故**撤除**该新增，改为在 `TraceWriter`/`index.ts`/`AITracePlugin` 文件头**指向唯一实现** |
 | **实测**（只对真实 `traces/` 目录执行一次保留，其余目录注入空临时目录 ⇒ 未触碰真实 checkpoints/snapshots/logs） | 清理前 **38 文件 / 7324.1MB** → 清理后 **8 文件 / 1953.2MB**；`traces.deleted=30`、`bytesFreed=5,631,791,013`（≈5.63GB）；`otherDirs.deleted = [0,0,0,0,0,0,0]` |
-| **凭据核实** | ❌ **`TraceRecord` 含凭据载体**：`types.ts:41,46`（`request.headers` / `response.headers`）+ `upstreamBaseUrl`/`request.path` 落的是**完整 URL**；且 `GoogleProvider.ts:115,195,287,358` 把 API Key 放 **query（`?key=`）**。**改动前** `sanitizeHeaders` 只截断到前 12 位（`Bearer sk-xx…`）⇒ **部分凭据落盘** |
+| **凭据核实** | ❌ **`TraceRecord` 含凭据载体**：`trace-recording/types.ts:41,46`（`request.headers` / `response.headers`）+ `upstreamBaseUrl`/`request.path` 落的是**完整 URL**；且 `GoogleProvider.ts:115,195,287,358` 把 API Key 放 **query（`?key=`）**。**改动前** `sanitizeHeaders` 只截断到前 12 位（`Bearer sk-xx…`）⇒ **部分凭据落盘** |
 | **剥离（落盘前）** | ① **被剥离的敏感头**（整值 `***`，不留前缀）：`authorization`、`x-api-key`、`cookie`、`set-cookie`、`x-session-id`；② **被剥离的 URL 查参**：`key`、`api_key`、`api-key`、`apikey`、`access_token`、`token`、`x-api-key`（值 → `***`，保留参数名与其它参数）。实现：`interceptor/URLMatcher.ts#sanitizeHeaders`（改）/ `#sanitizeUrl`（新），在 `FetchInterceptor.buildRecord` 落盘前应用 |
 | 用例 | `tests/integration/trace-recording.test.ts`：敏感头整值脱敏（**断言不留 `sk-` 前缀**）+ URL 查参脱敏且保留 `alt=sse` |
 

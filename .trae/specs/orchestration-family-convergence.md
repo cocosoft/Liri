@@ -92,7 +92,7 @@
 `core/patterns/types.ts` 的 `PatternProvider` 是**闭集枚举**（8 个），注册表 5 个 pattern 引用之。实测：
 
 - `competitive_strategy` **已闭环**（`assembler` 经 `runResearchOrchestration` → `CompetitiveStrategyOrchestrator`，`query/CompetitiveStrategyOrchestrator.ts:457`）；
-- `task_decomposer` / `result_aggregator` / `verifier_agent` —— 全仓命中**仅** `types.ts:43/45/47`（枚举）+ `PatternRegistry.ts` 绑定 + `tests/core/patterns/PatternSelector.test.ts:85`，**无任何实现/模块/解析器** ⇒ **只有描述、无运行时**（即台账所称"三位"）；
+- `task_decomposer` / `result_aggregator` / `verifier_agent` —— 全仓命中**仅** `core/patterns/types.ts:43/45/47`（枚举）+ `PatternRegistry.ts` 绑定 + `tests/core/patterns/PatternSelector.test.ts:85`，**无任何实现/模块/解析器** ⇒ **只有描述、无运行时**（即台账所称"三位"）；
 - `instantiatePattern` 全仓 **0 命中** ⇒ 装配执行入口从未存在。
 
 ### 1.7 附带发现（同源冗余，未处置）

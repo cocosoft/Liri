@@ -123,7 +123,7 @@ OpenAI stream error (400): {"error":{"message":
 | wire（出站） | `ChatManager._buildToolDefinitions`（chat 主链路，含 `streamMessageFlow` / `ChatOrchestrator`）、`agent/strategies/agentStrategy.buildToolDefinitions`（SubAgent）、`AgentTool.buildToolDefinitions`、`chat/sessions/chatSession._buildToolDefinitions` | 冒号名 400 |
 | 解析（入站） | provider 各 stream parser 产出的 `ParsedToolCall.name` → `ToolCall.name` → `ReActToolLoop` | 若出站改名，入站须回真名，否则 `getTool()` 查不到 |
 | **策略/权限（按名判定）** | `chat/services/DecisionGate.EXTERNAL_ACTION_TOOLS`、`agent/tool-policy.OWNER_ONLY_TOOL_APPROVAL_CLASSES`（经 `normalizeToolName`）、`permission/`（`checkPermission(toolName)`）、`config.allowedTools` / `disallowedTools` | **若策略层拿到安全名而规则写的是真名 → 规则失配 → 潜在 fail-open（安全回归）** |
-| | **2026-10-06 订正（N-82）**：本行原并列 `PermissionSyncManager.isToolAllowed` —— 该符号**从未被任何调用方使用**（全仓 0 调用），且 `PermissionSyncManager` 已于 2026-10-06 删除 ⇒ 它**从来不是**实际的"按名判定"落点，此处为**文档断言与实现不符**，已移除。权威判定面是 `permission/`（`PermissionChecker.isToolAllowed` ← `PermissionManager.ts:508`） | — |
+| | **2026-10-06 订正（N-82）**：本行原并列 `PermissionSyncManager.isToolAllowed` —— 该符号**从未被任何调用方使用**（全仓 0 调用），且 `PermissionSyncManager` 已于 2026-10-06 删除 ⇒ 它**从来不是**实际的"按名判定"落点，此处为**文档断言与实现不符**，已移除。权威判定面是 `permission/`（`PermissionChecker.isToolAllowed` ← `permission/PermissionManager.ts:508`） | — |
 | 展示/工具面 | `GET /v1/tools`、`tool_search`、`skill_view`、`ToolSearchEngine`、前端工具块渲染、日志/审计 | 名称不一致会让模型"看到的名字"≠"能调用的名字"（§1.4） |
 
 ---

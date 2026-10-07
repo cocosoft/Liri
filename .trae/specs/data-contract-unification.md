@@ -69,9 +69,9 @@
 | 类型组 | 现行定义位置 | 出向依赖（实测） | 判定 |
 |---|---|---|---|
 | `Message` 全域（`message.ts` 全表 26 个导出：`MessageRole`/`MessageType`/`MessageStatus`/`MessagePriority`/`AttachmentType`/`MessageAttachment`/`MessageCategory`/`UserMessage`/`AssistantMessage`/`SystemMessage`/`ContentBlockType`/`ContentBlock`/`CompactBoundaryType`/`CompactBoundaryMessage`/`ToolUseSummary(Msg)`/`AttachmentMessage`/`Message`/`NormalizedMessage`/`UsageInfo`/`ToolCallEventDetail`/`SendMessageOptions`/`StreamMessageOptions`/`CreateMessageParams`/`ChatResponse`/`StreamChunk`） | `chat/types/message.ts` | ✅ **零项目导入**（900+ 行，纯类型 + 枚举） | ✅ **整文件下沉可行**（D-204 手法） |
-| `Tool` 类型组（7 文件：`Tool` · `ToolUseContext` · `ToolResult` · `ToolProgress` · `ToolDef` · `PermissionContext` · `PermissionResult`） | `tools/types/**` | ✅ 仅**内部相互引用** + `@modules/core`（`Tool.ts:9` 取 core 的协议层 `Message`）⇒ **无 app 依赖** | ✅ **整组下沉可行**；⚠️ `tools/types/index.ts` 另转出 2 个 app 产物（`ClipboardOutput`/`ImageEditOutput`）**须留在原址** |
+| `Tool` 类型组（7 文件：`Tool` · `ToolUseContext` · `ToolResult` · `ToolProgress` · `ToolDef` · `PermissionContext` · `PermissionResult`） | `tools/types/**` | ✅ 仅**内部相互引用** + `@modules/core`（`tools/types/Tool.ts:9` 取 core 的协议层 `Message`）⇒ **无 app 依赖** | ✅ **整组下沉可行**；⚠️ `tools/types/index.ts` 另转出 2 个 app 产物（`ClipboardOutput`/`ImageEditOutput`）**须留在原址** |
 | `Command` | 三处并存：`commands/types/index.ts:39` · `lsp/types.ts:243` · **`types/index.ts:36`（已在类型中心！）** | 待逐处核 | ⚠️ **须先辨析**（是否同形）；若同形 ⇒ 消费者直接改走 `@modules/types` 即可（**零新文件**） |
-| `ChatMessage` | `ai/models/types.ts:277`（另有 `chat/models/types.ts:43` extends `AIMessage`） | ✅ **零 app 导入**（文件仅 `import { readFileSync } from 'node:fs'`，`types.ts:21`；`ContentPart`/`ToolCall` 均同文件局部） | ✅ **可下沉**（→ `@modules/types`）；⚠️ **先须辨析同名**（`chat/models/types.ts:43` 域类型 / `components/ui/ChatMessage.tsx` React 组件 / `tools/repair/types.ts`）—— D3 不得合并；`DataMessage` 与之**不等价**（无 `id/sessionId/type/timestamp`，多 `tool_result`，定义处注释已声明「勿直接互换」） |
+| `ChatMessage` | `ai/models/types.ts:277`（另有 `chat/models/types.ts:43` extends `AIMessage`） | ✅ **零 app 导入**（文件仅 `import { readFileSync } from 'node:fs'`，`ai/models/types.ts:21`；`ContentPart`/`ToolCall` 均同文件局部） | ✅ **可下沉**（→ `@modules/types`）；⚠️ **先须辨析同名**（`chat/models/types.ts:43` 域类型 / `components/ui/ChatMessage.tsx` React 组件 / `tools/repair/types.ts`）—— D3 不得合并；`DataMessage` 与之**不等价**（无 `id/sessionId/type/timestamp`，多 `tool_result`，定义处注释已声明「勿直接互换」） |
 | `AIService` / `AIMessage` / `AIMessageRole` / `AIModelType` | `ai/models/types.ts:223/167/160/29` | ✅ **零 app 导入**（同文件仅 `node:fs`；引用全为同文件局部类型） | ✅ **四个均可下沉**（→ `@modules/types`，非 `core/data-models`）；`AIMessageRole` ↔ `DataMessageRole`(`data-models.ts:50`) **取值域相同、形态不同**（enum vs union）⇒ 归一为非零改动；`AIMessage`/`ChatMessage` 与 `DataMessage` **不等价**（见左）。消费方：`AIModelType` 9 · `AIMessageRole` 25 · `AIMessage` 14 · `AIService` 15（真 import 9）文件 |
 | `SystemPromptContext` | `ai/prompts/SystemPromptBuilder.ts:15`（与 `buildSystemPrompt` 同文件） | ❌ **含 app 依赖**：字段 `modelGuidanceMode` ← `./ModelGuidance`（`ModelGuidanceMode`，ai=**app** 层）；同文件值还依赖 `@modules/error`/`security`/`monitoring`(infra)+`./PlatformHints`(app) | ❌ **不下沉 ⇒ 端口/门面**（D6：下沉会在 core 新增 `core -> app` 边）。✅ **端口已落地**：`runtime/api/aiOpsPorts.ts:173-181` 的 `SystemPromptContextDto`（`modelGuidanceMode` 收宽为 `string`）+ `buildSystemPromptText`（`:288`），消费方 `services/prompt/PromptAssembler.ts:16/53` 已改用；**值+类型同源 ⇒ 唯一合 D6 形态即"类型留原地 + 跨层走端口"** |
 
@@ -233,7 +233,7 @@ Audit 家族 —— `DataAuditEventType`(:390) · `DataAuditSeverity`(:411) · `
 - [ ] **R00-001 / R02-002 / R03-002 / R05-011**：每批实跑门禁并记录前后数字
 - [ ] **D3 语义不合并**：§2.3 三分辨析已复核（协议层 / 领域层 / 域私有**不得混一**）
 - [ ] **SDD 同步**：实施每批后回填本 spec 状态列 + 在 `layer-inversion` spec 相应条目登记（保持"spec ⇄ 代码"同步）
-- [ ] **无 Mock / 无 `any`**：下沉为**纯类型搬运**，不得引入 `any`（`PermissionContext.ts:23` 已存在的 `any[]` 属**存量**，本专项不扩散、不顺手改）
+- [ ] **无 Mock / 无 `any`**：下沉为**纯类型搬运**，不得引入 `any`（`tools/types/PermissionContext.ts:23` 已存在的 `any[]` 属**存量**，本专项不扩散、不顺手改）
 
 ---
 

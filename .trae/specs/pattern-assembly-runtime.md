@@ -31,8 +31,8 @@ A8 把「模式由哪些模块组成」从散文升级成了**可消费的数据
 | `competitive_strategy` | ✅ 有 | ✅ **是** | `ChatManager.ts:4381-4388` 读 `assembly.assembler === 'competitive_strategy'` → `launchResearch` → `runResearchOrchestration`（`CompetitiveStrategyOrchestrator.ts:452-458`） |
 | `long_task_pdl` | 🟡 有（PDL） | ❌ **否**（选择结果被丢弃） | `ChatManager.ts:4385-4387` 只判 `competitive_strategy`；非研究路径另走 `_shouldUsePlanDrivenLoop`（`:4438`），**与 selector 无关** |
 | `iterative_refine` | ❌ 无 | ❌ 无 | 名称仅出现在 `core/patterns/types.ts:15` + `PatternRegistry.ts:20-33`，**全仓 0 消费者** |
-| `parallel_distributed` | ❌ 无 | ❌ 无 | 同上（`types.ts:16` / `PatternRegistry.ts:34-48`） |
-| `self_verify` | ❌ 无 | ❌ 无 | 同上（`types.ts:19` / `PatternRegistry.ts:90-103`） |
+| `parallel_distributed` | ❌ 无 | ❌ 无 | 同上（`core/patterns/types.ts:16` / `PatternRegistry.ts:34-48`） |
+| `self_verify` | ❌ 无 | ❌ 无 | 同上（`core/patterns/types.ts:19` / `PatternRegistry.ts:90-103`） |
 
 > ⇒ **5 个 pattern 中，只有 1 个真正闭环**（选择→装配→执行）；1 个「有运行时但选择不驱动」；
 > 3 个「有描述、无运行时、无调用方」。

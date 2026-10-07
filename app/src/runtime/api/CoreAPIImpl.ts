@@ -848,6 +848,8 @@ export class CoreAPIImpl implements CoreAPI {
         maxTokens: request.max_tokens,
         top_p: request.top_p,
         systemPrompt: request.systemPrompt,
+        // P26-1 §9.1（2026-10-07）：优先级透传至 StreamMessageOptions（下游 resourceGovernor 消费）
+        priority: request.priority,
         // P0-1（2026-08-26）：流中断续写（从断点继续而非从头重发）
         continueFrom: request.continue_from,
         onUsage: (usage) => {

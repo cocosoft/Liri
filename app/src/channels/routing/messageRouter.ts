@@ -60,6 +60,7 @@ import type { DmPolicyConfig } from '../policy/DmPolicy';
 import { checkRateLimit } from './rateLimiter';
 // 2026-08-20 流式并轨：渠道消息改走 chatStream 流式轨道（与 client 同管线）
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI';
+import type { RequestPriority } from '@modules/types/requestPriority';
 // 2026-08-20 工具进度通知人话文案（替代裸工具名）
 import { formatToolNotifySummary } from './toolNotifySummary';
 // 2026-08-20 spec qq-file-transfer：出站文件路由
@@ -160,6 +161,8 @@ export interface RouteMessageOptions {
     chatStream(params: {
       content: string;
       sessionId: string;
+      /** P26-1 §9.1（2026-10-07）：请求优先级（渠道入站传 `background`） */
+      priority?: RequestPriority;
       metadata?: Record<string, unknown>;
     }): AsyncGenerator<
       ChatStreamChunk,
@@ -661,6 +664,9 @@ export async function routeChannelMessage(
       const generator = coreAPI.chatStream({
         content: message.content,
         sessionId: safeSessionId,
+        // P26-1 §9.1（2026-10-07）：渠道入站**非人工实时对话** ⇒ 显式声明后台优先级
+        // （供 resourceGovernor 在同会话外按优先级取舍；缺省本为 interactive）
+        priority: 'background',
         metadata: {
           channel: message.channelId || channelName,
           sender: message.senderId,

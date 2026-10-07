@@ -245,7 +245,7 @@ export function getResourceGovernor(): ResourceGovernor;
 
 ---
 
-## 9. 阶段 2 实施计划：抢占 + 优先级透传（P26-1，2026-10-07 制定；**待裁定后方可动码**）
+## 9. 阶段 2 实施计划：抢占 + 优先级透传（P26-1，2026-10-07 制定；**D6/D7 已裁定**；**§9.1 ✅ 已实施** · §9.2/§9.4 待做 —— 见 §9.9）
 
 > **来由**：台账 §26.2-**A5** 残余（"跨会话**无抢占**"仍未消除；优先级生产侧**恒 `interactive`**）⇒ 台账 §26.5 **P26-1**。
 > **定位**：本阶段 = 上文 §3.3 **方案 B** / §3.4 **方案 C** + §4 的 **D2(b) 透传** + **D4(c)→(b) 升级**。
@@ -356,3 +356,29 @@ export function getResourceGovernor(): ResourceGovernor;
 3. **透传是"沉默收益"**：D7=c（仅告警）时透传**不产生行为差异** ⇒ 只有配合抢占/排队才有可见效果；单独做透传收益有限，**建议与 D7 同批**。
 4. **不得抢占同会话**（硬约束，§8-3）—— 违反会与 `_prepareStreamSession` 顶替语义打架。
 5. **PDL 的 `abort(saveCheckpoint)`**（仅 C）会触碰长任务中止语义 ⇒ 需回归 `tasks` 全量测试。
+
+---
+
+### 9.9 实施记录
+
+#### 9.9.1 步骤 1（§9.1 **优先级透传**）—— 🟢 **已落地 2026-10-07**
+
+**落点（实测回仓）**
+
+| # | 落点 | 改动 |
+|:--:|---|---|
+| 1 | `app/src/types/requestPriority.ts` | **复用**已有枚举，另**新增** `parseRequestPriority(raw: unknown)` —— 边界白名单收窄的**单一实现**（CS01） |
+| 2 | `runtime/api/CoreAPI.ts` | `ChatRequest` 增可选 `priority?: RequestPriority` |
+| 3 | `infrastructure/http/handlers/chat-handlers.ts` | `ChatCompletionRequest` 增 `priority?: string`（原始输入）；流式构建处 `priority: parseRequestPriority(request.priority)` |
+| 4 | `runtime/api/CoreAPIImpl.ts` | `chatStream` 内 `chatManager.streamMessage` options 增 `priority: request.priority` |
+| 5 | `channels/routing/messageRouter.ts` | 入站 `coreAPI.chatStream({ …, priority: 'background' })`；**同批收窄该处 `chatStream` 端口类型**（原缺该字段 ⇒ 编译期即拦，实测 TS2353） |
+| 6 | 定时/后台入口 | **无形落点** —— 实测 `CoreAPI.chatStream` 的**生产调用点仅** #3（HTTP）与 #5（渠道）；`chronos`/`dream` **不经** CoreAPI 对话入口 ⇒ **不臆测添加**（CS06/CS03） |
+| 7 | `app/tests/resourceGovernor/requestPriorityTransmission.test.ts` | **新建（4 例）**：白名单收窄 / 非法+缺省回落 `undefined` / 缺省常量 / 透传后 `snapshot()` 可区分 `interactive` 与 `background` |
+
+**边界语义**：非法值 / 缺省 / 非字符串 ⇒ `parseRequestPriority` 返回 `undefined`（**不报错、不猜测**，下游 `?? DEFAULT_REQUEST_PRIORITY`）—— 与"此前无该字段"完全等价 ⇒ **开关默认关时零行为变更**。
+
+**未做（明确）**：非流式路径 `CoreAPIImpl.chat()` → `chatManager.sendMessage()` **不经治理器准入**（admission 仅接在 `streamMessageFlow:1193` / `ChatOrchestrator:676`）⇒ **未透传**（CS03：无消费者不加数据）。
+
+**门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外** · 全量 `bun test` **506 files / 4763 pass / 21 skip / 0 fail**（+1 文件 / +4 例，逐数吻合）。
+
+**下一步**：§9.2（B 案抢占，D6=a）+ §9.4（排队，D7=b）—— 仍未动码。

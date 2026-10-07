@@ -38,6 +38,7 @@ import {
   ErrorSeverity,
 } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { parseRequestPriority } from '@modules/types/requestPriority';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import type {
@@ -129,6 +130,13 @@ interface ChatCompletionRequest {
    * 客户端发了也无人校验/消费，属"空投"）。缺省时行为与旧版完全一致。
    */
   work_mode?: string;
+  /**
+   * 请求优先级（P26-1 §9.1 透传，2026-10-07）
+   *
+   * **系统边界**：仅接受 `REQUEST_PRIORITIES` 成员（`interactive`/`background`）；
+   * 非法或缺省 ⇒ 不显式声明（下游按 `DEFAULT_REQUEST_PRIORITY` 处理），**不报错**（保持旧行为）。
+   */
+  priority?: string;
 }
 
 interface ChatCompletionResponse {
@@ -607,6 +615,8 @@ async function handleStreamingChat(
       top_p: request.top_p,
       max_tokens: request.max_tokens,
       systemPrompt: request.system_prompt,
+      // P26-1 §9.1（2026-10-07）：优先级透传（边界白名单已收窄；缺省 ⇒ 下游 interactive）
+      priority: parseRequestPriority(request.priority),
       /** 上下文水位监测 → SSE context_state 事件桥接 */
       onProgress: (event) => {
         if (event.watermarkState) {

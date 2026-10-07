@@ -28,6 +28,7 @@ import type { ConversionResult, FileInfo } from '@modules/tools';
 import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/session/types/events';
+import type { RequestPriority } from '@modules/types/requestPriority';
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
 // C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）
@@ -93,6 +94,13 @@ export interface ChatRequest {
   systemPrompt?: string;
   /** P0-1（2026-08-26）：流中断续写——携带已生成内容，请求从断点继续而非从头重发 */
   continue_from?: { content: string; messageId?: string };
+  /**
+   * 请求优先级（P26-1 §9.1 透传，2026-10-07）
+   *
+   * 缺省（`undefined`）⇒ 下游 `resourceGovernor` 按 `DEFAULT_REQUEST_PRIORITY`（`interactive`）处理。
+   * 渠道/定时/后台入口应显式传 `'background'`；前端人工对话不传（即 `interactive`）。
+   */
+  priority?: RequestPriority;
 }
 
 /** 聊天响应 */

@@ -21,3 +21,17 @@ export type RequestPriority = (typeof REQUEST_PRIORITIES)[number];
 
 /** 缺省优先级（未显式声明时） */
 export const DEFAULT_REQUEST_PRIORITY: RequestPriority = 'interactive';
+
+/**
+ * 解析**外部输入**（HTTP body 等）的优先级（P26-1 §9.1 透传，2026-10-07）
+ *
+ * **系统边界收窄**：只放行 `REQUEST_PRIORITIES` 白名单成员；非字符串 / 非法值 / 缺省
+ * ⇒ 返回 `undefined`（调用方按需回落 `DEFAULT_REQUEST_PRIORITY`）。
+ * **不抛错、不猜测** —— 保持旧行为（此前无该字段 ⇒ 等价于缺省）。
+ */
+export function parseRequestPriority(
+  raw: unknown
+): RequestPriority | undefined {
+  if (typeof raw !== 'string') return undefined;
+  return REQUEST_PRIORITIES.find((p) => p === raw);
+}

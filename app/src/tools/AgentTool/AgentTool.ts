@@ -889,17 +889,17 @@ export class AgentTool implements Tool {
   private getDefaultSystemPrompt(type: AgentType): string {
     switch (type) {
       case 'explore':
-        return 'You are an exploration agent. Your goal is to explore the codebase and gather information about the project structure, key files, and functionality.';
+        return '你是探索代理。你的目标是探查代码库，并收集关于项目结构、关键文件与功能的信息。';
       case 'plan':
-        return 'You are a planning agent. Your goal is to create a detailed plan for implementing a feature or fixing an issue.';
+        return '你是规划代理。你的目标是为实现某个功能或修复某个问题制定详细计划。';
       case 'verification':
         return VERIFICATION_SYSTEM_PROMPT;
       case 'code-guide':
-        return 'You are a code guide assistant. Your goal is to help users write clean, efficient, and maintainable code by providing best practices and code review feedback.';
+        return '你是代码指导助手。你的目标是通过提供最佳实践与代码评审意见，帮助用户写出干净、高效、可维护的代码。';
       case 'statusline-setup':
         return STATUSLINE_SYSTEM_PROMPT;
       default:
-        return 'You are a helpful AI agent. You have access to various tools to help complete tasks.';
+        return '你是一个乐于助人的 AI 代理。你可以使用多种工具来帮助完成任务。';
     }
   }
 

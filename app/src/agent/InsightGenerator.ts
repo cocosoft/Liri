@@ -116,14 +116,14 @@ export class InsightGenerator {
       .join('\n\n');
 
     return (
-      'Analyze the following conversation excerpt and extract key insights:\n\n' +
+      '请分析以下对话片段并提炼关键洞见：\n\n' +
       `${formatted}\n\n` +
-      'Focus on:\n' +
-      '- Important decisions made by the user or assistant\n' +
-      '- Notable changes (files modified, configurations changed)\n' +
-      '- Potential risks or concerns\n' +
-      '- Brief summary of progress\n\n' +
-      'Return valid JSON array only.'
+      '重点关注：\n' +
+      '- 用户或助手做出的重要决定\n' +
+      '- 值得注意的变更（修改的文件、变更的配置）\n' +
+      '- 潜在风险或隐患\n' +
+      '- 对进展的简要总结\n\n' +
+      '只返回合法的 JSON 数组。'
     );
   }
 

@@ -89,9 +89,7 @@ export function buildForkSystemPrompt(
   }
 
   prompt.push('');
-  prompt.push(
-    '[You are a forked sub-agent operating in the same session context as the parent agent.]'
-  );
+  prompt.push('[你是一个 fork 出来的子代理，与父代理运行在同一会话上下文中。]');
 
   return prompt.join('\n');
 }
@@ -112,7 +110,7 @@ export function buildForkContextMessages(
 
   contextMessages.push({
     role: 'user',
-    content: `${FORK_BOILERPLATE_TAG} This is a forked sub-agent session. Continue the task autonomously.`,
+    content: `${FORK_BOILERPLATE_TAG} 这是一个 fork 出来的子代理会话。请自主继续完成任务。`,
   });
 
   return contextMessages;
@@ -129,26 +127,26 @@ export function buildForkContextMessages(
  */
 export function buildChildMessage(directive: string): string {
   return `<${FORK_BOILERPLATE_TAG}>
-STOP. READ THIS FIRST.
+停！先读以下内容。
 
-You are a forked worker process. You are NOT the main agent.
+你是一个 fork 出来的 worker 进程。你**不是**主代理。
 
-RULES (non-negotiable):
-1. Do NOT spawn sub-agents; execute directly.
-2. Do NOT converse, ask questions, or suggest next steps.
-3. Do NOT editorialize or add meta-commentary.
-4. USE your tools directly: Bash, Read, Write, etc.
-5. Do NOT emit text between tool calls. Use tools silently, then report once at the end.
-6. Stay strictly within your directive's scope.
-7. Keep your report under 500 words unless the directive specifies otherwise.
-8. Your response MUST begin with "Scope:". No preamble, no thinking-out-loud.
-9. REPORT structured facts, then stop.
+规则（不可协商）：
+1. 不要 spawn 子代理；直接执行。
+2. 不要交谈、不要提问、不要建议下一步。
+3. 不要发表议论，也不要添加元评论。
+4. 直接使用你的工具：Bash、Read、Write 等。
+5. 不要在工具调用之间输出文本。静默使用工具，最后一次性汇报。
+6. 严格停留在你被指派指令的范围内。
+7. 报告控制在 500 词以内，除非指令另有规定。
+8. 你的回复**必须**以 "Scope:" 开头。不要前言，不要边想边说。
+9. 汇报结构化事实，然后停止。
 
-Output format (plain text labels, not markdown headers):
-  Scope: <echo back your assigned scope in one sentence>
-  Result: <the answer or key findings>
-  Key files: <relevant file paths>
-  Issues: <list - include only if there are issues to flag>
+输出格式（纯文本标签，不是 markdown 标题）：
+  Scope: <用一句话复述你被指派的范围>
+  Result: <答案或关键发现>
+  Key files: <相关文件路径>
+  Issues: <列表 —— 仅当确有需要标记的问题时才包含>
 </${FORK_BOILERPLATE_TAG}>
 
 ${FORK_DIRECTIVE_PREFIX}${directive}`;

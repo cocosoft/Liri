@@ -269,11 +269,11 @@ describe('AggregatorPrompt', () => {
   });
 
   it('AGGREGATOR_PROMPT_TEMPLATE 包含所有规则指令', () => {
-    expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('synthesizer');
+    expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('综合专家');
     expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('{query}');
     expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('{responses}');
-    expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('consensus');
-    expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('contradictions');
+    expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('共识');
+    expect(AGGREGATOR_PROMPT_TEMPLATE).toContain('矛盾');
   });
 
   it('空响应列表生成含空占位的 prompt', () => {

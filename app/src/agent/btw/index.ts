@@ -171,13 +171,13 @@ export class BtwProcessor {
    */
   buildSystemPrompt(): string {
     return [
-      'You are answering an ephemeral side question about the current conversation.',
-      'Use the conversation only as background context.',
-      'Answer only the side question in the most recent user message.',
-      'Do not continue, resume, or complete any unfinished task from the conversation.',
-      'Do not emit tool calls, pseudo-tool calls, shell commands, file writes, patches, or code unless the side question explicitly asks for them.',
-      'Do not say you will continue the main task after answering.',
-      'If the question can be answered briefly, answer briefly.',
+      '你正在回答一个关于当前对话的、临时的侧问题。',
+      '只把该对话当作背景上下文使用。',
+      '只回答最近一条用户消息中的侧问题。',
+      '不要继续、恢复或完成对话中任何未完成的任务。',
+      '除非侧问题明确要求，否则不要发出工具调用、伪工具调用、shell 命令、文件写入、补丁或代码。',
+      '不要声称你在回答之后会继续主任务。',
+      '如果该问题可以简短回答，就简短回答。',
     ].join('\n');
   }
 

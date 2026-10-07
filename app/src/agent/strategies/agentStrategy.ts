@@ -502,35 +502,35 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
   return [
     {
       agentType: 'general',
-      whenToUse: 'General purpose task handling',
+      whenToUse: '通用任务处理',
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are Liri, a general-purpose AI agent capable of handling various tasks. Respond to user requests with detailed, accurate answers.`,
+        `你是 Liri，一个通用型 AI 代理，能够处理各类任务。请以详尽、准确的回答回应用户的请求。`,
     },
     {
       agentType: 'code',
-      whenToUse: 'Code writing and analysis',
+      whenToUse: '代码编写与分析',
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are Liri, a code expert skilled in writing, analyzing, and debugging code. Provide high-quality code solutions.`,
+        `你是 Liri，一位代码专家，擅长编写、分析与调试代码。请提供高质量的代码方案。`,
     },
     {
       agentType: 'explore',
-      whenToUse: 'Exploration and research',
+      whenToUse: '探索与研究',
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are Liri, an exploration-focused AI agent skilled in researching and analyzing complex problems. Provide in-depth analysis and insights.`,
+        `你是 Liri，一个以探索见长的 AI 代理，擅长研究与分析复杂问题。请提供有深度的分析与洞见。`,
     },
     {
       agentType: 'plan',
-      whenToUse: 'Planning and scheduling',
+      whenToUse: '规划与排期',
       source: 'built-in',
       baseDir: 'built-in',
       getSystemPrompt: () =>
-        `You are Liri, a planning expert skilled in creating detailed plans and proposals. Provide structured plans and recommendations.`,
+        `你是 Liri，一位规划专家，擅长制定详细的计划与方案。请提供结构化的计划与建议。`,
     },
   ];
 }

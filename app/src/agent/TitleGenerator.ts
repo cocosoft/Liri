@@ -8,9 +8,9 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent:titleGenerator');
 
 const TITLE_PROMPT =
-  'Generate a short, descriptive title (3-7 words) for a conversation that starts with the ' +
-  'following exchange. The title should capture the main topic or intent. ' +
-  'Return ONLY the title text, nothing else. No quotes, no punctuation at the end, no prefixes.';
+  '请为一段以如下对话开头的会话生成一个简短、有描述性的标题（3–7 个词）。' +
+  '标题应抓住主要话题或意图。' +
+  '只返回标题文本，不要任何其它内容：不要引号、结尾不要标点、不要任何前缀。';
 
 const MAX_TITLE_LENGTH = 80;
 

@@ -82,6 +82,54 @@ const ASSERTIONS = [
     },
 ];
 
+/**
+ * 安全相关功能开关清单（R07-2，2026-10-07）
+ *
+ * **单一事实源 = 本表**，与 `.trae/rules/project_rules.md` §1.4 的同名表格**逐项对偶**：
+ * 一项断言 = 代码侧 `featureFlags.ts` 的**字面默认值** ∩ 文档侧 `project_rules.md` 的**同值行**。
+ *
+ * 目的：让「安全开关默认值」成为**受 CI 约束的事实** —— 误翻转（尤其 `OUTPUT_GUARD`：
+ * 见 `.trae/specs/guardrails-dual-side.md` §9.2 的 FP 量化与 P1–P5 前置）会**立即阻断 CI**，
+ * 而不是等线上行为变化才被察觉。
+ *
+ * ⚠️ 改默认值 ⇒ **同批**更新 ① 本表 ② `featureFlags.ts` ③ `project_rules.md` §1.4，三者缺一即失败。
+ */
+const SAFETY_SWITCHES = [
+    { name: 'VERIFIER_FAIL_CLOSED', def: true, why: '验证器失败必须判失败（不静默通过）' },
+    { name: 'PERMISSION_CHECKS', def: true, why: '工具执行前权限校验不得默认关闭' },
+    { name: 'SECURITY_SCAN', def: true, why: '输入安全扫描不得默认关闭' },
+    { name: 'SECURITY_AUDIT', def: true, why: '安全审计留痕不得默认关闭' },
+    { name: 'SANDBOX', def: true, why: '沙箱隔离不得默认关闭' },
+    { name: 'UNATTENDED_MODE', def: false, why: '无人值守必须默认关（须显式开启）' },
+    {
+        name: 'OUTPUT_GUARD',
+        def: false,
+        why: '输出护栏存在高 FP（MIT 协议头邮箱 / 密钥字段）与静默改写代价，未满足 §9.2 P1–P5 前不得默认开',
+    },
+    { name: 'OUTPUT_GUARD_BLOCK', def: false, why: '阻断模式须显式开启（仅在 OUTPUT_GUARD 开启后生效）' },
+    { name: 'RESOURCE_GOVERNOR', def: false, why: '跨会话抢占/排队须显式开启（默认关 = 零行为变更）' },
+    { name: 'PRO_SECURITY_SUITE', def: false, why: '高级安全套件须显式开启' },
+];
+
+/** 由清单派生的断言（避免 10 条近重复手写条目） */
+const SAFETY_ASSERTIONS = SAFETY_SWITCHES.map((s) => ({
+    id: `safety-switch-default-${s.name}`,
+    why: `安全相关开关默认值须与 project_rules.md §1.4 清单一致（R07-2）—— ${s.why}`,
+    code: {
+        file: 'app/src/core/featureFlags.ts',
+        contains: new RegExp(`^\\s*${s.name}:\\s*${s.def},`, 'm'),
+    },
+    docs: [
+        {
+            file: '.trae/rules/project_rules.md',
+            contains: new RegExp(`\\|\\s*\`${s.name}\`\\s*\\|\\s*\`${s.def}\``),
+        },
+    ],
+}));
+
+/** 全部断言（漂移点 + 安全开关清单） */
+const ALL_ASSERTIONS = [...ASSERTIONS, ...SAFETY_ASSERTIONS];
+
 function readIfExists(rel) {
     const full = path.join(ROOT, rel);
     if (!fs.existsSync(full)) return null;
@@ -118,7 +166,7 @@ function main() {
     let checkedDocs = 0;
     let skippedDocs = 0;
 
-    for (const a of ASSERTIONS) {
+    for (const a of ALL_ASSERTIONS) {
         failures.push(...checkRule(a.code, `[${a.id}] 代码侧`));
 
         for (const doc of a.docs || []) {
@@ -132,7 +180,9 @@ function main() {
         }
     }
 
-    console.log(`断言 ${ASSERTIONS.length} 条 ｜ 文档侧 已校验 ${checkedDocs} 处 · 跳过 ${skippedDocs} 处`);
+    console.log(
+        `断言 ${ALL_ASSERTIONS.length} 条（漂移点 ${ASSERTIONS.length} + 安全开关 ${SAFETY_ASSERTIONS.length}）｜文档侧 已校验 ${checkedDocs} 处 · 跳过 ${skippedDocs} 处`
+    );
     console.log('-'.repeat(60));
 
     if (failures.length === 0) {

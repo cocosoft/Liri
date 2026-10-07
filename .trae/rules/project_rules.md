@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.15.0 | **更新**: 2026-10-06
+**版本**: 7.16.0 | **更新**: 2026-10-07
 
 ## §1 基础规则
 
@@ -30,6 +30,26 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 |----------|---------|------|------|
 | `OUTPUT_DIR` | `resolveOutputDir()` | `~/.pyapp/output/` | AI 生成文件 |
 | `DOWNLOADS_DIR` | `resolveDownloadsDir()` | `~/.pyapp/downloads/` | AI 下载材料 |
+
+**安全相关功能开关（默认值 / 生效语义 / 回退方式）—— R07-2 清单（2026-10-07）**
+
+> **唯一事实源约定**：本表与 `app/src/core/featureFlags.ts` 的**字面默认值**必须一致，由
+> `bun run lint:doc-code`（`scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`）**逐项断言**
+> —— 任一侧改单边即 **CI 阻断**（防「误翻转安全开关」静默改变安全姿态）。
+> 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
+
+| 开关 | 默认 | 生效语义 | 回退方式 |
+|------|:----:|---------|---------|
+| `VERIFIER_FAIL_CLOSED` | `true` | 验证器失败即判失败（**不静默通过**） | `FEATURE_VERIFIER_FAIL_CLOSED=false`（灰度回退旧行为） |
+| `PERMISSION_CHECKS` | `true` | 工具执行前权限校验 | `FEATURE_PERMISSION_CHECKS=false` |
+| `SECURITY_SCAN` | `true` | 输入安全扫描 | `FEATURE_SECURITY_SCAN=false` |
+| `SECURITY_AUDIT` | `true` | 安全审计留痕 | `FEATURE_SECURITY_AUDIT=false` |
+| `SANDBOX` | `true` | 沙箱隔离执行 | `FEATURE_SANDBOX=false` |
+| `UNATTENDED_MODE` | `false` | 无人值守（**默认关**，须显式开启） | `FEATURE_UNATTENDED_MODE=true` |
+| `OUTPUT_GUARD` | `false` | 输出侧护栏（PII 打码 / 注入回显观测） | `FEATURE_OUTPUT_GUARD=true`；**翻转前须满足 [guardrails-dual-side.md §9.2](../specs/guardrails-dual-side.md) 的 P1–P5 前置**（MIT 协议头邮箱与密钥字段 FP、静默改写、不可逆落盘） |
+| `OUTPUT_GUARD_BLOCK` | `false` | 护栏改为**阻断**（仅 `OUTPUT_GUARD=true` 时生效） | `FEATURE_OUTPUT_GUARD_BLOCK=true` |
+| `RESOURCE_GOVERNOR` | `false` | 跨会话准入 / 抢占 / 排队（P26-1） | `FEATURE_RESOURCE_GOVERNOR=true` |
+| `PRO_SECURITY_SUITE` | `false` | 高级安全套件 | `FEATURE_PRO_SECURITY_SUITE=true` |
 
 ### 1.5 文件存储规范
 
@@ -301,6 +321,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.16.0**: §1.4 新增「**安全相关功能开关**」清单（**10 项**默认值 + 生效语义 + 回退方式），并由 `bun run lint:doc-code` 的 `SAFETY_SWITCHES` **逐项断言**（代码 `featureFlags.ts` 字面值 **∩** 本表）—— 单边改动（尤其**误翻转 `OUTPUT_GUARD`**）即 CI 阻断。来源：台账 §24-**R07-2**（外部报告 §五-P1-3）
 - **v7.15.0**: §1.15-11 **订正** —— 「`impl` 为可选（V-14 契约收敛）」**表述失实**（类型始终必填、台账无 V-14 记录、6 处生产构造点全部提供 `impl`）⇒ 改为如实表述「**`impl` 为必填**；无合法的无 `impl` 技能，读取点无需缺失回退」。取证：`dev_docs/任务计划-20261004.md §17.4-B`（来源 `.pyapp/output/技能系统缺陷排查报告.md` 复核）
 - **v7.14.0**: §1.4 增补 `A2A_*` 环境变量前缀（对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）—— 承接 A2A 对外面（P3-1 / F2，2026-09-29；分发=OS 环境变量、轮换=单钥文档化，见 `.trae/specs/a2a-external-exposure.md` §8）
 - **v7.13.0**: §1.8 日志规范口径与门禁 R11-001 对齐 —— 优先 `getLogger(module)`（默认 INFO/json，同 module 复用单例）；仅需自定义配置（level/format/source/colorize/otelTraceEnabled）时才直接构造并注明理由。同批已按此收敛 `memProfile.ts`、`MemoryPressureMonitor.ts` 两处默认形态

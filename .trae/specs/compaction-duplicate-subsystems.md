@@ -75,6 +75,8 @@
 
 **✅ 运行期证据已补（2026-10-04）**：① **事件级**：全部会话 `context/compaction` 共 **44 个**（turn 内 23 / turn 外 21），但**写出方唯一**（仅 `streamMessageFlow` 2 处）⇒ 该事件只代表路径 A；长会话 11 个压缩事件**全在 turn 内**，同轮两次（`seq 10575`/`10582`）是**同子系统顺序压两段不同区间**，非两条路径。② **日志级（最有力）**：`app.log` 中路径 A `context:compaction:orchestrator` **205 次**、路径 B `services:compact` **0 次** ⇒ **运行期从未出现"两条路径同轮"**。⇒ 上述静态结论**获运行期证据支持**（分工非双轨）。**边界**：未执行 `/compact` / HTTP 压缩端点以**主动触发 B**（会真实压缩用户会话）。详见台账 V-1。
 
+**✅ 路径 B 已主动触发（2026-10-07，V-1 残余收口；临时会话，用后删除）**：`POST /v1/sessions`（新建）→ 经 `POST /v1/sessions/:id/messages` 注入 4 轮问答 → `POST /v1/sessions/:id/compact` ⇒ **返回 `success:true` + 真实 `CompactArtifact`**（`type:"summary"`，正文 `Session Summary: Round 1..5`，`references:[u1,a1,u2,a2,u3,a3,u4,a4]`）⇒ **路径 B（手动/端点）在本机真实压缩成功**。**同刻未出现路径 A**：`app.log` 中 `context:compaction:orchestrator` 仅命中**其它历史会话**（06:24，`session_muxpyui38aqmnf2hom4`），**该会话零命中** ⇒ 运行期**确认"两道闸不共跑"**。观测到 `session:compacted` SSE 广播（`http:local`）。**附带如实**：`services:compact` 模块在 `app.log` **全仓 0 命中** ⇒ 路径 B 的**日志可观测性偏弱**（仅广播，无模块级 info）——非缺陷，登记备查。临时会话已 `batch-delete`（`deleted:2`/`failed:0`）。
+
 **仍存在的真实问题（应处置，但不是"下线"）**：
 1. **命名高度混淆**：`CompactOrchestrator` ⟷ `CompactionOrchestrator`、`microCompact` ⟷ `MicroCompactionEngine`、`SnipCompactStrategy` ⟷ `SnipEngine` ⇒ 建议**按职责重命名**（如 B 侧统一加 `Manual` / `Session` 前缀），使读者一眼可辨；
 2. **边界未显式声明**：两者都能"把消息压成摘要"，目前**只靠触发时机区分**，模块头注释未声明分工 ⇒ 建议**两处模块头注释互指**；

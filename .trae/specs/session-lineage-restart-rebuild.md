@@ -168,6 +168,8 @@ export function rebuildSessionLineage(
 2. **`parent-unknown` 的处置 —— ✅ 已裁定（2026-09-26）**：**登记该边、视为链头**（见 §3.2 第 4 条），并由用例 `父会话已不在盘上 ⇒ 仍登记该边、视为链头` 锁定。
 3. **✅ 真实重启验证已做（2026-10-04）**：本会话内因编辑后端文件，`--watch` 触发**多次真进程重启**（09:57 / 10:42×3 / 10:44 / 10:55 / 11:10 UTC 等）；每次 `session:recovery:orchestrator`「恢复编排完成」均带 **`lineage: {size:1, rebuilt:true}`**（结构化布尔，非文案）⇒ **启动期从盘重建成功且非谎报**。
    - **仍未做**：端到端「重启后父会话停子代理」**动作**（需真实 fork 序列 + agent 控制面动作）——该语义由既有单测（`agentControlOwnership.test.ts` 重建后放行）覆盖。详见台账 V-3。
+   - **✅ 真实 fork 序列已验证（2026-10-07，V-3 残余部分收口；临时会话，用后删除）**：经**真实 HTTP** 走一遍 `POST /v1/sessions` → `POST /v1/sessions/:id/messages`（注入 1 条）→ `POST /v1/sessions/:id/fork` ⇒ 子会话返回 **`metadata.parentSessionId = <父会话 id>`**（+ `seedLength:1` / `sessionType:"local"` / `copied:1` / `boundary:1`）；并**落盘核实** `~/.pyapp/data/sessions/57971aa3/<childId>/session.json` 的 `metadata.parentSessionId` 与父会话 id 一致 ⇒ **重建（`rebuildSessionLineage()`）所消费的"逐会话 `metadata.parentSessionId`"这一数据源，在真实 fork 下确实产生并被持久化**。临时会话（父+子）已 `batch-delete`（`deleted:2`/`failed:0`）。
+   - **仍未做（如实，边界不变）**：「**真实进程重启**后由父会话经**控制面动作**停子代理」的**完整** e2e —— 需 ① 重启正在运行的 daemon（会打断用户当前前端会话）② 一次**真实子代理 run**（需模型额度）⇒ 本轮**不做**。**现有证据链**：真实 fork 落盘（本批）＋ 单测覆盖「`rebuildSessionLineage` 重建后祖先可中止 / 链外 fail-closed」（`agentControlOwnership.test.ts` P3-1 两例）＋ HTTP 控制面 `handleStopAgent` 实测**带 `sessionId` 即走 fail-closed 归属校验**（`privileged: sessionId === undefined`，`infrastructure/http/handlers/agent-control-handlers.ts:169-174`）。
 4. **成本**：重建为启动期一次性全量扫描（会话数 × 元数据读取）⇒ 若会话数很大需关注启动耗时；实现时记录 `costMs` 进恢复报告（已有字段可承载）。
 
 ---

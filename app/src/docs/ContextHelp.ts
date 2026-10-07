@@ -258,8 +258,8 @@ SubAgent 命令帮助:
 
 支持来源:
   - 内置 Agent（不可删除）
-  - 用户配置（~/.claude/agents/）
-  - 项目配置（.claude/agents/）
+  - 用户配置（~/.pyapp/agents/）
+  - 项目配置（~/.pyapp/data/agents/）
 
 数据格式:
   Agent 定义为 Markdown 文件，包含 YAML frontmatter：

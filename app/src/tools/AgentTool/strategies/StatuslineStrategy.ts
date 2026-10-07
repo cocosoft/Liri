@@ -4,7 +4,7 @@
  * 状态栏设置代理的核心职责:
  * - 读取用户的 shell 配置文件（~/.zshrc, ~/.bashrc 等）
  * - 提取并转换 PS1 配置为 statusLine 命令
- * - 更新 ~/.claude/settings.json 中的 statusLine 设置
+ * - 更新 ~/.pyapp/settings.json（用户设置）中的 statusLine 设置
  */
 
 import type { BuiltInAgentDefinition } from '@modules/agent';

@@ -279,19 +279,22 @@ ${args || '未提供问题描述。'}
           type: 'text',
           text: `# 更新配置技能
 
-通过自然语言更新 settings.json 文件来修改配置。
+通过自然语言修改 Liri 的设置来调整配置。
 
 ## 设置文件位置
 
-根据作用范围选择合适的文件：
+Liri 的设置有多个来源与文件，按优先级（后者覆盖前者）加载：
 
-| 文件 | 作用范围 | 用途 |
-|------|---------|------|
-| \`settings.json\`（用户） | 全局 | 所有项目的个人偏好 |
-| \`.claude/settings.json\`（项目） | 项目 | 团队共享的钩子、权限 |
-| \`.claude/settings.local.json\`（项目本地） | 项目 | 针对本项目的个人覆盖 |
+| 来源 | 文件 | 用途 |
+|------|------|------|
+| 用户设置 | \`~/.pyapp/settings.json\` | 所有项目的个人偏好（主题、语言、字号等） |
+| 项目设置 | \`{项目根}/app/settings.json\` | 团队共享的项目配置 |
+| 本地设置 | \`~/.pyapp/settings.local.json\` | 仅本机的个人覆盖 |
+| 应用主配置 | \`~/.pyapp/config.json\` | 应用级配置：模型、权限、通道、功能开关等 |
 
-设置按此顺序加载：用户 → 项目 → 本地（后者覆盖前者）。
+选择原则：个人偏好改用户设置；团队共享改项目设置；只影响本机改本地设置；应用级配置（模型 / 权限 / 通道 / 功能开关）改 \`~/.pyapp/config.json\`。
+
+（权限的 \`allow\` / \`deny\` / \`ask\` 数组写在上述 settings 文件的 \`permissions\` 段；工具级规则见下方「Permissions」。）
 
 ## 配置区块
 
@@ -313,29 +316,21 @@ Liri 的权限体系有三个来源，按层级参与决策：
 - 「黑名单不生效」→ 确认 B 体系 mode 为 \`blacklist\` 且 pattern 与命令文本匹配
 
 ### 环境变量
-\`\`\`json
-{
-  "env": {
-    "DEBUG": "true",
-    "MY_API_KEY": "value"
-  }
-}
-\`\`\`
+环境变量由项目根的 \`app/.env\` 文件或操作系统环境变量提供（修改后需重启应用生效）。
 
 ### 钩子
-钩子在特定生命周期事件时运行命令：
-- \`PreToolUse\` — 工具运行前
-- \`PostToolUse\` — 工具成功运行后
-- \`Stop\` — 模型停止时
-- \`SessionStart\` — 会话开始时
+钩子配置**不在** \`~/.pyapp/config.json\` 中，而是独立的钩子配置文件（由 hooks 子命令读写）。本仓实际支持的事件名（点号风格）：
+- \`tool.pre-use\` / \`tool.post-use\`
+- \`session.start\` / \`session.end\`
+- \`file.pre-write\` / \`file.post-write\`
+- \`command.pre-execute\` / \`command.post-execute\`
+- 其它：\`system.startup\` / \`system.shutdown\` / \`skill.pre-execute\` / \`http.pre-request\` / \`cost.alert\` 等（完整清单见 \`hooks/types/index.ts\` 的 \`HookEvent\`）
 
-### 模型与 Agent
-\`\`\`json
-{
-  "model": "your-model-id",
-  "language": "chinese"
-}
-\`\`\`
+单条钩子的类型为 \`command\` / \`prompt\` / \`http\` / \`agent\`。
+
+### 模型与语言
+- 模型：\`~/.pyapp/config.json\` 的 \`ai.model\`（当前对话模型）；任务分工为 \`models.current\` / \`models.tasks\`
+- 语言：\`~/.pyapp/settings.json\` 的 \`language\`
 
 ## 工作流
 

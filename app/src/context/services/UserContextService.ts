@@ -105,7 +105,7 @@ export class UserContextService {
   async getClaudeMdContent(cwd?: string): Promise<string | null> {
     const workingDir = cwd || process.cwd();
 
-    if (configManager.env('CLAUDE_CODE_DISABLE_CLAUDE_MDS') === 'true') {
+    if (configManager.env('PY_APP_DISABLE_MDS') === 'true') {
       return null;
     }
 

@@ -533,7 +533,7 @@ function classifyErrorByMessage(error: Error): APISceneResult {
 
   // Bedrock 模型访问
   if (
-    configManager.env('CLAUDE_CODE_USE_BEDROCK') &&
+    configManager.env('PY_APP_USE_BEDROCK') &&
     error.message.toLowerCase().includes('model id')
   ) {
     return {

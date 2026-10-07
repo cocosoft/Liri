@@ -253,7 +253,7 @@ const CHANNEL_INFO: Record<
   claude: {
     name: 'Claude',
     signupUrl: 'https://console.anthropic.com/',
-    envVars: [{ key: 'CLAUDE_API_KEY', label: 'API Key' }],
+    envVars: [{ key: 'CHANNEL_CLAUDE_API_KEY', label: 'API Key' }],
     channelType: 'claude',
   },
 };

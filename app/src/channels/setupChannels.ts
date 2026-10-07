@@ -169,8 +169,8 @@ export async function setupChannelsFromConfig(): Promise<{
     {
       type: 'claude',
       enabled:
-        !!configManager.env('CLAUDE_CHANNEL_ENABLED') &&
-        !!configManager.env('CLAUDE_API_KEY'),
+        !!configManager.env('CHANNEL_CLAUDE_ENABLED') &&
+        !!configManager.env('CHANNEL_CLAUDE_API_KEY'),
     },
     {
       type: 'mattermost',

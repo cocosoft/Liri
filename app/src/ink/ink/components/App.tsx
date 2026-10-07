@@ -1,4 +1,4 @@
-﻿import { configManager } from '@modules/config';
+import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import React, { PureComponent, type ReactNode } from 'react';
@@ -236,7 +236,7 @@ export default class App extends PureComponent<Props, State> {
     // In accessibility mode, keep the native cursor visible for screen magnifiers and other tools
     if (
       this.props.stdout.isTTY &&
-      !isEnvTruthy(configManager.env('CLAUDE_CODE_ACCESSIBILITY'))
+      !isEnvTruthy(configManager.env('PY_APP_ACCESSIBILITY'))
     ) {
       this.props.stdout.write(HIDE_CURSOR);
     }
@@ -514,7 +514,7 @@ export default class App extends PureComponent<Props, State> {
 
       // Hide cursor (unless in accessibility mode) and re-enable focus reporting after resuming
       if (this.props.stdout.isTTY) {
-        if (!isEnvTruthy(configManager.env('CLAUDE_CODE_ACCESSIBILITY'))) {
+        if (!isEnvTruthy(configManager.env('PY_APP_ACCESSIBILITY'))) {
           this.props.stdout.write(HIDE_CURSOR);
         }
         // Re-enable focus reporting to restore terminal state

@@ -27,7 +27,7 @@ export interface ClaudeMessage {
   timestamp: string;
 }
 
-const CLAUDE_META: ChannelMeta = {
+const CHANNEL_META: ChannelMeta = {
   id: 'claude',
   displayName: 'Claude',
   vendor: 'Anthropic',
@@ -38,7 +38,7 @@ const CLAUDE_META: ChannelMeta = {
   supportedMessageTypes: ['text', 'markdown'],
 };
 
-const CLAUDE_CAPABILITIES: ChannelCapabilities = {
+const CHANNEL_CAPABILITIES: ChannelCapabilities = {
   directMessage: true,
   groupMessage: false,
   groupMention: false,
@@ -59,8 +59,8 @@ export class ClaudeChannel extends BaseChannelPlugin {
   private _model = '';
 
   readonly id = 'claude';
-  readonly meta = CLAUDE_META;
-  readonly capabilities = CLAUDE_CAPABILITIES;
+  readonly meta = CHANNEL_META;
+  readonly capabilities = CHANNEL_CAPABILITIES;
 
   protected getDefaultConfig(): Record<string, unknown> {
     return {

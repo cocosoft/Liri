@@ -119,7 +119,7 @@ export class PlanTool extends BaseTool<
    * 彻底归一应改成 `z.infer<typeof PlanToolOutputSchema>` 派生 —— 属独立重构，不在本批。
    */
   outputSchema = PlanToolOutputSchema;
-  description = 'Create, manage, and execute plans';
+  description = '创建、管理和执行计划';
 
   override tags = [ToolTag.SYSTEM];
 
@@ -127,46 +127,45 @@ export class PlanTool extends BaseTool<
     {
       name: 'action',
       type: 'string',
-      description:
-        'Action to perform: create, list, get, update, delete, execute',
+      description: '要执行的操作：create、list、get、update、delete、execute',
       required: true,
       enum: ['create', 'list', 'get', 'update', 'delete', 'execute'],
     },
     {
       name: 'plan_id',
       type: 'string',
-      description: 'Plan ID for get, update, delete, or execute action',
+      description: '用于 get、update、delete 或 execute 操作的计划 ID',
       required: false,
     },
     {
       name: 'name',
       type: 'string',
-      description: 'Plan name for create or update action',
+      description: '用于 create 或 update 操作的计划名称',
       required: false,
     },
     {
       name: 'description',
       type: 'string',
-      description: 'Plan description for create or update action',
+      description: '用于 create 或 update 操作的计划描述',
       required: false,
     },
     {
       name: 'steps',
       type: 'array',
-      description: 'Plan steps for create or update action',
+      description: '用于 create 或 update 操作的计划步骤',
       required: false,
     },
     {
       name: 'status',
       type: 'string',
-      description: 'Plan status for update action',
+      description: '用于 update 操作的计划状态',
       required: false,
       enum: ['draft', 'active', 'completed', 'cancelled'],
     },
     {
       name: 'execution_params',
       type: 'object',
-      description: 'Execution parameters for execute action',
+      description: '用于 execute 操作的执行参数',
       required: false,
     },
   ];

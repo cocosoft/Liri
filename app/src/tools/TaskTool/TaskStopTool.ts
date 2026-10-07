@@ -63,20 +63,20 @@ export class TaskStopTool extends BaseTool<
    * `{task_id, previous_status, current_status, success, message}`）⇒ **与 schema 完全相符** ⇒ 接线。
    */
   outputSchema = TaskStopOutputSchema;
-  description = 'Stop a running task by its ID';
+  description = '按其 ID 停止运行中的任务';
 
   params: ToolParam[] = [
     {
       name: 'task_id',
       type: 'string',
-      description: 'The ID of the task to stop',
+      description: '要停止的任务 ID',
       required: true,
       default: '',
     },
     {
       name: 'force',
       type: 'boolean',
-      description: 'Force stop the task (kill immediately)',
+      description: '强制停止任务（立即终止）',
       required: false,
       default: false,
     },

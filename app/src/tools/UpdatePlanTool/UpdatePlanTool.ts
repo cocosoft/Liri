@@ -42,48 +42,47 @@ export interface UpdatePlan {
 export class UpdatePlanTool extends BaseTool {
   name = 'update_plan';
 
-  description =
-    'Create and manage update execution plans. Analyzes dependencies, generates migration steps, and assesses risk.';
+  description = '创建和管理更新执行计划。分析依赖、生成迁移步骤并评估风险。';
 
   params: ToolParam[] = [
     {
       name: 'target',
       type: 'string',
-      description: 'Target package, module, or component to update',
+      description: '要更新的目标包、模块或组件',
       required: true,
     },
     {
       name: 'type',
       type: 'string',
       enum: ['dependency', 'config', 'migration', 'security', 'all'],
-      description: 'Type of update',
+      description: '更新类型',
       required: true,
     },
     {
       name: 'dryRun',
       type: 'boolean',
-      description: 'Preview plan without executing',
+      description: '仅预览计划，不执行',
       required: false,
       default: true,
     },
     {
       name: 'includeDevDependencies',
       type: 'boolean',
-      description: 'Include dev dependencies in the plan',
+      description: '在计划中包含开发依赖',
       required: false,
       default: false,
     },
     {
       name: 'backupBeforeUpdate',
       type: 'boolean',
-      description: 'Create backup before updating',
+      description: '更新前创建备份',
       required: false,
       default: true,
     },
     {
       name: 'version',
       type: 'string',
-      description: 'Specific version to update to',
+      description: '要更新到的具体版本',
       required: false,
     },
   ];

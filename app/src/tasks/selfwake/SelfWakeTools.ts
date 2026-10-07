@@ -14,13 +14,13 @@ import { cg3Log } from '../cg3Env';
 export const SLEEP_FOR_TOOL = {
   name: 'sleep_for' as const,
   description:
-    'Suspend the current task and resume after N seconds. Short sleeps (<5min) use precise setTimeout; long sleeps use CronScheduler tick.',
+    '挂起当前任务，N 秒后恢复。短睡眠（<5 分钟）使用精确的 setTimeout；长睡眠使用 CronScheduler tick。',
   parameters: {
     type: 'object' as const,
     properties: {
       seconds: {
         type: 'number' as const,
-        description: 'Seconds to sleep (max 86400 = 24h)',
+        description: '睡眠秒数（最大 86400 = 24 小时）',
       },
     },
     required: ['seconds'],
@@ -30,13 +30,13 @@ export const SLEEP_FOR_TOOL = {
 /** sleep_until 工具定义 */
 export const SLEEP_UNTIL_TOOL = {
   name: 'sleep_until' as const,
-  description: 'Suspend the current task until a specific ISO datetime.',
+  description: '挂起当前任务，直到指定的 ISO 日期时间。',
   parameters: {
     type: 'object' as const,
     properties: {
       when: {
         type: 'string' as const,
-        description: 'ISO 8601 datetime string',
+        description: 'ISO 8601 日期时间字符串',
       },
     },
     required: ['when'],
@@ -46,14 +46,13 @@ export const SLEEP_UNTIL_TOOL = {
 /** wake_on_job 工具定义 */
 export const WAKE_ON_JOB_TOOL = {
   name: 'wake_on_job' as const,
-  description:
-    'Pause the current task and resume when a specific background job completes.',
+  description: '暂停当前任务，待指定后台任务完成后恢复。',
   parameters: {
     type: 'object' as const,
     properties: {
       job_id: {
         type: 'string' as const,
-        description: 'Background job ID to wait for',
+        description: '要等待的后台任务 ID',
       },
     },
     required: ['job_id'],
@@ -63,14 +62,13 @@ export const WAKE_ON_JOB_TOOL = {
 /** wake_on_event 工具定义 */
 export const WAKE_ON_EVENT_TOOL = {
   name: 'wake_on_event' as const,
-  description:
-    'Pause the current task and resume when a specific connector event fires.',
+  description: '暂停当前任务，待指定连接器事件触发后恢复。',
   parameters: {
     type: 'object' as const,
     properties: {
       event_key: {
         type: 'string' as const,
-        description: 'Connector event key',
+        description: '连接器事件键',
       },
     },
     required: ['event_key'],

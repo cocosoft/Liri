@@ -181,82 +181,82 @@ export class SessionsTool extends BaseTool {
   }
 
   description =
-    'Unified session management tool. List, query status, view history, spawn, send messages, and delete sessions.';
+    '统一的会话管理工具。可列出会话、查询状态、查看历史、派生会话、发送消息以及删除会话。';
 
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
       enum: ['list', 'status', 'history', 'spawn', 'send', 'delete'],
-      description: 'Session operation to perform',
+      description: '要执行的会话操作',
       required: true,
     },
     {
       name: 'sessionId',
       type: 'string',
-      description: 'Session ID for status/history/delete operations',
+      description: '用于 status/history/delete 操作的会话 ID',
       required: false,
     },
     {
       name: 'message',
       type: 'string',
-      description: 'Message content for send action',
+      description: 'send 操作的消息内容',
       required: false,
     },
     {
       name: 'messageType',
       type: 'string',
       enum: ['text', 'command', 'result', 'error', 'system'],
-      description: 'Message type for send action',
+      description: 'send 操作的消息类型',
       required: false,
     },
     {
       name: 'name',
       type: 'string',
-      description: 'Session name for spawn action',
+      description: 'spawn 操作的会话名称',
       required: false,
     },
     {
       name: 'type',
       type: 'string',
       enum: ['agent', 'task', 'shell', 'monitor'],
-      description: 'Session type for spawn action',
+      description: 'spawn 操作的会话类型',
       required: false,
     },
     {
       name: 'limit',
       type: 'number',
-      description: 'Max entries for history query',
+      description: 'history 查询返回的最大条目数',
       required: false,
     },
     {
       name: 'offset',
       type: 'number',
-      description: 'Pagination offset for history query',
+      description: 'history 查询的分页偏移量',
       required: false,
     },
     {
       name: 'since',
       type: 'number',
-      description: 'Start timestamp filter for history',
+      description: 'history 的起始时间戳过滤条件',
       required: false,
     },
     {
       name: 'until',
       type: 'number',
-      description: 'End timestamp filter for history',
+      description: 'history 的结束时间戳过滤条件',
       required: false,
     },
     {
       name: 'includeResourceUsage',
       type: 'boolean',
-      description: 'Include CPU/memory usage in status',
+      description: '在 status 中包含 CPU/内存使用情况',
       required: false,
     },
     {
       name: 'includeMetadata',
       type: 'boolean',
-      description: 'Include message metadata in history',
+      description: '在 history 中包含消息元数据',
       required: false,
     },
   ];

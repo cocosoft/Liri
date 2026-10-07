@@ -57,19 +57,19 @@ export class SessionsYieldTool extends BaseTool {
   name = YIELD_TOOL_NAME;
 
   description =
-    'Yield the current turn back to the session while delegated sub-agents finish, so their results can be awaited; the turn resumes with those results. This is the ONLY tool that yields a turn — the `sessions` tool manages sessions and cannot yield.';
+    '在委派的子代理完成期间，将当前轮次交还给会话，以便等待它们的结果；之后该轮次会带着这些结果继续。这是唯一能交还轮次的工具 —— `sessions` 工具负责管理会话，不能交还轮次。';
 
   params: ToolParam[] = [
     {
       name: 'reason',
       type: 'string',
-      description: 'Reason for yielding control',
+      description: '交还控制权的原因',
       required: false,
     },
     {
       name: 'message',
       type: 'string',
-      description: 'Optional message passed to the receiving session',
+      description: '传递给接收会话的可选消息',
       required: false,
     },
   ];

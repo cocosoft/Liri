@@ -175,26 +175,26 @@ export class TaskOutputTool extends BaseTool<
    * `schemas.ts` 的 `TaskOutputDataSchema`（`:28-38`）**逐字段一致** ⇒ 接线。
    */
   outputSchema = TaskOutputOutputSchema;
-  description = 'Get output from a running or completed task by its ID';
+  description = '按其 ID 获取运行中或已完成任务的输出';
 
   params: ToolParam[] = [
     {
       name: 'task_id',
       type: 'string',
-      description: 'The ID of the task to get output from',
+      description: '要获取输出的任务 ID',
       required: true,
     },
     {
       name: 'block',
       type: 'boolean',
-      description: 'Whether to wait for task completion',
+      description: '是否等待任务完成',
       required: false,
       default: true,
     },
     {
       name: 'timeout',
       type: 'number',
-      description: 'Maximum wait time in milliseconds (0-600000)',
+      description: '最长等待时间（毫秒，0-600000）',
       required: false,
       default: 30000,
     },

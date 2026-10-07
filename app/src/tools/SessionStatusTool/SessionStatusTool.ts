@@ -35,19 +35,19 @@ export class SessionStatusTool extends BaseTool {
   name = 'session_status';
 
   description =
-    'Query the status of one or more sessions. Returns session state, active time, message count, and optional resource usage.';
+    '查询一个或多个会话的状态。返回会话状态、活跃时长、消息数量以及可选的资源使用情况。';
 
   params: ToolParam[] = [
     {
       name: 'sessionId',
       type: 'string',
-      description: 'Session ID to query (returns all if omitted)',
+      description: '要查询的会话 ID（省略时返回全部）',
       required: false,
     },
     {
       name: 'includeResourceUsage',
       type: 'boolean',
-      description: 'Include CPU/memory usage data',
+      description: '包含 CPU/内存使用数据',
       required: false,
       default: false,
     },

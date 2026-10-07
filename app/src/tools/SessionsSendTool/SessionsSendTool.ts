@@ -29,34 +29,33 @@ export interface SessionMessageResult {
 export class SessionsSendTool extends BaseTool {
   name = 'sessions_send';
 
-  description =
-    'Send a message to a running session. Supports text, commands, results, and system messages.';
+  description = '向运行中的会话发送消息。支持文本、命令、结果和系统消息。';
 
   params: ToolParam[] = [
     {
       name: 'sessionId',
       type: 'string',
-      description: 'Target session ID',
+      description: '目标会话 ID',
       required: true,
     },
     {
       name: 'content',
       type: 'string',
-      description: 'Message content to send',
+      description: '要发送的消息内容',
       required: true,
     },
     {
       name: 'type',
       type: 'string',
       enum: ['text', 'command', 'result', 'error', 'system'],
-      description: 'Message type',
+      description: '消息类型',
       required: false,
       default: 'text',
     },
     {
       name: 'metadata',
       type: 'object',
-      description: 'Optional metadata for the message',
+      description: '消息的可选元数据',
       required: false,
     },
   ];

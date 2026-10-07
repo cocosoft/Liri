@@ -422,7 +422,7 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
   /** 工具描述 */
   override description =
-    'Manage a todo list for tracking tasks. Create, update, and complete todos.';
+    '管理待办事项列表以跟踪任务。创建、更新和完成待办事项。';
 
   /** 最大结果大小 */
   override maxResultSizeChars = 10000;
@@ -433,57 +433,56 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
       name: 'action',
       type: 'string',
       description:
-        'Action to perform: list, add, update, delete, clear_completed, write',
+        '要执行的操作：list、add、update、delete、clear_completed、write',
       required: true,
       default: 'list',
     },
     {
       name: 'session_id',
       type: 'string',
-      description: 'Session ID for the todo list',
+      description: '待办列表的会话 ID',
       required: false,
       default: 'default',
     },
     {
       name: 'todo_id',
       type: 'string',
-      description: 'ID of the todo to update or delete',
+      description: '要更新或删除的待办 ID',
       required: false,
       default: '',
     },
     {
       name: 'content',
       type: 'string',
-      description: 'Content of the todo',
+      description: '待办事项的内容',
       required: false,
       default: '',
     },
     {
       name: 'status',
       type: 'string',
-      description: 'Status of the todo: pending, in_progress, completed',
+      description: '待办事项的状态：pending、in_progress、completed',
       required: false,
       default: 'pending',
     },
     {
       name: 'todos',
       type: 'object',
-      description: 'Array of todos for write action',
+      description: '用于 write 操作的待办事项数组',
       required: false,
       default: [],
     },
     {
       name: 'activeForm',
       type: 'string',
-      description:
-        'Present continuous form of the task (e.g. "Fixing the login bug")',
+      description: '任务的现在进行时形式（例如 "Fixing the login bug"）',
       required: false,
       default: '',
     },
     {
       name: 'title',
       type: 'string',
-      description: 'Title of the task plan (optional, used for the TaskCard)',
+      description: '任务计划的标题（可选，用于 TaskCard）',
       required: false,
       default: '',
     },

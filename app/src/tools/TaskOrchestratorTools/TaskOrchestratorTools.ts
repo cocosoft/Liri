@@ -23,27 +23,27 @@ const TASK_TOOL_PARAMS: ToolParam[] = [
   {
     name: 'action',
     type: 'string',
-    description: 'Action to perform: create_list, update_status, list, delete',
+    description: '要执行的操作：create_list、update_status、list、delete',
     required: true,
   },
   {
     name: 'tasks',
     type: 'object',
     description:
-      'Array of task descriptions for create_list action. Each item: { description: string, metadata?: Record<string, unknown> }',
+      'create_list 操作的任务描述数组。每项形如：{ description: string, metadata?: Record<string, unknown> }',
     required: false,
   },
   {
     name: 'task_id',
     type: 'string',
-    description: 'Task ID for update_status or delete action',
+    description: 'update_status 或 delete 操作的任务 ID',
     required: false,
   },
   {
     name: 'status',
     type: 'string',
     description:
-      'New status for update_status: pending, in_progress, completed, failed, cancelled',
+      'update_status 的新状态：pending、in_progress、completed、failed、cancelled',
     required: false,
   },
 ];
@@ -76,9 +76,9 @@ function taskToolFail(message: string): ToolResult {
 export class TaskCreateListTool implements Tool {
   name = 'create_task_list';
   description =
-    'Create multiple tasks at once. ' +
-    'Use this when the user provides a list of items they want to track as tasks (e.g. plan steps, todo items). ' +
-    'Input: JSON array of task objects, each with description and optional metadata.';
+    '一次性创建多个任务。' +
+    '当用户提供了一组希望作为任务跟踪的条目（例如计划步骤、待办事项）时使用。' +
+    '输入：任务对象组成的 JSON 数组，每项包含 description 和可选的 metadata。';
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 出参对象化同批接线）。
@@ -209,7 +209,7 @@ export class TaskCreateListTool implements Tool {
 export class TaskUpdateStatusTool implements Tool {
   name = 'update_task_status';
   description =
-    'Update the status of a task by ID. Supports: pending, in_progress, completed, failed, cancelled.';
+    '按 ID 更新任务状态。支持：pending、in_progress、completed、failed、cancelled。';
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 出参对象化同批接线）。
@@ -316,8 +316,8 @@ export class TaskUpdateStatusTool implements Tool {
 export class TaskGetListTool implements Tool {
   name = 'get_task_list';
   description =
-    'Get the current list of all tasks with their IDs, descriptions, and statuses. ' +
-    'Use this to show the user their task list or to find task IDs for updates.';
+    '获取当前所有任务的列表，包含其 ID、描述和状态。' +
+    '用于向用户展示其任务列表，或查找任务 ID 以便更新。';
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 出参对象化同批接线）。

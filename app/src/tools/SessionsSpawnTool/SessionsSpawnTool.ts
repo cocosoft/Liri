@@ -35,51 +35,51 @@ export class SessionsSpawnTool extends BaseTool {
   name = 'sessions_spawn';
 
   description =
-    'Spawn a new child session. Sessions can be agents, tasks, shell processes, or monitors.';
+    '派生一个新的子会话。会话可以是 agent、task、shell 进程或 monitor。';
 
   params: ToolParam[] = [
     {
       name: 'name',
       type: 'string',
-      description: 'Session name (auto-generated if omitted)',
+      description: '会话名称（省略时自动生成）',
       required: false,
     },
     {
       name: 'type',
       type: 'string',
       enum: ['agent', 'task', 'shell', 'monitor'],
-      description: 'Session type',
+      description: '会话类型',
       required: false,
       default: 'agent',
     },
     {
       name: 'parentSessionId',
       type: 'string',
-      description: 'Optional parent session to attach to',
+      description: '可选的父会话，用于挂载',
       required: false,
     },
     {
       name: 'cwd',
       type: 'string',
-      description: 'Working directory for the session',
+      description: '会话的工作目录',
       required: false,
     },
     {
       name: 'env',
       type: 'object',
-      description: 'Environment variables for the session',
+      description: '会话的环境变量',
       required: false,
     },
     {
       name: 'timeout',
       type: 'number',
-      description: 'Session timeout in ms (default: no timeout)',
+      description: '会话超时时间（毫秒，默认：不超时）',
       required: false,
     },
     {
       name: 'autoCleanup',
       type: 'boolean',
-      description: 'Auto-cleanup on completion',
+      description: '完成后自动清理',
       required: false,
       default: true,
     },

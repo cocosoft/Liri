@@ -1,6 +1,6 @@
 # Spec：跨会话资源治理（准入 / 优先级 / 抢占）
 
-> 版本 1.1 ｜ 创建 2026-10-05 ｜ 状态：🟢 **已实施（D1=A / D2=调用方显式传入 / D3=默认关 / D4=仅告警不拦截 / D5=只读聚合视图）** —— 见 §6.5
+> 版本 1.2 ｜ 创建 2026-10-05 ｜ 更新 2026-10-07 ｜ 状态：**阶段 1 🟢 已实施**（D1=A / D2=调用方显式传入 / D3=默认关 / D4=仅告警不拦截 / D5=只读聚合视图 —— 见 §6.5）；**阶段 2（P26-1）🟢 计划定稿 + 已裁定（D6=B / D7=排队）⇒ 待实施**（见 §9）
 > 来源：`dev_docs/任务计划-20261004.md` §13.1 **A5**「全局资源治理缺失：预算控制分散在 3–4 层，无跨会话优先级调度与抢占」（原报告第二梯队建议 #5「单一 `ResourceGovernor` 并把路由与预算打通」）
 > 关联规则：GR15（Spec-Driven）/ GR01（基础设施复用）/ CS01（归一化）/ CS02（状态判定）/ CS03（回退最小化）/ CS05（根因优先）/ R06-008（分层）
 > 前置：预算侧"单一入口"已由 [budget-policy-layer.md](./budget-policy-layer.md) 收口（`BudgetPolicy` 契约 + 注册表，2026-09-25 已实施）⇒ **本 spec 不重复做预算策略，只做「调度维度」**。
@@ -242,3 +242,117 @@ export function getResourceGovernor(): ResourceGovernor;
 4. **多实例账本**：`DailyBudgetManager` 多实例（§1.1）**不在本轮修复范围**（D5=a）；统一账本另立专项。
 5. **双轨入口**：非流式 `sendMessage` 与流式 `streamMessage` 是两条路径（§1.5）⇒ 只接流式会产生"半覆盖"，需 D1 明确。
 6. **对标口径**：原报告仅给方向（"单一 `ResourceGovernor`"），无实现 schema ⇒ 本 spec 不照搬外部设计，只落本仓最小可行形态。
+
+---
+
+## 9. 阶段 2 实施计划：抢占 + 优先级透传（P26-1，2026-10-07 制定；**待裁定后方可动码**）
+
+> **来由**：台账 §26.2-**A5** 残余（"跨会话**无抢占**"仍未消除；优先级生产侧**恒 `interactive`**）⇒ 台账 §26.5 **P26-1**。
+> **定位**：本阶段 = 上文 §3.3 **方案 B** / §3.4 **方案 C** + §4 的 **D2(b) 透传** + **D4(c)→(b) 升级**。
+> **前置**：阶段 1（D1=A）已实施（§6.5）；本阶段**只增量**，不改阶段 1 已定的"只读视图 / 上限观测 / 开关默认关"（除非 §9.0 决策另有裁定）。
+
+### 9.0 待裁定决策点（**阻塞项** —— 未裁定不动码）
+
+| ID | 决策项 | 选项 | 建议 |
+|:--:|---|---|---|
+| **D6** | 抢占语义 | (a) **B**：抢占=**中止并丢弃**（复用 `ChatManager.abortSessionStream`）／(b) **C**：抢占=**挂起可恢复**（`TAORLoop.abort(true)` + `resumeFromCheckpoint`）／(c) **不抢占**（仅做 D2 透传 + D4 排队） | **(a) 先行** —— B 改动面小、复用既有中止入口；C 触达 TAOR/PDL 生命周期且需产品裁定"自动恢复 vs 手动恢复"（§3.4 / §8-2 已如实记录代价） |
+| **D7** | 超限行为 | (a) 维持**仅告警**（现状 D4=c）／(b) **排队**（优先级队列 + 超时放弃）／(c) **拒绝** | **(b)** —— 与抢占配套；拒绝会突然打断用户（§4-D4 建议先观测后限流，观测已就绪） |
+
+> D6=c 时本阶段退化为"仅 D2 透传 + D7"，工作量约为 D6=a 的 1/3。
+
+> **✅ 裁定（2026-10-07，用户）**：**D6 = (a) B**（抢占 = 中止并丢弃，复用 `abortSessionStream`）· **D7 = (b) 排队**（优先级队列 + 超时放弃）。
+> ⇒ 实施范围 = **§9.1 透传 + §9.2（B 案）+ §9.4 排队**；**§9.3（C 案）不做**（`PlanDrivenLoop.abort(saveCheckpoint)` 不在本批）。
+
+### 9.1 步骤 1：优先级透传（D2=b，**低风险先行**）
+
+**现状缺口（实测 2026-10-07）**：`StreamMessageOptions.priority?`（`session/types/message.ts`）已存在，但**生产入口未透传** ⇒ `snapshot()` 中恒为 `interactive`（阶段 1 §6.5「未做」第 4 条）。
+
+| # | 落点 | 改动 |
+|---|---|---|
+| 1 | `app/src/types/requestPriority.ts` | **复用**（core 单一事实源，CS01）—— 不改 |
+| 2 | `ChatRequest`（HTTP 请求类型，`infrastructure/http/handlers/chat-handlers.ts` 使用） | 增可选 `priority?: RequestPriority`（**白名单收窄**：仅允许 `REQUEST_PRIORITIES` 成员，非法 ⇒ 回落 `DEFAULT_REQUEST_PRIORITY`） |
+| 3 | `handleChatCompletions`（`chat-handlers.ts:185`）/ `handleStreamingChat`（`:426`） | 把 `body.priority` 透传进 `coreAPI.chatStream`（`:635`） |
+| 4 | `runtime/api/CoreAPIImpl.ts:691 chatStream` → `:816 chatManager.streamMessage` | 透传 `priority` 至 `StreamMessageOptions` |
+| 5 | `channels/routing/messageRouter.ts:661`（渠道入站） | 显式传 `priority: 'background'`（渠道**非人工实时**对话） |
+| 6 | 定时/后台入口（`chronos` 触发会话、`dream` 等） | 同传 `'background'`（**只在事实上确为后台的入口**，不臆测） |
+| 7 | `app/tests/resourceGovernor/*` | 新增：透传链断言（HTTP body → `snapshot()` 中 priority 一致） |
+
+**验收**：`FEATURE_RESOURCE_GOVERNOR=true` 时 `snapshot()` 能区分 `interactive` / `background`；`=false` 时零行为变更。
+
+### 9.2 步骤 2：抢占（D6=a 方案 B 展开）
+
+**共用（B/C 都需）**
+
+- `AdmissionDecision.reason` 扩展 `'concurrency_limit'`（已定义）+ 返回 `preempted: string[]`（已定义）。
+- **victim 选择规则**（纯函数，可单测；CS02 用枚举不用字符串）：
+  1. **排除同 `sessionId`**（硬约束 —— 同会话"新请求顶替旧流"已由 `_prepareStreamSession`（`ChatManager.ts:2989-2993`）处理，双重中止会语义冲突，§8-3）；
+  2. 取**优先级最低**者（`background` < `interactive`）；
+  3. 同级取 `startedAt` **最早**者；
+  4. 无可抢占候选 ⇒ 按 D7 行为（排队 / 告警 / 拒绝）。
+- 抢占后：`InFlightEntry.preempted = true`（**幂等**）+ `logger.warn` 留痕（含 victim/请求方）。
+
+**B 方案落点**：治理器暴露 `onPreempt` 回调（**注入**，避免 app→chat 反向耦合成为硬边？—— 实测 `resourceGovernor` 与 `chat` **同为 app 层**，可直接引用；但为保持治理器"无副作用契约"，仍建议**回调注入**，由组合根装配）⇒ 回调实现调 `ChatManager.abortSessionStream(victim)`（`ChatManager.ts:391`）。
+
+> ⚠️ **B 的如实代价**：`abortSessionStream` **不落检查点**（§1.4）⇒ 被抢占会话的用户可见回复**被丢弃**；须在 UI/日志区分"用户中止"与"被抢占"（`preempted` 标记即为此）。
+
+### 9.3 步骤 3：抢占（D6=b 方案 C 展开，**仅当选 C**）
+
+| # | 落点 | 改动 |
+|---|---|---|
+| 1 | `query/TAORLoop.ts:2116 abort(saveCheckpoint=true)` | **复用**（已支持落检查点） |
+| 2 | `tasks/PlanDrivenLoop.ts:501` | 现固定 `abort(false)`（**放弃语义**）⇒ 需新增 `abort(saveCheckpoint: boolean)` 语义（PDL 检查点写入点见 `long_task` spec） |
+| 3 | `chat/ChatManager.ts:4074 resumeStream` | **复用**为恢复入口 |
+| 4 | 恢复时机 | **产品裁定**：抢占后**自动恢复**（治理器在名额释放后触发）vs **用户手动恢复**（仅置"已挂起"标记 + 前端提示） |
+
+### 9.4 步骤 4：超限行为升级（D7=b，可选）
+
+- 复用 `workspace/OrchIntelligence.ResourceScheduler` 的**排队/插队语义**（`:665-767`：priority 降序 `waitQueue` + `jumpQueue`），**不复制类**（§3.1 既定边界 N6）。
+- 队列须有**超时放弃**（`SimpleMutex` 默认 30s 为参考口径，`core/SimpleMutex.ts:13`）⇒ 超时按 D7 回落为拒绝或告警。
+
+### 9.5 影响文件（预计）
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `app/src/resourceGovernor/{index,types}.ts` | 改：victim 选择 + `onPreempt` 注入 + `preempted` 标记（+ 可选队列） |
+| 2 | `app/src/types/requestPriority.ts` | **不改**（复用） |
+| 3 | `infrastructure/http/handlers/chat-handlers.ts`（`:185/:426/:635`） | 改：透传 `priority` |
+| 4 | `runtime/api/CoreAPIImpl.ts`（`:691/:816`） | 改：透传 |
+| 5 | `channels/routing/messageRouter.ts`（`:661`） | 改：`background` |
+| 6 | `app/src/chat/orchestrator/streamMessageFlow.ts` / `ChatOrchestrator.ts` | 改：按 D7 决定是否"排队等待"（阶段 1 已接 admit/release） |
+| 7 | `app/src/chat/ChatManager.ts`（:391 中止 / :4074 恢复） | 改（B/C 的 victim 处置；**注入回调**，不新增硬边） |
+| 8 | `app/src/tasks/PlanDrivenLoop.ts`（:501） | 改（**仅 C**：`abort(saveCheckpoint)`） |
+| 9 | `app/tests/resourceGovernor/*.test.ts` | 新建/扩：victim 规则（含**不得同会话**）、抢占标记、排队超时、默认关零变更 |
+
+### 9.6 验收
+
+| 项 | 标准 |
+|---|---|
+| 默认关 | `FEATURE_RESOURCE_GOVERNOR=false` ⇒ 透传/抢占/排队**全不生效**，全量 `bun test` 0 fail |
+| 透传 | HTTP body `priority:'background'` ⇒ `snapshot()` 可见（`interactive` 默认不变） |
+| victim 规则 | 高优先到达且并发满 ⇒ 抢占**最低优先 + 跨会话 + 最早**者；**同会话永不被抢占**（专测） |
+| 抢占标记 | 被抢占会话 `preempted===true`；UI/日志可区分"用户中止" |
+| B 案 | 被抢占会话确被中止 |
+| C 案 | 被抢占会话可经 `resumeFromCheckpoint`/`resumeStream` 续跑（端到端 1 例） |
+| 排队（D7=b） | 超限请求入队；名额释放后按优先级出队；超时按约定回落 |
+| 回归 | `typecheck` 0 · `lint:arch` 不新增违规 · `lint:doc-code` 通过 · 全量 `bun test` 0 fail |
+
+### 9.7 合规检查清单（本阶段）
+
+| 规则 | 结论 |
+|---|---|
+| GR15 Spec-Driven | ✅ 本节即 spec；**D6/D7 裁定前不动码** |
+| GR01 基础设施复用 | ✅ 复用 `abortSessionStream` / `TAORLoop.abort(true)` / `resumeFromCheckpoint` / `ResourceScheduler` 语义；不新建中止机制 |
+| CS01 归一化 | ✅ 优先级类型复用 core `requestPriority.ts`；不加新类型 |
+| CS02 状态判定 | ✅ `preempted`/`reason` 为结构化字段，非文案匹配 |
+| CS03 回退最小化 | ✅ 默认关；**不引入"以防万一"分支**；D7=c（仅告警）为现状，不额外造兜底 |
+| CS05 根因优先 | ✅ 根因＝"无跨会话调度维度"；抢占是调度语义而非预算问题（N1 不改预算） |
+| R06-008 分层 | ✅ `resourceGovernor` 与 `chat` 同属 app；service 入口仍走既有动态 import/注入 |
+| PY_APP §3 外科手术 | ✅ 只改透传链与 victim 处置，不动预算/模型选择 |
+
+### 9.8 风险（如实，须在裁定前知悉）
+
+1. **收益边界**（沿用 §8-1）：本仓**无正式用户**，单机单用户下跨会话争抢**极少发生** ⇒ 抢占的实际触发率低；本阶段价值主要在**语义完备**与**后台任务不挤占人工对话**。
+2. **B 会丢弃用户可见回复**（§9.2 ⚠️）；若产品不能接受，须选 C（成本更高）。
+3. **透传是"沉默收益"**：D7=c（仅告警）时透传**不产生行为差异** ⇒ 只有配合抢占/排队才有可见效果；单独做透传收益有限，**建议与 D7 同批**。
+4. **不得抢占同会话**（硬约束，§8-3）—— 违反会与 `_prepareStreamSession` 顶替语义打架。
+5. **PDL 的 `abort(saveCheckpoint)`**（仅 C）会触碰长任务中止语义 ⇒ 需回归 `tasks` 全量测试。

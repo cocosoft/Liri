@@ -26,6 +26,8 @@ import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
+// R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
+import { isNonIdempotentRetry } from '@modules/tools';
 import { configManager } from '@modules/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
@@ -259,6 +261,32 @@ export class ToolExecutionService {
       this._readFileStateCaches.set(key, cache);
     }
     return cache;
+  }
+
+  /**
+   * R07-3（2026-10-07）：非幂等工具「重试」⇒ 返回把该次调用**升级为审批**的理由；无需升级 ⇒ `undefined`。
+   *
+   * - 判据唯一实现 = `tools/toolEffects.ts#isNonIdempotentRetry`（同工具名 + **同参数** + 上次失败）；
+   * - 历史 = 本会话已记录的工具调用（`toolResultRegistry`，**进程内**）⇒ 重启后历史清空，
+   *   故"跨重启重放"不被判定（spec §7-2 已如实登记）；
+   * - 无 `sessionId` ⇒ 无历史可比 ⇒ 不升级（CS03：不猜测）。
+   */
+  private _resolveNonIdempotentRetryReason(
+    name: string,
+    args: Record<string, unknown>,
+    sessionId?: string
+  ): string | undefined {
+    if (!sessionId) return undefined;
+    const history = toolResultRegistry.listBySession(sessionId).map((c) => ({
+      toolName: c.toolName,
+      arguments: c.arguments,
+      error: c.result?.error,
+    }));
+    if (!isNonIdempotentRetry(name, args, history)) return undefined;
+    return (
+      `非幂等工具 '${name}' 的「重试」需要用户审批：本会话中**同参数**的上一次调用已失败，` +
+      '原样重放可能造成副作用重复（重复写入 / 发送 / 扣费）。请确认后再执行。'
+    );
   }
 
   /* ===============================================================
@@ -538,7 +566,7 @@ export class ToolExecutionService {
         checkPermissionForTool: (
           name: string,
           args: Record<string, unknown>,
-          context?: { sessionId?: string }
+          context?: { sessionId?: string; forceAskReason?: string }
         ) => Promise<{
           allowed: boolean;
           reason?: string;
@@ -546,10 +574,19 @@ export class ToolExecutionService {
           submittedToInbox?: boolean;
         }>;
       };
+      // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
+      // （原实现仅把 `[重试注意]` 写进 tool 结果回传模型，属**被动**提示）。
       const permissionResult = await pm.checkPermissionForTool(
         normalizedToolCall.name,
         normalizedToolCall.arguments,
-        { sessionId: toolCall.sessionId }
+        {
+          sessionId: toolCall.sessionId,
+          forceAskReason: this._resolveNonIdempotentRetryReason(
+            normalizedToolCall.name,
+            normalizedToolCall.arguments,
+            toolCall.sessionId
+          ),
+        }
       );
 
       if (!permissionResult.allowed) {

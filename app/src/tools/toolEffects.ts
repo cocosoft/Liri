@@ -138,3 +138,61 @@ export function shouldBlindRetryTool(name: string): boolean {
 
 /** 供门禁/测试断言的声明总数（漂移守护：只增不减，新增工具必须显式声明） */
 export const TOOL_EFFECTS_COUNT = Object.keys(TOOL_EFFECTS).length;
+
+/** 一次**已发生**的工具调用（判定「重试」所需的最小历史；由调用方提供） */
+export interface PriorToolCall {
+  toolName: string;
+  arguments: Record<string, unknown>;
+  /** 上次该调用的失败原因；缺省/空 ⇒ 视为成功 */
+  error?: string;
+}
+
+/** 递归深比较（**键序无关**，数组按下标）—— 仅供本文件的参数比对，不引跨层工具 */
+function deepEqualArgs(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      return false;
+    }
+    return a.every((v, i) => deepEqualArgs(v, (b as unknown[])[i]));
+  }
+  const ka = Object.keys(a).sort();
+  const kb = Object.keys(b).sort();
+  if (ka.length !== kb.length) return false;
+  return ka.every(
+    (k, i) =>
+      k === kb[i] &&
+      deepEqualArgs(
+        (a as Record<string, unknown>)[k],
+        (b as Record<string, unknown>)[kb[i]]
+      )
+  );
+}
+
+/**
+ * 是否为**非幂等工具的「重试」**（R07-3，2026-10-07）
+ *
+ * 与 `shouldBlindRetryTool()` 同源（同取 `resolveToolEffect`），区别是这里回答的是
+ * **"这一次调用是不是在重放已失败的那一次"**，供执行前**主动分流**（升级为审批）使用。
+ *
+ * 判据（spec `non-idempotent-retry-approval.md` **D1**）：
+ * **同工具名 + 同参数 + 上次失败** —— 精确表达"原样重放"，与「换参数再试」（合法）区分开。
+ *
+ * - 幂等（`shouldBlindRetryTool(name) === true`）⇒ **不是重试**（可自动重试）；
+ * - **未声明**工具（MCP / 插件）⇒ 按 **D3** 保守纳入（与 `shouldBlindRetryTool` 同口径）；
+ * - 历史由调用方提供（`toolResultRegistry.listBySession`）⇒ **纯函数、可单测**。
+ */
+export function isNonIdempotentRetry(
+  name: string,
+  args: Record<string, unknown>,
+  history: readonly PriorToolCall[]
+): boolean {
+  if (shouldBlindRetryTool(name)) return false; // 幂等 ⇒ 允许自动重试
+  return history.some(
+    (c) =>
+      c.toolName === name &&
+      Boolean(c.error) &&
+      deepEqualArgs(c.arguments, args)
+  );
+}

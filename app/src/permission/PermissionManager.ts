@@ -179,7 +179,12 @@ export class PermissionManager {
   async checkPermission(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
-    context?: PermissionContext
+    context?: PermissionContext,
+    /**
+     * R07-3（2026-10-07）：非幂等工具「重试」理由。提供 ⇒ 把**本该放行**的决策升级为 `ask`
+     * （见 `checkPermissionInner` 的模式豁免与 `non-idempotent-retry-approval.md` D2/D4）。
+     */
+    forceAskReason?: string
   ): Promise<PermissionDecision> {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
@@ -199,7 +204,8 @@ export class PermissionManager {
       const decision = await this.checkPermissionInner(
         toolOrName,
         input,
-        context
+        context,
+        forceAskReason
       );
       if (span) {
         span.setAttribute('decision', String(decision.type));
@@ -229,7 +235,9 @@ export class PermissionManager {
   private async checkPermissionInner(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
-    context?: PermissionContext
+    context?: PermissionContext,
+    /** R07-3（2026-10-07）：非幂等工具「重试」理由（见本方法末的模式豁免升级） */
+    forceAskReason?: string
   ): Promise<PermissionDecision> {
     // 获取工具名称
     const toolName =
@@ -326,6 +334,24 @@ export class PermissionManager {
           ruleContext
         );
         break;
+    }
+
+    // R07-3（2026-10-07）：非幂等工具「重试」⇒ 把**本该放行**的调用升级为 `ask`（审批）。
+    // 复用既有 ask⇒Inbox 通路（本方法调用方 `checkPermissionForTool` 提交卡片）⇒ 不新建审批机制。
+    // - D4：**只升级 `allow`** ⇒ `deny` 永不被削弱（安全姿态单调）；
+    // - D2：`bypass` / `dontAsk` 是用户/自动化**显式**"不要打断"（无人值守依赖），不覆盖
+    //   —— 否则无人值守流程会永久挂在 `awaiting_approval`。
+    if (
+      forceAskReason &&
+      decision.type === PermissionDecisionType.ALLOW &&
+      this.mode !== PermissionMode.BYPASS &&
+      this.mode !== PermissionMode.DONT_ASK
+    ) {
+      decision = createAskDecision(forceAskReason);
+      logger.info('permission:non_idempotent_retry_escalated', {
+        tool: toolName,
+        mode: this.mode,
+      });
     }
 
     this.auditDecision(decision, toolName, input);
@@ -1129,7 +1155,13 @@ export class PermissionManager {
   async checkPermissionForTool(
     toolName: string,
     input: Record<string, unknown> = {},
-    context?: Pick<PermissionContext, 'sessionId' | 'userId' | 'metadata'>
+    context?: Pick<PermissionContext, 'sessionId' | 'userId' | 'metadata'> & {
+      /**
+       * R07-3（2026-10-07）：非幂等工具「重试」理由（由调用方判定后传入）。
+       * 提供 ⇒ 本该放行的决策升级为 `ask` ⇒ 走下方既有 Inbox 提交通路（见 `checkPermissionInner`）。
+       */
+      forceAskReason?: string;
+    }
   ): Promise<{
     allowed: boolean;
     decision?: {
@@ -1154,7 +1186,8 @@ export class PermissionManager {
     const decision = await this.checkPermission(
       toolName,
       input,
-      permissionContext
+      permissionContext,
+      context?.forceAskReason
     );
 
     // P1-2: ask 决策统一提交 Inbox 审批卡片（唯一提交点，开关控制，避免重复提交）。

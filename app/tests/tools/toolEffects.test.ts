@@ -6,7 +6,8 @@
  *
  * 「漏声明 ⇒ 失败」的第一道闸是**编译期**（`TOOL_EFFECTS: Record<ToolName, ToolEffect>`），
  * 本测试补运行时守卫：① 声明覆盖全部内建工具；② 与实际元数据一致（`readOnly ⇒ idempotent`，
- * 例外显式登记）；③ 重试策略 `shouldBlindRetryTool` 语义正确。
+ * 例外显式登记）；③ 重试策略 `shouldBlindRetryTool` 语义正确；④ R07-3 重试判定
+ * `isNonIdempotentRetry`（非幂等 + 同参数 + 上次失败）。
  */
 import { describe, it, expect } from 'bun:test';
 import {
@@ -14,6 +15,7 @@ import {
   TOOL_EFFECTS_COUNT,
   resolveToolEffect,
   shouldBlindRetryTool,
+  isNonIdempotentRetry,
 } from '../../src/tools/toolEffects.js';
 import {
   TOOL_NAMES,
@@ -107,5 +109,83 @@ describe('shouldBlindRetryTool（非幂等禁盲重试）', () => {
     expect(resolveToolEffect('bash')?.sideEffect).toBe('external');
     expect(resolveToolEffect('file_write')?.sideEffect).toBe('local');
     expect(resolveToolEffect('file_read')?.sideEffect).toBe('none');
+  });
+});
+
+describe('isNonIdempotentRetry（R07-3 重试判定）', () => {
+  const failed = (toolName: string, args: Record<string, unknown>) => ({
+    toolName,
+    arguments: args,
+    error: 'boom',
+  });
+
+  it('幂等工具 ⇒ 永不算重试（可自动重试）', () => {
+    expect(
+      isNonIdempotentRetry('file_read', { file_path: 'a.ts' }, [
+        failed('file_read', { file_path: 'a.ts' }),
+      ])
+    ).toBe(false);
+  });
+
+  it('非幂等 + 同参数 + 上次失败 ⇒ 判定为重试', () => {
+    expect(
+      isNonIdempotentRetry('bash', { command: 'npm publish' }, [
+        failed('bash', { command: 'npm publish' }),
+      ])
+    ).toBe(true);
+  });
+
+  it('换参数（修正后重试）⇒ 不算重试', () => {
+    expect(
+      isNonIdempotentRetry('bash', { command: 'npm publish --dry-run' }, [
+        failed('bash', { command: 'npm publish' }),
+      ])
+    ).toBe(false);
+  });
+
+  it('上次**成功** ⇒ 不算重试', () => {
+    expect(
+      isNonIdempotentRetry('file_write', { file_path: 'a.ts' }, [
+        { toolName: 'file_write', arguments: { file_path: 'a.ts' } },
+      ])
+    ).toBe(false);
+  });
+
+  it('无历史 / 同名不同工具 ⇒ 不算重试', () => {
+    expect(isNonIdempotentRetry('bash', { command: 'x' }, [])).toBe(false);
+    expect(
+      isNonIdempotentRetry('bash', { command: 'x' }, [
+        failed('powershell', { command: 'x' }),
+      ])
+    ).toBe(false);
+  });
+
+  it('未声明（MCP / 插件）⇒ 按 D3 保守纳入', () => {
+    expect(
+      isNonIdempotentRetry('some_mcp_tool_not_declared', { q: 1 }, [
+        failed('some_mcp_tool_not_declared', { q: 1 }),
+      ])
+    ).toBe(true);
+  });
+
+  it('参数**键序无关**（同值不同键序仍判定为重试）', () => {
+    expect(
+      isNonIdempotentRetry('file_write', { b: 2, a: 1 }, [
+        failed('file_write', { a: 1, b: 2 }),
+      ])
+    ).toBe(true);
+  });
+
+  it('嵌套对象 / 数组亦按值比较', () => {
+    expect(
+      isNonIdempotentRetry('file_write', { meta: { a: [1, 2] } }, [
+        failed('file_write', { meta: { a: [1, 2] } }),
+      ])
+    ).toBe(true);
+    expect(
+      isNonIdempotentRetry('file_write', { meta: { a: [1, 3] } }, [
+        failed('file_write', { meta: { a: [1, 2] } }),
+      ])
+    ).toBe(false);
   });
 });

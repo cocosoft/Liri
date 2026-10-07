@@ -1,6 +1,6 @@
 # Spec：护栏双侧闭环（P26-2）
 
-> 版本 1.1 ｜ 创建 2026-10-07 ｜ 状态：🟢 **已裁定（D9=a 归并 / D10=a 不建统一注册表）；D11 未裁定**（本批只产出常开评估结论）—— **待实施；尚未动码**
+> 版本 1.2 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施（2026-10-07）** · 🟡 **A2（`OUTPUT_GUARD` 常开评估）待做** · 方案 B 按 D10=a 不实施 —— 见 §9 实施记录
 > 来源：台账 `dev_docs/任务计划-20261004.md` §26.2-**A6** 残余（"输入侧 3 检测器仍未统一接口 / 输出侧默认关"）⇒ §26.5 **P26-2**
 > 前置：输出侧内容护栏已由 **13-P2-1（2026-10-05）** 落地（`core/outputGuard` + `chat/outputGuards`）
 > 关联规则：GR15（Spec-Driven）/ GR01（基础设施复用）/ **CS01（归一化）** / **CS03（回退最小化）** / CS02 / R12-1（防 CS03 滥用）；对标《Agentic Design Patterns》Ch.18 Guardrails
@@ -84,7 +84,7 @@
 
 ---
 
-## 4. 决策点（**待裁定**）
+## 4. 决策点（**已裁定 D9/D10**；D11 未裁定）
 
 | ID | 决策项 | 选项 | 建议 |
 |:--:|---|---|---|
@@ -147,3 +147,35 @@
 2. **"统一注册表"大概率无收益**（§3.2 末）：入站文本若已被 `SystemPromptBuilder:30` 检测，则注册表只是换调用壳 ⇒ 建议 D10=a；如坚持 b，须先给出**增量消费点**。
 3. **默认值翻转（D11=b）是用户可见变更**：开启后邮箱/卡号被打码 ⇒ 须产品裁定，不在本 spec 范围。
 4. **本文档不含代码改动**；实施后须回填 §6 验收实测 + 台账 §26.5 状态。
+
+---
+
+## 9. 实施记录
+
+### 9.1 A1 —— 不可见 Unicode 三份实现归并（**已落地 2026-10-07，提交 `820b0ac85` 之后的代码批**）
+
+**diff 取证（落地前逐项对比，CS06）**
+
+| 实现 | 形态 | 覆盖 |
+|---|---|---|
+| `security/injection/UnicodeSanitizer.ts`（17 项表） | `{name,start,end,description}[]` | `200B/200C/200D/FEFF/200E/200F/202A–202E/2060/2061–2064/00AD/3164/2800/FFFC` |
+| `security/injection/PromptInjectionDetector.ts`（同形表） | 同上 | **与本表逐字相同** ⇒ 直接删副本 |
+| `chronos/CronInjectionScanner.ts`（`INVISIBLE_CHARS` 正则） | regex | `200B–200F/202A–202E/2060–2069/FEFF` ⇒ **多 `2065–2069`**、**少 `00AD/3164/2800/FFFC`** |
+
+⇒ **判定：三份不等价**。并集 = 原 17 项，其中 `Invisible Separator` 由 `2061–2064` **扩为 `2061–2069`**。
+
+**落地（5 文件 + 1 测试）**
+- `UnicodeSanitizer.ts`：`INVISIBLE_UNICODE_RANGES` 导出为**全仓单一事实源**（并集）+ 新助手 `isInvisibleCodePoint` / `containsInvisibleChars` / `countInvisibleChars`；类内两处循环收敛到助手（`getInvisibleCharacterDetails` 保留原循环以取 `name`）。
+- `PromptInjectionDetector.ts`：**删除**本地 17 项副本，改 `import { INVISIBLE_UNICODE_RANGES } from './UnicodeSanitizer'`（`scanInvisibleChars` 消费点不变）。
+- `CronInjectionScanner.ts`：**删除** `INVISIBLE_CHARS` 正则，改 `countInvisibleChars`（威胁名 `invisible_unicode` 与两处文案**逐字不变**）。
+- 出口：`security/injection/index.ts` + `security/index.ts` 增 4 值导出 + `InvisibleUnicodeRange` 类型导出。
+
+**⚠️ 行为变化（如实，已由测试锁定）**
+- `CronInjectionScanner`：新增检出 `00AD`/`3164`/`2800`/`FFFC`（**更严**，可能新增误报）；`2066–2069` 仍覆盖（**无漏检回退**）。
+- `UnicodeSanitizer` / `PromptInjectionDetector`：新增处理 `2065–2069`（**更严**，覆盖方向隔离符 ⇒ bidi 欺骗面）。
+
+**测试**：新建 `app/tests/security/invisibleUnicode.test.ts`（**7 例**：表为并集 / 助手覆盖并集 / 负例不误判 / 逐字符计数 / Sanitizer 移除「既有 + 新增面」/ Detector 检出 / Cron 文案逐字不变 + 新增面）。既有 `tests/tools/SecurityTools.test.ts`（`200B` 正例）**未改、通过**。
+
+**门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告**（471 → 470：删副本使 `PromptInjectionDetector.ts` 回落阈值下）/ 8 例外 · 全量 `bun test` **505 files / 4759 pass / 21 skip / 0 fail**（+1 文件 / +7 例，逐数吻合）。
+
+**未做（明确）**：§3.1-**A2**（`OUTPUT_GUARD` 常开评估）仍 open；§3.2 **方案 B（统一输入护栏注册表）按 D10=a 不实施**。

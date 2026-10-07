@@ -253,7 +253,13 @@ export {
   resetPromptInjectionDetector,
   UnicodeSanitizer,
   getUnicodeSanitizer,
+  // CS01 归一化（2026-10-07）：不可见 Unicode 单一事实源
+  INVISIBLE_UNICODE_RANGES,
+  isInvisibleCodePoint,
+  containsInvisibleChars,
+  countInvisibleChars,
 } from './injection';
+export type { InvisibleUnicodeRange } from './injection';
 export type {
   SecurityPatternEntry,
   PatternUpdateEvent,

@@ -5,9 +5,9 @@
  */
 
 /**
- * 需要移除的不可见 Unicode 字符范围
+ * 不可见 Unicode 字符范围
  */
-interface UnicodeRange {
+export interface InvisibleUnicodeRange {
   name: string;
   start: number;
   end: number;
@@ -15,9 +15,20 @@ interface UnicodeRange {
 }
 
 /**
- * 不可见 Unicode 字符范围列表
+ * 不可见 Unicode 字符范围列表 —— **全仓单一事实源**（CS01，2026-10-07 归并）
+ *
+ * 归并前存在三处独立实现：本表 / `PromptInjectionDetector.ts` 的同名表（逐字相同）/
+ * `chronos/CronInjectionScanner.ts` 的 `INVISIBLE_CHARS` 正则。
+ * **并集口径**（两侧差异已逐项 diff，取**更严**一边，无漏检回退）：
+ * - 本表原有 17 项（含 `00AD` 软连字符 / `3164` 韩文填充 / `2800` 盲文空白 / `FFFC` 对象替换符）；
+ * - 原 Cron 正则额外覆盖 `2060–2069` ⇒ 现把 `Invisible Separator` 的范围由 `2061–2064`
+ *   **扩展为 `2061–2069`**（补 `2065` 未分配 + `2066–2069` 方向隔离符 LRI/RLI/FSI/PDI —— bidi 欺骗面）。
+ *
+ * ⚠️ **行为变化（如实）**：`CronInjectionScanner` 新增检出 `00AD/3164/2800/FFFC`（更严）；
+ * `UnicodeSanitizer` / `PromptInjectionDetector` 新增处理 `2065–2069`（更严）。
+ * 详见 `.trae/specs/guardrails-dual-side.md`（D9=a）。
  */
-const INVISIBLE_UNICODE_RANGES: UnicodeRange[] = [
+export const INVISIBLE_UNICODE_RANGES: InvisibleUnicodeRange[] = [
   {
     name: 'Zero Width Space',
     start: 0x200b,
@@ -88,7 +99,8 @@ const INVISIBLE_UNICODE_RANGES: UnicodeRange[] = [
   {
     name: 'Invisible Separator',
     start: 0x2061,
-    end: 0x2064,
+    // 2061–2064 不可见运算符 + 2065 未分配 + 2066–2069 方向隔离符（LRI/RLI/FSI/PDI）
+    end: 0x2069,
     description: '不可见分隔符',
   },
   { name: 'Soft Hyphen', start: 0x00ad, end: 0x00ad, description: '软连字符' },
@@ -111,6 +123,35 @@ const INVISIBLE_UNICODE_RANGES: UnicodeRange[] = [
     description: '对象替换字符',
   },
 ];
+
+/**
+ * 码点是否属于不可见 Unicode —— **唯一判定入口**（禁止各处自建正则/副本，CS01）
+ */
+export function isInvisibleCodePoint(codePoint: number): boolean {
+  for (const range of INVISIBLE_UNICODE_RANGES) {
+    if (codePoint >= range.start && codePoint <= range.end) return true;
+  }
+  return false;
+}
+
+/** 文本是否含不可见 Unicode 字符 */
+export function containsInvisibleChars(text: string): boolean {
+  if (!text) return false;
+  for (let i = 0; i < text.length; i++) {
+    if (isInvisibleCodePoint(text.charCodeAt(i))) return true;
+  }
+  return false;
+}
+
+/** 统计文本中不可见 Unicode 字符个数（供威胁报告复用，避免各调用方自建正则） */
+export function countInvisibleChars(text: string): number {
+  if (!text) return 0;
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (isInvisibleCodePoint(text.charCodeAt(i))) count++;
+  }
+  return count;
+}
 
 /**
  * 可选的同形字符映射
@@ -210,17 +251,7 @@ export class UnicodeSanitizer {
     let removed = 0;
 
     for (let i = 0; i < text.length; i++) {
-      const codePoint = text.charCodeAt(i);
-      let isInvisible = false;
-
-      for (const range of INVISIBLE_UNICODE_RANGES) {
-        if (codePoint >= range.start && codePoint <= range.end) {
-          isInvisible = true;
-          break;
-        }
-      }
-
-      if (isInvisible) {
+      if (isInvisibleCodePoint(text.charCodeAt(i))) {
         removed++;
       } else {
         result += text[i];
@@ -263,19 +294,7 @@ export class UnicodeSanitizer {
    * @returns 是否包含
    */
   hasInvisibleCharacters(text: string): boolean {
-    if (!text) return false;
-
-    for (let i = 0; i < text.length; i++) {
-      const codePoint = text.charCodeAt(i);
-
-      for (const range of INVISIBLE_UNICODE_RANGES) {
-        if (codePoint >= range.start && codePoint <= range.end) {
-          return true;
-        }
-      }
-    }
-
-    return false;
+    return containsInvisibleChars(text);
   }
 
   /**

@@ -33,6 +33,14 @@ export type {
 } from './PromptInjectionDetector';
 export { UnicodeSanitizer, getUnicodeSanitizer } from './UnicodeSanitizer';
 export type { UnicodeSanitizeResult } from './UnicodeSanitizer';
+// CS01 归一化（2026-10-07）：不可见 Unicode **单一事实源**（供 chronos 等复用，禁止再建副本）
+export {
+  INVISIBLE_UNICODE_RANGES,
+  isInvisibleCodePoint,
+  containsInvisibleChars,
+  countInvisibleChars,
+} from './UnicodeSanitizer';
+export type { InvisibleUnicodeRange } from './UnicodeSanitizer';
 export {
   ContextFileScanner,
   getContextFileScanner,

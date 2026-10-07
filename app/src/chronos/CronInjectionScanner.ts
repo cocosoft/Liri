@@ -9,6 +9,7 @@
  *   relaxed: 含 skill 内容的组装 prompt — 4 种模式（避免误报）
  */
 import { getLogger } from '@modules/monitoring';
+import { countInvisibleChars } from '@modules/security';
 const logger = getLogger('chronos:injectionScan');
 
 export type ScanMode = 'strict' | 'relaxed';
@@ -88,22 +89,25 @@ const RELAXED_PATTERNS = [
 // Invisible Unicode Detection
 // ============================================================
 
-const INVISIBLE_CHARS =
-  /[\u200B\u200C\u200D\u200E\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
-
 /**
  * 检测不可见 Unicode 字符（对比度攻击）
+ *
+ * CS01 归一化（2026-10-07）：原为本文件私有的 `INVISIBLE_CHARS` 正则（覆盖 `200B–200F`/
+ * `202A–202E`/`2060–2069`/`FEFF`），现改用**全仓单一事实源**
+ * `security/injection/UnicodeSanitizer` 的并集表（`countInvisibleChars`）
+ * ⇒ **检出更严**：新增 `00AD`/`3164`/`2800`/`FFFC`；且不再存在独立副本。
+ * 威胁项名称/文案**逐字不变**（仅计数来源改为共享助手）。
  */
 function checkInvisibleUnicode(text: string): ScanResult {
-  const matches = text.match(INVISIBLE_CHARS);
-  if (matches && matches.length > 0) {
+  const count = countInvisibleChars(text);
+  if (count > 0) {
     return {
       safe: false,
       threats: [
         {
           name: 'invisible_unicode',
-          description: `Detected ${matches.length} invisible Unicode character(s) — potential contrast attack`,
-          match: `${matches.length} chars`,
+          description: `Detected ${count} invisible Unicode character(s) — potential contrast attack`,
+          match: `${count} chars`,
         },
       ],
     };

@@ -157,11 +157,16 @@ const SAFETY_SWITCHES = [
         why: '输出护栏存在高 FP（MIT 协议头邮箱 / 密钥字段）与静默改写代价，未满足 §9.2 P1–P5 前不得默认开',
     },
     { name: 'OUTPUT_GUARD_BLOCK', def: false, why: '阻断模式须显式开启（仅在 OUTPUT_GUARD 开启后生效）' },
+    {
+        name: 'OUTPUT_GUARD_KEEP_ORIGINAL',
+        def: false,
+        why: '护栏改写审计默认**不落原文**（P26-2 P4）：开 = 未打码内容落入本地事件日志',
+    },
     { name: 'RESOURCE_GOVERNOR', def: false, why: '跨会话抢占/排队须显式开启（默认关 = 零行为变更）' },
     { name: 'PRO_SECURITY_SUITE', def: false, why: '高级安全套件须显式开启' },
 ];
 
-/** 由清单派生的断言（避免 10 条近重复手写条目） */
+/** 由清单派生的断言（避免 11 条近重复手写条目） */
 const SAFETY_ASSERTIONS = SAFETY_SWITCHES.map((s) => ({
     id: `safety-switch-default-${s.name}`,
     why: `安全相关开关默认值须与 project_rules.md §1.4 清单一致（R07-2）—— ${s.why}`,

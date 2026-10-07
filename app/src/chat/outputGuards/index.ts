@@ -33,8 +33,11 @@ export {
   buildOutputGuardPayload,
   emitOutputGuardNotice,
   notifyOutputGuardResult,
+  // P26-2 P4（2026-10-07）：改写审计落盘（默认仅元数据）
+  appendOutputGuardAudit,
 } from './liveEvents.js';
 export type {
+  AppendAuditResult,
   OutputGuardNotice,
   OutputGuardNoticeAction,
 } from './liveEvents.js';

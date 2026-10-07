@@ -554,6 +554,16 @@ export interface LiriEventMap {
     channel: "steering";
     text: string;
   };
+  // P26-2 P4（2026-10-07）：输出护栏**改写审计**（log-only；镜像 app 侧同名字段，勿单端改）
+  "validation/output_guard_applied": {
+    action: "blocked" | "redacted";
+    messageId: string;
+    guards: string[];
+    originalLength: number;
+    originalSha256: string;
+    /** 仅 `OUTPUT_GUARD_KEEP_ORIGINAL=true` 时存在（默认不落盘原文） */
+    originalText?: string;
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────

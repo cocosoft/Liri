@@ -39,7 +39,10 @@ import { createFragment, renderFragment } from '@modules/context';
 import { handleError } from '@modules/error';
 import { SimpleMutex, getOutputGuardRegistry } from '@modules/core';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
-import { notifyOutputGuardResult } from '../outputGuards/index.js';
+import {
+  appendOutputGuardAudit,
+  notifyOutputGuardResult,
+} from '../outputGuards/index.js';
 // A5（2026-10-05）：跨会话资源治理（非流式路径准入点）
 import { getResourceGovernor } from '@modules/resourceGovernor';
 import { DEFAULT_REQUEST_PRIORITY } from '@modules/types/requestPriority';
@@ -947,6 +950,13 @@ export class ChatOrchestrator {
           }
           // PC-1：护栏命中（打码/阻断）⇒ 下发前端（未命中 ⇒ 内部不下发）
           notifyOutputGuardResult(session.id, assistantMessage.id, guardResult);
+          // P4：改写**持久留痕**（默认仅元数据；原文需 `OUTPUT_GUARD_KEEP_ORIGINAL=true`）
+          await appendOutputGuardAudit(
+            (event) => this.host.appendStreamEvent(session.id, event),
+            session.id,
+            assistantMessage.id,
+            guardResult
+          );
         }
 
         // 阶段 7: 用量通知

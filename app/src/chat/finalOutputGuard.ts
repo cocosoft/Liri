@@ -25,7 +25,10 @@
  * - 修复产物再跑一次 ⇒ 防止修复轮把敏感内容带回（如实：这是一次额外同步检查，非回退）。
  */
 
+import { createHash } from 'crypto';
+
 import type { MermaidLintIssue } from '@modules/types/mermaid';
+import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
 import { runOutputGuards } from '@modules/core';
 import type { OutputGuard, OutputGuardIssue } from '@modules/core';
 
@@ -52,6 +55,8 @@ export interface FinalOutputGuardDeps {
 /** 守卫结果：最终正文 + 是否已修复 + 命中问题（便于调用方记录/断言） */
 export interface FinalOutputGuardResult {
   text: string;
+  /** 护栏**前**原文（P26-2 **P4**：调用方据此落改写审计事件；是否落**明文**由开关决定） */
+  originalText: string;
   repaired: boolean;
   /** mermaid 结构问题（既有语义不变） */
   issues: MermaidLintIssue[];
@@ -81,6 +86,7 @@ export async function guardFinalOutput(
   if (gateBefore?.blocked) {
     return {
       text: gateBefore.text,
+      originalText: text,
       repaired: false,
       issues: [],
       guardIssues: gateBefore.issues,
@@ -118,6 +124,7 @@ export async function guardFinalOutput(
   if (gateAfter?.blocked) {
     return {
       text: gateAfter.text,
+      originalText: text,
       repaired: false,
       issues,
       guardIssues: gateAfter.issues,
@@ -134,10 +141,44 @@ export async function guardFinalOutput(
 
   return {
     text: outText,
+    originalText: text,
     repaired,
     issues,
     guardIssues: [...(gateBefore?.issues ?? []), ...(gateAfter?.issues ?? [])],
     blocked: false,
     redacted,
+  };
+}
+
+/**
+ * 构造**输出护栏改写审计**事件载荷（P26-2 **P4**，2026-10-07）
+ *
+ * - **默认只出元数据**：动作 / 命中的护栏名 / 原文长度 / **原文 SHA-256**（**不含明文**）
+ *   —— 可审计"发生过改写"、可对同一原文比对去重，但**不把刚打码的内容再写回磁盘**；
+ * - 仅当 `keepOriginal`（= `OUTPUT_GUARD_KEEP_ORIGINAL`）为真时附 `originalText`；
+ * - 未命中（既未阻断也未打码）⇒ 返回 `null`（**不落审计**，避免噪声事件）；
+ * - **纯函数**（开关由调用方注入）⇒ 两态均可单测。
+ */
+export function buildOutputGuardAuditPayload(
+  result: FinalOutputGuardResult,
+  messageId: string,
+  keepOriginal: boolean
+): LiriEventMap['validation/output_guard_applied'] | null {
+  const action = result.blocked
+    ? ('blocked' as const)
+    : result.redacted
+      ? ('redacted' as const)
+      : null;
+  if (!action) return null;
+
+  return {
+    action,
+    messageId,
+    guards: [...new Set((result.guardIssues ?? []).map((i) => i.guard))],
+    originalLength: result.originalText.length,
+    originalSha256: createHash('sha256')
+      .update(result.originalText, 'utf8')
+      .digest('hex'),
+    ...(keepOriginal ? { originalText: result.originalText } : {}),
   };
 }

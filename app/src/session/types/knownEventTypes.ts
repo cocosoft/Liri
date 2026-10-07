@@ -86,6 +86,8 @@ const ALL_SESSION_EVENT_TYPES = [
   'goal/deviation',
   // ─── 输出校验回喂（P1-1②，2026-09-28） ───
   'validation/injected',
+  // P26-2 P4（2026-10-07）：输出护栏改写审计（默认仅元数据；log-only）
+  'validation/output_guard_applied',
   // ─── 子代理恢复通路审计（B4-1，2026-09-23） ───
   'agent/recovery',
   // ─── 生命周期 ───

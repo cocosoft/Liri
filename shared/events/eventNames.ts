@@ -82,6 +82,12 @@ export const LIRI_EVENT_NAMES = [
   // 时，注入模型的修正指令同样属"模型可见输入"，必须可重建（§1.6 红线，与 `goal/injected`
   // 同一理由：`text` 记注入原文，通道前缀由通道自身拼装）。
   'validation/injected',
+  // P26-2 **P4**（2026-10-07）：**输出护栏改写审计** —— 护栏命中后调用方以安全文本**替换**
+  // 已流出正文，历史与模型上下文由此**永久**变为打码文本；本事件为该次改写留痕
+  // （默认只记**元数据**：动作 / 命中的护栏名 / 原文长度 / **原文 SHA-256**；仅当
+  // `OUTPUT_GUARD_KEEP_ORIGINAL=true` 时才附**原文**）。log-only：**不进消息 surface**
+  // （`originalText` 若入消息就等于把刚打码的内容又写回上下文）。
+  'validation/output_guard_applied',
   // B4-1（2026-09-23）：子代理恢复通路审计事件（认领 / 恢复 / 放弃各一条）——
   // log-only（不入消息 surface，与 `session/title` 同口径）：它描述的是**恢复通路**，
   // 不是模型看到的内容。修复前这三个可判定节点**只有 logger 文本**，

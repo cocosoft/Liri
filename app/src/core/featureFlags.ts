@@ -255,6 +255,16 @@ export const FEATURE_FLAGS = {
    */
   OUTPUT_GUARD_BLOCK: false,
   /**
+   * P26-2 **P4**（2026-10-07）：护栏改写审计**是否连原文一起落盘**（默认关）。
+   *
+   * 关（默认）⇒ `validation/output_guard_applied` 只记**元数据**（动作 / 护栏名 / 原文长度 /
+   * 原文 SHA-256）—— 可审计"发生过改写"且**不把刚打码的内容再写回磁盘**；
+   * 开 ⇒ 额外附 `originalText`（护栏**前**原文），可完全重建"模型原本说了什么"
+   * （FP 排查用）。⚠️ 开启即接受**未打码内容落入本地事件日志**：
+   * `FEATURE_OUTPUT_GUARD_KEEP_ORIGINAL=true`。
+   */
+  OUTPUT_GUARD_KEEP_ORIGINAL: false,
+  /**
    * A5（2026-10-05）：**跨会话资源治理**开关（默认关）。
    *
    * 开启后 `streamMessageFlow` / `ChatOrchestrator.sendMessage` 的准入点会经

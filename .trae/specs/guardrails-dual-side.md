@@ -1,6 +1,6 @@
 # Spec：护栏双侧闭环（P26-2）
 
-> 版本 1.5 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施** · 🟢 **A2（`OUTPUT_GUARD` 常开评估）已完成（结论：不翻默认）** · 🟢 **PC-1（护栏结果前端可见 = A2 的 P3 前置）已实施** · 🟢 **A2 前置 P1/P2 已实施 + P5 已量化（§10）** · 方案 B 按 D10=a 不实施 —— 见 §9 / §10 实施记录
+> 版本 1.6 ｜ 创建 2026-10-07 ｜ 状态：🟢 **A1（不可见 Unicode 三份实现归并）已实施** · 🟢 **A2（`OUTPUT_GUARD` 常开评估）已完成（结论：不翻默认）** · 🟢 **PC-1（护栏结果前端可见 = A2 的 P3 前置）已实施** · 🟢 **A2 前置 P1/P2/P4 已实施 + P5 已量化（§10）** · 方案 B 按 D10=a 不实施 —— 见 §9 / §10 实施记录
 > 来源：台账 `dev_docs/任务计划-20261004.md` §26.2-**A6** 残余（"输入侧 3 检测器仍未统一接口 / 输出侧默认关"）⇒ §26.5 **P26-2**
 > 前置：输出侧内容护栏已由 **13-P2-1（2026-10-05）** 落地（`core/outputGuard` + `chat/outputGuards`）
 > 关联规则：GR15（Spec-Driven）/ GR01（基础设施复用）/ **CS01（归一化）** / **CS03（回退最小化）** / CS02 / R12-1（防 CS03 滥用）；对标《Agentic Design Patterns》Ch.18 Guardrails
@@ -223,10 +223,10 @@
 | P1 | **收窄 secrets 模式为"值形态"判定** | ✅ **已完成（2026-10-07）** —— 改为**复用**既有 gitleaks 式规则表（provider 前缀 + 值长度下限），**删掉字段名正则**；见 §10 |
 | P2 | **豁免 MIT 协议头邮箱** | ✅ **已完成（2026-10-07）** —— **按行**豁免含 `Copyright` / `©` 的行（**不硬编码作者邮箱**）；见 §10 |
 | P3 | **先落地 PC-1**（护栏结果前端可见 + 原因） | ✅ **已完成（2026-10-07）** —— 见 §9.3；否则不得**静默**改写用户可见内容 |
-| P4 | **补"护栏前原文"留痕** | ⏸ **仍未做** —— 事件或字段，避免不可逆改写且无审计 |
+| P4 | **补"护栏前原文"留痕** | ✅ **已完成（2026-10-07）** —— 新增会话事件 `validation/output_guard_applied`（**默认仅元数据**：动作 / 护栏名 / 原文长度 / 原文 SHA-256；**原文需 `OUTPUT_GUARD_KEEP_ORIGINAL=true`**）；见 §10.6 |
 | P5 | **量化门槛** | 🟡 **已量化（2026-10-07）**：本仓语料（`app/src`+`client/src`+`app/docs` 共 **4798** 文件）实测「会改写内容的文件」**1364 → 47（−96.6%）**；**是否"达标"（可否翻默认）仍属 D11 产品裁定**，见 §10.3 |
 
-⇒ **P1/P2/P3/P5-量化 已完成；P4 未做**。D11 仍**未裁定**（`OUTPUT_GUARD` 维持 `false`）—— 但 §9.2④ 原列"前置条件（最小集）"中的三项已消除，翻默认的**技术障碍已基本清空**，余下的可**先补 P4** 再由产品裁定。
+⇒ **P1/P2/P3/P4/P5-量化 已完成**。D11 仍**未裁定**（`OUTPUT_GUARD` 维持 `false`）—— §9.2④ 原列"前置条件（最小集）"**五项已全部消除**（P5 已量化，达标与否留待产品裁定），翻默认的**技术障碍已清空**，余下的**纯属 D11 产品裁定**。
 
 ### 9.3 PC-1 —— 护栏结果前端可见（**A2 的 P3 前置**；用户裁定「通知 SSE」）—— 🟢 **已落地 2026-10-07**
 
@@ -264,13 +264,13 @@
 
 **门禁（全绿）**：`typecheck`（app + client）**0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外（基线）** · `lint:doc-code` **18 断言一致** · 全量 `bun test`（app）**510 files / 4796 pass / 21 skip / 0 fail** · `vitest`（client）**60 files / 521 pass**。
 
-**前置清单更新**：**P3 ✅ 已完成**；剩余 **P1 / P2 / P4 / P5** 仍 open ⇒ D11 仍**未裁定**、`OUTPUT_GUARD` 维持 `false`。
+**前置清单更新**：**P3 ✅ 已完成**；当时剩余 **P1 / P2 / P4 / P5** 仍 open（后已由 §10 全部完成）。
 
 ---
 
-## 10. A2 前置 P1 + P2 实施与 P5 量化（2026-10-07）
+## 10. A2 前置 P1 + P2 实施 · P4 留痕 · P5 量化（2026-10-07）
 
-> 授权：用户「按链路已定顺序继续」（P3 已完成 ⇒ 继 P1→P2）。**不翻任何默认值**（D11 仍属产品裁定）。
+> 授权：用户「按链路已定顺序继续」（P3 已完成 ⇒ 继 P1→P2；P4 由用户裁定「**默认元数据 + 开关放行原文**」）。**不翻任何默认值**（D11 仍属产品裁定）。
 
 ### 10.1 落点（实测）
 
@@ -311,9 +311,47 @@
 1. **残留 FP 42 文件**：主要来自**被复用规则表**的 `bearer-token`（`Bearer <token>` 在文档/测试里大量出现）与 `generic-secret`（长占位符 ≥8 字符无法与真口令区分）。**本批不擅自收紧** —— 该表是 `memory` 侧共享的**唯一事实源**，收紧需**跨模块协同**（否则记忆同步口径漂移）。
 2. **覆盖边界（P1 裁定的有意结果）**：`token: <长值>`（**无** provider 前缀）不再命中 —— 但 `Bearer xxx` / JWT / 各 provider 前缀仍覆盖。
 3. **输入侧同受影响**：`SensitivePatterns` 同时驱动 `ChatManager.streamMessage` 的**用户输入**脱敏 ⇒ 本批也**减少**"用户自己发的消息被改写"的情况（例：消息里写 `api_key: process.env.X` 不再被改写）；这是**预期改善**，非副作用。
-4. **仍未做**：**P4**（护栏前原文留痕）· **D11**（是否翻默认）**未裁定** —— 本批**未改** `featureFlags.ts`（`OUTPUT_GUARD` 维持 `false`）。
+4. **P4 已由 §10.6 补齐**（护栏前原文留痕）；**D11**（是否翻默认）**仍未裁定** —— 本批**未改** `OUTPUT_GUARD` 默认值（维持 `false`）。
 5. **未做真机端到端**：本批为单元级 + 语料量化；**未**在开启 `OUTPUT_GUARD=true` 的真实会话中观察打码呈现（P3 的前端链路已就位，见 §9.3）。
 
 ### 10.5 门禁（全绿）
 
 `typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0 · 动态跨层引用 41（未增）** · `lint:size` **0 错 / 470 警告 / 8 例外（基线）** · `lint:doc-code` **18 断言一致** · 全量 `bun test`（数值见台账 §26.5-P26-2）。
+
+---
+
+### 10.6 P4 —— 护栏前原文留痕（**用户裁定「默认元数据 + 开关放行原文」**）
+
+**背景（= §9.2④-3）**：护栏命中后调用方以安全文本 `updateMessageBlocks` **替换**已流出正文
+⇒ 历史消息与模型上下文**永久**变为打码文本。护栏**前**原文**无独立留痕** ⇒（a）"这次改写是否误伤"
+（P1/P2/P5 的 FP 排查）与（b）"当时模型到底说了什么"（§1.6 可重建精神）**都无法回答**。
+
+**留痕形态（用户两选一裁定）**：**默认只记元数据**（动作 / 命中护栏名 / 原文长度 / **原文 SHA-256**）——
+可审计"发生过改写"、可对同一原文比对去重，但**不把刚打码的内容再落盘**；
+仅 `OUTPUT_GUARD_KEEP_ORIGINAL=true`（**显式 opt-in**）时才附 `originalText`（可完全重建，FP 排查用）。
+
+**落点（实测）**
+
+| # | 文件 | 改动 |
+|:-:|---|---|
+| 1 | `shared/events/eventNames.ts`（**单一事实源**） | `LIRI_EVENT_NAMES` 新增 `'validation/output_guard_applied'`（含隐私取舍注释） |
+| 2 | `app/src/session/types/eventPayloads.ts` | `LiriEventMap` 新增同名载荷：`{ action, messageId, guards[], originalLength, originalSha256, originalText? }` |
+| 3 | `app/src/session/types/knownEventTypes.ts` | `ALL_SESSION_EVENT_TYPES` 登记（**穷尽断言**编译期强制，漏登记 ⇒ `TS2322`） |
+| 4 | `client/src/types/events.ts` | **镜像**同名载荷（由 `event-contract-parity` / `eventTypeParity` 双测守卫） |
+| 5 | `app/src/core/featureFlags.ts` | 新增 `OUTPUT_GUARD_KEEP_ORIGINAL: false`（含"开启即接受未打码内容落入本地事件日志"注释） |
+| 6 | `app/src/chat/finalOutputGuard.ts` | `FinalOutputGuardResult` 新增 `originalText: string`（三处 return 补齐）；新增**纯函数** `buildOutputGuardAuditPayload(result, messageId, keepOriginal)`（未命中 ⇒ `null`；阻断优先；护栏名 `Set` 去重；`createHash('sha256')`） |
+| 7 | `app/src/chat/outputGuards/liveEvents.ts` | 新增 `appendOutputGuardAudit(append, sessionId, messageId, result)`：构造**完整 `LiriEvent` 信封**（`schemaVersion:1 / seq:0`（落盘口原子分配）`/ time / sessionId`，与 `ReActToolLoop._emitValidationInjected` 同范式）→ `await` 落盘；**失败必 `logger.warning`**（CS03-002） |
+| 8 | `app/src/chat/outputGuards/index.ts` | 转出 `appendOutputGuardAudit` + `AppendAuditResult` |
+| 9 | `chat/orchestrator/streamMessageFlow.ts`（L2019）· `ChatOrchestrator.ts`（L954） | 两处终稿点，`notifyOutputGuardResult(...)` **之后** `await appendOutputGuardAudit((event) => host.appendStreamEvent(session.id, event), …)` |
+| 10 | `app/tests/chat/outputGuardAudit.test.ts` | **新建 7 例**：默认不含 `originalText` / 开关开才附原文 / 未命中 ⇒ `null` / 阻断优先 + 护栏名去重 / 落盘成功 `true` / 落盘失败 `false`；含 **sha256("abc") 已知向量**（证明哈希口径，非自证） |
+
+**同批（开关登记，防单边改）**：`scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` **10 → 11 项**（新增 `OUTPUT_GUARD_KEEP_ORIGINAL`，`def: false`）；`.trae/rules/project_rules.md §1.4` 表同步新增该行 + 清单规模注记改 **11 项**（版本 **v7.18.0**）—— 三者（代码字面值 ∩ 规则表 ∩ 断言表）**逐项对偶**，单边改动即 CI 阻断。
+
+**两条通道的分工（故意分开，如实）**：SSE 通知（§9.3 PC-1）是 **best-effort**（丢了只影响提示条，不 `await`）；
+本审计事件是**持久事实**（`await` + 失败留痕）。二者**互不替代**：前者让用户**当下**知道被改写，后者让事后**可审计/可重建**。
+
+**边界（CS03，不做项）**
+- **不做明文默认落盘**：用户裁定"不把刚打码的内容写回磁盘" ⇒ `originalText` 是**显式 opt-in**，且开启语义已在开关注释与 spec 中如实标注风险。
+- **不做"原文另存文件"**：与"事件即事实源"（§1.6）一致 —— 沿用既有 `events.jsonl`，不新增存储形态（CS01）。
+- **不做前端展示**：log-only（不入消息 surface）；`originalText` 若入消息就等于把刚打码的内容又写回模型上下文，与本事件目的**相反**。
+- **开关沿用 `OUTPUT_GUARD`**：护栏不命中 ⇒ 不产生本事件（`buildOutputGuardAuditPayload` 返回 `null`），故默认下**零新增事件**。

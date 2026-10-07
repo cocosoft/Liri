@@ -562,6 +562,37 @@ export interface LiriEventMap {
     text: string;
   };
 
+  /**
+   * 输出护栏**改写审计**（P26-2 **P4**，2026-10-07）。
+   *
+   * **为什么需要**：护栏命中后调用方以安全替代文本 `updateMessageBlocks` **替换**已流出正文
+   * ⇒ 历史消息与模型上下文**永久**变为打码文本；若原文**无独立留痕**，则"这次改写是否误伤"
+   * （P1/P2/P5 的 FP 排查）与"当时模型到底说了什么"（§1.6 可重建精神）**都无法回答**。
+   *
+   * **隐私取舍（用户裁定 2026-10-07）**：**默认只记元数据**（动作 / 护栏名 / 原文长度 /
+   * 原文 SHA-256）—— 可审计"发生过改写"并可对同一原文去重比对，但**不把刚打码的内容再落盘**；
+   * 仅当 `OUTPUT_GUARD_KEEP_ORIGINAL=true` 时才附 `originalText`（**显式 opt-in**）。
+   *
+   * log-only：**不入消息 surface**（与 `session/title`、`agent/recovery` 同口径）。
+   */
+  'validation/output_guard_applied': {
+    /** 护栏处置动作（与 `OutputGuardNoticeAction` 同源口径） */
+    action: 'blocked' | 'redacted';
+    /** 被打码/阻断的助手消息 id（便于与消息面互证） */
+    messageId: string;
+    /** 命中的护栏名（诊断用；**不含**命中片段本身） */
+    guards: string[];
+    /** 护栏**前**原文字符数 */
+    originalLength: number;
+    /** 护栏**前**原文的 SHA-256（hex）—— 可在不含明文的前提下比对/去重 */
+    originalSha256: string;
+    /**
+     * 护栏**前**原文（**仅 `OUTPUT_GUARD_KEEP_ORIGINAL=true` 时存在**）。
+     * ⚠️ 含**未打码**内容 ⇒ 默认不落盘；开启即表示接受"敏感内容落入本地事件日志"。
+     */
+    originalText?: string;
+  };
+
   // ─── 子代理恢复通路审计（B4-1，2026-09-23） ───
 
   /**

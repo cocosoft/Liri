@@ -6,8 +6,8 @@
  *   ② **鉴权 fail-closed** —— 启用但 **`A2A_API_KEY` 未配置** ⇒ **401**（**不**沿用"本地信任基线"放行）；
  *      配置了但头缺失/错 ⇒ **401**；`x-api-key` 正确 ⇒ 放行；
  *   ③ Card：`200`，`capabilities`（`streaming:true`（T4 批次 C SSE 已实现）/ `pushNotifications:false` / `stateTransitionHistory:false`）**与实现一致**（G2 / R11-3 D1）；
- *      且**不声明** `supportedInterfaces`（R11-3 D3：未实现标准绑定 ⇒ 不虚报 `protocolBinding`）；
- *   ④ `baseUrl`：优先 `A2A_PUBLIC_URL`；缺省按请求 Host 推导（**不硬编码**）；
+ *      **v1.0 形状**（T4 批次 D）：**无**顶层 `url` / `protocolVersion`，端点与版本在 `supportedInterfaces[0]`（**如实**声明 JSON-RPC 绑定 ⇒ 关闭预存 A2A-1）；
+ *   ④ 端点基址：优先 `A2A_PUBLIC_URL`；缺省按请求 Host 推导（**不硬编码**）—— 落在 `supportedInterfaces[0].url`；
  *   ⑤ Card：`If-None-Match` 命中 ⇒ **304**；非 GET ⇒ **405**；
  *   ⑥ 委派：**未装配后端 ⇒ 503 + `Retry-After`**（如实，**不伪造**成功；A12：原 501 ⇒ 503）；
  *   ⑦ 委派：`message` 缺失 / 非法 JSON ⇒ **400**；
@@ -212,32 +212,47 @@ describe('A2A Agent Card（发现）', () => {
     expect(cap.status).toBe(200);
 
     const card = JSON.parse(cap.body) as {
-      protocolVersion: string;
-      url: string;
+      protocolVersion?: unknown;
+      url?: unknown;
       capabilities: {
         streaming: boolean;
         pushNotifications: boolean;
         stateTransitionHistory: boolean;
       };
-      supportedInterfaces?: unknown;
+      supportedInterfaces?: {
+        url?: string;
+        protocolBinding?: string;
+        protocolVersion?: string;
+      }[];
     };
-    expect(card.protocolVersion).toBe('1.0');
-    expect(card.url).toBe('http://example.test:18990');
+    // T4 批次 D：**v1.0 形状** —— 顶层 `url` / `protocolVersion` 已移除
+    //（官方 "What's New in v1.0"："Primary endpoint now in `supportedInterfaces[0].url`"）
+    expect('protocolVersion' in card).toBe(false);
+    expect('url' in card).toBe(false);
     expect(card.capabilities).toEqual({
       streaming: true, // T4 批次 C：SSE 已实现 ⇒ 如实翻为 true
       pushNotifications: false,
       stateTransitionHistory: false,
     });
-    // R11-3 D3：未实现标准绑定 ⇒ **不得**声明 supportedInterfaces（不得虚报 protocolBinding）
-    expect('supportedInterfaces' in card).toBe(false);
+    // T4 批次 B/C 已实现 JSON-RPC + SSE ⇒ 本批**如实恢复**绑定声明（关闭预存 A2A-1）
+    expect(card.supportedInterfaces).toHaveLength(1);
+    expect(card.supportedInterfaces?.[0]?.protocolBinding).toBe('JSONRPC');
+    expect(card.supportedInterfaces?.[0]?.protocolVersion).toBe('1.0');
+    expect(card.supportedInterfaces?.[0]?.url).toBe(
+      'http://example.test:18990/v1/a2a/rpc'
+    );
   });
 
   it('④ A2A_PUBLIC_URL 优先于请求 Host', async () => {
     enableA2A();
     process.env.A2A_PUBLIC_URL = 'https://agents.example.com';
     const { cap } = await call('GET', auth({ host: 'internal.test' }));
-    expect((JSON.parse(cap.body) as { url: string }).url).toBe(
-      'https://agents.example.com'
+    // v1.0：端点取自 `supportedInterfaces[0].url`（顶层 `url` 已移除）
+    const card = JSON.parse(cap.body) as {
+      supportedInterfaces?: { url?: string }[];
+    };
+    expect(card.supportedInterfaces?.[0]?.url).toBe(
+      'https://agents.example.com/v1/a2a/rpc'
     );
   });
 

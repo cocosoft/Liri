@@ -306,7 +306,7 @@
 
 **开关**：环境变量 `A2A_ENABLED === 'true'` 才启用；**未启用 ⇒ 不处理任何 A2A 路径**（由上层回落 **404**，**不泄露端点存在性**，fail-closed）。
 **鉴权（fail-closed，2026-09-29 裁定；2026-10-07 扩为多钥）**：`A2A_API_KEYS`（**清单**，逗号分隔；每项 `key` 或 `key@<ISO-8601>` 过期时刻）—— **无有效钥**（未配置/空白/全过期/全非法）⇒ **一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；有有效钥则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`，**常量时间比较** —— 2026-10-07 R07-4②；同时作用于本机 API）。**与 `A2A_ENABLED` 构成双闸**；零中断轮换流程见 `a2a-multikey-rotation.md`。
-**基址**：优先 `A2A_PUBLIC_URL`；缺省按请求 `Host` 推导（**不硬编码域名/端口**）。
+**基址**：优先 `A2A_PUBLIC_URL`；缺省按请求 `Host` 推导（**不硬编码域名/端口**）—— 基址用于拼接卡片 `supportedInterfaces[0].url`（`<base>/v1/a2a/rpc`，REST 端点同源）。
 
 **发现端点状态码**
 
@@ -339,7 +339,7 @@
 
 **能力声明口径**：`capabilities.streaming` = **`true`**（T4 批次 C：SSE 流式已实现 —— `SendStreamingMessage` / `SubscribeToTask` 经 `POST /v1/a2a/rpc` 以 `text/event-stream` 推送，任务达终态即关流）；`pushNotifications` / **`stateTransitionHistory`** **恒为 `false`**（未支持的能力须**如实**声明；R11-3 D1 补第三项）；"长任务"以 **Task 状态机**表达（`submitted`→`working`→终态），**不用** `pushNotifications`。
 **JSON-RPC 绑定（T4）**：`POST /v1/a2a/rpc` —— 单入口 + `method` 分派（11 个 v1.0 操作，含 v0.3 别名）；**能力门控如实报错**（4 个推送配置 ⇒ `-32003`；扩展卡 ⇒ `-32004`）；须带 `A2A-Version: 1.0` 头（缺失按 0.3 处理 ⇒ `-32009`）；协议级错误以 **HTTP 200 + `error` 对象**返回。设计见 `.trae/specs/a2a-jsonrpc-binding.md`。
-**绑定声明口径（R11-3 D3 裁定 + T4）**：卡片**当前仍不声明** `supportedInterfaces` —— R11-3 D3（2026-10-07）撤销它是因为当时**未实现**任何标准绑定；**T4 批次 B/C 已落地 JSON-RPC 与 SSE**，**批次 D 将按 v1.0 如实恢复该声明**（指向 `/v1/a2a/rpc`）；此前对接仍可用本节的自定义 REST（`POST/GET /v1/a2a/tasks[...]` + `GET /v1/a2a/health`）与 JSON-RPC（`POST /v1/a2a/rpc`）。
+**绑定声明口径（R11-3 D3 → T4 批次 D 恢复）**：卡片现按 **v1.0 形状**如实声明 `supportedInterfaces[0] = { url: <base>/v1/a2a/rpc, protocolBinding: 'JSONRPC', protocolVersion: '1.0' }`；**顶层 `url` / `protocolVersion` 已按 v1.0 移除**（官方 "What's New in v1.0"："Primary endpoint now in `supportedInterfaces[0].url`"）。R11-3 D3 当时的"撤销"理由是"未实现任何标准绑定"，**T4 批次 B/C 已实现** JSON-RPC + SSE ⇒ 本批**如实恢复**（关闭预存 A2A-1）。自定义 REST（`POST/GET /v1/a2a/tasks[...]` + `GET /v1/a2a/health`）与 JSON-RPC（`POST /v1/a2a/rpc`）**并存**。
 **安全**：卡片**不内嵌密钥**（只声明 `securitySchemes`，凭证经 HTTP Header 带外传递）。
 **部署与轮换**：密钥经 **OS 环境变量** `A2A_API_KEYS`（**清单**）分发（改后**需重启**，无热加载）；**单钥轮换流程 + 回滚点**见 `.trae/specs/a2a-external-exposure.md` **§8**、**多钥零中断轮换（含可选过期）**见 `.trae/specs/a2a-multikey-rotation.md`（全清单含 `A2A_ENABLED` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）。
 
@@ -1043,7 +1043,9 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.9.0 | 2026-10-07 | §3.8.2 **A2A v1.0 标准绑定（T4 批次 A–D）**：新增 **`POST /v1/a2a/rpc`**（JSON-RPC 2.0 单入口：11 操作 + v0.3 别名 + 能力门控 `-32003`/`-32004` + `A2A-Version` 校验 `-32009` + **SSE 流式** `SendStreamingMessage`/`SubscribeToTask`）；卡片改为 **v1.0 形状**（`supportedInterfaces[]` 承载端点/绑定/版本，**移除顶层 `url`/`protocolVersion`**）、`capabilities.streaming` 翻 **`true`** |
 | 2.8.0 | 2026-10-07 | §3.8.2 新增 **`GET /v1/a2a/health`**（R11-3 D2 独立就绪探针：`{ status, delegatorReady }`，判据与委派 `503` **同源**）+ 卡片 `capabilities` 补 **`stateTransitionHistory: false`**（R11-3 D1，如实）+ 卡片**不再声明** `supportedInterfaces`（R11-3 D3 裁定：未实现标准绑定 ⇒ 不虚报 `protocolBinding: 'JSONRPC'`）；同批订正 §3.8.2 标题/表格中**过时路径** `agent.json` → `agent-card.json` |
+  > ⚠️ **2.8.0 的"不声明 `supportedInterfaces`"已被 2.9.0 取代**（T4 批次 B/C 实现后**如实恢复**）—— 保留本行以存史。
 | 2.7.0 | 2026-10-07 | §3.29.1 新增 **`GET /v1/patterns`**（编排模式只读目录：注册表 + 装配状态）；§3.8.2 鉴权改为 **多钥**（`A2A_API_KEY` → **`A2A_API_KEYS`**，清单 + 每钥可选 `@<ISO-8601>` 过期；**无有效钥 ⇒ 401** 不变）+ 标注**常量时间比较** |
 | 2.6.0 | 2026-09-29 | §3.8.2 新增 **A2A 鉴权**（`A2A_API_KEY`，**fail-closed**：未配置 ⇒ 401）—— 与 `A2A_ENABLED` 构成**双闸**；发现/委派端点均返回 **401** |
 | 2.5.0 | 2026-09-29 | §3.8.2 新增 **A2A 委派**（`POST /v1/a2a/tasks` / `GET /v1/a2a/tasks/{id}`）—— 有界等待（`A2A_DELEGATE_MAX_WAIT_MS`）+ Task 状态机；委派后端 = **CoreAPI 对话轮**（方案①） |

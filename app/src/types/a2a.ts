@@ -164,40 +164,51 @@ export interface A2AAgentExtension {
 }
 
 /**
- * 绑定与多租户路由条目（§6.2 / §6.3）。
+ * 绑定与多租户路由条目（v1.0 §AgentInterface）。
  *
- * ⚠️ **当前不在卡片中声明**（R11-3 D3，2026-10-07 用户裁定「撤销 JSON-RPC 声明」）：
- * 本仓**未实现**任何 A2A 标准绑定（JSON-RPC 派发属 T4 待裁定）⇒ 不得声明 `protocolBinding`。
- * 类型保留以镜像协议形状；若将来实现标准绑定，须按 A2A v1.0 的 `AgentInterface` 重引入并**如实**取值。
+ * **v1.0 变更**（官方 "What's New in v1.0" §AgentCard）：`url` / `protocolVersion` 等**顶层字段
+ * 已移除**，改由本对象承载（"Primary endpoint now in `supportedInterfaces[0].url`"）。
+ * `protocolBinding` 在 v1.0 是**开放字符串**（核心官方值 `JSONRPC` / `GRPC` / `HTTP+JSON`）；
+ * 本仓**只产出** `JSONRPC`（T4 已实现 JSON-RPC 绑定 + SSE）⇒ 类型收窄为字面量。
  */
 export interface A2AAgentInterface {
+  /** 该绑定的端点 URL（HTTP 系须为绝对 URL） */
   url: string;
+  /** 协议绑定（核心值之一；本仓恒为 `JSONRPC`） */
   protocolBinding: 'JSONRPC';
+  /** 该绑定所用的协议版本（v1.0 起**按接口声明**） */
   protocolVersion: string;
-  /** 多租户路由用（不透明字符串）；未设置则**必须省略**该字段（§6.3） */
+  /** 多租户路由用（不透明字符串）；未设置则**必须省略**该字段 */
   tenant?: string;
 }
 
-/** Agent Card：Agent 的数字名片（§5.1） */
+/**
+ * Agent Card：Agent 的数字名片（**v1.0 形状**）。
+ *
+ * v1.0 相对 v0.3 的**破坏性变更**（官方 "What's New in v1.0" §AgentCard，2026-10-07 核对）：
+ * - ⛔ 移除顶层 `protocolVersion` —— 改由 `supportedInterfaces[].protocolVersion`
+ * - ⛔ 移除顶层 `url` —— 改由 `supportedInterfaces[0].url`
+ * - ⛔ 移除 `preferredTransport` / `additionalInterfaces` —— 并入 `supportedInterfaces`
+ * - ⛔ 移除 `supportsAuthenticatedExtendedCard` —— 改由 `capabilities.extendedAgentCard`
+ * - ✅ 新增 `supportedInterfaces`（**REQUIRED**，按偏好排序）
+ *
+ * `securityRequirements` 依 v1.0 proto（`security_requirements`；官方 spec §8.5 样例同此名）。
+ */
 export interface A2AAgentCard {
-  protocolVersion: string;
   name: string;
   description: string;
-  url: string;
+  /** 支持的接口（**REQUIRED**，首个为偏好项） */
+  supportedInterfaces: A2AAgentInterface[];
   provider: { organization: string; url?: string };
   version: string;
+  documentationUrl?: string;
   capabilities: A2AAgentCapabilities;
   defaultInputModes: string[];
   defaultOutputModes: string[];
   skills: A2AAgentSkill[];
-  /**
-   * 传输绑定声明（§6.2）。**可选**；本仓**当前不填充**（R11-3 D3 —— 未实现标准绑定 ⇒ 不得虚报）。
-   * 对接方式以 `.trae/docs/api-spec.md` §3.8.2 的**自定义 REST** 契约为准。
-   */
-  supportedInterfaces?: A2AAgentInterface[];
   /** 安全声明（§5.3）：**禁止**内嵌静态密钥 */
   securitySchemes?: Record<string, unknown>;
-  security?: Array<Record<string, string[]>>;
+  securityRequirements?: Array<Record<string, string[]>>;
 }
 
 /* ==================== JSON-RPC 2.0（§2.5 / §6.2） ==================== */
@@ -420,3 +431,11 @@ export interface A2AStreamResponse {
 /** 服务参数头名（v1.0 §3.2.6 / §9.2；HTTP 绑定 MUST 用请求头，大小写不敏感） */
 export const A2A_HEADER_VERSION = 'A2A-Version';
 export const A2A_HEADER_EXTENSIONS = 'A2A-Extensions';
+
+/**
+ * A2A v1.0 **JSON-RPC 绑定端点路径**（本仓自定；非规范固定值）。
+ *
+ * **单一事实源**：HTTP 路由（`a2a-routes.ts`）与 Agent Card 的
+ * `supportedInterfaces[0].url`（`agentCard.ts`）**共用**本常量 ⇒ 不会漂移。
+ */
+export const A2A_RPC_PATH = '/v1/a2a/rpc';

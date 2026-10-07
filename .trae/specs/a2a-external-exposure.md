@@ -107,7 +107,7 @@
 ## 7. 不在范围 / 未验（如实）
 
 - ✅ **SSE 流式已实现（T4 批次 C，2026-10-07）**：`streaming` 翻为 **`true`**（`SendStreamingMessage` / `SubscribeToTask` 经 `POST /v1/a2a/rpc` 以 `text/event-stream` 推送）；`pushNotifications` **仍不实现**（**如实声明为 `false`** ⇒ 4 个推送配置操作返回 `-32003`）。见 [`a2a-jsonrpc-binding.md`](./a2a-jsonrpc-binding.md)。
-- ✅ **不声明传输绑定（R11-3 D3，2026-10-07 用户裁定；T4 批次 D 将如实恢复）**：卡片**省略** `supportedInterfaces` —— 定这个裁定时本仓**未实现**任何 A2A 标准绑定 ⇒ 不得虚报 `protocolBinding: 'JSONRPC'`（G2 纪律的同一精神）。**注（T4 批次 B/C，2026-10-07）**：JSON-RPC 与 SSE **已实现** ⇒ **批次 D 将按 v1.0 如实恢复**该声明（指向 `/v1/a2a/rpc`）。详见 [`a2a-jsonrpc-binding.md`](./a2a-jsonrpc-binding.md)。⚠️ 残留：A2A v1.0 该字段为**必需** ⇒ 批次 D 前卡片仍属 v0.x 形状。
+- ✅ **绑定声明已按 v1.0 如实恢复（T4 批次 D，2026-10-07）**：R11-3 D3 曾因"未实现任何标准绑定"**撤销** `supportedInterfaces`；**T4 批次 B/C 实现 JSON-RPC + SSE 后**，本批按 v1.0 形状如实声明 `supportedInterfaces[0] = { url: <base>/v1/a2a/rpc, protocolBinding: 'JSONRPC', protocolVersion: '1.0' }`，并**移除顶层 `url`/`protocolVersion`**（v1.0 已移除）⇒ **预存 A2A-1 关闭**。见 [`a2a-jsonrpc-binding.md`](./a2a-jsonrpc-binding.md)。
 - ❌ **不引入** A2A SDK 依赖（当前为自建类型 + 手写端点）。
 - ❌ **不改** `acp/`（其去留由 **T0** 结论决定）。
 - ✅ **已核并闭环（2026-09-29）**：`acp/` **确为对内** —— 远程 WS 服务**默认不启动**（`ACP_REMOTE_PORT` 未设 ⇒ `resolveAcpRemoteConfig()` 返回 `null`，[`ModuleBridgeSetup.ts:29-44`](../../app/src/bridge/ModuleBridgeSetup.ts#L29-L44)），且门控**在活的启动链上**（`main.ts:1821` / `BootPipelineIntegrator.ts:246`）；**运行期实证**：本机 5 次启动**全部**输出「ACP 远程服务未启用」、**零**「服务已启动」。⇒ 所谓"协议双轨"实为 **「A2A 对外（新接线）+ ACP 对内（默认关、双显式 opt-in 才能开）」**，边界清晰，**无需下线任何一套**。

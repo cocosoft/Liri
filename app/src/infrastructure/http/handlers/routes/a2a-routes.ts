@@ -45,6 +45,7 @@ import {
   A2A_LIST_TASKS_MIN_PAGE_SIZE,
   A2A_METHOD_ALIASES,
   A2A_METHODS,
+  A2A_RPC_PATH,
   JsonRpcErrorCode,
   isTerminalState,
 } from '@modules/types/a2a';
@@ -77,12 +78,12 @@ const TASKS_PATH = '/v1/a2a/tasks';
 /** 独立就绪探针（R11-3 D2；非 A2A 规范路径，本仓自定，见 api-spec §3.8.2） */
 const HEALTH_PATH = '/v1/a2a/health';
 /**
- * A2A v1.0 **JSON-RPC 绑定**单入口（T4 批次 B）。
+ * A2A v1.0 **JSON-RPC 绑定**单入口路径（T4 批次 B）。
  *
- * 规范形态即"单端点 + `method` 分派"（spec §9.4）；与方法名常量同源于
- * `@modules/types/a2a` 的 `A2A_METHODS`（不含路径前缀，故此处自行定义）。
+ * 规范形态即"单端点 + `method` 分派"（spec §9.4）。常量**取自 core `types/a2a.ts`**
+ * （单一事实源：Agent Card 的 `supportedInterfaces[0].url` 由 `agentCard.ts` 用同一定义拼接）。
  */
-const RPC_PATH = '/v1/a2a/rpc';
+const RPC_PATH = A2A_RPC_PATH;
 
 /**
  * 环境变量：是否对外暴露 A2A（**默认关闭**，spec G4）。
@@ -324,10 +325,11 @@ async function handleAgentCard(
 
   res.setHeader('ETag', etag);
   json(res, 200, card);
+  // v1.0 形状（T4 批次 D）：端点与协议版本在 `supportedInterfaces[0]`（顶层 `url`/`protocolVersion` 已移除）
   logger.info('A2A Agent Card 已发布', {
     agents: agentCount,
-    url: card.url,
-    protocolVersion: card.protocolVersion,
+    url: card.supportedInterfaces[0]?.url,
+    protocolVersion: card.supportedInterfaces[0]?.protocolVersion,
   });
   return true;
 }

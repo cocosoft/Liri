@@ -64,7 +64,7 @@
 | **A** | **协议类型补全**（`types/a2a.ts`）：11 方法常量 + v0.3/v0.4 别名 + 请求/响应 DTO（**落地子集**）+ 流事件联合 + `AgentExtension`/`AgentInterface` v1.0 形状 | ✅ |
 | **B** | **JSON-RPC dispatcher**：`POST /v1/a2a/rpc`（单入口，同双闸）；11 方法分派 + 错误映射；`A2APort` 补 `listTasks`/`cancelTask` | ✅ |
 | **C** | **SSE 流式**：`SendStreamingMessage` / `SubscribeToTask`（`text/event-stream` + 终态关流 + 订阅广播）+ `streaming` 如实翻 `true` | ✅ |
-| **D** | **卡片 v1.0 形状 + 如实重声明**：补 `supportedInterfaces`（指向 `/v1/a2a/rpc`）、顶层 `protocolVersion` 处理、`capabilities.extensions` ⇒ **关闭预存 A2A-1** | ⏸ |
+| **D** | **卡片 v1.0 形状 + 如实重声明**：`supportedInterfaces`（指向 `/v1/a2a/rpc`）、**移除顶层 `url`/`protocolVersion`**、`security`→`securityRequirements` ⇒ **关闭预存 A2A-1** | ✅ |
 | **E** | api-spec 收口 + **拆 `routes/a2a-rpc.ts`**（回落 `lint:size` 计数）+ 台账 | ⏸ |
 
 ## 5. 决策点（本批已定）
@@ -87,13 +87,13 @@
 
 ## 7. 验收
 
-- [ ] 11 个方法**均可被调用**：支持的 7 个返回规范形状；门控的 4 个（push）+ 1 个（extended card）返回**规范错误码**。
-- [ ] JSON-RPC 帧正确：`{"jsonrpc":"2.0","id":…,"result"|"error"}`；非法 JSON ⇒ `-32700`；非 2.0 / 缺 method ⇒ `-32600`；未知 method ⇒ `-32601`；参数非法 ⇒ `-32602`。
-- [ ] `ListTasks`：默认 `pageSize ≤ 50`、`nextPageToken` 无更多时为空串、按 status timestamp 降序。
-- [ ] 流：`text/event-stream`；每条 `data:` 为 JSON-RPC 响应对象；任务终态即关闭；终态任务 `SubscribeToTask` ⇒ `-32004`。
-- [ ] 卡片：`supportedInterfaces` 指向 RPC 端点且 `protocolBinding='JSONRPC'`（**真值**，非虚报）；能力字段与实现一致。
-- [ ] 门禁：`typecheck` 0 · 定向/全量 `bun test` 绿 · `lint:arch` 违规 0（**动态跨层引用不增**）· `lint:doc-code` 19 断言一致。
-- [ ] ⚠️ **无对端联调**（如实）：仅**单元级**验证；不与真实 A2A 客户端互通。
+- [x] 11 个方法**均可被调用**：支持的 6 个返回规范形状；门控的 4 个（push）+ 1 个（extended card）返回**规范错误码**。
+- [x] JSON-RPC 帧正确：`{"jsonrpc":"2.0","id":…,"result"|"error"}`；非法 JSON ⇒ `-32700`；非 2.0 / 缺 method ⇒ `-32600`；未知 method ⇒ `-32601`；参数非法 ⇒ `-32602`。
+- [x] `ListTasks`：默认 `pageSize` 50（夹 `[1,100]`）、`nextPageToken` 无更多时为空串、按 status timestamp 降序、`includeArtifacts` 非 true ⇒ 省略 `artifacts`。
+- [x] 流：`text/event-stream`；每条 `data:` 为 JSON-RPC 响应对象；**以 `Task` 起**、任务终态即关闭；终态任务 `SubscribeToTask` ⇒ `-32004`。
+- [x] 卡片：`supportedInterfaces[0]` 指向 RPC 端点且 `protocolBinding='JSONRPC'`（**真值**，非虚报）；**无**顶层 `url`/`protocolVersion`（v1.0 形状）；能力字段与实现一致（`streaming:true` / `pushNotifications:false` / `stateTransitionHistory:false`）。
+- [x] 门禁：`typecheck` 0 · 定向 **32 pass** · 全量 **4871 pass / 21 skip / 0 fail** · `lint:arch` 违规 0（**动态跨层引用 41 未增**）· `lint:doc-code` 19 断言一致。
+- [x] ⚠️ **无对端联调**（如实）：仅**单元级**验证；不与真实 A2A 客户端互通。
 
 ## 8. 合规检查清单
 
@@ -108,10 +108,11 @@
 ## 9. 风险与边界（如实）
 
 1. **无对端可联调**：全部验证为单元级（帧/错误码/门控/分页/流关闭）；**未**与真实 A2A 客户端互通 ⇒ 互操作风险未消除。
-2. **规范自相不一致**（已如实并列）：① `supportedInterfaces` 的 REQUIRED vs SHOULD；② `AgentCapabilities.extendedAgentCard` 字段号 §A.2.2 写 5 / proto 写 4。落地取 **proto 为准**（spec §1.4 明示 proto 是唯一规范源）。
-3. **`final` 字段已移除**：流关闭靠"终态事件 + 关流"，**不得**引入 `final`（v1.0 明确"should not be emitted"）。
-4. **推送通知不做** ⇒ 长任务在客户端断开时**无法通知**（本仓以 Task 状态机 + 轮询表达）。
-5. **`A2A_ENABLED` 默认关** ⇒ 本批对正常使用**零影响**。
+2. **规范自相不一致**（已如实并列，落地**取 proto 为准** —— spec §1.4 明示 proto 是唯一规范源）：① `supportedInterfaces` 的 REQUIRED（proto）vs SHOULD（spec §8.3.1）；② `AgentCapabilities.extendedAgentCard` 字段号 §A.2.2 写 5 / proto 写 4；③ **安全需求字段名**：spec §3.1.11 正文写 `AgentCard.security`，proto 为 `security_requirements` 且 §8.5 样例亦作 `securityRequirements` ⇒ 本批取**后者**。
+3. **卡片形状来源（可复核）**：`url` / `protocolVersion` / `preferredTransport` / `additionalInterfaces` / `supportsAuthenticatedExtendedCard` 的**移除**与 `supportedInterfaces` 的**新增**，取自官方 **"What's New in A2A Protocol v1.0" §AgentCard Object**（"Removed Fields" 与 "Structure Example v1.0" 两段，2026-10-07 拉取核对）；**非**从本仓推测。
+4. **`final` 字段已移除**：流关闭靠"终态事件 + 关流"，**不得**引入 `final`（v1.0 明确"should not be emitted"）。
+5. **推送通知不做** ⇒ 长任务在客户端断开时**无法通知**（本仓以 Task 状态机 + 轮询表达）。
+6. **`A2A_ENABLED` 默认关** ⇒ 本批对正常使用**零影响**。
 
 ## 10. 实施记录
 
@@ -121,6 +122,8 @@
 | 2026-10-07 | **批次 B** | `POST /v1/a2a/rpc` 单入口 dispatcher（11 方法分派 + 能力门控 + 错误映射）；`A2APort` 补 `listTasks`/`cancelTask`（**结构化结果**，避免异常控制流与字符串匹配）；`runDelegation` 抽为 REST/RPC **共用核心**（CS01）；新增 `tests/http/a2aRpc.test.ts`（**11 例**，含帧/错误码/门控/分页/`returnImmediately` 不阻塞）。门禁：`typecheck` 0 · `lint:arch` 违规 0/警告 4（基线）/动态跨层引用 **41（未增）** · 定向 **11 pass** · 全量 **4869 pass / 21 skip / 0 fail** |
 
 | 2026-10-07 | **批次 C** | **SSE 流式**：`SendStreamingMessage` / `SubscribeToTask`（`openSseStream`：`text/event-stream` + 每条 `data:` 为 **JSON-RPC 响应对象** + **终态即关流** + **幂等** `close`）；`taskStore` 内新增**订阅/广播**（快照遍历 + 逐监听器隔离 ⇒ 单流失败不影响其它流，spec §3.5.2）；`A2APort` 补 `subscribeTask`；卡片 `streaming` **如实翻为 `true`**（同批同步 api-spec §3.8.2 + `a2a-external-exposure.md` §1/§7 + `a2a-v1-naming-alignment.md` §1-4/§1-9/N1–N3 + `a2a-capability-negotiation.md` §5，**防双源漂移**）；`a2aRpc.test.ts` **+2 例**（流帧/关流/首帧/终态订阅拒绝）。门禁：`typecheck` 0 · 定向 **32 pass**（两文件）· 全量 **4871 pass / 21 skip / 0 fail** |
+
+| 2026-10-07 | **批次 D** | **卡片 v1.0 形状**（依据官方 "What's New in v1.0" §AgentCard，2026-10-07 核对）：新增 `supportedInterfaces`（**REQUIRED**，`url = <base>/v1/a2a/rpc`）；**移除**顶层 `url` / `protocolVersion` / `security`⇒`securityRequirements`（依 v1.0 proto）；`A2A_RPC_PATH` 提为 core 常量（**卡片与路由共用单一事实源**）；`A2AAgentCard.supportedInterfaces` 由可选改**必填**；同批同步 api-spec §3.8.2（含 **2.9.0** 版本行）+ `a2a-external-exposure.md` §7 + `a2a-capability-negotiation.md` §7-1 ⇒ **预存 A2A-1 关闭**。门禁：`typecheck` 0 · 定向 **32 pass** |
 
 **⚠️ 门禁计数变化（如实登记，批次 E 收口）**：`a2a-routes.ts` 因并入 RPC 绑定增至 **~880 行** ⇒ 超过 500 行阈值，`lint:size` 警告 **470 → 471**。该门禁明确"**建议拆分但不阻塞合并**"；**批次 E 须拆出 `routes/a2a-rpc.ts`**（RPC 绑定 + 委派核心 `runDelegation`/`toDeliverables`，经依赖注入取 `delegator`/`maxWaitMs` 以避免循环依赖），把计数**回落到 470**。
 

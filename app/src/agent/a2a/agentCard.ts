@@ -28,6 +28,7 @@
 
 import { createHash } from 'node:crypto';
 import type { AgentDefinition } from '../registry/AgentRegistry';
+import { A2A_RPC_PATH } from './types';
 import type { A2AAgentCard, A2AAgentSkill } from './types';
 
 /** v1.0 协议版本（§11.1 / §12.4） */
@@ -84,12 +85,10 @@ export function buildAgentCard(
   const skills = definitions.map(toSkill);
 
   return {
-    protocolVersion: A2A_PROTOCOL_VERSION,
     name: options.name ?? 'Liri Agent',
     description:
       options.description ??
       `Liri 本地 Agent 端点，当前发布 ${skills.length} 个 Agent。`,
-    url: options.baseUrl,
     provider: options.provider ?? { organization: 'Liri' },
     version: options.version,
     // 能力声明**必须与实现一致**（§4.1/§4.2：未支持的能力须在卡片声明为 false）
@@ -105,18 +104,29 @@ export function buildAgentCard(
     defaultInputModes: DEFAULT_INPUT_MODES,
     defaultOutputModes: DEFAULT_OUTPUT_MODES,
     skills,
-    // R11-3 D3（2026-10-07，用户裁定 = 撤销声明）：**不声明** `supportedInterfaces`。
-    // 原声明 `protocolBinding: 'JSONRPC'` 与实现不符 —— 本仓**未实现**任何 A2A 标准绑定
-    // （JSON-RPC 派发属 T4「待裁定」；`A2A_METHODS` 无生产消费者），对外只有**自定义 REST**
-    // `POST/GET /v1/a2a/tasks[...]`（对接契约见 `.trae/docs/api-spec.md` §3.8.2）。
-    // ⇒ 按"未支持的能力/绑定**不得虚报**"（同 G2 纪律）**省略该字段**（A2A 卡片该字段为可选）。
-    // 若将来实现标准绑定（T4），按 A2A v1.0 的 `AgentInterface` 重新声明。
+    // T4 批次 D（2026-10-07）：按 **v1.0 形状**如实声明传输绑定 —— 顶层 `url` / `protocolVersion`
+    // 已被 v1.0 移除（"Primary endpoint now in `supportedInterfaces[0].url`"），主端点＝本仓的
+    // **JSON-RPC 单入口**（`A2A_RPC_PATH`，与路由共用同一常量 ⇒ 不漂移）。
+    // 注：R11-3 D3 曾**撤销**该声明，理由是"当时未实现任何标准绑定"；**T4 批次 B/C 已实现**
+    // JSON-RPC + SSE ⇒ 本批**如实恢复**（关闭预存 A2A-1）。
+    supportedInterfaces: [
+      {
+        url: joinUrl(options.baseUrl, A2A_RPC_PATH),
+        protocolBinding: 'JSONRPC',
+        protocolVersion: A2A_PROTOCOL_VERSION,
+      },
+    ],
     // 只声明方案，不内嵌任何凭证（§5.3）
     securitySchemes: {
       bearer: { type: 'http', scheme: 'bearer' },
     },
-    security: [{ bearer: [] }],
+    securityRequirements: [{ bearer: [] }],
   };
+}
+
+/** 拼接基址与路径（去重尾部 `/`；**不**硬编码域名/端口） */
+function joinUrl(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/+$/, '')}${path}`;
 }
 
 /** 卡片 ETag：内容哈希（§5.4 条件请求用） */

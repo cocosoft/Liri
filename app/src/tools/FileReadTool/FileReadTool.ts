@@ -237,7 +237,7 @@ const BINARY_EXTENSIONS = new Set([
 
 export class FileReadTool extends BaseTool {
   name = 'file_read';
-  description = 'Read file content';
+  description = '读取文件内容';
 
   override tags = [ToolTag.FILE, ToolTag.READ];
 
@@ -256,7 +256,7 @@ export class FileReadTool extends BaseTool {
     {
       name: 'file_path',
       type: 'string',
-      description: 'Path to the file',
+      description: '文件路径',
       required: true,
     },
     {
@@ -269,13 +269,13 @@ export class FileReadTool extends BaseTool {
     {
       name: 'offset',
       type: 'number',
-      description: 'Start line number',
+      description: '起始行号',
       required: false,
     },
     {
       name: 'limit',
       type: 'number',
-      description: 'Maximum number of lines to read',
+      description: '最多读取的行数',
       required: false,
     },
   ];

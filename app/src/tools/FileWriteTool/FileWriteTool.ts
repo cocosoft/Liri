@@ -128,10 +128,10 @@ const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 export class FileWriteTool extends BaseTool {
   name = 'file_write';
   description =
-    'Write content to a file. ' +
-    'When the content already exists on disk (e.g. another tool produced a local file), ' +
-    'you MUST pass source_file instead of reciting the full content as a string — ' +
-    'this avoids output token explosion, JSON truncation and memory blow-up.' +
+    '把内容写入文件。' +
+    '当内容已存在于磁盘上（例如其它工具已产出本地文件）时，' +
+    '必须传入 source_file，而不是把完整内容作为字符串复述——' +
+    '这样可避免输出 token 爆炸、JSON 截断与内存膨胀。' +
     '注意：产物落在全局输出目录（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
     '若该文件须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
 
@@ -142,32 +142,31 @@ export class FileWriteTool extends BaseTool {
       name: 'file_path',
       type: 'string',
       description:
-        'Path to the destination file. Prefer a RELATIVE path or a plain filename — ' +
-        'it will be saved under the app output directory (~/.pyapp/output). ' +
-        'Do NOT invent absolute paths under the user home directory or project root ' +
-        'unless the user explicitly requested a specific location.',
+        '目标文件路径。优先使用相对路径或纯文件名——' +
+        '它会被保存到应用输出目录（~/.pyapp/output）下。' +
+        '不要臆造用户主目录或项目根目录下的绝对路径，' +
+        '除非用户明确指定了具体位置。',
       required: true,
     },
     {
       name: 'content',
       type: 'string',
-      description:
-        'Content to write. Required only when source_file is not used.',
+      description: '要写入的内容。仅当未使用 source_file 时必填。',
       required: false,
     },
     {
       name: 'source_file',
       type: 'string',
       description:
-        'Path to an existing local file whose content will be copied to the destination. ' +
-        'Use this instead of content whenever the file already exists on disk — ' +
-        '0 output tokens, no truncation risk.',
+        '本地已有文件的路径，其内容将被拷贝到目标文件。' +
+        '只要文件已存在于磁盘上，就用它替代 content——' +
+        '0 输出 token，无截断风险。',
       required: false,
     },
     {
       name: 'append',
       type: 'boolean',
-      description: 'Append content to file instead of overwriting',
+      description: '追加内容到文件，而非覆盖',
       required: false,
     },
   ];

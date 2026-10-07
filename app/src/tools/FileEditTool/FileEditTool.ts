@@ -174,7 +174,7 @@ function normalizeQuotes(str: string): string {
 
 export class FileEditTool extends BaseTool {
   name = 'file_edit';
-  description = 'Edit a file by replacing text';
+  description = '通过替换文本编辑文件';
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];
 
@@ -182,25 +182,25 @@ export class FileEditTool extends BaseTool {
     {
       name: 'file_path',
       type: 'string',
-      description: 'Path to the file',
+      description: '文件路径',
       required: true,
     },
     {
       name: 'old_string',
       type: 'string',
-      description: 'Text to replace',
+      description: '要被替换的文本',
       required: true,
     },
     {
       name: 'new_string',
       type: 'string',
-      description: 'Replacement text',
+      description: '替换后的文本',
       required: true,
     },
     {
       name: 'replace_all',
       type: 'boolean',
-      description: 'Replace all occurrences of old_string (default: false)',
+      description: '替换 old_string 的所有匹配项（默认 false）',
       required: false,
     },
   ];

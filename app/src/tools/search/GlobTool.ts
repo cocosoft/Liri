@@ -25,7 +25,7 @@ const logger = getLogger('tools:search:GlobTool');
 
 export class GlobTool extends BaseTool {
   name = 'glob';
-  description = 'Find files matching a pattern';
+  description = '查找匹配指定模式的文件';
 
   override tags = [ToolTag.FILE, ToolTag.READ];
 
@@ -44,14 +44,14 @@ export class GlobTool extends BaseTool {
     {
       name: 'pattern',
       type: 'string',
-      description: 'Glob pattern',
+      description: 'Glob 匹配模式',
       required: true,
       example: '**/*.ts',
     },
     {
       name: 'path',
       type: 'string',
-      description: 'Directory to search in',
+      description: '要搜索的目录',
       required: false,
       default: '.',
       example: '.',

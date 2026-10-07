@@ -22,7 +22,7 @@ export interface BriefToolInput {
 
 export class BriefTool extends BaseTool<BriefToolInput> {
   name = 'brief';
-  description = 'Generate a summary of the current session';
+  description = '生成当前会话的摘要';
 
   override tags = [ToolTag.READ];
 

@@ -353,17 +353,17 @@ export class BashTool extends BaseTool {
   override get description(): string {
     if (this.isWindows) {
       return [
-        'Execute commands via Windows Command Prompt (cmd.exe).',
-        'IMPORTANT: This runs cmd.exe, NOT bash. Use Windows commands only.',
-        '- Use \\ for path separators (e.g. C:\\Users\\...), NOT /',
-        '- Use %TEMP% or %USERPROFILE% for temp/user directories, NOT /tmp',
-        '- Use dir instead of ls, type instead of cat, findstr instead of grep',
-        '- Use del instead of rm, copy instead of cp, move instead of mv',
-        '- Use git, npm, node, python etc. as they are available on Windows',
-        '- For complex scripts, prefix with powershell -Command "..."',
+        '通过 Windows 命令提示符（cmd.exe）执行命令。',
+        '重要：这里运行的是 cmd.exe，不是 bash。只能使用 Windows 命令。',
+        '- 路径分隔符使用 \\（例如 C:\\Users\\...），而非 /',
+        '- 临时/用户目录使用 %TEMP% 或 %USERPROFILE%，而非 /tmp',
+        '- 用 dir 代替 ls，用 type 代替 cat，用 findstr 代替 grep',
+        '- 用 del 代替 rm，用 copy 代替 cp，用 move 代替 mv',
+        '- git、npm、node、python 等可直接使用（Windows 上可用）',
+        '- 复杂脚本请加前缀 powershell -Command "..."',
       ].join('\n');
     }
-    return 'Execute shell commands with security checks';
+    return '在安全检查下执行 shell 命令';
   }
 
   override tags = [ToolTag.CODE];
@@ -388,8 +388,8 @@ export class BashTool extends BaseTool {
 
     // 动态参数描述
     const commandParamDesc = this.isWindows
-      ? 'The command to execute. Must be a Windows cmd.exe command (NOT Unix/bash). Use \\ for paths, %VAR% for env vars.'
-      : 'The command to execute';
+      ? '要执行的命令。必须是 Windows cmd.exe 命令（而非 Unix/bash）。路径使用 \\，环境变量使用 %VAR%。'
+      : '要执行的命令';
     const commandParamExample = this.isWindows ? 'dir C:\\Users' : 'ls -la';
 
     this.params = [
@@ -404,21 +404,21 @@ export class BashTool extends BaseTool {
       {
         name: 'timeout',
         type: 'number',
-        description: 'Timeout in milliseconds (max 300000)',
+        description: '超时时间（毫秒，最大 300000）',
         required: false,
         default: 60000,
       },
       {
         name: 'cwd',
         type: 'string',
-        description: 'Working directory',
+        description: '工作目录',
         required: false,
         default: undefined,
       },
       {
         name: 'env',
         type: 'object',
-        description: 'Environment variables',
+        description: '环境变量',
         required: false,
         default: undefined,
       },

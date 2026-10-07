@@ -236,7 +236,7 @@ const execAsync = promisify(exec);
 export class PowerShellTool extends BaseTool {
   name = 'powershell';
   description =
-    'Execute PowerShell commands on Windows systems. Use for Windows-specific administration, registry operations, and system management.';
+    '在 Windows 系统上执行 PowerShell 命令。用于 Windows 特有的管理、注册表操作和系统管理。';
 
   override tags = [ToolTag.CODE];
 
@@ -244,41 +244,40 @@ export class PowerShellTool extends BaseTool {
     {
       name: 'command',
       type: 'string',
-      description: 'The PowerShell command to execute',
+      description: '要执行的 PowerShell 命令',
       required: true,
       example: 'Get-Process | Select-Object -First 10',
     },
     {
       name: 'timeout',
       type: 'number',
-      description: 'Timeout in milliseconds',
+      description: '超时时间（毫秒）',
       required: false,
       default: 60000,
     },
     {
       name: 'workingDirectory',
       type: 'string',
-      description: 'Working directory for the command',
+      description: '命令的工作目录',
       required: false,
     },
     {
       name: 'executionPolicy',
       type: 'string',
-      description: 'PowerShell execution policy (Bypass, RemoteSigned, etc.)',
+      description: 'PowerShell 执行策略（Bypass、RemoteSigned 等）',
       required: false,
       default: 'Bypass',
     },
     {
       name: 'depth',
       type: 'number',
-      description: 'Limit output to N objects to avoid overly verbose results',
+      description: '将输出限制为 N 个对象，避免结果过于冗长',
       required: false,
     },
     {
       name: 'exclude',
       type: 'string',
-      description:
-        'Exclude output lines containing this text (simple text match)',
+      description: '排除包含此文本的输出行（简单文本匹配）',
       required: false,
     },
   ];

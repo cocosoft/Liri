@@ -136,7 +136,7 @@ export function buildCodeRunnerToolManifest(): string {
   if (entries.length === 0) return '';
 
   return (
-    '\n\nTools callable inside the sandbox via __liriRuntime.callTool(name, args):\n' +
+    '\n\n沙箱内可通过 __liriRuntime.callTool(name, args) 调用的工具：\n' +
     entries.join('\n')
   );
 }
@@ -169,12 +169,12 @@ export function configureCodeRunner(deps: CodeRunnerRuntimeDeps): void {
 export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
   name = 'code_run';
 
-  /** 基础契约（英文，与既有工具描述同风格）；工具清单段由 getter 动态拼接 */
+  /** 基础契约（2026-10-07 起随 schema 口径改中文，与既有工具描述同风格）；工具清单段由 getter 动态拼接 */
   private static readonly BASE_DESCRIPTION =
-    'Execute TypeScript orchestration code in a restricted sandbox. ' +
-    'The code must not contain any import/require statements; capabilities are provided ' +
-    'via the global __liriRuntime API (callTool/readContext/writeOutput/emitEvent/done). ' +
-    'Call __liriRuntime.done(result) when finished. Use for complex multi-step tasks.';
+    '在受限沙箱中执行 TypeScript 编排代码。' +
+    '代码不得包含任何 import/require 语句；能力通过全局 ' +
+    '__liriRuntime API（callTool/readContext/writeOutput/emitEvent/done）提供。' +
+    '完成时调用 __liriRuntime.done(result)。用于复杂的多步骤任务。';
 
   /**
    * 工具描述 = 基础契约 + **沙箱内可调用工具清单**（T-2 ①，2026-10-05）。
@@ -191,13 +191,13 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
       name: 'code',
       type: 'string',
       description:
-        'TypeScript orchestration code. Zero imports allowed. Use globalThis.__liriRuntime.',
+        'TypeScript 编排代码。不允许任何 import。使用 globalThis.__liriRuntime。',
       required: true,
     },
     {
       name: 'language',
       type: 'string',
-      description: 'Language (default: ts)',
+      description: '语言（默认：ts）',
       required: false,
       enum: ['ts'],
       default: 'ts',
@@ -205,7 +205,7 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
     {
       name: 'round',
       type: 'number',
-      description: 'Round marker (log only, no state)',
+      description: '轮次标记（仅用于日志，无状态）',
       required: false,
       minimum: 1,
       maximum: 10,

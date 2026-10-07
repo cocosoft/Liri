@@ -16,12 +16,12 @@ interface SleepInput {
 export class SleepTool extends BaseTool<Record<string, unknown>> {
   name = 'sleep';
   description =
-    'Pause execution for a specified duration. Use when you need to wait before proceeding (e.g., waiting for a resource, rate limiting, or timing).';
+    '暂停执行指定时长。当需要在继续之前等待时使用（例如等待资源、限流或计时）。';
   params: ToolParam[] = [
     {
       name: 'durationMs',
       type: 'number',
-      description: 'Duration to sleep in milliseconds (min: 100, max: 300000)',
+      description: '睡眠时长（毫秒，最小 100，最大 300000）',
       required: true,
       minimum: 100,
       maximum: 300000,
@@ -29,7 +29,7 @@ export class SleepTool extends BaseTool<Record<string, unknown>> {
     {
       name: 'reason',
       type: 'string',
-      description: 'Optional reason for sleeping',
+      description: '可选的睡眠原因',
       required: false,
     },
   ];

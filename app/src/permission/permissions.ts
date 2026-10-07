@@ -18,18 +18,29 @@ export interface ToolPermissionContext {
 }
 
 export function getEmptyToolPermissionContext(): ToolPermissionContext {
-  const emptyRecord: Record<string, string[]> = {};
-  for (const source of RULE_SOURCES) {
-    emptyRecord[source] = [];
-  }
   return {
     mode: 'default',
-    alwaysAllowRules: emptyRecord as Record<PermissionRuleSource, string[]>,
-    alwaysDenyRules: emptyRecord as Record<PermissionRuleSource, string[]>,
-    alwaysAskRules: emptyRecord as Record<PermissionRuleSource, string[]>,
+    alwaysAllowRules: buildEmptyRulesBySource(),
+    alwaysDenyRules: buildEmptyRulesBySource(),
+    alwaysAskRules: buildEmptyRulesBySource(),
     isBypassPermissionsModeAvailable: false,
     additionalWorkingDirectories: [],
   };
+}
+
+/**
+ * 构造"每个来源一个空数组"的规则表。
+ *
+ * ⚠️ **必须每张表各建一份**（2026-10-07 修正）：此前 allow/deny/ask **共享同一对象**，
+ * 任何一侧写入都会同时污染另两（接线 `loadAllPermissionSettings` 时实测：allow 的规则
+ * 泄漏进 deny/ask）。三表同源引用 ⇒ 权限判定语义被静默改写。
+ */
+function buildEmptyRulesBySource(): Record<PermissionRuleSource, string[]> {
+  const record = {} as Record<PermissionRuleSource, string[]>;
+  for (const source of RULE_SOURCES) {
+    record[source] = [];
+  }
+  return record;
 }
 
 const RULE_SOURCES: PermissionRuleSource[] = [

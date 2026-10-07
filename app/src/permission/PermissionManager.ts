@@ -63,6 +63,7 @@ import type { Span, Counter } from '@opentelemetry/api';
 import { PermissionAction, OperationType, RoleType } from './Permission';
 import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
 import { permissionMetrics } from './metrics/PermissionMetricsStore';
+import { loadAllPermissionSettings } from './permissionsLoader';
 
 const logger = getLogger('permission:manager');
 
@@ -158,6 +159,18 @@ export class PermissionManager {
 
     // 加载权限规则
     this.ruleManager.loadRules();
+
+    // 2026-10-07 接线：settings 文件（user / project / local）的 `permissions.allow|deny|ask`
+    // 此前**整体未接线**（`loadAllPermissionSettings` 零消费者）⇒ 用户写进 settings 的权限规则
+    // 不生效。现并入决策上下文（来源优先级见 `PERMISSION_RULE_SOURCES`：
+    // user < project < local < policy）。
+    // 失败安全：加载器内部逐来源 try/catch（`handleError`），读取失败仅告警、不阻断启动。
+    const settingsContext = loadAllPermissionSettings();
+    this.toolPermissionContext = {
+      alwaysAllowRules: settingsContext.alwaysAllowRules,
+      alwaysDenyRules: settingsContext.alwaysDenyRules,
+      alwaysAskRules: settingsContext.alwaysAskRules,
+    };
   }
 
   /**

@@ -70,7 +70,7 @@ export function loadPermissionsFromSettings(
   return context;
 }
 
-export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
+export function loadAllPermissionSettings(): ToolPermissionContext {
   let context = getEmptyToolPermissionContext();
 
   // 路径统一取自配置层的规范解析器（与 ConfigManager 的 settings 来源同源），

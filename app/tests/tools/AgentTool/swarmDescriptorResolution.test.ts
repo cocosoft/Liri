@@ -721,7 +721,7 @@ describe('M-8：预算触顶收尾指令注入 LLM 输入', () => {
 
     expect(text).toContain('[SYSTEM]');
     expect(text).toContain('(150/100)');
-    expect(text).toContain('Stop starting new work now');
+    expect(text).toContain('现在停止开展新工作');
   });
 
   test('未触顶 ⇒ 输出不含收尾指令（零回归）', async () => {

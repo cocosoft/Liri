@@ -21,18 +21,18 @@ import { chargeGoalUsage } from '../../../src/tasks/goal/goalBudget';
 import { TaskGoalStore } from '../../../src/tasks/goal/TaskGoalStore';
 
 describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
-  test('4 条既有续接指令**逐字锁定**（迁移不得改文案）', () => {
+  test('4 条续接指令**逐字锁定**（改动文案须同批更新本断言）', () => {
     expect(CONTINUATION_TEMPLATES.empty).toBe(
-      'The previous attempt did not produce a user-visible answer. Continue from the current state and produce the visible answer now. Do not restart from scratch.'
+      '上一次尝试没有产出用户可见的回答。请从当前状态继续，现在就给出可见的回答。不要从头重来。'
     );
     expect(CONTINUATION_TEMPLATES.reasoning).toBe(
-      'The previous assistant turn recorded reasoning but did not produce a user-visible answer. Continue from that partial turn and produce the visible answer now. Do not restate the reasoning or restart from scratch.'
+      '上一轮助手只留下了推理过程，没有产出用户可见的回答。请从该未完成的轮次继续，现在就给出可见的回答。不要复述推理，也不要从头重来。'
     );
     expect(CONTINUATION_TEMPLATES.planning).toBe(
-      'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.'
+      '上一轮助手只描述了计划。不要复述计划。现在就开始行动：执行你能做的第一个具体工具操作。如果确有阻塞导致无法行动，用一句话说明确切的阻塞点。'
     );
     expect(CONTINUATION_TEMPLATES.truncated).toBe(
-      'Your previous output was cut off by the output length limit before it finished. Do NOT restate anything you already wrote and do NOT re-enter reasoning. Continue directly from where the output stopped: if you were about to call tools, emit the tool calls now; otherwise finish your visible answer concisely.'
+      '你上一次的输出在完成前被输出长度上限截断。不要复述任何已写过的内容，也不要重新进入推理。直接从输出中断处继续：如果你正要调用工具，现在就发出这些工具调用；否则简要地把可见回答写完。'
     );
   });
 
@@ -62,7 +62,7 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
     expect(text).toContain(issues);
     expect(text).not.toContain('{{issues}}');
     // 修正轮**取代**坏正文 ⇒ 指令必须明确"重发完整回复"，否则用户会丢失非图表部分
-    expect(text).toContain('COMPLETE previous reply');
+    expect(text).toContain('完整内容');
 
     // 既有契约：未提供的占位符保持字面量（便于发现漏传，而非静默留空）
     expect(renderGoalTemplate('mermaid_repair')).toContain('{{issues}}');
@@ -75,12 +75,12 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
     });
 
     expect(text).toContain('"把长程目标跑通"');
-    expect(text).toContain('no progress for 2 consecutive batches');
+    expect(text).toContain('连续 2 批没有取得进展');
     expect(text).not.toContain('{{');
     // 必须是"继续推进"而不是"从头再来"，且给出阻塞时的退出口
-    expect(text).toContain('Continue working toward it from the current state');
-    expect(text).toContain('Do NOT restart work that is already done');
-    expect(text).toContain('reply with the exact blocker');
+    expect(text).toContain('请从当前状态继续朝它推进');
+    expect(text).toContain('不要重做已经完成的工作');
+    expect(text).toContain('说明确切的阻塞点');
   });
 
   test('progress_stalled（停止条件，2026-09-22）：占位符替换 + 停止语义齐全', () => {
@@ -90,14 +90,14 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
     });
 
     // 数值与目标都渲染进去（"为何停下"对模型与用户都可读）
-    expect(text).toContain('no progress for 3 consecutive batches');
+    expect(text).toContain('连续 3 批没有取得进展');
     expect(text).toContain('"把长程目标跑通"');
     expect(text).not.toContain('{{');
     // 停止 + 盘点语义（与 budget_limit 同族：不静默停摆）
-    expect(text).toContain('Stop attempting new work');
-    expect(text).toContain('what was completed');
-    expect(text).toContain('what specifically is blocking progress');
-    expect(text).toContain('what the user must decide or provide');
+    expect(text).toContain('停止在其上尝试新工作');
+    expect(text).toContain('已完成的内容');
+    expect(text).toContain('具体是什么阻碍了进展');
+    expect(text).toContain('需要用户决定或提供什么');
   });
 
   test('budget_limit：占位符被替换（含数字）', () => {
@@ -108,9 +108,9 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
     expect(text).toContain('(1200/1000)');
     expect(text).not.toContain('{{');
     // 收尾语义的三点要求必须在文案里（"为何停下 + 下一步"可被模型照做）
-    expect(text).toContain('what was completed');
-    expect(text).toContain('what remains');
-    expect(text).toContain('single next action');
+    expect(text).toContain('已完成的内容');
+    expect(text).toContain('剩余的内容');
+    expect(text).toContain('唯一动作');
   });
 
   test('objective_updated：占位符被替换；未提供的占位符**保持字面量**', () => {
@@ -131,7 +131,7 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
    */
   test('resume_agent / tool_execution_errors：逐字迁移（文案不变）', () => {
     expect(CONTINUATION_TEMPLATES.resume_agent).toBe(
-      'Continue from where you left off. You have access to the full conversation history above.'
+      '从你上次中断的地方继续。你可以访问上方完整的对话历史。'
     );
     expect(GOAL_TEMPLATES.tool_execution_errors).toBe(
       '上一轮 {{count}} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。'

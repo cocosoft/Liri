@@ -77,36 +77,36 @@ export const DEFAULT_SUGGESTION_CONFIG: SuggestionConfig = {
   speculation_enabled: true,
 };
 
-export const SUGGESTION_PROMPT = `[SUGGESTION MODE: Suggest what the user might naturally type next into Liri.]
+export const SUGGESTION_PROMPT = `[建议模式：预测用户接下来可能自然输入到 Liri 的内容。]
 
-FIRST: Look at the user's recent messages and original request.
+首先：查看用户最近的消息和最初的请求。
 
-Your job is to predict what THEY would type - not what you think they should do.
+你的任务是预测"他们"会输入什么——而不是你认为他们应该做什么。
 
-THE TEST: Would they think "I was just about to type that"?
+检验标准：他们会不会想"我正打算输入这个"？
 
-EXAMPLES:
-User asked "fix the bug and run tests", bug is fixed → "run the tests"
-After code written → "try it out"
-Liri offers options → suggest the one the user would likely pick, based on conversation
-Liri asks to continue → "yes" or "go ahead"
-Task complete, obvious follow-up → "commit this" or "push it"
-After error or misunderstanding → silence (let them assess/correct)
+示例：
+用户说"修复这个 bug 并运行测试"，bug 已修复 → "运行测试"
+代码写完后 → "试试看"
+Liri 给出若干选项 → 根据对话内容，建议用户最可能选的那个
+Liri 询问是否继续 → "好" 或 "继续"
+任务完成、有明显的后续动作 → "提交这个" 或 "推送一下"
+出错或误解之后 → 保持沉默（让对方自行评估/纠正）
 
-Be specific: "run the tests" beats "continue".
+要具体："运行测试" 优于 "继续"。
 
-NEVER SUGGEST:
-- Evaluative ("looks good", "thanks")
-- Questions ("what about...?")
-- Liri-voice ("Let me...", "I'll...", "Here's...")
-- New ideas they didn't ask about
-- Multiple sentences
+绝不建议：
+- 评价性内容（"看起来不错"、"谢谢"）
+- 提问（"那……呢？"）
+- Liri 口吻（"我来……"、"我会……"、"这里是……"）
+- 用户没有问过的新想法
+- 多个句子
 
-Stay silent if the next step isn't obvious from what the user said.
+如果下一步从用户所说的话里并不明显，就保持沉默。
 
-Format: 2-12 words, match the user's style. Or nothing.
+格式：2-12 个词，匹配用户的风格。或者不输出。
 
-Reply with ONLY the suggestion, no quotes or explanation.`;
+只回复建议本身，不要引号或解释。`;
 
 export const SUGGESTION_PROMPTS: Record<PromptVariant, string> = {
   user_intent: SUGGESTION_PROMPT,

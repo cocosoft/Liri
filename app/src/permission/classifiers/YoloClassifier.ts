@@ -308,22 +308,22 @@ export class YoloClassifier {
    * 构建提示词
    */
   private buildPrompt(request: ClassificationRequest): string {
-    return `You are a security classifier for tool usage.
+    return `你是一个工具使用的安全分类器。
 
-Tool: ${request.toolName}
-Input: ${JSON.stringify(request.toolInput, null, 2)}
+工具：${request.toolName}
+输入：${JSON.stringify(request.toolInput, null, 2)}
 
-Recent conversation:
-${request.transcript || '(empty)'}
+最近的对话：
+${request.transcript || '（空）'}
 
-Classify this tool usage as: allow, soft_deny, or deny.
+将该工具使用分类为：allow、soft_deny 或 deny。
 
-Rules:
-- allow: Tool is safe to execute, read-only operation or no risk
-- soft_deny: Tool has some risk, user should confirm but can auto-approve with notice
-- deny: Tool is dangerous or malicious, should always block
+规则：
+- allow：工具可安全执行，属只读操作或无风险
+- soft_deny：工具有一定风险，用户应确认，但可在告知后自动批准
+- deny：工具危险或恶意，应始终拦截
 
-Respond in JSON format:
+以 JSON 格式回复：
 {"decision": "allow|soft_deny|deny", "reason": "explanation"}`;
   }
 

@@ -63,7 +63,7 @@ export class TaskFacade implements ITaskFacade {
       const step = steps[i];
       taskOrchestrator.markStepRunning(step.id);
 
-      const stepPrompt = `[Plan Step ${i + 1}/${steps.length}]: ${step.description}\n\nExecute this step using available tools. When complete, summarize what was done.`;
+      const stepPrompt = `[计划步骤 ${i + 1}/${steps.length}]：${step.description}\n\n使用可用工具执行此步骤。完成后，总结所做的事情。`;
 
       await executeStep(stepPrompt, session, options);
 
@@ -71,7 +71,7 @@ export class TaskFacade implements ITaskFacade {
     }
 
     const progress = taskOrchestrator.getPlanProgress(plan.id);
-    const summaryPrompt = `All ${steps.length} plan steps have been completed (${progress?.percent ?? 0}%). Provide a brief summary of what was accomplished.`;
+    const summaryPrompt = `全部 ${steps.length} 个计划步骤已完成（${progress?.percent ?? 0}%）。请简要总结所完成的内容。`;
     await executeStep(summaryPrompt, session, options);
   }
 }

@@ -373,7 +373,7 @@ describe('settleGoalForRun：连续无进展停止条件', () => {
     expect(last?.status).toBe('failed');
     expect(last?.noProgressStreak).toBe(NO_PROGRESS_STOP_THRESHOLD);
     expect(last?.stopInstruction).toContain(
-      `no progress for ${NO_PROGRESS_STOP_THRESHOLD} consecutive batches`
+      `连续 ${NO_PROGRESS_STOP_THRESHOLD} 批没有取得进展`
     );
     expect(last?.stopInstruction).toContain('反复受阻的目标');
     expect((await store.get(goal.id))?.status).toBe('failed');
@@ -649,7 +649,7 @@ describe('settleGoalForTurn：轮级收口与续接有界（V12 / P1-4 / D7）',
     expect(last?.status).toBe('failed');
     expect(last?.noProgressStreak).toBe(NO_PROGRESS_STOP_THRESHOLD);
     expect(last?.stopInstruction).toContain(
-      `no progress for ${NO_PROGRESS_STOP_THRESHOLD} consecutive batches`
+      `连续 ${NO_PROGRESS_STOP_THRESHOLD} 批没有取得进展`
     );
     expect((await store.get(goal.id))?.status).toBe('failed');
     expect((await store.get(goal.id))?.updatedReason).toBe(

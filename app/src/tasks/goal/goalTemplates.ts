@@ -10,10 +10,11 @@
  * 改文案要动热路径代码，且"为何停下/如何续接"的策略无处沉淀。
  *
  * 本模块把**文案**集中为一处模板源：
- * - `CONTINUATION_TEMPLATES`：既有四条续接指令，**内容逐字不变**（行为中性迁移，
- *   仅换存放位置；有无回归由 `tests/tasks/goal/goalTemplates.test.ts` 的逐字断言锁定）；
- * - `GOAL_TEMPLATES`：长程任务专用两条 —— `budget_limit`（预算触顶收尾）与
- *   `objective_updated`（目标变更后重新对齐），由 M-8 的预算收尾路径消费。
+ * - `CONTINUATION_TEMPLATES`：续接指令模板（M-7 由散落常量**行为中性迁移**至此；
+ *   有无回归由 `tests/tasks/goal/goalTemplatesAndBudget.test.ts` 的逐字断言锁定）——
+ *   2026-10-07 P2-2 提示词中文化批次 B8 已将其译中文，断言同批同步；
+ * - `GOAL_TEMPLATES`：长程任务专用模板 —— `budget_limit`（预算触顶收尾）与
+ *   `objective_updated`（目标变更后重新对齐）等，由 M-8 的预算收尾路径等消费。
  *
  * 占位符：`{{key}}`；渲染时用 `params` 替换，**未提供的占位符保持字面量**
  *（不抛错、不静默清空 —— 便于在日志里看出"哪个参数漏传"）。
@@ -45,7 +46,9 @@ export type ContinuationVariant =
   | 'resume_agent';
 
 /**
- * 续接指令模板（**逐字迁移**自 `ReActToolLoop.ts:103-111`，不得在此擅自改文案）。
+ * 续接指令模板（M-7 自 `ReActToolLoop.ts` 的散落常量**行为中性迁移**至此单一来源；
+ * 文案由 `goalTemplatesAndBudget.test.ts` 的逐字断言锁定 —— 2026-10-07 P2-2 批次 B8
+ * 已完成中文化，断言同批更新）。本文件仍是文案的**唯一来源**，改文案须同批更新断言。
  *
  * 各条各自的语义边界：
  * - `empty`：整轮没有任何可见产出；
@@ -59,17 +62,16 @@ export type ContinuationVariant =
  */
 export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
   empty:
-    'The previous attempt did not produce a user-visible answer. Continue from the current state and produce the visible answer now. Do not restart from scratch.',
+    '上一次尝试没有产出用户可见的回答。请从当前状态继续，现在就给出可见的回答。不要从头重来。',
   reasoning:
-    'The previous assistant turn recorded reasoning but did not produce a user-visible answer. Continue from that partial turn and produce the visible answer now. Do not restate the reasoning or restart from scratch.',
+    '上一轮助手只留下了推理过程，没有产出用户可见的回答。请从该未完成的轮次继续，现在就给出可见的回答。不要复述推理，也不要从头重来。',
   planning:
-    'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.',
+    '上一轮助手只描述了计划。不要复述计划。现在就开始行动：执行你能做的第一个具体工具操作。如果确有阻塞导致无法行动，用一句话说明确切的阻塞点。',
   truncated:
-    'Your previous output was cut off by the output length limit before it finished. Do NOT restate anything you already wrote and do NOT re-enter reasoning. Continue directly from where the output stopped: if you were about to call tools, emit the tool calls now; otherwise finish your visible answer concisely.',
+    '你上一次的输出在完成前被输出长度上限截断。不要复述任何已写过的内容，也不要重新进入推理。直接从输出中断处继续：如果你正要调用工具，现在就发出这些工具调用；否则简要地把可见回答写完。',
   mermaid_repair:
-    'The mermaid diagram(s) in your previous reply are invalid and cannot be rendered. Problems found:\n{{issues}}\nRe-output your COMPLETE previous reply with the diagram(s) fixed — the corrected reply replaces the previous one. Use only diagram types mermaid supports, and keep brackets/quotes balanced. Change nothing else.',
-  resume_agent:
-    'Continue from where you left off. You have access to the full conversation history above.',
+    '你上一条回复中的 mermaid 图表无效，无法渲染。发现的问题：\n{{issues}}\n请重新输出你上一条回复的完整内容，并修正其中的图表——修正后的回复将取代上一条。只使用 mermaid 支持的图类型，并保持括号/引号成对。除此之外不要改动其它内容。',
+  resume_agent: '从你上次中断的地方继续。你可以访问上方完整的对话历史。',
 };
 
 /** 长程任务专用模板（键集）—— 定义已下沉 `@modules/types/goal`（本文件再导出，见文件头）。 */
@@ -91,13 +93,13 @@ export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
  */
 export const GOAL_TEMPLATES: Record<GoalTemplateKind, string> = {
   budget_limit:
-    'This task has exhausted its token budget ({{tokensUsed}}/{{tokenBudget}}). Stop starting new work now. Reply with: (1) what was completed, (2) what remains, (3) the single next action to take. Do NOT continue executing.',
+    '本任务已耗尽词元预算 ({{tokensUsed}}/{{tokenBudget}})。现在停止开展新工作。请回复：(1) 已完成的内容，(2) 剩余的内容，(3) 下一步要执行的唯一动作。不要继续执行。',
   objective_updated:
-    'The goal objective has been updated to: "{{objective}}". Re-align with the new objective and continue from the current state. Do not restart work that is already completed.',
+    '目标已更新为："{{objective}}"。请按新目标重新对齐，并从当前状态继续。不要重做已经完成的工作。',
   progress_stalled:
-    'This goal made no progress for {{streak}} consecutive batches (objective: "{{objective}}"). Stop attempting new work on it now. Reply with: (1) what was completed, (2) what specifically is blocking progress, (3) what the user must decide or provide. Do NOT start another batch.',
+    '该目标已连续 {{streak}} 批没有取得进展（目标："{{objective}}"）。现在停止在其上尝试新工作。请回复：(1) 已完成的内容，(2) 具体是什么阻碍了进展，(3) 需要用户决定或提供什么。不要开始下一批。',
   continue_goal:
-    'The unfinished goal is still open (objective: "{{objective}}"; no progress for {{streak}} consecutive batches). Continue working toward it from the current state: take the next concrete action now. Do NOT restart work that is already done. If a real blocker prevents progress, reply with the exact blocker in one sentence instead of starting new work.',
+    '未完成的目标仍处于打开状态（目标："{{objective}}"；已连续 {{streak}} 批没有取得进展）。请从当前状态继续朝它推进：现在就执行下一个具体动作。不要重做已经完成的工作。如果确有阻塞导致无法推进，用一句话说明确切的阻塞点，而不要开始新的工作。',
   tool_execution_errors:
     '上一轮 {{count}} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。',
 };

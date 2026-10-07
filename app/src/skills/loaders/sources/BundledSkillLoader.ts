@@ -54,20 +54,20 @@ const bundledSkills: BundledSkillDefinition[] = [
       return [
         {
           type: 'text',
-          text: `# Debug Skill
+          text: `# 调试技能
 
-Help the user debug an issue they're encountering in this session.
+帮助用户调试他们在本次会话中遇到的问题。
 
-## Issue Description
+## 问题描述
 
-${args || 'The user did not describe a specific issue.'}
+${args || '用户未描述具体问题。'}
 
-## Instructions
+## 操作说明
 
-1. Review the user's issue description
-2. Check the debug log for errors and warnings
-3. Explain what you found in plain language
-4. Suggest concrete fixes or next steps
+1. 阅读用户的问题描述
+2. 检查调试日志中的错误与警告
+3. 用通俗语言解释你的发现
+4. 给出具体的修复建议或后续步骤
 `,
         },
       ];
@@ -87,18 +87,18 @@ ${args || 'The user did not describe a specific issue.'}
         return [
           {
             type: 'text',
-            text: `Usage: /loop [interval] <prompt>
+            text: `用法：/loop [interval] <prompt>
 
-Run a prompt or slash command on a recurring interval.
+按固定间隔重复运行提示词或斜杠命令。
 
-Intervals: Ns, Nm, Nh, Nd (e.g. 5m, 30m, 2h, 1d). Minimum granularity is 1 minute.
-If no interval is specified, defaults to 10m.
+间隔：Ns, Nm, Nh, Nd（如 5m, 30m, 2h, 1d）。最小粒度为 1 分钟。
+未指定间隔时，默认为 10m。
 
-Examples:
+示例：
   /loop 5m /babysit-prs
   /loop 30m check the deploy
   /loop 1h /standup 1
-  /loop check the deploy          (defaults to 10m)
+  /loop check the deploy          (默认为 10m)
   /loop check the deploy every 20m`,
           },
         ];
@@ -106,19 +106,19 @@ Examples:
       return [
         {
           type: 'text',
-          text: `# /loop — schedule a recurring prompt
+          text: `# /loop — 调度周期性提示词
 
-Parse the input below into \`[interval] <prompt…>\`.
+将下方输入解析为 \`[interval] <prompt…>\`。
 
-## Input
+## 输入
 
 ${trimmed}
 
-## Instructions
+## 操作说明
 
-1. Parse the interval and prompt from the input
-2. Schedule the prompt to run on the specified interval
-3. Execute the prompt immediately as well`,
+1. 从输入中解析出间隔与提示词
+2. 按指定间隔调度该提示词运行
+3. 同时立即执行一次该提示词`,
         },
       ];
     },
@@ -133,20 +133,20 @@ ${trimmed}
       return [
         {
           type: 'text',
-          text: `# Simplify Skill
+          text: `# 简化技能
 
-Help the user understand and simplify complex code.
+帮助用户理解并简化复杂代码。
 
-## Code to Simplify
+## 待简化的代码
 
-${args || 'No code provided.'}
+${args || '未提供代码。'}
 
-## Instructions
+## 操作说明
 
-1. Analyze the code structure and logic
-2. Simplify complex patterns and reduce boilerplate
-3. Explain the simplified version clearly
-4. Provide the simplified code with comments`,
+1. 分析代码结构与逻辑
+2. 简化复杂模式，减少样板代码
+3. 清晰地解释简化后的版本
+4. 给出带注释的简化代码`,
         },
       ];
     },
@@ -161,19 +161,19 @@ ${args || 'No code provided.'}
       return [
         {
           type: 'text',
-          text: `# Remember Skill
+          text: `# 记忆技能
 
-Store the following information for future reference.
+保存以下信息以备后续参考。
 
-## Information to Remember
+## 待记忆的信息
 
-${args || 'No information provided.'}
+${args || '未提供信息。'}
 
-## Instructions
+## 操作说明
 
-1. Store this information in memory
-2. Summarize the key points
-3. Confirm to the user that the information has been stored`,
+1. 将该信息存入记忆
+2. 总结要点
+3. 向用户确认信息已保存`,
         },
       ];
     },
@@ -189,20 +189,20 @@ ${args || 'No information provided.'}
       return [
         {
           type: 'text',
-          text: `# Verify Skill
+          text: `# 验证技能
 
-Verify code changes and suggest improvements.
+验证代码改动并给出改进建议。
 
-## Code to Verify
+## 待验证的代码
 
-${args || 'No code provided.'}
+${args || '未提供代码。'}
 
-## Instructions
+## 操作说明
 
-1. Review the code for correctness
-2. Check for potential bugs and issues
-3. Suggest improvements and best practices
-4. Provide specific recommendations`,
+1. 检查代码是否正确
+2. 检查潜在的缺陷与问题
+3. 给出改进建议与最佳实践
+4. 给出具体的建议`,
         },
       ];
     },
@@ -218,19 +218,19 @@ ${args || 'No code provided.'}
       return [
         {
           type: 'text',
-          text: `# Batch Skill
+          text: `# 批处理技能
 
-Process multiple files or tasks in batch.
+批量处理多个文件或任务。
 
-## Batch Operation
+## 批处理操作
 
-${args || 'No operation specified.'}
+${args || '未指定操作。'}
 
-## Instructions
+## 操作说明
 
-1. Parse the operation and target files
-2. Execute the operation on each file
-3. Provide a summary of results`,
+1. 解析操作与目标文件
+2. 对每个文件执行该操作
+3. 给出结果汇总`,
         },
       ];
     },
@@ -245,20 +245,20 @@ ${args || 'No operation specified.'}
       return [
         {
           type: 'text',
-          text: `# Stuck Skill
+          text: `# 卡壳技能
 
-Help the user when they feel stuck on a problem.
+在用户对某个问题感到卡壳时提供帮助。
 
-## Problem Description
+## 问题描述
 
-${args || 'No problem description provided.'}
+${args || '未提供问题描述。'}
 
-## Instructions
+## 操作说明
 
-1. Understand the user's problem
-2. Ask clarifying questions if needed
-3. Brainstorm possible approaches
-4. Provide actionable suggestions to move forward`,
+1. 理解用户的问题
+2. 如有需要，提出澄清性问题
+3. 头脑风暴可能的思路
+4. 给出可落地的推进建议`,
         },
       ];
     },
@@ -277,23 +277,23 @@ ${args || 'No problem description provided.'}
       return [
         {
           type: 'text',
-          text: `# Update Config Skill
+          text: `# 更新配置技能
 
-Modify configuration by updating settings.json files using natural language.
+通过自然语言更新 settings.json 文件来修改配置。
 
-## Settings File Locations
+## 设置文件位置
 
-Choose the appropriate file based on scope:
+根据作用范围选择合适的文件：
 
-| File | Scope | Use For |
-|------|-------|---------|
-| \`settings.json\` (user) | Global | Personal preferences for all projects |
-| \`.claude/settings.json\` (project) | Project | Team-wide hooks, permissions |
-| \`.claude/settings.local.json\` (project local) | Project | Personal overrides for this project |
+| 文件 | 作用范围 | 用途 |
+|------|---------|------|
+| \`settings.json\`（用户） | 全局 | 所有项目的个人偏好 |
+| \`.claude/settings.json\`（项目） | 项目 | 团队共享的钩子、权限 |
+| \`.claude/settings.local.json\`（项目本地） | 项目 | 针对本项目的个人覆盖 |
 
-Settings load in order: user → project → local (later overrides earlier).
+设置按此顺序加载：用户 → 项目 → 本地（后者覆盖前者）。
 
-## Configuration Sections
+## 配置区块
 
 ### Permissions（Liri 权限体系速查表）
 
@@ -312,7 +312,7 @@ Liri 的权限体系有三个来源，按层级参与决策：
 - 「批准后命令没执行」→ 放行缓存 TTL 内（5 分钟）重发同命令即放行；批准后系统自动续跑（P2-1）
 - 「黑名单不生效」→ 确认 B 体系 mode 为 \`blacklist\` 且 pattern 与命令文本匹配
 
-### Environment Variables
+### 环境变量
 \`\`\`json
 {
   "env": {
@@ -322,14 +322,14 @@ Liri 的权限体系有三个来源，按层级参与决策：
 }
 \`\`\`
 
-### Hooks
-Hooks run commands at specific lifecycle events:
-- \`PreToolUse\` — Before a tool runs
-- \`PostToolUse\` — After a successful tool
-- \`Stop\` — When Claude stops
-- \`SessionStart\` — When a session starts
+### 钩子
+钩子在特定生命周期事件时运行命令：
+- \`PreToolUse\` — 工具运行前
+- \`PostToolUse\` — 工具成功运行后
+- \`Stop\` — 模型停止时
+- \`SessionStart\` — 会话开始时
 
-### Model & Agent
+### 模型与 Agent
 \`\`\`json
 {
   "model": "your-model-id",
@@ -337,20 +337,20 @@ Hooks run commands at specific lifecycle events:
 }
 \`\`\`
 
-## Workflow
+## 工作流
 
-1. **Clarify intent** — If ambiguous, ask user which settings file and what to change
-2. **Read existing file** — Always read the target file before making changes
-3. **Merge carefully** — Preserve existing settings, especially arrays
-4. **Edit file** — Use Edit tool to modify, never replace entire file
+1. **明确意图** — 若有歧义，询问用户要改哪个设置文件以及要改什么
+2. **读取现有文件** — 修改前总是先读取目标文件
+3. **谨慎合并** — 保留现有设置，尤其是数组
+4. **编辑文件** — 使用 Edit 工具修改，绝不整体替换文件
 
-## Important Rules
+## 重要规则
 
-- **Always read first** — Never write without reading existing content
-- **Merge arrays** — Add to existing arrays, never replace them
-- **Ask when ambiguous** — Use AskUserQuestion to clarify scope and values
+- **总是先读** — 未读取现有内容绝不写入
+- **合并数组** — 向现有数组追加，绝不替换
+- **有歧义就询问** — 使用 AskUserQuestion 澄清范围与取值
 
-${args ? `\n## User Request\n\n${args}` : ''}`,
+${args ? `\n## 用户请求\n\n${args}` : ''}`,
         },
       ];
     },
@@ -376,33 +376,33 @@ ${args ? `\n## User Request\n\n${args}` : ''}`,
       return [
         {
           type: 'text',
-          text: `# Skillify — Capture Process as Skill
+          text: `# Skillify — 将流程沉淀为技能
 
-Capture a repeatable process from this session into a reusable SKILL.md skill file.
+将本次会话中的可复用流程沉淀为一个可复用的 SKILL.md 技能文件。
 
-${args ? `The user described this process as: "${args}"\n\n` : ''}
+${args ? `用户将该流程描述为："${args}"\n\n` : ''}
 
-## Your Task
+## 你的任务
 
-### Step 1: Analyze the Session
+### 第 1 步：分析本次会话
 
-Before asking questions, identify:
-- What repeatable process was performed
-- What the inputs/parameters were
-- The distinct steps (in order)
-- The success criteria for each step
-- What tools and permissions were needed
+在提问之前，先识别：
+- 执行了什么可复用的流程
+- 输入/参数是什么
+- 各个具体步骤（按顺序）
+- 每个步骤的成功标准
+- 需要用到哪些工具与权限
 
-### Step 2: Interview the User
+### 第 2 步：访谈用户
 
-Use AskUserQuestion to understand:
-- **Round 1**: Suggest a name and description for the skill. Ask for confirmation.
-- **Round 2**: Present high-level steps. Ask about arguments and where to save.
-- **Round 3**: Break down each step with success criteria.
+使用 AskUserQuestion 了解：
+- **第 1 轮**：为技能建议一个名称与描述，请用户确认。
+- **第 2 轮**：给出高层步骤，询问参数以及保存位置。
+- **第 3 轮**：拆分每个步骤并附上成功标准。
 
-### Step 3: Write the SKILL.md
+### 第 3 步：编写 SKILL.md
 
-Use this format:
+使用以下格式：
 \`\`\`markdown
 ---
 name: {{skill-name}}
@@ -432,9 +432,9 @@ What to do in this step.
 **Success criteria**: How to know this step is done.
 \`\`\`
 
-### Step 4: Save and Confirm
+### 第 4 步：保存并确认
 
-Before writing, output the SKILL.md content for review. Ask user to confirm using AskUserQuestion.`,
+写入之前，先输出 SKILL.md 内容供审阅，并使用 AskUserQuestion 请用户确认。`,
         },
       ];
     },
@@ -460,59 +460,59 @@ Before writing, output the SKILL.md content for review. Ask user to confirm usin
       return [
         {
           type: 'text',
-          text: `# Skill Creator
+          text: `# 技能创建器
 
-Guidance for creating and maintaining effective skills in Liri.
+在 Liri 中创建与维护高效技能的指导。
 
-${args ? `Target skill: "${args}"\n\n` : ''}
+${args ? `目标技能："${args}"\n\n` : ''}
 
-## Liri Skill Model (must respect)
+## Liri 技能模型（必须遵守）
 
-- Skills are **prompt-instruction templates** injected into the LLM context. They are NOT executable code.
-- **Shell execution is permanently disabled** in Liri. Never reference or require running shell/Python scripts inside a skill.
-- Built-in skills are programmatic definitions in BundledSkillLoader; user skills live at \`~/.pyapp/skills/<name>/SKILL.md\`; third-party skills at \`~/.pyapp/skills/vendor/\`.
-- Skills created for the user go to \`~/.pyapp/skills/<name>/SKILL.md\` (auto-registered on write, no restart needed).
+- 技能是注入到 LLM 上下文中的**提示词指令模板**，不是可执行代码。
+- Liri 中**已永久禁用 shell 执行**。绝不要在技能中引用或要求运行 shell/Python 脚本。
+- 内置技能是 BundledSkillLoader 中的编程式定义；用户技能位于 \`~/.pyapp/skills/<name>/SKILL.md\`；第三方技能位于 \`~/.pyapp/skills/vendor/\`。
+- 为用户创建的技能写入 \`~/.pyapp/skills/<name>/SKILL.md\`（写入即自动注册，无需重启）。
 
-## Core Principles
+## 核心原则
 
-1. **Concise is key.** The context window is a shared resource. Only add context the model doesn't already have; challenge each paragraph for token cost. Prefer concise examples over verbose explanations.
-2. **Set appropriate degrees of freedom.** Text-based instructions (high freedom) for heuristic tasks; specific scripts/sequences (low freedom) only for fragile operations. Liri skills are text-based by design.
-3. **Progressive disclosure.** Metadata (name + description) is always in context; SKILL.md body loads on trigger (<500 lines); references/assets load only when needed. Keep SKILL.md lean; split variant details into referenced files.
+1. **简洁是关键。** 上下文窗口是共享资源。只添加模型尚不具备的上下文；对每一段的 token 成本都要提出质疑。优先用简洁示例，而非冗长解释。
+2. **设置恰当的自由度。** 启发式任务用文本式指令（高自由度）；仅对脆弱操作才使用具体脚本/步骤序列（低自由度）。Liri 技能在设计上就是文本式的。
+3. **渐进式披露。** 元数据（name + description）始终在上下文中；SKILL.md 正文在触发时加载（<500 行）；references/assets 仅在需要时加载。保持 SKILL.md 精简，把变体细节拆分到被引用的文件中。
 
-## Skill Anatomy
+## 技能结构
 
 \`\`\`
 skill-name/
-├── SKILL.md (required)
-│   ├── YAML frontmatter (name + description — these are the ONLY trigger fields)
-│   └── Markdown instructions (loaded only AFTER the skill triggers)
-├── references/  (optional) docs loaded into context as needed
-└── assets/      (optional) files used in output
+├── SKILL.md（必需）
+│   ├── YAML frontmatter（name + description —— 这两个是唯一的触发字段）
+│   └── Markdown 指令（仅在技能触发之后才加载）
+├── references/  （可选）按需加载进上下文的文档
+└── assets/      （可选）用于产出的文件
 \`\`\`
 
-Do NOT include extraneous files (README.md, CHANGELOG.md, INSTALLATION_GUIDE.md, etc.) inside a skill.
+不要在技能内包含无关文件（README.md、CHANGELOG.md、INSTALLATION_GUIDE.md 等）。
 
-## Naming
+## 命名
 
-- Lowercase letters, digits, hyphens only; normalize titles to hyphen-case ("Plan Mode" → \`plan-mode\`).
-- Keep names under 64 chars; prefer short, verb-led phrases.
-- Name the skill folder exactly after the skill name.
+- 只能使用小写字母、数字与连字符；将标题归一化为连字符风格（"Plan Mode" → \`plan-mode\`）。
+- 名称保持在 64 字符以内；优先简短、以动词开头的短语。
+- 技能文件夹名必须与技能名完全一致。
 
-## Creating a Skill (workflow)
+## 创建技能（工作流）
 
-1. **Understand with concrete examples**: clarify the functionality and its trigger scenarios with the user (AskUserQuestion, few questions at a time).
-2. **Plan reusable contents**: decide which scripts/references/assets would help. In Liri, omit shell/Python scripts (shell is disabled); prefer references/ for structured knowledge.
-3. **Initialize**: create \`~/.pyapp/skills/<name>/SKILL.md\` with a template.
-4. **Write SKILL.md** (imperative mood):
-   - Frontmatter: \`name\` and \`description\` only. The \`description\` is the primary trigger — include BOTH what the skill does AND specific when-to-use triggers/contexts. All "when to use" info belongs in the description, NOT the body.
-   - Body: procedural instructions, steps with success criteria, references to bundled resources. Keep under 500 lines.
-5. **Save and verify**: write the file (auto-registered), verify the listing shows it, and iterate based on real usage.
+1. **结合具体示例理解需求**：与用户一起厘清功能及其触发场景（使用 AskUserQuestion，每次只问少量问题）。
+2. **规划可复用内容**：确定哪些脚本/references/assets 会有帮助。在 Liri 中省略 shell/Python 脚本（shell 已禁用）；优先用 references/ 存放结构化知识。
+3. **初始化**：用模板创建 \`~/.pyapp/skills/<name>/SKILL.md\`。
+4. **编写 SKILL.md**（祈使语气）：
+   - Frontmatter：只写 \`name\` 与 \`description\`。\`description\` 是主要触发依据 —— 必须**同时**包含技能做什么以及具体的何时使用触发条件/场景。所有"何时使用"的信息都属于 description，而不是正文。
+   - 正文：过程式指令、带成功标准的步骤、对随附资源的引用。保持在 500 行以内。
+5. **保存并验证**：写入文件（自动注册），确认列表中能看到它，并根据真实使用情况迭代。
 
-## Reviewing / Improving an Existing Skill
+## 审查 / 改进现有技能
 
-- Audit the frontmatter \`description\`: does it cover trigger contexts? Is it one clear line?
-- Check the body for stale steps, duplicated references, or bloat; restructure with progressive disclosure.
-- Ensure no shell/Python execution is required (Liri constraint).`,
+- 审查 frontmatter 中的 \`description\`：是否覆盖了触发场景？是否是一行清晰的描述？
+- 检查正文是否有过时步骤、重复引用或冗余；用渐进式披露重新组织。
+- 确保不需要执行 shell/Python（Liri 的约束）。`,
         },
       ];
     },

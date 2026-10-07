@@ -82,16 +82,22 @@ async function makeOutbox(): Promise<SettlementOutbox> {
  * 注意：本文件**不调用** `streamMessage` / `sendMessage` 触发装配；替身只是证明
  * "回放确实推进到了恢复执行器"的观测点。
  */
-function installRecordingStream(cm: ChatManagerImpl, calls: string[]): void {
+function installRecordingStream(
+  cm: ChatManagerImpl,
+  calls: string[],
+  /** V-4：记录恢复执行器透传给 `streamMessage` 的 `options.metadata`（接缝断言用） */
+  metaSeen?: Array<Record<string, unknown>>
+): void {
   // B4-1：`ChatManagerImpl` 构造期会装配恢复审计出口；本文件不验证该出口，
   // 且恢复会真的往 `~/.pyapp/data/sessions/**` 落事件（真实目录，测试污染）
   // ⇒ 构造后立即卸下（本文件的"让 ChatManagerImpl 变惰性"的统一入口）。
   setYieldRecoveryAuditSink(null);
   const stream = async function* (
     _content: string,
-    options?: { sessionId?: string }
+    options?: { sessionId?: string; metadata?: Record<string, unknown> }
   ): AsyncGenerator<string, void, unknown> {
     calls.push(options?.sessionId ?? '');
+    if (metaSeen && options?.metadata) metaSeen.push(options.metadata);
   };
   (cm as unknown as { streamMessage: unknown }).streamMessage = stream;
 }
@@ -194,6 +200,43 @@ describe('B1-4：启动钩子触发回放（不发起任何会话请求）', () 
     expect(resumed).toEqual([sessionId]);
     // 恢复收敛：等待登记被 resolve（不再等待）
     expect(registry.isWaiting(sessionId)).toBe(false);
+  });
+
+  it('V-4：恢复执行器向 streamMessage 透传「系统续跑」标记（续跑路径接缝）', async () => {
+    const store = await makeStore();
+    const outbox = await makeOutbox();
+    const sessionId = 's-resume-meta';
+    await store.saveRecord({
+      sessionId,
+      turn: 5,
+      toolCallId: 'c-meta',
+      yieldedAt: 1000,
+    });
+    const rowId = await outbox.enqueue({ sessionId, endedAt: 2000 });
+
+    const registry = getYieldRegistry();
+    const cm = new ChatManagerImpl();
+    const resumed: string[] = [];
+    const metaSeen: Array<Record<string, unknown>> = [];
+    installRecordingStream(cm, resumed, metaSeen);
+
+    await cm.bootstrapYieldRecovery({ registry, store, outbox });
+    expect(await waitForState(outbox, rowId, 'delivered')).toBe('delivered');
+
+    // 接缝断言（V-4 的**运行期未触发半**）：yield 恢复经 `resumeSessionInternally`
+    // （`chat/manager/recovery.ts:339`）把 `{ systemResume: true }` 作为
+    // `streamMessage(content, { sessionId, metadata })` 的 `options.metadata` 传出。
+    //
+    // 为何断言在此（而非重跑循环）：消费端读的正是 `options.metadata.systemResume`
+    // （`chat/toolTurnBudget.ts:198/206` 与 `:152-153`），而该标记下的**继承语义**
+    // （预算基线 / todo 扩容量跨段继承）已由
+    // `tests/chat/toolTurnBudgetPersistence.test.ts` 与
+    // `tests/chat/todoExpansionPersistence.test.ts` 的运行级用例覆盖
+    // ⇒ 此处只需补上「真实恢复入口确实产出该标记」这一环，两段拼接即成端到端。
+    // 另两条续跑通路（self-wake `:396` / goal 空闲续接 `:388`）共用同一执行器，
+    // 亦以 `systemResume: true` 注入（静态一致）。
+    expect(metaSeen).toHaveLength(1);
+    expect(metaSeen[0].systemResume).toBe(true);
   });
 
   it('无 pending 行 ⇒ 回放不产生副作用（不误恢复、不写脏状态）', async () => {

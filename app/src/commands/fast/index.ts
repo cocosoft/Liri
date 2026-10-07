@@ -35,16 +35,16 @@ const fast: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are in fast mode. Provide concise, to-the-point responses to the user's query.
+      你现在处于快速模式。请对用户的查询给出简明、切中要害的回答。
 
-      Guidelines:
-      - Keep responses short and focused
-      - Get straight to the point
-      - Avoid unnecessary explanations
-      - Use bullet points when appropriate
-      - Respond quickly and efficiently
+      指导原则：
+      - 回答要短、要聚焦
+      - 直接说重点
+      - 避免不必要的解释
+      - 适当使用要点列表
+      - 快速、高效地作答
 
-      User query: ${args || 'No specific query provided'}
+      用户查询：${args || '未提供具体查询'}
     `;
 
     return [{ type: 'text', text: prompt }];

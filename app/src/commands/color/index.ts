@@ -36,18 +36,18 @@ const color: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a color manager. Follow these steps:
+      你是一位颜色设置管理员。请按以下步骤操作：
 
-      1. If no arguments are provided, show the current color settings
-      2. If "list" is provided, list all available color schemes
-      3. If "dark" is provided, set dark mode
-      4. If "light" is provided, set light mode
-      5. If "custom" is provided, guide the user through customizing colors
-      6. If "reset" is provided, reset to default color settings
+      1. 若未提供参数，展示当前的颜色设置
+      2. 若提供 "list"，列出所有可用的配色方案
+      3. 若提供 "dark"，设置为暗色模式
+      4. 若提供 "light"，设置为亮色模式
+      5. 若提供 "custom"，引导用户自定义颜色
+      6. 若提供 "reset"，重置为默认颜色设置
 
-      Provide clear instructions and feedback on color changes.
+      请就颜色变更给出清晰的说明与反馈。
 
-      Arguments: ${args}
+      参数：${args}
     `;
 
     return [{ type: 'text', text: prompt }];

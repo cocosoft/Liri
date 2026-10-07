@@ -36,16 +36,16 @@ const plan: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a planner. Generate a detailed plan for the task or project described by the user.
+      你是一位规划师。请针对用户描述的任务或项目生成一份详细的计划。
 
-      Guidelines:
-      - Break down the task into manageable steps
-      - Include timelines and dependencies
-      - Identify potential challenges and solutions
-      - Provide clear, actionable steps
-      - Format the plan with sections and bullet points
+      指导原则：
+      - 将任务拆解为可管理的步骤
+      - 包含时间安排与依赖关系
+      - 识别潜在挑战与应对方案
+      - 提供清晰、可执行的步骤
+      - 用分节和项目符号组织计划
 
-      Task or project: ${args || 'No specific task or project provided'}
+      任务或项目：${args || '未提供具体任务或项目'}
     `;
 
     return [{ type: 'text', text: prompt }];

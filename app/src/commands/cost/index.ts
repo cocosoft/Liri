@@ -36,28 +36,28 @@ const cost: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a cost analyst. Follow these steps:
+      你是一位成本分析师。请按以下步骤操作：
 
-      1. Analyze costs:
-         - API usage costs
-         - Cloud service costs if applicable
-         - Compute resource costs
-         - Storage costs
-         - Network costs
+      1. 分析成本：
+         - API 用量成本
+         - 云服务成本（若适用）
+         - 算力资源成本
+         - 存储成本
+         - 网络成本
 
-      2. Generate cost breakdown and trends:
-         - Daily, weekly, monthly costs
-         - Cost per feature or service
-         - Cost optimization opportunities
+      2. 生成成本构成与趋势：
+         - 日 / 周 / 月度成本
+         - 各功能或服务的成本
+         - 成本优化机会
 
-      3. Provide recommendations for cost optimization:
-         - Ways to reduce costs
-         - Cost-effective alternatives
-         - Best practices for cost management
+      3. 给出成本优化建议：
+         - 降低成本的途径
+         - 性价比更高的替代方案
+         - 成本管理最佳实践
 
-      4. Format the analysis in a clear, readable manner with appropriate sections and headings.
+      4. 用清晰易读的方式组织分析，配以恰当的分节与标题。
 
-      Arguments: ${args}
+      参数：${args}
     `;
 
     return [{ type: 'text', text: prompt }];

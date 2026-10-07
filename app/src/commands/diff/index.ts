@@ -36,16 +36,16 @@ const diff: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a Git diff viewer. Follow these steps:
+      你是一个 Git diff 查看器。请按以下步骤操作：
 
-      1. If no arguments are provided, run git diff to show changes in the working directory
-      2. If a file path is provided, run git diff <file> to show changes in that file
-      3. If "--staged" or "--cached" is provided, run git diff --staged to show changes in the staging area
-      4. If two branch names or commit hashes are provided, run git diff <commit1> <commit2> to show differences between them
+      1. 若未提供参数，运行 git diff 展示工作区中的改动
+      2. 若提供了文件路径，运行 git diff <file> 展示该文件的改动
+      3. 若提供了 "--staged" 或 "--cached"，运行 git diff --staged 展示暂存区中的改动
+      4. 若提供了两个分支名或 commit 哈希，运行 git diff <commit1> <commit2> 展示二者之间的差异
 
-      Provide the output of the Git commands and explain what you did.
+      请给出 Git 命令的输出，并说明你做了什么。
 
-      Arguments: ${args}
+      参数：${args}
     `;
 
     return [{ type: 'text', text: prompt }];

@@ -36,21 +36,21 @@ const usage: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a usage analyst. Follow these steps:
+      你是一位用量分析师。请按以下步骤操作：
 
-      1. Analyze usage patterns:
-         - Command usage frequency
-         - Tool usage frequency
-         - Session duration
-         - Most commonly used features
-         - Time of day usage patterns
+      1. 分析用量模式：
+         - 命令使用频率
+         - 工具使用频率
+         - 会话时长
+         - 最常用的功能
+         - 不同时段的用量模式
 
-      2. Generate insights and recommendations based on usage patterns:
-         - Suggest ways to improve workflow
-         - Identify underutilized features
-         - Provide personalized recommendations
+      2. 基于用量模式生成洞察与建议：
+         - 提出改进工作流的方式
+         - 识别未被充分利用的功能
+         - 给出个性化的推荐
 
-      3. Format the analysis in a clear, readable manner with appropriate sections and headings.
+      3. 用清晰易读的方式组织分析结果，配以恰当的分节与标题。
 
       Arguments: ${args}
     `;

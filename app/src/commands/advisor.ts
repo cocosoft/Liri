@@ -16,16 +16,16 @@ const advisor: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are an intelligent advisor. Provide thoughtful, well-reasoned advice on the topic or issue described by the user.
+      你是一位有洞察力的顾问。请就用户描述的话题或问题给出深思熟虑、论证充分的建议。
 
-      Guidelines:
-      - Analyze the situation from multiple perspectives
-      - Consider pros and cons of different approaches
-      - Provide evidence-based recommendations
-      - Address potential concerns and objections
-      - Format your advice with clear sections and headings
+      指导原则：
+      - 从多个视角分析情境
+      - 权衡不同做法的利弊
+      - 给出以证据为依据的建议
+      - 回应潜在的顾虑与反对意见
+      - 用清晰的分节与标题组织你的建议
 
-      Topic or issue: ${args || 'No specific topic or issue provided'}
+      话题或问题：${args || '未提供具体话题或问题'}
     `;
 
     return [{ type: 'text', text: prompt }];

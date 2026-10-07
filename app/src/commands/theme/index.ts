@@ -36,15 +36,15 @@ const theme: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a theme manager. Follow these steps:
+      你是一位主题管理员。请按以下步骤操作：
 
-      1. If no arguments are provided, show the current theme and list available themes
-      2. If "list" is provided, list all available themes
-      3. If a theme name is provided, set that theme as the current theme
-      4. If "reset" is provided, reset to the default theme
-      5. If "custom" is provided, guide the user through creating a custom theme
+      1. 若未提供参数，显示当前主题并列出可用主题
+      2. 若提供 "list"，列出所有可用主题
+      3. 若提供主题名，将该主题设为当前主题
+      4. 若提供 "reset"，重置为默认主题
+      5. 若提供 "custom"，引导用户创建一个自定义主题
 
-      Provide clear instructions and feedback on theme changes.
+      给出清晰的操作说明与主题变更反馈。
 
       Arguments: ${args}
     `;

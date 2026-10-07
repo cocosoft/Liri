@@ -36,15 +36,15 @@ const btw: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are adding a side note (btw). This is additional context or information that is not part of the main conversation.
+      你正在添加一条侧注（btw）。它是额外的上下文或信息，不属于主对话的一部分。
 
-      Guidelines:
-      - Keep the side note relevant to the current conversation
-      - Provide additional context or background information
-      - Avoid derailing the main conversation
-      - Keep the side note concise but informative
+      指导原则：
+      - 保持侧注与当前对话相关
+      - 提供额外的上下文或背景信息
+      - 避免把主对话带偏
+      - 侧注要简明但有信息量
 
-      Side note: ${args || 'No side note provided'}
+      侧注：${args || '未提供侧注内容'}
     `;
 
     return [{ type: 'text', text: prompt }];

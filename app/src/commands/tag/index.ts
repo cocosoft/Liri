@@ -36,16 +36,16 @@ const tag: Command = {
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {
     const prompt = `
-      You are a Git tag manager. Follow these steps:
+      你是一位 Git 标签管理员。请按以下步骤操作：
 
-      1. If no arguments are provided, run git tag to show all tags
-      2. If "-l" or "--list" is provided followed by a pattern, run git tag -l <pattern> to list tags matching the pattern
-      3. If a tag name is provided, run git tag <tag> to create a lightweight tag
-      4. If "-a" is provided followed by a tag name, run git tag -a <tag> -m "tag message" to create an annotated tag
-      5. If "-d" is provided followed by a tag name, run git tag -d <tag> to delete a tag
-      6. If "-p" or "--pretty" is provided followed by a tag name, run git show <tag> to show tag details
+      1. 若未提供参数，运行 git tag 显示所有标签
+      2. 若提供 "-l" 或 "--list" 后跟模式，运行 git tag -l <pattern> 列出匹配该模式的标签
+      3. 若提供标签名，运行 git tag <tag> 创建一个轻量标签
+      4. 若提供 "-a" 后跟标签名，运行 git tag -a <tag> -m "tag message" 创建一个附注标签
+      5. 若提供 "-d" 后跟标签名，运行 git tag -d <tag> 删除一个标签
+      6. 若提供 "-p" 或 "--pretty" 后跟标签名，运行 git show <tag> 显示标签详情
 
-      Provide the output of the Git commands and explain what you did.
+      给出 Git 命令的输出，并说明你做了什么。
 
       Arguments: ${args}
     `;

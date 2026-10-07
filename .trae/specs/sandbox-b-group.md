@@ -110,6 +110,8 @@
 ② `dockerArgs` 永不含容器内执行形态（`exec` / `sh -c` / `iptables` / `/etc/hosts`）⇒ "进容器下发策略"的路径**已不存在**；
 ③ `enforcementOwner === 'host'`。
 
+> **✅ 条件复评（2026-10-07）：Docker **现已可用** ⇒ 本项（及 B3-a/B4）的"真实容器 e2e"**已解阻、可排期执行**（**尚未执行**）。实测证据：`docker --version` = **29.7.2**；`docker info` **daemon 可达**（ServerVersion 29.7.2）；**容器可跑** —— `docker run --rm oven/bun:latest bun --version` ⇒ `1.3.14`；本地已有镜像 `liri-verify-builder:local`(1.76GB) / `oven/bun:1.3.14` / `tonistiigi/binfmt:latest`；`docker ps -a` 当前无容器。**仍未做（如实）**：上述三条 e2e（B2 容器内 `iptables -F` 观测 / B3-a 拉镜像期间 `/health` 可响应 / B4 真实退出码）**尚未**在真实容器上跑过 —— 本轮只**核验了条件已解除**（并与 `app/tests/sandbox/{dockerSandboxExitCode,dockerImageManager,dockerCustomNetwork}.test.ts` 的 **22 例结构性用例 0 fail** 一致）。
+
 **分寸（不作过头声明）**：本项改的是"执行者与被约束者同域"这一**形态**，**没有**构造逃逸实验 ⇒ 表述为**结构性修复**，**不**声称"修复了某个可复现漏洞"。
 
 ### 4.6 B3：镜像获取（B3-a 修 / B3-b 评估为"已满足"）

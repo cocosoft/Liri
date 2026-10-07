@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.66-blue)
+![Version](https://img.shields.io/badge/version-0.4.67-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.66**
+当前版本：**v0.4.67**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,21 +435,22 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.66 (2026-10-06)
+#### v0.4.67 (2026-10-07)
 
-**U4 在线质量评估器全链闭环（D1–D6）+ ACP 远程暴露 fail-closed + 记忆冲突检测接线 + 死代码簇清理**
+**A2A v1.0 协议面收口（T4 A–E）+ 资源治理与输出护栏接线（P26-1/P26-2）+ 会话黏性路由与任务依赖硬阻断 + 死代码降债与文件拆分（C1–C14）+ 提示词中文化（P2-2 B1–B8）+ settings 权限接线**
 
-- ✅ **U4 在线质量评估器（新模块 `evals/online`）** - 纯函数 `scoreTurn()`（4 维加权：完成度 0.4 / 裁决 0.3 / 工具空转 0.15 / 成本 0.15）+ 4 条结构化可疑规则（`not-completed` / `verdict-negative` / `low-score` / `low-score-streak` 连续 3 轮）+ `deriveTurnSignals()` 从事件日志派生每轮信号（含正文摘录，处理 `assistant/text.replace` 清空重建）+ `runTurnQualityPass()`（水位去重 + 回看窗口 + 上限 5 最低分优先 + 分片让出 + 单会话错误隔离）+ 会话级摘要 `summarizeTurnQuality()`；**不消费 `BehaviorMetrics`**（其「仅观测、不得作判据」契约由反向锁定测试守住）
-- ✅ **U4 D3 可疑轮 LLM 复核** - `createVerifierTurnReviewer()` 复用 `VerifierAgent`（**每轮新建实例**——`cycleCount` 为实例态，复用会使第 2 轮起恒 `ESCALATE`）；模型只取 `modelRouter.resolveRole('verifier')`，未配置即返回 `null` 跳过；实测边界：**无正文 ⇒ 跳过复核**
-- ✅ **U4 D4 空闲期接线（主链零调用）** - 挂在 `ChatOrchestrator._ensureIdleScaleMonitor().onIdle`（每次空闲只触发一次）；会话范围 = 活跃会话 ∪ 最近 30 个历史会话（`rankRecentSessionIds` 按 `updatedAt` 降序去重截断）⇒ **历史会话补评**同步落地
-- ✅ **U4 D5 事件契约四处同批** - `turn/quality` 新增：`shared/events/eventNames.ts` 名字 + `session/types/eventPayloads.ts` 后端载荷 + `client/src/types/events.ts` 前端载荷 + `knownEventTypes.ts` 登记清单（编译期穷尽断言强制，漏一处即 `TS2322`）
-- ✅ **U4 D6 消费点 = core SPI** - 新增 `ISessionQualityPort` + 转发代理（未注册返回 `null`），实现由 `entrypoints/spiWiring.ts` 注入 ⇒ 梦境（`chronos/autoDream`）可读在线质量分而**零 infra→app 倒挂**；`AutoDream.buildSessionLines` 追加质量摘要（失败只 `warn`）
-- ✅ **N-81 ACP 远程暴露 fail-closed** - 非回环地址 + 无 token ⇒ **拒绝启动**（不再默认放行）；配套 ACP / A2A 契约测试
-- ✅ **记忆冲突检测接线** - 空闲期只检测与记录，**零数据改写**
-- ✅ **死代码簇清理（N-78 / N-82 / N-83）** - 删除 `AdaptiveRouter` 整类 + `subagent/communication/` 4 文件族（`SubAgentCommunicator` 占位模拟 + `receivePermissionResponse` 无条件 `granted:true` = CS04 + fail-open）+ 权限同步双轨孤儿 3 文件 + MOA 成本死码；同步清理 `lint-architecture` 例外与 barrel 再导出
-- ✅ **N-74 i18n en 补齐** - 96 键 + 键一致性守卫（防再漂移）；**媒体提取工具命名统一为下划线** + 守卫测试
-- ✅ **D2 迁移评估（`dependsOnMode`）** - 取证结论：`hard` 在**生产不可达**（分解 prompt 不产出该字段、无 config/UI/env 开关、调用方未传）⇒ 13-P1-1 的修复在生产上不生效、A3 缺陷原样存在；结论 = **应当翻转但不能单独翻转**（两步走方案已入台账 §20.6）
-- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4718 pass / 21 skip / 0 fail**（500 files；较上版 **+74 例**）
+- ✅ **A2A v1.0 协议面（T4 A–E）** - 新增 v1.0 JSON-RPC 协议类型 → 在 `/v1/a2a/rpc` 提供绑定 → SSE 流式任务更新（并声明 streaming）→ Agent Card 重塑为 v1.0 并恢复 binding → JSON-RPC 绑定从 `a2a-routes` 拆出；配套：**多 API Key + 可选过期**（零中断轮换）· 共享密钥**常量时间比较** · Agent Card 未接线时**不再广告** JSONRPC binding · 声明 `stateTransitionHistory` + 就绪探针
+- ✅ **资源治理（P26-1）** - 请求优先级从 HTTP/通道入口**透传**到 governor → 超限时**抢占**低优先级跨会话流 → 超限请求**排队**（优先级交接 + 时限兜底）；抢占/排队状态经 **SSE** 暴露给前端
+- ✅ **输出护栏双侧（P26-2 / PC-1）** - 护栏结果**回显到消息**（PC-1）· 改写审计**默认只记元数据**（动作 / 护栏名 / 原文长度 / 原文 SHA-256）· 秘密检测**收窄到真实值形态**并对 MIT 协议头**免报**（FP 修正）· 不可见 Unicode 表**收敛为单一事实源**（并集口径，加宽由测试锁定）
+- ✅ **安全姿态钉死（R07 系列）** - R07-1 `long_task_pdl` 保持**装配不可达**（防误修）· R07-2 安全开关默认值升格为 **CI 断言事实**（doc-code 断言 5→15）· R07-3 **非幂等工具重试需审批** · R07-4 A2A 默认关 + 认证 fail-closed 钉死（断言 16→18）· R07-5 省略验收标准**永不可通过**（+3 用例）
+- ✅ **会话黏性路由** - `SessionRouterStore` 单例接线（`main` 注入，benchmark 路径有意不注入）+ **上界保护**（长消息 + 低档位黏性不复用，交回 Judge）+ 守卫 7 例；**删死路由器族**（`AgentRouter` + 连带孤立 `StrategySelector`/types + `PlatformRouter`）
+- ✅ **任务依赖阻断默认翻 hard（13-P1-1 Step 1+2）** - 先做**显式降级标注**（默认仍 soft、零阻断语义变化），再默认翻 `hard` + 模型按步 opt-out + 阻断回灌会话
+- ✅ **提示词中文化（P2-2）B1–B8 全量** - 系统身份前缀 → 路由/编排/压缩 → 记忆 → 工具/子代理 → Agent 策略 → 命令（12 文件）→ 其它（建议模式 / 安全分类器 / goal 模板 / 内置技能正文）；**协议与契约保留英文**（JSON 字段名 · `VERDICT:` · `{{占位符}}` · `[SYSTEM] ` · 工具名 · 路径 · frontmatter 键），受影响断言同批同步
+- ✅ **品牌残留清理（P2-1 重开）+ settings 权限接线** - `CLAUDE_CODE_*` 内部标志 → `PY_APP_*`（4）· 渠道凭证 → `CHANNEL_CLAUDE_*`（2）· `ClaudeChannel` 常量去品牌 ⇒ `app/src` 的 `CLAUDE_[A-Z_]+` **14 行 → 5 行**；**settings 的 `permissions.allow/deny/ask` 原为零消费者（写进 settings 不生效）⇒ 接入 `PermissionManager` 决策上下文**（来源优先级 user < project < local < policy），并**修掉** `getEmptyToolPermissionContext()` 的 allow/deny/ask **共享同一对象**缺陷（写 allow 会串写 deny/ask）+ 4 例回归
+- ✅ **死代码降债（P2-8 批次 1–5）** - 删零消费者废弃符号 / 死 barrel / 重复实现；`utils/common.retry` 覆盖迁至 `withRetry` 后删除；**移除 5 处 blanket `no-explicit-any` 关闭**（类型化收口）
+- ✅ **文件拆分 C1–C14** - 启动 preflight（C1）· 会话轻量扫描与 FTS5 分片（C2/C3）· Llama 日志与模型目录（C4）· `EventLogStorage`（C5a/C5b）· 前端 `MediaPage`（C6）· 知识维护 handler（C7）· QQ 协议常量与入站事件族（C8/C9）· `TAORLoop`（C10）· `streamMessageFlow`（C11）· `LongRunningTaskOrchestrator`（C12–C14）
+- ✅ **门禁与契约文档** - 新增 **doc-code 语义一致性门禁**（A13/R11-1）并接入 `ci` + `version:check`；`lint:arch` **项目根与 cwd 解耦**（AR-2）+ pre-commit **不再容忍 exit 2**（AR-3）；新增 `core/spi` 端口实现点地图（R11-4）· 工具调用安全检查链路契约 · 编排模式目录暴露给前端（PC-6）
+- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4878 pass / 21 skip / 0 fail**（4899 tests / 519 files）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

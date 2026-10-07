@@ -21,6 +21,25 @@
 
 ---
 
+#### v0.4.67 (2026-10-07)
+
+**A2A v1.0 协议面收口（T4 A–E）+ 资源治理与输出护栏接线（P26-1/P26-2）+ 会话黏性路由与任务依赖硬阻断 + 死代码降债与文件拆分（C1–C14）+ 提示词中文化（P2-2 B1–B8）+ settings 权限接线**
+
+- ✅ **A2A v1.0 协议面（T4 A–E）** - 新增 v1.0 JSON-RPC 协议类型 → 在 `/v1/a2a/rpc` 提供绑定 → SSE 流式任务更新（并声明 streaming）→ Agent Card 重塑为 v1.0 并恢复 binding → JSON-RPC 绑定从 `a2a-routes` 拆出；配套：**多 API Key + 可选过期**（零中断轮换）· 共享密钥**常量时间比较** · Agent Card 未接线时**不再广告** JSONRPC binding · 声明 `stateTransitionHistory` + 就绪探针
+- ✅ **资源治理（P26-1）** - 请求优先级从 HTTP/通道入口**透传**到 governor → 超限时**抢占**低优先级跨会话流 → 超限请求**排队**（优先级交接 + 时限兜底）；抢占/排队状态经 **SSE** 暴露给前端
+- ✅ **输出护栏双侧（P26-2 / PC-1）** - 护栏结果**回显到消息**（PC-1）· 改写审计**默认只记元数据**（动作 / 护栏名 / 原文长度 / 原文 SHA-256）· 秘密检测**收窄到真实值形态**并对 MIT 协议头**免报**（FP 修正）· 不可见 Unicode 表**收敛为单一事实源**（并集口径，加宽由测试锁定）
+- ✅ **安全姿态钉死（R07 系列）** - R07-1 `long_task_pdl` 保持**装配不可达**（防误修）· R07-2 安全开关默认值升格为 **CI 断言事实**（doc-code 断言 5→15）· R07-3 **非幂等工具重试需审批** · R07-4 A2A 默认关 + 认证 fail-closed 钉死（断言 16→18）· R07-5 省略验收标准**永不可通过**（+3 用例）
+- ✅ **会话黏性路由** - `SessionRouterStore` 单例接线（`main` 注入，benchmark 路径有意不注入）+ **上界保护**（长消息 + 低档位黏性不复用，交回 Judge）+ 守卫 7 例；**删死路由器族**（`AgentRouter` + 连带孤立 `StrategySelector`/types + `PlatformRouter`）
+- ✅ **任务依赖阻断默认翻 hard（13-P1-1 Step 1+2）** - 先做**显式降级标注**（默认仍 soft、零阻断语义变化），再默认翻 `hard` + 模型按步 opt-out + 阻断回灌会话
+- ✅ **提示词中文化（P2-2）B1–B8 全量** - 系统身份前缀 → 路由/编排/压缩 → 记忆 → 工具/子代理 → Agent 策略 → 命令（12 文件）→ 其它（建议模式 / 安全分类器 / goal 模板 / 内置技能正文）；**协议与契约保留英文**（JSON 字段名 · `VERDICT:` · `{{占位符}}` · `[SYSTEM] ` · 工具名 · 路径 · frontmatter 键），受影响断言同批同步
+- ✅ **品牌残留清理（P2-1 重开）+ settings 权限接线** - `CLAUDE_CODE_*` 内部标志 → `PY_APP_*`（4）· 渠道凭证 → `CHANNEL_CLAUDE_*`（2）· `ClaudeChannel` 常量去品牌 ⇒ `app/src` 的 `CLAUDE_[A-Z_]+` **14 行 → 5 行**；**settings 的 `permissions.allow/deny/ask` 原为零消费者（写进 settings 不生效）⇒ 接入 `PermissionManager` 决策上下文**（来源优先级 user < project < local < policy），并**修掉** `getEmptyToolPermissionContext()` 的 allow/deny/ask **共享同一对象**缺陷（写 allow 会串写 deny/ask）+ 4 例回归
+- ✅ **死代码降债（P2-8 批次 1–5）** - 删零消费者废弃符号 / 死 barrel / 重复实现；`utils/common.retry` 覆盖迁至 `withRetry` 后删除；**移除 5 处 blanket `no-explicit-any` 关闭**（类型化收口）
+- ✅ **文件拆分 C1–C14** - 启动 preflight（C1）· 会话轻量扫描与 FTS5 分片（C2/C3）· Llama 日志与模型目录（C4）· `EventLogStorage`（C5a/C5b）· 前端 `MediaPage`（C6）· 知识维护 handler（C7）· QQ 协议常量与入站事件族（C8/C9）· `TAORLoop`（C10）· `streamMessageFlow`（C11）· `LongRunningTaskOrchestrator`（C12–C14）
+- ✅ **门禁与契约文档** - 新增 **doc-code 语义一致性门禁**（A13/R11-1）并接入 `ci` + `version:check`；`lint:arch` **项目根与 cwd 解耦**（AR-2）+ pre-commit **不再容忍 exit 2**（AR-3）；新增 `core/spi` 端口实现点地图（R11-4）· 工具调用安全检查链路契约 · 编排模式目录暴露给前端（PC-6）
+- ✅ **质量** - `typecheck` **0** · `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4878 pass / 21 skip / 0 fail**（4899 tests / 519 files）
+
+---
+
 #### v0.4.66 (2026-10-06)
 
 **U4 在线质量评估器全链闭环（D1–D6）+ ACP 远程暴露 fail-closed + 记忆冲突检测接线 + 死代码簇清理**

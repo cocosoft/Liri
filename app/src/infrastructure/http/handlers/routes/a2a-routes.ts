@@ -5,6 +5,7 @@
  * - `GET  /.well-known/agent-card.json` —— Agent Card 发现（T1–T3）
  * - `POST /v1/a2a/tasks`          —— **委派**（T4）：创建任务并把消息交给委派后端
  * - `GET  /v1/a2a/tasks/{id}`     —— 任务状态/产物回查（T4）
+ * - `GET  /v1/a2a/health`         —— **独立就绪探针**（R11-3 D2）：`{ status, delegatorReady }`
  *
  * 边界（2026-09-29 用户裁定）：**ACP 对内、A2A 对外** ⇒ 本模块是**唯一对外**的 Agent 面
  * （ACP 保持默认 loopback 不变）。完整取证与任务清单见 `.trae/specs/a2a-external-exposure.md`。
@@ -44,6 +45,8 @@ const logger = getLogger('http:a2a');
 const WELL_KNOWN_AGENT_CARD = '/.well-known/agent-card.json';
 /** 委派端点（本仓自定路径，非 A2A JSON-RPC 绑定；见 api-spec §3.8.2） */
 const TASKS_PATH = '/v1/a2a/tasks';
+/** 独立就绪探针（R11-3 D2；非 A2A 规范路径，本仓自定，见 api-spec §3.8.2） */
+const HEALTH_PATH = '/v1/a2a/health';
 
 /**
  * 环境变量：是否对外暴露 A2A（**默认关闭**，spec G4）。
@@ -202,6 +205,7 @@ function resolveBaseUrl(req: http.IncomingMessage): string {
 function isA2APath(url: string): boolean {
   return (
     url === WELL_KNOWN_AGENT_CARD ||
+    url === HEALTH_PATH ||
     url === TASKS_PATH ||
     url.startsWith(`${TASKS_PATH}/`)
   );
@@ -247,6 +251,9 @@ export async function dispatchA2ARoutes(
   if (url === WELL_KNOWN_AGENT_CARD) {
     return handleAgentCard(req, res);
   }
+  if (url === HEALTH_PATH) {
+    return handleHealth(req, res);
+  }
   if (url === TASKS_PATH) {
     return handleCreateTask(req, res);
   }
@@ -282,6 +289,25 @@ async function handleAgentCard(
     url: card.url,
     protocolVersion: card.protocolVersion,
   });
+  return true;
+}
+
+/**
+ * `GET /v1/a2a/health` —— **独立就绪探针**（R11-3 D2）。
+ *
+ * 使外部调用方**无需先 POST** 即可判断能否委派：`delegatorReady` 与
+ * `handleCreateTask` 的 `503` 判据**同源**（同一个 `delegator` 引用，CS01 不另造判据）。
+ * **不**返回密钥 / 版本 / Agent 数（避免成为额外信息面；版本经发现端点取）。
+ */
+async function handleHealth(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<boolean> {
+  if ((req.method ?? 'GET') !== 'GET') {
+    json(res, 405, { error: { message: '仅支持 GET' } });
+    return true;
+  }
+  json(res, 200, { status: 'ok', delegatorReady: delegator !== null });
   return true;
 }
 

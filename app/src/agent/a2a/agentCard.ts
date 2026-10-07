@@ -93,9 +93,12 @@ export function buildAgentCard(
     provider: options.provider ?? { organization: 'Liri' },
     version: options.version,
     // 当前实现为同步委派：不声明 streaming / pushNotifications（§4.1/§4.2 未支持须在卡片声明）
+    // R11-3 D1（2026-10-07）：补 stateTransitionHistory 并**如实**为 false
+    //（只暴露任务当前态，不含状态变更历史）。
     capabilities: {
       streaming: false,
       pushNotifications: false,
+      stateTransitionHistory: false,
     },
     defaultInputModes: DEFAULT_INPUT_MODES,
     defaultOutputModes: DEFAULT_OUTPUT_MODES,

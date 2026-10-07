@@ -1,11 +1,11 @@
 /**
  * A2A 对外面守卫（P3-1 / F2 / G2 / G3 + 鉴权，2026-09-29）。
  *
- * 锁十一条：
+ * 锁十二条：
  *   ① **默认关闭** —— 未设 `A2A_ENABLED` ⇒ **不处理、不写响应**（上层自然 404，不泄露端点存在性，G4）；
  *   ② **鉴权 fail-closed** —— 启用但 **`A2A_API_KEY` 未配置** ⇒ **401**（**不**沿用"本地信任基线"放行）；
  *      配置了但头缺失/错 ⇒ **401**；`x-api-key` 正确 ⇒ 放行；
- *   ③ Card：`200`，`capabilities.streaming` / `pushNotifications` **如实为 `false`**（G2）；
+ *   ③ Card：`200`，`capabilities`（`streaming` / `pushNotifications` / `stateTransitionHistory`）**如实为 `false`**（G2 / R11-3 D1）；
  *   ④ `baseUrl`：优先 `A2A_PUBLIC_URL`；缺省按请求 Host 推导（**不硬编码**）；
  *   ⑤ Card：`If-None-Match` 命中 ⇒ **304**；非 GET ⇒ **405**；
  *   ⑥ 委派：**未装配后端 ⇒ 503 + `Retry-After`**（如实，**不伪造**成功；A12：原 501 ⇒ 503）；
@@ -13,7 +13,8 @@
  *   ⑧ 委派：阈值内完成 ⇒ **200 + `completed`**（含产物）；
  *   ⑨ 委派：超有界等待 ⇒ **202 + `working`**（**不做 HTTP 长挂**，G3），随后回查 ⇒ `completed`；
  *   ⑩ 未知 taskId ⇒ **404**；非 A2A 路径 ⇒ 不处理；
- *   ⑪ 方法守卫：委派端点非 `POST` ⇒ **405**；任务回查非 `GET` ⇒ **405**。
+ *   ⑪ 方法守卫：委派端点非 `POST` ⇒ **405**；任务回查非 `GET` ⇒ **405**；
+ *   ⑫ 健康探针（R11-3 D2）：未装配后端 ⇒ `delegatorReady:false`；已装配 ⇒ `true`；非 GET ⇒ 405；未授权 ⇒ 401；未启用 ⇒ 不处理。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { Readable } from 'node:stream';
@@ -36,6 +37,7 @@ interface Captured {
 
 const CARD_PATH = '/.well-known/agent-card.json';
 const TASKS_PATH = '/v1/a2a/tasks';
+const HEALTH_PATH = '/v1/a2a/health';
 const API_KEY = 'test-a2a-key';
 /** 过期时刻常量（`parseA2AKeys` 的边界已在 `a2aKeys.test.ts` 单独锁定） */
 const FUTURE_ISO = '2099-12-31T00:00:00Z';
@@ -199,7 +201,7 @@ describe('A2A Agent Card（发现）', () => {
     expect(cap.status).toBeUndefined();
   });
 
-  it('③ 启用 ⇒ 200，capabilities 如实为 false（G2）', async () => {
+  it('③ 启用 ⇒ 200，capabilities 三字段如实为 false（G2 / R11-3 D1）', async () => {
     enableA2A();
     const { handled, cap } = await call(
       'GET',
@@ -211,13 +213,18 @@ describe('A2A Agent Card（发现）', () => {
     const card = JSON.parse(cap.body) as {
       protocolVersion: string;
       url: string;
-      capabilities: { streaming: boolean; pushNotifications: boolean };
+      capabilities: {
+        streaming: boolean;
+        pushNotifications: boolean;
+        stateTransitionHistory: boolean;
+      };
     };
     expect(card.protocolVersion).toBe('1.0');
     expect(card.url).toBe('http://example.test:18990');
     expect(card.capabilities).toEqual({
       streaming: false,
       pushNotifications: false,
+      stateTransitionHistory: false,
     });
   });
 
@@ -346,5 +353,43 @@ describe('A2A 委派（T4）', () => {
     const query = await call('POST', auth(), `${TASKS_PATH}/any-id`);
     expect(query.handled).toBe(true);
     expect(query.cap.status).toBe(405);
+  });
+});
+
+describe('A2A 健康探针（R11-3 D2）', () => {
+  it('⑫ 未装配委派后端 ⇒ delegatorReady:false（与 503 判据同源）', async () => {
+    enableA2A();
+    expect(hasA2ADelegator()).toBe(false);
+
+    const { handled, cap } = await call('GET', auth(), HEALTH_PATH);
+    expect(handled).toBe(true);
+    expect(cap.status).toBe(200);
+    expect(JSON.parse(cap.body)).toEqual({
+      status: 'ok',
+      delegatorReady: false,
+    });
+  });
+
+  it('⑫ 已装配委派后端 ⇒ delegatorReady:true', async () => {
+    enableA2A();
+    setA2ADelegator(async () => 'ok');
+
+    const { cap } = await call('GET', auth(), HEALTH_PATH);
+    expect(cap.status).toBe(200);
+    expect(JSON.parse(cap.body)).toEqual({
+      status: 'ok',
+      delegatorReady: true,
+    });
+  });
+
+  it('⑫ 非 GET ⇒ 405；未授权 ⇒ 401；未启用 ⇒ 不处理（不泄露存在性）', async () => {
+    enableA2A();
+    expect((await call('POST', auth(), HEALTH_PATH)).cap.status).toBe(405);
+    expect((await call('GET', {}, HEALTH_PATH)).cap.status).toBe(401);
+
+    delete process.env.A2A_ENABLED; // 关闭 ⇒ 完全不管
+    const off = await call('GET', auth(), HEALTH_PATH);
+    expect(off.handled).toBe(false);
+    expect(off.cap.ended).toBe(false);
   });
 });

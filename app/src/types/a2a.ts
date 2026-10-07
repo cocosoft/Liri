@@ -139,6 +139,12 @@ export interface A2AAgentSkill {
 export interface A2AAgentCapabilities {
   streaming: boolean;
   pushNotifications: boolean;
+  /**
+   * 是否暴露任务的**状态变更历史**（A2A v0.2.1 §5.5.2 / v0.3.0 §5.5.2）。
+   *
+   * 本仓只暴露任务**当前态**（`GET /v1/a2a/tasks/{id}`）⇒ 如实为 `false`（R11-3 D1）。
+   */
+  stateTransitionHistory: boolean;
   extensions?: string[];
 }
 

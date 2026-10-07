@@ -291,16 +291,17 @@
 **GET 契约**：`sessionId` ⇒ 该会话目标（加 `active=1` 只回未终结）；**不给 `sessionId` 时必须 `active=1`**（否则 **400**，避免无界全表扫描）。
 返回 `{ goals, count }`。
 
-### §3.8.2 A2A 对外发现（`/.well-known/agent.json`，2026-09-29 新增）
+### §3.8.2 A2A 对外发现（`/.well-known/agent-card.json`，2026-09-29 新增；2026-10-07 增补健康探针）
 
 实现：`app/src/infrastructure/http/handlers/routes/a2a-routes.ts`（经 `route-table.ts` 统一注册）。
 **边界（用户裁定 2026-09-29）：`ACP 对内` / `A2A 对外`** —— 本端点是**唯一对外**的 Agent 发现面（ACP 侧默认仅 `127.0.0.1`）。见 `.trae/specs/a2a-external-exposure.md`。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
-| GET | `/.well-known/agent.json` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**，非本仓前端） |
+| GET | `/.well-known/agent-card.json` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**，非本仓前端） |
 | POST | `/v1/a2a/tasks` | ✅（**默认关闭**；委派后端需装配期注入） | —（面向**外部 A2A Agent**） |
 | GET | `/v1/a2a/tasks/{id}` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**） |
+| GET | `/v1/a2a/health` | ✅（**默认关闭**；R11-3 D2 独立就绪探针） | —（面向**外部 A2A Agent**） |
 
 **开关**：环境变量 `A2A_ENABLED === 'true'` 才启用；**未启用 ⇒ 不处理任何 A2A 路径**（由上层回落 **404**，**不泄露端点存在性**，fail-closed）。
 **鉴权（fail-closed，2026-09-29 裁定；2026-10-07 扩为多钥）**：`A2A_API_KEYS`（**清单**，逗号分隔；每项 `key` 或 `key@<ISO-8601>` 过期时刻）—— **无有效钥**（未配置/空白/全过期/全非法）⇒ **一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；有有效钥则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`，**常量时间比较** —— 2026-10-07 R07-4②；同时作用于本机 API）。**与 `A2A_ENABLED` 构成双闸**；零中断轮换流程见 `a2a-multikey-rotation.md`。
@@ -331,7 +332,11 @@
 
 **任务回查（`GET /v1/a2a/tasks/{id}`）**：`200` + Task / **404**（未知 id，含**进程重启后**旧任务不可查 ⇒ 客户端按 A2A §3.4 新建任务重发）。
 
-**能力声明口径**：`capabilities.streaming` / `pushNotifications` **恒为 `false`**（未支持的能力须如实声明）；"长任务"以 **Task 状态机**表达（`submitted`→`working`→终态），**不用** `pushNotifications`。
+**就绪探针（`GET /v1/a2a/health`，R11-3 D2 新增）**：`200` + `{ "status": "ok", "delegatorReady": boolean }`。
+`delegatorReady` 与委派端点的 **503 判据同源**（同一 `delegator` 引用）⇒ 外部调用方**无需先 POST** 即可判断能否委派。
+**不**返回密钥/版本/Agent 数（避免成为额外信息面）。非 GET ⇒ **405**；未鉴权 ⇒ **401**；未启用 ⇒ **404**（同上，不泄露存在性）。
+
+**能力声明口径**：`capabilities.streaming` / `pushNotifications` / **`stateTransitionHistory`** **恒为 `false`**（未支持的能力须**如实**声明；R11-3 D1 补第三项）；"长任务"以 **Task 状态机**表达（`submitted`→`working`→终态），**不用** `pushNotifications`。
 **安全**：卡片**不内嵌密钥**（只声明 `securitySchemes`，凭证经 HTTP Header 带外传递）。
 **部署与轮换**：密钥经 **OS 环境变量** `A2A_API_KEYS`（**清单**）分发（改后**需重启**，无热加载）；**单钥轮换流程 + 回滚点**见 `.trae/specs/a2a-external-exposure.md` **§8**、**多钥零中断轮换（含可选过期）**见 `.trae/specs/a2a-multikey-rotation.md`（全清单含 `A2A_ENABLED` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）。
 
@@ -1035,6 +1040,7 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.8.0 | 2026-10-07 | §3.8.2 新增 **`GET /v1/a2a/health`**（R11-3 D2 独立就绪探针：`{ status, delegatorReady }`，判据与委派 `503` **同源**）+ 卡片 `capabilities` 补 **`stateTransitionHistory: false`**（R11-3 D1，如实）；同批订正 §3.8.2 标题/表格中**过时路径** `agent.json` → `agent-card.json` |
 | 2.7.0 | 2026-10-07 | §3.29.1 新增 **`GET /v1/patterns`**（编排模式只读目录：注册表 + 装配状态）；§3.8.2 鉴权改为 **多钥**（`A2A_API_KEY` → **`A2A_API_KEYS`**，清单 + 每钥可选 `@<ISO-8601>` 过期；**无有效钥 ⇒ 401** 不变）+ 标注**常量时间比较** |
 | 2.6.0 | 2026-09-29 | §3.8.2 新增 **A2A 鉴权**（`A2A_API_KEY`，**fail-closed**：未配置 ⇒ 401）—— 与 `A2A_ENABLED` 构成**双闸**；发现/委派端点均返回 **401** |
 | 2.5.0 | 2026-09-29 | §3.8.2 新增 **A2A 委派**（`POST /v1/a2a/tasks` / `GET /v1/a2a/tasks/{id}`）—— 有界等待（`A2A_DELEGATE_MAX_WAIT_MS`）+ Task 状态机；委派后端 = **CoreAPI 对话轮**（方案①） |

@@ -293,7 +293,7 @@ export interface AdversarialReport {
 
 | 文件 | 改动 |
 |---|---|
-| `app/src/evals/adversarialProposer.ts` | **新增**：`createLlmProposer`（有界 `maxCalls` + 去重收敛 + 失败/超时**如实降级**）· `createAiServiceChat`（**`@modules/ai` 既有入口**，**动态 `import()`**；`syncDBProvidersToRegistry()` + `aiService.generate(..., { signal })`）· `buildRedTeamPrompt`（**安全面**：只给目标闭集 + 已声明防线）· `extractJsonArray`（容忍围栏/噪声；失败 ⇒ null） |
+| `app/src/evals/adversarialProposer.ts` | **新增**：`createLlmProposer`（有界 `maxCalls` + 去重收敛 + 失败/超时**如实降级**）· `createAiServiceChat`（**`@modules/ai` 既有入口**，**动态 `import()`**；`syncDBProvidersToRegistry()` + `aiService.generate(..., { signal })`）· `buildRedTeamPrompt`（**安全面**：只给目标闭集 + 已声明防线）· `extractJsonArray`（容忍围栏/噪声；失败 ⇒ null）<br>**2026-10-07（D-244 修复，台账 D-244）**：新增 `ProposerDiagnostics` + `LlmProposerOptions.onDiagnostics`（**空轮可见化**：`rounds`/`productiveRounds`/`emptyRounds`/`parseFailures{emptyContent,unparsable}`/`stoppedBy`）· `parse_failed` 增 `kind` 分类 · `chat_empty_content` 增可操作 `hint` · **提案 id 改为出口重编号**（`P-1..P-n` 全局唯一 —— 模型自报 id 每轮从 `P-1` 起，曾致合并结果重复且缺口）。**接口未变**（仍是 `=> Promise<AdversarialProposal[]>`）⇒ 离线提案路径与既有单测零改动 |
 | `app/src/evals/cli.ts` | 改：新增 `--adversarial-model` · `--adversarial-max-calls`（默认 5）· `--adversarial-timeout-ms`（默认 30000）；提案来源**二选一**（文件 / LLM，互斥校验）；`reportAdversarialOnce` 与 `reportAntiCheatOnce` 改 **async** |
 | `app/tests/evals/adversarialProposer.test.ts` | **新增**：**8 例**（解析容错 / 提示词安全面 / 单轮 / 跨轮去重收敛 / 上限恰好停在 maxCalls / 解析失败 / 调用抛错降级） |
 

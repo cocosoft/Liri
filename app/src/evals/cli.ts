@@ -90,6 +90,10 @@ import {
   runAdversarialPhase,
   type AdversarialProposal,
 } from './adversarialAgent.js';
+// D-244①（2026-10-07）：诊断**类型**（空轮可见化）。**type-only import** ⇒ 运行期不引入
+// `adversarialProposer`（该模块仍是**动态 import**，见 `reportAdversarialOnce`，
+// 从而不把 `@modules/ai` 拉进 harness 的静态依赖图 —— spec §5.2）。
+import type { ProposerDiagnostics } from './adversarialProposer.js';
 import {
   ENV_EVAL_BASH_LANDLOCK,
   isEvalBashLandlockForced,
@@ -520,18 +524,32 @@ const reportAdversarialOnce = async (ctx: AntiCheatContext): Promise<void> => {
     out(
       `  对抗提案器（LLM）：模型=${adversarialModel} ｜ 调用上限 ${adversarialMaxCalls} 次 ｜ 超时 ${adversarialTimeoutMs}ms ｜ max_tokens ${adversarialMaxTokens}`
     );
+    // D-244①（2026-10-07）：诊断经 `onDiagnostics` 回传（**不改提案器接口**）；用"盒"承接
+    // 以避免 TS 对闭包内赋值的窄化问题。
+    const diagBox: { value?: ProposerDiagnostics } = {};
     try {
       proposals = await createLlmProposer({
         model: adversarialModel,
         maxCalls: adversarialMaxCalls,
         timeoutMs: adversarialTimeoutMs,
         maxTokens: adversarialMaxTokens,
+        onDiagnostics: (d) => {
+          diagBox.value = d;
+        },
       })(buildProposerInput(ctx));
     } catch (e) {
       err(
         `对抗提案器调用失败：${e instanceof Error ? e.message : String(e)}（模型=${adversarialModel}）`
       );
       process.exit(2);
+    }
+    // D-244①：**空轮可见化** —— 此前"某轮无产出"只在日志里，汇总行照旧打印总条数
+    // ⇒ 使用者看不出覆盖率被高估（静默丢轮）。
+    const diag = diagBox.value;
+    if (diag) {
+      out(
+        `  提案器诊断：轮 ${diag.rounds} ｜ 有产出 ${diag.productiveRounds} ｜ **空轮 ${diag.emptyRounds}**（空输出 ${diag.parseFailures.emptyContent} · 不可解析 ${diag.parseFailures.unparsable}）｜ 停止原因 ${diag.stoppedBy}`
+      );
     }
   }
   const report = runAdversarialPhase({ ctx, proposals });

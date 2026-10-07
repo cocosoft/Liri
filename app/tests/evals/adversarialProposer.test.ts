@@ -13,6 +13,7 @@ import {
   extractJsonArray,
   RED_TEAM_SYSTEM_PROMPT,
   type AdversarialChat,
+  type ProposerDiagnostics,
 } from '../../src/evals/adversarialProposer';
 import type { AdversarialProposerInput } from '../../src/evals/adversarialAgent';
 
@@ -134,6 +135,103 @@ describe('extractJsonArray 截断容错（e2e 实证：max_tokens 截断 ⇒ 数
 
   it('没有完整对象可保留 ⇒ null', () => {
     expect(extractJsonArray('[{"id":"P-1","tar')).toBeNull();
+  });
+});
+
+/**
+ * D-244（2026-10-07，真实评测实跑取证）：
+ * ① 解析失败**只留 warn 日志** ⇒ 汇总行照旧打印总条数，看不出"某轮空转、运行提前结束"；
+ * ② **模型自报 id 不可控**（提示词示例是 `P-1`，每轮独立编号）⇒ 合并结果重复且缺口
+ *（实测 `A-P-1`..`A-P-10` 各出现两次、缺 `A-P-17`）⇒ 报告不可追溯。
+ * 本组锁定修复后的两条契约。
+ */
+describe('D-244：提案 id 全局唯一 + 空轮/解析失败可见', () => {
+  it('跨轮重复自报 id ⇒ 由适配器重新编号为全局唯一', async () => {
+    let calls = 0;
+    const chat: AdversarialChat = async () => {
+      calls++;
+      // 复刻真实形态：模型**每轮都从 P-1 起编号**
+      return arr([
+        { id: 'P-1', target: 'C-1', steps: [], expectation: `e${calls}` },
+        { id: 'P-1', target: 'C-3', steps: [], expectation: `f${calls}` },
+      ]);
+    };
+    const out = await createLlmProposer({ model: 'm', chat, maxCalls: 3 })(
+      INPUT
+    );
+    const ids = out.map((p) => p.id);
+    expect(ids).toEqual(['P-1', 'P-2', 'P-3', 'P-4', 'P-5', 'P-6']);
+    expect(new Set(ids).size).toBe(ids.length); // 唯一
+  });
+
+  it('诊断：空输出轮 ⇒ 空轮计数 + 分类为 emptyContent + 如实停止原因', async () => {
+    let calls = 0;
+    const diag: ProposerDiagnostics[] = [];
+    const chat: AdversarialChat = async () => {
+      calls++;
+      if (calls === 2) return ''; // 空输出（推理耗尽 token / 通道异常）
+      return arr([
+        { id: 'P-1', target: 'C-1', steps: [], expectation: `e${calls}` },
+      ]);
+    };
+    const out = await createLlmProposer({
+      model: 'm',
+      chat,
+      maxCalls: 5,
+      onDiagnostics: (d) => diag.push(d),
+    })(INPUT);
+    expect(out.length).toBe(1);
+    expect(diag.length).toBe(1);
+    expect(diag[0].rounds).toBe(2);
+    expect(diag[0].productiveRounds).toBe(1);
+    expect(diag[0].emptyRounds).toBe(1);
+    expect(diag[0].parseFailures).toEqual({
+      emptyContent: 1,
+      unparsable: 0,
+    });
+    expect(diag[0].stoppedBy).toBe('no_new_proposals');
+  });
+
+  it('诊断：有输出但不可解析 ⇒ 与空输出**分列**（kind=unparsable）', async () => {
+    let calls = 0;
+    const diag: ProposerDiagnostics[] = [];
+    const chat: AdversarialChat = async () => {
+      calls++;
+      if (calls === 2) return '抱歉，我无法完成。'; // 非空但无 JSON 数组
+      return arr([
+        { id: 'P-1', target: 'C-1', steps: [], expectation: `e${calls}` },
+      ]);
+    };
+    await createLlmProposer({
+      model: 'm',
+      chat,
+      maxCalls: 5,
+      onDiagnostics: (d) => diag.push(d),
+    })(INPUT);
+    expect(diag[0].parseFailures).toEqual({
+      emptyContent: 0,
+      unparsable: 1,
+    });
+  });
+
+  it('诊断：调用抛错 ⇒ stoppedBy=chat_failed（与"无新提案"区分）', async () => {
+    let calls = 0;
+    const diag: ProposerDiagnostics[] = [];
+    const chat: AdversarialChat = async () => {
+      calls++;
+      if (calls === 2) throw new Error('aborted');
+      return arr([
+        { id: 'P-1', target: 'C-1', steps: [], expectation: `e${calls}` },
+      ]);
+    };
+    await createLlmProposer({
+      model: 'm',
+      chat,
+      maxCalls: 5,
+      onDiagnostics: (d) => diag.push(d),
+    })(INPUT);
+    expect(diag[0].rounds).toBe(2);
+    expect(diag[0].stoppedBy).toBe('chat_failed');
   });
 });
 

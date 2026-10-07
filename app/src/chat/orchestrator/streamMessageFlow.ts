@@ -307,9 +307,15 @@ export async function* runStreamMessage(
                 ? { failureMessage: attribution.failureMessage }
                 : {}),
               beforeTokens: preCompactEval.snapshot.tokens,
-              afterTokens: estimateMessagesTokens(
-                session.messages as unknown as ChatMessage[]
-              ),
+              // D-245（2026-10-07）：**failed 分支故意不写 `afterTokens`**。
+              // 本分支的定义就是 `!preCompactResult.applied`（`:287`，压缩**未写回**）⇒
+              // `session.messages` **原样未变**；此时若用 `estimateMessagesTokens(session.messages)`
+              // 填 `afterTokens`，测到的是**压缩前**那批消息、且与 `beforeTokens`
+              //（`unifiedTracker.checkBeforeRequest` 快照，`:240`）**不同源** ⇒ 两数**不可相减**。
+              // 实测后果（21 会话 / 47 条真实事件）：同一事件里 `reason:'no_effect'`（文案"未降体积"）
+              // 与"降了 44%~79%"并存 ⇒ 轨迹面板据此展示了**并不存在**的"减少比例"。
+              // ⇒ 该字段在本分支**语义上无定义**，如实**不写**（前端 `TrajectoryDetail` 的
+              // "减少比例"行要求两字段皆为数字 ⇒ 缺 `afterTokens` 时自动不展示，无需改前端）。
               message: attribution.message,
             },
           });

@@ -56,6 +56,30 @@ export type AdversarialChat = (args: {
   maxTokens: number;
 }) => Promise<string>;
 
+/**
+ * 提案器诊断（**D-244①，2026-10-07**）—— 经 {@link LlmProposerOptions.onDiagnostics} 回传。
+ *
+ * **为什么需要**：真机实跑发现解析失败**只留一条 warn 日志**，而 CLI 汇总行仍打印"提案 30 条"
+ * ⇒ 使用者**看不出其中若干轮是空的**（静默丢轮，覆盖率被高估）。本结构把"空轮"抬到可见面。
+ *
+ * ⚠️ **不改变** `AdversarialProposer` 接口（仍是 `=> Promise<AdversarialProposal[]>`）⇒
+ * 注入式离线提案路径（`--adversarial-proposals`）与既有单测**零改动**。
+ */
+export interface ProposerDiagnostics {
+  /** 实际发起的轮数 */
+  rounds: number;
+  /** 有产出的轮数 */
+  productiveRounds: number;
+  /** 空轮数（= `rounds − productiveRounds`） */
+  emptyRounds: number;
+  /** 解析失败**分类**：空输出 vs 有输出但不可解析（此前合并计数 ⇒ 无法归因） */
+  parseFailures: { emptyContent: number; unparsable: number };
+  /** 停止原因 */
+  stoppedBy: 'max_calls' | 'no_new_proposals' | 'chat_failed';
+  /** 最终提案数 */
+  proposals: number;
+}
+
 /** 适配器选项 */
 export interface LlmProposerOptions {
   /** 攻击者模型名（**必填**；不得硬编码默认值 —— model-usage 规则） */
@@ -74,6 +98,8 @@ export interface LlmProposerOptions {
   maxTokens?: number;
   /** 注入式对话实现（缺省 = 经 `@modules/ai` 既有入口） */
   chat?: AdversarialChat;
+  /** 诊断回传（D-244①；可选 —— 不传则仅走日志，行为不变） */
+  onDiagnostics?: (d: ProposerDiagnostics) => void;
 }
 
 export const DEFAULT_MAX_CALLS = 5;
@@ -202,11 +228,19 @@ export function createAiServiceChat(): AdversarialChat {
       if (content.length === 0) {
         // 空内容可见化（2026-10-04 e2e 实测）：仅 `chars=0` 无法区分"推理耗尽 token"与"通道异常"。
         // 记录 finish_reason / usage / 原始类型，供下次真机诊断（零行为变化，仅日志）。
+        const finishReason = res.finish_reason ?? null;
+        const truncated =
+          finishReason === 'length' || finishReason === 'max_tokens';
         logger.warn('adversarial.proposer.chat_empty_content', {
           model,
-          finishReason: res.finish_reason ?? null,
+          finishReason,
           usage: res.usage ?? null,
           contentType: typeof res.content,
+          // D-244①（2026-10-07）：给出**可操作提示** —— "推理耗尽 token 预算"与"通道异常"
+          // 的处理方式完全不同，仅凭 `chars=0` 无法判断该去调参还是查通道。
+          hint: truncated
+            ? `输出被 max_tokens 截断（当前 ${maxTokens}）⇒ 上调 --adversarial-max-tokens 或降低单轮提案数`
+            : '非截断导致空内容 ⇒ 检查通道 / 提示词',
         });
       }
       return content;
@@ -232,7 +266,14 @@ export function createLlmProposer(
   return async (input: AdversarialProposerInput) => {
     const proposals: AdversarialProposal[] = [];
     const seen = new Set<string>();
+    // D-244①（2026-10-07）：**空轮可见化** —— 此前"该轮无产出"只在日志里，汇总行照旧打印
+    // "提案 N 条" ⇒ 使用者看不出其中若干轮是空的（静默丢轮）。以下计数经 onDiagnostics 回传。
+    let rounds = 0;
+    let productiveRounds = 0;
+    const parseFailures = { emptyContent: 0, unparsable: 0 };
+    let stoppedBy: ProposerDiagnostics['stoppedBy'] = 'max_calls';
     for (let round = 0; round < maxCalls; round++) {
+      rounds++;
       let text: string;
       try {
         text = await chat({
@@ -248,15 +289,21 @@ export function createLlmProposer(
           model: opts.model,
           error: e instanceof Error ? e.message : String(e),
         });
+        stoppedBy = 'chat_failed';
         break;
       }
       const raw = extractJsonArray(text);
       if (raw === null) {
-        // 空输出 / 解析失败（含截断不可恢复）⇒ 可见化，便于排查 max_tokens 或提示词问题
+        // D-244①：**空输出**与**有输出但不可解析**是两种不同成因，**分列计数**
+        //（此前合并为一条 warn ⇒ 事后无法归因"是推理耗尽 token 还是格式错"）。
+        const empty = text.trim().length === 0;
+        if (empty) parseFailures.emptyContent++;
+        else parseFailures.unparsable++;
         logger.warn('adversarial.proposer.parse_failed', {
           round,
           model: opts.model,
           chars: text.length,
+          kind: empty ? 'empty_content' : 'unparsable',
         });
       }
       const { proposals: parsed } = parseAdversarialProposals(raw);
@@ -265,10 +312,18 @@ export function createLlmProposer(
         const key = `${p.target}\u0000${p.expectation}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        proposals.push(p);
+        // D-244②（2026-10-07）：**由本适配器重新分配 id**。契约要求"本次运行内唯一"
+        //（`AdversarialProposal.id`），而**模型自报的 id 不可控** —— 提示词示例是 `P-1`，
+        // 每轮独立编号 ⇒ 跨轮重复（实测合并结果 `A-P-1`..`A-P-10` 各出现两次、缺 `A-P-17`，
+        // 报告因此不可追溯）。⇒ 以**提案序号**整体重编号；**去重键不变**（target+expectation）。
+        proposals.push({ ...p, id: `P-${proposals.length + 1}` });
         added++;
       }
-      if (added === 0) break;
+      if (added > 0) productiveRounds++;
+      if (added === 0) {
+        stoppedBy = 'no_new_proposals';
+        break;
+      }
     }
     if (proposals.length === 0) {
       logger.warn('adversarial.proposer.empty', {
@@ -277,6 +332,14 @@ export function createLlmProposer(
         maxTokens,
       });
     }
+    opts.onDiagnostics?.({
+      rounds,
+      productiveRounds,
+      emptyRounds: rounds - productiveRounds,
+      parseFailures,
+      stoppedBy,
+      proposals: proposals.length,
+    });
     return proposals;
   };
 }

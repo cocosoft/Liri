@@ -88,6 +88,19 @@
 **备选**：补 `FEATURE_PERMISSION_SETTINGS` 并按 **R07-2** 同步安全开关清单（11 → 12）+ 断言表。
 **触发条件**：首次出现真实用户写入 `permissions` 段时。
 
+### UW-3 协作编排统一层端口 `ICollaborationPort`（**仅建层，无消费方**）
+
+**证据**：`core/spi/CollaborationService.ts`（2026-10-07 新增，规格 `.trae/specs/collaboration-orchestration-port.md`，范围 A 薄端口）；
+适配器 `agent/orchestration/{Swarm,Scheduler,Remote}ChannelAdapter`（仅形状搬运，构造注入引擎 / executor）；
+装配点 `entrypoints/spiWiring.ts`（**只注册"能力自述"**——当前无引擎 / executor 提供方 ⇒ `listChannels() = []`）。
+全 `app/`（src + tests）除端口本身、适配器与其用例 `tests/agent/orchestration/collaborationPort.test.ts` 外**无生产消费方**。
+
+**影响**：零（`listChannels() → []`、`dispatch() → null`，与未注册代理同形）—— 属**预留端口**（先例 `MemoryHookDispatcher`，**勿视为既有能力**）。
+
+**建议处置**：**保留登记**（用户 2026-10-07 裁定「需要统一层」并按 A 立项，**明确接受**与 G4「≥1 真实消费方」门槛的张力）。
+**备选**：若不接线则删除端口 + 3 适配器 + 装配块 + 用例（回退成本低：三路引擎**零改动**）。
+**触发条件**（任一成立即接线）：① 工具入参面（如 `agent(tasks[], topology, delegate)`）；② 前端编排 / 拓扑选择器（与 PC-6 同源）；③ 计划步骤（PDL 按步指定拓扑 / 委派）。
+
 ---
 
 ## §3 BR —— 品牌残留（已裁定/已在册，列出以免重复登记）

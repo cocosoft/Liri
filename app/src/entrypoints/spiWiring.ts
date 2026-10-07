@@ -348,6 +348,22 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- 协作编排统一层 · 薄端口（2026-10-07；`.trae/specs/collaboration-orchestration-port.md`）----
+  // ⚠️ **预留端口**：生产中**无消费者**（消费入口未定，见 spec §5；**勿视为既有能力**）。
+  // 本期只装配「**能力自述**」：三通道适配器（`agent/orchestration/` 的 SwarmChannelAdapter /
+  // SchedulerChannelAdapter / RemoteChannelAdapter）的**引擎实例与 executor 是构造实参**，
+  // 其提供方由**第一消费入口**决定 ⇒ 当前无提供方 ⇒ 不构造任何 adapter ⇒
+  // `listChannels()` 返回 `[]`、`dispatch()` 返回 `null`（未注入依赖的通道不出现在清单）。
+  // 待第一消费入口提供引擎 / executor 后，在此 `new SwarmChannelAdapter({ swarm, executor })`
+  // 等并纳入通道清单。
+  {
+    const { registerCollaborationSpi } = await import('@modules/core/spi');
+    await registerCollaborationSpi(container, {
+      listChannels: async () => [],
+      dispatch: async () => null,
+    });
+  }
+
   // ---- 诊断采集 SPI（2026-09-30 D-123；D-128 转推送模型）----
   {
     const { STTRegistry } =

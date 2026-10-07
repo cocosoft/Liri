@@ -78,6 +78,16 @@ export {
   resolveSessionQuality,
 } from './SessionQualityService';
 
+// 2026-10-07：协作编排统一层端口（**薄端口 / 预留**；`.trae/specs/collaboration-orchestration-port.md`）
+export {
+  type ICollaborationPort,
+  type CollaborationDispatchRequestDto,
+  type CollaborationDispatchResultDto,
+  COLLABORATION_SERVICE_ID,
+  registerCollaborationSpi,
+  resolveCollaboration,
+} from './CollaborationService';
+
 // 2026-10-01 D-148：知识图谱端口（消除 chronos/autoDream 的 infra → app 倒挂，3 处）
 export {
   type IKnowledgeGraphPort,

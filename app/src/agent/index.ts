@@ -264,6 +264,20 @@ export type {
 } from './moa/ParallelAgentScheduler';
 export { ResultAggregator, AggregationStrategy } from './moa/ResultAggregator';
 
+// 2026-10-07：协作编排统一层端口适配器（core 端口 `ICollaborationPort` 的**形状搬运**；
+// 规格 `.trae/specs/collaboration-orchestration-port.md` §3）。
+// ⚠️ 预留端口：生产中暂无消费者（消费入口待定，见 spec §5）。
+export {
+  SwarmChannelAdapter,
+  SchedulerChannelAdapter,
+  RemoteChannelAdapter,
+} from './orchestration';
+export type {
+  SwarmChannelDeps,
+  SchedulerChannelDeps,
+  RemoteChannelDeps,
+} from './orchestration';
+
 // A2A 对外暴露（P3-1，2026-09-29）：Agent Card 构建。
 // 边界：**ACP 对内 / A2A 对外**（见 `.trae/specs/a2a-external-exposure.md`）。
 // 经 barrel 导出是**必须**的 —— `infrastructure` 侧受 `module-registry/no-direct-module-import` 约束，

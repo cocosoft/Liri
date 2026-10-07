@@ -19,18 +19,19 @@
 > 每个文件各产生 **1 个 `core → app|service` 动态跨层对**（门禁 `R00-003` 的 ② 家族）。
 > 推送模型把 import 挪到 **entry 层**（可依赖任意层）⇒ **零新增跨层对**。
 
-## 一、目录构成（17 文件，**数字已订正**）
+## 一、目录构成（18 文件，**数字已订正**）
 
 | 类别 | 文件数 | 说明 |
 |---|---:|---|
-| **端口服务**（`*Service.ts`） | **14** | 各含 `I<X>Port`/`I<X>Service` 接口 + `register<X>Spi()` + `resolve<X>()` + `*_SERVICE_ID` |
+| **端口服务**（`*Service.ts`） | **15** | 各含 `I<X>Port`/`I<X>Service` 接口 + `register<X>Spi()` + `resolve<X>()` + `*_SERVICE_ID` |
 | 工具类 | 1 | `CacheService.ts` → `TtlCache`（**不是端口**：无 register/resolve，被直接 `new`） |
 | 类型转出 | 1 | `ErrorTypes.ts` → 转出 `core/errors.ts` 的 `AppError`/`ErrorCategory`/`ErrorSeverity`（**不是端口**） |
 | 桶文件 | 1 | `index.ts` → 统一出口 |
 
 > ⚠️ **数字订正（2026-10-07 实测）**：台账 §24.4 / 报告 12 记「**15 端口**」（源自 15 个 `*Service.ts`），
 > 但 `CacheService.ts` 只提供 `TtlCache` 工具类、**无注册/解析函数** ⇒ 实测端口为 **14 个**。
-> （17 = 14 端口 + `CacheService` + `ErrorTypes` + `index`。）
+> **2026-10-07 追加**：新增预留端口 `CollaborationService.ts` ⇒ 端口 **15 个**、目录 **18 文件**。
+> （18 = 15 端口 + `CacheService` + `ErrorTypes` + `index`。）
 > 另：`ERROR_SERVICE_ID`（`ErrorTypes.ts:12`）**当前 0 消费**（无 `registerErrorSpi`）。
 
 ## 二、端口清单（单一参照）
@@ -51,6 +52,11 @@
 | `SandboxService.ts` | `ISandboxPort` | `infra(security/permission/infrastructure) → app(sandbox)`（D-154 / D-157 / D-200） | `sandbox`（`SandboxManager` / `globalWorkspaceManager` / `processRegistry` / `resourceLimitManager`） | `permission/PermissionService.ts:79`、`security/SecurityIntegration.ts:99/:134/:169/:177`、`infrastructure/http/handlers/sandbox-handlers.ts:148`、`infrastructure/http/handlers/handler-utils.ts:174` | 空值（**fail-closed**：默认工作区缺失 ⇒ `hasWorkspacePermission` 为 `false`） |
 | `HookChainService.ts` | `IHookChainPort` | `infra(cost/memory) → app(hooks)`（D-155 / D-168） | `hooks`（`HookChainManager`，返回值投影为 `{ blocked }`） | `cost/CostHookDispatcher.ts:67/:75`、`memory/MemoryHookDispatcher.ts:55/:78` | 空操作 |
 | `KnowledgeService.ts` | `IKnowledgeService` | `infra(chronos) → app(knowledge)`（D-125） | `knowledge`（`KnowledgeCompiler` / `KnowledgeLinter` / `KnowledgeDigestService`） | `chronos/knowledge/knowledgeMaintenance.ts:95/:104/:116`、`chronos/autoDream/AutoDream.ts:550` | 空值 |
+| `CollaborationService.ts` | `ICollaborationPort` | **无**（**预留端口**，非倒挂收口；2026-10-07 范围 A 薄端口） | `agent/orchestration/{Swarm,Scheduler,Remote}ChannelAdapter`（形状搬运；**当前未构造**——引擎实例 / executor 由**第一消费入口**提供） | **暂无（预留）** | 空操作（`listChannels() → []`、`dispatch() → null`） |
+
+> ⚠️ **`CollaborationService.ts` 为预留端口**（生产**无消费者**，先例 `MemoryHookDispatcher`）——
+> **勿视为既有能力**。已登记 `.trae/specs/dead-code-and-unwired-items-rulings.md` 的 **UW 组**；
+> 接线触发条件见 spec（`.trae/specs/collaboration-orchestration-port.md` §5）。
 
 ## 三、装配链与消费链（关系图）
 
@@ -64,7 +70,7 @@
    entrypoints/spiWiring.ts  registerAllSpis()      ◀── 唯一注入点（推送模型，entry 层）
         │  await import('@modules/<上层>')  →  构建实现体  →  register<X>Spi(container, impl)
         │
-        ▼   （14 次 register*Spi；每次写入 core 端口的模块级 `_service`）
+        ▼   （15 次 register*Spi；每次写入 core 端口的模块级 `_service`）
    core/spi/<X>Service.ts   resolve<X>()   ← 转发代理（延迟绑定，每次调用解析当前实现）
         ▲
         │  消费方一律经 resolve<X>()，❌ 不直接 import 上层模块

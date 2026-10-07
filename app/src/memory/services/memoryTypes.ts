@@ -21,72 +21,72 @@ export const MEMORY_FRONTMATTER_EXAMPLE = [
  * Trusting recall section for memory prompts.
  */
 export const TRUSTING_RECALL_SECTION = [
-  '## Trusting recall',
+  '## 关于记忆的可靠性',
   '',
-  'You may not remember everything perfectly. That is okay — the memory system is designed to help you.',
-  'If you are unsure about a detail, it is better to search for the information or ask the user than to make something up.',
-  'Your memory is not a replacement for checking the actual state of the project (e.g., by reading files or running commands).',
-  'Use your memory as a guide, but always verify important details before acting on them.',
+  '你不可能记住所有细节，这很正常 —— 记忆系统的存在就是为了帮助你。',
+  '若对某个细节不确定，宁可去检索信息或询问用户，也不要凭空编造。',
+  '记忆不能替代对项目真实状态的核查（例如读取文件或运行命令）。',
+  '可以把记忆当作向导，但在依此行动之前，务必核实重要细节。',
 ];
 
 /**
  * Individual memory types section for memory prompts.
  */
 export const TYPES_SECTION_INDIVIDUAL = [
-  '## Memory types',
+  '## 记忆类型',
   '',
-  '### User memories',
-  'Information about the user themselves: their role, preferences, communication style, and goals.',
-  '- Example: "The user is a frontend developer who prefers React over Vue"',
-  '- Example: "The user likes detailed explanations with code examples"',
-  '- Example: "The user is working on a tight deadline for this project"',
+  '### 用户记忆（User）',
+  '关于用户本人的信息：角色、偏好、沟通风格与目标。',
+  '- 示例：“该用户是前端开发者，偏好 React 而非 Vue”',
+  '- 示例：“该用户喜欢带代码示例的详细解释”',
+  '- 示例：“该用户在这个项目上正赶一个很紧的截止日期”',
   '',
-  '### Feedback memories',
-  'Feedback the user has given you about your performance or the tools you use.',
-  '- Example: "The user prefers I not summarize code changes"',
-  '- Example: "The user found my explanation of Promises helpful"',
-  '- Example: "The user asked me to use more emojis in my responses"',
+  '### 反馈记忆（Feedback）',
+  '用户就你的表现或你所使用工具给出的反馈。',
+  '- 示例：“该用户希望我不要对代码改动做总结”',
+  '- 示例：“该用户认为我对 Promise 的解释很有帮助”',
+  '- 示例：“该用户要求我在回复中多用表情符号”',
   '',
-  '### Project memories',
-  'Context about the project that is not derivable from the code itself.',
-  '- Example: "The project uses a specific API that requires an API key"',
-  '- Example: "The team follows a specific branching strategy"',
-  '- Example: "There is a known issue with the third-party library"',
+  '### 项目记忆（Project）',
+  '无法从代码本身推导出的项目上下文。',
+  '- 示例：“该项目使用某个需要 API key 的特定 API”',
+  '- 示例：“团队遵循某个特定的分支策略”',
+  '- 示例：“该第三方库存在一个已知问题”',
   '',
-  '### Reference memories',
-  'External references or resources that are relevant to the project.',
-  '- Example: "The design specs are available at https://example.com/specs"',
-  '- Example: "The API documentation is at https://api.example.com/docs"',
-  '- Example: "The team uses Jira for project management: https://jira.example.com"',
+  '### 参考记忆（Reference）',
+  '与项目相关的外部引用或资源。',
+  '- 示例：“设计规范见 https://example.com/specs”',
+  '- 示例：“API 文档见 https://api.example.com/docs”',
+  '- 示例：“团队用 Jira 做项目管理：https://jira.example.com”',
 ];
 
 /**
  * What not to save section for memory prompts.
  */
 export const WHAT_NOT_TO_SAVE_SECTION = [
-  '## What not to save',
+  '## 不应保存的内容',
   '',
-  'Do not save information that:',
-  '- Is derivable from the codebase (e.g., file structure, function names)',
-  '- Is temporary or only relevant to the current conversation',
-  '- Is sensitive (e.g., API keys, passwords, personal information)',
-  '- Is already well-documented elsewhere',
-  '- Would violate privacy or security policies',
+  '不要保存符合以下任一情况的信息：',
+  '- 可从代码库推导（如文件结构、函数名）',
+  '- 临时的、仅与当前对话相关',
+  '- 敏感的（如 API key、密码、个人信息）',
+  '- 已在别处有良好文档记录',
+  '- 会违反隐私或安全策略',
   '',
-  'Memory is for persistent, context-rich information that will be useful across multiple conversations.',
+  '记忆用于跨多次对话仍然有用的、持久的、富含上下文的信息。',
 ];
 
 /**
  * When to access section for memory prompts.
  */
 export const WHEN_TO_ACCESS_SECTION = [
-  '## When to access memory',
+  '## 何时访问记忆',
   '',
-  'You should access your memory:',
-  '- When starting a new conversation with a user you have interacted with before',
-  '- When the user asks about something that might be in your memory',
-  '- When you need context that is not immediately available in the current conversation',
-  '- When you want to ensure consistency with previous interactions',
+  '你应当在以下时机访问记忆：',
+  '- 与曾经交互过的用户开启新对话时',
+  '- 用户问及可能存在于你记忆中的事情时',
+  '- 你需要当前对话中并不直接可得的上下文时',
+  '- 你希望与既往交互保持一致时',
   '',
-  'You do not need to access your memory for every interaction — use your judgment about what information is relevant.',
+  '并不是每次交互都需要访问记忆 —— 请自行判断哪些信息是相关的。',
 ];

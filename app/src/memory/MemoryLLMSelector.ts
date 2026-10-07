@@ -28,14 +28,14 @@ export function buildSelectionPrompt(
   const trimmed = memories.map(
     (m) => `[${m.id}] (${m.type}) ${m.content.slice(0, 200)}`
   );
-  return `You are a memory selector. Given the user's current query and a list of memories, select the ${DEFAULT_CONFIG.maxItems} most relevant memories.
+  return `你是记忆选择器。给定用户当前的查询与一组记忆，请选出最相关的 ${DEFAULT_CONFIG.maxItems} 条记忆。
 
-Current query: "${query}"
+当前查询："${query}"
 
-Memories:
+记忆列表：
 ${trimmed.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 
-Return ONLY the memory IDs that are most relevant to the query, as a JSON array of strings: ["id1", "id2", ...]`;
+只返回与查询最相关的记忆 ID，以 JSON 字符串数组形式给出：["id1", "id2", ...]`;
 }
 
 /**

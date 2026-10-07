@@ -19,64 +19,50 @@ export interface MemoryTypeTemplate {
 export const MEMORY_TYPE_TEMPLATES: MemoryTypeTemplate[] = [
   {
     type: 'user',
-    displayName: 'User Profile',
+    displayName: '用户画像',
     scope: 'global',
-    description:
-      'User identity, preferences, communication style, and technical background.',
-    whenToSave:
-      'When the user shares personal preferences, corrects your approach, or reveals work patterns.',
-    howToUse:
-      'Apply proactively to customize responses, tool choices, and communication tone.',
+    description: '用户身份、偏好、沟通风格与技术背景。',
+    whenToSave: '当用户分享个人偏好、纠正你的做法，或显露其工作习惯时。',
+    howToUse: '主动据此定制回复方式、工具选择与沟通语气。',
     examples: [
-      'User prefers TypeScript over Python',
+      '用户偏好 TypeScript 而非 Python',
       '用户要求用中文回复',
-      'Prefers concise answers without emojis',
+      '偏好简洁回答、不要表情符号',
     ],
   },
   {
     type: 'feedback',
-    displayName: 'Feedback & Corrections',
+    displayName: '反馈与纠正',
     scope: 'workspace',
-    description:
-      'Behavioral guidance from the user — corrections, affirmations, and preferences.',
-    whenToSave:
-      'When the user explicitly corrects you or praises a specific approach.',
-    howToUse:
-      'Adjust future behavior immediately. Higher priority than project knowledge.',
-    examples: [
-      '"Don\'t use docker for this" → add feedback',
-      '"That approach was perfect" → affirm',
-    ],
+    description: '来自用户的行为指导 —— 纠正、肯定与偏好。',
+    whenToSave: '当用户明确纠正你，或称赞某种具体做法时。',
+    howToUse: '立即调整后续行为，优先级高于项目知识。',
+    examples: ['“这个别用 docker” → 记为反馈', '“那个做法很好” → 记为肯定'],
   },
   {
     type: 'project',
-    displayName: 'Project Knowledge',
+    displayName: '项目知识',
     scope: 'workspace',
-    description:
-      'Project-specific context: architecture, decisions, deadlines, incidents.',
-    whenToSave:
-      'After important architectural decisions, bug discoveries, or milestone completions.',
-    howToUse:
-      'Reference when working on the same project. Do NOT save code that can be derived from the repo.',
+    description: '项目特有上下文：架构、决策、截止时间、事故。',
+    whenToSave: '在重要的架构决策、缺陷发现或里程碑完成之后。',
+    howToUse: '在处理同一项目时参考。不要保存可从仓库推导出的代码。',
     examples: [
-      '"We chose SQLite because..." → record decision',
-      'Deadline is next Friday → record constraint',
+      '“我们之所以选 SQLite 是因为……” → 记录该决策',
+      '截止时间是下周五 → 记录该约束',
     ],
   },
   {
     type: 'reference',
-    displayName: 'External References',
+    displayName: '外部引用',
     scope: 'workspace',
     description:
-      'Pointers to external systems: Linear tickets, Grafana dashboards, Slack channels, docs.',
-    whenToSave:
-      'When the user mentions a relevant external system or document.',
-    howToUse:
-      'Use as lookup key when the user asks about related topics. Keep URLs/handles short.',
+      '指向外部系统的指针：Linear 工单、Grafana 仪表盘、Slack 频道、文档。',
+    whenToSave: '当用户提到相关的外部系统或文档时。',
+    howToUse: '在用户问及相关话题时作为检索键使用。保持 URL / 句柄简短。',
     examples: [
-      'Linear project: LIN-1234',
-      'Grafana dashboard: /d/xyz',
-      'Design doc: https://...',
+      'Linear 项目：LIN-1234',
+      'Grafana 仪表盘：/d/xyz',
+      '设计文档：https://...',
     ],
   },
 ];

@@ -762,8 +762,7 @@ export class MemoryManagerImpl
           [
             {
               role: 'system',
-              content:
-                'You are a memory selector. Return ONLY a JSON array of memory IDs.',
+              content: '你是记忆选择器。只返回一个由记忆 ID 组成的 JSON 数组。',
             },
             { role: 'user', content: buildSelectionPrompt(query, items) },
           ],

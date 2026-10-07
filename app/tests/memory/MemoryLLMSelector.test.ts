@@ -46,7 +46,7 @@ describe('MemoryLLMSelector', () => {
     it('generates prompt with memory list', () => {
       const prompt = buildSelectionPrompt('状态管理', sampleMemories);
 
-      expect(prompt).toContain('memory selector');
+      expect(prompt).toContain('记忆选择器');
       expect(prompt).toContain('状态管理');
       expect(prompt).toContain('m3');
       expect(prompt).toContain('Zustand');

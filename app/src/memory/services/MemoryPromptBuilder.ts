@@ -21,7 +21,7 @@ export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
 export const MAX_ENTRYPOINT_BYTES = 25000;
 export const DIR_EXISTS_GUIDANCE =
-  'This directory already exists — write to it directly with the Write tool (do not run mkdir or check for its existence).';
+  '该目录已存在 —— 直接用 Write 工具写入即可（不要执行 mkdir，也不要检查其是否存在）。';
 
 export interface EntrypointTruncation {
   content: string;
@@ -64,13 +64,13 @@ export function truncateEntrypointContent(raw: string): EntrypointTruncation {
 
   const reason =
     wasByteTruncated && !wasLineTruncated
-      ? `${byteCount} bytes (limit: ${MAX_ENTRYPOINT_BYTES}) — index entries are too long`
+      ? `${byteCount} 字节（上限 ${MAX_ENTRYPOINT_BYTES}）—— 索引条目过长`
       : wasLineTruncated && !wasByteTruncated
-        ? `${lineCount} lines (limit: ${MAX_ENTRYPOINT_LINES})`
-        : `${lineCount} lines and ${byteCount} bytes`;
+        ? `${lineCount} 行（上限 ${MAX_ENTRYPOINT_LINES}）`
+        : `${lineCount} 行、${byteCount} 字节`;
 
   return {
-    content: `${truncated}\n\n> WARNING: ${ENTRYPOINT_NAME} is ${reason}. Only part of it was loaded. Keep index entries to one line under ~200 chars; move detail into topic files.`,
+    content: `${truncated}\n\n> 警告：${ENTRYPOINT_NAME} 为 ${reason}，仅加载了其中一部分。请把索引条目控制在一行、约 200 字符以内；详细内容请移到主题文件中。`,
     lineCount,
     byteCount,
     wasLineTruncated,
@@ -108,43 +108,43 @@ export function buildMemoryLines(
 ): string[] {
   const howToSave = skipIndex
     ? [
-        '## How to save memories',
+        '## 如何保存记忆',
         '',
-        'Write each memory to its own file (e.g., `user_role.md`, `feedback_testing.md`) using this frontmatter format:',
+        '每条记忆写入独立文件（例如 `user_role.md`、`feedback_testing.md`），使用如下 frontmatter 格式：',
         '',
         ...MEMORY_FRONTMATTER_EXAMPLE,
         '',
-        '- Keep the name, description, and type fields in memory files up-to-date with the content',
-        '- Organize memory semantically by topic, not chronologically',
-        '- Update or remove memories that turn out to be wrong or outdated',
-        '- Do not write duplicate memories. First check if there is an existing memory you can update before writing a new one.',
+        '- 保持记忆文件中的 name、description、type 字段与内容同步更新',
+        '- 按主题（语义）而非时间顺序组织记忆',
+        '- 对发现错误或已过时的记忆进行更新或删除',
+        '- 不要写入重复记忆。写入新记忆前，先检查是否已有可更新的记忆。',
       ]
     : [
-        '## How to save memories',
+        '## 如何保存记忆',
         '',
-        'Saving a memory is a two-step process:',
+        '保存一条记忆分两步：',
         '',
-        '**Step 1** — write the memory to its own file (e.g., `user_role.md`, `feedback_testing.md`) using this frontmatter format:',
+        '**第 1 步** —— 把记忆写入独立文件（例如 `user_role.md`、`feedback_testing.md`），使用如下 frontmatter 格式：',
         '',
         ...MEMORY_FRONTMATTER_EXAMPLE,
         '',
-        `**Step 2** — add a pointer to that file in \`${ENTRYPOINT_NAME}\`. \`${ENTRYPOINT_NAME}\` is an index, not a memory — each entry should be one line, under ~150 characters: \`- [Title](file.md) — one-line hook\`. It has no frontmatter. Never write memory content directly into \`${ENTRYPOINT_NAME}\`.`,
+        `**第 2 步** —— 在 \`${ENTRYPOINT_NAME}\` 中为该文件添加一条指针。\`${ENTRYPOINT_NAME}\` 是索引而非记忆 —— 每项一行、约 150 字符以内：\`- [Title](file.md) — one-line hook\`。它没有 frontmatter。切勿把记忆内容直接写入 \`${ENTRYPOINT_NAME}\`。`,
         '',
-        `- \`${ENTRYPOINT_NAME}\` is always loaded into your conversation context — lines after ${MAX_ENTRYPOINT_LINES} will be truncated, so keep the index concise`,
-        '- Keep the name, description, and type fields in memory files up-to-date with the content',
-        '- Organize memory semantically by topic, not chronologically',
-        '- Update or remove memories that turn out to be wrong or outdated',
-        '- Do not write duplicate memories. First check if there is an existing memory you can update before writing a new one.',
+        `- \`${ENTRYPOINT_NAME}\` 始终会被载入你的对话上下文 —— 第 ${MAX_ENTRYPOINT_LINES} 行之后会被截断，因此请保持索引精简`,
+        '- 保持记忆文件中的 name、description、type 字段与内容同步更新',
+        '- 按主题（语义）而非时间顺序组织记忆',
+        '- 对发现错误或已过时的记忆进行更新或删除',
+        '- 不要写入重复记忆。写入新记忆前，先检查是否已有可更新的记忆。',
       ];
 
   return [
     `# ${displayName}`,
     '',
-    `You have a persistent, file-based memory system at \`${memoryDir}\`. ${DIR_EXISTS_GUIDANCE}`,
+    `你有一套持久化的、基于文件的记忆系统，位于 \`${memoryDir}\`。${DIR_EXISTS_GUIDANCE}`,
     '',
-    "You should build up this memory system over time so that future conversations can have a complete picture of who the user is, how they'd like to collaborate with you, what behaviors to avoid or repeat, and the context behind the work the user gives you.",
+    '你应当逐步建立这套记忆系统，使未来的对话能够完整掌握：用户是谁、希望如何与你协作、哪些行为应当避免或重复，以及用户交给你的工作背后的上下文。',
     '',
-    'If the user explicitly asks you to remember something, save it immediately as whichever type fits best. If they ask you to forget something, find and remove the relevant entry.',
+    '如果用户明确要求你记住某事，请立即按最合适的类型保存；如果用户要求你遗忘某事，请找到并删除相应条目。',
     '',
     ...TYPES_SECTION_INDIVIDUAL,
     ...WHAT_NOT_TO_SAVE_SECTION,
@@ -194,7 +194,7 @@ export function buildMemoryPrompt(params: {
     lines.push(
       `## ${ENTRYPOINT_NAME}`,
       '',
-      `Your ${ENTRYPOINT_NAME} is currently empty. When you save new memories, they will appear here.`
+      `你的 ${ENTRYPOINT_NAME} 当前为空。当你保存新的记忆后，它们会出现在这里。`
     );
   }
 
@@ -206,7 +206,7 @@ export function buildMemoryPrompt(params: {
  */
 export function buildAutoMemoryPrompt(): string {
   const memoryDir = join(resolveProjectRoot(), 'memory');
-  return buildMemoryPrompt({ displayName: 'auto memory', memoryDir });
+  return buildMemoryPrompt({ displayName: '自动记忆', memoryDir });
 }
 
 /**
@@ -221,7 +221,7 @@ export class MemoryPromptBuilder {
   buildSystemPrompt(memoryDir?: string): string {
     const dir = memoryDir || join(resolveProjectRoot(), 'memory');
     return buildMemoryPrompt({
-      displayName: 'persistent memory',
+      displayName: '持久记忆',
       memoryDir: dir,
     });
   }
@@ -231,6 +231,6 @@ export class MemoryPromptBuilder {
    * @returns 使用指导文本
    */
   buildUsageGuidance(): string[] {
-    return buildMemoryLines('memory usage guidance', '');
+    return buildMemoryLines('记忆使用指导', '');
   }
 }

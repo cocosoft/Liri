@@ -143,9 +143,24 @@ export interface A2AAgentCapabilities {
    * 是否暴露任务的**状态变更历史**（A2A v0.2.1 §5.5.2 / v0.3.0 §5.5.2）。
    *
    * 本仓只暴露任务**当前态**（`GET /v1/a2a/tasks/{id}`）⇒ 如实为 `false`（R11-3 D1）。
+   * ⚠️ **T4 待核**：v1.0 的 `a2a.proto` 字段集中**未见**该字段（见 `.trae/specs/a2a-jsonrpc-binding.md` §9-2
+   * 的规范自相不一致登记）⇒ 是否随 v1.0 移除，**待按 `v1.0.0` tag 校验后再定**（本批保留，不多改）。
    */
   stateTransitionHistory: boolean;
-  extensions?: string[];
+  /** 支持的协议扩展（v1.0 = `AgentExtension` 对象数组；本仓当前为空/不设置） */
+  extensions?: A2AAgentExtension[];
+  /** 是否支持鉴权后的**扩展 Agent Card**（v1.0 新增；本仓**不支持** ⇒ 不设置/`false`） */
+  extendedAgentCard?: boolean;
+}
+
+/** 协议扩展声明（v1.0 §4.4.4）：位于 `capabilities.extensions` */
+export interface A2AAgentExtension {
+  /** 扩展 URI（含版本） */
+  uri: string;
+  description?: string;
+  /** `true` ⇒ 客户端**必须**理解并遵守；服务端不支持时 MUST 报错（`-32008`） */
+  required?: boolean;
+  params?: Record<string, unknown>;
 }
 
 /**
@@ -218,6 +233,14 @@ export const JsonRpcErrorCode = {
   InternalError: -32603,
   TaskNotFound: -32001,
   TaskNotCancelable: -32002,
+  /** A2A 专属段（spec §5.4 映射表；`-32001..-32099` 为服务端自定义保留） */
+  PushNotificationNotSupported: -32003,
+  UnsupportedOperation: -32004,
+  ContentTypeNotSupported: -32005,
+  InvalidAgentResponse: -32006,
+  ExtendedAgentCardNotConfigured: -32007,
+  ExtensionSupportRequired: -32008,
+  VersionNotSupported: -32009,
 } as const;
 
 /**
@@ -229,10 +252,23 @@ export const JsonRpcErrorCode = {
 export const A2A_METHODS = {
   /** 发送消息并（同步）执行 */
   SendMessage: 'SendMessage',
+  /** 发送消息并以 SSE 订阅该任务的后续事件 */
+  SendStreamingMessage: 'SendStreamingMessage',
   /** 按 id 取任务 */
   GetTask: 'GetTask',
+  /** 列出任务（cursor 分页） */
+  ListTasks: 'ListTasks',
   /** 取消任务 */
   CancelTask: 'CancelTask',
+  /** 订阅既有任务的后续事件（SSE） */
+  SubscribeToTask: 'SubscribeToTask',
+  /** 以下 4 个推送通知配置操作 + 扩展卡：本仓**未实现** ⇒ 按能力门控**如实**返回标准错误
+   *（`-32003` / `-32004`，见 `.trae/specs/a2a-jsonrpc-binding.md` §3） */
+  CreateTaskPushNotificationConfig: 'CreateTaskPushNotificationConfig',
+  GetTaskPushNotificationConfig: 'GetTaskPushNotificationConfig',
+  ListTaskPushNotificationConfigs: 'ListTaskPushNotificationConfigs',
+  DeleteTaskPushNotificationConfig: 'DeleteTaskPushNotificationConfig',
+  GetExtendedAgentCard: 'GetExtendedAgentCard',
 } as const;
 
 /**
@@ -242,12 +278,145 @@ export const A2A_METHODS = {
 export const A2A_METHOD_ALIASES: Record<string, string> = {
   // canonical（v1.0 抽象操作名）
   [A2A_METHODS.SendMessage]: A2A_METHODS.SendMessage,
+  [A2A_METHODS.SendStreamingMessage]: A2A_METHODS.SendStreamingMessage,
   [A2A_METHODS.GetTask]: A2A_METHODS.GetTask,
+  [A2A_METHODS.ListTasks]: A2A_METHODS.ListTasks,
   [A2A_METHODS.CancelTask]: A2A_METHODS.CancelTask,
+  [A2A_METHODS.SubscribeToTask]: A2A_METHODS.SubscribeToTask,
+  [A2A_METHODS.CreateTaskPushNotificationConfig]:
+    A2A_METHODS.CreateTaskPushNotificationConfig,
+  [A2A_METHODS.GetTaskPushNotificationConfig]:
+    A2A_METHODS.GetTaskPushNotificationConfig,
+  [A2A_METHODS.ListTaskPushNotificationConfigs]:
+    A2A_METHODS.ListTaskPushNotificationConfigs,
+  [A2A_METHODS.DeleteTaskPushNotificationConfig]:
+    A2A_METHODS.DeleteTaskPushNotificationConfig,
+  [A2A_METHODS.GetExtendedAgentCard]: A2A_METHODS.GetExtendedAgentCard,
   // v0.3 绑定名（迁移别名）
   'message/send': A2A_METHODS.SendMessage,
+  'message/stream': A2A_METHODS.SendStreamingMessage,
   'tasks/get': A2A_METHODS.GetTask,
+  'tasks/list': A2A_METHODS.ListTasks,
   'tasks/cancel': A2A_METHODS.CancelTask,
+  'tasks/resubscribe': A2A_METHODS.SubscribeToTask,
+  'tasks/pushNotificationConfig/create':
+    A2A_METHODS.CreateTaskPushNotificationConfig,
+  'tasks/pushNotificationConfig/get': A2A_METHODS.GetTaskPushNotificationConfig,
+  'tasks/pushNotificationConfig/list':
+    A2A_METHODS.ListTaskPushNotificationConfigs,
+  'tasks/pushNotificationConfig/delete':
+    A2A_METHODS.DeleteTaskPushNotificationConfig,
+  'agent/getAuthenticatedExtendedCard': A2A_METHODS.GetExtendedAgentCard,
   // 更早的绑定名
   'tasks/send': A2A_METHODS.SendMessage,
 };
+
+/* ==================== 操作参数 / 响应（v1.0 §3.1–§3.2；本项目**落地子集**） ==================== */
+
+/** `SendMessageRequest`（§3.2.1） */
+export interface A2ASendMessageRequest {
+  message: A2AMessage;
+  configuration?: A2ASendMessageConfiguration;
+  metadata?: Record<string, unknown>;
+}
+
+/** `SendMessageConfiguration`（§3.2.2）—— 本项目只读 `historyLength` / `returnImmediately` */
+export interface A2ASendMessageConfiguration {
+  acceptedOutputModes?: string[];
+  /** 未设置 ⇒ 服务端默认量；`0` ⇒ 不返回历史（`history` SHOULD 省略）；`>0` ⇒ 最多最近 N 条 */
+  historyLength?: number;
+  /** 默认 `false` ⇒ 阻塞至终态/中断态（§3.2.2 Execution Mode） */
+  returnImmediately?: boolean;
+}
+
+/** `SendMessageResponse`（**oneof**：`task` \| `message`，恰好一个） */
+export interface A2ASendMessageResponse {
+  task?: A2ATask;
+  message?: A2AMessage;
+}
+
+/** `GetTaskRequest`（§3.1.3） */
+export interface A2AGetTaskRequest {
+  id: string;
+  historyLength?: number;
+}
+
+/** `ListTasksRequest`（§3.1.4；cursor 分页） */
+export interface A2AListTasksRequest {
+  contextId?: string;
+  status?: A2ATaskState;
+  /** 未指定 ⇒ 最多 {@link A2A_LIST_TASKS_DEFAULT_PAGE_SIZE}；范围 [1, 100] */
+  pageSize?: number;
+  /** 来自上次响应 `nextPageToken` */
+  pageToken?: string;
+  /** `false` ⇒ `artifacts` 字段应**整体省略**（不得空数组） */
+  includeArtifacts?: boolean;
+}
+
+/** `ListTasksResponse`（§3.1.4；**4 字段均 REQUIRED**，`nextPageToken` 无更多结果时为空串） */
+export interface A2AListTasksResponse {
+  tasks: A2ATask[];
+  nextPageToken: string;
+  pageSize: number;
+  totalSize: number;
+}
+
+/** `ListTasks` 分页常量（§3.1.4） */
+export const A2A_LIST_TASKS_DEFAULT_PAGE_SIZE = 50;
+export const A2A_LIST_TASKS_MIN_PAGE_SIZE = 1;
+export const A2A_LIST_TASKS_MAX_PAGE_SIZE = 100;
+
+/** `CancelTaskRequest`（§3.1.5） */
+export interface A2ACancelTaskRequest {
+  id: string;
+}
+
+/** `SubscribeToTaskRequest`（§3.1.6） */
+export interface A2ASubscribeToTaskRequest {
+  id: string;
+}
+
+/** `GetExtendedAgentCardRequest`（§3.1.11） */
+export interface A2AGetExtendedAgentCardRequest {
+  tenant?: string;
+}
+
+/* ==================== 流式响应（v1.0 §3.2.3；**移除 `kind`** ⇒ 按 JSON 成员名判别） ==================== */
+
+/** `TaskStatusUpdateEvent`（§4.2.1） */
+export interface A2ATaskStatusUpdateEvent {
+  taskId: string;
+  contextId: string;
+  status: A2ATaskStatus;
+  metadata?: Record<string, unknown>;
+}
+
+/** `TaskArtifactUpdateEvent`（§4.2.2；v1.0 两事件对象**均无 `final` 字段**） */
+export interface A2ATaskArtifactUpdateEvent {
+  taskId: string;
+  contextId: string;
+  artifact: A2AArtifact;
+  /** 同 ID 前序工件追加 */
+  append?: boolean;
+  /** 该工件最后一个分片 */
+  lastChunk?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * `StreamResponse`（**oneof**，恰好一个成员）。
+ *
+ * v1.0 移除了 v0.3 的内联 `kind` 判别字段（规范原文："The `kind` field is no longer part
+ * of the protocol and should not be emitted"）⇒ 判别改由**成员名自身**承担：
+ * `task` / `message` / `statusUpdate` / `artifactUpdate`。
+ */
+export interface A2AStreamResponse {
+  task?: A2ATask;
+  message?: A2AMessage;
+  statusUpdate?: A2ATaskStatusUpdateEvent;
+  artifactUpdate?: A2ATaskArtifactUpdateEvent;
+}
+
+/** 服务参数头名（v1.0 §3.2.6 / §9.2；HTTP 绑定 MUST 用请求头，大小写不敏感） */
+export const A2A_HEADER_VERSION = 'A2A-Version';
+export const A2A_HEADER_EXTENSIONS = 'A2A-Extensions';

@@ -46,11 +46,13 @@ import {
   A2A_METHOD_ALIASES,
   A2A_METHODS,
   JsonRpcErrorCode,
+  isTerminalState,
 } from '@modules/types/a2a';
 import type {
   A2AArtifact,
   A2AMessage,
   A2AListTasksResponse,
+  A2AStreamResponse,
   A2ATask,
   A2ATaskState,
 } from '@modules/types/a2a';
@@ -625,8 +627,8 @@ async function handleRpc(
  * 按 canonical 方法名分派（spec §3.1.1–3.1.11）。
  *
  * **能力门控**（spec §3.3.4：能力未声明时的操作 **MUST 报标准错误**，**不得**静默成功）：
- * 两个流操作 ⇒ `-32004`（`streaming` 尚未实现，T4 批次 C）；4 个推送配置 ⇒ `-32003`；
- * 扩展卡 ⇒ `-32004`（`extendedAgentCard` 不做）。
+ * 4 个推送配置 ⇒ `-32003`；扩展卡 ⇒ `-32004`（`extendedAgentCard` 不做）。
+ * 两个流操作 ⇒ **已实现**（T4 批次 C）⇒ 不再门控。
  */
 async function dispatchRpcMethod(
   res: http.ServerResponse,
@@ -645,14 +647,9 @@ async function dispatchRpcMethod(
     case A2A_METHODS.CancelTask:
       return rpcCancelTask(res, id, params, port);
     case A2A_METHODS.SendStreamingMessage:
+      return rpcSendStreamingMessage(res, id, params, port);
     case A2A_METHODS.SubscribeToTask:
-      rpcError(
-        res,
-        id,
-        JsonRpcErrorCode.UnsupportedOperation,
-        '未声明 capabilities.streaming ⇒ 不支持流式操作'
-      );
-      return true;
+      return rpcSubscribeToTask(res, id, params, port);
     case A2A_METHODS.CreateTaskPushNotificationConfig:
     case A2A_METHODS.GetTaskPushNotificationConfig:
     case A2A_METHODS.ListTaskPushNotificationConfigs:
@@ -706,21 +703,9 @@ async function rpcSendMessage(
     );
     return true;
   }
-  // 本项目当前只处理文本（`defaultInputModes = ['text/plain']`）⇒ 拼接 `parts[].text`
-  const parts = (message as Record<string, unknown>)['parts'];
-  const text = Array.isArray(parts)
-    ? parts
-        .map((p) =>
-          typeof p === 'object' &&
-          p !== null &&
-          typeof (p as Record<string, unknown>)['text'] === 'string'
-            ? ((p as Record<string, unknown>)['text'] as string)
-            : ''
-        )
-        .join('')
-        .trim()
-    : '';
-  if (!text) {
+  // 本项目当前只处理文本（`defaultInputModes = ['text/plain']`）
+  const text = extractTextParts(params);
+  if (text === null) {
     rpcError(
       res,
       id,
@@ -885,4 +870,187 @@ function applyHistoryLength(task: A2ATask, raw: unknown): A2ATask {
     return rest;
   }
   return { ...task, history: (task.history ?? []).slice(-limit) };
+}
+
+/**
+ * 取 `params.message.parts[].text` 拼接（**REST/RPC 共用**，CS01）。
+ *
+ * 本项目当前只处理文本（`defaultInputModes = ['text/plain']`）⇒ 无有效文本返回 `null`
+ * （调用方映射 `-32602`）。
+ */
+function extractTextParts(params: Record<string, unknown>): string | null {
+  const message = params['message'];
+  if (typeof message !== 'object' || message === null) return null;
+  const parts = (message as Record<string, unknown>)['parts'];
+  if (!Array.isArray(parts)) return null;
+  const text = parts
+    .map((p) =>
+      typeof p === 'object' &&
+      p !== null &&
+      typeof (p as Record<string, unknown>)['text'] === 'string'
+        ? ((p as Record<string, unknown>)['text'] as string)
+        : ''
+    )
+    .join('')
+    .trim();
+  return text ? text : null;
+}
+
+/* ==========================================================================
+ * SSE 流式（T4 批次 C）—— `SendStreamingMessage` / `SubscribeToTask`
+ *
+ * 形态（spec §9.4.2）：HTTP 200 + `Content-Type: text/event-stream`；每条 `data:` 是**一个
+ * JSON-RPC 响应对象**（`{"jsonrpc":"2.0","id":N,"result":{…StreamResponse…}}`）。
+ * 任务型流：**以 `Task` 开始** → 0+ 个 `TaskStatusUpdateEvent` → **任务达终态即关流**
+ * （§3.1.2 / §3.1.6）。v1.0 **无 `final` 字段**、**无 `kind`**（按 JSON 成员名判别）。
+ * ========================================================================== */
+
+/** 一条 SSE 流（写帧 + 终态自动关流） */
+interface SseStream {
+  /** 写一个 `StreamResponse`；**终态事件后自动关流** */
+  send(event: A2AStreamResponse): void;
+  /** 主动关流（**幂等**） */
+  close(): void;
+}
+
+/**
+ * 打开 SSE 流并**先订阅、后由调用方发首帧**。
+ *
+ * "先订阅、后发首帧"的顺序保证 **订阅与首帧之间无 await** ⇒ 不存在漏事件窗口
+ * （`SubscribeToTask` 的首帧即调用方刚读到的那份 `Task`）。
+ */
+function openSseStream(
+  res: http.ServerResponse,
+  id: unknown,
+  port: A2APortSlice,
+  taskId: string
+): SseStream {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+
+  let closed = false;
+  let unsubscribe: (() => void) | null = null;
+
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    unsubscribe?.();
+    res.end();
+  };
+
+  const write = (event: A2AStreamResponse): void => {
+    if (closed) return;
+    // 每条 `data:` = 一个 JSON-RPC 响应对象（spec §9.4.2）
+    res.write(
+      `data: ${JSON.stringify({ jsonrpc: '2.0', id, result: event })}\n\n`
+    );
+    // §3.1.2 / §3.1.6：任务达终态 ⇒ MUST 关流（v1.0 无 `final` ⇒ 以"终态 + 关流"表达）
+    const terminal =
+      event.statusUpdate !== undefined &&
+      isTerminalState(event.statusUpdate.status.state);
+    if (terminal) close();
+  };
+
+  unsubscribe = port.subscribeTask(taskId, write);
+  return { send: write, close };
+}
+
+/**
+ * `SendStreamingMessage`（§3.1.2）：发消息并**在同一条流**上推送该任务更新。
+ *
+ * 与 `SendMessage` 的差别（如实）：流式**不做有界等待**（客户端本就保持连接）⇒ 等到委派结束、
+ * 写终态事件后关流。
+ */
+async function rpcSendStreamingMessage(
+  res: http.ServerResponse,
+  id: unknown,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): Promise<boolean> {
+  if (!delegator) {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.InternalError,
+      'A2A 委派后端未就绪（需装配期注入 A2ADelegator）'
+    );
+    return true;
+  }
+  const text = extractTextParts(params);
+  if (text === null) {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.InvalidParams,
+      'message.parts 至少需一个非空 text part'
+    );
+    return true;
+  }
+
+  const task = port.createTask();
+  const stream = openSseStream(res, id, port, task.id);
+  stream.send({ task }); // §3.1.2：任务型流以 `Task` 开始
+
+  try {
+    const value = await (delegator as A2ADelegator)(text, undefined);
+    const { artifacts, message: reply } = toDeliverables(value);
+    // 状态变更经 `taskStore` 广播 ⇒ 本流写出 `statusUpdate`（终态）⇒ **自动关流**
+    port.completeTask(task.id, 'TASK_STATE_COMPLETED', artifacts, reply);
+  } catch (error) {
+    await handleError(error, {
+      module: 'http:a2a',
+      action: 'stream-delegate-failed',
+      context: { taskId: task.id },
+    });
+    try {
+      port.completeTask(task.id, 'TASK_STATE_FAILED', []);
+    } catch (markError) {
+      // @ignore-catch — 已是终态（竞态）⇒ 流已/将关，无需再写
+      await handleError(markError, {
+        module: 'http:a2a',
+        action: 'stream-mark-failed',
+        context: { taskId: task.id },
+      });
+    }
+  }
+  stream.close(); // 幂等：终态已关流时无操作
+  return true;
+}
+
+/**
+ * `SubscribeToTask`（§3.1.6）：订阅**既有**任务的事件流。
+ *
+ * 首帧 MUST 为**当前** `Task`；对**终态**任务订阅 ⇒ `-32004 UnsupportedOperationError`。
+ */
+function rpcSubscribeToTask(
+  res: http.ServerResponse,
+  id: unknown,
+  params: Record<string, unknown>,
+  port: A2APortSlice
+): boolean {
+  const taskId = typeof params['id'] === 'string' ? params['id'] : '';
+  if (!taskId) {
+    rpcError(res, id, JsonRpcErrorCode.InvalidParams, 'id 必填');
+    return true;
+  }
+  const task = port.getTask(taskId);
+  if (!task) {
+    rpcError(res, id, JsonRpcErrorCode.TaskNotFound, `任务不存在：${taskId}`);
+    return true;
+  }
+  if (isTerminalState(task.status.state)) {
+    rpcError(
+      res,
+      id,
+      JsonRpcErrorCode.UnsupportedOperation,
+      `任务已处于终态（${task.status.state}），不可订阅：${taskId}`
+    );
+    return true;
+  }
+  const stream = openSseStream(res, id, port, taskId);
+  stream.send({ task }); // 首帧 MUST 为 `Task`（§3.1.6）
+  return true;
 }

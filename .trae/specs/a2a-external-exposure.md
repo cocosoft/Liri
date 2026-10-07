@@ -13,7 +13,7 @@
 |---|---|
 | **A2A 数据模型已就绪（3 文件）** | [`agent/a2a/`](../../app/src/agent/a2a)：`agentCard.ts` / `taskStore.ts` / `types.ts`（**转出层**；协议类型已由 **2026-10-01 D-204** 下沉 core ⇒ `A2AAgentCard` 定义见 [`types/a2a.ts:167`](../../app/src/types/a2a.ts#L167)） |
 | **卡片构建器已实现** | [`buildAgentCard(definitions, options)`](../../app/src/agent/a2a/agentCard.ts#L80-L100)：`AgentDefinition[]` → `A2AAgentCard`；协议版本常量 `A2A_PROTOCOL_VERSION = '1.0'`（[:34](../../app/src/agent/a2a/agentCard.ts#L34)）；另有 [`computeAgentCardEtag()`](../../app/src/agent/a2a/agentCard.ts#L119)（供 ETag / 条件请求） |
-| **G2 要求"声明 streaming / 长任务 pending" —— builder 内**已按"未支持须声明"处理 | [`agentCard.ts:95-99`](../../app/src/agent/a2a/agentCard.ts#L95-L99)：`capabilities: { streaming: false, pushNotifications: false }` + 就地注释"当前实现为同步委派…未支持须在卡片声明" |
+| **G2 要求"声明 streaming / 长任务 pending" —— builder 内**已按"未支持须声明"处理 | [`agentCard.ts:95-104`](../../app/src/agent/a2a/agentCard.ts#L95-L104)：`capabilities: { streaming: true, pushNotifications: false, stateTransitionHistory: false }` + 就地注释。**注（T4 批次 C，2026-10-07）**：`streaming` 原为 `false`，SSE 实现后**如实翻为 `true`**；`pushNotifications` **仍为 `false`**（未实现） |
 | **纪律已定：卡片不内嵌密钥** | [`agentCard.ts:26`](../../app/src/agent/a2a/agentCard.ts#L26)："卡片**不得内嵌静态密钥** —— 只声明 `securitySchemes`，凭证经 HTTP Header 带外传递" |
 | **⚠️ 但整体未接线（本项的真实缺口）** | `buildAgentCard` / `A2AAgentCard` / `computeAgentCardEtag` 全仓 grep **仅命中自身文件 + `types.ts`** ⇒ **零消费者** ⇒ **无任何 HTTP 暴露**（与 `liri-upgrade-plan-20260928.md` §5-#5/#10"无端点"的复核结论一致） |
 | **挂载机制（已定位）** | 路由按业务子域分文件：[`infrastructure/http/handlers/routes/`](../../app/src/infrastructure/http/handlers/routes)（**17 个** `*-routes.ts`），由 [`route-table.ts`](../../app/src/infrastructure/http/handlers/route-table.ts#L10-L23) 逐域 `import { dispatch<Domain>Routes }` 统一挂载 ⇒ 新端点＝**新增 1 个 route 模块 + 在 route-table 注册**（不新造机制） |
@@ -106,8 +106,8 @@
 
 ## 7. 不在范围 / 未验（如实）
 
-- ❌ **不实现** A2A 的 `streaming` / `pushNotifications`（G2 要求**如实声明为 `false`**；实现它们属另一议题）。
-- ✅ **不声明传输绑定（R11-3 D3，2026-10-07 用户裁定）**：卡片**省略** `supportedInterfaces` —— 本仓**未实现**任何 A2A 标准绑定（JSON-RPC 派发属 **T4** 待裁定）⇒ 不得虚报 `protocolBinding: 'JSONRPC'`（G2 纪律的同一精神）；对外对接以 [api-spec §3.8.2](../docs/api-spec.md) 的**自定义 REST** 为准。详见 [`a2a-capability-negotiation.md`](./a2a-capability-negotiation.md) §3-D3。⚠️ 残留：A2A v1.0 该字段为**必需** ⇒ 本仓卡片仍属 v0.x 形状，"v1.0 完全合规"待 T4。
+- ✅ **SSE 流式已实现（T4 批次 C，2026-10-07）**：`streaming` 翻为 **`true`**（`SendStreamingMessage` / `SubscribeToTask` 经 `POST /v1/a2a/rpc` 以 `text/event-stream` 推送）；`pushNotifications` **仍不实现**（**如实声明为 `false`** ⇒ 4 个推送配置操作返回 `-32003`）。见 [`a2a-jsonrpc-binding.md`](./a2a-jsonrpc-binding.md)。
+- ✅ **不声明传输绑定（R11-3 D3，2026-10-07 用户裁定；T4 批次 D 将如实恢复）**：卡片**省略** `supportedInterfaces` —— 定这个裁定时本仓**未实现**任何 A2A 标准绑定 ⇒ 不得虚报 `protocolBinding: 'JSONRPC'`（G2 纪律的同一精神）。**注（T4 批次 B/C，2026-10-07）**：JSON-RPC 与 SSE **已实现** ⇒ **批次 D 将按 v1.0 如实恢复**该声明（指向 `/v1/a2a/rpc`）。详见 [`a2a-jsonrpc-binding.md`](./a2a-jsonrpc-binding.md)。⚠️ 残留：A2A v1.0 该字段为**必需** ⇒ 批次 D 前卡片仍属 v0.x 形状。
 - ❌ **不引入** A2A SDK 依赖（当前为自建类型 + 手写端点）。
 - ❌ **不改** `acp/`（其去留由 **T0** 结论决定）。
 - ✅ **已核并闭环（2026-09-29）**：`acp/` **确为对内** —— 远程 WS 服务**默认不启动**（`ACP_REMOTE_PORT` 未设 ⇒ `resolveAcpRemoteConfig()` 返回 `null`，[`ModuleBridgeSetup.ts:29-44`](../../app/src/bridge/ModuleBridgeSetup.ts#L29-L44)），且门控**在活的启动链上**（`main.ts:1821` / `BootPipelineIntegrator.ts:246`）；**运行期实证**：本机 5 次启动**全部**输出「ACP 远程服务未启用」、**零**「服务已启动」。⇒ 所谓"协议双轨"实为 **「A2A 对外（新接线）+ ACP 对内（默认关、双显式 opt-in 才能开）」**，边界清晰，**无需下线任何一套**。

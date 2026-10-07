@@ -38,6 +38,7 @@ import type {
   A2AAgentCard,
   A2AArtifact,
   A2AMessage,
+  A2AStreamResponse,
   A2ATask,
   A2ATaskState,
 } from '@modules/types/a2a';
@@ -94,4 +95,12 @@ export interface A2APort {
   ):
     | { ok: true; task: A2ATask }
     | { ok: false; reason: 'not_found' | 'not_cancelable' };
+  /**
+   * 订阅任务状态事件（T4 批次 C，SSE 流的唯一事件源）；
+   * 返回**幂等**退订函数。无订阅者时任务推进零开销。
+   */
+  subscribeTask(
+    taskId: string,
+    listener: (event: A2AStreamResponse) => void
+  ): () => void;
 }

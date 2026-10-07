@@ -48,12 +48,12 @@
 
 | 项 | 本仓落地 | 依据 |
 |---|---|---|
-| **支持** | `SendMessage` · `GetTask` · `ListTasks` · `CancelTask` · `SendStreamingMessage` · `SubscribeToTask` · `GetExtendedAgentCard` | 有真实实现面（`A2APort` + `taskStore` + 现有委派后端 + 事件流） |
-| **不支持（如实报错）** | 4 个 push-config 操作 ⇒ **`-32003 PushNotificationNotSupportedError`** | `capabilities.pushNotifications = false`（spec §3.3.4 要求） |
-| **版本** | `A2A-Version` 仅接受 `1.0`；缺失 ⇒ 按 `0.3` 处理（spec §3.6.1）⇒ 本仓**只服务 1.0**（`0.3` 只保留**方法名别名**兼容） | 本仓方法名已按 v1.0 PascalCase |
-| **扩展** | 声明 **0 个**扩展（`capabilities.extensions: []`）；收到 `A2A-Extensions` 且含 `required` 未知项 ⇒ 无法判定 ⇒ **不做扩展**（如实登记） | 无扩展实现 |
+| **支持（6）** | `SendMessage` · `SendStreamingMessage` · `GetTask` · `ListTasks` · `CancelTask` · `SubscribeToTask` | 有真实实现面（`A2APort` + `taskStore` + 现有委派后端 + 状态广播） |
+| **不支持（如实报错，5）** | 4 个 push-config 操作 ⇒ **`-32003 PushNotificationNotSupportedError`**；`GetExtendedAgentCard` ⇒ **`-32004 UnsupportedOperationError`** | `capabilities.pushNotifications=false` / `extendedAgentCard` 不做（spec §3.3.4 要求**能力未声明即报错**） |
+| **版本** | `A2A-Version` 仅接受 `1.0`；缺失 ⇒ 按 `0.3` 处理（spec §3.6.1）⇒ 报 `-32009`（`0.3` 只保留**方法名别名**兼容） | 本仓方法名已按 v1.0 PascalCase |
+| **扩展** | 声明 **0 个**扩展（不设置 `capabilities.extensions`）；**不做**扩展协商（无扩展实现，如实登记） | CS03 |
 | **`stateTransitionHistory`** | 保持 `false`（只返回当前态） | R11-3 D1 已如实声明 |
-| **`extendedAgentCard`** | **不做**（无"鉴权后不同视图"的需求）⇒ `GetExtendedAgentCard` 返回 **`-32004 UnsupportedOperationError`**，且 `capabilities.extendedAgentCard` 保持 `false` | CS03：无需求 |
+| **`streaming`** | **`true`**（T4 批次 C：SSE 已实现） | `agentCard.ts` 如实声明 |
 
 > ⚠️ **与"全量 T4"的差异（如实）**：用户裁定"全量"，但规范§3.3.4 要求**能力未声明即必须报错** ⇒ 4 个 push 操作与 extended card **只能如实报错**（除非实现推送投递与扩展卡视图）。本 spec 按"**11 个方法全部可被调用**、其中 4+1 个按能力门控**如实返回标准错误**"落地 —— 这是**规范要求**的行为，不是省略。
 
@@ -61,11 +61,11 @@
 
 | 批次 | 内容 | 状态 |
 |---|---|---|
-| **A** | **协议类型补全**（`types/a2a.ts`）：11 方法常量 + v0.3/v0.4 别名 + 请求/响应 DTO（**落地子集**）+ 流事件联合 + `AgentExtension`/`AgentInterface` v1.0 形状 | 🟡 **本批** |
-| **B** | **JSON-RPC dispatcher**：`POST /v1/a2a/rpc`（单入口，同双闸）；11 方法分派 + 错误映射；`A2APort` 补 `listTasks`/`cancelTask` | ⏸ |
-| **C** | **SSE 流式**：`SendStreamingMessage` / `SubscribeToTask`（`text/event-stream` + 终态关闭 + 并发订阅一致性） | ⏸ |
-| **D** | **卡片 v1.0 形状 + 如实重声明**：补 `supportedInterfaces`（指向 `/v1/a2a/rpc`）、移除顶层 `protocolVersion`、`capabilities.extensions` ⇒ **关闭预存 A2A-1** | ⏸ |
-| **E** | `A2A-Version` 头校验 + api-spec §3.8.2 + 测试 + 台账 | ⏸ |
+| **A** | **协议类型补全**（`types/a2a.ts`）：11 方法常量 + v0.3/v0.4 别名 + 请求/响应 DTO（**落地子集**）+ 流事件联合 + `AgentExtension`/`AgentInterface` v1.0 形状 | ✅ |
+| **B** | **JSON-RPC dispatcher**：`POST /v1/a2a/rpc`（单入口，同双闸）；11 方法分派 + 错误映射；`A2APort` 补 `listTasks`/`cancelTask` | ✅ |
+| **C** | **SSE 流式**：`SendStreamingMessage` / `SubscribeToTask`（`text/event-stream` + 终态关流 + 订阅广播）+ `streaming` 如实翻 `true` | ✅ |
+| **D** | **卡片 v1.0 形状 + 如实重声明**：补 `supportedInterfaces`（指向 `/v1/a2a/rpc`）、顶层 `protocolVersion` 处理、`capabilities.extensions` ⇒ **关闭预存 A2A-1** | ⏸ |
+| **E** | api-spec 收口 + **拆 `routes/a2a-rpc.ts`**（回落 `lint:size` 计数）+ 台账 | ⏸ |
 
 ## 5. 决策点（本批已定）
 
@@ -119,6 +119,8 @@
 |---|---|---|
 | 2026-10-07 | **立项 + 批次 A** | 用户裁定「全量 T4」⇒ 拉取官方 spec/proto（11 操作 / DTO / 流事件 / 扩展 / 卡片 v1.0 / 错误码）⇒ 本 spec + `types/a2a.ts` 协议类型补全 |
 | 2026-10-07 | **批次 B** | `POST /v1/a2a/rpc` 单入口 dispatcher（11 方法分派 + 能力门控 + 错误映射）；`A2APort` 补 `listTasks`/`cancelTask`（**结构化结果**，避免异常控制流与字符串匹配）；`runDelegation` 抽为 REST/RPC **共用核心**（CS01）；新增 `tests/http/a2aRpc.test.ts`（**11 例**，含帧/错误码/门控/分页/`returnImmediately` 不阻塞）。门禁：`typecheck` 0 · `lint:arch` 违规 0/警告 4（基线）/动态跨层引用 **41（未增）** · 定向 **11 pass** · 全量 **4869 pass / 21 skip / 0 fail** |
+
+| 2026-10-07 | **批次 C** | **SSE 流式**：`SendStreamingMessage` / `SubscribeToTask`（`openSseStream`：`text/event-stream` + 每条 `data:` 为 **JSON-RPC 响应对象** + **终态即关流** + **幂等** `close`）；`taskStore` 内新增**订阅/广播**（快照遍历 + 逐监听器隔离 ⇒ 单流失败不影响其它流，spec §3.5.2）；`A2APort` 补 `subscribeTask`；卡片 `streaming` **如实翻为 `true`**（同批同步 api-spec §3.8.2 + `a2a-external-exposure.md` §1/§7 + `a2a-v1-naming-alignment.md` §1-4/§1-9/N1–N3 + `a2a-capability-negotiation.md` §5，**防双源漂移**）；`a2aRpc.test.ts` **+2 例**（流帧/关流/首帧/终态订阅拒绝）。门禁：`typecheck` 0 · 定向 **32 pass**（两文件）· 全量 **4871 pass / 21 skip / 0 fail** |
 
 **⚠️ 门禁计数变化（如实登记，批次 E 收口）**：`a2a-routes.ts` 因并入 RPC 绑定增至 **~880 行** ⇒ 超过 500 行阈值，`lint:size` 警告 **470 → 471**。该门禁明确"**建议拆分但不阻塞合并**"；**批次 E 须拆出 `routes/a2a-rpc.ts`**（RPC 绑定 + 委派核心 `runDelegation`/`toDeliverables`，经依赖注入取 `delegator`/`maxWaitMs` 以避免循环依赖），把计数**回落到 470**。
 

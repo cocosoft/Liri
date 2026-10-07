@@ -69,6 +69,7 @@
 ## 5. 验收
 
 - [x] `capabilities` == `{ streaming: false, pushNotifications: false, stateTransitionHistory: false }`（如实，**三字段**）。
+  > ⚠️ **后续变更（T4 批次 C，2026-10-07）**：SSE 流式实现后 `streaming` 已**如实翻为 `true`**（见 `a2a-jsonrpc-binding.md`）⇒ 本行为**当时**的验收记录。
 - [x] 卡片 **不含** `supportedInterfaces` 键（D3）。
 - [x] `GET /v1/a2a/health`：已装配后端 ⇒ `delegatorReady: true`；未装配 ⇒ `false`；两者均 `status:'ok'`。
 - [x] 探针：非 GET ⇒ 405；未授权 ⇒ 401；未启用 ⇒ **不处理**（`handled=false`，不泄露存在性）。

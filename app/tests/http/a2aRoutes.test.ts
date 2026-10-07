@@ -5,7 +5,7 @@
  *   ① **默认关闭** —— 未设 `A2A_ENABLED` ⇒ **不处理、不写响应**（上层自然 404，不泄露端点存在性，G4）；
  *   ② **鉴权 fail-closed** —— 启用但 **`A2A_API_KEY` 未配置** ⇒ **401**（**不**沿用"本地信任基线"放行）；
  *      配置了但头缺失/错 ⇒ **401**；`x-api-key` 正确 ⇒ 放行；
- *   ③ Card：`200`，`capabilities`（`streaming` / `pushNotifications` / `stateTransitionHistory`）**如实为 `false`**（G2 / R11-3 D1）；
+ *   ③ Card：`200`，`capabilities`（`streaming:true`（T4 批次 C SSE 已实现）/ `pushNotifications:false` / `stateTransitionHistory:false`）**与实现一致**（G2 / R11-3 D1）；
  *      且**不声明** `supportedInterfaces`（R11-3 D3：未实现标准绑定 ⇒ 不虚报 `protocolBinding`）；
  *   ④ `baseUrl`：优先 `A2A_PUBLIC_URL`；缺省按请求 Host 推导（**不硬编码**）；
  *   ⑤ Card：`If-None-Match` 命中 ⇒ **304**；非 GET ⇒ **405**；
@@ -224,7 +224,7 @@ describe('A2A Agent Card（发现）', () => {
     expect(card.protocolVersion).toBe('1.0');
     expect(card.url).toBe('http://example.test:18990');
     expect(card.capabilities).toEqual({
-      streaming: false,
+      streaming: true, // T4 批次 C：SSE 已实现 ⇒ 如实翻为 true
       pushNotifications: false,
       stateTransitionHistory: false,
     });

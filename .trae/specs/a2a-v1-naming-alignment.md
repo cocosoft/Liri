@@ -21,8 +21,8 @@ A2A 实现是 **v0.3.0 命名**（`/.well-known/agent.json` · `A2ATaskState` ke
 | 1 | 发现路径 | `/.well-known/**agent-card.json**`（RFC 8615） | `/.well-known/agent.json`（`a2a-routes.ts:44`） | ❌ **不符** ⇒ **T1** |
 | 6 | TaskState | `TASK_STATE_*`（**SCREAMING_SNAKE**，ProtoJSON；含 `UNSPECIFIED`(0) / `AUTH_REQUIRED`(8)） | `types/a2a.ts:78-85` kebab-case 7 值，**缺** `unspecified` / `auth-required` | ❌ **不符** ⇒ **T2** |
 | 5 | 方法命名 | 抽象操作名 = **PascalCase**（`SendMessage`/`GetTask`/`CancelTask`…） | `types/a2a.ts:199-206` 的 `A2A_METHODS` **值**为 `message/send`/`tasks/get`/`tasks/cancel`（v0.3 绑定名） | ❌ **不符** ⇒ **T3** |
-| 4 | 抽象操作数 | 11 个 | 仅 3 个（Send/Get/Cancel） | ⏸ **T4**（需实现，非改名） |
-| 9 | 流式 SSE | `capabilities.streaming:true` + `SendStreamingMessage` | 无；卡片**如实** `streaming:false` | ⏸ **T4** |
+| 4 | 抽象操作数 | 11 个 | （原）仅 3 个（Send/Get/Cancel） | ✅ **T4 批次 A/B 已实现（2026-10-07）**：11 个方法常量 + JSON-RPC 单入口分派 |
+| 9 | 流式 SSE | `capabilities.streaming:true` + `SendStreamingMessage` | （原）无；卡片如实 `streaming:false` | ✅ **T4 批次 C 已实现（2026-10-07）**：`streaming` 如实翻 `true` + `SendStreamingMessage`/`SubscribeToTask`（见 `a2a-jsonrpc-binding.md`） |
 
 **⚠️ note 的行号已失效（如实）**：`a2a-protocol.md` §7 引用的 `a2a.ts:78-85` / `a2a.ts:199-223` / `a2a-routes.ts:44` —— 前两者现位于 **`app/src/types/a2a.ts`**（`a2a/` 目录下已无 `a2a.ts`，仅 `types.ts`/`taskStore.ts`/`agentCard.ts`）；`a2a-routes.ts:44` **仍准确**。
 
@@ -38,9 +38,9 @@ A2A 实现是 **v0.3.0 命名**（`/.well-known/agent.json` · `A2ATaskState` ke
 - **G3（T3）**：`A2A_METHODS` 的**值**改为 v1.0 PascalCase 抽象操作名；`A2A_METHOD_ALIASES` 的**键**随之校正（保留 v0.3 绑定名作迁移别名）。
 
 **非目标**
-- **N1** 不实现 JSON-RPC 分发（当前路由为 REST 形态）—— T4。
-- **N2** 不实现 SSE 流式、`ListTasks`、`SubscribeToTask`、推送配置、`GetExtendedAgentCard` —— T4。
-- **N3** 不改 `capabilities`（`streaming:false` **如实**）；不改 `A2A_*` 环境变量与默认关闭策略。
+- **N1** 不实现 JSON-RPC 分发（当前路由为 REST 形态）—— T4**（已交付：`a2a-jsonrpc-binding.md` 批次 A/B）**。
+- **N2** 不实现 SSE 流式、`ListTasks`、`SubscribeToTask`、推送配置、`GetExtendedAgentCard` —— T4**（已交付：批次 B/C；推送配置与扩展卡按能力门控**如实报错**）**。
+- **N3** 不改 `capabilities`（当时 `streaming:false` **如实**）；不改 `A2A_*` 环境变量与默认关闭策略。（**后续变更**：T4 批次 C 实现 SSE 后 `streaming` 已**如实翻为 `true`** —— 属 T4 范畴，非本 spec 的命名对齐。）
 - **N4** 不加向后兼容层（§1.3：无正式用户 ⇒ 旧路径/旧枚举**不保留**）。
 
 ---

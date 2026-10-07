@@ -92,11 +92,13 @@ export function buildAgentCard(
     url: options.baseUrl,
     provider: options.provider ?? { organization: 'Liri' },
     version: options.version,
-    // 当前实现为同步委派：不声明 streaming / pushNotifications（§4.1/§4.2 未支持须在卡片声明）
+    // 能力声明**必须与实现一致**（§4.1/§4.2：未支持的能力须在卡片声明为 false）
     // R11-3 D1（2026-10-07）：补 stateTransitionHistory 并**如实**为 false
     //（只暴露任务当前态，不含状态变更历史）。
+    // T4 批次 C（2026-10-07）：`streaming` 翻为 **true** —— SSE 流式（`SendStreamingMessage` /
+    // `SubscribeToTask`）已实现（`a2a-routes.ts` 的 `openSseStream`），**如实**声明。
     capabilities: {
-      streaming: false,
+      streaming: true,
       pushNotifications: false,
       stateTransitionHistory: false,
     },

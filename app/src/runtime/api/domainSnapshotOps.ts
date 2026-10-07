@@ -495,6 +495,9 @@ export class DomainSnapshotOps {
         }
         return { ok: true as const, task: a2aTaskStore.cancel(taskId) };
       },
+      // T4 批次 C：SSE 流的事件源（`taskStore` 内订阅/广播；退订函数幂等）
+      subscribeTask: (taskId, listener) =>
+        a2aTaskStore.subscribe(taskId, listener),
     };
   }
 

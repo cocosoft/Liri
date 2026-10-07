@@ -8,14 +8,17 @@
  *   ② `A2A-Version` 缺失或 ≠ `1.0` ⇒ `-32009 VersionNotSupported`（spec §3.6.1：缺失按 0.3）；
  *   ③ 非法 JSON ⇒ `-32700`；非对象 / 缺 `jsonrpc`/`method` ⇒ `-32600`；
  *   ④ 未知方法 ⇒ `-32601`；**v0.3 别名可用**（`tasks/get` → `GetTask`）；
- *   ⑤ 能力门控（spec §3.3.4）：4 个 push 配置 ⇒ **`-32003`**；2 个流操作 ⇒ **`-32004`**；扩展卡 ⇒ **`-32004`**；
+ *   ⑤ 能力门控（spec §3.3.4）：4 个 push 配置 ⇒ **`-32003`**；扩展卡 ⇒ **`-32004`**（2 个流操作已实现 ⇒ 见 ⑪）；
  *   ⑥ `GetTask`：未知 id ⇒ `-32001`；`historyLength:0` ⇒ **省略 `history`**；
  *   ⑦ `SendMessage`：未装配后端 ⇒ `-32603`（如实，不伪造）；缺 message / 无 text part ⇒ `-32602`；
  *      正常 ⇒ `result.task` 为 `TASK_STATE_COMPLETED`；`returnImmediately:true` ⇒ 立即 `TASK_STATE_WORKING`；
  *   ⑧ `CancelTask`：未知 ⇒ `-32001`；已终态 ⇒ `-32002`；`submitted` ⇒ 成功转 `TASK_STATE_CANCELED`；
  *   ⑨ `ListTasks`：**status timestamp 降序** / 默认 `pageSize=50` / 无更多结果 ⇒ `nextPageToken === ''` /
  *      `includeArtifacts` 非 true ⇒ **无 `artifacts` 键**；
- *   ⑩ 协议级错误以 **HTTP 200 + `error` 对象**返回（JSON-RPC 惯例；见 spec §9-1 登记）。
+ *   ⑩ 协议级错误以 **HTTP 200 + `error` 对象**返回（JSON-RPC 惯例；见 spec §9-1 登记）；
+ *   ⑪ **SSE 流式**（T4 批次 C）：`text/event-stream`；每条 `data:` 为 JSON-RPC 响应对象；
+ *      `SendStreamingMessage` 以 `Task` 起、终态即关流；`SubscribeToTask` 首帧为当前 `Task`，
+ *      对**终态**任务 ⇒ `-32004`；未知 id ⇒ `-32001`。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { Readable } from 'node:stream';
@@ -64,6 +67,10 @@ function makeRes(): { res: http.ServerResponse; cap: Captured } {
     },
     setHeader(name: string, value: string) {
       cap.headers[name] = value;
+    },
+    write(chunk: string) {
+      cap.body += chunk;
+      return true;
     },
     end(chunk?: string) {
       if (typeof chunk === 'string') cap.body += chunk;
@@ -173,7 +180,7 @@ describe('A2A JSON-RPC：信封与版本', () => {
 });
 
 describe('A2A JSON-RPC：能力门控（spec §3.3.4）', () => {
-  it('⑤ 4 个 push 配置操作 ⇒ -32003；2 个流操作 ⇒ -32004；扩展卡 ⇒ -32004', async () => {
+  it('⑤ 4 个 push 配置操作 ⇒ -32003；扩展卡 ⇒ -32004（流操作已实现，见 ⑪）', async () => {
     enableA2A();
     for (const m of [
       'CreateTaskPushNotificationConfig',
@@ -183,8 +190,6 @@ describe('A2A JSON-RPC：能力门控（spec §3.3.4）', () => {
     ]) {
       await expectErrorCode(envelope(m, {}), -32003);
     }
-    await expectErrorCode(envelope('SendStreamingMessage', {}), -32004);
-    await expectErrorCode(envelope('SubscribeToTask', { id: 'x' }), -32004);
     await expectErrorCode(envelope('GetExtendedAgentCard', {}), -32004);
   });
 });
@@ -372,3 +377,80 @@ describe('A2A JSON-RPC：ListTasks（§3.1.4）', () => {
     expect(p2.result?.nextPageToken).toBe('2');
   });
 });
+
+describe('A2A JSON-RPC：SSE 流式（T4 批次 C）', () => {
+  it('⑪ SendStreamingMessage：`text/event-stream`；以 Task 起 → 终态 statusUpdate → **关流**', async () => {
+    enableA2A();
+    setA2ADelegator(async (message) => `echo:${message}`);
+
+    const { cap } = await callRpc(
+      envelope(
+        'SendStreamingMessage',
+        {
+          message: { messageId: 'm', role: 'user', parts: [{ text: 'ping' }] },
+        },
+        7
+      )
+    );
+    expect(cap.headers['Content-Type']).toBe('text/event-stream');
+    expect(cap.ended).toBe(true); // 终态即关流（§3.1.2）
+
+    const frames = parseFrames(cap.body);
+    expect(frames).toHaveLength(2);
+    // 每条 `data:` 都是**一个 JSON-RPC 响应对象**（§9.4.2）⇒ 带客户端 id
+    expect(frames[0]?.id).toBe(7);
+    // 首帧 = `Task`（任务型流以 Task 开始）
+    expect(typeof frames[0]?.result?.task?.id).toBe('string');
+    // 第 2 帧 = 终态 `statusUpdate`（按**成员名**判别；v1.0 无 `kind`）
+    expect(frames[1]?.result?.statusUpdate?.status?.state).toBe(
+      'TASK_STATE_COMPLETED'
+    );
+    expect('kind' in (frames[1]?.result ?? {})).toBe(false);
+  });
+
+  it('⑪ SubscribeToTask：未知 ⇒ -32001；终态 ⇒ -32004；未终态 ⇒ 首帧为当前 Task 且流保持打开', async () => {
+    enableA2A();
+    await expectErrorCode(envelope('SubscribeToTask', { id: 'nope' }), -32001);
+
+    const done = a2aTaskStore.create();
+    a2aTaskStore.complete(done.id, 'TASK_STATE_COMPLETED', []);
+    await expectErrorCode(envelope('SubscribeToTask', { id: done.id }), -32004);
+
+    const open = a2aTaskStore.create();
+    const { cap } = await callRpc(envelope('SubscribeToTask', { id: open.id }));
+    expect(cap.headers['Content-Type']).toBe('text/event-stream');
+    expect(parseFrames(cap.body)[0]?.result?.task?.id).toBe(open.id);
+    expect(cap.ended).toBe(false); // 未终态 ⇒ 流保持打开
+
+    // 状态推进（取消 = 终态）⇒ 广播 ⇒ 写终态帧并关流
+    a2aTaskStore.cancel(open.id);
+    expect(cap.ended).toBe(true);
+    expect(parseFrames(cap.body)[1]?.result?.statusUpdate?.status?.state).toBe(
+      'TASK_STATE_CANCELED'
+    );
+  });
+});
+
+/** 解析 SSE 正文为帧数组（`data: <json>` + 空行分隔） */
+function parseFrames(body: string): {
+  id?: unknown;
+  result?: {
+    task?: { id?: string };
+    statusUpdate?: { status?: { state?: string } };
+  };
+}[] {
+  return body
+    .split('\n\n')
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => chunk.startsWith('data: '))
+    .map(
+      (chunk) =>
+        JSON.parse(chunk.slice('data: '.length)) as {
+          id?: unknown;
+          result?: {
+            task?: { id?: string };
+            statusUpdate?: { status?: { state?: string } };
+          };
+        }
+    );
+}

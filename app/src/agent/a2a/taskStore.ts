@@ -29,10 +29,12 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { handleError } from '@modules/error';
 import {
   isTerminalState,
   type A2AArtifact,
   type A2AMessage,
+  type A2AStreamResponse,
   type A2ATask,
   type A2ATaskState,
 } from './types';
@@ -43,6 +45,65 @@ const MAX_RETAINED_TASKS = 200;
 export class A2ATaskStore {
   /** taskId → Task（插入序即创建序，超限时淘汰最旧） */
   private tasks = new Map<string, A2ATask>();
+
+  /**
+   * 任务事件订阅者（T4 批次 C）。
+   *
+   * `Map<taskId, Set<listener>>`；**广播按快照遍历** ⇒ 单个监听器抛错不影响其余
+   * （spec §3.5.2：多流并发 + 关闭单流不得影响其它流）。
+   */
+  private listeners = new Map<
+    string,
+    Set<(event: A2AStreamResponse) => void>
+  >();
+
+  /** 订阅某任务的状态事件；返回**幂等**退订函数（批次 C） */
+  subscribe(
+    taskId: string,
+    listener: (event: A2AStreamResponse) => void
+  ): () => void {
+    let set = this.listeners.get(taskId);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(taskId, set);
+    }
+    set.add(listener);
+    return () => {
+      const current = this.listeners.get(taskId);
+      if (!current) return;
+      current.delete(listener);
+      if (current.size === 0) this.listeners.delete(taskId);
+    };
+  }
+
+  /** 广播（内部）：**快照**遍历 + 逐监听器隔离（单个抛错不影响其余） */
+  private publish(taskId: string, event: A2AStreamResponse): void {
+    const set = this.listeners.get(taskId);
+    if (!set || set.size === 0) return;
+    for (const listener of [...set]) {
+      try {
+        listener(event);
+      } catch (error) {
+        // @ignore-catch — 订阅者（SSE 写帧）失败**不得**打断任务状态推进或其它订阅者
+        handleError(error, {
+          module: 'agent:a2a',
+          action: 'task-stream-publish',
+          context: { taskId },
+        });
+      }
+    }
+  }
+
+  /** 以**当前状态**构造 `TaskStatusUpdateEvent`（§4.2.1）并广播 */
+  private publishStatus(task: A2ATask): void {
+    this.publish(task.id, {
+      statusUpdate: {
+        taskId: task.id,
+        contextId: task.contextId,
+        status: task.status,
+      },
+    });
+  }
 
   /** 新建任务（§3.4：新任务才能承载新工作，终态任务永不复用） */
   create(contextId?: string): A2ATask {
@@ -91,6 +152,8 @@ export class A2ATaskStore {
     task.status = { state, timestamp: new Date().toISOString(), message };
     if (artifacts.length > 0) task.artifacts = artifacts;
     if (message) task.history = [...(task.history ?? []), message];
+    // T4 批次 C：状态变更广播（SSE 流的唯一事件源；无订阅者时零开销）
+    this.publishStatus(task);
     return task;
   }
 
@@ -113,12 +176,15 @@ export class A2ATaskStore {
       state: 'TASK_STATE_CANCELED',
       timestamp: new Date().toISOString(),
     };
+    // T4 批次 C：取消同样是一次状态变更 ⇒ 广播（订阅者据此关流）
+    this.publishStatus(task);
     return task;
   }
 
-  /** 测试与重启语义用：清空 */
+  /** 测试与重启语义用：清空（含订阅者 —— 防跨用例串台） */
   clear(): void {
     this.tasks.clear();
+    this.listeners.clear();
   }
 
   private evictIfNeeded(): void {

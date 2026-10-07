@@ -40,16 +40,16 @@ import { trackUsage } from '@modules/ai';
 const logger = getLogger('ai:judge');
 
 /** 四级分类的 prompt 模板（极简，单次生成，非流式） */
-const CLASSIFY_PROMPT_TEMPLATE = `You are a query complexity classifier. Classify the user's message into one of four tiers:
+const CLASSIFY_PROMPT_TEMPLATE = `你是查询复杂度分类器。请把用户消息归入以下四档之一：
 
-- simple: Greetings, basic Q&A, time/date, simple commands (no LLM reasoning needed)
-- medium: General chat, explanations, summarization, translation (standard LLM capability)
-- complex: Code generation, analysis, debugging, multi-step reasoning (needs strong model)
-- reasoning: Deep logical reasoning, math, architecture design, security review (needs strongest model)
+- simple：问候、基础问答、时间/日期、简单命令（无需 LLM 推理）
+- medium：一般对话、解释、摘要、翻译（标准 LLM 能力即可）
+- complex：代码生成、分析、调试、多步推理（需要强模型）
+- reasoning：深度逻辑推理、数学、架构设计、安全评审（需要最强模型）
 
-Respond with ONLY a JSON object: {"tier": "simple|medium|complex|reasoning", "confidence": 0.0-1.0}
+只返回一个 JSON 对象：{"tier": "simple|medium|complex|reasoning", "confidence": 0.0-1.0}
 
-User message: {MESSAGE}`;
+用户消息：{MESSAGE}`;
 
 /**
  * JudgeService 将分级决策委托给本地分类钩子或云端 LLM

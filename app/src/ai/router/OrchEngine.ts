@@ -96,14 +96,14 @@ export interface SubTaskResult {
 /**
  * 合成 prompt：将多个子任务结果合并为最终响应
  */
-const SYNTHESIZE_PROMPT = `You are a response synthesis expert. Combine the results of multiple subtasks into a coherent final response.
+const SYNTHESIZE_PROMPT = `你是响应综合专家。请把多个子任务的结果合并为一个连贯的最终响应。
 
-Original user request: {MESSAGE}
+原始用户请求：{MESSAGE}
 
-Subtask results:
+子任务结果：
 {RESULTS}
 
-Synthesize a complete, well-structured response that addresses the original request.`;
+请综合出一个完整、结构清晰、且正面回应原始请求的响应。`;
 
 /**
  * OrchEngine 执行子任务编排

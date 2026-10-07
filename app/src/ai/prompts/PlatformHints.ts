@@ -296,13 +296,11 @@ export function buildPlatformContext(platform: string): string {
     }
 
     if (toolHints.recommendedMaxLength) {
-      parts.push(
-        `Max message length: ${toolHints.recommendedMaxLength} characters`
-      );
+      parts.push(`消息最大长度：${toolHints.recommendedMaxLength} 个字符`);
     }
 
     if (toolHints.constraints && toolHints.constraints.length > 0) {
-      parts.push('Constraints:\n- ' + toolHints.constraints.join('\n- '));
+      parts.push('约束：\n- ' + toolHints.constraints.join('\n- '));
     }
   }
 
@@ -318,41 +316,37 @@ export function buildEnvironmentHints(): string {
   const hints: string[] = [];
   const isWindows = process.platform === 'win32';
 
-  hints.push(`OS: ${process.platform}`);
+  hints.push(`操作系统：${process.platform}`);
   hints.push(
-    `Shell: ${process.env['SHELL'] || process.env['ComSpec'] || 'unknown'}`
+    `Shell：${process.env['SHELL'] || process.env['ComSpec'] || '未知'}`
   );
-  hints.push(`Date: ${new Date().toISOString()}`);
+  hints.push(`日期：${new Date().toISOString()}`);
 
   const username = process.env['USER'] || process.env['USERNAME'];
   if (username) {
-    hints.push(`User: ${username}`);
+    hints.push(`用户：${username}`);
   }
 
   // === 平台特定约束 ===
   if (isWindows) {
     hints.push('');
-    hints.push('--- WINDOWS COMMAND CONSTRAINTS ---');
+    hints.push('--- WINDOWS 命令约束 ---');
     hints.push(
-      'You are on Windows. The "bash" tool runs cmd.exe, NOT bash. Use Windows commands only.'
+      '你运行在 Windows 上。"bash" 工具实际执行的是 cmd.exe，而不是 bash。请只使用 Windows 命令。'
     );
     hints.push(
-      'Unix commands NOT available: head, tail, sed, awk, xargs, tee, grep (use findstr), cat (use type)'
+      '以下 Unix 命令不可用：head、tail、sed、awk、xargs、tee、grep（改用 findstr）、cat（改用 type）'
     );
     hints.push(
-      'Paths: Use \\ separators and drive letters (C:\\...). /tmp does NOT exist — use %TEMP% or $env:TEMP'
+      '路径：使用 \\ 分隔符与盘符（C:\\...）。/tmp 不存在 —— 请使用 %TEMP% 或 $env:TEMP'
     );
-    hints.push(
-      'For complex operations, use: powershell -Command "your PowerShell script"'
-    );
-    hints.push(
-      'Git is available. Use: git clone https://... C:\\path\\to\\target'
-    );
+    hints.push('复杂操作请使用：powershell -Command "your PowerShell script"');
+    hints.push('Git 可用。用法：git clone https://... C:\\path\\to\\target');
   }
 
   // === 文件路径约束（修复 BUG #9：AI 乱编文件路径）===
   hints.push('');
-  hints.push('--- HARD CONSTRAINT: FILE PATHS ---');
+  hints.push('--- 硬约束：文件路径 ---');
   // 2026-09-26 修复（P3-2 顺查项③）：工具名必须用**本仓真实注册名**——原写
   // `read_file` / `write_file` / `list_directory` / `search_codebase` / `Read/Write/Glob/Edit`（CC 名，本仓不存在）。
   //
@@ -360,22 +354,22 @@ export function buildEnvironmentHints(): string {
   // 死路径，台账 N-27；真实类 `FileSearchTool` 无任何 loader 引用）⇒ 原提示词在**教模型去调一个不存在的工具**
   // （模型会尝试调用并失败）。改用真实搜索工具 `grep`（内容检索）/ `glob`（文件名匹配）。
   hints.push(
-    '1. Only use file paths that have been confirmed via tool calls (file_read, file_write, glob, grep).'
+    '1. 只能使用已通过工具调用确认过的文件路径（file_read、file_write、glob、grep）。'
   );
   hints.push(
-    '2. Do NOT invent, guess, or assume file paths. If you are unsure, use glob or grep to find the correct path.'
+    '2. 禁止臆造、猜测或假定文件路径。若不确定，请用 glob 或 grep 找到正确路径。'
   );
   hints.push(
-    '3. All paths must be absolute paths. Use the OS-appropriate path separators (\\ for Windows, / for macOS/Linux).'
+    '3. 所有路径都必须是绝对路径，并使用与操作系统匹配的路径分隔符（Windows 用 \\，macOS/Linux 用 /）。'
   );
   hints.push(
-    '4. If a tool call fails because a path does not exist, report the error to the user. Do not silently try alternative made-up paths.'
+    '4. 若工具调用因路径不存在而失败，请把该错误报告给用户；不要静默改用臆造的替代路径。'
   );
   hints.push(
-    '5. Every file path referenced in your text response must have been confirmed to exist via file_read/file_write/glob/file_edit tool calls during this conversation. If you are recommending a new file location, explicitly mark it with "(new file)".'
+    '5. 你在文本回复中引用的每个文件路径，都必须已在本次对话中通过 file_read/file_write/glob/file_edit 工具调用确认真实存在。若你在推荐一个新的文件位置，请显式标注 "(new file)"。'
   );
   hints.push(
-    '6. When working in a worktree environment, prefix path references with the worktree identifier (e.g., "in bridge-session123 app/src/file.ts") to avoid confusion with main repo files of the same name.'
+    '6. 在 worktree 环境中工作时，请在路径引用前加上 worktree 标识（例如 "in bridge-session123 app/src/file.ts"），以免与主仓库中的同名文件混淆。'
   );
 
   return hints.join('\n');

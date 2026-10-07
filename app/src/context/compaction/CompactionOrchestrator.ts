@@ -129,16 +129,16 @@ export function extractEarliestBatch(
   return { batch, rest: [] };
 }
 
-const FULL_COMPACTION_PROMPT = `You are a conversation compressor. Summarize the following conversation to preserve essential context while drastically reducing token count.
+const FULL_COMPACTION_PROMPT = `你是对话压缩器。请总结以下对话，在**大幅降低 token 数**的同时保留关键上下文。
 
-Rules:
-1. Preserve ALL user personal information, preferences, and decisions
-2. Preserve the current task's progress and latest state
-3. Merge repetitive exchanges into concise summaries
-4. Keep tool call results that are still relevant to the current task
-5. Output ONLY the compressed conversation in the same language as the original
+规则：
+1. 保留**全部**用户个人信息、偏好与决定
+2. 保留当前任务的进展与最新状态
+3. 把重复往复的交流合并为简明摘要
+4. 保留与当前任务仍然相关的工具调用结果
+5. 只输出压缩后的对话，且**保持与原文相同的语言**
 
-Output format: A concise narrative summary of the conversation.`;
+输出格式：对整段对话的简明叙述式摘要。`;
 
 export interface CompactionContext {
   sessionId?: string;

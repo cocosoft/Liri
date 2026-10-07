@@ -107,23 +107,21 @@ export interface DecompositionResult {
 }
 
 /** LLM 分解 prompt */
-const DECOMPOSE_PROMPT = `You are a task decomposition expert. Break the user's request into subtasks.
+const DECOMPOSE_PROMPT = `你是任务分解专家。请把用户的请求拆解为若干子任务。
 
-Rules:
-1. Each subtask should be self-contained and independently executable
-2. Maximum ${MAX_SUBTASKS} subtasks
-3. Identify dependencies between subtasks (e.g., subtask B depends on subtask A's result)
-4. Assign a complexity tier to each subtask: simple, medium, complex, reasoning
-5. The overall task also gets a main tier
-6. For every subtask that has dependencies, also set "dependsOnMode":
-   - "hard" (the default): skip this subtask when any dependency fails — use it whenever the
-     subtask needs the dependency's real output to be correct
-   - "soft": run this subtask anyway when a dependency fails — use it ONLY when the subtask can
-     legitimately proceed with partial or missing input (e.g. optional enrichment or best-effort
-     context gathering). A soft subtask receives an explicit [DEPENDENCY_DEGRADED] notice.
-   Omitting the field accepts the default ("hard").
+规则：
+1. 每个子任务应自包含、可独立执行
+2. 最多 ${MAX_SUBTASKS} 个子任务
+3. 标出子任务之间的依赖关系（例如子任务 B 依赖子任务 A 的结果）
+4. 为每个子任务指定复杂度档位：simple、medium、complex、reasoning
+5. 整体任务同样有一个主档位（main tier）
+6. 对每个存在依赖的子任务，同时设置 "dependsOnMode"：
+   - "hard"（默认）：任一依赖失败即跳过该子任务 —— 当该子任务需要依赖方的真实产出才能正确时使用
+   - "soft"：依赖失败时仍照常执行该子任务 —— 仅当该子任务在输入部分/完全缺失时仍可正当推进
+     （例如可选的补充信息、尽力而为的上下文收集）时使用。soft 子任务会收到一条显式的 [DEPENDENCY_DEGRADED] 通知。
+   省略该字段即采用默认值（"hard"）。
 
-Respond with ONLY a JSON object:
+只返回一个 JSON 对象：
 {
   "mainTier": "simple|medium|complex|reasoning",
   "reasoning": "brief explanation of decomposition strategy",
@@ -138,7 +136,7 @@ Respond with ONLY a JSON object:
   ]
 }
 
-User message: {MESSAGE}`;
+用户消息：{MESSAGE}`;
 
 /**
  * TaskDecomposer 分解复杂请求为结构化子任务

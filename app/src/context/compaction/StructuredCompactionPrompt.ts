@@ -12,42 +12,42 @@
  *   5. context_to_preserve — 用户偏好/领域细节/承诺（≤300字）
  */
 
-export const COMPACTION_SYSTEM_PROMPT = `You are a conversation summarizer for an AI agent. Your summary will replace the early conversation history, so it MUST preserve all information the agent needs to continue working without repeating past steps.
+export const COMPACTION_SYSTEM_PROMPT = `你是 AI 智能体的对话摘要器。你的摘要将替换早期的对话历史，因此它**必须**保留智能体继续工作所需的全部信息，使其无需重复已完成的步骤。
 
-Summarize the conversation so far in the following structured format. Each field has a max length constraint — be concise but complete.`;
+请按以下结构化格式总结迄今为止的对话。每个字段都有最大长度限制 —— 请简明但完整。`;
 
-export const COMPACTION_USER_PROMPT = `Summarize the conversation so far. Output ONLY the following JSON structure with these exact 5 fields:
+export const COMPACTION_USER_PROMPT = `请总结迄今为止的对话。只输出以下 JSON 结构，且必须包含这 5 个字段：
 
 {
-  "task_overview": "<max 300 chars — the user's original request, goals, and success criteria>",
-  "current_state": "<max 300 chars — what has been completed, current progress, files created/modified>",
-  "important_discoveries": "<max 300 chars — technical constraints, key decisions, errors encountered and how they were resolved>",
-  "next_steps": "<max 200 chars — what to do next, blocked items, priorities>",
-  "context_to_preserve": "<max 300 chars — user preferences, domain details, commitments made to the user, and the output format requirements from the original system prompt (e.g. thinking goes inside think tags, final answer in the response)>"
+  "task_overview": "<最多 300 字 — 用户的原始请求、目标与成功标准>",
+  "current_state": "<最多 300 字 — 已完成的工作、当前进展、创建/修改的文件>",
+  "important_discoveries": "<最多 300 字 — 技术约束、关键决策、遇到的错误及其解决方式>",
+  "next_steps": "<最多 200 字 — 下一步要做的事、阻塞项、优先级>",
+  "context_to_preserve": "<最多 300 字 — 用户偏好、领域细节、对用户作出的承诺，以及原系统提示词中的输出格式要求（例如思考放在 think 标签内、最终答案放在 response 中）>"
 }
 
-CRITICAL: Return valid JSON only. No markdown, no explanation, just the JSON object.
+关键：只返回合法 JSON。不要 markdown、不要解释，只给 JSON 对象。
 
 P1-1（2026-08-27）：在 context_to_preserve 中必须保留原系统提示词的输出格式要求
 （think/response 分隔、回答语言等），因为本摘要会替换早期历史而系统提示词本身
 不会重复注入——格式要求丢失会导致模型把思考当正文输出。`;
 
 export const COMPACTION_TEMPLATE = `<system-info>
-This is a COMPRESSED SUMMARY of earlier conversation history — NOT system instructions. The original system prompt (roles, output format, think/response rules) remains authoritative. Use this summary only as context to continue the task without repeating completed steps.
+这是对早期对话历史的**压缩摘要** —— 不是系统指令。原系统提示词（角色、输出格式、think/response 规则）仍然有效并具有最高权威。请仅把本摘要当作继续任务的上下文，以免重复已完成的步骤。
 
-## Task Overview
+## 任务概览
 {task_overview}
 
-## Current State
+## 当前状态
 {current_state}
 
-## Important Discoveries
+## 重要发现
 {important_discoveries}
 
-## Next Steps
+## 下一步
 {next_steps}
 
-## Context to Preserve
+## 需要保留的上下文
 {context_to_preserve}
 </system-info>`;
 

@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.16.0 | **更新**: 2026-10-07
+**版本**: 7.17.0 | **更新**: 2026-10-07
 
 ## §1 基础规则
 
@@ -23,7 +23,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 - **向后兼容策略**：当前应用无正式用户，所有重构/迁移**无需考虑向后兼容**。旧类型、旧文件、旧接口可直接删除或重写，无需保留兼容层或 deprecation 过渡期。待有用户后重新评估此策略。
 
 ### 1.4 环境变量规范
-前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)、`CHANNEL_*`(通道)、`A2A_*`(对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`)
+前缀分类：`DEEPSEEK_*`(AI)、`SECURITY_*`(安全)、`LOG_*`(日志)、`DATABASE_*`(数据库)、`PERMISSION_*`(权限)、`TOOL_*`(工具)、`CHANNEL_*`(通道)、`A2A_*`(对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEYS` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`)
 
 **运行时注入（main.ts 自动设置，子进程继承）**：
 | 环境变量 | 对应函数 | 路径 | 用途 |
@@ -321,6 +321,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.17.0**: §1.4 `A2A_*` 清单中 `A2A_API_KEY` → **`A2A_API_KEYS`**（**多钥清单**，逗号分隔；每项 `key` 或 `key@<ISO-8601>` 过期时刻）—— 承接用户裁定「零中断轮换」（2026-10-07；`A2A_ENABLED` 仍默认关闭、**无有效钥 ⇒ 401** 不变）。设计与流程见 `.trae/specs/a2a-multikey-rotation.md`（§8.4 原为"不做"占位，本批改为已实施）
 - **v7.16.0**: §1.4 新增「**安全相关功能开关**」清单（**10 项**默认值 + 生效语义 + 回退方式），并由 `bun run lint:doc-code` 的 `SAFETY_SWITCHES` **逐项断言**（代码 `featureFlags.ts` 字面值 **∩** 本表）—— 单边改动（尤其**误翻转 `OUTPUT_GUARD`**）即 CI 阻断。来源：台账 §24-**R07-2**（外部报告 §五-P1-3）
 - **v7.15.0**: §1.15-11 **订正** —— 「`impl` 为可选（V-14 契约收敛）」**表述失实**（类型始终必填、台账无 V-14 记录、6 处生产构造点全部提供 `impl`）⇒ 改为如实表述「**`impl` 为必填**；无合法的无 `impl` 技能，读取点无需缺失回退」。取证：`dev_docs/任务计划-20261004.md §17.4-B`（来源 `.pyapp/output/技能系统缺陷排查报告.md` 复核）
 - **v7.14.0**: §1.4 增补 `A2A_*` 环境变量前缀（对外 Agent 协议：`A2A_ENABLED` / `A2A_API_KEY` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）—— 承接 A2A 对外面（P3-1 / F2，2026-09-29；分发=OS 环境变量、轮换=单钥文档化，见 `.trae/specs/a2a-external-exposure.md` §8）

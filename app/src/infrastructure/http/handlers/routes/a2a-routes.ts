@@ -49,9 +49,14 @@ const TASKS_PATH = '/v1/a2a/tasks';
  * 环境变量：是否对外暴露 A2A（**默认关闭**，spec G4）。
  * 命名沿用 ACP 侧 `ACP_REMOTE_HOST` 同族风格（§1.4 前缀表未含 A2A ⇒ 已在 spec 登记）。 */
 const ENV_A2A_ENABLED = 'A2A_ENABLED';
-/** 环境变量：A2A **专用访问密钥**（2026-09-29 用户裁定「专用密钥 + fail-closed」）。
- *  **未配置 ⇒ 一律 401**（对外面**不回退**到"本地信任基线"）；与 `A2A_ENABLED` 构成**双闸**。 */
-const ENV_A2A_API_KEY = 'A2A_API_KEY';
+/**
+ * 环境变量：A2A **访问密钥清单**（2026-09-29 裁定「专用密钥 + fail-closed」；2026-10-07 扩为**多钥**）。
+ *
+ * 格式：逗号分隔；每项 `key` 或 `key@<ISO-8601>`（`@` 后为该钥**过期时刻**，到点即失效）。
+ * **无有效钥 ⇒ 一律 401**（对外面**不回退**到"本地信任基线"）；与 `A2A_ENABLED` 构成**双闸**。
+ * 轮换（零中断）与设计依据见 `.trae/specs/a2a-multikey-rotation.md`。
+ */
+const ENV_A2A_API_KEYS = 'A2A_API_KEYS';
 /** 环境变量：卡片中写出的对外基址（可选）；缺省按**请求 Host** 推导 ⇒ **不硬编码** */
 const ENV_A2A_PUBLIC_URL = 'A2A_PUBLIC_URL';
 /** 环境变量：委派的**有界等待**上限（毫秒；超时即返回 `working`，spec G3） */
@@ -89,17 +94,89 @@ export function isA2AEnabled(): boolean {
   return configManager.env(ENV_A2A_ENABLED) === 'true';
 }
 
+/** `parseA2AKeys` 的结果（纯数据，无副作用） */
+export interface ParsedA2AKeys {
+  /** **当前有效**的钥（已剔除空项 / 已过期 / 格式非法者） */
+  keys: string[];
+  /** 被判为**格式非法**的原始项（无钥值 / `@` 后时间串无法解析）—— 供调用方**上报** */
+  invalidEntries: string[];
+}
+
 /**
- * 请求是否通过 A2A 鉴权（**fail-closed**）。
+ * 解析 A2A 密钥清单（**纯函数**，可单测；spec `.trae/specs/a2a-multikey-rotation.md` D2/D3/D5）。
  *
- * - `A2A_API_KEY` **未配置/空白 ⇒ 一律拒绝** —— **刻意不**沿用既有 API 的"未配密钥即放行（本地信任基线）"
- *   回退：那是**本机** API 的取向，而 A2A 是**对外**面（见 spec「鉴权强度」）。
- * - 配置了 ⇒ 复用 [`verifyRequestAuth`](../../LocalHTTPServiceHelpers.ts) 的同一头部语义（`x-api-key` / `Bearer`）。
+ * - 逗号分隔；每项 `key` 或 `key@<ISO-8601>`；**空白项**忽略；
+ * - 无 `@` ⇒ 该钥**永不过期**；
+ * - `now >= expiresAt` ⇒ **失效**（不含）；
+ * - **格式非法**（`@` 后无法解析为时间，或只有时间没有钥）⇒ **丢弃该项**并登记到
+ *   `invalidEntries`（**fail-closed**：**不**把它当作"永不过期"—— 那是 fail-open）；
+ * - 分段用 `lastIndexOf('@')`（D5：键为 base64url，不含 `@`；将来亦不会误切）。
+ *
+ * @param raw 环境变量原值
+ * @param now 当前时刻（ms epoch；由调用方注入 ⇒ 可测边界）
+ */
+export function parseA2AKeys(
+  raw: string | undefined,
+  now: number
+): ParsedA2AKeys {
+  const keys: string[] = [];
+  const invalidEntries: string[] = [];
+  if (!raw) return { keys, invalidEntries };
+
+  for (const item of raw.split(',')) {
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+
+    const at = trimmed.lastIndexOf('@');
+    if (at < 0) {
+      keys.push(trimmed);
+      continue;
+    }
+
+    const key = trimmed.slice(0, at).trim();
+    const iso = trimmed.slice(at + 1).trim();
+    if (!key) {
+      invalidEntries.push(trimmed); // 只有过期时间、没有钥 ⇒ 格式非法
+      continue;
+    }
+    const expiresAt = Date.parse(iso);
+    if (!Number.isFinite(expiresAt)) {
+      invalidEntries.push(trimmed);
+      continue;
+    }
+    if (now >= expiresAt) continue; // 已过期 ⇒ 失效
+    keys.push(key);
+  }
+  return { keys, invalidEntries };
+}
+
+/**
+ * 已上报过"非法密钥项"的原始配置值 —— 防止**未认证请求**把它放大成日志洪泛
+ * （同一份配置只提示一次；运维改配置后原值变化 ⇒ 重新提示）。
+ */
+let _warnedInvalidKeysFor: string | null = null;
+
+/**
+ * 请求是否通过 A2A 鉴权（**fail-closed**，多钥版）。
+ *
+ * - **无有效钥**（`A2A_API_KEYS` 未配置 / 全空 / **全过期** / **全非法**）⇒ **一律拒绝**
+ *   —— **刻意不**沿用既有 API 的"未配密钥即放行（本地信任基线）"回退：那是**本机** API 的取向，
+ *   而 A2A 是**对外**面。
+ * - 有有效钥 ⇒ 逐个复用 [`verifyRequestAuth`](../../LocalHTTPServiceHelpers.ts)（**常量时间**比较，
+ *   R07-4② 产物）⇒ **不新建第二套比较**（CS01）。
  */
 export function isA2AAuthorized(req: http.IncomingMessage): boolean {
-  const expected = configManager.env(ENV_A2A_API_KEY)?.trim();
-  if (!expected) return false;
-  return verifyRequestAuth(req, expected);
+  const raw = configManager.env(ENV_A2A_API_KEYS);
+  const { keys, invalidEntries } = parseA2AKeys(raw, Date.now());
+  if (invalidEntries.length > 0 && _warnedInvalidKeysFor !== raw) {
+    _warnedInvalidKeysFor = raw ?? null;
+    logger.warning(
+      'A2A_API_KEYS 中存在**过期时间无法解析**的项 ⇒ 已按 fail-closed 丢弃（该项不会生效）',
+      { invalidCount: invalidEntries.length }
+    );
+  }
+  if (keys.length === 0) return false;
+  return keys.some((key) => verifyRequestAuth(req, key));
 }
 
 /** 有界等待上限：非法/缺省 ⇒ {@link DEFAULT_DELEGATE_MAX_WAIT_MS} */

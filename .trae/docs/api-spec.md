@@ -303,7 +303,7 @@
 | GET | `/v1/a2a/tasks/{id}` | ✅（**默认关闭**） | —（面向**外部 A2A Agent**） |
 
 **开关**：环境变量 `A2A_ENABLED === 'true'` 才启用；**未启用 ⇒ 不处理任何 A2A 路径**（由上层回落 **404**，**不泄露端点存在性**，fail-closed）。
-**鉴权（fail-closed，2026-09-29 裁定）**：`A2A_API_KEY` **未配置 ⇒ 一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；配置了则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`，**常量时间比较** —— 2026-10-07 R07-4②；同时作用于本机 API）。**与 `A2A_ENABLED` 构成双闸**。
+**鉴权（fail-closed，2026-09-29 裁定；2026-10-07 扩为多钥）**：`A2A_API_KEYS`（**清单**，逗号分隔；每项 `key` 或 `key@<ISO-8601>` 过期时刻）—— **无有效钥**（未配置/空白/全过期/全非法）⇒ **一律 401**（**刻意不**沿用本机 API 的"未配密钥即放行"回退）；有有效钥则按 `x-api-key` 或 `Bearer` 校验（复用 `verifyRequestAuth`，**常量时间比较** —— 2026-10-07 R07-4②；同时作用于本机 API）。**与 `A2A_ENABLED` 构成双闸**；零中断轮换流程见 `a2a-multikey-rotation.md`。
 **基址**：优先 `A2A_PUBLIC_URL`；缺省按请求 `Host` 推导（**不硬编码域名/端口**）。
 
 **发现端点状态码**
@@ -312,7 +312,7 @@
 |---|---|
 | **200** | 已启用、已鉴权且方法为 GET ⇒ A2A Agent Card（`application/json`，带 `ETag`） |
 | **304** | `If-None-Match` 命中当前 `ETag`（无 body） |
-| **401** | 已启用但**未通过鉴权**（`A2A_API_KEY` 未配置，或 `x-api-key`/`Bearer` 不匹配） |
+| **401** | 已启用但**未通过鉴权**（`A2A_API_KEYS` **无有效钥**，或 `x-api-key`/`Bearer` 不匹配） |
 | **405** | 已鉴权但方法非 GET |
 | **404** | **未启用**（或路径不匹配）—— 两者**不区分**，避免泄露 |
 
@@ -333,7 +333,7 @@
 
 **能力声明口径**：`capabilities.streaming` / `pushNotifications` **恒为 `false`**（未支持的能力须如实声明）；"长任务"以 **Task 状态机**表达（`submitted`→`working`→终态），**不用** `pushNotifications`。
 **安全**：卡片**不内嵌密钥**（只声明 `securitySchemes`，凭证经 HTTP Header 带外传递）。
-**部署与轮换**：密钥经 **OS 环境变量** `A2A_API_KEY` 分发（改后**需重启**，无热加载）；**单钥轮换流程 + 回滚点**见 `.trae/specs/a2a-external-exposure.md` **§8**（含 `A2A_ENABLED` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS` 全清单）。
+**部署与轮换**：密钥经 **OS 环境变量** `A2A_API_KEYS`（**清单**）分发（改后**需重启**，无热加载）；**单钥轮换流程 + 回滚点**见 `.trae/specs/a2a-external-exposure.md` **§8**、**多钥零中断轮换（含可选过期）**见 `.trae/specs/a2a-multikey-rotation.md`（全清单含 `A2A_ENABLED` / `A2A_PUBLIC_URL` / `A2A_DELEGATE_MAX_WAIT_MS`）。
 
 **PATCH 契约（2026-09-23 新增，Spec `goal-entity.md` §4.2 / 缺口 X4）**：
 body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数） }` —— **至少一项**。
@@ -1035,6 +1035,7 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.7.0 | 2026-10-07 | §3.29.1 新增 **`GET /v1/patterns`**（编排模式只读目录：注册表 + 装配状态）；§3.8.2 鉴权改为 **多钥**（`A2A_API_KEY` → **`A2A_API_KEYS`**，清单 + 每钥可选 `@<ISO-8601>` 过期；**无有效钥 ⇒ 401** 不变）+ 标注**常量时间比较** |
 | 2.6.0 | 2026-09-29 | §3.8.2 新增 **A2A 鉴权**（`A2A_API_KEY`，**fail-closed**：未配置 ⇒ 401）—— 与 `A2A_ENABLED` 构成**双闸**；发现/委派端点均返回 **401** |
 | 2.5.0 | 2026-09-29 | §3.8.2 新增 **A2A 委派**（`POST /v1/a2a/tasks` / `GET /v1/a2a/tasks/{id}`）—— 有界等待（`A2A_DELEGATE_MAX_WAIT_MS`）+ Task 状态机；委派后端 = **CoreAPI 对话轮**（方案①） |
 | 2.4.0 | 2026-09-29 | 新增 §3.8.2 **A2A 对外发现**（`GET /.well-known/agent.json`，**默认关闭**）—— 承接 `agent/a2a/agentCard.ts` 的 `buildAgentCard`；边界裁定 **ACP 对内 / A2A 对外**（P3-1 / F2 / G2） |

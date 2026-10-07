@@ -37,6 +37,9 @@ interface Captured {
 const CARD_PATH = '/.well-known/agent-card.json';
 const TASKS_PATH = '/v1/a2a/tasks';
 const API_KEY = 'test-a2a-key';
+/** 过期时刻常量（`parseA2AKeys` 的边界已在 `a2aKeys.test.ts` 单独锁定） */
+const FUTURE_ISO = '2099-12-31T00:00:00Z';
+const PAST_ISO = '2020-01-01T00:00:00Z';
 const noop = (): void => undefined;
 
 function makeReq(
@@ -100,7 +103,7 @@ const delay = (ms: number): Promise<void> =>
 /** 开启 A2A 且配置密钥（多数用例的前置） */
 function enableA2A(): void {
   process.env.A2A_ENABLED = 'true';
-  process.env.A2A_API_KEY = API_KEY;
+  process.env.A2A_API_KEYS = API_KEY;
 }
 
 beforeEach(() => {
@@ -110,7 +113,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.A2A_ENABLED;
-  delete process.env.A2A_API_KEY;
+  delete process.env.A2A_API_KEYS;
   delete process.env.A2A_PUBLIC_URL;
   delete process.env.A2A_DELEGATE_MAX_WAIT_MS;
   setA2ADelegator(null);
@@ -118,7 +121,7 @@ afterEach(() => {
 });
 
 describe('A2A 鉴权（专用密钥 + fail-closed）', () => {
-  it('② 启用但 A2A_API_KEY 未配置 ⇒ 401（不回退"本地信任基线"）', async () => {
+  it('② 启用但 A2A_API_KEYS 未配置 ⇒ 401（不回退"本地信任基线"）', async () => {
     process.env.A2A_ENABLED = 'true'; // 只启用、**不**配密钥
     const { handled, cap } = await call();
     expect(handled).toBe(true);
@@ -131,6 +134,59 @@ describe('A2A 鉴权（专用密钥 + fail-closed）', () => {
     expect((await call()).cap.status).toBe(401); // 无头
     expect((await call('GET', { 'x-api-key': 'wrong' })).cap.status).toBe(401);
     expect((await call('GET', auth({ host: 'h.test' }))).cap.status).toBe(200);
+  });
+
+  it('② 多钥（零中断轮换）：两把钥**均可**通过', async () => {
+    process.env.A2A_ENABLED = 'true';
+    process.env.A2A_API_KEYS = `new-key,old-key@${FUTURE_ISO}`;
+
+    expect(
+      (await call('GET', { 'x-api-key': 'new-key', host: 'h.test' })).cap.status
+    ).toBe(200);
+    expect(
+      (await call('GET', { 'x-api-key': 'old-key', host: 'h.test' })).cap.status
+    ).toBe(200);
+    expect(
+      (await call('GET', { 'x-api-key': 'neither', host: 'h.test' })).cap.status
+    ).toBe(401);
+  });
+
+  it('② 过期钥 ⇒ 401；同清单里的有效钥 ⇒ 200（fail-closed 未被多钥放宽）', async () => {
+    process.env.A2A_ENABLED = 'true';
+    process.env.A2A_API_KEYS = `live,expired@${PAST_ISO}`;
+
+    // 同清单内：有效钥仍可通
+    expect(
+      (await call('GET', { 'x-api-key': 'live', host: 'h.test' })).cap.status
+    ).toBe(200);
+    // 过期钥 ⇒ 失效
+    expect(
+      (await call('GET', { 'x-api-key': 'expired', host: 'h.test' })).cap.status
+    ).toBe(401);
+
+    // 全是过期钥 ⇒ **无有效钥** ⇒ 一律 401（fail-closed 保持）
+    process.env.A2A_API_KEYS = `gone@${PAST_ISO}`;
+    expect(
+      (await call('GET', { 'x-api-key': 'gone', host: 'h.test' })).cap.status
+    ).toBe(401);
+  });
+
+  it('② 未过期钥 ⇒ 200（过期时刻由 @ 指定）', async () => {
+    process.env.A2A_ENABLED = 'true';
+    process.env.A2A_API_KEYS = `live@${FUTURE_ISO}`;
+
+    expect(
+      (await call('GET', { 'x-api-key': 'live', host: 'h.test' })).cap.status
+    ).toBe(200);
+  });
+
+  it('② 格式非法（时间串不可解析）⇒ 该项被丢弃 ⇒ 无有效钥 ⇒ 401', async () => {
+    process.env.A2A_ENABLED = 'true';
+    process.env.A2A_API_KEYS = 'k@not-a-date';
+
+    expect(
+      (await call('GET', { 'x-api-key': 'k', host: 'h.test' })).cap.status
+    ).toBe(401);
   });
 });
 

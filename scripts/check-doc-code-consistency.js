@@ -116,12 +116,12 @@ const ASSERTIONS = [
     {
         id: 'a2a-auth-fail-closed',
         why:
-            'A2A 鉴权必须 **fail-closed**：`A2A_API_KEY` 未配置/空白 ⇒ **一律拒绝**，' +
+            'A2A 鉴权必须 **fail-closed**：`A2A_API_KEYS` **无有效钥**（未配置/空白/全过期/全非法）⇒ **一律拒绝**，' +
             '**刻意不**回退到既有 API 的"未配密钥即放行（本地信任基线）"（对外面 ≠ 本机 API；spec T6）—— ' +
-            '若有人为"本地调试方便"加回退，等于对外裸奔（R07-4，2026-10-07）',
+            '若有人为"本地调试方便"加回退，等于对外裸奔（R07-4，2026-10-07；多钥版见 a2a-multikey-rotation.md）',
         code: {
             file: 'app/src/infrastructure/http/handlers/routes/a2a-routes.ts',
-            contains: /if\s*\(!expected\)\s*return\s+false;/,
+            contains: /if\s*\(keys\.length === 0\)\s*return\s+false;/,
         },
         docs: [
             {

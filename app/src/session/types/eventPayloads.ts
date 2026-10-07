@@ -221,16 +221,21 @@ export interface LiriEventMap {
     /** 压缩阶段 */
     phase: 'start' | 'compacting' | 'done' | 'failed';
     /**
-     * 压缩**前** token 数（口径：`unifiedTracker.checkBeforeRequest` 快照）。
+     * 压缩**前** token 数。**口径按 `phase` 分列**（D-245，2026-10-07 发现 / 2026-10-08 方案 B 修复）：
      *
-     * D-245（2026-10-07）：`beforeTokens` 与 `afterTokens` **必须成对解读** —— 二者
-     * **仅在 `phase:'done'` 下同源可比**。`phase:'failed'` 时**只写 `beforeTokens`**：
-     * 该分支压缩**未写回**（`session.messages` 原样未变），任何"压缩后"度量在语义上都不存在
-     * ⇒ 此前用另一套估算器填 `afterTokens` 会造出"未降体积却降了 44%~79%"的假象。
+     * - `phase:'done'`：= `estimateMessagesTokens(压缩前消息)`（**内容口径**），与 `afterTokens`
+     *   **同源可比**，可安全相减（事件"减少比例" / 状态块"节省 N%"均基于此对）；
+     * - `phase:'failed'`：= `unifiedTracker.checkBeforeRequest` 的 **触发水位快照**
+     *  （`(尾截断输入 + 输出预估) × 校准因子`），**不是**内容量；该分支**不写** `afterTokens`
+     *   （压缩未写回，任何"压缩后"度量在语义上都不存在）⇒ 无相减，口径不影响展示。
+     *
+     * ⚠️ 两者**不可跨 phase 直接比较**（口径不同）。
      */
     beforeTokens?: number;
     /**
-     * 压缩**后** token 数（仅 `phase:'done'` 有效；`phase:'failed'` **不写**，见 `beforeTokens`）。
+     * 压缩**后** token 数（**仅 `phase:'done'`** 有效）：= `estimateMessagesTokens(压缩后消息)`，
+     * 与同 phase 的 `beforeTokens` **同一函数、同一口径** ⇒ 可相减求减少比例。
+     * `phase:'failed'` **不写本键**（见 `beforeTokens`）。
      */
     afterTokens?: number;
     /** 阶段说明 */

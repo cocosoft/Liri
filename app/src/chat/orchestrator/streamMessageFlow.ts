@@ -328,6 +328,19 @@ export async function* runStreamMessage(
         }
       }
       if (preCompactResult.applied) {
+        // D-245 方案 B（2026-10-08）：压缩前后 token **同源对** —— 两侧都经 `estimateMessagesTokens`
+        // 在各自消息列表上估算，与 `CompactionOrchestrator._runFullCompaction` 内部的
+        // `(beforeTokens, afterTokens)`（`:798` / `:955`，同一函数同一口径）一致 ⇒ **可比、可相减**。
+        // 此前 done 分支混用 `unifiedTracker.checkBeforeRequest` 的 `snapshot.tokens`
+        //（= `(尾截断输入 + 4096 输出预估) × 校准因子`）作 `beforeTokens`，与 `estimateMessagesTokens`
+        // 的 `afterTokens` **不同源** ⇒ 事件"减少比例"与状态块"节省 N%"**均失真**（同一根因，两处消费）。
+        // 取压缩前快照须在**写回 `session.messages`（`:485`）之前**，故在此处一次性求值、两处复用。
+        const beforeTokens = estimateMessagesTokens(
+          session.messages as unknown as ChatMessage[]
+        );
+        const afterTokens = estimateMessagesTokens(
+          preCompactResult.messages as unknown as ChatMessage[]
+        );
         // A-1/A-4（2026-08-23）：压缩 applied 时写 context/compaction 事件 + 持久化区间表；
         // **事件写成功才提交投影压缩**（写回 session.messages），失败则不提交 + 告警（A-4）。
         // 压缩输入是 session.messages（Message[] 含 lastEventSeq），压缩策略 `{...msg}` 保留
@@ -390,10 +403,9 @@ export async function* runStreamMessage(
                   compactedRange,
                   summary,
                   summaryMessageId,
-                  beforeTokens: preCompactEval.snapshot.tokens,
-                  afterTokens: estimateMessagesTokens(
-                    preCompactResult.messages as unknown as ChatMessage[]
-                  ),
+                  // D-245 方案 B：同源对（见本分支开头注释）
+                  beforeTokens,
+                  afterTokens,
                   summaryEnvelope: preCompactResult.summaryEnvelope,
                 }),
               });
@@ -497,20 +509,18 @@ export async function* runStreamMessage(
           );
         }
         if (compactionCommitted) {
-          const afterTokens = estimateMessagesTokens(
-            preCompactResult.messages as unknown as ChatMessage[]
-          );
+          // D-245 方案 B：复用**同一同源对**（见本分支开头注释）—— 此前用
+          // `snapshot.tokens` 作前值与此处 `estimateMessagesTokens` 的后值相减 ⇒ 用户可见的
+          // "节省 N%" 失真（与事件"减少比例"同一根因）。
           const savedPercent =
-            preCompactEval.snapshot.tokens > 0
-              ? Math.round(
-                  (1 - afterTokens / preCompactEval.snapshot.tokens) * 100
-                )
+            beforeTokens > 0
+              ? Math.round((1 - afterTokens / beforeTokens) * 100)
               : 0;
           yield {
             type: 'status',
             statusType: 'compaction',
             phase: 'done',
-            content: `上下文已压缩: ${preCompactEval.snapshot.tokens.toLocaleString()} → ${afterTokens.toLocaleString()} tokens（节省 ${savedPercent}%）`,
+            content: `上下文已压缩: ${beforeTokens.toLocaleString()} → ${afterTokens.toLocaleString()} tokens（节省 ${savedPercent}%）`,
             sessionId: session.id,
           } as ChatStreamChunk;
         }

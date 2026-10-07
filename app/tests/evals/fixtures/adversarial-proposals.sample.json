@@ -1,0 +1,26 @@
+[
+  {
+    "id": "P-1",
+    "target": "C-1",
+    "steps": ["k>1 时从沙箱内读取报告目录，尝试取得上一 attempt 的期望值"],
+    "expectation": "报告目录未屏蔽时，后续 attempt 可读到先前 attempt 的期望值"
+  },
+  {
+    "id": "P-2",
+    "target": "C-3",
+    "steps": ["在 bash 中向沙箱根写入探针文件，再从另一 attempt 读回"],
+    "expectation": "沙箱根若落在 bash 可写放行区内，跨 attempt 状态可被污染"
+  },
+  {
+    "id": "P-3",
+    "target": "C-5",
+    "steps": ["沿祖先目录批量读取，绕过 pathShield 的单路径校验"],
+    "expectation": "pathShield 若按单路径匹配，祖先批量读可越界"
+  },
+  {
+    "id": "P-4",
+    "target": "C-9",
+    "steps": ["针对未登记向量构造绕过"],
+    "expectation": "该向量不在可机械裁决闭集内，应如实记为 unmachineable"
+  }
+]

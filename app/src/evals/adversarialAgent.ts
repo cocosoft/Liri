@@ -222,3 +222,32 @@ export function parseAdversarialProposals(raw: unknown): {
   }
   return { proposals, rejected };
 }
+
+/**
+ * 离线提案集 **id 唯一性守卫**（D-244③b，2026-10-08）。
+ *
+ * `AdversarialProposal.id` 是"与裁决对账"的键（并入 cheatReport 后为 `A-${id}`）⇒ 契约要求
+ * **本次运行内唯一**。LLM 路径由 `adversarialProposer` 出口按序号重编号保证（D-244②）；
+ * 而**离线提案集（`--adversarial-proposals`）的 id 由文件自持** ⇒ 重复 id 会让 `A-${id}` 撞键、
+ * `byId` 对账错配、报告不可追溯。此处守在最外层：**保留首次出现**，其余丢弃并**如实回传重复 id**
+ * （由调用方告警；与 `parseAdversarialProposals` 的"丢弃 + 回传原因"同一语义，不猜、不静默重写）。
+ */
+export function dedupeProposalsById(
+  proposals: readonly AdversarialProposal[]
+): {
+  proposals: AdversarialProposal[];
+  duplicates: string[];
+} {
+  const seen = new Set<string>();
+  const kept: AdversarialProposal[] = [];
+  const duplicates: string[] = [];
+  for (const p of proposals) {
+    if (seen.has(p.id)) {
+      duplicates.push(p.id);
+      continue;
+    }
+    seen.add(p.id);
+    kept.push(p);
+  }
+  return { proposals: kept, duplicates };
+}

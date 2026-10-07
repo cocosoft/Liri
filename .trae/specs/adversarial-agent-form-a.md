@@ -259,7 +259,7 @@ export interface AdversarialReport {
 
 | 文件 | 改动 |
 |---|---|
-| `app/src/evals/adversarialAgent.ts` | **新增**：类型（`AdversarialProposal` / `AdversarialVerdict` / `AdversarialReport` / `AdversarialVerdictKind` / `AdversarialProposerInput` / `AdversarialProposer`）+ `adversarialTargets` · `buildProposerInput` · `judgeProposal` · `runAdversarialPhase` · `adversarialToCheatFindings` · `parseAdversarialProposals` |
+| `app/src/evals/adversarialAgent.ts` | **新增**：类型（`AdversarialProposal` / `AdversarialVerdict` / `AdversarialReport` / `AdversarialVerdictKind` / `AdversarialProposerInput` / `AdversarialProposer`）+ `adversarialTargets` · `buildProposerInput` · `judgeProposal` · `runAdversarialPhase` · `adversarialToCheatFindings` · `parseAdversarialProposals` · `dedupeProposalsById`（**2026-10-08，D-244③b**：离线提案集 id 唯一性守卫——保留首次、其余丢弃并回传重复 id） |
 | `app/src/evals/cli.ts` | 改：`--adversarial`（默认关）+ `--adversarial-proposals=<file.json>`；`reportAntiCheatOnce` 抽 `ctx` 并在其后调 `reportAdversarialOnce`（复用既有 `AntiCheatContext`） |
 | `app/tests/evals/adversarialAgent.test.ts` | **新增**：**9 例**（解析宽松校验 / 闭集内外裁决 / 确定性 / N1 守住 / 合并 cheatReport / 输入面不含期望值） |
 
@@ -296,6 +296,9 @@ export interface AdversarialReport {
 | `app/src/evals/adversarialProposer.ts` | **新增**：`createLlmProposer`（有界 `maxCalls` + 去重收敛 + 失败/超时**如实降级**）· `createAiServiceChat`（**`@modules/ai` 既有入口**，**动态 `import()`**；`syncDBProvidersToRegistry()` + `aiService.generate(..., { signal })`）· `buildRedTeamPrompt`（**安全面**：只给目标闭集 + 已声明防线）· `extractJsonArray`（容忍围栏/噪声；失败 ⇒ null）<br>**2026-10-07（D-244 修复，台账 D-244）**：新增 `ProposerDiagnostics` + `LlmProposerOptions.onDiagnostics`（**空轮可见化**：`rounds`/`productiveRounds`/`emptyRounds`/`parseFailures{emptyContent,unparsable}`/`stoppedBy`）· `parse_failed` 增 `kind` 分类 · `chat_empty_content` 增可操作 `hint` · **提案 id 改为出口重编号**（`P-1..P-n` 全局唯一 —— 模型自报 id 每轮从 `P-1` 起，曾致合并结果重复且缺口）。**接口未变**（仍是 `=> Promise<AdversarialProposal[]>`）⇒ 离线提案路径与既有单测零改动 |
 | `app/src/evals/cli.ts` | 改：新增 `--adversarial-model` · `--adversarial-max-calls`（默认 5）· `--adversarial-timeout-ms`（默认 30000）；提案来源**二选一**（文件 / LLM，互斥校验）；`reportAdversarialOnce` 与 `reportAntiCheatOnce` 改 **async** |
 | `app/tests/evals/adversarialProposer.test.ts` | **新增**：**8 例**（解析容错 / 提示词安全面 / 单轮 / 跨轮去重收敛 / 上限恰好停在 maxCalls / 解析失败 / 调用抛错降级） |
+| `app/tests/evals/fixtures/adversarial-proposals.sample.json` | **新增**（**2026-10-08，D-244③**）：离线提案集 fixture —— 即 `--adversarial-proposals=<file>` 的**输入形态**（4 条：3 条落闭集内 + 1 条闭集外 `C-9`）⇒ "端到端可复现"不再只有**构造保证** |
+
+**D-244③ / ③b 收口（2026-10-08）**：`adversarialAgent.test.ts` 增 **2 例** —— ① fixture 驱动**全链**（解析 → `dedupeProposalsById` → `runAdversarialPhase` → `adversarialToCheatFindings`）并断言**逐条可复现**（同输入两次 `toEqual`）+ 闭集语义 + 并表键 `A-P-1..3`；② 唯一性守卫：重复 id 保留首次、回传重复项，并入后 `A-*` 键不撞。CLI 离线分支接入守卫并告警（**仅离线路径**——LLM 路径已由出口重编号保证唯一）。
 
 **实现要点**
 1. **动态 import**（`await import('@modules/ai')`）⇒ 本模块**不把 AI 拉进 harness 静态依赖图**；`evals` 与 `ai` **同为 app 层** ⇒ 依赖合法（`lint:arch` 实测 **违规 0**）。

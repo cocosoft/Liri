@@ -86,6 +86,7 @@ import {
 import {
   adversarialToCheatFindings,
   buildProposerInput,
+  dedupeProposalsById,
   parseAdversarialProposals,
   runAdversarialPhase,
   type AdversarialProposal,
@@ -512,10 +513,18 @@ const reportAdversarialOnce = async (ctx: AntiCheatContext): Promise<void> => {
       process.exit(2);
     }
     const parsed = parseAdversarialProposals(raw);
-    proposals = parsed.proposals;
+    // D-244③b（2026-10-08）：离线提案集的 id 由文件自持 ⇒ **唯一性守卫**（契约要求"本次运行内唯一"；
+    // 重复 id 会让 `A-${id}` 撞键、报告不可追溯）。保留首次出现，其余丢弃并告警。
+    const deduped = dedupeProposalsById(parsed.proposals);
+    proposals = deduped.proposals;
     if (parsed.rejected.length > 0) {
       out(
         `  ⚠️ 提案集 ${parsed.rejected.length} 条非法项已丢弃：${parsed.rejected.join('；')}`
+      );
+    }
+    if (deduped.duplicates.length > 0) {
+      out(
+        `  ⚠️ 提案集存在重复 id（契约要求唯一），已保留首次出现、丢弃 ${deduped.duplicates.length} 条：${[...new Set(deduped.duplicates)].join('；')}`
       );
     }
   } else {

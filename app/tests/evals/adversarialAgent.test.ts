@@ -8,10 +8,13 @@
 //       N1 守住（exposed 不触发 fail-closed，模块本身无 exit/throw 副作用）。
 
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   adversarialTargets,
   adversarialToCheatFindings,
   buildProposerInput,
+  dedupeProposalsById,
   judgeProposal,
   parseAdversarialProposals,
   runAdversarialPhase,
@@ -132,5 +135,63 @@ describe('提案器输入（安全面：不含隐藏期望值）', () => {
     expect(Object.keys(input).sort()).toEqual(['declaredShields', 'targets']);
     expect(input.declaredShields).toEqual(['/x/report']);
     expect(input.targets.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * D-244③（2026-10-08）：离线提案集 fixture ⇒ **端到端可复现**。
+ *
+ * 此前"可复现"只有**构造保证**（机械裁决是纯函数）—— 没有真实 fixture 走完
+ * "解析 → 唯一性守卫 → 裁决 → 并表"整链。本块以 fixture 文件（即 `--adversarial-proposals=<file>`
+ * 的输入形态）驱动全链，**零模型**，断言输出**逐条可复现**。
+ */
+describe('D-244③：离线提案集 fixture ⇒ 端到端可复现（零模型）', () => {
+  const FIXTURE = join(
+    import.meta.dir,
+    'fixtures',
+    'adversarial-proposals.sample.json'
+  );
+
+  it('全链（解析 → 守卫 → 裁决 → 并表）输出稳定且符合闭集语义', () => {
+    const raw = JSON.parse(readFileSync(FIXTURE, 'utf-8')) as unknown;
+    const parsed = parseAdversarialProposals(raw);
+    expect(parsed.rejected).toEqual([]); // fixture 全项合法
+    const { proposals, duplicates } = dedupeProposalsById(parsed.proposals);
+    expect(duplicates).toEqual([]); // fixture 的 id 本就唯一
+
+    const a = runAdversarialPhase({ ctx: makeCtx(), proposals });
+    const b = runAdversarialPhase({ ctx: makeCtx(), proposals });
+    expect(a).toEqual(b); // 同输入 ⇒ 逐条相同（可复现）
+
+    // 闭集内 ⇒ 复用形态 B 判据；闭集外（C-9）⇒ unmachineable（不臆断为漏洞）
+    expect(a.verdicts.map((v) => `${v.proposalId}:${v.kind}`)).toEqual([
+      'P-1:blocked',
+      'P-2:knownGap',
+      'P-3:knownGap',
+      'P-4:unmachineable',
+    ]);
+    // 并入 cheatReport：键唯一且含 A- 前缀；unmachineable 不转 finding
+    expect(adversarialToCheatFindings(a).map((f) => f.id)).toEqual([
+      'A-P-1',
+      'A-P-2',
+      'A-P-3',
+    ]);
+  });
+
+  it('D-244③b 唯一性守卫：重复 id 保留首次、回传重复项（并入后键不撞）', () => {
+    const { proposals, duplicates } = dedupeProposalsById([
+      p('P-1', 'C-1'),
+      p('P-2', 'C-3'),
+      p('P-1', 'C-5'), // 与首条撞 id
+    ]);
+    expect(proposals.map((x) => x.id)).toEqual(['P-1', 'P-2']);
+    expect(duplicates).toEqual(['P-1']);
+
+    // 守卫后并入 cheatReport：A-P-* 键唯一（修复前 P-1 两条 ⇒ A-P-1 撞键、byId 错配）
+    const ids = adversarialToCheatFindings(
+      runAdversarialPhase({ ctx: makeCtx(), proposals })
+    ).map((f) => f.id);
+    expect(ids).toEqual(['A-P-1', 'A-P-2']);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

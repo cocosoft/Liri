@@ -95,6 +95,41 @@ const ASSERTIONS = [
         },
         docs: [],
     },
+    {
+        id: 'a2a-enabled-default-off',
+        why:
+            'A2A 对外面必须**默认关闭**（spec G4「未显式启用时不得监听对外」）—— 只认 `=== \'true\'`，' +
+            '**禁止**改成 `!== \'false\'` 之类"默认开"形态（R07-4 默认值固化，2026-10-07）',
+        code: {
+            file: 'app/src/infrastructure/http/handlers/routes/a2a-routes.ts',
+            contains: /env\(ENV_A2A_ENABLED\)\s*===\s*'true'/,
+            // 负向：任何"默认开"写法（!== 'false' / !== undefined 等）即漂移
+            notContains: /env\(ENV_A2A_ENABLED\)\s*!==\s*'false'/,
+        },
+        docs: [
+            {
+                file: '.trae/specs/a2a-external-exposure.md',
+                contains: /G4（默认关闭 \/ fail-closed）/,
+            },
+        ],
+    },
+    {
+        id: 'a2a-auth-fail-closed',
+        why:
+            'A2A 鉴权必须 **fail-closed**：`A2A_API_KEY` 未配置/空白 ⇒ **一律拒绝**，' +
+            '**刻意不**回退到既有 API 的"未配密钥即放行（本地信任基线）"（对外面 ≠ 本机 API；spec T6）—— ' +
+            '若有人为"本地调试方便"加回退，等于对外裸奔（R07-4，2026-10-07）',
+        code: {
+            file: 'app/src/infrastructure/http/handlers/routes/a2a-routes.ts',
+            contains: /if\s*\(!expected\)\s*return\s+false;/,
+        },
+        docs: [
+            {
+                file: '.trae/specs/a2a-external-exposure.md',
+                contains: /未配置 ⇒ \*\*401\*\*/,
+            },
+        ],
+    },
 ];
 
 /**

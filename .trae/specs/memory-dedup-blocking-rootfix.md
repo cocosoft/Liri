@@ -183,6 +183,14 @@ id/type/age"，不动文件），确认选择合理后再开真归档（一个�
 触发时的观察点＝`记忆库超限：将归档 N 条（dry-run，未移动文件）`。若要更强的端到端证据，可临时把上限降到
 约 600 跑一次真归档（会移动 ~44 个文件到 `.trash`，可恢复，但会真实改动记忆库）——需显式同意后再做。
 
+**✅ 超限分支已验证（2026-10-07，B-6；隔离库，未触碰真实记忆库）**：新增 🆕 `app/tests/memory/memoryRetentionIntegration.test.ts`
+—— 在**临时目录**内构造 **1001** 条可淘汰记忆（`conversation` / `importance=0.5` / 未 pinned），走**真实**
+`MemoryManagerImpl.cleanupExpiredMemories()` 路径，实测日志：
+`记忆库超限：将归档 1 条（dry-run，未移动文件）` `{totalMemories:1001, limit:1000, preview:[{id:'memory_it_0',…}]}`；
+并断言 **dry-run 不移动文件**（`global/*.md` 计数不变、未建 `.trash`）。另含反例（库 =3 ⇒ 不触发该日志）。
+隔离手法：临时目录 + 用后删除；**真实库（644 条）未被改动**。⇒ 原「超限分支真机未触发」遗留**关闭**；
+**未做**（如实）：真归档（`MEMORY_RETENTION_DRY_RUN=false` + `.trash` 移动）仍**未实测**（需显式同意翻开关）。
+
 **顺带发现（不在 D5-B 范围，另案）**：`EnhancedMemoryManager`（含 `retentionScore` /
 `lifecycleStage: active|archived|expired|deleted` / `retentionPeriod: 365`）**全仓未发现生产实例化**
 （`new EnhancedMemoryManager` 零命中；仅 `memory/index.ts` 导出 + `MemoryWeightExporter` 引类型）

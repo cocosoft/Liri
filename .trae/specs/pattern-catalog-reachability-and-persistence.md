@@ -192,8 +192,21 @@ export const PATTERN_SELECTION_RULES = [
 - `POST /v1/patterns/export` ⇒ `200 {"path":"C:\\Users\\csdnc\\.pyapp\\data\\reports\\pattern_catalog.json","entryCount":5}`，**文件实测存在**（4406 B，5 条 + `generatedAt`）；
 - 前端（浏览器实点，`localhost:1420`）：「模式」Tab 渲染 5 行；**`自我验证` 徽标 = 「已接线 · 不可达」**（修复前为「已接线」）；`对抗竞争策略` 显示 `功能开关：COMPETITIVE_STRATEGY 已开启` + `route: research`；点「导出快照」⇒ **绿色提示 `已导出 5 条到：C:\Users\csdnc\.pyapp\data\reports\pattern_catalog.json`**。
 
+**`pattern/decision` 真实对话端到端（2026-10-07 补测，实测）**：
+- **正例（研究意图命中）**：`POST /v1/sessions` 建裸会话 → **流式** `POST /v1/chat/completions`（`deepseek-v4-flash`；消息 =「帮我做一个数据库选型调研报告。目标：为团队选型一款向量数据库／范围：需要多方案对比与权衡／请系统性地评估多个候选方案并给出选型建议。」）⇒ 事件日志实落：
+  ```json
+  {"type":"pattern/decision","seq":157,"time":1791384929179,
+   "sessionId":"session_muy88ntm7icxkfkl9m7",
+   "data":{"site":"research_dispatch","selected":"competitive_strategy","status":"ready",
+           "route":"research","featureGate":{"flag":"COMPETITIVE_STRATEGY","enabled":true},
+           "applied":true,"callSeq":157}}
+  ```
+  同会话 `metadata.projectId = proj_…` 已建（⇒ 升级链走通），日志同现 `pdca:bare_session_intent_detected`。
+- **负例（噪声抑制对照）**：同法发**无研究关键词**的消息（「帮我做一个 3 行 2 列的 Markdown 表格。目标：…／范围：只输出该表格」）⇒ `metadata.projectId` **同样已建**（证明**已到达** `_maybeLaunchPdca` 决策点），而事件日志**无** `pattern/decision` ✓。
+- **过程如实记录**：首次以**非流式** `sendMessage` 触发**未产生事件**；回仓确认 `_maybeLaunchPdca` 仅挂在**流式**路径 `_finalizeStreamMessage`（[ChatManager.ts:3185](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/ChatManager.ts#L3185)）⇒ 改流式后一次通过。**"非流式路径无 PDCA 自动升级"为既有行为**，本批未改，仅登记（任务计划 §8-14）。
+
 **遗留（明确，未做 / 未验）**：
-1. **`pattern/decision` 事件未做端到端实跑** —— 需一次真实"研究意图"对话；本批只完成注册 + 编译期校验（如实登记，不声称已验）。
-2. `iterative_refine` / `parallel_distributed` **仍不可达**（D1 裁定：只补可达性维度，不新建运行时）。
-3. 前端**窄视口可达性**：`ChatInspector` 在窗口 < 1024px 时自动收起、且**无法展开** ⇒ 该宽度下「模式」Tab 不可达（本次真机复现；属**既有**行为，非本批引入；已登记至任务计划 §8-13）。
+1. `iterative_refine` / `parallel_distributed` **仍不可达**（D1 裁定：只补可达性维度，不新建运行时）。
+2. 前端**窄视口可达性**：`ChatInspector` 在窗口 < 1024px 时自动收起、且**无法展开** ⇒ 该宽度下「模式」Tab 不可达（本次真机复现；属**既有**行为，非本批引入；已登记至任务计划 §8-13）。
+3. **非流式对话路径**（`ChatManager.sendMessage`）**不触发** `_maybeLaunchPdca` ⇒ 该路径下既无 PDCA 自动升级、也无 `pattern/decision`（**既有**差异，本批未改；任务计划 §8-14）。
 

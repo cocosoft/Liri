@@ -640,6 +640,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.emitPhase(TAORPhase.ACT, this.turnCount, 'Executing tools');
 
     // 三守卫（拦截时统一收尾：落盘 assistant 生成 tool_call 事件 + 补发 tool/canceled 终态）
+    // B14（2026-10-07，`runtime-ast-guardrail-assessment.md` §3）：PathGuard 改**按调用跳过**
+    //（对齐 `ReActToolLoop.act()`）；循环检测 critical / 文件 IO 仍整批终止（有意语义）。
     const blocked: Array<{ id: string; name: string; reason: string }> = [];
     for (const tc of calls) {
       const loopResult = this.loopDetector.detect(tc.name, tc.input);
@@ -655,6 +657,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         });
       }
     }
+    const pathBlockedById = new Map<string, string>(); // id → 原因；**仅跳过该调用**
     for (const tc of calls) {
       const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
       if (!pathCheck.allowed) {
@@ -663,11 +666,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           path: tc.input,
           reason: pathCheck.reason,
         });
-        blocked.push({
-          id: tc.id,
-          name: tc.name,
-          reason: `路径守卫拦截: ${pathCheck.reason}`,
-        });
+        pathBlockedById.set(
+          tc.id,
+          `路径被安全护栏拦截（本次调用未执行）：${pathCheck.reason ?? '未知原因'}`
+        );
       }
     }
     for (const tc of calls) {
@@ -721,16 +723,21 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       });
     }
 
-    // batch executeTools（保留 batch 语义，不逐工具）
-    let rawResults: Array<{
+    // batch executeTools（保留 batch 语义，不逐工具；**仅**执行未被 PathGuard 跳过的调用）
+    const executableCalls = calls.filter((tc) => !pathBlockedById.has(tc.id));
+    let executedResults: Array<{
       toolCallId?: string;
       toolName?: string;
       result?: unknown;
       error?: string;
     }>;
     try {
-      rawResults = await this.deps.executeTools(
-        calls.map((tc) => ({ id: tc.id, name: tc.name, arguments: tc.input })),
+      executedResults = await this.deps.executeTools(
+        executableCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          arguments: tc.input,
+        })),
         this.abortController.signal
       );
     } catch (execErr) {
@@ -740,10 +747,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         context: {
           sessionId: this.taorConfig.sessionId,
           turnCount: this.turnCount,
-          toolCount: calls.length,
+          toolCount: executableCalls.length,
         },
       });
-      rawResults = calls.map((tc) => ({
+      executedResults = executableCalls.map((tc) => ({
         toolCallId: tc.id,
         toolName: tc.name,
         error: `工具执行异常: ${
@@ -760,13 +767,22 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           createFragment({
             kind: 'system',
             text: renderGoalTemplate('tool_execution_errors', {
-              count: calls.length,
+              count: executableCalls.length,
             }),
           })
         ),
         [FRAGMENT_KIND_FIELD]: 'system',
       } as ChatMessage);
     }
+
+    // B14（2026-10-07）：被跳过的调用**原位回填失败结果**（PAIR-FILL）—— 下游按 `rawResults[i] ↔ calls[i]` 位置消费。
+    let executedIdx = 0;
+    const rawResults = calls.map((tc) => {
+      const skip = pathBlockedById.get(tc.id);
+      return skip
+        ? { toolCallId: tc.id, toolName: tc.name, error: skip }
+        : executedResults[executedIdx++];
+    });
 
     // trace ok/error + 工具统计
     for (let i = 0; i < calls.length; i++) {

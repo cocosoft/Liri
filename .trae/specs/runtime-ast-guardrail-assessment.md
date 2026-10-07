@@ -37,16 +37,17 @@
 
 ---
 
-## 3. B14 裁定：**建议对齐**（仅放开 PathGuard 一路）—— 待拍板后动码
+## 3. B14 裁定：**已实施**（仅放开 PathGuard 一路）—— 2026-10-07
 
 **问题**：同一类"守卫拦截"，两条主路径**粒度不一致** —— ReActToolLoop 已按调用跳过（§1-11），TAORLoop 仍整批 abort（§1-10）⇒ 属 **CS01 意义的同族漂移**：同一语义两套行为，用哪条路径取决于会话模式。
 
-**建议改法（最小）**：在 `TAORLoop.act()` 内把 **PathGuard 从 `blocked` 集合中分出**，改为**按调用回填失败结果并继续**（与 ReActToolLoop 同款：PAIR-FILL 配对完整）；**循环检测 critical 与文件 IO 守卫保持原样整批终止**（那两类**属有意终止**）。
+**已实施改法（最小）**：`TAORLoop.act()` 内把 **PathGuard 从 `blocked` 中分出**（改记入 `pathBlockedById`），**仅执行未命中的调用**，并在**原位回填失败结果**（PAIR-FILL，保住下游 `rawResults[i] ↔ calls[i]` 的**位置契约**——下游 trace / 工具结果消息 / 断路器 / loopDetector **四处**均按位置消费）；**循环检测 critical 与文件 IO 守卫保持原样整批终止**（那两类**属有意终止**）。`tool_execution_errors` 的计数改为**实际执行数**（被跳过者非"执行异常"）。
 
-**收益/风险（如实）**：
-- 收益：两条主路径行为一致；模型被拦后仍可改用其它路径（本会话 BUG 的同一根因）。
-- 风险：**TAORLoop 是生产主路径**（§1-9）⇒ 触碰 `act()` 的终止语义，须回归 `tasks`/`chat` 全量测试；`_emitCanceledForBlocked` 的配对逻辑须同步（被跳过者不再进 `blocked` ⇒ 不再补发 `tool/canceled`，而由 `tool/result` 承载）。
-- 需用户拍板：**是否采用与 ReActToolLoop 完全一致的语义**（含是否加门控）——本会话对 ReActToolLoop 的修复**未加门控**（用户当时裁定"被拦截可以跳过"），对齐即沿用该口径。
+**⚠️ 过程中触发的门禁（如实）**：首版注释/排版较详尽 ⇒ `TAORLoop.ts` 达 **2020 行**，触发 **R04-001**（文件 2000 行上限）⇒ 按"外科手术式修改"压缩改动后回到限内（门禁复跑 **0 错 / 4 警**，回基线）。**未**在例外表登记。
+
+**验收（实测）**：`typecheck` **0**（含 scripts 两个 tsconfig）· `eslint` 改动文件 **0** · `lint:arch` **0 错 / 4 警（基线）** · `lint:size` 回基线 · **新增专项用例 2 例**（`tests/query/taorLoopPathGuardPerCallSkip.test.ts`：① 命中者不执行 + 原位回填 + 同批其余照常 + **本轮继续**（`results` 与 `calls` 等长，修复前恒为 `[]`）+ 三条 tool 消息配对完整；② 无命中 ⇒ 零行为变更）· 全量 `bun test` **4898 pass / 21 skip / 0 fail**。
+
+**未做（如实）**：① 未加门控 —— 沿用本会话对 ReActToolLoop 的修复口径（用户当时裁定"被拦截可以跳过"）；② 未覆盖"循环检测 / 文件 IO 整批终止"两路（**有意语义**，不在本次范围）。
 
 **建议不做的部分**：不引入 AST、不改命令规则表（与 B7 同结论）。
 

@@ -2237,7 +2237,10 @@ class ArchitectureLinter {
       )
         continue;
 
-      const content = readFileSync(file, 'utf-8');
+      // B4（2026-10-07，`.trae/specs/arch-gate-watchdog-assessment.md` §3）：本路径此前扫**原始
+      // 文本** ⇒ 注释里复写旧 import 会被当作真实依赖（R00-001 路径早已套用 `stripComments`；
+      // D-190 实证曾把 6 个"豁免"订正为注释假阳性）。此处对齐 ⇒ 消除该类假阳性的复发通道。
+      const content = this.stripComments(readFileSync(file, 'utf-8'));
       const relPath = relative(this.srcPath, file).replace(/\\/g, '/');
       const importerModule = relPath.split('/')[0];
 

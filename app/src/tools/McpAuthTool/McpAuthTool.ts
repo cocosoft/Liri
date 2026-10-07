@@ -32,51 +32,51 @@ export class McpAuthTool extends BaseTool {
   name = 'mcp_auth';
 
   description =
-    'Manage MCP (Model Context Protocol) authentication. Supports login, logout, status check, token refresh, and listing authenticated servers.';
+    '管理 MCP（Model Context Protocol）认证。支持登录、登出、状态检查、令牌刷新，以及列出已认证的服务器。';
 
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
       enum: ['login', 'logout', 'status', 'refresh', 'list'],
-      description: 'Authentication action to perform',
+      description: '要执行的认证操作',
       required: true,
     },
     {
       name: 'serverUrl',
       type: 'string',
-      description: 'MCP server URL (required for login/logout/status/refresh)',
+      description: 'MCP 服务器 URL（login/logout/status/refresh 操作需要）',
       required: false,
     },
     {
       name: 'token',
       type: 'string',
-      description: 'Authentication token (required for login with token)',
+      description: '认证令牌（使用令牌登录时需要）',
       required: false,
     },
     {
       name: 'provider',
       type: 'string',
       enum: ['github', 'gitlab', 'custom'],
-      description: 'OAuth provider (optional for login)',
+      description: 'OAuth 提供方（login 操作可选）',
       required: false,
     },
     {
       name: 'clientId',
       type: 'string',
-      description: 'OAuth client ID (optional for login)',
+      description: 'OAuth 客户端 ID（login 操作可选）',
       required: false,
     },
     {
       name: 'clientSecret',
       type: 'string',
-      description: 'OAuth client secret (optional for login)',
+      description: 'OAuth 客户端密钥（login 操作可选）',
       required: false,
     },
     {
       name: 'scopes',
       type: 'array',
-      description: 'OAuth scopes to request (optional for login)',
+      description: '要请求的 OAuth 作用域（login 操作可选）',
       required: false,
     },
   ];

@@ -59,7 +59,7 @@ const WebSearchInputSchema = z.strictObject({
 export class WebSearchTool extends BaseTool {
   name = 'web_search';
   description =
-    'Search the web for information. Use to find current events, facts, documentation, or any topic that requires up-to-date internet resources.';
+    '搜索网络信息。用于查找时事、事实、文档或任何需要最新互联网资源的主题。';
 
   override tags = [ToolTag.NETWORK, ToolTag.READ];
 
@@ -67,35 +67,35 @@ export class WebSearchTool extends BaseTool {
     {
       name: 'query',
       type: 'string',
-      description: 'The search query',
+      description: '搜索查询关键词',
       required: true,
       default: '',
     },
     {
       name: 'maxResults',
       type: 'number',
-      description: 'Maximum number of results to return',
+      description: '最大返回结果数',
       required: false,
       default: 10,
     },
     {
       name: 'language',
       type: 'string',
-      description: 'Language code for results (e.g., "zh-CN", "en-US")',
+      description: '结果语言代码（如 "zh-CN"、"en-US"）',
       required: false,
       default: 'zh-CN',
     },
     {
       name: 'safeSearch',
       type: 'boolean',
-      description: 'Enable safe search to filter adult content',
+      description: '启用安全搜索以过滤成人内容',
       required: false,
       default: true,
     },
     {
       name: 'timeout',
       type: 'number',
-      description: 'Timeout in milliseconds',
+      description: '超时时间（毫秒）',
       required: false,
       default: 30000,
     },

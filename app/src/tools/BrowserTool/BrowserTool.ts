@@ -72,7 +72,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
    * 2 个失败分支在 **ToolResult 层自带 `success: false`** ⇒ 命中豁免、不参与校验。
    */
   outputSchema = BrowserToolOutputSchema;
-  description = 'Automate Chrome browser to interact with web pages';
+  description = '自动化 Chrome 浏览器与网页交互';
 
   override tags = [ToolTag.NETWORK];
 
@@ -81,7 +81,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
       name: 'action',
       type: 'string',
       description:
-        'Action to perform: open_tab, click, fill_form, navigate, screenshot, get_tabs',
+        '要执行的操作：open_tab、click、fill_form、navigate、screenshot、get_tabs',
       required: true,
       enum: [
         'open_tab',
@@ -95,31 +95,31 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
     {
       name: 'url',
       type: 'string',
-      description: 'URL for open_tab or navigate action',
+      description: 'open_tab 或 navigate 操作的 URL',
       required: false,
     },
     {
       name: 'tab_id',
       type: 'string',
-      description: 'Tab ID for operations on specific tab',
+      description: '针对特定标签页操作的标签页 ID',
       required: false,
     },
     {
       name: 'selector',
       type: 'string',
-      description: 'CSS selector for click or fill_form action',
+      description: 'click 或 fill_form 操作的 CSS 选择器',
       required: false,
     },
     {
       name: 'form_data',
       type: 'object',
-      description: 'Form data for fill_form action',
+      description: 'fill_form 操作的表单数据',
       required: false,
     },
     {
       name: 'text',
       type: 'string',
-      description: 'Text for fill_form action',
+      description: 'fill_form 操作的文本',
       required: false,
     },
   ];

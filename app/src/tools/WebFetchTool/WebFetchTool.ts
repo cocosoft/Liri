@@ -69,8 +69,7 @@ const WebFetchInputSchema = z.strictObject({
 
 export class WebFetchTool extends BaseTool {
   name = 'web_fetch';
-  description =
-    'Fetch content from a URL. Use to retrieve web page content, API responses, or other HTTP resources.';
+  description = '从 URL 获取内容。用于检索网页内容、API 响应或其他 HTTP 资源。';
 
   override tags = [ToolTag.NETWORK, ToolTag.READ];
 
@@ -78,42 +77,42 @@ export class WebFetchTool extends BaseTool {
     {
       name: 'url',
       type: 'string',
-      description: 'The URL to fetch content from',
+      description: '要获取内容的 URL',
       required: true,
       default: '',
     },
     {
       name: 'method',
       type: 'string',
-      description: 'HTTP method to use',
+      description: '使用的 HTTP 方法',
       required: false,
       default: 'GET',
     },
     {
       name: 'headers',
       type: 'object',
-      description: 'HTTP headers to send',
+      description: '要发送的 HTTP 请求头',
       required: false,
       default: {},
     },
     {
       name: 'body',
       type: 'string',
-      description: 'Request body for POST/PUT requests',
+      description: 'POST/PUT 请求的请求体',
       required: false,
       default: '',
     },
     {
       name: 'timeout',
       type: 'number',
-      description: 'Timeout in milliseconds',
+      description: '超时时间（毫秒）',
       required: false,
       default: 30000,
     },
     {
       name: 'maxContentLength',
       type: 'number',
-      description: 'Maximum content length in characters',
+      description: '最大内容长度（字符数）',
       required: false,
       default: 500000,
     },

@@ -12,7 +12,7 @@ import { ReadMcpResourceOutputSchema } from './schemas';
 
 const READ_MCP_RESOURCE_TOOL_NAME = 'read_mcp_resource';
 
-const DESCRIPTION = 'Read a specific MCP resource by URI';
+const DESCRIPTION = '通过 URI 读取指定的 MCP 资源';
 
 const PROMPT = `
 Use this tool to read a specific resource from an MCP server.
@@ -65,8 +65,8 @@ export const ReadMcpResourceTool: Tool<
 
   get inputSchema() {
     return z.object({
-      server: z.string().describe('The MCP server name'),
-      uri: z.string().describe('The resource URI to read'),
+      server: z.string().describe('MCP 服务器名称'),
+      uri: z.string().describe('要读取的资源 URI'),
     }) as any;
   },
 

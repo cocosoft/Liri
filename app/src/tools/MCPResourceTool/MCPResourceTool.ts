@@ -1,6 +1,5 @@
 /**
  * MCP资源工具
- * 参考CC源码 cc_code/backend/tools/MCPResourceTool/MCPResourceTool.ts 实现
  * 提供MCP资源的列表和读取功能
  */
 
@@ -81,7 +80,7 @@ export class MCPResourceTool extends BaseTool<
    */
   outputSchema = MCPResourceOutputSchema;
   description =
-    'List and read MCP (Model Context Protocol) resources and prompts from connected servers';
+    '列出并读取已连接 MCP（Model Context Protocol）服务器的资源和提示词';
   override tags = [ToolTag.NETWORK];
 
   params: ToolParam[] = [
@@ -89,7 +88,7 @@ export class MCPResourceTool extends BaseTool<
       name: 'action',
       type: 'string',
       description:
-        'Action to perform: list_resources, read_resource, list_prompts, get_prompt',
+        '要执行的操作：list_resources、read_resource、list_prompts、get_prompt',
       required: true,
       enum: ['list_resources', 'read_resource', 'list_prompts', 'get_prompt'],
     },
@@ -97,28 +96,28 @@ export class MCPResourceTool extends BaseTool<
       name: 'server_name',
       type: 'string',
       description:
-        'MCP server name (required for read_resource, list_prompts, get_prompt)',
+        'MCP 服务器名称（read_resource、list_prompts、get_prompt 操作需要）',
       required: false,
       default: '',
     },
     {
       name: 'uri',
       type: 'string',
-      description: 'Resource URI (required for read_resource)',
+      description: '资源 URI（read_resource 操作需要）',
       required: false,
       default: '',
     },
     {
       name: 'prompt_name',
       type: 'string',
-      description: 'Prompt name (required for get_prompt)',
+      description: '提示词名称（get_prompt 操作需要）',
       required: false,
       default: '',
     },
     {
       name: 'prompt_args',
       type: 'object',
-      description: 'Prompt arguments (for get_prompt)',
+      description: '提示词参数（get_prompt 操作使用）',
       required: false,
     },
   ];

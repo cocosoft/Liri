@@ -12,7 +12,7 @@ import { ListMcpResourcesOutputSchema } from './schemas';
 
 const LIST_MCP_RESOURCES_TOOL_NAME = 'list_mcp_resources';
 
-const DESCRIPTION = 'List resources from connected MCP servers';
+const DESCRIPTION = '列出已连接 MCP 服务器的资源';
 
 const PROMPT = `
 Use this tool to list available resources from connected MCP servers.
@@ -65,7 +65,7 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
         server: z
           .string()
           .optional()
-          .describe('Optional server name to filter resources by'),
+          .describe('可选参数，按服务器名称过滤资源'),
       }) as any;
     },
 

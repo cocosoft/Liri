@@ -51,28 +51,28 @@ export class BrowserVisionTool extends BaseTool {
   name = 'browser_vision';
 
   description =
-    'Capture a screenshot of the current browser page and analyze it using vision AI. ' +
-    'Returns both the AI analysis and an optional screenshot path.';
+    '对当前浏览器页面截图，并使用视觉 AI 分析。' +
+    '返回 AI 分析结果和可选的截图路径。';
 
   params: ToolParam[] = [
     {
       name: 'prompt',
       type: 'string',
       description:
-        'What to analyze in the screenshot (e.g. "Describe this webpage", "Find the login button")',
+        '要分析截图中的什么内容（如 "Describe this webpage"、"Find the login button"）',
       required: false,
       default: 'Describe this webpage in detail',
     },
     {
       name: 'quality',
       type: 'number',
-      description: 'JPEG quality 0-100 (default 80)',
+      description: 'JPEG 质量 0-100（默认 80）',
       required: false,
     },
     {
       name: 'returnScreenshot',
       type: 'boolean',
-      description: 'Return the screenshot path (default true)',
+      description: '是否返回截图路径（默认 true）',
       required: false,
     },
   ];

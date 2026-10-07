@@ -1190,7 +1190,8 @@ export async function* runStreamMessage(
       if (!mutexHeld) {
         logger.info('获取互斥锁(首轮)', { sessionId: session.id });
         // A5：准入登记（在飞视图 + 并发达上限仅告警；不拦截）
-        getResourceGovernor().admit({
+        // P26-1 §9.4（D7=b）：超限且无可抢占候选 ⇒ **排队等待名额**（超时 = D12「告警 + 放行」）
+        await getResourceGovernor().acquire({
           sessionId: session.id,
           priority: options?.priority ?? DEFAULT_REQUEST_PRIORITY,
         });

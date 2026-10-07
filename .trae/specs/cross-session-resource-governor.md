@@ -245,7 +245,7 @@ export function getResourceGovernor(): ResourceGovernor;
 
 ---
 
-## 9. 阶段 2 实施计划：抢占 + 优先级透传（P26-1，2026-10-07 制定；**D6/D7 已裁定**；**§9.1 ✅ 已实施** · §9.2/§9.4 待做 —— 见 §9.9）
+## 9. 阶段 2 实施计划：抢占 + 优先级透传（P26-1，2026-10-07 制定；**D6/D7/D12/D13 已裁定**；**§9.1 ✅ · §9.2 ✅ · §9.4 ✅ 全部已实施** —— 见 §9.9）
 
 > **来由**：台账 §26.2-**A5** 残余（"跨会话**无抢占**"仍未消除；优先级生产侧**恒 `interactive`**）⇒ 台账 §26.5 **P26-1**。
 > **定位**：本阶段 = 上文 §3.3 **方案 B** / §3.4 **方案 C** + §4 的 **D2(b) 透传** + **D4(c)→(b) 升级**。
@@ -262,6 +262,13 @@ export function getResourceGovernor(): ResourceGovernor;
 
 > **✅ 裁定（2026-10-07，用户）**：**D6 = (a) B**（抢占 = 中止并丢弃，复用 `abortSessionStream`）· **D7 = (b) 排队**（优先级队列 + 超时放弃）。
 > ⇒ 实施范围 = **§9.1 透传 + §9.2（B 案）+ §9.4 排队**；**§9.3（C 案）不做**（`PlanDrivenLoop.abort(saveCheckpoint)` 不在本批）。
+
+> **✅ 补充裁定（2026-10-07，用户；§9.4 动码前）**
+>
+> | ID | 决策项 | 结论 |
+> |:--:|---|---|
+> | **D12** | 排队**等待超时后**如何处置（原 §9.4 写"回落为拒绝**或**告警"，二值未定） | **(a) 告警 + 放行** —— `logger.warn` 后照常继续，**不拒绝**（保持 D4「`admitted` 恒 `true`」，避免引入首个用户可感的拒绝路径） |
+> | **D13** | 排队开关粒度 | **(a) 共用 `FEATURE_RESOURCE_GOVERNOR`**（默认 false）⇒ 默认关时抢占与排队**均**不生效，零行为变更；不新增开关（避免与 §24-R07-2「安全相关开关清单治理」组合维度膨胀） |
 
 ### 9.1 步骤 1：优先级透传（D2=b，**低风险先行**）
 
@@ -304,10 +311,12 @@ export function getResourceGovernor(): ResourceGovernor;
 | 3 | `chat/ChatManager.ts:4074 resumeStream` | **复用**为恢复入口 |
 | 4 | 恢复时机 | **产品裁定**：抢占后**自动恢复**（治理器在名额释放后触发）vs **用户手动恢复**（仅置"已挂起"标记 + 前端提示） |
 
-### 9.4 步骤 4：超限行为升级（D7=b，可选）
+### 9.4 步骤 4：超限行为升级（D7=b，已落地 —— 见 §9.9.3）
 
-- 复用 `workspace/OrchIntelligence.ResourceScheduler` 的**排队/插队语义**（`:665-767`：priority 降序 `waitQueue` + `jumpQueue`），**不复制类**（§3.1 既定边界 N6）。
-- 队列须有**超时放弃**（`SimpleMutex` 默认 30s 为参考口径，`core/SimpleMutex.ts:13`）⇒ 超时按 D7 回落为拒绝或告警。
+> **实现取证（2026-10-07，CS06）**：原计划"复用 `workspace/OrchIntelligence.ResourceScheduler` 的排队/插队语义"**不完全可行** —— 该类 [`requestResource()`](../../app/src/workspace/OrchIntelligence.ts) 为**同步非阻塞**（只返回 `queuePosition`，**无 await / 无超时**），且以 `(workItemId, resource)` 为键。
+> ⇒ 改在治理器内新建**极小等待原语**（优先级降序 + 同级 FIFO，与前者**口径对齐**而非复制其类）：语义仍是"排队/插队"，未复制 `ResourceScheduler` 本体。
+
+- 队列须有**超时放弃**（`SimpleMutex` 默认 30s 为参考口径，`core/SimpleMutex.ts:13`）⇒ 超时按 **D12 = 告警 + 放行**。
 
 ### 9.5 影响文件（预计）
 
@@ -405,3 +414,26 @@ export function getResourceGovernor(): ResourceGovernor;
 **门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）· 重复实现 0** · `lint:size` **0 错 / 470 警告 / 8 例外** · 全量 `bun test` **507 files / 4774 pass / 21 skip / 0 fail**（+1 文件 / +11 例，逐数吻合）。
 
 **遗留（明确）**：§9.4（排队，D7=b）**仍未落地**；`preempted` 标记目前**仅治理器内部 + 日志**，**未下发** UI/SSE ⇒ "用户可见区分"仍缺（= 台账 §27.3 **PC-2**）。
+
+#### 9.9.3 步骤 4（§9.4 **超限排队 + 超时告警放行**，D7=b / **D12=a 告警+放行** / D13=a 共用开关）—— 🟢 **已落地 2026-10-07**
+
+**落点（实测回仓）**
+
+| # | 落点 | 改动 |
+|:--:|---|---|
+| 1 | `resourceGovernor/types.ts` | 新增 `QueueOptions { timeoutMs? }` |
+| 2 | `resourceGovernor/index.ts` | 新增常量 `DEFAULT_QUEUE_TIMEOUT_MS = 30_000`（对齐 `SimpleMutex` 口径）+ 内部 `QueueWaiter`；**新增 `acquire(req, {timeoutMs})`**（准入 + 超限无可抢占 ⇒ 入队等待；**超时 = 告警 + 放行**）、`queueLength()`（观测）、私有 `enqueue`/`wakeOneWaiter`/`removeWaiter`；`release()` **移除即移交一个名额**（1:1 交接）；`reset()` 连带**结算并清空**等待者（防测试悬挂） |
+| 3 | `chat/orchestrator/streamMessageFlow.ts`（准入点 ①） | `admit(` → **`await acquire(`** |
+| 4 | `chat/orchestrator/ChatOrchestrator.ts`（准入点 ②，非流式） | 同上 |
+| 5 | `app/tests/resourceGovernor/queueing.test.ts` | **新建（6 例）**：未超限不排队 / 超限挂起 + `release()` 唤醒 / **唤醒按优先级降序**（bg 先入队、ui 后入队先醒）/ **超时告警放行**（耗时断言 + 队列归零）/ 同会话幂等不重复入队 / **开关关闭零变更** |
+
+**语义细节（如实）**
+- **排队期间该会话已在 `admit()` 中登记为在飞**（既有准入契约不变 ⇒ `snapshot()` 含之）；唤醒机制 = `release()` 逐次移交（不按名额批量放行）。
+- **超时回落 = 告警 + 放行**（D12）⇒ **不引入拒绝路径**，`admitted` 仍恒 `true`（D4 未变）。
+- **不复用 `ResourceScheduler`**：实测其为同步非阻塞（无 await / 无超时）⇒ 新建极小等待原语，**口径对齐**（优先级降序 + FIFO）而非复制类（§9.4 取证段）。
+- 开关**共用** `FEATURE_RESOURCE_GOVERNOR`（D13）⇒ 默认关时排队亦不生效。
+
+**门禁（全绿）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 / 警告 4（基线）** · `lint:size` **0 错 / 470 警告 / 8 例外** · 全量 `bun test` **508 files / 4780 pass / 21 skip / 0 fail**（+1 文件 / +6 例，逐数吻合）。
+
+**阶段 2 完成度**：§9.1 ✅ · §9.2 ✅ · §9.4 ✅ · §9.3（C 案）按裁定**不做**。
+**仍开放**：`preempted` / 排队状态**未下发 UI/SSE** ⇒ 用户可见区分与"排队中"提示仍缺（= 台账 §27.3 **PC-2**）。

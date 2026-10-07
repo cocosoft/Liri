@@ -673,7 +673,8 @@ export class ChatOrchestrator {
     }
 
     // A5（2026-10-05）：准入登记（非流式路径；开关关闭时治理器内部 no-op）
-    getResourceGovernor().admit({
+    // P26-1 §9.4（D7=b）：超限且无可抢占候选 ⇒ 排队等待名额（超时 = D12「告警 + 放行」）
+    await getResourceGovernor().acquire({
       sessionId: session.id,
       priority: options?.priority ?? DEFAULT_REQUEST_PRIORITY,
     });

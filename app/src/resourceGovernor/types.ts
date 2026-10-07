@@ -62,3 +62,12 @@ export interface ResourceGovernorOptions {
   /** 抢占回调（见 `PreemptHandler`）；**缺省 ⇒ 不抢占**（超限退回阶段 1 的"仅告警"） */
   onPreempt?: PreemptHandler;
 }
+
+/** 排队等待选项（D7=b，P26-1 §9.4） */
+export interface QueueOptions {
+  /**
+   * 排队等待名额释放的上限（毫秒）；**超时按裁定 D12「告警 + 放行」**处理（不拒绝）。
+   * 缺省见 `DEFAULT_QUEUE_TIMEOUT_MS`。
+   */
+  timeoutMs?: number;
+}

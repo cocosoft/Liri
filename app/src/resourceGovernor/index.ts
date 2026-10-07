@@ -9,9 +9,11 @@
  * 2. 并发上限观测（超限 ⇒ `logger.warn`，`overLimit:true`）；
  * 3. 提供 `admit` / `release` 生命周期；
  * 4. **阶段 2（P26-1 §9.2，D6=B）**：超限且存在**更低优先级**跨会话在飞者 ⇒ **抢占**
- *    （标记 `preempted` + 经**注入回调**中止其流；未注入回调 ⇒ 退回"仅告警"）。
+ *    （标记 `preempted` + 经**注入回调**中止其流；未注入回调 ⇒ 退回"仅告警"）；
+ * 5. **阶段 2（P26-1 §9.4，D7=b）**：超限且**无可抢占候选** ⇒ `acquire()` **排队等待名额**
+ *    （优先级降序 + 同级 FIFO；`release()` 1:1 移交）；**超时 = D12「告警 + 放行」**（不拒绝）。
  *
- * **不做**（明确边界）：跨作用域预算合并、拒绝（D7=c）、排队（D7=b，§9.4 尚未落地）。
+ * **不做**（明确边界）：跨作用域预算合并、拒绝（D7=c）。
  *
  * 开关：`FEATURE_RESOURCE_GOVERNOR`（**默认 false**）。关闭时 `admit` 恒放行且**不登记**、
  * 不抢占、`snapshot()` 为空 ⇒ 全链零行为变更（把开关判定内聚在治理器内，调用方无分支）。
@@ -29,6 +31,7 @@ import type {
   AdmissionRequest,
   InFlightEntry,
   PreemptHandler,
+  QueueOptions,
   ResourceGovernorOptions,
 } from './types.js';
 
@@ -38,6 +41,22 @@ const logger = getLogger('resourceGovernor');
 
 /** 缺省并发上限（仅观测；超出只告警。后续若限流，再引入配置项） */
 export const DEFAULT_MAX_INFLIGHT_SESSIONS = 8;
+
+/**
+ * 缺省排队等待上限（毫秒；D7=b，§9.4）
+ *
+ * 口径参考 `core/SimpleMutex` 的 30s 等待上限；超时按 **D12「告警 + 放行」**（不拒绝）。
+ */
+export const DEFAULT_QUEUE_TIMEOUT_MS = 30_000;
+
+/** 排队等待者（**优先级降序 + 同级 FIFO** —— 对齐既有 `ResourceScheduler` 的排队/插队口径） */
+interface QueueWaiter {
+  sessionId: string;
+  priority: RequestPriority;
+  settled: boolean;
+  resolve: () => void;
+  timer: ReturnType<typeof setTimeout>;
+}
 
 function normalizeMax(value: number): number {
   return Number.isFinite(value) && value > 0
@@ -99,6 +118,8 @@ export class ResourceGovernor {
   private readonly inflight = new Map<string, InFlightEntry>();
   /** 抢占回调（组合根注入；缺省 ⇒ 不抢占） */
   private onPreempt?: PreemptHandler;
+  /** 排队等待者（**优先级降序 + 同级 FIFO**；§9.4 D7=b） */
+  private readonly waiters: QueueWaiter[] = [];
 
   constructor(options: ResourceGovernorOptions = {}) {
     this.maxInflight = normalizeMax(
@@ -201,14 +222,129 @@ export class ResourceGovernor {
     };
   }
 
-  /** 结束在飞（幂等）；返回是否确有条目被移除 */
+  /** 结束在飞（幂等）；返回是否确有条目被移除。**移除即唤醒一个排队者**（§9.4 名额移交） */
   release(sessionId: string): boolean {
     if (!governorEnabled()) return false;
-    return this.inflight.delete(sessionId);
+    const removed = this.inflight.delete(sessionId);
+    if (removed) this.wakeOneWaiter();
+    return removed;
+  }
+
+  /** 当前排队长度（观测用；开关关闭 ⇒ 0） */
+  queueLength(): number {
+    return governorEnabled() ? this.waiters.length : 0;
+  }
+
+  /**
+   * 准入 + **排队等待名额**（D7=b，§9.4）
+   *
+   * 语义：
+   * - 未超限 / 已触发抢占（名额即将释放）/ 开关关闭 ⇒ **直接返回**（不等待）；
+   * - 超限且**无可抢占候选** ⇒ 入队等待 `release()` 移交名额；
+   * - **超时 ⇒ 按 D12「告警 + 放行」**（`logger.warn` 后照常返回，**不拒绝**）。
+   *
+   * ⚠️ 排队期间该会话**已在 `admit()` 中登记为在飞**（既有准入契约不变 ⇒ `snapshot()` 含之）。
+   * 返回值与 `admit()` 同一决策对象（`admitted` 恒 `true`，D4 语义未变）。
+   */
+  async acquire(
+    req: AdmissionRequest,
+    options: QueueOptions = {}
+  ): Promise<AdmissionDecision> {
+    const decision = this.admit(req);
+    if (
+      !governorEnabled() ||
+      !decision.overLimit ||
+      decision.preempted.length > 0
+    ) {
+      return decision;
+    }
+    await this.enqueue(
+      req.sessionId,
+      req.priority,
+      options.timeoutMs ?? DEFAULT_QUEUE_TIMEOUT_MS
+    );
+    return decision;
+  }
+
+  /** 入队一个等待者（**同 sessionId 幂等**：已在队中则不重复入队） */
+  private enqueue(
+    sessionId: string,
+    priority: RequestPriority,
+    timeoutMs: number
+  ): Promise<void> {
+    if (this.waiters.some((w) => w.sessionId === sessionId)) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      const waiter: QueueWaiter = {
+        sessionId,
+        priority,
+        settled: false,
+        resolve,
+        timer: undefined as unknown as ReturnType<typeof setTimeout>,
+      };
+
+      waiter.timer = setTimeout(() => {
+        if (waiter.settled) return;
+        waiter.settled = true;
+        this.removeWaiter(waiter);
+        logger.warn('排队等待超时，按 D12 放行（告警 + 放行，不拒绝）', {
+          sessionId,
+          priority,
+          timeoutMs,
+          remainingQueue: this.waiters.length,
+          inFlightCount: this.inflight.size,
+          limit: this.maxInflight,
+        });
+        resolve();
+      }, timeoutMs);
+
+      // 插入位置：优先级降序；同级 FIFO（插到首个「优先级更低」者之前；无则入尾）
+      const rank = PRIORITY_RANK[priority];
+      const idx = this.waiters.findIndex(
+        (w) => PRIORITY_RANK[w.priority] < rank
+      );
+      if (idx === -1) this.waiters.push(waiter);
+      else this.waiters.splice(idx, 0, waiter);
+
+      logger.info('超限排队等待名额', {
+        sessionId,
+        priority,
+        queueLength: this.waiters.length,
+        inFlightCount: this.inflight.size,
+        limit: this.maxInflight,
+        timeoutMs,
+      });
+    });
+  }
+
+  /** 唤醒一个（优先级最高的）等待者；名额每次 `release()` 移交一个（1:1 交接） */
+  private wakeOneWaiter(): void {
+    while (this.waiters.length > 0) {
+      const waiter = this.waiters.shift() as QueueWaiter;
+      if (waiter.settled) continue;
+      waiter.settled = true;
+      clearTimeout(waiter.timer);
+      waiter.resolve();
+      return;
+    }
+  }
+
+  private removeWaiter(waiter: QueueWaiter): void {
+    const idx = this.waiters.indexOf(waiter);
+    if (idx >= 0) this.waiters.splice(idx, 1);
   }
 
   /** 清空（仅测试用） */
   reset(): void {
+    for (const waiter of this.waiters) {
+      if (waiter.settled) continue;
+      waiter.settled = true;
+      clearTimeout(waiter.timer);
+      waiter.resolve();
+    }
+    this.waiters.length = 0;
     this.inflight.clear();
   }
 }

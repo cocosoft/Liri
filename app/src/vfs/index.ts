@@ -30,3 +30,4 @@ export * from './types.js';
 export { parseVfsPath, vfsRelativePath, formatVfsPath } from './VfsPath.js';
 export { VfsMountRegistry, vfsMountRegistry } from './VfsMountRegistry.js';
 export { DevDocsDriver } from './drivers/DevDocsDriver.js';
+export { McpResourcesDriver } from './drivers/McpResourcesDriver.js';

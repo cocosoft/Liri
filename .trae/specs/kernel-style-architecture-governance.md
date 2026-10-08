@@ -36,9 +36,9 @@
 | cgroup / namespace **可见性隔离** | `app/src/tools/toolCategories.ts`：`TOOL_CATEGORIES`(:52) + `getToolCategory`(:288) + `getTaskToolCategories`(:429) + `filterToolsByTask`(:444) —— 按任务裁剪模型可见工具 | ✅ 已对齐 |
 | cgroup **资源限制** | **执行约束面** = `app/src/resourceGovernor/`（`ChatOrchestrator.ts:682` / `streamMessageFlow.ts:1215` acquire+release，**默认关** `FEATURE_RESOURCE_GOVERNOR`）；**观测面**（已裁定，**不接执行路径**）= `sandbox/ResourceLimitManager.ts` + `ProcessRegistry` | 🟡 **部分对齐**（执行约束仅 `resourceGovernor` 且默认关；`ResourceLimitManager` 定位为**观测面**，D5 裁定见 §8.4） |
 | 隔离（容器/命名空间） | **实际生效 = Landlock 路径门禁**（`tools/bash/bashLandlockExec.ts:466-485` + `tools/CodeRunner/LinuxSandboxRunner.ts:234-245`，**直接** `buildLandlockArgv`+`spawn`）；`sandbox/` 的 `IsolationManager`·`DockerSandbox`·`PTYSandbox`·`SSHSandbox`·`WorkspaceManager` **零外部消费者（未接线）**；`runWithLandlock` 为**死函数** | 🟡 **部分对齐 —— 仅 Landlock 生效**（**订正**：原标 ✅ 且以**不可达类**为证，属以死面充证据；见 §9） |
-| 驱动 ops / `struct file_operations` | **部分**：试点已落 `IVfsDriver`（`app/src/vfs/types.ts`）+ `DevDocsDriver`（只读）；**仅 `dev_docs://`** 一个驱动 | 🟡 **部分**（其余工具仍各自实现 IO） |
-| **VFS / `fs/`（虚拟文件系统层）** | **部分**：最小命名空间（`parseVfsPath` 结构化解析）+ `VfsMountRegistry` + 4 系统调用工具已落地（**单挂载点**，零消费者迁移）；`.trae/specs/ai-vfs-readonly-pilot.md` | 🟡 **部分**（非完整 VFS） |
-| 挂载命名空间 / mount point | **部分**：`dev_docs://` 单一挂载点（装配于 `entrypoints/vfsWiring.ts`） | 🟡 **部分** |
+| 驱动 ops / `struct file_operations` | **部分**：已落 `IVfsDriver`（`app/src/vfs/types.ts`）+ **2 个驱动**：`DevDocsDriver`（只读）· `McpResourcesDriver`（只读，**委托** MCP 既有 SDK 链）；其余工具仍各自实现 IO | 🟡 **部分** |
+| **VFS / `fs/`（虚拟文件系统层）** | **部分**：最小命名空间（`parseVfsPath` 结构化解析）+ `VfsMountRegistry` + 4 系统调用工具已落地（**2 挂载点**：`dev_docs://`/`mcp://`；零消费者迁移）；`.trae/specs/ai-vfs-readonly-pilot.md` | 🟡 **部分**（非完整 VFS） |
+| 挂载命名空间 / mount point | **部分**：`dev_docs://` 与 `mcp://` 两个挂载点（装配于 `entrypoints/vfsWiring.ts`） | 🟡 **部分** |
 | `/proc` `/sys` 伪文件系统 | 部分对应：知识库（`app/docs/`）+ 状态面 —— **未统一到同一命名空间** | 🟡 未对齐 |
 
 > **重要**：上表是**类比口径**（用于命名与评审），非"必须照搬内核实现"。例如"工具 wire 名表 ≈ syscall 表"仅在"模型可调用的固定入口集合"这一语义上成立。

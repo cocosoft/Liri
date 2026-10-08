@@ -113,3 +113,30 @@
 4. **端到端（真实模型调用 4 工具）未实测**：单测覆盖驱动/注册表/路径解析，未跑真实会话。
 5. **语义假设（契约未明示，按最贴近示例实现）**：① `dev_docs://配置与安全/sandbox.md` 的首段解析为 `authority`，驱动相对路径 = `authority + '/' + path`；② `read_vfs` 的 `offset`/`limit` 按**行**切片（与 `file_read` 同口径），截断 50KB（对齐 `ReadProjectFileTool`）。
 6. **`app/scripts/resolve-module-aliases.ts`**（Docker 别名展开表，无 script/CI 引用、且本就缺多个别名）**未同步** `@modules/vfs`。
+
+---
+
+## 7. `mcp://` 扩展（2026-10-08 续，用户裁定「mcp:// 挂载扩展」）
+
+### 7.1 设计
+
+- 新增 `app/src/vfs/drivers/McpResourcesDriver.ts`；装配于 `entrypoints/vfsWiring.registerVfsMounts()`（与 `dev_docs` 同批）。**工具面不变**（仍 73）。
+- **路径映射（关键）**：`mcp://<server>/<resource-uri>` ⇒ `authority = <server>`、`path = <resource-uri>` **逐字原文**。MCP 资源 URI **本身可能含 `://`**（如 `mcp://server-filesystem/file:///tmp/a.txt`）⇒ **禁止**对 `path` 做归一化 / 穿越判定（它是**不透明 URI**，交 MCP 服务器解释）。
+- **委托（唯一实现链，不复制逻辑）**：`mcpConnectionManager.getSdkClient(server)` → SDK `Client` **顶层方法** `listResources()` / `readResource({ uri })`（**禁止** `.resources.` 子对象；守卫 `tests/mcp/sdkClientApiShape.test.ts`）。
+- **只读**：`capabilities.write === false` ⇒ `write` 恒抛 `VFS_READ_ONLY_MOUNT`（fail-closed）。
+- **错误码**：`authority` 缺失 / 服务器未连接 ⇒ `VFS_UNKNOWN_MOUNT`；uri 不存在 ⇒ `VFS_NOT_FOUND`；SDK 抛错 ⇒ `VFS_DENIED`。
+- **模型缺口如实标注**：`stat` 的 `size`/`mtime` 在 MCP 资源模型**不可得** ⇒ 置 `0` 并注明"未知"；`read` 的 `range` **明确忽略**（待需求）；列举为**扁平**（MCP 资源无目录语义）。
+
+### 7.2 事实源口径（契约 §3.5 并存期）
+
+- **工具面事实源仍是 `mcp_resource`**（本次**未改动**它，行为不变）；`mcp://` 是 VFS 的**并存面**，与工具**共用同一条 SDK 链**、**不复制业务逻辑**。
+- ⚠️ **登记待裁定**：`mcp_resource`（工具）与 `read_vfs('mcp://…')` 构成**同一能力的两个模型可见入口**（契约 §9.3 曾量化此重叠）。当前按 §3.5「**并存期**」处理；**是否二选一**留待后续裁定（若收敛，建议保留 `mcp_resource`、或反过来让工具委托驱动）。
+
+### 7.3 门禁
+
+`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs`+`tests/mcp` **61 pass / 0 fail** · 全量 **4582 pass / 9 skip / 0 fail**（+12 = 新增驱动用例，**无回归**）。
+
+### 7.4 ⚠️ 未验证（CS06）
+
+- **真实 MCP 服务器 e2e 未实测**（单测全程用**注入桩**，未连真实 server）。
+- `vfsWiring` 装配无自动化测试（同 §6.3-2）。

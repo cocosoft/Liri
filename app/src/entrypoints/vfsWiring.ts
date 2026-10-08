@@ -39,7 +39,13 @@
  * 明确抛错（`VFS_CONFLICT`），本装配面据此先探测，避免把幂等装配变成启动失败。
  */
 export async function registerVfsMounts(): Promise<void> {
-  const { vfsMountRegistry, DevDocsDriver } = await import('@modules/vfs');
-  if (vfsMountRegistry.has('dev_docs')) return;
-  vfsMountRegistry.registerMount('dev_docs', new DevDocsDriver());
+  const { vfsMountRegistry, DevDocsDriver, McpResourcesDriver } =
+    await import('@modules/vfs');
+  if (!vfsMountRegistry.has('dev_docs')) {
+    vfsMountRegistry.registerMount('dev_docs', new DevDocsDriver());
+  }
+  // `mcp://` 只读挂载（MCP 资源面并存面；工具面事实源仍是 `mcp_resource`）
+  if (!vfsMountRegistry.has('mcp')) {
+    vfsMountRegistry.registerMount('mcp', new McpResourcesDriver());
+  }
 }

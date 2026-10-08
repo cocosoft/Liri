@@ -57,6 +57,10 @@ export enum ErrorLevel {
  *
  * ⚠️ 未收敛：`output?`（core 基座，**JSON 载荷文本**）与 `content?`（本接口，**人类可读摘要**）
  * 存在**语义分工**，B3-b 结论为 **保留**（详见 spec §2.2.1）。
+ *
+ * ⚠️ **同名不同物**（全仓 4 处 `ToolResult`）：本处 = **工具 `execute()` 契约**（`extends` core 的协议层载荷）；
+ * 另见 `session/types/tool.ts`（会话侧投影）· `runtime/api/CoreAPI.ts`（HTTP 门面 DTO）。
+ * 依 `data-contract-unification` §9.2「**同名 ≠ 同物 ⇒ 一律不得看着像就合并**」⇒ **禁止互相合并/赋值**。
  */
 export interface ToolResult<T = unknown> extends CoreToolResult<T> {
   status?: ToolExecutionStatus;

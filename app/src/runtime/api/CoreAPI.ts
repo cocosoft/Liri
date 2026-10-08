@@ -289,7 +289,13 @@ export interface ToolCallSpec {
   error?: string;
 }
 
-/** 工具执行结果 */
+/**
+ * 工具执行结果（**HTTP 门面 DTO**：全字段必填，含 `executionTime`）。
+ *
+ * ⚠️ **同名不同物**（全仓 4 处 `ToolResult`）：本处 = HTTP 门面 DTO；另见 `core/types.ts`（协议层载荷）·
+ * `utils/toolContract/ToolResult.ts`（工具 `execute()` 契约）· `session/types/tool.ts`（会话侧投影）。
+ * 依 `data-contract-unification` §9.2「**同名 ≠ 同物 ⇒ 一律不得看着像就合并**」⇒ **禁止互相合并/赋值**。
+ */
 export interface ToolResult {
   toolCallId: string;
   toolName: string;

@@ -48,6 +48,12 @@ export interface ToolCall {
   arguments: Record<string, unknown>;
 }
 
+/**
+ * ⚠️ **同名不同物**（全仓 4 处 `ToolResult`）：本处 = **协议层载荷**（`newMessages` / `contextModifier` / `mcpMeta`）。
+ * 另见 `utils/toolContract/ToolResult.ts`（工具契约，**extends 本接口**）· `session/types/tool.ts`（会话侧投影）·
+ * `runtime/api/CoreAPI.ts`（HTTP 门面 DTO）。依 `data-contract-unification` §9.2
+ * 「**同名 ≠ 同物 ⇒ 一律不得看着像就合并**」⇒ **禁止互相合并/赋值**，跨层须**显式映射**。
+ */
 export interface ToolResult<T = unknown> {
   success?: boolean;
   output?: string;

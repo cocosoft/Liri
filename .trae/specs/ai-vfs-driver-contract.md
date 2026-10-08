@@ -1,6 +1,6 @@
 # Spec：AI-VFS 驱动契约（智能体虚拟文件系统）
 
-> 版本 1.0 ｜ 创建 2026-10-06 ｜ 状态：🟡 **契约草案 —— 用户裁定「先立契约 spec，**不实施**」**
+> 版本 1.1 ｜ 创建 2026-10-06 ｜ 更新 2026-10-08 ｜ 状态：🟡 **契约草案 —— 用户裁定「先立契约 spec，**不实施**」**（v1.1 补 §9 重叠面评估，状态不变）
 > 来源：`dev_docs/任务计划-20261004.md` §12 **T-1**（外部 `dev_docs/20261005/google ai 建议.md` §二·优化一「重构系统工具栈为标准 VFS 驱动契约」）
 > 关联规则：GR15（Spec-Driven）· GR01（基础设施复用）· CS01（归一化）· CS03（回退最小化）· CS04（零 Mock）· R06-008（分层）· §1.6「模型可见 ⇔ 已落盘」· `model-usage.md`（工具/模型契约）
 > 口径（CS06）：下列 file:line / 命中数 / 计数均 **2026-10-06 实测**；外部数字与实测不符者**如实订正**。
@@ -133,7 +133,7 @@ export interface IVfsDriver {
 
 | # | 决策 | 选项 | 建议 |
 |---|---|---|---|
-| **D1** | 是否把"71 工具 → 4 syscalls"作为**目标** | (a) 作为终局目标（破坏性变更） / (b) 仅作**附加面**、不追求替换 | **(b)** —— (a) 会同时改动工具清单注入、`toolNames.generated.ts`、wire 名契约、权限档位与既有测试；本仓 v0.x 无用户迁移压力，但收益（认知负荷）**未被证实**（71 个工具中模型实际高频使用的远少于 71） |
+| **D1** | 是否把"71 工具 → 4 syscalls"作为**目标** | (a) 作为终局目标（破坏性变更） / (b) 仅作**附加面**、不追求替换 | **(b)** —— (a) 会同时改动工具清单注入、`toolNames.generated.ts`、wire 名契约、权限档位与既有测试；本仓 v0.x 无用户迁移压力，且**§9.2 已量化证伪**：4 syscalls 覆盖上限仅 **8/71 ≈ 11%**，`71→4` 算术上不可能 |
 | **D2** | 挂载点 scheme 集合 | (a) 仅 `dev_docs://`+`mcp://`+`channel://` / (b) 加 `file://` / (c) 加 `session://`（会话消息） | **(a)** 起步：三者**已有现成底座**（docs 路径 / MCP 资源面 / 通道抽象）；`file://` 与既有 `file_read`/`file_write` **功能重叠** ⇒ 引入双轨风险（CS01） |
 | **D3** | `file://` 是否默认开放 | (a) 默认开放 / (b) 需显式配置 + 工作区白名单 | **(b)** —— 默认开放等于把 71 工具里最敏感的文件面再暴露一次 |
 | **D4** | 驱动与权限的职责边界 | (a) 驱动内自查 / (b) 全部由工具层统一裁决（驱动只做 IO） | **(b)** —— 避免双重裁决；（a）会造成"有的驱动查、有的不查"的静默漏洞 |
@@ -167,7 +167,7 @@ export interface IVfsDriver {
 
 | # | 风险 / 边界 | 说明 |
 |---|---|---|
-| **R1** | **收益未证实** | 「认知负荷降 95%」是外部**主张**，本仓**无实测**支撑；71 个工具中模型实际高频使用的子集未知 ⇒ 不得据该主张直接改造工具面（CS06） |
+| **R1** | **收益未证实（工具数口径已部分证伪）** | 「认知负荷降 95%」是外部**主张**，本仓**无实测**支撑；且 §9.2 已量化：4 syscalls 覆盖上限仅 **8/71 ≈ 11%** ⇒ 「71→4」不成立。**但**「统一命名空间」的收益**仍未实测**（§9.4 列为真实净值，不据未证实收益直接改造工具面，CS06） |
 | **R2** | **破坏性面** | 收敛工具数会动 `toolNames.generated.ts`（编译期枚举源）+ 注入面 + wire 名 + 权限档位 + 既有测试 ⇒ 属主版本级变更 |
 | **R3** | **大正文风险（既有教训）** | 写类工具**禁止**内联大正文（须走 `source_file`/`content_file` 口径），否则触发输出 token 爆炸与 JSON 截断（本仓已有三次同类修复） |
 | **R4** | **双轨风险** | `file://` 与既有文件工具、`mcp://` 与 `list_mcp_resources`/MCP 桥接**功能重叠** ⇒ 必须明确"谁是事实源"，否则即 CS01 双轨 |
@@ -180,4 +180,56 @@ export interface IVfsDriver {
 
 - `app/docs/配置与安全/工具调用安全检查链路.md`（2026-10-06）：AI-VFS 的权限/沙箱落点**必须**与其中逐跳链一致（§3.4 即其映射）。
 - `.trae/specs/dsh-plugin-shim-contract.md`：同类"**先立契约、不实施**"先例（形态参照）。
+- `.trae/specs/kernel-style-architecture-governance.md`（2026-10-08 新增）：把 VFS 的**命名空间/驱动 ops** 纳入"Linux 内核式"治理目标；本 spec 是该目标的**子项材料**。
 - `dev_docs/任务计划-20261004.md` §12 T-1 / §14.5：本 spec 为其交付物。
+
+---
+
+## 9. VFS 与现有工具**重叠面评估**（2026-10-08 实测，用户裁定补做）
+
+> 目的：用**真实签名**回答"4 个系统调用到底能吸收多少现有工具"，为 §4-D1 提供**算术依据**。
+> 口径（CS06）：下表入参/出参均取自真实 schema 与类型定义；**未实测到的字段不写**。
+
+**实测来源**：`FileReadTool.ts:17-30`（`file_read`）· `FileWriteTool.ts:61-70`（`file_write`）· `FileEditTool/types.ts:27-49`（`file_edit`）· `GlobTool.ts:13-23`（`glob`）· `GrepTool/schemas.ts:20-63`（`grep`）· `ReadMcpResourceTool/schemas.ts:3-17` · `ListMcpResourcesTool/schemas.ts:3-19` · `MCPResourceTool/schemas.ts:6-40` · `KnowledgeSaveTool.ts:112-134` · `ReadProjectFileTool.ts:47-60`。
+
+### 9.1 映射矩阵（4 syscall × 现状）
+
+| VFS 系统调用 | 现有承载工具（真实） | 覆盖判定 | 差异点（VFS 无法表达 / 需新增） |
+|---|---|---|---|
+| `read_vfs` | `file_read`（`filePath, offset?, limit?` → `content,totalLines,lineCount,offset,sizeBytes,truncated`） | 🟢 **完全覆盖** | VFS 出参 `{data,mimeType,size}` **少** `lineCount/truncated`（分段语义需补） |
+| | `read_project_file`（`projectId, relativePath`） | 🟡 部分 | 独立命名空间；`projectId` 前置 ⇒ 需 `project://` 挂载点，非 `file://` |
+| | `read_mcp_resource`（`server, uri`）/ `mcp_resource{action:read_resource}`（`server_name, uri`） | 🟡 部分 | 映射到 `mcp://<server>/`；**注意二者本身已重叠**（见 §9.3） |
+| | `file_convert` | 🔴 **不可表达** | 格式转换（PDF/DOCX/XLSX→MD 等）**不是**文件系统原语 |
+| `write_vfs` | `file_write`（`filePath, content` → `type:create\|update,sizeBytes,linesWritten`） | 🟢 **完全覆盖** | VFS 增 `mode:create\|overwrite\|append`；需补 `create` 冲突语义 |
+| | `write_project_file` | 🟡 部分 | 同 `read_project_file` 命名空间问题 |
+| | `file_edit`（`EditCommand{insert\|delete\|replace\|append\|prepend, range, searchText, replaceText, insertAtLine}`） | 🔴 **不可表达** | **增量/定点编辑**；`write_vfs` 是全量覆盖 ⇒ 强行收敛会丢语义 |
+| | `knowledge_save`（`title, content, category?, tags?`） | 🔴 **不可表达** | 结构化写入 + frontmatter + 去重 + `knowledge:changed` 事件联动 |
+| `list_vfs` | `glob`（`pattern, searchPath?` → `filenames[],numFiles,truncated,invalidPattern`） | 🟡 部分 | `glob` 是**模式匹配**，`list_vfs` 是**目录列举**；语义**不等价**（须并存或明确二选一） |
+| | `list_mcp_resources`（`server?`）/ `mcp_resource{action:list_resources}` | 🟡 部分 | 映射到 `mcp://` |
+| `stat_vfs` | **无任何工具** | 🔴 **完全缺口** | **唯一纯增量**：`kind/size/mtime/mimeType/mount/readOnly` 当前不可直接查询 |
+
+### 9.2 算术结论：`71 → 4` **不可能**（量化反证 §1.1 的"降 95%"）
+
+- **可被 4 syscall 完全/部分吸收的现有工具 = 8 个**（`file_read`·`file_write`·`glob`·`read_project_file`·`write_project_file`·`read_mcp_resource`·`list_mcp_resources`·`mcp_resource`）。
+- **明确不可表达 = 4 个**（`file_edit`·`file_convert`·`knowledge_save`·`grep`）——`grep` 是内容检索，不是文件系统原语。
+- **与"文件"无关 = 59 个**（媒体生成/任务管理/通道/调度/技能/时间/计划/子代理…）。
+- ⇒ 覆盖上限 **8 / 71 ≈ 11%**；**63 个工具（4 不可表达 + 59 无关）无法被 4 syscalls 吸收**。
+- ⇒ §1.1「81→4、认知负荷降 95%+」在本仓**算术上不成立**；§7-R1「收益未证实」由此**升级为已证伪的部分**（工具数口径）。
+
+### 9.3 双轨风险量化（CS01）——**并发现一处既有内部双轨**
+
+| 重叠对 | 重叠度 | 处置要求 |
+|---|---|---|
+| `read_vfs` ↔ `file_read` | **100%** | 二者**不可同时**进模型可见清单，否则即双轨 |
+| `write_vfs` ↔ `file_write` | **100%** | 同上 |
+| `list_vfs` ↔ `glob` | **部分**（语义不等价） | 需明确"列举"与"模式匹配"谁是事实源 |
+| `read_vfs`/`list_vfs` ↔ `read_mcp_resource`/`list_mcp_resources`/`mcp_resource` | **部分** | 见下 |
+| `stat_vfs` ↔ 无 | **0%** | 唯一无冲突增量 |
+
+> **既有内部双轨（发现即记录，CS01/PY_APP §5）**：`read_mcp_resource` + `list_mcp_resources` 与 `mcp_resource`（`action: list_resources/read_resource`）**功能重叠**——本仓已存在**两套 MCP 资源访问工具**。此为本轮评估**新发现**，与 VFS 无关，**已记入台账**（不属本 spec 范围，不在本 spec 内修）。
+
+### 9.4 对 §4-D1 的结论修正
+
+- D1 的建议 **(b) 仅作附加面、不追求替换** **得到算术支持**（§9.2：`71→4` 覆盖上限仅 11%）。
+- 但要**加强一句**：即便"仅作附加面"，`read_vfs`/`write_vfs` 与 `file_read`/`file_write` 是 **100% 重叠** ⇒ 若上马，**必须先解决"谁是事实源"**，否则违反 CS01。`stat_vfs` 是唯一可直接新增、零冲突的增量。
+- ⇒ AI-VFS 在本仓的**真实净值 = `stat_vfs`（纯增量）+ 跨命名空间统一（`mcp://`/`channel://` 挂载）**；"统一命名空间"是增量，"减少工具数"是伪命题。

@@ -10,17 +10,12 @@ import { providerRegistry } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { costTracker } from '@modules/cost';
 import { getConfig, configManager } from '@modules/config/index.js';
-import { ToolRegistry } from '@modules/tools/index.js';
-import { FileReadTool } from '@modules/tools';
-import { FileWriteTool } from '@modules/tools';
-import { FileEditTool } from '@modules/tools';
-import { BashTool } from '@modules/tools';
-import { createPowerShellTool } from '@modules/tools';
-import { GlobTool } from '@modules/tools';
-import { GrepTool } from '@modules/tools';
-import { createWebSearchTool } from '@modules/tools';
-import { createWebFetchTool } from '@modules/tools';
-import { TimeTool } from '@modules/tools';
+// 2026-10-08（架构治理 P1 · D1）：工具面统一走**全局唯一注册表 + 内置工具加载器**。
+// 原此处局部 `new ToolRegistry()` + 手工 10 工具清单已删除 —— 它绕开 `getToolRegistry()` 与
+// `ToolManagerUtils.buildBuiltinToolLoaders()` 单一事实源，必然与 `TOOL_CATEGORIES`/生成物漂移。
+// `ToolRegistry` 现仅作类型使用（字段声明）。
+import type { ToolRegistry } from '@modules/tools';
+import { getToolManager } from '@modules/tools';
 import { ToolExecutor } from '@modules/tools';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { handleError } from '@modules/error';
@@ -38,36 +33,6 @@ interface ChatOptions {
   model?: string;
   showCost?: boolean;
   provider?: string;
-}
-
-function createToolRegistry(): ToolRegistry {
-  const registry = new ToolRegistry();
-  registry.registerTool(new FileReadTool());
-  registry.registerTool(new FileWriteTool());
-  registry.registerTool(new FileEditTool());
-  registry.registerTool(new BashTool());
-
-  const powerShellTool = createPowerShellTool();
-  if (powerShellTool) {
-    registry.registerTool(powerShellTool as any);
-  }
-
-  registry.registerTool(new GlobTool());
-  registry.registerTool(new GrepTool());
-
-  const webSearchTool = createWebSearchTool();
-  if (webSearchTool) {
-    registry.registerTool(webSearchTool as any);
-  }
-
-  const webFetchTool = createWebFetchTool();
-  if (webFetchTool) {
-    registry.registerTool(webFetchTool as any);
-  }
-
-  registry.registerTool(TimeTool.create());
-
-  return registry;
 }
 
 function formatCost(amount: number): string {
@@ -116,7 +81,11 @@ export class ChatCommand {
     }
 
     if (!this.toolRegistry || !this.toolExecutor) {
-      this.toolRegistry = createToolRegistry();
+      // 2026-10-08（D1）：与 `CoreAPIImpl` 同口径 —— 先加载内置工具，再取**同一**全局注册表
+      // （`getToolManager()` 的 registry 缺省即 `getToolRegistry()` 单例）。
+      const toolManager = getToolManager();
+      toolManager.loadBuiltinTools();
+      this.toolRegistry = toolManager.getRegistry();
       this.toolExecutor = new ToolExecutor();
       this.llmClient.setToolExecutor(this.toolExecutor);
       this.llmClient.setToolRegistry(this.toolRegistry);

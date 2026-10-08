@@ -561,6 +561,15 @@ export class ToolExecutionService {
     }
 
     // ── 权限检查 ──
+    // 2026-10-08（架构治理 P1 · D4）：**保留 fail-open 语义不变**，仅补可观测 ——
+    // 权限管理器未注入时原为**完全静默跳过**（无任何日志），使"权限检查未生效"不可观测。
+    if (!this.deps.getPermissionManager()) {
+      logger.warn(
+        '权限管理器未注入 ⇒ 本次工具调用**未经过权限检查**（fail-open，行为与改动前一致）；' +
+          '生产路径预期由 CoreAPIImpl 注入 createPermissionManager()，出现本日志即装配异常',
+        { toolName: normalizedToolCall.name, toolCallId: toolCall.id }
+      );
+    }
     if (this.deps.getPermissionManager()) {
       const pm = this.deps.getPermissionManager() as {
         checkPermissionForTool: (

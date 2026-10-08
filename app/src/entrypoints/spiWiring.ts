@@ -46,8 +46,12 @@ export interface SpiRegistrationContainer {
  * 装配全部 SPI 实现（推送模型）
  *
  * ⚠️ 顺序敏感：`AiAccess` 先于 `Knowledge`（后者经 `resolveAiAccess()` 取 `aiService`）。
- * 本文件为**分阶段迁移**的落地：先迁 `AiAccess` / `DiagnosticsProbe`（本战役新增者），
- * 其余（Logger/OTel/Profiler 三件套 + Broadcast/PluginSystem/Knowledge）仍在 `DIContainer` 内注册。
+ *
+ * 2026-10-08（架构治理 P1 · D3 订正）：**全部 15 个可注册端口均在本文件注册** ——
+ * 含 Logger / OTel / Profiler 三件套、Broadcast、PluginSystem、Knowledge。
+ * 原文「其余（…）仍在 `DIContainer` 内注册」为**迁移期描述，已失实**（`DIContainer` 侧
+ * 无任何 `register*Spi` 调用，全仓仅本文件装配）。本文件即 SPI 的**唯一注入点**
+ * （由 `main.ts` 经 `BootstrapOptions.registerSpis` 调用）。
  */
 export async function registerAllSpis(
   container: SpiRegistrationContainer

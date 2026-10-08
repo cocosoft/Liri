@@ -675,11 +675,3 @@ export function createToolManager(
 ): ToolManager {
   return new ToolManager(options);
 }
-
-/**
- * 创建工具注册表
- * @returns 工具注册表
- */
-export function createToolRegistry(): ToolRegistry {
-  return new ToolRegistry();
-}

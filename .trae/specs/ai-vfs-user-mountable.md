@@ -128,5 +128,5 @@
 2. `registerVfsMounts()` 的**真实 config.json → 真实注册表**端到端**未实测**（仅其纯函数 `buildMountPlan` 有单测）。
 3. **`list_vfs('<scheme>://')` 语义变更**：由"列挂载根目录"改为"**列挂载点**"（契约 v1.5 §3.2 已明载）；根目录列举须用子路径，`stat_vfs('<scheme>://')` 仍可查挂载本身。
 4. 无允许清单时 `listMountPoints()` 走真实单例 `mcpConnectionManager.getServers()` ⇒ 该分支**无单测**。
-5. 真实 MCP server e2e **未实测**。
+5. ✅ **真实 MCP server e2e 已实测**（2026-10-08，`MCP_E2E=1`，官方 `@modelcontextprotocol/server-everything`，**13 pass / 0 fail**；见 `ai-vfs-readonly-pilot.md §7.4`）——该实测**抓出并修复**一个 P0 阻断缺陷（`services/mcp/client.ts` 的 `client.capabilities.get()`）。
 6. **未做**（按裁定）：`file://`、`channel://`、管理页 UI、热更新。

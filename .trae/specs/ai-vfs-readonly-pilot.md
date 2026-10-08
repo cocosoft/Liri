@@ -144,7 +144,8 @@
 - **`mcp://` 扩展批**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs`+`tests/mcp` **61 pass / 0 fail** · 全量 **4582 pass / 9 skip / 0 fail**（+12 = 新增驱动用例，**无回归**）。
 - **重叠裁定 C 批（2026-10-08 续）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs`+`tests/mcp`+`tests/tools` **705 pass / 0 fail** · 全量 **4587 pass / 9 skip / 0 fail**（+5 = 新增"工具经驱动"用例，**无回归**）。
 
-### 7.4 ⚠️ 未验证（CS06）
+### 7.4 真实 MCP 服务器 e2e（2026-10-08 ✅ 已实测）
 
-- **真实 MCP 服务器 e2e 未实测**（单测全程用**注入桩**，未连真实 server）。
-- `vfsWiring` 装配无自动化测试（同 §6.3-2）。
+- **✅ 已实测**：`app/tests/mcp/realServerE2E.test.ts`（**env 门控** `MCP_E2E=1`；默认套件跳过 ⇒ 不引入网络依赖）对**官方参考服务器** `@modelcontextprotocol/server-everything`（stdio）：**13 pass / 0 fail** —— 覆盖 `mcp://` 的 `list_vfs('mcp://')`（scheme-only）/ `list_vfs('mcp://<server>/')` / `read_vfs` / `stat_vfs`(`readOnly=true`) / `write_vfs` ⇒ `VFS_READ_ONLY_MOUNT`，以及 `mcp_resource` 的资源/提示面与 `MCPTool` 的工具面。
+- **🔴 该实测抓出并修复 P0 阻断缺陷**：`services/mcp/client.ts` 调用了 SDK `Client` 上**不存在**的 `capabilities.get()` ⇒ 整条 SDK 链（含 `mcp://` 全部面）不可用，且因 `as unknown as` **无编译错误**。已改用 `getServerCapabilities()`。详见台账。
+- **仍未自动覆盖**：`vfsWiring` 装配（同 §6.3-2）；无允许清单分支（见 `ai-vfs-user-mountable.md §7.4`）。

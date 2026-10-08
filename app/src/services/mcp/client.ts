@@ -198,9 +198,15 @@ export async function reconnectMcpServerImpl(
 
     await client.connect(transport as Parameters<typeof client.connect>[0]);
 
-    const capabilities = (await (
-      client as unknown as { capabilities: { get(): Promise<unknown> } }
-    ).capabilities.get()) as ServerCapabilities;
+    // 2026-10-08（**真实 MCP server e2e 抓出的 P0 阻断**）：SDK `Client` **没有** `.capabilities`
+    // 属性 —— 原写法 `(client as unknown as { capabilities: { get() } }).capabilities.get()`
+    // **每次**抛 `TypeError: undefined is not an object (evaluating 'client.capabilities.get')`，
+    // 被下方 catch 吞成 `{ type:'failed' }` ⇒ `getSdkClient()` 恒 `undefined`
+    // ⇒ `mcp_tool` / `mcp_resource` / `mcp://` VFS 全面失效，且因 `as unknown as` 断言**无编译错误**。
+    // SDK 正确 API：`getServerCapabilities()`（`@modelcontextprotocol/sdk@1.29.0`
+    // `dist/esm/client/index.d.ts:159` / `index.js:332`）。
+    const capabilities = ((await client.getServerCapabilities()) ??
+      {}) as ServerCapabilities;
 
     const [tools, commands, resources] = await Promise.all([
       fetchToolsForClient(client),

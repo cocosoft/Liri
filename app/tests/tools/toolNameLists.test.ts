@@ -55,6 +55,8 @@ import {
   GOOGLE_GUIDANCE,
   OLLAMA_GUIDANCE,
 } from '../../src/ai/prompts/ModelGuidance';
+// 2026-10-08（LRTO 步骤"执行不了"事故）：角色/步骤工具名必须由任务类型经 TOOL_CATEGORIES 派生。
+import { getRealToolNamesForTask } from '../../src/tools/toolCategories';
 
 /** 扫描 `src/tools/**` 里工具类的 `name = '...'` 声明（判据=真实代码） */
 function scanRegisteredToolNames(): Set<string> {
@@ -274,6 +276,91 @@ describe('工具名清单守卫：判据来自真实注册名', () => {
     expect(BARREL_FILE_WRITE_TOOL_NAME).toBe(FILE_WRITE_TOOL_NAME);
     expect(BARREL_FILE_EDIT_TOOL_NAME).toBe(FILE_EDIT_TOOL_NAME);
     expect(BARREL_GREP_TOOL_NAME).toBe('grep');
+  });
+});
+
+/**
+ * 扫描目录下 `.ts` 文件中以**字符串字面量**出现的漂移工具名（判据=真实文件内容）。
+ * 仅匹配引号形态 —— 注释里的反引号提及（如 `` `read_file` ``）不计入。
+ */
+function scanQuotedDriftedToolNames(dir: string): string[] {
+  const drifted = new Set([
+    'read_file',
+    'write_file',
+    'edit_file',
+    'search_files',
+    'search_code',
+    'bash_exec',
+    'bash_output',
+    'execute_code',
+    'web_extract',
+    'browser_navigate',
+    'browser_click',
+    'browser_screenshot',
+    'read_document',
+    'lsp_diagnostics',
+    'lsp_completion',
+  ]);
+  const hits: string[] = [];
+  const walk = (d: string): void => {
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      // @ignore-catch 目录不存在 ⇒ 由下方"命中为空"断言暴露（不静默通过）
+      return;
+    }
+    for (const entry of entries) {
+      const abs = join(d, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules') walk(abs);
+        continue;
+      }
+      if (!entry.name.endsWith('.ts')) continue;
+      const source = readFileSync(abs, 'utf-8');
+      for (const m of source.matchAll(/['"]([a-z_]+)['"]/g)) {
+        if (drifted.has(m[1])) hits.push(`${entry.name}:${m[1]}`);
+      }
+    }
+  };
+  walk(dir);
+  return hits;
+}
+
+/**
+ * **2026-10-08（LRTO 步骤"执行不了"事故）**：`RoleConfig.toolsets` 抄的是 hermes 工具集名，
+ * 展开后 23 个名字中 19 个在本仓不存在 ⇒ 步骤实际 0 个可用工具（实测 73 步 / 0 次工具调用）。
+ * 现角色/步骤工具名一律由任务类型经 `TOOL_CATEGORIES` 派生 ⇒ 本守卫锁住"派生可用性"
+ * 与"`src/tasks/**` 不得再手写清单"两条，防止再次抄错名。
+ */
+describe('角色/步骤工具清单守卫：必须派生自 TOOL_CATEGORIES', () => {
+  it('getRealToolNamesForTask 含关键执行工具、无漂移名、规模合理', () => {
+    const agentTools = new Set(getRealToolNamesForTask('agent'));
+    for (const must of [
+      'bash',
+      'file_read',
+      'file_write',
+      'file_edit',
+      'grep',
+      'glob',
+    ]) {
+      expect({ tool: must, present: agentTools.has(must) }).toEqual({
+        tool: must,
+        present: true,
+      });
+    }
+    expect([...agentTools].filter((n) => DRIFTED_NAMES.includes(n))).toEqual(
+      []
+    );
+    // 规模合理性：agent 为全集，避免"派生为空集"也能骗过上面的包含断言
+    expect(agentTools.size).toBeGreaterThan(30);
+  });
+
+  it('src/tasks/** 里不得再手写漂移工具名字面量（角色工具必须派生）', () => {
+    const hits = scanQuotedDriftedToolNames(
+      join(import.meta.dir, '../../src/tasks')
+    );
+    expect(hits).toEqual([]);
   });
 });
 

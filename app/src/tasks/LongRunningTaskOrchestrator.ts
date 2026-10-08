@@ -9,7 +9,7 @@
  *
  * 复用组件：
  *   TaskOrchestrator（Plan 存储）、LifecycleTracker（生命周期）、
- *   AgentIsolation（隔离）、toolsets（角色权限）
+ *   AgentIsolation（隔离）、TOOL_CATEGORIES（角色工具范围，经 getRealToolNamesForTask 派生）
  */
 
 import { getLogger } from '@modules/monitoring';
@@ -17,7 +17,7 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
 import { resolveDbPath } from '@modules/core/paths';
-import { trackUsage } from '@modules/ai';
+import { trackUsage, modelRouter } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep } from './TaskOrchestrator';
@@ -37,7 +37,6 @@ import {
   registerIsolationToScope,
 } from '@modules/agent';
 import { EffectScope } from '@modules/context';
-import { computeToolNames, resolveToolsets } from '../tools/toolsets';
 import type { AuditReport } from './AuditReport';
 import { formatReviewSummary } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
@@ -70,7 +69,12 @@ import {
 } from './PdcaWorkItemBridge';
 import type { PdcaPhase } from '@modules/core';
 import { pdcaCheckpointStatus } from '@modules/core';
-import { globalToolManager } from '../tools/index.js';
+import {
+  globalToolManager,
+  getToolRegistry,
+  buildToolDefinitions,
+  getRealToolNamesForTask,
+} from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
 // 大文件拆分（spec file-size-debt-partition-plan §44）：类型契约与任务消息助手外迁 `./lro/*`；
@@ -88,9 +92,11 @@ import type {
   PdcaStatus,
   PdcaMetrics,
   ExecutorFn,
+  RoleConfig,
   TaskMessage,
   EscalationRecord,
 } from './lro/contracts.js';
+import { normalizeExecutorResult } from './lro/contracts.js';
 export type {
   PdcaStatus,
   PdcaMetrics,
@@ -123,6 +129,16 @@ export {
 const logger = getLogger('tasks:longRunning');
 
 export type { PdcaPhase };
+
+/**
+ * 角色可用工具名：由角色的**任务类型**经 `TOOL_CATEGORIES` 派生（单一事实源）。
+ *
+ * 2026-10-08：禁止手写工具名清单 —— 原 `RoleConfig.toolsets`（hermes 名）展开后 19/23
+ * 永不命中 ⇒ 步骤 0 工具可用（事故指纹：73 步 / 0 次工具调用）。
+ */
+function roleToolNames(role: RoleConfig): string[] {
+  return role.useTools ? getRealToolNamesForTask(role.taskType) : [];
+}
 
 // （审计存储/记忆回写两个惰性端口解析器 + `AuditLogEntry`/`AuditStoreLike`/
 //  `MemoryWritebackManager` + `replanMaxRetries` 已外迁 `./lro/portResolvers`，spec §45）
@@ -221,32 +237,52 @@ export class LongRunningTaskOrchestrator {
     this.fileLockManager = fileLockManager;
     this.reviewGate = createReviewGate();
 
-    // 默认 executor：通过 AI 服务执行
+    // 默认 executor：经 ModelRouter 解析模型（任务分工 / DB 为唯一事实来源）+ 携带工具定义
     this.executor =
       executor ??
       (async (params) => {
-        // N-44 修复（2026-09-21）：`AIService` 接口（`ai/models/types.ts`）只有
-        // `generate` / `stream`，**并无 `chat`** —— 原 `(service as any).chat({ messages })`
-        // 的 `as any` 恰好掩盖了这个编译错误，运行期实测抛
-        // `TypeError: service.chat is not a function`（OTel `pdca.plan` span 取证，
-        // 异常堆栈正指向本行）。改用接口上真实存在的 `generate()`，并去掉 `any`。
+        // 模型路由：任务分工配置（DB）→ 模型名。不再读 `ANTHROPIC_API_KEY`、不再写死
+        // `defaultModel: ''`（project_rules §1.1 禁止 Anthropic 内容；model-usage 要求
+        // 模型属性/选择一律读 DB）。
+        const model = modelRouter.resolve(params.taskType);
         const { createAIService, AIMessageRole } = await import('@modules/ai');
-        const service = createAIService({
-          defaultModel: '',
-          apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
-        });
+        const service = createAIService({ defaultModel: model });
+
+        // 工具定义：先按角色派生的**真实名**挑 schema，再经 wire codec 出站
+        // （冒号命名空间工具若原样下发会被 provider 400 拒绝）。
+        const tools =
+          params.tools.length > 0
+            ? buildToolDefinitions(
+                getToolRegistry()
+                  .getToolSchemas()
+                  .filter((s) => params.tools.includes(s.name))
+              )
+            : [];
+
         const _trackStart = Date.now();
-        const response = await service.generate([
-          { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
-          { role: AIMessageRole.USER, content: params.userPrompt },
-        ]);
+        const response = await service.generate(
+          [
+            { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
+            { role: AIMessageRole.USER, content: params.userPrompt },
+          ],
+          model,
+          tools.length > 0 ? { tools } : undefined
+        );
 
         trackUsage(response, {
-          model: response.model || 'unknown',
+          model: response.model || model || 'unknown',
           providerId: 'default',
           latencyMs: Date.now() - _trackStart,
         });
-        return response.content;
+        // 回传 tool_calls —— 步骤工具可真实执行的前提（原实现只 return 文本）。
+        return {
+          content: response.content ?? '',
+          toolCalls: (response.tool_calls ?? []).map((tc) => ({
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+          })),
+        };
       });
   }
 
@@ -460,12 +496,15 @@ ${replanSection}
 第 i 步依赖 steps 中哪些前置步骤，填这些步骤的下标（0-based）；无依赖填 []；
 不允许依赖自身或后续步骤（依赖错误时执行器会按无依赖/串行安全兜底）。`;
 
-      const planText = await this.executor({
-        systemPrompt: PLANNER_ROLE.systemPrompt,
-        userPrompt: planPrompt,
-        tools: computeToolNames(PLANNER_ROLE.toolsets),
-        isolation: this.isolation,
-      });
+      const planText = normalizeExecutorResult(
+        await this.executor({
+          systemPrompt: PLANNER_ROLE.systemPrompt,
+          userPrompt: planPrompt,
+          tools: roleToolNames(PLANNER_ROLE),
+          taskType: PLANNER_ROLE.taskType,
+          isolation: this.isolation,
+        })
+      ).content;
 
       // 解析 Planner 输出
       let steps: string[] = [description];
@@ -723,7 +762,7 @@ ${replanSection}
         taskId: this.taskId,
         stepId: step.id,
         perStepInstance: !!this.taorLoopFactory,
-        toolNames: computeToolNames(EXECUTOR_ROLE.toolsets),
+        toolNames: roleToolNames(EXECUTOR_ROLE),
       });
       let taorStart = 0;
       try {
@@ -746,21 +785,33 @@ ${replanSection}
               )
               .join('\n\n');
             const callStart = Date.now();
-            const result = await executor({
-              systemPrompt: EXECUTOR_ROLE.systemPrompt,
-              userPrompt: execPrompt + '\n\n' + conversationContext,
-              tools: computeToolNames(EXECUTOR_ROLE.toolsets),
-              isolation,
-            });
+            const result = normalizeExecutorResult(
+              await executor({
+                systemPrompt: EXECUTOR_ROLE.systemPrompt,
+                userPrompt: execPrompt + '\n\n' + conversationContext,
+                tools: roleToolNames(EXECUTOR_ROLE),
+                taskType: EXECUTOR_ROLE.taskType,
+                isolation,
+              })
+            );
             const callElapsed = Date.now() - callStart;
             logger.info('[orchestrator] callModel 完成', {
               taskId,
               stepId: step.id,
               elapsedMs: callElapsed,
-              resultLength: result?.length ?? 0,
+              resultLength: result.content.length,
+              toolCallCount: result.toolCalls.length,
               msgCount: msgs.length,
             });
-            yield { type: 'text', content: result };
+            if (result.content) {
+              yield { type: 'text', content: result.content };
+            }
+            // 工具调用须以**单数** `toolCall` 逐块 yield —— `TAORLoop._collectCallModel`
+            // 正是按 `chunk.toolCall` 聚合成 `tool_calls`（复数）。此前只 yield 文本
+            // ⇒ `executeTools` 结构性不可达（事故指纹：callModel 完成 84 / executeTools 开始 0）。
+            for (const tc of result.toolCalls) {
+              yield { type: 'tool_call', toolCall: tc };
+            }
             yield { type: 'done' };
           },
           executeTools: async (
@@ -790,9 +841,10 @@ ${replanSection}
             for (const tc of toolCalls) {
               const toolStart = Date.now();
               try {
-                const tool = globalToolManager
-                  .getAllTools()
-                  .find((t) => t.name === tc.name);
+                // 模型回传的是 **wire 安全名**（`calendar_add`），注册表登记的是真名
+                // （`calendar:add`）；`getTool()` 内置别名解析（注册期为非 wire 安全名
+                // 自动登记 wire 别名），故必须经注册表而非直接比对 `tool.name`。
+                const tool = getToolRegistry().getTool(tc.name);
                 if (!tool) {
                   logger.warn('[orchestrator] 工具未注册', {
                     taskId: this.taskId,
@@ -983,12 +1035,15 @@ ${replanSection}
     });
     try {
       const executorStart = Date.now();
-      const result = await this.executor({
-        systemPrompt: EXECUTOR_ROLE.systemPrompt,
-        userPrompt: execPrompt,
-        tools: computeToolNames(EXECUTOR_ROLE.toolsets),
-        isolation: this.isolation,
-      });
+      const result = normalizeExecutorResult(
+        await this.executor({
+          systemPrompt: EXECUTOR_ROLE.systemPrompt,
+          userPrompt: execPrompt,
+          tools: roleToolNames(EXECUTOR_ROLE),
+          taskType: EXECUTOR_ROLE.taskType,
+          isolation: this.isolation,
+        })
+      ).content;
       const executorElapsed = Date.now() - executorStart;
 
       taskOrchestrator.markStepCompleted(step.id, result);
@@ -1002,7 +1057,7 @@ ${replanSection}
         stepId: step.id,
         executorElapsedMs: executorElapsed,
         stepElapsedMs: stepElapsed,
-        resultLength: result?.length ?? 0,
+        resultLength: result.length,
       });
 
       // §5 P1: 默认路径从零建立消息记录（此前直接 executor 路径无任何消息回写）

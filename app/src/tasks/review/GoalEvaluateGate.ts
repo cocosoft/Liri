@@ -17,18 +17,18 @@
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import type { AgentIsolation } from '@modules/agent';
+import type { ExecutorFn } from '../lro/contracts.js';
+import { normalizeExecutorResult } from '../lro/contracts.js';
 
 const logger = getLogger('tasks:goalEvaluateGate');
 
-/** 副模型执行器（与 ReviewGate 同构：只读调用） */
-export interface GoalEvaluateExecutor {
-  (params: {
-    systemPrompt: string;
-    userPrompt: string;
-    tools: string[];
-    isolation: AgentIsolation;
-  }): Promise<string>;
-}
+/**
+ * 副模型执行器（与 ReviewGate 同构：只读调用）。
+ *
+ * 2026-10-08：原为**重复声明**的一份形状（`tools: string[]` + `Promise<string>`），
+ * 现收敛为 `ExecutorFn` 别名（单一事实源 `tasks/lro/contracts.ts`）。
+ */
+export type GoalEvaluateExecutor = ExecutorFn;
 
 /** 目标级评估上下文（Orchestrator 注入运行时依赖） */
 export interface GoalEvaluateContext {
@@ -149,22 +149,25 @@ export class GoalEvaluateGate {
   ): Promise<GoalEvaluateResult> {
     const prompt = buildGoalEvaluatePrompt(input);
     try {
-      const text = await Promise.race([
+      const raced = await Promise.race([
         ctx.executor({
           systemPrompt:
             '你是一个目标收敛评估器。基于步骤执行摘要判断任务目标是否真正达成。只读操作，不修改任何文件。输出 JSON 格式：{"converged":bool,"confidence":0-1,"reason":"简要说明"}',
           userPrompt: prompt,
-          tools: ['search', 'file'],
+          // 纯文本 JSON 评估角色：原 `['search', 'file']` 是**类别名误当工具名**（永不命中）
+          // ⇒ 实际即 0 工具；此处如实写 0。
+          tools: [],
+          taskType: 'chat',
           isolation: ctx.isolation,
         }),
-        new Promise<string>((_, reject) =>
+        new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error('goal_evaluate_timeout')),
             EVALUATE_TIMEOUT_MS
           )
         ),
       ]);
-      return parseEvaluateResult(text);
+      return parseEvaluateResult(normalizeExecutorResult(raced).content);
     } catch (err) {
       logger.warn('目标级评估失败，跳过结论（不阻塞主流程）', {
         error: String(err),

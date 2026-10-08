@@ -23,6 +23,8 @@
  * 常量而不互相导入（避免 `tools/` 依赖 `services/mcp/` 的语义错配）。
  */
 
+import type { ToolDefinition } from '@modules/ai';
+
 /** OpenAI 兼容 `tools[].function.name` 允许的字符集 */
 const WIRE_SAFE_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
@@ -44,4 +46,42 @@ export function isWireSafeToolName(name: string): boolean {
  */
 export function toWireToolName(name: string): string {
   return isWireSafeToolName(name) ? name : name.replace(WIRE_UNSAFE_CHARS, '_');
+}
+
+/** `buildToolDefinitions` 的输入形状（结构化，避免依赖 `tools` 桶造成环） */
+export interface ToolSchemaLike {
+  name: string;
+  description?: string;
+  input_schema?: unknown;
+}
+
+/**
+ * `ToolSchema`（本仓形状）→ OpenAI 兼容 `ToolDefinition`（**出站**用 wire 安全名）。
+ *
+ * 单一事实源（2026-10-08）：原实现只存在于 `ChatRequestPrep.buildToolDefinitions`
+ * （会话路径专用），LRTO 步骤路径因此**无法**构造工具定义 —— 与"步骤无工具"缺陷同批修复。
+ * 会话路径改为委托本函数（CS01：不重复实现）。
+ */
+export function buildToolDefinitions(
+  schemas: readonly ToolSchemaLike[]
+): ToolDefinition[] {
+  return schemas.map((schema) => ({
+    type: 'function' as const,
+    function: {
+      // wire codec：出站必须用 wire 安全名。OpenAI 兼容 `tools[].function.name` 只接受
+      // `^[a-zA-Z0-9_-]+$`（禁冒号）——原样下发冒号命名空间工具（`calendar:add` /
+      // `office:workflow` / `mail:send`）会被 provider 以 400 拒绝
+      // （`Invalid 'tools[N].function.name'…`）⇒ `chunkCount:0` ⇒ 走空回复兜底
+      // ⇒ 用户感知「长程任务中断」。入站由 `ToolRegistry.resolveRegisteredName()` 回真名。
+      name: toWireToolName(schema.name),
+      description: schema.description ?? '',
+      parameters: {
+        type: 'object' as const,
+        properties:
+          (schema.input_schema as { properties?: unknown })?.properties || {},
+        required:
+          (schema.input_schema as { required?: string[] })?.required || [],
+      },
+    },
+  }));
 }

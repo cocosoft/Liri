@@ -319,9 +319,14 @@ export {
 } from './toolEffects';
 export type { ToolEffect, ToolSideEffect, PriorToolCall } from './toolEffects';
 // wire codec（工具名两种语义：内部标识 `模块:动作` vs OpenAI wire 安全名）
-export { isWireSafeToolName, toWireToolName } from './toolNameCodec';
+export {
+  isWireSafeToolName,
+  toWireToolName,
+  buildToolDefinitions,
+} from './toolNameCodec';
+export type { ToolSchemaLike } from './toolNameCodec';
 export { ToolFilterManager } from './ToolFilterManager';
-export { filterToolsByTask } from './toolCategories';
+export { filterToolsByTask, getRealToolNamesForTask } from './toolCategories';
 export type { ToolCategory } from './toolCategories';
 export { checkSsrf, describeSsrfBlock } from './WebFetchTool/ssrf';
 export { ImageUrlHelper } from './ImageUrlHelper';

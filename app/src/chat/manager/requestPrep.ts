@@ -28,7 +28,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import { ContextTracker } from '@modules/query';
 import { resolveProjectRoot, resolvePyappHome } from '@modules/core/paths';
 import type { ToolSchema } from '@modules/tools';
-import { toWireToolName } from '@modules/tools';
+import { buildToolDefinitions as buildToolDefinitionsFromSchemas } from '@modules/tools';
 import type { ToolDefinition } from '@modules/ai';
 import {
   RequestSnapshotService,
@@ -138,27 +138,13 @@ export class ChatRequestPrep {
 
   /**
    * 将 ToolSchema[] 转换为 OpenAI 兼容的 ToolDefinition[]
+   *
+   * 2026-10-08：实现**外移**到 `tools/toolNameCodec.ts`（单一事实源）—— 原实现只在本类内，
+   * LRTO 步骤路径无法复用 ⇒ 步骤拿不到工具定义（"步骤 0 工具调用"缺陷的成因之一）。
+   * 本方法保留为薄委托，行为不变。
    */
   buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[] {
-    return schemas.map((schema) => ({
-      type: 'function' as const,
-      function: {
-        // wire codec：出站必须用 wire 安全名。OpenAI 兼容 `tools[].function.name` 只接受
-        // `^[a-zA-Z0-9_-]+$`（禁冒号）——原样下发冒号命名空间工具（`calendar:add` /
-        // `office:workflow` / `mail:send`）会被 provider 以 400 拒绝
-        // （`Invalid 'tools[N].function.name'…`）⇒ `chunkCount:0` ⇒ 走空回复兜底
-        // ⇒ 用户感知「长程任务中断」。入站由 `ToolRegistry.resolveRegisteredName()` 回真名。
-        name: toWireToolName(schema.name),
-        description: schema.description,
-        parameters: {
-          type: 'object' as const,
-          properties:
-            (schema.input_schema as { properties?: unknown })?.properties || {},
-          required:
-            (schema.input_schema as { required?: string[] })?.required || [],
-        },
-      },
-    }));
+    return buildToolDefinitionsFromSchemas(schemas);
   }
 
   /**

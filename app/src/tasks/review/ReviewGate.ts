@@ -26,6 +26,8 @@ import type { PlanReview, ReviewDecision, ReviewIssue } from '../PlanReview.js';
 import type { AgentIsolation } from '@modules/agent';
 import type { VerifierAgent } from '@modules/query';
 import type { PlanStep } from '../TaskOrchestrator.js';
+import type { ExecutorFn } from '../lro/contracts.js';
+import { normalizeExecutorResult } from '../lro/contracts.js';
 
 const logger = getLogger('tasks:reviewGate');
 
@@ -35,12 +37,12 @@ export interface ReviewGateContext {
   planId: string;
   step: PlanStep;
   isolation: AgentIsolation;
-  executor: (params: {
-    systemPrompt: string;
-    userPrompt: string;
-    tools: string[];
-    isolation: AgentIsolation;
-  }) => Promise<string>;
+  /**
+   * 步骤执行器契约（**单一事实源**：`tasks/lro/contracts.ts` 的 `ExecutorFn`）。
+   * 2026-10-08：原先此处**重复声明**了一份"同构"形状（`tools: string[]` + `Promise<string>`），
+   * 与宿主契约各自漂移；现直接引用，避免两份定义再次分叉。
+   */
+  executor: ExecutorFn;
   verifier: VerifierAgent;
 }
 
@@ -230,13 +232,18 @@ export class DefaultReviewGate implements ReviewGate {
       : '';
     const reviewPrompt = await buildReviewPrompt(step, verifyText);
 
-    const reviewText = await executor({
-      systemPrompt:
-        '你是一个任务审查员。对比验收标准和实际执行结果，给出审查意见。只读操作，不修改任何文件。输出 JSON 格式：{"pass":bool,"score":0-100,"issues":[],"summary":"..."}',
-      userPrompt: reviewPrompt,
-      tools: ['search', 'file'],
-      isolation,
-    });
+    const reviewText = normalizeExecutorResult(
+      await executor({
+        systemPrompt:
+          '你是一个任务审查员。对比验收标准和实际执行结果，给出审查意见。只读操作，不修改任何文件。输出 JSON 格式：{"pass":bool,"score":0-100,"issues":[],"summary":"..."}',
+        userPrompt: reviewPrompt,
+        // 审查员为**纯文本 JSON**角色（输出须可直接解析）——原值 `['search', 'file']` 是
+        // **工具类别名误当工具名**，在本仓永不命中 ⇒ 实际即 0 工具；此处如实写 0，不再写假清单。
+        tools: [],
+        taskType: 'chat',
+        isolation,
+      })
+    ).content;
 
     const review = parseReviewFromText(reviewText, step.id);
 

@@ -426,3 +426,25 @@ export function filterToolsByTask<
     return allowed.has(getToolCategory(toolName));
   });
 }
+
+/**
+ * 任务类型 → **真实工具名**列表（与 `filterToolsByTask` 同口径，含 `MANDATORY_TOOLS`）。
+ *
+ * 用途：需要"名字清单"而非"定义过滤"的调用方 —— 目前为 **LRTO 角色工具范围**
+ * （`tasks/lro/contracts.ts` 的 `RoleConfig.taskType`）。
+ *
+ * ⚠️ **禁止手写工具名清单**：本仓真实注册名是 `bash` / `code_run` / `file_read` /
+ * `file_write` / `file_edit` / `web_fetch` / `browser`…；历史上多处清单抄的是
+ * hermes / Claude Code 的名字（`read_file` / `bash_exec` / `execute_code` / `web_extract`…）
+ * ⇒ 对真实工具**永不命中**，功能静默失效（2026-10-08：LRTO 步骤工具范围即因此全错名）。
+ * 派生自 `TOOL_CATEGORIES` 是唯一入口；守卫见 `tests/tools/toolNameLists.test.ts`。
+ */
+export function getRealToolNamesForTask(
+  taskType: string | undefined
+): string[] {
+  const allowed = new Set(getTaskToolCategories(taskType));
+  const derived = Object.entries(TOOL_CATEGORIES)
+    .filter(([, category]) => allowed.has(category))
+    .map(([name]) => name);
+  return [...new Set([...derived, ...MANDATORY_TOOLS])];
+}

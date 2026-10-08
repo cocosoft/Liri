@@ -269,6 +269,9 @@ import {
   setSelfWakeAuditSink,
   // T-②06（2026-10-03）：经验自动演化落盘审计出口
   setEvolutionAuditSink,
+  // 2026-10-08：步骤 TAORLoop 工厂出口（长程任务步骤"无工具可用"根因修复；
+  // 与上面 setSelfWakeResumeHandler / setGoalEventSink 同一"chat 层注入 sink"手法）
+  setStepLoopFactory,
 } from '@modules/tasks';
 import { setGoalEventSink } from '@modules/tasks';
 // P1-19 ①（2026-10-05）：工作流成员级事件实时落盘 —— 本模块持有会话事件日志，
@@ -1072,6 +1075,14 @@ export class ChatManagerImpl implements ChatManager {
       this.llmClient,
       this._chatSessions
     );
+    // 2026-10-08（长程任务「执行不了」根因修复）：向 tasks 层注册步骤 TAORLoop 工厂。
+    // 此前**只有** PdcaLauncher（会话内升级 / 阶段链）显式 `setTAORLoopFactory`，
+    // 而 `getOrCreateOrchestrator()` 这条入口（前端「用编排推进」按钮 = `POST /v1/pdca/start`、
+    // CLI `/goal start`）**从不注入** ⇒ 步骤退化为"纯 LLM 文本执行"：模型看不到工具、
+    // 工具调用也无处执行（事故 `pdca_muz3wada`：`hasTAORLoop:false`，9 步 / 0 次工具调用）。
+    // 注册后两条入口同源同行为。
+    setStepLoopFactory((sid, opts) => this._getOrCreateTAORLoop(sid, opts));
+
     this._pdcaLauncher = new PdcaLauncher({
       enablePlanDrivenLoop: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
       taorLoopFactory: (sid, opts) => this._getOrCreateTAORLoop(sid, opts),

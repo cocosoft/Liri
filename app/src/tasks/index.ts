@@ -196,11 +196,13 @@ export {
   getOrCreateOrchestrator,
   getOrchestrator,
   getAllOrchestrators,
+  setStepLoopFactory,
 } from './LongRunningTaskOrchestrator';
 export type {
   PdcaPhase,
   PdcaStatus,
   PdcaMetrics,
+  StepLoopFactory,
 } from './LongRunningTaskOrchestrator';
 export { generateAuditReport } from './AuditReport';
 export type { AuditReport, AuditStepEntry } from './AuditReport';

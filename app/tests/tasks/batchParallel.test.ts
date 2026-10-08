@@ -10,7 +10,11 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LongRunningTaskOrchestrator } from '../../src/tasks/LongRunningTaskOrchestrator';
+import {
+  LongRunningTaskOrchestrator,
+  getOrCreateOrchestrator,
+  setStepLoopFactory,
+} from '../../src/tasks/LongRunningTaskOrchestrator';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 
 // 隔离计划持久化目录：测试计划写入临时目录，避免污染用户数据（~/.pyapp/data/plans/）
@@ -21,6 +25,8 @@ const dataDir = mkdtempSync(join(tmpdir(), 'pdca-batch-parallel-'));
 process.env.LIRI_DATA_DIR = dataDir;
 
 afterAll(async () => {
+  // 还原进程级注册（本文件注入过步骤 TAORLoop 工厂，避免污染同进程其它测试文件）
+  setStepLoopFactory(undefined);
   const { closePdcaCheckpointStore } =
     await import('../../src/tasks/PdcaWorkItemBridge');
   closePdcaCheckpointStore();
@@ -148,5 +154,33 @@ describe('D1: taorLoopFactory 二元签名 opts 透传（LRTO 侧）', () => {
       privateInstance: true,
       maxTurnsMultiplier: 2,
     });
+  });
+});
+
+/**
+ * **2026-10-08（长程任务「执行不了」根因修复）**：`getOrCreateOrchestrator()` 原先
+ * **从不注入** TAORLoop ⇒ 该入口（前端「用编排推进」= `POST /v1/pdca/start`、`/goal start`）
+ * 的步骤全部走「纯 LLM 文本执行」：模型看不到工具、工具调用也无处执行
+ * （事故 `pdca_muz3wada` 实测 `hasTAORLoop:false`，9 步 / 0 次工具调用）。
+ * 现由 chat 层经 `setStepLoopFactory` 注册一次，两条入口同源。
+ */
+describe('步骤 TAORLoop 工厂注册（setStepLoopFactory → getOrCreateOrchestrator）', () => {
+  type WithFactory = { taorLoopFactory?: unknown };
+
+  it('注册后新编排器即带工厂（不再退化纯文本）', () => {
+    const tracker = { active: 0, maxActive: 0 };
+    setStepLoopFactory(() => makeFakeLoop(tracker) as never);
+    const orch = getOrCreateOrchestrator(
+      `seam-test-${Date.now().toString(36)}`
+    ) as unknown as WithFactory;
+    expect(typeof orch.taorLoopFactory).toBe('function');
+  });
+
+  it('未注册时保持回退（工厂缺省，不抛错）', () => {
+    setStepLoopFactory(undefined);
+    const orch = getOrCreateOrchestrator(
+      `seam-test-none-${Date.now().toString(36)}`
+    ) as unknown as WithFactory;
+    expect(orch.taorLoopFactory).toBeUndefined();
   });
 });

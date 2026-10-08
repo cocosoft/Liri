@@ -1035,7 +1035,7 @@ ${replanSection}
     });
     try {
       const executorStart = Date.now();
-      const result = normalizeExecutorResult(
+      const executed = normalizeExecutorResult(
         await this.executor({
           systemPrompt: EXECUTOR_ROLE.systemPrompt,
           userPrompt: execPrompt,
@@ -1043,7 +1043,21 @@ ${replanSection}
           taskType: EXECUTOR_ROLE.taskType,
           isolation: this.isolation,
         })
-      ).content;
+      );
+      // 本路径**无工具执行能力**（无 TAORLoop）：模型若仍请求了工具，如实告警而非静默丢弃
+      // （2026-10-08：注册 `setStepLoopFactory` 后生产不再走此路径；仅启动早期/测试可达）
+      if (executed.toolCalls.length > 0) {
+        logger.warn(
+          '[orchestrator] 无 TAORLoop ⇒ 步骤工具调用无法执行（已丢弃）',
+          {
+            taskId: this.taskId,
+            stepId: step.id,
+            toolNames: executed.toolCalls.map((tc) => tc.name),
+            hint: '未注册步骤 TAORLoop 工厂（setStepLoopFactory）',
+          }
+        );
+      }
+      const result = executed.content;
       const executorElapsed = Date.now() - executorStart;
 
       taskOrchestrator.markStepCompleted(step.id, result);
@@ -2297,12 +2311,42 @@ setInterval(
   30 * 60 * 1000
 ).unref();
 
+/** 步骤编排所用 TAORLoop 工厂的签名（与 `PdcaLauncher.deps.taorLoopFactory` 一致） */
+export type StepLoopFactory = (
+  sessionId: string,
+  opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
+) => TAORLoop;
+
+/**
+ * 步骤 TAORLoop 工厂（进程级，由 chat 层在启动时注册一次）。
+ *
+ * **2026-10-08（长程任务「执行不了」根因修复）**：`getOrCreateOrchestrator()` 原先
+ * **从不注入** TAORLoop ⇒ 经该入口启动的任务（前端「用编排推进」按钮 = `POST /v1/pdca/start`、
+ * CLI `/goal start`）每个步骤都退化为「**纯 LLM 文本执行**」：模型既看不到工具、也无处执行
+ * 工具调用。事故 `pdca_muz3wada` 实测即此路径（日志 `进入默认 executor 路径…hasTAORLoop:false`，
+ * 9 步 / 0 次工具调用 ⇒ 审查全不过 ⇒ `PDCA_GOAL_NOT_CONVERGED`）。
+ * 此前仅 `PdcaLauncher`（会话内升级 / 阶段链）显式注入过 ⇒ **同一编排器两条入口行为分裂**。
+ */
+let stepLoopFactory: StepLoopFactory | undefined;
+
+/**
+ * 注册步骤 TAORLoop 工厂（chat 层启动时调用；未注册 ⇒ 退回纯文本执行，不报错）。
+ * 传 `undefined` 可清除注册（测试还原进程级状态用）。
+ */
+export function setStepLoopFactory(factory: StepLoopFactory | undefined): void {
+  stepLoopFactory = factory;
+}
+
 export function getOrCreateOrchestrator(
   taskId: string
 ): LongRunningTaskOrchestrator {
   let orchestrator = activeOrchestrators.get(taskId);
   if (!orchestrator) {
     orchestrator = new LongRunningTaskOrchestrator(taskId);
+    // 工厂可用 ⇒ 步骤走 TAOR 分支（真实工具执行）；否则回退默认 executor（纯文本）
+    if (stepLoopFactory) {
+      orchestrator.setTAORLoopFactory(stepLoopFactory);
+    }
     activeOrchestrators.set(taskId, orchestrator);
   }
   return orchestrator;

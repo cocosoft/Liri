@@ -99,11 +99,12 @@ export async function handleSteerSession(
       const chatManager = getCoreAPI().getChatManager();
       const cm = chatManager as unknown as Record<string, unknown>;
       const taorLoops = cm['_taorLoops'] as
-        | Map<string, { injectSteering(msg: string): void }>
+        | Map<string, { injectSteering(msg: string, source?: string): void }>
         | undefined;
       const taorLoop = taorLoops?.get(sessionId);
       if (taorLoop?.injectSteering) {
-        taorLoop.injectSteering(rawMessage);
+        // 2026-10-08（§1.6）：标注来源 ⇒ 注入时落 `context/steering` 事件（模型可见输入可重建）
+        taorLoop.injectSteering(rawMessage, 'user');
         logger.info('Steering message injected', {
           sessionId,
           length: rawMessage.length,

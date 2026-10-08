@@ -190,6 +190,21 @@ export interface LiriEventMap {
     message?: string;
   };
   "context/summary": { summary: string; compactedSeqs: number[] };
+  // 2026-10-08（架构治理 P1 · §1.6 红线审计修复）：steering 注入事件化（log-only）。
+  // 载荷形状各端自持（与后端 app/src/session/types/eventPayloads.ts 对齐）。
+  "context/steering": {
+    /** 注入正文（不含 `[STEERING] ` 前缀） */
+    text: string;
+    /** 来源：谁把这段指令插进了模型上下文 */
+    source:
+      | "user"
+      | "durable-resume"
+      | "orchestrator"
+      | "budget"
+      | "validation"
+      | "loop-guard"
+      | "other";
+  };
   "session/summary": {
     content: string;
     keywords?: string[];

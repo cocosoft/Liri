@@ -24,6 +24,29 @@ import type {
 // ⇒ 本文件不再依赖 `@modules/utils/mermaidLint`(infra)，成为**纯 core 引用**的契约文件。
 import type { MermaidLintIssue } from '@modules/types/mermaid';
 
+/**
+ * Steering 注入**来源**（2026-10-08，架构治理 P1 · §1.6 红线审计修复）。
+ *
+ * 为什么在这里：`context/steering` 载荷的 `source` 字段类型；同时是该契约的**单一事实源**
+ * —— 会话骨架（`query/ReActLoop` 的 `steeringQueue`，app 层）向下引用它（app → service，合法）。
+ * 闭环集合：新增注入点若不属于既有分类，应在此扩展（而非在调用点写裸字符串）。
+ */
+export type SteeringSource =
+  /** 用户中途注入（`POST /v1/sessions/:id/steer`） */
+  | 'user'
+  /** 断点恢复摘要（`ChatManager` durable resume） */
+  | 'durable-resume'
+  /** 编排器注入（如安全拦截 ⇒ 改道指令） */
+  | 'orchestrator'
+  /** 预算/收尾类（主会话预算触顶 ⇒ 收尾指令） */
+  | 'budget'
+  /** 终稿校验回喂（如 mermaid 结构预检未过） */
+  | 'validation'
+  /** 循环守卫（探索预算 / 探索疲劳 / 收敛窗口 / 工具结果后处理） */
+  | 'loop-guard'
+  /** 未归类（如构造期 `steeringMessages` 初始注入） */
+  | 'other';
+
 // ─── 事件载荷映射 ───────────────────────────────────────────────────────────
 
 /**
@@ -276,6 +299,21 @@ export interface LiriEventMap {
     summary: string;
     /** 被压缩掉的原始事件 seq 列表 */
     compactedSeqs: number[];
+  };
+
+  /**
+   * Steering 注入（2026-10-08，架构治理 P1 · §1.6 红线审计修复）。
+   *
+   * `[STEERING]` 正文被 push 为 `role:'user'` 消息进入模型对话上下文 ⇒ **模型可见输入**，
+   * 按 §1.6「模型可见 ⇔ 已落盘」必须先落事件再注入（修复前只落 logger）。
+   * 与 `validation/injected` / `goal/injected` 同口径：`text` 为**注入正文**，
+   * `[STEERING] ` 前缀由片段类型（`kind:'steering'`）渲染，故事件内**不含**前缀。
+   */
+  'context/steering': {
+    /** 注入正文（**不含** `[STEERING] ` 前缀） */
+    text: string;
+    /** 来源：谁把这段指令插进了模型上下文 */
+    source: SteeringSource;
   };
 
   /**

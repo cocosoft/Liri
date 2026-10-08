@@ -26,6 +26,9 @@ import {
   isAbortReason,
 } from '../error/abortReason.js';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
+// 2026-10-08（架构治理 P1 · §1.6 红线审计修复）：steering 来源联合的**单一事实源**在
+// `session/types/eventPayloads.ts`（service 层）⇒ app 层向下引用合法，不另立第二份联合。
+import type { SteeringSource } from '@modules/session/types/eventPayloads';
 import { buildRoundSignature, isRepeatedLoop } from './loopGuard.js';
 
 const logger = getLogger('query:reactLoop');
@@ -332,6 +335,20 @@ export interface BudgetControllerLike {
   needsGraceCall?: () => boolean;
 }
 
+/**
+ * 一条待注入的 steering 条目（2026-10-08，§1.6 红线审计修复）。
+ *
+ * 为什么不是裸字符串：`[STEERING]` 注入是**模型可见输入**，§1.6 要求"模型可见 ⇔ 已落盘"
+ * ⇒ 注入时必须能落一条 `context/steering` 事件，而事件载荷需要 `source`（谁插的）⇒
+ * 来源必须**与正文一起**随队列流动，不能在消费点反推。
+ */
+export interface SteeringEntry {
+  /** 注入正文（不含 `[STEERING] ` 前缀） */
+  text: string;
+  /** 来源（联合定义见 `session/types/eventPayloads.ts`） */
+  source: SteeringSource;
+}
+
 /** 循环配置 */
 export interface ReActLoopConfig {
   maxIterations: number;
@@ -422,8 +439,13 @@ export abstract class ReActLoop<
   protected exploreBudgetPrompted = false;
   /** P14（2026-09-01）：探索疲劳软提示是否已触发（提示后仍疲劳 → 硬熔断） */
   protected exploreFatiguePrompted = false;
-  /** steering 队列（下沉自 TAORLoop 2026-09-01：骨架统一管理，每轮 reason 前经 onSteering 注入） */
-  protected steeringQueue: string[] = [];
+  /**
+   * steering 队列（下沉自 TAORLoop 2026-09-01：骨架统一管理，每轮 reason 前经 onSteering 注入）
+   *
+   * 2026-10-08（§1.6 红线审计修复）：元素由裸字符串升级为 `SteeringEntry` —— 携带 `source`
+   * 以便注入时落 `context/steering` 事件（此前只落 logger ⇒ 模型可见输入无法从事件重建）。
+   */
+  protected steeringQueue: SteeringEntry[] = [];
 
   /**
    * run 级状态复位（A2/A3，2026-09-04）
@@ -477,13 +499,16 @@ export abstract class ReActLoop<
     }
     this.config.abortSignal = this._abortController.signal;
     this.steeringQueue = config?.steeringMessages
-      ? [...config.steeringMessages]
+      ? config.steeringMessages.map((text) => ({
+          text,
+          source: 'other' as const,
+        }))
       : [];
   }
 
   /** 运行时注入 steering 消息（下一轮 reason 前经 onSteering 生效） */
-  queueSteering(message: string): void {
-    this.steeringQueue.push(message);
+  queueSteering(message: string, source: SteeringSource = 'other'): void {
+    this.steeringQueue.push({ text: message, source });
   }
 
   /**
@@ -628,9 +653,14 @@ export abstract class ReActLoop<
     return false; // default: 不校验
   }
 
-  /** steering 注入 Hook（下沉自 TAORLoop 2026-09-01）：骨架每轮 reason 前调用，
-   *  子类把 [STEERING] 消息加入自己的对话上下文（ReActToolLoop 实现为 loopState.messages）。 */
-  protected async onSteering(_messages: string[]): Promise<void> {
+  /**
+   * steering 注入 Hook（下沉自 TAORLoop 2026-09-01）：骨架每轮 reason 前调用，
+   * 子类把 `[STEERING]` 消息加入自己的对话上下文（`ReActToolLoop` 实现为 `loopState.messages`）。
+   *
+   * ⚠️ §1.6 红线：**实现方必须先把每条 entry 落成 `context/steering` 事件，再注入消息**
+   * （模型可见 ⇔ 已落盘）。默认 no-op —— 不注入任何内容 ⇒ 无需落盘。
+   */
+  protected async onSteering(_entries: SteeringEntry[]): Promise<void> {
     // default: no-op
   }
 
@@ -1001,9 +1031,10 @@ export abstract class ReActLoop<
             // 换源，而非立即熔断（此前 3 轮即掐断，任务刚开始就被拦截，体验"没执行"）。
             if (blockedOnExternal && !this.externalHelpRequested) {
               this.externalHelpRequested = true;
-              this.steeringQueue.push(
+              this.queueSteering(
                 '你多次尝试获取外部内容（网页/文章/技能）均未成功，可能因反爬或来源不可访问。' +
-                  '请调用 ask_user_question 向用户说明情况并提供选项：提供文章正文、更换可访问的来源链接、或放弃该子任务。'
+                  '请调用 ask_user_question 向用户说明情况并提供选项：提供文章正文、更换可访问的来源链接、或放弃该子任务。',
+                'loop-guard'
               );
               this.recentRoundSignatures = []; // 重置窗口，给模型空间执行求助
               logger.warn('reActLoop:external_fetch_stuck_help_requested', {
@@ -1099,10 +1130,11 @@ export abstract class ReActLoop<
           !this.exploreBudgetPrompted
         ) {
           this.exploreBudgetPrompted = true;
-          this.steeringQueue.push(
+          this.queueSteering(
             '探索预算已达上限：你已调用大量搜索/浏览/技能加载类工具。请立即停止搜索，' +
               '基于已有搜索结果整合输出（总结/回答/报告），不要再调用任何搜索类工具。' +
-              '若信息不足，请明确说明缺口并询问用户。'
+              '若信息不足，请明确说明缺口并询问用户。',
+            'loop-guard'
           );
           this.recentRoundSignatures = []; // 重置签名窗口，给模型收敛空间
           logger.warn('reActLoop:explore_budget_reached', {
@@ -1113,9 +1145,10 @@ export abstract class ReActLoop<
           // 方案 B（第一步）：探索疲劳——窗口内探索占比高且无产出 → 软提示
           this.exploreFatiguePrompted = true;
           this.exploreRecentWindow = []; // 重置窗口，给模型收敛空间
-          this.steeringQueue.push(
+          this.queueSteering(
             '工具使用陷入探索疲劳：连续多轮只调用搜索/浏览类工具，无任何实质产出。' +
-              '请立即停止搜索，基于已有结果输出；若必须继续获取信息，请调用 ask_user_question 向用户确认。'
+              '请立即停止搜索，基于已有结果输出；若必须继续获取信息，请调用 ask_user_question 向用户确认。',
+            'loop-guard'
           );
           this.recentRoundSignatures = [];
           logger.warn('reActLoop:explore_fatigue_prompted', {

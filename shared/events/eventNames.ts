@@ -50,6 +50,12 @@ export const LIRI_EVENT_NAMES = [
   // ─── 上下文管理 ───
   'context/compaction',
   'context/summary',
+  // 2026-10-08（架构治理 P1 · §1.6 红线审计修复）：**steering 注入事件化** ——
+  // `[STEERING]` 正文被 push 为 `role:'user'` 消息进入模型对话上下文 ⇒ 属「模型可见输入」，
+  // 但修复前**只落 logger、无任何会话事件** ⇒ 会话结束后无法从事件日志重建"模型当时看到了
+  // 哪段 steering"（与 `goal/injected` 的 X2 缺口同族）。三处同批同步，故类型联合随之扩张。
+  // log-only：它记录的就是注入正文本身，**不回避**地为可重建性服务，不再回灌消息 surface。
+  'context/steering',
   // TR-12-B（2026-09-22）：模型输入快照（工具清单 + 系统提示词分段，引用式去重）
   'context/model-input',
   // D-1（2026-09-02）：会话远期摘要事件化落盘（摘要也是轨迹，见 §8 设计）

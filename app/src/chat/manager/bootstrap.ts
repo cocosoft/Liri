@@ -385,7 +385,8 @@ export class ChatBootstrap {
           ]
             .filter(Boolean)
             .join('\n');
-          taorLoop.injectSteering(summary);
+          // 2026-10-08（§1.6）：标注来源 ⇒ 注入时落 `context/steering` 事件
+          taorLoop.injectSteering(summary, 'durable-resume');
 
           logger.info('Durable Resume: 会话恢复完成', {
             sessionId: cp.sessionId,

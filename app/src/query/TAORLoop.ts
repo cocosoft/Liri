@@ -73,8 +73,11 @@ import type {
   ActResult,
   ToolCallEntry,
   ToolResultEntry,
+  SteeringEntry,
   TerminationReason,
 } from './ReActLoop.js';
+// 2026-10-08（§1.6 红线审计修复）：steering 来源联合（单一事实源在 session 载荷契约）
+import type { SteeringSource } from '@modules/session/types/eventPayloads';
 
 // 大文件拆分（spec file-size-debt-partition-plan §42）：类型契约 / 内存检查点存储 /
 // 默认停止钩子 / trace 助手外迁 `./taor/*`；下列 re-export **保持公开面不变**
@@ -93,6 +96,8 @@ import {
   TAOR_PLANNING_ONLY_RE,
   truncateForTrace,
   mapTaorStopReasonToTermination,
+  injectTaorSteering,
+  checkSteeringMessage,
 } from './taor/helpers.js';
 import { registerDefaultStopHooks } from './taor/stopHooks.js';
 export type {
@@ -207,11 +212,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   }> = [];
   /** Phase 3: 从 checkpoint 恢复时已预审批的 tool call ID */
   private _preApprovedToolCalls: string[] = [];
-  /** Phase 3: Steering 安全过滤器 */
-  private readonly _steeringFilter = {
-    maxLength: 2000,
-    blockedPatterns: [/system:\s*/i, /<\|im_start\|>/i],
-  };
 
   constructor(
     queryEngine: QueryEngine,
@@ -1076,19 +1076,19 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
 
   /** PRE-FLIGHT（每轮 reason 前；OBSERVE 收尾移至 act/reason 尾部，确保单轮也执行） */
   /** 下沉自骨架（2026-09-01）：steering 注入到 messages（骨架每轮 reason 前调用） */
-  protected override async onSteering(messagesList: string[]): Promise<void> {
-    for (const sm of messagesList) {
-      // B3-2/CC-06：与 `ReActToolLoop.onSteering` 同口径 —— `[STEERING] ` 由片段类型给出，
-      // 并写入结构化标记（CS02）。此前两处各手写前缀 ⇒ 双轨（Spec §5.2 #8）。
-      this.messages.push({
-        role: 'user',
-        content: renderFragment(createFragment({ kind: 'steering', text: sm })),
-        [FRAGMENT_KIND_FIELD]: 'steering',
-      } as ChatMessage);
-    }
+  protected override async onSteering(entries: SteeringEntry[]): Promise<void> {
+    // 先落盘、再注入（§1.6）—— 落盘与注入同处 `injectTaorSteering`（外迁 `taor/helpers`）
+    await injectTaorSteering(
+      {
+        messages: this.messages,
+        appendStreamEvent: this.deps.appendStreamEvent,
+        sessionId: this.taorConfig.sessionId,
+      },
+      entries
+    );
     logger.info('taorLoop:steering_injected', {
       sessionId: this.taorConfig.sessionId,
-      count: messagesList.length,
+      count: entries.length,
       turnCount: this.turnCount,
     });
   }
@@ -1897,29 +1897,18 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
    * Steering 注入：在运行中向 Agent 发送新指令
    * 不中断当前工具执行，消息将在下一轮 THINK 阶段注入
    */
-  injectSteering(message: string): void {
-    // 安全检查
-    if (message.length > this._steeringFilter.maxLength) {
-      logger.warn('Steering message rejected: too long', {
-        length: message.length,
-      });
+  injectSteering(message: string, source: SteeringSource = 'other'): void {
+    const check = checkSteeringMessage(message);
+    if (!check.ok) {
+      logger.warn(`Steering message rejected: ${check.reason}`, check.meta);
       return;
     }
-    for (const pattern of this._steeringFilter.blockedPatterns) {
-      if (pattern.test(message)) {
-        logger.warn('Steering message rejected: blocked content', {
-          pattern: pattern.source,
-        });
-        return;
-      }
-    }
-
-    // 标记为 steering role（区分系统注入和正常对话）
-    const marked = `[steering]\n${message}`;
-    this.steeringQueue.push(marked);
+    // 标记为 steering role（区分系统注入和正常对话）；source 供 `context/steering` 事件追溯
+    this.steeringQueue.push({ text: `[steering]\n${message}`, source });
     logger.info('Steering message queued', {
       sessionId: this.taorConfig.sessionId,
       queueLength: this.steeringQueue.length,
+      source,
     });
   }
 

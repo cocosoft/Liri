@@ -1295,7 +1295,8 @@ ${replanSection}
             ) {
               securitySteerCount++;
               loop.injectSteering(
-                buildSecuritySteeringMessage(blockedBySecurity)
+                buildSecuritySteeringMessage(blockedBySecurity),
+                'orchestrator'
               );
               logger.warn(
                 '[orchestrator] 工具调用被安全策略拦截 ⇒ 注入 steering 令其改道',

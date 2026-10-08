@@ -62,6 +62,8 @@ const ALL_SESSION_EVENT_TYPES = [
   // ─── 上下文管理 ───
   'context/compaction',
   'context/summary',
+  // 2026-10-08（架构治理 P1 · §1.6 红线审计修复）：steering 注入事件化（log-only）
+  'context/steering',
   // TR-12-B（2026-09-22）：模型输入快照（工具清单 + 系统提示词分段，引用式去重）
   'context/model-input',
   // D-1（2026-09-02）：会话远期摘要事件

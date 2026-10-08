@@ -42,6 +42,8 @@ export type {
   ToolResultEntry,
   ReasonResult,
   ActResult,
+  // 2026-10-08（§1.6 红线审计修复）：steering 条目（携带 source ⇒ 可落 context/steering 事件）
+  SteeringEntry,
 } from './ReActLoop.js';
 export { QueryEngine, createQueryEngine } from './QueryEngine.js';
 export type {

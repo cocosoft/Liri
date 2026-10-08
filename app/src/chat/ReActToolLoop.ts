@@ -24,7 +24,9 @@
 
 import { ReActLoop, EXTERNAL_FETCH_TOOLS } from '@modules/query';
 // 二期 F2-1（2026-09-23 修复计划 §六）：终止原因类型（单一来源 = ReActLoop 判别器）
-import type { TerminationReason } from '@modules/query';
+import type { TerminationReason, SteeringEntry } from '@modules/query';
+// 2026-10-08（§1.6 红线审计修复）：steering 来源联合（单一事实源在 session 载荷契约）
+import type { SteeringSource } from '@modules/session/types/eventPayloads';
 import { createPathGuard } from '@modules/query';
 import { configManager } from '@modules/config';
 import type {
@@ -357,7 +359,8 @@ export class ReActToolLoop extends ReActLoop<
     getActiveToolRoundMessageId: () =>
       this.streamingLlm.activeToolRoundMessageId(),
     pushSteering: (text) => {
-      this.steeringQueue.push(text);
+      // 2026-10-08（§1.6）：来源 = 循环守卫（工具结果后处理）
+      this.queueSteering(text, 'loop-guard');
     },
     getCompletedWork: () => this.completedWork,
     recordPendingTodo: (todoData) => this._recordPendingTodo(todoData),
@@ -465,10 +468,11 @@ export class ReActToolLoop extends ReActLoop<
         this.config.maxIterations - ReActToolLoop.CONVERGE_WINDOW
     ) {
       this.convergeSteeringPrompted = true;
-      this.steeringQueue.push(
+      this.queueSteering(
         `⚠️ 你已接近本轮任务的最大工具轮次限制（当前 ${this.loopState.toolTurnCount} / 上限 ${this.config.maxIterations}），` +
           '剩余轮次不足，请停止新的探索/搜索。现在请直接基于已掌握的信息输出最终完整结论；' +
-          '若部分关键数据确实缺失，请明确列出缺失项而非继续尝试获取，以便我后续补充。'
+          '若部分关键数据确实缺失，请明确列出缺失项而非继续尝试获取，以便我后续补充。',
+        'loop-guard'
       );
       logger.warn('reactToolLoop:converge_steering_injected', {
         sessionId: this.ctx.session.id,
@@ -696,7 +700,7 @@ export class ReActToolLoop extends ReActLoop<
     try {
       await injectMainSessionBudgetWrapUp({
         sessionId: this.ctx.session.id,
-        steer: (text) => this.queueSteering(text),
+        steer: (text) => this.queueSteering(text, 'budget'),
       });
     } catch (err) {
       // @ignore-catch — 收尾注入属"意图面"，读库/注入失败不得中断本轮推理（CS03）
@@ -1875,7 +1879,8 @@ export class ReActToolLoop extends ReActLoop<
     // 与 O2-4 同款：修正轮正文**取代**坏正文（避免坏图与修正图并存于同一回复）。
     this._supersedeNextRoundText = true;
     // 经既有 steering 通道注入：下一轮 reason 前由 `onSteering` 消费为 `[STEERING] …`
-    this.steeringQueue.push(instruction);
+    // 2026-10-08（§1.6）：来源 = 终稿校验回喂（与上面 `validation/injected` 同一动作的两面）
+    this.steeringQueue.push({ text: instruction, source: 'validation' });
 
     logger.warn('reactToolLoop:final_output_validation_retry', {
       sessionId: this.ctx.session.id,
@@ -1917,22 +1922,52 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /** 下沉自 TAORLoop（2026-09-01）：steering 消息注入到工具轮对话上下文，下一轮 reason 生效 */
-  protected override async onSteering(messages: string[]): Promise<void> {
-    for (const sm of messages) {
+  protected override async onSteering(entries: SteeringEntry[]): Promise<void> {
+    for (const entry of entries) {
+      // §1.6（2026-10-08 红线审计修复）：**先落盘、再注入** —— steering 是模型可见输入，
+      // 修复前只落 logger ⇒ 会话结束后无法从事件日志重建"模型当时看到了哪段 steering"。
+      await this._emitSteeringEvent(entry);
       // B3-2（2026-09-23）：片段类型化 —— `[STEERING] ` 由 `kind:'steering'` 给出，
       // 渲染唯一走 `renderFragment()`（拼接结果与迁移前**逐字一致**）。
       // 同时写入结构化标记 `FRAGMENT_KIND_FIELD`：供 `_sanitizeForNewTask` 按标记判别残留（CS02）。
       this.loopState.messages.push({
         role: 'user',
-        content: renderFragment(createFragment({ kind: 'steering', text: sm })),
+        content: renderFragment(
+          createFragment({ kind: 'steering', text: entry.text })
+        ),
         [FRAGMENT_KIND_FIELD]: 'steering',
       } as Record<string, unknown>);
     }
     logger.info('reactToolLoop:steering_injected', {
       sessionId: this.ctx.session.id,
-      count: messages.length,
+      count: entries.length,
       toolTurn: this.loopState.toolTurnCount,
     });
+  }
+
+  /**
+   * §1.6：落一条 `context/steering`（"模型可见 ⇔ 已落盘"的持久化凭证）。
+   *
+   * `seq: 0` ⇒ 由 `EventLogStorage.append` 在 mutex 内原子分配（P3-7a 约定，与
+   * `_emitValidationInjected` 同款）。观测面能力缺失（单测替身未装配）⇒ **如实不落**
+   * （不伪造，CS04）；落盘失败**不阻断注入**（属观测面，CS03）。
+   */
+  private async _emitSteeringEvent(entry: SteeringEntry): Promise<void> {
+    const { appendStreamEvent } = this.ctx;
+    if (!appendStreamEvent) return;
+    const event: LiriEvent<'context/steering'> = {
+      type: 'context/steering',
+      schemaVersion: 1,
+      seq: 0,
+      time: Date.now(),
+      sessionId: this.ctx.session.id,
+      data: { text: entry.text, source: entry.source },
+    };
+    try {
+      await appendStreamEvent(this.ctx.session.id, event);
+    } catch {
+      // @ignore-catch — 事件落盘属观测面，失败不得中断 steering 注入（CS03）
+    }
   }
 
   /**

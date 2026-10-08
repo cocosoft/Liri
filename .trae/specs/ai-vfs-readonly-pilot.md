@@ -109,7 +109,7 @@
 
 1. **符号链接逃逸拒绝未单测**：驱动已实现 `realpath` 二次 containment（`DevDocsDriver.resolveHostPath`），但 Windows 建符号链接需特权 ⇒ 仅 `..`/`~`/反斜杠三类穿越有自动化用例。
 2. **entrypoint 装配无自动化测试**：`main.ts → vfsWiring.registerVfsMounts()` 仅真实启动路径生效；测试用独立 scheme 注册驱动。
-3. **`write_vfs` 未加入 `query/tool-constants.ts` 的写工具静态名单**：驱动侧已按 `checkWrite` 把关，且 `dev_docs` 写路径恒被 `VFS_READ_ONLY_MOUNT` 前置拦截 ⇒ **当前无实害**；后续引入可写挂载时必须补登该名单（否则 PathGuard 可能按"读"处理）。
+3. **✅ 已补齐（2026-10-08 续）**：`write_vfs` 已加入 `query/tool-constants.ts` 的 `WRITE_TOOL_NAMES`（**共享事实源** ⇒ 同批传导 `PathGuard` / `FileIOLoopDetector` / `promptSuggestion.Speculation` / `tools/orchestration.SERIALIZING_TOOLS`，语义均正确）。**同批修复守卫盲区**：`tests/tools/toolNameLists.test.ts` 的"真实注册名"扫描原只认**类字段** `name = '...'`，漏掉 `static create(): Tool { return { name: '...' } }` 一族（**含 VFS 4 工具与既有 `ReadProjectFileTool`**）⇒ 判据扩宽为 `name[:=]`（只增名 ⇒ ⊆ 检查更严，不放宽既有断言）。
 4. **端到端（真实模型调用 4 工具）未实测**：单测覆盖驱动/注册表/路径解析，未跑真实会话。
 5. **语义假设（契约未明示，按最贴近示例实现）**：① `dev_docs://配置与安全/sandbox.md` 的首段解析为 `authority`，驱动相对路径 = `authority + '/' + path`；② `read_vfs` 的 `offset`/`limit` 按**行**切片（与 `file_read` 同口径），截断 50KB（对齐 `ReadProjectFileTool`）。
 6. **`app/scripts/resolve-module-aliases.ts`**（Docker 别名展开表，无 script/CI 引用、且本就缺多个别名）**未同步** `@modules/vfs`。

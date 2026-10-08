@@ -83,8 +83,13 @@ function scanRegisteredToolNames(): Set<string> {
       }
       if (!entry.name.endsWith('.ts')) continue;
       const source = readFileSync(abs, 'utf-8');
+      // 2026-10-08（P2 VFS 试点暴露的**守卫盲区**）：原判据只认**类字段** `name = '...'`，
+      // 而 `static create(): Tool { return { name: 'xxx', … } }` 这一族工具（如
+      // `ReadProjectFileTool` / VFS 4 工具）用的是**对象字面量** `name: '...'` ⇒ 扫描器看不见，
+      // 于是"清单里写了这些工具名"会被误判为漂移名。现同时匹配 `:` 与 `=`（只增名 ⇒ ⊆ 检查更严，
+      // 不会放宽既有断言）。
       for (const m of source.matchAll(
-        /^\s*(?:override\s+)?name\s*=\s*'([a-z_]+)'/gm
+        /^\s*(?:override\s+)?name\s*[:=]\s*'([a-z_]+)'/gm
       )) {
         names.add(m[1]);
       }

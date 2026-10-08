@@ -74,6 +74,12 @@ const WRITE_TOOL_NAMES = [
   'file_write',
   'file_edit',
   'notebook',
+  // 2026-10-08（P2 VFS 试点补齐）：`write_vfs` 是**写类**工具（入参键 `path` ∈ `PATH_ARG_KEYS`）。
+  // 此前未登记 ⇒ `PathGuard` 会按**读**（`denyRead`）分级处理其路径入参 ⇒ 写拒绝规则不生效。
+  // 当前无实害（`dev_docs` 为只读挂载，写在驱动层即被 `VFS_READ_ONLY_MOUNT` 前置拒绝），
+  // 但**引入可写挂载后**必须正确 ⇒ 现补齐。同批传导到 `FileIOLoopDetector` /
+  // `promptSuggestion.Speculation` / `tools/orchestration.SERIALIZING_TOOLS`（语义均正确）。
+  'write_vfs',
 ] as const satisfies readonly ToolName[];
 export const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
 

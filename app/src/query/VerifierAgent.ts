@@ -508,6 +508,20 @@ export class VerifierAgent {
           checkPassRate !== null ? checkPassRate.toFixed(2) : 'N/A',
         totalChecks,
         passedChecks,
+        // 2026-10-08：契约排查用可观测性 —— 原字段下**无法区分**两种截然不同的原因：
+        //   ① 模型**没按形状输出** `checks`（⇒ `alignChecksToCriteria` 把每条验收项回填
+        //      `passed:false`）；② 输出了但 `item` 与骨架**文本对不上**（同被回填 false）。
+        // 两者都只表现为 `checkPassRate:0.00 / passedChecks:0`（历史 35/35 样本恒为 0）。
+        // 补 rawChecks 规模 + 预览 + 骨架条目数，即可一眼分辨。
+        criteriaCount: criteria?.items.length ?? 0,
+        rawChecksCount: rawChecks.length,
+        rawChecksPreview: JSON.stringify(rawChecks).slice(0, 300),
+        // 模型自述理由（REJECT 时最能定位"为何判不通过"）——取自 `parsed.feedback`
+        verdictFromModel: verdict,
+        feedbackPreview:
+          typeof parsed.feedback === 'string'
+            ? parsed.feedback.slice(0, 300)
+            : '',
       });
 
       return {

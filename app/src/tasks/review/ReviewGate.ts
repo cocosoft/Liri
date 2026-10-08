@@ -267,7 +267,19 @@ export class DefaultReviewGate implements ReviewGate {
               { role: 'user', content: reviewPrompt },
               { role: 'assistant', content: reviewText },
             ],
-            toolResults: [],
+            toolResults: [
+              // 2026-10-08（真机取证定位）：`VerifierAgent` 的提示词**只读 `input.toolResults`**
+              // （全文 0 处引用 `input.messages`，规范调用方 `TAORLoop` 正是把上轮工具结果填进
+              // `toolResults`）。此处原先恒传 `[]`，证据却放在 `messages` 里 ⇒ 验证器收到的是
+              // "(无工具调用)" ⇒ 叠加骨架规则"无法判定 ⇒ `passed:false`" ⇒ `checkPassRate` 恒 0
+              // ⇒ **恒 REJECT**（历史 35/35 样本 0 通过；模型自述"本轮不存在任何工具调用结果，
+              // 无法证明…"）。现把本步骤的**执行证据**（`step.result`，含助手文本与工具结果）投入。
+              {
+                toolName: 'step-execution',
+                toolCallId: step.id,
+                result: step.result ?? '(本步骤无执行输出)',
+              },
+            ],
             turnCount: 0,
             sessionId: ctx.taskId,
             // 13-P0-2（2026-10-05）：注入结构化验收标准 —— 验证器 checks[] 必须以该骨架为准

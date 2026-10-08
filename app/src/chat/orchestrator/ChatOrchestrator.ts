@@ -1156,6 +1156,16 @@ export class ChatOrchestrator {
         getOTelTracing().endSpan(sendSpan);
       }
 
+      // S29（2026-10-08，任务计划 §8-14）:**刻意不与流式对齐** —— 流式收尾
+      // （`ChatManager._finalizeStreamMessage`）会跑隐性引擎（`ImplicitEngineHook.persist`）
+      // 并按意图长任务升级 PDCA（`_maybeLaunchPdca`）；**非流式路径不跑**
+      // （实测：两处动作均仅经 `streamMessageFlow` 可达）。裁定 = **维持差异**，理由：
+      //  ① 非流式消费者含**工具型 LLM 调用**（如 `handleDecomposeProject` 的合成 session +
+      //     纯 JSON 期望）—— 在此自动建项目 + launch PDCA 是**明确错误**；
+      //     另有 A2A 委派（裸会话、一次性 ⇒ 升级门几乎不触发，且与"单次委派回一条"相悖）；
+      //  ② 主用户管线已全覆盖（client 走流式；渠道 2026-08-20 已并轨流式）。
+      // 触发条件（重开）：出现"非流式入口确需 PDCA 方法论接管"的**真实诉求**；
+      // 届时复用 `_maybeLaunchPdca`（含会话级 launch 锁 ⇒ 与流式并发亦不重复）。
       // 收尾：跨轮摘要 + memory 累计
       this.host.persistTurnSummary(session);
       this.host.memoryManager?.accumulate(

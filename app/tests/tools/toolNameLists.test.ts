@@ -56,7 +56,11 @@ import {
   OLLAMA_GUIDANCE,
 } from '../../src/ai/prompts/ModelGuidance';
 // 2026-10-08（LRTO 步骤"执行不了"事故）：角色/步骤工具名必须由任务类型经 TOOL_CATEGORIES 派生。
-import { getRealToolNamesForTask } from '../../src/tools/toolCategories';
+import {
+  ARCHIVED_MISC_TOOLS,
+  getRealToolNamesForTask,
+  getToolCategory,
+} from '../../src/tools/toolCategories';
 import { EXECUTOR_ROLE, PLANNER_ROLE } from '../../src/tasks/lro/contracts';
 
 /** 扫描 `src/tools/**` 里工具类的 `name = '...'` 声明（判据=真实代码） */
@@ -387,6 +391,72 @@ describe('角色/步骤工具清单守卫：必须派生自 TOOL_CATEGORIES', ()
     expect(executorPrompt).toContain('读回');
     // 规划约束：验收标准也必须可由专用工具核验（否则计划本身诱导 shell 取证据）
     expect(PLANNER_ROLE.systemPrompt).toContain('file_read');
+  });
+});
+
+/**
+ * **2026-10-08（用户要求"工具层面全面排查、确保 LLM 能随时按需调用"）**：
+ * 工具"注册了却看不到"的**唯一机制**是**漏登记类别** —— `getToolCategory` 未命中 ⇒ `'misc'`
+ * ⇒ `'misc'` 不在任何任务白名单 ⇒ 被 `filterToolsByTask` **静默裁剪** ⇒ 模型函数清单里没有它，
+ * 而 `tool_search` 只服务"延迟工具（MCP）"，**对被裁剪的内置工具无恢复作用** ⇒ 永久不可见。
+ *
+ * 历史三次现场：`sessions_yield`（N-44）、`office:doc-pipeline`（N-45）、`workflow:run-template`（P0-2）。
+ * 本守卫把"新增工具必须显式登记类别"变成**编译/CI 可失败**（此前全靠人工记得）。
+ */
+describe('工具可见性守卫：登记面全覆盖（N-44/N-45 防复发）', () => {
+  it('生效注册面（TOOL_NAMES）每个工具都必须有**显式**类别，归档项除外', () => {
+    const unregistered = TOOL_NAMES.filter(
+      (n) => getToolCategory(n) === 'misc' && !ARCHIVED_MISC_TOOLS.has(n)
+    );
+    expect(unregistered).toEqual([]);
+  });
+
+  it('落 misc 的**恰好**是显式归档集合（防止新工具被顺手扔进 misc 而静默消失）', () => {
+    const miscNow = TOOL_NAMES.filter((n) => getToolCategory(n) === 'misc');
+    expect([...miscNow].sort()).toEqual([...ARCHIVED_MISC_TOOLS].sort());
+  });
+
+  /**
+   * 运行期（模块/域）注册的工具**不在内置面内** ⇒ 上面的 TOOL_NAMES 遍历覆盖不到
+   * （这正是 N-45 漏检的结构性原因）。故对已知族**显式锁住**；未知族由
+   * `filterToolsByTask` 的"首次即 WARN"兜底（测试无法枚举运行期注册面）。
+   */
+  it('已知的"运行期注册"工具族必须保持显式登记（历史漏登记现场）', () => {
+    const mustBeRegistered = [
+      'office:workflow',
+      'office:doc-pipeline',
+      'workflow:run-template',
+      'calendar:add',
+      'calendar:list',
+      'calendar:update',
+      'calendar:delete',
+      'mail:send',
+      'knowledge_search',
+      'knowledge_write',
+      'knowledge_delete',
+    ];
+    for (const name of mustBeRegistered) {
+      expect({ name, category: getToolCategory(name) }).not.toEqual({
+        name,
+        category: 'misc',
+      });
+    }
+  });
+
+  it('冒号命名空间工具按 **wire 形态**同样可解析类别（N-45：裁剪读的是 wire 名）', () => {
+    for (const name of [
+      'office:workflow',
+      'office:doc-pipeline',
+      'workflow:run-template',
+      'calendar:add',
+      'mail:send',
+    ]) {
+      const wire = name.replace(/:/g, '_');
+      expect({ wire, category: getToolCategory(wire) }).toEqual({
+        wire,
+        category: getToolCategory(name),
+      });
+    }
   });
 });
 

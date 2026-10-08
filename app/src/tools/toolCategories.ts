@@ -15,6 +15,9 @@
  */
 
 import { toWireToolName } from './toolNameCodec';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('tools:categories');
 
 // ============================================================
 // Step 1: 工具类别定义
@@ -60,10 +63,15 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── shell 终端 ──
   bash: 'shell',
   powershell: 'shell',
+  // 2026-10-08（工具可见性全面排查，守卫实测抓出）：`tungsten`（TungstenTool，交互式终端会话管理，
+  // aliases 含 terminal/session）此前**完全未登记** ⇒ 落 misc ⇒ 一旦其条件启用即被静默裁剪。
+  tungsten: 'shell',
 
   // ── code 代码 ──
   lsp: 'code',
   create_project: 'code',
+  // 2026-10-08（同上）：`code_run`（CodeRunnerTool，多语言代码执行）此前未登记 ⇒ 同风险。
+  code_run: 'code',
 
   // ── search 搜索（含技能发现/加载：tool_search 同链） ──
   grep: 'search',
@@ -216,6 +224,28 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   browser: 'misc',
   computer_use: 'misc',
 };
+
+/**
+ * **有意归档**的工具（归类 `'misc'` ⇒ 不在任何任务白名单 ⇒ 对模型永久不可见）。
+ *
+ * 唯一事实源：`ARCHIVED_MISC_TOOLS`（守卫 `tests/tools/toolNameLists.test.ts` 据此断言
+ * "misc 集合 == 本集合"，防止新工具被顺手扔进 `misc` 而静默消失）。
+ * 新增到此集合必须有明确理由（如 `computer_use` 属高风险桌面自动化，暂不默认开放）。
+ */
+export const ARCHIVED_MISC_TOOLS: ReadonlySet<string> = new Set([
+  'browser',
+  'computer_use',
+]);
+
+/**
+ * 未登记告警去重集（运行期兜底）。
+ *
+ * 为什么需要：**测试只能枚举"内置面"（`TOOL_NAMES`）**，而 `office:*` / `calendar:*` /
+ * `knowledge_*` / `workflow:*` 等由**模块在运行期注册** ⇒ 测试看不见它们，漏登记**不会被 CI 发现**
+ * （历史三次现场：`sessions_yield`、`office:doc-pipeline`、`workflow:run-template`）。
+ * 故在裁剪点对"落 `misc` 且非归档"的工具**首次出现即 WARN**，让该缺陷当场可观测。
+ */
+const warnedUnregisteredTools = new Set<string>();
 
 /**
  * **wire 名 → 类别** 索引（N-45，2026-10-05）。
@@ -420,11 +450,28 @@ export function filterToolsByTask<
 ): T[] {
   const allowed = new Set(getTaskToolCategories(taskType));
   for (const c of extraCategories) allowed.add(c);
-  return toolDefinitions.filter((t) => {
+  /** 本次新发现（且非归档）的"未登记类别"工具 —— 用于首次告警（去重由 warnedUnregisteredTools 承担） */
+  const newlyUnregistered: string[] = [];
+  const kept = toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
     if (MANDATORY_TOOLS.has(toolName)) return true;
-    return allowed.has(getToolCategory(toolName));
+    const category = getToolCategory(toolName);
+    if (category === 'misc' && !ARCHIVED_MISC_TOOLS.has(toolName)) {
+      if (!warnedUnregisteredTools.has(toolName)) {
+        warnedUnregisteredTools.add(toolName);
+        newlyUnregistered.push(toolName);
+      }
+    }
+    return allowed.has(category);
   });
+  if (newlyUnregistered.length > 0) {
+    logger.warn(
+      '工具未登记类别 ⇒ 落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪（模型永远看不到）；' +
+        '请在 TOOL_CATEGORIES 显式登记（未登记的运行期工具只有此处可观测）',
+      { taskType: taskType ?? DEFAULT_TASK_KEY, tools: newlyUnregistered }
+    );
+  }
+  return kept;
 }
 
 /**

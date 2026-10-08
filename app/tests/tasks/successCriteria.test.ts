@@ -13,6 +13,7 @@ import {
   parseSuccessCriteria,
   renderCriteriaSkeleton,
   alignChecksToCriteria,
+  findUnprovableCriteria,
 } from '../../src/core/successCriteria.js';
 import { VerifierAgent } from '../../src/query/VerifierAgent.js';
 import type { VerificationInput } from '../../src/query/VerifierAgent.js';
@@ -43,6 +44,50 @@ describe('renderCriteriaSkeleton', () => {
     expect(text).toContain('c1. 甲');
     expect(text).toContain('c2. 乙');
     expect(text).toContain('禁止增删');
+  });
+});
+
+/**
+ * 2026-10-08（方案1 全面修复）：验收标准**可证性**黑名单守卫。
+ *
+ * 真机实测（轮 8）planner 会写出「UTF-8 无 BOM 且严格 6 字节」「必须调用 glob 精确匹配」
+ * 「可写性须显式写入测试」等**原理上无法证明**的条件 ⇒ 验证器骨架「无法判定 ⇒ false」⇒
+ * 该条恒 false ⇒ checkPassRate 偏低 ⇒ REJECT（长程任务不收敛）。
+ * 本守卫锁住：**明确不可证的措辞必被命中**，**可证的正例不得被误伤**（保守性）。
+ */
+describe('findUnprovableCriteria（可证性黑名单）', () => {
+  it('命中：字节级/编码级/校验和/元数据/可写性/前后对比/指定工具动作', () => {
+    const bad = [
+      '文件严格 6 字节且 UTF-8 无 BOM',
+      '内容的 sha256 等于 ...',
+      '文件无多余换行或空格',
+      '目录权限位为 755',
+      '目录可写性需显式写入测试证明',
+      '与执行前后对比无差异',
+      '必须调用 glob 以该路径精确匹配',
+    ];
+    for (const c of bad) {
+      expect({ c, hit: findUnprovableCriteria([c]).length }).toEqual({
+        c,
+        hit: 1,
+      });
+    }
+  });
+
+  it('不误伤：可证的正例一律放行（空数组 = 全部可证）', () => {
+    const good = [
+      'file_read 读取 C:\\tmp\\a.txt 返回内容等于 hello',
+      'glob 在 C:\\tmp 下能列出 a.txt',
+      'grep 在 a.txt 中命中文本 hello',
+      '文件 C:\\tmp\\a.txt 存在',
+      'bash 执行 dir 的输出包含 a.txt',
+    ];
+    expect(findUnprovableCriteria(good)).toEqual([]);
+  });
+
+  it('返回的是**原文条目**（供纠正提示词逐条回喂）', () => {
+    const items = ['正常条件', '文件严格 12 字节'];
+    expect(findUnprovableCriteria(items)).toEqual(['文件严格 12 字节']);
   });
 });
 

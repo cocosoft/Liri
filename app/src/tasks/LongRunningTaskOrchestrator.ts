@@ -68,7 +68,7 @@ import {
   readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
 import type { PdcaPhase } from '@modules/core';
-import { pdcaCheckpointStatus } from '@modules/core';
+import { pdcaCheckpointStatus, findUnprovableCriteria } from '@modules/core';
 import {
   globalToolManager,
   getToolRegistry,
@@ -659,6 +659,41 @@ ${replanSection}
         });
       }
 
+      // 2026-10-08（方案1 全面修复）：验收标准**可证性**机械校验。
+      // 提示词层已写明"必须可被工具输出直接证明"，但真机实测 planner 仍有波动（写出
+      // "严格 6 字节/无 BOM"、"必须调用 glob"、"可写性须显式写入测试" 等**原理上不可证**的条件）⇒
+      // 验证器骨架规定「无法判定 ⇒ passed:false」⇒ 该条恒 false ⇒ checkPassRate 偏低 ⇒ REJECT。
+      // 处置：命中则**用一条纠正指令重问 planner 一次**（只重写验收标准，步骤不变）；
+      // **绝不静默丢弃**条目——纠正后仍命中则原样保留并告警（可观测）。
+      const unprovable = findUnprovableCriteria(acceptance);
+      if (unprovable.length > 0) {
+        logger.warn(
+          '[orchestrator] 验收标准含"工具无法证明"条目，发起一次纠正',
+          {
+            taskId: this.taskId,
+            offending: unprovable.slice(0, 5),
+          }
+        );
+        const repaired = await this._repairAcceptanceCriteria(
+          description,
+          steps,
+          unprovable
+        );
+        if (repaired) acceptance = repaired;
+        const stillUnprovable = findUnprovableCriteria(acceptance);
+        if (stillUnprovable.length > 0) {
+          logger.warn(
+            '[orchestrator] 验收标准经一次纠正后仍含不可证条目（原样保留，不丢弃）',
+            { taskId: this.taskId, offending: stillUnprovable.slice(0, 5) }
+          );
+        } else {
+          logger.info('[orchestrator] 验收标准纠正成功（全部落在可证面内）', {
+            taskId: this.taskId,
+            count: acceptance.length,
+          });
+        }
+      }
+
       // 创建 Plan（workspaceId 从会话解析，用于项目编排面板隔离）
       const workspaceId = await taskOrchestrator.resolveWorkspaceId(sessionId);
       const plan = taskOrchestrator.createPlan(
@@ -805,6 +840,77 @@ ${replanSection}
       sessionId: this._sessionId,
       workspace: this.isolation.workspace,
     });
+  }
+
+  /**
+   * 验收标准**一次纠正**（2026-10-08，方案1 全面修复）：
+   * 要求 planner **只重写 `acceptanceCriteria`**（步骤描述与顺序不变、条数对齐），
+   * 使每条都落在"工具输出可直接证明"的范围内（正例/反例与 `UNPROVABLE_CRITERIA_PATTERNS` 同源）。
+   *
+   * 返回 `undefined` 表示纠正不可用（解析失败/条数不齐/调用异常）—— 调用方**保留原验收标准**
+   * （绝不因纠正失败而丢条件）。
+   */
+  private async _repairAcceptanceCriteria(
+    description: string,
+    steps: readonly string[],
+    offending: readonly string[]
+  ): Promise<string[] | undefined> {
+    const stepList = steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
+    const prompt = [
+      '你先前给出的验收标准中，下列条目**无法用工具输出证明**，请**只重写验收标准**（步骤描述与顺序保持不变）。',
+      '',
+      `任务描述: ${description}`,
+      '',
+      `步骤（共 ${steps.length} 步，顺序不变）:`,
+      stepList,
+      '',
+      '【不合格条目】',
+      ...offending.map((s) => `- ${s}`),
+      '',
+      '【硬性要求】每条验收标准执行完后，用**一次**工具调用的输出即可直接判定真假。',
+      '✅ 正例：`file_read 读取 <路径> 返回内容等于 <值>`；`glob 在 <目录> 下能列出 <文件名>`；',
+      '`grep 在 <文件> 中命中 <文本>`；`bash 执行 <只读命令> 的输出包含 <片段>`。',
+      '❌ 禁止：字节级/编码级（严格 N 字节、无 BOM、无多余换行/空格、校验和/哈希）；',
+      '指定"必须调用某具体工具"；需文件系统元数据（权限位/时间戳/磁盘空间）；"可写性（需显式写入测试）"；"执行前后对比"。',
+      '若某点无法被证明，改写成**可观察的近似条件**（如"内容等于 X"），不要叠加不可证修饰。',
+      '',
+      `只输出 JSON（不要其他内容），且必须恰好 ${steps.length} 条、与步骤一一对应：`,
+      '{"acceptanceCriteria": ["第1步的验收标准", "第2步的验收标准"]}',
+    ].join('\n');
+
+    try {
+      const text = normalizeExecutorResult(
+        await this.executor({
+          systemPrompt: PLANNER_ROLE.systemPrompt,
+          userPrompt: prompt,
+          tools: roleToolNames(PLANNER_ROLE),
+          taskType: PLANNER_ROLE.taskType,
+          isolation: this.isolation,
+        })
+      ).content;
+      const parsed = JSON.parse(text) as { acceptanceCriteria?: unknown };
+      const next = Array.isArray(parsed?.acceptanceCriteria)
+        ? parsed.acceptanceCriteria.map((s) => String(s))
+        : undefined;
+      if (!next || next.length !== steps.length) {
+        logger.warn(
+          '[orchestrator] 验收标准纠正结果不可用（条数不齐/解析失败）',
+          {
+            taskId: this.taskId,
+            expected: steps.length,
+            got: next?.length ?? -1,
+          }
+        );
+        return undefined;
+      }
+      return next;
+    } catch (e) {
+      await handleError(e, {
+        module: 'tasks:longRunning',
+        action: 'repairAcceptanceCriteria',
+      });
+      return undefined;
+    }
   }
 
   /**

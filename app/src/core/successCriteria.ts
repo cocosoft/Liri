@@ -82,6 +82,69 @@ export function renderCriteriaSkeleton(criteria: SuccessCriteria): string {
 }
 
 /**
+ * 验收标准的**"可证性"黑名单**（保守：只列**明确**超出工具证据面的措辞）。
+ *
+ * 每条附"为什么不可证"——便于错误信息与提示词正例/反例保持一致（单一事实源）。
+ *
+ * **2026-10-08（方案1 全面修复）**：真机实测（轮 8）planner 会写出
+ * 「UTF-8 无 BOM 且**严格 6 字节**」「**必须调用 glob** 精确匹配」「可写性须**显式写入测试**证明」等条件 ——
+ * 这些**在可用证据面下原理上无法证明**，而验证器骨架规定「无法判定 ⇒ `passed:false`」⇒
+ * 该条恒 false ⇒ `checkPassRate` 偏低 ⇒ REJECT ⇒ 长程任务不收敛。
+ * 处置在**标准侧**（不改判定口径、不静默丢弃）：命中则向 planner 发起一次纠正重写。
+ */
+export const UNPROVABLE_CRITERIA_PATTERNS: ReadonlyArray<{
+  re: RegExp;
+  why: string;
+}> = [
+  {
+    re: /严格\s*\d+\s*字节|exactly\s+\d+\s*bytes|\b\d+\s*bytes\b/i,
+    why: '字节级要求：工具输出是文本，无法证明字节数',
+  },
+  {
+    re: /\bBOM\b|字节序标记/,
+    why: '编码层要求（无 BOM 等）无法由文本输出证明',
+  },
+  {
+    re: /校验和|哈希值?|checksum|sha-?256|\bmd5\b/i,
+    why: '需校验和/哈希：工具不产出摘要',
+  },
+  {
+    re: /无(额外|多余)的?(换行|空格|字符)|不包含除[^，。;；]*之外(的)?(其他)?可见字符|末尾不得有/,
+    why: '尾部/额外字符级要求：读取结果无法区分"文件里没有"与"读取时被规范化"',
+  },
+  {
+    re: /权限位|文件权限|时间戳|磁盘(剩余)?空间|\binode\b/,
+    why: '需文件系统元数据：工具输出不含这些字段',
+  },
+  {
+    re: /(可写|可读)性?|写入测试/,
+    why: '可写/可读性需真正的写入测试，单次只读输出无法证明',
+  },
+  {
+    re: /(执行|运行)前后|前后(差异|变化)|对比前后/,
+    why: '需执行前后对比：单轮工具输出不构成对照',
+  },
+  {
+    re: /(必须|需要|要求)(调用|使用|执行)\s*(glob|grep|file_read|file_write|bash|powershell)/i,
+    why: '要求"某具体工具被调用"：验收应看**结果**可证，而非指定动作（动作可能被安全策略拦截）',
+  },
+];
+
+/**
+ * 找出**超出"工具输出可直接证明"范围**的验收标准条目（保守匹配，见上方黑名单）。
+ *
+ * 语义：返回命中的原文条目（便于提示词反馈与日志定位）；**空数组 = 全部可证**。
+ * 消费方（`executePlanPhase`）据此向 planner 发起一次纠正重写，**绝不静默丢弃**条目。
+ */
+export function findUnprovableCriteria(items: readonly string[]): string[] {
+  return items.filter((raw) => {
+    const text = String(raw ?? '');
+    if (!text.trim()) return false;
+    return UNPROVABLE_CRITERIA_PATTERNS.some(({ re }) => re.test(text));
+  });
+}
+
+/**
  * 把模型返回的 `checks[]` **对齐到验收标准骨架**。
  *
  * 对齐顺序：① `item` 精确同名 → ② 包含匹配（双向）→ ③ 仍无 ⇒ `passed:false`（**未判定 = 不复行**）。

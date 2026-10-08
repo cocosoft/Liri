@@ -89,6 +89,11 @@ import { BroadcastTool } from './BroadcastTool/BroadcastTool';
 import { CreateProjectTool } from './CreateProjectTool/CreateProjectTool';
 import { ReadProjectFileTool } from './ReadProjectFileTool/ReadProjectFileTool';
 import { WriteProjectFileTool } from './WriteProjectFileTool/WriteProjectFileTool';
+// AI-VFS 只读试点（2026-10-08）：4 个系统调用工具（read/list/stat/write_vfs）
+import { ReadVfsTool } from './ReadVfsTool/ReadVfsTool';
+import { ListVfsTool } from './ListVfsTool/ListVfsTool';
+import { StatVfsTool } from './StatVfsTool/StatVfsTool';
+import { WriteVfsTool } from './WriteVfsTool/WriteVfsTool';
 import { TraceRecordingTool } from './TraceRecordingTool/TraceRecordingTool.js';
 import {
   sendNotification,
@@ -1035,6 +1040,26 @@ export class ToolFactory {
   /** 创建 write_project_file 工具实例 */
   createWriteProjectFileTool(): Tool {
     return WriteProjectFileTool.create();
+  }
+
+  /** 创建 read_vfs 工具实例（AI-VFS 只读试点） */
+  createReadVfsTool(): Tool {
+    return ReadVfsTool.create();
+  }
+
+  /** 创建 list_vfs 工具实例（AI-VFS 只读试点） */
+  createListVfsTool(): Tool {
+    return ListVfsTool.create();
+  }
+
+  /** 创建 stat_vfs 工具实例（AI-VFS 只读试点） */
+  createStatVfsTool(): Tool {
+    return StatVfsTool.create();
+  }
+
+  /** 创建 write_vfs 工具实例（AI-VFS 只读试点；只读挂载 fail-closed 拒绝） */
+  createWriteVfsTool(): Tool {
+    return WriteVfsTool.create();
   }
 }
 

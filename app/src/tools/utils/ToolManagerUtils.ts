@@ -275,6 +275,14 @@ function buildBuiltinToolLoaders(
     createToolLoader(ToolFactory.prototype.createReadProjectFileTool),
     createToolLoader(ToolFactory.prototype.createWriteProjectFileTool),
 
+    // AI-VFS 系统调用工具（2026-10-08 只读试点）：命名空间 read/list/stat/write_vfs。
+    // ⚠️ 挂载点装配在 `entrypoints/vfsWiring.ts`（组合根）—— 未装配时工具会明确返回
+    // `VFS_UNKNOWN_MOUNT`，不回退本地文件系统（CS03）。
+    createToolLoader(ToolFactory.prototype.createReadVfsTool),
+    createToolLoader(ToolFactory.prototype.createListVfsTool),
+    createToolLoader(ToolFactory.prototype.createStatVfsTool),
+    createToolLoader(ToolFactory.prototype.createWriteVfsTool),
+
     // 通道/网关工具（2026-09-29 D-29 去重：删 `createGatewayTool` —— 它与
     // `createChannelManagerTool` **返回同一个 `new ChannelTool()`** ⇒ 同名 `channel` 注册两次）
     createToolLoader(ToolFactory.prototype.createChannelManagerTool),

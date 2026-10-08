@@ -86,6 +86,8 @@
       "@modules/featureflags/*": ["featureflags/*"],
       "@modules/sandbox": ["sandbox"],
       "@modules/sandbox/*": ["sandbox/*"],
+      "@modules/vfs": ["vfs"],
+      "@modules/vfs/*": ["vfs/*"],
       "@modules/services": ["services"],
       "@modules/services/*": ["services/*"],
       "@modules/analytics": ["analytics"],

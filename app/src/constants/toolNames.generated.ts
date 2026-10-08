@@ -41,6 +41,7 @@ export const TOOL_NAMES = [
   'image_svg_generate',
   'knowledge_save',
   'list_peers',
+  'list_vfs',
   'lsp',
   'mcp_resource',
   'mcp_tool',
@@ -50,6 +51,7 @@ export const TOOL_NAMES = [
   'plan',
   'powershell',
   'read_project_file',
+  'read_vfs',
   'repl',
   'save_conversation',
   'sessions',
@@ -60,6 +62,7 @@ export const TOOL_NAMES = [
   'sleep',
   'sleep_for',
   'sleep_until',
+  'stat_vfs',
   'task_stop',
   'todo_write',
   'tool_search',
@@ -73,10 +76,11 @@ export const TOOL_NAMES = [
   'web_fetch',
   'web_search',
   'write_project_file',
+  'write_vfs',
 ] as const;
 
 /** 内建工具名联合类型 —— 写出不存在 / 拼错的工具名 ⇒ `bun run typecheck` 报错 */
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 69;
+export const TOOL_NAMES_COUNT = 73;

@@ -1252,6 +1252,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
       registerSpis: async (container) => {
         const { registerAllSpis } = await import('./entrypoints/spiWiring');
         await registerAllSpis(container);
+        // AI-VFS 只读试点（2026-10-08）：组合根装配内置挂载点（`dev_docs://`）。
+        // 必须在任何工具执行前完成 ⇒ 与 SPI 装配同点（bootstrap，早于模块 ready）。
+        const { registerVfsMounts } = await import('./entrypoints/vfsWiring');
+        await registerVfsMounts();
       },
     });
 

@@ -54,11 +54,18 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   file_read: 'file_read',
   glob: 'file_read',
   read_project_file: 'file_read',
+  // 2026-10-08（AI-VFS 只读试点）：`read_vfs`/`list_vfs`/`stat_vfs` 为只读系统调用 ⇒ 归 file_read
+  // （⚠️ N-44/N-45：不登记即落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪）。
+  read_vfs: 'file_read',
+  list_vfs: 'file_read',
+  stat_vfs: 'file_read',
   // ── file 文件写入/转换 ──
   file_write: 'file',
   file_edit: 'file',
   file_convert: 'file',
   write_project_file: 'file',
+  // 2026-10-08（AI-VFS 只读试点）：`write_vfs` 为写类系统调用 ⇒ 归 file（与 file_write 同档）
+  write_vfs: 'file',
 
   // ── shell 终端 ──
   bash: 'shell',

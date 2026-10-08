@@ -30,15 +30,15 @@
 | 内核装配 / `init/main.c` + `do_initcalls` | `app/src/entrypoints/spiWiring.ts`（`registerAllSpis`，唯一注入点 `main.ts:1253`） | ✅ 已对齐（**文件头注释 stale**，见 §8-D3） |
 | 设备模型 / `driver_register()` | `app/src/tools/ToolRegistry.ts`（**唯一写入口** `getToolRegistry()`；`ToolManager` 构造 `options.registry \|\| getToolRegistry()` 共享单例）+ `ToolFactory` | 🟡 部分漂移（**1 处第二注册表**，见 §8-D1） |
 | 模块加载/卸载 / `module_init`+`module_exit` | 注册→**disposer**、注销 **LIFO 逆序**（`project_rules §1.16`，EffectScope 模式） | ✅ 已对齐 |
-| 系统调用表 / `sys_call_table` | 工具 wire 名表 `app/src/constants/toolNames.generated.ts`（**71** 条，编译期枚举） | ✅ 已对齐（形态不同：模型面而非用户面） |
+| 系统调用表 / `sys_call_table` | 工具 wire 名表 `app/src/constants/toolNames.generated.ts`（**73** 条，编译期枚举；2026-10-08：**71 → 69**（删 MCP 两假实现）→ **73**（VFS 4 工具）） | ✅ 已对齐（形态不同：模型面而非用户面） |
 | capability 检查 / `capable()` + LSM | `app/src/permission/PermissionManager.ts` → `app/src/chat/services/ToolExecutionService.ts:564-590`（`checkPermissionForTool` 裁决链）+ `app/src/query/PathGuard.ts`（路径门禁）+ `app/src/sandbox/landlock/*`（fail-closed） | ✅ 已对齐（**裁决点 fail-open 形态**待观察，见 §8-D4） |
 | LSM hooks | 同上 + `core/spi/HookChainService.ts` + hooks 体系 | ✅ 已对齐 |
 | cgroup / namespace **可见性隔离** | `app/src/tools/toolCategories.ts`：`TOOL_CATEGORIES`(:52) + `getToolCategory`(:288) + `getTaskToolCategories`(:429) + `filterToolsByTask`(:444) —— 按任务裁剪模型可见工具 | ✅ 已对齐 |
 | cgroup **资源限制** | **执行约束面** = `app/src/resourceGovernor/`（`ChatOrchestrator.ts:682` / `streamMessageFlow.ts:1215` acquire+release，**默认关** `FEATURE_RESOURCE_GOVERNOR`）；**观测面**（已裁定，**不接执行路径**）= `sandbox/ResourceLimitManager.ts` + `ProcessRegistry` | 🟡 **部分对齐**（执行约束仅 `resourceGovernor` 且默认关；`ResourceLimitManager` 定位为**观测面**，D5 裁定见 §8.4） |
 | 隔离（容器/命名空间） | **实际生效 = Landlock 路径门禁**（`tools/bash/bashLandlockExec.ts:466-485` + `tools/CodeRunner/LinuxSandboxRunner.ts:234-245`，**直接** `buildLandlockArgv`+`spawn`）；`sandbox/` 的 `IsolationManager`·`DockerSandbox`·`PTYSandbox`·`SSHSandbox`·`WorkspaceManager` **零外部消费者（未接线）**；`runWithLandlock` 为**死函数** | 🟡 **部分对齐 —— 仅 Landlock 生效**（**订正**：原标 ✅ 且以**不可达类**为证，属以死面充证据；见 §9） |
-| 驱动 ops / `struct file_operations` | **缺** —— 各工具各自实现 IO，无统一驱动契约 | ❌ **缺口** |
-| **VFS / `fs/`（虚拟文件系统层）** | **缺** —— `app/src` 全域 grep `VFS\|mountPoint` ⇒ **0 命中** | ❌ **缺口** |
-| 挂载命名空间 / mount point | **缺** | ❌ **缺口** |
+| 驱动 ops / `struct file_operations` | **部分**：试点已落 `IVfsDriver`（`app/src/vfs/types.ts`）+ `DevDocsDriver`（只读）；**仅 `dev_docs://`** 一个驱动 | 🟡 **部分**（其余工具仍各自实现 IO） |
+| **VFS / `fs/`（虚拟文件系统层）** | **部分**：最小命名空间（`parseVfsPath` 结构化解析）+ `VfsMountRegistry` + 4 系统调用工具已落地（**单挂载点**，零消费者迁移）；`.trae/specs/ai-vfs-readonly-pilot.md` | 🟡 **部分**（非完整 VFS） |
+| 挂载命名空间 / mount point | **部分**：`dev_docs://` 单一挂载点（装配于 `entrypoints/vfsWiring.ts`） | 🟡 **部分** |
 | `/proc` `/sys` 伪文件系统 | 部分对应：知识库（`app/docs/`）+ 状态面 —— **未统一到同一命名空间** | 🟡 未对齐 |
 
 > **重要**：上表是**类比口径**（用于命名与评审），非"必须照搬内核实现"。例如"工具 wire 名表 ≈ syscall 表"仅在"模型可调用的固定入口集合"这一语义上成立。
@@ -73,7 +73,7 @@
 |---|---|---|---|
 | **P0（本批）** | 固化治理目标 + 映射口径 + 缺口清单 | **已完成（本 spec）** | 本 spec + `ai-vfs-driver-contract.md v1.1` |
 | **P1** | 就绪度盘点：将 §2 映射逐项标注"已对齐/待对齐"，并检查是否有**绕过**既有落点的新增（漂移审计） | ✅ **已启动并完成（2026-10-08）** | 盘点报告 = 本 spec **§8**（含漂移 D1–D5） |
-| **P2** | VFS 命名空间 + 驱动 ops 落地 | `ai-vfs-driver-contract.md §5` 的 **T1/T2/T3 任一满足**。**⏳ 2026-10-08 触发条件评估：T1/T2/T3 均未触发**（无新数据源需求 / 无工具选择错误率实测 / 无用户自定义挂载产品需求）⇒ **维持待触发**（评估见该 spec **§10**） | VFS 实现 spec + 灰度 |
+| **P2** | VFS 命名空间 + 驱动 ops 落地 | `ai-vfs-driver-contract.md §5` 的 **T1/T2/T3 任一满足**。✅ **2026-10-08：用户裁定 T3 满足 ⇒ 只读试点已实施**（`dev_docs://` 驱动 + `VfsMountRegistry` + `read_vfs`/`list_vfs`/`stat_vfs`/`write_vfs`；工具面 **69 → 73**）。**完整 VFS 仍待后续**（`mcp://`/`channel://`/`file://` 与用户可配置挂载）。见 `.trae/specs/ai-vfs-readonly-pilot.md` | VFS 实现 spec + 灰度 |
 | **P3** | `/proc`-类伪文件系统对齐（状态面/知识库统一到命名空间） | P2 完成且出现实际需求 | 独立 spec |
 
 > **不设时间表**：按 `PY_APP.md`（不给时间预估）与 GR15（Spec 与代码同生命周期）执行。

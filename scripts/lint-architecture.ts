@@ -1307,6 +1307,8 @@ class ArchitectureLinter {
       // 2026-08-29 治理：modules/workspaces 是模块入口（calendar/workspace 模块公共 API 边界）
       'src\\modules\\',
       'src\\workspaces\\',
+      // 2026-10-08：vfs 为新增顶层模块（AI-VFS 只读试点）⇒ 其 index.ts 是模块公共 API 边界
+      'src\\vfs\\',
     ];
 
     for (const file of this.allFiles) {

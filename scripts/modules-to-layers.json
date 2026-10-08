@@ -53,6 +53,7 @@
     "knowledge":{ "layer": "app", "description": "知识库" },
     "governance": { "layer": "app", "description": "治理模块" },
     "sandbox":  { "layer": "app", "description": "沙箱执行" },
+    "vfs":      { "layer": "app", "description": "AI-VFS（虚拟文件系统）：命名空间挂载点 + 驱动契约 + 4 系统调用工具（read/list/stat/write_vfs）。2026-10-08 新增（`.trae/specs/ai-vfs-readonly-pilot.md`）。归 app：驱动底座复用 `core/paths`（core）+ `query/PathGuard`（app），工具面落 `tools`（app）⇒ 出向全为 app/core，合法。" },
     "scripts":  { "layer": "entry", "description": "内部可执行脚本（7 个 `#!/usr/bin/env bun` 直跑工具：batch-test{,-v2,-v3,-all}/fix-bind/plugify/security-scan）。2026-10-02 **D-225 由 app 改归 entry** —— 实测其**零消费者**（`@modules/scripts` 与相对路径导入全仓皆无），且 `batch-test*.ts` 直接 import `entrypoints/{init,repl}` ⇒ 原归 app 时构成 3 条 `app -> entry` 倒挂（BULK-015 全量来源）。这些脚本**本身即独立入口程序**（shebang + `bun run src/scripts/x.ts`，见 package.json 的 `security-scan`/`plugify`）⇒ 归 entry 语义正确（与 `entrypoints` 同层；entry 可依赖一切 ⇒ 出向一律合法）。同 D-120(`modules`)/D-164(`appState`)/D-217(`compaction`) 手法（层再分类，非放宽门禁）。" },
     "plugin-sdk": { "layer": "app", "description": "插件 SDK" },
     "plugins":  { "layer": "app", "description": "插件系统" },

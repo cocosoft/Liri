@@ -84,6 +84,7 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   image_svg_generate: LOCAL,
   knowledge_save: LOCAL,
   list_peers: NONE,
+  list_vfs: NONE,
   lsp: LOCAL,
   mcp_resource: NONE,
   mcp_tool: EXTERNAL,
@@ -93,6 +94,7 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   plan: LOCAL,
   powershell: EXTERNAL,
   read_project_file: NONE,
+  read_vfs: NONE,
   repl: LOCAL,
   save_conversation: LOCAL,
   sessions: LOCAL,
@@ -103,6 +105,7 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   sleep: NONE,
   sleep_for: NONE,
   sleep_until: NONE,
+  stat_vfs: NONE,
   task_stop: LOCAL,
   todo_write: LOCAL,
   tool_search: NONE,
@@ -116,6 +119,7 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   web_fetch: NONE,
   web_search: NONE,
   write_project_file: LOCAL,
+  write_vfs: LOCAL,
 };
 
 /** 取工具效果声明；未声明（MCP / 插件等外部工具）⇒ `undefined` */

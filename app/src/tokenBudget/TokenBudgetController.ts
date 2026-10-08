@@ -37,6 +37,8 @@ import {
   createContextStatsCollector,
   type ContextStatsCollector,
 } from './ContextStatsCollector';
+// 台账 S17 根因修复（2026-10-08）：阈值常量改从**叶子模块**引入（成因与验证见 `./thresholds` 头部）。
+import { UNIFIED_THRESHOLDS } from './thresholds';
 import type {
   APIProviderType,
   TokenUsageDetail,
@@ -52,13 +54,10 @@ export type TokenEstimatorFn = (text: string) => number;
 const logger = getLogger('tokenBudget:controller');
 
 // === Phase 1a: 统一阈值常量 — 所有方法共享 ===
-export const UNIFIED_THRESHOLDS = {
-  COMPACT_LIGHT: 0.5, // 50% → getCompressionLevel 1
-  COMPACT_MEDIUM: 0.7, // 70% → getCompressionLevel 2
-  WARNING: 0.75, // 75% → getCurrentBudgetState isWarning
-  COMPACT_DEEP: 0.85, // 85% → getCurrentBudgetState isCritical / getCompressionLevel 3
-  CRITICAL: 0.92, // 92% → checkBudget CRITICAL
-} as const;
+// 台账 S17 根因修复（2026-10-08）：常量实现已抽到**叶子模块** `./thresholds`（零出向依赖），
+// 以打断 `tokenBudget` 的循环初始化（`UnifiedTokenTracker` 顶层求值曾触发 TDZ ⇒ 单跑相关测试必失败）。
+// 本处**原样再导出** ⇒ 既有消费者（含 `@modules/tokenBudget/TokenBudgetController` 引用面）零改动。
+export { UNIFIED_THRESHOLDS };
 
 /** Phase 2.9: 统一 TokenBudgetStatus 枚举 */
 export enum TokenBudgetStatus {

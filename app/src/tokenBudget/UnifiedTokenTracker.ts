@@ -22,9 +22,13 @@ import { getLogger } from '../core/loggerFacade.js';
 import { handleError } from '../core/errorHandler.js';
 import {
   TokenBudgetController,
-  UNIFIED_THRESHOLDS,
   type TokenEstimatorFn,
 } from './TokenBudgetController';
+// 台账 S17 根因修复（2026-10-08）：阈值常量改从**叶子模块**直引 —— 此前引 `./TokenBudgetController`
+// 且在本文件**模块顶层**求值（`MODEL_THRESHOLD_PRESETS`）⇒ 命中 tokenBudget 循环初始化 TDZ
+// （单跑 `tests/tokenBudget/budgetPolicy.test.ts` / `tests/tools/AgentTool/summaryBudgetRegression.test.ts` 必报
+// `Cannot access 'UNIFIED_THRESHOLDS' before initialization`）。
+import { UNIFIED_THRESHOLDS } from './thresholds';
 import { getCalibrationFactor } from './CalibrationStore';
 // FSZ-162（2026-09-23）：校准与统计逻辑抽至 `./tokenCalibration`（状态仍由本类持有）
 import {

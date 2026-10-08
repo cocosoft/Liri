@@ -143,4 +143,47 @@ describe("resolveModelInputSnapshot", () => {
     expect(r?.toolsCount).toBe(2);
     expect(r?.toolsSchemas).toEqual(TOOLS);
   });
+
+  // 台账 S21（spec §7）：写端每轮可能写**两条**事件（工具在装配点 / 提示词在
+  // getOrAssembleSystemPrompt，时机不同）⇒ 读端须**逐单元**取"最近一次含该单元"的事件。
+  // 旧实现只取最后一条并在其内解析 ⇒ 本例会**丢掉工具**（单面板只呈现其一）。
+  test("逐单元独立还原：工具与分段拆成两条 ⇒ 两者同时呈现（旧实现丢工具）", () => {
+    const events = [
+      modelInput(1, {
+        tools: { hash: "h1", count: 2, schemas: TOOLS },
+        mode: "conversation",
+        tokens: { stable: 10, dynamic: 2 },
+      }),
+      modelInput(2, {
+        sections: [{ name: "identity", hash: "a1", content: "AAA" }],
+      }),
+    ];
+    const r = resolveModelInputSnapshot(events);
+    // 工具单元：回溯到 seq=1（最后一条 seq=2 不含工具）
+    expect(r?.toolsCount).toBe(2);
+    expect(r?.toolsHash).toBe("h1");
+    expect(r?.toolsSchemas).toEqual(TOOLS);
+    // 提示词单元：取 seq=2
+    expect(r?.sections.map((s) => s.name)).toEqual(["identity"]);
+    expect(r?.sections[0].content).toBe("AAA");
+    // 轮级元数据同样按单元回溯（仅 seq=1 携带）
+    expect(r?.mode).toBe("conversation");
+    expect(r?.tokens).toEqual({ stable: 10, dynamic: 2 });
+  });
+
+  test("无任何工具单元（仅 sections）⇒ 工具字段全 undefined（不臆造）", () => {
+    const events = [
+      modelInput(1, {
+        sections: [{ name: "identity", hash: "a1", content: "AAA" }],
+      }),
+    ];
+    const r = resolveModelInputSnapshot(events);
+    expect(r?.toolsCount).toBeUndefined();
+    expect(r?.toolsHash).toBeUndefined();
+    expect(r?.toolsSchemas).toBeUndefined();
+    expect(r?.toolsRefSeq).toBeUndefined();
+    expect(r?.mode).toBeUndefined();
+    expect(r?.tokens).toBeUndefined();
+    expect(r?.sections[0].content).toBe("AAA");
+  });
 });

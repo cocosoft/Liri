@@ -194,7 +194,7 @@ record(sessionId: string, input: {
 
 **实现与本文的差异（诚实记录）**：
 
-- **每轮可能产生 2 条 `context/model-input` 事件**：工具清单在装配点、系统提示词在 `getOrAssembleSystemPrompt`，两者时机不同 ⇒ 各自调用一次 `record`（载荷字段均可选，符合 §3.1 契约）。读端取"最近一次含该单元的事件"（工具 / 提示词各自独立还原）；**轮次级严格对齐不做**（价值低、成本高）。⚠️ **订正（2026-10-04 实测）**：实现**并非**如此 —— `resolveModelInputSnapshot` 只取**最后一条** `context/model-input` 并在**其内**解析（不回溯"含该单元"的更早事件），故单面板每轮**只呈现其一**；详见 §5"实测边界"与台账 R-2。
+- **每轮可能产生 2 条 `context/model-input` 事件**：工具清单在装配点、系统提示词在 `getOrAssembleSystemPrompt`，两者时机不同 ⇒ 各自调用一次 `record`（载荷字段均可选，符合 §3.1 契约）。读端取"最近一次含该单元的事件"（工具 / 提示词各自独立还原）；**轮次级严格对齐不做**（价值低、成本高）。⚠️ **订正（2026-10-04 实测）**：实现**并非**如此 —— `resolveModelInputSnapshot` 只取**最后一条** `context/model-input` 并在**其内**解析（不回溯"含该单元"的更早事件），故单面板每轮**只呈现其一**；详见 §5"实测边界"与台账 R-2。✅ **已对齐（2026-10-08，台账 S21）**：`resolveModelInputSnapshot` 已改为**逐单元回溯**（工具 / 提示词 / 轮级元数据 `mode`·`tokens` **各自**取"最近一次含该单元"的事件，再按 `refSeq`/`toolsRefSeq` **一跳**还原）；新增 2 例单测钉住该契约，其中「工具与分段拆成两条 ⇒ 两者同时呈现」一例在旧实现下**必失败**（`expected undefined to be 2` ⇒ 因果可证）。
 - **`hashContent` 经门面导出**：安全模块禁止子路径导入（eslint `no-restricted-imports`）⇒ 在 `security/index.ts` 补 `export { hashContent }`（该门面已导出同类 services，符合既有模式）。
 - **引用索引只登记"含全量"的事件** ⇒ 读端 `refSeq` **一跳**即可取回，无需链式回溯（写端 `_ensureIndex` 与 `record` 均遵循此不变量）。
 - **`context/model-input` 的归类无需改动**：`categorizeEvent` 按 `context/` 前缀映射为 `context` 类（`CATEGORY_TO_SOURCE.context = "system"`），前端筛选/来源自动覆盖。

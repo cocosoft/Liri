@@ -64,32 +64,53 @@ function payloadOf(
 }
 
 /**
- * 解析"最近一次模型输入快照"（取最后一个 `context/model-input` 事件并还原引用）。
+ * 解析"模型输入快照" —— **逐单元独立还原**（spec §7）。
+ *
+ * 写端（`RequestSnapshotService`）**每轮可能写两条** `context/model-input`：工具清单在装配点、
+ * 系统提示词在 `getOrAssembleSystemPrompt`（时机不同）⇒ 本函数对**每个单元各自回溯**到
+ * "**最近一次含该单元**的事件"（工具 / 提示词互不覆盖），而**不是**只解析最后一条
+ * （台账 S21：旧实现只取最后一条 ⇒ **单面板每轮只呈现其一**）。
+ * 注：**轮次级严格对齐不做**（spec §7 明示：价值低、成本高）—— 本函数按"窗口内最近一次含该单元"取，
+ * 不按 turn 边界切分；调用方仍传**全窗口**事件。
  *
  * @param events 当前已加载事件（窗口内）
- * @returns 无该类型事件时返回 `null`
+ * @returns 窗口内无该类型事件时返回 `null`
  */
 export function resolveModelInputSnapshot(
   events: LiriEvent[],
 ): ResolvedModelInput | null {
-  let latest: LiriEvent | undefined;
-  for (const e of events) {
-    if (e.type === "context/model-input") latest = e;
-  }
-  const data = payloadOf(latest);
-  if (!latest || !data) return null;
+  const snapshots = events
+    .filter((e) => e.type === "context/model-input")
+    .sort((a, b) => a.seq - b.seq);
+  if (snapshots.length === 0) return null;
 
   const bySeq = new Map<number, LiriEvent>();
   for (const e of events) bySeq.set(e.seq, e);
 
-  // 工具清单：一跳解析（写端只把"含全量"的事件登记进索引）
-  let toolsSchemas = data.tools?.schemas;
-  if (!toolsSchemas && data.toolsRefSeq !== undefined) {
-    toolsSchemas = payloadOf(bySeq.get(data.toolsRefSeq))?.tools?.schemas;
+  /** 从最近往前找**第一个含该单元**的快照（逐单元独立还原） */
+  const lastWith = (
+    has: (d: ModelInputPayload) => boolean,
+  ): ModelInputPayload | undefined => {
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+      const d = payloadOf(snapshots[i]);
+      if (d && has(d)) return d;
+    }
+    return undefined;
+  };
+
+  // 工具清单：① 取"最近一次含工具信息"的事件（`tools` 或 `toolsRefSeq`）
+  const toolsData = lastWith(
+    (d) => d.tools !== undefined || d.toolsRefSeq !== undefined,
+  );
+  // ② 与本事件同源，或由 `toolsRefSeq` 一跳取回（写端只把"含全量"的事件登记进索引）
+  let toolsSchemas = toolsData?.tools?.schemas;
+  if (!toolsSchemas && toolsData?.toolsRefSeq !== undefined) {
+    toolsSchemas = payloadOf(bySeq.get(toolsData.toolsRefSeq))?.tools?.schemas;
   }
 
-  // 系统提示词：逐段一跳解析
-  const sections: ModelInputSection[] = (data.sections ?? []).map(
+  // 系统提示词：② 取"最近一次含 sections"的事件，再**逐段**一跳解析
+  const sectionsData = lastWith((d) => (d.sections?.length ?? 0) > 0);
+  const sections: ModelInputSection[] = (sectionsData?.sections ?? []).map(
     (s: SectionUnit) => {
       if (typeof s.content === "string") {
         return { name: s.name, hash: s.hash, content: s.content };
@@ -107,13 +128,19 @@ export function resolveModelInputSnapshot(
     },
   );
 
+  // 轮级元数据（mode/tokens）：同样按"最近一次含该单元"取，避免拆成两条时丢失
+  const metaData = lastWith(
+    (d) => d.mode !== undefined || d.tokens !== undefined,
+  );
+  const latestData = payloadOf(snapshots[snapshots.length - 1]);
+
   return {
-    toolsCount: data.tools?.count,
-    toolsHash: data.tools?.hash,
+    toolsCount: toolsData?.tools?.count,
+    toolsHash: toolsData?.tools?.hash,
     toolsSchemas,
-    toolsRefSeq: data.toolsRefSeq,
+    toolsRefSeq: toolsData?.toolsRefSeq,
     sections,
-    mode: data.mode,
-    tokens: data.tokens,
+    mode: metaData?.mode ?? latestData?.mode,
+    tokens: metaData?.tokens ?? latestData?.tokens,
   };
 }

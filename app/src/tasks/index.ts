@@ -173,9 +173,8 @@ export type {
   TaskQueue,
 } from './types';
 
-// 导出审计、维护、状态服务
+// 导出审计、状态服务
 export { TaskAuditService } from './TaskAuditService';
-export { TaskMaintenanceService } from './TaskMaintenanceService';
 export { TaskStatusService } from './TaskStatusService';
 export type { SnapshotOptions, TaskStatusSnapshot } from './types';
 

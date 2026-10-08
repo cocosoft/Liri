@@ -20,7 +20,7 @@ export interface SkillUsageRecord {
 /**
  * 策展操作类型
  */
-export type CuratorAction = 'pin' | 'archive' | 'consolidate' | 'patch';
+export type CuratorAction = 'pin' | 'archive' | 'consolidate';
 
 /**
  * 技能策展状态

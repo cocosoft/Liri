@@ -56,7 +56,7 @@ app/src/
 │
 ├── skills/                 技能系统
 │   ├── SkillManager.ts     技能生命周期管理
-│   ├── SkillCurator.ts     7 天间隔策展
+│   ├── SkillCurator.ts     策展状态（pin/archive/consolidate）
 │   ├── SkillHub.ts         集中式技能仓库
 │   └── SkillConditionMatcher.ts YAML front matter 条件匹配
 │

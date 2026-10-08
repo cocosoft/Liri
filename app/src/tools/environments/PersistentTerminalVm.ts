@@ -1,5 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { execSync } from 'child_process';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

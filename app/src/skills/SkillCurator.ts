@@ -17,7 +17,7 @@ const logger = getLogger('skills:SkillCurator');
 /**
  * 策展操作类型
  */
-export type CuratorAction = 'pin' | 'archive' | 'consolidate' | 'patch';
+export type CuratorAction = 'pin' | 'archive' | 'consolidate';
 
 /**
  * 技能策展状态
@@ -65,7 +65,6 @@ export const DEFAULT_CURATOR_CONFIG: CuratorConfig = {
 export class SkillCurator {
   private states: Map<string, SkillCurationState> = new Map();
   private config: CuratorConfig;
-  private scheduleTimer: ReturnType<typeof setInterval> | null = null;
   private skillDB: SkillDB | null;
   private dbInitialized = false;
 
@@ -245,20 +244,6 @@ export class SkillCurator {
   }
 
   /**
-   * 打补丁（更新技能定义但不改变核心逻辑）
-   * @param skillName 技能名称
-   * @param patchDetails 补丁详情
-   */
-  patch(skillName: string, patchDetails: string): void {
-    const state = this.getOrCreateState(skillName);
-
-    state.patchedAt = Date.now();
-    state.lastCuratedAt = Date.now();
-    this.recordAction(skillName, 'patch', patchDetails);
-    this.persistToDB(skillName);
-  }
-
-  /**
    * 获取技能的策展状态
    * @param skillName 技能名称
    * @returns 策展状态
@@ -291,39 +276,6 @@ export class SkillCurator {
    */
   isArchived(skillName: string): boolean {
     return this.getOrCreateState(skillName).archived;
-  }
-
-  /**
-   * 检查是否到了策展调度时间
-   * @param skillName 技能名称
-   * @returns 是否应该执行策展
-   */
-  shouldCurate(skillName: string): boolean {
-    const state = this.getOrCreateState(skillName);
-
-    if (!state.lastCuratedAt) {
-      return true;
-    }
-
-    const elapsed = Date.now() - state.lastCuratedAt;
-
-    return elapsed >= this.config.scheduleIntervalMs;
-  }
-
-  /**
-   * 获取需要策展的技能列表
-   * @returns 需要策展的技能名称列表
-   */
-  getDueForCuration(): string[] {
-    const due: string[] = [];
-
-    for (const [name] of this.states) {
-      if (this.shouldCurate(name)) {
-        due.push(name);
-      }
-    }
-
-    return due;
   }
 
   /**
@@ -361,40 +313,6 @@ export class SkillCurator {
     const state = this.getOrCreateState(skillName);
 
     return [...state.curationHistory];
-  }
-
-  /**
-   * 启动调度定时器
-   */
-  startScheduler(): void {
-    if (this.scheduleTimer) {
-      return;
-    }
-
-    this.scheduleTimer = setInterval(
-      () => {
-        const due = this.getDueForCuration();
-
-        for (const skillName of due) {
-          const state = this.getOrCreateState(skillName);
-
-          if (this.config.autoConsolidate && !state.pinned && !state.archived) {
-            state.lastCuratedAt = Date.now();
-          }
-        }
-      },
-      Math.min(this.config.scheduleIntervalMs, 3600000)
-    );
-  }
-
-  /**
-   * 停止调度定时器
-   */
-  stopScheduler(): void {
-    if (this.scheduleTimer) {
-      clearInterval(this.scheduleTimer);
-      this.scheduleTimer = null;
-    }
   }
 
   /**
@@ -444,9 +362,5 @@ export function getSkillCurator(
  * 重置全局策展器
  */
 export function resetSkillCurator(): void {
-  if (globalCurator) {
-    globalCurator.stopScheduler();
-  }
-
   globalCurator = null;
 }

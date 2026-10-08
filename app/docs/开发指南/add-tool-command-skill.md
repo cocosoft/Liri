@@ -80,4 +80,4 @@ require_env: MY_API_KEY
 ---
 ```
 
-`SkillConditionMatcher.ts` 自动匹配，`SkillCurator.ts` 每 7 天自动策展（pin/archive/consolidate/patch）。
+`SkillConditionMatcher.ts` 自动匹配，`SkillCurator.ts` 维护策展状态（pin/archive/consolidate）。

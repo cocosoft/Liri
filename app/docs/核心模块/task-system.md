@@ -15,7 +15,6 @@ TaskRegistry（注册表中心）
   ├── HeartbeatManager（心跳保活）
   ├── TaskAuditService（审计服务）
   ├── TaskReconciliationService（一致性核对）
-  ├── TaskMaintenanceService（维护清理）
   └── ITaskStore（持久化存储层）
       ├── JsonTaskStore（JSON 文件存储）
       └── SqliteTaskStore（SQLite 存储）

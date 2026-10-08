@@ -213,7 +213,9 @@
 1. **不用 `enum`**：模板目录是**运行期 CRUD**，静态 `enum` 承载不了 ⇒ `template` 为自由字符串，**未知 id 时返回当前可用清单**（动态目录的正确做法）。这正是 (b) 选项在 `office:workflow` 上不可行的同一原因，此处以设计规避。
 2. **不复制权限策略**：执行转给 seam（`WorkflowEngine.execute('template:<id>')`）⇒ 复用 Provider 的 ③ 预检（**同一收口**，CS01）；越界模板在执行前被整体拒绝，工具把该 error 原样透出。
 3. **⚠️ 必须登记 `TOOL_CATEGORIES`**（N-44/N-45 陷阱）：出站按 **wire 安全名**（`workflow:run-template` → `workflow_run-template`）裁剪工具集；未登记类别 ⇒ 落 `misc` ⇒ **不在任何任务白名单** ⇒ **模型永远看不到该工具**（N-45 现场）。已登记为 `assist`（与 `plan`/`clipboard`/`canvas` 同口径 = "任何对话都可能用到"）⇒ 在 `chat`/`default` 任务下可见；**wire 形态由 `WIRE_KEYED_CATEGORIES` 自动派生**（无需另填）。
-   - **边界（如实）**：`assist` 类目**不在 `coding`/`agent` 等任务白名单** ⇒ 那些任务类型下本工具**仍会被裁剪**（与 `plan`/`clipboard`/`canvas` 现状一致）。若要在那些任务下可见，属**另行放宽类别口径**的决策（会影响同类的 plan/clipboard/canvas）。
+   - ~~**边界（如实）**：`assist` 类目**不在 `coding`/`agent` 等任务白名单** ⇒ 那些任务类型下本工具**仍会被裁剪**（与 `plan`/`clipboard`/`canvas` 现状一致）。~~
+     ⇒ **✅ 2026-10-08 用户裁定已放宽**：`TASK_TOOL_CATEGORIES.coding` / `.agent` **补入 `assist`** ⇒ 本工具在 `chat`/`default`/**`coding`/`agent`** 均可见。
+     **如实记录的副作用**：类别级放宽 ⇒ 同类 **`plan` / `clipboard` / `canvas` 也一并**在这两类任务下可见（已由测试锁定）。
 4. **`isReadOnly: () => false`**：不冒充只读 —— 避免影响既有只读清单与审批口径（与 `office:workflow` 一致）。
 5. **注册方式 = 运行期注册**（同 `office:*` 由所属域注册），**非** `ToolFactory` 内建 ⇒ 不进 `toolNames.generated.ts`（其门禁只比对 `getAllBuiltinToolLoaders()` 派生清单）。
 6. **内建模板的语义订正（2026-10-08 续三）**：`/run` 与工具对 `builtin:*` **不再返回"not found"**，改为**准确原因** ——

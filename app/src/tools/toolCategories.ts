@@ -326,6 +326,10 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'task',
     'system',
     'mcp',
+    // 2026-10-08（用户裁定）：补 'assist' —— 用户工作流模板工具 `workflow:run-template`
+    // 在**编码/代理**任务下同样适用（模板多为开发/运维流程），此前只在 chat/default 可见。
+    // ⚠️ 副作用（如实）：同类的 plan / clipboard / canvas 也随之在这些任务下可见。
+    'assist',
   ],
   // 自主代理：编码全集 + 代理 + 会话 + MCP
   agent: [
@@ -341,6 +345,8 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'session',
     'system',
     'mcp',
+    // 2026-10-08（用户裁定）：同 coding（见上）。
+    'assist',
   ],
   // 定时任务：任务管理 + 通知 + 系统
   scheduled: ['task', 'notify', 'system'],

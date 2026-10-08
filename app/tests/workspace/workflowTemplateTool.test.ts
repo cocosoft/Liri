@@ -5,7 +5,8 @@
  *
  * 锁四类：
  *  1. **可见性（N-44/N-45 回归锁）**：类别登记为 `assist`，且**wire 形态**（出站裁剪读的名字）
- *     同样解析到 `assist` ⇒ 在 `chat` / `default` 任务下**不被裁剪**（否则模型永远看不到）；
+ *     同样解析到 `assist` ⇒ 在 `chat` / `default` / **`coding` / `agent`** 任务下**不被裁剪**
+ *     （否则模型永远看不到；后两者为 2026-10-08 用户裁定放宽）；
  *  2. `list` / `run` 两动作的基本语义（含"未知 id ⇒ 回列可用清单"的动态目录处理）；
  *  3. `run` 的参数透传与结果归一（成功 / 未完成 / 抛异常）；
  *  4. 参数缺项与非法动作 ⇒ 明确 FAILURE（不静默）。
@@ -85,7 +86,7 @@ function makeTool(overrides: Partial<WorkflowTemplateToolDeps> = {}) {
 }
 
 describe('workflow:run-template · 模型可见性（N-44/N-45 回归锁）', () => {
-  it('真名与 **wire 形态**均解析为 assist；在 chat / default 下不被裁剪', () => {
+  it('真名与 **wire 形态**均解析为 assist；在 chat / default / coding / agent 下不被裁剪', () => {
     expect(getToolCategory(WORKFLOW_TEMPLATE_TOOL_NAME)).toBe('assist');
 
     const wire = toWireToolName(WORKFLOW_TEMPLATE_TOOL_NAME);
@@ -96,11 +97,20 @@ describe('workflow:run-template · 模型可见性（N-44/N-45 回归锁）', ()
       { type: 'function' as const, function: { name: wire } },
       { type: 'function' as const, function: { name: 'bash' } },
     ];
-    for (const taskType of ['chat', 'default', undefined]) {
+    for (const taskType of ['chat', 'default', 'coding', 'agent', undefined]) {
       const kept = filterToolsByTask(defs, taskType).map(
         (t) => t.function.name
       );
       expect(kept).toContain(wire);
+    }
+  });
+
+  it('`assist` 放宽到 coding / agent（2026-10-08）：plan 亦随该类别可见', () => {
+    // 如实记录副作用：类别级放宽 ⇒ 同类的 plan / clipboard / canvas 一并可见。
+    const defs = [{ name: 'plan' }, { name: 'bash' }];
+    for (const taskType of ['coding', 'agent']) {
+      const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
+      expect(kept).toContain('plan');
     }
   });
 });

@@ -655,17 +655,29 @@ function ChatInspector() {
   );
 
   // 小屏 (<1024px) 自动收起
+  //
+  // ⚠️ S28（2026-10-08）根因修复：原依赖数组为 `[isOpen, setOpen]` 且在 effect 体内直接
+  // 调 `handleResize()` ⇒ **每次 `isOpen` 变化都立刻按当前宽度重判一次** ⇒ 小屏下
+  // 「展开即被回设收起」，CollapsedBar 点击 / `Ctrl+1~4` / ``Ctrl+` `` 全部失效
+  // ⇒「模式」等 Tab 在该宽度下**永不可达**。
+  // 现改为：仅在**挂载**与**窗口 resize** 时判定（不把 `isOpen` 放进依赖）⇒ 小屏**默认**收起，
+  // 但**允许用户手动展开**（1024 是"自动收起线"，**非硬锁**）。
+  // 注：放宽阈值（如改 768）**不能**修此缺陷 —— 任意阈值下，只要 `isOpen` 进依赖，展开后仍被立刻回设。
   useEffect(() => {
     const BREAKPOINT = 1024;
     function handleResize() {
-      if (window.innerWidth < BREAKPOINT && isOpen) {
+      // 读 store 现值（不订阅）⇒ 无需把 isOpen 放进依赖，且避免重复 setOpen/persist
+      if (
+        window.innerWidth < BREAKPOINT &&
+        useChatInspectorStore.getState().isOpen
+      ) {
         setOpen(false);
       }
     }
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [isOpen, setOpen]);
+  }, [setOpen]);
 
   // Ctrl+1~4 切换 Tab, Ctrl+` 切换展开/收起
   useEffect(() => {

@@ -23,7 +23,11 @@ import {
 } from '@modules/error';
 
 const logger = getLogger('tools:mcpResource');
-import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
+// 2026-10-08（MCP 双轨收敛 C-1）：本工具的 4 个操作由**自研 `MCPServerManager` 链**
+// 改走**已连接的 SDK `Client`** —— 与 `mcp__*` 主路径（`MCPToolBridge`/`McpToolWrapper`）**同一条链**。
+// 取客户端统一走 `mcpConnectionManager.getSdkClient()`（单一入口，见该方法注释）。
+import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { MCPResourceOutputSchema } from './schemas';
 
 /**
@@ -268,27 +272,10 @@ export class MCPResourceTool extends BaseTool<
     }
 
     try {
-      const mcpManager = getMCPServerManager();
-
       switch (input.action) {
         case 'list_resources': {
           if (input.server_name) {
-            // 列出指定服务器的资源
-            const server = mcpManager.getServer(input.server_name);
-            if (!server) {
-              return createToolResult(
-                {
-                  success: false,
-                  message: `MCP server not found: ${input.server_name}`,
-                },
-                {
-                  success: false,
-                  error: `MCP server not found: ${input.server_name}`,
-                }
-              );
-            }
-
-            // 通过服务器连接获取资源列表
+            // 列出指定服务器的资源（未连接 ⇒ `listResourcesFromServer` 如实抛错）
             const resources = await this.listResourcesFromServer(
               input.server_name
             );
@@ -304,7 +291,7 @@ export class MCPResourceTool extends BaseTool<
           } else {
             // 列出所有服务器的资源
             const allResources: unknown[] = [];
-            const servers = mcpManager.listServers();
+            const servers = this.connectedServerNames();
 
             for (const serverName of servers) {
               try {
@@ -379,7 +366,7 @@ export class MCPResourceTool extends BaseTool<
             });
           } else {
             const allPrompts: unknown[] = [];
-            const servers = mcpManager.listServers();
+            const servers = this.connectedServerNames();
 
             for (const serverName of servers) {
               try {
@@ -467,180 +454,93 @@ export class MCPResourceTool extends BaseTool<
   }
 
   /**
-   * 从服务器列出资源。
+   * 取该服务器**已连接的 SDK `Client`**；未连接 ⇒ 抛出**如实**错误（CS03：不静默降级）。
    *
-   * 2026-10-08 修复（复核"协议用法疑点"）：原发 `type: 'list_tools'`（注释还把它论证成
-   * "MCP协议中 resources/list 与 tools/list 类似"），再去读 `response.result.resources` ——
-   * 但 `tools/list` 的响应里**没有 resources 字段**（见 `MCPResponse`：只有 `tools?` / `result?`）
-   * ⇒ **恒返回 `[]`**（功能静默不可用，无任何机制察觉）。
-   * 仓内另一实现 `mcp/client/MCPClient.ts:221-224` 用的是 `type: 'list_resources'` —— 本文件
-   * 与它**不一致**；现统一为该类型（`MCPRequest` 联合中本就含 `'list_resources'`）。
-   * 同时删去原 `catch { return [] }` 的**静默吞错**（CS03）：失败如实向上抛。
+   * 单一入口 = `mcpConnectionManager.getSdkClient()`（本仓"取 SDK 客户端"的**唯一判据处**，
+   * 见其注释：只有 `clientCache` 中 `type === 'connected'` 的条目才有 SDK Client）。
+   */
+  private requireSdkClient(serverName: string): Client {
+    const client = mcpConnectionManager.getSdkClient(serverName);
+    if (!client) {
+      throw new AppError(
+        `MCP server not connected: ${serverName}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MCP_SERVER_NOT_CONNECTED'
+      );
+    }
+    return client;
+  }
+
+  /** 已连接（SDK）的服务器名 —— "列出全部"分支用（不硬编码某一条链的注册表） */
+  private connectedServerNames(): string[] {
+    const names = mcpConnectionManager
+      .getServers()
+      .filter((s) => s.type === 'connected')
+      .map((s) => s.name);
+    return [...new Set(names)];
+  }
+
+  /**
+   * 从服务器列出资源（**SDK 标准方法 `listResources()`**）。
+   *
+   * 2026-10-08 两轮修复：① 原先发 `type:'list_tools'` 却去读 `result.resources`
+   * （`tools/list` 响应**没有**该字段）⇒ **恒返回 `[]`**，且注释把它论证成"resources/list 与
+   * tools/list 类似"（错误论断）；② C-1 收敛后**不再手写协议请求** —— 改走 SDK 顶层方法，
+   * 由官方库保证协议形状（自研链的 `MCPRequest` 联合**缺** `read_resource`/`get_prompt`，
+   * 且 transport 不做 `type → JSON-RPC method` 映射 ⇒ 在那条链上天生只能"绕"）。
    */
   private async listResourcesFromServer(
     serverName: string
   ): Promise<unknown[]> {
-    const server = getMCPServerManager().getServer(serverName);
-
-    if (!server) {
-      throw new AppError(
-        `Server not found: ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1005'
-      );
-    }
-
-    const response = await server.sendRequest({
-      id: `list-resources-${Date.now()}`,
-      type: 'list_resources',
-    });
-
-    if (response.type === 'error') {
-      throw new AppError(
-        response.error?.message || `Failed to list resources on ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    const result = (response.result ?? {}) as { resources?: unknown[] };
-    return result.resources || [];
+    const { resources } =
+      await this.requireSdkClient(serverName).listResources();
+    return resources as unknown[];
   }
 
   /**
-   * 读取资源
+   * 读取资源（**SDK 标准方法 `readResource()`**）。
+   *
+   * 2026-10-08（C-1）：原把协议方法 `resources/read` 当作 `tool_name` 发 `type:'call'`
+   * —— 自研链的 `MCPRequest` 联合**没有** `read_resource` 类型，在那条链上只能这样"绕"；
+   * SDK 侧有标准方法（`client/index.d.ts:387`）。
    */
   private async readResource(
     serverName: string,
     uri: string
   ): Promise<unknown> {
-    const mcpManager = getMCPServerManager();
-    const server = mcpManager.getServer(serverName);
-
-    if (!server) {
-      throw new AppError(
-        `Server not found: ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1005'
-      );
-    }
-
-    // 通过transport发送resources/read请求
-    try {
-      const response = await server.sendRequest({
-        id: `read-resource-${Date.now()}`,
-        type: 'call',
-        tool_name: 'resources/read',
-        args: { uri },
-      });
-
-      if (response.type === 'error') {
-        throw new AppError(
-          response.error?.message || 'Failed to read resource',
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
-
-      return response.result;
-    } catch (error: unknown) {
-      throw new AppError(
-        `Failed to read resource ${uri}: ${error instanceof Error ? error.message : String(error)}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
+    return await this.requireSdkClient(serverName).readResource({ uri });
   }
 
   /**
-   * 从服务器列出提示。
+   * 从服务器列出提示（**SDK 标准方法 `listPrompts()`**）。
    *
-   * 2026-10-08 修复（同 `listResourcesFromServer`）：原把协议方法 `prompts/list` 当作
-   * `tool_name` 发 `type: 'call'`，而 `MCPRequest` 联合中**本就有** `'list_prompts'`
-   * （`mcp/client/MCPClient.ts:261-264` 即如此）⇒ 现改用该类型。
-   * 同时删去原 `catch { return [] }` 的**静默吞错**（CS03）。
+   * 2026-10-08 两轮修复：① 原把协议方法 `prompts/list` 当作 `tool_name` 发 `type:'call'`；
+   * ② C-1 收敛后改走 SDK 顶层方法，不再手写协议请求。同时保持"不静默吞错"（CS03）。
    */
   private async listPromptsFromServer(serverName: string): Promise<unknown[]> {
-    const server = getMCPServerManager().getServer(serverName);
-
-    if (!server) {
-      throw new AppError(
-        `Server not found: ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1005'
-      );
-    }
-
-    const response = await server.sendRequest({
-      id: `list-prompts-${Date.now()}`,
-      type: 'list_prompts',
-    });
-
-    if (response.type === 'error') {
-      throw new AppError(
-        response.error?.message || `Failed to list prompts on ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    const result = (response.result ?? {}) as { prompts?: unknown[] };
-    return result.prompts || [];
+    const { prompts } = await this.requireSdkClient(serverName).listPrompts();
+    return prompts as unknown[];
   }
 
   /**
-   * 获取提示
+   * 获取提示（**SDK 标准方法 `getPrompt()`**）。
+   *
+   * 2026-10-08（C-1）：原把协议方法 `prompts/get` 当作 `tool_name` 发 `type:'call'`
+   * （自研链 `MCPRequest` 联合**没有** `get_prompt` 类型）⇒ 现改走 SDK 标准方法。
    */
   private async getPrompt(
     serverName: string,
     promptName: string,
     args?: Record<string, unknown>
   ): Promise<unknown> {
-    const mcpManager = getMCPServerManager();
-    const server = mcpManager.getServer(serverName);
-
-    if (!server) {
-      throw new AppError(
-        `Server not found: ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1005'
-      );
-    }
-
-    try {
-      const response = await server.sendRequest({
-        id: `get-prompt-${Date.now()}`,
-        type: 'call',
-        tool_name: 'prompts/get',
-        args: { name: promptName, arguments: args },
-      });
-
-      if (response.type === 'error') {
-        throw new AppError(
-          response.error?.message || 'Failed to get prompt',
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
-
-      return response.result;
-    } catch (error: unknown) {
-      throw new AppError(
-        `Failed to get prompt ${promptName}: ${error instanceof Error ? error.message : String(error)}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
+    return await this.requireSdkClient(serverName).getPrompt({
+      name: promptName,
+      // SDK 声明 prompt 参数为 `Record<string, string>`（协议层即字符串）；本工具入参是
+      // `Record<string, unknown>`（模型可传任意 JSON）⇒ 此处为**类型层对齐**，**运行期不改写**
+      // 任何值（不把数字/布尔静默转字符串 —— 由服务器按协议自行校验）。
+      arguments: args as Record<string, string> | undefined,
+    });
   }
 
   /**

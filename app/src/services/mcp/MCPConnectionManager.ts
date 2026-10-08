@@ -29,6 +29,8 @@ import type {
 import type { McpCommand } from './commandManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getMCPServerManager } from './MCPServerManager';
+// 2026-10-08（MCP 双轨收敛 C-1）：SDK 客户端取用的**单一入口**返回类型
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -381,6 +383,22 @@ export class MCPConnectionManager {
     }
 
     return result;
+  }
+
+  /**
+   * 取该服务器**已连接的 SDK `Client`**（2026-10-08，MCP 双轨收敛 C-1）。
+   *
+   * 为什么要这个入口：此前"取 SDK 客户端"的逻辑在 3 处各写一遍
+   * （`MCPToolBridge` 的 wrapper getter、工具实现…），且都写成 `(server as any).client`
+   * —— **裸 cast 掩盖了"该条目不一定是 SDK 连接"这一事实**（`getServer()` 的
+   * `MCPServerManager` 后备项**不含 `.client`**，见本方法上方的注释）。
+   * 本方法把判据收敛为**一处**：只有 `clientCache` 里 `type === 'connected'` 的条目才有 SDK Client
+   * —— 其余（failed / pending / needs-auth / 后备桩）一律返回 `undefined`，由调用方**显式处理**。
+   */
+  getSdkClient(serverName: string): Client | undefined {
+    const cached = this.clientCache.get(serverName);
+    if (!cached || cached.type !== 'connected') return undefined;
+    return (cached as ConnectedMCPServer).client as unknown as Client;
   }
 
   /**

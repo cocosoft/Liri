@@ -9,8 +9,12 @@ import type {
   ToolResult,
 } from '@modules/utils/toolContract';
 import { createToolResult } from '@modules/utils/toolContract';
-import { MCPServerConfig, MCPToolDefinition } from './types';
+import { MCPServerConfig } from './types';
 import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
+// 2026-10-08（MCP 双轨收敛 C-1）：`list_tools` / `call` 两个**IO 动作**改走**已连接的 SDK `Client`**
+// —— 与 `mcp__*` 主路径同一条链；`list_servers` / `connect` 两个**状态动作**仍用 `MCPServerManager`
+// （它们操作的是自研链的连接对象，属 C-3 范围，本轮不动）。
+import { mcpConnectionManager } from '../services/mcp/MCPConnectionManager.js';
 // 2026-10-01 B18-c：**删除** `import { toolScopeManager } from '../tool/ToolScopeManager'` ——
 // 它构成 `mcp(service) -> tool(app)` 倒挂。改在唯一使用点（async `execute()` 内）**动态导入**。
 import { configManager } from '@modules/config';
@@ -278,7 +282,7 @@ export const MCPTool: Tool = {
             error: 'Failed to create MCP server connection',
           });
 
-        case 'list_tools':
+        case 'list_tools': {
           if (!server_name) {
             return createToolResult(null, {
               success: false,
@@ -286,31 +290,32 @@ export const MCPTool: Tool = {
             });
           }
 
-          const server = mcpManager.getServer(server_name);
-
-          if (!server) {
+          // C-1：改走 SDK（原 `mcpManager.getServer(...).refreshTools()` 走自研链）
+          const sdk = mcpConnectionManager.getSdkClient(server_name);
+          if (!sdk) {
             return createToolResult(null, {
               success: false,
-              error: `MCP server not found: ${server_name}`,
+              error: `MCP server not connected: ${server_name}`,
             });
           }
 
-          const tools = await server.refreshTools();
+          const { tools } = await sdk.listTools();
 
           return createToolResult(
             {
-              tools: tools.map((t: MCPToolDefinition) => ({
+              tools: tools.map((t) => ({
                 name: t.name,
                 description: t.description,
               })),
             },
             {
               success: true,
-              output: `Available tools from ${server_name}:\n${tools.map((t: MCPToolDefinition) => `- ${t.name}: ${t.description}`).join('\n')}`,
+              output: `Available tools from ${server_name}:\n${tools.map((t) => `- ${t.name}: ${t.description ?? ''}`).join('\n')}`,
             }
           );
+        }
 
-        case 'call':
+        case 'call': {
           if (!server_name || !tool_name) {
             return createToolResult(null, {
               success: false,
@@ -318,24 +323,34 @@ export const MCPTool: Tool = {
             });
           }
 
-          const targetServer = mcpManager.getServer(server_name);
-
-          if (!targetServer) {
+          // C-1：改走 SDK（原 `mcpManager.getServer(...).callTool()` 走自研链）
+          const sdk = mcpConnectionManager.getSdkClient(server_name);
+          if (!sdk) {
             return createToolResult(null, {
               success: false,
-              error: `MCP server not found: ${server_name}`,
+              error: `MCP server not connected: ${server_name}`,
             });
           }
 
-          const result = await targetServer.callTool(
-            tool_name,
-            tool_args || {}
-          );
-
-          return createToolResult(result, {
-            success: true,
-            output: `Tool result:\n${JSON.stringify(result, null, 2)}`,
+          const result = await sdk.callTool({
+            name: tool_name,
+            arguments: tool_args || {},
           });
+
+          // SDK 结果自带 `isError` ⇒ 如实承载到 ToolResult（失败信息进 `error` 供前端展示）
+          return createToolResult(
+            result,
+            result.isError
+              ? {
+                  success: false,
+                  error: `MCP tool "${tool_name}" reported an error: ${JSON.stringify(result.content ?? result)}`,
+                }
+              : {
+                  success: true,
+                  output: `Tool result:\n${JSON.stringify(result.content ?? result, null, 2)}`,
+                }
+          );
+        }
 
         default:
           return createToolResult(null, {

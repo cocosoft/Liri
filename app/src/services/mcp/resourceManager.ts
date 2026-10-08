@@ -250,13 +250,14 @@ export class ResourceManager {
     serverName: string
   ): Promise<ServerResource[]> {
     try {
-      const resources = await (client as any).resources.list();
-      const serverResources: ServerResource[] = (resources as any[]).map(
-        (resource: any) => ({
-          ...resource,
-          server: serverName,
-        })
-      );
+      // 2026-10-08（C-1 连带）：原为 `(client as any).resources.list()` —— SDK ^1.29.0 的 `Client`
+      // **没有 `.resources` 子对象**（只有顶层 `listResources()`）⇒ 恒抛且被下方 catch 吞成 `[]`
+      // （资源集合静默为空）。改用 SDK 顶层方法。
+      const { resources } = await client.listResources();
+      const serverResources: ServerResource[] = resources.map((resource) => ({
+        ...resource,
+        server: serverName,
+      }));
 
       this.resources.set(serverName, serverResources);
       logger.info(

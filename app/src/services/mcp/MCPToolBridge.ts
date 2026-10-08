@@ -123,17 +123,14 @@ export class MCPToolBridge {
       return () => {};
     }
 
-    const client = (server as any).client;
+    // 2026-10-08（C-1）：原此处有一行 `const client = (server as any).client;` 但**从未被使用**
+    // （wrapper 的 getter 自己再查一次）⇒ 删除；取 SDK 客户端统一走 `getSdkClient()` 单一入口。
     const names: string[] = [];
 
     for (const toolData of serializedTools) {
-      const wrapper = new McpToolWrapper(serverName, toolData, () => {
-        const srv = mcpConnectionManager.getServer(serverName);
-        if (srv && srv.type === 'connected') {
-          return (srv as any).client;
-        }
-        return undefined;
-      });
+      const wrapper = new McpToolWrapper(serverName, toolData, () =>
+        mcpConnectionManager.getSdkClient(serverName)
+      );
 
       names.push(wrapper.name);
       this.registeredMcpTools.set(wrapper.name, wrapper);

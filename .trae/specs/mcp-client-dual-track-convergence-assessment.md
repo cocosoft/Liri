@@ -1,6 +1,6 @@
 # Spec：MCP 客户端双轨收敛评估（assessment）
 
-> 版本 1.0 ｜ 创建 2026-10-08 ｜ 状态：📋 **评估中 —— 待用户裁定方案（本 spec 不含实施）**
+> 版本 1.1 ｜ 创建 2026-10-08 ｜ 状态：🟡 **部分实施 —— C-1 已落地（2026-10-08）；C-2 / C-3 待裁定**
 > 来源：2026-10-08 治理遍历副产物 —— 复核 `mcp_resource` 协议用法时发现（详见台账「MCP 资源面协议用法复核与修复」节）
 > 上游规则：`project_rules §1.11`（MCP 模块架构：标准层 `services/mcp/` / 增强层 `mcp/` **不重复实现** 相同类型）· GR01（基础设施复用）· GR15（Spec-Driven）· CS01（归一化）· CS03（回退最小化）
 > 口径（CS06）：下列 file:line 均 **2026-10-08 静态实测**；**凡未经运行验证者一律标注"未实测"**，不写成结论。
@@ -101,9 +101,9 @@ modules/ModuleDefinitions.ts:435        mcpSystem.initialize(toolPort)        �
 
 | 步 | 内容 | 独立价值 |
 |---|---|---|
-| **C-1** | `mcp_tool`（`mcp/MCPTool.ts`）与 `mcp_resource`（`tools/MCPResourceTool`）改走 `mcpConnectionManager.getServer(name).client`：`callTool` / `listResources` / `readResource` / `listPrompts` / `getPrompt` | 消除 §2.3 的 R1/R2 双轨；**顺带解决**上轮遗留的 `read_resource`/`get_prompt` 无标准类型问题（SDK 有 `readResource:387`/`getPrompt:207`） |
-| **C-2** | `mcp/managers/MCPManager` 的资源/命令方法同步改 C1（或整体降级为薄门面） | 让增强层回归"引用标准层"（`§1.11`） |
-| **C-3** | `MCPConnectionManager.initialize` **不再** `addServer + connectAll`；`MCPServerManager` 保留 `getServerInfos`/统计等**投影**能力（数据源改为 C1 的连接与工具缓存）；删 C3（零消费者） | 消除 §2.2 的双连接 |
+| **C-1** ✅ **已实施（2026-10-08）** | `mcp_tool` 的 `list_tools`/`call` 与 `mcp_resource` 的 `list_resources`/`read_resource`/`list_prompts`/`get_prompt` 改走 `mcpConnectionManager.getSdkClient(name)` → SDK `Client` 顶层方法（`listTools`/`callTool`/`listResources`/`readResource`/`listPrompts`/`getPrompt`）。**`mcp_tool` 的 `list_servers`/`connect` 两个状态动作不动**（依赖自研链的 `addServer`，属 C-3）。另**连带订正 SDK 链既有错误调用**（见 §8） | 消除 §2.3 的 R1/R2 双轨；**顺带解决**上轮遗留的 `read_resource`/`get_prompt` 无标准类型问题 |
+| **C-2** ⏳ 待裁定 | `mcp/managers/MCPManager` 的资源/命令方法同步改 C1（或整体降级为薄门面） | 让增强层回归"引用标准层"（`§1.11`） |
+| **C-3** ⏳ 待裁定 | `MCPConnectionManager.initialize` **不再** `addServer + connectAll`；`MCPServerManager` 保留 `getServerInfos`/统计等**投影**能力（数据源改为 C1 的连接与工具缓存）；删 C3（零消费者） | 消除 §2.2 的双连接 |
 
 - 改动面：C-1 ≈ 2 文件；C-2 ≈ 1–2 文件；C-3 ≈ 3–4 文件。
 - 风险：**中**。C-1/C-2 低风险（两个工具当前在自定义链上**功能可疑**，改到标准 API 是净改进）；C-3 需先确认 `MCPServerManager` 的统计/健康检查**有无外部消费者**（CLI / 命令 / 市场页）。
@@ -138,3 +138,56 @@ modules/ModuleDefinitions.ts:435        mcpSystem.initialize(toolPort)        �
 | CS03 回退最小化 | §5 明确"不启动的条件"，不硬上 | ✅ |
 | CS06 证据驱动 | §2 全 file:line；§6 如实列出未实测项**不写成结论** | ✅ |
 | `§1.11` MCP 模块架构 | §3 指出两处偏离（含增强层自建客户端 C3） | ✅ |
+
+---
+
+## 8. C-1 执行记录（2026-10-08）
+
+### 8.1 实施中发现并**必须同批修复**的前置缺陷
+
+C-1 的初稿是"把两个工具改走 SDK `.client`"。取证时发现：**SDK 链自身的调用形态也是错的** ——
+`Client` 被当成"有 `.tools` / `.prompts` / `.resources` 子对象"来用，但**已装**
+`@modelcontextprotocol/sdk@^1.29.0` 的 `Client` **只有顶层方法**
+（`.d.ts:207,292,322,387,431,539`；编译产物 `index.js:464,467,476,490,565`）。
+
+⇒ 那些调用**每次都抛 `TypeError`**，又都被上层 `catch` 吞成 `[]` / `success:false` ⇒ **静默降级**：
+
+| 现场 | 影响 |
+|---|---|
+| `services/mcp/client.ts:32`（原 `.tools.list()`） | `fetchToolsForClient` 恒返 `[]` ⇒ **MCP 工具注册不上**（模型看不到 `mcp__*`） |
+| `services/mcp/client.ts:57`（原 `.prompts.list()`） | MCP 命令恒空 |
+| `services/mcp/client.ts:85`（原 `.resources.list()`） | 资源面恒空 |
+| `services/mcp/McpToolWrapper.ts:103`（原 `mcpClient.tools.call()`） | **`mcp__*` 工具每次调用必失败** |
+| `services/mcp/commandManager.ts:38`（原 `.prompts.list()`）· `:47`（原 `.prompts.execute()`） | 命令加载/执行恒失败（`execute` 亦非 SDK 方法，正解 `getPrompt`） |
+| `services/mcp/resourceManager.ts:253`（原 `.resources.list()`） | 资源集合恒空 |
+
+⇒ **若只搬两个工具而不修这些，等于从一条坏链搬到另一条坏链** ⇒ 本批**同批订正**（6 处）。
+
+### 8.2 改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `services/mcp/MCPConnectionManager.ts` | **新增 `getSdkClient(serverName): Client \| undefined`** —— "取 SDK 客户端"的**单一入口**（判据只有一处：`clientCache` 中 `type === 'connected'`）。此前该判据在 3 处各写一遍且用裸 cast（`(server as any).client`），掩盖了"后备项不含 `.client`"的事实 |
+| `services/mcp/client.ts` | 3 处 `(client as any).tools/prompts/resources.list()` → `listTools()` / `listPrompts()` / `listResources()` |
+| `services/mcp/McpToolWrapper.ts` | `.tools.call({...})` → `callTool({name, arguments})` |
+| `services/mcp/commandManager.ts` | `.prompts.list()` → `listPrompts()`；`.prompts.execute()` → `getPrompt()` |
+| `services/mcp/resourceManager.ts` | `.resources.list()` → `listResources()` |
+| `services/mcp/MCPToolBridge.ts` | 删**未使用**的 `const client = (server as any).client;`；wrapper 的 client getter 改走 `getSdkClient()` |
+| `mcp/MCPTool.ts` | `list_tools` → `sdk.listTools()`；`call` → `sdk.callTool()`（并把 SDK 的 `isError` **如实**承载到 `ToolResult.error`）。`list_servers`/`connect` 不动 |
+| `tools/MCPResourceTool/MCPResourceTool.ts` | 4 个操作改走 SDK；新增私有 `requireSdkClient()`（未连接**如实抛错**，CS03）+ `connectedServerNames()`；"列出全部"不再读自研链注册表 |
+| `tests/mcp/sdkClientApiShape.test.ts` | **新增防回流守卫**（扫源码禁止"把 SDK 客户端当子对象"）—— 守卫落地**当即又抓出 2 处**同类真违规（`commandManager.ts` / `resourceManager.ts`），即 §8.1 后两行 |
+
+### 8.3 门禁
+
+`typecheck`（app）**0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
+全量 **4563 pass / 9 skip / 0 fail**（较基线 +2 = 新守卫 2 例）
+
+### 8.4 ⚠️ 仍未验证（如实边界，CS06）
+
+- **端到端仍未实测**：本环境无真实 MCP server ⇒ **"改后 MCP 工具/资源/命令是否真能工作"未验证**。
+  本轮做到的是：**调用形态与 SDK 1.29 的真实 API 对齐**（依据是**已装包的 .d.ts 与编译产物**，
+  非推测）+ **类型层与源码层双守卫**。
+- **C-2 / C-3 未动**；同服务器**双连接**（§2.2）**依然存在** —— C-1 只消除了"模型两条路走两个连接"，
+  未消除 `initialize` 里的 `addServer + connectAll`。
+- 建议下一步：若有可用的 MCP server，做一次**端到端实测**（`tools/list` / `resources/list` / `prompts/list`）
+  验证 C-1 的真实效果，再决定 C-2/C-3。

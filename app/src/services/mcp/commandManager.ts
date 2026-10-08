@@ -35,19 +35,24 @@ export class CommandManager {
     serverName: string
   ): Promise<McpCommand[]> {
     try {
-      const prompts = await (client as any).prompts.list();
+      // 2026-10-08（C-1 连带）：原为 `(client as any).prompts.list()` —— SDK ^1.29.0 的 `Client`
+      // **没有 `.prompts` 子对象**（只有顶层 `listPrompts()`）⇒ 恒抛且被下方 catch 吞成 `[]`
+      // （MCP 命令静默加载不到）。改用 SDK 顶层方法。
+      const { prompts } = await client.listPrompts();
       const commands: McpCommand[] = [];
 
       for (const prompt of prompts) {
         const command: McpCommand = {
           name: `${serverName}:${prompt.name}`,
-          description: prompt.description,
+          // SDK 的 `description` 可选，而 `McpCommand.description` 必填 ⇒ 缺省补空串
+          description: prompt.description ?? '',
           execute: async (args: any) => {
             try {
-              const result = await (client as any).prompts.execute(
-                prompt.name,
-                args
-              );
+              // 同族订正：SDK 无 `.prompts.execute()`，取提示的标准方法是 `getPrompt()`
+              const result = await client.getPrompt({
+                name: prompt.name,
+                arguments: args as Record<string, string> | undefined,
+              });
               return { success: true, data: result };
             } catch (error) {
               handleError(error, {

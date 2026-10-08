@@ -29,11 +29,15 @@ export async function fetchToolsForClient(
   client: Client
 ): Promise<SerializedTool[]> {
   try {
-    const result = await (client as any).tools.list();
-    const tools: SerializedTool[] = (result as unknown[]).map((tool: any) => ({
+    // 2026-10-08（MCP 双轨收敛 C-1）：原为 `(client as any).tools.list()` —— 已装 SDK（^1.29.0）
+    // 的 `Client` **没有 `.tools` 子对象**（只有顶层 `listTools()`）⇒ 该调用**必然抛
+    // TypeError**，又被本函数的 `catch` 吞成 `[]` ⇒ **MCP 工具静默注册不上**。改用 SDK 顶层方法。
+    const { tools: rawTools } = await client.listTools();
+    const tools: SerializedTool[] = rawTools.map((tool) => ({
       name: tool.name,
-      description: tool.description,
-      inputJSONSchema: tool.inputSchema,
+      // SDK 的 `description` 可选，而 `SerializedTool.description` 必填 ⇒ 缺省补空串
+      description: tool.description ?? '',
+      inputJSONSchema: tool.inputSchema as SerializedTool['inputJSONSchema'],
       isMcp: true,
       originalToolName: tool.name,
     }));
@@ -54,14 +58,16 @@ export async function fetchCommandsForClient(
   client: Client
 ): Promise<McpCommand[]> {
   try {
-    const prompts = await (client as any).prompts.list();
-    return (prompts as unknown[]).map(
-      (prompt: any) =>
+    // 2026-10-08（C-1）：同 `fetchToolsForClient` —— 原 `(client as any).prompts.list()` 的
+    // `.prompts` 子对象在 SDK ^1.29.0 不存在 ⇒ 恒抛且被吞成 `[]`。改用顶层 `listPrompts()`。
+    const { prompts } = await client.listPrompts();
+    return prompts.map(
+      (prompt) =>
         ({
           name: prompt.name,
           description: prompt.description,
-          inputSchema: prompt.inputSchema,
-          execute: async (args: any) => {
+          inputSchema: (prompt as { arguments?: unknown }).arguments,
+          execute: async () => {
             return { success: true, data: 'Command executed' };
           },
         }) as McpCommand
@@ -82,8 +88,10 @@ export async function fetchResourcesForClient(
   client: Client
 ): Promise<ServerResource[]> {
   try {
-    const resources = await (client as any).resources.list();
-    return resources as ServerResource[];
+    // 2026-10-08（C-1）：同族订正 —— 原 `(client as any).resources.list()` 的 `.resources`
+    // 子对象在 SDK ^1.29.0 不存在 ⇒ 恒抛且被吞成 `[]`。改用顶层 `listResources()`。
+    const { resources } = await client.listResources();
+    return resources as unknown as ServerResource[];
   } catch (error) {
     handleError(error, {
       module: 'services:mcp:client',

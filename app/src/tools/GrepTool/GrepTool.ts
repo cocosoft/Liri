@@ -35,11 +35,21 @@ const logger = getLogger('tools:GrepTool:GrepTool');
  * 同一搜索键（路径+pattern+include+输出模式）在短窗口内重复调用时，跳过真实搜索并提示，
  * 从源头拦截 agent 空转反复搜同一批内容的模式（LoopDetector 的 steering 在循环层兜底，本层更前置）。
  * 用模块级缓存，不依赖工具实例生命周期，保证跨调用/多实例共享。
+ *
+ * **2026-10-08（真机暴露）**：原缓存**只存时间戳**，命中短路时返回
+ * `matches: [] / matchCount: 0` —— 明明**没有真的搜**，却对下游（模型 / 审查）呈现为"**零命中**"。
+ * 长程任务实测（`pdca_muz6lxv4` step_2）：两次 `grep liri` 全被短路（首次距上一同键搜索仅 21s，
+ * 受**其它任务**的历史搜索影响）⇒ 审查判 `major: grep 未真正执行、无命中证据` ⇒ 步骤 failed。
+ * ⇒ **否定性证据被伪造**。现连同**真实结果**一起缓存，短路时把上次结果原样回给调用方
+ * （保留 `skipped: true` 标记"未重新执行"）：反空转初衷不变，不再伪造"零命中"。
  */
 const GREP_DUP_WINDOW_MS = 60_000;
 /** 重复检测缓存上限（防内存增长；超限直接清空，只丢窗口缓存不丢真实结果） */
 const GREP_DUP_CACHE_MAX = 200;
-const grepRecentSearchAt = new Map<string, number>();
+const grepRecentSearches = new Map<
+  string,
+  { at: number; output: GrepOutputType; summary: string }
+>();
 
 /**
  * 构造搜索去重键：路径 + pattern + include + 输出模式 + 分页/上下文参数。
@@ -222,37 +232,26 @@ export class GrepTool extends BaseTool {
         contextAround: validated.contextAround,
       });
       const dupNow = Date.now();
-      const dupLastAt = grepRecentSearchAt.get(searchKey);
-      const isDup =
-        dupLastAt !== undefined && dupNow - dupLastAt < GREP_DUP_WINDOW_MS;
-      // 防内存增长：缓存条目过多直接清空（只丢窗口缓存，不影响任何真实结果）
-      if (grepRecentSearchAt.size > GREP_DUP_CACHE_MAX) {
-        grepRecentSearchAt.clear();
-      }
-      grepRecentSearchAt.set(searchKey, dupNow);
-      if (isDup) {
+      const prev = grepRecentSearches.get(searchKey);
+      if (prev && dupNow - prev.at < GREP_DUP_WINDOW_MS) {
+        const elapsedSinceLastMs = dupNow - prev.at;
+        // 仅刷新窗口（持续空转仍被持续抑制），并回 **上次的真实结果** —— 不再伪造空结果
+        prev.at = dupNow;
         logger.warn('grep:repeat_shorted', {
           searchPath,
           pattern: validated.pattern,
           include: validated.include,
-          elapsedSinceLastMs: dupNow - dupLastAt,
+          elapsedSinceLastMs,
         });
         return createSuccessResult(
-          {
-            matches: [],
-            matchCount: 0,
-            fileCount: 0,
-            truncated: false,
-            durationMs: 0,
-            skipped: true,
-          } satisfies GrepOutputType,
+          { ...prev.output, skipped: true } satisfies GrepOutputType,
           {
             executionTime: 0,
             output:
-              `检测到在 ${((dupNow - dupLastAt) / 1000).toFixed(0)}s 内以相同 pattern+include ` +
+              `检测到在 ${(elapsedSinceLastMs / 1000).toFixed(0)}s 内以相同 pattern+include ` +
               `重复搜索 "${validated.pattern}"（路径 ${searchPath}）。重复搜索同一内容常表示空转。` +
-              '请基于已获取的结果直接向用户交付结论；确需继续搜索时，请改用更精确/不同的 pattern，' +
-              '而不是重复相同的搜索。本次已跳过重复执行。',
+              '请基于下方**上次的真实结果**直接交付结论；确需继续搜索时，请改用更精确/不同的 pattern。' +
+              `本次未重新执行。\n\n【上次结果】\n${prev.summary}`,
           }
         );
       }
@@ -311,6 +310,17 @@ export class GrepTool extends BaseTool {
       ]
         .filter(Boolean)
         .join('\n');
+
+      // 缓存**真实结果**（供同键重复调用短路时回给调用方，见文件头 2026-10-08 说明）
+      // 防内存增长：条目过多直接清空（只丢窗口缓存，不影响任何真实结果）
+      if (grepRecentSearches.size > GREP_DUP_CACHE_MAX) {
+        grepRecentSearches.clear();
+      }
+      grepRecentSearches.set(searchKey, {
+        at: Date.now(),
+        output,
+        summary,
+      });
 
       return createSuccessResult(output, {
         executionTime: result.durationMs,

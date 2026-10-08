@@ -74,7 +74,13 @@ export interface ProposerDiagnostics {
   emptyRounds: number;
   /** 解析失败**分类**：空输出 vs 有输出但不可解析（此前合并计数 ⇒ 无法归因） */
   parseFailures: { emptyContent: number; unparsable: number };
-  /** 停止原因 */
+  /**
+   * 停止原因。
+   *
+   * ⚠️ **D-247（2026-10-08）**：`'max_calls'` 现在**亦涵盖**"空轮重试耗尽全部轮次"
+   * （此前空轮会立即终止并**误报** `'no_new_proposals'`）；`'no_new_proposals'` 现仅表示
+   * **解析成功但确无新提案**（真收敛）。
+   */
   stoppedBy: 'max_calls' | 'no_new_proposals' | 'chat_failed';
   /** 最终提案数 */
   proposals: number;
@@ -253,7 +259,9 @@ export function createAiServiceChat(): AdversarialChat {
 /**
  * 构造 LLM 提案器（**只提案**）。
  *
- * 有界：最多 `maxCalls` 轮；某轮无**新**提案即提前收敛；解析失败 ⇒ 该轮视为无产出（不抛、不臆造）。
+ * 有界：最多 `maxCalls` 轮；**解析成功但无新提案**即提前收敛；**解析失败/空输出** ⇒ 该轮视为
+ * 无产出并**继续**消耗剩余轮次（**D-247，2026-10-08**：此前二者共用出口 ⇒ `max_tokens` 截断
+ * 会直接终止整个相位；不抛、不臆造）。
  */
 export function createLlmProposer(
   opts: LlmProposerOptions
@@ -321,6 +329,13 @@ export function createLlmProposer(
       }
       if (added > 0) productiveRounds++;
       if (added === 0) {
+        // D-247（2026-10-08，方案①）：**空轮 ≠ 收敛** —— 二者此前共用同一出口
+        //（`added === 0` 即 `break`），致 `max_tokens` 截断（⇒ 空输出）**直接终止整个相位**：
+        // 实测 9 向量下产出 0 条，且 `--adversarial-max-calls` 的轮次预算只用掉 1 次。此处区分：
+        //   · `raw === null`（解析失败 / 空输出）⇒ 该轮"**没有产出**"⇒ **继续**消耗剩余 maxCalls（可重试）；
+        //   · `raw !== null` 但无新增 ⇒ 模型**确无新提案**（真收敛）⇒ 提前结束。
+        // ⚠️ 代价（如实）：空轮重试会**多耗额度**（最坏 = maxCalls × maxTokens 输出）。
+        if (raw === null) continue;
         stoppedBy = 'no_new_proposals';
         break;
       }

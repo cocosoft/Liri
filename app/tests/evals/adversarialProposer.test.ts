@@ -164,12 +164,14 @@ describe('D-244：提案 id 全局唯一 + 空轮/解析失败可见', () => {
     expect(new Set(ids).size).toBe(ids.length); // 唯一
   });
 
-  it('诊断：空输出轮 ⇒ 空轮计数 + 分类为 emptyContent + 如实停止原因', async () => {
+  it('诊断：空输出轮 ⇒ 空轮计数 + 分类为 emptyContent + **不终止相位**（D-247）', async () => {
     let calls = 0;
     const diag: ProposerDiagnostics[] = [];
     const chat: AdversarialChat = async () => {
       calls++;
       if (calls === 2) return ''; // 空输出（推理耗尽 token / 通道异常）
+      if (calls === 3) return '抱歉，我无法完成。'; // 非空但无 JSON 数组
+      if (calls >= 4) return arr([]); // **解析成功但无新增** ⇒ 真收敛
       return arr([
         { id: 'P-1', target: 'C-1', steps: [], expectation: `e${calls}` },
       ]);
@@ -180,16 +182,49 @@ describe('D-244：提案 id 全局唯一 + 空轮/解析失败可见', () => {
       maxCalls: 5,
       onDiagnostics: (d) => diag.push(d),
     })(INPUT);
-    expect(out.length).toBe(1);
+    expect(out.length).toBe(1); // 仅第 1 轮有产出
+    // D-247：空轮/不可解析轮**被重试**（修复前第 2 轮即终止 ⇒ calls=2）
+    expect(calls).toBe(4);
     expect(diag.length).toBe(1);
-    expect(diag[0].rounds).toBe(2);
+    expect(diag[0].rounds).toBe(4);
     expect(diag[0].productiveRounds).toBe(1);
-    expect(diag[0].emptyRounds).toBe(1);
+    expect(diag[0].emptyRounds).toBe(3);
     expect(diag[0].parseFailures).toEqual({
       emptyContent: 1,
-      unparsable: 0,
+      unparsable: 1,
     });
+    // 收敛发生在"解析成功但无新增"那一轮（非空轮）
     expect(diag[0].stoppedBy).toBe('no_new_proposals');
+  });
+
+  /**
+   * D-247（2026-10-08，真机实测发现，方案①）：
+   * 此前"**空轮**"与"**收敛**"共用出口（`added === 0` ⇒ `break`）⇒ `max_tokens` 截断
+   * （实测 `outputTokens` 恰为上限、`content=""`）会**直接终止整个相位** —— 真机 run #1
+   * 只发 1 次调用、产出 0 条，而 `--adversarial-max-calls` 的预算未被用上。
+   */
+  it('D-247：全程空输出 ⇒ **跑满 maxCalls**（不再第 1 轮即终止），stoppedBy=max_calls', async () => {
+    let calls = 0;
+    const diag: ProposerDiagnostics[] = [];
+    const chat: AdversarialChat = async () => {
+      calls++;
+      return ''; // 复刻真机截断形态：每轮都空输出
+    };
+    const out = await createLlmProposer({
+      model: 'm',
+      chat,
+      maxCalls: 3,
+      onDiagnostics: (d) => diag.push(d),
+    })(INPUT);
+    expect(out).toEqual([]); // 仍不臆造
+    expect(calls).toBe(3); // 修复前为 1（第 1 轮空轮即 break）
+    expect(diag[0]).toMatchObject({
+      rounds: 3,
+      productiveRounds: 0,
+      emptyRounds: 3,
+      stoppedBy: 'max_calls',
+    });
+    expect(diag[0].parseFailures.emptyContent).toBe(3);
   });
 
   it('诊断：有输出但不可解析 ⇒ 与空输出**分列**（kind=unparsable）', async () => {

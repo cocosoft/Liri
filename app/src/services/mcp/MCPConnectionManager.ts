@@ -22,8 +22,11 @@ import {
 import {
   MCPServerStatus,
   type ConnectedMCPServer,
+  type FailedMCPServer,
   type MCPServerConnection,
+  type MCPServerConnectionInfo,
   type MCPToolDefinition,
+  type PendingMCPServer,
   type ScopedMcpServerConfig,
   type ServerResource,
   type SerializedTool,
@@ -407,32 +410,24 @@ export class MCPConnectionManager {
       }
     }
 
-    // 2. 对 clientCache 中缓存但 MCPServerManager 已移除的服务进行清理
-    for (const [name] of this.clientCache) {
+    // 2. clientCache 有、但 MCPServerManager 未列出的条目：**直接回放真实缓存记录**。
+    // 2026-10-08（**真实 MCP e2e 抓出的诊断性缺陷**修复）：此前这里**丢弃真实连接对象**，
+    // 合成一条 `type:'failed'` 并**编造**文案 `'Server removed from registry'` ⇒ 既**掩盖
+    // 真实状态**（该条目可能是 `connected` 且持有活 SDK Client），又属**编造数据**。
+    for (const [name, cached] of this.clientCache) {
       if (!seenNames.has(name)) {
-        // 保留在结果中，供消费者感知已移除状态
-        result.push({
-          name,
-          type: 'failed' as const,
-          config: {} as ScopedMcpServerConfig,
-          error: 'Server removed from registry',
-        });
+        result.push(cached);
       }
     }
 
-    // 3. 对 MCPServerManager 中存在但 clientCache 未覆盖的服务构建基本信息
+    // 3. MCPServerManager 有、clientCache 未覆盖：按 manager 的**真实 `status`** 如实映射
+    //（不再一律 `failed`、不再编造 `'No active connection'`）
+    const infos = manager.getServerInfos();
     for (const name of allNames) {
-      if (!seenNames.has(name)) {
-        const infos = manager.getServerInfos();
-        const info = infos.find((i) => i.name === name);
-        if (info) {
-          result.push({
-            name: info.name,
-            type: 'failed' as const,
-            config: info.config as ScopedMcpServerConfig,
-            error: info.error || 'No active connection',
-          });
-        }
+      if (seenNames.has(name)) continue;
+      const info = infos.find((i) => i.name === name);
+      if (info) {
+        result.push(this.fromManagerInfo(info));
       }
     }
 
@@ -466,20 +461,41 @@ export class MCPConnectionManager {
       return cached;
     }
 
-    // 2. MCPServerManager 后备（不含 .client）
+    // 2. MCPServerManager 后备（不含 .client）—— 按**真实 `status`** 如实映射（见 `fromManagerInfo`）
     const manager = getMCPServerManager();
     const infos = manager.getServerInfos();
     const info = infos.find((i) => i.name === name);
     if (info) {
-      return {
-        name: info.name,
-        type: 'failed' as const,
-        config: info.config as ScopedMcpServerConfig,
-        error: info.error || 'No active connection',
-      };
+      return this.fromManagerInfo(info);
     }
 
     return undefined;
+  }
+
+  /**
+   * 由 `MCPServerManager` 的**注册信息**合成一条连接记录（`clientCache` 尚未覆盖时使用）。
+   *
+   * 2026-10-08（**真实 MCP server e2e 抓出的诊断性缺陷**修复）：
+   * - 此前**一律**合成 `type:'failed'` 并兜底 `error: info.error || 'No active connection'`
+   *   ⇒ ① 把**健康的在途**服务器误报为失败（`manager.addServer` **立即**执行，而
+   *   `clientCache` 是 **16ms 批量刷新**，二者之间存在竞态窗口 —— 实测在
+   *   `Added MCP server` 日志后 **7ms** 就有调用方拿到 `failed`）；② 用兜底文案
+   *   **覆盖/编造**错误，**丢掉真实原因**（本次首轮误判即由此而来，排查成本极高）。
+   * - 现按 `status` 如实映射：`ERROR` ⇒ `failed`（**透传** `info.error`，**不编造**文案）；
+   *   其余（`CONNECTING` / `CONNECTED` 尚未落入缓存 / `DISCONNECTED`）⇒ `pending`
+   *   （"未连接 / 在途"，**非失败**）。
+   */
+  private fromManagerInfo(
+    info: MCPServerConnectionInfo
+  ): PendingMCPServer | FailedMCPServer {
+    const base = {
+      name: info.name,
+      config: info.config as ScopedMcpServerConfig,
+    };
+    if (info.status === MCPServerStatus.ERROR) {
+      return { ...base, type: 'failed', error: info.error };
+    }
+    return { ...base, type: 'pending' };
   }
 
   /**
@@ -521,6 +537,26 @@ export class MCPConnectionManager {
    * 委托 MCPServerManager 执行，清理本地缓存
    */
   async closeAll(): Promise<void> {
+    // 2026-10-08（**真实 MCP server e2e 抓出的进程泄漏**修复）：**先**逐个关闭
+    // `clientCache` 中 connected 条目的 SDK `Client`（其 `cleanup()` 即 `client.close()`，
+    // 见 `client.ts` 的 `connectedClient.cleanup`）。此前只调 `manager.closeAll()`
+    // —— 那**仅断开自研 `MCPConnection`** —— 再清空缓存 ⇒ SDK 的 stdio 子进程
+    // （如 `npx` 拉起的 MCP server）**无人关闭** ⇒ 僵尸进程泄漏
+    // （真实 e2e 里必须手动 `client.close()` 才能让进程干净退出，即为该缺陷的直接证据）。
+    const cachedConnections = Array.from(this.clientCache.values());
+    for (const conn of cachedConnections) {
+      if (conn.type !== 'connected') continue;
+      try {
+        await conn.cleanup();
+      } catch (error) {
+        await handleError(error, {
+          module: 'services:mcp:connection',
+          action: 'close_sdk_client',
+          context: { serverName: conn.name },
+        });
+      }
+    }
+
     const manager = getMCPServerManager();
     await manager.closeAll();
 

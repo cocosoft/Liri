@@ -157,16 +157,11 @@ describe.skipIf(process.env.MCP_E2E !== '1')(
     });
 
     afterAll(async () => {
-      // 先留一份 SDK Client 引用（closeAll 只清缓存，不 close SDK 客户端）
-      const client = mcpConnectionManager.getSdkClient(SERVER);
+      // 2026-10-08（**进程泄漏修复后**）：`closeAll()` 现会**自行**关闭每个 cached SDK `Client`
+      // （connected 条目的 `cleanup()` ⇒ `client.close()`）⇒ **无需**再手动 `client.close()`。
+      // 此处刻意**不再**手动关闭：它同时充当该修复的**端到端验证** —— 若回归为泄漏，
+      // SDK 的 stdio 子进程将无人关闭，进程无法干净退出。
       await mcpConnectionManager.closeAll();
-      if (client) {
-        try {
-          await client.close();
-        } catch {
-          // @ignore-catch — 清理阶段的关闭失败不阻断测试收尾
-        }
-      }
     });
 
     it('生产链连接成功且可取得 SDK Client', () => {

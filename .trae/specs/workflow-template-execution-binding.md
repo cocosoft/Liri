@@ -97,6 +97,18 @@
   1. **来源分层**：内建 = `BUILTIN_TEMPLATES`（静态，只读，`:23-254`）；用户 = `userTemplates`（现内存，未来 store）。装配层**只对"带显式 tool 的条目"**产出定义；内建 4 模板**不含 tool** ⇒ 默认不产出任何定义，**行为不变**。
   2. **命名空间隔离**：定义名若由模板 id 派生，须防与 seam 既有工作流名（`send-report` / `doc_pipeline` …）**撞名**（`WorkflowEngine.find` 按名首个命中，`:547-561`）。建议定义名加来源前缀（如 `template:<id>`）并做**注册期**冲突校验（`validate()` fail loud）。
   3. **内建模板的执行**：若产品希望内建也可执行，则需**同时**给内建模板补 `tool`（改静态数据，仍不入库）——这是**产品选择**，属 §7 选项差异，不在本文件的默认口径内。
+     - **⚠️ 2026-10-08 复核（用户要求"先解决内建模板不可执行"时的取证结论）**：**不能靠"补 `tool`"达成** ——
+       ① 4 个内建模板**每一步都是人工方法论**（`builtin:bug-fix` 的 `reproduce`/`manual`、`builtin:db-migration` 的
+          `backup`/`migrate`/`rollback` 均为 `manual`；`review` 步为 `type:'review'`）⇒ "等人做"的步骤**在 seam 里
+          无对应概念**（`WorkflowEngine.execute` 无 human-in-the-loop），补 `tool` 只能是**编造**（违 CS04 精神）。
+       ② **机械欠缺**：`WorkflowStep` **无 per-step `params`** ⇒ 模板所有步骤只能共用**同一份** runtime `params`；
+          异质工具（如 `grep` 要 `pattern`、`file_read` 要 `file_path`）**无法用同一参数袋驱动** ⇒ 多步异质映射
+          **结构性不可行**（须先给 `WorkflowStep` 加 `params?` 并同步 CRUD/端口/前端）。
+       ③ **权限冲突**：写入/执行类步骤（"编写修复代码"/"执行迁移"）需破坏性工具 ⇒ 被 ③（仅非破坏性，fail-closed）
+          拦截；若为内建开豁免，则会**绕过"按任务裁剪工具"**（chat 任务下模型不能直呼 `bash`，却能借内建模板跑 `bash`）
+          ⇒ **构成权限提升**，须先补"步骤工具必须属于当前任务白名单"才安全。
+       ⇒ **结论**：内建模板"不可执行"是**语义正确的设计终点**（它们是人工方法论清单）；本轮只**修正误导性表述**
+          （`/run` 对 `builtin:*` 曾返回 404 "not found" ⇒ 现为 **400 + 准确原因**，见 §11）。
   4. **CRUD 保护不变**：`builtin:` 前缀的 PUT/DELETE 仍 403（`:399-405`、`:459-465`）。
 
 ## 6. 与 `instantiatePattern` / `PatternAssembly` 的关系（问题 4，CS01）
@@ -200,5 +212,9 @@
    - **边界（如实）**：`assist` 类目**不在 `coding`/`agent` 等任务白名单** ⇒ 那些任务类型下本工具**仍会被裁剪**（与 `plan`/`clipboard`/`canvas` 现状一致）。若要在那些任务下可见，属**另行放宽类别口径**的决策（会影响同类的 plan/clipboard/canvas）。
 4. **`isReadOnly: () => false`**：不冒充只读 —— 避免影响既有只读清单与审批口径（与 `office:workflow` 一致）。
 5. **注册方式 = 运行期注册**（同 `office:*` 由所属域注册），**非** `ToolFactory` 内建 ⇒ 不进 `toolNames.generated.ts`（其门禁只比对 `getAllBuiltinToolLoaders()` 派生清单）。
+6. **内建模板的语义订正（2026-10-08 续三）**：`/run` 与工具对 `builtin:*` **不再返回"not found"**，改为**准确原因** ——
+   `/run` ⇒ **400**（"内建模板：人工方法论清单，未声明 tool ⇒ 不可自动执行"）；工具 ⇒ FAILURE（同义）。
+   修复前的 `/run` 走端口只查 store ⇒ 对**确实存在**的内建模板报 404，与 `GET /templates/:id` **自相矛盾**（误导）。
+   为何不改成"可执行"：见 §5.3-3 的三点取证（人工步骤 / 无 per-step params / 权限提升）。
 
 **验证（实测）**：`bun run typecheck` **0**；定向 ESLint **0**；`lint:arch` **错误 0 / 警告 4**（基线，未新增）；`bun test tests/workspace/ tests/tools/` **681 pass / 0 fail**（70 文件；含可见性回归锁 —— 断言 wire 形态在 `chat`/`default` 下**不被裁剪**）。

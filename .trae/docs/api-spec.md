@@ -854,7 +854,7 @@ data: {"type":"done","result":{...}}
 | POST | `/v1/workflows/templates` | ✅ 201；缺 `name`/`steps` → 400；服务端生成 `user_*` id | `workspaceService.createWorkflowTemplate`（同上，预留） |
 | PUT | `/v1/workflows/templates/:id` | ✅ 200；`builtin:*` → 403；未命中 → 404 | `workspaceService.updateWorkflowTemplate`（同上，预留） |
 | DELETE | `/v1/workflows/templates/:id` | ✅ 200 `{success:true}`；`builtin:*` → 403；未命中 → 404 | `workspaceService.deleteWorkflowTemplate`（同上，预留） |
-| POST | `/v1/workflows/templates/:id/run` | ✅ **2026-10-08 新增（P0-2(a)）**；body `{params?}`；200 `{success:true,completedSteps,value?}` / 404 / 400（`not-executable` 或 `failed`，后者含 `stopReason`） | **后端已实现；前端暂无调用方**（模板 UI 未做，P3-1） |
+| POST | `/v1/workflows/templates/:id/run` | ✅ **2026-10-08 新增（P0-2(a)）**；body `{params?}`；200 `{success:true,completedSteps,value?}` / 404 / 400（`builtin:*` = **存在但不可执行**（人工方法论清单、未声明 `tool`）；或 `not-executable` / `failed`，后者含 `stopReason`） | **后端已实现；前端暂无调用方**（模板 UI 未做，P3-1） |
 
 **说明**：2026-10-08 前用户模板仅存于模块私有内存 Map，**进程重启即丢**；本批改为经 `WorkflowTemplateStore` 落盘（语义/状态码不变）。
 

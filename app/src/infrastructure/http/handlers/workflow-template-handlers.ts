@@ -532,6 +532,24 @@ export async function handleRunWorkflowTemplate(
       }
     }
 
+    // ⚠️ 内建模板**先判**：它们只存在于本文件的静态常量（不在 store）⇒ 若直接走端口会得到
+    // 404 "not found"（与 `GET /templates/:id` 能取到内建**不一致**，属误导）。
+    // 准确语义 = **存在但不可执行**（人工方法论清单：含 `manual`/`review` 步骤、未声明 `tool`；
+    // 且 `WorkflowStep` 无 per-step `params` ⇒ 异质工具无法用同一 runtime params 驱动）。
+    if (BUILTIN_TEMPLATES.some((t) => t.id === templateId)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message:
+              `${templateId} 是内建模板：属**人工方法论清单**（含 manual/review 步骤），` +
+              '未声明 tool ⇒ 不可自动执行。请改用用户自定义模板（每个步骤显式声明 tool）。',
+          },
+        })
+      );
+      return;
+    }
+
     const outcome = await (
       await getCoreAPI().getWorkspaceOpsPort()
     ).runWorkflowTemplate(templateId, params);

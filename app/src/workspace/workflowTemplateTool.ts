@@ -236,6 +236,14 @@ export function createWorkflowTemplateTool(
       // 动态目录校验：未知 / 结构不可执行 ⇒ 报错并**列出当前可用清单**（不猜、不降级）
       const available = deps.listRunnableTemplates();
       if (!available.some((t) => t.id === templateId)) {
+        // 内建模板不在 store（只存在于 service 层静态常量）⇒ 本工具看不到它们；
+        // 按前缀给出**准确原因**（"存在但为人工方法论清单"），而非笼统"不存在"。
+        if (templateId.startsWith('builtin:')) {
+          return fail(
+            `模板 ${templateId} 是**内建**模板：属人工方法论清单（含 manual/review 步骤），` +
+              '未声明 tool ⇒ 不可自动执行。请用 action="list" 选择用户自定义模板。'
+          );
+        }
         const hint =
           available.length === 0
             ? '（当前没有任何可执行模板）'

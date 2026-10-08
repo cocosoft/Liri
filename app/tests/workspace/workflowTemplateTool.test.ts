@@ -182,6 +182,19 @@ describe('workflow:run-template · run', () => {
     expect(String(res.errorOutput)).toContain('当前没有任何可执行模板');
   });
 
+  it('**内建** id（builtin:*）⇒ FAILURE 且给出准确原因（人工方法论清单／不可自动执行）', async () => {
+    const { tool, calls } = makeTool();
+    const res = await runTool(tool, {
+      action: 'run',
+      template: 'builtin:bug-fix',
+    });
+
+    expect(res.status).toBe(ToolExecutionStatus.FAILURE);
+    expect(String(res.errorOutput)).toContain('内建');
+    expect(String(res.errorOutput)).toContain('人工方法论清单');
+    expect(calls).toHaveLength(0);
+  });
+
   it('seam 返回非 completed（如③权限拒绝）⇒ FAILURE，error 透出且带 completedSteps', async () => {
     const { tool } = makeTool({
       runTemplate: async () => ({

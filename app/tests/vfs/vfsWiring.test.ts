@@ -24,10 +24,25 @@
  *
  * 覆盖：未配置（保持现状）· `dev_docs` 停用 · 未知 scheme（跳过 + WARN）·
  * `mcp` 缺 `server`（跳过 + WARN）· `mcp` 允许清单（仅注册清单内 server）。
+ *
+ * 另含 `registerVfsMounts` **装配胶水**用例（配置 → `buildMountPlan` → 注册表；
+ * 承接 `ai-vfs-readonly-pilot.md §6.3-2`）。
  */
 
-import { describe, expect, it } from 'bun:test';
-import { buildMountPlan } from '../../src/entrypoints/vfsWiring.js';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  buildMountPlan,
+  registerVfsMounts,
+} from '../../src/entrypoints/vfsWiring.js';
+import {
+  ConfigManager,
+  getConfigManager,
+  setConfigManagerForTest,
+} from '../../src/config/index.js';
+import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
 import type { VfsMountConfigEntry } from '../../src/config/types.js';
 
 /** 构造"运行时非法 scheme"条目（配置来自用户 JSON ⇒ 类型联合不阻止非法值） */
@@ -109,5 +124,35 @@ describe('buildMountPlan', () => {
     });
     expect(plan.mcpAllowedServers).toBeNull();
     expect(plan.warnings).toEqual([]);
+  });
+});
+
+describe('registerVfsMounts：配置 → buildMountPlan → vfsMountRegistry 装配胶水', () => {
+  let originalManager: ConfigManager;
+  let testManager: ConfigManager;
+  let tempDir = '';
+
+  beforeAll(() => {
+    // 保留当前全局 manager，并以**独立临时配置文件**的实例替换之（`setConfigManagerForTest`
+    // 为测试专用入口）⇒ 不触碰 ~/.pyapp/config.json、不污染其他测试。
+    originalManager = getConfigManager();
+    tempDir = mkdtempSync(join(tmpdir(), 'vfs-wiring-cfg-'));
+    writeFileSync(join(tempDir, 'config.json'), '{}', 'utf-8');
+    testManager = new ConfigManager(join(tempDir, 'config.json'));
+    testManager.enableConfigs();
+    setConfigManagerForTest(testManager);
+  });
+
+  afterAll(() => {
+    setConfigManagerForTest(originalManager);
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('mounts = [dev_docs] ⇒ 仅注册 dev_docs（mcp 不在清单 ⇒ 不注册）', async () => {
+    testManager.setConfigValue('vfs', { mounts: [{ scheme: 'dev_docs' }] });
+    await registerVfsMounts();
+
+    expect(vfsMountRegistry.has('dev_docs')).toBe(true);
+    expect(vfsMountRegistry.has('mcp')).toBe(false);
   });
 });

@@ -107,12 +107,18 @@
 
 ### 6.3 ⚠️ 未验证 / 已知边界（如实，CS06）
 
-1. **符号链接逃逸拒绝未单测**：驱动已实现 `realpath` 二次 containment（`DevDocsDriver.resolveHostPath`），但 Windows 建符号链接需特权 ⇒ 仅 `..`/`~`/反斜杠三类穿越有自动化用例。
-2. **entrypoint 装配无自动化测试**：`main.ts → vfsWiring.registerVfsMounts()` 仅真实启动路径生效；测试用独立 scheme 注册驱动。
+1. **✅ 已单测（2026-10-08 续）**：新增 `tests/vfs/symlinkEscape.test.ts` —— 自建临时 fixture，用 Windows **目录联接**（`fs.symlinkSync(target, link, 'junction')`，**无需管理员权限**）指向 docs 根**之外** ⇒ **真跑 PASS**：`read_vfs` 经联接读外部文件被 `DevDocsDriver.resolveHostPath` 的 `realpathSync` **二次 containment** 拦下（`VFS_DENIED`），且**未读到**外部内容。**平台边界（如实）**：Linux/macOS 下 `type='junction'` 等价普通符号链接（逻辑相同）但**未在非 Windows 实测**；无法创建链接的环境走条件跳过（该分支本机**未触发**）。
+2. **✅ 已覆盖（2026-10-08 续）**：`tests/vfs/vfsWiring.test.ts` 用 `configManager` 的**测试注入入口** `setConfigManagerForTest(manager)` + 指向**临时配置文件**的新 `ConfigManager`，注入 `vfs.mounts` 后调 `registerVfsMounts()`，断言 `vfsMountRegistry` 的注册集合 —— 覆盖真实链路「读配置 → `buildMountPlan` → `registerMount`」；用例结束**还原 manager + 清临时目录**（**不碰** `~/.pyapp/config.json`）。已知**无害副作用**：注册表为模块级单例且无 `unregister`，注册项留存至本进程结束（已核：`mountRegistry.test.ts` 用局部实例、`vfsTools.test.ts` 用独立 scheme、e2e 由 `has()` 守卫 ⇒ 无冲突）。
 3. **✅ 已补齐（2026-10-08 续）**：`write_vfs` 已加入 `query/tool-constants.ts` 的 `WRITE_TOOL_NAMES`（**共享事实源** ⇒ 同批传导 `PathGuard` / `FileIOLoopDetector` / `promptSuggestion.Speculation` / `tools/orchestration.SERIALIZING_TOOLS`，语义均正确）。**同批修复守卫盲区**：`tests/tools/toolNameLists.test.ts` 的"真实注册名"扫描原只认**类字段** `name = '...'`，漏掉 `static create(): Tool { return { name: '...' } }` 一族（**含 VFS 4 工具与既有 `ReadProjectFileTool`**）⇒ 判据扩宽为 `name[:=]`（只增名 ⇒ ⊆ 检查更严，不放宽既有断言）。
-4. **端到端（真实模型调用 4 工具）未实测**：单测覆盖驱动/注册表/路径解析，未跑真实会话。
+4. **真实模型会话 e2e 仍未实测**；但 **`mcp://` 面已有真实 MCP server e2e**（见 **§7.4**，13 pass：4 个工具在 `mcp://` 上的 list/read/stat/write 均实测通过）—— `dev_docs://` 面的"真实模型会话调用"未跑。
 5. **语义假设（契约未明示，按最贴近示例实现）**：① `dev_docs://配置与安全/sandbox.md` 的首段解析为 `authority`，驱动相对路径 = `authority + '/' + path`；② `read_vfs` 的 `offset`/`limit` 按**行**切片（与 `file_read` 同口径），截断 50KB（对齐 `ReadProjectFileTool`）。
-6. **`app/scripts/resolve-module-aliases.ts`**（Docker 别名展开表，无 script/CI 引用、且本就缺多个别名）**未同步** `@modules/vfs`。
+6. **✅ 已取证并结案（2026-10-08 续）**：`app/scripts/resolve-module-aliases.ts` 经全仓检索确认**零引用**（仅 `scripts/lint-script-exit.ts:13` 一处**注释**举例提及；无 `package.json#scripts`、无 CI、无 Dockerfile —— `app/docker/Dockerfile:58` 已改用**原生支持 tsconfig paths** 的 `bun build`）⇒ **死文件**，依 `PY_APP §3`（预先存在的可疑死代码**只报告不删**）**未删除、未修改**。**如实登记两项风险**：① 其别名表**系统性滞后**（相对事实源 `app/tsconfig.json#paths` 缺约 **22** 个，且**完全未处理 `@shared/*`**）；② 该脚本若被运行会**原地重写 `src/**/*.ts`**（`writeFileSync`）⇒ 属**破坏性工具**。**是否删除留待另行裁定**。
+
+### 6.4 登记项收口（2026-10-08 续）
+
+上表 **1 / 2 / 6** 三项已收口（**源码零改动**，仅新增测试）：
+- 新增 `tests/vfs/symlinkEscape.test.ts`（2 例，**真跑 pass**）· `tests/vfs/vfsWiring.test.ts` 增装配用例（1 例）。
+- **门禁**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs` **75 pass / 0 fail** · 全量 **4610 pass / 24 skip / 0 fail**（+3，**无回归**）。
 
 ---
 
@@ -148,4 +154,4 @@
 
 - **✅ 已实测**：`app/tests/mcp/realServerE2E.test.ts`（**env 门控** `MCP_E2E=1`；默认套件跳过 ⇒ 不引入网络依赖）对**官方参考服务器** `@modelcontextprotocol/server-everything`（stdio）：**13 pass / 0 fail** —— 覆盖 `mcp://` 的 `list_vfs('mcp://')`（scheme-only）/ `list_vfs('mcp://<server>/')` / `read_vfs` / `stat_vfs`(`readOnly=true`) / `write_vfs` ⇒ `VFS_READ_ONLY_MOUNT`，以及 `mcp_resource` 的资源/提示面与 `MCPTool` 的工具面。
 - **🔴 该实测抓出并修复 P0 阻断缺陷**：`services/mcp/client.ts` 调用了 SDK `Client` 上**不存在**的 `capabilities.get()` ⇒ 整条 SDK 链（含 `mcp://` 全部面）不可用，且因 `as unknown as` **无编译错误**。已改用 `getServerCapabilities()`。详见台账。
-- **仍未自动覆盖**：`vfsWiring` 装配（同 §6.3-2）；无允许清单分支（见 `ai-vfs-user-mountable.md §7.4`）。
+- **仍未自动覆盖**：无允许清单时 `listMountPoints()` 的默认分支（见 `ai-vfs-user-mountable.md §7.4`）—— `vfsWiring` 装配已于 **§6.4** 覆盖。

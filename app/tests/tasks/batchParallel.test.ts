@@ -25,7 +25,17 @@ afterAll(async () => {
     await import('../../src/tasks/PdcaWorkItemBridge');
   closePdcaCheckpointStore();
   delete process.env.LIRI_DATA_DIR;
-  rmSync(dataDir, { recursive: true, force: true });
+  // app.db 句柄可能未即时释放（Windows EBUSY）⇒ 重试删除，且清理失败不影响断言结果
+  try {
+    rmSync(dataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
+  } catch {
+    /* 临时目录清理失败不影响测试结论 */
+  }
 });
 
 function sleep(ms: number): Promise<void> {

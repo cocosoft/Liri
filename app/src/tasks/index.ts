@@ -232,7 +232,8 @@ export {
   getCg3,
 } from './Cg3Bootstrap';
 export type { Cg3BootstrapResult } from './Cg3Bootstrap';
-export { CommandBridge, getCommandBridge } from './commands/CommandBridge';
+// 2026-10-08：删除 `CommandBridge` 再导出 —— 其**唯一**引用方 `AlwaysOnRuntime` 从未注入它
+// （取证见该类 `tryRun()` 注释），删除后 `tasks/commands/CommandBridge.ts` 零消费者 ⇒ 一并删除。
 // 2026-10-08：删除 `SteeringBridge` 再导出 —— 第二套 steering（`tasks/steering/SteeringBridge` +
 // `query/SteeringManager`）实测**零外部消费者**且 `AlwaysOnRuntime.steerBridge` 从未注入/调用 ⇒
 // 死代码。steering 现只有一套：`query/ReActLoop.steeringQueue`（见 §1.6 `context/steering` 事件）。

@@ -1541,8 +1541,12 @@ export async function launch(options: LaunchOptions): Promise<void> {
     //      （`CronScheduler.extraTick → getDueWakes()` 这条线也不存在）。
     // 注：①`CronScheduler` 尚未启动时 `wireSelfWakeToCron` 会告警并返回 false ——
     // 短时唤醒（`seconds×1000 < tickInterval`）走 setTimeout，不受影响；
-    // ②AlwaysOn 侧仅完成连线：其 runtimes 由 `registerProject()` 创建、当前无任何注册
-    // ⇒ `notifyUserActivity()` 遍历空集合，**不会产生自主行为**。
+    //  ②AlwaysOn 侧仅完成连线：其 runtimes 由 `registerProject()` 创建、当前无任何注册
+    //    ⇒ `notifyUserActivity()` 遍历空集合，**不会产生自主行为**。
+    //  2026-10-08（架构治理 P1 续）：AlwaysOn 侧原**未注入**的 `cmdBridge` / `watchdog` 已删除
+    //  （取证：`AlwaysOnManager.registerProject()` 唯一构造点只传 2 参；且 P1-9 队列
+    //  `MessageCommandQueue` 的消费端从未移植 ⇒ 无 drainer）。**P1-9 入队链随之移除**，
+    //  重启条件见 `AlwaysOnRuntime.tryRun()` 注释。
     await wrapInit('Cg3', async () => {
       const { startCg3 } = await import('@modules/tasks/Cg3Bootstrap');
       const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');

@@ -15,8 +15,8 @@ import { DiscoveryFire } from './DiscoveryFire';
 import { cg3Log } from '../cg3Env';
 import { drainManager } from '../drain/DrainManager';
 import { handleError } from '@modules/error';
-import type { CommandBridge } from '../commands/CommandBridge';
-import type { WatchdogBridge } from '../watchdog/WatchdogBridge';
+// 2026-10-08（架构治理 P1 续，用户裁定「一并处理 watchdog 和 cmdBridge」）：
+// 删除 `cmdBridge` / `watchdog` 两个**从未注入**的可选依赖（取证见下方 tryRun 注释）。
 
 export class AlwaysOnRuntime {
   readonly config: AlwaysOnConfig;
@@ -25,15 +25,8 @@ export class AlwaysOnRuntime {
   readonly resourceArbiter: ResourceArbiter;
   readonly fireRunner: DiscoveryFire;
   readonly scheduler: DiscoveryScheduler;
-  private cmdBridge?: CommandBridge;
-  private watchdog?: WatchdogBridge;
 
-  constructor(
-    config: Partial<AlwaysOnConfig> = {},
-    projectPath: string = '',
-    cmdBridge?: CommandBridge,
-    watchdog?: WatchdogBridge
-  ) {
+  constructor(config: Partial<AlwaysOnConfig> = {}, projectPath: string = '') {
     this.config = { ...DEFAULT_ALWAYSON_CONFIG, ...config };
     this.signalWatcher = new SignalWatcher(this.config.dormantDebounceMs);
     this.gates = new DiscoveryGates(
@@ -47,8 +40,6 @@ export class AlwaysOnRuntime {
       this.config.tickIntervalMinutes,
       () => this.tryRun()
     );
-    this.cmdBridge = cmdBridge;
-    this.watchdog = watchdog;
   }
 
   /** P0-2: 核心入口 */
@@ -82,17 +73,12 @@ export class AlwaysOnRuntime {
         return;
       }
 
-      // P1-9: 将 plan 入队统一命令队列
-      if (this.cmdBridge) {
-        await this.cmdBridge.enqueue({
-          id: `alwayson-${plan.id}`,
-          type: 'agent',
-          content: plan.summary,
-          priority: 'next',
-          sessionId: 'alwayson',
-          metadata: { plan, timestamp: Date.now() },
-        });
-      }
+      // P1-9「将 plan 入队统一命令队列」**未接线，已移除代码**（2026-10-08）：该链三处均未打通 ——
+      // ① `cmdBridge` 从未注入（**唯一**构造点 `AlwaysOnManager.registerProject()` 只传 2 参）；
+      // ② 队列 `MessageCommandQueue` 的消费端（对标 cc_code `queueProcessor`）**从未移植**
+      //    ⇒ `getGlobalMessageQueue()` 全仓零消费者、`dequeue()` 无人调用（队列只进不出）。
+      // 按 CS03 **不凭空接线**（接线只会把 plan 投进无人消费的队列，多造一条 inert 链接）。
+      // 重启条件：同时补上「①注入 ②drainer」后再恢复本段入队。
 
       // 重检关键门控
       const recheck1 = this.gates.quickRecheck();

@@ -140,6 +140,46 @@ function roleToolNames(role: RoleConfig): string[] {
   return role.useTools ? getRealToolNamesForTask(role.taskType) : [];
 }
 
+/**
+ * 步骤执行结果摘要 —— REVIEW 的唯一"实际输出"输入（`buildReviewPrompt` 取 `step.result`）。
+ *
+ * **2026-10-08（真机实测暴露）**：原先 `markStepCompleted` 只写
+ * `[TAORLoop] turns=… tokens=… elapsed=…ms` —— 只有**循环统计**、零执行证据 ⇒ Reviewer
+ * 只能判"无任何证据"⇒ 每步 failed ⇒ `PDCA_GOAL_NOT_CONVERGED`
+ * （实测：工具已真实执行、目标文件确实生成，任务仍报未收敛）。
+ * 现把**助手文本 + 工具执行结果**一并写入。
+ *
+ * @param messages 本轮**最终**消息快照（TAORLoop 每轮传全量 `this.messages`）
+ */
+function buildTaorStepResult(
+  messages: ReadonlyArray<{
+    role?: string;
+    name?: string;
+    content?: unknown;
+  }>,
+  stats: { turns: number; tokens: number; elapsedMs: number }
+): string {
+  const MAX_MSG_CHARS = 800;
+  const MAX_MESSAGES = 12;
+  const lines: string[] = [
+    `[TAORLoop] turns=${stats.turns} tokens=${stats.tokens} elapsed=${stats.elapsedMs}ms`,
+  ];
+  for (const m of messages.slice(-MAX_MESSAGES)) {
+    const text =
+      typeof m.content === 'string'
+        ? m.content
+        : m.content === undefined || m.content === null
+          ? ''
+          : JSON.stringify(m.content);
+    if (!text) continue;
+    const role = m.name
+      ? `${m.role ?? 'assistant'}:${m.name}`
+      : (m.role ?? 'assistant');
+    lines.push(`[${role}] ${text.slice(0, MAX_MSG_CHARS)}`);
+  }
+  return lines.join('\n');
+}
+
 // （审计存储/记忆回写两个惰性端口解析器 + `AuditLogEntry`/`AuditStoreLike`/
 //  `MemoryWritebackManager` + `replanMaxRetries` 已外迁 `./lro/portResolvers`，spec §45）
 
@@ -284,6 +324,28 @@ export class LongRunningTaskOrchestrator {
           })),
         };
       });
+
+    // 2026-10-08（真机实测暴露）：`ReviewGate` 用的 VerifierAgent **从未注入模型** ⇒
+    // `VerifierAgent.verify()` 命中 `!this.callModel` 的 fail-closed 分支（ESCALATE，
+    // confidence=0）⇒ 每个步骤被覆盖判为 failed —— 即便语义审查已给 `score=78`、
+    // summary 明写"判定通过"，`ReviewGate` 仍把 `pass` 置 false ⇒ **目标永不收敛**。
+    // 此处复用同一 `executor`（同一模型路由，不禁用工具）作为验证器模型调用。
+    const self = this;
+    this.verifier.setCallModel(async function* (messages, _signal) {
+      const res = normalizeExecutorResult(
+        await self.executor({
+          systemPrompt:
+            '你是一个独立验证者。基于给定对话与工具执行结果，判断步骤是否达成验收标准，输出 JSON 验证结论。只读操作，不修改任何文件。',
+          userPrompt: messages
+            .map((m) => `[${m.role}] ${m.content}`)
+            .join('\n\n'),
+          tools: [],
+          taskType: 'chat',
+          isolation: self.isolation,
+        })
+      );
+      yield { content: res.content };
+    });
   }
 
   /** 设置阶段并同步 WorkItem 状态 */
@@ -773,6 +835,8 @@ ${replanSection}
 
         // 持久化缓冲区（PDCA 模式下保持消息上下文）
         const persistedMessages: any[] = [];
+        // 本轮**最终**消息快照（TAORLoop 每轮传全量 `this.messages`，故最后一次即完整对话）
+        let lastMessagesSnapshot: any[] = [];
 
         const deps = createTAORLoopDeps({
           callModel: async function* (msgs: any[], signal: AbortSignal) {
@@ -922,6 +986,7 @@ ${replanSection}
           persistMessages: async (msgs: any[], _signal?: AbortSignal) => {
             // 缓存消息到内存，PDCA 完成后统一持久化
             persistedMessages.push(...msgs);
+            lastMessagesSnapshot = msgs;
           },
         });
 
@@ -944,7 +1009,13 @@ ${replanSection}
 
         taskOrchestrator.markStepCompleted(
           step.id,
-          `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens} elapsed=${taorElapsed}ms`,
+          // 执行证据（助手文本 + 工具结果）—— Reviewer 的唯一"实际输出"输入，
+          // 只写循环统计会让审查必然判"无证据"（见 buildTaorStepResult 注释）
+          buildTaorStepResult(lastMessagesSnapshot, {
+            turns: result.turnCount,
+            tokens: result.totalTokens,
+            elapsedMs: taorElapsed,
+          }),
           // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
           { terminationReason: result.terminationReason }
         );

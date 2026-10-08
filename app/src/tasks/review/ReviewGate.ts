@@ -250,6 +250,12 @@ export class DefaultReviewGate implements ReviewGate {
     // VerifierAgent 双指标验证（REJECT / ESCALATE 覆盖 Reviewer 判定）
     if (this.config.enableVerifier) {
       try {
+        // 2026-10-08（真机实测暴露）：编排器的 VerifierAgent 是**每任务一个实例**，
+        // 而 `cycleCount` 每次 verify 递增、`maxCycles=3` —— 原先**从不 reset** ⇒
+        // 同一任务第 4 次起的验证必然返回 `ESCALATE`（"修复-验证循环已达上限"，
+        // confidence=0）并被当作 `critical` 阻塞 issue ⇒ 步骤恒 failed ⇒ 目标永不收敛。
+        // 每次审查是**独立**验证 ⇒ 与 TAORLoop 在 run 起点 `reset()` 同口径，此处每步复位。
+        ctx.verifier.reset();
         const verifyResult = await ctx.verifier.verify(
           {
             messages: [

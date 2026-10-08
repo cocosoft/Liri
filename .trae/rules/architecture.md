@@ -124,12 +124,19 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 ### 3.7 上下文压缩策略规范
 
-- 必须实现三种压缩策略：
-  - **autoCompact**：基于 Token 阈值（默认 80%）自动触发压缩
-  - **reactiveCompact**：基于上下文增长率（连续 3 轮增长率 > 15%）触发压缩
-  - **microcompact**：轻量压缩，仅移除低价值系统消息
-- 压缩策略在 `compaction/` 中统一实现（2026-10-01 D-217 由 `services/compact/` 改归 app，现为独立模块 `@modules/compaction`）
-- 所有压缩操作必须记录原始 Token 数和压缩后 Token 数
+> **口径（2026-10-08 订正）**：策略清单以**两份活门面**为准 —— `app/src/context/compaction/`（A 侧）+ `app/src/compaction/`（B 侧，`@modules/compaction`）。
+> 原文列「三种策略：autoCompact / reactiveCompact / **microcompact**」**已失准**（`microcompact` 模块已于 2026-09-28 删除；阈值数字亦已改口径），见文末「已删除」注。
+
+- **A 侧 · 请求前 + 工具轮内**（`app/src/context/compaction/`）—— 由 `CompactionOrchestrator` 串联**三级递进**：
+  - **Tier 1 `MicroCompactionEngine`**（`applyMicroCompaction`）：轻量、有损、无摘要（`warn` 时先试）
+  - **Tier 2 `SnipEngine`**（`snipMessages`）：裁剪中段（`warn` / `trigger` 时）
+  - **Tier 3 `CompactionOrchestrator`**：LLM 摘要 + **迭代折叠**（`trigger` 且 Tier 2 无效时；超时上限见模块常量）
+- **B 侧 · 命令 / HTTP 端点 / 会话边界**（`@modules/compaction`，`app/src/compaction/`）：`AutoCompactService` · `reactiveCompact` · `partialCompact` · `sessionMemoryCompact` 等按各自触发面执行
+  （两侧**触发时机互不重叠** ⇒ 非"同一场景两条都跑"，2026-09-28 核查结论见 spec `compaction-duplicate-subsystems.md` §7）
+- **评估唯一入口**：统一走 `UnifiedTokenTracker.checkBeforeRequest`（`skip` / `warn` / `trigger`），**不得另立第二套阈值判据**（阈值以 `tokenBudget/TokenBudgetController.ts` 为事实源）
+- 所有压缩操作必须记录原始 Token 数与压缩后 Token 数；`context/compaction` 事件载荷的口径见 `session/types/eventPayloads.ts`
+
+> ⚠️ **已删除（勿再引用）**：B 侧旧 **`microcompact`**（`services/compact/microCompact.ts` + `timeBasedMCConfig.ts`）已于 **2026-09-28（台账 D-6-c）** 因「整模块死亡」**删除**；其"轻量压缩"角色现由 **A 侧 Tier 1**（`MicroCompactionEngine`）承担 —— 二者**同名不同物**，勿混用。
 
 ### 3.8 特征开关(FeatureFlag)规范
 

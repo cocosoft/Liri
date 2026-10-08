@@ -50,6 +50,7 @@ import type {
   LiriDetectionResultDto,
   TaskStorePort,
   ProjectItemStorePort,
+  WorkflowTemplateStorePort,
 } from './workspaceOpsPorts';
 import type {
   ProjectOpsPort,
@@ -1466,6 +1467,19 @@ export class DomainSnapshotOps {
           },
         };
       },
+      // 台账 S24 ①（2026-10-08）：工作流模板落盘 store 经端口取用（避免 service→app 静态倒挂）
+      getWorkflowTemplateStore:
+        async (): Promise<WorkflowTemplateStorePort> => {
+          const { getWorkflowTemplateStore } =
+            await import('@modules/workspace/WorkflowTemplateStore');
+          const store = getWorkflowTemplateStore();
+          return {
+            list: () => store.list(),
+            get: (id: string) => store.get(id),
+            upsert: (template) => store.upsert(template),
+            remove: (id: string) => store.remove(id),
+          };
+        },
       getTeamStore: async (teamsDir: string): Promise<TeamStorePort> => {
         const { createTeamStore } =
           await import('@modules/workspace/TeamStore');

@@ -193,6 +193,15 @@ export interface WorkflowTemplateDto {
   tags?: string[] | undefined;
 }
 
+/** 工作流模板存储**句柄**（S24；单例 `getWorkflowTemplateStore()`，方法均**异步**） */
+export interface WorkflowTemplateStorePort {
+  list(): Promise<WorkflowTemplateDto[]>;
+  get(id: string): Promise<WorkflowTemplateDto | null>;
+  upsert(template: WorkflowTemplateDto): Promise<WorkflowTemplateDto>;
+  /** 返回**是否确有删除**（供 handler 的 404 判定） */
+  remove(id: string): Promise<boolean>;
+}
+
 // ==================== P2（2026-09-30 台账 D-114）====================
 
 /** 工作项状态（逐字镜像 `@modules/workspace/types` 的 `WorkItemStatus`） */
@@ -509,6 +518,8 @@ export interface WorkspaceOpsPort {
   analyzeBottlenecks(steps: unknown): Promise<unknown>;
   /** 原 `getAgentRoleStore()`（**单例** ⇒ 句柄） */
   getAgentRoleStore(): Promise<AgentRoleStorePort>;
+  /** 原 `getWorkflowTemplateStore()`（**单例** ⇒ 句柄；台账 S24 ①，2026-10-08） */
+  getWorkflowTemplateStore(): Promise<WorkflowTemplateStorePort>;
   /**
    * 原 `createTeamStore(path.join(wsPath, '.liri', 'teams'))`
    * （⚠️ `path.join` 留在**调用方** ⇒ 端口收 **`teamsDir`**，不引入 `node:path` 依赖）。

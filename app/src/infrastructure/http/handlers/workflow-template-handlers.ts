@@ -15,9 +15,22 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 // C1（2026-09-30 D-113，`workspace` 域 P1）：**类型位**改为服务层端口**逐字镜像**类型
 // （原类型导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
-import type { WorkflowTemplateDto } from '@modules/runtime/api/workspaceOpsPorts';
+import type {
+  WorkflowTemplateDto,
+  WorkflowTemplateStorePort,
+} from '@modules/runtime/api/workspaceOpsPorts';
+// 台账 S24 ①（2026-10-08）：用户模板改经**持久化 store** 读写（此前为模块私有内存 Map ⇒ 进程重启即丢）；
+// 规格：`.trae/specs/workflow-template-persistence.md`（D1–D4）。
+// ⚠️ 依 D-113 端口模式：`workspace` 域 store 必须经 **service 侧端口** 取用 ——
+// 静态导入该域会触发 R03-002 + R00-001 `service→app` 倒挂（同 `agent-role-handlers.ts`）。
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 const logger = getLogger('http:workflowTemplate');
+
+/** 工作流模板 store 句柄（经服务层端口；调用方无需感知 app 层实现） */
+async function templateStore(): Promise<WorkflowTemplateStorePort> {
+  return (await getCoreAPI().getWorkspaceOpsPort()).getWorkflowTemplateStore();
+}
 
 /** 内建工作流模板 */
 const BUILTIN_TEMPLATES: WorkflowTemplateDto[] = [
@@ -253,9 +266,6 @@ const BUILTIN_TEMPLATES: WorkflowTemplateDto[] = [
   },
 ];
 
-/** 用户自定义模板存储（内存） */
-const userTemplates: Map<string, WorkflowTemplateDto> = new Map();
-
 /**
  * 列出所有模板
  * GET /v1/workflows/templates
@@ -266,7 +276,8 @@ export async function handleListWorkflowTemplates(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const all = [...BUILTIN_TEMPLATES, ...Array.from(userTemplates.values())];
+    const store = await templateStore();
+    const all = [...BUILTIN_TEMPLATES, ...(await store.list())];
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(all));
@@ -297,9 +308,10 @@ export async function handleGetWorkflowTemplate(
   templateId: string
 ): Promise<void> {
   try {
+    const store = await templateStore();
     const template =
-      BUILTIN_TEMPLATES.find((t) => t.id === templateId) ||
-      userTemplates.get(templateId);
+      BUILTIN_TEMPLATES.find((t) => t.id === templateId) ??
+      (await store.get(templateId));
 
     if (!template) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -360,7 +372,8 @@ export async function handleCreateWorkflowTemplate(
       tags: data.tags,
     };
 
-    userTemplates.set(template.id, template);
+    const store = await templateStore();
+    await store.upsert(template);
     logger.info('工作流模板已创建', {
       templateId: template.id,
       name: template.name,
@@ -404,7 +417,8 @@ export async function handleUpdateWorkflowTemplate(
       return;
     }
 
-    const existing = userTemplates.get(templateId);
+    const store = await templateStore();
+    const existing = await store.get(templateId);
     if (!existing) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Template not found' } }));
@@ -425,7 +439,7 @@ export async function handleUpdateWorkflowTemplate(
       updatedAt: new Date().toISOString(),
     };
 
-    userTemplates.set(templateId, updated);
+    await store.upsert(updated);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(updated));
@@ -464,13 +478,13 @@ export async function handleDeleteWorkflowTemplate(
       return;
     }
 
-    if (!userTemplates.has(templateId)) {
+    const store = await templateStore();
+    // D4：由 store 的 `remove` 返回值判定 404（替代原 `has()` + `delete()` 两次访问）
+    if (!(await store.remove(templateId))) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Template not found' } }));
       return;
     }
-
-    userTemplates.delete(templateId);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));

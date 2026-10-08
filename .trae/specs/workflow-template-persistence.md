@@ -1,8 +1,13 @@
 # 工作流模板持久化 Spec（P2-1 落盘部分）
 
-> 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
+> 版本: 1.1 | 创建: 2026-09-13 | 状态: **main 首次落地（2026-10-08）**
 > 关联: GR15 / CS01（复用既有 store 模式）/ project_rules §1.1（禁删库结构）/ §1.5（统一 app.db）/ §1.6.1（api-spec 唯一事实来源）
 > 前置：路线图阶段三第 12 项（P2-1）
+>
+> ⚠️ **状态订正（2026-10-08，台账 S24）**：本 spec 原标注"首版已完成（2026-09-13）"，但该实现
+> 当时只存在于归档 tag `dawate-archive-2026-09-16`，**main 上零命中**（`WorkflowTemplateStore.ts`
+> 不存在、handler 仍为内存 Map）⇒ 按代码事实判定为**未落地**。2026-10-08 在 main 上**首次落地**，
+> 并修正 §4 的测试落点（本仓惯例为 `app/tests/`，非 `src/**/__tests__/`）。
 
 ## 1. Problem Statement
 
@@ -34,9 +39,15 @@
 | # | 文件 | 改动 |
 |---|---|---|
 | 1 | `app/src/workspace/WorkflowTemplateStore.ts` | **新建**：store 类（`init`/`list`/`get`/`upsert`/`remove`）+ 单例 `getWorkflowTemplateStore()` + `WORKFLOW_TEMPLATES_TABLE` |
-| 2 | `app/src/infrastructure/http/handlers/workflow-template-handlers.ts` | 删除内存 Map；5 个 handler 改为经 store 读写（语义不变） |
-| 3 | `app/src/workspace/__tests__/WorkflowTemplateStore.test.ts` | **新建**：6 用例（含**跨实例持久化**验证） |
-| 4 | `.trae/docs/api-spec.md` | 补齐 5 个模板端点条目（原先缺失，触碰即补） |
+| 2 | `app/src/infrastructure/http/handlers/workflow-template-handlers.ts` | 删除内存 Map；5 个 handler 改经 **service 侧端口** 取 store（语义不变） |
+| 3 | `app/tests/workspace/workflowTemplateStore.test.ts` | **新建**：6 用例（含**跨实例持久化**验证）—— 落点随本仓惯例（`app/tests/`，非 `src/**/__tests__/`） |
+| 4 | `.trae/docs/api-spec.md` | 补齐 5 个模板端点条目（原先缺失，触碰即补 → §3.32） |
+| 5 | `app/src/runtime/api/workspaceOpsPorts.ts` | 新增 `WorkflowTemplateStorePort` 接口 + `WorkspaceOpsPort.getWorkflowTemplateStore()` |
+| 6 | `app/src/runtime/api/domainSnapshotOps.ts` | 实现 `getWorkflowTemplateStore()`（动态 `import('@modules/workspace/WorkflowTemplateStore')`，同 `getAgentRoleStore` 模式） |
+
+> **为何经端口而非直接 import**：`workspace` 属 **app 层**、`infrastructure/http/handlers` 属 **service 层** ⇒
+> 静态 import 触发门禁 **R03-002（错误）** + **R00-001（service→app 倒挂，警告）**。依既有 **D-113 端口模式**
+> （同 `agent-role-handlers.ts` 的 `getAgentRoleStore`），改经 `WorkspaceOpsPort` 取用。
 
 ## 5. 验证方案
 
@@ -62,3 +73,24 @@
 **未做（明确）**：模板 ↔ Provider 绑定。
 
 **HTTP 端到端实测记录（2026-09-13）**：以隔离环境（`LIRI_HOME` 指向临时目录、端口 18991、`--http-only`）启动真实服务后逐项实测，结果见 §5 第 5 行；**重启后数据仍在**是关键断言。实测同时反证：临时环境下的 `data/app.db` 主文件仅 4096B（1 页），数据实际驻留在 `app.db-wal`（2.7MB）——该库处于 **WAL 模式**，未 checkpoint 前主文件不增长（SQLite 正常行为，非缺陷；但"只拷贝 app.db"会丢数据这一点值得运维留意）。测试结束已停止服务、删除临时 HOME，并核实**真实用户库 `~/.pyapp/data/app.db` 未被污染**（无 `workflow_templates` 表）。
+
+## 7. main 首次落地记录（2026-10-08，台账 S24 ①）
+
+> 上文 §6 的"2026-09-13 已完成"实为**归档 tag 内**的实现（main 零命中）⇒ 本节记录**在 main 上**的真实落地。
+
+| 文件 | 结果 |
+|---|---|
+| `app/src/workspace/WorkflowTemplateStore.ts` | ✅ 新建（复用 `AgentRoleStore` 模式：`resolveDbPath()` 默认注入、回调式 sqlite3、`init()` 幂等 + `initPromise` 并发安全、`upsert` 用 `ON CONFLICT DO UPDATE`、`remove` 返回 `changes > 0`） |
+| `app/src/infrastructure/http/handlers/workflow-template-handlers.ts` | ✅ 内存 `userTemplates` 删除；`list`/`get`/`create`/`update`/`delete` 全经端口取 store；全仓 `userTemplates` 仅剩注释 1 处 |
+| `app/src/runtime/api/workspaceOpsPorts.ts` | ✅ 新增 `WorkflowTemplateStorePort` + `WorkspaceOpsPort.getWorkflowTemplateStore()` |
+| `app/src/runtime/api/domainSnapshotOps.ts` | ✅ 实现端口方法（动态 import，同 `getAgentRoleStore`） |
+| `app/tests/workspace/workflowTemplateStore.test.ts` | ✅ 新建，**6 pass / 0 fail**（init 幂等 / 字段完整往返 / **跨实例持久化** / get 未命中 null / 同 id 覆盖不产生重复行 / remove 首次 true 再次 false），随 `agentRoleStore.test.ts` 同跑 **16 pass / 0 fail** |
+| `.trae/docs/api-spec.md` | ✅ 新增 §3.32（5 个端点条目 + 内建保护/404/400 语义） |
+
+**验证（本次实测）**：`bun run typecheck` exit 0；定向 ESLint 0；`bun run lint:arch` = **错误 0 / 警告 4**（与基线一致：3× R06-009-1 微文件 + 1× R00-003 动态跨层，未新增）；`bun test tests/workspace/` = **16 pass / 0 fail**。
+
+**本次未做的关键断言（如实记录）**：**未重跑 HTTP 端到端**（§5 第 5 行那次为归档环境）。本批以
+①单元测试的**跨实例持久化**用例（同一 DB 文件、新建 store 实例仍能取到）锁定"落盘"这一核心断言；
+②`typecheck` 锁定 handler↔端口接线；③`lint:arch` 锁定无跨层倒挂。若后续需 HTTP 端到端证据，见 §5 的复现脚本。
+
+**未做（明确）**：模板 ↔ Provider 绑定（属 ②，见 `workflow-template-execution-binding.md`）。

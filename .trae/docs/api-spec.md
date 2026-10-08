@@ -840,6 +840,25 @@ data: {"type":"done","result":{...}}
 
 ---
 
+### §3.32 Workflow Templates（工作流模板，2026-10-08 新增登记）
+
+> 路由注册：`monitor-command-routes.ts`（`---- Workflow Templates ----` 段）。
+> Handler：`infrastructure/http/handlers/workflow-template-handlers.ts`。
+> 持久化：用户自定义模板落盘 `workflow_templates` 表（唯一 `app.db`；`getWorkflowTemplateStore()`），
+> 4 个内建模板保持代码内静态（不入库）。规格：`.trae/specs/workflow-template-persistence.md`。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/workflows/templates` | ✅ | `workspaceService.getWorkflowTemplates`（**无组件引用**，属预留接口 P3-1） |
+| GET | `/v1/workflows/templates/:id` | ✅ 未命中 → 404 | `workspaceService.getWorkflowTemplate`（同上，预留） |
+| POST | `/v1/workflows/templates` | ✅ 201；缺 `name`/`steps` → 400；服务端生成 `user_*` id | `workspaceService.createWorkflowTemplate`（同上，预留） |
+| PUT | `/v1/workflows/templates/:id` | ✅ 200；`builtin:*` → 403；未命中 → 404 | `workspaceService.updateWorkflowTemplate`（同上，预留） |
+| DELETE | `/v1/workflows/templates/:id` | ✅ 200 `{success:true}`；`builtin:*` → 403；未命中 → 404 | `workspaceService.deleteWorkflowTemplate`（同上，预留） |
+
+**说明**：2026-10-08 前用户模板仅存于模块私有内存 Map，**进程重启即丢**；本批改为经 `WorkflowTemplateStore` 落盘（语义/状态码不变）。
+
+---
+
 ## §4 前端服务 → 后端接口映射表（三级降级全景）
 
 | 前端服务 | 方法 | HTTP 路径 | Tauri IPC 命令 | IPC 状态 |

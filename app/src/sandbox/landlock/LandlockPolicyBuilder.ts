@@ -22,8 +22,7 @@
 /**
  * Landlock 策略映射（P1，2026-08-25）
  *
- * 将 `SandboxConfigBuilder` / `SandboxPermissions` 输出映射为 landlock-run 的
- * policy.json（对齐方案 §4.2(2) 映射表）。
+ * 将 `SandboxPermissions` 映射为 landlock-run 的 policy.json（对齐方案 §4.2(2) 映射表）。
  * 纯函数，无 IO，可在任意平台单测。
  */
 import type { SandboxPermissions } from '../SandboxTypes';
@@ -82,7 +81,7 @@ function mapPermissions(
 export class LandlockPolicyBuilder {
   /**
    * 从 SandboxPermissions 构建 Landlock policy.json
-   * @param permissions SandboxConfigBuilder 输出（terminalTool 等）
+   * @param permissions 权限模型（`SandboxPermissions`）
    * @param options cwd（工作目录）、abi（探测到的 ABI，缺省 MAX_SUPPORTED_ABI）
    */
   static build(

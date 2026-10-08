@@ -82,7 +82,10 @@ export {
 // / `globalWorkspaceManager` / `LocalWorkspace`（`create()` 全仓零调用 ⇒ 工作区 Map 恒空；
 // S4 已删 Docker/SSH 两个 adapter）。SPI `workspaces` 面随之删除（见 core/spi/SandboxService.ts）。
 
-export { SandboxConfigBuilder } from './SandboxConfigBuilder';
+// 2026-10-08（P1-续）：原 `export { SandboxConfigBuilder }` 已删 —— `toolType → SandboxPermissions`
+// 的**策略库**，全仓**零生产消费者**（真实 `code_run` 走 `LinuxSandboxRunner.buildBunLandlockPolicy`；
+// `bash` 走 `buildBashLandlockPolicy`）。其唯一消费者是 `tests/sandbox/landlockSensitivePathGuard.test.ts`
+// 的 A 段，该段**测的是一条不存在的路径** ⇒ 已改写为断言**真实策略**。
 
 // 2026-08-30 R03-002 收敛：SandboxImpl / landlock 统一出口
 // 2026-09-29：`SandboxImpl`（`SandboxManagerImpl` / `createSandboxManager` / 各平台沙箱类）

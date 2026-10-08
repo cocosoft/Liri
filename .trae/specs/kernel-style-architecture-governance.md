@@ -1,6 +1,6 @@
 # Spec：Linux 内核式架构治理目标（Kernel-Style Architecture Governance）
 
-> 版本 1.4 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.4 = P1 盘点 §8 + 隔离面盘点 §9 **含 S1–S7 全部处置**）
+> 版本 1.5 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.5 = P1 §8 + 隔离面 §9 **含 S1–S7 + `SandboxConfigBuilder` 全部处置**）
 > 来源：用户 2026-10-08 架构治理咨询 ——「想从架构治理层面，把 Liri 按 linux 内核方式组织」；用户 2026-10-08 指令「启动 P1 就绪度盘点」
 > 关联规则：GR15（Spec-Driven）· **R06-008 / `scripts/modules-to-layers.json`（分层唯一事实源，本 spec 不替代）** · CS01（归一化）· CS06（证据驱动）· §1.16（工具注册表单一 / 注册→disposer 生命周期）
 > 关联 spec：`.trae/specs/ai-vfs-driver-contract.md`（本目标的**唯一真实缺口子项**，v1.1）
@@ -223,4 +223,4 @@
 
 - **门禁（本批）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
   全量 **4527 pass / 9 skip / 0 fail**（较上批 −41 = 删掉的 5 个测试文件，无失败）。
-- **未做**：`SandboxConfigBuilder`（零生产消费者，仅测试用）**未删**（不在 S 清单内，另行登记）。
+- **✅ 已完成（2026-10-08 续，用户指令「执行吧」）**：`SandboxConfigBuilder`（`toolType → SandboxPermissions` 策略库，**零生产消费者**）**已删** + barrel 导出；其唯一消费者 `tests/sandbox/landlockSensitivePathGuard.test.ts` 的 **A 段**（原以该 builder 的 5/6 种策略为输入 ⇒ **测的是一条不存在的路径**）**改写为断言真实策略** `LinuxSandboxRunner.buildBunLandlockPolicy`（并加"控制组：策略非空"防假绿）。`LandlockPolicyBuilder` 的 2 处 stale 注释同步订正。

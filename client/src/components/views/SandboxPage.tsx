@@ -194,46 +194,10 @@ function SandboxPage() {
                     {status?.violationCount ?? "-"}
                   </div>
                 </div>
-                <div>
-                  <div className={`text-xs ${mutedClass}`}>
-                    {t("sandbox.activeWorkspaces")}
-                  </div>
-                  <div className={`text-sm font-medium ${valueClass}`}>
-                    {status?.activeWorkspaceCount ?? "-"}
-                  </div>
-                </div>
-                <div>
-                  <div className={`text-xs ${mutedClass}`}>
-                    {t("sandbox.processTotal")}
-                  </div>
-                  <div className={`text-sm font-medium ${valueClass}`}>
-                    {status?.processStats.total ?? "-"}
-                    {status && status.processStats.total > 0 && (
-                      <span className={`text-xs ${mutedClass}`}>
-                        {" "}
-                        {t("sandbox.runningCount", {
-                          count: status.processStats.running,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div className={`text-xs ${mutedClass}`}>
-                    {t("sandbox.resourceLimitPlugins")}
-                  </div>
-                  <div className={`text-sm font-medium ${valueClass}`}>
-                    {status?.resourceSummary.totalPlugins ?? "-"}
-                  </div>
-                </div>
-                <div>
-                  <div className={`text-xs ${mutedClass}`}>
-                    {t("sandbox.activeExecutions")}
-                  </div>
-                  <div className={`text-sm font-medium ${valueClass}`}>
-                    {status?.resourceSummary.totalActive ?? "-"}
-                  </div>
-                </div>
+                {/* 2026-10-08（P1-续 S1/S7）：原 activeWorkspaces / processTotal /
+                    resourceLimitPlugins / activeExecutions 四行已删除 —— 其后端字段
+                    （`activeWorkspaceCount` / `processStats` / `resourceSummary`）数据源恒空，
+                    已随各子系统整批删除。 */}
               </div>
             </div>
 

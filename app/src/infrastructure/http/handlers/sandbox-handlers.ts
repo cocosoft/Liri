@@ -145,6 +145,7 @@ export async function handleGetSandboxStatus(
   try {
     // D-200：原分别直连 SandboxManager / processRegistry / resourceLimitManager /
     // globalWorkspaceManager ⇒ 改经 core SPI 端口的**最小投影**快照（子字段原样进 JSON）。
+    // 2026-10-08（P1-续 S1/S7）：后三者（恒空）已删，现只余 `SandboxManager` 投影。
     const status = resolveSandbox().getRuntimeStatus();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -156,9 +157,6 @@ export async function handleGetSandboxStatus(
         settings: status.settings,
         constraints: status.constraints,
         violationCount: status.violationCount,
-        processStats: status.processStats,
-        resourceSummary: status.resourceSummary,
-        activeWorkspaceCount: status.activeWorkspaceCount,
       })
     );
   } catch (err) {

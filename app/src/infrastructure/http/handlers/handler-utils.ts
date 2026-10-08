@@ -37,11 +37,9 @@ import {
   resolveAttachmentsDir,
   resolvePyappHome,
 } from '@modules/core';
-import { resolveSandbox } from '@modules/core/spi';
-// 2026-10-01 D-200（子批 C）：原**静态**导入 `@modules/sandbox`（app 层）两个符号
-// （值 `globalWorkspaceManager` + 枚举 `SandboxPermission`）⇒ `infrastructure -> app` 倒挂。
-// 枚举改**相对直连 core 叶子**（同 D-186 四例）；值改经 **core SPI 端口**（`ISandboxPort`，
-// 服务层 → core 为下行，合法）。
+// 2026-10-08（P1-续 S1）：原此处 `import { resolveSandbox } from '@modules/core/spi'` 已删 ——
+// 其唯一用途（`checkFilePathPermission` 的 `isWorkspacePermissionDenied` 空分支）已随 S1 移除。
+// 2026-10-01 D-200（子批 C）留下的枚举相对直连 core 叶子**保留**（同 D-186 四例）。
 import type { SandboxPermission } from '../../../core/sandboxPermission.js';
 
 const logger = getLogger('http:handlerUtils');
@@ -169,15 +167,9 @@ export function checkFilePathPermission(
     return false;
   }
 
-  // D-200：原直连 `globalWorkspaceManager.get('default')` ⇒ 改经 core SPI 端口。
-  // 语义与端口文档一致：默认工作区**存在但缺权** ⇒ 拒绝；**不存在** ⇒ 放行（保持既有行为）。
-  if (resolveSandbox().isWorkspacePermissionDenied(permission)) {
-    logger.warn(`工作空间缺少必要权限: ${permission}`, {
-      module: 'LocalHTTPService',
-      context: { workspaceId: 'default' },
-    });
-    return false;
-  }
+  // 2026-10-08（P1-续 S1）：原此处经 `resolveSandbox().isWorkspacePermissionDenied(permission)`
+  // 判「工作区存在但缺权 ⇒ 拒绝」—— 但全仓**无 `create('default')`** ⇒ 该判定**恒 false**
+  // （即**空分支**）⇒ 已删。上方 `allowedDirs` 白名单校验是本函数**真实**的门禁。
 
   return true;
 }

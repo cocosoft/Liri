@@ -59,19 +59,10 @@ export * from './SandboxSecurityChecker.js';
 // —— 它们**全仓零消费者**（仅经各自 barrel 可达；`SandboxImpl` 的唯一构造方是 `ToolSandboxRouter`）。
 // 现**活**的沙箱面是**路径级**：`sandbox/landlock/*`（bash / code_run）、`SandboxSecurityChecker`、
 // `utils/PathRestrictions` —— 本文件下方这些导出**保持不动**。
-export { ProcessRegistry, processRegistry } from './ProcessRegistry';
-export type { ProcessInfo, ProcessQuery } from './ProcessRegistry';
-
-// 资源限制管理器（per-plugin CPU/内存/并发控制）
-export {
-  ResourceLimitManager,
-  resourceLimitManager,
-} from './ResourceLimitManager';
-export type {
-  PluginResourceLimits,
-  PluginResourceUsage,
-  ExecutionContext,
-} from './ResourceLimitManager';
+// 2026-10-08（P1-续 S7）**整批删除**：`ProcessRegistry`（**无任何生产者** ⇒ `getStats()` 恒空）与
+// `ResourceLimitManager`（执行 API `acquireExecution`/`releaseExecution`/`cleanStaleContexts` 零调用
+// ⇒ `getSummary()` 恒空）—— 二者**只**服务于 `GET /v1/sandbox/status` 的投影字段
+// （`processStats` / `resourceSummary`，已随本轮一并删除）。
 
 // 插件健康监控器（心跳检测 + 崩溃恢复）—— 2026-09-29 随「沙箱实例层」一并下线（**零消费者**，台账 D-25）。
 // 注：**通道**侧的自愈是**活的** `channels/monitoring/ChannelRealtimeMonitor`（与本体无关）。
@@ -87,13 +78,9 @@ export {
 // `validateToolAccess` / `PRODUCTION_SANDBOX_POLICY`（值）与 `SandboxToolPolicy` / `SandboxMode` /
 // `SandboxGlobalPolicy`（类型）—— 这些属**零消费者死门禁**，已随 `SandboxPolicy.ts` 整段清理一并删除。
 
-// 导出阶段 A 新增组件
-export { WorkspaceBase } from './WorkspaceBase';
-export type { WorkspaceFileInfo, WorkspaceListResult } from './WorkspaceBase';
-export { WorkspaceManager, globalWorkspaceManager } from './WorkspaceManager';
-export type { WorkspaceCreateOptions } from './WorkspaceManager';
-export { LocalWorkspace } from './adapters/LocalWorkspace';
-// 2026-10-08（P1-续 S4）：原 `DockerWorkspace` / `SSHWorkspace` 导出已删（零消费者）。
+// 导出阶段 A 新增组件 —— 2026-10-08（P1-续 S1）**整层删除**：`WorkspaceBase` / `WorkspaceManager`
+// / `globalWorkspaceManager` / `LocalWorkspace`（`create()` 全仓零调用 ⇒ 工作区 Map 恒空；
+// S4 已删 Docker/SSH 两个 adapter）。SPI `workspaces` 面随之删除（见 core/spi/SandboxService.ts）。
 
 export { SandboxConfigBuilder } from './SandboxConfigBuilder';
 

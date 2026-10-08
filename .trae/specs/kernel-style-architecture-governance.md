@@ -1,6 +1,6 @@
 # Spec：Linux 内核式架构治理目标（Kernel-Style Architecture Governance）
 
-> 版本 1.3 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.3 = P1 盘点 §8 + 隔离面盘点 §9 **含 S2–S5 处置**）
+> 版本 1.4 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.4 = P1 盘点 §8 + 隔离面盘点 §9 **含 S1–S7 全部处置**）
 > 来源：用户 2026-10-08 架构治理咨询 ——「想从架构治理层面，把 Liri 按 linux 内核方式组织」；用户 2026-10-08 指令「启动 P1 就绪度盘点」
 > 关联规则：GR15（Spec-Driven）· **R06-008 / `scripts/modules-to-layers.json`（分层唯一事实源，本 spec 不替代）** · CS01（归一化）· CS06（证据驱动）· §1.16（工具注册表单一 / 注册→disposer 生命周期）
 > 关联 spec：`.trae/specs/ai-vfs-driver-contract.md`（本目标的**唯一真实缺口子项**，v1.1）
@@ -153,7 +153,7 @@
 | **D2** | 删 `tools/ToolManager.ts` 内零消费者的重复 `createToolRegistry()` | ✅ **已实施** |
 | **D3** | `spiWiring.ts` 头注改为与实现一致（15 个端口全在本文件 = 唯一注入点） | ✅ **已实施** |
 | **D4** | `ToolExecutionService.ts` 未注入权限管理器 ⇒ 补 `logger.warn`（**fail-open 语义不变**，只加可观测） | ✅ **已实施** |
-| **D5** | **✅ 已裁定（2026-10-08）：降级为"观测面"** | `ResourceLimitManager` 的执行 API（`acquireExecution`/`releaseExecution`/`cleanStaleContexts`）**全仓零调用点**。**不接线**（理由 CS03：无实测场景支撑，接线需先造"插件执行 seam"= 投机扩展）；**不删除**（其 `getSummary()` 已被 `GET /v1/sandbox/status` → 前端 `SandboxPage.tsx:226/234` 消费 ⇒ 删除属跨端契约变更）。⇒ **明确其定位为观测面**，根治"名为限制实为展示"的语义漂移：§2 映射已改为"执行约束面 = `resourceGovernor`（默认关）/ 观测面 = `ResourceLimitManager`"。**待触发**：若将来出现插件算力滥用证据（触发条件），再单独立 spec 接线 |
+| **D5** | **✅ 已裁定（2026-10-08）：降级为"观测面"** | `ResourceLimitManager` 的执行 API（`acquireExecution`/`releaseExecution`/`cleanStaleContexts`）**全仓零调用点**。**不接线**（理由 CS03：无实测场景支撑，接线需先造"插件执行 seam"= 投机扩展）；**不删除**（其 `getSummary()` 已被 `GET /v1/sandbox/status` → 前端 `SandboxPage.tsx:226/234` 消费 ⇒ 删除属跨端契约变更）。⇒ **明确其定位为观测面**，根治"名为限制实为展示"的语义漂移：§2 映射已改为"执行约束面 = `resourceGovernor`（默认关）/ 观测面 = `ResourceLimitManager`"。**待触发**：若将来出现插件算力滥用证据（触发条件），再单独立 spec 接线。**⚠️ 2026-10-08 更新**：S7 处置删除了 `getSummary()` 的消费面（`/v1/sandbox/status` 的 `resourceSummary`）⇒ 本行"**不删除**"的前提（前端消费）消失，`ResourceLimitManager` 已随 S7 一并删除 |
 | **D6** | **✅ 已实施（2026-10-08）**：`GovernanceManager` 的 `createToolRegistry()` → **`getToolRegistry()`** —— 原空表使 `getGovernedTools()` / `executeGovernanceCheck()` 的 feature-flag 过滤**恒为空集**（静默失效）；现与全局唯一注册表同源 | ✅ **已实施** |
 | **D7** | **✅ 已实施（2026-10-08）**：**删除** `tools/search/ToolDiscoveryService.ts` + `ToolSearchConfig.ts` + `tools/search/index.ts`（barrel）—— 三者**零消费者**，且 `ToolDiscoveryService` 与**活的** `tool_search`（`ToolSearchTool.ts:318` 用 `getToolRegistry()` + `isDeferredTool`）**能力重复**、本地搜索恒空。同批清理 `scripts/lint-architecture.ts` 的 stale 例外条目（`tools\search\ToolSearchConfig.ts`）与守卫允许清单。**`tools/search/GlobTool.ts` 是活的（`ToolFactory:14`），未动** | ✅ **已实施** |
 
@@ -214,8 +214,13 @@
 | **S3** | 删 `sandbox/EnhancedSandboxManager.ts` + `sandbox/IntelligentSandboxAnalyzer.ts` + barrel `export *` | ✅ **已删** |
 | **S4** | 删 `sandbox/docker/**`（6 文件：`DockerSandbox`·`DockerImageManager`·`DockerNetworkPolicy`·`NetworkPolicyEngine`·`dockerCli`·`index`）+ `PTYSandbox.ts` + `SSHSandbox.ts` + `adapters/DockerWorkspace.ts` + `adapters/SSHWorkspace.ts`；`WorkspaceManager.createAdapter` 收敛为 **Local-only**（去 SSH/Docker 分支 + `sshConfig` 选项）；同批删 5 个专属测试（`dockerImageManager`/`dockerSandboxExitCode`/`dockerCustomNetwork`/`networkPolicyDeclaration`/`outputLimits`）；`AgentCleanup.ts:107-108` **未使用导入**改为注释 | ✅ **已删** |
 | **S5** | 删 `runWithLandlock()` **函数** + `RunWithLandlockOptions` + `LandlockRunResult`（类型，随之零消费者）；**保留** `buildLandlockArgv` / `isSandboxInitFailure`（活件，文件不变）；文档 `工具调用安全检查链路.md:68` 落点订正 | ✅ **已删** |
-| **S1 / S6 / S7** | **登记待设计**（SPI `workspaces` 面恒空 · `SandboxManager.execute()` 空转 · 观测面数据源恒空）—— 删会改 SPI 契约 / 需需求触发 | ⏳ 待裁定 |
+| **S1 / S6 / S7** | **✅ 已删（2026-10-08，用户裁定「删全部空心面（含跨端）」）**：**S6** 删 `SandboxManager.execute()`（真实 `exec`，零调用）；**S1** 删 workspace 子系统（`WorkspaceManager`/`globalWorkspaceManager`/`LocalWorkspace`/`WorkspaceBase`）+ SPI `hasWorkspacePermission`/`isWorkspacePermissionDenied` + `PermissionService.canAccessFile`（零外部消费者）+ `handler-utils` 空分支；**S7** 删 `ProcessRegistry`（无生产者）/`ResourceLimitManager`（执行 API 零调用）；**跨端**同步 `GET /v1/sandbox/status` 响应面（去 3 字段）+ `client/src/services/sandboxService.ts` 类型 + `SandboxPage.tsx` 4 行 | ✅ **已删** |
+
+- **S1/S6/S7 接线不成立**（CS03：无需求触发，接线＝投机扩展）⇒ 一律删除。
+- **门禁（S1/S6/S7 批）**：`typecheck`（app + client）**0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** ·
+  全量 **4527 pass / 9 skip / 0 fail**（无失败）。
+- ⚠️ **D5 随之更新**：S7 删除了 `resourceSummary`/`processStats` 的消费面 ⇒ D5「不删除 `ResourceLimitManager`（因 `getSummary()` 被前端消费）」的前提消失，故本轮一并删除（其自述的"待触发接线"亦不再成立）。
 
 - **门禁（本批）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
   全量 **4527 pass / 9 skip / 0 fail**（较上批 −41 = 删掉的 5 个测试文件，无失败）。
-- **未做**：S1/S6/S7 的接线或删除；`SandboxConfigBuilder`（零生产消费者，仅测试用）**未删**（不在 S 清单内，另行登记）。
+- **未做**：`SandboxConfigBuilder`（零生产消费者，仅测试用）**未删**（不在 S 清单内，另行登记）。

@@ -50,9 +50,14 @@
  * ⇒ 倒挂。仍按 CS01 **同一端口**补最小能力（D-157 同法，不另起端口）。
  * ⚠️ `isWorkspacePermissionDenied` 与既有 `hasWorkspacePermission` 在「默认工作区不存在」
  * 分支上**取舍相反**，见其文档；**不可互相替代**。
+ *
+ * **2026-10-08（P1-续 S1/S7）收缩**：`hasWorkspacePermission` / `isWorkspacePermissionDenied` /
+ * `SandboxRuntimeStatus` 的 `processStats`·`resourceSummary`·`activeWorkspaceCount` **全部删除**
+ * —— 其数据源（`WorkspaceManager` / `ProcessRegistry` / `ResourceLimitManager`）**零消费者/零生产者**
+ * （恒空），已随各子系统整批删除。本端口现只保留 `shouldUseSandbox` / `isSandboxingEnabled` /
+ * `updateSettings` / `getRuntimeStatus`（后者仅余 `runtimeEnabled` / `settings` / `constraints` /
+ * `violationCount`）—— 均为**真实**能力。
  */
-
-import type { SandboxPermission } from '../sandboxPermission.js';
 
 /**
  * 沙箱运行时状态快照（**最小投影** —— `sandbox-handlers.ts` 的 `GET /v1/sandbox/status` 读取面）
@@ -69,12 +74,9 @@ export interface SandboxRuntimeStatus {
   constraints: unknown;
   /** 违规事件数（`getViolations().length`） */
   violationCount: number;
-  /** 进程统计（`processRegistry.getStats()`） */
-  processStats: unknown;
-  /** 资源汇总（`resourceLimitManager.getSummary()`） */
-  resourceSummary: unknown;
-  /** 活跃工作区数（`globalWorkspaceManager.list().size`） */
-  activeWorkspaceCount: number;
+  // 2026-10-08（P1-续 S1/S7）：原 `processStats`（`processRegistry.getStats()`）/
+  // `resourceSummary`（`resourceLimitManager.getSummary()`）/ `activeWorkspaceCount`
+  // （`globalWorkspaceManager.list().size`）三字段**已删除** —— 其数据源均**恒空**（零消费者/零生产者）。
 }
 
 /** 沙箱端口（core 侧契约） */
@@ -85,31 +87,12 @@ export interface ISandboxPort {
   isSandboxingEnabled(): boolean;
   /** 更新沙箱设置（未注册时为 no-op） */
   updateSettings(settings: Record<string, unknown>): void;
-  /**
-   * 默认工作区是否拥有指定权限（未注册 / 默认工作区不存在时返回 `false`）
-   *
-   * 实现侧对应 `globalWorkspaceManager.get('default')?.hasPermission(permission) ?? false`。
-   */
-  hasWorkspacePermission(permission: SandboxPermission): boolean;
-  /**
-   * 默认工作区**存在但缺少**指定权限时为 `true`；默认工作区**不存在**时为 `false`（**放行**）。
-   *
-   * ⚠️ **与 `hasWorkspacePermission` 的差异只在「默认工作区不存在」分支**（实证：全仓无
-   * `create('default')` ⇒ 该分支是**实际生效**分支）：
-   * | 情形 | `hasWorkspacePermission` | 本方法 |
-   * |---|---|---|
-   * | 工作区存在且有权 | `true` | `false` |
-   * | 工作区存在但无权 | `false` | `true` |
-   * | 工作区不存在 | `false`（**fail-closed**） | `false`（**放行**） |
-   *
-   * 前者供 `PermissionService.canAccessFile`（安全判定，缺省拒绝）；
-   * 本方法供 `handler-utils.checkFilePathPermission`（保持其**既有放行**行为）⇒ **不可互相替代**。
-   *
-   * 实现侧对应 `const ws = globalWorkspaceManager.get('default'); return ws ? !ws.hasPermission(p) : false;`
-   * （未注册时返回 `false` = 放行，与实现侧「无默认工作区」分支同向）。
-   */
-  isWorkspacePermissionDenied(permission: SandboxPermission): boolean;
-  /** 沙箱运行时状态快照（未注册时返回全零快照，见 `SandboxRuntimeStatus`） */
+  // 2026-10-08（P1-续 S1）：原 `hasWorkspacePermission()`（D-157）与 `isWorkspacePermissionDenied()`
+  // （D-200）**已删除** —— 两者都读 `globalWorkspaceManager.get('default')`，而全仓**无
+  // `create('default')`** ⇒ 恒 `undefined`：前者恒 `false`（fail-closed），后者恒 `false`（放行，
+  // 即**空分支**）。其消费者（`PermissionService.canAccessFile` 已零外部消费者；
+  // `handler-utils.checkFilePathPermission` 的空分支）同批移除。
+  /** 沙箱运行时状态快照（未注册时返回空值快照，见 `SandboxRuntimeStatus`） */
   getRuntimeStatus(): SandboxRuntimeStatus;
 }
 
@@ -129,9 +112,6 @@ const _EMPTY_RUNTIME_STATUS: SandboxRuntimeStatus = {
   settings: null,
   constraints: null,
   violationCount: 0,
-  processStats: null,
-  resourceSummary: null,
-  activeWorkspaceCount: 0,
 };
 
 /** 转发**代理**（延迟绑定，同 `resolveBroadcast()` 语义；注册前为空值语义） */
@@ -139,10 +119,6 @@ const _proxy: ISandboxPort = {
   shouldUseSandbox: (input) => _service?.shouldUseSandbox(input) ?? false,
   isSandboxingEnabled: () => _service?.isSandboxingEnabled() ?? false,
   updateSettings: (settings) => _service?.updateSettings(settings),
-  hasWorkspacePermission: (permission) =>
-    _service?.hasWorkspacePermission(permission) ?? false,
-  isWorkspacePermissionDenied: (permission) =>
-    _service?.isWorkspacePermissionDenied(permission) ?? false,
   getRuntimeStatus: () => _service?.getRuntimeStatus() ?? _EMPTY_RUNTIME_STATUS,
 };
 

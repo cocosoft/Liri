@@ -57,6 +57,7 @@ import {
 } from '../../src/ai/prompts/ModelGuidance';
 // 2026-10-08（LRTO 步骤"执行不了"事故）：角色/步骤工具名必须由任务类型经 TOOL_CATEGORIES 派生。
 import { getRealToolNamesForTask } from '../../src/tools/toolCategories';
+import { EXECUTOR_ROLE, PLANNER_ROLE } from '../../src/tasks/lro/contracts';
 
 /** 扫描 `src/tools/**` 里工具类的 `name = '...'` 声明（判据=真实代码） */
 function scanRegisteredToolNames(): Set<string> {
@@ -361,6 +362,31 @@ describe('角色/步骤工具清单守卫：必须派生自 TOOL_CATEGORIES', ()
       join(import.meta.dir, '../../src/tasks')
     );
     expect(hits).toEqual([]);
+  });
+
+  /**
+   * 2026-10-08（真机复测暴露）：步骤因**安全策略拦截**不收敛 —— 实测只读命令本身在白名单
+   * （`dir` 成功执行、PowerShell 白名单含 `get-`/`test-` 前缀），真正被拒的是**带 shell
+   * 操作符**（`|` `>` `&&` `;`，`checkBashAllowlist` 一律 deny）与**非白名单构造**
+   * （`[System.IO.File]::WriteAllText`⇒`COMMAND_NOT_ALLOWED`）。用户裁定「引导用专用工具」
+   * （不改安全姿态）⇒ 角色提示词必须把该约束写死，否则模型会持续用管道读回证据。
+   */
+  it('角色提示词须引导专用工具、禁用 shell 操作符、并要求写后读回', () => {
+    const executorPrompt = EXECUTOR_ROLE.systemPrompt;
+    for (const tool of [
+      'file_read',
+      'file_write',
+      'file_edit',
+      'glob',
+      'grep',
+    ]) {
+      expect(executorPrompt).toContain(tool);
+    }
+    expect(executorPrompt).toContain('管道');
+    expect(executorPrompt).toContain('重定向');
+    expect(executorPrompt).toContain('读回');
+    // 规划约束：验收标准也必须可由专用工具核验（否则计划本身诱导 shell 取证据）
+    expect(PLANNER_ROLE.systemPrompt).toContain('file_read');
   });
 });
 

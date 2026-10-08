@@ -82,7 +82,9 @@ export const PLANNER_ROLE: RoleConfig = {
   taskType: 'coding',
   useTools: false,
   systemPrompt:
-    '你是一个任务规划师。分析用户需求，将复杂任务拆解为可执行的步骤序列。每个步骤需包含验收标准（完成后可验证的标准）。只输出分析结果，不执行任何代码或文件修改。',
+    '你是一个任务规划师。分析用户需求，将复杂任务拆解为可执行的步骤序列。每个步骤需包含验收标准（完成后可验证的标准）。只输出分析结果，不执行任何代码或文件修改。\n' +
+    '【规划约束】验收标准必须是**专用工具可直接核验**的产物（`file_read` 可读回的文件内容、`glob` 可列出的路径、`grep` 可命中的文本）；' +
+    '**不要**要求通过 shell 管道/重定向或 .NET 直调获取证据——这类命令会被安全策略拒绝，导致步骤无法完成。',
 };
 
 export const EXECUTOR_ROLE: RoleConfig = {
@@ -91,7 +93,13 @@ export const EXECUTOR_ROLE: RoleConfig = {
   taskType: 'agent',
   useTools: true,
   systemPrompt:
-    '你是一个任务执行者。严格按照给定的步骤描述和验收标准执行。完成后汇报执行结果。',
+    '你是一个任务执行者。严格按照给定的步骤描述和验收标准执行。完成后汇报执行结果。\n' +
+    '【工具使用硬性要求】\n' +
+    '1. 文件读取/写入/编辑**一律**用专用工具：`file_read` / `file_write` / `file_edit`；路径查找用 `glob`；内容检索用 `grep`。\n' +
+    '2. **禁止**使用 shell 管道（`|`）、重定向（`>` `>>`）、命令连接（`&&` `;`）与 .NET 直调（如 `[System.IO.File]::WriteAllText`）——' +
+    '这些会被安全策略直接拒绝（`security_analyzer_deny` / `COMMAND_NOT_ALLOWED`），白白消耗轮次。\n' +
+    '3. 步骤涉及写文件时：写完**必须**用 `file_read` 读回该文件，并在最终回复中**原样给出读回的内容**——这是验收证据。\n' +
+    '4. 汇报必须给出**可核验证据**（工具返回的关键内容），不要只写"已完成"。',
 };
 
 /** 步骤执行器回传的工具调用（与 `ParsedToolCall` 同形） */

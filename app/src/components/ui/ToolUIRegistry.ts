@@ -260,8 +260,8 @@ export function initDefaultToolUIRegistry(): void {
   try {
     const mcpUI = require('./toolUIs/MCPResourceTool/UI');
     registerToolUI('mcp', mcpUI);
-    registerToolUI('list_mcp_resources', mcpUI);
-    registerToolUI('read_mcp_resource', mcpUI);
+    // 2026-10-08：`list_mcp_resources` / `read_mcp_resource` 两个 UI 注册随工具删除
+    // （二者为占位/伪造实现，功能由 `mcp_resource` 覆盖）
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });
   }

@@ -64,8 +64,6 @@ import { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
 import { VideoTool } from './VideoTool/VideoTool';
 import { MusicTool } from './MusicTool/MusicTool';
 import { CanvasTool } from './CanvasTool/CanvasTool';
-import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
-import { ReadMcpResourceTool } from './ReadMcpResourceTool/ReadMcpResourceTool.js';
 import { MCPTool } from '../mcp/MCPTool';
 import { isToolEnabled } from './utils/ToolFeatureFlags';
 import { SleepTool } from './SleepTool/SleepTool.js';
@@ -454,22 +452,6 @@ export class ToolFactory {
    */
   createMCPResourceTool(): Tool {
     return new MCPResourceTool();
-  }
-
-  /**
-   * 创建ListMcpResources工具
-   * @returns ListMcpResources工具实例
-   */
-  createListMcpResourcesTool(): Tool {
-    return ListMcpResourcesTool;
-  }
-
-  /**
-   * 创建ReadMcpResource工具
-   * @returns ReadMcpResource工具实例
-   */
-  createReadMcpResourceTool(): Tool {
-    return ReadMcpResourceTool;
   }
 
   /**

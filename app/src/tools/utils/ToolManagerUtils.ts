@@ -178,14 +178,9 @@ function buildBuiltinToolLoaders(
       coreFeature('MCP'),
       createToolLoader(ToolFactory.prototype.createMCPResourceTool)
     ),
-    cond(
-      coreFeature('MCP'),
-      createToolLoader(ToolFactory.prototype.createListMcpResourcesTool)
-    ),
-    cond(
-      coreFeature('MCP'),
-      createToolLoader(ToolFactory.prototype.createReadMcpResourceTool)
-    ),
+    // 2026-10-08：删除 `list_mcp_resources` / `read_mcp_resource` 两个加载器 —— 二者为**占位/伪造实现**
+    // （前者 `fetchResourcesForClient()` 恒返回 []，后者直接编造 `Content of <uri>` 文本，属 CS04 违规），
+    // 且功能被 `mcp_resource`（真实现，走 MCPServerManager.sendRequest）完全覆盖。
     cond(
       coreFeature('REPL'),
       createToolLoader(ToolFactory.prototype.createREPLTool)

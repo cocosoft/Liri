@@ -40,7 +40,6 @@ export const TOOL_NAMES = [
   'image_generate',
   'image_svg_generate',
   'knowledge_save',
-  'list_mcp_resources',
   'list_peers',
   'lsp',
   'mcp_resource',
@@ -50,7 +49,6 @@ export const TOOL_NAMES = [
   'notebook',
   'plan',
   'powershell',
-  'read_mcp_resource',
   'read_project_file',
   'repl',
   'save_conversation',
@@ -81,4 +79,4 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 71;
+export const TOOL_NAMES_COUNT = 69;

@@ -1,6 +1,6 @@
 # Spec：AI-VFS 驱动契约（智能体虚拟文件系统）
 
-> 版本 1.1 ｜ 创建 2026-10-06 ｜ 更新 2026-10-08 ｜ 状态：🟡 **契约草案 —— 用户裁定「先立契约 spec，**不实施**」**（v1.1 补 §9 重叠面评估，状态不变）
+> 版本 1.2 ｜ 创建 2026-10-06 ｜ 更新 2026-10-08 ｜ 状态：🟡 **契约草案 —— 用户裁定「先立契约 spec，**不实施**」**（v1.1 补 §9 重叠面评估；**v1.2 §9.2/§9.3 按 69 基数重算 + 标记既有内部双轨已收敛**，状态不变）
 > 来源：`dev_docs/任务计划-20261004.md` §12 **T-1**（外部 `dev_docs/20261005/google ai 建议.md` §二·优化一「重构系统工具栈为标准 VFS 驱动契约」）
 > 关联规则：GR15（Spec-Driven）· GR01（基础设施复用）· CS01（归一化）· CS03（回退最小化）· CS04（零 Mock）· R06-008（分层）· §1.6「模型可见 ⇔ 已落盘」· `model-usage.md`（工具/模型契约）
 > 口径（CS06）：下列 file:line / 命中数 / 计数均 **2026-10-06 实测**；外部数字与实测不符者**如实订正**。
@@ -198,38 +198,40 @@ export interface IVfsDriver {
 |---|---|---|---|
 | `read_vfs` | `file_read`（`filePath, offset?, limit?` → `content,totalLines,lineCount,offset,sizeBytes,truncated`） | 🟢 **完全覆盖** | VFS 出参 `{data,mimeType,size}` **少** `lineCount/truncated`（分段语义需补） |
 | | `read_project_file`（`projectId, relativePath`） | 🟡 部分 | 独立命名空间；`projectId` 前置 ⇒ 需 `project://` 挂载点，非 `file://` |
-| | `read_mcp_resource`（`server, uri`）/ `mcp_resource{action:read_resource}`（`server_name, uri`） | 🟡 部分 | 映射到 `mcp://<server>/`；**注意二者本身已重叠**（见 §9.3） |
+| | `mcp_resource{action:read_resource}`（`server_name, uri`） | 🟡 部分 | 映射到 `mcp://<server>/`（2026-10-08 起为 MCP 资源面**唯一**入口） |
 | | `file_convert` | 🔴 **不可表达** | 格式转换（PDF/DOCX/XLSX→MD 等）**不是**文件系统原语 |
 | `write_vfs` | `file_write`（`filePath, content` → `type:create\|update,sizeBytes,linesWritten`） | 🟢 **完全覆盖** | VFS 增 `mode:create\|overwrite\|append`；需补 `create` 冲突语义 |
 | | `write_project_file` | 🟡 部分 | 同 `read_project_file` 命名空间问题 |
 | | `file_edit`（`EditCommand{insert\|delete\|replace\|append\|prepend, range, searchText, replaceText, insertAtLine}`） | 🔴 **不可表达** | **增量/定点编辑**；`write_vfs` 是全量覆盖 ⇒ 强行收敛会丢语义 |
 | | `knowledge_save`（`title, content, category?, tags?`） | 🔴 **不可表达** | 结构化写入 + frontmatter + 去重 + `knowledge:changed` 事件联动 |
 | `list_vfs` | `glob`（`pattern, searchPath?` → `filenames[],numFiles,truncated,invalidPattern`） | 🟡 部分 | `glob` 是**模式匹配**，`list_vfs` 是**目录列举**；语义**不等价**（须并存或明确二选一） |
-| | `list_mcp_resources`（`server?`）/ `mcp_resource{action:list_resources}` | 🟡 部分 | 映射到 `mcp://` |
+| | `mcp_resource{action:list_resources}`（`server_name?`） | 🟡 部分 | 映射到 `mcp://`（2026-10-08 起为 MCP 资源面**唯一**入口） |
 | `stat_vfs` | **无任何工具** | 🔴 **完全缺口** | **唯一纯增量**：`kind/size/mtime/mimeType/mount/readOnly` 当前不可直接查询 |
 
 ### 9.2 算术结论：`71 → 4` **不可能**（量化反证 §1.1 的"降 95%"）
 
-- **可被 4 syscall 完全/部分吸收的现有工具 = 8 个**（`file_read`·`file_write`·`glob`·`read_project_file`·`write_project_file`·`read_mcp_resource`·`list_mcp_resources`·`mcp_resource`）。
+> **2026-10-08 更新**：`read_mcp_resource` / `list_mcp_resources` **已删除**（占位/伪造实现 + 与 `mcp_resource` 重复，见 §9.3），故**工具基数 71 → 69**、可吸收数 8 → 6。下列数字按**当前**口径重算。
+
+- **可被 4 syscall 完全/部分吸收的现有工具 = 6 个**（`file_read`·`file_write`·`glob`·`read_project_file`·`write_project_file`·`mcp_resource`）。
 - **明确不可表达 = 4 个**（`file_edit`·`file_convert`·`knowledge_save`·`grep`）——`grep` 是内容检索，不是文件系统原语。
 - **与"文件"无关 = 59 个**（媒体生成/任务管理/通道/调度/技能/时间/计划/子代理…）。
-- ⇒ 覆盖上限 **8 / 71 ≈ 11%**；**63 个工具（4 不可表达 + 59 无关）无法被 4 syscalls 吸收**。
+- ⇒ 覆盖上限 **6 / 69 ≈ 8.7%**；**63 个工具（4 不可表达 + 59 无关）无法被 4 syscalls 吸收**。
 - ⇒ §1.1「81→4、认知负荷降 95%+」在本仓**算术上不成立**；§7-R1「收益未证实」由此**升级为已证伪的部分**（工具数口径）。
 
-### 9.3 双轨风险量化（CS01）——**并发现一处既有内部双轨**
+### 9.3 双轨风险量化（CS01）——**既有内部双轨已收敛**
 
 | 重叠对 | 重叠度 | 处置要求 |
 |---|---|---|
 | `read_vfs` ↔ `file_read` | **100%** | 二者**不可同时**进模型可见清单，否则即双轨 |
 | `write_vfs` ↔ `file_write` | **100%** | 同上 |
 | `list_vfs` ↔ `glob` | **部分**（语义不等价） | 需明确"列举"与"模式匹配"谁是事实源 |
-| `read_vfs`/`list_vfs` ↔ `read_mcp_resource`/`list_mcp_resources`/`mcp_resource` | **部分** | 见下 |
+| `read_vfs`/`list_vfs` ↔ `mcp_resource` | **部分** | `mcp_resource` 为 MCP 资源面的**唯一**入口（2026-10-08 起） |
 | `stat_vfs` ↔ 无 | **0%** | 唯一无冲突增量 |
 
-> **既有内部双轨（发现即记录，CS01/PY_APP §5）**：`read_mcp_resource` + `list_mcp_resources` 与 `mcp_resource`（`action: list_resources/read_resource`）**功能重叠**——本仓已存在**两套 MCP 资源访问工具**。此为本轮评估**新发现**，与 VFS 无关，**已记入台账**（不属本 spec 范围，不在本 spec 内修）。
+> **既有内部双轨 —— ✅ 已收敛（2026-10-08）**：原 `read_mcp_resource` + `list_mcp_resources` 与 `mcp_resource` 三表并存。取证后判定后两者为**占位/伪造实现**（`list_mcp_resources` 的 `fetchResourcesForClient()` 恒返回 `[]`；`read_mcp_resource` 直接编造 `Content of <uri> from <server>` 文本）⇒ **属 CS04（Mock 零容忍）违规**，且功能被 `mcp_resource`（真实现，走 `MCPServerManager.sendRequest`）**完全覆盖**（后者另含 `prompts/list`·`prompts/get`）。**已删除两个假实现**，MCP 资源面**唯一入口 = `mcp_resource`**；工具注册面 **71 → 69**。
 
 ### 9.4 对 §4-D1 的结论修正
 
-- D1 的建议 **(b) 仅作附加面、不追求替换** **得到算术支持**（§9.2：`71→4` 覆盖上限仅 11%）。
+- D1 的建议 **(b) 仅作附加面、不追求替换** **得到算术支持**（§9.2：`71→4` 覆盖上限仅 **8.7%**）。
 - 但要**加强一句**：即便"仅作附加面"，`read_vfs`/`write_vfs` 与 `file_read`/`file_write` 是 **100% 重叠** ⇒ 若上马，**必须先解决"谁是事实源"**，否则违反 CS01。`stat_vfs` 是唯一可直接新增、零冲突的增量。
 - ⇒ AI-VFS 在本仓的**真实净值 = `stat_vfs`（纯增量）+ 跨命名空间统一（`mcp://`/`channel://` 挂载）**；"统一命名空间"是增量，"减少工具数"是伪命题。

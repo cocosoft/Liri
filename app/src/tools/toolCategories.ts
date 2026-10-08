@@ -204,8 +204,6 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // `getToolCategory` 的双下划线判据兜住（见该函数注释）。
   mcp_tool: 'mcp',
   mcp_resource: 'mcp',
-  list_mcp_resources: 'mcp',
-  read_mcp_resource: 'mcp',
 
   // ── assist 通用协作助手 ──
   // N-44（2026-09-20，用户决策）：plan / clipboard / canvas 从 misc 迁出 ——

@@ -65,6 +65,24 @@ const DEFAULT_DENY_WRITE_PATTERNS: string[] = [
   '**/Cargo.lock',
 ];
 
+// 显式**放行**的路径模式（**非密钥的模板 / 示例文件**）。
+//
+// 2026-10-08（台账 S27）：deny 模式 `.env.*`（`**` 前缀 glob）会命中 `.env.example` /
+// `.env.sample` / `.env.template` / `.env.dist` 等**模板文件** —— 它们**非密钥**、按惯例入库
+// （本仓 `.gitignore` 仅忽略 `.env` / `.env.local` / `.env.*.local`）、常被阅读以了解配置项
+// ⇒ 属实为**假阳性**（且 `bash` 等无路径入参的工具本就不经本守卫 ⇒ 拦截无实际安全收益）。
+//
+// 语义：**仅在 deny 命中后**再判定一次 ⇒ 放行面**显式且极窄**（仅列已知模板名），
+// 不影响 `.env` / `.env.local` / `.env.production` 等**真实密钥**文件的拒绝。
+const DEFAULT_ALLOW_PATTERNS: string[] = [
+  '**/.env.example',
+  '**/.env.sample',
+  '**/.env.template',
+  '**/.env.dist',
+  '**/.env.defaults',
+  '**/.env.tmpl',
+];
+
 export interface PathGuardConfig {
   /** 只读操作拒绝的路径模式 */
   denyRead: string[];
@@ -266,6 +284,8 @@ export class PathGuard {
 
   /**
    * 归一化路径后做 glob 匹配
+   *
+   * 命中 deny 后**再**过一次**模板白名单**（`DEFAULT_ALLOW_PATTERNS`）—— 见该常量注释（台账 S27）。
    */
   private _check(
     targetPath: string,
@@ -277,6 +297,10 @@ export class PathGuard {
     for (const pattern of patterns) {
       const regex = getCachedRegex(pattern.toLowerCase());
       if (regex.test(normalized)) {
+        // 模板白名单：`.env.example` 等非密钥示例文件不拦（仅在 deny 命中后判定 ⇒ 面极窄）
+        if (this._matchesAllowList(normalized)) {
+          return { allowed: true };
+        }
         return {
           allowed: false,
           reason: `路径 "${targetPath}" 命中拒绝列表 (${operation}: ${pattern})`,
@@ -285,6 +309,16 @@ export class PathGuard {
     }
 
     return { allowed: true };
+  }
+
+  /** 是否命中**模板白名单**（非密钥的示例 / 模板文件；见 `DEFAULT_ALLOW_PATTERNS` 注释） */
+  private _matchesAllowList(normalizedPath: string): boolean {
+    for (const pattern of DEFAULT_ALLOW_PATTERNS) {
+      if (getCachedRegex(pattern).test(normalizedPath)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

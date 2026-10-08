@@ -165,3 +165,41 @@ describe('PathGuard：write_project_file 覆盖（P0-9，2026-10-04）', () => {
     ).toBe(false);
   });
 });
+
+describe('PathGuard：.env 模板白名单（S27，2026-10-08）', () => {
+  it('非密钥模板（.example/.sample/.template/.dist/.defaults/.tmpl）⇒ 放行（读 + 写）', () => {
+    const guard = createPathGuard();
+    for (const name of [
+      '.env.example',
+      '.env.sample',
+      '.env.template',
+      '.env.dist',
+      '.env.defaults',
+      '.env.tmpl',
+    ]) {
+      expect(guard.checkRead(`/repo/${name}`).allowed).toBe(true);
+      expect(guard.checkWrite(`/repo/${name}`).allowed).toBe(true);
+    }
+  });
+
+  it('真实密钥文件仍拒绝（.env / .env.local / .env.production）', () => {
+    const guard = createPathGuard();
+    expect(guard.checkRead('/repo/.env').allowed).toBe(false);
+    expect(guard.checkRead('/repo/.env.local').allowed).toBe(false);
+    expect(guard.checkRead('/repo/.env.production').allowed).toBe(false);
+  });
+
+  it('白名单是**精确名**：`.env.example.local` 等带尾段者仍拒绝', () => {
+    const guard = createPathGuard();
+    expect(guard.checkRead('/repo/.env.example.local').allowed).toBe(false);
+    expect(guard.checkRead('/repo/.env.production.example').allowed).toBe(
+      false
+    );
+  });
+
+  it('白名单只作用于 `.env.*` 族：其余拒绝模式（如 secrets/）不受影响', () => {
+    const guard = createPathGuard();
+    expect(guard.checkRead('/repo/secrets/app.ts').allowed).toBe(false);
+    expect(guard.checkRead('/repo/auth/key.ts').allowed).toBe(false);
+  });
+});

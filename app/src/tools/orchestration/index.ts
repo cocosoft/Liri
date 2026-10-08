@@ -24,4 +24,5 @@
 
 export * from './types';
 export * from './Partitioner';
-export * from './ContextModifierQueue';
+// 2026-10-08：删除 `./ContextModifierQueue` 转出 —— 该类**零消费者**（全仓仅此处与自身），
+// 且其独占的 `ContextModifier` / `MessageUpdate` 类型同为死链（见 `./types` 注释）。

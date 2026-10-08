@@ -35,25 +35,10 @@ export interface ToolCallPartition {
   blocks: ToolUseBlock[];
 }
 
-/**
- * 消息更新
- */
-export interface MessageUpdate {
-  /** 消息 */
-  message?: any;
-  /** 新上下文 */
-  newContext: any;
-  /** 上下文修改器 */
-  contextModifier?: ContextModifier;
-}
-
-/**
- * 上下文修改器
- */
-export type ContextModifier = {
-  toolUseID: string;
-  modifyContext: (context: any) => any;
-};
+// 2026-10-08：`MessageUpdate` 与 `ContextModifier` 已删除 —— 前者**全仓零消费者**，后者的
+// **唯一**引用方是 `ContextModifierQueue`（同批删除）⇒ 二者构成一条与"并发分区"无关的死链。
+// 本模块的活面（`ToolCallPartition` / `READ_ONLY_TOOLS` / `SERIALIZING_TOOLS` / `SEARCH_TOOLS`
+// 及其判定函数）不动 —— 由 `Partitioner` 消费、`toolCallPartitionerToolNames.test.ts` 守卫。
 
 /**
  * 只读工具集合

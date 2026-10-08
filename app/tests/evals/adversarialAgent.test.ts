@@ -137,6 +137,16 @@ describe('提案器输入（安全面：不含隐藏期望值）', () => {
     expect(input.declaredShields).toEqual(['/x/report']);
     expect(input.targets.length).toBeGreaterThan(0);
   });
+
+  it('§10.2-C：新增路径改写向量 C-6…C-9 **进入目标闭集**（LLM 可见 ⇒ 可映射），且闭集仍由审计派生', () => {
+    const input = buildProposerInput(makeCtx());
+    const ids = input.targets.map((t) => t.id);
+    for (const id of ['C-6', 'C-7', 'C-8', 'C-9']) expect(ids).toContain(id);
+    // 单一事实源：闭集 == 审计 findings（不手写第二份清单）
+    expect(ids).toEqual(
+      auditAntiCheatSurface(makeCtx()).findings.map((f) => f.id)
+    );
+  });
 });
 
 /**

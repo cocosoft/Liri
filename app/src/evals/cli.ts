@@ -565,6 +565,22 @@ const reportAdversarialOnce = async (ctx: AntiCheatContext): Promise<void> => {
   out(
     `  对抗提案相位（形态 A）：提案 ${report.proposals.length} 条 ｜ 机械确认暴露 ${report.exposed.length} ｜ 已知缺口 ${report.knownGaps.length} ｜ 无法机械判定 ${report.unmachineable.length}`
   );
+  // §10.2-C 闭环（2026-10-08）：**按 target 的落点分布** —— 此前只打印 exposed / unmachineable
+  // 明细，`knownGap` 落点**不可见** ⇒ 无法回答"新登记的路径改写向量（C-6…C-9）是否真被 LLM 触及"。
+  // 单行自证：`C-8×7(knownGap)`。kind 与 target 一一对应（裁决由向量派生）。
+  const byTarget = new Map<string, { n: number; kind: string }>();
+  for (const v of report.verdicts) {
+    const cur = byTarget.get(v.target) ?? { n: 0, kind: v.kind };
+    cur.n += 1;
+    byTarget.set(v.target, cur);
+  }
+  if (byTarget.size > 0) {
+    out(
+      `    按 target 分布：${[...byTarget.entries()]
+        .map(([t, x]) => `${t}×${x.n}(${x.kind})`)
+        .join('  ')}`
+    );
+  }
   for (const e of report.exposed) {
     out(`    · [对抗暴露 A-${e.proposalId}] ${e.detail}`);
   }

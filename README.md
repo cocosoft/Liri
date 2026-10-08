@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.68-blue)
+![Version](https://img.shields.io/badge/version-0.4.69-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.68**
+当前版本：**v0.4.69**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,20 +435,20 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.68 (2026-10-08)
+#### v0.4.69 (2026-10-08)
 
-**用户工作流模板从"清单"到"可执行"（P1-19 ①②③ / P0-2）+ 路径护栏家族收口（S27 / D-244~D-247）+ 轨迹与检查器口径修正（S17 / S21 / S28）+ 工具描述中文化（P2-2）与裁定归档**
+**MCP 客户端双轨收敛（C-1/C-2/C-3）+ AI-VFS 从只读试点到用户可配置挂载面（P2 → T3）+ 沙箱/隔离死面清理（P1 / S1 / S6 / S7）+ 任务步骤证据链机械化**
 
-- ✅ **工作流模板持久化（S24 ①）** - 用户模板从模块私有内存 Map 改为**落唯一 `app.db`** 的 `workflow_templates` 表（对齐 `AgentRoleStore` 模式；进程重启不再丢失）；5 个 CRUD 路由经**服务层端口**取用（避免 service→app 静态倒挂）
-- ✅ **模板↔执行器绑定（S24 ②，spec 推荐形态「①+②」）** - `WorkflowStep` 增**可选 `tool`**（缺省 = **显式不可执行**，不猜不降级）；新增装配层 `templateToDefinition()`（定义名 `template:<id>` 防撞名）+ `WorkflowTemplateProvider`（seam 的**同步** `listWorkflows()` 由 store 同步快照供数；逐步执行 + 步骤边界取消）
-- ✅ **执行入口与权限边界（P0-2 / S24 ③）** - 新增 `POST /v1/workflows/templates/:id/run` **与模型可见工具 `workflow:run-template`**（`list`/`run`；**不用 enum** —— 模板是运行期 CRUD 的动态目录，未知 id 回列可用清单）；**执行前权限预检**：仅允许**非破坏性工具**（事实源 `tools/toolEffects.ts`，**未声明工具亦拒**，fail-closed），越界**整体拒绝**且**不静默跳过**；`assist` 类目放宽到 `coding`/`agent`
-- ✅ **内建 4 模板 = 人工方法论清单（明确化）** - 取证确认"补 `tool`"不可行（每步含 `manual`/`review`、seam 无人工确认点、`WorkflowStep` 无 per-step `params`、破坏性步骤会绕过任务裁剪 ⇒ 权限提升）；`/run` 对 `builtin:*` 由 **404 not-found 改为 400 + 准确原因**
-- ✅ **路径护栏家族（S27 / D-244~D-247）** - `.env` **模板白名单**（`.env.example`/`.sample`/`.template`/`.dist`/`.defaults`/`.tmpl` 放行，**真实密钥仍拒**）· PathGuard 拦截改为**只跳过命中调用**而非终止整轮（`ReActToolLoop` / `TAORLoop` 同族收口）· 路径护栏**折叠 `.`/`..` 段**关闭绕过
-- ✅ **口径修正（S17 / S21 / S28）** - `tokenBudget` 抽**叶子常量模块**打断循环初始化 TDZ · 轨迹 `context/model-input` 读端改**逐单元回溯**（修"每面板每轮只呈现其一"）· 检查器窄视口可**手动展开**（根因 = effect 依赖 `isOpen`，**非**阈值）
-- ✅ **评测与对抗提案阶段（D-244 / D-245 / D-247）** - 空提案轮**重试**而非中断阶段 · 提案 id 唯一 · 压缩 token 口径**如实**（不再把不同源数值相减）· 路径改写技术登记为**机械反作弊向量** · 逐目标提案分布输出
-- ✅ **编排模式（pattern）与协作端口** - `self_verify` 触发接线 + **未接线原因如实上报** + 模式目录持久化；新增**协作端口（SPI）与通道适配器**（scope A，薄端口，不新建编排运行时）
-- ✅ **工具描述中文化（P2-2）+ 裁定归档** - 工具 schema 描述 **6 批**中文化；死代码降债（删 4 处已裁定死面）；台账 stale-pass（23 项"待裁定"中 **11 项其实早已闭环**）与多项 spec 裁定归档（文档/规则订正、依赖收敛）
-- ✅ **质量** - `typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 受影响测试目录 **683 pass / 0 fail**（`tests/tools` + `tests/workspace`）
+- ✅ **MCP 客户端单链化（双轨收敛）** - `mcp_tool` / `mcp_resource` 改走**已连接的 SDK `Client` 顶层方法**（与 `mcp__*` 主路径**同一条链**）；删**增强层 `MCPManager` 重实现**（528 行）及其 `MCPCommandLoader`、删 `MCPClient.ts`（577 行）；`MCPServerManager` 改为**投影化**（`setProjection`/`clearProjection`），`MCPConnectionManager` 去掉 `connectAll`
+- ✅ **MCP 实测缺陷修复（P0 + 资源泄漏）** - `client.capabilities.get()` 实为**不存在的属性** ⇒ 每次 `TypeError` 被 catch 吞成 `failed` ⇒ **整条 SDK 链不可用**（静态检查不可见）⇒ 改 `getServerCapabilities()`；诊断面按**真实 `status`** 映射（不再一律 `pending`）；`closeAll()` 逐个 `cleanup()` 修**进程泄漏**
+- ✅ **AI-VFS 落地（P2 只读试点 → T3 用户可配置）** - 新增 `app/src/vfs/`（`IVfsDriver` + `VfsMountRegistry` + `DevDocsDriver` / `McpResourcesDriver`）与 **4 个系统调用工具**（`read_vfs` / `list_vfs` / `stat_vfs` / `write_vfs`）；`mcp://` 复用既有 SDK 链（**不复制**协议投影）；`GlobalConfig.vfs.mounts` 由 `buildMountPlan()`（纯函数）驱动装配；`list_vfs` 支持 **scheme-only 发现**（契约 v1.5）
+- ✅ **VFS 前端管理面 + HTTP API** - 新增 `GET/PUT /v1/vfs/mounts`（**fail-closed** 校验：未知 scheme / `mcp` 缺 server ⇒ 400 且**绝不写盘**；**无热更新**，`requiresRestart` 如实上报）；客户端「设置 → VFS 挂载点」面板 + `vfsService`（挂在**既有「设置」模块**，未新建顶层路由）；接口清单 `api-spec.md` → 2.11.0
+- ✅ **VFS 循环依赖 TDZ（P0，生产装配路径实证）** - `@modules/vfs` 桶**冷启动** import 抛 `Cannot access 'McpResourcesDriver' before initialization`（环的闭合边 = `MCPResourceTool` **模块作用域 `new`**）⇒ `registerVfsMounts()` 失败 ⇒ **全部挂载点启动注册不上**；根因修复为**惰性单例**（探针 `PROBE ERROR…` → **`PROBE: registerVfsMounts OK`**）
+- ✅ **沙箱 / 隔离死面清理（P1 盘点 → S1/S6/S7）** - 删 `IsolationManager` / `EnhancedSandboxManager` / `docker/**` / `PTYSandbox` / `SSHSandbox` / `runWithLandlock`、`SandboxManager.execute()`、**workspace 子系统**、`ProcessRegistry` / `ResourceLimitManager`、未接线的 `SandboxConfigBuilder` 策略库；`createAdapter` 收敛为 **Local-only**；订正 `landlockSensitivePathGuard.test.ts` **测了不存在的路径**
+- ✅ **工具注册表归一（P1 审计 D1–D4）+ 工具分类** - 注册表经**单一写入口**（弃 `new ToolRegistry()` 覆盖全局）；保证**每个已注册工具都有类目**（模型可见）；删桩化 MCP 资源工具只留真实实现；修「空注册表漂移」
+- ✅ **任务步骤证据链机械化** - 步骤**机械回读**写入产物（证据不再依赖模型自觉）· 验收标准由工具输出**可证** · 证据喂入 verifier 的 `toolResults` 契约（REVIEW 不再恒 `ESCALATE`）· `/v1/pdca/start` 亦注入步骤 TAORLoop · LRTO/PDCA 步骤获**真实工具**（长任务可执行）· 阻塞工具改为**逐步引导**而非丢步
+- ✅ **会话与工具口径修正** - steering 注入**落为 `context/steering` 事件**（可重建）· 删**第二套 steering 实现** · grep 60s 重复短路**不再伪装零命中** · 删孤立的消息命令队列 / 上下文修饰队列 · 删废弃 `resolve-module-aliases` 脚本
+- ✅ **质量** - `typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4617 pass / 24 skip / 0 fail**（4641 tests / 511 files）；前端 vitest **535 passed**（62 files）· 本版 **170 文件 +9340/−10174**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

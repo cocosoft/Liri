@@ -56,7 +56,6 @@ export {
   BuiltinCommandLoader,
   SkillCommandLoader,
   PluginCommandLoader,
-  MCPCommandLoader,
   CommandLoaderRegistry,
 } from './loader/CommandLoader.js';
 

@@ -120,7 +120,7 @@
 | `app/src/mcp/index.ts:145` | ChannelPermissionResponse, ChannelPermissionCallbacks（export 再导出） | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
 | `app/src/mcp/index.ts:176` | ElicitationRequestEvent, ElicitResponseType, MCPElicitResponse, ElicitInputType, ElicitOption, ElicitationWaitingState, MCPElicitHandler, ElicitToolParams（export 再导出） | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
 | `app/src/mcp/index.ts:189` | PluginMCPToolOptions（export 再导出） | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
-| `app/src/mcp/managers/MCPManager.ts:8` | MCPServerManager | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
+| `app/src/mcp/managers/MCPManager.ts:8` | MCPServerManager | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 — **❌ 2026-10-08 C-2 已删除**（整文件删除；见 `mcp-client-dual-track-convergence-assessment.md §9`） |
 | `app/src/mcp/types/MCPTypes.ts:23` | MCPServerConfig, ScopedMcpServerConfigExt, MCPToolDefinition, MCPResourceDefinition, MCPPromptDefinition, MCPRequest, MCPResponse, MCPClientState, MCPClientInfo, MCPServerInfo, MCPConnectionConfig, MCPConnectionStats, MCPEventType, MCPEvent, MCPTransport, MCPServerConnectionInfo | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
 | `app/src/mcp/types/MCPTypes.ts:51` | ConfigScope, MCPServerType（export 再导出） | services (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
 | `app/src/core/session/SessionStoreAdapter.ts:12` | SessionStore | session (service) | 仅类型/接口，运行时零依赖 ⇒ 可下沉 core 或由 core 定义接口 |
@@ -307,7 +307,7 @@
 | `app/src/core/utils/Performance.ts:1` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/cli/mcpCommand.ts:11` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/client/MCPClient.ts:6` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
-| `app/src/mcp/managers/MCPManager.ts:9` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
+| `app/src/mcp/managers/MCPManager.ts:9` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） — **❌ 2026-10-08 C-2 已删除** |
 | `app/src/mcp/MCPTool.ts:13` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/modules/calendar/AIScheduleIndex.ts:8` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/modules/calendar/CalendarEventBus.ts:7` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
@@ -364,7 +364,7 @@
 | `app/src/mcp/index.ts:157` | normalizeNameForMCP, normalizeToolName, normalizeSimpleToolName, normalizeResourceUri, normalizeSimpleResourceUri, normalizeCommandName, needsNormalization, denormalizeMcpName, isValidMcpName（export 再导出） | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/index.ts:166` | mcpElicitationQueue, MCPElicitationQueue, DefaultMCPElicitHandler, buildElicitResponse, getElicitInputType, validateElicitParams（export 再导出） | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/index.ts:188` | createPluginMCPTools, getPluginSummary（export 再导出） | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
-| `app/src/mcp/managers/MCPManager.ts:7` | getMCPServerManager | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
+| `app/src/mcp/managers/MCPManager.ts:7` | getMCPServerManager | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） — **❌ 2026-10-08 C-2 已删除** |
 | `app/src/mcp/MCPTool.ts:9` | getMCPServerManager | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/types/index.ts:31` | ServerResource | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/utils/mcpConfig.ts:10` | enhancedMcpConfigManager, EnhancedMCPConfigManager | services (service) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
@@ -490,7 +490,7 @@
 
 - 此前只盯 `mcp/types/MCPTypes.ts:28` **1 条语句**。按 **(源文件 × 目标模块) 对** 口径重核 ⇒ 该文件对 `services` **共有 3 条语句**（`:6-23` `import type` 17 个别名 · `:25-28` `export { MCP_PROTOCOL_VERSION, MCPServerStatus }` · `:48-51` `export type { ConfigScope, MCPServerType }`），另有 `mcp/types/index.ts:31` 同指向 `services`。
 - ⇒ **方案 B（只搬两符号）清不了任何一对**（同对残留 ⇒ 计数不变 —— 与 D-62 同一教训，**再次踩中**）。
-- ⇒ 若走 B，**必须把 `services/mcp/types/index.ts` 的整个导出面下沉 core**，才可能清 `mcp/types/*` 这 2 对；且**不触动** `mcp → services` 的**运行时**语句（`MCPTool.ts:9`、`managers/MCPManager.ts:7-8`、`index.ts` 多条、`utils/mcpConfig.ts:10`、`cli/mcpCommand.ts:8`，共 5 对）。
+- ⇒ 若走 B，**必须把 `services/mcp/types/index.ts` 的整个导出面下沉 core**，才可能清 `mcp/types/*` 这 2 对；且**不触动** `mcp → services` 的**运行时**语句（`MCPTool.ts:9`、`managers/MCPManager.ts:7-8`（**2026-10-08 C-2 该文件已删除**）、`index.ts` 多条、`utils/mcpConfig.ts:10`、`cli/mcpCommand.ts:8`，共 5 对）。
 
 **方案 A 的全量收支（此前只算 1 对，漏算 mcp 侧全局）**：
 

@@ -79,11 +79,9 @@ export {
 export { MCPClientImpl } from './client/MCPClient.js';
 
 // ── 管理 ──
-export { MCPManager } from './managers/MCPManager.js';
-export type {
-  MCPServerChangeType,
-  MCPServerChangeEvent,
-} from './managers/MCPManager.js';
+// 2026-10-08（MCP 双轨收敛 C-2）：原 `export { MCPManager }` / `MCPServerChange*` —— 增强层
+// 自建管理类（528 行）为 C2（自研链）之上的重实现，全仓零外部消费者；其唯一消费者
+// `MCPCommandLoader` 同批删除。MCP 管理面统一到标准层（下 `MCPServerManager`）。
 export {
   MCPServerManager,
   getMCPServerManager,

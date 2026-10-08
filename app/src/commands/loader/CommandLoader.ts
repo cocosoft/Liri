@@ -415,42 +415,12 @@ export class PluginCommandLoader implements CommandLoader {
 }
 
 /**
- * MCP命令加载器
- */
-export class MCPCommandLoader implements CommandLoader {
-  /**
-   * 加载命令
-   * @returns 命令列表
-   */
-  async loadCommands(): Promise<Command[]> {
-    if (!feature('MCP_SYSTEM')) {
-      return [];
-    }
-
-    const commands: Command[] = [];
-
-    try {
-      const { mcpManager } = await import('../../mcp/managers/MCPManager.js');
-      const mcpCommands = await mcpManager.getCommands();
-      commands.push(...(mcpCommands as Command[]));
-    } catch (error) {
-      logger.error('Failed to load MCP commands:', { error });
-    }
-
-    return commands;
-  }
-
-  /**
-   * 获取来源
-   * @returns 来源名称
-   */
-  getSource(): string {
-    return 'mcp';
-  }
-}
-
-/**
  * 命令加载器注册表
+ *
+ * 2026-10-08（MCP 双轨收敛 C-2）：原 `MCPCommandLoader` 已删除 —— 它把增强层
+ * `MCPManager.getCommands()` 的产物（`{type:'mcp',...}`，而 `'mcp'` ∉ `CommandType`）经
+ * `as Command[]` 强转注入：属类型说谎且从不派发（全仓无 `case 'mcp'` 分支）。其来源类
+ * `managers/MCPManager` 为全仓零消费者的 C2 重实现，同批删除。
  */
 export class CommandLoaderRegistry {
   private loaders: CommandLoader[] = [];
@@ -516,4 +486,3 @@ export const commandLoaderRegistry = new CommandLoaderRegistry();
 commandLoaderRegistry.registerLoader(new BuiltinCommandLoader());
 commandLoaderRegistry.registerLoader(new SkillCommandLoader());
 commandLoaderRegistry.registerLoader(new PluginCommandLoader());
-commandLoaderRegistry.registerLoader(new MCPCommandLoader());

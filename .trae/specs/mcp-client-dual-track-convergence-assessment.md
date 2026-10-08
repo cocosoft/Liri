@@ -1,6 +1,6 @@
 # Spec：MCP 客户端双轨收敛评估（assessment）
 
-> 版本 1.1 ｜ 创建 2026-10-08 ｜ 状态：🟡 **部分实施 —— C-1 已落地（2026-10-08）；C-2 / C-3 待裁定**
+> 版本 1.2 ｜ 创建 2026-10-08 ｜ 状态：🟡 **部分实施 —— C-1 / C-2 已落地（2026-10-08）；C-3 待裁定**
 > 来源：2026-10-08 治理遍历副产物 —— 复核 `mcp_resource` 协议用法时发现（详见台账「MCP 资源面协议用法复核与修复」节）
 > 上游规则：`project_rules §1.11`（MCP 模块架构：标准层 `services/mcp/` / 增强层 `mcp/` **不重复实现** 相同类型）· GR01（基础设施复用）· GR15（Spec-Driven）· CS01（归一化）· CS03（回退最小化）
 > 口径（CS06）：下列 file:line 均 **2026-10-08 静态实测**；**凡未经运行验证者一律标注"未实测"**，不写成结论。
@@ -102,7 +102,7 @@ modules/ModuleDefinitions.ts:435        mcpSystem.initialize(toolPort)        �
 | 步 | 内容 | 独立价值 |
 |---|---|---|
 | **C-1** ✅ **已实施（2026-10-08）** | `mcp_tool` 的 `list_tools`/`call` 与 `mcp_resource` 的 `list_resources`/`read_resource`/`list_prompts`/`get_prompt` 改走 `mcpConnectionManager.getSdkClient(name)` → SDK `Client` 顶层方法（`listTools`/`callTool`/`listResources`/`readResource`/`listPrompts`/`getPrompt`）。**`mcp_tool` 的 `list_servers`/`connect` 两个状态动作不动**（依赖自研链的 `addServer`，属 C-3）。另**连带订正 SDK 链既有错误调用**（见 §8） | 消除 §2.3 的 R1/R2 双轨；**顺带解决**上轮遗留的 `read_resource`/`get_prompt` 无标准类型问题 |
-| **C-2** ⏳ 待裁定 | `mcp/managers/MCPManager` 的资源/命令方法同步改 C1（或整体降级为薄门面） | 让增强层回归"引用标准层"（`§1.11`） |
+| **C-2** ✅ **已实施（2026-10-08）** | 取证确认增强层 `MCPManager`（528 行）为**全仓零外部消费者**的 C2 重实现；其唯一消费者 `MCPCommandLoader` 的产物还属**类型说谎 + 从不派发**（`type:'mcp'` ∉ `CommandType`）。⇒ 按「**删全类 + 删其消费者**」处置（见 §9），非「改 C1」 | 增强层**回归"无重实现"**（`§1.11`）—— 比"引用标准层"更彻底 |
 | **C-3** ⏳ 待裁定 | `MCPConnectionManager.initialize` **不再** `addServer + connectAll`；`MCPServerManager` 保留 `getServerInfos`/统计等**投影**能力（数据源改为 C1 的连接与工具缓存）；删 C3（零消费者） | 消除 §2.2 的双连接 |
 
 - 改动面：C-1 ≈ 2 文件；C-2 ≈ 1–2 文件；C-3 ≈ 3–4 文件。
@@ -191,3 +191,45 @@ C-1 的初稿是"把两个工具改走 SDK `.client`"。取证时发现：**SDK 
   未消除 `initialize` 里的 `addServer + connectAll`。
 - 建议下一步：若有可用的 MCP server，做一次**端到端实测**（`tools/list` / `resources/list` / `prompts/list`）
   验证 C-1 的真实效果，再决定 C-2/C-3。
+
+---
+
+## 9. C-2 执行记录（2026-10-08）
+
+### 9.1 取证结论（决定处置的根据）
+
+| # | 证据（静态实测） | 结论 |
+|---|---|---|
+| 1 | `MCPManager` 类全仓**零外部消费者**（仅经 barrel `mcp/index.ts:82` 转出；barrel 的消费者只取 `readMcpConfig` / 懒加载 mcp 模块） | 类本体基本是死面 |
+| 2 | 单例 `mcpManager` **唯一消费者** = `commands/loader/CommandLoader.ts:434` → `getCommands()` | 唯一活路径 |
+| 3 | `getCommands()` 产物 `{type:'mcp', serverName, load}` 经 `as Command[]` 强转，但 `'mcp'` ∉ `CommandType`（`prompt/action/tool/chat/local/local-jsx`，`commands/types/index.ts:28`），且全仓无 `case 'mcp'` 派发 | 产物**类型说谎 + 从不派发**（inert） |
+| 4 | `listResources`/`readResource` 用 `callTool('resources/list'｜'resources/read')` 包装 C2；**零消费者** | 破损重实现（CS01） |
+| 5 | 其余成员（通道通知 / 命令历史 / 资源缓存 / 状态查询 / 工具检索 …）**零消费者** | 死面 |
+
+### 9.2 处置（用户裁定：**删全类 + 删其消费者**）
+
+| 文件 | 改动 |
+|---|---|
+| `mcp/managers/MCPManager.ts` | **整文件删除**（528 行：类 + 单例 + `MCPServerChangeType`/`MCPServerChangeEvent`） |
+| `commands/loader/CommandLoader.ts` | 删 `MCPCommandLoader` 类 + 注册行（`:519`）；原位留注释说明 |
+| `commands/index.ts` / `commands/unified.ts` | 删 `MCPCommandLoader` 再导出 |
+| `mcp/index.ts` | 删 `MCPManager` 与 `MCPServerChange*` 导出；原位留注释 |
+
+### 9.3 连带（已登记，**未删**）
+
+- `services/mcp/transports/ChildProcessTracker.ts` 的 `killOrphanedProcesses` 唯一调用点是 `MCPManager.shutdown()`；
+  而 `shutdown()` **本身零消费者**（从未被调用）⇒ 该函数**在删除前即不可达**（属**既有**死面，非本次引入）。
+  按 `PY_APP §3`（不删预先存在的死代码）**仅登记**，留待 **C-3** 决定：接线到标准层 shutdown，或删除。
+  同文件 `getActiveProcessCount`/`getOrphanPids`/`clearAllTracking` 亦零消费者（既有）。
+- `services/mcp/index.ts:177 getCommands()`（标准层 prompts→命令，C1/SDK）**仍零消费者** —— MCP 命令面当前无消费者，属 **C-3** 一并处置。
+
+### 9.4 门禁
+
+`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
+全量 **4563 pass / 9 skip / 0 fail**（与 C-1 后持平 —— 删除面无测试覆盖）
+
+### 9.5 ⚠️ 仍未验证（CS06）
+
+- **未做端到端实测**（同 §8.4）。
+- **行为面影响**：`CommandLoaderRegistry` 的加载器由 **4 → 3**（`'mcp'` 来源消失）。因该来源产物
+  **从不派发**，预期**无用户可见行为变化**（仅静态推断，未实测）。

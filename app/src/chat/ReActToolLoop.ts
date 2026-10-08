@@ -2266,6 +2266,10 @@ export class ReActToolLoop extends ReActLoop<
       case 'circuit_breaker':
       case 'internal_error':
         finishReason = reason;
+        // ⚠️ **新增 `error` 类相位必须同批写入 `state.lastError`**（台账 S15 约束，2026-10-08 取证）：
+        // 本条正文**即由该字段透传**；若为空 ⇒ 助手消息正文为空 ⇒ 被 `ChatManager._addAndPersistMessage`
+        // 的"空正文护栏"拒持久化（`ChatManager.ts:1600-1621`）⇒ 该轮**在会话历史中消失**（用户只看到流式提示语）。
+        // 现状：5 个产出点均写可操作文案，且 `tests/chat/reactToolLoop-termination-o2.test.ts` 逐相位断言正文含之。
         suffix = this.state.lastError ? `\n\n${this.state.lastError}` : '';
         break;
       // 二期 O2-1：系统中止 ⇒ 明确"这不是你点的停止"（此前文案是"已按你的请求停止"）

@@ -326,7 +326,11 @@ export {
 } from './toolNameCodec';
 export type { ToolSchemaLike } from './toolNameCodec';
 export { ToolFilterManager } from './ToolFilterManager';
-export { filterToolsByTask, getRealToolNamesForTask } from './toolCategories';
+export {
+  filterToolsByTask,
+  getRealToolNamesForTask,
+  getToolCategory,
+} from './toolCategories';
 export type { ToolCategory } from './toolCategories';
 export { checkSsrf, describeSsrfBlock } from './WebFetchTool/ssrf';
 export { ImageUrlHelper } from './ImageUrlHelper';

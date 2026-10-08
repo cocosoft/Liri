@@ -74,6 +74,7 @@ import {
   getToolRegistry,
   buildToolDefinitions,
   getRealToolNamesForTask,
+  getToolCategory,
 } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
@@ -142,7 +143,6 @@ function roleToolNames(role: RoleConfig): string[] {
 
 /**
  * 步骤执行结果摘要 —— REVIEW 的唯一"实际输出"输入（`buildReviewPrompt` 取 `step.result`）。
- *
  * **2026-10-08（真机实测暴露）**：原先 `markStepCompleted` 只写
  * `[TAORLoop] turns=… tokens=… elapsed=…ms` —— 只有**循环统计**、零执行证据 ⇒ Reviewer
  * 只能判"无任何证据"⇒ 每步 failed ⇒ `PDCA_GOAL_NOT_CONVERGED`
@@ -178,6 +178,63 @@ function buildTaorStepResult(
     lines.push(`[${role}] ${text.slice(0, MAX_MSG_CHARS)}`);
   }
   return lines.join('\n');
+}
+
+/** 一步内某次工具调用对「产物」的读写意图（机械保障：写后读回用） */
+export interface ArtifactAccess {
+  kind: 'write' | 'read';
+  path: string;
+}
+
+/**
+ * 从工具调用推断其对产物的读写意图（纯函数，可单测）。
+ *
+ * 分类**不手写工具名**，直接复用 `TOOL_CATEGORIES` 的既有口径：
+ * `'file'` = 写/改类（`file_write` / `file_edit` / `file_convert` / `write_project_file`），
+ * `'file_read'` = 只读类（`file_read` / `glob` / `read_project_file`）。新增工具只要类别登记正确即自动纳入。
+ *
+ * 路径取 `file_path`（本仓写/读类工具的统一参数名），兼容常见别名 `path`。
+ */
+export function classifyArtifactAccess(
+  toolName: string,
+  args: Record<string, unknown> | undefined
+): ArtifactAccess | undefined {
+  const category = getToolCategory(toolName);
+  const kind: ArtifactAccess['kind'] | undefined =
+    category === 'file'
+      ? 'write'
+      : category === 'file_read'
+        ? 'read'
+        : undefined;
+  if (!kind) return undefined;
+  const raw =
+    typeof args?.file_path === 'string'
+      ? args.file_path
+      : typeof args?.path === 'string'
+        ? args.path
+        : undefined;
+  const path = raw?.trim();
+  if (!path) return undefined;
+  return { kind, path };
+}
+
+/**
+ * 选出仍需"机械补做读回"的产物路径（纯函数，可单测）：已写入、**本步未被读回**、
+ * 去重后取前 `max` 个（上限防止一次补读过多文件）。
+ */
+export function collectPendingReadBacks(
+  written: Iterable<string>,
+  alreadyRead: Iterable<string>,
+  max = 3
+): string[] {
+  const read = new Set(alreadyRead);
+  const pending: string[] = [];
+  for (const p of new Set(written)) {
+    if (read.has(p) || pending.includes(p)) continue;
+    pending.push(p);
+    if (pending.length >= max) break;
+  }
+  return pending;
 }
 
 // （审计存储/记忆回写两个惰性端口解析器 + `AuditLogEntry`/`AuditStoreLike`/
@@ -750,6 +807,78 @@ ${replanSection}
     });
   }
 
+  /**
+   * 写后读回（**机械保障**，2026-10-08）：对"本步成功写入、但本步内未被读回"的产物，
+   * 各补做一次**只读**的 `file_read`，把结果原样返回为可并入步骤证据的文本。
+   *
+   * 为什么需要：验收标准普遍形如"`file_read` 读取 X 返回内容为 v"，而提示词层的"写后读回"
+   * 只是**引导**（真机实测执行器常漏做）⇒ 审查（正确地）判"验收标准未被实际验证"⇒ 步骤 failed。
+   * 本方法把该动作**机械化**，保证证据一定存在。
+   *
+   * 边界（刻意保守）：仅为**本步自身写入**的路径补做；上限 3 个；只读、不改动任何文件；
+   * 读失败（不存在/被拦）**如实记录**（失败本身也是证据）；输出**明确标注为编排器补做**，
+   * 不冒充模型行为。
+   */
+  private async _readBackWrittenArtifacts(
+    written: ReadonlySet<string>,
+    alreadyRead: ReadonlySet<string>
+  ): Promise<string> {
+    const pending = collectPendingReadBacks(written, alreadyRead);
+    if (pending.length === 0) return '';
+    const tool = getToolRegistry().getTool('file_read');
+    if (!tool) {
+      logger.warn('[orchestrator] 写后读回保障跳过：file_read 未注册', {
+        taskId: this.taskId,
+      });
+      return '';
+    }
+    const toolContext = this._createToolContext();
+    const lines: string[] = ['', '【编排器补做读回校验（写后机械保障）】'];
+    for (const filePath of pending) {
+      try {
+        const res = (await tool.execute(
+          { file_path: filePath },
+          toolContext
+        )) as
+          | { success?: boolean; data?: unknown; error?: string }
+          | null
+          | undefined;
+        const failed = !res || res.error !== undefined || res.success === false;
+        if (failed) {
+          lines.push(
+            `- file_read(${filePath}) → ❌ ${res?.error ?? '读取失败'}`
+          );
+          logger.warn('[orchestrator] 写后读回保障：读回失败', {
+            taskId: this.taskId,
+            filePath,
+            error: res?.error,
+          });
+          continue;
+        }
+        const text =
+          typeof res.data === 'string'
+            ? res.data
+            : res.data === undefined || res.data === null
+              ? ''
+              : JSON.stringify(res.data);
+        lines.push(`- file_read(${filePath}) → ${text.slice(0, 400)}`);
+        logger.info('[orchestrator] 写后读回保障：已补做读回', {
+          taskId: this.taskId,
+          filePath,
+          contentLength: text.length,
+        });
+      } catch (e) {
+        lines.push(`- file_read(${filePath}) → ❌ ${String(e)}`);
+        await handleError(e, {
+          module: 'tasks:longRunning',
+          action: 'readBackWrittenArtifacts',
+          context: { taskId: this.taskId, filePath },
+        });
+      }
+    }
+    return lines.join('\n');
+  }
+
   private _emitTaskMessage(msgs: TaskMessage[]): void {
     emitTaskMessage({
       taskId: this.taskId,
@@ -837,6 +966,9 @@ ${replanSection}
         const persistedMessages: any[] = [];
         // 本轮**最终**消息快照（TAORLoop 每轮传全量 `this.messages`，故最后一次即完整对话）
         let lastMessagesSnapshot: any[] = [];
+        // 2026-10-08（机械保障）：本步的产物读写台账 —— 用于"写后读回"补做
+        const writtenPaths = new Set<string>();
+        const readPaths = new Set<string>();
 
         const deps = createTAORLoopDeps({
           callModel: async function* (msgs: any[], signal: AbortSignal) {
@@ -930,6 +1062,22 @@ ${replanSection}
                   tc.arguments,
                   toolContext
                 );
+                // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
+                // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。
+                {
+                  const access = classifyArtifactAccess(tc.name, tc.arguments);
+                  const tr = toolResult as
+                    | { success?: boolean; error?: string }
+                    | null
+                    | undefined;
+                  const ok =
+                    !!tr && tr.error === undefined && tr.success !== false;
+                  if (access && ok) {
+                    (access.kind === 'write' ? writtenPaths : readPaths).add(
+                      access.path
+                    );
+                  }
+                }
                 const elapsed = Date.now() - toolStart;
                 const resultPreview: string =
                   typeof toolResult === 'string'
@@ -1007,6 +1155,15 @@ ${replanSection}
           stepTok.tokens = (stepTok.tokens ?? 0) + result.totalTokens;
         }
 
+        // 2026-10-08（机械保障 · 写后读回）：提示词层引导**不可靠** —— 真机实测执行器常漏做
+        // 读回，审查（正确地）判"验收标准未被实际验证"⇒ 步骤 failed。此处由编排器**机械补做**：
+        // 对本步成功写入、但本步内未被读回的产物，各补一次**只读**的读回并原样并入步骤证据
+        // （明确标注"编排器补做"，不冒充模型行为）。
+        const readBackEvidence = await this._readBackWrittenArtifacts(
+          writtenPaths,
+          readPaths
+        );
+
         taskOrchestrator.markStepCompleted(
           step.id,
           // 执行证据（助手文本 + 工具结果）—— Reviewer 的唯一"实际输出"输入，
@@ -1015,7 +1172,7 @@ ${replanSection}
             turns: result.turnCount,
             tokens: result.totalTokens,
             elapsedMs: taorElapsed,
-          }),
+          }) + readBackEvidence,
           // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
           { terminationReason: result.terminationReason }
         );

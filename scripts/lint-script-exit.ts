@@ -9,9 +9,12 @@
  * `development-workflow §2.15` 已有该规则，但**从未被自动校验**。
  *
  * **检查范围（关键设计）**：只检查 `package.json#scripts` 中**被引用的入口脚本**。
- * 为什么不是扫 `scripts/` 下全部文件 —— 目录里含**被其他脚本 `import` 的 helper**
- * （如 `app/scripts/resolve-module-aliases.ts`）；给 helper 加 `process.exit`
- * 会**杀掉宿主进程**，故判定范围必须收敛到"确定的入口"。
+ * 为什么不是扫 `scripts/` 下全部文件 —— 目录里可能含**被其他脚本 `import` 的 helper**；
+ * 给 helper 加 `process.exit` 会**杀掉宿主进程**，故判定范围必须收敛到"确定的入口"。
+ * （2026-10-08 订正：原文例举 `app/scripts/resolve-module-aliases.ts` 为"被其他脚本 import 的
+ * helper" —— 与实测**不符**（该文件全仓**零引用**），且它已按裁定**删除**：其唯一用途
+ * （Docker 构建前的别名展开）已被 `bun build` **原生支持 tsconfig paths** 取代。
+ * 故此处改为**不带例**的表述，避免再次失实。）
  *
  * **豁免**：`src/scripts/**`（运行时代码目录，非构建脚本入口）不在检查范围。
  *

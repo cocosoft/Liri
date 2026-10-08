@@ -1,6 +1,6 @@
 # Spec：MCP 客户端双轨收敛评估（assessment）
 
-> 版本 1.2 ｜ 创建 2026-10-08 ｜ 状态：🟡 **部分实施 —— C-1 / C-2 已落地（2026-10-08）；C-3 待裁定**
+> 版本 1.3 ｜ 创建 2026-10-08 ｜ 状态：✅ **已完成 —— C-1 / C-2 / C-3 均已落地（2026-10-08）**
 > 来源：2026-10-08 治理遍历副产物 —— 复核 `mcp_resource` 协议用法时发现（详见台账「MCP 资源面协议用法复核与修复」节）
 > 上游规则：`project_rules §1.11`（MCP 模块架构：标准层 `services/mcp/` / 增强层 `mcp/` **不重复实现** 相同类型）· GR01（基础设施复用）· GR15（Spec-Driven）· CS01（归一化）· CS03（回退最小化）
 > 口径（CS06）：下列 file:line 均 **2026-10-08 静态实测**；**凡未经运行验证者一律标注"未实测"**，不写成结论。
@@ -103,7 +103,7 @@ modules/ModuleDefinitions.ts:435        mcpSystem.initialize(toolPort)        �
 |---|---|---|
 | **C-1** ✅ **已实施（2026-10-08）** | `mcp_tool` 的 `list_tools`/`call` 与 `mcp_resource` 的 `list_resources`/`read_resource`/`list_prompts`/`get_prompt` 改走 `mcpConnectionManager.getSdkClient(name)` → SDK `Client` 顶层方法（`listTools`/`callTool`/`listResources`/`readResource`/`listPrompts`/`getPrompt`）。**`mcp_tool` 的 `list_servers`/`connect` 两个状态动作不动**（依赖自研链的 `addServer`，属 C-3）。另**连带订正 SDK 链既有错误调用**（见 §8） | 消除 §2.3 的 R1/R2 双轨；**顺带解决**上轮遗留的 `read_resource`/`get_prompt` 无标准类型问题 |
 | **C-2** ✅ **已实施（2026-10-08）** | 取证确认增强层 `MCPManager`（528 行）为**全仓零外部消费者**的 C2 重实现；其唯一消费者 `MCPCommandLoader` 的产物还属**类型说谎 + 从不派发**（`type:'mcp'` ∉ `CommandType`）。⇒ 按「**删全类 + 删其消费者**」处置（见 §9），非「改 C1」 | 增强层**回归"无重实现"**（`§1.11`）—— 比"引用标准层"更彻底 |
-| **C-3** ⏳ 待裁定 | `MCPConnectionManager.initialize` **不再** `addServer + connectAll`；`MCPServerManager` 保留 `getServerInfos`/统计等**投影**能力（数据源改为 C1 的连接与工具缓存）；删 C3（零消费者） | 消除 §2.2 的双连接 |
+| **C-3** ✅ **已实施（2026-10-08）** | `MCPConnectionManager.initialize` **去掉**急切的 `manager.connectAll()`（消除 §2.2 双连接）；`MCPServerManager` **投影化**（`getServerInfos`/`getServerTools` 数据源改为 C1，由 `MCPConnectionManager` 推送）；删 C3（`mcp/client/MCPClient.ts`，零消费者）。**保留** `MCPTool.connect` / CLI `mcp call` 的**按需** C2 连接（见 §10） | 消除 §2.2 的双连接；且**不回归** marketplace / CLI 的状态与工具列表 |
 
 - 改动面：C-1 ≈ 2 文件；C-2 ≈ 1–2 文件；C-3 ≈ 3–4 文件。
 - 风险：**中**。C-1/C-2 低风险（两个工具当前在自定义链上**功能可疑**，改到标准 API 是净改进）；C-3 需先确认 `MCPServerManager` 的统计/健康检查**有无外部消费者**（CLI / 命令 / 市场页）。
@@ -233,3 +233,45 @@ C-1 的初稿是"把两个工具改走 SDK `.client`"。取证时发现：**SDK 
 - **未做端到端实测**（同 §8.4）。
 - **行为面影响**：`CommandLoaderRegistry` 的加载器由 **4 → 3**（`'mcp'` 来源消失）。因该来源产物
   **从不派发**，预期**无用户可见行为变化**（仅静态推断，未实测）。
+
+---
+
+## 10. C-3 执行记录（2026-10-08）
+
+### 10.1 取证（决定口径：去双连接**必须耦合投影化**）
+
+- **目标**：`MCPConnectionManager.initialize` 去掉急切的 `manager.connectAll()` —— 消除 §2.2 的**同服务器双连接**。
+- **盘到的实害（3 处回归）**：`MCPServerManager` 的 `status`/`tools` 原本由**它自己的连接**填充
+  （`connectAll → refreshServerTools`）；一旦不再急切连接则：
+  1. `GET /v1/mcp/tools`（`mcp-marketplace-handlers.ts:490` 遍历 `serverInfos[].tools`）→ 工具列表恒空
+  2. `MCPMarketplace.getInstalledServerDetail`（`:220-223` `connected = status===CONNECTED`）→ 恒 `false`
+  3. CLI `mcp tool list`（`mcpCommand.ts:182-186`）→ 恒空
+- **消费者盘点（关键）**：`MCPServerManager` 仅 **CLI `mcp call`**（`mcpCommand.ts:202`）真正用它**调用**；
+  其余（DocModule officecli / marketplace / handlers / skills / `MCPTool.list_servers`）都只当
+  **注册表 / 状态投影**用。⇒ 去急切双连接可行，但须**投影化**。
+- **保留**：`MCPTool.connect`（`MCPTool.ts:230-234`）与 CLI `mcp call`（`callTool` 内懒连接）的
+  **按需** C2 连接 —— 仍用 `MCPServerManager`/`MCPConnection`。
+
+### 10.2 处置（用户裁定「实现投影化」）
+
+| 文件 | 改动 |
+|---|---|
+| `services/mcp/MCPServerManager.ts` | 新增投影：`projections` Map + `setProjection`/`clearProjection`/`clearProjections`；`getServerInfos()`/`getServerTools()` **投影优先**（无投影回退自研连接）；`removeServer()`/`closeAll()` 清理投影 |
+| `services/mcp/MCPConnectionManager.ts` | **去掉** `await manager.connectAll()`；新增 `toServerStatus`/`toToolDefinition` 映射 + `pushProjection()`，在 `flushPendingUpdates`（C1 唯一汇入点）、`reconnectServer`、`toggleServer` 推送 |
+| `mcp/client/MCPClient.ts` | **整文件删除**（C3：`MCPClientImpl`，零消费者，仅 barrel 转出） |
+| `mcp/index.ts` | 删 `export { MCPClientImpl }`（原位留注释） |
+| `tests/mcp/serverManagerProjection.test.ts` | **新增**：投影优先 / 回退 / `removeServer` + `closeAll` 清理（5 例，用独立实例不污染单例） |
+
+### 10.3 门禁
+
+`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
+全量 **4568 pass / 9 skip / 0 fail**（较 C-2 后 +5 = 新增投影守卫）
+
+### 10.4 ⚠️ 仍未验证（CS06）
+
+- **端到端仍未实测**：本环境无真实 MCP server ⇒「去急切双连接后，真实服务器在 marketplace / CLI
+  的状态与工具列表是否与 C1 一致」**未验证**。
+- 本轮做到的是：**投影优先的单元级证据**（`tests/mcp/serverManagerProjection.test.ts` 5 例）+
+  3 处回归面**静态封闭**（投影优先分支覆盖其数据来源）。
+- **按需**路径（`MCPTool.connect` / CLI `mcp call`）**未改**；**未做**「把这两处也改走 SDK」
+  （属方案 A 激进面）。`MCPServerManager` 的统计/健康检查/自动重连/连接池**均保留**（未删）。

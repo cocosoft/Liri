@@ -43,6 +43,20 @@ export class MCPServerManager {
   private lastLoadBalancerIndex: number = 0;
 
   /**
+   * C1 连接投影（2026-10-08，MCP 双轨收敛 C-3）
+   *
+   * 消除「同服务器双连接」后，本管理器的自研连接**不再急切建立**
+   * （`MCPConnectionManager.initialize` 已去掉 `connectAll()`）；对外的状态/工具
+   * 一律以**投影**为准 —— 数据源 = C1（SDK）连接与工具缓存，由
+   * `MCPConnectionManager` 推送。未投影的服务器回退到自研连接（如
+   * `MCPTool.connect` / CLI `mcp call` 的**按需**连接）。
+   */
+  private projections = new Map<
+    string,
+    { status: MCPServerStatus; tools: MCPToolDefinition[]; error?: string }
+  >();
+
+  /**
    * 初始化服务器管理器
    */
   constructor() {}
@@ -90,6 +104,7 @@ export class MCPServerManager {
       this.toolCache.delete(name);
       this.serverStats.delete(name);
       this.connectionPool.delete(name);
+      this.projections.delete(name);
       logger.info(`Removed MCP server: ${name}`);
     }
   }
@@ -102,17 +117,50 @@ export class MCPServerManager {
   }
 
   /**
+   * 写入/更新连接投影（由 C1 适配层 `MCPConnectionManager` 推送）
+   */
+  setProjection(
+    name: string,
+    projection: {
+      status: MCPServerStatus;
+      tools: MCPToolDefinition[];
+      error?: string;
+    }
+  ): void {
+    this.projections.set(name, projection);
+  }
+
+  /**
+   * 移除单个连接投影（服务器注销时）
+   */
+  clearProjection(name: string): void {
+    this.projections.delete(name);
+  }
+
+  /**
+   * 清空全部连接投影（关闭时）
+   */
+  clearProjections(): void {
+    this.projections.clear();
+  }
+
+  /**
    * 获取所有服务器信息
+   *
+   * 状态/工具**投影优先**（数据源 = C1）：消除双连接后自研连接不再急切建立，
+   * 若仍读自研连接会让 marketplace / CLI 的状态与工具列表回归（恒空 / 恒未连接）。
    */
   getServerInfos(): MCPServerConnectionInfo[] {
     return Array.from(this.servers.values()).map((connection) => {
-      const stats = this.serverStats.get(connection.getName());
+      const name = connection.getName();
+      const stats = this.serverStats.get(name);
+      const projection = this.projections.get(name);
       return {
-        name: connection.getName(),
+        name,
         config: connection.getConfig(),
-        status: connection.getStatus(),
-        tools: connection.getTools(),
-        error: connection.getError(),
+        status: projection ? projection.status : connection.getStatus(),
+        tools: projection ? projection.tools : connection.getTools(),
+        error: projection?.error ?? connection.getError(),
         stats: stats,
       };
     });
@@ -268,6 +316,18 @@ export class MCPServerManager {
         ErrorSeverity.HIGH,
         '1000'
       );
+    }
+
+    // 投影优先（数据源 = C1）：避免经自研连接 refreshTools（双连接已消除）
+    const projection = this.projections.get(serverName);
+    if (projection) {
+      return {
+        name: server.getName(),
+        config: server.getConfig(),
+        status: projection.status,
+        tools: projection.tools,
+        error: projection.error,
+      };
     }
 
     await this.refreshServerTools(serverName);
@@ -501,6 +561,7 @@ export class MCPServerManager {
       clearInterval(this.autoReconnectInterval);
       this.autoReconnectInterval = null;
     }
+    this.projections.clear();
     logger.info('Closed all MCP server connections');
   }
 

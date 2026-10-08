@@ -306,7 +306,7 @@
 | `app/src/core/utils/LazyModuleLoader.ts:8` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/core/utils/Performance.ts:1` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/mcp/cli/mcpCommand.ts:11` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
-| `app/src/mcp/client/MCPClient.ts:6` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
+| `app/src/mcp/client/MCPClient.ts:6` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） — **❌ 2026-10-08 C-3 已删除**（该文件整删） |
 | `app/src/mcp/managers/MCPManager.ts:9` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） — **❌ 2026-10-08 C-2 已删除** |
 | `app/src/mcp/MCPTool.ts:13` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |
 | `app/src/modules/calendar/AIScheduleIndex.ts:8` | getLogger | monitoring (infra) | 具体实现/类/单例 ⇒ core 定义接口 + 上层实现 + 注入（SPI/DI） |

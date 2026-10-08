@@ -19,12 +19,14 @@ import {
   getMcpToolsCommandsAndResources,
   reconnectMcpServerImpl,
 } from './client';
-import type {
-  ConnectedMCPServer,
-  MCPServerConnection,
-  ScopedMcpServerConfig,
-  ServerResource,
-  SerializedTool,
+import {
+  MCPServerStatus,
+  type ConnectedMCPServer,
+  type MCPServerConnection,
+  type MCPToolDefinition,
+  type ScopedMcpServerConfig,
+  type ServerResource,
+  type SerializedTool,
 } from './types';
 import type { McpCommand } from './commandManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -39,6 +41,34 @@ const MAX_BACKOFF_MS = 30000;
 
 // 批量更新常量
 const MCP_BATCH_FLUSH_MS = 16;
+
+/**
+ * C1 连接状态 → `MCPServerStatus`（C-3 投影映射）
+ */
+function toServerStatus(type: MCPServerConnection['type']): MCPServerStatus {
+  switch (type) {
+    case 'connected':
+      return MCPServerStatus.CONNECTED;
+    case 'pending':
+      return MCPServerStatus.CONNECTING;
+    case 'failed':
+    case 'needs-auth':
+      return MCPServerStatus.ERROR;
+    default:
+      return MCPServerStatus.DISCONNECTED;
+  }
+}
+
+/**
+ * `SerializedTool`（C1）→ `MCPToolDefinition`（投影的消费面）
+ */
+function toToolDefinition(tool: SerializedTool): MCPToolDefinition {
+  return {
+    name: tool.name,
+    description: tool.description,
+    inputSchema: (tool.inputJSONSchema as Record<string, unknown>) ?? {},
+  };
+}
 
 /**
  * MCP连接管理器（适配层）
@@ -98,8 +128,10 @@ export class MCPConnectionManager {
 
       await getMcpToolsCommandsAndResources(onConnectionAttempt, configs);
 
-      await manager.connectAll();
-
+      // 2026-10-08（MCP 双轨收敛 C-3）：**不再** `manager.connectAll()` —— 消除
+      // 「同服务器双连接」。C1（SDK）已完成真实连接；`MCPServerManager` 仅作
+      // 注册 + 投影（状态/工具由 `flushPendingUpdates` 推送），**按需**连接
+      // （`MCPTool.connect` / CLI `mcp call`）保持不变。
       // 启动健康检查和自动重连
       await manager.initialize();
     } catch (error) {
@@ -161,9 +193,27 @@ export class MCPConnectionManager {
         (connection as unknown as ConnectedMCPServer).client.onclose = () =>
           this.handleDisconnect(connection);
       }
+
+      // C-3 投影：把 C1 状态/工具推给 MCPServerManager（消除双连接后其为唯一数据源）
+      this.pushProjection(connection);
     }
 
     this.emitStateChange();
+  }
+
+  /**
+   * 推送 C1 连接状态/工具到 `MCPServerManager` 的投影（C-3）
+   *
+   * 消除双连接后，`MCPServerManager` 不再急切建立自研连接，其对外状态/工具
+   * 一律由本投影提供（数据源 = C1），供 marketplace / CLI / `/v1/mcp/tools` 消费。
+   */
+  private pushProjection(connection: MCPServerConnection): void {
+    const tools = this.toolsCache.get(connection.name) ?? [];
+    getMCPServerManager().setProjection(connection.name, {
+      status: toServerStatus(connection.type),
+      tools: tools.map(toToolDefinition),
+      error: connection.type === 'failed' ? connection.error : undefined,
+    });
   }
 
   // ==================== 断开与重连 ====================
@@ -303,6 +353,8 @@ export class MCPConnectionManager {
       } as MCPServerConnection);
     }
 
+    // C-3：同步投影（状态变更必须反映到 MCPServerManager）
+    this.pushProjection(this.clientCache.get(serverName)!);
     return this.clientCache.get(serverName)!;
   }
 
@@ -322,6 +374,8 @@ export class MCPConnectionManager {
           ...existing,
           type: existing.type === 'connected' ? 'failed' : 'connected',
         } as MCPServerConnection);
+        // C-3：同步投影（状态变更必须反映到 MCPServerManager）
+        this.pushProjection(this.clientCache.get(serverName)!);
       }
     } catch (error) {
       await handleError(error, {

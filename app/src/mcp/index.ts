@@ -75,8 +75,10 @@ export {
   InProcessTransportFactory,
 } from '../services/mcp/transports/InProcessTransport.js';
 
-// ── 客户端 ──
-export { MCPClientImpl } from './client/MCPClient.js';
+// ── 客户端（C3）──
+// 2026-10-08（MCP 双轨收敛 C-3）：原 `export { MCPClientImpl }`（增强层自建客户端，
+// `mcp/client/MCPClient.ts`）**零消费者**（仅本 barrel 转出）⇒ 连同文件删除。
+// MCP 客户端唯一实现 = 标准层 SDK `Client`（`services/mcp/client.ts` + `MCPConnectionManager`）。
 
 // ── 管理 ──
 // 2026-10-08（MCP 双轨收敛 C-2）：原 `export { MCPManager }` / `MCPServerChange*` —— 增强层

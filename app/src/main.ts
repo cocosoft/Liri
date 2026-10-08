@@ -1545,8 +1545,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
     //    ⇒ `notifyUserActivity()` 遍历空集合，**不会产生自主行为**。
     //  2026-10-08（架构治理 P1 续）：AlwaysOn 侧原**未注入**的 `cmdBridge` / `watchdog` 已删除
     //  （取证：`AlwaysOnManager.registerProject()` 唯一构造点只传 2 参；且 P1-9 队列
-    //  `MessageCommandQueue` 的消费端从未移植 ⇒ 无 drainer）。**P1-9 入队链随之移除**，
-    //  重启条件见 `AlwaysOnRuntime.tryRun()` 注释。
+    //  `MessageCommandQueue` 的消费端从未移植 ⇒ 无 drainer）。**P1-9 入队链连同该队列一并移除**
+    //  （队列为全仓零引用的孤立件），重启条件见 `AlwaysOnRuntime.tryRun()` 注释。
     await wrapInit('Cg3', async () => {
       const { startCg3 } = await import('@modules/tasks/Cg3Bootstrap');
       const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');

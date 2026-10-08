@@ -73,12 +73,14 @@ export class AlwaysOnRuntime {
         return;
       }
 
-      // P1-9「将 plan 入队统一命令队列」**未接线，已移除代码**（2026-10-08）：该链三处均未打通 ——
+      // P1-9「将 plan 入队统一命令队列」**未接线，代码已移除**（2026-10-08）：该链三处均未打通 ——
       // ① `cmdBridge` 从未注入（**唯一**构造点 `AlwaysOnManager.registerProject()` 只传 2 参）；
-      // ② 队列 `MessageCommandQueue` 的消费端（对标 cc_code `queueProcessor`）**从未移植**
-      //    ⇒ `getGlobalMessageQueue()` 全仓零消费者、`dequeue()` 无人调用（队列只进不出）。
+      // ② 队列的消费端（对标 cc_code `queueProcessor`）**从未移植** ⇒ 队列只进不出；
+      // ③ 上游 `tryRun()` 本身不跑（无任何 `registerProject` 调用，见 `main.ts` 启动注释）。
       // 按 CS03 **不凭空接线**（接线只会把 plan 投进无人消费的队列，多造一条 inert 链接）。
-      // 重启条件：同时补上「①注入 ②drainer」后再恢复本段入队。
+      // 队列 `MessageCommandQueue`（`query/`）随之**删除**（零生产者/零消费者/零需求；且其头注
+      // 声称的 `waitForSlot()` 实际不存在 ⇒ 头注失实）。
+      // 重启条件：同时补上「①队列 ②注入 ③drainer ④registerProject 上游」后再恢复本段入队。
 
       // 重检关键门控
       const recheck1 = this.gates.quickRecheck();

@@ -331,8 +331,6 @@ export function registerStandardHandlers(): void {
 
       // P1-19 ②（2026-10-08）：把"用户工作流模板"注册为 workflow seam 的 Provider ——
       // 仅**显式带 tool** 的模板成为可执行定义；内建 4 模板不含 tool ⇒ 不产出（行为不变）。
-      // ⚠️ 刻意**不**改 `office:workflow` 的参数 enum（= 不打开模型可见触发面）：
-      // "谁触发"属 **P0-2**、"模板可调工具的白名单/权限边界"属 **P0-3**，二者均待独立裁定。
       try {
         const { registerWorkflowTemplateProvider } =
           await import('@modules/workspace');
@@ -342,6 +340,20 @@ export function registerStandardHandlers(): void {
         void handleError(e, {
           module: 'boot:phase5',
           action: 'registerWorkflowTemplateProvider',
+        });
+      }
+
+      // P0-2 续（2026-10-08）：注册**模型可见**的模板工具 `workflow:run-template`
+      // （list / run；不用 enum —— 模板是运行期 CRUD 的动态目录）。
+      // ③ 权限策略**不在本工具内**：执行转给 seam ⇒ 由 Provider 预检（唯一收口）。
+      try {
+        const { registerWorkflowTemplateTool } =
+          await import('@modules/workspace/workflowTemplateTool');
+        registerWorkflowTemplateTool();
+      } catch (e) {
+        void handleError(e, {
+          module: 'boot:phase5',
+          action: 'registerWorkflowTemplateTool',
         });
       }
 

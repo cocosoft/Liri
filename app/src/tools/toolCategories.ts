@@ -205,6 +205,12 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   plan: 'assist',
   clipboard: 'assist',
   canvas: 'assist',
+  // P0-2 续（2026-10-08）：用户工作流模板工具（**运行期注册**，`tools` 域外）。
+  // 与 plan/clipboard/canvas 同口径（"任何对话都可能用到"）。
+  // ⚠️ N-44/N-45：**不登记 ⇒ 落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪 ⇒ 模型永远看不到**
+  // （冒号命名空间工具正是该缺陷的现场；wire 形态 `workflow_run-template` 由
+  // `WIRE_KEYED_CATEGORIES` 自动派生，无需另登记）。
+  'workflow:run-template': 'assist',
 
   // ── misc 其他（⚠️ 不会被任何任务白名单保留 —— 仅作"已知但不默认开放"的归档） ──
   browser: 'misc',

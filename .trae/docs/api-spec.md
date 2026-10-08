@@ -862,10 +862,12 @@ data: {"type":"done","result":{...}}
 **缺省 = 该模板不可执行**（不会被装配为 `WorkflowDefinition`；不派生、不降级）。带 `tool` 的模板经装配层 `templateToDefinition()`
 成为 seam 工作流（名 `template:<模板id>`），由 `WorkflowTemplateProvider` 承载。4 个内建模板不含 `tool` ⇒ 行为不变。
 
-**执行与权限（P0-2(a) + S24 ③，2026-10-08）**：触发入口 = `POST /v1/workflows/templates/:id/run`（**唯一**入口；
-刻意**不**扩 `office:workflow` 的 enum ⇒ **模型不可触发**）。执行前过**权限预检**：
-**仅允许非破坏性工具**（`tools/toolEffects.ts` 的 `sideEffect === 'none'`；**未声明工具同样拒绝**，fail-closed），
-越界 ⇒ **整体拒绝**（400，`completedSteps` 为空、error 列出越界工具），**不静默跳过越界步骤**。
+**执行与权限（P0-2(a) + S24 ③，2026-10-08）**：**触发入口两个** —— ① `POST /v1/workflows/templates/:id/run`（人/脚本）；
+② **模型可见专用工具 `workflow:run-template`**（`action: list | run`；**不用 `enum`** —— 模板是运行期 CRUD 的动态目录，
+未知 id 时回列可用清单；**已登记 `TOOL_CATEGORIES` = `assist`**，否则按 wire 名裁剪会落 `misc` ⇒ 模型不可见，N-44/N-45）。
+`office:workflow` 的 enum **未改**。执行前过**权限预检**：**仅允许非破坏性工具**
+（`tools/toolEffects.ts` 的 `sideEffect === 'none'`；**未声明工具同样拒绝**，fail-closed），
+越界 ⇒ **整体拒绝**（HTTP 400 / 工具 FAILURE，`completedSteps` 为空、error 列出越界工具），**不静默跳过越界步骤**。
 
 ---
 

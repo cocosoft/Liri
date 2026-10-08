@@ -4,8 +4,8 @@
 > 关联: `workflow-template-persistence.md` §3 D5（本问题是其明确延后项）/ `workflow-definition-externalization.md` D4（「不合并」原裁定）/ `workflow-engine-seam.md`（seam 契约）/ GR15 / CS01 / CS02 / CS05 / CS06 / R02 / R00-001
 > 状态：**推荐形态 ①+② 已实施**（`WorkflowStep.tool?` + 装配层 `templateToDefinition()` + `WorkflowTemplateProvider`）；
 > **P0-2 = (a) HTTP `POST /v1/workflows/templates/:id/run`**、**P0-3/S24③ = 仅非破坏性工具（fail-closed）** 亦已实施。
-> **待裁定项 = 0**。实施记录见 **§9**（①+②）与 **§10**（触发入口 + 权限边界）。
-> ⚠️ **模型可见触发面仍未打开**（未改 `office:workflow` 的 enum）—— 见 §8 末尾"仍未做"。
+> **待裁定项 = 0**。实施记录见 **§9**（①+②）、**§10**（触发入口 + 权限边界）、**§11**（模型可见专用工具）。
+> 触发面：**HTTP `/run`**（人/脚本）+ **`workflow:run-template` 工具**（**模型可见**，2026-10-08 续已开）；`office:workflow` 的 enum **未改**。
 
 ## 1. 目标
 
@@ -121,14 +121,14 @@
 | 前置项 | 选项 | 说明 |
 |---|---|---|
 | P0-1 模板**存储基座** | ~~(a) 先恢复 `WorkflowTemplateStore`…；(b) 先在**内存 Map** 上做装配/执行…~~ ⇒ **✅ 已解除（2026-10-08）** | 由 **S24 ①** 直接落地：`WorkflowTemplateStore` 已在 main（§2.2 已订正）⇒ 装配层的"读取源"= 该 store（经其**同步快照** `listSync()`，因 seam 的 `listWorkflows()` 是同步契约） |
-| P0-2 **触发入口** | ~~(a) 新增 HTTP 端点 `POST /v1/workflows/templates/:id/run`；(b) 模板注册为 seam Provider 经 `office:workflow`；(c) 以 skill 暴露~~ ⇒ **✅ 已裁定 = (a)（2026-10-08）** | **裁定理由（另两项被硬约束排除，非偏好）**：(b) `office:workflow` 的 `enum` 在**工具创建时**由 doc 域 `DocOrchestrator.getAvailableWorkflows()` **静态**生成，而用户模板是运行期 CRUD ⇒ 动态模板进不了该 enum；且该工具语义专属 doc 办公编排。(c) 技能按规范**仅提示词注入**（`SkillTool` 无执行分支，`project_rules §1.15-6`）⇒ **不能**承载执行。⇒ 已实现 `/run`（`runWorkflowTemplate` + 端口 + handler + 路由）；**模型可见触发面仍未打开**（未改 `office:workflow`） |
+| P0-2 **触发入口** | ~~(a) 新增 HTTP 端点 `POST /v1/workflows/templates/:id/run`；(b) 模板注册为 seam Provider 经 `office:workflow`；(c) 以 skill 暴露~~ ⇒ **✅ 已裁定 = (a)（2026-10-08）** | **裁定理由（另两项被硬约束排除，非偏好）**：(b) `office:workflow` 的 `enum` 在**工具创建时**由 doc 域 `DocOrchestrator.getAvailableWorkflows()` **静态**生成，而用户模板是运行期 CRUD ⇒ 动态模板进不了该 enum；且该工具语义专属 doc 办公编排。(c) 技能按规范**仅提示词注入**（`SkillTool` 无执行分支，`project_rules §1.15-6`）⇒ **不能**承载执行。⇒ 已实现 `/run`（`runWorkflowTemplate` + 端口 + handler + 路由）；**并补：模型可见入口 = 新增专用工具 `workflow:run-template`**（见 §11）。~~模型可见触发面未打开~~ ⇒ **2026-10-08 续已打开（专用工具）** |
 | P0-3 **可执行工具白名单/权限边界**（= S24 ③） | ~~是否限制模板只能调用非破坏性工具~~ ⇒ **✅ 已裁定 = 仅非破坏性工具（fail-closed）（2026-10-08）** | 事实源 = `tools/toolEffects.ts` 的 `TOOL_EFFECTS`（编译期强制的**唯一声明表**，经 `ToolSideEffectResolver` 注入 ⇒ 不硬编码工具名表）；**判据 = `sideEffect === 'none'`**，**未声明工具（MCP/插件）同样拒绝**；越界 ⇒ **执行前整体拒绝**（`stopReason:'error'`、`completedSteps` 为空），**不静默跳过越界步骤**（CS03）。收口点 = Provider 的 `execute()` 预检（**唯一**收口 ⇒ 任何入口都受约束） |
 
 ## 8. 声明
 
 - ~~**本轮未改任何业务代码**（仅新增本设计文档 + 台账取证登记）。~~ ⇒ **2026-10-08 订正**：**推荐形态 ①+② 已实施**（见 §9）；**P0-2 / P0-3 亦已裁定并实施**（见 §10）。
 - **待裁定项 = 0**（主方案 = ①+②；P0-1 已解除；P0-2 = (a)；P0-3 = 仅非破坏性工具）。
-- **仍未做（明确）**：① "内建 4 模板是否也可执行" = **产品选择**（§5.3），需给静态模板补 `tool`；② 是否**再开模型可见触发面**（如新增一个 enum 动态的工作流工具）——本轮**刻意未做**（`office:workflow` 未改）。
+- **仍未做（明确）**：**"内建 4 模板是否也可执行"** = **产品选择**（§5.3），需给静态模板补 `tool`；模型可见入口见 §11（**已开**，为**专用工具**而非扩 `office:workflow`）。
 
 ## 9. 实施记录（2026-10-08，①+② 落地）
 
@@ -181,4 +181,24 @@
 
 **验证（实测）**：`bun run typecheck` **0**；定向 ESLint **0**；`lint:arch` **错误 0 / 警告 4**（基线，未新增）；`bun test tests/workspace/` **41 pass / 0 fail**（新增 Provider 策略 3 例 + Runner 6 例）；`tests/modules/` **112 pass / 0 fail**。
 
-**仍未做（明确）**：① "内建 4 模板是否也可执行" = **产品选择**（§5.3；需给静态模板补 `tool`，仍不入库）；② 是否**再开模型可见触发面**（新增 enum 动态的工作流工具）—— 现策略已限定非破坏性工具，若要开面属**新增产品决策**，本轮**未做**。
+**仍未做（明确）**："内建 4 模板是否也可执行" = **产品选择**（§5.3；需给静态模板补 `tool`，仍不入库）。~~是否再开模型可见触发面~~ ⇒ **2026-10-08 续已开**（§11，专用工具）。
+
+## 11. 实施记录（2026-10-08 续二：**模型可见专用工具** `workflow:run-template`）
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `app/src/workspace/workflowTemplateTool.ts` | **新建**：`createWorkflowTemplateTool(deps)`（`action: list\|run`；**依赖注入** ⇒ 可单测）+ `registerWorkflowTemplateTool()`（幂等） |
+| 2 | `app/src/tools/toolCategories.ts` | `TOOL_CATEGORIES['workflow:run-template'] = 'assist'`（**N-44/N-45 必需**，见下） |
+| 3 | `app/src/bootstrap/pipeline/BootPipelineIntegrator.ts` | Phase 5 独立 try 块注册工具（与 Provider 注册解耦，任一失败不互相影响） |
+| 4 | `app/tests/workspace/workflowTemplateTool.test.ts` | **新建**：可见性回归锁 + 元信息 + list/run + 参数校验（12 例） |
+
+**关键决策**：
+
+1. **不用 `enum`**：模板目录是**运行期 CRUD**，静态 `enum` 承载不了 ⇒ `template` 为自由字符串，**未知 id 时返回当前可用清单**（动态目录的正确做法）。这正是 (b) 选项在 `office:workflow` 上不可行的同一原因，此处以设计规避。
+2. **不复制权限策略**：执行转给 seam（`WorkflowEngine.execute('template:<id>')`）⇒ 复用 Provider 的 ③ 预检（**同一收口**，CS01）；越界模板在执行前被整体拒绝，工具把该 error 原样透出。
+3. **⚠️ 必须登记 `TOOL_CATEGORIES`**（N-44/N-45 陷阱）：出站按 **wire 安全名**（`workflow:run-template` → `workflow_run-template`）裁剪工具集；未登记类别 ⇒ 落 `misc` ⇒ **不在任何任务白名单** ⇒ **模型永远看不到该工具**（N-45 现场）。已登记为 `assist`（与 `plan`/`clipboard`/`canvas` 同口径 = "任何对话都可能用到"）⇒ 在 `chat`/`default` 任务下可见；**wire 形态由 `WIRE_KEYED_CATEGORIES` 自动派生**（无需另填）。
+   - **边界（如实）**：`assist` 类目**不在 `coding`/`agent` 等任务白名单** ⇒ 那些任务类型下本工具**仍会被裁剪**（与 `plan`/`clipboard`/`canvas` 现状一致）。若要在那些任务下可见，属**另行放宽类别口径**的决策（会影响同类的 plan/clipboard/canvas）。
+4. **`isReadOnly: () => false`**：不冒充只读 —— 避免影响既有只读清单与审批口径（与 `office:workflow` 一致）。
+5. **注册方式 = 运行期注册**（同 `office:*` 由所属域注册），**非** `ToolFactory` 内建 ⇒ 不进 `toolNames.generated.ts`（其门禁只比对 `getAllBuiltinToolLoaders()` 派生清单）。
+
+**验证（实测）**：`bun run typecheck` **0**；定向 ESLint **0**；`lint:arch` **错误 0 / 警告 4**（基线，未新增）；`bun test tests/workspace/ tests/tools/` **681 pass / 0 fail**（70 文件；含可见性回归锁 —— 断言 wire 形态在 `chat`/`default` 下**不被裁剪**）。

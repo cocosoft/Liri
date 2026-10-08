@@ -176,6 +176,8 @@ export interface WorkflowStepDto {
   dependsOn?: string[] | undefined;
   suggestedAgentRole?: string | undefined;
   estimatedMinutes?: number | undefined;
+  /** 显式工具名（逐字镜像 `WorkflowStep.tool`；缺省 = 该模板不可执行） */
+  tool?: string | undefined;
 }
 
 /** 工作流模板**类型位镜像**（P1） */

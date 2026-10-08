@@ -329,6 +329,22 @@ export function registerStandardHandlers(): void {
         });
       }
 
+      // P1-19 ②（2026-10-08）：把"用户工作流模板"注册为 workflow seam 的 Provider ——
+      // 仅**显式带 tool** 的模板成为可执行定义；内建 4 模板不含 tool ⇒ 不产出（行为不变）。
+      // ⚠️ 刻意**不**改 `office:workflow` 的参数 enum（= 不打开模型可见触发面）：
+      // "谁触发"属 **P0-2**、"模板可调工具的白名单/权限边界"属 **P0-3**，二者均待独立裁定。
+      try {
+        const { registerWorkflowTemplateProvider } =
+          await import('@modules/workspace');
+        const { getWorkflowEngine } = await import('@modules/workflow');
+        await registerWorkflowTemplateProvider(getWorkflowEngine());
+      } catch (e) {
+        void handleError(e, {
+          module: 'boot:phase5',
+          action: 'registerWorkflowTemplateProvider',
+        });
+      }
+
       // T1.8: 初始化 SmartRouter 智能路由
       try {
         const { SmartRouter } = await import('@modules/ai');

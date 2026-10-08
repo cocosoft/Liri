@@ -85,6 +85,15 @@ export class WorkflowTemplateStore {
   private db: Database | null = null;
   /** 进行中的初始化（并发调用共享，避免重复打开连接 —— 同 `AgentRoleStore` O11 修法） */
   private initPromise: Promise<void> | null = null;
+  /**
+   * **派生缓存**（非第二事实源；事实源仍是 `workflow_templates` 表）。
+   *
+   * 存在理由（P1-19 ②，2026-10-08）：workflow seam 的 `listWorkflows()` 是**同步**契约，
+   * 而本 store 是**回调式异步** sqlite ⇒ 需要一个同步可见的快照。本类是表的**唯一写者**，
+   * 故由本类在 `list`/`upsert`/`remove` 后同步维护，不会与库漂移。
+   * 首次使用前须 `await init()` + `await list()` 预热（`registerWorkflowTemplateProvider` 已做）。
+   */
+  private snapshot: WorkflowTemplate[] = [];
 
   constructor(private readonly dbPath: string = resolveDbPath()) {}
 
@@ -137,12 +146,23 @@ export class WorkflowTemplateStore {
       );
     });
 
+    // 预热同步快照（P1-19 ②）：`listSync()` 是**同步**契约，若调用方未先 `list()` 就取用，
+    // 会静默拿到空列表（"模板看似不可执行"的隐性错误）⇒ 在建表后立即填充一次。
+    this.snapshot = await this.queryAll();
+
     logger.info('工作流模板表就绪', { table: WORKFLOW_TEMPLATES_TABLE });
   }
 
-  /** 列出全部用户模板（按更新时间倒序） */
+  /** 列出全部用户模板（按更新时间倒序）；**同时刷新同步快照** */
   async list(): Promise<WorkflowTemplate[]> {
     await this.init();
+    const mapped = await this.queryAll();
+    this.snapshot = mapped;
+    return mapped;
+  }
+
+  /** 查全表（不含 `init()` 守卫 —— 供 `doInit` 预热与 `list()` 共用） */
+  private async queryAll(): Promise<WorkflowTemplate[]> {
     return await new Promise<WorkflowTemplate[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${WORKFLOW_TEMPLATES_TABLE} ORDER BY updated_at DESC`,
@@ -155,6 +175,15 @@ export class WorkflowTemplateStore {
         }
       );
     });
+  }
+
+  /**
+   * **同步快照**（供 workflow seam 的同步 `listWorkflows()` 消费）。
+   *
+   * 只读派生缓存：须先 `await list()` 预热；随后由 `upsert` / `remove` 同步维护。
+   */
+  listSync(): WorkflowTemplate[] {
+    return this.snapshot;
   }
 
   /** 按 id 取用户模板（不存在 ⇒ `null`） */
@@ -210,6 +239,12 @@ export class WorkflowTemplateStore {
           if (err) {
             reject(err);
           } else {
+            // 同步快照维护：本类是表的**唯一写者** ⇒ 此处更新不会与库漂移
+            // （置于最前，与 `list()` 的 `updated_at DESC` 语义一致）
+            this.snapshot = [
+              template,
+              ...this.snapshot.filter((t) => t.id !== template.id),
+            ];
             resolve();
           }
         }
@@ -221,6 +256,7 @@ export class WorkflowTemplateStore {
   /** 删除；返回**是否确有删除**（供 handler 的 404 判定，替代原 `has()` + `delete()` 两次访问） */
   async remove(id: string): Promise<boolean> {
     await this.init();
+    const store = this;
     return await new Promise<boolean>((resolve, reject) => {
       this.db!.run(
         `DELETE FROM ${WORKFLOW_TEMPLATES_TABLE} WHERE id = ?`,
@@ -228,9 +264,14 @@ export class WorkflowTemplateStore {
         function (this: { changes?: number }, err: Error | null) {
           if (err) {
             reject(err);
-          } else {
-            resolve((this?.changes ?? 0) > 0);
+            return;
           }
+          const removed = (this?.changes ?? 0) > 0;
+          if (removed) {
+            // 同步快照维护（仅在确有删除时）
+            store.snapshot = store.snapshot.filter((t) => t.id !== id);
+          }
+          resolve(removed);
         }
       );
     });

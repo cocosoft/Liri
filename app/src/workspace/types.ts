@@ -542,6 +542,14 @@ export interface WorkflowStep {
   suggestedAgentRole?: string;
   /** 预计耗时（分钟） */
   estimatedMinutes?: number;
+  /**
+   * 实际调用的**工具名**（P1-19 ②，2026-10-08；spec `workflow-template-execution-binding.md` ①）。
+   *
+   * 语义：**显式声明**本步骤执行哪个工具。**缺省 = 不可执行** —— 该模板**不会**被装配为
+   * `WorkflowDefinition`（CS04：不猜、不降级；`type`/`suggestedAgentRole`/`description`
+   * 均无法可靠派生工具名）。4 个内建模板不含 `tool` ⇒ 行为与现状一致。
+   */
+  tool?: string;
 }
 
 /** 工作流模板 */

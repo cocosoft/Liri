@@ -857,6 +857,11 @@ data: {"type":"done","result":{...}}
 
 **说明**：2026-10-08 前用户模板仅存于模块私有内存 Map，**进程重启即丢**；本批改为经 `WorkflowTemplateStore` 落盘（语义/状态码不变）。
 
+**`steps[]` 字段扩展（P1-19 ②，2026-10-08）**：`steps[]` 新增**可选 `tool: string`**（显式声明该步骤调用的工具名）。
+**缺省 = 该模板不可执行**（不会被装配为 `WorkflowDefinition`；不派生、不降级）。带 `tool` 的模板经装配层 `templateToDefinition()`
+成为 seam 工作流（名 `template:<模板id>`），由 `WorkflowTemplateProvider` 承载。⚠️ 目前**无对外触发入口**
+（"谁来跑" = P0-2、"模板工具白名单/权限边界" = P0-3，均待裁定）；4 个内建模板不含 `tool` ⇒ 行为不变。
+
 ---
 
 ## §4 前端服务 → 后端接口映射表（三级降级全景）

@@ -147,3 +147,38 @@ describe('WorkflowTemplateStore：删除', () => {
     store.close();
   });
 });
+
+describe('WorkflowTemplateStore：同步快照（P1-19 ② seam 桥接）', () => {
+  test('init 后即可 `listSync()`（非空预热不成漏洞）；upsert / remove 同步维护', async () => {
+    const path = makeDbPath();
+    const seeded = new WorkflowTemplateStore(path);
+    await seeded.init();
+    await seeded.upsert(sampleTemplate('user_snap'));
+    seeded.close();
+
+    // 新实例：**仅 init**（不调 list）⇒ 快照也应已由 doInit 预热（否则 seam 会静默看不到模板）
+    const store = new WorkflowTemplateStore(path);
+    await store.init();
+    expect(store.listSync().map((t) => t.id)).toEqual(['user_snap']);
+
+    // upsert ⇒ 同步可见（置于最前，与 list() 的 updated_at DESC 语义一致）
+    await store.upsert(sampleTemplate('user_snap2'));
+    expect(store.listSync().map((t) => t.id)).toEqual([
+      'user_snap2',
+      'user_snap',
+    ]);
+
+    // 同 id 覆盖 ⇒ 不重复
+    await store.upsert({ ...sampleTemplate('user_snap'), name: '改名后' });
+    expect(store.listSync()).toHaveLength(2);
+    expect(store.listSync().find((t) => t.id === 'user_snap')?.name).toBe(
+      '改名后'
+    );
+
+    // remove ⇒ 同步移除
+    await store.remove('user_snap');
+    expect(store.listSync().map((t) => t.id)).toEqual(['user_snap2']);
+
+    store.close();
+  });
+});

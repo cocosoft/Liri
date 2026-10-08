@@ -1,8 +1,10 @@
 # 工作流模板 ↔ Provider/执行器 绑定 Spec（P1-19 ②）
 
-> 版本: 0.1（**待裁定**，未实施） | 创建: 2026-10-05
+> 版本: 1.0（**①② 已实施**） | 创建: 2026-10-05 | 实施: 2026-10-08
 > 关联: `workflow-template-persistence.md` §3 D5（本问题是其明确延后项）/ `workflow-definition-externalization.md` D4（「不合并」原裁定）/ `workflow-engine-seam.md`（seam 契约）/ GR15 / CS01 / CS02 / CS05 / CS06 / R02 / R00-001
-> 状态：**设计 + 选项对比；未改任何业务代码**（触发 P1-19② 停止条件，见 §7）。
+> 状态：**推荐形态 ①+② 已实施（2026-10-08）**——`WorkflowStep.tool?` + 装配层 `templateToDefinition()`
+> + `WorkflowTemplateProvider`（已注册到 seam）；**P0-2（触发入口）与 P0-3（= S24 ③ 权限边界）仍待独立裁定**。
+> 实施记录见 **§9**；已实施部分**不改** `office:workflow` 参数 enum（= 未打开模型可见触发面）。
 
 ## 1. 目标
 
@@ -24,10 +26,11 @@
 
 ### 2.2 现状模板来源与消费
 
-- 内建 4 模板 = **代码内静态常量** `BUILTIN_TEMPLATES`（`workflow-template-handlers.ts:23-254`），符合 persistence spec D3（不入库）。
-- 用户模板 = handler **模块私有内存 Map** `userTemplates`（`workflow-template-handlers.ts:256-257`）；5 个 CRUD 只读写该 Map。
-- ⚠️ **`WorkflowTemplateStore.ts` 在 main 分支不存在**（全仓 grep 仅命中 handler + spec 文本；`LS app/src/workspace/` 无此文件）。persistence spec 声称的持久化落地于归档 tag `dawate-archive-2026-09-16`（commit `06f4384b4`，**非 main 祖先**）。取证与影响见 `dev_docs/error_repairs/预存错误与待处理问题.md`（本轮新增条）。
+- 内建 4 模板 = **代码内静态常量** `BUILTIN_TEMPLATES`（`workflow-template-handlers.ts`），符合 persistence spec D3（不入库）。
+- ~~用户模板 = handler **模块私有内存 Map** `userTemplates`~~ ⇒ **已订正（2026-10-08）**：用户模板改经**持久化 store** `app/src/workspace/WorkflowTemplateStore.ts`（`workflow_templates` 表，落唯一 `app.db`），5 个 CRUD 已全部改经 store（见 `workflow-template-persistence.md` §7 / 台账 S24 ①）。
+- ~~⚠️ **`WorkflowTemplateStore.ts` 在 main 分支不存在**~~ ⇒ **已订正（2026-10-08，同上）**：该文件**已在 main 落地**（原文所述"仅归档 tag `dawate-archive-2026-09-16` 持有"是 2026-10-05 的当时事实；S24 ① 已把持久化补到 main）。**P0-1（存储基座）随之解除**（见 §7）。
 - `WorkflowTemplate` / `WorkflowStep` **全仓无执行方消费者**：`suggestedAgentRole` grep 仅命中「定义本体 + 4 内建模板字面量 + 端口镜像」，**零读取方**。
+  ⇒ **补充（2026-10-08，①② 实施后）**：`suggestedAgentRole` **仍零读取方**（本轮**未**采用"角色约定表"路线，故保持其"纯描述"语义）；新增的唯一执行方消费者是装配层 `templateToDefinition()`，它只读**新增的** `steps[].tool`。
 - 前端：`client/src/services/workspaceService.ts:515-543` 有 5 个模板方法，但**无任何组件引用**（grep 仅命中 service 自身）⇒ 与 persistence spec §3 D5「P3-1 无组件引用」一致。
 - seam 侧现有 Provider（可对照）：`DocOrchestratorProvider` 把静态编排声明为定义，**`step.id === step.tool`**（`app/src/modules/doc/orchestration/DocOrchestratorProvider.ts:60-75`）；`DocWorkflowProvider` 同理（`app/src/modules/doc/workflow/DocWorkflowProvider.ts:107-139`）。
 - seam 的真实工具执行在 app 侧：`DocModule` 注入 `toolExecutor` = `globalToolManager.executeTool(actualTool, params, {})`（`app/src/modules/doc/DocModule.ts:230-244`）。
@@ -81,11 +84,11 @@
 
 ### 4.3 推荐（供裁定，非自行拍板）
 
-**推荐 ①+② 的组合形态**：`WorkflowStep` 增**可选 `tool?`**（①）**且**新增 app 层**装配层** `templateToDefinition(template)` + Provider（②），二者互补：
+**推荐 ①+② 的组合形态**（**✅ 2026-10-08 已被采纳并实施，见 §9**）：`WorkflowStep` 增**可选 `tool?`**（①）**且**新增 app 层**装配层** `templateToDefinition(template)` + Provider（②），二者互补：
 
 - **理由**：唯一事实源（模板即权威数据，避免 ②纯版的"第二份产物漂移"，CS01/R02）；加性可选字段缺省不改行为（内建 4 模板不回归）；装配层保持 seam 与"市场/展示"关注点解耦（不把 `tool` 语义塞进 seam）。
 - **兼容性**：可选字段缺省 = 不可执行（与现状一致）；无 DB 结构删除；CRUD 语义/状态码不变。
-- **但**：本推荐**必须扩改公共域类型 `WorkflowTemplate`（`WorkflowStep`）**，且触及**产品语义（模板可执行性）** —— 命中 §7 停止条件，故**不自行实施**。
+- **但**：本推荐**必须扩改公共域类型 `WorkflowTemplate`（`WorkflowStep`）**，且触及**产品语义（模板可执行性）** —— 命中 §7 停止条件 ⇒ 原为"不自行实施"；**2026-10-08 用户批准，已实施**。
 
 ## 5. 内置 4 模板共存（问题 3，不破坏 D3）
 
@@ -116,12 +119,39 @@
 
 | 前置项 | 选项 | 说明 |
 |---|---|---|
-| P0-1 模板**存储基座** | (a) 先恢复 `WorkflowTemplateStore`（对齐 persistence spec，跨重启持久化）；(b) 先在**内存 Map** 上做装配/执行（临时，进程重启即失） | main 当前**无 store**（§2.2）；绑定方案的"读取源"取决于此项 |
-| P0-2 **触发入口** | (a) 新增 HTTP 端点 `POST /v1/workflows/templates/:id/run`（经 service→端口→app）；(b) 把用户模板注册为 seam Provider，经既有 `office:workflow`/`engine.execute`；(c) 以 skill 暴露（归档分支曾用 `WorkflowTemplateSkillProvider`） | 决定"谁来跑"与权限边界（用户模板可调任意工具 ⇒ 安全面） |
-| P0-3 **可执行工具白名单/权限边界** | 是否限制模板只能调用非破坏性工具 | 无隔离（P2-2 未做）时，模板可驱动任意工具 |
+| P0-1 模板**存储基座** | ~~(a) 先恢复 `WorkflowTemplateStore`…；(b) 先在**内存 Map** 上做装配/执行…~~ ⇒ **✅ 已解除（2026-10-08）** | 由 **S24 ①** 直接落地：`WorkflowTemplateStore` 已在 main（§2.2 已订正）⇒ 装配层的"读取源"= 该 store（经其**同步快照** `listSync()`，因 seam 的 `listWorkflows()` 是同步契约） |
+| P0-2 **触发入口** | (a) 新增 HTTP 端点 `POST /v1/workflows/templates/:id/run`（经 service→端口→app）；(b) 把用户模板注册为 seam Provider，经既有 `office:workflow`/`engine.execute`；(c) 以 skill 暴露（归档分支曾用 `WorkflowTemplateSkillProvider`） | ⏳ **仍待裁定**。本轮已做 **(b) 的静态部分**（Provider 已注册、`engine.execute('template:<id>') 可达`），但**刻意未改 `office:workflow` 参数 enum** ⇒ **模型可见触发面未打开** |
+| P0-3 **可执行工具白名单/权限边界**（= S24 ③） | 是否限制模板只能调用非破坏性工具 | ⏳ **仍待裁定**。本轮 Provider **不自行定义策略**：步骤工具走**与模型同一条**工具执行门（`globalToolManager.executeTool`）⇒ **不新增特权**；若要叠加**模板专属**白名单，落点在该门 |
 
 ## 8. 声明
 
-- **本轮未改任何业务代码**（仅新增本设计文档 + 台账取证登记）。
-- 待裁定项 = §7 全部（主方案 ①②③④ + 前置 P0-1/P0-2/P0-3）。
-- 裁定后实施清单（草案，不在本轮执行）：装配层纯函数 → Provider → 触发入口 → 端到端单测（用户模板 → 装配 → `WorkflowEngine.execute` → `calls` 断言）→ 门槛（typecheck / lint:arch / lint:size / 定向+全量测试）。
+- ~~**本轮未改任何业务代码**（仅新增本设计文档 + 台账取证登记）。~~ ⇒ **2026-10-08 订正**：**推荐形态 ①+② 已实施**（见 §9）；仍未做 = **P0-2（触发入口）/ P0-3（权限边界）**。
+- 待裁定项 = **P0-2 / P0-3**（主方案已裁定为 ①+②）。
+- ~~裁定后实施清单（草案，不在本轮执行）：装配层纯函数 → Provider → 触发入口 → 端到端单测 → 门槛~~ ⇒ 已按序执行前两步（装配层 → Provider，含端到端单测与门槛）；**触发入口按裁定暂缓**。
+
+## 9. 实施记录（2026-10-08，①+② 落地）
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `app/src/workspace/types.ts` | `WorkflowStep` 增**可选 `tool?: string`**（①；缺省 = 不可执行） |
+| 2 | `app/src/runtime/api/workspaceOpsPorts.ts` | `WorkflowStepDto` 同步镜像 `tool?: string \| undefined`（service 层不引 app 层类型） |
+| 3 | `app/src/workspace/workflowTemplateAssembly.ts` | **新建**：纯函数 `templateToDefinition()` + `templateWorkflowName()` + `TEMPLATE_WORKFLOW_PREFIX`（②） |
+| 4 | `app/src/workspace/WorkflowTemplateProvider.ts` | **新建**：`WorkflowProvider` 实现（同步 `listWorkflows()` + 逐步 `execute()` + 步骤边界取消）+ 幂等注册入口 `registerWorkflowTemplateProvider()`（②） |
+| 5 | `app/src/workspace/WorkflowTemplateStore.ts` | 增**同步快照** `listSync()`（seam 的 `listWorkflows()` 是**同步**契约 ↔ 回调式异步 sqlite 的桥接；`doInit` 预热、`upsert`/`remove` 同步维护；事实源仍是表） |
+| 6 | `app/src/workspace/index.ts` | 导出装配层 / Provider / 注册入口（供 Phase 5 经**模块出口**取用） |
+| 7 | `app/src/bootstrap/pipeline/BootPipelineIntegrator.ts` | Phase 5 `domain:init` 注册 Provider（try/catch + `handleError`） |
+| 8 | `app/tests/workspace/workflowTemplate{Assembly,Provider}.test.ts` | **新建**：装配 8 例 + Provider 6 例（含**经真实 `WorkflowEngine.execute`** 的端到端） |
+| 9 | `app/tests/workspace/workflowTemplateStore.test.ts` | 增同步快照 1 例 |
+
+**关键决策（实施口径）**：
+
+1. **`tool` 只显式声明，不派生**（CS04）：任一步骤缺 `tool`（或为空白）⇒ `templateToDefinition()` 返回 `null` ⇒ 该模板**显式不可执行**；内建 4 模板不含 `tool` ⇒ **不产出任何定义，行为不变**（§5.1）。
+2. **定义名加前缀** `template:<id>`（§5.2）：`WorkflowEngine.find()` 按名首个命中 ⇒ 加前缀防撞名；`validate()` 仍在**注册期** fail loud（重复/缺依赖/成环）。
+3. **不重写拓扑**（CS01）：`dependsOn` 原样透传，交 `WorkflowEngine.validate()/orderSteps()`。
+4. **同步快照是派生缓存、非第二事实源**：store 是表的唯一写者 ⇒ 不会漂移；`doInit` 预热以杜绝"未 `list()` 就取用 ⇒ 静默空列表"的隐性错误。
+5. **权限不越权（P0-3 未裁）**：Provider **不自定义**工具白名单，步骤工具走 `globalToolManager.executeTool`（与模型同一条门）⇒ **不新增特权**。
+6. **触发面不打开（P0-2 未裁）**：仅注册 Provider（`engine.execute('template:<id>')` 程序化可达）；**未改** `office:workflow` 的参数 `enum` ⇒ 模型无法据此触发。
+
+**验证（实测）**：`bun run typecheck` **0**；定向 ESLint **0**；`lint:arch` **错误 0 / 警告 4**（基线，未新增）；`bun test tests/workspace/` **32 pass / 0 fail**、`tests/modules/`（seam 族）**112 pass / 0 fail**。
+
+**仍未做（明确）**：P0-2（`/run` 端点 / `office:workflow` enum / skill 三选一）、P0-3（模板专属工具白名单口径与越界行为）、"内建 4 模板是否也可执行"（§5.3 产品选择）。

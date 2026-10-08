@@ -128,6 +128,13 @@ export const UNPROVABLE_CRITERIA_PATTERNS: ReadonlyArray<{
     re: /(必须|需要|要求)(调用|使用|执行)\s*(glob|grep|file_read|file_write|bash|powershell)/i,
     why: '要求"某具体工具被调用"：验收应看**结果**可证，而非指定动作（动作可能被安全策略拦截）',
   },
+  {
+    // 2026-10-08（轮 10 真机实证）：planner 写出「bash 执行只读命令 dir "…" 的输出中包含 …」，
+    // 而该 shell 命令被安全分析器硬拒 ⇒ 证据永不产生 ⇒ 该条恒 false。
+    // shell 受策略门控 ⇒ **不得作为判定动作**（判定应落在 file_read / glob / grep 等专用工具的输出上）。
+    re: /(^|[\s，。;；、：:（(])（?(bash|powershell)）?\s*(执行|运行|命令)/i,
+    why: '以 shell（bash/powershell）作为判定动作：shell 受安全策略门控、可能被硬拒 ⇒ 证据不可保证',
+  },
 ];
 
 /**

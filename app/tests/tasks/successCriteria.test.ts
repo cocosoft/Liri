@@ -56,7 +56,7 @@ describe('renderCriteriaSkeleton', () => {
  * 本守卫锁住：**明确不可证的措辞必被命中**，**可证的正例不得被误伤**（保守性）。
  */
 describe('findUnprovableCriteria（可证性黑名单）', () => {
-  it('命中：字节级/编码级/校验和/元数据/可写性/前后对比/指定工具动作', () => {
+  it('命中：字节级/编码级/校验和/元数据/可写性/前后对比/指定工具动作/以 shell 判定', () => {
     const bad = [
       '文件严格 6 字节且 UTF-8 无 BOM',
       '内容的 sha256 等于 ...',
@@ -65,6 +65,9 @@ describe('findUnprovableCriteria（可证性黑名单）', () => {
       '目录可写性需显式写入测试证明',
       '与执行前后对比无差异',
       '必须调用 glob 以该路径精确匹配',
+      // 2026-10-08 轮 10 真机实证：shell 受安全策略门控 ⇒ 不得作为判定动作
+      'bash 执行只读命令 dir "C:\\tmp" 的输出中包含 sbx',
+      '格式：powershell 运行 Get-Content 的输出非空',
     ];
     for (const c of bad) {
       expect({ c, hit: findUnprovableCriteria([c]).length }).toEqual({
@@ -80,7 +83,6 @@ describe('findUnprovableCriteria（可证性黑名单）', () => {
       'glob 在 C:\\tmp 下能列出 a.txt',
       'grep 在 a.txt 中命中文本 hello',
       '文件 C:\\tmp\\a.txt 存在',
-      'bash 执行 dir 的输出包含 a.txt',
     ];
     expect(findUnprovableCriteria(good)).toEqual([]);
   });

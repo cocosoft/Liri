@@ -142,6 +142,47 @@ function roleToolNames(role: RoleConfig): string[] {
 }
 
 /**
+ * 安全策略拦截的**显式标记**判定（2026-10-08）。
+ *
+ * 各工具的拦截分支（`security_analyzer_deny` / `security_analyzer_ask` /
+ * `command_whitelist` / `ast_analysis` / `COMMAND_NOT_ALLOWED`）统一写
+ * `metadata.securityIntercepted: true` ⇒ 本函数**只认这一布尔标记**，不做错误文案匹配
+ * （CS02：状态判定禁止字符串匹配）。
+ */
+export function isSecurityIntercepted(result: unknown): boolean {
+  const meta = (
+    result as
+      | { metadata?: { securityIntercepted?: boolean } }
+      | null
+      | undefined
+  )?.metadata;
+  return meta?.securityIntercepted === true;
+}
+
+/** 每步最多注入多少次"改道"steering（防 runaway；拦截本身已被安全层硬拒，不会执行） */
+export const MAX_SECURITY_STEERS_PER_STEP = 2;
+
+/**
+ * 构造"改道"steering 文案（被安全策略拦截后注入，令模型**下一轮**改用专用工具）。
+ *
+ * 约束（与 `TAORLoop.injectSteering` 的 `_steeringFilter` 对齐）：长度 < 2000，
+ * 且不得包含 `system:` / `<|im_start|>`（否则被过滤器整条拒收）。前缀由骨架的
+ * `steering` 片段渲染给出 ⇒ **此处不再手写 `[STEERING]`**（避免双轨）。
+ */
+export function buildSecuritySteeringMessage(
+  blockedToolNames: readonly string[]
+): string {
+  const names = [...new Set(blockedToolNames)].join('、');
+  return (
+    `上一次工具调用被**安全策略拦截**（${names}）：本仓对 shell 管道（|）、重定向（> >>）、` +
+    '命令连接（&& ; ）与 .NET 直调（如 [System.IO.File]::WriteAllText）**一律拒绝**。\n' +
+    '请**立即改道**，不要重复同类命令形式：文件读写/编辑用 `file_write` / `file_read` / `file_edit`，' +
+    '路径查找用 `glob`，内容检索用 `grep`。\n' +
+    '若本步要求产出文件：直接用 `file_write` 写入，随后用 `file_read` 读回内容作为验收证据。'
+  );
+}
+
+/**
  * 步骤执行结果摘要 —— REVIEW 的唯一"实际输出"输入（`buildReviewPrompt` 取 `step.result`）。
  * **2026-10-08（真机实测暴露）**：原先 `markStepCompleted` 只写
  * `[TAORLoop] turns=… tokens=… elapsed=…ms` —— 只有**循环统计**、零执行证据 ⇒ Reviewer
@@ -869,8 +910,9 @@ ${replanSection}
       '',
       '【硬性要求】每条验收标准执行完后，用**一次**工具调用的输出即可直接判定真假。',
       '✅ 正例：`file_read 读取 <路径> 返回内容等于 <值>`；`glob 在 <目录> 下能列出 <文件名>`；',
-      '`grep 在 <文件> 中命中 <文本>`；`bash 执行 <只读命令> 的输出包含 <片段>`。',
+      '`grep 在 <文件> 中命中 <文本>`。',
       '❌ 禁止：字节级/编码级（严格 N 字节、无 BOM、无多余换行/空格、校验和/哈希）；',
+      '**以 shell（bash/powershell）作为判定动作**（shell 受安全策略门控，可能被硬拒）；',
       '指定"必须调用某具体工具"；需文件系统元数据（权限位/时间戳/磁盘空间）；"可写性（需显式写入测试）"；"执行前后对比"。',
       '若某点无法被证明，改写成**可观察的近似条件**（如"内容等于 X"），不要叠加不可证修饰。',
       '',
@@ -1075,6 +1117,8 @@ ${replanSection}
         // 2026-10-08（机械保障）：本步的产物读写台账 —— 用于"写后读回"补做
         const writtenPaths = new Set<string>();
         const readPaths = new Set<string>();
+        // 2026-10-08（steering）：本步已注入的"改道"次数（上限见 MAX_SECURITY_STEERS_PER_STEP）
+        let securitySteerCount = 0;
 
         const deps = createTAORLoopDeps({
           callModel: async function* (msgs: any[], signal: AbortSignal) {
@@ -1134,6 +1178,8 @@ ${replanSection}
               result?: unknown;
               error?: string;
             }> = [];
+            /** 本轮被安全策略拦截的工具名（用于事后注入改道 steering） */
+            const blockedBySecurity: string[] = [];
             logger.info('[orchestrator] executeTools 开始执行', {
               taskId: this.taskId,
               stepId: step.id,
@@ -1168,6 +1214,10 @@ ${replanSection}
                   tc.arguments,
                   toolContext
                 );
+                // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令
+                if (isSecurityIntercepted(toolResult)) {
+                  blockedBySecurity.push(tc.name);
+                }
                 // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
                 // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。
                 {
@@ -1235,6 +1285,29 @@ ${replanSection}
                 .map((r) => r.toolName),
               totalElapsedMs: Date.now() - executeToolsStart,
             });
+
+            // 2026-10-08（steering · 机械改道）：有调用被安全策略拦截 ⇒ **不中断**当前步，
+            // 只向循环队列注入一条改道指令，令模型**下一轮**改用专用工具（拦截本身已硬拒、
+            // 没有任何副作用被执行）。上限 `MAX_SECURITY_STEERS_PER_STEP` 防 runaway。
+            if (
+              blockedBySecurity.length > 0 &&
+              securitySteerCount < MAX_SECURITY_STEERS_PER_STEP
+            ) {
+              securitySteerCount++;
+              loop.injectSteering(
+                buildSecuritySteeringMessage(blockedBySecurity)
+              );
+              logger.warn(
+                '[orchestrator] 工具调用被安全策略拦截 ⇒ 注入 steering 令其改道',
+                {
+                  taskId: this.taskId,
+                  stepId: step.id,
+                  blocked: [...new Set(blockedBySecurity)],
+                  steerCount: securitySteerCount,
+                  maxSteers: MAX_SECURITY_STEERS_PER_STEP,
+                }
+              );
+            }
             return results;
           },
           persistMessages: async (msgs: any[], _signal?: AbortSignal) => {

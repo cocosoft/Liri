@@ -28,7 +28,7 @@
  * 解析基于**结构化 scheme 精确查表** —— 不做字符串前缀匹配（CS02）。
  */
 
-import { vfsError, type IVfsDriver } from './types.js';
+import { vfsError, type IVfsDriver, type VfsEntry } from './types.js';
 
 export class VfsMountRegistry {
   private readonly mounts = new Map<string, IVfsDriver>();
@@ -60,6 +60,24 @@ export class VfsMountRegistry {
   /** 已注册 scheme 清单（诊断 / 测试用） */
   listSchemes(): string[] {
     return [...this.mounts.keys()];
+  }
+
+  /**
+   * 列举某 scheme 下的"挂载点"（**scheme-only 列举**，`list_vfs('<scheme>://')`）。
+   *
+   * - scheme 未注册 ⇒ `VFS_UNKNOWN_MOUNT`（**不**回退，CS03）；
+   * - 驱动实现 `listMountPoints()` ⇒ 委托之；
+   * - 未实现 ⇒ 兜底为"scheme 本身即一个挂载点"。
+   */
+  async listMountPoints(scheme: string): Promise<VfsEntry[]> {
+    const driver = this.mounts.get(scheme);
+    if (!driver) {
+      throw vfsError('VFS_UNKNOWN_MOUNT', `未注册的挂载点: "${scheme}"`);
+    }
+    if (driver.listMountPoints) {
+      return driver.listMountPoints();
+    }
+    return [{ name: `${scheme}://`, kind: 'dir' }];
   }
 }
 

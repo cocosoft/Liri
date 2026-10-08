@@ -34,13 +34,13 @@ export class ListVfsTool {
     return {
       name: 'list_vfs',
       description:
-        '列举 AI-VFS 挂载点目录下的条目。路径形如 <scheme>://<authority>/<path>，例如 dev_docs://配置与安全。未注册的 scheme 会明确失败，不会回退到本地文件系统。',
+        '列举 AI-VFS 挂载点目录下的条目。路径形如 <scheme>://<authority>/<path>，例如 dev_docs://配置与安全；以 <scheme>:// 形式（scheme-only，如 mcp://）调用时列举该 scheme 下的挂载点。未注册的 scheme 会明确失败，不会回退到本地文件系统。',
       params: [
         {
           name: 'path',
           type: 'string',
           description:
-            'VFS 目录路径，形如 dev_docs://目录（用 dev_docs:// 表示挂载根）',
+            'VFS 路径：<scheme>://<authority>[/<path>]（如 dev_docs://配置与安全）；或 <scheme>:// 形式列举该 scheme 下的挂载点',
           required: true,
         },
         {
@@ -78,10 +78,15 @@ export class ListVfsTool {
             );
           }
 
-          const entries = await driver.list(vfsPath, {
-            recursive: input.recursive === true,
-            limit: input.limit !== undefined ? Number(input.limit) : 0,
-          });
+          // scheme-only（如 `mcp://`）⇒ 列举该 scheme 下的**挂载点**（不走驱动 list()）；
+          // 其余（含 `dev_docs://配置与安全` 这类带 authority 的路径）保持既有 list() 行为。
+          const entries =
+            vfsPath.authority === ''
+              ? await vfsMountRegistry.listMountPoints(vfsPath.scheme)
+              : await driver.list(vfsPath, {
+                  recursive: input.recursive === true,
+                  limit: input.limit !== undefined ? Number(input.limit) : 0,
+                });
 
           span.setStatus({ code: SpanStatusCode.OK });
           return createToolResult(

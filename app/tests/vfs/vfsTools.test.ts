@@ -59,6 +59,7 @@ beforeAll(() => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'vfs-tools-')));
   mkdirSync(join(root, 'sub'), { recursive: true });
   writeFileSync(join(root, 'a.md'), '# hello\n', 'utf-8');
+  writeFileSync(join(root, 'sub', 'b.md'), '# b\n', 'utf-8');
   if (!vfsMountRegistry.has(SCHEME)) {
     // 第三个实参 = 回显 scheme（与注册键一致，使 stat.mount 如实）
     vfsMountRegistry.registerMount(
@@ -114,14 +115,25 @@ describe('read_vfs', () => {
 });
 
 describe('list_vfs', () => {
-  it('成功列举', async () => {
+  it('scheme-only（`<scheme>://`）⇒ 列举挂载点（驱动未实现 ⇒ 兜底为 scheme 本身）', async () => {
     const r = await listTool.execute({ path: `${SCHEME}://` }, ctx);
+    expect(r.error).toBeUndefined();
+    const payload = JSON.parse(r.data as string) as {
+      entries: Array<{ name: string; kind: string }>;
+      count: number;
+    };
+    expect(payload.entries).toEqual([{ name: `${SCHEME}://`, kind: 'dir' }]);
+    expect(payload.count).toBe(1);
+  });
+
+  it('带 authority 的路径 ⇒ 列举该目录条目', async () => {
+    const r = await listTool.execute({ path: `${SCHEME}://sub` }, ctx);
     expect(r.error).toBeUndefined();
     const payload = JSON.parse(r.data as string) as {
       entries: Array<{ name: string }>;
       count: number;
     };
-    expect(payload.entries.map((e) => e.name)).toContain('a.md');
+    expect(payload.entries.map((e) => e.name)).toContain('b.md');
     expect(payload.count).toBe(payload.entries.length);
   });
 

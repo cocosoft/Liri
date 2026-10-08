@@ -295,3 +295,54 @@ describe('McpResourcesDriver：未知 / 未连接服务器', () => {
     );
   });
 });
+
+describe('McpResourcesDriver：允许清单', () => {
+  it('提供允许清单：不在清单内的 server ⇒ VFS_UNKNOWN_MOUNT（list/stat/read 一致）', async () => {
+    const driver = new McpResourcesDriver(
+      clientSeam(stubClient({ resources: [] })),
+      ['allowed-server']
+    );
+    await expectVfsReject(
+      () => driver.list(mcp('other-server'), { recursive: false, limit: 0 }),
+      'VFS_UNKNOWN_MOUNT'
+    );
+    await expectVfsReject(
+      () => driver.stat(mcp('other-server/file:///tmp/a.txt')),
+      'VFS_UNKNOWN_MOUNT'
+    );
+    await expectVfsReject(
+      () => driver.read(mcp('other-server/file:///tmp/a.txt')),
+      'VFS_UNKNOWN_MOUNT'
+    );
+  });
+
+  it('提供允许清单：清单内且已连接 ⇒ 正常列举', async () => {
+    const driver = new McpResourcesDriver(
+      clientSeam(
+        stubClient({ resources: [{ uri: 'file:///tmp/a.txt', name: 'a.txt' }] })
+      ),
+      ['allowed-server']
+    );
+    const entries = await driver.list(mcp('allowed-server'), {
+      recursive: false,
+      limit: 0,
+    });
+    expect(entries).toEqual([{ name: 'file:///tmp/a.txt', kind: 'file' }]);
+  });
+
+  it('listMountPoints：只列**允许且已连接**的 server', async () => {
+    const driver = new McpResourcesDriver(
+      // 仅 'a' 已连接（桩返回 client）；'b' 在清单内但未连接 ⇒ 不出现
+      (server) => (server === 'a' ? stubClient({ resources: [] }) : undefined),
+      ['a', 'b']
+    );
+    expect(await driver.listMountPoints()).toEqual([
+      { name: 'mcp://a', kind: 'dir' },
+    ]);
+  });
+
+  it('listMountPoints：未连接 server ⇒ 空结果（不编造挂载点）', async () => {
+    const driver = new McpResourcesDriver(clientSeam(undefined), ['a']);
+    expect(await driver.listMountPoints()).toEqual([]);
+  });
+});

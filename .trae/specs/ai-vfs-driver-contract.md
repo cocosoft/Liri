@@ -1,6 +1,6 @@
 # Spec：AI-VFS 驱动契约（智能体虚拟文件系统）
 
-> 版本 1.4 ｜ 创建 2026-10-06 ｜ 更新 2026-10-08 ｜ 状态：🟡 **契约已立 + P2 只读试点已实施**（v1.1 §9 重叠面评估；v1.2 按 69 基数重算；v1.3 §10 触发条件评估；**v1.4：用户裁定 T3 满足 ⇒ 启动 §4-D5=(a) 读取类试点并实施完成** —— 见 `.trae/specs/ai-vfs-readonly-pilot.md`）
+> 版本 1.5 ｜ 创建 2026-10-06 ｜ 更新 2026-10-08 ｜ 状态：🟡 **契约已立 + P2 只读试点 + 用户可配置挂载面（T3）已实施**（v1.4 试点；**v1.5：§3.2/§3.3 增 `list_vfs` scheme-only 与 `IVfsDriver.listMountPoints?`**，配置面见 `.trae/specs/ai-vfs-user-mountable.md`）
 > 来源：`dev_docs/任务计划-20261004.md` §12 **T-1**（外部 `dev_docs/20261005/google ai 建议.md` §二·优化一「重构系统工具栈为标准 VFS 驱动契约」）
 > 关联规则：GR15（Spec-Driven）· GR01（基础设施复用）· CS01（归一化）· CS03（回退最小化）· CS04（零 Mock）· R06-008（分层）· §1.6「模型可见 ⇔ 已落盘」· `model-usage.md`（工具/模型契约）
 > 口径（CS06）：下列 file:line / 命中数 / 计数均 **2026-10-06 实测**；外部数字与实测不符者**如实订正**。
@@ -89,6 +89,13 @@
 | `list_vfs` | `path: string`，`recursive?: boolean`，`limit?: number` | `{ entries: Array<{ name, kind: 'file'\|'dir', size?, mtime? }> }` | `VFS_UNKNOWN_MOUNT` · `VFS_NOT_FOUND` · `VFS_NOT_DIR` |
 | `stat_vfs` | `path: string` | `{ kind, size, mtime, mimeType?, mount, readOnly }` | `VFS_UNKNOWN_MOUNT` · `VFS_NOT_FOUND` |
 
+**`list_vfs` 的 scheme-only 形态（2026-10-08 新增，T3 用户可配置挂载面）**
+- `path = '<scheme>://'`（即 `authority` 为空）⇒ 语义 = **列举该 scheme 下的「挂载点」**（而非目录）。
+- 出参：`entries` 每项 `{ name: '<scheme>://<authority>', kind: 'dir' }`；无 authority 的 scheme（如 `dev_docs`）为 `{ name: '<scheme>://', kind: 'dir' }`。
+- 未注册 scheme ⇒ `VFS_UNKNOWN_MOUNT`（**不**回退）。
+- **目的**：让模型在**工具调用期**发现挂载点（契约 §3.1：仅工具调用期解析 ⇒ **不触发** §1.6 提示词事件红线）。
+- ⚠️ **行为变更**：`list_vfs('<scheme>://')` 由"列挂载根目录"改为"列挂载点" ⇒ 目标 scheme 的**根目录列举**须用其子路径（如 `list_vfs('dev_docs://<dir>')`）；`stat_vfs('<scheme>://')` 仍可查挂载本身。
+
 **统一约定**
 - 4 者**同构返回错误**（`AppError` + 稳定 `errorCode`，禁止裸字符串/`any`）。
 - 幂等性声明进 `tools/toolEffects.ts`（13-P1-2 既有机制）：`read`/`list`/`stat` **只读**；`write` **非幂等**（禁盲重试）。
@@ -105,6 +112,12 @@ export interface IVfsDriver {
   stat(path: VfsPath): Promise<VfsStat>;
   read(path: VfsPath, range?: { offset: number; limit: number }): Promise<VfsReadResult>;
   write(path: VfsPath, data: VfsWriteInput): Promise<VfsWriteResult>;
+  /**
+   * **可选**（2026-10-08 新增）：列举本 scheme 下的「挂载点」——
+   * 供 `list_vfs('<scheme>://')` 的 **scheme-only 形态**（§3.2）。
+   * 未实现 ⇒ 注册表按"scheme 本身即一个挂载点"兜底（`[{name:'<scheme>://', kind:'dir'}]`）。
+   */
+  listMountPoints?(): Promise<VfsEntry[]>;
 }
 ```
 

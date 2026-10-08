@@ -54,6 +54,8 @@ export type {
   TokenEstimatorConfig,
   ChannelsConfig,
   ChannelInboundConfig,
+  VfsConfig,
+  VfsMountConfigEntry,
 } from './types.js';
 
 export {

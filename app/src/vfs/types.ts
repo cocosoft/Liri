@@ -109,6 +109,13 @@ export interface IVfsDriver {
     range?: { offset: number; limit: number }
   ): Promise<VfsReadResult>;
   write(path: VfsPath, data: VfsWriteInput): Promise<VfsWriteResult>;
+  /**
+   * 可选：列举本 scheme 下的"挂载点"（**scheme-only 列举**用，`list_vfs('<scheme>://')`）。
+   *
+   * 未实现 ⇒ 注册表按"scheme 本身即一个挂载点"兜底
+   * （`VfsMountRegistry.listMountPoints` 返回 `[{ name: '<scheme>://', kind: 'dir' }]`）。
+   */
+  listMountPoints?(): Promise<VfsEntry[]>;
 }
 
 /** VFS 稳定错误码（统一经 `AppError.code` 承载，禁止裸字符串，CS06） */

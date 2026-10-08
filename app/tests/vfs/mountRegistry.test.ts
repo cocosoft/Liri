@@ -79,4 +79,34 @@ describe('VfsMountRegistry', () => {
     expect(registry.resolve('nope')).toBeNull();
     expect(registry.has('nope')).toBe(false);
   });
+
+  it('listMountPoints：驱动未实现 ⇒ 兜底为 scheme 本身一个挂载点', async () => {
+    const registry = new VfsMountRegistry();
+    registry.registerMount('dev_docs', makeStubDriver());
+    expect(await registry.listMountPoints('dev_docs')).toEqual([
+      { name: 'dev_docs://', kind: 'dir' },
+    ]);
+  });
+
+  it('listMountPoints：驱动实现 ⇒ 委托驱动', async () => {
+    const registry = new VfsMountRegistry();
+    registry.registerMount('mcp', {
+      ...makeStubDriver(),
+      listMountPoints: async () => [{ name: 'mcp://a', kind: 'dir' as const }],
+    });
+    expect(await registry.listMountPoints('mcp')).toEqual([
+      { name: 'mcp://a', kind: 'dir' },
+    ]);
+  });
+
+  it('listMountPoints：未注册 scheme ⇒ VFS_UNKNOWN_MOUNT', async () => {
+    const registry = new VfsMountRegistry();
+    try {
+      await registry.listMountPoints('nope');
+      throw new Error('未抛出异常');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AppError);
+      expect((error as AppError).code).toBe('VFS_UNKNOWN_MOUNT');
+    }
+  });
 });

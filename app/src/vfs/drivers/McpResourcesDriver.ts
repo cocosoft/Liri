@@ -81,6 +81,19 @@ function errorMessage(error: unknown): string {
 const defaultGetSdkClient: GetSdkClient = (server) =>
   mcpConnectionManager.getSdkClient(server);
 
+/**
+ * 默认"已连接服务器名"枚举（仅 `type === 'connected'` 的条目才有 SDK Client，
+ * 与 `getSdkClient` 的判据同源）。
+ *
+ * 仅在**未提供允许清单**时用于 `listMountPoints()`（列举"所有已连接 server"）。
+ */
+function listConnectedServerNames(): readonly string[] {
+  return mcpConnectionManager
+    .getServers()
+    .filter((connection) => connection.type === 'connected')
+    .map((connection) => connection.name);
+}
+
 export class McpResourcesDriver implements IVfsDriver {
   readonly capabilities: VfsDriverCapabilities = {
     read: true,
@@ -89,9 +102,15 @@ export class McpResourcesDriver implements IVfsDriver {
   };
 
   private readonly getClient: GetSdkClient;
+  /** 允许的 MCP 服务器清单（`undefined` = 不限制，保持既有行为） */
+  private readonly allowedServers?: readonly string[];
 
-  constructor(getClient: GetSdkClient = defaultGetSdkClient) {
+  constructor(
+    getClient: GetSdkClient = defaultGetSdkClient,
+    allowedServers?: readonly string[]
+  ) {
     this.getClient = getClient;
+    this.allowedServers = allowedServers;
   }
 
   /**
@@ -207,7 +226,24 @@ export class McpResourcesDriver implements IVfsDriver {
   }
 
   /**
-   * 取已连接 SDK `Client`；`authority` 缺失或服务器未连接 ⇒ `VFS_UNKNOWN_MOUNT`。
+   * 列举本 scheme 下的"挂载点"（scheme-only 列举，`list_vfs('mcp://')`）。
+   *
+   * 每条 = 一个**允许且当前已连接**的 MCP 服务器（`{ name: 'mcp://<server>', kind: 'dir' }`）；
+   * 无允许清单时 = **所有已连接**服务器。未连接 / 不在清单者不出现在结果中。
+   */
+  async listMountPoints(): Promise<VfsEntry[]> {
+    const candidates = this.allowedServers ?? listConnectedServerNames();
+    const entries: VfsEntry[] = [];
+    for (const server of candidates) {
+      if (!this.getClient(server)) continue;
+      entries.push({ name: `mcp://${server}`, kind: 'dir' });
+    }
+    return entries;
+  }
+
+  /**
+   * 取已连接 SDK `Client`；`authority` 缺失 / 不在允许清单 / 服务器未连接 ⇒
+   * `VFS_UNKNOWN_MOUNT`（**不**回退，list/stat/read 一致，CS03）。
    */
   private requireClient(vfsPath: VfsPath): Client {
     const server = vfsPath.authority;
@@ -215,6 +251,12 @@ export class McpResourcesDriver implements IVfsDriver {
       throw vfsError(
         'VFS_UNKNOWN_MOUNT',
         `mcp:// 路径缺少服务器（authority）段: "${formatVfsPath(vfsPath)}"`
+      );
+    }
+    if (this.allowedServers && !this.allowedServers.includes(server)) {
+      throw vfsError(
+        'VFS_UNKNOWN_MOUNT',
+        `MCP 服务器不在允许清单内: "${server}"`
       );
     }
     const client = this.getClient(server);

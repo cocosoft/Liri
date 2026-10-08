@@ -253,6 +253,31 @@ export interface NegotiationConfig {
 }
 
 /**
+ * AI-VFS 用户可配置挂载点条目（`.trae/specs/ai-vfs-user-mountable.md`）。
+ *
+ * ⚠️ `config`（infra 层）在此只定义**纯类型** —— ❌ 禁止 `config` import `app/src/vfs`
+ * （否则 infra → app 倒挂）；运行时装配在 `entrypoints/vfsWiring.ts`。
+ */
+export interface VfsMountConfigEntry {
+  /** 挂载 scheme（当前仅支持 'dev_docs' | 'mcp'） */
+  scheme: 'dev_docs' | 'mcp';
+  /** 仅 `mcp` 用：MCP 服务器名 */
+  server?: string;
+  /** 缺省视为 true */
+  enabled?: boolean;
+}
+
+/**
+ * AI-VFS 用户可配置挂载面（`~/.pyapp/config.json` 的 `vfs` 段）。
+ *
+ * 缺省（无 `vfs` 段，或 `mounts` 缺省）⇒ 内置默认：`dev_docs` + `mcp`（保持只读试点行为）。
+ */
+export interface VfsConfig {
+  /** 用户挂载点清单（"挂载点即用户面契约"） */
+  mounts?: VfsMountConfigEntry[];
+}
+
+/**
  * 自动更新配置
  */
 export interface AutoUpdateConfig {
@@ -468,6 +493,14 @@ export interface GlobalConfig {
    * 默认值见 `@modules/types/fastPath`（单一事实源）。**留空/非法 ⇒ 回退默认**（fail-closed）。
    */
   fastPath: FastPathConfig;
+
+  /**
+   * AI-VFS 用户可配置挂载面（`.trae/specs/ai-vfs-user-mountable.md`）。
+   *
+   * 缺省（无 `vfs` 段）⇒ 内置默认：`dev_docs` 启用、`mcp` 不限 server（保持只读试点行为）；
+   * 显式配置 `vfs.mounts` ⇒ **严格按清单**（未知 scheme / 缺失必填 ⇒ 跳过 + WARN，不回退）。
+   */
+  vfs?: VfsConfig;
 
   // ===== 旧扁平字段（已删声明）=====
   // 2026-10-06（P2-8 ② 配置字段迁移收尾）：原 23 个 `@deprecated` 扁平字段

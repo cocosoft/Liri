@@ -16,7 +16,6 @@ import { cg3Log } from '../cg3Env';
 import { drainManager } from '../drain/DrainManager';
 import { handleError } from '@modules/error';
 import type { CommandBridge } from '../commands/CommandBridge';
-import type { SteeringBridge } from '../steering/SteeringBridge';
 import type { WatchdogBridge } from '../watchdog/WatchdogBridge';
 
 export class AlwaysOnRuntime {
@@ -27,14 +26,12 @@ export class AlwaysOnRuntime {
   readonly fireRunner: DiscoveryFire;
   readonly scheduler: DiscoveryScheduler;
   private cmdBridge?: CommandBridge;
-  private steerBridge?: SteeringBridge;
   private watchdog?: WatchdogBridge;
 
   constructor(
     config: Partial<AlwaysOnConfig> = {},
     projectPath: string = '',
     cmdBridge?: CommandBridge,
-    steerBridge?: SteeringBridge,
     watchdog?: WatchdogBridge
   ) {
     this.config = { ...DEFAULT_ALWAYSON_CONFIG, ...config };
@@ -51,7 +48,6 @@ export class AlwaysOnRuntime {
       () => this.tryRun()
     );
     this.cmdBridge = cmdBridge;
-    this.steerBridge = steerBridge;
     this.watchdog = watchdog;
   }
 

@@ -233,7 +233,9 @@ export {
 } from './Cg3Bootstrap';
 export type { Cg3BootstrapResult } from './Cg3Bootstrap';
 export { CommandBridge, getCommandBridge } from './commands/CommandBridge';
-export { SteeringBridge, getSteeringBridge } from './steering/SteeringBridge';
+// 2026-10-08：删除 `SteeringBridge` 再导出 —— 第二套 steering（`tasks/steering/SteeringBridge` +
+// `query/SteeringManager`）实测**零外部消费者**且 `AlwaysOnRuntime.steerBridge` 从未注入/调用 ⇒
+// 死代码。steering 现只有一套：`query/ReActLoop.steeringQueue`（见 §1.6 `context/steering` 事件）。
 export { cg3DataDir, cg3Log } from './cg3Env';
 
 // P2-9: 批量并行处理导出

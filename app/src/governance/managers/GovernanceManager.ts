@@ -17,7 +17,10 @@ import {
 import { ToolHookManager } from '@modules/hooks';
 import { SandboxManager } from '@modules/sandbox';
 import { ToolFilterManager } from '@modules/tools';
-import { ToolRegistry, createToolRegistry } from '@modules/tools';
+// 2026-10-08（架构治理 P1 · D6 修复）：改用**全局唯一注册表** —— 原 `createToolRegistry()`
+// 在此造出一张**空表**并交给 `ToolFilterManager`（其 `getFilteredTools()` 读 `getTools()`），
+// 使 `getGovernedTools()` / `executeGovernanceCheck()` 的 feature-flag 过滤恒为空集（静默失效）。
+import { ToolRegistry, getToolRegistry } from '@modules/tools';
 import { Tool } from '@modules/tools/types/Tool';
 import { ToolHookContext } from '@modules/hooks/types/ToolHooks';
 import {
@@ -70,7 +73,8 @@ export class GovernanceManager {
     this.permissionManager = createPermissionManager();
     this.toolHookManager = ToolHookManager.getInstance();
     this.sandboxManager = SandboxManager.getInstance();
-    this.toolRegistry = createToolRegistry();
+    // D6（2026-10-08）：取**全局唯一注册表**（原为 `createToolRegistry()` ⇒ 空表 ⇒ 过滤恒空）
+    this.toolRegistry = getToolRegistry();
     this.toolFilterManager = new ToolFilterManager(this.toolRegistry);
 
     // 监听配置变化

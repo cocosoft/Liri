@@ -34,7 +34,7 @@
 | capability 检查 / `capable()` + LSM | `app/src/permission/PermissionManager.ts` → `app/src/chat/services/ToolExecutionService.ts:564-590`（`checkPermissionForTool` 裁决链）+ `app/src/query/PathGuard.ts`（路径门禁）+ `app/src/sandbox/landlock/*`（fail-closed） | ✅ 已对齐（**裁决点 fail-open 形态**待观察，见 §8-D4） |
 | LSM hooks | 同上 + `core/spi/HookChainService.ts` + hooks 体系 | ✅ 已对齐 |
 | cgroup / namespace **可见性隔离** | `app/src/tools/toolCategories.ts`：`TOOL_CATEGORIES`(:52) + `getToolCategory`(:288) + `getTaskToolCategories`(:429) + `filterToolsByTask`(:444) —— 按任务裁剪模型可见工具 | ✅ 已对齐 |
-| cgroup **资源限制** | 执行面 = `app/src/resourceGovernor/`（`ChatOrchestrator.ts:682` / `streamMessageFlow.ts:1215` acquire+release，**默认关** `FEATURE_RESOURCE_GOVERNOR`）；观测面 = `sandbox/ResourceLimitManager.ts` + `ProcessRegistry` | 🟡 **待对齐**（观测面**未接入执行路径**，见 §8-D5） |
+| cgroup **资源限制** | **执行约束面** = `app/src/resourceGovernor/`（`ChatOrchestrator.ts:682` / `streamMessageFlow.ts:1215` acquire+release，**默认关** `FEATURE_RESOURCE_GOVERNOR`）；**观测面**（已裁定，**不接执行路径**）= `sandbox/ResourceLimitManager.ts` + `ProcessRegistry` | 🟡 **部分对齐**（执行约束仅 `resourceGovernor` 且默认关；`ResourceLimitManager` 定位为**观测面**，D5 裁定见 §8.4） |
 | 隔离（容器/命名空间） | `app/src/sandbox/`（`IsolationManager`·`DockerSandbox`·`PTYSandbox`·`SSHSandbox`·`WorkspaceManager`）；`runWithLandlock` 经 `tools/bash/bashLandlockExec.ts` 接入执行路径 | ✅ 已对齐 |
 | 驱动 ops / `struct file_operations` | **缺** —— 各工具各自实现 IO，无统一驱动契约 | ❌ **缺口** |
 | **VFS / `fs/`（虚拟文件系统层）** | **缺** —— `app/src` 全域 grep `VFS\|mountPoint` ⇒ **0 命中** | ❌ **缺口** |
@@ -153,8 +153,8 @@
 | **D2** | 删 `tools/ToolManager.ts` 内零消费者的重复 `createToolRegistry()` | ✅ **已实施** |
 | **D3** | `spiWiring.ts` 头注改为与实现一致（15 个端口全在本文件 = 唯一注入点） | ✅ **已实施** |
 | **D4** | `ToolExecutionService.ts` 未注入权限管理器 ⇒ 补 `logger.warn`（**fail-open 语义不变**，只加可观测） | ✅ **已实施** |
-| **D5** | **映射诚实化 + 不接线**：`ResourceLimitManager` 为"未接线的执行原语"（执行 API 零调用点）。**不接线** 理由 = CS03（无实测场景支撑，禁投机扩展）；接线属功能变更，须独立触发条件与设计 | 🟡 **待裁定**（是否接线 plugin 并发限制 / 删除） |
-| **D6** | `GovernanceManager` 空注册表 + 不可达消费点（`getGovernedTools`/`executeGovernanceCheck` 零消费者） | 🟡 **待裁定**（改接全局注册表 / 删死路径） |
-| **D7** | `ToolDiscoveryService` 空注册表 + 无消费者（`searchLocalTools` 恒空） | 🟡 **待裁定**（改接全局注册表 / 按死代码处置） |
+| **D5** | **✅ 已裁定（2026-10-08）：降级为"观测面"** | `ResourceLimitManager` 的执行 API（`acquireExecution`/`releaseExecution`/`cleanStaleContexts`）**全仓零调用点**。**不接线**（理由 CS03：无实测场景支撑，接线需先造"插件执行 seam"= 投机扩展）；**不删除**（其 `getSummary()` 已被 `GET /v1/sandbox/status` → 前端 `SandboxPage.tsx:226/234` 消费 ⇒ 删除属跨端契约变更）。⇒ **明确其定位为观测面**，根治"名为限制实为展示"的语义漂移：§2 映射已改为"执行约束面 = `resourceGovernor`（默认关）/ 观测面 = `ResourceLimitManager`"。**待触发**：若将来出现插件算力滥用证据（触发条件），再单独立 spec 接线 |
+| **D6** | **✅ 已实施（2026-10-08）**：`GovernanceManager` 的 `createToolRegistry()` → **`getToolRegistry()`** —— 原空表使 `getGovernedTools()` / `executeGovernanceCheck()` 的 feature-flag 过滤**恒为空集**（静默失效）；现与全局唯一注册表同源 | ✅ **已实施** |
+| **D7** | **✅ 已实施（2026-10-08）**：**删除** `tools/search/ToolDiscoveryService.ts` + `ToolSearchConfig.ts` + `tools/search/index.ts`（barrel）—— 三者**零消费者**，且 `ToolDiscoveryService` 与**活的** `tool_search`（`ToolSearchTool.ts:318` 用 `getToolRegistry()` + `isDeferredTool`）**能力重复**、本地搜索恒空。同批清理 `scripts/lint-architecture.ts` 的 stale 例外条目（`tools\search\ToolSearchConfig.ts`）与守卫允许清单。**`tools/search/GlobTool.ts` 是活的（`ToolFactory:14`），未动** | ✅ **已实施** |
 
-> **本轮**（D1–D4）**已改代码**；D5/D6/D7 **仅登记**（未改）—— 三者都需"改语义"，超出"漂移清理"范围，须独立裁定。
+> **处置状态**：**D1–D7 全部收敛**（2026-10-08）。D1/D2/D3/D4 改代码 · D5 裁定降级为观测面（映射诚实化）· D6 接线全局注册表 · D7 删死重复件。守卫 `tests/tools/toolRegistrySingleSource.test.ts` 现要求"创建注册表"**只允许出现在唯一单例工厂内**（允许清单已收窄为 1 项）。

@@ -1028,7 +1028,6 @@ class ArchitectureLinter {
       'services\\voice\\services\\sttRegistry.ts',
       'services\\voice\\services\\ttsProvider.ts',
       'tools\\ImageGenerateTool\\ImageGenerationCache.ts',
-      'tools\\search\\ToolSearchConfig.ts',
       'tools\\utils\\OptimizedToolManagerUtils.ts',
       'workspace\\LiriConfigManager.ts',
       // 2026-08-29 R03-001 治理（B 类）：已 @deprecated 的 ConfigManager 变体，待移除

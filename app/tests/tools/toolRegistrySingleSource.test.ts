@@ -24,15 +24,17 @@
  *
  * 背景（§1.16「唯一写入口」）：工具注册统一走全局单例 `getToolRegistry()`；
  * 自建第二注册表会**分裂注册目标**（历史上曾致 MCP / 插件注册进不存在的表）。
- * 2026-10-08 P1 漂移审计实测发现 **3 处**"创建注册表"：
- *   - `commands/builtin/chat/Chat.ts` —— **已修**：改用 `getToolManager()`（其 registry 缺省即全局单例）；
- *   - `governance/managers/GovernanceManager.ts` —— **待裁定**（空注册表；`getGovernedTools()` /
- *     `executeGovernanceCheck()` 零外部消费者 ⇒ 该过滤面不可达）；
- *   - `tools/search/ToolDiscoveryService.ts` —— **待裁定**（空注册表；`searchLocalTools()` 遍历
- *     `getTools()` 恒空；服务零消费者 ⇒ 疑似死代码）。
+ * 2026-10-08 P1 漂移审计实测发现 **3 处**"创建注册表"，现已**全部收敛**：
+ *   - `commands/builtin/chat/Chat.ts` —— 已修：改用 `getToolManager()`（其 registry 缺省即全局单例）；
+ *   - `governance/managers/GovernanceManager.ts` —— 已修（D6）：改用 `getToolRegistry()`
+ *     （原 `createToolRegistry()` 造空表 ⇒ `getGovernedTools()` / `executeGovernanceCheck()`
+ *     的 feature-flag 过滤恒为空集）；
+ *   - `tools/search/ToolDiscoveryService.ts` —— 已删（D7）：空注册表 + 零消费者，且与活的
+ *     `tool_search`（`ToolSearchTool` 走 `getToolRegistry()` + `isDeferredTool`）**能力重复**。
  *
- * 判据（判据来自**真实源码**，非手写清单）：全 `src/**` 扫描 `new ToolRegistry(` / `createToolRegistry(`，
- * **跳过注释行**（避免文档/注释里的字面量误判）；命中文件必须 ⊆ `ALLOWED`。
+ * ⇒ 现在**唯一**允许出现"创建注册表"的文件只有单例工厂本身。判据（来自**真实源码**，非手写清单）：
+ * 全 `src/**` 扫描 `new ToolRegistry(` / `createToolRegistry(`，**跳过注释行**（避免文档/注释里的
+ * 字面量误判）；命中文件必须 ⊆ `ALLOWED`。
  */
 
 import { readdirSync, readFileSync, type Dirent } from 'node:fs';
@@ -45,10 +47,6 @@ const SRC_DIR = join(import.meta.dir, '../../src');
 const ALLOWED: Record<string, string> = {
   'tools/ToolRegistry.ts':
     '唯一单例工厂（`getToolRegistry()` 内部 + `createToolRegistry()` 工厂）',
-  'governance/managers/GovernanceManager.ts':
-    'D6 待裁定：空注册表 + 消费点不可达',
-  'tools/search/ToolDiscoveryService.ts':
-    'D7 待裁定：空注册表 + 无消费者（疑似死代码）',
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -92,13 +90,14 @@ function findRegistrySites(): string[] {
 }
 
 describe('守卫：工具注册表单一写入口（§1.16 防复发）', () => {
-  it('"创建注册表"只允许出现在唯一单例工厂 + 显式待裁定清单内', () => {
+  it('"创建注册表"只允许出现在唯一单例工厂内（D1/D6/D7 已全部收敛）', () => {
     const offenders = findRegistrySites().filter((f) => !(f in ALLOWED));
     expect(offenders).toEqual([]);
   });
 
   it('扫描面非空（防止 walk 失效导致守卫静默通过）', () => {
-    expect(findRegistrySites().length).toBeGreaterThanOrEqual(2);
+    // 收敛后仅剩单例工厂 1 个文件命中 ⇒ 下界为 1（>=1 已足以暴露 walk 失效）
+    expect(findRegistrySites().length).toBeGreaterThanOrEqual(1);
   });
 
   it('显式允许清单不得含已不存在该写法的文件（防止清单腐化）', () => {

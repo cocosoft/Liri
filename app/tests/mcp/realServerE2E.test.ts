@@ -109,7 +109,9 @@ async function waitForSdkClient(timeoutMs = 60000) {
 
 /** 从 `ToolResult` 取 JSON 字符串载荷；工具失败 ⇒ 带原文抛错（不静默） */
 function jsonPayload<T>(result: ToolResult, label: string): T {
-  if (result.success === false) {
+  // 2026-10-08：改为 `!result.success` —— 成功出口**必须**显式 `success: true`
+  // （`success?: boolean` 在 core 契约中可选；缺失会被判定为失败，正是本次修复的口径）
+  if (!result.success) {
     throw new Error(`${label} 失败: ${result.error ?? JSON.stringify(result)}`);
   }
   if (typeof result.data !== 'string') {

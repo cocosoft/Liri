@@ -103,7 +103,8 @@ export class WriteVfsTool {
           });
 
           span.setStatus({ code: SpanStatusCode.OK });
-          return createToolResult(JSON.stringify(result));
+          // 2026-10-08：显式 `success: true`（对齐全仓工具约定；见 ReadVfsTool 同处注释）
+          return createToolResult(JSON.stringify(result), { success: true });
         } catch (error) {
           span.setStatus({
             code: SpanStatusCode.ERROR,

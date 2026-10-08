@@ -89,8 +89,10 @@ export class ListVfsTool {
                 });
 
           span.setStatus({ code: SpanStatusCode.OK });
+          // 2026-10-08：显式 `success: true`（对齐全仓工具约定；见 ReadVfsTool 同处注释）
           return createToolResult(
-            JSON.stringify({ entries, count: entries.length })
+            JSON.stringify({ entries, count: entries.length }),
+            { success: true }
           );
         } catch (error) {
           span.setStatus({

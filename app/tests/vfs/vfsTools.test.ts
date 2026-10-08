@@ -76,6 +76,9 @@ afterAll(() => {
 describe('read_vfs', () => {
   it('成功读取并返回结构化结果', async () => {
     const r = await readTool.execute({ path: `${SCHEME}://a.md` }, ctx);
+    // 2026-10-08：成功出口**必须**显式 `success: true`（对齐全仓工具约定；`success?: boolean`
+    // 在 core 契约中可选，缺失会让 `if (!result.success)` 的消费方误判为失败）
+    expect(r.success).toBe(true);
     expect(r.error).toBeUndefined();
     const payload = JSON.parse(r.data as string) as {
       data: string;
@@ -117,6 +120,9 @@ describe('read_vfs', () => {
 describe('list_vfs', () => {
   it('scheme-only（`<scheme>://`）⇒ 列举挂载点（驱动未实现 ⇒ 兜底为 scheme 本身）', async () => {
     const r = await listTool.execute({ path: `${SCHEME}://` }, ctx);
+    // 2026-10-08：成功出口**必须**显式 `success: true`（对齐全仓工具约定；`success?: boolean`
+    // 在 core 契约中可选，缺失会让 `if (!result.success)` 的消费方误判为失败）
+    expect(r.success).toBe(true);
     expect(r.error).toBeUndefined();
     const payload = JSON.parse(r.data as string) as {
       entries: Array<{ name: string; kind: string }>;
@@ -128,6 +134,9 @@ describe('list_vfs', () => {
 
   it('带 authority 的路径 ⇒ 列举该目录条目', async () => {
     const r = await listTool.execute({ path: `${SCHEME}://sub` }, ctx);
+    // 2026-10-08：成功出口**必须**显式 `success: true`（对齐全仓工具约定；`success?: boolean`
+    // 在 core 契约中可选，缺失会让 `if (!result.success)` 的消费方误判为失败）
+    expect(r.success).toBe(true);
     expect(r.error).toBeUndefined();
     const payload = JSON.parse(r.data as string) as {
       entries: Array<{ name: string }>;
@@ -147,6 +156,9 @@ describe('list_vfs', () => {
 describe('stat_vfs', () => {
   it('成功返回元数据（readOnly = true）', async () => {
     const r = await statTool.execute({ path: `${SCHEME}://a.md` }, ctx);
+    // 2026-10-08：成功出口**必须**显式 `success: true`（对齐全仓工具约定；`success?: boolean`
+    // 在 core 契约中可选，缺失会让 `if (!result.success)` 的消费方误判为失败）
+    expect(r.success).toBe(true);
     expect(r.error).toBeUndefined();
     const payload = JSON.parse(r.data as string) as {
       kind: string;

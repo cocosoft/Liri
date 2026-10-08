@@ -90,7 +90,10 @@ export class ReadVfsTool {
           );
 
           span.setStatus({ code: SpanStatusCode.OK });
-          return createToolResult(JSON.stringify(result));
+          // 2026-10-08：显式 `success: true` —— 全仓工具约定（81 文件 / 313 处）成功时设该字段；
+          // 此前只设 `success:false`、成功时缺失 ⇒ 与口径不一致，且对按 `if (!result.success)`
+          // 判定的消费方是**潜在误判**（`success?: boolean` 在 core 契约中可选）。
+          return createToolResult(JSON.stringify(result), { success: true });
         } catch (error) {
           span.setStatus({
             code: SpanStatusCode.ERROR,

@@ -1,6 +1,6 @@
 # Spec：Linux 内核式架构治理目标（Kernel-Style Architecture Governance）
 
-> 版本 1.2 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.2 = P1 盘点 §8 + **隔离面就绪度盘点 §9**）
+> 版本 1.3 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.3 = P1 盘点 §8 + 隔离面盘点 §9 **含 S2–S5 处置**）
 > 来源：用户 2026-10-08 架构治理咨询 ——「想从架构治理层面，把 Liri 按 linux 内核方式组织」；用户 2026-10-08 指令「启动 P1 就绪度盘点」
 > 关联规则：GR15（Spec-Driven）· **R06-008 / `scripts/modules-to-layers.json`（分层唯一事实源，本 spec 不替代）** · CS01（归一化）· CS06（证据驱动）· §1.16（工具注册表单一 / 注册→disposer 生命周期）
 > 关联 spec：`.trae/specs/ai-vfs-driver-contract.md`（本目标的**唯一真实缺口子项**，v1.1）
@@ -120,7 +120,7 @@
 | ✅ | LSM hooks | `spiWiring.ts:459-481` 装配 `IHookChainPort`（`HookChainManager.getInstance()`） |
 | ✅ | 可见性隔离 | **生产调用点** `streamMessageFlow.ts:799` `filterToolsByTask(...)`（非仅定义存在） |
 | 🟡 | cgroup 资源限制 | 执行面 `resourceGovernor` 已接线（`ChatOrchestrator.ts:682`、`streamMessageFlow.ts:1215` acquire / `:1199`·`:2665` release），**默认关**；观测面见 D5 |
-| ✅ | 隔离 | `runWithLandlock` 由 `tools/bash/bashLandlockExec.ts` 接入；`SandboxSecurityChecker` 由 `BashTool`/`PowerShellTool` 消费 |
+| 🟡 | 隔离 | **实际 = Landlock 路径门禁**：`tools/bash/bashLandlockExec.ts` + `CodeRunner/LinuxSandboxRunner.ts` **直接** `buildLandlockArgv`+`spawn`；`SandboxSecurityChecker` 由 `BashTool`/`PowerShellTool` 消费。（**订正**：原此行标 ✅ 并称"`runWithLandlock` 接入"，实测该函数**零调用点** ⇒ 已删，见 §9） |
 | 🟡 | `/proc` `/sys` 伪文件系统 | 知识库 + 状态面未统一命名空间（本就标"未对齐"） |
 | ❌ | 驱动 ops / VFS / mount namespace | 三者仍缺（`app/src` grep `VFS\|mountPoint` = 0 命中） |
 
@@ -202,15 +202,20 @@
 
 ### 9.4 未做边界（如实，CS06）
 
-- `AgentCleanup` 的 `DockerSandbox` 空转导入**未修**（属"自己发现的既有可疑代码"，按 `PY_APP §3` 登记不改）。
-- S1–S7 的**处置未做**（本轮为盘点）：删除死面 / 接线 / 文档订正 均需用户裁定（见 §9.5）。
+- `AgentCleanup` 的 `DockerSandbox` 空转导入 ⇒ **已修**（2026-10-08，见 §9.5-S4）。
+- S2–S5 的处置 ⇒ **已完成**（见 §9.5）；S1/S6/S7 仍待设计。
 - 未核 Docker/PTY/SSH **适配器本体**的内部逻辑质量（已证"不可达"，其内部正确性无运行期意义）。
 
-### 9.5 建议（待裁定）
+### 9.5 处置记录（2026-10-08，用户裁定「删全部可安全删的死面」）
 
-- **可安全删（零外部消费者，仅 barrel + 测试）**：S2 `IsolationManager` · S3 `EnhancedSandboxManager`+`IntelligentSandboxAnalyzer` · S4 `PTYSandbox`/`SSHSandbox`/`DockerSandbox`+两 adapter · S5 `runWithLandlock`（其活部件保留）。
-- **文档订正**：S5 的 `工具调用安全检查链路.md:68` 落点失实。
-- **需设计（不删）**：S1 workspace SPI 面（恒空状态面）· S6/S7（`SandboxManager.execute` / 观测面数据源）—— 属"接线的空心化"，删会改 SPI 契约，接线需需求触发。
-- **修**：`AgentCleanup.ts:107-108` 未使用导入（低风险）。
+| 项 | 处置 | 状态 |
+|---|---|---|
+| **S2** | 删 `sandbox/IsolationManager.ts`（448 行）+ barrel 导出（`FileOperation`/`NetworkOperation`/5 个策略类型随之消失） | ✅ **已删** |
+| **S3** | 删 `sandbox/EnhancedSandboxManager.ts` + `sandbox/IntelligentSandboxAnalyzer.ts` + barrel `export *` | ✅ **已删** |
+| **S4** | 删 `sandbox/docker/**`（6 文件：`DockerSandbox`·`DockerImageManager`·`DockerNetworkPolicy`·`NetworkPolicyEngine`·`dockerCli`·`index`）+ `PTYSandbox.ts` + `SSHSandbox.ts` + `adapters/DockerWorkspace.ts` + `adapters/SSHWorkspace.ts`；`WorkspaceManager.createAdapter` 收敛为 **Local-only**（去 SSH/Docker 分支 + `sshConfig` 选项）；同批删 5 个专属测试（`dockerImageManager`/`dockerSandboxExitCode`/`dockerCustomNetwork`/`networkPolicyDeclaration`/`outputLimits`）；`AgentCleanup.ts:107-108` **未使用导入**改为注释 | ✅ **已删** |
+| **S5** | 删 `runWithLandlock()` **函数** + `RunWithLandlockOptions` + `LandlockRunResult`（类型，随之零消费者）；**保留** `buildLandlockArgv` / `isSandboxInitFailure`（活件，文件不变）；文档 `工具调用安全检查链路.md:68` 落点订正 | ✅ **已删** |
+| **S1 / S6 / S7** | **登记待设计**（SPI `workspaces` 面恒空 · `SandboxManager.execute()` 空转 · 观测面数据源恒空）—— 删会改 SPI 契约 / 需需求触发 | ⏳ 待裁定 |
 
-> **注意**：以上"删除"均需用户裁定 —— `PY_APP §3` 规定**不删预先存在的死代码除非被要求**。
+- **门禁（本批）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
+  全量 **4527 pass / 9 skip / 0 fail**（较上批 −41 = 删掉的 5 个测试文件，无失败）。
+- **未做**：S1/S6/S7 的接线或删除；`SandboxConfigBuilder`（零生产消费者，仅测试用）**未删**（不在 S 清单内，另行登记）。

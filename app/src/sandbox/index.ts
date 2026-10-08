@@ -44,17 +44,15 @@ export {
 } from './utils/TimeoutController';
 
 // 导出增强功能
-export * from './EnhancedSandboxManager.js';
-export * from './IntelligentSandboxAnalyzer.js';
+// 2026-10-08（P1-续 S3）：原 `export * from './EnhancedSandboxManager.js'` /
+// `'./IntelligentSandboxAnalyzer.js'` —— 两者**零外部消费者**（仅本 barrel 转出）⇒ 连同文件删除。
+// 注：`EnhancedSandboxManager` 曾是**唯一**"超限即拒绝"的沙箱侧实现（死面内 ⇒ 无运行期效果）。
 export * from './SandboxSecurityChecker.js';
 
-// Docker 沙箱（容器级隔离）
-export { DockerSandbox, DOCKER_CONFIG_KEYS } from './docker/index';
-export type { DockerVolumeMount } from './docker/index';
-export { PTYSandbox } from './PTYSandbox';
-export type { PTYSandboxConfig } from './PTYSandbox';
-export { SSHSandbox } from './SSHSandbox';
-export type { SSHSandboxConfig, SSHConnectionStatus } from './SSHSandbox';
+// Docker 沙箱 / PTY / SSH —— 2026-10-08（P1-续 S4）**整批删除**：三者均**零外部消费者**
+// （sandbox 目录外无实例化；`DockerSandbox` 在 `AgentCleanup` 仅为**未使用导入**），
+// 属"未接线的隔离后端"。其专属测试（`tests/sandbox/docker*.test.ts` / `outputLimits.test.ts`
+// / `networkPolicyDeclaration.test.ts`）同批删除。**实际生效的隔离 = Landlock 路径门禁**（见 §9.1）。
 // ── 沙箱「实例层」—— 2026-09-29 **整层下线**（台账 **D-16 / D-25**）──
 // 已删：`SandboxPruner` / `WorkerSandbox` / `PluginHealthMonitor` / `SandboxImpl`
 //（含 `SandboxManagerImpl` / `createSandboxManager` / 各平台沙箱类）、`tools/sandbox/ToolSandboxRouter`
@@ -78,20 +76,9 @@ export type {
 // 插件健康监控器（心跳检测 + 崩溃恢复）—— 2026-09-29 随「沙箱实例层」一并下线（**零消费者**，台账 D-25）。
 // 注：**通道**侧的自愈是**活的** `channels/monitoring/ChannelRealtimeMonitor`（与本体无关）。
 
-// 文件系统与网络隔离管理器
-export {
-  IsolationManager,
-  isolationManager,
-  FileOperation,
-  NetworkOperation,
-} from './IsolationManager';
-export type {
-  PathAccessRule,
-  NetworkAccessRule,
-  IsolationPolicy,
-  PathAccessResult,
-  NetworkAccessResult,
-} from './IsolationManager';
+// 文件系统与网络隔离管理器 —— 2026-10-08（P1-续 S2）**整文件删除**：
+// `IsolationManager`（448 行，插件 fs/网络隔离策略）+ 单例 `isolationManager` **零外部消费者**
+// （`registerPolicy`/`checkFileAccess`/`checkNetworkAccess` 无任何调用点）⇒ 插件隔离从未启用。
 export {
   // G1-A（2026-09-26）：bash 接入 Landlock 需复用 B1 的"逐块按剩余量切片"助手（截断口径单一来源）
   appendWithinLimit,
@@ -106,8 +93,7 @@ export type { WorkspaceFileInfo, WorkspaceListResult } from './WorkspaceBase';
 export { WorkspaceManager, globalWorkspaceManager } from './WorkspaceManager';
 export type { WorkspaceCreateOptions } from './WorkspaceManager';
 export { LocalWorkspace } from './adapters/LocalWorkspace';
-export { DockerWorkspace } from './adapters/DockerWorkspace';
-export { SSHWorkspace } from './adapters/SSHWorkspace';
+// 2026-10-08（P1-续 S4）：原 `DockerWorkspace` / `SSHWorkspace` 导出已删（零消费者）。
 
 export { SandboxConfigBuilder } from './SandboxConfigBuilder';
 
@@ -118,7 +104,9 @@ export { SandboxConfigBuilder } from './SandboxConfigBuilder';
 export { LandlockDetector } from './landlock';
 export {
   buildLandlockArgv,
-  runWithLandlock,
+  // 2026-10-08（P1-续 S5）：原 `runWithLandlock` 已删 —— **无任何调用点**（bash/code_run 均
+  // 直接 `buildLandlockArgv` + `spawn`，绕过它）。其**活部件**（`buildLandlockArgv` /
+  // `isSandboxInitFailure`）保留。
   isSandboxInitFailure,
   // G1-A（2026-09-26）：bash 接入 Landlock 需读同一份配置（不另建配置面）
   readLandlockConfig,

@@ -49,12 +49,9 @@ export interface WorkspaceListResult {
  *
  * @example
  * ```typescript
- * class DockerWorkspace extends WorkspaceBase {
- *   private readonly dockerSandbox: DockerSandbox;
- *
+ * class LocalWorkspace extends WorkspaceBase {
  *   constructor(config: SandboxConfig) {
  *     super(config);
- *     this.dockerSandbox = new DockerSandbox();
  *   }
  * }
  * ```

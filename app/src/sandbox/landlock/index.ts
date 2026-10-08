@@ -30,12 +30,9 @@ export {
   MIN_FS_ABI,
 } from './LandlockPolicyBuilder';
 export { LandlockDetector } from './LandlockDetector';
-export {
-  runWithLandlock,
-  buildLandlockArgv,
-  isSandboxInitFailure,
-} from './runWithLandlock';
-export type { RunWithLandlockOptions } from './runWithLandlock';
+// 2026-10-08（P1-续 S5）：原此处还导出 `runWithLandlock`（函数）+ `RunWithLandlockOptions`（类型）
+// —— 该函数**零调用点**（bash/code_run 直接 `buildLandlockArgv` + `spawn`，绕过它）⇒ 已删。
+export { buildLandlockArgv, isSandboxInitFailure } from './runWithLandlock';
 export {
   DEFAULT_LANDLOCK_CONFIG,
   resolveLandlockConfig,

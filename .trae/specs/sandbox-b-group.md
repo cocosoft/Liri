@@ -1,5 +1,11 @@
 # Spec：沙箱 B 组改造（《Liri 优化方案》§3 B1–B3）
 
+> ⛔ **已过期（2026-10-08）**：本 spec 的**全部代码对象已删除** —— `DockerSandbox` / `DockerImageManager` /
+> `DockerNetworkPolicy` / `NetworkPolicyEngine` / `dockerCli` / `PTYSandbox` / `SSHSandbox` 均**零外部消费者**
+> （"未接线的隔离后端"），已按 **P1-续 S4**（`.trae/specs/kernel-style-architecture-governance.md §9.5`）整批删除，
+> 连同其 5 个专属测试。**现活的沙箱面 = Landlock 路径门禁**（`tools/bash/bashLandlockExec.ts` /
+> `tools/CodeRunner/LinuxSandboxRunner.ts`）。本 spec 保留仅为**历史沿革**（改造记录已在台账归档）。
+
 > **状态**：**B 组全部完成**（**B1 ✅ / B2 ✅ / B3 ✅ / B4 ✅ / 遗留收口：`custom` 网络模式 ✅**）
 > **来源方案**：[`Liri优化方案-20260925.md`](../../dev_docs/Liri优化方案-20260925.md) §3「B 组：沙箱（DSec 对标）」
 > **代码面**：`app/src/sandbox/`

@@ -6,14 +6,11 @@
 
 import { WorkspaceBase } from './WorkspaceBase';
 import { LocalWorkspace } from './adapters/LocalWorkspace';
-import { DockerWorkspace } from './adapters/DockerWorkspace';
-import { SSHWorkspace } from './adapters/SSHWorkspace';
 import {
   SandboxConfig,
   SandboxPlatform,
   SandboxPermission,
 } from './SandboxTypes';
-import type { SSHSandboxConfig } from './SSHSandbox';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
@@ -32,8 +29,6 @@ export interface WorkspaceCreateOptions {
   workingDirectory?: string;
   /** 最大执行时间（毫秒） */
   maxExecutionTime?: number;
-  /** SSH 配置（仅 SSH 工作空间需要） */
-  sshConfig?: SSHSandboxConfig;
   /** 权限列表 */
   permissions?: SandboxPermission[];
 }
@@ -66,7 +61,7 @@ export class WorkspaceManager {
     }
 
     const config = this.buildConfig(options);
-    const workspace = this.createAdapter(config, options);
+    const workspace = this.createAdapter(config);
     await workspace.initialize();
     this.workspaces.set(id, workspace);
     return workspace;
@@ -166,25 +161,12 @@ export class WorkspaceManager {
 
   /**
    * 根据配置选择适配器
+   *
+   * 2026-10-08（P1-续 S4）：原 Docker/SSH 分支已删 —— `DockerWorkspace` / `SSHWorkspace`
+   * （及 `DockerSandbox` / `SSHSandbox`）**零外部消费者**。现仅保留 Local 适配器。
    */
-  private createAdapter(
-    config: SandboxConfig,
-    options: WorkspaceCreateOptions
-  ): WorkspaceBase {
-    if (options.sshConfig) {
-      return new SSHWorkspace(config, options.sshConfig);
-    }
-
-    switch (config.platform) {
-      case SandboxPlatform.LINUX:
-        // 有 Docker 时优先使用 Docker
-        return new DockerWorkspace(config);
-      case SandboxPlatform.WINDOWS:
-      case SandboxPlatform.MACOS:
-      case SandboxPlatform.UNKNOWN:
-      default:
-        return new LocalWorkspace(config);
-    }
+  private createAdapter(config: SandboxConfig): WorkspaceBase {
+    return new LocalWorkspace(config);
   }
 
   /**

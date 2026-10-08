@@ -1,6 +1,6 @@
 # 前后端接口清单
 
-> **版本**: 2.3.1 | **更新**: 2026-09-22 | **状态**: 持续维护
+> **版本**: 2.11.0 | **更新**: 2026-10-08 | **状态**: 持续维护
 >
 > 本文档是前后端通信的**唯一事实来源**。涉及前后端通信的开发、测试、调试场景时，**必须先查阅本文档**，确认接口是否存在、参数是否对齐，再进行编码。
 
@@ -869,6 +869,17 @@ data: {"type":"done","result":{...}}
 （`tools/toolEffects.ts` 的 `sideEffect === 'none'`；**未声明工具同样拒绝**，fail-closed），
 越界 ⇒ **整体拒绝**（HTTP 400 / 工具 FAILURE，`completedSteps` 为空、error 列出越界工具），**不静默跳过越界步骤**。
 
+### §3.33 VFS 挂载管理（用户可配置挂载面，2026-10-08 新增登记）
+
+> 规格：`.trae/specs/ai-vfs-user-mountable.md` §8.2（冻结契约）/ §8.3（前端管理面）。
+> 事实源：`~/.pyapp/config.json` 的 `vfs.mounts`（经 `configManager` 读写）；**无热更新**，保存后需重启生效。
+> 可挂载源**仅** `dev_docs` + `mcp`（`mcp` 条目 `server` 必填非空）。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/vfs/mounts` | ✅ | `vfsService.listMounts`（返回 `{mounts, availableSchemes, mcpServers, requiresRestart}`；设置页子页 `VfsMountsPanel`） |
+| PUT | `/v1/vfs/mounts` | ✅；body `{mounts:[{scheme,server?,enabled?}]}`；校验失败 ⇒ 400 `{error:{code:'INVALID_MOUNTS',message}}`（**不写盘**） | `vfsService.saveMounts`（同上） |
+
 ---
 
 ## §4 前端服务 → 后端接口映射表（三级降级全景）
@@ -979,6 +990,8 @@ data: {"type":"done","result":{...}}
 | **translateService** | `translate` | `POST /v1/translate` ✅ | — | ✅ (HTTP only) |
 | | `streamTranslate` | `POST /v1/translate/stream` ✅ | — | ✅ (HTTP only) |
 | | `getHistory` | `GET /v1/translate/history` ✅ | — | ✅ (HTTP only) |
+| **vfsService** | `listMounts` | `GET /v1/vfs/mounts` ✅ | — | ✅ (HTTP only；2026-10-08 新增) |
+| | `saveMounts` | `PUT /v1/vfs/mounts` ✅ | — | ✅ (HTTP only；2026-10-08 新增) |
 
 ---
 
@@ -1077,6 +1090,7 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.11.0 | 2026-10-08 | 新增 §3.33 **VFS 挂载管理**（`GET`/`PUT /v1/vfs/mounts`，用户可配置挂载面）+ §4 新增 `vfsService` 映射 —— 承接 Spec `ai-vfs-user-mountable.md` §8（前端管理面） |
 | 2.10.0 | 2026-10-07 | §3.29.1 补 **`POST /v1/patterns/export`**（静态目录快照导出 ⇒ `~/.pyapp/data/reports/pattern_catalog.json`，返回 `{path, entryCount}`）；`GET /v1/patterns` 响应增 **`reachable` / `unreachableReason?` / `featureGate?`**（触发可达性，与 `status` 正交）+ 新增 session 事件 **`pattern/decision`**（模式决策轨迹，log-only） |
 | 2.9.0 | 2026-10-07 | §3.8.2 **A2A v1.0 标准绑定（T4 批次 A–D）**：新增 **`POST /v1/a2a/rpc`**（JSON-RPC 2.0 单入口：11 操作 + v0.3 别名 + 能力门控 `-32003`/`-32004` + `A2A-Version` 校验 `-32009` + **SSE 流式** `SendStreamingMessage`/`SubscribeToTask`）；卡片改为 **v1.0 形状**（`supportedInterfaces[]` 承载端点/绑定/版本，**移除顶层 `url`/`protocolVersion`**）、`capabilities.streaming` 翻 **`true`** |
 | 2.8.0 | 2026-10-07 | §3.8.2 新增 **`GET /v1/a2a/health`**（R11-3 D2 独立就绪探针：`{ status, delegatorReady }`，判据与委派 `503` **同源**）+ 卡片 `capabilities` 补 **`stateTransitionHistory: false`**（R11-3 D1，如实）+ 卡片**不再声明** `supportedInterfaces`（R11-3 D3 裁定：未实现标准绑定 ⇒ 不虚报 `protocolBinding: 'JSONRPC'`）；同批订正 §3.8.2 标题/表格中**过时路径** `agent.json` → `agent-card.json` |

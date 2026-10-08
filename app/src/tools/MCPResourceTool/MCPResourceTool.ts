@@ -32,14 +32,30 @@ import { McpResourcesDriver, type VfsEntry } from '@modules/vfs';
 import { MCPResourceOutputSchema } from './schemas';
 
 /**
- * MCP 资源驱动实例（模块级常量）。
+ * MCP 资源驱动实例（**惰性单例**）。
  *
  * 2026-10-08（MCP 双轨收敛 C-1 续）：`list_resources` / `read_resource` 的**实现归属翻转**
  * 到 VFS 驱动 `McpResourcesDriver`（它是 `mcp://` 面的**单一实现**，二者不再各写一份协议投影）。
  * 此处**直接实例化**（**不**走 `vfsMountRegistry`）—— 避免对 entrypoint 装配序产生硬依赖。
  * `list_prompts` / `get_prompt` 仍直连 SDK（本次不涉及）。
+ *
+ * 2026-10-08（**P0 修复**）：原为**模块作用域** `new McpResourcesDriver()` ⇒ 本模块在**环中
+ * 被求值**时读取该绑定，触发 **ESM TDZ**：`Cannot access 'McpResourcesDriver' before initialization`。
+ * 环 = `@modules/vfs` 桶（再导出驱动）→ `McpResourcesDriver` → `services/mcp/MCPConnectionManager`
+ * → …服务图… → **本模块** →（原）桶 ⇒ 冷启动首个 `import('@modules/vfs')`（即
+ * `entrypoints/vfsWiring.registerVfsMounts()` 的**生产装配路径**）**直接抛错** ⇒ **全部 VFS
+ * 挂载点注册不上**（实测：冷进程探针必现；测试因加载序不同而掩盖）。
+ * 惰性化后**求值期不再读该绑定**（调用期读取时类已初始化），并省去 import 期构造开销 ——
+ * 这是**唯一必要**的修复（**不**改走叶入口：`R03-002`「模块出口单一」禁止子目录直连，
+ * 且**调用期**从桶取值本就安全）。
  */
-const mcpResourcesDriver = new McpResourcesDriver();
+let mcpResourcesDriverInstance: McpResourcesDriver | undefined;
+
+/** 取驱动单例（首次调用时构造） */
+function mcpResourcesDriver(): McpResourcesDriver {
+  mcpResourcesDriverInstance ??= new McpResourcesDriver();
+  return mcpResourcesDriverInstance;
+}
 
 /**
  * MCP资源工具输入类型
@@ -505,7 +521,7 @@ export class MCPResourceTool extends BaseTool<
   private async listResourcesFromServer(
     serverName: string
   ): Promise<unknown[]> {
-    const entries = await mcpResourcesDriver.list(
+    const entries = await mcpResourcesDriver().list(
       { scheme: 'mcp', authority: serverName, path: '' },
       { recursive: false, limit: 200 }
     );
@@ -538,7 +554,7 @@ export class MCPResourceTool extends BaseTool<
     serverName: string,
     uri: string
   ): Promise<unknown> {
-    const result = await mcpResourcesDriver.read({
+    const result = await mcpResourcesDriver().read({
       scheme: 'mcp',
       authority: serverName,
       path: uri,

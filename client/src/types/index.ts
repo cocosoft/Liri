@@ -176,6 +176,16 @@ export type {
 // ─── 配置 ───
 export type { BackendStatus } from "../api/types/config";
 
+// ─── VFS 挂载管理 ───
+export type {
+  VfsScheme,
+  VfsMountEntry,
+  VfsMcpServer,
+  VfsMountsResponse,
+  VfsMountInput,
+  VfsMountsSaveResponse,
+} from "./vfs";
+
 // ─── 工作模块类型 ─
 export type {
   // 旧类型（@deprecated）

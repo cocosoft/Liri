@@ -31,6 +31,7 @@ import DataStoragePanel from "../settings/DataStoragePanel";
 import PDCAReviewSettingsPanel from "../settings/PDCAReviewSettingsPanel";
 import EstopPanel from "../settings/EstopPanel";
 import RouterConfigPanel from "../settings/RouterConfigPanel";
+import VfsMountsPanel from "../settings/VfsMountsPanel";
 import type { BackendStatus } from "../../types";
 import {
   SettingsIcon,
@@ -177,6 +178,11 @@ const NAV_GROUPS: NavGroup[] = [
         labelKey: "settings.ingest",
         icon: BookOpenIcon,
       },
+      {
+        id: "vfs",
+        labelKey: "settings.vfs",
+        icon: FolderOpenIcon,
+      },
     ],
   },
 ];
@@ -199,6 +205,7 @@ const PAGE_DESCRIPTION_KEYS: Record<string, string> = {
   office: "settings.desc.office",
   "data-dir": "settings.desc.dataDir",
   ingest: "settings.desc.ingest",
+  vfs: "settings.desc.vfs",
 };
 
 /** 获取所有导航项 */
@@ -800,6 +807,8 @@ function SettingsPage() {
         );
       case "ingest":
         return <KnowledgeIngestPanel isDark={isDark} />;
+      case "vfs":
+        return <VfsMountsPanel isDark={isDark} />;
       case "memory":
         return (
           <div className="p-6">

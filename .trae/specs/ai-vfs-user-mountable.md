@@ -1,6 +1,6 @@
 # Spec：AI-VFS 用户可配置挂载面（T3 完整体）
 
-> 版本 1.1 ｜ 创建 2026-10-08 ｜ 状态：🟢 **已实施**（用户 2026-10-08 裁定 ①②③ 均取推荐项：**仅 dev_docs+mcp** / **仅 config.json** / **扩 `list_vfs` scheme-only**）
+> 版本 1.2 ｜ 创建 2026-10-08 ｜ 状态：🟢 **已实施**（用户 2026-10-08 裁定 ①②③ 均取推荐项：**仅 dev_docs+mcp** / **仅 config.json** / **扩 `list_vfs` scheme-only**）。**2026-10-08 晚：裁定 ② 重开 ⇒ 增补「前端管理面」（HTTP API + 管理页；**不含热更新**）** —— 见 **§8**
 > 触发：T3「需要**用户可挂载自定义数据源**的产品能力」⇒ 契约 `ai-vfs-driver-contract.md §5` 已满足（2026-10-08 用户声明）；本 spec 是 T3 的**完整体**（前序只读试点见 `ai-vfs-readonly-pilot.md`）。
 > 上游：契约 §3（命名空间/系统调用/驱动/权限映射）· `scripts/modules-to-layers.json`（分层事实源）· `project_rules §1.6`（模型可见 ⇔ 已落盘）/ §1.13（路径注册表）/ §1.4（环境变量前缀）· CS01/CS03/CS04
 
@@ -129,4 +129,80 @@
 3. **`list_vfs('<scheme>://')` 语义变更**：由"列挂载根目录"改为"**列挂载点**"（契约 v1.5 §3.2 已明载）；根目录列举须用子路径，`stat_vfs('<scheme>://')` 仍可查挂载本身。
 4. 无允许清单时 `listMountPoints()` 走真实单例 `mcpConnectionManager.getServers()` ⇒ 该分支**无单测**。
 5. ✅ **真实 MCP server e2e 已实测**（2026-10-08，`MCP_E2E=1`，官方 `@modelcontextprotocol/server-everything`，**13 pass / 0 fail**；见 `ai-vfs-readonly-pilot.md §7.4`）——该实测**抓出并修复**一个 P0 阻断缺陷（`services/mcp/client.ts` 的 `client.capabilities.get()`）。
-6. **未做**（按裁定）：`file://`、`channel://`、管理页 UI、热更新。
+6. **未做**（按裁定）：`file://`、`channel://`、**热更新**。（**管理页 UI** 已于 **2026-10-08 晚重开裁定 ②** ⇒ 见 **§8**）
+
+---
+
+## 8. 前端管理面（2026-10-08 晚新增，裁定 ② 重开）
+
+### 8.1 裁定变更
+
+| # | 原裁定 | 变更后 |
+|---|---|---|
+| ② | (a) **仅 `config.json`**（无 UI） | **(a)+UI** —— 增补 **HTTP API + 管理页**；**热更新仍不做**（保存后**重启生效**，页面须明示） |
+
+**范围（不得扩张）**：可挂载源仍**仅 `dev_docs` + `mcp`**（①不变）；不做 `file://`/`channel://`；不做热更新。
+
+### 8.2 冻结的 HTTP 契约（前后端并行实施的**唯一接口口径**）
+
+**`GET /v1/vfs/mounts`** ⇒ `200`
+```jsonc
+{
+  "mounts": [                        // 由 `buildMountPlan` 推导的**生效**计划（未配置时 = 默认：dev_docs + 不限 mcp）
+    { "scheme": "dev_docs", "enabled": true,  "registered": true,  "readOnly": true },
+    { "scheme": "mcp", "server": "srv-a", "enabled": true, "registered": true, "readOnly": true }
+  ],
+  "availableSchemes": ["dev_docs", "mcp"],
+  "mcpServers": [ { "name": "srv-a", "connected": true } ],   // 供 UI 选择；来源 `mcpConnectionManager.getServers()`
+  "requiresRestart": true            // 固定 true：改配置需重启生效（无热更新）
+}
+```
+
+**`PUT /v1/vfs/mounts`** —— body `{ "mounts": [ { "scheme": "dev_docs"|"mcp", "server"?: string, "enabled"?: boolean } ] }`
+- **校验（fail-closed）**：`scheme` 必须 ∈ {`dev_docs`,`mcp`}；`mcp` 条目 `server` 必填非空；未知字段忽略。
+  - 不合法 ⇒ `400` + `{ "error": { "code": "INVALID_MOUNTS", "message": "<逐条原因>" } }`，**不写盘**。
+- 合法 ⇒ 经 `configManager` 写 `vfs.mounts`（**唯一事实源**），返回 `200`：
+```jsonc
+{ "success": true, "warnings": ["<跳过项的 WARN 文案>"], "requiresRestart": true }
+```
+- **不改**既有 `vfsWiring` 行为（仍只在启动时装配）；**不做**热更新/动态挂卸。
+
+### 8.3 前端范围
+
+- **入口**：**复用既有「设置」模块**的子页形态（与「日志查看」同族）—— 新增一个 **VFS 挂载管理** 区域（**不新建顶层页面/路由**，避免动导航结构）。
+- **能力**：列出当前挂载（scheme/authority/是否生效/只读）· 启停 `enabled` · 选择 MCP server（数据取 `mcpServers`）· 保存（调 `PUT`）· 校验失败**原位展示逐条原因** · 保存成功后**明示"需重启生效"**。
+- **约束**：`client/src` 新增 **service + 类型 + i18n（zh/en 全量，过 `i18n:check`）**；**禁止**直接读 `config.json`；**禁止**绕过后端 API 自行推导挂载计划。
+
+### 8.4 ⚠️ 边界（实施时须如实回写）
+
+1. **无热更新** ⇒ 保存后 UI 必须提示重启；**不**承诺"立即生效"。
+2. `GET` 的 `registered` 反映**当前进程**的注册表（重启前可能与配置不一致 —— 这正是 `requiresRestart` 的语义）。
+3. **未做**：挂载点增删以外的能力（如挂载内浏览/上传）不在本批。
+
+---
+
+## 9. 执行记录（§8 前端管理面，2026-10-08 晚完成）
+
+### 9.1 交付
+
+| 端 | 内容 |
+|---|---|
+| **后端** | `infrastructure/http/handlers/vfs-mounts-handlers.ts`（`GET`/`PUT` 逻辑 + 纯函数 `parseMountsInput` fail-closed 校验）· `handlers/routes/vfs-mounts-routes.ts` · 挂载入口 `handlers/route-table.ts`（**路由注册唯一入口**）· `tests/http/vfs-mounts.test.ts`（7 例） |
+| **前端** | `client/src/types/vfs.ts` · `client/src/services/vfsService.ts` · `client/src/components/settings/VfsMountsPanel.tsx`（**复用「设置」模块**子页；注册三点：`NAV_GROUPS` → 描述键 → `renderContent` 分支）· `client/src/tests/vfs-mounts.test.tsx`（9 例）· i18n `zh`/`en` **各 +22 键**（对称，过 `i18nKeyParity`） |
+| **接口清单** | `.trae/docs/api-spec.md` → **2.11.0**（§3.33 路由表 + §4 `vfsService` 映射） |
+
+### 9.2 🔴 顺带抓出并修复 P0（**这是本批最重要的产出**）
+
+实施中实证 **`@modules/vfs` 桶循环依赖 TDZ** ⇒ **冷启动 `registerVfsMounts()`（生产装配入口）直接抛错** ⇒ **全部 VFS 挂载点注册不上**（此前 `listed as "端到端未实测"` 的风险点，本轮探针**必现**）。**根因**：`tools/MCPResourceTool` 的**模块作用域 `new McpResourcesDriver()`** 在环中求值期读桶绑定。**修复**：改**惰性单例**（求值期不读绑定）。**验证**：同一冷探针 before→`TDZ Error` / after→**`OK`**。详见台账。
+
+### 9.3 门禁
+
+- **app**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（曾因"改叶入口"触发 `R03-002`，**已回退**）· 全量 **4617 pass / 24 skip / 0 fail**
+- **client**：`typecheck` **0** · 改动文件 `eslint` **0** · vitest **535 passed**
+- **冷进程探针**：`registerVfsMounts()` ⇒ **OK**（P0 修复的直接证据）
+
+### 9.4 ⚠️ 未验证（如实，CS06）
+
+1. **未做真实前后端联调**：client 侧 `GET/PUT` 全经 `vi.mock(httpClient)` 桩验证；**真实网络 + 真实 400 报文**端到端未跑。
+2. 未跑真实 Tauri/浏览器渲染冒烟（仅单测 + typecheck/lint）。
+3. **无热更新**（按裁定）：保存后需重启，UI 已明示。

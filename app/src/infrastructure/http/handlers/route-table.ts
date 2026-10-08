@@ -26,6 +26,8 @@ import { dispatchTranslationRoutes } from './routes/translation-routes';
 import { dispatchGoalRoutes } from './routes/goal-routes';
 // P3-1（2026-09-29）：A2A 对外发现（ACP 对内 / A2A 对外）—— 默认关闭
 import { dispatchA2ARoutes } from './routes/a2a-routes';
+// 2026-10-08：AI-VFS 用户可配置挂载面（`ai-vfs-user-mountable.md §8.2`）
+import { dispatchVfsMountRoutes } from './routes/vfs-mounts-routes';
 
 /**
  * 路由调度函数
@@ -132,6 +134,9 @@ export async function dispatchRoute(
     return true;
   // P3-1（2026-09-29）：A2A 对外发现（`/.well-known/agent-card.json`，默认关闭 ⇒ 未启用时自然 404）
   if (await dispatchA2ARoutes(req, res, url, broadcastEvent, handlerCtx))
+    return true;
+  // 2026-10-08：AI-VFS 用户可配置挂载面（`/v1/vfs/mounts`，GET/PUT）
+  if (await dispatchVfsMountRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
 
   return false;

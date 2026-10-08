@@ -9,7 +9,16 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('services:mcp:connection');
-import { MCPServerConfig, MCPToolDefinition, MCPServerStatus } from './types';
+import {
+  MCPServerConfig,
+  MCPToolDefinition,
+  MCPServerStatus,
+  // 2026-10-08：`sendRequest` / `batchSendRequests` 的参数由 `any` 收紧为 `MCPRequest`
+  // ⇒ 请求 `type` 写错在**编译期**即失败（此前 `MCPResourceTool` 把列资源的请求写成
+  // `type:'list_tools'`，运行时才表现为"恒返回空"，无任何机制察觉）。
+  MCPRequest,
+  MCPResponse,
+} from './types';
 import { TransportFactory } from './TransportFactory';
 import { MCPTransport } from './transports/MCPTransport';
 import { mcpAuthManager } from './auth/MCPAuth';
@@ -186,7 +195,7 @@ export class MCPConnection {
   /**
    * 发送请求
    */
-  async sendRequest(request: any): Promise<any> {
+  async sendRequest(request: MCPRequest): Promise<MCPResponse> {
     if (!this.transport.isConnected()) {
       const connected = await this.connect();
       if (!connected) {
@@ -225,7 +234,7 @@ export class MCPConnection {
   /**
    * 批量发送请求
    */
-  async batchSendRequests(requests: any[]): Promise<any[]> {
+  async batchSendRequests(requests: MCPRequest[]): Promise<MCPResponse[]> {
     if (requests.length === 0) {
       return [];
     }
@@ -296,7 +305,7 @@ export class MCPConnection {
     toolName: string,
     args: Record<string, unknown>
   ): Promise<unknown> {
-    const request = {
+    const request: MCPRequest = {
       id: randomUUID(),
       type: 'call',
       tool_name: toolName,
@@ -321,7 +330,7 @@ export class MCPConnection {
    * 刷新工具列表
    */
   async refreshTools(): Promise<MCPToolDefinition[]> {
-    const request = {
+    const request: MCPRequest = {
       id: randomUUID(),
       type: 'list_tools',
     };
@@ -399,7 +408,7 @@ export class MCPConnection {
    * 发送ping请求检查服务器健康状态
    */
   async ping(): Promise<boolean> {
-    const request = {
+    const request: MCPRequest = {
       id: randomUUID(),
       type: 'ping',
     };

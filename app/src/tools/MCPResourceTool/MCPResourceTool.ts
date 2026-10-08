@@ -467,14 +467,20 @@ export class MCPResourceTool extends BaseTool<
   }
 
   /**
-   * 从服务器列出资源
-   * 通过MCP协议获取资源列表
+   * 从服务器列出资源。
+   *
+   * 2026-10-08 修复（复核"协议用法疑点"）：原发 `type: 'list_tools'`（注释还把它论证成
+   * "MCP协议中 resources/list 与 tools/list 类似"），再去读 `response.result.resources` ——
+   * 但 `tools/list` 的响应里**没有 resources 字段**（见 `MCPResponse`：只有 `tools?` / `result?`）
+   * ⇒ **恒返回 `[]`**（功能静默不可用，无任何机制察觉）。
+   * 仓内另一实现 `mcp/client/MCPClient.ts:221-224` 用的是 `type: 'list_resources'` —— 本文件
+   * 与它**不一致**；现统一为该类型（`MCPRequest` 联合中本就含 `'list_resources'`）。
+   * 同时删去原 `catch { return [] }` 的**静默吞错**（CS03）：失败如实向上抛。
    */
   private async listResourcesFromServer(
     serverName: string
   ): Promise<unknown[]> {
-    const mcpManager = getMCPServerManager();
-    const server = mcpManager.getServer(serverName);
+    const server = getMCPServerManager().getServer(serverName);
 
     if (!server) {
       throw new AppError(
@@ -485,26 +491,22 @@ export class MCPResourceTool extends BaseTool<
       );
     }
 
-    // 通过transport发送resources/list请求
-    // 这里使用MCP协议的resources/list方法
-    try {
-      const response = await server.sendRequest({
-        id: `list-resources-${Date.now()}`,
-        type: 'list_tools', // MCP协议中resources/list与tools/list类似
-      });
+    const response = await server.sendRequest({
+      id: `list-resources-${Date.now()}`,
+      type: 'list_resources',
+    });
 
-      // 如果服务器支持资源，返回资源列表
-      // 否则返回空列表
-      if (response.type === 'result' && response.result) {
-        const result = response.result as { resources?: unknown[] };
-        return result.resources || [];
-      }
-
-      return [];
-    } catch (error) {
-      // 如果服务器不支持资源列表，返回空列表
-      return [];
+    if (response.type === 'error') {
+      throw new AppError(
+        response.error?.message || `Failed to list resources on ${serverName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
+
+    const result = (response.result ?? {}) as { resources?: unknown[] };
+    return result.resources || [];
   }
 
   /**
@@ -556,11 +558,15 @@ export class MCPResourceTool extends BaseTool<
   }
 
   /**
-   * 从服务器列出提示
+   * 从服务器列出提示。
+   *
+   * 2026-10-08 修复（同 `listResourcesFromServer`）：原把协议方法 `prompts/list` 当作
+   * `tool_name` 发 `type: 'call'`，而 `MCPRequest` 联合中**本就有** `'list_prompts'`
+   * （`mcp/client/MCPClient.ts:261-264` 即如此）⇒ 现改用该类型。
+   * 同时删去原 `catch { return [] }` 的**静默吞错**（CS03）。
    */
   private async listPromptsFromServer(serverName: string): Promise<unknown[]> {
-    const mcpManager = getMCPServerManager();
-    const server = mcpManager.getServer(serverName);
+    const server = getMCPServerManager().getServer(serverName);
 
     if (!server) {
       throw new AppError(
@@ -571,23 +577,22 @@ export class MCPResourceTool extends BaseTool<
       );
     }
 
-    try {
-      const response = await server.sendRequest({
-        id: `list-prompts-${Date.now()}`,
-        type: 'call',
-        tool_name: 'prompts/list',
-        args: {},
-      });
+    const response = await server.sendRequest({
+      id: `list-prompts-${Date.now()}`,
+      type: 'list_prompts',
+    });
 
-      if (response.type === 'result' && response.result) {
-        const result = response.result as { prompts?: unknown[] };
-        return result.prompts || [];
-      }
-
-      return [];
-    } catch (error) {
-      return [];
+    if (response.type === 'error') {
+      throw new AppError(
+        response.error?.message || `Failed to list prompts on ${serverName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
+
+    const result = (response.result ?? {}) as { prompts?: unknown[] };
+    return result.prompts || [];
   }
 
   /**

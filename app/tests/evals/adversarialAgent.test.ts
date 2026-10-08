@@ -174,7 +174,7 @@ describe('D-244③：离线提案集 fixture ⇒ 端到端可复现（零模型�
     const b = runAdversarialPhase({ ctx: makeCtx(), proposals });
     expect(a).toEqual(b); // 同输入 ⇒ 逐条相同（可复现）
 
-    // 闭集内 ⇒ 复用形态 B 判据（含新增的路径改写向量 C-6/C-8）；闭集外（C-99）⇒ unmachineable（不臆断为漏洞）
+    // 闭集内 ⇒ 复用形态 B 判据（含新增的路径改写向量 C-6/C-9）；闭集外（C-99）⇒ unmachineable（不臆断为漏洞）
     expect(a.verdicts.map((v) => `${v.proposalId}:${v.kind}`)).toEqual([
       'P-1:blocked',
       'P-2:blocked',

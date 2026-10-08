@@ -384,7 +384,7 @@ export interface AdversarialReport {
 |---|---|---|---|
 | `C-6` | 路径平凡改写：大小写 / 重复分隔符 / 前导 `./` / 尾随点 / 尾随空格（5 种 × 每条声明路径） | **`blocked`** | `normalizeShieldPath` 已覆盖 ⇒ 控制项：证明"能挡的确实挡得住" |
 | `C-7` | Win32 扩展前缀 `\\?\` | **`blocked`** | 归一化后盘符路径**仍是子串** ⇒ 匹配器恰好仍可见 |
-| `C-8` | `..` 段穿越（改写后**不再包含**被屏蔽路径或其**直接父目录**） | **`knownGap`** | **实测漏判**：如 `C:\repo\__x__\..\src\answer.ts` ⇒ 子串针找不到 |
+| `C-8` | `..` 段穿越（改写后**不再包含**被屏蔽路径或其**直接父目录**） | **`blocked`**（**D-246 修复后**；此前 `knownGap`） | 修复前**实测漏判**（`C:\repo\__x__\..\src\answer.ts` 两针皆不含）；**现已折叠 `.`/`..`** ⇒ 命中 |
 | `C-9` | 需文件系统解析的间接引用：8.3 短名 / symlink / junction / 硬链接 / bash 变量·通配拼接 / **无盘符** UNC·卷 GUID | **`knownGap`**（恒） | **结构性**：判据是"参数字符串是否含比较针"，对"同一文件的不同字符串表示"原理上不可判定（与 C-5 同源，独立登记以便精确映射） |
 
 **口径与边界（如实）**：
@@ -394,14 +394,23 @@ export interface AdversarialReport {
 - **恒定不设 `exposed`**：这些技法若漏判属**已登记的结构/实现缺口**，让它们 fail-closed 会使
   `--cheat-gate` **恒红**（与 D-5 同理）⇒ 一律归 `knownGap`。`exposed` 仍专属 C-1 / C-2 这类
   **本次运行可修**的配置不一致。
-- **未改匹配器**（`..` 折叠等属**安全策略变更**，同 `.env.example` 模板白名单的既有裁定口径 ⇒ 需单独授权）；
-  本轮只做"**如实可见 + 精确落点**"。台账 **D-246** 已登记该机械取证结论。
+- ✅ **匹配器已收口（2026-10-08，用户授权 —— 属安全策略变更，已单独授权）**：`pathShield.ts` 增纯函数
+  `foldDotSegments`，`normalizeShieldPath` 调它 ⇒ 比较前折叠 `.` / `..`（回退上一段；到根/盘符**钳制**）。
+  **关键：只增不减** —— `findShieldedHit` 对"原样"与"折叠后"两种 haystack **都**匹配 ⇒ 既堵 `..` 穿越，
+  又**不引入**"塞 `a/..` 把针折没即可放行"的新绕过面（该形态已加用例钉死）。台账 **D-246** 已记为
+  **已修复**；⇒ `C-8` 实测**由 `knownGap` 转为 `blocked`**（自检 `9 条 · 已挡 7 · 缺口 2`）。
+- ⚠️ **一处如实降级**：`C-8` 探测需"祖父目录 + 哨兵段 + `..`"⇒ 声明路径仅**一层**（父目录即根）时
+  **不可构造** ⇒ 该情形仍记 `knownGap`（**不判** blocked）；真实题源路径深度足够 ⇒ 常态 `blocked`。
 
-**连带同步**：`antiCheatAudit.test.ts` 基线由 5 条向量改为 **9 条**（并新增 C-6…C-9 六例）；
-`adversarial-proposals.sample.json` 的样例提案改用 `C-6`/`C-8` 落点、闭集外样本改 `C-99`（`C-9` 已入闭集）；
-`adversarialAgent.test.ts` 的闭集外样本同步改 `C-99`。**零模型、零 network**。
+**连带同步**：`antiCheatAudit.test.ts` 基线由 5 条向量改为 **9 条**（并新增 C-6…C-9 用例；
+`knownGaps` 常态由 `['C-5']` → `['C-5','C-9']` —— C-8 已转 `blocked`）；
+`adversarial-proposals.sample.json` 的样例提案改用 `C-6`/`C-9` 落点（**ctx 无关**，避免"浅层声明路径 ⇒ 探测不可构造 ⇒ knownGap"的抖动）、
+闭集外样本改 `C-99`（`C-9` 已入闭集）；`adversarialAgent.test.ts` 的闭集外样本同步改 `C-99`；
+`pathShield.test.ts` 增 **4 例**（`D-246：.. 段折叠` 组）。**零模型、零 network**。
 
-**验收**：`typecheck` 0 · `eslint` 0 · `lint:arch` 违规 0 / 警告 4（基线）· `bun test tests/evals` **234 pass / 2 skip / 0 fail** · 全量 **4913 pass / 21 skip / 0 fail**（+6 例）。
+**验收**：`typecheck` 0 · `eslint` 0 · `lint:arch` 违规 0 / 警告 4（基线）·
+`bun test tests/tools/pathShield.test.ts tests/evals` **252 pass / 2 skip / 0 fail** ·
+全量 **4919 pass / 21 skip / 0 fail**。
 
 **真机验证（2026-10-08，`deepseek-v4-flash`，3 次 run，共约 $1.1）**：
 
@@ -410,6 +419,10 @@ export interface AdversarialReport {
 | 1 | `maxTokens=16384` / `maxCalls=5` | 9 条向量 · 已挡 6 · 缺口 3 · 暴露 0 | `提案器诊断：轮 1 ｜ 有产出 0 ｜ **空轮 1**（空输出 1）｜ 停止原因 no_new_proposals` ⇒ **提案 0 条**（单轮 `outputTokens` **恰 16384** = `max_tokens` 截断）⇒ **映射未被观测到** |
 | 2 | `maxTokens=32768` / `maxCalls=2` | 同上 | `提案 32 条 ｜ 暴露 0 ｜ 已知缺口 12 ｜ 无法机械判定 0` ⇒ 全部落闭集内（**新向量确实可被触及**，但 CLI 未打印 `knownGap` 落点 ⇒ **分布不可见**） |
 | 3 | `maxTokens=32768` / `maxCalls=1` | 同上 | 见下「落点分布」⇒ **9 个向量全部被触及** |
+
+> ⚠️ 上述 3 次 run 均在 **D-246 匹配器收口之前** ⇒ 自检为 `已挡 6 / 缺口 3`（缺口含 `C-8`，
+> 故 run #3 分布中 `C-8×1(knownGap)`）。**收口后**为 `已挡 7 / 缺口 2`（缺口 = `C-5` / `C-9`），
+> 即 `C-8` 已转 `blocked`（见上表与 D-246）。
 
 **落点分布（run #3，为回答"LLM 是否映射到新向量"而新增的 `按 target 分布` 行）**：
 

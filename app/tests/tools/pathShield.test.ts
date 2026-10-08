@@ -33,6 +33,7 @@ import {
   SHIELD_UNSERIALIZABLE,
   buildShieldNeedles,
   findShieldedHit,
+  foldDotSegments,
   loadShieldPlan,
   normalizeShieldPath,
   parseShieldedPaths,
@@ -144,6 +145,54 @@ describe('findShieldedHit：命中判定', () => {
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
     expect(findShieldedHit(cyclic, plan)).toBe(SHIELD_UNSERIALIZABLE);
+  });
+});
+
+/**
+ * D-246（2026-10-08，用户授权）：`..` 段穿越的**机械收口**。
+ *
+ * 取证：C-8 向量（`antiCheatAudit` 用**本模块的真实匹配器**实测）证明
+ * `c:/repo/__x__/../src/answer.ts` **不含任何比较针** ⇒ 参数层屏蔽被绕过。
+ * 修复：比较前折叠 `.` / `..`；且 `findShieldedHit` 对"原样"与"折叠后"**都**匹配（**只增不减**）。
+ */
+describe('D-246：`..` 段折叠', () => {
+  const plan = {
+    paths: [SRC_ABS],
+    needles: buildShieldNeedles(SRC_ABS, REPO),
+  };
+
+  test('foldDotSegments：回退 `..` / 丢弃 `.` / 到根钳制 / 保留前导 `/` 与盘符', () => {
+    expect(foldDotSegments('c:/repo/__x__/../src/a.ts')).toBe(
+      'c:/repo/src/a.ts'
+    );
+    expect(foldDotSegments('c:/repo/./src/./a.ts')).toBe('c:/repo/src/a.ts');
+    expect(foldDotSegments('c:/../../b')).toBe('c:/b'); // 盘符段不可回退（钳制）
+    expect(foldDotSegments('/a/../../../b')).toBe('/b'); // POSIX 绝对：保留前导 `/`，钳在根
+    expect(foldDotSegments('a/../b')).toBe('b');
+  });
+
+  test('normalizeShieldPath：`..` 与 `.` 被折叠（替代原先只去前导 `./`）', () => {
+    expect(normalizeShieldPath('E:\\PY\\App\\..\\App\\X.ts')).toBe(
+      'e:/py/app/x.ts'
+    );
+    expect(normalizeShieldPath('./src/./a.ts')).toBe('src/a.ts');
+  });
+
+  test('findShieldedHit：`..` 段穿越（改写后不含任何比较针）⇒ **命中**（修复前漏判）', () => {
+    // 复刻 C-8 的探测形态：祖父目录 + 哨兵段 + `..` + 父目录名 + 文件名
+    const probe = {
+      file_path: `${REPO}\\app\\src\\chat\\__shield_probe__\\..\\services\\bareExplorationStripper.ts`,
+    };
+    expect(findShieldedHit(probe, plan)).toBe(SRC_ABS);
+  });
+
+  test('**只增不减**：塞 `a/..` 试图"把比较针折没"⇒ 仍被命中（不引入新绕过面）', () => {
+    // 折叠确实会让"折叠后"的 haystack 丢掉比较针；但"原样"形态仍在比较 ⇒ 不得放行
+    const eraseAttempt = {
+      file_path: 'app/src/chat/services/bareExplorationStripper.ts',
+      note: 'a/..',
+    };
+    expect(findShieldedHit(eraseAttempt, plan)).toBe(SRC_ABS);
   });
 });
 

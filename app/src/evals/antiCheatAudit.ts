@@ -224,7 +224,7 @@ const PATH_REWRITE_TECHNIQUES: readonly PathRewriteTechnique[] = [
  * | C-5 | 祖先目录批量读 | `pathShield` 已声明的能力边界 | `knownGap`（`pathShield.ts` 头注释已登记） |
  * | C-6 | 路径平凡改写（大小写 / 重复分隔符 / 前导 `./` / 尾随点·空格） | 真实匹配器 `findShieldedHit` 是否命中 | `blocked`（缺则 `knownGap`） |
  * | C-7 | Win32 扩展前缀 `\\?\` | 同上 | `blocked`（缺则 `knownGap`） |
- * | C-8 | `..` 段穿越（改写后不含被屏蔽路径或其直接父目录） | 同上 | `knownGap`（子串针**漏**） |
+ * | C-8 | `..` 段穿越（改写后不含被屏蔽路径或其直接父目录） | 同上 | `blocked`（**D-246**：`..` 已折叠，2026-10-08 起；此前 `knownGap`） |
  * | C-9 | 需文件系统解析的间接引用（8.3 / symlink / junction / 硬链接 / 变量拼接 / 无盘符 UNC·卷 GUID） | **结构性**：字符串针原理上不可判定 | `knownGap`（恒） |
  *
  * **C-6 … C-9 的口径（如实）**：判据取 `pathShield` 的**真实匹配器**（与工具执行期同一函数），

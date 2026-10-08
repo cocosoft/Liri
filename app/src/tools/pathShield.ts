@@ -39,9 +39,10 @@
  * （见 `shieldGuard.ts`），逻辑与拒绝文案只有一份。
  *
  * ⚠️ **能力边界（如实，不要当成通用沙箱）**：
- * - 只挡"工具参数里**直接出现**被屏蔽路径（或其**直接父目录**）"的调用；
- * - **挡不住**：`bash` 里用变量/通配拼路径、`symlink`、对**祖先目录**的批量读取、以及任何
- *   不经工具分派点的文件访问（如工具内部自己扫目录）；
+ * - 只挡"工具参数里**直接出现**被屏蔽路径（或其**直接父目录**）"的调用；`..` 段**已折叠**
+ *   （D-246，2026-10-08）⇒ `.` / `..` 改写不再绕过；
+ * - **挡不住**：`bash` 里用变量/通配拼路径、`symlink`、`8.3` 短名、硬链接、对**祖先目录**的批量读取、
+ *   以及任何不经工具分派点的文件访问（如工具内部自己扫目录）—— 均需文件系统解析或在执行点拦截；
  * - 环境变量未设置时**零行为**（普通用户运行完全不受影响）。
  * 需要更强隔离时应做真沙箱（挂载/容器），不在本模块职责内。
  */
@@ -94,17 +95,49 @@ export function parseShieldedPaths(raw: string | undefined): string[] {
 }
 
 /**
+ * 折叠 `.` / `..` 段（**纯字符串**，不碰文件系统、不依赖宿主 OS）。
+ *
+ * D-246（2026-10-08，用户授权）：C-8 **机械取证**（`antiCheatAudit` 用**本模块的真实匹配器**
+ * 实测）证明 `..` 段穿越可绕过参数层屏蔽 —— `c:/repo/__x__/../src/answer.ts` **不含**任何比较针。
+ * ⇒ 比较前先把 `.` / `..` 折掉，使"同一文件的不同字符串表示"收敛到同一形态。
+ *
+ * 语义（对齐 OS、**到根即钳制**）：`.` 段丢弃；`..` 段回退上一段；上一段是**盘符**（`c:`）
+ * 或已无可退 ⇒ 丢弃该 `..`。输入须已把 `\` 归一为 `/`（见 {@link normalizeShieldPath}）。
+ * 前导 `/`（POSIX 绝对路径）**保留**。
+ *
+ * ⚠️ **与 `findShieldedHit` 的关系：只增不减** —— 该处对"原样"与"折叠后"两种形态**都**匹配，
+ * 故折叠**不会**因"把某个比较针折没了"而放行（否则"在参数里塞 `a/..` 抹掉针"会成为新的绕过面）。
+ */
+export function foldDotSegments(p: string): string {
+  const lead = p.startsWith('/') ? '/' : '';
+  const out: string[] = [];
+  for (const seg of p.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      const top = out[out.length - 1];
+      // 盘符段（`c:`）与根不可回退 ⇒ 钳制；已无可退 ⇒ 丢弃
+      if (top !== undefined && top !== '..' && !/^[a-z]:$/.test(top)) out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return lead + out.join('/');
+}
+
+/**
  * 规整为可比较形式：统一 `/`、小写（Windows 盘符/路径大小写不敏感）、折叠重复分隔符
- * （`JSON.stringify` 会把 `\` 转义成 `\\` ⇒ 反向替换后会出现 `//`）、去尾分隔符、去 `./`。
+ * （`JSON.stringify` 会把 `\` 转义成 `\\` ⇒ 反向替换后会出现 `//`）、去尾分隔符、去 `./`，
+ * 并**折叠 `.` / `..` 段**（{@link foldDotSegments}，D-246）。
  */
 export function normalizeShieldPath(p: string): string {
-  return p
-    .trim()
-    .replace(/\\/g, '/')
-    .toLowerCase()
-    .replace(/\/{2,}/g, '/')
-    .replace(/^\.\//, '')
-    .replace(/\/+$/, '');
+  return foldDotSegments(
+    p
+      .trim()
+      .replace(/\\/g, '/')
+      .toLowerCase()
+      .replace(/\/{2,}/g, '/')
+      .replace(/\/+$/, '')
+  );
 }
 
 /**
@@ -127,8 +160,8 @@ function isAbsoluteAnyOs(normalizedPath: string): boolean {
  *
  * ⚠️ 比较与拼接**全程在规整形式（`/`、小写）上做纯字符串运算**，不调用 `node:path`
  * （`resolve`/`sep`/`isAbsolute` 的语义随宿主 OS 变，会让 Windows 风格路径在 Linux 上失配）。
- * 与原先 `resolve()` 的唯一行为差异：**不再折叠 `..` 段**（题源路径来自评测运行器的绝对路径，
- * 不含 `..`；且"用 `..` 绕屏蔽"本就属本模块已声明的能力边界之外）。
+ * 与原先 `resolve()` 的差异：**`..` 段现在会被折叠**（{@link foldDotSegments}，D-246 2026-10-08 前
+ * 不折叠 —— 彼时"用 `..` 绕屏蔽"属已声明边界之外；现按用户授权收口）。
  */
 export function buildShieldNeedles(
   shieldedPath: string,
@@ -209,8 +242,15 @@ export function findShieldedHit(
   }
   if (serialized === undefined) return SHIELD_UNSERIALIZABLE;
   const haystack = normalizeShieldPath(serialized);
+  // D-246（2026-10-08）：**同时**匹配"原样"与"折叠 `.`/`..` 后"两种形态。
+  // 口径为**只增不减** —— 折叠是**额外的**命中机会，原样匹配保留 ⇒
+  // 既堵住 `..` 段穿越（`app/__x__/../src/x.ts`），又**不引入**"塞 `a/..` 抹掉比较针即可放行"
+  // 的新绕过面（原样 haystack 仍在比较）。
+  const foldedHaystack = foldDotSegments(haystack);
   for (const n of plan.needles) {
-    if (haystack.includes(n.needle)) return n.path;
+    if (haystack.includes(n.needle) || foldedHaystack.includes(n.needle)) {
+      return n.path;
+    }
   }
   return null;
 }

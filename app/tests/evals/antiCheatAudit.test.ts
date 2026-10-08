@@ -46,8 +46,9 @@ describe('反作弊面自检（P1-1 形态 B）', () => {
       'C-8',
       'C-9',
     ]);
-    // 常态 knownGap：C-5（能力边界）+ C-8（`..` 穿越漏判）+ C-9（需 FS 解析的间接引用）
-    expect(r.knownGaps.map((f) => f.id)).toEqual(['C-5', 'C-8', 'C-9']);
+    // 常态 knownGap：C-5（能力边界）+ C-9（需 FS 解析的间接引用）
+    //（C-8 `..` 段穿越自 D-246 修复——`..` 折叠——起为 blocked）
+    expect(r.knownGaps.map((f) => f.id)).toEqual(['C-5', 'C-9']);
   });
 
   it('C-1：报告目录**不在**屏蔽清单内 ⇒ exposed（防 k>1 经报告读到期望值）', () => {
@@ -146,13 +147,12 @@ describe('C-6 … C-9 路径改写技法（真实匹配器机械判定）', () =
     expect(verdictOf(auditAntiCheatSurface(baseCtx()), 'C-7')).toBe('blocked');
   });
 
-  it('C-8 `..` 段穿越 ⇒ **knownGap**（改写后不含被屏蔽路径或其直接父目录 ⇒ 子串针漏判）', () => {
+  it('C-8 `..` 段穿越 ⇒ **blocked**（D-246：`..` 已折叠；修复前为 knownGap 漏判）', () => {
     const r = auditAntiCheatSurface(baseCtx());
-    expect(verdictOf(r, 'C-8')).toBe('knownGap');
+    expect(verdictOf(r, 'C-8')).toBe('blocked');
     const detail = r.findings.find((f) => f.id === 'C-8')!.detail;
-    expect(detail).toContain('未命中');
-    expect(detail).toContain('保守下界');
-    // 关键：**不**参与 fail-closed（否则 --cheat-gate 恒红）
+    expect(detail).toContain('全部命中');
+    // 仍**不**参与 fail-closed（本组向量恒不设 exposed）
     expect(r.exposed).toEqual([]);
   });
 
@@ -164,7 +164,7 @@ describe('C-6 … C-9 路径改写技法（真实匹配器机械判定）', () =
     expect(detail).toContain('symlink');
   });
 
-  it('无声明屏蔽路径 ⇒ C-6/C-7 也**不判** blocked（无从判定，如实降级为 knownGap）', () => {
+  it('无声明屏蔽路径／声明路径仅一层 ⇒ **不判** blocked（探测不可构造，如实降级为 knownGap）', () => {
     const r = auditAntiCheatSurface(
       baseCtx({ declaredShields: [], appliedShields: [] })
     );
@@ -173,6 +173,11 @@ describe('C-6 … C-9 路径改写技法（真实匹配器机械判定）', () =
     expect(r.findings.find((f) => f.id === 'C-6')!.detail).toContain(
       '无从判定'
     );
+    // C-8 的探测需"祖父目录 + 哨兵段" ⇒ 声明路径只有一层（父目录即根）时不可构造
+    const shallow = auditAntiCheatSurface(
+      baseCtx({ declaredShields: ['/x/report'], appliedShields: ['/x/report'] })
+    );
+    expect(verdictOf(shallow, 'C-8')).toBe('knownGap');
   });
 
   it('C-6 多写法探测与 C-7/C-8 的探测数随声明路径条数线性展开', () => {

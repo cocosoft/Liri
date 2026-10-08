@@ -258,4 +258,4 @@ export interface IVfsDriver {
 
 **若未来触发**：按 §6 验收口径执行 `dev_docs://` **只读试点**（§4-D5 = (a)）。⚠️ `stat_vfs` 虽为**唯一零重叠纯增量**（§9.1/§9.4），但**不脱离命名空间独立落地** —— 它仍需驱动与挂载注册表（§3.1/§3.3）方有意义。
 
-**✅ 2026-10-08 续（T3 实施）**：`dev_docs://` 只读试点已落地（见 `ai-vfs-readonly-pilot.md`）；**`mcp://` 挂载点亦已落地**（`McpResourcesDriver`，**委托同一条 SDK 链**、不复制逻辑；`mcp_resource` 仍为工具面事实源 —— 并存期口径见该 spec **§7.2**）。⚠️ **仍待裁定**：`mcp_resource` 与 `read_vfs('mcp://…')` 是否**二选一**（§9.3 已量化该重叠）。
+**✅ 2026-10-08 续（T3 实施）**：`dev_docs://` 只读试点已落地（见 `ai-vfs-readonly-pilot.md`）；**`mcp://` 挂载点亦已落地**（`McpResourcesDriver`）。**重叠已裁定（用户裁定 C）**：`mcp_resource` 的 `list_resources`/`read_resource` **改为委托 VFS `mcp://` 驱动**（实现归属翻转为驱动 ⇒ **单一实现**）；两入口并存，`mcp_resource` 仍自持**提示面**。⚠️ **模型可见行为差异**（`name`＝uri、`content` 收敛单条目、错误文案）见 pilot spec **§7.2**。

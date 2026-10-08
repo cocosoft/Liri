@@ -127,14 +127,22 @@
 - **错误码**：`authority` 缺失 / 服务器未连接 ⇒ `VFS_UNKNOWN_MOUNT`；uri 不存在 ⇒ `VFS_NOT_FOUND`；SDK 抛错 ⇒ `VFS_DENIED`。
 - **模型缺口如实标注**：`stat` 的 `size`/`mtime` 在 MCP 资源模型**不可得** ⇒ 置 `0` 并注明"未知"；`read` 的 `range` **明确忽略**（待需求）；列举为**扁平**（MCP 资源无目录语义）。
 
-### 7.2 事实源口径（契约 §3.5 并存期）
+### 7.2 重叠裁定（2026-10-08 用户裁定：**C —— 工具改委托 VFS 驱动**）
 
-- **工具面事实源仍是 `mcp_resource`**（本次**未改动**它，行为不变）；`mcp://` 是 VFS 的**并存面**，与工具**共用同一条 SDK 链**、**不复制业务逻辑**。
-- ⚠️ **登记待裁定**：`mcp_resource`（工具）与 `read_vfs('mcp://…')` 构成**同一能力的两个模型可见入口**（契约 §9.3 曾量化此重叠）。当前按 §3.5「**并存期**」处理；**是否二选一**留待后续裁定（若收敛，建议保留 `mcp_resource`、或反过来让工具委托驱动）。
+- **裁定**：`mcp_resource` 的 `list_resources` / `read_resource` **改为经 `McpResourcesDriver`**（**实现归属翻转为驱动** = `mcp://` 面的**单一实现**）；`list_prompts` / `get_prompt` **仍直连 SDK**（VFS 无提示面）。
+- **取驱动方式**：工具内**直接实例化** `new McpResourcesDriver()`（**不经** `vfsMountRegistry`）—— 避免活工具对 entrypoint 装配序产生**硬依赖**（否则未跑 wiring 即失效）。
+- **契约扩展（additive）**：`VfsEntry` 增**可选** `mimeType?` / `description?`（源可提供则填；`dev_docs` 不填）—— 用于保住工具向模型展示的字段。
+- **两入口仍并存、实现单点**：`mcp_resource` = MCP **资源 + 提示**专用入口；VFS `mcp://` = **统一命名空间读取**面（含 `stat_vfs` 纯增量）。
+- ⚠️ **模型可见行为差异（如实，CS06）**：
+  1. `list_resources` 条目的 `name` 由"服务器显示名"变为**资源 uri 原文**（`uri` 与 `name` 同值）⇒ 人类可读行显示完整 URI；`description` / `mimeType` 仍透传（源未提供则省略）。
+  2. `read_resource` 的 `content` 由"原始 SDK 响应（可多条 + `blob` 字段）"收敛为**单条目** `{uri, mimeType, text}`（多条 contents 拼接；`blob` 以 base64 串入）；`mimeType` 恒有定义。
+  3. 错误文案改为驱动口径（`MCP 服务器未连接: "X"` / `读取 MCP 资源失败: "uri"（…）`），仍如实落到结果 `error`（无静默降级）。
+  4. 列举加 `limit: 200`（MCP 资源面通常远小于此）。
 
 ### 7.3 门禁
 
-`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs`+`tests/mcp` **61 pass / 0 fail** · 全量 **4582 pass / 9 skip / 0 fail**（+12 = 新增驱动用例，**无回归**）。
+- **`mcp://` 扩展批**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs`+`tests/mcp` **61 pass / 0 fail** · 全量 **4582 pass / 9 skip / 0 fail**（+12 = 新增驱动用例，**无回归**）。
+- **重叠裁定 C 批（2026-10-08 续）**：`typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4** · `tests/vfs`+`tests/mcp`+`tests/tools` **705 pass / 0 fail** · 全量 **4587 pass / 9 skip / 0 fail**（+5 = 新增"工具经驱动"用例，**无回归**）。
 
 ### 7.4 ⚠️ 未验证（CS06）
 

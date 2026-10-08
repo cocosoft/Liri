@@ -100,6 +100,8 @@ export class McpResourcesDriver implements IVfsDriver {
    * MCP 资源**无目录语义** ⇒ 恒为一层扁平列表（`recursive` 无意义，忽略）；
    * 每条 entry 的 `name` = 资源 **uri 原文**（便于直接作为 `read`/`stat` 的 `path`），
    * `kind` 恒为 `'file'`。
+   *
+   * `mimeType` / `description` 取自 SDK 列举条目（**源提供则填，无则省略** —— 不编造默认值，CS04）。
    */
   async list(
     vfsPath: VfsPath,
@@ -108,9 +110,12 @@ export class McpResourcesDriver implements IVfsDriver {
     const client = this.requireClient(vfsPath);
     const limit = opts.limit > 0 ? opts.limit : DEFAULT_LIST_LIMIT;
     const { resources } = await this.listResources(client, vfsPath);
-    return resources
-      .slice(0, limit)
-      .map((resource) => ({ name: resource.uri, kind: 'file' as const }));
+    return resources.slice(0, limit).map((resource) => ({
+      name: resource.uri,
+      kind: 'file' as const,
+      ...(resource.mimeType ? { mimeType: resource.mimeType } : {}),
+      ...(resource.description ? { description: resource.description } : {}),
+    }));
   }
 
   /**

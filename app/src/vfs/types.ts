@@ -47,6 +47,10 @@ export interface VfsEntry {
   readonly kind: 'file' | 'dir';
   readonly size?: number;
   readonly mtime?: number;
+  /** 可选：MIME 类型（源可提供则填，如 MCP 资源；`dev_docs` 等不填） */
+  readonly mimeType?: string;
+  /** 可选：源提供的描述（MCP 资源有；文件系统类源通常无） */
+  readonly description?: string;
 }
 
 /** `stat_vfs` 结果 */

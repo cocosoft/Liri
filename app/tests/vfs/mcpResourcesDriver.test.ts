@@ -39,6 +39,7 @@ interface StubResource {
   uri: string;
   name: string;
   mimeType?: string;
+  description?: string;
 }
 
 /** 桩 `readResource` 返回的 contents 条目 */
@@ -128,6 +129,38 @@ describe('McpResourcesDriver：list', () => {
     });
     expect(entries.length).toBe(1);
     expect(entries[0].name).toBe('file:///tmp/a.txt');
+  });
+
+  it('源提供 mimeType/description ⇒ 条目带上（未提供则省略）', async () => {
+    const driver = new McpResourcesDriver(
+      clientSeam(
+        stubClient({
+          resources: [
+            {
+              uri: 'file:///tmp/a.txt',
+              name: 'a.txt',
+              mimeType: 'text/plain',
+              description: '示例文本',
+            },
+            { uri: 'db://rows', name: 'rows' },
+          ],
+        })
+      )
+    );
+    const entries = await driver.list(mcp('server-filesystem'), {
+      recursive: false,
+      limit: 0,
+    });
+    expect(entries).toEqual([
+      {
+        name: 'file:///tmp/a.txt',
+        kind: 'file',
+        mimeType: 'text/plain',
+        description: '示例文本',
+      },
+      // 未提供 mimeType/description 的条目：字段省略（不编造默认值，CS04）
+      { name: 'db://rows', kind: 'file' },
+    ]);
   });
 
   it('SDK 列举抛错 ⇒ VFS_DENIED', async () => {

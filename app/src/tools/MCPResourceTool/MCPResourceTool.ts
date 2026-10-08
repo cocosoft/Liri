@@ -28,7 +28,18 @@ const logger = getLogger('tools:mcpResource');
 // 取客户端统一走 `mcpConnectionManager.getSdkClient()`（单一入口，见该方法注释）。
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { McpResourcesDriver, type VfsEntry } from '@modules/vfs';
 import { MCPResourceOutputSchema } from './schemas';
+
+/**
+ * MCP 资源驱动实例（模块级常量）。
+ *
+ * 2026-10-08（MCP 双轨收敛 C-1 续）：`list_resources` / `read_resource` 的**实现归属翻转**
+ * 到 VFS 驱动 `McpResourcesDriver`（它是 `mcp://` 面的**单一实现**，二者不再各写一份协议投影）。
+ * 此处**直接实例化**（**不**走 `vfsMountRegistry`）—— 避免对 entrypoint 装配序产生硬依赖。
+ * `list_prompts` / `get_prompt` 仍直连 SDK（本次不涉及）。
+ */
+const mcpResourcesDriver = new McpResourcesDriver();
 
 /**
  * MCP资源工具输入类型
@@ -482,34 +493,59 @@ export class MCPResourceTool extends BaseTool<
   }
 
   /**
-   * 从服务器列出资源（**SDK 标准方法 `listResources()`**）。
+   * 从服务器列出资源（**经 VFS 驱动 `McpResourcesDriver`**，`mcp://` 面的单一实现）。
    *
-   * 2026-10-08 两轮修复：① 原先发 `type:'list_tools'` 却去读 `result.resources`
-   * （`tools/list` 响应**没有**该字段）⇒ **恒返回 `[]`**，且注释把它论证成"resources/list 与
-   * tools/list 类似"（错误论断）；② C-1 收敛后**不再手写协议请求** —— 改走 SDK 顶层方法，
-   * 由官方库保证协议形状（自研链的 `MCPRequest` 联合**缺** `read_resource`/`get_prompt`，
-   * 且 transport 不做 `type → JSON-RPC method` 映射 ⇒ 在那条链上天生只能"绕"）。
+   * 2026-10-08（C-1 续）：**实现归属翻转** —— 原直连 SDK `listResources()`，现改调驱动
+   * `list({ scheme:'mcp', authority:serverName, path:'' })` 取 `VfsEntry[]`，再**映射回
+   * 工具既有资源条目形状**（`uri`/`name`/`description`/`mimeType` ⇒ 下游
+   * `formatResourcesList` / `formatAllResourcesList` 与结构化 `resources` 出参语义不变）。
+   * ⚠️ 驱动以资源 **uri 原文**作为 `entry.name`（见其文件头"路径映射"注释）。
+   * 驱动在服务器未连接 / SDK 报错时抛 `AppError` ⇒ 由上层 catch 如实落到结果 `error`（不静默降级）。
    */
   private async listResourcesFromServer(
     serverName: string
   ): Promise<unknown[]> {
-    const { resources } =
-      await this.requireSdkClient(serverName).listResources();
-    return resources as unknown[];
+    const entries = await mcpResourcesDriver.list(
+      { scheme: 'mcp', authority: serverName, path: '' },
+      { recursive: false, limit: 200 }
+    );
+    return entries.map((entry) => this.resourceFromEntry(entry));
   }
 
   /**
-   * 读取资源（**SDK 标准方法 `readResource()`**）。
+   * `VfsEntry` → 工具既有资源条目形状（等价 SDK `Resource`：`uri`/`name`/`description`/`mimeType`）。
+   * 缺省字段（`description`/`mimeType`）**省略**，与"源未提供"保持一致（不编造，CS04）。
+   */
+  private resourceFromEntry(entry: VfsEntry): Record<string, unknown> {
+    return {
+      uri: entry.name,
+      name: entry.name,
+      ...(entry.description ? { description: entry.description } : {}),
+      ...(entry.mimeType ? { mimeType: entry.mimeType } : {}),
+    };
+  }
+
+  /**
+   * 读取资源（**经 VFS 驱动 `McpResourcesDriver`**，`mcp://` 面的单一实现）。
    *
-   * 2026-10-08（C-1）：原把协议方法 `resources/read` 当作 `tool_name` 发 `type:'call'`
-   * —— 自研链的 `MCPRequest` 联合**没有** `read_resource` 类型，在那条链上只能这样"绕"；
-   * SDK 侧有标准方法（`client/index.d.ts:387`）。
+   * 2026-10-08（C-1 续）：**实现归属翻转** —— 原直连 SDK `readResource({ uri })`，现改调驱动
+   * `read({ scheme:'mcp', authority:serverName, path:uri })`，用返回的 `{ data, mimeType }`
+   * **重建工具既有输出形状** `{ contents: [{ uri, mimeType, text }] }`（`case 'read_resource'`
+   * 分支的 `content` 字段形状与 `output` 文案均不变）。驱动报错 ⇒ `AppError` 上抛，由上层
+   * catch 如实落到结果 `error`（不静默降级）。
    */
   private async readResource(
     serverName: string,
     uri: string
   ): Promise<unknown> {
-    return await this.requireSdkClient(serverName).readResource({ uri });
+    const result = await mcpResourcesDriver.read({
+      scheme: 'mcp',
+      authority: serverName,
+      path: uri,
+    });
+    return {
+      contents: [{ uri, mimeType: result.mimeType, text: result.data }],
+    };
   }
 
   /**

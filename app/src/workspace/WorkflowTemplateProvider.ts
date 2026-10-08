@@ -32,9 +32,11 @@
  * - 工具执行 = **注入**（`WorkflowStepExecutor`）—— 复用既有工具执行门
  *   （`globalToolManager.executeTool`），**不新建权限旁路**。
  *
- * ⚠️ **权限边界（P0-3 / S24 ③）仍待独立裁定**：本 Provider 不自行定义"模板可调哪些工具"的
- * 策略，步骤工具经**与模型同一条**工具执行门 ⇒ 不新增特权；若后续要在其上叠加**模板专属**
- * 白名单，落点在该门而非本类。
+ * **③ 权限边界（S24 ③，2026-10-08 已裁定）**：本 Provider 在**执行前**做权限预检 ——
+ * **仅允许非破坏性工具**（`sideEffect === 'none'`；**未声明 ⇒ 拒绝**，fail-closed）。
+ * 事实源 = `tools/toolEffects.ts` 的 `TOOL_EFFECTS`（编译期强制的唯一声明表），经
+ * `ToolSideEffectResolver` **注入**（不在本类硬编码工具名表 —— 违 model-usage 规则精神）。
+ * 越界 ⇒ **显式拒绝**（`stopReason:'error'`、`completedSteps` 为空），**不静默跳过越界步骤**。
  */
 import { getLogger } from '@modules/monitoring';
 import type {
@@ -44,6 +46,8 @@ import type {
   WorkflowRunResult,
   WorkflowStepReporter,
 } from '@modules/workflow';
+// 类型位镜像（③ 权限策略的取值域来自工具效果声明表；type-only ⇒ 无运行时依赖）
+import type { ToolSideEffect } from '@modules/tools';
 
 import type { WorkflowTemplate } from './types';
 import { templateToDefinition } from './workflowTemplateAssembly';
@@ -62,12 +66,32 @@ export type WorkflowStepExecutor = (
   params: Record<string, unknown>
 ) => Promise<unknown>;
 
+/**
+ * 工具**副作用**解析器（注入；生产实现 = `resolveToolEffect`）。
+ *
+ * 注入而非直接 import：① 保持本 Provider 零业务依赖、可单测；② 策略事实源外置
+ * （`tools/toolEffects.ts` 的 `TOOL_EFFECTS` 是编译期强制的**唯一声明表**）。
+ *
+ * 返回 `undefined` = **未声明**（MCP / 插件工具）⇒ 调用方按 **fail-closed** 处理。
+ */
+export type ToolSideEffectResolver = (
+  tool: string
+) => ToolSideEffect | undefined;
+
+/** 模板执行 **③ 权限策略**（S24 ③，2026-10-08）：**仅允许非破坏性工具** */
+export const PERMISSION_POLICY_NOTE =
+  '模板仅允许调用**非破坏性**工具（`sideEffect === "none"`；未声明工具同样拒绝）';
+
 export class WorkflowTemplateProvider implements WorkflowProvider {
   readonly providerId = WORKFLOW_TEMPLATE_PROVIDER_ID;
 
   constructor(
     private readonly listTemplates: WorkflowTemplateSource,
-    private readonly execTool: WorkflowStepExecutor
+    private readonly execTool: WorkflowStepExecutor,
+    /**
+     * ③ 权限策略的事实源（**必填**：无隐式默认 ⇒ 策略不会因漏注入而静默失效）。
+     */
+    private readonly resolveSideEffect: ToolSideEffectResolver
   ) {}
 
   /**
@@ -86,9 +110,23 @@ export class WorkflowTemplateProvider implements WorkflowProvider {
   }
 
   /**
+   * ③ 权限预检（S24 ③）：列出**越界**工具（非 `none` 副作用，或未声明 ⇒ fail-closed）。
+   *
+   * 纯函数、无副作用；返回空数组 = 全部合规。
+   */
+  private unsafeTools(definition: WorkflowDefinition): string[] {
+    const unsafe = new Set<string>();
+    for (const step of definition.steps) {
+      if (this.resolveSideEffect(step.tool) !== 'none') unsafe.add(step.tool);
+    }
+    return [...unsafe];
+  }
+
+  /**
    * 逐步执行（定义已由 seam 通过静态校验并按拓扑序排列）。
    *
    * 语义（对齐既有 doc Provider）：
+   * - **执行前**先过 ③ 权限预检（越界 ⇒ `error` 且 `completedSteps` 为空，**不做任何步骤**）；
    * - 每步 = 一次 `execTool(step.tool, {...step.params, ...params})`（**运行时参数覆盖步骤参数**）；
    * - 首个失败步骤即终止，`completedSteps` 只含**此前成功**的步骤；
    * - **步骤边界**检查 `signal` ⇒ 中止时返回 `cancelled`（seam 契约）；
@@ -100,6 +138,20 @@ export class WorkflowTemplateProvider implements WorkflowProvider {
     signal?: AbortSignal,
     stepReporter?: WorkflowStepReporter
   ): Promise<WorkflowRunResult> {
+    // ③ 权限边界（S24 ③）：越界 ⇒ 显式拒绝（不静默跳过越界步骤 —— CS03）
+    const unsafe = this.unsafeTools(definition);
+    if (unsafe.length > 0) {
+      logger.warn('模板执行被权限策略拒绝', {
+        workflow: definition.name,
+        unsafeTools: unsafe,
+      });
+      return {
+        stopReason: 'error',
+        completedSteps: [],
+        error: `权限策略拒绝：${PERMISSION_POLICY_NOTE}；越界工具: ${unsafe.join(', ')}`,
+      };
+    }
+
     const completedSteps: string[] = [];
     /** 步骤边界取消判定（seam 契约：Provider 在步骤边界返回 cancelled） */
     const cancelledResult = (): WorkflowRunResult | undefined =>
@@ -160,11 +212,8 @@ export class WorkflowTemplateProvider implements WorkflowProvider {
 /**
  * 注册到 workflow seam（**幂等**：已注册则跳过 —— seam 重复注册会抛 fatal）。
  *
- * 生产接线点 = Phase 5 `domain:init`（`BootPipelineIntegrator`）。工具执行器在此**动态**取
- * `globalToolManager`，避免把 tools 域拖进 workspace 的模块顶层依赖。
- *
- * ⚠️ **不**改动 `office:workflow` 工具的参数 enum（= 不打开模型可见触发面）——
- * "谁触发"属 **P0-2**，仍待独立裁定。
+ * 生产接线点 = Phase 5 `domain:init`（`BootPipelineIntegrator`）。工具执行器与**副作用解析器**
+ * 在此**动态**取 `@modules/tools`，避免把 tools 域拖进 workspace 的模块顶层依赖。
  */
 export async function registerWorkflowTemplateProvider(
   engine: WorkflowEngine
@@ -176,11 +225,13 @@ export async function registerWorkflowTemplateProvider(
     return false;
   }
 
-  const [{ getWorkflowTemplateStore }, { globalToolManager }] =
-    await Promise.all([
-      import('./WorkflowTemplateStore'),
-      import('@modules/tools'),
-    ]);
+  const [
+    { getWorkflowTemplateStore },
+    { globalToolManager, resolveToolEffect },
+  ] = await Promise.all([
+    import('./WorkflowTemplateStore'),
+    import('@modules/tools'),
+  ]);
 
   const store = getWorkflowTemplateStore();
   // 预热同步快照（seam 的 `listWorkflows()` 是同步契约，而 sqlite 是回调式异步）
@@ -188,7 +239,9 @@ export async function registerWorkflowTemplateProvider(
 
   const provider = new WorkflowTemplateProvider(
     () => store.listSync(),
-    (tool, params) => globalToolManager.executeTool(tool, params, {})
+    (tool, params) => globalToolManager.executeTool(tool, params, {}),
+    // ③ 权限策略事实源（编译期强制的唯一声明表）；未声明工具 ⇒ undefined ⇒ 拒绝
+    (tool) => resolveToolEffect(tool)?.sideEffect
   );
   const definitions = provider.listWorkflows();
   engine.registerProvider(provider);

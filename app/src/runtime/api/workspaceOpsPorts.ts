@@ -204,6 +204,22 @@ export interface WorkflowTemplateStorePort {
   remove(id: string): Promise<boolean>;
 }
 
+/**
+ * 模板执行结果**逐字镜像**（P0-2(a)，2026-10-08；app 侧 `WorkflowTemplateRunOutcome`）。
+ *
+ * **四态 `kind` 前缀判别**（非文案匹配，CS02）⇒ HTTP 层可直接映射状态码。
+ */
+export type WorkflowTemplateRunOutcomeDto =
+  | { kind: 'not-found' }
+  | { kind: 'not-executable'; reason: string }
+  | { kind: 'completed'; completedSteps: string[]; value?: unknown }
+  | {
+      kind: 'failed';
+      stopReason: 'error' | 'cancelled';
+      completedSteps: string[];
+      error: string;
+    };
+
 // ==================== P2（2026-09-30 台账 D-114）====================
 
 /** 工作项状态（逐字镜像 `@modules/workspace/types` 的 `WorkItemStatus`） */
@@ -522,6 +538,16 @@ export interface WorkspaceOpsPort {
   getAgentRoleStore(): Promise<AgentRoleStorePort>;
   /** 原 `getWorkflowTemplateStore()`（**单例** ⇒ 句柄；台账 S24 ①，2026-10-08） */
   getWorkflowTemplateStore(): Promise<WorkflowTemplateStorePort>;
+  /**
+   * 执行用户工作流模板（**P0-2(a)**，2026-10-08）：装配 → workflow seam 执行 → 四态结果。
+   *
+   * 实现侧经 `@modules/workspace` 的动态 import 取装配/执行入口（service 层不引 app 层）。
+   * **权限策略**在 seam 侧 Provider 的执行预检里（唯一收口）。
+   */
+  runWorkflowTemplate(
+    templateId: string,
+    params: Record<string, unknown>
+  ): Promise<WorkflowTemplateRunOutcomeDto>;
   /**
    * 原 `createTeamStore(path.join(wsPath, '.liri', 'teams'))`
    * （⚠️ `path.join` 留在**调用方** ⇒ 端口收 **`teamsDir`**，不引入 `node:path` 依赖）。

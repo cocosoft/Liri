@@ -51,6 +51,7 @@ import type {
   TaskStorePort,
   ProjectItemStorePort,
   WorkflowTemplateStorePort,
+  WorkflowTemplateRunOutcomeDto,
 } from './workspaceOpsPorts';
 import type {
   ProjectOpsPort,
@@ -1480,6 +1481,26 @@ export class DomainSnapshotOps {
             remove: (id: string) => store.remove(id),
           };
         },
+      // P0-2(a)（2026-10-08）：模板执行入口 —— 装配 + seam 执行（均为动态 import ⇒ 无 service→app 静态倒挂）
+      runWorkflowTemplate: async (
+        templateId: string,
+        params: Record<string, unknown>
+      ): Promise<WorkflowTemplateRunOutcomeDto> => {
+        const [
+          { runWorkflowTemplate },
+          { getWorkflowTemplateStore },
+          { getWorkflowEngine },
+        ] = await Promise.all([
+          import('@modules/workspace'),
+          import('@modules/workspace/WorkflowTemplateStore'),
+          import('@modules/workflow'),
+        ]);
+        return await runWorkflowTemplate(templateId, params, {
+          getTemplate: (id: string) => getWorkflowTemplateStore().get(id),
+          execute: (workflowName: string, p: Record<string, unknown>) =>
+            getWorkflowEngine().execute(workflowName, p),
+        });
+      },
       getTeamStore: async (teamsDir: string): Promise<TeamStorePort> => {
         const { createTeamStore } =
           await import('@modules/workspace/TeamStore');

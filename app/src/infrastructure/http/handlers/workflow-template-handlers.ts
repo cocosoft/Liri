@@ -7,6 +7,7 @@
  * - POST   /v1/workflows/templates  — 创建模板
  * - PUT    /v1/workflows/templates/:id  — 更新模板
  * - DELETE /v1/workflows/templates/:id  — 删除模板
+ * - POST   /v1/workflows/templates/:id/run  — 执行模板（P0-2(a)，2026-10-08）
  */
 
 import type http from 'http';
@@ -498,6 +499,93 @@ export async function handleDeleteWorkflowTemplate(
       res.end(
         JSON.stringify({
           error: { message: 'Failed to delete workflow template' },
+        })
+      );
+    }
+  }
+}
+
+/**
+ * 执行模板
+ * POST /v1/workflows/templates/:id/run
+ *
+ * **P0-2(a)（2026-10-08）**：本端点是模板执行的**唯一触发入口** —— 刻意**不**扩
+ * `office:workflow` 的参数 `enum`（其由 doc 域静态生成且语义专属文档编排）⇒ **模型不可触发**。
+ *
+ * 权限策略（S24 ③）在 seam 侧 Provider 的**执行预检**里（仅非破坏性工具；唯一收口）。
+ * 状态码：`not-found` → 404；`not-executable` → 400；`failed` → 400（body 带 `stopReason`）；
+ * `completed` → 200。四态由 `outcome.kind` 判别（**非文案匹配**，CS02）。
+ */
+export async function handleRunWorkflowTemplate(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  templateId: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    let params: Record<string, unknown> = {};
+    if (body && body.trim()) {
+      const data = JSON.parse(body) as { params?: Record<string, unknown> };
+      if (data.params && typeof data.params === 'object') {
+        params = data.params;
+      }
+    }
+
+    const outcome = await (
+      await getCoreAPI().getWorkspaceOpsPort()
+    ).runWorkflowTemplate(templateId, params);
+
+    switch (outcome.kind) {
+      case 'not-found':
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'Template not found' } }));
+        return;
+      case 'not-executable':
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: outcome.reason } }));
+        return;
+      case 'failed':
+        logger.warn('工作流模板执行未完成', {
+          templateId,
+          stopReason: outcome.stopReason,
+          completedSteps: outcome.completedSteps.length,
+        });
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: false,
+            stopReason: outcome.stopReason,
+            completedSteps: outcome.completedSteps,
+            error: { message: outcome.error },
+          })
+        );
+        return;
+      case 'completed':
+        logger.info('工作流模板执行完成', {
+          templateId,
+          completedSteps: outcome.completedSteps.length,
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            success: true,
+            completedSteps: outcome.completedSteps,
+            ...(outcome.value === undefined ? {} : { value: outcome.value }),
+          })
+        );
+        return;
+    }
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'run_workflow_template',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Failed to run workflow template' },
         })
       );
     }

@@ -24,3 +24,9 @@ export {
   templateWorkflowName,
   TEMPLATE_WORKFLOW_PREFIX,
 } from './workflowTemplateAssembly';
+// P0-2(a)（2026-10-08）：模板执行入口（四态结果 + 依赖注入，供 service 层端口取用）
+export { runWorkflowTemplate } from './workflowTemplateRunner';
+export type {
+  WorkflowTemplateRunOutcome,
+  WorkflowTemplateRunnerDeps,
+} from './workflowTemplateRunner';

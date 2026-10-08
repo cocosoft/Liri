@@ -81,6 +81,7 @@ import {
   handleDeleteWorkflowTemplate,
   handleGetWorkflowTemplate,
   handleListWorkflowTemplates,
+  handleRunWorkflowTemplate,
   handleUpdateWorkflowTemplate,
 } from '../workflow-template-handlers';
 import {
@@ -320,6 +321,17 @@ export async function dispatchMonitorCommandRoutes(
   }
   if (method === 'POST' && url === '/v1/workflows/templates') {
     await handleCreateWorkflowTemplate(handlerCtx, req, res);
+    return true;
+  }
+  // P0-2(a)（2026-10-08）：模板执行入口（**唯一**触发；不扩 office:workflow 的 enum）
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/workflows\/templates\/([^/]+)\/run$/)
+  ) {
+    const templateId = url.match(
+      /^\/v1\/workflows\/templates\/([^/]+)\/run$/
+    )![1];
+    await handleRunWorkflowTemplate(handlerCtx, req, res, templateId);
     return true;
   }
   if (method === 'PUT' && url.match(/^\/v1\/workflows\/templates\/(.+)$/)) {

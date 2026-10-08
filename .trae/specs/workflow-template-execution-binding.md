@@ -1,10 +1,11 @@
 # 工作流模板 ↔ Provider/执行器 绑定 Spec（P1-19 ②）
 
-> 版本: 1.0（**①② 已实施**） | 创建: 2026-10-05 | 实施: 2026-10-08
+> 版本: 1.1（**全部裁定并实施**） | 创建: 2026-10-05 | 实施: 2026-10-08
 > 关联: `workflow-template-persistence.md` §3 D5（本问题是其明确延后项）/ `workflow-definition-externalization.md` D4（「不合并」原裁定）/ `workflow-engine-seam.md`（seam 契约）/ GR15 / CS01 / CS02 / CS05 / CS06 / R02 / R00-001
-> 状态：**推荐形态 ①+② 已实施（2026-10-08）**——`WorkflowStep.tool?` + 装配层 `templateToDefinition()`
-> + `WorkflowTemplateProvider`（已注册到 seam）；**P0-2（触发入口）与 P0-3（= S24 ③ 权限边界）仍待独立裁定**。
-> 实施记录见 **§9**；已实施部分**不改** `office:workflow` 参数 enum（= 未打开模型可见触发面）。
+> 状态：**推荐形态 ①+② 已实施**（`WorkflowStep.tool?` + 装配层 `templateToDefinition()` + `WorkflowTemplateProvider`）；
+> **P0-2 = (a) HTTP `POST /v1/workflows/templates/:id/run`**、**P0-3/S24③ = 仅非破坏性工具（fail-closed）** 亦已实施。
+> **待裁定项 = 0**。实施记录见 **§9**（①+②）与 **§10**（触发入口 + 权限边界）。
+> ⚠️ **模型可见触发面仍未打开**（未改 `office:workflow` 的 enum）—— 见 §8 末尾"仍未做"。
 
 ## 1. 目标
 
@@ -120,14 +121,14 @@
 | 前置项 | 选项 | 说明 |
 |---|---|---|
 | P0-1 模板**存储基座** | ~~(a) 先恢复 `WorkflowTemplateStore`…；(b) 先在**内存 Map** 上做装配/执行…~~ ⇒ **✅ 已解除（2026-10-08）** | 由 **S24 ①** 直接落地：`WorkflowTemplateStore` 已在 main（§2.2 已订正）⇒ 装配层的"读取源"= 该 store（经其**同步快照** `listSync()`，因 seam 的 `listWorkflows()` 是同步契约） |
-| P0-2 **触发入口** | (a) 新增 HTTP 端点 `POST /v1/workflows/templates/:id/run`（经 service→端口→app）；(b) 把用户模板注册为 seam Provider，经既有 `office:workflow`/`engine.execute`；(c) 以 skill 暴露（归档分支曾用 `WorkflowTemplateSkillProvider`） | ⏳ **仍待裁定**。本轮已做 **(b) 的静态部分**（Provider 已注册、`engine.execute('template:<id>') 可达`），但**刻意未改 `office:workflow` 参数 enum** ⇒ **模型可见触发面未打开** |
-| P0-3 **可执行工具白名单/权限边界**（= S24 ③） | 是否限制模板只能调用非破坏性工具 | ⏳ **仍待裁定**。本轮 Provider **不自行定义策略**：步骤工具走**与模型同一条**工具执行门（`globalToolManager.executeTool`）⇒ **不新增特权**；若要叠加**模板专属**白名单，落点在该门 |
+| P0-2 **触发入口** | ~~(a) 新增 HTTP 端点 `POST /v1/workflows/templates/:id/run`；(b) 模板注册为 seam Provider 经 `office:workflow`；(c) 以 skill 暴露~~ ⇒ **✅ 已裁定 = (a)（2026-10-08）** | **裁定理由（另两项被硬约束排除，非偏好）**：(b) `office:workflow` 的 `enum` 在**工具创建时**由 doc 域 `DocOrchestrator.getAvailableWorkflows()` **静态**生成，而用户模板是运行期 CRUD ⇒ 动态模板进不了该 enum；且该工具语义专属 doc 办公编排。(c) 技能按规范**仅提示词注入**（`SkillTool` 无执行分支，`project_rules §1.15-6`）⇒ **不能**承载执行。⇒ 已实现 `/run`（`runWorkflowTemplate` + 端口 + handler + 路由）；**模型可见触发面仍未打开**（未改 `office:workflow`） |
+| P0-3 **可执行工具白名单/权限边界**（= S24 ③） | ~~是否限制模板只能调用非破坏性工具~~ ⇒ **✅ 已裁定 = 仅非破坏性工具（fail-closed）（2026-10-08）** | 事实源 = `tools/toolEffects.ts` 的 `TOOL_EFFECTS`（编译期强制的**唯一声明表**，经 `ToolSideEffectResolver` 注入 ⇒ 不硬编码工具名表）；**判据 = `sideEffect === 'none'`**，**未声明工具（MCP/插件）同样拒绝**；越界 ⇒ **执行前整体拒绝**（`stopReason:'error'`、`completedSteps` 为空），**不静默跳过越界步骤**（CS03）。收口点 = Provider 的 `execute()` 预检（**唯一**收口 ⇒ 任何入口都受约束） |
 
 ## 8. 声明
 
-- ~~**本轮未改任何业务代码**（仅新增本设计文档 + 台账取证登记）。~~ ⇒ **2026-10-08 订正**：**推荐形态 ①+② 已实施**（见 §9）；仍未做 = **P0-2（触发入口）/ P0-3（权限边界）**。
-- 待裁定项 = **P0-2 / P0-3**（主方案已裁定为 ①+②）。
-- ~~裁定后实施清单（草案，不在本轮执行）：装配层纯函数 → Provider → 触发入口 → 端到端单测 → 门槛~~ ⇒ 已按序执行前两步（装配层 → Provider，含端到端单测与门槛）；**触发入口按裁定暂缓**。
+- ~~**本轮未改任何业务代码**（仅新增本设计文档 + 台账取证登记）。~~ ⇒ **2026-10-08 订正**：**推荐形态 ①+② 已实施**（见 §9）；**P0-2 / P0-3 亦已裁定并实施**（见 §10）。
+- **待裁定项 = 0**（主方案 = ①+②；P0-1 已解除；P0-2 = (a)；P0-3 = 仅非破坏性工具）。
+- **仍未做（明确）**：① "内建 4 模板是否也可执行" = **产品选择**（§5.3），需给静态模板补 `tool`；② 是否**再开模型可见触发面**（如新增一个 enum 动态的工作流工具）——本轮**刻意未做**（`office:workflow` 未改）。
 
 ## 9. 实施记录（2026-10-08，①+② 落地）
 
@@ -149,9 +150,35 @@
 2. **定义名加前缀** `template:<id>`（§5.2）：`WorkflowEngine.find()` 按名首个命中 ⇒ 加前缀防撞名；`validate()` 仍在**注册期** fail loud（重复/缺依赖/成环）。
 3. **不重写拓扑**（CS01）：`dependsOn` 原样透传，交 `WorkflowEngine.validate()/orderSteps()`。
 4. **同步快照是派生缓存、非第二事实源**：store 是表的唯一写者 ⇒ 不会漂移；`doInit` 预热以杜绝"未 `list()` 就取用 ⇒ 静默空列表"的隐性错误。
-5. **权限不越权（P0-3 未裁）**：Provider **不自定义**工具白名单，步骤工具走 `globalToolManager.executeTool`（与模型同一条门）⇒ **不新增特权**。
-6. **触发面不打开（P0-2 未裁）**：仅注册 Provider（`engine.execute('template:<id>')` 程序化可达）；**未改** `office:workflow` 的参数 `enum` ⇒ 模型无法据此触发。
+5. ~~**权限不越权（P0-3 未裁）**：Provider 不自定义工具白名单…~~ ⇒ **2026-10-08 同日续裁并实施**（见 §10；③ = 仅非破坏性工具，收口在 Provider 预检）。
+6. ~~**触发面不打开（P0-2 未裁）**：仅注册 Provider…~~ ⇒ **2026-10-08 同日续裁并实施**（见 §10；P0-2 = (a) HTTP `/run`）；**`office:workflow` 的 enum 仍未改动**（模型可见触发面仍未打开）。
 
 **验证（实测）**：`bun run typecheck` **0**；定向 ESLint **0**；`lint:arch` **错误 0 / 警告 4**（基线，未新增）；`bun test tests/workspace/` **32 pass / 0 fail**、`tests/modules/`（seam 族）**112 pass / 0 fail**。
 
-**仍未做（明确）**：P0-2（`/run` 端点 / `office:workflow` enum / skill 三选一）、P0-3（模板专属工具白名单口径与越界行为）、"内建 4 模板是否也可执行"（§5.3 产品选择）。
+**仍未做（明确）**："内建 4 模板是否也可执行"（§5.3 产品选择）；是否再开模型可见触发面 —— 见 §10 结尾。
+
+## 10. 实施记录（2026-10-08 续：**P0-2(a) 触发入口 + ③ 权限边界**）
+
+| # | 文件 | 改动 |
+|---|---|---|
+| 1 | `app/src/workspace/workflowTemplateRunner.ts` | **新建**：`runWorkflowTemplate()`（**纯逻辑 + 依赖注入**；四态归一 `WorkflowTemplateRunOutcome`） |
+| 2 | `app/src/workspace/WorkflowTemplateProvider.ts` | **③ 权限预检**（执行前）：`unsafeTools()` + `ToolSideEffectResolver`（**必填**注入，无隐式默认）；越界 ⇒ 整体拒绝 |
+| 3 | `app/src/runtime/api/workspaceOpsPorts.ts` | `WorkflowTemplateRunOutcomeDto`（逐字镜像）+ `WorkspaceOpsPort.runWorkflowTemplate()` |
+| 4 | `app/src/runtime/api/domainSnapshotOps.ts` | 实现 `runWorkflowTemplate`（动态 import `@modules/workspace` / `WorkflowTemplateStore` / `@modules/workflow`） |
+| 5 | `app/src/infrastructure/http/handlers/workflow-template-handlers.ts` | `handleRunWorkflowTemplate`（四态 → 状态码） |
+| 6 | `app/src/infrastructure/http/handlers/routes/monitor-command-routes.ts` | 路由 `POST /v1/workflows/templates/:id/run` |
+| 7 | `app/src/workspace/index.ts` | 导出 `runWorkflowTemplate` + 结果类型 |
+| 8 | `app/tests/workspace/workflowTemplateRunner.test.ts` | **新建**：四态 6 例 |
+| 9 | `app/tests/workspace/workflowTemplateProvider.test.ts` | 增 **③ 权限策略 3 例**（纯只读放行 / 越界整体拒绝 / 未声明 fail-closed） |
+
+**关键决策**：
+
+1. **P0-2 = (a) HTTP 端点**（理由见表：另两项被硬约束排除）⇒ **模型可见触发面仍未打开**（`office:workflow` 未改；该工具 enum 静态、语义专属 doc）。
+2. **③ 判据 = `sideEffect === 'none'`**：事实源 = `TOOL_EFFECTS`（编译期强制）；**未声明工具同样拒绝**（fail-closed）；经 `ToolSideEffectResolver` **注入**（不硬编码工具名表）。
+3. **越界 = 整体拒绝**（不做"跳过越界步骤继续跑其余"）：静默跳过会让"部分执行"被误认为成功（CS03/CS04）。
+4. **收口唯一**：策略在 Provider 的 `execute()` 预检 ⇒ **任何入口**（今 `/run`，将来的入口）都受同一约束。
+5. **四态 `kind` 判别**（非文案匹配，CS02）⇒ HTTP 状态码映射：`not-found`→404 · `not-executable`→400 · `failed`→400（body 带 `stopReason`）· `completed`→200。
+
+**验证（实测）**：`bun run typecheck` **0**；定向 ESLint **0**；`lint:arch` **错误 0 / 警告 4**（基线，未新增）；`bun test tests/workspace/` **41 pass / 0 fail**（新增 Provider 策略 3 例 + Runner 6 例）；`tests/modules/` **112 pass / 0 fail**。
+
+**仍未做（明确）**：① "内建 4 模板是否也可执行" = **产品选择**（§5.3；需给静态模板补 `tool`，仍不入库）；② 是否**再开模型可见触发面**（新增 enum 动态的工作流工具）—— 现策略已限定非破坏性工具，若要开面属**新增产品决策**，本轮**未做**。

@@ -854,13 +854,18 @@ data: {"type":"done","result":{...}}
 | POST | `/v1/workflows/templates` | ✅ 201；缺 `name`/`steps` → 400；服务端生成 `user_*` id | `workspaceService.createWorkflowTemplate`（同上，预留） |
 | PUT | `/v1/workflows/templates/:id` | ✅ 200；`builtin:*` → 403；未命中 → 404 | `workspaceService.updateWorkflowTemplate`（同上，预留） |
 | DELETE | `/v1/workflows/templates/:id` | ✅ 200 `{success:true}`；`builtin:*` → 403；未命中 → 404 | `workspaceService.deleteWorkflowTemplate`（同上，预留） |
+| POST | `/v1/workflows/templates/:id/run` | ✅ **2026-10-08 新增（P0-2(a)）**；body `{params?}`；200 `{success:true,completedSteps,value?}` / 404 / 400（`not-executable` 或 `failed`，后者含 `stopReason`） | **后端已实现；前端暂无调用方**（模板 UI 未做，P3-1） |
 
 **说明**：2026-10-08 前用户模板仅存于模块私有内存 Map，**进程重启即丢**；本批改为经 `WorkflowTemplateStore` 落盘（语义/状态码不变）。
 
 **`steps[]` 字段扩展（P1-19 ②，2026-10-08）**：`steps[]` 新增**可选 `tool: string`**（显式声明该步骤调用的工具名）。
 **缺省 = 该模板不可执行**（不会被装配为 `WorkflowDefinition`；不派生、不降级）。带 `tool` 的模板经装配层 `templateToDefinition()`
-成为 seam 工作流（名 `template:<模板id>`），由 `WorkflowTemplateProvider` 承载。⚠️ 目前**无对外触发入口**
-（"谁来跑" = P0-2、"模板工具白名单/权限边界" = P0-3，均待裁定）；4 个内建模板不含 `tool` ⇒ 行为不变。
+成为 seam 工作流（名 `template:<模板id>`），由 `WorkflowTemplateProvider` 承载。4 个内建模板不含 `tool` ⇒ 行为不变。
+
+**执行与权限（P0-2(a) + S24 ③，2026-10-08）**：触发入口 = `POST /v1/workflows/templates/:id/run`（**唯一**入口；
+刻意**不**扩 `office:workflow` 的 enum ⇒ **模型不可触发**）。执行前过**权限预检**：
+**仅允许非破坏性工具**（`tools/toolEffects.ts` 的 `sideEffect === 'none'`；**未声明工具同样拒绝**，fail-closed），
+越界 ⇒ **整体拒绝**（400，`completedSteps` 为空、error 列出越界工具），**不静默跳过越界步骤**。
 
 ---
 

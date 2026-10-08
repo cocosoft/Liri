@@ -4,12 +4,13 @@
  * 规格：`.trae/specs/workflow-template-execution-binding.md` §7「裁定后实施清单」——
  * 端到端断言 = 用户模板 → 装配 → **真实 `WorkflowEngine.execute`** → 步骤调用断言。
  *
- * 锁五条：
+ * 锁六条：
  *  1. 只有**显式带 tool** 的模板进入 seam 目录（内建/缺 tool 模板不产出）；
  *  2. 经引擎执行 ⇒ 逐步按**拓扑序**调用注入的执行器，返回 `completedSteps`；
  *  3. 步骤参数与运行时参数**合并**（运行时覆盖步骤）；
  *  4. 首个失败步骤即终止 ⇒ `stopReason:'error'` 且 `completedSteps` 只含此前成功者；
- *  5. 步骤边界响应中止 ⇒ `stopReason:'cancelled'`。
+ *  5. 步骤边界响应中止 ⇒ `stopReason:'cancelled'`；
+ *  6. **③ 权限策略**：仅非破坏性工具（`sideEffect==='none'`）；越界/未声明 ⇒ **执行前拒绝**。
  */
 import { describe, expect, it } from 'bun:test';
 import { WorkflowEngine } from '@modules/workflow';
@@ -19,6 +20,9 @@ import {
 } from '../../src/workspace/WorkflowTemplateProvider';
 import { templateWorkflowName } from '../../src/workspace/workflowTemplateAssembly';
 import type { WorkflowTemplate, WorkflowStep } from '../../src/workspace/types';
+
+/** 测试用副作用解析器：全部视为非破坏性（③ 另有专测） */
+const allPure = () => 'none' as const;
 
 function step(
   id: string,
@@ -69,7 +73,8 @@ describe('WorkflowTemplateProvider：目录', () => {
         template('no-tool', [step('a')]),
         template('partially', [step('a', 'x:y'), step('b')]),
       ],
-      async () => ({ ok: true })
+      async () => ({ ok: true }),
+      allPure
     );
 
     const names = provider.listWorkflows().map((d) => d.name);
@@ -89,7 +94,8 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
           step('publish', 'release:publish', { dependsOn: ['build'] }),
         ]),
       ],
-      exec
+      exec,
+      allPure
     );
     engine.registerProvider(provider);
 
@@ -107,9 +113,10 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
         expect(tool).toBe('x:y');
         expect(params).toEqual({ fromStep: 1, shared: 'runtime' });
         return { ok: true };
-      }
+      },
+      allPure
     );
-    // 直接调用 Provider（步骤参数只能存在于装配产物中）
+    // 直接调用 Provider（步骤参数只能存在于装配产物中 ⇒ 手工注入以锁定合并语义）
     const definition = provider.listWorkflows()[0];
     definition.steps[0] = {
       ...definition.steps[0],
@@ -131,7 +138,8 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
             step('never', 'good:tool', { dependsOn: ['bad'] }),
           ]),
         ],
-        exec
+        exec,
+        allPure
       )
     );
 
@@ -143,7 +151,7 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
     expect(calls.map((c) => c.tool)).toEqual(['good:tool', 'bad:tool']); // 第三步未执行
   });
 
-  it('步骤边界响应中止 ⇒ cancelled（不执行任何步骤）', async () => {
+  it('步骤边界响应中止 ⇒ 不执行任何步骤', async () => {
     const engine = new WorkflowEngine();
     const { calls, exec } = makeExecutor();
     engine.registerProvider(
@@ -154,7 +162,8 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
             step('b', 'x:z', { dependsOn: ['a'] }),
           ]),
         ],
-        exec
+        exec,
+        allPure
       )
     );
 
@@ -178,7 +187,8 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
     engine.registerProvider(
       new WorkflowTemplateProvider(
         () => [template('flow', [step('a', 'x:y')])],
-        async () => ({ ok: true })
+        async () => ({ ok: true }),
+        allPure
       )
     );
 
@@ -192,11 +202,76 @@ describe('WorkflowTemplateProvider：经真实 WorkflowEngine 执行', () => {
     engine.registerProvider(
       new WorkflowTemplateProvider(
         () => [template('flow', [step('a', 'x:y')])],
-        async () => ({ ok: true })
+        async () => ({ ok: true }),
+        allPure
       )
     );
     expect(engine.listWorkflows().map((w) => w.name)).toEqual([
       templateWorkflowName('flow'),
     ]);
+  });
+});
+
+describe('WorkflowTemplateProvider：③ 权限策略（仅非破坏性工具）', () => {
+  /** 按声明的副作用表解析（模拟 `resolveToolEffect`） */
+  const effects: Record<string, 'none' | 'local' | 'external'> = {
+    'read:only': 'none',
+    'write:local': 'local',
+    'bash:run': 'external',
+  };
+  const resolve = (tool: string) =>
+    effects[tool] as 'none' | 'local' | 'external' | undefined;
+
+  it('全部为 `none` 副作用 ⇒ 正常执行', async () => {
+    const { calls, exec } = makeExecutor();
+    const provider = new WorkflowTemplateProvider(
+      () => [template('pure', [step('a', 'read:only')])],
+      exec,
+      resolve
+    );
+
+    const result = await provider.execute(provider.listWorkflows()[0], {});
+
+    expect(result.stopReason).toBe('completed');
+    expect(calls.map((c) => c.tool)).toEqual(['read:only']);
+  });
+
+  it('含 `local` / `external` 工具 ⇒ **执行前**拒绝，且一个步骤都不跑', async () => {
+    const { calls, exec } = makeExecutor();
+    const provider = new WorkflowTemplateProvider(
+      () => [
+        template('mixed', [
+          step('a', 'read:only'),
+          step('b', 'write:local', { dependsOn: ['a'] }),
+          step('c', 'bash:run', { dependsOn: ['b'] }),
+        ]),
+      ],
+      exec,
+      resolve
+    );
+
+    const result = await provider.execute(provider.listWorkflows()[0], {});
+
+    expect(result.stopReason).toBe('error');
+    expect(result.completedSteps).toEqual([]);
+    expect(result.error).toContain('write:local');
+    expect(result.error).toContain('bash:run');
+    expect(calls).toHaveLength(0); // 连第一个只读步骤也不执行（整模板拒绝）
+  });
+
+  it('**未声明**工具（MCP / 插件）⇒ fail-closed 拒绝', async () => {
+    const { calls, exec } = makeExecutor();
+    const provider = new WorkflowTemplateProvider(
+      () => [template('mcp', [step('a', 'mcp__fs__write_file')])],
+      exec,
+      resolve
+    );
+
+    const result = await provider.execute(provider.listWorkflows()[0], {});
+
+    expect(result.stopReason).toBe('error');
+    expect(result.completedSteps).toEqual([]);
+    expect(result.error).toContain('mcp__fs__write_file');
+    expect(calls).toHaveLength(0);
   });
 });

@@ -1,4 +1,6 @@
 import type { Message } from '@modules/session/types/message';
+// C1（2026-10-09）：检查点 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type {
   SessionMetadata,
   DataSessionStatus,
@@ -34,9 +36,7 @@ export class SessionCheckpointService implements CheckpointService {
   }
 
   private generateCheckpointId(): string {
-    return (
-      'cp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 8)
-    );
+    return 'cp_' + Date.now().toString(36) + randomIdSuffix(8);
   }
 
   async createCheckpoint(

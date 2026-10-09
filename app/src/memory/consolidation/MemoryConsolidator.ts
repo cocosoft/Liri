@@ -1,3 +1,6 @@
+// C1（2026-10-09）：记忆合并 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
+
 export interface MergeCandidate {
   sourceIds: string[];
   targetContent: string;
@@ -208,7 +211,7 @@ export class MemoryConsolidator implements IConsolidator {
   }
 
   merge(candidate: MergeCandidate): ConsolidationResult {
-    const createdId = `merged_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const createdId = `merged_${Date.now()}_${randomIdSuffix(7)}`;
     const spaceSaved =
       candidate.sourceIds.length > 0 ? candidate.sourceIds.length * 100 : 0;
 

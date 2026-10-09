@@ -9,6 +9,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：平台消息 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type {
   PlatformAdapter,
   PlatformConfig,
@@ -107,7 +109,7 @@ export class WebhookPlatform implements PlatformAdapter {
 
       return {
         success: true,
-        platformMessageId: `wh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        platformMessageId: `wh-${Date.now()}-${randomIdSuffix(6)}`,
         sentAt: Date.now(),
       };
     } catch (err) {

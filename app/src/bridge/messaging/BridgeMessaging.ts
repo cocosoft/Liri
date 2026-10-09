@@ -3,6 +3,8 @@
  * 提供消息的格式化、解析和安全过滤功能
  */
 
+// C1（2026-10-09）：消息 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import {
   AppError,
   ErrorCategory,
@@ -84,7 +86,7 @@ const DEFAULT_FILTER_OPTIONS: MessageFilterOptions = {
  * @returns 消息ID
  */
 export function createBridgeMessageId(): string {
-  return `bridge_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `bridge_msg_${Date.now()}_${randomIdSuffix(9)}`;
 }
 
 /**

@@ -32,6 +32,8 @@
  */
 
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
+// C1（2026-10-09）：请求 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
 import { getCanonicalModelName } from '../cost/ModelPricing.js';
@@ -186,7 +188,7 @@ export async function trackUsage(
     // [v1.2] 数据流反转：addCost 为唯一计算+累计点
     // 先调 addCost 取返回值，再写 model_usage_logs（两表同源）
     // requestId 贯通两表 + LLMTracker
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const requestId = `req_${Date.now()}_${randomIdSuffix(6)}`;
     let costUSD = 0;
     if (!isError) {
       try {

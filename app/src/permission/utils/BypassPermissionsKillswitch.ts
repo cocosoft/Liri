@@ -6,6 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：旁路 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 const logger = getLogger('permission:utils:bypassPermissionsKillswitch');
 
@@ -415,7 +417,7 @@ export class BypassPermissionsKillswitch {
    * 生成唯一ID
    */
   private generateId(): string {
-    return `bypass_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    return `bypass_${Date.now()}_${randomIdSuffix(9)}`;
   }
 }
 

@@ -28,6 +28,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：turn id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { mergeCompactionRanges } from '@modules/session';
 import {
   handleError,
@@ -173,7 +175,7 @@ export async function* runStreamMessage(
   // 并在流式结束 createAssistantMessage 时复用同一 id（L1019）。
   const assistantMessageId =
     options?.assistantMessageId ??
-    `msg-turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    `msg-turn-${Date.now().toString(36)}-${randomIdSuffix(6)}`;
 
   // P2（08-09）：普通对话轻量检查点（try 外声明，finally 可访问）
   const plainTextCheckpoint = new PlainTextCheckpoint(

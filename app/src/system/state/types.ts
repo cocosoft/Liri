@@ -23,6 +23,9 @@
  * 应用状态类型定义
  */
 
+// C1（2026-10-09）：会话 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
+
 /**
  * 工具权限上下文
  */
@@ -107,6 +110,6 @@ export type SessionId = string;
  */
 export function generateSystemSessionId(): SessionId {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 10);
+  const random = randomIdSuffix(8);
   return `sess_${timestamp}_${random}`;
 }

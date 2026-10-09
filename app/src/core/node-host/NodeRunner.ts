@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events';
 import { NodeDefinition, NodeSession, NodeMetrics } from './types.js';
+// C1（2026-10-09）：会话 id 熵源改用 crypto
+import { randomIdSuffix } from '../ids';
 import { NodeInvoke } from './NodeInvoke.js';
 
 export class NodeRunner extends EventEmitter {
@@ -154,6 +156,6 @@ export class NodeRunner extends EventEmitter {
   }
 
   private generateSessionId(): string {
-    return `ns-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    return `ns-${Date.now()}-${randomIdSuffix(7)}`;
   }
 }

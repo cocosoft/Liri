@@ -4,6 +4,8 @@
  * 特色: access_token 自动管理、消息推送(应用消息)、Markdown 支持
  */
 
+// C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
+import { randomIdSuffix } from '../../utils/common';
 import type {
   IChannelPlugin,
   ChannelMeta,
@@ -80,7 +82,7 @@ class WecomChannelPlugin extends BaseChannelPlugin {
   private createPairingAdapter(): IChannelPairingAdapter {
     return {
       generatePairingCode: async (userId: string) => {
-        const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const code = randomIdSuffix(6).toUpperCase();
         this.logger.info(`企业微信配对码: ${userId} → ${code}`);
         return code;
       },

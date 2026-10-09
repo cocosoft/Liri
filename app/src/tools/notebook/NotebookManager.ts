@@ -2,6 +2,8 @@
  * Notebook管理
  */
 
+// C1（2026-10-09）：notebook id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import {
   writeFileSync,
   readFileSync,
@@ -88,7 +90,7 @@ export class NotebookManager {
    * 创建Notebook
    */
   createNotebook(name: string): Notebook {
-    const id = `notebook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `notebook-${Date.now()}-${randomIdSuffix(9)}`;
     const notebook = new NotebookImpl(id, name);
     this.notebooks.set(id, notebook);
     return notebook;

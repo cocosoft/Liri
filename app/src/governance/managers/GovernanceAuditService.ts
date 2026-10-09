@@ -15,6 +15,8 @@ import type {
 } from '../types/GovernanceTypes';
 import { getLogger } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
+// C1（2026-10-09）：audit id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 const logger = getLogger('governance:managers:governanceAuditService');
 
@@ -193,7 +195,7 @@ export class GovernanceAuditService extends EventEmitter {
    * 生成审计ID
    */
   private generateAuditId(): string {
-    return `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `audit_${Date.now()}_${randomIdSuffix(9)}`;
   }
 
   /**

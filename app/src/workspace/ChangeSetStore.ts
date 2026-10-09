@@ -5,6 +5,8 @@
  * 变更集记录工作项执行期间所有改动的文件，支持统一审核。
  */
 
+// C1（2026-10-09）：变更集 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import {
   existsSync,
   mkdirSync,
@@ -123,7 +125,7 @@ export class ChangeSetStore {
     this.ensureDir();
 
     const now = new Date().toISOString();
-    const id = `cs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `cs_${Date.now()}_${randomIdSuffix(6)}`;
 
     const changeset: ChangeSet = {
       id,

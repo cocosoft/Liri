@@ -9,6 +9,8 @@ import type {
   ToolCallProgress,
 } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
+// C1（2026-10-09）：executionId 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';
@@ -44,7 +46,7 @@ function buildToolExecutionContext(
       ? (input as Record<string, unknown>)
       : {};
   return {
-    executionId: `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    executionId: `exec_${Date.now()}_${randomIdSuffix(9)}`,
     userId: '',
     sessionId: 'default',
     workingDirectory: process.cwd(),

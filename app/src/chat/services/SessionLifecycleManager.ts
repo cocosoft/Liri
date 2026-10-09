@@ -27,6 +27,8 @@
  */
 
 import fs from 'fs';
+// C1（2026-10-09）：会话 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { join } from 'path';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -114,10 +116,7 @@ export class SessionLifecycleManager {
   async createSession(params: CreateSessionParams): Promise<ChatSession> {
     const now = new Date();
     const sessionId =
-      params.id ||
-      'session_' +
-        Date.now().toString(36) +
-        Math.random().toString(36).slice(2);
+      params.id || 'session_' + Date.now().toString(36) + randomIdSuffix(10);
     const session: ChatSession = {
       id: sessionId,
       title: params.title,

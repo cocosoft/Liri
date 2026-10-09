@@ -6,6 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：拒绝事件 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { metrics } from '@opentelemetry/api';
 import type { Counter } from '@opentelemetry/api';
 import { permissionMetrics } from '../metrics/PermissionMetricsStore';
@@ -317,7 +319,7 @@ export class DenialTracker {
    * 生成唯一ID
    */
   private generateId(): string {
-    return `denial_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    return `denial_${Date.now()}_${randomIdSuffix(9)}`;
   }
 
   /**

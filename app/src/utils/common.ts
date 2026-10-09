@@ -1,4 +1,8 @@
 import { getLogger } from '../monitoring/logs/Logger';
+// C1（2026-10-09）：统一 ID 熵源定义在 **core**（全层可用，含 core 自身）；此处**再导出**
+import { randomIdSuffix } from '../core/ids';
+
+export { randomIdSuffix };
 
 const logger = getLogger('utils:common');
 
@@ -74,8 +78,14 @@ export function formatDate(date: Date): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+/**
+ * 统一 ID 熵源（C1，2026-10-09）
+ *
+ * 定义见 `core/ids.ts`（本文件顶部再导出，供既有消费者零改动使用）。
+ */
 export function generateId(prefix: string = 'id'): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  // C1（2026-10-09）：熵源改为 crypto（保持 `prefix_timestamp_suffix` 形态不变）
+  return `${prefix}_${Date.now()}_${randomIdSuffix(6)}`;
 }
 
 export function truncate(str: string, maxLength: number): string {

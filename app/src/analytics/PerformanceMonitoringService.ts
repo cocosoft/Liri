@@ -5,6 +5,8 @@
 
 import os from 'os';
 import { analyticsService } from './AnalyticsService';
+// C1（2026-10-09）：指标 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('analytics:performance');
 
@@ -184,7 +186,7 @@ class PerformanceMonitoringService {
     tags: Record<string, unknown> = {}
   ) {
     const metric = {
-      id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `${type}_${Date.now()}_${randomIdSuffix(9)}`,
       type,
       name,
       value,

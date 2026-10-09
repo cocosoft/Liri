@@ -38,7 +38,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > —— 任一侧改单边即 **CI 阻断**（防「误翻转安全开关」静默改变安全姿态）。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**11 项**（2026-10-07 起；P26-2 P4 新增 `OUTPUT_GUARD_KEEP_ORIGINAL`）。
+> 清单规模：**15 项**（2026-10-09 起；A2/A4/A5 新增 `BASH_APPROVED_REVALIDATE` / `BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` 三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL` 一个默认关的 Execution 取消语义灰度开关）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 |
 |------|:----:|---------|---------|
@@ -53,6 +53,10 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `OUTPUT_GUARD_KEEP_ORIGINAL` | `false` | 护栏**改写审计**（`validation/output_guard_applied`）是否连**原文**一起落盘；**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256） | `FEATURE_OUTPUT_GUARD_KEEP_ORIGINAL=true`；**开 = 未打码内容落入本地事件日志**（P26-2 P4 隐私取舍） |
 | `RESOURCE_GOVERNOR` | `false` | 跨会话准入 / 抢占 / 排队（P26-1） | `FEATURE_RESOURCE_GOVERNOR=true` |
 | `PRO_SECURITY_SUITE` | `false` | 高级安全套件 | `FEATURE_PRO_SECURITY_SUITE=true` |
+| `BASH_APPROVED_REVALIDATE` | `false` | 已批准命令**安全复检**（批准只免审批交互，硬拦截仍须过；A2） | `FEATURE_BASH_APPROVED_REVALIDATE=true` |
+| `BASH_INTERPRETER_GUARD` | `false` | 高能力**解释器命令**人工确认（node/bun/npm/python/pwsh 等；A4） | `FEATURE_BASH_INTERPRETER_GUARD=true` |
+| `BASH_APPROVAL_STRICT` | `false` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5） | `FEATURE_BASH_APPROVAL_STRICT=true` |
+| `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` |
 
 ### 1.5 文件存储规范
 
@@ -324,6 +328,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.19.0**: §1.4 安全开关清单 **11 → 15 项** —— 批次 A 新增三个默认关的 Bash 安全姿态灰度开关 **`BASH_APPROVED_REVALIDATE`**（已批准命令复检）/ **`BASH_INTERPRETER_GUARD`**（高能力解释器确认）/ **`BASH_APPROVAL_STRICT`**（批准严格模式），PR2 新增 **`EXECUTION_TWO_PHASE_CANCEL`**（两段式取消；未确认则保留 lease）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（11 → 15）
 - **v7.18.0**: §1.4 安全开关清单 **10 → 11 项**，新增 **`OUTPUT_GUARD_KEEP_ORIGINAL`**（默认 `false`）—— 承接 **P26-2 P4**（护栏改写审计）：`validation/output_guard_applied` 事件**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256），**开 = 未打码内容落入本地事件日志**（用户裁定 2026-10-07「默认元数据 + 开关放行原文」）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（10 → 11）
 - **v7.17.0**: §1.4 `A2A_*` 清单中 `A2A_API_KEY` → **`A2A_API_KEYS`**（**多钥清单**，逗号分隔；每项 `key` 或 `key@<ISO-8601>` 过期时刻）—— 承接用户裁定「零中断轮换」（2026-10-07；`A2A_ENABLED` 仍默认关闭、**无有效钥 ⇒ 401** 不变）。设计与流程见 `.trae/specs/a2a-multikey-rotation.md`（§8.4 原为"不做"占位，本批改为已实施）
 - **v7.16.0**: §1.4 新增「**安全相关功能开关**」清单（**10 项**默认值 + 生效语义 + 回退方式），并由 `bun run lint:doc-code` 的 `SAFETY_SWITCHES` **逐项断言**（代码 `featureFlags.ts` 字面值 **∩** 本表）—— 单边改动（尤其**误翻转 `OUTPUT_GUARD`**）即 CI 阻断。来源：台账 §24-**R07-2**（外部报告 §五-P1-3）

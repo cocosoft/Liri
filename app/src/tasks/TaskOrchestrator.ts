@@ -14,6 +14,8 @@
  */
 
 import { join } from 'path';
+// C1（2026-10-09）：plan id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import {
   existsSync,
   mkdirSync,
@@ -274,7 +276,7 @@ export class TaskOrchestrator {
   ): Plan {
     void this.initialize();
 
-    const planId = `plan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const planId = `plan_${Date.now().toString(36)}_${randomIdSuffix(4)}`;
 
     const otel = getOTelTracing();
     const span = otel.startSpan('plan.create', {

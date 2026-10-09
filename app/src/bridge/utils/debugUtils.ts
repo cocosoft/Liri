@@ -5,6 +5,8 @@
  */
 
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
+// C1（2026-10-09）：debug id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -74,7 +76,7 @@ export function formatTimestamp(timestamp: number): string {
  * 生成调试ID
  */
 export function generateDebugId(): string {
-  return `debug-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `debug-${Date.now()}-${randomIdSuffix(9)}`;
 }
 
 /**

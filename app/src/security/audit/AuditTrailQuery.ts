@@ -4,6 +4,8 @@
  * 打通到 OTel 遥测管线
  */
 import type { AuditEventType, AuditEventSeverity } from '../SecurityAudit';
+// C1（2026-10-09）：audit id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 /**
  * 审计查询过滤器
@@ -65,7 +67,7 @@ export class AuditTrailQuery {
    * @param entry 审计条目
    */
   record(entry: Omit<AuditTrailResult, 'id'>): string {
-    const id = `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `audit_${Date.now()}_${randomIdSuffix(6)}`;
     const record: AuditTrailResult = { ...entry, id };
 
     this.records.push(record);

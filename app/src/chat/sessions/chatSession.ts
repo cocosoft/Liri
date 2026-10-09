@@ -2,6 +2,8 @@
  * 聊天会话
  */
 
+// C1（2026-10-09）：会话 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import {
   ChatSessionOptions,
   ChatMessage,
@@ -31,9 +33,7 @@ export class ChatSession {
    * @param options 会话选项
    */
   constructor(options: ChatSessionOptions) {
-    this.id =
-      options.id ||
-      Date.now().toString(36) + Math.random().toString(36).substr(2);
+    this.id = options.id || Date.now().toString(36) + randomIdSuffix(10);
     this.name = options.name || `Session ${this.id.substring(0, 6)}`;
     this.options = options;
     this.status = ChatSessionStatus.ACTIVE;

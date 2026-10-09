@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import type http from 'http';
+// C1（2026-10-09）：工作区相关 id 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 import type { HandlerCtx } from './handler-utils';
 import type { SessionInfo } from '@modules/runtime/api/CoreAPI';
 import { handleError } from '@modules/error';
@@ -1511,8 +1513,7 @@ export async function handleDecomposeProject(
 
     // 补充节点默认值，确保与前端 ProjectNode 接口对齐
     const nodes = rawNodes.map((n) => ({
-      id:
-        n.id || `auto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: n.id || `auto-${Date.now()}-${randomIdSuffix(6)}`,
       projectId: _projectId,
       type: n.type || 'task',
       title: String(n.title || '未命名任务'),
@@ -1689,7 +1690,7 @@ export async function handleCreateTask(
 
     const now = new Date().toISOString();
     const task: TaskNodeDto = {
-      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `task_${Date.now()}_${randomIdSuffix(6)}`,
       workspaceId: data.workspaceId,
       projectId: data.projectId,
       title: data.title,

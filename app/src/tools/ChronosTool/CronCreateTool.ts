@@ -4,6 +4,8 @@
  */
 
 import { Tool } from '../types/Tool';
+// C1（2026-10-09）：cron id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import {
@@ -214,7 +216,7 @@ export class CronCreateTool {
           }
 
           const job: any = {
-            id: `cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            id: `cron-${Date.now()}-${randomIdSuffix(6)}`,
             name,
             prompt,
             schedule: parsed,

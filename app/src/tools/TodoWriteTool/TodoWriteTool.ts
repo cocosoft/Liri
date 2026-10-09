@@ -6,6 +6,8 @@
 
 import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
+// C1（2026-10-09）：todo id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolCallProgress } from '../types/Tool';
 import { pickTaskText } from '../utils/ToolUtils';
@@ -298,7 +300,7 @@ class TodoManager {
   addTodo(sessionId: string, content: string, activeForm?: string): Todo {
     const todos = this.getTodos(sessionId);
     const todo: Todo = {
-      id: `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `todo_${Date.now()}_${randomIdSuffix(9)}`,
       content,
       status: 'pending',
       activeForm: activeForm || undefined,
@@ -1086,7 +1088,7 @@ export function normalizeWriteTodos(rawTodos: unknown[]): Array<
     return {
       id:
         (typeof t?.id === 'string' && t.id) ||
-        `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        `todo_${Date.now()}_${randomIdSuffix(9)}`,
       content: content || `任务 ${i + 1}`,
       status,
       activeForm: typeof t?.activeForm === 'string' ? t.activeForm : undefined,

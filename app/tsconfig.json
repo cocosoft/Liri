@@ -164,6 +164,8 @@
       "@modules/workspaces/*": ["workspaces/*"],
       "@modules/resourceGovernor": ["resourceGovernor"],
       "@modules/resourceGovernor/*": ["resourceGovernor/*"],
+      "@modules/execution": ["execution"],
+      "@modules/execution/*": ["execution/*"],
       "@shared/*": ["../../shared/*"]
     }
   },

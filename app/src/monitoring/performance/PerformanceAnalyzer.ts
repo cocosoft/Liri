@@ -11,6 +11,8 @@
 
 import chalk from 'chalk';
 import { getMetricsService, MetricsService } from '../metrics/MetricsService';
+// C1（2026-10-09）：操作 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { getLogger, Logger } from '../logs/Logger';
 
 export interface PerformanceMetrics {
@@ -91,7 +93,7 @@ export class PerformanceAnalyzer {
     operationName: string,
     metadata?: Record<string, unknown>
   ): string {
-    const operationId = `${operationName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const operationId = `${operationName}_${Date.now()}_${randomIdSuffix(9)}`;
 
     const metrics: PerformanceMetrics = {
       operationName,

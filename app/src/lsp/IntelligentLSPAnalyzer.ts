@@ -1,10 +1,11 @@
-//
 /**
  * 智能LSP分析器
  * 提供LSP性能分析、功能评估和优化建议
  */
 
 import type { LSPConnection, LSPClient, LSPServerConfig } from './types.js';
+// C1（2026-10-09）：分析 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 export interface LSPPerformanceAnalysis {
   analysisId: string;
@@ -131,7 +132,7 @@ export class IntelligentLSPAnalyzer {
   ): Promise<LSPPerformanceAnalysis> {
     const cfg = serverConfig as LSPServerConfigWithMeta;
     const analysis: LSPPerformanceAnalysis = {
-      analysisId: `performance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      analysisId: `performance-${Date.now()}-${randomIdSuffix(9)}`,
       language: cfg.language || 'unknown',
       serverType: cfg.serverType || 'unknown',
       performanceScore: 0,
@@ -220,7 +221,7 @@ export class IntelligentLSPAnalyzer {
     }>
   ): Promise<LSPComparisonResult> {
     const comparison: LSPComparisonResult = {
-      comparisonId: `comparison-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      comparisonId: `comparison-${Date.now()}-${randomIdSuffix(9)}`,
       servers: servers.map((s) => s.name),
       metrics: [],
       winner: '',

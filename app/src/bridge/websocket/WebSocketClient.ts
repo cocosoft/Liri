@@ -4,6 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
+// C1（2026-10-09）：消息 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -174,9 +176,7 @@ export class WebSocketClient extends EventEmitter {
     const messageWithMeta = {
       ...message,
       timestamp: message.timestamp || Date.now(),
-      id:
-        message.id ||
-        `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: message.id || `msg_${Date.now()}_${randomIdSuffix(9)}`,
     };
 
     if (

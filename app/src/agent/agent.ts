@@ -3,6 +3,8 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+// C1（2026-10-09）：agent id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { handleError } from '@modules/error/handleError';
 import {
   AIAgent,
@@ -51,7 +53,7 @@ export class AIAgentImpl implements AIAgent {
    * @param eventBus 可选事件总线
    */
   constructor(config: AgentConfig, eventBus?: InternalEventBus) {
-    this.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    this.id = Date.now().toString(36) + randomIdSuffix(10);
     this.name = `Agent ${this.id.substring(0, 6)}`;
     this.config = config;
     this.state = AgentState.IDLE;

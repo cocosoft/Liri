@@ -7,6 +7,8 @@ import {
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { resolveDataSubDir } from '@modules/core';
+// C1（2026-10-09）：rule id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 /**
  * AutoReplyEngine 自动回复引擎
@@ -98,7 +100,7 @@ export class AutoReplyEngine {
   registerRule(rule: Omit<ReplyRule, 'id'>): ReplyRule {
     const newRule: ReplyRule = {
       ...rule,
-      id: `rule_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `rule_${Date.now()}_${randomIdSuffix(6)}`,
     };
 
     if (this.rules.size >= this.config.maxRules) {

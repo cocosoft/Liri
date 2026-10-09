@@ -589,6 +589,22 @@ export interface LiriEventMap {
     featureGate?: { flag: string; enabled: boolean };
     applied: boolean;
   };
+  // PR5-S3（2026-10-09）：Execution 生命周期**状态迁移** / **恢复**审计
+  // （log-only，不入消息 surface；镜像 app 侧同名字段，勿单端改）
+  "execution/status_changed": {
+    executionId: string;
+    generation: number;
+    from: string | null;
+    to: string;
+    messageId?: string;
+  };
+  "execution/recovery": {
+    executionId: string;
+    action: "stale" | "kept";
+    priorStatus: string;
+    priorGeneration: number;
+    generation?: number;
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────

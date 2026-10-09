@@ -33,7 +33,8 @@ import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // （G1-C 的顾问性提示已随之收敛到该入口的"普通路径"分支内）
 import { execBashCommand } from './bashLandlockExec';
 import { SandboxSecurityChecker } from '@modules/sandbox';
-import { completeSecuritySystem } from '@modules/security';
+import { completeSecuritySystem, stripSensitiveEnv } from '@modules/security';
+import { feature } from '@modules/core';
 
 // ── K-5 内存阈值治理：BashTool 大输出源头截断常量 ──────────────
 /**
@@ -222,6 +223,39 @@ function isBaseCommandAllowed(command: string): boolean {
   const cleanName = baseName.replace(/\.(exe|cmd|bat|ps1|com)$/i, '');
 
   return ALLOWED_COMMANDS.has(cleanName);
+}
+
+/**
+ * A4（2026-10-09）：高能力解释器命令名集合。
+ *
+ * 这些命令**能执行任意代码**（`node -e` / `bun -e` / `python -c` / `npm exec` …），
+ * 仅凭"在白名单内"不足以视为安全。灰度开关 `BASH_INTERPRETER_GUARD` 开启时，
+ * 未批准的此类命令不自动放行，转人工确认（见 execute 内实现）。
+ */
+const HIGH_CAPABILITY_INTERPRETERS = new Set([
+  'node',
+  'bun',
+  'npm',
+  'npx',
+  'yarn',
+  'pnpm',
+  'deno',
+  'pwsh',
+  'powershell',
+  'python',
+  'python3',
+  'pip',
+  'pip3',
+]);
+
+/** 命令的基命令是否为高能力解释器（复用白名单的路径/扩展名归一化逻辑） */
+function isHighCapabilityInterpreter(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  const firstWord = trimmed.split(/\s+/)[0].toLowerCase();
+  const baseName = firstWord.replace(/^.*[/\\]/, '');
+  const cleanName = baseName.replace(/\.(exe|cmd|bat|ps1|com)$/i, '');
+  return HIGH_CAPABILITY_INTERPRETERS.has(cleanName);
 }
 
 /** 沙箱安全检查器实例（F2 修复：二次校验） */
@@ -482,7 +516,7 @@ export class BashTool extends BaseTool {
         data: createBashProgress('', '', undefined, true, false),
       });
 
-      // P0-4: 已批准命令放行通道 —— 用户审批批准的危险命令跳过全部安全拦截层
+      // P0-4: 已批准命令放行通道 —— 用户审批批准的命令放行
       // （保留 Zod 输入校验 L333 + Windows 预处理 L351 + 审计日志，见下）
       // P0-2: 统一用 hashCommandForExecution（与提交审批端一致，幂等于已预处理命令）
       const approvedHash = hashCommandForExecution(command);
@@ -490,16 +524,23 @@ export class BashTool extends BaseTool {
         context.sessionId || '',
         approvedHash
       );
+      // A2（2026-10-09）：批准豁免语义重定义（灰度开关 BASH_APPROVED_REVALIDATE，默认关）。
+      // - 关（默认）⇒ 保留 P0-4：已批准命令跳过全部安全拦截层；
+      // - 开 ⇒ 批准只免"审批交互"（ask 不再重复弹卡），危险命令/危险正则/AST/沙箱/
+      //        白名单等**硬拦截仍须过**（CS03：不静默降级；见任务计划 §3-A2）。
+      const revalidateApproved =
+        isApproved && feature('BASH_APPROVED_REVALIDATE');
       // P0-4: 放行即绕过安全拦截层，必须审计记录（session + hash + 命令）确保可追溯
       if (isApproved) {
-        logger.info('已批准命令放行（跳过安全拦截层）', {
+        logger.info('已批准命令放行', {
           sessionId: context.sessionId,
           hash: approvedHash,
           command: command.slice(0, 500),
+          revalidated: revalidateApproved,
         });
       }
 
-      if (!isApproved) {
+      if (!isApproved || revalidateApproved) {
         // 安全审计修复：安全检查强制运行，不可绕过
         // BUG08 修复：增强路径提取，支持 UNC、空格、--path= 形式
         const pathMatch = command.match(
@@ -592,7 +633,9 @@ export class BashTool extends BaseTool {
           );
         }
 
-        if (securityResult.behavior === 'ask') {
+        // A2：批准只免"审批交互"——已批准时不再重复弹 ask 卡；硬拦截（deny/危险命令/
+        // 白名单/沙箱）仍在其上/下继续生效。
+        if (securityResult.behavior === 'ask' && !isApproved) {
           return createToolResult(
             `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
             {
@@ -649,11 +692,37 @@ export class BashTool extends BaseTool {
             }
           );
         }
-      } // 结束 !isApproved 安全拦截层（P0-4：已批准命令跳过）
+      } // 结束安全拦截层（默认：!isApproved；A2 开启时：已批准也复检）
+
+      // A4（2026-10-09）：高能力解释器命令不得仅凭"白名单内"自动放行（灰度开关
+      // BASH_INTERPRETER_GUARD，默认关）。此处位于硬拦截之后 ⇒ 只在命令**本会执行**
+      // （危险命令/deny/白名单/沙箱均已通过）时，把未批准的解释器命令升级为人工确认；
+      // 已批准（isApproved）不再重复弹卡。危险命令不会被降级为"可批准"。
+      if (
+        !isApproved &&
+        feature('BASH_INTERPRETER_GUARD') &&
+        isHighCapabilityInterpreter(command)
+      ) {
+        return createToolResult('需要用户确认: 解释器命令', {
+          requireApproval: true,
+          approvalReason:
+            '解释器命令（可执行任意代码）需人工确认（BASH_INTERPRETER_GUARD）',
+          newMessages: [
+            {
+              role: 'system',
+              content:
+                '需要用户确认: 解释器命令（node/bun/npm/python/pwsh 等）具备执行任意代码能力',
+            },
+          ],
+          metadata: { reason: 'interpreter_guard' },
+        });
+      }
 
       // F5 修复：操作审计日志
+      // A1（2026-10-09）：sessionId 必须取 context.sessionId（此前误用 toolUseId，
+      // 导致 CompleteSecuritySystem 按会话归集/检索失效）。
       completeSecuritySystem.auditAction({
-        sessionId: context.toolUseId || 'unknown',
+        sessionId: context.sessionId || 'unknown',
         action: 'bash_execute',
         actor: 'system',
         target: command.substring(0, 200),
@@ -674,7 +743,13 @@ export class BashTool extends BaseTool {
       }
 
       // 构建环境变量：Windows 上设置 git SSL 后端为 schannel
-      const mergedEnv = { ...process.env, ...(env || {}) };
+      // A3（2026-10-09）：剥离父进程继承的敏感 env（*_API_KEY / *SECRET* / *TOKEN* /
+      // SSH_AUTH_SOCK / 云凭据等），避免密钥泄露进子进程；工具参数显式传入的 env 保持不变。
+      // 剥离清单**单一事实源**：`@modules/security` 的 stripSensitiveEnv（与 hooks 侧同源，避免第二份）。
+      const mergedEnv = {
+        ...stripSensitiveEnv(process.env),
+        ...(env || {}),
+      };
       if (this.isWindows) {
         mergedEnv['GIT_SSL_BACKEND'] = 'schannel';
       }

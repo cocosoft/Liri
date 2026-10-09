@@ -36,6 +36,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：桥接 messageId 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import {
   routeChannelMessage,
@@ -182,7 +184,7 @@ export function bridgeLegacyChannels(options: BridgeOptions): void {
     if (legacy.onMessage) {
       legacy.onMessage(async (msg) => {
         const messageContext: MessageContext = {
-          messageId: `${channelName}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          messageId: `${channelName}-${Date.now()}-${randomIdSuffix(7)}`,
           channelId: channelName as ChannelId,
           senderId: msg.sender,
           senderName: msg.sender,

@@ -5,6 +5,8 @@
  * 生命周期状态：pending → running → paused | review → done | failed
  */
 
+// C1（2026-10-09）：工作项 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import {
   existsSync,
   mkdirSync,
@@ -325,7 +327,7 @@ export class WorkItemStore {
       this.ensureDir();
 
       const now = new Date().toISOString();
-      const id = `wi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const id = `wi_${Date.now()}_${randomIdSuffix(6)}`;
 
       const item: WorkItem = {
         id,

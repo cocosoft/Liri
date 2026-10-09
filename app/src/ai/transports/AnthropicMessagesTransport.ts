@@ -9,6 +9,8 @@
  */
 
 import { BaseTransport } from './BaseTransport';
+// C1（2026-10-09）：工具调用 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { CACHE_BOUNDARY } from '@modules/constants';
 import {
   DEFAULT_CACHE_CONFIG,
@@ -116,9 +118,7 @@ export class MessagesApiTransport extends BaseTransport {
               (tc.function as Record<string, unknown> | undefined) || tc;
             blocks.push({
               type: 'tool_use',
-              id:
-                (tc.id as string) ||
-                `tc_${Math.random().toString(36).slice(2)}`,
+              id: (tc.id as string) || `tc_${randomIdSuffix(10)}`,
               name: (fn.name as string) || '',
               input: (typeof fn.arguments === 'string'
                 ? JSON.parse(fn.arguments)

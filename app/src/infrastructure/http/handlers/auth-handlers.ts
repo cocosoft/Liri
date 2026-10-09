@@ -21,6 +21,8 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
+// C1（2026-10-09）：认证令牌属安全凭据 ⇒ 熵源改用 crypto（并提升到 32 位十六进制 ≈128bit）
+import { randomIdSuffix } from '../../../utils/common';
 import { AuthUserStore } from '../auth/AuthUserStore';
 import { PermissionManager, RoleType } from '@modules/permission';
 
@@ -105,7 +107,7 @@ export async function handleAuthLogin(
     const permissions = isAdmin
       ? ['admin', 'read', 'write']
       : ['read', 'write'];
-    const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const token = `token_${Date.now()}_${randomIdSuffix(32)}`;
     authTokens.set(token, {
       username,
       permissions,
@@ -166,7 +168,7 @@ export async function handleAuthRegister(
     }
 
     authUserStore.addUser(username, password);
-    const token = `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const token = `token_${Date.now()}_${randomIdSuffix(32)}`;
     authTokens.set(token, {
       username,
       permissions: ['read', 'write'],

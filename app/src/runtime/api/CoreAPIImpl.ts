@@ -55,11 +55,16 @@ import { DomainSnapshotOps } from './domainSnapshotOps';
 import { SessionMessagesRead } from './sessionMessagesRead';
 import { MessageMutation } from './messageMutation';
 import { SessionTitling } from './sessionTitling';
+// C3-S1（2026-10-09，`.trae/specs/core-api-impl-split.md`）：工具查询 / 会话 CRUD 与查询 /
+// 代理任务 / 文件类型 —— 自本文件**纯搬迁**（只搬不改）至 `sessionAgentOps.ts`；此处仅薄转发。
+import { SessionAgentOps } from './sessionAgentOps';
+// C3-S3（2026-10-09，`.trae/specs/core-api-impl-split.md`）：LLM 客户端懒初始化 / 模型解析 /
+// 非流式 `chat` —— 自本文件**纯搬迁**（只搬不改）至 `llmChatOps.ts`；此处仅薄转发。
+import { LlmChatOps } from './llmChatOps';
 import type {
   ChatRequest,
   ChatResponse,
   ChatStreamChunk,
-  QuestionData,
   ToolCallSpec,
   ToolResult,
   ToolInfo,
@@ -70,15 +75,12 @@ import type {
   AgentResult,
   ConvertFileParams,
 } from './CoreAPI';
-import type {
-  ConversionResult,
-  FileInfo,
-  ConversionOptions,
-} from '@modules/tools';
+import type { ConversionResult, FileInfo } from '@modules/tools';
 // D-227（2026-10-02，B12）：仅保留**类型位**（`ReturnType<typeof getConverterEngine>` / `FileTypeDetector`）；
 // 值改经 `CoreApiAppDeps` 注入 ⇒ 删除 `@modules/tools` 静态值导入。
 import type { getConverterEngine, FileTypeDetector } from '@modules/tools';
-import { createPermissionManager } from '@modules/permission';
+// C3-S3（2026-10-09）：`createPermissionManager` 随 `ensureLLMClientInitialized` 迁至 `llmChatOps.ts`
+// ⇒ 本文件不再需要该静态值导入（已移除）。
 import type { ChatManager } from '@modules/chat';
 // D-227（2026-10-02，B12 `runtime -> app` 收口）：原静态值导入 `createChatManager` / `computeUnifiedDiff` /
 // `eventNotificationService` / `getCheckpointService` 分别改经 `CoreApiAppDeps` 注入（同步门面）
@@ -104,7 +106,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '@modules/error';
-import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
+// C3-S3（2026-10-09）：`DEFAULT_MODEL_SENTINEL` 随 `resolveSmartModel` 迁至 `llmChatOps.ts`（已移除）。
 // 状态块 statusType 契约（CS02：判据为结构化标记，勿写字面量）
 import { STATUS_TYPE } from '@shared/types';
 // D-227（2026-10-02，B12 `runtime -> app` 收口）：`@modules/ai` 仅保留**类型位**。
@@ -124,21 +126,8 @@ const logger = getLogger('runtime:api:CoreAPIImpl');
 
 let _coreApiInstance: CoreAPIImpl | null = null;
 
-function countConversationMessages(
-  messages: Array<{ role: string }> | undefined
-): number {
-  if (!messages) return 0;
-  return messages.filter((m) => m.role === 'user' || m.role === 'assistant')
-    .length;
-}
-
-/** 统计用户消息数 = 对话轮次 */
-function countUserMessages(
-  messages: Array<{ role: string }> | undefined
-): number {
-  if (!messages) return 0;
-  return messages.filter((m) => m.role === 'user').length;
-}
+// C3-S1（2026-10-09）：`countConversationMessages` / `countUserMessages` 已随会话查询实现
+// 迁至 `sessionAgentOps.ts`（仅在彼处使用）。
 
 /**
  * 模型路由**窄契约**（U7 试点，2026-10-06）。
@@ -270,6 +259,35 @@ export class CoreAPIImpl implements CoreAPI {
   /** B4（2026-10-05）：标题 / 元数据 / 执行阶段追踪实现（外迁 `sessionTitling.ts`） */
   private readonly sessionTitling: SessionTitling = new SessionTitling({
     getChatManager: () => this.chatManager,
+  });
+
+  /** C3-S1（2026-10-09）：工具查询 / 会话 CRUD / 代理任务 / 文件类型（外迁 `sessionAgentOps.ts`） */
+  private readonly sessionAgentOps: SessionAgentOps = new SessionAgentOps({
+    getToolManager: () => this.toolManager,
+    getChatManager: () => this.chatManager,
+    getSessionManager: () => this.sessionManager,
+    getSessionMessagesRead: () => this.sessionMessagesRead,
+    getMessageMutation: () => this.messageMutation,
+    getSessionTitling: () => this.sessionTitling,
+    getCoordinator: () => this.coordinator,
+    getConverterEngine: () => this.converterEngine,
+    getFileTypeDetector: () => this.fileTypeDetector,
+  });
+
+  /** C3-S3（2026-10-09）：LLM 懒初始化 / 模型解析 / 非流式 chat（外迁 `llmChatOps.ts`） */
+  private readonly llmChatOps: LlmChatOps = new LlmChatOps({
+    getChatManager: () => this.chatManager,
+    getToolManager: () => this.toolManager,
+    getSessionTitling: () => this.sessionTitling,
+    getRouter: () => this.appDeps.router,
+    isLlmReady: () => this._llmReady,
+    setLlmReady: (ready) => {
+      this._llmReady = ready;
+    },
+    getSmartRouter: () => this.smartRouter,
+    setLastRouteDecision: (decision) => {
+      this.lastRouteDecision = decision;
+    },
   });
 
   /** SmartRouter 智能路由实例（可选，未设置时使用 modelRouter.resolve 静态路由） */
@@ -423,130 +441,11 @@ export class CoreAPIImpl implements CoreAPI {
    * 关键路径"提前到"服务就绪时刻"，显著缩短启动窗口期消息的等待。
    */
   warmupLLM(): void {
-    this.ensureLLMClientInitialized().catch((err) => {
+    this.llmChatOps.ensureLLMClientInitialized().catch((err) => {
       logger.warning('warmupLLM: LLM 预热失败（首条消息将承担延迟初始化）', {
         error: String(err),
       });
     });
-  }
-
-  /**
-   * 延迟初始化 LLM 客户端
-   *
-   * 确保 ChatManager 的 LLM 客户端在使用前已初始化。
-   * 若 ChatManager 已有 LLM 客户端（如 REPL 路径已调用 initializeChatManager），则跳过。
-   * 这是 HTTP API 路径下 LLM 客户端缺失的补救机制。
-   */
-  private async ensureLLMClientInitialized(): Promise<void> {
-    if (this._llmReady) return;
-
-    // 通过 try-catch 探测 ChatManager 是否已有 LLM 客户端
-    try {
-      this.chatManager.getLLMClient();
-      // 已有 LLM client：补齐工具注册表（若缺失）。
-      // 修复：此前此处直接 return，若 ChatManager 的 client 是未注入工具注册表的
-      // 路径创建的，工具定义将永远为 [] → LLM 收不到工具 → 模型"想调工具却无工具"
-      // → 只输出 think 无 response（think-only 卡死）。
-      if (!this.chatManager.getToolRegistry()) {
-        // D-227（2026-10-02）：`getToolManager()` → `this.toolManager.getInner()`（懒解析注入值；
-        // 本仓 `@modules/tools` 的 `ToolManager` 是 CC 兼容包装层，其 `getInner()` 即
-        // `getToolManager()` 的同一实例 —— 与 §1.16 记载一致）。
-        const toolManager = this.toolManager.getInner();
-        toolManager.loadBuiltinTools();
-        const registry = toolManager.getRegistry();
-        if (registry) {
-          this.chatManager.setToolRegistry(registry);
-          logger.info(
-            'ensureLLMClientInitialized: 已为已有 LLM client 补齐工具注册表'
-          );
-        } else {
-          logger.warning(
-            'ensureLLMClientInitialized: 工具注册表为空，本次会话将无法调用工具'
-          );
-        }
-      }
-      this._llmReady = true;
-      return;
-    } catch (_err) {
-      // LLM 客户端未初始化，继续执行初始化
-    }
-
-    try {
-      // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报），消除静态值导入。
-      const {
-        syncDBProvidersToRegistry,
-        detectUnifiedProviders,
-        resolveModelRoute,
-        RouteKey,
-        providerRegistry,
-        ToolAwareClient,
-      } = await import('@modules/ai');
-
-      // 从 DB 同步所有活跃 Provider 到运行时 ProviderRegistry
-      await syncDBProvidersToRegistry();
-
-      // 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
-      const currentModel = await resolveModelRoute(RouteKey.CHAT);
-      let provider = currentModel
-        ? providerRegistry.getByModel(currentModel)
-        : undefined;
-
-      // 模型未匹配时，按已注册的 Provider 依次尝试
-      if (!provider) {
-        const allProviders = providerRegistry.list();
-        if (allProviders.length > 0) {
-          provider = allProviders[0];
-        }
-      }
-
-      // DB 中无 Provider 时，从环境变量检测创建
-      if (!provider) {
-        const envProviders = detectUnifiedProviders();
-        const envProvider = envProviders[0];
-
-        if (envProvider) {
-          provider = providerRegistry.getOrCreate(envProvider.providerType, {
-            apiKey: envProvider.apiKey || '',
-            baseUrl: envProvider.baseUrl,
-            model: envProvider.model || currentModel,
-          });
-
-          if (envProvider.apiKey) {
-            provider.setApiKey?.(envProvider.apiKey);
-          }
-        }
-      }
-
-      if (!provider) {
-        throw new Error('未找到可用的 API Provider，请在 .env 中配置 API 密钥');
-      }
-
-      const toolManager = this.toolManager.getInner();
-      toolManager.loadBuiltinTools();
-      const registry = toolManager.getRegistry();
-
-      const llmClient = new ToolAwareClient(
-        provider,
-        registry as unknown as import('@modules/ai').ToolRegistry,
-        null
-      );
-
-      this.chatManager.setLLMClient(llmClient);
-      // 无条件设置工具注册表（含 null）：保证 streamMessageFlow 能明确感知工具状态，
-      // 而非静默退化 —— 工具缺失时应能看到 warning 而非"模型想调工具却无工具"
-      this.chatManager.setToolRegistry(registry);
-      // P0-1: 装配权限管理器 —— 激活 ChatManager 工具执行点权限检查（工具执行审批链路）
-      this.chatManager.setPermissionManager(createPermissionManager());
-
-      await this.chatManager.initialize();
-
-      this._llmReady = true;
-      logger.info('LLM 客户端已通过 CoreAPIImpl 延迟初始化');
-    } catch (error) {
-      logger.warning('CoreAPIImpl 延迟初始化 LLM 客户端失败', {
-        error: String(error),
-      });
-    }
   }
 
   /**
@@ -558,156 +457,11 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
-   * 使用 SmartRouter 决策模型（若 SmartRouter 启用且可用）。
-   * 若前端已指定 model（用户在状态栏选择的默认模型），直接使用。
-   * SmartRouter tiers 保持独立，用户选择不覆盖分级配置。
-   * @returns 模型名；若 SmartRouter 未启用则返回从 modelRouter 解析的模型
+   * 非流式对话（实现已外迁 `llmChatOps.ts`；`ensureLLMClientInitialized` / `resolveSmartModel`
+   * 亦随之外迁，C3-S3）
    */
-  private async resolveSmartModel(
-    content: string,
-    sessionId?: string,
-    preferredModel?: string,
-    phaseContext?: import('@modules/ai').PhaseContext
-  ): Promise<{ model: string; tier: string }> {
-    // 用户在前端显式选择了模型 → 直接使用
-    if (preferredModel && preferredModel !== DEFAULT_MODEL_SENTINEL) {
-      return { model: preferredModel, tier: 'user-selected' };
-    }
-
-    // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报）。
-    // 置于「用户显式选择」早返回之后 ⇒ 不改变既有懒加载时机。
-    const { detectPhase, RouteKey } = await import('@modules/ai');
-
-    // S3: 自动检测 PDCA 阶段（当调用方未显式传入 phaseContext 时）
-    const effectivePhase = phaseContext ?? detectPhase(content);
-
-    if (this.smartRouter?.isEnabled()) {
-      try {
-        const decision = await this.smartRouter.resolve(RouteKey.CHAT, {
-          message: content,
-          sessionId,
-          phaseContext: effectivePhase,
-        });
-        this.lastRouteDecision = {
-          ...decision,
-          target: decision.target ?? 'cloud',
-        };
-        if (decision.model) {
-          return { model: decision.model, tier: decision.tier };
-        }
-      } catch (error) {
-        logger.warning('SmartRouter 决策失败，回退 modelRouter', { error });
-      }
-    }
-    // S3: 回退到 modelRouter，支持阶段感知
-    // D-227：`modelRouter.resolveWithPhase(RouteKey.CHAT, …)` → 注入路由器（隐藏 app 符号）。
-    if (effectivePhase) {
-      const phaseModel = this.appDeps.router.resolveWithPhase(effectivePhase);
-      if (phaseModel) return { model: phaseModel, tier: 'phase-routed' };
-    }
-    // D-227：`resolveModelRoute(RouteKey.CHAT)` → 注入路由器的已绑定 `resolveChat()`。
-    return { model: await this.appDeps.router.resolveChat(), tier: 'fallback' };
-  }
-
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    const otel = getOTelTracing();
-    const span = otel.startSpan('coreapi.chat', {
-      'session.id': request.sessionId ?? '',
-    });
-    try {
-      await this.ensureLLMClientInitialized();
-      // E-3（2026-08-23，方案 D2-B）：发消息时立即设占位标题（LLM 调用前，不阻塞主路径）。
-      // 清洗截断 userMessage 作为 preliminary 标题，回复完成后由 autoGenerateTitle LLM 精化覆盖。
-      // 回滚开关（规格书 §二 回滚）：TITLE_STAGE='false' 时跳过占位标题（回退单阶段精化）。
-      if (
-        configManager.env('TITLE_STAGE') !== 'false' &&
-        request.sessionId &&
-        request.content &&
-        this.sessionTitling.shouldAutoTitle(request.sessionId)
-      ) {
-        void this.sessionTitling
-          .setPreliminaryTitle(
-            request.sessionId,
-            this.sessionTitling.sanitizePlaceholderTitle(request.content)
-          )
-          .catch(() => {});
-      }
-      const { model, tier } = await this.resolveSmartModel(
-        request.content,
-        request.sessionId,
-        request.model
-      );
-      const message = await this.chatManager.sendMessage(request.content, {
-        sessionId: request.sessionId,
-        messageId: request.messageId,
-        metadata: { ...request.metadata, routerTier: tier },
-        stream: request.stream,
-        model,
-        onProgress: request.onProgress,
-        images: request.images,
-        temperature: request.temperature,
-        maxTokens: request.max_tokens,
-        top_p: request.top_p,
-        systemPrompt: request.systemPrompt,
-      });
-
-      // 检查是否返回了待处理的用户交互（非流式路径）
-      const pendingInteraction = (
-        message.metadata as Record<string, unknown> | undefined
-      )?.pendingInteraction as QuestionData | undefined;
-      if (pendingInteraction) {
-        logger.info('CoreAPI.chat 返回待处理交互', {
-          sessionId: request.sessionId,
-          questionId: pendingInteraction.questionId,
-        });
-        otel.endSpan(span, SpanStatusCode.OK);
-        return {
-          content: pendingInteraction.question,
-          sessionId: message.sessionId || request.sessionId || '',
-          messageId: message.id,
-          finishReason: 'pending_interaction',
-          pendingInteraction,
-        };
-      }
-
-      const content =
-        typeof message.content === 'string'
-          ? message.content
-          : message.content
-              .map((block) => ('value' in block ? block.value : ''))
-              .join('');
-
-      // 非流式路径也触发自动标题生成（fire-and-forget，不阻塞响应）
-      if (content && request.sessionId) {
-        this.sessionTitling.autoGenerateTitle(
-          request.sessionId,
-          request.content,
-          content
-        );
-      }
-
-      otel.endSpan(span, SpanStatusCode.OK);
-      return {
-        content,
-        sessionId: message.sessionId || request.sessionId || '',
-        messageId: message.id,
-        finishReason: 'stop',
-      };
-    } catch (error) {
-      otel.recordError(
-        span,
-        error instanceof Error ? error : new Error(String(error))
-      );
-      otel.endSpan(span, SpanStatusCode.ERROR, String(error));
-      await handleError(error, { module: 'core:api', action: 'chat' });
-
-      return {
-        content: '',
-        sessionId: request.sessionId || '',
-        messageId: '',
-        finishReason: 'error',
-      };
-    }
+    return this.llmChatOps.chat(request);
   }
 
   async *chatStream(
@@ -726,7 +480,7 @@ export class CoreAPIImpl implements CoreAPI {
       maxTokens: request.max_tokens ?? undefined,
       temperature: request.temperature ?? undefined,
     });
-    await this.ensureLLMClientInitialized();
+    await this.llmChatOps.ensureLLMClientInitialized();
     // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报）。
     // 同一方法内只取一次；`eventNotificationService` 在 try 内 `.on` 与 finally 内 `.off` 复用。
     const { computeUnifiedDiff, eventNotificationService } =
@@ -809,7 +563,7 @@ export class CoreAPIImpl implements CoreAPI {
           .catch(() => {});
       }
 
-      const { model, tier } = await this.resolveSmartModel(
+      const { model, tier } = await this.llmChatOps.resolveSmartModel(
         request.content,
         request.sessionId,
         request.model
@@ -852,6 +606,8 @@ export class CoreAPIImpl implements CoreAPI {
         priority: request.priority,
         // P0-1（2026-08-26）：流中断续写（从断点继续而非从头重发）
         continueFrom: request.continue_from,
+        // PR2（2026-10-09）：外部取消信号透传 → ChatManager 中继到会话 controller
+        signal: request.signal,
         onUsage: (usage) => {
           // AB-10 修复：累加而非覆盖——主回复 + 各工具轮次 LLM 调用都会回调，
           // 累加后 usage SSE 事件反映整轮消息的完整用量
@@ -1484,63 +1240,7 @@ export class CoreAPIImpl implements CoreAPI {
     sessionId: string,
     toolCall: ToolCallSpec
   ): Promise<ToolResult> {
-    const startTime = Date.now();
-    logger.info('CoreAPIImpl.executeTool() 入口', {
-      toolName: toolCall.name,
-      sessionId,
-      hasArgs: !!toolCall.arguments,
-    });
-
-    try {
-      const rawResult = await this.toolManager.executeTool(
-        toolCall.name,
-        toolCall.arguments as Record<string, unknown>,
-        { sessionId }
-      );
-      const result = rawResult as {
-        output?: unknown;
-        data?: unknown;
-        error?: string | null;
-        success: boolean;
-      };
-
-      const response = {
-        toolCallId: toolCall.id,
-        toolName: toolCall.name,
-        success: result.success ?? true,
-        data: result.data ?? null,
-        result: result.output ?? null,
-        error: result.error ?? null,
-        executionTime: Date.now() - startTime,
-      };
-      logger.info('CoreAPIImpl.executeTool() 出口', {
-        toolName: toolCall.name,
-        success: response.success,
-        hasData: !!response.data,
-        error: response.error,
-        executionTime: response.executionTime,
-      });
-      return response;
-    } catch (error) {
-      const errorResponse = {
-        toolCallId: toolCall.id,
-        toolName: toolCall.name,
-        success: false,
-        data: null,
-        result: null,
-        error: error instanceof Error ? error.message : String(error),
-        executionTime: Date.now() - startTime,
-      };
-      handleError(error, {
-        module: 'runtime:api',
-        action: 'executeTool执行异常',
-        context: {
-          toolName: toolCall.name,
-          executionTime: errorResponse.executionTime,
-        },
-      });
-      return errorResponse;
-    }
+    return this.sessionAgentOps.executeTool(sessionId, toolCall);
   }
 
   // ---- B1 纯搬迁（2026-10-05）：以下 22 个「领域只读快照 / 梦境 / 知识库文档 / 技能·插件·通道端口」
@@ -1809,78 +1509,20 @@ export class CoreAPIImpl implements CoreAPI {
     return this.domainSnapshotOps.getProjectOpsPort();
   }
 
+  /** 实现已外迁 `sessionAgentOps.ts`（C3-S1，2026-10-09） */
   async listTools(): Promise<ToolInfo[]> {
-    const registrations = this.toolManager.getTools();
-
-    return registrations.map((reg) => ({
-      name: reg.definition.name,
-      description: reg.definition.description,
-      parameters: reg.definition.parameters
-        ? Object.fromEntries(
-            reg.definition.parameters.map((p) => [
-              p.name,
-              {
-                type: p.type,
-                description: p.description,
-                required: p.required,
-              },
-            ])
-          )
-        : {},
-      enabled: reg.definition.enabled ?? true,
-    }));
+    return this.sessionAgentOps.listTools();
   }
 
   async getTool(name: string): Promise<ToolInfo | undefined> {
-    const reg = this.toolManager.getTool(name);
-    if (!reg) {
-      return undefined;
-    }
-
-    return {
-      name: reg.definition.name,
-      description: reg.definition.description,
-      parameters: reg.definition.parameters
-        ? Object.fromEntries(
-            reg.definition.parameters.map((p) => [
-              p.name,
-              {
-                type: p.type,
-                description: p.description,
-                required: p.required,
-              },
-            ])
-          )
-        : {},
-      enabled: reg.definition.enabled ?? true,
-    };
+    return this.sessionAgentOps.getTool(name);
   }
 
   async createSession(params?: SessionCreateParams): Promise<SessionInfo> {
-    const session = await this.chatManager.createSession({
-      title: params?.title || 'New Session',
-      tags: params?.tags,
-      mode: params?.mode,
-      metadata: params?.metadata,
-    });
-
-    return {
-      id: session.id,
-      title: session.title,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      messageCount: countConversationMessages(session.messages),
-      roundCount: countUserMessages(session.messages),
-      metadata: session.metadata,
-    };
+    return this.sessionAgentOps.createSession(params);
   }
 
-  /**
-   * D3（2026-08-24）：事件级 fork——委托 ChatManager → SessionGateway.forkSession
-   *
-   * 子会话刚创建（messages.jsonl 为空），messageCount/roundCount 置 0；
-   * 历史对话以事件前缀保留（[1..boundary]，seq 不变），血缘在 session.metadata。
-   */
+  /** D3（2026-08-24）：事件级 fork（实现已外迁 `sessionAgentOps.ts`） */
   async forkSession(
     sourceId: string,
     options: { boundary?: number; childTitle?: string } = {}
@@ -1891,63 +1533,11 @@ export class CoreAPIImpl implements CoreAPI {
     copied?: number;
     error?: string;
   }> {
-    const result = await this.chatManager.forkSession(sourceId, options);
-    if (!result.success || !result.session) {
-      return {
-        success: result.success,
-        boundary: result.boundary,
-        copied: result.copied,
-        error: result.error,
-      };
-    }
-    const s = result.session;
-    return {
-      success: true,
-      session: {
-        id: s.id,
-        title: s.title,
-        createdAt: new Date(s.createdAt),
-        updatedAt: new Date(s.updatedAt),
-        messageCount: 0,
-        roundCount: 0,
-        // UnifiedSession.metadata（SessionMetadata）展开为可序列化对象
-        metadata: { ...(s.metadata as Record<string, unknown>) },
-      },
-      boundary: result.boundary,
-      copied: result.copied,
-    };
+    return this.sessionAgentOps.forkSession(sourceId, options);
   }
 
   async getSession(sessionId: string): Promise<SessionInfo | undefined> {
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      return undefined;
-    }
-    // TB-14（2026-09-24）：同 getCurrentSession——`sessionManager` 的 `chatSessions` 是
-    // **进程内存 Map**，对跨进程/跨实例的软删除一无所知，会把幽灵会话当有效返回
-    //（实测复验第 6 步：删除后 `GET /v1/sessions/:id` 仍 200）。故返回前校验持久层
-    // 是否仍存在（存储层已按磁盘目录回查，见 FileSystemUnifiedStorage.getSession）。
-    const persisted = await this.chatManager
-      .getSessionGateway()
-      .getSession(sessionId);
-    if (!persisted) {
-      logger.info('getSession:会话已不存在于持久层,按不存在返回', {
-        sessionId,
-      });
-      return undefined;
-    }
-
-    return {
-      id: session.id,
-      title: session.title,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      messageCount: countConversationMessages(session.messages),
-      roundCount:
-        session.metadata.roundCount ?? countUserMessages(session.messages),
-      source: this._resolveSessionSource(session),
-      metadata: session.metadata,
-    };
+    return this.sessionAgentOps.getSession(sessionId);
   }
 
   // ---- B2 纯搬迁（2026-10-05）：以下「消息读取 / 事件派生 / 派生校验 / 事件流 / 审批块」
@@ -1968,7 +1558,7 @@ export class CoreAPIImpl implements CoreAPI {
     }>;
     hasMore: boolean;
   }> {
-    return this.sessionMessagesRead.getSessionMessages(sessionId, query);
+    return this.sessionAgentOps.getSessionMessages(sessionId, query);
   }
 
   async verifySessionDerivation(sessionId: string): Promise<{
@@ -1976,7 +1566,7 @@ export class CoreAPIImpl implements CoreAPI {
     diff?: DerivationDiff;
     reason?: string;
   }> {
-    return this.sessionMessagesRead.verifySessionDerivation(sessionId);
+    return this.sessionAgentOps.verifySessionDerivation(sessionId);
   }
 
   async getSessionEvents(
@@ -2000,7 +1590,7 @@ export class CoreAPIImpl implements CoreAPI {
     hasEarlier: boolean;
     hasMore: boolean;
   }> {
-    return this.sessionMessagesRead.getSessionEvents(sessionId, query);
+    return this.sessionAgentOps.getSessionEvents(sessionId, query);
   }
 
   async updateMessageBlocks(
@@ -2008,7 +1598,7 @@ export class CoreAPIImpl implements CoreAPI {
     messageId: string,
     blocks: Array<Record<string, unknown>>
   ): Promise<void> {
-    return this.messageMutation.updateMessageBlocks(
+    return this.sessionAgentOps.updateMessageBlocks(
       sessionId,
       messageId,
       blocks
@@ -2022,7 +1612,7 @@ export class CoreAPIImpl implements CoreAPI {
     sessionId: string,
     messageId: string
   ): Promise<{ success: boolean; messages: Array<Record<string, unknown>> }> {
-    return this.messageMutation.deleteMessage(sessionId, messageId);
+    return this.sessionAgentOps.deleteMessage(sessionId, messageId);
   }
 
   /**
@@ -2038,92 +1628,15 @@ export class CoreAPIImpl implements CoreAPI {
     deletedMessageIds: string[];
     undoResults: Array<{ roundId: number; success: boolean; error?: string }>;
   }> {
-    return this.messageMutation.truncateMessages(sessionId, beforeMessageId);
-  }
-
-  /**
-   * 从会话对象解析来源渠道标识
-   *
-   * 优先级：
-   * 1. session.metadata.channel（新创建的会话会在 metadata 中存储 channel）
-   * 2. 从 session ID 前缀推断（兼容旧会话）
-   * 3. 兜底返回 'web'（Web/Tauri 客户端等未显式标注来源的会话）
-   */
-  private _resolveSessionSource(
-    session: import('@modules/session/types/session').ChatSession
-  ): string {
-    // 优先从 metadata.channel 获取
-    const channel = session.metadata?.channel as string | undefined;
-    if (channel) return channel;
-
-    // 从 session ID 前缀推断（兼容 QQ 等渠道创建的历史会话）
-    const id = session.id;
-    if (
-      typeof id === 'string' &&
-      (id.startsWith('c2c:') || id.startsWith('group:'))
-    ) {
-      return 'qq';
-    }
-
-    // 兜底：Web/Tauri 客户端发起的会话统一标记为 web
-    return 'web';
+    return this.sessionAgentOps.truncateMessages(sessionId, beforeMessageId);
   }
 
   async listSessions(): Promise<SessionInfo[]> {
-    const all = this.sessionManager.getSessions();
-    // TB-14（2026-09-24）：同 getSession——列表侧也须过滤"磁盘目录已消失"的幽灵会话
-    //（跨进程/跨实例软删除，`chatSessions` 内存 Map 未同步；实测复验第 5 步删除后仍列出）。
-    const presence = await Promise.all(
-      all.map((s) => this.chatManager.getSessionGateway().getSession(s.id))
-    );
-    const sessions = all.filter((_, i) => presence[i] !== null);
-    const ghostCount = all.length - sessions.length;
-    if (ghostCount > 0) {
-      logger.info('listSessions:已过滤磁盘不存在的幽灵会话', {
-        ghostCount,
-        total: all.length,
-      });
-    }
-
-    let filteredCount = 0;
-    const result = sessions
-      // 过滤空壳会话：崩溃残留，有 session.json 但无消息
-      .filter((session) => {
-        const msgCount = countConversationMessages(session.messages);
-        if (msgCount > 0) return true;
-        // 有消息的会话一定保留；无消息但有崩溃标记的是空壳，过滤掉
-        const crashRecovery = (
-          session.metadata as Record<string, unknown> | undefined
-        )?.crashRecovery;
-        const keep = !crashRecovery;
-        if (!keep) filteredCount += 1;
-        return keep;
-      })
-      .map((session) => ({
-        id: session.id,
-        title: session.title,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-        messageCount: countConversationMessages(session.messages),
-        roundCount: countUserMessages(session.messages),
-        source: this._resolveSessionSource(session),
-        metadata: session.metadata,
-      }));
-    // P2-2：记录空壳会话被过滤条数，便于排查"会话缺失"类问题（总数 vs 返回数对不上）
-    if (filteredCount > 0) {
-      logger.info('listSessions:过滤空壳会话', {
-        total: sessions.length,
-        filteredCount,
-        returned: result.length,
-      });
-    }
-    return result;
+    return this.sessionAgentOps.listSessions();
   }
 
   /**
-   * 全文搜索消息（FTS5 倒排索引）
-   * 2026-09-18：全局搜索"搜不到历史消息"根因是前端只做会话标题
-   * 客户端过滤、从未接入后端消息全文搜索；此方法暴露 FTS 能力。
+   * 全文搜索消息（FTS5 倒排索引）（实现已外迁 `sessionAgentOps.ts`）
    */
   async searchMessagesFTS(
     query: string,
@@ -2140,77 +1653,26 @@ export class CoreAPIImpl implements CoreAPI {
       timestamp: number;
     }>
   > {
-    const gateway = this.chatManager.getSessionGateway();
-    // N-66：`allowedSessionIds` 由调用方（HTTP handler 按 moduleType 算好）下推，
-    // 谓词在 FTS 引擎内生效 ⇒ 见 SessionGateway.searchMessagesFTS 的说明
-    const results = await gateway.searchMessagesFTS(
+    return this.sessionAgentOps.searchMessagesFTS(
       query,
-      undefined,
-      limit ?? 10,
+      limit,
       allowedSessionIds
     );
-    return results.map((r) => ({
-      id: r.document.id,
-      sessionId: (r.document.metadata as Record<string, unknown> | undefined)
-        ?.sessionId as string | undefined,
-      title: r.document.title,
-      content: r.document.content,
-      snippet: r.snippet,
-      score: r.score,
-      timestamp: r.document.timestamp,
-    }));
   }
 
   /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话 */
   async listLiteSessions(): Promise<
     Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
   > {
-    try {
-      const gateway = this.chatManager.getSessionGateway();
-      if (
-        gateway &&
-        'listLiteSessions' in (gateway as unknown as Record<string, unknown>)
-      ) {
-        return (
-          gateway as unknown as {
-            listLiteSessions: () => Promise<
-              Array<{
-                id: string;
-                title?: string;
-                status?: string;
-                updatedAt?: string;
-              }>
-            >;
-          }
-        ).listLiteSessions();
-      }
-    } catch (_err) {
-      // 降级到内存列表
-    }
-    // 降级：内存列表
-    return this.sessionManager.getSessions().map((s) => ({
-      id: s.id,
-      title: s.title,
-      status: s.state,
-      updatedAt: s.updatedAt?.toISOString(),
-    }));
+    return this.sessionAgentOps.listLiteSessions();
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    // 走 ChatManager 完整删除路径（持久化删除会话 + 联动清理检查点）；
-    // 原实现走 sessionManager(轻量 adapter) 仅删内存，导致磁盘会话与检查点残留
-    await this.chatManager.deleteSession(sessionId);
-    // D-LIFE（2026-09-17）：会话删除 → 释放其执行阶段追踪器（防 per-session Map 永久驻留）
-    // B4（2026-10-05）：Map 随 C17 外迁 ⇒ 经模块方法删除。
-    this.sessionTitling.deleteTracker(sessionId);
+    return this.sessionAgentOps.deleteSession(sessionId);
   }
 
   async clearAllSessions(moduleType?: string): Promise<void> {
-    // moduleType 可选：仅清空指定模块会话（防其他调用方误删项目会话）
-    await this.chatManager.clearAllSessions(moduleType);
-    // D-LIFE（2026-09-17）：清空会话 → 同步释放全部执行阶段追踪器
-    // B4（2026-10-05）：Map 随 C17 外迁 ⇒ 经模块方法清空。
-    this.sessionTitling.clearTrackers();
+    return this.sessionAgentOps.clearAllSessions(moduleType);
   }
 
   async switchSession(sessionId: string): Promise<void> {
@@ -2220,55 +1682,52 @@ export class CoreAPIImpl implements CoreAPI {
     // （如 `session-handlers.ts` 的 HTTP 处理器）立刻拿到 `undefined`**，导致"切到不存在会话"
     // **返回成功而非设计中的 404**，前端 P2-3 的跳转/清空分支从未生效。
     // 必须**传播**该 promise（`return`），让 404 语义与拒绝归属都回到调用方。
-    return this.chatManager.switchSession(sessionId);
+    return this.sessionAgentOps.switchSession(sessionId);
   }
 
   /**
-   * P2-5 修复：压缩会话 — 委托 ChatManager 正式 API。
-   * 原实现经 coreAPI.sessionGateway 取门面（CoreAPIImpl 无此属性）恒 undefined
-   * → 恒 501，前端右键"压缩会话"无任何反应。
+   * P2-5 修复：压缩会话（实现已外迁 `sessionAgentOps.ts`）
    */
   async compactSession(sessionId: string): Promise<unknown> {
-    return this.chatManager.compactSession(sessionId);
+    return this.sessionAgentOps.compactSession(sessionId);
   }
 
   /**
-   * 修剪（清理过期/超出保留策略的会话）— 委托 ChatManager 正式 API。
-   * 原 handlePruneSession 反射 coreAPI.sessionGateway.pruneNow 恒 501（与 P2-5 同根因）。
+   * 修剪（清理过期/超出保留策略的会话）（实现已外迁 `sessionAgentOps.ts`）
    */
   async pruneSessions(): Promise<unknown> {
-    const gateway = this.chatManager.getSessionGateway();
-    return gateway.pruneNow();
+    return this.sessionAgentOps.pruneSessions();
   }
 
   /**
-   * 重命名会话标题（实现已外迁 `sessionTitling.ts`；`implements CoreAPI` + HTTP/命令/测试消费者）
+   * 重命名会话标题（实现已外迁 `sessionAgentOps.ts`；`implements CoreAPI` + HTTP/命令/测试消费者）
    */
   async renameSession(
     sessionId: string,
     title: string,
     source: 'user' | 'ai' = 'user'
   ): Promise<void> {
-    return this.sessionTitling.renameSession(sessionId, title, source);
+    return this.sessionAgentOps.renameSession(sessionId, title, source);
   }
 
   /**
-   * E-3（2026-08-23，方案 D2-B）：设置占位标题（实现已外迁 `sessionTitling.ts`；测试消费者）
+   * E-3（2026-08-23，方案 D2-B）：设置占位标题（实现已外迁 `sessionAgentOps.ts`）
    */
   async setPreliminaryTitle(sessionId: string, title: string): Promise<void> {
-    return this.sessionTitling.setPreliminaryTitle(sessionId, title);
+    return this.sessionAgentOps.setPreliminaryTitle(sessionId, title);
   }
 
   /**
    * E-3（2026-08-23，方案 D2-B）：是否需要生成/精化标题
-   * （实现已外迁 `sessionTitling.ts`；测试消费者经实例方法调用形态访问宿主）
+   * （实现已外迁 `sessionAgentOps.ts` → `sessionTitling.ts`；
+   * 测试消费者经实例方法调用形态访问宿主 ⇒ 保留同名私有转发）
    */
   private shouldAutoTitle(sessionId: string): boolean {
-    return this.sessionTitling.shouldAutoTitle(sessionId);
+    return this.sessionAgentOps.shouldAutoTitle(sessionId);
   }
 
   /**
-   * 更新会话元数据（实现已外迁 `sessionTitling.ts`；`implements CoreAPI` + HTTP 消费者）
+   * 更新会话元数据（实现已外迁 `sessionAgentOps.ts`；`implements CoreAPI` + HTTP 消费者）
    */
   async updateSessionMeta(
     sessionId: string,
@@ -2282,18 +1741,18 @@ export class CoreAPIImpl implements CoreAPI {
       workMode?: 'plan' | 'do';
     }
   ): Promise<void> {
-    return this.sessionTitling.updateSessionMeta(sessionId, meta);
+    return this.sessionAgentOps.updateSessionMeta(sessionId, meta);
   }
 
   /**
-   * 生成会话标题（实现已外迁 `sessionTitling.ts`；`implements CoreAPI` + HTTP 消费者）
+   * 生成会话标题（实现已外迁 `sessionAgentOps.ts`；`implements CoreAPI` + HTTP 消费者）
    */
   async generateSessionTitle(
     sessionId: string,
     userMessage: string,
     assistantResponse: string
   ): Promise<string | null> {
-    return this.sessionTitling.generateSessionTitle(
+    return this.sessionAgentOps.generateSessionTitle(
       sessionId,
       userMessage,
       assistantResponse
@@ -2301,129 +1760,23 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async getCurrentSession(): Promise<SessionInfo | undefined> {
-    const session = this.sessionManager.getCurrentSession();
-    if (!session) {
-      return undefined;
-    }
-    // TB-14（2026-09-24）：当前会话指针是**进程内存**字段，删除只在"执行删除的那个进程"内
-    // 复位。因此当会话被**另一个进程/实例**（如 CLI 命令）删除后，本进程的指针仍指向它，
-    // 直接返回会把"幽灵 id"暴露给前端（前端据"id 不在会话列表中"告警并回退）。
-    // 故返回前校验持久层是否仍存在，失效则视为无当前会话——语义与 switchSession 的
-    // P2-3（切换不存在的会话抛 404，不静默重建）一致，复用既有 gateway 句柄，不新增依赖。
-    const gateway = this.chatManager.getSessionGateway();
-    const persisted = await gateway.getSession(session.id);
-    if (!persisted) {
-      logger.info(
-        'getCurrentSession:当前会话已不存在于持久层,按无当前会话返回',
-        {
-          sessionId: session.id,
-        }
-      );
-      return undefined;
-    }
-    return {
-      id: session.id,
-      title: session.title,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      messageCount: countConversationMessages(session.messages),
-      roundCount: countUserMessages(session.messages),
-      metadata: session.metadata,
-    };
+    return this.sessionAgentOps.getCurrentSession();
   }
 
   async executeAgentTask(params: AgentTaskParams): Promise<AgentResult> {
-    const startTime = Date.now();
-    const taskId = this.coordinator.addTask({
-      description: params.description,
-      prompt: params.prompt,
-      subagentType: params.subagentType,
-    });
-
-    if (!params.runInBackground) {
-      const { results } = await this.coordinator.executeAll();
-      const task = results.find((r) => r.id === taskId);
-
-      if (!task) {
-        return {
-          agentId: taskId,
-          content: '',
-          state: 'failed',
-          summary: {
-            durationMs: Date.now() - startTime,
-            tokensUsed: 0,
-          },
-        };
-      }
-
-      return {
-        agentId: taskId,
-        content: task.result || task.error || '',
-        state: task.status === 'completed' ? 'completed' : 'failed',
-        summary: {
-          durationMs:
-            (task.endTime || Date.now()) - (task.startTime || startTime),
-          tokensUsed: task.usage?.totalTokens || 0,
-        },
-      };
-    }
-
-    return {
-      agentId: taskId,
-      content: '',
-      state: 'running',
-      summary: {
-        durationMs: 0,
-        tokensUsed: 0,
-      },
-    };
+    return this.sessionAgentOps.executeAgentTask(params);
   }
 
   async getAgentProgress(agentId: string): Promise<AgentProgress | undefined> {
-    const task = this.coordinator.getTaskStatus(agentId);
-    if (!task) {
-      return undefined;
-    }
-
-    const progressMap: Record<string, number> = {
-      pending: 0,
-      running: 50,
-      completed: 100,
-      failed: 100,
-      stopped: 100,
-      timed_out: 100,
-    };
-
-    return {
-      agentId: task.id,
-      state: task.status,
-      progress: progressMap[task.status] || 0,
-      message: task.description || task.error || task.status,
-    };
+    return this.sessionAgentOps.getAgentProgress(agentId);
   }
 
   async convertFile(params: ConvertFileParams): Promise<ConversionResult> {
-    const options: ConversionOptions = {
-      maxFileSize: params.options?.maxFileSize as number | undefined,
-      includeMetadata: params.options?.includeMetadata as boolean | undefined,
-      formatSpecific: params.options?.formatSpecific as
-        | Record<string, unknown>
-        | undefined,
-    };
-
-    return this.converterEngine.convertFile(params.filePath, options);
+    return this.sessionAgentOps.convertFile(params);
   }
 
   async detectFileType(filePath: string): Promise<FileInfo> {
-    let size = 0;
-    try {
-      const stat = fs.statSync(filePath);
-      size = stat.size;
-    } catch (_err) {
-      size = 0;
-    }
-
-    return this.fileTypeDetector.detect(filePath, size);
+    return this.sessionAgentOps.detectFileType(filePath);
   }
 
   /**

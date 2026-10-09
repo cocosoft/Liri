@@ -9,6 +9,8 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
+// C1（2026-10-09）：strategy id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 const logger = getLogger('governance:managers:governanceStrategyManager');
 
@@ -265,7 +267,7 @@ export class GovernanceStrategyManager extends EventEmitter {
     const now = Date.now();
     const newStrategy: GovernanceStrategy = {
       ...strategy,
-      id: `strategy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `strategy_${Date.now()}_${randomIdSuffix(9)}`,
       createdAt: now,
       updatedAt: now,
       version: 1,

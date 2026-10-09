@@ -1,4 +1,6 @@
 import { securityIntegrationService } from './SecurityIntegration';
+// C1（2026-10-09）：审计 id 熵源改用 crypto（统一 ID 工具）
+import { randomIdSuffix } from '../utils/common';
 import type { SecurityDecision } from './SecurityIntegration';
 import type { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import type { SecurityPermissionView } from './PermissionManager';
@@ -341,7 +343,7 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
   auditAction(record: Omit<AuditRecord, 'id' | 'timestamp'>): AuditRecord {
     const audit: AuditRecord = {
       ...record,
-      id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `audit_${Date.now()}_${randomIdSuffix(6)}`,
       timestamp: Date.now(),
     } as AuditRecord;
 

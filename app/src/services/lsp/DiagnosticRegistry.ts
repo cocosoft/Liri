@@ -1,3 +1,6 @@
+// C1（2026-10-09）：diagnostic id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
+
 export type DiagnosticSeverity = 'Error' | 'Warning' | 'Info' | 'Hint';
 
 export type DiagnosticFile = {
@@ -29,7 +32,7 @@ export class DiagnosticRegistry {
   private maxDeliveredFiles = 500;
 
   registerDiagnostics(serverName: string, files: DiagnosticFile[]): void {
-    const id = `${serverName}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `${serverName}_${Date.now()}_${randomIdSuffix(6)}`;
     this.pendingDiagnostics.set(id, {
       serverName,
       files,

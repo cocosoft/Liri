@@ -2,6 +2,8 @@
  * Notebook工具实现
  */
 
+// C1（2026-10-09）：cell id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import {
   NotebookTool,
   Notebook,
@@ -74,7 +76,7 @@ export class NotebookToolImpl implements NotebookTool {
     code: string,
     language: string
   ): Promise<CodeCell> {
-    const id = `cell-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `cell-${Date.now()}-${randomIdSuffix(9)}`;
     const cell = new CodeCellImpl(id, code, language);
     (notebook as any).addCell(cell);
     return cell;
@@ -87,7 +89,7 @@ export class NotebookToolImpl implements NotebookTool {
     notebook: Notebook,
     content: string
   ): Promise<MarkdownCell> {
-    const id = `cell-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `cell-${Date.now()}-${randomIdSuffix(9)}`;
     const cell = new MarkdownCellImpl(id, content);
     (notebook as any).addCell(cell);
     return cell;

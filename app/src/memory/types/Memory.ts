@@ -1,3 +1,5 @@
+// C1（2026-10-09）：记忆 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { MemoryType } from './MemoryType';
 import { MemoryMetadata } from './MemoryMetadata';
 
@@ -68,7 +70,7 @@ export function createMemory(
 ): Memory {
   const now = new Date();
   return {
-    id: `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `memory_${Date.now()}_${randomIdSuffix(9)}`,
     content: data.content,
     metadata: data.metadata,
     createdAt: now,

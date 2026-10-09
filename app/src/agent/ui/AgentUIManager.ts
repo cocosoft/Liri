@@ -7,6 +7,8 @@ import {
   AgentResponse,
 } from '../models/types';
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：订阅/告警 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 const logger = getLogger('agent:ui:agentUIManager');
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
@@ -89,7 +91,7 @@ export class AgentUIManager {
   }
 
   subscribeToAgentState(agentId: string, callback: StateCallback): string {
-    const subscriptionId = `sub_${agentId}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const subscriptionId = `sub_${agentId}_${Date.now()}_${randomIdSuffix(6)}`;
     const subscription: EventSubscription = {
       id: subscriptionId,
       agentId,
@@ -232,7 +234,7 @@ export class AgentUIManager {
 
   addAlert(type: Alert['type'], message: string, agentId?: string): void {
     const alert: Alert = {
-      id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: `alert_${Date.now()}_${randomIdSuffix(6)}`,
       type,
       message,
       agentId,

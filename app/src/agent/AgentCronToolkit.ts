@@ -12,6 +12,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：cron 任务 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 const logger = getLogger('agent:cronToolkit');
 
 // ==========================================
@@ -73,7 +75,7 @@ export class AgentCronToolkit {
       };
     }
 
-    const id = `cron_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `cron_${Date.now()}_${randomIdSuffix(6)}`;
     const job: AgentCronJob = {
       id,
       name,

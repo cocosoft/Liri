@@ -14,6 +14,8 @@ import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 import { resolveDataSubDir } from '@modules/core/paths';
+// C1（2026-10-09）：pitfall id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 /** pitfall 来源 */
 export type PitfallSource = 'pdl' | 'verifier' | 'other';
@@ -108,7 +110,7 @@ export class PitfallRegistry {
       return existing;
     }
     const entry: PitfallEntry = {
-      id: `pitfall-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `pitfall-${Date.now()}-${randomIdSuffix(6)}`,
       description: key,
       rawDescription: input.description,
       error: input.error.slice(0, 800),

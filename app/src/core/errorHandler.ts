@@ -39,6 +39,8 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from './errors.js';
+// C1（2026-10-09）：追踪 id 熵源改用 crypto
+import { randomIdSuffix } from './ids';
 import { isAbortReason } from './abortReason.js';
 import { resolveLogger, LogLevel } from './spi/LoggerService.js';
 import { resolveOTelTracing } from './spi/OTelService.js';
@@ -91,7 +93,7 @@ function recordError(
   appError: AppError,
   context?: Record<string, unknown>
 ): void {
-  const id = `track_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  const id = `track_${Date.now()}_${randomIdSuffix(9)}`;
   const entry: TrackedEntry = {
     id,
     error: appError,

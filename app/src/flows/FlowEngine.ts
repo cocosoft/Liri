@@ -4,6 +4,8 @@
  */
 
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：execution id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 /**
  * 流程步骤
@@ -141,7 +143,7 @@ export class FlowEngine {
       };
     }
 
-    const executionId = `exec_${flowId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const executionId = `exec_${flowId}_${Date.now()}_${randomIdSuffix(6)}`;
 
     const context: FlowContext = {
       flowId,

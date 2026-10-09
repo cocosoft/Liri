@@ -5,6 +5,8 @@
 
 import path from 'path';
 import fs from 'fs';
+// C1（2026-10-09）：启动报告 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { resolveDataSubDir, resolveProjectRoot } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
@@ -139,7 +141,7 @@ export class StartupReportService {
    */
   public generateReport(): StartupReport {
     const report: StartupReport = {
-      id: `startup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `startup_${Date.now()}_${randomIdSuffix(9)}`,
       startTime: this.startTime,
       endTime: this.endTime || Date.now(),
       totalDuration: (this.endTime || Date.now()) - this.startTime,

@@ -14,6 +14,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：实例 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { SessionLock } from '../SessionLock';
 import type { LockOptions, LockAcquireResult } from '../SessionLock';
 
@@ -103,7 +105,7 @@ export class PrioritySessionLock {
     this.priorityAgingIntervalMs =
       config.priorityAgingIntervalMs ?? DEFAULT_PRIORITY_AGING_MS;
     this.enablePriorityAging = config.enablePriorityAging ?? false;
-    this.instanceId = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.instanceId = `${process.pid}-${Date.now()}-${randomIdSuffix(6)}`;
   }
 
   start(): void {

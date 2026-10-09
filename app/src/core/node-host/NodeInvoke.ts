@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events';
 import { InvokeRequest, InvokeResponse, NodeDefinition } from './types.js';
+// C1（2026-10-09）：请求 id 熵源改用 crypto
+import { randomIdSuffix } from '../ids';
 import { ExecPolicy, execPolicy } from './ExecPolicy.js';
 
 export interface NodeInvokeHandler {
@@ -156,7 +158,7 @@ export class NodeInvoke extends EventEmitter {
   }
 
   private generateRequestId(): string {
-    return `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    return `req-${Date.now()}-${randomIdSuffix(7)}`;
   }
 }
 

@@ -121,6 +121,13 @@ export const LIRI_EVENT_NAMES = [
   'pattern/decision',
   // ─── Code Mode（CM-5，2026-08-25：code_run 执行事件） ───
   'assistant/code_run',
+  // ─── Execution 生命周期（PR5-S3，2026-10-09） ───
+  // 立项理由 = **可重建**：Execution 生命周期（PR1 起）此前仅内存 + `execution_events` 表，
+  // 会话事件流内没有它的轨迹 ⇒ 会话结束后无法按序重建"这次运行的 execution 状态如何演进"。
+  // log-only（不入消息 surface，与 `agent/recovery` / `session/wake` 同口径）；
+  // ⚠️ 如实边界：execution 状态**不直接进入模型请求** ⇒ **非** `§1.6` 红线所迫。
+  'execution/status_changed',
+  'execution/recovery',
 ] as const;
 
 /** 会话事件名（联合类型）——两端事件名联合均由此派生 */

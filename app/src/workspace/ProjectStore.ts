@@ -5,6 +5,8 @@
  * 支持项目级规则继承（.liri/projects/<id>/rules.md）。
  */
 
+// C1（2026-10-09）：项目 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import {
   existsSync,
   mkdirSync,
@@ -339,9 +341,7 @@ export class ProjectStore {
       this.ensureDir();
 
       const now = new Date().toISOString();
-      const id =
-        params.id ??
-        `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const id = params.id ?? `proj_${Date.now()}_${randomIdSuffix(6)}`;
 
       // 解析 sandboxPath：用户指定 > 默认路径（~/Documents/LiriProjects/<projectId>）
       const sandboxPath =

@@ -1,4 +1,6 @@
 import { getLogger } from '../loggerFacade.js';
+// C1（2026-10-09）：性能采样 id 熵源改用 crypto
+import { randomIdSuffix } from '../ids';
 import { TtlCache } from '../spi/CacheService.js';
 
 const logger = getLogger('core:performance');
@@ -108,8 +110,7 @@ export class PerformanceProfiler {
    */
   startSession(sessionId?: string): string {
     this.currentSessionId =
-      sessionId ||
-      `session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      sessionId || `session-${Date.now()}-${randomIdSuffix(7)}`;
     this.sessionStartTime = Date.now();
     this.events = [];
     return this.currentSessionId;
@@ -133,7 +134,7 @@ export class PerformanceProfiler {
   ): string {
     if (!this.enabled) return '';
 
-    const eventId = `event-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const eventId = `event-${Date.now()}-${randomIdSuffix(7)}`;
     const event: PerformanceEvent = {
       id: eventId,
       metric,
@@ -204,7 +205,7 @@ export class PerformanceProfiler {
     }
 
     const event: PerformanceEvent = {
-      id: `event-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      id: `event-${Date.now()}-${randomIdSuffix(7)}`,
       metric,
       name,
       startTime: Date.now() - duration,

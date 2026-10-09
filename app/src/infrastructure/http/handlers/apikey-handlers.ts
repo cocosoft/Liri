@@ -21,6 +21,8 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
+// C1（2026-10-09）：API Key 属安全凭据 ⇒ 熵源必须用 crypto（弱随机 = 可预测密钥）
+import { randomIdSuffix } from '../../../utils/common';
 
 const apiKeys = new Map<
   string,
@@ -70,7 +72,7 @@ export async function handleCreateApiKey(
     }
 
     const id = `key_${Date.now()}`;
-    const key = `sk-${Math.random().toString(36).substr(2, 32)}`;
+    const key = `sk-${randomIdSuffix(32)}`;
 
     apiKeys.set(id, { name, key, createdAt: Date.now() });
 

@@ -7,6 +7,8 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
+// C1（2026-10-09）：id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 /**
  * 历史记录条目
@@ -53,7 +55,7 @@ export interface UseTextInputResult {
  * 生成唯一ID
  */
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${randomIdSuffix(9)}`;
 }
 
 /**

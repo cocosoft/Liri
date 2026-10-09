@@ -9,6 +9,8 @@
  */
 
 import { getLogger, getOTelMetrics } from '@modules/monitoring';
+// C1（2026-10-09）：hook key 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 const logger = getLogger('voice:metrics');
 
 /** OTel 直方图：记录各埋点耗时分布 */
@@ -85,7 +87,7 @@ export class TTSMetricsCollector {
    * @param metadata 元数据（如 voice, textLength 等）
    */
   startHook(hook: MetricsHook, metadata?: Record<string, unknown>): void {
-    const key = `${hook}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const key = `${hook}_${Date.now()}_${randomIdSuffix(6)}`;
     this.activeEntries.set(key, {
       hook,
       startTime: performance.now(),

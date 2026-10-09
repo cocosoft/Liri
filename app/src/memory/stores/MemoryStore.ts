@@ -3,6 +3,8 @@ import { existsSync } from 'fs';
 import fsExtra from 'fs-extra';
 import { join, dirname, basename, resolve, normalize } from 'path';
 import matter from 'gray-matter';
+// C1（2026-10-09）：记忆 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { glob } from 'glob';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
@@ -1145,9 +1147,7 @@ export class MemoryStoreImpl implements MemoryStore {
       const { data, content: memoryContent } = matter(content);
 
       // 生成新的记忆ID（如果文件中没有）
-      const id =
-        data.id ||
-        `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const id = data.id || `memory_${Date.now()}_${randomIdSuffix(9)}`;
 
       // 构建记忆对象
       const memory: Memory = {

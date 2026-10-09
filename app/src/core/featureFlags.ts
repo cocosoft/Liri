@@ -274,6 +274,41 @@ export const FEATURE_FLAGS = {
    */
   RESOURCE_GOVERNOR: false,
 
+  // ───── Bash 安全姿态（A2/A4/A5，2026-10-09；默认关 = 零行为变更的灰度开关）─────
+  /**
+   * A2：已批准命令**安全复检**（默认关）。
+   *
+   * 开 ⇒ 批准只免"审批交互"（ask 不再重复弹卡），危险命令/危险正则/AST/沙箱/白名单
+   * 等**硬拦截仍须过**；关（默认）⇒ 保留既有"已批准命令跳过全部安全拦截层"行为。
+   * `FEATURE_BASH_APPROVED_REVALIDATE=true`。
+   */
+  BASH_APPROVED_REVALIDATE: false,
+  /**
+   * A4：高能力解释器命令**人工确认**（默认关）。
+   *
+   * 开 ⇒ 未批准的 node/bun/npm/npx/python/pwsh 等解释器命令不得仅凭"白名单内"放行，
+   * 转人工确认；关（默认）⇒ 行为不变。`FEATURE_BASH_INTERPRETER_GUARD=true`。
+   */
+  BASH_INTERPRETER_GUARD: false,
+  /**
+   * A5：批准**严格模式**（默认关）。
+   *
+   * 开 ⇒ 禁用"命令名级放行"（仅保留精确 hash 命中），消除同名不同参漂移放行；
+   * 关（默认）⇒ 保留既有命令名级放行。`FEATURE_BASH_APPROVAL_STRICT=true`。
+   */
+  BASH_APPROVAL_STRICT: false,
+
+  // ───── Execution 生命周期（PR2，2026-10-09；默认关 = 零行为变更的灰度开关）─────
+  /**
+   * PR2：**两段式取消**（默认关）。
+   *
+   * 开 ⇒ 渠道空转超时走两段：`CANCEL_REQUESTED` → `abort()`（端到端信号）→ grace（5s）确认
+   * 底层停止 → `CANCELLED`；**grace 内未确认 ⇒ 保留 lease**（不释放 session 所有权，后续消息
+   * 排队 `QUEUED`，不启动下一次）。关（默认）⇒ 保留既有"超时即释放、best-effort 关闭"行为。
+   * `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true`。
+   */
+  EXECUTION_TWO_PHASE_CANCEL: false,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,

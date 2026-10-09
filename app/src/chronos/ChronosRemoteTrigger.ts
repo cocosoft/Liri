@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+// C1（2026-10-09）：任务 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '@modules/config';
@@ -55,7 +57,7 @@ export class ChronosRemoteTrigger {
     taskName: string,
     payload?: Record<string, unknown>
   ): Promise<TriggerResult> {
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const taskId = `task_${Date.now()}_${randomIdSuffix(6)}`;
     const startTime = Date.now();
 
     const attempt = async (): Promise<TriggerResult> => {

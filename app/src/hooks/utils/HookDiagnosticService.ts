@@ -5,6 +5,8 @@
 
 import * as fs from 'fs';
 import { join } from 'path';
+// C1（2026-10-09）：诊断日志 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { getLogger } from '@modules/monitoring';
 import { resolveLogsDir } from '@modules/core';
 import { handleError } from '@modules/error';
@@ -121,7 +123,7 @@ export class HookDiagnosticService {
    * 生成日志ID
    */
   private generateLogId(): string {
-    return `hook_log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `hook_log_${Date.now()}_${randomIdSuffix(9)}`;
   }
 
   /**

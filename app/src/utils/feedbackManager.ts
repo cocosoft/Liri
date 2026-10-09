@@ -16,6 +16,8 @@ const logger = getLogger('utils:feedbackManager');
 import { handleError } from '@modules/error/handleError';
 import { sanitizeInput } from '@modules/security';
 import { resolveDataDir } from '@modules/core';
+// C1（2026-10-09）：feedback id 熵源改用 crypto
+import { randomIdSuffix } from './common';
 
 export interface FeedbackEntry {
   id: string;
@@ -124,7 +126,7 @@ export class FeedbackManager {
    * 生成唯一ID
    */
   private generateId(): string {
-    return `feedback-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `feedback-${Date.now()}-${randomIdSuffix(9)}`;
   }
 
   /**

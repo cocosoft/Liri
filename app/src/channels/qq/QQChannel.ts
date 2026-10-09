@@ -7,6 +7,8 @@
  *   1. GET gateway URL → 2. WebSocket connect → 3. Identify → 4. Heartbeat → 5. 监听 AT_MESSAGE_CREATE
  */
 
+// C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
+import { randomIdSuffix } from '../../utils/common';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -168,7 +170,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     this.pairing = {
       generatePairingCode: async (userId: string) => {
-        const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const code = randomIdSuffix(6).toUpperCase();
         this.logger.info(`QQ Bot 配对码: ${userId} → ${code}`);
         return code;
       },

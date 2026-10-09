@@ -6,6 +6,8 @@
  */
 
 import { NotebookImpl } from './types/Notebook.js';
+// C1（2026-10-09）：notebook/cell id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { CodeCellImpl, MarkdownCellImpl } from './types/Cell.js';
 import { CellExecutionState } from './types/NotebookTool.js';
 import type {
@@ -114,7 +116,7 @@ export class JupyterNotebookConverter {
     const notebookName =
       typeof metadata.title === 'string' ? metadata.title : 'Untitled';
     const notebook = new NotebookImpl(
-      `notebook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      `notebook-${Date.now()}-${randomIdSuffix(9)}`,
       notebookName
     );
     notebook.cells = cellsData.map((cellData) =>
@@ -131,7 +133,7 @@ export class JupyterNotebookConverter {
     const obj = (data ?? {}) as Record<string, unknown>;
     const cellType = obj.cell_type ?? 'code';
     const source = sourceToString(obj.source);
-    const id = `cell-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `cell-${Date.now()}-${randomIdSuffix(9)}`;
     const metadata: Record<string, unknown> = {
       ...((obj.metadata as Record<string, unknown>) ?? {}),
       // 保留原始 cell_type，供 IpynbConverter 等下游区分 raw

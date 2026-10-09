@@ -5,6 +5,8 @@
  */
 
 import { loadSharp } from '@modules/utils/externalDeps';
+// C1（2026-10-09）：canvas id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { resolveOutputDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:canvas');
@@ -139,7 +141,7 @@ export class CanvasInstance {
   private lastAccessedAt: number;
 
   constructor(config: CanvasConfig) {
-    this.canvasId = `canvas_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    this.canvasId = `canvas_${Date.now()}_${randomIdSuffix(6)}`;
     this.width = config.width;
     this.height = config.height;
     this.backgroundColor = config.backgroundColor ?? '#ffffff';

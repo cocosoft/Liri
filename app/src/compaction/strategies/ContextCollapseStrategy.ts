@@ -14,6 +14,8 @@ import {
   type CompactConfig,
   type CompactMetadata,
 } from '../ContextEngine';
+// C1（2026-10-09）：collapse marker id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 export interface ContextCollapseConfig extends CompactConfig {
   collapseThreshold: number;
@@ -302,7 +304,7 @@ export class ContextCollapseStrategy extends ContextEngine {
     ].join('\n');
 
     return {
-      id: `collapse_marker_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `collapse_marker_${Date.now()}_${randomIdSuffix(4)}`,
       role: 'system',
       content: summaryContent,
       createdAt: new Date(),

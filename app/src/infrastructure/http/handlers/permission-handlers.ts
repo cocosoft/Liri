@@ -28,6 +28,8 @@
  */
 
 import type http from 'http';
+// C1（2026-10-09）：规则 id 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 import { sendError, readRequestBody } from './handler-utils';
 import {
   PermissionBehavior,
@@ -574,7 +576,7 @@ export async function handleCreatePermissionGrant(
 
     const storage = createFineGrainedPermissionManager().getStorage();
     const rule = {
-      id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: `rule_${Date.now()}_${randomIdSuffix(6)}`,
       resourceId,
       operation: operation as OperationType,
       action: action as PermissionAction,

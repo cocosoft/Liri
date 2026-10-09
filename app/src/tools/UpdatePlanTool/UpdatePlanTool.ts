@@ -6,6 +6,8 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+// C1（2026-10-09）：plan id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:UpdatePlanTool:UpdatePlanTool');
@@ -131,7 +133,7 @@ export class UpdatePlanTool extends BaseTool {
       ];
 
       const plan: UpdatePlan = {
-        planId: `plan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        planId: `plan_${Date.now()}_${randomIdSuffix(6)}`,
         target: params.target,
         type: params.type,
         steps,

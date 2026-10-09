@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 增强LSP管理器
  * 提供高级LSP功能、性能优化和智能诊断
@@ -7,6 +7,8 @@
 import type { LSPClient, LSPServerConfig, LSPConnection } from './types.js';
 
 import type { LSPServerManager } from './LSPServerManager.js';
+// C1（2026-10-09）：LSP id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { createLSPServerManager } from './LSPServerManager.js';
 import { LSPClient as BaseLSPClient } from './LSPClient.js';
 import type { LSPServerInstance } from './LSPServerInstance.js';
@@ -362,7 +364,7 @@ export class EnhancedLSPManager {
 
     for (const baseCompletion of baseCompletions) {
       const intelligentCompletion: IntelligentCompletion = {
-        completionId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        completionId: `comp-${Date.now()}-${randomIdSuffix(9)}`,
         text: (baseCompletion.label as string) || '',
         type: this.determineCompletionType(baseCompletion),
         relevance: this.calculateRelevance(baseCompletion, context),
@@ -540,7 +542,7 @@ export class EnhancedLSPManager {
     baseDiagnostics: Record<string, unknown>[]
   ): Promise<CodeAnalysisResult> {
     const analysis: CodeAnalysisResult = {
-      analysisId: `analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      analysisId: `analysis-${Date.now()}-${randomIdSuffix(9)}`,
       documentUri,
       language,
       complexity: this.calculateCodeComplexity(code),
@@ -610,7 +612,7 @@ export class EnhancedLSPManager {
           }
         | undefined;
       return {
-        issueId: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        issueId: `issue-${Date.now()}-${randomIdSuffix(9)}`,
         type: this.mapSeverityToType(diagnostic.severity as number),
         severity: this.mapSeverityToLevel(diagnostic.severity as number),
         message: (diagnostic.message as string) || '未知问题',
@@ -782,7 +784,7 @@ export class EnhancedLSPManager {
    * 生成连接ID
    */
   private generateConnectionId(language: string): string {
-    return `conn-${language}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    return `conn-${language}-${Date.now()}-${randomIdSuffix(6)}`;
   }
 
   /**

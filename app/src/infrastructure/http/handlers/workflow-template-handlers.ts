@@ -11,6 +11,8 @@
  */
 
 import type http from 'http';
+// C1（2026-10-09）：用户模板 id 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
@@ -360,7 +362,7 @@ export async function handleCreateWorkflowTemplate(
     }
 
     const template: WorkflowTemplateDto = {
-      id: `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `user_${Date.now()}_${randomIdSuffix(6)}`,
       name: data.name,
       description: data.description || '',
       category: data.category || 'custom',

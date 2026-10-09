@@ -10,6 +10,8 @@
  */
 
 import type http from 'http';
+// C1（2026-10-09）：agent id 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 import { join } from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
@@ -289,7 +291,7 @@ export async function handleGetSwarmStatus(
       workspaceId,
       agents:
         config.defaultAgents?.map((agent: Record<string, unknown>) => ({
-          id: agent.id || `agent_${Math.random().toString(36).slice(2, 8)}`,
+          id: agent.id || `agent_${randomIdSuffix(6)}`,
           name: agent.name || 'Unnamed Agent',
           role: agent.role || 'worker',
           status: 'idle' as const,

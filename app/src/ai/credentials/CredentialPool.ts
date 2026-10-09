@@ -5,6 +5,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：凭据 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('ai:credentials:credentialPool');
@@ -96,9 +98,7 @@ export class CredentialPool {
       'id' | 'disabled' | 'failures' | 'lastUsedAt' | 'createdAt'
     > & { id?: string }
   ): string {
-    const id =
-      credential.id ||
-      `cred_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = credential.id || `cred_${Date.now()}_${randomIdSuffix(6)}`;
 
     this.credentials.set(id, {
       ...credential,

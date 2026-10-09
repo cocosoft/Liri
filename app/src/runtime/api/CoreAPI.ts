@@ -101,6 +101,21 @@ export interface ChatRequest {
    * 渠道/定时/后台入口应显式传 `'background'`；前端人工对话不传（即 `interactive`）。
    */
   priority?: RequestPriority;
+  /**
+   * 执行标识（PR1，2026-10-09；`@modules/execution`）
+   *
+   * 由调用方（如渠道 `messageRouter`）在 `ExecutionManager.acquire()` 后注入，
+   * 用于把一次 Agent 运行与 Execution 生命周期关联（ownership / generation fencing）。
+   */
+  executionId?: string;
+  /**
+   * 取消信号（PR1 契约外显，2026-10-09）
+   *
+   * ⚠️ **生产者属 PR2**：PR1 仅外显契约；PR2 起由 Router/入口注入并在
+   * `Router → Agent → ToolRunner → Bash/HTTP/MCP` 端到端贯通（复用既有内部
+   * `ChatManager.streamAbortController.signal` 链路）。
+   */
+  signal?: AbortSignal;
 }
 
 /** 聊天响应 */

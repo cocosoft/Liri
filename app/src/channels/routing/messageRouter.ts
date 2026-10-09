@@ -41,11 +41,13 @@ import {
 } from '../monitoring/ChannelMetrics.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '../../error/handleError';
+// C1（2026-10-09）：traceId 熵源改用 crypto（统一 ID 工具）
+import { randomIdSuffix, sleep } from '../../utils/common';
 import {
   claimMessage,
   releaseProcessing,
   finalizeMessage,
-  markMessageProcessed,
+  rejectMessage,
 } from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
 // 2026-10-01 D-206（子批 D，`channels -> ai` 倒挂收口，2 条边之一）：类型位改**相对直连
@@ -60,7 +62,18 @@ import type { DmPolicyConfig } from '../policy/DmPolicy';
 import { checkRateLimit } from './rateLimiter';
 // 2026-08-20 流式并轨：渠道消息改走 chatStream 流式轨道（与 client 同管线）
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI';
+// PR1（2026-10-09）：Execution 生命周期（ownership + generation fencing；详见 spec）
+// PR2（2026-10-09）：类型化中止原因（替代 error.message 文案匹配；CS02）
+import {
+  getExecutionManager,
+  ExecutionAbortedError,
+  isExecutionAbortedError,
+} from '@modules/execution';
 import type { RequestPriority } from '@modules/types/requestPriority';
+// PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
+import { feature } from '@modules/core';
+// PR2 遗留-2（2026-10-09）：准入等待上限可配（env 覆盖，测试用短超时）
+import { configManager } from '@modules/config';
 // 2026-08-20 工具进度通知人话文案（替代裸工具名）
 import { formatToolNotifySummary } from './toolNotifySummary';
 // 2026-08-20 spec qq-file-transfer：出站文件路由
@@ -96,8 +109,6 @@ const contentDedupCache = new Map<string, number>();
 /** 内容级去重窗口（毫秒）—— 5s，覆盖 WebSocket 重传窗口 */
 const CONTENT_DEDUP_WINDOW_MS = 5000; // 5 秒内容去重窗口
 
-/** AI 调用超时（毫秒）—— 防止渠道连接因长时间等待 LLM 而超时断开 */
-const CHAT_TIMEOUT_MS = 120_000; // 2 分钟（历史值，见 STREAM_IDLE_TIMEOUT_MS）
 /**
  * 流式并轨（2026-08-20）：渠道 chatStream 空转超时。
  * 语义变更：原非流式路径为"绝对 2 分钟"超时（长程任务被硬掐）；流式轨道改为
@@ -113,6 +124,31 @@ const STREAM_IDLE_TIMEOUT_MS = 300_000;
  * 降级主动消息送达。
  */
 const LONG_TASK_PLACEHOLDER_AFTER_MS = 240_000; // 4 分钟（留 1 分钟窗口余量）
+
+/**
+ * PR2（2026-10-09）：两段式取消的 grace 窗口。空转超时后 `CANCEL_REQUESTED` + `abort()`
+ * （端到端信号），最多等待本时长确认底层生成器已停止：确认 ⇒ `CANCELLED`；
+ * 未确认 ⇒ **保留 lease**（不释放 session 所有权，后续消息排队，不启动下一次）。
+ * 由灰度开关 `EXECUTION_TWO_PHASE_CANCEL` 门控。
+ */
+const CANCEL_GRACE_MS = 5000;
+
+/**
+ * PR2 遗留-2（2026-10-09）：Router 级**准入**的等待上限与轮询间隔。
+ *
+ * 若本执行以 `QUEUED` 创建（该会话仍被上次"未确认取消"的执行占用），则**不并发启动**本次 LLM
+ * 调用（"绝不双 RUNNING" / 验收 ⑤ 的"E2 不能起"）：最多等待本时长以取得所有权；超时 ⇒
+ * **放弃本次执行**（不启动 LLM、不标记已处理 ⇒ 允许渠道重试）。由 `EXECUTION_TWO_PHASE_CANCEL` 门控。
+ */
+const SESSION_ADMISSION_WAIT_MS = 30_000;
+const ADMISSION_POLL_MS = 100;
+
+/** 解析准入等待上限（env `SESSION_ADMISSION_WAIT_MS` 覆盖；非法/缺省 ⇒ 默认 30s） */
+function resolveAdmissionWaitMs(): number {
+  const raw = configManager.env('SESSION_ADMISSION_WAIT_MS');
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : SESSION_ADMISSION_WAIT_MS;
+}
 
 /** 定期清理过期去重缓存条目 */
 setInterval(() => {
@@ -163,6 +199,10 @@ export interface RouteMessageOptions {
       sessionId: string;
       /** P26-1 §9.1（2026-10-07）：请求优先级（渠道入站传 `background`） */
       priority?: RequestPriority;
+      /** PR1（2026-10-09）：执行标识（Execution 生命周期归属；见 spec） */
+      executionId?: string;
+      /** PR2（2026-10-09）：外部取消信号（端到端贯通 Router → CoreAPI → ChatManager） */
+      signal?: AbortSignal;
       metadata?: Record<string, unknown>;
     }): AsyncGenerator<
       ChatStreamChunk,
@@ -303,7 +343,7 @@ export async function routeChannelMessage(
   recordInboundMessage();
 
   // [0] 生成全链路 traceId（先于入口日志生成，后续所有阶段日志均携带，grep traceId 即可串联全链路）
-  const traceId = `ch_trc_${channelName}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const traceId = `ch_trc_${channelName}_${Date.now()}_${randomIdSuffix(4)}`;
 
   logger.info(`[TRACE] ${traceId} 消息路由入口`, {
     channelName,
@@ -447,7 +487,11 @@ export async function routeChannelMessage(
   // ②-② 内容级去重检查（兜底：不同 messageId 但内容相同的重复事件）
   if (message.content) {
     // DEEP-7：内容去重 key 增加 senderId 维度，避免误杀不同用户发送的相同内容
-    const contentKey = `${message.channelId || channelName}:${message.senderId}:${message.content}`;
+    // PR4（2026-10-09）：**再补"会话维度"**（conversationId，DM 下等于 senderId）——
+    // 原 key 不含会话 ⇒ 同一用户在不同会话发相同内容会被误判重复（P7/E11）。
+    // 现在维度 = 渠道 : 会话 : 发送者 : 内容，仅对"同一会话内同人同文"短窗去重。
+    const conversationDim = message.conversationId ?? message.senderId;
+    const contentKey = `${message.channelId || channelName}:${conversationDim}:${message.senderId}:${message.content}`;
     const now = Date.now();
     const lastContentTime = contentDedupCache.get(contentKey);
     if (lastContentTime && now - lastContentTime < CONTENT_DEDUP_WINDOW_MS) {
@@ -655,15 +699,84 @@ export async function routeChannelMessage(
     });
     const llmStartMs = Date.now();
     const response = await runSerialized(serializedKey, async () => {
+      // PR1（2026-10-09）：把本次 Agent 运行登记进 Execution 生命周期
+      // （ownership + generation fencing）。**纯记账、默认零行为变更**：
+      // 完成/失败经 `ExecutionManager` 的 fencing 判定，被顶替（STALE）时静默忽略，
+      // 绝不改写新执行的 session 状态。
+      const executionManager = getExecutionManager();
+      let lease = executionManager.acquire(safeSessionId, message.messageId);
+      // PR2 遗留-2（2026-10-09）：**Router 级准入** —— 本执行以 QUEUED 创建（会话仍被"未确认
+      // 取消"的上一执行占用）⇒ 有界等待所有权；超时 ⇒ 放弃本次执行（不启动 LLM）。
+      // 由 `EXECUTION_TWO_PHASE_CANCEL` 门控（默认关 ⇒ 行为不变）。
+      if (feature('EXECUTION_TWO_PHASE_CANCEL') && !lease.isCurrent()) {
+        const admissionDeadline = Date.now() + resolveAdmissionWaitMs();
+        while (!lease.isCurrent() && Date.now() < admissionDeadline) {
+          lease.release(); // 释放本次 QUEUED 尝试（避免堆积记录）
+          await sleep(ADMISSION_POLL_MS);
+          lease = executionManager.acquire(safeSessionId, message.messageId);
+        }
+        if (!lease.isCurrent()) {
+          lease.release();
+          logger.warning(
+            `[TRACE] ${traceId} 会话占用超等待上限，放弃本次执行（不启动 LLM）`,
+            {
+              messageId: message.messageId,
+              channelName,
+              sessionId: safeSessionId,
+              waitMs: SESSION_ADMISSION_WAIT_MS,
+            }
+          );
+          recordMessageRejected('SESSION_BUSY');
+          recordMessageProcessing(channelName, Date.now() - processingStartMs);
+          messageTraceBuffer.addStage(
+            traceId,
+            'admission',
+            'fail',
+            'SESSION_BUSY'
+          );
+          return { content: '', finishReason: 'busy' };
+        }
+      }
+      // PR3（2026-10-09）：登记到渠道会话，防 cleanIdle 在执行期间误回收会话。
+      const channelSessionId = channelSession?.id;
+      if (channelSessionId) {
+        channelSessionManager.beginExecution(
+          channelSessionId,
+          lease.executionId
+        );
+      }
+      const finishExecution = (ok: boolean, reason?: string): void => {
+        try {
+          if (ok) executionManager.complete(lease.executionId);
+          else executionManager.fail(lease.executionId, reason ?? 'unknown');
+        } catch {
+          // @ignore-catch — fencing：执行已被顶替/已终结（STALE）⇒ 忽略，不改写新执行
+        }
+        if (channelSessionId) {
+          channelSessionManager.endExecution(
+            channelSessionId,
+            lease.executionId
+          );
+        }
+        lease.release();
+      };
       // 流式并轨（2026-08-20）：渠道消息改走 chatStream 流式轨道（与 client
       // /v1/chat/stream 同管线）。内部消费流、聚合文本，对外仍发一条完整消息——
       // 工具循环/上下文压缩/Write-Ahead 持久化全部由 StreamPipeline 内联编排，
       // 替代原"非流式 chat → TAOR 委托"链路（P0-1/P0-2 之上的根治，双轨收敛）。
       // 超时语义同步从"绝对 2 分钟"改为 STREAM_IDLE_TIMEOUT_MS 活动心跳超时，
       // 长程任务只要在推进（持续产出 chunk）就不会被掐断。
+      // PR2（2026-10-09）：本执行的外部取消信号（两段式取消 + 端到端贯通）。
+      // 超时时 `abort()` 它 ⇒ 经 CoreAPI → ChatManager 中继到会话 controller ⇒
+      // 底层 Provider fetch / 工具执行停止（复用既有内部取消链路）。
+      const cancelController = new AbortController();
       const generator = coreAPI.chatStream({
         content: message.content,
         sessionId: safeSessionId,
+        // PR1（2026-10-09）：执行标识外显（契约；消费者接线随 PR2/PR5 展开）
+        executionId: lease.executionId,
+        // PR2（2026-10-09）：ABORT 信号端到端贯通（Router → CoreAPI → ChatManager → ToolRunner）
+        signal: cancelController.signal,
         // P26-1 §9.1（2026-10-07）：渠道入站**非人工实时对话** ⇒ 显式声明后台优先级
         // （供 resourceGovernor 在同会话外按优先级取舍；缺省本为 interactive）
         priority: 'background',
@@ -694,15 +807,23 @@ export async function routeChannelMessage(
           // 每次等待下一个 chunk 均带独立空转计时器；chunk 到达即重置（活动心跳）
           let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
           const idlePromise = new Promise<never>((_, reject) => {
-            timeoutHandle = setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    `chatStream 空转超时 (>${STREAM_IDLE_TIMEOUT_MS / 1000}s 无 chunk)`
-                  )
-                ),
-              STREAM_IDLE_TIMEOUT_MS
-            );
+            timeoutHandle = setTimeout(() => {
+              // PR2 两段式取消（第一段）：请求取消 + 触发底层 abort（端到端信号）。
+              // 状态机 → CANCEL_REQUESTED；确认/保留决策见下方 catch 分支的 grace 段。
+              executionManager.requestCancel(
+                lease.executionId,
+                'INACTIVITY_TIMEOUT'
+              );
+              // 以**类型化**中止错误抛出（携带 reason），取代裸 Error + 文案匹配
+              const reason = new ExecutionAbortedError(
+                'INACTIVITY_TIMEOUT',
+                `chatStream 空转超时 (>${STREAM_IDLE_TIMEOUT_MS / 1000}s 无 chunk)`,
+                { traceId, messageId: message.messageId }
+              );
+              // abort 外部信号 → ChatManager 中继到会话 controller → 停止底层执行
+              cancelController.abort(reason);
+              reject(reason);
+            }, STREAM_IDLE_TIMEOUT_MS);
           });
           let result: IteratorResult<
             ChatStreamChunk,
@@ -718,8 +839,10 @@ export async function routeChannelMessage(
             // generator return = 最终 ChatResponse（Write-Ahead：done 前已持久化）
             const final = result.value;
             if (streamError) {
+              finishExecution(false, streamError);
               return { content: '', finishReason: 'error' };
             }
+            finishExecution(true, final.finishReason);
             return {
               content: final.content || aggregatedText,
               finishReason: final.finishReason ?? 'stop',
@@ -734,6 +857,29 @@ export async function routeChannelMessage(
               break;
             case 'tool_call':
               toolCallChunks++;
+              // PR5-S3（2026-10-09，`.trae/specs/durable-execution.md`）：execution 级**工具调用记账**
+              // （`tool_calls` 表）—— Router 既有 `executionId` 又能观测 tool_call chunk，故在此接线；
+              // 写穿为 best-effort，未接入 store ⇒ no-op（不阻断流式）。
+              {
+                const spec = chunk.toolCall;
+                if (spec?.id) {
+                  if (spec.status === 'completed' || spec.status === 'failed') {
+                    executionManager.settleToolCall(
+                      lease.executionId,
+                      spec.id,
+                      spec.name,
+                      spec.status,
+                      spec.error
+                    );
+                  } else {
+                    executionManager.recordToolCall(
+                      lease.executionId,
+                      spec.id,
+                      spec.name
+                    );
+                  }
+                }
+              }
               // 工具活动日志（节流：首个必记，之后每 30s 至多 1 条，防刷屏）
               if (toolCallChunks === 1 || Date.now() - lastToolLogMs > 30_000) {
                 lastToolLogMs = Date.now();
@@ -832,15 +978,58 @@ export async function routeChannelMessage(
           }
         }
       } catch (streamErr) {
-        // 空转超时/消费异常：必须关闭 generator 释放底层会话互斥锁
-        // （对齐 chat-handlers P2-10：否则 streamMessage 的 SimpleMutex 永不释放）
-        try {
-          await Promise.race([
-            generator.return({ content: '', finishReason: 'error' }),
-            new Promise<void>((r) => setTimeout(r, 5000)),
-          ]);
-        } catch {
-          // @ignore-catch — 关闭失败不应掩盖原始异常
+        // 空转超时/消费异常：关闭 generator 释放底层会话互斥锁
+        // （对齐 chat-handlers P2-10：否则 streamMessage 的 SimpleMutex 永不释放）。
+        // PR2（2026-10-09）：`generator.return()` 为 **best-effort cleanup**，同时作为
+        // 两段式取消的 **grace 窗口**（CANCEL_GRACE_MS）：窗口内 resolve ⇒ 确认底层已停止。
+        // 注意 `settled` 经 `Promise.race` 的**返回值**赋值（非闭包副作用），避免 CFA 误窄化。
+        const settled = await Promise.race([
+          generator
+            .return({ content: '', finishReason: 'error' })
+            .then(() => true),
+          new Promise<boolean>((r) =>
+            setTimeout(() => r(false), CANCEL_GRACE_MS)
+          ),
+        ]).catch(() => false);
+
+        const abortReason = isExecutionAbortedError(streamErr)
+          ? streamErr.reason
+          : undefined;
+
+        if (
+          feature('EXECUTION_TWO_PHASE_CANCEL') &&
+          abortReason === 'INACTIVITY_TIMEOUT'
+        ) {
+          if (settled) {
+            // 第二段确认：grace 内底层已停止 ⇒ CANCEL_REQUESTED → CANCELLED，释放所有权
+            executionManager.confirmCancel(lease.executionId);
+            if (channelSessionId) {
+              channelSessionManager.endExecution(
+                channelSessionId,
+                lease.executionId
+              );
+            }
+            lease.release();
+            logger.warning(`[TRACE] ${traceId} 两段式取消已确认（CANCELLED）`, {
+              messageId: message.messageId,
+              channelName,
+              executionId: lease.executionId,
+            });
+          } else {
+            // 未确认 ⇒ **保留 lease**：不 finishExecution、不 release。
+            // 执行停留 CANCEL_REQUESTED（占用中）⇒ 后续消息 acquire 排队 QUEUED，不启动下一次。
+            logger.warning(
+              `[TRACE] ${traceId} 两段式取消 grace 内未确认，保留 lease（CANCEL_REQUESTED）`,
+              {
+                messageId: message.messageId,
+                channelName,
+                executionId: lease.executionId,
+                graceMs: CANCEL_GRACE_MS,
+              }
+            );
+          }
+        } else {
+          finishExecution(false, String(streamErr));
         }
         throw streamErr;
       }
@@ -854,8 +1043,42 @@ export async function routeChannelMessage(
       llmDurationMs: Date.now() - llmStartMs,
     });
 
-    // DEEP-5：CoreAPI 返回 error 时，消息不应标记为已处理（否则 LLM 错误后渠道重传同一消息被丢弃）
     const finishReason = (response as Record<string, unknown>).finishReason;
+
+    // PR2 遗留-2（2026-10-09）：**会话占用（准入拒绝）** —— 未启动 LLM（见回调内 admission）。
+    // 释放消息锁但**不标记已处理** ⇒ 允许渠道/用户稍后重试；同时给用户一条可见反馈。
+    if (finishReason === 'busy') {
+      logger.warning(
+        `[TRACE] ${traceId} 阶段失败: admission（SESSION_BUSY），未启动 LLM，释放消息锁但不标记已处理`,
+        { messageId: message.messageId, channelName }
+      );
+      releaseProcessing(message.messageId);
+      recordMessageRejected('SESSION_BUSY');
+      recordMessageProcessing(channelName, Date.now() - processingStartMs);
+      messageTraceBuffer.finish(traceId, 'fail', 'SESSION_BUSY');
+      otel.endSpan(routeSpan);
+      if (onOutbound) {
+        try {
+          await onOutbound(
+            '⚠️ 该会话上一条消息仍在处理中，本次未能执行，请稍后重发重试。',
+            message.conversationId ?? message.senderId
+          );
+        } catch (busyErr) {
+          await handleError(busyErr, {
+            module: 'channels:routing',
+            action: 'sessionBusyFallbackOutbound',
+            context: { traceId, channelName },
+          });
+        }
+      }
+      return {
+        valid: false,
+        errorCode: 'SESSION_BUSY',
+        errorMessage: '会话上一条消息仍在处理中，请稍后重试',
+      };
+    }
+
+    // DEEP-5：CoreAPI 返回 error 时，消息不应标记为已处理（否则 LLM 错误后渠道重传同一消息被丢弃）
     messageTraceBuffer.addStage(
       traceId,
       'llm',
@@ -1032,18 +1255,17 @@ export async function routeChannelMessage(
       error: error instanceof Error ? error.message : String(error),
     });
 
-    // BUG-5：超时后补标记 processed，防止渠道重传同一消息导致重复处理
-    // （LLM 请求超时≠请求失败，重传会再次触发 LLM 调用造成重复计费）
-    const isTimeout =
-      error instanceof Error &&
-      (error.message.includes(
-        `空转超时 (>${STREAM_IDLE_TIMEOUT_MS / 1000}s 无 chunk)`
-      ) ||
-        error.message.includes(`超时 (>${CHAT_TIMEOUT_MS / 1000}s)`));
-    if (isTimeout) {
-      markMessageProcessed(message.messageId);
+    const abortReason = isExecutionAbortedError(error)
+      ? error.reason
+      : undefined;
+    if (abortReason === 'INACTIVITY_TIMEOUT') {
+      // PR4（2026-10-09，`.trae/specs/dedup-message-state.md`）：空转超时 ⇒ 真实语义
+      // **REJECTED**（已接收、未成功、TTL 窗口内阻断同 messageId 重传，防重复计费），
+      // 取代原"伪造已处理"（`markMessageProcessed`）。E3 根修：Dedup 表达"是否已接收"
+      // 而非"Agent 是否成功完成"。
+      rejectMessage(message.messageId);
       logger.warning(
-        `[TRACE] ${traceId} chatStream 空转超时，消息标记为已处理（避免重传重复计费）`,
+        `[TRACE] ${traceId} chatStream 空转超时（INACTIVITY_TIMEOUT），消息标记为 REJECTED（阻断重传；语义非"已完成"）`,
         {
           messageId: message.messageId,
           channelName,

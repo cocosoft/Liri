@@ -1,4 +1,6 @@
 import { promises as fs } from 'fs';
+// C1（2026-10-09）：实例 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
@@ -38,7 +40,7 @@ export class SessionLock {
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.retryInterval = options.retryInterval ?? DEFAULT_RETRY_INTERVAL;
     this.staleThreshold = options.staleThreshold ?? DEFAULT_STALE_THRESHOLD;
-    this.instanceId = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.instanceId = `${process.pid}-${Date.now()}-${randomIdSuffix(6)}`;
   }
 
   async acquire(

@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,6 +25,8 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+// C1（2026-10-09）：凭据档案 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent\auth-profiles\index');
@@ -84,7 +86,7 @@ export class AuthProfileManager {
       );
     }
 
-    const id = `${profile.provider}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `${profile.provider}_${Date.now()}_${randomIdSuffix(6)}`;
     const now = Date.now();
 
     const newProfile: AuthProfile = {

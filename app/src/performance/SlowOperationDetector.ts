@@ -6,6 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { resolveLogsDir } from '@modules/core';
+// C1（2026-10-09）：慢操作 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { configManager } from '@modules/config';
 import path from 'path';
 import fs from 'fs';
@@ -148,7 +150,7 @@ export class SlowOperationDetector {
     }
   ): void {
     const record: SlowOperationRecord = {
-      id: `slow_op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `slow_op_${Date.now()}_${randomIdSuffix(9)}`,
       timestamp: Date.now(),
       operation,
       duration,

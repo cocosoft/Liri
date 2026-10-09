@@ -8,6 +8,8 @@ import { readFile, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+// C1（2026-10-09）：session id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { SkillSource, SkillLoadMethod } from '../types';
 import type { Skill } from '../types';
 // Re-export for downstream consumers
@@ -367,7 +369,7 @@ export class SkillParser {
    * 获取会话ID（简化实现）
    */
   private getSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${Date.now()}_${randomIdSuffix(9)}`;
   }
 
   /**

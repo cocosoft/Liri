@@ -5,6 +5,8 @@
  */
 
 import { Logger, LogLevel, type LoggerConfig } from '@modules/monitoring';
+// C1（2026-10-09）：traceId 熵源改用 crypto（统一 ID 工具）
+import { randomIdSuffix } from '../../utils/common';
 import {
   MODULE_LOG_MEMORY,
   appendLogEntry,
@@ -42,8 +44,7 @@ export class StructuredLogger extends Logger {
   }
 
   startTrace(id?: string): string {
-    this.traceId =
-      id || `trace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.traceId = id || `trace-${Date.now()}-${randomIdSuffix(6)}`;
     this.spanCounter = 0;
     return this.traceId;
   }

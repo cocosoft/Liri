@@ -7,6 +7,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：audit id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security\services\CredentialManager');
@@ -366,7 +368,7 @@ export class CredentialManager {
   private audit(entry: Omit<CredentialAuditEntry, 'id' | 'timestamp'>): void {
     this.auditLog.push({
       ...entry,
-      id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `audit_${Date.now()}_${randomIdSuffix(6)}`,
       timestamp: Date.now(),
     });
 

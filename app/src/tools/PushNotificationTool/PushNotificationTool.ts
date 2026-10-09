@@ -1,7 +1,9 @@
-﻿/**
+/**
  * 推送通知工具（条件编译：KAIROS/PROACTIVE）
  */
 import { FEATURE_FLAGS } from '@modules/core';
+// C1（2026-10-09）：通知 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 const feature = (name: keyof typeof FEATURE_FLAGS) =>
   FEATURE_FLAGS[name] ?? false;
 
@@ -28,7 +30,7 @@ export function sendNotification(
   if (!isPushNotificationEnabled()) return null;
 
   const notif: PushNotification = {
-    id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    id: `notif_${Date.now()}_${randomIdSuffix(6)}`,
     title,
     body,
     url,

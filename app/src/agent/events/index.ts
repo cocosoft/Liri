@@ -39,6 +39,8 @@ import type {
   EventStats,
 } from './types';
 import { AgentEventType } from './types';
+// C1（2026-10-09）：事件 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { getLogger } from '@modules/monitoring';
 import {
   globalEventBus,
@@ -88,7 +90,7 @@ export class InternalEventBus {
     options?: { source?: string; target?: string; priority?: EventPriority }
   ): Promise<AgentEvent> {
     const event: AgentEvent = {
-      id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `evt_${Date.now()}_${randomIdSuffix(6)}`,
       type,
       source: options?.source ?? 'system',
       target: options?.target,

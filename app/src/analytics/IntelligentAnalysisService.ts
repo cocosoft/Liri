@@ -5,6 +5,8 @@
 
 import { analyticsService } from './AnalyticsService';
 import { performanceMonitoringService } from './PerformanceMonitoringService';
+// C1（2026-10-09）：分析结果 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('analytics:intelligence');
 
@@ -242,7 +244,7 @@ class IntelligentAnalysisService {
    */
   generateInsight(type: string, insightData: Record<string, unknown>) {
     const insight = {
-      id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `${type}_${Date.now()}_${randomIdSuffix(9)}`,
       type,
       timestamp: Date.now(),
       ...insightData,

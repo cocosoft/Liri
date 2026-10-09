@@ -8,6 +8,9 @@
  * 零 Liri 内部依赖（无 logger、无 feature flags、无 @modules），可在 CLI/Extension 间共享。
  */
 
+// C1（2026-10-09）：临时文件后缀熵源改用 crypto；
+// 直连 `core/ids`（仅依赖 node:crypto）—— 保持本文件"零 Liri 内部依赖"的可移植契约
+import { randomIdSuffix } from '../../core/ids';
 import {
   mkdirSync,
   existsSync,
@@ -48,12 +51,7 @@ export class SessionStoragePortable {
     // BUG-J 修复：原子写入，避免进程崩溃导致半写文件
     // KB-PORTABLE-TMP（2026-08-29）：tmp 名加随机后缀——原用 Date.now()，
     // 同毫秒并发写同目标（跨进程）会互相覆盖；且崩溃残留 .tmp.<ts> 无法区分
-    const tmpPath =
-      fullPath +
-      '.tmp.' +
-      Date.now() +
-      '-' +
-      Math.random().toString(36).slice(2);
+    const tmpPath = fullPath + '.tmp.' + Date.now() + '-' + randomIdSuffix(10);
     writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
     renameSync(tmpPath, fullPath);
   }

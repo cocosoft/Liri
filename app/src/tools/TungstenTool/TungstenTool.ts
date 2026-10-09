@@ -6,6 +6,8 @@
  */
 
 import { Tool } from '../types/Tool';
+// C1（2026-10-09）：会话 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam } from '../types/Tool';
@@ -35,7 +37,7 @@ class TungstenSessionManager {
    * 创建新会话
    */
   createSession(name: string): TungstenSession {
-    const id = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `session_${Date.now()}_${randomIdSuffix(9)}`;
     const session: TungstenSession = {
       id,
       name,

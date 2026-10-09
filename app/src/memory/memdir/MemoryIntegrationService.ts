@@ -4,6 +4,8 @@
  */
 
 import type { Memory, MemoryStats } from '../types/Memory';
+// C1（2026-10-09）：记忆 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type { MemoryFile, MemdirService } from './MemdirService';
 import { MemoryType, MemoryLayer } from './MemdirService';
 import type {
@@ -375,7 +377,7 @@ export class MemoryIntegrationService {
   ): Promise<Memory> {
     const now = new Date();
     const newMemory: Memory = {
-      id: `db_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `db_${Date.now()}_${randomIdSuffix(9)}`,
       content: memory.content,
       metadata: memory.metadata,
       createdAt: now,

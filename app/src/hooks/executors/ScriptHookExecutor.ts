@@ -19,6 +19,7 @@ import {
 } from '../types';
 
 import { handleError } from '@modules/error';
+import { isSensitiveEnvKey } from '@modules/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('hooks:executors:ScriptHookExecutor');
@@ -272,10 +273,10 @@ export class ScriptHookExecutor {
     }
 
     if (config.sandbox) {
-      delete env.SSH_AUTH_SOCK;
-      delete env.AWS_SECRET_ACCESS_KEY;
-      delete env.AWS_ACCESS_KEY_ID;
-      delete env.AWS_SESSION_TOKEN;
+      // A3（2026-10-09）：剥离清单单一事实源（与 BashTool spawn 同源，避免第二份）
+      for (const key of Object.keys(env)) {
+        if (isSensitiveEnvKey(key)) delete env[key];
+      }
     }
 
     return env;

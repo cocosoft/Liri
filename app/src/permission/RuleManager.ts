@@ -4,6 +4,8 @@
  */
 import { join, dirname } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// C1（2026-10-09）：规则 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { createHash } from 'crypto';
 import { resolvePermissionsDir } from '@modules/core';
 import {
@@ -352,7 +354,7 @@ export class RuleManager {
     const contentPattern = parts.slice(2).join(':');
 
     return {
-      id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `rule_${Date.now()}_${randomIdSuffix(9)}`,
       behavior,
       toolName,
       contentPattern: contentPattern || undefined,

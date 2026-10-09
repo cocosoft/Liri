@@ -1,10 +1,12 @@
-﻿/**
+/**
  * 告警规则服务
  * 提供多条件告警、告警抑制、告警路由功能
  */
 
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：告警规则 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 const logger = getLogger('monitoring:alert_rule');
 
 /**
@@ -146,7 +148,7 @@ export class AlertRuleService extends EventEmitter {
    * 创建告警规则
    */
   public createRule(rule: Omit<AlertRule, 'id'>): AlertRule {
-    const id = `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `rule_${Date.now()}_${randomIdSuffix(9)}`;
     const newRule: AlertRule = { ...rule, id };
     this.rules.set(id, newRule);
     this.emit('ruleCreated', newRule);
@@ -427,7 +429,7 @@ export class AlertRuleService extends EventEmitter {
       latestData.length > 0 ? latestData[latestData.length - 1].value : 0;
 
     return {
-      id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `alert_${Date.now()}_${randomIdSuffix(9)}`,
       ruleId: rule.id,
       ruleName: rule.name,
       level: rule.level,
@@ -594,7 +596,7 @@ export class AlertRuleService extends EventEmitter {
    * 创建告警静默
    */
   public createSilence(silence: Omit<AlertSilence, 'id'>): AlertSilence {
-    const id = `silence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `silence_${Date.now()}_${randomIdSuffix(9)}`;
     const newSilence: AlertSilence = { ...silence, id };
     this.silences.set(id, newSilence);
     this.emit('silenceCreated', newSilence);
@@ -643,7 +645,7 @@ export class AlertRuleService extends EventEmitter {
    * 创建告警路由
    */
   public createRoute(route: Omit<AlertRoute, 'id'>): AlertRoute {
-    const id = `route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `route_${Date.now()}_${randomIdSuffix(9)}`;
     const newRoute: AlertRoute = { ...route, id };
     this.routes.set(id, newRoute);
     this.emit('routeCreated', newRoute);

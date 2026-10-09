@@ -6,6 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, isPathWithin } from '@modules/core';
+// C1（2026-10-09）：event id 熵源改用 crypto
+import { randomIdSuffix } from '@modules/utils/common';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { ICalParser } from './ICalParser';
 import {
@@ -79,7 +81,7 @@ export class CalendarTool {
    */
   async add(args: CalendarAddArgs): Promise<CalendarEvent> {
     // G-1 唯一 ID：时间戳 + 随机后缀，避免同毫秒并发覆盖
-    const id = `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = `event-${Date.now()}-${randomIdSuffix(6)}`;
     // D-5 end 为空时回退到 start（避免生成空 DTEND 行写坏数据）
     const end = args.end || args.start;
     const event: CalendarEvent = {

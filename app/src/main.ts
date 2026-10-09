@@ -1568,6 +1568,21 @@ export async function launch(options: LaunchOptions): Promise<void> {
     await wrapInit('Recovery', async () => {
       const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
       await getCoreAPI().getChatManager().bootstrapRecovery();
+      // PR5-S2（2026-10-09，`.trae/specs/durable-execution.md`）：接入 Execution 持久化并做
+      // **启动期恢复** —— 陈旧心跳的"孤儿执行" ⇒ `STALE` + `generation++`（不注入 owner，
+      // 该 session 下次 acquire 视为空闲）；否则保留。DB 写入失败仅留痕，不阻断内存状态机。
+      const { getExecutionManager, getExecutionStore } =
+        await import('@modules/execution');
+      const executionManager = getExecutionManager();
+      executionManager.attachStore(getExecutionStore());
+      await executionManager.recover();
+      // PR4 遗留-⑨（2026-10-09，`.trae/specs/dedup-message-state.md`）：去重**处理态落盘** +
+      // 启动期 hydrate —— 跨重启仍能阻断同 `messageId` 的渠道重传（防重启窗口内重复计费）。
+      // 写盘为 best-effort；未接入 ⇒ 纯内存（默认零行为变更）。
+      const { getDedupStore } = await import('./channels/dedup/DedupStore.js');
+      const { hydrateFromDedupStore } =
+        await import('./channels/dedup/index.js');
+      await hydrateFromDedupStore(getDedupStore());
     });
 
     // PDCA：检查点索引**异步预热** + 启动扫描（标记残留的运行中任务为 abort）

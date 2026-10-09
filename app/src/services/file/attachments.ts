@@ -14,6 +14,8 @@ import {
   resolveDbPath,
 } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
+// C1（2026-10-09）：附件名/ID 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 // 2026-10-02 D-226（`service -> ui` 收口）：本文件（`AttachmentManager` 附件持久化服务）
 // 原寄居 `src/components/`（ui 层），但其**零 UI 依赖**（仅 fs/DB + `@modules/core` 路径 + 本模块
@@ -247,7 +249,7 @@ export class AttachmentManager {
 
     // 使用时间戳 + 随机字符串作为基础文件名
     const timestamp = Date.now().toString(36);
-    const randomStr = Math.random().toString(36).substring(2, 8);
+    const randomStr = randomIdSuffix(6);
 
     // 限制总长度（Windows 最大路径限制为 260，这里保守设置为 100）
     const maxTotalLength = 100;
@@ -293,7 +295,7 @@ export class AttachmentManager {
     description?: string
   ): Attachment {
     // 生成唯一ID
-    const id = `attach_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const id = `attach_${Date.now()}_${randomIdSuffix(7)}`;
 
     // 生成安全的文件路径（使用简化的文件名）
     const safeFilename = this.generateSafeFilename(name);

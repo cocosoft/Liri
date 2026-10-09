@@ -5,6 +5,8 @@
  */
 
 import { BaseTool } from '../BaseTool';
+// C1（2026-10-09）：消息 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { getLogger } from '@modules/monitoring';
@@ -81,7 +83,7 @@ export class SessionsSendTool extends BaseTool {
       const msgType = type ?? 'text';
 
       const result: SessionMessageResult = {
-        messageId: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        messageId: `msg_${Date.now()}_${randomIdSuffix(6)}`,
         sessionId,
         delivered: true,
         timestamp: Date.now(),

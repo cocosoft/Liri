@@ -5,6 +5,8 @@
 
 import { Tool } from '../types/Tool.js';
 import { ToolResult } from '../types/ToolResult.js';
+// C1（2026-10-09）：调度任务 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { ToolUseContext } from '../types/ToolUseContext.js';
 import { createCachedToolExecutor } from '../cache/CachedToolExecutor.js';
 
@@ -75,7 +77,7 @@ export class ToolScheduler {
     context: ToolUseContext,
     priority: number = 0
   ): string {
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const taskId = `task_${Date.now()}_${randomIdSuffix(9)}`;
     const task: ToolTask = {
       id: taskId,
       tool,

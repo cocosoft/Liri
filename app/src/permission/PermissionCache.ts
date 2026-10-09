@@ -5,6 +5,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：缓存键熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
 import type { ICache, CacheStats } from '@modules/cache/types';
@@ -201,7 +203,7 @@ export function generateInputHash(input: Record<string, unknown>): string {
       module: 'permission:cache',
       action: 'generate_input_hash',
     });
-    return Math.random().toString(36).substring(2, 15);
+    return randomIdSuffix(13);
   }
 }
 

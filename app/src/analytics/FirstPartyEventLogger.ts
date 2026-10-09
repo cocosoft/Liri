@@ -1,5 +1,7 @@
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import { configManager } from '@modules/config';
+// C1（2026-10-09）：事件 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { APP_VERSION } from '@modules/constants';
@@ -151,7 +153,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
     analyticsEvent: StructuredAnalyticsEvent
   ): FirstPartyEventSchema {
     return {
-      eventId: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      eventId: `evt_${Date.now()}_${randomIdSuffix(6)}`,
       eventName: analyticsEvent.eventName,
       timestamp: analyticsEvent.timestamp,
       source: 'Liri',
@@ -180,7 +182,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
     if (!this.isEnabled) return;
 
     this.sendEvent({
-      eventId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      eventId: `exp_${Date.now()}_${randomIdSuffix(6)}`,
       eventName: 'growthbook_experiment_exposure',
       timestamp: Date.now(),
       source: 'Liri',
@@ -209,7 +211,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
     if (!this.isEnabled) return;
 
     this.sendEvent({
-      eventId: `sec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      eventId: `sec_${Date.now()}_${randomIdSuffix(6)}`,
       eventName: `security_${options.eventType}`,
       timestamp: Date.now(),
       source: 'Liri',

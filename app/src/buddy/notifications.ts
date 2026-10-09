@@ -5,6 +5,8 @@
 
 import type { Companion } from './types';
 import { ifNotificationsEnabled } from './conditional';
+// C1（2026-10-09）：notification id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 /**
  * 通知类型
@@ -102,7 +104,7 @@ class NotificationManager {
   addNotification(
     notification: Omit<BuddyNotification, 'id' | 'timestamp' | 'read'>
   ): string {
-    const id = `buddy-notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `buddy-notification-${Date.now()}-${randomIdSuffix(9)}`;
     const newNotification: BuddyNotification = {
       ...notification,
       id,

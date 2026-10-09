@@ -6,6 +6,8 @@
  */
 
 import { BaseChannelPlugin } from '@modules/channels/base';
+// C1（2026-10-09）：guid 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type {
   IChannelPlugin,
   ChannelMeta,
@@ -179,7 +181,7 @@ export class BlueBubblesChannel
   ): Promise<SendResult> {
     try {
       const body = {
-        guid: `pyapp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        guid: `pyapp-${Date.now()}-${randomIdSuffix(6)}`,
         text: content,
         chatGuid: target,
         method: 'private-api' as const,
@@ -232,7 +234,7 @@ export class BlueBubblesChannel
       const mimeType = imageResp.headers.get('content-type') || 'image/jpeg';
 
       const body = {
-        guid: `pyapp-img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        guid: `pyapp-img-${Date.now()}-${randomIdSuffix(6)}`,
         chatGuid: target,
         text: '',
         filePath: '',
@@ -276,7 +278,7 @@ export class BlueBubblesChannel
       const mimeType = 'application/octet-stream';
 
       const body = {
-        guid: `pyapp-file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        guid: `pyapp-file-${Date.now()}-${randomIdSuffix(6)}`,
         chatGuid: target,
         text: '',
         filePath: fileName,

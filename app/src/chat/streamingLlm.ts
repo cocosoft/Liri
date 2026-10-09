@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import { createErrorRecoveryManager } from '@modules/query';
+// C1（2026-10-09）：turn id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import type { ReActEvent, BudgetControllerLike } from '@modules/query';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
@@ -213,7 +215,7 @@ export class StreamingLlm {
     // 首次工具轮 loopState.assistantMessage 尚不存在（N4/A3）；已有则复用其 id。
     this._activeToolRoundMessageId =
       this.deps.getLoopState().assistantMessage?.id ||
-      `msg-turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      `msg-turn-${Date.now().toString(36)}-${randomIdSuffix(6)}`;
     const toolRoundBaseMaxTokens =
       (this.deps.getCtx().options?.maxTokens as number | undefined) ?? 4096;
     // 截断续接放大（2026-09-03）：onIncompleteTurn truncated 分支置位后，本轮预算 base×4

@@ -200,3 +200,32 @@ describe('命令名级放行 isCommandNameApproved（P0-3）', () => {
     reg.dispose();
   });
 });
+
+describe('A5 批准严格模式 BASH_APPROVAL_STRICT（2026-10-09，默认关）', () => {
+  const KEY = 'FEATURE_BASH_APPROVAL_STRICT';
+  const prev = process.env[KEY];
+  afterEach(() => {
+    if (prev === undefined) delete process.env[KEY];
+    else process.env[KEY] = prev;
+  });
+
+  it('默认关：命令名级放行生效（既有行为不变）', () => {
+    delete process.env[KEY];
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.approve('session-1', hashCommand('dir /b x'), 'dir /b x');
+    expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(true);
+    reg.dispose();
+  });
+
+  it('开关开：命令名级放行被禁用，仅精确 hash 命中', () => {
+    process.env[KEY] = 'true';
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('dir /b x');
+    reg.approve('session-1', hash, 'dir /b x');
+    // 命令名级放行被门控 → 同名不同参不命中
+    expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(false);
+    // 精确 hash 仍放行
+    expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+});

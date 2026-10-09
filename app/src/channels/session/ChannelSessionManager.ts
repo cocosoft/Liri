@@ -34,6 +34,13 @@ export interface ChannelSession {
   lastActivityAt: number;
   messageCount: number;
   metadata: Record<string, unknown>;
+  /**
+   * PR3（2026-10-09）：当前占用本会话的 Execution（`@modules/execution`）。
+   *
+   * 语义边界（见 spec §3-PR3）：Session **只**据此避免被 idle 清理误回收；
+   * generation / heartbeat / cancel **不**由 Session 承担（归 `ExecutionManager`）。
+   */
+  activeExecutionId?: string;
 }
 
 /**
@@ -211,6 +218,31 @@ export class ChannelSessionManager extends EventEmitter {
   }
 
   /**
+   * PR3（2026-10-09）：登记本会话当前的执行（防 `cleanIdle` 在长任务运行期间误回收）。
+   *
+   * 仅供"存在/活动"维度使用；generation/heartbeat/cancel 归 `ExecutionManager`。
+   */
+  beginExecution(sessionId: string, executionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    session.activeExecutionId = executionId;
+    return true;
+  }
+
+  /**
+   * PR3（2026-10-09）：结束执行登记。
+   *
+   * 仅当 `executionId` 匹配才清除 —— 防止"晚到的旧执行"清掉新执行的登记（fencing 一致）。
+   */
+  endExecution(sessionId: string, executionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    if (session.activeExecutionId !== executionId) return false;
+    delete session.activeExecutionId;
+    return true;
+  }
+
+  /**
    * 关闭会话
    */
   close(sessionId: string): boolean {
@@ -279,6 +311,13 @@ export class ChannelSessionManager extends EventEmitter {
         // 已关闭会话直接回收
         this.sessions.delete(sessionId);
         count++;
+        continue;
+      }
+
+      // PR3（2026-10-09）：有执行在跑（activeExecutionId）⇒ 跳过（既不标 idle 也不回收）。
+      // 会话"活动"与"执行生命周期"解耦：长任务可能长时间无新消息（lastActivityAt 陈旧），
+      // 但执行仍在进行 ⇒ 不得据 lastActivityAt 回收。
+      if (session.activeExecutionId) {
         continue;
       }
 

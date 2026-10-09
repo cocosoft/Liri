@@ -13,6 +13,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：门控 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 const logger = getLogger('chat:decisionGate');
 
@@ -174,7 +176,7 @@ function buildPendingQuestion(
   step: StepContext,
   phase: GatePhase
 ): PendingQuestion {
-  const id = `gate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const id = `gate_${Date.now()}_${randomIdSuffix(6)}`;
 
   switch (signal.kind) {
     case 'selection':

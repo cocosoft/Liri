@@ -1,5 +1,7 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
+// C1（2026-10-09）：mailbox id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import React, {
   createContext,
   useContext,
@@ -36,7 +38,7 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
     (item: Omit<MailboxItem, 'id' | 'timestamp' | 'read'>) => {
       const newItem: MailboxItem = {
         ...item,
-        id: `mailbox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `mailbox_${Date.now()}_${randomIdSuffix(9)}`,
         timestamp: Date.now(),
         read: false,
       };

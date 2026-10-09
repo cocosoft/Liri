@@ -7,6 +7,8 @@
 
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
+// C1（2026-10-09）：hook id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { HookExecutor } from './HookExecutor.js';
 import type {
   IndividualHookConfig,
@@ -88,7 +90,7 @@ export class StopHookExecutor {
     const startTime = Date.now();
 
     for (const hook of hooks) {
-      const hookId = `stop-hook-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const hookId = `stop-hook-${Date.now()}-${randomIdSuffix(6)}`;
 
       this.activeHooks.set(hookId, {
         startTime: Date.now(),

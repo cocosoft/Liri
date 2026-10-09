@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import type http from 'http';
+// C1（2026-10-09）：工作项 id 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 import { join } from 'path';
 import { existsSync, writeFileSync, readFileSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
@@ -217,7 +219,7 @@ export async function handlePdcaStart(
 
     const taskId = `pdca_${Date.now().toString(36)}`;
     const now = new Date().toISOString();
-    const workItemId = `wi_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const workItemId = `wi_${Date.now()}_${randomIdSuffix(6)}`;
 
     // 创建关联 WorkItem
     const workItem: WorkItemRecord = {

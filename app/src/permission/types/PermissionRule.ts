@@ -4,6 +4,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：规则 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 const logger = getLogger('permission:types:permissionRule');
 
@@ -138,7 +140,7 @@ export function createPermissionRule(params: {
 }): PermissionRule {
   const now = new Date();
   return {
-    id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `rule_${Date.now()}_${randomIdSuffix(9)}`,
     behavior: params.behavior,
     toolName: params.toolName,
     contentPattern: params.contentPattern,

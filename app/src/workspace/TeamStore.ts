@@ -7,6 +7,8 @@
  * - 角色权限检查
  */
 
+// C1（2026-10-09）：团队 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
@@ -119,7 +121,7 @@ export class TeamStore {
     }
   ): Team {
     const newTeam: Team = {
-      id: `team_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `team_${Date.now()}_${randomIdSuffix(6)}`,
       workspaceId: team.workspaceId,
       name: team.name,
       description: team.description,

@@ -8,6 +8,8 @@ import type {
   AgentToolMemory,
   AgentMemorySnapshot as SnapshotData,
 } from './agentMemory';
+// C1（2026-10-09）：快照 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 export interface SnapshotMeta {
   id: string;
@@ -27,7 +29,7 @@ export class SnapshotManager {
   private version: number = 1;
 
   takeSnapshot(memory: AgentToolMemory, label: string): SerializedSnapshot {
-    const id = `snap_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const id = `snap_${Date.now()}_${randomIdSuffix(6)}`;
     const data = memory.toSnapshot();
 
     const snapshot: SerializedSnapshot = {

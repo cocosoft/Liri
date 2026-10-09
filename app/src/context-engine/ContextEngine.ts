@@ -6,6 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// C1（2026-10-09）：context entry id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 const logger = getLogger('context:engine');
 
@@ -104,7 +106,7 @@ export class ContextEngine {
         options?.ttl !== undefined ? options.ttl : this.config.defaultTTL;
       const expiresAt = ttl === 0 ? undefined : Date.now() + ttl;
       const entry: ContextEntry = {
-        id: `ctx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `ctx_${Date.now()}_${randomIdSuffix(6)}`,
         key,
         value,
         scope: options?.scope || 'conversation',

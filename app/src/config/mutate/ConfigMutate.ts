@@ -3,6 +3,9 @@
  * 对标 CC 的配置变更追踪能力
  */
 
+// C1（2026-10-09）：mutate id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
+
 /**
  * 突变操作类型
  */
@@ -55,7 +58,7 @@ export class ConfigMutate {
     source: string
   ): MutateRecord {
     const record: MutateRecord = {
-      id: `mutate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `mutate_${Date.now()}_${randomIdSuffix(6)}`,
       key,
       action,
       oldValue,

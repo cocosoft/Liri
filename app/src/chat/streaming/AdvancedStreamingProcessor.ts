@@ -6,6 +6,8 @@ import {
 } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+// C1（2026-10-09）：stream id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 const logger = getLogger('chat:streaming:AdvancedStreamingProcessor');
 
 export enum StreamState {
@@ -97,7 +99,7 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       if (oldest) this.sessions.delete(oldest[0]);
     }
 
-    const id = `stream_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const id = `stream_${Date.now()}_${randomIdSuffix(6)}`;
     const now = Date.now();
 
     const session: StreamSession = {

@@ -32,6 +32,7 @@
  *   防 LLM 重发时改文本导致匹配失败（防张冠李戴/防篡改）
  */
 import { getLogger } from '@modules/monitoring';
+import { feature } from '@modules/core';
 const logger = getLogger('permission:approvedCommands');
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
@@ -193,6 +194,9 @@ export class ApprovedCommandRegistry {
    * 危险命令必须精确 hash 命中（isApproved），防止 `rm -rf A` 放行 `rm -rf B`。
    */
   isCommandNameApproved(sessionId: string, command: string): boolean {
+    // A5（2026-10-09）：严格模式（灰度开关 BASH_APPROVAL_STRICT，默认关）下禁用
+    // 命令名级放行 —— 仅保留精确 hash 命中（isApproved），消除"同名不同参"漂移放行。
+    if (feature('BASH_APPROVAL_STRICT')) return false;
     if (!sessionId || !command) return false;
     const base = getBaseCommand(command);
     if (!base || DANGEROUS_BASE_NAMES.has(base)) return false;

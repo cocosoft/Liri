@@ -104,6 +104,9 @@ const ALL_SESSION_EVENT_TYPES = [
   // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md`）：
   // 编排模式决策轨迹（研究分流点；log-only，不入消息 surface）
   'pattern/decision',
+  // ─── Execution 生命周期（PR5-S3，2026-10-09；log-only） ───
+  'execution/status_changed',
+  'execution/recovery',
 ] as const satisfies readonly LiriEventType[];
 
 /**

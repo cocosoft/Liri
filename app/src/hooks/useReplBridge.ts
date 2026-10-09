@@ -5,6 +5,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BridgeMain } from '@modules/bridge';
+// C1（2026-10-09）：id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { type BridgeSession } from '@modules/bridge';
 import { type BridgeMessage } from '@modules/bridge';
 
@@ -52,7 +54,7 @@ export interface UseReplBridgeResult {
  * 生成消息ID
  */
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${randomIdSuffix(9)}`;
 }
 
 /**

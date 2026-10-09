@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 告警管理器
  * 提供告警规则、通知和抑制功能
  */
@@ -6,6 +6,8 @@
 import { EventEmitter } from 'events';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
+// C1（2026-10-09）：silence id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring\alerts\AlertManager');
@@ -410,7 +412,7 @@ export class AlertManager extends EventEmitter {
    * @returns 创建的静默规则
    */
   createSilence(silence: Omit<AlertSilence, 'id' | 'createdAt'>): AlertSilence {
-    const id = `silence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `silence_${Date.now()}_${randomIdSuffix(9)}`;
     const newSilence: AlertSilence = {
       ...silence,
       id,

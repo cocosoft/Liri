@@ -5,6 +5,8 @@
  * CDN 绕过: 支持 DNS fallback + fallback IP，绕过 api.telegram.org 封锁
  */
 
+// C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
+import { randomIdSuffix } from '../../utils/common';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type { RegisterFileResult } from '@modules/services/file/types';
 import type {
@@ -375,7 +377,7 @@ class TelegramChannel extends BaseChannelPlugin {
 
     this.pairing = {
       generatePairingCode: async (userId: string) => {
-        const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const code = randomIdSuffix(6).toUpperCase();
         this.logger.info(`Telegram 配对码: ${userId} → ${code}`);
         return code;
       },

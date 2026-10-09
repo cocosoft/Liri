@@ -4,6 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
+// C1（2026-10-09）：访问记录 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 
 /**
  * 用户角色
@@ -308,7 +310,7 @@ export class BillingAccessControlService extends EventEmitter {
     reason?: string
   ): void {
     const record: BillingAccessRecord = {
-      id: `access_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `access_${Date.now()}_${randomIdSuffix(9)}`,
       userId,
       role: this.getUserRole(userId),
       action,

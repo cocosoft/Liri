@@ -17,6 +17,8 @@
  */
 
 import { globalEventBus } from './EventBus';
+// C1（2026-10-09）：事件 id 熵源改用 crypto（core 内直连 core/ids）
+import { randomIdSuffix } from '../ids';
 import {
   type UiToolOutputEvent,
   type UiToolStatusEvent,
@@ -97,7 +99,7 @@ export class UiEventBus {
       message,
       type,
       duration,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `${Date.now()}-${randomIdSuffix(6)}`,
     });
   }
 

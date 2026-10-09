@@ -28,6 +28,8 @@
  */
 
 import { appendFile, mkdir } from 'node:fs/promises';
+// C1（2026-10-09）：run id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { join } from 'node:path';
 import { resolveDataDir } from '@modules/core/paths';
 
@@ -182,7 +184,7 @@ export class RunLogger {
    * 生成运行 ID
    */
   static generateRunId(sessionId: string): string {
-    return `run_${sessionId}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    return `run_${sessionId}_${Date.now()}_${randomIdSuffix(7)}`;
   }
 }
 

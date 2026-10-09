@@ -164,6 +164,12 @@ const SAFETY_SWITCHES = [
     },
     { name: 'RESOURCE_GOVERNOR', def: false, why: '跨会话抢占/排队须显式开启（默认关 = 零行为变更）' },
     { name: 'PRO_SECURITY_SUITE', def: false, why: '高级安全套件须显式开启' },
+    // A2/A4/A5（2026-10-09）：Bash 安全姿态灰度开关（默认关 = 保留既有行为）
+    { name: 'BASH_APPROVED_REVALIDATE', def: false, why: '已批准命令安全复检须显式开启（默认关 = 批准仍豁免拦截）' },
+    { name: 'BASH_INTERPRETER_GUARD', def: false, why: '解释器命令人工确认须显式开启（默认关 = 白名单内直接放行）' },
+    { name: 'BASH_APPROVAL_STRICT', def: false, why: '批准严格模式（禁用命令名级放行）须显式开启' },
+    // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
+    { name: 'EXECUTION_TWO_PHASE_CANCEL', def: false, why: '两段式取消（未确认则保留 lease）须显式开启' },
 ];
 
 /** 由清单派生的断言（避免 11 条近重复手写条目） */

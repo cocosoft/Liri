@@ -3,6 +3,8 @@
  * 对标 Hermes 的 Webhook 通道实现
  */
 import { EventEmitter } from 'events';
+// C1（2026-10-09）：消息 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import http from 'http';
 import { createHash } from 'crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
@@ -165,7 +167,7 @@ export class WebhookChannel extends EventEmitter {
 
                 const payload = JSON.parse(body);
                 const message: WebhookMessage = {
-                  id: `wh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  id: `wh-${Date.now()}-${randomIdSuffix(6)}`,
                   type: 'incoming',
                   url: req.url || '',
                   payload,

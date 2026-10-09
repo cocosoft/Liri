@@ -3,6 +3,8 @@
  * 对标 OpenClaw channels/logging/，管理通道消息日志和 typing 状态
  */
 import fs from 'fs';
+// C1（2026-10-09）：渠道日志 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
@@ -92,7 +94,7 @@ export class ChannelLogManager {
     const full: ChannelLogEntry = {
       ...entry,
       message: redactedMessage,
-      id: `ch_log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `ch_log_${Date.now()}_${randomIdSuffix(6)}`,
       timestamp: Date.now(),
     };
 

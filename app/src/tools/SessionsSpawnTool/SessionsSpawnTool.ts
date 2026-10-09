@@ -5,6 +5,8 @@
  */
 
 import { BaseTool } from '../BaseTool';
+// C1（2026-10-09）：会话 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { getLogger } from '@modules/monitoring';
@@ -89,7 +91,7 @@ export class SessionsSpawnTool extends BaseTool {
     try {
       const config = input as SessionSpawnConfig;
 
-      const sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const sessionId = `session_${Date.now()}_${randomIdSuffix(6)}`;
       const name =
         config.name ?? `${config.type ?? 'agent'}_${sessionId.slice(-8)}`;
       const type = config.type ?? 'agent';

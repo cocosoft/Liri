@@ -5,6 +5,8 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
+// C1（2026-10-09）：告警 id 熵源改用 crypto
+import { randomIdSuffix } from '../utils/common';
 import { formatCost } from './ModelPricing.js';
 import { handleError } from '@modules/error';
 
@@ -277,7 +279,7 @@ export class CostMonitor {
     }
 
     const alert: AlertRecord = {
-      id: `alert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `alert-${Date.now()}-${randomIdSuffix(9)}`,
       ruleId: rule.id,
       level: rule.level,
       message: this.generateAlertMessage(rule, currentValue),

@@ -4,6 +4,8 @@
  */
 import { Tool } from '../types/Tool';
 import { ToolParam } from '../types/Tool';
+// C1（2026-10-09）：工具执行 id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { ToolResult } from '../types/ToolResult';
 import { ToolProgressData } from '../types/ToolProgressData';
 import * as fs from 'fs';
@@ -189,7 +191,7 @@ export class ToolUtils {
    * @returns 执行ID
    */
   static generateExecutionId(toolName: string): string {
-    return `${toolName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `${toolName}_${Date.now()}_${randomIdSuffix(9)}`;
   }
 
   /**

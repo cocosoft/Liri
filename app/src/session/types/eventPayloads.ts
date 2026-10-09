@@ -1078,4 +1078,45 @@ export interface LiriEventMap {
     /** 执行耗时（ms） */
     durationMs?: number;
   };
+
+  // ─── Execution 生命周期（PR5-S3，2026-10-09；log-only，不入消息 surface） ───
+  /**
+   * Execution **状态迁移**审计。
+   *
+   * 立项理由 = **可重建**：Execution 生命周期（PR1 起）此前仅在内存 + `execution_events` 表；
+   * 会话事件流内没有它的轨迹 ⇒ 会话结束后无法按序重建"这次运行的 execution 状态如何演进"。
+   * ⚠️ 如实边界：execution 状态**不直接进入模型请求** ⇒ **非** `project_rules §1.6` 红线所迫。
+   */
+  'execution/status_changed': {
+    /** Execution 标识 */
+    executionId: string;
+    /** 代次（generation fencing） */
+    generation: number;
+    /** 迁移前状态（新建时为 `null`） */
+    from: string | null;
+    /**
+     * 迁移后状态（闭集见 `execution/types.ts` 的 `EXECUTION_STATUSES`：
+     * QUEUED / RUNNING / WAITING_USER / CANCEL_REQUESTED / CANCELLED / COMPLETED / FAILED / STALE）
+     */
+    to: string;
+    /** 归属消息 id（若有） */
+    messageId?: string;
+  };
+
+  /**
+   * Execution **恢复**审计（启动期 `recover()`）。
+   *
+   * 处置动作：心跳陈旧 ⇒ `stale`（孤儿：置 `STALE` + `generation++`）；否则 `kept`。
+   */
+  'execution/recovery': {
+    executionId: string;
+    /** 处置动作 */
+    action: 'stale' | 'kept';
+    /** 恢复前状态 */
+    priorStatus: string;
+    /** 恢复前代次 */
+    priorGeneration: number;
+    /** 处置后代次（`action='stale'` 时为 `priorGeneration+1`） */
+    generation?: number;
+  };
 }

@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import type http from 'http';
+// C1（2026-10-09）：cron id 熵源改用 crypto
+import { randomIdSuffix } from '../../../utils/common';
 import { sendError, readRequestBody } from './handler-utils';
 
 import { handleError } from '@modules/error';
@@ -169,7 +171,7 @@ export async function handleCreateCron(
     }
 
     const job: CronJobRecord = {
-      id: `cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `cron-${Date.now()}-${randomIdSuffix(6)}`,
       name: jobName,
       prompt: jobPrompt,
       schedule: parsed,

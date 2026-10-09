@@ -277,6 +277,9 @@ import { setGoalEventSink } from '@modules/tasks';
 // P1-19 ①（2026-10-05）：工作流成员级事件实时落盘 —— 本模块持有会话事件日志，
 // 故在此注入唯一写入出口（与 setGoalEventSink 同一手法；避免 workflow/ → chat/ 反向依赖）。
 import { setWorkflowRunEventSink } from '@modules/workflow';
+// PR5-S3（2026-10-09）：Execution 生命周期事件落盘 —— 本模块持有会话事件日志，
+// 故在此注入唯一写入出口（同上手法；避免 execution/ → chat/ 反向依赖）。
+import { setExecutionEventSink } from '@modules/execution';
 // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
 import { chargeSessionGoalUsage } from '@modules/tasks';
 import {
@@ -1040,6 +1043,10 @@ export class ChatManagerImpl implements ChatManager {
     // 使 `office:workflow` / `office:doc-pipeline` 在 run 执行期即逐条落 `assistant/workflow_*`
     // 事件（不再等工具结束后批末投影）；批末投影据 `metadata.workflowRun.liveEmitted` 去重。
     setWorkflowRunEventSink((sid, event) => this.appendStreamEvent(sid, event));
+    // PR5-S3（2026-10-09，`.trae/specs/durable-execution.md` §3.6）：Execution 生命周期事件落盘
+    // —— 同上手法的唯一写入出口（`execution/status_changed` / `execution/recovery`）。
+    // `execution` 模块不持有会话事件日志 ⇒ 经注入避免反向依赖；未注入 ⇒ 如实不落。
+    setExecutionEventSink((sid, event) => this.appendStreamEvent(sid, event));
     // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
     // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
     registerSessionSummaryMemoryType();
@@ -3034,6 +3041,23 @@ export class ChatManagerImpl implements ChatManager {
     }
     const streamAbortController = new AbortController();
     this._sessionAbortControllers.set(session.id, streamAbortController);
+
+    // PR2（2026-10-09）AbortSignal 端到端贯通：外部 signal（Router/入口注入）**中继**到本会话
+    // controller —— abort 外部 ⇒ abort 内部，复用既有内部取消链路（Provider fetch 取消 /
+    // ToolRunner 检查 / Agent 桥接）；内部 controller 仍是唯一"会话级"句柄（新请求顶替旧流语义不变）。
+    // 外部 signal 随请求生命周期 GC，`once` 监听无需显式摘除。
+    const externalSignal = options?.signal;
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        streamAbortController.abort(externalSignal.reason);
+      } else {
+        externalSignal.addEventListener(
+          'abort',
+          () => streamAbortController.abort(externalSignal.reason),
+          { once: true }
+        );
+      }
+    }
 
     // P2-1: 初始化流式自动检查点（局部实例随流式上下文传递，非全局字段）
     const streamingCheckpoint = new StreamingAutoCheckpoint(

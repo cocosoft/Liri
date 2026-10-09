@@ -4,6 +4,8 @@
  * 特色: Slash Command / Embed / Webhook
  */
 
+// C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
+import { randomIdSuffix } from '../../utils/common';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -249,7 +251,7 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
 
     this.pairing = {
       generatePairingCode: async (userId: string) => {
-        const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+        const code = randomIdSuffix(6).toUpperCase();
         this.logger.info(`Discord 配对码: ${userId} → ${code}`);
         return code;
       },

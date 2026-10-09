@@ -4,6 +4,8 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+// C1（2026-10-09）：bridge id 熵源改用 crypto
+import { randomIdSuffix } from '../../utils/common';
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 
 import { getLogger } from '@modules/monitoring';
@@ -113,7 +115,7 @@ export function writeBridgeConfig(
  */
 export function getDefaultBridgeConfig(): BridgeConfig {
   return {
-    bridgeId: `bridge-${Math.random().toString(36).substr(2, 9)}`,
+    bridgeId: `bridge-${randomIdSuffix(9)}`,
     machineName: getMachineName(),
     dir: process.cwd(),
     maxSessions: 4,

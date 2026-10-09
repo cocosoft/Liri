@@ -185,10 +185,7 @@ function splitCommands(input: string): string[] {
     } else if (ch === '"' || ch === "'") {
       current += ch;
       inQuote = ch;
-    } else if (
-      !escaped &&
-      (ch === '|' || ch === '&' || ch === ';')
-    ) {
+    } else if (!escaped && (ch === '|' || ch === '&' || ch === ';')) {
       // 第九轮审查 §十-2（2026-10-09，缺陷 #2）：**`||` 必须作为分隔符**。
       // 原实现 `ch === '|' && input[i + 1] !== '|'` 把 `||` 排除 ⇒ `safe || rm -rf /`
       // 被当成**单条命令**（argv[0]='safe'）⇒ 绕过 `isDangerousCommand`。

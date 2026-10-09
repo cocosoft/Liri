@@ -27,11 +27,7 @@ export {
   resolveOTelTracing,
 } from './OTelService';
 
-export {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-} from './ErrorTypes';
+export { AppError, ErrorCategory, ErrorSeverity } from './ErrorTypes';
 
 export { TtlCache } from './CacheService';
 

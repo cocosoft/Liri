@@ -34,10 +34,7 @@ import { afterAll, describe, expect, it, spyOn } from 'bun:test';
 import { existsSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import {
-  ExecutionManager,
-  ExecutionStore,
-} from '../../src/execution/index.js';
+import { ExecutionManager, ExecutionStore } from '../../src/execution/index.js';
 import type {
   ExecutionGeneration,
   ExecutionId,

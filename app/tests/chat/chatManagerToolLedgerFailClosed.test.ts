@@ -64,7 +64,11 @@ function makeManager(executionId: string | undefined, result: ToolResult) {
   return { mgr, calls };
 }
 
-const toolCall = { id: 't1', name: 'BashTool', arguments: {} } as ExecuteToolArg;
+const toolCall = {
+  id: 't1',
+  name: 'BashTool',
+  arguments: {},
+} as ExecuteToolArg;
 
 describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', () => {
   it('有 executionId 且记账落盘失败 ⇒ 拒绝该工具，**不**调用底层执行', async () => {

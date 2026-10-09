@@ -13,4 +13,3 @@
  */
 
 export { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
-

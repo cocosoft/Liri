@@ -2,7 +2,7 @@
 
 > 版本 1.0 ｜ 创建 2026-10-07 ｜ 状态：🟢 **评估完成**（B7 零代码裁定；**B14 建议实施，待拍板**）
 > 来源：`dev_docs/20261007/任务计划.md` §5.2 **B7**（外部报告「AST 优化一」L819-825）· **B14**（本会话 BUG 修复副产品）
-> 关联：`google ai 建议.md` §4.5-#15 · `.trae/specs/pathguard-registry-driven-args.md` · 本会话 `pattern-wiring-closure.md`（同族"粒度"问题）
+> 关联：`google ai 建议.md` §4.5-#15 · `.trae/specs/pathguard-registry-driven-args.md` · 本会话 `pattern-wiring-closure.md`（同族"粒度"问题）· **复评/增补（2026-10-09）**：[`ast-family-phased-plan.md`](./ast-family-phased-plan.md)（原生 FFI **通道已通** + `Bun.Transpiler` 真解析已在 `code_run` ⇒ 更新**成本面/能力面**，**维持本裁定**）
 > 规则：GR15 / CS01 / CS03 / CS06 / R06-008
 
 ---

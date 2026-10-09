@@ -2,7 +2,7 @@
 
 > 版本 1.0 ｜ 创建 2026-10-07 ｜ 状态：🟢 **评估完成（零代码）**
 > 来源：`dev_docs/20261007/任务计划.md` §5.2 **B8**（外部报告「AST 优化二」L828-834）· `google ai 建议.md` §4.5-#16
-> 关联：`.trae/specs/knowledge-retrieval-real-corpus-benchmark.md`（检索质量 harness）· `.trae/specs/runtime-ast-guardrail-assessment.md`（同族"无 AST 内核"结论）
+> 关联：`.trae/specs/knowledge-retrieval-real-corpus-benchmark.md`（检索质量 harness）· `.trae/specs/runtime-ast-guardrail-assessment.md`（同族"无 AST 内核"结论）· **复评/增补（2026-10-09）**：[`ast-family-phased-plan.md`](./ast-family-phased-plan.md)（原生层**已有压缩 FFI** `py_compress_messages` 且已被 `compaction/utils.ts` require ⇒ 若要动压缩"先评估既有原生压缩"；**维持本裁定**）
 > 规则：GR15 / CS01 / CS03 / CS05（根因优先）/ CS06
 
 ---

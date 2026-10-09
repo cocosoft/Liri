@@ -32,6 +32,7 @@ import {
   buildLandlockArgv,
   isSandboxInitFailure,
   readLandlockConfig,
+  processRegistry,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -243,6 +244,28 @@ export async function runCodeRunnerWithLandlock(
     cwd: runDir,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
+
+  // S7（2026-10-09）：登记进 `ProcessRegistry`（点亮 `GET /v1/sandbox/status` 的 `processStats`；
+  // 原 `register()` 全仓零调用 ⇒ 恒空）。本路径为**异步** RPC 子进程 ⇒ 先记 `running`，
+  // 由 `close` 事件收敛为终态（与 bash 的"返回即终态"不同）。
+  const processEntryId =
+    child.pid === undefined
+      ? undefined
+      : processRegistry.register({
+          pid: child.pid,
+          command: 'code_run',
+          status: 'running',
+          metadata: { source: 'code_run' },
+        });
+  child.on('close', (code) => {
+    if (processEntryId === undefined) return;
+    processRegistry.updateStatus(
+      processEntryId,
+      (child as { killed?: boolean }).killed ? 'timed_out' : 'completed',
+      code ?? undefined
+    );
+  });
+
   const result = await runRpcChildProcess(child, {
     bridge: opts.bridge,
     timeoutMs: opts.timeoutMs,

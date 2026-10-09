@@ -4,9 +4,10 @@
  */
 
 import type { SessionMessage } from '@modules/session';
+import type { Message } from '@modules/session/types/chat';
+import { MessageRole } from '@modules/session/types/chat';
 import type { CompactionResult, CompactConversationOptions } from './types';
 import { groupMessagesByApiRound } from './grouping';
-import { getPartialCompactPrompt } from './prompt';
 import { roughTokenCountEstimationForMessages } from './utils';
 
 /**
@@ -85,7 +86,6 @@ export class PartialCompactService {
       keepRecentMessages = 3,
       showUserFeedback = true,
       detectApiRoundBoundaries = true,
-      model,
       customInstructions,
       suppressFollowUpQuestions = false,
     } = options;
@@ -170,13 +170,15 @@ export class PartialCompactService {
     direction: PartialCompactDirection
   ): number {
     const groups = groupMessagesByApiRound(
-      messages.map((m) => ({
-        id: m.id,
-        role: m.type as any,
-        content: m.content,
-        createdAt: m.createdAt,
-        updatedAt: m.createdAt,
-      }))
+      messages.map(
+        (m): Message => ({
+          id: m.id,
+          role: m.type as MessageRole,
+          content: m.content,
+          createdAt: m.createdAt,
+          updatedAt: m.createdAt,
+        })
+      )
     );
 
     if (direction === 'up_to') {
@@ -283,8 +285,6 @@ export class PartialCompactService {
 
     // 简化实现：生成基础摘要
     // 实际实现应该调用AI服务生成更智能的摘要
-    const prompt = getPartialCompactPrompt();
-
     let summary = 'Partial Conversation Summary:\n\n';
 
     messages.forEach((msg, index) => {

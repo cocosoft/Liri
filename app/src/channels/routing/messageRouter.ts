@@ -57,258 +57,54 @@ import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../setupChannels';
 // 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）
 import { DmPolicyEngine } from '../policy/DmPolicy';
-import type { DmPolicyConfig } from '../policy/DmPolicy';
 // 2026-08-06 接入（P1-5）：渠道入站限流（按渠道+sender 令牌桶）
 import { checkRateLimit } from './rateLimiter';
 // 2026-08-20 流式并轨：渠道消息改走 chatStream 流式轨道（与 client 同管线）
-import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI';
 // PR1（2026-10-09）：Execution 生命周期（ownership + generation fencing；详见 spec）
 // PR2（2026-10-09）：类型化中止原因（替代 error.message 文案匹配；CS02）
 import {
   getExecutionManager,
-  ExecutionAbortedError,
   isExecutionAbortedError,
 } from '@modules/execution';
-import type { RequestPriority } from '@modules/types/requestPriority';
 // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
 import { feature } from '@modules/core';
-// PR2 遗留-2（2026-10-09）：准入等待上限可配（env 覆盖，测试用短超时）
-import { configManager } from '@modules/config';
-// 2026-08-20 工具进度通知人话文案（替代裸工具名）
-import { formatToolNotifySummary } from './toolNotifySummary';
-// 2026-08-20 spec qq-file-transfer：出站文件路由
-import { sendOutboundFiles } from './outboundFileRouter';
+// ── C3-S3（2026-10-09）：自本文件迁出的契约 / 助手 / 帧验证 / 内容去重 / 出站 / 流式消费 ──
+import {
+  CANCEL_GRACE_MS,
+  SESSION_ADMISSION_WAIT_MS,
+  ADMISSION_POLL_MS,
+} from './messageRouterContract';
+import type {
+  RouteResult,
+  FrameValidationResult,
+  RouteMessageOptions,
+} from './messageRouterContract';
+import {
+  sanitizeSessionId,
+  runSerialized,
+  resolveAdmissionWaitMs,
+} from './messageRouterSerialization';
+import { claimContentDedup } from './contentDedup';
+import { tryHandleTextApproval } from './textApproval';
+import { deliverChannelOutbound } from './channelOutbound';
+import { consumeStreamChunks } from './streamConsumption';
+import { validateInboundFrame } from './messageFrameValidation';
+
+// 对外 API 重导出（`routing/messageRouter` 仍是对外唯一入口；R03-002）
+export type { RouteResult, FrameValidationResult, RouteMessageOptions };
+export { validateInboundFrame };
 
 const logger = getLogger('channels:routing');
 
-/**
- * Windows 兼容：会话 ID 可能含文件系统非法字符（如 QQ 的 "c2c:{openid}"、
- * 群聊的 "group:{gid}:{uid}"），直接作为持久化目录名会导致 mkdir ENOTDIR
- * 失败（会话创建失败 → chat 报错 → 渠道无回复）。统一替换为 '_'
- * （确定性映射，同一用户/会话每次生成相同 ID，会话复用不受影响）。
- */
-function sanitizeSessionId(id: string): string {
-  return id.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '');
-}
+// ── C3-S3（2026-10-09）：契约 / 常量 / 助手 / 帧验证已迁出 ──
+// 见 `.trae/specs/message-router-split.md`。`routeChannelMessage` 仍**定义于本文件**
+// （R03-004 渠道入站唯一入口，门禁依赖其路径/函数名）。常量为**值导入**（供下方使用），
+// 对外类型与 `validateInboundFrame` 经 `export` 重导出以保持 API 不变。
 
-/** 消息大小上限（默认 1MB） */
-const MAX_MESSAGE_SIZE = 1 * 1024 * 1024;
+// 路由/帧验证/选项类型已迁至 `./messageRouterContract`（经下方 export 重导出）。
 
-/** 消息去重 TTL（毫秒） */
-const DEDUP_TTL_MS = 3000;
-
-/** 内容级去重缓存：`channelId:content` → 时间戳
- *
- * QQ 等通道可能对同一条消息发送两个不同事件类型（如 AT_MESSAGE_CREATE + GROUP_AT_MESSAGE_CREATE），
- * 两者的 messageId 和 senderId 均不同，导致 messageId 级和 senderId+content 级去重均失效。
- * 此缓存仅基于 `channelId + 消息内容` 做短窗口去重，作为全局兜底。
- * 上限 10000 条，通过 setInterval 每 30s 清理过期条目防止 OOM。
- */
-const contentDedupCache = new Map<string, number>();
-
-/** 内容级去重窗口（毫秒）—— 5s，覆盖 WebSocket 重传窗口 */
-const CONTENT_DEDUP_WINDOW_MS = 5000; // 5 秒内容去重窗口
-
-/**
- * 流式并轨（2026-08-20）：渠道 chatStream 空转超时。
- * 语义变更：原非流式路径为"绝对 2 分钟"超时（长程任务被硬掐）；流式轨道改为
- * "活动心跳超时"——只要流持续产出 chunk（长任务工具执行期间会周期产出
- * status/tool_call chunk）就不掐断，仅当连续本时长无任何 chunk 才判定卡死。
- * 长度需覆盖单个慢工具的静默期（如大目录搜索），故取 5 分钟。
- */
-const STREAM_IDLE_TIMEOUT_MS = 300_000;
-/**
- * AC-5③（2026-08-20）：长任务占位提示阈值。QQ 等渠道被动回复窗口约 5 分钟，
- * 任务超窗后最终回复会被渠道拒收；超过本阈值仍未完成时先推送一条占位提示
- * （走一次被动回复，msg_seq 由渠道侧递增管理），最终结果超窗时由渠道侧
- * 降级主动消息送达。
- */
-const LONG_TASK_PLACEHOLDER_AFTER_MS = 240_000; // 4 分钟（留 1 分钟窗口余量）
-
-/**
- * PR2（2026-10-09）：两段式取消的 grace 窗口。空转超时后 `CANCEL_REQUESTED` + `abort()`
- * （端到端信号），最多等待本时长确认底层生成器已停止：确认 ⇒ `CANCELLED`；
- * 未确认 ⇒ **保留 lease**（不释放 session 所有权，后续消息排队，不启动下一次）。
- * 由灰度开关 `EXECUTION_TWO_PHASE_CANCEL` 门控。
- */
-const CANCEL_GRACE_MS = 5000;
-
-/**
- * PR2 遗留-2（2026-10-09）：Router 级**准入**的等待上限与轮询间隔。
- *
- * 若本执行以 `QUEUED` 创建（该会话仍被上次"未确认取消"的执行占用），则**不并发启动**本次 LLM
- * 调用（"绝不双 RUNNING" / 验收 ⑤ 的"E2 不能起"）：最多等待本时长以取得所有权；超时 ⇒
- * **放弃本次执行**（不启动 LLM、不标记已处理 ⇒ 允许渠道重试）。由 `EXECUTION_TWO_PHASE_CANCEL` 门控。
- */
-const SESSION_ADMISSION_WAIT_MS = 30_000;
-const ADMISSION_POLL_MS = 100;
-
-/** 解析准入等待上限（env `SESSION_ADMISSION_WAIT_MS` 覆盖；非法/缺省 ⇒ 默认 30s） */
-function resolveAdmissionWaitMs(): number {
-  const raw = configManager.env('SESSION_ADMISSION_WAIT_MS');
-  const n = raw ? Number(raw) : NaN;
-  return Number.isFinite(n) && n >= 0 ? n : SESSION_ADMISSION_WAIT_MS;
-}
-
-/** 定期清理过期去重缓存条目 */
-setInterval(() => {
-  const now = Date.now();
-  let removed = 0;
-  for (const [key, time] of contentDedupCache) {
-    if (now - time > CONTENT_DEDUP_WINDOW_MS * 2) {
-      contentDedupCache.delete(key);
-      removed++;
-    }
-  }
-  // R08-002: 清理循环记录（skip=无需清理）
-  if (removed > 0) {
-    logger.debug('内容去重缓存清理', {
-      removed,
-      remaining: contentDedupCache.size,
-    });
-  }
-}, 30000).unref();
-
-/** 路由结果 */
-export interface RouteResult {
-  valid: boolean;
-  errorCode?: string;
-  errorMessage?: string;
-  response?: string;
-}
-
-/** 帧验证结果 */
-export interface FrameValidationResult {
-  valid: boolean;
-  errors?: string[];
-  errorCode?: string;
-}
-
-/** 路由选项 */
-export interface RouteMessageOptions {
-  /** CoreAPI 实例（必传） */
-  coreAPI: {
-    chat(params: {
-      content: string;
-      sessionId: string;
-      metadata?: Record<string, unknown>;
-    }): Promise<{ content: string; finishReason?: string }>;
-    /** 流式并轨（2026-08-20）：渠道消息主路径，与 client /v1/chat/stream 同管线 */
-    chatStream(params: {
-      content: string;
-      sessionId: string;
-      /** P26-1 §9.1（2026-10-07）：请求优先级（渠道入站传 `background`） */
-      priority?: RequestPriority;
-      /** PR1（2026-10-09）：执行标识（Execution 生命周期归属；见 spec） */
-      executionId?: string;
-      /** PR2（2026-10-09）：外部取消信号（端到端贯通 Router → CoreAPI → ChatManager） */
-      signal?: AbortSignal;
-      metadata?: Record<string, unknown>;
-    }): AsyncGenerator<
-      ChatStreamChunk,
-      { content: string; finishReason?: string; sessionId?: string },
-      unknown
-    >;
-  };
-  /** 出站回调（处理完消息后的回复发送） */
-  onOutbound?: (content: string, target: string) => Promise<void>;
-  /**
-   * 出站文件回调（2026-08-20 spec qq-file-transfer）
-   * 回复文本中提取到可发送的本地文件路径时逐个调用；渠道不支持文件时不绑定
-   */
-  onOutboundFile?: (filePath: string, target: string) => Promise<void>;
-  /**
-   * AC-5③（2026-08-20 渠道对齐）：启用长任务占位提示。
-   * 仅平台存在被动回复窗口的渠道（capabilities.passiveReplyWindow，如 QQ）
-   * 需要——占位消耗一次被动回复配额以保活；无窗口约束的渠道
-   * （email/sms/webhook 等主动 API 出站）发占位是纯干扰，缺省不发送。
-   */
-  enableLongTaskPlaceholder?: boolean;
-  /** 通道名称（用于日志和追踪） */
-  channelName?: string;
-  /** 是否启用端到端追踪 */
-  enableTracing?: boolean;
-  /** 2026-08-06 新增（P0-2）：DM 策略配置（pairing/allowlist/open），提供则执行授权检查 */
-  dmPolicy?: Partial<DmPolicyConfig>;
-}
-
-/**
- * Per-conversation 串行队列（DEEP-6 修复）
- *
- * 同会话内多条消息按到达顺序串行处理，避免 LLM 并发导致回复乱序。
- * key = channel:conversationId（DM 下 conversationId=senderId，天然隔离）。
- */
-const sessionQueues = new Map<string, Promise<void>>();
-
-/**
- * 按会话 key 串行执行 fn
- * 前一条完成后再执行下一条，保证同会话内回复顺序与消息到达顺序一致。
- */
-async function runSerialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const prev = sessionQueues.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const next = new Promise<void>((r) => (release = r));
-  sessionQueues.set(key, next);
-  try {
-    return await prev.then(fn);
-  } finally {
-    release();
-    // 若队列已空（当前就是队尾）则清理，防止 Map 无限增长
-    if (sessionQueues.get(key) === next) {
-      sessionQueues.delete(key);
-    }
-  }
-}
-
-/**
- * 验证入站消息帧的合法性
- * 提供 6 项验证规则：空ID、空发送者、无效时间戳、未来时间戳、超大消息体、控制字符
- */
-export function validateInboundFrame(
-  message: MessageContext
-): FrameValidationResult {
-  const errors: string[] = [];
-
-  // 规则 1：消息 ID 不能为空
-  if (!message.messageId || typeof message.messageId !== 'string') {
-    errors.push('消息 ID 不能为空');
-    return { valid: false, errors, errorCode: 'INVALID_ID' };
-  }
-
-  // 规则 2：发送者不能为空
-  if (!message.senderId || typeof message.senderId !== 'string') {
-    errors.push('消息发送者不能为空');
-    return { valid: false, errors, errorCode: 'INVALID_SENDER' };
-  }
-
-  // 规则 3：时间戳必须有效
-  const now = Date.now();
-  if (
-    message.timestamp &&
-    typeof message.timestamp === 'number' &&
-    message.timestamp > 0
-  ) {
-    // 规则 4：时间戳不能是未来时间（超过 5 分钟偏差视为未来）
-    if (message.timestamp > now + 5 * 60 * 1000) {
-      errors.push('消息时间戳为未来时间');
-      return { valid: false, errors, errorCode: 'INVALID_TIMESTAMP' };
-    }
-  }
-
-  // 规则 5：消息体大小检查（默认 1MB）
-  if (message.content && message.content.length > MAX_MESSAGE_SIZE) {
-    errors.push(`消息体超过大小上限 (${MAX_MESSAGE_SIZE} bytes)`);
-    return { valid: false, errors, errorCode: 'MESSAGE_TOO_LARGE' };
-  }
-
-  // 规则 6：控制字符检查
-  if (message.content && /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(message.content)) {
-    errors.push('消息包含非法控制字符');
-    return { valid: false, errors, errorCode: 'INVALID_CHARACTER' };
-  }
-
-  return { valid: true };
-}
+// 串行队列 / runSerialized → `./messageRouterSerialization`
+// validateInboundFrame → `./messageFrameValidation`（已在上方重导出）
 
 /**
  * 统一消息路由函数
@@ -486,19 +282,17 @@ export async function routeChannelMessage(
 
   // ②-② 内容级去重检查（兜底：不同 messageId 但内容相同的重复事件）
   if (message.content) {
-    // DEEP-7：内容去重 key 增加 senderId 维度，避免误杀不同用户发送的相同内容
-    // PR4（2026-10-09）：**再补"会话维度"**（conversationId，DM 下等于 senderId）——
-    // 原 key 不含会话 ⇒ 同一用户在不同会话发相同内容会被误判重复（P7/E11）。
-    // 现在维度 = 渠道 : 会话 : 发送者 : 内容，仅对"同一会话内同人同文"短窗去重。
-    const conversationDim = message.conversationId ?? message.senderId;
-    const contentKey = `${message.channelId || channelName}:${conversationDim}:${message.senderId}:${message.content}`;
-    const now = Date.now();
-    const lastContentTime = contentDedupCache.get(contentKey);
-    if (lastContentTime && now - lastContentTime < CONTENT_DEDUP_WINDOW_MS) {
+    // C3-S3（2026-10-09）：去重维度与缓存已内聚到 `./contentDedup`（语义逐字不变）。
+    // 维度 = 渠道 : 会话 : 发送者 : 内容（DEEP-7 补 senderId；PR4 补 conversationId）。
+    const { duplicate, contentKey, ageMs } = claimContentDedup(
+      message,
+      channelName
+    );
+    if (duplicate) {
       logger.info(`[TRACE] ${traceId} 阶段跳过: dedup(content_dedup)`, {
         channelName,
         contentKey: contentKey.slice(0, 100),
-        ageMs: now - lastContentTime,
+        ageMs,
       });
       // 也释放 messageId 级别的锁
       releaseProcessing(message.messageId);
@@ -507,15 +301,6 @@ export async function routeChannelMessage(
       messageTraceBuffer.finish(traceId, 'rejected', 'content_dedup');
       otel.endSpan(routeSpan);
       return { valid: true, response: 'duplicate_skipped' };
-    }
-    contentDedupCache.set(contentKey, now);
-    // 定期清理过期条目
-    if (contentDedupCache.size > 1000) {
-      for (const [key, time] of contentDedupCache) {
-        if (now - time > CONTENT_DEDUP_WINDOW_MS) {
-          contentDedupCache.delete(key);
-        }
-      }
     }
   }
 
@@ -618,69 +403,17 @@ export async function routeChannelMessage(
         )
       : null;
 
-    // ── 纯文本审批前置检查：如果当前会话有 pending Inbox 项，检测审批关键词 ──
-    if (isBridgeEnabled() && channelSession && message.content) {
-      try {
-        const { detectApprovalIntent, processTextApproval } =
-          await import('../bridge/TextApprovalParser.js');
-        const intent = detectApprovalIntent(message.content);
-        if (intent) {
-          const items = await channelSessionManager.getInboxItemIds(
-            channelSession.id
-          );
-          if (items.length > 0) {
-            const { inboxManager } =
-              await import('@modules/runtime/InboxManager.js');
-            for (const itemId of items) {
-              const item = await inboxManager.get(itemId);
-              if (item && item.status === 'pending') {
-                try {
-                  // ── fail-closed: Inbox 写入失败时拒绝放行 ──
-                  const processed = await processTextApproval(itemId, intent);
-                  if (processed && onOutbound) {
-                    const replyText =
-                      intent === 'approve'
-                        ? `已批准「${item.title}」`
-                        : `已拒绝「${item.title}」`;
-                    await onOutbound(
-                      replyText,
-                      message.conversationId ?? message.senderId
-                    );
-                  }
-                  // DEEP-9：释放 claimMessage 锁，防止 messageId 永久 inflight
-                  finalizeMessage(message.messageId, true);
-                  otel.endSpan(routeSpan);
-                  return { valid: true, response: 'text_approval_processed' };
-                } catch (inboxErr) {
-                  await handleError(inboxErr, {
-                    module: 'channels:routing',
-                    action: 'textApproval:inboxWrite',
-                    context: { itemId, intent, traceId },
-                  });
-                  if (onOutbound) {
-                    await onOutbound(
-                      '系统繁忙，请稍后再试',
-                      message.conversationId ?? message.senderId
-                    );
-                  }
-                  // DEEP-9：即使失败也要释放锁
-                  finalizeMessage(message.messageId, true);
-                  recordMessageRejected('INBOX_UNAVAILABLE');
-                  otel.endSpan(routeSpan);
-                  return { valid: false, errorCode: 'INBOX_UNAVAILABLE' };
-                }
-              }
-            }
-          }
-        }
-      } catch (preCheckErr) {
-        // @ignore-catch: 审批预检失败（导入失败等非关键错误）不阻塞主路由
-        await handleError(preCheckErr, {
-          module: 'channels:routing',
-          action: 'textApproval:preCheck',
-          context: { channelName, messageId: message.messageId },
-        });
-      }
+    // ── 纯文本审批前置检查（C3-S3：已内聚到 `./textApproval`，语义不变）──
+    const approvalResult = await tryHandleTextApproval({
+      message,
+      channelSessionId: channelSession?.id ?? null,
+      onOutbound,
+      traceId,
+      channelName,
+    });
+    if (approvalResult) {
+      otel.endSpan(routeSpan);
+      return approvalResult;
     }
 
     // DEEP-6：per-session 串行化，保证同会话回复顺序不乱
@@ -792,191 +525,22 @@ export async function routeChannelMessage(
         },
       });
 
-      let aggregatedText = '';
-      let chunkCount = 0;
-      let toolCallChunks = 0;
-      let lastToolLogMs = Date.now();
-      let streamError: string | undefined;
-      let placeholderSent = false;
-      // P1-1：首个工具进度通知是否已发送（每任务仅 1 条，QQ seq 配额感知）
-      let firstToolNotified = false;
-      const outboundTarget = message.conversationId ?? message.senderId;
+      // C3-S3-S2（2026-10-09）：流式消费循环已内聚到 `./streamConsumption`（语义不变）。
 
       try {
-        for (;;) {
-          // 每次等待下一个 chunk 均带独立空转计时器；chunk 到达即重置（活动心跳）
-          let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-          const idlePromise = new Promise<never>((_, reject) => {
-            timeoutHandle = setTimeout(() => {
-              // PR2 两段式取消（第一段）：请求取消 + 触发底层 abort（端到端信号）。
-              // 状态机 → CANCEL_REQUESTED；确认/保留决策见下方 catch 分支的 grace 段。
-              executionManager.requestCancel(
-                lease.executionId,
-                'INACTIVITY_TIMEOUT'
-              );
-              // 以**类型化**中止错误抛出（携带 reason），取代裸 Error + 文案匹配
-              const reason = new ExecutionAbortedError(
-                'INACTIVITY_TIMEOUT',
-                `chatStream 空转超时 (>${STREAM_IDLE_TIMEOUT_MS / 1000}s 无 chunk)`,
-                { traceId, messageId: message.messageId }
-              );
-              // abort 外部信号 → ChatManager 中继到会话 controller → 停止底层执行
-              cancelController.abort(reason);
-              reject(reason);
-            }, STREAM_IDLE_TIMEOUT_MS);
-          });
-          let result: IteratorResult<
-            ChatStreamChunk,
-            { content: string; finishReason?: string }
-          >;
-          try {
-            result = await Promise.race([generator.next(), idlePromise]);
-          } finally {
-            clearTimeout(timeoutHandle);
-          }
-
-          if (result.done) {
-            // generator return = 最终 ChatResponse（Write-Ahead：done 前已持久化）
-            const final = result.value;
-            if (streamError) {
-              finishExecution(false, streamError);
-              return { content: '', finishReason: 'error' };
-            }
-            finishExecution(true, final.finishReason);
-            return {
-              content: final.content || aggregatedText,
-              finishReason: final.finishReason ?? 'stop',
-            };
-          }
-
-          const chunk = result.value;
-          chunkCount++;
-          switch (chunk.type) {
-            case 'text':
-              aggregatedText += chunk.content ?? '';
-              break;
-            case 'tool_call':
-              toolCallChunks++;
-              // PR5-S3（2026-10-09，`.trae/specs/durable-execution.md`）：execution 级**工具调用记账**
-              // （`tool_calls` 表）—— Router 既有 `executionId` 又能观测 tool_call chunk，故在此接线；
-              // 写穿为 best-effort，未接入 store ⇒ no-op（不阻断流式）。
-              {
-                const spec = chunk.toolCall;
-                if (spec?.id) {
-                  if (spec.status === 'completed' || spec.status === 'failed') {
-                    executionManager.settleToolCall(
-                      lease.executionId,
-                      spec.id,
-                      spec.name,
-                      spec.status,
-                      spec.error
-                    );
-                  } else {
-                    executionManager.recordToolCall(
-                      lease.executionId,
-                      spec.id,
-                      spec.name
-                    );
-                  }
-                }
-              }
-              // 工具活动日志（节流：首个必记，之后每 30s 至多 1 条，防刷屏）
-              if (toolCallChunks === 1 || Date.now() - lastToolLogMs > 30_000) {
-                lastToolLogMs = Date.now();
-                logger.info(`[TRACE] ${traceId} 流式工具活动`, {
-                  messageId: message.messageId,
-                  toolCallSeq: toolCallChunks,
-                  toolName: chunk.toolCall?.name,
-                  toolStatus: chunk.toolCall?.status,
-                  chunkCount,
-                });
-              }
-              // P1-1（2026-08-20）：首个工具开始时向渠道推送进度通知，
-              // 消除"AI 沉默执行、渠道侧无感知"（根因③）。配额感知设计：
-              // 每任务仅 1 条（QQ 同 msg_id 被动回复上限 5 条——
-              // 工具通知 seq=1 + 长任务占位 seq=2 + 最终回复 seq=3，安全区内）。
-              // 与占位提示共用 enableLongTaskPlaceholder 门控（仅被动回复窗口渠道）。
-              // 发送失败不中断主流程。
-              if (
-                !firstToolNotified &&
-                options.enableLongTaskPlaceholder === true &&
-                chunk.toolCall?.name
-              ) {
-                firstToolNotified = true;
-                try {
-                  await onOutbound?.(
-                    `🔧 ${formatToolNotifySummary(chunk.toolCall.name, chunk.toolCall.arguments)}…`,
-                    outboundTarget
-                  );
-                  logger.info(`[TRACE] ${traceId} 工具进度通知已发送`, {
-                    messageId: message.messageId,
-                    toolName: chunk.toolCall.name,
-                    target: outboundTarget,
-                  });
-                } catch (notifyErr) {
-                  await handleError(notifyErr, {
-                    module: 'channels:routing',
-                    action: 'toolProgressNotify',
-                    context: { traceId, channelName },
-                  });
-                }
-              }
-              break;
-            case 'error':
-              streamError = chunk.content || chunk.errorCode || 'stream error';
-              logger.warning(`[TRACE] ${traceId} 流式错误 chunk`, {
-                messageId: message.messageId,
-                errorCode: chunk.errorCode,
-                contentPreview: (chunk.content ?? '').slice(0, 120),
-              });
-              break;
-            case 'question':
-              // 渠道无法呈现交互 UI（预存缺口）：记录日志，流按既有降级策略继续。
-              // 后续如需支持，可在此将 question 转发为渠道文本提问。
-              logger.info(
-                `[TRACE] ${traceId} 流式出现交互提问（渠道暂不支持 UI 交互）`,
-                {
-                  messageId: message.messageId,
-                  questionPreview: (chunk.content ?? '').slice(0, 80),
-                }
-              );
-              break;
-            default:
-              // thinking/status/todo/execution_phase 等：进度类 chunk，渠道不需要逐条处理
-              break;
-          }
-
-          // AC-5③：长任务占位提示（见 LONG_TASK_PLACEHOLDER_AFTER_MS 注释）。
-          // 在被动回复窗口关闭前先送达一条"仍在执行"，避免长任务静默期用户无感知；
-          // 仅对声明了被动回复窗口的渠道启用（enableLongTaskPlaceholder，
-          // 2026-08-20 渠道对齐：email/sms/webhook 等主动出站渠道不受窗口约束，
-          // 占位消息纯属干扰——2 封邮件/收费短信/下游误处理）。
-          // 占位发送失败不中断主流程（最终回复仍会尝试出站）。
-          if (
-            !placeholderSent &&
-            options.enableLongTaskPlaceholder === true &&
-            Date.now() - llmStartMs > LONG_TASK_PLACEHOLDER_AFTER_MS
-          ) {
-            placeholderSent = true;
-            try {
-              await onOutbound?.(
-                '⏳ 任务仍在执行中，预计还需一些时间，完成后立即回复',
-                outboundTarget
-              );
-              logger.info(`[TRACE] ${traceId} 长任务占位提示已发送`, {
-                messageId: message.messageId,
-                target: outboundTarget,
-                elapsedMs: Date.now() - llmStartMs,
-              });
-            } catch (placeholderErr) {
-              await handleError(placeholderErr, {
-                module: 'channels:routing',
-                action: 'longTaskPlaceholder',
-                context: { traceId, channelName },
-              });
-            }
-          }
-        }
+        return await consumeStreamChunks({
+          generator,
+          cancelController,
+          executionManager,
+          lease,
+          message,
+          channelName,
+          traceId,
+          enableLongTaskPlaceholder: options.enableLongTaskPlaceholder === true,
+          onOutbound,
+          llmStartMs,
+          finishExecution,
+        });
       } catch (streamErr) {
         // 空转超时/消费异常：关闭 generator 释放底层会话互斥锁
         // （对齐 chat-handlers P2-10：否则 streamMessage 的 SimpleMutex 永不释放）。
@@ -1039,11 +603,11 @@ export async function routeChannelMessage(
       messageId: message.messageId,
       hasContent: !!response.content,
       responseLength: response.content?.length || 0,
-      finishReason: (response as Record<string, unknown>).finishReason,
+      finishReason: response.finishReason,
       llmDurationMs: Date.now() - llmStartMs,
     });
 
-    const finishReason = (response as Record<string, unknown>).finishReason;
+    const finishReason = response.finishReason;
 
     // PR2 遗留-2（2026-10-09）：**会话占用（准入拒绝）** —— 未启动 LLM（见回调内 admission）。
     // 释放消息锁但**不标记已处理** ⇒ 允许渠道/用户稍后重试；同时给用户一条可见反馈。
@@ -1161,53 +725,15 @@ export async function routeChannelMessage(
       };
     }
 
-    // ⑥ 出站回调 + 追踪完成
-    if (response.content && onOutbound) {
-      const target = message.conversationId ?? message.senderId;
-      logger.info(`[TRACE] ${traceId} 阶段开始: outbound`, {
-        messageId: message.messageId,
-        target,
-        responseLength: response.content.length,
-      });
-      const outboundStartMs = Date.now();
-      try {
-        await onOutbound(response.content, target);
-        messageTraceBuffer.addStage(
-          traceId,
-          'outbound',
-          'ok',
-          target,
-          Date.now() - outboundStartMs
-        );
-      } catch (outboundErr) {
-        messageTraceBuffer.addStage(
-          traceId,
-          'outbound',
-          'fail',
-          String(outboundErr).slice(0, 200),
-          Date.now() - outboundStartMs
-        );
-        throw outboundErr;
-      }
-      logger.info(`[TRACE] ${traceId} 阶段完成: outbound`, {
-        messageId: message.messageId,
-        target,
-        outboundDurationMs: Date.now() - outboundStartMs,
-      });
-
-      // 2026-08-20 spec qq-file-transfer：回复文本中含本地文件路径时
-      // 追加文件消息发送（multipart 上传 QQ 媒体库）。文本已送达为事实，
-      // 文件失败不抛错，补发一条文本反馈。
-      if (onOutboundFile) {
-        await sendOutboundFiles(
-          response.content,
-          target,
-          traceId,
-          onOutboundFile,
-          onOutbound
-        );
-      }
-    }
+    // ⑥ 出站回调 + 追踪完成（C3-S3：出站已内聚到 `./channelOutbound`，语义不变）
+    await deliverChannelOutbound({
+      responseContent: response.content,
+      target: message.conversationId ?? message.senderId,
+      traceId,
+      messageId: message.messageId,
+      onOutbound,
+      onOutboundFile,
+    });
 
     if (enableTracing && traceSpanContext?.isSampled) {
       try {

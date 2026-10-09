@@ -37,6 +37,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { LandlockPolicy, LandlockRunResult } from './types';
+// S5（2026-10-09）：输出软上限复用 B1 的"逐块按剩余量切片"助手（截断口径单一来源）
+import { appendWithinLimit } from '../SandboxPolicy';
 
 /** fail-closed：沙箱初始化失败退出码 */
 const EXIT_SANDBOX_INIT_FAILED = 125;
@@ -54,6 +56,12 @@ export interface RunWithLandlockOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
+  /**
+   * 输出软上限（**按字符**比较，与 bash / PTY 同口径）：超出即截断并追加标记，
+   * 防止 stdout/stderr 无界累积撑爆内存（B1 / G1-A 同一机制，`appendWithinLimit`）。
+   * 缺省 = 不限制。
+   */
+  maxBufferChars?: number;
 }
 
 /**
@@ -109,6 +117,7 @@ export async function runWithLandlock(
       stdout: '',
       stderr: 'landlock-run: unsupported platform',
       exitCode: 1,
+      timedOut: false,
       sandboxInitFailed: false,
     };
   }
@@ -127,30 +136,43 @@ export async function runWithLandlock(
         cwd: options.cwd,
         env: options.env,
         timeout: options.timeoutMs,
+        windowsHide: true,
       });
       let stdout = '';
       let stderr = '';
+      const maxChars = options.maxBufferChars;
+      const append = (acc: string, block: string): string =>
+        maxChars === undefined
+          ? acc + block
+          : appendWithinLimit(acc, block, maxChars).text;
+
       child.stdout.on('data', (d: Buffer) => {
-        stdout += d.toString();
+        stdout = append(stdout, d.toString());
       });
       child.stderr.on('data', (d: Buffer) => {
-        stderr += d.toString();
+        stderr = append(stderr, d.toString());
       });
       child.on('error', (err: NodeJS.ErrnoException) => {
+        // spawn 失败（helper 缺失等）：**不**归因为 exit 125 —— 125 是"沙箱初始化失败"的专用信号
+        // （`isSandboxInitFailure` 只看退出码，混用会触发错误的 fail-closed 分支）
         resolve({
           stdout,
-          stderr: String(err),
-          exitCode: EXIT_SANDBOX_INIT_FAILED,
-          sandboxInitFailed: true,
+          stderr: stderr ? `${stderr}\n${String(err)}` : String(err),
+          exitCode: null,
+          timedOut: false,
+          error: err,
+          sandboxInitFailed: false,
+          pid: child.pid,
         });
       });
       child.on('close', (code) => {
-        const exitCode = code ?? 1;
         resolve({
           stdout,
           stderr,
-          exitCode,
-          sandboxInitFailed: isSandboxInitFailure(exitCode),
+          exitCode: code,
+          timedOut: !!(child as { killed?: boolean }).killed,
+          sandboxInitFailed: isSandboxInitFailure(code ?? -1),
+          pid: child.pid,
         });
       });
     });

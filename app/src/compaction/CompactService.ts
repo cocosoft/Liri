@@ -11,22 +11,11 @@
  * （**运行期行为逐字不变**：届时本就恒走本地摘要）。
  */
 import type { SessionMessage } from '@modules/session';
+import type { Message } from '@modules/session/types/chat';
+import { MessageRole } from '@modules/session/types/chat';
 import { groupMessagesByApiRound, getMessageTextContent } from './grouping';
 import { getCompactUserSummaryMessage } from './prompt';
 import { roughTokenCountEstimationForMessages } from './utils';
-
-import {
-  getCompactConfig,
-  shouldAutoCompact,
-  CompactCircuitBreaker,
-} from './autoCompact';
-import {
-  executePreCompactHooks,
-  executePostCompactHooks,
-} from './compactHooks';
-
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('services:compact:CompactService');
 
 export const AUTOCOMPACT_THRESHOLDS = {
   BUFFER: 13_000,
@@ -200,13 +189,15 @@ export class CompactServiceImpl implements CompactService {
   private generateBasicSummary(messages: SessionMessage[]): string {
     let summary = 'Session Summary:\n\n';
     const groups = groupMessagesByApiRound(
-      messages.map((m) => ({
-        id: m.id,
-        role: m.type as any,
-        content: m.content,
-        createdAt: m.createdAt,
-        updatedAt: m.createdAt,
-      })) as any
+      messages.map(
+        (m): Message => ({
+          id: m.id,
+          role: m.type as MessageRole,
+          content: m.content,
+          createdAt: m.createdAt,
+          updatedAt: m.createdAt,
+        })
+      )
     );
 
     groups.forEach((group, index) => {
@@ -233,15 +224,6 @@ export class CompactServiceImpl implements CompactService {
     options?: CompactConversationOptions
   ): Promise<CompactionResult> {
     const preCompactTokenCount = roughTokenCountEstimationForMessages(messages);
-    const groups = groupMessagesByApiRound(
-      messages.map((m) => ({
-        id: m.id,
-        role: m.type as any,
-        content: m.content,
-        createdAt: m.createdAt,
-        updatedAt: m.createdAt,
-      })) as any
-    );
 
     const summary = this.generateBasicSummary(messages);
 

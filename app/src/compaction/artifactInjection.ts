@@ -6,9 +6,6 @@
 
 import type { SessionMessage } from '@modules/session';
 
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('services:compact:artifactInjection');
-
 /**
  * 制品类型（来自CC源码）
  */
@@ -88,7 +85,7 @@ export interface ArtifactInjectionContext {
   /**
    * 文件状态缓存
    */
-  fileStateCache?: Map<string, any>;
+  fileStateCache?: Map<string, string>;
 
   /**
    * 已加载的记忆路径
@@ -108,12 +105,12 @@ export interface ArtifactInjectionContext {
   /**
    * 工具配置
    */
-  tools?: any[];
+  tools?: unknown[];
 
   /**
    * MCP客户端
    */
-  mcpClients?: any[];
+  mcpClients?: unknown[];
 }
 
 /**
@@ -339,7 +336,7 @@ export class ArtifactInjectionService {
    */
   private async injectPlanArtifacts(
     context: ArtifactInjectionContext,
-    options: ArtifactInjectionOptions
+    _options: ArtifactInjectionOptions
   ): Promise<ArtifactInjectionResult> {
     const artifacts: Artifact[] = [];
 
@@ -382,7 +379,7 @@ export class ArtifactInjectionService {
    */
   private async injectMcpArtifacts(
     context: ArtifactInjectionContext,
-    options: ArtifactInjectionOptions
+    _options: ArtifactInjectionOptions
   ): Promise<ArtifactInjectionResult> {
     const artifacts: Artifact[] = [];
 
@@ -425,7 +422,7 @@ export class ArtifactInjectionService {
    */
   private async injectMemoryArtifacts(
     context: ArtifactInjectionContext,
-    options: ArtifactInjectionOptions
+    _options: ArtifactInjectionOptions
   ): Promise<ArtifactInjectionResult> {
     const artifacts: Artifact[] = [];
 

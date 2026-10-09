@@ -54,12 +54,9 @@ export async function initializeOTelSystem(): Promise<void> {
     const metricsBridge = createMetricsBridge(metricsService, otelMetrics);
     metricsBridge.start();
 
-    // 创建 TraceBridge 供追踪使用
-    const { createTraceBridge } =
-      await import('@modules/monitoring/otel/index.js');
-
-    const traceBridge = createTraceBridge(otelTracing);
-
+    // 2026-10-09 lint 清理（台账 L-5）：原此处 `const traceBridge = createTraceBridge(otelTracing);`
+    // 的返回值**从未被使用**，且 `TraceBridge` 构造函数无副作用（仅存字段，见 `TraceBridge.ts:33`）
+    // ⇒ 删除该死语句（`TraceBridge` 类本体保留）。
     // 初始化会话追踪
     const { getSessionTracing } =
       await import('@modules/monitoring/tracing/SessionTracing.js');
@@ -168,7 +165,9 @@ async function startAITracePlugin(
     const { createAITracePlugin } = await import('../trace-recording/index.js');
     const { resolveDataSubDir } = await import('@modules/core/paths.js');
 
-    const tracePlugin = createAITracePlugin({
+    // 2026-10-09 lint 清理（台账 L-5）：返回值从未被使用；但 `createAITracePlugin` 有**全局注册副作用**
+    // （模块内 `globalPlugin` + 启动录制）⇒ 仅去掉未使用的绑定，**调用行为不变**。
+    createAITracePlugin({
       traceDir: resolveDataSubDir('traces'),
       deps: {
         otel: otelTracing,

@@ -20,7 +20,7 @@
 // core→上层倒挂。core 模块根文件按 2 段相对路径引用（R03-002 安全区），`core/events/**` 亦在白名单内。
 import { getLogger } from '../../core/loggerFacade.js';
 import { handleError } from '../../core/errorHandler.js';
-import { BootPhase, BOOT_PHASES, getBootPhaseMeta } from './BootPhase';
+import { BootPhase, BOOT_PHASES } from './BootPhase';
 
 const logger = getLogger('BootPipeline');
 

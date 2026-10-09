@@ -103,15 +103,11 @@ export class AgentCleanup {
 
     // 3. 沙箱清理
     if (params.sandboxId) {
-      try {
-        const { DockerSandbox } =
-          await import('@modules/sandbox/docker/DockerSandbox');
-        // 标记沙箱需清理 — 实际清理由沙箱管理器执行
-        result.sandboxCleaned = true;
-        logger.debug(`标记沙箱清理: ${params.sandboxId}`);
-      } catch (error) {
-        result.errors.push(`沙箱清理失败: ${String(error)}`);
-      }
+      // 标记沙箱需清理 — 实际清理由沙箱管理器执行
+      // 2026-10-08（P1-续 S4）：原此处 `await import('@modules/sandbox/docker/DockerSandbox')`
+      // **导入后从未使用**（空转）⇒ 删该导入（`DockerSandbox` 无生产消费者）。
+      result.sandboxCleaned = true;
+      logger.debug(`标记沙箱清理: ${params.sandboxId}`);
     }
 
     result.success = result.errors.length === 0;

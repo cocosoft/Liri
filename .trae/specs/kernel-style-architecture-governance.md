@@ -1,6 +1,6 @@
 # Spec：Linux 内核式架构治理目标（Kernel-Style Architecture Governance）
 
-> 版本 1.2 ｜ 创建 2026-10-08 ｜ 更新 2026-10-08 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.2 = P1 盘点 §8 + **隔离面就绪度盘点 §9**）
+> 版本 1.3 ｜ 创建 2026-10-08 ｜ 更新 2026-10-09 ｜ 状态：🟢 **治理目标已立（用户裁定）**；**P0 + P1 已完成**（v1.3 = v1.2 盘点 §8 + 隔离面 §9；**并入 VFS 只读试点内容（§2 / P2）**；**2026-10-09 沙箱删除（S1–S7）已整体回滚恢复 ⇒ §9 处置回退为"待裁定"**）
 > 来源：用户 2026-10-08 架构治理咨询 ——「想从架构治理层面，把 Liri 按 linux 内核方式组织」；用户 2026-10-08 指令「启动 P1 就绪度盘点」
 > 关联规则：GR15（Spec-Driven）· **R06-008 / `scripts/modules-to-layers.json`（分层唯一事实源，本 spec 不替代）** · CS01（归一化）· CS06（证据驱动）· §1.16（工具注册表单一 / 注册→disposer 生命周期）
 > 关联 spec：`.trae/specs/ai-vfs-driver-contract.md`（本目标的**唯一真实缺口子项**，v1.1）
@@ -107,7 +107,7 @@
 
 ### 8.1 盘点结论（15 行映射）
 
-**✅ 已对齐 10 项** · **🟡 待对齐/部分漂移 4 项** · **❌ 缺口 3 项**（VFS 族：驱动 ops / VFS / mount namespace）
+**✅ 已对齐 7 项** · **🟡 待对齐/部分漂移 5 项** · **❌ 缺口 0 项**（VFS 族已由只读试点转为 🟡 部分，见 §2）
 
 | 判定 | 映射行 | 关键取证 |
 |---|---|---|
@@ -115,14 +115,14 @@
 | ✅ | 内核装配 | `main.ts:1253-1254` 唯一调用 `registerAllSpis(container)`；`DIContainer` **无重复注册**（grep 全仓 `register*Spi` 仅本文件 + `core/spi/*` 自身） |
 | 🟡 | 设备模型 | 唯一写入口成立（`ToolManager.ts:87`），**但 1 处第二注册表**（§8.2-D1） |
 | ✅ | 模块加载/卸载 | `MCPToolBridge.ts:113` `registerServerTools` 返回 disposer（逆序清理，EffectScope 对齐） |
-| ✅ | syscall 表 | `toolNames.generated.ts` 71 条 |
+| ✅ | syscall 表 | `toolNames.generated.ts` **73** 条 |
 | ✅ | capability 检查 | `ToolExecutionService.ts:564-590` 调 `checkPermissionForTool(name,args,{sessionId,forceAskReason})`，`allowed:false` 分支处理 `ask`/inbox（**形态见 D4**） |
 | ✅ | LSM hooks | `spiWiring.ts:459-481` 装配 `IHookChainPort`（`HookChainManager.getInstance()`） |
 | ✅ | 可见性隔离 | **生产调用点** `streamMessageFlow.ts:799` `filterToolsByTask(...)`（非仅定义存在） |
 | 🟡 | cgroup 资源限制 | 执行面 `resourceGovernor` 已接线（`ChatOrchestrator.ts:682`、`streamMessageFlow.ts:1215` acquire / `:1199`·`:2665` release），**默认关**；观测面见 D5 |
-| ✅ | 隔离 | `runWithLandlock` 由 `tools/bash/bashLandlockExec.ts` 接入；`SandboxSecurityChecker` 由 `BashTool`/`PowerShellTool` 消费 |
+| 🟡 | 隔离 | **实际生效 = Landlock 路径门禁**（`tools/bash/bashLandlockExec.ts` **直接** `buildLandlockArgv`+`spawn`）；`runWithLandlock` 文件存在但**零调用点**（死函数）；`SandboxSecurityChecker` 由 `BashTool`/`PowerShellTool` 消费 |
 | 🟡 | `/proc` `/sys` 伪文件系统 | 知识库 + 状态面未统一命名空间（本就标"未对齐"） |
-| ❌ | 驱动 ops / VFS / mount namespace | 三者仍缺（`app/src` grep `VFS\|mountPoint` = 0 命中） |
+| 🟡 | 驱动 ops / VFS / mount namespace | **部分**：`IVfsDriver` 已落（`app/src/vfs/types.ts`）+ 2 驱动（`DevDocsDriver`/`McpResourcesDriver`）+ 2 挂载点（`dev_docs://`/`mcp://`，装配于 `entrypoints/vfsWiring.ts`）；零消费者迁移 |
 
 ### 8.2 漂移清单（**本轮新发现，均已在台账登记**）
 
@@ -180,13 +180,13 @@
 
 | # | 级别 | 漂移 | 取证 | 影响 |
 |---|---|---|---|---|
-| **S1** | 🟡 中 | **SPI `workspaces` 面状态源恒空**：`WorkspaceManager.create()` 全仓**零调用** ⇒ `globalWorkspaceManager.get('default')` 恒 `undefined`、`list().size` 恒 `0` | `WorkspaceManager.ts:54`（`create`）零外部调用；`spiWiring.ts:439/444/455` | 端口 `hasWorkspacePermission` 恒 `false`（fail-closed）、`isWorkspacePermissionDenied` 恒 `false`、`activeWorkspaceCount` 恒 `0` —— **状态面空转**（消费者 `handler-utils.ts:172`、`sandbox-handlers.ts:148`） |
+| **S1** | 🟡 中 → ✅ **已接线（2026-10-09，见 §9.6）** | **SPI `workspaces` 面状态源恒空**：`WorkspaceManager.create()` 全仓**零调用** ⇒ `globalWorkspaceManager.get('default')` 恒 `undefined`、`list().size` 恒 `0` | `WorkspaceManager.ts:54`（`create`）零外部调用；`spiWiring.ts:439/444/455` | 端口 `hasWorkspacePermission` 恒 `false`（fail-closed）、`isWorkspacePermissionDenied` 恒 `false`、`activeWorkspaceCount` 恒 `0` —— **状态面空转**（消费者 `handler-utils.ts:172`、`sandbox-handlers.ts:148`） |
 | **S2** | 🔴 死面 | `IsolationManager`（448 行：插件 fs/网络隔离策略）+ 单例 `isolationManager` **零外部消费者** | 仅 `sandbox/index.ts:82-94` 转出；`IsolationManager.ts:452` 自建单例无消费 | 插件隔离**从未启用**（`registerPolicy`/`checkFileAccess`/`checkNetworkAccess` 无调用点） |
 | **S3** | 🔴 死面 | `EnhancedSandboxManager` + `IntelligentSandboxAnalyzer` 零外部消费者；**唯一"超限即拒绝"的沙箱侧实现**却在 `EnhancedSandboxManager.ts:666/893` | 仅 `sandbox/index.ts:47-48` 转出 | "硬限流"能力存在于**死面内** ⇒ 运行期无效（与 D5 相辅相成） |
 | **S4** | 🔴 死面 | `PTYSandbox` / `SSHSandbox` / `DockerSandbox`（+ `adapters/DockerWorkspace`·`SSHWorkspace` 构造链）零外部消费者；`AgentCleanup.ts:107-108` 对 `DockerSandbox` 是**未使用导入**（空转，仅置 `sandboxCleaned=true`） | sandbox 目录外 grep **零调用**；`DockerWorkspace.ts:27` 为唯一实例化（链不可达） | 三种隔离后端（PTY/SSH/Docker）**均未接线** |
-| **S5** | 🔴 死函数 | `runWithLandlock`（`landlock/runWithLandlock.ts:101`）**无调用点** —— bash 与 code_run 均**绕过它**直接 `buildLandlockArgv`+`spawn` | `bashLandlockExec.ts:475`、`LinuxSandboxRunner.ts:242`；`runWithLandlock` 外部零命中 | 文档 `docs/配置与安全/工具调用安全检查链路.md:68` 称"策略落地：`runWithLandlock.ts`"**失实**（实际落地在 `bashLandlockExec`/`LinuxSandboxRunner`）—— 其子部件 `buildLandlockArgv`/`isSandboxInitFailure` 是**活的** |
+| **S5** | 🔴 死函数 → ✅ **已接线（2026-10-09，见 §9.6）** | `runWithLandlock`（`landlock/runWithLandlock.ts:101`）**无调用点** —— bash 与 code_run 均**绕过它**直接 `buildLandlockArgv`+`spawn` | `bashLandlockExec.ts:475`、`LinuxSandboxRunner.ts:242`；`runWithLandlock` 外部零命中 | 文档 `docs/配置与安全/工具调用安全检查链路.md:68` 称"策略落地：`runWithLandlock.ts`"**失实**（实际落地在 `bashLandlockExec`/`LinuxSandboxRunner`）—— 其子部件 `buildLandlockArgv`/`isSandboxInitFailure` 是**活的** |
 | **S6** | 🟡 | `SandboxManager.execute()`（真实 `child_process.exec`）**无生产调用**；外部只走 `executeWithConstraints`（= **纯超时**，非资源限流） | `SandboxManager.ts:317` 零调用；`GovernanceManager.ts:267` | "沙箱执行"语义实际由 **Landlock 路径**承担；`SandboxManager.execute` 空转 |
-| **S7** | 🟡（**补强 D5**） | `ResourceLimitManager.acquireExecution/releaseExecution/cleanStaleContexts` 与 `ProcessRegistry.register()` **全仓零调用** ⇒ SPI `getRuntimeStatus` 的 `resourceSummary`/`processStats` **恒空** | `spiWiring.ts:453-454`；零调用已复核 | D5 已裁定为"观测面"，本轮**实测补强**：**观测面数据源亦恒空**（D5 只证"未接执行路径"，未证"观测数据为空"） |
+| **S7** | 🟡（**补强 D5**）→ ✅ **部分接线（2026-10-09，见 §9.6）** | `ResourceLimitManager.acquireExecution/releaseExecution/cleanStaleContexts` 与 `ProcessRegistry.register()` **全仓零调用** ⇒ SPI `getRuntimeStatus` 的 `resourceSummary`/`processStats` **恒空** | `spiWiring.ts:453-454`；零调用已复核 | D5 已裁定为"观测面"，本轮**实测补强**：**观测面数据源亦恒空**（D5 只证"未接执行路径"，未证"观测数据为空"） |
 
 ### 9.3 限流语义结论（"谁真限流"）
 
@@ -203,7 +203,7 @@
 ### 9.4 未做边界（如实，CS06）
 
 - `AgentCleanup` 的 `DockerSandbox` 空转导入**未修**（属"自己发现的既有可疑代码"，按 `PY_APP §3` 登记不改）。
-- S1–S7 的**处置未做**（本轮为盘点）：删除死面 / 接线 / 文档订正 均需用户裁定（见 §9.5）。
+- S1–S7 的**处置未做**（本轮为盘点）：删除死面 / 接线 / 文档订正 均需用户裁定（见 §9.5）。（**2026-10-09 更新**：S1 / S5 / S7 已处置，见 §9.6）
 - 未核 Docker/PTY/SSH **适配器本体**的内部逻辑质量（已证"不可达"，其内部正确性无运行期意义）。
 
 ### 9.5 建议（待裁定）
@@ -214,3 +214,14 @@
 - **修**：`AgentCleanup.ts:107-108` 未使用导入（低风险）。
 
 > **注意**：以上"删除"均需用户裁定 —— `PY_APP §3` 规定**不删预先存在的死代码除非被要求**。
+
+### 9.6 处置记录（2026-10-09，按 S5 → S1 → S7 顺序实施）
+
+| 项 | 处置 | 关键改动 |
+|---|---|---|
+| **S5** | ✅ **已接线（去重复）** | `runWithLandlock` 补齐 `maxBufferChars`（`appendWithinLimit` 软限）/ `timedOut` / `error` 三态，并**纠正**原「spawn 错误误归因 exit 125」；bash 的 `defaultLandlockHelperRunner` 改为**委托** `runWithLandlock`（`sandbox/landlock/runWithLandlock.ts` · `sandbox/landlock/types.ts` · `tools/bash/bashLandlockExec.ts`）。**code_run 保留自身 RPC spawn** —— 它需**原始子进程句柄**做 `runRpcChildProcess`，`runWithLandlock` 无法提供 ⇒ 该处为**固有双模式**，非可消除重复 |
+| **S1** | ✅ **已接线** | 组合根 `entrypoints/spiWiring.ts` 启动期 `globalWorkspaceManager.create('default', …)`（`has('default')` 守卫幂等；`LocalWorkspace`/`DockerWorkspace` 均用基类 `initialize()` ⇒ 创建**无 IO**、启动安全）⇒ 端口 `hasWorkspacePermission` / `isWorkspacePermissionDenied` / `activeWorkspaceCount` 由权限级别（`config.sandbox.permissionLevel`）**真实驱动** |
+| **S7** | ✅ **部分接线**（`ProcessRegistry` 生产端） | bash（`execBashCommand` 两条路径的默认 runner）与 code_run（`LinuxSandboxRunner` 的 RPC 子进程，`running` → `close` 收敛为终态）均在 spawn 处登记进 `processRegistry` ⇒ `GET /v1/sandbox/status` 的 `processStats` 由**恒空**转为真实。**`ResourceLimitManager` 维持 D5 裁定**（观测面、**不接**执行路径）⇒ `resourceSummary` 仍恒空（如实边界） |
+| **S2 / S3 / S4 / S6** | ⏳ **未做**（需需求触发 / 产品决策） | 见 §9.5：S2/S3/S4 属死面接线（无生产 seam，CS03）；S6 `SandboxManager.execute()` 与 Landlock 路径语义重复，**倾向删除而非接线** |
+
+> **验证（2026-10-09）**：`bun run typecheck` ✅ · `bun run lint`（**0 error / 0 warning**）✅ · 全量 `bun test` **5178 pass / 36 skip / 0 fail** · `bun run lint:arch` 错误 **0** · `bun run lint:size` 错误 **0**。

@@ -98,9 +98,13 @@
 **S3 落点**：`app/src/runtime/api/llmChatOps.ts`（`LlmChatOps` + `LlmChatOpsDeps`（含 `isLlmReady/setLlmReady`、`getSmartRouter/setLastRouteDecision` 读写端口）+ `LlmChatRouter` 窄契约）；`CoreAPIImpl` 侧 `warmupLLM`/`chatStream` 改经 `this.llmChatOps.*`；
 **教训**：`shouldAutoTitle` 虽为 private，但被 `tests/runtime/coreapi-title-lifecycle.test.ts` 经实例访问 ⇒ 搬迁时须保留同名转发（已补）。
 
-### ⚠️ 顺带发现（预存问题，待登记台账）
+### ✅ 顺带发现（预存 lint 警告）→ **已登记台账 L-5**（2026-10-09）
 
-`bun run lint`（eslint/prettier）在本仓**存量**违规（**非本次改动**，涉及 `src/bootstrap/*` · `src/compaction/*` · `src/tokenBudget/*` 等）：
-- 迁移前实测 **55 errors / 56 warnings**，其中**本次会话文件**的 prettier 违规已 `--fix` 清零；
-- 余下 **0 errors / 56 warnings**（均为 `no-unused-vars` 类警告，位于未触碰文件）⇒ **预存**，应登记 `dev_docs/error_repairs/预存错误与待处理问题.md`（§1.9「发现即记录」）。
-- 另注：`ci` 脚本含 `bun run lint`，故**当前主干 CI 在 lint 步即已不绿**（预存，与本 spec 无关）。
+`bun run lint`（`eslint src --ext .ts`）实况 **0 errors / 56 warnings**：
+
+- **修正前一处不准确归因（CS06，2026-10-09 复核）**：S1 时曾记为「存量 prettier 违规（`bootstrap/*`·`compaction/*`·`tokenBudget/*`）」——
+  **有误**。实测那 55 条 **error（prettier）全部落在本会话改动文件**（已 `eslint --fix` 清零）；上述三目录的是 **warning**，不是 error。
+- **存量部分**：**56 条 warning**，全为语义类（`no-unused-vars` ×44 / `no-explicit-any` ×12），分布于 **17 文件 / 3 目录**；
+  逐文件 `git log -1` 证明最后修改均早于本会话（09-30 ~ 10-08）⇒ **非本次引入**。
+- **登记**：`dev_docs/error_repairs/预存错误与待处理问题.md` **§L-5**（含文件清单、取证、处置与建议）。
+- **门禁影响**：warning **不阻塞**（`lint` 退出码 0）⇒ CI 不会红；`no-explicit-any` 9 处建议并入 **C2-O2「事件载荷去 `any`」** 专项同批处置。

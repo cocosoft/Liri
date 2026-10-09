@@ -52,19 +52,19 @@
  * 离线用例覆盖门控判据、策略形状、argv 形状与成败分支。
  */
 
-import { exec, spawn } from 'node:child_process';
+import { exec } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import {
-  appendWithinLimit,
   buildLandlockArgv,
   isSandboxInitFailure,
   LandlockDetector,
   readLandlockConfig,
   isEvalBashLandlockForced,
+  runWithLandlock,
+  processRegistry,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -72,6 +72,7 @@ import type {
   LandlockFsAccess,
   LandlockFsRule,
   LandlockPolicy,
+  ProcessInfo,
 } from '@modules/sandbox';
 import {
   resolveDownloadsDir,
@@ -82,10 +83,31 @@ import { reportBashLandlockGapOnce } from './bashLandlockGap';
 
 const logger = getLogger('tools:bash:landlock-exec');
 
-const execAsync = promisify(exec);
-
 /** landlock-run helper（与 `LinuxSandboxRunner` **同一个**环境变量，不新增命名） */
 const BASH_LANDLOCK_HELPER = process.env.LANDLOCK_RUN_HELPER || 'landlock-run';
+
+/**
+ * S7（2026-10-09）：把一次 bash 子进程登记进 `ProcessRegistry`，点亮
+ * `GET /v1/sandbox/status` 的 `processStats`（原 `register()` 全仓零调用 ⇒ 恒空）。
+ *
+ * 同步执行的进程在返回时即已结束 ⇒ 直接以**终态**登记（无需 updateStatus 往返）。
+ * `pid` 缺失（未取到句柄）或无意义时跳过，不制造空条目。
+ */
+function registerBashProcess(
+  pid: number | undefined,
+  command: string,
+  status: ProcessInfo['status'],
+  exitCode?: number
+): void {
+  if (pid === undefined) return;
+  processRegistry.register({
+    pid,
+    command,
+    status,
+    exitCode,
+    metadata: { source: 'bash' },
+  });
+}
 
 const FS_READ_EXECUTE: LandlockFsAccess[] = ['read', 'execute'];
 const FS_READ_WRITE: LandlockFsAccess[] = [
@@ -266,7 +288,16 @@ export function decideBashLandlockGate(input: {
 
 export interface LandlockHelperRunInput {
   helperPath: string;
+  /**
+   * 已构建的 helper argv（`[...buildLandlockArgv(policy), '--', '/bin/sh', '-c', command]`）。
+   * **保留供注入式 runner / 离线测试断言 argv 形状**；默认 runner 改为按 `policy`+`command`
+   * 委托 `runWithLandlock`（S5，2026-10-09：消除与 sandbox 侧重复的 spawn/切片实现）。
+   */
   argv: string[];
+  /** Landlock 策略（默认 runner 据此委托 `runWithLandlock`） */
+  policy: LandlockPolicy;
+  /** 待执行命令（默认 runner 据此委托 `runWithLandlock`） */
+  command: string;
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   timeoutMs: number;
@@ -281,6 +312,8 @@ export interface LandlockHelperResult {
   exitCode: number | null;
   timedOut: boolean;
   error?: Error;
+  /** 子进程 PID（S7：供 `ProcessRegistry` 登记） */
+  pid?: number;
 }
 
 /** helper 执行器（**可注入**：离线测试无需 Linux） */
@@ -289,52 +322,41 @@ export type LandlockHelperRunner = (
 ) => Promise<LandlockHelperResult>;
 
 /**
- * 默认 helper 执行器：`spawn` + 逐块按剩余量切片（硬上限防 OOM）。
+ * 默认 helper 执行器：**委托 `runWithLandlock`**（S5，2026-10-09）。
  *
- * **异步**（不得用 `execSync`：daemon 内同步阻塞会让全部 HTTP/SSE 停摆，见 B3-a）。
+ * 原实现在此处内联 `spawn` + 逐块切片 + error/close 承接，与 `sandbox/landlock/runWithLandlock.ts`
+ * 的同类逻辑**重复**；现 `runWithLandlock` 已补齐 `maxBufferChars`（`appendWithinLimit` 软限）、
+ * `timedOut`、`error` 三态（与 `LandlockHelperResult` 同形）⇒ 本 runner 收敛为薄适配层。
+ *
+ * `input.argv` 不再被默认 runner 使用（改由 `policy`+`command` 委托重建），保留仅为注入式
+ * runner 与离线 argv 断言。
  */
-export const defaultLandlockHelperRunner: LandlockHelperRunner = ({
-  helperPath,
-  argv,
-  cwd,
-  env,
-  timeoutMs,
-  maxBufferChars,
-}) =>
-  new Promise<LandlockHelperResult>((resolve) => {
-    const child = spawn(helperPath, argv, {
-      cwd,
-      env,
-      timeout: timeoutMs,
-      windowsHide: true,
-    });
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (block: Buffer) => {
-      stdout = appendWithinLimit(stdout, block.toString(), maxBufferChars).text;
-    });
-    child.stderr.on('data', (block: Buffer) => {
-      stderr = appendWithinLimit(stderr, block.toString(), maxBufferChars).text;
-    });
-    child.on('error', (error: NodeJS.ErrnoException) => {
-      resolve({
-        stdout,
-        stderr: stderr ? `${stderr}\n${String(error)}` : String(error),
-        exitCode: null,
-        timedOut: false,
-        error,
-      });
-    });
-    child.on('close', (code) => {
-      resolve({
-        stdout,
-        stderr,
-        exitCode: code,
-        timedOut: !!(child as { killed?: boolean }).killed,
-      });
-    });
+export const defaultLandlockHelperRunner: LandlockHelperRunner = async (
+  input
+) => {
+  const result = await runWithLandlock(input.policy, input.command, {
+    helperPath: input.helperPath,
+    cwd: input.cwd,
+    env: input.env,
+    timeoutMs: input.timeoutMs,
+    maxBufferChars: input.maxBufferChars,
   });
+  // S7（2026-10-09）：以终态登记进 `ProcessRegistry`（进程已在返回前结束）
+  registerBashProcess(
+    result.pid,
+    input.command,
+    result.error ? 'error' : result.timedOut ? 'timed_out' : 'completed',
+    result.exitCode ?? undefined
+  );
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+    error: result.error,
+    pid: result.pid,
+  };
+};
 
 /** 普通（非 Landlock）执行器签名；**导出**以便调用方/测试注入替身 */
 export type PlainRunner = (
@@ -345,18 +367,41 @@ export type PlainRunner = (
     timeout: number;
     maxBuffer: number;
   }
-) => Promise<{ stdout: string; stderr: string }>;
+) => Promise<{ stdout: string; stderr: string; pid?: number }>;
 
-/** 原路径执行器（顶层 `exec`，行为与改造前一致） */
-const defaultPlainRunner: PlainRunner = async (command, options) => {
-  const { stdout, stderr } = await execAsync(command, {
-    cwd: options.cwd,
-    env: options.env,
-    timeout: options.timeout,
-    maxBuffer: options.maxBuffer,
+/** 原路径执行器（顶层 `exec`，行为与改造前一致；S7 起额外登记进程） */
+const defaultPlainRunner: PlainRunner = (command, options) =>
+  new Promise((resolve, reject) => {
+    const child = exec(
+      command,
+      {
+        cwd: options.cwd,
+        env: options.env,
+        timeout: options.timeout,
+        maxBuffer: options.maxBuffer,
+      },
+      (error, stdout, stderr) => {
+        // S7：成功/失败均以终态登记（非 0 退出仍是"跑完"；仅被杀/超时归 timed_out）
+        registerBashProcess(
+          child.pid,
+          command,
+          error && (error as { killed?: boolean }).killed
+            ? 'timed_out'
+            : 'completed',
+          error ? (typeof error.code === 'number' ? error.code : undefined) : 0
+        );
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve({
+          stdout: String(stdout),
+          stderr: String(stderr),
+          pid: child.pid,
+        });
+      }
+    );
   });
-  return { stdout: String(stdout), stderr: String(stderr) };
-};
 
 export interface BashExecDeps {
   config?: LandlockConfig;
@@ -478,6 +523,8 @@ export async function execBashCommand(
       '-c',
       input.command,
     ],
+    policy,
+    command: input.command,
     cwd: input.cwd,
     env: input.env,
     timeoutMs: input.timeoutMs,

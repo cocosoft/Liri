@@ -5,6 +5,7 @@
 
 import type { SessionMessage } from '@modules/session';
 import type { CompactionResult } from './types';
+import type { CompactServiceImpl } from './CompactService';
 import { roughTokenCountEstimationForMessages } from './utils';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:compact:reactive');
@@ -88,6 +89,17 @@ export interface ReactiveCompactOptions {
   onProgress?: CompactProgressCallback;
 }
 
+/**
+ * 上下文分析结果（`analyzeContext` 返回值）
+ */
+interface ContextAnalysis {
+  tokenCount: number;
+  messageCount: number;
+  model: string;
+  analysisTime: Date;
+  estimatedCompressionRatio: number;
+}
+
 export class ReactiveCompactService {
   private states: Map<string, ReactiveCompactState> = new Map();
   private defaultOptions: ReactiveCompactOptions = {
@@ -97,7 +109,7 @@ export class ReactiveCompactService {
     minCompactInterval: 30 * 1000, // 30秒
   };
 
-  constructor(private compactService: any) {}
+  constructor(private compactService: CompactServiceImpl) {}
 
   /**
    * 检查是否需要反应式压缩（来自CC源码）
@@ -176,7 +188,7 @@ export class ReactiveCompactService {
         message: 'Analyzing conversation context',
       });
 
-      const analysisResult = this.analyzeContext(messages, model);
+      const _analysisResult = this.analyzeContext(messages, model);
 
       mergedOptions.onProgress?.({
         type: 'analysis',
@@ -250,7 +262,10 @@ export class ReactiveCompactService {
   /**
    * 分析上下文（来自CC源码）
    */
-  private analyzeContext(messages: SessionMessage[], model: string): any {
+  private analyzeContext(
+    messages: SessionMessage[],
+    model: string
+  ): ContextAnalysis {
     const tokenCount = roughTokenCountEstimationForMessages(messages);
 
     return {
@@ -282,7 +297,7 @@ export class ReactiveCompactService {
    */
   private async injectArtifacts(
     sessionId: string,
-    compactResult: CompactionResult
+    _compactResult: CompactionResult
   ): Promise<void> {
     // 简化实现：记录制品注入
     // 实际实现应该注入计划、文件、MCP制品等
@@ -363,7 +378,10 @@ export class ReactiveCompactService {
   /**
    * 失败时更新状态（来自CC源码）
    */
-  private updateStateOnFailure(state: ReactiveCompactState, error: any): void {
+  private updateStateOnFailure(
+    state: ReactiveCompactState,
+    _error: unknown
+  ): void {
     state.consecutiveFailures++;
     state.stats.totalCompactions++;
     state.stats.failedCompactions++;

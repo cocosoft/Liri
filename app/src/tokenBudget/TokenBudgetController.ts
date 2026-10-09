@@ -39,12 +39,7 @@ import {
 } from './ContextStatsCollector';
 // 台账 S17 根因修复（2026-10-08）：阈值常量改从**叶子模块**引入（成因与验证见 `./thresholds` 头部）。
 import { UNIFIED_THRESHOLDS } from './thresholds';
-import type {
-  APIProviderType,
-  TokenUsageDetail,
-  ContextStats,
-  TokenUsage,
-} from './types';
+import type { APIProviderType, ContextStats, TokenUsage } from './types';
 // 2026-10-01 D-144：原直接 import `@modules/ai/tokenizer/TokenEstimator`（core → app 倒挂）
 // ⇒ 改为 **DI**：估算器由调用方注入（见下方 `TokenEstimatorFn`），core 不再依赖上层。
 import { getLogger } from '../core/loggerFacade.js';

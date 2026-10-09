@@ -31,11 +31,7 @@ import {
 import { UNIFIED_THRESHOLDS } from './thresholds';
 import { getCalibrationFactor } from './CalibrationStore';
 // FSZ-162（2026-09-23）：校准与统计逻辑抽至 `./tokenCalibration`（状态仍由本类持有）
-import {
-  applyUsageSample,
-  calibrationStats,
-  createCalibrationState,
-} from './tokenCalibration';
+import { applyUsageSample, createCalibrationState } from './tokenCalibration';
 import type { CalibrationHost, CalibrationState } from './tokenCalibration';
 
 // D1（2026-09-23）：**不再**订阅 trace-recording 的 usage（`traces/` 已降级为观测层，

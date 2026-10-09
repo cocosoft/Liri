@@ -181,7 +181,7 @@ export function registerStandardHandlers(): void {
           setUserDataDirOverride(dataDirectory.trim());
           logger.info(`用户数据目录已从设置加载: ${dataDirectory}`);
         }
-      } catch (err) {
+      } catch {
         logger.debug('加载用户数据目录配置失败（使用默认值）');
       }
 
@@ -227,7 +227,7 @@ export function registerStandardHandlers(): void {
         if (configManager) {
           logger.debug('[Phase 3] ConfigManager 就绪');
         }
-      } catch (err) {
+      } catch {
         // config 可能尚未完全就绪，跳过
       }
 
@@ -271,7 +271,7 @@ export function registerStandardHandlers(): void {
   bootPipeline.register({
     id: 'domain:init',
     phase: BootPhase.DOMAIN_INIT,
-    handler: async (ctx: BootContext) => {
+    handler: async (_ctx: BootContext) => {
       logger.info('[Phase 5] 领域模块初始化');
 
       // T1.2: 从环境变量读取信任的工作区（仅合并 trustedWorkspaces 字段）
@@ -279,7 +279,7 @@ export function registerStandardHandlers(): void {
         const { configManager, injectTrustedWorkspaceFromEnv } =
           await import('@modules/config');
         injectTrustedWorkspaceFromEnv(configManager);
-      } catch (err) {
+      } catch {
         // 非致命：env 读取失败时静默跳过
       }
 
@@ -507,7 +507,7 @@ export function registerStandardHandlers(): void {
                 gatewayConfig.websocket.enabled =
                   (channelsConfig.qq?.enabled ?? false) ||
                   (channelsConfig.discord?.enabled ?? false);
-              } catch (err) {
+              } catch {
                 // 忽略
               }
             } else {
@@ -517,7 +517,7 @@ export function registerStandardHandlers(): void {
                 const gatewayConfig = cliConfigManager.getGatewayConfig();
                 gatewayConfig.enabled = false;
                 gatewayConfig.websocket.enabled = false;
-              } catch (err) {
+              } catch {
                 // 忽略
               }
             }
@@ -577,20 +577,22 @@ export function registerStandardHandlers(): void {
       try {
         const { getStartupChainProfiler } =
           await import('@modules/bootstrap/StartupChainProfiler.js');
-        const sloReport = getStartupChainProfiler().generateSLOReport();
+        // 2026-10-09 lint 清理（台账 L-5）：原 `const sloReport = getStartupChainProfiler().generateSLOReport();`
+        // 的返回值从未被使用，且 `formatSLOReport()` 为**纯函数**（`SprintPerformanceChecker.ts:338` 仅拼接字符串）
+        // ⇒ 删除该死语句；真正有动作的是下方 `getFailures()` 的超标告警，保留。
         if (getStartupChainProfiler().getFailures().length > 0) {
           logger.warning('启动阶段存在性能红线超标', {
             failures: getStartupChainProfiler().getFailures().length,
           });
         }
-      } catch (err) {
+      } catch {
         // profiler 可能未启用，跳过
       }
 
       try {
         const { profileReport } = await import('@modules/performance');
         profileReport();
-      } catch (err) {
+      } catch {
         // profiler 可能未启用，跳过
       }
 

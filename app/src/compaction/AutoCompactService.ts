@@ -7,15 +7,12 @@
 import type { Message } from '@modules/session/types/message';
 import type { SessionMessage } from '@modules/session';
 import type {
-  AutoCompactOptions,
   CompactState,
   CompactionResult,
   TokenWarningState,
 } from './types';
 import {
   calculateTokenWarningState,
-  getAutoCompactThreshold,
-  getBlockingLimit,
   getEffectiveContextWindowFromModel,
   MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES,
   roughTokenCountEstimationForMessages,
@@ -89,7 +86,7 @@ export class AutoCompactService {
   async performAutoCompact(
     sessionId: string,
     messages: Message[],
-    model: string
+    _model: string
   ): Promise<{
     success: boolean;
     result?: CompactionResult;

@@ -186,9 +186,16 @@ export function roughTokenCountEstimation(text: string): number {
  * 会使估算值系统性升高、**压缩更早触发**（**行为变更**，须先灰度观察 —— 设计 §6 风险表）。
  * ⇒ **计划**：随遗留压缩模块清理一并删除（设计 §3.2 步 4）。
  */
-export function roughTokenCountEstimationForMessages(messages: any[]): number {
+export function roughTokenCountEstimationForMessages(
+  messages: Array<
+    string | { content: string | Array<{ type?: string; text?: string }> }
+  >
+): number {
   let total = 0;
   for (const msg of messages) {
+    if (typeof msg === 'string') {
+      continue;
+    }
     if (typeof msg.content === 'string') {
       total += roughTokenCountEstimation(msg.content);
     } else if (Array.isArray(msg.content)) {

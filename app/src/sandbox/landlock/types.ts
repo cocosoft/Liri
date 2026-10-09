@@ -95,7 +95,14 @@ export interface LandlockPolicy {
 export interface LandlockRunResult {
   stdout: string;
   stderr: string;
-  exitCode: number;
+  /** `null` = 未取到退出码（spawn 失败 / 被杀 / 超时） */
+  exitCode: number | null;
+  /** 是否由超时/被杀终止（`spawn` 的 `killed` 标志） */
+  timedOut: boolean;
+  /** spawn 级错误（helper 缺失等）；**非**目标命令失败 */
+  error?: Error;
   /** true = 沙箱初始化失败（exit 125），非目标命令失败 */
   sandboxInitFailed: boolean;
+  /** 子进程 PID（S7，2026-10-09：供 `ProcessRegistry` 生产端登记；非 Linux 门控分支无） */
+  pid?: number;
 }

@@ -14,9 +14,7 @@ import { TtlCache } from '../core/spi/CacheService.js';
 import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
-import { getLogger } from '../core/loggerFacade.js';
 import { handleError } from '../core/errorHandler.js';
-const logger = getLogger('tokenBudget:ModelContextCache');
 
 /** TTL 默认值: 5 分钟 */
 const CACHE_TTL_MS = 5 * 60 * 1000;

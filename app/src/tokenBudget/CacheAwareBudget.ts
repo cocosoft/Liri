@@ -10,9 +10,7 @@ import type { ModelPriceTable, TokenUsageDetail } from './types';
 import { calculateTotalCost } from '../core/pricing.js';
 import type { ModelPricing } from '../core/pricing.js';
 
-import { getLogger } from '../core/loggerFacade.js';
 import { handleError } from '../core/errorHandler.js';
-const logger = getLogger('tokenBudget:CacheAwareBudget');
 
 export interface CacheEfficiencyResult {
   efficiency: number;

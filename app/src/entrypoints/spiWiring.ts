@@ -425,6 +425,20 @@ export async function registerAllSpis(
     } = await import('@modules/sandbox');
     const { registerSandboxSpi } = await import('@modules/core/spi');
     const sandboxManager = SandboxManager.getInstance();
+
+    // S1（2026-10-09）：创建默认工作区。
+    // 原 `globalWorkspaceManager.create()` 全仓零调用 ⇒ `get('default')` 恒 `undefined`，
+    // 端口 `hasWorkspacePermission` / `isWorkspacePermissionDenied` / `activeWorkspaceCount`
+    // 恒取「工作区不存在」分支（**状态面空转**）。在此（组合根，唯一注入点）建默认工作区，
+    // 使权限级别（`config.sandbox.permissionLevel` → `WorkspaceManager.getDefaultPermissions()`）
+    // 真正参与判定。适配器创建**无 IO**（`LocalWorkspace` / `DockerWorkspace` 均用基类
+    // `initialize()`）⇒ 启动安全；`has('default')` 守卫保证幂等。
+    if (!globalWorkspaceManager.has('default')) {
+      await globalWorkspaceManager.create('default', {
+        workingDirectory: process.cwd(),
+      });
+    }
+
     await registerSandboxSpi(container, {
       // 端口输入为 `Record<string, unknown>`，SandboxManager 期望具名字段
       // （`{ command?: string; dangerouslyDisableSandbox?: boolean }`）⇒ 边界处收窄断言

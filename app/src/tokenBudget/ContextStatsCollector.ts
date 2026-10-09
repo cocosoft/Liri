@@ -6,9 +6,7 @@
 import { priceManager } from './PriceManager';
 import type { ContextCategory, ContextStats, APIProviderType } from './types';
 
-import { getLogger } from '../core/loggerFacade.js';
 import { handleError } from '../core/errorHandler.js';
-const logger = getLogger('tokenBudget:ContextStatsCollector');
 
 const CONTEXT_COLORS = {
   systemPrompt: '#4A90D9',

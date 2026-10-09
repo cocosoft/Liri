@@ -4,18 +4,13 @@
  */
 
 import { handleError } from '../core/errorHandler.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
-import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
 
 // 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
 import { calculateCost } from '../core/pricing.js';
 import type { ModelPricing } from '../core/pricing.js';
-
-import { getLogger } from '../core/loggerFacade.js';
-const logger = getLogger('tokenBudget:PriceManager');
 
 export interface CostCalculationResult {
   cost: number;

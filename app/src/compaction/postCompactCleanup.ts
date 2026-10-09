@@ -8,9 +8,6 @@
 
 import { handleError } from '@modules/error';
 
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('services:compact:postCompactCleanup');
-
 /**
  * 压缩后清理：在自动压缩与手动压缩后执行，释放被追踪结构占用的内存。
  *

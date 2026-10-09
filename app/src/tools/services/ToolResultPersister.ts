@@ -32,6 +32,33 @@ export function buildPathRefNotice(path: string): string {
   return `\n\n[工具结果超出上下文预算，完整内容已保存到 ${path}；如需查看可用 read_file 工具读取该路径]`;
 }
 
+/**
+ * R18-B：**安全预览** —— 大工具结果被替换为预览时，避免"字符级硬切"把**代码行 / Markdown 围栏**
+ * 截成残缺（= 语法盲截断，外部 §6.3 之关切在本仓的**真实落点**）。
+ *
+ * 策略（只在末尾回退/追加，**不改动**已保留正文）：
+ *   ① 优先在 `limit` 之前**最后一个换行**处切断（行边界），避免切断行内代码/标记；
+ *   ② 若预览内 ``` 围栏数为**奇数**（截在围栏内）⇒ 补一行 ``` 收尾，防 Markdown 吞掉后续引用文案。
+ * 换行过靠前（< limit/2）时退回硬切，避免预览过短。
+ */
+export function buildSafePreview(text: string, limit = PREVIEW_CHARS): string {
+  if (text.length <= limit) return text;
+  const window = text.slice(0, limit);
+  // R18-C：优先**空行**（段落/块边界，结构最完整）→ 次选**行边界** → 最后才硬切。
+  const blank = window.lastIndexOf('\n\n');
+  const nl = window.lastIndexOf('\n');
+  const cut =
+    blank >= Math.floor(limit * 0.4)
+      ? blank
+      : nl >= Math.floor(limit * 0.5)
+        ? nl
+        : limit;
+  let preview = text.slice(0, cut);
+  const fences = (preview.match(/```/g) ?? []).length;
+  if (fences % 2 === 1) preview += '\n```';
+  return preview;
+}
+
 /** 引用文案特征（幂等判定：已改写过的内容不再处理） */
 const PATH_REF_MARKER = '[工具结果超出上下文预算';
 
@@ -144,7 +171,7 @@ export async function shrinkToolResultMessageForPersistence(
       toolResultFullChars = payload.length;
       return {
         ...blk,
-        value: payload.slice(0, PREVIEW_CHARS) + buildPathRefNotice(path),
+        value: buildSafePreview(payload) + buildPathRefNotice(path),
       };
     })
   );
@@ -255,7 +282,7 @@ export async function prepareToolResultsForContext(
     const toolCallId = item.pr.normalizedToolCall.id;
     try {
       const path = await persistToolResult(toolCallId, item.content);
-      const preview = item.content.slice(0, PREVIEW_CHARS);
+      const preview = buildSafePreview(item.content);
       const notice = buildPathRefNotice(path);
       item.pr.result = {
         ...item.pr.result,

@@ -148,7 +148,7 @@ export const CHANNEL_CATALOG: ChannelCatalogEntry[] = [
   {
     type: 'msteams',
     name: 'MS Teams',
-    exportKey: 'msteamsChannelPlugin',
+    exportKey: 'msTeamsChannelPlugin',
     load: () => import('./msteams/index.js'),
   },
   {

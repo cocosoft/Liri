@@ -65,7 +65,8 @@ export function generateId(): string {
  * @returns 消息ID
  */
 export function generateMessageId(): string {
-  return `msg-${Date.now()}-${randomIdSuffix(7)}`;
+  // R1（2026-10-09）：后缀 7 → **10 hex（40 bit）**；身份类 ID 后缀不得低于 10 位（见台账 L-6）
+  return `msg-${Date.now()}-${randomIdSuffix(10)}`;
 }
 
 /**
@@ -73,7 +74,8 @@ export function generateMessageId(): string {
  * @returns 附件ID
  */
 export function generateAttachmentId(): string {
-  return `att-${Date.now()}-${randomIdSuffix(7)}`;
+  // R1（2026-10-09）：同上，7 → 10 hex
+  return `att-${Date.now()}-${randomIdSuffix(10)}`;
 }
 
 /**

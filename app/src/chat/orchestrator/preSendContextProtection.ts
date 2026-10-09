@@ -52,28 +52,10 @@ import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import type { StreamMessageOptions } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';
-import {
-  createDailyBudgetManager,
-  type DailyBudgetManager,
-} from '../../query/DailyBudgetManager.js';
+// R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
+import { getDailyBudget } from '../../query/DailyBudgetManager.js';
 
 const logger = getLogger('chat:streamFlow');
-
-/** 8.4④（2026-09-16）：主对话每日 Token 预算——全局惰性单例（跨会话共享今日用量，
- * 与 TAORLoop 批处理各自的实例并存；默认对齐 workspace dailyBudgetTokens=500000，
- * env LIRI_DAILY_BUDGET_TOKENS 可覆盖） */
-let dailyBudgetSingleton: DailyBudgetManager | null = null;
-function getDailyBudget(): DailyBudgetManager {
-  if (!dailyBudgetSingleton) {
-    // 经统一出入口（R05-012）
-    const raw = configManager.env('LIRI_DAILY_BUDGET_TOKENS');
-    const parsed = Number.parseInt(raw ?? '', 10);
-    const dailyLimit =
-      raw && Number.isInteger(parsed) && parsed > 0 ? parsed : 500_000;
-    dailyBudgetSingleton = createDailyBudgetManager({ dailyLimit });
-  }
-  return dailyBudgetSingleton;
-}
 
 /** 压缩前/压缩后 token 诊断日志（仅 info 级，前端日志面板按 streamMessage:token 过滤） */
 export async function logTokenSnapshot(
@@ -189,20 +171,26 @@ export async function applyPreSendProtection(
     }
     // 8.4④（2026-09-16）：每日 Token 预算前置检查——用本轮估算预判是否将打穿预算，
     // 接近/达到上限时追加降级提示（对齐 AutoCompact 阈值提前量语义），而非被动等成本打穿。
+    // R16 原子预留：先取**预扣前**的 mode（保持原判定口径不变），再把本轮估算**预扣**入在途，
+    // 使并发的预检立刻看到该预留（闭合 check→record 窗口）。
     const dailyBudget = getDailyBudget();
     const budgetMode = dailyBudget.getMode();
+    const reservation = dailyBudget.reserveFor(session.id, msgTokens);
     if (budgetMode.mode !== 'normal') {
-      const projected = budgetMode.todayUsed + msgTokens;
       logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
         sessionId: session.id,
         model: options?.model ?? 'unknown',
         todayUsed: budgetMode.todayUsed,
+        projectedUsed: budgetMode.projectedUsed,
         dailyLimit: budgetMode.dailyLimit,
         estimateThisRound: msgTokens,
-        projected,
+        reservedProjected: reservation.projected,
         ratioPct: Math.round(budgetMode.percentUsed * 100),
       });
-      if (budgetMode.mode === 'locked' || projected >= budgetMode.dailyLimit) {
+      if (
+        budgetMode.mode === 'locked' ||
+        reservation.projected >= budgetMode.dailyLimit
+      ) {
         apiMessages.push({
           role: 'system',
           content: `今日 Token 预算已耗尽（已用 ${budgetMode.todayUsed}/${budgetMode.dailyLimit}）。请立即停止调用工具，基于已有上下文直接给出最终答复。`,
@@ -254,22 +242,6 @@ export async function applyPreSendProtection(
     return toolsCleared;
   } finally {
     exitPhase('presend:build');
-  }
-}
-
-/**
- * 8.4④（2026-09-16）：推理完成把真实 usage 记入每日预算（与发送前估算预检闭环）。
- * 仅计 input+output tokens；usage 缺失时跳过（发送前估算预检仍独立生效）。
- */
-export function recordDailyUsage(
-  finalResponse: { usage?: Record<string, number> } | null
-): void {
-  const usageRec = finalResponse?.usage as Record<string, number> | undefined;
-  const input = usageRec?.inputTokens ?? usageRec?.prompt_tokens ?? 0;
-  const output = usageRec?.outputTokens ?? usageRec?.completion_tokens ?? 0;
-  const total = input + output;
-  if (total > 0) {
-    getDailyBudget().recordUsage(total);
   }
 }
 

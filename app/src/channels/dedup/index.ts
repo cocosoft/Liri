@@ -276,7 +276,10 @@ export function rejectMessage(messageId: string): void {
  * - 'inflight'  — 已接收且处理中（`RECEIVED`，被其他处理者占用）
  * - 'invalid'   — 消息 ID 无效
  *
- * @param messageId - 消息唯一标识（可为 null/undefined）
+ * @param messageId - **去重键**（可含作用域前缀）。本模块**只做键的存取**，不规定作用域；
+ *   统一消息路由（`channels/routing/messageRouter`）传入的是**作用域键**
+ *   `渠道:发送者:messageId`（R4，2026-10-09）—— 防"不同账号/通道使用相同 ID"被误判重复；
+ *   其余调用方（如 `FeishuChannel`）可继续传裸 `messageId`。
  */
 export function claimMessage(
   messageId: string | undefined | null

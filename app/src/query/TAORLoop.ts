@@ -62,6 +62,7 @@ import type { FileIOLoopDetector } from './FileIOLoopDetector.js';
 import {
   DailyBudgetManager,
   createDailyBudgetManager,
+  getDailyBudget,
 } from './DailyBudgetManager.js';
 import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
@@ -1110,7 +1111,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.stopped = true;
       return;
     }
-    if (!this.dailyBudget.canExecute()) {
+    // R16（台账 L-14）：**闸门**改用进程共享的每日预算单例（原 `this.dailyBudget` 从不记账
+    // ⇒ `canExecute()` 恒真、闸门惰性）。`this.dailyBudget` 仅保留作 **loop-local** 的
+    // 优雅最后一调 / 收益递减（其状态按循环计，不可跨会话共享）。
+    if (!getDailyBudget().canExecute()) {
       if (!this.dailyBudget.needsGraceCall()) {
         this.stopReason = 'budget_exhausted';
         this.stopped = true;

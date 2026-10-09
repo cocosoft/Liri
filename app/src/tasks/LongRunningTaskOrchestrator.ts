@@ -98,6 +98,9 @@ import type {
   EscalationRecord,
 } from './lro/contracts.js';
 import { normalizeExecutorResult } from './lro/contracts.js';
+// R16（台账 L-14）：任务/子代理**非 chat 管线**的模型用量计入每日预算
+// （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
+import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
 export type {
   PdcaStatus,
   PdcaMetrics,
@@ -412,6 +415,8 @@ export class LongRunningTaskOrchestrator {
           providerId: 'default',
           latencyMs: Date.now() - _trackStart,
         });
+        // R16（台账 L-14）：任务/子代理**非 chat 管线**用量计入每日预算
+        recordDailyBudgetFromUsage((response as { usage?: unknown }).usage);
         // 回传 tool_calls —— 步骤工具可真实执行的前提（原实现只 return 文本）。
         return {
           content: response.content ?? '',

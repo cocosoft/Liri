@@ -91,17 +91,44 @@ export class WakeStore {
     });
   }
 
-  /** 原子标记 fired：读→改→写 */
+  /**
+   * 从磁盘重建 `wakeId → sessionId` 内存索引。
+   *
+   * 为什么需要（台账 L-13 / `.trae/specs/selfwake-restart-recovery.md`）：`wakeToSession`
+   * 仅由 `save()` 填充，**重启后为空** ⇒ `markFired`/`SelfWakeService._findEntry` 反查失败
+   * ⇒ 到期唤醒**既不续跑、也不落 `fired`**（每 tick 空转）。该信息本就在磁盘文件名
+   * （`{sessionId}.json`）里 ⇒ 可无损重建。
+   */
+  async rebuildIndex(): Promise<void> {
+    if (!existsSync(this.dir)) return;
+    const files = readdirSync(this.dir).filter((f) => f.endsWith('.json'));
+    for (const f of files) {
+      const sid = basename(f, '.json');
+      const entries = await this.load(sid);
+      for (const e of entries) this.wakeToSession.set(e.id, sid);
+    }
+  }
+
+  /** 解析 wakeId → sessionId；内存索引未命中时**先从磁盘重建**再试。 */
+  private async resolveSessionId(wakeId: string): Promise<string | undefined> {
+    const cached = this.wakeToSession.get(wakeId);
+    if (cached) return cached;
+    await this.rebuildIndex();
+    return this.wakeToSession.get(wakeId);
+  }
+
+  /** 原子标记 fired：读→改→写（幂等：已是 fired 则不重复写） */
   async markFired(wakeId: string): Promise<void> {
-    const sid = this.wakeToSession.get(wakeId);
+    const sid = await this.resolveSessionId(wakeId);
     if (!sid) return;
-    await this.withLock(sid, async () => {
+    const sessionId: string = sid;
+    await this.withLock(sessionId, async () => {
       try {
-        const path = this.filePath(sid);
+        const path = this.filePath(sessionId);
         if (!existsSync(path)) return;
         const entries: WakeEntry[] = JSON.parse(readFileSync(path, 'utf-8'));
         const idx = entries.findIndex((e) => e.id === wakeId);
-        if (idx >= 0) {
+        if (idx >= 0 && entries[idx].status !== 'fired') {
           entries[idx].status = 'fired';
           entries[idx].firedAt = Date.now();
           writeFileSync(path, JSON.stringify(entries, null, 2));

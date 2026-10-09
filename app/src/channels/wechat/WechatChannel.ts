@@ -24,6 +24,7 @@ import { BaseChannelPlugin } from '@modules/channels/base';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
+import { splitMessage } from '../messageSplitter';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:wechat:WechatChannel');
@@ -158,25 +159,25 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
+    // L-11.2：长文本**分片发送**（保代码围栏成对），替代原 `slice` 截断
+    const chunks = splitMessage(content, WECHAT_META.maxMessageLength);
     try {
-      const resp = await fetch(`${this.botHttpUrl}/api/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target,
-          content: content.slice(0, WECHAT_META.maxMessageLength),
-          msgType: 'text',
-        }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      const data = (await resp.json().catch(() => ({}))) as Record<
-        string,
-        unknown
-      >;
-      return {
-        success: resp.ok,
-        error: resp.ok ? undefined : (data['error'] as string),
-      };
+      for (const chunk of chunks) {
+        const resp = await fetch(`${this.botHttpUrl}/api/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target, content: chunk, msgType: 'text' }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        const data = (await resp.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        if (!resp.ok) {
+          return { success: false, error: data['error'] as string };
+        }
+      }
+      return { success: true };
     } catch (err) {
       await handleError(err, {
         module: 'channels:wechat',

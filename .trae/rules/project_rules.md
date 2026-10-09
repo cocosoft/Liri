@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.18.0 | **更新**: 2026-10-07
+**版本**: 7.20.0 | **更新**: 2026-10-09
 
 ## §1 基础规则
 
@@ -154,6 +154,7 @@ chatCoordinator().setMessages(messages);
 |------|------|------|
 | `project_rules.md` | 始终 | 本文件，编码规范 |
 | `coding-standards.md` | 始终 | 编码铁律（CS01-CS07，AI 可执行） |
+| `code-deletion.md` | **删除/清理代码** | 代码删除安全流程（CD01–CD07；关键模块禁以"无静态引用"为删依据） |
 | `paths.md` | 磁盘IO时 | 路径使用规范 |
 | `frontend.md` | 前端开发 | 前端规则 |
 | `architecture.md` / `architecture-compliance.md` | 架构/重构/审查 | 架构原则 + 合规规则（R01–R06；**R00 分层**见下方事实源） |
@@ -328,6 +329,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.20.0**: §1.6 规则文件索引新增 **`code-deletion.md`**（代码删除安全流程 CD01–CD07）—— 承接第九轮外部审查 §6.2 与**沙箱误删事故复盘**：以"`lint:arch` 静态零引用"为唯一依据删除沙箱"未接线"组件（`c693698db`/`da37b9df4`/`9305397a2`）⇒ v0.4.71 整体回滚（`4356706bf`）。规则固化**删除前六步核查**（静态/动态/配置 → 构建/插件/运行时发现 → DI/反射/协议 → 测试/变体/运行模式 → 先摘入口 → 独立提交留回滚），并**禁止**对沙箱/安全/权限/会话恢复等关键模块以"无静态引用"为删除依据
 - **v7.19.0**: §1.4 安全开关清单 **11 → 15 项** —— 批次 A 新增三个默认关的 Bash 安全姿态灰度开关 **`BASH_APPROVED_REVALIDATE`**（已批准命令复检）/ **`BASH_INTERPRETER_GUARD`**（高能力解释器确认）/ **`BASH_APPROVAL_STRICT`**（批准严格模式），PR2 新增 **`EXECUTION_TWO_PHASE_CANCEL`**（两段式取消；未确认则保留 lease）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（11 → 15）
 - **v7.18.0**: §1.4 安全开关清单 **10 → 11 项**，新增 **`OUTPUT_GUARD_KEEP_ORIGINAL`**（默认 `false`）—— 承接 **P26-2 P4**（护栏改写审计）：`validation/output_guard_applied` 事件**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256），**开 = 未打码内容落入本地事件日志**（用户裁定 2026-10-07「默认元数据 + 开关放行原文」）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（10 → 11）
 - **v7.17.0**: §1.4 `A2A_*` 清单中 `A2A_API_KEY` → **`A2A_API_KEYS`**（**多钥清单**，逗号分隔；每项 `key` 或 `key@<ISO-8601>` 过期时刻）—— 承接用户裁定「零中断轮换」（2026-10-07；`A2A_ENABLED` 仍默认关闭、**无有效钥 ⇒ 401** 不变）。设计与流程见 `.trae/specs/a2a-multikey-rotation.md`（§8.4 原为"不做"占位，本批改为已实施）

@@ -28,6 +28,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 import {
   LOOP_MIN_TOKEN_DELTA,
   LOOP_DIMINISH_TURNS_THRESHOLD,
@@ -52,7 +53,10 @@ interface DailyBudgetConfig {
 
 interface DailyBudgetState {
   mode: BudgetMode;
+  /** **实际**已用（不含在途预留） */
   todayUsed: number;
+  /** **含在途预留**的预计用量（R16 原子预留；无预留时 === `todayUsed`） */
+  projectedUsed: number;
   dailyLimit: number;
   percentUsed: number;
   remaining: number;
@@ -79,6 +83,8 @@ export class DailyBudgetManager {
   private diminishingTurnsCount: number = 0;
   // Phase 3: 优雅最后一调
   private _graceCallActive: boolean = false;
+  /** R16 原子预留：会话级**在途预留**（发送前预扣估算，响应后结算为真实用量） */
+  private outstandingBySession = new Map<string, number>();
 
   constructor(config?: Partial<DailyBudgetConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -96,12 +102,60 @@ export class DailyBudgetManager {
     this.todayUsed += tokens;
   }
 
+  /** 在途预留合计（R16） */
+  private outstandingTotal(): number {
+    let sum = 0;
+    for (const v of this.outstandingBySession.values()) sum += v;
+    return sum;
+  }
+
+  /** 预计用量 = **实际** + **在途预留**（R16；在途为 0 时 === `todayUsed`） */
+  private effectiveUsed(): number {
+    return this.todayUsed + this.outstandingTotal();
+  }
+
   /**
-   * 获取当前预算模式
+   * **预留（预扣）**（R16 原子预留）：把本会话本轮**估算**计入"在途"，使**并发**的
+   * `getMode()` 立刻看到该预留（闭合 check→record 之间的 TOCTOU 窗口）。
+   *
+   * `ok` 仅表示"含在途仍在限额内"；本层预算当前仍为**建议式**（非硬阻断）⇒ 调用方按需使用。
+   */
+  reserveFor(
+    sessionId: string,
+    tokens: number
+  ): { ok: boolean; projected: number } {
+    if (tokens > 0) {
+      this.outstandingBySession.set(
+        sessionId,
+        (this.outstandingBySession.get(sessionId) ?? 0) + tokens
+      );
+    }
+    const projected = this.effectiveUsed();
+    return {
+      ok: this.config.dailyLimit <= 0 || projected <= this.config.dailyLimit,
+      projected,
+    };
+  }
+
+  /**
+   * **结算（多退少补）**（R16）：清本会话在途预留，并把**真实用量**入账。
+   * 无预留时等同 `recordUsage`（例如未经预检的路径）。
+   */
+  settleFor(sessionId: string, actualTokens: number): void {
+    this.outstandingBySession.delete(sessionId);
+    if (actualTokens > 0) this.recordUsage(actualTokens);
+  }
+
+  /**
+   * 获取当前预算模式。
+   *
+   * R16：`percentUsed` / `mode` / `remaining` 基于**含在途预留**的 `projectedUsed`（在途为 0 时
+   * 与 `todayUsed` 相同 ⇒ **无预留则行为逐一不变**）；`todayUsed` 仍为**实际**用量。
    */
   getMode(): DailyBudgetState {
+    const projectedUsed = this.effectiveUsed();
     const percentUsed =
-      this.config.dailyLimit > 0 ? this.todayUsed / this.config.dailyLimit : 0;
+      this.config.dailyLimit > 0 ? projectedUsed / this.config.dailyLimit : 0;
 
     let mode: BudgetMode = 'normal';
 
@@ -114,9 +168,10 @@ export class DailyBudgetManager {
     return {
       mode,
       todayUsed: this.todayUsed,
+      projectedUsed,
       dailyLimit: this.config.dailyLimit,
       percentUsed,
-      remaining: Math.max(0, this.config.dailyLimit - this.todayUsed),
+      remaining: Math.max(0, this.config.dailyLimit - projectedUsed),
     };
   }
 
@@ -216,6 +271,7 @@ export class DailyBudgetManager {
     this.todayUsed = state.todayUsed;
     this.lastTotalTokens = state.todayUsed;
     this.diminishingTurnsCount = 0;
+    this.outstandingBySession.clear();
   }
 
   /**
@@ -239,6 +295,7 @@ export class DailyBudgetManager {
     this.lastTotalTokens = 0;
     this.diminishingTurnsCount = 0;
     this._graceCallActive = false;
+    this.outstandingBySession.clear();
   }
 
   private _getToday(): string {
@@ -250,4 +307,59 @@ export function createDailyBudgetManager(
   config?: Partial<DailyBudgetConfig>
 ): DailyBudgetManager {
   return new DailyBudgetManager(config);
+}
+
+/** 进程级每日 Token 预算默认上限（对齐历史 `preSendContextProtection` 常量）。 */
+export const DEFAULT_DAILY_BUDGET_TOKENS = 500_000;
+
+/**
+ * 进程级**共享**每日 Token 预算单例（R16 / 台账 L-14）。
+ *
+ * - **(a) 单一闸门实例**：主对话预检（`preSendContextProtection`）与 `TAORLoop` 的**日预算闸门**
+ *   共用本实例（原 TAORLoop 自建、从不记账 ⇒ 闸门恒真/惰性）。
+ * - **(b) 单一记账点**：由 `ChatManager.recordChatResponseUsage`（每次模型响应）记入 ——
+ *   覆盖主路径/快速路径/流式，替代原"仅记**最后一次**调用"的 `recordDailyUsage`。
+ * - **(c) 上限来源**：env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量 `DEFAULT_DAILY_BUDGET_TOKENS`。
+ *   （`workspace.costControl.dailyBudgetTokens` 为**按工作空间**配置，与"进程全局单例"语义冲突 ⇒
+ *   未接线，见 Spec `daily-budget-unification.md`。）
+ *
+ * 注：`TAORLoop` 仍保留**自己的**实例用于 **loop-local** 的 `checkDiminishingReturns`/`needsGraceCall`
+ * （其状态按循环/轮次计，**不能**跨会话共享）——故"去双实例"仅指**闸门**收敛到本单例。
+ */
+let dailyBudgetSingleton: DailyBudgetManager | null = null;
+
+export function getDailyBudget(): DailyBudgetManager {
+  if (!dailyBudgetSingleton) {
+    const raw = configManager.env('LIRI_DAILY_BUDGET_TOKENS');
+    const parsed = Number.parseInt(raw ?? '', 10);
+    const dailyLimit =
+      raw && Number.isInteger(parsed) && parsed > 0
+        ? parsed
+        : DEFAULT_DAILY_BUDGET_TOKENS;
+    dailyBudgetSingleton = createDailyBudgetManager({ dailyLimit });
+  }
+  return dailyBudgetSingleton;
+}
+
+/** 仅供测试：重置单例（生产不使用）。 */
+export function resetDailyBudgetForTest(): void {
+  dailyBudgetSingleton = null;
+}
+
+/**
+ * 从 LLM `usage` 记录**统一提取** `input+output` 并计入每日预算（R16 统一口径）。
+ *
+ * 兼容 `inputTokens/outputTokens`（内部归一化）与 `prompt_tokens/completion_tokens`（OpenAI 形）。
+ * 返回实际计入的 tokens（0 表示无有效 usage，未计入）。
+ *
+ * 用途：**非 chat 管线**的模型调用（如长程任务默认执行器 `LongRunningTaskOrchestrator`
+ * 的 `service.generate`）——该路径不经 `ChatManager.recordChatResponseUsage`，故在此单点记账。
+ */
+export function recordDailyBudgetFromUsage(usage: unknown): number {
+  const u = (usage ?? {}) as Record<string, number>;
+  const input = u.inputTokens ?? u.prompt_tokens ?? 0;
+  const output = u.outputTokens ?? u.completion_tokens ?? 0;
+  const total = input + output;
+  if (total > 0) getDailyBudget().recordUsage(total);
+  return total;
 }

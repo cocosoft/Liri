@@ -20,6 +20,11 @@ export interface TextApprovalInput {
   onOutbound?: (content: string, target: string) => Promise<void>;
   traceId: string;
   channelName: string;
+  /**
+   * 去重**作用域键**（`渠道:发送者:messageId`）—— 与 `routeChannelMessage` 同一键，
+   * 保证"审批完成"与"消息处理完成"落到**同一条** dedup 记录（R4，2026-10-09）。
+   */
+  dedupKey: string;
 }
 
 /**
@@ -30,6 +35,7 @@ export async function tryHandleTextApproval(
   input: TextApprovalInput
 ): Promise<RouteResult | null> {
   const { message, channelSessionId, onOutbound, traceId, channelName } = input;
+  const dedupKey = input.dedupKey;
 
   if (!isBridgeEnabled() || !channelSessionId || !message.content) return null;
 
@@ -60,7 +66,7 @@ export async function tryHandleTextApproval(
           );
         }
         // DEEP-9：释放 claimMessage 锁，防止 messageId 永久 inflight
-        finalizeMessage(message.messageId, true);
+        finalizeMessage(dedupKey, true);
         return { valid: true, response: 'text_approval_processed' };
       } catch (inboxErr) {
         await handleError(inboxErr, {
@@ -75,7 +81,7 @@ export async function tryHandleTextApproval(
           );
         }
         // DEEP-9：即使失败也要释放锁
-        finalizeMessage(message.messageId, true);
+        finalizeMessage(dedupKey, true);
         recordMessageRejected('INBOX_UNAVAILABLE');
         return { valid: false, errorCode: 'INBOX_UNAVAILABLE' };
       }

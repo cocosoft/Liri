@@ -244,8 +244,12 @@ export async function routeChannelMessage(
     });
   }
 
-  // ② 去重检查（messageId 级）——先于限流，避免重复事件浪费限流额度（BUG-4）
-  const claimResult = claimMessage(message.messageId);
+  // ② 去重检查（**作用域 = 渠道 : 发送者 : messageId**）—— 先于限流，避免重复事件浪费限流额度（BUG-4）
+  // R4（2026-10-09，第九轮 §3.1-A）：原键**仅 messageId** ⇒ 不同账号/通道使用**相同 ID** 会被
+  // 误判为重复（跨账号误去重）⇒ 收敛为**作用域键**：同渠道同账号同 ID 的重传**仍去重**，
+  // 跨账号/跨通道**不再误伤**。键作用域与内容级去重（渠道:会话:发送者:内容）同源同径。
+  const dedupKey = `${message.channelId || channelName}:${message.senderId}:${message.messageId}`;
+  const claimResult = claimMessage(dedupKey);
   if (claimResult === 'duplicate') {
     logger.info(`[TRACE] ${traceId} 阶段跳过: dedup(duplicate)`, {
       channelName,
@@ -295,7 +299,7 @@ export async function routeChannelMessage(
         ageMs,
       });
       // 也释放 messageId 级别的锁
-      releaseProcessing(message.messageId);
+      releaseProcessing(dedupKey);
       recordMessageRejected('content_dedup');
       messageTraceBuffer.addStage(traceId, 'dedup', 'skip', 'content_dedup');
       messageTraceBuffer.finish(traceId, 'rejected', 'content_dedup');
@@ -313,7 +317,7 @@ export async function routeChannelMessage(
     });
     // P1-1：claimMessage 已持锁，限流拒绝路径必须释放锁，
     // 否则该 messageId 永久残留 inflight 集合，渠道重传被无限拦截
-    releaseProcessing(message.messageId);
+    releaseProcessing(dedupKey);
     recordMessageRejected('RATE_LIMITED');
     messageTraceBuffer.addStage(traceId, 'rate_limit', 'fail', 'RATE_LIMITED');
     messageTraceBuffer.finish(traceId, 'rejected', 'RATE_LIMITED');
@@ -410,6 +414,7 @@ export async function routeChannelMessage(
       onOutbound,
       traceId,
       channelName,
+      dedupKey,
     });
     if (approvalResult) {
       otel.endSpan(routeSpan);
@@ -616,7 +621,7 @@ export async function routeChannelMessage(
         `[TRACE] ${traceId} 阶段失败: admission（SESSION_BUSY），未启动 LLM，释放消息锁但不标记已处理`,
         { messageId: message.messageId, channelName }
       );
-      releaseProcessing(message.messageId);
+      releaseProcessing(dedupKey);
       recordMessageRejected('SESSION_BUSY');
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
       messageTraceBuffer.finish(traceId, 'fail', 'SESSION_BUSY');
@@ -658,7 +663,7 @@ export async function routeChannelMessage(
           channelName,
         }
       );
-      releaseProcessing(message.messageId);
+      releaseProcessing(dedupKey);
       recordMessageRejected('LLM_ERROR');
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
       messageTraceBuffer.finish(traceId, 'fail', 'LLM_ERROR');
@@ -699,7 +704,7 @@ export async function routeChannelMessage(
           finishReason,
         }
       );
-      releaseProcessing(message.messageId);
+      releaseProcessing(dedupKey);
       recordMessageRejected('EMPTY_LLM_RESPONSE');
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
       messageTraceBuffer.finish(traceId, 'fail', 'EMPTY_LLM_RESPONSE');
@@ -754,7 +759,7 @@ export async function routeChannelMessage(
     }
 
     // 标记消息处理完成
-    finalizeMessage(message.messageId, true);
+    finalizeMessage(dedupKey, true);
 
     recordMessageProcessing(channelName, Date.now() - processingStartMs);
     messageTraceBuffer.finish(traceId, 'ok');
@@ -768,7 +773,7 @@ export async function routeChannelMessage(
     return { valid: true, response: response.content };
   } catch (error) {
     // 释放消息锁
-    releaseProcessing(message.messageId);
+    releaseProcessing(dedupKey);
     messageTraceBuffer.finish(
       traceId,
       'fail',
@@ -789,7 +794,7 @@ export async function routeChannelMessage(
       // **REJECTED**（已接收、未成功、TTL 窗口内阻断同 messageId 重传，防重复计费），
       // 取代原"伪造已处理"（`markMessageProcessed`）。E3 根修：Dedup 表达"是否已接收"
       // 而非"Agent 是否成功完成"。
-      rejectMessage(message.messageId);
+      rejectMessage(dedupKey);
       logger.warning(
         `[TRACE] ${traceId} chatStream 空转超时（INACTIVITY_TIMEOUT），消息标记为 REJECTED（阻断重传；语义非"已完成"）`,
         {

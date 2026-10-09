@@ -41,7 +41,14 @@ export interface LiriAIStrategy {
 
 /** 成本控制 */
 export interface LiriCostControl {
-  /** 每日 Token 预算上限 */
+  /**
+   * 每日 Token 预算上限。
+   *
+   * ⚠️ **未接线（R16 / 台账 L-14 / Spec `daily-budget-unification.md`）**：实际预算为
+   * **进程全局单例**（`query/DailyBudgetManager.getDailyBudget()`，上限取 env
+   * `LIRI_DAILY_BUDGET_TOKENS` 或常量 500000）。本字段按**工作空间**配置，与"进程全局"
+   * 语义冲突 ⇒ **改此值不生效**；如需按工作空间预算须另行设计（不在 R16 范围）。
+   */
   dailyBudgetTokens?: number;
   /** 每月费用预算上限（USD） */
   monthlyBudgetUSD?: number;

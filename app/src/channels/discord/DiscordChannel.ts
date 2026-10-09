@@ -6,6 +6,7 @@
 
 // C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
 import { randomIdSuffix } from '../../utils/common';
+import { splitMessage } from '../messageSplitter';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -337,31 +338,36 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     content: string
   ): Promise<SendResult> {
     if (!this.st.botToken) return { success: false, error: '未连接' };
+    // L-11.2：长文本**分片发送**（保代码围栏成对），替代原 `slice` 截断
+    const chunks = splitMessage(content, DISCORD_META.maxMessageLength);
+    let lastId: string | undefined;
     try {
-      const body = {
-        content: content.slice(0, DISCORD_META.maxMessageLength),
-        allowed_mentions: {
-          parse: ['users', 'roles'],
-          replied_user: false,
-        },
-      };
-      const resp = await fetch(
-        `${DISCORD_API_BASE}/channels/${target}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bot ${this.st.botToken}`,
+      for (const chunk of chunks) {
+        const body = {
+          content: chunk,
+          allowed_mentions: {
+            parse: ['users', 'roles'],
+            replied_user: false,
           },
-          body: JSON.stringify(body),
+        };
+        const resp = await fetch(
+          `${DISCORD_API_BASE}/channels/${target}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bot ${this.st.botToken}`,
+            },
+            body: JSON.stringify(body),
+          }
+        );
+        const data = (await resp.json()) as Record<string, unknown>;
+        if (!resp.ok) {
+          return { success: false, error: data['message'] as string };
         }
-      );
-      const data = (await resp.json()) as Record<string, unknown>;
-      return {
-        success: resp.ok,
-        error: resp.ok ? undefined : (data['message'] as string),
-        messageId: data['id'] as string,
-      };
+        lastId = data['id'] as string;
+      }
+      return { success: true, messageId: lastId };
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }

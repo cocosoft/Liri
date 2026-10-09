@@ -85,7 +85,9 @@ export function formatDate(date: Date): string {
  */
 export function generateId(prefix: string = 'id'): string {
   // C1（2026-10-09）：熵源改为 crypto（保持 `prefix_timestamp_suffix` 形态不变）
-  return `${prefix}_${Date.now()}_${randomIdSuffix(6)}`;
+  // R1（2026-10-09）：后缀位宽 6 → **10 hex（40 bit）** —— 原 6 位（≈1670 万空间）在批量
+  // 生成下碰撞概率可观（2000 个 ≈ 12%，见台账 L-6）。身份类 ID 的后缀**不得低于 10 位**。
+  return `${prefix}_${Date.now()}_${randomIdSuffix(10)}`;
 }
 
 export function truncate(str: string, maxLength: number): string {

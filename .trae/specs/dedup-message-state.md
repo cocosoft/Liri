@@ -130,3 +130,22 @@ export type MessageProcessingState = (typeof MESSAGE_PROCESSING_STATES)[number];
 **验收 ⑨**：`claim`+`finalize` 落盘 → 解绑并清内存（模拟重启）→ `hydrateFromDedupStore()` → 同 `messageId` 再入判 **`duplicate`** ✅。
 
 **验证**：`typecheck` ✅ · `lint:arch` ✅（0 错）· `lint:doc-code` ✅ · `tests/{channels,execution,core}` **314 pass / 0 fail**。
+
+## 8. 去重键**作用域**收敛（R4，2026-10-09）
+
+**问题（第九轮审查 §3.1-⑥）**：`claimMessage()` 的键**仅 `messageId`** ⇒ **不同账号/通道使用相同 ID** 时，第二个被误判为 `inflight`/`duplicate`（**跨账号误去重**，消息被静默丢弃）。
+
+**设计**：键由**裸 `messageId`** 收敛为**作用域键** `渠道:发送者:messageId`
+（`message.channelId || channelName` : `message.senderId` : `message.messageId`），与**内容级去重**的维度（渠道:会话:发送者:内容，DEEP-7/PR4）**同源同径**。
+
+| 交付 | 落点 |
+|---|---|
+| `dedupKey` 单点计算 + 全链同键（`claimMessage` / `releaseProcessing` / `finalizeMessage` / `rejectMessage`） | `app/src/channels/routing/messageRouter.ts` |
+| `TextApprovalInput.dedupKey`（审批完成与"消息处理完成"落到**同一条**记录） | `app/src/channels/routing/textApproval.ts` |
+| 契约用例 6 条（并发一次副作用 / 取消不判成功 / 断网可重试 / 出站恰好一次 / 帧校验短路 / **跨账号不误去重**） | `app/tests/channels/messageRouterContract.test.ts` |
+
+**语义边界（如实）**：
+- **同渠道同账号同 ID 的重传仍去重**（平台重传检测不受影响）；
+- 本模块**只做键的存取、不规定作用域**（JSDoc 已注明）；`FeishuChannel` 仍传裸 `messageId`（**未纳入本次收敛**，属后续统一项）。
+
+**验证**：`tests/channels` **137 pass / 0 fail** · 全量 **5206 pass / 42 skip / 0 fail** · `typecheck` 0 · `lint` 0。

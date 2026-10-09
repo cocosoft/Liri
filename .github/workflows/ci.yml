@@ -158,6 +158,13 @@ jobs:
       run: bun audit --ignore-fixes
       continue-on-error: true
 
+    - name: Dependency license compliance (R12 · graded / non-blocking)
+      # §5.3-2：漏洞扫描已由上方 `bun audit` 承担；此处补**许可证**扫描（离线）。
+      # 分级：默认仅报告不阻断（`--fail-on=…` 可收紧）。
+      working-directory: .
+      run: bun run scripts/check-license-compliance.ts
+      continue-on-error: true
+
     - name: Check circular dependencies (baseline at most 7)
       run: |
         OUTPUT=$(npx madge --circular --extensions ts,tsx src/ 2>&1) || true
@@ -354,3 +361,44 @@ jobs:
           client/test-results/
         retention-days: 7
         if-no-files-found: warn
+
+  # ══════════════════════════════════════════════
+  # R14 分层质量摘要（§6.3）—— 5 层**分列**呈现，**不合成单一分数**
+  # ══════════════════════════════════════════════
+  quality-summary:
+    name: Layered Quality Summary (R14)
+    runs-on: ubuntu-latest
+    needs: [test, cargo-build, static-check, command-test, performance-test, client-test, e2e-test]
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
+      with:
+        project: app
+
+    - name: Summarizer self-check (no single score invariant)
+      working-directory: .
+      run: bun run scripts/quality-summary.ts --self-check
+
+    - name: Render layered quality summary
+      # 各层**分列**（静态 / 测试 / 安全 / 可靠性 / 性能）；刻意**不产出总分**。
+      # 粒度如实：行值 = 对应 **CI 作业**结果（不把"作业通过"过度声称成某子步骤通过）。
+      working-directory: .
+      env:
+        QS_JSON: |
+          {
+            "static-checks": "${{ needs.static-check.result }}",
+            "test-suite": "${{ needs.test.result }}",
+            "client-test": "${{ needs.client-test.result }}",
+            "command-test": "${{ needs.command-test.result }}",
+            "security-scan": "${{ needs.static-check.result }}",
+            "pathshield-e2e": "${{ needs.e2e-test.result }}",
+            "e2e-test": "${{ needs.e2e-test.result }}",
+            "cargo-build": "${{ needs.cargo-build.result }}",
+            "performance-test": "${{ needs.performance-test.result }}"
+          }
+      run: bun run scripts/quality-summary.ts

@@ -369,11 +369,17 @@ export class ExecutionManager {
       const ok = await store.markStale(rec.executionId, newGen);
       if (ok) {
         recovered++;
+        // R3（2026-10-09，第九轮 §2.2 崩溃窗口）：崩溃时点**未结算**的工具调用，其外部副作用
+        // **是否完成不可知** ⇒ 标 `unknown`（不并入成功/失败）。恢复侧据此**不盲目重放不可逆操作**。
+        const unsettledToolCalls = await store.markUnsettledToolCallsUnknown(
+          rec.executionId
+        );
         await store.appendEvent(rec.executionId, 'execution/recovery', {
           action: 'stale',
           generation: newGen,
           priorStatus: rec.status,
           priorGeneration: rec.generation,
+          unsettledToolCalls,
         });
         emitExecutionEvent(rec.sessionId, 'execution/recovery', {
           executionId: rec.executionId,
@@ -381,6 +387,7 @@ export class ExecutionManager {
           priorStatus: rec.status,
           priorGeneration: rec.generation,
           generation: newGen,
+          unsettledToolCalls,
         });
       }
     }

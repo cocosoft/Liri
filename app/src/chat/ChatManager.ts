@@ -115,6 +115,8 @@ import { SessionMemoryManager } from './services/SessionMemoryManager';
 import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
+// R16：每日 Token 预算（进程共享单例）——记账点收敛到本类的 recordChatResponseUsage。
+import { getDailyBudget } from '../query/DailyBudgetManager';
 // K4（2026-09-06）：执行意图判定提取共用（goal fallback / streamMessageFlow 裁剪）
 // R4（2026-09-06）：强产出意图判定（首条消息轮次闸放宽）
 import {
@@ -2778,6 +2780,11 @@ export class ChatManagerImpl implements ChatManager {
 
     const totalTokens = inputTokens + outputTokens;
     this.tokenBudget.consumeTokens(totalTokens);
+
+    // R16（台账 L-14）：**每日 Token 预算**（进程共享单例）——**结算**本会话预扣
+    // （`reserveFor` 在发送前预留；此处多退少补为真实用量），覆盖主/快速/流式；
+    // 与 `tokenBudget`（按会话/循环的水位预算）用途不同、各自记账。
+    getDailyBudget().settleFor(sessionId, totalTokens);
 
     // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标。
     // **记账与判定解耦**：此处只 fire-and-forget 写库（不 await ⇒ 不改本方法同步签名、

@@ -181,3 +181,78 @@ describe('PR5-S2 启动期恢复（⑩）', () => {
     expect((events[0].payload as { action: string }).action).toBe('stale');
   });
 });
+
+describe('R3（第九轮 §2.2）崩溃窗口：未知执行结果留痕', () => {
+  it('恢复为 STALE ⇒ 未结算工具调用标 `unknown`，已结算不受影响', async () => {
+    const store = makeStore();
+    const old = Date.now() - 10 * 60 * 1000;
+    const orphan = eid('orphan-tc');
+    await store.upsertExecution({
+      executionId: orphan,
+      sessionId: 's-tc',
+      generation: gen(3),
+      status: 'RUNNING',
+      startedAt: old,
+      updatedAt: old,
+      heartbeatAt: old,
+    });
+    // 崩溃时点：一次"已开始未结算"（外部副作用是否完成**不可知**）
+    await store.recordToolCall(orphan, 'tc-unsettled', 'bash', old);
+    // 对照：一次**已结算** ⇒ 不应被改
+    await store.recordToolCall(orphan, 'tc-done', 'bash', old);
+    await store.settleToolCall(
+      orphan,
+      'tc-done',
+      'bash',
+      'completed',
+      undefined,
+      old + 1
+    );
+
+    const m = new ExecutionManager();
+    m.attachStore(store);
+    const report = await m.recover({ staleMs: 90_000 });
+    expect(report.recovered).toBe(1);
+
+    const calls = await store.listToolCalls(orphan);
+    const byId = new Map(calls.map((c) => [c.toolCallId, c]));
+    expect(byId.get('tc-unsettled')?.status).toBe('unknown');
+    expect(byId.get('tc-unsettled')?.endedAt).toBeGreaterThan(0);
+    expect(byId.get('tc-done')?.status).toBe('completed');
+
+    // 审计事件带 unsettledToolCalls=1（恢复侧据此**不盲目重放不可逆操作**）
+    const events = await store.listEvents(orphan);
+    const stale = events.find(
+      (e) => (e.payload as { action?: string }).action === 'stale'
+    );
+    expect(
+      (stale?.payload as { unsettledToolCalls?: number }).unsettledToolCalls
+    ).toBe(1);
+  });
+
+  it('无未结算工具调用 ⇒ unsettledToolCalls=0（不误标）', async () => {
+    const store = makeStore();
+    const old = Date.now() - 10 * 60 * 1000;
+    const orphan = eid('orphan-tc0');
+    await store.upsertExecution({
+      executionId: orphan,
+      sessionId: 's-tc0',
+      generation: gen(1),
+      status: 'RUNNING',
+      startedAt: old,
+      updatedAt: old,
+      heartbeatAt: old,
+    });
+    const m = new ExecutionManager();
+    m.attachStore(store);
+    await m.recover({ staleMs: 90_000 });
+
+    const events = await store.listEvents(orphan);
+    const stale = events.find(
+      (e) => (e.payload as { action?: string }).action === 'stale'
+    );
+    expect(
+      (stale?.payload as { unsettledToolCalls?: number }).unsettledToolCalls
+    ).toBe(0);
+  });
+});

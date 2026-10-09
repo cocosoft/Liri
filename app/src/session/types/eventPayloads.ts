@@ -1118,5 +1118,10 @@ export interface LiriEventMap {
     priorGeneration: number;
     /** 处置后代次（`action='stale'` 时为 `priorGeneration+1`） */
     generation?: number;
+    /**
+     * R3（2026-10-09，第九轮 §2.2 崩溃窗口）：本次恢复把**未结算工具调用**标为 `unknown` 的条数
+     * —— 崩溃后外部副作用是否完成**不可知**，恢复侧据此**不盲目重放不可逆操作**。
+     */
+    unsettledToolCalls?: number;
   };
 }

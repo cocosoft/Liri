@@ -2878,9 +2878,15 @@ class ArchitectureLinter {
         }
 
         // 真正的跨层违规
+        // R5（2026-10-09，第九轮审查 §3.4 门禁自证）：**severity 由 `warning` 提升为 `error`**。
+        // 根因：规则 **R06-008 [MUST]**（`.trae/rules/architecture-compliance.md:396-413`）声明
+        // "违反即拒绝"，而实现为 warning ⇒ `main()` 只按 error 计数 ⇒ **分层门禁实际从不阻断**
+        // （跨层倒挂可静默合入；R5 自证夹具实测 exit 0）。同仓 R03-002 的 2026-10-03 注释亦称
+        // "与 R00-001（分层）同级阻断" ⇒ 提升即为**回归声明语义**，非新增约束。
+        // 提升时实测本规则违规 **0**（`分层检查完成: 检查 3914 个文件 | 违规 0`）⇒ **零回归**。
         this.violations.push({
           ruleId: 'R00-001',
-          severity: 'warning',
+          severity: 'error',
           file: relative(process.cwd(), file),
           message: `分层违规: ${srcModule} (${srcLayer}) → ${tgtModule} (${tgtLayer})`,
           suggestion: `[${srcLayer}] 允许依赖: ${allowedLayers.join(', ')}，但当前依赖了 [${tgtLayer}] 的 ${tgtModule}`,

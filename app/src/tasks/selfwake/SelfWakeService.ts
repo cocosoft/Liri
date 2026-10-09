@@ -209,6 +209,11 @@ export class SelfWakeService {
     }
 
     const entry = await this._findEntry(wakeId);
+    if (entry && entry.status === 'fired') {
+      // 幂等：已触发过 ⇒ 不再续跑（防 tick 重扫 / 重复 fire 造成双续跑）
+      cg3Log('tasks:selfwake', 'info', 'fire:already_fired', { wakeId });
+      return;
+    }
     await this.wakeStore.markFired(wakeId);
     cg3Log('tasks:selfwake', 'info', 'fired', { wakeId });
 
@@ -291,7 +296,12 @@ export class SelfWakeService {
 
   /** 按 wakeId 反查条目（sessionId 由 WakeStore 的内存索引提供） */
   private async _findEntry(wakeId: string): Promise<WakeEntry | null> {
-    const sessionId = this.wakeStore.getSessionFor(wakeId);
+    let sessionId = this.wakeStore.getSessionFor(wakeId);
+    if (!sessionId) {
+      // 重启后内存索引为空 ⇒ 先从磁盘重建再查（L-13 / selfwake-restart-recovery.md）
+      await this.wakeStore.rebuildIndex();
+      sessionId = this.wakeStore.getSessionFor(wakeId);
+    }
     if (!sessionId) return null;
     const entries = await this.wakeStore.load(sessionId);
     return entries.find((e) => e.id === wakeId) ?? null;

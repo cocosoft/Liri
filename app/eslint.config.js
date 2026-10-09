@@ -43,6 +43,12 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'error',
       'no-debugger': 'error',
+      // R10（2026-10-09）状态复杂度门禁 — **最小启用**（「勿全量开启」）：
+      // 只启「圈复杂度」一项，且为 **warn（不阻断）**。阈值 40 取自实测分布
+      // （`bun run scripts/state-complexity-audit.ts`：P99=26，≥40 仅 76 个函数）
+      // ⇒ 高于 P99、只对**真离群**发信号，防止新代码继续堆复杂度。
+      // 数据与可行性评估见 `dev_docs/20261009/复查任务计划.md §1.9`。
+      complexity: ['warn', 40],
       'module-registry/no-direct-module-import': ['error', {
         // B2-3（2026-09-23）：`tasks/goal/goalTemplates` 是**跨模块共享的纯常量模块**
         // （零依赖、无实例/无生命周期、不需 ModuleRegistry 管理）⇒ 显式豁免直连。
@@ -108,6 +114,8 @@ export default [
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+      // R10：测试常以长分支/表驱动铺陈用例，复杂度门禁只针对**生产代码** ⇒ 测试关闭。
+      complexity: 'off',
       'module-registry/no-direct-module-import': 'off'
     }
   },

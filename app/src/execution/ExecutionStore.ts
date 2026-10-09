@@ -395,6 +395,26 @@ export class ExecutionStore {
     return changed > 0;
   }
 
+  /**
+   * R3（2026-10-09，第九轮 §2.2 崩溃窗口）：把某执行的**未结算**工具调用（`ended_at IS NULL`）
+   * 标为 **`unknown`** —— 崩溃后该次外部副作用**是否完成不可知**（既非成功也非失败）。
+   *
+   * 恢复侧据此**不盲目重放不可逆操作**（写文件/发消息/建资源等应走幂等键/状态查询/人工确认）。
+   * 返回受影响行数（供恢复审计）。
+   */
+  async markUnsettledToolCallsUnknown(
+    executionId: ExecutionId,
+    endedAt: number = Date.now()
+  ): Promise<number> {
+    await this.init();
+    return this.run(
+      `UPDATE ${TOOL_CALLS_TABLE}
+         SET status = 'unknown', ended_at = ?
+       WHERE execution_id = ? AND ended_at IS NULL`,
+      [endedAt, executionId]
+    );
+  }
+
   async listToolCalls(executionId: ExecutionId): Promise<PersistedToolCall[]> {
     await this.init();
     const rows = await this.all<ToolCallRow>(

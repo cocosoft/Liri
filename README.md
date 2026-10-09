@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.70-blue)
+![Version](https://img.shields.io/badge/version-0.4.71-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.70**
+当前版本：**v0.4.71**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,16 +435,16 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.70 (2026-10-09)
+#### v0.4.71 (2026-10-09)
 
-**Bash 安全面收口（A1–A5）+ Execution 生命周期所有权体系（PR1–PR5）+ 统一 ID 熵源收口与 EventBus 三语义 + `CoreAPIImpl` 拆分达标（清豁免）**
+**沙箱回滚恢复与接线（S5/S1/S7）+ `messageRouter` 拆分达标（1290→816）+ 存量 lint 警告清零**
 
-- ✅ **Bash 安全（批次 A，A1–A5）** - 审计 `sessionId` 由 `toolUseId` 订正为真实会话（A1）· 已批准命令**不再豁免全部安全检查**（A2，灰度 `BASH_APPROVED_REVALIDATE`）· `spawn` **剥离敏感环境变量**（A3，单一事实源 `security/sensitiveEnv.ts`，`ScriptHookExecutor` 同批去重）· **高能力解释器**（node/bun/npm/python/pwsh…）纳入需确认判定（A4，`BASH_INTERPRETER_GUARD`）· 批准**严格模式**（A5，`BASH_APPROVAL_STRICT`：禁命令名级放行，仅精确 hash）⇒ 安全开关清单 **11 → 14**
-- ✅ **Execution 生命周期（批次 B，PR1–PR5）** - **PR1 Execution Identity**：`execution/*`（branded `ExecutionId`/`Generation` + 集中状态机 `canTransition` + `acquire` 原子占用 + generation fencing）；**PR2 真取消**：两段式 `CANCEL_REQUESTED → CANCELLED`（未确认**保留 lease**）+ `AbortSignal` 端到端贯通 + 空转超时改抛类型化 `ExecutionAbortedError`；**PR3 Session safety**：`activeExecutionId` 记名 + `cleanIdle` 跳过执行中会话；**PR4 Dedup 语义收敛**：`RECEIVED/ADMITTED/REJECTED` 单一状态图 + 超时不再"伪造已处理"；**PR5 Durable Execution**：**新增 3 张表**（`executions`/`execution_events`/`tool_calls`）· 写穿 + 启动 `recover()`（陈旧心跳孤儿 ⇒ `STALE` + `generation++`，**跨重启 fencing 不回退**）· 生命周期**会话事件三处同批**（编译期强制）+ `tool_calls` 记账 · **Router 级准入**（占用中有界等待，超时 `SESSION_BUSY` 且**不吞消息**）· 去重处理态**落盘**（`DedupStore` + hydrate，跨重启阻断重传 ⇒ 防重复计费）
-- ✅ **C1 统一 ID 收口（生产零弱随机）** - `Math.random().toString(36)…` ⇒ `randomIdSuffix()`（`crypto.randomUUID` 派生），**生产代码归零**（约 151 处 / 50+ 文件）；新增 `core/ids.ts` 承载单一实现（解 `core → infra` 倒挂）
-- ✅ **C2 EventBus 三语义显式化** - `publish`（fire-and-forget，零行为变更）与 **`publishAndWait`**（按序 await、返回 `{delivered, failed}`）分工明确 · `once()` **幂等守卫** · 历史**快照** · wildcard 顺序契约文档化。⚠️ 事件名/载荷去 `any` 为**破坏性**（39 文件 / 87 处）⇒ 如实**另立项**
-- ✅ **C3 `CoreAPIImpl` 拆分达标** - **2522 → 1898 行**：外迁 `sessionAgentOps.ts`（工具/会话/代理/文件 ops，~680 行）与 `llmChatOps.ts`（LLM 懒初始化/模型解析/非流式 `chat`，~256 行），宿主仅留**薄转发** + 惰性 deps 端口 ⇒ **移除 R04-001 豁免 FSZ-007**（例外 **8 → 7**）
-- ✅ **质量** - `typecheck` **0** · 全量 **5137 pass / 36 skip / 0 fail**（5173 tests / 553 files）· `lint:arch` **违规 0 · 警告 4（基线）** · `lint:size` **0 错**（例外 8 → **7**）· `lint`(eslint) **0 errors**
+- ✅ **沙箱子系统恢复** - 回滚 v0.4.69 的三笔"死面清理"提交：恢复 24 个文件（`IsolationManager` / `EnhancedSandboxManager` / `PTYSandbox` / `SSHSandbox` / `docker/**` / `WorkspaceManager` / `ProcessRegistry` / `ResourceLimitManager` 等 + 5 项测试）+ 回滚 21 个存活文件的配套改动（SPI / HTTP handler / client / landlock）；同批**订正**被带回的失实陈述（`runWithLandlock` 接线落点）
+- ✅ **沙箱接线（S5 / S1 / S7）** - **S5**：`runWithLandlock` 补齐 `maxBufferChars` / `timedOut` / `error` 三态并**纠正**「spawn 错误误归因 exit 125」；bash 默认 runner **改为委托** `runWithLandlock`（code_run 因需 RPC 句柄保留自身 spawn）。**S1**：组合根启动期创建 `default` 工作区 ⇒ `ISandboxPort` 权限判定由 `config.sandbox.permissionLevel` **真实驱动**。**S7**：bash / code_run 在 spawn 处登记 `ProcessRegistry` ⇒ `GET /v1/sandbox/status` 的 `processStats` 由**恒空**转为真实
+- ✅ **C3-S3 `messageRouter` 拆分（1290 → 816 行）** - 子 spec [`.trae/specs/message-router-split.md`](.trae/specs/message-router-split.md)：外围迁出（契约/常量、串行化助手、帧验证、内容去重、文本审批、出站投递）+ **流式消费循环**迁出（`streamConsumption.ts`，两段式取消 catch 留原文件保时序）；`routeChannelMessage` **保留原文件**（R03-004 唯一入口），对外 API 经重导出零改动
+- ✅ **存量 lint 警告清零** - `bootstrap/*` · `compaction/*` · `tokenBudget/*` 共 **56 条 warning**（`no-unused-vars` ×44 / `no-explicit-any` ×12）人工清理 ⇒ `bun run lint` **0 error / 0 warning**
+- ✅ **质量** - `typecheck` **0** · 全量 **5178 pass / 36 skip / 0 fail** · `lint:arch` 违规 **0** · `lint:size` **0 错** · `lint:doc-code` ✅
+- ⚠️ **顺带发现（预存，台账 L-6）**：`tests/utils/commonId.test.ts`「C1 唯一性」为 **flaky**（6 位十六进制、批量 2000 ⇒ 约 12% 碰撞）—— 非本版引入
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

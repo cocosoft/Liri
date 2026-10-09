@@ -21,6 +21,19 @@
 
 ---
 
+#### v0.4.71 (2026-10-09)
+
+**沙箱回滚恢复与接线（S5/S1/S7）+ `messageRouter` 拆分达标（1290→816）+ 存量 lint 警告清零**
+
+- ✅ **沙箱子系统恢复** - 回滚 v0.4.69 的三笔"死面清理"提交：恢复 24 个文件（`IsolationManager` / `EnhancedSandboxManager` / `PTYSandbox` / `SSHSandbox` / `docker/**` / `WorkspaceManager` / `ProcessRegistry` / `ResourceLimitManager` 等 + 5 项测试）并回滚 21 个存活文件的配套改动（SPI/HTTP handler/client/landlock）；同批**订正**因回滚被带回的失实陈述（`runWithLandlock` 接线落点、spec/台账）
+- ✅ **沙箱接线（S5 / S1 / S7）** - **S5**：`runWithLandlock` 补齐 `maxBufferChars`（`appendWithinLimit` 软限）/ `timedOut` / `error` 三态，并**纠正**「spawn 错误误归因 exit 125」；bash 的默认 helper runner **改为委托** `runWithLandlock`（去重复；code_run 因需 **RPC 子进程句柄**保留自身 spawn）。**S1**：组合根启动期创建 `default` 工作区 ⇒ `ISandboxPort` 的 `hasWorkspacePermission` / `isWorkspacePermissionDenied` / `activeWorkspaceCount` 由 `config.sandbox.permissionLevel` **真实驱动**（此前恒取"工作区不存在"分支）。**S7**：bash（plain/landlock 两路径）与 code_run 在进程 spawn 处登记 `ProcessRegistry` ⇒ `GET /v1/sandbox/status` 的 `processStats` 由**恒空**转为真实；`ResourceLimitManager` 维持 D5「观测面」裁定（不接执行路径）
+- ✅ **C3-S3 `messageRouter` 拆分（1290 → 816 行）** - 子 spec [`.trae/specs/message-router-split.md`](.trae/specs/message-router-split.md)：**S1** 外围迁出（契约/常量、串行化助手、帧验证、内容去重、文本审批、出站投递 → 6 个 <500 行子模块，`validateInboundFrame` 等经重导出保 API）；**S2** 流式消费循环迁出（`streamConsumption.ts`：空转计时器 / `requestCancel`+`abort` / `done` 分支 `finishExecution` / `tool_call` 记账 / 工具进度通知 / 长任务占位），**两段式取消的 `catch` 留原文件**保时序。`routeChannelMessage` **保留原文件**（R03-004 渠道入站唯一入口）
+- ✅ **存量 lint 警告清零** - `bootstrap/*` · `compaction/*` · `tokenBudget/*` 共 **56 条 warning**（`no-unused-vars` ×44 / `no-explicit-any` ×12）人工清理（删死导入 / `_` 前缀 / 类型化）⇒ `bun run lint` **0 error / 0 warning**
+- ✅ **质量** - `typecheck` **0** · 全量 **5178 pass / 36 skip / 0 fail** · `lint:arch` 违规 **0**（警告 4 = 基线）· `lint:size` **0 错**（`messageRouter` 退出 >1000 行组）· `lint:doc-code` ✅
+- ⚠️ **顺带发现（预存，台账 L-6）**：`tests/utils/commonId.test.ts`「C1 唯一性」为 **flaky**（`generateId` 6 位十六进制 ≈1670 万空间，批量 2000 ⇒ 按生日悖论约 **12%** 碰撞）—— 非本版引入，已登记台账
+
+---
+
 #### v0.4.70 (2026-10-09)
 
 **Bash 安全面收口（A1–A5）+ Execution 生命周期所有权体系（PR1–PR5）+ 统一 ID 熵源收口与 EventBus 三语义 + `CoreAPIImpl` 拆分达标（清豁免）**

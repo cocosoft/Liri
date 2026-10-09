@@ -1,6 +1,11 @@
 /**
  * 进程注册表
- * 追踪沙箱内所有进程，支持 kill/signal/查询
+ *
+ * **职责边界（R21 订正，2026-10-09）**：本类**只做观测/查询**（登记 → 更新终态 → 查询/统计），
+ * **不持有子进程句柄、不具备 kill/signal 能力**。（原头注释写"支持 kill/signal"**失实**——
+ * 注册项仅存 `{pid, command, startTime, status, exitCode}` 数据，杀进程由**执行侧**负责。）
+ *
+ * 终止进程请用 `killProcessTree()`（`sandbox/utils/killProcessTree.ts`）：取消/中止时按**进程树**强杀。
  * 对齐 OpenClaw agents/bash-process-registry.ts
  */
 

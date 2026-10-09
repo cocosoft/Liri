@@ -770,6 +770,11 @@ export class BashTool extends BaseTool {
         env: mergedEnv,
         timeoutMs: timeout,
         maxBufferChars: maxBuffer,
+        // R21（2026-10-09）：把会话取消信号接入执行链 ⇒ 取消/中断时强杀**进程树**
+        //（否则 shell 与孙进程会继续运行成为孤儿；信号来源见 `ToolUseContext.abortController`）
+        ...(context?.abortController?.signal
+          ? { signal: context.abortController.signal }
+          : {}),
       });
       // K-5 P1 二次软截断：即使 exec maxBuffer 没触发（Unicode 多字节/流式拆分），
       // 也在此按字节 slice 到 2MB + 末尾 20KB，避免 LLM 上下文和 ToolResultBudget 爆掉

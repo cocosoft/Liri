@@ -65,6 +65,7 @@ import {
   isEvalBashLandlockForced,
   runWithLandlock,
   processRegistry,
+  killProcessTree,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -303,6 +304,8 @@ export interface LandlockHelperRunInput {
   timeoutMs: number;
   /** 输出硬上限（**按字符**比较，与 B1 / PTY 同口径） */
   maxBufferChars: number;
+  /** R21（2026-10-09）：取消/中止信号 ⇒ 按**进程树**强杀（防 shell 与孙进程孤儿化） */
+  signal?: AbortSignal;
 }
 
 export interface LandlockHelperResult {
@@ -340,6 +343,8 @@ export const defaultLandlockHelperRunner: LandlockHelperRunner = async (
     env: input.env,
     timeoutMs: input.timeoutMs,
     maxBufferChars: input.maxBufferChars,
+    // R21：把取消信号透传进沙箱执行器（abort ⇒ 强杀进程树）
+    ...(input.signal ? { signal: input.signal } : {}),
   });
   // S7（2026-10-09）：以终态登记进 `ProcessRegistry`（进程已在返回前结束）
   registerBashProcess(
@@ -366,6 +371,8 @@ export type PlainRunner = (
     env: NodeJS.ProcessEnv;
     timeout: number;
     maxBuffer: number;
+    /** R21（2026-10-09）：取消/中止信号 ⇒ 按**进程树**强杀 */
+    signal?: AbortSignal;
   }
 ) => Promise<{ stdout: string; stderr: string; pid?: number }>;
 
@@ -381,6 +388,7 @@ const defaultPlainRunner: PlainRunner = (command, options) =>
         maxBuffer: options.maxBuffer,
       },
       (error, stdout, stderr) => {
+        cleanupAbort();
         // S7：成功/失败均以终态登记（非 0 退出仍是"跑完"；仅被杀/超时归 timed_out）
         registerBashProcess(
           child.pid,
@@ -401,6 +409,14 @@ const defaultPlainRunner: PlainRunner = (command, options) =>
         });
       }
     );
+    // R21（2026-10-09）：取消/中止 ⇒ 强杀**进程树**（`exec` 的 shell 及其派生孙进程）
+    const onAbort = (): void => killProcessTree(child);
+    const cleanupAbort = (): void =>
+      options.signal?.removeEventListener('abort', onAbort);
+    if (options.signal) {
+      if (options.signal.aborted) onAbort();
+      else options.signal.addEventListener('abort', onAbort, { once: true });
+    }
   });
 
 export interface BashExecDeps {
@@ -422,6 +438,8 @@ export interface BashExecInput {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   maxBufferChars: number;
+  /** R21（2026-10-09）：取消/中止信号（来自 `ToolUseContext.abortController`）⇒ 强杀进程树 */
+  signal?: AbortSignal;
   deps?: BashExecDeps;
 }
 
@@ -463,6 +481,8 @@ export async function execBashCommand(
     env: input.env,
     timeout: input.timeoutMs,
     maxBuffer: input.maxBufferChars,
+    // R21：取消信号同样透传给"普通执行"路径
+    ...(input.signal ? { signal: input.signal } : {}),
   };
 
   // P0-4 ②：评测期强制请求（env 置位；capability 门控在下面的 gate）
@@ -529,6 +549,8 @@ export async function execBashCommand(
     env: input.env,
     timeoutMs: input.timeoutMs,
     maxBufferChars: input.maxBufferChars,
+    // R21：取消信号透传进沙箱 runner（abort ⇒ 强杀进程树）
+    ...(input.signal ? { signal: input.signal } : {}),
   });
 
   if (isSandboxInitFailure(result.exitCode ?? -1)) {

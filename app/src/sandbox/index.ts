@@ -63,6 +63,12 @@ export type { SSHSandboxConfig, SSHConnectionStatus } from './SSHSandbox';
 // `utils/PathRestrictions` —— 本文件下方这些导出**保持不动**。
 export { ProcessRegistry, processRegistry } from './ProcessRegistry';
 export type { ProcessInfo, ProcessQuery } from './ProcessRegistry';
+// R21（2026-10-09）：进程树终止（取消/中止时防孤儿进程）
+export { killProcessTree } from './utils/killProcessTree';
+export type {
+  KillableChild,
+  KillProcessTreeDeps,
+} from './utils/killProcessTree';
 
 // 资源限制管理器（per-plugin CPU/内存/并发控制）
 export {

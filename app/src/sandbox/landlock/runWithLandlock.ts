@@ -39,6 +39,8 @@ import { join } from 'node:path';
 import type { LandlockPolicy, LandlockRunResult } from './types';
 // S5（2026-10-09）：输出软上限复用 B1 的"逐块按剩余量切片"助手（截断口径单一来源）
 import { appendWithinLimit } from '../SandboxPolicy';
+// R21（2026-10-09）：取消/中止时按**进程树**强杀（防 shell 与孙进程成为孤儿）
+import { killProcessTree } from '../utils/killProcessTree';
 
 /** fail-closed：沙箱初始化失败退出码 */
 const EXIT_SANDBOX_INIT_FAILED = 125;
@@ -62,6 +64,11 @@ export interface RunWithLandlockOptions {
    * 缺省 = 不限制。
    */
   maxBufferChars?: number;
+  /**
+   * R21（2026-10-09）：取消信号 —— `abort` 时按**进程树**强杀（Unix 杀进程组 / Windows `taskkill /T`），
+   * 否则会话取消后 `landlock-run → /bin/sh → 孙进程` 会继续运行（孤儿进程）。
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -137,7 +144,19 @@ export async function runWithLandlock(
         env: options.env,
         timeout: options.timeoutMs,
         windowsHide: true,
+        // R21：Unix 下自成进程组组长（供 `process.kill(-pid)` **整组**终止含孙进程）；
+        //       Windows 无组语义，保持默认（改用 `taskkill /T`）。
+        detached: process.platform !== 'win32',
       });
+      // R21（2026-10-09）：取消/中止 ⇒ 强杀**进程树**（含 `/bin/sh` 与命令派生的孙进程）
+      const signal = options.signal;
+      const onAbort = (): void => killProcessTree(child);
+      const cleanupAbort = (): void =>
+        signal?.removeEventListener('abort', onAbort);
+      if (signal) {
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      }
       let stdout = '';
       let stderr = '';
       const maxChars = options.maxBufferChars;
@@ -153,6 +172,7 @@ export async function runWithLandlock(
         stderr = append(stderr, d.toString());
       });
       child.on('error', (err: NodeJS.ErrnoException) => {
+        cleanupAbort();
         // spawn 失败（helper 缺失等）：**不**归因为 exit 125 —— 125 是"沙箱初始化失败"的专用信号
         // （`isSandboxInitFailure` 只看退出码，混用会触发错误的 fail-closed 分支）
         resolve({
@@ -166,6 +186,7 @@ export async function runWithLandlock(
         });
       });
       child.on('close', (code) => {
+        cleanupAbort();
         resolve({
           stdout,
           stderr,

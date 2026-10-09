@@ -51,27 +51,89 @@ export const COMPACTION_TEMPLATE = `<system-info>
 {context_to_preserve}
 </system-info>`;
 
-/** P2-15: 从 LLM 输出解析结构化压缩摘要 */
-export function parseCompactionSummary(raw: string): {
+/** 结构化压缩摘要（5 字段） */
+export interface CompactionSummary {
   task_overview: string;
   current_state: string;
   important_discoveries: string;
   next_steps: string;
   context_to_preserve: string;
-} | null {
+}
+
+/** 各字段长度上限（与 `COMPACTION_USER_PROMPT` 的约束一致） */
+const SUMMARY_FIELD_LIMITS: Record<keyof CompactionSummary, number> = {
+  task_overview: 300,
+  current_state: 300,
+  important_discoveries: 300,
+  next_steps: 200,
+  context_to_preserve: 300,
+};
+
+const SUMMARY_FIELDS = Object.keys(
+  SUMMARY_FIELD_LIMITS
+) as (keyof CompactionSummary)[];
+
+/**
+ * 单字段归一化：仅接受字符串 ⇒ 截断到上限 ⇒ 代码围栏奇偶补齐。
+ *
+ * 围栏补齐动机：摘要会被**整体注入**下一轮 prompt（`COMPACTION_TEMPLATE`），一个未闭合的
+ * ``` 会把后续注入文本一并吞进代码块（与 `messageSplitter`/`buildSafePreview` 同源的"围栏成对"约定）。
+ */
+function normalizeSummaryField(value: unknown, limit: number): string {
+  if (typeof value !== 'string') return '';
+  let s = value.trim();
+  if (s.length > limit) s = s.slice(0, limit);
+  const fences = (s.match(/```/g) ?? []).length;
+  if (fences % 2 === 1) s += '\n```';
+  return s;
+}
+
+/**
+ * R22（2026-10-09，Gemini 二轮审计）—— 把 LLM 结构化摘要收敛为**强形状校验**（零新依赖、手写）。
+ *
+ * **改前** `parseCompactionSummary` 仅 `if (parsed.task_overview) return parsed`：
+ *   ① 非字符串（如对象）**照单全收** ⇒ 渲染出 `[object Object]` 脏内容灌回模型；
+ *   ② **无长度上限** ⇒ 超长噪声直达上下文；
+ *   ③ 未闭合 ``` 会吞掉后续注入文本。
+ *
+ * **判据（保守，尽量不把可用摘要推给"自由文本回退"）**：
+ *   - 非对象 / 数组 / `task_overview` 缺失或非字符串 ⇒ `null`（结构化不可用）；
+ *   - 其余字段：非字符串 ⇒ 归一为 `''`；超长 ⇒ 截断；围栏奇数 ⇒ 补收尾。
+ */
+export function normalizeCompactionSummary(
+  raw: unknown
+): CompactionSummary | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const src = raw as Record<string, unknown>;
+  if (
+    typeof src.task_overview !== 'string' ||
+    src.task_overview.trim() === ''
+  ) {
+    return null;
+  }
+  const out = {} as CompactionSummary;
+  for (const key of SUMMARY_FIELDS) {
+    out[key] = normalizeSummaryField(src[key], SUMMARY_FIELD_LIMITS[key]);
+  }
+  return out;
+}
+
+/** P2-15: 从 LLM 输出解析结构化压缩摘要（R22：经强形状校验；不合规则返回 null ⇒ 调用方回退自由文本） */
+export function parseCompactionSummary(raw: string): CompactionSummary | null {
   try {
-    // Try direct JSON parse
-    const parsed = JSON.parse(raw);
-    if (parsed.task_overview) return parsed;
+    const parsed = normalizeCompactionSummary(JSON.parse(raw));
+    if (parsed) return parsed;
   } catch {
-    // Try to extract JSON from markdown code block
-    const match = /```(?:json)?\s*\n?([\s\S]*?)\n?```/.exec(raw);
-    if (match) {
-      try {
-        return JSON.parse(match[1]);
-      } catch {
-        /* continue */
-      }
+    // 落入下方"围栏提取"分支
+  }
+  // 尝试从 markdown 代码块中提取 JSON
+  const match = /```(?:json)?\s*\n?([\s\S]*?)\n?```/.exec(raw);
+  if (match) {
+    try {
+      const parsed = normalizeCompactionSummary(JSON.parse(match[1]));
+      if (parsed) return parsed;
+    } catch {
+      /* 解析失败 ⇒ null */
     }
   }
   return null;
@@ -79,27 +141,12 @@ export function parseCompactionSummary(raw: string): {
 
 /** P2-15: 从解析的结构化摘要渲染为注入文本 */
 export function renderCompactionSummary(
-  summary: ReturnType<typeof parseCompactionSummary> extends infer T ? T : never
+  summary: CompactionSummary | null
 ): string {
   if (!summary) return '';
-  return COMPACTION_TEMPLATE.replace(
-    '{task_overview}',
-    (summary as Record<string, string>).task_overview ?? ''
-  )
-    .replace(
-      '{current_state}',
-      (summary as Record<string, string>).current_state ?? ''
-    )
-    .replace(
-      '{important_discoveries}',
-      (summary as Record<string, string>).important_discoveries ?? ''
-    )
-    .replace(
-      '{next_steps}',
-      (summary as Record<string, string>).next_steps ?? ''
-    )
-    .replace(
-      '{context_to_preserve}',
-      (summary as Record<string, string>).context_to_preserve ?? ''
-    );
+  return COMPACTION_TEMPLATE.replace('{task_overview}', summary.task_overview)
+    .replace('{current_state}', summary.current_state)
+    .replace('{important_discoveries}', summary.important_discoveries)
+    .replace('{next_steps}', summary.next_steps)
+    .replace('{context_to_preserve}', summary.context_to_preserve);
 }

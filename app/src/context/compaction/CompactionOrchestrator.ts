@@ -1079,9 +1079,9 @@ export class CompactionOrchestrator {
       const structured = procs.parseCompactionSummary(raw);
       if (structured) {
         logger.debug('compaction:tier3_fold_structured', {
-          fields: Object.keys(structured).filter(
-            (k) => (structured as Record<string, unknown>)[k]
-          ),
+          fields: Object.entries(structured)
+            .filter(([, v]) => v)
+            .map(([k]) => k),
         });
         return procs.renderCompactionSummary(structured);
       }

@@ -154,9 +154,8 @@ describe('R1 Tier3 迭代折叠：_foldBatchSummary（单批折叠）', () => {
         ai: { generate: Function },
         procs: {
           COMPACTION_USER_PROMPT: string;
-          parseCompactionSummary: (
-            raw: string
-          ) => Record<string, unknown> | null;
+          // R22（2026-10-09）：parse 的返回类型收敛为 `CompactionSummary | null` ⇒ 直接复用其签名
+          parseCompactionSummary: typeof parseCompactionSummary;
           renderCompactionSummary: typeof renderCompactionSummary;
         },
         head: ChatMessage[],
@@ -366,9 +365,8 @@ describe('R6：Tier3 折叠请求配对完整性（严格 provider 回归）', (
           ai: { generate: Function },
           procs: {
             COMPACTION_USER_PROMPT: string;
-            parseCompactionSummary: (
-              raw: string
-            ) => Record<string, unknown> | null;
+            // R22（2026-10-09）：复用生产 parse 签名（`CompactionSummary | null`）
+            parseCompactionSummary: typeof parseCompactionSummary;
             renderCompactionSummary: typeof renderCompactionSummary;
           },
           head: ChatMessage[],

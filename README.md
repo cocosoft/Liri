@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.69-blue)
+![Version](https://img.shields.io/badge/version-0.4.70-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.69**
+当前版本：**v0.4.70**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,20 +435,16 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.69 (2026-10-08)
+#### v0.4.70 (2026-10-09)
 
-**MCP 客户端双轨收敛（C-1/C-2/C-3）+ AI-VFS 从只读试点到用户可配置挂载面（P2 → T3）+ 沙箱/隔离死面清理（P1 / S1 / S6 / S7）+ 任务步骤证据链机械化**
+**Bash 安全面收口（A1–A5）+ Execution 生命周期所有权体系（PR1–PR5）+ 统一 ID 熵源收口与 EventBus 三语义 + `CoreAPIImpl` 拆分达标（清豁免）**
 
-- ✅ **MCP 客户端单链化（双轨收敛）** - `mcp_tool` / `mcp_resource` 改走**已连接的 SDK `Client` 顶层方法**（与 `mcp__*` 主路径**同一条链**）；删**增强层 `MCPManager` 重实现**（528 行）及其 `MCPCommandLoader`、删 `MCPClient.ts`（577 行）；`MCPServerManager` 改为**投影化**（`setProjection`/`clearProjection`），`MCPConnectionManager` 去掉 `connectAll`
-- ✅ **MCP 实测缺陷修复（P0 + 资源泄漏）** - `client.capabilities.get()` 实为**不存在的属性** ⇒ 每次 `TypeError` 被 catch 吞成 `failed` ⇒ **整条 SDK 链不可用**（静态检查不可见）⇒ 改 `getServerCapabilities()`；诊断面按**真实 `status`** 映射（不再一律 `pending`）；`closeAll()` 逐个 `cleanup()` 修**进程泄漏**
-- ✅ **AI-VFS 落地（P2 只读试点 → T3 用户可配置）** - 新增 `app/src/vfs/`（`IVfsDriver` + `VfsMountRegistry` + `DevDocsDriver` / `McpResourcesDriver`）与 **4 个系统调用工具**（`read_vfs` / `list_vfs` / `stat_vfs` / `write_vfs`）；`mcp://` 复用既有 SDK 链（**不复制**协议投影）；`GlobalConfig.vfs.mounts` 由 `buildMountPlan()`（纯函数）驱动装配；`list_vfs` 支持 **scheme-only 发现**（契约 v1.5）
-- ✅ **VFS 前端管理面 + HTTP API** - 新增 `GET/PUT /v1/vfs/mounts`（**fail-closed** 校验：未知 scheme / `mcp` 缺 server ⇒ 400 且**绝不写盘**；**无热更新**，`requiresRestart` 如实上报）；客户端「设置 → VFS 挂载点」面板 + `vfsService`（挂在**既有「设置」模块**，未新建顶层路由）；接口清单 `api-spec.md` → 2.11.0
-- ✅ **VFS 循环依赖 TDZ（P0，生产装配路径实证）** - `@modules/vfs` 桶**冷启动** import 抛 `Cannot access 'McpResourcesDriver' before initialization`（环的闭合边 = `MCPResourceTool` **模块作用域 `new`**）⇒ `registerVfsMounts()` 失败 ⇒ **全部挂载点启动注册不上**；根因修复为**惰性单例**（探针 `PROBE ERROR…` → **`PROBE: registerVfsMounts OK`**）
-- ✅ **沙箱 / 隔离死面清理（P1 盘点 → S1/S6/S7）** - 删 `IsolationManager` / `EnhancedSandboxManager` / `docker/**` / `PTYSandbox` / `SSHSandbox` / `runWithLandlock`、`SandboxManager.execute()`、**workspace 子系统**、`ProcessRegistry` / `ResourceLimitManager`、未接线的 `SandboxConfigBuilder` 策略库；`createAdapter` 收敛为 **Local-only**；订正 `landlockSensitivePathGuard.test.ts` **测了不存在的路径**
-- ✅ **工具注册表归一（P1 审计 D1–D4）+ 工具分类** - 注册表经**单一写入口**（弃 `new ToolRegistry()` 覆盖全局）；保证**每个已注册工具都有类目**（模型可见）；删桩化 MCP 资源工具只留真实实现；修「空注册表漂移」
-- ✅ **任务步骤证据链机械化** - 步骤**机械回读**写入产物（证据不再依赖模型自觉）· 验收标准由工具输出**可证** · 证据喂入 verifier 的 `toolResults` 契约（REVIEW 不再恒 `ESCALATE`）· `/v1/pdca/start` 亦注入步骤 TAORLoop · LRTO/PDCA 步骤获**真实工具**（长任务可执行）· 阻塞工具改为**逐步引导**而非丢步
-- ✅ **会话与工具口径修正** - steering 注入**落为 `context/steering` 事件**（可重建）· 删**第二套 steering 实现** · grep 60s 重复短路**不再伪装零命中** · 删孤立的消息命令队列 / 上下文修饰队列 · 删废弃 `resolve-module-aliases` 脚本
-- ✅ **质量** - `typecheck` **0** · 改动文件 `eslint` **0** · `lint:arch` **违规 0 · 警告 4（基线）** · 全量 **4617 pass / 24 skip / 0 fail**（4641 tests / 511 files）；前端 vitest **535 passed**（62 files）· 本版 **170 文件 +9340/−10174**
+- ✅ **Bash 安全（批次 A，A1–A5）** - 审计 `sessionId` 由 `toolUseId` 订正为真实会话（A1）· 已批准命令**不再豁免全部安全检查**（A2，灰度 `BASH_APPROVED_REVALIDATE`）· `spawn` **剥离敏感环境变量**（A3，单一事实源 `security/sensitiveEnv.ts`，`ScriptHookExecutor` 同批去重）· **高能力解释器**（node/bun/npm/python/pwsh…）纳入需确认判定（A4，`BASH_INTERPRETER_GUARD`）· 批准**严格模式**（A5，`BASH_APPROVAL_STRICT`：禁命令名级放行，仅精确 hash）⇒ 安全开关清单 **11 → 14**
+- ✅ **Execution 生命周期（批次 B，PR1–PR5）** - **PR1 Execution Identity**：`execution/*`（branded `ExecutionId`/`Generation` + 集中状态机 `canTransition` + `acquire` 原子占用 + generation fencing）；**PR2 真取消**：两段式 `CANCEL_REQUESTED → CANCELLED`（未确认**保留 lease**）+ `AbortSignal` 端到端贯通 + 空转超时改抛类型化 `ExecutionAbortedError`；**PR3 Session safety**：`activeExecutionId` 记名 + `cleanIdle` 跳过执行中会话；**PR4 Dedup 语义收敛**：`RECEIVED/ADMITTED/REJECTED` 单一状态图 + 超时不再"伪造已处理"；**PR5 Durable Execution**：**新增 3 张表**（`executions`/`execution_events`/`tool_calls`）· 写穿 + 启动 `recover()`（陈旧心跳孤儿 ⇒ `STALE` + `generation++`，**跨重启 fencing 不回退**）· 生命周期**会话事件三处同批**（编译期强制）+ `tool_calls` 记账 · **Router 级准入**（占用中有界等待，超时 `SESSION_BUSY` 且**不吞消息**）· 去重处理态**落盘**（`DedupStore` + hydrate，跨重启阻断重传 ⇒ 防重复计费）
+- ✅ **C1 统一 ID 收口（生产零弱随机）** - `Math.random().toString(36)…` ⇒ `randomIdSuffix()`（`crypto.randomUUID` 派生），**生产代码归零**（约 151 处 / 50+ 文件）；新增 `core/ids.ts` 承载单一实现（解 `core → infra` 倒挂）
+- ✅ **C2 EventBus 三语义显式化** - `publish`（fire-and-forget，零行为变更）与 **`publishAndWait`**（按序 await、返回 `{delivered, failed}`）分工明确 · `once()` **幂等守卫** · 历史**快照** · wildcard 顺序契约文档化。⚠️ 事件名/载荷去 `any` 为**破坏性**（39 文件 / 87 处）⇒ 如实**另立项**
+- ✅ **C3 `CoreAPIImpl` 拆分达标** - **2522 → 1898 行**：外迁 `sessionAgentOps.ts`（工具/会话/代理/文件 ops，~680 行）与 `llmChatOps.ts`（LLM 懒初始化/模型解析/非流式 `chat`，~256 行），宿主仅留**薄转发** + 惰性 deps 端口 ⇒ **移除 R04-001 豁免 FSZ-007**（例外 **8 → 7**）
+- ✅ **质量** - `typecheck` **0** · 全量 **5137 pass / 36 skip / 0 fail**（5173 tests / 553 files）· `lint:arch` **违规 0 · 警告 4（基线）** · `lint:size` **0 错**（例外 8 → **7**）· `lint`(eslint) **0 errors**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -268,8 +268,73 @@ jobs:
           if [ -d "$PKG_DIR/node_modules/sharp" ]; then echo "  ✅ deps/sharp"; fi
           if [ -d "$PKG_DIR/app/config" ]; then echo "  ✅ app/config/ (startup.yaml)"; fi
           if [ -d "$PKG_DIR/app/docs" ]; then echo "  ✅ app/docs/"; fi
+          if [ -f "$PKG_DIR/app/package.json" ]; then echo "  ✅ app/package.json (runtime version)"; fi
           if [ -f "$PKG_DIR/app/data/pyapp/SOUL.md" ]; then echo "  ✅ app/data/pyapp/SOUL.md"; fi
           echo "=== Verification passed ==="
+
+      # ── L-12.1（2026-10-09）：干净环境冒烟「解包 → 首启 → 清理」────────────
+      # 外部 §5.3-4：开发环境通过**不能**证明打包产物具备相同的路径/环境变量/原生模块行为。
+      # 本步对**真实 zip 产物**在全新临时目录中解包并首启，断言：
+      #   ① 关键路径存在；② `healthcheck` 退出码 0 且**版本 = 发布版本**；
+      #   ③ 便携约束：不向包内自身目录写入；④ 清理后临时目录消失。
+      # 注：`healthcheck` 模式在 bootstrap（T1_module_init）**之后**分发 ⇒ 证明产物可加载 + 可完成引导。
+      - name: Smoke test (clean env)
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER="${{ steps.version.outputs.version }}"
+          ZIP="../dist/liri-v${VER}-${{ matrix.platform }}-full.zip"
+          SMOKE_ROOT="$(mktemp -d)"
+          PKG="$SMOKE_ROOT/pkg"
+          mkdir -p "$PKG"
+          echo "smoke root: $SMOKE_ROOT"
+
+          echo "=== [1/4] 解包（全新临时目录）==="
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Git Bash 的 POSIX 路径需转 Windows 形式再交给 PowerShell
+            ZIP_WIN="$(cygpath -w "$ZIP")"
+            PKG_WIN="$(cygpath -w "$PKG")"
+            powershell -NoProfile -Command "Expand-Archive -Path '${ZIP_WIN}' -DestinationPath '${PKG_WIN}' -Force"
+          else
+            unzip -q "$ZIP" -d "$PKG"
+            chmod +x "$PKG/run.sh" 2>/dev/null || true
+          fi
+
+          echo "=== [2/4] 断言关键路径 ==="
+          for p in liri.js runtime app/config app/docs app/package.json; do
+            if [[ -e "$PKG/$p" ]]; then echo "  ✅ $p"; else echo "  ❌ $p MISSING"; exit 1; fi
+          done
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            [[ -f "$PKG/run.bat" ]] || { echo "  ❌ run.bat MISSING"; exit 1; }
+          else
+            [[ -f "$PKG/run.sh" ]] || { echo "  ❌ run.sh MISSING"; exit 1; }
+          fi
+
+          echo "=== [3/4] 首启冒烟（隔离 LIRI_HOME · 断言退出码/版本/无包内写入）==="
+          find "$PKG" -type f | sort > "$SMOKE_ROOT/before.txt"
+          export LIRI_HOME="$SMOKE_ROOT/home"
+          cd "$PKG"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            OUT="$(cmd.exe //c run.bat healthcheck 2>&1)" || { echo "$OUT" | tail -n 30; echo "❌ healthcheck 退出非 0"; exit 1; }
+          else
+            OUT="$(./run.sh healthcheck 2>&1)" || { echo "$OUT" | tail -n 30; echo "❌ healthcheck 退出非 0"; exit 1; }
+          fi
+          echo "$OUT" | tail -n 12
+          echo "$OUT" | grep -q "LIRI_HEALTHCHECK_OK" || { echo "❌ 缺少 healthcheck 标记"; exit 1; }
+          echo "$OUT" | grep -q "version: ${VER}" || { echo "❌ 版本不匹配（期望 ${VER}）"; exit 1; }
+          find "$PKG" -type f | sort > "$SMOKE_ROOT/after.txt"
+          if ! diff -q "$SMOKE_ROOT/before.txt" "$SMOKE_ROOT/after.txt" >/dev/null; then
+            echo "❌ 便携包不应向自身目录写入，但检测到新增文件："
+            diff "$SMOKE_ROOT/before.txt" "$SMOKE_ROOT/after.txt" || true
+            exit 1
+          fi
+          echo "  ✅ 退出码 0 · 版本 ${VER} · 包内无写入"
+
+          echo "=== [4/4] 卸载 / 清理 ==="
+          cd "$GITHUB_WORKSPACE"
+          rm -rf "$SMOKE_ROOT"
+          [[ ! -e "$SMOKE_ROOT" ]] || { echo "❌ 清理失败"; exit 1; }
+          echo "✅ 干净环境冒烟通过（解包 → 首启 → 清理）"
 
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4

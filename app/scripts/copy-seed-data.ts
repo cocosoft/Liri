@@ -132,6 +132,19 @@ function main(): void {
     console.warn(`[跳过] .env.example 不存在: ${envExampleSrc}`);
   }
 
+  // package.json — 运行时版本号来源：`pyapp.ts` 读 `<projectRoot>/app/package.json`
+  // 注入 `APP_VERSION`（`constants/common.ts#resolveAppVersion` 回退亦读该 env）。
+  // 打包产物此前不含此文件 ⇒ 运行时版本退化为 `0.0.0`/`1.0.0` 假值
+  // （L-12.1 干净环境冒烟实测发现，2026-10-09）。
+  const pkgJsonSrc = path.join(appRoot, 'package.json');
+  const pkgJsonDest = path.join(targetAppDir, 'package.json');
+  if (fs.existsSync(pkgJsonSrc)) {
+    fs.copyFileSync(pkgJsonSrc, pkgJsonDest);
+    console.log(`[复制] package.json`);
+  } else {
+    console.warn(`[跳过] package.json 不存在: ${pkgJsonSrc}`);
+  }
+
   // docs/ — 第一层代码文档，随安装包分发（resolveDocsDir() 期望 projectRoot/app/docs）
   const docsSrc = path.join(appRoot, 'docs');
   const docsDest = path.join(targetAppDir, 'docs');

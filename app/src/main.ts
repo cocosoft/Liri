@@ -80,6 +80,8 @@ import { contextManager } from './context/ContextManager.js';
 import type { LocalHTTPService } from '@modules/infrastructure';
 // 端口单一事实来源（默认值），运行时由 LIRI_HTTP_PORT 覆盖
 import { DEFAULT_HTTP_PORT } from './core/ports.js';
+// 版本号（唯一事实来源 app/package.json）—— 供 healthcheck 模式打印（L-12.1）
+import { APP_VERSION } from '@modules/constants';
 
 /**
  * 当前实例的 HTTP 服务引用（AC-7）
@@ -115,6 +117,8 @@ export enum LaunchMode {
   MCP = 'mcp',
   DAEMON = 'daemon',
   TEST = 'test',
+  // L-12.1（2026-10-09）：发布流水线「干净环境冒烟」入口 —— 引导完成后打印并**确定性退出 0**。
+  HEALTHCHECK = 'healthcheck',
 }
 
 /**
@@ -886,6 +890,28 @@ async function launchTest(_options: LaunchOptions): Promise<void> {
 }
 
 /**
+ * 健康自检模式（L-12.1，2026-10-09）
+ *
+ * 用途：发布流水线在**干净环境**对便携包做「解包 → 首启 → 清理」冒烟
+ * （`run.sh healthcheck` / `run.bat healthcheck`）。执行到此处时
+ * `ModuleRegistry.bootstrap()`（T1_module_init）**已完成**（引导在模式分发之前），
+ * 故可证明真实产物「可加载 + 可完成引导」。
+ *
+ * 与 `test` 模式的区别：`test` 仅打印日志、因残留定时器/句柄**不会退出**（2026-10-09 实测），
+ * 不能作为 CI 的确定性信号；本模式打印关键信息后**显式 `process.exit(0)`**。
+ */
+function launchHealthcheck(): void {
+  console.log('=== Liri healthcheck ===');
+  console.log(`version: ${APP_VERSION}`);
+  console.log(`platform: ${process.platform}-${process.arch}`);
+  console.log(`projectDir: ${process.env.LIRI_PROJECT_DIR ?? '(unset)'}`);
+  console.log(`home: ${process.env.LIRI_HOME ?? '(unset)'}`);
+  console.log('bootstrap: ok');
+  console.log('LIRI_HEALTHCHECK_OK');
+  process.exit(0);
+}
+
+/**
  * N-40（2026-09-20）：按「任务分工」解析首选聊天模型（`chat` → `default`）。
  *
  * 背景：档位默认模型原取 `chatModels[0]`，而 `ModelPricingService.getAllPricing()` 是
@@ -1632,6 +1658,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
       case LaunchMode.TEST:
         await launchTest(options);
         break;
+      case LaunchMode.HEALTHCHECK:
+        launchHealthcheck();
+        break;
       default:
         logger.warning(`未知启动模式: ${options.mode}，使用 REPL 模式`);
         await launchREPL(options);
@@ -1728,6 +1757,10 @@ export async function main(): Promise<void> {
   if (filteredArgv.length > 0 && !filteredArgv[0].startsWith('--')) {
     mode = (filteredArgv[0] as LaunchMode) || LaunchMode.REPL;
     args = filteredArgv.slice(1);
+  } else if (filteredArgv.includes('--healthcheck')) {
+    // 旗标形式等价于 `healthcheck` 子命令（发布流水线干净环境冒烟用，L-12.1）
+    mode = LaunchMode.HEALTHCHECK;
+    args = [...filteredArgv];
   } else {
     mode = LaunchMode.REPL;
     args = [...filteredArgv];

@@ -52,7 +52,15 @@ export interface CycleDetectionResult {
  */
 export interface BootstrapOptions {
   /** 启动模式 */
-  mode?: 'cli' | 'repl' | 'mcp' | 'daemon' | 'test' | 'oneshot';
+  mode?:
+    | 'cli'
+    | 'repl'
+    | 'mcp'
+    | 'daemon'
+    | 'test'
+    | 'oneshot'
+    // L-12.1（2026-10-09）：发布流水线干净环境冒烟入口（引导完成后打印并退出）
+    | 'healthcheck';
   /** 调试模式 */
   debug?: boolean;
   /** 详细输出 */

@@ -54,6 +54,8 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';
 // R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
+// R16 硬阻断：预算耗尽时抛业务异常（§1.9 业务异常必须 throw new AppError）
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('chat:streamFlow');
 
@@ -93,6 +95,9 @@ export interface PreSendProtectionParams {
  *  2. llama.cpp 精确截断（/tokenize 真实计数，目标 = 窗口 × 0.6）
  *  3. 工具定义预算检查（tools schema 渲染进 prompt，小窗口超限时移除）
  * 返回是否因工具超预算而移除了工具定义。
+ *
+ * **可能抛出**（R16 硬阻断，2026-10-09）：日预算耗尽（`locked` / 本轮估算越界）时
+ * 抛 `AppError('DAILY_BUDGET_EXCEEDED')` ⇒ 调用方**不得**发起模型请求。
  */
 export async function applyPreSendProtection(
   params: PreSendProtectionParams
@@ -169,9 +174,13 @@ export async function applyPreSendProtection(
         });
       }
     }
-    // 8.4④（2026-09-16）：每日 Token 预算前置检查——用本轮估算预判是否将打穿预算，
-    // 接近/达到上限时追加降级提示（对齐 AutoCompact 阈值提前量语义），而非被动等成本打穿。
-    // R16 原子预留：先取**预扣前**的 mode（保持原判定口径不变），再把本轮估算**预扣**入在途，
+    // 8.4④（2026-09-16）：每日 Token 预算前置检查。
+    // R16（2026-10-09，用户裁定「升级为硬阻断」）：**超限即拒发** —— 预算耗尽（`locked`）
+    // 或本轮估算将越界（`projected ≥ 上限`）时，**不发起模型调用**：先释放本轮预扣，再抛
+    // 业务异常（`DAILY_BUDGET_EXCEEDED`）。上层 `CoreAPIImpl.chatStream` 的 catch 会把该
+    // 异常 message **原样**作为流式 `error` 块呈现给用户（非静默失败）。
+    // 余下 `report_only`（≥80% 但未越界）保持原样：仅告警、放行。
+    // R16 原子预留：先取**预扣前**的 mode（保持原判定口径），再把本轮估算**预扣**入在途，
     // 使并发的预检立刻看到该预留（闭合 check→record 窗口）。
     const dailyBudget = getDailyBudget();
     const budgetMode = dailyBudget.getMode();
@@ -191,10 +200,21 @@ export async function applyPreSendProtection(
         budgetMode.mode === 'locked' ||
         reservation.projected >= budgetMode.dailyLimit
       ) {
-        apiMessages.push({
-          role: 'system',
-          content: `今日 Token 预算已耗尽（已用 ${budgetMode.todayUsed}/${budgetMode.dailyLimit}）。请立即停止调用工具，基于已有上下文直接给出最终答复。`,
-        });
+        // 释放本轮预扣：拒绝发送 ⇒ 在途不得残留（否则污染后续判定）
+        dailyBudget.settleFor(session.id, 0);
+        throw new AppError(
+          `今日 Token 预算已用完（已用 ${budgetMode.todayUsed} / 上限 ${budgetMode.dailyLimit}），为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
+          ErrorCategory.RESOURCE,
+          ErrorSeverity.MEDIUM,
+          'DAILY_BUDGET_EXCEEDED',
+          {
+            sessionId: session.id,
+            todayUsed: budgetMode.todayUsed,
+            dailyLimit: budgetMode.dailyLimit,
+            projectedUsed: reservation.projected,
+            estimateThisRound: msgTokens,
+          }
+        );
       }
     }
     if (toolDefinitions.length > 0) {

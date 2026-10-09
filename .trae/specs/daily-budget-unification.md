@@ -68,7 +68,7 @@
    > 反向确认（无重复计账）：主对话**经 chat 管线**的用法已由 `ChatManager.recordChatResponseUsage` 覆盖
    > （工具轮亦经 `streamMessageFlow.ts:2147` 转发）⇒ 本项**仅**针对**不经过 chat 管线**的任务/子代理。
 2. **按工作空间的预算**未做（D4）。**触发条件**：确认产品需要"每工作空间独立日预算"时立独立 Spec。
-3. **预算升级为硬阻断**未做（当前为建议式：仅注入"请停止工具"提示，不拒绝发送）。**触发条件**：确认需要"超限即拒发"时，需改 `preSendContextProtection` 的控制流（跳过模型调用并返回明确失败）——属**语义决策**。
+3. **预算升级为硬阻断 —— ✅ 已实施（2026-10-09，用户裁定「超限即拒发」）**。见 §7。
 4. `workspace.costControl` 其余字段（`hardLimit`/`monthlyBudgetUSD`…）同为**未接线**死配置（本 Spec 只标注 `dailyBudgetTokens`）。
 
 ---
@@ -82,8 +82,29 @@
 - `getMode()` 的 `percentUsed` / `mode` / `remaining` 改由 **`projectedUsed = 今日实际 + 在途预留`** 推导；**`todayUsed` 仍为实际**。
   - **安全性质**：在途为 0 时 `projectedUsed === todayUsed` ⇒ **无预留则行为逐一不变**（既有断言 `todayUsed`/`mode` 全部不受影响）。
 - **接线**：发送前（`preSendContextProtection`）`reserveFor(session.id, msgTokens)`（**在取 `getMode()` 之后**调用 ⇒ 保持原"何时告警"口径不变）；响应侧（`ChatManager.recordChatResponseUsage`）`settleFor(sessionId, 真实 tokens)`。
-- **语义**：本层预算**仍为建议式（非硬阻断）** ⇒ 预留只影响**投影可见性**（并发预检立刻看到在途），**不拒绝发送**；`reserveFor(...).ok=false` 仅并入既有"请停止工具"提示条件。
+- **语义**：本层预算**仍为建议式（非硬阻断）** ⇒ 预留只影响**投影可见性**（并发预检立刻看到在途），**不拒绝发送**；`reserveFor(...).ok=false` 仅并入既有"请停止工具"提示条件。（**该「非硬阻断」口径已被 §7 取代 —— 现为硬阻断。**）
 
 **影响文件**：`query/DailyBudgetManager.ts`（reserve/settle + projectedUsed）· `chat/orchestrator/preSendContextProtection.ts`（预留）· `chat/ChatManager.ts`（结算）· `tests/query/dailyBudgetSingleton.test.ts`（+6 用例）。
 
 **验证**：`dailyBudgetSingleton` **10 pass**（含：无预留不变 / 并发在途可见 / 同会话累加 / settle 多退少补 / 无预留 settle 等同 recordUsage / 超额 ok=false）。
+
+---
+
+## 7. 硬阻断（R16 第四段，2026-10-09，用户裁定「两项都做」）
+
+**语义变更（D6）**：日预算由「建议式（注入提示、不拒发）」升级为 **超限即拒发模型调用**。
+
+**实现**：`chat/orchestrator/preSendContextProtection.ts` —— 原 `locked` 分支的 `apiMessages.push({ role:'system', …请求停止工具 })` **删除**，改为：
+
+1. `dailyBudget.settleFor(session.id, 0)` —— **释放本轮预扣**（拒绝发送 ⇒ 在途不得残留，否则会持续抬高 `projectedUsed` 并污染后续判定）；
+2. `throw new AppError(msg, ErrorCategory.RESOURCE, ErrorSeverity.MEDIUM, 'DAILY_BUDGET_EXCEEDED', { sessionId, todayUsed, dailyLimit, projectedUsed, estimateThisRound })`。
+
+**触发条件（保持原判定口径）**：`budgetMode.mode === 'locked'`（`projectedUsed ≥ dailyLimit` 或 kill switch）**或** `reservation.projected >= dailyLimit`。`report_only`（≥80% 但未越界）**仍仅告警、放行**。
+
+**用户可见性（已取证）**：异常沿 `runStreamMessage` 冒泡至 `CoreAPIImpl.chatStream` 的 `catch`，该处 `yield { type:'error', content: message }`（`CoreAPIImpl.ts:1033-1037`）⇒ 异常 message **原样**呈现给用户，**非静默失败**。
+
+**残留（如实）**：无正文产出时 `CoreAPIImpl` 另按 Write-Ahead 落一条**通用** fallback assistant 消息（`:1045-1060`，文案"任务被中断或模型无响应"），与流式 error 并存且措辞偏泛（属既有共享逻辑，未逐案定制）。
+
+**影响文件**：`chat/orchestrator/preSendContextProtection.ts`（拒发 + 释放预扣）· `tests/chat/dailyBudgetHardBlock.test.ts`（新增 3 用例）。
+
+**验证**：`tests/chat/dailyBudgetHardBlock.test.ts` **3 pass**（未耗尽⇒放行 / 耗尽⇒抛 `DAILY_BUDGET_EXCEEDED` / 耗尽⇒**释放预扣** `projected===todayUsed`）· `bun test tests/` **4973 pass / 30 skip / 0 fail**。

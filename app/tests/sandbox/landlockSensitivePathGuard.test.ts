@@ -26,8 +26,10 @@ import {
   resolvePyappHome,
   resolveTempDir,
 } from '@modules/core/paths';
+import { SandboxConfigBuilder } from '../../src/sandbox/SandboxConfigBuilder';
+import type { SandboxPermissions } from '../../src/sandbox/SandboxTypes';
+import { LandlockPolicyBuilder } from '../../src/sandbox/landlock/LandlockPolicyBuilder';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
-import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
 import type { LandlockFsRule } from '../../src/sandbox/landlock/types';
 
 const CWD = '/w';
@@ -67,40 +69,46 @@ function covers(rulePath: string, target: string): boolean {
 }
 
 /**
- * code_run 侧断言的是**真实下发策略** —— `LinuxSandboxRunner.buildBunLandlockPolicy()`
- * （生产消费者的唯一策略来源；导出仅供离线断言形状）。
- *
- * ⚠️ 2026-10-08（P1-续）：原此处以 **`SandboxConfigBuilder` 的 5/6 种策略** 作输入
- * （再经 `LandlockPolicyBuilder.build` 映射）—— 但 `SandboxConfigBuilder` **全仓零生产消费者**
- * （真实 `code_run` 走 `buildBunLandlockPolicy`）⇒ 那组断言**测的是一条不存在的路径**。
- * 现直接断言**真实策略**（`SandboxConfigBuilder` 已随之删除）。
+ * code_run 侧要断言的是**最终下发策略**（`{path, allow}`），而非中间权限模型
+ * （`SandboxConfigBuilder` 产出的 `{path, permissions}`）—— 前者才是递给 landlock-run
+ * 的东西，且顺带覆盖 `LandlockPolicyBuilder` 的权限映射与 ABI 裁剪。
  */
-const CODE_RUN_POLICY: LandlockFsRule[] = buildBunLandlockPolicy(CWD, 5).fs;
+function codeRunPolicy(permissions: SandboxPermissions): LandlockFsRule[] {
+  return LandlockPolicyBuilder.build(permissions, { cwd: CWD }).fs;
+}
+
+/** code_run 侧：6 种策略经映射后的最终白名单（含 network/default 两个空文件系统策略） */
+const CODE_RUN_POLICIES: Array<[string, LandlockFsRule[]]> = [
+  ['readTool', codeRunPolicy(SandboxConfigBuilder.readTool(CWD))],
+  ['writeTool', codeRunPolicy(SandboxConfigBuilder.writeTool(CWD))],
+  ['terminalTool', codeRunPolicy(SandboxConfigBuilder.terminalTool(CWD))],
+  ['networkTool', codeRunPolicy(SandboxConfigBuilder.networkTool())],
+  ['searchTool', codeRunPolicy(SandboxConfigBuilder.searchTool(CWD))],
+  ['defaultTool', codeRunPolicy(SandboxConfigBuilder.defaultTool())],
+];
 
 describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
-  describe('code_run 侧：buildBunLandlockPolicy（真实策略）', () => {
-    it('控制组：真实策略**确有**规则（防"空集假绿"）', () => {
-      expect(CODE_RUN_POLICY.length).toBeGreaterThan(0);
-    });
-
-    it('**不得覆盖** `~/.pyapp/config.json` 与 `~/.pyapp/data`', () => {
-      for (const rule of CODE_RUN_POLICY) {
-        for (const sensitive of SENSITIVE_PATHS) {
-          expect(
-            covers(rule.path, sensitive),
-            `规则 ${rule.path} 覆盖了敏感路径 ${sensitive}`
-          ).toBe(false);
+  describe('code_run 侧：SandboxConfigBuilder', () => {
+    it('任何策略都**不得覆盖** `~/.pyapp/config.json` 与 `~/.pyapp/data`', () => {
+      for (const [name, fs] of CODE_RUN_POLICIES) {
+        for (const rule of fs) {
+          for (const sensitive of SENSITIVE_PATHS) {
+            expect(
+              covers(rule.path, sensitive),
+              `${name} 的规则 ${rule.path} 覆盖了敏感路径 ${sensitive}`
+            ).toBe(false);
+          }
         }
       }
     });
 
-    it('**不得**出现"家目录整体"规则（防"为省事放行 $HOME"）', () => {
-      expect(
-        CODE_RUN_POLICY.some(
-          (rule) => normalizePath(rule.path) === normalizePath(HOME)
-        ),
-        `放行了家目录整体 ${HOME}`
-      ).toBe(false);
+    it('任何策略都**不得**出现"家目录整体"规则（防"为省事放行 $HOME"）', () => {
+      for (const [name, fs] of CODE_RUN_POLICIES) {
+        expect(
+          fs.some((rule) => normalizePath(rule.path) === normalizePath(HOME)),
+          `${name} 放行了家目录整体 ${HOME}`
+        ).toBe(false);
+      }
     });
   });
 

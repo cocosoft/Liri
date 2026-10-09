@@ -90,3 +90,12 @@ export interface LandlockPolicy {
   net?: LandlockNetRule;
   abi: number;
 }
+
+/** runWithLandlock 执行结果 */
+export interface LandlockRunResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  /** true = 沙箱初始化失败（exit 125），非目标命令失败 */
+  sandboxInitFailed: boolean;
+}

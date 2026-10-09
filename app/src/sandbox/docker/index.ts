@@ -18,29 +18,24 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-
 /**
- * Landlock 沙箱模块统一入口（P1，2026-08-25）
+ * Docker 沙箱模块统一导出
  */
-export * from './types';
+export { DockerSandbox, DOCKER_CONFIG_KEYS } from './DockerSandbox';
+export type { DockerVolumeMount } from './DockerSandbox';
+export { DockerImageManager } from './DockerImageManager';
+export type { DockerImageInfo } from './DockerImageManager';
 export {
-  LandlockPolicyBuilder,
-  clampAccessByAbi,
-  MAX_SUPPORTED_ABI,
-  MIN_FS_ABI,
-} from './LandlockPolicyBuilder';
-export { LandlockDetector } from './LandlockDetector';
-export {
-  runWithLandlock,
-  buildLandlockArgv,
-  isSandboxInitFailure,
-} from './runWithLandlock';
-export type { RunWithLandlockOptions } from './runWithLandlock';
-export {
-  DEFAULT_LANDLOCK_CONFIG,
-  resolveLandlockConfig,
-  readLandlockConfig,
-  ENV_EVAL_BASH_LANDLOCK,
-  isEvalBashLandlockForced,
-} from './config';
-export type { LandlockConfig } from './config';
+  ISOLATION_LEVELS,
+  validateDockerNetworkConfig,
+  getNetworkModeForIsolation,
+  getIsolationLevel,
+} from './DockerNetworkPolicy';
+export type {
+  DockerNetworkMode,
+  DockerNetworkConfig,
+  IsolationLevel,
+  NetworkValidationResult,
+} from './DockerNetworkPolicy';
+export { compileNetworkPolicy } from './NetworkPolicyEngine';
+export type { NetworkPolicyPlan } from './NetworkPolicyEngine';

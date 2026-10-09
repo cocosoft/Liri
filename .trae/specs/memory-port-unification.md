@@ -224,7 +224,7 @@
 **⇒ 删除集**：`memory/EnhancedMemoryManager.ts`、`memory/services/MemoryWeightExporter.ts`、`memory/index.ts` 的 `:64-70` 与 `:79` 两处导出。
 
 **附带发现（同名不同域，登记备查）**：
-- `MemoryAnalysis` **两份**：`EnhancedMemoryManager.ts:28`（将删）与 `sandbox/IntelligentSandboxAnalyzer.ts:300`（**无关的另一域**，保留；⚠️ **订正 2026-10-08**：`IntelligentSandboxAnalyzer` 零消费者，已按 P1-续 S3 删除 ⇒ 第二份随之消失，本项不再有同名冲突）；
+- `MemoryAnalysis` **两份**：`EnhancedMemoryManager.ts:28`（将删）与 `sandbox/IntelligentSandboxAnalyzer.ts:300`（**无关的另一域**，保留）；
 - `MemoryQuery` **两份**：`memory/MemoryProvider.ts:16` 与 `memory/providers/ExternalMemoryProvider.ts:23`（均被 provider 在用，**均保留**）；
 ⇒ 与碎片③（记忆/内存同名）同族，**本次不动**（属 T1-6 的消歧范畴，另行裁定）。
 

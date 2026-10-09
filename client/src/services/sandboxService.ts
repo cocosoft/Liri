@@ -31,9 +31,19 @@ export interface SandboxStatus {
     maxOutputBytes?: number;
   };
   violationCount: number;
-  // 2026-10-08（P1-续 S1/S7）：原 `processStats` / `resourceSummary` / `activeWorkspaceCount`
-  // 三字段已删除 —— 后端数据源（`ProcessRegistry` / `ResourceLimitManager` / `WorkspaceManager`）
-  // 恒空，已随各子系统整批删除（`GET /v1/sandbox/status` 不再返回这些字段）。
+  processStats: {
+    total: number;
+    running: number;
+    completed: number;
+    killed: number;
+    errors: number;
+  };
+  resourceSummary: {
+    totalPlugins: number;
+    totalActive: number;
+    totalRejected: number;
+  };
+  activeWorkspaceCount: number;
 }
 
 /** 沙箱配置与状态服务（S1：对应后端 /v1/sandbox/*） */

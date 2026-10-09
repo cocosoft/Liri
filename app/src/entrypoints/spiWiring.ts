@@ -416,10 +416,13 @@ export async function registerAllSpis(
   // 现改为经 `ISandboxPort` 解析，实现在此注册（组合根，动态导入避免静态跨层依赖）。
   // D-157：permission 侧的文件权限判定（原直连 `globalWorkspaceManager`）并入**同一端口**。
   // D-200：infrastructure 侧两个 handler（`handler-utils` / `sandbox-handlers`）的取用面并入同一端口。
-  // 2026-10-08（P1-续 S1/S7）：原 `globalWorkspaceManager` / `processRegistry` / `resourceLimitManager`
-  // 三个导入及其端口方法/字段已删除 —— 数据源恒空（见 `core/spi/SandboxService.ts` 端口文档）。
   {
-    const { SandboxManager } = await import('@modules/sandbox');
+    const {
+      SandboxManager,
+      globalWorkspaceManager,
+      processRegistry,
+      resourceLimitManager,
+    } = await import('@modules/sandbox');
     const { registerSandboxSpi } = await import('@modules/core/spi');
     const sandboxManager = SandboxManager.getInstance();
     await registerSandboxSpi(container, {
@@ -431,12 +434,25 @@ export async function registerAllSpis(
       // 同上：端口为 `Record<string, unknown>`，实现侧为 `Partial<SandboxSettings>`
       updateSettings: (settings) =>
         sandboxManager.updateSettings(settings as never),
-      // `GET /v1/sandbox/status` 的读取面（最小投影，子字段原样进 JSON）
+      // 默认工作区缺失 ⇒ false（fail-closed）
+      hasWorkspacePermission: (permission) =>
+        globalWorkspaceManager.get('default')?.hasPermission(permission) ??
+        false,
+      // D-200：默认工作区缺失 ⇒ false（**放行**，保持 `handler-utils` 既有行为，
+      // 与上一行的 fail-closed 方向**相反**，见端口文档）
+      isWorkspacePermissionDenied: (permission) => {
+        const workspace = globalWorkspaceManager.get('default');
+        return workspace ? !workspace.hasPermission(permission) : false;
+      },
+      // D-200：`GET /v1/sandbox/status` 的读取面（最小投影，子字段原样进 JSON）
       getRuntimeStatus: () => ({
         runtimeEnabled: sandboxManager.isSandboxingEnabled(),
         settings: sandboxManager.getSettings(),
         constraints: sandboxManager.getConstraints(),
         violationCount: sandboxManager.getViolations().length,
+        processStats: processRegistry.getStats(),
+        resourceSummary: resourceLimitManager.getSummary(),
+        activeWorkspaceCount: globalWorkspaceManager.list().size,
       }),
     });
   }

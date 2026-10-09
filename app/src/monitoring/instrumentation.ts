@@ -467,23 +467,26 @@ export async function initializeTelemetry() {
     void (trace.getTracerProvider() as any)?.forceFlush?.();
   });
 
-  // BUG 修复: 始终初始化 TracerProvider（ConsoleSpanExporter + FileSpanExporter），
-  // 确保跨进程链路追踪数据落盘。增强遥测启用时额外叠加 OTLP 导出器。
+  // TracerProvider：**默认仅落盘**（`FileSpanExporter`）。
+  //
+  // R17（2026-10-09，台账 L-15 追加）：原实现把 `ConsoleSpanExporter` **无条件**挂在默认
+  // provider 上 ⇒ 每个 span 被序列化为多行 JSON 打到 stdout（`BatchSpanProcessor` 每 5s 刷新、
+  // 采样默认 1.0 = 全部 span）⇒ 实测污染 CLI/REPL 输出（本机复现：一次启动即 6 段原始 span 转储），
+  // 且属**主线程序列化 + stdout I/O 成本**（正是 R17 关切的开销面）。
+  // 而"确保跨进程链路追踪数据落盘"的原始意图由 `FileSpanExporter` 已满足
+  // ⇒ Console 改为**显式 opt-in**（`OTEL_TRACES_EXPORTER` 含 `console`）。
   {
-    const spanExporters: SpanExporter[] = [
-      new ConsoleSpanExporter(),
-      new FileSpanExporter(),
-    ];
+    const spanExporters: SpanExporter[] = [new FileSpanExporter()];
 
-    // 增强遥测启用时追加 OTLP 导出器。
-    // 方案 B（2026-08-20）：用户显式配置 OTEL_TRACES_EXPORTER 含 'otlp' 时无条件追加，
-    // 与 Liri_ENABLE_TELEMETRY 总门控解耦——显式配置表达明确意图（如本地接 Jaeger 调试渠道链路）。
-    const explicitOtlpTraces = parseExporterTypes(
+    // 显式配置的导出器总是生效（`console` / `otlp`）。
+    // 方案 B（2026-08-20）原仅对 `otlp` 解耦总门控，`console` 在开发环境会被**静默忽略**
+    // ⇒ 此处按"任一显式配置"解耦（显式配置表达明确意图，如本地接 Jaeger / 临时打印 span）。
+    const explicitTraceTypes = parseExporterTypes(
       configManager.env('OTEL_TRACES_EXPORTER')
-    ).includes('otlp');
-    if (telemetryEnabled || explicitOtlpTraces) {
-      const otlpExporters = await getOtlpTraceExporters();
-      spanExporters.push(...otlpExporters);
+    );
+    if (telemetryEnabled || explicitTraceTypes.length > 0) {
+      const extraExporters = await getOtlpTraceExporters();
+      spanExporters.push(...extraExporters);
     }
 
     const spanProcessors = spanExporters.map(

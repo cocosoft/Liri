@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.71-blue)
+![Version](https://img.shields.io/badge/version-0.4.72-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.71**
+当前版本：**v0.4.72**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,16 +435,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.71 (2026-10-09)
+#### v0.4.72 (2026-10-09)
 
-**沙箱回滚恢复与接线（S5/S1/S7）+ `messageRouter` 拆分达标（1290→816）+ 存量 lint 警告清零**
+**第九轮外部审查「复查任务计划」R1–R18 落地 + 事件日志恢复超线性定位（L-9）+ 门禁/质量治理补强**
 
-- ✅ **沙箱子系统恢复** - 回滚 v0.4.69 的三笔"死面清理"提交：恢复 24 个文件（`IsolationManager` / `EnhancedSandboxManager` / `PTYSandbox` / `SSHSandbox` / `docker/**` / `WorkspaceManager` / `ProcessRegistry` / `ResourceLimitManager` 等 + 5 项测试）+ 回滚 21 个存活文件的配套改动（SPI / HTTP handler / client / landlock）；同批**订正**被带回的失实陈述（`runWithLandlock` 接线落点）
-- ✅ **沙箱接线（S5 / S1 / S7）** - **S5**：`runWithLandlock` 补齐 `maxBufferChars` / `timedOut` / `error` 三态并**纠正**「spawn 错误误归因 exit 125」；bash 默认 runner **改为委托** `runWithLandlock`（code_run 因需 RPC 句柄保留自身 spawn）。**S1**：组合根启动期创建 `default` 工作区 ⇒ `ISandboxPort` 权限判定由 `config.sandbox.permissionLevel` **真实驱动**。**S7**：bash / code_run 在 spawn 处登记 `ProcessRegistry` ⇒ `GET /v1/sandbox/status` 的 `processStats` 由**恒空**转为真实
-- ✅ **C3-S3 `messageRouter` 拆分（1290 → 816 行）** - 子 spec [`.trae/specs/message-router-split.md`](.trae/specs/message-router-split.md)：外围迁出（契约/常量、串行化助手、帧验证、内容去重、文本审批、出站投递）+ **流式消费循环**迁出（`streamConsumption.ts`，两段式取消 catch 留原文件保时序）；`routeChannelMessage` **保留原文件**（R03-004 唯一入口），对外 API 经重导出零改动
-- ✅ **存量 lint 警告清零** - `bootstrap/*` · `compaction/*` · `tokenBudget/*` 共 **56 条 warning**（`no-unused-vars` ×44 / `no-explicit-any` ×12）人工清理 ⇒ `bun run lint` **0 error / 0 warning**
-- ✅ **质量** - `typecheck` **0** · 全量 **5178 pass / 36 skip / 0 fail** · `lint:arch` 违规 **0** · `lint:size` **0 错** · `lint:doc-code` ✅
-- ⚠️ **顺带发现（预存，台账 L-6）**：`tests/utils/commonId.test.ts`「C1 唯一性」为 **flaky**（6 位十六进制、批量 2000 ⇒ 约 12% 碰撞）—— 非本版引入
+- ✅ **确定性缺陷与恢复语义（R1–R5）** - **R1** 统一 ID 熵源补齐（`generateId` 6→10 hex；消息/附件 ID 7→10）· **R2** 沙箱能力矩阵 + **负向集成测试**（权限不足 / 并发隔离 / 越权读写子进程**真拦截**）· **R3** 崩溃窗口恢复：未结算工具调用标 **`unknown`**（不可知副作用不误判成败）· **R4** `messageRouter` 时序契约矩阵 + **去重键作用域收敛**（修**跨账号误去重**）· **R5** 门禁自证（命中 `R00-001` 实为 warning ⇒ **已提升为 error**）
+- ✅ **补证 / 补测（R6–R9）** - 多 Agent 状态所有权核查（无新增缺口）· 压缩**语义保真** 6 维 · 评测 **skip 分级** + 判分器边界 · 长期运行与恢复基准（`bench-longrun`）
+- ✅ **治理 / 质量基础设施（R10–R14）** - 状态复杂度门禁（**最小启用** `complexity warn 40`）· 通道能力契约矩阵 **147 pass**（**命中真缺陷** `msteams` `exportKey` 漂移 ⇒ 通道永不注册，**已修**）· 依赖**许可证扫描** `lint:license` · 删除代码安全流程落为规则 **`code-deletion.md`（CD01–CD07）** · 质量指标**分层**（**不合成单一分数**）
+- ✅ **谷歌输入补证（R15–R18）** - 自唤醒**重启后重发链路失效**定位并修复 · 每日 Token 预算**统一**（共享单例 + 记账收敛 + **原子预留** + 子代理记账）· OTel 背压核查（SDK **已提供背压**，实测无数量级回归）+ 清理死导入 · 压缩语法感知核查 + 分片器**结构感知** + 工具结果**安全预览**
+- ✅ **L-9 恢复超线性定位** - 证伪原候选根因，定位主因 = 夹具应含 `events.idx`（已补写）⇒ F1 **×11.9 ✅ 近似线性**（旧 ×13.9~15.1 ⚠️）
+- ✅ **质量** - `typecheck` **0** · 全量 **5414 pass / 42 skip / 0 fail** · `lint:arch` 违规 **0** · `lint:size` **0 错** · `lint:doc-code` ✅
+- ⚠️ **登记（非阻断）** - `L-10` `runStreamMessage` 复杂度 309/2532 行（待拆分）· `L-12.1` 干净环境 e2e（需容器）· `L-9` idx 缺失回退路径残余（暴露窄）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.72-blue)
+![Version](https://img.shields.io/badge/version-0.4.73-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.72**
+当前版本：**v0.4.73**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,17 +435,18 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.72 (2026-10-09)
+#### v0.4.73 (2026-10-10)
 
-**第九轮外部审查「复查任务计划」R1–R18 落地 + 事件日志恢复超线性定位（L-9）+ 门禁/质量治理补强**
+**第九轮外部审查落地（专项 A 五缺陷 + §七 安全基线 + 专项 B 执行生命周期 B-01–B-05 及跨层改造）+ Rust SWC CallExpression 扫描器（FFI 贯通）+ 默认关开关触发条件治理**
 
-- ✅ **确定性缺陷与恢复语义（R1–R5）** - **R1** 统一 ID 熵源补齐（`generateId` 6→10 hex；消息/附件 ID 7→10）· **R2** 沙箱能力矩阵 + **负向集成测试**（权限不足 / 并发隔离 / 越权读写子进程**真拦截**）· **R3** 崩溃窗口恢复：未结算工具调用标 **`unknown`**（不可知副作用不误判成败）· **R4** `messageRouter` 时序契约矩阵 + **去重键作用域收敛**（修**跨账号误去重**）· **R5** 门禁自证（命中 `R00-001` 实为 warning ⇒ **已提升为 error**）
-- ✅ **补证 / 补测（R6–R9）** - 多 Agent 状态所有权核查（无新增缺口）· 压缩**语义保真** 6 维 · 评测 **skip 分级** + 判分器边界 · 长期运行与恢复基准（`bench-longrun`）
-- ✅ **治理 / 质量基础设施（R10–R14）** - 状态复杂度门禁（**最小启用** `complexity warn 40`）· 通道能力契约矩阵 **147 pass**（**命中真缺陷** `msteams` `exportKey` 漂移 ⇒ 通道永不注册，**已修**）· 依赖**许可证扫描** `lint:license` · 删除代码安全流程落为规则 **`code-deletion.md`（CD01–CD07）** · 质量指标**分层**（**不合成单一分数**）
-- ✅ **谷歌输入补证（R15–R18）** - 自唤醒**重启后重发链路失效**定位并修复 · 每日 Token 预算**统一**（共享单例 + 记账收敛 + **原子预留** + 子代理记账）· OTel 背压核查（SDK **已提供背压**，实测无数量级回归）+ 清理死导入 · 压缩语法感知核查 + 分片器**结构感知** + 工具结果**安全预览**
-- ✅ **L-9 恢复超线性定位** - 证伪原候选根因，定位主因 = 夹具应含 `events.idx`（已补写）⇒ F1 **×11.9 ✅ 近似线性**（旧 ×13.9~15.1 ⚠️）
-- ✅ **质量** - `typecheck` **0** · 全量 **5414 pass / 42 skip / 0 fail** · `lint:arch` 违规 **0** · `lint:size` **0 错** · `lint:doc-code` ✅
-- ⚠️ **登记（非阻断）** - `L-10` `runStreamMessage` 复杂度 309/2532 行（待拆分）· `L-12.1` 干净环境 e2e（需容器）· `L-9` idx 缺失回退路径残余（暴露窄）
+- ✅ **专项 A（Bash/AST 安全，5 缺陷全修）** - 原生解析器**从未加载**（`lazyInitNative` 哨兵恒假，已修 + 可观测）· TS 解析器不识别 `\|\|` ⇒ 命令**绕过**（已修）· 审批 hash 抹掉**引号语义**（改引号感知状态机、保留大小写）· AST 不确定时**不失败关闭**（转人工审批）· 调用方 `env` 可**覆盖**已剥离敏感项（新增 `sanitizeCallerEnv()`）
+- ✅ **§七 安全开关基线** - `BASH_APPROVED_REVALIDATE` **默认 `false` → `true`（安全基线）**（关闭时已批准命令**跳过整套硬拦截**）；R07-2 全链同步（含 `SAFETY_SWITCHES` 保 `def:true` **防静默翻回**）；`BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` 维持灰度 + 启用/回滚条件/迁移期限 + 一次性告警
+- ✅ **专项 B（执行生命周期）** - **B-01** 恢复后可能并存**双 `RUNNING`**（`foreignActive` 外部占用；不盲目 `owner.set()`，STALE 时解除）· **B-02** 恢复两步间崩溃 ⇒ 工具调用永久 `running`（**倒序**：先标 `unknown` 再置 `STALE`）· **B-03** `MAX(seq)+1` 并发竞争（串行化 + 唯一索引兜底）· **B-04** `QUEUED` 取消恒失败（按状态分流直接 `CANCELLED`）· **B-05** 记账 fire-and-forget（可等待 `beginToolCall()`）
+- ✅ **B-05 跨层改造** - `executionId` 经 `ChatRequest` → `StreamMessageOptions` → `ChatManager` 下传至**工具执行者** ⇒ 执行前 `await beginToolCall()`，落盘失败即**拒绝该工具**（**逐工具** fail-closed）；记账收敛为**单一写入方**
+- ✅ **Rust SWC CallExpression 扫描器** - 新 `js_ast.rs`（SWC 遍历 `CallExpr`/`NewExpr` + 特征表）+ FFI `py_scan_js_calls` + `CodeRunner` 校验链第 5 步（不可用 ⇒ 降级跳过）；**识别** `globalThis['eval']` 混淆；`cargo test` **101 pass**
+- ✅ **触发条件治理 + 清理** - O1–O5 观测点（零行为变更）· 新建默认关开关登记表（单一事实源）+ CI **登记完整性断言**（23 ⇒ 34）· 删除零消费预留端口 · PDCA 启动扫描不再静默跳过 · Ch.16 / Ch.21 落 spec + 裁定
+- ✅ **质量** - `typecheck` **0** · `tests/{execution,channels,chat}` **755 pass** · `tests/{tools,security,permission}` **788 pass** · `lint:arch` 违规 **0** · `lint:doc-code` ✅
+- ⚠️ **未完成（如实登记）** - 跨层安全回归测试（AST/TS/审批/spawn **决策一致性**）与**沙箱执行**测试组未做；故障注入仅覆盖调用顺序；**专项 C 8 项测试清单未做**（其 C-01/C-02/C-03 与 B-03/B-02/B-05 同源、已修）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

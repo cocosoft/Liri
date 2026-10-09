@@ -21,6 +21,22 @@
 
 ---
 
+#### v0.4.73 (2026-10-10)
+
+**第九轮外部审查落地（专项 A 五缺陷 + §七 安全基线 + 专项 B 执行生命周期 B-01–B-05 及跨层改造）+ Rust SWC CallExpression 扫描器（FFI 贯通）+ 默认关开关触发条件治理**
+
+- ✅ **专项 A（Bash/AST 安全，5 缺陷全修）** - ① `lazyInitNative` 哨兵 `=== undefined` **恒假** ⇒ 原生解析器**从未加载**（改三态 + `getBashAstStats()` 可观测）· ② TS `splitCommands` 不识别 `||` ⇒ `echo safe || rm -rf /` **绕过**（已修 + 转义判定）· ③ `normalizeCommand` 转小写/折叠引号内空白 ⇒ 语义不同命令**同 hash**（改引号感知状态机、**保留大小写**）· ④ AST 不确定（`too-complex`/`parse-unavailable`）**不失败关闭**（转**人工审批**）· ⑤ 调用方 `env` 可**覆盖**已剥离敏感项（新增 `sanitizeCallerEnv()` + 接线 + 留痕）
+- ✅ **§七 安全开关基线** - `BASH_APPROVED_REVALIDATE` **默认 `false` → `true`（安全基线）**（其关闭时"已批准命令**跳过整套硬拦截**"风险最高）；R07-2 全链同步（`featureFlags` + `SAFETY_SWITCHES` 保 `def:true` **防静默翻回** + `project_rules §1.4` + 规则版本 7.23.0）；`BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` 维持灰度 + **启用/回滚条件/迁移期限** + `warnGraySecuritySwitchesOnce()` 一次性告警（§七 建议 1/3/4/5）
+- ✅ **专项 B（执行生命周期 B-01–B-05）** - **B-01** 恢复 `kept` 不计入内存 ⇒ 可能并存**双 `RUNNING`**（新增 `foreignActive` 外部占用；**不盲目 `owner.set()`**，STALE 时解除 ⇒ 不永久锁死）· **B-02** 恢复两步间崩溃 ⇒ 工具调用**永久 `running`**（**倒序**：先标 `unknown` 再置 `STALE`，幂等收敛）· **B-03** `MAX(seq)+1` 并发竞争（按 `executionId` 串行化 + `(execution_id, seq)` 唯一索引兜底）· **B-04** `requestCancel()` 对 `QUEUED` **恒 false**（按状态分流：`QUEUED` ⇒ 直接 `CANCELLED`）· **B-05** 记账 fire-and-forget（新增**可等待** `beginToolCall()`）
+- ✅ **B-05 跨层改造：`executionId` 下传工具执行者** - `ChatRequest.executionId`（已存在）→ `CoreAPIImpl.chatStream` 透传 → `StreamMessageOptions.executionId` → `ChatManager._sessionExecutionIds`（与 `_sessionAbortControllers` 同生命周期）⇒ **`ChatManager.executeTool` 执行前 `await beginToolCall()`，落盘失败即拒绝该工具**（**逐工具** fail-closed，底层 `svc.execute` **不被触达**）；记账收敛为**单一写入方**（Router 移除 chunk 观察式 begin/settle）
+- ✅ **Rust SWC CallExpression 扫描器（覆盖 B7「不立项」裁定 —— 用户主动决策）** - 新 `app/native/src/js_ast.rs`：SWC 解析 TS/JS → `Visit` 遍历 `CallExpr` / `NewExpr` → 特征表（危险/可疑）→ C-ABI `py_scan_js_calls`；`index.js` FFI 注册 + `CodeRunner` 静态校验链第 5 步（原生不可用 ⇒ **降级跳过**，默认零行为变更）；**识别计算成员混淆** `globalThis['eval']`（TS 侧正则看不见）；`cargo test` **101 pass**（含 `js_ast` 14 例）
+- ✅ **P0 触发条件补全与治理 + 清理登记** - O1–O5 观测点（3 新增 / 2 复用既有，**零行为变更**）· 新建单一事实源 `default-off-switches-review-gates.md`（默认关项"可观测信号 + 阈值 + 窗口 + 复评节奏"）· CI **登记完整性断言**（`lint:doc-code` 断言 **23 ⇒ 34**）· `project_rules §1.4` 增「触发条件（何时重开）」指针列；删除零消费预留端口 `ERROR_SERVICE_ID` · PDCA 启动扫描**不再静默跳过**可续跑任务 · `degrade` 复核判定**已由 `soft` 承担**（不新增第三模式）· Ch.16 / Ch.21 落 spec + 裁定（**未写代码**，理由在 spec）
+- ✅ **质量** - `typecheck`（3 tsconfig）**0** · `tests/{execution,channels,chat}` **755 pass / 0 fail** · `tests/{tools,security,permission}` **788 pass / 0 fail** · `lint:arch` 违规 **0**（4 基线警告）· `lint:doc-code` ✅
+- ⚠️ **未完成（如实登记）** - 专项 A **#7「跨层安全回归测试」**（Rust AST / TS 分析 / Guardrail / 审批 / 实际 spawn 的**最终决策一致性**）与 §九「**沙箱执行**」测试组**未做**；专项 B **§十七#5 故障注入**仅覆盖 B-02 的**调用顺序**断言（无真实崩溃注入）；**专项 C 的 8 项测试清单未做**（其 C-01/C-02/C-03 与 B-03/B-02/B-05 **同源、已修**；C-04/C-05 为审查明示的**待验证设计边界**，非确认缺陷）
+- ℹ️ **边界** - 未做端到端沙箱攻击验证（与审查原文口径一致）；`executionId` 目前仅由**渠道 Router** 注入，client（`/v1/chat/stream`）路径未接入 Execution（不记账/不拒绝）
+
+---
+
 #### v0.4.72 (2026-10-09)
 
 **第九轮外部审查「复查任务计划」R1–R18 落地 + 事件日志恢复超线性定位（L-9）+ 门禁/质量治理补强**

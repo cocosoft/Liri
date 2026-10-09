@@ -4,3 +4,4 @@ pub mod bash_ast;
 pub mod security;
 pub mod context;
 pub mod encoding;
+pub mod js_ast;

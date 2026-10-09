@@ -608,6 +608,8 @@ export class CoreAPIImpl implements CoreAPI {
         continueFrom: request.continue_from,
         // PR2（2026-10-09）：外部取消信号透传 → ChatManager 中继到会话 controller
         signal: request.signal,
+        // B-05（2026-10-09）：执行标识透传 → ChatManager 按会话记录 → 工具执行器前置记账
+        executionId: request.executionId,
         onUsage: (usage) => {
           // AB-10 修复：累加而非覆盖——主回复 + 各工具轮次 LLM 调用都会回调，
           // 累加后 usage SSE 事件反映整轮消息的完整用量

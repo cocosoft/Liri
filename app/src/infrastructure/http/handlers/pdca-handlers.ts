@@ -130,6 +130,11 @@ export async function scanAndAbortStalePdcaTasks(): Promise<void> {
   // 2026-09-29（台账「另案 ⑥」）：同批改用带记忆索引 —— 本函数虽只在启动时跑一次，
   // 但目录达 3394 文件时原实现同样要 ≈1s 全量 read+parse。
   let aborted = 0;
+  // M2（2026-10-09）：**可续跑**（等待审批阶段）任务清单 —— 启动扫描**不** abort 它们，
+  // 但此前**静默跳过**（仅 continue）⇒ 用户不知道"重启后有任务可恢复"。本清单使其**可发现**
+  // （恢复入口：`/goal` 审批 或 `POST …/checkpoint/resume`，见 `checkpoint-handlers.ts`）。
+  // 零行为变更：仅新增日志，不改变 abort / 保留判定。
+  const resumable: Array<{ taskId: string; phase?: string }> = [];
   const taskOps = await getCoreAPI().getTaskOpsPort();
   const [checkpoints, statusSets] = await Promise.all([
     taskOps.getPdcaCheckpointIndex(),
@@ -145,6 +150,7 @@ export async function scanAndAbortStalePdcaTasks(): Promise<void> {
     // （1-0b 后 plan_pending 的 status 演进为 'started'，故此处需按 phase 二次排除。）
     const phase = ck.phase as string | undefined;
     if (phase !== undefined && statusSets.awaitingApprovalPhases.has(phase)) {
+      resumable.push({ taskId: ck.taskId as string, phase });
       continue;
     }
 
@@ -164,6 +170,15 @@ export async function scanAndAbortStalePdcaTasks(): Promise<void> {
 
   if (aborted > 0) {
     logger.info(`启动扫描完成：已标记 ${aborted} 个旧 PDCA 任务为 abort`);
+  }
+  if (resumable.length > 0) {
+    // M2：显式暴露"可续跑"清单（此前静默跳过 ⇒ 不可发现）
+    logger.info('启动扫描：发现可续跑任务（等待审批，未 abort）', {
+      count: resumable.length,
+      tasks: resumable.slice(0, 20),
+      resumeEntry:
+        '/goal 审批 或 POST /v1/pdca/checkpoint/resume（见 checkpoint-handlers.ts）',
+    });
   }
 }
 

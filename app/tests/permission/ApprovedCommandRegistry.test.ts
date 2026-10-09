@@ -69,19 +69,33 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
     reg.dispose();
   });
 
-  it('规范化等价命令命中（空白/大小写差异）', () => {
+  it('规范化：引号外空白折叠；**大小写不再折叠**（第九轮审查 #3）', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     const hash = hashCommand('rm -rf /tmp/abc');
     reg.approve('session-1', hash);
-    // 额外空白 + 大小写差异 → 规范化后相同（引号保留，统一为双引号）
-    expect(normalizeCommand('RM -RF   /TMP/ABC')).toBe(
+    // ① 引号外空白差异 ⇒ 仍规范化等价（命中，零行为变更）
+    expect(normalizeCommand('rm  -rf   /tmp/abc')).toBe(
       normalizeCommand('rm -rf /tmp/abc')
     );
-    expect(hashCommand('RM -RF   /TMP/ABC')).toBe(hash);
-    expect(reg.isApproved('session-1', hashCommand('RM -RF   /TMP/ABC'))).toBe(
+    expect(reg.isApproved('session-1', hashCommand('rm  -rf   /tmp/abc'))).toBe(
       true
     );
+    // ② 大小写差异 ⇒ **不再等价**（原实现 `RM`/`rm` 同 hash —— 第九轮审查 §十-3 缺陷 #3）
+    expect(normalizeCommand('RM -RF /TMP/ABC')).not.toBe(
+      normalizeCommand('rm -rf /tmp/abc')
+    );
+    expect(reg.isApproved('session-1', hashCommand('RM -RF /TMP/ABC'))).toBe(
+      false
+    );
     reg.dispose();
+  });
+
+  it('规范化：**引号内空白保留**（第九轮审查 #3：语义不同不得同 hash）', () => {
+    // 引号内空白是语义：`echo "a  b"` 与 `echo "a b"` 是不同参数
+    expect(normalizeCommand('echo "a  b"')).not.toBe(
+      normalizeCommand('echo "a b"')
+    );
+    expect(hashCommand('echo "a  b"')).not.toBe(hashCommand('echo "a b"'));
   });
 
   it('命令实质变化不命中（防张冠李戴）', () => {
@@ -144,8 +158,9 @@ describe('hashCommandForExecution（P0-2 执行级统一 hash）', () => {
 });
 
 describe('getBaseCommand（P0-3 命令名提取）', () => {
-  it('提取首个 token（规范化后）', () => {
-    expect(getBaseCommand('DIR   /b  X')).toBe('dir');
+  it('提取首个 token（规范化后；第九轮审查 #3：**保留大小写**）', () => {
+    // 原实现经 normalizeCommand 转小写 ⇒ 'DIR'→'dir'；第九轮 §十-3 修复后不再转小写
+    expect(getBaseCommand('DIR   /b  X')).toBe('DIR');
     expect(getBaseCommand('  net user %username% ')).toBe('net');
     expect(getBaseCommand('')).toBe('');
   });

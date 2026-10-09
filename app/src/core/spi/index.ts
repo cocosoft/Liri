@@ -31,7 +31,6 @@ export {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-  ERROR_SERVICE_ID,
 } from './ErrorTypes';
 
 export { TtlCache } from './CacheService';

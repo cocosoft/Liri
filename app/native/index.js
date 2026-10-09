@@ -39,6 +39,10 @@ function loadLibrary() {
         args: [FFIType.cstring],
         returns: FFIType.ptr,
       },
+      py_scan_js_calls: {
+        args: [FFIType.cstring],
+        returns: FFIType.ptr,
+      },
       py_free_rust_string: {
         args: [FFIType.ptr],
         returns: FFIType.void,
@@ -106,6 +110,20 @@ function loadLibrary() {
         const ptr = symbols.py_read_file_with_encoding(toBuffer(filePath));
         const result = readCString(ptr);
         return result ? JSON.parse(result) : { encoding: "error", content: "", error: "FFI 调用返回空" };
+      },
+
+      /**
+       * 基于 SWC 的 JS/TS **CallExpression 深度扫描 + 特征拦截**（原生侧）。
+       * 规格：`.trae/specs/ast-family-phased-plan.md` §3-P2。
+       * @param {string} code - 待扫描的 JS/TS 源码
+       * @returns {{ok:boolean, engine?:string, callCount?:number, risk?:string,
+       *            matches?:Array<{callee:string,severity:string,kind:string,line:number}>,
+       *            error?:string} | null}
+       */
+      scanJsCalls(code) {
+        const ptr = symbols.py_scan_js_calls(toBuffer(code));
+        const result = readCString(ptr);
+        return result ? JSON.parse(result) : null;
       },
     };
   } catch (err) {

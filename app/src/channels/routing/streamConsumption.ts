@@ -129,29 +129,15 @@ export async function consumeStreamChunks(
         break;
       case 'tool_call':
         toolCallChunks++;
-        // PR5-S3（2026-10-09，`.trae/specs/durable-execution.md`）：execution 级**工具调用记账**
-        // （`tool_calls` 表）—— Router 既有 `executionId` 又能观测 tool_call chunk，故在此接线；
-        // 写穿为 best-effort，未接入 store ⇒ no-op（不阻断流式）。
-        {
-          const spec = chunk.toolCall;
-          if (spec?.id) {
-            if (spec.status === 'completed' || spec.status === 'failed') {
-              executionManager.settleToolCall(
-                lease.executionId,
-                spec.id,
-                spec.name,
-                spec.status,
-                spec.error
-              );
-            } else {
-              executionManager.recordToolCall(
-                lease.executionId,
-                spec.id,
-                spec.name
-              );
-            }
-          }
-        }
+        // B-05（2026-10-09，第九轮审查专项 B §十五）：工具调用记账（`tool_calls` 表）**已移交
+        // 工具执行者**（`ChatManager.executeTool` 的 `beginToolCall`（前置，失败即**拒绝该工具**）
+        // + `settleToolCall`（后置））。
+        //
+        // 为什么迁移：本层是流式**观察者**（先有 chunk 才有机会记账），**无法保证**"落盘先于
+        // 工具副作用"，也无法精确拒绝**单个**工具。原 PR5-S3 在此处接线属权宜（当时
+        // `executionId` 只由 Router 侧产生）；B-05 已把 `executionId` 下传到执行者
+        // （`ChatRequest` → `StreamMessageOptions` → `ChatManager` 按会话登记）⇒ **单一写入方**。
+        // 本层仅保留工具活动日志与进度通知。
         // 工具活动日志（节流：首个必记，之后每 30s 至多 1 条，防刷屏）
         if (toolCallChunks === 1 || Date.now() - lastToolLogMs > 30_000) {
           lastToolLogMs = Date.now();

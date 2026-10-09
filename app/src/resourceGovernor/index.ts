@@ -130,6 +130,16 @@ export class ResourceGovernor {
   private onEvent?: GovernanceObserver;
   /** 排队等待者（**优先级降序 + 同级 FIFO**；§9.4 D7=b） */
   private readonly waiters: QueueWaiter[] = [];
+  /**
+   * O2（2026-10-09，触发条件补全方案 §三-O2）：**并发峰值观测集**（与开关无关）。
+   *
+   * 目的：`RESOURCE_GOVERNOR` 默认关时 `snapshot()`/`count()` 恒空 ⇒ 其触发条件
+   * 「峰值 in-flight ≥ 8」**不可测**。本集**始终**维护（不读开关、不参与决策、
+   * 不写入 `inflight`）⇒ 让该触发条件变得可读。**零行为变更**。
+   */
+  private readonly observedInflight = new Set<string>();
+  /** O2：观测到的在飞会话峰值（`reset()` 清零） */
+  private observedPeak = 0;
 
   constructor(options: ResourceGovernorOptions = {}) {
     this.maxInflight = normalizeMax(
@@ -168,6 +178,36 @@ export class ResourceGovernor {
   }
 
   /**
+   * O2：观测到的并发峰值（进程内，**与开关无关**；`reset()` 清零）。
+   *
+   * 用途：使 `RESOURCE_GOVERNOR` 的触发条件①「峰值 in-flight ≥ 8」（见
+   * `.trae/specs/default-off-switches-review-gates.md`）在默认关时**可读**。
+   */
+  get observedPeakInflight(): number {
+    return this.observedPeak;
+  }
+
+  /**
+   * O2：并发峰值观测（**与开关无关**）—— 仅维护观测集 + 峰值 + debug 日志，
+   * **不参与决策、不写入 `inflight`** ⇒ 零行为变更。
+   *
+   * 两条可读信号：① `observedPeakInflight`（峰值，供访问器读取）；② 每次**达到/超过上限**
+   * 记一条 `resourceGovernor:inflight_at_limit`（供触发条件①"峰值 in-flight ≥ 上限**出现次数**"计数）。
+   */
+  private observeInflight(sessionId: string): void {
+    this.observedInflight.add(sessionId);
+    const current = this.observedInflight.size;
+    if (current > this.observedPeak) this.observedPeak = current;
+    if (current >= this.maxInflight) {
+      logger.debug('resourceGovernor:inflight_at_limit', {
+        current,
+        peak: this.observedPeak,
+        limit: this.maxInflight,
+      });
+    }
+  }
+
+  /**
    * 准入：登记在飞（**同 sessionId 重复准入幂等**，保留首次 `startedAt`）并返回决策。
    *
    * 超限（`inFlightCount > maxInflight`）时按 **D6=B** 尝试抢占：存在**更低优先级**的
@@ -177,6 +217,8 @@ export class ResourceGovernor {
    * `admitted` 恒 `true`（D4 语义未变：抢占不改变本次请求的准入结果）。
    */
   admit(req: AdmissionRequest): AdmissionDecision {
+    // O2（2026-10-09）：**与开关无关**的并发峰值观测（零行为变更，仅观测集 + debug）。
+    this.observeInflight(req.sessionId);
     if (!governorEnabled()) {
       return {
         admitted: true,
@@ -241,6 +283,8 @@ export class ResourceGovernor {
 
   /** 结束在飞（幂等）；返回是否确有条目被移除。**移除即唤醒一个排队者**（§9.4 名额移交） */
   release(sessionId: string): boolean {
+    // O2（2026-10-09）：观测集同步移除（**与开关无关**，零行为变更）。
+    this.observedInflight.delete(sessionId);
     if (!governorEnabled()) return false;
     const removed = this.inflight.delete(sessionId);
     if (removed) this.wakeOneWaiter();
@@ -370,6 +414,9 @@ export class ResourceGovernor {
     }
     this.waiters.length = 0;
     this.inflight.clear();
+    // O2（2026-10-09）：观测结构一并清零（测试用）。
+    this.observedInflight.clear();
+    this.observedPeak = 0;
   }
 }
 

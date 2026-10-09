@@ -33,7 +33,11 @@ import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // （G1-C 的顾问性提示已随之收敛到该入口的"普通路径"分支内）
 import { execBashCommand } from './bashLandlockExec';
 import { SandboxSecurityChecker } from '@modules/sandbox';
-import { completeSecuritySystem, stripSensitiveEnv } from '@modules/security';
+import {
+  completeSecuritySystem,
+  stripSensitiveEnv,
+  sanitizeCallerEnv,
+} from '@modules/security';
 import { feature } from '@modules/core';
 
 // ── K-5 内存阈值治理：BashTool 大输出源头截断常量 ──────────────
@@ -60,6 +64,44 @@ import {
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\bash\BashTool');
+
+/**
+ * 第九轮审查 §七 建议 5（2026-10-09）：**不让安全开关在缺少告警的情况下长期停留默认关闭**。
+ *
+ * 进程内**首次构造** BashTool 时打印一次"仍有 Bash 安全开关处于灰度（默认关）"的告警，
+ * 使当前安全姿态可见。A2 已翻转为安全基线（默认开）；A4/A5 仍为灰度。
+ * 启用条件 / 回退条件 / 迁移期限：`.trae/specs/default-off-switches-review-gates.md §2.2`。
+ */
+let graySwitchWarningEmitted = false;
+
+/** 灰度开关清单（单一事实源；A2 已翻转为安全基线，不在其中） */
+const GRAY_SECURITY_SWITCHES = [
+  'BASH_INTERPRETER_GUARD',
+  'BASH_APPROVAL_STRICT',
+] as const;
+
+/**
+ * 打印一次"灰度开关"告警（**模块私有**；外部只暴露 `resetGraySwitchWarningForTest`）。
+ *
+ * 可观测性由**日志**承担（`logger.warn`，module=`tools\bash\BashTool`）—— 单测经
+ * 「构造 BashTool + 日志断言」验证，**不扩大导出面**。
+ */
+function warnGraySecuritySwitchesOnce(): void {
+  if (graySwitchWarningEmitted) return;
+  graySwitchWarningEmitted = true;
+  const gray = GRAY_SECURITY_SWITCHES.filter((f) => !feature(f));
+  if (gray.length > 0) {
+    logger.warn('[Bash 安全姿态] 以下安全开关仍处**灰度（默认关）**', {
+      switches: gray,
+      note: '启用条件 / 回退 / 迁移期限见 .trae/specs/default-off-switches-review-gates.md §2.2',
+    });
+  }
+}
+
+/** 仅测试用：重置"一次性告警"标记 */
+export function resetGraySwitchWarningForTest(): void {
+  graySwitchWarningEmitted = false;
+}
 
 /**
  * BashTool 输入模式 - 对标CC Zod校验
@@ -419,6 +461,8 @@ export class BashTool extends BaseTool {
   ) {
     super();
     this.approvedRegistry = approvedRegistry;
+    // 第九轮审查 §七 建议 5：一次性的"灰度开关"告警（进程内只打一次）
+    warnGraySecuritySwitchesOnce();
 
     // 动态参数描述
     const commandParamDesc = this.isWindows
@@ -600,18 +644,33 @@ export class BashTool extends BaseTool {
 
         // AST级安全分析
         const astResult = parseForSecurity(command);
-        if (
-          astResult.kind === 'simple' &&
-          astResult.commands.some((c) => isDangerousCommand(c.argv))
-        ) {
-          return createToolResult('AST安全分析: 检测到危险命令', {
+        if (astResult.kind === 'simple') {
+          if (astResult.commands.some((c) => isDangerousCommand(c.argv))) {
+            return createToolResult('AST安全分析: 检测到危险命令', {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: 'Error: AST安全分析阻止了危险命令执行',
+                },
+              ],
+              metadata: { securityIntercepted: true, reason: 'ast_analysis' },
+            });
+          }
+        } else {
+          // 第九轮审查 §十-4（2026-10-09，缺陷 #4）：**AST 不确定 ⇒ 失败关闭（fail-closed）**。
+          // 原实现仅在 `kind === 'simple'` 时判危险；`too-complex` / `parse-unavailable`
+          // **既不阻断也不要求审批** ⇒ 解析器能力边界与实际安全决策不一致（盲区即放行）。
+          // 现：两种"无法可靠解析"⇒ **转人工审批**（不静默放行；也不直接 deny，保留可用性）。
+          return createToolResult('需要用户确认: 命令无法被可靠解析', {
+            requireApproval: true,
+            approvalReason: `AST 分析不确定（${astResult.kind}），为避免解析盲区被绕过，需人工确认`,
             newMessages: [
               {
                 role: 'system',
-                content: 'Error: AST安全分析阻止了危险命令执行',
+                content: `需要用户确认: 该命令无法被 AST 可靠解析（${astResult.kind}），需人工确认后执行`,
               },
             ],
-            metadata: { securityIntercepted: true, reason: 'ast_analysis' },
+            metadata: { reason: 'ast_inconclusive', astKind: astResult.kind },
           });
         }
 
@@ -718,6 +777,17 @@ export class BashTool extends BaseTool {
         });
       }
 
+      // O1-B2（2026-10-09，触发条件补全方案 §三-O1）：**解释器命令即将执行**（未被升级确认）
+      // ⇒ 观测一条 debug（无论灰度开关；仅日志，零行为变更）。用途：使 `BASH_INTERPRETER_GUARD`
+      // 的触发条件「解释器命令仅凭白名单放行」可读（见 `.trae/specs/default-off-switches-review-gates.md`）。
+      if (isHighCapabilityInterpreter(command)) {
+        logger.debug('bash:interpreter_command_allowed', {
+          sessionId: context.sessionId,
+          approved: isApproved,
+          guardEnabled: feature('BASH_INTERPRETER_GUARD'),
+        });
+      }
+
       // F5 修复：操作审计日志
       // A1（2026-10-09）：sessionId 必须取 context.sessionId（此前误用 toolUseId，
       // 导致 CompleteSecuritySystem 按会话归集/检索失效）。
@@ -744,11 +814,24 @@ export class BashTool extends BaseTool {
 
       // 构建环境变量：Windows 上设置 git SSL 后端为 schannel
       // A3（2026-10-09）：剥离父进程继承的敏感 env（*_API_KEY / *SECRET* / *TOKEN* /
-      // SSH_AUTH_SOCK / 云凭据等），避免密钥泄露进子进程；工具参数显式传入的 env 保持不变。
+      // SSH_AUTH_SOCK / 云凭据等），避免密钥泄露进子进程。
       // 剥离清单**单一事实源**：`@modules/security` 的 stripSensitiveEnv（与 hooks 侧同源，避免第二份）。
+      //
+      // 第九轮审查 §五（2026-10-09，缺陷 #5 修复）：**调用方显式传入的 env 不再直接合并**
+      // —— 原 `{ ...stripSensitiveEnv(process.env), ...(env || {}) }` 允许调用方（模型可控输入）
+      // **覆盖**已剥离项。现对调用方 env 施加**同一套策略**（敏感键）+ 额外剥离**执行控制键**
+      // （PATH / NODE_OPTIONS / PYTHONPATH / BASH_ENV / LD_PRELOAD … ⇒ 命令文本不变但实际
+      // 执行语义改变）。被剥离项**留痕**（debug），不静默丢弃（CS03-002）。
+      const callerEnv = sanitizeCallerEnv(env || {});
+      if (callerEnv.stripped.length > 0) {
+        logger.warn('bash: caller env 含受保护键，已剥离', {
+          sessionId: context.sessionId,
+          stripped: callerEnv.stripped,
+        });
+      }
       const mergedEnv = {
         ...stripSensitiveEnv(process.env),
-        ...(env || {}),
+        ...callerEnv.env,
       };
       if (this.isWindows) {
         mergedEnv['GIT_SSL_BACKEND'] = 'schannel';

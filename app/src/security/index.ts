@@ -268,4 +268,10 @@ export type {
 export type { RedactResult, ObjectRedactResult } from './redact';
 export type { RedactStats } from './redact';
 // A3（2026-10-09）：敏感环境变量剥离单一事实源（供 BashTool spawn / hooks 脚本执行复用）
-export { isSensitiveEnvKey, stripSensitiveEnv } from './sensitiveEnv';
+// 第九轮审查 §五（2026-10-09）：新增**调用方 env** 清理（执行控制键 + 敏感键）
+export {
+  isSensitiveEnvKey,
+  isExecutionControlEnvKey,
+  stripSensitiveEnv,
+  sanitizeCallerEnv,
+} from './sensitiveEnv';

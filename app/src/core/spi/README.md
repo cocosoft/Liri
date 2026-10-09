@@ -32,7 +32,10 @@
 > 但 `CacheService.ts` 只提供 `TtlCache` 工具类、**无注册/解析函数** ⇒ 实测端口为 **14 个**。
 > **2026-10-07 追加**：新增预留端口 `CollaborationService.ts` ⇒ 端口 **15 个**、目录 **18 文件**。
 > （18 = 15 端口 + `CacheService` + `ErrorTypes` + `index`。）
-> 另：`ERROR_SERVICE_ID`（`ErrorTypes.ts:12`）**当前 0 消费**（无 `registerErrorSpi`）。
+> 另：`ERROR_SERVICE_ID`（原 `ErrorTypes.ts:12`）**已于 2026-10-09 删除** —— 全仓**零消费者**
+> （无 `IErrorService` 接口 / 无 `register/resolve` 代理），依据 `dead-code-and-unwired-items-rulings.md`
+> **DC-4**（触发条件「无」）+ `cs03-abuse-forward-assessment.md:77`（「随下一次 core/spi 清理批次删除」）
+> ⇒ `ErrorTypes.ts` 现**仅转出** `AppError` / `ErrorCategory` / `ErrorSeverity`（不再含 SPI 标识符）。
 
 ## 二、端口清单（单一参照）
 

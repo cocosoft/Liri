@@ -63,20 +63,20 @@ describe('BashTool 放行通道（P0-4）', () => {
     reg.dispose();
   });
 
-  it('已批准命令跳过安全拦截并真实执行', async () => {
+  it('已批准的安全命令通过复检并真实执行（A2 基线语义）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     // 预先批准该命令（hash 规范化匹配）
-    reg.approve('session-1', hashCommand('echo format-test'));
+    reg.approve('session-1', hashCommand('echo approve-pass'));
     const tool = new BashTool(reg);
     const result = await tool.execute(
-      { command: 'echo format-test' },
+      { command: 'echo approve-pass' },
       makeContext('session-1')
     );
-    // 不再是安全拦截结果
+    // A2 = 安全基线（默认开）：批准只免"审批交互"，硬拦截仍须过 —— 安全命令照常放行
     expect(result.metadata?.securityIntercepted).not.toBe(true);
     // 命令真实执行并输出回显
     expect(result.success).toBe(true);
-    expect(String(result.data ?? '')).toContain('format-test');
+    expect(String(result.data ?? '')).toContain('approve-pass');
     reg.dispose();
   });
 
@@ -144,14 +144,14 @@ describe('A1 审计 sessionId（2026-10-09）', () => {
   });
 });
 
-describe('A2 已批准命令安全复检（灰度开关 BASH_APPROVED_REVALIDATE，默认关）', () => {
+describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE，2026-10-09 默认开）', () => {
   let restore: (() => void) | undefined;
   afterEach(() => {
     restore?.();
     restore = undefined;
   });
 
-  it('默认关：已批准的危险命令仍跳过拦截（既有行为不变）', async () => {
+  it('默认开（基线）：已批准的危险命令**被硬拦截**（第九轮审查 §七 翻转）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     reg.approve('session-1', hashCommand('echo format-test'));
     const tool = new BashTool(reg);
@@ -159,11 +159,13 @@ describe('A2 已批准命令安全复检（灰度开关 BASH_APPROVED_REVALIDATE
       { command: 'echo format-test' },
       makeContext('session-1')
     );
-    expect(result.metadata?.securityIntercepted).not.toBe(true);
+    // 翻转前（默认关）此处为 `not.toBe(true)`；翻转后批准只免"审批交互"，硬拦截仍须过
+    expect(result.metadata?.securityIntercepted).toBe(true);
+    expect(result.metadata?.reason).toBe('dangerous_command');
     reg.dispose();
   });
 
-  it('开关开：已批准的危险命令仍被硬拦截', async () => {
+  it('显式开：已批准的危险命令仍被硬拦截', async () => {
     restore = withFlag('BASH_APPROVED_REVALIDATE', true);
     const reg = new ApprovedCommandRegistry(60_000, false);
     reg.approve('session-1', hashCommand('echo format-test'));
@@ -177,8 +179,29 @@ describe('A2 已批准命令安全复检（灰度开关 BASH_APPROVED_REVALIDATE
     reg.dispose();
   });
 
-  it('开关开：已批准的安全命令仍正常执行（复检不误伤）', async () => {
-    restore = withFlag('BASH_APPROVED_REVALIDATE', true);
+  it('显式关（灰度回退）：已批准的危险命令跳过拦截（旧行为）', async () => {
+    // 注意：`withFlag(name, false)` 是"删除 env ⇒ 用默认值"；A2 默认已为 true
+    // ⇒ 回退验证必须**显式设 'false'**（不能用删除）。
+    const key = 'FEATURE_BASH_APPROVED_REVALIDATE';
+    const prev = process.env[key];
+    process.env[key] = 'false';
+    try {
+      const reg = new ApprovedCommandRegistry(60_000, false);
+      reg.approve('session-1', hashCommand('echo format-test'));
+      const tool = new BashTool(reg);
+      const result = await tool.execute(
+        { command: 'echo format-test' },
+        makeContext('session-1')
+      );
+      expect(result.metadata?.securityIntercepted).not.toBe(true);
+      reg.dispose();
+    } finally {
+      if (prev === undefined) delete process.env[key];
+      else process.env[key] = prev;
+    }
+  });
+
+  it('默认开：已批准的安全命令仍正常执行（复检不误伤）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     reg.approve('session-1', hashCommand('echo safe-approved'));
     const tool = new BashTool(reg);

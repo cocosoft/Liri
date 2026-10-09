@@ -129,7 +129,6 @@ export {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-  ERROR_SERVICE_ID,
   resolveBroadcast,
 } from './spi';
 

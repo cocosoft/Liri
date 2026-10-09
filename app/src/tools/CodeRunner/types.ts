@@ -65,7 +65,8 @@ export type CodeOutboundMessage =
 export type CodeValidationIssueKind =
   | 'syntax-error' // 语法/解析错误 → 编译错误，立即降级不重试
   | 'forbidden-import' // import/require/动态 import → 安全拒绝，不进迭代
-  | 'forbidden-global'; // 敏感全局标识符 → 安全拒绝，不进迭代
+  | 'forbidden-global' // 敏感全局标识符 → 安全拒绝，不进迭代
+  | 'forbidden-call'; // 危险调用（SWC 原生 CallExpression 深度扫描）→ 安全拒绝，不进迭代
 
 export interface CodeValidationIssue {
   kind: CodeValidationIssueKind;

@@ -201,11 +201,11 @@ describe('PR2 AbortSignal 端到端贯通（2026-10-09）', () => {
   });
 });
 
-describe('PR5-S3 tool_calls 记账接线（2026-10-09）', () => {
-  it('tool_call chunk（running → completed）⇒ recordToolCall / settleToolCall 各一次', async () => {
+describe('PR5-S3 tool_calls 记账接线（2026-10-09；B-05 迁移）', () => {
+  it('B-05：Router **不再**写工具调用记账（已移交工具执行者 ChatManager.executeTool）', async () => {
     const mgr = getExecutionManager();
     mgr.reset();
-    const recordSpy = spyOn(mgr, 'recordToolCall');
+    const beginSpy = spyOn(mgr, 'beginToolCall');
     const settleSpy = spyOn(mgr, 'settleToolCall');
     try {
       await routeChannelMessage(makeMessage({ senderId: 'pr5a' }), {
@@ -241,11 +241,11 @@ describe('PR5-S3 tool_calls 记账接线（2026-10-09）', () => {
         channelName: 'telegram',
         dmPolicy: { policy: 'allowlist', allowFrom: ['pr5a'] },
       });
-      expect(recordSpy).toHaveBeenCalledTimes(1);
-      expect(settleSpy).toHaveBeenCalledTimes(1);
-      expect(settleSpy.mock.calls[0][3]).toBe('completed');
+      // B-05：单一写入方 = 工具执行者；Router 层**不得**重复记账
+      expect(beginSpy).not.toHaveBeenCalled();
+      expect(settleSpy).not.toHaveBeenCalled();
     } finally {
-      recordSpy.mockRestore();
+      beginSpy.mockRestore();
       settleSpy.mockRestore();
       mgr.reset();
     }

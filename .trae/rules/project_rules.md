@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.21.0 | **更新**: 2026-10-09
+**版本**: 7.23.0 | **更新**: 2026-10-09
 
 ## §1 基础规则
 
@@ -40,23 +40,25 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 >
 > 清单规模：**15 项**（2026-10-09 起；A2/A4/A5 新增 `BASH_APPROVED_REVALIDATE` / `BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` 三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL` 一个默认关的 Execution 取消语义灰度开关）。
 
-| 开关 | 默认 | 生效语义 | 回退方式 |
-|------|:----:|---------|---------|
-| `VERIFIER_FAIL_CLOSED` | `true` | 验证器失败即判失败（**不静默通过**） | `FEATURE_VERIFIER_FAIL_CLOSED=false`（灰度回退旧行为） |
-| `PERMISSION_CHECKS` | `true` | 工具执行前权限校验 | `FEATURE_PERMISSION_CHECKS=false` |
-| `SECURITY_SCAN` | `true` | 输入安全扫描 | `FEATURE_SECURITY_SCAN=false` |
-| `SECURITY_AUDIT` | `true` | 安全审计留痕 | `FEATURE_SECURITY_AUDIT=false` |
-| `SANDBOX` | `true` | **legacy 别名：全仓无读取点**（2026-10-09 如实订正，见台账 L-19）；bash / code_run 的实际沙箱开关为 `sandbox.landlock.{enabled,bashEnabled}`（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25） | `FEATURE_SANDBOX=false` |
-| `UNATTENDED_MODE` | `false` | 无人值守（**默认关**，须显式开启） | `FEATURE_UNATTENDED_MODE=true` |
-| `OUTPUT_GUARD` | `false` | 输出侧护栏（PII 打码 / 注入回显观测） | `FEATURE_OUTPUT_GUARD=true`；**翻转前须满足 [guardrails-dual-side.md §9.2](../specs/guardrails-dual-side.md) 的 P1–P5 前置**（MIT 协议头邮箱与密钥字段 FP、静默改写、不可逆落盘） |
-| `OUTPUT_GUARD_BLOCK` | `false` | 护栏改为**阻断**（仅 `OUTPUT_GUARD=true` 时生效） | `FEATURE_OUTPUT_GUARD_BLOCK=true` |
-| `OUTPUT_GUARD_KEEP_ORIGINAL` | `false` | 护栏**改写审计**（`validation/output_guard_applied`）是否连**原文**一起落盘；**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256） | `FEATURE_OUTPUT_GUARD_KEEP_ORIGINAL=true`；**开 = 未打码内容落入本地事件日志**（P26-2 P4 隐私取舍） |
-| `RESOURCE_GOVERNOR` | `false` | 跨会话准入 / 抢占 / 排队（P26-1） | `FEATURE_RESOURCE_GOVERNOR=true` |
-| `PRO_SECURITY_SUITE` | `false` | 高级安全套件 | `FEATURE_PRO_SECURITY_SUITE=true` |
-| `BASH_APPROVED_REVALIDATE` | `false` | 已批准命令**安全复检**（批准只免审批交互，硬拦截仍须过；A2） | `FEATURE_BASH_APPROVED_REVALIDATE=true` |
-| `BASH_INTERPRETER_GUARD` | `false` | 高能力**解释器命令**人工确认（node/bun/npm/python/pwsh 等；A4） | `FEATURE_BASH_INTERPRETER_GUARD=true` |
-| `BASH_APPROVAL_STRICT` | `false` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5） | `FEATURE_BASH_APPROVAL_STRICT=true` |
-| `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` |
+| 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
+|------|:----:|---------|---------|:----:|
+| `VERIFIER_FAIL_CLOSED` | `true` | 验证器失败即判失败（**不静默通过**） | `FEATURE_VERIFIER_FAIL_CLOSED=false`（灰度回退旧行为） | — |
+| `PERMISSION_CHECKS` | `true` | 工具执行前权限校验 | `FEATURE_PERMISSION_CHECKS=false` | — |
+| `SECURITY_SCAN` | `true` | 输入安全扫描 | `FEATURE_SECURITY_SCAN=false` | — |
+| `SECURITY_AUDIT` | `true` | 安全审计留痕 | `FEATURE_SECURITY_AUDIT=false` | — |
+| `SANDBOX` | `true` | **legacy 别名：全仓无读取点**（2026-10-09 如实订正，见台账 L-19）；bash / code_run 的实际沙箱开关为 `sandbox.landlock.{enabled,bashEnabled}`（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25） | `FEATURE_SANDBOX=false` | — |
+| `UNATTENDED_MODE` | `false` | 无人值守（**默认关**，须显式开启） | `FEATURE_UNATTENDED_MODE=true` | §2-#6 |
+| `OUTPUT_GUARD` | `false` | 输出侧护栏（PII 打码 / 注入回显观测） | `FEATURE_OUTPUT_GUARD=true`；**翻转前须满足 [guardrails-dual-side.md §9.2](../specs/guardrails-dual-side.md) 的 P1–P5 前置**（MIT 协议头邮箱与密钥字段 FP、静默改写、不可逆落盘） | §2-#1 |
+| `OUTPUT_GUARD_BLOCK` | `false` | 护栏改为**阻断**（仅 `OUTPUT_GUARD=true` 时生效） | `FEATURE_OUTPUT_GUARD_BLOCK=true` | §2-#2 |
+| `OUTPUT_GUARD_KEEP_ORIGINAL` | `false` | 护栏**改写审计**（`validation/output_guard_applied`）是否连**原文**一起落盘；**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256） | `FEATURE_OUTPUT_GUARD_KEEP_ORIGINAL=true`；**开 = 未打码内容落入本地事件日志**（P26-2 P4 隐私取舍） | §2-#3 |
+| `RESOURCE_GOVERNOR` | `false` | 跨会话准入 / 抢占 / 排队（P26-1） | `FEATURE_RESOURCE_GOVERNOR=true` | §2-#4 |
+| `PRO_SECURITY_SUITE` | `false` | 高级安全套件 | `FEATURE_PRO_SECURITY_SUITE=true` | §2-#5 |
+| `BASH_APPROVED_REVALIDATE` | `true` | 已批准命令**安全复检**（**安全基线**，2026-10-09 翻转；批准只免审批交互，硬拦截仍须过；A2） | `FEATURE_BASH_APPROVED_REVALIDATE=false`（灰度回退旧行为） | — |
+| `BASH_INTERPRETER_GUARD` | `false` | 高能力**解释器命令**人工确认（node/bun/npm/python/pwsh 等；A4） | `FEATURE_BASH_INTERPRETER_GUARD=true` | §2-#8 |
+| `BASH_APPROVAL_STRICT` | `false` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5） | `FEATURE_BASH_APPROVAL_STRICT=true` | §2-#9 |
+| `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
+
+> **「触发条件」列口径（2026-10-09）**：`§2-#N` 指向「**默认关项 · 触发条件登记表**」[`default-off-switches-review-gates.md §2`](../specs/default-off-switches-review-gates.md) 的第 N 行（含**可观测信号 + 阈值 + 窗口 + 复评节奏**）；`—` = **默认开**（无"何时重开"之问）。本列**只放指针**，**不把散文触发条件塞进规则表**（见 `development-workflow.md §2.14 规则 5` / R12-1）。登记完整性由 `bun run lint:doc-code` 断言（`scripts/check-doc-code-consistency.js` 的 `REGISTRATION_ASSERTIONS`）**强制** —— 新增默认关项而漏登记即 CI 阻断。
 
 ### 1.5 文件存储规范
 
@@ -329,6 +331,8 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.23.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 默认 `false` → `true`**（**安全基线**；第九轮审查 §七 用户裁定）—— 关闭时"已批准命令**跳过整套安全拦截层**"，与审批哈希语义问题叠加风险最高。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（`def: true`，防静默翻回）+ 本文表（触发条件列改 `—`）。`BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` **维持默认关**（灰度；启用条件/回滚/迁移期限见 `default-off-switches-review-gates.md`）
+- **v7.22.0**: §1.4 安全开关表新增 **「触发条件（何时重开）」列** —— 默认关项以 `§2-#N` **指针**指向新建的单一事实源登记表 [`.trae/specs/default-off-switches-review-gates.md`](../specs/default-off-switches-review-gates.md)（含**可观测信号 + 阈值 + 窗口 + 复评节奏**；默认开项为 `—`）。**本列只放指针，不把散文触发条件塞进规则表**。配套：新增 CI 断言 `REGISTRATION_ASSERTIONS`（`check-doc-code-consistency.js`，断言 23 → **35**）**强制"默认关项必须有登记"**（防"永久搁置"，`development-workflow.md §2.14 规则 5` / **R12-1**）。**默认值/生效语义/回退方式三列不变**（`SAFETY_SWITCHES` 断言不受影响）
 - **v7.21.0**: §1.4 安全开关表 **`SANDBOX` 行语义订正（如实）** —— 该 flag **全仓无读取点**（仅出现在 flag 注册表 `featureflags/index.ts` 的 legacy 映射）；**实际驱动 bash / code_run 沙箱的是 `sandbox.landlock.{enabled,bashEnabled}`**（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25）。**默认值与 `SAFETY_SWITCHES` 断言不变**（仅订正文档语义，`lint:doc-code` 通过）；台账 **L-19**
 - **v7.20.0**: §1.6 规则文件索引新增 **`code-deletion.md`**（代码删除安全流程 CD01–CD07）—— 承接第九轮外部审查 §6.2 与**沙箱误删事故复盘**：以"`lint:arch` 静态零引用"为唯一依据删除沙箱"未接线"组件（`c693698db`/`da37b9df4`/`9305397a2`）⇒ v0.4.71 整体回滚（`4356706bf`）。规则固化**删除前六步核查**（静态/动态/配置 → 构建/插件/运行时发现 → DI/反射/协议 → 测试/变体/运行模式 → 先摘入口 → 独立提交留回滚），并**禁止**对沙箱/安全/权限/会话恢复等关键模块以"无静态引用"为删除依据
 - **v7.19.0**: §1.4 安全开关清单 **11 → 15 项** —— 批次 A 新增三个默认关的 Bash 安全姿态灰度开关 **`BASH_APPROVED_REVALIDATE`**（已批准命令复检）/ **`BASH_INTERPRETER_GUARD`**（高能力解释器确认）/ **`BASH_APPROVAL_STRICT`**（批准严格模式），PR2 新增 **`EXECUTION_TWO_PHASE_CANCEL`**（两段式取消；未确认则保留 lease）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（11 → 15）

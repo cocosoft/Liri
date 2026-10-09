@@ -175,3 +175,37 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_exec ON tool_calls (execution_id);
 **诚实边界（S3）**：
 - `execution_events` **表**（S2 的 `recover` 写入）与会话**事件流**（S3）**并存**：前者是 execution 本地台账（恢复审计、独立于会话文件），后者进入 `events.jsonl` 供轨迹重建；二者用途不同，非重复。
 - `tool_calls` 记账目前仅在 **Router（渠道）** 路径接线 —— 因为 `executionId` 目前只由 Router 侧的 `ExecutionManager.acquire()` 产生；client（`/v1/chat/stream`）路径尚未接入 Execution，故不在其记账范围。
+
+### 6.1 第九轮审查「专项 B」加固（2026-10-09）
+
+来源：`dev_docs/20261009/openai 建议.md` §十一–§十六（B-01..B-05）· §十七（修复顺序）。
+**逐条回仓确认属实后**按 §十七 顺序修复。
+
+| 编号 | 缺陷 | 处置 | 落点 |
+|---|---|---|---|
+| **B-01** | `recover()` 对 `kept` 的活跃执行不入内存 ⇒ 新管理器 `acquire` 视该 session 空闲 ⇒ 可能**并存第二个 `RUNNING`** | **不盲目 `owner.set()`**（会把已死执行永久锁死）：新增 `foreignActive`（session → 外部执行），`acquire` 对其**只发 `QUEUED`**；该执行在**后续启动**被判 `STALE` 时**解除占用**（不永久锁死） | `execution/ExecutionManager.ts`（字段 · `acquire` · `recover` · `reset`） |
+| **B-02** | 恢复两步（`markStale` → `markUnsettledToolCallsUnknown`）之间崩溃 ⇒ 执行已非 active ⇒ 下次 `recover` 不再处理 ⇒ 工具调用**永久停在 `running`** | **倒序执行**：先标 `unknown` 再置 `STALE`（`markUnsettledToolCallsUnknown` 幂等 ⇒ 任一步前崩溃都在下次启动重跑同一分支，必收敛） | `ExecutionManager.recover()` |
+| **B-03** | `SELECT MAX(seq)+1` → `INSERT` 两步，单进程内并发可得同一 `seq` | ① 进程内按 `executionId` **串行化**（promise 链，失败不毒化后续）；② `(execution_id, seq)` **唯一索引**兜底（best-effort：历史重复行不阻断启动） | `execution/ExecutionStore.ts` |
+| **B-04** | `requestCancel()` 对 `QUEUED` **恒返回 false**（`QUEUED → CANCEL_REQUESTED` 非法）⇒ 以为已取消、任务仍可能被启动 | 统一入口**按状态分流**：`QUEUED` ⇒ 直接 `CANCELLED`（状态机已允许；置终态即出队）；其余活跃态维持两段式 | `ExecutionManager.requestCancel()` |
+| **B-05** | 工具调用**开始**记录为 fire-and-forget ⇒ 无法保证"落盘先于副作用" | ① **跨层下传 `executionId`**：`ChatRequest.executionId`（已存在）→ `CoreAPIImpl.chatStream` 透传 → `StreamMessageOptions.executionId` → `ChatManager._sessionExecutionIds`（按会话，与 `_sessionAbortControllers` 同生命周期）；② **记账移交工具执行者**：`ChatManager.executeTool` 执行前 `await beginToolCall()`，**失败即拒绝该工具**（返回 `error` 结果，**逐工具** fail-closed）；执行后 `settleToolCall()`；③ **Router 不再记账**（移除 chunk 观察式 begin/settle，单一写入方） | `runtime/api/CoreAPIImpl.ts` · `session/types/message/options.ts` · `chat/ChatManager.ts` · `channels/routing/streamConsumption.ts` |
+
+**验证**（2026-10-09）：`typecheck`（3 tsconfig）✅ **0** · `lint:arch` ✅ **0 错**（4 基线警告）· `tests/execution` + `tests/channels` + `tests/chat` **755 pass / 0 fail**（87 文件）。
+新增/更新测试：
+- `app/tests/execution/executionReviewBatchB.test.ts` **7 例**（B-01 kept/stale 两态 · B-02 调用顺序 · B-03 并发 20 唯一连续 · B-04 两态取消 · B-05 `beginToolCall` 两分支）；
+- `app/tests/chat/chatManagerToolLedgerFailClosed.test.ts` **3 例**（**执行者侧逐工具**：落盘失败 ⇒ 拒绝且底层 `execute` **未被调用** · 落盘成功 ⇒ 执行 + `settleToolCall('completed')` · 无 `executionId` ⇒ 零行为变更）。构造方式：`Object.create(ChatManagerImpl.prototype)` 绕开重型构造器，仅注入三个内部 seam（白盒打桩）。
+- `app/tests/channels/MessageRouter.test.ts` PR5-S3 用例**改写为反向断言**（Router **不再**写记账 ⇒ 防重复写入回归）。
+
+**已删除**：`app/tests/channels/streamConsumptionToolLedgerFailClosed.test.ts`（其覆盖的"Router 层整执行中止"已随迁移移除）。
+
+**B-05 的 fail-closed 语义（迁移后，明确登记）**：
+- **层级**：**工具执行者**（`ChatManager.executeTool`）—— 能做到**精确到单个工具**的拒绝，优于原先的"整执行中止"。
+- **顺序保证（由构造保证，非假设）**：`await beginToolCall()` 成功后才调用 `svc.execute(toolCall, …)`
+  ⇒ **记账落盘严格先于该工具的执行**（不再依赖"chunk 观察顺序"）。
+- **触发条件**：**已接入 `ExecutionStore`** 且该 session 有 `executionId`（未接入 / 未下传 ⇒ 恒 `true`，零行为变更）。
+- **拒绝形态**：返回 `{ toolCallId, toolName, result: null, error: '<fail-closed 原因>' }`
+  （会话侧 `ToolResult` 契约：以 `error` 表达失败 ⇒ 工具**不执行**、错误回灌给模型，属**设计内的降级**）。
+- **注**：先前为"Router 层整执行中止"引入的 `ABORT_REASONS.TOOL_LEDGER_PERSIST_FAILED` **已撤回**
+  （迁移后无消费者 ⇒ 不留死面）。
+
+**仍未做（如实登记）**：`executionId` 目前只由**渠道 Router** 注入（`ChatRequest.executionId`）。
+client（`/v1/chat/stream`）路径未接入 Execution ⇒ 其工具调用**不做**记账/拒绝（与 S3 边界一致）。

@@ -164,9 +164,19 @@ const SAFETY_SWITCHES = [
     },
     { name: 'RESOURCE_GOVERNOR', def: false, why: '跨会话抢占/排队须显式开启（默认关 = 零行为变更）' },
     { name: 'PRO_SECURITY_SUITE', def: false, why: '高级安全套件须显式开启' },
-    // A2/A4/A5（2026-10-09）：Bash 安全姿态灰度开关（默认关 = 保留既有行为）
-    { name: 'BASH_APPROVED_REVALIDATE', def: false, why: '已批准命令安全复检须显式开启（默认关 = 批准仍豁免拦截）' },
-    { name: 'BASH_INTERPRETER_GUARD', def: false, why: '解释器命令人工确认须显式开启（默认关 = 白名单内直接放行）' },
+    // A2/A4/A5（2026-10-09）：Bash 安全姿态开关。
+    // A2 于 2026-10-09 由用户裁定**翻转为安全基线**（默认 true；第九轮审查 §七）——
+    // **仍保留本断言**（`def: true`）：防止其被静默翻回默认关（R07-2 默认值固化）。
+    {
+        name: 'BASH_APPROVED_REVALIDATE',
+        def: true,
+        why: '已批准命令安全复检已是**安全基线**（第九轮审查 §七；关 = 已批准命令跳过整套硬拦截）—— 回退须显式改本断言 + project_rules',
+    },
+    {
+        name: 'BASH_INTERPRETER_GUARD',
+        def: false,
+        why: '解释器命令人工确认须显式开启（默认关 = 白名单内直接放行）',
+    },
     { name: 'BASH_APPROVAL_STRICT', def: false, why: '批准严格模式（禁用命令名级放行）须显式开启' },
     // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
     { name: 'EXECUTION_TWO_PHASE_CANCEL', def: false, why: '两段式取消（未确认则保留 lease）须显式开启' },
@@ -188,8 +198,55 @@ const SAFETY_ASSERTIONS = SAFETY_SWITCHES.map((s) => ({
     ],
 }));
 
-/** 全部断言（漂移点 + 安全开关清单） */
-const ALL_ASSERTIONS = [...ASSERTIONS, ...SAFETY_ASSERTIONS];
+/** 触发条件登记表（单一事实源；见 `.trae/specs/default-off-switches-review-gates.md`） */
+const REVIEW_GATE_REGISTRY = '.trae/specs/default-off-switches-review-gates.md';
+
+/**
+ * 「登记完整性」断言（2026-10-09，`P0-触发条件补全方案` §四-4.1）：
+ * **每个默认关项**（默认关的安全开关 + 模式门控 `SELF_VERIFY_PATTERN`）必须在触发条件
+ * 登记表中有条目 —— 防"永久搁置"（`development-workflow.md §2.14 规则 5` / R12-1）。
+ *
+ * ⚠️ 只查「**有没有登记**」；**不查触发条件内容**（散文语义不可机械化 —— §2.14 规则 5 明文
+ * "本条不是门禁"）。
+ */
+const REGISTRATION_REQUIRED_FLAGS = [
+    ...SAFETY_SWITCHES.filter((s) => s.def === false).map((s) => s.name),
+    'SELF_VERIFY_PATTERN',
+];
+
+const REGISTRATION_ASSERTIONS = [
+    {
+        // 存在性守卫放在 **code 侧**（缺失 ⇒ **失败**，而非 docs 侧的"跳过"）
+        // —— 否则删除/改名登记表会被静默跳过，"登记完整性"形同虚设。
+        id: 'default-off-registry-exists',
+        why: '触发条件登记表必须存在且可核对（R12-1 / §2.14 规则 5）',
+        code: {
+            file: REVIEW_GATE_REGISTRY,
+            contains: /默认关项/,
+        },
+    },
+    ...REGISTRATION_REQUIRED_FLAGS.map((name) => ({
+        id: `default-off-registered-${name}`,
+        why: `默认关项必须在触发条件登记表有条目（防"永久搁置"）—— ${name}`,
+        code: {
+            file: 'app/src/core/featureFlags.ts',
+            contains: new RegExp(`^\\s*${name}:\\s*false,`, 'm'),
+        },
+        docs: [
+            {
+                file: REVIEW_GATE_REGISTRY,
+                contains: new RegExp(`\\|\\s*\`${name}\`\\s*\\|`),
+            },
+        ],
+    })),
+];
+
+/** 全部断言（漂移点 + 安全开关清单 + 默认关项登记完整性） */
+const ALL_ASSERTIONS = [
+    ...ASSERTIONS,
+    ...SAFETY_ASSERTIONS,
+    ...REGISTRATION_ASSERTIONS,
+];
 
 function readIfExists(rel) {
     const full = path.join(ROOT, rel);
@@ -242,7 +299,7 @@ function main() {
     }
 
     console.log(
-        `断言 ${ALL_ASSERTIONS.length} 条（漂移点 ${ASSERTIONS.length} + 安全开关 ${SAFETY_ASSERTIONS.length}）｜文档侧 已校验 ${checkedDocs} 处 · 跳过 ${skippedDocs} 处`
+        `断言 ${ALL_ASSERTIONS.length} 条（漂移点 ${ASSERTIONS.length} + 安全开关 ${SAFETY_ASSERTIONS.length} + 登记完整性 ${REGISTRATION_ASSERTIONS.length}）｜文档侧 已校验 ${checkedDocs} 处 · 跳过 ${skippedDocs} 处`
     );
     console.log('-'.repeat(60));
 

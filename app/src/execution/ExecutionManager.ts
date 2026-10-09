@@ -52,6 +52,18 @@ export class ExecutionManager {
   /** sessionId → 已发放的最大代次 */
   private lastGeneration = new Map<string, number>();
   /**
+   * **B-01**（2026-10-09，第九轮审查专项 B）：恢复期被 `kept` 的**外部/前进程**活跃执行。
+   *
+   * 背景：`recover()` 对心跳新鲜的活跃执行只记 `kept`，**不注入内存** ⇒ 新管理器
+   * `acquire()` 认为该 session 空闲 ⇒ 可能并存第二个 `RUNNING`（双执行）。
+   *
+   * 处置（**不盲目 `owner.set()`** —— 那会把已死执行永久锁死）：
+   * 仅把该 session 标记为"**外部占用**"⇒ `acquire()` 对其**只发 `QUEUED`、不发 `RUNNING`**；
+   * 当该外部执行在**后续启动**的 `recover()` 中因心跳陈旧被判 `STALE` 时**解除占用**
+   * （⇒ 不会永久锁死）。
+   */
+  private foreignActive = new Map<string, ExecutionId>();
+  /**
    * PR5-S2：持久化记录（**opt-in**）。
    *
    * 未接入 ⇒ 纯内存（默认零行为变更，单元测试零副作用）；启动期由 `attachStore()` 接线。
@@ -62,6 +74,34 @@ export class ExecutionManager {
   /** 接入持久化存储（启动期接线） */
   attachStore(store: ExecutionStore): void {
     this.store = store;
+  }
+
+  /**
+   * **B-05**（2026-10-09，第九轮审查专项 B）：**可等待**的工具调用**开始**记录。
+   *
+   * 与 `recordToolCall`（fire-and-forget，仅留痕）的区别：本方法**await** 落盘并返回
+   * `ok` ⇒ 调用方可在**执行有副作用的工具之前**确认记录已持久化，失败时据此阻止执行/降级。
+   *
+   * @returns 未接入 store ⇒ `true`（纯内存，与既有 opt-in 语义一致）；落盘失败 ⇒ `false`。
+   */
+  async beginToolCall(
+    executionId: ExecutionId,
+    toolCallId: string,
+    toolName: string
+  ): Promise<boolean> {
+    const store = this.store;
+    if (!store) return true;
+    try {
+      await store.recordToolCall(executionId, toolCallId, toolName);
+      return true;
+    } catch (err) {
+      logger.warn('execution beginToolCall 落盘失败（拒绝保证）', {
+        executionId,
+        toolCallId,
+        error: String(err),
+      });
+      return false;
+    }
   }
 
   /** PR5-S3：记录工具调用开始（写穿 best-effort；未接入 store ⇒ no-op） */
@@ -119,7 +159,11 @@ export class ExecutionManager {
 
     const ownerId = this.owner.get(sessionId);
     const ownerRecord = ownerId ? this.records.get(ownerId) : undefined;
-    const occupied = !!ownerRecord && isActiveStatus(ownerRecord.status);
+    // B-01：内存 owner 之外，**外部/前进程**的活跃执行（recover 期 kept）同样视为"占用"
+    // ⇒ 只发 QUEUED，绝不并存两个 RUNNING。
+    const occupied =
+      (!!ownerRecord && isActiveStatus(ownerRecord.status)) ||
+      this.foreignActive.has(sessionId);
 
     const executionId = nextExecutionId();
     const now = Date.now();
@@ -159,20 +203,35 @@ export class ExecutionManager {
     this.persist(rec);
   }
 
-  /** 请求取消（→ CANCEL_REQUESTED）。仅对活跃执行生效，返回是否已置位。 */
+  /** 请求取消（活跃态 → `CANCEL_REQUESTED`；`QUEUED` → 直接 `CANCELLED`）。返回是否已置位。 */
   requestCancel(executionId: ExecutionId, reason: string): boolean {
     const rec = this.records.get(executionId);
     if (!rec) return false;
     const from = rec.status;
-    const ok = this.transition(rec, 'CANCEL_REQUESTED');
+    // B-04（2026-10-09，第九轮审查专项 B）：**统一取消入口须覆盖 `QUEUED`**。
+    // 状态机不允许 `QUEUED → CANCEL_REQUESTED`（排队中没有"运行中"可中止）⇒ 原实现对排队
+    // 记录 `requestCancel` **恒返回 false**（调用方以为已取消，任务仍可能稍后被启动）。
+    // 处置：`QUEUED` 直接 `QUEUED → CANCELLED`（状态机已允许）；其余活跃态维持两段式
+    // （`CANCEL_REQUESTED` → 等底层确认 → `CANCELLED`）。队列项即 QUEUED 记录本身 ⇒ 置终态即出队。
+    const target: ExecutionStatus =
+      from === 'QUEUED' ? 'CANCELLED' : 'CANCEL_REQUESTED';
+    const ok = this.transition(rec, target);
     if (ok) {
+      // 终态（QUEUED ⇒ CANCELLED）需清所有权（与 confirmCancel 同款；QUEUED 通常非 owner，幂等）
+      if (
+        target === 'CANCELLED' &&
+        this.owner.get(rec.sessionId) === executionId
+      ) {
+        this.owner.delete(rec.sessionId);
+      }
       this.persist(rec);
-      this.emitStatus(rec, from, 'CANCEL_REQUESTED');
-      logger.warn('execution cancel requested', {
-        executionId,
-        sessionId: rec.sessionId,
-        reason,
-      });
+      this.emitStatus(rec, from, target);
+      logger.warn(
+        target === 'CANCELLED'
+          ? 'execution cancel（排队态直接取消）'
+          : 'execution cancel requested',
+        { executionId, sessionId: rec.sessionId, reason, from, to: target }
+      );
     }
     return ok;
   }
@@ -324,6 +383,7 @@ export class ExecutionManager {
     this.records.clear();
     this.owner.clear();
     this.lastGeneration.clear();
+    this.foreignActive.clear();
   }
 
   /**
@@ -351,6 +411,8 @@ export class ExecutionManager {
     for (const rec of active) {
       if (now - rec.heartbeatAt <= staleMs) {
         kept++;
+        // B-01：登记为**外部占用** ⇒ 该 session 的 acquire 只发 QUEUED（不并存两个 RUNNING）。
+        this.foreignActive.set(rec.sessionId, rec.executionId);
         // 表（execution 本地台账）+ 会话事件（轨迹）双写：两者存储用途不同
         await store.appendEvent(rec.executionId, 'execution/recovery', {
           action: 'kept',
@@ -366,14 +428,20 @@ export class ExecutionManager {
         continue;
       }
       const newGen = (rec.generation + 1) as ExecutionGeneration;
+      // B-02（2026-10-09，第九轮审查专项 B）：**先**标"未结算工具调用 = unknown"，**再**置 STALE。
+      //
+      // 原顺序（STALE → unknown）在两步之间崩溃时：该执行已是 STALE（不在 `listActive()`）
+      // ⇒ 下次 recover **不会再处理** ⇒ 工具调用**永久停在 running**（不可逆副作用状态不可知）。
+      // 倒序后：任一步骤前崩溃，执行**仍 active** ⇒ 下次启动重跑同一分支；
+      // `markUnsettledToolCallsUnknown` 是**幂等**的（只改 running 行，重跑无行可改）⇒ 必然收敛。
+      const unsettledToolCalls = await store.markUnsettledToolCallsUnknown(
+        rec.executionId
+      );
       const ok = await store.markStale(rec.executionId, newGen);
       if (ok) {
         recovered++;
-        // R3（2026-10-09，第九轮 §2.2 崩溃窗口）：崩溃时点**未结算**的工具调用，其外部副作用
-        // **是否完成不可知** ⇒ 标 `unknown`（不并入成功/失败）。恢复侧据此**不盲目重放不可逆操作**。
-        const unsettledToolCalls = await store.markUnsettledToolCallsUnknown(
-          rec.executionId
-        );
+        // B-01：被判 STALE ⇒ 外部占用解除（session 恢复可用，**不会永久锁死**）。
+        this.foreignActive.delete(rec.sessionId);
         await store.appendEvent(rec.executionId, 'execution/recovery', {
           action: 'stale',
           generation: newGen,

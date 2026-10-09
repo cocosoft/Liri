@@ -170,3 +170,33 @@ PATTERN_SELECTION_RULES = [
 2. `long_task_pdl` 维持 `unavailable`（运行时由快速路径独立驱动 = 口径差异）；
 3. `self_verify` 的可达**不等于**默认生效（`SELF_VERIFY_PATTERN` 默认 `false`）—— 门控行已如实呈现。
 
+---
+
+## 11. 追加（2026-10-09）：触发条件**可操作化**（O3/O4）
+
+> 来源：`dev_docs/20261009/P0-触发条件补全方案-20261009.md` §二-D；配套观测点见
+> `.trae/specs/default-off-switches-review-gates.md` §3（**O3 / O4**）。
+> **本追加不改 §5/§6 的终局裁定**（仍"暂不实施"）—— 只把触发条件从**散文**升级为**可观测判据**（CS06）。
+
+### 11.1 `iterative_refine`（对 §5 补充）
+
+| 项 | 内容 |
+|---|---|
+| **可观测信号** | `VerifierAgent` 的 `验证循环已达上限，强制升级`（`query/VerifierAgent.ts:316`，`cycleCount >= maxCycles` ⇒ `verdict='ESCALATE'`）；辅以 `验证完成`（`:373`，含 `turnCount`/`verdict`） |
+| **判据** | `self_verify`（blocking + `maxCycles:2`）下，**同一任务类型**的「maxCycles 用尽 ⇒ 强制升级」**占比 ≥15% 且样本 ≥30 轮** |
+| ⚠️ **如实修正** | `maxCycles` 用尽在实现中表现为 **ESCALATE**（非 REJECT）⇒ 判据读「**强制升级频次**」，非"REJECT 比例"（修正 `P0-触发条件补全方案` §二-D1 的原表述） |
+| **互斥判据** | `self_verify` 命中 = "**执行后校验**"意图；`iterative_refine` = "**先草稿再多轮精修**"意图 ⇒ 若 `chat/taskIntent.ts` **无法表达该差异**，则**不接线**（优先并入 `self_verify` 的强度档位，见 §5） |
+
+### 11.2 `parallel_distributed`（对 §6 补充）
+
+| 项 | 内容 |
+|---|---|
+| **可观测信号** | `pdl:topo_batches`（`tasks/PlanDrivenLoop.ts`）· `orch:topo_batches`（`ai/router/OrchEngine.ts`）的 `maxWidth`（最大批宽） |
+| **判据** | 出现「单会话内 **最大批宽 ≥4** 且现有 **PDCA / OrchEngine 均不覆盖**」的真实场景 **≥3 例** |
+| **互斥判据** | OrchEngine = **任务级依赖图**分治；`parallel_distributed` = **独立 Agent 的候选聚合** ⇒ 须先证与 `competitive_strategy` 的差异，否则**扩 OrchEngine** 而非新增 route（§6 原裁定不变） |
+
+### 11.3 复评节奏
+
+挂 `development-workflow.md §2.14` 的**季度复盘**；与 `default-off-switches-review-gates.md` **交叉引用**（同源去重，规则 5）。
+
+

@@ -390,6 +390,15 @@ export class ChatManagerImpl implements ChatManager {
    * 会话级中止控制器 — 新请求到达时中止旧流
    */
   private _sessionAbortControllers = new Map<string, AbortController>();
+  /**
+   * B-05（2026-10-09）：sessionId → 本次执行的 `executionId`（由入口经
+   * `ChatRequest.executionId` → `StreamMessageOptions.executionId` 下传）。
+   *
+   * 与 `_sessionAbortControllers` 同生命周期：流开始登记、流结束清理。
+   * **消费者是工具执行器**（`executeTool`）——在每个工具**执行之前**做 `beginToolCall` 记账，
+   * 落盘失败 ⇒ **拒绝该工具**（逐工具 fail-closed）。
+   */
+  private _sessionExecutionIds = new Map<string, string>();
 
   /**
    * P1-5: 检查指定会话是否有活跃的流式请求
@@ -3049,6 +3058,11 @@ export class ChatManagerImpl implements ChatManager {
     const streamAbortController = new AbortController();
     this._sessionAbortControllers.set(session.id, streamAbortController);
 
+    // B-05（2026-10-09）：登记本次执行的 `executionId`（按会话）—— 供工具执行器前置记账
+    if (options?.executionId) {
+      this._sessionExecutionIds.set(session.id, options.executionId);
+    }
+
     // PR2（2026-10-09）AbortSignal 端到端贯通：外部 signal（Router/入口注入）**中继**到本会话
     // controller —— abort 外部 ⇒ abort 内部，复用既有内部取消链路（Provider fetch 取消 /
     // ToolRunner 检查 / Agent 桥接）；内部 controller 仍是唯一"会话级"句柄（新请求顶替旧流语义不变）。
@@ -3313,6 +3327,10 @@ export class ChatManagerImpl implements ChatManager {
       this._sessionAbortControllers.get(session.id) === streamAbortController
     ) {
       this._sessionAbortControllers.delete(session.id);
+    }
+    // B-05（2026-10-09）：同步清理会话 `executionId`（仅当仍属本次流）
+    if (this._sessionExecutionIds.get(session.id) === options?.executionId) {
+      this._sessionExecutionIds.delete(session.id);
     }
 
     // 跨轮对话摘要：保存关键决策
@@ -4597,6 +4615,53 @@ export class ChatManagerImpl implements ChatManager {
     // 更新动态依赖
     const svc = this._toolExecutionService!;
     svc.deps.currentSessionId = this._currentSessionId ?? '';
+
+    // B-05（2026-10-09，第九轮审查 §十五）：**逐工具前置记账（fail-closed）**。
+    //
+    // `executionId` 由入口下传（Router → `ChatRequest.executionId` → `StreamMessageOptions`
+    // → `_sessionExecutionIds`）。本层是工具**执行者**收口点 ⇒ 能做到**精确到单个工具**的拒绝
+    // （优于 Router 层的"整执行中止"）。
+    // 落盘失败 ⇒ 无法证明"副作用发生前已记账"（R3 的 `unknown` 恢复依赖该记录）⇒ **不执行该工具**。
+    const executionId = this._sessionExecutionIds.get(
+      this._currentSessionId ?? ''
+    );
+    if (executionId) {
+      const { getExecutionManager } = await import('@modules/execution');
+      type ExecId = Parameters<
+        ReturnType<typeof getExecutionManager>['beginToolCall']
+      >[0];
+      const mgr = getExecutionManager();
+      const ok = await mgr.beginToolCall(
+        executionId as ExecId,
+        toolCall.id,
+        toolCall.name
+      );
+      if (!ok) {
+        logger.error('工具调用记账落盘失败 ⇒ 拒绝执行该工具（fail-closed）', {
+          sessionId: this._currentSessionId,
+          executionId,
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+        });
+        return {
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          result: null,
+          error: `工具调用记账落盘失败 ⇒ 已拒绝执行（fail-closed，executionId=${executionId}）`,
+        };
+      }
+      const result = await svc.execute(toolCall, opts);
+      // 结算（观测面；DB `tool_calls` 幂等 ⇒ 与任何其它观测者不冲突）
+      mgr.settleToolCall(
+        executionId as ExecId,
+        toolCall.id,
+        toolCall.name,
+        result.error ? 'failed' : 'completed',
+        result.error ?? undefined
+      );
+      return result;
+    }
+
     return svc.execute(toolCall, opts);
   }
 

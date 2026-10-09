@@ -778,6 +778,15 @@ export class PlanDrivenLoop {
       dependsOnMode: t.dependsOnMode,
     }));
     const topoBatches = scheduleTopoBatches(topoTaskShapes);
+    // O4（2026-10-09，触发条件补全方案 §三-O4）：**分治批宽分布**观测（debug，零行为变更）。
+    // 用途：使 `parallel_distributed` 的触发条件「批宽 ≥ N 且现有 PDCA/OrchEngine 不覆盖」可读
+    //（见 `.trae/specs/default-off-switches-review-gates.md`）。
+    logger.debug('pdl:topo_batches', {
+      batchCount: topoBatches.length,
+      widths: topoBatches.map((b) => b.length),
+      maxWidth: topoBatches.reduce((m, b) => Math.max(m, b.length), 0),
+      taskCount: topoTaskShapes.length,
+    });
     // 13-P1-1（2026-10-05）：依赖状态簿 —— 前批产出写入。
     // ✅ Step 2（2026-10-06，§20.6）：`computeTopoSkips` 的**有效默认已翻转为 `hard`**
     //    ⇒ 未声明 `dependsOnMode` 的步骤在前驱失败/被阻断时**会**被阻断（fail-closed）；

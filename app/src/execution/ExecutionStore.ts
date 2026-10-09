@@ -137,6 +137,8 @@ export class ExecutionStore {
   private db: Database | null = null;
   private dbPath?: string;
   private initPromise: Promise<void> | null = null;
+  /** B-03：按 executionId 的**写入串行链**（消除 `MAX(seq)+1` → `INSERT` 的进程内竞态） */
+  private eventWriteChain = new Map<string, Promise<unknown>>();
 
   /** @param dbPath 显式库路径（测试用）；缺省惰性解析 `resolveDbPath()` */
   constructor(dbPath?: string) {
@@ -197,6 +199,20 @@ export class ExecutionStore {
       `CREATE INDEX IF NOT EXISTS idx_execution_events_exec
        ON ${EXECUTION_EVENTS_TABLE} (execution_id, seq)`
     );
+    // B-03（2026-10-09，第九轮审查专项 B）：`(execution_id, seq)` **唯一约束**（最后一道完整性保障）。
+    // ⚠️ best-effort：若历史表中已存在重复 `seq`，`CREATE UNIQUE INDEX` 会抛错 ⇒ **留痕不阻断启动**
+    //（进程内已由 `appendEvent` 串行化保证新写入不重复）。
+    try {
+      await this.run(
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_execution_events_exec_seq
+         ON ${EXECUTION_EVENTS_TABLE} (execution_id, seq)`
+      );
+    } catch (err) {
+      logger.warn(
+        'execution_events 唯一索引创建失败（可能存在历史重复 seq；新写入已串行化）',
+        { error: String(err) }
+      );
+    }
 
     await this.run(
       `CREATE TABLE IF NOT EXISTS ${TOOL_CALLS_TABLE} (
@@ -279,8 +295,33 @@ export class ExecutionStore {
     return row?.max_gen ?? 0;
   }
 
-  /** 追加执行事件（`seq` 为该执行内自增；单进程假设） */
+  /**
+   * 追加执行事件（`seq` 为该执行内自增）。
+   *
+   * **B-03**（2026-10-09，第九轮审查专项 B）：原实现是 `SELECT MAX(seq)+1` → `INSERT` **两步**，
+   * 注释以"单进程假设"为由免责；但**单进程 ≠ 单线程** —— 同一 `executionId` 的两个并发
+   * `appendEvent` 会读到同一 `MAX(seq)`，双双插入同一序号（回放顺序不可唯一确定）。
+   * 处置：按 `executionId` **串行化**（promise 链）＋ `(execution_id, seq)` **唯一索引**兜底。
+   */
   async appendEvent(
+    executionId: ExecutionId,
+    type: string,
+    payload?: unknown
+  ): Promise<number> {
+    const prev = this.eventWriteChain.get(executionId) ?? Promise.resolve();
+    const next = prev.then(() =>
+      this.appendEventInner(executionId, type, payload)
+    );
+    // 链上只保留"已消化"的 promise（失败不毒化后续追加）
+    this.eventWriteChain.set(
+      executionId,
+      next.catch(() => undefined)
+    );
+    return next;
+  }
+
+  /** `appendEvent` 的实际写入（**仅在串行链内被调用**） */
+  private async appendEventInner(
     executionId: ExecutionId,
     type: string,
     payload?: unknown

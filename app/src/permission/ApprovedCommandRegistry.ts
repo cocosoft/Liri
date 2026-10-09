@@ -45,17 +45,50 @@ const APPROVAL_TTL_ENV = 'PERMISSION_APPROVAL_TTL_MS';
 const CLEANUP_INTERVAL_MS = 30_000;
 
 /**
- * 命令规范化：统一引号、压缩空白、运算符贴边、小写。
+ * 命令规范化：**引号感知**压缩空白 + 运算符贴边；**保留大小写**。
+ *
  * 与 BashTool 拦截前的原始命令在同一规范化函数下计算 hash，保证两端一致。
+ *
+ * ⚠️ 第九轮审查 §十-3（2026-10-09，缺陷 #3）：原实现 `.replace(/['"]/g,'"')` + `.replace(/\s+/g,' ')`
+ * + `.toLowerCase()` 会把**语义不同**的命令映射到**同一授权标识**：
+ * - `.toLowerCase()`：POSIX 下 `RM -rf A` 与 `rm -rf A` 语义不同（前者多不可执行）；
+ * - 全局压缩空白：**引号内空白是语义**（`echo "a  b"` ≠ `echo "a b"`）⇒ 批准其一即放行另一。
+ * ⇒ 现仅压缩**引号外**空白，并**不再转小写**（宁可多弹一次审批，不放行语义漂移）。
  */
 export function normalizeCommand(command: string): string {
-  return command
-    .replace(/['"]/g, '"') // 统一引号为双引号
-    .replace(/\s+/g, ' ') // 压缩连续空白为单空格
-    .replace(/\s+([|&;<>()])/g, '$1') // 运算符前去空白
-    .replace(/([|&;<>()])\s+/g, '$1') // 运算符后去空白
-    .trim()
-    .toLowerCase(); // Windows 命令大小写不敏感
+  let out = '';
+  let quote: string | null = null;
+  let pendingSpace = false;
+  const OPS = '|&;<>()';
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      out += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      if (pendingSpace && out) out += ' ';
+      pendingSpace = false;
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+      pendingSpace = true;
+      continue;
+    }
+    if (OPS.includes(ch)) {
+      // 运算符贴边：去前导空白，且不追加后置空白
+      pendingSpace = false;
+      out += ch;
+      continue;
+    }
+    if (pendingSpace && out) out += ' ';
+    pendingSpace = false;
+    out += ch;
+  }
+  return out.trim();
 }
 
 /**
@@ -204,7 +237,13 @@ export class ApprovedCommandRegistry {
     if (!sessionMap) return false;
     const now = Date.now();
     for (const entry of sessionMap.values()) {
-      if (entry.baseCommand === base && now <= entry.expiresAt) return true;
+      if (entry.baseCommand === base && now <= entry.expiresAt) {
+        // O1-B3（2026-10-09，触发条件补全方案 §三-O1）：**命令名级放行命中**观测（仅日志，
+        // 零行为变更）。用途：使 `BASH_APPROVAL_STRICT` 的触发条件「同名不同参被命令名级
+        // 放行」可读（见 `.trae/specs/default-off-switches-review-gates.md`）。
+        logger.debug('命令名级放行命中', { sessionId, baseCommand: base });
+        return true;
+      }
     }
     return false;
   }

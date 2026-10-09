@@ -6,7 +6,7 @@
  * 执行流程：
  *   1. 参数校验（code 必填/体积上限）
  *   2. 静态校验（validateCodeRunnerCode）→ 降级分类：
- *        - forbidden-import/forbidden-global → security-rejected（不进迭代循环）
+ *        - forbidden-import/forbidden-global/forbidden-call → security-rejected（不进迭代循环）
  *        - syntax-error → compiled-error（立即降级不重试）
  *   3. 轮次计数（RoundTracker，sessionId 维度，超限拒绝）
  *   4. 构建 RPC 桥接（callTool 工具级权限链路 + 显式白名单 + ask 拒绝）
@@ -246,7 +246,10 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
     const validation = validateCodeRunnerCode(code);
     if (!validation.ok) {
       const hasForbidden = validation.issues.some(
-        (i) => i.kind === 'forbidden-import' || i.kind === 'forbidden-global'
+        (i) =>
+          i.kind === 'forbidden-import' ||
+          i.kind === 'forbidden-global' ||
+          i.kind === 'forbidden-call'
       );
       const messages = validation.issues.map((i) => i.message).join('; ');
       if (hasForbidden) {

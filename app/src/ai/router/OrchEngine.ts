@@ -192,6 +192,13 @@ export class OrchEngine {
     // 并入尾批自愈；批内 Promise.all 并发上限结构性受限：subTasks ≤ TaskDecomposer
     // MAX_SUBTASKS(=5)=tasks/limits agentConcurrency（非巧合，任务数与上限同源）。
     const batches = scheduleTopoBatches(subTasks);
+    // O4（2026-10-09，触发条件补全方案 §三-O4）：**分治批宽分布**观测（debug，零行为变更）。
+    logger.debug('orch:topo_batches', {
+      batchCount: batches.length,
+      widths: batches.map((b) => b.length),
+      maxWidth: batches.reduce((m, b) => Math.max(m, b.length), 0),
+      taskCount: subTasks.length,
+    });
 
     for (const batch of batches) {
       const batchResults = await Promise.all(

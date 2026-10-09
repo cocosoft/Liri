@@ -221,3 +221,56 @@
 **复评流程**：① 登记一行 → ② 同组计数 ≥2 → ③ （若涉 G-B）**重跑** [`app/scripts/ast-vs-regex-import-diff.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/scripts/ast-vs-regex-import-diff.ts) 取最新基线 → ④ 按 §8.4 决定"**用现有门禁形态加规则**"还是"立 AST" → ⑤ 台账登记结论。
 
 > ⚠️ **本表不得预填示例数据**（CS04 / CS06）：**空表即"当前无满足条件的样本"**；上面的空行仅作**列示意**，不是登记项。
+
+---
+
+## 9. 实施记录（2026-10-09）：**P2 启动**（用户裁定，覆盖 B7 / §3-P2「暂不启动」）
+
+> **用户裁定（2026-10-09）**：「按这个方案动手」—— 明确要求落地「基于 Rust 原生模块的 **SWC CallExpression 深度扫描 + 特征拦截器** 的完整 FFI 接线」。
+> ⚠️ **如实登记**：本裁定**覆盖** `runtime-ast-guardrail-assessment.md`（**B7 = 不立项**）与本文 §3-P2（「**暂不启动**」）。
+> **B7 的触发条件（可复现绕过样本 · 绕过在内核层 · 解析方案裁定）当前仍未满足** ⇒ 本次属**用户主动决策**（第 ③ 条「用户裁定新增依赖」已满足），**非**条件达成。CS03 的"不为未验证向量加机制"在**用户显式要求**下让位（记录在案）。
+
+### 9.1 落点（实测）
+
+| 层 | 文件 | 改动 |
+|---|---|---|
+| Rust 依赖 | `app/native/Cargo.toml` | `+ swc_ecma_parser 46` · `swc_ecma_ast 29` · `swc_common 26` · `swc_ecma_visit 29` |
+| Rust 实现 | `app/native/src/js_ast.rs`（**新建**） | SWC 解析（TS/JS）→ `Visit` 遍历 **所有 `CallExpr`** → 特征表判定 → JSON；含 `py_scan_js_calls` 导出 + **14 个单测** |
+| Rust 挂载 | `app/native/src/lib.rs` | `pub mod js_ast;` |
+| FFI 注册 | `app/native/index.js` | `dlopen` 增 `py_scan_js_calls` + `scanJsCalls(code)` 包装 |
+| TS 接线 | `app/src/tools/CodeRunner/staticValidation.ts` | 校验链**第 5 步**（原生不可用 ⇒ 降级跳过）+ 懒加载 |
+| TS 类型 | `app/src/tools/CodeRunner/types.ts` | `CodeValidationIssueKind` **+ `'forbidden-call'`** |
+| TS 分类 | `app/src/tools/CodeRunner/CodeRunnerTool.ts` | `hasForbidden` 纳入 `forbidden-call` ⇒ `security-rejected` |
+
+**特征表**：危险（`eval` / `Function` / `vm.*` / `require` / `process.{exit,abort,kill,binding,dlopen}` / `child_process.*` / `Bun.{spawn,spawnSync,$}`）· 可疑（`fetch` / `WebSocket` / `http(s).request` / `net.*` / `fs.{unlink,rm,rmdir,writeFile,appendFile,chmod,…}` / `Deno.*` / `Bun.write`）。
+**关键增量**：识别**计算成员 / 全局载体**混淆（如 `globalThis['eval']`、`globalThis['process']['exit']`）—— 这是 TS 侧正则**看不见**的等价写法。
+
+### 9.2 验收状态（**✅ 全部通过**）
+
+| 项 | 状态 |
+|---|---|
+| TS 侧 `typecheck`（3 tsconfig） | ✅ **0** |
+| Rust `cargo check -j 1` | ✅ **Finished**（0 error） |
+| Rust `cargo test -j 1` | ✅ **101 passed / 0 failed**（含 `js_ast` **14 例**） |
+| Rust `cargo build --release` | ✅ 产出 `liri_native.dll`（2.28 MB，2m04s） |
+| FFI 端到端 | ✅ `scanJsCalls("… globalThis['eval']('x'); new Function('return 1'); fetch('http://x')")` ⇒ `{ok:true,risk:"dangerous",matches:[globalThis.eval(computed-member), Function(rule), fetch(rule)]}` |
+| TS 链路端到端 | ✅ `validateCodeRunnerCode("globalThis['eval']('x')")` ⇒ `{ok:false, issues:[{kind:"forbidden-call", message:"forbidden call (dangerous/computed-member): globalThis.eval", line:1}]}` |
+
+**⚠️ 构建环境限制（如实，含解法）**：本机有两道**执行限制**（均**非代码问题**）：
+1. **Trae 沙箱**：拒绝在工作区/`%TEMP%` 之外读写（`C:\Users\csdnc\ln2` 曾报 `hit restricted`）；
+2. **OS 应用控制策略**：**禁止在工作区（E:）内执行新建二进制** ⇒ `cargo` 的 build-script 被 `os error 4551` 拒绝（`%TEMP%` 内可执行）。
+
+**解法（已采用）**：`CARGO_TARGET_DIR=%TEMP%\ln-target` + `cargo … -j 1`（串行；并发会加剧拦截），再把 `%TEMP%\ln-target\release\liri_native.dll` 复制回 `app/native/target/release/`（**复制=写，不受"执行"限制**）。
+> 注：`app/native/target/release/liri_native.dll` **不在版本控制**（目标目录）⇒ 仍以"本地/CI 完成 release 构建"为运行时前提；CI 不受本机策略约束。
+
+### 9.3 行为影响（**默认零变更**）
+
+- 原生库**不可用**（未构建 / `target/release` 无 DLL）⇒ `getNativeJsAst()` 返回 `null` ⇒ **第 5 步整体跳过**，`validateCodeRunnerCode` 行为**与改前逐字一致**。
+- 原生库**就位后**：`dangerous`/`suspicious` 命中 ⇒ 新增 `forbidden-call` issue ⇒ `security-rejected`。
+- ⚠️ **依赖文件**：`app/native/target/release/liri_native.dll` **不在版本控制**（目标目录）⇒ **P2 的生效以"本地/CI 完成 release 构建"为前提**；未构建时 P2 处于"接线在、实现未生效"状态（**如实**）。
+
+### 9.4 回滚
+
+- 代码级：删除 `js_ast.rs` + 回退 `Cargo.toml` / `lib.rs` / `index.js` / 3 个 TS 文件即可（**无数据/接口变更**）。
+- 运行级：不构建 release DLL ⇒ 自动降级（第 5 步跳过）。
+

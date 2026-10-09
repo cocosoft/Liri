@@ -4,9 +4,48 @@
  * 当原生库不可用时自动降级为TypeScript解析
  */
 
-let nativeParseBash: ((command: string) => object | null) | null = null;
+type NativeParseFn = (command: string) => object | null;
 
-function lazyInitNative() {
+/**
+ * 原生解析器句柄。**三态**：`undefined` = 未尝试加载；`null` = 加载失败/不可用；函数 = 可用。
+ *
+ * ⚠️ 第九轮审查 §十-1（2026-10-09，缺陷 #1）：原实现把哨兵**初始化为 `null`**、却用
+ * `=== undefined` 判定 ⇒ 条件**恒假** ⇒ `lazyInitNative()` 永远直接返回 `null` ⇒
+ * **原生解析器从未被使用**（永远走 TS 降级）。此处改为 `undefined` 初始值修正。
+ */
+let nativeParseBash: NativeParseFn | null | undefined;
+
+/** 原生加载是否失败（供可观测/测试） */
+let nativeLoadFailed = false;
+/** 原生解析被真实调用次数 */
+let nativeCallCount = 0;
+/** TS 降级解析次数 */
+let tsFallbackCount = 0;
+
+/** 可观测统计（第九轮审查 §八：要求"调用次数与加载失败测试"） */
+export function getBashAstStats(): {
+  nativeLoaded: boolean;
+  nativeLoadFailed: boolean;
+  nativeCallCount: number;
+  tsFallbackCount: number;
+} {
+  return {
+    nativeLoaded: typeof nativeParseBash === 'function',
+    nativeLoadFailed,
+    nativeCallCount,
+    tsFallbackCount,
+  };
+}
+
+/** 仅测试用：重置懒加载与统计 */
+export function resetBashAstForTest(): void {
+  nativeParseBash = undefined;
+  nativeLoadFailed = false;
+  nativeCallCount = 0;
+  tsFallbackCount = 0;
+}
+
+function lazyInitNative(): NativeParseFn | null {
   if (nativeParseBash === undefined) {
     try {
       const native = require('../../../native');
@@ -20,9 +59,11 @@ function lazyInitNative() {
         };
       } else {
         nativeParseBash = null;
+        nativeLoadFailed = true;
       }
     } catch {
       nativeParseBash = null;
+      nativeLoadFailed = true;
     }
   }
   return nativeParseBash;
@@ -65,6 +106,7 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
   // 尝试Rust原生解析器
   const native = lazyInitNative();
   if (native) {
+    nativeCallCount++;
     try {
       const result = native(trimmed) as any;
       if (result && result.kind === 'simple') {
@@ -89,17 +131,18 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
           ],
         };
       }
-      if (result && result.error) {
-        return { kind: 'too-complex', reason: result.error };
-      }
+      // ⚠️ 第九轮审查 §十-4 关联（2026-10-09）：原生返回 **inconclusive**（too_complex / error）
+      // 时**不再短路** —— 原生 bash 解析器是**受限子集**（遇 `&&`/`|`/`;`/控制结构一律 too_complex），
+      // 短路会让大量普通命令失去 TS 侧的"分链危险检测"（含 #2 修复后的 `||`）。
+      // ⇒ 如实降级到 TS 解析（是否失败关闭由调用方 BashTool 按 §十-4 统一决策）。
     } catch (err) {
       // 降级到TypeScript解析
-
       handleError(err, { module: 'security:bash', action: 'parseBashAST' });
     }
   }
 
   // TypeScript降级解析器
+  tsFallbackCount++;
   const cleanedCommand = hasHeredoc(trimmed) ? stripHeredocs(trimmed) : trimmed;
 
   try {
@@ -132,22 +175,27 @@ function splitCommands(input: string): string[] {
 
   while (i < input.length) {
     const ch = input[i];
+    const escaped = i > 0 && input[i - 1] === '\\';
 
     if (inQuote) {
       current += ch;
-      if (ch === inQuote && input[i - 1] !== '\\') {
+      if (ch === inQuote && !escaped) {
         inQuote = null;
       }
     } else if (ch === '"' || ch === "'") {
       current += ch;
       inQuote = ch;
     } else if (
-      (ch === '|' && input[i + 1] !== '|') ||
-      ch === ';' ||
-      ch === '&'
+      !escaped &&
+      (ch === '|' || ch === '&' || ch === ';')
     ) {
+      // 第九轮审查 §十-2（2026-10-09，缺陷 #2）：**`||` 必须作为分隔符**。
+      // 原实现 `ch === '|' && input[i + 1] !== '|'` 把 `||` 排除 ⇒ `safe || rm -rf /`
+      // 被当成**单条命令**（argv[0]='safe'）⇒ 绕过 `isDangerousCommand`。
+      // 现 `|` / `||` / `&` / `&&` / `;` 一律分隔；双字符运算符**消费第二个字符**。
       if (current.trim()) commands.push(current.trim());
       current = '';
+      if ((ch === '|' || ch === '&') && input[i + 1] === ch) i++;
     } else {
       current += ch;
     }

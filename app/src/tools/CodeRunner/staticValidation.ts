@@ -1,17 +1,21 @@
 /**
  * CodeRunner 静态校验（CM-4）
  *
- * 校验链（六轮评审合并）：
+ * 校验链（六轮评审合并 + P2 原生深扫）：
  *   1. 语法门禁：Bun.Transpiler().transformSync(code)（语法错误即抛）
  *   2. 导入枚举：Bun.Transpiler().scan(code) → 拒绝任何非空 imports
  *      （kind 覆盖 import-statement / import-expression / require-call / dynamic-import）
  *   3. 正则补漏：import.meta.require（Bun 特有同步 require，放宽到 import.meta[ 防混淆）
  *   4. 敏感全局标识符扫描：Bun/fetch/process/Deno/WebSocket 直接引用
+ *   5. **SWC 原生 CallExpression 深度扫描**（P2，2026-10-09）：真解析器枚举全部调用，
+ *      拦截"正则看不见的等价写法"（如 `globalThis['eval']`）。原生不可用 ⇒ 跳过（降级）。
+ *      规格：`.trae/specs/ast-family-phased-plan.md` §3-P2。
  *
  * 结果分类（供 CM-1 降级判定）：
  *   - syntax-error      → 编译错误，立即降级不重试
  *   - forbidden-import  → 安全拒绝，不进迭代循环
  *   - forbidden-global  → 安全拒绝，不进迭代循环
+ *   - forbidden-call    → 安全拒绝，不进迭代循环（原生深扫命中危险调用）
  */
 
 import { getLogger } from '@modules/monitoring';
@@ -61,6 +65,43 @@ const SENSITIVE_GLOBAL_RE = new RegExp(
 /** import.meta.require 及 import.meta['require'] 混淆形态 */
 const IMPORT_META_REQUIRE_RE =
   /import\.meta\s*(?:\.require|\[['"]require['"]\])/g;
+
+// ─── SWC 原生深扫加载（P2；与 security/bash/BashAST.ts 同款 `require` 懒加载）──────────
+
+interface NativeJsAstMatch {
+  callee: string;
+  severity: string;
+  kind: string;
+  line: number;
+}
+
+interface NativeJsAstScan {
+  ok: boolean;
+  callCount?: number;
+  risk?: string;
+  matches?: NativeJsAstMatch[];
+  error?: string;
+}
+
+interface NativeJsAstModule {
+  scanJsCalls(code: string): NativeJsAstScan | null;
+}
+
+let nativeJsAst: NativeJsAstModule | null | undefined;
+
+/** 懒加载原生模块；不可用（未构建/平台缺库）⇒ 返回 null（调用方降级跳过） */
+function getNativeJsAst(): NativeJsAstModule | null {
+  if (nativeJsAst === undefined) {
+    try {
+      const native = require('../../../native') as NativeJsAstModule | null;
+      nativeJsAst =
+        native && typeof native.scanJsCalls === 'function' ? native : null;
+    } catch {
+      nativeJsAst = null;
+    }
+  }
+  return nativeJsAst;
+}
 
 // ─── 校验实现 ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +158,34 @@ export function validateCodeRunnerCode(code: string): CodeValidationResult {
       kind: 'forbidden-global',
       message: `forbidden global reference: ${match[0]}`,
     });
+  }
+
+  // 5. SWC 原生 CallExpression 深度扫描（危险调用 / 混淆等价写法；原生不可用 ⇒ 跳过）
+  const nativeScanner = getNativeJsAst();
+  if (nativeScanner) {
+    try {
+      const scan = nativeScanner.scanJsCalls(code);
+      if (scan && scan.ok && scan.matches) {
+        for (const hit of scan.matches) {
+          if (hit.severity === 'dangerous' || hit.severity === 'suspicious') {
+            issues.push({
+              kind: 'forbidden-call',
+              message: `forbidden call (${hit.severity}/${hit.kind}): ${hit.callee}`,
+              line: hit.line,
+            });
+          }
+        }
+      } else if (scan && !scan.ok) {
+        // 原生解析失败不阻断——语法门禁（Bun.Transpiler）已判过语法；此处仅留痕
+        logger.warn('native SWC scan reported parse error', {
+          error: scan.error,
+        });
+      }
+    } catch (error) {
+      logger.warn('native SWC scan failed, skipping deep call scan', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return { ok: issues.length === 0, issues };

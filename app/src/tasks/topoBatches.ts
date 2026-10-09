@@ -66,7 +66,10 @@ export type TopoDependencyMode = 'hard' | 'soft';
  * - 仅当任务 `dependsOnMode === 'hard'`（或全局 `defaultDependencyMode === 'hard'`）时参与阻断；
  * - 任一**真实存在**的前驱状态为 `failed`/`skipped`（或被本次判定跳过，**传递性**）⇒ 本任务跳过；
  * - 引用不存在的前驱 ⇒ 视为满足（与 `scheduleTopoBatches` 的自愈口径一致）；
- * - ⚠️ 第三种传播 `degrade`（用降级产物继续）**未实现** —— 需产物级语义，本纯函数层不具备；如实记录。
+ * - ✅ 第三种传播 `degrade`（用降级产物继续）**已由 `soft` 路径承担**（2026-10-09 裁定）——
+ *   `PlanDrivenLoop.buildPredecessorSummary` 对 soft 后继：**有前驱产出则注入该产出**（即"用降级产物继续"），
+ *   **无产出则**注入 `[DEPENDENCY_DEGRADED]` 显式标注。⇒ 语义已被覆盖，**不新增第三模式**（CS01：
+ *   同一事实不造第二个名字；原"未实现"注记作废）。
  *
  * @param opts.defaultDependencyMode 未声明 `dependsOnMode` 的任务沿用此默认。
  *   ⚠️ **Step 2（2026-10-06，§20.6）起默认值为 `'hard'`**（翻转；原为 `'soft'`）——

@@ -52,6 +52,15 @@ export interface SendMessageOptions {
   priority?: RequestPriority;
 
   /**
+   * 执行标识（B-05 跨层下传，2026-10-09；`@modules/execution`）
+   *
+   * 由入口（如渠道 `messageRouter`）在 `ExecutionManager.acquire()` 后经
+   * `ChatRequest.executionId` 透传 ⇒ `ChatManager` 按会话记录 ⇒ **工具执行器**据此
+   * 在**执行每个工具之前**做 `beginToolCall` 记账；落盘失败 ⇒ **拒绝该工具**（逐工具 fail-closed）。
+   */
+  executionId?: string;
+
+  /**
    * 元数据
    */
   metadata?: Record<string, unknown>;

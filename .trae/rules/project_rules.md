@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.20.0 | **更新**: 2026-10-09
+**版本**: 7.21.0 | **更新**: 2026-10-09
 
 ## §1 基础规则
 
@@ -46,7 +46,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `PERMISSION_CHECKS` | `true` | 工具执行前权限校验 | `FEATURE_PERMISSION_CHECKS=false` |
 | `SECURITY_SCAN` | `true` | 输入安全扫描 | `FEATURE_SECURITY_SCAN=false` |
 | `SECURITY_AUDIT` | `true` | 安全审计留痕 | `FEATURE_SECURITY_AUDIT=false` |
-| `SANDBOX` | `true` | 沙箱隔离执行 | `FEATURE_SANDBOX=false` |
+| `SANDBOX` | `true` | **legacy 别名：全仓无读取点**（2026-10-09 如实订正，见台账 L-19）；bash / code_run 的实际沙箱开关为 `sandbox.landlock.{enabled,bashEnabled}`（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25） | `FEATURE_SANDBOX=false` |
 | `UNATTENDED_MODE` | `false` | 无人值守（**默认关**，须显式开启） | `FEATURE_UNATTENDED_MODE=true` |
 | `OUTPUT_GUARD` | `false` | 输出侧护栏（PII 打码 / 注入回显观测） | `FEATURE_OUTPUT_GUARD=true`；**翻转前须满足 [guardrails-dual-side.md §9.2](../specs/guardrails-dual-side.md) 的 P1–P5 前置**（MIT 协议头邮箱与密钥字段 FP、静默改写、不可逆落盘） |
 | `OUTPUT_GUARD_BLOCK` | `false` | 护栏改为**阻断**（仅 `OUTPUT_GUARD=true` 时生效） | `FEATURE_OUTPUT_GUARD_BLOCK=true` |
@@ -329,6 +329,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.21.0**: §1.4 安全开关表 **`SANDBOX` 行语义订正（如实）** —— 该 flag **全仓无读取点**（仅出现在 flag 注册表 `featureflags/index.ts` 的 legacy 映射）；**实际驱动 bash / code_run 沙箱的是 `sandbox.landlock.{enabled,bashEnabled}`**（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25）。**默认值与 `SAFETY_SWITCHES` 断言不变**（仅订正文档语义，`lint:doc-code` 通过）；台账 **L-19**
 - **v7.20.0**: §1.6 规则文件索引新增 **`code-deletion.md`**（代码删除安全流程 CD01–CD07）—— 承接第九轮外部审查 §6.2 与**沙箱误删事故复盘**：以"`lint:arch` 静态零引用"为唯一依据删除沙箱"未接线"组件（`c693698db`/`da37b9df4`/`9305397a2`）⇒ v0.4.71 整体回滚（`4356706bf`）。规则固化**删除前六步核查**（静态/动态/配置 → 构建/插件/运行时发现 → DI/反射/协议 → 测试/变体/运行模式 → 先摘入口 → 独立提交留回滚），并**禁止**对沙箱/安全/权限/会话恢复等关键模块以"无静态引用"为删除依据
 - **v7.19.0**: §1.4 安全开关清单 **11 → 15 项** —— 批次 A 新增三个默认关的 Bash 安全姿态灰度开关 **`BASH_APPROVED_REVALIDATE`**（已批准命令复检）/ **`BASH_INTERPRETER_GUARD`**（高能力解释器确认）/ **`BASH_APPROVAL_STRICT`**（批准严格模式），PR2 新增 **`EXECUTION_TWO_PHASE_CANCEL`**（两段式取消；未确认则保留 lease）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（11 → 15）
 - **v7.18.0**: §1.4 安全开关清单 **10 → 11 项**，新增 **`OUTPUT_GUARD_KEEP_ORIGINAL`**（默认 `false`）—— 承接 **P26-2 P4**（护栏改写审计）：`validation/output_guard_applied` 事件**默认只记元数据**（动作/护栏名/原文长度/原文 SHA-256），**开 = 未打码内容落入本地事件日志**（用户裁定 2026-10-07「默认元数据 + 开关放行原文」）。同批已按 R07-2 机制更新 `SAFETY_SWITCHES` 断言（10 → 11）

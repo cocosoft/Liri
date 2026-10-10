@@ -133,12 +133,11 @@ function baseMatches(value: string, base?: string): boolean {
 /**
  * 知识源搜索融合服务
  *
- * 接收 KnowledgeRouter 返回的双通道结果，可进行二次 RRF 重排序或附加过滤。
- * 当前为轻量封装，直接委托 router.search()，后续可在此层扩展去重、重排序等逻辑。
+ * 轻量封装：直接委托 `KnowledgeRouter.search()`（关键词+语义的 RRF 融合已在
+ * Router 内完成），本层不做二次融合/重排序，仅做结果整形与分桶。
  */
 export class UnifiedSearchService {
   private router: KnowledgeRouter;
-  private readonly RRF_K = 60;
 
   constructor(router: KnowledgeRouter) {
     this.router = router;

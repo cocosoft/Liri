@@ -57,18 +57,17 @@ function makeFixture(items: unknown[]): NodeJS.ProcessEnv {
   const root = mkdtempSync(join(tmpdir(), 'liri-fix-gate-'));
   roots.push(root);
   mkdirSync(join(root, '.trae/architecture'), { recursive: true });
-  mkdirSync(join(root, 'dev_docs/error_repairs'), { recursive: true });
   mkdirSync(join(root, 'src'), { recursive: true });
   mkdirSync(join(root, 'tests'), { recursive: true });
   writeFileSync(join(root, 'src/impl.ts'), 'export const x = 1;\n');
   writeFileSync(join(root, 'tests/impl.test.ts'), '// t\n');
   writeFileSync(
-    join(root, 'dev_docs/error_repairs/修复证据登记.md'),
+    join(root, '.trae/architecture/修复证据登记.md'),
     '# 修复证据登记\n'
   );
   const registryPath = join(
     root,
-    'dev_docs/error_repairs/fix-evidence-registry.json'
+    '.trae/architecture/fix-evidence-registry.json'
   );
   writeFileSync(
     registryPath,

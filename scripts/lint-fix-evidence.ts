@@ -22,8 +22,8 @@ const repoRoot = process.env.FIX_EVIDENCE_REPO_ROOT
   : resolve(import.meta.dir, '..');
 const REGISTRY = process.env.FIX_EVIDENCE_REGISTRY
   ? resolve(process.env.FIX_EVIDENCE_REGISTRY)
-  : resolve(repoRoot, 'dev_docs/error_repairs/fix-evidence-registry.json');
-const DOC = resolve(repoRoot, 'dev_docs/error_repairs/修复证据登记.md');
+  : resolve(repoRoot, '.trae/architecture/fix-evidence-registry.json');
+const DOC = resolve(repoRoot, '.trae/architecture/修复证据登记.md');
 
 interface Stages {
   discovered: boolean;

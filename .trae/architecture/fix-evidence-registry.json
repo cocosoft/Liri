@@ -1,5 +1,5 @@
 {
-  "$comment": "修复证据登记（单一事实源；人读版见 dev_docs/error_repairs/修复证据登记.md）。门禁 scripts/lint-fix-evidence.ts。四段生命周期 stages（discovered/fixed/testVerified/postReleaseReviewed）与四个**独立**状态 flags（designed/coded/unitTested/e2eVerified）不得混同；`fixed⇒code 非空`、`unitTested⇒tests 非空`、`e2eVerified⇒unitTested`、`postReleaseReviewed⇒changelog 非空`。",
+  "$comment": "修复证据登记（单一事实源；人读版见 .trae/architecture/修复证据登记.md）。门禁 scripts/lint-fix-evidence.ts。四段生命周期 stages（discovered/fixed/testVerified/postReleaseReviewed）与四个**独立**状态 flags（designed/coded/unitTested/e2eVerified）不得混同；`fixed⇒code 非空`、`unitTested⇒tests 非空`、`e2eVerified⇒unitTested`、`postReleaseReviewed⇒changelog 非空`。",
   "version": 1,
   "updatedAt": "2026-10-10",
   "stages": ["discovered", "fixed", "testVerified", "postReleaseReviewed"],

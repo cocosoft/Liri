@@ -56,7 +56,7 @@ CHANGELOG 中**显式边界共 20 条**（v0.4.74–v0.4.76）+ **历史 `⚠️
 
 | # | 边界原文（来源） | 类别 | 现状核查（证据） | 收口动作 | 触发条件 | 门禁/证据落点 |
 |---|---|---|---|---|---|---|
-| P0-1 | 两个新增开关**默认关**（`CODE_RUN_DEEP_SCAN_STRICT` / `CLIENT_STREAM_EXECUTION`），翻转须经用户裁定 <br>— CHANGELOG L34① | 默认关治理 | 两者均已入 `default-off-switches-review-gates.md §2`（#12/#13）并写有触发条件；`§2.3` 复评裁定 = **维持** | **维持现状**；按 §2.3 于 **2026-Q4** 复评 | #12：深扫不可用期间出现危险调用漏检 / `scanStatus='ran'` 达 100%；#13：客户端出现未记账工具调用或崩溃后重复副作用 | `lint:doc-code`（开关表断言）· `SAFETY_SWITCHES` 契约测试 |
+| P0-1 | 两个新增开关**默认关**（`CODE_RUN_DEEP_SCAN_STRICT` / `CLIENT_STREAM_EXECUTION`），翻转须经用户裁定 <br>— CHANGELOG L34① | 默认关治理 | 两者均已入 `default-off-switches-review-gates.md §2`（#12/#13）并写有触发条件；`§2.3` 复评裁定 = **维持** | **维持现状**；按 §2.3 于 **2026-Q4** 复评 —— ✅ **B5 已执行（2026-10-11）：#12/#13 复评读数与结论 = 维持**（见 `default-off-switches-review-gates.md §2.4`） | #12：深扫不可用期间出现危险调用漏检 / `scanStatus='ran'` 达 100%；#13：客户端出现未记账工具调用或崩溃后重复副作用 | `lint:doc-code`（开关表断言）· `SAFETY_SWITCHES` 契约测试 |
 | P0-2 | 跨平台（Windows/macOS）**无强隔离后端**仍属边界 <br>— CHANGELOG L34④ · `INV-SEC-003` partial · `PLAN-P2-4` | 安全边界 | `invariants.md §6` 已如实画出 Linux vs Win/macOS 能力矩阵；CI `sandbox-negative` job（Linux + helper + `SANDBOX_NEGATIVE_REQUIRE=1`）已落地 | **维持现状**（不造假后端）+ **订正 1 处死引用**（见 §4-B） | 到达 2026-Q4 复评节奏；或任一沙箱配置被翻转 | `lint:invariants` · `.github/workflows/ci.yml` `sandbox-negative` |
 | P0-3 | `executionId` 仅由渠道 Router 注入，client 路径未接入 Execution（不记账/不拒绝）<br>— CHANGELOG L80 | 执行一致性 | **代码侧已收口**（v0.4.76 接入 `/v1/chat/stream`，`acquire` 注入 + 写前记账 + fail-closed + 断开 `FAILED: client_disconnected`）；**测试缺口已收口**（**B2**：`tests/http/chatStreamExecutionHandler.test.ts` 4 例 ⇒ `INV-EXEC-006` 由 partial 升 verified） | ✅ **B2 已执行（2026-10-10）**：handler 级用例补齐（记账/终态结算/断开结算/开关关守卫）—— 翻转 `CLIENT_STREAM_EXECUTION` 的**前置条件已满足** | 翻转 #13 默认值 ⇒ 走 §2.3 复评 + 用户裁定 | `invariants.md §2/§3` · `.trae/specs/client-stream-execution.md §5.1` · `tests/chat/chatManagerToolLedgerFailClosed.test.ts` · `tests/http/chatStreamExecutionHandler.test.ts` |
 | P0-4 | `dev_docs/` 移出版本控制后，仓内溯源引用在 GitHub 上成死链 <br>— CHANGELOG L34③（原文称「约 **68** 处」） | 文档溯源 | **实测订正**：`git grep` 得 **399 次 / 241 个文件**（见 §4-A）—— 与原文**量级不符** | ① **订正 CHANGELOG 数字**；② 在 `.trae/docs/路径使用规范.md` 增一段「`dev_docs/` 已出库 ⇒ 溯源引用须标注『本地台账，未入库』」；③ **不加**死链门禁（已核实无脚本读盘 ⇒ 不影响构建） | 出现"新增/修改溯源引用"时；README/规范同步 | `.trae/docs/路径使用规范.md` · `lint:doc-code` |
@@ -66,9 +66,9 @@ CHANGELOG 中**显式边界共 20 条**（v0.4.74–v0.4.76）+ **历史 `⚠️
 
 | # | 边界原文（来源） | 类别 | 现状核查 | 收口动作 | 触发条件 |
 |---|---|---|---|---|---|
-| P1-1 | `L-12.1` 干净环境「安装→**启动**→**卸载**」e2e（需容器/打包机）<br>— CHANGELOG L94 | e2e 覆盖 | **半收口**：`release.yml` 已有 clean-env smoke（解包 → 首启 → `healthcheck` 退出码 + 版本断言 → 清理），**「卸载」面与容器化安装未做** | 拆两半：① ✅ 已做（首启）；② **排期**：卸载/清理断言 + 容器化安装 | 需要发行可信度证据时；打包机/容器可用时 |
+| P1-1 | `L-12.1` 干净环境「安装→**启动**→**卸载**」e2e（需容器/打包机）<br>— CHANGELOG L94 | e2e 覆盖 | **半收口**（**B6 复核 2026-10-11**）：`release.yml` `Smoke test (clean env)`（L281–L337）对**真实 zip 产物**在全新临时目录执行「[1/4] 解包 → [2/4] 关键路径断言（`liri.js`/`runtime`/`app/config`/`app/docs`/`app/package.json` + `run.bat`/`run.sh`）→ [3/4] 首启 `healthcheck`（退出码 0 + `LIRI_HEALTHCHECK_OK` + `version: ${VER}` + `LIRI_HOME` 隔离 + **包内零写入 diff 断言**）→ [4/4] 清理并断言临时目录消失」；**未做**：① 产品级卸载断言（卸载后 OS 层无残留 —— 当前产物为**便携 zip、无安装器**，卸载语义 = 删除目录）② 容器化/安装器路径（**需容器/打包机**） | ✅ **B6 已执行（2026-10-11）= 维持现状 + 触发条件登记**：便携面已覆盖「解包 / 首启 / 清理」三态，**不宣称**「保洁环境 e2e」已完成；安装器面因**无安装器产物 + 无容器/打包机**而**有意不做**（CS03，不建投机 spec） | 需要发行可信度证据时；打包机/容器可用时 |
 | P1-2 | 事件名/载荷**去 `any` 类型化**经评估为**破坏性**（39 文件 / 87 处）⇒ 另立项<br>— CHANGELOG L118 | 类型安全 | 已如实另立项；**未建 spec** | ✅ **B4 已执行（2026-10-10）**：已建 1 页 spec [event-payload-type-specialization.md](./event-payload-type-specialization.md)（**口径复核**：原 39/87 查询串未留档 ⇒ 不可复现，本轮基线 `globalEventBus.` = **84 处 / 36 文件** + 域分布 + 分批 S1–S5 + 编译期穷尽断言收益），**未动产品代码** | 排期"类型化专项"时；或出现事件名/载荷错致的用户可见缺陷时 |
-| P1-3 | P2-1 拆分后 **S2/S3/S5 多数动作受 `continue`/`break`/`yield` 约束仍留编排函数**（判据/载荷/装配单元已抽净）<br>— CHANGELOG L34② | 规模债 | `runStreamMessage` 2532→2203 行、复杂度 309→262；残留为**语法约束所致**（非漏抽） | **维持现状**（再抽需状态机化，收益未证）+ 在 `file-size-debt-partition-plan.md` 记「残余原因」 | 出现"必须再降复杂度"的硬指标时 |
+| P1-3 | P2-1 拆分后 **S2/S3/S5 多数动作受 `continue`/`break`/`yield` 约束仍留编排函数**（判据/载荷/装配单元已抽净）<br>— CHANGELOG L34② | 规模债 | `runStreamMessage` 2532→2203 行、复杂度 309→262；残留为**语法约束所致**（非漏抽） | **维持现状**（再抽需状态机化，收益未证）+ 在 `file-size-debt-partition-plan.md` 记「残余原因」—— ✅ **B6 已执行（2026-10-11）**：余因登记入 [`file-size-debt-partition-plan.md §48`](./file-size-debt-partition-plan.md)（实测 `continue;`=4 / `break;`=5 / 行首 `yield`=24；`functionLines` 2203 / `complexity` 262） | 出现"必须再降复杂度"的硬指标时 |
 | P1-4 | `MODE-A9` 未提交改动堆积（原 `fixed=false` `coded=false`）<br>— registry | 工程卫生 | `reopenWhen` 曾为 n/a（非代码缺陷） | ✅ **B4 已执行（2026-10-10）**：**就地收口** = 登记**验收口径**（`main...origin/main` 同步 **且** 工作区无未提交改动）+ **每版复查**；registry 改 `fixed/coded=true`（`code` 指向本文件 §2-P1-4）、`testVerified=false`（无自动化，如实）。⚠️ **本次收口快照工作区尚未干净**（B2/B3 待用户授权提交）⇒ 本项**依赖提交授权**，不代其判定 | 持续（每次发版复查） |
 | P1-5 | `PLAN-P2-5` Execution 生命周期**死面登记与裁定** | 台账 | 已登记 DCX-1..DCX-4 触发条件 | **维持现状**（登记即收口） | DCX-1 需持久化等待 / DCX-2 长任务被误判孤儿 / DCX-3 台账膨胀 / DCX-4 确认 `settleToolCall` 全覆盖 |
 | P1-6 | `MODE-A4`（Loop/Orchestrator 家族失控，`coded=false`）· `MODE-A7`（14 Router 无统一契约，`coded=false`） | 架构收敛 | 两者 `reopenWhen` 均为「**出现真实需求**」——当前**无第二消费者**（CS03：不为不可达形态建抽象） | **维持现状**（有意不做）+ 由 `.trae/specs/orchestration-family-convergence.md` 承接 | A4：需运行期统一生命周期语义；A7：≥2 个可替换路由实现的真实消费方 |
@@ -137,10 +137,12 @@ CHANGELOG 中**显式边界共 20 条**（v0.4.74–v0.4.76）+ **历史 `⚠️
 
 | 类别 | 项 | 节奏 | 单一事实源 |
 |---|---|---|---|
-| **季度复评**（2026-Q4） | `BASH_INTERPRETER_GUARD` · `BASH_APPROVAL_STRICT` · `EXECUTION_TWO_PHASE_CANCEL` · `CODE_RUN_DEEP_SCAN_STRICT` · `CLIENT_STREAM_EXECUTION` · `PLAN-P2-4` | 2026-Q4 | `default-off-switches-review-gates.md §2.3` |
-| **事件驱动**（即时响应） | `OUTPUT_GUARD` 系列 · `RESOURCE_GOVERNOR` · `PRO_SECURITY_SUITE` · `UNATTENDED_MODE` · `SELF_VERIFY_PATTERN` | 事件触发 | `default-off-switches-review-gates.md §2` / `§2.1` |
+| **季度复评**（2026-Q4） | `BASH_INTERPRETER_GUARD` · `BASH_APPROVAL_STRICT` · `EXECUTION_TWO_PHASE_CANCEL` · `CODE_RUN_DEEP_SCAN_STRICT` · `CLIENT_STREAM_EXECUTION` · `PLAN-P2-4` ＋（§2 标 ① 季度者）`OUTPUT_GUARD`①② · `RESOURCE_GOVERNOR`① · `SELF_VERIFY_PATTERN`① | 2026-Q4 | `default-off-switches-review-gates.md §2.3` / §2 |
+| **事件驱动**（即时响应） | `OUTPUT_GUARD` 系列（③④） · `RESOURCE_GOVERNOR`（②③） · `PRO_SECURITY_SUITE` · `UNATTENDED_MODE` · `SELF_VERIFY_PATTERN`（②③） | 事件触发 | `default-off-switches-review-gates.md §2` / `§2.1` |
 | **需求驱动** | `MODE-A1..A12`（除 A9）· `PLAN-P2-9` · P2-2..P2-11 | 出现真实消费者 | registry `reopenWhen` |
 | **持续**（每次发版） | `MODE-A9` 工作区干净 · `dev_docs/` 死链不新增 | 每版 | 本文件 §2-P1-4 / P0-4 |
+
+> ⚠️ **本表 vs §2 节奏口径**（B5 对齐）：本表按"**主导节奏**"归类，`default-off-switches-review-gates.md §2` 按"**逐条件节奏**"归类 —— 二者不矛盾。**B5 已按 §2 的季度子条件执行**（`OUTPUT_GUARD`①② / `RESOURCE_GOVERNOR`① / `SELF_VERIFY_PATTERN`①），故结果对两处口径同时有效；逐项读数与结论见 `default-off-switches-review-gates.md §2.4`。
 
 ---
 
@@ -152,10 +154,10 @@ CHANGELOG 中**显式边界共 20 条**（v0.4.74–v0.4.76）+ **历史 `⚠️
 | ✅ **B2 测试补齐（仅新增测试）· 已完成 2026-10-10** | P0-3：`INV-EXEC-006` client 路径 **handler 级** HTTP harness（`tests/http/chatStreamExecutionHandler.test.ts` 4 例：记账 / 终态结算 / 断开结算 / 开关关守卫）⇒ `partial` → `verified`，同步 `invariant-registry.json` + `invariants.md §2/§3` + `client-stream-execution.md §5` | 低（仅新增测试） | `lint:invariants`（17 条 gap 0 / partial 1）· `lint:doc-code` · `lint:fix-evidence` · `version:check` · `bun test tests/http/chatStreamExecutionHandler.test.ts`（4 pass） |
 | ✅ **B3 性能收口（1 项）· 已完成 2026-10-10** | P0-5：`events.idx` 缺失/落后时的续页起点改为线性续扫（`EventLogStorage` 新增 `readBoundary` 续页锚点 + `isLineStart` 行边界校验兜底）；`bench-longrun` 追加 **F1b** 回退路径对照 | 中（恢复路径） | `scripts/bench-longrun.ts` F1/F1b（回退路径 ×30.6 → ×17.6）· `bun test tests/session/EventLogStorage.test.ts`（24 pass · P0-5 三例） |
 | ✅ **B4 工程卫生 · 已完成 2026-10-10** | P1-4（`MODE-A9` 验收口径就地收口：registry 改 `fixed/coded=true` + 每版复查 reopen 判据；**快照工作区未干净，依赖提交授权**）· P1-2（去 `any` 专项 spec 立项 `event-payload-type-specialization.md`，**不动码**） | 低（纯文档/登记） | 无（`lint:fix-evidence` / `lint:doc-code` / `lint:invariants` / `version:check` 复核） |
-| **B5 Q4 复评批** | §5 季度项逐条读观测判是否满足（O1–O5） | 低 | `default-off-switches-review-gates.md §5` 清单 |
-| **B6 存量债（按需）** | P1-1 卸载 e2e · P1-3 拆分残留（如需） | 中 | 各自 spec |
+| ✅ **B5 Q4 复评批 · 已完成 2026-10-11** | §5 季度项逐条读观测判是否满足（O1–O5）⇒ 落 [`default-off-switches-review-gates.md §2.4`](./default-off-switches-review-gates.md)；**9 项结论全为「维持」**（未翻转任何默认值）；台账 `postReleaseReviewed` 由 0 → **43**（= 全部 `testVerified=true` 条目，判据 = 实现与测试文件均已入发布 tag） | 低（纯文档/登记） | `default-off-switches-review-gates.md §5` 合规清单 · `lint:fix-evidence`（58 条）· `lint:doc-code` · `lint:invariants` · `version:check` |
+| ✅ **B6 存量债 · 已完成 2026-10-11** | P1-1（`L-12.1` 干净环境 e2e：**维持现状 + 触发条件登记** —— 便携面已覆盖解包/首启/清理，安装器面有意不做）· P1-3（拆分残留：**余因登记**入 [`file-size-debt-partition-plan.md §48`](./file-size-debt-partition-plan.md)） | 极低（**零代码**，纯登记） | `lint:fix-evidence` · `lint:doc-code` · `lint:invariants` · `version:check` |
 
-**台账同步（每批完成后）**：`lint:fix-evidence` / `lint:invariants` 会自动校验 `stages`/`flags` 与 `sources`/`tests` 路径存在性；**`postReleaseReviewed` 58 条为 false**，须在**发布后复评**批（B5）统一过一遍，避免台账长期停在"未复评"。
+**台账同步（每批完成后）**：`lint:fix-evidence` / `lint:invariants` 会自动校验 `stages`/`flags` 与 `sources`/`tests` 路径存在性；`postReleaseReviewed` 原 **58 条全 false** ⇒ ✅ **B5 已推进**：`testVerified=true` 的 **43 条**置 `true`（判据 = 实现与测试文件均已入发布 tag），其余 **15 条**（`testVerified=false`）如实保持 `false`；详见 `修复证据登记.md §1`。
 
 ---
 
@@ -171,8 +173,8 @@ CHANGELOG 中**显式边界共 20 条**（v0.4.74–v0.4.76）+ **历史 `⚠️
 
 ## 8. 验收（本计划"完成"的判据）
 
-1. §2 表中**每条 P0/P1** 均有：明确动作 **或** "维持现状 + 触发条件" 二选一，**无悬空项**；
+1. §2 表中**每条 P0/P1** 均有：明确动作 **或** "维持现状 + 触发条件" 二选一，**无悬空项** —— ✅ **B6 已执行（2026-10-11）**：P1-1 / P1-3 均落为「**维持现状 + 触发条件**」，本条达成；
 2. §4 两处事实订正**已落盘**（`dev_docs` 计数 / `security-boundaries` 死引用）；
 3. §3「已收口复核」中每条的**撤回依据链路**可在仓内复跑（测试/命令）；
 4. `lint:doc-code` · `lint:invariants` · `lint:fix-evidence` 全绿；
-5. 台账 `postReleaseReviewed` 在 B5 后逐条推进（不再长期 58/58 false）。
+5. 台账 `postReleaseReviewed` 在 B5 后逐条推进（不再长期 58/58 false）—— ✅ **B5 已执行（2026-10-11）**：43/58 置 `true`（全部 `testVerified=true` 者）；15/58 因 `testVerified=false` **如实保持** `false`（门禁规则：`postReleaseReviewed ⇒ testVerified`）。

@@ -102,6 +102,37 @@
 
 ---
 
+### 2.4 复评批次记录（2026-Q4 · **执行 2026-10-11**）—— 边界收口计划 **B5**
+
+> 来源：`boundary-convergence-plan.md §5`（季度复评项）· §6 批次表 **B5 Q4 复评批**。
+> 口径：**逐条读观测判是否满足**（O1–O5）；**结论一律「维持」** —— 依 **R07-2**，翻转默认值的**唯一**路径 = 本表 §2.3 复评 **+ 用户裁定**，本批复评**不自行翻转任何默认值**。
+
+**观测环境（如实，2026-10-11 实测）**
+
+- 运行期数据根：`C:\Users\csdnc\.pyapp`（`data/logs/app.log` + 16 份轮转 ≈ 240 MB / 1.17 M 行 · 会话事件 `data/sessions/**/events.jsonl` · `data/checkpoints/**`）。
+- ⚠️ **采样前置未满足（本轮最重要的读数）**：全量日志中 `"level":"debug"` ≈ **0 条**（仅 7 条含 `[DEBUG]` 文本前缀者，且其 `level` 为 `warn`）⇒ **O1-B2 / O1-B3 / O2 / O4 四个 `logger.debug` 观测点在本观测窗内零采样**。这正是 §7-4 已登记风险（观测依赖 DEBUG 级别）的**实际发生**。故对挂这些观测点的项，本轮只能记「**无可判定样本**」，**不得**据此推断为"信号为零 / 需求不存在"。
+
+| 项 | 判据（§2 / §2.3） | 观测读数（2026-10-11 实测） | 结论 | 下一节奏 |
+|---|---|---|---|---|
+| `BASH_INTERPRETER_GUARD`（#8） | 出现解释器内联执行（`node -e`/`python -c`/`bun -e`）绕过白名单的**真实事件**（观测 **O1-B2**） | `interpreter_command_allowed` = **0**（真实日志 + 全量数据目录）；**且 DEBUG 未开 ⇒ 无样本** | **维持 `false`** | 2026-Q4 / 事件驱动 |
+| `BASH_APPROVAL_STRICT`（#9） | **同名不同参**被命令名级放行（观测 **O1-B3**） | `命令名级放行命中` 在**真实日志** = **0**；全量 67 次命中**全部**落在源码 `*.ts` 与 `knowledge/raw` 副本（**代码文本**，非运行期日志）⇒ 仍为**无样本**。旁证：O1-B1 `已批准命令放行`（`info`）真实日志 = **0** ⇒ 本窗**已批准放行路径未触发** | **维持 `false`** | 与 #7/#8 同批复评 |
+| `EXECUTION_TWO_PHASE_CANCEL`（#10） | 取消后底层仍写入 / 并发下"取消即释放 ⇒ 双跑/重复计费" | **无专用观测点**；本窗无相关事件采样 | **维持 `false`**（无可判定样本） | 2026-Q4 / 事件驱动 |
+| `CODE_RUN_DEEP_SCAN_STRICT`（#12） | ① 深扫不可用期间出现危险调用漏检；② `scanStatus='ran'` 比例达 **100%** | 真实日志中 `code_run deep scan not executed/not completed` = **0**（无"深扫不可用"事件）；但 **`ran` 成功路径无显式日志 ⇒ 比例不可计算**。⚠️ **同名不同义辨析**：数据目录 `scanStatus` = `partial 630 / complete 19` 属 **rollback 快照**（`security/rollback/FileOperationTracker.ts:316`），**非**本项的 `CodeRunner` `DeepScanStatus`（`ran\|skipped\|failed`，`tools/CodeRunner/staticTypes`）⇒ **不得混算** | **维持 `false`** | 2026-Q4（与 P0-3 联动） |
+| `CLIENT_STREAM_EXECUTION`（#13） | 客户端 `/v1/chat/stream` 出现**未记账工具调用** / 崩溃后**重复副作用** | **前置已满足**（B2 补 handler 级用例，见 §2.3）；本窗无相关事件采样 | **维持 `false`**（前置就绪，待真实事件或用户裁定） | 2026-Q4 |
+| `PLAN-P2-4` | §2.3 复评裁定本身 | 复核 §2.3 各行**仍为「维持」**；无新裁定依据 | **维持** | 2026-Q4 |
+| `OUTPUT_GUARD`（#1，**①② 季度项**） | ① 护栏接入点 **≥4**；② 语料改写文件数 **≤5** | ① 实测接入点 = **2**（`streamMessageFlow.ts:1786` · `ChatOrchestrator.ts:873`）⇒ **未达 ≥4**；② 改写文件数 = **47**（`guardrails-dual-side.md §10.3`）⇒ **未达 ≤5** | **维持 `false`** | ①② 下一季度 / ③④ 事件 |
+| `RESOURCE_GOVERNOR`（#4，**① 季度项**） | ① `observedPeakInflight ≥8` **且** `inflight_at_limit` 在窗口内 **≥3 次** | `inflight_at_limit` = **0**（DEBUG 未开 ⇒ 无样本）；`observedPeakInflight` 为**运行时访问器**（不入日志）⇒ **无采样** | **维持 `false`** | ① 下一季度 / ②③ 事件 |
+| `SELF_VERIFY_PATTERN`（#11，**① 季度项**） | ① `verify` 意图命中 **≥20 会话**（观测 **O5**：`data.selected=='self_verify'` 按 `sessionId` 去重） | 全量数据目录（21498 文件）中 `pattern/decision` 事件 = **1 条**（`selected='competitive_strategy'`，`session_muy88ntm7icxkfkl9m7`）；`selected=='self_verify'` = **0 会话**（另 106 处 `pattern/decision` 命中为**工具回传中的源码文本**，非事件） | **维持 `false`** | 埋点落地后下一季度 |
+
+**§2.4.1 结论与后续（明确）**
+
+1. **6 项季度项 + 3 项季度子条件，结论均为「维持」**（无一项达到翻转阈值）；**本轮未改任何默认值**（`featureFlags.ts` 逐字未动）。
+2. **节奏分类的一处对齐**：`boundary-convergence-plan.md §5` 把 `OUTPUT_GUARD 系列 / RESOURCE_GOVERNOR / SELF_VERIFY_PATTERN` 归入「事件驱动」；而本表 §2 把 **#1①② / #4① / #11①** 标为**季度**。二者**不矛盾**（§5 按"主导节奏"归类，§2 按"逐条件节奏"归类）—— 本批复评**已按 §2 的季度子条件**执行，故结果对两处口径**同时有效**。
+3. **观测能力缺口已定位**：O1-B2 / O1-B3 / O2 / O4 为 `debug` 级 ⇒ 只要 DEBUG 未开即**无采样**。**下一季度复评前须先在设置中打开 DEBUG 级别**（否则重复"无样本"）；`O5` 不依赖 DEBUG（读已落盘事件），但其**样本量本身极低**（本机仅 1 条决策事件）⇒ 判据①短期难满足。
+4. **未翻转的项不是"欠账"**：均为**已取证的有意默认关**，触发条件在册（§2/§2.3），维持即符合 §2.14 规则 5。
+
+---
+
 ## 3. 观测点 O1–O5（触发条件可操作化的**使能步**）
 
 > 口径：**均不新增开关、不改默认值、不改决策**；仅让触发条件"可读"。

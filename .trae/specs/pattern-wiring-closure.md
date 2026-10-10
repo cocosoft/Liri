@@ -199,4 +199,31 @@ PATTERN_SELECTION_RULES = [
 
 挂 `development-workflow.md §2.14` 的**季度复盘**；与 `default-off-switches-review-gates.md` **交叉引用**（同源去重，规则 5）。
 
+---
+
+## 12. 复核（P2-7，2026-10-10）—— 状态**冻结**为机器守卫
+
+> 来源：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-7**（外部核验项 M-6 / 21 模式 A8）。
+> **结论：无需接线**（维持 §5/§6/§11 的既有裁定）—— 本项动作为**复核 + 把登记机器化**。
+
+**复核（回仓实测）**
+
+| 模式 | 装配状态 | 承担方 | 装配入口 | 触发面 | 依据 |
+|---|:--:|:--:|:--:|:--:|---|
+| `competitive_strategy` | ✅ **ready** | ✅ | ✅ | ✅ | §4 前既有 |
+| `self_verify` | ✅ **ready** | ✅ `VerifierAgent` | ✅ 配方 `verifyPolicy:'blocking'` | ✅ §4 新增 `verify` 规则 | §4 |
+| `long_task_pdl` | ⛔ unavailable | ✅ `PlanDrivenLoop` / `TaskDecomposer` | ⛔ 由 `_shouldUsePlanDrivenLoop` **独立驱动**（D2） | ⛔ | §2 D2 |
+| `iterative_refine` | ⛔ unavailable | ✅ `TAORLoop` / `VerifierAgent` | ⛔ | ⛔ | §5 · §11.1 |
+| `parallel_distributed` | ⛔ unavailable | ✅ `TaskDecomposer` / `ParallelAgentScheduler` / `ResultAggregator` | ⛔ | ⛔ | §6 · §11.2 |
+
+**裁定（维持 §11，不新增裁定）**：3 项 `unavailable` **维持**；触发条件**可操作化**且已登记（§11.1 `≥15% & ≥30 轮`；§11.2 `批宽 ≥4 & ≥3 例`）；**不得**为"凑对称"新建无消费者的装配层（CS03）。
+
+**新增机器守卫**：`app/tests/query/patternAssemblerClosure.test.ts`（5 例）——
+
+1. `ready` 项断言（含 `route` 与配方三字段）；
+2. `unavailable` 项**三段式原因**齐备（承担方 / 装配入口 / 触发面）—— 防措辞退回"无运行时"式误导；
+3. **状态冻结**：`2 ready + 3 unavailable` 集合**逐项断言** ⇒ 任何状态变化（接线 / 下线）**必须显式修改该断言**（= 一次显式裁定，防"静默接线"）；
+4. `unavailable` 分支**不得**带 `route`/`recipe`（防臆造占位 stub，CS04）。
+
+
 

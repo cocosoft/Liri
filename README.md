@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.73-blue)
+![Version](https://img.shields.io/badge/version-0.4.74-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.73**
+当前版本：**v0.4.74**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -434,6 +434,18 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.74 (2026-10-10)
+
+**A2A/MCP 进程级侧车隔离（P0–P3）+ 语法觉知型上下文闭环引擎（P0–P2，Rust FFI）+ 第九轮审查遗留项收口**
+
+- ✅ **① MCP stdio 子进程受管化（P0）** - 孤儿兜底 `killOrphanedProcesses(true)` **接入 `mcpSystem.cleanup()` + SIGINT/SIGTERM**（此前**全仓零调用点**）；修正 2 处既有缺陷：`twoPhaseKill` 的 **TDZ**（同步抛错 ⇒ `ReferenceError`）· 孤儿表仅存 PID ⇒ **永不回收**（改保留 `ChildProcess` 引用）
+- ✅ **① 轻量 IPC 基座收敛（P1）** - 新增**单一契约** `utils/sidecarIpc.ts`（版本 / 帧类型 / 换行分帧 / 就绪握手 / major 兼容 / 心跳）；`JsonRpcBridge` **收敛消费**（分帧 + 版本再导出 + startup 帧**版本协商** fail-closed）；**未新建第三套**
+- ✅ **① A2A 只读发现面外置（P2）** - 纯发现面 `handleDiscoveryRequest`（卡片/健康/ETag/405/503）· **独立 sidecar 进程**（自有端口、P1 契约、同源鉴权）· 开关默认关的监督器（就绪握手 / 快照 / 有界重启）· 接入 `LocalHTTPService` 生命周期（实测 200/304/401）
+- ✅ **① A2A 委派执行进程化（P3）** - 导出**单一实现** `runA2ADelegation`；监督器**反向 RPC** `a2a.delegate`；sidecar `POST /v1/a2a/tasks` **经 IPC 转发回主进程内核**（**不自建 CoreAPI**）；实测真子进程端到端 200
+- ✅ **② 语法觉知型上下文闭环（P0–P2）** - **P0** 单一结构切点 `utils/structureCut.ts`（括号 + 围栏感知，接线工具结果预览 / 通道分片，**默认不劣化**）· **P1** Rust `py_close_structure`（**词法级**括号栈 + 引号/注释感知，**零新 crate**；FFI 注册 + 降级桥）· **P2** 先建**截断级质量度量**（真实语料：闭合率 **0%~6.4% → 100%**）⇒ 接线 Tier2 单条截断头部闭环
+- ✅ **第九轮审查遗留项收口** - 专项 A **#7 跨层安全回归**（17 例；**当场发现并修复** `BashSecurityAnalyzer` 哨兵缺陷 —— 与缺陷 #1 同类）· **§九「沙箱执行」**（9 例）· 专项 B **§十七-5 故障注入**（5 例）· **专项 C 8 项**（12 例）
+- ℹ️ **边界（如实）** - A2A sidecar 端口**独立于主进程**（无前置代理）；sidecar 委派端点**未在卡片广告**；A2A JSON-RPC/SSE 面未搬运；`killProcessTree` 未复用；Tier3 无字符级截断（P2 落点仅 Tier2）
 
 #### v0.4.73 (2026-10-10)
 

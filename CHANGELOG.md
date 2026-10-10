@@ -21,6 +21,21 @@
 
 ---
 
+#### v0.4.74 (2026-10-10)
+
+**A2A/MCP 进程级侧车隔离（① P0–P3）+ 语法觉知型上下文闭环引擎（② P0–P2，Rust FFI）+ 第九轮审查遗留项收口（专项 A #7 / §九 / 专项 B §十七-5 / 专项 C）**
+
+- ✅ **① MCP stdio 子进程受管化（P0）** - 孤儿兜底 `killOrphanedProcesses(true)` **接入 `mcpSystem.cleanup()` + SIGINT/SIGTERM**（此前**全仓零调用点** ⇒ 名义存在但从未启用）；修正 2 处既有缺陷（接线后成真实路径）：`twoPhaseKill` 的 **TDZ**（`kill('SIGTERM')` 同步抛错 ⇒ `ReferenceError`）· 孤儿表仅存 PID ⇒ `activeProcesses.find` 恒空 ⇒ **永不回收**（改 `Map<pid, TrackedProcess>` 保留引用）
+- ✅ **① 轻量 IPC 基座收敛（P1）** - 新增**单一契约** `utils/sidecarIpc.ts`（协议版本 / 帧类型 / 换行分帧 / 就绪握手 / major 兼容 / 心跳）；`ai/python/JsonRpcBridge` **收敛消费**（分帧改 `encode/decodeFrame` + 版本再导出 + startup 帧**版本协商** fail-closed）；**未新建第三套**（`daemon/IPCService` 属控制面，不并入）
+- ✅ **① A2A 只读发现面外置（P2）** - 纯发现面 `infrastructure/http/a2a/discoverySurface.ts`（卡片 / 健康 / ETag / 405 / 503）· **独立 sidecar 进程**（自有端口 `A2A_DISCOVERY_PORT`、P1 契约、同源鉴权 `isA2AAuthorized`）· 开关默认关的监督器（就绪握手 / 快照推送 / 有界重启）· 接入 `LocalHTTPService` 生命周期；**实测** 200 / 304 / 401
+- ✅ **① A2A 委派执行进程化（P3）** - 导出**单一实现** `runA2ADelegation`（复用 `runDelegation`）；监督器**反向 RPC** `a2a.delegate`；sidecar `POST /v1/a2a/tasks` **经 IPC 转发回主进程内核**（**不自建 CoreAPI**，遵守 `channel-process-isolation §2-#3`）；**实测** 真子进程端到端 200
+- ✅ **② 语法觉知型上下文闭环（P0–P2）** - **P0** 单一结构切点 `utils/structureCut.ts`（括号 + 围栏感知；接线工具结果预览 + 通道分片，**默认不劣化**）· **P1** Rust `py_close_structure`（**词法级**括号栈 + 引号/注释感知，**零新 crate**；FFI 注册 + 三态降级桥）· **P2** 先建**截断级质量度量** `scripts/bench-truncation-closure.ts`（真实语料 321 文件：结构闭合率 **0%~6.4% → 100%**，代价少保留 1.6%~9.3%）⇒ 接线 Tier2 单条截断头部闭环（原生不可用 ⇒ 退回硬切）
+- ✅ **第九轮审查遗留项收口** - 专项 A **#7 跨层安全回归**（`crossLayerSecurityConsistency.test.ts` 17 例；**当场发现并修复** `BashSecurityAnalyzer` 哨兵缺陷 —— 与缺陷 #1 同类，原生分析器**方才真正生效**）· **§九「沙箱执行」**（`spawnPathRestrictions.test.ts` 9 例）· 专项 B **§十七-5 恢复故障注入**（`recoveryFaultInjection.test.ts` 5 例）· **专项 C 8 项**（`specialCResilience.test.ts` 12 例）
+- ✅ **质量** - `typecheck`（3 tsconfig）**0** · 相关套件全绿（`context/chat` 532 · `infrastructure/http`+`agent` 53 · `utils/ai` 253 · `execution`/`sandbox`/`security`/`tools`/`channels`/`services` 等）· `lint:arch` 违规 **0**（4 基线警告）· `eslint` / `lint:scripts` 干净
+- ℹ️ **边界（如实）** - A2A sidecar 端口**独立于主进程**（单端口无法被两进程同时监听，无前置代理）；sidecar 委派端点**未在卡片广告**（卡片仍指向主进程 RPC）；A2A **JSON-RPC / SSE 面未搬运**；`killProcessTree` 未复用（`sandbox` 属 moduleRegistry 受管模块，跨层直连被拦）；**Tier3 无字符级截断**（P2 落点仅 Tier2 单条截断）；② P2 度量为**结构闭合**代理指标，非"语法幻觉下降"直接证明
+
+---
+
 #### v0.4.73 (2026-10-10)
 
 **第九轮外部审查落地（专项 A 五缺陷 + §七 安全基线 + 专项 B 执行生命周期 B-01–B-05 及跨层改造）+ Rust SWC CallExpression 扫描器（FFI 贯通）+ 默认关开关触发条件治理**

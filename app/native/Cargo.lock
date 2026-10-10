@@ -332,7 +332,7 @@ checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "liri-native"
-version = "0.4.73"
+version = "0.4.74"
 dependencies = [
  "encoding_rs",
  "serde",

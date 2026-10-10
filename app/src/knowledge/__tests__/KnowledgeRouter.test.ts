@@ -7,6 +7,8 @@ import { describe, it, expect, beforeAll } from 'bun:test';
 import { KnowledgeRouter } from '../KnowledgeRouter';
 import type { FileDocsProvider } from '@modules/docs/FileDocsProvider';
 import type { FileDocEntry } from '@modules/docs/FileDocsProvider';
+import type { EmbeddingManager } from '@modules/ai';
+import type { IVectorStore } from '../semantic/IVectorStore';
 
 /** 内存模拟 FileDocsProvider */
 class MockDocsProvider implements FileDocsProvider {
@@ -241,5 +243,154 @@ describe('KnowledgeRouter', () => {
         expect(results[i]!.score).toBeLessThanOrEqual(results[i - 1]!.score);
       }
     });
+  });
+});
+
+/**
+ * 值域契约 + `matchType` 契约（2026-10-10 收敛）。
+ *
+ * 两路同时命中（关键词腿 + 语义腿）才能触达 `mergeResults` 的融合/标记逻辑，
+ * 故此处以最小手写替身提供语义腿（`IVectorStore` + `EmbeddingManager`），
+ * 富化路径（`getById` / `getByPath`）返回空 ⇒ 不改动 `snippet`。
+ */
+describe('KnowledgeRouter.mergeResults — 值域归一化与 hybrid 标记', () => {
+  const hybridDocs = [
+    {
+      title: 'Python基础教程',
+      content: 'Python是一种解释型、面向对象的高级编程语言。语法简洁。',
+      category: '编程',
+      path: 'domains/coding/wiki/python-basics.md',
+    },
+    {
+      title: '植物学入门',
+      content: '植物学是研究植物生命、结构、生长和分类的科学。',
+      category: '科学',
+      path: 'domains/botany/wiki/intro.md',
+    },
+    {
+      title: '捕蝇草',
+      content: '捕蝇草（Dionaea muscipula）是一种食虫植物，原产于北美洲。',
+      category: '科学',
+      path: 'domains/botany/wiki/venus_flytrap.md',
+    },
+  ];
+
+  const PY_PATH = 'domains/coding/wiki/python-basics.md';
+  const PLANT_PATH = 'domains/botany/wiki/intro.md';
+
+  /** 语义腿替身：只回显给定路径，富化相关方法返回空 */
+  function fakeVectorStore(paths: string[]): IVectorStore {
+    return {
+      upsert: async () => {},
+      search: async () =>
+        paths.map((p) => ({
+          entry: {
+            id: `${p}#L1-L1`,
+            path: p,
+            startLine: 1,
+            endLine: 1,
+            text: '语义片段',
+            embedding: new Float32Array(),
+            mtimeMs: 0,
+          },
+          score: 0.9,
+        })),
+      deleteByPath: async () => {},
+      clear: async () => {},
+      count: async () => paths.length,
+      getMeta: async () => null,
+      setMeta: async () => {},
+      getById: async () => null,
+      getByPath: async () => [],
+    };
+  }
+
+  const fakeEmbedding = {
+    initialize: () => {},
+    embedOne: async () => [0.1, 0.2],
+  } as unknown as EmbeddingManager;
+
+  async function makeRouter(semanticPaths: string[]): Promise<KnowledgeRouter> {
+    const r = new KnowledgeRouter(
+      new MockDocsProvider(hybridDocs),
+      fakeEmbedding,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeVectorStore(semanticPaths)
+    );
+    await r.buildIndex();
+    return r;
+  }
+
+  it('分数归一化到 (0,1]，原始分 ≈1/61 不再被压成 0', async () => {
+    const r = await makeRouter([PY_PATH]);
+    const results = await r.search('Python', { maxResults: 5 });
+    expect(results.length).toBeGreaterThan(0);
+    for (const hit of results) {
+      expect(hit.score).toBeGreaterThan(0);
+      expect(hit.score).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('两路均 rank0 ⇒ 归一化后为 1（上确界）', async () => {
+    const r = await makeRouter([PY_PATH]);
+    const results = await r.search('Python', { maxResults: 5 });
+    const python = results.find((h) => h.docPath === PY_PATH);
+    expect(python).toBeDefined();
+    expect(python!.score).toBe(1);
+  });
+
+  it('重叠命中（关键词 + 语义同 docPath）⇒ matchType = hybrid', async () => {
+    const r = await makeRouter([PY_PATH]);
+    const results = await r.search('Python', { maxResults: 5 });
+    expect(results.find((h) => h.docPath === PY_PATH)!.matchType).toBe(
+      'hybrid'
+    );
+  });
+
+  it('仅关键词腿命中 ⇒ 保留该路 matchType，不标 hybrid', async () => {
+    const r = await makeRouter([PLANT_PATH]);
+    const results = await r.search('Python', { maxResults: 5 });
+    expect(results.find((h) => h.docPath === PY_PATH)!.matchType).toBe(
+      'keyword'
+    );
+  });
+
+  it('仅语义腿命中 ⇒ 标 semantic 且分数严格小于 1', async () => {
+    const r = await makeRouter([PLANT_PATH]);
+    const results = await r.search('Python', { maxResults: 5 });
+    const plant = results.find((h) => h.docPath === PLANT_PATH);
+    expect(plant).toBeDefined();
+    expect(plant!.matchType).toBe('semantic');
+    expect(plant!.score).toBeGreaterThan(0);
+    expect(plant!.score).toBeLessThan(1);
+  });
+
+  it('权重 ≤0 ⇒ 上界非正，不做归一化且不产 NaN / Infinity', async () => {
+    const r = new KnowledgeRouter(
+      new MockDocsProvider(hybridDocs),
+      fakeEmbedding,
+      [],
+      {
+        search: {
+          keywordWeight: -1,
+          semanticWeight: -1,
+          semanticThreshold: 0.3,
+        },
+      } as unknown as ConstructorParameters<typeof KnowledgeRouter>[3],
+      undefined,
+      undefined,
+      undefined,
+      fakeVectorStore([PY_PATH])
+    );
+    await r.buildIndex();
+    const results = await r.search('Python', { maxResults: 5 });
+    expect(results.length).toBeGreaterThan(0);
+    for (const hit of results) {
+      expect(Number.isFinite(hit.score)).toBe(true);
+    }
   });
 });

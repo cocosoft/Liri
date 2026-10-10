@@ -2616,6 +2616,7 @@ const en = {
     addTagShort: "+Tag",
     matchKeyword: "Keyword",
     matchSemantic: "Semantic",
+    matchHybrid: "Keyword+Semantic",
     matchGraph: "Graph",
     matchKnowledge: "Knowledge Base",
     matchUsername: "Person",

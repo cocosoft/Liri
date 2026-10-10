@@ -45,7 +45,9 @@ export interface KnowledgeRoute {
     | 'title'
     | 'keyword'
     | 'directory'
-    | 'semantic';
+    | 'semantic'
+    /** 2026-10-10 收敛：同 docPath 同时被关键词路与语义路召回 */
+    | 'hybrid';
   isKnowledgeDoc: boolean;
   /** frontmatter tags（供标签过滤搜索使用） */
   tags?: string[];

@@ -24,10 +24,10 @@
  *
  * 锁定：公式 `score = Σ w_i / (k + rank_i + 1)`、缺省 `k=60`、权重、
  * `prefer` 引用选择、`limit` 截断、确定性排序（score 降序 + key 升序）、
- * **零拷贝**（`item` 为原引用）。
+ * **零拷贝**（`item` 为原引用）、`rrfMaxScore` 归一化上界 `(0, 1]`。
  */
 import { describe, expect, it } from 'bun:test';
-import { reciprocalRankFusion } from '../../src/utils/rrf';
+import { reciprocalRankFusion, rrfMaxScore } from '../../src/utils/rrf';
 
 /** 构造带 `id` 的简单条目 */
 const item = (id: string): { id: string } => ({ id });
@@ -148,5 +148,40 @@ describe('reciprocalRankFusion：排序 / 截断 / 零拷贝', () => {
     const a = item('a');
     const out = reciprocalRankFusion({ lists: [[a]], keyOf: (x) => x.id });
     expect(out[0]!.item).toBe(a);
+  });
+});
+
+describe('rrfMaxScore：归一化上界（值域契约）', () => {
+  it('缺省 k=60 ⇒ Σw/(k+1)（默认权重 [0.4,0.6] ⇒ 1/61）', () => {
+    expect(rrfMaxScore([0.4, 0.6])).toBeCloseTo(1 / 61, 12);
+  });
+
+  it('自定义 k ⇒ 与 reciprocalRankFusion 同一位移', () => {
+    expect(rrfMaxScore([1, 1], 9)).toBeCloseTo(2 / 10, 12);
+  });
+
+  it('权重 ≤0 不参与累加（与融合侧「权重 0 跳过该路」一致）', () => {
+    expect(rrfMaxScore([1, 0, 1])).toBeCloseTo(2 / 61, 12);
+    expect(rrfMaxScore([0, 0])).toBe(0);
+  });
+
+  it('上确界可达：两路均 rank0 ⇒ raw/max = 1', () => {
+    const raw = reciprocalRankFusion({
+      lists: [[item('a')], [item('a')]],
+      keyOf: (x) => x.id,
+      weights: [0.4, 0.6],
+    })[0]!.score;
+    expect(raw / rrfMaxScore([0.4, 0.6])).toBeCloseTo(1, 12);
+  });
+
+  it('单路命中 ⇒ raw/max 严格小于 1（不越界）', () => {
+    const raw = reciprocalRankFusion({
+      lists: [[item('a')], []],
+      keyOf: (x) => x.id,
+      weights: [0.4, 0.6],
+    })[0]!.score;
+    const normalized = raw / rrfMaxScore([0.4, 0.6]);
+    expect(normalized).toBeCloseTo(0.4, 12);
+    expect(normalized).toBeLessThan(1);
   });
 });

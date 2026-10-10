@@ -2520,6 +2520,7 @@ const zh = {
     addTagShort: "+标签",
     matchKeyword: "关键词",
     matchSemantic: "语义",
+    matchHybrid: "关键词+语义",
     matchGraph: "图谱",
     matchKnowledge: "知识库",
     matchUsername: "人名",

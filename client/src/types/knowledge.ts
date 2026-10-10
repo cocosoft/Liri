@@ -74,7 +74,9 @@ export interface KnowledgeSearchHit {
     | "knowledge"
     | "username"
     | "title"
-    | "directory";
+    | "directory"
+    /** 2026-10-10 收敛：同 docPath 同时被关键词路与语义路召回 */
+    | "hybrid";
   domain?: string;
   snippet?: string;
   /** B10 透出：keyword/语义命中行号（F2 行定位前置） */

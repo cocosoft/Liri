@@ -62,6 +62,26 @@ export interface RrfOptions<T> {
 const DEFAULT_RRF_K = 60;
 
 /**
+ * RRF 分数的**理论最大值**：各路均取 `rank = 0` 时的 `Σ_i w_i / (k + 1)`。
+ *
+ * 用途：`reciprocalRankFusion` 的原始分与 `k`、权重强相关（缺省 `k=60` ⇒ 量级 ≈ 1/61），
+ * 直接对外展示会**丢失分辨率**；调用方以本值归一化即可把值域还原到 `(0, 1]`（保序、
+ * 不改变排序）。`k` 必须与传给 `reciprocalRankFusion` 的一致（缺省同为 60）。
+ *
+ * 权重 ≤ 0 的列表在融合中不参与（见 `reciprocalRankFusion`），故此处一并跳过。
+ */
+export function rrfMaxScore(
+  weights: readonly number[],
+  k: number = DEFAULT_RRF_K
+): number {
+  let sum = 0;
+  for (const w of weights) {
+    if (w > 0) sum += w;
+  }
+  return sum / (k + 1);
+}
+
+/**
  * 倒数排名融合。
  *
  * 返回按 `score` 降序、同分按 `key` 升序排列的条目（确定性顺序）；`item` 为原始

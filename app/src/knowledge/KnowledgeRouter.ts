@@ -55,7 +55,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { KnowledgeConfig } from '@modules/knowledge/KnowledgeConfig';
 import { knowledgeMonitor } from '@modules/knowledge/KnowledgeMonitor';
-import { reciprocalRankFusion } from '@modules/utils/rrf';
+import { reciprocalRankFusion, rrfMaxScore } from '@modules/utils/rrf';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:router',
@@ -765,21 +765,35 @@ export class KnowledgeRouter implements IKnowledgeSearch {
    * 零拷贝：融合阶段只累计引用，`maxResults` 截断后才物化（对象分配量 O(N)→O(K)）。
    * 同键（docPath）命中两路时，`item` 取语义路（`prefer: 'last'`）——与旧实现
    * 「语义 snippet 覆盖关键词」的可见行为一致。
+   *
+   * **值域契约（2026-10-10 收敛）**：原始 RRF 和的上界是「各路均 `rank=0`」的
+   * `Σw/(k+1)`（缺省 `k=60`、`w=[0.4,0.6]` ⇒ `1/61`），直接输出会被下游百分比/
+   * 配色压成 `0.00~0.02` 三档；故此处除以该上界，把对外分还原到 `(0, 1]`（保序）。
+   *
+   * **matchType 契约（2026-10-10 收敛）**：同 `docPath` 同时被关键词路与语义路召回
+   * ⇒ 标记 `'hybrid'`；仅单路召回时保留该路的原始 `matchType`。
    */
   private mergeResults(
     keywordResults: KnowledgeRoute[],
     semanticResults: KnowledgeRoute[],
     maxResults: number
   ): KnowledgeRoute[] {
+    const { keywordWeight, semanticWeight } = this.hybridConfig;
     const entries = reciprocalRankFusion({
       lists: [keywordResults, semanticResults],
       keyOf: (r) => r.docPath,
-      weights: [
-        this.hybridConfig.keywordWeight,
-        this.hybridConfig.semanticWeight,
-      ],
+      weights: [keywordWeight, semanticWeight],
       prefer: 'last',
     });
+
+    // 重叠命中判定：`prefer:'last'` 下 item 取自语义路，需显式覆盖否则会被记成 semantic
+    const keywordKeys = new Set(keywordResults.map((r) => r.docPath));
+    const semanticKeys = new Set(semanticResults.map((r) => r.docPath));
+
+    // 上界非正（权重全 ≤ 0）时不归一化，避免 0 除产生 NaN
+    const maxTheoretical = rrfMaxScore([keywordWeight, semanticWeight]);
+    const normalize = (raw: number): number =>
+      maxTheoretical > 0 ? raw / maxTheoretical : raw;
 
     // 并列打破：score → isKnowledgeDoc → docPath
     // （RRF 已保证 score 降序 + key(docPath) 升序，此处仅补 isKnowledgeDoc 一层）
@@ -791,9 +805,14 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       return 0;
     });
 
-    return entries
-      .slice(0, maxResults)
-      .map((e) => ({ ...e.item, score: Math.round(e.score * 100) / 100 }));
+    return entries.slice(0, maxResults).map((e) => ({
+      ...e.item,
+      score: Math.round(normalize(e.score) * 10000) / 10000,
+      matchType:
+        keywordKeys.has(e.key) && semanticKeys.has(e.key)
+          ? 'hybrid'
+          : e.item.matchType,
+    }));
   }
 
   /**

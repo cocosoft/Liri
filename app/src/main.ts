@@ -444,6 +444,8 @@ function checkSingletonInstance(): void {
     void Promise.allSettled([
       gracefulChannelShutdown(),
       gracefulLlamaShutdown(),
+      // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
+      gracefulMcpShutdown(),
       // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
       // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
       import('./chat/ChatManager.js')
@@ -461,6 +463,8 @@ function checkSingletonInstance(): void {
     void Promise.allSettled([
       gracefulChannelShutdown(),
       gracefulLlamaShutdown(),
+      // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
+      gracefulMcpShutdown(),
       // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
       // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
       import('./chat/ChatManager.js')
@@ -500,6 +504,24 @@ async function gracefulLlamaShutdown(): Promise<void> {
     await llamaCppServerManager.stop();
   } catch (err) {
     // @ignore-catch — llama 模块加载/停止失败不阻塞应用退出
+  }
+}
+
+/**
+ * ① P0（2026-10-10）：退出时回收 MCP stdio 子进程。
+ *
+ * 此前通道/llama 有优雅退出，**MCP 无**（`mcpSystem.cleanup()` 仅由模块 `destroy()` 触发，
+ * 信号路径不经过）⇒ `killOrphanedProcesses` 全仓零调用点 ⇒ stdio 子进程可残留。
+ * 见 `dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md` §8.1（P0）。
+ *
+ * dynamic import 避免 main.ts 与 MCP 模块静态耦合；失败不阻塞退出。
+ */
+async function gracefulMcpShutdown(): Promise<void> {
+  try {
+    const { mcpSystem } = await import('@modules/services/mcp');
+    await mcpSystem.cleanup();
+  } catch (err) {
+    // @ignore-catch — MCP 清理失败不阻塞应用退出
   }
 }
 

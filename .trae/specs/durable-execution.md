@@ -209,3 +209,23 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_exec ON tool_calls (execution_id);
 
 **仍未做（如实登记）**：`executionId` 目前只由**渠道 Router** 注入（`ChatRequest.executionId`）。
 client（`/v1/chat/stream`）路径未接入 Execution ⇒ 其工具调用**不做**记账/拒绝（与 S3 边界一致）。
+
+### 6.2 第九轮审查 §十七-5 故障注入 + 专项 C 测试清单（2026-10-10 补齐）
+
+补齐此前**如实登记的未做项**（v0.4.73 CHANGELOG「⚠️ 未完成」）：
+
+- **§十七-5 恢复阶段故障注入** → `app/tests/execution/recoveryFaultInjection.test.ts`（**5 例**）：
+  在 `recover()` 的**每个持久化步骤之后**注入"进程退出"（方法真实提交后抛错），再用**同一库文件**
+  重开 store + manager 重启并再次 `recover()`，断言收敛不变量：
+  未结算工具调用**绝不永久停在 `running`**（终态 `unknown`）· 孤儿最终 `STALE` 且 `generation` 抬升 ·
+  session 不再被占用 · 事件序号唯一 · **重复 `recover()` 幂等**。
+- **专项 C 8 项测试清单** → `app/tests/execution/specialCResilience.test.ts`（**12 例**）：
+  ① 并发事件追加（100 并发唯一/连续/可读回）· ② 恢复阶段崩溃注入（紧凑版）· ③ 工具执行前写入失败
+  （存储层视角；执行者侧见 `chatManagerToolLedgerFailClosed.test.ts`）· ④ 记录↔事件交叉故障
+  （事件失败不改状态权威；孤立事件不凭空造执行）· ⑤ 重复回放幂等 · ⑥ 未知调用恢复（`unknown` ≠ 成功/失败，
+  不自动重放）· ⑦ 会话隔离（状态/事件/工具调用/占用均不串线）· ⑧ 旧数据兼容（重复 `seq` 不阻断 init、
+  未知状态安全忽略、旧孤儿仍 fencing）。
+- **覆盖边界（如实）**：④ 覆盖可确证的**执行记录 ↔ 执行事件**一轴；C-04 的**完整**"会话消息历史 ↔
+  执行事件"一致性与 C-05 的事件回放语义属更广的会话存储面（审查亦标为"待验证设计边界"，非确认缺陷）。
+- **验证**（2026-10-10）：`typecheck` ✅ 0 · `scripts/lint-architecture.ts` ✅ 0 错 · `lint-file-size` ✅ 0 错 ·
+  `tests/{execution,security,sandbox,tools}` **925 pass / 0 fail**（99 文件）。

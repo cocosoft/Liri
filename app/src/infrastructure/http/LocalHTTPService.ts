@@ -35,6 +35,10 @@ import { dispatchRoute } from './handlers/route-table';
 // P3-1（2026-09-29）：A2A 委派后端装配（CoreAPI 对话轮，方案①）
 import { installA2ADelegator } from './handlers/routes/a2a-delegator';
 import {
+  maybeStartDiscoverySidecar,
+  stopDiscoverySidecar,
+} from './a2a/discoverySidecarLifecycle';
+import {
   verifyRequestAuth,
   seedKnowledgeBaseIfEmpty,
   startCompileScheduler,
@@ -268,6 +272,8 @@ export class LocalHTTPService {
    * 停止 HTTP 服务
    */
   async stop(): Promise<void> {
+    // ① P2（2026-10-10）：同步停止发现面 sidecar（开关关闭时为 no-op）
+    stopDiscoverySidecar();
     if (this.compileScheduler) {
       (this.compileScheduler as { stop(): void }).stop();
       this.compileScheduler = null;
@@ -498,6 +504,9 @@ export function getLocalHTTPService(): LocalHTTPService {
     // P3-1（2026-09-29）：**同步**装配 A2A 委派后端（CoreAPI 对话轮，方案①）。
     // 仅注入端口；端点是否可达仍由 `A2A_ENABLED` 门控（默认关闭）。
     installA2ADelegator();
+    // ① P2（2026-10-10）：按开关（默认关闭）拉起**独立进程**的只读发现面 sidecar。
+    // 失败不阻断（回退主进程路由）。
+    void maybeStartDiscoverySidecar(DEFAULT_HTTP_PORT);
   }
   return _localHTTPService;
 }

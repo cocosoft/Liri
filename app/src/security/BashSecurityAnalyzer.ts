@@ -10,7 +10,24 @@
 
 import { checkBashAllowlist } from './BashAllowlistMatcher';
 
-let nativeAnalyzeSave: ((command: string) => object | null) | null = null;
+/**
+ * 原生分析器句柄。**三态**：`undefined` = 未尝试加载；`null` = 加载失败/不可用；函数 = 可用。
+ *
+ * ⚠️ 第九轮审查 §十-1（2026-10-09，**缺陷 #1 的跨层同类**）：原实现把哨兵**初始化为 `null`**、
+ * 却用 `=== undefined` 判定 ⇒ 条件**恒假** ⇒ `lazyInitNative()` 永远直接返回 `null` ⇒
+ * **原生分析器从未被使用**（永远走 TS 降级），且 `getNativeStatus()` 因 `nativeDegraded` 默认
+ * `false` 而**谎报"未降级"**。此处与 `security/bash/BashAST.ts` 同款三态修正。
+ *
+ * 由 `app/tests/security/crossLayerSecurityConsistency.test.ts` 守护（专项 A #7）。
+ */
+let nativeAnalyzeSave: ((command: string) => object | null) | null | undefined;
+
+/** 原生加载是否失败（供可观测/测试；与 `BashAST` 的 `nativeLoadFailed` 同义） */
+let nativeLoadFailed = false;
+/** 原生分析被真实调用次数 */
+let nativeCallCount = 0;
+/** TS 降级分析次数 */
+let tsFallbackCount = 0;
 
 function lazyInitNative() {
   if (nativeAnalyzeSave === undefined) {
@@ -24,10 +41,12 @@ function lazyInitNative() {
             return null;
           }
         };
+        nativeLoadFailed = false;
         nativeDegraded = false;
         nativeDegradeReason = null;
       } else {
         nativeAnalyzeSave = null;
+        nativeLoadFailed = true;
         nativeDegraded = true;
         nativeDegradeReason = '原生模块导出缺少 analyzeBashCommand 函数';
         logger.warn('Rust原生安全分析器不可用，降级为TypeScript分析', {
@@ -36,6 +55,7 @@ function lazyInitNative() {
       }
     } catch (err) {
       nativeAnalyzeSave = null;
+      nativeLoadFailed = true;
       nativeDegraded = true;
       nativeDegradeReason = '原生模块加载失败';
       logger.warn('Rust原生安全分析器不可用，降级为TypeScript分析', {
@@ -44,6 +64,40 @@ function lazyInitNative() {
     }
   }
   return nativeAnalyzeSave;
+}
+
+/**
+ * 可观测统计（第九轮审查 §八：要求"调用次数与加载失败测试"；与 `getBashAstStats` 同形）。
+ *
+ * 契约：调用过一次 `analyze()` 后，`nativeLoaded || nativeLoadFailed` **必为真**
+ * （哨兵三态一旦被触达，要么成功加载、要么明确标记失败；不会两者皆假）。
+ */
+export function getBashAnalyzerStats(): {
+  nativeLoaded: boolean;
+  nativeLoadFailed: boolean;
+  nativeCallCount: number;
+  tsFallbackCount: number;
+  degraded: boolean;
+  degradeReason: string | null;
+} {
+  return {
+    nativeLoaded: typeof nativeAnalyzeSave === 'function',
+    nativeLoadFailed,
+    nativeCallCount,
+    tsFallbackCount,
+    degraded: nativeDegraded,
+    degradeReason: nativeDegradeReason,
+  };
+}
+
+/** 仅测试用：重置懒加载与统计 */
+export function resetBashAnalyzerForTest(): void {
+  nativeAnalyzeSave = undefined;
+  nativeLoadFailed = false;
+  nativeCallCount = 0;
+  tsFallbackCount = 0;
+  nativeDegraded = false;
+  nativeDegradeReason = null;
 }
 
 import type {
@@ -288,6 +342,7 @@ export class BashSecurityAnalyzer {
     // 尝试Rust原生安全分析作为第一遍检查
     const nativeAnalyze = lazyInitNative();
     if (nativeAnalyze) {
+      nativeCallCount += 1;
       try {
         const nativeResult = nativeAnalyze(trimmedCommand) as any;
         if (nativeResult) {
@@ -354,6 +409,7 @@ export class BashSecurityAnalyzer {
     }
 
     // TypeScript降级：完整分析
+    tsFallbackCount += 1;
     const result = this.runFullAnalysis(trimmedCommand);
     return this.applyAllowlistThenTrust(
       result,

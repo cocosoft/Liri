@@ -75,10 +75,28 @@
 | **碰撞样本**（#3） | ✅ `hashCommand('RM -RF /TMP/ABC') ≠ hashCommand('rm -rf /tmp/abc')`；`echo "a  b" ≠ echo "a b"` |
 | **env 覆盖样本**（#5） | ✅ `sanitizeCallerEnv({PATH,NODE_OPTIONS,MY_SECRET,FOO})` ⇒ 保留 `{FOO}`，stripped 3 键 |
 
+## 3.1 专项 A #7 —— 跨层安全回归测试（2026-10-10 补齐）
+
+> 任务单第 7 项原文：*"验证 Rust AST、TypeScript 分析、Guardrail、审批和实际 spawn 的最终决策一致"*。
+
+- **新增测试**：`app/tests/security/crossLayerSecurityConsistency.test.ts`（**17 例**）——
+  ① 两台原生桥（`BashAST` + `BashSecurityAnalyzer`）**哨兵一致性**；② 降级状态**诚实性**
+  （`getNativeStatus().degraded` 不得谎报）；③ 危险/良性命令**最终决策一致性矩阵**（任一层
+  报警 ⇒ 绝不静默放行；各层清白 ⇒ 不误伤）；附审批层与 A2 基线一致。
+- **⚠️ 该测试当场发现并修复一处确定缺陷（缺陷 #1 的跨层同类）**：
+  `security/BashSecurityAnalyzer.ts#lazyInitNative` 原为
+  `let nativeAnalyzeSave: … | null = null;` 却判 `=== undefined` ⇒ **条件恒假**
+  ⇒ 原生 `analyzeBashCommand` **从未加载**（恒走 TS 降级），且 `nativeDegraded` 默认 `false`
+  ⇒ `getNativeStatus()` **谎报"未降级"**。
+  **修复**：哨兵改三态（`undefined` 初始）+ 新增 `getBashAnalyzerStats()` / `resetBashAnalyzerForTest()`
+  （与 `getBashAstStats` 同形）；`analyze()` 记 `nativeCallCount` / `tsFallbackCount`。
+- **落点**：`app/src/security/BashSecurityAnalyzer.ts`。
+
 ## 4. 非目标 / 未做（如实）
 
 | 项 | 说明 |
 |---|---|
+| **专项 A #7 跨层安全回归测试** | ✅ **已补**（2026-10-10，见 §3.1），并**当场发现 + 修复** `BashSecurityAnalyzer` 哨兵缺陷 |
 | §七「3 个 Bash 开关默认关」 | ✅ **A2 已翻转为安全基线**（2026-10-09 用户裁定，见 `default-off-switches-review-gates.md §2.2`）；**A4/A5 维持默认关**（灰度 + 启用/回退条件/迁移期限 + `warnGraySecuritySwitchesOnce()` 一次性告警）。§七 的"自动断言"由 `lint:doc-code` 的 `SAFETY_SWITCHES` 承接（A2 仍保 `def:true` 断言，防静默翻回）。**单测**：`app/tests/tools/bashSecuritySwitchDefaults.test.ts`（**8 例**）—— 告警经「**构造 BashTool + 日志断言**」验证（**不扩大导出面**：只导出 `resetGraySwitchWarningForTest`，`warnGraySecuritySwitchesOnce` 保持模块私有） |
 | 缺陷 #3 的**跨平台大小写** | 修复后 Windows 下 `DIR`/`dir` 不再复用同一授权（**保守收紧**：多弹一次审批）；如需 Windows 大小写折叠，应**仅对可执行名**折叠（另立项） |
 | 影响面 | 本次改的是 `analyzable` 判据与审批键；**未**改 `DANGEROUS_COMMANDS` 等规则表 |

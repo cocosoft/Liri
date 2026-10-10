@@ -18,6 +18,13 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { createInterface } from 'readline';
 import { getLogger } from '@modules/monitoring';
+import {
+  SIDECAR_IPC_PROTOCOL_VERSION,
+  SIDECAR_STARTUP_TYPE,
+  encodeFrame,
+  decodeFrame,
+  isCompatibleVersion,
+} from '@modules/utils/sidecarIpc';
 const logger = getLogger('ai:python:jsonRpcBridge');
 
 /** 请求默认超时 (ms) */
@@ -25,8 +32,11 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 /** 默认启动超时 (ms) */
 const DEFAULT_STARTUP_TIMEOUT_MS = 10000;
 
-/** 桥接协议版本（PY-1 版本协商：initialize 响应带此版本，主进程校验 major 兼容） */
-export const BRIDGE_PROTOCOL_VERSION = 1;
+/**
+ * 桥接协议版本。① P1（2026-10-10）：**收敛到单一契约** —— 由 `@modules/utils/sidecarIpc`
+ * 提供（本处仅再导出，保持既有导出名不变）；sidecar IPC 分帧/版本/握手/心跳同一事实源。
+ */
+export const BRIDGE_PROTOCOL_VERSION = SIDECAR_IPC_PROTOCOL_VERSION;
 
 /** JSON-RPC 请求 */
 interface JsonRpcRequest {
@@ -147,19 +157,26 @@ export class JsonRpcBridge {
       const rl = createInterface({ input: this.process.stdout! });
 
       rl.on('line', (line: string) => {
-        let msg: Record<string, unknown>;
-        try {
-          msg = JSON.parse(line);
-        } catch {
-          // 非 JSON 行（如 Python 打印的调试输出），忽略（stdout 仅限协议帧约束）
-          return;
-        }
+        const msg = decodeFrame(line);
+        // 非 JSON / 非对象行（如 Python 打印的调试输出）⇒ 忽略（stdout 仅限协议帧约束）
+        if (!msg) return;
 
-        // 启动信号（子进程主动发，进程级就绪）
-        if (msg.type === 'startup') {
+        // 启动信号（子进程主动发，进程级就绪）+ ① P1 **版本协商**（缺省=legacy 兼容）
+        if (msg.type === SIDECAR_STARTUP_TYPE) {
+          if (!isCompatibleVersion(msg.protocolVersion)) {
+            // fail-closed：版本不兼容 ⇒ 拒绝启动并回收子进程（不静默继续）
+            fail(
+              new Error(
+                `Sidecar IPC 协议版本不兼容：worker=${String(msg.protocolVersion)} vs 主进程=${SIDECAR_IPC_PROTOCOL_VERSION}`
+              )
+            );
+            this.destroy();
+            return;
+          }
           this.started = true;
           logger.info('JsonRpcBridge · worker 已启动', {
             pid: msg.pid,
+            protocolVersion: msg.protocolVersion,
           });
           succeed();
           return;
@@ -248,7 +265,7 @@ export class JsonRpcBridge {
         timer,
       });
 
-      const line = JSON.stringify(req) + '\n';
+      const line = encodeFrame(req as unknown as Record<string, unknown>);
       this.process!.stdin!.write(line);
     });
   }
@@ -282,17 +299,16 @@ export class JsonRpcBridge {
     if (!this.options.onChildRequest || !this.process) return;
     try {
       const result = await this.options.onChildRequest(method, params);
-      const line = JSON.stringify({ id, success: true, result }) + '\n';
+      const line = encodeFrame({ id, success: true, result });
       this.process!.stdin!.write(line);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const line =
-        JSON.stringify({
-          id,
-          success: false,
-          error: { code: 'INTERNAL_ERROR', message },
-          errorCode: 'INTERNAL_ERROR',
-        }) + '\n';
+      const line = encodeFrame({
+        id,
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message },
+        errorCode: 'INTERNAL_ERROR',
+      });
       this.process!.stdin!.write(line);
     }
   }
@@ -305,7 +321,7 @@ export class JsonRpcBridge {
     if (!this.started || !this.process) {
       throw new Error('JsonRpcBridge: worker not started');
     }
-    const line = JSON.stringify({ type: 'notify', ...payload }) + '\n';
+    const line = encodeFrame({ type: 'notify', ...payload });
     this.process.stdin!.write(line);
   }
 

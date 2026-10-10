@@ -65,4 +65,12 @@ describe('buildSafePreview（R18-B 安全预览）', () => {
     expect(preview).toBe('X'.repeat(30)); // 止于空行，未切进第二段
     expect(preview.length).toBeLessThanOrEqual(40);
   });
+
+  it('结构感知（P0，2026-10-10）：不把预览切在未闭合结构中间', () => {
+    // 旧口径会在 'foo(' 之后切（括号未闭合）；P0 回退到结构闭合行 'bbbbbbb' 之后
+    const content = 'aaaaaaa\nbbbbbbb\nfoo(\nxxxxx\n';
+    const preview = buildSafePreview(content, 22);
+    expect(preview).toBe('aaaaaaa\nbbbbbbb');
+    expect(preview.includes('foo(')).toBe(false);
+  });
 });

@@ -43,6 +43,10 @@ function loadLibrary() {
         args: [FFIType.cstring],
         returns: FFIType.ptr,
       },
+      py_close_structure: {
+        args: [FFIType.cstring, FFIType.cstring],
+        returns: FFIType.ptr,
+      },
       py_free_rust_string: {
         args: [FFIType.ptr],
         returns: FFIType.void,
@@ -122,6 +126,23 @@ function loadLibrary() {
        */
       scanJsCalls(code) {
         const ptr = symbols.py_scan_js_calls(toBuffer(code));
+        const result = readCString(ptr);
+        return result ? JSON.parse(result) : null;
+      },
+
+      /**
+       * 结构闭合求解（Syntax-Aware Compactor · P1）。
+       * 规格：`dev_docs/20261010/AST语法觉知型上下文回收引擎-设计方案-20261010.md` §4。
+       * @param {string} code - 可能被截断的代码/文本
+       * @param {string} lang - 语言提示（'ts'/'js'/'py'/'text'…；未知按 text 处理）
+       * @returns {{ok:boolean, lang:string, balanced:boolean, openCount:number,
+       *            closureSuffix:string, openStack:string[]} | null}
+       */
+      closeStructure(code, lang) {
+        const ptr = symbols.py_close_structure(
+          toBuffer(code),
+          toBuffer(lang || "text")
+        );
         const result = readCString(ptr);
         return result ? JSON.parse(result) : null;
       },

@@ -14,6 +14,12 @@ import {
   sanitizeToolCallPairs,
 } from './toolPairIntegrity';
 import { getLogger } from '@modules/monitoring';
+// ② P2（2026-10-10）：单条截断的**结构闭环**（结构安全切点 + 原生闭合后缀；不可用 ⇒ 降级）
+import {
+  findStructuralCut,
+  closeStructure,
+  inferFenceLang,
+} from '@modules/utils/structureCut';
 const logger = getLogger('context:compaction:snip');
 
 export interface SnipEngineOptions {
@@ -55,6 +61,12 @@ const TRUNCATE_KEEP_HEAD_RATIO = 0.6;
  * P2-4（对标 deepseek-harness tool-result-pruner）：Unicode 码点安全头尾截断。
  * JS `slice` 按 UTF-16 单元切分，会切开 surrogate pair（emoji/生僻字变乱码）；
  * 本函数按 Unicode code point 切分，保留边界不拆代理对。
+ *
+ * **② P2（2026-10-10）：头部结构闭环** —— 用 `findStructuralCut` 取**结构安全切点**（括号净深 0、
+ * 不在未闭合围栏内），并**尽量补齐闭合后缀**（原生 `py_close_structure` 可用时）；原生不可用/
+ * 无安全点 ⇒ **退回原有硬切**（不劣化）。依据见 `dev_docs/20261010/AST语法觉知型上下文回收引擎-设计方案-20261010.md`
+ * §8.1（P2）与实测 `app/scripts/bench-truncation-closure.ts`（闭合率 3.8%~6.4% ⇒ 100%）。
+ *
  * @param content 原始内容
  * @returns 截断后内容（未超长时返回原串）
  */
@@ -63,7 +75,14 @@ function truncateUnicodeSafe(content: string): string {
   if (chars.length <= MAX_MESSAGE_CHARS) return content;
   const keepHead = Math.floor(MAX_MESSAGE_CHARS * TRUNCATE_KEEP_HEAD_RATIO);
   const keepTail = MAX_MESSAGE_CHARS - keepHead;
-  const head = chars.slice(0, keepHead).join('');
+  const headRaw = chars.slice(0, keepHead).join('');
+  // ② P2：头部结构安全切点（无安全点 ⇒ 退回 keepHead 硬切，`findStructuralCut` 自带该兜底）
+  const headCut = findStructuralCut(headRaw, keepHead);
+  let head = headRaw.slice(0, headCut);
+  const closure = closeStructure(head, inferFenceLang(head));
+  if (closure && !closure.balanced && closure.closureSuffix) {
+    head += closure.closureSuffix;
+  }
   const tail = chars.slice(chars.length - keepTail).join('');
   return (
     head +

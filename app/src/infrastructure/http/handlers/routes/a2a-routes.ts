@@ -461,6 +461,23 @@ async function runDelegation(
   return { completed: false, task: port.getTask(task.id) ?? task };
 }
 
+/**
+ * ① P3（2026-10-10）：**经 IPC 暴露的委派执行入口**（单一实现，CS01）。
+ *
+ * sidecar 收到 `POST /v1/a2a/tasks` 时**不**自建 CoreAPI（遵守 `channel-process-isolation §2-#3`），
+ * 而是经 P1 契约回主进程调用本函数 ⇒ 委派仍在**主进程内核**执行，sidecar 只做边缘转发。
+ *
+ * @param waitMs 省略 ⇒ 取 `A2A_DELEGATE_MAX_WAIT_MS`（与 REST 同口径）
+ */
+export async function runA2ADelegation(
+  message: string,
+  agentId: string | undefined,
+  waitMs?: number
+): Promise<{ completed: boolean; task: A2ATask }> {
+  const port = await getCoreAPI().getA2APort();
+  return runDelegation(port, message, agentId, waitMs ?? resolveMaxWaitMs());
+}
+
 /** `GET /v1/a2a/tasks/{id}` —— 任务回查（T4） */
 async function handleGetTask(
   req: http.IncomingMessage,

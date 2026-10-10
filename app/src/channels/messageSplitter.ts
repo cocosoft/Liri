@@ -32,6 +32,8 @@
  *   重开（每片自身围栏成对，Markdown 渲染不吞后续内容）。
  * - **内容无损**：各分片按序拼接，正文行序列与原内容一致（补的围栏除外）。
  */
+import { bracketDelta } from '@modules/utils/structureCut';
+
 const FENCE = '```';
 const FENCE_RE = /^\s*```/;
 
@@ -122,16 +124,6 @@ export function splitMessage(content: string, maxLen: number): string[] {
   }
 
   return out;
-}
-
-/** 轻量括号净增量：`{ [ (` +1，`} ] )` −1（不解析字符串/注释） */
-function bracketDelta(line: string): number {
-  let d = 0;
-  for (const ch of line) {
-    if (ch === '{' || ch === '[' || ch === '(') d++;
-    else if (ch === '}' || ch === ']' || ch === ')') d--;
-  }
-  return d;
 }
 
 /** 把超长单行按字符硬切成 ≤ maxLen 的片段（无围栏语义） */

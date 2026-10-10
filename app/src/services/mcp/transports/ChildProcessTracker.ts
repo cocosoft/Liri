@@ -23,8 +23,14 @@ interface TrackedProcess {
 /** 活跃子进程列表 */
 const activeProcesses: TrackedProcess[] = [];
 
-/** 孤儿进程列表（正常 disconnect 后仍存活的） */
-const orphanProcesses: Set<number> = new Set();
+/**
+ * 孤儿进程列表（正常 disconnect 后仍存活的）。
+ *
+ * ① P0（2026-10-10）：原为 `Set<number>`（**仅存 PID**）⇒ 回收时 `activeProcesses.find(pid)`
+ * 必然为空（`untrackByPid` 已把它从活跃表移除）⇒ 孤儿**永远无法被回收**（名义存在）。
+ * 现改为 `Map<pid, TrackedProcess>` **保留 ChildProcess 引用** ⇒ 两阶段终止可真正生效。
+ */
+const orphanProcesses = new Map<number, TrackedProcess>();
 
 /**
  * 注册一个子进程
@@ -56,12 +62,17 @@ export function untrackProcess(process: ChildProcess): void {
   const pid = process.pid;
   if (!pid) return;
 
+  // 先取回追踪条目（含 serverName），再移除活跃登记
+  const entry = activeProcesses.find((p) => p.pid === pid);
   untrackByPid(pid);
 
-  // 探测进程是否仍存活 → 标记为孤儿
+  // 探测进程是否仍存活 → 标记为孤儿（保留引用以便后续回收）
   try {
     process.kill(0); // signal 0 仅探测
-    orphanProcesses.add(pid);
+    orphanProcesses.set(
+      pid,
+      entry ?? { process, serverName: 'unknown', pid, createdAt: Date.now() }
+    );
     logger.warn(
       `MCP child process PID ${pid} still alive after kill, marked orphan`
     );
@@ -95,11 +106,15 @@ function twoPhaseKill(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     let resolved = false;
+    // ⚠️ ① P0（2026-10-10）：`sigkillTimer` 必须**先声明**再被 `finish` 引用 ——
+    // 否则 `proc.kill('SIGTERM')` 同步抛错时 `finish(false)` 会命中 TDZ（ReferenceError）。
+    // 该缺陷此前不可达（`killOrphanedProcesses` 全仓零调用点），接线后即成真实路径。
+    let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 
     const finish = (exited: boolean) => {
       if (resolved) return;
       resolved = true;
-      clearTimeout(sigkillTimer);
+      if (sigkillTimer) clearTimeout(sigkillTimer);
       resolve(exited);
     };
 
@@ -115,7 +130,7 @@ function twoPhaseKill(
     proc.once('exit', () => finish(true));
 
     // Phase 2 & 3: 等待后 SIGKILL
-    const sigkillTimer = setTimeout(() => {
+    sigkillTimer = setTimeout(() => {
       try {
         proc.kill(0); // 探测
         // 还活着 → SIGKILL
@@ -156,11 +171,10 @@ export async function killOrphanedProcesses(
     targets.push(...activeProcesses);
   }
 
-  // 清理孤儿进程
-  for (const pid of orphanProcesses) {
-    const tracked = activeProcesses.find((p) => p.pid === pid);
-    if (tracked && (!serverName || tracked.serverName === serverName)) {
-      targets.push(tracked);
+  // 清理孤儿进程（① P0：保留引用 ⇒ 可直接两阶段回收）
+  for (const entry of orphanProcesses.values()) {
+    if (!serverName || entry.serverName === serverName) {
+      targets.push(entry);
     }
   }
 
@@ -198,7 +212,7 @@ export function getActiveProcessCount(): number {
  * 获取孤儿进程 PID 列表
  */
 export function getOrphanPids(): number[] {
-  return Array.from(orphanProcesses);
+  return Array.from(orphanProcesses.keys());
 }
 
 /**

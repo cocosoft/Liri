@@ -9,7 +9,21 @@ export interface NativeLib {
   estimateCompressionRatio(messagesJson: string): number;
   /** 读取文件并自动检测编码（UTF-8 / GBK / GB18030） */
   readFileWithEncoding(filePath: string): FileReadResult;
+  /** 结构闭合求解（Syntax-Aware Compactor · P1）：返回使前缀结构闭合所需的后缀 */
+  closeStructure(code: string, lang: string): StructureClosure;
   freeRustString(ptr: unknown): void;
+}
+
+/** 结构闭合求解结果（`py_close_structure`） */
+export interface StructureClosure {
+  ok: boolean;
+  lang: string;
+  balanced: boolean;
+  openCount: number;
+  /** 使前缀闭合所需的后缀（如 `) }` 反转后的 `} )`），已闭合为空串 */
+  closureSuffix: string;
+  /** 未配对的开括号栈 */
+  openStack: string[];
 }
 
 export interface FileReadResult {

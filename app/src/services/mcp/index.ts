@@ -373,6 +373,23 @@ export class MCPSystem {
       await getMCPServerManager().closeAll();
       await mcpConnectionManager.closeAll();
 
+      // ① P0（2026-10-10）：**孤儿兜底接线** —— 全局两阶段回收（SIGTERM → 2s → SIGKILL）
+      // 追踪到、但未被逐条 close 的 stdio 子进程。此前 `killOrphanedProcesses` 全仓**零调用点**
+      // ⇒ 名义存在但**从未启用**（异常路径下 stdio 子进程可残留）。见
+      // `dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md` §8.1（P0）。
+      // 双轨边界（如实）：本兜底覆盖**自研轨**（`StdioTransport` → `trackProcess`）；
+      // **SDK 轨**（`client.ts` 的 `StdioClientTransport`）未接入本追踪器，其子进程由
+      // `mcpConnectionManager.closeAll()` 逐条 `client.close()` 承接（收敛另见
+      // `.trae/specs/mcp-client-dual-track-convergence-assessment.md`）。
+      const { killOrphanedProcesses } =
+        await import('./transports/ChildProcessTracker');
+      const reaped = await killOrphanedProcesses(true);
+      if (reaped.killed > 0 || reaped.failed > 0) {
+        logger.warn(
+          `MCP cleanup 兜底回收子进程: killed=${reaped.killed} failed=${reaped.failed}`
+        );
+      }
+
       // 清理命令和资源
       getCommandManager().clear();
       resourceManager.clear();

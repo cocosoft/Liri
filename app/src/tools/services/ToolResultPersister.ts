@@ -12,6 +12,11 @@
  */
 import { resolveDataSubDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
+import {
+  findStructuralCut,
+  closeStructure,
+  inferFenceLang,
+} from '@modules/utils/structureCut';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 
@@ -37,23 +42,23 @@ export function buildPathRefNotice(path: string): string {
  * 截成残缺（= 语法盲截断，外部 §6.3 之关切在本仓的**真实落点**）。
  *
  * 策略（只在末尾回退/追加，**不改动**已保留正文）：
- *   ① 优先在 `limit` 之前**最后一个换行**处切断（行边界），避免切断行内代码/标记；
+ *   ① 切点经**结构感知**求解（`findStructuralCut`：括号净深度 0 且不在未闭合围栏内）——
+ *      优先空行/块边界，其次行边界，结构无安全点时退回既有"行边界优先"口径；
  *   ② 若预览内 ``` 围栏数为**奇数**（截在围栏内）⇒ 补一行 ``` 收尾，防 Markdown 吞掉后续引用文案。
- * 换行过靠前（< limit/2）时退回硬切，避免预览过短。
+ *
+ * P0（2026-10-10）：切点从"仅行/块边界"升级为"括号 + 围栏感知"，**默认不劣化**既有行为
+ * （结构无安全点时退回原口径）；"补齐闭括号后缀"属 P1。
  */
 export function buildSafePreview(text: string, limit = PREVIEW_CHARS): string {
   if (text.length <= limit) return text;
-  const window = text.slice(0, limit);
-  // R18-C：优先**空行**（段落/块边界，结构最完整）→ 次选**行边界** → 最后才硬切。
-  const blank = window.lastIndexOf('\n\n');
-  const nl = window.lastIndexOf('\n');
-  const cut =
-    blank >= Math.floor(limit * 0.4)
-      ? blank
-      : nl >= Math.floor(limit * 0.5)
-        ? nl
-        : limit;
+  const cut = findStructuralCut(text, limit);
   let preview = text.slice(0, cut);
+  // P1（2026-10-10）：**结构闭合后缀** —— 原生 `py_close_structure` 可用时，为未配对括号补齐
+  // 闭括号（`}`/`]`/`)`），使预览在语法上闭环。原生不可用 ⇒ 降级 P0（**不追加**，零行为变更）。
+  const closure = closeStructure(preview, inferFenceLang(preview));
+  if (closure && !closure.balanced && closure.closureSuffix) {
+    preview += closure.closureSuffix;
+  }
   const fences = (preview.match(/```/g) ?? []).length;
   if (fences % 2 === 1) preview += '\n```';
   return preview;

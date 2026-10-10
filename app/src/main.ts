@@ -1623,7 +1623,24 @@ export async function launch(options: LaunchOptions): Promise<void> {
         await import('@modules/execution');
       const executionManager = getExecutionManager();
       executionManager.attachStore(getExecutionStore());
-      await executionManager.recover();
+      const recovery = await executionManager.recover();
+      // P0-4（2026-10-10，`.trae/specs/unknown-tool-call-recovery.md`）：恢复期存在**副作用不可知**
+      // 的工具调用（`unknown`）时，按工具幂等性分类 —— 非幂等/未声明 ⇒ **禁止自动重放**（需人工/补偿）。
+      // 组合根是 import `@modules/tools` 的合法位置（`execution` 属 service 层，不得反向依赖 app）。
+      if (recovery.unknownToolCalls.length > 0) {
+        const { resolveToolRecoveryPolicy } = await import('@modules/tools');
+        const manualRequired = recovery.unknownToolCalls.filter(
+          (c) => resolveToolRecoveryPolicy(c.toolName) !== 'retryable'
+        );
+        logger.warn('恢复期存在副作用不可知的工具调用（unknown）', {
+          total: recovery.unknownToolCalls.length,
+          autoReplayAllowed:
+            recovery.unknownToolCalls.length - manualRequired.length,
+          manualRequired: manualRequired.length,
+          // 仅记工具名（去重），不记参数（可能含敏感值）
+          manualTools: [...new Set(manualRequired.map((c) => c.toolName))],
+        });
+      }
       // PR4 遗留-⑨（2026-10-09，`.trae/specs/dedup-message-state.md`）：去重**处理态落盘** +
       // 启动期 hydrate —— 跨重启仍能阻断同 `messageId` 的渠道重传（防重启窗口内重复计费）。
       // 写盘为 best-effort；未接入 ⇒ 纯内存（默认零行为变更）。

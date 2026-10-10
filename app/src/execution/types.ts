@@ -108,3 +108,26 @@ export interface ExecutionRecord {
   updatedAt: number;
   heartbeatAt: number;
 }
+
+/**
+ * P0-4（`.trae/specs/unknown-tool-call-recovery.md`）：恢复期被判 `unknown` 的工具调用。
+ *
+ * 语义：崩溃时该次工具调用的**外部副作用是否已发生不可知**（既非成功也非失败）。
+ * 调用方（组合根）据工具幂等性（`resolveToolRecoveryPolicy`）判定可否**自动重放**；
+ * 非幂等 / 未声明 ⇒ **禁止自动重放**。
+ */
+export interface RecoveredUnknownToolCall {
+  executionId: ExecutionId;
+  sessionId: string;
+  toolName: string;
+}
+
+/** `ExecutionManager.recover()` 结果 */
+export interface RecoveryResult {
+  /** 被判孤儿（STALE + generation++）的执行数 */
+  recovered: number;
+  /** 心跳不陈旧而保留（`foreignActive`）的执行数 */
+  kept: number;
+  /** 恢复期被判 `unknown` 的工具调用（副作用不可知；P0-4） */
+  unknownToolCalls: RecoveredUnknownToolCall[];
+}

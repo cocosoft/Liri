@@ -247,6 +247,7 @@ describe('专项 C-④ 记录 ↔ 事件交叉故障', () => {
     await expect(m2.recover({ staleMs: 90_000 })).resolves.toEqual({
       recovered: 0,
       kept: 0,
+      unknownToolCalls: [],
     });
     s2.close();
   });
@@ -266,6 +267,7 @@ describe('专项 C-④ 记录 ↔ 事件交叉故障', () => {
     await expect(m.recover({ staleMs: 90_000 })).resolves.toEqual({
       recovered: 0,
       kept: 0,
+      unknownToolCalls: [],
     });
     // 不凭空造执行
     expect(await s2.getExecution(eid('orphan-event-exec'))).toBeNull();
@@ -289,13 +291,25 @@ describe('专项 C-⑤ 重复回放：幂等，不重复抬升/执行', () => {
     const m = new ExecutionManager();
     m.attachStore(store);
 
-    const all = [] as Array<{ recovered: number; kept: number }>;
+    const all = [] as Array<{
+      recovered: number;
+      kept: number;
+      unknownToolCalls: unknown[];
+    }>;
     for (let i = 0; i < 5; i++) all.push(await m.recover({ staleMs: 90_000 }));
 
     // 仅第一次有效（后续已不在 listActive）
-    expect(all[0]).toEqual({ recovered: 1, kept: 0 });
+    expect(all[0]).toEqual({
+      recovered: 1,
+      kept: 0,
+      unknownToolCalls: [],
+    });
     expect(all.slice(1)).toEqual(
-      Array.from({ length: 4 }, () => ({ recovered: 0, kept: 0 }))
+      Array.from({ length: 4 }, () => ({
+        recovered: 0,
+        kept: 0,
+        unknownToolCalls: [],
+      }))
     );
     const row = await store.getExecution(eid('exec-c5'));
     expect(row?.status).toBe('STALE');
@@ -347,7 +361,14 @@ describe('专项 C-⑦ 会话隔离：并发会话不串线', () => {
     const m = new ExecutionManager();
     m.attachStore(store);
     const report = await m.recover({ staleMs: 90_000 });
-    expect(report).toEqual({ recovered: 1, kept: 1 });
+    expect(report).toEqual({
+      recovered: 1,
+      kept: 1,
+      // A 的未结算工具调用被判 unknown（B 为 kept ⇒ 其工具仍 running，不入列）
+      unknownToolCalls: [
+        { executionId: 'exec-A', sessionId: 'sess-A', toolName: 'BashTool' },
+      ],
+    });
 
     // A 被 STALE、工具 unknown；B 保持 RUNNING、工具仍 running（未被误伤）
     expect((await store.getExecution(eid('exec-A')))?.status).toBe('STALE');
@@ -435,6 +456,7 @@ describe('专项 C-⑧ 旧数据兼容：迁移/恢复不崩、可安全处理',
     await expect(m.recover({ staleMs: 90_000 })).resolves.toEqual({
       recovered: 0,
       kept: 0,
+      unknownToolCalls: [],
     });
     expect((await s2.getExecution(eid('exec-legacy-status')))?.status).toBe(
       'LEGACY_RUNNING'

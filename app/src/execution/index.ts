@@ -17,6 +17,9 @@ export type {
   ExecutionId,
   ExecutionRecord,
   ExecutionStatus,
+  // P0-4（2026-10-10）：恢复期 unknown 工具调用 + recover() 结果
+  RecoveredUnknownToolCall,
+  RecoveryResult,
 } from './types';
 export {
   ExecutionAbortedError,

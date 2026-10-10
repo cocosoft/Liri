@@ -100,7 +100,11 @@ describe('PR5-S2 写穿', () => {
 
   it('未接入 store ⇒ recover 为 no-op', async () => {
     const m = new ExecutionManager();
-    expect(await m.recover()).toEqual({ recovered: 0, kept: 0 });
+    expect(await m.recover()).toEqual({
+      recovered: 0,
+      kept: 0,
+      unknownToolCalls: [],
+    });
   });
 });
 
@@ -157,6 +161,55 @@ describe('PR5-S2 启动期恢复（⑩）', () => {
     const row = await store.getExecution(eid('fresh-1'));
     expect(row?.status).toBe('RUNNING');
     expect(row?.generation).toBe(2);
+  });
+
+  it('P0-4：恢复带出 unknownToolCalls（未结算工具调用；副作用不可知）', async () => {
+    const store = makeStore();
+    const old = Date.now() - 10 * 60 * 1000;
+    await store.upsertExecution({
+      executionId: eid('orphan-tc'),
+      sessionId: 's-tc',
+      generation: gen(1),
+      status: 'RUNNING',
+      startedAt: old,
+      updatedAt: old,
+      heartbeatAt: old,
+    });
+    // 未结算的工具调用（ended_at IS NULL ⇒ 恢复时被判 unknown）
+    await store.recordToolCall(eid('orphan-tc'), 'tc-1', 'file_write');
+
+    const m = new ExecutionManager();
+    m.attachStore(store);
+    const report = await m.recover({ staleMs: 90_000 });
+
+    expect(report.unknownToolCalls).toEqual([
+      {
+        executionId: eid('orphan-tc'),
+        sessionId: 's-tc',
+        toolName: 'file_write',
+      },
+    ]);
+    // 该工具调用终态为 unknown（既非成功也非失败）
+    const calls = await store.listToolCalls(eid('orphan-tc'));
+    expect(calls[0]?.status).toBe('unknown');
+  });
+
+  it('P0-4：无未结算工具调用 ⇒ unknownToolCalls 为空', async () => {
+    const store = makeStore();
+    const old = Date.now() - 10 * 60 * 1000;
+    await store.upsertExecution({
+      executionId: eid('orphan-none'),
+      sessionId: 's-none',
+      generation: gen(1),
+      status: 'RUNNING',
+      startedAt: old,
+      updatedAt: old,
+      heartbeatAt: old,
+    });
+    const m = new ExecutionManager();
+    m.attachStore(store);
+    const report = await m.recover({ staleMs: 90_000 });
+    expect(report.unknownToolCalls).toEqual([]);
   });
 
   it('恢复写入 execution_events 审计（action=stale）', async () => {

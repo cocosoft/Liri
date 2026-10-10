@@ -22,6 +22,8 @@ import {
   type ExecutionId,
   type ExecutionRecord,
   type ExecutionStatus,
+  type RecoveryResult,
+  type RecoveredUnknownToolCall,
 } from './types';
 
 const logger = getLogger('execution:manager');
@@ -396,18 +398,22 @@ export class ExecutionManager {
    * - 按 store 抬高内存 `lastGeneration`，使新执行的代次**严格大于**恢复前
    *   （跨重启 fencing 不回退）。
    *
-   * 未接入 store ⇒ no-op（`{recovered:0, kept:0}`）。
+   * 未接入 store ⇒ no-op（`{recovered:0, kept:0, unknownToolCalls:[]}`）。
+   *
+   * P0-4（2026-10-10）：返回值新增 `unknownToolCalls` —— 恢复期被判 `unknown` 的工具调用
+   * （**副作用不可知**）。组合根据此按工具幂等性（`resolveToolRecoveryPolicy`）判定可否
+   * **自动重放**（非幂等/未声明 ⇒ 禁止），避免"库恢复正常但外部世界已重复操作"。
    */
-  async recover(opts?: {
-    staleMs?: number;
-  }): Promise<{ recovered: number; kept: number }> {
+  async recover(opts?: { staleMs?: number }): Promise<RecoveryResult> {
     const store = this.store;
-    if (!store) return { recovered: 0, kept: 0 };
+    if (!store) return { recovered: 0, kept: 0, unknownToolCalls: [] };
     const staleMs = opts?.staleMs ?? resolveHeartbeatStaleMs();
     const now = Date.now();
     const active = await store.listActive();
     let recovered = 0;
     let kept = 0;
+    // P0-4：恢复期被判 unknown 的工具调用（副作用不可知）—— 供组合根按幂等性判定可否重放
+    const unknownToolCalls: RecoveredUnknownToolCall[] = [];
     for (const rec of active) {
       if (now - rec.heartbeatAt <= staleMs) {
         kept++;
@@ -437,6 +443,20 @@ export class ExecutionManager {
       const unsettledToolCalls = await store.markUnsettledToolCallsUnknown(
         rec.executionId
       );
+      // P0-4：收集被判 `unknown` 的工具调用（副作用不可知），供组合根按**幂等性**判定可否重放。
+      // 这也是 `ExecutionStore.listToolCalls` 的**生产消费点**（此前仅测试引用 ⇒ 死 API）。
+      if (unsettledToolCalls > 0) {
+        const calls = await store.listToolCalls(rec.executionId);
+        for (const call of calls) {
+          if (call.status === 'unknown') {
+            unknownToolCalls.push({
+              executionId: rec.executionId,
+              sessionId: rec.sessionId,
+              toolName: call.toolName,
+            });
+          }
+        }
+      }
       const ok = await store.markStale(rec.executionId, newGen);
       if (ok) {
         recovered++;
@@ -466,8 +486,13 @@ export class ExecutionManager {
         this.lastGeneration.set(sid, maxGen);
       }
     }
-    logger.info('execution recovery 完成', { recovered, kept, staleMs });
-    return { recovered, kept };
+    logger.info('execution recovery 完成', {
+      recovered,
+      kept,
+      unknownToolCalls: unknownToolCalls.length,
+      staleMs,
+    });
+    return { recovered, kept, unknownToolCalls };
   }
 
   // ── 内部 ──

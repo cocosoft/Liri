@@ -141,6 +141,38 @@ export function shouldBlindRetryTool(name: string): boolean {
 /** 供门禁/测试断言的声明总数（漂移守护：只增不减，新增工具必须显式声明） */
 export const TOOL_EFFECTS_COUNT = Object.keys(TOOL_EFFECTS).length;
 
+/**
+ * 工具调用**恢复策略**（P0-4，`.trae/specs/unknown-tool-call-recovery.md`）。
+ *
+ * 用途：崩溃恢复后对 `tool_calls.status='unknown'`（**副作用是否已发生不可知**）的处置判定。
+ *
+ * - `retryable`：幂等 ⇒ 可安全重放；
+ * - `manual`：非幂等 / **未声明** ⇒ **禁止自动重放**，须人工确认或补偿。
+ *
+ * 边界（CS03）：外部审查建议的第三档「**可查询远端**」**本版不实现** —— 无任一内置工具声明了
+ * 通用的"远端状态查询"能力（实现即投机扩展）；触发条件已登记于 spec §2。
+ */
+export type ToolRecoveryPolicy = 'retryable' | 'manual';
+
+/**
+ * 由「幂等性」推导恢复策略（**纯函数**；与 `shouldBlindRetryTool` 同源）。
+ *
+ * 未声明（MCP / 插件）⇒ `manual`（保守：无法证明幂等 ⇒ **不自动重放**）。
+ */
+export function resolveToolRecoveryPolicy(name: string): ToolRecoveryPolicy {
+  return resolveToolEffect(name)?.idempotent === true ? 'retryable' : 'manual';
+}
+
+/**
+ * 崩溃恢复后，对某工具调用（状态 `unknown`）**是否允许自动重放**。
+ *
+ * 仅幂等工具可自动重放；其余（含未声明）一律返回 `false` ⇒ 交由人工/补偿处理
+ * （避免"数据库恢复正常但外部世界已重复操作"这一隐蔽错误）。
+ */
+export function canReplayAfterUnknown(name: string): boolean {
+  return resolveToolRecoveryPolicy(name) === 'retryable';
+}
+
 /** 一次**已发生**的工具调用（判定「重试」所需的最小历史；由调用方提供） */
 export interface PriorToolCall {
   toolName: string;

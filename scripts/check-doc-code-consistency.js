@@ -180,6 +180,18 @@ const SAFETY_SWITCHES = [
     { name: 'BASH_APPROVAL_STRICT', def: false, why: '批准严格模式（禁用命令名级放行）须显式开启' },
     // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
     { name: 'EXECUTION_TWO_PHASE_CANCEL', def: false, why: '两段式取消（未确认则保留 lease）须显式开启' },
+    // P0-3（2026-10-10）：code_run 深扫未完成即拒绝（默认关 = 保留既有"深扫不可用 ⇒ 跳过"行为）
+    {
+        name: 'CODE_RUN_DEEP_SCAN_STRICT',
+        def: false,
+        why: 'code_run 深扫未完成须显式收紧；默认关时由结果 `scanStatus` 可观测承载"未扫描 ≠ 通过"（P0-3）',
+    },
+    // P0-2（2026-10-10）：客户端 /v1/chat/stream 接入 Execution（默认关 = 零行为变更）
+    {
+        name: 'CLIENT_STREAM_EXECUTION',
+        def: false,
+        why: '客户端流式入口接入 Execution（写前记账 + 工具 fail-closed）须显式开启；默认关 = 该入口不记账/不拒绝（P0-2）',
+    },
 ];
 
 /** 由清单派生的断言（避免 11 条近重复手写条目） */

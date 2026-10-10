@@ -313,6 +313,30 @@ export const FEATURE_FLAGS = {
    */
   EXECUTION_TWO_PHASE_CANCEL: false,
 
+  // ───── 安全姿态（P0-3，2026-10-10；默认关 = 零行为变更的灰度开关）─────
+  /**
+   * P0-3：**code_run 深扫未完成即拒绝**（默认关）。
+   *
+   * 开 ⇒ SWC 原生 CallExpression 深扫**未执行/失败**（`scanStatus='skipped'|'failed'`）时，
+   * code_run **不落入 ALLOW**，按 fail-closed **拒绝**（`security-rejected`）。
+   * 关（默认）⇒ 保留既有"深扫不可用 ⇒ 跳过"行为（但结果**如实带出 `scanStatus`**，可观测）。
+   * 背景：深扫不可用时旧行为等价于把 `INDETERMINATE` 折叠为 `ALLOW`（fail-open 盲区）。
+   * `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true`。
+   */
+  CODE_RUN_DEEP_SCAN_STRICT: false,
+
+  // ───── 客户端流式接入 Execution（P0-2，2026-10-10；默认关 = 零行为变更的灰度开关）─────
+  /**
+   * P0-2：**客户端 `/v1/chat/stream` 接入 Execution 生命周期**（默认关）。
+   *
+   * 开 ⇒ SSE 入口 `acquire(sessionId)` 注入 `executionId`，与渠道路径**同一记账链路**
+   * （`ChatManager` 工具执行前 `await beginToolCall()` ⇒ **写前记账 + fail-closed**，
+   * 落盘失败即拒绝该工具），并按终态 `complete`/`fail` 结算。
+   * 关（默认）⇒ 不 acquire、不注入、不记账、不拒绝（与既有行为完全一致）。
+   * `FEATURE_CLIENT_STREAM_EXECUTION=true`。
+   */
+  CLIENT_STREAM_EXECUTION: false,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,

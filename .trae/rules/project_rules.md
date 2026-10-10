@@ -38,7 +38,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > —— 任一侧改单边即 **CI 阻断**（防「误翻转安全开关」静默改变安全姿态）。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**15 项**（2026-10-09 起；A2/A4/A5 新增 `BASH_APPROVED_REVALIDATE` / `BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` 三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL` 一个默认关的 Execution 取消语义灰度开关）。
+> 清单规模：**17 项**（2026-10-10 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`**）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
@@ -57,6 +57,8 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `BASH_INTERPRETER_GUARD` | `false` | 高能力**解释器命令**人工确认（node/bun/npm/python/pwsh 等；A4） | `FEATURE_BASH_INTERPRETER_GUARD=true` | §2-#8 |
 | `BASH_APPROVAL_STRICT` | `false` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5） | `FEATURE_BASH_APPROVAL_STRICT=true` | §2-#9 |
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
+| `CODE_RUN_DEEP_SCAN_STRICT` | `false` | code_run **深扫未完成即拒绝**（SWC 原生 CallExpression 深扫 `skipped`/`failed` ⇒ `security-rejected`；**默认关时保留"跳过"行为但结果带出 `scanStatus`**；P0-3） | `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true` | §2-#12 |
+| `CLIENT_STREAM_EXECUTION` | `false` | 客户端 `/v1/chat/stream` **接入 Execution**（SSE 入口 `acquire` + 注入 `executionId` ⇒ 工具写前记账 + fail-closed；终态 `complete`/`fail`；P0-2） | `FEATURE_CLIENT_STREAM_EXECUTION=true` | §2-#13 |
 
 > **「触发条件」列口径（2026-10-09）**：`§2-#N` 指向「**默认关项 · 触发条件登记表**」[`default-off-switches-review-gates.md §2`](../specs/default-off-switches-review-gates.md) 的第 N 行（含**可观测信号 + 阈值 + 窗口 + 复评节奏**）；`—` = **默认开**（无"何时重开"之问）。本列**只放指针**，**不把散文触发条件塞进规则表**（见 `development-workflow.md §2.14 规则 5` / R12-1）。登记完整性由 `bun run lint:doc-code` 断言（`scripts/check-doc-code-consistency.js` 的 `REGISTRATION_ASSERTIONS`）**强制** —— 新增默认关项而漏登记即 CI 阻断。
 
@@ -331,6 +333,8 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 ---
 
 ## §2 版本历史
+- **v7.25.0**: §1.4 安全开关清单 **16 → 17 项**，新增 **`CLIENT_STREAM_EXECUTION`**（默认 `false`）—— 承接 **P0-2**（客户端 `/v1/chat/stream` 接入 Execution 生命周期）：开 ⇒ SSE 入口 `acquire(sessionId)` 注入 `executionId`，与渠道路径**同一记账链路**（工具执行前 `await beginToolCall()` ⇒ 写前记账 + fail-closed），终态 `complete`/`fail`；关（默认）⇒ 零行为变更。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（16 → 17）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#13`。设计见 [`.trae/specs/client-stream-execution.md`](../specs/client-stream-execution.md)
+- **v7.24.0**: §1.4 安全开关清单 **15 → 16 项**，新增 **`CODE_RUN_DEEP_SCAN_STRICT`**（默认 `false`）—— 承接 **P0-3**（统一安全决策词汇 + 消除 `INDETERMINATE → ALLOW` 折叠）：code_run 的 SWC 原生 CallExpression **深扫未执行/失败**（`scanStatus='skipped'|'failed'`）时，开 ⇒ 按 fail-closed **拒绝**（`security-rejected`），关（默认）⇒ 保留既有"跳过"行为但结果**如实带出 `scanStatus`**（可观测，未扫描 ≠ 通过）。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（15 → 16）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#12`。设计见 [`.trae/specs/security-decision-verdict.md`](../specs/security-decision-verdict.md)
 - **v7.23.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 默认 `false` → `true`**（**安全基线**；第九轮审查 §七 用户裁定）—— 关闭时"已批准命令**跳过整套安全拦截层**"，与审批哈希语义问题叠加风险最高。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（`def: true`，防静默翻回）+ 本文表（触发条件列改 `—`）。`BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` **维持默认关**（灰度；启用条件/回滚/迁移期限见 `default-off-switches-review-gates.md`）
 - **v7.22.0**: §1.4 安全开关表新增 **「触发条件（何时重开）」列** —— 默认关项以 `§2-#N` **指针**指向新建的单一事实源登记表 [`.trae/specs/default-off-switches-review-gates.md`](../specs/default-off-switches-review-gates.md)（含**可观测信号 + 阈值 + 窗口 + 复评节奏**；默认开项为 `—`）。**本列只放指针，不把散文触发条件塞进规则表**。配套：新增 CI 断言 `REGISTRATION_ASSERTIONS`（`check-doc-code-consistency.js`，断言 23 → **35**）**强制"默认关项必须有登记"**（防"永久搁置"，`development-workflow.md §2.14 规则 5` / **R12-1**）。**默认值/生效语义/回退方式三列不变**（`SAFETY_SWITCHES` 断言不受影响）
 - **v7.21.0**: §1.4 安全开关表 **`SANDBOX` 行语义订正（如实）** —— 该 flag **全仓无读取点**（仅出现在 flag 注册表 `featureflags/index.ts` 的 legacy 映射）；**实际驱动 bash / code_run 沙箱的是 `sandbox.landlock.{enabled,bashEnabled}`**（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25）。**默认值与 `SAFETY_SWITCHES` 断言不变**（仅订正文档语义，`lint:doc-code` 通过）；台账 **L-19**

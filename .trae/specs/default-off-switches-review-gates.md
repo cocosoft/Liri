@@ -42,6 +42,8 @@
 | 9 | `BASH_APPROVAL_STRICT` | false | ① **真实事件**：**同名不同参**被命令名级放行（观测 O1-B3）；② 与 #7/#8 同批复评（三者构成 Bash 安全姿态一组） | 与 #7/#8 同批 | `featureFlags.ts:299` · `project_rules.md:58` |
 | 10 | `EXECUTION_TWO_PHASE_CANCEL` | false | ① **真实事件**：取消后底层仍写入/产生副作用（取消不彻底）；② 并发下出现"取消即释放 ⇒ 双跑/重复计费" | 事件 / 季度 | `featureFlags.ts:310` · `execution-lifecycle-ownership.md:158` |
 | 11 | `SELF_VERIFY_PATTERN` | false | 须**同时**满足：① `verify` 意图命中 **≥20 会话**（观测 O5）；② 开启后 A/B 显示质量提升**可量化**；③ 重试增量**可接受**（建议 ≤10%） | 埋点落地后下一季度 | `pattern-wiring-closure.md §9-3` |
+| 12 | `CODE_RUN_DEEP_SCAN_STRICT` | false | ① **真实事件**：深扫不可用（原生模块缺失 / 平台缺库）期间出现**危险调用漏检**；② 原生深扫在**目标交付环境**稳定可用（`scanStatus='ran'` 比例达 100%）；③ 用户要求"code_run 深扫必须完成" | 事件 / 与 P0-3 联动 | `featureFlags.ts:326` · `.trae/specs/security-decision-verdict.md` |
+| 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
 
 **未列入（如实边界）**：`iterative_refine` / `parallel_distributed` 的**装配触发条件**已有（`pattern-wiring-closure.md §5/§6`），属"pattern 装配"而非"默认关开关"，本表**不重复登记**（同源去重，§2.14 规则 5）；其**可操作化判据已落入** `pattern-wiring-closure.md **§11**`（2026-10-09 追加，引用 O3/O4）。
 
@@ -75,6 +77,28 @@
 **告警（§七 建议 5：不长期无告警默认关）**：`tools/bash/BashTool.ts` 的 `warnGraySecuritySwitchesOnce()` ——
 进程内**首次构造** BashTool 时，若 A4/A5 仍为 `false` ⇒ 输出**一次** `logger.warn`（列出灰度开关名 + 指向本表），
 使"当前安全姿态"可见。A2 翻转为基线后不再出现在该告警中。
+
+---
+
+### 2.3 复评裁定（P2-4，2026-10-10）—— 「是否翻转默认 / 迁移或复评节奏」
+
+> 来源：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-4**。
+> 口径：**安全默认值的变更属用户裁定**（R07-2）；本表**只汇总既有裁定与节奏**，
+> 未获裁定的项一律**维持现状**并给出触发条件 + 复评节奏（**不得**由实现方自行翻转）。
+
+| 项 | 类别 | 默认 | 是否翻转 | 既有裁定来源 | 触发条件（何时重开） | 迁移 / 复评节奏 |
+|---|---|:--:|:--:|---|---|---|
+| `OUTPUT_GUARD` | 灰度（暴露类能力） | `false` | ✅ **已裁定：维持 `false`** | [`guardrails-dual-side.md §11`](./guardrails-dual-side.md)（2026-10-07 **用户裁定**；5 条依据：仅覆盖终稿 / 本仓语料 42 文件 FP / 唯一有行为后果者仅 `injection_echo` / 单机单用户边际收益低 / 与同族默认关纪律一致） | ① 覆盖范围扩至**流式 chunk / 工具返回值 / 文件写入**；② 出现"未打码导致真实泄露"事件 | **覆盖范围变更后**复评 |
+| `BASH_INTERPRETER_GUARD` | 灰度（安全姿态） | `false` | 维持 | §2.2（v7.23.0 同批：维持默认关） | 见 §2.2（解释器内联执行绕过白名单的真实事件） | **2026-Q4** |
+| `BASH_APPROVAL_STRICT` | 灰度（安全姿态） | `false` | 维持 | §2.2（同上） | 见 §2.2（**同名不同参**被命令名级放行） | **2026-Q4** |
+| `EXECUTION_TWO_PHASE_CANCEL` | 灰度（执行语义） | `false` | 维持 | §2-#10 | 取消后底层仍写入/产生副作用；或并发下"取消即释放 ⇒ 双跑/重复计费" | **2026-Q4** |
+| `CODE_RUN_DEEP_SCAN_STRICT` | 灰度（安全收紧） | `false` | 维持（默认关时靠结果 `scanStatus` 可观测） | §2-#12 · [`security-decision-verdict.md`](./security-decision-verdict.md) | 深扫不可用期间出现**危险调用漏检**；或原生深扫在目标环境稳定可用（`ran` 比例 100%） | **2026-Q4**（与 P0-3 联动） |
+| `CLIENT_STREAM_EXECUTION` | 灰度（执行接入） | `false` | 维持（**翻转前必须**先补 handler 级用例） | §2-#13 · [`client-stream-execution.md §5.1`](./client-stream-execution.md) | 客户端入口出现**未记账工具调用**或崩溃后**重复副作用**；且前端回归清单通过 | **2026-Q4** |
+| **bash 内核沙箱**（`sandbox.landlock.bashEnabled`） | **安全姿态（非 featureFlag）** | `false`（且 `failClosed:false`） | 维持 | [`ast-family-phased-plan.md`](./ast-family-phased-plan.md) §8 / R25 · `invariants.md INV-SEC-003` | ① 真实事件：bash 路径出现**越权读写**而静态检查未拦；② Linux 交付环境 helper 稳定可用且**误伤率可接受**（须先灰度观测；该配置项**无 env 开关** ⇒ 翻转须改 `DEFAULT_LANDLOCK_CONFIG` 默认 + 全量回归） | **2026-Q4**（与 P1-6 沙箱真负向门禁联动） |
+
+**跨平台隔离边界**：Windows / macOS **无强隔离后端**（仅静态检查 + 路径收窄）——
+该边界已写入 [`.trae/architecture/invariants.md §6`](../architecture/invariants.md)（P1-1 落点），
+**不得**把"沙箱能力存在"宣称为"运行时不可越权"。
 
 ---
 

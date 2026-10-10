@@ -92,9 +92,14 @@ beforeEach(() => {
   process.chdir(join(originalCwd, 'src', 'ai', 'providers'));
 });
 
+// ⚠️ 快照**真实** `fetch` 并在用例后还原（2026-10-10 修复）：Bun 全量 `bun test` 在**单进程**内
+// 按文件顺序执行 ⇒ 原实现 `delete globalThis.fetch` 会把**全局 fetch 删掉**，导致其后所有依赖
+// 全局 fetch 的测试 `TypeError: fetch is not a function`（实测 A2A 侧车 4 例失败）。
+const originalFetch = globalThis.fetch;
+
 afterEach(() => {
   process.chdir(originalCwd);
-  delete (globalThis as { fetch?: unknown }).fetch;
+  globalThis.fetch = originalFetch;
 });
 
 describe('ComfyUIProvider.generateVideo（文生视频）', () => {

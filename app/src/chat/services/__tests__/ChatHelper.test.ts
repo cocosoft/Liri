@@ -2,19 +2,16 @@
  * ChatHelper 单元测试
  * 测试 5 个纯函数：toSessionMsgType, sanitizePass, mapSessionStatusToState, extractTodoData, resolveMaxContextTokens
  */
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 
-// Mock getAIModelManager 在 ChatHelper 被导入前
-mock.module('@modules/ai', () => ({
-  getAIModelManager: () => ({
-    getContextWindow: (model: string) => {
-      if (model === 'test-model') return 64000;
-      if (model === 'huge-model') return 1048576;
-      return 0;
-    },
-  }),
-}));
+// ⚠️ 本文件**禁止** `mock.module`（2026-10-10 去污染，L-23）：Bun 的模块 mock **进程级持久且不可
+// 撤销** ⇒ 会泄漏给其后所有测试文件。原文件曾 `mock.module('@modules/ai', …)` 桩 `getAIModelManager`
+// —— 该桩实为**陈旧死代码**：`resolveMaxContextTokens` 的**主源**是 `@modules/context` 的
+// `resolveContextWindow`（同步路径读 ModelRegistry 缓存，**总返回 > 0**，默认 200k）⇒ 永远走不到
+// `getAIModelManager` 回退（本文件断言与注释也已按真值 200000 写）。
+// 需驱动"DB 缓存命中"分支时，用**真实缝** `setModelWindow`（`utils/ContextWindowResolver`，见下）。
 
+import { setModelWindow } from '@modules/utils/ContextWindowResolver';
 import {
   toSessionMsgType,
   sanitizePass,
@@ -298,6 +295,13 @@ describe('ChatHelper — resolveMaxContextTokens', () => {
   it('大上下文模型返回正确值', () => {
     // 当前 ContextWindowResolver 对 huge-model 返回全局默认 200000
     expect(resolveMaxContextTokens('huge-model')).toBe(200000);
+  });
+
+  it('命中 ModelRegistry 缓存（DB 事实来源）⇒ 返回该窗口（非默认值）', () => {
+    // **真实缝**（非 mock）：`setModelWindow` 由 ModelRegistry 装载/刷新时推入，DB 仍为唯一事实来源。
+    // 该分支此前**无覆盖**（旧 `mock.module` 桩的是永远走不到的回退源）。
+    setModelWindow('chathelper-cached-model', 64_000);
+    expect(resolveMaxContextTokens('chathelper-cached-model')).toBe(64_000);
   });
 });
 

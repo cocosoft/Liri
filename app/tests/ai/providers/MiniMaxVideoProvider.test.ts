@@ -76,8 +76,13 @@ beforeEach(() => {
   calls = [];
 });
 
+// ⚠️ 快照**真实** `fetch` 并在用例后还原（2026-10-10 修复）：Bun 全量 `bun test` 在**单进程**内
+// 按文件顺序执行 ⇒ 此处若把 `globalThis.fetch` 置为 `undefined`，**其后所有**依赖全局 fetch 的
+// 测试都会 `TypeError: fetch is not a function`（实测 A2A 侧车 4 例失败）。口径同 `VolcengineProvider`。
+const originalFetch = globalThis.fetch;
+
 afterEach(() => {
-  globalThis.fetch = undefined as unknown as typeof fetch;
+  globalThis.fetch = originalFetch;
 });
 
 /** 设置 fetch mock：自动记录调用，测试通过 handler 定制响应 */

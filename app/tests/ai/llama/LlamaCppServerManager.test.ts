@@ -139,10 +139,16 @@ beforeEach(() => {
   };
 });
 
+// ⚠️ 快照**真实** `fetch` 并在用例后还原（2026-10-10 修复）：本文件多个用例直接
+// `globalThis.fetch = mock(...)` 且**未还原**；Bun 全量 `bun test` 在**单进程**内按文件顺序执行 ⇒
+// 泄漏到其后所有测试（实测：A2A 侧车 4 例 `TypeError: fetch is not a function`，隔离运行则全绿）。
+const originalFetch = globalThis.fetch;
+
 afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
   delete process.env.LIRI_DATA_DIR;
   LlamaCppServerManager.checkPortAvailable = savedCheckPortAvailable;
+  globalThis.fetch = originalFetch;
 });
 
 /**

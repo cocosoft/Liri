@@ -454,15 +454,19 @@ const knowledgeCommand = {
     const shown = pageResults.length;
     const totalLabel = hasMore ? `${offset + shown}+` : `${allResults.length}`;
 
+    // RRF 融合分是**相对**量（k=60 的倒数排名之和，绝对值远小于 1）⇒ 以本页最高分
+    // 归一化后再定档，否则全部落档 📄（2026-10-10 融合改真 RRF 后的配套订正）
+    const topScore = pageResults[0]?.score ?? 0;
+
     const lines = [
       `🔍 找到 ${totalLabel} 个与"${query}"相关的文档（第 ${page} 页）`,
       '',
       ...pageResults.map((result, i) => {
         const category =
           result.category !== '根目录' ? `[${result.category}] ` : '';
-        const scoreLabel =
-          result.score >= 0.7 ? '🔥' : result.score >= 0.4 ? '⭐' : '📄';
-        return `${(page - 1) * pageSize + i + 1}. ${category}${result.title} (${(result.score * 100).toFixed(0)}分 ${scoreLabel})\n   ${result.snippet.slice(0, 120)}...`;
+        const rel = topScore > 0 ? result.score / topScore : 0;
+        const scoreLabel = rel >= 0.95 ? '🔥' : rel >= 0.6 ? '⭐' : '📄';
+        return `${(page - 1) * pageSize + i + 1}. ${category}${result.title} (${(rel * 100).toFixed(0)}分 ${scoreLabel})\n   ${result.snippet.slice(0, 120)}...`;
       }),
     ];
 

@@ -55,6 +55,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { KnowledgeConfig } from '@modules/knowledge/KnowledgeConfig';
 import { knowledgeMonitor } from '@modules/knowledge/KnowledgeMonitor';
+import { reciprocalRankFusion } from '@modules/utils/rrf';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:router',
@@ -754,68 +755,45 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     });
   }
 
-  /** 归一化关键词得分 */
-  private normalizeKeywordResults(results: KnowledgeRoute[]): KnowledgeRoute[] {
-    if (results.length === 0) return results;
-    const maxScore = Math.max(...results.map((r) => r.score));
-    if (maxScore === 0) return results;
-    return results.map((r) => ({
-      ...r,
-      score: r.score / maxScore,
-    }));
-  }
-
   /**
    * RRF 合并关键词与语义结果
    *
-   * 使用 RRF（Reciprocal Rank Fusion）而非加权平均：
-   * RRF 对排名敏感而非绝对值，更适合异质评分（关键词是启发式分数，语义是余弦相似度）
+   * 真 RRF（Reciprocal Rank Fusion）：`score(d) = kw / (k + rank_kw(d) + 1) +
+   * sm / (k + rank_sm(d) + 1)`，`k=60`。RRF 对排名敏感而非绝对值，更适合异质评分
+   * （关键词是启发式分数，语义是余弦相似度）。
+   *
+   * 零拷贝：融合阶段只累计引用，`maxResults` 截断后才物化（对象分配量 O(N)→O(K)）。
+   * 同键（docPath）命中两路时，`item` 取语义路（`prefer: 'last'`）——与旧实现
+   * 「语义 snippet 覆盖关键词」的可见行为一致。
    */
   private mergeResults(
     keywordResults: KnowledgeRoute[],
     semanticResults: KnowledgeRoute[],
     maxResults: number
   ): KnowledgeRoute[] {
-    const kw = this.hybridConfig.keywordWeight;
-    const sm = this.hybridConfig.semanticWeight;
+    const entries = reciprocalRankFusion({
+      lists: [keywordResults, semanticResults],
+      keyOf: (r) => r.docPath,
+      weights: [
+        this.hybridConfig.keywordWeight,
+        this.hybridConfig.semanticWeight,
+      ],
+      prefer: 'last',
+    });
 
-    const normalizedKw = this.normalizeKeywordResults(keywordResults);
-    const merged = new Map<
-      string,
-      { route: KnowledgeRoute; kwScore: number; smScore: number }
-    >();
-
-    for (const r of normalizedKw) {
-      merged.set(r.docPath, { route: r, kwScore: r.score, smScore: 0 });
-    }
-
-    for (const r of semanticResults) {
-      const existing = merged.get(r.docPath);
-      if (existing) {
-        existing.smScore = r.score;
-        existing.route.snippet = r.snippet;
-      } else {
-        merged.set(r.docPath, { route: r, kwScore: 0, smScore: r.score });
-      }
-    }
-
-    const combined: KnowledgeRoute[] = [];
-    for (const entry of merged.values()) {
-      const hybridScore = kw * entry.kwScore + sm * entry.smScore;
-      combined.push({
-        ...entry.route,
-        score: Math.round(hybridScore * 100) / 100,
-      });
-    }
-
-    combined.sort((a, b) => {
+    // 并列打破：score → isKnowledgeDoc → docPath
+    // （RRF 已保证 score 降序 + key(docPath) 升序，此处仅补 isKnowledgeDoc 一层）
+    entries.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      if (a.isKnowledgeDoc !== b.isKnowledgeDoc)
-        return a.isKnowledgeDoc ? -1 : 1;
+      if (a.item.isKnowledgeDoc !== b.item.isKnowledgeDoc) {
+        return a.item.isKnowledgeDoc ? -1 : 1;
+      }
       return 0;
     });
 
-    return combined.slice(0, maxResults);
+    return entries
+      .slice(0, maxResults)
+      .map((e) => ({ ...e.item, score: Math.round(e.score * 100) / 100 }));
   }
 
   /**

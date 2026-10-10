@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.75-blue)
+![Version](https://img.shields.io/badge/version-0.4.76-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.75**
+当前版本：**v0.4.76**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,17 +435,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.75 (2026-10-10)
+#### v0.4.76 (2026-10-10)
 
-**统一检索 RRF 收敛：单一零拷贝实现 + `mergeResults` 由"名义 RRF"改为真 RRF（用户覆盖裁定）**
+**可靠性收口二批：执行内核崩溃恢复闭环（P0）+ 工程护栏（P1）+ 编排拆分与机器守卫（P2）+ 门禁治理基座 + 统一检索边界收敛**
 
-- ✅ **单一事实源（零拷贝 / 延迟物化）** - 新增 `app/src/utils/rrf.ts`：`reciprocalRankFusion`（k 缺省 60，支持加权）。融合期只累计「键 → {分数, 引用}」，**Top-K 截断后才物化** ⇒ 分配量 **O(N) → O(K)**；排序 `score` 降序 + `key` 升序（确定性）
-- ✅ **`KnowledgeRouter.mergeResults` 改真 RRF（行为变更，用户明确选择）** - 原文注释自称 RRF、**实为归一化加权平均**；现按 `score(d) = kw/(k+rank_kw+1) + sm/(k+rank_sm+1)`（k=60）融合，保留「语义 snippet 覆盖」与并列规则；删除改造后**无消费者**的 `normalizeKeywordResults`
-- ✅ **记忆侧接入 + 下游展示订正** - `memory/services/UnifiedSearchService` 改调该 util（与旧公式 `1/(60+rank+1)` **数值等价**）并删本地 `RRF_K`；`/knowledge search` 分档由绝对分改为**按本页最高分归一化**（否则 RRF 绝对值恒落 📄）
-- ✅ **删死字段（独立提交，CD06）** - `knowledge/search/UnifiedSearchService` 的 `RRF_K` 全仓仅**声明处 1 命中**（零消费者）⇒ 删除 + 订正失实 docstring；提交信息含六步核查结论与回滚路径
-- ✅ **质量** - `typecheck`（app + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）
-- ✅ **边界收敛（同日补做）** - `mergeResults` 对外 `score` 由原始 RRF 和（≈ `1/61` ⇒ 被压成 `0.00~0.02` 三档）改为按 `rrfMaxScore = Σw/(k+1)` **归一化回 `(0,1]`**（精度 4 位小数、保序）；重叠文档 `matchType` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` + zh/en i18n 同批）
-- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约；`minScore` / `semanticThreshold` 均作用于融合**前**
+- ✅ **P0 执行内核：崩溃恢复闭环** - 客户端 `/v1/chat/stream` 接入 Execution 生命周期（写前记账 fail-closed / 终态结算 / 断开 ⇒ `FAILED: client_disconnected`，fencing 下幂等）；`recover()` 返回 `unknownToolCalls` ⇒ **非幂等 / 未声明工具禁止自动重放**；深扫状态并入统一四态 `verdict`，**消除 `INDETERMINATE → ALLOW` 折叠**；两个新开关（深扫严格 / 客户端流式记账）**默认关**，安全开关表 15 → 17 项
+- ✅ **P1 工程护栏** - bash 子进程最终环境收敛为**唯一构造点** `buildBashSpawnEnv`；沙箱**真负向**纳入 CI **必需**门禁（环境不满足即失败，不得静默跳过）；新增 SPI **装配顺序守卫**（顺序错误 ⇒ 启动即失败并给出可读原因）；修复跨文件全局污染（L-23）并新增**零豁免**门禁 `lint:no-module-mock`
+- ✅ **P2 拆分与机器守卫** - `runStreamMessage` **2532 → 2203** 行、文件 **2684 → 2380** 行、圈复杂度 **309 → 262**（新增 11 个阶段模块 + 15 个用例）；MCP 双轨子进程边界机器守卫；模式闭环守卫（2 ready + 3 unavailable）；门禁自证扩展（跳过项风险分级 + 控制样例）
+- ✅ **门禁与治理基座** - 新增 `lint:invariants` / `lint:entrypoints` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity` 五个门禁 + 自证测试并接入 `ci`，新增 `doc-gate.yml`（**不设** `paths-ignore`）；`.trae/architecture/` 6 文件入库；**`dev_docs/` 全量移出版本控制**（工作区保留、门禁数据已迁 `.trae/architecture/`）
+- ✅ **统一检索边界收敛** - `mergeResults` 对外 `score` 由原始 RRF 和（≈ `1/61` ⇒ 被压成 `0.00~0.02` 三档）改为按 `rrfMaxScore = Σw/(k+1)` **归一化回 `(0,1]`**（4 位小数、保序）；重叠文档 `matchType` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` + zh/en i18n 同批）；登记 `RRF-CONV` / `INV-KB-001`，spec 升 v1.2
+- ✅ **质量** - `typecheck`（app + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 本版区间 `v0.4.75..v0.4.76` 共 **19** 次实质提交
+- ℹ️ **边界（如实）** - 两个新增开关**默认关**（零行为变更），翻转须经用户裁定；P2-1 拆分后 S2/S3/S5 多数动作受语法约束**仍留编排函数**；`dev_docs/` 移出后仓内约 **68 处**溯源引用在 GitHub 成死链（仅本地可解析）；跨平台（Windows/macOS）**无强隔离后端**仍属边界；未建 `VfsKernel`、未改 provider / 通道契约
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -21,6 +21,20 @@
 
 ---
 
+#### v0.4.76 (2026-10-10)
+
+**可靠性收口二批：执行内核崩溃恢复闭环（P0）+ 工程护栏（P1）+ 编排拆分与机器守卫（P2）+ 门禁治理基座 + 统一检索边界收敛**
+
+- ✅ **P0 执行内核：崩溃恢复闭环（5 项）** - 新增两个**默认关**灰度开关 `CODE_RUN_DEEP_SCAN_STRICT`（深扫未完成/失败 ⇒ fail-closed 拒绝）/ `CLIENT_STREAM_EXECUTION`（客户端流式接入执行生命周期），安全开关表 **15 → 17** 项并同步 `lint:doc-code` 断言与 `SAFETY_SWITCHES` 契约测试；客户端 `/v1/chat/stream` SSE 入口接入 Execution（`acquire` 注入 `executionId`、工具执行前写前记账 + fail-closed、终态 `complete`/`fail`、断开 ⇒ `FAILED: client_disconnected`，fencing 下幂等）；`recover()` 返回 `unknownToolCalls` 并新增 `toolEffects.resolveToolRecoveryPolicy` ⇒ **非幂等 / 未声明工具禁止自动重放**（对应 `INV-RECOVERY-003`）；深扫状态纳入统一四态 `verdict`（新增 `security/decision.ts` + `DeepScanStatus` + 单调合并），**消除 `INDETERMINATE → ALLOW` 折叠**（对应 `INV-SEC-004`）；新增进程崩溃注入真负向夹具（对应 `INV-EXEC-005` / `INV-RECOVERY-001`）
+- ✅ **P1 工程护栏（4 项）** - bash 子进程最终环境收敛为**唯一构造点** `buildBashSpawnEnv`（父进程敏感键 + 调用方同策略清洗 + 执行控制键剥离 ⇒ 调用方无法改写执行语义），跨层一致性测试断言「env 清洗 → 最终 spawn」全链；沙箱**真负向**纳入 CI **必需**门禁（`ci.yml` 新增 `sandbox-negative` job：Linux + `landlock-run` helper，`SANDBOX_NEGATIVE_REQUIRE=1` ⇒ **环境不满足即失败，不得静默跳过**，R14 质量摘要同步该层）；新增 SPI **装配顺序守卫** `core/spi/wiringGuard.ts`（显式依赖声明 + 注册期断言 ⇒ 顺序错误**启动即失败**并给出可读原因，不晚失败、不静默降级，对应 `INV-ARCH-001`）；修复**跨文件全局污染**（L-23：6 个 ai/providers 与 llama 测试的 `globalThis.fetch` 快照还原、2 处 `mock.module` 泄漏改走真实 DI 缝）并新增**零豁免**门禁 `lint:no-module-mock`（棘轮只允许减少）
+- ✅ **P2 拆分与机器守卫（4 项）** - 流式编排逐阶段拆分：`runStreamMessage` **2532 → 2203** 行、文件 **2684 → 2380** 行、圈复杂度 **309 → 262**，新增 11 个 `streamMessage*.ts` 阶段模块与 15 个阶段用例；MCP **双轨子进程边界**裁定 + 机器守卫（SDK 轨**有意不并入**自研追踪器 —— SDK 只公开 pid、PID 快照存在复用误杀风险，由其 `closeAll()` 承接）；模式闭环冻结为 `patternAssemblerClosure` 守卫（2 ready + 3 unavailable）；门禁自证扩展（跳过项**风险分级** S4/S5 + 状态机与安全链**控制样例**，防判分器恒真）
+- ✅ **门禁与治理基座（4 项）** - 新增 `lint:invariants` / `lint:entrypoints` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity` **五个门禁脚本 + 自证测试**并接入 `ci` 链，新增 `.github/workflows/doc-gate.yml`（**不设** `paths-ignore`，承接纯文档/规则/spec 改动）；`.trae/architecture/` **6 文件入库**（门禁基线缺失即 `exit 1`，不入库则干净检出推送即红）；`lint:fix-evidence` 数据源由 `dev_docs/error_repairs/` 迁至 `.trae/architecture/`（`git mv` 保留历史）；`dev_docs/` **全量移出版本控制**（`git rm -r --cached`，工作区文件保留、不删除；撤销 `.gitignore` 中全部反排除例外）
+- ✅ **统一检索边界收敛（v0.4.75 段「ℹ️ 边界」的两条落地）** - ① `mergeResults` 对外 `score` 由原始 RRF 和 `Σw/(k+rank+1)`（缺省 ≈ `1/61` ⇒ 2 位小数下只剩 `0.00~0.02` 三档，下游恒显 "2%"、配色恒灰）改为按 `rrfMaxScore([kw,sm]) = Σw/(k+1)` **归一化回 `(0,1]`**（精度 4 位小数、**保序**、不改变排序；上界 ≤0 时不归一化以杜绝 NaN/Infinity）；② 重叠文档 `matchType` 由 `keyword`/`semantic` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` 两处 `Record` + zh/en i18n 同批；单路命中保留原值）。`minScore` / `semanticThreshold` 仍作用于融合**前**（不变）。登记 `.trae/architecture/` `RRF-CONV` 与 `INV-KB-001`，`.trae/specs/unified-rrf-retrieval.md` 升 **v1.2**（测试 +11 例）
+- ✅ **质量** - `typecheck`（app 3 tsconfig + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· `lint:invariants`（17 条 · gap 0）/ `lint:fix-evidence`（58 条）/ `lint:fn-size` / `lint:complexity` / `lint:no-module-mock` / `lint:doc-code`（38 断言）/ `version:check` ✅ · 本版区间 `v0.4.75..v0.4.76` 共 **19** 次实质提交
+- ℹ️ **边界（如实）** - 两个新增开关**默认关**（零行为变更），翻转须经用户裁定；P2-1 拆分后 S2/S3/S5 多数动作受 `continue`/`break`/`yield` 语法约束**仍留编排函数**（判据/载荷/装配单元已抽净）；`dev_docs/` 移出版本控制后，仓内约 **68 处**溯源引用（源码注释 / spec 依据 / 门禁文案）在 GitHub 上**成死链**（仅本地可解析；已核实无脚本读盘 ⇒ 不影响构建与门禁）；跨平台（Windows/macOS）**无强隔离后端**仍属边界（见 `.trae/architecture/invariants.md` §6，P2-4）；未建 `VfsKernel`、未改 provider / 通道契约
+
+---
+
 #### v0.4.75 (2026-10-10)
 
 **统一检索 RRF 收敛：单一零拷贝实现 + `mergeResults` 由"名义 RRF"改为真 RRF（用户覆盖裁定）**
@@ -30,9 +44,8 @@
 - ✅ **`KnowledgeRouter.mergeResults` 改真 RRF（行为变更，用户明确选择）** - 原文注释自称 RRF、**实为归一化加权平均**；现按 `score(d) = kw/(k+rank_kw+1) + sm/(k+rank_sm+1)`（k=60）融合，`prefer:'last'` 保留「语义 snippet 覆盖」的可见行为；并列规则补 `docPath` 末位；删除改造后**无消费者**的 `normalizeKeywordResults`
 - ✅ **下游展示配套订正** - `/knowledge search` 原按绝对分 `≥0.7/≥0.4` 分档 `🔥/⭐/📄`，RRF 绝对值远小于 1 ⇒ 会**恒落 📄**；改按**本页最高分归一化**后再分档
 - ✅ **删死字段（独立提交，CD06）** - `knowledge/search/UnifiedSearchService.ts` 的 `RRF_K` 全仓仅**声明处 1 命中**（零消费者）⇒ 删除，并订正「可进行二次 RRF 重排序」的失实 docstring；提交信息含六步核查结论与回滚路径
-- ✅ **质量** - `typecheck`（app 3 tsconfig + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· `lint:invariants` / `lint:fix-evidence` / `lint:doc-code` / `lint:fn-size` / `lint:complexity` / `lint:no-module-mock` ✅ · 新增定向用例 `tests/utils/rrf.test.ts`（12 + **5** 例）+ `tests/memory/unifiedSearchRrf.test.ts`（6 例）+ `src/knowledge/__tests__/KnowledgeRouter.test.ts`（**+6** 例）
-- ✅ **边界收敛（同日补做）** - ① `mergeResults` 对外 `score` 原为原始 RRF 和 `Σw/(k+rank+1)`（缺省 ≈ `1/61` ⇒ 2 位小数下只剩 `0.00~0.02` 三档，下游恒显 "2%" / 配色恒灰）⇒ 改为按 `rrfMaxScore([kw,sm]) = Σw/(k+1)` 归一化，值域回落 **`(0,1]`**（精度 4 位小数、**保序**，上界 ≤0 时不归一化以杜绝 NaN）；② 重叠文档 `matchType` 由 `keyword`/`semantic` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` 两处 `Record` + zh/en i18n 同批；单路命中保留原值）。`minScore` / `semanticThreshold` 仍作用于融合**前**（不变）。测试 +11 例（`rrfMaxScore` 上界 5 · `KnowledgeRouter` 归一化/`hybrid`/负权重 6）
-- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约（外部建议所引路径与 API 经取证在仓内**不存在**）
+- ✅ **质量** - `typecheck` **0** · **`bun run ci` exit 0**（含 `test:guarded` **5725 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 新增定向用例 `tests/utils/rrf.test.ts`（12 例）+ `tests/memory/unifiedSearchRrf.test.ts`（6 例）
+- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约（外部建议所引路径与 API 经取证在仓内**不存在**）；`mergeResults` 分数值域由 `[0,1]` 变为 `Σw/(k+rank+1)`，重叠文档 `matchType` 由 `keyword` → `semantic`；已核验 `minScore` / `semanticThreshold` 均作用于融合**前**
 
 ---
 

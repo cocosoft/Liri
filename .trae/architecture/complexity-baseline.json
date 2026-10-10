@@ -1,0 +1,14 @@
+{
+  "$comment": "圈复杂度**重尾离群棘轮基线**（P2-6）。门禁 app/scripts/lint-complexity-ratchet.ts：`≥ threshold` 的函数数**只允许减少、不允许增加**（阻断'新增离群'）。既有离群走 P2-1b…f 分批治理；治理后须**下调** countAtThreshold 与 reference 以锁定成果。",
+  "version": 1,
+  "recordedAt": "2026-10-10",
+  "threshold": 100,
+  "countAtThreshold": 7,
+  "reference": {
+    "40": 76,
+    "60": 30,
+    "80": 12,
+    "100": 7
+  },
+  "note": "阈值 100 取自实测 P99=26 之上（台账 L-10）；最大离群 `runStreamMessage` 复杂度已由 309 降至 262（P2-1b…n 分批治理，见 function-size-baseline.json）—— 仍 ≥100，故 countAtThreshold 维持 7 不变。"
+}

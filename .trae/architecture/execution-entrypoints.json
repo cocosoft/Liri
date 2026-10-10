@@ -1,0 +1,63 @@
+{
+  "$comment": "执行入口注册表（机器可读；人读版见同目录 execution-entrypoints.md）。门禁 scripts/lint-entrypoints.ts 扫描 app/src 中的『启动对话轮 / 取得执行所有权』调用点，要求**每一处**都在 entries 中登记 ⇒ 新增入口而漏登记即 CI 阻断。",
+  "version": 1,
+  "updatedAt": "2026-10-10",
+  "statusMeaning": {
+    "verified": "五项契约（执行身份/取消/记账/权限/恢复）均已具备并被测试覆盖",
+    "partial": "部分具备（如灰度门控 / 缺取消传播）",
+    "gap": "未接入（无执行身份/记账/恢复）",
+    "not-applicable": "非 agent 轮（单次结构化生成，不调用工具、无副作用链）"
+  },
+  "patterns": [
+    {
+      "id": "coreapi.chatstream",
+      "regex": "coreAPI\\.chatStream\\(",
+      "description": "启动一次**流式**对话轮（模型生成 + 工具循环）"
+    },
+    {
+      "id": "coreapi.chat",
+      "regex": "coreAPI\\.chat\\(",
+      "description": "启动一次**非流式**对话轮"
+    },
+    {
+      "id": "execution.acquire",
+      "regex": "executionManager\\.acquire\\(",
+      "description": "取得**执行所有权**（Execution 生命周期入口）"
+    },
+    {
+      "id": "delegation.chat",
+      "regex": "\\bcore\\.chat\\(",
+      "description": "经窄端口启动一次对话轮（A2A 委派）"
+    }
+  ],
+  "entries": [
+    {
+      "file": "app/src/channels/routing/messageRouter.ts",
+      "patterns": ["coreapi.chatstream", "execution.acquire"],
+      "label": "渠道 Router（入站消息 → 对话轮）",
+      "status": "verified",
+      "notes": "唯一入口处 acquire（含 QUEUED 有界等待）；AbortSignal 端到端贯通；executionId 下传 ⇒ ChatManager 写前记账 fail-closed。"
+    },
+    {
+      "file": "app/src/infrastructure/http/handlers/chat-handlers.ts",
+      "patterns": ["coreapi.chatstream", "coreapi.chat", "execution.acquire"],
+      "label": "HTTP API（流式 handleStreamingChat / 非流式 handleNormalChat）",
+      "status": "partial",
+      "notes": "**流式**：P0-2 接入（灰度 CLIENT_STREAM_EXECUTION，默认关）——acquire + 注入 executionId + 三处结算；**未接取消信号**。**非流式**：未接入（gap）。"
+    },
+    {
+      "file": "app/src/infrastructure/http/handlers/workspaces-handlers.ts",
+      "patterns": ["coreapi.chat"],
+      "label": "工作区任务分解（单次结构化生成）",
+      "status": "not-applicable",
+      "notes": "单次 LLM 调用产出任务树 JSON；不建会话、不调用工具 ⇒ 无执行身份/记账/恢复需求。"
+    },
+    {
+      "file": "app/src/infrastructure/http/handlers/routes/a2a-delegator.ts",
+      "patterns": ["delegation.chat"],
+      "label": "A2A 委派（外部智能体 → 本地对话轮）",
+      "status": "gap",
+      "notes": "每次委派新建独立会话并跑一次非流式对话轮（走模型路由/工具/权限/成本）；**无 executionId**、不参与 ownership/fencing。默认关（A2A_ENABLED）。"
+    }
+  ]
+}

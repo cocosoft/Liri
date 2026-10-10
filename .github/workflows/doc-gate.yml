@@ -1,0 +1,60 @@
+name: Doc Gate
+
+# P1-2（`dev_docs/20261010/升级优化方案-20261010.md`）：
+# 把「文档 ↔ 代码 语义一致性」与「不变量注册表」门禁**接入 GitHub Actions**，
+# 且**不设 paths-ignore** —— 使**纯文档/规则/spec 改动**同样触发文档门禁
+# （`ci.yml` 为重型套件，其 paths-ignore 仍跳过 `**.md`/`docs/**`/`.trae/**`；
+#  文档类改动由本工作流承接，两者互补）。
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  doc-gate:
+    name: Doc & Semantics Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
+      with:
+        project: app
+
+    # 文档 ↔ 代码 语义一致性（A13 / R11-1）：关键常量 / 安全开关默认值 / A2A 等
+    - name: "Doc-code consistency (lint:doc-code)"
+      run: bun run lint:doc-code
+
+    # 不变量注册表门禁（P1-1/P1-2）：每条不变量的源码/验证/spec 落点必须可解析；缺口须登记
+    - name: "Invariant registry gate (lint:invariants)"
+      run: bun run lint:invariants
+
+    # 执行入口注册门禁（P1-3）：扫描命中 ⇄ 登记双向一致；新增入口漏登记即阻断
+    - name: "Execution entrypoints gate (lint:entrypoints)"
+      run: bun run lint:entrypoints
+
+    # 修复证据登记门禁（P1-4）：四段生命周期与四个独立状态不得混同（无测试不得称"已验收"）
+    - name: "Fix evidence gate (lint:fix-evidence)"
+      run: bun run lint:fix-evidence
+
+    # 超大函数/文件棘轮（P2-1）：`runStreamMessage` 只允许缩小，不允许增长
+    - name: "Function-size ratchet (lint:fn-size)"
+      run: bun run lint:fn-size
+
+    # 圈复杂度重尾离群棘轮（P2-6）：≥100 的离群函数计数**只允许减少**
+    - name: "Complexity ratchet (lint:complexity)"
+      run: bun run lint:complexity

@@ -1,0 +1,235 @@
+{
+  "$comment": "Liri 架构不变量注册表（机器可读单一事实源）。人读版见同目录 invariants.md。校验门禁见 P1-2（scripts/lint-invariants.ts）。字段：id/title/statement/sources(源码落点)/tests(验证落点)/level(验证级别)/status(verified|partial|gap)/reopenWhen(重开条件)/specs(关联 spec)。",
+  "version": 1,
+  "updatedAt": "2026-10-10",
+  "levels": ["static", "unit", "integration", "fault-injection", "e2e-security"],
+  "statusMeaning": {
+    "verified": "有对应验证手段且当前成立",
+    "partial": "有验证手段但覆盖不完整（如平台门控 / 仅部分入口）",
+    "gap": "治理缺口：尚无自动化验证手段（不得默认已受保护）"
+  },
+  "invariants": [
+    {
+      "id": "INV-EXEC-001",
+      "title": "执行所有权唯一",
+      "statement": "同一会话不能同时存在两个有效执行所有者（绝不双 RUNNING）。",
+      "sources": ["app/src/execution/ExecutionManager.ts"],
+      "tests": [
+        "app/tests/execution/ExecutionManager.test.ts",
+        "app/tests/execution/executionReviewBatchB.test.ts"
+      ],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改 acquire / owner / foreignActive 语义，或新增并发执行入口时。",
+      "specs": [".trae/specs/execution-lifecycle-ownership.md"]
+    },
+    {
+      "id": "INV-EXEC-002",
+      "title": "Generation fencing",
+      "statement": "旧 generation 的执行者不能覆盖新执行者的有效状态（迟到提交被拒）。",
+      "sources": ["app/src/execution/ExecutionManager.ts"],
+      "tests": [
+        "app/tests/execution/executionReviewBatchB.test.ts",
+        "app/tests/execution/processCrashInjection.test.ts"
+      ],
+      "level": "fault-injection",
+      "status": "verified",
+      "reopenWhen": "修改 assertCurrent / requireOwned / generation 抬升逻辑时。",
+      "specs": [".trae/specs/execution-lifecycle-ownership.md"]
+    },
+    {
+      "id": "INV-EXEC-003",
+      "title": "终态不可逆",
+      "statement": "终态（CANCELLED/COMPLETED/FAILED/STALE）不能被普通迟到事件重新打开；仅允许经证据的恢复性修正。",
+      "sources": ["app/src/execution/types.ts"],
+      "tests": ["app/tests/execution/ExecutionManager.test.ts"],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改 TRANSITIONS / canTransition 状态机表时。",
+      "specs": [".trae/specs/execution-lifecycle-ownership.md"]
+    },
+    {
+      "id": "INV-EXEC-004",
+      "title": "取消语义",
+      "statement": "逻辑取消（CANCEL_REQUESTED）不等于底层进程已退出；未确认停止不得释放所有权。",
+      "sources": ["app/src/execution/ExecutionManager.ts"],
+      "tests": [
+        "app/tests/execution/executionReviewBatchB.test.ts",
+        "app/tests/execution/processCrashInjection.test.ts"
+      ],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改 requestCancel / confirmCancel 或两段式取消开关时。",
+      "specs": [
+        ".trae/specs/execution-lifecycle-ownership.md",
+        ".trae/specs/process-crash-injection.md"
+      ]
+    },
+    {
+      "id": "INV-EXEC-005",
+      "title": "未结算执行有恢复策略",
+      "statement": "任何未结算执行在重启后都必须收敛（孤儿 ⇒ STALE + generation++；未结算工具调用 ⇒ unknown）。",
+      "sources": ["app/src/execution/ExecutionManager.ts"],
+      "tests": [
+        "app/tests/execution/recoveryFaultInjection.test.ts",
+        "app/tests/execution/processCrashInjection.test.ts"
+      ],
+      "level": "fault-injection",
+      "status": "verified",
+      "reopenWhen": "修改 recover() 顺序 / STALE 判定 / 心跳阈值时。",
+      "specs": [".trae/specs/process-crash-injection.md"]
+    },
+    {
+      "id": "INV-EXEC-006",
+      "title": "执行入口契约一致（渠道 / 客户端）",
+      "statement": "渠道路径与客户端流式路径在执行身份、写前记账、失败关闭上遵循同一契约（客户端经灰度 `CLIENT_STREAM_EXECUTION` 接入）。",
+      "sources": [
+        "app/src/channels/routing/messageRouter.ts",
+        "app/src/infrastructure/http/handlers/chat-handlers.ts"
+      ],
+      "tests": ["app/tests/chat/chatManagerToolLedgerFailClosed.test.ts"],
+      "level": "unit",
+      "status": "partial",
+      "reopenWhen": "新增执行入口；或翻转 `CLIENT_STREAM_EXECUTION` 默认值时（须补 handler 级用例）。",
+      "specs": [".trae/specs/client-stream-execution.md"]
+    },
+    {
+      "id": "INV-RECOVERY-001",
+      "title": "恢复可重复执行（幂等）",
+      "statement": "恢复流程可重复执行，不会在第二次恢复时制造新的不一致（不重复抬升代次、不重复回收）。",
+      "sources": ["app/src/execution/ExecutionManager.ts"],
+      "tests": [
+        "app/tests/execution/specialCResilience.test.ts",
+        "app/tests/execution/processCrashInjection.test.ts"
+      ],
+      "level": "fault-injection",
+      "status": "verified",
+      "reopenWhen": "修改 recover() / markUnsettledToolCallsUnknown 幂等性时。",
+      "specs": [".trae/specs/durable-execution.md"]
+    },
+    {
+      "id": "INV-RECOVERY-002",
+      "title": "写前记账先于副作用",
+      "statement": "需要持久化记账的工具调用，必须在执行副作用前完成写前记录；落盘失败即拒绝该工具（fail-closed）。",
+      "sources": [
+        "app/src/execution/ExecutionManager.ts",
+        "app/src/chat/ChatManager.ts"
+      ],
+      "tests": ["app/tests/chat/chatManagerToolLedgerFailClosed.test.ts"],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改 beginToolCall 调用点 / 工具执行者顺序时。",
+      "specs": [".trae/specs/durable-execution.md"]
+    },
+    {
+      "id": "INV-RECOVERY-003",
+      "title": "未知副作用不得无条件重放",
+      "statement": "结果未知的外部副作用不能被无条件自动重试（非幂等 / 未声明工具 ⇒ manual，需人工或补偿）。",
+      "sources": ["app/src/tools/toolEffects.ts"],
+      "tests": ["app/tests/tools/toolRecoveryPolicy.test.ts"],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "扩展恢复策略（如新增『可查询远端』档）或修改幂等声明时。",
+      "specs": [".trae/specs/unknown-tool-call-recovery.md"]
+    },
+    {
+      "id": "INV-EVENT-001",
+      "title": "事件序号并发唯一",
+      "statement": "并发写入不会导致执行事件序号重复或破坏必要的顺序约束。",
+      "sources": ["app/src/execution/ExecutionStore.ts"],
+      "tests": ["app/tests/execution/specialCResilience.test.ts"],
+      "level": "integration",
+      "status": "verified",
+      "reopenWhen": "修改 seq 分配 / 唯一索引 / 串行化实现时。",
+      "specs": [".trae/specs/durable-execution.md"]
+    },
+    {
+      "id": "INV-EVENT-002",
+      "title": "事件类型三处同批（编译期强制）",
+      "statement": "新增事件类型必须在事件名 / 后端载荷 / 登记清单三处同批声明，漏一处即编译失败。",
+      "sources": [
+        "shared/events/eventNames.ts",
+        "app/src/session/types/eventPayloads.ts",
+        "app/src/session/types/knownEventTypes.ts"
+      ],
+      "tests": ["app/tests/chat/eventTypeParity.test.ts"],
+      "level": "static",
+      "status": "verified",
+      "reopenWhen": "新增『模型可见输入』类事件时（须三处 + 客户端镜像同批）。",
+      "specs": [".trae/specs/shared-event-name-single-source.md"]
+    },
+    {
+      "id": "INV-SEC-001",
+      "title": "最终执行安全一致（跨层单调）",
+      "statement": "AST / 分析器 / 沙箱检查 / 审批各层判据与最终执行决策一致：`executed ⇒ 全部层清白`（禁止绕过）。",
+      "sources": ["app/src/tools/bash/BashTool.ts"],
+      "tests": ["app/tests/security/crossLayerSecurityConsistency.test.ts"],
+      "level": "integration",
+      "status": "verified",
+      "reopenWhen": "新增安全层 / 新增 bash 执行分支 / 修改 BashTool 决策顺序时。",
+      "specs": [".trae/specs/bash-security-9th-review-hardening.md"]
+    },
+    {
+      "id": "INV-SEC-002",
+      "title": "审批有效性",
+      "statement": "已批准命令在执行前仍须满足规定的重新验证条件（批准只免审批交互，硬拦截仍须过）。",
+      "sources": [
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/permission/ApprovedCommandRegistry.ts"
+      ],
+      "tests": [
+        "app/tests/security/crossLayerSecurityConsistency.test.ts",
+        "app/tests/tools/bashSecuritySwitchDefaults.test.ts"
+      ],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改 `BASH_APPROVED_REVALIDATE` / 审批粒度 / 规范化哈希时。",
+      "specs": [".trae/specs/bash-security-9th-review-hardening.md"]
+    },
+    {
+      "id": "INV-SEC-003",
+      "title": "沙箱边界由运行时强制执行",
+      "statement": "沙箱限制必须由运行时机制（如 Landlock）强制执行，而非仅靠提示词或静态检查；失败须 fail-closed。",
+      "sources": [
+        "app/src/sandbox/landlock/runWithLandlock.ts",
+        "app/src/tools/bash/bashLandlockExec.ts"
+      ],
+      "tests": [
+        "app/tests/sandbox/negativeEnforcement.test.ts",
+        "app/tests/sandbox/spawnPathRestrictions.test.ts"
+      ],
+      "level": "e2e-security",
+      "status": "partial",
+      "reopenWhen": "bash 内核沙箱默认关闭（`landlock.bashEnabled=false`）或跨平台无强隔离后端时（见 P1-6 / P2-4）。",
+      "specs": [".trae/specs/ast-family-phased-plan.md"]
+    },
+    {
+      "id": "INV-SEC-004",
+      "title": "深扫未完成不得折叠为放行",
+      "statement": "静态深扫未执行 / 失败（`scanStatus != 'ran'`）不得被视为『扫描通过』，不得折算为 ALLOW。",
+      "sources": [
+        "app/src/tools/CodeRunner/staticValidation.ts",
+        "app/src/security/decision.ts"
+      ],
+      "tests": ["app/tests/security/securityVerdict.test.ts"],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改深扫降级策略 / `CODE_RUN_DEEP_SCAN_STRICT` 默认值时。",
+      "specs": [".trae/specs/security-decision-verdict.md"]
+    },
+    {
+      "id": "INV-ARCH-001",
+      "title": "SPI 装配顺序约束",
+      "statement": "端口装配顺序（如 `AiAccess` 必须先于 `Knowledge`）必须被机器校验，不能仅靠注释声明；乱序须在**注册期**即失败并给出可读原因。",
+      "sources": [
+        "app/src/entrypoints/spiWiring.ts",
+        "app/src/core/spi/wiringGuard.ts"
+      ],
+      "tests": ["app/tests/core/spiWiringOrder.test.ts"],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "新增端口顺序依赖（须在 `SPI_WIRING_REQUIRES` 登记并在依赖端口 register 内断言）时。",
+      "specs": [".trae/specs/kernel-style-architecture-governance.md"]
+    }
+  ]
+}

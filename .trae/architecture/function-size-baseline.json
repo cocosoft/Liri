@@ -1,0 +1,14 @@
+{
+  "$comment": "超大函数/文件**棘轮基线**（P2-1）。门禁 scripts/lint-function-size-ratchet.ts：**只允许缩小，不允许增长**（防'治理期间继续长个'）。拆分推进后须**下调**本基线（下调即锁定成果）。",
+  "version": 1,
+  "recordedAt": "2026-10-10",
+  "entries": [
+    {
+      "file": "app/src/chat/orchestrator/streamMessageFlow.ts",
+      "function": "runStreamMessage",
+      "functionLines": 2203,
+      "fileLines": 2380,
+      "note": "复杂度 309→**262**（台账 L-10）；拆分计划见 .trae/specs/stream-message-flow-split.md（**逐阶段拆分，每阶段一 PR**）。**P2-1b 已下调（2026-10-10）**：S1 请求准备外移 `streamMessagePrepare.ts`（2532→2507 / 2684→2657）。**P2-1c 已下调**：S4 事件持久化收敛为 `streamMessageEvents.ts` 单一 append 入口（2507→2481 / 2657→2633）。**P2-1d-1 已下调**：S6 压缩段纯派生外移 `deriveCompactionFold`（2481→2466 / 2633→2620）。**P2-1d-2 已下调**：S6 retry 段文案单一来源 + 续写消息构造（2466→2458 / 2620→2617）。**P2-1d-3 已下调**：S6 截断/降级**纯决策**外移 `decideTruncationStep`（2458→2454 / 2617→2615）。**P2-1d-4 已下调**：S6 degradation 水位载荷外移 `buildDegradationWatermark`（2454→2450 / 2615→2613）。**P2-1e 已下调**：S7 所有权释放收口 `releaseStreamOwnership`（2450→2443 / 2613→2608）。**P2-1f 已下调**：S3 工具轮 `assistant/todo` 载荷去重 `buildTodoEventData`（2443→2406 / 2608→2573）。**P2-1g 已下调**：S1 发送前历史污染清洗外移 `sanitizeHistoryPollution`（2406→2367 / 2573→2536；复杂度 294→275）。**P2-1h 已下调**：S4 流式水位上报（节流决策 + 双载荷）外移 `createWatermarkReporter`（2367→2333 / 2536→2504；**复杂度不变 275** —— 该上报原为**嵌套箭头函数**，ESLint `complexity` 逐函数计分，其判据本就不计入 `runStreamMessage`）**P2-1i 已下调**：S3 本轮工具集选择（任务类型优先级 + K4 执行意图提升 + D7/L2 带图保留 image + 裁剪）外移 `selectToolsForTurn`（2333→2319 / 2504→2489；复杂度 **275→269**）**P2-1j 已下调**：S3 工具轮上下文**装配**外移 `buildToolLoopContext`（`ToolLoopContext` 约 75 行对象字面量 → 一次调用；2319→2257 / 2489→2427；复杂度 269→268）**P2-1k 已下调**：S3 回滚轮次启动（只读性判据 + 启动/跳过动作）外移 `maybeStartRollbackRound`（2257→2235 / 2427→2407；复杂度 268→267）**P2-1l 已下调**：S4 `turn/start` 写入（恢复最大 turn + 仅首轮 + 失败留痕）外移 `startStreamTurn`（2235→2212 / 2407→2386；复杂度 267→266）**P2-1m 已下调**：请求级延迟 `metric/timing` 载荷构造外移 `buildRequestTimingPayload`（纯函数）。**P2-1n 已下调**：后台压缩水位状态块构造外移 `buildBackgroundCompactionNotice`（未达阈值 ⇒ `null`）（2212→2203 / 2386→2380；复杂度 266→262）*（P2-1 系列：2532→2203 / 2684→2380 / 309→262）*"
+    }
+  ]
+}

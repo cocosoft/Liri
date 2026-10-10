@@ -3,12 +3,16 @@ name: CI Test
 on:
   push:
     branches: [ main, develop ]
+    # P1-2：纯文档/规则/spec 改动由 `doc-gate.yml`（不设 paths-ignore）承接文档门禁，
+    # 避免"文档改动不触发任何检查"（工作流级 paths-ignore 无法按 job 细分）。
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.trae/**'
   pull_request:
     branches: [ main, develop ]
+    # P1-2：纯文档/规则/spec 改动由 `doc-gate.yml`（不设 paths-ignore）承接文档门禁，
+    # 避免"文档改动不触发任何检查"（工作流级 paths-ignore 无法按 job 细分）。
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -363,12 +367,47 @@ jobs:
         if-no-files-found: warn
 
   # ══════════════════════════════════════════════
+  # P1-6 沙箱**真负向**默认门禁（Linux + helper ⇒ **强制跑**，不得静默跳过）
+  #   验收：越权写文件未创建 / 越权子进程被拒 / 内容不泄露（真实内核结果，非策略形状断言）
+  # ══════════════════════════════════════════════
+  sandbox-negative:
+    name: Sandbox Real Negative (Linux, required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
+      with:
+        project: app
+
+    # 构建 landlock-run helper（main.c = 纯 C11 + libc；编译产物不入库）
+    - name: Build landlock-run helper
+      working-directory: .
+      run: |
+        set -eu
+        OUT="$RUNNER_TEMP/landlock-run"
+        cc -static -O2 -Wall -Wextra -o "$OUT" app/src/sandbox/landlock/native/main.c \
+          || cc -O2 -Wall -Wextra -o "$OUT" app/src/sandbox/landlock/native/main.c
+        "$OUT" --probe || true
+
+    # 真负向**必须执行**：SANDBOX_NEGATIVE_REQUIRE=1 ⇒ 环境不满足即**失败**（不静默跳过）
+    - name: Real negative tests (required)
+      env:
+        LANDLOCK_RUN_HELPER: ${{ runner.temp }}/landlock-run
+        SANDBOX_NEGATIVE_REQUIRE: '1'
+      run: bun test tests/sandbox/negativeEnforcement.test.ts
+
+  # ══════════════════════════════════════════════
   # R14 分层质量摘要（§6.3）—— 5 层**分列**呈现，**不合成单一分数**
   # ══════════════════════════════════════════════
   quality-summary:
     name: Layered Quality Summary (R14)
     runs-on: ubuntu-latest
-    needs: [test, cargo-build, static-check, command-test, performance-test, client-test, e2e-test]
+    needs: [test, cargo-build, static-check, command-test, performance-test, client-test, e2e-test, sandbox-negative]
     if: always()
 
     steps:
@@ -396,6 +435,7 @@ jobs:
             "client-test": "${{ needs.client-test.result }}",
             "command-test": "${{ needs.command-test.result }}",
             "security-scan": "${{ needs.static-check.result }}",
+            "sandbox-negative": "${{ needs.sandbox-negative.result }}",
             "pathshield-e2e": "${{ needs.e2e-test.result }}",
             "e2e-test": "${{ needs.e2e-test.result }}",
             "cargo-build": "${{ needs.cargo-build.result }}",

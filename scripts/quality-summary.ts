@@ -73,6 +73,10 @@ const LAYERS: Layer[] = [
         label: '安全扫描（static-check · security-scan）',
       },
       {
+        key: 'sandbox-negative',
+        label: '沙箱真负向（P1-6 · Linux 强制跑：越权读/写/子进程被内核拒绝）',
+      },
+      {
         key: 'pathshield-e2e',
         label: '防泄题沙箱 e2e（E2E Fault Injection · PathShield）',
       },

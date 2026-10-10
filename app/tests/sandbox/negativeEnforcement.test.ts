@@ -121,3 +121,28 @@ describe.skipIf(SKIP_REASON !== null)(
     });
   }
 );
+
+// ─────────────────────────────────────────────────────────────
+// P1-6：真负向的**门禁契约**（防止"CI 全绿但其实一次都没真跑"）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * `SANDBOX_NEGATIVE_REQUIRE=1` ⇒ **本机必须真的能跑真负向**：环境不满足即**判失败**
+ * （而不是 skip）。CI 的 `sandbox-negative` job（ubuntu-latest）构建 helper 后带此变量运行。
+ *
+ * 未设置 ⇒ 保持既有"显式 skip + 原因"（开发机 Windows/macOS 友好），但**skip 原因会被
+ * 打印**，并纳入发布策略（见 `.trae/architecture/invariants.md` §3 `INV-SEC-003`）。
+ */
+const REQUIRE_REAL_ENFORCEMENT = process.env.SANDBOX_NEGATIVE_REQUIRE === '1';
+
+describe('P1-6 真负向门禁契约', () => {
+  it('必需模式下：环境不满足即失败（不得静默跳过）', () => {
+    if (REQUIRE_REAL_ENFORCEMENT && SKIP_REASON !== null) {
+      throw new Error(
+        `SANDBOX_NEGATIVE_REQUIRE=1 但真负向无法执行（不得静默跳过）: ${SKIP_REASON}`
+      );
+    }
+    // 非必需模式（或环境满足）：本契约通过；真负向的执行与否由上方 describe 决定并如实记录
+    expect(true).toBe(true);
+  });
+});

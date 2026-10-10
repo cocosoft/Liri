@@ -377,10 +377,14 @@ export class MCPSystem {
       // 追踪到、但未被逐条 close 的 stdio 子进程。此前 `killOrphanedProcesses` 全仓**零调用点**
       // ⇒ 名义存在但**从未启用**（异常路径下 stdio 子进程可残留）。见
       // `dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md` §8.1（P0）。
-      // 双轨边界（如实）：本兜底覆盖**自研轨**（`StdioTransport` → `trackProcess`）；
-      // **SDK 轨**（`client.ts` 的 `StdioClientTransport`）未接入本追踪器，其子进程由
-      // `mcpConnectionManager.closeAll()` 逐条 `client.close()` 承接（收敛另见
-      // `.trae/specs/mcp-client-dual-track-convergence-assessment.md`）。
+      // 双轨边界（如实 · P2-8 复核 2026-10-10）：本兜底覆盖**自研轨**（`StdioTransport`
+      // → `trackProcess`）；**SDK 轨**（`client.ts` 的 `StdioClientTransport`）**有意不并入**
+      // —— SDK 只公开 `pid`（不公开子进程句柄）⇒ 要并入只能走私有 `_process` 或 PID 快照，
+      // 后者有 pid 复用误杀风险（见 spec §11.2）。其子进程由上方
+      // `mcpConnectionManager.closeAll()` 逐条 `client.close()`（= `transport.close()`）承接，
+      // 且 `Client.connect()` 在 initialize 失败时自带 `close()`。边界由
+      // `tests/mcp/sdkStdioTrackBoundary.test.ts` 机器守卫；依据见
+      // `.trae/specs/mcp-client-dual-track-convergence-assessment.md` §11。
       const { killOrphanedProcesses } =
         await import('./transports/ChildProcessTracker');
       const reaped = await killOrphanedProcesses(true);

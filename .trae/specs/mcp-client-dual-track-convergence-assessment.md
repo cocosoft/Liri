@@ -1,6 +1,6 @@
 # Spec：MCP 客户端双轨收敛评估（assessment）
 
-> 版本 1.3 ｜ 创建 2026-10-08 ｜ 状态：✅ **已完成 —— C-1 / C-2 / C-3 均已落地（2026-10-08）**
+> 版本 1.5 ｜ 创建 2026-10-08 ｜ 状态：✅ **已完成 —— C-1 / C-2 / C-3 均已落地（2026-10-08）** ＋ **§11 P2-8 双轨子进程边界复核（2026-10-10）** ＋ **§11.4 端到端补测（真实 server 复核 + 双轨并存回收，2026-10-10）**
 > 来源：2026-10-08 治理遍历副产物 —— 复核 `mcp_resource` 协议用法时发现（详见台账「MCP 资源面协议用法复核与修复」节）
 > 上游规则：`project_rules §1.11`（MCP 模块架构：标准层 `services/mcp/` / 增强层 `mcp/` **不重复实现** 相同类型）· GR01（基础设施复用）· GR15（Spec-Driven）· CS01（归一化）· CS03（回退最小化）
 > 口径（CS06）：下列 file:line 均 **2026-10-08 静态实测**；**凡未经运行验证者一律标注"未实测"**，不写成结论。
@@ -192,6 +192,10 @@ C-1 的初稿是"把两个工具改走 SDK `.client`"。取证时发现：**SDK 
 - 建议下一步：若有可用的 MCP server，做一次**端到端实测**（`tools/list` / `resources/list` / `prompts/list`）
   验证 C-1 的真实效果，再决定 C-2/C-3。
 
+> **2026-10-10 更新**：上述端到端实测**已实跑完成** —— `tests/mcp/realServerE2E.test.ts`（官方
+> `@modelcontextprotocol/server-everything`，`MCP_E2E=1` 门控）**13 pass / 0 fail**，覆盖工具/资源/提示/VFS 面。
+> 详见 §11.4 / §11.5（该缺口**就此关闭**）。
+
 ---
 
 ## 9. C-2 执行记录（2026-10-08）
@@ -275,3 +279,86 @@ C-1 的初稿是"把两个工具改走 SDK `.client`"。取证时发现：**SDK 
   3 处回归面**静态封闭**（投影优先分支覆盖其数据来源）。
 - **按需**路径（`MCPTool.connect` / CLI `mcp call`）**未改**；**未做**「把这两处也改走 SDK」
   （属方案 A 激进面）。`MCPServerManager` 的统计/健康检查/自动重连/连接池**均保留**（未删）。
+
+> **2026-10-10 更新**：上述"真实服务器下 marketplace / CLI 状态与工具列表是否与 C1 一致"**仍未端到端实测**——
+> `realServerE2E.test.ts` 覆盖的是**工具/资源/提示/VFS 面**（C-1 面），**未**覆盖投影化后的 marketplace/CLI 面。
+> 如实边界见 §11.5。
+
+---
+
+## 11. P2-8 执行记录（2026-10-10）—— **双轨子进程**边界复核与裁定
+
+> 来源：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-8**（外部核验项 M-15）。
+> 目标（原表述）：评估把 **SDK 轨**（`StdioClientTransport`）也纳入 `ChildProcessTracker`
+> （当前仅自研轨被兜底回收），消除"双轨并存"；或**明确登记** SDK 轨由 `closeAll()` 承接的边界与残留风险。
+> 口径（CS06）：下列结论均以**已装包源码/编译产物 + 本仓源码**为据；凡未经运行验证者标注"未实测"。
+
+### 11.1 取证（决定「纳入 / 不纳入」的根据）
+
+| # | 事实 | 证据 |
+|:-:|---|---|
+| 1 | SDK 轨的子进程由 `StdioClientTransport` **内部** `cross-spawn` 拉起 | `@modelcontextprotocol/sdk/dist/esm/client/stdio.js:65` |
+| 2 | SDK 只公开 `pid` / `stderr`，**不公开子进程句柄**（`_process` 为 TS-private） | `.../client/stdio.d.ts:47,66,72`；`stdio.js:109-122` |
+| 3 | `ChildProcessTracker` 的设计**基于持有 `ChildProcess` 引用**（两阶段终止 + `exit` 监听），并**刻意避免 PID 快照** | `transports/ChildProcessTracker.ts:1-13`（"我们持有 ChildProcess 引用，不需要 PID 快照"） |
+| 4 | SDK `Client.connect()` 在 initialize 失败时**自带 `void this.close()`** ⇒ 连接失败**不留孤儿** | `.../client/index.js:323-327` |
+| 5 | SDK 子进程 `close` ⇒ 清 `_process` + 触发 `onclose` ⇒ `Protocol._onclose()` 拒绝在途请求 | `stdio.js:83-86`；`shared/protocol.js:221-224,248-268` |
+| 6 | SDK 轨子进程可被 `transport.close()` 回收（2s → SIGTERM → 2s → SIGKILL） | `stdio.js:137-172` |
+| 7 | `MCPServerManager`/`MCPConnectionManager.closeAll()` **逐个** `client.close()`（真实 e2e 修过的进程泄漏） | `MCPConnectionManager.ts:539-558` |
+| 8 | `cleanup()` 中 **SDK 轨关闭先于** `killOrphanedProcesses(true)`（自研轨兜底） | `services/mcp/index.ts:372-386` |
+| 9 | `mcpSystem.toggleServer` / `mcpConnectionManager.toggleServer` **全仓无调用者**（真实启用走 market 的配置写入） | `index.ts:163`（无外部调用）；`MCPMarketplace.ts:236-239` 为真实路径 |
+
+### 11.2 裁定：**不把 SDK 轨并入 `ChildProcessTracker`**（维持现状，CS03）
+
+理由（两步都走不通 ⇒ 现机制更优）：
+
+1. 要把 SDK 子进程喂给追踪器，只有两条路，**均劣于现状**：
+   - **(a) 访问私有 `_process`**：跨 SDK 版本脆弱（无编译期保护，与 C-1 已修的 `as any` 同类风险）；
+   - **(b) 新增 PID 快照机制**：追踪器**刻意规避**（事实 #3）；且子进程**自行退出后 PID 可被复用**
+     ⇒ 回收时会**误杀无辜进程**（比"不追踪"更危险）。
+2. SDK 轨的**回收路径已完备**（事实 #4–#8）：连接失败自带关闭、`closeAll()` 逐个 `client.close()`
+   ⇒ `transport.close()` 真回收；`cleanup()` 顺序正确（SDK 先、自研兜底后）。
+3. **残余风险 = 硬崩溃场景**（父进程被 SIGKILL / 崩溃）：此时**两轨的 JS 回收都不运行**
+   （自研轨的 `exit` 监听与 `killOrphanedProcesses` 亦在 `cleanup()` 内）⇒ **两轨同等**残留，
+   **非 SDK 轨独有** ⇒ 不值得为此引入 pid 快照的误杀风险。
+
+⇒ 结论：**保留双轨现状**，但把边界从"注释"升级为**可执行断言**（§11.3）。
+
+### 11.3 交付物（把边界变成机器守卫）
+
+| 文件 | 内容 |
+|---|---|
+| `app/tests/mcp/sdkStdioTrackBoundary.test.ts` | **4 例**：① **前提** — SDK `StdioClientTransport` **不公开**子进程句柄（仅 `pid`/`stderr`）⇒ 若未来 SDK 暴露公开句柄则**测试失败**（触发重评"是否并入追踪器"）；② **行为** — SDK 子进程存活时 `ChildProcessTracker` **计数为 0**（双轨边界的可执行证据）+ `transport.close()`（`closeAll()` 所用机制）**真回收**该子进程（轮询等待退出）；③ **边界登记** — `cleanup()` 中 SDK 轨关闭（`closeAll`）**先于**自研轨兜底（`killOrphanedProcesses`）；④ **端到端**（2026-10-10 第二轮补） — 两轨子进程**并存**（SDK `StdioClientTransport` + 自研 `StdioTransport.connect()`）时，追踪器**只认自研轨**（计数 = 1），按**生产回收顺序**（SDK `close()` → `killOrphanedProcesses(true)`）两个 PID **均被回收**、断言 `killed === 1` 且计数归 0 |
+| `app/tests/mcp/fixtures/mcpIdleChild.js` | 保持存活的 stdio 夹具（stdin `end` 即退出），供 ②④ 用真实子进程验证回收 |
+| `app/tests/mcp/realServerE2E.test.ts` | **既有**（非本轮新增，`describe.skipIf(MCP_E2E !== '1')`）：官方 `@modelcontextprotocol/server-everything` 走**生产链** `mcpConnectionManager.initialize` 的真实 SDK 轨端到端（13 例，覆盖工具/资源/提示/VFS 面）。本轮**实跑复核**以关闭 §11.5 的真实 server 缺口（见 §11.4） |
+
+### 11.4 门禁（2026-10-10 实测 · 第二轮补 e2e 后）
+
+`tests/mcp/sdkStdioTrackBoundary.test.ts` **4 pass / 0 fail**（真实子进程：两轨 PID 在 `transport.close()` /
+`killOrphanedProcesses(true)` 后**均已不可探活**，追踪计数归 0）·
+`typecheck`（3 tsconfig）**0** · 改动文件 `eslint` **0** · `lint:arch` **错误 0 / 警告 4**（基线）·
+全量 `bun run ci` **exit 0｜5707 pass / 0 fail / 17311 expect**（基线 5706 ⇒ **+1** = 新增第 ④ 例；`lint:fix-evidence` ✅）
+
+真实 server 复核（门控 `MCP_E2E=1`，**非**默认套件）：`tests/mcp/realServerE2E.test.ts`
+**13 pass / 0 fail / 34 expect**（`@modelcontextprotocol/server-everything`，生产链 `mcpConnectionManager.initialize`；
+`afterAll` 仅调 `closeAll()` 且进程能干净退出 ⇒ 兼作 SDK 轨泄漏 e2e）。
+
+### 11.5 已关闭 / 仍未验证（CS06）
+
+**已关闭**：
+- ✅ **SDK 轨真实 server 端到端**：由**既有** `tests/mcp/realServerE2E.test.ts` **实跑复核**关闭（**13 pass**，见 §11.4）——
+  生产链 `mcpConnectionManager.initialize` + 官方参考 server，覆盖工具/资源/提示/VFS 面，且 `closeAll()` 后进程干净退出。
+  ⇒ §8.4 / §10.4 遗留的"本环境无真实 server 可测"缺口**就此关闭**（该文件为既有资产，本轮**未新增**同类 e2e，CS01）。
+
+**仍未验证（如实边界）**：
+- **"真实协议 server 下双轨并存是否互相干扰"未实测**：第 ④ 例证明了**两轨子进程并存时的回收边界**，但两轨进程均为
+  **本地免网络夹具**（`mcpIdleChild.js`，**非**协议 server）；**同一真实协议 server 上同时挂两轨**的场景**未跑**。
+  判据：该场景须先证"自研 transport 与真实协议 server 互通"（§6.1 已明确标注**未验证**），属独立风险面，**不阻塞** P2-8 验收口径。
+- **硬崩溃场景两轨同等残留**：父进程被 SIGKILL / 崩溃时两轨 JS 回收**均不运行**（§11.2 理由 3），非 SDK 轨独有 ⇒ 不引入 pid 快照误杀风险。
+- 事实 #9 的 `toggleServer` 路径**无调用者**（死面）⇒ 其上"翻 `clientCache` 类型但不关 SDK client"的
+  隐患**不可达**；按 `PY_APP §3`（不删预先存在的死代码）**仅登记**（如需清理，先摘调用入口再删实现，CD05）。
+
+### 11.6 重开触发条件
+
+- SDK 升级后 `StdioClientTransport` **暴露公开子进程句柄**（§11.3 用例 ① 变红）；
+- `cleanup()` 中 SDK 轨关闭**不再先于**自研轨兜底（§11.3 用例 ③ 变红）；
+- 出现**真实事件**：SDK 轨 stdio 子进程在**非硬崩溃**场景下残留（含 `toggleServer` 等路径被接线）。

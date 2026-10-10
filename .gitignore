@@ -172,7 +172,8 @@ app/settings.json
 !.trae/architecture/
 # Exclude specific dev_docs
 # （dev_docs/ 整体保持忽略：2026-09-23 实测 1144 文件 / 87MB 本地分析产物，属有意排除；
-#   仅放行 `error_repairs/` —— 规则指定的"发现即记录"目的地，见文件末尾的反排除）
+#   2026-10-10 用户裁定：dev_docs **全量留在本地、不推送** ⇒ 其下不再设任何反排除；
+#   被 `doc-gate.yml` 强制读取的门禁数据（修复证据登记）已迁至 `.trae/architecture/`）
 dev_docs/*
 app/data/
 app/.test_exports/
@@ -240,10 +241,10 @@ temp _url.txt
 temp_url2.txt
 test.txt
 dev_docs/*
-# 例外（必须放在所有 `dev_docs/*` 规则之后，gitignore 以"最后匹配者胜"）：
-# `error_repairs/` 是 .trae/rules 指定的「发现即记录」目的地（预存错误与待处理问题.md），
-# 若不入库则该制度在版本层面不成立（2026-09-23）。其余 dev_docs 内容仍全部忽略。
-!dev_docs/error_repairs/
+# 2026-10-10 用户裁定：`dev_docs/` **全量留在本地、不推送**。原 `!dev_docs/error_repairs/`
+# 反排除（2026-09-23「发现即记录」制度）随之撤销 —— 台账/分析稿改为纯本地，不在 GitHub 可见。
+# 被 `doc-gate.yml` 强制读取的门禁数据（`fix-evidence-registry.json` / `修复证据登记.md`）
+# 已迁至 `.trae/architecture/`（该目录的反排除见上方"架构不变量注册表"段）。
 
 # 临时会话去重备份与一次性脚本
 app/scripts/session-dedup-backup-*.jsonl
@@ -251,19 +252,6 @@ liri_check.py
 liri_serve.py
 rand_pick.py
 
-# 运行时诊断件（本地保留，不入库；2026-09-25 用户裁定）
-# 判据：**每次事故生成一份的事件产物**（退出快照 / 崩溃归档清单）≠ 制度文档 ——
-# `error_repairs/` 的入库价值在"发现即记录"的**台账**与**分析报告**，而这些是机器写出的瞬时证据。
-# 注意：`crashes-archive-*.zip` 已被上方 Archives 段的 `*.zip` 覆盖，无需重复。
-# ⚠️ 副作用（如实）：`.trae/specs/system-abort-reason-hardening.md` 与台账中
-# 对 `last-exit-20260925-0154Z.md` / `crashes-manifest-20260925.md` 的引用，
-# 在他人克隆里**不可达**（仅本地保留）。
-# 位置要求：必须排在上方 `!dev_docs/error_repairs/` **之后** —— gitignore 以"最后匹配者胜"。
-/dev_docs/error_repairs/last-exit-*
-/dev_docs/error_repairs/crashes-manifest-*
-
-# 任务类文档按日期归档（2026-10-02）：任务类文档与代码同生命周期，需入库。
-# 位置要求：必须排在上方所有 `dev_docs/*` 忽略规则**之后** —— gitignore 以"最后匹配者胜"。
-!dev_docs/20260926/
-!dev_docs/20260928/
-!dev_docs/20261001/
+# 运行时诊断件与任务类归档文档：原各有独立忽略/反排除规则（2026-09-25 / 2026-10-02）。
+# 2026-10-10 用户裁定 `dev_docs/` 全量本地化后，这些规则均由上方 `dev_docs/*` 统一覆盖，
+# 故一并撤销（不再有 `last-exit-*` / `crashes-manifest-*` 特例，也不再将 `dev_docs/2026xxxx/` 入库）。

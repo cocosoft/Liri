@@ -409,6 +409,33 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(2)}MB`;
 }
 
+/**
+ * P1-5（2026-10-10）：bash 子进程**最终环境**的**唯一构造点**（纯函数，便于跨层一致性测试断言
+ * `env 清洗 → 最终 spawn` 全链，避免测试复制生产逻辑）。
+ *
+ * 语义（第九轮审查 §五 缺陷 #5）：
+ * - 先剥离**父进程**继承的敏感键（`stripSensitiveEnv`，单一事实源 `@modules/security`）；
+ * - 对**调用方 env**（模型可控）施加**同一套**敏感键策略 + 额外剥离**执行控制键**
+ *   （`PATH`/`NODE_OPTIONS`/`LD_PRELOAD` 等）⇒ 调用方**不能覆盖**已剥离项，也不能改写执行语义；
+ * - Windows 追加 `GIT_SSL_BACKEND=schannel`。
+ *
+ * @returns `env` 最终环境；`stripped` 被剥离的调用方键（供调用方留痕，不静默丢弃 —— CS03-002）
+ */
+export function buildBashSpawnEnv(
+  callerEnv: NodeJS.ProcessEnv | undefined,
+  opts: { isWindows: boolean; parentEnv?: NodeJS.ProcessEnv }
+): { env: NodeJS.ProcessEnv; stripped: string[] } {
+  const sanitized = sanitizeCallerEnv(callerEnv || {});
+  const env: NodeJS.ProcessEnv = {
+    ...stripSensitiveEnv(opts.parentEnv ?? process.env),
+    ...sanitized.env,
+  };
+  if (opts.isWindows) {
+    env['GIT_SSL_BACKEND'] = 'schannel';
+  }
+  return { env, stripped: sanitized.stripped };
+}
+
 export class BashTool extends BaseTool {
   name = 'bash';
 
@@ -822,19 +849,15 @@ export class BashTool extends BaseTool {
       // **覆盖**已剥离项。现对调用方 env 施加**同一套策略**（敏感键）+ 额外剥离**执行控制键**
       // （PATH / NODE_OPTIONS / PYTHONPATH / BASH_ENV / LD_PRELOAD … ⇒ 命令文本不变但实际
       // 执行语义改变）。被剥离项**留痕**（debug），不静默丢弃（CS03-002）。
-      const callerEnv = sanitizeCallerEnv(env || {});
-      if (callerEnv.stripped.length > 0) {
+      const { env: mergedEnv, stripped: strippedCallerEnv } = buildBashSpawnEnv(
+        env,
+        { isWindows: this.isWindows }
+      );
+      if (strippedCallerEnv.length > 0) {
         logger.warn('bash: caller env 含受保护键，已剥离', {
           sessionId: context.sessionId,
-          stripped: callerEnv.stripped,
+          stripped: strippedCallerEnv,
         });
-      }
-      const mergedEnv = {
-        ...stripSensitiveEnv(process.env),
-        ...callerEnv.env,
-      };
-      if (this.isWindows) {
-        mergedEnv['GIT_SSL_BACKEND'] = 'schannel';
       }
 
       // K-5 P1 内存治理：硬 maxBuffer 防线（防止 child_process 内部无限制 buffer 暴涨）

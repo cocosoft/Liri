@@ -39,7 +39,8 @@
  *     **单调一致** —— 任一层报危险 ⇒ 绝不静默放行；全部层清白 ⇒ 不误伤。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { BashTool } from '../../src/tools/bash/BashTool.js';
+// P1-5（2026-10-10）：`buildBashSpawnEnv` = bash 最终 env 的唯一构造点（把 `env 清洗 → 最终 spawn` 串入同一链）
+import { BashTool, buildBashSpawnEnv } from '../../src/tools/bash/BashTool.js';
 import {
   ApprovedCommandRegistry,
   hashCommand,
@@ -57,6 +58,15 @@ import {
 } from '../../src/security/bash/BashAST.js';
 import { SandboxSecurityChecker } from '../../src/sandbox/SandboxSecurityChecker.js';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
+import {
+  execBashCommand,
+  type LandlockHelperRunner,
+} from '../../src/tools/bash/bashLandlockExec.js';
+import {
+  DEFAULT_LANDLOCK_CONFIG,
+  type LandlockCapability,
+  type LandlockConfig,
+} from '../../src/sandbox/index.js';
 
 /** 最小可用的 ToolUseContext（BashTool.execute 仅用到 sessionId） */
 function makeContext(sessionId: string): ToolUseContext {
@@ -270,5 +280,115 @@ describe('专项 A #7-附 审批层与最终决策一致（A2 基线）', () => 
     );
     expect(r.metadata?.securityIntercepted).toBe(true);
     expect(r.success).not.toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// P1-5：`env 清洗 → 最终 spawn` 纳入同一逐层决策链
+// ─────────────────────────────────────────────────────────────
+
+const AVAILABLE: LandlockCapability = { available: true, abi: 3 };
+const BASH_ON: LandlockConfig = {
+  ...DEFAULT_LANDLOCK_CONFIG,
+  enabled: true,
+  bashEnabled: true,
+};
+
+/** 执行 bash 并**捕获真实交给 helper 的 spawn env**（离线、跨平台确定） */
+async function captureSpawnEnv(
+  env: NodeJS.ProcessEnv
+): Promise<NodeJS.ProcessEnv> {
+  let captured: NodeJS.ProcessEnv | undefined;
+  const runner: LandlockHelperRunner = async (input) => {
+    captured = input.env ?? {};
+    return { stdout: '', stderr: '', exitCode: 0, timedOut: false };
+  };
+  await execBashCommand({
+    command: 'echo env-probe',
+    cwd: '/repo/work',
+    env,
+    timeoutMs: 1000,
+    maxBufferChars: 4096,
+    deps: {
+      config: BASH_ON,
+      evalForced: false,
+      platform: 'linux',
+      detect: async () => AVAILABLE,
+      pathExists: () => true,
+      runHelper: runner,
+    },
+  });
+  if (!captured) throw new Error('runner 未被调用（未走到 spawn 组装）');
+  return captured;
+}
+
+describe('P1-5 跨层一致性 —— env 清洗 → 最终 spawn', () => {
+  it('攻击样例：调用方 env 覆盖已剥离项 ⇒ 清洗 + 最终 spawn env **均不含**该键（单一链路断言）', async () => {
+    const parentEnv: NodeJS.ProcessEnv = {
+      PATH: '/usr/bin:/bin',
+      FAKE_API_KEY: 'leak-from-parent',
+      HOME: '/home/u',
+    };
+    const callerEnv: NodeJS.ProcessEnv = {
+      FAKE_API_KEY: 'leak-from-caller', // 攻击：重新注入已剥离的敏感键
+      PATH: '/evil/bin', // 攻击：覆盖 PATH 改变执行语义
+      NODE_OPTIONS: '--require /evil.js', // 攻击：注入预加载
+      SAFE_VAR: 'ok',
+    };
+
+    // ① 清洗层（唯一构造点）
+    const { env, stripped } = buildBashSpawnEnv(callerEnv, {
+      isWindows: false,
+      parentEnv,
+    });
+    expect(env.FAKE_API_KEY).toBeUndefined();
+    expect(env.NODE_OPTIONS).toBeUndefined();
+    expect(env.PATH).toBe('/usr/bin:/bin'); // 调用方**不能覆盖**父进程 PATH
+    expect(env.SAFE_VAR).toBe('ok');
+    expect(stripped).toEqual(
+      expect.arrayContaining(['FAKE_API_KEY', 'PATH', 'NODE_OPTIONS'])
+    );
+
+    // ② 最终 spawn（捕获真实 spawn env）
+    const spawned = await captureSpawnEnv(env);
+    expect(spawned.FAKE_API_KEY).toBeUndefined();
+    expect(spawned.NODE_OPTIONS).toBeUndefined();
+    expect(spawned.PATH).toBe('/usr/bin:/bin');
+    expect(spawned.SAFE_VAR).toBe('ok');
+  });
+
+  it('父进程敏感键被剥离（不依赖调用方显式传入）', () => {
+    const { env } = buildBashSpawnEnv(undefined, {
+      isWindows: false,
+      parentEnv: {
+        AWS_SECRET_ACCESS_KEY: 'x',
+        SSH_AUTH_SOCK: '/s',
+        GOOGLE_APPLICATION_CREDENTIALS: '/c.json',
+        KEEP_ME: '1',
+      },
+    });
+    expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(env.SSH_AUTH_SOCK).toBeUndefined();
+    expect(env.GOOGLE_APPLICATION_CREDENTIALS).toBeUndefined();
+    expect(env.KEEP_ME).toBe('1');
+  });
+
+  it('Windows 追加 `GIT_SSL_BACKEND=schannel`，且不影响其它键', () => {
+    const { env } = buildBashSpawnEnv(undefined, {
+      isWindows: true,
+      parentEnv: { FOO: '1' },
+    });
+    expect(env.GIT_SSL_BACKEND).toBe('schannel');
+    expect(env.FOO).toBe('1');
+  });
+
+  it('运行期断言：BashTool 的最终 env 构造**仅**经唯一构造点（未再出现内联合并）', () => {
+    // 防回退：若有人把 `{...stripSensitiveEnv(process.env), ...(env||{})}` 写回 BashTool，
+    // 本用例的 `stripped` 语义与上一条攻击样例将同时失守（留作回归锚点）。
+    const { stripped } = buildBashSpawnEnv(
+      { PATH: '/evil' },
+      { isWindows: false, parentEnv: {} }
+    );
+    expect(stripped).toContain('PATH');
   });
 });

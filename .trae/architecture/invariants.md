@@ -60,7 +60,7 @@
 | ID | 缺口 | 处置（触发条件） |
 |---|---|---|
 | **INV-EXEC-006** | 客户端路径的 **handler 级**行为（记账/终态结算/断开结算）无自动化用例 | 翻转 `CLIENT_STREAM_EXECUTION` 默认值前**必须**补 HTTP harness 用例（见 `.trae/specs/client-stream-execution.md §5.1`） |
-| **INV-SEC-003** | 沙箱真实负向验证受**平台/opt-in 门控**（Linux+helper / `PERMISSION_SHIELD_E2E=1`） | ✅ **P1-6 已落地**：CI `sandbox-negative` job（ubuntu-latest 构建 helper + `SANDBOX_NEGATIVE_REQUIRE=1` ⇒ **环境不满足即失败**，不得静默跳过）；**跨平台无强隔离后端**仍属边界（**P2-4** 记入 `security-boundaries`） |
+| **INV-SEC-003** | 沙箱真实负向验证受**平台/opt-in 门控**（Linux+helper / `PERMISSION_SHIELD_E2E=1`） | ✅ **P1-6 已落地**：CI `sandbox-negative` job（ubuntu-latest 构建 helper + `SANDBOX_NEGATIVE_REQUIRE=1` ⇒ **环境不满足即失败**，不得静默跳过）；**跨平台无强隔离后端**仍属边界（**P2-4** 记入**本文件 §6**） |
 
 ---
 

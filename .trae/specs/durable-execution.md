@@ -174,7 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_exec ON tool_calls (execution_id);
 
 **诚实边界（S3）**：
 - `execution_events` **表**（S2 的 `recover` 写入）与会话**事件流**（S3）**并存**：前者是 execution 本地台账（恢复审计、独立于会话文件），后者进入 `events.jsonl` 供轨迹重建；二者用途不同，非重复。
-- `tool_calls` 记账目前仅在 **Router（渠道）** 路径接线 —— 因为 `executionId` 目前只由 Router 侧的 `ExecutionManager.acquire()` 产生；client（`/v1/chat/stream`）路径尚未接入 Execution，故不在其记账范围。
+- `tool_calls` 记账目前仅在 **Router（渠道）** 路径接线 —— 因为 `executionId` 目前只由 Router 侧的 `ExecutionManager.acquire()` 产生；client（`/v1/chat/stream`）路径尚未接入 Execution，故不在其记账范围。**（2026-10-10 更新）**：client 路径接入已由 **P0-2** 落地（`.trae/specs/client-stream-execution.md`），受灰度开关 `CLIENT_STREAM_EXECUTION`（**默认关**）门控；开启后该路径与渠道**同一记账链路**。
 
 ### 6.1 第九轮审查「专项 B」加固（2026-10-09）
 
@@ -209,6 +209,9 @@ CREATE INDEX IF NOT EXISTS idx_tool_calls_exec ON tool_calls (execution_id);
 
 **仍未做（如实登记）**：`executionId` 目前只由**渠道 Router** 注入（`ChatRequest.executionId`）。
 client（`/v1/chat/stream`）路径未接入 Execution ⇒ 其工具调用**不做**记账/拒绝（与 S3 边界一致）。
+**（2026-10-10 更新，P0-2）**：client 路径接入**已实现**，受灰度开关 `CLIENT_STREAM_EXECUTION`（**默认关**）门控
+—— 开启后 SSE 入口 `acquire` + 注入 `executionId` + 三处结算（complete/fail/client_disconnected）；
+默认关 ⇒ 仍为上述边界（零行为变更）。见 `.trae/specs/client-stream-execution.md`。
 
 ### 6.2 第九轮审查 §十七-5 故障注入 + 专项 C 测试清单（2026-10-10 补齐）
 

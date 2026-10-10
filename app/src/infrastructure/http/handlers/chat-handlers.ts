@@ -46,6 +46,10 @@ import type {
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
+// P0-2（2026-10-10）：客户端流式路径接入 Execution 生命周期（`service → service` 合法；
+// 见 `.trae/specs/client-stream-execution.md`）
+import { getExecutionManager, type ExecutionLease } from '@modules/execution';
+import { feature } from '@modules/core';
 
 const logger = getLogger('http:chat');
 
@@ -598,14 +602,47 @@ async function handleStreamingChat(
     }
   };
 
+  // P0-2（2026-10-10，`.trae/specs/client-stream-execution.md`）：客户端 `/v1/chat/stream` 接入
+  // Execution 生命周期（ownership + generation fencing + **工具写前记账 + fail-closed**）。
+  // 灰度开关 `CLIENT_STREAM_EXECUTION`（默认关 = 零行为变更）。`settleExecution` 在 `catch` 中
+  // 亦需可见 ⇒ 先以可变绑定声明，真实实现在 `try` 内赋值。
+  let settleExecution: (ok: boolean, reason?: string) => void = () => {};
   try {
     const coreAPI = getCoreAPI();
+    const clientSessionId = request.session_id;
+    const executionManager =
+      feature('CLIENT_STREAM_EXECUTION') && clientSessionId
+        ? getExecutionManager()
+        : undefined;
+    const executionLease: ExecutionLease | undefined =
+      executionManager && clientSessionId
+        ? executionManager.acquire(clientSessionId, request.message_id)
+        : undefined;
+    let executionSettled = false;
+    /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */
+    settleExecution = (ok: boolean, reason?: string): void => {
+      if (!executionManager || !executionLease || executionSettled) return;
+      executionSettled = true;
+      try {
+        if (ok) executionManager.complete(executionLease.executionId);
+        else
+          executionManager.fail(
+            executionLease.executionId,
+            reason ?? 'unknown'
+          );
+      } catch {
+        // @ignore-catch — fencing：执行已被顶替/已终结（STALE）⇒ 忽略
+      }
+      executionLease.release();
+    };
     const chatRequest: ChatRequest = {
       content: userMessage.content,
       stream: true,
       sessionId: request.session_id,
       messageId: request.message_id,
       assistantMessageId: request.assistant_message_id,
+      // P0-2：执行标识外显（与渠道路径同一条记账链路；未开启灰度 ⇒ undefined = 零行为变更）
+      executionId: executionLease?.executionId,
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,
@@ -939,6 +976,8 @@ async function handleStreamingChat(
         onAutoProjectCreated
       );
       otel.endSpan(streamSpan, SpanStatusCode.OK, 'client disconnected');
+      // P0-2：客户端断开 ⇒ 结算执行（FAILED: client_disconnected）；未开启灰度 ⇒ no-op
+      settleExecution(false, 'client_disconnected');
       return;
     }
     if (streamUsage) {
@@ -995,8 +1034,12 @@ async function handleStreamingChat(
       'usage.outputTokens': streamUsage?.outputTokens ?? 0,
     });
     otel.endSpan(streamSpan, SpanStatusCode.OK);
+    // P0-2：正常完成 ⇒ 结算执行（COMPLETED）；未开启灰度 ⇒ no-op
+    settleExecution(true);
     res.end();
   } catch (err) {
+    // P0-2：异常 ⇒ 结算执行（FAILED）；未开启灰度 ⇒ no-op
+    settleExecution(false, err instanceof Error ? err.message : 'unknown');
     getEventNotificationService().off('tool:completed', onToolCompleted);
     getEventNotificationService().off(
       'project:auto_created',

@@ -1,6 +1,6 @@
 # Spec：零拷贝 RRF 统一混合检索（单一事实源 + 延迟物化）
 
-> 版本 1.0 ｜ 创建 2026-10-10 ｜ 状态：✅ **已实施**
+> 版本 1.1 ｜ 创建 2026-10-10 ｜ 状态：✅ **已实施**
 > 来源：`dev_docs/20261010/google ai 建议.md` 方案一（**外部建议**）→ 先经 [`distributed-vfs-proposals-assessment.md`](./distributed-vfs-proposals-assessment.md) §2.2 取证裁定「归一化无新增」，**后由用户显式覆盖为「实施」**（该 spec §7.1）。
 > 台账：[`预存错误与待处理问题.md`](file:///e:/PY/Documents/CODES/PY_APP/dev_docs/error_repairs/预存错误与待处理问题.md) §「2026-10-10 外部建议复核」→「🔁 用户覆盖裁定」。
 > 关联规则：**GR01**（基础设施复用）/ **GR02**（实现唯一性）/ **GR03**（证据驱动）/ **GR15**（Spec-Driven）· **CS01**（归一化）/ **CS03**（回退最小化）/ **CS06**（证据驱动）· **CD01–CD07**（删除安全流程）。
@@ -134,7 +134,8 @@ export function reciprocalRankFusion<T>(opts: {
 | 新增 | `app/src/utils/rrf.ts` | ✅ 2026-10-10 |
 | 修改 | `memory/services/UnifiedSearchService.ts` · `knowledge/search/UnifiedSearchService.ts` · `knowledge/KnowledgeRouter.ts` · `commands/builtin/knowledge/Knowledge.ts`（下游展示配套订正） | ✅ 2026-10-10 |
 | 测试 | `tests/utils/rrf.test.ts` · `tests/memory/unifiedSearchRrf.test.ts`（12 + 6 例）；**全量 `bun test`：5725 pass / 42 skip / 0 fail**（622 files） | ✅ 全绿 |
-| 门禁 | `typecheck` ✅ · `eslint`（改动文件）✅ · `lint:arch` 0 错/4 警告（均预存）✅ · `lint:size` 0 错 ✅ · `lint:fn-size` / `lint:complexity` 未增长 ✅ · `lint:no-module-mock` ✅ · `lint:doc-code` ✅ · `lint:fix-evidence` ✅ | ✅ 2026-10-10 |
+| 门禁（分项） | `typecheck` ✅ · `eslint`（改动文件）✅ · `lint:arch` 0 错/4 警告（均预存）✅ · `lint:size` 0 错 ✅ · `lint:fn-size` / `lint:complexity` 未增长 ✅ · `lint:no-module-mock` ✅ · `lint:doc-code` ✅ · `lint:fix-evidence` ✅ | ✅ 2026-10-10 |
+| 门禁（聚合复核） | **`bun run ci` exit 0** —— 串联 `typecheck` / `lint`（含此前未单独跑过的 `lint:scripts`·`lint:legacy-env`·`lint:exit`·`lint:case`·`lint:unref`·`lint:refs`·`lint:invariants`·`lint:entrypoints`）/ `lint:arch` / `lint:size` / `lint:doc-code` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity` / `lint:no-module-mock` / `version:check` / `check:paths` / `i18n:check` / `test:guarded`（5725 pass · 42 skip · 0 fail）**全部通过** | ✅ 2026-10-10 |
 | 台账 | `预存错误与待处理问题.md` §「2026-10-10 外部建议复核」→「🔁 用户覆盖裁定」 | ✅ 2026-10-10 |
 
 ---
@@ -144,3 +145,4 @@ export function reciprocalRankFusion<T>(opts: {
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | 1.0 | 2026-10-10 | 首版：用户覆盖裁定落地——单一 RRF 事实源 + 延迟物化 Top-K + 订正 `mergeResults` 为真 RRF（行为变更）；删死字段与 `normalizeKeywordResults` |
+| 1.1 | 2026-10-10 | §8 追加聚合门禁复核记录：**`bun run ci` exit 0**（含 `test:guarded` 5725 pass · 0 fail）；§4 补充下游展示消费订正行 |

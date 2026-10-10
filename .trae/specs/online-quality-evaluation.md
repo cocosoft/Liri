@@ -284,3 +284,52 @@ export interface TurnScore {
 | §1.6「模型可见 ⇔ 已落盘」 | ✅ 本批**按裁定登记事件**（可重建）；同时**如实说明**：当前分数**不注入模型** ⇒ 尚不构成"模型可见输入"（前置订正见头部） |
 | R02 数据模型统一 | ✅ **不新增表**（避免双真相）；事件载荷类型落在既有 `LiriEventMap` 契约处 |
 | R06-008 分层 | ✅ 评测域在 `evals/`（`app`）；接线经**动态 import**（同 onIdle 既有风格）；实施后以 `lint:arch` 验证 |
+
+---
+
+## 9. 跨路径评估入口裁定（P2-9，2026-10-10）—— **有意不做**
+
+> 来源：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-9**（外部核验项 M-8；报告 11 观察 3）。
+> 问题：本仓"质量信号"是否需要一个**跨路径总线** —— 即"一个写入端、**任意路径**（单 agent / 普通工具路径）可查同源质量"？
+> 口径（CS06）：下列 file:line 为 **2026-10-10 静态实测**；凡未经运行验证者标注"未实测"。
+
+### 9.1 取证：三路 verifier 与其消费方（各自**本域**自洽）
+
+| 路 | 信号 | 产生（写入端） | 消费方（实测） |
+|---|---|---|---|
+| **在线** | `turn/quality` 会话事件 | [`evals/online/turnQualityEvaluator.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/evals/online/turnQualityEvaluator.ts)（空闲期 `runTurnQualityPass`） | ① **跨域**：`chronos/autoDream/AutoDream.ts` —— 经 `ISessionQualityPort`（**唯一**跨域消费方）；② 复核器 [`chat/quality/turnQualityReviewer.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/quality/turnQualityReviewer.ts) 复用 `VerifierAgent`（同域 app） |
+| **循环** | `VerifierAgent` 三态（`APPROVE/REJECT/ESCALATE`） | [`query/VerifierAgent.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/VerifierAgent.ts) | **内建**于 `query/TAORLoop.ts`；`self_verify` 模式（`patternAssembler.ts`）+ `ChatManager.ts:3783`。均在 query/chat **本域**内闭环 |
+| **协作** | 对抗批评 verdict | [`query/CompetitiveStrategyOrchestrator.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/CompetitiveStrategyOrchestrator.ts)（每候选独立 `VerifierAgent`） | `chat/launchers/PdcaLauncher.ts`（研究分流）。**本域**闭环（app） |
+
+**关键取证（决定裁定的那条）**：跨**域**质量端口 `ISessionQualityPort`（[`core/spi/SessionQualityService.ts`](file:///e:/PY/Documents/CODES/PY_APP/app/src/core/spi/SessionQualityService.ts)）
+的解析入口 `resolveSessionQuality()` / `getTurnQualitySummary()` 全仓**只有一个消费者** —— `chronos/autoDream/AutoDream.ts:59-61`
+（装配见 `entrypoints/spiWiring.ts:325-353`）。
+
+### 9.2 裁定：**不建跨路径总线**（维持现状，CS03）
+
+| 判据 | 结论 |
+|---|---|
+| **是否有"真实第二消费者"** | ❌ **无**。除 `AutoDream` 外，无任何路径（单 agent / 普通工具 / 三路 verifier 的彼此）需要查询**同源**质量；三路各自在本域内闭环（§9.1） |
+| **不做的代价** | 无 —— 现有能力（`turn/quality` 事件 + 本域 verdict）**不因缺总线而失效** |
+| **做的代价** | 建一条**无消费者**的空总线：新增端口/装配面 + 长期维护 + 与 `CS01`（归一化：三路信号形状各异，强行统一即造第四套抽象）冲突 |
+| 先例（**反面教材**） | `core/spi/CollaborationService.ts` 即"**预留端口、生产零消费者**"，已在 `README.md §二` 标注"**勿视为既有能力**"、入死面登记（UW 组）⇒ **不应再复制一个** |
+
+⇒ **明确不做**（**intentionally deferred**）：**不得**为对齐 21 模式清单而建空总线（防 `CS04` 式"造形状"）。
+
+### 9.3 重开触发条件（**立项判据 = 有真实第二消费者**）
+
+**同时满足**下列任一**真实**需求时，方立项评估跨路径总线：
+- **R1**：出现"**单 agent 路径**或**普通工具路径**需查询**同源**质量（`turn/quality` 摘要）"的**真实调用点**（≥1 个非 `AutoDream` 的生产消费者，须给出 file:line）；
+- **R2**：三路 verifier 出现"**彼此**需交换质量结论"的真实场景（如协作路需读在线路的轮次分数），且经证明**本域复用**无法满足；
+- **R3**：出现"**质量查询**在多路径间**口径不一致**导致用户可见缺陷"的真实事故。
+
+> 判据纪律：R1–R3 任一条须**先取证**（真实调用点 / 真实事故），**不得**以"某模式清单里写了要总线"为由立项。
+
+### 9.4 合规
+
+| 规则 | 结论 |
+|---|---|
+| GR15 Spec-Driven | ✅ 本裁定落在**端口起源 spec**（单一事实源），未新建入口 |
+| CS03 回退/新增最小化 | ✅ 无消费者 ⇒ **不做**（非"以防万一"预留） |
+| CS06 证据驱动 | ✅ §9.1 全部回仓取证；"仅一个消费者"为全仓 `resolveSessionQuality` 扫描结论 |
+| CD07（关键域禁以静态零引用删除） | ✅ **未删任何实现**；本裁定只"不新增"，既有端口/实现**保留** |

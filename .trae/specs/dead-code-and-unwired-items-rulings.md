@@ -148,3 +148,72 @@
 | **BR-3** `~/.claude/local/claude` | ✅ **维持**（外部 Claude CLI 的**真实安装路径**） | — |
 
 > **口径落点**：上表为**终局裁定**。此后**同源项不再重复评估**（R12-1 / `development-workflow.md §2.14`）；如需变更，须引用对应**触发条件**。
+
+---
+
+## §7 DC-EXEC —— Execution 生命周期死面（P2-5，**2026-10-10 登记**）
+
+> 来源：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-5**（外部核验项 E-11）。
+> **口径**：本清单**只登记不删除** —— `execution/**` 属 **CD07 关键域（执行/恢复）**，
+> **不得**仅凭"静态零引用"删除；如需删除须走 **CD01–CD07 六步核查** + **独立提交**。
+> 取证范围：`app/src` + `app/tests`（**同名不同物须区分**，见各项证据）。
+
+### DCX-1 `WAITING_USER` 无**转移入点**
+
+**证据（2026-10-10 实测）**
+- `execution/types.ts:20/38-46/77` —— 仅在**枚举**、`TRANSITIONS` 表、`isActiveStatus()` 中出现；
+- `execution/ExecutionStore.ts:54` —— 仅出现在 `ACTIVE_STATUSES` 列表；
+- `execution/ExecutionManager.ts:394` / `execution/eventPayloads.ts:1099` —— 仅**注释**；
+- **全 `app/src` 无任何** `status = 'WAITING_USER'` 写入点（无 `markWaitingUser` / 无状态转移调用）⇒ 该状态**永不可达**。
+- `app/tests/gates/gateSelfProof.test.ts:210` —— 状态机自证**断言其合法出边**（`WAITING_USER → RUNNING`）。
+
+**影响**：零行为影响（不可达状态）；但它是**状态机契约的一部分**（`isActiveStatus` / `listActive` 依赖它表示"占用中"）⇒ **删除会改变"占用中"语义面**。
+
+**建议处置**：**保留登记**（若未来要开放"等待用户输入"的持久化态，此即预留位置；删除须先证明 `isActiveStatus/listActive` 语义可收窄）。
+**备选**：① 接线（在需要"等待用户"的入口写入该状态）；② 删除（**须 CD01–CD07 六步核查** + 同步 `INV-EXEC-003` 状态机不变量与自证用例）。
+**触发条件**：出现"执行需持久化等待用户输入"的真实需求时接线；否则维持。
+
+### DCX-2 `ExecutionManager.heartbeat()` 无生产调用
+
+**证据**：`execution/ExecutionManager.ts:197` 定义；全仓调用点**仅** `app/tests/execution/ExecutionManagerRecovery.test.ts:90`（测试）。
+⚠️ **同名不同物（防误判）**：`session/activity/SessionActivityTracker.ts:106` 的 `this.heartbeat()` 与
+`tools/AgentTool/SubAgentEngine.ts:385` 的 `getSubAgentEventPump().heartbeat(...)` 均**与本项无关**。
+
+**影响**：零（`recover()` 的"心跳陈旧"判定读的是**记录里的 `heartbeatAt` 字段**，非本方法）。
+
+**建议处置**：**保留登记**（`recover()` 的陈旧判定语义依赖 `heartbeatAt`；该方法为"执行期续期"的**预留写入面**，删除即无法表达"活跃执行续期"）。
+**备选**：接线（长任务执行期定期续期，避免被误判为孤儿）—— **若接线须补用例**（续期后 `recover` 不得判 STALE）。
+**触发条件**：出现"长任务被误判为孤儿（心跳陈旧）"的真实事件时接线。
+
+### DCX-3 `ExecutionStore.purgeOlderThan()` 无生产调用
+
+**证据**：`execution/ExecutionStore.ts:498` 定义；调用点**仅** `app/tests/execution/ExecutionStore.test.ts:189/197`（测试）。
+**影响**：零行为影响；但**数据不清理** ⇒ `executions` / `execution_events` / `tool_calls` **随会话长期增长**（本仓未接入定期清理）。
+**建议处置**：**保留登记**（该方法已实现且有用例；**接线**须先裁定"保留窗口"策略 —— 属**数据保留策略**变更）。
+**备选**：接线（在启动或定时任务中按保留窗口清理）—— 须评估"清理是否会删掉仍被引用的执行记录"。
+**触发条件**：出现"执行台账膨胀影响启动/查询"的真实观测时接线。
+
+### DCX-4 `ExecutionStore.finishToolCall()` 无生产调用
+
+**证据**：`execution/ExecutionStore.ts:422` 定义；调用点**仅** `app/tests/execution/ExecutionStore.test.ts:149/155`（测试）。
+**影响**：零（工具调用结算在 `ExecutionManager.settleToolCall` 路径另有实现——**注意**：本方法的语义是"显式结算为 completed/failed"，与恢复期 `markUnsettledToolCallsUnknown` **互补**）。
+**建议处置**：**保留登记**（与 DCX-2/3 同族：为"结算/清理"预留的写入面）。
+**备选**：删除（须先证明 `settleToolCall` 已**完整**覆盖完成/失败两态且无遗留缺口 —— 属 CD01–CD07 核查项）。
+**触发条件**：若确认 `settleToolCall` 已完全覆盖，则可在**独立提交**中删除并同步用例。
+
+### DCX-5 （**已解除**）`ExecutionStore.listToolCalls()` —— 已由 **P0-4 接线**
+
+**证据**：`execution/ExecutionManager.ts:449` —— P0-4（2026-10-10）在 `recover()` 中**新增生产消费**（读取 `unknown` 工具调用以按幂等性判定可否重放）。
+**结论**：**不再是死面**（原判"仅测试引用"已过期）⇒ 本项**闭环移出**清单。
+**触发条件**：若该消费点被移除（回退 P0-4），须**重新登记**。
+
+---
+
+### §7.1 执行顺序（如需处置，按批独立提交）
+
+| 批次 | 内容 | 风险 | 预设 |
+|---|---|---|---|
+| **DCX-P0** | 无（**本清单默认不处置**） | — | 维持登记 |
+| **DCX-P1** | DCX-2 **接线**（长任务续期） | 中（改执行期语义） | 须补"续期后不被判 STALE"用例 |
+| **DCX-P2** | DCX-3 **接线**（台账清理） | 中（**数据保留策略**） | 须先裁定保留窗口 |
+| **DCX-P3** | DCX-1 / DCX-4 **删除或接线** | 高（**关键域**） | **须 CD01–CD07 六步核查 + 独立提交**；删除须同步 `INV-EXEC-003` 与自证用例 |

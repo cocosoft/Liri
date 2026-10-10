@@ -24,6 +24,8 @@
 | **P3** | **在线对抗性红队自纠**：将自动派生的 JUnit 测试转化为**在线**红队，用 **OTel GenAI 日志流**构建生产语料回灌与漏洞修复**演进闭环** | `dev_docs/20261006/google ai 建议.md` §二 建议三（`:19`）+ `20261007` §细化三（`:521-545`）；台账 §7.4-B 建议三 | ⏳ §7.4「先立 spec 论证，不排期」 | §2.3 取证 → §3 裁定 |
 
 > **AI-VFS（第三项之一）不重复评估**：`20261007` §二 建议三 = AI-VFS，已并入 **§12-T-1** 并**已立契约** —— 见 [ai-vfs-driver-contract.md](./ai-vfs-driver-contract.md)（4 系统调用 + `IVfsDriver` + D1–D5 + 触发条件，**裁定不实施**）。本 spec 不再覆盖。
+>
+> **后续同源迭代**：`20261010/google ai 建议.md` 再次提出「分布式 AI-VFS 驱动总线 + 零拷贝 RRF 统一检索 + `FederatedRpcDriver` 心跳背压」= 本 spec 三项的**分布式扩展 / 重述**，已由 **[distributed-vfs-proposals-assessment.md](./distributed-vfs-proposals-assessment.md)**（2026-10-10）裁定：P1 维持不实施（同 T-1）/ P2 **归一化无新增**（RRF 已实现 2 处）/ P3 驳回（同 R24）。
 
 ### 1.1 台账口径订正（CS06，如实）
 

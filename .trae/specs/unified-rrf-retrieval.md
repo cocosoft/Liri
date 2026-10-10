@@ -1,6 +1,6 @@
 # Spec：零拷贝 RRF 统一混合检索（单一事实源 + 延迟物化）
 
-> 版本 1.1 ｜ 创建 2026-10-10 ｜ 状态：✅ **已实施**
+> 版本 1.2 ｜ 创建 2026-10-10 ｜ 状态：✅ **已实施**
 > 来源：`dev_docs/20261010/google ai 建议.md` 方案一（**外部建议**）→ 先经 [`distributed-vfs-proposals-assessment.md`](./distributed-vfs-proposals-assessment.md) §2.2 取证裁定「归一化无新增」，**后由用户显式覆盖为「实施」**（该 spec §7.1）。
 > 台账：[`预存错误与待处理问题.md`](file:///e:/PY/Documents/CODES/PY_APP/dev_docs/error_repairs/预存错误与待处理问题.md) §「2026-10-10 外部建议复核」→「🔁 用户覆盖裁定」。
 > 关联规则：**GR01**（基础设施复用）/ **GR02**（实现唯一性）/ **GR03**（证据驱动）/ **GR15**（Spec-Driven）· **CS01**（归一化）/ **CS03**（回退最小化）/ **CS06**（证据驱动）· **CD01–CD07**（删除安全流程）。
@@ -87,6 +87,19 @@ export function reciprocalRankFusion<T>(opts: {
 
 单腿场景（无语义腿/仅关键词）下 RRF 与加权平均**都保序** ⇒ 现有回归用例不受影响。
 
+### 4.1 v1.2 收敛（2026-10-10 同日补做，源自 CHANGELOG v0.4.75「ℹ️ 边界」）
+
+上一节如实记录了 v1.1 的两处行为变更，但**其值域与标签口径不可用**：分值退化为 `≈1/61` 量级被 2 位小数压成三档、重叠命中被压成单路标签。本节把这两条**边界收敛为明确契约**。
+
+| 项 | v1.1 之后 | v1.2（收敛） | 依据 / 影响面 |
+|---|---|---|---|
+| `mergeResults` 对外 `score` | 原始 RRF 和 `Σw/(k+rank+1)`（缺省 ≈ `1/61`）⇒ `Math.round(x*100)/100` 后只剩 `0.00~0.02` 三档 | 除以 `rrfMaxScore([kw, sm]) = Σw/(k+1)` ⇒ 值域 **`(0, 1]`**，精度 4 位小数；**保序**（单调变换）⇒ 排序与 RRF 一致 | 下游 [SearchHitCard.tsx](file:///e:/PY/Documents/CODES/PY_APP/client/src/components/Knowledge/SearchHitCard.tsx) 的 `Math.round(score*100)`（恒显 "2%"）与 `scoreColor(0.8/0.5)`（恒灰）恢复分辨率 |
+| 重叠文档 `matchType` | `semantic`（`prefer:'last'` 使 `item` 取自语义路） | **`'hybrid'`**（同 `docPath` 同时被关键词路与语义路召回）；**单路命中保留该路原值** | "两路都命中"是独立事实，压成单路标签会误导；union 在 server/client 双端同步补 `'hybrid'`，`Record<union,…>` 由编译期强制补全 |
+| `minScore` / `semanticThreshold` 语义 | 作用于融合**前** | **不变**（与 CHANGELOG v0.4.75 边界一致） | `keywordSearch` 内 / 语义腿内过滤，未经融合 |
+
+- `rrfMaxScore` 落在 `utils/rrf.ts`（与融合**同一事实源**）——避免在 `KnowledgeRouter` 里硬编码 `61` 造成 `k` 双源漂移；
+- **上界 ≤ 0**（权重全 ≤ 0 的退化配置）⇒ **不归一化**（直接用原始分），杜绝 0 除产生 `NaN` / `Infinity`。
+
 ---
 
 ## 5. 删除依据（CD01–CD07）
@@ -105,9 +118,9 @@ export function reciprocalRankFusion<T>(opts: {
 
 | 文件 | 覆盖 |
 |---|---|
-| `app/tests/utils/rrf.test.ts` | 公式/`k` 缺省 `1/61`·`1/62`、权重、`weights=0` 跳过、`prefer` 引用选择、`limit` 截断、**确定性排序**、**零拷贝（`item` 为原引用）** |
+| `app/tests/utils/rrf.test.ts` | 公式/`k` 缺省 `1/61`·`1/62`、权重、`weights=0` 跳过、`prefer` 引用选择、`limit` 截断、**确定性排序**、**零拷贝（`item` 为原引用）**；**v1.2 增 5 例 `rrfMaxScore`**（缺省 `1/61`、自定义 `k` 同位移、权重 ≤0 跳过、上确界可达 `raw/max = 1`、单路 `raw/max = 0.4 < 1`） |
 | `app/tests/memory/unifiedSearchRrf.test.ts` | 跨源按**排名**融合（原始分 0.02 与 0.8 同得 `1/61` ⇒ 对幅度不敏感）、同分 key 升序、`limit`、单路失败降级不抛（**手写 fake，禁 `mock.module`**） |
-| `app/src/knowledge/__tests__/KnowledgeRouter.test.ts` | **未改**：现有断言（降序/`>0`/条数）在真 RRF 下仍通过 |
+| `app/src/knowledge/__tests__/KnowledgeRouter.test.ts` | 原断言（降序/`>0`/条数）在真 RRF 下仍通过；**v1.2 增 6 例**：归一化后 `0 < score ≤ 1`、两路均 rank0 ⇒ `score = 1`、重叠 ⇒ `matchType='hybrid'`、仅关键词腿 ⇒ `'keyword'`、仅语义腿 ⇒ `'semantic'` 且 `score < 1`、权重 ≤0 ⇒ 不产 `NaN`/`Infinity`（语义腿以**手写 `IVectorStore` 替身**提供，禁用 `mock.module`） |
 
 ---
 
@@ -137,6 +150,8 @@ export function reciprocalRankFusion<T>(opts: {
 | 门禁（分项） | `typecheck` ✅ · `eslint`（改动文件）✅ · `lint:arch` 0 错/4 警告（均预存）✅ · `lint:size` 0 错 ✅ · `lint:fn-size` / `lint:complexity` 未增长 ✅ · `lint:no-module-mock` ✅ · `lint:doc-code` ✅ · `lint:fix-evidence` ✅ | ✅ 2026-10-10 |
 | 门禁（聚合复核） | **`bun run ci` exit 0** —— 串联 `typecheck` / `lint`（含此前未单独跑过的 `lint:scripts`·`lint:legacy-env`·`lint:exit`·`lint:case`·`lint:unref`·`lint:refs`·`lint:invariants`·`lint:entrypoints`）/ `lint:arch` / `lint:size` / `lint:doc-code` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity` / `lint:no-module-mock` / `version:check` / `check:paths` / `i18n:check` / `test:guarded`（5725 pass · 42 skip · 0 fail）**全部通过** | ✅ 2026-10-10 |
 | 台账 | `预存错误与待处理问题.md` §「2026-10-10 外部建议复核」→「🔁 用户覆盖裁定」 | ✅ 2026-10-10 |
+| **v1.2 收敛** | `utils/rrf.ts`（新增 `rrfMaxScore`）· `knowledge/KnowledgeRouter.ts`（`mergeResults` 归一化 + `hybrid`）· `core/knowledge-types.ts` · `client/src/types/knowledge.ts` · `client/src/components/Knowledge/SearchHitCard.tsx` · `client/src/i18n/locales/{zh,en}.ts` | ✅ 2026-10-10 |
+| **v1.2 登记** | `fix-evidence-registry.json` + `修复证据登记.md`（`RRF-CONV`）· `invariant-registry.json` + `invariants.md`（`INV-KB-001`）· CHANGELOG v0.4.75 边界改写为「已收敛」 | ✅ 2026-10-10 |
 
 ---
 
@@ -146,3 +161,4 @@ export function reciprocalRankFusion<T>(opts: {
 |---|---|---|
 | 1.0 | 2026-10-10 | 首版：用户覆盖裁定落地——单一 RRF 事实源 + 延迟物化 Top-K + 订正 `mergeResults` 为真 RRF（行为变更）；删死字段与 `normalizeKeywordResults` |
 | 1.1 | 2026-10-10 | §8 追加聚合门禁复核记录：**`bun run ci` exit 0**（含 `test:guarded` 5725 pass · 0 fail）；§4 补充下游展示消费订正行 |
+| 1.2 | 2026-10-10 | 补齐 CHANGELOG v0.4.75「ℹ️ 边界」：① `score` 经 `rrfMaxScore` 归一化回落 `(0,1]`（精度 4 位小数，保序）；② 重叠命中 `matchType` 收敛为 `'hybrid'`（server/client union + `SearchHitCard` + zh/en i18n 同批）；§4.1 记录口径；§6 补 11 例边界断言；§8 补收敛/登记记录；登记 `RRF-CONV` / `INV-KB-001` |

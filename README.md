@@ -443,8 +443,9 @@ bun run build:enterprise  # 企业版（全功能）
 - ✅ **`KnowledgeRouter.mergeResults` 改真 RRF（行为变更，用户明确选择）** - 原文注释自称 RRF、**实为归一化加权平均**；现按 `score(d) = kw/(k+rank_kw+1) + sm/(k+rank_sm+1)`（k=60）融合，保留「语义 snippet 覆盖」与并列规则；删除改造后**无消费者**的 `normalizeKeywordResults`
 - ✅ **记忆侧接入 + 下游展示订正** - `memory/services/UnifiedSearchService` 改调该 util（与旧公式 `1/(60+rank+1)` **数值等价**）并删本地 `RRF_K`；`/knowledge search` 分档由绝对分改为**按本页最高分归一化**（否则 RRF 绝对值恒落 📄）
 - ✅ **删死字段（独立提交，CD06）** - `knowledge/search/UnifiedSearchService` 的 `RRF_K` 全仓仅**声明处 1 命中**（零消费者）⇒ 删除 + 订正失实 docstring；提交信息含六步核查结论与回滚路径
-- ✅ **质量** - `typecheck` **0** · **`bun run ci` exit 0**（含 `test:guarded` **5725 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）
-- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约；分数值域由 `[0,1]` 变为 `Σw/(k+rank+1)`，重叠文档 `matchType` 由 `keyword` → `semantic`；`minScore` / `semanticThreshold` 均作用于融合**前**
+- ✅ **质量** - `typecheck`（app + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）
+- ✅ **边界收敛（同日补做）** - `mergeResults` 对外 `score` 由原始 RRF 和（≈ `1/61` ⇒ 被压成 `0.00~0.02` 三档）改为按 `rrfMaxScore = Σw/(k+1)` **归一化回 `(0,1]`**（精度 4 位小数、保序）；重叠文档 `matchType` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` + zh/en i18n 同批）
+- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约；`minScore` / `semanticThreshold` 均作用于融合**前**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

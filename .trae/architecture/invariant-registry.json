@@ -230,6 +230,23 @@
       "status": "verified",
       "reopenWhen": "新增端口顺序依赖（须在 `SPI_WIRING_REQUIRES` 登记并在依赖端口 register 内断言）时。",
       "specs": [".trae/specs/kernel-style-architecture-governance.md"]
+    },
+    {
+      "id": "INV-KB-001",
+      "title": "混合检索对外分值域与命中类型收敛",
+      "statement": "`KnowledgeRouter.mergeResults` 对外的 `score` 必须落在 `(0, 1]`（按 `rrfMaxScore` 上界归一化、保序），且同一 `docPath` 同时被关键词路与语义路召回时 `matchType` 必须为 `'hybrid'`（单路命中保留该路原值）。",
+      "sources": [
+        "app/src/knowledge/KnowledgeRouter.ts",
+        "app/src/utils/rrf.ts"
+      ],
+      "tests": [
+        "app/tests/utils/rrf.test.ts",
+        "app/src/knowledge/__tests__/KnowledgeRouter.test.ts"
+      ],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改 `mergeResults` 的融合/归一化、`matchType` 取值域或下游按 `score` 分档的阈值时。",
+      "specs": [".trae/specs/unified-rrf-retrieval.md"]
     }
   ]
 }

@@ -49,6 +49,7 @@
 | **INV-SEC-003** | 沙箱边界由运行时强制执行 | e2e-security | ⚠️ partial | `sandbox/landlock/runWithLandlock.ts` · `tools/bash/bashLandlockExec.ts` | `sandbox/negativeEnforcement.test.ts` · `spawnPathRestrictions.test.ts` |
 | **INV-SEC-004** | 深扫未完成不得折叠为放行 | unit | ✅ verified | `tools/CodeRunner/staticValidation.ts` · `security/decision.ts` | `tests/security/securityVerdict.test.ts` |
 | **INV-ARCH-001** | SPI 装配顺序约束 | unit | ✅ verified | `entrypoints/spiWiring.ts` · `core/spi/wiringGuard.ts` | `tests/core/spiWiringOrder.test.ts` |
+| **INV-KB-001** | 混合检索分值域 `(0,1]` + 重叠命中 `hybrid` | unit | ✅ verified | `knowledge/KnowledgeRouter.ts` · `utils/rrf.ts` | `tests/utils/rrf.test.ts` · `src/knowledge/__tests__/KnowledgeRouter.test.ts` |
 
 > 路径相对**仓库根**；源码路径省略 `app/src/` 前缀（除 `shared/` 外）。完整路径见 `invariant-registry.json`。
 
@@ -80,6 +81,7 @@
 | `.trae/specs/ast-family-phased-plan.md` | INV-SEC-003 |
 | `.trae/specs/shared-event-name-single-source.md` | INV-EVENT-002 |
 | `.trae/specs/kernel-style-architecture-governance.md` | INV-ARCH-001 |
+| `.trae/specs/unified-rrf-retrieval.md` | INV-KB-001 |
 
 ---
 
@@ -88,6 +90,7 @@
 - 修改**执行状态机 / 所有权 / 取消 / 恢复** ⇒ 复查 `INV-EXEC-*` / `INV-RECOVERY-*`；
 - 修改**事件类型 / 载荷 / 序号** ⇒ 复查 `INV-EVENT-*`；
 - 修改**安全门禁 / 审批 / 沙箱 / 深扫** ⇒ 复查 `INV-SEC-*`（并同步 `project_rules §1.4` 安全开关表）；
+- 修改**检索融合 / 归一化 / 命中类型** ⇒ 复查 `INV-KB-001`（并同步 `.trae/specs/unified-rrf-retrieval.md`）；
 - **新增执行入口** ⇒ 复查 `INV-EXEC-006`（并登记 `.trae/architecture/execution-entrypoints.md`，P1-3）。
 
 > 门禁（P1-2）：`scripts/lint-invariants.ts` 校验本注册表**每条** `sources`/`tests` 路径**存在**；

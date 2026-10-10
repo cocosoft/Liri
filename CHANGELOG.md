@@ -30,8 +30,9 @@
 - ✅ **`KnowledgeRouter.mergeResults` 改真 RRF（行为变更，用户明确选择）** - 原文注释自称 RRF、**实为归一化加权平均**；现按 `score(d) = kw/(k+rank_kw+1) + sm/(k+rank_sm+1)`（k=60）融合，`prefer:'last'` 保留「语义 snippet 覆盖」的可见行为；并列规则补 `docPath` 末位；删除改造后**无消费者**的 `normalizeKeywordResults`
 - ✅ **下游展示配套订正** - `/knowledge search` 原按绝对分 `≥0.7/≥0.4` 分档 `🔥/⭐/📄`，RRF 绝对值远小于 1 ⇒ 会**恒落 📄**；改按**本页最高分归一化**后再分档
 - ✅ **删死字段（独立提交，CD06）** - `knowledge/search/UnifiedSearchService.ts` 的 `RRF_K` 全仓仅**声明处 1 命中**（零消费者）⇒ 删除，并订正「可进行二次 RRF 重排序」的失实 docstring；提交信息含六步核查结论与回滚路径
-- ✅ **质量** - `typecheck` **0** · **`bun run ci` exit 0**（含 `test:guarded` **5725 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 新增定向用例 `tests/utils/rrf.test.ts`（12 例）+ `tests/memory/unifiedSearchRrf.test.ts`（6 例）
-- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约（外部建议所引路径与 API 经取证在仓内**不存在**）；`mergeResults` 分数值域由 `[0,1]` 变为 `Σw/(k+rank+1)`，重叠文档 `matchType` 由 `keyword` → `semantic`；已核验 `minScore` / `semanticThreshold` 均作用于融合**前**
+- ✅ **质量** - `typecheck`（app 3 tsconfig + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· `lint:invariants` / `lint:fix-evidence` / `lint:doc-code` / `lint:fn-size` / `lint:complexity` / `lint:no-module-mock` ✅ · 新增定向用例 `tests/utils/rrf.test.ts`（12 + **5** 例）+ `tests/memory/unifiedSearchRrf.test.ts`（6 例）+ `src/knowledge/__tests__/KnowledgeRouter.test.ts`（**+6** 例）
+- ✅ **边界收敛（同日补做）** - ① `mergeResults` 对外 `score` 原为原始 RRF 和 `Σw/(k+rank+1)`（缺省 ≈ `1/61` ⇒ 2 位小数下只剩 `0.00~0.02` 三档，下游恒显 "2%" / 配色恒灰）⇒ 改为按 `rrfMaxScore([kw,sm]) = Σw/(k+1)` 归一化，值域回落 **`(0,1]`**（精度 4 位小数、**保序**，上界 ≤0 时不归一化以杜绝 NaN）；② 重叠文档 `matchType` 由 `keyword`/`semantic` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` 两处 `Record` + zh/en i18n 同批；单路命中保留原值）。`minScore` / `semanticThreshold` 仍作用于融合**前**（不变）。测试 +11 例（`rrfMaxScore` 上界 5 · `KnowledgeRouter` 归一化/`hybrid`/负权重 6）
+- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约（外部建议所引路径与 API 经取证在仓内**不存在**）
 
 ---
 

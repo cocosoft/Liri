@@ -694,6 +694,27 @@
       "changelog": ["v0.4.67"],
       "reopenWhen": "新增高变更风险常量（须同批登记断言）时",
       "notes": "CI 语义断言门禁已落地（lint:doc-code，38 条）；P1-2 再补 doc-gate 工作流。"
+    },
+    {
+      "id": "RRF-CONV",
+      "title": "统一检索 RRF 边界收敛：mergeResults 值域归一化 (0,1] + 重叠命中 hybrid",
+      "source": "CHANGELOG v0.4.75「ℹ️ 边界（如实）」",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/utils/rrf.ts",
+        "app/src/knowledge/KnowledgeRouter.ts",
+        "app/src/core/knowledge-types.ts",
+        "client/src/types/knowledge.ts",
+        "client/src/components/Knowledge/SearchHitCard.tsx"
+      ],
+      "tests": [
+        "app/tests/utils/rrf.test.ts",
+        "app/src/knowledge/__tests__/KnowledgeRouter.test.ts"
+      ],
+      "changelog": ["v0.4.75"],
+      "reopenWhen": "修改 mergeResults 的融合/归一化、matchType 取值域或下游分档阈值时",
+      "notes": "值域由 Σw/(k+rank+1)（≈1/61 量级）收敛为除以 rrfMaxScore 上界的 (0,1]；重叠文档 matchType 由 keyword/semantic 收敛为 'hybrid'。"
     }
   ]
 }

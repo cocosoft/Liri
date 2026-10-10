@@ -8,6 +8,9 @@
  *   - done() 完成协议 + 顶层异常结构化 error 帧 + 退出码语义
  */
 
+// P0-3（`security-decision-verdict.md`）：深度扫描状态复用安全侧统一词汇（单一来源）
+import type { DeepScanStatus } from '@modules/security';
+
 // ─── 能力 API（注入到子进程全局，脚本内通过 globalThis.__liriRuntime 访问）───────
 
 /** 子进程侧可见的受限能力 API（首版最小集） */
@@ -78,6 +81,16 @@ export interface CodeValidationIssue {
 export interface CodeValidationResult {
   ok: boolean;
   issues: CodeValidationIssue[];
+  /**
+   * P0-3（`security-decision-verdict.md` §3.3）：**深度扫描执行状态**（SWC 原生 CallExpression 扫描）。
+   *
+   * - `ran`：扫描已执行（无论有无命中）；
+   * - `skipped`：**未执行**（原生模块缺失 / 平台不可用）；
+   * - `failed`：**执行失败**（解析错误 / 抛错）。
+   *
+   * 语义红线：`skipped`/`failed` **≠ 扫描通过** —— 调用方**不得**据此折叠为 ALLOW。
+   */
+  scanStatus: DeepScanStatus;
 }
 
 // ─── code_run 工具参数与结果（CM-1）──────────────────────────────────────────

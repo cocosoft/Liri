@@ -24,6 +24,8 @@ import { getLogger } from '@modules/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { PermissionManager } from '@modules/permission';
 import { configManager } from '@modules/config';
+import { feature } from '@modules/core';
+import { verdictFromScanStatus, type DeepScanStatus } from '@modules/security';
 
 import { validateCodeRunnerCode } from './staticValidation';
 import { runCodeRunnerSafely } from './LinuxSandboxRunner';
@@ -269,6 +271,37 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
       };
     }
 
+    // 2.1 P0-3（`security-decision-verdict.md` §3.4）：**深扫未完成不得折叠为"扫描通过"**。
+    // scanStatus='skipped'（原生缺失）/'failed'（解析失败或抛错）在默认姿态下为 INDETERMINATE，
+    // 在 `CODE_RUN_DEEP_SCAN_STRICT` 开启时为 REQUIRE_REVIEW。
+    const strictDeepScan = feature('CODE_RUN_DEEP_SCAN_STRICT');
+    const scanVerdict = verdictFromScanStatus(
+      validation.scanStatus,
+      strictDeepScan
+    );
+    if (scanVerdict === 'REQUIRE_REVIEW') {
+      // 本入口无交互审批链 ⇒ 按 fail-closed 拒绝（不执行），原因可读、状态可核
+      logger.warn('code_run deep scan not completed ⇒ rejected (strict)', {
+        sessionId,
+        scanStatus: validation.scanStatus,
+      });
+      return {
+        success: false,
+        error: `[security-rejected] deep static scan not completed (scanStatus=${validation.scanStatus}); CODE_RUN_DEEP_SCAN_STRICT requires review`,
+        data: {
+          status: 'security-rejected' as const,
+          scanStatus: validation.scanStatus,
+        },
+      };
+    }
+    if (scanVerdict === 'INDETERMINATE') {
+      // 默认姿态：不收紧（零行为变更），但**如实留痕**（深扫未完成 ≠ 扫描通过）
+      logger.warn('code_run deep scan not executed; proceeding (non-strict)', {
+        sessionId,
+        scanStatus: validation.scanStatus,
+      });
+    }
+
     // 3. 轮次计数（超限拒绝）；首次调用从事件流重建基线（CM-1 持久化）
     if (!roundTracker.has(sessionId) && runtimeDeps.loadUsedRounds) {
       try {
@@ -345,7 +378,7 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
     }
 
     // 6. 结果分类映射
-    return mapRunResult(result, roundNumber);
+    return mapRunResult(result, roundNumber, validation.scanStatus);
   }
 }
 
@@ -407,7 +440,11 @@ async function executeWhitelistedTool(
 }
 
 /** CodeRunResult → ToolResult 映射 */
-function mapRunResult(result: CodeRunResult, round: number): ToolResult {
+function mapRunResult(
+  result: CodeRunResult,
+  round: number,
+  scanStatus: DeepScanStatus
+): ToolResult {
   const status = result.status;
   if (status === 'completed') {
     return {
@@ -418,6 +455,8 @@ function mapRunResult(result: CodeRunResult, round: number): ToolResult {
         output: result.output ?? null,
         toolCalls: result.toolCalls,
         durationMs: result.durationMs,
+        // P0-3：深扫状态随结果带出（skipped/failed ≠ 扫描通过，供上层/模型识别）
+        scanStatus,
       },
       output:
         result.output !== undefined
@@ -437,6 +476,7 @@ function mapRunResult(result: CodeRunResult, round: number): ToolResult {
       logs: result.logs.slice(-50),
       toolCalls: result.toolCalls,
       durationMs: result.durationMs,
+      scanStatus,
     },
   };
 }

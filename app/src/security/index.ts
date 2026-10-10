@@ -222,6 +222,15 @@ export type {
   SecurityCheckContext,
   SecurityDecision,
 } from './types';
+// P0-3（`security-decision-verdict.md`）：统一安全决策词汇（四态 + 深扫状态 + 单调合并）
+export type { SecurityVerdict, DeepScanStatus } from './decision';
+export {
+  SECURITY_VERDICTS,
+  combineVerdicts,
+  isPermissive,
+  verdictFromBehavior,
+  verdictFromScanStatus,
+} from './decision';
 export type {
   CommandSemantic,
   CommandSemanticPattern,

@@ -4,7 +4,7 @@
  */
 
 import { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
-import { SecurityAnalysisResult, SecurityBehavior } from './types';
+import type { SecurityDecision } from './types';
 import { resolveSandbox } from '@modules/core/spi';
 import { SecurityPermissionView } from './PermissionManager';
 import { PermissionMode } from '@modules/permission';
@@ -16,16 +16,9 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('security:SecurityIntegration');
 
-/**
- * 安全决策结果
- */
-export interface SecurityDecision {
-  allowed: boolean;
-  reason?: string;
-  securityAnalysis?: SecurityAnalysisResult;
-  sandboxRequired: boolean;
-  permissionBehavior: 'allow' | 'deny' | 'ask';
-}
+// P0-3（`security-decision-verdict.md` §3.2）：`SecurityDecision` 的**唯一来源**为 `./types`
+// （此前本文件重复定义同一接口 ⇒ R02-002 双源）。此处仅**再导出**，保持既有 import 路径不变。
+export type { SecurityDecision } from './types';
 
 /**
  * 安全集成服务

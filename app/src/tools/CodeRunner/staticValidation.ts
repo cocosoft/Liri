@@ -22,6 +22,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:CodeRunner:validation');
 
 import type { CodeValidationIssue, CodeValidationResult } from './types';
+import type { DeepScanStatus } from '@modules/security';
 
 // ─── Bun.Transpiler 最小接口（项目未显式引入 bun-types，自定义接口避免类型依赖）───
 
@@ -121,7 +122,8 @@ export function validateCodeRunnerCode(code: string): CodeValidationResult {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       issues.push({ kind: 'syntax-error', message });
-      return { ok: false, issues };
+      // 语法门禁早退 ⇒ 尚未到达第 5 步深扫 ⇒ 深扫状态如实标记为未执行（≠ 扫描通过）
+      return { ok: false, issues, scanStatus: 'skipped' };
     }
 
     // 2. 导入枚举（scan 覆盖 import 语句/动态 import/require 调用）
@@ -160,12 +162,15 @@ export function validateCodeRunnerCode(code: string): CodeValidationResult {
     });
   }
 
-  // 5. SWC 原生 CallExpression 深度扫描（危险调用 / 混淆等价写法；原生不可用 ⇒ 跳过）
+  // 5. SWC 原生 CallExpression 深度扫描（危险调用 / 混淆等价写法）
+  // P0-3：**如实记录深扫状态** —— 未执行/失败 ≠ 扫描通过（调用方据此避免 INDETERMINATE→ALLOW 折叠）
+  let deepScanStatus: DeepScanStatus = 'skipped';
   const nativeScanner = getNativeJsAst();
   if (nativeScanner) {
     try {
       const scan = nativeScanner.scanJsCalls(code);
       if (scan && scan.ok && scan.matches) {
+        deepScanStatus = 'ran';
         for (const hit of scan.matches) {
           if (hit.severity === 'dangerous' || hit.severity === 'suspicious') {
             issues.push({
@@ -176,17 +181,22 @@ export function validateCodeRunnerCode(code: string): CodeValidationResult {
           }
         }
       } else if (scan && !scan.ok) {
-        // 原生解析失败不阻断——语法门禁（Bun.Transpiler）已判过语法；此处仅留痕
+        // 原生解析失败：**记为 failed**（非"未执行"也非"通过"）；仍不在此阻断（语法门禁已判过）
+        deepScanStatus = 'failed';
         logger.warn('native SWC scan reported parse error', {
           error: scan.error,
         });
+      } else {
+        // scan 为空值（异常返回形态）：无法确认已扫描 ⇒ failed（保守）
+        deepScanStatus = 'failed';
       }
     } catch (error) {
+      deepScanStatus = 'failed';
       logger.warn('native SWC scan failed, skipping deep call scan', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
-  return { ok: issues.length === 0, issues };
+  return { ok: issues.length === 0, issues, scanStatus: deepScanStatus };
 }

@@ -11,7 +11,8 @@
  * `EventLogStorage`；本脚本补的是**合成可缩放夹具 + P50/P95 + 趋势比**（既有脚本用真实会话、
  * 不缩放，无法回答"×10 是否 ×10+"）。
  *
- * 覆盖：F1 长事件日志恢复（长会话加载）· F2 多会话并发（锁等待）· F3 长跑内存趋势（泄漏）。
+ * 覆盖：F1 长事件日志恢复（长会话加载）· **F1b 索引缺失回退路径（L-9 残余/P0-5）** ·
+ * F2 多会话并发（锁等待）· F3 长跑内存趋势（泄漏）。
  * **未覆盖（如实）**：大知识库检索（需先播种索引，另建脚本）· FD/进程数长跑（见
  * `scripts/probe-memory-handles.ts`，本脚本只报堆趋势）。
  *
@@ -52,9 +53,16 @@ const pct = (xs: number[], p: number): number => {
  * ⇒ 分页续读落到"索引缺失回退路径"（每页从 offset 0 regex-skip 重扫，累计 ≈O(N²/PAGE)），
  * 测出的是**回退路径**而非生产路径。此处按 append 同款语义补写 `events.idx`（UTF-8 字节偏移 +
  * 每 256 条一个区间；尾部不足一批不折叠，与 append 一致），使 F1 反映**生产恢复路径**。
- * （回退路径观测已另行登记，见台账 L-9。）
+ *
+ * `withIdx=false` 用于 **F1b**：显式构造"idx 缺失/落后"的回退路径夹具，验证 P0-5 续页锚点
+ * （L-9 残余）在该路径下亦近似线性。
  */
-function seedSession(root: string, id: string, n: number): void {
+function seedSession(
+  root: string,
+  id: string,
+  n: number,
+  withIdx = true
+): void {
   const dir = join(root, 'default', id);
   mkdirSync(dir, { recursive: true });
   const lines: string[] = [];
@@ -95,7 +103,7 @@ function seedSession(root: string, id: string, n: number): void {
       );
     }
   }
-  if (idxLines.length > 0) {
+  if (withIdx && idxLines.length > 0) {
     writeFileSync(join(dir, 'events.idx'), idxLines.join('\n') + '\n', 'utf-8');
   }
 }
@@ -108,15 +116,20 @@ const PAGE = 10_000;
  * 直接传 `MAX_SAFE_INTEGER` 会被静默截断为首页，令"×10 规模"只读到同一批行、伪造出线性假象。
  * 故必须按 `seq` 续读至尾。
  */
-async function readAllRows(root: string, id: string): Promise<number> {
-  const s = new EventLogStorage(id, 'default', root);
+async function readAllRows(
+  root: string,
+  id: string,
+  page = PAGE,
+  snapshotHotWindow?: number
+): Promise<number> {
+  const s = new EventLogStorage(id, 'default', root, snapshotHotWindow);
   let fromSeq = 1;
   let total = 0;
   for (;;) {
-    const page = await s.read({ fromSeq, limit: PAGE });
-    total += page.length;
-    if (page.length < PAGE) break;
-    fromSeq = page[page.length - 1].seq + 1;
+    const got = await s.read({ fromSeq, limit: page });
+    total += got.length;
+    if (got.length < page) break;
+    fromSeq = got[got.length - 1].seq + 1;
   }
   return total;
 }
@@ -133,7 +146,9 @@ interface LoadStat {
 async function measureLoad(
   root: string,
   id: string,
-  reps: number
+  reps: number,
+  page = PAGE,
+  snapshotHotWindow?: number
 ): Promise<LoadStat> {
   const heap0 = process.memoryUsage().heapUsed;
   let peak = heap0;
@@ -141,7 +156,7 @@ async function measureLoad(
   let rows = 0;
   for (let i = 0; i < reps; i++) {
     const t0 = performance.now();
-    rows = await readAllRows(root, id);
+    rows = await readAllRows(root, id, page, snapshotHotWindow);
     times.push(performance.now() - t0);
     peak = Math.max(peak, process.memoryUsage().heapUsed);
   }
@@ -158,6 +173,51 @@ async function measureLoad(
 
 const round = (n: number): number => Math.round(n * 10) / 10;
 
+/**
+ * 单条加载基准：按 `SCALES` 播种并测 P50/P95/max/峰值堆，最后打印"数据 ×10 ⇒ ?"趋势比。
+ * `withIdx=false`（F1b）走**索引缺失回退路径** —— 用于验证 P0-5 续页锚点收口 L-9 残余。
+ */
+async function benchLoad(
+  root: string,
+  label: string,
+  prefix: string,
+  withIdx: boolean,
+  page = PAGE,
+  snapshotHotWindow?: number
+): Promise<void> {
+  console.log(`\n--- ${label} ---`);
+  console.log(
+    '规模     事件数   文件       P50(ms)  P95(ms)  max(ms)  峰值堆增量'
+  );
+  const stats: LoadStat[] = [];
+  for (const scale of SCALES) {
+    const id = `${prefix}-${scale}x`;
+    seedSession(root, id, BASE_EVENTS * scale, withIdx);
+    const st = await measureLoad(root, id, REPS, page, snapshotHotWindow);
+    stats.push(st);
+    console.log(
+      `${String(scale).padEnd(8)}${String(st.rows).padEnd(9)}${(st.bytes / 1024)
+        .toFixed(0)
+        .padEnd(10)}${round(st.p50).toString().padEnd(9)}${round(st.p95)
+        .toString()
+        .padEnd(9)}${round(st.max).toString().padEnd(9)}${mb(
+        st.peakHeapDelta
+      )}MB`
+    );
+  }
+  const timeRatio = stats[0].p50 > 0 ? stats[1].p50 / stats[0].p50 : 0;
+  const memRatio =
+    stats[0].peakHeapDelta > 0
+      ? stats[1].peakHeapDelta / stats[0].peakHeapDelta
+      : 0;
+  console.log(
+    `趋势：数据 ×10 ⇒ P50 ×${round(timeRatio)}、峰值堆 ×${round(memRatio)}` +
+      (timeRatio > 12 || memRatio > 12
+        ? '  ⚠️ 超线性（需排查）'
+        : '  ✅ 近似线性')
+  );
+}
+
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'bench-longrun-'));
   console.log('=== R9 长期运行与恢复基准（合成夹具，非 CI 门禁）===');
@@ -165,42 +225,32 @@ async function main(): Promise<void> {
 
   try {
     // ── F1 长事件日志恢复（长会话加载）：分布 + 峰值内存 + 趋势比 ──
-    console.log('\n--- F1 长事件日志恢复（长会话加载）---');
-    console.log(
-      '规模     事件数   文件       P50(ms)  P95(ms)  max(ms)  峰值堆增量'
+    await benchLoad(
+      root,
+      'F1 长事件日志恢复（长会话加载，含 events.idx = 生产恢复路径）',
+      'f1',
+      true
     );
-    const stats: LoadStat[] = [];
-    for (const scale of SCALES) {
-      const id = `f1-${scale}x`;
-      seedSession(root, id, BASE_EVENTS * scale);
-      const st = await measureLoad(root, id, REPS);
-      stats.push(st);
-      console.log(
-        `${String(scale).padEnd(8)}${String(st.rows).padEnd(9)}${(
-          st.bytes / 1024
-        ).toFixed(0).padEnd(10)}${round(st.p50).toString().padEnd(9)}${round(
-          st.p95
-        )
-          .toString()
-          .padEnd(9)}${round(st.max)
-          .toString()
-          .padEnd(9)}${mb(st.peakHeapDelta)}MB`
-      );
-    }
-    const timeRatio = stats[0].p50 > 0 ? stats[1].p50 / stats[0].p50 : 0;
-    const memRatio =
-      stats[0].peakHeapDelta > 0
-        ? stats[1].peakHeapDelta / stats[0].peakHeapDelta
-        : 0;
-    console.log(
-      `趋势：数据 ×10 ⇒ P50 ×${round(timeRatio)}、峰值堆 ×${round(memRatio)}` +
-        (timeRatio > 12 || memRatio > 12 ? '  ⚠️ 超线性（需排查）' : '  ✅ 近似线性')
+    // F1b：**回退路径对照** —— 无 idx（idx 缺失/落后）时的续页线性续扫（P0-5 收口 L-9 残余）。
+    // 为使该路径**真的被走到**：① 页大小压到 1000（×10 规模 = 50 个续页，放大 O(N²/PAGE) 效应，
+    // 改动前每页从 offset 0 重扫 ⇒ 总扫描量 ≈25×N）；② 快照热窗口压到 100（默认 min(150000,10000)
+    // 会把 5000 条整体缓存 ⇒ 小规模根本不落盘、基准失真）。改动后两规模均近似 ×10。
+    await benchLoad(
+      root,
+      'F1b 长事件日志恢复（无 events.idx = 索引缺失回退路径，验证 P0-5 续页锚点）',
+      'f1b',
+      false,
+      1_000,
+      100
     );
 
     // ── F2 多会话并发（锁等待）：串行 vs 并发 ──
     console.log('\n--- F2 多会话并发（锁等待）---');
     const bigN = BASE_EVENTS * SCALES[SCALES.length - 1];
-    const ids = Array.from({ length: CONCURRENT_SESSIONS }, (_, i) => `f2-${i}`);
+    const ids = Array.from(
+      { length: CONCURRENT_SESSIONS },
+      (_, i) => `f2-${i}`
+    );
     for (const id of ids) seedSession(root, id, bigN);
     const load = (id: string): Promise<number> => readAllRows(root, id);
 
@@ -233,8 +283,7 @@ async function main(): Promise<void> {
     console.log(
       `heapUsed 首 5 次均值 ${mb(first5)}MB → 末 5 次均值 ${mb(last5)}MB（净增 ${growth.toFixed(
         1
-      )}MB）` +
-        (growth > 50 ? '  ⚠️ 疑似泄漏（需排查）' : '  ✅ 无明显增长')
+      )}MB）` + (growth > 50 ? '  ⚠️ 疑似泄漏（需排查）' : '  ✅ 无明显增长')
     );
     console.log(`基线 heapUsed ${mb(h0)}MB`);
 

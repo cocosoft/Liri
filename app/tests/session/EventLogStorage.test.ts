@@ -10,6 +10,7 @@ import {
   mkdirSync,
   writeFileSync,
   appendFileSync,
+  readFileSync,
   rmSync,
   existsSync,
 } from 'fs';
@@ -469,6 +470,186 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
         '重启消息200'
       );
     });
+  });
+
+  // ─── P0-5（2026-10-10，CHANGELOG v0.4.72 §L-9 残余）：续页线性续扫 ───
+  // 边界原文：`events.idx` **缺失/落后**时回退路径仍 ≈O(N²/PAGE)（每页从 offset 0
+  // 重扫）。收口：续页起点改用「上一次 read 的页边界锚点」，idx 未覆盖时线性续扫。
+  describe('P0-5 续页锚点（idx 缺失/落后时线性续扫）', () => {
+    /** read 磁盘路径的实际 seek 起点（仅记录**显式传 start** 的调用：快照构建/修复链不传） */
+    interface TestableScan {
+      createReadlineInterface: (file?: string, start?: number) => unknown;
+      readBoundary: { afterSeq: number; byteOffset: number } | null;
+    }
+
+    const scan = (s: EventLogStorage): TestableScan =>
+      s as unknown as TestableScan;
+
+    function spyScanStarts(storage: EventLogStorage): number[] {
+      const starts: number[] = [];
+      const st = scan(storage);
+      const orig = st.createReadlineInterface.bind(storage);
+      st.createReadlineInterface = (file?: string, start?: number) => {
+        if (typeof start === 'number') starts.push(start);
+        return orig(file, start);
+      };
+      return starts;
+    }
+
+    /** events.jsonl 每行的 UTF-8 起始偏移（第 k 个事件行 = offsets[k-1]） */
+    function lineOffsets(dir: string, sessionId: string): number[] {
+      const offsets: number[] = [];
+      let off = 0;
+      for (const line of readFileSync(
+        eventsPath(dir, sessionId),
+        'utf-8'
+      ).split('\n')) {
+        offsets.push(off);
+        off += Buffer.byteLength(line, 'utf-8') + 1;
+      }
+      return offsets;
+    }
+
+    /** 读 events.idx 的区间条目（派生物，与 append 折叠同构） */
+    function idxEntriesOf(
+      dir: string,
+      sessionId: string
+    ): Array<{ fromSeq: number; toSeq: number; byteOffset: number }> {
+      return readFileSync(
+        join(sessionDir(dir, sessionId), 'events.idx'),
+        'utf-8'
+      )
+        .split('\n')
+        .filter((l) => l.trim().length > 0)
+        .map((l) => JSON.parse(l) as never);
+    }
+
+    /** 按 seq 续读（模拟 getMessages/ChatManager 的分页循环）；`startFrom` 即首个续页起点 */
+    async function readAllPaged(
+      s: EventLogStorage,
+      page: number,
+      startFrom = 1
+    ): Promise<number[]> {
+      const seqs: number[] = [];
+      let fromSeq = startFrom;
+      for (;;) {
+        const got = await s.read({ fromSeq, limit: page });
+        if (got.length === 0) break;
+        seqs.push(...got.map((e) => e.seq));
+        fromSeq = got[got.length - 1].seq + 1;
+      }
+      return seqs;
+    }
+
+    async function appendN(
+      s: EventLogStorage,
+      n: number,
+      prefix: string
+    ): Promise<void> {
+      for (let i = 1; i <= n; i++) {
+        await s.append(
+          ev(0, 'user/message', {
+            content: `${prefix}中文消息第${i}条`,
+            messageId: `m${i}`,
+          })
+        );
+      }
+    }
+
+    it('idx 缺失：续页从页边界锚点 seek（不再从 0 重扫），分页结果与全量一致', async () => {
+      const sid = 'p05-anchor';
+      const N = 600;
+      // maxEvents=1 ⇒ 热窗口只保留末条，fromSeq<N 的读取一律走磁盘路径（可观测 seek 起点）
+      const { storage, dir } = makeStorage(sid, { maxEvents: 1 });
+      await appendN(storage, N, '锚点');
+      // idx 缺失（重启后尚未折叠 / 夹具绕过 append）⇒ 删 .idx + 新实例（内存索引为空）
+      rmSync(join(sessionDir(dir, sid), 'events.idx'), { force: true });
+      const restored = new EventLogStorage(sid, HASH, dir, 1);
+      const starts = spyScanStarts(restored);
+      const offsets = lineOffsets(dir, sid);
+
+      const page1 = await restored.read({ fromSeq: 1, limit: 100 });
+      expect(page1.length).toBe(100);
+      expect(starts[0]).toBe(0); // 首页无锚点，仍从 0 起
+      // 记账：锚点 = 页 1 末端（seq 100）之后的**下一行起点**（该行尚未读取解析）
+      expect(scan(restored).readBoundary).toEqual({
+        afterSeq: 100,
+        byteOffset: offsets[100],
+      });
+
+      // 从 seq 101 续读剩余（首页已在上方显式读过 ⇒ 不重复 fromSeq=1）
+      const seqs = await readAllPaged(restored, 100, 101);
+      expect(seqs).toEqual(Array.from({ length: N - 100 }, (_, i) => i + 101));
+      // 关键（L-9 残余收口）：每个续页都从**非 0** 偏移续扫 ⇒ 总扫描量≈O(N) 而非 O(N²/PAGE)
+      expect(starts.length).toBeGreaterThanOrEqual(6);
+      expect(starts.slice(1).every((s) => s > 0)).toBe(true);
+      expect(starts.slice(1)).not.toContain(0);
+      // 第 2 页起点精确 = 第 101 行起始偏移（锚点即上一页边界，无偏移漂移）
+      expect(starts[1]).toBe(offsets[100]);
+    }, 20000);
+
+    it('行边界校验兜底：偏移口径漂移（历史 CRLF）⇒ 弃用锚点回退 0，仍不漏事件', async () => {
+      const sid = 'p05-crlf';
+      const N = 300;
+      const { dir } = makeStorage(sid, { maxEvents: 1 });
+      // 历史 CRLF 文件（readline 把 '\r\n' 整体剥离 ⇒ 读侧少算 1 字节/行，锚点偏移偏小）
+      const rows: string[] = [];
+      for (let i = 1; i <= N; i++) {
+        rows.push(
+          JSON.stringify(
+            ev(i, 'user/message', {
+              content: `CRLF第${i}条`,
+              messageId: `c${i}`,
+            })
+          )
+        );
+      }
+      writeRaw(dir, sid, rows.join('\r\n') + '\r\n');
+
+      const restored = new EventLogStorage(sid, HASH, dir, 1);
+      const starts = spyScanStarts(restored);
+      const offsets = lineOffsets(dir, sid);
+
+      const page1 = await restored.read({ fromSeq: 1, limit: 100 });
+      expect(page1.length).toBe(100);
+      const anchor = scan(restored).readBoundary;
+      expect(anchor?.afterSeq).toBe(100);
+      expect(anchor!.byteOffset).toBeLessThan(offsets[100]); // 漂移：偏移偏小
+
+      const page2 = await restored.read({ fromSeq: 101, limit: 100 });
+      // 校验未过 ⇒ 回退 0（只慢不错），且结果完整
+      expect(starts[1]).toBe(0);
+      expect(page2.map((e) => e.seq)).toEqual(
+        Array.from({ length: 100 }, (_, i) => i + 101)
+      );
+      expect((page2[0].data as { content: string }).content).toBe(
+        'CRLF第101条'
+      );
+      const seqs = await readAllPaged(restored, 100);
+      expect(seqs).toEqual(Array.from({ length: N }, (_, i) => i + 1));
+    }, 20000);
+
+    it('idx 存在时仍优先 idx（本次改动不改变既有 seek 行为）', async () => {
+      const sid = 'p05-idx-priority';
+      const N = 600;
+      const { storage, dir } = makeStorage(sid, { maxEvents: 1 });
+      await appendN(storage, N, '索引');
+      // 保留 append 折叠出的 .idx（每 256 条一个区间）
+      const restored = new EventLogStorage(sid, HASH, dir, 1);
+      const starts = spyScanStarts(restored);
+
+      await restored.read({ fromSeq: 1, limit: 100 });
+      const page2 = await restored.read({ fromSeq: 101, limit: 100 });
+      const hit = idxEntriesOf(dir, sid).find(
+        (e) => e.fromSeq <= 101 && 101 <= e.toSeq
+      );
+      expect(hit).toBeDefined();
+      // 起点 = 覆盖 seq 101 的区间首行偏移（idx 二分定位），而非锚点
+      expect(starts[1]).toBe(hit!.byteOffset);
+      expect(page2.map((e) => e.seq)).toEqual(
+        Array.from({ length: 100 }, (_, i) => i + 101)
+      );
+    }, 20000);
   });
 
   // ─── A-2①（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲下沉存储层 ───

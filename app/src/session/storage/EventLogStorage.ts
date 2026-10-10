@@ -23,7 +23,14 @@
  *   - 跨实例的并发由调用方（ChatManager）保证单一 EventLogStorage per session
  */
 
-import { promises as fs, existsSync, createReadStream } from 'fs';
+import {
+  promises as fs,
+  existsSync,
+  createReadStream,
+  openSync,
+  readSync,
+  closeSync,
+} from 'fs';
 import { join } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@modules/core/paths';
@@ -91,6 +98,21 @@ const SNAPSHOT_COOLDOWN_MS = 5_000;
 const IDX_BATCH_SIZE = 256;
 /** UTF-8 字节偏移累计基数（写事件前的文件起始偏移，append-only 下恒定） */
 const IDX_INIT_OFFSET = 0;
+
+/**
+ * 事件行的 UTF-8 字节数（**含行尾 '\n'**）。
+ *
+ * 口径必须与 append 侧折叠 `events.idx` 同源（G-4：seek 偏移不允许近似）：
+ * append 以 `JSON.stringify(event) + '\n'` 落盘（见 `append` 内 `const line = …`），
+ * 故行字节 = JSON 文本字节数 + 1。readline 已剥离行尾换行（`crlfDelay: Infinity`
+ * 下 `'\r\n'` 亦整体剥离），故读侧对 `line` 再 +1 即可与写侧一致。
+ *
+ * 历史 CRLF 文件会**少算** 1 字节/行（偏移偏小）——由 `isLineStart` 行边界校验
+ * 拦住并回退全扫（只慢不错），见 `resolveScanStartOffset`。
+ */
+function eventLineBytes(jsonText: string): number {
+  return Buffer.byteLength(jsonText, 'utf-8') + 1;
+}
 
 /** 事件字节索引区间条目（持久化为 .idx 文件行） */
 export interface EventIdxEntry {
@@ -242,6 +264,19 @@ export class EventLogStorage {
   private idxBatchStartOffset = IDX_INIT_OFFSET;
   /** 当前待折叠批内已累计事件数 */
   private idxBatchCount = 0;
+  /**
+   * P0-5（L-9 残余，2026-10-10）：**续页锚点** —— 上一次 `read` 页满时的"下一行"位置。
+   *
+   * 仅在 `events.idx` 未覆盖目标 seq 时起作用（idx 缺失 / 落后 G-2）：续页 `fromSeq`
+   * 恰为锚点后第一个 seq 时直接从 `byteOffset` seek，把分页读取由"每页从 offset 0
+   * 重扫"（≈O(N²/PAGE)）降为**线性续扫**（总扫描量 ≈O(N)）。
+   *
+   * 安全性（G-4：seek 偏移不允许近似）：① `fromSeq` 必须与 `afterSeq` 连续；
+   * ② seek 前以 `isLineStart` 校验该偏移前一字节为 '\n'。append-only 下
+   * seq ≥ afterSeq+1 的事件必位于 `byteOffset` 之后 ⇒ 不漏事件；任一条件不满足
+   * 即**回退 0 全扫**（只慢不错，CS03）。
+   */
+  private readBoundary: { afterSeq: number; byteOffset: number } | null = null;
   /** 快照条数上限（构造可注入，测试用小值避免写大文件） */
   private readonly maxSnapshotEvents: number;
   /** 快照字节上限（构造可注入） */
@@ -837,6 +872,77 @@ export class EventLogStorage {
     return hit.byteOffset;
   }
 
+  /**
+   * P0-5（2026-10-10）：解析 `read` 的磁盘扫描起点（G-4：seek 偏移不允许近似）。
+   *
+   * 优先级：① `events.idx` 二分定位（P3-8，O(log N)）；② **续页锚点**（上一次 read 的
+   * 页边界，仅当 `fromSeq` 与锚点连续 **且** 偏移经行边界校验）；③ `0`（从头发起，
+   * 走既有 KB-EVENT-READ 正则跳过）。
+   *
+   * ② 的存在理由：idx 缺失（重启后尚未折叠 / 夹具绕过 append）或落后（G-2：目标 seq
+   * 超出末区间）时 ① 返回 null ⇒ 原实现每页从 offset 0 重扫，分页读取退化为
+   * ≈O(N²/PAGE)（CHANGELOG v0.4.72 §L-9 残余）。
+   */
+  private resolveScanStartOffset(fromSeq: number): number {
+    if (fromSeq <= 1) return IDX_INIT_OFFSET;
+    const idxStart = this.findIdxStartOffset(fromSeq);
+    if (idxStart !== null) return idxStart;
+    const anchor = this.readBoundary;
+    if (anchor !== null && anchor.afterSeq + 1 === fromSeq) {
+      if (
+        anchor.byteOffset > IDX_INIT_OFFSET &&
+        this.isLineStart(anchor.byteOffset)
+      ) {
+        logger.debug('event-log: idx 未覆盖，续页锚点线性续扫', {
+          sessionId: this.sessionId,
+          fromSeq,
+          afterSeq: anchor.afterSeq,
+          byteOffset: anchor.byteOffset,
+        });
+        return anchor.byteOffset;
+      }
+      // 锚点连续但偏移未过行边界校验（口径漂移 / 文件被外部改写）⇒ 回退全扫。
+      // 属**性能降级**（不影响正确性），故为 debug 级、不触发告警链路。
+      logger.debug('event-log: 续页锚点行边界校验未过，回退全扫', {
+        sessionId: this.sessionId,
+        fromSeq,
+        afterSeq: anchor.afterSeq,
+        byteOffset: anchor.byteOffset,
+      });
+    }
+    return IDX_INIT_OFFSET;
+  }
+
+  /**
+   * 校验 `offset` 是否为**行首**（前一字节为 '\n'）。
+   *
+   * 锚点偏移由读侧逐行累加推得；若口径漂移（历史 CRLF 文件 / 非法 UTF-8 解码膨胀）
+   * 会落到行中，那将**静默漏事件**——故 seek 前用 1 字节读做边界校验，不满足即弃用
+   * 锚点回退全扫（只慢不错）。'\n' 不可能出现在 JSON 行内部（换行被转义为 `\n`
+   * 两个字符），故"前一字节为 '\n'"⟺"该偏移为行首"。
+   */
+  private isLineStart(offset: number): boolean {
+    let fd: number;
+    try {
+      fd = openSync(this.filePath, 'r');
+    } catch {
+      return false;
+    }
+    try {
+      const buf = Buffer.alloc(1);
+      return readSync(fd, buf, 0, 1, offset - 1) === 1 && buf[0] === 0x0a;
+    } catch {
+      // 读失败（文件被外部删除等）→ 弃用锚点，不影响正确性
+      return false;
+    } finally {
+      try {
+        closeSync(fd);
+      } catch {
+        // 关闭失败无副作用（fd 随进程回收），不阻断读取
+      }
+    }
+  }
+
   // ─── A-5 告警节流/熔断（2026-08-23）──────────────────────────────────────
 
   /**
@@ -1030,14 +1136,27 @@ export class EventLogStorage {
     try {
       // P3-8（2026-09-02）：分页续读（fromSeq>1）优先用字节索引定位——
       // O(N) 逐行扫描 → O(log N) 定位 + seek 段读。索引未覆盖（重启后未
-      // 折叠 / idx 落后 G-2）时 findIdxStartOffset 返回 null，回退从头逐行
-      // （既有 KB-EVENT-READ regex-skip 路径，语义不变）。
+      // 折叠 / idx 落后 G-2）时回退 scanStart（P0-5：上次页边界续扫；无锚点则 0）。
       await this.ensureIdxLoaded();
-      const idxStart = fromSeq > 1 ? this.findIdxStartOffset(fromSeq) : null;
-      const rl = this.createReadlineInterface(this.filePath, idxStart ?? 0);
+      const scanStart = this.resolveScanStartOffset(fromSeq);
+      const rl = this.createReadlineInterface(this.filePath, scanStart);
+      // P0-5（L-9 残余，2026-10-10）：续页锚点记账——随扫描累积 UTF-8 字节偏移，
+      // 页满那一刻记下"**当前行起点**"（= 最后一个已返回事件之后的第一个未处理行，
+      // 该行尚未读取解析，不得越过）供下一次续页 seek。行字节口径与 append 折叠
+      // `.idx` 同源（见 `eventLineBytes`）。
+      let scanBytes = scanStart;
+      let lastReturnedSeq = 0;
       for await (const line of rl) {
+        const lineStart = scanBytes;
+        scanBytes += eventLineBytes(line);
         if (!line.trim()) continue;
-        if (results.length >= limit) break;
+        if (results.length >= limit) {
+          this.readBoundary = {
+            afterSeq: lastReturnedSeq,
+            byteOffset: lineStart,
+          };
+          break;
+        }
 
         // KB-EVENT-READ（2026-08-29）：fromSeq 之前行快速跳过——分页读取
         // （getMessages/ChatManager 循环 read）原对每行 JSON.parse 全量解析，
@@ -1094,6 +1213,8 @@ export class EventLogStorage {
           if (types && !types.includes(event.type)) continue;
 
           results.push(event);
+          // P0-5：续页锚点的"已返回末端"（取最后一条，与磁盘字节序一致）
+          lastReturnedSeq = event.seq;
         } catch {
           // 损坏行（跨实例并发拼接/截断）→ 按 JSON 边界拆分恢复（2026-08-24 根因修复）
           let recovered = 0;
@@ -1109,6 +1230,8 @@ export class EventLogStorage {
             if (excludeTypes && excludeTypes.includes(obj.type)) continue;
             results.push(obj);
             recovered++;
+            // P0-5：损坏行恢复出的事件同样推进续页锚点（否则续页会重扫该行）
+            lastReturnedSeq = obj.seq;
           }
           if (recovered > 0) {
             logger.warn('event-log: read 损坏行拆分恢复', {

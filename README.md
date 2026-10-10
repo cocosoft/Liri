@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.74-blue)
+![Version](https://img.shields.io/badge/version-0.4.75-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.74**
+当前版本：**v0.4.75**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,30 +435,16 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.74 (2026-10-10)
+#### v0.4.75 (2026-10-10)
 
-**A2A/MCP 进程级侧车隔离（P0–P3）+ 语法觉知型上下文闭环引擎（P0–P2，Rust FFI）+ 第九轮审查遗留项收口**
+**统一检索 RRF 收敛：单一零拷贝实现 + `mergeResults` 由"名义 RRF"改为真 RRF（用户覆盖裁定）**
 
-- ✅ **① MCP stdio 子进程受管化（P0）** - 孤儿兜底 `killOrphanedProcesses(true)` **接入 `mcpSystem.cleanup()` + SIGINT/SIGTERM**（此前**全仓零调用点**）；修正 2 处既有缺陷：`twoPhaseKill` 的 **TDZ**（同步抛错 ⇒ `ReferenceError`）· 孤儿表仅存 PID ⇒ **永不回收**（改保留 `ChildProcess` 引用）
-- ✅ **① 轻量 IPC 基座收敛（P1）** - 新增**单一契约** `utils/sidecarIpc.ts`（版本 / 帧类型 / 换行分帧 / 就绪握手 / major 兼容 / 心跳）；`JsonRpcBridge` **收敛消费**（分帧 + 版本再导出 + startup 帧**版本协商** fail-closed）；**未新建第三套**
-- ✅ **① A2A 只读发现面外置（P2）** - 纯发现面 `handleDiscoveryRequest`（卡片/健康/ETag/405/503）· **独立 sidecar 进程**（自有端口、P1 契约、同源鉴权）· 开关默认关的监督器（就绪握手 / 快照 / 有界重启）· 接入 `LocalHTTPService` 生命周期（实测 200/304/401）
-- ✅ **① A2A 委派执行进程化（P3）** - 导出**单一实现** `runA2ADelegation`；监督器**反向 RPC** `a2a.delegate`；sidecar `POST /v1/a2a/tasks` **经 IPC 转发回主进程内核**（**不自建 CoreAPI**）；实测真子进程端到端 200
-- ✅ **② 语法觉知型上下文闭环（P0–P2）** - **P0** 单一结构切点 `utils/structureCut.ts`（括号 + 围栏感知，接线工具结果预览 / 通道分片，**默认不劣化**）· **P1** Rust `py_close_structure`（**词法级**括号栈 + 引号/注释感知，**零新 crate**；FFI 注册 + 降级桥）· **P2** 先建**截断级质量度量**（真实语料：闭合率 **0%~6.4% → 100%**）⇒ 接线 Tier2 单条截断头部闭环
-- ✅ **第九轮审查遗留项收口** - 专项 A **#7 跨层安全回归**（17 例；**当场发现并修复** `BashSecurityAnalyzer` 哨兵缺陷 —— 与缺陷 #1 同类）· **§九「沙箱执行」**（9 例）· 专项 B **§十七-5 故障注入**（5 例）· **专项 C 8 项**（12 例）
-- ℹ️ **边界（如实）** - A2A sidecar 端口**独立于主进程**（无前置代理）；sidecar 委派端点**未在卡片广告**；A2A JSON-RPC/SSE 面未搬运；`killProcessTree` 未复用；Tier3 无字符级截断（P2 落点仅 Tier2）
-
-#### v0.4.73 (2026-10-10)
-
-**第九轮外部审查落地（专项 A 五缺陷 + §七 安全基线 + 专项 B 执行生命周期 B-01–B-05 及跨层改造）+ Rust SWC CallExpression 扫描器（FFI 贯通）+ 默认关开关触发条件治理**
-
-- ✅ **专项 A（Bash/AST 安全，5 缺陷全修）** - 原生解析器**从未加载**（`lazyInitNative` 哨兵恒假，已修 + 可观测）· TS 解析器不识别 `\|\|` ⇒ 命令**绕过**（已修）· 审批 hash 抹掉**引号语义**（改引号感知状态机、保留大小写）· AST 不确定时**不失败关闭**（转人工审批）· 调用方 `env` 可**覆盖**已剥离敏感项（新增 `sanitizeCallerEnv()`）
-- ✅ **§七 安全开关基线** - `BASH_APPROVED_REVALIDATE` **默认 `false` → `true`（安全基线）**（关闭时已批准命令**跳过整套硬拦截**）；R07-2 全链同步（含 `SAFETY_SWITCHES` 保 `def:true` **防静默翻回**）；`BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` 维持灰度 + 启用/回滚条件/迁移期限 + 一次性告警
-- ✅ **专项 B（执行生命周期）** - **B-01** 恢复后可能并存**双 `RUNNING`**（`foreignActive` 外部占用；不盲目 `owner.set()`，STALE 时解除）· **B-02** 恢复两步间崩溃 ⇒ 工具调用永久 `running`（**倒序**：先标 `unknown` 再置 `STALE`）· **B-03** `MAX(seq)+1` 并发竞争（串行化 + 唯一索引兜底）· **B-04** `QUEUED` 取消恒失败（按状态分流直接 `CANCELLED`）· **B-05** 记账 fire-and-forget（可等待 `beginToolCall()`）
-- ✅ **B-05 跨层改造** - `executionId` 经 `ChatRequest` → `StreamMessageOptions` → `ChatManager` 下传至**工具执行者** ⇒ 执行前 `await beginToolCall()`，落盘失败即**拒绝该工具**（**逐工具** fail-closed）；记账收敛为**单一写入方**
-- ✅ **Rust SWC CallExpression 扫描器** - 新 `js_ast.rs`（SWC 遍历 `CallExpr`/`NewExpr` + 特征表）+ FFI `py_scan_js_calls` + `CodeRunner` 校验链第 5 步（不可用 ⇒ 降级跳过）；**识别** `globalThis['eval']` 混淆；`cargo test` **101 pass**
-- ✅ **触发条件治理 + 清理** - O1–O5 观测点（零行为变更）· 新建默认关开关登记表（单一事实源）+ CI **登记完整性断言**（23 ⇒ 34）· 删除零消费预留端口 · PDCA 启动扫描不再静默跳过 · Ch.16 / Ch.21 落 spec + 裁定
-- ✅ **质量** - `typecheck` **0** · `tests/{execution,channels,chat}` **755 pass** · `tests/{tools,security,permission}` **788 pass** · `lint:arch` 违规 **0** · `lint:doc-code` ✅
-- ⚠️ **未完成（如实登记）** - 跨层安全回归测试（AST/TS/审批/spawn **决策一致性**）与**沙箱执行**测试组未做；故障注入仅覆盖调用顺序；**专项 C 8 项测试清单未做**（其 C-01/C-02/C-03 与 B-03/B-02/B-05 同源、已修）
+- ✅ **单一事实源（零拷贝 / 延迟物化）** - 新增 `app/src/utils/rrf.ts`：`reciprocalRankFusion`（k 缺省 60，支持加权）。融合期只累计「键 → {分数, 引用}」，**Top-K 截断后才物化** ⇒ 分配量 **O(N) → O(K)**；排序 `score` 降序 + `key` 升序（确定性）
+- ✅ **`KnowledgeRouter.mergeResults` 改真 RRF（行为变更，用户明确选择）** - 原文注释自称 RRF、**实为归一化加权平均**；现按 `score(d) = kw/(k+rank_kw+1) + sm/(k+rank_sm+1)`（k=60）融合，保留「语义 snippet 覆盖」与并列规则；删除改造后**无消费者**的 `normalizeKeywordResults`
+- ✅ **记忆侧接入 + 下游展示订正** - `memory/services/UnifiedSearchService` 改调该 util（与旧公式 `1/(60+rank+1)` **数值等价**）并删本地 `RRF_K`；`/knowledge search` 分档由绝对分改为**按本页最高分归一化**（否则 RRF 绝对值恒落 📄）
+- ✅ **删死字段（独立提交，CD06）** - `knowledge/search/UnifiedSearchService` 的 `RRF_K` 全仓仅**声明处 1 命中**（零消费者）⇒ 删除 + 订正失实 docstring；提交信息含六步核查结论与回滚路径
+- ✅ **质量** - `typecheck` **0** · **`bun run ci` exit 0**（含 `test:guarded` **5725 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）
+- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约；分数值域由 `[0,1]` 变为 `Σw/(k+rank+1)`，重叠文档 `matchType` 由 `keyword` → `semantic`；`minScore` / `semanticThreshold` 均作用于融合**前**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

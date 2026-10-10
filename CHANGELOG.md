@@ -21,6 +21,20 @@
 
 ---
 
+#### v0.4.75 (2026-10-10)
+
+**统一检索 RRF 收敛：单一零拷贝实现 + `mergeResults` 由"名义 RRF"改为真 RRF（用户覆盖裁定）**
+
+- ✅ **单一事实源（零拷贝 / 延迟物化）** - 新增 `app/src/utils/rrf.ts`：`reciprocalRankFusion`（k 缺省 60，支持加权）。融合期只累计「键 → {分数, 引用}」，**Top-K 截断后才物化** ⇒ 分配量 **O(N) → O(K)**；排序为 `score` 降序 + `key` 升序（确定性）
+- ✅ **记忆侧接入** - `memory/services/UnifiedSearchService.search()` 改调该 util（缺省 k=60，与旧 `1/(60+rank+1)` **数值等价**），删除其本地 `RRF_K`
+- ✅ **`KnowledgeRouter.mergeResults` 改真 RRF（行为变更，用户明确选择）** - 原文注释自称 RRF、**实为归一化加权平均**；现按 `score(d) = kw/(k+rank_kw+1) + sm/(k+rank_sm+1)`（k=60）融合，`prefer:'last'` 保留「语义 snippet 覆盖」的可见行为；并列规则补 `docPath` 末位；删除改造后**无消费者**的 `normalizeKeywordResults`
+- ✅ **下游展示配套订正** - `/knowledge search` 原按绝对分 `≥0.7/≥0.4` 分档 `🔥/⭐/📄`，RRF 绝对值远小于 1 ⇒ 会**恒落 📄**；改按**本页最高分归一化**后再分档
+- ✅ **删死字段（独立提交，CD06）** - `knowledge/search/UnifiedSearchService.ts` 的 `RRF_K` 全仓仅**声明处 1 命中**（零消费者）⇒ 删除，并订正「可进行二次 RRF 重排序」的失实 docstring；提交信息含六步核查结论与回滚路径
+- ✅ **质量** - `typecheck` **0** · **`bun run ci` exit 0**（含 `test:guarded` **5725 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 新增定向用例 `tests/utils/rrf.test.ts`（12 例）+ `tests/memory/unifiedSearchRrf.test.ts`（6 例）
+- ℹ️ **边界（如实）** - 未建 `VfsKernel`、未改 provider / 通道契约（外部建议所引路径与 API 经取证在仓内**不存在**）；`mergeResults` 分数值域由 `[0,1]` 变为 `Σw/(k+rank+1)`，重叠文档 `matchType` 由 `keyword` → `semantic`；已核验 `minScore` / `semanticThreshold` 均作用于融合**前**
+
+---
+
 #### v0.4.74 (2026-10-10)
 
 **A2A/MCP 进程级侧车隔离（① P0–P3）+ 语法觉知型上下文闭环引擎（② P0–P2，Rust FFI）+ 第九轮审查遗留项收口（专项 A #7 / §九 / 专项 B §十七-5 / 专项 C）**

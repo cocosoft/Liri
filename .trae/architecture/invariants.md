@@ -38,7 +38,7 @@
 | **INV-EXEC-003** | 终态不可逆 | unit | ✅ verified | `execution/types.ts` | `tests/execution/ExecutionManager.test.ts` |
 | **INV-EXEC-004** | 取消语义（取消请求 ≠ 进程已退出） | unit | ✅ verified | `execution/ExecutionManager.ts` | `executionReviewBatchB.test.ts` · `processCrashInjection.test.ts` |
 | **INV-EXEC-005** | 未结算执行有恢复策略 | fault-injection | ✅ verified | `execution/ExecutionManager.ts` | `recoveryFaultInjection.test.ts` · `processCrashInjection.test.ts` |
-| **INV-EXEC-006** | 执行入口契约一致（渠道 / 客户端） | unit | ⚠️ partial | `channels/routing/messageRouter.ts` · `infrastructure/http/handlers/chat-handlers.ts` | `tests/chat/chatManagerToolLedgerFailClosed.test.ts` |
+| **INV-EXEC-006** | 执行入口契约一致（渠道 / 客户端） | unit | ✅ verified | `channels/routing/messageRouter.ts` · `infrastructure/http/handlers/chat-handlers.ts` | `tests/chat/chatManagerToolLedgerFailClosed.test.ts` · `tests/http/chatStreamExecutionHandler.test.ts` |
 | **INV-RECOVERY-001** | 恢复可重复执行（幂等） | fault-injection | ✅ verified | `execution/ExecutionManager.ts` | `specialCResilience.test.ts` · `processCrashInjection.test.ts` |
 | **INV-RECOVERY-002** | 写前记账先于副作用（fail-closed） | unit | ✅ verified | `execution/ExecutionManager.ts` · `chat/ChatManager.ts` | `tests/chat/chatManagerToolLedgerFailClosed.test.ts` |
 | **INV-RECOVERY-003** | 未知副作用不得无条件重放 | unit | ✅ verified | `tools/toolEffects.ts` | `tests/tools/toolRecoveryPolicy.test.ts` |
@@ -59,8 +59,11 @@
 
 | ID | 缺口 | 处置（触发条件） |
 |---|---|---|
-| **INV-EXEC-006** | 客户端路径的 **handler 级**行为（记账/终态结算/断开结算）无自动化用例 | 翻转 `CLIENT_STREAM_EXECUTION` 默认值前**必须**补 HTTP harness 用例（见 `.trae/specs/client-stream-execution.md §5.1`） |
 | **INV-SEC-003** | 沙箱真实负向验证受**平台/opt-in 门控**（Linux+helper / `PERMISSION_SHIELD_E2E=1`） | ✅ **P1-6 已落地**：CI `sandbox-negative` job（ubuntu-latest 构建 helper + `SANDBOX_NEGATIVE_REQUIRE=1` ⇒ **环境不满足即失败**，不得静默跳过）；**跨平台无强隔离后端**仍属边界（**P2-4** 记入**本文件 §6**） |
+
+> ✅ **INV-EXEC-006 已收口（B2，2026-10-10）**：原缺口「客户端路径的 **handler 级**行为（记账/终态结算/断开结算）无自动化用例」已补
+> `app/tests/http/chatStreamExecutionHandler.test.ts`（4 例：记账 / 终态结算 / 断开结算 / 开关关零行为变更）⇒ 状态由 `partial` 升为 `verified`，
+> **已不再是**「翻转 `CLIENT_STREAM_EXECUTION` 默认值」的阻断项（见 `.trae/specs/boundary-convergence-plan.md §2-P0-3`）；翻转本身仍须走 `default-off-switches-review-gates.md §2.3` 复评 + 用户裁定。
 
 ---
 

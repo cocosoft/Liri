@@ -87,10 +87,13 @@
         "app/src/channels/routing/messageRouter.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts"
       ],
-      "tests": ["app/tests/chat/chatManagerToolLedgerFailClosed.test.ts"],
+      "tests": [
+        "app/tests/chat/chatManagerToolLedgerFailClosed.test.ts",
+        "app/tests/http/chatStreamExecutionHandler.test.ts"
+      ],
       "level": "unit",
-      "status": "partial",
-      "reopenWhen": "新增执行入口；或翻转 `CLIENT_STREAM_EXECUTION` 默认值时（须补 handler 级用例）。",
+      "status": "verified",
+      "reopenWhen": "新增执行入口；或翻转 `CLIENT_STREAM_EXECUTION` 默认值时（须复跑 handler 级用例）。",
       "specs": [".trae/specs/client-stream-execution.md"]
     },
     {

@@ -93,7 +93,7 @@
 | `BASH_APPROVAL_STRICT` | 灰度（安全姿态） | `false` | 维持 | §2.2（同上） | 见 §2.2（**同名不同参**被命令名级放行） | **2026-Q4** |
 | `EXECUTION_TWO_PHASE_CANCEL` | 灰度（执行语义） | `false` | 维持 | §2-#10 | 取消后底层仍写入/产生副作用；或并发下"取消即释放 ⇒ 双跑/重复计费" | **2026-Q4** |
 | `CODE_RUN_DEEP_SCAN_STRICT` | 灰度（安全收紧） | `false` | 维持（默认关时靠结果 `scanStatus` 可观测） | §2-#12 · [`security-decision-verdict.md`](./security-decision-verdict.md) | 深扫不可用期间出现**危险调用漏检**；或原生深扫在目标环境稳定可用（`ran` 比例 100%） | **2026-Q4**（与 P0-3 联动） |
-| `CLIENT_STREAM_EXECUTION` | 灰度（执行接入） | `false` | 维持（**翻转前必须**先补 handler 级用例） | §2-#13 · [`client-stream-execution.md §5.1`](./client-stream-execution.md) | 客户端入口出现**未记账工具调用**或崩溃后**重复副作用**；且前端回归清单通过 | **2026-Q4** |
+| `CLIENT_STREAM_EXECUTION` | 灰度（执行接入） | `false` | 维持（**翻转前置条件已满足**：handler 级用例已补，B2 / 2026-10-10） | §2-#13 · [`client-stream-execution.md §5.1`](./client-stream-execution.md) | 客户端入口出现**未记账工具调用**或崩溃后**重复副作用**；且前端回归清单通过 | **2026-Q4** |
 | **bash 内核沙箱**（`sandbox.landlock.bashEnabled`） | **安全姿态（非 featureFlag）** | `false`（且 `failClosed:false`） | 维持 | [`ast-family-phased-plan.md`](./ast-family-phased-plan.md) §8 / R25 · `invariants.md INV-SEC-003` | ① 真实事件：bash 路径出现**越权读写**而静态检查未拦；② Linux 交付环境 helper 稳定可用且**误伤率可接受**（须先灰度观测；该配置项**无 env 开关** ⇒ 翻转须改 `DEFAULT_LANDLOCK_CONFIG` 默认 + 全量回归） | **2026-Q4**（与 P1-6 沙箱真负向门禁联动） |
 
 **跨平台隔离边界**：Windows / macOS **无强隔离后端**（仅静态检查 + 路径收窄）——

@@ -75,15 +75,24 @@ const chatRequest: ChatRequest = { ..., executionId: executionLease?.executionId
 | 切片 | 内容 | 落点 | 状态 |
 |---|---|---|---|
 | **S1** | `handleStreamingChat` acquire + 注入 + 三处结算；灰度开关 + R07-2 三处同步 | `infrastructure/http/handlers/chat-handlers.ts` · `core/featureFlags.ts` · `scripts/check-doc-code-consistency.js` · `project_rules.md §1.4` · `default-off-switches-review-gates.md` | ✅ 2026-10-10 |
+| **S2（B2）** | `INV-EXEC-006` **handler 级**用例补齐（记账 / 终态结算 / 断开结算 / 开关关守卫）⇒ `partial` → `verified` | `tests/http/chatStreamExecutionHandler.test.ts` · `invariant-registry.json` · `invariants.md §2/§3` | ✅ 2026-10-10 |
 
 **同步边界**：`.trae/specs/durable-execution.md` §6 S3「诚实边界」中"client 路径未接入 Execution"一条**已更新**。
 
 ### 5.1 覆盖边界（如实，CS06）
 
-- **已自动化覆盖**：③ 失败关闭 —— 由既有 `tests/chat/chatManagerToolLedgerFailClosed.test.ts`（3 例）覆盖
-  （"有 `executionId` + 落盘失败 ⇒ 拒绝且底层 `execute` 未被调用"/"无 `executionId` ⇒ 零行为变更"）；
-  P0-2 的职责即**为该入口补上 `executionId`**。
-- **未自动化覆盖**（如实登记）：① ② ④ 的**handler 级**行为（acquire 后 `tool_calls` 记账 / 终态结算 / 断开结算）
-  需 HTTP harness（mock `res` + `coreAPI`），**本版未写对应用例** ⇒ 依赖 `typecheck` + 分层门禁 + 默认关回归。
-- **默认零行为变更**已由 `lint:doc-code` 断言该开关默认 `false`；开关关时该入口不进任何 Execution 分支。
+- **已自动化覆盖**：
+  - ③ 失败关闭 —— 由既有 `tests/chat/chatManagerToolLedgerFailClosed.test.ts`（3 例）覆盖
+    （"有 `executionId` + 落盘失败 ⇒ 拒绝且底层 `execute` 未被调用"/"无 `executionId` ⇒ 零行为变更"）；
+    P0-2 的职责即**为该入口补上 `executionId`**。
+  - ①②④ 的 **handler 级**行为 —— 由 `tests/http/chatStreamExecutionHandler.test.ts`（4 例，**B2 已补齐 2026-10-10**）覆盖：
+    ① 记账（`acquire(sessionId, messageId)` + 流启动时该 session 已有 `RUNNING` 记录 + `ChatRequest.executionId` 注入）、
+    ② 终态结算（正常完成 ⇒ `complete` 恰一次 + 所有权释放）、
+    ④ 断开结算（客户端断开 ⇒ `fail(executionId, 'client_disconnected')`，`complete` 零次），
+    另加「开关关（默认）⇒ 不 acquire / 不注入 / 不结算」的零行为变更守卫。
+    ⇒ `INV-EXEC-006` 由 `partial` 升为 **verified**（`invariant-registry.json` / `invariants.md §2`）。
+- **仍未自动化覆盖**（如实登记）：④ 的 **fencing 分支**（被顶替/已终结 ⇒ 忽略，不改写新执行）未单独构造——
+  该分支由 `ExecutionManager` 侧用例覆盖（`INV-EXEC-002`），本入口仅复用其 `try/catch` 忽略语义。
+- **默认零行为变更**由 `lint:doc-code` 断言该开关默认 `false`；开关关时该入口不进任何 Execution 分支
+  （并已由上述 handler 级「守卫」用例断言）。
 

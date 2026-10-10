@@ -19,6 +19,12 @@
 
 ## [未发布]
 
+**边界收口批次（`.trae/specs/boundary-convergence-plan.md`）—— B2 测试补齐 · B3 性能收口 · B4 工程卫生**
+
+- ✅ **B2（2026-10-10）`INV-EXEC-006` client 执行路径 handler 级用例补齐** - 新增 `app/tests/http/chatStreamExecutionHandler.test.ts`（4 例：写前记账 / 终态结算 / 断开 `FAILED: client_disconnected` / 开关关守卫）⇒ 不变量 `partial → verified`；翻转 `CLIENT_STREAM_EXECUTION` 的**前置条件已满足**（翻转仍须 `default-off-switches-review-gates.md §2.3` 复评 + 用户裁定）
+- ✅ **B3（2026-10-10）`events.idx` 缺失/落后时的续页线性续扫（L-9 残余 / P0-5）** - `EventLogStorage` 新增**续页锚点** `readBoundary`（页满时记「下一个未处理行的 UTF-8 字节起点」，口径与 append 折叠 `.idx` 同源）；idx 未覆盖时按锚点 seek 续扫替代"每页从 offset 0 重扫"，`isLineStart` 行边界校验兜底（不通过即回退全扫 ⇒ **只慢不错**）。新增单测 3 例；`scripts/bench-longrun.ts` 追加 **F1b** 回退路径对照（页粒度 1000 + 快照热窗口 100）⇒ 5 万事件 ×10 趋势 **×30.6 → ×17.6**（绝对 1743.7ms → 646.5ms）
+- ✅ **B4（2026-10-10）工程卫生：`MODE-A9` 验收口径就地收口 + 去 `any` 类型化专项 spec 立项（不动码）** - `MODE-A9`（未提交改动堆积）由 `fixed=false`（原 `reopenWhen=n/a`）收口为**每版复查项**：验收口径 = `main...origin/main` 同步 **且** 工作区无未提交改动（registry 改 `fixed/coded=true`，`code` 指向计划 §2-P1-4；`testVerified=false` —— 非代码缺陷、无自动化，如实）；⚠️ **本次收口快照工作区尚未干净**（B2/B3 待授权提交）⇒ 依赖提交授权。P1-2：新建 1 页 spec `.trae/specs/event-payload-type-specialization.md`（口径复核 + 域分布 + 分批 S1–S5 + 编译期穷尽断言收益），**未动产品代码**
+
 ---
 
 #### v0.4.76 (2026-10-10)

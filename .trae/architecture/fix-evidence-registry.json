@@ -639,13 +639,13 @@
       "id": "MODE-A9",
       "title": "21 模式 A9：未提交改动堆积",
       "source": "21 模式对标复查报告 02/12",
-      "stages": { "discovered": true, "fixed": false, "testVerified": false, "postReleaseReviewed": false },
-      "flags": { "designed": false, "coded": false, "unitTested": false, "e2eVerified": false },
-      "code": [],
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [".trae/specs/boundary-convergence-plan.md"],
       "tests": [],
       "changelog": [],
-      "reopenWhen": "n/a（工程卫生项，非代码缺陷）",
-      "notes": "报告方**无 git 工具** ⇒ 未复核；本仓无自动化可证。"
+      "reopenWhen": "每次发版复查：`git rev-list --left-right --count origin/main...HEAD` 非 0（本地领先未推送）或 `git status --porcelain` 非空（工作区有未提交改动）时",
+      "notes": "**工程卫生项「就地收口」**（报告方无 git 工具 ⇒ 原未复核）：验收口径 = `main...origin/main` 同步 **且** 工作区无未提交改动，列为**每版复查**项（非代码缺陷 ⇒ **无自动化测试**，如实）。口径见 `.trae/specs/boundary-convergence-plan.md` §2-P1-4 / §5。**本次收口快照未满足**：工作区尚有 B2/B3 改动待用户授权提交 ⇒ 本项**依赖提交授权**，不代其判定完成。"
     },
     {
       "id": "MODE-A10",

@@ -43,6 +43,25 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+// P2-3：把自证从"lint 门禁"扩展到**安全链**与**执行状态机**（运行时控制样例）
+import {
+  EXECUTION_STATUSES,
+  canTransition,
+  isTerminalStatus,
+} from '../../src/execution/types.js';
+import {
+  combineVerdicts,
+  isPermissive,
+  verdictFromScanStatus,
+} from '../../src/security/decision.js';
+import {
+  isDangerousCommand,
+  parseForSecurity,
+} from '../../src/security/bash/BashAST.js';
+import {
+  sanitizeCallerEnv,
+  stripSensitiveEnv,
+} from '../../src/security/sensitiveEnv.js';
 
 const scriptsDir = resolve(import.meta.dir, '../../../scripts');
 
@@ -151,5 +170,88 @@ describe('R5 门禁自证：lint:size', () => {
   it('【合法样例】小文件 ⇒ 通过（退出 0）', () => {
     const r = runGate('lint-file-size.ts', smallDir);
     expect(r.code).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// P2-3：从"lint 门禁"扩展到**执行状态机**与**安全链**的运行时自证
+//
+// 目的（外部 §六.2）：门禁不应只证明当前代码通过，还应证明**有人重新引入旧缺陷时能被发现**。
+// 做法：对每条已知旧缺陷构造**控制样例**（缺陷若回归 ⇒ 断言必然失败）。
+// ─────────────────────────────────────────────────────────────
+
+describe('P2-3 门禁自证：执行状态机（非法转移 ⇒ 必须被拒）', () => {
+  it('【控制样例】终态 → 活跃态 ⇒ **必被拒**（终态不可逆回归即被发现）', () => {
+    const terminal = EXECUTION_STATUSES.filter(isTerminalStatus);
+    expect(terminal.length).toBeGreaterThan(0);
+    for (const from of terminal) {
+      for (const to of EXECUTION_STATUSES) {
+        expect(canTransition(from, to)).toBe(false);
+      }
+    }
+  });
+
+  it('【控制样例】`CANCEL_REQUESTED` 不得回到 `COMPLETED`（fencing 回归即被发现）', () => {
+    expect(canTransition('CANCEL_REQUESTED', 'COMPLETED')).toBe(false);
+    expect(canTransition('CANCEL_REQUESTED', 'RUNNING')).toBe(false);
+    // 仅这两条合法出边
+    expect(canTransition('CANCEL_REQUESTED', 'CANCELLED')).toBe(true);
+    expect(canTransition('CANCEL_REQUESTED', 'STALE')).toBe(true);
+  });
+
+  it('【控制样例】自环拒绝（`RUNNING → RUNNING`）', () => {
+    for (const s of EXECUTION_STATUSES) expect(canTransition(s, s)).toBe(false);
+  });
+
+  it('【反向对照】合法转移仍被允许（防"恒拒"假绿）', () => {
+    expect(canTransition('QUEUED', 'RUNNING')).toBe(true);
+    expect(canTransition('RUNNING', 'CANCEL_REQUESTED')).toBe(true);
+    expect(canTransition('RUNNING', 'COMPLETED')).toBe(true);
+    expect(canTransition('WAITING_USER', 'RUNNING')).toBe(true);
+  });
+});
+
+describe('P2-3 门禁自证：安全链（绕过控制样例 ⇒ 必须被捕获）', () => {
+  it('【控制样例】`||` 绕过：`safe || rm -rf /` 必须被**拆成多条**（缺陷 #2 回归即被发现）', () => {
+    const r = parseForSecurity('safe || rm -rf /');
+    expect(r.kind).toBe('simple');
+    if (r.kind === 'simple') {
+      // 若回归为"整条当一条"，length 会变成 1 ⇒ 本断言失败
+      expect(r.commands.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('【控制样例】大小写保留：`RM -rf /` 仍判危险（缺陷 #3 回归即被发现）', () => {
+    expect(isDangerousCommand(['RM', '-rf', '/'])).toBe(true);
+    expect(isDangerousCommand(['rm', '-rf', '/'])).toBe(true);
+  });
+
+  it('【反向对照】良性命令不得误判（防"恒真"假绿）', () => {
+    expect(isDangerousCommand(['echo', 'hello'])).toBe(false);
+    expect(isDangerousCommand(['ls', '-la'])).toBe(false);
+  });
+
+  it('【控制样例】`INDETERMINATE` 不得被折叠为放行（fail-open 回归即被发现）', () => {
+    expect(isPermissive(combineVerdicts(['ALLOW', 'INDETERMINATE']))).toBe(
+      false
+    );
+    expect(isPermissive(combineVerdicts([]))).toBe(false);
+    expect(isPermissive(verdictFromScanStatus('skipped', false))).toBe(false);
+    expect(isPermissive(verdictFromScanStatus('failed', true))).toBe(false);
+  });
+
+  it('【控制样例】执行控制键 / 敏感键剥离不得被移除', () => {
+    expect(sanitizeCallerEnv({ PATH: '/evil/bin' }).stripped).toContain('PATH');
+    expect(
+      sanitizeCallerEnv({ NODE_OPTIONS: '--require /evil.js' }).stripped
+    ).toContain('NODE_OPTIONS');
+    const stripped = stripSensitiveEnv({
+      X_API_KEY: 'k',
+      ANOTHER_SECRET: 's',
+      KEEP: 'v',
+    });
+    expect(stripped.X_API_KEY).toBeUndefined();
+    expect(stripped.ANOTHER_SECRET).toBeUndefined();
+    expect(stripped.KEEP).toBe('v');
   });
 });

@@ -49,8 +49,27 @@ const SCAN_ROOTS = [
 const SELF = 'app/tests/gates/skipRegistry.test.ts';
 const SKIP_RE = /\b(it|describe|test)\s*\.\s*skip(If)?\s*\(/g;
 
-/** 跳过分类：`security` 为安全关键（受 S2 约束）；其余为环境/平台/性能/待办 */
-type SkipSeverity = 'security' | 'env' | 'platform' | 'perf' | 'pending';
+/**
+ * 跳过分类：
+ * - `security`：安全关键（执行安全 / 权限边界 / 沙箱）—— 受 S2 + **S4/S5** 约束；
+ * - `data-integrity`：数据完整性；`recovery`：恢复正确性 —— 同受 **S4/S5** 约束（P2-2）；
+ * - `env` / `platform` / `perf` / `pending`：环境 / 平台 / 性能 / 待办。
+ */
+type SkipSeverity =
+  | 'security'
+  | 'data-integrity'
+  | 'recovery'
+  | 'env'
+  | 'platform'
+  | 'perf'
+  | 'pending';
+
+/** P2-2：受"必须显式风险元数据"约束的高风险类别 */
+const HIGH_RISK_SEVERITIES: readonly SkipSeverity[] = [
+  'security',
+  'data-integrity',
+  'recovery',
+];
 
 interface SkipEntry {
   /** 相对仓库根的路径（正斜杠） */
@@ -65,6 +84,17 @@ interface SkipEntry {
   /** 无条件 skip 的安全用例必须显式承认并留台账引用（S2） */
   acknowledged?: boolean;
   ledger?: string;
+  // ── P2-2：风险元数据（**高风险类别必须显式提供**，见 S4/S5）──────────────────
+  /** 影响的平台 / 安全边界（如"Linux 以外无强隔离后端"） */
+  platformImpact?: string;
+  /** **是否影响发布**（禁止缺省 ⇒ 高风险类别必须显式声明） */
+  releaseBlocking?: boolean;
+  /** 若 `releaseBlocking === false` ⇒ **必须**说明为何可非阻断（防"默认当成非阻断"） */
+  blockingJustification?: string;
+  /** 重开条件（何时应重新启用该覆盖） */
+  reopenWhen?: string;
+  /** 责任人 / 责任角色 */
+  owner?: string;
 }
 
 /**
@@ -92,6 +122,12 @@ const SKIP_REGISTRY: SkipEntry[] = [
     reason: 'A7 防泄题真实沙箱 e2e —— 需真实 daemon（环境开关）',
     module: 'evals',
     severity: 'security',
+    platformImpact: '全平台（需真实 daemon；`PERMISSION_SHIELD_E2E=1` 才跑）',
+    releaseBlocking: false,
+    blockingJustification:
+      '同一覆盖由**离线**负向用例承担（`sandbox/negativeEnforcement` 已在 CI 强制跑，见 P1-6）；本组是真实 daemon 的**加强**验证，缺跑不改变安全姿态',
+    reopenWhen: 'CI 具备真实 daemon 环境时；或出现防泄题真实事故时',
+    owner: 'evals / sandbox 模块',
   },
   {
     file: 'app/tests/evals/pathShieldSandboxE2E.test.ts',
@@ -99,6 +135,12 @@ const SKIP_REGISTRY: SkipEntry[] = [
     reason: 'A7 防泄题**因果对照**组 —— 需真实 daemon（环境开关）',
     module: 'evals',
     severity: 'security',
+    platformImpact: '全平台（需真实 daemon）',
+    releaseBlocking: false,
+    blockingJustification:
+      '对照组（防"恒拒假绿"）随主组同环境开关；主组不跑时对照组亦无意义',
+    reopenWhen: '同主组（具备真实 daemon 环境时）',
+    owner: 'evals / sandbox 模块',
   },
   {
     file: 'app/tests/performance/benchmark.test.ts',
@@ -116,6 +158,12 @@ const SKIP_REGISTRY: SkipEntry[] = [
     severity: 'security',
     acknowledged: true,
     ledger: 'dev_docs/error_repairs/预存错误与待处理问题.md §L-8',
+    platformImpact: '全平台（"相对路径 vs 绝对 cwd"子分支）',
+    releaseBlocking: false,
+    blockingJustification:
+      '同域**绝对路径**分支仍有覆盖；本组仅相对路径子分支（台账 L-8 已登记）',
+    reopenWhen: '修复"相对路径 vs 绝对 cwd"分支后',
+    owner: 'security 模块',
   },
   {
     file: 'app/tests/sandbox/negativeEnforcement.test.ts',
@@ -123,7 +171,14 @@ const SKIP_REGISTRY: SkipEntry[] = [
     reason:
       '非 Linux 或本机无 landlock helper（条件 skip，原因写入用例组标题）',
     module: 'sandbox',
-    severity: 'platform',
+    severity: 'security',
+    platformImpact:
+      '**仅 Linux** 可跑真实内核负向（Landlock 5.13+ + helper）；Windows/macOS 无强隔离后端',
+    releaseBlocking: false,
+    blockingJustification:
+      'CI `sandbox-negative` job（ubuntu-latest）**强制**运行该组（P1-6，`SANDBOX_NEGATIVE_REQUIRE=1` ⇒ 环境不满足即失败）；本机跳过不改变 CI 覆盖',
+    reopenWhen: '跨平台强隔离后端落地后重新评估（见 P2-4 安全边界）',
+    owner: 'sandbox 模块',
   },
   {
     file: 'app/tests/vfs/symlinkEscape.test.ts',
@@ -214,7 +269,12 @@ const SITES = scanSites();
 function compareSites(
   sites: Site[],
   registry: SkipEntry[]
-): { unregistered: string[]; drifted: string[]; securityViolations: string[] } {
+): {
+  unregistered: string[];
+  drifted: string[];
+  securityViolations: string[];
+  riskViolations: string[];
+} {
   const byFile = new Map<string, Site[]>();
   for (const s of sites) {
     if (!byFile.has(s.file)) byFile.set(s.file, []);
@@ -266,7 +326,38 @@ function compareSites(
       }
     }
   }
-  return { unregistered, drifted, securityViolations };
+
+  // ── P2-2（S4/S5）：高风险类别（执行安全 / 数据完整性 / 恢复正确性）**必须显式风险元数据** ──
+  //
+  // 反模式：把安全类 skip 与普通 skip **等价视作非阻断**（缺元数据 ⇒ 无人知道影响与重开条件）。
+  const riskViolations: string[] = [];
+  for (const e of registry) {
+    if (!HIGH_RISK_SEVERITIES.includes(e.severity)) continue;
+    const where = `${e.file}（${e.severity}）`;
+    if (!e.platformImpact?.trim()) {
+      riskViolations.push(`${where}: 缺 platformImpact（影响的平台/安全边界）`);
+    }
+    if (!e.owner?.trim()) {
+      riskViolations.push(`${where}: 缺 owner（责任人/责任角色）`);
+    }
+    if (!e.reopenWhen?.trim()) {
+      riskViolations.push(`${where}: 缺 reopenWhen（重开条件）`);
+    }
+    if (typeof e.releaseBlocking !== 'boolean') {
+      riskViolations.push(
+        `${where}: **必须显式声明 releaseBlocking**（严禁缺省 ⇒ 不得默认当作非阻断）`
+      );
+    } else if (
+      e.releaseBlocking === false &&
+      !e.blockingJustification?.trim()
+    ) {
+      riskViolations.push(
+        `${where}: releaseBlocking=false 但缺 blockingJustification（为何可非阻断）`
+      );
+    }
+  }
+
+  return { unregistered, drifted, securityViolations, riskViolations };
 }
 
 describe('R8-S0 门禁自证：合成违规样例必须被判失败（防比较逻辑空转）', () => {
@@ -333,5 +424,100 @@ describe('R8-S2 安全不许静默：无条件 skip 的安全用例须显式承�
   it('security 位点若为无条件 skip ⇒ 必须 acknowledged 且带 ledger 引用', () => {
     const { securityViolations } = compareSites(SITES, SKIP_REGISTRY);
     expect(securityViolations).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// P2-2（S4/S5）：风险元数据分级 —— 高风险类 skip **不得**与普通 skip 等价视作非阻断
+// ─────────────────────────────────────────────────────────────
+
+describe('P2-2-S4/S5 高风险类 skip 必须显式风险元数据', () => {
+  it('真实登记表：执行安全/数据完整性/恢复正确性 类均有 platformImpact/owner/reopenWhen/releaseBlocking（false 时附理由）', () => {
+    const { riskViolations } = compareSites(SITES, SKIP_REGISTRY);
+    expect(riskViolations).toEqual([]);
+  });
+
+  it('门禁自证：**缺 releaseBlocking** ⇒ 报错（严禁缺省 ⇒ 不得默认当作非阻断）', () => {
+    const reg: SkipEntry[] = [
+      {
+        file: 'app/tests/x.test.ts',
+        match: '',
+        reason: 'r',
+        module: 'm',
+        severity: 'security',
+        platformImpact: 'p',
+        owner: 'o',
+        reopenWhen: 'w',
+      },
+    ];
+    const v = compareSites([], reg).riskViolations;
+    expect(v.some((s) => s.includes('必须显式声明 releaseBlocking'))).toBe(
+      true
+    );
+  });
+
+  it('门禁自证：`releaseBlocking=false` 但无理由 ⇒ 报错', () => {
+    const reg: SkipEntry[] = [
+      {
+        file: 'app/tests/x.test.ts',
+        match: '',
+        reason: 'r',
+        module: 'm',
+        severity: 'recovery',
+        platformImpact: 'p',
+        owner: 'o',
+        reopenWhen: 'w',
+        releaseBlocking: false,
+      },
+    ];
+    const v = compareSites([], reg).riskViolations;
+    expect(v.some((s) => s.includes('blockingJustification'))).toBe(true);
+  });
+
+  it('门禁自证：元数据齐全 ⇒ 无违规（防"恒报"假绿）', () => {
+    const reg: SkipEntry[] = [
+      {
+        file: 'app/tests/x.test.ts',
+        match: '',
+        reason: 'r',
+        module: 'm',
+        severity: 'data-integrity',
+        platformImpact: 'p',
+        owner: 'o',
+        reopenWhen: 'w',
+        releaseBlocking: true,
+      },
+    ];
+    expect(compareSites([], reg).riskViolations).toEqual([]);
+  });
+});
+
+describe('P2-2 跳过风险摘要（CI 分列：阻断性 / 非阻断，不合成单一分数）', () => {
+  it('按 `releaseBlocking` 分列输出并可断言', () => {
+    const high = SKIP_REGISTRY.filter((e) =>
+      HIGH_RISK_SEVERITIES.includes(e.severity)
+    );
+    const blocking = high.filter((e) => e.releaseBlocking === true);
+    const nonBlocking = high.filter((e) => e.releaseBlocking === false);
+
+    // CI 摘要（分列，不合成单一分数 —— 对齐 R14 口径）
+    console.log('=== Skip 风险摘要（P2-2）===');
+    console.log(
+      `高风险类 skip ${high.length} 项 · 阻断性 ${blocking.length} · 非阻断 ${nonBlocking.length}` +
+        `（其余 ${SKIP_REGISTRY.length - high.length} 项为 env/platform/perf/pending，不参与发布门禁判定）`
+    );
+    if (blocking.length > 0) {
+      console.log(
+        `  阻断性: ${blocking.map((e) => `${e.file} [${e.severity}]`).join(' | ')}`
+      );
+    }
+    if (nonBlocking.length > 0) {
+      console.log(
+        `  非阻断: ${nonBlocking.map((e) => `${e.file} [${e.severity}]`).join(' | ')}`
+      );
+    }
+
+    expect(blocking.length + nonBlocking.length).toBe(high.length);
+    expect(high.length).toBeGreaterThan(0);
   });
 });

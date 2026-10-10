@@ -148,3 +148,11 @@ export {
   registerKnowledgeSpi,
   resolveKnowledge,
 } from './KnowledgeService';
+// P1-7：SPI 装配顺序守卫（显式依赖 + 注册期断言；对应不变量 INV-ARCH-001）
+export {
+  SPI_WIRING_REQUIRES,
+  isSpiRegistered,
+  markSpiRegistered,
+  requireSpiDependencies,
+  resetSpiRegistryForTest,
+} from './wiringGuard';

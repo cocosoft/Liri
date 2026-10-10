@@ -44,6 +44,8 @@
  */
 
 import type { BillingMode, TimeBasedPrice } from '../pricing.js';
+// P1-7：装配顺序守卫（`knowledge` 依赖本端口，见 wiringGuard.ts 的 SPI_WIRING_REQUIRES）
+import { markSpiRegistered } from './wiringGuard';
 
 /** 供应商最小投影（`chronos` 余额刷新所需字段） */
 export interface AiProviderBriefDto {
@@ -203,6 +205,8 @@ export async function registerAiAccessSpi(
   service: IAiAccessService
 ): Promise<void> {
   _service = service;
+  // P1-7：标记已装配（供依赖端口在注册期断言顺序；见 core/spi/wiringGuard.ts）
+  markSpiRegistered('aiAccess');
 
   container.registerDescriptor<IAiAccessService>({
     id: AI_ACCESS_SERVICE_ID,

@@ -33,6 +33,9 @@
  * **未注册时**：编译返回全零、巡检返回空、摘要为空操作 —— 消费方均已具备降级路径。
  */
 
+// P1-7：装配顺序守卫 —— 本端口依赖 `aiAccess`（装配期经 `resolveAiAccess()` 取 aiService）
+import { markSpiRegistered, requireSpiDependencies } from './wiringGuard';
+
 /** 编译选项（`force` / `model` 为调用方实际传入者） */
 export interface KnowledgeCompileOptionsDto {
   force?: boolean | undefined;
@@ -115,7 +118,12 @@ export async function registerKnowledgeSpi(
 ): Promise<void> {
   // 2026-09-30（台账 D-129，`R00-003` ② 改造）：实现体改由 **entry** 侧装配模块构建后传入；
   // `aiService` 现于装配侧经 `resolveAiAccess()` 取得（core → core）。
+  //
+  // P1-7（2026-10-10）：把"**AiAccess 必须先于 Knowledge**"这条此前**仅靠注释**的隐式约束
+  // 升级为**注册期断言** —— 顺序错误 ⇒ 立即抛错（启动即失败 + 可读原因），而非晚失败/静默降级。
+  requireSpiDependencies('knowledge');
   _service = service;
+  markSpiRegistered('knowledge');
 
   container.registerDescriptor<IKnowledgeService>({
     id: KNOWLEDGE_SERVICE_ID,

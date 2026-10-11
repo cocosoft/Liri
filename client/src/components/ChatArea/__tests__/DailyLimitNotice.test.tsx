@@ -38,6 +38,8 @@ describe('DailyLimitNotice：撞限卡片（D-a / D-b / D-f）', () => {
   it('渲染用量/上限 + 四个放行动作 + 「继续」（全部走 i18n 键，无硬编码文案）', () => {
     setup();
     expect(screen.getByText('cost.card.used')).toBeTruthy();
+    // 用量/上限统一千分位（used 原先为原始数字 901200，与 limit 的 500,000 不一致）
+    expect(screen.getByText('901,200')).toBeTruthy();
     expect(screen.getByText('500,000')).toBeTruthy();
     expect(screen.getByText('cost.action.boost')).toBeTruthy();
     expect(screen.getByText('cost.action.waiveOnce')).toBeTruthy();

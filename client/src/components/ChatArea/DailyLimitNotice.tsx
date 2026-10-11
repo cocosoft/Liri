@@ -72,7 +72,7 @@ export default function DailyLimitNotice({
         <div className="flex-1 min-w-0">
           <div className="text-sm text-amber-800 dark:text-amber-200">
             <span>{t('cost.card.used')}</span>{' '}
-            <span className="font-mono">{used}</span>
+            <span className="font-mono">{used.toLocaleString()}</span>
             <span className="mx-1">/</span>
             <span className="font-mono">{limit.toLocaleString()}</span>
             <span className="ml-2 opacity-80">{formatted}</span>

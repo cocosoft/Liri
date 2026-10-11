@@ -54,6 +54,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';
 // R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
+import { checkDailyBudget } from '../../query/dailyBudgetGate.js';
 // R16 硬阻断：预算耗尽时抛业务异常（§1.9 业务异常必须 throw new AppError）
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
@@ -180,10 +181,16 @@ export async function applyPreSendProtection(
     // 业务异常（`DAILY_BUDGET_EXCEEDED`）。上层 `CoreAPIImpl.chatStream` 的 catch 会把该
     // 异常 message **原样**作为流式 `error` 块呈现给用户（非静默失败）。
     // 余下 `report_only`（≥80% 但未越界）保持原样：仅告警、放行。
-    // R16 原子预留：先取**预扣前**的 mode（保持原判定口径），再把本轮估算**预扣**入在途，
-    // 使并发的预检立刻看到该预留（闭合 check→record 窗口）。
+    // G-1（2026-10-11）：判定收敛到**闸门单一收口** `checkDailyBudget()`（自含估算）—— 该函数
+    // **无副作用**，可被工具循环**逐轮**复用（"超额才拦"的根因是循环内不复检）。
+    // R16 原子预留：判定取**预扣前**口径；随后把本轮估算**预扣**入在途，使并发的预检立刻
+    // 看到该预留（闭合 check→record 窗口）。告警日志沿用**预扣前**的 mode（保持既有可观测口径）。
     const dailyBudget = getDailyBudget();
     const budgetMode = dailyBudget.getMode();
+    const decision = checkDailyBudget({
+      sessionId: session.id,
+      estimatedTokens: msgTokens,
+    });
     const reservation = dailyBudget.reserveFor(session.id, msgTokens);
     if (budgetMode.mode !== 'normal') {
       logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
@@ -196,26 +203,23 @@ export async function applyPreSendProtection(
         reservedProjected: reservation.projected,
         ratioPct: Math.round(budgetMode.percentUsed * 100),
       });
-      if (
-        budgetMode.mode === 'locked' ||
-        reservation.projected >= budgetMode.dailyLimit
-      ) {
-        // 释放本轮预扣：拒绝发送 ⇒ 在途不得残留（否则污染后续判定）
-        dailyBudget.settleFor(session.id, 0);
-        throw new AppError(
-          `今日 Token 预算已用完（已用 ${budgetMode.todayUsed} / 上限 ${budgetMode.dailyLimit}），为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
-          ErrorCategory.RESOURCE,
-          ErrorSeverity.MEDIUM,
-          'DAILY_BUDGET_EXCEEDED',
-          {
-            sessionId: session.id,
-            todayUsed: budgetMode.todayUsed,
-            dailyLimit: budgetMode.dailyLimit,
-            projectedUsed: reservation.projected,
-            estimateThisRound: msgTokens,
-          }
-        );
-      }
+    }
+    if (!decision.allowed) {
+      // 释放本轮预扣：拒绝发送 ⇒ 在途不得残留（否则污染后续判定）
+      dailyBudget.settleFor(session.id, 0);
+      throw new AppError(
+        `今日 Token 预算已用完（已用 ${decision.snapshot.used} / 上限 ${decision.snapshot.limit}），为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.MEDIUM,
+        'DAILY_BUDGET_EXCEEDED',
+        {
+          sessionId: session.id,
+          todayUsed: decision.snapshot.used,
+          dailyLimit: decision.snapshot.limit,
+          projectedUsed: reservation.projected,
+          estimateThisRound: msgTokens,
+        }
+      );
     }
     if (toolDefinitions.length > 0) {
       const toolsJson = JSON.stringify(toolDefinitions);

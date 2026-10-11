@@ -733,6 +733,17 @@ export abstract class ReActLoop<
     return false;
   }
 
+  /**
+   * G-1（2026-10-11）：**每日** Token 预算的逐轮复检钩子（默认放行）。
+   *
+   * 骨架在此只提供"每轮可判定一次"的接缝；**对话类**子类（`ReActToolLoop`）覆盖为真实判定。
+   * 与上方 `config.budget`（**上下文窗口**预算）正交：后者管单次请求的上下文上限，
+   * 本钩子管**进程级日额度**（Spec `daily-budget-over-limit-ux.md` §1.2 G-1）。
+   */
+  protected dailyBudgetAllowsNextTurn(): boolean {
+    return true;
+  }
+
   // ==========================================
   // Main Loop (async generator)
   // ==========================================
@@ -792,6 +803,19 @@ export abstract class ReActLoop<
             sessionId: this.config.sessionId,
             iteration: this.state.iteration,
           });
+        }
+
+        // --- G-1（2026-10-11）：**日预算**逐轮复检（与上方 `config.budget` 正交） ---
+        // 为什么必须每轮：单轮真实消耗不可预知（工具循环基础 30 → 动态 ≤500 轮）⇒ 只在请求
+        // 开始判定一次会让"一次进入"把额度跑穿（实测 180%）。收束方式与上方预算分支一致：
+        // 置 `budget_exhausted` 相位 + finalize（**不抛错**，由消费侧按相位区分）。
+        if (!this.dailyBudgetAllowsNextTurn()) {
+          logger.warn('reActLoop:daily_budget_exhausted', {
+            sessionId: this.config.sessionId,
+            iteration: this.state.iteration,
+          });
+          this.state.phase = 'budget_exhausted';
+          return this.finalize(this.state, context);
         }
 
         let reasonResult: ReasonResult<TContext>;

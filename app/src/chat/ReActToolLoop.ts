@@ -29,6 +29,8 @@ import type { TerminationReason, SteeringEntry } from '@modules/query';
 import type { SteeringSource } from '@modules/session/types/eventPayloads';
 import { createPathGuard } from '@modules/query';
 import { configManager } from '@modules/config';
+// G-1（2026-10-11）：日预算闸门单一收口（逐轮复检用；与 `@modules/query` 同层，沿用既有直引形态）
+import { checkDailyBudget } from '../query/dailyBudgetGate.js';
 import type {
   ReActLoopConfig,
   ReasonResult,
@@ -426,6 +428,23 @@ export class ReActToolLoop extends ReActLoop<
     this._initToolTurnBudget();
     this.config.maxIterations = this._resolveDynamicMaxIterations().max;
     return yield* super.run(input);
+  }
+
+  /**
+   * G-1（2026-10-11）：**对话类**入口的每日 Token 预算**逐轮**复检。
+   *
+   * 对齐 `TAORLoop.beforeReasoning`（`app/src/query/TAORLoop.ts:1099-1128`）的语义：每轮模型
+   * 请求前判定一次；`allowed === false` ⇒ 由骨架置 `budget_exhausted` 相位并 `finalize`
+   * （**不抛错**，与 `maxIterations` 达上限同类收束）。
+   *
+   * **估算口径**：`estimatedTokens: 0` —— 循环内以**实际已用量**为准（发送前那一次已做估算预扣，
+   * 见 `preSendContextProtection`）。避免逐轮叠加估算导致"越跑越保守"把正常轮次误杀。
+   */
+  protected override dailyBudgetAllowsNextTurn(): boolean {
+    return checkDailyBudget({
+      sessionId: this.ctx.session.id,
+      estimatedTokens: 0,
+    }).allowed;
   }
 
   // ─── 骨架 hooks：检查点 + 循环检测（reason 前） ────────

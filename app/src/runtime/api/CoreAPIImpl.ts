@@ -212,6 +212,33 @@ export function getCoreAPI(): CoreAPIImpl {
  * CoreAPI 实现类
  * 通过构造函数注入依赖，所有参数均为可选，默认使用全局单例
  */
+/**
+ * G-1 / D-l（2026-10-11，Spec `daily-budget-over-limit-ux.md`）：流式 `error` 块的**真实业务错误码**。
+ *
+ * 仅 `AppError` 携带业务码；其余（普通 `Error` / provider 返回的普通对象）无业务码 ⇒ 由传输层
+ * 回落 `UNKNOWN`（`chat-handlers.ts` 的 `chunk.errorCode || 'UNKNOWN'`）。收敛为纯函数以便单测：
+ * 此前内联导致业务码在传输层被抹平 ⇒ 前端无法按码分流（限额提示只能当通用错误渲染）。
+ */
+export function resolveStreamErrorCode(error: unknown): string | undefined {
+  return error instanceof AppError ? error.code : undefined;
+}
+
+/**
+ * D-l（2026-10-11，Spec §5-A / §10-9）：流式失败时的 fallback 落盘判定。
+ *
+ * 既有行为：零产出且有 `sessionId` 时落一条 assistant fallback 消息（Write-Ahead，避免刷新后空白）。
+ * **撞限例外**：日预算耗尽是**本机环境状态**、不是对话内容 ⇒ 落盘会把它写进对话上下文
+ * （后续模型会读到 + 跨机重放分叉）⇒ `DAILY_BUDGET_EXCEEDED` 时**跳过**落盘（仅留日志/审计）。
+ */
+export function shouldPersistStreamFallback(input: {
+  fullContent: string;
+  sessionId: string;
+  errorCode?: string;
+}): boolean {
+  if (input.fullContent || !input.sessionId) return false;
+  return input.errorCode !== 'DAILY_BUDGET_EXCEEDED';
+}
+
 export class CoreAPIImpl implements CoreAPI {
   /**
    * D-227（2026-10-02，B12）：内联 app 依赖（构造器注入；测试/入口覆盖用）。
@@ -1015,6 +1042,8 @@ export class CoreAPIImpl implements CoreAPI {
     } catch (error) {
       // P1 修复（AB-3）：标记失败，结束块 finishReason 用 'error'
       streamFailed = true;
+      // D-l：真实业务码须随 error 块透出（否则传输层回落 UNKNOWN，前端无法按码分流）
+      const streamErrorCode = resolveStreamErrorCode(error);
       // 普通对象（如 AI Provider 返回的 { message: "...", type: "..." }）可能不是 Error 实例
       const message =
         error instanceof Error
@@ -1037,6 +1066,7 @@ export class CoreAPIImpl implements CoreAPI {
         type: 'error',
         content: message,
         sessionId: finalSessionId,
+        errorCode: streamErrorCode,
       } as ChatStreamChunk;
 
       // 主 chat 空回复/中断 fallback（2026-09-19）：失败且未产出任何内容时，
@@ -1045,7 +1075,13 @@ export class CoreAPIImpl implements CoreAPI {
       // 会话刷新后消息整体缺失、前端空白。有部分产出时不覆盖（前端已渲染 partial
       // content，续写/重发可继续）。addMessage 为 fire-and-forget，自动进入
       // _pendingPersistPromises，由会话切换前 flushPendingPersists 统一落盘。
-      if (!fullContent && finalSessionId) {
+      // D-l：撞限**不落盘**（限额属本机环境状态、非对话内容）；其余失败保持既有 Write-Ahead 行为。
+      const persistFallback = shouldPersistStreamFallback({
+        fullContent,
+        sessionId: finalSessionId,
+        errorCode: streamErrorCode,
+      });
+      if (persistFallback) {
         try {
           const fallbackMsg = this.chatManager
             .getMessageService()
@@ -1072,6 +1108,12 @@ export class CoreAPIImpl implements CoreAPI {
             error: String(persistErr),
           });
         }
+      } else if (!fullContent && finalSessionId) {
+        // D-l：撞限场景**抑制**落盘 —— 只留日志/审计，不写进对话上下文
+        logger.warn('chatStream:fallback 落盘已抑制（日预算撞限，D-l）', {
+          sessionId: finalSessionId,
+          errorCode: streamErrorCode,
+        });
       }
     } finally {
       eventNotificationService.off('tool:completed', onToolCompletedFromCache);

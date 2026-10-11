@@ -108,3 +108,52 @@ export const CANCEL_GRACE_MS = 5000;
  */
 export const SESSION_ADMISSION_WAIT_MS = 30_000;
 export const ADMISSION_POLL_MS = 100;
+
+/**
+ * 通道侧 LLM 失败回执（出站文案 + 回给上层的码/简述）。
+ *
+ * G-2/C（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 C / Review Focus #4）：
+ * 渠道用户**看不到**桌面端的限额卡片、也没有可点的按钮 ⇒ 撞限必须把**原因 + 出路**
+ * 写进回复正文；否则只能收到"消息处理失败"（当前痛点）。
+ *
+ * 通道侧无 i18n 基建（既有文案均为硬编码中文）⇒ 收敛为**唯一文案表**，避免散落各处。
+ */
+export interface ChannelLlmFailure {
+  /** 出站给用户的文案 */
+  outbound: string;
+  /** 返回给上层的业务码（保留真实码，便于调用方/审计分流） */
+  errorCode: string;
+  /** 返回给上层的简述 */
+  errorMessage: string;
+}
+
+/** 通用失败（**既有文案逐字保留**，防回归） */
+const GENERIC_LLM_FAILURE: ChannelLlmFailure = {
+  outbound: '⚠️ 消息处理失败，请稍后重发重试。',
+  errorCode: 'LLM_ERROR',
+  errorMessage: '消息处理失败，请稍后重试',
+};
+
+/**
+ * 撞限专用文案（D-g/C）：说明**原因**（今日 Token 预算耗尽、本次未调用模型）并给出**出路**
+ * （桌面端「用量中心 → 日限额」放行后重发）。放行口径与桌面端一致（D-b：临时提额 / 今日解除）。
+ */
+const BUDGET_EXCEEDED_FAILURE: ChannelLlmFailure = {
+  outbound:
+    '⚠️ 今日 Token 预算已用完，为避免超额，本次未调用模型。\n' +
+    '放行后重发本条消息即可继续：在 Liri 桌面端「用量中心 → 日限额」临时提额、今日解除，或调高每日上限。',
+  errorCode: 'DAILY_BUDGET_EXCEEDED',
+  errorMessage:
+    '今日 Token 预算已用完（可在桌面端「用量中心 → 日限额」放行后重试）',
+};
+
+/**
+ * 解析 LLM 失败回执（纯函数，便于单测）。
+ *
+ * 仅 `DAILY_BUDGET_EXCEEDED` 走限额文案；其余（含无码 / `LLM_ERROR`）保持既有通用兜底 ⇒ **不回归**。
+ */
+export function resolveLlmFailure(streamErrorCode?: string): ChannelLlmFailure {
+  return streamErrorCode === 'DAILY_BUDGET_EXCEEDED'
+    ? BUDGET_EXCEEDED_FAILURE
+    : GENERIC_LLM_FAILURE;
+}

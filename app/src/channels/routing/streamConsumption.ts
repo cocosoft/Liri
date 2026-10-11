@@ -43,6 +43,14 @@ export interface ConsumeStreamDeps {
 export interface ConsumeStreamResult {
   content: string;
   finishReason: string;
+  /**
+   * G-2/C（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 C）：流式失败时的**真实业务码**
+   * （如 `DAILY_BUDGET_EXCEEDED`）。
+   *
+   * 原先本层只留下人读文案（`streamError`）并**丢弃** `chunk.errorCode` ⇒ 上层
+   * （`messageRouter`）只能按"通用失败"兜底，渠道用户看不到**原因与出路**（当前痛点）。
+   */
+  errorCode?: string;
 }
 
 /**
@@ -73,6 +81,8 @@ export async function consumeStreamChunks(
   let toolCallChunks = 0;
   let lastToolLogMs = Date.now();
   let streamError: string | undefined;
+  // G-2/C：与 `streamError` 并列保留**机器可读**的真实业务码（供上层透出原因/出路）。
+  let streamErrorCode: string | undefined;
   let placeholderSent = false;
   // P1-1：首个工具进度通知是否已发送（每任务仅 1 条，QQ seq 配额感知）
   let firstToolNotified = false;
@@ -112,7 +122,12 @@ export async function consumeStreamChunks(
       const final = result.value;
       if (streamError) {
         finishExecution(false, streamError);
-        return { content: '', finishReason: 'error' };
+        return {
+          content: '',
+          finishReason: 'error',
+          // G-2/C：把真实业务码透出（无码则不带该字段，由上层按通用失败兜底）
+          ...(streamErrorCode ? { errorCode: streamErrorCode } : {}),
+        };
       }
       finishExecution(true, final.finishReason);
       return {
@@ -182,6 +197,8 @@ export async function consumeStreamChunks(
         break;
       case 'error':
         streamError = chunk.content || chunk.errorCode || 'stream error';
+        // G-2/C：保留真实业务码（人读文案仅作 `finishExecution` 的 reason / 日志）
+        streamErrorCode = chunk.errorCode;
         logger.warning(`[TRACE] ${traceId} 流式错误 chunk`, {
           messageId: message.messageId,
           errorCode: chunk.errorCode,

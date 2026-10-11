@@ -73,6 +73,7 @@ import {
   CANCEL_GRACE_MS,
   SESSION_ADMISSION_WAIT_MS,
   ADMISSION_POLL_MS,
+  resolveLlmFailure,
 } from './messageRouterContract';
 import type {
   RouteResult,
@@ -656,17 +657,26 @@ export async function routeChannelMessage(
       Date.now() - llmStartMs
     );
     if (finishReason === 'error') {
+      // G-2/C（Spec §5-D-1 C / Review Focus #4）：**透出原因与出路**。
+      // 渠道用户看不到桌面端的限额卡片、也没有可点的按钮 ⇒ 撞限若沿用"消息处理失败"的
+      // 通用兜底，用户既不知原因也不知如何放行（当前痛点）。此处按**真实业务码**分流：
+      // 仅 `DAILY_BUDGET_EXCEEDED` 走限额专用文案，其余保持既有通用兜底（不回归）。
+      // （`errorCode` 仅由流式消费结果可选携带 ⇒ 用 `in` 收窄，避免对联合类型取值报错。）
+      const failure = resolveLlmFailure(
+        'errorCode' in response ? response.errorCode : undefined
+      );
       logger.warning(
         `[TRACE] ${traceId} 阶段失败: llm (finishReason=error)，释放消息锁但不标记已处理`,
         {
           messageId: message.messageId,
           channelName,
+          errorCode: failure.errorCode,
         }
       );
       releaseProcessing(dedupKey);
-      recordMessageRejected('LLM_ERROR');
+      recordMessageRejected(failure.errorCode);
       recordMessageProcessing(channelName, Date.now() - processingStartMs);
-      messageTraceBuffer.finish(traceId, 'fail', 'LLM_ERROR');
+      messageTraceBuffer.finish(traceId, 'fail', failure.errorCode);
       otel.endSpan(routeSpan);
       // 兜底出站（2026-08-20 QQ 空响应事故）：LLM 错误时用户侧不能沉默。
       // 此前仅返回 errorCode，上层（setupChannels）只记日志不出站 → 用户
@@ -674,7 +684,7 @@ export async function routeChannelMessage(
       if (onOutbound) {
         try {
           await onOutbound(
-            '⚠️ 消息处理失败，请稍后重发重试。',
+            failure.outbound,
             message.conversationId ?? message.senderId
           );
         } catch (fallbackErr) {
@@ -687,8 +697,8 @@ export async function routeChannelMessage(
       }
       return {
         valid: false,
-        errorCode: 'LLM_ERROR',
-        errorMessage: '消息处理失败，请稍后重试',
+        errorCode: failure.errorCode,
+        errorMessage: failure.errorMessage,
       };
     }
 

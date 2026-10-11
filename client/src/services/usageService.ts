@@ -112,6 +112,26 @@ export interface ModelPricingRecord {
 /** 日 Token 限额档位（对齐后端 `DailyBudgetManager` 三级模式） */
 export type DailyBudgetMode = "normal" | "report_only" | "locked";
 
+/** 放行种类（D-b：临时提额 / 单次豁免 / 当日解除） */
+export type DailyBudgetReliefKind = "boost" | "waive-once" | "unlock-today";
+
+/** 当前生效的放行（对齐后端 `ReliefView`） */
+export interface DailyBudgetReliefView {
+  kind: DailyBudgetReliefKind;
+  /** 到期时刻（epoch ms）；`null` = 至**日界**（`unlock-today`） */
+  expiresAt: number | null;
+  /** 当前**有效**上限（放行生效时为提高后的上限） */
+  effectiveLimit: number;
+}
+
+/** 放行请求体（与后端 `ReliefInput` 结构等价；`boost` 二选一给 `factor` / `amount`） */
+export interface DailyBudgetReliefInput {
+  kind: DailyBudgetReliefKind;
+  factor?: number;
+  amount?: number;
+  ttlMs?: number;
+}
+
 /** 日 Token 限额状态（GET /v1/cost/daily-budget，R16 / D3） */
 export interface DailyBudgetStatus {
   /** 统计所属**本地**自然日（YYYY-MM-DD） */
@@ -128,6 +148,10 @@ export interface DailyBudgetStatus {
   warningThreshold: number;
   lockThreshold: number;
   killSwitch: boolean;
+  /** D-d：透支欠账（`waive-once` 消耗，次日从可用额度扣回） */
+  debt: number;
+  /** 当前生效的放行（无放行 ⇒ `null`） */
+  relief: DailyBudgetReliefView | null;
 }
 
 /** 日限额热更新载荷（至少一项；字段合法性由后端边界校验） */
@@ -403,12 +427,9 @@ export const usageService = {
    * 参数按**结构**声明（`boost` 可带 `factor`/`amount`/`ttlMs`；`waive-once` 可带 `ttlMs`），
    * 与后端 `ReliefInput` 结构等价；非法参数由服务端 fail-loud 回 400。
    */
-  async setDailyBudgetRelief(relief: {
-    kind: "boost" | "waive-once" | "unlock-today";
-    factor?: number;
-    amount?: number;
-    ttlMs?: number;
-  }): Promise<DailyBudgetStatus> {
+  async setDailyBudgetRelief(
+    relief: DailyBudgetReliefInput,
+  ): Promise<DailyBudgetStatus> {
     return getOTelTracing().asyncWrap(
       "services:usage:setDailyBudgetRelief",
       async () => {

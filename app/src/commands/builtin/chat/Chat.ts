@@ -164,8 +164,8 @@ export class ChatCommand {
         type: 'text',
         value:
           `${budgetDenial.message}\n` +
-          '终端入口：/config set costControl.dailyTokenBudget <更大的上限>（重启后生效）；' +
-          '或桌面端「用量中心 → 日限额」临时提额 / 今日解除（立即生效）。',
+          '终端入口：/budget set <更大的上限>（当场生效）· /budget boost · /budget unlock；' +
+          '或桌面端「用量中心 → 日限额」临时提额 / 今日解除。',
       };
     }
 

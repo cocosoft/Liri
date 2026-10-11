@@ -153,8 +153,8 @@ describe('T12：F/G/K/M 入口的撞限出路', () => {
 
     expect(result.type).toBe('text');
     expect(result.value).toContain('预算');
-    // 终端形态的**可执行**入口（真实存在：/config 的 set 子命令写同一上限键）
-    expect(result.value).toContain('/config set costControl.dailyTokenBudget');
+    // 终端形态的**可执行**入口（T14 已落地 `/budget`：set 当场生效 + boost/unlock 放行）
+    expect(result.value).toContain('/budget set');
   });
 
   it('M CLI `/chat --stream`：流式回复的 usage 同样计入日预算（T14 遗留 #4）', async () => {

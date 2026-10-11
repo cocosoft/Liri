@@ -31,6 +31,7 @@ export { exitCommand } from './exit/index.js';
 export { versionCommand } from './version/index.js';
 export { sessionCommand } from './session/index.js';
 export { configCommand } from './config/index.js';
+export { budgetCommand } from './budget/index.js';
 export { skillCommand } from './skill/index.js';
 export { toolCommand } from './tool/index.js';
 export { compactCommand } from './compact/index.js';

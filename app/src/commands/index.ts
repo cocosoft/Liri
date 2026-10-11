@@ -100,6 +100,7 @@ export { exitCommand } from './builtin/exit/index.js';
 export { versionCommand } from './builtin/version/index.js';
 export { sessionCommand } from './builtin/session/index.js';
 export { configCommand } from './builtin/config/index.js';
+export { budgetCommand } from './builtin/budget/index.js';
 export { skillCommand } from './builtin/skill/index.js';
 export { toolCommand } from './builtin/tool/index.js';
 export { compactCommand } from './builtin/compact/index.js';

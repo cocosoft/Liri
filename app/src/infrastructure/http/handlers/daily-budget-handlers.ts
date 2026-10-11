@@ -43,9 +43,6 @@ import type { DailyBudgetManager } from '@modules/query';
 
 const logger = getLogger('http:dailyBudget');
 
-/** D1：上限/阈值的持久化配置键（与 `resolveDailyBudgetConfig` 读取侧同键） */
-const CONFIG_KEY = 'costControl.dailyTokenBudget';
-
 /** SSE 事件名（前端 useNotificationSSE 订阅后刷新面板） */
 export const DAILY_BUDGET_SSE_EVENT = 'cost:dailyBudgetUpdated';
 
@@ -214,7 +211,8 @@ export async function handleUpdateDailyBudget(
       return;
     }
 
-    const { isValidDailyLimit, isValidBudgetRatio } = await loadQueryModule();
+    const { isValidDailyLimit, isValidBudgetRatio, DAILY_BUDGET_CONFIG_KEY } =
+      await loadQueryModule();
 
     const { dailyLimit, warningThreshold, lockThreshold } = body;
     if (
@@ -259,7 +257,7 @@ export async function handleUpdateDailyBudget(
 
     // 持久化**合并后的生效配置**（避免只传一项时抹掉其余字段）⇒ 重启后仍生效（D1）。
     const cfg = budget.getConfigSnapshot();
-    setConfigValue(CONFIG_KEY, {
+    setConfigValue(DAILY_BUDGET_CONFIG_KEY, {
       dailyLimit: cfg.dailyLimit,
       warningThreshold: cfg.warningThreshold,
       lockThreshold: cfg.lockThreshold,

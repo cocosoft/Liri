@@ -752,6 +752,14 @@ export function isValidBudgetRatio(n: unknown): n is number {
 }
 
 /**
+ * D1：日预算上限/阈值的**持久化配置键**（单一事实来源）。
+ *
+ * 读侧（`resolveDailyBudgetConfig`）与写侧（HTTP `PUT /v1/cost/daily-budget`、CLI `/budget set`）
+ * 必须同键 —— 此前该字面量散落多处，任一处改动都会让"写进去的键"与"读的键"错位（静默失效）。
+ */
+export const DAILY_BUDGET_CONFIG_KEY = 'costControl.dailyTokenBudget';
+
+/**
  * D1：解析日 Token 限额上限与阈值（**单一事实来源**）。
  *
  * 优先级：ConfigManager **持久化配置**（`costControl.dailyTokenBudget`）
@@ -765,7 +773,7 @@ export function resolveDailyBudgetConfig(): {
   lockThreshold: number;
 } {
   const cfg = configManager.getConfigValue<DailyBudgetConfigValue>(
-    'costControl.dailyTokenBudget'
+    DAILY_BUDGET_CONFIG_KEY
   );
   const raw = configManager.env('LIRI_DAILY_BUDGET_TOKENS');
   const parsed = Number.parseInt(raw ?? '', 10);

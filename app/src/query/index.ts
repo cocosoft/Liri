@@ -305,6 +305,7 @@ export {
   initDailyBudget,
   recordDailyBudgetFromUsage,
   resolveDailyBudgetConfig,
+  DAILY_BUDGET_CONFIG_KEY,
   isValidDailyLimit,
   isValidBudgetRatio,
   DEFAULT_DAILY_BUDGET_TOKENS,

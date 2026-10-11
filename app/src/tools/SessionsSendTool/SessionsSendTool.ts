@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * SessionsSendTool
  * 对标CC SessionsSendTool
@@ -29,7 +30,7 @@ export interface SessionMessageResult {
 }
 
 export class SessionsSendTool extends BaseTool {
-  name = 'sessions_send';
+  name = TOOL_NAME_CONSTANTS.sessions_send;
 
   description = '向运行中的会话发送消息。支持文本、命令、结果和系统消息。';
 

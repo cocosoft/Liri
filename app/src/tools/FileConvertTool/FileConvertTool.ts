@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseTool } from '../BaseTool';
@@ -91,7 +92,7 @@ export function shapeMarkdownResult(
 }
 
 export class FileConvertTool extends BaseTool {
-  override readonly name = 'file_convert';
+  override readonly name = TOOL_NAME_CONSTANTS.file_convert;
 
   /**
    * 出参契约（P1-3 A 档，2026-09-28）。

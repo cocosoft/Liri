@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * SessionsTool
  * 统一会话管理工具
@@ -155,7 +156,7 @@ function mapType(type: SessionType): SessionInfo['type'] {
 }
 
 export class SessionsTool extends BaseTool {
-  name = 'sessions';
+  name = TOOL_NAME_CONSTANTS.sessions;
 
   private gateway: SessionGateway;
   private gatewayInitialized = false;

@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 团队创建工具
  * 用于创建多Agent swarm团队
@@ -81,7 +82,7 @@ export class TeamCreateTool extends BaseTool<
    * 工具名称
    */
   // D-04（2026-10-03）：PascalCase → snake_case（与 D-37 同口径；详见 spec `team-tool-name-snake-case.md`）
-  name = 'team_create';
+  name = TOOL_NAME_CONSTANTS.team_create;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。

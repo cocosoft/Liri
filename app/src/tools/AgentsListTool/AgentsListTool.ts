@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * AgentsListTool
  * 对标OpenClaw agents-list 工具
@@ -39,7 +40,7 @@ export interface AgentsListResult {
 }
 
 export class AgentsListTool extends BaseTool {
-  name = 'agents_list';
+  name = TOOL_NAME_CONSTANTS.agents_list;
 
   description = '列出所有运行中的 Agent 与会话。支持按类型、状态过滤与分页。';
 

@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * TraceRecordingTool
  * AI Trace 录制数据查询工具
@@ -39,7 +40,7 @@ export class TraceRecordingTool extends BaseTool {
   /**
    * 工具名称
    */
-  name = 'trace_recording';
+  name = TOOL_NAME_CONSTANTS.trace_recording;
 
   /**
    * 工具描述

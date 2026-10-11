@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 任务输出工具
  * 获取运行中或已完成任务的输出
@@ -163,7 +164,7 @@ export class TaskOutputTool extends BaseTool<
   TaskOutputToolInput,
   TaskOutputToolOutput
 > {
-  name = 'task_output';
+  name = TOOL_NAME_CONSTANTS.task_output;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 1b 接线**）。

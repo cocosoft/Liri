@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ThinkingTool 结构化思维工具
  * 让 Agent 记录和组织思考过程，支持多轮推理和链式思考
@@ -24,7 +25,7 @@ interface ThinkingEntry {
 }
 
 export class ThinkingTool extends BaseTool<Record<string, unknown>> {
-  name = 'thinking';
+  name = TOOL_NAME_CONSTANTS.thinking;
   description =
     'Record and organize structured thinking steps. Supports adding, reflecting, summarizing, and revising thoughts during multi-step reasoning.';
   params: ToolParam[] = [

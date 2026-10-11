@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
@@ -73,7 +74,7 @@ interface FrameInfo {
 }
 
 export class VideoAnalysisTool extends BaseTool {
-  name = 'video_analysis';
+  name = TOOL_NAME_CONSTANTS.video_analysis;
 
   description =
     'Analyze video content by extracting key frames and performing multi-level analysis ' +

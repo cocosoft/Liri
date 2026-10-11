@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
@@ -48,7 +49,7 @@ interface BrowserVisionInput {
 }
 
 export class BrowserVisionTool extends BaseTool {
-  name = 'browser_vision';
+  name = TOOL_NAME_CONSTANTS.browser_vision;
 
   description =
     '对当前浏览器页面截图，并使用视觉 AI 分析。' +

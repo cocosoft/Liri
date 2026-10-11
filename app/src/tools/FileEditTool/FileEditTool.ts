@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * FileEditTool - 文件编辑工具（SearchReplace模式）
  *
@@ -173,7 +174,7 @@ function normalizeQuotes(str: string): string {
 }
 
 export class FileEditTool extends BaseTool {
-  name = 'file_edit';
+  name = TOOL_NAME_CONSTANTS.file_edit;
   description = '通过替换文本编辑文件';
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];

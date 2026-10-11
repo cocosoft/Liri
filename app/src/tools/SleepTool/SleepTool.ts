@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * SleepTool 睡眠/延迟工具
  * 让 Agent 在执行流程中暂停指定时间
@@ -14,7 +15,7 @@ interface SleepInput {
 }
 
 export class SleepTool extends BaseTool<Record<string, unknown>> {
-  name = 'sleep';
+  name = TOOL_NAME_CONSTANTS.sleep;
   description =
     '暂停执行指定时长。当需要在继续之前等待时使用（例如等待资源、限流或计时）。';
   params: ToolParam[] = [

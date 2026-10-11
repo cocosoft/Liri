@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * AudioPlayTool
  * AI 可调用的音频播放工具 — 在聊天中直接播放音频
@@ -29,7 +30,7 @@ export interface AudioPlayOutput {
 }
 
 export class AudioPlayTool extends BaseTool {
-  name = 'audio_play';
+  name = TOOL_NAME_CONSTANTS.audio_play;
 
   override tags = [ToolTag.READ];
 

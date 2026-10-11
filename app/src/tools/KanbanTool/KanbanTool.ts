@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * KanbanTool
  * Kanban 看板管理工具
@@ -91,7 +92,7 @@ function generateId(prefix: string): string {
 }
 
 export class KanbanTool extends BaseTool {
-  name = 'kanban';
+  name = TOOL_NAME_CONSTANTS.kanban;
 
   description =
     'Manage Kanban boards with columns and cards. Create, view, and organize tasks using a visual board system with drag-and-drop card movement between columns.';

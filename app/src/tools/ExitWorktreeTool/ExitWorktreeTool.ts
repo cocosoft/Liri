@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 退出Worktree工具
  * 用于退出worktree并返回原分支
@@ -48,7 +49,7 @@ export class ExitWorktreeTool extends BaseTool<
   /**
    * 工具名称
    */
-  name = 'exit_worktree';
+  name = TOOL_NAME_CONSTANTS.exit_worktree;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。

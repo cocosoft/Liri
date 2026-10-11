@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * VideoTool
  * 通用视频编辑工具
@@ -52,7 +53,7 @@ const videoProcessor = new VideoProcessor();
 const ffmpeg = new FFmpegWrapper();
 
 export class VideoTool extends BaseTool {
-  name = 'video';
+  name = TOOL_NAME_CONSTANTS.video;
 
   description =
     'Edit and manipulate videos. Supports trim, compress, extract audio, format conversion, and metadata info.';

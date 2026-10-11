@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * Glob 工具
  *
@@ -24,7 +25,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:search:GlobTool');
 
 export class GlobTool extends BaseTool {
-  name = 'glob';
+  name = TOOL_NAME_CONSTANTS.glob;
   description = '查找匹配指定模式的文件';
 
   override tags = [ToolTag.FILE, ToolTag.READ];

@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ConfigTool
  *
@@ -26,7 +27,7 @@ export interface ConfigToolInput {
 }
 
 export class ConfigTool extends BaseTool<ConfigToolInput> {
-  name = 'config';
+  name = TOOL_NAME_CONSTANTS.config;
   description = 'Manage application configuration';
 
   override tags = [ToolTag.SYSTEM];

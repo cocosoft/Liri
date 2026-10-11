@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * TTSTool 语音合成工具（Text-to-Speech）
  * 让 Agent 将文本转换为语音输出
@@ -108,7 +109,7 @@ const AVAILABLE_VOICES = [
 ];
 
 export class TTSTool extends BaseTool<Record<string, unknown>> {
-  name = 'tts';
+  name = TOOL_NAME_CONSTANTS.tts;
   description =
     'Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.';
   /** TTS 调用限流器（默认每秒 10 次，桶容量 20） */

@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * CodeRunnerTool — code_run 工具（CM-1）
  *
@@ -169,7 +170,7 @@ export function configureCodeRunner(deps: CodeRunnerRuntimeDeps): void {
 }
 
 export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
-  name = 'code_run';
+  name = TOOL_NAME_CONSTANTS.code_run;
 
   /** 基础契约（2026-10-07 起随 schema 口径改中文，与既有工具描述同风格）；工具清单段由 getter 动态拼接 */
   private static readonly BASE_DESCRIPTION =

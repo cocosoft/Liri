@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 计划模式工具
  * 参考CC源码 cc_code/backend/utils/planModeV2.ts 实现
@@ -104,7 +105,7 @@ export class PlanTool extends BaseTool<
   PlanToolOutput,
   ToolProgressData
 > {
-  name = 'plan';
+  name = TOOL_NAME_CONSTANTS.plan;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。

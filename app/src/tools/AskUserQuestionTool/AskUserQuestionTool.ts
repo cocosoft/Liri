@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 用户提问工具 AskUserQuestionTool
  *
@@ -81,7 +82,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:askUserQuestion');
 
 export class AskUserQuestionTool extends BaseTool {
-  name = 'ask_user_question';
+  name = TOOL_NAME_CONSTANTS.ask_user_question;
   override description =
     '向用户提问以获取确认或决策。支持三种类型：\n' +
     '1. **choice**（默认）：封闭式多选题，提供 2-4 个固定选项。适用于选项可穷举的问题（如"选择技术栈"）。\n' +

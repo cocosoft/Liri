@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 进入Worktree工具
  * 用于创建并切换到git worktree，为Agent创建隔离的工作区
@@ -49,7 +50,7 @@ export class EnterWorktreeTool extends BaseTool<
   /**
    * 工具名称
    */
-  name = 'enter_worktree';
+  name = TOOL_NAME_CONSTANTS.enter_worktree;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 2 接线**）。

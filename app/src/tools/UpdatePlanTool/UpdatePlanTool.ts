@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * UpdatePlanTool
  * 对标OpenClaw update-plan 工具
@@ -42,7 +43,7 @@ export interface UpdatePlan {
 }
 
 export class UpdatePlanTool extends BaseTool {
-  name = 'update_plan';
+  name = TOOL_NAME_CONSTANTS.update_plan;
 
   description = '创建和管理更新执行计划。分析依赖、生成迁移步骤并评估风险。';
 

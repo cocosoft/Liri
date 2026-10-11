@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * CanvasTool
  * 画布操作工具 — 支持创建画布、绘制图形/文字/图片、导出多格式
@@ -129,7 +130,7 @@ function resolveOutputPath(canvasId: string, format: string): string {
 }
 
 export class CanvasTool extends BaseTool {
-  name = 'canvas';
+  name = TOOL_NAME_CONSTANTS.canvas;
 
   description =
     'Create and manipulate visual canvases. Supports drawing shapes (rect, circle, line, path), ' +

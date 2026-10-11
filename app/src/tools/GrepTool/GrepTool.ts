@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * GrepTool - 代码/文件内容搜索工具
  *
@@ -102,7 +103,7 @@ export function buildEmptyResultDiagnostic(params: {
  * 代码/文件内容搜索工具
  */
 export class GrepTool extends BaseTool {
-  name = 'grep';
+  name = TOOL_NAME_CONSTANTS.grep;
   description = getDescription();
 
   override tags = [ToolTag.CODE, ToolTag.READ];

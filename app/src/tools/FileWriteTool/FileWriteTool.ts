@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * FileWriteTool - 文件写入工具
  *
@@ -126,7 +127,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 
 export class FileWriteTool extends BaseTool {
-  name = 'file_write';
+  name = TOOL_NAME_CONSTANTS.file_write;
   description =
     '把内容写入文件。' +
     '当内容已存在于磁盘上（例如其它工具已产出本地文件）时，' +

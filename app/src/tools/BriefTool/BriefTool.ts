@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * BriefTool
  *
@@ -21,7 +22,7 @@ export interface BriefToolInput {
 }
 
 export class BriefTool extends BaseTool<BriefToolInput> {
-  name = 'brief';
+  name = TOOL_NAME_CONSTANTS.brief;
   description = '生成当前会话的摘要';
 
   override tags = [ToolTag.READ];

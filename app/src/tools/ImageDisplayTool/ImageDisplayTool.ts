@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ImageDisplayTool
  * AI 可调用的图片预览工具 — 同时预览多张图片，点击放大，支持引用
@@ -48,7 +49,7 @@ export interface ImageDisplayOutput {
 }
 
 export class ImageDisplayTool extends BaseTool {
-  name = 'image_display';
+  name = TOOL_NAME_CONSTANTS.image_display;
 
   override tags = [ToolTag.READ];
 

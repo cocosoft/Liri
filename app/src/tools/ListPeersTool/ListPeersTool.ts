@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 列出Peers工具
  * 用于发现本地peer（UDS）或远程会话（bridge）
@@ -54,7 +55,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
   /**
    * 工具名称
    */
-  name = 'list_peers';
+  name = TOOL_NAME_CONSTANTS.list_peers;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4b 接线**）。

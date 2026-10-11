@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * WebSearch 工具
  *
@@ -57,7 +58,7 @@ const WebSearchInputSchema = z.strictObject({
 });
 
 export class WebSearchTool extends BaseTool {
-  name = 'web_search';
+  name = TOOL_NAME_CONSTANTS.web_search;
   description =
     '搜索网络信息。用于查找时事、事实、文档或任何需要最新互联网资源的主题。';
 

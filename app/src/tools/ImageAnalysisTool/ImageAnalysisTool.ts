@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ImageAnalysisTool
  * 图片分析工具 — 三级分析策略
@@ -189,7 +190,7 @@ function getL2WorkerGuard(): WorkerGuard | null {
 }
 
 export class ImageAnalysisTool extends BaseTool {
-  name = 'image_analysis';
+  name = TOOL_NAME_CONSTANTS.image_analysis;
 
   description =
     'Analyze image content including metadata, colors, OCR text recognition, ' +

@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * FileReadTool - 文件读取工具
  */
@@ -236,7 +237,7 @@ const BINARY_EXTENSIONS = new Set([
 ]);
 
 export class FileReadTool extends BaseTool {
-  name = 'file_read';
+  name = TOOL_NAME_CONSTANTS.file_read;
   description = '读取文件内容';
 
   override tags = [ToolTag.FILE, ToolTag.READ];

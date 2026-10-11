@@ -1,8 +1,11 @@
 // ⚠️ 此文件由 `bun run gen:toolnames` **自动生成**，请勿手改。
-// 事实源：`getAllBuiltinToolLoaders()`（全量视图：含条件工具、与 flag 无关）
+// 事实源：`getAllBuiltinToolLoaders()` + `loadTools()`（真实实例化）
+// 口径 = 「**全量 ∧ 可实例化**」：flag-gated 且默认关闭的工具（工厂返回 null）**不在**此清单。
+// 被排除名**可**从 `tools/toolNameConstants.ts` 的常量表列出（D11-B，2026-10-11；台账 D-41 已闭合）。
+// 此类名字**不得**用于 `satisfies readonly ToolName[]`（typecheck 会判"不存在"）。
 // 生成命令：`bun run gen:toolnames`（脚本：`app/scripts/gen-tool-names.ts`）
 
-/** 内建工具名（编译期枚举源）—— **全量**：含"条件工具"（flag 未启用时运行期不可见者） */
+/** 内建工具名（编译期枚举源）—— **全量 ∧ 可实例化**（不含 flag-gated 且默认关闭者） */
 export const TOOL_NAMES = [
   'agent',
   'ask_user_question',
@@ -64,6 +67,8 @@ export const TOOL_NAMES = [
   'sleep_until',
   'stat_vfs',
   'task_stop',
+  'team_create',
+  'team_delete',
   'todo_write',
   'tool_search',
   'trace_recording',
@@ -83,4 +88,4 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 73;
+export const TOOL_NAMES_COUNT = 75;

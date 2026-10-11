@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * PDFTool PDF 生成工具
  * 让 Agent 从文本内容生成 PDF 文档或提取 PDF 文字
@@ -363,7 +364,7 @@ function ensurePdfExt(name: string): string {
 }
 
 export class PDFTool extends BaseTool<Record<string, unknown>> {
-  name = 'pdf';
+  name = TOOL_NAME_CONSTANTS.pdf;
   description =
     'Generate simple PDF documents from text content, or convert a local file directly to PDF. ' +
     'When the source content already exists on disk (e.g. a markdown/html/text file), ' +

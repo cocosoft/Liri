@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 执行计划工具 ProposePlanTool
  *
@@ -34,7 +35,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:proposePlan');
 
 export class ProposePlanTool extends BaseTool {
-  name = 'propose_plan';
+  name = TOOL_NAME_CONSTANTS.propose_plan;
   override description =
     '提交一份执行计划并等待用户批准。适用于高风险写操作（批量删除/外发/大规模改动）' +
     '或需要用户确认方向的场景。\n\n' +

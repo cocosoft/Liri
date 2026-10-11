@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ImageGenerateTool
  * AI 图片生成工具 — 多后端 Provider + fallback 链架构
@@ -64,7 +65,7 @@ export interface GeneratedImage {
 }
 
 export class ImageGenerateTool extends BaseTool {
-  name = 'image_generate';
+  name = TOOL_NAME_CONSTANTS.image_generate;
 
   description =
     'Generate AI images from text descriptions (prompts). Use this when the user ' +

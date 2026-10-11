@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * MusicTool
  * 通用音频/音乐编辑工具
@@ -48,7 +49,7 @@ export interface MusicEditOutput {
 const ffmpeg = new FFmpegWrapper();
 
 export class MusicTool extends BaseTool {
-  name = 'music';
+  name = TOOL_NAME_CONSTANTS.music;
 
   description =
     'Edit and manipulate audio/music files. Supports format conversion, metadata info, trimming, and volume adjustment.';

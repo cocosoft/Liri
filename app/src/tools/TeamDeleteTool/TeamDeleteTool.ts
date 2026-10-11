@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 团队删除工具
  * 用于解散swarm团队并清理
@@ -55,7 +56,7 @@ export class TeamDeleteTool extends BaseTool<
    * 工具名称
    */
   // D-04（2026-10-03）：PascalCase → snake_case（与 D-37 同口径；详见 spec `team-tool-name-snake-case.md`）
-  name = 'team_delete';
+  name = TOOL_NAME_CONSTANTS.team_delete;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。

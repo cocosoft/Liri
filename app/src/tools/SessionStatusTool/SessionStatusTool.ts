@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * SessionStatusTool
  * 对标OpenClaw session-status 工具
@@ -32,7 +33,7 @@ export interface SessionStatusQuery {
 }
 
 export class SessionStatusTool extends BaseTool {
-  name = 'session_status';
+  name = TOOL_NAME_CONSTANTS.session_status;
 
   description =
     '查询一个或多个会话的状态。返回会话状态、活跃时长、消息数量以及可选的资源使用情况。';

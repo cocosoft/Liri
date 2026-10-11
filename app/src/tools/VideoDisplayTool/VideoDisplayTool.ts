@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * VideoDisplayTool
  * AI 可调用的视频预览工具 — 在聊天中直接播放视频
@@ -29,7 +30,7 @@ export interface VideoDisplayOutput {
 }
 
 export class VideoDisplayTool extends BaseTool {
-  name = 'video_display';
+  name = TOOL_NAME_CONSTANTS.video_display;
 
   override tags = [ToolTag.READ];
 

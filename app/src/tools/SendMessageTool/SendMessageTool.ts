@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 多代理消息工具 SendMessageTool
  */
@@ -37,7 +38,7 @@ import type {
 } from '@modules/session/types/message';
 
 export class SendMessageTool extends BaseTool {
-  name = 'send_message';
+  name = TOOL_NAME_CONSTANTS.send_message;
   description = '向另一个代理发送消息';
 
   params: ToolParam[] = [

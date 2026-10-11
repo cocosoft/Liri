@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * DocGenerateTool — 文档生成工具
  * 利用 officecli (create + add + save) 生成 Office 文件到 output 目录
@@ -1253,7 +1254,7 @@ ${body}
 }
 
 export class DocGenerateTool extends BaseTool {
-  name = 'doc_generate';
+  name = TOOL_NAME_CONSTANTS.doc_generate;
 
   constructor() {
     super();

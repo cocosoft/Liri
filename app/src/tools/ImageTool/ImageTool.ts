@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ImageTool
  * 通用图片编辑工具 — 基于 Sharp 实现
@@ -96,7 +97,7 @@ export interface ImageEditOutput {
 const processor = new ImageProcessor();
 
 export class ImageTool extends BaseTool {
-  name = 'image';
+  name = TOOL_NAME_CONSTANTS.image;
 
   description =
     'Edit images with operations: resize, crop, rotate, flip, add watermark, ' +

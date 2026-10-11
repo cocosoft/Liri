@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
@@ -45,7 +46,7 @@ export interface ChannelToolOperation {
 }
 
 export class ChannelTool extends BaseTool {
-  name = 'channel';
+  name = TOOL_NAME_CONSTANTS.channel;
 
   description =
     'Unified channel management tool. List, connect, disconnect channels, check status, health, and view logs.';

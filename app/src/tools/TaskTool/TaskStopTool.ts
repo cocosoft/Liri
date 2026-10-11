@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 任务停止工具
  * 参考CC源码 cc_code/backend/tools/TaskTool/TaskStopTool.ts 实现
@@ -53,7 +54,7 @@ export class TaskStopTool extends BaseTool<
   TaskStopToolInput,
   TaskStopToolOutput
 > {
-  name = 'task_stop';
+  name = TOOL_NAME_CONSTANTS.task_stop;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 1b 接线**）。

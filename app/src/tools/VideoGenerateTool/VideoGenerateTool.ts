@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * VideoGenerateTool
  * AI 视频生成工具 — 模型管理驱动（照搬 ImageGenerateTool 模式）
@@ -73,7 +74,7 @@ export interface VideoGenerateParams {
 }
 
 export class VideoGenerateTool extends BaseTool {
-  name = 'video_generate';
+  name = TOOL_NAME_CONSTANTS.video_generate;
 
   description =
     'Generate videos using AI. Supports text-to-video and image-to-video via FAL.ai (Kling, Runway, MiniMax, etc.).';

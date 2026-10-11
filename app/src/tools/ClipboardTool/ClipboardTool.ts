@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ClipboardTool
  * 剪贴板读写工具
@@ -138,7 +139,7 @@ async function writeClipboard(content: string): Promise<void> {
 }
 
 export class ClipboardTool extends BaseTool {
-  name = 'clipboard';
+  name = TOOL_NAME_CONSTANTS.clipboard;
 
   description =
     'Read or write system clipboard content. Supports text operations across Windows, macOS, and Linux.';

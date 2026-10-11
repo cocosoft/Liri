@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ImageSvgTool
  * 通过 LLM 生成 SVG 矢量图 + 语法校验
@@ -99,7 +100,7 @@ const SVG_TEMPLATES: Record<string, string> = {
 };
 
 export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
-  name = 'image_svg_generate';
+  name = TOOL_NAME_CONSTANTS.image_svg_generate;
 
   description =
     'Generate SVG vector graphics using LLM. Use when the user asks for icons, ' +

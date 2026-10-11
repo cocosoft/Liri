@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * MusicGenerateTool
  * 对标OpenClaw music-generate 工具
@@ -35,7 +36,7 @@ export interface GeneratedMusic {
 }
 
 export class MusicGenerateTool extends BaseTool {
-  name = 'music_generate';
+  name = TOOL_NAME_CONSTANTS.music_generate;
 
   description =
     'Generate music using AI. Supports multiple providers (OpenAI, Suno, Udio) and music genres.';

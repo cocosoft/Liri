@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * PowerShell 工具（Windows专用）
  *
@@ -234,7 +235,7 @@ const execAsync = promisify(exec);
  * 专用于 Windows 环境的命令执行
  */
 export class PowerShellTool extends BaseTool {
-  name = 'powershell';
+  name = TOOL_NAME_CONSTANTS.powershell;
   description =
     '在 Windows 系统上执行 PowerShell 命令。用于 Windows 特有的管理、注册表操作和系统管理。';
 

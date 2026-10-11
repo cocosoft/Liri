@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * SaveConversationTool
  *
@@ -24,7 +25,7 @@ export interface SaveConversationInput {
 }
 
 export class SaveConversationTool extends BaseTool<SaveConversationInput> {
-  name = 'save_conversation';
+  name = TOOL_NAME_CONSTANTS.save_conversation;
   description = '将对话摘要保存到文件。当用户希望保存或记录当前对话时使用。';
 
   override tags = [ToolTag.WRITE];

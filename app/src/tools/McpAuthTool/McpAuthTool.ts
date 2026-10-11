@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * McpAuthTool
  * 对标OpenClaw mcp-auth 工具
@@ -29,7 +30,7 @@ export interface McpAuthStatus {
 }
 
 export class McpAuthTool extends BaseTool {
-  name = 'mcp_auth';
+  name = TOOL_NAME_CONSTANTS.mcp_auth;
 
   description =
     '管理 MCP（Model Context Protocol）认证。支持登录、登出、状态检查、令牌刷新，以及列出已认证的服务器。';

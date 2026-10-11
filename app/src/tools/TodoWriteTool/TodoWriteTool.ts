@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * TodoWriteTool - 待办事项管理工具
  *
@@ -409,7 +410,7 @@ const todoManager = new Proxy({} as TodoManager, {
  */
 export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
   /** 工具名称 */
-  name = 'todo_write';
+  name = TOOL_NAME_CONSTANTS.todo_write;
 
   /**
    * 出参契约（P1-3 A 档，2026-09-28）。

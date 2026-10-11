@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * NodesTool
  * 对标OpenClaw nodes 工具
@@ -35,7 +36,7 @@ export interface NodesToolParams {
 }
 
 export class NodesTool extends BaseTool {
-  name = 'nodes';
+  name = TOOL_NAME_CONSTANTS.nodes;
 
   description =
     '管理分布式节点与工作进程。支持列出、状态检查、添加、移除和 ping 节点。';

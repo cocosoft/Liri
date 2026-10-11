@@ -40,6 +40,8 @@ import {
 } from '../../src/ai/router/TaskComplexityClassifier';
 import { buildEnvironmentHints } from '../../src/ai/prompts/PlatformHints';
 import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
+// D11-B（2026-10-11）：工具名单一来源 —— 声明面 = 常量表（工具类/loader/门禁共用）
+import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
 import {
   FILE_EDIT_TOOL_NAME,
   FILE_READ_TOOL_NAME,
@@ -58,48 +60,28 @@ import {
 // 2026-10-08（LRTO 步骤"执行不了"事故）：角色/步骤工具名必须由任务类型经 TOOL_CATEGORIES 派生。
 import {
   ARCHIVED_MISC_TOOLS,
+  TOOL_CATEGORIES,
   getRealToolNamesForTask,
   getToolCategory,
 } from '../../src/tools/toolCategories';
 import { EXECUTOR_ROLE, PLANNER_ROLE } from '../../src/tasks/lro/contracts';
+// D7 ④（2026-10-11）：双轨制排他性断言需按**默认装配**取运行期生效工具面
+import { ToolFactory } from '../../src/tools/ToolFactory';
+import {
+  getBuiltinToolLoaders,
+  loadTools,
+} from '../../src/tools/utils/ToolManagerUtils';
 
-/** 扫描 `src/tools/**` 里工具类的 `name = '...'` 声明（判据=真实代码） */
-function scanRegisteredToolNames(): Set<string> {
-  const toolsDir = join(import.meta.dir, '../../src/tools');
-  const names = new Set<string>();
-  const walk = (dir: string): void => {
-    let entries: Dirent[];
-    try {
-      entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
-      // @ignore-catch 目录不存在 ⇒ 交由下面的规模断言暴露（不静默通过）
-      return;
-    }
-    for (const entry of entries) {
-      const abs = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name !== 'node_modules') walk(abs);
-        continue;
-      }
-      if (!entry.name.endsWith('.ts')) continue;
-      const source = readFileSync(abs, 'utf-8');
-      // 2026-10-08（P2 VFS 试点暴露的**守卫盲区**）：原判据只认**类字段** `name = '...'`，
-      // 而 `static create(): Tool { return { name: 'xxx', … } }` 这一族工具（如
-      // `ReadProjectFileTool` / VFS 4 工具）用的是**对象字面量** `name: '...'` ⇒ 扫描器看不见，
-      // 于是"清单里写了这些工具名"会被误判为漂移名。现同时匹配 `:` 与 `=`（只增名 ⇒ ⊆ 检查更严，
-      // 不会放宽既有断言）。
-      for (const m of source.matchAll(
-        /^\s*(?:override\s+)?name\s*[:=]\s*'([a-z_]+)'/gm
-      )) {
-        names.add(m[1]);
-      }
-    }
-  };
-  walk(toolsDir);
-  return names;
-}
-
-const REGISTERED = scanRegisteredToolNames();
+/**
+ * "真实注册名（声明口径）" —— **D11-B（2026-10-11，用户裁定 B）后的单一来源**：
+ * 直接读 `tools/toolNameConstants.ts` 的 `TOOL_NAME_CONSTANTS`（工具类与 loader 均已引用它）。
+ *
+ * 历史（为何不再扫字面量）：原实现扫 `src/tools/**` 的 `name = '...' / name: '...'` 字面量，
+ * 故有**两类盲区** —— ① 行首锚定收进非工具对象的 `name` 字段（高估）；②「声明了却无 loader」的
+ * 名字查不出（台账 N-27/D-41）。常量表落地后，"声明面"即表本身：**既精确又完备**
+ * （表 ⊇ 生成物生效面，且含 flag-gated 条件工具名）。
+ */
+const REGISTERED: Set<string> = new Set(Object.values(TOOL_NAME_CONSTANTS));
 
 /** 已实证的 CC 漂移名（本仓不存在；不得再出现在这些清单里） */
 const DRIFTED_NAMES = [
@@ -508,5 +490,132 @@ describe('工具名清单守卫：注入模型的提示词', () => {
     expect(CODEX_GUIDANCE).toContain('file_write');
     expect(CODEX_GUIDANCE).toContain('file_edit');
     expect(GOOGLE_GUIDANCE).toContain('file_read');
+  });
+});
+
+/**
+ * S2-3（2026-10-11）新增门禁：G6「运行期注册族快照」。
+ *
+ * ⚠️ G5「声明名 ⊆ 生效面」**本轮未落地**（如实）：可落地的方向有两面 ——
+ * ① 清单 ⊆ 生效面 已在既有用例覆盖；② **声明面 ⊆ 生效面**（查出"声明了但无 loader 注册"的
+ * N-27 家族）需要"仅识别真实工具类"的扫描口径 —— 现有 `scanRegisteredToolNames()` 为
+ * **行首锚定**且会收进非工具类的 `name` 字段：实测 `TOOL_NAMES ⊄ REGISTERED`（13 个名字以
+ * 内联对象字面量 / 常量赋值形式声明，行首锚定匹配不到），故两个方向都会产生**假阳性**
+ * ⇒ 需独立设计（见方案 §4 阶段 2 备注），不在本轮硬上。
+ */
+/** G6 判据（纯函数，供真实快照与**负向自证**共用）：从登记表键名派生"运行期命名空间族"前缀 */
+function deriveNamespaceFamilies(keys: string[]): string[] {
+  const families = new Set<string>();
+  for (const key of keys) {
+    const colon = key.indexOf(':');
+    if (colon > 0) {
+      families.add(key.slice(0, colon));
+    } else if (key.startsWith('knowledge_')) {
+      families.add('knowledge');
+    }
+  }
+  return [...families].sort();
+}
+
+describe('S2-3 契约与清单门禁（G5 / G6）', () => {
+  /**
+   * **G5（D11-B 后落地，2026-10-11）**：常量表 = 声明的**单一来源**；它与生成物"生效面"的**差额**
+   * 只允许是**已知的条件工具**（flag-gated 且默认关，台账 D-40/D-41 长期无法枚举的那批）。
+   * 新增未知差额 ⇒ CI 失败，强制"显式登记或修正注册"。
+   */
+  const KNOWN_CONDITIONAL_TOOL_NAMES = [
+    'agents_list',
+    'kanban',
+    'mcp_auth',
+    'music_generate',
+    'nodes',
+    'pdf',
+    'propose_plan',
+    'send_message',
+    'sessions_send',
+    'sessions_spawn',
+    'session_status',
+    'task_output',
+    'thinking',
+    'tts',
+    'update_plan',
+  ];
+  // D1 接线（2026-10-11）：`TEAM_CREATE`/`TEAM_DELETE` 成为**变体默认生效**（coding）
+  // ⇒ `team_create`/`team_delete` 移出本差额集（进入生成物 `TOOL_NAMES`，75 名）。
+
+  it('G5：生效面 ⊆ 声明面（每个生效工具名都必须在常量表内）', () => {
+    const declared = new Set(Object.values(TOOL_NAME_CONSTANTS));
+    expect(TOOL_NAMES.filter((n) => !declared.has(n))).toEqual([]);
+  });
+
+  it('G5：声明面 − 生效面 = 已知条件工具集（新增未知差额 ⇒ 失败，需显式登记）', () => {
+    const effective = new Set<string>(TOOL_NAMES);
+    const notEffective = Object.values(TOOL_NAME_CONSTANTS)
+      .filter((n) => !effective.has(n))
+      .sort();
+    expect(notEffective).toEqual([...KNOWN_CONDITIONAL_TOOL_NAMES].sort());
+  });
+
+  it('门禁自证（负向夹具）：新增命名空间族会被判违规 ⇒ 快照非恒真', () => {
+    const fixture = [
+      'file_read',
+      'calendar:add',
+      'billing:pay', // 虚构的新族
+      'knowledge_search',
+    ];
+    expect(deriveNamespaceFamilies(fixture)).toContain('billing');
+  });
+
+  it('G6：运行期注册族快照 —— 命名空间族前缀集合恒定（新增族 ⇒ 失败并需显式确认）', () => {
+    expect(deriveNamespaceFamilies(Object.keys(TOOL_CATEGORIES))).toEqual([
+      'calendar',
+      'knowledge',
+      'mail',
+      'office',
+      'workflow',
+    ]);
+  });
+});
+
+/**
+ * **S2-4 双轨制排他性断言**（D7 ④，2026-10-11 用户裁定「①+④ 组合」）。
+ *
+ * 静态登记"**100% 重叠**的事实源双轨对"（同一读取/写入语义由两套工具提供 ⇒ 模型可能二选一、
+ * 结果不一致）。以**默认装配**（`getBuiltinToolLoaders()` = 生效视图）为判据断言"不得同时激活"，
+ * 防止 D7 ① 的回退性复发（如有人把 VFS 文件类工具改回无条件注册）。
+ */
+describe('S2-4 双轨制排他性断言（D7 ④）', () => {
+  /** 100% 重叠的"事实源双轨"静态登记表（新增重叠对 ⇒ 在此登记） */
+  const OVERLAP_PAIRS: ReadonlyArray<readonly [string, string]> = [
+    ['read_vfs', 'file_read'],
+    ['write_vfs', 'file_write'],
+  ];
+
+  /** 判据（纯函数，供门禁自证/负向夹具共用）：返回**同时激活**的重叠对 */
+  function findActiveOverlapViolations(
+    active: ReadonlySet<string>,
+    pairs: ReadonlyArray<readonly [string, string]>
+  ): string[] {
+    return pairs
+      .filter(([a, b]) => active.has(a) && active.has(b))
+      .map(([a, b]) => `${a}↔${b}`)
+      .sort();
+  }
+
+  it('默认装配下，100% 重叠工具对不得同时激活', () => {
+    const active = new Set(
+      loadTools(new ToolFactory(), getBuiltinToolLoaders()).map((t) => t.name)
+    );
+    // 防空转（恒真守卫）：默认面确实含 file_read/file_write ⇒ 断言才有意义
+    expect(active.has('file_read')).toBe(true);
+    expect(active.has('file_write')).toBe(true);
+    expect(findActiveOverlapViolations(active, OVERLAP_PAIRS)).toEqual([]);
+  });
+
+  it('门禁自证（负向夹具）：同时激活 ⇒ 判违规 ⇒ 非恒真', () => {
+    const fixture = new Set(['file_read', 'read_vfs', 'file_write']);
+    expect(findActiveOverlapViolations(fixture, OVERLAP_PAIRS)).toEqual([
+      'read_vfs↔file_read',
+    ]);
   });
 });

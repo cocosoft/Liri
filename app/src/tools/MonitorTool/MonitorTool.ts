@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * Monitor工具
  * 用于监控系统状态
@@ -15,7 +16,7 @@ export class MonitorTool extends BaseTool {
   /**
    * 工具名称
    */
-  name = 'monitor';
+  name = TOOL_NAME_CONSTANTS.monitor;
 
   /**
    * 工具描述

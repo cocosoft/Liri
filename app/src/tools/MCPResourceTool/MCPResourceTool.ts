@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * MCP资源工具
  * 提供MCP资源的列表和读取功能
@@ -100,7 +101,7 @@ export class MCPResourceTool extends BaseTool<
   MCPResourceToolInput,
   MCPResourceToolOutput
 > {
-  name = 'mcp_resource';
+  name = TOOL_NAME_CONSTANTS.mcp_resource;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4a 接线**）。

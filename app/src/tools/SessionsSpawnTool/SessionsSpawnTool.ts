@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * SessionsSpawnTool
  * 对标CC SessionsSpawnTool
@@ -34,7 +35,7 @@ export interface SessionInfo {
 }
 
 export class SessionsSpawnTool extends BaseTool {
-  name = 'sessions_spawn';
+  name = TOOL_NAME_CONSTANTS.sessions_spawn;
 
   description =
     '派生一个新的子会话。会话可以是 agent、task、shell 进程或 monitor。';

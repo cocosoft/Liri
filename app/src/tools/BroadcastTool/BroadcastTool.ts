@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * BroadcastTool — 通道广播工具
  * 向一个或多个通道发送消息
@@ -17,7 +18,7 @@ export interface BroadcastOperation {
 }
 
 export class BroadcastTool extends BaseTool {
-  name = 'broadcast';
+  name = TOOL_NAME_CONSTANTS.broadcast;
 
   description =
     '向一个或全部通道发送消息。支持单通道发送、向所有已启用通道广播、主页通道消息，以及话题回复。';

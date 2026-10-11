@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * ComputerUseTool — 桌面自动化工具
  * 提供截图、鼠标、键盘、剪贴板、窗口管理等桌面自动化能力
@@ -56,7 +57,7 @@ export interface ComputerUseInput {
 }
 
 export class ComputerUseTool extends BaseTool {
-  name = 'computer_use';
+  name = TOOL_NAME_CONSTANTS.computer_use;
 
   description =
     'Desktop automation tool supporting Windows, macOS and Linux. Supports screenshot, mouse control, keyboard input, clipboard access, and window/application management.';

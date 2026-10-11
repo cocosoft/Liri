@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * 浏览器自动化工具
  * 提供与Chrome浏览器交互的功能，支持打开标签页、点击元素、填写表单等操作
@@ -62,7 +63,7 @@ export interface BrowserToolOutput {
  * 浏览器自动化工具
  */
 export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
-  name = 'browser';
+  name = TOOL_NAME_CONSTANTS.browser;
 
   /**
    * 出参契约（P1-3 A 档；2026-09-29 **T6 批次 4b 接线**）。

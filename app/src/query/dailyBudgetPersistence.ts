@@ -64,8 +64,34 @@ export function dailyBudgetStatePath(): string {
 }
 
 /**
+ * 放行状态的**边界校验**（持久化文件属外部输入：旧版本无此字段、用户可能手改）。
+ * 形状不合规 ⇒ 按"无放行"读取（丢弃），避免半截状态被当成有效放行（防"重启即提额"）。
+ */
+function normalizeRelief(input: unknown): DailyBudgetPersistedState['relief'] {
+  if (!input || typeof input !== 'object') return null;
+  const r = input as Record<string, unknown>;
+  const kind = r.kind;
+  if (kind !== 'boost' && kind !== 'waive-once' && kind !== 'unlock-today') {
+    return null;
+  }
+  // `expiresAt`：`null`（unlock-today 至日界）或时间戳；缺失/非法 ⇒ 丢弃
+  if (r.expiresAt !== null && typeof r.expiresAt !== 'number') return null;
+  return {
+    kind,
+    expiresAt: r.expiresAt as number | null,
+    ...(typeof r.factor === 'number' ? { factor: r.factor } : {}),
+    ...(typeof r.amount === 'number' ? { amount: r.amount } : {}),
+  };
+}
+
+/**
  * 读取持久化的日预算状态。
  * 文件缺失（首次运行）或内容损坏 ⇒ 返回 `null`（调用方按 0 起算）。
+ *
+ * D-b/D-d 修复（2026-10-11）：本条**必须与 `_persistedState()` 写入形状对称** ——
+ * 写入侧含 `{date, used, debt, relief}`，此前读取侧只回 `{date, used}` ⇒
+ * `initDailyBudget().restore({debt, relief})` 恒拿到 `undefined` ⇒ **欠账与放行重启即丢**
+ * （D-d 次日扣回静默失效、D-b 放行丢失），违反 spec §8「持久化往返」/§10-2。
  */
 export async function loadDailyBudgetState(): Promise<DailyBudgetPersistedState | null> {
   try {
@@ -79,7 +105,14 @@ export async function loadDailyBudgetState(): Promise<DailyBudgetPersistedState 
       });
       return null;
     }
-    return { date: parsed.date, used: Math.max(0, Math.floor(used)) };
+    const debt = Number(parsed.debt);
+    return {
+      date: parsed.date,
+      used: Math.max(0, Math.floor(used)),
+      // 旧文件无 `debt` ⇒ 按 0 读取（见接口注释）
+      debt: Number.isFinite(debt) ? Math.max(0, Math.floor(debt)) : 0,
+      relief: normalizeRelief(parsed.relief),
+    };
   } catch (e) {
     // 文件不存在 ⇒ 首次运行，属正常路径，不告警
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {

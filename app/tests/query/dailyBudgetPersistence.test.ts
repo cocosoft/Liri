@@ -149,4 +149,41 @@ describe('DailyBudgetManager 用量状态持久化（P1/P3）', () => {
     await initDailyBudget();
     expect(getDailyBudget().getMode().todayUsed).toBe(0);
   });
+
+  // ── D-b/D-d 回归（2026-10-11）：读取侧必须与写入侧形状对称 ──
+  // `_persistedState()` 写 `{date, used, debt, relief}`，而 `loadDailyBudgetState()`
+  // 曾只回 `{date, used}` ⇒ `restore({debt, relief})` 恒拿到 `undefined` ⇒
+  // 欠账与放行**重启即丢**（D-d 次日扣回静默失效、D-b 放行丢失）。
+
+  it('持久化往返：欠账 debt 与放行 relief 重启后仍恢复（D-b/D-d）', async () => {
+    const future = Date.now() + 60_000;
+    await saveDailyBudgetState({
+      date: localToday(),
+      used: 10_000,
+      debt: 5_000,
+      relief: { kind: 'boost', expiresAt: future, factor: 2 },
+    });
+
+    // ① 读取侧直接断言（回归点：loader 曾丢掉这两个字段）
+    const persisted = await loadDailyBudgetState();
+    expect(persisted?.debt).toBe(5_000);
+    expect(persisted?.relief?.kind).toBe('boost');
+
+    // ② 全链：模拟重启 ⇒ 欠账与未过期放行都还在
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(getDailyBudget().getDebtTokens()).toBe(5_000);
+    expect(getDailyBudget().getRelief()?.kind).toBe('boost');
+  });
+
+  it('放行 relief 形状非法 ⇒ 按无放行读取（不抛错、不误当有效放行）', async () => {
+    await saveDailyBudgetState({
+      date: localToday(),
+      used: 1,
+      // 缺 `expiresAt` 的 boost：不得当成"永不过期"的放行（否则=重启即提额）
+      relief: { kind: 'boost' } as never,
+    });
+    const persisted = await loadDailyBudgetState();
+    expect(persisted?.relief ?? null).toBeNull();
+  });
 });

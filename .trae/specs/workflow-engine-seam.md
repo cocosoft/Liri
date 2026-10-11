@@ -1,10 +1,11 @@
 # WorkflowEngine Seam 收敛 Spec
 
-> ⚠️ **部分交付物不在本仓（2026-09-26 核实）**：本 spec 声称的"已完成"中**有若干交付物在本仓 git 历史中从未存在**（据台账逐项反证：`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
-> ✅ 但 seam 的**通用构件确实在代码里**（`WorkflowEngine.ts` / `WorkflowStepLedger.ts` / `types.ts` / `WorkflowError.ts`）。
-> 📌 详见 `dev_docs/error_repairs/预存错误与待处理问题.md` → 「4 份 `workflow-*` Spec 声称"已完成"，但对应代码在本仓**不存在**」条。**读本 spec 时不要把"已完成"的声明当作能力已可用。**
-
-> 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
+> 版本: 1.1 | 创建: 2026-09-13 | 更新: 2026-10-11 | 状态: **首版已完成（实现经 2026-10-11 复核确认真实）**
+> ⚠️ **2026-10-11 复核更正（CS06）**：下面那段 ⚠️ 模板**对本 spec 属误植**（其反证物属 `workflow-run-record.md`）。
+> 本 spec 的 seam 构件经实测**全部在册**：`modules/workflow/WorkflowEngine.ts`、`WorkflowStepLedger.ts`、
+> `WorkflowError.ts`、`types.ts`（含 `WorkflowExecuteOptions`）⇒ **"首版已完成"成立**。
+>
+> > 原始 ⚠️（2026-09-26，**系 `workflow-run-record.md` 的模板误植至此**）：部分交付物不在本仓（据台账逐项反证：`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
 > 关联: GR15（Spec-Driven Development）/ 对标报告 `dev_docs/20260913/工作流横向对标分析报告.md`（P1-1 + V-2 + P2-4）/ R01 / R02 / R03 / R06-005 / R06-006 / R06-007 / R06-008 / R06-010 / R06-011 / CS01 / CS05
 > 前置输入: `dev_docs/20260913/工作流横向对标_不足与路线图.md`（阶段二）
 

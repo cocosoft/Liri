@@ -9,7 +9,7 @@
 
 **终端里的 AI 智能体 · 连接 26 个平台的智能助手**
 
-一键安装 · 自然语言交互 · 81 个内置工具 · 企业级安全
+一键安装 · 自然语言交互 · 73 个内置工具 · 企业级安全
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -155,7 +155,7 @@ T3 ── 后台延迟加载（DEFERRED + ON_DEMAND 模块）
 
 Agent 引擎内置 4 种检查点机制（CheckpointManager），长时间运行的任务可落盘续跑；工具调用轮次、压缩、截断等关键节点均写事件日志，支持回放与审计。
 
-### 🛠 内置工具（81 个）
+### 🛠 内置工具（73 个）
 
 | 分类 | 工具 |
 |------|------|
@@ -171,6 +171,8 @@ Agent 引擎内置 4 种检查点机制（CheckpointManager），长时间运行
 | 🔧 系统工具 | 时间/日期、监控指标、系统诊断 |
 
 工具按构建变体的能力开关动态注册（同一份源码，按 core / personal / coding / enterprise 裁剪），注册清单单一来源为 `app/src/tools/utils/ToolManagerUtils.ts`。
+
+> **计数事实源**：`app/src/constants/toolNames.generated.ts` 的 `TOOL_NAMES_COUNT`（由 `getAllBuiltinToolLoaders()` **全量视图**生成，含条件工具 ⇒ 与构建变体/环境无关）。改动工具清单后运行 `bun run gen:toolnames` 重新生成，本处数字随之同步。
 
 ### ⏱ 长任务与等待态可见性
 
@@ -374,7 +376,7 @@ Liri/                            # 工程根目录
 │   │   ├── acp/                 # Agent Communication Protocol
 │   │   ├── ai/                  # AI 模型适配层
 │   │   ├── agent/               # AI Agent 核心
-│   │   ├── tools/               # 81 个内置工具实现
+│   │   ├── tools/               # 内置工具实现（73 个）
 │   │   ├── channels/            # 26 个消息通道
 │   │   ├── mcp/                 # MCP 协议实现
 │   │   ├── security/            # 安全防护体系（5 层）

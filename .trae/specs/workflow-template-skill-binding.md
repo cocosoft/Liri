@@ -1,6 +1,12 @@
 # 工作流模板 → 技能绑定 Spec（P2-1 绑定语义）
 
-> 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
+> 版本: 1.1 | 创建: 2026-09-13 | 更新: 2026-10-11 | 状态: **⚠️ 未落地（原标"首版已完成"有误，2026-10-11 复核实测）**
+> ⚠️ **2026-10-11 复核（CS06）**：本 spec 的自称交付物在本仓**零命中** ——
+> `workspace/builtinWorkflowTemplates.ts`、`skills/loaders/sources/WorkflowTemplateSkillProvider.ts`、
+> `BUILTIN_WORKFLOW_TEMPLATES`、其单测 `WorkflowTemplateSkillProvider.test.ts` 全仓 grep **均无命中**
+> （覆盖 `app/` 全体）。⇒ 原状态"首版已完成"**不成立**，本 spec 属台账「4 份 `workflow-*` Spec 声称'已完成'，
+> 但对应代码在本仓**不存在**」之列。**读本 spec 时请把 §3/§5 的交付物视为"未实现的设计"**。
+> 实现前请先裁定：模板清单以**技能提示词注入**（§2 选项 C）落地，还是随 P2-1 绑定一并重估。
 > 关联: GR15 / CS01（复用技能体系，不另造）/ CS02 / PY_APP §2（不做投机性扩展）/ project_rules §1.15（技能来源契约与"仅提示词注入"）
 > 前置：`.trae/specs/workflow-template-persistence.md`（P2-1 落盘）
 

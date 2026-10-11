@@ -1,6 +1,10 @@
 # 工作流有界取消（宽限期强结算）Spec — P2-2 可交付部分
 
-> 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
+> 版本: 1.1 | 创建: 2026-09-13 | 更新: 2026-10-11 | 状态: **首版已完成（实现经 2026-10-11 复核确认真实；测试文件已迁移）**
+> ⚠️ **2026-10-11 复核（CS06）**：实现物实测均在 —— `modules/workflow/types.ts`（`gracePeriodMs?`）、
+> `WorkflowEngine.ts`（`DEFAULT_CANCEL_GRACE_MS` / `raceWithCancelGrace`）。**测试文件已迁移**：§6 所指
+> `modules/__tests__/WorkflowRunObserver.test.ts` 现为 `app/tests/modules/workflow/WorkflowStepObserver.test.ts`
+> （宽限期强结算 / 预检取消 / 宽限语义①② 用例实测在册）。
 > 关联: GR15 / CS03（回退最小化）/ PY_APP §2（不做投机性扩展）
 > 前置：`.trae/specs/workflow-run-lifecycle.md`（P1-4 取消贯通）/ 路线图阶段四第 15 项（可行性修正）
 

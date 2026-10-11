@@ -32,7 +32,7 @@
 | D3 | **4 个内建模板保持代码内静态**，不入库 | 它们是产品内置能力，不是用户数据；入库会引入"内置被误删/篡改"风险 |
 | D4 | handler 只替换存储层，**语义/状态码/日志不变**；`update`/`delete` 的 404 判定改由 store 的 get/remove 结果驱动 | 最小侵入；且消除原 `has()` + `delete()` 两次访问 |
 | D5 | **不在本批**做"模板 ↔ Provider 绑定"，也不处理 P3-1（前端 `workspaceService` 5 个方法无组件引用） | 绑定涉及两套类型族语义差异（`WorkflowTemplate` 带 `suggestedAgentRole`，不驱动工具调用），需独立决策 |
-| D6 | P3-2（`ENABLE_WORKFLOWS` / `WORKFLOW_SCRIPTS` 特性位）**已由 V-3 删除闭环**，无需再处理 | 见 `预存错误与待处理问题.md` V-3 |
+| D6 | P3-2（`ENABLE_WORKFLOWS` / `WORKFLOW_SCRIPTS` 特性位）~~**已由 V-3 删除闭环**~~ ⚠️ **原结论有误（2026-10-11 复核）**：V-3 首轮仅完成"摘注册入口"一步（S3-2 步骤①）⇒ 当时**未闭环**。**已闭环（2026-10-11，S3-2 步骤②）**：`ENABLE_WORKFLOWS` / `WORKFLOW_SCRIPTS` 特性位已删、`docs/CORE_MODULES.md` 文档条目已删、`ToolFactory.createWorkflowTool()` 桩已删（残留检索 0 命中） | 见 `workflow-definition-externalization.md` §6（步骤①/② 记录） |
 
 ## 4. 影响文件
 

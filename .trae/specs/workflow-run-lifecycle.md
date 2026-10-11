@@ -1,10 +1,16 @@
 # 工作流 Run 生命周期 Spec（P1-4）
 
-> ⚠️ **部分交付物不在本仓（2026-09-26 核实）**：本 spec 声称的"已完成"中**有若干交付物在本仓 git 历史中从未存在**（据台账逐项反证：`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
-> ✅ 但 seam 的**通用构件确实在代码里**（`WorkflowEngine.ts` / `WorkflowStepLedger.ts` / `types.ts` / `WorkflowError.ts`）。
-> 📌 详见 `dev_docs/error_repairs/预存错误与待处理问题.md` → 「4 份 `workflow-*` Spec 声称"已完成"，但对应代码在本仓**不存在**」条。**读本 spec 时不要把"已完成"的声明当作能力已可用。**
-
-> 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
+> 版本: 1.1 | 创建: 2026-09-13 | 更新: 2026-10-11 | 状态: **首版已完成（实现经 2026-10-11 复核确认真实；测试文件名已迁移）**
+> ⚠️ **2026-10-11 复核更正（CS06）**：上面那段"部分交付物不在本仓"的 ⚠️ 模板**对本 spec 属误植** ——
+> 其列举的反证物（`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、
+> `EventSchemaConsistency.test.ts`）属 **`workflow-run-record.md`** 的范畴；本 spec 的实现物经实测**均在**：
+> `modules/workflow/types.ts`（`WorkflowExecuteOptions`）、`WorkflowEngine.ts`、`WorkflowStepLedger.ts`、
+> `WorkflowError.ts`、`modules/doc/orchestration/DocOrchestratorProvider.ts`（**已存在**，非"从未存在"）。
+> ✅ **测试文件已迁移**：§3 #7 与 §7 所指 `WorkflowRunObserver.test.ts` 现为
+> `app/tests/modules/workflow/WorkflowStepObserver.test.ts`（取消用例：预检取消 / 宽限期强结算 / 宽限语义①②，实测在册）。
+> 📌 台账「4 份 `workflow-*` Spec 声称"已完成"」条仍适用于 `workflow-run-record.md` 的 §12 与 `workflow-template-skill-binding.md`。
+>
+> > 原始 ⚠️（2026-09-26，**系 `workflow-run-record.md` 的模板误植至此**）：部分交付物不在本仓（`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
 > 关联: GR15 / R06-008（分层：取消信号由调用方提供）/ CS01 / CS03（回退最小化）/ PY_APP §2（不做投机性扩展）
 > 前置：`.trae/specs/workflow-engine-seam.md`（P1-1）/ `.trae/specs/workflow-run-record.md`（P1-3）
 

@@ -715,6 +715,465 @@
       "changelog": ["v0.4.75"],
       "reopenWhen": "修改 mergeResults 的融合/归一化、matchType 取值域或下游分档阈值时",
       "notes": "值域由 Σw/(k+rank+1)（≈1/61 量级）收敛为除以 rrfMaxScore 上界的 (0,1]；重叠文档 matchType 由 keyword/semantic 收敛为 'hybrid'。"
+    },
+    {
+      "id": "TOOLVIS-1",
+      "title": "工具可见性：shell 回归通用任务集 + tool_search 检索面覆盖全量（真机长程任务事故）",
+      "source": "导出会话 chat-export-1791690397582.md + 运行日志 `streamMessage:tools — 按任务裁剪工具集`（taskType=default，removedNames 含 bash/powershell）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/toolCategories.ts",
+        "app/src/tools/ToolSearchTool/ToolSearchTool.ts",
+        "app/src/tools/ToolSearchTool/schemas.ts",
+        "app/src/chat/orchestrator/streamMessageToolSelection.ts",
+        "README.md"
+      ],
+      "tests": [
+        "app/tests/tools/toolCategories.test.ts",
+        "app/tests/chat/orchestrator/toolSelection.test.ts",
+        "app/tests/tools/toolSearchCoverage.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "修改 TASK_TOOL_CATEGORIES 白名单 / ARCHIVED_MISC_TOOLS / tool_search 检索面 / K4 执行意图提升条件时",
+      "notes": "① chat/default 白名单补 'shell'（shell 属通用执行能力，小上下文由 local 集兜底）⇒ 普通会话可跑命令；② tool_search 关键词分支由「仅延迟工具」放宽为「全量已注册 − 有意归档」，与 select: 分支口径一致（被裁剪的内置工具可被检索），并排除 ARCHIVED_MISC_TOOLS 避免成为绕过归档的旁路；③ README 工具计数 81 → 73（事实源 toolNames.generated.ts#TOOL_NAMES_COUNT）。K4 判定保持不变（仅订正其已过时的注释）。"
+    },
+    {
+      "id": "TOOLGOV-S1-1",
+      "title": "工具治理 S1-1：审批身份绑定升级（SHA-256 + 执行作用域绑定 + 审批快照）",
+      "source": "工具治理方案-20261011 §4 阶段 1（P0/G10）；外部审查 openai 0808 §2/§15/§21 与 0809 专项A（审批哈希抹引号语义）+ 2026-10-11 方案评审（审批对象≠执行对象）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/permission/ApprovedCommandRegistry.ts",
+        "app/src/permission/index.ts",
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/src/chat/ChatManager.ts",
+        "app/src/infrastructure/http/handlers/inbox-handlers.ts"
+      ],
+      "tests": [
+        "app/tests/permission/ApprovedCommandRegistry.test.ts",
+        "app/tests/tools/BashToolApproval.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "修改 hashCommand/hashEnvForApproval/computeScopeDigest、isApproved 的作用域判定、BashTool 的 approvalScope/approvalSnapshot 产出，或审批卡 metadata 的 scope 传递链（ToolExecutionService/ChatManager/inbox-handlers）时",
+      "notes": "① hashCommand 由 djb2 32 位改为 SHA-256 前 128 bit（32 hex）；② 新增执行作用域绑定：ApprovalScope{platform,cwd,envDigest}（env 只存摘要，sanitizeCallerEnv 后取 SHA-256），isApproved 传入 scope 时必须与记录 scopeDigest 一致，缺失即 fail-closed 视为未批准；③ 新增审批快照（原始命令/规范化命令/改写项）与 capabilityDigest 预留字段，经 BashTool ask metadata → ToolExecutionService → ChatManager → inbox-handlers 全链落库；④ 作用域不一致时安全命令仍可执行（仅不复用批准），危险命令照旧被硬拦截。e2eVerified=false（未做真机端到端审批交互验证）。"
+    },
+    {
+      "id": "TOOLGOV-S1-2",
+      "title": "工具治理 S1-2：硬拦截与灰度开关解耦（DENY 不可被 FEATURE_BASH_APPROVED_REVALIDATE 绕过）",
+      "source": "工具治理方案-20261011 §4 阶段 1（P0/G11）；实证：BashToolApproval.test.ts 原断言「灰度关 ⇒ 已批准的危险命令跳过拦截」把漏洞记为期望行为",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/tools/bash/BashTool.ts"],
+      "tests": ["app/tests/tools/BashToolApproval.test.ts"],
+      "changelog": [],
+      "reopenWhen": "修改 BashTool 硬拦截层结构（路径/危险命令/危险模式/AST/deny/白名单/沙箱）或 BASH_APPROVED_REVALIDATE 语义时",
+      "notes": "① 原条件 `if (!isApproved || revalidateApproved)` 允许「已批准 + 灰度关」整体跳过硬拦截层 ⇒ env 一键置 FEATURE_BASH_APPROVED_REVALIDATE=false 即可绕过 DENY；现改为硬拦截层**恒定执行**，批准仅豁免 ask 分支（bypassAsk）；② 开关语义收敛为「关 ⇒ 已批准命令免重复 ask；开 ⇒ 已批准命令仍按 ask 复检」，两者都不影响硬拦截；③ 订正 :598-601 与 featureFlags 实际值（true）相反的误导注释；④ 同步更新把旧行为写成期望的守卫测试为「开关关掉仍拦 DENY」。"
+    },
+    {
+      "id": "TOOLGOV-S1-3",
+      "title": "工具治理 S1-3：toolCallId 熵 + tool_calls 唯一约束（碰撞不再错行结算）",
+      "source": "工具治理方案-20261011 §4 阶段 1（G13）；外部 openai 0809 §3.3（确定性 ID 缺陷）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/ai/transports/GeminiTransport.ts",
+        "app/src/ai/providers/OllamaProvider.ts",
+        "app/src/execution/ExecutionStore.ts"
+      ],
+      "tests": [
+        "app/tests/ai/transports/geminiToolCallIdEntropy.test.ts",
+        "app/tests/execution/ExecutionStore.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "修改 toolCallId 生成处（GeminiTransport/OllamaProvider/其它 parser），或 tool_calls 表结构、recordToolCall/settleToolCall 的判定条件与唯一索引时",
+      "notes": "① 熵：GeminiTransport 由序号 `call_${toolCalls.length}` 改为 `call_${randomIdSuffix(10)}`（crypto，40 bit；跨轮不再复用 call_0）；OllamaProvider 无供应商 id 时由 `call_${Date.now()}`（同毫秒碰撞）改为 `call_${randomIdSuffix(10)}`；② DB 兜底：新增 best-effort `CREATE UNIQUE INDEX uq_tool_calls_exec_tcid (execution_id, tool_call_id)`（历史库存在重复行则创建失败仅留痕、不阻断启动，对照 execution_events 的 B-03 处理）；③ recordToolCall 幂等判据由「已有未结算行」放宽为「已有任意行」，与 settleToolCall 一致，避免唯一索引生效后正常重放触发 UNIQUE 冲突导致 beginToolCall=false 误 fail-closed。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-S1-4",
+      "title": "工具治理 S1-4：删死常量 BashOutputSchema + 工具结算改可等待（G16/G17）",
+      "source": "工具治理方案-20261011 §4 阶段 1（G16/G17）；外部 openai 0808 §22/§30（死代码/后置结算未 await）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/execution/ExecutionManager.ts",
+        "app/src/chat/ChatManager.ts"
+      ],
+      "tests": ["app/tests/chat/chatManagerToolLedgerFailClosed.test.ts"],
+      "changelog": [],
+      "reopenWhen": "重新引入 BashTool 输出 schema、或恢复 ChatManager 的非等待结算（settleToolCall）路径时",
+      "notes": "① G16：删除死常量 BashOutputSchema —— CD01 静态引用核查全仓仅 1 处（定义），且为非导出的模块私有 const ⇒ 无静态/动态/配置入口（CD02/CD03 不适用），删除安全；② G17：`ExecutionManager` 新增 **可等待** `endToolCall()`（与 beginToolCall 对称；结算属观测面，失败内部 catch 留痕不抛），`ChatManager.executeTool` 由 fire-and-forget 的 `settleToolCall` 改为 `await endToolCall`，消除「工具已返回、DB 仍在写」的观测窗口；③ `settleToolCall`（void）保留，供其它非关键路径使用。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-S1-5",
+      "title": "工具治理 S1-5：命令规范化单一事实源 + Windows Unix 敏感目录探测（G22/G10 同根）",
+      "source": "工具治理方案-20261011 §4 阶段 1（S1-5 / G22）与 §4.5.4 修正 2；2026-10-11 方案评审第 3 条",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/bash/commandNormalization.ts",
+        "app/src/tools/bash/BashTool.ts"
+      ],
+      "tests": ["app/tests/tools/commandNormalization.test.ts"],
+      "changelog": [],
+      "reopenWhen": "修改命令预处理/规范化口径（/tmp→%TEMP%、/dev/null→NUL、全角冒号加引号）、路径提取正则、isPathSafe 平台分支表，或 BashTool 审批哈希/安全拦截/spawn 任一消费点从 standardizeCommand 改回各自解析时",
+      "notes": "① 新建 `commandNormalization.ts`（纯函数）作为命令规范化唯一入口 `standardizeCommand()`，一次产出 raw/preprocessed/normalized/rewrites/paths/baseCommand；`BashTool` 的预改写（迁入 `preprocessWindowsCommand`）、审批快照（normalized）、安全拦截路径检查（std.paths）、白名单/解释器判定（std.baseCommand）、最终 spawn（std.preprocessed）**全部读同一对象**（消除各算各的口径漂移）；② 明确 `preprocessed` 用于 spawn（逐字保留多行）、`normalized` 仅用于哈希与展示（normalizeCommand 会折叠换行，**不可** spawn）；③ G22：`isPathSafe` Windows 分支补 Unix 敏感系统目录 fail-closed（经 `isUnixSensitivePath`，仅匹配 /etc /usr /proc /sys /dev /root /boot /bin /sbin /var /home /lib /opt，**不**误伤 `dir /b`、`findstr /i` 等合法开关）；④ 路径提取由「仅首个内联匹配」改为「全部候选」（含反斜杠根路径 \\etc）；⑤ `cd /x` 仍以「禁止:」告警阻断（现状即阻断，非仅 warning）。e2eVerified=false（未做真机审批交互验证）。"
+    },
+    {
+      "id": "TOOLGOV-S2-1",
+      "title": "工具治理 S2-1：工具调用状态语义化（枚举 + 转移表 + 收窄 union）",
+      "source": "工具治理方案-20261011 §4 阶段 2（G14）；外部 openai 0809 §3.3/§5.1",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/execution/types.ts",
+        "app/src/execution/ExecutionStore.ts",
+        "app/src/execution/ExecutionManager.ts"
+      ],
+      "tests": ["app/tests/execution/ExecutionStore.test.ts"],
+      "changelog": [],
+      "reopenWhen": "修改 tool_calls 状态词表（TOOL_CALL_STATUSES/终态集合/转移表）、settleToolCall/finishToolCall 的状态入参类型，或新增 tool_calls 状态写入点时",
+      "notes": "① `execution/types.ts` 新增语义化枚举 `TOOL_CALL_STATUSES`、`ToolCallStatus`、`TOOL_CALL_TERMINAL_STATUSES`、转移表 `TOOL_CALL_TRANSITIONS` + `canTransitionToolCall`/`isToolCallTerminalStatus`/`isToolCallStatus`，并导出 `TOOL_CALL_INITIAL_STATUS`/`TOOL_CALL_UNKNOWN_STATUS`（对照既有 `EXECUTION_STATUSES`/`canTransition` 范式，CS01 复用）；② `ExecutionStore` 三处 SQL 字面量改引用（recordToolCall/settleToolCall 插入 `running`、markUnsettledToolCallsUnknown 的 `unknown` ⇒ 绑定参数）；`PersistedToolCall.status` 由 `string` 收窄为 `ToolCallStatus`；③ `settleToolCall`/`finishToolCall` 仅接受终态（非终态忽略并留痕），`listToolCalls` 读回经 `isToolCallStatus` 边界校验（非法值归 `unknown` + 留痕）；④ **取值修正（如实）**：方案原列 `prepared`/`succeeded` 未采纳 —— `prepared` 无生产者（`recordToolCall` 落盘即 `running`），`completed` 与 `executions` 的 `COMPLETED` 同源、改名需数据迁移且破坏「数出同源」；实际枚举 = running/completed/failed/unknown。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-S2-3",
+      "title": "工具治理 S2-3：契约与清单门禁（部分：G7/G4/G8/G6 落地，G5 待设计）",
+      "source": "工具治理方案-20261011 §4 阶段 2（G7/G8/G5/G6/G4）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/core/featureFlags.ts",
+        "app/src/core/index.ts",
+        "app/src/tools/utils/ToolFeatureFlags.ts",
+        "app/scripts/gen-tool-names.ts",
+        "app/src/constants/toolNames.generated.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolTypesShimGuard.test.ts",
+        "app/tests/tools/toolNameLists.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "重命名 core 的工具开关键名导出、修改 tools/types/* 转发形态、修改工具名生成脚本头注口径、或调整 TOOL_CATEGORIES 的命名空间族时",
+      "notes": "① G7：`core/featureFlags.ts` 的导出 `TOOL_NAMES`（实为 `ENABLE_*` 开关键名，与生成物真工具名同名不同物）重命名为 `TOOL_FLAG_KEYS`，同步 `core/index.ts` 与 `tools/utils/ToolFeatureFlags.ts`（`getToolFlag` 入参名一并订正为 flagKey）；② G4：`scripts/gen-tool-names.ts` 头注由「全量」订正为「全量 ∧ 可实例化」并注明被排除名无法列出（台账 D-40/D-41），重生成后名字列表不变（73）；③ G8：新增 `tests/tools/toolTypesShimGuard.test.ts` 守卫 `tools/types/*` 只允许 re-export（防就地声明造成双轨）；④ G6：`toolNameLists.test.ts` 新增「运行期注册族快照」（`TOOL_CATEGORIES` 命名空间族前缀集合恒定：calendar/knowledge/mail/office/workflow，新增族即失败）；⑤ **G5 未落地（如实）**：`TOOL_NAMES ⊄ REGISTERED`（现有扫描行首锚定，13 个名字以内联对象字面量/常量赋值声明匹配不到）⇒ 需独立设计「仅识别真实工具类」的扫描口径，本轮不硬上以免假阳性门禁。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-S2-2",
+      "title": "工具治理 S2-2：取消全链路（MCP / WebFetch 接上下文取消信号）",
+      "source": "工具治理方案-20261011 §4 阶段 2（G15）；外部 openai 0808 §13/§14/§26、0809 C-05",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/mcp/MCPTool.ts",
+        "app/src/services/mcp/McpToolWrapper.ts",
+        "app/src/tools/WebFetchTool/WebFetchTool.ts"
+      ],
+      "tests": ["app/tests/tools/toolCancellation.test.ts"],
+      "changelog": [],
+      "reopenWhen": "修改 MCPTool/McpToolWrapper 的 callTool 调用、WebFetchTool.fetchWithRedirectGuard 的信号组装，或新增「长耗时工具但不接上下文取消信号」时",
+      "notes": "① `MCPTool`（action='call'）与 `McpToolWrapper` 均改为 `callTool(params, undefined, { signal: context.abortController.signal })`（SDK `RequestOptions.signal`，见 `@modelcontextprotocol/sdk` shared/protocol.d.ts）；`McpToolWrapper` 形参由弃用的 `_context` 改回 `context`；② `WebFetchTool.fetchWithRedirectGuard` 增 `externalSignal` 参，用 `AbortSignal.any([timeoutController.signal, externalSignal])` 合并「超时」与「上下文取消」；③ WebFetch 的 `AbortError` catch 分支区分「用户取消」（报 `Request canceled`）与「超时」（报 `Request timed out after Xms`）—— 原实现一律报超时 ⇒ 误导（此为消除新语义回归的必要改动）；④ 测试 `toolCancellation.test.ts` 打桩 fetch / 假 SDK client，断言「取消 ⇒ 捕获到的 signal.aborted === true」。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-S2-6",
+      "title": "工具治理 S2-6：工具调用可观测性补全（统一指标 + Tool-Use Context Entropy）",
+      "source": "工具治理方案-20261011 §4 阶段 2 与 §4 观测项（google A4 + 第 3 批 N4）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/monitoring/ToolMetrics.ts",
+        "app/src/tools/index.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/src/chat/orchestrator/streamMessageFlow.ts"
+      ],
+      "tests": ["app/tests/tools/toolMetrics.test.ts"],
+      "changelog": [],
+      "reopenWhen": "修改 ToolMetrics 指标名/标签、ToolExecutionService.execute 的统一出口插桩、或 streamMessageFlow 的工具集裁剪/Entropy 观测量时",
+      "notes": "① 新建 `tools/monitoring/ToolMetrics.ts`（对照 `channels/monitoring/ChannelMetrics.ts` 范式：按维度懒建 counter/histogram 并缓存 ⇒ 避免每次调用重建导致计数归零；经 `MetricsService` → `MetricsBridge` 桥接 OTel）；② **①统一指标**：`tools.invocation.total`（labels tool/result）+ `tools.invocation.duration_ms` / `input_bytes` / `estimated_tokens`（labels tool），唯一插桩点 = `ToolExecutionService.execute` 的 `finally`（工具执行唯一出口，覆盖成功/错误/超时全路径）；③ **②Tool-Use Context Entropy**：`tools.schema.tokens`（histogram）+ `tools.schema.context_entropy_percent`（gauge），唯一插桩点 = `streamMessageFlow` 工具集裁剪之后（记录本轮**最终** Schema；分母 = `resolveContextWindow(model).tokens`，唯一事实源 = DB `model_registry`）；④ **③误调用率**由 ① 的 `result=error` 计数**派生**（error/total），**不**做错误文案字符串分类（CS02）；⑤ `ToolExecutionService.execute` 的 catch 分支补 `latestResult = …`（使 finally 指标如实记 `result=error`；行为等价，仅留存引用）；⑥ 缺省字段不记录（CS06 不臆造）。e2eVerified=false（未在真机整轮对话中读取指标值）。"
+    },
+    {
+      "id": "TOOLGOV-S3-1",
+      "title": "工具治理 S3-1：变体链路与 CI 矩阵（G1/G2/G3）——正名 + 接线 + 变体矩阵",
+      "source": "工具治理方案-20261011 §4 阶段 3（S3-1 / G1/G2/G3）；G1 依 D1 裁定（接线）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/scripts/build-variant.ts",
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [
+        "app/tests/scripts/buildVariantNaming.test.ts",
+        "app/tests/config/featureFlagContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再次在 build-variant.ts 写入「编译/构建完成/输出目录 dist」等**名不副实**输出、改 `feature()` 的变体层解析、或增删 ci.yml 的变体矩阵时",
+      "notes": "① **G2（正名）**：`scripts/build-variant.ts` 头注与运行输出订正为「变体 flags 生成（不做编译）」；守卫 `buildVariantNaming.test.ts`（去注释断言不含「执行 TypeScript 编译」「构建完成」）。② **G1（接线，依 D1 裁定）**：`feature()` 改为三层优先（env → `BUILD_VARIANT_FLAGS` → `FEATURE_FLAGS`）⇒ 变体 flags **真正生效**；`build-variant.ts` 头注由「G1 已知债务（无消费者）」订正为「已接线」；明细见 `TOOLGOV-D1`。③ **G3（CI 变体矩阵）**：`.github/workflows/ci.yml` 新增 `variant-check` 作业 —— `matrix.variant=[core, coding, enterprise]`，每变体：生成 `BUILD_VARIANT_FLAGS` → `typecheck` → 跑工具面/契约门禁（`toolNameLists.test.ts` + `featureFlagContract.test.ts`，注入 `LIRI_BUILD_VARIANT`）⇒ 低成本（**不**跑全量测试，避免 ×N），对齐 S3-1 的「至少 typecheck + 工具面快照」。e2eVerified=false（变体矩阵需在 GitHub Actions 实际运行方能确认，本轮仅静态落地）。"
+    },
+    {
+      "id": "TOOLGOV-S3-2",
+      "title": "工具治理 S3-2（步骤①+②）：ToolFactory 死桩入口摘除 + 实现/死特性位删除（G19 / CD05–CD06）",
+      "source": "工具治理方案-20261011 §4 阶段 3（S3-2 / G19）；删除流程规则 `code-deletion.md` CD01–CD06；既有裁定 `.trae/specs/workflow-definition-externalization.md` D5（V-3 选删除）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/utils/ToolManagerUtils.ts",
+        "app/src/tools/ToolFactory.ts",
+        "app/src/core/featureFlags.ts",
+        "app/docs/CORE_MODULES.md",
+        ".trae/specs/workflow-definition-externalization.md",
+        ".trae/specs/workflow-template-persistence.md"
+      ],
+      "tests": ["app/tests/tools/toolFactoryDeadStubs.test.ts"],
+      "changelog": [],
+      "reopenWhen": "重新把「恒返回 null 的工厂方法」或其死特性位加回（`ToolFactory` / `buildBuiltinToolLoaders` / `featureFlags`）时",
+      "notes": "**步骤①（2026-10-11，CD05「先摘入口」）**：对 G19 的 4 个**恒 `return null`** 死桩（`createRemoteTriggerTool`/`createSendUserFileTool`/`createSnipTool`/`createWorkflowTool`）摘除其 `cond(coreFeature(...))` 注册入口 ⇒ 行为零变更。**步骤②（2026-10-11，CD05 后半「再删实现」）**：删除 4 个方法体（`ToolFactory.ts`；全仓零调用方、零行为）+ 删死特性位 `WORKFLOW_SCRIPTS`/`ENABLE_WORKFLOWS`（`core/featureFlags.ts`，二者零消费者）+ 删 `docs/CORE_MODULES.md` 文档条目；`DocModule.createWorkflowTool()`（私有真实实现）保留 ⇒ 同名不同物（R06-005）**消解**。**D1 接线后 `feature()` 消费 `BUILD_VARIANT_FLAGS`，而两死特性位均不在 `VARIANT_CONFIGS` 中**，删除不影响变体层。六步核查：CD01 全仓 grep 4 名仅剩定义与注释（测试已随步骤②改写）；CD02/CD03 无构建/插件/DI/协议入口；CD04 测试 `toolFactoryDeadStubs.test.ts` 改断言「方法已移除 + 死特性位已删」（含负向夹具自证）；CD06 删除可 `git revert`。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-GATE-SELFPROOF",
+      "title": "工具治理门禁自证：4 个新增门禁在**负向夹具**下失败（S2-3 G8/G6、S3-1 G2、S3-2 死桩）",
+      "source": "工具治理方案-20261011 §5 验证方案（「门禁：负向夹具失败、现状通过」的自证有效要求）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/tests/tools/toolTypesShimGuard.test.ts",
+        "app/tests/tools/toolNameLists.test.ts",
+        "app/tests/scripts/buildVariantNaming.test.ts",
+        "app/tests/tools/toolFactoryDeadStubs.test.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolTypesShimGuard.test.ts",
+        "app/tests/tools/toolNameLists.test.ts",
+        "app/tests/scripts/buildVariantNaming.test.ts",
+        "app/tests/tools/toolFactoryDeadStubs.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "修改这 4 个门禁的判据（shim 行判定 / 命名空间族派生 / build-variant 误导文案清单 / 死桩方法清单）时 —— 须同步保留其负向夹具自证用例",
+      "notes": "把每个门禁的**判据抽成纯函数**（`findShimOffenders` / `deriveNamespaceFamilies` / `findMisleadingClaims` / `findDeadStubRegistrations`），真实扫描与**负向夹具**共用同一函数 ⇒ 自证「门禁非恒真」：① G8 shim：`export const/function/type X = …` 夹具被判违规；② G6 族快照：虚构 `billing:pay` 被判为新族；③ G2 正名：含「执行 TypeScript 编译」「构建完成」的夹具被判违规；④ S3-2 死桩：注册面含 `createSnipTool`/`createWorkflowTool` 的夹具被判违规。此前这些门禁只验证「现状通过」，不满足方案 §5「负向夹具失败（自证有效）」；本轮补齐。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-DOC-INTEGRITY",
+      "title": "文档完整性复核（S3-4）：workflow-* Spec 的『已完成』声明逐条回仓核验并纠正",
+      "source": "工具治理方案-20261011 §4 阶段 3 新增 S3-4；动因：S3-2 发现 `workflow-definition-externalization.md` 的假 ✅（台账「4 份 workflow-* Spec 声称已完成但代码不存在」同族）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": false, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        ".trae/specs/workflow-template-persistence.md",
+        ".trae/specs/workflow-template-skill-binding.md",
+        ".trae/specs/workflow-run-lifecycle.md",
+        ".trae/specs/workflow-bounded-cancel.md",
+        ".trae/specs/workflow-engine-seam.md"
+      ],
+      "tests": ["app/tests/modules/workflow/WorkflowStepObserver.test.ts"],
+      "changelog": [],
+      "reopenWhen": "修改 workflow-* 任一 spec 的状态/交付物声明、或再次出现『spec 声称已完成但 grep 零命中』时",
+      "notes": "对 `workflow-*` 家族逐条回仓核验『已完成』声明（CS06）：① `workflow-template-persistence.md` D6 原称 V-3 删除『已闭环』⇒ **有误**（V-3 仅完成『摘注册入口』一步；`ENABLE_WORKFLOWS`/`WORKFLOW_SCRIPTS`/`CORE_MODULES.md` 条目/工厂桩仍在）⇒ 已按实修正并链到 S3-2；② `workflow-template-skill-binding.md` 原标『首版已完成』⇒ **交付物零命中**（`builtinWorkflowTemplates.ts`/`WorkflowTemplateSkillProvider.ts`/`BUILTIN_WORKFLOW_TEMPLATES`/其单测全仓无）⇒ 状态改『未落地』+ ⚠️；③ `workflow-run-lifecycle.md` 与 `workflow-engine-seam.md` 顶部的『部分交付物不在本仓』⚠️ 属 **workflow-run-record 的模板误植**（其反证物属后者范畴）⇒ 已标注更正；两 spec 实现物经实测**均在**（`WorkflowEngine.ts`/`WorkflowStepLedger.ts`/`WorkflowError.ts`/`WorkflowExecuteOptions`/`DocOrchestratorProvider.ts`）；④ 测试文件名漂移：`modules/__tests__/WorkflowRunObserver.test.ts`（两份 spec 所引）现为 `app/tests/modules/workflow/WorkflowStepObserver.test.ts`（取消/宽限用例实测在册）⇒ 已在 spec 内更正；⑤ `workflow-run-record.md` 经核验**已自诚实**（§12 复核 + 其 §13/§14/§15 已记录实建，且 §12 的『不存在』被后续『已实建』接续说明）⇒ 不改。本轮**仅文档**变更（不改代码）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D11-B",
+      "title": "工具治理 D11（裁定 B）：工具名全量常量表 —— 声明面单一来源 + G5 门禁 + 台账 D-40/D-41 闭合",
+      "source": "工具治理方案-20261011 §4 阶段 4 D11（用户裁定 B「全量常量表」，2026-10-11）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/toolNameConstants.ts",
+        "app/scripts/gen-tool-names.ts"
+      ],
+      "tests": ["app/tests/tools/toolNameLists.test.ts"],
+      "changelog": [],
+      "reopenWhen": "新增/删除工具、改变 loader 注册面、或新增 flag-gated 条件工具时（须同步 TOOL_NAME_CONSTANTS 与 toolNameLists 的已知条件集）",
+      "notes": "① 新建 `tools/toolNameConstants.ts` 的 `TOOL_NAME_CONSTANTS`（**90 项 = 73 生效名 + 17 条件名**）为工具名**唯一来源**；**63 个工具类**的 `name` 字段改为引用它（值保持 ⇒ 行为等价）；② `toolNameLists.test.ts` 的『声明面』由旧 `scanRegisteredToolNames()`（行首锚定，两类盲区：收进非工具 `name` 字段 / 查不出『声明却无 loader』）改读该常量表 ⇒ **既精确又完备**；③ **G5 门禁落地**（两条）：生效面 ⊆ 声明面；`声明面 − 生效面` 必须等于**显式登记的条件工具集**（17 项：agents_list/kanban/mcp_auth/music_generate/nodes/pdf/propose_plan/send_message/sessions_send/sessions_spawn/session_status/task_output/team_create/team_delete/thinking/tts/update_plan），新增未知差额即失败；④ `gen-tool-names.ts` 现**可列出被排除名**（从常量表反查：『清单 78 条中有 5 条加载器返回 null … 被排除名共 17』），台账 **D-40/D-41 闭合**；`main` 改 async 并 `await main()`（否则 `process.exit(0)` 抢先）。**未纳入本轮**：对象字面量形态工具（VFS 4 / project-file 2 等 `name: '...'` 无 `=`）仍保留字面量（其名已在表内，后续批次迁）。验证：typecheck 0 error；lint:arch 错误 0；全量 `bun test tests/` 5388 pass / 0 fail；重生成后 `toolNames.generated.ts` 不变（73）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-G-C5",
+      "title": "工具治理 G-C5（裁定「登记不删」）：ON_DEMAND 触发路径零消费方 —— 登记事实 + 替代保护 + reopen 条件",
+      "source": "工具治理方案-20261011 §4 阶段 3 S3-3（G-C5；用户裁定「① 登记不删」，2026-10-11）；删除流程规则 `code-deletion.md` CD07",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [
+        "app/src/core/LazyModuleStrategy.ts",
+        "app/src/modules/ModuleInitializer.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 接管 `requestOnDemandModule`/`requestModule` 的调用方（使 ON_DEMAND 真正被触发）**且**② 解除 `security`/`sandbox` 由 Bash 链的静态导入时 —— 届时须补 fail-closed 兜底与实测",
+      "notes": "**只登记不删除**（CD07 关键域：沙箱/安全/通道类「运行时按平台/能力启用」的表面，静态零调用 ≠ 运行时可删）。取证：① **声明侧有效** —— `LAZY_MODULE_STRATEGY` 中 `security`/`sandbox` 等 `loadMode = DynamicLoadMode.ON_DEMAND`，且 `DYNAMIC_IMPORT_LOADERS` 有对应 `import('字面量')` 条目（门禁 R00-003 只识别字面量）；② **触发侧零调用方** —— `ModuleInitializer.requestOnDemandModule()` 与 `core.requestModule()` **全仓无调用**（仅 `modules/index.ts` 转出）⇒ ON_DEMAND **从未被触发**，实际等价静态/CRITICAL 加载；③ 且 `security`/`sandbox` 被 Bash 链**静态导入**（`tools/bash/BashTool.ts` 等）⇒ 『省启动开销』的意图当前不可能生效。处置（**登记不删**）：在 `core/LazyModuleStrategy.ts` 的 `DYNAMIC_IMPORT_LOADERS` 头注 + `modules/ModuleInitializer.requestOnDemandModule` JSDoc 登记上述事实，含 **替代保护**（安全/沙箱链路可用性由静态导入兜底，不存在『未就绪窗口』）与 **reopen 条件**。零行为变更（无自动化测试 —— 登记/说明类）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D1",
+      "title": "工具治理 D1（裁定「接线」）：feature() 三层优先 —— env → BUILD_VARIANT_FLAGS → FEATURE_FLAGS",
+      "source": "工具治理方案-20261011 §4 阶段 4 D1（用户裁定「接线」，2026-10-11）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/core/featureFlags.ts",
+        "app/src/core/buildVariantFlags.ts",
+        "app/scripts/build-variant.ts",
+        "app/src/constants/toolNames.generated.ts",
+        "app/src/tools/toolEffects.ts",
+        "app/src/tools/toolCategories.ts"
+      ],
+      "tests": [
+        "app/tests/config/featureFlagContract.test.ts",
+        "app/tests/tools/toolNameLists.test.ts",
+        "app/tests/tools/notebook.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改 feature() 的解析优先级、换默认构建变体、或增删 VARIANT_CONFIGS 的键（须同步门禁与 G5 已知条件集）时",
+      "notes": "① `core/featureFlags.ts` 的 `feature()` 由「env → 静态表」改为**三层优先**：`FEATURE_*` env → `BUILD_VARIANT_FLAGS`（`scripts/build-variant.ts` **构建期**生成）→ `FEATURE_FLAGS`（静态兜底）；② `buildVariantFlags.ts` 由 `--variant=coding`（**声明默认变体**）重生成 ⇒ 变体开关**真正生效**；③ `build-variant.ts` 头注由「G1 已知债务（无消费者）」订正为「已接线」，并注明变体层是构建期产物、`LIRI_BUILD_VARIANT` 运行期覆盖只影响 `getBuildVariant()`；④ 新增门禁（变体键 ⊆ `FeatureFlag`，防拼错/死键）+ **负向夹具自证** + 三层优先/回落/env 覆盖用例（`featureFlagContract.test.ts`）；⑤ **连带行为变更（如实）**：coding 变体默认生效 ⇒ `TEAM_CREATE`/`TEAM_DELETE` 转生效（生成物 `TOOL_NAMES` 73 → 75；`TOOL_EFFECTS` 补 `team_create`/`team_delete` = EXTERNAL；`TOOL_CATEGORIES` 的 `TeamCreate`/`TeamDelete` **死键订正**为 `team_create`/`team_delete`；G5 已知条件集 17 → 15）；`LSP`/`NOTEBOOK`/`BROWSER`/`CODE_ANALYSIS` 默认开；`AGENT_TRIGGERS` 默认关（cron 四工具默认不注册）；`notebook.test.ts` 改**显式 env 覆盖**以继续覆盖禁用分支。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D5",
+      "title": "工具治理 D5（裁定「采纳 · 渐进棘轮」）：工具能力/风险描述符（复用既有元数据，默认派生）",
+      "source": "工具治理方案-20261011 §4 阶段 4 D5（用户裁定「采纳·渐进棘轮」，2026-10-11）；方案 §4.5.4 N2 + 修正 3",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/toolCapability.ts",
+        "app/src/tools/BaseTool.ts",
+        "app/src/utils/toolContract/Tool.ts",
+        "app/scripts/lint-tool-schema.ts",
+        "app/package.json",
+        ".trae/architecture/tool-capability-baseline.json"
+      ],
+      "tests": ["app/tests/tools/toolCapability.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 deriveFromLegacyEffects 的派生口径、BaseTool.getCapability、或 lint:tool-schema 的基线与棘轮判据时",
+      "notes": "① **复用而非新建**（CS01）：纯函数 `tools/toolCapability.ts#deriveFromLegacyEffects()` 由既有 `TOOL_EFFECTS`（sideEffect）+ `tags` + `isReadOnly/isDestructive` + `sandboxLevel` 派生 `{capability, risk, sandbox}`（`read`/`write-local`/`write-external`/`execute` × `low`/`medium`/`high`）；未声明（MCP/插件）⇒ 保守（只读→read，否则 write-external/high）；② 契约类型落 `utils/toolContract/Tool.ts`（`ToolCapabilityLevel`/`ToolRiskLevel`/`ToolSandboxLevel`/`ToolCapabilityDescriptor`，避免 utils → tools 反向依赖），`ToolInfo.capability?` 可选；③ 落点 `BaseTool.getCapability()`（`Tool` 是 interface 无方法体，见方案修正 3）+ 随 `getInfo()` 暴露（可观测），`sandboxLevel==='execution'` ⇒ `execute`；④ **棘轮门禁** `lint:tool-schema`（新 npm script）：判据抽纯函数 `findToolsMissingCapability()`；存量缺显式声明（基线 `.trae/architecture/tool-capability-baseline.json`，62 项）仅 **WARN**，**不在基线内**的新工具缺声明 ⇒ **ERROR**；IO/解析异常**捕获** + **双语**信息（禁裸异常）；`--update-baseline` 刷新基线；⑤ 测试 9 例（派生口径 / 未声明保守 / executesCode 覆盖 / 显式 sandbox 优先 / tags=write ⇒ medium / BaseTool 集成 / sandboxLevel=execution ⇒ execute / 判据负向夹具 ×2）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D7",
+      "title": "工具治理 D7（裁定「①+④ 组合」）：VFS 事实源唯一性 —— 默认最小面 + 双轨排他性门禁（G21）",
+      "source": "工具治理方案-20261011 §4 阶段 4 D7 / S2-4（用户裁定「①+④ 组合」，2026-10-11）；方案 §4.5.4 N1 + 修正 1",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/core/featureFlags.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts"
+      ],
+      "tests": ["app/tests/tools/toolNameLists.test.ts"],
+      "changelog": [],
+      "reopenWhen": "重新无条件注册 read_vfs/list_vfs/write_vfs、改 VFS_ENABLED 默认值、或新增 100% 重叠的工具对时",
+      "notes": "① **默认最小面**：新增开关 `VFS_ENABLED`（默认 false）；`ToolManagerUtils.buildBuiltinToolLoaders` 把 `read_vfs`/`list_vfs`/`write_vfs` 改为 `cond(coreFeature('VFS_ENABLED'), …)` ⇒ **默认不注册**（消除与 `file_read`/`file_write` 的**事实源双轨**，G21），`stat_vfs` **保持无条件**（元数据探测，不重叠）；显式启用/回滚：`FEATURE_VFS_ENABLED=true`（CD06）；② 因 `getAllBuiltinToolLoaders()` 为**全量视图**（丢弃条件），生成物 `TOOL_NAMES` 与 G5 门禁**不受影响**；③ **④ 门禁**：`toolNameLists.test.ts` 新增「S2-4 双轨制排他性断言」—— 静态登记 100% 重叠对（`read_vfs↔file_read`、`write_vfs↔file_write`），以 `getBuiltinToolLoaders()`（**生效视图**）断言「不得同时激活」，判据抽纯函数 `findActiveOverlapViolations()` + **负向夹具自证**（防恒真）+ 防空转守卫（默认面确含 file_read/file_write）；④ **本轮不改** `entrypoints/vfsWiring.ts` 的默认挂载（VFS 工具未注册时挂载惰性；改默认挂载会波及既有消费者，另案）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D2",
+      "title": "工具治理 D2（裁定「启动 fail-fast 断言」）：权限管理器未注入 ⇒ 生产 fail-fast（G9）",
+      "source": "工具治理方案-20261011 §4 阶段 4 D2（用户裁定「启动 fail-fast 断言」，2026-10-11）；域 C G9",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/permission/assertPermissionInjected.ts",
+        "app/src/permission/index.ts",
+        "app/src/chat/services/ToolExecutionService.ts"
+      ],
+      "tests": ["app/tests/permission/assertPermissionInjected.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 ToolExecutionService 的权限检查前置分支、或改 `NODE_ENV==='test'` 的 fail-open 约定时",
+      "notes": "① 新增 `permission/assertPermissionInjected.ts` 的 `assertPermissionManagerInjected(manager, context)`：未注入 ⇒ 抛 `AppError`（code `PERMISSION_MANAGER_NOT_INJECTED`）；**测试环境（`NODE_ENV==='test'`）保持 fail-open**（既有单测约定：大量用例不注入）。② `chat/services/ToolExecutionService.ts` 的「权限管理器未注入」分支由 **fail-open（仅 warn 后照常执行，2026-10-08 语义）** 改为 **fail-fast**（warn + 断言抛错）⇒ 生产不再出现「无权限检查仍执行工具」。③ 生产路径已恒注入（`runtime/api/llmChatOps.ts:177` `setPermissionManager(createPermissionManager())`；`tools/ToolExecutor.ts:140` 默认自建）⇒ fail-open 仅在**误装配/测试**出现。④ 测试 3 例（非空不抛／空+test 不抛／空+production 抛且 code/context 正确）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D3",
+      "title": "工具治理 D3（裁定「复用既有审批/Inbox 通道」）：`unknown` 工具调用的人工介入通道",
+      "source": "工具治理方案-20261011 §4 阶段 4 D3（用户裁定「复用既有审批/Inbox 通道」，2026-10-11）；域 D D3",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": ["app/src/main.ts", ".trae/specs/unknown-tool-call-recovery.md"],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "改恢复期的 `unknown` 分类/告警逻辑、或改 Inbox 审批项字段/通道时",
+      "notes": "① `main.ts` 崩溃恢复分类处：为每个 `manualRequired`（非幂等/未声明）的 `unknown` 调用**提交一条 Inbox 审批项**（`type:'approval'`、`source:'unknown-tool-recovery'`、去重键 `sessionId+toolName`、`metadata.sourceModule` 供 InboxManager 判非孤儿）⇒ 复用**既有**审批/Inbox 通道让用户明确决定是否重放。② **未**新增会话事件类型、**未**新增模型可见输入 ⇒ **不触** `unknown-tool-call-recovery.md §1.6` 红线（CS01 复用）。③ Inbox 落盘为 **best-effort**（失败记 warn，不阻断启动；CS03-002 不静默）。④ spec 增 §6（D3/D9 裁定落地）+ 实施记录 S3。**无自动化测试**（组合根启动期路径，不便单测）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D4",
+      "title": "工具治理 D4（裁定「沿既有 VFS 收口方向」）：工具面发现策略（G20）—— 增量治理，不做 Top-K 收口",
+      "source": "工具治理方案-20261011 §4 阶段 4 D4（用户裁定「沿既有 VFS 收口方向」，2026-10-11）；域 A G20 + §9.2 量化",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": ["app/src/tools/utils/ToolManagerUtils.ts", "app/src/tools/toolCategories.ts"],
+      "tests": ["app/tests/tools/toolNameLists.test.ts"],
+      "changelog": [],
+      "reopenWhen": "触发条件 T2 成立（有实测证据表明模型因工具数系统性出错）、或改「新数据源接入方式」口径时",
+      "notes": "① **裁定**：采纳**沿既有 VFS 收口方向** —— 新数据源以「**挂载点 + 驱动**」接入（`G20` 的**增量**部分），**不**以新增工具承载；**不**引入 Top-K 收口。② **依据**：方案 §9.2 实测 4 syscall 仅能吸收 6/69≈8.7% ⇒ 「81→4」算术不成立、收口**被量化证伪**；收口需触发条件 **T2**。③ **落地（方向 + 门禁口径）**：与 D7 的 ①+④ **同批**（VFS 默认最小面 `VFS_ENABLED` + 双轨排他性断言）；「新数据源不得新增工具」的口径由既有**清单/契约门禁**（S2-3 的 shim/清单/类别门禁）承接；**决策硬数据**由 S2-6（`tools.schema.context_entropy_percent` / `tools.invocation.*`）持续产出。**本轮无独立代码改动**（与 D7 共用落地点）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D6",
+      "title": "工具治理 D6（裁定「仅事务化」）：崩溃恢复「两步」同事务（G-D2）",
+      "source": "工具治理方案-20261011 §4 阶段 4 D6（用户裁定「仅事务化」，2026-10-11）；域 D G-D2",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/execution/ExecutionStore.ts", "app/src/execution/ExecutionManager.ts"],
+      "tests": ["app/tests/execution/ExecutionStore.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 recover() 的两步写入顺序/范围、或引入 `RECOVERY_PENDING` 中间态时",
+      "notes": "① 新增 `ExecutionStore.transaction<T>(fn)`：`BEGIN IMMEDIATE` → `fn()` → `COMMIT`；失败 `ROLLBACK`（回滚再失败仅记 warn，不掩盖原始错误；CS03-002）。② `ExecutionManager.recover()` 的**恢复两步**（`markUnsettledToolCallsUnknown` → `markStale`，B-02 的倒序）由**两条独立 `run()`** 改为**同一事务** ⇒ 消除「只落其一」的残留窗口。③ **`RECOVERY_PENDING` 中间态未引入**（用户裁定「仅事务化」；该中间态须扩 `TOOL_CALL_STATUSES`/转移表，属另案）。④ 测试 +2 例（COMMIT 落盘／fn 抛错 ⇒ ROLLBACK 且不落盘）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D8",
+      "title": "工具治理 D8（裁定「采纳形态（N3）+ 独立 spec」）：工具级配额与熔断 + 两阶段异步工具",
+      "source": "工具治理方案-20261011 §4 阶段 4 D8（用户裁定「采纳推荐形态（N3）+ 独立 spec」，2026-10-11）；google A2/A3 + 第 3 批 N3",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [".trae/specs/tool-quota-and-async-tool-adapter.md"],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "触发条件 T1（per-tool 配额需 ToolMetrics 实测损害证据）/ T2（两阶段异步需 D10 侧车成形）成立、或立项实施时",
+      "notes": "① **裁定**：采纳「虚拟工具代理契约（N3）」**形态**，但**不在工具治理主方案实施** ⇒ **立独立 spec** `.trae/specs/tool-quota-and-async-tool-adapter.md`（v1.0，**待立项**）。② spec 内容：per-tool 滑动窗口配额/熔断（复用 `sessionToolQuota` 双约束形态 + `query/CircuitBreaker` 三态机）+ 两阶段异步（侧车返回结构化占位符 + `AgentSuspensionEvent` → `ExecutionManager` 冻结）；含**触发条件 T1/T2** 与**不做**清单（不耦合 `events.jsonl → SQLite WAL` 迁移；不硬编码工具名/阈值）。③ **无自动化测试**（本切片为登记/立项文档）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D9",
+      "title": "工具治理 D9（裁定「改走审批通道，不改红线」）：Reflection 不松绑 §1.6",
+      "source": "工具治理方案-20261011 §4 阶段 4 D9（用户裁定「改走审批通道，不改红线」，2026-10-11）；google B1",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [".trae/specs/unknown-tool-call-recovery.md"],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "若要改 `unknown-tool-call-recovery.md §1.6`（新增模型可见输入）、或改安全拦截/签名不匹配的默认行为时",
+      "notes": "① **裁定**：**不采纳**「把安全拦截/签名不匹配作为结构化 Observation 回喂模型自纠」—— 守 `unknown-tool-call-recovery.md §1.6`「不新增模型可见输入」。② 需要人工介入时**复用 D3 的 Inbox 审批通道**（`security/decision.ts` 的三态 `SecurityBehavior` 已含 `'ask'` 语义，经统一四态映射）。③ 「连续 N 次拦截 ⇒ 升级 ask」属**安全默认变更**，须独立裁定 + 独立切口（**本轮不改安全默认值**）。④ 落点：spec §6（D3/D9 裁定落地）。**无代码改动、无自动化测试**。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-D10",
+      "title": "工具治理 D10（裁定「并入既有侧车方案」）：重型工具内核剥离（MCP 微服务化）",
+      "source": "工具治理方案-20261011 §4 阶段 4 D10（用户裁定「并入既有侧车方案」，2026-10-11）；google A1",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": ["dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md"],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "侧车方案范围/裁定变更、或 D8 的 T2（两阶段异步）依赖其成形时",
+      "notes": "① **裁定**：D10 **并入**既有《A2A / MCP 网关进程级侧车隔离》方案（`dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md` v1.1；**2026-10-10 已裁定启动**，范围 P0+P1–P3；⚠️ 该方案自述已覆盖 `R24 不立项`）⇒ **本方案不另实施**，仅登记交叉引用。② 它同时是 D8 推荐形态（两阶段异步）的**前置**（触发条件 T2）。③ **无代码改动、无自动化测试**（登记/合并类）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-G18",
+      "title": "工具治理 G18（部分）：上帝对象拆分 —— BashTool 内聚模块抽取 + ToolFactory 委托式/注册表驱动 + **BashTool.execute 巨型函数下沉**",
+      "source": "工具治理方案-20261011 §4 阶段 3（S3-2 / G18）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/tools/bash/bashCommandPolicy.ts",
+        "app/src/tools/bash/bashOutputTruncate.ts",
+        "app/src/tools/bash/bashSecurityGate.ts",
+        "app/src/tools/ToolFactory.ts",
+        "app/src/tools/factories/kairosNotificationFactories.ts",
+        "app/src/tools/factories/toolCreationGuard.ts",
+        "app/src/tools/factories/builtinToolRegistry.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts",
+        "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
+        ".trae/architecture/function-size-baseline.json"
+      ],
+      "tests": [
+        "app/tests/tools/bashSecuritySwitchDefaults.test.ts",
+        "app/tests/security/crossLayerSecurityConsistency.test.ts",
+        "app/tests/tools/BashToolApproval.test.ts",
+        "app/tests/tools/commandNormalization.test.ts",
+        "app/tests/tools/toolFactoryDeadStubs.test.ts",
+        "app/tests/tools/toolFactoryRegistry.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改 BashTool 的命令策略表/白名单/高能力解释器判据、K-5 截断阈值/文案、`execute` 的下沉方法（`check*`/`runCommandAndBuildResult`）、或增删内置工具（须同步 `builtinToolRegistry` + `byKey` loader）时",
+      "notes": "**切片 1（BashTool 模块，纯搬迁）**：抽出 `bash/bashCommandPolicy.ts` + `bash/bashOutputTruncate.ts` ⇒ `BashTool.ts` 1027 → 816 行（−211）。**切片 2（ToolFactory 委托式）**：抽出 `factories/kairosNotificationFactories.ts` + `toolCreationGuard.ts` ⇒ 1030 → 826（−204）。**切片 3（ToolFactory 注册表驱动）**：新建 `factories/builtinToolRegistry.ts`（80 条 name→thunk，构造唯一来源；`BuiltinToolFactoryKey` 字面量联合）⇒ ToolFactory 826 → **112 行**（累计 −918）；`ToolManagerUtils` ~80 loader 改 `byKey('createXxxTool')`（语义逐字等价）；门禁 `toolFactoryRegistry.test.ts`（注册表↔loader 一致性 + 负向夹具）。**切片 4（BashTool.execute 巨型函数下沉，2026-10-11）**：`execute` **≈440 行 / 复杂度 52 → ≈184 行 / < 40**（eslint complexity 警告消除），按单职责抽为 5 个私有方法（**逐个编辑 + 每步跑安全回归**，逐字搬迁）：`checkPathSafety`（S1-5 统一口径 `std.paths` + G22 fail-closed）、`checkDangerousCommand`（危险命令/模式）、`checkAstAndAnalyzer`（分析器 + AST + deny/ask；AST 不确定 ⇒ fail-closed 转人工）、`checkWhitelistAndSandbox`（白名单 F3 + 沙箱 F2）、`checkInterpreterGuard`（A4 升级确认 + O1-B2 观测）、`runCommandAndBuildResult`（审计 + env 清洗 + Landlock 收敛入口执行 + K-5 截断 + 成功结果；**不吞异常** ⇒ 仍由 `execute` 外层 catch 处理）。原「花括号块」随之移除。**顺带修复 `lint:fn-size` 回归**：本会话 S2-6 的「工具集选择 + 工具面观测」内联块（17 行）曾使 `runStreamMessage` 2203→2214 / 文件 2380→2397（当时未跑该门禁）⇒ 整体外移 `chat/orchestrator/streamMessageToolSelectionFlow.ts` ⇒ **2167 / 2345**，并按门禁要求**下调基线**（`function-size-baseline.json`：2203→2167、2380→2345；复杂度 262→248）锁定成果。**度量合计**：`ToolFactory` 1030→112（−918）；`BashTool.execute` ≈440→≈184（−256）；`BashTool.ts` 文件 **1027→696（−331）**（切片 5 后，见下）。**切片 5（`bashSecurityGate` 外移，2026-10-11）**：把 5 个安全门（`checkPathSafety`/`checkBashDangerousCommand`/`checkAstAndAnalyzer`/`checkWhitelistAndSandbox`/`checkInterpreterGuard`）连同 `isPathSafe` 一起外移为 `tools/bash/bashSecurityGate.ts` 的**纯函数**（`BashTool` 以参数传入 `securityAnalyzer`；`sandboxSecurityChecker` 迁入该模块）⇒ `BashTool.ts` **1018 → 696 行**，仅保留按序短路调用。**命名消歧**：工具层判据改名 `checkDangerousCommand` → **`checkBashDangerousCommand`**，避免与 `permission/PermissionPolicies.ts`、`sandbox/utils/DangerousCommandChecker.ts` 的同名导出触发门禁 **R02-002（重复实现）** 误报 —— 三者是**刻意的纵深防御分层**（CD07 关键域，**不归并**）。e2eVerified=false。"
     }
   ]
 }

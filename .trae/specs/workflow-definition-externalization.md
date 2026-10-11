@@ -4,7 +4,7 @@
 > ✅ 但 seam 的**通用构件确实在代码里**（`WorkflowEngine.ts` / `WorkflowStepLedger.ts` / `types.ts` / `WorkflowError.ts`）。
 > 📌 详见 `dev_docs/error_repairs/预存错误与待处理问题.md` → 「4 份 `workflow-*` Spec 声称"已完成"，但对应代码在本仓**不存在**」条。**读本 spec 时不要把"已完成"的声明当作能力已可用。**
 
-> 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
+> 版本: 1.1 | 创建: 2026-09-13 | 更新: 2026-10-11 | 状态: **外化部分已完成；V-3 删除部分长期未落地（2026-10-11 复核发现并推进）**
 > 关联: GR15 / R02（类型统一）/ R06-005（命名）/ CS01 / CS03 / CS04 / PY_APP §2（不做投机性扩展）/ project_rules §1.3（无向后兼容）
 > 前置：`.trae/specs/workflow-engine-seam.md`（P1-1）/ 路线图阶段二 P1-2、V-3
 
@@ -72,26 +72,36 @@
 | CS04 Mock 零容忍 | 数据为真实内建流程，非示例/mock |
 | CS06 证据驱动 | 每条结论附路径#行号 |
 
-## 6. 实施结果（2026-09-13 已完成）
+## 6. 实施结果（2026-09-13 声明；**2026-10-11 复核修正**）
 
-| # | 文件 | 结果 |
+> ⚠️ **2026-10-11 复核（工具治理 S3-2 / G19）**：下表中 **#5 / #7 / #8 三项当年标注的 ✅ 与代码不符** —— 复核实测
+> `ToolFactory.createWorkflowTool()` 仍在（`ToolFactory.ts:859`，恒 `return null`）、`ToolManagerUtils` 的
+> `WORKFLOW_SCRIPTS` 条件注册项仍在（`ToolManagerUtils.ts:249-252`）、`featureFlags.ts` 的 `ENABLE_WORKFLOWS`
+> （`:100`）与 `WORKFLOW_SCRIPTS`（`:390`）仍在、`docs/CORE_MODULES.md:406` 的文档条目仍在。
+> （本 spec 第 3 行早已警示"不要把'已完成'当作已可用"，此处即又一实例。）原引用行号 `#L939-L941` / `#L235-L238` / `#L297` / `#L113` 均已漂移。
+> **处置**：按 `code-deletion.md` **CD05「先摘入口 → 观察 → 再删实现」**分两步 —— 步骤①（摘注册入口）与
+> **步骤②（删实现 + 特性位 + 文档）均已于 2026-10-11 完成**（见下表 #5/#7/#8 与下方"步骤②"记录）。
+
+| # | 文件 | 结果（2026-10-11 复核 + 步骤② 后） |
 |---|---|---|
 | 1 | `modules/doc/orchestration/docWorkflows.ts` | ✅ 新建：`DOC_WORKFLOW_DEFINITIONS`（3 条内建流程，seam 的 `WorkflowDefinition` 类型）+ `findDocWorkflowDefinition()` |
 | 2 | `modules/doc/orchestration/DocOrchestrator.ts` | ✅ 删静态表 / `static getAvailableWorkflows()` / 私有 `WorkflowStep`；构造注入 `WorkflowDefinition[]`；新增 `getDefinitions()`；`execute` 经 `extractSteps()` 从注入定义解析 |
 | 3 | `modules/doc/orchestration/DocOrchestratorProvider.ts` | ✅ `listWorkflows()` 改为 `this.orchestrator.getDefinitions()`（单一来源） |
 | 4 | `modules/doc/DocModule.ts` | ✅ `new DocOrchestrator(DOC_WORKFLOW_DEFINITIONS)`；工具 enum 与日志改用 `orchestrator.getDefinitions()` |
-| 5 | `tools/ToolFactory.ts` | ✅ 删除 `createWorkflowTool()` 空桩 |
-| 6 | `tools/utils/ToolManagerUtils.ts` | ✅ 删除 `WORKFLOW_SCRIPTS` 条件注册项 |
-| 7 | `core/featureFlags.ts` | ✅ 删除 `ENABLE_WORKFLOWS`、`WORKFLOW_SCRIPTS` 及其分节注释 |
-| 8 | `app/docs/CORE_MODULES.md` | ✅ 删除 `ENABLE_WORKFLOWS` 文档条目 |
+| 5 | `tools/ToolFactory.ts` | ✅ **2026-10-11 完成（步骤②）**：删除 `createWorkflowTool()` 空桩 |
+| 6 | `tools/utils/ToolManagerUtils.ts` | ✅ **2026-10-11 完成（步骤①）**：摘除 `WORKFLOW_SCRIPTS` 条件注册项（行为零变更：桩恒 null） |
+| 7 | `core/featureFlags.ts` | ✅ **2026-10-11 完成（步骤②）**：删除 `ENABLE_WORKFLOWS` / `WORKFLOW_SCRIPTS` 特性位 |
+| 8 | `app/docs/CORE_MODULES.md` | ✅ **2026-10-11 完成（步骤②）**：删除 `ENABLE_WORKFLOWS` 文档条目 |
 
-**验证**：
+**步骤②（2026-10-11，S3-2 / G19，CD05–CD06）**：连同同批的另外 3 个恒 `null` 死桩
+（`createRemoteTriggerTool` / `createSendUserFileTool` / `createSnipTool`）一并删除实现体
+（均零调用方、零行为）；守卫 `tests/tools/toolFactoryDeadStubs.test.ts` 改断言"方法已移除 + 死特性位已删"。
+
+**验证**（2026-10-11 复核 + 步骤②）：
 
 | 项 | 结果 |
 |---|---|
 | `bun run typecheck` | exit 0 |
-| 单测 | **25 pass / 0 fail**（3 文件 72 断言，回归全绿） |
-| 定向 ESLint | 0 error |
-| `scripts/lint-architecture.ts` | 0 错误 / 0 警告（含 R02 重复类型、R06-005 命名、R00-001 分层） |
-| 残留检索 | `DocOrchestrator.workflows` / `getAvailableWorkflows` / `ENABLE_WORKFLOWS` / `WORKFLOW_SCRIPTS` → **全仓 0 命中**；`createWorkflowTool` → 仅剩 `DocModule` 私有真实实现 |
+| 单测 | 全量回归全绿（步骤①行为零变更；步骤②删死代码） |
+| 残留检索 | `createWorkflowTool` → 仅剩 `DocModule` **私有真实实现**（同名不同物 R06-005 已消解）；`WORKFLOW_SCRIPTS` / `ENABLE_WORKFLOWS` → **0 命中** |
 | ⚠ 未做 | 端到端实跑；`WorkflowTemplate` ↔ `WorkflowDefinition` 绑定（P2-1） |

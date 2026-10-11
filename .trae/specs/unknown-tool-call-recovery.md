@@ -80,3 +80,20 @@ canReplayAfterUnknown(name): boolean   // === (policy === 'retryable')
 |---|---|---|---|
 | **S1** | 恢复策略 + 重放守卫（纯函数）+ 出口 | `tools/toolEffects.ts` · `tools/index.ts` | ✅ 2026-10-10 |
 | **S2** | `recover()` 带出 `unknownToolCalls` + 组合根分类告警 + 类型/出口 | `execution/types.ts` · `execution/ExecutionManager.ts` · `execution/index.ts` · `main.ts` | ✅ 2026-10-10 |
+| **S3** | **人工介入通道**（D3）：为"禁止自动重放"的 `unknown` 调用提交 Inbox 审批项 | `main.ts`（复用 `runtime/InboxManager`） | ✅ 2026-10-11 |
+
+---
+
+## 6. D3 / D9 裁定落地（2026-10-11，工具治理方案 §4）
+
+- **D3（人工介入通道）✅ 已实施**：`main.ts` 恢复分类处，为每个 `manualRequired`（非幂等/未声明）
+  的 `unknown` 调用**提交一条 Inbox 审批项**（`source: 'unknown-tool-recovery'`，去重键
+  `sessionId + toolName`）—— **复用既有审批/Inbox 通道**。
+  ⇒ **未**新增会话事件类型、**未**新增模型可见输入 ⇒ **不触 §1.6 红线**（CS01 复用）。
+  落盘失败为 **best-effort**（记 warn，不阻断启动）。
+- **D9（Reflection 松绑 §1.6）❌ 不采纳"回喂模型"**：裁定为「**改走审批通道，不改红线**」。
+  ⇒ 安全拦截/签名不匹配**不**作为结构化 Observation 回喂模型（守 §1.6）；需要人工介入时
+  **复用本节 D3 的 Inbox 审批通道**。`security/decision.ts` 的三态 `SecurityBehavior`
+  已含 `'ask'` 语义（统一四态映射），后续如需"连续 N 次拦截 ⇒ 升级 ask"，属**安全默认变更**，
+  须独立裁定 + 独立切口（本 spec 不擅自改安全默认值）。
+

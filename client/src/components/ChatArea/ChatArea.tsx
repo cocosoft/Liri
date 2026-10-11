@@ -10,6 +10,9 @@ import { useAutoScroll } from "../../hooks/useAutoScroll";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
+// T6（D-a/D-b/D-f）：撞限渲染可操作限额卡片（不再是红色错误条）
+import DailyLimitNotice from "./DailyLimitNotice";
+import { usageService } from "../../services/usageService";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
@@ -43,6 +46,37 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const messages = useChatStore((s) => s.messages);
   const error = useChatStore((s) => s.error);
   const errorCode = useChatStore((s) => s.errorCode);
+
+  // ── T6（D-a/D-b/D-f）：日预算撞限 ⇒ 取一次快照喂给限额卡片 ──
+  // 错误通道只带**字符串**（errorSummary/errorDetail），卡片需要结构化数字 ⇒ 命中限额码时
+  // 拉一次 `GET /v1/cost/daily-budget`（失败静默：卡片退化为仅展示动作）。
+  const isDailyLimitExceeded = errorCode === "DAILY_BUDGET_EXCEEDED";
+  const [limitSnapshot, setLimitSnapshot] = useState<{
+    todayUsed: number;
+    dailyLimit: number;
+    mode: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!isDailyLimitExceeded) return;
+    let cancelled = false;
+    void usageService
+      .getDailyBudget()
+      .then((s) => {
+        if (!cancelled) {
+          setLimitSnapshot({
+            todayUsed: s.todayUsed,
+            dailyLimit: s.dailyLimit,
+            mode: s.mode,
+          });
+        }
+      })
+      .catch(() => {
+        // 取快照失败不阻断卡片渲染（仅少一组数字）
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDailyLimitExceeded]);
   const isStreaming = useChatStore((s) => s.isStreaming);
   // P1-6a（D8 = 统一到总量 + 尾锚定）：轮次导航器需要分页状态与"加载更早"动作
   // ——与 ChatMessageList 同源（CS01 不另立实现）
@@ -576,8 +610,43 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         onLoadOlder={() => void loadOlderMessages()}
       />
 
+      {/* T6：限额码 ⇒ 可操作卡片（非红色语义）；其余码仍走下面的红条（不回归） */}
+      {errorSummary && isDailyLimitExceeded && (
+        <div
+          className={`absolute bottom-[140px] left-0 right-0 z-20 ${fluid ? "px-4" : "flex justify-center"}`}
+        >
+          <div className={fluid ? "w-full" : "w-full max-w-3xl px-4"}>
+            <DailyLimitNotice
+              used={limitSnapshot?.todayUsed ?? 0}
+              limit={limitSnapshot?.dailyLimit ?? 0}
+              formatted={`${(limitSnapshot?.todayUsed ?? 0).toLocaleString()} Tokens`}
+              mode={limitSnapshot?.mode ?? "locked"}
+              t={t}
+              onRelief={(kind) => {
+                void usageService
+                  .setDailyBudgetRelief(
+                    kind === "boost"
+                      ? { kind, factor: 2, ttlMs: 3_600_000 }
+                      : { kind },
+                  )
+                  .then(() => {
+                    // 放行成功 ⇒ 清错（用户再点「继续」显式重发，不静默自动重发）
+                    useChatStore.setState({ error: null, errorCode: null });
+                  })
+                  .catch(() => {
+                    // 放行失败保留卡片，让用户可改用其它动作
+                  });
+              }}
+              onContinue={() => void handleContinueError()}
+              onOpenSettings={() => void handleDismissError()}
+              onDismiss={() => void handleDismissError()}
+            />
+          </div>
+        </div>
+      )}
+
       {/* 错误提示 */}
-      {errorSummary && (
+      {errorSummary && !isDailyLimitExceeded && (
         <div
           className={`absolute bottom-[140px] left-0 right-0 z-20 pointer-events-none ${fluid ? "px-4" : "flex justify-center"}`}
         >

@@ -397,6 +397,29 @@ export const usageService = {
     );
   },
 
+  /**
+   * 放行（POST /v1/cost/daily-budget/relief，D-b）：临时提额 / 单次豁免 / 当日解除。
+   *
+   * 参数按**结构**声明（`boost` 可带 `factor`/`amount`/`ttlMs`；`waive-once` 可带 `ttlMs`），
+   * 与后端 `ReliefInput` 结构等价；非法参数由服务端 fail-loud 回 400。
+   */
+  async setDailyBudgetRelief(relief: {
+    kind: "boost" | "waive-once" | "unlock-today";
+    factor?: number;
+    amount?: number;
+    ttlMs?: number;
+  }): Promise<DailyBudgetStatus> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:setDailyBudgetRelief",
+      async () => {
+        return http.post<DailyBudgetStatus>(
+          "/v1/cost/daily-budget/relief",
+          relief,
+        );
+      },
+    );
+  },
+
   /** 手动硬锁开关（POST /v1/cost/daily-budget/kill-switch，D6） */
   async setDailyBudgetKillSwitch(enabled: boolean): Promise<DailyBudgetStatus> {
     return getOTelTracing().asyncWrap(

@@ -85,10 +85,50 @@ import {
   handleGetDailyBudget,
   handleResetDailyBudget,
   handleSetDailyBudgetKillSwitch,
+  handleSetDailyBudgetRelief,
   handleUpdateDailyBudget,
 } from '../daily-budget-handlers';
 
 const logger = getLogger('http:cost-channel-routes');
+
+/**
+ * 日 Token 预算子路由派发（R16/D3 既有 4 端点 + **D-b 放行**）。
+ *
+ * **为什么抽出来**：主派发函数 `dispatchCostChannelRoutes` 已属复杂度重尾离群（≥100）；
+ * `lint:complexity` 棘轮只允许减少，故新增端点必须落在子函数里（净效果反而是**降低**主函数复杂度）。
+ *
+ * 精确路径，调用点置于工作空间/渠道通配正则之前，避免被更宽的正则吞掉。
+ */
+async function dispatchDailyBudgetRoutes(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  method: string,
+  url: string,
+  broadcastEvent: (event: string, data: unknown) => void
+): Promise<boolean> {
+  if (method === 'GET' && url === '/v1/cost/daily-budget') {
+    await handleGetDailyBudget(res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/cost/daily-budget') {
+    await handleUpdateDailyBudget(req, res, broadcastEvent);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/cost/daily-budget/reset') {
+    await handleResetDailyBudget(res, broadcastEvent);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/cost/daily-budget/kill-switch') {
+    await handleSetDailyBudgetKillSwitch(req, res, broadcastEvent);
+    return true;
+  }
+  // D-b（2026-10-11）：放行（临时提额 / 单次豁免 / 当日解除）—— Spec §5-B
+  if (method === 'POST' && url === '/v1/cost/daily-budget/relief') {
+    await handleSetDailyBudgetRelief(req, res, broadcastEvent);
+    return true;
+  }
+  return false;
+}
 
 /**
  * dispatchCostChannelRoutes — cost-channel-routes 领域路由分发
@@ -137,28 +177,13 @@ export async function dispatchCostChannelRoutes(
     return true;
   }
 
-  // ---- Daily Token Budget（R16 / D3：状态查询 + 热更新 + 重置 + kill switch）----
-  // 精确路径，置于工作空间/渠道通配正则之前，避免被更宽的正则吞掉。
-  if (method === 'GET' && url === '/v1/cost/daily-budget') {
-    await handleGetDailyBudget(res);
-    return true;
-  }
-  if (method === 'PUT' && url === '/v1/cost/daily-budget') {
-    await handleUpdateDailyBudget(req, res, (event, data) =>
+  // ---- Daily Token Budget（R16/D3 四端点 + D-b 放行）----
+  // 子派发抽为独立函数：本函数属复杂度重尾离群，**不得再增分支**（`lint:complexity` 棘轮只允许减少）。
+  if (
+    await dispatchDailyBudgetRoutes(req, res, method, url, (event, data) =>
       broadcastEvent(event, data)
-    );
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/cost/daily-budget/reset') {
-    await handleResetDailyBudget(res, (event, data) =>
-      broadcastEvent(event, data)
-    );
-    return true;
-  }
-  if (method === 'POST' && url === '/v1/cost/daily-budget/kill-switch') {
-    await handleSetDailyBudgetKillSwitch(req, res, (event, data) =>
-      broadcastEvent(event, data)
-    );
+    )
+  ) {
     return true;
   }
 

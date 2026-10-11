@@ -80,7 +80,98 @@ function budgetSnapshot(budget: DailyBudgetManager): Record<string, unknown> {
     warningThreshold: cfg.warningThreshold,
     lockThreshold: cfg.lockThreshold,
     killSwitch: budget.isKillSwitchEnabled(),
+    // D-b/D-d（2026-10-11）：放行与透支欠账（Spec §5-B / §5-E）
+    relief: budget.getRelief(),
+    debt: budget.getDebtTokens(),
   };
+}
+
+/** 放行请求体（**结构等价**于 `ReliefInput`，避免依赖 query 桶的具名导出）。 */
+type ReliefBody =
+  | { kind: 'boost'; factor?: number; amount?: number; ttlMs?: number }
+  | { kind: 'waive-once'; ttlMs?: number }
+  | { kind: 'unlock-today' };
+
+function isPositiveNumber(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n > 0;
+}
+
+/**
+ * 解析并**严格校验**放行请求（边界纪律 fail-loud：非法 ⇒ `null`，由调用方回 400）。
+ *
+ * 与既有 PUT 的同款纪律一致：外部输入非法**不得静默忽略**（区别于内部 `applyRelief` 的宽容）。
+ */
+function parseReliefBody(raw: Record<string, unknown>): ReliefBody | null {
+  const kind = raw['kind'];
+  const factor = raw['factor'];
+  const amount = raw['amount'];
+  const ttlMs = raw['ttlMs'];
+  if (factor !== undefined && !isPositiveNumber(factor)) return null;
+  if (amount !== undefined && !isPositiveNumber(amount)) return null;
+  if (ttlMs !== undefined && !isPositiveNumber(ttlMs)) return null;
+
+  if (kind === 'unlock-today') return { kind: 'unlock-today' };
+  if (kind === 'waive-once') {
+    return ttlMs === undefined
+      ? { kind: 'waive-once' }
+      : { kind: 'waive-once', ttlMs };
+  }
+  if (kind === 'boost') {
+    return {
+      kind: 'boost',
+      ...(factor !== undefined ? { factor } : {}),
+      ...(amount !== undefined ? { amount } : {}),
+      ...(ttlMs !== undefined ? { ttlMs } : {}),
+    };
+  }
+  return null;
+}
+
+/**
+ * POST /v1/cost/daily-budget/relief — 放行（D-b：临时提额 / 单次豁免 / 当日解除）
+ *
+ * body: `{ kind: 'boost' | 'waive-once' | 'unlock-today', factor? | amount?, ttlMs? }`
+ *
+ * **硬锁优先**（D-e）：kill-switch 开启时本端点照常记录放行状态（便于 UI 展示），但
+ * `getMode()` 仍为 `locked`（不静默削弱硬锁）。
+ */
+export async function handleSetDailyBudgetRelief(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  broadcastEvent: (event: string, data: unknown) => void
+): Promise<void> {
+  try {
+    const rawText = await readBody(req);
+    let raw: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(rawText || '{}') as unknown;
+      raw =
+        parsed && typeof parsed === 'object'
+          ? (parsed as Record<string, unknown>)
+          : {};
+    } catch {
+      // 边界纪律 fail-loud：坏 JSON ⇒ 400（与 PUT 同款）
+      json(res, 400, { error: { message: '请求体不是合法 JSON' } });
+      return;
+    }
+    const input = parseReliefBody(raw);
+    if (!input) {
+      json(res, 400, {
+        error: { message: 'relief 参数非法（kind/factor/amount/ttlMs）' },
+      });
+      return;
+    }
+    const budget = await loadBudget();
+    const relief = budget.applyRelief(input);
+    const snapshot = budgetSnapshot(budget);
+    broadcastEvent(DAILY_BUDGET_SSE_EVENT, snapshot);
+    json(res, 200, { ...snapshot, relief });
+  } catch (err) {
+    await handleError(err, { module: 'http:dailyBudget', action: 'relief' });
+    if (!res.headersSent) {
+      json(res, 500, { error: { message: '设置日限额放行失败' } });
+    }
+  }
 }
 
 /**

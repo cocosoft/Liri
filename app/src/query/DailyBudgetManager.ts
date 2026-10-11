@@ -404,6 +404,11 @@ export class DailyBudgetManager {
     return true;
   }
 
+  /** D-d：透支欠账（`waive-once` 消耗；次日计入用量扣回）。供 HTTP/面板展示。 */
+  getDebtTokens(): number {
+    return this.debtTokens;
+  }
+
   /** D-k：单位无关快照（供 HTTP / 前端消费；Spec §11）。 */
   getSnapshot(): BudgetSnapshot {
     const state = this._computeState();

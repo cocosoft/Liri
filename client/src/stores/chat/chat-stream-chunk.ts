@@ -308,7 +308,15 @@ export async function processChunk(
         }
       }
       if (hasExistingError) {
-        set({ errorCode: chunk.errorCode || "UNKNOWN" });
+        // CS02 码保真：已有错误时**不降级**已记录的业务码。
+        // 真机取证（2026-10-11）：后端在结构化错误帧（含
+        // `__pyapp_error_code=DAILY_BUDGET_EXCEEDED`）之后，还会补一帧通用终止帧
+        // （`{"choices":[{"delta":{},"finish_reason":"error"}]}`，无 `__pyapp_type`、无码）。
+        // 若用后者覆盖，业务码会被降级为 "UNKNOWN" ⇒ 前端分流失效
+        // （撞限卡片不渲染、误走红色异常条）。仅当新码是**真实业务码**（非空且非 UNKNOWN）时才更新。
+        if (chunk.errorCode && chunk.errorCode !== "UNKNOWN") {
+          set({ errorCode: chunk.errorCode });
+        }
       } else {
         set({
           error: chunk.content,

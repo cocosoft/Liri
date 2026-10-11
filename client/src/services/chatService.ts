@@ -179,16 +179,26 @@ export interface StreamChunk {
     | "suspension_settled";
   /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 */
   phase?: "compacting" | "done";
-  /** 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
+  /**
+   * 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配。
+   *
+   * 已知码 + **开放取值**：后端 `ChatStreamChunk.errorCode` 已是「已知码 + `(string & {})`」
+   * （业务码可任意透传，如 `DAILY_BUDGET_EXCEEDED`）。客户端此处对齐，
+   * 否则新业务码在类型上是"闭集外"、只能靠 `any` 绕过（协议契约与实际不符）。
+   */
   errorCode?:
     | "UNKNOWN"
     | "RATE_LIMITED"
     | "AUTH_ERROR"
     | "QUOTA_EXCEEDED"
     | "CONNECTION_RESET"
+    | "STREAM_INTERRUPTED"
     | "BACKEND_UNREACHABLE"
     | "PROXY_ERROR"
-    | "TIMEOUT";
+    | "TIMEOUT"
+    // 已知业务码（保留补全；开放取值见末行）
+    | "DAILY_BUDGET_EXCEEDED"
+    | (string & {});
   /** 后端注入的前端导航/提示元数据（如 create_project 后建议跳转） */
   _meta?: Record<string, unknown>;
 }

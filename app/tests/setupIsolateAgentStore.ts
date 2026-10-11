@@ -19,6 +19,24 @@ import {
   setAgentRunStoreForTest,
 } from '../src/tools/AgentTool/AgentRunStore';
 
+/**
+ * 测试环境变量归一：强制 `NODE_ENV='test'`（2026-10-11，v0.4.77）。
+ *
+ * **背景**：仓库根 `app/.env` 含 `NODE_ENV=development`；`bun run <script>` 会**自动加载**
+ * `.env` 到 `process.env`，并被其 spawn 的 `bun test` 子进程**继承**（Bun 仅在 `NODE_ENV`
+ * **未设置**时才默认 `'test'`）。而 `.github/workflows/ci.yml` 会 `cp .env.example .env`
+ * 后再跑 `bun run ci`（其末步为 `test:guarded`）⇒ **本机与 CI 的测试进程都会**以
+ * `NODE_ENV=development` 运行，与裸 `bun test` 的 `'test'` 不一致。
+ *
+ * **后果**：凡「仅测试豁免」的逻辑都会误判为非测试环境 —— 实测 D2 的权限注入 fail-fast
+ * 断言（`assertPermissionManagerInjected`）在此环境下触发，致
+ * `ChatManagerHangupTimeout.test.ts` 2 例假红（`bun run test:guarded` 复现，裸 `bun test` 不复现）。
+ *
+ * **处置**：本 preload 由 `bunfig.toml` 在**全部测试文件之前**加载 ⇒ 在此把测试进程的
+ * `NODE_ENV` 归一为 `'test'`，消除本机/CI 的环境漂移（对齐 `bun test` 自身默认口径）。
+ */
+process.env.NODE_ENV = 'test';
+
 const dbPath = join(tmpdir(), `agent-runs-test-${process.pid}.db`);
 
 /**

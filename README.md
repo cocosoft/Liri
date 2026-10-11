@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.76-blue)
+![Version](https://img.shields.io/badge/version-0.4.77-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -428,7 +428,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.76**
+当前版本：**v0.4.77**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -437,17 +437,18 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.76 (2026-10-10)
+#### v0.4.77 (2026-10-11)
 
-**可靠性收口二批：执行内核崩溃恢复闭环（P0）+ 工程护栏（P1）+ 编排拆分与机器守卫（P2）+ 门禁治理基座 + 统一检索边界收敛**
+**工具治理四阶段落地（D1–D11 / G1–G22 · 含 G18 上帝对象拆分）+ Token 日限额 R16 收口 + 边界收口批次（B2–B6）**
 
-- ✅ **P0 执行内核：崩溃恢复闭环** - 客户端 `/v1/chat/stream` 接入 Execution 生命周期（写前记账 fail-closed / 终态结算 / 断开 ⇒ `FAILED: client_disconnected`，fencing 下幂等）；`recover()` 返回 `unknownToolCalls` ⇒ **非幂等 / 未声明工具禁止自动重放**；深扫状态并入统一四态 `verdict`，**消除 `INDETERMINATE → ALLOW` 折叠**；两个新开关（深扫严格 / 客户端流式记账）**默认关**，安全开关表 15 → 17 项
-- ✅ **P1 工程护栏** - bash 子进程最终环境收敛为**唯一构造点** `buildBashSpawnEnv`；沙箱**真负向**纳入 CI **必需**门禁（环境不满足即失败，不得静默跳过）；新增 SPI **装配顺序守卫**（顺序错误 ⇒ 启动即失败并给出可读原因）；修复跨文件全局污染（L-23）并新增**零豁免**门禁 `lint:no-module-mock`
-- ✅ **P2 拆分与机器守卫** - `runStreamMessage` **2532 → 2203** 行、文件 **2684 → 2380** 行、圈复杂度 **309 → 262**（新增 11 个阶段模块 + 15 个用例）；MCP 双轨子进程边界机器守卫；模式闭环守卫（2 ready + 3 unavailable）；门禁自证扩展（跳过项风险分级 + 控制样例）
-- ✅ **门禁与治理基座** - 新增 `lint:invariants` / `lint:entrypoints` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity` 五个门禁 + 自证测试并接入 `ci`，新增 `doc-gate.yml`（**不设** `paths-ignore`）；`.trae/architecture/` 6 文件入库；**`dev_docs/` 全量移出版本控制**（工作区保留、门禁数据已迁 `.trae/architecture/`）
-- ✅ **统一检索边界收敛** - `mergeResults` 对外 `score` 由原始 RRF 和（≈ `1/61` ⇒ 被压成 `0.00~0.02` 三档）改为按 `rrfMaxScore = Σw/(k+1)` **归一化回 `(0,1]`**（4 位小数、保序）；重叠文档 `matchType` 收敛为 **`'hybrid'`**（server/client union + `SearchHitCard` + zh/en i18n 同批）；登记 `RRF-CONV` / `INV-KB-001`，spec 升 v1.2
-- ✅ **质量** - `typecheck`（app + client）**0** · **`bun run ci` exit 0**（含 `test:guarded` **5736 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 本版区间 `v0.4.75..v0.4.76` 共 **19** 次实质提交
-- ℹ️ **边界（如实）** - 两个新增开关**默认关**（零行为变更），翻转须经用户裁定；P2-1 拆分后 S2/S3/S5 多数动作受语法约束**仍留编排函数**；`dev_docs/` 移出后仓内约 **68 处**溯源引用在 GitHub 成死链（仅本地可解析）；跨平台（Windows/macOS）**无强隔离后端**仍属边界；未建 `VfsKernel`、未改 provider / 通道契约
+- ✅ **工具治理阶段 1–4（D1–D11 裁定落地）** - bash 硬拦截层**恒执行**；`commandNormalization` 收敛 raw/preprocessed/normalized/paths **单一事实源**；工具调用状态语义化（`TOOL_CALL_STATUSES` + 转移表）；取消全链路（MCP / WebFetch 接 `AbortSignal.any`）；**D1** `feature()` **三层优先**（env → 构建期 flags → 静态兜底）· **D2** 权限未注入 **fail-fast** · **D3** `unknown` 工具调用复用 Inbox 审批 · **D5** 工具能力契约 + 渐进棘轮 · **D6** 恢复两步同事务 · **D7** VFS 文件类工具**默认不注册**（消除双轨）
+- ✅ **G18 上帝对象拆分（零行为变更）** - `ToolFactory` **1030 → 112** 行（80 条 `name→thunk` 注册表为**唯一来源**，~80 处 loader 改 `byKey`，新增注册表↔loader 一致性门禁）；`BashTool` **1027 → 696** 行（抽出 `bashCommandPolicy` / `bashOutputTruncate` / `bashSecurityGate`，`execute` ≈440 行 / 复杂度 52 → ≈184 行 / < 40）
+- ✅ **工具名单一来源（D11-B / G5）** - 新增 `toolNameConstants`（**90 项** = 73 生效名 + 17 条件名），59 个工具类改引常量（值不变）；`gen-tool-names` 生成物同步（75 名）+ G5 双向门禁（生效面 ⊆ 声明面）
+- ✅ **变体链路 CI 矩阵（S3-1 / G2 / G3）** - `build-variant` 正名为「变体 flags 生成」；CI 新增 `variant-check`（core/coding/enterprise 三变体各跑 `typecheck` + 工具面/契约门禁）
+- ✅ **Token 日限额 R16 收口（阶段 1–5）** - 修复「重启绕过 / 不可配置 / 不可观测 / 日界错位 / 死配置」五类缺口：状态落盘（1s 去抖 + 启动恢复）+ 日界改**本地时区**；单一事实来源 + 运行期热更新；新增 `GET/PUT /v1/cost/daily-budget`（+ reset / kill-switch）；前端「日限额」tab；`CostBudgetManager.getPeriodCost` 改按周期起点查（原返回全时累计 ⇒ 三档失真）
+- ✅ **边界收口批次 + 工程修复（B2–B6）** - `INV-EXEC-006` 升 verified；`events.idx` 续页线性续扫（5 万事件 ×10 趋势 **×30.6 → ×17.6**）；`MODE-A9` 收口为每版复查项；Q4 复评 9 项逐条读观测**全部维持**（台账 0 → 43）；修 5 处 `LIRI_*` 环境变量跨文件泄漏 + **测试进程 `NODE_ENV` 归一**（修 `test:guarded` 本机/CI 假红）
+- ✅ **质量** - `typecheck`（app + client）**0** · **`bun run test:guarded` exit 0**（**5868 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 本版区间 `v0.4.76..v0.4.77` 共 **14** 次实质提交
+- ℹ️ **边界（如实）** - 无默认开关翻转（`featureFlags.ts` 逐字未动）；ON_DEMAND 触发路径零消费者**登记不删**（G-C5）；D7 下 VFS 文件类工具**默认不注册**；`runStreamMessage` 拆分残余受控制流关键字约束（再抽唯一路径为状态机化，收益未证 ⇒ 不排期）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -1,7 +1,11 @@
 /**
- * build-variant.ts — 分版构建脚本
+ * build-variant.ts — 变体 **flags 生成**脚本（**不做编译**）
  *
- * 根据 BUILD_VARIANT 环境变量执行对应版本的构建。
+ * ⚠️ 正名（G2，2026-10-11）：本脚本**只**做两件事 ——
+ *   ① 按变体定义写出 `src/core/buildVariantFlags.ts`（`BUILD_VARIANT_FLAGS`）；
+ *   ② `enterprise` 变体额外把 `.hbs` 模板复制到 `dist/`。
+ * 它**不执行 TypeScript 编译 / 打包**（原输出"执行 TypeScript 编译…/构建完成/输出目录 dist/"
+ * 名不副实）。实际构建请用项目常规构建命令（如 `bun run build`）。
  *
  * 用法:
  *   bun run scripts/build-variant.ts --variant=core
@@ -11,6 +15,11 @@
  *
  * 环境变量:
  *   LIRI_BUILD_VARIANT=core|personal|coding|enterprise
+ *
+ * ⚠️ 已接线（D1，2026-10-11 用户裁定「接线」）：`BUILD_VARIANT_FLAGS` 现由 `core/featureFlags.ts`
+ * 的 `feature()` 作为**中间层**消费（三层优先：`FEATURE_*` env → `BUILD_VARIANT_FLAGS` → `FEATURE_FLAGS`）
+ * ⇒ 本脚本生成的变体开关**真正生效**。注意：变体层是**构建期**产物；`LIRI_BUILD_VARIANT` 的**运行期**
+ * 覆盖只影响 `getBuildVariant()`（分版标识），**不**重新生成本文件。
  */
 
 import * as fs from 'fs';
@@ -168,7 +177,7 @@ function generateFeatureFlags(variant: BuildVariant): string {
 function main(): void {
   const { variant, dryRun } = parseArgs();
 
-  console.log(`\n=== Liri 分版构建 ===`);
+  console.log(`\n=== Liri 变体 flags 生成（不做编译）===`);
   console.log(`变体: ${variant}`);
   console.log(`描述: ${VARIANT_CONFIGS[variant].description}`);
   console.log(`启用功能: ${VARIANT_CONFIGS[variant].features.length} 个`);
@@ -177,7 +186,7 @@ function main(): void {
   );
 
   if (dryRun) {
-    console.log('\n[DRY RUN] 不执行实际构建');
+    console.log('\n[DRY RUN] 只打印，不写文件');
     console.log('\n将生成以下 Feature Flags:');
     console.log(generateFeatureFlags(variant));
     return;
@@ -195,18 +204,24 @@ function main(): void {
   fs.writeFileSync(outputPath, flagsContent, 'utf-8');
   console.log(`\nFeature Flags 已写入: ${outputPath}`);
 
-  console.log('\n执行 TypeScript 编译...');
-  console.log(`环境变量: LIRI_BUILD_VARIANT=${variant}`);
-
+  // G2 正名（2026-10-11）：原输出"执行 TypeScript 编译…/构建完成/输出目录 dist/"名不副实 ——
+  // 本脚本**不编译**。此处的 `LIRI_BUILD_VARIANT` 仅设置于**本进程**，不会影响后续的构建命令。
+  console.log(
+    '\n[正名] 本脚本只生成上述 flags 文件，**不做 TypeScript 编译 / 打包**。'
+  );
+  // 保留原行为（本进程内设置；对**后续**构建命令无效 —— 它们各自独立进程）
   process.env['LIRI_BUILD_VARIANT'] = variant;
+  console.log(
+    `[正名] 已设置本进程 LIRI_BUILD_VARIANT=${variant}（仅本进程有效；实际构建请另行执行 bun run build）`
+  );
 
   // 企业版：复制模板文件到 dist/
   if (variant === 'enterprise') {
     copyTemplateFiles();
+    console.log('企业版模板已复制到 dist/（仅此一步会写 dist/）');
   }
 
-  console.log('\n构建完成！');
-  console.log(`输出目录: dist/`);
+  console.log('\n变体 flags 生成完成（未执行编译）。');
 }
 
 /**

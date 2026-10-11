@@ -196,6 +196,43 @@ jobs:
       run: |
         bun run scripts/lint-session-regression.ts
 
+  # ══════════════════════════════════════════════
+  # S3-1 G3（2026-10-11）：**构建变体矩阵** —— typecheck + 工具面/契约门禁
+  #   每个变体：生成 `BUILD_VARIANT_FLAGS`（D1 接线后由 `feature()` 消费）→ typecheck →
+  #   跑变体相关门禁（工具面清单 + 变体层契约）。
+  #   仅 3 个代表变体（core 最小 / coding 默认 / enterprise 最大），**不**跑全量测试（避免 ×N 计费），
+  #   对齐方案 S3-1 的"至少 typecheck + 工具面快照"。
+  # ══════════════════════════════════════════════
+  variant-check:
+    name: Build Variant Matrix (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [core, coding, enterprise]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
+      with:
+        project: app
+
+    - name: Generate variant flags (${{ matrix.variant }})
+      run: bun run scripts/build-variant.ts --variant=${{ matrix.variant }}
+
+    - name: Type check (variant flags wired into feature())
+      run: bun run typecheck
+
+    - name: Gates (tool-surface list + variant-layer contract)
+      env:
+        LIRI_BUILD_VARIANT: ${{ matrix.variant }}
+      run: bun test tests/tools/toolNameLists.test.ts tests/config/featureFlagContract.test.ts
+
   command-test:
     name: Command Tests (Phase 1 + 2)
     runs-on: ubuntu-latest

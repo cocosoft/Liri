@@ -31,7 +31,7 @@
 
 import { configManager } from '@modules/config';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
-import { handleError } from '@modules/error';
+import { AppError, handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -61,6 +61,33 @@ export interface LlmChatOpsDeps {
   setLlmReady(ready: boolean): void;
   getSmartRouter(): SmartRouter | null;
   setLastRouteDecision(decision: RouteDecision | null): void;
+}
+
+/**
+ * G-2/B（2026-10-11，Spec §5-D-1 B）：非流式失败的**业务码保真**（决策规则层，纯函数以便单测）。
+ *
+ * 判据与流式侧 `resolveStreamErrorCode`（`CoreAPIImpl`）**同一口径**：仅 `AppError` 携带业务码；
+ * 其余（普通 `Error` / provider 普通对象）无码 ⇒ 上层按通用错误处理（不误分流）。
+ *
+ * **为何不 import `resolveStreamErrorCode`**：`CoreAPIImpl` 静态 import 本模块 ⇒ 反向 import 会
+ * 形成循环（本仓依赖校验要求「循环依赖 = 0」）。两者判据都是一行 `instanceof AppError`。
+ */
+export function buildChatErrorResponse(input: {
+  error: unknown;
+  sessionId?: string;
+}): ChatResponse {
+  const appError = input.error instanceof AppError ? input.error : null;
+  const context = appError?.context;
+  return {
+    content: '',
+    sessionId: input.sessionId || '',
+    messageId: '',
+    finishReason: 'error',
+    ...(appError?.code ? { errorCode: appError.code } : {}),
+    ...(context && Object.keys(context).length > 0
+      ? { errorContext: context }
+      : {}),
+  };
 }
 
 export class LlmChatOps {
@@ -336,12 +363,12 @@ export class LlmChatOps {
       otel.endSpan(span, SpanStatusCode.ERROR, String(error));
       await handleError(error, { module: 'core:api', action: 'chat' });
 
-      return {
-        content: '',
-        sessionId: request.sessionId || '',
-        messageId: '',
-        finishReason: 'error',
-      };
+      // G-2/B：保留**真实业务码**（含上下文）——上层 HTTP 据此给出结构化可操作响应，
+      // 而非把限额等业务异常与"服务故障"混为同一个通用 500。
+      return buildChatErrorResponse({
+        error,
+        sessionId: request.sessionId,
+      });
     }
   }
 }

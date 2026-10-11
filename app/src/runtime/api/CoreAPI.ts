@@ -127,6 +127,17 @@ export interface ChatResponse {
   finishReason?: string;
   /** 非流式路径中，当工具需要用户交互时，返回待处理的提问数据 */
   pendingInteraction?: QuestionData;
+  /**
+   * 业务错误码（仅 `finishReason === 'error'` 时可能非空）
+   *
+   * G-2/B（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-A/§5-D-1）：非流式路径原先把
+   * 业务异常一概吞成通用 500 ⇒ 上层无法按码分流。现把 `AppError.code` **原样**带回
+   * （与流式 `resolveStreamErrorCode` 同判据），使 HTTP 面能给出**结构化可操作响应**
+   * （如 `DAILY_BUDGET_EXCEEDED` → 429 + 放行入口）。
+   */
+  errorCode?: string;
+  /** 业务错误上下文（如预算超限的 `todayUsed` / `dailyLimit`），供上层构造可操作响应 */
+  errorContext?: Record<string, unknown>;
 }
 
 /** 流式聊天数据块 */

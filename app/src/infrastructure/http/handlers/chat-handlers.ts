@@ -191,6 +191,66 @@ async function resolveModelIdFromUuid(
   }
 }
 
+/** 非流式 chat 失败时的**结构化**响应体（供调用方按码分流，Spec §5-D-1 B） */
+export interface ChatErrorBody {
+  error: {
+    message: string;
+    type: string;
+    /** 真实业务码（非 `AppError` ⇒ 无码） */
+    code?: string;
+    /** 业务上下文（如预算超限的 `todayUsed` / `dailyLimit`） */
+    context?: Record<string, unknown>;
+    /** 放行入口（仅限额类）：告诉调用方"如何当场解决" */
+    relief?: { method: 'POST'; path: string; kinds: string[] };
+  };
+}
+
+/** 放行端点（与 `cost-channel-routes` 注册路径一致；D-b 三件套） */
+const DAILY_BUDGET_RELIEF_PATH = '/v1/cost/daily-budget/relief';
+
+/**
+ * G-2/B（2026-10-11，Spec §5-D-1 B）：非流式 chat 失败的**响应映射**
+ * （决策规则层，纯函数以便单测）。
+ *
+ * 撞限是**本机环境状态**而非服务故障（Spec §1.3）⇒ 不得再与"AI 服务错误"共用通用 500：
+ * - `DAILY_BUDGET_EXCEEDED` ⇒ **429** + 结构化可操作体（真实码 + 上下文 + 放行三件套入口）；
+ * - 其余（含无码）⇒ 保持既有 **500** 通用体（**不回归**；有业务码时附带 `code` 便于排查）。
+ */
+export function mapChatErrorResponse(input: {
+  errorCode?: string;
+  errorContext?: Record<string, unknown>;
+}): { status: number; body: ChatErrorBody } {
+  if (input.errorCode === 'DAILY_BUDGET_EXCEEDED') {
+    return {
+      status: 429,
+      body: {
+        error: {
+          message:
+            '今日 Token 预算已用完：为避免超额，本次未调用模型。可临时提额 / 本次放行 / 今日解除后再试。',
+          type: 'budget_exceeded',
+          code: 'DAILY_BUDGET_EXCEEDED',
+          ...(input.errorContext ? { context: input.errorContext } : {}),
+          relief: {
+            method: 'POST',
+            path: DAILY_BUDGET_RELIEF_PATH,
+            kinds: ['boost', 'waive-once', 'unlock-today'],
+          },
+        },
+      },
+    };
+  }
+  return {
+    status: 500,
+    body: {
+      error: {
+        message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
+        type: 'server_error',
+        ...(input.errorCode ? { code: input.errorCode } : {}),
+      },
+    },
+  };
+}
+
 /**
  * POST /v1/chat/completions — 聊天完成请求（流式/非流式分发）
  */
@@ -358,25 +418,24 @@ async function handleNormalChat(
       return;
     }
 
-    // 仅 LLM 调用真实失败（finishReason=error）才返回 500。
+    // 仅 LLM 调用真实失败（finishReason=error）才返回错误。
     // 思考型模型（如 deepseek-v4-flash）在 max_tokens 预算被思考耗尽时 content 为空，
     // 或响应仅为 tool_calls 时 content 也为空——此时并非错误，返回 200 空内容避免误报 500。
     if (response.finishReason === 'error') {
+      // G-2/B：按**真实业务码**映射（限额 ⇒ 429 结构化可操作体；其余 ⇒ 既有 500，不回归）。
+      const mapped = mapChatErrorResponse(response);
       logger.error('Chat 返回错误 finishReason=error', {
         model: request.model || DEFAULT_MODEL_SENTINEL,
         sessionId: request.session_id,
         durationMs: chatDurationMs,
         contentLength: response.content?.length ?? 0,
+        errorCode: response.errorCode || 'UNKNOWN',
+        status: mapped.status,
       });
-      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
-            type: 'server_error',
-          },
-        })
-      );
+      res.writeHead(mapped.status, {
+        'Content-Type': 'application/json; charset=utf-8',
+      });
+      res.end(JSON.stringify(mapped.body));
       return;
     }
 

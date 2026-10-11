@@ -30,8 +30,16 @@
 import { join, isAbsolute, resolve } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { estimateMessagesTokens } from '@modules/ai';
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error';
+import {
+  estimateMessagesTokens,
+  estimateMessagesTokensCooperative,
+} from '@modules/ai';
 import {
   resolveMaxContextTokens,
   resolveEffectiveTurnModel,
@@ -58,6 +66,9 @@ import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { getModelPricing } from '@modules/cost';
 import { startRequest } from '../services/requestBoundary';
+// G-2/B（2026-10-11）：非流式路径的日预算闸门 —— 与流式同源（单例 + 单一收口判定）。
+import { getDailyBudget } from '../../query/DailyBudgetManager.js';
+import { checkDailyBudget } from '../../query/dailyBudgetGate.js';
 
 import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '@modules/context';
@@ -541,6 +552,53 @@ export async function invokeLlm(
     constructor: activeClient?.constructor?.name as string,
     providerId: activeClient?.getProviderId(),
   });
+
+  // G-2/B（2026-10-11，Spec §1.2 G-2 / §5-D-1 B）：**非流式路径补闸门**。
+  //
+  // 此前硬闸门只挂**流式**路径（`preSendContextProtection`）⇒ 非流式 `chat()`（HTTP 非流式 /
+  // 通道 / A2A / 工作流等入口）可绕过日预算，把额度跑穿。此处与流式**同口径**：
+  //   估算（`estimateMessagesTokensCooperative`，纯本地、与流式同一助手）→ 单一收口判定
+  //   （`checkDailyBudget`）→ 拒绝即抛业务异常（`DAILY_BUDGET_EXCEEDED`，附快照上下文），
+  //   由 `llmChatOps.chat` 的 catch 透出真实码、由 HTTP 层映射为**结构化可操作响应**。
+  //
+  // 与流式的差异（**有意**）：此处**不做** `reserveFor` 预扣 —— 非流式的记账点
+  // （`recordChatResponseUsage`）只在 provider 回显 usage 时结算，无 usage 的响应会让预留
+  // 永久残留并**抬高在途**（把用户更早拦下）。并发闭合由流式路径的预扣 + 本条判定共同保证。
+  // 判定必须在 `startRequest` **之前**：拒绝时不留任何请求边界事件。
+  const estimatedTokens = await estimateMessagesTokensCooperative(
+    ctx.apiMessages
+  );
+  const budgetMode = getDailyBudget().getMode();
+  const decision = checkDailyBudget({
+    sessionId: session.id,
+    estimatedTokens,
+  });
+  if (!decision.allowed) {
+    logger.warn('sendMessage:budget — 非流式前置检查拒绝', {
+      sessionId: session.id,
+      // 诊断字段不做 'unknown' 回落（守卫 `usageModelAttribution` 的防漂移口径；记账点另经
+      // `extractModelFromResponse` 取 provider 回显）。
+      model: options?.model,
+      todayUsed: budgetMode.todayUsed,
+      projectedUsed: budgetMode.projectedUsed,
+      dailyLimit: budgetMode.dailyLimit,
+      estimateThisRound: estimatedTokens,
+      mode: budgetMode.mode,
+    });
+    throw new AppError(
+      `今日 Token 预算已用完（已用 ${decision.snapshot.used} / 上限 ${decision.snapshot.limit}），为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
+      ErrorCategory.RESOURCE,
+      ErrorSeverity.MEDIUM,
+      'DAILY_BUDGET_EXCEEDED',
+      {
+        sessionId: session.id,
+        todayUsed: decision.snapshot.used,
+        dailyLimit: decision.snapshot.limit,
+        projectedUsed: budgetMode.projectedUsed,
+        estimateThisRound: estimatedTokens,
+      }
+    );
+  }
 
   // P1-16（2026-10-05）：非流式请求发出**前**落 `request/start`（一次请求一条），
   // 返回其 seq 作 requestId，透传到下方用量条 ⇒ 非流式路径请求区间可闭合。

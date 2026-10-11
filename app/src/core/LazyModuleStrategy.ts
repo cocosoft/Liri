@@ -344,6 +344,18 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
  * 2026-09-30（D-133，用户裁定 A+C）：由字符串表改为字面量 thunk 表，并清理 4 条失效条目 ——
  * `remote`（`app/src/remote/` 无 index.ts，无统一出口）· `doc`/`calendar`（真实位置在 `modules/` 下，
  * 原相对路径 `../doc` 不存在）· `mail`（两处均无 index.ts）。四者原均为**不可达或必失败**的死条目。
+ *
+ * ---
+ * **G-C5 登记（2026-10-11，用户裁定「登记不删」）** —— ON_DEMAND **触发路径当前无消费方**：
+ * · 声明侧有效：`security` / `sandbox` 等确有本表条目（`LAZY_MODULE_STRATEGY[*].loadMode = ON_DEMAND`）。
+ * · 触发侧**零调用方**：`ModuleInitializer.requestOnDemandModule()` / `core.requestModule()` 在**全仓无调用**
+ *   （仅 `modules/index.ts` 转出）⇒ **ON_DEMAND 从未被触发**，实际等价于静态/CRITICAL 加载。
+ * · 且 `security` / `sandbox` 被 Bash 链**静态导入**（`tools/bash/BashTool.ts` 等）⇒ "省启动开销"的意图
+ *   在现状下**不可能生效**（模块求值即加载）。
+ * · **替代保护**：安全/沙箱链路的可用性由**静态导入**兜底（不存在"未就绪窗口"）——
+ *   这也是**不删**的理由（CD07：`security`/`sandbox` 属关键域）。
+ * · **reopen 条件**：若将来真要收回懒加载收益 ⇒ 须①接管 `requestOnDemandModule` 的调用方（首次安全检查/
+ *   沙箱执行时请求）**且**②解除 Bash 链的静态导入，并补"未就绪窗口"的 fail-closed 兜底与实测。
  */
 const DYNAMIC_IMPORT_LOADERS: Record<string, () => Promise<unknown>> = {
   featureflags: () => import('../featureflags/index.js'),

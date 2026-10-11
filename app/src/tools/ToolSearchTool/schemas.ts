@@ -8,7 +8,7 @@ export const ToolSearchInputSchema = z.strictObject({
     .string()
     .min(1)
     .describe(
-      '搜索查询。使用 "select:<tool_name>" 进行直接选择，或使用关键词搜索延迟加载的工具'
+      '搜索查询。使用 "select:<tool_name>" 进行直接选择，或使用关键词搜索已注册的工具（含延迟加载与因本轮任务裁剪而不可见的工具）'
     ),
   max_results: z
     .number()

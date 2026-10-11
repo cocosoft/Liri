@@ -1,6 +1,7 @@
 /**
  * 工具搜索工具
- * 用于动态发现延迟加载的工具（MCP/shouldDefer）
+ * 用于动态发现**已注册**工具：既含延迟加载的工具（MCP / `shouldDefer`），
+ * 也含**被本轮任务类别裁剪掉**的内置工具（2026-10-11 修复，见 `execute()` 注释）。
  * 参考CC源码 cc_code/backend/tools/ToolSearchTool/ToolSearchTool.ts 实现
  */
 
@@ -16,6 +17,8 @@ import { ToolSearchOutputSchema } from './schemas';
 // ⇒ 此处**仅非导出引用**，不再重复定义（依 §9.2「一个名字一个规范落点」）。
 import type { ToolSearchInput, ToolSearchOutput } from './schemas';
 import { getToolRegistry } from '../ToolRegistry';
+// 2026-10-11：检索面须排除**有意归档**工具（见 `execute()` 内注释）
+import { ARCHIVED_MISC_TOOLS } from '../toolCategories';
 import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
 
 /**
@@ -89,16 +92,18 @@ function compileTermPatterns(terms: string[]): Map<string, TermPattern> {
 
 /**
  * 基于关键词的工具搜索
+ *
+ * @param candidateTools 可检索的工具集合（**由调用方裁剪**：全量已注册 − 有意归档）
  */
 async function searchToolsWithKeywords(
   query: string,
-  deferredTools: Tool[],
+  candidateTools: Tool[],
   maxResults: number
 ): Promise<string[]> {
   const queryLower = query.toLowerCase().trim();
 
   // 快速路径：如果查询与工具名称完全匹配，直接返回
-  const exactMatch = deferredTools.find(
+  const exactMatch = candidateTools.find(
     (t) => t.name.toLowerCase() === queryLower
   );
   if (exactMatch) {
@@ -107,7 +112,7 @@ async function searchToolsWithKeywords(
 
   // 如果查询看起来像MCP工具前缀（mcp__server），查找匹配的工具
   if (queryLower.startsWith('mcp__') && queryLower.length > 5) {
-    const prefixMatches = deferredTools
+    const prefixMatches = candidateTools
       .filter((t) => t.name.toLowerCase().startsWith(queryLower))
       .slice(0, maxResults)
       .map((t) => t.name);
@@ -136,9 +141,8 @@ async function searchToolsWithKeywords(
   const termPatterns = compileTermPatterns(allScoringTerms);
 
   // 预过滤匹配所有必需词的工具
-  let candidateTools = deferredTools;
   if (requiredTerms.length > 0) {
-    candidateTools = deferredTools.filter((tool) => {
+    candidateTools = candidateTools.filter((tool) => {
       const parsed = parseToolName(tool.name);
       const description = tool.description.toLowerCase();
       const hintNormalized = tool.searchHint?.toLowerCase() ?? '';
@@ -230,9 +234,12 @@ export class ToolSearchTool extends BaseTool<
 
   /**
    * 工具描述
+   *
+   * 2026-10-11：措辞由"搜索**延迟加载**的工具"放宽为"搜索**已注册**工具" —— 关键词分支
+   * 现覆盖全量已注册工具（含被本轮任务类别裁剪掉的内置工具），描述须与真实覆盖面一致。
    */
   description =
-    '搜索延迟加载的工具。当需要使用的工具未在初始工具列表中时，使用此工具查找并加载它。';
+    '搜索工具。当需要使用的工具未出现在当前工具列表中（延迟加载，或因本轮任务裁剪而不可见）时，用此工具按关键词或 "select:<tool_name>" 查找。';
 
   override tags = [ToolTag.READ];
 
@@ -244,7 +251,7 @@ export class ToolSearchTool extends BaseTool<
       name: 'query',
       type: 'string',
       description:
-        '搜索查询。使用 "select:<tool_name>" 进行直接选择，或使用关键词搜索。',
+        '搜索查询。使用 "select:<tool_name>" 进行直接选择，或使用关键词搜索已注册的工具。',
       required: true,
     },
     {
@@ -256,7 +263,7 @@ export class ToolSearchTool extends BaseTool<
     },
   ];
 
-  override searchHint = 'search for deferred tools';
+  override searchHint = 'search registered tools by keyword';
 
   override maxResultSizeChars = 100_000;
 
@@ -318,6 +325,12 @@ export class ToolSearchTool extends BaseTool<
     const registry = getToolRegistry();
     const allTools = Array.from(registry.getTools().values());
     const deferredTools = allTools.filter(isDeferredTool);
+    // 可检索面 = 全量已注册 − **有意归档**工具（`ARCHIVED_MISC_TOOLS`，如 `computer_use`
+    // 高风险桌面自动化）。归档语义是"对模型**永久不可见**"（见 toolCategories.ts 注释）⇒
+    // 2026-10-11 放宽关键词检索面时必须同步排除，否则检索会成为绕过归档的旁路。
+    const searchableTools = allTools.filter(
+      (t) => !ARCHIVED_MISC_TOOLS.has(t.name)
+    );
 
     // 检查直接选择前缀
     const selectMatch = query.match(/^select:(.+)$/i);
@@ -329,7 +342,7 @@ export class ToolSearchTool extends BaseTool<
 
       const found: string[] = [];
       for (const toolName of requested) {
-        const tool = findToolByName(allTools, toolName);
+        const tool = findToolByName(searchableTools, toolName);
         if (tool && !found.includes(tool.name)) {
           found.push(tool.name);
         }
@@ -341,7 +354,7 @@ export class ToolSearchTool extends BaseTool<
       let hint = '';
       if (found.length === 0) {
         const lower = requested.map((r) => r.toLowerCase());
-        const candidates = allTools
+        const candidates = searchableTools
           .map((t) => t.name)
           .filter((name) =>
             lower.some(
@@ -350,7 +363,7 @@ export class ToolSearchTool extends BaseTool<
             )
           )
           .slice(0, 5);
-        const fallback = allTools
+        const fallback = searchableTools
           .filter((t) => !isDeferredTool(t))
           .map((t) => t.name)
           .slice(0, 10);
@@ -381,9 +394,15 @@ export class ToolSearchTool extends BaseTool<
     }
 
     // 关键词搜索
+    // 2026-10-11（真机事故修复）：搜索面由 `deferredTools` 放宽为 **`searchableTools`
+    // （全量已注册 − 有意归档）**。动因：任务类别裁剪（`filterToolsByTask`）会把不在本轮
+    // 白名单里的**内置**工具从模型函数清单中移除，而关键词分支只搜延迟工具 ⇒ **明明注册了
+    // 却搜不到**（现场：模型查 "execute shell command bash …" 返回空 ⇒ 自述"环境无 shell
+    // 工具"）。`select:` 分支本就按全量查找 ⇒ 本次使两个分支**口径一致**（均排除归档项），
+    // 不再引入新的可见性缺口（被裁剪的工具名一旦被检索到，即可按名调用并由注册表解析执行）。
     const toolMatches = await searchToolsWithKeywords(
       query,
-      deferredTools,
+      searchableTools,
       max_results
     );
     // 技能匹配增强（2026-09-01）：模型反复用 tool_search 找技能（"zhihu 技能"、
@@ -404,7 +423,7 @@ export class ToolSearchTool extends BaseTool<
         .toLowerCase()
         .split(/\s+/)
         .filter((t) => t.length > 0);
-      const candidates = allTools
+      const candidates = searchableTools
         .map((t) => t.name)
         .filter((name) => {
           const lowerName = name.toLowerCase();
@@ -413,7 +432,7 @@ export class ToolSearchTool extends BaseTool<
           );
         })
         .slice(0, 5);
-      const fallback = allTools
+      const fallback = searchableTools
         .filter((t) => !isDeferredTool(t))
         .map((t) => t.name)
         .slice(0, 10);

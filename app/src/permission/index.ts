@@ -132,9 +132,16 @@ export {
   normalizeCommand,
   hashCommand,
   hashCommandForExecution,
+  hashEnvForApproval,
+  computeScopeDigest,
   getBaseCommand,
   toolCallApprovalKey,
   isToolCallApproved,
+} from './ApprovedCommandRegistry';
+export type {
+  ApprovalEntry,
+  ApprovalScope,
+  ApprovalSnapshot,
 } from './ApprovedCommandRegistry';
 
 // Risk classification (Phase 3: OpenWorker-style)
@@ -157,6 +164,8 @@ export {
   PermissionManager,
   createPermissionManager,
 } from './PermissionManager';
+// D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
+export { assertPermissionManagerInjected } from './assertPermissionInjected';
 export {
   FineGrainedPermissionManager,
   createFineGrainedPermissionManager,

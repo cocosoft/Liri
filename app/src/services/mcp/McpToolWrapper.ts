@@ -81,7 +81,7 @@ export class McpToolWrapper implements Tool {
 
   async execute(
     input: unknown,
-    _context: ToolUseContext,
+    context: ToolUseContext,
     _onProgress?: unknown
   ): Promise<ToolResult> {
     const start = Date.now();
@@ -102,10 +102,16 @@ export class McpToolWrapper implements Tool {
       // 2026-10-08（MCP 双轨收敛 C-1）：原为 `(client as any).tools.call({...})` —— 已装 SDK
       // （^1.29.0）的 `Client` **没有 `.tools` 子对象**（只有顶层 `callTool()`）⇒ 该调用**必然抛
       // TypeError**，又被下方 catch 吞成 `success:false` ⇒ **`mcp__*` 工具的每次调用都会失败**。
-      const result = await client.callTool({
-        name: this.toolName,
-        arguments: (input ?? {}) as Record<string, unknown>,
-      });
+      const result = await client.callTool(
+        {
+          name: this.toolName,
+          arguments: (input ?? {}) as Record<string, unknown>,
+        },
+        undefined,
+        // S2-2（2026-10-11，G15）：**接上下文取消信号** —— 用户取消 ⇒ SDK 在途请求即中断。
+        // 原实现形参 `_context` 弃用、未传 `options.signal` ⇒ 取消后底层请求仍继续。
+        { signal: context.abortController.signal }
+      );
 
       const content = result.content as
         | Array<{ type: string; text?: string; data?: unknown }>

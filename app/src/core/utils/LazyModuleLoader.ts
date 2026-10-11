@@ -98,7 +98,8 @@ export class LazyModuleLoader<T> {
    *  - factory 必须是**同步**的；返回 Promise 时抛错（调用方应改用 `get()`）——
    *    这样"工具 creator 同步可调"这一前提被显式校验，而不是静默返回半成品；
    *  - 若异步 `get()` 正在加载中 ⇒ 抛错，**不并发执行 factory**：
-   *    工具工厂（如 `ToolFactory.createAgentTool()`）多为"每次返回新实例"，
+   *    工具工厂（如 `ToolFactory.create('createAgentTool')`，构造表见
+   *    `tools/factories/builtinToolRegistry`）多为"每次返回新实例"，
    *    并发会造出两个实例、后续 `get()`/`getSync()` 结果分叉。
    */
   loadSync(): T {

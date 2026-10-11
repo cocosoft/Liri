@@ -18,6 +18,9 @@ import type {
 import { createAllowResult } from './types/PermissionResult';
 // 13-P1-2（2026-10-05）：幂等/副作用声明（唯一事实源）
 import { resolveToolEffect } from './toolEffects';
+// D5（2026-10-11）：能力/风险描述符（由既有元数据派生，纯函数）
+import { deriveFromLegacyEffects } from './toolCapability';
+import type { ToolCapabilityDescriptor } from '../utils/toolContract/Tool';
 
 export type { ToolDef } from './types/Tool';
 export { buildTool } from './types/Tool';
@@ -218,12 +221,34 @@ export abstract class BaseTool<
       concurrencySafe: this.isConcurrencySafe(),
       idempotent: effect?.idempotent ?? false,
       sideEffect: effect?.sideEffect ?? 'external',
+      // D5（2026-10-11）：能力/风险描述符（由既有元数据派生，见 `getCapability()`）
+      capability: this.getCapability(),
       deferred: this.shouldDefer || false,
       alwaysLoad: this.alwaysLoad || false,
       interruptBehavior: this.interruptBehavior?.() || 'block',
       maxResultSizeChars: this.maxResultSizeChars,
       tags: this.tags,
     };
+  }
+
+  /**
+   * 派生**能力/风险描述符**（D5，2026-10-11）。
+   *
+   * **纯派生**：复用既有元数据（`TOOL_EFFECTS` + `tags` + `isReadOnly/isDestructive` + `sandboxLevel`）
+   * —— **未显式声明**的能力由 `deriveFromLegacyEffects()` 默认派生（渐进棘轮，不改存量工具 Schema）。
+   * `sandboxLevel === 'execution'` 视为"执行任意代码/命令"（→ `capability: 'execute'`）。
+   *
+   * @param input 工具输入（可选；部分工具的只读/破坏性判定依赖入参）
+   */
+  getCapability(input?: Record<string, unknown>): ToolCapabilityDescriptor {
+    return deriveFromLegacyEffects({
+      effect: resolveToolEffect(this.name),
+      tags: this.tags,
+      isReadOnly: this.isReadOnly(input),
+      isDestructive: this.isDestructive?.(input) || false,
+      sandboxLevel: this.sandboxLevel,
+      executesCode: this.sandboxLevel === 'execution',
+    });
   }
 
   /**

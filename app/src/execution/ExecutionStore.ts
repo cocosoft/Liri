@@ -36,6 +36,13 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
+import {
+  TOOL_CALL_INITIAL_STATUS,
+  TOOL_CALL_UNKNOWN_STATUS,
+  isToolCallStatus,
+  isToolCallTerminalStatus,
+  type ToolCallStatus,
+} from './types';
 import type {
   ExecutionGeneration,
   ExecutionId,
@@ -83,7 +90,8 @@ export interface PersistedToolCall {
   executionId: ExecutionId;
   toolCallId: string;
   toolName: string;
-  status: string;
+  /** G14（S2-1）：语义化枚举（唯一事实源 `types.ts`） */
+  status: ToolCallStatus;
   startedAt: number;
   endedAt?: number;
   error?: string;
@@ -131,6 +139,24 @@ function rowToExecution(row: ExecutionRow): PersistedExecution {
     updatedAt: row.updated_at,
     heartbeatAt: row.heartbeat_at,
   };
+}
+
+/**
+ * DB 读回的状态收窄（G14/S2-1）：边界校验（CS04/CS06 口径 —— 不信任持久层字符串）。
+ * 非法/历史未知值 ⇒ 归 `unknown`（保守：副作用不可知）并留痕，绝不猜成成功/失败。
+ */
+function toToolCallStatus(
+  value: string,
+  executionId: string,
+  toolCallId: string
+): ToolCallStatus {
+  if (isToolCallStatus(value)) return value;
+  logger.warn('tool_calls.status 为未知值（按 unknown 处理）', {
+    executionId,
+    toolCallId,
+    value,
+  });
+  return TOOL_CALL_UNKNOWN_STATUS;
 }
 
 export class ExecutionStore {
@@ -230,6 +256,22 @@ export class ExecutionStore {
       `CREATE INDEX IF NOT EXISTS idx_tool_calls_exec
        ON ${TOOL_CALLS_TABLE} (execution_id)`
     );
+    // G13（2026-10-11，S1-3）：`(execution_id, tool_call_id)` **唯一约束** —— 兜底防"ID 碰撞
+    // ⇒ 结算错行"。⚠️ best-effort（对照 `execution_events` 的 B-03 处理）：历史库可能已存在
+    // 因旧 ID 低熵（`call_${index}` / `call_${Date.now()}`）产生的重复行，`CREATE UNIQUE INDEX`
+    // 会抛错 ⇒ **留痕不阻断启动**（新写入已由 `recordToolCall`/`settleToolCall` 的
+    // `WHERE NOT EXISTS` 去重保证不再产生重复）。
+    try {
+      await this.run(
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_tool_calls_exec_tcid
+         ON ${TOOL_CALLS_TABLE} (execution_id, tool_call_id)`
+      );
+    } catch (err) {
+      logger.warn(
+        'tool_calls 唯一索引创建失败（可能存在历史重复 tool_call_id；新写入已去重）',
+        { error: String(err) }
+      );
+    }
 
     logger.debug('executionStore:initialized', { dbPath });
   }
@@ -367,7 +409,14 @@ export class ExecutionStore {
     }));
   }
 
-  /** 记录一次工具调用（开始）。**幂等**：同 (execution,toolCallId) 已有未结算行则不再插入。 */
+  /**
+   * 记录一次工具调用（开始）。**幂等**：同 `(execution, toolCallId)` 已有行则不再插入。
+   *
+   * G13（2026-10-11，S1-3）：判据由"已有**未结算**行"放宽为"已有**任意**行" —— 与
+   * `settleToolCall` 一致，且避免在 `uq_tool_calls_exec_tcid` 唯一索引生效后，
+   * 同一 `(execution_id, tool_call_id)` 的正常重放触发 `UNIQUE` 冲突抛错
+   * （`recordToolCall` 抛错即 `beginToolCall=false` fail-closed，会阻断合法执行）。
+   */
   async recordToolCall(
     executionId: ExecutionId,
     toolCallId: string,
@@ -378,37 +427,67 @@ export class ExecutionStore {
     await this.run(
       `INSERT INTO ${TOOL_CALLS_TABLE}
         (execution_id, tool_call_id, tool_name, status, started_at)
-       SELECT ?, ?, ?, 'running', ?
+       SELECT ?, ?, ?, ?, ?
        WHERE NOT EXISTS (
          SELECT 1 FROM ${TOOL_CALLS_TABLE}
-          WHERE execution_id = ? AND tool_call_id = ? AND ended_at IS NULL
+          WHERE execution_id = ? AND tool_call_id = ?
        )`,
-      [executionId, toolCallId, toolName, startedAt, executionId, toolCallId]
+      [
+        executionId,
+        toolCallId,
+        toolName,
+        TOOL_CALL_INITIAL_STATUS,
+        startedAt,
+        executionId,
+        toolCallId,
+      ]
     );
   }
 
   /**
    * 结算工具调用（结束）。**健壮**：若从未记录过开始（只收到终态 chunk），
    * 先补建一行再结算 ⇒ 不丢记录。
+   *
+   * G14（S2-1）：`status` 收窄为 `ToolCallStatus`；仅接受**终态**（`completed`/`failed`/
+   * `unknown`）—— 非终态（如 `running`）会被忽略并留痕，避免经结算路径写入非法状态。
    */
   async settleToolCall(
     executionId: ExecutionId,
     toolCallId: string,
     toolName: string,
-    status: string,
+    status: ToolCallStatus,
     error?: string,
     endedAt: number = Date.now()
   ): Promise<void> {
+    if (!isToolCallTerminalStatus(status)) {
+      logger.warn(
+        'settleToolCall 收到非终态 status（忽略，避免非法状态写入）',
+        {
+          executionId,
+          toolCallId,
+          status,
+        }
+      );
+      return;
+    }
     await this.init();
     await this.run(
       `INSERT INTO ${TOOL_CALLS_TABLE}
         (execution_id, tool_call_id, tool_name, status, started_at)
-       SELECT ?, ?, ?, 'running', ?
+       SELECT ?, ?, ?, ?, ?
        WHERE NOT EXISTS (
          SELECT 1 FROM ${TOOL_CALLS_TABLE}
           WHERE execution_id = ? AND tool_call_id = ?
        )`,
-      [executionId, toolCallId, toolName, endedAt, executionId, toolCallId]
+      [
+        executionId,
+        toolCallId,
+        toolName,
+        TOOL_CALL_INITIAL_STATUS,
+        endedAt,
+        executionId,
+        toolCallId,
+      ]
     );
     await this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
@@ -418,14 +497,25 @@ export class ExecutionStore {
     );
   }
 
-  /** 结算工具调用（结束；仅更新既有的未结算行） */
+  /**
+   * 结算工具调用（结束；仅更新既有的未结算行）。
+   * G14（S2-1）：`status` 收窄为 `ToolCallStatus`；非终态直接返回 `false`（不写非法状态）。
+   */
   async finishToolCall(
     executionId: ExecutionId,
     toolCallId: string,
-    status: string,
+    status: ToolCallStatus,
     error?: string,
     endedAt: number = Date.now()
   ): Promise<boolean> {
+    if (!isToolCallTerminalStatus(status)) {
+      logger.warn('finishToolCall 收到非终态 status（忽略）', {
+        executionId,
+        toolCallId,
+        status,
+      });
+      return false;
+    }
     await this.init();
     const changed = await this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
@@ -450,9 +540,9 @@ export class ExecutionStore {
     await this.init();
     return this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
-         SET status = 'unknown', ended_at = ?
+         SET status = ?, ended_at = ?
        WHERE execution_id = ? AND ended_at IS NULL`,
-      [endedAt, executionId]
+      [TOOL_CALL_UNKNOWN_STATUS, endedAt, executionId]
     );
   }
 
@@ -468,7 +558,7 @@ export class ExecutionStore {
       executionId: r.execution_id as ExecutionId,
       toolCallId: r.tool_call_id,
       toolName: r.tool_name,
-      status: r.status,
+      status: toToolCallStatus(r.status, r.execution_id, r.tool_call_id),
       startedAt: r.started_at,
       endedAt: r.ended_at ?? undefined,
       error: r.error ?? undefined,
@@ -529,6 +619,35 @@ export class ExecutionStore {
   }
 
   // ── 低层：Database 回调 → Promise（对照 SettlementOutbox） ──
+
+  /**
+   * D6（2026-10-11 用户裁定「仅事务化」）：把一组写入包成**原子事务**。
+   *
+   * 用途：崩溃恢复的"两步"（标未结算工具调用 `unknown` → 置执行 `STALE`）此前是**两条独立
+   * `run()`**（B-02 仅靠"倒序 + 幂等"缓解；两步之间仍可能只落其一）⇒ 本原语令其**同事务**
+   * （`BEGIN IMMEDIATE` / `COMMIT` / 失败 `ROLLBACK`）。
+   *
+   * 注：`RECOVERY_PENDING` 中间态**未引入**（其余裁定项，见方案 §4 D6）。
+   */
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    await this.init();
+    await this.run('BEGIN IMMEDIATE');
+    try {
+      const result = await fn();
+      await this.run('COMMIT');
+      return result;
+    } catch (error) {
+      try {
+        await this.run('ROLLBACK');
+      } catch (rollbackError) {
+        // 回滚失败：仅记录（不掩盖原始错误；CS03-002）
+        logger.warn('恢复事务 ROLLBACK 失败（原始错误继续上抛）', {
+          rollbackError: String(rollbackError),
+        });
+      }
+      throw error;
+    }
+  }
 
   private run(sql: string, params: unknown[] = []): Promise<number> {
     const db = this.db;

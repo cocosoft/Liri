@@ -332,10 +332,17 @@ export const MCPTool: Tool = {
             });
           }
 
-          const result = await sdk.callTool({
-            name: tool_name,
-            arguments: tool_args || {},
-          });
+          const result = await sdk.callTool(
+            {
+              name: tool_name,
+              arguments: tool_args || {},
+            },
+            undefined,
+            // S2-2（2026-10-11，G15）：**接上下文取消信号** —— 用户取消（`abortController.abort()`）⇒
+            // SDK 在途请求即中断（`AbortError`）。此前未传 `options` ⇒ 取消后底层请求仍继续。
+            // SDK `RequestOptions.signal` 语义见 `@modelcontextprotocol/sdk` shared/protocol.d.ts。
+            { signal: context.abortController.signal }
+          );
 
           // SDK 结果自带 `isError` ⇒ 如实承载到 ToolResult（失败信息进 `error` 供前端展示）
           return createToolResult(

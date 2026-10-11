@@ -154,13 +154,41 @@ describe('toolCategories — P0 工具可见性回归', () => {
       { name: 'bash' },
     ];
     const kept = filterToolsByTask(defs, 'default').map((t) => t.name);
+    // 2026-10-11：`bash` 随 `shell` 类别一并保留（见下方 shell 可见性修复用例）
     expect(kept).toEqual([
       'doc_generate',
       'channel',
       'broadcast',
       'calendar:add',
       'mail:send',
+      'bash',
     ]);
+  });
+
+  /**
+   * 2026-10-11（真机事故修复）：`shell` 已纳入 default/chat。
+   *
+   * 事故现场：普通会话 `taskType:"default"` ⇒ 裁剪 79→40 且 `removedNames` 含
+   * `bash`/`powershell` ⇒ 模型看不到 shell（自述"环境无 shell 工具"），执行类任务
+   * 无法跑命令验证产物。shell 属通用执行能力，小上下文已由 `local` 轻量集兜底。
+   */
+  test('2026-10-11 修复: shell 类在 chat/default/undefined 均保留', () => {
+    expect(getToolCategory('bash')).toBe('shell');
+    expect(getToolCategory('powershell')).toBe('shell');
+    const defs = [
+      { name: 'bash' },
+      { name: 'powershell' },
+      { name: 'computer_use' },
+    ];
+    for (const taskType of ['chat', 'default', undefined]) {
+      const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
+      expect(kept).toContain('bash');
+      expect(kept).toContain('powershell');
+      // 反证：有意归档的 misc 仍被裁（本次只放开 shell，未全量放行）
+      expect(kept).not.toContain('computer_use');
+    }
+    // `local`（小上下文/本地端点）仍取轻量只读集 ⇒ shell 不因本次修复而进入
+    expect(filterToolsByTask(defs, 'local').map((t) => t.name)).toEqual([]);
   });
 
   test('N-44: misc 仍会被裁（browser / computer_use 未开放，行为不变）', () => {
@@ -206,7 +234,9 @@ describe('toolCategories — P0 工具可见性回归', () => {
     const defs = [
       { type: 'function' as const, function: { name: wfWire } },
       { type: 'function' as const, function: { name: pipeWire } },
-      { type: 'function' as const, function: { name: 'bash' } },
+      // 反证用控制项：2026-10-11 起 `bash` 已在 chat/default 保留 ⇒ 改用仍被裁的
+      // 有意归档项 `computer_use`（misc）作"裁剪仍生效"的对照。
+      { type: 'function' as const, function: { name: 'computer_use' } },
     ];
     for (const taskType of ['chat', 'default', undefined]) {
       const kept = filterToolsByTask(defs, taskType).map(
@@ -214,7 +244,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
       );
       expect(kept).toContain(wfWire);
       expect(kept).toContain(pipeWire);
-      expect(kept).not.toContain('bash'); // 反证：裁剪仍生效（非全量放行）
+      expect(kept).not.toContain('computer_use'); // 反证：裁剪仍生效（非全量放行）
     }
   });
 

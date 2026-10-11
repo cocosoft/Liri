@@ -94,7 +94,7 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
   it('有 executionId 且落盘成功 ⇒ 正常执行 + 结算（completed）', async () => {
     const em = getExecutionManager();
     const begin = spyOn(em, 'beginToolCall').mockResolvedValue(true);
-    const settle = spyOn(em, 'settleToolCall');
+    const end = spyOn(em, 'endToolCall');
     try {
       const { mgr, calls } = makeManager('exec-y', {
         toolCallId: 't1',
@@ -107,18 +107,49 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
       expect(calls).toEqual(['execute']);
       expect(r.result).toBe('ok');
       expect(begin).toHaveBeenCalledTimes(1);
-      expect(settle).toHaveBeenCalledTimes(1);
-      expect(settle.mock.calls[0][3]).toBe('completed');
+      expect(end).toHaveBeenCalledTimes(1);
+      expect(end.mock.calls[0][3]).toBe('completed');
     } finally {
       begin.mockRestore();
-      settle.mockRestore();
+      end.mockRestore();
+    }
+  });
+
+  it('G17：结算可等待 —— `endToolCall` 未决时 `executeTool` 不返回（证明已 await）', async () => {
+    const em = getExecutionManager();
+    const begin = spyOn(em, 'beginToolCall').mockResolvedValue(true);
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const end = spyOn(em, 'endToolCall').mockImplementation(() => gate);
+    try {
+      const { mgr } = makeManager('exec-await', {
+        toolCallId: 't1',
+        toolName: 'BashTool',
+        result: 'ok',
+      });
+      let resolved = false;
+      const p = mgr.executeTool(toolCall).then(() => {
+        resolved = true;
+      });
+      // 让出若干轮事件循环：若未 await，此时应已 resolve
+      await new Promise((r) => setTimeout(r, 20));
+      expect(resolved).toBe(false);
+      release();
+      await p;
+      expect(resolved).toBe(true);
+      expect(end).toHaveBeenCalledTimes(1);
+    } finally {
+      begin.mockRestore();
+      end.mockRestore();
     }
   });
 
   it('无 executionId ⇒ 不记账、不结算（零行为变更）', async () => {
     const em = getExecutionManager();
     const begin = spyOn(em, 'beginToolCall');
-    const settle = spyOn(em, 'settleToolCall');
+    const end = spyOn(em, 'endToolCall');
     try {
       const { mgr, calls } = makeManager(undefined, {
         toolCallId: 't1',
@@ -130,10 +161,10 @@ describe('B-05 执行者侧逐工具 fail-closed（ChatManager.executeTool）', 
 
       expect(calls).toEqual(['execute']);
       expect(begin).not.toHaveBeenCalled();
-      expect(settle).not.toHaveBeenCalled();
+      expect(end).not.toHaveBeenCalled();
     } finally {
       begin.mockRestore();
-      settle.mockRestore();
+      end.mockRestore();
     }
   });
 });

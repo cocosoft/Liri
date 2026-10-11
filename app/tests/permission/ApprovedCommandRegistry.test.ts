@@ -35,6 +35,8 @@ import {
   normalizeCommand,
   hashCommand,
   hashCommandForExecution,
+  hashEnvForApproval,
+  computeScopeDigest,
   getBaseCommand,
 } from '../../src/permission/ApprovedCommandRegistry.js';
 
@@ -241,6 +243,95 @@ describe('A5 批准严格模式 BASH_APPROVAL_STRICT（2026-10-09，默认关）
     expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(false);
     // 精确 hash 仍放行
     expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+});
+
+/**
+ * S1-1（2026-10-11）：审批身份绑定升级
+ * - 哈希改 SHA-256（替代 djb2 32 位）
+ * - 作用域绑定（cwd / 调用方 env 摘要 / 平台）：作用域不一致 ⇒ 不复用批准（fail-closed）
+ * - 审批快照 + 能力摘要预留字段
+ */
+describe('S1-1 哈希强度与作用域绑定', () => {
+  it('hashCommand 为 SHA-256 前 128 bit（32 位十六进制），且不同命令不同', () => {
+    const h = hashCommand('rm -rf /tmp/abc');
+    expect(h).toMatch(/^[0-9a-f]{32}$/);
+    expect(hashCommand('rm -rf /tmp/abc')).toBe(h); // 确定性
+    expect(hashCommand('rm -rf /tmp/abd')).not.toBe(h);
+  });
+
+  it('hashEnvForApproval：键序无关且稳定；空 env ⇒ undefined', () => {
+    const a = hashEnvForApproval({ PATH: '/usr/bin', LANG: 'C' });
+    const b = hashEnvForApproval({ LANG: 'C', PATH: '/usr/bin' });
+    expect(a).toBeDefined();
+    expect(a).toBe(b);
+    expect(hashEnvForApproval({ PATH: '/usr/bin:evil' })).not.toBe(a);
+    expect(hashEnvForApproval({})).toBeUndefined();
+    expect(hashEnvForApproval(undefined)).toBeUndefined();
+  });
+
+  it('computeScopeDigest：同字段同摘要；字段变化即变化；空作用域 ⇒ undefined', () => {
+    const s1 = { platform: 'win32', cwd: 'C:\\projA' };
+    expect(computeScopeDigest(s1)).toBe(computeScopeDigest({ ...s1 }));
+    expect(computeScopeDigest(s1)).not.toBe(
+      computeScopeDigest({ ...s1, cwd: 'C:\\projB' })
+    );
+    expect(computeScopeDigest({})).toBeUndefined();
+    expect(computeScopeDigest(undefined)).toBeUndefined();
+  });
+
+  it('作用域不一致 ⇒ 不复用批准（fail-closed）；一致 ⇒ 命中', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('echo scope-test');
+    const scopeA = { platform: process.platform, cwd: 'C:\\projA' };
+    reg.approve('session-1', hash, 'echo scope-test', { scope: scopeA });
+
+    expect(reg.isApproved('session-1', hash, scopeA)).toBe(true);
+    expect(
+      reg.isApproved('session-1', hash, {
+        platform: process.platform,
+        cwd: 'C:\\projB',
+      })
+    ).toBe(false);
+    // env 摘要不同 ⇒ 不命中
+    expect(
+      reg.isApproved('session-1', hash, { ...scopeA, envDigest: 'deadbeef' })
+    ).toBe(false);
+    reg.dispose();
+  });
+
+  it('记录未绑定作用域时，带 scope 查询 ⇒ 不命中（fail-closed）；不带 scope ⇒ 既有语义', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('echo legacy');
+    reg.approve('session-1', hash, 'echo legacy'); // 旧路径：无作用域
+    expect(
+      reg.isApproved('session-1', hash, {
+        platform: process.platform,
+        cwd: 'C:\\projA',
+      })
+    ).toBe(false);
+    expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+
+  it('审批快照与能力摘要（预留）随批准记录落库', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    const hash = hashCommand('echo /tmp/x');
+    reg.approve('session-1', hash, 'echo /tmp/x', {
+      scope: { platform: process.platform },
+      capabilityDigest: 'process.execute|filesystem.write',
+      snapshot: {
+        originalCommand: 'echo /tmp/x',
+        normalizedCommand: 'echo /tmp/x',
+        rewrites: ['/tmp → %TEMP%'],
+      },
+    });
+    const entry = reg.getApprovalEntry('session-1', hash);
+    expect(entry?.capabilityDigest).toBe('process.execute|filesystem.write');
+    expect(entry?.snapshot?.originalCommand).toBe('echo /tmp/x');
+    expect(entry?.snapshot?.rewrites).toEqual(['/tmp → %TEMP%']);
+    expect(entry?.scopeDigest).toBeDefined();
     reg.dispose();
   });
 });

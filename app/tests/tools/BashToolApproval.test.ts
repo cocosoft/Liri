@@ -22,15 +22,17 @@
 /**
  * 工具执行审批链路 P2-3 — BashTool 放行通道测试
  *
- * 覆盖（P0-4）：
+ * 覆盖（P0-4 / S1-2）：
  * - 未批准的危险命令被安全拦截（securityIntercepted，命令不执行）
- * - 已批准命令（ApprovedCommandRegistry 命中 session+hash）跳过安全拦截层并真实执行
+ * - 已批准命令命中放行缓存：S1-2 起**只免"重复弹 ask 卡"**，硬拦截层恒执行
+ *   （`FEATURE_BASH_APPROVED_REVALIDATE` 开关**关不掉**任何硬拦截，见 G11）
  *
  * 测试命令选择 "echo format-test"：
  * - 无审批：包含危险命令词 "format" → 在危险命令列表层被拦截
- * - 有审批：跳过拦截层 → cmd/sh 安全回显，跨平台可执行
+ * - 有审批：硬拦截仍生效（S1-2）⇒ 同样被拦截；"安全命令 + 已批准"才真实执行
  */
 import { describe, it, expect, afterEach, spyOn } from 'bun:test';
+import { getLogger } from '@modules/monitoring';
 import { BashTool } from '../../src/tools/bash/BashTool.js';
 import {
   ApprovedCommandRegistry,
@@ -103,6 +105,45 @@ describe('BashTool 放行通道（P0-4）', () => {
     );
     expect(result.metadata?.securityIntercepted).toBe(true);
     reg.dispose();
+  });
+});
+
+describe('S1-1 审批作用域绑定（执行端，2026-10-11）', () => {
+  it('作用域一致 ⇒ 走"已批准命令放行"；cwd 不一致 ⇒ 不命中（fail-closed）', async () => {
+    const bashLogger = getLogger('tools\bash\BashTool');
+    const infoSpy = spyOn(bashLogger, 'info');
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const command = 'echo scope-e2e';
+      const hash = hashCommand(command);
+      // 批准时绑定作用域 cwd = C:\projA
+      reg.approve('session-1', hash, command, {
+        scope: { platform: process.platform, cwd: 'C:\\projA' },
+      });
+      const tool = new BashTool(reg);
+      const approvedLogCount = (): number =>
+        infoSpy.mock.calls.filter((c) => c[0] === '已批准命令放行').length;
+
+      // ① 作用域一致 ⇒ 命中放行
+      const ctxMatch = {
+        ...makeContext('session-1'),
+        options: { cwd: 'C:\\projA' },
+      } as unknown as ToolUseContext;
+      await tool.execute({ command }, ctxMatch);
+      expect(approvedLogCount()).toBe(1);
+
+      // ② 作用域不一致（不同 cwd）⇒ 不复用批准：安全命令仍可执行，但不走放行通道
+      infoSpy.mockClear();
+      const ctxMismatch = {
+        ...makeContext('session-1'),
+        options: { cwd: 'C:\\projB' },
+      } as unknown as ToolUseContext;
+      await tool.execute({ command }, ctxMismatch);
+      expect(approvedLogCount()).toBe(0);
+    } finally {
+      infoSpy.mockRestore();
+      reg.dispose();
+    }
   });
 });
 
@@ -179,9 +220,12 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
     reg.dispose();
   });
 
-  it('显式关（灰度回退）：已批准的危险命令跳过拦截（旧行为）', async () => {
-    // 注意：`withFlag(name, false)` 是"删除 env ⇒ 用默认值"；A2 默认已为 true
-    // ⇒ 回退验证必须**显式设 'false'**（不能用删除）。
+  it('显式关（灰度回退）：已批准的危险命令**仍被硬拦截**（S1-2 收紧 / G11）', async () => {
+    // S1-2（2026-10-11）：灰度开关不再能让"已批准的命令"绕过硬拦截层。
+    // 旧行为（`FEATURE_BASH_APPROVED_REVALIDATE=false` ⇒ 跳过全部安全拦截层，
+    // 即 DENY 可被 env 一键绕过）已按治理缺口 G11 收紧：
+    // 硬拦截层恒执行，开关只影响"是否重复弹 ask 卡"。
+    // 注意：必须**显式设 'false'**（删除 env 会落到默认值 true）。
     const key = 'FEATURE_BASH_APPROVED_REVALIDATE';
     const prev = process.env[key];
     process.env[key] = 'false';
@@ -193,7 +237,8 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
         { command: 'echo format-test' },
         makeContext('session-1')
       );
-      expect(result.metadata?.securityIntercepted).not.toBe(true);
+      expect(result.metadata?.securityIntercepted).toBe(true);
+      expect(result.metadata?.reason).toBe('dangerous_command');
       reg.dispose();
     } finally {
       if (prev === undefined) delete process.env[key];

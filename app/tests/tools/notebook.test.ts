@@ -364,9 +364,11 @@ describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
 });
 
 describe('Notebook Feature 开关 (P0-2)', () => {
-  it('feature 关闭（默认）时 /notebook 命令禁用（命令层/工具层一致性）', async () => {
+  it('feature 关闭时 /notebook 命令禁用（命令层/工具层一致性）', async () => {
     const prev = process.env.FEATURE_NOTEBOOK;
-    delete process.env.FEATURE_NOTEBOOK; // 默认 NOTEBOOK: false
+    // D1 接线（2026-10-11）：coding 变体下 `NOTEBOOK` **默认开** ⇒ 用 env 覆盖（最高优先层）
+    // 显式关闭，以继续覆盖"禁用分支"，而非依赖旧默认值。
+    process.env.FEATURE_NOTEBOOK = 'false';
     try {
       // load 为 Command 接口可选属性、execute 需 context 参数：非空断言 + 空 context
       const cmd = await notebookCommand.load!();

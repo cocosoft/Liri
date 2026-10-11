@@ -149,8 +149,11 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
 
   // ── agent 代理 ──
   agent: 'agent',
-  TeamCreate: 'agent',
-  TeamDelete: 'agent',
+  // D1 接线（2026-10-11）：coding 变体下 `team_create`/`team_delete` 成为**生效工具** ⇒ 必须显式
+  // 登记类别（否则落 misc ⇒ 被裁剪，N-44 同族）。键名订正为**真工具名**（snake_case）；原
+  // `TeamCreate`/`TeamDelete`（PascalCase）与真实注册名不符，属**死键**，一并订正。
+  team_create: 'agent',
+  team_delete: 'agent',
 
   // ── system 系统 ──
   monitor: 'system',
@@ -310,9 +313,16 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
   // 这四类此前不在任何白名单内 ⇒ 其工具（doc_generate / channel / broadcast /
   // calendar:* / mail:send 等）对模型全程不可见；mcp 见 getToolCategory 判据；
   // assist = plan / clipboard / canvas。
+  // 2026-10-11（真机事故修复）：补入 `shell` —— 原 chat/default 集**不含 shell** ⇒
+  // `bash`/`powershell` 对模型不可见（运行日志实证：`taskType:"default"` 裁剪
+  // 79→40，removedNames 含 bash/powershell）⇒ **普通（非项目）会话里的执行类任务
+  // 无法跑命令**（模型只好自述"环境无 shell 工具"）。shell 是通用执行能力，
+  // 小上下文场景已由独立的 `local` 轻量集兜底 ⇒ 不应再从通用集里剔除。
+  // ⚠️ 可见性 ≠ 授权：命令执行仍走审批放行（BashTool / ApprovedCommandRegistry）。
   chat: [
     'file',
     'file_read',
+    'shell',
     'search',
     'network',
     'interaction',
@@ -326,10 +336,11 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'mcp',
     'assist',
   ],
-  // 通用兜底（与 chat 一致，避免裁剪后无工具）
+  // 通用兜底（与 chat 一致，避免裁剪后无工具；含 shell，同 chat 的 2026-10-11 结论）
   default: [
     'file',
     'file_read',
+    'shell',
     'search',
     'network',
     'interaction',

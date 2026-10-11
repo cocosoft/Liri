@@ -18,6 +18,8 @@ import {
   feature,
   type FeatureFlag,
 } from '../../src/core/featureFlags.js';
+// D1 接线（2026-10-11）：构建变体层 —— `feature()` 在静态默认之上叠加 `BUILD_VARIANT_FLAGS`
+import { BUILD_VARIANT_FLAGS } from '../../src/core/buildVariantFlags.js';
 
 /** 与 `scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` 同集的 **17 项**安全/灰度开关 */
 const SAFETY_SWITCHES: readonly FeatureFlag[] = [
@@ -118,5 +120,64 @@ describe('P1-8 配置契约 · ③ `FEATURE_*` 环境覆盖生效且语义一致
       expect(feature(name)).toBe(false);
     }
     delete process.env[`FEATURE_${name}`];
+  });
+});
+
+/**
+ * D1（2026-10-11 用户裁定「接线」）：`feature()` 的**中间层** —— 构建变体
+ * `BUILD_VARIANT_FLAGS`（由 `scripts/build-variant.ts` 构建期生成）。
+ *
+ * 三层优先（高 → 低）：`FEATURE_*` env → `BUILD_VARIANT_FLAGS` → `FEATURE_FLAGS`。
+ */
+describe('D1 构建变体层：feature() 三层优先', () => {
+  /** 纯判据（抽函数以便负向夹具自证）：变体键必须是合法 FeatureFlag */
+  function findUnknownVariantFlags(
+    flags: Readonly<Record<string, unknown>>,
+    known: Readonly<Record<string, unknown>>
+  ): string[] {
+    return Object.keys(flags)
+      .filter((k) => !(k in known))
+      .sort();
+  }
+
+  it('门禁：BUILD_VARIANT_FLAGS 的每个键都必须是合法 FeatureFlag（防拼错/死键）', () => {
+    expect(findUnknownVariantFlags(BUILD_VARIANT_FLAGS, FEATURE_FLAGS)).toEqual(
+      []
+    );
+  });
+
+  it('门禁自证（负向夹具）：虚构键会被判违规 ⇒ 门禁非恒真', () => {
+    const fixture = { LSP: true, BILLING_TIER: true }; // BILLING_TIER 不存在
+    expect(findUnknownVariantFlags(fixture, FEATURE_FLAGS)).toEqual([
+      'BILLING_TIER',
+    ]);
+  });
+
+  it('变体层优先于静态默认：无 env 时 feature(k) == BUILD_VARIANT_FLAGS[k]', () => {
+    const keys = Object.keys(BUILD_VARIANT_FLAGS) as FeatureFlag[];
+    expect(keys.length).toBeGreaterThan(0); // 防空表恒真
+    for (const k of keys) {
+      delete process.env[`FEATURE_${k}`];
+      expect(feature(k)).toBe(
+        (BUILD_VARIANT_FLAGS as Readonly<Record<string, boolean>>)[k]
+      );
+    }
+  });
+
+  it('env 覆盖变体层：写入反向值时 env 胜出', () => {
+    for (const [k, v] of Object.entries(BUILD_VARIANT_FLAGS)) {
+      touched.push(k);
+      process.env[`FEATURE_${k}`] = v ? 'false' : 'true';
+      expect(feature(k as FeatureFlag)).toBe(!v);
+      delete process.env[`FEATURE_${k}`];
+    }
+  });
+
+  it('变体未声明的键回落静态默认（样例：SANDBOX 不在变体表内）', () => {
+    expect(
+      Object.prototype.hasOwnProperty.call(BUILD_VARIANT_FLAGS, 'SANDBOX')
+    ).toBe(false);
+    delete process.env['FEATURE_SANDBOX'];
+    expect(feature('SANDBOX')).toBe(FEATURE_FLAGS.SANDBOX);
   });
 });

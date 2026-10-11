@@ -3,6 +3,7 @@
  * 将 Gemini 的 native content/parts 格式归一化为 NormalizedResponse
  */
 import { BaseTransport } from './BaseTransport';
+import { randomIdSuffix } from '../../utils/common';
 import type {
   NormalizedResponse,
   NormalizedToolCall,
@@ -90,7 +91,10 @@ export class GeminiTransport extends BaseTransport {
       } else if (part.functionCall) {
         const fc = part.functionCall as Record<string, unknown>;
         toolCalls.push({
-          id: `call_${toolCalls.length}`,
+          // G13（2026-10-11）：原为序号 `call_${toolCalls.length}` —— **同一执行**跨轮复用时
+          // 会与上一轮 `call_0` 碰撞 ⇒ 结算可能错行。改用 crypto 强随机后缀（40 bit），
+          // 与 `AnthropicMessagesTransport`/各 parser 的 id 熵口径一致。
+          id: `call_${randomIdSuffix(10)}`,
           name: fc.name as string,
           arguments: JSON.stringify(fc.args ?? {}),
         });

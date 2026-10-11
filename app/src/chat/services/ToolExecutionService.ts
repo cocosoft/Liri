@@ -27,7 +27,9 @@ import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
-import { isNonIdempotentRetry } from '@modules/tools';
+// S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
+import { isNonIdempotentRetry, recordToolInvocation } from '@modules/tools';
+import { estimateTokens } from '@modules/ai';
 import { configManager } from '@modules/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
@@ -42,6 +44,10 @@ import type {
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 import type { RollbackIntegration, FileOperation } from '@modules/security';
+// S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**，运行时判定在 permission 层）
+import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+// D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
+import { assertPermissionManagerInjected } from '@modules/permission';
 
 const logger = getLogger('chat:toolExecution');
 
@@ -204,7 +210,11 @@ export interface ToolExecutionDeps {
     input: Record<string, unknown>,
     sessionId: string | undefined,
     toolCallId: string,
-    approvalReason?: string
+    approvalReason?: string,
+    /** S1-1：工具声明的执行作用域（随审批卡片一并记录，执行时须一致） */
+    approvalScope?: ApprovalScope,
+    /** S1-1：审批快照（原始命令 / 规范化命令 / 改写项），供审批卡与执行字符串对账 */
+    approvalSnapshot?: ApprovalSnapshot
   ): Promise<boolean>;
   getSessionWorkspacePath(sessionId?: string): string | null | undefined;
   getSessionWorkspaceId(sessionId?: string): string | undefined;
@@ -375,13 +385,25 @@ export class ToolExecutionService {
         module: 'chat:toolExecution',
         action: 'executeTool_fallback',
       });
-      return {
+      // S2-6：把 catch 的终态也落到 `latestResult`，使 `finally` 的统一指标能如实记 `result=error`
+      latestResult = {
         toolCallId: toolCall.id,
         toolName: toolCall.name,
         result: null,
         error: err instanceof Error ? err.message : String(err),
       };
+      return latestResult;
     } finally {
+      // S2-6（2026-10-11）：**工具调用统一指标**（唯一出口 ⇒ 一处插桩覆盖全部路径）。
+      // 误调用率 = `tools.invocation.total{tool,result=error}` / 同 tool 的 total（派生，CS02 不做文案分类）。
+      const inputJson = JSON.stringify(toolCall.arguments ?? {});
+      recordToolInvocation({
+        toolName: toolCall.name,
+        durationMs: Date.now() - startedAt,
+        success: latestResult !== undefined && !latestResult.error,
+        inputBytes: inputJson.length,
+        estimatedTokens: estimateTokens(inputJson),
+      });
       // O3-2（2026-09-24「会话暴露问题分析与优化方案」§五）：**工具耗时探针**。
       // 现象来源：导出记录 §二 的实测读数（grep 56.3s / file_read 56.0s / glob·grep 30.4s×3），
       // 与"静默终止"叠加放大"长时间无反馈"的观感（问题清单 P2）。此前**无统一耗时观测点**
@@ -561,13 +583,18 @@ export class ToolExecutionService {
     }
 
     // ── 权限检查 ──
-    // 2026-10-08（架构治理 P1 · D4）：**保留 fail-open 语义不变**，仅补可观测 ——
-    // 权限管理器未注入时原为**完全静默跳过**（无任何日志），使"权限检查未生效"不可观测。
+    // D2（2026-10-11 用户裁定「启动 fail-fast 断言」）：权限管理器未注入是**装配异常** ⇒
+    // 生产/开发路径 **fail-fast**（抛错拒绝执行，不再 fail-open 静默跳过）；测试环境保留 fail-open。
+    // 原（2026-10-08）仅补 warn、语义仍 fail-open（G9）。
     if (!this.deps.getPermissionManager()) {
       logger.warn(
-        '权限管理器未注入 ⇒ 本次工具调用**未经过权限检查**（fail-open，行为与改动前一致）；' +
-          '生产路径预期由 CoreAPIImpl 注入 createPermissionManager()，出现本日志即装配异常',
+        '权限管理器未注入 ⇒ 权限检查缺失；生产路径预期由 CoreAPIImpl 注入 createPermissionManager()' +
+          '（测试环境按约定 fail-open，其余环境将 fail-fast 拒绝执行）',
         { toolName: normalizedToolCall.name, toolCallId: toolCall.id }
+      );
+      assertPermissionManagerInjected(
+        this.deps.getPermissionManager(),
+        'chat:toolExecution'
       );
     }
     if (this.deps.getPermissionManager()) {
@@ -910,12 +937,22 @@ export class ToolExecutionService {
         ) {
           const approvalReason = (toolResult as { approvalReason?: string })
             .approvalReason;
+          // S1-1：若工具在结果 metadata 中声明了审批作用域（如 BashTool 的 cwd/env/平台），
+          // 随卡片提交 ⇒ 批准时写入放行缓存 ⇒ 执行端作用域不一致即不命中（fail-closed）。
+          const approvalScope = (
+            toolResult as { metadata?: { approvalScope?: ApprovalScope } }
+          ).metadata?.approvalScope;
+          const approvalSnapshot = (
+            toolResult as { metadata?: { approvalSnapshot?: ApprovalSnapshot } }
+          ).metadata?.approvalSnapshot;
           const submitted = await this.deps.submitToolApproval(
             normalizedToolCall.name,
             normalizedToolCall.arguments,
             toolCall.sessionId,
             toolCall.id,
-            approvalReason
+            approvalReason,
+            approvalScope,
+            approvalSnapshot
           );
           if (submitted) {
             return {

@@ -92,7 +92,7 @@ export {
   feature,
   isFeatureEnabled,
   getToolFlag,
-  TOOL_NAMES,
+  TOOL_FLAG_KEYS,
   type FeatureFlag,
 } from './featureFlags';
 

@@ -1640,6 +1640,46 @@ export async function launch(options: LaunchOptions): Promise<void> {
           // 仅记工具名（去重），不记参数（可能含敏感值）
           manualTools: [...new Set(manualRequired.map((c) => c.toolName))],
         });
+        // D3（2026-10-11 用户裁定「复用既有审批/Inbox 通道」）：为每个"禁止自动重放"的 unknown 调用
+        // 提交一条 Inbox 审批项 —— 复用既有通道让用户**明确决定**是否重放；系统**不会**自动重放非幂等工具。
+        // 不新增会话事件类型 / 不新增模型可见输入 ⇒ 不触 `unknown-tool-call-recovery.md §1.6` 红线。
+        if (manualRequired.length > 0) {
+          try {
+            const { inboxManager } = await import('./runtime/InboxManager.js');
+            const seen = new Set<string>();
+            for (const c of manualRequired) {
+              const key = `${c.sessionId}\u0000${c.toolName}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              await inboxManager.submit({
+                sessionId: c.sessionId,
+                type: 'approval',
+                title: `恢复期需人工确认：${c.toolName}`,
+                message:
+                  `上次运行中工具「${c.toolName}」的调用结果**不可知**` +
+                  `（进程中断，副作用是否已发生无法判定）。请确认是否需要重放；` +
+                  `系统**不会**自动重放非幂等 / 未声明工具。`,
+                offlineCapable: true,
+                source: 'unknown-tool-recovery',
+                metadata: {
+                  executionId: c.executionId,
+                  toolName: c.toolName,
+                  reason: 'unknown-non-idempotent',
+                  // 供 InboxManager 判定非"孤儿来源"（sourceModule 标记）
+                  sourceModule: 'execution-recovery',
+                },
+              });
+            }
+          } catch (error) {
+            // best-effort：Inbox 落盘失败不阻断启动；如实记录（CS03-002，不静默）
+            logger.warn(
+              'unknown 工具调用的 Inbox 审批提交失败（best-effort）',
+              {
+                error: String(error),
+              }
+            );
+          }
+        }
       }
       // PR4 遗留-⑨（2026-10-09，`.trae/specs/dedup-message-state.md`）：去重**处理态落盘** +
       // 启动期 hydrate —— 跨重启仍能阻断同 `messageId` 的渠道重传（防重启窗口内重复计费）。

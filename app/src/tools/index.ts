@@ -229,6 +229,16 @@ export type { ApprovalResult, ApprovalDecision } from './SmartApprovalObserver';
 export { sanitizeSchema } from './SchemaSanitizer';
 export type { SanitizeOptions, SanitizeResult } from './SchemaSanitizer';
 
+// S2-6（2026-10-11）：工具调用可观测性指标（统一调用指标 + Tool-Use Context Entropy）
+export {
+  recordToolInvocation,
+  recordToolSchemaEntropy,
+} from './monitoring/ToolMetrics';
+export type {
+  ToolInvocationMetric,
+  ToolSchemaEntropyMetric,
+} from './monitoring/ToolMetrics';
+
 // P3-3: Bash 命令 allowlist 前缀匹配防注入 —— 2026-10-01（台账 D-154）**已移除本处转出**：
 // ① 实现已**归位 `security/BashAllowlistMatcher`**（安全域逻辑，原置于 tools 才造成
 //    `security`(infra) → `tools`(app) 倒挂）；

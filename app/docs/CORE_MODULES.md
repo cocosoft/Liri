@@ -403,7 +403,6 @@ if (isTestMode()) {
 - `ENABLE_PLUGINS`: 启用插件系统
 - `ENABLE_SKILLS`: 启用技能系统
 - `ENABLE_MCP`: 启用MCP（Model Context Protocol）
-- `ENABLE_WORKFLOWS`: 启用工作流
 - `ENABLE_ADVANCED_COMMANDS`: 启用高级命令
 
 #### 性能相关

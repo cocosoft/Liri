@@ -12,6 +12,10 @@
  *   - 命名约定参考 CC 源码
  */
 
+// D1（2026-10-11 用户裁定「接线」）：构建变体层 —— `build-variant.ts` 生成的
+// `BUILD_VARIANT_FLAGS` 是**构建期**产物，作为 `feature()` 的变体默认层（见 `feature()`）。
+import { BUILD_VARIANT_FLAGS } from './buildVariantFlags';
+
 /** 构建变体（分版标识） */
 export type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
 
@@ -96,8 +100,6 @@ export const FEATURE_FLAGS = {
   ENABLE_PLUGINS: true,
   /** 技能系统 */
   ENABLE_SKILLS: true,
-  /** 工作流引擎 */
-  ENABLE_WORKFLOWS: false,
   /** 高级命令 */
   ENABLE_ADVANCED_COMMANDS: false,
   /** 命令管道 */
@@ -385,10 +387,6 @@ export const FEATURE_FLAGS = {
    */
   SELF_VERIFY_PATTERN: false,
 
-  // ───── 工作流脚本 ─────
-  /** 工作流脚本 */
-  WORKFLOW_SCRIPTS: false,
-
   // ───── 图像工具（Image Tools） ─────
   /** 多后端图像生成 Provider 模式 */
   IMAGE_GENERATE_MULTI_PROVIDER: true,
@@ -419,6 +417,17 @@ export const FEATURE_FLAGS = {
   /** ZIP 递归转换 */
   FILE_CONVERTER_ZIP: true,
 
+  // ───── AI-VFS（D7，2026-10-11；默认关 = **默认最小工具面**）─────
+  /**
+   * D7（2026-10-11 用户裁定「①+④ 组合」）：AI-VFS **文件类**系统调用工具
+   * （`read_vfs`/`list_vfs`/`write_vfs`）**默认不注册**（避免与 `file_read`/`file_write`/`glob`
+   * 形成"事实源双轨"；G21）。
+   *
+   * 开 ⇒ 三个文件类 VFS 工具随 `VFS_ENABLED=true` 显式启用；`stat_vfs` **始终可见**（元数据探测，
+   * 不与文件工具重叠）。互斥/排他断言见 `tools/toolCategories` 双轨对 + `tests/tools/toolNameLists`。
+   */
+  VFS_ENABLED: false,
+
   // ───── 版本分层（Pro 版能力，默认关闭）─────
   // 占位默认 false；可用 FEATURE_PRO_* 环境变量开启。
   // license 体系恢复后，默认值由 tier 决定（见版本划分方案）。
@@ -436,10 +445,28 @@ export const FEATURE_FLAGS = {
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
 
+/**
+ * 解析功能开关（**三级优先**，D1 接线，2026-10-11）：
+ *
+ * 1. **env 覆盖**（最高）：`FEATURE_<name>=true|false` —— 运维/灰度显式控制；
+ * 2. **构建变体层**：`BUILD_VARIANT_FLAGS[name]`（由 `scripts/build-variant.ts` **构建期**生成；
+ *    仅含该变体显式声明的键）—— 未声明的键**回落**下一层；
+ * 3. **静态默认**：`FEATURE_FLAGS[name]`（仅作变体未覆盖时的兜底）。
+ *
+ * ⚠️ 变体层是**构建期**产物：`LIRI_BUILD_VARIANT` 的**运行期**覆盖只影响 `getBuildVariant()`
+ * （分版标识），**不**重新生成 flags。二者语义不同，勿混用。
+ */
 export function feature(name: FeatureFlag): boolean {
   const envValue = process.env[`FEATURE_${name}`];
   if (envValue !== undefined) {
     return envValue === 'true';
+  }
+  // 变体层：仅当生成物显式声明了该键时才接管（`undefined` ⇒ 回落静态默认）
+  const variantValue = (
+    BUILD_VARIANT_FLAGS as Readonly<Record<string, boolean | undefined>>
+  )[name];
+  if (variantValue !== undefined) {
+    return variantValue;
   }
   return FEATURE_FLAGS[name] ?? false;
 }
@@ -521,15 +548,21 @@ const TOOL_FLAG_MAP: Record<string, FeatureFlag> = {
   ENABLE_CANVAS_TOOL_V2: 'CANVAS_TOOL_V2',
 };
 
-/** 所有工具名称列表 */
-export const TOOL_NAMES: readonly string[] = Object.keys(TOOL_FLAG_MAP);
+/**
+ * 工具开关的**键名**列表（`ENABLE_*`）—— 注意：这些**不是**工具名（真工具名见
+ * `constants/toolNames.generated.ts` 的 `TOOL_NAMES`）。
+ *
+ * G7（2026-10-11，S2-3）：原名 `TOOL_NAMES` 与生成物的 `TOOL_NAMES`（真工具名）**同名不同物**
+ * ⇒ 重命名为 `TOOL_FLAG_KEYS` 消除歧义（`getToolFlag` 亦按此键名查表）。
+ */
+export const TOOL_FLAG_KEYS: readonly string[] = Object.keys(TOOL_FLAG_MAP);
 
 /**
  * 获取工具功能的启用状态
- * 通过工具名在映射表中查找对应的核心标志
+ * 通过**键名**（`ENABLE_*`）在映射表中查找对应的核心标志
  */
-export function getToolFlag(toolName: string): boolean {
-  const coreKey = TOOL_FLAG_MAP[toolName];
+export function getToolFlag(flagKey: string): boolean {
+  const coreKey = TOOL_FLAG_MAP[flagKey];
   if (coreKey) {
     return feature(coreKey);
   }

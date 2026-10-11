@@ -1,3 +1,4 @@
+import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * WebFetch 工具
  *
@@ -68,7 +69,7 @@ const WebFetchInputSchema = z.strictObject({
 });
 
 export class WebFetchTool extends BaseTool {
-  name = 'web_fetch';
+  name = TOOL_NAME_CONSTANTS.web_fetch;
   description = '从 URL 获取内容。用于检索网页内容、API 响应或其他 HTTP 资源。';
 
   override tags = [ToolTag.NETWORK, ToolTag.READ];
@@ -262,7 +263,9 @@ export class WebFetchTool extends BaseTool {
       const response = await this.fetchWithRedirectGuard(
         url,
         fetchOptions,
-        timeout
+        timeout,
+        // S2-2（2026-10-11，G15）：上下文取消信号（用户取消 ⇒ 在途 HTTP 请求即中断）
+        context.abortController.signal
       );
 
       const status = response.status;
@@ -359,28 +362,31 @@ export class WebFetchTool extends BaseTool {
     } catch (error) {
       const isAbort = error instanceof Error && error.name === 'AbortError';
       if (isAbort) {
-        // 报告执行超时
+        // S2-2（2026-10-11，G15）：区分「用户取消」与「超时」—— 二者同为 `AbortError`，但语义
+        // 不同（取消由 `context.abortController` 触发）。原实现一律报"超时" ⇒ 误导用户
+        // （用户主动取消却被告知超时）。文案随响应语言规范保持英文（与既有该工具文案一致）。
+        const canceled = context.abortController.signal.aborted;
+        const message = canceled
+          ? 'Request canceled'
+          : `Request timed out after ${input.timeout || 30000}ms`;
         onProgress?.({
           toolUseID: context.toolUseId || 'web-fetch-tool',
           data: {
             type: 'web_fetch',
-            error: `Request timed out after ${input.timeout || 30000}ms`,
+            error: message,
             isRunning: false,
             isComplete: true,
           },
         });
 
-        return createToolResult(
-          `Request timed out after ${input.timeout || 30000}ms`,
-          {
-            newMessages: [
-              {
-                role: 'system',
-                content: `Error: Request timed out after ${input.timeout || 30000}ms`,
-              },
-            ],
-          }
-        );
+        return createToolResult(message, {
+          newMessages: [
+            {
+              role: 'system',
+              content: `Error: ${message}`,
+            },
+          ],
+        });
       }
 
       // 报告执行错误
@@ -428,16 +434,23 @@ export class WebFetchTool extends BaseTool {
   private async fetchWithRedirectGuard(
     url: string,
     options: RequestInit,
-    timeoutMs: number
+    timeoutMs: number,
+    externalSignal?: AbortSignal
   ): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+    // S2-2（2026-10-11，G15）：**接上下文取消信号** —— 原实现自建 controller 仅做超时 ⇒
+    // 用户取消后底层请求仍继续。现用 `AbortSignal.any` 合并「超时」与「上下文取消」
+    //（任一触发即中断；`AbortSignal.any` 在本仓已被多个 provider/query 模块使用）。
+    const signal = externalSignal
+      ? AbortSignal.any([timeoutController.signal, externalSignal])
+      : timeoutController.signal;
     try {
       let currentUrl = url;
       for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
         const response = await fetch(currentUrl, {
           ...options,
-          signal: controller.signal,
+          signal,
           redirect: 'manual',
         });
         if (!REDIRECT_STATUSES.has(response.status)) {

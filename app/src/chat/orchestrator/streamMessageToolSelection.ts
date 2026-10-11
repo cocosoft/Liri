@@ -54,8 +54,12 @@ export interface ToolSelectionResult {
  * 1. 调用方显式 `metadata.taskType`（字符串且非空）；
  * 2. 本地 LLM 端点（`isLocalLlmEndpoint(baseUrl)`）⇒ `'local'` 只读轻量集；
  * 3. **K4**：`!taskType && projectId && isExecutionTaskIntent(lastUserText)` ⇒ `'coding'`。
- *    default/chat 集无 shell ⇒ bash/powershell 对模型不可见 ⇒ PDL/PDCA/执行类任务
- *    （如"写单测并跑 bun test"）无法执行命令即失败（复测实证：57→25，removedNames 含 bash）。
+ *    动因（2026-09-06）：当时 default/chat 集**无 shell** ⇒ bash/powershell 对模型不可见 ⇒
+ *    PDL/PDCA/执行类任务（如"写单测并跑 bun test"）无法执行命令即失败（复测实证：57→25，
+ *    removedNames 含 bash）。
+ *    ⚠️ 2026-10-11（真机事故后）：`shell` 已补入 default/chat（见 `toolCategories.ts` 注释）⇒
+ *    shell **不再依赖本提升**；本提升的净效果现为「换成 coding 集」——增补 task / code，
+ *    同时**不再含** interaction / session / doc / channel / calendar / mail。
  *    仅【projectId 会话 + 最后一条用户消息命中执行意图】触发；**命令执行仍走审批放行**
  *    （BashTool/ApprovedCommandRegistry），安全底线不变。
  * 4. **D7/L2**：带图消息追加 `'image'` 额外类别 —— 否则 default/chat 集不含 image 类别，

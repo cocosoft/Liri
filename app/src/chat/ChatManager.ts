@@ -141,6 +141,8 @@ import { getModelPricing } from '@modules/cost';
 import { calculateTotalCost } from '@modules/cost';
 
 import type { ChatManager } from './ChatManagerInterface.js';
+// S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**；判定与存储在 permission 层）
+import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
 
 /**
  * 聊天管理器
@@ -4652,7 +4654,9 @@ export class ChatManagerImpl implements ChatManager {
       }
       const result = await svc.execute(toolCall, opts);
       // 结算（观测面；DB `tool_calls` 幂等 ⇒ 与任何其它观测者不冲突）
-      mgr.settleToolCall(
+      // G17（2026-10-11，S1-4）：改**可等待**结算（`endToolCall`）—— 保证工具返回前结算已
+      // 落盘/已尝试，消除"返回后仍在写"的观测窗口；失败仅留痕（不升级为工具失败）。
+      await mgr.endToolCall(
         executionId as ExecId,
         toolCall.id,
         toolCall.name,
@@ -4716,7 +4720,11 @@ export class ChatManagerImpl implements ChatManager {
     input: Record<string, unknown>,
     sessionId: string | undefined,
     toolCallId: string,
-    approvalReason?: string
+    approvalReason?: string,
+    /** S1-1：工具声明的执行作用域（cwd/env 摘要/平台）——随卡片记录，执行时须一致 */
+    approvalScope?: ApprovalScope,
+    /** S1-1：审批快照（原始 / 规范化 / 改写项）——随卡片记录，供审批与执行对账 */
+    approvalSnapshot?: ApprovalSnapshot
   ): Promise<boolean> {
     try {
       const { inboxManager } = await import('@modules/runtime/InboxManager.js');
@@ -4752,6 +4760,10 @@ export class ChatManagerImpl implements ChatManager {
             commandHash: command ? hashCommandForExecution(command) : undefined,
             // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
             command: command || undefined,
+            // S1-1: 携带执行作用域 —— inbox 批准时写入放行缓存，执行端作用域不一致即不命中
+            approvalScope: approvalScope ?? undefined,
+            // S1-1: 携带审批快照 —— 批准时一并记录（原始命令 / 规范化命令 / 改写项）
+            approvalSnapshot: approvalSnapshot ?? undefined,
             inputPreview: JSON.stringify(input).slice(0, 300),
           },
         },

@@ -15,6 +15,7 @@ import { ExecutionLease } from './ExecutionLease';
 import type { ExecutionStore } from './ExecutionStore';
 import { emitExecutionEvent } from './eventSink';
 import {
+  TOOL_CALL_UNKNOWN_STATUS,
   canTransition,
   isActiveStatus,
   isTerminalStatus,
@@ -24,6 +25,7 @@ import {
   type ExecutionStatus,
   type RecoveryResult,
   type RecoveredUnknownToolCall,
+  type ToolCallStatus,
 } from './types';
 
 const logger = getLogger('execution:manager');
@@ -130,7 +132,7 @@ export class ExecutionManager {
     executionId: ExecutionId,
     toolCallId: string,
     toolName: string,
-    status: string,
+    status: ToolCallStatus,
     error?: string
   ): void {
     const store = this.store;
@@ -144,6 +146,39 @@ export class ExecutionManager {
           error: String(err),
         })
       );
+  }
+
+  /**
+   * G17（2026-10-11，S1-4）：**可等待**的工具调用结算（`settleToolCall` 的 async 版）。
+   *
+   * 与 `beginToolCall`（B-05）对称：调用方 `await` 后即可保证"结算已落盘/已尝试落盘"，
+   * 消除"工具已返回、DB 仍在写"的观测窗口。结算属**观测面** —— 失败仅留痕（不抛），
+   * 不把观测面失败升级为工具失败（与 `settleToolCall` 同语义，仅可等待）。
+   */
+  async endToolCall(
+    executionId: ExecutionId,
+    toolCallId: string,
+    toolName: string,
+    status: ToolCallStatus,
+    error?: string
+  ): Promise<void> {
+    const store = this.store;
+    if (!store) return;
+    try {
+      await store.settleToolCall(
+        executionId,
+        toolCallId,
+        toolName,
+        status,
+        error
+      );
+    } catch (err) {
+      logger.warn('execution endToolCall 落盘失败（观测面失败仅留痕）', {
+        executionId,
+        toolCallId,
+        error: String(err),
+      });
+    }
   }
 
   /**
@@ -440,15 +475,22 @@ export class ExecutionManager {
       // ⇒ 下次 recover **不会再处理** ⇒ 工具调用**永久停在 running**（不可逆副作用状态不可知）。
       // 倒序后：任一步骤前崩溃，执行**仍 active** ⇒ 下次启动重跑同一分支；
       // `markUnsettledToolCallsUnknown` 是**幂等**的（只改 running 行，重跑无行可改）⇒ 必然收敛。
-      const unsettledToolCalls = await store.markUnsettledToolCallsUnknown(
-        rec.executionId
-      );
+      //
+      // D6（2026-10-11 用户裁定「仅事务化」）：在倒序之上**再包同一事务**（`store.transaction`）
+      // ⇒ 两步要么都提交、要么都回滚，消除"只落其一"的残留窗口（`RECOVERY_PENDING` 中间态未引入）。
+      let unsettledToolCalls = 0;
+      const ok = await store.transaction(async () => {
+        unsettledToolCalls = await store.markUnsettledToolCallsUnknown(
+          rec.executionId
+        );
+        return store.markStale(rec.executionId, newGen);
+      });
       // P0-4：收集被判 `unknown` 的工具调用（副作用不可知），供组合根按**幂等性**判定可否重放。
       // 这也是 `ExecutionStore.listToolCalls` 的**生产消费点**（此前仅测试引用 ⇒ 死 API）。
       if (unsettledToolCalls > 0) {
         const calls = await store.listToolCalls(rec.executionId);
         for (const call of calls) {
-          if (call.status === 'unknown') {
+          if (call.status === TOOL_CALL_UNKNOWN_STATUS) {
             unknownToolCalls.push({
               executionId: rec.executionId,
               sessionId: rec.sessionId,
@@ -457,7 +499,6 @@ export class ExecutionManager {
           }
         }
       }
-      const ok = await store.markStale(rec.executionId, newGen);
       if (ok) {
         recovered++;
         // B-01：被判 STALE ⇒ 外部占用解除（session 恢复可用，**不会永久锁死**）。

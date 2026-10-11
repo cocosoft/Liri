@@ -23,6 +23,7 @@ import {
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
+import { randomIdSuffix } from '../../utils/common';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
@@ -392,7 +393,9 @@ export class OllamaProvider extends BaseAIProvider {
               toolCalls = streamToolCalls.map((tc) => {
                 const func = tc.function as Record<string, unknown> | undefined;
                 return {
-                  id: (tc.id as string) || `call_${Date.now()}`,
+                  // G13（2026-10-11）：优先用供应商 id；无 id 时原用 `call_${Date.now()}`
+                  // （同毫秒内多个调用会碰撞 ⇒ 结算错行），改用 crypto 强随机后缀（40 bit）。
+                  id: (tc.id as string) || `call_${randomIdSuffix(10)}`,
                   name: (func?.name as string) || 'unknown',
                   arguments: func?.arguments
                     ? ((): Record<string, unknown> => {

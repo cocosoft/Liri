@@ -25,12 +25,15 @@
  * 职责：用户在审批卡片批准危险命令后，把该命令（按 sessionId + 规范化 hash）
  * 记录到短 TTL 缓存；BashTool 执行前查询命中则跳过安全拦截层。
  *
- * 安全约束（评审缺口 B/D）：
+ * 安全约束（评审缺口 B/D / S1-1）：
  * - session 隔离：Map<sessionId, Map<hash, entry>>，跨会话不共享
- * - TTL 60s：批准仅作用于当次命令，防"批准一次永久放行"
- * - hash 精确匹配：规范化命令（去空白/统一引号/小写）→ hash，
+ * - TTL 5min：批准仅作用于短窗口，防"批准一次永久放行"
+ * - hash 精确匹配：规范化命令（引号感知压缩空白、**保留大小写**）→ **SHA-256**（前 128 bit），
  *   防 LLM 重发时改文本导致匹配失败（防张冠李戴/防篡改）
+ * - 作用域绑定（S1-1）：批准记录绑定执行作用域摘要（cwd / 调用方 env / 平台），
+ *   执行端传入 scope 时必须一致，否则视为未批准（fail-closed）
  */
+import { createHash } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { feature } from '@modules/core';
 const logger = getLogger('permission:approvedCommands');
@@ -91,16 +94,73 @@ export function normalizeCommand(command: string): string {
   return out.trim();
 }
 
+/** S1-1（2026-10-11）：审批绑定作用域 —— 同一命令在不同执行上下文中**不得**复用同一次批准。 */
+export interface ApprovalScope {
+  /** 平台（`process.platform`），进程内恒定 */
+  platform?: string;
+  /** 执行目录（工具参数 cwd，或上下文 options.cwd） */
+  cwd?: string;
+  /** 调用方 env 摘要（见 `hashEnvForApproval`；**只存摘要，不存明文**） */
+  envDigest?: string;
+  /** 沙箱级别（预留给沙箱策略；未接入时省略） */
+  sandboxLevel?: string;
+}
+
+/** S1-1：审批快照 —— 记录"批准时用户看到的命令"与"实际将执行的命令"及其改写原因。 */
+export interface ApprovalSnapshot {
+  /** 模型/用户原始命令（预处理之前） */
+  originalCommand: string;
+  /** 规范化（`normalizeCommand`）后的命令 */
+  normalizedCommand: string;
+  /** 预处理改写项（如 `/tmp → %TEMP%`），空数组表示无改写 */
+  rewrites: string[];
+}
+
+function sha256Hex(input: string): string {
+  return createHash('sha256').update(input, 'utf8').digest('hex');
+}
+
 /**
- * 命令 hash（djb2 风格）：非加密用途，仅用于匹配放行缓存。
+ * 命令 hash（S1-1，2026-10-11：改为 **SHA-256**）。
+ *
+ * 原实现为 djb2（`h<<5 + h + c`，32 位非密码学哈希）：既易构造碰撞，又不满足
+ * "安全授权身份绑定"的最低强度要求（与第九轮审查 §3.3 的短 ID 问题同源）。
+ * 现取 SHA-256 前 32 位十六进制（128 bit）。
  */
 export function hashCommand(command: string): string {
-  const normalized = normalizeCommand(command);
-  let h = 5381;
-  for (let i = 0; i < normalized.length; i++) {
-    h = ((h << 5) + h + normalized.charCodeAt(i)) >>> 0;
-  }
-  return h.toString(36);
+  return sha256Hex(normalizeCommand(command)).slice(0, 32);
+}
+
+/**
+ * S1-1：调用方 env 摘要 —— 对**已清洗**的调用方 env 取 SHA-256（前 32 位 hex）。
+ *
+ * 只记录摘要、不记录明文（避免 env 中的凭据进入缓存/日志）；键排序后 `k=v` 拼接
+ * ⇒ 同内容不同插入顺序得到同一摘要。空对象/undefined ⇒ `undefined`（无 env 约束）。
+ */
+export function hashEnvForApproval(
+  env: Record<string, string | undefined> | undefined
+): string | undefined {
+  if (!env) return undefined;
+  const keys = Object.keys(env).sort();
+  if (keys.length === 0) return undefined;
+  return sha256Hex(
+    keys.map((k) => `${k}=${env[k] ?? ''}`).join('\u0000')
+  ).slice(0, 32);
+}
+
+/** S1-1：作用域摘要（字段序固定 ⇒ 可稳定比较）；无任何字段时返回 `undefined`。 */
+export function computeScopeDigest(
+  scope: ApprovalScope | undefined
+): string | undefined {
+  if (!scope) return undefined;
+  const parts: string[] = [];
+  if (scope.platform !== undefined) parts.push(`platform=${scope.platform}`);
+  if (scope.cwd !== undefined) parts.push(`cwd=${scope.cwd}`);
+  if (scope.envDigest !== undefined) parts.push(`env=${scope.envDigest}`);
+  if (scope.sandboxLevel !== undefined)
+    parts.push(`sandbox=${scope.sandboxLevel}`);
+  if (parts.length === 0) return undefined;
+  return sha256Hex(parts.join('\u0000')).slice(0, 32);
 }
 
 /**
@@ -114,6 +174,10 @@ export function hashCommand(command: string): string {
  * - 提交端（PermissionChecker/ChatManager）：对 LLM 原始命令调用本函数
  * - 执行端（BashTool）：对 Windows 预处理后的命令调用本函数
  * 两端结果一致，批准后重发同一命令可稳定命中放行缓存。
+ *
+ * S1-1：作用域（cwd/env/平台）**不并入本 hash**，而是作为独立条件由
+ * `ApprovedCommandRegistry.isApproved(sessionId, hash, scope)` 校验 —— 这样
+ * "提交审批/跳过 ask 卡"等仅知命令的调用点零改动，而执行端可要求作用域一致。
  */
 export function hashCommandForExecution(command: string): string {
   let c = command;
@@ -123,11 +187,18 @@ export function hashCommandForExecution(command: string): string {
   return hashCommand(c);
 }
 
-interface ApprovalEntry {
+/** S1-1：审批记录（导出以便审计/测试读取） */
+export interface ApprovalEntry {
   hash: string;
   expiresAt: number;
   /** P0-3: 批准命令的命令名（首个 token），供命令名级放行 */
   baseCommand?: string;
+  /** S1-1: 绑定的执行作用域摘要（批准时记录；执行时若给 scope 必须与之一致） */
+  scopeDigest?: string;
+  /** S1-1: 能力摘要（**预留**，供 S2-5 能力级授权；当前仅记录、不参与判定） */
+  capabilityDigest?: string;
+  /** S1-1: 审批快照（原始命令 / 规范化命令 / 改写项） */
+  snapshot?: ApprovalSnapshot;
 }
 
 /**
@@ -189,24 +260,54 @@ export class ApprovedCommandRegistry {
     }
   }
 
-  /** 记录一条已批准命令（幂等）；传入 command 时记录命令名供命令名级放行（P0-3） */
-  approve(sessionId: string, hash: string, command?: string): void {
+  /**
+   * 记录一条已批准命令（幂等）；传入 command 时记录命令名供命令名级放行（P0-3）。
+   *
+   * S1-1：`extras` 可携带执行作用域（`scope`，落为 `scopeDigest`）、审批快照
+   * （`snapshot`）与能力摘要（`capabilityDigest`，预留）。不传即为既有语义。
+   */
+  approve(
+    sessionId: string,
+    hash: string,
+    command?: string,
+    extras?: {
+      scope?: ApprovalScope;
+      snapshot?: ApprovalSnapshot;
+      capabilityDigest?: string;
+    }
+  ): void {
     if (!sessionId || !hash) return;
     let sessionMap = this.store.get(sessionId);
     if (!sessionMap) {
       sessionMap = new Map();
       this.store.set(sessionId, sessionMap);
     }
+    const scopeDigest = computeScopeDigest(extras?.scope);
     sessionMap.set(hash, {
       hash,
       expiresAt: Date.now() + this.ttlMs,
       baseCommand: command ? getBaseCommand(command) : undefined,
+      scopeDigest,
+      capabilityDigest: extras?.capabilityDigest,
+      snapshot: extras?.snapshot,
     });
-    logger.info('危险命令已批准（放行缓存写入）', { sessionId, hash });
+    logger.info('危险命令已批准（放行缓存写入）', {
+      sessionId,
+      hash,
+      scopeBound: scopeDigest !== undefined,
+      hasSnapshot: !!extras?.snapshot,
+    });
   }
 
-  /** 命令是否已批准（session 隔离 + 未过期，精确 hash 匹配） */
-  isApproved(sessionId: string, hash: string): boolean {
+  /**
+   * 命令是否已批准（session 隔离 + 未过期 + 精确 hash 匹配）。
+   *
+   * S1-1：传入 `scope` 时**还要求**记录中的 `scopeDigest` 与之一致
+   * （同一命令在不同 cwd/env/平台下不得复用同一次批准；记录缺失作用域即视为不匹配
+   * —— fail-closed）。不传 `scope` 时保持既有语义（供"是否已批准"的快速判定，
+   * 如 ChatManager 跳过 ask 卡片）。
+   */
+  isApproved(sessionId: string, hash: string, scope?: ApprovalScope): boolean {
     if (!sessionId || !hash) return false;
     const sessionMap = this.store.get(sessionId);
     if (!sessionMap) return false;
@@ -216,7 +317,26 @@ export class ApprovedCommandRegistry {
       sessionMap.delete(hash);
       return false;
     }
+    const requested = computeScopeDigest(scope);
+    if (requested !== undefined && entry.scopeDigest !== requested) {
+      return false;
+    }
     return true;
+  }
+
+  /** S1-1：读取审批记录（供审计/测试；返回浅拷贝，避免外部改动内部状态） */
+  getApprovalEntry(
+    sessionId: string,
+    hash: string
+  ): Readonly<ApprovalEntry> | undefined {
+    const entry = this.store.get(sessionId)?.get(hash);
+    if (!entry) return undefined;
+    return {
+      ...entry,
+      snapshot: entry.snapshot
+        ? { ...entry.snapshot, rewrites: [...entry.snapshot.rewrites] }
+        : undefined,
+    };
   }
 
   /**

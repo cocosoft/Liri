@@ -68,6 +68,38 @@ export interface ToolParam {
 }
 
 /**
+ * 工具**能力分级**（D5，2026-10-11 用户裁定「采纳 · 渐进棘轮」）。
+ *
+ * - `read`：不改动任何状态（读/查/取）；
+ * - `write-local`：仅改本地状态（文件/DB/内存）；
+ * - `write-external`：对**外部系统/其他参与者**产生可见影响；
+ * - `execute`：执行任意代码/命令（最宽能力）。
+ */
+export type ToolCapabilityLevel =
+  | 'read'
+  | 'write-local'
+  | 'write-external'
+  | 'execute';
+
+/** 工具**风险分级**（由能力 + 破坏性派生；供审批/HITL 分级用） */
+export type ToolRiskLevel = 'low' | 'medium' | 'high';
+
+/** 工具沙箱级别（与 `BaseTool.sandboxLevel` 同域） */
+export type ToolSandboxLevel = 'none' | 'readonly' | 'file-io' | 'execution';
+
+/**
+ * 工具**能力/风险描述符**（D5 复用既有元数据的**单一形态**）。
+ *
+ * 派生实现见 `tools/toolCapability.ts` 的纯函数 `deriveFromLegacyEffects()`
+ * （**不新建子系统**，CS01；`Tool` 为 interface，故派生落 `BaseTool` 实现）。
+ */
+export interface ToolCapabilityDescriptor {
+  readonly capability: ToolCapabilityLevel;
+  readonly risk: ToolRiskLevel;
+  readonly sandbox: ToolSandboxLevel;
+}
+
+/**
  * 工具信息类型
  */
 export interface ToolInfo {
@@ -94,6 +126,11 @@ export interface ToolInfo {
   interruptBehavior: InterruptBehavior;
   maxResultSizeChars?: number;
   tags?: ToolTag[];
+  /**
+   * D5（2026-10-11）：**能力/风险描述符**（派生自 `TOOL_EFFECTS` + `tags/isReadOnly/isDestructive`）。
+   * **可选**：非 `BaseTool` 的工具（对象字面量/插件）未提供时消费方按需回退既有字段。
+   */
+  capability?: ToolCapabilityDescriptor;
 }
 
 /**

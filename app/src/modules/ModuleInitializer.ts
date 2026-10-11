@@ -399,6 +399,11 @@ export class ModuleInitializer {
    * 使用动态 import() 加载，重型依赖仅在首次请求时解析。
    * 与 scheduleDeferredModules 配合使用，onDemand 模块不会被后台加载。
    *
+   * ⚠️ **G-C5 登记（2026-10-11，用户裁定「登记不删」）**：本方法**当前全仓零调用方**
+   * （仅经 `modules/index.ts` 转出）⇒ ON_DEMAND 从未被触发；`security`/`sandbox` 又由
+   * Bash 链**静态导入** ⇒ 懒加载意图现状下不生效。**保留**（CD07：关键域不删），
+   * 触发条件与 reopen 条件见 `core/LazyModuleStrategy.ts` 的 `DYNAMIC_IMPORT_LOADERS` 头注。
+   *
    * @param moduleId - 模块 ID
    * @returns 模块导出对象
    */

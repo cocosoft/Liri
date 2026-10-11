@@ -66,6 +66,7 @@
     "lint:fix-evidence": "bun run ../scripts/lint-fix-evidence.ts",
     "lint:fn-size": "bun run ../scripts/lint-function-size-ratchet.ts",
     "lint:complexity": "bun run scripts/lint-complexity-ratchet.ts",
+    "lint:tool-schema": "bun run scripts/lint-tool-schema.ts",
     "lint:no-module-mock": "bun run ../scripts/lint-no-module-mock.ts",
     "lint:license": "bun run ../scripts/check-license-compliance.ts",
     "audit:complexity": "bun run scripts/state-complexity-audit.ts",

@@ -54,8 +54,8 @@ import {
   resolveMaxContextTokens,
   resolveEffectiveTurnModel,
 } from '../services/ChatHelper';
-// K4（2026-09-06）：项目执行意图判定 —— P2-1i 后由 `selectToolsForTurn` 消费；本函数仅取"最后一条用户消息文本"
-import { lastUserMessageText } from '../taskIntent.js';
+// K4（2026-09-06）：项目执行意图判定 —— P2-1i 后由 `selectToolsForTurn` 消费。
+// G18（2026-10-11）：`lastUserMessageText` 的消费点随"工具集选择块"外移，本文件不再直接引用。
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
@@ -94,7 +94,8 @@ import { releaseStreamOwnership } from './streamMessageOwnership.js';
 // P2-1h（2026-10-10，同上 §3-S4）：流式水位上报（节流决策 + 双载荷；动作留在本函数）
 import { createWatermarkReporter } from './streamMessageWatermark.js';
 // P2-1i（2026-10-10，同上 §3-S3）：本轮工具集选择（任务类型判定 + 裁剪；动作留在本函数）
-import { selectToolsForTurn } from './streamMessageToolSelection.js';
+// G18（2026-10-11）：本轮"工具集选择 + 工具面观测"（原 63 行内联块）外移为具名模块
+import { selectAndObserveToolDefinitions } from './streamMessageToolSelectionFlow.js';
 // P2-1j（2026-10-10，同上 §3-S3）：工具轮上下文装配（ToolLoopContext；装配外移、调用留下）
 import { buildToolLoopContext } from './streamMessageToolLoopContext.js';
 // P2-1k（2026-10-10，同上 §3-S3）：回滚轮次启动（仅写操作工具才扫基线；判据+动作外移）
@@ -706,53 +707,17 @@ export async function* runStreamMessage(
     // 在小上下文（llama.cpp 8K）下放不进，preSendProtection 只能整体移除 → 模型无工具可用。
     // 任务类型优先级：调用方显式 metadata.taskType > 本地 LLM 端点（llama.cpp/ollama，工具
     // 能力弱）→ 'local' 只读轻量集 > undefined（default 保底集）。
+    // G18（2026-10-11）：上述判据 / 三条观测日志 / S2-6 Entropy / `toolDefinitions` 原地替换，
+    // 整体外移为 `selectAndObserveToolDefinitions`（原 63 行内联块；`lint:fn-size` 棘轮只允许缩小）。
+    // 语义逐字不变（含日志文案与"原地替换"数组身份）。
     if (toolDefinitions.length > 0) {
-      // P2-1i（2026-10-10）：本轮工具集选择（任务类型优先级 + K4 执行意图提升 + D7/L2 带图保留
-      // image 类 + 裁剪）外移为 `selectToolsForTurn`（判据与既有修复动因见其头注）；
-      // `logger.info` 的实际调用与 `toolDefinitions` 原地替换留在此处（"动作留下"）。
-      const baseUrl = (
-        host.getClientForModel(options?.model) as unknown as {
-          getBaseUrl?: () => string;
-        }
-      )?.getBaseUrl?.();
-      const sessionMeta = (
-        session as unknown as {
-          metadata?: Record<string, unknown>;
-        }
-      )?.metadata;
-      const hasImages =
-        Array.isArray(options?.images) && options.images.length > 0;
-      const selection = selectToolsForTurn({
-        tools: toolDefinitions,
-        explicitTaskType: (
-          options?.metadata as Record<string, unknown> | undefined
-        )?.taskType,
-        baseUrl,
-        projectId: sessionMeta?.projectId
-          ? String(sessionMeta.projectId)
-          : undefined,
-        lastUserText: lastUserMessageText(apiMessages),
-        hasImages,
+      selectAndObserveToolDefinitions({
+        toolDefinitions,
+        session,
+        options,
+        host,
+        apiMessages,
       });
-      if (selection.promotedByExecutionIntent) {
-        logger.info('streamMessage:tools — 项目执行意图提升 coding 集', {
-          sessionId: session.id,
-          projectId: String(sessionMeta?.projectId),
-          before: toolDefinitions.length,
-        });
-      }
-      if (selection.trimmed) {
-        logger.info('streamMessage:tools — 按任务裁剪工具集', {
-          sessionId: session.id,
-          taskType: selection.taskType ?? 'default',
-          hasImages,
-          before: toolDefinitions.length,
-          after: selection.tools.length,
-          removedNames: selection.removedNames,
-        });
-        toolDefinitions.length = 0;
-        toolDefinitions.push(...selection.tools);
-      }
     }
 
     // 触发 ChatPreStream Hook

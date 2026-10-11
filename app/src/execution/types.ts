@@ -80,6 +80,72 @@ export function isActiveStatus(status: ExecutionStatus): boolean {
 }
 
 /**
+ * 工具调用状态（G14，S2-1）：**语义化枚举**（唯一事实源）。
+ *
+ * 此前 `PersistedToolCall.status` 为裸 `string`、`settleToolCall` 与恢复判据靠字面量匹配
+ * （`ExecutionStore.ts:381,453`、`ExecutionManager.ts:448-459`）⇒ 拼写漂移静默通过。
+ *
+ * ⚠️ 取值沿用**既有数据词表**（`running`/`completed`/`failed`/`unknown`）——方案 §4 原列
+ * `prepared`/`succeeded` 未采纳：① `prepared` 无生产者（`recordToolCall` 落盘即 `running`，
+ * 与 `running` 不可区分）；② `completed` 与 `executions` 表 `COMPLETED` 同源，改名需数据迁移
+ * 且破坏"数出同源"（用户偏好），零功能收益。
+ */
+export const TOOL_CALL_STATUSES = [
+  /** 已开始、未结算（`recordToolCall` 落盘；`:404`/`:429`） */
+  'running',
+  /** 结算：成功 */
+  'completed',
+  /** 结算：失败（携 `error`） */
+  'failed',
+  /** 恢复期结算：副作用是否发生**不可知**（P0-4） */
+  'unknown',
+] as const;
+export type ToolCallStatus = (typeof TOOL_CALL_STATUSES)[number];
+
+/** 初始状态（`recordToolCall` 落盘值）—— 避免 SQL 中出现裸字面量 */
+export const TOOL_CALL_INITIAL_STATUS: ToolCallStatus = 'running';
+/** 恢复期"副作用不可知"状态（P0-4，`markUnsettledToolCallsUnknown` 落盘值） */
+export const TOOL_CALL_UNKNOWN_STATUS: ToolCallStatus = 'unknown';
+
+/** 终态（结算后不再变更） */
+export const TOOL_CALL_TERMINAL_STATUSES: readonly ToolCallStatus[] = [
+  'completed',
+  'failed',
+  'unknown',
+];
+
+/** 集中状态机（G14）：`running` 只可走向三个终态；终态无出边 */
+const TOOL_CALL_TRANSITIONS: Record<ToolCallStatus, readonly ToolCallStatus[]> =
+  {
+    running: ['completed', 'failed', 'unknown'],
+    completed: [],
+    failed: [],
+    unknown: [],
+  };
+
+/** 是否允许工具调用状态转移（非法转移返回 false；`from === to` 亦为 false） */
+export function canTransitionToolCall(
+  from: ToolCallStatus,
+  to: ToolCallStatus
+): boolean {
+  if (from === to) return false;
+  return TOOL_CALL_TRANSITIONS[from].includes(to);
+}
+
+/** 工具调用终态判定 */
+export function isToolCallTerminalStatus(status: ToolCallStatus): boolean {
+  return TOOL_CALL_TERMINAL_STATUSES.includes(status);
+}
+
+/** 是否为合法工具调用状态（运行期校验；用于 DB 读回/外部入参） */
+export function isToolCallStatus(value: unknown): value is ToolCallStatus {
+  return (
+    typeof value === 'string' &&
+    (TOOL_CALL_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+/**
  * 执行中止原因（**类型化**）。
  *
  * 用途：替代 `error.message.includes('超时…')` 式文案匹配（CS02：状态/判定禁止字符串匹配）。

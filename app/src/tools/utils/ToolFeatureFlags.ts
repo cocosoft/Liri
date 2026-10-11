@@ -5,19 +5,22 @@
  * 统一来源：core/featureFlags.ts
  * 映射表位于 core/featureFlags.ts 的 TOOL_FLAG_MAP
  *
- * TR-18 修复（2026-09-22）：**顶层不再求值 `TOOL_NAMES`**。
+ * TR-18 修复（2026-09-22）：**顶层不再求值 `TOOL_FLAG_KEYS`**。
  *
- * 原实现于模块顶层执行 `for (const toolName of TOOL_NAMES) { ... }`，而 `TOOL_NAMES` 来自
+ * 原实现于模块顶层执行 `for (const toolName of TOOL_NAMES) { ... }`，而该列表来自
  * `@modules/core`，其依赖图又反向 import 工具层 ⇒ 以「直接 import 工具层」为入口
  * （临时脚本 / 独立工具）时触发
  * `ReferenceError: Cannot access 'TOOL_NAMES' before initialization`（TDZ），
  * 模块树无法加载（实测发生于 TR-12-B 体积测量脚本；见 `dev_docs/error_repairs/` TR-18）。
  *
- * 改为**首次调用时惰性填充**后，`TOOL_NAMES` 的读取被推迟到运行时 —— 此时模块图早已
+ * 改为**首次调用时惰性填充**后，该列表的读取被推迟到运行时 —— 此时模块图早已
  * 求值完毕（生产启动序与测试基座本就不受影响，本修复消除的是"入口顺序脆弱性"）。
+ *
+ * G7（2026-10-11，S2-3）：`@modules/core` 的导出已由 `TOOL_NAMES` 重命名为
+ * **`TOOL_FLAG_KEYS`**（`ENABLE_*` 开关键名，非工具名）⇒ 此处同步。
  */
 
-import { getToolFlag, TOOL_NAMES } from '@modules/core';
+import { getToolFlag, TOOL_FLAG_KEYS } from '@modules/core';
 
 export interface ToolFeatureFlag {
   name: string;
@@ -32,15 +35,15 @@ export const TOOL_FEATURE_FLAGS: Record<string, boolean> = {};
  * 是否已填充。
  *
  * 用**独立标志**而非 `Object.keys(TOOL_FEATURE_FLAGS).length === 0` 判定：
- * 后者在所有 flag 均为 false（或 `TOOL_NAMES` 为空）时会**反复重填**。
+ * 后者在所有 flag 均为 false（或 `TOOL_FLAG_KEYS` 为空）时会**反复重填**。
  */
 let _initialized = false;
 
-/** 确保开关表已填充（幂等；首次调用时才读取 `TOOL_NAMES`） */
+/** 确保开关表已填充（幂等；首次调用时才读取 `TOOL_FLAG_KEYS`） */
 function ensureFlags(): Record<string, boolean> {
   if (_initialized) return TOOL_FEATURE_FLAGS;
-  for (const toolName of TOOL_NAMES) {
-    TOOL_FEATURE_FLAGS[toolName] = getToolFlag(toolName);
+  for (const flagKey of TOOL_FLAG_KEYS) {
+    TOOL_FEATURE_FLAGS[flagKey] = getToolFlag(flagKey);
   }
   _initialized = true;
   return TOOL_FEATURE_FLAGS;

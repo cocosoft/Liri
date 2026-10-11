@@ -23,7 +23,11 @@ import {
   type InboxItemStatus,
   type InboxItemType,
 } from '@modules/runtime/InboxManager.js';
-import { getApprovedCommandRegistry } from '@modules/permission';
+import {
+  getApprovedCommandRegistry,
+  type ApprovalScope,
+  type ApprovalSnapshot,
+} from '@modules/permission';
 
 const logger = getLogger('http:inbox');
 
@@ -293,16 +297,28 @@ export async function handleReplyInbox(
       const commandHash = current.metadata?.commandHash as string | undefined;
       // P0-3: 携带批准命令原文（提取命令名供命令名级放行）
       const command = current.metadata?.command as string | undefined;
+      // S1-1: 携带执行作用域 / 审批快照（由工具在其 ask 结果 metadata 中声明）
+      const approvalScope = current.metadata?.approvalScope as
+        | ApprovalScope
+        | undefined;
+      const approvalSnapshot = current.metadata?.approvalSnapshot as
+        | ApprovalSnapshot
+        | undefined;
       if (commandHash && current.sessionId) {
         getApprovedCommandRegistry().approve(
           current.sessionId,
           commandHash,
-          command
+          command,
+          approvalScope || approvalSnapshot
+            ? { scope: approvalScope, snapshot: approvalSnapshot }
+            : undefined
         );
         logger.info('工具审批已批准，写入命令放行缓存', {
           sessionId: current.sessionId,
           commandHash,
           hasCommand: !!command,
+          scopeBound: !!approvalScope,
+          hasSnapshot: !!approvalSnapshot,
         });
         // P2-4: 白名单持久化——allowlist_tool 写工具级 allow 规则，
         // allowlist_command 写命令前缀级 allow 规则（contentPattern）

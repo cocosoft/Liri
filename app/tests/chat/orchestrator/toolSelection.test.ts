@@ -9,6 +9,9 @@
  * 2. **K4**：`!taskType && projectId && 执行意图` ⇒ 提升 `coding`（并置 `promotedByExecutionIntent`）；
  * 3. **D7/L2**：带图 ⇒ 追加 `image` 额外类别（否则 `image_analysis` 被裁 ⇒ 识图链路不可用）；
  * 4. `trimmed` / `removedNames` 与 `filterToolsByTask` 同口径（`filtered.length !== tools.length`）。
+ *
+ * 2026-10-11（真机事故修复）：`shell` 已纳入 `default`/`chat` ⇒ 普通会话（`taskType`
+ * 未定 ⇒ 保底 `default`）下 `bash` 也可见；仅 `local`（小上下文）与 `quick` 等轻量集仍裁 shell。
  */
 import { describe, expect, it } from 'bun:test';
 
@@ -99,5 +102,21 @@ describe('P2-1i S3 本轮工具集选择 · 任务类型判定 + 裁剪', () => 
     expect(r.trimmed).toBe(false);
     expect(r.removedNames).toEqual([]);
     expect(r.tools).toHaveLength(2);
+  });
+
+  it('2026-10-11 修复：普通会话（未定任务类型 ⇒ default）下 `bash` 仍可见', () => {
+    // 事故：default 集原不含 shell ⇒ bash/powershell 被裁 ⇒ 模型自述"环境无 shell 工具"。
+    const r = run(); // 远端端点、无 projectId、非执行意图 ⇒ default 保底集
+    expect(r.taskType).toBeUndefined();
+    expect(r.tools.map((t) => t.function?.name)).toContain('bash');
+    // 反证：裁剪仍生效（`image_analysis` 不在 default 类别 ⇒ 仍被裁）
+    expect(r.trimmed).toBe(true);
+    expect(r.removedNames).toEqual(['image_analysis']);
+  });
+
+  it('2026-10-11 修复：`local`（小上下文/本地端点）仍为轻量只读集，shell 不进入', () => {
+    const r = run({ baseUrl: LOCAL_URL });
+    expect(r.taskType).toBe('local');
+    expect(r.tools.map((t) => t.function?.name)).toEqual(['file_read']);
   });
 });

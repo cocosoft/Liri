@@ -18,7 +18,8 @@ import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
-import { ReActLoop } from '@modules/query';
+// G-2/E（2026-10-11）：子代理用量计入每日预算（`recordDailyBudgetFromUsage` 是非 chat 管线的唯一计账助手）
+import { ReActLoop, recordDailyBudgetFromUsage } from '@modules/query';
 import type {
   ReasonResult,
   ActResult,
@@ -806,6 +807,12 @@ export class SubAgentEngine {
         model: resolvedModel,
         latencyMs,
       });
+
+      // G-2/E（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 E）：子代理走**非 chat 管线**
+      // （直调 provider，不经 `CoreAPI.chatStream` / `sendMessageFlow`）⇒ 此前其用量**不入每日预算**
+      // （只入成本追踪）⇒ 子代理扇出可绕过日限额。此处按"provider 回显 usage"单点计入（与默认 LRO
+      // 执行器同款：`recordDailyBudgetFromUsage` 是唯一的非 chat 计账助手）。
+      recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
 
       otel.endSpan(span, SpanStatusCode.OK);
       return result;

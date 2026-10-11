@@ -108,6 +108,8 @@ import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
+// G-2/E（2026-10-11，Spec §5-D-1 E）：日预算闸门（派生前）与子代理用量计账
+import { getDailyBudget, recordDailyBudgetFromUsage } from '@modules/query';
 import { subAgentTokenListeners } from '../../tokenBudget/SubAgentTokenBridge';
 // N-41（2026-09-21 真机实证）：工具池兜底来源 —— 唯一注册表（project_rules §1.16）
 import { getToolRegistry } from '../ToolRegistry';
@@ -770,6 +772,29 @@ export class AgentTool implements Tool {
       };
     }
 
+    // G-2/E（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 E）：**日预算闸门（派生前）**。
+    //
+    // 接线既有 `canSpawnSubAgent()`（此前**零调用者**）：子代理是"扇出"入口，额度吃紧时先拦派生，
+    // 避免一次委派把剩余额度同时放大 N 份。语义（既有实现）：**仅 `normal` 档位放行** ——
+    // 即进入告警区（≥80%）后就不再派生，比 chat 闸门（`report_only` 仍放行）更保守。
+    // 拒绝结果作为**工具结果**回父对话（复用 A 的卡片语义：放行 / 调高上限后重试）。
+    const dailyBudget = getDailyBudget();
+    if (!dailyBudget.canSpawnSubAgent()) {
+      const budgetState = dailyBudget.getMode();
+      logger.warning('Agent execution rejected: daily budget insufficient', {
+        mode: budgetState.mode,
+        todayUsed: budgetState.todayUsed,
+        dailyLimit: budgetState.dailyLimit,
+      });
+      return {
+        ok: false,
+        error: this.agentLedgerLifecycle.failureResult(
+          `今日 Token 预算不足，已阻止派生新子代理（档位：${budgetState.mode}，已用 ${budgetState.todayUsed} / 上限 ${budgetState.dailyLimit}）。` +
+            '可在桌面端「用量中心 → 日限额」临时提额 / 今日解除，或调高每日上限后重试；在途子代理不受影响。'
+        ),
+      };
+    }
+
     // Phase 3: 解析工具过滤 + **O7 两段校验**（未知工具集 / 禁止扩权 / fail-closed 空清单）
     const toolsetError = this.agentToolPool.executeToolsets(agentInput);
     if (toolsetError) {
@@ -1387,6 +1412,10 @@ export class AgentTool implements Tool {
         model: input.model || agentModel,
         latencyMs,
       });
+
+      // G-2/E（2026-10-11，Spec §5-D-1 E）：**直调路径**同样走非 chat 管线（直调 provider）⇒
+      // 用量须计入每日预算，否则"简单任务"子代理可绕过日限额（与引擎路径同款单点记账）。
+      recordDailyBudgetFromUsage((response as { usage?: unknown }).usage);
     } catch (e) {
       handleError(e, {
         module: 'tools:agentTool',

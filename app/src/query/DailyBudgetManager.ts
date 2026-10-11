@@ -36,6 +36,9 @@ import {
 // LRO-17：进入 `locked` 时发一次 ALERT，经既有 AlertBridge（订阅 `alert:triggered`）路由，
 // 避免长程任务被日限额**静默**腰斩。
 import { globalEventBus } from '../core/events/EventBus.js';
+// D-k（2026-10-11）：快照形状/格式化取自**叶子模块**（零依赖 ⇒ 不构成与闸门的循环导入）。
+import { formatBudget } from './dailyBudgetSnapshot.js';
+import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
 // P1：日预算**用量状态**持久化（`{date, used}` 落盘 `~/.pyapp/data/daily-budget-state.json`）。
 import {
   loadDailyBudgetState,
@@ -48,6 +51,41 @@ const logger = getLogger('query:dailyBudgetManager');
 const PERSIST_DEBOUNCE_MS = 1000;
 
 type BudgetMode = 'normal' | 'report_only' | 'locked';
+
+/** relief（放行）种类（Spec `daily-budget-over-limit-ux.md` §4 D-b）。 */
+export type ReliefKind = 'boost' | 'waive-once' | 'unlock-today';
+
+/** 放行请求（`POST /v1/cost/daily-budget/relief` 的 body）。 */
+export type ReliefInput =
+  | { kind: 'boost'; factor?: number; amount?: number; ttlMs?: number }
+  | { kind: 'waive-once'; ttlMs?: number }
+  | { kind: 'unlock-today' };
+
+/** 对外可见的放行视图（供限额设置面 / 撞限卡片展示）。 */
+export interface ReliefView {
+  kind: ReliefKind;
+  /** 到期时刻（epoch ms）；`null` = 至**日界**（`unlock-today`） */
+  expiresAt: number | null;
+  /** 当前**有效**上限（relief 生效时为提高后的上限） */
+  effectiveLimit: number;
+}
+
+/** 内部放行状态（可持久化字段的子集）。 */
+interface ReliefState {
+  kind: ReliefKind;
+  expiresAt: number | null;
+  factor?: number;
+  amount?: number;
+}
+
+/** `boost` 默认倍数（Spec §4 D-n：×2） */
+export const DEFAULT_BOOST_FACTOR = 2;
+/** `boost` 默认时长（1 小时，到期自动恢复） */
+export const DEFAULT_BOOST_TTL_MS = 60 * 60 * 1000;
+/** `waive-once` 通行证 TTL（防悬挂：未被消费即作废） */
+export const DEFAULT_WAIVE_TTL_MS = 10 * 60 * 1000;
+/** `unlock-today` 的**软上限**倍数（Spec §4 D-m：原上限 ×5，防死循环指数级消耗） */
+export const UNLOCK_TODAY_SOFT_CAP_FACTOR = 5;
 
 /** D1：日预算运行期配置（上限 + 阈值 + 收益递减） */
 export interface DailyBudgetConfig {
@@ -106,6 +144,12 @@ export class DailyBudgetManager {
    * 该状态文件"的语义）。未激活时持久化整体不生效，避免临时/测试实例向真实数据目录写盘。
    */
   private _persistenceActive = false;
+  /** D-b（2026-10-11）：放行状态（`boost` / `unlock-today`）。`null` = 无放行。 */
+  private reliefState: ReliefState | null = null;
+  /** D-b：`waive-once` 一次性通行证（Consume-and-Die；未消费则到期作废）。 */
+  private waiveOncePending: { expiresAt: number } | null = null;
+  /** D-d：透支欠账（`waive-once` 消耗）——次日计入用量扣回；`reset()` 不抹除。 */
+  private debtTokens = 0;
 
   constructor(config?: Partial<DailyBudgetConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -134,9 +178,22 @@ export class DailyBudgetManager {
   private _rolloverIfNeeded(): void {
     const today = this._getToday();
     if (this.todayDate === today) return;
-    const hadUsage = this.todayUsed > 0;
+    // **首次接触**（`todayDate` 为空：未恢复、未记账）只登记日期，**不动**用量/欠账/放行 ——
+    // 否则会把刚 `applyRelief` 的放行状态当作"跨日"清掉（T4 回归：unlock-today 被误清）。
+    if (this.todayDate === '') {
+      this.todayDate = today;
+      return;
+    }
+    // D-d（Spec §4 D-d）：跨日 ⇒ **欠账计入新的一天**（透支扣回），随后清空欠账。
+    // D-b（Spec §4 D-n / D-m）：relief 一律**不跨日**（boost 限时、unlock-today 至日界）。
+    const carriedDebt = this.debtTokens;
+    const hadUsage =
+      this.todayUsed > 0 || carriedDebt > 0 || this.reliefState !== null;
     this.todayDate = today;
-    this.todayUsed = 0;
+    this.todayUsed = carriedDebt;
+    this.debtTokens = 0;
+    this.reliefState = null;
+    this.waiveOncePending = null;
     if (hadUsage) this._schedulePersist();
   }
 
@@ -191,9 +248,11 @@ export class DailyBudgetManager {
    * 与 `todayUsed` 相同 ⇒ **无预留则行为逐一不变**）；`todayUsed` 仍为**实际**用量。
    */
   private _computeState(): DailyBudgetState {
+    // D-b（2026-10-11）：档位/剩余一律按**有效上限**（relief 生效时为提高后的上限）判定，
+    // 使 `boost` / `unlock-today` 真正"放行"而**不是无视预算**（软上限仍在）。
+    const limit = this._effectiveLimit();
     const projectedUsed = this.effectiveUsed();
-    const percentUsed =
-      this.config.dailyLimit > 0 ? projectedUsed / this.config.dailyLimit : 0;
+    const percentUsed = limit > 0 ? projectedUsed / limit : 0;
 
     let mode: BudgetMode = 'normal';
 
@@ -207,9 +266,9 @@ export class DailyBudgetManager {
       mode,
       todayUsed: this.todayUsed,
       projectedUsed,
-      dailyLimit: this.config.dailyLimit,
+      dailyLimit: limit,
       percentUsed,
-      remaining: Math.max(0, this.config.dailyLimit - projectedUsed),
+      remaining: Math.max(0, limit - projectedUsed),
     };
   }
 
@@ -248,6 +307,131 @@ export class DailyBudgetManager {
       'dailyBudget:mode — 日 Token 预算进入告警区（report_only）',
       payload
     );
+  }
+
+  // ─── D-b（2026-10-11）：relief（放行）状态机 ─────────────────────────────
+
+  /** 当前**未过期**的 relief（惰性判定：过期即清空 ⇒ 到期自动恢复原上限）。 */
+  private _activeRelief(now = Date.now()): ReliefState | null {
+    const r = this.reliefState;
+    if (!r) return null;
+    if (r.expiresAt !== null && now >= r.expiresAt) {
+      this.reliefState = null;
+      return null;
+    }
+    return r;
+  }
+
+  /**
+   * 当前**有效上限**（D-b/D-k）：
+   * - 无 relief ⇒ 配置上限（逐一不变）；
+   * - `boost` ⇒ `max(×factor, base + amount)`（默认 ×2，Spec §4 D-n）；
+   * - `unlock-today` ⇒ 原上限 ×5（**软上限**兜底，Spec §4 D-m）。
+   */
+  private _effectiveLimit(now = Date.now()): number {
+    const base = this.config.dailyLimit;
+    const relief = this._activeRelief(now);
+    if (!relief) return base;
+    if (relief.kind === 'unlock-today') {
+      return base * UNLOCK_TODAY_SOFT_CAP_FACTOR;
+    }
+    if (relief.kind === 'boost') {
+      const byFactor = base * (relief.factor ?? DEFAULT_BOOST_FACTOR);
+      const byAmount = relief.amount ? base + relief.amount : base;
+      return Math.max(base, byFactor, byAmount);
+    }
+    return base;
+  }
+
+  private _reliefView(): ReliefView {
+    return {
+      kind: this.reliefState?.kind ?? 'boost',
+      expiresAt: this.reliefState?.expiresAt ?? null,
+      effectiveLimit: this._effectiveLimit(),
+    };
+  }
+
+  /**
+   * 应用一次放行（D-b）。**单一活动 relief**：同 kind 重复 ⇒ 按新参数替换并刷新到期时间；
+   * **不写回**配置键（C1：避免污染用户配置，"重启即提额"由持久化的 `expiresAt` 处理）。
+   */
+  applyRelief(input: ReliefInput): ReliefView {
+    const now = Date.now();
+    if (input.kind === 'boost') {
+      const ttl =
+        input.ttlMs && input.ttlMs > 0 ? input.ttlMs : DEFAULT_BOOST_TTL_MS;
+      this.reliefState = {
+        kind: 'boost',
+        expiresAt: now + ttl,
+        factor: input.factor,
+        amount: input.amount,
+      };
+      this.waiveOncePending = null;
+    } else if (input.kind === 'unlock-today') {
+      this.reliefState = { kind: 'unlock-today', expiresAt: null };
+      this.waiveOncePending = null;
+    } else {
+      // `waive-once`：一次性通行证，不改变有效上限（它是"放行本次"而非"提高上限"）
+      const ttl =
+        input.ttlMs && input.ttlMs > 0 ? input.ttlMs : DEFAULT_WAIVE_TTL_MS;
+      this.waiveOncePending = { expiresAt: now + ttl };
+    }
+    this._schedulePersist();
+    this._observeModeTransition(this._computeState());
+    return this._reliefView();
+  }
+
+  /** 当前放行视图（`null` = 无放行；过期即视为无）。 */
+  getRelief(): ReliefView | null {
+    return this._activeRelief() ? this._reliefView() : null;
+  }
+
+  /**
+   * `waive-once`：消费一次性通行证（**Consume-and-Die**，C4）。
+   *
+   * 被该会话（或任一请求）**第一次**认领后立即失活 ⇒ 不会在 TTL 窗口内被反复利用
+   * （会话内一次模型交互可派生大量子调用，若窗口内保持开启即被"顺着口子"透支）。
+   * 未消费则到期作废（防悬挂）。
+   */
+  consumeWaiveOnce(sessionId: string): boolean {
+    const p = this.waiveOncePending;
+    if (!p || Date.now() >= p.expiresAt) {
+      this.waiveOncePending = null;
+      return false;
+    }
+    this.waiveOncePending = null;
+    logger.info('dailyBudget:waive_once_consumed', { sessionId });
+    return true;
+  }
+
+  /** D-k：单位无关快照（供 HTTP / 前端消费；Spec §11）。 */
+  getSnapshot(): BudgetSnapshot {
+    const state = this._computeState();
+    return {
+      used: state.todayUsed,
+      limit: state.dailyLimit,
+      unit: 'tokens',
+      formatted: formatBudget(state.todayUsed, 'tokens'),
+      mode: state.mode,
+    };
+  }
+
+  /** D-b/D-d：当前可持久化状态（用量 + 欠账 + 放行）。 */
+  private _persistedState() {
+    const relief = this._activeRelief();
+    return {
+      date: this.todayDate || this._getToday(),
+      used: this.todayUsed,
+      debt: this.debtTokens,
+      relief: relief
+        ? {
+            kind: relief.kind,
+            expiresAt: relief.expiresAt,
+            factor: relief.factor,
+            amount: relief.amount,
+          }
+        : null,
+    };
   }
 
   /**
@@ -415,11 +599,31 @@ export class DailyBudgetManager {
    * P1/P3：`date` 为持久化快照的**本地**自然日；与今日不同 ⇒ 视为跨日，用量归零
    * （不把昨天的用量带进今天）。未提供 `date` 时保持历史语义（直接恢复）。
    */
-  restore(state: { todayUsed: number; date?: string }): void {
+  restore(state: {
+    todayUsed: number;
+    date?: string;
+    /** D-b：随状态恢复的放行（**结构等价**于内部 `ReliefState`，避免暴露私有类型） */
+    relief?: {
+      kind: ReliefKind;
+      expiresAt: number | null;
+      factor?: number;
+      amount?: number;
+    } | null;
+    /** D-d：随状态恢复的透支欠账 */
+    debt?: number;
+  }): void {
     const today = this._getToday();
     const sameDay = state.date === undefined || state.date === today;
     this.todayDate = today;
-    this.todayUsed = sameDay ? state.todayUsed : 0;
+    // D-d：跨日恢复 ⇒ 昨日用量归零并**先计入欠账**（透支扣回）；relief 一律不跨日（D-b）。
+    // 欠账取"快照里的值，缺省则沿用内存现值"——部分快照不得抹掉已有欠账（§6.1 C3）。
+    const carriedDebt = state.debt ?? this.debtTokens;
+    this.todayUsed = sameDay ? state.todayUsed : carriedDebt;
+    this.debtTokens = sameDay ? carriedDebt : 0;
+    this.reliefState = sameDay ? (state.relief ?? null) : null;
+    this.waiveOncePending = null;
+    // 过期 relief 立即作废（防"重启即提额"）
+    this._activeRelief();
     this.lastTotalTokens = this.todayUsed;
     this.diminishingTurnsCount = 0;
     this.outstandingBySession.clear();
@@ -437,10 +641,7 @@ export class DailyBudgetManager {
     if (this._persistTimer) return;
     const t = setTimeout(() => {
       this._persistTimer = null;
-      void saveDailyBudgetState({
-        date: this.todayDate || this._getToday(),
-        used: this.todayUsed,
-      });
+      void saveDailyBudgetState(this._persistedState());
     }, PERSIST_DEBOUNCE_MS);
     // 不阻止进程退出（与仓库既有后台定时器一致）
     if (typeof t.unref === 'function') t.unref();
@@ -459,10 +660,7 @@ export class DailyBudgetManager {
       clearTimeout(this._persistTimer);
       this._persistTimer = null;
     }
-    await saveDailyBudgetState({
-      date: this.todayDate || this._getToday(),
-      used: this.todayUsed,
-    });
+    await saveDailyBudgetState(this._persistedState());
   }
 
   /**
@@ -487,6 +685,9 @@ export class DailyBudgetManager {
     this.diminishingTurnsCount = 0;
     this._graceCallActive = false;
     this.outstandingBySession.clear();
+    // D-b / §6.1 C3：`reset()` 清**放行状态**，但**不清欠账**（否则可反复 reset 洗掉透支）。
+    this.reliefState = null;
+    this.waiveOncePending = null;
     this.lastObservedMode = 'normal'; // LRO-17：重置观测基线
     // P1：重置同样落盘，避免"重置后重启"把旧用量恢复回来。
     void this.persistNow();
@@ -615,7 +816,12 @@ export async function initDailyBudget(): Promise<void> {
   budget.enablePersistence(); // 启动后才"接管"状态文件（未启用时持久化整体不生效）
   const persisted = await loadDailyBudgetState();
   if (persisted) {
-    budget.restore({ todayUsed: persisted.used, date: persisted.date });
+    budget.restore({
+      todayUsed: persisted.used,
+      date: persisted.date,
+      debt: persisted.debt,
+      relief: persisted.relief,
+    });
   }
 }
 

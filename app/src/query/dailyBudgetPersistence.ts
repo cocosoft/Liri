@@ -42,6 +42,21 @@ const logger = getLogger('query:dailyBudgetPersistence');
 export interface DailyBudgetPersistedState {
   date: string;
   used: number;
+  /**
+   * D-d（2026-10-11）：**透支欠账**（`waive-once` 消耗）——次日计入用量扣回。
+   * 缺省（旧文件）按 0 读取。
+   */
+  debt?: number;
+  /**
+   * D-b（2026-10-11）：**放行状态**（`boost` / `unlock-today`）——重启后按 `expiresAt`
+   * 判定是否仍生效（**已过期即作废**，防"重启即提额"）。缺省（旧文件）按无放行读取。
+   */
+  relief?: {
+    kind: 'boost' | 'waive-once' | 'unlock-today';
+    expiresAt: number | null;
+    factor?: number;
+    amount?: number;
+  } | null;
 }
 
 export function dailyBudgetStatePath(): string {

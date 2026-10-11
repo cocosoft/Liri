@@ -30,37 +30,15 @@
  */
 
 import { getDailyBudget } from './DailyBudgetManager.js';
+import { formatBudget } from './dailyBudgetSnapshot.js';
+import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
 
-/** 日预算档位（对齐 `DailyBudgetManager` 内部同名联合类型）。 */
-export type BudgetMode = 'normal' | 'report_only' | 'locked';
+// 快照形状与格式化已下沉到**叶子模块**（`dailyBudgetSnapshot`）以避免与状态机形成循环导入；
+// 此处仅**再导出**，既有消费方（本模块的导入者）无需改动。
+export type { BudgetMode, BudgetSnapshot } from './dailyBudgetSnapshot.js';
+export { formatBudget } from './dailyBudgetSnapshot.js';
 
-/**
- * 单位无关的预算快照（Spec §11）。
- *
- * `formatted` **只描述已用量**（对齐 Spec §11 的示例 `"901.2 K Tokens"`）。
- */
-export interface BudgetSnapshot {
-  /** 已用量（当前单位；今日为**实际**用量，不含在途预留） */
-  used: number;
-  /** 上限（当前单位） */
-  limit: number;
-  /** 单位（当前仅 `'tokens'`；USD 专项切换点） */
-  unit: 'tokens';
-  /** 已用量的展示串（如 `"901.2 K Tokens"`） */
-  formatted: string;
-  /** 当前档位 */
-  mode: BudgetMode;
-}
-
-/** 数字 ↔ 展示串：`<1000` 原样，`≥1000` 走 `K` 后缀并保留 1 位小数。 */
-export function formatBudget(
-  used: number,
-  unit: BudgetSnapshot['unit']
-): string {
-  const label = unit === 'tokens' ? 'Tokens' : unit;
-  const shown = used >= 1000 ? `${(used / 1000).toFixed(1)} K` : `${used}`;
-  return `${shown} ${label}`;
-}
+// 快照形状与格式化见 `dailyBudgetSnapshot`（叶子模块，本模块再导出）。
 
 /**
  * 判定"本轮能否发起模型调用"（**纯读，无副作用**）。

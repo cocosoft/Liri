@@ -11,7 +11,9 @@ import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 // T6（D-a/D-b/D-f）：撞限渲染可操作限额卡片（不再是红色错误条）
-import DailyLimitNotice from "./DailyLimitNotice";
+import DailyLimitNotice, {
+  isDailyLimitErrorCode,
+} from "./DailyLimitNotice";
 import { usageService } from "../../services/usageService";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
@@ -50,7 +52,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // ── T6（D-a/D-b/D-f）：日预算撞限 ⇒ 取一次快照喂给限额卡片 ──
   // 错误通道只带**字符串**（errorSummary/errorDetail），卡片需要结构化数字 ⇒ 命中限额码时
   // 拉一次 `GET /v1/cost/daily-budget`（失败静默：卡片退化为仅展示动作）。
-  const isDailyLimitExceeded = errorCode === "DAILY_BUDGET_EXCEEDED";
+  const isDailyLimitExceeded = isDailyLimitErrorCode(errorCode);
   const [limitSnapshot, setLimitSnapshot] = useState<{
     todayUsed: number;
     dailyLimit: number;

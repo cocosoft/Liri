@@ -36,6 +36,19 @@ const ACTIONS: Array<{ kind: DailyLimitReliefKind; key: string }> = [
   { kind: 'unlock-today', key: 'cost.action.unlockToday' },
 ];
 
+/**
+ * 分流判据：是否"日预算撞限"码。
+ *
+ * 抽为具名纯函数的原因：**"非限额码仍走原红色错误条（不回归）"** 是本改动的核心风险点，
+ * 必须有可跑的回归网（组件级渲染 ChatArea 成本过高）；此判据即分流开关的唯一来源。
+ * 判据是 store 的**状态字段** `errorCode`（CS02：不做字符串匹配业务语义）。
+ */
+export function isDailyLimitErrorCode(
+  errorCode: string | null | undefined
+): boolean {
+  return errorCode === 'DAILY_BUDGET_EXCEEDED';
+}
+
 export default function DailyLimitNotice({
   used,
   limit,

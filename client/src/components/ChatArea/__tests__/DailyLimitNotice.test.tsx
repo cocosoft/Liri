@@ -10,7 +10,9 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import DailyLimitNotice from '../DailyLimitNotice';
+import DailyLimitNotice, {
+  isDailyLimitErrorCode,
+} from '../DailyLimitNotice';
 
 /** 文案键直通：便于断言"用了哪个键"，不绑定具体文案 */
 const t = (key: string) => key;
@@ -68,5 +70,18 @@ describe('DailyLimitNotice：撞限卡片（D-a / D-b / D-f）', () => {
       screen.getByText('cost.action.openSettings')
     );
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('分流判据：非限额码仍走原红色错误条（**不回归**，T6 收尾例）', () => {
+  it('限额码 ⇒ true（渲染限额卡片）', () => {
+    expect(isDailyLimitErrorCode('DAILY_BUDGET_EXCEEDED')).toBe(true);
+  });
+
+  it('其它码 / 空 ⇒ false（渲染原红条，不被卡片吞掉）', () => {
+    expect(isDailyLimitErrorCode('BACKEND_UNREACHABLE')).toBe(false);
+    expect(isDailyLimitErrorCode('UNKNOWN')).toBe(false);
+    expect(isDailyLimitErrorCode(null)).toBe(false);
+    expect(isDailyLimitErrorCode(undefined)).toBe(false);
   });
 });

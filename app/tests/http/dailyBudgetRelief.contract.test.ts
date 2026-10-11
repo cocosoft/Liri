@@ -191,3 +191,57 @@ describe('POST /v1/cost/daily-budget/relief（T5 放行端点）', () => {
     expect(getDailyBudget().getRelief()?.effectiveLimit).toBe(2_500_000);
   });
 });
+
+describe('DELETE /v1/cost/daily-budget/relief（撤销放行，2026-10-12）', () => {
+  test('200：撤销后放行清空、上限回配置值，且**保留今日用量**（≠ reset）', async () => {
+    const budget = getDailyBudget();
+    budget.recordUsage(600_000); // > 500K ⇒ locked
+    expect(budget.getMode().mode).toBe('locked');
+
+    await call('POST', '/v1/cost/daily-budget/relief', {
+      kind: 'unlock-today',
+    });
+    expect(budget.getMode().dailyLimit).toBe(2_500_000);
+    expect(budget.getMode().mode).toBe('normal');
+
+    const r = await call('DELETE', '/v1/cost/daily-budget/relief');
+    expect(r.matched).toBe(true);
+    expect(r.status).toBe(200);
+    expect(r.body['relief']).toBeNull();
+    // 恢复**配置上限** + 用量保留 ⇒ 重新 locked
+    expect(budget.getMode().dailyLimit).toBe(500_000);
+    expect(budget.getMode().todayUsed).toBe(600_000);
+    expect(budget.getMode().mode).toBe('locked');
+    expect(budget.getRelief()).toBeNull();
+    // SSE 广播（前端面板即时刷新）
+    expect(events.map((e) => e[0])).toContain('cost:dailyBudgetUpdated');
+  });
+
+  test('幂等：无放行时撤销 ⇒ 200 + relief null（不抛错）', async () => {
+    expect(getDailyBudget().getRelief()).toBeNull();
+    const r = await call('DELETE', '/v1/cost/daily-budget/relief');
+    expect(r.status).toBe(200);
+    expect(r.body['relief']).toBeNull();
+    expect(getDailyBudget().getRelief()).toBeNull();
+  });
+
+  test('撤销同时清掉 waive-once 一次性通行证（"全部在途放行"口径）', async () => {
+    await call('POST', '/v1/cost/daily-budget/relief', { kind: 'waive-once' });
+    expect(getDailyBudget().consumeWaiveOnce('sess-1')).toBe(true);
+
+    await call('POST', '/v1/cost/daily-budget/relief', { kind: 'waive-once' });
+    await call('DELETE', '/v1/cost/daily-budget/relief');
+    expect(getDailyBudget().consumeWaiveOnce('sess-1')).toBe(false);
+  });
+
+  test('与 POST /reset 对照：撤销**不**清用量，reset 才清', async () => {
+    const budget = getDailyBudget();
+    budget.recordUsage(123_456);
+
+    await call('DELETE', '/v1/cost/daily-budget/relief');
+    expect(budget.getMode().todayUsed).toBe(123_456);
+
+    await call('POST', '/v1/cost/daily-budget/reset');
+    expect(budget.getMode().todayUsed).toBe(0);
+  });
+});

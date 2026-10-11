@@ -84,6 +84,7 @@ import {
 import {
   handleGetDailyBudget,
   handleResetDailyBudget,
+  handleClearDailyBudgetRelief,
   handleSetDailyBudgetKillSwitch,
   handleSetDailyBudgetRelief,
   handleUpdateDailyBudget,
@@ -125,6 +126,12 @@ async function dispatchDailyBudgetRoutes(
   // D-b（2026-10-11）：放行（临时提额 / 单次豁免 / 当日解除）—— Spec §5-B
   if (method === 'POST' && url === '/v1/cost/daily-budget/relief') {
     await handleSetDailyBudgetRelief(req, res, broadcastEvent);
+    return true;
+  }
+  // D-b 对称回路（2026-10-12）：**撤销放行**（清全部在途放行、恢复配置上限；
+  // 保留今日用量 —— 与 `POST /reset` 的"用量归零"互不相同）
+  if (method === 'DELETE' && url === '/v1/cost/daily-budget/relief') {
+    await handleClearDailyBudgetRelief(res, broadcastEvent);
     return true;
   }
   return false;

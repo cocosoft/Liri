@@ -25,8 +25,10 @@
  * 端点：
  * - `GET    /v1/cost/daily-budget`             当前状态（用量/档位/上限/阈值/kill switch）
  * - `PUT    /v1/cost/daily-budget`             热更新上限/阈值（持久化到 config，运行期即时生效）
- * - `POST   /v1/cost/daily-budget/reset`       重置当日统计（D6）
+ * - `POST   /v1/cost/daily-budget/reset`       重置当日统计（D6；**用量归零**）
  * - `POST   /v1/cost/daily-budget/kill-switch` 手动硬锁开关（D6）
+ * - `POST   /v1/cost/daily-budget/relief`      放行（D-b：临时提额 / 单次豁免 / 当日解除）
+ * - `DELETE /v1/cost/daily-budget/relief`      **撤销放行**（保留用量，≠ reset）
  *
  * 归属说明：日预算单例在 `query/**`（app 层），本文件属 service 层 ⇒ 按本仓既有
  * `chat-handlers.ts` 的 `await import('@modules/chat')` 模式**动态导入**，避免 service → app
@@ -167,6 +169,36 @@ export async function handleSetDailyBudgetRelief(
     await handleError(err, { module: 'http:dailyBudget', action: 'relief' });
     if (!res.headersSent) {
       json(res, 500, { error: { message: '设置日限额放行失败' } });
+    }
+  }
+}
+
+/**
+ * DELETE /v1/cost/daily-budget/relief — **撤销放行**（D-b 的对称回路，2026-10-12）
+ *
+ * 与 `POST /relief` 对称：清空当前**全部在途放行**（`boost` / `unlock-today` / `waive-once`），
+ * 恢复为**配置上限**；**保留**今日用量与欠账 —— 这是与 `POST /reset` 的关键差异
+ * （后者把 `todayUsed` 归零 ⇒ 反而变成"解锁"）。
+ *
+ * 无放行时为**幂等 no-op**（仍回 200 + 快照）。回复 `relief: null`。
+ */
+export async function handleClearDailyBudgetRelief(
+  res: http.ServerResponse,
+  broadcastEvent: (event: string, data: unknown) => void
+): Promise<void> {
+  try {
+    const budget = await loadBudget();
+    budget.clearRelief();
+    const snapshot = budgetSnapshot(budget);
+    broadcastEvent(DAILY_BUDGET_SSE_EVENT, snapshot);
+    json(res, 200, { ...snapshot, relief: null });
+  } catch (err) {
+    await handleError(err, {
+      module: 'http:dailyBudget',
+      action: 'relief-revoke',
+    });
+    if (!res.headersSent) {
+      json(res, 500, { error: { message: '撤销日限额放行失败' } });
     }
   }
 }

@@ -186,4 +186,22 @@ describe('DailyBudgetManager 用量状态持久化（P1/P3）', () => {
     const persisted = await loadDailyBudgetState();
     expect(persisted?.relief ?? null).toBeNull();
   });
+
+  // ── 撤销放行（DELETE /relief，2026-10-12）：撤销后**重启不得复活** ──
+  // 这条与上面的"往返恢复"是一对：`relief` 会持久化 ⇒ 撤销必须**落盘**才算真撤销。
+
+  it('clearRelief 后落盘不含 relief，且重启不复现放行', async () => {
+    const b = getDailyBudget();
+    b.applyRelief({ kind: 'unlock-today' });
+    await b.persistNow();
+    expect((await loadDailyBudgetState())?.relief?.kind).toBe('unlock-today');
+
+    b.clearRelief();
+    await b.persistNow(); // clearRelief 内部已 `void persistNow()`；此处确保写盘完成
+    expect((await loadDailyBudgetState())?.relief ?? null).toBeNull();
+
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(getDailyBudget().getRelief()).toBeNull();
+  });
 });

@@ -390,6 +390,34 @@ export class DailyBudgetManager {
   }
 
   /**
+   * **撤销放行**（D-b 的对称回路，2026-10-12）。
+   *
+   * 为什么需要：`applyRelief` 只有"放行"方向、**没有"收回"** —— `reset()` 虽清 `reliefState`，
+   * 但同批把 `todayUsed` 归零（⇒ 反而变成解锁），故无法"只收回放行、保留用量"；而 `relief`
+   * 现已随状态文件持久化 ⇒ 单纯重启也**不会**清（会被 `restore()` 复原）。
+   *
+   * 语义：清空**全部在途放行** —— `reliefState`（`boost` / `unlock-today`）与
+   * `waiveOncePending`（`waive-once` 一次性通行证）；恢复为**配置上限**。
+   * **不动** `todayUsed` / `debtTokens`（≠ `reset()`）。无放行时为**幂等 no-op**。
+   *
+   * 立即落盘（对齐 `reset()`）：撤销是"止损"动作，去抖窗口内崩溃会让放行复活。
+   */
+  clearRelief(): void {
+    const hadRelief =
+      this.reliefState !== null || this.waiveOncePending !== null;
+    this.reliefState = null;
+    this.waiveOncePending = null;
+    void this.persistNow();
+    if (!hadRelief) return;
+    logger.info('dailyBudget:relief_revoked', {
+      todayUsed: this.todayUsed,
+      dailyLimit: this.config.dailyLimit,
+    });
+    // 撤销后有效上限回落 ⇒ 模式可能跃迁到 locked（与 applyRelief 同款的观测/告警口径）
+    this._observeModeTransition(this._computeState());
+  }
+
+  /**
    * `waive-once`：消费一次性通行证（**Consume-and-Die**，C4）。
    *
    * 被该会话（或任一请求）**第一次**认领后立即失活 ⇒ 不会在 TTL 窗口内被反复利用

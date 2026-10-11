@@ -243,7 +243,16 @@ export interface ChatStreamChunk {
     | 'suspension_settled';
   /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 / error=压缩或构建异常（P0-1） */
   phase?: 'compacting' | 'done' | 'error';
-  /** 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02) */
+  /**
+   * 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02)
+   *
+   * G-2（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-A / §5-D-1）：**已知码 + 开放取值**。
+   *
+   * 此前是**闭集**，但业务码本身源自 `AppError.code`（**开放字符串**，如 `DAILY_BUDGET_EXCEEDED`）
+   * ⇒ 真实业务码只能靠 `as ChatStreamChunk` **强转**才带得出来（T3 的"码保真"因此不得不强转，
+   * 类型在说谎）。`(string & {})` 的作用：已知码保留 IDE 自动补全与检索面，同时**如实**允许
+   * 任意业务码透传（消费方一律按 `chunk.errorCode || 'UNKNOWN'` 兜底，见 `chat-handlers`）。
+   */
   errorCode?:
     | 'UNKNOWN'
     | 'RATE_LIMITED'
@@ -251,7 +260,10 @@ export interface ChatStreamChunk {
     | 'QUOTA_EXCEEDED'
     | 'CONNECTION_RESET'
     | 'STREAM_INTERRUPTED'
-    | 'BACKEND_UNREACHABLE';
+    | 'BACKEND_UNREACHABLE'
+    // 已知业务码（保留补全；开放取值见末行）
+    | 'DAILY_BUDGET_EXCEEDED'
+    | (string & {});
   /** 前端导航/提示元数据（如 create_project 完成后建议跳转到项目页） */
   _meta?: Record<string, unknown>;
 }

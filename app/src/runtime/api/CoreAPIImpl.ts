@@ -1062,12 +1062,14 @@ export class CoreAPIImpl implements CoreAPI {
         context: { sessionId: finalSessionId },
       });
 
+      // G-2 补漏（2026-10-11）：`ChatStreamChunk.errorCode` 已改为**已知码 + 开放取值**
+      //（业务码源自开放的 `AppError.code`）⇒ 此处**不再需要 `as ChatStreamChunk` 强转**。
       yield {
         type: 'error',
         content: message,
         sessionId: finalSessionId,
         errorCode: streamErrorCode,
-      } as ChatStreamChunk;
+      };
 
       // 主 chat 空回复/中断 fallback（2026-09-19）：失败且未产出任何内容时，
       // 按 Write-Ahead 持久化一条 assistant fallback 消息——此前该分支既不落盘

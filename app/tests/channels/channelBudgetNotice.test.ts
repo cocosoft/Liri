@@ -100,12 +100,15 @@ describe('T9：流式消费保留真实业务码（consumeStreamChunks）', () =
   }
 
   function errorChunk(errorCode?: string): ChatStreamChunk {
+    // G-2 补漏（2026-10-11）：这里**刻意不加 `as ChatStreamChunk` 强转** —— `errorCode` 入参是
+    // 开放的 `string`，只有 `ChatStreamChunk.errorCode` 真的是"已知码 + 开放取值"时才能通过
+    // `tsc`。若将来有人把它改回闭集，`bun run typecheck` 会在此处报错（类型层守卫）。
     return {
       type: 'error',
       content: '今日 Token 预算已用完',
       sessionId: 'sess-t9',
       ...(errorCode ? { errorCode } : {}),
-    } as ChatStreamChunk;
+    };
   }
 
   it('错误 chunk 带码 ⇒ 结果透出该码（上层可据此分流）且判失败', async () => {

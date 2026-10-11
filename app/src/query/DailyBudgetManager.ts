@@ -157,6 +157,9 @@ export class DailyBudgetManager {
 
   /**
    * 记录消耗
+   *
+   * ⚠️ D-j 边界：**仅对话类入口可写**（"有人在场"）；无人看后台（H/I/J/N/O）不得计入
+   * —— 见 `recordDailyBudgetFromUsage` 的边界说明与 `tests/budget/sideChannelGuard.test.ts`。
    */
   recordUsage(tokens: number): void {
     this._rolloverIfNeeded();
@@ -838,6 +841,12 @@ export async function initDailyBudget(): Promise<void> {
  *
  * 用途：**非 chat 管线**的模型调用（如长程任务默认执行器 `LongRunningTaskOrchestrator`
  * 的 `service.generate`）——该路径不经 `ChatManager.recordChatResponseUsage`，故在此单点记账。
+ *
+ * ⚠️ **边界（D-j，Spec `daily-budget-over-limit-ux.md` §4/§5-D-2）**：日预算只收**对话类**
+ * 入口（"有人在场"）。**无人看后台**（H 做梦 / I 会话摘要 / J 自动标题 / N 记忆·进化，
+ * 以及疑未接线的 O `BtwHandler`）**不得**调用本函数或 `getDailyBudget().recordUsage()`——
+ * 否则后台会替用户吃掉额度、让用户更早被拦（Spec §2 反目标）。该边界由
+ * `app/tests/budget/sideChannelGuard.test.ts` 的负向夹具 + 源码守卫钉住。
  */
 export function recordDailyBudgetFromUsage(usage: unknown): number {
   const u = (usage ?? {}) as Record<string, number>;

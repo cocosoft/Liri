@@ -33,12 +33,24 @@ import {
   LOOP_MIN_TOKEN_DELTA,
   LOOP_DIMINISH_TURNS_THRESHOLD,
 } from './loop-config.js';
+// LRO-17：进入 `locked` 时发一次 ALERT，经既有 AlertBridge（订阅 `alert:triggered`）路由，
+// 避免长程任务被日限额**静默**腰斩。
+import { globalEventBus } from '../core/events/EventBus.js';
+// P1：日预算**用量状态**持久化（`{date, used}` 落盘 `~/.pyapp/data/daily-budget-state.json`）。
+import {
+  loadDailyBudgetState,
+  saveDailyBudgetState,
+} from './dailyBudgetPersistence.js';
 
 const logger = getLogger('query:dailyBudgetManager');
 
+/** P1：用量落盘去抖窗口（合并热路径多次记账的多次写文件） */
+const PERSIST_DEBOUNCE_MS = 1000;
+
 type BudgetMode = 'normal' | 'report_only' | 'locked';
 
-interface DailyBudgetConfig {
+/** D1：日预算运行期配置（上限 + 阈值 + 收益递减） */
+export interface DailyBudgetConfig {
   /** 日预算上限 */
   dailyLimit: number;
   /** 警告阈值（百分比），默认 0.8 */
@@ -85,6 +97,15 @@ export class DailyBudgetManager {
   private _graceCallActive: boolean = false;
   /** R16 原子预留：会话级**在途预留**（发送前预扣估算，响应后结算为真实用量） */
   private outstandingBySession = new Map<string, number>();
+  /** LRO-17：最近一次**已观测**的预算模式（用于阈值跨越的**单次**日志/告警，避免热路径刷屏） */
+  private lastObservedMode: BudgetMode = 'normal';
+  /** P1：用量落盘去抖定时器（1s 合并多次记账写） */
+  private _persistTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * P1：用量落盘是否已**激活**。默认关闭 —— 由启动接线 `initDailyBudget()` 开启（"应用已接管
+   * 该状态文件"的语义）。未激活时持久化整体不生效，避免临时/测试实例向真实数据目录写盘。
+   */
+  private _persistenceActive = false;
 
   constructor(config?: Partial<DailyBudgetConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -94,12 +115,29 @@ export class DailyBudgetManager {
    * 记录消耗
    */
   recordUsage(tokens: number): void {
-    const today = this._getToday();
-    if (this.todayDate !== today) {
-      this.todayDate = today;
-      this.todayUsed = 0;
-    }
+    this._rolloverIfNeeded();
     this.todayUsed += tokens;
+    // P1：记账后去抖落盘（重启恢复，避免"重启即清零"绕过日限额）。
+    this._schedulePersist();
+    // LRO-17：记账后立即观测阈值跨越（本方法在 LRO 非 chat 管线也经
+    // `recordDailyBudgetFromUsage` 调用 ⇒ 是"无 getMode 调用"路径的唯一观测点）。
+    this._observeModeTransition(this._computeState());
+  }
+
+  /**
+   * P3：跨**本地**自然日 ⇒ 归零当日用量（幂等）。
+   *
+   * 原实现只在 `recordUsage` 内做日期比较 ⇒ 若新的一天**先读** `getMode()`（无记账）会看到
+   * 昨日用量。本方法在 `recordUsage` 与 `getMode` 双侧调用，保证两侧日界一致。
+   * 仅当确实丢弃了旧用量时才落盘（避免"首次只读"产生无意义写）。
+   */
+  private _rolloverIfNeeded(): void {
+    const today = this._getToday();
+    if (this.todayDate === today) return;
+    const hadUsage = this.todayUsed > 0;
+    this.todayDate = today;
+    this.todayUsed = 0;
+    if (hadUsage) this._schedulePersist();
   }
 
   /** 在途预留合计（R16） */
@@ -147,12 +185,12 @@ export class DailyBudgetManager {
   }
 
   /**
-   * 获取当前预算模式。
+   * 计算当前预算状态（纯计算，无副作用）。
    *
    * R16：`percentUsed` / `mode` / `remaining` 基于**含在途预留**的 `projectedUsed`（在途为 0 时
    * 与 `todayUsed` 相同 ⇒ **无预留则行为逐一不变**）；`todayUsed` 仍为**实际**用量。
    */
-  getMode(): DailyBudgetState {
+  private _computeState(): DailyBudgetState {
     const projectedUsed = this.effectiveUsed();
     const percentUsed =
       this.config.dailyLimit > 0 ? projectedUsed / this.config.dailyLimit : 0;
@@ -173,6 +211,113 @@ export class DailyBudgetManager {
       percentUsed,
       remaining: Math.max(0, this.config.dailyLimit - projectedUsed),
     };
+  }
+
+  /**
+   * LRO-17：观测模式**跨越**并各记一次日志（首次进入 `report_only` / `locked`）。
+   *
+   * 本方法在**热路径**（每次 `getMode`/`recordUsage`）被调用 ⇒ 必须以 `lastObservedMode`
+   * 去重，否则刷屏。进入 `locked` 时额外发一次 `[ALERT]`（经 AlertBridge 的 `alert:triggered`）。
+   */
+  private _observeModeTransition(state: DailyBudgetState): void {
+    if (state.mode === this.lastObservedMode) return;
+    const previousMode = this.lastObservedMode;
+    this.lastObservedMode = state.mode;
+
+    const payload = {
+      previousMode,
+      mode: state.mode,
+      todayUsed: state.todayUsed,
+      projectedUsed: state.projectedUsed,
+      dailyLimit: state.dailyLimit,
+      percentUsed: Math.round(state.percentUsed * 100),
+    };
+
+    if (state.mode === 'locked') {
+      logger.error('dailyBudget:mode — 日 Token 预算已用尽（locked）', payload);
+      globalEventBus.publish('alert:triggered', {
+        module: 'query:dailyBudgetManager',
+        code: 'DAILY_BUDGET_LOCKED',
+        severity: 'HIGH',
+        message: `日 Token 预算已用尽（已用 ${state.todayUsed} / 上限 ${state.dailyLimit}），后续模型调用将被拒绝`,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+    logger.warn(
+      'dailyBudget:mode — 日 Token 预算进入告警区（report_only）',
+      payload
+    );
+  }
+
+  /**
+   * 获取当前预算模式。
+   */
+  getMode(): DailyBudgetState {
+    this._rolloverIfNeeded(); // P3：读侧同样处理日切
+    const state = this._computeState();
+    this._observeModeTransition(state);
+    return state;
+  }
+
+  /**
+   * D1：运行时**热更新**配置（上限/阈值等），使前端/API 改动**立即生效**，无需重启。
+   *
+   * 仅接受合法值（上限为正整数、阈值为 (0,1] 比值），非法值忽略以保留当前值（CS03：不静默回退）。
+   * 更新后重新观测档位：如上调上限可使 `locked → report_only`，需立刻反映。
+   */
+  applyConfig(partial: Partial<DailyBudgetConfig>): void {
+    if (isPositiveInt(partial.dailyLimit)) {
+      this.config.dailyLimit = partial.dailyLimit;
+    }
+    if (isRatio(partial.warningThreshold)) {
+      this.config.warningThreshold = partial.warningThreshold;
+    }
+    if (isRatio(partial.lockThreshold)) {
+      this.config.lockThreshold = partial.lockThreshold;
+    }
+    this._observeModeTransition(this._computeState());
+  }
+
+  /** D1：便捷设置日上限（等价 `applyConfig({ dailyLimit })`）。 */
+  setLimit(limit: number): void {
+    this.applyConfig({ dailyLimit: limit });
+  }
+
+  /** D1：当前生效配置的**浅拷贝**（供 API 回显 / 持久化回写，避免外部改写内部状态）。 */
+  getConfigSnapshot(): DailyBudgetConfig {
+    return { ...this.config };
+  }
+
+  /** 当前预算所属**本地**自然日（YYYY-MM-DD；读侧先处理日切）。 */
+  currentDate(): string {
+    this._rolloverIfNeeded();
+    return this.todayDate;
+  }
+
+  /** kill switch 是否已启用（手动硬锁，独立于用量阈值）。 */
+  isKillSwitchEnabled(): boolean {
+    return this.killSwitch;
+  }
+
+  /**
+   * LRO-17：调用方因预算耗尽而**中止执行**时记录一条 warn。
+   *
+   * 闸门路径（`TAORLoop` 等）原先是**静默 return**（仅置 stopReason）⇒ 长程任务被日限额
+   * 腰斩却在 `app.log` 查无此事。由本单例统一记录：既补齐可见性，也避免各闸门重复实现。
+   */
+  logExhaustionAbort(context: Record<string, unknown> = {}): void {
+    const state = this._computeState();
+    logger.warn(
+      'dailyBudget:exhausted_abort — 日 Token 预算已耗尽，调用方中止执行',
+      {
+        ...context,
+        todayUsed: state.todayUsed,
+        projectedUsed: state.projectedUsed,
+        dailyLimit: state.dailyLimit,
+        percentUsed: Math.round(state.percentUsed * 100),
+      }
+    );
   }
 
   /**
@@ -266,12 +411,58 @@ export class DailyBudgetManager {
   /**
    * 从持久化恢复预算状态
    * 修复重启后 lastTotalTokens=0 导致首轮 delta 被误判为"有进展"
+   *
+   * P1/P3：`date` 为持久化快照的**本地**自然日；与今日不同 ⇒ 视为跨日，用量归零
+   * （不把昨天的用量带进今天）。未提供 `date` 时保持历史语义（直接恢复）。
    */
-  restore(state: { todayUsed: number }): void {
-    this.todayUsed = state.todayUsed;
-    this.lastTotalTokens = state.todayUsed;
+  restore(state: { todayUsed: number; date?: string }): void {
+    const today = this._getToday();
+    const sameDay = state.date === undefined || state.date === today;
+    this.todayDate = today;
+    this.todayUsed = sameDay ? state.todayUsed : 0;
+    this.lastTotalTokens = this.todayUsed;
     this.diminishingTurnsCount = 0;
     this.outstandingBySession.clear();
+    // LRO-17：静默同步已观测模式（重启时按恢复后的用量对齐，避免对"早已 locked"的
+    // 状态重复告警；真实的跨越仅由本进程内的记账/查询触发）。
+    this.lastObservedMode = this._computeState().mode;
+  }
+
+  /**
+   * P1：把当前用量**去抖落盘**（1s 合并热路径的多次记账写文件）。
+   * 去抖窗口内进程退出最多丢失 1s 用量，对日限额可忽略。
+   */
+  private _schedulePersist(): void {
+    if (!this._persistenceActive) return;
+    if (this._persistTimer) return;
+    const t = setTimeout(() => {
+      this._persistTimer = null;
+      void saveDailyBudgetState({
+        date: this.todayDate || this._getToday(),
+        used: this.todayUsed,
+      });
+    }, PERSIST_DEBOUNCE_MS);
+    // 不阻止进程退出（与仓库既有后台定时器一致）
+    if (typeof t.unref === 'function') t.unref();
+    this._persistTimer = t;
+  }
+
+  /** P1：启用用量落盘（由启动接线 `initDailyBudget()` 调用）。 */
+  enablePersistence(): void {
+    this._persistenceActive = true;
+  }
+
+  /** 立即落盘并取消未决去抖（供关闭钩子 / 测试显式等待）。未激活时为 no-op。 */
+  async persistNow(): Promise<void> {
+    if (!this._persistenceActive) return;
+    if (this._persistTimer) {
+      clearTimeout(this._persistTimer);
+      this._persistTimer = null;
+    }
+    await saveDailyBudgetState({
+      date: this.todayDate || this._getToday(),
+      used: this.todayUsed,
+    });
   }
 
   /**
@@ -296,10 +487,23 @@ export class DailyBudgetManager {
     this.diminishingTurnsCount = 0;
     this._graceCallActive = false;
     this.outstandingBySession.clear();
+    this.lastObservedMode = 'normal'; // LRO-17：重置观测基线
+    // P1：重置同样落盘，避免"重置后重启"把旧用量恢复回来。
+    void this.persistNow();
   }
 
+  /**
+   * **本地**自然日（YYYY-MM-DD）。
+   *
+   * P3 修复：原用 `toISOString()`（UTC）⇒ 对 `Asia/Shanghai`(+08:00)，"日界"落在**本地 08:00**，
+   * 凌晨 0–8 点的用量被计入"前一天"，与用户对"今日额度"的直觉不符。改为读取本地时区年月日。
+   */
   private _getToday(): string {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }
 
@@ -312,6 +516,66 @@ export function createDailyBudgetManager(
 /** 进程级每日 Token 预算默认上限（对齐历史 `preSendContextProtection` 常量）。 */
 export const DEFAULT_DAILY_BUDGET_TOKENS = 500_000;
 
+/** D1：持久化配置项形状（ConfigManager 键 `costControl.dailyTokenBudget`） */
+export interface DailyBudgetConfigValue {
+  dailyLimit?: number;
+  warningThreshold?: number;
+  lockThreshold?: number;
+}
+
+function isPositiveInt(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n > 0;
+}
+
+/** 阈值必须为 (0, 1] 的比值 */
+function isRatio(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 && n <= 1;
+}
+
+/** D1：日预算上限合法性（正整数）—— 供 `applyConfig` 与 HTTP 边界校验**共用**（CS01 归一化）。 */
+export function isValidDailyLimit(n: unknown): n is number {
+  return isPositiveInt(n);
+}
+
+/** D1：日预算阈值合法性（(0, 1] 比值）—— 与 `applyConfig` 共用同一口径。 */
+export function isValidBudgetRatio(n: unknown): n is number {
+  return isRatio(n);
+}
+
+/**
+ * D1：解析日 Token 限额上限与阈值（**单一事实来源**）。
+ *
+ * 优先级：ConfigManager **持久化配置**（`costControl.dailyTokenBudget`）
+ * ＞ 环境变量 `LIRI_DAILY_BUDGET_TOKENS`（降级为首次播种/兜底）＞ 常量。
+ *
+ * 修复 P2：原上限只在单例创建时读一次 `process.env`，前端/API 无法配置、运行时不可改。
+ */
+export function resolveDailyBudgetConfig(): {
+  dailyLimit: number;
+  warningThreshold: number;
+  lockThreshold: number;
+} {
+  const cfg = configManager.getConfigValue<DailyBudgetConfigValue>(
+    'costControl.dailyTokenBudget'
+  );
+  const raw = configManager.env('LIRI_DAILY_BUDGET_TOKENS');
+  const parsed = Number.parseInt(raw ?? '', 10);
+  const envLimit =
+    raw && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+
+  return {
+    dailyLimit: isPositiveInt(cfg?.dailyLimit)
+      ? cfg.dailyLimit
+      : (envLimit ?? DEFAULT_DAILY_BUDGET_TOKENS),
+    warningThreshold: isRatio(cfg?.warningThreshold)
+      ? cfg.warningThreshold
+      : DEFAULT_CONFIG.warningThreshold,
+    lockThreshold: isRatio(cfg?.lockThreshold)
+      ? cfg.lockThreshold
+      : DEFAULT_CONFIG.lockThreshold,
+  };
+}
+
 /**
  * 进程级**共享**每日 Token 预算单例（R16 / 台账 L-14）。
  *
@@ -319,9 +583,9 @@ export const DEFAULT_DAILY_BUDGET_TOKENS = 500_000;
  *   共用本实例（原 TAORLoop 自建、从不记账 ⇒ 闸门恒真/惰性）。
  * - **(b) 单一记账点**：由 `ChatManager.recordChatResponseUsage`（每次模型响应）记入 ——
  *   覆盖主路径/快速路径/流式，替代原"仅记**最后一次**调用"的 `recordDailyUsage`。
- * - **(c) 上限来源**：env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量 `DEFAULT_DAILY_BUDGET_TOKENS`。
- *   （`workspace.costControl.dailyBudgetTokens` 为**按工作空间**配置，与"进程全局单例"语义冲突 ⇒
- *   未接线，见 Spec `daily-budget-unification.md`。）
+ * - **(c) 上限/阈值来源**（D1，见 `resolveDailyBudgetConfig`）：持久化配置
+ *   `costControl.dailyTokenBudget` ＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量。
+ *   运行时改动经 `applyConfig`/`setLimit` **热更新**（无需重启）。
  *
  * 注：`TAORLoop` 仍保留**自己的**实例用于 **loop-local** 的 `checkDiminishingReturns`/`needsGraceCall`
  * （其状态按循环/轮次计，**不能**跨会话共享）——故"去双实例"仅指**闸门**收敛到本单例。
@@ -330,13 +594,7 @@ let dailyBudgetSingleton: DailyBudgetManager | null = null;
 
 export function getDailyBudget(): DailyBudgetManager {
   if (!dailyBudgetSingleton) {
-    const raw = configManager.env('LIRI_DAILY_BUDGET_TOKENS');
-    const parsed = Number.parseInt(raw ?? '', 10);
-    const dailyLimit =
-      raw && Number.isInteger(parsed) && parsed > 0
-        ? parsed
-        : DEFAULT_DAILY_BUDGET_TOKENS;
-    dailyBudgetSingleton = createDailyBudgetManager({ dailyLimit });
+    dailyBudgetSingleton = createDailyBudgetManager(resolveDailyBudgetConfig());
   }
   return dailyBudgetSingleton;
 }
@@ -344,6 +602,21 @@ export function getDailyBudget(): DailyBudgetManager {
 /** 仅供测试：重置单例（生产不使用）。 */
 export function resetDailyBudgetForTest(): void {
   dailyBudgetSingleton = null;
+}
+
+/**
+ * P1：启动时从持久化**恢复**当日用量（由 `entrypoints/init` 接线）。
+ *
+ * 恢复后若持久化日期 ≠ 今日（跨本地日界）⇒ `restore` 内部归零。
+ * 文件缺失/损坏由持久化层吞掉并返回 `null` ⇒ 从 0 起算（不阻塞启动）。
+ */
+export async function initDailyBudget(): Promise<void> {
+  const budget = getDailyBudget();
+  budget.enablePersistence(); // 启动后才"接管"状态文件（未启用时持久化整体不生效）
+  const persisted = await loadDailyBudgetState();
+  if (persisted) {
+    budget.restore({ todayUsed: persisted.used, date: persisted.date });
+  }
 }
 
 /**

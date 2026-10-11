@@ -135,13 +135,11 @@ export class LiriConfigManager {
           autoBackup: true,
           maxParallelWorkItems: 3,
         },
-        costControl: {
-          dailyBudgetTokens: 500000,
-          monthlyBudgetUSD: 20,
-          alertThreshold: 0.8,
-          hardLimit: false,
-          expensiveModelOnlyFor: ['council', 'pdca'],
-        },
+        // 2026-10-11（P7 / 阶段 5）：**不再播种** `costControl.*`。
+        // 该整块字段全仓无读者（见 `types.ts#LiriCostControl` 注释）⇒ 播种只会给出
+        // "看似可配、实则不生效"的假旋钮，并与进程全局日预算形成"两处默认 500000"。
+        // 日 Token 预算的生效来源：`costControl.dailyTokenBudget`（ConfigManager）＞
+        // env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量；运行期经 `PUT /v1/cost/daily-budget`。
       };
       this.writeJsonFile(configPath, defaultConfig);
     }

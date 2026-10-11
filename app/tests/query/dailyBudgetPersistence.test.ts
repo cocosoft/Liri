@@ -1,0 +1,152 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * P1/P3（Spec `daily-budget-unification.md`）：日 Token 预算**用量状态持久化**与**本地日界**。
+ *
+ * 锁定：
+ *  - 记账后自动落盘（去抖 ≤1s）⇒ "重启恢复不丢"（堵住"重启即清零"绕过日限额）。
+ *  - 恢复时跨**本地**自然日 ⇒ 归零（不把昨日用量带进今日）。
+ *  - 状态文件缺失/损坏 ⇒ 从 0 起算，不抛错。
+ *  - 落盘日期用**本地**自然日（P3，非 UTC）。
+ */
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import {
+  setUserDataDirOverride,
+  getUserDataDirOverride,
+} from '../../src/core/paths';
+import {
+  getDailyBudget,
+  resetDailyBudgetForTest,
+  initDailyBudget,
+} from '../../src/query/DailyBudgetManager';
+import {
+  dailyBudgetStatePath,
+  loadDailyBudgetState,
+  saveDailyBudgetState,
+} from '../../src/query/dailyBudgetPersistence';
+
+/** 本地自然日 YYYY-MM-DD（与实现同口径） */
+function localToday(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+describe('DailyBudgetManager 用量状态持久化（P1/P3）', () => {
+  let baseDir: string;
+  const prevOverride = getUserDataDirOverride();
+  // `resolveDataDir` 中 `LIRI_DATA_DIR` **优先于** `setUserDataDirOverride` ⇒ 必须同时设置/还原，
+  // 否则同进程其他用例泄漏的 `LIRI_DATA_DIR` 会把落盘重定向到别处（测试相互污染）。
+  const prevDataDirEnv = process.env.LIRI_DATA_DIR;
+
+  beforeEach(async () => {
+    baseDir = mkdtempSync(join(tmpdir(), 'daily-budget-test-'));
+    setUserDataDirOverride(baseDir);
+    process.env.LIRI_DATA_DIR = baseDir;
+    resetDailyBudgetForTest();
+    delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+    // 激活落盘（模拟应用启动接线：`initDailyBudget` 开启持久化）
+    await initDailyBudget();
+  });
+  afterEach(async () => {
+    // 先 flush 以清掉去抖定时器，避免临时目录移除后定时器仍触发写盘
+    await getDailyBudget().persistNow();
+    resetDailyBudgetForTest();
+    setUserDataDirOverride(prevOverride);
+    if (prevDataDirEnv === undefined) delete process.env.LIRI_DATA_DIR;
+    else process.env.LIRI_DATA_DIR = prevDataDirEnv;
+    rmSync(baseDir, { recursive: true, force: true });
+    delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+  });
+
+  it('重启恢复不丢：持久化后新实例 restore 恢复当日用量', async () => {
+    const b1 = getDailyBudget();
+    b1.recordUsage(123_456);
+    await b1.persistNow();
+
+    resetDailyBudgetForTest(); // 模拟进程重启（单例丢弃，内存态清空）
+    await initDailyBudget(); // 启动时恢复
+    expect(getDailyBudget().getMode().todayUsed).toBe(123_456);
+  });
+
+  it('记账后自动落盘（去抖 ≤1s）：无需显式调用即可恢复', async () => {
+    getDailyBudget().recordUsage(7_000);
+    await new Promise((r) => setTimeout(r, 1200));
+    const persisted = await loadDailyBudgetState();
+    expect(persisted?.used).toBe(7_000);
+  });
+
+  it('跨本地日界清零：持久化日期 ≠ 今日 ⇒ 恢复为 0', async () => {
+    await saveDailyBudgetState({ date: '2000-01-01', used: 999_999 });
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(getDailyBudget().getMode().todayUsed).toBe(0);
+  });
+
+  it('同日 ⇒ 恢复持久化用量', async () => {
+    await saveDailyBudgetState({ date: localToday(), used: 42_000 });
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(getDailyBudget().getMode().todayUsed).toBe(42_000);
+  });
+
+  it('落盘日期用**本地**自然日（P3，非 UTC）', async () => {
+    const b = getDailyBudget();
+    b.recordUsage(1);
+    await b.persistNow();
+    const persisted = await loadDailyBudgetState();
+    expect(persisted?.date).toBe(localToday());
+  });
+
+  it('状态文件损坏 ⇒ 从 0 起算且不抛错', async () => {
+    await mkdir(dirname(dailyBudgetStatePath()), { recursive: true });
+    await writeFile(dailyBudgetStatePath(), '{ not json', 'utf-8');
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(getDailyBudget().getMode().todayUsed).toBe(0);
+  });
+
+  it('状态文件缺失 ⇒ 从 0 起算（首次运行）', async () => {
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(await loadDailyBudgetState()).toBeNull();
+    expect(getDailyBudget().getMode().todayUsed).toBe(0);
+  });
+
+  it('reset 后立即落盘（重启不会把旧用量恢复回来）', async () => {
+    const b = getDailyBudget();
+    b.recordUsage(9_999);
+    await b.persistNow();
+    b.reset();
+    // reset 内部 `void persistNow()` 为异步；等待 microtask/IO 完成后再模拟重启
+    await new Promise((r) => setTimeout(r, 50));
+    resetDailyBudgetForTest();
+    await initDailyBudget();
+    expect(getDailyBudget().getMode().todayUsed).toBe(0);
+  });
+});

@@ -108,3 +108,96 @@
 **影响文件**：`chat/orchestrator/preSendContextProtection.ts`（拒发 + 释放预扣）· `tests/chat/dailyBudgetHardBlock.test.ts`（新增 3 用例）。
 
 **验证**：`tests/chat/dailyBudgetHardBlock.test.ts` **3 pass**（未耗尽⇒放行 / 耗尽⇒抛 `DAILY_BUDGET_EXCEEDED` / 耗尽⇒**释放预扣** `projected===todayUsed`）· `bun test tests/` **4973 pass / 30 skip / 0 fail**。
+
+---
+
+## 8. 状态持久化 + 配置事实来源 + HTTP/前端管理面（R16 第五段，2026-10-11）
+
+> 缘起：`dev_docs/20261011/token日限额全面排查与前端管理页优化方案-20261011.md`（P1–P7）。本轮执行**阶段 1–4**。
+
+**D1（配置事实来源，取代 §1 的 D4）**：上限/阈值优先级改为
+**持久化配置 `costControl.dailyTokenBudget`（ConfigManager） ＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量**。
+新增 `resolveDailyBudgetConfig()`；`getDailyBudget()` 首建时读取。运行时经 `applyConfig()` / `setLimit()` **热更新**（无需重启）。
+- P2 修复：原上限只在单例创建时读一次 env，前端/API 无法配置。
+- P3 修复：日界由 `toISOString()`（UTC，本地 08:00 切日）改 **本地** `getFullYear/getMonth/getDate`；
+  `_rolloverIfNeeded()` 同时挂在 `recordUsage()`（写侧）与 `getMode()`（读侧）⇒ 两侧日界一致。
+
+**P1（用量状态持久化）**：新增 `query/dailyBudgetPersistence.ts`（`~/.pyapp/data/daily-budget-state.json`，仅 `{date, used}`），
+记账后 **1s 去抖**落盘（`_schedulePersist`），`reset()` 立即落盘；启动接线 `entrypoints/init.ts` → `initDailyBudget()` 恢复当日用量（跨日归零）。
+- 隔离门：`_persistenceActive` 默认 **false**，仅 `initDailyBudget()` 开启 ⇒ 测试/临时实例不向真实数据目录写盘。
+
+**D3（HTTP 管理面）**：新增 `infrastructure/http/handlers/daily-budget-handlers.ts` + 在 `cost-channel-routes.ts` 注册：
+- `GET  /v1/cost/daily-budget` — 状态快照（date/mode/todayUsed/projectedUsed/dailyLimit/percentUsed/remaining/阈值/killSwitch）
+- `PUT  /v1/cost/daily-budget` — 热更新（边界 fail-loud 400）+ 合并回写配置 + SSE `cost:dailyBudgetUpdated`
+- `POST /v1/cost/daily-budget/reset` — 重置当日用量（D6）
+- `POST /v1/cost/daily-budget/kill-switch` — 手动硬锁开关（D6）
+- 分层：HTTP 属 service，`query` 属 app ⇒ 经 `await import('@modules/query')` **动态取用**（R00-003 仅上报）；
+  日预算 API 经 **`query/index.ts` 桶**导出（R03-002：禁止子路径直连）。
+
+**D4（前端）**：`client/src/components/usage/DailyBudgetPanel.tsx`（新增）+ `UsageCenterPage.tsx` 第 4 个 tab「日限额」+
+`usageService` 四个方法 + `cost` i18n（zh/en 同步）。
+
+**影响文件**：`query/DailyBudgetManager.ts` · `query/dailyBudgetPersistence.ts`（新） · `entrypoints/init.ts` ·
+`query/index.ts` · `infrastructure/http/handlers/daily-budget-handlers.ts`（新） ·
+`infrastructure/http/handlers/routes/cost-channel-routes.ts` · `client/**`（见上）。
+
+**验证（全绿）**：`typecheck` 0 error · `lint:arch` 0 error（警告 4，R00-003 动态跨层 `infrastructure→query` 仅上报） ·
+`eslint` 0 error（`cost-channel-routes.ts` 复杂度 warning 为既有）· `bun test`：
+`dailyBudgetPersistence` 8 + `dailyBudgetConfig` 10 + `dailyBudgetSingleton` 13 + `dailyBudgetHardBlock` 3 +
+`daily-budget-handlers` 11 = **45 pass / 0 fail**；`client typecheck` 0 error。
+
+**仍未覆盖**：按工作空间日预算（§5.2，独立 Spec）；`CostBudgetManager.getPeriodCost` 失真（见 §9 阶段 5）。
+
+---
+
+## 9. 死配置处置（P7 / 阶段 5 前半，2026-10-11）
+
+**取证**：`workspace.costControl.*` 整块**零读者** —— 全仓仅 `workspace/types.ts`（定义）与
+`workspace/LiriConfigManager.ts`（播种）引用；`LiriWorkspaceConfigDto` 投影只取
+`defaultAgents`/`agentModelBindings`/`defaultModel`/`availableModels`。无测试依赖（CD01–CD04 核查完毕）。
+
+**处置（CD05「先标注不删」）**：
+- `workspace/types.ts#LiriCostControl`：整块标注为**死配置**，逐字段标"未接线"，并写明日 Token 预算的
+  生效口径（进程全局 `costControl.dailyTokenBudget`）与 USD 展示口径（`CostBudgetManager`）的来源，避免语义混淆。
+- `workspace/LiriConfigManager.ts#initConfigIfNotExists`：**停止播种** `costControl.*`
+  （消除"看似可配、实则不生效"的假旋钮与"两处默认 500000"）。接口保留以兼容既有 `.liri/config.json`。
+- `cost-handlers.ts`：`GET /v1/workspaces/:id/cost/budget` 响应新增 `currency: 'USD'` 口径标识 + 文档注释，
+  与 `GET /v1/cost/daily-budget`（Token）区分（P6 口径分层）。
+
+**验证**：`typecheck` 0 error · `eslint` 0 error · `lint:arch` 0 error（警告 4）· `bun test tests/workspace tests/workspaces tests/integration/cost-metrics.test.ts tests/security/workspace-trust-integration.test.ts` = **108 pass / 0 fail**。
+
+**阶段 5 后半 · `CostBudgetManager.getPeriodCost` 失真修正（用户裁定「接入 CostRecordRepository」，2026-10-11）**：
+
+- 根因：原实现**忽略 `periodStart`**，直接返回 `costTracker.getTotalCostUSD()`（**全时累计**）⇒
+  daily/weekly/monthly 三档 `currentCost` 恒等且随总成本单调上升，`remaining/percentageUsed/status` 全失真。
+- 修正：`getPeriodCost` 改为按 `periodStart` 查 `CostRecordRepository.getAggregatedCosts({ startTime })`
+  （成本记录 DB 为唯一事实来源；该方法内部自带 `initDatabase()`）。读取失败**不静默吞**（记 warn 后上抛，
+  由 HTTP 层既有 catch 决定降级，且该 catch 已补上错误日志）。
+- **异步化级联**（因 DB 查询为异步）：`getPeriodCost` → `getBudgetStatus` → `getAllBudgetStatuses` /
+  `isOverHardLimit` / `getBudgetWarnings` / `getExceededBudgets` / `recordHistory` / `generateBudgetReport`
+  及同名导出包装一并转 async。✅ 全仓**唯一外部调用方**为 `cost-handlers.ts`（2 处，均已 async）——
+  `isOverHardLimit` **无生产调用方**（USD 预算为展示口径，未接入强制拦截）⇒ 异步化不影响任何闸门。
+- 顺带：移除 `CostBudgetManager` 中已无用的 `costTracker` 静态导入。
+
+**验证（全绿）**：`typecheck` 0 error · `lint:arch` 0 error（警告 4）· `eslint` 0 error ·
+新增 `tests/cost/costBudgetManager.periodCost.test.ts` **3 pass**（判定性：注入内存累计成本后，
+"未来周期起点 ⇒ `currentCost===0`" 在旧实现下必然失败）· 广域回归
+`bun test tests/cost tests/workspace tests/workspaces tests/http tests/query tests/chat/dailyBudgetHardBlock.test.ts tests/integration/cost-metrics.test.ts tests/security/workspace-trust-integration.test.ts` = **542 pass / 0 fail**。
+
+**顺带修复（测试隔离，2026-10-11 已补齐）**：先修 `tests/query/dailyBudgetPersistence.test.ts`（原仅设
+`setUserDataDirOverride`，但 `core/paths.resolveDataDir` 中 **`LIRI_DATA_DIR` 优先**）⇒ 改为**同时设置/还原**
+`LIRI_DATA_DIR`。随后**修掉泄漏源头**：全仓排查"设 `LIRI_*` 却不还原"的用例，共 5 个已修（各加
+"记录原值 + `afterAll`/`afterEach` 还原"）：
+`tests/http/pdca-list.contract.test.ts`（`LIRI_HOME`+`LIRI_DATA_DIR`）、
+`tests/http/pdca-status.contract.test.ts`（同上）、
+`tests/http/dream-cycle-analytics.contract.test.ts`（`LIRI_HOME`）、
+`tests/tools/toolRegistryPathShield.test.ts`（`LIRI_PROJECT_DIR`）、
+`tests/tools/writeProjectFile-readback.test.ts`（`LIRI_DATA_DIR`）。
+> 注：`bunfig.toml` 的 `preload` 只按**进程**加载一次（实测 2 文件仅 1 次 `afterAll`）⇒ 无法用单点 harness 逐文件还原，
+> 故取逐文件修复。判定性验证：临时移除 `dailyBudgetPersistence` 的自身守护后，
+> `pdca-list + dailyBudgetPersistence` 由 **2 fail → 12 pass / 0 fail**。
+
+**仍未覆盖**：按工作空间日预算（§5.2，独立 Spec）。
+
+**全量验证（2026-10-11）**：`bun test tests/` = **5324 pass / 30 skip / 0 fail**（退出码非 0 系沙箱对
+Windows `Recent\\*.temp` 的工具限制，非测试失败）· `typecheck` 0 error · `eslint` 0 error。

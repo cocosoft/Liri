@@ -23,8 +23,9 @@ import { handleClientError } from "../../utils/handleError";
 import type { BalanceRecord } from "../../types";
 
 const PricingPanel = lazy(() => import("../usage/PricingPanel"));
+const DailyBudgetPanel = lazy(() => import("../usage/DailyBudgetPanel"));
 
-type TabId = "usage" | "cost" | "balance" | "pricing";
+type TabId = "usage" | "cost" | "balance" | "dailyLimit" | "pricing";
 
 /** 翻译函数类型（模块级纯函数需要由调用方传入） */
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -36,6 +37,11 @@ const TABS: { id: TabId; labelKey: string; descKey: string }[] = [
     id: "balance",
     labelKey: "cost.tabBalance",
     descKey: "cost.tabBalanceDesc",
+  },
+  {
+    id: "dailyLimit",
+    labelKey: "cost.tabDailyLimit",
+    descKey: "cost.tabDailyLimitDesc",
   },
   {
     id: "pricing",
@@ -906,7 +912,20 @@ export default function UsageCenterPage() {
           </div>
         )}
 
-        {/* Tab 4: 定价管理 */}
+        {/* Tab 4: 日限额 */}
+        {activeTab === "dailyLimit" && (
+          <Suspense
+            fallback={
+              <div className="h-64 flex items-center justify-center text-gray-400">
+                {t("common.loading")}
+              </div>
+            }
+          >
+            <DailyBudgetPanel />
+          </Suspense>
+        )}
+
+        {/* Tab 5: 定价管理 */}
         {activeTab === "pricing" && (
           <Suspense
             fallback={

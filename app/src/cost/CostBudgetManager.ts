@@ -4,8 +4,10 @@
  */
 
 import { formatCost } from './ModelPricing';
-import { costTracker } from './CostTracker';
 import { getCostMonitor, AlertLevel, type AlertRule } from './CostMonitor';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('cost:budgetManager');
 
 /**
  * 预算周期类型
@@ -284,9 +286,11 @@ export class CostBudgetManager {
   }
 
   /**
-   * 获取预算状态
+   * 获取预算状态（2026-10-11：因 `getPeriodCost` 改为按周期查 DB ⇒ 本方法转 async）
    */
-  getBudgetStatus(budgetId: string): BudgetStatusInfo | undefined {
+  async getBudgetStatus(
+    budgetId: string
+  ): Promise<BudgetStatusInfo | undefined> {
     const budget = this.budgets.get(budgetId);
     if (!budget || !budget.enabled) {
       return {
@@ -307,7 +311,7 @@ export class CostBudgetManager {
       this.periodStartTimes.get(budgetId) || Date.now()
     );
     const periodEnd = this.getPeriodEnd(budget);
-    const currentCost = this.getPeriodCost(budgetId);
+    const currentCost = await this.getPeriodCost(budgetId);
     const remaining = budget.limit - currentCost;
     const percentageUsed = Math.min(100, (currentCost / budget.limit) * 100);
 
@@ -352,13 +356,13 @@ export class CostBudgetManager {
   }
 
   /**
-   * 获取所有预算状态
+   * 获取所有预算状态（2026-10-11：随 `getBudgetStatus` 转 async）
    */
-  getAllBudgetStatuses(): BudgetStatusInfo[] {
+  async getAllBudgetStatuses(): Promise<BudgetStatusInfo[]> {
     const statuses: BudgetStatusInfo[] = [];
 
     for (const budget of this.budgets.values()) {
-      const status = this.getBudgetStatus(budget.id);
+      const status = await this.getBudgetStatus(budget.id);
       if (status) {
         statuses.push(status);
       }
@@ -368,24 +372,46 @@ export class CostBudgetManager {
   }
 
   /**
-   * 获取周期内的成本
+   * 获取**周期内**成本（USD）。
+   *
+   * 2026-10-11（P7 / 阶段 5 修正）：原实现**忽略 `periodStart`**，直接返回
+   * `costTracker.getTotalCostUSD()`（**全时累计**）⇒ daily/weekly/monthly 三档恒等且随总成本
+   * 单调上升，`currentCost/remaining/percentageUsed/status` 全部**失真**。
+   *
+   * 现改为按 `periodStart` 查询 `CostRecordRepository.getAggregatedCosts({ startTime })`
+   * （成本记录 DB 为唯一事实来源；该方法内部自带 `initDatabase()`，调用安全）。
+   * 读取失败**不静默吞**（CS03-002）：记 warn 后向上抛，降级由调用方（HTTP 层既有 catch）决定。
    */
-  private getPeriodCost(budgetId: string): number {
+  private async getPeriodCost(budgetId: string): Promise<number> {
     const periodStart = this.periodStartTimes.get(budgetId);
     if (!periodStart) return 0;
-
-    // 获取当前累计总成本（简化实现，实际应基于时间段查询历史记录）
-    return costTracker.getTotalCostUSD();
+    try {
+      const { getCostRecordRepository } =
+        await import('./CostRecordRepository.js');
+      const agg = await getCostRecordRepository().getAggregatedCosts({
+        startTime: periodStart,
+      });
+      return agg.totalCostUSD;
+    } catch (error) {
+      logger.warn('costBudgetManager:getPeriodCost — 读取周期成本失败', {
+        budgetId,
+        periodStart,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**
-   * 检查是否超出硬限制
+   * 检查是否超出硬限制（2026-10-11：随 `getBudgetStatus` 转 async）
+   *
+   * ⚠️ 当前**无生产调用方**（USD 预算为展示口径，未接入强制拦截）⇒ 异步化不影响任何闸门。
    */
-  isOverHardLimit(): boolean {
+  async isOverHardLimit(): Promise<boolean> {
     for (const budget of this.budgets.values()) {
       if (!budget.enabled || !budget.hardLimit) continue;
 
-      const status = this.getBudgetStatus(budget.id);
+      const status = await this.getBudgetStatus(budget.id);
       if (status && status.status === 'exceeded') {
         return true;
       }
@@ -394,23 +420,27 @@ export class CostBudgetManager {
   }
 
   /**
-   * 获取预算警告列表
+   * 获取预算警告列表（2026-10-11：随 `getAllBudgetStatuses` 转 async）
    */
-  getBudgetWarnings(): BudgetStatusInfo[] {
-    return this.getAllBudgetStatuses().filter((s) => s.status === 'warning');
+  async getBudgetWarnings(): Promise<BudgetStatusInfo[]> {
+    return (await this.getAllBudgetStatuses()).filter(
+      (s) => s.status === 'warning'
+    );
   }
 
   /**
-   * 获取已超额的预算列表
+   * 获取已超额的预算列表（2026-10-11：随 `getAllBudgetStatuses` 转 async）
    */
-  getExceededBudgets(): BudgetStatusInfo[] {
-    return this.getAllBudgetStatuses().filter((s) => s.status === 'exceeded');
+  async getExceededBudgets(): Promise<BudgetStatusInfo[]> {
+    return (await this.getAllBudgetStatuses()).filter(
+      (s) => s.status === 'exceeded'
+    );
   }
 
   /**
-   * 记录预算历史
+   * 记录预算历史（2026-10-11：因 `getPeriodCost` 转 async）
    */
-  recordHistory(budgetId: string, status: BudgetStatus): void {
+  async recordHistory(budgetId: string, status: BudgetStatus): Promise<void> {
     const budget = this.budgets.get(budgetId);
     if (!budget) return;
 
@@ -419,7 +449,7 @@ export class CostBudgetManager {
       budgetId,
       budgetName: budget.name,
       limit: budget.limit,
-      actualCost: this.getPeriodCost(budgetId),
+      actualCost: await this.getPeriodCost(budgetId),
       status,
       startDate: new Date(this.periodStartTimes.get(budgetId) || Date.now()),
       endDate: this.getPeriodEnd(budget),
@@ -444,10 +474,10 @@ export class CostBudgetManager {
   }
 
   /**
-   * 生成预算报告
+   * 生成预算报告（2026-10-11：随状态查询链转 async）
    */
-  generateBudgetReport(): string {
-    const statuses = this.getAllBudgetStatuses();
+  async generateBudgetReport(): Promise<string> {
+    const statuses = await this.getAllBudgetStatuses();
 
     let report = '\n========================================\n';
     report += '          预算状态报告\n';
@@ -476,8 +506,8 @@ export class CostBudgetManager {
       report += '\n';
     }
 
-    const warnings = this.getBudgetWarnings();
-    const exceeded = this.getExceededBudgets();
+    const warnings = await this.getBudgetWarnings();
+    const exceeded = await this.getExceededBudgets();
 
     if (warnings.length > 0) {
       report += `⚠️  ${warnings.length} 个预算接近阈值\n`;
@@ -556,31 +586,31 @@ export function getBudgets(): BudgetConfig[] {
 }
 
 /**
- * 获取预算状态
+ * 获取预算状态（2026-10-11：转 async）
  */
 export function getBudgetStatus(
   budgetId: string
-): BudgetStatusInfo | undefined {
+): Promise<BudgetStatusInfo | undefined> {
   return costBudgetManager.getBudgetStatus(budgetId);
 }
 
 /**
- * 获取所有预算状态
+ * 获取所有预算状态（2026-10-11：转 async）
  */
-export function getAllBudgetStatuses(): BudgetStatusInfo[] {
+export function getAllBudgetStatuses(): Promise<BudgetStatusInfo[]> {
   return costBudgetManager.getAllBudgetStatuses();
 }
 
 /**
- * 检查是否超出硬限制
+ * 检查是否超出硬限制（2026-10-11：转 async）
  */
-export function isOverHardLimit(): boolean {
+export function isOverHardLimit(): Promise<boolean> {
   return costBudgetManager.isOverHardLimit();
 }
 
 /**
- * 生成预算报告
+ * 生成预算报告（2026-10-11：转 async）
  */
-export function generateBudgetReport(): string {
+export function generateBudgetReport(): Promise<string> {
   return costBudgetManager.generateBudgetReport();
 }

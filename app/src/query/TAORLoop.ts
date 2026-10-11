@@ -1111,11 +1111,15 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.stopped = true;
       return;
     }
-    // R16（台账 L-14）：**闸门**改用进程共享的每日预算单例（原 `this.dailyBudget` 从不记账
-    // ⇒ `canExecute()` 恒真、闸门惰性）。`this.dailyBudget` 仅保留作 **loop-local** 的
-    // 优雅最后一调 / 收益递减（其状态按循环计，不可跨会话共享）。
+    // R16（台账 L-14）：闸门改用进程共享的每日预算单例（`this.dailyBudget` 仅作 loop-local
+    // 的优雅最后一调 / 收益递减，其状态按循环计、不可跨会话共享）。
     if (!getDailyBudget().canExecute()) {
       if (!this.dailyBudget.needsGraceCall()) {
+        // LRO-17：原分支静默 return（仅置 stopReason）⇒ 无应用日志；补一条 warn。
+        getDailyBudget().logExhaustionAbort({
+          sessionId: this.taorConfig.sessionId,
+          turnCount: this.turnCount,
+        });
         this.stopReason = 'budget_exhausted';
         this.stopped = true;
         return;

@@ -68,14 +68,14 @@ export async function handleWorkspaceCostReport(
       logger.warn('costTracker 不可用，返回空报告');
     }
 
-    // 从 costBudgetManager 获取预算状态
+    // 从 costBudgetManager 获取预算状态（**USD 口径**，非 Token 日限额，见 /v1/cost/daily-budget）
     let budgetStatus: 'ok' | 'warning' | 'exceeded' = 'ok';
     let budgetUtilization = 0;
 
     try {
       const { costBudgetManager } =
         await import('@modules/cost/CostBudgetManager');
-      const statuses = costBudgetManager.getAllBudgetStatuses();
+      const statuses = await costBudgetManager.getAllBudgetStatuses();
       if (statuses.length > 0) {
         // 使用第一个启用的预算状态
         const monthlyStatus = statuses.find(
@@ -89,8 +89,11 @@ export async function handleWorkspaceCostReport(
         }
         budgetUtilization = primary.percentageUsed / 100;
       }
-    } catch (_err) {
-      // budgetManager 可能未配置
+    } catch (err) {
+      // budgetManager 不可用或周期成本读取失败 ⇒ 如实记日志后按空报告继续（不掩盖错误）
+      logger.warn('costBudgetManager 不可用，成本报告中的预算状态按 ok 处理', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     const report: CostReportDto = {
@@ -123,6 +126,11 @@ export async function handleWorkspaceCostReport(
 /**
  * 获取预算状态
  * GET /v1/workspaces/:id/cost/budget
+ *
+ * ⚠️ 口径为 **USD 成本预算**（`cost/CostBudgetManager` 的 daily/weekly/monthly 档），
+ * 与 **Token 日限额**（`GET /v1/cost/daily-budget`，进程全局、单位为 token）**无关**；
+ * 响应 `currency: 'USD'` 用于前端区分（P6 口径分层标注）。
+ * 2026-10-11（阶段 5）：各档成本已按**周期起点**查询成本记录 DB（原为全时累计，已修正）。
  */
 export async function handleWorkspaceBudgetStatus(
   ctx: HandlerCtx,
@@ -144,18 +152,21 @@ export async function handleWorkspaceBudgetStatus(
       limit: number;
       remaining: number;
       percentageUsed: number;
+      /** 口径标识：本次为 USD 成本预算（非 Token 日限额） */
+      currency: 'USD';
     } = {
       status: 'ok',
       currentCost: 0,
       limit: 0,
       remaining: 0,
       percentageUsed: 0,
+      currency: 'USD',
     };
 
     try {
       const { costBudgetManager } =
         await import('@modules/cost/CostBudgetManager');
-      const statuses = costBudgetManager.getAllBudgetStatuses();
+      const statuses = await costBudgetManager.getAllBudgetStatuses();
       if (statuses.length > 0) {
         const monthlyStatus = statuses.find(
           (s: { budgetId: string }) => s.budgetId === 'monthly-budget'
@@ -172,6 +183,7 @@ export async function handleWorkspaceBudgetStatus(
           limit: primary.limit,
           remaining: primary.remaining,
           percentageUsed: primary.percentageUsed,
+          currency: 'USD',
         };
       }
     } catch (_err) {

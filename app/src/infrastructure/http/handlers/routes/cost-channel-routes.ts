@@ -81,6 +81,12 @@ import {
   handleListChannelPlugins,
   handleUninstallChannelPlugin,
 } from '../channel-plugin-handlers';
+import {
+  handleGetDailyBudget,
+  handleResetDailyBudget,
+  handleSetDailyBudgetKillSwitch,
+  handleUpdateDailyBudget,
+} from '../daily-budget-handlers';
 
 const logger = getLogger('http:cost-channel-routes');
 
@@ -128,6 +134,31 @@ export async function dispatchCostChannelRoutes(
   // [v1.2] 对账 API
   if (method === 'GET' && url === '/v1/usage/cost/reconcile') {
     await handleCostReconcile(handlerCtx, req, res);
+    return true;
+  }
+
+  // ---- Daily Token Budget（R16 / D3：状态查询 + 热更新 + 重置 + kill switch）----
+  // 精确路径，置于工作空间/渠道通配正则之前，避免被更宽的正则吞掉。
+  if (method === 'GET' && url === '/v1/cost/daily-budget') {
+    await handleGetDailyBudget(res);
+    return true;
+  }
+  if (method === 'PUT' && url === '/v1/cost/daily-budget') {
+    await handleUpdateDailyBudget(req, res, (event, data) =>
+      broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/cost/daily-budget/reset') {
+    await handleResetDailyBudget(res, (event, data) =>
+      broadcastEvent(event, data)
+    );
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/cost/daily-budget/kill-switch') {
+    await handleSetDailyBudgetKillSwitch(req, res, (event, data) =>
+      broadcastEvent(event, data)
+    );
     return true;
   }
 

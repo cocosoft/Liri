@@ -147,6 +147,18 @@ export async function init(): Promise<void> {
   // 此时 userDataDirOverride 已从设置加载，ensureDataDirectories 会使用正确路径
   ensureDataDirectories();
 
+  // 2.1.2. 恢复日 Token 预算**用量状态**（P1：状态持久化，避免"重启即清零"绕过日限额）。
+  // 需在 ensureDataDirectories 之后（数据目录就绪），且早于任何模型调用（早于模块初始化）。
+  // 文件缺失/损坏由持久化层吞掉 ⇒ 从 0 起算，不阻塞启动。
+  try {
+    const { initDailyBudget } = await import('../query/DailyBudgetManager.js');
+    await initDailyBudget();
+  } catch (error) {
+    logger.warning('日 Token 预算状态恢复失败（不影响启动）', {
+      error: String(error),
+    });
+  }
+
   // 2.1.1. D-227（2026-10-02，B12 `runtime -> app` 收口）：组合根为 CoreAPIImpl 注入 app 层能力包。
   // ⚠️ **必须早于任何 app 依赖访问** —— `init()` 内下方会构造 `SessionGateway`（其构造函数经
   // `getCoreAPI().createAutoCompactService()/getSessionCheckpointRef()` 触达注入包），且

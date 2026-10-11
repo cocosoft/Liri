@@ -39,24 +39,35 @@ export interface LiriAIStrategy {
   maxParallelWorkItems?: number;
 }
 
-/** 成本控制 */
+/**
+ * 成本控制（工作空间级 `.liri/config.json` 字段）
+ *
+ * ⚠️ **整块为死配置（P7 / R16 / 台账 L-14 / Spec `daily-budget-unification.md` §8）**：
+ * 全仓**无任何读者** —— `LiriWorkspaceConfigDto`（`runtime/api/workspaceOpsPorts.ts`）投影
+ * 只取 `defaultAgents` / `agentModelBindings` / `defaultModel` / `availableModels`，
+ * `LiriConfigManager.loadConfig()` 的消费方亦然 ⇒ **改这些字段不产生任何效果**。
+ *
+ * 生效口径（勿与本接口字段混淆）：
+ * - **日 Token 预算**为**进程全局**：持久化配置 `costControl.dailyTokenBudget`（ConfigManager）
+ *   ＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量 `DEFAULT_DAILY_BUDGET_TOKENS`；
+ *   运行期经 `PUT /v1/cost/daily-budget` 热更新（`query/DailyBudgetManager`）。
+ *   故本接口的 `dailyBudgetTokens`（按**工作空间**）与之语义冲突 ⇒ 保持**不接线**。
+ * - **USD 预算**（展示口径）来自 `cost/CostBudgetManager`，经
+ *   `GET /v1/workspaces/:id/cost/budget` 对外（响应标注 `currency=USD`）——**与本接口字段无关**。
+ *
+ * 保留本接口仅为**向后兼容**既有 `.liri/config.json`（多余字段被忽略，属 CD05 的
+ * "先标注不删"处置）。
+ */
 export interface LiriCostControl {
-  /**
-   * 每日 Token 预算上限。
-   *
-   * ⚠️ **未接线（R16 / 台账 L-14 / Spec `daily-budget-unification.md`）**：实际预算为
-   * **进程全局单例**（`query/DailyBudgetManager.getDailyBudget()`，上限取 env
-   * `LIRI_DAILY_BUDGET_TOKENS` 或常量 500000）。本字段按**工作空间**配置，与"进程全局"
-   * 语义冲突 ⇒ **改此值不生效**；如需按工作空间预算须另行设计（不在 R16 范围）。
-   */
+  /** （**未接线**）每日 Token 预算上限 —— 实际来源见上方：进程全局 `costControl.dailyTokenBudget` */
   dailyBudgetTokens?: number;
-  /** 每月费用预算上限（USD） */
+  /** （**未接线**）每月费用预算上限（USD） */
   monthlyBudgetUSD?: number;
-  /** 告警阈值（0.0-1.0） */
+  /** （**未接线**）告警阈值（0.0-1.0） */
   alertThreshold?: number;
-  /** 是否强制限制（true = 超过后拒绝执行） */
+  /** （**未接线**）是否强制限制（true = 超过后拒绝执行） */
   hardLimit?: boolean;
-  /** 高价模型仅在哪些场景使用 */
+  /** （**未接线**）高价模型仅在哪些场景使用 */
   expensiveModelOnlyFor?: string[];
 }
 

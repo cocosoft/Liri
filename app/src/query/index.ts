@@ -294,3 +294,22 @@ export {
   truncateToolResult,
   MAX_TOOL_RESULT_CHARS,
 } from './ToolResultTruncator.js';
+
+// R16 / D1（2026-10-11）：日 Token 预算统一出口 —— HTTP 层（service）经本桶动态取用，
+// 避免 service → app 静态倒挂与 R03-002 子路径违规。
+export {
+  DailyBudgetManager,
+  createDailyBudgetManager,
+  getDailyBudget,
+  resetDailyBudgetForTest,
+  initDailyBudget,
+  recordDailyBudgetFromUsage,
+  resolveDailyBudgetConfig,
+  isValidDailyLimit,
+  isValidBudgetRatio,
+  DEFAULT_DAILY_BUDGET_TOKENS,
+} from './DailyBudgetManager.js';
+export type {
+  DailyBudgetConfig,
+  DailyBudgetConfigValue,
+} from './DailyBudgetManager.js';

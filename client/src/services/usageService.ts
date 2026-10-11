@@ -109,6 +109,34 @@ export interface ModelPricingRecord {
   isCustom: boolean;
 }
 
+/** 日 Token 限额档位（对齐后端 `DailyBudgetManager` 三级模式） */
+export type DailyBudgetMode = "normal" | "report_only" | "locked";
+
+/** 日 Token 限额状态（GET /v1/cost/daily-budget，R16 / D3） */
+export interface DailyBudgetStatus {
+  /** 统计所属**本地**自然日（YYYY-MM-DD） */
+  date: string;
+  mode: DailyBudgetMode;
+  /** 实际已用 Token（不含在途预留） */
+  todayUsed: number;
+  /** 预计用量（含在途预留；无预留时 === todayUsed） */
+  projectedUsed: number;
+  dailyLimit: number;
+  /** 已用比例（**0..1+** 的比值，非百分数） */
+  percentUsed: number;
+  remaining: number;
+  warningThreshold: number;
+  lockThreshold: number;
+  killSwitch: boolean;
+}
+
+/** 日限额热更新载荷（至少一项；字段合法性由后端边界校验） */
+export interface DailyBudgetUpdate {
+  dailyLimit?: number;
+  warningThreshold?: number;
+  lockThreshold?: number;
+}
+
 // ─── 统一服务 ──────────────────────────────────────────────────
 
 export const usageService = {
@@ -332,6 +360,52 @@ export const usageService = {
           "/v1/usage/balances",
         );
         return resp.data;
+      },
+    );
+  },
+
+  // — 日 Token 限额 (R16 / D3，路径 /v1/cost/daily-budget*) —
+  /** 查询日限额状态（GET /v1/cost/daily-budget） */
+  async getDailyBudget(): Promise<DailyBudgetStatus> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:getDailyBudget",
+      async () => {
+        return http.get<DailyBudgetStatus>("/v1/cost/daily-budget");
+      },
+    );
+  },
+
+  /** 热更新上限/阈值（PUT /v1/cost/daily-budget）—— 服务端持久化，运行期即时生效 */
+  async updateDailyBudget(
+    patch: DailyBudgetUpdate,
+  ): Promise<DailyBudgetStatus> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:updateDailyBudget",
+      async () => {
+        return http.put<DailyBudgetStatus>("/v1/cost/daily-budget", patch);
+      },
+    );
+  },
+
+  /** 重置当日用量（POST /v1/cost/daily-budget/reset，D6） */
+  async resetDailyBudget(): Promise<DailyBudgetStatus> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:resetDailyBudget",
+      async () => {
+        return http.post<DailyBudgetStatus>("/v1/cost/daily-budget/reset", {});
+      },
+    );
+  },
+
+  /** 手动硬锁开关（POST /v1/cost/daily-budget/kill-switch，D6） */
+  async setDailyBudgetKillSwitch(enabled: boolean): Promise<DailyBudgetStatus> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:setDailyBudgetKillSwitch",
+      async () => {
+        return http.post<DailyBudgetStatus>(
+          "/v1/cost/daily-budget/kill-switch",
+          { enabled },
+        );
       },
     );
   },

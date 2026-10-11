@@ -47,6 +47,9 @@ import {
 import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { BudgetControllerLike } from '@modules/query';
 import { resolveContextWindow } from '@modules/context';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('chat:createAgentLoop');
 
 /** L1（2026-09-06）：流式循环预算记账接口——骨架 BudgetControllerLike 的流式扩展。
  *  由 ReActToolLoop 每轮 LLM 响应后调用 chargeContextEstimate（ReActLoop 骨架仅消费
@@ -76,7 +79,22 @@ export function createStreamBudget(
 ): StreamBudgetLike | undefined {
   if (!model) return undefined;
   const def = getDefaultTokenBudget(model);
-  const windowTokens = resolveContextWindow(model).tokens;
+  // 2026-10-11（CS03 落地）：**窗口事实源判定** —— 仅接受"有依据"的窗口：
+  //   `db`（model_registry 缓存，唯一事实来源）/ `config`（显式覆盖）/ `known_model`（1M 名称启发式）。
+  // `default`（回落 200K）⇒ **不臆造预算**（返回 undefined ⇒ 骨架 `config.budget` 分支不生效）。
+  // 为什么必须拒：本仓 DB 实测窗口跨 `8,192 … 1,048,576`，用 200K 兜底会让 32K 模型的硬停线
+  // 高约 6×、8K 模型高约 22× ⇒ 保护形同虚设（且静默）。
+  // 如实订正：修前的判据 `!Number.isFinite(windowTokens) || windowTokens <= 0` 是**死判据**
+  // —— `resolveContextWindow` 恒返回有限正数（最次即 200_000）⇒ 上文注释所称"不臆造"从未生效。
+  const win = resolveContextWindow(model);
+  if (win.source === 'default') {
+    logger.warn(
+      'createStreamBudget: 无可靠上下文窗口 ⇒ 跳过流式预算（不臆造，CS03）',
+      { model, source: win.source, fallbackTokens: win.tokens }
+    );
+    return undefined;
+  }
+  const windowTokens = win.tokens;
   if (!Number.isFinite(windowTokens) || windowTokens <= 0) return undefined;
   const controller = new TokenBudgetController(
     model,

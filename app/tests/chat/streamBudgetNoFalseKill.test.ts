@@ -16,8 +16,13 @@ import { ReActToolLoop } from '../../src/chat/ReActToolLoop';
 import { createStreamBudget } from '../../src/chat/createAgentLoop';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
+import { setModelWindow } from '../../src/utils/ContextWindowResolver';
 
 const MODEL = 'deepseek-v4-flash';
+// CS03 落地（2026-10-11）后必需：`createStreamBudget` 现按 `resolveContextWindow().source` 判定，
+// 未入缓存的模型走 `default` 回落 ⇒ 返回 undefined（预算分支不生效 ⇒ 本用例会退化为"必然通过"）。
+// 此处按真实 DB 值 128_000 入缓存，保持用例对"预算确实生效"的守卫力。
+setModelWindow(MODEL, 128_000);
 /** 事故中该会话的**真实**单轮输入量（`app.log`：`inputTokens: 29143`） */
 const REAL_PROMPT_TOKENS = 29143;
 /** 事故中池胀后的估算值（`tokenBudget:checkBudget`：`spent: 185195`）——刻意取得更大，确保旧实现必触顶 */

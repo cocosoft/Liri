@@ -20,8 +20,14 @@ import {
   TokenBudgetStatus,
 } from '../../src/tokenBudget/TokenBudgetController';
 import { resolveContextWindow } from '../../src/context';
+import { setModelWindow } from '../../src/utils/ContextWindowResolver';
 
 const MODEL = 'test-model-budget-refund';
+
+// CS03 落地（2026-10-11）后必需：`createStreamBudget` 现按 `resolveContextWindow().source` 判定
+// （`default` 回落 ⇒ 不臆造预算）。测试模型须先**入窗口缓存**（等价 `ModelRegistry` 从 DB 装载时
+// `_pushWindowsToCache()` 的推入），否则 `createStreamBudget` 返回 undefined，本用例不可测。
+setModelWindow(MODEL, 128_000);
 
 describe('createStreamBudget · 对称记账（当前占用语义）', () => {
   test('增长→压缩→再增长：压缩后退款，不得因"历史累计"被硬停', () => {

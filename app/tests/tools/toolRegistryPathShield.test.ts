@@ -44,6 +44,10 @@ const SHIELDED_REL = 'app/src/chat/services/bareExplorationStripper.ts';
 const UNRELATED = `${REPO}\\app\\src\\query\\otherThing.ts`;
 
 const originalEnv = process.env[ENV_SHIELDED_PATHS];
+// 2026-10-11 修正（跨文件 env 泄漏）：`beforeEach` 每次覆盖 `LIRI_PROJECT_DIR`，但**未还原**
+// ⇒ 会泄漏给同进程后续测试文件（`resolveProjectRoot` 会一直指向本仓库根）。记录原值并在
+// `afterEach` 还原。
+const originalProjectDir = process.env.LIRI_PROJECT_DIR;
 
 /** 造一个"被执行过几次"可观测的假工具 */
 function mkRegistry(counter: { calls: number }): ToolRegistry {
@@ -79,6 +83,8 @@ beforeEach(() => {
 afterEach(() => {
   if (originalEnv === undefined) delete process.env[ENV_SHIELDED_PATHS];
   else process.env[ENV_SHIELDED_PATHS] = originalEnv;
+  if (originalProjectDir === undefined) delete process.env.LIRI_PROJECT_DIR;
+  else process.env.LIRI_PROJECT_DIR = originalProjectDir;
   resetShieldPlanCache();
 });
 

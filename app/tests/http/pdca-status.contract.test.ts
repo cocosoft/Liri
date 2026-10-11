@@ -7,7 +7,7 @@
  * plan/progress 由快照 steps 推导（原样透传含 reviewResult/dependsOn）；无 steps 不编造；
  * checkpoint 不存在保持原空态。隔离 LIRI_HOME（临时目录）。
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -15,9 +15,21 @@ import { Readable } from 'stream';
 import type http from 'http';
 
 const isolateDir = mkdtempSync(join(tmpdir(), 'pdca-status-http-'));
+// 2026-10-11 修正（跨文件 env 泄漏）：记录原值并在 `afterAll` 还原 —— 否则 `LIRI_HOME`/
+// `LIRI_DATA_DIR` 会泄漏给同进程后续测试文件（`resolveDataDir` 中 `LIRI_DATA_DIR`
+// **优先于** `setUserDataDirOverride`）。
+const prevLiriHome = process.env.LIRI_HOME;
+const prevLiriDataDir = process.env.LIRI_DATA_DIR;
 process.env.LIRI_HOME = isolateDir;
 // GAI-3：checkpoint 迁入 app.db ⇒ 同时隔离数据目录（LIRI_DATA_DIR 优先于 setUserDataDirOverride）
 process.env.LIRI_DATA_DIR = isolateDir;
+
+afterAll(() => {
+  if (prevLiriHome === undefined) delete process.env.LIRI_HOME;
+  else process.env.LIRI_HOME = prevLiriHome;
+  if (prevLiriDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+  else process.env.LIRI_DATA_DIR = prevLiriDataDir;
+});
 
 const { writePdcaCheckpoint } =
   await import('../../src/tasks/PdcaWorkItemBridge');

@@ -39,6 +39,9 @@ const projectId = 'proj_t614_readback';
 
 // ProjectStore 经 `resolveDataDir()` 取第二层数据目录 ⇒ 覆盖 `LIRI_DATA_DIR`
 // （必须在首次调用工具前设置：工具的 projectStore 为惰性单例）
+// 2026-10-11 修正（跨文件 env 泄漏）：记录原值并在 `afterAll` 还原 —— 否则 `LIRI_DATA_DIR`
+// 会泄漏给同进程后续测试文件（`resolveDataDir` 中它**优先于** `setUserDataDirOverride`）。
+const prevLiriDataDir = process.env.LIRI_DATA_DIR;
 process.env.LIRI_DATA_DIR = dataDir;
 
 const { WriteProjectFileTool } =
@@ -79,6 +82,9 @@ describe('write_project_file 写后回读校验（T-⑥14）', () => {
         /* best-effort */
       }
     }
+    // 2026-10-11：还原 `LIRI_DATA_DIR`（避免跨文件泄漏，见文件头说明）
+    if (prevLiriDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+    else process.env.LIRI_DATA_DIR = prevLiriDataDir;
   });
 
   it('写入成功 ⇒ 文件真实落地，且结果自证（verified + 真实字节数）', async () => {

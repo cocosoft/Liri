@@ -7,14 +7,22 @@
  * 非法参数（status 非枚举/from NaN/limit 越界）由 handler 白名单忽略，不 4xx。
  * 隔离 LIRI_HOME（临时目录），先直写 dream_cycles 种子数据，再经 handler 端到端断言。
  */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type http from 'http';
 
 // 隔离数据目录：必须先于任何 resolveDbPath 读取
+// 2026-10-11 修正（跨文件 env 泄漏）：记录原值并在 `afterAll` 还原 —— 否则 `LIRI_HOME`
+// 会泄漏给同进程后续测试文件（`resolvePyappHome` 会一直指向本文件的临时目录）。
+const prevLiriHome = process.env.LIRI_HOME;
 process.env.LIRI_HOME = mkdtempSync(join(tmpdir(), 'dream-analytics-http-'));
+
+afterAll(() => {
+  if (prevLiriHome === undefined) delete process.env.LIRI_HOME;
+  else process.env.LIRI_HOME = prevLiriHome;
+});
 
 const { getDreamCycleDb } = await import('../../src/dream/DreamCycleDb');
 const { handleDreamCycleAnalytics } =

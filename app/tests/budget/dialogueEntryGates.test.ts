@@ -156,4 +156,38 @@ describe('T12：F/G/K/M 入口的撞限出路', () => {
     // 终端形态的**可执行**入口（真实存在：/config 的 set 子命令写同一上限键）
     expect(result.value).toContain('/config set costControl.dailyTokenBudget');
   });
+
+  it('M CLI `/chat --stream`：流式回复的 usage 同样计入日预算（T14 遗留 #4）', async () => {
+    const cmd = new ChatCommand() as unknown as {
+      llmClient: unknown;
+      toolRegistry: unknown;
+      toolExecutor: unknown;
+      call: (
+        args: string,
+        ctx: unknown
+      ) => Promise<{ type: string; value: string }>;
+    };
+    // 注入假 provider：`chatStream` 的**返回值**携带 usage（真实契约：生成器 return = 终态 ChatResponse）。
+    // `toolRegistry`/`toolExecutor` 预置非空 ⇒ 跳过 `initializeServices` 的内置工具装载（与本用例无关）。
+    cmd.llmClient = {
+      chatStream: async function* () {
+        yield '你好';
+        return {
+          content: '你好',
+          usage: { promptTokens: 30, completionTokens: 20 },
+        };
+      },
+      setToolExecutor: () => {},
+      setToolRegistry: () => {},
+    };
+    cmd.toolRegistry = {};
+    cmd.toolExecutor = {};
+
+    const before = getDailyBudget().getMode().todayUsed;
+    const result = await cmd.call('你好 --stream', {} as never);
+
+    expect(result.value).toContain('你好');
+    // 修复前：`for await` 丢弃生成器返回值 ⇒ usage 恒 0 ⇒ 此处必为 before
+    expect(getDailyBudget().getMode().todayUsed).toBe(before + 50);
+  });
 });

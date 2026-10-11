@@ -561,14 +561,17 @@ export async function invokeLlm(
   //   （`checkDailyBudget`）→ 拒绝即抛业务异常（`DAILY_BUDGET_EXCEEDED`，附快照上下文），
   //   由 `llmChatOps.chat` 的 catch 透出真实码、由 HTTP 层映射为**结构化可操作响应**。
   //
-  // 与流式的差异（**有意**）：此处**不做** `reserveFor` 预扣 —— 非流式的记账点
-  // （`recordChatResponseUsage`）只在 provider 回显 usage 时结算，无 usage 的响应会让预留
-  // 永久残留并**抬高在途**（把用户更早拦下）。并发闭合由流式路径的预扣 + 本条判定共同保证。
+  // T14 补漏（2026-10-11）：**补原子预扣**（R16）—— 判定通过后把本轮估算记入**在途**，
+  // 使并发的非流式请求立刻看到该预留（闭合 check→record 的 TOCTOU 窗口；流式路径本就如此）。
+  // 为免"无 usage 回显 ⇒ 记账点不结算 ⇒ 预留永久残留、把用户更早拦下"，本函数对**三条出口**
+  // 都做了收口：① 有 usage ⇒ 由 `recordChatResponseUsage` 多退少补；② 无 usage ⇒ 显式
+  // `settleFor(session, 0)` 释放；③ 调用抛错 ⇒ 同②释放后再上抛。
   // 判定必须在 `startRequest` **之前**：拒绝时不留任何请求边界事件。
   const estimatedTokens = await estimateMessagesTokensCooperative(
     ctx.apiMessages
   );
-  const budgetMode = getDailyBudget().getMode();
+  const dailyBudget = getDailyBudget();
+  const budgetMode = dailyBudget.getMode();
   const decision = checkDailyBudget({
     sessionId: session.id,
     estimatedTokens,
@@ -600,6 +603,9 @@ export async function invokeLlm(
     );
   }
 
+  // T14：放行后**立即预扣**（在途 = 本轮估算；结算见下方三条出口）
+  dailyBudget.reserveFor(session.id, estimatedTokens);
+
   // P1-16（2026-10-05）：非流式请求发出**前**落 `request/start`（一次请求一条），
   // 返回其 seq 作 requestId，透传到下方用量条 ⇒ 非流式路径请求区间可闭合。
   // 复用 `chat/services/requestBoundary` 唯一实现；落盘失败 ⇒ undefined（不伪造）。
@@ -609,16 +615,23 @@ export async function invokeLlm(
     { model: options?.model, reason: 'chat' }
   );
 
-  const response = await activeClient.sendMessage(
-    ctx.apiMessages as unknown as ChatMessage[],
-    {
-      ...options,
-      tools:
-        ctx.toolDefinitions.length > 0
-          ? (ctx.toolDefinitions as unknown as ToolDefinition[])
-          : undefined,
-    }
-  );
+  let response: Awaited<ReturnType<ToolAwareClient['sendMessage']>>;
+  try {
+    response = await activeClient.sendMessage(
+      ctx.apiMessages as unknown as ChatMessage[],
+      {
+        ...options,
+        tools:
+          ctx.toolDefinitions.length > 0
+            ? (ctx.toolDefinitions as unknown as ToolDefinition[])
+            : undefined,
+      }
+    );
+  } catch (err) {
+    // T14 出口③：调用失败 ⇒ 释放本轮预扣（在途不得残留），再上抛原错误
+    dailyBudget.settleFor(session.id, 0);
+    throw err;
+  }
 
   // 成本 0/0 修复（2026-08-14 复检 #5）：usage 缺失/为空时跳过空记录（与
   // ReActToolLoop._reportUsage / StreamPipeline.recordUsage 对齐），避免 0/0 污染
@@ -629,6 +642,7 @@ export async function invokeLlm(
     usage &&
     (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) > 0
   ) {
+    // T14 出口①：`recordChatResponseUsage` 内部 `settleFor(session, 真实用量)` ⇒ 多退少补、清在途
     host.recordChatResponseUsage(session.id, response.usage, requestId);
 
     // 异步记录使用量
@@ -645,6 +659,9 @@ export async function invokeLlm(
         error: err instanceof Error ? err.message : String(err),
       });
     });
+  } else {
+    // T14 出口②：无 usage 回显 ⇒ 记账点不会结算 ⇒ **显式释放**预扣（只清在途、不入账）
+    dailyBudget.settleFor(session.id, 0);
   }
 
   return { response, llmStartTime };

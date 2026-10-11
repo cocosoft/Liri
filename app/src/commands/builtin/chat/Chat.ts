@@ -260,8 +260,26 @@ export class ChatCommand {
     try {
       const stream = this.llmClient.chatStream(messages, { model });
 
-      for await (const chunk of stream) {
-        fullResponse += chunk;
+      // T14（遗留 #4）：**手动迭代以取回生成器返回值** —— `AIProvider.chatStream` 的
+      // `return` 是终态 `ChatResponse`（usage 在其中），而 `for await` 会**丢弃返回值**
+      // ⇒ 流式路径此前 inputTokens/outputTokens 恒为 0（既无成本也无日预算计账）。
+      const iterator = stream[Symbol.asyncIterator]();
+      for (;;) {
+        const step = await iterator.next();
+        if (step.done) {
+          const finalUsage = (
+            step.value as { usage?: Record<string, number> } | undefined
+          )?.usage;
+          if (finalUsage) {
+            inputTokens =
+              finalUsage.promptTokens ?? finalUsage.inputTokens ?? 0;
+            outputTokens =
+              finalUsage.completionTokens ?? finalUsage.outputTokens ?? 0;
+          }
+          break;
+        }
+        // 仅累积文本 chunk（`ThinkingProviderChunk` 等非字符串 chunk 不并入正文）
+        if (typeof step.value === 'string') fullResponse += step.value;
       }
     } catch (err) {
       void handleError(err, {
@@ -271,6 +289,9 @@ export class ChatCommand {
     }
 
     const cost = costTracker.addCost(model, inputTokens, outputTokens);
+
+    // G-2/M：流式 CLI 对话同样计入每日预算（usage 取自流终态回显；无回显则计入 0 ⇒ 不虚增）
+    recordDailyBudgetFromUsage({ inputTokens, outputTokens });
 
     let resultValue = fullResponse || '没有收到回复';
 

@@ -33,14 +33,16 @@ function makeCtx(
   appendStreamEvent: (
     sid: string,
     ev: unknown
-  ) => Promise<{ ok: boolean; tailSeq: number }>
+  ) => Promise<{ ok: boolean; tailSeq: number }>,
+  /** 记账号桩：默认为 no-op（不结算）；需要验证"预扣→结算"的用例按真实契约注入 settleFor */
+  recordChatResponseUsage: (sid: string, usage: unknown) => void = () => {}
 ): SendMessageContext {
   return {
     host: {
       ENABLE_TELEMETRY: false,
       toolRoundCount: 0,
       appendStreamEvent,
-      recordChatResponseUsage: () => {},
+      recordChatResponseUsage,
     },
     content: 'hi',
     options: {},
@@ -129,6 +131,79 @@ describe('T8：非流式 chat 补日预算闸门（G-2/B）', () => {
     expect(sendMessage()).toBe(1);
     expect(events.length).toBe(1);
     expect((events[0] as { type?: string }).type).toBe('request/start');
+  });
+});
+
+describe('T14：非流式路径的**原子预扣**（不泄漏版）', () => {
+  beforeEach(() => {
+    resetDailyBudgetForTest();
+  });
+  afterEach(() => {
+    resetDailyBudgetForTest();
+  });
+
+  it('放行 ⇒ 模型调用**当场可见在途预留**；有 usage ⇒ 结算为真实用量、无残留', async () => {
+    const { appendStreamEvent } = makeAppender();
+    let projectedAtCall = -1;
+    // 记账号按**真实契约**注入：`recordChatResponseUsage` → `settleFor(session, 真实用量)`
+    const ctx = makeCtx(appendStreamEvent, (sid) =>
+      getDailyBudget().settleFor(sid, 50)
+    );
+    const client = {
+      sendMessage: async () => {
+        projectedAtCall = getDailyBudget().getMode().projectedUsed;
+        return {
+          content: 'ok',
+          usage: { prompt_tokens: 30, completion_tokens: 20 },
+        };
+      },
+      getProviderId: () => 'provider-test',
+    } as unknown as ToolAwareClient;
+
+    await invokeLlm(ctx, client);
+
+    const state = getDailyBudget().getMode();
+    expect(projectedAtCall).toBeGreaterThan(0); // 预扣已生效（在途可见 ⇒ 并发请求会被计入）
+    expect(state.todayUsed).toBe(50); // 真实用量入账
+    expect(state.projectedUsed).toBe(state.todayUsed); // 在途已清（无残留）
+  });
+
+  it('无 usage 回显 ⇒ **显式释放**预扣（在途不得残留、也不得虚增用量）', async () => {
+    const { appendStreamEvent } = makeAppender();
+    const ctx = makeCtx(appendStreamEvent);
+    const client = {
+      sendMessage: async () => ({ content: 'ok' }), // 无 usage
+      getProviderId: () => 'provider-test',
+    } as unknown as ToolAwareClient;
+
+    await invokeLlm(ctx, client);
+
+    const state = getDailyBudget().getMode();
+    expect(state.todayUsed).toBe(0);
+    expect(state.projectedUsed).toBe(0); // 出口②：预留被释放
+  });
+
+  it('模型调用抛错 ⇒ 释放预扣后原样上抛（不留悬挂在途）', async () => {
+    const { appendStreamEvent } = makeAppender();
+    const ctx = makeCtx(appendStreamEvent);
+    const client = {
+      sendMessage: async () => {
+        throw new Error('provider boom');
+      },
+      getProviderId: () => 'provider-test',
+    } as unknown as ToolAwareClient;
+
+    let thrown: unknown;
+    try {
+      await invokeLlm(ctx, client);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect((thrown as Error).message).toBe('provider boom');
+    const state = getDailyBudget().getMode();
+    expect(state.todayUsed).toBe(0);
+    expect(state.projectedUsed).toBe(0); // 出口③：预留被释放
   });
 });
 

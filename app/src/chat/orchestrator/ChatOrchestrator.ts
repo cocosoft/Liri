@@ -36,7 +36,7 @@ import {
 } from '@modules/utils/mermaidLint';
 import { renderGoalTemplate } from '../../tasks/goal/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
-import { handleError } from '@modules/error';
+import { AppError, handleError } from '@modules/error';
 import { SimpleMutex, getOutputGuardRegistry } from '@modules/core';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
@@ -1140,6 +1140,17 @@ export class ChatOrchestrator {
           action: 'sendMessage',
           context: { sessionId: session.id },
         });
+        // G-2（2026-10-11，Spec §1.2 G-2 / §5-D-1）：**撞限必须保码上抛**。
+        // 撞限是"本机环境状态"而非请求异常：若被本 catch 折成 `处理请求时发生错误: …` 的**正文**，
+        // 传输层就拿不到 `errorCode` ⇒ 前端无法按码渲染限额卡片（T6）、HTTP 也只能回 200 假成功。
+        // 故预算类业务异常**不折**，交由 `llmChatOps.chat` 的 catch 保真为 `errorCode`
+        //（→ 429 + 放行入口的结构化响应；同 T8 契约）。
+        if (
+          sendErr instanceof AppError &&
+          sendErr.code === 'DAILY_BUDGET_EXCEEDED'
+        ) {
+          throw sendErr;
+        }
         response = {
           content: `处理请求时发生错误: ${sendErr instanceof Error ? sendErr.message : String(sendErr)}`,
           stop_reason: 'stop' as const,

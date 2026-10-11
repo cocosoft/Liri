@@ -247,6 +247,8 @@ import { compactionOrchestrator, messageProjector } from '@modules/context';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
 import { getMemoryPressureMonitor } from '@modules/monitoring';
 import { estimateMessagesTokens } from '@modules/ai';
+// G-2（2026-10-11）：降级路径的日预算闸门（非 chat 管线入口的统一判定 + 拒绝对外载体）
+import { assertEntryBudget } from '../query/dailyBudgetGate';
 import { FileCheckpointStorage } from '@modules/session';
 import {
   StopHookManager,
@@ -2602,6 +2604,18 @@ export class ChatManagerImpl implements ChatManager {
     activeClient: ToolAwareClient,
     options?: SendMessageOptions
   ): Promise<Message> {
+    // G-2（2026-10-11，Spec `daily-budget-over-limit-ux.md` §1.2 G-2 / §5-D-1）：**降级路径补闸门**。
+    //
+    // 本路径**直调** `activeClient.sendMessage`（不经 `sendMessageFlow.invokeLlm` 的闸门）⇒ 此前
+    // TAORLoop 一失败就换条路再烧一遍额度（G-2 的绕过路径）。判定放在**最前**：整轮被拒时
+    // **连工具副作用也不做**，避免"工具已执行、模型却没调"的半成品。
+    // 载体：抛带真实业务码的业务异常 —— 由调用方 `ChatOrchestrator.sendMessage` 的 catch **放行上抛**
+    //（见该处预算例外）⇒ 最终经 `llmChatOps.chat` 保真为 `errorCode`（HTTP 429 + 放行入口，同 T8 契约）。
+    assertEntryBudget({
+      entry: 'chat-downgrade',
+      estimatedTokens: estimateMessagesTokens(apiMessages),
+    });
+
     try {
       for (const tc of toolCalls) {
         const toolResult = await this.executeTool(

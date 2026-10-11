@@ -447,13 +447,25 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ message: "Request failed" }));
+    const raw = (await response.json().catch(() => null)) as {
+      message?: string;
+      error?: { message?: string; code?: string };
+    } | null;
+    // 错误体两种形态：标准封套 `{error:{message,type,code?}}`（后端统一 HTTP 错误体）
+    // 与平铺 `{message}`。取真实文案，避免上层只看到 `HTTP <status>`。
+    const message =
+      raw?.error?.message || raw?.message || `HTTP ${response.status}`;
     // 附加 HTTP 状态码：调用方按 statusCode 做业务判断（如 404 = 交互已失效），
     // 对齐 sessionService.switch 的既有模式，避免字符串匹配状态
-    const httpError = new Error(error.message || `HTTP ${response.status}`);
+    const httpError = new Error(message);
     (httpError as { statusCode?: number }).statusCode = response.status;
+    // 结构化错误码保真（Spec `daily-budget-over-limit-ux.md` §10-4）：
+    // 后端业务错误体带 `error.code`（如 DAILY_BUDGET_EXCEEDED）——必须透出，
+    // 否则上层只能退化为 UNKNOWN，非流式路径（office/文档生成）的限额卡片分流将失效。
+    const code = raw?.error?.code;
+    if (typeof code === "string" && code) {
+      (httpError as { errorCode?: string }).errorCode = code;
+    }
     throw httpError;
   }
 

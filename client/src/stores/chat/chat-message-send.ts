@@ -21,6 +21,28 @@ import type { MessageSet, MessageGet } from "./chat-message.types";
 const logger = createLogger("stores:chat:message");
 
 /**
+ * 客户端兜底错误码解析（CS02：用结构化字段，不做字符串匹配业务语义）。
+ *
+ * 优先采用后端透出的**业务码**（`fetchJSON` 已把 `error.code` 挂到抛出的 Error 上，
+ * 如 `DAILY_BUDGET_EXCEEDED`）；仅当缺失时才按网络语义兜底。
+ *
+ * 根因（Spec `daily-budget-over-limit-ux.md` §10-4 端到端保真）：此前 catch 无条件写
+ * `BACKEND_UNREACHABLE`/`UNKNOWN`，会把真实业务码覆盖掉 ⇒ 非流式路径（office/文档生成
+ * 走 `sendMessage`）撞限也走红色异常条、拿不到限额卡片。
+ */
+export function resolveClientErrorCode(error: unknown): string {
+  const code = (error as { errorCode?: unknown } | null)?.errorCode;
+  if (typeof code === "string" && code) return code;
+  if (
+    error instanceof Error &&
+    (error.message.includes("fetch") || error.message.includes("connect"))
+  ) {
+    return "BACKEND_UNREACHABLE";
+  }
+  return "UNKNOWN";
+}
+
+/**
  * sendMessage：非流式发送（同步等待响应，多用于离线/测试路径）
  * 写前持久化：发送前先落盘用户消息，失败进 outbox，网络恢复后自动补发。
  */
@@ -201,11 +223,7 @@ export async function sendMessageImpl(
     );
     set({
       error: String(error),
-      errorCode:
-        error instanceof Error &&
-        (error.message.includes("fetch") || error.message.includes("connect"))
-          ? "BACKEND_UNREACHABLE"
-          : "UNKNOWN",
+      errorCode: resolveClientErrorCode(error),
       isSending: false,
       isInputBlocked: false,
     });

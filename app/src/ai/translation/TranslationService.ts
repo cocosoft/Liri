@@ -14,7 +14,15 @@ import { AppError, ErrorCategory, ErrorSeverity } from '../../error/types';
 import { handleError } from '../../error/handleError';
 import { modelRouter } from '../modelRouter';
 import { providerRegistry } from '../providers/ProviderRegistry';
-import { trackUsage } from '@modules/ai';
+import { trackUsage, estimateMessagesTokens } from '@modules/ai';
+// G-2/K（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 K）：翻译走**非 chat 管线**
+// （直调 provider）⇒ 闸门与计账都需在此单点补齐（闸门=单一收口 `checkDailyBudget`）。
+import { recordDailyBudgetFromUsage } from '../../query/DailyBudgetManager';
+import {
+  assertEntryBudget,
+  createEntryBudgetError,
+  resolveEntryBudgetDenial,
+} from '../../query/dailyBudgetGate';
 import { LanguageDetector } from './LanguageDetector';
 import { PromptBuilder } from './PromptBuilder';
 import { PostProcessor } from './PostProcessor';
@@ -67,6 +75,15 @@ export class TranslationService {
    */
   async translate(request: TranslateRequest): Promise<TranslateResult> {
     const startedAt = Date.now();
+
+    // G-2/K（Spec §5-D-1 K）：**日预算闸门**（判定在**最前** —— 预算不足时连语言检测等准备工作都不必做）。
+    // 出路 = 抛出带指引的 `DAILY_BUDGET_EXCEEDED`（`/v1/translate` 把 message 回给前端 ⇒ 用户可见）。
+    assertEntryBudget({
+      entry: 'translation',
+      estimatedTokens: estimateMessagesTokens([
+        { role: 'user', content: request.text },
+      ]),
+    });
 
     // Step 1: 解析源语言
     const langResult: LanguageDetectionResult =
@@ -141,6 +158,9 @@ export class TranslationService {
         providerId: provider.id,
         latencyMs: Date.now() - trackStart,
       });
+
+      // G-2/K：非 chat 管线用量计入每日预算（此前翻译只入成本追踪 ⇒ 可绕过日限额）
+      recordDailyBudgetFromUsage(response.usage);
 
       rawOutput = response.content || '';
 
@@ -225,6 +245,19 @@ export class TranslationService {
     request: TranslateRequest
   ): AsyncGenerator<TranslateStreamChunk, TranslateResult> {
     const startedAt = Date.now();
+
+    // G-2/K：**日预算闸门**（与 `translate()` 同口径）。流式面按本方法既有约定透出：
+    // 先 `yield { type:'error', message }`（客户端可见原因 + 出路），再抛业务异常。
+    const streamDenial = resolveEntryBudgetDenial({
+      entry: 'translation',
+      estimatedTokens: estimateMessagesTokens([
+        { role: 'user', content: request.text },
+      ]),
+    });
+    if (streamDenial) {
+      yield { type: 'error', message: streamDenial.message };
+      throw createEntryBudgetError(streamDenial);
+    }
 
     // Step 1: 解析源语言
     const langResult: LanguageDetectionResult =
@@ -320,6 +353,8 @@ export class TranslationService {
             completionTokens: chatResponse.usage.completion_tokens,
             totalTokens: chatResponse.usage.total_tokens,
           };
+          // G-2/K：流式翻译同样计入每日预算（usage 取自流终态回显）
+          recordDailyBudgetFromUsage(chatResponse.usage);
         }
       }
     } catch (err) {
@@ -403,6 +438,14 @@ export class TranslationService {
   async getAlternatives(
     request: AlternativesRequest
   ): Promise<AlternativesResult> {
+    // G-2/K：**日预算闸门**（同族入口，避免"修了 translate 却留下 alternatives 的洞"）
+    assertEntryBudget({
+      entry: 'translation',
+      estimatedTokens: estimateMessagesTokens([
+        { role: 'user', content: request.word },
+      ]),
+    });
+
     const modelName = modelRouter.resolve('translation');
     if (!modelName) {
       throw new AppError(
@@ -456,6 +499,9 @@ export class TranslationService {
         providerId: provider.id,
         latencyMs: Date.now() - trackStart,
       });
+
+      // G-2/K：同上（备选翻译同属非 chat 管线）
+      recordDailyBudgetFromUsage(response.usage);
 
       const rawOutput = (response.content || '').trim();
 

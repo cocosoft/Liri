@@ -32,6 +32,7 @@
 import { getDailyBudget } from './DailyBudgetManager.js';
 import { formatBudget } from './dailyBudgetSnapshot.js';
 import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 // 快照形状与格式化已下沉到**叶子模块**（`dailyBudgetSnapshot`）以避免与状态机形成循环导入；
 // 此处仅**再导出**，既有消费方（本模块的导入者）无需改动。
@@ -65,4 +66,66 @@ export function checkDailyBudget(input: {
       mode: state.mode,
     },
   };
+}
+
+/**
+ * **入口闸门**（G-2 阶段 3 · D-g 的 F/G/K/M）：非 chat 管线对话类入口的"判定 + 出路"统一收口。
+ *
+ * 各入口的**判定**同为 `checkDailyBudget()`（单一收口）；差别只在**出路载体**
+ * （HTTP JSON / 协议任务态 / 流式 error 块 / 终端回显）⇒ 此处只产**载荷**，载体由各入口决定。
+ */
+export interface EntryBudgetDenial {
+  code: 'DAILY_BUDGET_EXCEEDED';
+  /** 人读文案（已含"去哪里放行"的指引，可由各载体原样透出） */
+  message: string;
+  /** 结构化上下文（供 HTTP/协议面拼可操作响应） */
+  context: Record<string, unknown>;
+}
+
+/**
+ * 判定"该入口本轮能否进入模型调用"（**纯函数，不抛**）。
+ *
+ * @returns `null` ⇒ 放行；否则为带文案与上下文的拒绝载荷
+ */
+export function resolveEntryBudgetDenial(input: {
+  entry: string;
+  estimatedTokens: number;
+}): EntryBudgetDenial | null {
+  const decision = checkDailyBudget({
+    sessionId: input.entry,
+    estimatedTokens: input.estimatedTokens,
+  });
+  if (decision.allowed) return null;
+  return {
+    code: 'DAILY_BUDGET_EXCEEDED',
+    message:
+      `今日 Token 预算已用完（已用 ${decision.snapshot.used} / 上限 ${decision.snapshot.limit}），为避免超额，本次未调用模型。` +
+      '放行方式：在桌面端「用量中心 → 日限额」临时提额 / 今日解除（或调高每日上限）后重试。',
+    context: {
+      entry: input.entry,
+      todayUsed: decision.snapshot.used,
+      dailyLimit: decision.snapshot.limit,
+      estimateThisRound: input.estimatedTokens,
+    },
+  };
+}
+
+/** 由拒绝载荷构造业务异常（唯一构造点；调用方可据此 throw 或自行转载体） */
+export function createEntryBudgetError(denial: EntryBudgetDenial): AppError {
+  return new AppError(
+    denial.message,
+    ErrorCategory.RESOURCE,
+    ErrorSeverity.MEDIUM,
+    denial.code,
+    denial.context
+  );
+}
+
+/** 入口闸门的"抛异常"载体：放行即返回，拒绝即抛带真实业务码的 `AppError`。 */
+export function assertEntryBudget(input: {
+  entry: string;
+  estimatedTokens: number;
+}): void {
+  const denial = resolveEntryBudgetDenial(input);
+  if (denial) throw createEntryBudgetError(denial);
 }

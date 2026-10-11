@@ -27,6 +27,8 @@ import type { SessionInfo } from '@modules/runtime/api/CoreAPI';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// G-2/G（2026-10-11）：撞限响应复用非流式 chat 的**唯一映射**（429 + 真实码 + 上下文 + 放行入口）
+import { mapChatErrorResponse, type ChatErrorBody } from './chat-handlers';
 // C1（2026-09-30 D-115，`workspace` 域 P3）：工作空间配置 / 各 Store / 任务存储 / 类型位改经服务层端口
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import type {
@@ -1428,6 +1430,28 @@ export async function handleCreateProjectWorkItem(
 }
 
 /**
+ * G-2/G（2026-10-11，Spec §5-D-1 G）：项目分解撞限的**响应映射**（纯函数，决策规则层便于单测）。
+ *
+ * 只处理**日预算撞限**这一种业务失败（其余错误保持既有流程不动 ⇒ 不回归）；响应体形状**复用**
+ * 非流式 chat 的唯一映射 `mapChatErrorResponse`（429 + 真实码 + 上下文 + 放行入口）。
+ *
+ * @returns `null` ⇒ 非撞限（调用方继续既有流程）；否则为待写出的 `{status, body}`
+ */
+export function mapDecomposeBudgetDenial(response: {
+  finishReason?: string;
+  errorCode?: string;
+  errorContext?: Record<string, unknown>;
+}): { status: number; body: ChatErrorBody } | null {
+  if (
+    response.finishReason !== 'error' ||
+    response.errorCode !== 'DAILY_BUDGET_EXCEEDED'
+  ) {
+    return null;
+  }
+  return mapChatErrorResponse(response);
+}
+
+/**
  * AI 项目分解
  * POST /v1/workspaces/:id/projects/:projectId/decompose
  *
@@ -1488,6 +1512,23 @@ export async function handleDecomposeProject(
       sessionId: `decompose-${_projectId}-${Date.now()}`,
       model: decomposeModel,
     });
+
+    // G-2/G（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 G）：**撞限须给结构化可操作响应**。
+    //
+    // 闸门本身已由**非流式路径**（`sendMessageFlow`，T8）在 `coreAPI.chat` 内生效；此处缺的是**透出**：
+    // 撞限时 `content` 为空 ⇒ 下方 JSON 解析失败 ⇒ 会误报「LLM 未返回有效 JSON」500（归因错误）。
+    const decomposeDenial = mapDecomposeBudgetDenial(response);
+    if (decomposeDenial) {
+      logger.warning('项目分解被日预算闸门拦下', {
+        projectId: _projectId,
+        ...response.errorContext,
+      });
+      res.writeHead(decomposeDenial.status, {
+        'Content-Type': 'application/json; charset=utf-8',
+      });
+      res.end(JSON.stringify(decomposeDenial.body));
+      return;
+    }
 
     // 提取 AI 回复中的 JSON（去除可能的 markdown 代码块包裹）
     const replyText = (response.content || '')

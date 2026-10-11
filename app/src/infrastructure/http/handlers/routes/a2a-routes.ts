@@ -401,19 +401,38 @@ async function runDelegation(
 ): Promise<{ completed: boolean; task: A2ATask }> {
   const task = port.createTask();
   // `delegator` 由 `handleCreateTask` / `handleRpc` 的分支前置保证非空（未装配 ⇒ 已 503）
-  const pending = (delegator as A2ADelegator)(message, agentId);
+  //
+  // G-2/F（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 F）：委派**业务失败**
+  // （如日预算撞限）原先会直接冒泡 ⇒ REST 变通用 500、JSON-RPC 变异常，且"晚失败"分支还会让任务
+  // **永久停在 WORKING**（调用方既拿不到码也拿不到出路）。现统一收敛为**结构化终态**：
+  // `TASK_STATE_FAILED` + 把"原因 + 出路"作为任务消息透出（协议面无 UI）。
+  const pending = (delegator as A2ADelegator)(message, agentId).then(
+    (value) => ({ kind: 'done' as const, value }),
+    (error: unknown) => {
+      const guidance = error instanceof Error ? error.message : String(error);
+      const { message: reply } = toDeliverables(guidance);
+      try {
+        port.completeTask(task.id, 'TASK_STATE_FAILED', [], reply);
+      } catch (markError) {
+        // @ignore-catch — 竞态：已是终态（不可改写）⇒ 仅记录
+        void handleError(markError, {
+          module: 'http:a2a',
+          action: 'mark-failed',
+          context: { taskId: task.id },
+        });
+      }
+      return { kind: 'failed' as const };
+    }
+  );
 
-  let outcome: { kind: 'done'; value: string } | 'timeout';
+  let outcome: { kind: 'done'; value: string } | { kind: 'failed' } | 'timeout';
   if (waitMs > 0) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<'timeout'>((resolve) => {
       timer = setTimeout(() => resolve('timeout'), waitMs);
     });
     try {
-      outcome = await Promise.race([
-        pending.then((value) => ({ kind: 'done' as const, value })),
-        timeout,
-      ]);
+      outcome = await Promise.race([pending, timeout]);
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -422,6 +441,14 @@ async function runDelegation(
   }
 
   if (outcome !== 'timeout') {
+    // 业务失败：终态已由上面的 catch 落成 `TASK_STATE_FAILED`（含出路消息）⇒ 只需如实回传
+    if (outcome.kind === 'failed') {
+      logger.warning('A2A 委派失败（业务码与出路已随任务消息透出）', {
+        taskId: task.id,
+        agentId,
+      });
+      return { completed: false, task: port.getTask(task.id) ?? task };
+    }
     const { artifacts, message: reply } = toDeliverables(outcome.value);
     const done = port.completeTask(
       task.id,
@@ -445,8 +472,10 @@ async function runDelegation(
     });
   }
   void pending
-    .then((value) => {
-      const { artifacts, message: reply } = toDeliverables(value);
+    .then((late) => {
+      // 业务失败已在其 catch 内落 FAILED（勿改写终态）
+      if (late.kind === 'failed') return;
+      const { artifacts, message: reply } = toDeliverables(late.value);
       port.completeTask(task.id, 'TASK_STATE_COMPLETED', artifacts, reply);
     })
     .catch((error: unknown) =>

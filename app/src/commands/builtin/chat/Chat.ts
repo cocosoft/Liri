@@ -18,7 +18,11 @@ import type { ToolRegistry } from '@modules/tools';
 import { getToolManager } from '@modules/tools';
 import { ToolExecutor } from '@modules/tools';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
+import { estimateMessagesTokens } from '@modules/ai';
 import { handleError } from '@modules/error';
+// G-2/M（2026-10-11，Spec §5-D-1 M）：CLI `/chat` 的日预算闸门与计账
+import { recordDailyBudgetFromUsage } from '../../../query/DailyBudgetManager';
+import { resolveEntryBudgetDenial } from '../../../query/dailyBudgetGate';
 
 const logger = getLogger('Chat');
 
@@ -145,6 +149,26 @@ export class ChatCommand {
       return this.showHelp();
     }
 
+    // G-2/M（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 M）：**日预算闸门**。
+    // CLI `/chat` 直调 provider（非 chat 管线）⇒ 此前既不判也不记。判定放在**服务初始化之前**：
+    // 预算不足时不必解析/初始化 provider。出路（终端形态）= 打印**可执行**入口：
+    // `/config set costControl.dailyTokenBudget <上限>`（同上限键，重启后生效）或桌面端日限额面板。
+    const budgetDenial = resolveEntryBudgetDenial({
+      entry: 'cli-chat',
+      estimatedTokens: estimateMessagesTokens([
+        { role: 'user', content: message },
+      ]),
+    });
+    if (budgetDenial) {
+      return {
+        type: 'text',
+        value:
+          `${budgetDenial.message}\n` +
+          '终端入口：/config set costControl.dailyTokenBudget <更大的上限>（重启后生效）；' +
+          '或桌面端「用量中心 → 日限额」临时提额 / 今日解除（立即生效）。',
+      };
+    }
+
     try {
       await this.initializeServices(options);
 
@@ -201,6 +225,9 @@ export class ChatCommand {
       cacheReadTokens,
       cacheCreationTokens
     );
+
+    // G-2/M：CLI 对话用量计入每日预算（`AIProvider` 的 `usage` 为驼峰形 ⇒ 复用上方已归一的值）
+    recordDailyBudgetFromUsage({ inputTokens, outputTokens });
 
     let resultValue =
       typeof response.content === 'string' ? response.content : '没有收到回复';

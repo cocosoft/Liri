@@ -17,6 +17,7 @@
 
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { setA2ADelegator, type A2ADelegator } from './a2a-routes';
 
 const logger = getLogger('http:a2a:delegator');
@@ -38,7 +39,17 @@ export interface A2ADelegationCore {
     sessionId?: string;
     stream?: boolean;
     systemPrompt?: string;
-  }): Promise<{ content: string }>;
+  }): Promise<{
+    content: string;
+    /**
+     * G-2/F（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 F）：非流式 `chat` 的**业务失败**
+     * 以 `finishReason='error'` + 真实 `errorCode` 返回（T8 契约）⇒ 本端口如实透出，供 A2A 面
+     * 把"撞限"转成**结构化**结果（协议面无 UI，不能只回空字符串）。
+     */
+    finishReason?: string;
+    errorCode?: string;
+    errorContext?: Record<string, unknown>;
+  }>;
 }
 
 /**
@@ -80,6 +91,25 @@ export function createCoreApiDelegator(
       agentId: agentId ?? null,
       replyChars: response.content?.length ?? 0,
     });
+
+    // G-2/F（Spec §5-D-1 F）：**不得把业务失败静默成空回复**。
+    // 非流式 `chat` 撞限（日预算闸门已在其内生效）时 `content` 为空 ⇒ 原先 A2A 客户端会收到
+    // 一个"已完成但空"的任务（协议面无从判断）。此处转为带**真实业务码 + 出路指引**的业务异常，
+    // 由 `runDelegation` 落成 `TASK_STATE_FAILED` 的结构化结果（协议面无 UI ⇒ 只能走任务态/消息）。
+    if (response.finishReason === 'error') {
+      throw new AppError(
+        `A2A 委派未完成（${response.errorCode ?? 'UNKNOWN'}）：今日 Token 预算可能已用完（已用 ${String(
+          response.errorContext?.['todayUsed'] ?? '?'
+        )} / 上限 ${String(response.errorContext?.['dailyLimit'] ?? '?')}）。` +
+          '放行后重发即可继续：桌面端「用量中心 → 日限额」临时提额 / 今日解除，' +
+          '或 POST /v1/cost/daily-budget/relief（kind: boost / waive-once / unlock-today）。',
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.MEDIUM,
+        response.errorCode ?? 'A2A_DELEGATION_FAILED',
+        { sessionId: session.id, ...(response.errorContext ?? {}) }
+      );
+    }
+
     return response.content ?? '';
   };
 }

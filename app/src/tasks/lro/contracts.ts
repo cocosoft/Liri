@@ -122,10 +122,20 @@ export interface ExecutorToolCall {
  * 2026-10-08：原为 `Promise<string>` ⇒ 无法回传 `tool_calls` ⇒ `callModel` 只能 yield
  * 纯文本 ⇒ `executeTools` **结构性不可达**（日志指纹：`callModel 完成` 84 次、
  * `executeTools 开始执行` 0 次）。现扩展为可携带 `toolCalls`。
+ *
+ * G-2/D（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 D）：再扩展可选 `usage` ——
+ * **自定义 `ExecutorFn` 的模型用量只能由执行器回传**（编排器无法观测其内部调用）；
+ * 回传后由编排器 `recordDailyBudgetFromUsage()` 计入每日预算（与默认执行器同口径）。
+ * 默认执行器已在内部记账（回传对象**不带** `usage`）⇒ 不会被重复计入。
  */
 export type ExecutorResult =
   | string
-  | { content: string; toolCalls?: ExecutorToolCall[] };
+  | {
+      content: string;
+      toolCalls?: ExecutorToolCall[];
+      /** 本次调用的 LLM `usage`（`prompt_tokens`/`completion_tokens` 或 `inputTokens`/`outputTokens` 形） */
+      usage?: unknown;
+    };
 
 /** 默认执行器函数类型 */
 export type ExecutorFn = (params: {

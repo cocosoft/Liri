@@ -17,7 +17,7 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
 import { resolveDbPath } from '@modules/core/paths';
-import { trackUsage, modelRouter } from '@modules/ai';
+import { trackUsage, modelRouter, estimateMessagesTokens } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep } from './TaskOrchestrator';
@@ -101,6 +101,8 @@ import { normalizeExecutorResult } from './lro/contracts.js';
 // R16（台账 L-14）：任务/子代理**非 chat 管线**的模型用量计入每日预算
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
 import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
+// G-2/D（2026-10-11）：闸门**单一收口**（与流式/非流式 chat 同源判定），用于长程任务执行器
+import { checkDailyBudget } from '../query/dailyBudgetGate';
 export type {
   PdcaStatus,
   PdcaMetrics,
@@ -288,6 +290,66 @@ export function collectPendingReadBacks(
 //  `EXECUTOR_ROLE` / `ExecutorFn` / `TaskMessage` / `EscalationRecord` 已外迁
 //  `./lro/contracts`，并由本文件 import + re-export 保持公开面，spec §44）
 
+/**
+ * G-2/D（2026-10-11，Spec `daily-budget-over-limit-ux.md` §5-D-1 D / §1.2 G-2）：
+ * 长程任务执行器的**日预算统一收口**（计账 + 闸门）。
+ *
+ * **为什么需要**：长程任务走的是**非 chat 管线**（默认执行器直调 `AIService.generate`）——
+ * 它不经 `CoreAPI.chatStream`（流式闸门）也不经 `sendMessageFlow`（非流式闸门）⇒ 此前
+ * **既无闸门也无（自定义执行器的）计账**，可在预算耗尽后继续跑（G-2 的绕过路径）。
+ *
+ * **收口口径**（对齐流式/非流式 chat 的单一收口 `checkDailyBudget()`）：
+ *   1. **判定在前**：以"系统提示 + 用户提示"的估算为 `estimatedTokens`，超限即抛
+ *      `DAILY_BUDGET_EXCEEDED`（**不发起模型调用**）；
+ *   2. **中止即可续跑**（本节无新挂起机制，见 Spec §10-8）：抛出点在阶段边界之后
+ *      （`setPhase()` 已落 checkpoint）⇒ 任务停在当前阶段，放行后**重发/续跑**即可；
+ *   3. **计账**：自定义执行器若回传 `usage` 则计入日预算；默认执行器已在内部记账
+ *      （其返回值不含 `usage`）⇒ **不会被重复计入**。
+ */
+function guardExecutorWithDailyBudget(
+  base: ExecutorFn,
+  taskId: string
+): ExecutorFn {
+  return async (params) => {
+    const estimatedTokens = estimateMessagesTokens([
+      { role: 'system', content: params.systemPrompt },
+      { role: 'user', content: params.userPrompt },
+    ]);
+    const decision = checkDailyBudget({
+      sessionId: taskId,
+      estimatedTokens,
+    });
+    if (!decision.allowed) {
+      logger.warn('lro:budget — 执行器调用前置检查拒绝', {
+        taskId,
+        taskType: params.taskType,
+        todayUsed: decision.snapshot.used,
+        dailyLimit: decision.snapshot.limit,
+        estimateThisRound: estimatedTokens,
+        mode: decision.snapshot.mode,
+      });
+      throw new AppError(
+        `今日 Token 预算已用完（已用 ${decision.snapshot.used} / 上限 ${decision.snapshot.limit}），为避免超额，本次未调用模型；任务已停在当前阶段，放行后可直接续跑/重发。`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.MEDIUM,
+        'DAILY_BUDGET_EXCEEDED',
+        {
+          taskId,
+          todayUsed: decision.snapshot.used,
+          dailyLimit: decision.snapshot.limit,
+          estimateThisRound: estimatedTokens,
+        }
+      );
+    }
+    const result = await base(params);
+    // 计账：仅"执行器回传 usage"时计入（默认执行器内部已记账 ⇒ 不回传 usage ⇒ 不重复计）
+    if (result && typeof result === 'object') {
+      recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
+    }
+    return result;
+  };
+}
+
 export class LongRunningTaskOrchestrator {
   private taskId: string;
   private planId: string | null = null;
@@ -379,7 +441,7 @@ export class LongRunningTaskOrchestrator {
     this.reviewGate = createReviewGate();
 
     // 默认 executor：经 ModelRouter 解析模型（任务分工 / DB 为唯一事实来源）+ 携带工具定义
-    this.executor =
+    const baseExecutor: ExecutorFn =
       executor ??
       (async (params) => {
         // 模型路由：任务分工配置（DB）→ 模型名。不再读 `ANTHROPIC_API_KEY`、不再写死
@@ -427,6 +489,11 @@ export class LongRunningTaskOrchestrator {
           })),
         };
       });
+
+    // G-2/D（2026-10-11）：自定义与默认执行器**一律**经日预算收口 —— 长程任务的每一处执行器
+    // 调用（规划 / 步骤 / 验证 / 目标评估）都在闸门内；计账仅在"执行器回传 usage"时发生
+    // （默认执行器内部已记账 ⇒ 不回传 usage ⇒ 不重复计）。
+    this.executor = guardExecutorWithDailyBudget(baseExecutor, this.taskId);
 
     // 2026-10-08（真机实测暴露）：`ReviewGate` 用的 VerifierAgent **从未注入模型** ⇒
     // `VerifierAgent.verify()` 命中 `!this.callModel` 的 fail-closed 分支（ESCALATE，

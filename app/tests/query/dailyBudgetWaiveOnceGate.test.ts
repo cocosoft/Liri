@@ -36,14 +36,14 @@ describe('F4：waive-once 被日预算闸门消费（canExecute 放行一次）'
     expect(b.canExecute()).toBe(true);
   });
 
-  it('② 放行恰消费一次：recordUsage(1) 后下一次 canExecute() === false', () => {
+  it('② 放行恰消费一次：同会话 recordUsage(1, sess) 后下一次 canExecute() === false', () => {
     const b = getDailyBudget();
     b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
-    expect(b.canExecute()).toBe(true); // 本轮放行
+    expect(b.canExecute('sess-f4')).toBe(true); // 本轮放行（通行证归属 sess-f4）
 
-    b.recordUsage(1); // 本轮记账 ⇒ 消费 waiver（Consume-and-Die）
-    expect(b.canExecute()).toBe(false);
+    b.recordUsage(1, 'sess-f4'); // 同会话记账 ⇒ 消费 waiver（Consume-and-Die）
+    expect(b.canExecute('sess-f4')).toBe(false);
   });
 
   it('③ 既有语义不变：无 waiver 时 locked ⇒ canExecute() === false', () => {
@@ -89,9 +89,9 @@ describe('C2：checkDailyBudget 认 waive-once（流式/发送侧闸门）', () 
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
     expect(checkDailyBudget(q).allowed).toBe(true); // 放行（不再"立刻 locked"）
 
-    // 消费：F4 既有路径（canExecute 放行一轮 → recordUsage 末尾 Consume-and-Die）
-    expect(b.canExecute()).toBe(true);
-    b.recordUsage(1);
+    // 消费：F4 既有路径（canExecute 放行一轮 → 同会话 recordUsage 末尾 Consume-and-Die）
+    expect(b.canExecute('sess-c2')).toBe(true);
+    b.recordUsage(1, 'sess-c2');
     expect(checkDailyBudget(q).allowed).toBe(false); // 已消费 ⇒ 回到拦截
   });
 
@@ -104,5 +104,77 @@ describe('C2：checkDailyBudget 认 waive-once（流式/发送侧闸门）', () 
     expect(
       checkDailyBudget({ sessionId: 's', estimatedTokens: 0 }).allowed
     ).toBe(false);
+  });
+});
+
+// ─── M1（2026-10-12）：`waive-once` 通行证按**会话归属** ─────────────────────────
+//
+// 缺陷：`_waiverGrantedThisTurn` 是 **manager 级** 布尔（`getDailyBudget()` 为进程单例，被所有
+// 会话共享）—— A 会话经 waive-once 放行拿到通行证后，**B 会话**任何一笔记账都会清位并消费掉
+// A 的通行证 ⇒ A 的"一手放行"被静默吃掉、B 白得一次放行。
+//
+// 修复：通行证记录**取得它的会话**（`_waiverGrantedForSession`）；仅**同一会话**的记账才消费它。
+// 无 sessionId 的记账不消费任何通行证（未消费者由既有 TTL 兜底失效）。判据用精确相等（CS02）。
+describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费）', () => {
+  beforeEach(() => {
+    resetDailyBudgetForTest();
+    delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+    getDailyBudget().setLimit(LIMIT);
+  });
+  afterEach(() => {
+    resetDailyBudgetForTest();
+    delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+  });
+
+  it('① 跨会话记账不消费通行证：A 取得，B 记账 ⇒ 通行证仍有效', () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT); // 100/100 ⇒ locked
+    b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
+
+    expect(b.canExecute('A')).toBe(true); // A 取得通行证
+    b.recordUsage(1, 'B'); // B 记账（修复前 ⇒ 消费掉 A 的通行证，断言失败=红）
+    expect(b.hasActiveWaiver()).toBe(true); // A 的通行证未被 B 吃掉
+  });
+
+  it('② 同会话记账消费通行证：A 取得，A 记账 ⇒ 通行证失效', () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT);
+    b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
+
+    b.canExecute('A');
+    b.recordUsage(1, 'A');
+    expect(b.hasActiveWaiver()).toBe(false);
+  });
+
+  it('③ 无 sessionId 的记账不消费任何通行证', () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT);
+    b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
+
+    b.canExecute('A');
+    b.recordUsage(1); // 无 sessionId（修复前 ⇒ 消费，断言失败=红）
+    expect(b.hasActiveWaiver()).toBe(true);
+  });
+
+  it('④ 通行证 TTL 到期 ⇒ hasActiveWaiver() === false', async () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT);
+    b.applyRelief({ kind: 'waive-once', ttlMs: 1 });
+    await new Promise((r) => setTimeout(r, 5));
+
+    expect(b.hasActiveWaiver()).toBe(false);
+  });
+
+  it('⑤ settleFor 透传 sessionId：本会话结算消费，他会话结算不消费', () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT); // locked
+    b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
+
+    b.canExecute('A'); // A 取得通行证
+    b.settleFor('B', 10); // 他会话结算（chat 主路径记账）⇒ 不消费
+    expect(b.hasActiveWaiver()).toBe(true);
+
+    b.settleFor('A', 10); // 本会话结算 ⇒ 消费（Consume-and-Die）
+    expect(b.hasActiveWaiver()).toBe(false);
   });
 });

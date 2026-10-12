@@ -1114,7 +1114,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       return;
     }
     // R16（台账 L-14）：闸门改用进程共享的每日预算单例；`this.dailyBudget` 仅作 loop-local 的优雅最后一调 / 收益递减（其状态按循环计，不可跨会话共享）。
-    if (!getDailyBudget().canExecute()) {
+    if (!getDailyBudget().canExecute(this.taorConfig.sessionId)) {
       if (!this.dailyBudget.needsGraceCall()) {
         await handleTaorBudgetExhaustion({
           sessionId: this.taorConfig.sessionId,
@@ -1179,21 +1179,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       tokenUsage: currentBudgetState.currentTokens,
       maxTokens: currentBudgetState.maxTokens,
     });
-    if (this.circuitBreaker.shouldBreak().break) {
-      this.stopReason = 'aborted';
-      this.stopped = true;
-      return;
-    }
-    const diminishingCheck = this.dailyBudget.checkDiminishingReturns(
-      currentBudgetState.currentTokens
-    );
-    if (diminishingCheck.diminishing) {
-      logger.warn('收益递减，终止循环', { reason: diminishingCheck.reason });
-      this.stopReason = 'diminishing_returns';
-      this.stopped = true;
-      return;
-    }
-    // 消息持久化（带重试 + 中断保护）
+    // 消息持久化（带重试 + 中断保护）**先于**下方两条终态早退（熔断/收益递减）：该轮工具确已执行 ⇒ 结果必须落盘；是否终止是另一件事。
     try {
       await this.deps.persistMessages(
         this.messages,
@@ -1223,6 +1209,20 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           },
         });
       }
+    }
+    if (this.circuitBreaker.shouldBreak().break) {
+      this.stopReason = 'aborted';
+      this.stopped = true;
+      return;
+    }
+    const diminishingCheck = this.dailyBudget.checkDiminishingReturns(
+      currentBudgetState.currentTokens
+    );
+    if (diminishingCheck.diminishing) {
+      logger.warn('收益递减，终止循环', { reason: diminishingCheck.reason });
+      this.stopReason = 'diminishing_returns';
+      this.stopped = true;
+      return;
     }
   }
 

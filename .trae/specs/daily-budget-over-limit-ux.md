@@ -125,7 +125,7 @@
 | kind | 语义 | 生效范围 | 恢复 |
 |---|---|---|---|
 | `boost` | 临时提高上限（如 ×2 / +N） | 限时窗口内 | **到期自动恢复**（限时是关键） |
-| `waive-once` | 放行**本次**请求，消耗**计入欠账**；**Consume-and-Die** —— 被下一次发送前检查消费后**立即失活**（不随会话存活） | 单次（**单轮模型交互**） | 次日结算（见 §4 D-d） |
+| `waive-once` | 放行**本次**请求，消耗**计入欠账**；**Consume-and-Die** —— 由**取得该通行证的同一会话**的记账（`settleFor(sessionId,…)` / `recordUsage(tokens, sessionId)`）消费后**立即失活**（跨会话与无 sessionId 的记账**不消费**；未消费者由通行证 TTL 兜底，见「债二」M1） | 单次（**单轮模型交互**） | 次日结算（见 §4 D-d） |
 | `unlock-today` | 今日不再拦截 | 至日界 | 次日自动恢复 |
 
 `DailyBudgetManager` 需新增：`relief` 状态（含 `expiresAt` / 欠账）、`getMode()` 暴露 relief 供 UI 展示、

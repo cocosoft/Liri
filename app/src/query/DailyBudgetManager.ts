@@ -149,10 +149,11 @@ export class DailyBudgetManager {
   /** D-b：`waive-once` 一次性通行证（Consume-and-Die；未消费则到期作废）。 */
   private waiveOncePending: { expiresAt: number } | null = null;
   /**
-   * F4：本轮是否**曾因 `waive-once` 放行**（`canExecute()` 置位，`recordUsage()` 末尾消费）。
+   * F4/M1：本轮**取得 `waive-once` 通行证的会话**（`canExecute(sessionId)` 置位、`recordUsage` 末尾消费）。
    * 闸门每轮被多次调用而无现成"轮次边界"可挂消费点 ⇒ 用该标记把"放行"与"消费"对齐到一次记账。
+   * `null` = 无放行；**按会话归属**：仅**取得通行证的同一会话**的记账才消费（跨会话不得互相消费）。
    */
-  private _waiverGrantedThisTurn = false;
+  private _waiverGrantedForSession: string | null = null;
   /** D-d：透支欠账（`waive-once` 消耗）——次日计入用量扣回；`reset()` 不抹除。 */
   private debtTokens = 0;
   /** D7（Task 7）：放行应用回调集（进程内唤醒端口；非持久化、非事实源）。 */
@@ -170,7 +171,7 @@ export class DailyBudgetManager {
    * ⚠️ D-j 边界：**仅对话类入口可写**（"有人在场"）；无人看后台（H/I/J/N/O）不得计入
    * —— 见 `recordDailyBudgetFromUsage` 的边界说明与 `tests/budget/sideChannelGuard.test.ts`。
    */
-  recordUsage(tokens: number): void {
+  recordUsage(tokens: number, sessionId?: string): void {
     this._rolloverIfNeeded();
     this.todayUsed += tokens;
     // P1：记账后去抖落盘（重启恢复，避免"重启即清零"绕过日限额）。
@@ -178,9 +179,10 @@ export class DailyBudgetManager {
     // LRO-17：记账后立即观测阈值跨越（本方法在 LRO 非 chat 管线也经
     // `recordDailyBudgetFromUsage` 调用 ⇒ 是"无 getMode 调用"路径的唯一观测点）。
     this._observeModeTransition(this._computeState());
-    // F4：本轮若曾因 `waive-once` 放行，则在本轮记账末尾消费该通行证（Consume-and-Die）。
-    if (this._waiverGrantedThisTurn) {
-      this._waiverGrantedThisTurn = false;
+    // F4/M1：仅**取得通行证的同一会话**的记账才消费它（Consume-and-Die）；无 sessionId 或跨会话
+    // 的记账**不消费**（未消费者由通行证 TTL 兜底失效）。判据精确相等（CS02）。
+    if (sessionId && sessionId === this._waiverGrantedForSession) {
+      this._waiverGrantedForSession = null;
       this._consumeWaiverOnce();
     }
   }
@@ -211,7 +213,7 @@ export class DailyBudgetManager {
     this.debtTokens = 0;
     this.reliefState = null;
     this.waiveOncePending = null;
-    this._waiverGrantedThisTurn = false;
+    this._waiverGrantedForSession = null;
     if (hadUsage) this._schedulePersist();
   }
 
@@ -253,10 +255,13 @@ export class DailyBudgetManager {
   /**
    * **结算（多退少补）**（R16）：清本会话在途预留，并把**真实用量**入账。
    * 无预留时等同 `recordUsage`（例如未经预检的路径）。
+   *
+   * M1：透传 `sessionId` —— 结算即本会话的记账（chat 主路径唯一写者，
+   * `ChatManager.recordChatResponseUsage`）⇒ 本会话取得的 `waive-once` 通行证在此消费。
    */
   settleFor(sessionId: string, actualTokens: number): void {
     this.outstandingBySession.delete(sessionId);
-    if (actualTokens > 0) this.recordUsage(actualTokens);
+    if (actualTokens > 0) this.recordUsage(actualTokens, sessionId);
   }
 
   /**
@@ -448,7 +453,7 @@ export class DailyBudgetManager {
       this.reliefState !== null || this.waiveOncePending !== null;
     this.reliefState = null;
     this.waiveOncePending = null;
-    this._waiverGrantedThisTurn = false;
+    this._waiverGrantedForSession = null;
     void this.persistNow();
     if (!hadRelief) return;
     logger.info('dailyBudget:relief_revoked', {
@@ -609,14 +614,14 @@ export class DailyBudgetManager {
    * F4：`locked` 时若存在**未过期**的 `waive-once` 一次性通行证 ⇒ 放过**本轮一次**
    * （否则该能力为"死能力"：用户"放行一次"后闸门仍恒 `locked`）。
    *
-   * ⚠️ 此处**故意在谓词内产生一次记账副作用**（置 `_waiverGrantedThisTurn`）：闸门每轮会被
+   * ⚠️ 此处**故意在谓词内产生一次记账副作用**（置 `_waiverGrantedForSession`）：闸门每轮会被
    * **多次**调用（如 `beforeReasoning` 复检），而仓库内**无现成"轮次边界"**可挂消费点 ⇒
-   * 用"本轮曾因 waiver 放行"标记，交由 `recordUsage()` 末尾消费（Consume-and-Die）。
+   * 用"取得通行证的会话"标记，交由 `recordUsage()` 末尾消费（Consume-and-Die）。
    */
-  canExecute(): boolean {
+  canExecute(sessionId?: string): boolean {
     if (this.getMode().mode !== 'locked') return true;
     if (!this.hasActiveWaiver()) return false;
-    this._waiverGrantedThisTurn = true;
+    this._waiverGrantedForSession = sessionId ?? null;
     return true;
   }
 
@@ -801,7 +806,7 @@ export class DailyBudgetManager {
     // D-b / §6.1 C3：`reset()` 清**放行状态**，但**不清欠账**（否则可反复 reset 洗掉透支）。
     this.reliefState = null;
     this.waiveOncePending = null;
-    this._waiverGrantedThisTurn = false;
+    this._waiverGrantedForSession = null;
     this.lastObservedMode = 'normal'; // LRO-17：重置观测基线
     // P1：重置同样落盘，避免"重置后重启"把旧用量恢复回来。
     void this.persistNow();
@@ -962,11 +967,14 @@ export async function initDailyBudget(): Promise<void> {
  * 否则后台会替用户吃掉额度、让用户更早被拦（Spec §2 反目标）。该边界由
  * `app/tests/budget/sideChannelGuard.test.ts` 的负向夹具 + 源码守卫钉住。
  */
-export function recordDailyBudgetFromUsage(usage: unknown): number {
+export function recordDailyBudgetFromUsage(
+  usage: unknown,
+  sessionId?: string
+): number {
   const u = (usage ?? {}) as Record<string, number>;
   const input = u.inputTokens ?? u.prompt_tokens ?? 0;
   const output = u.outputTokens ?? u.completion_tokens ?? 0;
   const total = input + output;
-  if (total > 0) getDailyBudget().recordUsage(total);
+  if (total > 0) getDailyBudget().recordUsage(total, sessionId);
   return total;
 }

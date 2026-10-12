@@ -290,3 +290,61 @@ describe('M3：isSuspended 计入过期 + 上限按 handler 调用数 + 唤醒�
     expect(logs[0].woken).toEqual(['s1']);
   });
 });
+
+// ─── E2E-2 定案（2026-10-12，用户裁定「定案=当前语义并锁定」）：同一挂起点的放行语义 ─────
+//
+// 真实 E2E 复现（`.superpowers/sdd/budget-suspend-resume/server-e2e2.log`）：同一挂起点「成功
+// 唤醒 ⇒ 再次放行」时，协调器**每次都被通知**（每次都有 `resume_summary`），但第二次候选为空
+// ⇒ `woken: []` 且 handler **零新增调用**（原观测「第二次未再触发 `onReliefApplied`」系误判）。
+// 判定口径：**成功即释放** ⇒ 第二次放行幂等无操作（不重复唤醒、不重复烧额度）；
+// **失败即回滚** ⇒ 第二次放行**重试**（挂起仍有效）。
+describe('E2E-2 定案：成功后再放行=幂等；失败后再放行=重试', () => {
+  let prevMax: string | undefined;
+  beforeEach(() => {
+    resetBudgetSuspendForTest();
+    prevMax = process.env[MAX_KEY];
+    delete process.env[MAX_KEY];
+  });
+  afterEach(() => {
+    resetBudgetSuspendForTest();
+    if (prevMax === undefined) delete process.env[MAX_KEY];
+    else process.env[MAX_KEY] = prevMax;
+  });
+
+  it('成功唤醒后**再次放行** ⇒ woken:[] 且 handler 零新增调用（条目已释放）', async () => {
+    const c = getBudgetSuspendCoordinator();
+    c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r' });
+    let calls = 0;
+    c.setResumeHandler(async () => {
+      calls += 1;
+      return true;
+    });
+
+    const first = await c.onReliefApplied('boost');
+    const second = await c.onReliefApplied('boost');
+
+    expect(first.woken).toEqual(['s1']);
+    expect(second.woken).toEqual([]);
+    expect(calls).toBe(1);
+    expect(c.isSuspended('s1')).toBe(false);
+  });
+
+  it('失败回滚后**再次放行** ⇒ 重试（handler 再次被调用；此次成功则释放）', async () => {
+    const c = getBudgetSuspendCoordinator();
+    c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r' });
+    let calls = 0;
+    c.setResumeHandler(async () => {
+      calls += 1;
+      return calls >= 2; // 第一次失败 ⇒ 回滚为挂起；第二次成功
+    });
+
+    const first = await c.onReliefApplied('boost');
+    expect(first.woken).toEqual([]);
+    expect(c.isSuspended('s1')).toBe(true); // 回滚保留挂起
+
+    const second = await c.onReliefApplied('boost');
+    expect(second.woken).toEqual(['s1']);
+    expect(calls).toBe(2);
+    expect(c.isSuspended('s1')).toBe(false);
+  });
+});

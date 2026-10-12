@@ -115,8 +115,6 @@ import { SessionMemoryManager } from './services/SessionMemoryManager';
 import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
-// Task 5 Fix round 1：工具轮 `streamingCheckpoint` 端口装配单一来源（恢复路径复用）
-import { toStreamingCheckpointPort } from './orchestrator/streamMessageToolLoopContext.js';
 // R16：每日 Token 预算（进程共享单例）——记账点收敛到本类的 recordChatResponseUsage。
 import { getDailyBudget } from '../query/DailyBudgetManager';
 // Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
@@ -4728,10 +4726,9 @@ export class ChatManagerImpl implements ChatManager {
         addAndPersistMessage: (sid: string, msg: Message) =>
           this._addAndPersistMessage(sid, msg),
         checkpointService: this._checkpointService,
-        // Task 5 Fix round 1：统一经 `toStreamingCheckpointPort` 装配端口（含必填 `suspend`）——
-        // 此前此处只暴露 `onToolCompleted`，漏接 `suspend` ⇒ 开关开时恢复路径撞日预算耗尽会
-        // 静默 no-op 并登记"已挂起但无检查点"的幽灵态。
-        streamingCheckpoint: toStreamingCheckpointPort(streamingCheckpoint),
+        // Task 5 Fix round 1：端口装配已**收敛到 `buildToolLoopContext` 内**（含必填 `suspend`）⇒
+        // 此处传裸检查点；「恢复路径漏接 suspend ⇒ 幽灵挂起」由该收敛点统一兜住。
+        streamingCheckpoint,
         activeClient,
         unifiedTracker: this.unifiedTracker,
         recordChatResponseUsage: (

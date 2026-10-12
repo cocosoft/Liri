@@ -6,15 +6,19 @@
  *
  * 锁定「装配面」（防止未来重构时**静默接错线**）：
  * 1. `executeTool` 把 `ParsedToolCall` 规范化为 `{id,name,arguments,sessionId}` 后转发；
- * 2. 本轮状态（`abortSignal`/`activeClient`/`streamingCheckpoint`/`toolDefinitions`/
- *    `toolCallSeqMap`/`session`）**同引用透传**；`toolRegistry`/`maxToolTurns` 取自 host；
- * 3. `onToolUsage` 经 `toUsageInfo` 映射后才回调 `options.onUsage`（全 0 用量 ⇒ 不回调）；
- * 4. `appendStreamEvent` 原样转发 `(sid, ev)`。
+ * 2. 本轮状态（`abortSignal`/`activeClient`/`toolDefinitions`/`toolCallSeqMap`/`session`）
+ *    **同引用透传**；`toolRegistry`/`maxToolTurns` 取自 host；
+ * 3. `streamingCheckpoint` **在装配处适配为端口**（`toStreamingCheckpointPort`，含必填 `suspend`）
+ *    ⇒ 不再同引用，但两个端口方法必须**转发到同一实例**（转发等价判据）；
+ * 4. `onToolUsage` 经 `toUsageInfo` 映射后才回调 `options.onUsage`（全 0 用量 ⇒ 不回调）；
+ * 5. `appendStreamEvent` 原样转发 `(sid, ev)`。
  */
 import { describe, expect, it } from 'bun:test';
 
 import { buildToolLoopContext } from '../../../src/chat/orchestrator/streamMessageToolLoopContext.js';
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
+import type { StreamingAutoCheckpoint } from '../../../src/chat/services/StreamingAutoCheckpoint.js';
+import type { ToolLoopContext } from '../../../src/chat/ToolLoopRunner.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';
 
@@ -76,8 +80,19 @@ function build() {
   const { host, calls, toolRegistry } = fakeHost();
   const session = { id: 's1' } as unknown as ChatSession;
   const abortSignal = new AbortController().signal;
-  const activeClient = { tag: 'client' };
-  const streamingCheckpoint = { tag: 'ckpt' };
+  const activeClient = {
+    tag: 'client',
+  } as unknown as ToolLoopContext['activeClient'];
+  // 检查点以**裸实例**形状传入；装配处适配为端口 ⇒ 用调用轨迹证明「转发到同一实例」
+  const cpCalls: string[] = [];
+  const streamingCheckpoint = {
+    onToolCompleted: async () => {
+      cpCalls.push('onToolCompleted');
+    },
+    suspend: async (reason: string) => {
+      cpCalls.push(`suspend:${reason}`);
+    },
+  } as unknown as StreamingAutoCheckpoint;
   const toolDefinitions: ToolDefinition[] = [
     { type: 'function', function: { name: 'bash' } } as ToolDefinition,
   ];
@@ -92,7 +107,9 @@ function build() {
     activeClient,
     toolDefinitions,
     toolCallSeqMap,
-    toolResultRegistry: { tag: 'registry-of-results' },
+    toolResultRegistry: {
+      tag: 'registry-of-results',
+    } as unknown as ToolLoopContext['toolResultRegistry'],
   }) as unknown as LooseCtx;
   return {
     ctx,
@@ -103,6 +120,7 @@ function build() {
     abortSignal,
     activeClient,
     streamingCheckpoint,
+    cpCalls,
     toolDefinitions,
     toolCallSeqMap,
     onUsageArgs,
@@ -129,16 +147,23 @@ describe('P2-1j S3 工具轮上下文装配', () => {
     ]);
   });
 
-  it('本轮状态**同引用**透传；`toolRegistry` / `maxToolTurns` 取自 host', () => {
+  it('本轮状态**同引用**透传；检查点经装配处适配为端口（转发同一实例）；`toolRegistry`/`maxToolTurns` 取自 host', async () => {
     const b = build();
     expect(b.ctx.session).toBe(b.session);
     expect(b.ctx.abortSignal).toBe(b.abortSignal);
     expect(b.ctx.activeClient).toBe(b.activeClient);
-    expect(b.ctx.streamingCheckpoint).toBe(b.streamingCheckpoint);
     expect(b.ctx.toolDefinitions).toBe(b.toolDefinitions);
     expect(b.ctx.toolCallSeqMap).toBe(b.toolCallSeqMap);
     expect(b.ctx.toolRegistry).toBe(b.toolRegistry);
     expect(b.ctx.maxToolTurns).toBe(7);
+    // 检查点：装配处适配为端口（含必填 `suspend`）⇒ 断言不再是同引用，而是**转发等价**
+    const port = b.ctx.streamingCheckpoint as {
+      onToolCompleted: (d: Record<string, unknown>) => Promise<void>;
+      suspend: (reason: string) => Promise<void>;
+    };
+    await port.onToolCompleted({});
+    await port.suspend('budget');
+    expect(b.cpCalls).toEqual(['onToolCompleted', 'suspend:budget']);
   });
 
   it('`onToolUsage`：经 `toUsageInfo` 映射后才回调；全 0 用量 ⇒ **不**回调', () => {

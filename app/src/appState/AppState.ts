@@ -142,6 +142,13 @@ export type RemoteConnectionStatus =
 /**
  * 应用状态
  */
+/** 应用市场 / 插件的**安装状态**（状态机方案 阶段 1.3 取证抽出；原为 `:253`/`:259` 两处内联字面量重复） */
+export type AppInstallStatus =
+  | 'pending'
+  | 'installing'
+  | 'installed'
+  | 'failed';
+
 export interface AppState {
   /** 应用设置 */
   settings: SettingsJson;
@@ -250,13 +257,13 @@ export interface AppState {
     installationStatus: {
       marketplaces: Array<{
         name: string;
-        status: 'pending' | 'installing' | 'installed' | 'failed';
+        status: AppInstallStatus;
         error?: string;
       }>;
       plugins: Array<{
         id: string;
         version?: string;
-        status: 'pending' | 'installing' | 'installed' | 'failed';
+        status: AppInstallStatus;
         error?: string;
       }>;
     };

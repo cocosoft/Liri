@@ -7,7 +7,6 @@ import type { SessionLifecycleEventBus } from '@modules/session';
 import type { SessionLifecycleEvent } from '@modules/session';
 import type { EventSubscription } from '@modules/core';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
-import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chat:services:SessionStateBridge');
@@ -58,17 +57,12 @@ export class SessionStateBridge {
 
     this.subscriptions.push(
       this.eventBus.on('session:archived', (event: SessionLifecycleEvent) => {
-        const machine = this.getSessionMachine(event.sessionId);
-        try {
-          machine.complete('会话归档前完成');
-        } catch (err) {
-          // 忽略非 RUNNING 状态下 complete 失败的异常
-
-          handleError(err, {
-            module: 'chat:sessionBridge',
-            action: 'completeStateMachine',
-          });
-        }
+        // 阶段 3（2026-10-12，8 态 → 3 态）：原此处的 try/catch（"忽略非 RUNNING 状态下 complete 失败的
+        // 异常"）**已证明不可达**并删除 —— `complete()` 目标为 `idle`，而 3 态转移表中
+        // `idle/running/requires_action` **三者到 `idle` 均为合法边或 `from === to` 幂等**
+        // （引擎对 `from === to` 早返回；`onTransition` 钩子与 `notifyListeners` 均内置 try/catch）
+        // ⇒ `transition()` 只可能抛 `IllegalTransitionError`，而此处不存在该情形（CS03：不保留无用兜底）。
+        this.getSessionMachine(event.sessionId).complete('会话归档前完成');
       })
     );
 

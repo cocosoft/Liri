@@ -29,6 +29,9 @@ import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { RequestPriority } from '@modules/types/requestPriority';
+// 状态机方案 阶段 2.1（2026-10-12）：工具调用状态**唯一事实源** = `execution/types.ts`（G14 收敛）。
+// 本门面（chunk / SSE / 前端契约）**引用同一类型**，不再自定义 `'running'|'completed'|'failed'` 联合。
+import type { ToolCallStatus } from '@modules/execution';
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
 // C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）
@@ -315,12 +318,18 @@ export interface DiffBlockData {
   language?: string;
 }
 
-/** 工具调用描述 */
+/**
+ * 工具调用描述
+ *
+ * `status` **引用** `ToolCallStatus`（唯一事实源：`execution/types.ts`，状态机方案 阶段 2.1）——
+ * 含 `unknown`（恢复期"副作用不可知"结算态，P0-4）：流式路径**无该值生产者**（生产者 = 恢复期回填），
+ * 故此处放宽**不改变任何运行时行为**，仅让"结果不可知"这一真实语义在门面上**有类型可表达**。
+ */
 export interface ToolCallSpec {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
-  status?: 'running' | 'completed' | 'failed';
+  status?: ToolCallStatus;
   /** P0-2（2026-08-14）：工具执行结果（普通工具经 tool_end 下发，前端渲染结果内容） */
   result?: unknown;
   /** 工具执行失败原因（仅 status='failed' 时存在，前端日志面板据此展示失败原因） */

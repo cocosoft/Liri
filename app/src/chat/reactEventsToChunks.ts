@@ -8,6 +8,13 @@
 
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { ReActEvent } from '@modules/query';
+// 状态机方案 阶段 2.2（2026-10-12）：工具调用状态改走**常量**（唯一事实源 = `execution/types.ts`）——
+// 消除本层 `'running'` / `'completed'` / `'failed'` 裸字面量（G14 残留，CS02）。
+import {
+  TOOL_CALL_INITIAL_STATUS,
+  TOOL_CALL_COMPLETED_STATUS,
+  TOOL_CALL_FAILED_STATUS,
+} from '@modules/execution';
 
 /**
  * BUG-10 审查补充（2026-08-23）：tool_progress 透传节流。
@@ -89,7 +96,7 @@ export function reactEventsToChunks(
             id: event.callId,
             name: event.name,
             arguments: event.input ?? {},
-            status: 'running',
+            status: TOOL_CALL_INITIAL_STATUS,
           },
         },
       ];
@@ -127,7 +134,10 @@ export function reactEventsToChunks(
             id: event.callId,
             name: event.result.name,
             arguments: {},
-            status: event.result.status === 'error' ? 'failed' : 'completed',
+            status:
+              event.result.status === 'error'
+                ? TOOL_CALL_FAILED_STATUS
+                : TOOL_CALL_COMPLETED_STATUS,
             // 失败原因直接挂到 toolCall，前端日志面板可精确展示（不再只靠 status block）
             error:
               event.result.status === 'error'

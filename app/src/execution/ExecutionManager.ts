@@ -14,6 +14,8 @@ import { StaleExecutionError } from './errors';
 import { ExecutionLease } from './ExecutionLease';
 import type { ExecutionStore } from './ExecutionStore';
 import { emitExecutionEvent } from './eventSink';
+// 阶段 4（2026-10-12）：四原语**只读投影**（原生状态 → PREPARED/RUNNING/SUSPENDED/SETTLED 的带外广播）
+import { publishExecutionProjection } from './executionProjection';
 import {
   TOOL_CALL_UNKNOWN_STATUS,
   canTransition,
@@ -594,6 +596,10 @@ export class ExecutionManager {
       to,
       ...(rec.messageId !== undefined ? { messageId: rec.messageId } : {}),
     });
+    // 阶段 4（2026-10-12）：四原语**只读投影**广播（telemetry-gated，`FEATURE_STATE_PROJECTION_BROADCAST`
+    // 默认关 ⇒ 零行为变更）。本方法是执行域**唯一 choke point**（全部状态转移均经它）⇒ 满足方案 §4.1
+    // 「不要求开发者手工逐点调用映射」；载荷**只带原语**、不带原生细粒度状态（§4.3）。
+    publishExecutionProjection({ sessionId: rec.sessionId, status: to });
   }
 
   /**

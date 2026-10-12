@@ -104,6 +104,10 @@ export type ToolCallStatus = (typeof TOOL_CALL_STATUSES)[number];
 
 /** 初始状态（`recordToolCall` 落盘值）—— 避免 SQL 中出现裸字面量 */
 export const TOOL_CALL_INITIAL_STATUS: ToolCallStatus = 'running';
+/** 结算：成功（`settleToolCall` 落盘值）—— 避免 chunk/SSE 层出现裸字面量（状态机方案 阶段 2.2） */
+export const TOOL_CALL_COMPLETED_STATUS: ToolCallStatus = 'completed';
+/** 结算：失败（`settleToolCall` 落盘值，携 `error`）—— 同上 */
+export const TOOL_CALL_FAILED_STATUS: ToolCallStatus = 'failed';
 /** 恢复期"副作用不可知"状态（P0-4，`markUnsettledToolCallsUnknown` 落盘值） */
 export const TOOL_CALL_UNKNOWN_STATUS: ToolCallStatus = 'unknown';
 

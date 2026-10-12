@@ -9,6 +9,8 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve, relative, dirname } from 'node:path';
+// R09-006（2026-10-12）：动态载入状态机**定义目录**（登记唯一事实源）需要 file:// URL
+import { pathToFileURL } from 'node:url';
 
 /**
  * 测试文件排除集（2026-10-01 口径统一，用户裁定）。
@@ -3772,6 +3774,217 @@ class ArchitectureLinter {
     );
   }
 
+  // ============ R09 统一状态机 ============
+
+  /**
+   * R09-006（**状态机规范管理方案 阶段 1.4，2026-10-12**）：**状态机定义必须登记**（error ⇒ 阻断构建）。
+   *
+   * **为什么是硬报错而非松散告警**（方案 1.4 裁断）：Liri 稳定性依赖**完全可预测性**，松散告警终将
+   * 退化为今日 streaming 层那种裸字符串碎片（实证：`'running'`/`'completed'` 散落各层）。
+   *
+   * **判据**：`app/src/**`（排除测试文件）中出现的**有运行时锚点**的状态机形状导出，必须**要么**
+   * 在**定义目录** `app/src/state/engine/stateMachineCatalog.ts` 登记，**要么**在**显式豁免清单**
+   * `scripts/state-machine-allowlist.json`（每条附 `reason`）登记；否则报 error。
+   *
+   *   ① `export enum <Name>`（`Name` 以 `Status` / `State` 结尾）
+   *   ② `export const <NAME> = [ … ]` 或 `= new Set([ … ])`（`NAME` 以 `_STATUSES` / `_STATES` 结尾）
+   *
+   * **登记来源（三个，全部显式且可追溯）**：
+   *   - `STATE_MACHINES[].verifyRef`（精确 `module#exportName` 锚点）；
+   *   - `STATE_MACHINES[].sourceFile` / `BOUNDARY_STATE_MACHINES[].sourceFile`（**文件级**豁免；
+   *     前者是已登记事实源文件，后者是"同名不同物"登记，理由见目录内 `note`/`reason`）；
+   *   - `scripts/state-machine-allowlist.json`（精确 `file#exportName`；`exportName: "*"` 为文件级）。
+   *
+   * ⚠️ **局限（如实）**：仅识别 **`enum` / `as const`(Set) 数组** 两类**有运行时锚点**的形态；
+   * `type X = 'a' | 'b'` 类型联合与内联字面量**不在**本门禁范围内（全仓逾 150 处，逐一豁免即"噪音
+   * 门禁"、必无人维护）⇒ 该类由 `stateMachineCatalog` 的 `source-read` 条目 +
+   * `tests/state/stateMachineCatalog.test.ts` **人工取证**覆盖。**只漏报、不误报。**
+   *
+   * 豁免清单**缺失即 fail-closed**（报 error 并中止本检查）——白名单型门禁若在清单缺失时静默放行，
+   * 等于门禁关闭（对照 R05-007 的历史教训）。
+   */
+  async checkStateMachineRegistration(): Promise<void> {
+    const repoRoot = this.projectDir;
+    const appSrc = this.srcPath;
+    const relOf = (p: string): string =>
+      relative(repoRoot, p).replace(/\\/g, '/');
+
+    // ① 载入**定义目录**（登记唯一事实源；零依赖纯数据 ⇒ 可安全动态载入，无需源码正则解析）
+    const catalogPath = resolve(
+      appSrc,
+      'state',
+      'engine',
+      'stateMachineCatalog.ts'
+    );
+    if (!existsSync(catalogPath)) {
+      this.violations.push({
+        ruleId: 'R09-006',
+        severity: 'error',
+        file: relOf(catalogPath),
+        message: '状态机定义目录缺失，无法校验登记完整性',
+        suggestion:
+          '恢复 app/src/state/engine/stateMachineCatalog.ts（状态机方案 阶段 1 落地物）',
+      });
+      return;
+    }
+
+    let catalog: {
+      STATE_MACHINES?: readonly {
+        sourceFile?: string;
+        verifyRef?: { module?: string; exportName?: string };
+      }[];
+      BOUNDARY_STATE_MACHINES?: readonly { sourceFile?: string }[];
+    };
+    try {
+      catalog = (await import(
+        pathToFileURL(catalogPath).href
+      )) as typeof catalog;
+    } catch (err) {
+      this.violations.push({
+        ruleId: 'R09-006',
+        severity: 'error',
+        file: relOf(catalogPath),
+        message: `状态机定义目录载入失败，登记校验无法进行：${String(err)}`,
+        suggestion:
+          '确保 stateMachineCatalog.ts 保持**零依赖纯数据**（不得 import 任何域模块，避免 core←service 倒挂）',
+      });
+      return;
+    }
+
+    /** 精确锚点：`module#exportName`（小写正斜杠归一） */
+    const registered = new Set<string>();
+    /** 已登记**文件**（`STATE_MACHINES[].sourceFile` 与 `BOUNDARY_STATE_MACHINES[].sourceFile`）——文件级豁免 */
+    const registeredFiles = new Set<string>();
+    const addFile = (p: unknown): void => {
+      const f = String(p ?? '')
+        .replace(/\\/g, '/')
+        .toLowerCase();
+      if (f) registeredFiles.add(f);
+    };
+    for (const m of catalog.STATE_MACHINES ?? []) {
+      addFile((m as { sourceFile?: string }).sourceFile);
+      const mod = m.verifyRef?.module;
+      const name = m.verifyRef?.exportName;
+      if (!mod || !name) continue;
+      registered.add(`${mod.replace(/\\/g, '/').toLowerCase()}#${name}`);
+    }
+    /** 边界文件（同名不同物）：理由在目录内 `reason` */
+    for (const b of catalog.BOUNDARY_STATE_MACHINES ?? []) {
+      addFile(b.sourceFile);
+    }
+
+    // ② 载入显式豁免清单（缺失 ⇒ fail-closed）
+    const allowPath = resolve(__dirname, 'state-machine-allowlist.json');
+    if (!existsSync(allowPath)) {
+      this.violations.push({
+        ruleId: 'R09-006',
+        severity: 'error',
+        file: relOf(allowPath),
+        message: '状态机豁免清单缺失（scripts/state-machine-allowlist.json）',
+        suggestion:
+          '恢复该清单：所有"形似状态机但非登记对象"的定义必须**显式**登记并附 reason（缺清单等于门禁关闭）',
+      });
+      return;
+    }
+    const exempt = new Set<string>();
+    const exemptFiles = new Set<string>();
+    try {
+      const data = JSON.parse(readFileSync(allowPath, 'utf-8')) as {
+        exemptions?: { file?: string; exportName?: string; reason?: string }[];
+      };
+      for (const e of data.exemptions ?? []) {
+        const f = String(e.file ?? '')
+          .replace(/\\/g, '/')
+          .toLowerCase();
+        const n = String(e.exportName ?? '');
+        if (!f || !n) continue;
+        if (n === '*') exemptFiles.add(f);
+        else exempt.add(`${f}#${n}`);
+      }
+    } catch (err) {
+      this.violations.push({
+        ruleId: 'R09-006',
+        severity: 'error',
+        file: relOf(allowPath),
+        message: `豁免清单解析失败：${String(err)}`,
+        suggestion: '修正 scripts/state-machine-allowlist.json 的 JSON 语法',
+      });
+      return;
+    }
+
+    // ③ 发现候选（**剥离注释** ⇒ 注释里复写声明不算，行号不变）
+    const candidates: { file: string; exportName: string; line: number }[] = [];
+    const lineOf = (text: string, index: number): number =>
+      text.slice(0, index).split('\n').length;
+
+    for (const abs of this.allFiles) {
+      const rel = relOf(abs);
+      const relLower = rel.toLowerCase();
+      if (TEST_FILE_EXCLUSIONS.some((x) => relLower.includes(x))) continue;
+
+      const content = this.stripComments(readFileSync(abs, 'utf-8'));
+
+      // ① export enum <Name>（Name 以 Status / State 结尾）
+      for (const m of content.matchAll(
+        /^export\s+enum\s+([A-Za-z_$][\w$]*)/gm
+      )) {
+        const name = m[1];
+        if (!/(Status|State)$/.test(name)) continue;
+        candidates.push({
+          file: rel,
+          exportName: name,
+          line: lineOf(content, m.index ?? 0),
+        });
+      }
+
+      // ② export const <NAME> = [ … ]（NAME 以 _STATUSES / _STATES 结尾）
+      for (const m of content.matchAll(
+        /^export\s+const\s+([A-Z_$][A-Z0-9_$]*)\b([^\n]*)/gm
+      )) {
+        const name = m[1];
+        if (!/(_STATUSES|_STATES)$/.test(name)) continue;
+        if (!/=\s*(\[|new\s+Set\(\s*\[)/.test(m[2])) continue;
+        candidates.push({
+          file: rel,
+          exportName: name,
+          line: lineOf(content, m.index ?? 0),
+        });
+      }
+    }
+
+    // ④ 判定：未登记 ⇒ **error**（阻断构建）
+    const unregistered = candidates.filter((c) => {
+      const fileLower = c.file.toLowerCase();
+      const key = `${fileLower}#${c.exportName}`;
+      return (
+        !registered.has(key) &&
+        !exempt.has(key) &&
+        !exemptFiles.has(fileLower) &&
+        !registeredFiles.has(fileLower)
+      );
+    });
+
+    for (const u of unregistered) {
+      this.violations.push({
+        ruleId: 'R09-006',
+        severity: 'error',
+        file: u.file,
+        line: u.line,
+        message: `未登记的状态机定义：${u.exportName}（不在定义目录 stateMachineCatalog.ts，也不在显式豁免清单）`,
+        suggestion:
+          '二选一：① 在 app/src/state/engine/stateMachineCatalog.ts 登记（`STATE_MACHINES`，含 states 取值与 sourceFile）；' +
+          '② 若确非本方案治理对象，则在 scripts/state-machine-allowlist.json 登记并**附 reason**',
+      });
+    }
+
+    console.log(
+      `[状态机登记检查 R09-006] 候选 ${candidates.length} 个，已登记 ${candidates.length - unregistered.length} 个，未登记 ${unregistered.length} 个` +
+        (unregistered.length > 0
+          ? `：${unregistered.map((u) => `${u.file}#${u.exportName}`).join('、')}`
+          : '')
+    );
+  }
+
   /** R07-001 豁免：已登记的微小文件例外 */
   isTinyFileExempt(relPath: string): boolean {
     const normalized = relPath.replace(/\\/g, '/').toLowerCase();
@@ -4171,6 +4384,8 @@ class ArchitectureLinter {
       this.checkOrphanOutputSchemas(),
       // R15-002 工具 schemas 模块引用（"零 importer 的 schemas.ts" 防回潮；D-7 收口后零豁免上线）
       this.checkOrphanSchemaModules(),
+      // R09-006 状态机登记硬门禁（状态机方案 阶段 1.4：未登记状态机 ⇒ 阻断构建）
+      this.checkStateMachineRegistration(),
     ]);
 
     // 分层合规检查（需按顺序在 loadFiles 之后执行）

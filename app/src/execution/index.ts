@@ -10,6 +10,17 @@ export {
   canTransition,
   isActiveStatus,
   isTerminalStatus,
+  // 状态机方案 阶段 2.1（2026-10-12）：工具调用状态（G14 单一事实源）**必须**经本出口暴露 ——
+  // 否则 chunk/SSE/前端契约只能各自复写 `'running'|'completed'|'failed'` 字面量（正是阶段 2 要消除的分叉）。
+  TOOL_CALL_STATUSES,
+  TOOL_CALL_INITIAL_STATUS,
+  TOOL_CALL_COMPLETED_STATUS,
+  TOOL_CALL_FAILED_STATUS,
+  TOOL_CALL_UNKNOWN_STATUS,
+  TOOL_CALL_TERMINAL_STATUSES,
+  canTransitionToolCall,
+  isToolCallTerminalStatus,
+  isToolCallStatus,
 } from './types';
 export type {
   AbortReason,
@@ -17,6 +28,7 @@ export type {
   ExecutionId,
   ExecutionRecord,
   ExecutionStatus,
+  ToolCallStatus,
   // P0-4（2026-10-10）：恢复期 unknown 工具调用 + recover() 结果
   RecoveredUnknownToolCall,
   RecoveryResult,
@@ -51,3 +63,8 @@ export type {
 // PR5-S3（2026-10-09）：execution 生命周期会话事件发射器（宿主经 setExecutionEventSink 注入）
 export { setExecutionEventSink, emitExecutionEvent } from './eventSink';
 export type { ExecutionEventAppender, ExecutionEventType } from './eventSink';
+// 阶段 4（2026-10-12）：执行域「原生状态 → 四原语」**只读投影**（映射纯函数 + 广播出口）
+export {
+  projectExecutionStatus,
+  publishExecutionProjection,
+} from './executionProjection';

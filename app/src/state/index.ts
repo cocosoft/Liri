@@ -21,10 +21,26 @@ export type {
   StateMachineConfig,
 } from './engine/types';
 
-// 会话状态机
+// 四原语**只读投影**广播 Broker（阶段 4 / 2026-10-12；词汇 + 载荷 + 广播，零域依赖）
+export {
+  EXECUTION_PRIMITIVES,
+  STATE_PROJECTION_BROADCAST_FLAG,
+  isStateProjectionBroadcastEnabled,
+  publishStateProjection,
+} from './engine/projectionBroker';
+export type {
+  ExecutionPrimitive,
+  StateProjectionBroadcast,
+  StateProjectionDomain,
+} from './engine/projectionBroker';
+
+// 会话状态机（阶段 3 / 2026-10-12：8 态 → 3 态；旧 `SessionState` 枚举已删除）
 export { SessionStateMachine } from './session/SessionStateMachine';
-export { SessionState, SESSION_TRANSITIONS } from './session/types';
-export type { RequiresActionDetails } from './session/types';
+export { SESSION_TRANSITIONS } from './session/types';
+export type {
+  RequiresActionDetails,
+  SimplifiedSessionState,
+} from './session/types';
 
 // 应用状态机
 export { AppStateMachine } from './app/AppStateMachine';

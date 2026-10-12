@@ -452,6 +452,13 @@ export const SystemEvents = {
 
   STATE_CHANGED: 'state:changed',
   STATE_RESET: 'state:reset',
+  /**
+   * 四原语**只读投影**广播（状态机规范管理方案 阶段 4，2026-10-12）。
+   *
+   * 载荷 = `StateProjectionBroadcast`（**只带原语**，不带原生细粒度状态）；发布方 =
+   * `state/engine/projectionBroker`，受 `FEATURE_STATE_PROJECTION_BROADCAST`（默认关）门控。
+   */
+  STATE_PROJECTED: 'state:projected',
 
   MCP_CLIENT_CONNECTED: 'mcp:client:connected',
   MCP_CLIENT_DISCONNECTED: 'mcp:client:disconnected',

@@ -24,6 +24,7 @@ import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
+import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
@@ -48,6 +49,16 @@ import type { RollbackIntegration, FileOperation } from '@modules/security';
 import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 import { assertPermissionManagerInjected } from '@modules/permission';
+
+/**
+ * **工具执行瞬态**状态（状态机方案 阶段 1.3 取证抽出；消除裸字面量，CS02）。
+ *
+ * 按方案 阶段 2.3 裁断：这类"人在环"瞬态**不进** `ToolCallStatus` 持久化枚举（保护序列化完整性）。
+ * - `awaiting_approval` 的**唯一事实源** = 本常量；
+ * - `requires_approval` 的**唯一事实源** = `ToolExecutionStatus` 枚举（本文件**不复制**其字面量，
+ *   守住"数出同源"）。
+ */
+const TRANSIENT_AWAITING_APPROVAL = 'awaiting_approval' as const;
 
 const logger = getLogger('chat:toolExecution');
 
@@ -635,7 +646,7 @@ export class ToolExecutionService {
           if (!approvedHit) {
             if (permissionResult.submittedToInbox === true) {
               const approvalResult = {
-                status: 'awaiting_approval',
+                status: TRANSIENT_AWAITING_APPROVAL,
                 message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
                 pendingApproval: true,
               } as const;
@@ -933,7 +944,8 @@ export class ToolExecutionService {
         if (
           (toolResult as { requireApproval?: boolean }).requireApproval ===
             true ||
-          (toolResult as { status?: string }).status === 'requires_approval'
+          (toolResult as { status?: string }).status ===
+            (ToolExecutionStatus.REQUIRES_APPROVAL as string)
         ) {
           const approvalReason = (toolResult as { approvalReason?: string })
             .approvalReason;
@@ -959,7 +971,7 @@ export class ToolExecutionService {
               toolCallId: toolCall.id,
               toolName: normalizedToolCall.name,
               result: {
-                status: 'awaiting_approval',
+                status: TRANSIENT_AWAITING_APPROVAL,
                 message: `工具 '${normalizedToolCall.name}' 需要审批（${
                   approvalReason || '高风险操作'
                 }），已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,

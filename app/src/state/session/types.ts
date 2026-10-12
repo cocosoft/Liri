@@ -1,80 +1,71 @@
 /**
- * 会话状态机类型定义
+ * 会话状态机类型定义（**3 态**）
  *
- * 基于设计文档 5.1 节，从 SessionStatus 的 10 种状态精简为 8 种。
- * 去掉了冗余的 ACTIVE 和 ENDED。
+ * ## 阶段 3（状态机规范管理方案，2026-10-12）：8 态 → 3 态收敛
+ *
+ * **取证结论（回仓，非推断）**：旧 8 态 `SessionState` 枚举**不是**遗留死码 —— 它是**活事实源**：
+ *   - `chat/ChatManager.ts:3184`（`.start('processUserInput')`）· `:3338`（`.finish('工具执行完成')`）
+ *   - `chat/orchestrator/ChatOrchestrator.ts:754`（`.start('sendMessage')`）· `:1166`（`.finish(...)`）
+ *   - `chat/services/SessionStateBridge.ts`（**已在 `entrypoints/init.ts:479-490` 接线**）按
+ *     `session:activated/paused/resumed/archived/error` 分别调 `.start/.pause/.resume/.complete/.error`
+ *
+ * ⇒ 依**用户裁定（2026-10-12）执行 8→3 收敛**。**如实记录降级代价**（折叠映射，与 Phase 1 既定的
+ * `toSimplifiedState()` 逐值一致）：
+ *
+ * | 旧 8 态 | → 3 态 |
+ * |---|---|
+ * | `IDLE` / `COMPLETED` / `ARCHIVED` / `ABORTED` | `idle` |
+ * | `RUNNING` | `running` |
+ * | `REQUIRES_ACTION` / `PAUSED` / `ERROR` | `requires_action` |
+ *
+ * 随 8 态一并**删除**的 3 项（取证：零消费者 / 无输入类型）：
+ *   ① 旧 `SessionState` 枚举本体（8 态）；
+ *   ② `toSimplifiedState()`（8→3 映射函数）—— 8 态消失后**无输入类型**；
+ *   ③ 独立的终态语义（`COMPLETED/ARCHIVED/ABORTED`）—— 3 态下 `idle` **可再次 `start()`** ⇒ 生命周期**成环**、
+ *      **无终态**，`isTerminal()` 恒 `false`（旧表以 `ARCHIVED/ABORTED` 为终态）。
+ *
+ * **无数据/外部入口依赖（取证，故无需迁移映射）**：旧 8 态**不持久化**（见方案 §1 清点表 #5「持久化：无」）；
+ * `EventNotificationService.emitSessionStateChanged()` 亦**零调用点**。
  */
 
 import type { TransitionRules } from '../engine/types';
 
 /**
- * 会话状态枚举（8 状态，旧版）
+ * 会话状态（**唯一事实源**，3 态）。
  *
- * @deprecated 使用 {@link SimplifiedSessionState} 替代。
- * 三阶段迁移进度：
- *   Phase 1 ✅ — SimplifiedSessionState + toSimplifiedState() 已定义，并存
- *   Phase 2 ⏳ — 待 ChatManager 拆分后逐文件迁移消费方
- *   Phase 3 ⬜ — 全部迁移后删除此枚举
- */
-export enum SessionState {
-  /** 空闲 — 初始状态 */
-  IDLE = 'idle',
-  /** 运行中 — 正在执行任务 */
-  RUNNING = 'running',
-  /** 需要用户操作 — 等待用户输入 */
-  REQUIRES_ACTION = 'requires_action',
-  /** 已暂停 */
-  PAUSED = 'paused',
-  /** 已完成 */
-  COMPLETED = 'completed',
-  /** 出错 */
-  ERROR = 'error',
-  /** 已归档 — 终态 */
-  ARCHIVED = 'archived',
-  /** 已中止 — 终态 */
-  ABORTED = 'aborted',
-}
-
-/**
- * 简化会话状态（对标 BA_REF 的 idle/running/requires_action）
- *
- * Phase 1 ✅: 新增类型，与旧 SessionState 枚举并存
- * Phase 2 ⏳: 逐步迁移消费方使用此类型（待 ChatManager 拆分后执行，受影响文件见迁移清单）
- * Phase 3 ⬜: 删除旧 SessionState 枚举中非核心状态
- *
- * 迁移清单（方案 Step 9）:
- *   - session/types/UnifiedSession.ts
- *   - SessionStore.ts
- *   - SessionStateMachine.ts
- *   - SessionGateway.ts
- *   - core/session/SessionSupervisor.ts
- *   - state/engine/StateMachine.ts
+ * `SimplifiedSessionState` 名称保留（方案与定义目录口径一致；不再改名以避免额外重命名面）。
  */
 export type SimplifiedSessionState = 'idle' | 'running' | 'requires_action';
 
 /**
- * 将旧 SessionState 映射为简化状态
+ * 会话状态转移规则表（3 态，唯一事实源）。
+ *
+ * 由旧 8 态表按上述折叠映射**逐边归并**而来：
+ * - `idle → running`（原 `IDLE → RUNNING`）
+ * - `running → idle`（原 `RUNNING → IDLE` 与 `COMPLETED/ABORTED` 的归并结果）
+ * - `running → requires_action`（原 `RUNNING → REQUIRES_ACTION/PAUSED/ERROR` 三条边归并）
+ * - `requires_action → running`（原 `REQUIRES_ACTION/PAUSED/ERROR → RUNNING`）
+ * - `requires_action → idle`（原 `ERROR → IDLE` 与 `REQUIRES_ACTION/PAUSED → ABORTED`）
+ *
+ * ⚠️ **同目标再触发是安全幂等**：引擎 [`StateMachine.transition`](../engine/StateMachine.ts)
+ * 对 `from === to` **早返回 `true`**（记 `状态未变` debug，不抛）⇒ 3 态折叠后不可避免的
+ * "已在 `requires_action` 时再来 `pause()`/`error()`" **不会**新增异常面
+ * （旧 8 态表本就允许 `REQUIRES_ACTION → PAUSED/ERROR`）。
+ *
+ * ⚠️ 字面量由 `TransitionRules<SimplifiedSessionState>` **类型约束** ⇒ 拼写漂移在**编译期**失败，
+ * 故不再引入 `SESSION_STATE_*` 常量（CS01：不重复造；且 `SESSION_STATES` 之名已被
+ * `session/models/SessionState.ts:44` 占用，另起名会构成同名不同物）。
  */
-export function toSimplifiedState(state: SessionState): SimplifiedSessionState {
-  switch (state) {
-    case SessionState.IDLE:
-    case SessionState.COMPLETED:
-    case SessionState.ARCHIVED:
-    case SessionState.ABORTED:
-      return 'idle';
-    case SessionState.RUNNING:
-      return 'running';
-    case SessionState.REQUIRES_ACTION:
-    case SessionState.PAUSED:
-    case SessionState.ERROR:
-      return 'requires_action';
-  }
-}
+export const SESSION_TRANSITIONS: TransitionRules<SimplifiedSessionState> = {
+  idle: ['running'],
+  running: ['idle', 'requires_action'],
+  requires_action: ['running', 'idle'],
+};
 
 /**
  * 待处理动作详情
  *
- * 当会话进入 REQUIRES_ACTION 状态时，描述需要用户做什么操作。
+ * 当会话进入 `requires_action` 状态时，描述需要用户做什么操作。
  */
 export interface RequiresActionDetails {
   /** 需要用户确认的工具名称 */
@@ -88,39 +79,3 @@ export interface RequiresActionDetails {
   /** 工具输入参数 */
   input?: Record<string, unknown>;
 }
-
-/**
- * 会话状态转移规则表
- *
- * 转移路径说明：
- * - IDLE → ABORTED：创建了会话但从未运行就直接废弃
- * - ERROR → RUNNING：错误后重试，保留上下文（如网络超时）
- * - ERROR → IDLE：错误后完全重置
- * - PAUSED → RUNNING：从暂停恢复执行
- */
-export const SESSION_TRANSITIONS: TransitionRules<SessionState> = {
-  [SessionState.IDLE]: [SessionState.RUNNING, SessionState.ABORTED],
-  [SessionState.RUNNING]: [
-    SessionState.IDLE,
-    SessionState.REQUIRES_ACTION,
-    SessionState.PAUSED,
-    SessionState.ERROR,
-    SessionState.COMPLETED,
-    SessionState.ABORTED,
-  ],
-  [SessionState.REQUIRES_ACTION]: [
-    SessionState.RUNNING,
-    SessionState.PAUSED,
-    SessionState.ERROR,
-    SessionState.ABORTED,
-  ],
-  [SessionState.PAUSED]: [SessionState.RUNNING, SessionState.ABORTED],
-  [SessionState.COMPLETED]: [SessionState.ARCHIVED],
-  [SessionState.ERROR]: [
-    SessionState.IDLE,
-    SessionState.RUNNING,
-    SessionState.ABORTED,
-  ],
-  [SessionState.ARCHIVED]: [],
-  [SessionState.ABORTED]: [],
-};

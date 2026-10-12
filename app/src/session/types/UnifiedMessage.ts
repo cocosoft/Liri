@@ -1,4 +1,7 @@
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+// 状态机方案 阶段 2.1（2026-10-12）：工具调用状态引用**唯一事实源**（`execution/types.ts`），
+// 不再复写"运行/完成/失败"三值联合（与 `ToolCallSpec.status` 同类型，防 G14 分叉回流）。
+import type { ToolCallStatus } from '@modules/execution';
 
 /**
  * 消息类型枚举
@@ -119,7 +122,7 @@ export interface FrontendMessageBlock {
     name: string;
     arguments: Record<string, unknown>;
     result?: unknown;
-    status?: 'running' | 'completed' | 'failed';
+    status?: ToolCallStatus;
   };
   status?: string;
   isStreaming?: boolean;

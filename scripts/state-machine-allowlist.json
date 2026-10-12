@@ -1,0 +1,227 @@
+{
+  "version": "1.0",
+  "description": "R09-006 状态机登记硬门禁的**显式豁免清单**（状态机规范管理方案 阶段 1.4，2026-10-12）。候选发现口径与判定见 scripts/lint-architecture.ts 的 checkStateMachineRegistration()。每条豁免必须含 reason（为什么该定义**不是**状态机方案治理对象）。⚠️ 本清单**缺失即 fail-closed**（门禁报 error），禁止删除。",
+  "lastUpdated": "2026-10-12",
+  "exemptions": [
+    {
+      "file": "app/src/agent/models/types.ts",
+      "exportName": "AgentState",
+      "reason": "agent 域（子代理）本地运行态，属「领域内建」而非跨域编排状态机（对齐 R09-001 现有登记边界）"
+    },
+    {
+      "file": "app/src/bridge/sessions/MultiSessionManager.ts",
+      "exportName": "SessionStatus",
+      "reason": "IDE 桥接层的多会话进程态，其生命周期由 bridge 自身管理，与 session 域 SessionState 非同一物"
+    },
+    {
+      "file": "app/src/chat/models/types.ts",
+      "exportName": "ChatSessionStatus",
+      "reason": "chat 域持久化会话态，事实源在 chat 域自身；已并入 state/session 的精简态（阶段 3）迁移范围，不另立目录条目"
+    },
+    {
+      "file": "app/src/chat/streaming/AdvancedStreamingProcessor.ts",
+      "exportName": "StreamState",
+      "reason": "流式处理器内部状态（局部实现细节，非对外可观测状态机）；阶段 2 的去裸字符串另行处理 chunk/SSE 层"
+    },
+    {
+      "file": "app/src/context/LifecycleManager.ts",
+      "exportName": "LifecycleState",
+      "reason": "上下文对象的生命周期枚举，属资源管理而非任务/会话编排状态"
+    },
+    {
+      "file": "app/src/core/data-models.ts",
+      "exportName": "DataSessionStatus",
+      "reason": "数据模型层的会话记录态（DB 契约枚举），与 state/session 的运行时会话状态机非同一物"
+    },
+    {
+      "file": "app/src/docs/DocumentVersionService.ts",
+      "exportName": "DocumentVersionStatus",
+      "reason": "文档版本服务本地域状态，无跨域编排语义"
+    },
+    {
+      "file": "app/src/memory/services/TeamMemoryService.ts",
+      "exportName": "TeamMemorySyncStatus",
+      "reason": "记忆同步子系统的本地同步态，域内自管"
+    },
+    {
+      "file": "app/src/memory/services/TeamMemorySyncService.ts",
+      "exportName": "SyncStatus",
+      "reason": "与上一条同域（同步态）；同名不同文件，均属记忆域本地状态"
+    },
+    {
+      "file": "app/src/modules/calendar/types/index.ts",
+      "exportName": "EventStatus",
+      "reason": "功能模块（calendar）的领域实体状态（日程事件），属业务数据而非编排状态机"
+    },
+    {
+      "file": "app/src/modules/calendar/types/index.ts",
+      "exportName": "CalendarModuleStatus",
+      "reason": "功能模块自身的启停/健康态（模块本地生命周期，对齐 R10 模块管理，非 R09 编排状态机）"
+    },
+    {
+      "file": "app/src/modules/doc/types/index.ts",
+      "exportName": "DocModuleStatus",
+      "reason": "同上：功能模块自身的启停/健康态"
+    },
+    {
+      "file": "app/src/modules/mail/types/index.ts",
+      "exportName": "MailModuleStatus",
+      "reason": "同上：功能模块自身的启停/健康态"
+    },
+    {
+      "file": "app/src/monitoring/HealthMonitor.ts",
+      "exportName": "ChannelStatus",
+      "reason": "可观测性层对通道健康度的**观测结论**（探针输出），非通道自身状态机"
+    },
+    {
+      "file": "app/src/permission/classifiers/AutoModeState.ts",
+      "exportName": "AutoModeState",
+      "reason": "权限自动模式的分类器判定态，属安全策略域内状态（R09 治理范围为任务/连接/后台进程）"
+    },
+    {
+      "file": "app/src/permission/utils/BypassPermissionsKillswitch.ts",
+      "exportName": "BypassState",
+      "reason": "权限旁路熔断开关态（安全兜底，CS03 语义），属安全域而非编排域"
+    },
+    {
+      "file": "app/src/plugin-sdk/types.ts",
+      "exportName": "PluginRuntimeStatus",
+      "reason": "插件 SDK 对外契约的运行态（第三方插件可见），属插件体系（R10）而非编排状态机"
+    },
+    {
+      "file": "app/src/plugins/hotload/PluginHotloadManager.ts",
+      "exportName": "HotloadStatus",
+      "reason": "插件热加载过程态，域内自管"
+    },
+    {
+      "file": "app/src/plugins/types/Plugin.ts",
+      "exportName": "PluginStatus",
+      "reason": "插件生命周期态（与上条 PluginState 同域，两处均属插件体系治理）"
+    },
+    {
+      "file": "app/src/plugins/types/PluginTypes.ts",
+      "exportName": "PluginState",
+      "reason": "插件状态枚举（插件体系治理范围，非 R09 编排状态机）"
+    },
+    {
+      "file": "app/src/query/QueryEngine.ts",
+      "exportName": "QueryState",
+      "reason": "单次查询引擎的瞬态执行态（每次查询重建）；R09-001 记录的 Task/Connection 域专项不在本方案范围"
+    },
+    {
+      "file": "app/src/query/TokenBudget.ts",
+      "exportName": "TokenBudgetStatus",
+      "reason": "查询级 token 预算档位（与 daily-budget 的 BudgetMode 非同一物，后者已在目录登记）"
+    },
+    {
+      "file": "app/src/query/TrackedTool.ts",
+      "exportName": "TrackedToolState",
+      "reason": "查询内的工具追踪瞬态（局部计数器态），非工具调用持久态（后者 = ToolCallStatus，已登记）"
+    },
+    {
+      "file": "app/src/remote/RemoteFileSyncService.ts",
+      "exportName": "SyncStatus",
+      "reason": "远端文件同步服务的本地同步态，域内自管"
+    },
+    {
+      "file": "app/src/remote/SSHConnection.ts",
+      "exportName": "SSHConnectionStatus",
+      "reason": "SSH 连接态 —— 属 R09-001 明确列出的「Connection 域待专项」，本方案不扩大范围"
+    },
+    {
+      "file": "app/src/services/mcp/types/index.ts",
+      "exportName": "MCPServerStatus",
+      "reason": "MCP 服务端连接态（外部进程管理），属集成域而非编排状态机"
+    },
+    {
+      "file": "app/src/session/types/message/enums.ts",
+      "exportName": "MessageStatus",
+      "reason": "消息投递/处理态（消息模型契约），属消息域；与工具调用态分属不同层"
+    },
+    {
+      "file": "app/src/session/types/UnifiedSession.ts",
+      "exportName": "SessionStatus",
+      "reason": "统一会话**模型**（hydrated 持久化视图）的状态字段枚举，与 state/session 的运行时状态机非同一物"
+    },
+    {
+      "file": "app/src/state/background/BackgroundTaskStateMachine.ts",
+      "exportName": "BackgroundTaskState",
+      "reason": "后台任务状态机本体（R09-001 已接线的 state/engine 实例）：其**运行时实例**登记在 StateMachineRegistry，本目录只登记定义级清单，按方案口径不重复登记"
+    },
+    {
+      "file": "app/src/streaming/types.ts",
+      "exportName": "StreamState",
+      "reason": "流式管线（G14 相关）的管线态枚举；阶段 2 将处理 chunk/SSE 裸字符串，此处枚举本身不在 1.4 范围"
+    },
+    {
+      "file": "app/src/subagent/types/SubAgent.ts",
+      "exportName": "SubAgentStatus",
+      "reason": "子代理运行态，属 agent 域本地状态"
+    },
+    {
+      "file": "app/src/tasks/PdcaWorkItemBridge.ts",
+      "exportName": "PDCA_TERMINAL_STATUSES",
+      "reason": "**派生筛选集**（从阶段/状态枚举中筛出的终态子集），非状态定义本身"
+    },
+    {
+      "file": "app/src/tasks/PdcaWorkItemBridge.ts",
+      "exportName": "PDCA_ACTIVE_STATUSES",
+      "reason": "**派生筛选集**（活跃态子集），非状态定义本身"
+    },
+    {
+      "file": "app/src/tasks/types.ts",
+      "exportName": "TaskDeliveryStatus",
+      "reason": "任务结果的投递态（出站投递视角），与 TaskStatus（任务生命周期，已登记）分属不同轴"
+    },
+    {
+      "file": "app/src/tasks/types.ts",
+      "exportName": "TaskFlowStatus",
+      "reason": "任务流转态（任务域内子轴，`tasks/types.ts` 多家枚举并存，未纳入本方案 13 台清点）"
+    },
+    {
+      "file": "app/src/tokenBudget/TokenBudgetController.ts",
+      "exportName": "TokenBudgetStatus",
+      "reason": "token 预算控制器档位（与 daily-budget 的 BudgetMode 非同一物，后者已登记）"
+    },
+    {
+      "file": "app/src/tools/AgentTool/SkillLifecycleManager.ts",
+      "exportName": "SkillLifecycleState",
+      "reason": "工具内技能生命周期（工具局部实现），非跨域编排状态机"
+    },
+    {
+      "file": "app/src/tools/lsp/types/index.ts",
+      "exportName": "ServerStatus",
+      "reason": "LSP 服务端进程态（工具局部）"
+    },
+    {
+      "file": "app/src/tools/lsp/types/LSPTypes.ts",
+      "exportName": "ServerStatus",
+      "reason": "同上（LSP 类型契约中的同义枚举，两文件并存属工具局部实现）"
+    },
+    {
+      "file": "app/src/tools/media/MediaModule.ts",
+      "exportName": "MediaModuleStatus",
+      "reason": "媒体模块自身的启停态（工具局部）"
+    },
+    {
+      "file": "app/src/tools/notebook/types/index.ts",
+      "exportName": "CellExecutionState",
+      "reason": "Notebook 单元执行态（工具局部）"
+    },
+    {
+      "file": "app/src/tools/notebook/types/NotebookTool.ts",
+      "exportName": "CellExecutionState",
+      "reason": "同上（Notebook 契约中的同义枚举，工具局部实现）"
+    },
+    {
+      "file": "app/src/tools/repl/types/REPLTool.ts",
+      "exportName": "REPLSessionStatus",
+      "reason": "REPL 工具会话态（工具局部）"
+    },
+    {
+      "file": "app/src/types/a2a.ts",
+      "exportName": "A2A_TERMINAL_STATES",
+      "reason": "**派生筛选集**（A2ATaskState 的终态子集，供协议判定），非状态定义本身"
+    }
+  ]
+}

@@ -38,8 +38,16 @@ export interface SessionState {
 }
 
 /**
- * 合法会话状态集合（P1-27 修复）：对齐新状态机（state/session/types.ts）8 状态枚举。
- * 旧实现默认 'active' 不在该枚举中，导致持久化的状态新状态机不认。
+ * 合法会话状态集合（P1-27 修复）：**会话模型域**的状态词汇表（`currentState` 写入校验）。
+ *
+ * ⚠️ **归属（阶段 3 / 2026-10-12 订正）**：本集合与 `state/session` 的**会话状态机**
+ * （阶段 3 已收敛为 **3 态** `idle`/`running`/`requires_action`）**非同一物** —— 本类的
+ * `SessionState` 是**状态容器**（interface + class，`currentState: string` + history + config，
+ * 可 `toJSON/fromJSON` 持久化），登记在 `BOUNDARY_STATE_MACHINES#sessionModelClass`。
+ *
+ * **为何仍保留 8 值**（原注释称"对齐新状态机 8 状态枚举"，阶段 3 后该表述**已失真**，故订正）：
+ * 本集合用于**接受既有持久化值**（P1-27 记录：历史值 `active` 曾因不在集合内被拒 ⇒ 持久化状态"新状态机不认"）
+ * ⇒ **只可放宽、不可收紧**（收紧会拒掉既有落盘值，属行为回归；见 CD05/CS03 与 `code-deletion.md`）。
  */
 export const SESSION_STATES: ReadonlySet<string> = new Set([
   'idle',
@@ -89,8 +97,8 @@ export class SessionState implements SessionState {
    * @param state 新的状态
    */
   updateState(state: string): void {
-    // P1-27 修复：状态词汇表校验——对齐新状态机（state/session/types.ts）8 状态枚举，
-    // 旧值 'active' 不在枚举中（此前任意字符串可写入，持久化后新状态机不认）。
+    // P1-27 修复：状态词汇表校验——集合定义见上方 `SESSION_STATES` 头注（阶段 3 订正：
+    // 其**不是** `state/session` 3 态机的取值集，而是本模型域为兼容既有持久化值保留的**超集**）。
     if (!SESSION_STATES.has(state)) {
       logger.warn('非法会话状态，忽略更新', {
         from: this.currentState,

@@ -989,22 +989,19 @@ export class CoreAPIImpl implements CoreAPI {
           } as ChatStreamChunk;
         } else if (chunk) {
           yieldedChunkCount++;
-          const toolName = (chunk as { toolCall?: { name?: string } }).toolCall
-            ?.name;
+          // 状态机方案 阶段 2.2（2026-10-12）：此处原以**结构断言**读取工具调用状态字段
+          // ⇒ 类型上把工具调用状态**降级为裸 string**（G14 残留）。`chunk` 在本分支已收窄为
+          // `ChatStreamChunk`，其 `toolCall?: ToolCallSpec`（`status` 已引用 `ToolCallStatus`）故断言可整体删除。
+          const toolName = chunk.toolCall?.name;
           logger.debug('chatStream:yield_chunk', {
             sessionId: finalSessionId,
             type: chunk.type,
             toolName: toolName ?? '',
-            toolCallId:
-              (chunk as { toolCall?: { id?: string } }).toolCall?.id ?? '',
-            status:
-              (chunk as { toolCall?: { status?: string } }).toolCall?.status ??
-              '',
+            toolCallId: chunk.toolCall?.id ?? '',
+            status: chunk.toolCall?.status ?? '',
             contentLength:
               typeof chunk.content === 'string' ? chunk.content.length : 0,
-            hasResult:
-              (chunk as { toolCall?: { result?: unknown } }).toolCall
-                ?.result !== undefined,
+            hasResult: chunk.toolCall?.result !== undefined,
           });
           yield chunk as ChatStreamChunk;
         }

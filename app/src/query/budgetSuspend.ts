@@ -36,6 +36,7 @@
 
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { publishStateProjection } from '../state/engine/projectionBroker.js';
 import type { ReliefKind } from './DailyBudgetManager.js';
 
 const logger = getLogger('query:budgetSuspend');
@@ -116,6 +117,19 @@ export class BudgetSuspendCoordinator {
   suspend(e: Omit<SuspendEntry, 'suspendedAt'>): void {
     if (this.entries.has(e.sessionId)) return;
     this.entries.set(e.sessionId, { ...e, suspendedAt: Date.now() });
+    // Task 8：只读四原语投影（SUSPENDED）+ 结构化日志。投影受
+    // `FEATURE_STATE_PROJECTION_BROADCAST` 门控（关 ⇒ 零投影），但**登记照常**
+    // ⇒ 可见性不以投影为准。
+    publishStateProjection({
+      domain: 'execution',
+      primitive: 'SUSPENDED',
+      sessionId: e.sessionId,
+    });
+    logger.info('budgetSuspend:suspended', {
+      sessionId: e.sessionId,
+      chain: e.chain,
+      reason: e.reason,
+    });
   }
 
   /**
@@ -159,6 +173,17 @@ export class BudgetSuspendCoordinator {
       }
       if (ok) {
         woken.push(entry.sessionId);
+        // Task 8：唤醒 ⇒ 只读投影 RUNNING + 结构化日志
+        publishStateProjection({
+          domain: 'execution',
+          primitive: 'RUNNING',
+          sessionId: entry.sessionId,
+        });
+        logger.info('budgetSuspend:resumed', {
+          sessionId: entry.sessionId,
+          chain: entry.chain,
+          reason: entry.reason,
+        });
       } else {
         // 回滚为挂起（直接写回，保留原挂起时刻 ⇒ 时间序不漂移）+ warn
         this.entries.set(entry.sessionId, {

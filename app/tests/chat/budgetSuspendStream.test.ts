@@ -13,6 +13,7 @@ import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
 import { StreamingAutoCheckpoint } from '../../src/chat/services/StreamingAutoCheckpoint.js';
+import { toStreamingCheckpointPort } from '../../src/chat/orchestrator/streamMessageToolLoopContext.js';
 import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
 import {
   getDailyBudget,
@@ -34,7 +35,11 @@ interface Saved {
   metadata?: Record<string, unknown>;
 }
 
-function makeCtx(counter: { calls: number }, saved: Saved[]): ToolLoopContext {
+function makeCtx(
+  counter: { calls: number },
+  saved: Saved[],
+  streamingCheckpointOverride?: unknown
+): ToolLoopContext {
   const nextResponse = (): ChatResponse => {
     counter.calls++;
     if (counter.calls <= ROUNDS) {
@@ -108,7 +113,7 @@ function makeCtx(counter: { calls: number }, saved: Saved[]): ToolLoopContext {
     },
     addAndPersistMessage: () => {},
     checkpointService,
-    streamingCheckpoint,
+    streamingCheckpoint: streamingCheckpointOverride ?? streamingCheckpoint,
     activeClient: {
       streamMessage: async function* (): AsyncGenerator<string, ChatResponse> {
         yield '';
@@ -145,21 +150,34 @@ function makeInput(): never {
 }
 
 async function runLoop(
-  saved: Saved[]
-): Promise<{ loop: ReActToolLoop; returned: unknown; stops: unknown[] }> {
+  saved: Saved[],
+  streamingCheckpointOverride?: unknown
+): Promise<{
+  loop: ReActToolLoop;
+  returned: unknown;
+  stops: unknown[];
+  warns: unknown[];
+}> {
   const stops: unknown[] = [];
+  const warns: unknown[] = [];
   const off = addLogHandler((entry) => {
     if (entry.message === 'reActLoop:daily_budget_exhausted') {
       stops.push(entry.data);
     }
+    if (entry.message === 'reactToolLoop:budget_suspend_no_checkpoint') {
+      warns.push(entry.data);
+    }
   });
   try {
     const input = makeInput();
-    const loop = new ReActToolLoop(makeCtx({ calls: 0 }, saved), input);
+    const loop = new ReActToolLoop(
+      makeCtx({ calls: 0 }, saved, streamingCheckpointOverride),
+      input
+    );
     const gen = loop.run(input);
     let step = await gen.next();
     while (!step.done) step = await gen.next();
-    return { loop, returned: step.value, stops };
+    return { loop, returned: step.value, stops, warns };
   } finally {
     off();
   }
@@ -218,5 +236,51 @@ describe('Task 5：流式链日预算耗尽挂起', () => {
     expect(loop.getTerminationReason()).toBe('budget_exhausted');
     expect(returned).toBeDefined();
     expect(stops.length).toBeGreaterThan(0);
+  });
+
+  it('恢复入口：经 toStreamingCheckpointPort 装配的端口含可用 suspend 且透传落盘', async () => {
+    const saved: Saved[] = [];
+    const checkpointService = {
+      saveCheckpointWithData: async (
+        _sid: string,
+        _messages: unknown[],
+        metadata: Record<string, unknown>,
+        _state: unknown,
+        label?: string
+      ) => {
+        saved.push({ label, metadata });
+        return { id: `cp-${saved.length}`, label };
+      },
+    };
+    const instance = new StreamingAutoCheckpoint(
+      checkpointService as never,
+      SESSION_ID
+    );
+    // 恢复路径（ChatManager.resumeStream）此前遗漏 suspend ⇒ 幽灵登记；
+    // 现统一经此装配 ⇒ 端口必须含可调用的 suspend。
+    const port = toStreamingCheckpointPort(instance);
+    expect(typeof port.suspend).toBe('function');
+
+    const cp = (await port.suspend('daily_budget_exhausted')) as {
+      id?: string;
+    };
+    expect(cp?.id).toBeDefined();
+    expect(saved.some((s) => s.label === 'budget_suspend')).toBe(true);
+  });
+
+  it('开关开：suspend 返回 undefined ⇒ 不登记且记 warn（幽灵态防护）', async () => {
+    process.env[FLAG] = 'true';
+    const saved: Saved[] = [];
+    // 模拟"挂起未落成"：suspend 拿不到检查点 ⇒ 不得登记"已挂起但无检查点"。
+    const stub = {
+      onToolCompleted: async () => undefined,
+      suspend: async () => undefined,
+    };
+
+    const { warns } = await runLoop(saved, stub);
+
+    expect(getBudgetSuspendCoordinator().isSuspended(SESSION_ID)).toBe(false);
+    expect(getBudgetSuspendCoordinator().list().length).toBe(0);
+    expect(warns.length).toBeGreaterThan(0);
   });
 });

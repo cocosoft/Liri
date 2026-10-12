@@ -466,13 +466,22 @@ export class ReActToolLoop extends ReActLoop<
     const sessionId = this.ctx.session.id;
     const reason = 'daily_budget_exhausted';
     try {
-      const checkpoint = (await this.ctx.streamingCheckpoint.suspend?.(
+      // Task 5 Fix round 1：`suspend` 为必填端口（编译期锁定接线）。挂起事实源 = 检查点 ⇒
+      // **仅在拿到有效 `checkpoint.id` 后**才登记；否则会记成"已挂起但无检查点"的幽灵态。
+      const checkpoint = (await this.ctx.streamingCheckpoint.suspend(
         reason
       )) as { id?: string } | undefined;
+      if (!checkpoint?.id) {
+        logger.warn('reactToolLoop:budget_suspend_no_checkpoint', {
+          sessionId,
+          reason,
+        });
+        return;
+      }
       getBudgetSuspendCoordinator().suspend({
         sessionId,
         chain: 'stream',
-        checkpointRef: checkpoint?.id,
+        checkpointRef: checkpoint.id,
         reason,
       });
     } catch (error) {

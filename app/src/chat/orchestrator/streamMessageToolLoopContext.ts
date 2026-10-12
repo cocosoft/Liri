@@ -23,6 +23,7 @@ import type {
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
 import { toUsageInfo } from '../services/ChatHelper.js';
+import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 
 /** 装配 `ToolLoopContext` 所需的输入（本轮状态 + host 能力句柄） */
@@ -42,6 +43,25 @@ export interface ToolLoopContextDeps {
   toolCallSeqMap: Map<string, number>;
   /** 工具结果登记表（回滚轮次来源） */
   toolResultRegistry: unknown;
+}
+
+/**
+ * 构造工具轮 `streamingCheckpoint` 端口（**单一来源**，Task 5 Fix round 1）。
+ *
+ * 端口 `suspend` 为**必填**（见 `ToolLoopRunner.ts`）⇒ 每个装配点都必须显式接线。恢复路径
+ * （`ChatManager.resumeStream`）此前只暴露 `onToolCompleted`、漏接 `suspend` ⇒ 开关开时撞日预算
+ * 耗尽会静默 no-op 并登记"已挂起但无检查点"的幽灵态。经此函数装配，编译期即锁定接线。
+ */
+export function toStreamingCheckpointPort(
+  checkpoint: StreamingAutoCheckpoint
+): import('../ToolLoopRunner.js').ToolLoopContext['streamingCheckpoint'] {
+  return {
+    onToolCompleted: (data) =>
+      checkpoint.onToolCompleted(
+        data as unknown as Parameters<typeof checkpoint.onToolCompleted>[0]
+      ),
+    suspend: (reason: string) => checkpoint.suspend(reason),
+  };
 }
 
 /**

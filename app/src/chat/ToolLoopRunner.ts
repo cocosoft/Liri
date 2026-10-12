@@ -134,8 +134,13 @@ export interface ToolLoopContext {
   };
   streamingCheckpoint: {
     onToolCompleted(data: Record<string, unknown>): Promise<unknown>;
-    /** Task 5（预算挂起续跑）：日预算耗尽时落挂起检查点（可选端口，未接入的 fake 可省）。 */
-    suspend?(reason: string): Promise<unknown>;
+    /**
+     * Task 5（预算挂起续跑）：日预算耗尽时落挂起检查点。
+     *
+     * **必填** —— 编译期强制**每个** `ToolLoopContext` 装配点显式接线；可选会让漏接线的入口
+     * （如恢复路径 `ChatManager.resumeStream`）静默 no-op 并登记"已挂起但无检查点"的幽灵态。
+     */
+    suspend(reason: string): Promise<unknown>;
   };
 
   // LLM 客户端

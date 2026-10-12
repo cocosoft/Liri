@@ -441,6 +441,17 @@ export const FEATURE_FLAGS = {
   PRO_SECURITY_SUITE: false,
   /** Pro：Swarm 编排 */
   PRO_SWARM: false,
+
+  // ───── 长任务预算挂起续跑（债二，2026-10-12；默认关 = 零行为变更）─────
+  /**
+   * **每日预算耗尽 ⇒ 长任务挂起 / 放行后续跑**总开关（默认关）。
+   *
+   * 开 ⇒ 撞限时两条链各自落"挂起标记"检查点并登记到 `BudgetSuspendCoordinator`，
+   * 用户放行（boost/unlock-today/waive-once）后按挂起时间序、上限内续跑。
+   * 关（默认）⇒ 撞限行为与今日**完全一致**（零行为变更）。
+   * `FEATURE_BUDGET_SUSPEND_RESUME=true`。
+   */
+  BUDGET_SUSPEND_RESUME: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

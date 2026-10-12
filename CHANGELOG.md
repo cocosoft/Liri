@@ -19,6 +19,13 @@
 
 ## [未发布]
 
+**20261012 批次落地复查 · 补齐第三批（守卫挂起 + 独立继续入口 + 欠账缺陷更正）**
+
+- ✅ **`T3-12`：熵门禁 / 轮上限「接通挂起」+ 独立继续入口（`T3-12-GUARD-SUSPEND`）** - 用户裁定「两者都接通挂起」+「**新增独立继续入口，不复用 relief**」（部分推翻 `TOOLGOV-TG5` 的「绝不阻断」）。新增 `app/src/query/guardSuspend.ts`；协调器引入 `kind: 'budget' | 'guard'` 且 **relief 只唤醒 `budget`**（guard 挂起**不被放行唤醒**，含负向测试）；两条触发源接线：熵门禁（stream 链，`schema_entropy`）与 `TAORLoop.onMaxIterations()`（taor 链，`turn_limit`，落 `guard_suspend` 检查点）；新增端点 **`POST /v1/sessions/:id/continue`**（guard 挂起 ⇒ 200；未挂起 ⇒ 404；**budget 挂起 ⇒ 409**，防继续入口成为 relief 旁路；失败 ⇒ 502 且回滚）；`ResumeManager` 新增 `isSuspendCheckpoint` 使 guard 挂起**不被 Durable Resume 自动续跑**；开关 **`FEATURE_GUARD_SUSPEND`（默认关）** ⇒ 关时零行为变更。新增测试 28 例；`TAORLoop.ts` 维持 **1999 行**（净零）
+- ✅ **缺陷更正：`waive-once` 的「计入欠账、次日扣回」此前是**静默 no-op**（`WAIVE-ONCE-DEBT`）** - `_consumeWaiverOnce()` 原**只清通行证、不累加** `debtTokens`（全仓无 `+=`）⇒ 文档/前端承诺的欠账与次日扣回**从未发生**。现于消费点按**本次实际消耗**累加欠账（`recordUsage(tokens, sessionId)` 的同会话分支），跨日扣回复用既有 `_rolloverIfNeeded()`（CS01，无需新机制）。**先红后绿**（`git stash` 反证：修复前 `Expected 1234 / Received 0`）⇒ 修复后 13 pass / 0 fail。⚠️ **行为变更（如实）**：欠账**自此真正生效** —— 用 `waive-once` 放行后的次日可用额度会按实际消耗扣回（这正是既有文档承诺的语义）
+- 📄 **两份决策支持文档（只写文档）** - ① [债四 §12 十项待裁定的**裁定建议**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/unified-budget-and-accounting-%E8%A3%81%E5%AE%9A%E5%BB%BA%E8%AE%AE-20261013.md)（逐项：取证/建议/备选与影响/落地切片）；② [侧车化**实施计划**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-sidecar-isolation-plan-20261013.md)（8 阶段 / 19 任务，含 CD05/CD06/CD07 切片与验收）
+- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（**114 条**）/`lint:doc-code`/`version:check` 全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**
+
 **20261012 批次落地复查 · 补齐第二批（工具数据源门禁 + 债一残余线性收口）**
 
 - ✅ **工具治理 阶段 3.2：「新数据源不以新增工具承载」源码门禁（`TOOLGOV-T12-32`）** - 新增 `app/tests/tools/toolDataSourcesNotNewTools.test.ts`：声明面 = `TOOL_NAME_CONSTANTS`（工具名唯一来源），**冻结基线 + 豁免清单（须非空理由）**，判据「新增 = 声明面 − 基线，必须已登记」否则 **fail-closed**；附基线陈旧检测与豁免重叠检测。**负向自证**固化在用例内（未登记的 `mysql_query` 被拦截、登记后放行）。先红后绿（3 fail → 6 pass）

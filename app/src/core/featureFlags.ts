@@ -468,6 +468,22 @@ export const FEATURE_FLAGS = {
    * 与证据 `.trae/architecture/fix-evidence-registry.json` → `BUDGET-SUSPEND-RESUME`。
    */
   BUDGET_SUSPEND_RESUME: true,
+
+  // ───── 长程 guard 挂起 + 独立继续入口（T3-12，2026-10-13 用户裁定；**默认关**）─────
+  /**
+   * **guard 挂起（熵门禁 / 轮上限）接通 + 独立「长程继续」入口**总开关（**默认关**）。
+   *
+   * 开 ⇒ ①熵门禁（`evaluateSchemaEntropyGate` 命中 warn）/ 轮上限（TAOR `max_turns`）在
+   * 既有轮间安全点各落 `guard_suspend` 检查点并登记 `BudgetSuspendCoordinator`（`kind='guard'`，
+   * reason = `schema_entropy` / `turn_limit`）；②新增独立端点 `POST /v1/sessions/:id/continue`
+   * 可对 **guard** 挂起触发续跑（**不复用** relief 放行通道）。
+   * 关（默认）⇒ 零行为变更：熵门禁**仍只 WARN**（`TOOLGOV-TG5` 的「绝不阻断」成立）、轮上限仍 aborts、
+   * 继续端点 404。`FEATURE_GUARD_SUSPEND=true`。
+   *
+   * ⚠️ 与 `BUDGET_SUSPEND_RESUME`（日预算挂起，默认开）**正交**：`kind='budget'` 的挂起仍只由
+   * relief（boost/waive-once/unlock-today）唤醒；`onReliefApplied` **绝不**唤醒 `kind='guard'`。
+   */
+  GUARD_SUSPEND: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

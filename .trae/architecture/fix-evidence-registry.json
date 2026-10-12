@@ -1235,7 +1235,7 @@
       "tests": ["app/tests/tools/toolMetrics.test.ts"],
       "changelog": [],
       "reopenWhen": "改熵阈值（20 轮 / 30%）、改 `turn` 口径、或把告警升级为阻断 / 触发 D4·T2 收口时",
-      "notes": "① **裁定**：长程第 20 轮后 `context_entropy_percent > 30%` ⇒ **硬 WARN（Fail-Open for Observation，绝不阻断）**；累积实测后再评估是否触发 D4/T2。② **落地**：`ToolMetrics` 新增**纯函数** `evaluateSchemaEntropyGate()`（缺 `turn`/上下文窗口 ⇒ `null`，不臆造，CS06）+ 阈值常量 `SCHEMA_ENTROPY_TURN_THRESHOLD=20` / `SCHEMA_ENTROPY_PERCENT_THRESHOLD=30`；`recordToolSchemaEntropy` 在 `warn` 时发 `logger.warn('tools:schema.entropy_high', ...)`；`ToolSchemaEntropyMetric` 增可选 `turn`；调用点 `selectAndObserveToolDefinitions` 传 `turn: host.toolRoundCount + 1`（**复用既有 `host` 机位，不改** `streamMessageFlow` ⇒ 不触 `lint:fn-size` 棘轮）。③ **不改指标名**（`tools.schema.*` 不变）、**零阻断**。④ 测试 `toolMetrics.test.ts` **+6 例**（阈值常量 / 达标告警 / 轮次不足 / 30% 边界 / 缺参 null / 触发不抛且 gauge 照写）；实测日志已见 `tools:schema.entropy_high`（turn=30, percent=45）。e2eVerified=false。"
+      "notes": "【2026-10-13 口径更新】用户裁定「熵门禁 / 轮上限**两者都接通挂起**」⇒ 本条的「绝不阻断（Fail-Open）」变为**有条件**：默认（`FEATURE_GUARD_SUSPEND=false`）仍**绝不阻断**；开启后命中阈值 ⇒ **guard 挂起**（独立继续入口，不复用 relief；见证据 `T3-12-GUARD-SUSPEND`）。**① **裁定**：长程第 20 轮后 `context_entropy_percent > 30%` ⇒ **硬 WARN（Fail-Open for Observation，绝不阻断）**；累积实测后再评估是否触发 D4/T2。② **落地**：`ToolMetrics` 新增**纯函数** `evaluateSchemaEntropyGate()`（缺 `turn`/上下文窗口 ⇒ `null`，不臆造，CS06）+ 阈值常量 `SCHEMA_ENTROPY_TURN_THRESHOLD=20` / `SCHEMA_ENTROPY_PERCENT_THRESHOLD=30`；`recordToolSchemaEntropy` 在 `warn` 时发 `logger.warn('tools:schema.entropy_high', ...)`；`ToolSchemaEntropyMetric` 增可选 `turn`；调用点 `selectAndObserveToolDefinitions` 传 `turn: host.toolRoundCount + 1`（**复用既有 `host` 机位，不改** `streamMessageFlow` ⇒ 不触 `lint:fn-size` 棘轮）。③ **不改指标名**（`tools.schema.*` 不变）、**零阻断**。④ 测试 `toolMetrics.test.ts` **+6 例**（阈值常量 / 达标告警 / 轮次不足 / 30% 边界 / 缺参 null / 触发不抛且 gauge 照写）；实测日志已见 `tools:schema.entropy_high`（turn=30, percent=45）。e2eVerified=false。"
     },
     {
       "id": "TOOLGOV-SIDECAR-TARGETS",
@@ -1591,6 +1591,48 @@
       "changelog": ["CHANGELOG.md"],
       "reopenWhen": "事件日志存储换载体（迁 SQLite，**当前明确否决**）/ idx 结构或折叠批次语义变更时",
       "notes": "**收口要点**：`idxEntriesLoaded` 标志避免 `getTailSeq` 与 `ensureIdxLoaded` 相互递归；`loadIdxEntries()`（幂等）抽出；`findIdxStartOffset` 在目标超出末折叠批（未索引尾部）时返回**末区间起点**（`read`/`readBySeq` 同源受益）；新增 `resolveTailScanStart()` 供 `getTailSeq` 从末区间续扫（无 idx / 边界校验未过 ⇒ 回退 0 并留日志）；`readBySeq` 新增 `ensureIdxLoaded()` + `resolveScanStartOffset(seq)` 段读；新增 `openOffsetReadline()` 独立机位（不扰动既有按 scanStart 记账的 P0-5 探针）。**等价性**：返回值/语义不变（等价性用例 + 既有 P0-5/CRLF 用例全绿）；**不迁 SQLite**（既有裁定）；回退仅性能降级且留 `logger.warn/debug`（**未吞错**）。**先红后绿**：探针拦截 `openOffsetReadline(file,strict)`（仅记 `events.jsonl`）⇒ 改动前 **4 fail**（seek 起点未走 idx）/ 1 pass（边界语义本就等价）→ 改动后 **6 pass / 0 fail**；回归 `EventLogStorage` + `eventLogRepairChain` + `eventLogCacheLru` + `externalDeleteReadPaths` + `messageProjectionAppendSkip` **49 pass / 0 fail**。**基准（F1c，实测）**：规模 ×10 ⇒ `getTailSeq` P50 ×1.2、`readBySeq` P50 ×1.0（改动前末条 `readBySeq` 为 ×11.8 全扫）⇒ 与规模解耦；两条目标路径均已纳入 `app/scripts/bench-longrun.ts`。**如实残余**：`getTailSeq` 现会读整份 `events.idx`（≈N/256 行）以定位末区间 ⇒ 严格为 **O(N/256)** 而非纯 O(log N)（与 `read` 既有路径同源）；「跨进程 idx 大幅落后」分支无专测。"
+    },
+    {
+      "id": "T3-12-GUARD-SUSPEND",
+      "title": "T3-12：熵门禁 / 轮上限「接通挂起」+ 独立继续入口（用户裁定推翻 `TOOLGOV-TG5` 的「绝不阻断」）",
+      "source": "dev_docs/20261012/长程任务编排链路优化方案-20261012.md §4 阶段 2.2 与五方案总览 `T3-12` / 决策 `✅-18`（2026-10-13 用户裁定「两者都接通挂起」+「新增独立继续入口，不复用 relief」）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/query/guardSuspend.ts",
+        "app/src/query/budgetSuspend.ts",
+        "app/src/query/taor/budgetSuspendHook.ts",
+        "app/src/query/TAORLoop.ts",
+        "app/src/query/types.ts",
+        "app/src/query/ResumeManager.ts",
+        "app/src/tools/monitoring/ToolMetrics.ts",
+        "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
+        "app/src/infrastructure/http/handlers/session-continue-handler.ts",
+        "app/src/infrastructure/http/handlers/routes/chat-session-routes.ts",
+        "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
+        "app/src/core/featureFlags.ts",
+        "app/src/query/index.ts"
+      ],
+      "tests": [
+        "app/tests/query/guardSuspend.test.ts",
+        "app/tests/query/guardSuspendHook.test.ts",
+        "app/tests/http/sessionContinue.contract.test.ts"
+      ],
+      "changelog": ["CHANGELOG.md"],
+      "reopenWhen": "① `GUARD_SUSPEND` 默认值翻转或语义变更时；② 前端/通道侧「继续」按钮与卡片落地后回看入口口径；③ 若要把「无进展/断路器」也接通挂起时",
+      "notes": "**范围**：把「熵门禁超阈」与「TAOR 轮上限」两条触发源从**只告警/直接 abort** 改为**轮间安全点挂起**，并新增**独立继续入口**（**明确不复用 relief 放行通道**，落实用户裁定）。**实现要点**：① 新模块 `query/guardSuspend.ts`（`GuardSuspendReason` / `isGuardSuspendEnabled` / `registerGuardSuspend` / `guardSuspendFromEntropy` / `continueSuspendedSession`）；② 协调器引入 `SuspendKind = 'budget' | 'guard'`（`SuspendEntry.kind?`，**缺省视为 budget** 向后兼容），并以模块级纯函数 `isReliefEligible` 让 **`onReliefApplied` 只唤醒 `kind==='budget'`** 的候选 ⇒ guard 挂起**不被放行唤醒**（负向证据见测试：仅 guard 挂起时 relief 零唤醒且 handler 零调用；混挂时只唤醒 budget）；③ 触发接线：熵门禁经 `streamMessageToolSelectionFlow`（stream 链，reason `schema_entropy`）；轮上限经 `TAORLoop.onMaxIterations()` → `budgetSuspendHook.handleTaorGuardSuspend`（taor 链，reason `turn_limit`，落 `guard_suspend` 检查点）；④ 检查点类型增设 `'guard_suspend'`，`ResumeManager` 新增 `isSuspendCheckpoint` 并用于 `scanPending`/`hasPending` **排除**（⇒ guard 挂起**不被 Durable Resume 自动续跑**；`scanBudgetSuspends` 仍只筛 `budget_suspend` ⇒ 启动期不恢复 guard 挂起）；⑤ 新端点 `POST /v1/sessions/:id/continue`（`session-continue-handler.ts`）：guard 挂起 ⇒ 200 `{continued,chain}`、未挂起 ⇒ 404、budget 挂起 ⇒ **409 拒绝**（防止继续入口成为 relief 旁路）、幂等（成功后二调 404）、续跑失败 ⇒ 502 且回滚为挂起、开关关 ⇒ 404；⑥ `/v1/cost/daily-budget/suspend` **仅新增** `kind` 字段（既有字段语义不变）；⑦ 开关 **`GUARD_SUSPEND`（默认关）** 门控上述新行为 ⇒ 关时**零行为变更**（熵门禁仍只 WARN ⇒ 该期间 `TOOLGOV-TG5` 的「绝不阻断」实际仍成立）。**验证**：`typecheck` 3 工程 0 错；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`/`lint:doc-code`/`version:check` 全绿；新增测试 **28 例**（19+3+6）；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**；`TAORLoop.ts` 维持 **1999 行**（净零：+9 行等量删 9 空行）。**如实遗留**：① **前端/通道侧「继续」按钮与卡片未做**（超出本次范围）；② **stream 链 guard 挂起无 `checkpointRef`**（熵门禁接线点无检查点访问权 ⇒ `/suspend` 该字段为 `null`，续跑依赖既有流式自动检查点链）；③ guard 挂起为**进程内语义**（重启需重新触发，且不会被启动扫描恢复）；④ 「无进展 / 断路器」路径**未单独接线**（既有 abort 语义不变）；⑤ 未做真实端到端（`e2eVerified=false`）。"
+    },
+    {
+      "id": "WAIVE-ONCE-DEBT",
+      "title": "缺陷更正：`waive-once` 放行的「计入欠账、次日扣回」此前为**静默 no-op**（`debtTokens` 无自增点）",
+      "source": "`.trae/specs/unified-budget-and-accounting.md` v1.0 定案稿取证发现（2026-10-13）+ 用户裁定「立即修复（恢复文档语义）」",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/query/DailyBudgetManager.ts"],
+      "tests": ["app/tests/query/dailyBudgetWaiveOnceGate.test.ts"],
+      "changelog": ["CHANGELOG.md"],
+      "reopenWhen": "`waive-once` 的欠账口径变更 / `_rolloverIfNeeded` 的跨日扣回语义变更时",
+      "notes": "**缺陷（如实）**：`_consumeWaiverOnce()` 修复前**只清 `waiveOncePending`、不累加** `debtTokens`（`grep debtTokens` 仅命中初始化/跨日/restore/getter，**全仓无 `+=`**）⇒ 既有文档与前端承诺的「`waive-once` 放行**计入欠账**、**次日从可用额度扣回**」（`daily-budget-over-limit-ux.md` §4 D-d / T4）实为**静默 no-op**。**修复**：`_consumeWaiverOnce(consumedTokens = 0)` 在**消费点**按**本次实际消耗**累加 `this.debtTokens += consumedTokens`（`recordUsage(tokens, sessionId)` 的同会话消费分支传 `tokens`；显式失效入口 `consumeWaiveOnce()` 无金额 ⇒ 不计欠账，且该入口**仅测试调用**）；跨日扣回由既有 `_rolloverIfNeeded()`（`todayUsed = carriedDebt; debtTokens = 0`）承接，**无需新增机制**（CS01）。**先红后绿（`git stash` 反证）**：仅 stash `DailyBudgetManager.ts` ⇒ 新增用例 ⑦ 以 `Expected 1234 / Received 0` 失败（12 pass / 1 fail）；恢复实现 ⇒ **13 pass / 0 fail**。**验证**：`typecheck` 0 错；门禁全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**。**行为变更披露**：修后欠账**真正生效** ⇒ 使用 `waive-once` 放行后的次日可用额度会按实际消耗扣回（这正是文档既有承诺；此前因缺陷并未发生）。"
     },
     {
       "id": "BUDGET-SUSPEND-RESUME",

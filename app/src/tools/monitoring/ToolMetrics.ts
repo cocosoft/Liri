@@ -206,7 +206,9 @@ export function recordToolInvocation(m: ToolInvocationMetric): void {
  * 判据（方案 §4 观测项）：长程任务第 20 轮后工具 Schema 仍占 >30% token ⇒ 可跳过争论直接
  * 上 Top-K 或 VFS 收口。`contextWindowTokens` 缺省 ⇒ 只记 `tools.schema.tokens`，不算比例。
  */
-export function recordToolSchemaEntropy(m: ToolSchemaEntropyMetric): void {
+export function recordToolSchemaEntropy(
+  m: ToolSchemaEntropyMetric
+): SchemaEntropyGateVerdict | null {
   _schemaTokensHistogram ??= getMetricsService().createHistogram({
     name: 'tools.schema.tokens',
     description: '每轮传给模型的工具 Schema 估算 tokens',
@@ -238,6 +240,9 @@ export function recordToolSchemaEntropy(m: ToolSchemaEntropyMetric): void {
       schemaTokens: m.schemaTokens,
     });
   }
+  // T3-12（2026-10-13）：把裁决**如实返回**给调用点 —— 由调用点（stream 链）在
+  // `GUARD_SUSPEND` 开时决定是否接通 guard 挂起（本模块**不**做挂起，保持 tools 域无 query 依赖）。
+  return verdict;
 }
 
 /** 仅测试用：清空懒建缓存（使下一次记录重建指标实例），并移除"值型"gauge 的残留 */

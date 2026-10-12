@@ -25,7 +25,9 @@ export interface TAORCheckpoint {
   conversationSummary: string;
   lastPrompt: string;
   createdAt: number;
-  type: 'auto' | 'manual' | 'before_abort' | 'budget_suspend';
+  // T3-12（2026-10-13）：`'guard_suspend'` = guard 挂起（熵门禁 / 轮上限）——
+  // 与 `'budget_suspend'` 同属"挂起标记"，但**不**参与自动续跑、**不**被 relief 唤醒。
+  type: 'auto' | 'manual' | 'before_abort' | 'budget_suspend' | 'guard_suspend';
   /** 断路器状态（用于检查点恢复） */
   breakerState?: {
     state: string;

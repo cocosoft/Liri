@@ -104,7 +104,10 @@ import {
 } from './taor/helpers.js';
 import { registerDefaultStopHooks } from './taor/stopHooks.js';
 import { extractPendingToolCallsFromMessages } from './taor/pendingToolCalls.js';
-import { handleTaorBudgetExhaustion } from './taor/budgetSuspendHook.js';
+import {
+  handleTaorBudgetExhaustion,
+  handleTaorGuardSuspend,
+} from './taor/budgetSuspendHook.js';
 export type {
   TAORInput,
   TAORPhaseInfo,
@@ -116,20 +119,15 @@ export type {
 export { createTAORLoopDeps } from './taor/types.js';
 export { MemoryCheckpointStorage } from './taor/MemoryCheckpointStorage.js';
 export { mapTaorStopReasonToTermination } from './taor/helpers.js';
-
 const logger = getLogger('query:taorLoop');
-
 // （回合质量重试指令常量 `TAOR_EMPTY_RETRY_INSTRUCTION` /
 //  `TAOR_PLANNING_ONLY_RETRY_INSTRUCTION` / `TAOR_PLANNING_ONLY_RE`、`truncateForTrace`
 //  与 `mapTaorStopReasonToTermination` 已外迁 `./taor/helpers`，spec §42）
-
 // （`TAORLoopDeps` 契约与工厂 `createTAORLoopDeps`、`TAORInput` / `TAORPhaseInfo` /
 //  `TAORLoopConfig` / `TAORLoopResult` / `TAORPhaseCallback` 类型已外迁 `./taor/types`，
 //  并由本文件顶部 re-export 保持公开面，spec §42）
-
 // （`MemoryCheckpointStorage` 已外迁 `./taor/MemoryCheckpointStorage`，并由顶部
 //  re-export 保持公开面，spec §42）
-
 export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private queryEngine: QueryEngine;
   private tokenBudget: TokenBudgetController;
@@ -154,7 +152,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private _runInitialized: boolean = false;
   /** A1（2026-09-04）：上次入账的 token 估算基线——只按增量入账，compact 后回落 */
   private _lastBudgetedTokens: number = 0;
-
   /**
    * 单轮**真实**输入量（provider `usage.prompt_tokens`），由 `_collectCallModel` 从 callModel
    * 的 chunk 中捕获（2026-09-26 修「预算量纲」的 batch 侧：此前用估算，实测与真实可差 6× 以上）。
@@ -169,7 +166,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   /** 本次 run 的工具执行统计（方案 C：修正 RunLogger 硬编码全 0 的假数据） */
   private toolCallStats: Map<string, number> = new Map();
   private failedToolCalls: number = 0;
-
   // 检查点相关
   private checkpointStorage: TAORCheckpointStorage;
   private lastCheckpointId: string | null = null;
@@ -285,7 +281,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.checkpointStorage = this.taorConfig.checkpointStorage;
     // 默认使用 MemoryCheckpointStorage（FileCheckpointStorage 接口不兼容 TAORCheckpoint，后续迁移）
     this.contextTracker = new ContextTracker();
-
     // Phase 2: 初始化可插拔守卫
     this.loopDetector = createLoopDetector();
     this.errorRecovery = createErrorRecoveryManager();
@@ -306,10 +301,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     });
     // Phase 2: 运行日志记录器（默认激活，确保长程任务日志落盘）
     this.runLogger = createRunLogger();
-
     this.registerDefaultStopHooks();
   }
-
   /**
    * 13-P1-3（2026-10-05）：应用 **pattern 执行配方** → 验证器配置（供装配点调用）。
    *
@@ -1822,6 +1815,13 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   protected override async onMaxIterations(): Promise<void> {
     this.stopReason = 'max_turns';
     this.stopped = true;
+    // T3-12（2026-10-13）：轮上限**接通挂起** —— 在既有轮间安全点落 `guard_suspend` 检查点并
+    // 登记协调器（`kind='guard'`，reason='turn_limit'）；`GUARD_SUSPEND` 默认关 ⇒ 本调用零行为变更。
+    await handleTaorGuardSuspend({
+      sessionId: this.taorConfig.sessionId,
+      reason: 'turn_limit',
+      saveCheckpoint: (t) => this.saveCheckpoint(t),
+    });
   }
 
   /**

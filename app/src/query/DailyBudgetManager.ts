@@ -192,7 +192,7 @@ export class DailyBudgetManager {
     // 的记账**不消费**（未消费者由通行证 TTL 兜底失效）。判据精确相等（CS02）。
     if (sessionId && sessionId === this._waiverGrantedForSession) {
       this._waiverGrantedForSession = null;
-      this._consumeWaiverOnce();
+      this._consumeWaiverOnce(tokens);
     }
   }
 
@@ -491,9 +491,17 @@ export class DailyBudgetManager {
     return true;
   }
 
-  /** `waive-once` 的**消费体**：使一次性通行证立即失活（Consume-and-Die）。 */
-  private _consumeWaiverOnce(): void {
+  /**
+   * `waive-once` 的**消费体**：使一次性通行证立即失活（Consume-and-Die）。
+   *
+   * `consumedTokens > 0` 时按**本次实际消耗计入欠账**（`debtTokens`）—— 次日由
+   * `_rolloverIfNeeded()` 把欠账**计进新的一天用量**（= 从可用额度扣回，见 §4 D-d / T4）。
+   * ⚠️ 2026-10-13 更正：修复前本方法**只清标志、不累加** ⇒ 文档承诺的「计入欠账、次日扣回」
+   * 实为**静默 no-op**；显式失效入口（`consumeWaiveOnce`，无金额）仍不计欠账。
+   */
+  private _consumeWaiverOnce(consumedTokens = 0): void {
     this.waiveOncePending = null;
+    if (consumedTokens > 0) this.debtTokens += consumedTokens;
   }
 
   /**

@@ -32,6 +32,20 @@ function isBudgetSuspendCheckpoint(checkpoint: TAORCheckpoint): boolean {
   return checkpoint.type === 'budget_suspend';
 }
 
+/**
+ * T3-12（2026-10-13）：是否为**任一挂起标记**检查点（预算挂起 / guard 挂起）。
+ *
+ * `scanPending` / `hasPending` 用此**更宽**判据排除 —— guard 挂起（熵门禁 / 轮上限）同样**不得**
+ * 参与启动自动续跑（否则重启即静默续跑，违反"挂起=待人工继续"语义）。
+ * 注意：`scanBudgetSuspends` 仍只筛 `budget_suspend` ⇒ guard 挂起**不**在启动期被协调器恢复
+ * （guard 挂起为进程内语义；重启后需重新触发，见 T3-12 遗留说明）。
+ */
+function isSuspendCheckpoint(checkpoint: TAORCheckpoint): boolean {
+  return (
+    checkpoint.type === 'budget_suspend' || checkpoint.type === 'guard_suspend'
+  );
+}
+
 /** 恢复候选 */
 export interface ResumeCandidate {
   sessionId: string;
@@ -115,13 +129,13 @@ export class ResumeManager {
           continue;
         }
 
-        // Task 6（反目标①）：budget_suspend 挂起检查点跳过启动扫描——否则重启即自动续跑
-        // 静默烧额度（日预算仍被锁）。改由 BudgetSuspendCoordinator 登记为"待放行"。
-        if (isBudgetSuspendCheckpoint(latest)) {
+        // Task 6（反目标①）+ T3-12：挂起标记检查点（budget_suspend / guard_suspend）跳过启动扫描
+        // —— 否则重启即自动续跑（静默烧额度 / 违反"待人工继续"）。改由协调器登记为"待唤醒"。
+        if (isSuspendCheckpoint(latest)) {
           if (isCheckpointLogEnabled()) {
             logger.info(
-              '[ResumeManager] budget_suspend 挂起检查点跳过（待用户放行，不自动续跑）',
-              { sessionId, checkpointId: latest.id }
+              '[ResumeManager] 挂起标记检查点跳过（待用户放行/继续，不自动续跑）',
+              { sessionId, checkpointId: latest.id, type: latest.type }
             );
           }
           continue;
@@ -212,8 +226,9 @@ export class ResumeManager {
   async hasPending(sessionId: string): Promise<boolean> {
     const latest = await this.storage.getLatestIncomplete(sessionId);
     if (!latest) return false;
-    // Task 6（反目标①）：budget_suspend 挂起检查点不算"待恢复"（待用户放行，不自动续跑）
-    if (isBudgetSuspendCheckpoint(latest)) return false;
+    // Task 6（反目标①）+ T3-12：挂起标记检查点（budget_suspend / guard_suspend）不算"待恢复"
+    // （待用户放行/继续，不自动续跑）
+    if (isSuspendCheckpoint(latest)) return false;
     // 过期检查
     const age = Date.now() - latest.createdAt;
     const isExpired = age > 24 * 60 * 60 * 1000;

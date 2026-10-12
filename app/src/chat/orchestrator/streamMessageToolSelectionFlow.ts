@@ -19,6 +19,7 @@ import { estimateTokens } from '@modules/ai';
 import type { ToolDefinition } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
 import { recordToolSchemaEntropy } from '@modules/tools';
+import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
 import { selectToolsForTurn } from './streamMessageToolSelection.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
@@ -99,7 +100,7 @@ export function selectAndObserveToolDefinitions(
   // 判据示例：长程任务第 20 轮后仍 >30% ⇒ 可跳过争论直接上 Top-K / VFS 收口。
   const schemaTokens = estimateTokens(JSON.stringify(toolDefinitions));
   const ctxWindow = resolveContextWindow(options?.model ?? '').tokens;
-  recordToolSchemaEntropy({
+  const verdict = recordToolSchemaEntropy({
     toolCount: toolDefinitions.length,
     schemaTokens,
     contextWindowTokens: ctxWindow > 0 ? ctxWindow : undefined,
@@ -107,4 +108,9 @@ export function selectAndObserveToolDefinitions(
     // `toolRoundCount + 1`）⇒ 供「长程第 20 轮后 Schema 仍 >30%」阈值**告警**（只告警不阻断）。
     turn: host.toolRoundCount + 1,
   });
+  // T3-12（2026-10-13 用户裁定）：熵门禁**接通挂起** —— 命中 warn 且 `GUARD_SUSPEND` 开时，
+  // 在**轮间安全点**登记一条 guard 挂起（`kind='guard'`，reason='schema_entropy'）；
+  // 开关关（默认）⇒ `guardSuspendFromEntropy` 返回 false 且不登记（零行为变更，熵门禁仍只 WARN）。
+  // 挂起事实源 = 既有流式自动检查点链（继续入口 `_resumeSuspendedStream` 复用之）。
+  guardSuspendFromEntropy(session.id, 'stream', verdict);
 }

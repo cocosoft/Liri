@@ -190,4 +190,16 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
     b.recordUsage(1, 'A'); // A（认领者）记账 ⇒ 消费
     expect(b.hasActiveWaiver()).toBe(false);
   });
+
+  it('⑦ 消费按**本次实际消耗**计入欠账（`debtTokens`；修复前恒 0 = 静默 no-op）', () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT); // locked
+    b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
+
+    b.canExecute('A'); // 取得通行证
+    b.recordUsage(1_234, 'A'); // 同会话记账 ⇒ 消费（Consume-and-Die）
+
+    expect(b.hasActiveWaiver()).toBe(false);
+    expect(b.getDebtTokens()).toBe(1_234); // 实际消耗计入欠账（次日 rollover 扣回）
+  });
 });

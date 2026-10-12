@@ -70,6 +70,8 @@ import {
   handleDeleteLatestCheckpoint,
   handleSaveLatestCheckpoint,
 } from '../checkpoint-handlers';
+// T3-12（2026-10-13）：独立「长程继续」入口（guard 挂起续跑）
+import { handleContinueSession } from '../session-continue-handler';
 
 /**
  * 提取并校验 URL 中的 sessionId（P0 路径穿越修复）。
@@ -243,6 +245,15 @@ export async function dispatchChatSessionRoutes(
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/resume$/)) {
     await handleResumeChat(handlerCtx, req, res);
+    return true;
+  }
+  // T3-12（2026-10-13）：独立「长程继续」入口 —— 对 **guard** 挂起（熵门禁/轮上限）触发续跑；
+  // 与 `/resume`（按 checkpoint_id 重放流）不同：本端点走协调器 release + 既有续跑通道。
+  // 门控 `FEATURE_GUARD_SUSPEND`（默认关）⇒ 关时 404（零行为变更）。
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/continue$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/continue$/, res);
+    if (sid === null) return true;
+    await handleContinueSession(res, sid);
     return true;
   }
   // BUG-4 修复：泛型路由改为 ([^/]+)，避免贪婪吞掉子路径路由

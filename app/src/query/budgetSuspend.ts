@@ -44,6 +44,14 @@ const logger = getLogger('query:budgetSuspend');
 /** 挂起链类型：流式（`StreamingAutoCheckpoint`）/ batch（`TAORLoop` 检查点） */
 export type SuspendChain = 'stream' | 'taor';
 
+/**
+ * 挂起**类别**（T3-12，2026-10-13）：
+ *  - `'budget'`（缺省，向后兼容）：日预算耗尽挂起 ⇒ 由 **relief**（boost/waive-once/unlock-today）唤醒；
+ *  - `'guard'`：guard 挂起（熵门禁 `schema_entropy` / 轮上限 `turn_limit`）⇒ **绝不**被 relief 唤醒，
+ *    只能经独立继续入口 `POST /v1/sessions/:id/continue`（`coordinator.release` + 既有续跑通道）。
+ */
+export type SuspendKind = 'budget' | 'guard';
+
 /** 单条挂起登记 */
 export interface SuspendEntry {
   sessionId: string;
@@ -51,6 +59,17 @@ export interface SuspendEntry {
   checkpointRef?: string;
   suspendedAt: number;
   reason: string;
+  /** 挂起类别；**缺省视为 `'budget'`**（历史条目/既有调用零改动兼容） */
+  kind?: SuspendKind;
+}
+
+/**
+ * 该条目是否可被 **relief 放行** 唤醒（T3-12）：仅 `kind==='budget'`（含缺省）。
+ *
+ * 提取为模块级纯函数 ⇒ 不增加 `onReliefApplied` 的圈复杂度，且兼作"relief 只唤醒 budget"的单点判据。
+ */
+function isReliefEligible(entry: SuspendEntry & { expired: boolean }): boolean {
+  return !entry.expired && (entry.kind ?? 'budget') === 'budget';
 }
 
 /**
@@ -153,7 +172,9 @@ export class BudgetSuspendCoordinator {
       return { woken: [] };
     }
     const limit = kind === 'waive-once' ? 1 : resolveBudgetResumeMaxPerWake();
-    const candidates = this.list().filter((e) => !e.expired);
+    // T3-12：relief 只唤醒 `kind==='budget'`（缺省）候选 —— **绝不**唤醒 guard 挂起
+    // （落实"guard 挂起不复用 relief 放行通道"）。
+    const candidates = this.list().filter(isReliefEligible);
     const woken: string[] = [];
     // M3（最终整支评审）：上限按 **handler 调用数**计（而非"成功数"）—— 否则 handler 持续失败时
     // 会遍历全部候选（尝试次数远超上限）。
@@ -197,6 +218,7 @@ export class BudgetSuspendCoordinator {
           checkpointRef: entry.checkpointRef,
           reason: entry.reason,
           suspendedAt: entry.suspendedAt,
+          kind: entry.kind,
         });
         logger.warn('budgetSuspend:resume_failed — 唤醒失败，回滚为挂起', {
           sessionId: entry.sessionId,

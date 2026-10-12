@@ -242,6 +242,9 @@ export async function handleGetDailyBudgetSuspends(
         chain: e.chain,
         suspendedAt: e.suspendedAt,
         reason: e.reason,
+        // T3-12（2026-10-13）：如实带出挂起类别（`'budget'` 缺省 / `'guard'`）——
+        // **仅新增字段**，不改既有字段语义（既有契约测试零破坏）。
+        kind: e.kind ?? 'budget',
         expired: e.expired,
         checkpointRef: e.checkpointRef ?? null,
       }));

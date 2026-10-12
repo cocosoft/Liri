@@ -11,6 +11,7 @@
 import { feature } from '@modules/core';
 import { getDailyBudget } from '../DailyBudgetManager.js';
 import { getBudgetSuspendCoordinator } from '../budgetSuspend.js';
+import type { GuardSuspendReason } from '../guardSuspend.js';
 
 /**
  * 处理 TAOR 链因日预算耗尽而中止：记日志（原语义），并按开关落挂起检查点 + 登记。
@@ -41,5 +42,33 @@ export async function handleTaorBudgetExhaustion(deps: {
     chain: 'taor',
     checkpointRef,
     reason: deps.reason ?? 'daily_budget_exhausted',
+  });
+}
+
+/**
+ * T3-12（2026-10-13 用户裁定）：处理 TAOR 链 **guard 挂起**（轮上限 / 熵门禁）。
+ *
+ * 与 `handleTaorBudgetExhaustion` 同构（复用同一轮间安全点：`saveCheckpoint` + `coordinator.suspend`），
+ * 差别在：①门控开关为 `GUARD_SUSPEND`（**默认关**）；②`kind='guard'`（⇒ **不**被 relief 唤醒，
+ * 只能经独立继续入口 `POST /v1/sessions/:id/continue`）；③检查点类型 `'guard_suspend'`。
+ *
+ * 关（默认）⇒ 直接返回（零行为变更：不落检查点、不登记）。检查点不可用（空 id）⇒ 不登记（不留幽灵挂起）。
+ *
+ * @param deps.saveCheckpoint 落检查点（注入 `TAORLoop.saveCheckpoint`，返回检查点 id）
+ */
+export async function handleTaorGuardSuspend(deps: {
+  sessionId: string;
+  reason: GuardSuspendReason;
+  saveCheckpoint: (t: 'guard_suspend') => Promise<string>;
+}): Promise<void> {
+  if (!feature('GUARD_SUSPEND')) return; // 关（默认）⇒ 零行为变更
+  const checkpointRef = await deps.saveCheckpoint('guard_suspend');
+  if (!checkpointRef) return; // 无有效检查点 ⇒ 不登记（防幽灵挂起）
+  getBudgetSuspendCoordinator().suspend({
+    sessionId: deps.sessionId,
+    chain: 'taor',
+    checkpointRef,
+    reason: deps.reason,
+    kind: 'guard',
   });
 }

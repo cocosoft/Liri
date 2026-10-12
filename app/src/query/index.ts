@@ -323,4 +323,21 @@ export type { PendingToolCallRef } from './taor/pendingToolCalls.js';
 // A2（2026-10-12）：预算挂起协调器查询面 —— HTTP 层（service）经本桶动态取用，
 // 暴露**只读**挂起清单（`list()`），避免 service → app 静态倒挂与 R03-002 子路径违规。
 export { getBudgetSuspendCoordinator } from './budgetSuspend.js';
-export type { SuspendEntry, SuspendChain } from './budgetSuspend.js';
+export type {
+  SuspendEntry,
+  SuspendChain,
+  SuspendKind,
+} from './budgetSuspend.js';
+// T3-12（2026-10-13）：guard 挂起（熵门禁/轮上限）+ 独立继续入口 —— HTTP 层经本桶动态取用。
+export {
+  isGuardSuspendEnabled,
+  registerGuardSuspend,
+  guardSuspendFromEntropy,
+  continueSuspendedSession,
+  GUARD_SUSPEND_REASONS,
+} from './guardSuspend.js';
+export type {
+  GuardSuspendReason,
+  ContinueOutcome,
+  ContinueCode,
+} from './guardSuspend.js';

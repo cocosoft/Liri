@@ -273,9 +273,9 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 
 ### 1.14 通道系统规范
 
-**唯一真相源**：`src/channels/` 为实现层，`core/gateway/` 为遗留兼容层（仅状态同步）。
+**唯一真相源**：`src/channels/` 为通道**唯一实现层**。（⚠️ 订正 2026-10-12：`core/gateway/` **已移除** —— 该目录于 2026-08-06 下线，**不存在**"遗留兼容层"。）
 
-**注册唯一入口**：`ChannelBootstrapper.bootstrap()` → `channelRegistry.register()`。❌ 绕过 Registry 直接注册 ❌ 新模块依赖 `core/gateway/` ❌ `ChannelManager` 新增业务逻辑（已 @deprecated）。`register()` 内置双重注册守卫。
+**注册唯一入口**：`channelBootstrapper`（单例）→ `channelRegistry.register()`。❌ 绕过 Registry 直接注册 ❌ 新增对**已移除的** `core/gateway/` 的依赖。`register()` 内置双重注册守卫。
 
 **消息路由统一**：所有入站消息必须走 `routeChannelMessage()`。管线：`①帧验证(非空/时间戳/格式/大小/安全) → ②去重(channels/dedup/index.ts) → ③共享会话写入 → ④会话创建/复用 → ⑤CoreAPI.chat() → ⑥出站回调`。❌ 绕过 `routeChannelMessage()` 直调 `CoreAPI.chat()` ❌ 自建去重 ❌ 适配器自建帧验证。
 
@@ -286,7 +286,7 @@ import { resolveOutputDir, resolveDbPath } from '@modules/core/paths';  // ✅
 
 **通道上限**：环境变量 `CHANNEL_MAX_COUNT`，默认 **10**（非 Infinity）。启动日志输出配额比率，超限输出 warning。
 
-**废弃代码**：遗留模块（`ChannelManager`、`GatewaySetup`、`GatewayTool`）构造函数必须 `process.emitWarning('已废弃', 'DeprecationWarning')`。
+**废弃代码**：（⚠️ 订正 2026-10-12）`ChannelManager` / `GatewaySetup` / `GatewayTool` 在本仓**已无实体**（曾记录的 `process.emitWarning` 要求**不适用**）；通道管理工具统一为 `tools/ChannelTool`（原 `GatewayTool` 已并入它）。
 
 **DevicePairingService**：归属 `channels/`，通过 `ChannelEventBus` 通信，不依赖具体通道实现。
 

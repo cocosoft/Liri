@@ -2,6 +2,9 @@
 node_modules/
 package-lock.json
 
+# SDD 流程工作区（scratch，非仓库内容）
+.superpowers/
+
 # Build outputs
 dist/
 build/

@@ -9,7 +9,7 @@
 
 **终端里的 AI 智能体 · 连接 26 个平台的智能助手**
 
-一键安装 · 自然语言交互 · 73 个内置工具 · 企业级安全
+一键安装 · 自然语言交互 · 75 个内置工具 · 企业级安全
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -153,9 +153,9 @@ T3 ── 后台延迟加载（DEFERRED + ON_DEMAND 模块）
 | 上下文治理 | 分层切窗 + 按需取回原文 + 自动压缩（详见下文） |
 | Token 预算 | 多级预算控制（预警 / 压缩 / 阻断），防止超额 |
 
-Agent 引擎内置 4 种检查点机制（CheckpointManager），长时间运行的任务可落盘续跑；工具调用轮次、压缩、截断等关键节点均写事件日志，支持回放与审计。
+Agent 引擎内置 4 种检查点机制，长时间运行的任务可落盘续跑；工具调用轮次、压缩、截断等关键节点均写事件日志，支持回放与审计。
 
-### 🛠 内置工具（73 个）
+### 🛠 内置工具（75 个）
 
 | 分类 | 工具 |
 |------|------|
@@ -376,7 +376,7 @@ Liri/                            # 工程根目录
 │   │   ├── acp/                 # Agent Communication Protocol
 │   │   ├── ai/                  # AI 模型适配层
 │   │   ├── agent/               # AI Agent 核心
-│   │   ├── tools/               # 内置工具实现（73 个）
+│   │   ├── tools/               # 内置工具实现（75 个）
 │   │   ├── channels/            # 26 个消息通道
 │   │   ├── mcp/                 # MCP 协议实现
 │   │   ├── security/            # 安全防护体系（5 层）

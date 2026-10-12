@@ -511,6 +511,22 @@ src/<module>/
 
 新增状态机必须在 `GET /v1/state/all` 聚合结果中暴露（后端已提供 `/v1/state/all` + 前端运行状况面板"应用状态"区）。
 
+### R09-006 [MUST] 状态机定义必须登记（编译期**硬门禁**，未登记 ⇒ 阻断构建）
+
+**判据**：`app/src/**`（排除测试文件）中出现的**有运行时锚点**的状态机形状导出，必须**要么**在**定义目录** `app/src/state/engine/stateMachineCatalog.ts` 登记，**要么**在 `scripts/state-machine-allowlist.json` **显式豁免**（每条附 `reason`）：
+
+- ① `export enum <Name>`（`Name` 以 `Status` / `State` 结尾）
+- ② `export const <NAME> = [ … ]` / `= new Set([ … ])`（`NAME` 以 `_STATUSES` / `_STATES` 结尾）
+
+**登记来源**（三处，全部显式可追溯）：`STATE_MACHINES[].verifyRef`（精确 `module#exportName`）· `STATE_MACHINES[].sourceFile` / `BOUNDARY_STATE_MACHINES[].sourceFile`（文件级；后者为"**同名不同物**"登记）· `state-machine-allowlist.json`。
+
+**为什么是硬报错而非松散告警**（状态机规范管理方案 阶段 1.4 裁断）：稳定性依赖**完全可预测性**，松散告警终将退化为 streaming 层那种裸字符串碎片。
+
+- 配套 lint：`bun run lint:arch` → **R09-006**（error）
+- 豁免清单**缺失即 fail-closed**（报 error）——白名单型门禁若在清单缺失时静默放行，等于门禁关闭
+- **产物归属**：定义目录 = `app/src/state/engine/stateMachineCatalog.ts`；豁免清单 = `scripts/state-machine-allowlist.json`
+- ⚠️ **局限（如实）**：仅识别 **`enum` / `as const`(Set) 数组**两类有运行时锚点的形态；`type X = 'a' | 'b'` 类型联合与内联字面量**不在**门禁范围（全仓逾 150 处，逐一豁免即"噪音门禁"）⇒ 该类由目录的 `source-read` 条目 + `tests/state/stateMachineCatalog.test.ts` 人工取证覆盖。**只漏报、不误报。**
+
 ---
 
 ## R10 模块统一管理（MUST）
@@ -775,8 +791,9 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 
 | 项目 | 值 |
 |------|-----|
-| 版本 | 1.6.0 |
+| 版本 | 1.6.1 |
 | 创建 | 2026-06-09 |
+| 更新 | 2026-10-12 — 新增 **R09-006 状态机定义必须登记（编译期硬门禁，error）**（状态机规范管理方案 阶段 1.4；配套 `lint:arch` → R09-006 + 显式豁免清单 `scripts/state-machine-allowlist.json`；实测未登记枚举/状态数组 ⇒ 门禁红、构建阻断） |
 | 更新 | 2026-09-25 — 新增 **R14 错误级别声明与落盘一致性**（全表穷尽往返断言，`bun test tests/error/errorLogLevel.test.ts` 阻断级；背景见台账附带发现 12 与待办 ⑬） |
 | 更新 | 2026-09-25 — 新增 **R13 定时器生命周期**（R13-001 模块顶层 `setInterval` 必须 unref，`bun run lint:unref` 阻断级并入 `ci`；R13-002 存量 149 处收敛清单）；背景见台账附带发现 7，与既有 `lint:exit` 互补（治标 vs 治本） |
 | 更新 | 2026-08-10 — 新增 R08 后台任务可观测性（R08-001 跨重启状态持久化 / R08-002 四类事件日志 / R08-003 接入运行状况面板） |

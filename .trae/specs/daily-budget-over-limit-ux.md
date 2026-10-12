@@ -314,3 +314,12 @@
 2. 闸门保持**发送前单一收口**（`preSendContextProtection`）—— 便于专项把"token 配额"替换为"价格 × tokens 折算"，无需改多处。
 3. §5-E 的配置面**沿用同一页签**；专项只需把"上限"从 token 换成 USD（或双向展示），不另开设置页。
 4. **记账延迟（专项必须面对）**：`cost_records` 为 **fire-and-forget 异步写入**（`CostTracker.ts:148-160` → `EventBus.ts:200-237` publish 不 `await` → `CostRecordRepository.ts:237-297` 每条一次 INSERT），**无去抖/缓冲**（30s `cost-flush` 只推指标面板，不写该表）；但 `publish → INSERT` 之间崩溃会丢该条 ⇒ USD 闸门若直接读 DB 将遇**滞后/竞态**，专项需定"读 DB 还是读内存累计、何时对齐"。
+
+---
+
+## 12. 遗留缺口移交（2026-10-12 回仓取证发现）
+
+| 缺口 | 取证 | 移交 |
+|---|---|---|
+| **`waive-once` 的**闸门消费点**从未接线**（死能力） | `consumeWaiveOnce()`（`DailyBudgetManager.ts:427-436`）**仅测试调用**；`canExecute()`（`:546-548`）与 `_computeState()`（`:262`）**不读 `waiveOncePending`** ⇒ 不抬高 `_effectiveLimit()` ⇒ **放行后仍 `locked`** | **`.trae/specs/long-task-suspend-resume.md` v1.1**（用户 2026-10-12 裁定「同时修 `waive-once` 闸门接线」，作为其**阶段 A 前置**）。**本 spec 的 relief 三件套定义/端点不变**，仅**消费点**由其补齐 |
+| **挂起态无"去放行"实时入口**（撞限仅最终消息文案 + 仅日志告警） | `logExhaustionAbort`（`DailyBudgetManager.ts:529-541`）仅 warn；`AlertBridge` 的 `channel:send` 全仓**无订阅者** | 同上（`long-task-suspend-resume.md` v1.1 §5 阶段 D：复用本 spec 的 `DailyLimitNotice`/`resolveLlmFailure` 面） |

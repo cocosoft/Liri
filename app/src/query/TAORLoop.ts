@@ -1525,7 +1525,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.conversationSummary = checkpoint.conversationSummary;
     this.resumedFromCheckpoint = true;
     this.resumedCheckpointId = checkpoint.id;
-
+    this.stopped = false; // B3：恢复⇒清除 stopped，否则唤起轮 seeded ACT 被 shouldContinue 短路
     // 恢复 Token 预算状态（向后兼容：旧 checkpoint 可能无 currentTokens 字段）
     const currentTokens = checkpoint.budgetState.currentTokens ?? 0;
     const actualRemaining = Math.max(

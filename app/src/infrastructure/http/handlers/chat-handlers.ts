@@ -48,7 +48,13 @@ import type {
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
 // P0-2（2026-10-10）：客户端流式路径接入 Execution 生命周期（`service → service` 合法；
 // 见 `.trae/specs/client-stream-execution.md`）
-import { getExecutionManager, type ExecutionLease } from '@modules/execution';
+// 状态机方案 阶段 2.2（2026-10-12）：SSE 兜底状态改走常量（唯一事实源 = `execution/types.ts`），
+// 消除 `__pyapp_tool_status` 的 `'running'` 裸字面量（两处）。
+import {
+  getExecutionManager,
+  TOOL_CALL_INITIAL_STATUS,
+  type ExecutionLease,
+} from '@modules/execution';
 import { feature } from '@modules/core';
 
 const logger = getLogger('http:chat');
@@ -870,7 +876,8 @@ async function handleStreamingChat(
               created,
               model,
               __pyapp_type: 'tool_call',
-              __pyapp_tool_status: chunk.toolCall.status || 'running',
+              __pyapp_tool_status:
+                chunk.toolCall.status || TOOL_CALL_INITIAL_STATUS,
               choices: [
                 {
                   index: 0,
@@ -1197,13 +1204,29 @@ export async function handleLatestCheckpoint(
     const coreAPI = getCoreAPI();
     const checkpoint =
       await coreAPI.chatManager?.getLatestCheckpoint(sessionId);
-    if (checkpoint && checkpoint.messages && checkpoint.messages.length > 0) {
+    // A1 修复（预算挂起可见性）：挂起检查点在**轮首撞限、尚未完成任何工具**时是**空消息快照**
+    // （真实载荷在 `metadata.budgetSuspend` / `pendingToolCalls`）。原判据仅看「messages 非空」
+    // ⇒ 会把一个真实挂起误报为 `checkpointAvailable:false`（真实 E2E 实证，spec §6.5 查询面缺口）。
+    // 判据在**端点侧**区分：带 `budgetSuspend` 标记者即使消息为空也如实可见；
+    // `StreamingAutoCheckpoint.restore()` 的「可续跑」过滤键（`META_KEY`）**不变**（二者判据不同）。
+    const meta = checkpoint?.metadata as unknown as
+      | Record<string, unknown>
+      | undefined;
+    const isBudgetSuspend = meta?.['budgetSuspend'] != null;
+    const hasMessages = !!(
+      checkpoint &&
+      checkpoint.messages &&
+      checkpoint.messages.length > 0
+    );
+    if (checkpoint && (hasMessages || isBudgetSuspend)) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
           sessionId,
           checkpointAvailable: true,
           checkpointId: checkpoint.id,
+          // A1：如实暴露 label（挂起检查点 = 'budget_suspend'）
+          label: checkpoint.label,
           messages: checkpoint.messages,
           // P1 修复：回传 metadata（含 abortRecovery 标记），此前缺失导致前端
           // checkAbortRecoveryImpl 读 data.metadata 恒为 undefined，恢复提示永不弹出
@@ -1292,7 +1315,7 @@ function serializeResumeChunk(chunk: string | ChatStreamChunk): string | null {
       return JSON.stringify({
         ...base,
         __pyapp_type: 'tool_call',
-        __pyapp_tool_status: c.toolCall.status || 'running',
+        __pyapp_tool_status: c.toolCall.status || TOOL_CALL_INITIAL_STATUS,
         ...(c._meta ? { __pyapp_meta: c._meta } : {}),
         choices: [
           {

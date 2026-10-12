@@ -83,6 +83,7 @@ import {
 } from '../channel-plugin-handlers';
 import {
   handleGetDailyBudget,
+  handleGetDailyBudgetSuspends,
   handleResetDailyBudget,
   handleClearDailyBudgetRelief,
   handleSetDailyBudgetKillSwitch,
@@ -109,6 +110,11 @@ async function dispatchDailyBudgetRoutes(
 ): Promise<boolean> {
   if (method === 'GET' && url === '/v1/cost/daily-budget') {
     await handleGetDailyBudget(res);
+    return true;
+  }
+  // A2（2026-10-12）：**只读**挂起清单（预算挂起续跑可见性）—— 不受开关门控。
+  if (method === 'GET' && url === '/v1/cost/daily-budget/suspend') {
+    await handleGetDailyBudgetSuspends(res);
     return true;
   }
   if (method === 'PUT' && url === '/v1/cost/daily-budget') {

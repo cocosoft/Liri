@@ -29,6 +29,7 @@
  * - `POST   /v1/cost/daily-budget/kill-switch` 手动硬锁开关（D6）
  * - `POST   /v1/cost/daily-budget/relief`      放行（D-b：临时提额 / 单次豁免 / 当日解除）
  * - `DELETE /v1/cost/daily-budget/relief`      **撤销放行**（保留用量，≠ reset）
+ * - `GET    /v1/cost/daily-budget/suspend`     **只读**挂起清单（预算挂起续跑可见性，A2）
  *
  * 归属说明：日预算单例在 `query/**`（app 层），本文件属 service 层 ⇒ 按本仓既有
  * `chat-handlers.ts` 的 `await import('@modules/chat')` 模式**动态导入**，避免 service → app
@@ -216,6 +217,42 @@ export async function handleGetDailyBudget(
     await handleError(err, { module: 'http:dailyBudget', action: 'get' });
     if (!res.headersSent) {
       json(res, 500, { error: { message: '获取日限额状态失败' } });
+    }
+  }
+}
+
+/**
+ * GET /v1/cost/daily-budget/suspend — **只读**挂起清单（A2，spec §6.5 可见性）。
+ *
+ * 暴露 `BudgetSuspendCoordinator.list()`：`expired` 由协调器按 `SUSPEND_TTL_MS`(24h) 现算
+ * （**不复制判据**）；无挂起时返回空数组 ⇒ 自然零影响。
+ *
+ * **不受 `FEATURE_BUDGET_SUSPEND_RESUME` 门控**：协调器只在开关开时才会登记挂起，关时清单恒空；
+ * 保持可查便于运维观测（挂起可见性不依赖该开关）。
+ */
+export async function handleGetDailyBudgetSuspends(
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getBudgetSuspendCoordinator } = await loadQueryModule();
+    const sessions = getBudgetSuspendCoordinator()
+      .list()
+      .map((e) => ({
+        sessionId: e.sessionId,
+        chain: e.chain,
+        suspendedAt: e.suspendedAt,
+        reason: e.reason,
+        expired: e.expired,
+        checkpointRef: e.checkpointRef ?? null,
+      }));
+    json(res, 200, { sessions, count: sessions.length });
+  } catch (err) {
+    await handleError(err, {
+      module: 'http:dailyBudget',
+      action: 'suspend-list',
+    });
+    if (!res.headersSent) {
+      json(res, 500, { error: { message: '获取挂起清单失败' } });
     }
   }
 }

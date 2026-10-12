@@ -286,6 +286,9 @@ import { setWorkflowRunEventSink } from '@modules/workflow';
 // PR5-S3（2026-10-09）：Execution 生命周期事件落盘 —— 本模块持有会话事件日志，
 // 故在此注入唯一写入出口（同上手法；避免 execution/ → chat/ 反向依赖）。
 import { setExecutionEventSink } from '@modules/execution';
+// F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
+// 修复前 `registerTAORLoop` 全仓零调用 ⇒ `activeLoops` 恒空 ⇒ checkpoint 恢复端点恒 404。
+import { registerTAORLoop } from '@modules/infrastructure';
 // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
 import { chargeSessionGoalUsage } from '@modules/tasks';
 import {
@@ -1444,6 +1447,22 @@ export class ChatManagerImpl implements ChatManager {
         },
       });
       this._taorLoops.set(cacheKey, taorLoop);
+      // F2（2026-10-12，预算挂起续跑 Task 3）：把实例登记进活跃注册表
+      // （`checkpoint-handlers` 的 `activeLoops`）。修复前 `registerTAORLoop` 全仓零调用
+      // ⇒ 注册表恒空 ⇒ `handleResumeCheckpoint` 恒 404（batch 手动恢复不可达）。
+      //
+      // 注册键用 **sessionId**（非 `cacheKey`）：端点的寻址键即路径段 sessionId
+      // （`parsePathParams` → `activeLoops.get(params.id)`），而 `cacheKey` 在
+      // `multiplier > 1` 时会带 `::turnsXn` 后缀 ⇒ 用它会令放大实例在端点上寻址失配。
+      //
+      // `TAORLoop` **已存在** `getCheckpointsForSession`（`:1662`）⇒ 直接按 `TaorLoopPort`
+      // 结构转发，**不**改 `TAORLoop.ts`（该文件已逼近 R04-001 行数上限）。
+      const activeLoop = taorLoop;
+      registerTAORLoop(sessionId, {
+        getCheckpointsForSession: () => activeLoop.getCheckpointsForSession(),
+        resumeFromCheckpoint: (id?: string) =>
+          activeLoop.resumeFromCheckpoint(id),
+      });
     }
     return taorLoop;
   }
@@ -2596,6 +2615,53 @@ export class ChatManagerImpl implements ChatManager {
     // 子代理结算时 `notifyYieldSettled` **静默丢弃**（等待已登记却永不恢复，且无任何日志）。
     this._ensureYieldResumerInstalled();
     return this.chatOrchestrator.sendMessage(content, options);
+  }
+
+  /**
+   * F2 / D7（2026-10-12，预算挂起续跑 Task 3）：挂起会话的「唤醒 → 续跑」入口。
+   *
+   * - `chain='stream'`：**消费**既有流式续跑 `resumeStream`（与 `POST /v1/sessions/:id/resume`
+   *   同一入口，不搬迁、不复制恢复谱系）；
+   * - `chain='taor'`：先 `resumeFromCheckpoint(latest)` 恢复游标，再注入续跑 steering，
+   *   最后**触发既有执行入口**（`ChatOrchestrator.sendMessage` 的 TAOR 委托路径）。
+   *   —— `resumeFromCheckpoint` 只恢复内存状态、**不触发执行**（spec §3-D7「真再跑」为硬要求），
+   *   故必须再触发一次既有入口，且**不新增执行路径**。
+   *
+   * @returns 是否成功发起续跑（`taor` 无可用检查点时返回 `false`）
+   */
+  async resumeSuspendedSession(
+    sessionId: string,
+    chain: 'stream' | 'taor'
+  ): Promise<boolean> {
+    if (chain === 'stream') {
+      // 消费既有流式续跑生成器（落盘/广播由该链路内部完成，与 HTTP 恢复端点同源）
+      const latest = await this.getLatestCheckpoint(sessionId);
+      for await (const _chunk of this.resumeStream(
+        sessionId,
+        latest?.id ?? ''
+      )) {
+        void _chunk; // 丢弃正文：与 recovery.resumeSessionInternally 同法
+      }
+      return true;
+    }
+
+    const taorLoop = this._getOrCreateTAORLoop(sessionId);
+    const checkpoints = await taorLoop.getCheckpointsForSession();
+    const latestId = checkpoints?.[0]?.id;
+    const resumed = await taorLoop.resumeFromCheckpoint(latestId);
+    if (!resumed) {
+      logger.warn('resumeSuspendedSession: 无可用 TAOR 检查点，跳过续跑', {
+        sessionId,
+      });
+      return false;
+    }
+    // 续跑 steering（与 bootstrap.resumePendingSessions 同源：`durable-resume`）
+    const resumeInstruction =
+      '[系统] 会话已从预算挂起点恢复，请从中断处继续完成未完成的任务。';
+    taorLoop.injectSteering(resumeInstruction, 'durable-resume');
+    // 真再跑：触发既有执行入口（TAOR 委托路径 `ChatOrchestrator.sendMessage`）
+    await this.chatOrchestrator.sendMessage(resumeInstruction, { sessionId });
+    return true;
   }
   private async _sendMessageDowngradePath(
     session: ChatSession,

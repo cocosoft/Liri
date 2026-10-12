@@ -583,6 +583,17 @@ export interface ChatManager {
     import('@modules/session/types/message').Message,
     unknown
   >;
+
+  /**
+   * F2 / D7（2026-10-12，预算挂起续跑）：挂起会话的「唤醒 → 续跑」入口。
+   * `stream` ⇒ 消费既有 `resumeStream`；`taor` ⇒ `resumeFromCheckpoint` 后触发既有执行入口
+   * （`ChatOrchestrator.sendMessage` 的 TAOR 委托路径，确保"真的再跑"）。
+   * @returns 是否成功发起续跑（`taor` 无可用检查点时 `false`）
+   */
+  resumeSuspendedSession(
+    sessionId: string,
+    chain: 'stream' | 'taor'
+  ): Promise<boolean>;
 }
 
 /**

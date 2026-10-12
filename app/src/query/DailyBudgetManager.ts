@@ -155,6 +155,10 @@ export class DailyBudgetManager {
   private _waiverGrantedThisTurn = false;
   /** D-d：透支欠账（`waive-once` 消耗）——次日计入用量扣回；`reset()` 不抹除。 */
   private debtTokens = 0;
+  /** D7（Task 7）：放行应用回调集（进程内唤醒端口；非持久化、非事实源）。 */
+  private readonly reliefAppliedListeners = new Set<
+    (e: { kind: ReliefKind; effectiveLimit: number }) => void
+  >();
 
   constructor(config?: Partial<DailyBudgetConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -392,7 +396,33 @@ export class DailyBudgetManager {
     }
     this._schedulePersist();
     this._observeModeTransition(this._computeState());
+    // D7（Task 7）：通知进程内唤醒端口（**仅显式放行成功后**触发 ⇒ 构成因果判别）。
+    this._emitReliefApplied(input.kind);
     return this._reliefView();
+  }
+
+  /**
+   * D7（Task 7）：注册**放行应用回调**，返回解绑函数。
+   *
+   * 触发时机：`applyRelief(...)` **成功写入放行之后**，`kind` = 本次应用的 kind、
+   * `effectiveLimit` = 应用后的有效上限。**仅**在显式放行处触发 —— kill-switch /
+   * `reset()` / PUT 配置变更 / `clearRelief()` 一律不触发（它们不改变"用户放行"这一事实）。
+   */
+  onReliefApplied(
+    listener: (e: { kind: ReliefKind; effectiveLimit: number }) => void
+  ): () => void {
+    this.reliefAppliedListeners.add(listener);
+    return () => {
+      this.reliefAppliedListeners.delete(listener);
+    };
+  }
+
+  /** D7：遍历放行回调（`effectiveLimit` 取应用后的有效上限）；回调为 fire-and-forget 端口。 */
+  private _emitReliefApplied(kind: ReliefKind): void {
+    const effectiveLimit = this._effectiveLimit();
+    for (const listener of this.reliefAppliedListeners) {
+      listener({ kind, effectiveLimit });
+    }
   }
 
   /** 当前放行视图（`null` = 无放行；过期即视为无）。 */

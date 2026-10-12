@@ -119,6 +119,9 @@ import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 import { toStreamingCheckpointPort } from './orchestrator/streamMessageToolLoopContext.js';
 // R16：每日 Token 预算（进程共享单例）——记账点收敛到本类的 recordChatResponseUsage。
 import { getDailyBudget } from '../query/DailyBudgetManager';
+// Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
+// `query/budgetSuspend` **不得** import `chat/**`（防环）⇒ 唤醒经注入的 handler 端口（下方装配）。
+import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
 // K4（2026-09-06）：执行意图判定提取共用（goal fallback / streamMessageFlow 裁剪）
 // R4（2026-09-06）：强产出意图判定（首条消息轮次闸放宽）
 import {
@@ -1390,6 +1393,33 @@ export class ChatManagerImpl implements ChatManager {
           this._buildToolRoundMessages(msgs, am, tcs, prs),
       },
     });
+
+    // Task 7（2026-10-12）：装配「放行 ⇒ 唤醒挂起会话」的进程内端口（幂等 + 开关门控）。
+    this._installBudgetSuspendResume();
+  }
+
+  /**
+   * Task 7：装配预算挂起的**唤醒端口**（幂等；`FEATURE_BUDGET_SUSPEND_RESUME` 默认关 ⇒ 零行为变更）。
+   *
+   * - `getDailyBudget().onReliefApplied` ⇒ 放行发生时把 kind 转给协调器决策；
+   * - `coordinator.setResumeHandler` ⇒ 协调器逐会话回调本类的 `resumeSuspendedSession`
+   *   （`query/budgetSuspend` **不得** import `chat/**`，故经此注入端口，不构成循环导入）。
+   */
+  private _installBudgetSuspendResume(): void {
+    if (this._budgetSuspendResumeWired) return;
+    if (!coreFeature('BUDGET_SUSPEND_RESUME')) return; // 默认关 ⇒ 不注册（零行为变更）
+    this._budgetSuspendResumeWired = true;
+    const coordinator = getBudgetSuspendCoordinator();
+    this._budgetReliefUninstall = getDailyBudget().onReliefApplied((e) => {
+      void coordinator.onReliefApplied(e.kind).catch((err) => {
+        logger.warn('budgetSuspend:onReliefApplied failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    });
+    coordinator.setResumeHandler((sessionId, chain) =>
+      this.resumeSuspendedSession(sessionId, chain)
+    );
   }
 
   /**
@@ -2575,6 +2605,11 @@ export class ChatManagerImpl implements ChatManager {
     setYieldResumeHandler(null);
     setSelfWakeResumeHandler(null);
     setActiveSubagentRunProbe(null);
+    // Task 7：卸载预算放行监听 + 摘除协调器 handler（同 yield 恢复器的防闭包累积纪律）
+    this._budgetReliefUninstall?.();
+    this._budgetReliefUninstall = null;
+    this._budgetSuspendResumeWired = false;
+    getBudgetSuspendCoordinator().setResumeHandler(null);
     // B1-6 / P0-6：**清空模块级单例的等待集**。卸载 listener 只切断"新信号"，
     // 而 `YieldRegistry` 是**进程级单例**（`getYieldRegistry()`）⇒ 条目会跨实例残留，
     // 新实例可能对**陈旧登记**发起恢复（修复前此处无 clear()，见 §2.5 P0-6）。
@@ -4264,6 +4299,12 @@ export class ChatManagerImpl implements ChatManager {
    * （结算信号会唤醒旧实例），且监听器数组只增不减。
    */
   private _yieldResumerUninstall: (() => void) | null = null;
+
+  /** Task 7：预算挂起唤醒端口是否已装配（幂等守卫）。 */
+  private _budgetSuspendResumeWired = false;
+
+  /** Task 7：预算放行监听解绑函数（`cleanup` 卸载，防实例重建后闭包累积）。 */
+  private _budgetReliefUninstall: (() => void) | null = null;
 
   /**
    * 流式发送消息

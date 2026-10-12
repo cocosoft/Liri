@@ -35,6 +35,10 @@
  */
 
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring';
+import type { ReliefKind } from './DailyBudgetManager.js';
+
+const logger = getLogger('query:budgetSuspend');
 
 /** 挂起链类型：流式（`StreamingAutoCheckpoint`）/ batch（`TAORLoop` 检查点） */
 export type SuspendChain = 'stream' | 'taor';
@@ -112,6 +116,65 @@ export class BudgetSuspendCoordinator {
   suspend(e: Omit<SuspendEntry, 'suspendedAt'>): void {
     if (this.entries.has(e.sessionId)) return;
     this.entries.set(e.sessionId, { ...e, suspendedAt: Date.now() });
+  }
+
+  /**
+   * Task 7：放行 ⇒ 按决策规则唤醒挂起会话（经注入的 handler 端口）。
+   *
+   * - `boost` / `unlock-today` ⇒ 按挂起时间**升序**、**串行**，数量 ≤ `resolveBudgetResumeMaxPerWake()`；
+   * - `waive-once` ⇒ **只唤醒最早期挂起的 1 个**（单次额度语义）；
+   * - 幂等：唤醒前先 `release` 占位（已释放者跳过）⇒ 并发/重复放行至多唤醒一次；
+   * - 过期（>24h）不唤醒；handler 返回 `false` ⇒ 回滚为挂起（保留原挂起时刻）+ warn；
+   * - 未设 handler ⇒ 只 warn，不报错、不改登记。
+   *
+   * @returns 本次实际唤醒的 `sessionId` 列表
+   */
+  async onReliefApplied(kind: ReliefKind): Promise<{ woken: string[] }> {
+    const handler = this.resumeHandler;
+    if (!handler) {
+      logger.warn(
+        'budgetSuspend:relief_no_handler — 未装配唤醒处理器，跳过唤醒',
+        { kind }
+      );
+      return { woken: [] };
+    }
+    const limit = kind === 'waive-once' ? 1 : resolveBudgetResumeMaxPerWake();
+    const candidates = this.list().filter((e) => !e.expired);
+    const woken: string[] = [];
+    for (const entry of candidates) {
+      if (woken.length >= limit) break;
+      // 幂等/并发占位：已 release 者跳过
+      if (!this.entries.has(entry.sessionId)) continue;
+      this.release(entry.sessionId);
+      let ok = false;
+      try {
+        ok = await handler(entry.sessionId, entry.chain);
+      } catch (err) {
+        logger.warn('budgetSuspend:resume_handler_error — 唤醒处理器抛错', {
+          sessionId: entry.sessionId,
+          chain: entry.chain,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        ok = false;
+      }
+      if (ok) {
+        woken.push(entry.sessionId);
+      } else {
+        // 回滚为挂起（直接写回，保留原挂起时刻 ⇒ 时间序不漂移）+ warn
+        this.entries.set(entry.sessionId, {
+          sessionId: entry.sessionId,
+          chain: entry.chain,
+          checkpointRef: entry.checkpointRef,
+          reason: entry.reason,
+          suspendedAt: entry.suspendedAt,
+        });
+        logger.warn('budgetSuspend:resume_failed — 唤醒失败，回滚为挂起', {
+          sessionId: entry.sessionId,
+          chain: entry.chain,
+        });
+      }
+    }
+    return { woken };
   }
 
   /** 该 session 是否处于挂起态（**不含**过期判定；过期由 `list()` 现算） */

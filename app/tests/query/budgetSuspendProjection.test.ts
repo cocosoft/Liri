@@ -10,13 +10,7 @@
 // ③ 双开关口径：`FEATURE_STATE_PROJECTION_BROADCAST` 关 ⇒ **零投影**，但**挂起登记照常**
 //    （可见性不以投影为准）。
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
   globalEventBus,
   SystemEvents,

@@ -128,9 +128,8 @@ describe('Task 7：放行 ⇒ 唤醒挂起会话', () => {
   });
 
   it('⑤ kill-switch / reset / PUT 配置变更 ⇒ handler 零调用（回调只在 relief 应用处）', async () => {
-    const { getDailyBudget, resetDailyBudgetForTest } = await import(
-      '../../src/query/DailyBudgetManager'
-    );
+    const { getDailyBudget, resetDailyBudgetForTest } =
+      await import('../../src/query/DailyBudgetManager');
     resetDailyBudgetForTest();
     const budget = getDailyBudget();
     budget.setLimit(100_000);

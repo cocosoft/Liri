@@ -174,7 +174,7 @@ describe('resumeSuspendedSession「真再跑」（F2 / D7）', () => {
     const loop = internals(cm)._getOrCreateTAORLoop(sid);
     loop.getCheckpointsForSession = async () => [{ id: 'cp-latest' }] as never;
     loop.resumeFromCheckpoint = async () => true;
-    internals(cm).chatOrchestrator.sendMessage = async () => ({} as never);
+    internals(cm).chatOrchestrator.sendMessage = async () => ({}) as never;
 
     await cm.resumeSuspendedSession(sid, 'taor');
 
@@ -277,7 +277,12 @@ function createSendMessageHost(opts: {
       createUserMessage: (c: string) =>
         ({ id: 'u1', role: 'user', content: c }) as unknown as Message,
       createAssistantMessage: (c: string) =>
-        ({ id: 'a1', role: 'assistant', content: c, metadata: {} }) as unknown as Message,
+        ({
+          id: 'a1',
+          role: 'assistant',
+          content: c,
+          metadata: {},
+        }) as unknown as Message,
     } as unknown as ChatOrchestratorHost['messageService'],
     sessionLifecycle: {
       getOrLoadSession: async () => session,

@@ -1313,7 +1313,8 @@ export class ChatManagerImpl implements ChatManager {
         shouldUseTAORLoop: (sid) => this._shouldUseTAORLoop(sid),
         getOrCreateTAORLoop: (sid) => this._getOrCreateTAORLoop(sid),
         // G-T3-1（2026-10-12）：委托路径据此跳过 `taorLoop.reset()`（一次性续跑意图）。
-        consumePendingResumeIntent: (sid) => this.consumePendingResumeIntent(sid),
+        consumePendingResumeIntent: (sid) =>
+          this.consumePendingResumeIntent(sid),
         buildTAORContext: (sid, defs, opts) =>
           this._buildTAORContext(sid, defs, opts),
         executeTool: (tc, opts) => this.executeTool(tc as ToolCall, opts),

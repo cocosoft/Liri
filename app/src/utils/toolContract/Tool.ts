@@ -92,6 +92,13 @@ export type ToolSandboxLevel = 'none' | 'readonly' | 'file-io' | 'execution';
  *
  * 派生实现见 `tools/toolCapability.ts` 的纯函数 `deriveFromLegacyEffects()`
  * （**不新建子系统**，CS01；`Tool` 为 interface，故派生落 `BaseTool` 实现）。
+ *
+ * ⚠️ **边界（TG-1 / 2026-10-12 裁断：「保持独立，严禁并入工具契约」）**：本描述符描述工具的
+ * **静态固有属性**（能力 / 风险 / 沙箱），属**能力域**。**严禁**把
+ * `permission/ApprovedCommandRegistry` 的 `capabilityDigest` —— 即「特定会话 + 精确命令语义」的
+ * **执行授权指纹**，属**权限域** —— 并入此处：二者语义正交，合并会把权限指纹**回流污染**工具
+ * 的基础声明（CS01 / R02-002 同名不同物）。该字段**无需要**登记 R02-002 排除表（R02-002 只扫描
+ * **导出符号**，不扫描 interface 字段）。
  */
 export interface ToolCapabilityDescriptor {
   readonly capability: ToolCapabilityLevel;

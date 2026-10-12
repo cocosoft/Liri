@@ -82,6 +82,16 @@ export interface AgentToolProgress {
 export interface SubAgentProgress {
   agentId: string;
   agentName: string;
+  /**
+   * 子 Agent 的**进度态**（`running | completed | failed`）。
+   *
+   * ⚠️ **归属裁定（状态机方案 阶段 2.1，2026-10-12）：本字段 ≠ 工具调用状态，严禁并入 `ToolCallStatus`。**
+   * ① 语义不同物：本字段描述**子 Agent 自身**的推进情况（council/agent 域），
+   *    `ToolCallStatus` 描述**一次工具调用**的结算结果（含恢复期 `unknown`）。
+   * ② 分层硬约束：本文件属 `utils`（**infra** 层），`allowedDependencies.infra = [infra, core]`
+   *    ⇒ **不可**反向依赖 `execution`（**service** 层）的 `ToolCallStatus`（R00-001；引用即倒挂）。
+   * ③ 与 §2.2 的"同一 `status` 名词多套取值"清单同源；取值巧合不等于同一物（对齐 `MessageAttachment` 判例）。
+   */
   status: 'running' | 'completed' | 'failed';
   /** 最新消息 */
   lastMessage: string;

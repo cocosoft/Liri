@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LSP服务器管理
  */
 
@@ -78,7 +78,11 @@ export class LSPServer {
         }
       );
 
-      this.process.stdin.setEncoding('utf8');
+      // TOOLGOV-LSP-BUN-STDIO（2026-10-12）：**不再对 `stdin` 调 `setEncoding`** ——
+      // bun 的 `child_process` 流**仅 stdout/stderr 提供** `setEncoding`（实测：
+      // `spawn(...).stdin.setEncoding === undefined`），且本类 `stdin` 仅用于**写入**（`send()`），
+      // 无需解码。原实现在此处直接调用 ⇒ bun 下抛 `setEncoding is not a function` ⇒
+      // `status=ERROR` ⇒ `lsp` 工具起不来（该工具默认关，缺陷长期潜伏）。
       this.process.stdout.setEncoding('utf8');
       this.process.stderr.setEncoding('utf8');
 

@@ -32,6 +32,9 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
 import { getMetricsService } from '@modules/monitoring';
 import {
+  SCHEMA_ENTROPY_PERCENT_THRESHOLD,
+  SCHEMA_ENTROPY_TURN_THRESHOLD,
+  evaluateSchemaEntropyGate,
   recordToolInvocation,
   recordToolSchemaEntropy,
   resetToolMetricsForTest,
@@ -150,5 +153,77 @@ describe('S2-6 Tool-Use Context Entropy', () => {
     expect(
       svc.getMetric('tools.schema.context_entropy_percent', { module: 'tools' })
     ).toBeUndefined();
+  });
+});
+
+describe('TG-5 工具 Schema 熵阈值门禁（只告警不阻断 · Fail-Open for Observation）', () => {
+  it('阈值常量：第 20 轮 / 30%', () => {
+    expect(SCHEMA_ENTROPY_TURN_THRESHOLD).toBe(20);
+    expect(SCHEMA_ENTROPY_PERCENT_THRESHOLD).toBe(30);
+  });
+
+  it('已达轮次阈值且占比 >30% ⇒ warn（reason=warn）', () => {
+    const v = evaluateSchemaEntropyGate({
+      toolCount: 40,
+      schemaTokens: 70000,
+      contextWindowTokens: 200000,
+      turn: 20,
+    });
+    expect(v).not.toBeNull();
+    expect(v?.warn).toBe(true);
+    expect(v?.reason).toBe('warn');
+    expect(v?.percent).toBeCloseTo(35, 6);
+  });
+
+  it('轮次未达阈值（turn=19）⇒ 不告警（reason=turn_below_threshold）', () => {
+    const v = evaluateSchemaEntropyGate({
+      toolCount: 40,
+      schemaTokens: 70000,
+      contextWindowTokens: 200000,
+      turn: 19,
+    });
+    expect(v?.warn).toBe(false);
+    expect(v?.reason).toBe('turn_below_threshold');
+  });
+
+  it('占比恰好 30%（边界）⇒ 不告警（判据为严格大于）', () => {
+    const v = evaluateSchemaEntropyGate({
+      toolCount: 40,
+      schemaTokens: 60000,
+      contextWindowTokens: 200000,
+      turn: 25,
+    });
+    expect(v?.percent).toBeCloseTo(30, 6);
+    expect(v?.warn).toBe(false);
+    expect(v?.reason).toBe('percent_below_threshold');
+  });
+
+  it('缺 turn 或上下文窗口 ⇒ 返回 null（不臆造，CS06）', () => {
+    expect(
+      evaluateSchemaEntropyGate({
+        toolCount: 1,
+        schemaTokens: 100,
+        contextWindowTokens: 200000,
+      })
+    ).toBeNull();
+    expect(
+      evaluateSchemaEntropyGate({ toolCount: 1, schemaTokens: 100, turn: 30 })
+    ).toBeNull();
+  });
+
+  it('触发阈值时记录仍不抛（零阻断），且观测 gauge 照常写入', () => {
+    expect(() =>
+      recordToolSchemaEntropy({
+        toolCount: 40,
+        schemaTokens: 90000,
+        contextWindowTokens: 200000,
+        turn: 30,
+      })
+    ).not.toThrow();
+    expect(
+      svc
+        .getMetric('tools.schema.context_entropy_percent', { module: 'tools' })
+        ?.get()
+    ).toBeCloseTo(45, 6);
   });
 });

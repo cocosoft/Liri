@@ -68,12 +68,26 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** 扫描"创建注册表"的源文件（行级；跳过注释行） */
+/**
+ * 扫描"创建注册表"的源文件（行级；跳过注释行）。
+ *
+ * **惰性 + 进程内缓存**（2026-10-12 修复 flaky）：本守卫要扫全部 `src/**`（~3900 个 .ts/.tsx）
+ * 并读取文件内容，整批并发下单次即需数秒；原实现**每个 `it` 各扫一次（3×）** ⇒ 逼近/越过 bun
+ * 默认 5s 超时（实测单跑 5776ms 超时、静置单文件 1.35s）。⇒ 三个断言现共用**一次**扫描。
+ * 另加**快速预筛**（`new ToolRegistry(` / `createToolRegistry(` 均含 `ToolRegistry(`）⇒ 大多数
+ * 文件整体跳过，免去对全部文件做 `split('\n')`。
+ */
+let cachedSites: string[] | undefined;
+
 function findRegistrySites(): string[] {
+  if (cachedSites) return cachedSites;
+
   const hits: string[] = [];
   for (const abs of walk(SRC_DIR)) {
+    const content = readFileSync(abs, 'utf-8');
+    if (!content.includes('ToolRegistry(')) continue; // 快速预筛：不含目标子串 ⇒ 整体跳过
     const rel = relative(SRC_DIR, abs).replace(/\\/g, '/');
-    for (const line of readFileSync(abs, 'utf-8').split('\n')) {
+    for (const line of content.split('\n')) {
       const t = line.trim();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'))
         continue;
@@ -86,23 +100,24 @@ function findRegistrySites(): string[] {
       }
     }
   }
-  return hits.sort();
+  cachedSites = hits.sort();
+  return cachedSites;
 }
 
 describe('守卫：工具注册表单一写入口（§1.16 防复发）', () => {
   it('"创建注册表"只允许出现在唯一单例工厂内（D1/D6/D7 已全部收敛）', () => {
     const offenders = findRegistrySites().filter((f) => !(f in ALLOWED));
     expect(offenders).toEqual([]);
-  });
+  }, 30_000); // 全仓源扫描（IO 密集）⇒ 显式放宽超时，避免整批并发下假红（根因已由"缓存 + 预筛"消除）
 
   it('扫描面非空（防止 walk 失效导致守卫静默通过）', () => {
     // 收敛后仅剩单例工厂 1 个文件命中 ⇒ 下界为 1（>=1 已足以暴露 walk 失效）
     expect(findRegistrySites().length).toBeGreaterThanOrEqual(1);
-  });
+  }, 30_000);
 
   it('显式允许清单不得含已不存在该写法的文件（防止清单腐化）', () => {
     const present = new Set(findRegistrySites());
     const stale = Object.keys(ALLOWED).filter((f) => !present.has(f));
     expect(stale).toEqual([]);
-  });
+  }, 30_000);
 });

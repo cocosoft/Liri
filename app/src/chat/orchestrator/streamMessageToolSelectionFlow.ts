@@ -103,5 +103,8 @@ export function selectAndObserveToolDefinitions(
     toolCount: toolDefinitions.length,
     schemaTokens,
     contextWindowTokens: ctxWindow > 0 ? ctxWindow : undefined,
+    // TG-5（2026-10-12 裁断）：本轮序号（与 `streamMessageFlow` 的 turn 口径一致 =
+    // `toolRoundCount + 1`）⇒ 供「长程第 20 轮后 Schema 仍 >30%」阈值**告警**（只告警不阻断）。
+    turn: host.toolRoundCount + 1,
   });
 }

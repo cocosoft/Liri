@@ -17,22 +17,40 @@ import { handleError } from '@modules/error';
 const logger = getLogger('tools:lspClient');
 
 /**
+ * 单次 LSP 请求的超时（毫秒）。
+ *
+ * 缺失该超时 ⇒ 若服务器既不响应也不退出，`sendRequest` 返回的 Promise **永不 settle**
+ * （`pendingRequests` 条目随之泄漏）⇒ 工具调用挂起。口径对齐 `@modules/lsp` 的 30s。
+ */
+export const LSP_REQUEST_TIMEOUT_MS = 30_000;
+
+/** 挂起中的请求（含超时句柄，便于响应到达时清除） */
+interface PendingRequest {
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+/**
  * LSP客户端
  */
 export class LSPClient {
   private server: LSPServer;
   private requestId: number = 0;
-  private pendingRequests: Map<
-    number,
-    { resolve: (value: any) => void; reject: (error: any) => void }
-  > = new Map();
+  private pendingRequests: Map<number, PendingRequest> = new Map();
   private initialized: boolean = false;
+  private readonly requestTimeoutMs: number;
 
   /**
    * 构造函数
+   * @param requestTimeoutMs 单次请求超时（缺省 {@link LSP_REQUEST_TIMEOUT_MS}；测试可注入短值）
    */
-  constructor(config: LSPServerConfig) {
+  constructor(
+    config: LSPServerConfig,
+    requestTimeoutMs: number = LSP_REQUEST_TIMEOUT_MS
+  ) {
     this.server = new LSPServer(config);
+    this.requestTimeoutMs = requestTimeoutMs;
     this.setupMessageHandler();
   }
 
@@ -90,7 +108,12 @@ export class LSPClient {
    */
   private async shutdown(): Promise<void> {
     if (this.initialized) {
-      await this.sendRequest('shutdown', {});
+      try {
+        await this.sendRequest('shutdown', {});
+      } catch {
+        // @ignore-catch — 关闭握手**尽力而为**：服务器此刻可能已僵死，超时不应阻断
+        // `stop()`/子进程回收（否则会掩盖工具原始结果/错误）。
+      }
     }
   }
 
@@ -110,7 +133,18 @@ export class LSPClient {
     const id = ++this.requestId;
 
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+      // 超时兜底：服务器不响应/僵死时必须在有限时间内结算，否则调用**永久挂起**且
+      // `pendingRequests` 条目泄漏（原实现无超时）。
+      const timer = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(
+          new Error(
+            `LSP request timed out after ${this.requestTimeoutMs}ms: ${method}`
+          )
+        );
+      }, this.requestTimeoutMs);
+
+      this.pendingRequests.set(id, { resolve, reject, timer });
 
       const message = JSON.stringify({
         jsonrpc: '2.0',
@@ -148,6 +182,7 @@ export class LSPClient {
           // 响应
           const request = this.pendingRequests.get(data.id);
           if (request) {
+            clearTimeout(request.timer); // 响应到达 ⇒ 取消超时兜底
             if (data.error) {
               request.reject(new Error(data.error.message || 'Request failed'));
             } else {

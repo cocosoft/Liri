@@ -195,7 +195,13 @@ export interface ApprovalEntry {
   baseCommand?: string;
   /** S1-1: 绑定的执行作用域摘要（批准时记录；执行时若给 scope 必须与之一致） */
   scopeDigest?: string;
-  /** S1-1: 能力摘要（**预留**，供 S2-5 能力级授权；当前仅记录、不参与判定） */
+  /**
+   * S1-1: 能力摘要（**预留**，供 S2-5 能力级授权；当前仅记录、不参与判定）。
+   *
+   * ⚠️ **边界（TG-1 / 2026-10-12 裁断）**：本字段属**权限域**（「特定会话 + 精确命令语义」的
+   * **执行授权指纹**），**严禁**并入工具契约 `utils/toolContract/Tool.ts` 的
+   * `ToolCapabilityDescriptor`（**能力域**：工具的静态固有属性）—— 二者语义正交（CS01 / R02-002）。
+   */
   capabilityDigest?: string;
   /** S1-1: 审批快照（原始命令 / 规范化命令 / 改写项） */
   snapshot?: ApprovalSnapshot;

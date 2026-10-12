@@ -34,12 +34,22 @@
  * 由 `AppCoreOTelHelper` 的 `MetricsBridge` 桥接 OTel。
  */
 
-import { getMetricsService } from '@modules/monitoring';
+import { getLogger, getMetricsService } from '@modules/monitoring';
 import type {
   CounterMetric,
   GaugeMetric,
   HistogramMetric,
 } from '@modules/monitoring';
+
+const logger = getLogger('tools:metrics');
+
+/**
+ * TG-5（2026-10-12 裁断）：「工具 Schema 混沌」告警阈值 —— 长程第 N 轮之后。
+ * 判据（方案 §4 观测项）：长程任务第 20 轮后工具 Schema 仍占 >30% token。
+ */
+export const SCHEMA_ENTROPY_TURN_THRESHOLD = 20;
+/** 工具 Schema 占上下文窗口的物理比例上限（%）—— 超过即告警 */
+export const SCHEMA_ENTROPY_PERCENT_THRESHOLD = 30;
 
 /** 一次工具调用的观测量（字段缺省 ⇒ 不记录对应指标，不臆造，CS06） */
 export interface ToolInvocationMetric {
@@ -58,6 +68,54 @@ export interface ToolSchemaEntropyMetric {
   schemaTokens: number;
   /** 模型上下文窗口（tokens）；`undefined` ⇒ 只记绝对值，不算比例（不臆造） */
   contextWindowTokens?: number;
+  /** 本轮序号（长程任务轮次，1-based）；`undefined` ⇒ 不做 TG-5 阈值告警 */
+  turn?: number;
+}
+
+/** TG-5 熵门禁裁决（纯判定，**不阻断** —— Fail-Open for Observation） */
+export interface SchemaEntropyGateVerdict {
+  /** 是否触发告警（= 已达轮次阈值 **且** 比例超限） */
+  warn: boolean;
+  turn: number;
+  percent: number;
+  reason: 'warn' | 'turn_below_threshold' | 'percent_below_threshold';
+}
+
+/**
+ * TG-5（2026-10-12 裁断）：工具 Schema 熵阈值判定（**纯函数**，零副作用）。
+ *
+ * 计入判定的前提：`turn` 与 `contextWindowTokens` **均已提供**（缺任一 ⇒ 返回 `null`，不臆造）。
+ * 规则：`turn >= 20` **且** `schemaTokens / contextWindowTokens > 30%` ⇒ `warn=true`。
+ * **只告警不阻断**（Fail-Open for Observation）；累积实测后再评估是否触发 D4/T2。
+ */
+export function evaluateSchemaEntropyGate(
+  m: ToolSchemaEntropyMetric
+): SchemaEntropyGateVerdict | null {
+  if (
+    m.turn === undefined ||
+    !m.contextWindowTokens ||
+    m.contextWindowTokens <= 0
+  ) {
+    return null;
+  }
+  const percent = (m.schemaTokens / m.contextWindowTokens) * 100;
+  if (m.turn < SCHEMA_ENTROPY_TURN_THRESHOLD) {
+    return {
+      warn: false,
+      turn: m.turn,
+      percent,
+      reason: 'turn_below_threshold',
+    };
+  }
+  if (percent <= SCHEMA_ENTROPY_PERCENT_THRESHOLD) {
+    return {
+      warn: false,
+      turn: m.turn,
+      percent,
+      reason: 'percent_below_threshold',
+    };
+  }
+  return { warn: true, turn: m.turn, percent, reason: 'warn' };
 }
 
 /** 按 `tool:result` 懒建的工具调用计数缓存 */
@@ -164,6 +222,21 @@ export function recordToolSchemaEntropy(m: ToolSchemaEntropyMetric): void {
       labels: { module: 'tools' },
     });
     _entropyGauge.set((m.schemaTokens / m.contextWindowTokens) * 100);
+  }
+
+  // TG-5（2026-10-12 裁断）：长程「工具 Schema 混沌」阈值告警 —— **只告警、绝不阻断**
+  // （Fail-Open for Observation）。判据/阈值见 `evaluateSchemaEntropyGate`；缺 `turn` 或
+  // 上下文窗口 ⇒ 返回 `null`（不臆造）。累积实测后再评估是否触发 D4/T2。
+  const verdict = evaluateSchemaEntropyGate(m);
+  if (verdict?.warn) {
+    logger.warn('tools:schema.entropy_high', {
+      turn: verdict.turn,
+      percent: Number(verdict.percent.toFixed(2)),
+      percentThreshold: SCHEMA_ENTROPY_PERCENT_THRESHOLD,
+      turnThreshold: SCHEMA_ENTROPY_TURN_THRESHOLD,
+      toolCount: m.toolCount,
+      schemaTokens: m.schemaTokens,
+    });
   }
 }
 

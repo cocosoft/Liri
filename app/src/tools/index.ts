@@ -230,13 +230,18 @@ export { sanitizeSchema } from './SchemaSanitizer';
 export type { SanitizeOptions, SanitizeResult } from './SchemaSanitizer';
 
 // S2-6（2026-10-11）：工具调用可观测性指标（统一调用指标 + Tool-Use Context Entropy）
+// TG-5（2026-10-12）：熵阈值门禁（纯判定 + 阈值常量；只告警不阻断）
 export {
   recordToolInvocation,
   recordToolSchemaEntropy,
+  evaluateSchemaEntropyGate,
+  SCHEMA_ENTROPY_TURN_THRESHOLD,
+  SCHEMA_ENTROPY_PERCENT_THRESHOLD,
 } from './monitoring/ToolMetrics';
 export type {
   ToolInvocationMetric,
   ToolSchemaEntropyMetric,
+  SchemaEntropyGateVerdict,
 } from './monitoring/ToolMetrics';
 
 // P3-3: Bash 命令 allowlist 前缀匹配防注入 —— 2026-10-01（台账 D-154）**已移除本处转出**：

@@ -177,4 +177,17 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
     b.settleFor('A', 10); // 本会话结算 ⇒ 消费（Consume-and-Die）
     expect(b.hasActiveWaiver()).toBe(false);
   });
+
+  it('⑥ 先认领者独占：A 认领后 B 仍被放行但不夺走认领（B 记账不消费、A 记账才消费）', () => {
+    const b = getDailyBudget();
+    b.recordUsage(LIMIT); // locked
+    b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
+
+    expect(b.canExecute('A')).toBe(true); // A **先**认领
+    expect(b.canExecute('B')).toBe(true); // B 同样被放行（waiver 有效）
+    b.recordUsage(1, 'B'); // B 记账 ⇒ 不消费（认领者不是 B）
+    expect(b.hasActiveWaiver()).toBe(true);
+    b.recordUsage(1, 'A'); // A（认领者）记账 ⇒ 消费
+    expect(b.hasActiveWaiver()).toBe(false);
+  });
 });

@@ -617,11 +617,16 @@ export class DailyBudgetManager {
    * ⚠️ 此处**故意在谓词内产生一次记账副作用**（置 `_waiverGrantedForSession`）：闸门每轮会被
    * **多次**调用（如 `beforeReasoning` 复检），而仓库内**无现成"轮次边界"**可挂消费点 ⇒
    * 用"取得通行证的会话"标记，交由 `recordUsage()` 末尾消费（Consume-and-Die）。
+   *
+   * **先认领者独占**：已有认领者时**不覆盖**（通行证是**单次**豁免 ⇒ 应由**最先**用它放行的会话
+   * 负责消费；否则后到的会话会在 TTL 窗口内夺走消费归属）。无 sessionId 的调用**不认领**。
    */
   canExecute(sessionId?: string): boolean {
     if (this.getMode().mode !== 'locked') return true;
     if (!this.hasActiveWaiver()) return false;
-    this._waiverGrantedForSession = sessionId ?? null;
+    if (this._waiverGrantedForSession === null) {
+      this._waiverGrantedForSession = sessionId ?? null;
+    }
     return true;
   }
 

@@ -19,6 +19,12 @@
 
 ## [未发布]
 
+**M1 认领语义收紧：`waive-once` 通行证「先认领者独占」**
+
+- ✅ **`canExecute(sessionId?)` 不再每次调用都重写认领** - 改为**仅当无认领者时**认领（`_waiverGrantedForSession === null` 才置位；无 sessionId 的调用**不认领**）⇒ 消除「后到会话在同一 TTL 窗口内夺走消费归属」。依据：通行证是**单次**豁免 ⇒ 应由**最先**用它放行的会话负责消费，Consume-and-Die 的归属才稳定（承接上一批 M1 报告里如实披露的残余）
+- ✅ **锁定测试** - `tests/query/dailyBudgetWaiveOnceGate.test.ts` 新增 **M1-⑥**（先红后绿：修复前 **11 pass / 1 fail**，修复后 **12 pass / 0 fail**）；广域 `tests/{query,chat}` **832 pass / 1 fail**（唯一 fail 为既存环境型 `dailyBudgetSingleton` env 遮蔽）
+- ℹ️ **行为面** - 两会话同处 `locked` 且通行证有效时：**两者都会被放行**（既有语义不变），但只有**先认领者**的记账会消费该通行证；认领者若始终不记账，通行证由既有 **TTL** 兜底失效
+
 **长程任务「预算挂起—续跑」收尾四项开放项收口（M1 会话归属 / observeRound 落盘 / as-unknown 收窄 / E2E-2 定案）**
 
 - ✅ **M1：`waive-once` 通行证按会话归属（不受开关门控）** - 原为 manager 级布尔 `_waiverGrantedThisTurn`，而 `getDailyBudget()` 是**进程单例** ⇒ A 会话取得通行证后，**B 会话**任何一笔记账都会把它消费掉。现改为 `_waiverGrantedForSession: string | null`：`canExecute(sessionId?)` 置位、`recordUsage(tokens, sessionId?)` **仅同一会话**的记账消费（精确相等，CS02；跨会话/无 sessionId **不消费**，未消费者由通行证 **TTL 兜底**）；`settleFor(sessionId, …)`（chat 主路径唯一记账写者）与 `recordDailyBudgetFromUsage(usage, sessionId?)` 透传；`TAORLoop` 传其 `sessionId`。回归 `tests/query/dailyBudgetWaiveOnceGate.test.ts`（先红后绿）

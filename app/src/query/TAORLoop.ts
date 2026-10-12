@@ -103,6 +103,7 @@ import {
   checkSteeringMessage,
 } from './taor/helpers.js';
 import { registerDefaultStopHooks } from './taor/stopHooks.js';
+import { extractPendingToolCallsFromMessages } from './taor/pendingToolCalls.js';
 export type {
   TAORInput,
   TAORPhaseInfo,
@@ -1459,8 +1460,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       breakerState: this.circuitBreaker.getState(),
       loopDetectorState: this.loopDetector.getState(),
       errorRecoveryState: this.errorRecovery.serialize(),
-      // Phase 3: 检查点扩展字段
-      pendingToolCalls: undefined,
+      // Phase 3: 检查点扩展字段（F1：落盘真实未完成工具，此前恒为 undefined）
+      pendingToolCalls: extractPendingToolCallsFromMessages(this.messages),
       messageCount: this.turnCount,
     };
 

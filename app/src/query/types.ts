@@ -25,7 +25,7 @@ export interface TAORCheckpoint {
   conversationSummary: string;
   lastPrompt: string;
   createdAt: number;
-  type: 'auto' | 'manual' | 'before_abort';
+  type: 'auto' | 'manual' | 'before_abort' | 'budget_suspend';
   /** 断路器状态（用于检查点恢复） */
   breakerState?: {
     state: string;

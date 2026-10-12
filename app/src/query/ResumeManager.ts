@@ -21,6 +21,17 @@ import type { TAORLoop, TAORLoopConfig } from './TAORLoop.js';
 
 const logger = getLogger('query:resumeManager');
 
+/**
+ * Task 6（债二-预算挂起续跑，反目标①）：是否为**预算挂起**检查点。
+ *
+ * `scanPending` / `hasPending` 共用此单一判据：挂起检查点**不参与**启动扫描（否则重启即
+ * 自动续跑 ⇒ 静默烧额度——日预算仍被锁）。改由 `BudgetSuspendCoordinator` 登记为"待放行"，
+ * 仅用户放行（relief）后唤醒。
+ */
+function isBudgetSuspendCheckpoint(checkpoint: TAORCheckpoint): boolean {
+  return checkpoint.type === 'budget_suspend';
+}
+
 /** 恢复候选 */
 export interface ResumeCandidate {
   sessionId: string;
@@ -104,6 +115,18 @@ export class ResumeManager {
           continue;
         }
 
+        // Task 6（反目标①）：budget_suspend 挂起检查点跳过启动扫描——否则重启即自动续跑
+        // 静默烧额度（日预算仍被锁）。改由 BudgetSuspendCoordinator 登记为"待放行"。
+        if (isBudgetSuspendCheckpoint(latest)) {
+          if (isCheckpointLogEnabled()) {
+            logger.info(
+              '[ResumeManager] budget_suspend 挂起检查点跳过（待用户放行，不自动续跑）',
+              { sessionId, checkpointId: latest.id }
+            );
+          }
+          continue;
+        }
+
         const age = now - latest.createdAt;
         const isExpired = age > 24 * 60 * 60 * 1000;
 
@@ -162,6 +185,8 @@ export class ResumeManager {
   async hasPending(sessionId: string): Promise<boolean> {
     const latest = await this.storage.getLatestIncomplete(sessionId);
     if (!latest) return false;
+    // Task 6（反目标①）：budget_suspend 挂起检查点不算"待恢复"（待用户放行，不自动续跑）
+    if (isBudgetSuspendCheckpoint(latest)) return false;
     // 过期检查
     const age = Date.now() - latest.createdAt;
     const isExpired = age > 24 * 60 * 60 * 1000;

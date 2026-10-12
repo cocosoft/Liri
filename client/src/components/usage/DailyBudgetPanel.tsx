@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import {
@@ -127,6 +127,17 @@ export default function DailyBudgetPanel() {
   const [prefs, setPrefs] = useState<ReliefPrefsForm>(DEFAULT_RELIEF_PREFS);
   const [prefsSaving, setPrefsSaving] = useState(false);
 
+  /**
+   * 文案函数经 ref 取用（**不**直接进依赖）：
+   * `useTranslation()` 在语言就绪 / 切换时会给出**新的 `t`（及 `i18n`）identity** ⇒
+   * 若把 `t` 放进 `load` 的依赖，`useEffect(..., [load])` 会随之重跑 ⇒ 挂载即**重复**请求日限额
+   * （实测：`GET /v1/cost/daily-budget` 被调用 2 次；回归用例见 `DailyBudgetPanel.test.tsx`）。
+   */
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const applyStatus = useCallback((s: DailyBudgetStatus) => {
     setStatus(s);
     setLimitInput(String(s.dailyLimit));
@@ -146,12 +157,15 @@ export default function DailyBudgetPanel() {
           module: "components:usage:DailyBudgetPanel",
           action: "load",
         });
-        setError(e instanceof Error ? e.message : t("common.loadFailed"));
+        setError(
+          e instanceof Error ? e.message : tRef.current("common.loadFailed"),
+        );
       } finally {
         if (!silent) setLoading(false);
       }
     },
-    [applyStatus, t],
+    // 依赖只用**稳定**引用（`applyStatus`）；`t` 经 `tRef` 取用，见其声明处的说明。
+    [applyStatus],
   );
 
   useEffect(() => {

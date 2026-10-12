@@ -213,3 +213,16 @@ describe("DailyBudgetPanel：撤销放行（DELETE /relief，D-b 对称回路）
     expect(screen.queryByTestId("daily-budget-revoke-relief")).toBeNull();
   });
 });
+
+describe("DailyBudgetPanel：挂载请求次数（防 effect 抖动）", () => {
+  it("挂载后只取一次日限额（不因无关依赖 identity 变化重复请求）", async () => {
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus());
+
+    render(<DailyBudgetPanel />);
+    expect(await screen.findByText(/临时提额/)).toBeTruthy();
+
+    // 留出窗口（语言就绪 / 微任务 / effect 二次执行）
+    await new Promise((r) => setTimeout(r, 80));
+    expect(mocks.getDailyBudget).toHaveBeenCalledTimes(1);
+  });
+});

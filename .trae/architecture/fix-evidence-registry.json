@@ -1593,6 +1593,48 @@
       "notes": "**收口要点**：`idxEntriesLoaded` 标志避免 `getTailSeq` 与 `ensureIdxLoaded` 相互递归；`loadIdxEntries()`（幂等）抽出；`findIdxStartOffset` 在目标超出末折叠批（未索引尾部）时返回**末区间起点**（`read`/`readBySeq` 同源受益）；新增 `resolveTailScanStart()` 供 `getTailSeq` 从末区间续扫（无 idx / 边界校验未过 ⇒ 回退 0 并留日志）；`readBySeq` 新增 `ensureIdxLoaded()` + `resolveScanStartOffset(seq)` 段读；新增 `openOffsetReadline()` 独立机位（不扰动既有按 scanStart 记账的 P0-5 探针）。**等价性**：返回值/语义不变（等价性用例 + 既有 P0-5/CRLF 用例全绿）；**不迁 SQLite**（既有裁定）；回退仅性能降级且留 `logger.warn/debug`（**未吞错**）。**先红后绿**：探针拦截 `openOffsetReadline(file,strict)`（仅记 `events.jsonl`）⇒ 改动前 **4 fail**（seek 起点未走 idx）/ 1 pass（边界语义本就等价）→ 改动后 **6 pass / 0 fail**；回归 `EventLogStorage` + `eventLogRepairChain` + `eventLogCacheLru` + `externalDeleteReadPaths` + `messageProjectionAppendSkip` **49 pass / 0 fail**。**基准（F1c，实测）**：规模 ×10 ⇒ `getTailSeq` P50 ×1.2、`readBySeq` P50 ×1.0（改动前末条 `readBySeq` 为 ×11.8 全扫）⇒ 与规模解耦；两条目标路径均已纳入 `app/scripts/bench-longrun.ts`。**如实残余**：`getTailSeq` 现会读整份 `events.idx`（≈N/256 行）以定位末区间 ⇒ 严格为 **O(N/256)** 而非纯 O(log N)（与 `read` 既有路径同源）；「跨进程 idx 大幅落后」分支无专测。"
     },
     {
+      "id": "TOOLGOV-SIDECAR-S1",
+      "title": "侧车化 S0+S1：前置校验（轨 B 动态 thunk 取证）+ 侧车骨架与双跑开关（**默认关 ⇒ 零行为变更**）",
+      "source": ".trae/specs/tool-sidecar-isolation.md（v1.0 定案稿）+ .trae/specs/tool-sidecar-isolation-plan-20261013.md（S0/S1）；用户 2026-10-13 批准并授权开工 S0+S1",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/core/featureFlags.ts",
+        "app/src/tools/sidecar/ToolSidecarSupervisor.ts",
+        "app/src/tools/sidecar/lspSidecar.ts",
+        "app/src/tools/sidecar/toolSidecarLifecycle.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts"
+      ],
+      "tests": [
+        "app/tests/tools/sidecar/toolSidecarSupervisor.test.ts",
+        "app/tests/tools/sidecar/lspSidecarFrames.test.ts",
+        "app/tests/tools/sidecar/lspSidecarLoaderBranch.test.ts"
+      ],
+      "changelog": ["CHANGELOG.md"],
+      "reopenWhen": "① 双跑开关语义/默认值变更；② 侧车 IPC 基座（`app/src/utils/sidecarIpc.ts`）契约变更；③ S2 工具面**真接线**落地后回看本条目；④ D10 侧车方向或靶点变更时",
+      "notes": "**S0（零产品代码，前置校验）**：① **轨 B（`app/src/lsp/**`）静态引用近零，但存在字面量动态 thunk** —— `core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（模块声明 `ON_DEMAND`，`:149-153`）；而触发链 `ModuleInitializer.requestOnDemandModule()`（`:410-427`/`:402-405` 已登记 G-C5）**全仓零调用**，且 `lsp` 被 `getDeferredModuleIds` 排除 ⇒ **动态可发现但当前不可达** ⇒ 命中 CD01/CD02 盲区，判为 CD07「未接线但动态可发现」**高风险项：登记不删**（已按此处置，见 `dead-code-and-unwired-items-rulings.md` §2 UW-5）。② **真机环境如实受阻**：本机 `typescript-language-server` **不可用**（`npx --no-install` 失败）、仓内**无 >5MB 图片夹具** ⇒ 计划中的 LS 时延对比与 P2 大图验证**需外部环境补齐**（未伪造结论）。③ 基座复核 `tests/utils/sidecarIpc.test.ts` **8 pass**。**S1（骨架 + 开关，默认关）**：新增 `tools/sidecar/{ToolSidecarSupervisor,lspSidecar,toolSidecarLifecycle}.ts`（**复用** `utils/sidecarIpc.ts`，**未新增第三套 IPC** = D10 GR02）；新增开关 `TOOL_SIDECAR_LSP`/`TOOL_SIDECAR_MEDIA`（**默认 false**，三级解析）；门控点 = 工具 loader `ToolManagerUtils.selectLspToolLoader()` + 启动层 `maybeStartLspSidecar()`；**关时等价性**：off 分支逐字返回原 `byKey('createLSPTool')`、**零 spawn**、生成物一致性测试 41 pass（`toolNames.generated` 零漂移）。**监督器选型理由（如实）**：**新写**（仿 `DiscoverySidecarSupervisor`：`spawnFn` 可注入 + 有界重启 + `stop()`；本仓唯一 sidecar 监督器形态 ⇒ CS01 单一来源），**不**复用 `daemon/ProcessManager`（属守护进程控制面，unix-socket/http 语义 ≠ 本契约的 stdio 换行 JSON）。**验证**：新增 **17 例**（就绪握手/版本不兼容 fail-closed/就绪超时/request-response/notify/**崩溃 ⇒ pending 全拒**/有界重启/stop 不重启）+ `lint:arch` 0 违规；`typecheck` 0 错；`lint:size`/`fn-size`/`complexity` 未增长；`lint:doc-code`/`fix-evidence`/`version:check` 全绿。**⚠️ 与定案稿 §4 阶段 1 验收的差异（如实）**：定案稿写「开关开 ⇒ `lsp` 工具**经侧车返回结果**」，而 **S1 仅骨架** ⇒ 开关开时侧车分支 **fail-closed 返回 `null`**（**不**回落内置"每次 spawn"，规避**静默双轨**）；工具面真接线属 **S2（T2.2/T2.3）** 尚未做 ⇒ 本条目 `e2eVerified=false`（仅有骨架的进程级探测：真实 spawn → 握手 → 诚实回 `NOT_IMPLEMENTED` → stop，**不**等价于"工具面端到端"）。**另注**：`app/src/lsp/**`、`tools/lsp/**` 本次**未删未改**（CD07 保护），仅取证。"
+    },
+    {
+      "id": "DEBT4-S1S2",
+      "title": "债四 S1+S2：core 换算内核**下沉/复用** + query 取价适配器（经 core SPI；**未接线 ⇒ 零行为变更**）",
+      "source": ".trae/specs/unified-budget-and-accounting.md（v1.1：§12 九项已裁定、U3 待定）+ §11 切片 S1/S2（2026-10-13 实施）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/core/pricing.ts",
+        "app/src/cost/ModelPricing.ts",
+        "app/src/query/modelPricingAdapter.ts",
+        "app/src/query/index.ts"
+      ],
+      "tests": [
+        "app/tests/core/pricing.test.ts",
+        "app/tests/query/modelPricingAdapter.test.ts"
+      ],
+      "changelog": ["CHANGELOG.md"],
+      "reopenWhen": "① S3（闸门切金额）接入本适配器后回看本条目；② U3（USD 默认上限）定案后；③ 定价事实源（`model_registry`）/core SPI 形状变更时",
+      "notes": "**S1（core 换算内核：复用/下沉，非新写 —— CS01）**：`core/pricing.ts` 新增/下沉 `resolveTimeBasedPricing`（原在 `cost/ModelPricing.ts`）、`DEFAULT_MODEL_PRICING`（cost 内联兜底价**原样下沉**，**值不变**）、`projectRegistryPricing`（`getPricingFromRegistry` 的纯逻辑部分下沉，避免"判了却不符"的双源）；`calculateCost`/`calculateTotalCost` **原已存在 ⇒ 直接复用**。`cost/ModelPricing.ts` 改为**委托/转出**（行为不变），兜底改引下沉后的常量。**S2（query 取价适配器）**：新增 `app/src/query/modelPricingAdapter.ts` —— `ModelPricingLookup`（**可注入假定价**端口）/`resolveModelPricing`（core SPI `resolveAiAccess().getModelPricing()` 取价 → core 纯投影；查无/零价 ⇒ 回落兜底并置 `unknownModel: true`，**如实标注不静默** = Q-U5）/`estimateTurnCostUsd`（复用 core `calculateTotalCost` 四参形状 = Q-U4，**不含 `cost_multiplier`**）。**分层合规自证**：`grep '@modules/cost|from '../cost'` 扫 `app/src/query/**` ⇒ **零真实 import**（仅命中 2 处注释文字）；`lint:arch` **0 error**。**验证**：新增测试 **17 例**；`typecheck` 3 工程 0 错；`lint:size`（`core/pricing.ts` <500 行，cost 文件反而变短）/`fn-size`/`complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`lint:models`（0 违规）/`version:check` 全绿；`tests/{cost,query,budget,cost-metrics}` **399 pass / 1 skip（预存 `.skip`）/ 0 fail**。**⚠️ 如实边界（重要）**：本批**未接线闸门** —— `DailyBudgetManager`/`checkDailyBudget`/开关/状态文件/配置键**均未改**，适配器**仅有单测消费方**（经 `@modules/query` 桶导出）⇒ **生产闸门仍走现行 Token 口径，零行为变更**；**未实现 U3**（`DEFAULT_MODEL_PRICING` 是既有"未知模型兜底单价"，**不是** USD 预算默认上限；未新增任何 USD 预算默认值）。**另注**：`RegistryPricingSource` 是为规避 core 内类型环而定义的最小结构类型，与 SPI DTO 存在字段级重复（如后续要彻底消重需评估 DTO 归位，本切片未触碰 `core/spi`）。"
+    },
+    {
       "id": "T3-12-GUARD-SUSPEND",
       "title": "T3-12：熵门禁 / 轮上限「接通挂起」+ 独立继续入口（用户裁定推翻 `TOOLGOV-TG5` 的「绝不阻断」）",
       "source": "dev_docs/20261012/长程任务编排链路优化方案-20261012.md §4 阶段 2.2 与五方案总览 `T3-12` / 决策 `✅-18`（2026-10-13 用户裁定「两者都接通挂起」+「新增独立继续入口，不复用 relief」）",

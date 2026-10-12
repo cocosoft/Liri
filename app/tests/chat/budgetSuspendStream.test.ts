@@ -8,8 +8,11 @@
 // 检查点，并登记到 `BudgetSuspendCoordinator`（chain='stream'）。
 // 既有语义不变：仍置 `budget_exhausted` 相位、仍走 finalize（不抛错）。
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
+import { SimpleMutex } from '../../src/core/SimpleMutex.js';
+import { ChatOrchestrator } from '../../src/chat/orchestrator/ChatOrchestrator.js';
+import { createTestHost, createTestSession } from './orchestrator/helpers.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
 import { StreamingAutoCheckpoint } from '../../src/chat/services/StreamingAutoCheckpoint.js';
@@ -423,5 +426,149 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
 
     expect(execContent).toContain('bash');
     expect(execContent).toContain('grep');
+  });
+});
+
+// ─── E2E-1（2026-10-12，真实端到端手测发现）：会话互斥锁泄漏 ⇒ 唤醒被在飞守卫挡下 ────────
+//
+// 实证（真实服务 + 真实 LLM）：`reActLoop:daily_budget_exhausted{iteration:0}` +
+// `budgetSuspend:suspended{chain:'stream'}` 后放行，唤醒**永远失败**：
+//   `resumeSuspendedSession: 流式重发失败，保留挂起 {error:"上一条回复仍在生成中（已执行约 0 秒…）"}`
+// 根因：`ChatManager.resumeStream` 的 `mutex.release()` **只覆盖工具循环那一段的 try/finally**，
+// 而「无可用检查点 ⇒ yield error + return」与 `restore()` 抛错两个出口都在其**之前** ⇒ 锁泄漏
+// ⇒ `getHeldDurationMs() > 0` ⇒ 该会话被 `ChatOrchestrator.sendMessage` 的在飞守卫
+// （`ChatOrchestrator.ts:681-686`）**永久**判为"生成中"（"已执行约 0 秒"= 刚被 resumeStream 泄漏持有）。
+// 该缺陷**不受 `FEATURE_BUDGET_SUSPEND_RESUME` 门控**（`POST /v1/sessions/:id/resume` 同样的路径）。
+//
+// 本组用例以**真实** `resumeStream`（不再 stub 掉）覆盖 E2E-1 的判定点。
+
+type StreamResumeInternals = {
+  _sessionMutexes: Map<string, SimpleMutex>;
+  _checkpointService: {
+    listCheckpoints(sessionId: string): Promise<unknown[]>;
+  };
+  _recovery: {
+    rebuildTrailingTurnFromEvents(sessionId: string): Promise<unknown>;
+  };
+  sessionGateway: { resumeSession(sessionId: string): Promise<unknown> };
+  resumeStream(
+    sessionId: string,
+    checkpointId: string
+  ): AsyncGenerator<unknown, unknown, unknown>;
+  chatOrchestrator: {
+    sendMessage(content: string, options?: unknown): Promise<unknown>;
+  };
+};
+
+const asResumeInternals = (cm: ChatManagerImpl): StreamResumeInternals =>
+  cm as unknown as StreamResumeInternals;
+
+/** 造「无可用检查点」现场（= E2E 实测路径：轮首撞限、一个工具都没落成检查点）。 */
+function stubNoRestorableCheckpoint(cm: ChatManagerImpl): void {
+  const internals = asResumeInternals(cm);
+  spyOn(internals._checkpointService, 'listCheckpoints').mockResolvedValue(
+    [] as never
+  );
+  spyOn(internals._recovery, 'rebuildTrailingTurnFromEvents').mockResolvedValue(
+    null as never
+  );
+  spyOn(internals.sessionGateway, 'resumeSession').mockResolvedValue(
+    undefined as never
+  );
+  cm.getLatestCheckpoint = async () => null;
+}
+
+/** 完整消费生成器（模拟 SSE 消费方读完整个恢复流）。 */
+async function drain(
+  gen: AsyncGenerator<unknown, unknown, unknown>
+): Promise<unknown[]> {
+  const out: unknown[] = [];
+  let step = await gen.next();
+  while (!step.done) {
+    out.push(step.value);
+    step = await gen.next();
+  }
+  return out;
+}
+
+/**
+ * 确定性判据：该会话锁**未被泄漏持有** ⇒ `acquire(0)` 立即成功。
+ *
+ * 不用 `getHeldDurationMs()`（毫秒粒度：同一毫秒内泄漏也返回 0 ⇒ 判据偶发失效）。
+ * 已持有 ⇒ `acquire` 以 `SimpleMutex: acquire timeout after 0ms` 拒绝 ⇒ 用例失败
+ * （这正是唤醒路径的真实后果：`resumeSuspendedSession` 的重发会抛该错）。
+ */
+async function expectSessionMutexFree(
+  cm: ChatManagerImpl,
+  sid: string
+): Promise<void> {
+  const mutex = asResumeInternals(cm)._sessionMutexes.get(sid);
+  expect(mutex).toBeDefined();
+  await mutex!.acquire(0);
+  mutex!.release();
+}
+
+describe('E2E-1：resumeStream 不得泄漏会话互斥锁（在飞守卫的真因）', () => {
+  it('① 无可用检查点（yield error 后 return）⇒ 会话锁必须已释放', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'e2e1-no-checkpoint';
+    stubNoRestorableCheckpoint(cm);
+
+    const chunks = await drain(asResumeInternals(cm).resumeStream(sid, ''));
+
+    // 既有语义不变：仍 yield error 分块（"无可用检查点，无法恢复"）
+    expect(chunks.some((c) => (c as { type?: string })?.type === 'error')).toBe(
+      true
+    );
+    // 关键断言（修复前：锁被泄漏持有 ⇒ acquire 超时 ⇒ 会话被永久判为"生成中"）
+    await expectSessionMutexFree(cm, sid);
+  });
+
+  it('② 真实 resumeStream + 唤醒 ⇒ 真的重发一轮（返回 true）且不残留锁', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'e2e1-wake-real-resume';
+    stubNoRestorableCheckpoint(cm);
+    let execCalls = 0;
+    let execContent = '';
+    asResumeInternals(cm).chatOrchestrator.sendMessage = async (content) => {
+      execCalls += 1;
+      execContent = String(content);
+      return {} as never;
+    };
+
+    const ok = await cm.resumeSuspendedSession(sid, 'stream');
+
+    // C1 口径：重放无实质进展 ⇒ 经既有执行入口真的重发了一轮
+    expect(ok).toBe(true);
+    expect(execCalls).toBe(1);
+    expect(execContent.length).toBeGreaterThan(0);
+    // 且锁已释放（否则"重发"会被在飞守卫挡下 —— E2E-1 本体）
+    await expectSessionMutexFree(cm, sid);
+  });
+
+  it('③ 守卫仍有效（负向）：会话锁被真实持有时，同会话再次发送仍被快速失败挡下', async () => {
+    const sid = 'e2e1-guard-still-works';
+    // 模拟"上一轮确实仍在生成"：真实持有该会话的锁，且**不释放**
+    const held = new SimpleMutex();
+    await held.acquire();
+    const host = createTestHost({
+      session: createTestSession({ id: sid }),
+      sessionMutexes: new Map([[sid, held]]),
+      sessionLifecycle: {
+        getOrLoadSession: async () => createTestSession({ id: sid }),
+      } as never,
+    });
+    const orch = new ChatOrchestrator({ host });
+    // 绕开空闲降载监控（本用例只验在飞守卫）
+    (orch as unknown as { idleScaleMonitor: unknown }).idleScaleMonitor = {
+      poke: () => {},
+      start: () => {},
+    };
+
+    await expect(orch.sendMessage('hello', { sessionId: sid })).rejects.toThrow(
+      /上一条回复仍在生成中/
+    );
+
+    held.release();
   });
 });

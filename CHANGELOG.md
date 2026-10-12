@@ -19,6 +19,13 @@
 
 ## [未发布]
 
+**长程任务「预算挂起—续跑」：真实端到端复测修复（E2E-1 会话锁泄漏，唤醒从此真的续跑）**
+
+- ✅ **E2E-1 根因修复（不受开关门控）** - 真实端到端手测（`--http-only` + `FEATURE_BUDGET_SUSPEND_RESUME=true` + 真实 LLM）证实：挂起成功、**唤醒永远失败** —— `resumeSuspendedSession: 流式重发失败，保留挂起 {error:"上一条回复仍在生成中（已执行约 0 秒…）"}`，45s 后仍未恢复；再次唤醒则 `SimpleMutex: acquire timeout after 30000ms`。**根因**：`ChatManager.resumeStream` 的 `mutex.release()` **只覆盖工具循环那一段的 `try/finally`**，而 `StreamingAutoCheckpoint.restore()` 抛错与「无可用检查点 ⇒ yield error + return」两个出口都落在该 `try` **之前** ⇒ 会话互斥锁**永久泄漏** ⇒ `getHeldDurationMs() > 0` 使 `ChatOrchestrator.sendMessage` 的在飞守卫（`ChatOrchestrator.ts:681-686`，文案 `上一条回复仍在生成中…`）**永久**判「生成中」⇒ C1 的「重发一轮」被挡下。**修复**：把 `try` 前移到 `acquire()` 之后，使 `release` 覆盖 `acquire` 之后的**全部出口**（release 仍只有**唯一一处** = 最外层 `finally`，不引入双重 release）。**既有 `POST /v1/sessions/:id/resume`（用户手动续跑）同路径受益** —— 该路径此前也会把会话锁泄漏成「永久生成中」
+- ✅ **回归测试（3 例，含反证）** - `app/tests/chat/budgetSuspendStream.test.ts` 新增 `E2E-1` 组：① 无可用检查点时真实 `resumeStream` 跑完后会话锁必须已释放（判据用 `acquire(0)` 而非 `getHeldDurationMs()`，后者有毫秒粒度假绿）；② 真实 `resumeStream` + 唤醒 ⇒ 真的重发一轮（返回 `true`、执行入口恰 1 次）且不残留锁；③ **负向**：会话锁被真实持有时同会话再发送仍被守卫快速失败挡下（防"一刀切绕过守卫"）。**反证**：以 `git stash` 退回修复前，①② 均以 `SimpleMutex: acquire timeout after 0ms` 失败、③ 恒绿 ⇒ 该组测试确能捕获本缺陷
+- ✅ **真实验收（§6.8，`e2eVerified` 转 true）** - 修后复测全链通过：`reActLoop:daily_budget_exhausted{iteration:0}` → `budgetSuspend:suspended{chain:'stream'}` →（放行 `boost`）→ `budgetSuspend:resumed{kind:'boost'}` + `resume_summary{woken:[<SID>]}` → **该会话消息数 2 → 6**（新增续跑提示 user 消息 + 新 assistant + 2 条 tool 结果）。**负向**：真实并发双发仍被守卫挡下（日志 `[chat] 上一条回复仍在生成中…`）。开关仍**默认关**（关时零行为变更）
+- ℹ️ **边界（如实）** - **E2E-2（开放）**：首轮观测「第二次 `applyRelief(boost)` 未再次触发唤醒」本次**未复现**（日志可见第二次唤醒尝试 ⇒ 原观测系被泄漏锁阻塞后的次生表现），仍列为开放判据。文档/台账：`.trae/specs/long-task-suspend-resume.md` v1.4（§0/§3-D7/§6.8）、`fix-evidence-registry.json` `BUDGET-SUSPEND-RESUME`（⑧⑨）、修复报告 `.superpowers/sdd/budget-suspend-resume/e2e1-fix-report.md`
+
 **MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
 
 - ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope

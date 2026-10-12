@@ -4542,59 +4542,71 @@ export class ChatManagerImpl implements ChatManager {
     }
     await mutex.acquire();
 
-    // 中断治理（2026-08-15）：resume 时同步恢复会话状态（PAUSED → ACTIVE），
-    // 避免崩溃恢复标记的 paused 会话在磁盘上永久冻结；失败不阻断检查点恢复主流程
+    // E2E-1 根因修复（2026-10-12）：**互斥锁的释放必须覆盖 `acquire` 之后的全部出口**。
+    // 修复前本方法只有工具循环那一段的 `try/finally` 在 release，而其**之前**的两个执行出口
+    // —— `StreamingAutoCheckpoint.restore()` 抛错、以及「无可用检查点 ⇒ yield error + return」
+    // ——都落在该 `finally` **之外** ⇒ 锁永久泄漏。（`resumeSession` 那段自带 try/catch，
+    // 不构成第三个出口。）
+    // 后果（真实 E2E 实证）：`getHeldDurationMs() > 0` 使该会话被 `ChatOrchestrator.sendMessage`
+    // 的在飞守卫（`上一条回复仍在生成中…`，`ChatOrchestrator.ts:681-686`）**永久**判为"生成中"：
+    // 预算挂起唤醒的「重发一轮」被挡下（`resumeSuspendedSession: 流式重发失败`），再次唤醒则
+    // `SimpleMutex: acquire timeout after 30000ms`。故把 `try` 前移到 `acquire` 之后，
+    // **release 仍只有最外层这一处**（唯一释放点，避免双重 release 清零他人持有的锁）。
     try {
-      await this.sessionGateway.resumeSession(sessionId);
-    } catch (e) {
-      // @ignore-catch — 状态恢复失败不影响检查点恢复
-      logger.warn('resume 时恢复会话状态失败', {
-        sessionId,
-        error: String(e),
-      });
-    }
+      // 中断治理（2026-08-15）：resume 时同步恢复会话状态（PAUSED → ACTIVE），
+      // 避免崩溃恢复标记的 paused 会话在磁盘上永久冻结；失败不阻断检查点恢复主流程
+      try {
+        await this.sessionGateway.resumeSession(sessionId);
+      } catch (e) {
+        // @ignore-catch — 状态恢复失败不影响检查点恢复
+        logger.warn('resume 时恢复会话状态失败', {
+          sessionId,
+          error: String(e),
+        });
+      }
 
-    const streamingCheckpoint = new StreamingAutoCheckpoint(
-      this._checkpointService,
-      sessionId
-    );
+      const streamingCheckpoint = new StreamingAutoCheckpoint(
+        this._checkpointService,
+        sessionId
+      );
 
-    let restoreResult: Awaited<ReturnType<StreamingAutoCheckpoint['restore']>>;
-    try {
-      restoreResult = await streamingCheckpoint.restore();
-    } catch (err) {
-      // BUG-1 修复：此处不再 release（由最外层 finally 统一释放一次，
-      // 避免双重 release 清零他人持有的锁）。
-      throw err;
-    }
-    if (!restoreResult) {
-      // M2-T2.1（2026-08-31）：无自动检查点 → 从 events.jsonl 尾部重建未完成 turn。
-      // 对齐 openworker _unanswered_trailing_tool_calls：重启/引擎不可用后，
-      // 已答工具（有 result/canceled 终态）跳过、未答工具重放，不重复执行。
-      restoreResult =
-        await this._recovery.rebuildTrailingTurnFromEvents(sessionId);
-    }
-    if (!restoreResult) {
-      yield {
-        type: 'error',
-        content: '无可用检查点，无法恢复',
-        sessionId,
-      } as ChatStreamChunk;
-      return null as unknown as Message;
-    }
+      let restoreResult: Awaited<
+        ReturnType<StreamingAutoCheckpoint['restore']>
+      >;
+      try {
+        restoreResult = await streamingCheckpoint.restore();
+      } catch (err) {
+        // BUG-1 修复：此处不再 release（由最外层 finally 统一释放一次，
+        // 避免双重 release 清零他人持有的锁）。
+        throw err;
+      }
+      if (!restoreResult) {
+        // M2-T2.1（2026-08-31）：无自动检查点 → 从 events.jsonl 尾部重建未完成 turn。
+        // 对齐 openworker _unanswered_trailing_tool_calls：重启/引擎不可用后，
+        // 已答工具（有 result/canceled 终态）跳过、未答工具重放，不重复执行。
+        restoreResult =
+          await this._recovery.rebuildTrailingTurnFromEvents(sessionId);
+      }
+      if (!restoreResult) {
+        yield {
+          type: 'error',
+          content: '无可用检查点，无法恢复',
+          sessionId,
+        } as ChatStreamChunk;
+        return null as unknown as Message;
+      }
 
-    const { checkpoint, stepIndex, completedToolCallIds, generatorState } =
-      restoreResult;
+      const { checkpoint, stepIndex, completedToolCallIds, generatorState } =
+        restoreResult;
 
-    // BUG-A2 修复（2026-08-26）：恢复后同步检查点节奏——新实例 stepIndex=0
-    // 会导致恢复后的全量/delta 检查点时间错位
-    streamingCheckpoint.restoreStepIndex(stepIndex);
+      // BUG-A2 修复（2026-08-26）：恢复后同步检查点节奏——新实例 stepIndex=0
+      // 会导致恢复后的全量/delta 检查点时间错位
+      streamingCheckpoint.restoreStepIndex(stepIndex);
 
-    // 1. 恢复会话状态
-    const session = await this.sessionLifecycle.getOrLoadSession(sessionId);
-    session.messages = checkpoint.messages;
+      // 1. 恢复会话状态
+      const session = await this.sessionLifecycle.getOrLoadSession(sessionId);
+      session.messages = checkpoint.messages;
 
-    try {
       // 2. 创建新的 streamAbortController
       const streamAbortController = new AbortController();
       this._sessionAbortControllers.set(sessionId, streamAbortController);

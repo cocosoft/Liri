@@ -1480,10 +1480,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
 
     const id = await this.checkpointStorage.save(checkpoint);
     this.lastCheckpointId = id;
-
     logger.info('Checkpoint saved', { id, turn: this.turnCount, type });
     this.phaseCallbacks.onCheckpointSaved?.(checkpoint);
-
     return id;
   }
 
@@ -1501,7 +1499,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
    */
   async resumeFromCheckpoint(checkpointId?: string): Promise<boolean> {
     let checkpoint: TAORCheckpoint | null;
-
     if (checkpointId) {
       checkpoint = await this.checkpointStorage.load(checkpointId);
     } else {
@@ -1517,7 +1514,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       });
       return false;
     }
-
     // 恢复状态
     this.turnCount = checkpoint.turnCount;
     this.currentPhase = checkpoint.phase;
@@ -1528,6 +1524,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.stopped = false; // B3：恢复⇒清除 stopped，否则唤起轮 seeded ACT 被 shouldContinue 短路
     // 恢复 Token 预算状态（向后兼容：旧 checkpoint 可能无 currentTokens 字段）
     const currentTokens = checkpoint.budgetState.currentTokens ?? 0;
+    // 恢复=新 run 边界：递减连续性不得跨挂起边界残留（否则恢复首轮被误判递减 ⇒
+    // 该分支 return 先于 persistMessages，工具已执行却不落盘）。基线与 _observeRound 同源
+    // （当前累计 tokens）；跨重启恢复=新实例（计数 0）⇒ 本修复为对其对齐，不受开关门控。
+    this.dailyBudget.resetDiminishingReturns(currentTokens);
     const actualRemaining = Math.max(
       0,
       checkpoint.budgetState.maxTokens - currentTokens

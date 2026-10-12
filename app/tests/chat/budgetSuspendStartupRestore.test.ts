@@ -9,7 +9,7 @@
 // 修复：启动期**两支**扫描（batch = `type='budget_suspend'`；stream = 会话检查点的
 // `metadata.budgetSuspend`）⇒ 只登记、**绝不**自动续跑（守反目标①）。
 //
-// 门控：`FEATURE_BUDGET_SUSPEND_RESUME`（默认关）⇒ 关时零行为变更。
+// 门控：`FEATURE_BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）⇒ 关时零行为变更。
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { ChatBootstrap } from '../../src/chat/manager/bootstrap.js';
@@ -55,6 +55,8 @@ function makeDeps(opts: {
           opts.streamCheckpoints[sid] ?? [],
       }) as never,
     scanBudgetSuspendCheckpoints: async () => opts.batch,
+    // B3-3：启动登记处一并装配唤醒端口（本用例只验登记语义 ⇒ 空实现）
+    installBudgetSuspendResume: () => {},
   };
 }
 
@@ -100,7 +102,7 @@ describe('I2：启动扫描登记 budget_suspend（两链，只登记不续跑�
   });
 
   it('开关关 ⇒ 零登记（零行为变更）', async () => {
-    delete process.env[FLAG];
+    process.env[FLAG] = 'false'; // 默认已翻为开 ⇒ 显式 false 才是「关」
     const deps = makeDeps({
       batch: [{ id: 'cp-batch', sessionId: 's-batch' } as TAORCheckpoint],
       streamSessions: ['s-stream'],

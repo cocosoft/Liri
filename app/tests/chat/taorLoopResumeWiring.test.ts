@@ -38,10 +38,16 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import type http from 'http';
 
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
+import { ChatBootstrap } from '../../src/chat/manager/bootstrap.js';
+import type { ChatBootstrapDeps } from '../../src/chat/manager/bootstrap.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
 } from '../../src/query/budgetSuspend.js';
+import {
+  getDailyBudget,
+  resetDailyBudgetForTest,
+} from '../../src/query/DailyBudgetManager.js';
 import {
   handleListCheckpoints,
   handleResumeCheckpoint,
@@ -60,6 +66,10 @@ type ChatManagerInternals = {
   _getOrCreateTAORLoop(sessionId: string): TAORLoop;
   markResumeIntent(sessionId: string): void;
   consumePendingResumeIntent(sessionId: string): boolean;
+  /** B3-3：启动登记入口（`resumeBudgetSuspends` 走启动期路径，避免真跑 `initialize()` 重活） */
+  _bootstrap: {
+    resumeBudgetSuspends(): Promise<void>;
+  };
   chatOrchestrator: {
     sendMessage(content: string, options?: unknown): Promise<unknown>;
   };
@@ -635,5 +645,113 @@ describe('I1：TAOR 循环注册表有界 + 会话拆除注销', () => {
     expect(await registryCheckpoints(`i1-cap-${N - 1}`)).toEqual({
       checkpoints: sentinel,
     });
+  });
+});
+
+// ─── B3-3：启动登记处一并装配唤醒端口（修「重启后未发消息即放行 ⇒ 静默无效」）──────
+//
+// 缺陷：唤醒端口注册点（`ChatManager._ensureBudgetSuspendResumeInstalled`）原**仅**由
+// `sendMessage`/`streamMessage` 惰性触发（Fix round 2 刻意的"丢弃实例不注册/不劫持"设计）
+// ⇒ 服务重启后用户**未先发任何消息**就点「放行」时 `reliefAppliedListeners` 为空 ⇒ 放行
+// 静默无效（影响流式链与 taor 链）。修复：装配时机**钩在启动登记处**（`resumeBudgetSuspends`，
+// 开关检查后**最先**装配、再 await 扫描），**不动**惰性入口、**不在**构造器装配。
+
+describe('B3-3：启动登记处一并装配唤醒端口', () => {
+  const FLAG = 'FEATURE_BUDGET_SUSPEND_RESUME';
+  let prevFlag: string | undefined;
+
+  beforeEach(() => {
+    resetBudgetSuspendForTest();
+    resetDailyBudgetForTest();
+    prevFlag = process.env[FLAG];
+    process.env[FLAG] = 'true';
+  });
+  afterEach(() => {
+    if (prevFlag === undefined) delete process.env[FLAG];
+    else process.env[FLAG] = prevFlag;
+    resetBudgetSuspendForTest();
+    resetDailyBudgetForTest();
+  });
+
+  /**
+   * 最小 `ChatBootstrapDeps`（仅本 describe 触及的成员有意义）。`events` 记录装配/扫描的
+   * 调用次序 ⇒ 供 ①② 断言「装配一次」与「装配先于扫描 await」。
+   */
+  function makeBootstrapDeps(events: string[]): ChatBootstrapDeps {
+    return {
+      getSessionGateway: () => ({ listSessions: async () => [] }) as never,
+      getChatSessions: () => new Map(),
+      getSessionAccess: () => ({}) as never,
+      getTokenBudget: () => ({}) as never,
+      getOrCreateTAORLoop: () => ({}) as never,
+      getLlmClient: () => undefined,
+      isDurableResumeEnabled: () => false,
+      shouldPersistRecalculatedTotal: () => false,
+      getCheckpointService: () =>
+        ({ listCheckpoints: async () => [] }) as never,
+      scanBudgetSuspendCheckpoints: async () => {
+        events.push('scan');
+        return [];
+      },
+      installBudgetSuspendResume: () => {
+        events.push('install');
+      },
+    };
+  }
+
+  it('① 启动期路径 resumeBudgetSuspends() 触发装配一次（不经 sendMessage/streamMessage）', async () => {
+    const events: string[] = [];
+    const bootstrap = new ChatBootstrap(makeBootstrapDeps(events));
+
+    // 构造不触发装配（本 describe 全程未调用 sendMessage / streamMessage）
+    expect(events).toEqual([]);
+
+    await bootstrap.resumeBudgetSuspends();
+
+    // 修复前：惰性入口从未被触发 ⇒ 装配次数 0（本断言先红）
+    expect(events.filter((e) => e === 'install')).toHaveLength(1);
+  });
+
+  it('② 装配先于扫描 await（顺序：install → scan）', async () => {
+    const events: string[] = [];
+    const bootstrap = new ChatBootstrap(makeBootstrapDeps(events));
+
+    await bootstrap.resumeBudgetSuspends();
+
+    // 修复前 events = ['scan']；修复后 = ['install', 'scan']（先装配、后 await 扫描）
+    expect(events).toEqual(['install', 'scan']);
+  });
+
+  it('③ 未发任何消息即装配生效：放行回调到 live 实例的 resumeSuspendedSession', async () => {
+    const cm = new ChatManagerImpl();
+    // 隔离无关的 yield 装配（避免触真实库）
+    (cm as unknown as YieldInstallInternals)._ensureYieldResumerInstalled =
+      () => {};
+
+    // 只走「启动登记」路径（不跑 initialize() 重活）：桩化 bootstrap 的两支扫描依赖，避免 DB
+    const bootstrap = internals(cm)._bootstrap;
+    const deps = (bootstrap as unknown as { deps: Record<string, unknown> })
+      .deps;
+    deps.scanBudgetSuspendCheckpoints = async () => [];
+    deps.getSessionGateway = () => ({ listSessions: async () => [] });
+
+    await bootstrap.resumeBudgetSuspends(); // 启动期路径（未发任何消息）
+
+    // 放行前登记一条挂起（模拟重启后由启动扫描登记）
+    getBudgetSuspendCoordinator().suspend({
+      sessionId: 'b33-sid',
+      chain: 'taor',
+      reason: 'restored_budget_suspend',
+    });
+
+    const spy = spyOn(cm, 'resumeSuspendedSession').mockResolvedValue(true);
+    // 进程内 relief 回调路径：applyRelief ⇒ onReliefApplied ⇒ 协调器 ⇒ handler
+    getDailyBudget().applyRelief({ kind: 'unlock-today' });
+    await new Promise((r) => setTimeout(r, 0));
+
+    // 修复前：`reliefAppliedListeners` 为空 ⇒ handler 未装配 ⇒ 不回调（spy 0 次）
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toBe('b33-sid');
+    expect(spy.mock.calls[0]?.[1]).toBe('taor');
   });
 });

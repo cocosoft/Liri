@@ -70,6 +70,10 @@ export class ChatSessionTeardown {
     this.closeSessionPdca(sessionId);
     // 联动清理该会话全部检查点（不阻塞删除主流程，记录执行情况，避免残留孤儿检查点）
     void this.deleteSessionCheckpoints(sessionId);
+    // 两链对称：上面清**流式链**（session_checkpoints），此处清 **taor 链**
+    // （taor_checkpoints）。taor 行残留会让服务重启时 resumeBudgetSuspends() 把已删
+    // 会话重新登记为「幽灵挂起」，放行时对已删会话尝试续跑（额外 LLM 开销/误导日志）。
+    void this.clearSessionTaorCheckpoints(sessionId);
     // 清理协商状态文件（避免残留）
     deleteNegotiationState(sessionId);
     // BUG-J 修复（2026-08-26）：清理事件日志缓存——原 deleteSession 不删
@@ -212,6 +216,33 @@ export class ChatSessionTeardown {
       await handleError(e, {
         module: 'chat:manager',
         action: 'deleteSession:清理检查点失败',
+      });
+    }
+  }
+
+  /**
+   * 清理指定会话的 **taor 链**检查点（`taor_checkpoints`，经 `ResumeManager.clearSession`）。
+   *
+   * 与 `deleteSessionCheckpoints`（流式链 `session_checkpoints`）**两链对称**：会话删除必须
+   * 同时清理两条链，否则 taor 行残留 ⇒ 服务重启时 `ChatBootstrap.resumeBudgetSuspends()`
+   * 会把已删会话重新登记为「幽灵挂起」，放行时对已删会话尝试续跑（额外 LLM 开销/误导日志）。
+   * fire-and-forget；失败仅告警、不阻塞删除主流程；不受开关门控（通用数据卫生）。
+   */
+  private async clearSessionTaorCheckpoints(sessionId: string): Promise<void> {
+    try {
+      // 沿用 bootstrap 既有惯例：动态 import 避免新增静态跨模块边（chat → query 同层）
+      const { resumeManager } = await import('../../query/ResumeManager.js');
+      const removed = await resumeManager.clearSession(sessionId);
+      if (removed > 0) {
+        logger.info('deleteSession:taor 检查点已清理', {
+          sessionId,
+          removed,
+        });
+      }
+    } catch (e) {
+      logger.warn('deleteSession:taor 检查点清理失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
       });
     }
   }

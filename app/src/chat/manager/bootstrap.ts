@@ -74,6 +74,18 @@ export interface ChatBootstrapDeps {
   };
   /** I2：扫描 **batch 链**的 `budget_suspend` 检查点（生产 = `resumeManager.scanBudgetSuspends`） */
   scanBudgetSuspendCheckpoints: () => Promise<TAORCheckpoint[]>;
+  /**
+   * B3-3：**启动期装配**预算挂起的**唤醒端口**
+   * （`DailyBudgetManager.onReliefApplied` 回调 + 协调器 resume handler）。
+   *
+   * 用途：修「服务重启后用户未先发任何消息就点放行 ⇒ 放行静默无效」——唤醒端口的注册点
+   * （`ChatManager._ensureBudgetSuspendResumeInstalled`）原仅由 `sendMessage` / `streamMessage`
+   * **惰性**触发 ⇒ 启动登记路径（本方法调用者 `resumeBudgetSuspends`）未装配时
+   * `reliefAppliedListeners` 为空，放行被丢。此处于启动登记处一并装配。
+   *
+   * **幂等由宿主保证**（生产实现内以 `_budgetSuspendResumeWired` 至多装配一次）。
+   */
+  installBudgetSuspendResume: () => void;
 }
 
 export class ChatBootstrap {
@@ -338,10 +350,13 @@ export class ChatBootstrap {
    *
    * 只登记（`coordinator.suspend`）——**绝不**触发续跑（不调 `getOrCreateTAORLoop`、不调
    * 执行入口）；等用户放行（relief）后才由协调器唤醒。受 `FEATURE_BUDGET_SUSPEND_RESUME`
-   * 门控 ⇒ 关时零行为变更。
+   * （**默认开**）门控 ⇒ 关（`=false`）时零行为变更。
    */
   async resumeBudgetSuspends(): Promise<void> {
-    if (!feature('BUDGET_SUSPEND_RESUME')) return; // 默认关 ⇒ 零行为变更
+    if (!feature('BUDGET_SUSPEND_RESUME')) return; // 关（=false）⇒ 零行为变更
+    // B3-3：**先装配唤醒端口，后 await 扫描** —— 否则启动扫描窗口内发生的放行会因
+    // `reliefAppliedListeners` 为空而被静默丢弃（重启后未先发消息即放行 ⇒ 静默无效）。
+    this.deps.installBudgetSuspendResume();
     const coordinator = getBudgetSuspendCoordinator();
 
     // ① batch 链：type='budget_suspend' 的检查点

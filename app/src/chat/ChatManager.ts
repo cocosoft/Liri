@@ -872,6 +872,10 @@ export class ChatManagerImpl implements ChatManager {
       const { resumeManager } = await import('../query/ResumeManager.js');
       return resumeManager.scanBudgetSuspends();
     },
+    // B3-3：启动登记处一并装配唤醒端口（修「重启后未先发消息即放行 ⇒ 静默无效」）。
+    // 装配体仍复用既有惰性入口的实现（幂等：`_budgetSuspendResumeWired` 至多一次）。
+    installBudgetSuspendResume: () =>
+      this._ensureBudgetSuspendResumeInstalled(),
   });
 
   /**
@@ -1437,8 +1441,8 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * Task 7：**惰性装配**预算挂起的**唤醒端口**（幂等；`FEATURE_BUDGET_SUSPEND_RESUME` 默认关
-   * ⇒ 零行为变更）。
+   * Task 7：**惰性装配**预算挂起的**唤醒端口**（幂等；`FEATURE_BUDGET_SUSPEND_RESUME` **默认开**
+   * ⇒ 关（`=false`）时零行为变更）。
    *
    * - `getDailyBudget().onReliefApplied` ⇒ 放行发生时把 kind 转给协调器决策；
    * - `coordinator.setResumeHandler` ⇒ 协调器逐会话回调本类的 `resumeSuspendedSession`
@@ -1447,10 +1451,12 @@ export class ChatManagerImpl implements ChatManager {
    * **惰性而非构造期**（Fix round 2）：对齐 yield 恢复器的装配纪律（`_ensureYieldResumerInstalled`
    * —— 惰性安装 + `cleanup()` 解绑）—— 入口 `sendMessage` / `streamMessage` 各调一次，`_budgetSuspendResumeWired`
    * 保证**至多一次**。构造期装配会让丢弃实例（命令处理器的 `createChatManager()`）注册监听并覆盖 handler。
+   * **B3-3**：本体另经 `ChatBootstrap.resumeBudgetSuspends()` 在**启动期**装配一次
+   * （修「重启后未先发消息即点放行 ⇒ 静默无效」）；仍非构造期，不违反上述裁决。
    */
   private _ensureBudgetSuspendResumeInstalled(): void {
     if (this._budgetSuspendResumeWired) return;
-    if (!coreFeature('BUDGET_SUSPEND_RESUME')) return; // 默认关 ⇒ 不注册（零行为变更）
+    if (!coreFeature('BUDGET_SUSPEND_RESUME')) return; // 关（=false）⇒ 不注册（零行为变更）
     this._budgetSuspendResumeWired = true;
     const coordinator = getBudgetSuspendCoordinator();
     this._budgetReliefUninstall = getDailyBudget().onReliefApplied((e) => {

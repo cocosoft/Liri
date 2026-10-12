@@ -664,10 +664,14 @@ export class DailyBudgetManager {
   }
 
   /**
-   * 重置收益递减计数
+   * 重置收益递减计数（run/恢复边界调用）
+   *
+   * `baselineTokens` 必须与 `checkDiminishingReturns` 的入参**同源**（loop 的当前累计 Token）
+   * —— 否则恢复后首轮的 delta 会被算错（沿用 `todayUsed` 会与 loop 视角的累计量脱节）。
+   * 缺省 `undefined` 时保留旧语义（以 `todayUsed` 为基线）。
    */
-  resetDiminishingReturns(): void {
-    this.lastTotalTokens = this.todayUsed;
+  resetDiminishingReturns(baselineTokens?: number): void {
+    this.lastTotalTokens = baselineTokens ?? this.todayUsed;
     this.diminishingTurnsCount = 0;
   }
 

@@ -254,6 +254,8 @@ export class EventLogStorage {
   private idxEntries: EventIdxEntry[] = [];
   /** 索引是否已从磁盘加载（惰性，首次 read/append 前） */
   private idxLoaded = false;
+  /** T3-10：`events.idx` 区间条目是否已解析（独立于 `idxLoaded`，供 `getTailSeq` 亦复用 idx 而不递归） */
+  private idxEntriesLoaded = false;
   /** 索引累积已解析到的文件末尾 seq（.idx 与 events.jsonl 的同步锚点） */
   private idxTailSeq = 0;
   /** append-only 写路径的 UTF-8 字节累计（= 下一条事件行的起始偏移，G-4 精确 seek 依据） */
@@ -406,10 +408,14 @@ export class EventLogStorage {
       return 0;
     }
 
-    // 扫描文件找最大 seq
+    // 扫描文件找最大 seq（T3-10：复用 idx 定位——从末区间起点续扫，而非自文件头全扫）
     let maxSeq = 0;
     try {
-      const rl = this.createReadlineInterface();
+      await this.loadIdxEntries();
+      const rl = this.openOffsetReadline(
+        this.filePath,
+        this.resolveTailScanStart()
+      );
       for await (const line of rl) {
         if (!line.trim()) continue;
         try {
@@ -781,9 +787,36 @@ export class EventLogStorage {
         this.idxBytesTotal = st.size;
         this.idxTailSeq = await this.getTailSeq().catch(() => 0);
       }
-      if (!existsSync(this.idxFilePath)) return;
+      await this.loadIdxEntries();
+      if (this.idxEntries.length > 0) {
+        // 有 .idx：同步锚点 = 末区间 toSeq（覆盖上面按 tailSeq 的兜底值）
+        this.idxTailSeq = this.idxEntries[this.idxEntries.length - 1].toSeq;
+        logger.debug('event-log: 事件字节索引已加载', {
+          sessionId: this.sessionId,
+          entries: this.idxEntries.length,
+          idxTailSeq: this.idxTailSeq,
+        });
+      }
+    } catch (e) {
+      // 索引损坏/IO 失败 → 降级（读路径回退逐行扫描），不阻断（CS03）
+      logger.warn('event-log: 索引加载失败，回退逐行扫描', {
+        sessionId: this.sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      this.idxEntries = [];
+    }
+  }
+
+  /**
+   * T3-10：仅解析 `events.idx` 区间条目入内存（幂等；不触碰 tailSeq，故 `getTailSeq` 可安全调用）。
+   * idx 缺失 ⇒ 返回（调用方回退逐行）；单行损坏 ⇒ 跳过；整体 IO 失败 ⇒ 置空 + 告警（§13 降级）。
+   */
+  private async loadIdxEntries(): Promise<void> {
+    if (this.idxEntriesLoaded) return;
+    this.idxEntriesLoaded = true;
+    if (!existsSync(this.idxFilePath)) return;
+    try {
       const rl = this.createReadlineInterface(this.idxFilePath);
-      let parsed = 0;
       for await (const line of rl) {
         if (!line.trim()) continue;
         try {
@@ -796,21 +829,12 @@ export class EventLogStorage {
           ) {
             this.idxEntries.push(entry as EventIdxEntry);
             this.idxTailSeq = entry.toSeq;
-            parsed++;
           }
         } catch {
           // 单行损坏跳过（可重建派生物，非第二真相源）
         }
       }
-      if (parsed > 0) {
-        logger.debug('event-log: 事件字节索引已加载', {
-          sessionId: this.sessionId,
-          entries: this.idxEntries.length,
-          idxTailSeq: this.idxTailSeq,
-        });
-      }
     } catch (e) {
-      // 索引损坏/IO 失败 → 降级（读路径回退逐行扫描），不阻断（CS03）
       logger.warn('event-log: 索引加载失败，回退逐行扫描', {
         sessionId: this.sessionId,
         error: e instanceof Error ? e.message : String(e),
@@ -846,10 +870,10 @@ export class EventLogStorage {
   /**
    * 二分定位覆盖 fromSeq 的区间起始偏移。
    *
-   * @returns 若 fromSeq 已被索引覆盖 → 区间首行 UTF-8 字节偏移（可 seek）；
-   *          else null（回退逐行扫描：重启后未索引区域 / idx 落后 G-2）。
-   * 命中区间可能起始于 fromSeq 之前（≤IDX_BATCH_SIZE 行），读侧以现有
-   * seq 正则跳过逻辑处理（不改变语义，仅减少扫描行数）。
+   * @returns 若 fromSeq 落在 `events.idx` 覆盖内（含末区间起点之前的最近区间）→ 区间首行
+   *          UTF-8 字节偏移（可 seek）；否则 null（fromSeq 早于首区间 / idx 不存在，回退逐行）。
+   * 命中区间可能起始于 fromSeq 之前（≤IDX_BATCH_SIZE 行；末区间之后的目标亦从末区间起点续扫，
+   * T3-10），读侧以现有 seq 正则跳过逻辑处理（不改变语义，仅减少扫描行数）。
    */
   private findIdxStartOffset(fromSeq: number): number | null {
     if (this.idxEntries.length === 0) return null;
@@ -867,9 +891,19 @@ export class EventLogStorage {
       }
     }
     if (!hit) return null;
-    // 目标超出该区间覆盖（在末区间之后）→ 未索引，回退逐行
-    if (fromSeq > hit.toSeq) return null;
+    // T3-10：目标超出末区间（末折叠批之后的**未索引尾部**，`events.idx` 只折叠满批）⇒
+    // 从**末区间起点**续扫（尾部 ≤ `IDX_BATCH_SIZE` 行），替代自文件头全扫；结果不变。
     return hit.byteOffset;
+  }
+
+  /** T3-10：`getTailSeq` 扫描起点 = 末区间首行偏移（最大 seq 必在末区间内）；无 idx / 边界校验未过 ⇒ 回退 0 全扫 */
+  private resolveTailScanStart(): number {
+    if (this.idxEntries.length === 0) return IDX_INIT_OFFSET;
+    const start = this.idxEntries[this.idxEntries.length - 1].byteOffset;
+    if (start > IDX_INIT_OFFSET && !this.isLineStart(start)) {
+      return IDX_INIT_OFFSET;
+    }
+    return start;
   }
 
   /**
@@ -879,9 +913,8 @@ export class EventLogStorage {
    * 页边界，仅当 `fromSeq` 与锚点连续 **且** 偏移经行边界校验）；③ `0`（从头发起，
    * 走既有 KB-EVENT-READ 正则跳过）。
    *
-   * ② 的存在理由：idx 缺失（重启后尚未折叠 / 夹具绕过 append）或落后（G-2：目标 seq
-   * 超出末区间）时 ① 返回 null ⇒ 原实现每页从 offset 0 重扫，分页读取退化为
-   * ≈O(N²/PAGE)（CHANGELOG v0.4.72 §L-9 残余）。
+   * ② 的存在理由：idx **缺失**（重启后尚未折叠 / 夹具绕过 append）时 ① 返回 null ⇒ 原实现每页
+   * 从 offset 0 重扫 ⇒ ≈O(N²/PAGE)（CHANGELOG v0.4.72 §L-9 残余）。T3-10 起"超出末区间"由 ① 续扫。
    */
   private resolveScanStartOffset(fromSeq: number): number {
     if (fromSeq <= 1) return IDX_INIT_OFFSET;
@@ -1381,7 +1414,12 @@ export class EventLogStorage {
     if (!this.exists()) return null;
 
     try {
-      const rl = this.createReadlineInterface();
+      // T3-10：复用 idx 二分定位 seek 段读（替代自文件头全扫）；未覆盖时回退（只慢不错，CS03）
+      await this.ensureIdxLoaded();
+      const rl = this.createReadlineInterface(
+        this.filePath,
+        this.resolveScanStartOffset(seq)
+      );
       for await (const line of rl) {
         if (!line.trim()) continue;
         try {
@@ -1767,6 +1805,11 @@ export class EventLogStorage {
     file: string = this.filePath,
     start: number = 0
   ): readline.Interface {
+    return this.openOffsetReadline(file, start);
+  }
+
+  /** T3-10：按 UTF-8 字节偏移建行读器（`start>0` 才 seek）；独立机位供 `getTailSeq` 定位（不受 scanStart 探针影响） */
+  private openOffsetReadline(file: string, start: number): readline.Interface {
     const stream = createReadStream(file, {
       encoding: 'utf-8',
       ...(start > 0 ? { start } : {}),

@@ -12,6 +12,7 @@
  * 不缩放，无法回答"×10 是否 ×10+"）。
  *
  * 覆盖：F1 长事件日志恢复（长会话加载）· **F1b 索引缺失回退路径（L-9 残余/P0-5）** ·
+ * **F1c 随机访问/尾定位（T3-10：`getTailSeq`/`readBySeq` 复用 idx 定位）** ·
  * F2 多会话并发（锁等待）· F3 长跑内存趋势（泄漏）。
  * **未覆盖（如实）**：大知识库检索（需先播种索引，另建脚本）· FD/进程数长跑（见
  * `scripts/probe-memory-handles.ts`，本脚本只报堆趋势）。
@@ -218,6 +219,72 @@ async function benchLoad(
   );
 }
 
+/**
+ * F1c（T3-10，2026-10-13）：**随机访问 / 尾定位**基准 —— 把 `getTailSeq()` 与 `readBySeq(seq)`
+ * 纳入覆盖（原只压 `read({fromSeq})`）。二者原为**全文件逐行线性**（`readBySeq` 自 offset 0 扫、
+ * `getTailSeq` 自 offset 0 扫最大 seq）；收口后复用 `events.idx` 二分定位（+ 末区间/目标区间段读），
+ * 扫描面与文件规模**解耦**。判据：数据 ×10 时 P50 **不随规模线性增长**（近似持平即达标）。
+ *
+ * `seqPick` 取"该规模下的目标 seq"（如末条/中段），确保两条路径都被真实走到。
+ */
+async function benchRandomAccess(
+  root: string,
+  label: string,
+  prefix: string,
+  seqPick: (n: number) => number
+): Promise<void> {
+  console.log(`\n--- ${label} ---`);
+  console.log(
+    '规模     事件数    getTailSeq P50/P95(ms)         readBySeq P50/P95(ms)'
+  );
+  const tailP50: number[] = [];
+  const bySeqP50: number[] = [];
+  for (const scale of SCALES) {
+    const id = `${prefix}-${scale}x`;
+    const n = BASE_EVENTS * scale;
+    seedSession(root, id, n, true); // 含 events.idx（生产恢复路径）
+
+    const tailStore = new EventLogStorage(id, 'default', root);
+    const tailTimes: number[] = [];
+    for (let i = 0; i < REPS; i++) {
+      const t0 = performance.now();
+      await tailStore.getTailSeq(true); // force ⇒ 走读盘扫描路径
+      tailTimes.push(performance.now() - t0);
+    }
+
+    const seq = seqPick(n);
+    const bySeqStore = new EventLogStorage(id, 'default', root);
+    await bySeqStore.readBySeq(seq); // 预热（含一次 ensureIdxLoaded，不计入）
+    const bySeqTimes: number[] = [];
+    for (let i = 0; i < REPS; i++) {
+      const t0 = performance.now();
+      await bySeqStore.readBySeq(seq);
+      bySeqTimes.push(performance.now() - t0);
+    }
+
+    const tp50 = pct(tailTimes, 0.5);
+    const bp50 = pct(bySeqTimes, 0.5);
+    tailP50.push(tp50);
+    bySeqP50.push(bp50);
+    console.log(
+      `${String(scale).padEnd(8)}${String(n).padEnd(9)}${`${round(tp50)}/${round(
+        pct(tailTimes, 0.95)
+      )}`.padEnd(28)}${round(bp50)}/${round(pct(bySeqTimes, 0.95))}`
+    );
+  }
+  const last = SCALES.length - 1;
+  const tailRatio = tailP50[0] > 0 ? tailP50[last] / tailP50[0] : 0;
+  const bySeqRatio = bySeqP50[0] > 0 ? bySeqP50[last] / bySeqP50[0] : 0;
+  console.log(
+    `趋势：数据 ×10 ⇒ getTailSeq P50 ×${round(tailRatio)}、readBySeq P50 ×${round(
+      bySeqRatio
+    )}` +
+      (tailRatio > 3 || bySeqRatio > 3
+        ? '  ⚠️ 仍随规模增长（需排查）'
+        : '  ✅ 与规模解耦（O(log N) 定位）')
+  );
+}
+
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'bench-longrun-'));
   console.log('=== R9 长期运行与恢复基准（合成夹具，非 CI 门禁）===');
@@ -242,6 +309,21 @@ async function main(): Promise<void> {
       false,
       1_000,
       100
+    );
+
+    // ── F1c 随机访问/尾定位（T3-10）：getTailSeq(force) 与 readBySeq(seq) 复用 idx 定位 ──
+    // 目标 seq 取**末条**（尾定位最差路径）与**中段**各一轮，覆盖"末区间续扫"与"区间内 seek"。
+    await benchRandomAccess(
+      root,
+      'F1c 随机访问（getTailSeq/readBySeq 复用 events.idx 定位，末条 seq）',
+      'f1c-tail',
+      (n) => n
+    );
+    await benchRandomAccess(
+      root,
+      'F1c 随机访问（readBySeq 中段 seq，非末区间）',
+      'f1c-mid',
+      (n) => Math.floor(n / 2)
     );
 
     // ── F2 多会话并发（锁等待）：串行 vs 并发 ──

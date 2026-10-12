@@ -8,7 +8,12 @@
 
 // 2026-10-01 D-155（`cost -> ai` 倒挂收口）：模型定价/规范名改经 core SPI 取得，
 // `TimeBasedPrice`（type-only）已与 `ModelPricing` 一同下沉 core。
-import type { ModelPricing, TimeBasedPrice } from '../core/pricing.js';
+// 2026-10-13（债四 S1「换算内核」）：分时价解析 / 兜底价 / 注册表定价投影亦下沉 core。
+import {
+  DEFAULT_MODEL_PRICING,
+  projectRegistryPricing,
+  type ModelPricing,
+} from '../core/pricing.js';
 import { resolveAiAccess } from '@modules/core/spi';
 
 import { handleError } from '../error/handleError.js';
@@ -19,35 +24,8 @@ const logger = getLogger('cost:ModelPricing');
 // 2026-09-30 下沉 core（A1 分层倒挂收口）：定义移至 `core/pricing.ts`，此处**原样转出**
 // ⇒ `@modules/cost` 的 `ModelPricing` 导出名与结构逐字不变。
 export type { ModelPricing };
-
-/** "HH:mm" → 分钟数（0-1439） */
-function minutesOfDay(hhmm: string): number {
-  const [h, m] = (hhmm || '00:00').split(':').map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
-/**
- * 解析分时价格：返回当前时刻命中的时段条目；未配置分时或未命中返回 null。
- * end < start 视为跨天时段（如 21:30-08:00 错峰优惠）。
- */
-export function resolveTimeBasedPricing(
-  list: TimeBasedPrice[] | undefined | null,
-  now: Date = new Date()
-): TimeBasedPrice | null {
-  if (!list || list.length === 0) return null;
-  const cur = now.getHours() * 60 + now.getMinutes();
-  for (const p of list) {
-    const s = minutesOfDay(p.start);
-    const e = minutesOfDay(p.end);
-    if (s <= e) {
-      if (cur >= s && cur < e) return p;
-    } else if (cur >= s || cur < e) {
-      // 跨天时段
-      return p;
-    }
-  }
-  return null;
-}
+// 2026-10-13（债四 S1）：分时价解析下沉 core，此处**原样转出**（导出名与签名逐字不变）。
+export { resolveTimeBasedPricing } from '../core/pricing.js';
 
 let hasUnknownModelCost = false;
 
@@ -61,49 +39,9 @@ export function resetUnknownModelFlag(): void {
 
 function getPricingFromRegistry(modelName: string): ModelPricing | null {
   try {
-    const dto = resolveAiAccess().getModelPricing(modelName);
-    if (dto) {
-      // 防止 DB 中零定价覆盖默认定价 — 当所有定价值均为 0 时回退到默认
-      if (dto.inputPer1M === 0 && dto.outputPer1M === 0) {
-        return null;
-      }
-      // 启发式兜底：无明确定价时，缓存读 = 输入×0.1、缓存写 = 输入×1.25（参考 codeburn）
-      const cacheRead = dto.cacheReadPer1M;
-      const cacheWrite = dto.cacheWritePer1M;
-      let inputPrice = dto.inputPer1M;
-      let outputPrice = dto.outputPer1M;
-      // 分时价差：命中当前时段则用时段价覆盖默认价（如 deepseek 错峰优惠）
-      const timeSlot = resolveTimeBasedPricing(dto.timeBasedPricing);
-      if (timeSlot) {
-        if (timeSlot.inputCostPerMillion !== undefined) {
-          inputPrice = timeSlot.inputCostPerMillion;
-        }
-        if (timeSlot.outputCostPerMillion !== undefined) {
-          outputPrice = timeSlot.outputCostPerMillion;
-        }
-      }
-      const timeCacheRead = timeSlot?.cacheReadCostPerMillion;
-      const timeCacheWrite = timeSlot?.cacheWriteCostPerMillion;
-      return {
-        inputPricePerMillion: inputPrice,
-        outputPricePerMillion: outputPrice,
-        cacheReadPricePerMillion:
-          timeCacheRead && timeCacheRead > 0
-            ? timeCacheRead
-            : cacheRead && cacheRead > 0
-              ? cacheRead
-              : inputPrice * 0.1,
-        cacheCreationPricePerMillion:
-          timeCacheWrite && timeCacheWrite > 0
-            ? timeCacheWrite
-            : cacheWrite && cacheWrite > 0
-              ? cacheWrite
-              : inputPrice * 1.25,
-        webSearchPricePerRequest: 0.01,
-        billingMode: dto.billingMode,
-        pricePerRequest: dto.pricePerRequest,
-      };
-    }
+    // 2026-10-13（债四 S1）：零定价判定 / 分时价覆盖 / 缓存启发式兜底已**下沉 core**
+    // （`projectRegistryPricing`，纯函数）—— 与 query 侧取价适配器**同源**，避免「判了却不符」。
+    return projectRegistryPricing(resolveAiAccess().getModelPricing(modelName));
   } catch (err) {
     // ModelRegistry 不可用时忽略
     // @ignore-catch: non-critical fallback
@@ -143,15 +81,10 @@ export function getModelPricing(
     return registryResult;
   }
 
-  const defaultPricing: ModelPricing = {
-    inputPricePerMillion: 3,
-    outputPricePerMillion: 15,
-    cacheReadPricePerMillion: 0.3,
-    cacheCreationPricePerMillion: 3.75,
-    webSearchPricePerRequest: 0.01,
-  };
+  // 2026-10-13（债四 S1）：兜底价已下沉 core（`DEFAULT_MODEL_PRICING`，与闸门折算**同一份**）。
+  // 返回浅拷贝以保持"每次调用返回独立对象"的既有语义（防调用方就地改写共享常量）。
   hasUnknownModelCost = true;
-  return defaultPricing;
+  return { ...DEFAULT_MODEL_PRICING };
 }
 
 export function formatPrice(price: number): string {

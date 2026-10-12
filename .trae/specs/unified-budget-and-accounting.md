@@ -1,6 +1,6 @@
 # Spec：统一预算与核算（USD 口径）—— 定案稿
 
-> 版本: **1.0（定案）** ｜ 创建: 2026-10-11 ｜ 定案: 2026-10-13 ｜ 状态: **已定案 · 待授权排期**
+> 版本: **1.1（定案 + §12 裁定回填）** ｜ 创建: 2026-10-11 ｜ 定案: 2026-10-13 ｜ 状态: **已定案 · §12 九项已裁定（U3 待定）· 待授权排期**
 > 来源：用户 2026-10-11 裁定「**以钱（USD）为准**」+「**当前体验 spec 先落地，本项另立**」（U-1/U-2/U-3）；
 > 　　　2026-10-13 由本仓 SDD「先推进 spec 至定案」前置把 v0.1 立项稿推进为本稿（**本文不含任何产品代码改动**）
 > 上游（**R16 已落地**）：`.trae/specs/daily-budget-unification.md`（日 Token 闸门现行实现，已实施）
@@ -19,6 +19,7 @@
 |---|---|---|
 | v0.1（2026-10-11） | **立项稿**：记录"两套账互不通"，§4 留 9 项待讨论；§5 明写"在此之前**不动任何产品代码**" | 用户裁定「体验先落地，本项另立」 |
 | **v1.0（2026-10-13）** | **定案**：① §1 对 U-1 主体（`cost_records` 金额事实源）与闸门（Token）**逐条回仓取证**；② §3 逐条定案 **D1–D8**（含换算路径、Token 辅助系数、`waive-once` 事务预检、迁移/回退）；③ 新增 §5 接口/契约、§6 可测试验收、§7 风险/回滚、§8 明确不做、§9 与其它 spec 接口、§10 合规、§11 实施切片计划；④ 新增 **§12 待裁定**（10 项，附选项/影响面，**不猜**）；⑤ 如实登记一项**新取证发现**：`debtTokens` **全仓无自增点** ⇒ 现行"`waive-once` 计入欠账、次日扣回"（D-d）实为**静默 no-op**，构成本项 **D4（`waive-once` 事务预检）** 的**必修前置** | SDD「先推进 spec 至定案」；回仓取证（见 §1）；`dev_docs/20261012/五方案总览-20261012.md` §8.1（`T3-5/6/7` 未落地） |
+| **v1.1（2026-10-13）** | **§12 裁定回填**：用户采纳 `-裁定建议-20261013.md` 十项建议中的**九项**（`Q-U1/Q-U2/Q-U4/Q-U5/Q-U6/Q-U7/Q-U8/Q-U9/Q-U10`）⇒ 逐项标注「**已裁定（2026-10-13，采纳建议）**」+ 建议要点（见 §12.1）；**`Q-U3`（USD 默认上限值）保留为「待裁定」**，并注明**未定前不得实现任何 USD 默认值**（不得以 `$50/日` 或任何数值回填 §5 配置键默认 / 播种 / feature flag）。**本文仍不含任何产品代码改动** | 用户 2026-10-13 裁定（采纳 §12 建议九项；U3 待定） |
 
 ---
 
@@ -68,6 +69,13 @@
 | 未知模型兜底价 | `getModelPricing()` 回落 `$3/M in、$15/M out` `app/src/cost/ModelPricing.ts:146-154`（并置 `hasUnknownModelCost`） |
 | **既有换算先例（可复用形态）** | `StreamPipeline.notifyUsage()` `app/src/chat/pipeline/StreamPipeline.ts:707-724`：`calculateTotalCost(getModelPricing(priceModel), inputTokens, outputTokens, cacheCreation, cacheRead)` |
 | 官方价表分组（**非**独立计价维度） | `app/src/ai/config/official-pricing.ts`（存在；按 provider 分组逐模型 upsert） |
+
+> **2026-10-13（S1「换算内核」落地）取证位移**：本表「分时价」「未知模型兜底价」两行的 `file:line` 已随 S1 下沉而变 ——
+> `resolveTimeBasedPricing` 现定义于 `app/src/core/pricing.ts:59-76`（`cost/ModelPricing.ts` 处**原样转出**）；
+> 注册表定价投影 `projectRegistryPricing` 下沉 `app/src/core/pricing.ts:309-350`（`cost/ModelPricing.ts` 的 `getPricingFromRegistry` 改为**委托**）；
+> 兜底价常量化 `DEFAULT_MODEL_PRICING` `app/src/core/pricing.ts:277-283`（cost 处引用，值与结构不变）；
+> `calculateCost`/`calculateTotalCost` 仍在 `core/pricing.ts`（行号因新增函数整体下移）。
+> 关联切片取证见 §11-S1/S2 与 `.trae/specs/unified-budget-and-accounting-裁定建议-20261013.md`。
 
 ### 1.4 USD 预算现状取证：**只统计、未硬拦、无配置面**
 
@@ -358,21 +366,45 @@
 
 ## §12 待裁定（**不猜**；附选项与影响面）
 
-| # | 事项 | 选项 | 影响面 |
+> **2026-10-13 裁定回填**：十项中**九项已裁定（采纳 `-裁定建议-20261013.md` 建议）**，逐项见下表「裁定（2026-10-13）」列与 **§12.1**；**仅 `Q-U3` 保留待裁定**。
+
+| # | 事项 | 选项 | 影响面 | 裁定（2026-10-13） |
+|---|---|---|---|---|
+| **Q-U1** | **预算维度** | (a) 进程全局（同现行 token 闸门）；(b) 按工作空间；(c) 按会话；(d) 按供应商 | 决定 `limitUsd` 的键控粒度与配置面；`workspace.costControl` 死配置的接线语义（暗示曾意图"按工作空间"） | ✅ **已裁定（2026-10-13，采纳建议）** → **(a) 进程全局** |
+| **Q-U2** | **周期** | (a) 只留"日"（对齐现行 token 闸门）；(b) daily/weekly/monthly 三档并存（对齐现行 `CostBudgetManager` `:86-114`） | 决定闸门与 `cost_records` 的聚合窗口；`getDailyAggregatedCosts` vs `getAggregatedCosts` | ✅ **已裁定（2026-10-13，采纳建议）** → **(a) 只留"日"**（周/月留展示） |
+| **Q-U3** | **USD 默认上限值** | 现行 `CostBudgetManager` 为 $50/日（`:91`），但 `hardLimit=false` 且无配置面 | 直接决定用户被拦阈值；须用户给定"合理 P50/P95 日成本"依据 | ⏳ **待裁定**（**未定前不得实现任何 USD 默认值**） |
+| **Q-U4** | **折算纳入项** | 缓存读/写价、分时价（`timeBasedPricing`）、`cost_multiplier`（**现换算链未读**）、`webSearch`、`per_request` 是否计入闸门折算 | 影响判定松紧与"判了却不符"风险；`core/pricing.calculateCost` 已支持全部入参 | ✅ **已裁定（2026-10-13，采纳建议）** → **与计费链同参形状**（in/out/cacheCreation/cacheRead）；分时价随取价自动纳入；**不含 `cost_multiplier`** |
+| **Q-U5** | **未知模型兜底价** | $3/M in、$15/M out（`ModelPricing.ts:146-154`）闸门能否接受；或改"按 token 兜底/直接拒发/提示" | 未登记模型（自定义 provider）的判定行为 | ✅ **已裁定（2026-10-13，采纳建议）** → **接受兜底价但"如实标注"**（不静默、不拒发） |
+| **Q-U6** | **闸门读源（异步竞态）** | (a) 事件循环内**内存累计**（订阅 `COST_RECORDED`）+ 启动从 DB 回填当日金额；(b) **直读 DB**（`getAggregatedCosts`）每轮查询；(c) 混合（内存为主、DB 周期校准） | 正确性/性能/实现复杂度；`cost_records` 异步写入（§1.8）使 (b) 有滞后 | ✅ **已裁定（2026-10-13，采纳建议）** → **(a) 内存累计（订阅 `COST_RECORDED`）+ 启动从 DB 回填** |
+| **Q-U7** | **币种/汇率** | 是否需非 USD 供应商计价与展示（现行全链 USD） | 引入汇率事实源（新数据源）范围膨胀 | ✅ **已裁定（2026-10-13，采纳建议）** → **(a) 不做（仅 USD）** |
+| **Q-U8** | **死配置处置** | (a) 删除（走 CD05/CD06）；(b) 接线（语义依 Q-U1） | `workspace.costControl.*` 的最终去留 | ✅ **已裁定（2026-10-13，采纳建议）** → **(a) 删除**（严格 CD05→观察→CD06） |
+| **Q-U9** | **与 `CostMonitor` 告警的关系** | 阈值告警（`thresholdType:'cost'`，`CostMonitor.ts:39,124-143`）与硬闸门如何分层/去重（`CostBudgetManager` 已注册 budget 告警规则 `:216-241`） | 避免"告警与闸门重复/打架" | ✅ **已裁定（2026-10-13，采纳建议）** → **分层不合并**（闸门=硬拦；告警=软观测） |
+| **Q-U10** | **放行口径在 USD 下的重申** | `boost`/`unlock-today` 的默认值（现为 token：×2 / 原上限×5，`DailyBudgetManager.ts:82-88`）在 USD 口径下是否沿用倍数、默认倍数取值 | 直接影响"提额"体验与欠账上界 | ✅ **已裁定（2026-10-13，采纳建议）** → **沿用倍数**（boost ×2 / unlock ×5），基座单位换 USD |
+
+### §12.1 裁定结果（2026-10-13 回填）
+
+#### 已裁定（2026-10-13，采纳建议）—— 九项
+
+| # | 事项 | 裁定 | 建议要点（依据） |
 |---|---|---|---|
-| **Q-U1** | **预算维度** | (a) 进程全局（同现行 token 闸门）；(b) 按工作空间；(c) 按会话；(d) 按供应商 | 决定 `limitUsd` 的键控粒度与配置面；`workspace.costControl` 死配置的接线语义（暗示曾意图"按工作空间"） |
-| **Q-U2** | **周期** | (a) 只留"日"（对齐现行 token 闸门）；(b) daily/weekly/monthly 三档并存（对齐现行 `CostBudgetManager` `:86-114`） | 决定闸门与 `cost_records` 的聚合窗口；`getDailyAggregatedCosts` vs `getAggregatedCosts` |
-| **Q-U3** | **USD 默认上限值** | 现行 `CostBudgetManager` 为 $50/日（`:91`），但 `hardLimit=false` 且无配置面 | 直接决定用户被拦阈值；须用户给定"合理 P50/P95 日成本"依据 |
-| **Q-U4** | **折算纳入项** | 缓存读/写价、分时价（`timeBasedPricing`）、`cost_multiplier`（**现换算链未读**）、`webSearch`、`per_request` 是否计入闸门折算 | 影响判定松紧与"判了却不符"风险；`core/pricing.calculateCost` 已支持全部入参 |
-| **Q-U5** | **未知模型兜底价** | $3/M in、$15/M out（`ModelPricing.ts:146-154`）闸门能否接受；或改"按 token 兜底/直接拒发/提示" | 未登记模型（自定义 provider）的判定行为 |
-| **Q-U6** | **闸门读源（异步竞态）** | (a) 事件循环内**内存累计**（订阅 `COST_RECORDED`）+ 启动从 DB 回填当日金额；(b) **直读 DB**（`getAggregatedCosts`）每轮查询；(c) 混合（内存为主、DB 周期校准） | 正确性/性能/实现复杂度；`cost_records` 异步写入（§1.8）使 (b) 有滞后 |
-| **Q-U7** | **币种/汇率** | 是否需非 USD 供应商计价与展示（现行全链 USD） | 引入汇率事实源（新数据源）范围膨胀 |
-| **Q-U8** | **死配置处置** | (a) 删除（走 CD05/CD06）；(b) 接线（语义依 Q-U1） | `workspace.costControl.*` 的最终去留 |
-| **Q-U9** | **与 `CostMonitor` 告警的关系** | 阈值告警（`thresholdType:'cost'`，`CostMonitor.ts:39,124-143`）与硬闸门如何分层/去重（`CostBudgetManager` 已注册 budget 告警规则 `:216-241`） | 避免"告警与闸门重复/打架" |
-| **Q-U10** | **放行口径在 USD 下的重申** | `boost`/`unlock-today` 的默认值（现为 token：×2 / 原上限×5，`DailyBudgetManager.ts:82-88`）在 USD 口径下是否沿用倍数、默认倍数取值 | 直接影响"提额"体验与欠账上界 |
+| **Q-U1** | 预算维度 | **(a) 进程全局** | 与现行 token 闸门 / R16 单例 / 状态文件同源；满足 R02 实现唯一性；工作空间维度既已被 `daily-budget-unification.md` D4 裁定为"**属独立设计**"（不做假接线） |
+| **Q-U2** | 周期 | **(a) 只留"日"**（闸门口径） | 保 `checkDailyBudget` 单一收口（D7）；week/month 保留为 `CostBudgetManager` 的**展示/告警**口径，不接入闸门 ⇒ 避免"口径双头" |
+| **Q-U4** | 折算纳入项 | **与计费链同参形状**（`in/out/cacheCreation/cacheRead`）；分时价随取价自动纳入；**不含 `cost_multiplier`** | 同源公式 = `StreamPipeline.notifyUsage`（`app/src/chat/pipeline/StreamPipeline.ts:707-715`）；`cost_multiplier` 换算链未读 ⇒ 纳入即制造反目标「判了却不符」；cache token 不可得时按 0（不启发式虚增） |
+| **Q-U5** | 未知模型兜底价 | **接受兜底价但"如实标注"**（不静默、不 fail-closed 拒发） | CS03（降级可用 > 完全不可用）；报表用**同一兜底** ⇒ 满足同源；`hasUnknownModelCost` 保留可达（`app/src/cost/ModelPricing.ts:153`） |
+| **Q-U6** | 闸门读源 | **(a) 内存累计（订阅 `COST_RECORDED`）+ 启动从 DB 回填当日金额** | 契合闸门"纯读、逐轮可调"（`dailyBudgetGate.ts:45`）；消除 `publish→INSERT` 竞态窗口（§1.8）；与 token 口径（`todayUsed` 内存累计）同构 |
+| **Q-U7** | 币种/汇率 | **(a) 不做（仅 USD）** | 全链 USD（`cost_usd REAL NOT NULL`；`formatPrice` 输出 `$`）；引入汇率=新数据源+范围膨胀，无需求证据（§8#8 已列） |
+| **Q-U8** | 死配置处置 | **(a) 删除**（严格 **CD05**→观察→**CD06**） | `workspace.costControl.*` 整块零读者 + 已停止播种；Q-U1 取"进程全局" ⇒ 排除接线；旧 `.liri/config.json` 多余键被 JSON 解析忽略，删类型不影响兼容 |
+| **Q-U9** | 与 `CostMonitor` 告警关系 | **分层不合并**（闸门=硬拦；告警=软观测） | 闸门=**硬**（拒绝调用，`preSendContextProtection` 路径）；`CostMonitor`=**软**（观测告警，不拦）；不改 `CostMonitor`、不把闸门接入 `CostMonitor`（保 R02 单一职责）。数值对齐可选并入 S5 |
+| **Q-U10** | 放行口径（USD） | **沿用倍数**（boost ×2 / unlock ×5），基座单位换 USD | 倍数与单位无关、改动最小；`boost.amount` 保留为 USD 绝对增量；**欠账上界 = 单轮预估（USD）**；**严禁**在"恒 0 的 `debtTokens`"上直接接线 —— 该缺陷由 **S0 先修**（§1.6） |
+
+#### 待裁定 —— 一项（**硬约束**）
+
+- **Q-U3 USD 默认上限值** → ⏳ **待裁定**。
+  - **未定前不得实现任何 USD 默认值**：不得以既有先例 `$50/日`（`CostBudgetManager.ts:91`）或任何其它数值，回填 §5 的配置键默认（`costControl.dailyBudgetUSD`）、播种逻辑、或 feature flag 默认值。
+  - 仓内**无** P50/P95 日成本实测数据（建议稿 §4 无法确认项 1）⇒ 该数值须由用户按真实用量拍板。
 
 > **另需你回填台账/总览**：
-> 1. `dev_docs/20261012/五方案总览-20261012.md` §8.1 的 `T3-5/T3-6/T3-7` 状态（现记"未落地"）在本稿定案后应更新为"**spec 已定案（v1.0）· 待授权实施**"。
+> 1. `dev_docs/20261012/五方案总览-20261012.md` §8.1 的 `T3-5/T3-6/T3-7` 状态（现记"未落地"）应更新为"**spec 已定案（v1.1）· §12 九项已裁定（U3 待定）· 待授权实施**"。
 > 2. `.trae/specs/daily-budget-over-limit-ux.md` 头部状态（现记"v0.8 未实施"）与实际（relief 三件套/`DailyLimitNotice` **已落地**）**漂移**，建议厘清（本项不代改）。
 > 3. `dev_docs/20261012/其它技术债消缺方案-20261012.md` §4.2.6 的"reserved 到 pending debt"应**追加** §1.6 的"欠账无累加点"为**必修前置**。
 
@@ -388,6 +420,6 @@
 
 ## §14 下一步
 
-1. 本稿**待你裁定 §12 十项**（HARD-GATE：裁定前不写产品代码）。
+1. ~~本稿**待你裁定 §12 十项**（HARD-GATE：裁定前不写产品代码）。~~ **→ 2026-10-13 已裁定九项（采纳建议）；仅 `Q-U3`（USD 默认上限值）待裁定 —— 未定前不得实现任何 USD 默认值。**
 2. 裁定后：`superpowers:writing-plans` 出实施计划（§11 的 S0–S7 逐片 × 测试清单），再进入编码。
 3. 联动：S3/S4 落地后回 `long-task-suspend-resume.md` §9 与 `状态机规范管理方案 §4 阶段 5` 同步"放行金额语义 = USD"口径。

@@ -42,6 +42,39 @@ export interface TimeBasedPrice {
   cacheWriteCostPerMillion?: number;
 }
 
+/** "HH:mm" → 分钟数（0-1439） */
+function minutesOfDay(hhmm: string): number {
+  const [h, m] = (hhmm || '00:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * 解析分时价格：返回当前时刻命中的时段条目；未配置分时或未命中返回 null。
+ * end < start 视为跨天时段（如 21:30-08:00 错峰优惠）。
+ *
+ * 2026-10-13（债四 S1「换算内核」）由 `cost/ModelPricing.ts` **下沉 core** —— 纯函数、零依赖，
+ * 供 core 换算与 query 侧取价适配器**共用同一份分时解析**（避免双源漂移，CS01/R02）。
+ * 原处**原样转出**，导出名与签名逐字不变。
+ */
+export function resolveTimeBasedPricing(
+  list: TimeBasedPrice[] | undefined | null,
+  now: Date = new Date()
+): TimeBasedPrice | null {
+  if (!list || list.length === 0) return null;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  for (const p of list) {
+    const s = minutesOfDay(p.start);
+    const e = minutesOfDay(p.end);
+    if (s <= e) {
+      if (cur >= s && cur < e) return p;
+    } else if (cur >= s || cur < e) {
+      // 跨天时段
+      return p;
+    }
+  }
+  return null;
+}
+
 export interface ModelPricing {
   inputPricePerMillion: number;
   outputPricePerMillion: number;
@@ -232,4 +265,86 @@ export function calculateTotalCost(
 export function roundCost(cost: number, decimals: number = 6): number {
   const factor = Math.pow(10, decimals);
   return Math.round(cost * factor) / factor;
+}
+
+/**
+ * 未登记 / 零定价模型的**兜底价**（USD / 百万 tokens）。
+ *
+ * 2026-10-13（债四 S1「换算内核」）由 `cost/ModelPricing.ts` **下沉 core** —— 使闸门折算与
+ * 成本报表回落**同一份兜底**（Q-U5「接受兜底价但如实标注」；避免双源漂移）。
+ * 原处**原样转出**，数值与 `ModelPricing` 结构逐字不变。
+ */
+export const DEFAULT_MODEL_PRICING: ModelPricing = {
+  inputPricePerMillion: 3,
+  outputPricePerMillion: 15,
+  cacheReadPricePerMillion: 0.3,
+  cacheCreationPricePerMillion: 3.75,
+  webSearchPricePerRequest: WEB_SEARCH_COST_PER_REQUEST,
+};
+
+/**
+ * 模型注册表定价的**最小结构投影**（AI SPI 的 `AiModelPricingDto` 结构可直接赋值于此）。
+ * 仅声明换算所需的字段（零依赖；不引 `core/spi` 类型以规避 core 内类型环）。
+ */
+export interface RegistryPricingSource {
+  inputPer1M: number;
+  outputPer1M: number;
+  billingMode?: BillingMode;
+  pricePerRequest?: number;
+  timeBasedPricing?: TimeBasedPrice[];
+  cacheReadPer1M?: number;
+  cacheWritePer1M?: number;
+}
+
+/**
+ * 把注册表定价投影为 `ModelPricing`（**纯函数，无 IO**）。
+ *
+ * - 未提供 / 零定价（`inputPer1M === 0 && outputPer1M === 0`）⇒ `null`
+ *   （调用方据此回落 `DEFAULT_MODEL_PRICING` 并**如实标注**未知模型，Q-U5）。
+ * - 分时价命中当前时段则覆盖默认价（`resolveTimeBasedPricing`）。
+ *
+ * 2026-10-13（债四 S1「换算内核」）由 `cost/ModelPricing.ts` 的 `getPricingFromRegistry()`
+ * **下沉 core**（纯逻辑部分）—— 使成本层与 query 侧取价适配器**同源**（避免「判了却不符」反目标）。
+ */
+export function projectRegistryPricing(
+  source: RegistryPricingSource | null | undefined,
+  now: Date = new Date()
+): ModelPricing | null {
+  if (!source) return null;
+  if (source.inputPer1M === 0 && source.outputPer1M === 0) return null;
+
+  const cacheRead = source.cacheReadPer1M ?? 0;
+  const cacheWrite = source.cacheWritePer1M ?? 0;
+  let inputPrice = source.inputPer1M;
+  let outputPrice = source.outputPer1M;
+  // 分时价差：命中当前时段则用时段价覆盖默认价（如错峰优惠）
+  const timeSlot = resolveTimeBasedPricing(source.timeBasedPricing, now);
+  if (timeSlot?.inputCostPerMillion !== undefined) {
+    inputPrice = timeSlot.inputCostPerMillion;
+  }
+  if (timeSlot?.outputCostPerMillion !== undefined) {
+    outputPrice = timeSlot.outputCostPerMillion;
+  }
+  const timeCacheRead = timeSlot?.cacheReadCostPerMillion;
+  const timeCacheWrite = timeSlot?.cacheWriteCostPerMillion;
+  // 启发式兜底：无明确定价时，缓存读 = 输入×0.1、缓存写 = 输入×1.25（参考 codeburn）
+  return {
+    inputPricePerMillion: inputPrice,
+    outputPricePerMillion: outputPrice,
+    cacheReadPricePerMillion:
+      timeCacheRead && timeCacheRead > 0
+        ? timeCacheRead
+        : cacheRead > 0
+          ? cacheRead
+          : inputPrice * 0.1,
+    cacheCreationPricePerMillion:
+      timeCacheWrite && timeCacheWrite > 0
+        ? timeCacheWrite
+        : cacheWrite > 0
+          ? cacheWrite
+          : inputPrice * 1.25,
+    webSearchPricePerRequest: WEB_SEARCH_COST_PER_REQUEST,
+    billingMode: source.billingMode,
+    pricePerRequest: source.pricePerRequest,
+  };
 }

@@ -12,6 +12,7 @@ import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { maybeStartLspSidecar } from '../sidecar/toolSidecarLifecycle';
 
 const logger = getLogger('tools:managerUtils');
 
@@ -78,6 +79,24 @@ const byKey = (key: BuiltinToolFactoryKey): ToolLoader =>
   createToolLoader(function (this: ToolFactory) {
     return this.create(key);
   });
+
+/**
+ * 工具侧车（P1 常驻 LSP）**双跑 loader 选择**（S1 骨架，spec §3-D4）。
+ *
+ * · `TOOL_SIDECAR_LSP` **关**（默认）⇒ **内置 loader**（`byKey('createLSPTool')`）——
+ *   与现状**逐字等价**，且**不启动任何侧车进程**（loader 构造期不产生副作用）。
+ * · `TOOL_SIDECAR_LSP` **开** ⇒ **侧车 loader**：确保常驻侧车 supervisor 就绪
+ *   （**启动层门控**：仅此处、仅开关为真时才 `spawn`）；工具面接线（`lsp` 经侧车返回结果，
+ *   形状与内置一致）在 **S2/T2.2** —— 本阶段 **fail-closed 返回 `null`**
+ *   （不回落内置"每次 spawn"路径 ⇒ 规避 spec §2「静默双轨」反目标；亦不伪造成功，CS03）。
+ */
+function selectLspToolLoader(): ToolLoader {
+  if (!coreFeature('TOOL_SIDECAR_LSP')) return byKey('createLSPTool');
+  return () => {
+    void maybeStartLspSidecar();
+    return null; // S2/T2.2：接线 `lsp` 工具经侧车返回结果
+  };
+}
 
 /**
  * 注册表键的只读清单（供门禁/自证断言：注册表 ↔ loader 清单一致性）。
@@ -187,7 +206,7 @@ function buildBuiltinToolLoaders(
 
     // 条件工具
     cond(coreFeature('POWERSHELL'), byKey('createPowerShellTool')),
-    cond(coreFeature('LSP'), byKey('createLSPTool')),
+    cond(coreFeature('LSP'), selectLspToolLoader()),
     cond(coreFeature('MCP'), byKey('createMCPTool')),
     cond(coreFeature('MCP'), byKey('createMCPResourceTool')),
     // 2026-10-08：删除 `list_mcp_resources` / `read_mcp_resource` 两个加载器 —— 二者为**占位/伪造实现**

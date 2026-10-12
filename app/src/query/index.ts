@@ -341,3 +341,15 @@ export type {
   ContinueOutcome,
   ContinueCode,
 } from './guardSuspend.js';
+// 债四 S2（2026-10-13）：USD 折算取价适配器 —— query 经 **core SPI** 取价 + core 纯换算，
+// **不** import `@modules/cost`（避 R00-001 分层倒挂）；闸门切金额（S3）消费本适配器。
+export {
+  resolveModelPricing,
+  estimateTurnCostUsd,
+} from './modelPricingAdapter.js';
+export type {
+  ModelPricingLookup,
+  ResolvedModelPricing,
+  TurnUsageEstimate,
+  TurnCostEstimate,
+} from './modelPricingAdapter.js';

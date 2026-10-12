@@ -45,6 +45,17 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 - 真实进程级验证：否（单测即覆盖）。
 - 回滚：文档，无需回滚。
 
+> **✅ 执行结论（2026-10-13，S0 实测）**
+> - **基座契约测试绿**：`bun test tests/utils/sidecarIpc.test.ts` ⇒ **8 pass / 0 fail**（分帧往返 / 版本协商 major 相等 / 帧判定与心跳 / `BRIDGE_PROTOCOL_VERSION ≡ SIDECAR_IPC_PROTOCOL_VERSION`）。
+> - **双轨消费者清单已入册**：
+>   - **轨 A（活跃工具面，`tools/lsp/**`）**：`tools/factories/builtinToolRegistry.ts:138`（`createLSPTool: () => new LSPToolAdapter()`）→ `tools/utils/ToolManagerUtils.ts:190`（`cond(coreFeature('LSP'), …)`，工具名 `lsp`）。
+>   - **轨 B（常驻未接线，`app/src/lsp/**`）**：**静态**仅 `tools/lsp/LSPToolIntegration.ts:15`（引 `validatePosition/…` 校验函数；其 `createLSPToolIntegration` 在 `tools/lsp/**` 外**无消费者**）。
+> - **✅ 轨 B 运行时可达性取证（CD01/CD02 盲区专项）**：
+>   - **静态引用结论**：`@modules/lsp` 全仓引用 = `tools/lsp/LSPToolIntegration.ts:15` + `app/tsconfig.json:38-39`（路径别名）+ `modules/ImportManager.ts:107`（别名映射）+ 测试注释 1 处；**生产静态消费者 ≈ 零**（与定案稿 §1.5 一致）。
+>   - **动态入口结论（关键）**：**存在字面量动态导入** —— `core/LazyModuleStrategy.ts:364` `lsp: () => import('../lsp/index.js')`（`DYNAMIC_IMPORT_LOADERS`），且 `lsp` 声明为 `loadMode: ON_DEMAND`（`:149-153`）。**但触发链当前不可达**：`requestModule('lsp')` 仅经 `ModuleInitializer.requestOnDemandModule()`（`:410-427`）→ 其**全仓零调用方**（G-C5 登记 `:402-405`；`modules/index.ts:63-64` 仅转出）；且 `lsp` 被 `getDeferredModuleIds` 排除（ON_DEMAND 不参与批量加载，`:403-412`）。
+>   - **约定式/配置驱动入口**：`modules/ModuleDefinitions.ts:399-408`（模块元数据，**无 `initialize()`**）、`MODULE_INITIALIZATION_ORDER:957`、`ImportManager.ts:107`、`tsconfig.json:38-39`。
+>   - **结论（⚠️ 无法仅凭检索确证"运行时零可达"）**：静态近零 + **动态 thunk 真实存在**（未来若接线 `requestOnDemandModule('lsp')` 即被加载）⇒ 属 CD07「未接线但动态可发现」高风险项，**登记不删**（定案稿 D7）。**若需运行时确证**：对 `requestOnDemandModule`/`requestModule` 埋点，或 `FEATURE_LSP=true` 后调用 `lsp` 工具并观察 `import('../lsp/index.js')` 是否求值。
+
 **T0.2 回填 §1 残留漂移（仅文档）**
 - 目标：消除 `CHANGELOG` 对 D10 P1 的过时表述。
 - 涉足文件：`CHANGELOG.md:90`（现写"D10 的 **P1（未落地）**"，与 D10 §8.5/P1 **已落地**矛盾；注：定案稿引 `:82`，实际行号已漂移到 `:90`）；`dev_docs/20261012/五方案总览-20261012.md:267/:270`。
@@ -93,6 +104,12 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 - 依赖：T1.1/T1.2/T1.3。
 - 真实进程级验证：否（loader 选择单测）。
 - 回滚：还原 loader 分支（独立提交）。
+
+> **✅ S1 落地说明（2026-10-13）**
+> - **落点**：开关 `core/featureFlags.ts`（`TOOL_SIDECAR_LSP`/`TOOL_SIDECAR_MEDIA`，默认关）+ supervisor/receiver 骨架 `app/src/tools/sidecar/{ToolSidecarSupervisor,toolSidecarLifecycle,lspSidecar}.ts` + loader 分支 `tools/utils/ToolManagerUtils.ts`（`selectLspToolLoader`）。
+> - **监督器选型（如实）**：**新写**（仿 `DiscoverySidecarSupervisor`：`spawnFn` 可注入 + `maxRestarts` 默认 3 + `stop()`）；**不**复用 `daemon/ProcessManager`（属守护进程控制面，unix-socket/http 语义 ≠ 本契约 stdio 换行 JSON，对齐 D10 §8.5）。`spawnFn` 采用**内联窄签名**（不新增导出 `SpawnFn` 别名，规避 R02-002 同名类型多模块定义）。
+> - **⚠️ 与定案稿 §4 阶段 1 验收的差异（如实）**：定案稿阶段 1 写"开关开 ⇒ `lsp` 工具**经侧车返回结果**"；**本切片（S1）仅骨架** —— 开关开时 loader 走**侧车分支**但 **fail-closed 返回 `null`**（不伪造成功、**不**回落内置"每次 spawn"⇒ 规避 spec §2「静默双轨」反目标）；**工具面真接线在 S2/T2.2–T2.3**（与本计划 T2.2/T2.3 的任务边界一致）。
+> - **启动层门控**：仅 `maybeStartLspSidecar()` 可 `spawn`，且**开关关 ⇒ 立即返回 `null`（零 spawn）**。
 
 ### 阶段 S2 · LSP 双轨收敛（**CD05 / CD07**）
 
@@ -243,10 +260,13 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 ## §4 无法确认清单（如实）
 
 1. **工具侧车 supervisor 的**具体层级落点**未定**：D11 要求"先定层级再写码"；本稿给候选（`tools/**` 内 vs 经既有模块）但**未拍板**（缺"装配代码归属模块"的既定约定）。
+   - **✅ S1 定案（2026-10-13）**：落 `app/src/tools/sidecar/**`（`tools` = **app** 层，见 `scripts/modules-to-layers.json:36`）；出向仅 `@modules/core`（`FeatureFlag`）/`@modules/monitoring`（Logger）/`@modules/utils/sidecarIpc` ⇒ **app → core/infra**，合法，无层倒置（`lint:arch` 0 违规）。
 2. **S2 双轨收敛的"以轨 B 为底座"是否引入轨 A 未覆盖能力缺口**：轨 A 有 `npx` 冷启动的各 external LS（`LSPToolImpl.ts:274-337`，引自盘点 §1），轨 B 常驻引擎支持的 LS 集合（`LSPServerManager.ts:44-59`：ts/rust/go/python/c/java）与之**是否等价**未逐项比对 —— 需 S2/T2.1 清单确认。
 3. **`liri-native` 侧车评估**（定案稿 D8，本期仅评估）：不在本计划任务内；其量化评估（11 处调用点 × 热路径代价 × 崩溃恢复）**未产出**。
 4. **真机验证环境**：真实 `typescript-language-server`（经 `npx`）与 >20MB 大图夹具**是否可用**未确认（§1 真机项依赖本机环境）。
+   - **⚠️ 探测结果（2026-10-13，S0 实测）**：`npx --no-install typescript-language-server --version` ⇒ **失败**（`npm error npx canceled due to missing packages and no YES option: ["typescript-language-server@6.0.2"]`）⇒ 本机**未安装**该 LS，**离线环境不可用**（真机时延对比项受阻）。仓库内 `*.png/jpg/jpeg/webp/tiff/bmp` 中**无 >5MB 文件**（更无 >20MB）⇒ **无可用大图夹具**（P2 真机项受阻）。二者均需**外部环境补齐**后方可真机验证。
 5. **`FeatureFlag` 联合类型是否允许直接新增键**：`feature()` 从 `FEATURE_FLAGS` 取值（`core/featureFlags.ts:498`），新增键需同步 `FeatureFlag` 类型——**未逐点核验**该类型的声明位置（实施期确认）。
+   - **✅ S1 取证（2026-10-13）**：`export type FeatureFlag = keyof typeof FEATURE_FLAGS`（`core/featureFlags.ts:510`）⇒ 新增 `TOOL_SIDECAR_LSP`/`TOOL_SIDECAR_MEDIA` 后**自动并入联合类型**；`feature('TOOL_SIDECAR_LSP')` 编译期通过（`typecheck` 3 工程 0 错）。
 
 ## §5 需回填的台账 / 总览项（主循环）
 

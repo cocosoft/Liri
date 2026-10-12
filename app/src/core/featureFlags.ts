@@ -484,6 +484,27 @@ export const FEATURE_FLAGS = {
    * relief（boost/waive-once/unlock-today）唤醒；`onReliefApplied` **绝不**唤醒 `kind='guard'`。
    */
   GUARD_SUSPEND: false,
+
+  // ───── 工具侧车隔离（Tool Sidecar Isolation，S1；**默认关 ⇒ 零行为变更**）─────
+  /**
+   * P1：常驻 LSP 侧车**双跑开关**（默认关）。
+   *
+   * 关（默认）⇒ 侧车进程**根本不启动**，`lsp` 工具走**内置 loader**（与现状逐字等价，零行为变更）；
+   * 开 ⇒ 工具装载改选**侧车 loader** 并按 `utils/sidecarIpc.ts` 契约拉起常驻侧车（骨架见
+   * `tools/sidecar/**`；工具面接线在 S2/T2.2）。运维/灰度覆盖：`FEATURE_TOOL_SIDECAR_LSP=true`。
+   *
+   * 依据：`.trae/specs/tool-sidecar-isolation.md` §3-D4；三级解析 env > 变体层 > 静态默认。
+   * **如实**：本键**不在** 17 项 `SAFETY_SWITCHES`（`tests/config/featureFlagContract.test.ts`）内，
+   * 属功能灰度开关，不受该契约测试约束。
+   */
+  TOOL_SIDECAR_LSP: false,
+  /**
+   * P2：媒体侧车（`sharp` 原生面 + Python `vision_worker`）**双跑开关**（默认关）。
+   *
+   * 关（默认）⇒ 零行为变更（媒体工具仍走既有实现）；开 ⇒ 受管媒体侧车（S5/T5.*）。
+   * 运维/灰度覆盖：`FEATURE_TOOL_SIDECAR_MEDIA=true`。依据：同 spec §3-D4。
+   */
+  TOOL_SIDECAR_MEDIA: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

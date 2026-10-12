@@ -305,6 +305,14 @@ export interface ChatOrchestratorHost {
   flushPendingPersists(): Promise<void>;
   shouldUseTAORLoop(sessionId: string): boolean;
   getOrCreateTAORLoop(sessionId: string): unknown;
+  /**
+   * G-T3-1（2026-10-12，预算挂起续跑）：**一次性消费**续跑意图。
+   *
+   * `resumeSuspendedSession` 的 taor 分支在触发执行入口前登记意图 ⇒ 委托路径据此
+   * **跳过** `taorLoop.reset()`（`reset()` 会清刚恢复的游标/steering，使"续跑"退化）。
+   * 命中即删并返回 `true`；未登记返回 `false`（照常 reset，既有行为不变）。
+   */
+  consumePendingResumeIntent(sessionId: string): boolean;
   buildTAORContext(
     sessionId: string,
     toolDefinitions: ToolDefinition[],
@@ -1049,7 +1057,12 @@ export class ChatOrchestrator {
                   stopReason: string;
                 }>;
               };
-              taorLoop.reset();
+              // G-T3-1（2026-10-12）：续跑（`resumeSuspendedSession` 的 taor 分支）登记的
+              // 一次性意图 ⇒ **跳过** `reset()`，否则刚恢复的 `turnCount` / `resumedFromCheckpoint`
+              // / `steeringQueue` 被抹除、"续跑"退化为普通新一轮。非续跑 ⇒ 照常 reset（既有行为不变）。
+              if (!this.host.consumePendingResumeIntent(session.id)) {
+                taorLoop.reset();
+              }
               // N-42：把首响应的工具调用交给 TAOR 作**首轮 ACT** 执行
               // （`ParsedToolCall.arguments` 是 JSON 字符串，需转对象，与降级路径同法）
               taorLoop.seedPendingToolCalls(

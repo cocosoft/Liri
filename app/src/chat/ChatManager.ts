@@ -728,6 +728,14 @@ export class ChatManagerImpl implements ChatManager {
   private readonly _taorLoops = new Map<string, TAORLoop>();
 
   /**
+   * G-T3-1（2026-10-12）：**一次性**续跑意图登记（`sessionId` 集合）。
+   *
+   * `resumeSuspendedSession` 的 taor 分支在触发执行入口前登记；委托路径消费即删
+   * （`consumePendingResumeIntent`）⇒ 仅跳过**紧接着那一次**执行的 `taorLoop.reset()`。
+   */
+  private readonly _pendingResumeIntent = new Set<string>();
+
+  /**
    * RC-E（08-09）：PlanDrivenLoop 实例（懒初始化）
    * B3（2026-09-04）：按 sessionId 的 Map——原单例 `_planDrivenLoop` 首次会话固化
    * taorContext，跨会话复用导致串扰（与 _taorLoops 的 P0 修复同源）。
@@ -1304,6 +1312,8 @@ export class ChatManagerImpl implements ChatManager {
         flushPendingPersists: () => this.flushPendingPersists(),
         shouldUseTAORLoop: (sid) => this._shouldUseTAORLoop(sid),
         getOrCreateTAORLoop: (sid) => this._getOrCreateTAORLoop(sid),
+        // G-T3-1（2026-10-12）：委托路径据此跳过 `taorLoop.reset()`（一次性续跑意图）。
+        consumePendingResumeIntent: (sid) => this.consumePendingResumeIntent(sid),
         buildTAORContext: (sid, defs, opts) =>
           this._buildTAORContext(sid, defs, opts),
         executeTool: (tc, opts) => this.executeTool(tc as ToolCall, opts),
@@ -2696,9 +2706,34 @@ export class ChatManagerImpl implements ChatManager {
     const resumeInstruction =
       '[系统] 会话已从预算挂起点恢复，请从中断处继续完成未完成的任务。';
     taorLoop.injectSteering(resumeInstruction, 'durable-resume');
+    // G-T3-1（2026-10-12）：登记**一次性**续跑意图——委托路径（`ChatOrchestrator.sendMessage`
+    // 的 TAOR 分支）会 `taorLoop.reset()`，而 `reset()` 会清 `turnCount` / `resumedFromCheckpoint`
+    // / `steeringQueue` ⇒ 刚恢复的游标与 steering 在下一次执行前即被丢弃、"续跑"退化。
+    // 必须在触发执行入口**之前**登记（消费点见 `ChatOrchestrator` 的 reset 调用点）。
+    this.markResumeIntent(sessionId);
     // 真再跑：触发既有执行入口（TAOR 委托路径 `ChatOrchestrator.sendMessage`）
     await this.chatOrchestrator.sendMessage(resumeInstruction, { sessionId });
     return true;
+  }
+
+  /**
+   * G-T3-1（2026-10-12）：登记**一次性**续跑意图（`resumeSuspendedSession` 的 taor 分支专用）。
+   *
+   * 语义：为 `sessionId` 打一个"下一次委托执行是**续跑**"的标记 —— 委托路径据此
+   * **跳过** `taorLoop.reset()`，使刚恢复的游标/steering 存活到执行入口。
+   */
+  markResumeIntent(sessionId: string): void {
+    this._pendingResumeIntent.add(sessionId);
+  }
+
+  /**
+   * G-T3-1（2026-10-12）：**一次性消费**续跑意图 —— 命中即删并返回 `true`；未命中返回 `false`。
+   *
+   * 一次性是关键：意图只应作用于紧接着的那一次委托执行；消费后（或未登记时）委托路径
+   * 照常 `reset()`（既有行为不变）。
+   */
+  consumePendingResumeIntent(sessionId: string): boolean {
+    return this._pendingResumeIntent.delete(sessionId);
   }
   private async _sendMessageDowngradePath(
     session: ChatSession,

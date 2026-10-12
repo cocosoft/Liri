@@ -44,13 +44,13 @@ import {
   loadDailyBudgetState,
   saveDailyBudgetState,
 } from './dailyBudgetPersistence.js';
+// 预算档位：**单一事实源** = `dailyBudgetSnapshot.ts`（状态机方案 阶段 1.3 取证去重，消除双事实源）
+import type { BudgetMode } from './dailyBudgetSnapshot.js';
 
 const logger = getLogger('query:dailyBudgetManager');
 
 /** P1：用量落盘去抖窗口（合并热路径多次记账的多次写文件） */
 const PERSIST_DEBOUNCE_MS = 1000;
-
-type BudgetMode = 'normal' | 'report_only' | 'locked';
 
 /** relief（放行）种类（Spec `daily-budget-over-limit-ux.md` §4 D-b）。 */
 export type ReliefKind = 'boost' | 'waive-once' | 'unlock-today';
@@ -148,6 +148,11 @@ export class DailyBudgetManager {
   private reliefState: ReliefState | null = null;
   /** D-b：`waive-once` 一次性通行证（Consume-and-Die；未消费则到期作废）。 */
   private waiveOncePending: { expiresAt: number } | null = null;
+  /**
+   * F4：本轮是否**曾因 `waive-once` 放行**（`canExecute()` 置位，`recordUsage()` 末尾消费）。
+   * 闸门每轮被多次调用而无现成"轮次边界"可挂消费点 ⇒ 用该标记把"放行"与"消费"对齐到一次记账。
+   */
+  private _waiverGrantedThisTurn = false;
   /** D-d：透支欠账（`waive-once` 消耗）——次日计入用量扣回；`reset()` 不抹除。 */
   private debtTokens = 0;
 
@@ -169,6 +174,11 @@ export class DailyBudgetManager {
     // LRO-17：记账后立即观测阈值跨越（本方法在 LRO 非 chat 管线也经
     // `recordDailyBudgetFromUsage` 调用 ⇒ 是"无 getMode 调用"路径的唯一观测点）。
     this._observeModeTransition(this._computeState());
+    // F4：本轮若曾因 `waive-once` 放行，则在本轮记账末尾消费该通行证（Consume-and-Die）。
+    if (this._waiverGrantedThisTurn) {
+      this._waiverGrantedThisTurn = false;
+      this._consumeWaiverOnce();
+    }
   }
 
   /**
@@ -197,6 +207,7 @@ export class DailyBudgetManager {
     this.debtTokens = 0;
     this.reliefState = null;
     this.waiveOncePending = null;
+    this._waiverGrantedThisTurn = false;
     if (hadUsage) this._schedulePersist();
   }
 
@@ -407,6 +418,7 @@ export class DailyBudgetManager {
       this.reliefState !== null || this.waiveOncePending !== null;
     this.reliefState = null;
     this.waiveOncePending = null;
+    this._waiverGrantedThisTurn = false;
     void this.persistNow();
     if (!hadRelief) return;
     logger.info('dailyBudget:relief_revoked', {
@@ -430,9 +442,14 @@ export class DailyBudgetManager {
       this.waiveOncePending = null;
       return false;
     }
-    this.waiveOncePending = null;
+    this._consumeWaiverOnce();
     logger.info('dailyBudget:waive_once_consumed', { sessionId });
     return true;
+  }
+
+  /** `waive-once` 的**消费体**：使一次性通行证立即失活（Consume-and-Die）。 */
+  private _consumeWaiverOnce(): void {
+    this.waiveOncePending = null;
   }
 
   /** D-d：透支欠账（`waive-once` 消耗；次日计入用量扣回）。供 HTTP/面板展示。 */
@@ -541,10 +558,21 @@ export class DailyBudgetManager {
   }
 
   /**
-   * 检查是否可以执行操作
+   * 检查是否可以执行操作。
+   *
+   * F4：`locked` 时若存在**未过期**的 `waive-once` 一次性通行证 ⇒ 放过**本轮一次**
+   * （否则该能力为"死能力"：用户"放行一次"后闸门仍恒 `locked`）。
+   *
+   * ⚠️ 此处**故意在谓词内产生一次记账副作用**（置 `_waiverGrantedThisTurn`）：闸门每轮会被
+   * **多次**调用（如 `beforeReasoning` 复检），而仓库内**无现成"轮次边界"**可挂消费点 ⇒
+   * 用"本轮曾因 waiver 放行"标记，交由 `recordUsage()` 末尾消费（Consume-and-Die）。
    */
   canExecute(): boolean {
-    return this.getMode().mode !== 'locked';
+    if (this.getMode().mode !== 'locked') return true;
+    const p = this.waiveOncePending;
+    if (!p || Date.now() >= p.expiresAt) return false;
+    this._waiverGrantedThisTurn = true;
+    return true;
   }
 
   /**
@@ -724,6 +752,7 @@ export class DailyBudgetManager {
     // D-b / §6.1 C3：`reset()` 清**放行状态**，但**不清欠账**（否则可反复 reset 洗掉透支）。
     this.reliefState = null;
     this.waiveOncePending = null;
+    this._waiverGrantedThisTurn = false;
     this.lastObservedMode = 'normal'; // LRO-17：重置观测基线
     // P1：重置同样落盘，避免"重置后重启"把旧用量恢复回来。
     void this.persistNow();

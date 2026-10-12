@@ -441,6 +441,22 @@ export const usageService = {
     );
   },
 
+  /**
+   * 撤销当前放行（DELETE /v1/cost/daily-budget/relief，D-b 对称回路）。
+   *
+   * 清空**全部在途放行**（临时提额 / 今日解除 / 单次豁免）并恢复为**配置上限**；
+   * **保留**今日用量与欠账 —— 这是与 `resetDailyBudget()`（用量归零）的关键差异。
+   * 无放行时服务端幂等返回 200。
+   */
+  async clearDailyBudgetRelief(): Promise<DailyBudgetStatus> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:clearDailyBudgetRelief",
+      async () => {
+        return http.delete<DailyBudgetStatus>("/v1/cost/daily-budget/relief");
+      },
+    );
+  },
+
   /** 手动硬锁开关（POST /v1/cost/daily-budget/kill-switch，D6） */
   async setDailyBudgetKillSwitch(enabled: boolean): Promise<DailyBudgetStatus> {
     return getOTelTracing().asyncWrap(

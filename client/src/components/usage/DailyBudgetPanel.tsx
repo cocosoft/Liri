@@ -303,6 +303,29 @@ export default function DailyBudgetPanel() {
     }
   };
 
+  /**
+   * 撤销放行（DELETE /v1/cost/daily-budget/relief，D-b 对称回路）。
+   * 与 `submitRelief` 的差异：**不**走二次确认 —— 撤销是"收回"方向（恢复更严的上限），
+   * 误点的后果只是回到原上限，无需确认。
+   */
+  const handleRevokeRelief = async () => {
+    setNotice(null);
+    setError(null);
+    setReliefBusy(true);
+    try {
+      applyStatus(await usageService.clearDailyBudgetRelief());
+      setNotice(t("cost.dailyLimitReliefRevoked"));
+    } catch (e) {
+      handleClientError(e, {
+        module: "components:usage:DailyBudgetPanel",
+        action: "revokeRelief",
+      });
+      setError(e instanceof Error ? e.message : t("cost.dailyLimitSaveFailed"));
+    } finally {
+      setReliefBusy(false);
+    }
+  };
+
   /** 临时提额（D-b）：按倍数或按增量，配时长（到期自动恢复原上限） */
   const handleBoost = async () => {
     if (reliefMode === "factor") {
@@ -493,14 +516,29 @@ export default function DailyBudgetPanel() {
                 <p className="text-xs text-gray-500">
                   {t("cost.dailyLimitActiveRelief")}
                 </p>
-                <p className="text-sm font-medium">
-                  {status.relief
-                    ? `${t(reliefKindKey(status.relief.kind))} · ${reliefExpiryText(
+                {status.relief ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">
+                      {`${t(reliefKindKey(status.relief.kind))} · ${reliefExpiryText(
                         status.relief.expiresAt,
                         t,
-                      )}`
-                    : t("cost.dailyLimitReliefNone")}
-                </p>
+                      )}`}
+                    </p>
+                    {/* D-b 对称回路：收回放行（保留今日用量） */}
+                    <button
+                      data-testid="daily-budget-revoke-relief"
+                      onClick={() => void handleRevokeRelief()}
+                      disabled={reliefBusy}
+                      className="text-xs text-red-500 hover:underline shrink-0 disabled:opacity-50"
+                    >
+                      {t("cost.dailyLimitReliefRevoke")}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium">
+                    {t("cost.dailyLimitReliefNone")}
+                  </p>
+                )}
               </div>
             </div>
 

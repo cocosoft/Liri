@@ -2865,17 +2865,17 @@ const en = {
     tabPricing: "Pricing Management",
     tabPricingDesc: "Model pricing configuration / bulk management",
     card: {
-          used: "Today's quota is used up (used / limit)",
-          hint: 'This is a local daily token-quota state, not conversation content. You can temporarily raise the limit, waive this once, or unlock for today — or open limit settings.',
-        },
-        action: {
-          boost: "Raise limit",
-          waiveOnce: "Allow once",
-          unlockToday: "Unlock today",
-          openSettings: "Limit settings",
-          continue: "Continue",
-        },
-        tabDailyLimit: "Daily Limit",
+      used: "Today's quota is used up (used / limit)",
+      hint: "This is a local daily token-quota state, not conversation content. You can temporarily raise the limit, waive this once, or unlock for today — or open limit settings.",
+    },
+    action: {
+      boost: "Raise limit",
+      waiveOnce: "Allow once",
+      unlockToday: "Unlock today",
+      openSettings: "Limit settings",
+      continue: "Continue",
+    },
+    tabDailyLimit: "Daily Limit",
     tabDailyLimitDesc: "Per-day token budget / tiers / manual hard lock",
     dailyLimitTitle: "Daily Token Limit",
     dailyLimitConfigTitle: "Limit Configuration",
@@ -2938,6 +2938,9 @@ const en = {
     dailyLimitReliefUnlockTodayConfirm:
       "Stop blocking for today? A 5x soft cap still applies; normal blocking resumes tomorrow.",
     dailyLimitReliefDone: "Applied",
+    dailyLimitReliefRevoke: "Revoke",
+    dailyLimitReliefRevoked:
+      "Relief revoked: back to the configured cap (today's usage and debt kept)",
     dailyLimitReliefInvalid:
       "Enter a valid factor (> 1) or increment (positive integer)",
     dailyLimitReliefNote:

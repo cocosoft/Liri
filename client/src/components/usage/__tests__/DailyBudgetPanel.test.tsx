@@ -16,6 +16,7 @@ import { sseService } from "../../../services/sseService";
 const mocks = vi.hoisted(() => ({
   getDailyBudget: vi.fn(),
   setDailyBudgetRelief: vi.fn(),
+  clearDailyBudgetRelief: vi.fn(),
   configGet: vi.fn(),
   configSet: vi.fn(),
 }));
@@ -24,6 +25,7 @@ vi.mock("../../../services/usageService", () => ({
   usageService: {
     getDailyBudget: mocks.getDailyBudget,
     setDailyBudgetRelief: mocks.setDailyBudgetRelief,
+    clearDailyBudgetRelief: mocks.clearDailyBudgetRelief,
     updateDailyBudget: vi.fn(),
     resetDailyBudget: vi.fn(),
     setDailyBudgetKillSwitch: vi.fn(),
@@ -168,5 +170,46 @@ describe("DailyBudgetPanel：即时刷新（D-h）", () => {
     const settled = mocks.getDailyBudget.mock.calls.length;
     emitBudgetUpdated();
     expect(mocks.getDailyBudget.mock.calls.length).toBe(settled);
+  });
+});
+
+describe("DailyBudgetPanel：撤销放行（DELETE /relief，D-b 对称回路）", () => {
+  it("有放行时展示「撤销放行」按钮 ⇒ 点击调 clearDailyBudgetRelief 并按回包刷新", async () => {
+    // 用**可变夹具**模拟真实后端：只有 DELETE 被调用后才不再回放行
+    // （面板自身可能在挂载/语言就绪时重取 ⇒ 不能用 mockResolvedValueOnce 固定顺序）
+    let reliefActive = true;
+    mocks.getDailyBudget.mockImplementation(async () =>
+      reliefActive
+        ? budgetStatus()
+        : budgetStatus({ relief: null, dailyLimit: 500_000 }),
+    );
+    mocks.clearDailyBudgetRelief.mockImplementation(async () => {
+      reliefActive = false;
+      return budgetStatus({ relief: null, dailyLimit: 500_000 });
+    });
+
+    render(<DailyBudgetPanel />);
+    expect(await screen.findByText(/临时提额/)).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("daily-budget-revoke-relief"));
+
+    await waitFor(() =>
+      expect(mocks.clearDailyBudgetRelief).toHaveBeenCalledTimes(1),
+    );
+    // 撤销生效 ⇒ 提示已撤销，且「撤销放行」按钮随之消失
+    expect(await screen.findByText(/已撤销放行/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByTestId("daily-budget-revoke-relief")).toBeNull(),
+    );
+  });
+
+  it("无放行时**不**展示「撤销放行」按钮（无可撤销对象）", async () => {
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ relief: null, dailyLimit: 500_000 }),
+    );
+
+    render(<DailyBudgetPanel />);
+    expect(await screen.findByText("无")).toBeTruthy();
+    expect(screen.queryByTestId("daily-budget-revoke-relief")).toBeNull();
   });
 });

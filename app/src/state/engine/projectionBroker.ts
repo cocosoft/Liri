@@ -29,8 +29,10 @@
  * ## ⚠️ 未接线（如实，UW）
  * - **无生产消费者**：出站订阅面（通道治理方案 §3 阶段 2.3）已裁定**暂缓** ⇒ 当前只有
  *   `globalEventBus` 上的订阅者（含测试）能收到；**不**伪造"已下发到通道"。
- * - **`SUSPENDED` 无生产者**：预算挂起（`long-task-suspend-resume.md`）**未实现**（方案 §3 ②）
- *   ⇒ 本原语目前**不可达**（阶段 5 接入）；词汇保留以免未来改契约。
+ * - **`SUSPENDED` 已有生产者（2026-10-12 起可达）**：预算挂起续跑专项
+ *   （`.trae/specs/long-task-suspend-resume.md`）已落地 —— `query/budgetSuspend.ts` 在挂起/唤醒时
+ *   发布 `publishStateProjection({primitive:'SUSPENDED'|'RUNNING'})`。仍受本模块开关
+ *   `FEATURE_STATE_PROJECTION_BROADCAST`（默认关）门控，且**出站消费者仍缺**（见上一条）。
  * - 本模块**不是**状态机（§3：严格无状态）⇒ **不**登记进 `stateMachineCatalog` 的 `STATE_MACHINES`
  *   （该目录只收"有状态机语义"的定义；阶段 1.4 的 R09-006 亦不识别 `_PRIMITIVES` 形态）。
  */
@@ -47,7 +49,7 @@ export const EXECUTION_PRIMITIVES = [
   'PREPARED',
   /** 进行中 */
   'RUNNING',
-  /** 挂起（**当前不可达**：预算挂起未实现，待方案阶段 5） */
+  /** 挂起（生产者 = 预算挂起协调器 `query/budgetSuspend.ts`；受 `FEATURE_STATE_PROJECTION_BROADCAST` 门控） */
   'SUSPENDED',
   /** 已落定（成功 / 失败 / 取消 / 陈旧，**不区分** —— 原生细节不外露） */
   'SETTLED',

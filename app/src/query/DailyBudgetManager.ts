@@ -112,9 +112,18 @@ interface DailyBudgetState {
   remaining: number;
 }
 
+/**
+ * 进程级每日 Token 预算**默认上限（单源）**。
+ *
+ * 2026-10-13 裁定：与类内 `DEFAULT_CONFIG.dailyLimit` **统一为同一常量**（此前两处字面量不一致：
+ * 常量 500_000 vs 类内 1_000_000）；按用户裁定**以 1_000_000 为准**。
+ * 解析优先级：持久化配置 `costControl.dailyTokenBudget` ＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 本常量。
+ */
+export const DEFAULT_DAILY_BUDGET_TOKENS = 1_000_000;
+
 /** 默认配置 */
 const DEFAULT_CONFIG: DailyBudgetConfig = {
-  dailyLimit: 1_000_000,
+  dailyLimit: DEFAULT_DAILY_BUDGET_TOKENS,
   warningThreshold: 0.8,
   lockThreshold: 1.0,
   /** 收益递减 minTokenDelta（可通过 LOOP_MIN_TOKEN_DELTA 环境变量覆盖） */
@@ -837,9 +846,6 @@ export function createDailyBudgetManager(
 ): DailyBudgetManager {
   return new DailyBudgetManager(config);
 }
-
-/** 进程级每日 Token 预算默认上限（对齐历史 `preSendContextProtection` 常量）。 */
-export const DEFAULT_DAILY_BUDGET_TOKENS = 500_000;
 
 /** D1：持久化配置项形状（ConfigManager 键 `costControl.dailyTokenBudget`） */
 export interface DailyBudgetConfigValue {

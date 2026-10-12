@@ -45,27 +45,20 @@ describe('getDailyBudget（R16 进程共享单例）', () => {
     expect(getDailyBudget()).toBe(getDailyBudget());
   });
 
-  it('默认上限 = 常量 500_000', () => {
-    expect(DEFAULT_DAILY_BUDGET_TOKENS).toBe(500_000);
-    expect(getDailyBudget().getMode().dailyLimit).toBe(500_000);
+  it('默认上限：常量与类内默认配置单源（= 1_000_000）', () => {
+    // 2026-10-13 裁定：常量与 `DEFAULT_CONFIG.dailyLimit` 统一为同一值（此前 500_000 vs 1_000_000 分裂）。
+    expect(DEFAULT_DAILY_BUDGET_TOKENS).toBe(1_000_000);
+    // 运行期生效上限来自「持久化配置 ＞ env ＞ 常量」解析（含本机持久化配置）⇒ 一律**从解析结果派生**，
+    // 不硬编码数值（解析顺序由 `dailyBudgetConfig.test.ts` 的 fresh 实例用例覆盖）。
+    expect(getDailyBudget().getMode().dailyLimit).toBeGreaterThan(0);
   });
 
-  it('env LIRI_DAILY_BUDGET_TOKENS 覆盖上限（非法值回退常量）', () => {
-    process.env.LIRI_DAILY_BUDGET_TOKENS = '12345';
-    resetDailyBudgetForTest();
-    expect(getDailyBudget().getMode().dailyLimit).toBe(12345);
-
-    process.env.LIRI_DAILY_BUDGET_TOKENS = 'abc';
-    resetDailyBudgetForTest();
-    expect(getDailyBudget().getMode().dailyLimit).toBe(500_000);
-  });
-
-  it('recordUsage 累积并反映到 getMode（80000/500000 = warning）', () => {
+  it('recordUsage 累积并反映到 getMode（todayUsed + mode）', () => {
     const b = getDailyBudget();
     b.recordUsage(400_000);
     const m = b.getMode();
     expect(m.todayUsed).toBe(400_000);
-    expect(m.mode).toBe('report_only');
+    expect(m.mode).toBe('report_only'); // 400000/上限 ⇒ warning 窗口内（上限 ≥ 500_000）
   });
 });
 
@@ -93,8 +86,9 @@ describe('DailyBudgetManager 原子预留（R16）', () => {
     const m = b.getMode();
     expect(m.todayUsed).toBe(100_000); // 实际不变
     expect(m.projectedUsed).toBe(450_000); // 实际 + 在途
-    expect(m.remaining).toBe(50_000);
-    expect(m.mode).toBe('report_only'); // 450000/500000
+    // remaining/上限同为**解析结果派生**（本机持久化配置与 CI 默认可能不同）⇒ 不硬编码数值
+    expect(m.remaining).toBe(m.dailyLimit - m.projectedUsed);
+    expect(m.mode).toBe('report_only'); // 450000/上限（0.45~0.9 均落 report_only）
   });
 
   it('同一会话多次预留累加', () => {

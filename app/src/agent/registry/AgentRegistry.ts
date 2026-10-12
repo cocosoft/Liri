@@ -3,7 +3,8 @@
  *
  * 单例模式，提供 Agent 注册、按条件发现、缓存和热更新能力。
  * 按 session 隔离缓存，防止多 session 并发干扰。
- * 替代 CouncilOrchestrator / SwarmCoordinator / AgentChain 中的硬编码 Agent 列表。
+ * 替代 CouncilOrchestrator / AgentSwarm 中的硬编码 Agent 列表
+ * （链式编排只有 `CHAIN_*` 事件，**无** `AgentChain` 类；`SwarmCoordinator` 亦不存在——2026-10-13 订正）。
  */
 
 import { getLogger } from '@modules/monitoring';

@@ -35,9 +35,11 @@ describe('状态机取证隐患守卫（阶段 1.3）', () => {
   it('应用安装状态：内联联合仅剩 1 处定义（= 命名类型），消费点全走类型名', () => {
     const src = read('app/src/appState/AppState.ts');
 
-    expect(
-      countOccurrences(src, "'pending' | 'installing' | 'installed' | 'failed'")
-    ).toBe(1);
+    // 断言改用**空白容忍**正则：prettier 会把联合式折成多行 ⇒ 原「单行字符串」契据恒为 0
+    // （该守卫曾因此静默恒失败、形同虚设 —— 2026-10-13 复查修正）。
+    const inlineUnion =
+      /'pending'\s*\|\s*'installing'\s*\|\s*'installed'\s*\|\s*'failed'/g;
+    expect(src.match(inlineUnion)?.length ?? 0).toBe(1);
     expect(src).toContain('export type AppInstallStatus');
     expect(src).toContain('status: AppInstallStatus;');
   });

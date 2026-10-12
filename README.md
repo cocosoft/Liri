@@ -250,7 +250,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 ### 🤝 多智能体协作与工作流
 
 - **Agent 注册表** — 取代协作器内部的硬编码 Agent 列表，支持发现与动态注册
-- **协作编排** — 议事（`CouncilOrchestrator`）、蜂群（`SwarmCoordinator`）、链式（`AgentChain`）多种编排形态；构造点收敛为**模块内单例**，避免同一编排器多处 `new` 导致状态分叉
+- **协作编排** — 议事（`CouncilOrchestrator`）、蜂群（`AgentSwarm`，位于 `tasks/swarm/`）、链式（仅有 `CHAIN_*` 事件，**无** `AgentChain` 类）多种编排形态；构造点收敛为**模块内单例**，避免同一编排器多处 `new` 导致状态分叉
 - **文档工作流** — 分阶段执行、默认格式、图片并发与失败降级等均可配（`DocWorkflow`）
 - **PDCA 工作流** — 计划-执行-检查-处理闭环，进度以独立消息块实时呈现
 
@@ -365,7 +365,6 @@ Liri/                            # 工程根目录
 │   │   │   └── mcp.ts           # MCP Server 模式
 │   │   ├── modules/             # 模块系统（注册表 + 初始化 + 延迟加载）
 │   │   ├── core/                # 核心基础设施
-│   │   │   ├── gateway/         # 消息网关
 │   │   │   ├── session/         # 会话管理
 │   │   │   ├── storage/         # 存储抽象
 │   │   │   ├── permission/      # 权限控制

@@ -181,6 +181,33 @@ export class ResumeManager {
     }
   }
 
+  /**
+   * I2（最终整支评审）：筛出 `type='budget_suspend'` 的**挂起**检查点。
+   *
+   * 与 `scanPending` 互为补集：`scanPending` **排除**挂起（反目标①：不自动续跑），本方法
+   * **只筛出**它们供启动期交 `BudgetSuspendCoordinator` **登记为"待放行"**（spec §4.4）——
+   * 修复前只做了排除 ⇒ 重启后挂起不可见也不可唤醒（`list()` 为空）。**本方法绝不触发续跑**。
+   */
+  async scanBudgetSuspends(): Promise<TAORCheckpoint[]> {
+    try {
+      const sessionIds = await this.storage.getPendingSessions();
+      const suspended: TAORCheckpoint[] = [];
+      for (const sessionId of sessionIds) {
+        const latest = await this.storage.getLatestIncomplete(sessionId);
+        if (latest && isBudgetSuspendCheckpoint(latest)) {
+          suspended.push(latest);
+        }
+      }
+      return suspended;
+    } catch (e) {
+      await handleError(e, {
+        module: 'query:resume',
+        action: '扫描预算挂起检查点',
+      });
+      return [];
+    }
+  }
+
   /** 检查特定 session 是否有待恢复的检查点 */
   async hasPending(sessionId: string): Promise<boolean> {
     const latest = await this.storage.getLatestIncomplete(sessionId);

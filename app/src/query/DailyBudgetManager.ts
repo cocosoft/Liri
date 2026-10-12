@@ -482,6 +482,22 @@ export class DailyBudgetManager {
     this.waiveOncePending = null;
   }
 
+  /**
+   * C2（最终整支评审）：是否存在**有效期内、尚未消费**的 `waive-once` 通行证（**只读**）。
+   *
+   * 为什么需要：F4 只把 `waiveOncePending` 接进了 `canExecute()`（唯一运行时调用者 = `TAORLoop`），
+   * 而**流式/发送侧**的闸门是 `query/dailyBudgetGate.checkDailyBudget()` —— 它自述**纯读、无副作用**
+   * 且只读 `getMode()` ⇒ `waive-once` 放行后被唤醒的流式会话**立刻再次 `locked`**（撞反目标②
+   * "放行无反应"）。本判据把"有效通行证"暴露给该收口，同时**不消费**（消费仍在 `recordUsage()`）。
+   *
+   * 注：过期即返回 `false`（惰性判定与 `_activeRelief` 同风格）；**不**在此处清空字段，以保"纯读"。
+   */
+  hasActiveWaiver(now = Date.now()): boolean {
+    const p = this.waiveOncePending;
+    if (!p) return false;
+    return now < p.expiresAt;
+  }
+
   /** D-d：透支欠账（`waive-once` 消耗；次日计入用量扣回）。供 HTTP/面板展示。 */
   getDebtTokens(): number {
     return this.debtTokens;
@@ -599,8 +615,7 @@ export class DailyBudgetManager {
    */
   canExecute(): boolean {
     if (this.getMode().mode !== 'locked') return true;
-    const p = this.waiveOncePending;
-    if (!p || Date.now() >= p.expiresAt) return false;
+    if (!this.hasActiveWaiver()) return false;
     this._waiverGrantedThisTurn = true;
     return true;
   }

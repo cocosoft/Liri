@@ -44,20 +44,28 @@ export { formatBudget } from './dailyBudgetSnapshot.js';
 /**
  * 判定"本轮能否发起模型调用"（**纯读，无副作用**）。
  *
- * `allowed = mode !== 'locked' && (projectedUsed + estimatedTokens) < dailyLimit`。
+ * `allowed = 有效 waiver || (mode !== 'locked' && (projectedUsed + estimatedTokens) < dailyLimit)`。
  *
  * - 与既有 `preSendContextProtection` 的内联判定**互补等价**：
  *   原拒绝条件 = `mode === 'locked' || (projected + estimate) >= limit`。
  * - **不做预扣**：预扣（`reserveFor`）仍由调用方负责；本函数可被工具循环**逐轮**安全调用。
+ * - `waive-once` 通行证（C2）⇒ `allowed` 短路口（越界也放行**本轮**）；**不消费**通行证。
  */
 export function checkDailyBudget(input: {
   sessionId: string;
   estimatedTokens: number;
 }): { allowed: boolean; snapshot: BudgetSnapshot } {
-  const state = getDailyBudget().getMode();
+  const budget = getDailyBudget();
+  const state = budget.getMode();
   const projected = state.projectedUsed + input.estimatedTokens;
+  // C2（最终整支评审）：`waive-once` 放行必须接到本**唯一收口** —— 否则流式/发送侧闸门只读
+  // `mode`（`locked`）⇒ 放行后被唤醒的会话立刻再 `locked`（撞反目标②"放行无反应"）。
+  // `hasActiveWaiver()` 为**只读**判据（消费点仍在 `recordUsage()`）⇒ 本函数保持**无副作用**。
+  const allowed =
+    budget.hasActiveWaiver() ||
+    (state.mode !== 'locked' && projected < state.dailyLimit);
   return {
-    allowed: state.mode !== 'locked' && projected < state.dailyLimit,
+    allowed,
     snapshot: {
       used: state.todayUsed,
       limit: state.dailyLimit,

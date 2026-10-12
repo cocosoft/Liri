@@ -33,4 +33,8 @@ export {
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表出口。
 // ChatManager（app）须把它取到的实例登记进来，供 checkpoint 恢复端点按 sessionId 取用；
 // 经本 barrel 出口（而非子路径直连）以守 R03-002（模块出口单一）。
-export { registerTAORLoop } from './handlers/checkpoint-handlers';
+export {
+  registerTAORLoop,
+  unregisterTAORLoop,
+  MAX_TAOR_LOOP_REGISTRY,
+} from './handlers/checkpoint-handlers';

@@ -45,6 +45,8 @@ import {
 import {
   handleListCheckpoints,
   handleResumeCheckpoint,
+  registerTAORLoop,
+  MAX_TAOR_LOOP_REGISTRY,
 } from '../../src/infrastructure/http/handlers/checkpoint-handlers';
 import type { TAORLoop } from '../../src/query/TAORLoop.js';
 import { ChatOrchestrator } from '../../src/chat/orchestrator/ChatOrchestrator.js';
@@ -191,6 +193,51 @@ describe('resumeSuspendedSession「真再跑」（F2 / D7）', () => {
     expect(internals(cm).consumePendingResumeIntent(sid)).toBe(true);
     // 一次性：再消费即 false
     expect(internals(cm).consumePendingResumeIntent(sid)).toBe(false);
+  });
+
+  it("I4：chain='taor' 的续跑 steering 消费 pendingToolCalls 清单", async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'taor-resume-i4';
+    const loop = internals(cm)._getOrCreateTAORLoop(sid);
+    loop.getCheckpointsForSession = async () =>
+      [
+        {
+          id: 'cp-i4',
+          pendingToolCalls: [
+            { toolCallId: 'tc-1', toolName: 'bash', args: { command: 'ls' } },
+            { toolCallId: 'tc-2', toolName: 'grep', args: { pattern: 'todo' } },
+          ],
+        },
+      ] as never;
+    loop.resumeFromCheckpoint = async () => true;
+    let steeringText = '';
+    loop.injectSteering = ((text: string) => {
+      steeringText = text;
+    }) as never;
+    internals(cm).chatOrchestrator.sendMessage = async () => ({}) as never;
+
+    await cm.resumeSuspendedSession(sid, 'taor');
+
+    expect(steeringText).toContain('bash');
+    expect(steeringText).toContain('grep');
+  });
+
+  it('I4：无 pendingToolCalls ⇒ 续跑 steering 退化为通用提示（不报错）', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'taor-resume-i4-empty';
+    const loop = internals(cm)._getOrCreateTAORLoop(sid);
+    loop.getCheckpointsForSession = async () => [{ id: 'cp-latest' }] as never;
+    loop.resumeFromCheckpoint = async () => true;
+    let steeringText = '';
+    loop.injectSteering = ((text: string) => {
+      steeringText = text;
+    }) as never;
+    internals(cm).chatOrchestrator.sendMessage = async () => ({}) as never;
+
+    await cm.resumeSuspendedSession(sid, 'taor');
+
+    expect(steeringText).toContain('预算挂起点恢复');
+    expect(steeringText).not.toContain('尚未完成');
   });
 });
 
@@ -517,5 +564,76 @@ describe('Fix round 2 · Important-2：唤醒端口惰性装配', () => {
     // cleanup 解绑：仅装配者摘除 ⇒ handler 置 null
     live.cleanup();
     expect(handlerCalls[handlerCalls.length - 1]).toBeNull();
+  });
+});
+
+// ─── I1（最终整支评审）：进程级注册表无界增长 ⇒ 有界化 + 会话拆除/cleanup 注销 ──────
+//
+// 缺陷：`registerTAORLoop` 对每个 sessionId 注册一次，而 `unregisterTAORLoop` **全仓零调用**
+// ⇒ 进程级 `activeLoops` 无界增长（内存泄漏 + 僵尸 TAORLoop），且**不受开关门控**（默认路径）。
+// 修复：① 会话拆除 / clearAllSessions / `cleanup()` 注销；② 注册表设上限，超出按最旧淘汰。
+
+/** 以 handler 行为探测某 sessionId 是否仍在注册表（未注册 ⇒ `{checkpoints: []}`） */
+async function registryCheckpoints(
+  sessionId: string
+): Promise<Record<string, unknown>> {
+  const { res, read } = makeRes();
+  await handleListCheckpoints(
+    makeReq(`/v1/sessions/${sessionId}/checkpoints`),
+    res
+  );
+  return read().body;
+}
+
+describe('I1：TAOR 循环注册表有界 + 会话拆除注销', () => {
+  it('① 会话拆除（deleteSession）后注册表不再含该 sessionId', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'i1-teardown';
+    const loop = internals(cm)._getOrCreateTAORLoop(sid);
+    loop.getCheckpointsForSession = async () => [{ id: 'cp-1' }] as never;
+
+    expect(await registryCheckpoints(sid)).toEqual({
+      checkpoints: [{ id: 'cp-1' }],
+    });
+
+    // 拆除锚点：`ChatManager.deleteSession`（既有会话拆除入口）。真实实现可能因无落盘
+    // 会话而抛错 ⇒ 注销必须是**拆除入口的第一步**，与拆除结果解耦。
+    await cm.deleteSession(sid).catch(() => {});
+
+    expect(await registryCheckpoints(sid)).toEqual({ checkpoints: [] });
+  });
+
+  it('② cleanup() 注销全部已注册会话', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'i1-cleanup';
+    const loop = internals(cm)._getOrCreateTAORLoop(sid);
+    loop.getCheckpointsForSession = async () => [{ id: 'cp-2' }] as never;
+    expect(await registryCheckpoints(sid)).toEqual({
+      checkpoints: [{ id: 'cp-2' }],
+    });
+
+    cm.cleanup();
+
+    expect(await registryCheckpoints(sid)).toEqual({ checkpoints: [] });
+  });
+
+  it('③ 超上限 ⇒ 最旧条目被淘汰（表大小 ≤ 上限）', async () => {
+    const N = MAX_TAOR_LOOP_REGISTRY + 10;
+    const sentinel = [{ id: 'cp-cap' }];
+    const port = {
+      getCheckpointsForSession: async () => sentinel,
+      resumeFromCheckpoint: async () => true,
+    } as never;
+    for (let i = 0; i < N; i++) registerTAORLoop(`i1-cap-${i}`, port);
+
+    // 最旧者被淘汰；最新的 N - MAX 个保留（含最后一个）；边界处证明大小恰为上限
+    expect(await registryCheckpoints('i1-cap-0')).toEqual({ checkpoints: [] });
+    expect(await registryCheckpoints('i1-cap-9')).toEqual({ checkpoints: [] });
+    expect(await registryCheckpoints('i1-cap-10')).toEqual({
+      checkpoints: sentinel,
+    });
+    expect(await registryCheckpoints(`i1-cap-${N - 1}`)).toEqual({
+      checkpoints: sentinel,
+    });
   });
 });

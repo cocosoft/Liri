@@ -145,3 +145,26 @@ describe('Task 6：启动扫描排除 budget_suspend（反目标①）', () => {
     expect(await rm.hasPending('sess-auto')).toBe(true);
   });
 });
+
+// ─── I2（最终整支评审）：启动扫描须把 budget_suspend **登记为"待放行挂起"** ────────────
+//
+// 缺陷：spec §4.4 要求"重启后把 budget_suspend 条目交协调器登记为待放行"，实现只做了
+// `scanPending`/`hasPending` 的**排除** ⇒ 重启后挂起**不可见也不可唤醒**（`list()` 为空）。
+// 本判据（scanBudgetSuspends）只**筛出**这些检查点供启动期登记，**绝不**触发续跑。
+describe('I2：scanBudgetSuspends 筛出挂起检查点（只登记、不续跑）', () => {
+  it('budget_suspend ⇒ 被筛出；普通 auto ⇒ 不被筛出', async () => {
+    const storage = new MemoryCheckpointStorage();
+    await storage.save(makeCheckpoint('sess-budget', 'budget_suspend'));
+    await storage.save(makeCheckpoint('sess-auto', 'auto'));
+
+    const rm = new ResumeManager(storage);
+    const suspended = await rm.scanBudgetSuspends();
+
+    expect(suspended.map((c) => c.sessionId)).toEqual(['sess-budget']);
+    // 与既有"排除"负向测试并存：挂起**不**进入自动恢复扫描（普通 auto 仍照旧被扫描）
+    expect((await rm.scanPending()).map((c) => c.sessionId)).toEqual([
+      'sess-auto',
+    ]);
+    expect(await rm.hasPending('sess-budget')).toBe(false);
+  });
+});

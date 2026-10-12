@@ -86,6 +86,8 @@ export class StreamingAutoCheckpoint {
     messages: Message[];
     metadata: ToolCompletedState['metadata'];
     sessionState: DataSessionStatus;
+    /** 本轮完成后待执行的剩余 tool calls（I4：挂起时落为 `pendingToolCalls` 供续跑提示消费） */
+    currentToolCalls: ToolCallSpec[];
   } | null = null;
 
   constructor(checkpointService: SessionCheckpointService, sessionId: string) {
@@ -99,6 +101,7 @@ export class StreamingAutoCheckpoint {
       messages: state.messagesSnapshot,
       metadata: state.metadata,
       sessionState: state.sessionState,
+      currentToolCalls: state.currentToolCalls,
     };
     const isFull =
       this.stepIndex === 0 || this.stepIndex - this.lastFullStep >= 10;
@@ -152,15 +155,26 @@ export class StreamingAutoCheckpoint {
   /**
    * Task 5（预算挂起续跑）：日预算耗尽时落一条**挂起标记**检查点。
    *
-   * `label='budget_suspend'` + `metadata.budgetSuspend = { suspendedAt, reason }`；素材取
+   * `label='budget_suspend'` + `metadata.budgetSuspend = { suspendedAt, reason }` +
+   * `metadata.pendingToolCalls`（未完成工具清单，I4）；素材取
    * 上一轮快照（`lastSnapshot`，见字段注释），`autoCreated: true`。开关判定由调用方
    * （`ReActToolLoop.onBudgetExhausted`）负责——本方法只负责落盘。
    */
   async suspend(reason: string): Promise<SessionCheckpoint> {
     const snapshot = this.lastSnapshot;
+    // I4（最终整支评审）：挂起检查点同时落「未完成工具」清单 —— 唤醒端据此生成续跑提示
+    // （此前 F1 只在 batch 链落盘，流式链的清单**无消费者**）。素材 = 上一轮快照里"待执行的
+    // 剩余 tool calls"（`onToolCompleted.currentToolCalls`）；轮首撞限（上轮工具已全部完成）
+    // 时通常为空 ⇒ 提示退化为通用续跑提示。
+    const pendingToolCalls = (snapshot?.currentToolCalls ?? []).map((c) => ({
+      toolCallId: c.id,
+      toolName: c.name,
+      args: c.arguments,
+    }));
     const metadata: SessionMetadata = {
       ...(snapshot?.metadata ?? {}),
       budgetSuspend: { suspendedAt: Date.now(), reason },
+      pendingToolCalls,
     } as unknown as SessionMetadata;
     return this.checkpointService.saveCheckpointWithData(
       this.sessionId,

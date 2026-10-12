@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（单一事实源；人读版见 .trae/architecture/修复证据登记.md）。门禁 scripts/lint-fix-evidence.ts。四段生命周期 stages（discovered/fixed/testVerified/postReleaseReviewed）与四个**独立**状态 flags（designed/coded/unitTested/e2eVerified）不得混同；`fixed⇒code 非空`、`unitTested⇒tests 非空`、`e2eVerified⇒unitTested`、`postReleaseReviewed⇒changelog 非空`。",
   "version": 1,
-  "updatedAt": "2026-10-11",
+  "updatedAt": "2026-10-12",
   "stages": ["discovered", "fixed", "testVerified", "postReleaseReviewed"],
   "flags": ["designed", "coded", "unitTested", "e2eVerified"],
   "flagMeaning": {
@@ -1174,6 +1174,433 @@
       "changelog": [],
       "reopenWhen": "改 BashTool 的命令策略表/白名单/高能力解释器判据、K-5 截断阈值/文案、`execute` 的下沉方法（`check*`/`runCommandAndBuildResult`）、或增删内置工具（须同步 `builtinToolRegistry` + `byKey` loader）时",
       "notes": "**切片 1（BashTool 模块，纯搬迁）**：抽出 `bash/bashCommandPolicy.ts` + `bash/bashOutputTruncate.ts` ⇒ `BashTool.ts` 1027 → 816 行（−211）。**切片 2（ToolFactory 委托式）**：抽出 `factories/kairosNotificationFactories.ts` + `toolCreationGuard.ts` ⇒ 1030 → 826（−204）。**切片 3（ToolFactory 注册表驱动）**：新建 `factories/builtinToolRegistry.ts`（80 条 name→thunk，构造唯一来源；`BuiltinToolFactoryKey` 字面量联合）⇒ ToolFactory 826 → **112 行**（累计 −918）；`ToolManagerUtils` ~80 loader 改 `byKey('createXxxTool')`（语义逐字等价）；门禁 `toolFactoryRegistry.test.ts`（注册表↔loader 一致性 + 负向夹具）。**切片 4（BashTool.execute 巨型函数下沉，2026-10-11）**：`execute` **≈440 行 / 复杂度 52 → ≈184 行 / < 40**（eslint complexity 警告消除），按单职责抽为 5 个私有方法（**逐个编辑 + 每步跑安全回归**，逐字搬迁）：`checkPathSafety`（S1-5 统一口径 `std.paths` + G22 fail-closed）、`checkDangerousCommand`（危险命令/模式）、`checkAstAndAnalyzer`（分析器 + AST + deny/ask；AST 不确定 ⇒ fail-closed 转人工）、`checkWhitelistAndSandbox`（白名单 F3 + 沙箱 F2）、`checkInterpreterGuard`（A4 升级确认 + O1-B2 观测）、`runCommandAndBuildResult`（审计 + env 清洗 + Landlock 收敛入口执行 + K-5 截断 + 成功结果；**不吞异常** ⇒ 仍由 `execute` 外层 catch 处理）。原「花括号块」随之移除。**顺带修复 `lint:fn-size` 回归**：本会话 S2-6 的「工具集选择 + 工具面观测」内联块（17 行）曾使 `runStreamMessage` 2203→2214 / 文件 2380→2397（当时未跑该门禁）⇒ 整体外移 `chat/orchestrator/streamMessageToolSelectionFlow.ts` ⇒ **2167 / 2345**，并按门禁要求**下调基线**（`function-size-baseline.json`：2203→2167、2380→2345；复杂度 262→248）锁定成果。**度量合计**：`ToolFactory` 1030→112（−918）；`BashTool.execute` ≈440→≈184（−256）；`BashTool.ts` 文件 **1027→696（−331）**（切片 5 后，见下）。**切片 5（`bashSecurityGate` 外移，2026-10-11）**：把 5 个安全门（`checkPathSafety`/`checkBashDangerousCommand`/`checkAstAndAnalyzer`/`checkWhitelistAndSandbox`/`checkInterpreterGuard`）连同 `isPathSafe` 一起外移为 `tools/bash/bashSecurityGate.ts` 的**纯函数**（`BashTool` 以参数传入 `securityAnalyzer`；`sandboxSecurityChecker` 迁入该模块）⇒ `BashTool.ts` **1018 → 696 行**，仅保留按序短路调用。**命名消歧**：工具层判据改名 `checkDangerousCommand` → **`checkBashDangerousCommand`**，避免与 `permission/PermissionPolicies.ts`、`sandbox/utils/DangerousCommandChecker.ts` 的同名导出触发门禁 **R02-002（重复实现）** 误报 —— 三者是**刻意的纵深防御分层**（CD07 关键域，**不归并**）。e2eVerified=false。"
+    },
+    {
+      "id": "MCP-SEC-G1",
+      "title": "MCP 安全 G-1：MCP 工具结果凭据脱敏一致性（模型可见路径补齐）",
+      "source": "dev_docs/20261012/五方案总览-20261012.md §6.3（Q4 核查结论）；dev_docs/20261012/工具治理方案-20261012.md §3 TG-8",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/services/mcp/McpToolWrapper.ts",
+        "app/src/services/mcp/MCPSecurityFilter.ts",
+        "app/src/services/mcp/MCPServerManager.ts"
+      ],
+      "tests": ["app/tests/mcp/mcpResultRedaction.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 `McpToolWrapper`/`MCPServerManager` 的工具结果返回路径、改 `stripCredentials`/`filterMCPToolResult` 脱敏口径、或新增绕过 wrapper 的 MCP 结果消费入口时",
+      "notes": "① **缺陷**：`mcp__*` 工具的**模型可见路径**是 `McpToolWrapper`（由 `MCPToolBridge.registerServerTools` 注册进工具端口），其 `execute` 原实现**直接回传未脱敏文本**；带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致，远端 server 回传的 API key / token 可原样进入模型上下文。② **修复（CS01 复用既有实现）**：wrapper 返回前套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏收敛到同一 helper（消除重复实现）。③ **`sessionId` 不外传**（同批核查）：wrapper 只发 `{name, arguments}` + `{signal}`；`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope。④ 测试新增 `app/tests/mcp/mcpResultRedaction.test.ts`（文本脱敏 / 结构化脱敏 / 无密钥零变更 / `redactMcpPayload` 单元）。⑤ CHANGELOG 已在 `## [未发布]` 段记录本条；`postReleaseReviewed` 待正式发版 + tag 后按 `.trae/rules/versioning.md` 判据置位。e2eVerified=false（未接真实外部 MCP server 做端到端验证）。"
+    },
+    {
+      "id": "MCP-SEC-G2",
+      "title": "MCP 安全 G-2：Stdio 子进程显式 env 审计收紧（消除「声称拦截却透传」矛盾）",
+      "source": "dev_docs/20261012/五方案总览-20261012.md §6.3；用户裁定「需要收紧」（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/services/mcp/transports/StdioTransport.ts",
+        "app/src/services/mcp/MCPSecurityFilter.ts"
+      ],
+      "tests": ["app/tests/mcp/mcpResultRedaction.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 `StdioTransport` 的 env 合并口径、`buildSafeEnv` 的宿主白名单、或 `BLOCKED_ENV_PATTERNS` 时",
+      "notes": "① **缺陷**：原构造 `{ ...buildSafeEnv(Object.keys(options.env)), ...options.env }` 把**显式配置键**喂给 `buildSafeEnv()` ⇒ 命中 `BLOCKED_ENV_PATTERNS` 时发出 `mcp:env_blocked` 告警，却又被尾部展开 `...options.env` **原样透传** ⇒ **语义自相矛盾**（声称已拦、实际放行）。② **收紧**：宿主继承与显式配置**分离** —— 宿主只取白名单基线 `buildSafeEnv()`；显式配置经新增 `auditExplicitEnv()` **审计后合并**（按设计放行 MCP server 自身凭据，**不按名硬拦**以免破坏正常接入；命中敏感名 ⇒ `mcp:explicit_env_sensitive` 告警；值与同名宿主变量一致 ⇒ `mcp:explicit_env_value_from_host` 高信号告警；**告警只含键名、绝不含值**）。③ 测试：宿主非白名单变量不被隐式继承 + 显式配置放行 + 白名单变量正常继承。④ CHANGELOG 已在 `## [未发布]` 段记录本条。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-TG1",
+      "title": "工具治理 TG-1：capabilityDigest 归属边界登记（权限域 ≠ 能力域，严禁并入工具契约）",
+      "source": "dev_docs/20261012/工具治理方案-20261012.md §7（TG-1 裁断）→ §5 阶段 1.1",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [
+        "app/src/utils/toolContract/Tool.ts",
+        "app/src/permission/ApprovedCommandRegistry.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "若要把 `capabilityDigest` 并入工具契约（`ToolCapabilityDescriptor`）、或把工具能力描述回溯到权限域时",
+      "notes": "① **裁定**：`capabilityDigest` 是「特定会话 + 精确命令语义」的**执行授权指纹**（**权限域** `permission/`），与描述工具**静态固有属性**的 `ToolCapabilityDescriptor`（**能力域** `utils/toolContract/`）语义正交 ⇒ **保持独立、严禁并入**（CS01 / R02-002 同名不同物）。② **落地**：在 `Tool.ts` 的 `ToolCapabilityDescriptor` 处 + `ApprovedCommandRegistry.ts` 的 `capabilityDigest` 字段处各加**边界守护注释**（双向交叉引用），防后续「看着像就合并」。③ **如实**：原方案拟「登记 R02-002 排除表」，回仓取证后确认**无需** —— R02-002 只扫描**导出符号**，不扫描 interface 字段（`capabilityDigest` 为字段，不在其扫描面）；故本项**无测试**（纯注释/边界登记，零行为变更）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-TG5",
+      "title": "工具治理 TG-5：工具 Schema 熵阈值告警（长程第 20 轮后 >30%，只告警不阻断）",
+      "source": "dev_docs/20261012/工具治理方案-20261012.md §7（TG-5 裁断）→ §5 阶段 1.3",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/tools/monitoring/ToolMetrics.ts",
+        "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
+        "app/src/tools/index.ts"
+      ],
+      "tests": ["app/tests/tools/toolMetrics.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改熵阈值（20 轮 / 30%）、改 `turn` 口径、或把告警升级为阻断 / 触发 D4·T2 收口时",
+      "notes": "① **裁定**：长程第 20 轮后 `context_entropy_percent > 30%` ⇒ **硬 WARN（Fail-Open for Observation，绝不阻断）**；累积实测后再评估是否触发 D4/T2。② **落地**：`ToolMetrics` 新增**纯函数** `evaluateSchemaEntropyGate()`（缺 `turn`/上下文窗口 ⇒ `null`，不臆造，CS06）+ 阈值常量 `SCHEMA_ENTROPY_TURN_THRESHOLD=20` / `SCHEMA_ENTROPY_PERCENT_THRESHOLD=30`；`recordToolSchemaEntropy` 在 `warn` 时发 `logger.warn('tools:schema.entropy_high', ...)`；`ToolSchemaEntropyMetric` 增可选 `turn`；调用点 `selectAndObserveToolDefinitions` 传 `turn: host.toolRoundCount + 1`（**复用既有 `host` 机位，不改** `streamMessageFlow` ⇒ 不触 `lint:fn-size` 棘轮）。③ **不改指标名**（`tools.schema.*` 不变）、**零阻断**。④ 测试 `toolMetrics.test.ts` **+6 例**（阈值常量 / 达标告警 / 轮次不足 / 30% 边界 / 缺参 null / 触发不抛且 gauge 照写）；实测日志已见 `tools:schema.entropy_high`（turn=30, percent=45）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-SIDECAR-TARGETS",
+      "title": "工具治理 阶段 2 靶点裁定：侧车首批靶点重排（P1 常驻 LSP / P2 媒体原生面 / P3 liri-native 评估）",
+      "source": "dev_docs/20261012/工具治理方案-20261012.md §5 阶段 2.1/2.2；盘点 `dev_docs/20261012/重型工具侧车化-盘点清单-20261012.md`；用户裁定 2026-10-12",
+      "stages": { "discovered": true, "fixed": false, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": false, "unitTested": false, "e2eVerified": false },
+      "code": ["dev_docs/20261012/重型工具侧车化-盘点清单-20261012.md"],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "改侧车靶点排序、或 D10 P1（通用 IPC 基座）落地/变更时",
+      "notes": "① **盘点结论（回仓取证，22 项工具）**：**推翻原靶点假设** —— 原判「媒体生图/生视频 + LSP 是 FFI 重」不成立：`image_generate`/`video_generate` 主体是**远端 Provider HTTP**（无 in-process 崩溃面）；`lsp` **本就 `spawn` 外部 language server**（`tools/lsp/LSPServer.ts:68`）⇒ 侧车化收益为**常驻化**（消 `npx` 冷启动 + 补超时），非防崩溃。**唯一真 in-process FFI = `liri-native`**（`bun:ffi` dlopen、模块级常驻 `app/native/index.js:156`），被 **11 处高频基础路径**懒 `require`。真「内存大 + native」靶点 = **`sharp`（libvips）+ Python `vision_worker`**（已常驻、载 OCR/YOLO/SAM/MiDaS）。② **裁定**：采纳靶点重排（P1 常驻 LSP / P2 媒体原生面）；`liri-native` **纳入侧车评估**（须量化证据，不以 CS03 空谈否）；LSP **双轨先收敛再侧车**。③ **硬依赖（新发现）**：工具侧车需**通用 IPC 基座** = D10 的 **P1（未落地）**（D10 P0 已于 2026-10-10 完成）⇒ 2.2 **不得先写第二套桥**（D10 GR02）。④ **本项为裁定/盘点登记，未改产品代码**（零实现）；落地切片序见 `工具治理方案 §5 阶段 2.2`。⑤ **可先行低风险项**：`tools/lsp/LSPClient.sendRequest` 无请求超时（待补）。e2eVerified=false。"
+    },
+    {
+      "id": "TOOLGOV-LSP-TIMEOUT",
+      "title": "工具治理 阶段 2 前置小修：工具 LSP 客户端请求超时兜底（消除永久挂起 + pendingRequests 泄漏）",
+      "source": "dev_docs/20261012/工具治理方案-20261012.md §5 阶段 2（P1 前置小修）；盘点 `dev_docs/20261012/重型工具侧车化-盘点清单-20261012.md`",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/tools/lsp/LSPClient.ts"],
+      "tests": ["app/tests/tools/lspRequestTimeout.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 LSP 请求超时口径（默认 30s）、或 `sendRequest`/`shutdown` 结算路径时",
+      "notes": "① **缺陷**：`tools/lsp/LSPClient.sendRequest`（原 `:109-124`）**无超时** ⇒ 服务器既不响应也不退出时 Promise **永不 settle**（`pendingRequests` 条目泄漏）⇒ 工具调用挂起（该工具默认关 `LSP=false`、无测试 ⇒ 长期潜伏）。② **修复**：新增 `LSP_REQUEST_TIMEOUT_MS = 30_000`（口径对齐 `@modules/lsp`）；`sendRequest` 加超时（超时即 `delete` pending 并 reject）；响应到达 `clearTimeout`；`shutdown()` 关闭握手改 **best-effort**（超时不阻断 `stop()`/子进程回收）；构造函数新增可选 `requestTimeoutMs`（默认 30s，仅测试注入短值，不改生产调用）。③ **测试** `app/tests/tools/lspRequestTimeout.test.ts` **3 例**（常量=30s / `initialize` 超时 reject / `sendRequest` 连续超时），以桩打 `LSPServer.start/send`（不 spawn、从不回包）⇒ 离线、确定。e2eVerified=false（未接真实 language server 端到端）。"
+    },
+    {
+      "id": "TOOLGOV-LSP-BUN-STDIO",
+      "title": "工具治理 阶段 2：`lsp` 工具在 bun 下起不来（`LSPServer.start()` 调 `stdin.setEncoding` 抛错）—— 已修",
+      "source": "dev_docs/20261012/重型工具侧车化-盘点清单-20261012.md（前置小修过程中实测发现并修复，2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/tools/lsp/LSPServer.ts"],
+      "tests": ["app/tests/tools/lspServerBunStdio.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 `LSPServer` 的 stdio 编码/收发处理、或把 LSP 迁为常驻侧车（阶段 2 靶点 P1）时",
+      "notes": "① **实测（2026-10-12）**：`bun -e \"…spawn…console.log(typeof p.stdin, typeof (p.stdin&&p.stdin.setEncoding))\"` ⇒ **`object undefined`**；另测 `stdout.setEncoding` **存在且生效**（`setEncoding('utf8')` 后 `data` 为 string）。② **缺陷**：`LSPServer.start()`（`app/src/tools/lsp/LSPServer.ts:81-83`）**对 `stdin` 也调 `setEncoding`** ⇒ bun 下抛 `setEncoding is not a function` ⇒ `status=ERROR` ⇒ `lsp` 工具起不来（默认关 `LSP=false`、且**无任何测试** ⇒ 长期潜伏）。③ **修复**：**移除 `this.process.stdin.setEncoding('utf8')`**（`stdin` 仅用于写入 `send()`，无需解码），保留 `stdout/stderr.setEncoding`（实测 bun 支持）⇒ `start()` 恢复正常。④ **测试** `app/tests/tools/lspServerBunStdio.test.ts` **2 例**（真实子进程 `app/tests/tools/fixtures/fakeLspServer.js` 按 LSP 帧回包）：`start()` 不抛且 `status=RUNNING`；`send()` 写入 + `handleOutput` 帧解析**端到端**（请求/响应 id 回显）。e2eVerified=false（夹具为自制假 LSP，未接真实 language server）。"
+    },
+    {
+      "id": "TEST-GUARD-TOOLREGISTRY-FLAKY",
+      "title": "测试守卫可靠性修复：`toolRegistrySingleSource` 全仓源扫描的 flaky 超时（3× 全扫 → 缓存 + 预筛）",
+      "source": "2026-10-12 执行《工具治理方案》阶段 2 过程中发现的**既有** flaky（`bun test tests/tools/` = 747 pass / 1 fail）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/tests/tools/toolRegistrySingleSource.test.ts"],
+      "tests": ["app/tests/tools/toolRegistrySingleSource.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改该守卫的扫描实现 / 允许清单，或 `app/src` 规模显著增长致**单次**扫描 > 25s 时",
+      "notes": "① **现象**：`bun test tests/tools/` **整批并发**下「守卫：工具注册表单一写入口（§1.16 防复发）」首例 **5776ms > 5000ms 默认超时** ⇒ 假红；**单文件静置** 1.35s 通过（⇒ 负载敏感，非确定性失败）。② **根因**：`findRegistrySites()` 每次调用都 `walk(src/**)`（~3900 个 .ts/.tsx）并**读取全部文件内容**再 `split('\\n')`；而**三个 `it` 各调一次（3×）**。③ **修复（根因优先，非仅调超时）**：改**惰性进程内缓存**（三断言共用**一次**扫描）+ **快速预筛**（`content.includes('ToolRegistry(')` 不含即整体跳过，免全量 `split`）；并给三个断言**显式 30s 超时**兜底。④ **验证**：单文件首扫 **2802ms**（原 4.4–5.8s）、另两例 **~0.1ms**（缓存命中）；整批 `bun test tests/tools/` **748 pass / 0 fail**（原 747/1），批内耗时 **49.7s → 32.5s**。⑤ 本项为**测试守卫自身的可靠性修复**（`code`/`tests` 同为该守卫文件）。e2eVerified=false。"
+    },
+    {
+      "id": "CHANGOV-DOC-DRIFT",
+      "title": "通道治理 阶段 0：文档-代码漂移纠正（gateway.md / web.md / channel-routing.md / project_rules §1.14 / 渠道 index）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 0（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [
+        "app/docs/核心模块/gateway.md",
+        "app/docs/渠道/web.md",
+        "app/docs/渠道/channel-routing.md",
+        "app/docs/渠道/index.md",
+        ".trae/rules/project_rules.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "若重新引入 `core/gateway/`、`web` 通道、`channelRouter`，或通道数 / HTTP 端口口径变更时",
+      "notes": "① **漂移（回仓取证）**：`gateway.md` 整篇描述**已移除**的 `core/gateway/`（`GatewayServer`/`ChannelManager`/`GatewayEventBus`/`GatewayAuth`/`HealthMonitor`/`RateLimiter`/`GatewayMcpBridge` 全无实体，该目录 2026-08-06 下线）；`web.md` 描述**不存在**的 `web` 通道（`WEB_CHANNEL_ENABLED`/`/api/chat`/`PORT=3000`）；`channel-routing.md` 描述**无实现**的条件路由/负载均衡/`channelRouter.broadcast`；`project_rules.md §1.14` 三处指向幻符号（`core/gateway/`、`ChannelManager`、`GatewaySetup`、`GatewayTool`）。② **订正**：`gateway.md` 重写为**真实承载**（`ChannelRegistry`/`ChannelBootstrapper`/`routeChannelMessage`/`DeliveryRouter`/`channelEventBus`/`DevicePairingService` + 入站管线 + HTTP 面 18990）；`web.md` 改为「Web/HTTP 接入（**非通道**）」；`channel-routing.md` 改为「出站投递」并**显式列出未实现项**；`project_rules §1.14` 三处订正（`core/gateway/` 已移除、注册入口改 `channelBootstrapper`、废弃模块**无实体**）；`渠道/index.md` 两处条目标题同步。③ **如实**：仅文档/规则变更，**无代码改动、无自动化测试**。e2eVerified=false。"
+    },
+    {
+      "id": "CHANGOV-SPLIT-COVERAGE",
+      "title": "通道治理 阶段 1.1：出站长文本**分片全覆盖**（telegram / qq 去 `slice` 截断，改用 `splitMessage`）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.1（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/channels/telegram/TelegramChannel.ts",
+        "app/src/channels/qq/QQChannel.ts"
+      ],
+      "tests": [
+        "app/tests/channels/channelTruncationGuard.test.ts",
+        "app/tests/channels/messageSplitter.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "新增通道 / 改出站发送实现 / 改各通道 `maxMessageLength` / 改分片器 `splitMessage` 时",
+      "notes": "① **缺陷**：`telegram`（`sendTextMessage` / `sendMarkdownMessage` 两处）与 `qq`（`sendTextMessage`）仍用 `content.slice(0, <META>.maxMessageLength)` ⇒ 超长文本**尾部静默丢失**（且可能截断 Markdown 围栏）；`discord` / `wechat` 已用共享分片器。② **修复**：改用 `channels/messageSplitter.ts` 的 `splitMessage()`（结构感知、保围栏成对、每片 ≤ 上限），**逐片发送**、任一片失败即止（与 Discord 行为一致）。**Telegram**：先按**原始**内容分片再逐片 `escapeHtml`（避免切坏 HTML 实体/围栏）。**QQ**：被动回复字段**每片各消费一次**（`consumePassiveReplyFields` 的 `msg_seq` 递增，超窗/超 seq 上限自动降级主动消息 —— 与该实现既有设计一致）。③ **测试**：新增 `tests/channels/channelTruncationGuard.test.ts`（全 `src/channels/**` **源码扫描**：不得再出现 `.slice(0, *.maxMessageLength)` 截断写法 + 扫描面非空自证）；分片器本身由既有 `tests/channels/messageSplitter.test.ts` 覆盖；`bun test tests/channels/` **302 pass / 0 fail**（含 16 文件）。④ **未做**：未接真实 Telegram/QQ 平台做端到端（`e2eVerified=false`）。"
+    },
+    {
+      "id": "CHANGOV-FALLBACK-DECLARED",
+      "title": "通道治理 阶段 1.2：出站降级链**声明驱动**（按 `ChannelMeta`/`ChannelCapabilities` 跳过不支持格式）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.2（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/channels/deliveryFormatters.ts",
+        "app/src/channels/DeliveryRouter.ts"
+      ],
+      "tests": ["app/tests/channels/deliveryFallbackChain.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改降级链顺序 / 格式集合、改通道 `capabilities` / `markdownCapable` 声明口径、或新增出站格式时",
+      "notes": "① **现状（改造前）**：`DeliveryRouter._nextLowerFormat` 恒取链中下一位（`interactive → markdown → text`）；通道不支持时靠「先发一次、失败再 catch 降级」（多一次注定失败的往返）。② **落地**：`channels/deliveryFormatters.ts` 新增**纯函数** `resolveDeliveryFallbacks(from, support)` + 类型 `DeliveryFormatSupport`；`DeliveryRouter` 新增 `_formatSupport(channel)`（由 `plugin.capabilities.interactive` / `plugin.meta.markdownCapable` 派生）并把 `support` 透传降级递归 ⇒ 明确声明不支持的格式**直接跳过**；`_nextLowerFormat(f, support?)` 改用该纯函数（取候选首项）。③ **零行为变更保证**：`support` 缺省 / 通道未声明 ⇒ 一律视为支持 ⇒ 与既有逐级尝试**完全等价**（仅当通道**显式**声明 `false` 才跳级）。④ `DELIVERY_FORMAT_CHAIN` 仍是顺序**单一事实源**（`DeliveryRouter` 已不再直接引用 ⇒ 同步移除该 import，避免未用导入）。⑤ **测试** `tests/channels/deliveryFallbackChain.test.ts` **6 例**（顺序不变 / 全支持等价 / markdown 不支持跳级 / interactive 不支持 / 未知格式空序列 / `text` 恒兜底）；`bun test tests/channels/` **306 pass / 0 fail**。e2eVerified=false（未接真实平台做降级端到端）。"
+    },
+    {
+      "id": "CHANGOV-ATTACHMENT-BUDGET",
+      "title": "通道治理 阶段 1.3：附件字节 → 日预算预留（防富媒体绕过 R16 硬闸门）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.3（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/query/attachmentBudget.ts",
+        "app/src/chat/orchestrator/preSendContextProtection.ts"
+      ],
+      "tests": ["app/tests/query/attachmentBudget.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改附件折算比（默认 4 bytes/token）、改会话 DTO `attachments` 形状、或改日预算预留口径时",
+      "notes": "① **缺口**：`preSendContextProtection` 的 `msgTokens` 只估算**消息文本**；用户上传的**富媒体附件**（`StreamMessageOptions.attachments`，含 `size`）若**未内联**进模型输入，其处理开销**不计入**估算 ⇒ 可**绕过** R16 日预算硬闸门（`DAILY_BUDGET_EXCEEDED`）。② **落地**：新增**纯模块** `query/attachmentBudget.ts`（`estimateAttachmentTokens` / `estimateAttachmentsTokens`；口径 `ceil(bytes / 4)` **保守下限**，缺 `size`/非法值 ⇒ 0，不臆造 CS06）；`preSendContextProtection` 在 `checkDailyBudget()` / `reserveFor()` **之前**并入 `reservedTokens = msgTokens + attachmentTokens`，告警日志增 `attachmentTokens` 字段。③ **生产者真实存在**（非空抽象）：会话 DTO `SendMessageOptions.attachments`（`session/types/message/enums.ts:132` 的 `MessageAttachment`，含 `size?`），由上传/工厂路径填充。④ **测试** `tests/query/attachmentBudget.test.ts` **5 例**（常量 / 向上取整 / 缺省与非法值 ⇒ 0 / 列表合计 / 10MB 量级）。⑤ **DTO 统一（本阶段首句）未做（如实）**：`channels/types/IChannel.ts:86` 与 `session/types/message/enums.ts:132` 各有一个**同名不同物**的 `MessageAttachment`（入站通道附件 vs 会话消息附件）⇒ 合并属**跨层重构**，本轮不做（需先裁定归属，对齐 TG-1 的域边界做法）。e2eVerified=false。"
+    },
+    {
+      "id": "CHANGOV-OUTBOUND-BACKOFF",
+      "title": "通道治理 阶段 1.4：出站重连**退避重试**（复用 withRetry 的指数退避 + jitter；失败只影响投递）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.4（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/channels/DeliveryRouter.ts"],
+      "tests": [
+        "app/tests/channels/reconnectBackoff.test.ts",
+        "app/tests/channels/deliveryRouterContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改通道重连退避参数 / 重试上限，或改 `_prepareChannel` 语义时",
+      "notes": "① **现状**：`_prepareChannel` 的自动重连**只试一次**（成功即投递，失败即报错）。② **落地（CS01 复用）**：新增导出 `reconnectWithBackoff(connect, config)` 与常量 `CHANNEL_RECONNECT_RETRY`（`maxRetries:2` / 150ms 起 / 上限 1s），内部复用项目**标准重试** `utils/withRetry`（其 `calculateBackoffDelay` 已含 **0–30% jitter** ⇒ **不另写退避**）；`connect()` 返回 `false` 视为**可重试失败**（抛 `RetryableError`）。③ **失败只影响本次投递**：重试耗尽后抛出 ⇒ 由 `_prepareChannel` 转成 `DeliveryResult{success:false}`，**不回退主任务状态**。④ **契约测试更新（有意变更，如实）**：`deliveryRouterContract` 的 D6b 断言由精确文案 `'自动重连失败'` 改为**前缀匹配**（新文案含退避说明），并**新增 `connectCalls === 3`**（= maxRetries+1，验证**有界**重试）。⑤ **测试** `tests/channels/reconnectBackoff.test.ts` **4 例**（先败后成 / 始终失败有界 / 可重试网络错误 / 首次即成功）；`bun test tests/channels/ tests/query/attachmentBudget.test.ts` **315 pass / 0 fail**。e2eVerified=false。"
+    },
+    {
+      "id": "CHANGOV-DTO-OWNERSHIP",
+      "title": "通道治理 阶段 1.3 裁定：两个同名 `MessageAttachment` **归属保持独立**（协议层 vs 会话领域层；禁合并 / 禁断言互换）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.3（DTO 首句）+ 用户裁定 2026-10-12",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [
+        "app/src/channels/types/IChannel.ts",
+        "app/src/session/types/message/enums.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "若要合并这两个 `MessageAttachment`、或在跨层直接互传附件类型时",
+      "notes": "① **现状（同名不同物）**：`channels/types/IChannel.ts:86` 是**通道协议层**载体（`fileId`/`fileName`/`mimeType`/`data`/`url`/`size`，描述「平台给了什么」）；`session/types/message/enums.ts:132` 是**会话领域模型**（`id`/`type`/`name`/`url`/`data`/`size`/`contentType`/`metadata`，供存储与前端）。② **裁定（对齐既有判例）**：`enums.ts:130` 已规定 `DataAttachment`（协议/存储向）与领域模型**形状不等价、勿直接互换** ⇒ 同类判例已存在 ⇒ 本次 **保持独立**、**严禁合并**与**类型断言互换**；跨层**必须写显式适配函数**（`fileId→id`、`fileName→name`、`mimeType→contentType`，并补 `type`）。③ **落地**：两处类型各加**双向边界注释**（含裁定日期与理由）。④ **合并（跨层重构）已明确否决**（非遗留、非待办）。**零行为改动、无自动化测试**。e2eVerified=false。"
+    },
+    {
+      "id": "CHANGOV-GATEWAY-PORT",
+      "title": "通道治理 阶段 2.1：出站网关**端口化**（core 侧 `IOutboundGatewayPort` + channels 适配器 + 组合根装配）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 2.1（Port Layer Only，2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/core/spi/GatewayService.ts",
+        "app/src/core/spi/index.ts",
+        "app/src/channels/gateway/OutboundGatewayPortAdapter.ts",
+        "app/src/entrypoints/spiWiring.ts"
+      ],
+      "tests": ["app/tests/channels/outboundGatewayPort.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改端口契约（DTO / 方法）、改 `DeliveryRouter` 出站语义、或进程外通道插件接入时",
+      "notes": "① **落地**：core 侧新增 `core/spi/GatewayService.ts`（`IOutboundGatewayPort` + DTO `GatewayContentDto`/`GatewayDeliveryResultDto`/`GatewayBroadcastResultDto`/`GatewayFormat`；`resolveOutboundGateway()` **空操作代理** + `registerOutboundGatewaySpi()` **推送注册**），并在 `core/spi/index.ts` 转出；service 侧新增 `channels/gateway/OutboundGatewayPortAdapter`（**只做形状搬运**、委托 `getDeliveryRouter()`；**构造期不触发** router 构建副作用，`delegates` 可注入）；组合根 `entrypoints/spiWiring.ts` 装配。② **零新增能力**：降级链 / 串行锁 / 退避重连仍由 `DeliveryRouter` 承担；未注册时代理以**失败结果**作答（`success:false` + `error:'outbound gateway not registered'`），**不伪造成功**。③ **UW（预留端口 / 生产中无消费者）**：为后续「四原语只读出站广播」与「进程外通道插件」留接缝（先例 `ICollaborationPort`）。④ **入站端口未做（如实，有意分期）**：`routeChannelMessage(RouteMessageOptions)` 携带 `coreAPI` + 多回调，无法在不复制大契约的前提下表达为 core 侧窄端口 ⇒ 归属 **阶段 2.4（入站 DTO 标准化）**。⑤ **测试** `tests/channels/outboundGatewayPort.test.ts` **2 例**（未注册失败语义 / 适配器形状搬运）；`bun test tests/channels/` **312 pass / 0 fail**；`lint:arch` **0 违规**（新增 `channels→core` 为**合法下行**）。e2eVerified=false。"
+    },
+    {
+      "id": "CHANGOV-INBOUND-DTO-PORT",
+      "title": "通道治理 阶段 2.4：入站 DTO 标准化（`InboundEnvelope` + `toInboundEnvelope`）+ 入站网关端口（UW 预留）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §3 阶段 2.4（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/channels/routing/messageRouterContract.ts",
+        "app/src/core/spi/InboundGatewayService.ts",
+        "app/src/core/spi/index.ts",
+        "app/src/channels/gateway/InboundGatewayPortAdapter.ts"
+      ],
+      "tests": ["app/tests/channels/inboundGateway.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改进标准化入站 DTO 口径、改进 `messageType→payload.type` 映射、或在 `setupChannels` 落地入站端口真实注册时",
+      "notes": "① **DTO 标准化**：`channels/routing/messageRouterContract.ts` 新增 `InboundEnvelope` + `InboundAttachmentDto` + `InboundPayloadType` 与**纯函数** `toInboundEnvelope()`（`MessageContext` → 标准化信封）：`sessionId` 入站阶段未知 ⇒ **省略不臆造**；媒体/语音/事件**统一归 `file`**；附件 `mimeType→type` / `fileName→name` / 保留 `url`/`size`；无附件 ⇒ **键省略**。② **入站端口**：core 侧新增 `core/spi/InboundGatewayService.ts`（`IInboundGatewayPort` + 同形 `InboundEnvelopeDto`/`InboundVerdictDto` + `resolveInboundGateway()` **未注册裁决** + `registerInboundGatewaySpi()`），`core/spi/index.ts` 转出；service 侧新增 `channels/gateway/InboundGatewayPortAdapter`（**纯形状搬运**，**必须注入** `route` 委托）。③ **UW 预留（如实）**：真实注册点在 `channels/setup/setupChannels.ts`（`routeChannelMessage` 的 `coreAPI` + 多回调在彼处组装）⇒ **本期不注册**，`resolveInboundGateway()` 恒返回 `accepted:false` + `reason:'inbound gateway not registered'`（**不伪造接受**）。**刻意不做默认委托**：凭空构造无 `coreAPI` 的路由 = 伪造能力（CS04/CS05）。④ **测试** `tests/channels/inboundGateway.test.ts` **5 例**（文本映射 / 非文本归 file / 附件映射与键省略 / 未注册裁决 / 适配器形状搬运）；`bun test tests/channels/` **317 pass / 0 fail**；`lint:arch` **0 违规**（新增 `channels→core` 为合法下行）。⑤ **未接线（如实）**：端口本期**无生产消费者**；入站 `PREPARED` 接缝（状态转移可观测）**未做** —— 依赖状态机方案的 PREPARED 落盘能力。e2eVerified=false。"
+    },
+    {
+      "id": "FSM-CATALOG-P1",
+      "title": "状态机规范管理 阶段 1：状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §3 阶段 1（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["app/src/state/engine/stateMachineCatalog.ts"],
+      "tests": ["app/tests/state/stateMachineCatalog.test.ts"],
+      "changelog": [],
+      "reopenWhen": "新增/修改任一域状态机枚举、增删目录条目、或要把「未登记即阻断编译」翻为硬门禁时",
+      "notes": "① **方案订正（重要）**：`state/engine/StateMachineRegistry.ts` 是**运行时实例**注册表（按 id 存实例 / `gc` / `find`），**不是**定义目录 ⇒ 方案 v1.0「把状态机接入 `StateMachineRegistry`」属**类别错误**，已订正为「登记到**定义目录**」。② **落地**：新增 `state/engine/stateMachineCatalog.ts`（**零依赖纯数据 + 只读查询**，避免 `core←service` 倒挂）；查询面 `listStateMachineIds()` / `findStateMachine()`。③ **测试** `tests/state/stateMachineCatalog.test.ts` **6 例**：目录↔运行时锚点逐一比对（防漂移）/ `verification`↔`verifyRef` **自洽**（不谎称有机器校验）/ id 唯一 / `sourceFile` 真实存在 / 同名不同物显式带理由 / 未登记 ⇒ `undefined`。④ **阶段 1.3 已完成（2026-10-12，本次续做）**：9 台机器 + `SimplifiedSessionState` 共 **12 条**全部取证迁入 `STATE_MACHINES`（取值 + `sourceFile` + `verification` 口径）；其中 **5 条**有**运行时锚点**（`EXECUTION_STATUSES` / `TOOL_CALL_STATUSES` / `AppState` / `SessionState` / `TaskStatus`）⇒ 测试**动态载入逐项比对**（防漂移，实测全等）；其余 **7 条**仅有类型联合或内联字面量 ⇒ 经**源码阅读**取证并**如实标注**（不谎称有机器校验）。另新增 `BOUNDARY_STATE_MACHINES` **4 条同名不同物登记**（UI `TaskStatus` 词汇表 / `session/models` 类 / `GoalRunSettlement` / `AcpApprovalClass`，各带不合并理由）。⑤ **阶段 1.4 硬门禁仍未做** —— 理由：把「未登记即阻断编译」翻成 error 必须**先完成全量取证 + 显式 allowlist**；本次取证另暴露 **3 项宜先修**：`appInstall` 内联字面量两处重复（无命名类型）、`awaiting_approval` 无集中常量、`budgetMode` 双事实源。⑥ **零语义变更**：不改任何域枚举 / 转移实现。e2eVerified=false。"
+    },
+    {
+      "id": "FSM-CATALOG-HYGIENE",
+      "title": "状态机规范管理 阶段 1.3 配套：消除取证暴露的 **3 项隐患**（命名类型 / 瞬态常量 / 去双事实源）+ 源码守卫",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 1.3（取证隐患，2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/appState/AppState.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/src/query/DailyBudgetManager.ts"
+      ],
+      "tests": ["app/tests/state/stateMachineHygiene.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改应用安装状态 / 工具执行瞬态 / 预算档位 的取值与来源时",
+      "notes": "① **隐患 1（命名类型）**：应用安装状态原在 `appState/AppState.ts:253` 与 `:259` **两处内联字面量重复** ⇒ 抽出 `export type AppInstallStatus`，两处消费点改引用类型名。② **隐患 2（瞬态常量）**：`awaiting_approval` 原为 `ToolExecutionService.ts:638/962` 的**裸字面量** ⇒ 抽出模块常量 `TRANSIENT_AWAITING_APPROVAL`；`:936` 的 `=== 'requires_approval'` 裸比较改为 **`ToolExecutionStatus.REQUIRES_APPROVAL` 枚举成员**（`ToolResult.ts:12`）—— 本文件**不复制**其字面量，守住「数出同源」（string enum 比较需 `as string` 收窄以过类型检查）。③ **隐患 3（去双事实源）**：`BudgetMode` 原在 `DailyBudgetManager.ts:53` **本地重声明**且与 `dailyBudgetSnapshot.ts:31` 重复 ⇒ 改为 `import type { BudgetMode } from './dailyBudgetSnapshot.js'`，**单一事实源** = `dailyBudgetSnapshot`。④ **验证**：新增源码守卫 `tests/state/stateMachineHygiene.test.ts` **3 例**（**计数断言**：`awaiting_approval` 字面量**仅 1 次**= 定义值；`requires_approval` 字面量**0 次**；内联安装状态联合**仅 1 次**= 类型定义；`type BudgetMode =` **0 次**）；回归 `bun test tests/state/ tests/query tests/chat` **747 pass / 0 fail**。⑤ **自纠（如实）**：守卫初版误用 `not.toContain`，因「唯一事实源本身必须含该字面量一次」而**自测失败** ⇒ 改为计数断言后通过。⑥ **零行为变更**（纯命名抽取 / 去重 / 常量替换）。e2eVerified=false。"
+    },
+    {
+      "id": "FSM-CATALOG-GATE14",
+      "title": "状态机规范管理 阶段 1.4：状态机**登记硬门禁**（`lint:arch` → R09-006，error）+ 显式豁免清单 + 规则条文",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 1.4（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "scripts/lint-architecture.ts",
+        "scripts/state-machine-allowlist.json",
+        ".trae/rules/architecture-compliance.md"
+      ],
+      "tests": ["app/tests/state/stateMachineRegistrationGate.test.ts"],
+      "changelog": [],
+      "reopenWhen": "新增/改名任一 `export enum *Status|*State` 或 `export const *_STATUSES|*_STATES` 数组、改豁免清单、或改定义目录 `STATE_MACHINES` 的 `verifyRef`/`sourceFile` 时",
+      "notes": "① **门禁**：`scripts/lint-architecture.ts` 新增 `checkStateMachineRegistration()`（注册进 `runAll` 的 `Promise.all`），规则 **R09-006（error ⇒ 阻断构建）**。② **判据（窄口径，只漏报不误报）**：`app/src/**`（排除测试）中 ① `export enum <Name>`（`Name` 以 `Status|State` 结尾）② `export const <NAME> = [ … ]` / `= new Set([ … ])`（`NAME` 以 `_STATUSES|_STATES` 结尾）⇒ 必须**要么**在 `state/engine/stateMachineCatalog.ts` 登记，**要么**在豁免清单登记。③ **登记来源（三处显式）**：`STATE_MACHINES[].verifyRef`（精确 `module#exportName`，5 条）· `STATE_MACHINES[].sourceFile` / `BOUNDARY_STATE_MACHINES[].sourceFile`（文件级）· `scripts/state-machine-allowlist.json`（44 条，**每条附 reason**）。④ **实测（回仓）**：脚本从 `stateMachineCatalog.ts` **动态载入**（零依赖纯数据，故不做源码正则解析）；首扫 **候选 54 / 未登记 47** ⇒ 补 `STATE_MACHINES[].sourceFile` 文件级豁免后 **44** ⇒ 落豁免清单后 **候选 54 / 已登记 54 / 未登记 0**，`lint:arch` **错误 0**（4 基线警告未增）。⑤ **负向自证（实测，非声称）**：临时注入 `app/src/state/engine/scratchProbeStatus.ts`（`export enum ScratchProbeStatus` + `export const SCRATCH_PROBE_STATUSES`）⇒ 报 **2 条 R09-006 error、退出码 1**（阻断构建）；删除后复绿。**fail-closed 实测**：临时移走豁免清单 ⇒ 报 `状态机豁免清单缺失` error（退出码 1），移回即恢复（`Test-Path` 复核 `True`）。⑥ **豁免清单守卫**：新增 `app/tests/state/stateMachineRegistrationGate.test.ts` **4 例**（非空且带 reason / 文件存在且确实导出该符号=防陈旧豁免 / 键唯一 / **与目录锚点不重叠**）；`bun test tests/state` **122 pass / 0 fail**。⑦ **规则条文**：`.trae/rules/architecture-compliance.md` 新增 **R09-006**（R09 段内）+ 规则版本 **1.6.0 → 1.6.1**。⑧ **局限（如实，已写入规则与 docstring）**：仅识别 enum / `as const`(Set) 数组两类**有运行时锚点**形态；`type X = 'a' | 'b'` 类型联合与内联字面量**不在**门禁范围（全仓逾 150 处，逐一豁免即噪音门禁）⇒ 由目录的 `source-read` 条目 + `stateMachineCatalog.test.ts` 人工取证覆盖。e2eVerified=false（未接真实 CI 作业做端到端阻断验证）。"
+    },
+    {
+      "id": "CHANGOV-TYPECHECK-1323",
+      "title": "通道治理 阶段 1.2/1.3 收口：修复 3 处 **typecheck 回归**（`ChannelInterface.plugin` 契约缺 `capabilities`/`meta`；附件口径订正为 `options.images`）",
+      "source": "回仓实测（`bunx tsc --noEmit` 3 处 TS2339）+ dev_docs/20261012/通道治理方案-20261012.md §3 阶段 1.2 / 1.3（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/channels/registry/ChannelRegistry.ts",
+        "app/src/chat/orchestrator/preSendContextProtection.ts",
+        "app/src/query/attachmentBudget.ts"
+      ],
+      "tests": ["app/tests/query/attachmentBudget.test.ts", "app/tests/channels/deliveryFallbackChain.test.ts"],
+      "changelog": [],
+      "reopenWhen": "改 `ChannelInterface.plugin` 视图 / `IChannelPlugin.capabilities|meta` 装配，或改附件→预算预留的入参口径时",
+      "notes": "① **实测回归（3 处 TS2339）**：`DeliveryRouter.ts:478/479`（`plugin.capabilities.interactive` / `plugin.meta.markdownCapable`）与 `preSendContextProtection.ts:194`（`options.attachments`）⇒ `bunx tsc --noEmit` 3 错、退出码 2。② **根因（两处不同）**：(a) `ChannelRegistry.ts` 的 `ChannelInterface.plugin` **声明只有 `{outbound}`**、且 `adaptPluginToInterface` **运行时也只装配 `outbound`** ⇒ 阶段 1.2 读的 `capabilities`/`meta` 既无类型也无值（值本就存在于 `IChannelPlugin.capabilities` / `.meta`）⇒ **补声明 + 原样透传装配**（不新增字段、不复制、不派生，唯一事实源仍为 `IChannelPlugin`）。(b) 阶段 1.3 的「会话 DTO `StreamMessageOptions.attachments`」**全仓不存在**（`options.ts:178` 的 `StreamMessageOptions` 无该字段；`:266` 的 `attachments` 属 `CreateMessageParams`）⇒ 原注释属**未取证断言**，且该读取在运行期恒为 `undefined`（inert）。**订正口径为 `options.images`**：这是**唯一**真正贯通到 `streamMessage` 且携带 `size` 的入参（前端 → `ChatRequest.images` `CoreAPI.ts:81` → `CoreAPIImpl.chatStream:626`），且图片字节**不进** `apiMessages`（`StreamPipeline.registerImages()` 只追加「图片路径文本」）⇒ 其开销确实不计入 `msgTokens`，**非重复计数**。③ **验证**：`tsc --noEmit` / `typecheck:scripts` / `typecheck:root-scripts` **三工程全绿**；`bun test tests/state tests/channels tests/query` **678 pass / 0 fail**。④ **未接线（如实，不谎称已覆盖）**：**通道侧**入站附件（`MessageContext.attachments`）**当前未**被 `routeChannelMessage`（`messageRouter.ts:512` 的 `chatStream({...})`）透传 ⇒ 该路径仍在预算闸门之外；且通道侧 `MessageAttachment` 与会话侧同名不同物（禁断言互换）⇒ 须经 DTO 形状搬运（通道治理 阶段 2.4）后再接线（已写入 `query/attachmentBudget.ts` 头注）。e2eVerified=false。"
+    },
+    {
+      "id": "FSM-TOOLSTATUS-P2",
+      "title": "状态机规范管理 阶段 2：工具调用状态**单一事实源**（收敛 5 份分叉契约）+ chunk/SSE 层**去裸值**",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §2.1 / §4 阶段 2.1–2.3（2026-10-12）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/execution/types.ts",
+        "app/src/execution/index.ts",
+        "app/src/runtime/api/CoreAPI.ts",
+        "app/src/runtime/api/CoreAPIImpl.ts",
+        "app/src/session/types/UnifiedMessage.ts",
+        "app/src/chat/reactEventsToChunks.ts",
+        "app/src/infrastructure/http/handlers/chat-handlers.ts",
+        "app/src/utils/toolContract/ToolProgress.ts"
+      ],
+      "tests": [
+        "app/tests/state/toolCallStatusSingleSource.test.ts",
+        "app/tests/chat/reactEventsToChunks.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改 `TOOL_CALL_STATUSES` 词表 / 增删 chunk 层 `ToolCallSpec.status` 消费点 / 让子 Agent 进度态并入工具调用态时",
+      "notes": "① **单一事实源落地（2.1）**：`ToolCallStatus`（`execution/types.ts`，4 态含恢复期 `unknown`）成为**唯一**类型；`execution/index.ts` **补齐出口**（R03-002）—— 此前 `TOOL_CALL_*` 常量/类型**未**经模块出口暴露，消费者只能各自复写字面量（正是分叉根因）。② **裁定（三处等价性）**：`ToolCallSpec.status`（HTTP 门面/chunk）与 `FrontendMessageBlock.toolCall.status`（前端消息块）**统一引用** `ToolCallStatus`；**放宽含 `unknown` 零行为变更**（流式路径无该值生产者，生产者 = 恢复期回填）。**`SubAgentProgress.status`（`utils/toolContract/ToolProgress.ts`）裁定 ≠ 同一物**：语义属**子 Agent 域**，且 `utils` 为 **infra**、`allowedDependencies.infra = [infra, core]` ⇒ 引用 `execution`(**service**) 即**分层倒挂**（R00-001）⇒ 保持独立并加**双向边界注释**（对齐 `MessageAttachment` 判例）。③ **去裸值（2.2）**：`execution/types.ts` 新增具名常量 `TOOL_CALL_COMPLETED_STATUS` / `TOOL_CALL_FAILED_STATUS`（对齐既有 `TOOL_CALL_INITIAL_STATUS` / `TOOL_CALL_UNKNOWN_STATUS` 的「避免裸字面量」先例）；`reactEventsToChunks.ts:92,130`、`chat-handlers.ts:873,1295`（SSE 兜底）改引用常量；`CoreAPIImpl.ts:1001` **删除** `as { toolCall?: { status?: string } }` 结构断言（把状态类型降级为裸 `string` 的元凶）——`chunk` 在该分支已收窄为 `ChatStreamChunk`。④ **2.3 已随阶段 1.3 配套完成**（`TRANSIENT_AWAITING_APPROVAL` + `ToolExecutionStatus.REQUIRES_APPROVAL`，见 `FSM-CATALOG-HYGIENE`）。⑤ **测试**：新增源码守卫 `tests/state/toolCallStatusSingleSource.test.ts` **7 例**（出口暴露 / 两面引用类型 / chunk 层无裸值 / SSE 兜底常量 / 断言已删 / 子 Agent 保持独立不跨层）+ `tests/chat/reactEventsToChunks.test.ts` **+4 例**（常量取值锁 + `tool_start`/`tool_end(success)`/`tool_end(error)` 行为锁）。⑥ **验证**：`lint:arch` **0 错**（R09-006 候选 **54 不变**）· `typecheck` **三工程全绿** · `lint:fn-size` / `lint:complexity` 未增长 · `bun test tests/state tests/chat tests/channels tests/query tests/session` **1496 pass / 0 fail**（189 文件）· 受影响面 `src/runtime|infrastructure|session|execution` **40 pass / 0 fail**。⑦ **零行为变更**：wire 取值未变（`running`/`completed`/`failed`；常量取值由测试锁定），无 DB / 无迁移 / 无 wire 字段变更。e2eVerified=false（未做真实浏览器长会话的 SSE 端到端核对）。"
+    },
+    {
+      "id": "FSM-SESSIONSTATE-P3",
+      "title": "状态机规范管理 阶段 3：会话状态机 **8 态 → 3 态收敛**（用户裁定）+ 旧枚举删除 + 不可达兜底清理",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 3（2026-10-12；执行前含**取证订正**：方案原前提「旧 8 态为半途迁移遗留」被实证推翻）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/state/session/types.ts",
+        "app/src/state/session/SessionStateMachine.ts",
+        "app/src/state/index.ts",
+        "app/src/state/engine/stateMachineCatalog.ts",
+        "app/src/chat/services/EventNotificationService.ts",
+        "app/src/chat/services/SessionStateBridge.ts",
+        "app/src/session/models/SessionState.ts"
+      ],
+      "tests": [
+        "app/tests/state/session/SessionStateMachine.test.ts",
+        "app/tests/state/stateMachineCatalog.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改会话状态取值/转移表、改 `SessionStateBridge` 事件→状态映射、或需恢复 PAUSED/ERROR/ARCHIVED 的独立语义时（须同时评估信息降级回退）",
+      "notes": "① **执行前取证（推翻了方案前提，已报用户裁定）**：旧 8 态 `SessionState` **不是**遗留死码而是**活事实源** —— `ChatManager:3184`（`.start('processUserInput')`）/`:3338`（`.finish(...)`）、`ChatOrchestrator:754/1166`（`.start/.finish`）、`SessionStateBridge`（**已在 `entrypoints/init.ts:479-490` 接线**）按 `session:activated/paused/resumed/archived/error` 驱动 `.start/.pause/.resume/.complete/.error`；而迁移目标 `SimplifiedSessionState` + `toSimplifiedState()` 经全仓取证为**零生产消费者且未出口**（`state/index.ts` 当时只导出旧 `SessionState`）。**用户裁定：按原文执行 8→3 合并**（已如实登记其信息降级代价）。② **折叠映射**（与 Phase 1 既定 `toSimplifiedState()` 逐值一致）：`IDLE/COMPLETED/ARCHIVED/ABORTED → idle`；`RUNNING → running`；`REQUIRES_ACTION/PAUSED/ERROR → requires_action`。③ **转移表重写**：`SESSION_TRANSITIONS = { idle:['running'], running:['idle','requires_action'], requires_action:['running','idle'] }`（由旧表逐边归并）。**3 态下无终态**（`idle` 可再 `start()` ⇒ 成环，`isTerminal()` 恒 `false`）。④ **同目标再触发经证明不新增异常面**：引擎 `StateMachine.transition` 对 `from === to` **早返回 `true`**（`StateMachine.ts:188-194`），`onTransition` 钩子与 `notifyListeners` 均内置 try/catch ⇒ 折叠后不可避免的「已在 `requires_action` 时再 `pause()`/`error()`」为**幂等无操作**（旧 8 态表本就允许 `REQUIRES_ACTION→PAUSED/ERROR`）。⑤ **删除项（3 类，均有取证）**：旧 8 态枚举本体（零消费者）；`toSimplifiedState()`（8 态消失后**失输入类型**；且旧 8 态**不持久化**、`emitSessionStateChanged()` 零调用点 ⇒ 无迁移映射需求）；`SessionStateMachine.archive()`（3 态下 `ARCHIVED` 折叠为 `idle`、无独立目标，**生产零调用者** —— `SessionStateBridge` 的 `session:archived` 本就调 `complete()`）。⑥ **不可达兜底清理（CS03）**：`SessionStateBridge` 对 `complete()` 的 try/catch + `handleError` 导入**已删除** —— `complete()` 目标为 `idle`，3 态下 `idle/running/requires_action` **三者到 `idle` 均为合法边或幂等**，且引擎内部已捕获钩子/监听器异常 ⇒ `transition()` 只可能抛 `IllegalTransitionError`，该处**不存在该情形**（原注释「忽略非 RUNNING 状态下 complete 失败的异常」已失效）。⑦ **定义目录同步**：`sessionState`（8 态）条目 → 重写为 **3 态**；运行时锚点由 enum 改为**转移表键**（新增 `anchor: 'objectKeys'` 变体，`stateMachineCatalog.ts` + `stateMachineCatalog.test.ts`）；删除 `sessionStateSimplified` 条目（并入 `sessionState`）；`BOUNDARY_STATE_MACHINES#sessionModelClass` 理由更新（**阶段 3 已处置：保持独立** —— 其 8 值词汇表用于**接受既有持久化值**，只可放宽不可收紧），并订正 `session/models/SessionState.ts` 中「对齐 8 状态枚举」的**失真注释**。⑧ **测试**：`tests/state/session/SessionStateMachine.test.ts` **重写为 25 例**（转移表/折叠映射/幂等无操作/非法转移/历史记录/成环生命周期/`archive()` 防回流）；`stateMachineCatalog.test.ts` 支持 `objectKeys` 锚点并继续逐项比对防漂移。⑨ **验证**：`lint:arch` **0 错**（R09-006 候选 **54 → 53**，恰等于删除 1 个 `*State` 枚举，逐数吻合）· `typecheck` 三工程全绿 · `lint:fn-size`/`lint:complexity` 未增长 · `bun test tests/state tests/chat tests/session tests/channels tests/query` **1490 pass / 0 fail**（189 文件）· `lint:invariants`/`lint:doc-code`/`version:check` 全绿。⑩ **CD05/CD06 遵从（如实）**：**本批改动在提交时应拆为两个提交** —— ①迁移（消费方改走 3 态）②删除（旧枚举/映射函数/`archive()`/不可达兜底）；**回滚路径** = 按证据 `code` 清单整体 `git revert`（**无 DB 变更、无 wire 变更、无持久化格式变更** ⇒ 可安全恢复）。e2eVerified=false（未做真实长会话的会话状态观测端到端核对）。"
+    },
+    {
+      "id": "FSM-PROJECTION-P4",
+      "title": "状态机规范管理 阶段 4：四原语**只读投影** + 异步 Outbound Broker（telemetry-gated，复用 `globalEventBus`）",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §3 裁定 / §4 阶段 4（2026-10-12；执行前含**方案订正**：原「由 `StateMachineRegistry` 直接挂钩」属层禁）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/state/engine/projectionBroker.ts",
+        "app/src/state/index.ts",
+        "app/src/execution/executionProjection.ts",
+        "app/src/execution/index.ts",
+        "app/src/execution/ExecutionManager.ts",
+        "app/src/core/events/EventBus.ts",
+        "app/src/core/featureFlags.ts"
+      ],
+      "tests": [
+        "app/tests/execution/executionProjection.test.ts",
+        "app/tests/execution/projectionBroadcast.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改四原语词汇 / 改执行域投影表 / 接入真实出站订阅消费者（通道治理阶段 2.3）/ 阶段 5 让 SUSPENDED 可达时",
+      "notes": "① **方案订正（层禁，已回仓举证）**：原文「由 `StateMachineRegistry` 直接挂钩 lifecycle dispatch 管线」不可行 —— (a) `state`(infra) **不可**引用 `execution`(service) 的 `ExecutionStatus`（R00-001 倒挂）；(b) `StateMachineRegistry` 本体只是**实例缓存**（`register/find/unregister/gc`），**不存在** dispatch 管线。⇒ 改为**两层分工**（即原措辞的「或专用 wrapper」备选口径）：**词汇 + 载荷 + Broker** 落 `state/engine/projectionBroker.ts`（infra，**零域依赖**，只认「原语」）；**域侧纯映射**落 `execution/executionProjection.ts`（service，需要 `ExecutionStatus`）。② **§3 裁定逐条落实**：四原语 `PREPARED/RUNNING/SUSPENDED/SETTLED` = **严格无状态、只读、带外广播投影**；**原生枚举不变**（`EXECUTION_STATUSES` 未改）；**不承载裁决**（`publishStateProjection` 无返回值、不回流）；**不暴露内部细粒度状态**（§4.3）—— 载荷**键集恒为** `{at, domain, primitive, sessionId}`，**不含**原生状态/`executionId`/`generation`（测试以键集 + 原生专属字面量缺席**双重锁定**）。③ **4.1 纯映射（编译期穷尽）**：`EXECUTION_STATUS_PROJECTION: Record<ExecutionStatus, ExecutionPrimitive>`（8 态全覆盖，缺一即编译失败）：`QUEUED→PREPARED`；`RUNNING/WAITING_USER/CANCEL_REQUESTED→RUNNING`（与 `isActiveStatus()` **同界**）；`CANCELLED/COMPLETED/FAILED/STALE→SETTLED`（与 `isTerminalStatus()` **同界**）。`WAITING_USER` **不**投 `SUSPENDED`（后者语义为**预算挂起**、尚未实现；`WAITING_USER` 属在飞）—— 代码注释与测试双处锁定。④ **4.2 挂唯一 choke point（无需逐点手工调用）**：`ExecutionManager.emitStatus` 是执行域**唯一** choke point（`acquire/requestCancel/confirmCancel/complete/fail/markStale` 共 **7 处**状态转移全部经它，逐点取证）⇒ 仅此一处接线即全覆盖。⑤ **4.3 复用既有 `globalEventBus`（无独立总线）**：新增事件名 `SystemEvents.STATE_PROJECTED = 'state:projected'`（core，全局总线事件名的既有归属）；`publish` 的语义契约是 **fire-and-forget**（不 await、单监听器异常各自捕获，见 `.trae/specs/eventbus-semantics.md`）⇒ 天然满足「异步带外、失败不回流」（另有测试注入抛错订阅者验证隔离）。⑥ **telemetry gate**：新增 `FEATURE_STATE_PROJECTION_BROADCAST`（**默认关** ⇒ **零行为变更**；`FEATURE_STATE_PROJECTION_BROADCAST=true` 开启），沿用本仓三级开关惯例（env > 变体层 > 静态默认）。⑦ **⚠️ 未接线（如实，UW）**：(a) **无生产消费者** —— 出站订阅面（通道治理方案 §3 阶段 2.3）已裁定**暂缓** ⇒ 当前仅 `globalEventBus` 订阅者（含测试）可收；**不**宣称「已下发到通道」。(b) **`SUSPENDED` 无生产者** —— 预算挂起（`long-task-suspend-resume.md`）未实现 ⇒ 该原语**当前不可达**（阶段 5 接入；已用测试锁「不在投影像集内」）。(c) **其余域未投影**：`toolCall` 结算**无单一 choke point**（`settleToolCall`/`endToolCall`/`recordToolCall` 三入口 + store 直连路径）⇒ 逐点接线违背 §4.1；`session`/`app`/`task` 无「对外统一进度态」的真实消费者（CS03）。(d) **本模块不是状态机**（§3）⇒ **不**登记进 `STATE_MACHINES`（R09-006 亦不识别 `_PRIMITIVES` 形态；实测候选数 **53 不变**，未新增噪音）。⑧ **测试**：`tests/execution/executionProjection.test.ts` **5 例**（8 态穷尽 / 逐态映射 / 与既有谓词同界 / `WAITING_USER` 不投 SUSPENDED / SUSPENDED 不可达）· `tests/execution/projectionBroadcast.test.ts` **4 例**（开关关零发布 / 开关开 RUNNING→SETTLED / 载荷键集恒定且无原生字面量 / 订阅者抛错不回流）。⑨ **验证**：`lint:arch` **0 错**（R09-006 候选 **53 不变**）· `typecheck` 三工程全绿 · `lint:fn-size`/`lint:complexity` 未增长 · `bun test tests/state tests/chat tests/session tests/channels tests/query tests/execution` **1572 pass / 0 fail**（199 文件）· `lint:invariants`/`lint:doc-code`/`version:check` 全绿。⑩ **零行为变更**（默认关）：不发布任何广播；`ExecutionManager` 仅多一次常数级映射查表。e2eVerified=false（未接真实出站消费者做端到端下发核对）。"
+    },
+    {
+      "id": "FSM-SUSPENDED-P5",
+      "title": "状态机规范管理 阶段 5（SUSPENDED 投影 / Freeze-and-Resume 联动）—— **阻塞**（前置未落地，零产品代码改动）",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 5（2026-10-12 取证：阻塞）",
+      "stages": { "discovered": true, "fixed": false, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": false, "unitTested": false, "e2eVerified": false },
+      "code": ["dev_docs/20261012/状态机规范管理方案-20261012.md"],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "`long-task-suspend-resume.md`（**已于 2026-10-12 定案为 v1.1**）进入实施后：按其实施阶段 A（F1/F2/F4 前置修复）→ B（挂起核心，两条链）→ C（唤醒）→ D（可观测）逐段落地，落地后回状态机方案执行 5.1/5.2",
+      "notes": "① **阻塞依据（逐条取证）**：P1 预算**挂起**不存在 —— `TAORLoop.beforeReasoning`（`app/src/query/TAORLoop.ts:1115-1124`）耗尽即 `stopReason='budget_exhausted'; stopped=true; return`（**静默中止**，仅补 `logExhaustionAbort` 应用日志、**不给用户出路**）；P2 上游 `.trae/specs/long-task-suspend-resume.md` 其 v0.1 为**立项稿·未排期·未头脑风暴**，§5 明写「**在此之前不动任何产品代码**」；P3 `SUSPENDED` 投影**无生产者**（P1 缺失 ⇒ 无挂起态可投影；已由 `FSM-PROJECTION-P4` 的测试锁「当前不可达」）⇒ 本阶段**按设计与上游裁定不可执行**，故**零产品代码改动**（CS05/CS06：不虚造挂起态、不伪造进度）。② **2026-10-12 进展（用户裁定「启动债二专项」）**：上游 spec 已完成**头脑风暴（跳过问答，按回仓取证逐条定案）**并**升级为 v1.1 定案稿**，含 D1–D8 八项定案 + fresh builder 自检订正（原 D4「复用 `cost:dailyBudgetUpdated`」经核实**只走 HTTP SSE、进程内订阅不到**且含 kill-switch 误唤醒 ⇒ 订正为**进程内回调**；原 D2 只覆盖 batch ⇒ 订正为**分链落各自既有检查点**；D3 明确取值来源；D7 补「真再跑」硬要求）+ 用户两项范围裁定（**修 `waive-once` 闸门接线**；**两条链都本期做**）⇒ 本条目 `flags.designed` 由 false **升为 true**，但 **`coded` 仍为 false**（该 spec 明文 HARD-GATE：批准前不写产品代码）。③ **已具备的前置（供未来接入，避免重复造）**：P4 relief 台账 —— `DailyBudgetManager` 的 `effectiveLimit`（`:334`）/ `debtTokens`（`:152`）/ `ReliefKind`（`boost|waive-once|unlock-today`）+ `POST|DELETE /v1/cost/daily-budget/relief` 与 `GET` 暴露 relief/debt（`app/tests/http/dailyBudgetRelief.contract.test.ts`）；P5 唤醒信号 —— 后端 3 发送点经 `cost:dailyBudgetUpdated` 广播（`app/src/infrastructure/http/handlers/daily-budget-handlers.ts:183/205/248`）、前端 `client/src/hooks/useNotificationSSE.ts:121-134` 已订阅（即上游 spec §3-Q4 点名的候选通道）。④ **5.3 现状澄清（重要，避免重复造）**：「富上下文错误帧 `DAILY_BUDGET_EXCEEDED` + 三种恢复路径」**已由 `daily-budget-over-limit-ux` 落地** —— SSE `__pyapp_error_code`（`chat-handlers.ts:858/1288`）+ 非流式 `errorCode`/`errorContext`（`CoreAPI.ts:138/143`）+ 前端**可交互**三路径卡片 `DailyLimitNotice.tsx:10,33-36`（`boost`/`waive-once`/`unlock-today` → `usageService.setDailyBudgetRelief`）+ 通道侧**专用文案**（`resolveLlmFailure`；`app/tests/channels/channelBudgetNotice.test.ts`）⇒ **本方案不再实现第二套**（CS01）。⑤ **唯一残留缺口（如实）**：**通道侧**为文案、**非可交互**（按钮/回调）—— 属通道侧（需出站交互面 + 入站回调，落通道治理 阶段 2.3/2.4 范围），**不属**本方案内核改造。⑥ 本条目 `fixed=false` + 空 `tests`，沿用本台账既有「未修复/阻塞」条目形式（对照 `MODE-*` 系列）；**待该专项实施落地后**再按四段生命周期更新（`fixed`/`testVerified`）。"
+    },
+    {
+      "id": "BUDGET-SUSPEND-RESUME",
+      "title": "长程任务「预算挂起—续跑」：撞限挂起 + relief 唤醒 + 两链续跑 + SUSPENDED 投影（含 F1/F2/F4 三项前置缺陷修复）",
+      "source": ".trae/specs/long-task-suspend-resume.md（v1.1 已批准；v1.3 = 最终整支评审修复波）+ dev_docs/20261012/债二-预算挂起续跑-实施计划-20261012.md（9 任务，subagent-driven 执行）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/query/taor/pendingToolCalls.ts",
+        "app/src/query/taor/budgetSuspendHook.ts",
+        "app/src/query/TAORLoop.ts",
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/query/dailyBudgetGate.ts",
+        "app/src/query/budgetSuspend.ts",
+        "app/src/query/types.ts",
+        "app/src/query/ResumeManager.ts",
+        "app/src/query/ReActLoop.ts",
+        "app/src/query/index.ts",
+        "app/src/chat/ToolLoopRunner.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        "app/src/chat/services/StreamingAutoCheckpoint.ts",
+        "app/src/chat/ChatManager.ts",
+        "app/src/chat/ChatManagerInterface.ts",
+        "app/src/chat/manager/bootstrap.ts",
+        "app/src/chat/orchestrator/ChatOrchestrator.ts",
+        "app/src/chat/orchestrator/streamMessageToolLoopContext.ts",
+        "app/src/core/featureFlags.ts",
+        "app/src/infrastructure/http/index.ts",
+        "app/src/infrastructure/http/handlers/checkpoint-handlers.ts"
+      ],
+      "tests": [
+        "app/tests/query/pendingToolCallsFromMessages.test.ts",
+        "app/tests/query/taorCheckpointPendingTools.test.ts",
+        "app/tests/query/dailyBudgetWaiveOnceGate.test.ts",
+        "app/tests/query/budgetSuspend.test.ts",
+        "app/tests/query/budgetSuspendTaor.test.ts",
+        "app/tests/query/budgetSuspendWake.test.ts",
+        "app/tests/query/budgetSuspendProjection.test.ts",
+        "app/tests/chat/budgetSuspendStream.test.ts",
+        "app/tests/chat/budgetSuspendStartupRestore.test.ts",
+        "app/tests/chat/taorLoopResumeWiring.test.ts"
+      ],
+      "changelog": ["CHANGELOG.md"],
+      "reopenWhen": "① 接入真实长会话端到端（撞限 → 放行 → 续跑全链）核对并转 `e2eVerified=true`；② 通道侧「可交互放行」落地（通道治理 阶段 2.3/2.4）后复核唤醒口径；③ 收窄 `streamMessageToolLoopContext` 的 `as unknown` 断言口径（消除 parked 类型盲区）时；④ 状态机方案 阶段 5（5.1/5.2）落地后回看 `SUSPENDED` 投影的消费者面",
+      "notes": "① **范围**：spec D1–D8 全部落地 —— 撞限在**轮间安全点**挂起（流式 = `StreamingAutoCheckpoint.suspend` 落 `label='budget_suspend'`；batch = `taor_checkpoints.type='budget_suspend'`，**不新建表**）；用户放行经 `DailyBudgetManager` **进程内回调**（**非** SSE `cost:dailyBudgetUpdated`，亦非新总线）触发 `BudgetSuspendCoordinator.onReliefApplied` 决策（时间序 / 串行 / 上限默认 3 / `waive-once` 恰 1 个 / 幂等 / >24h 不唤醒）；两条链分别经既有 `ChatManager.resumeStream` 与 `resumeSuspendedSession(...,'taor')` 唤醒；`SUSPENDED`/`RUNNING` 仅作**只读投影**（生产者唯一 = 协调器，**未动** `ExecutionStatus` 8 态与 `executionProjection.ts`）。② **前置缺陷修复（不受开关门控）**：**F1** `saveCheckpoint` 写入真实 `pendingToolCalls`（由末条含 `tool_calls` 的 assistant 消息推导），使 `reExecuteTools` 首次真正生效；**F2** `registerTAORLoop` 接线（键 = sessionId，修复端点恒 404）+ `ChatManager.resumeSuspendedSession`（「真再跑」走既有执行入口）；**F4** `waive-once` 闸门消费点（`canExecute()` 读未过期 waiver + 本轮记账后消费一次）。**G-T3-1**：一次性续跑意图使 `ChatOrchestrator` 跳过 `taorLoop.reset()`（否则恢复态与 steering 被抹除）。③ **开关**：`FEATURE_BUDGET_SUSPEND_RESUME`（默认关）+ 投影复用 `FEATURE_STATE_PROJECTION_BROADCAST`（默认关）⇒ 关时零行为变更；`BUDGET_RESUME_MAX_PER_WAKE` env 默认 3。④ **验证**：本批 21 例 + `tests/query|chat|execution` 874 pass / 0 fail；`typecheck` 0 错；`lint:arch` 0 错（R04-001 未触顶：`TAORLoop.ts` 净零行）。⑤ **如实缺口（`e2eVerified=false`）**：未接真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是**既有类型盲区**（parked）；唤醒上限按「成功数」计数（handler 调用数可 > N，未单测）；`taor` 链续跑的 host 胶水缺集成用例。⑥ 执行方式：subagent-driven（每任务 fresh 实现 + fresh 评审 + 修轮复核），两处 fix round 各消除 2 项 Important。⑦ **最终整支评审修复波（v1.3，2026-10-12；2 Critical + 4 Important 全量修复）**：**C1** 流式链唤醒在主链典型场景下退化为空操作（日预算闸门在**轮首 REASON 之前**触发 ⇒ 上轮工具已全部完成 ⇒ `resumeStream` 直接 yield `task_all_done`）⇒ 改为「**先试重放、无实质进展则经既有执行入口重发一轮**」（`ChatManager._resumeSuspendedStream`），并**如实返回**（无进展且重发失败 ⇒ `false`）；**C2** `waive-once` 只接了 `DailyBudgetManager.canExecute()`（唯一运行时调用者 = TAORLoop），而**流式/发送侧**闸门是 `checkDailyBudget()`（纯读）⇒ 新增只读判据 `hasActiveWaiver()` 并接入该收口（消费点仍在 `recordUsage()`，保持无副作用）；**I1** `registerTAORLoop` **不受开关门控**且 `unregisterTAORLoop` 零调用 ⇒ 注册表有界化（`MAX_TAOR_LOOP_REGISTRY=200`，最旧淘汰）+ 会话拆除/`clearAllSessions`/`cleanup()` 注销；**I2** spec §4.4「重启后登记为待放行」未实现 ⇒ 新增 `ChatBootstrap.resumeBudgetSuspends()`（batch=`ResumeManager.scanBudgetSuspends()`；stream=`metadata.budgetSuspend`），**只登记不续跑**；**I3** 并入 C1；**I4** `pendingToolCalls` 无运行时消费者 ⇒ 由 `buildBudgetResumePrompt()` 消费进续跑提示（流式=重发提示、batch=`injectSteering`）；**M2/M3/M5** 口径统一（去冗余 `getLatestCheckpoint` 查询、`isSuspended` 计入过期、唤醒上限按「尝试数」、`resumed` 日志记 `kind` + `resume_summary` 带 `woken`、负向补 `null`、`budgetSuspendStream` 用例①补断言预算确已耗尽）。**同步订正 spec §0/§3-D3/§3-D7/§4.4/§6.2**。**残余（如实）**：**M1（`_waiverGrantedThisTurn` 会话归属）未做** —— 需扩 `canExecute()`/`BudgetPort` 签名（跨模块 ripple），超出「最小改动」；流式链通行证消费仍依赖同轮曾走 `canExecute()`，否则在 TTL 内保持有效。「唤醒上限按成功数计数」缺口已由 M3 消除。"
     }
   ]
 }

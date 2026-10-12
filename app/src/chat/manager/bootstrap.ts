@@ -34,8 +34,12 @@ import { handleError } from '@modules/error';
 import { RollbackIntegration } from '@modules/security';
 import type { SessionGateway } from '@modules/session';
 import type { Message } from '@modules/session/types/message.js';
+import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { TAORLoop } from '@modules/query';
+import type { TAORCheckpoint } from '../../query/types.js';
+import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend.js';
+import { feature } from '@modules/core';
 import type { ToolAwareClient } from '@modules/ai';
 import { mapSessionStatusToState } from '../services/ChatHelper';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
@@ -64,6 +68,12 @@ export interface ChatBootstrapDeps {
     previous: number | undefined,
     recalculated: number
   ) => boolean;
+  /** I2：会话检查点服务（启动期重建**流式链**的挂起登记） */
+  getCheckpointService: () => {
+    listCheckpoints(sessionId: string): Promise<SessionCheckpoint[]>;
+  };
+  /** I2：扫描 **batch 链**的 `budget_suspend` 检查点（生产 = `resumeManager.scanBudgetSuspends`） */
+  scanBudgetSuspendCheckpoints: () => Promise<TAORCheckpoint[]>;
 }
 
 export class ChatBootstrap {
@@ -309,6 +319,61 @@ export class ChatBootstrap {
       }
     } else {
       logger.info('Durable Resume 已通过 ENABLE_DURABLE_RESUME=false 关闭');
+    }
+
+    // I2（最终整支评审）：启动期把 `budget_suspend` 条目**登记为"待放行挂起"**。
+    // 与 Durable Resume **正交**（各自的开关）：Durable Resume 只扫描并自动恢复普通检查点，
+    // 而挂起必须**只登记、绝不自动续跑**（守反目标①：静默烧额度）。
+    await this.resumeBudgetSuspends().catch((err) => {
+      logger.warn('Budget Suspend 启动登记失败', { error: String(err) });
+    });
+  }
+
+  /**
+   * I2（最终整支评审）：启动扫描把 `budget_suspend` 交协调器**登记为"待放行挂起"**（spec §4.4）。
+   *
+   * **两支**（挂起事实源分链，D2）：
+   *  - batch：`type='budget_suspend'` 的 TAOR 检查点；
+   *  - stream：会话检查点带 `metadata.budgetSuspend` 标记者。
+   *
+   * 只登记（`coordinator.suspend`）——**绝不**触发续跑（不调 `getOrCreateTAORLoop`、不调
+   * 执行入口）；等用户放行（relief）后才由协调器唤醒。受 `FEATURE_BUDGET_SUSPEND_RESUME`
+   * 门控 ⇒ 关时零行为变更。
+   */
+  async resumeBudgetSuspends(): Promise<void> {
+    if (!feature('BUDGET_SUSPEND_RESUME')) return; // 默认关 ⇒ 零行为变更
+    const coordinator = getBudgetSuspendCoordinator();
+
+    // ① batch 链：type='budget_suspend' 的检查点
+    const batchCheckpoints = await this.deps.scanBudgetSuspendCheckpoints();
+    for (const cp of batchCheckpoints) {
+      if (!cp.sessionId) continue;
+      coordinator.suspend({
+        sessionId: cp.sessionId,
+        chain: 'taor',
+        checkpointRef: cp.id,
+        reason: 'restored_budget_suspend',
+      });
+    }
+
+    // ② 流式链：会话检查点带 `metadata.budgetSuspend` 标记
+    const sessions = await this.deps.getSessionGateway().listSessions();
+    for (const session of sessions) {
+      const checkpoints = await this.deps
+        .getCheckpointService()
+        .listCheckpoints(session.id);
+      const suspended = checkpoints.find(
+        (cp) =>
+          (cp.metadata as unknown as Record<string, unknown> | undefined)
+            ?.budgetSuspend !== undefined
+      );
+      if (!suspended) continue;
+      coordinator.suspend({
+        sessionId: session.id,
+        chain: 'stream',
+        checkpointRef: suspended.id,
+        reason: 'restored_budget_suspend',
+      });
     }
   }
 

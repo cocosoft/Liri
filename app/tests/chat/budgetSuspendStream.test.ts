@@ -15,6 +15,7 @@ import type { ChatResponse } from '@modules/ai';
 import { StreamingAutoCheckpoint } from '../../src/chat/services/StreamingAutoCheckpoint.js';
 import { toStreamingCheckpointPort } from '../../src/chat/orchestrator/streamMessageToolLoopContext.js';
 import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,
@@ -208,6 +209,10 @@ describe('Task 5：流式链日预算耗尽挂起', () => {
     expect(saved.some((s) => s.label === 'budget_suspend')).toBe(false);
     expect(getBudgetSuspendCoordinator().isSuspended(SESSION_ID)).toBe(false);
     expect(getBudgetSuspendCoordinator().list().length).toBe(0);
+    // M5（最终整支评审）：补断言"预算确已耗尽"——否则本用例可能空转（未真正走到撞限分支）。
+    const mode = getDailyBudget().getMode();
+    expect(mode.mode).toBe('locked');
+    expect(mode.todayUsed).toBeGreaterThanOrEqual(LIMIT);
   });
 
   it('开关开：日预算耗尽 ⇒ 落 label=budget_suspend 检查点 + 协调器登记 chain=stream', async () => {
@@ -282,5 +287,141 @@ describe('Task 5：流式链日预算耗尽挂起', () => {
     expect(getBudgetSuspendCoordinator().isSuspended(SESSION_ID)).toBe(false);
     expect(getBudgetSuspendCoordinator().list().length).toBe(0);
     expect(warns.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── C1 / I3（最终整支评审）：流式唤醒必须"真的继续跑"，且返回值如实 ────────────────
+//
+// 缺陷：日预算闸门在**轮首、REASON 之前**触发（此刻上一轮工具已全部完成）⇒ `resumeStream`
+// 过滤后剩余为 0，直接 yield `task_all_done` 并 return（不发起新 REASON 轮）；而
+// `resumeSuspendedSession('stream')` 丢弃 chunk 且**无条件 return true** ⇒ 用户见"放行成功"
+// 但任务不走，且协调器 release 掉登记（与 taor 分支不一致）。
+// 修复（口径）：先试重放 → 无实质进展 ⇒ 经既有执行入口重发一轮；返回值如实。
+
+type StreamInternals = {
+  resumeStream(
+    sessionId: string,
+    checkpointId: string
+  ): AsyncGenerator<unknown, unknown, unknown>;
+  getLatestCheckpoint(sessionId: string): Promise<unknown>;
+  chatOrchestrator: {
+    sendMessage(content: string, options?: unknown): Promise<unknown>;
+  };
+};
+
+const asStreamInternals = (cm: ChatManagerImpl): StreamInternals =>
+  cm as unknown as StreamInternals;
+
+/** 让 `resumeStream` / `getLatestCheckpoint` 可被替换（私有成员，运行期可覆写） */
+function stubStreamResume(
+  cm: ChatManagerImpl,
+  chunks: unknown[],
+  latest: unknown
+): void {
+  const internals = asStreamInternals(cm);
+  internals.getLatestCheckpoint = async () => latest;
+  internals.resumeStream = async function* () {
+    for (const c of chunks) yield c;
+  } as never;
+}
+
+describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
+  beforeEach(() => {
+    resetBudgetSuspendForTest();
+  });
+  afterEach(() => {
+    resetBudgetSuspendForTest();
+  });
+
+  it('① 无剩余未完成工具（只 yield task_all_done）⇒ 发起新一轮且返回 true', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'c1-stream-1';
+    // 典型轮首撞限：挂起检查点无 pendingToolCalls
+    stubStreamResume(cm, [{ type: 'status', statusType: 'task_all_done' }], {
+      id: 'cp-1',
+      metadata: {},
+    });
+    let execCalls = 0;
+    let execContent = '';
+    asStreamInternals(cm).chatOrchestrator.sendMessage = async (content) => {
+      execCalls += 1;
+      execContent = String(content);
+      return {} as never;
+    };
+
+    const ok = await cm.resumeSuspendedSession(sid, 'stream');
+
+    expect(ok).toBe(true);
+    expect(execCalls).toBe(1); // 真的发起了新一轮（既有执行入口）
+    expect(execContent.length).toBeGreaterThan(0); // 携带续跑提示
+  });
+
+  it('② 重发也失败（执行入口抛错）⇒ 返回 false 且协调器保留挂起（不 release）', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'c1-stream-2';
+    stubStreamResume(
+      cm,
+      [{ type: 'status', statusType: 'task_all_done' }],
+      null
+    );
+    asStreamInternals(cm).chatOrchestrator.sendMessage = async () => {
+      throw new Error('boom');
+    };
+
+    const coordinator = getBudgetSuspendCoordinator();
+    coordinator.suspend({ sessionId: sid, chain: 'stream', reason: 'r' });
+    coordinator.setResumeHandler((s, c) => cm.resumeSuspendedSession(s, c));
+
+    const { woken } = await coordinator.onReliefApplied('boost');
+
+    expect(woken).toEqual([]);
+    expect(coordinator.isSuspended(sid)).toBe(true); // 保留挂起（不 release）
+  });
+
+  it('③ 有实质进展（yield 非 task_all_done）⇒ 不重发、返回 true', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'c1-stream-3';
+    stubStreamResume(
+      cm,
+      [
+        { type: 'status', statusType: 'resume', content: '从第 3 步恢复' },
+        '正文增量',
+      ],
+      null
+    );
+    let execCalls = 0;
+    asStreamInternals(cm).chatOrchestrator.sendMessage = async () => {
+      execCalls += 1;
+      return {} as never;
+    };
+
+    const ok = await cm.resumeSuspendedSession(sid, 'stream');
+
+    expect(ok).toBe(true);
+    expect(execCalls).toBe(0); // 重放已有进展 ⇒ 不重发（避免重复执行）
+  });
+
+  it('I4：重发轮的提示消费挂起检查点的未完成工具清单', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'c1-stream-4';
+    stubStreamResume(cm, [{ type: 'status', statusType: 'task_all_done' }], {
+      id: 'cp-4',
+      metadata: {
+        pendingToolCalls: [
+          { toolCallId: 'tc-1', toolName: 'bash', args: { command: 'ls' } },
+          { toolCallId: 'tc-2', toolName: 'grep', args: { pattern: 'todo' } },
+        ],
+      },
+    });
+    let execContent = '';
+    asStreamInternals(cm).chatOrchestrator.sendMessage = async (content) => {
+      execContent = String(content);
+      return {} as never;
+    };
+
+    await cm.resumeSuspendedSession(sid, 'stream');
+
+    expect(execContent).toContain('bash');
+    expect(execContent).toContain('grep');
   });
 });

@@ -245,7 +245,14 @@ import { UnifiedTokenTracker } from '../tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '@modules/query';
 // A8 最后一公里（B1，2026-10-04）：装配入口——assembler → 可执行路由（未接线者显式 unavailable）
 // 13-P1-3（2026-10-05）：新增执行配方（recipe）与配方→验证器配置
-import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';
+// I4（最终整支评审）：`buildBudgetResumePrompt` = `pendingToolCalls` 的**运行时消费者**（续跑提示）。
+// 经 `@modules/query` 模块出口导入（守 R03-002：不经 `query/taor` 子目录）。
+import {
+  instantiatePattern,
+  verifierConfigForRecipe,
+  buildBudgetResumePrompt,
+} from '@modules/query';
+import type { PendingToolCallRef } from '@modules/query';
 // 13-P2-1（2026-10-05）：输出侧统一护栏组合根注册（默认关 ⇒ 空注册）
 import { registerDefaultOutputGuards } from './outputGuards/index.js';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
@@ -293,7 +300,7 @@ import { setWorkflowRunEventSink } from '@modules/workflow';
 import { setExecutionEventSink } from '@modules/execution';
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
 // 修复前 `registerTAORLoop` 全仓零调用 ⇒ `activeLoops` 恒空 ⇒ checkpoint 恢复端点恒 404。
-import { registerTAORLoop } from '@modules/infrastructure';
+import { registerTAORLoop, unregisterTAORLoop } from '@modules/infrastructure';
 // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
 import { chargeSessionGoalUsage } from '@modules/tasks';
 import {
@@ -728,6 +735,16 @@ export class ChatManagerImpl implements ChatManager {
   private readonly _taorLoops = new Map<string, TAORLoop>();
 
   /**
+   * I1（最终整支评审）：已登记进进程级注册表（`checkpoint-handlers.activeLoops`）的 sessionId 集合。
+   *
+   * 为什么需要：`registerTAORLoop` 按 sessionId 注册，而注册表是**进程级**单例 —— 会话拆除
+   * （`deleteSession` / `clearAllSessions`）与 `cleanup()` 必须**反向注销**，否则无界增长
+   * （内存泄漏 + 僵尸 TAORLoop），且该泄漏**不受功能开关门控**（默认路径即发生）。用本集合
+   * 记"本实例注册过谁"（缓存键可能带 `::turnsXn` 后缀，不能直接由 `_taorLoops` 反推）。
+   */
+  private readonly _registeredTaorSessions = new Set<string>();
+
+  /**
    * G-T3-1（2026-10-12）：**一次性**续跑意图登记（`sessionId` 集合）。
    *
    * `resumeSuspendedSession` 的 taor 分支在触发执行入口前登记；委托路径消费即删
@@ -848,6 +865,13 @@ export class ChatManagerImpl implements ChatManager {
     isDurableResumeEnabled: () => this.ENABLE_DURABLE_RESUME,
     shouldPersistRecalculatedTotal: (before, after) =>
       shouldPersistRecalculatedTotal(before, after),
+    // I2（最终整支评审）：启动期重建挂起登记所需的两支扫描入口（流式 = 检查点服务；
+    // batch = ResumeManager 单例的 `scanBudgetSuspends`，动态 import 与 bootstrap 既有同款）。
+    getCheckpointService: () => this._checkpointService,
+    scanBudgetSuspendCheckpoints: async () => {
+      const { resumeManager } = await import('../query/ResumeManager.js');
+      return resumeManager.scanBudgetSuspends();
+    },
   });
 
   /**
@@ -1514,8 +1538,29 @@ export class ChatManagerImpl implements ChatManager {
         resumeFromCheckpoint: (id?: string) =>
           activeLoop.resumeFromCheckpoint(id),
       });
+      // I1：记录"本实例注册过谁"，供会话拆除/`cleanup()` 反向注销（防进程级注册表无界增长）。
+      this._registeredTaorSessions.add(sessionId);
     }
     return taorLoop;
+  }
+
+  /**
+   * I1（最终整支评审）：注销某会话在**进程级**注册表（`checkpoint-handlers.activeLoops`）中的登记。
+   *
+   * 幂等：仅当该 sessionId 确由本实例登记过才注销（避免误删他人登记）。会话拆除与 `cleanup()`
+   * 都经此收口 —— 修复前 `unregisterTAORLoop` 全仓零调用 ⇒ 注册表无界增长。
+   */
+  private _unregisterTaorLoop(sessionId: string): void {
+    if (!this._registeredTaorSessions.delete(sessionId)) return;
+    unregisterTAORLoop(sessionId);
+  }
+
+  /** I1：注销本实例登记过的**全部**会话（`cleanup()` / `clearAllSessions` 用）。 */
+  private _unregisterAllTaorLoops(): void {
+    for (const sessionId of this._registeredTaorSessions) {
+      unregisterTAORLoop(sessionId);
+    }
+    this._registeredTaorSessions.clear();
   }
 
   /**
@@ -2638,6 +2683,10 @@ export class ChatManagerImpl implements ChatManager {
     // 新实例可能对**陈旧登记**发起恢复（修复前此处无 clear()，见 §2.5 P0-6）。
     getYieldRegistry().clear();
 
+    // I1：注销本实例登记进进程级注册表的全部 TAORLoop（同"清理模块级单例"纪律，
+    // 否则实例重建会让 `activeLoops` 累积僵尸端口）。
+    this._unregisterAllTaorLoops();
+
     taskOrchestrator
       .abortAll()
       .catch((e) =>
@@ -2688,34 +2737,27 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * F2 / D7（2026-10-12，预算挂起续跑 Task 3）：挂起会话的「唤醒 → 续跑」入口。
    *
-   * - `chain='stream'`：**消费**既有流式续跑 `resumeStream`（与 `POST /v1/sessions/:id/resume`
-   *   同一入口，不搬迁、不复制恢复谱系）；
-   * - `chain='taor'`：先 `resumeFromCheckpoint(latest)` 恢复游标，再注入续跑 steering，
-   *   最后**触发既有执行入口**（`ChatOrchestrator.sendMessage` 的 TAOR 委托路径）。
-   *   —— `resumeFromCheckpoint` 只恢复内存状态、**不触发执行**（spec §3-D7「真再跑」为硬要求），
-   *   故必须再触发一次既有入口，且**不新增执行路径**。
+   * - `chain='stream'`：**先试重放、无进展则重发**（C1/I3 口径订正）——见 `_resumeSuspendedStream`；
+   * - `chain='taor'`：先 `resumeFromCheckpoint(latest)` 恢复游标，再注入续跑 steering
+   *   （I4：携带未完成工具清单），最后**触发既有执行入口**（`ChatOrchestrator.sendMessage`
+   *   的 TAOR 委托路径）。—— `resumeFromCheckpoint` 只恢复内存状态、**不触发执行**
+   *   （spec §3-D7「真再跑」为硬要求），故必须再触发一次既有入口，且**不新增执行路径**。
    *
-   * @returns 是否成功发起续跑（`taor` 无可用检查点时返回 `false`）
+   * @returns 是否**真正发起**了续跑（两链都"未发生后返回 `false`" ⇒ 协调器保留挂起）
    */
   async resumeSuspendedSession(
     sessionId: string,
     chain: 'stream' | 'taor'
   ): Promise<boolean> {
     if (chain === 'stream') {
-      // 消费既有流式续跑生成器（落盘/广播由该链路内部完成，与 HTTP 恢复端点同源）
-      const latest = await this.getLatestCheckpoint(sessionId);
-      for await (const _chunk of this.resumeStream(
-        sessionId,
-        latest?.id ?? ''
-      )) {
-        void _chunk; // 丢弃正文：与 recovery.resumeSessionInternally 同法
-      }
-      return true;
+      // C1/I3（最终整支评审）：流式链唤醒改为"先试重放、无进展则重发"（见 `_resumeSuspendedStream`）。
+      return this._resumeSuspendedStream(sessionId);
     }
 
     const taorLoop = this._getOrCreateTAORLoop(sessionId);
     const checkpoints = await taorLoop.getCheckpointsForSession();
-    const latestId = checkpoints?.[0]?.id;
+    const latest = checkpoints?.[0];
+    const latestId = latest?.id;
     const resumed = await taorLoop.resumeFromCheckpoint(latestId);
     if (!resumed) {
       logger.warn('resumeSuspendedSession: 无可用 TAOR 检查点，跳过续跑', {
@@ -2723,9 +2765,10 @@ export class ChatManagerImpl implements ChatManager {
       });
       return false;
     }
-    // 续跑 steering（与 bootstrap.resumePendingSessions 同源：`durable-resume`）
-    const resumeInstruction =
-      '[系统] 会话已从预算挂起点恢复，请从中断处继续完成未完成的任务。';
+    // 续跑 steering（与 bootstrap.resumePendingSessions 同源：`durable-resume`）。
+    // I4：**消费**挂起检查点落盘的「未完成工具」清单 ⇒ 提示带上尚未完成的工具名/参数摘要；
+    // 无清单（历史/首轮即撞限）⇒ 退化为通用续跑提示。
+    const resumeInstruction = buildBudgetResumePrompt(latest?.pendingToolCalls);
     taorLoop.injectSteering(resumeInstruction, 'durable-resume');
     // G-T3-1（2026-10-12）：登记**一次性**续跑意图——委托路径（`ChatOrchestrator.sendMessage`
     // 的 TAOR 分支）会 `taorLoop.reset()`，而 `reset()` 会清 `turnCount` / `resumedFromCheckpoint`
@@ -2734,6 +2777,68 @@ export class ChatManagerImpl implements ChatManager {
     this.markResumeIntent(sessionId);
     // 真再跑：触发既有执行入口（TAOR 委托路径 `ChatOrchestrator.sendMessage`）
     await this.chatOrchestrator.sendMessage(resumeInstruction, { sessionId });
+    return true;
+  }
+
+  /**
+   * C1/I3（最终整支评审）：流式链唤醒 —— **先试重放，无实质进展则经既有入口重发一轮**。
+   *
+   * 事实：日预算闸门在 `ReActLoop.run` 的**轮首、REASON 之前**触发（此刻上一轮 ACT 的工具
+   * **已全部完成**）⇒ `resumeStream` 过滤"未完成工具"后剩余为 0，直接 yield `task_all_done`
+   * 并 return（不发起新 REASON 轮）⇒ 主链唤醒**退化为空操作**（用户见"放行成功"但任务不走）。
+   *
+   * 口径（对齐 `daily-budget-over-limit-ux` §5-D-1 D「最简可续跑（重发）」）：
+   *  ① 先跑 `resumeStream`（保留既有"重放未完成工具"能力），并判定是否产生**实质进展**；
+   *  ② 无实质进展 ⇒ 经**既有**执行入口 `ChatOrchestrator.sendMessage`（与 `taor` 分支同一族）
+   *     发起**一次**续跑轮，携带 I4 生成的续跑提示（含未完成工具清单）；
+   *  ③ **返回值如实**：真正发起了执行 ⇒ `true`；两次都未发生 ⇒ `false`（协调器据此**保留挂起**）。
+   */
+  private async _resumeSuspendedStream(sessionId: string): Promise<boolean> {
+    // I4：从挂起检查点读出「未完成工具」清单（供"重发一轮"的提示消费；缺失 ⇒ 通用提示）
+    const latest = await this.getLatestCheckpoint(sessionId);
+    const pending = (
+      latest?.metadata as
+        | { pendingToolCalls?: PendingToolCallRef[] }
+        | undefined
+    )?.pendingToolCalls;
+
+    // ① 先试重放：完整消费生成器（重放本身即"继续执行"，不可提前 break）
+    let progressed = false;
+    for await (const chunk of this.resumeStream(sessionId, '')) {
+      if (this._isSubstantiveResumeChunk(chunk)) progressed = true;
+    }
+    if (progressed) return true;
+
+    // ② 无实质进展 ⇒ 重发一轮（既有执行入口，不新增执行路径）
+    try {
+      await this.chatOrchestrator.sendMessage(
+        buildBudgetResumePrompt(pending),
+        {
+          sessionId,
+        }
+      );
+      return true;
+    } catch (err) {
+      // ③ 重发也失败 ⇒ 如实返回 false（协调器回滚为挂起，不 release）
+      logger.warn('resumeSuspendedSession: 流式重发失败，保留挂起', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * C1：判定 `resumeStream` 产出的 chunk 是否代表**实质进展**。
+   *
+   * 非实质 = `error`（打不开检查点等）或 `status/task_all_done`（无剩余工具、空操作）。
+   * 其余（文本增量 / reasoning / 工具事件 / `status/resume`）均视为真正推进了执行。
+   */
+  private _isSubstantiveResumeChunk(chunk: string | ChatStreamChunk): boolean {
+    if (typeof chunk === 'string') return chunk.length > 0;
+    const c = chunk as { type?: string; statusType?: string };
+    if (c.type === 'error') return false;
+    if (c.type === 'status' && c.statusType === 'task_all_done') return false;
     return true;
   }
 
@@ -5010,10 +5115,16 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
+    // I1：注销进程级注册表登记（本会话已不存在）——置于拆除**第一步**，与拆除结果解耦
+    // （拆除实现即使抛错，注册表也已回收，不留僵尸 TAORLoop）。
+    this._unregisterTaorLoop(sessionId);
     await this._sessionTeardown.deleteSession(sessionId);
   }
 
   async clearAllSessions(moduleType?: string): Promise<void> {
+    // I1：批量清空 ⇒ 注销本实例登记过的全部会话（按 moduleType 过滤的语义由拆除实现承担；
+    // 此处只回收进程级注册表，避免其无界增长）。
+    this._unregisterAllTaorLoops();
     await this._sessionTeardown.clearAllSessions(moduleType);
   }
 

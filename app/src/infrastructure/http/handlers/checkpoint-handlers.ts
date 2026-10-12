@@ -49,9 +49,28 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 const activeLoops = new Map<string, TaorLoopPort>();
 
 /**
+ * I1（最终整支评审）：注册表**上限**（超出按最旧淘汰）。
+ *
+ * 动机：`registerTAORLoop` 对每个 sessionId 注册一次，而注销（`unregisterTAORLoop`）修复前
+ * **全仓零调用** ⇒ 进程级 Map 无界增长（内存泄漏 + 僵尸 TAORLoop），且**不受**功能开关门控
+ * （默认路径就发生）。会话拆除/`cleanup()` 已补注销（见 `ChatManager`）；本上限为**兜底** ——
+ * 保证任何遗漏路径下注册表仍有界。200 ≈ 同进程"活跃会话"的合理量级（超出者多半已非活跃）。
+ */
+export const MAX_TAOR_LOOP_REGISTRY = 200;
+
+/**
  * 注册 TAORLoop 实例
  */
 export function registerTAORLoop(sessionId: string, loop: TaorLoopPort): void {
+  // I1：插入前若达上限且是**新键**，淘汰最旧一条（`Map` 保插入序 ⇒ 首个 key 即最旧）。
+  // 同键重注册（如 multiplier>1 的同会话实例）不淘汰，避免误逐他人。
+  if (
+    !activeLoops.has(sessionId) &&
+    activeLoops.size >= MAX_TAOR_LOOP_REGISTRY
+  ) {
+    const oldest = activeLoops.keys().next().value;
+    if (oldest !== undefined) activeLoops.delete(oldest);
+  }
   activeLoops.set(sessionId, loop);
 }
 

@@ -135,7 +135,7 @@ export class BudgetSuspendCoordinator {
   /**
    * Task 7：放行 ⇒ 按决策规则唤醒挂起会话（经注入的 handler 端口）。
    *
-   * - `boost` / `unlock-today` ⇒ 按挂起时间**升序**、**串行**，数量 ≤ `resolveBudgetResumeMaxPerWake()`；
+   * - `boost` / `unlock-today` ⇒ 按挂起时间**升序**、**串行**，`handler` **调用数** ≤ `resolveBudgetResumeMaxPerWake()`；
    * - `waive-once` ⇒ **只唤醒最早期挂起的 1 个**（单次额度语义）；
    * - 幂等：唤醒前先 `release` 占位（已释放者跳过）⇒ 并发/重复放行至多唤醒一次；
    * - 过期（>24h）不唤醒；handler 返回 `false` ⇒ 回滚为挂起（保留原挂起时刻）+ warn；
@@ -155,11 +155,15 @@ export class BudgetSuspendCoordinator {
     const limit = kind === 'waive-once' ? 1 : resolveBudgetResumeMaxPerWake();
     const candidates = this.list().filter((e) => !e.expired);
     const woken: string[] = [];
+    // M3（最终整支评审）：上限按 **handler 调用数**计（而非"成功数"）—— 否则 handler 持续失败时
+    // 会遍历全部候选（尝试次数远超上限）。
+    let attempts = 0;
     for (const entry of candidates) {
-      if (woken.length >= limit) break;
+      if (attempts >= limit) break;
       // 幂等/并发占位：已 release 者跳过
       if (!this.entries.has(entry.sessionId)) continue;
       this.release(entry.sessionId);
+      attempts += 1;
       let ok = false;
       try {
         ok = await handler(entry.sessionId, entry.chain);
@@ -179,10 +183,11 @@ export class BudgetSuspendCoordinator {
           primitive: 'RUNNING',
           sessionId: entry.sessionId,
         });
+        // M3：日志记 **relief kind**（修复前误记挂起原因 `entry.reason`）。
         logger.info('budgetSuspend:resumed', {
           sessionId: entry.sessionId,
           chain: entry.chain,
-          reason: entry.reason,
+          kind,
         });
       } else {
         // 回滚为挂起（直接写回，保留原挂起时刻 ⇒ 时间序不漂移）+ warn
@@ -199,12 +204,21 @@ export class BudgetSuspendCoordinator {
         });
       }
     }
+    // M3：一次放行的汇总（带 `woken`，修复前逐条 `resumed` 日志无 woken 汇总）。
+    logger.info('budgetSuspend:resume_summary', { kind, woken });
     return { woken };
   }
 
-  /** 该 session 是否处于挂起态（**不含**过期判定；过期由 `list()` 现算） */
-  isSuspended(sessionId: string): boolean {
-    return this.entries.has(sessionId);
+  /**
+   * 该 session 是否处于**有效**挂起态（M3：**计入过期** —— 与 `list().expired` 同口径）。
+   *
+   * 过期条目仍保留在登记中（供人工查看），但对"是否仍算挂起"的判定应为 `false`
+   * （修复前忽略过期 ⇒ 与 `list()`/唤醒判定口径不一致）。
+   */
+  isSuspended(sessionId: string, now = Date.now()): boolean {
+    const entry = this.entries.get(sessionId);
+    if (!entry) return false;
+    return now - entry.suspendedAt <= SUSPEND_TTL_MS;
   }
 
   /**

@@ -314,3 +314,9 @@ export type {
   DailyBudgetConfig,
   DailyBudgetConfigValue,
 } from './DailyBudgetManager.js';
+// I4（最终整支评审）：`pendingToolCalls` 的推导与**续跑提示**生成对外（经模块出口，守 R03-002）。
+export {
+  extractPendingToolCallsFromMessages,
+  buildBudgetResumePrompt,
+} from './taor/pendingToolCalls.js';
+export type { PendingToolCallRef } from './taor/pendingToolCalls.js';

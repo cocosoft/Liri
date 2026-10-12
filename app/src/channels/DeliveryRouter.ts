@@ -20,9 +20,16 @@ import {
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import {
-  DELIVERY_FORMAT_CHAIN,
+  withRetry,
+  RetryableError,
+  type RetryConfig,
+} from '@modules/utils/withRetry';
+import {
   interactiveToMarkdown,
   markdownToText,
+  resolveDeliveryFallbacks,
+  type DeliveryFormatName,
+  type DeliveryFormatSupport,
 } from './deliveryFormatters';
 
 const logger = getLogger('channels:DeliveryRouter');
@@ -74,6 +81,34 @@ export interface BatchDeliveryResult {
   results: Array<{ channelId: string } & DeliveryResult>;
   totalSuccess: number;
   totalFailed: number;
+}
+
+// ─── 通道重连退避（阶段 1.4）───────────────────────────
+
+/** 通道重连的退避重试参数（有界：最多 2 次重试，150ms 起、上限 1s；jitter 由 `withRetry` 内置） */
+export const CHANNEL_RECONNECT_RETRY: Partial<RetryConfig> = {
+  maxRetries: 2,
+  initialDelayMs: 150,
+  maxDelayMs: 1000,
+};
+
+/**
+ * 带**指数退避 + jitter** 的通道重连（阶段 1.4）。
+ *
+ * 复用项目**标准重试实现** `utils/withRetry`（其 `calculateBackoffDelay` 已含 0–30% jitter，
+ * CS01：不另写一套退避）；`connect()` 返回 `false` 视为**可重试失败**（抛 `RetryableError`
+ * 触发重试），重试耗尽后抛出 ⇒ 调用方转成 `DeliveryResult{success:false}` ⇒
+ * **失败只影响本次投递**，不回退主任务状态。
+ */
+export async function reconnectWithBackoff(
+  connect: () => Promise<boolean>,
+  config: Partial<RetryConfig> = CHANNEL_RECONNECT_RETRY
+): Promise<boolean> {
+  return withRetry(async () => {
+    const ok = await connect();
+    if (!ok) throw new RetryableError('通道重连返回失败');
+    return true;
+  }, config);
 }
 
 // ─── DeliveryRouter ────────────────────────────────────
@@ -351,8 +386,8 @@ export class DeliveryRouter {
   }
 
   /**
-   * 投递前准备：检查 + 自动重连（P2-4 / 4.13）
-   * 未连接通道尝试 connect() 一次，成功则继续投递，避免"未连接即失败丢消息"。
+   * 投递前准备：检查 + 自动重连（P2-4 / 4.13；阶段 1.4 加**退避重试**）
+   * 未连接通道尝试重连，成功则继续投递，避免"未连接即失败丢消息"。
    */
   private async _prepareChannel(
     channel: ChannelInterface | undefined
@@ -362,13 +397,12 @@ export class DeliveryRouter {
 
     if (check.error === '通道未连接' && channel) {
       try {
-        const ok = await channel.connect();
-        if (ok) return null; // 重连成功，继续投递
-        return { ...check, error: '自动重连失败' };
+        await reconnectWithBackoff(() => channel.connect());
+        return null; // 重连成功，继续投递
       } catch (err) {
         return {
           ...check,
-          error: `自动重连异常: ${err instanceof Error ? err.message : String(err)}`,
+          error: `自动重连失败（已按退避重试）: ${err instanceof Error ? err.message : String(err)}`,
         };
       }
     }
@@ -399,8 +433,11 @@ export class DeliveryRouter {
     channel: ChannelInterface,
     target: string,
     content: DeliveryContent,
-    fallbackSteps: DeliveryFormat[] = []
+    fallbackSteps: DeliveryFormat[] = [],
+    support?: DeliveryFormatSupport
   ): Promise<DeliveryResult> {
+    // 阶段 1.2：降级链**声明驱动** —— 支持位从通道声明派生一次（缺省 true ⇒ 行为不变）
+    const sup = support ?? this._formatSupport(channel);
     const result = await this._trySendFormat(
       channel,
       target,
@@ -409,7 +446,7 @@ export class DeliveryRouter {
     );
     if (result) return result;
 
-    const nextFormat = this._nextLowerFormat(content.format);
+    const nextFormat = this._nextLowerFormat(content.format, sup);
     if (!nextFormat) {
       return {
         success: false,
@@ -421,10 +458,29 @@ export class DeliveryRouter {
 
     this._emitFallbackEvent(content.format, nextFormat);
     const converted = this._convertToFormat(content, nextFormat);
-    return this._sendWithFallback(channel, target, converted, [
-      ...fallbackSteps,
-      nextFormat,
-    ]);
+    return this._sendWithFallback(
+      channel,
+      target,
+      converted,
+      [...fallbackSteps, nextFormat],
+      sup
+    );
+  }
+
+  /**
+   * 从通道**声明**推导降级支持（阶段 1.2）。
+   *
+   * 缺省 **true** ⇒ 保留既有"逐级尝试、失败再降级"语义（**零行为变更**，防回归）；
+   * 仅当通道**明确声明不支持**时才跳级：
+   * - `interactive` ← `plugin.capabilities.interactive`
+   * - `markdown`    ← `plugin.meta.markdownCapable`
+   */
+  private _formatSupport(channel: ChannelInterface): DeliveryFormatSupport {
+    const plugin = channel.plugin;
+    return {
+      interactive: plugin?.capabilities?.interactive !== false,
+      markdown: plugin?.meta?.markdownCapable !== false,
+    };
   }
 
   /** 尝试当前格式发送，成功返回结果，不支持/失败返回 null */
@@ -521,12 +577,16 @@ export class DeliveryRouter {
     }
   }
 
-  private _nextLowerFormat(f: DeliveryFormat): DeliveryFormat | null {
-    const idx = DELIVERY_FORMAT_CHAIN.indexOf(
-      f as (typeof DELIVERY_FORMAT_CHAIN)[number]
+  private _nextLowerFormat(
+    f: DeliveryFormat,
+    support?: DeliveryFormatSupport
+  ): DeliveryFormat | null {
+    // 阶段 1.2：跳过通道**声明不支持**的格式（`support` 缺省 = 全支持 ⇒ 与既有逐级尝试等价）
+    const candidates = resolveDeliveryFallbacks(
+      f as DeliveryFormatName,
+      support ?? { interactive: true, markdown: true }
     );
-    if (idx === -1 || idx === DELIVERY_FORMAT_CHAIN.length - 1) return null;
-    return DELIVERY_FORMAT_CHAIN[idx + 1] as DeliveryFormat;
+    return (candidates[0] as DeliveryFormat | undefined) ?? null;
   }
 
   private _convertToFormat(

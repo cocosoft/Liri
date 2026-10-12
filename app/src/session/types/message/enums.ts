@@ -139,6 +139,10 @@ export interface MessageAttachment {
   contentType?: string;
   metadata?: Record<string, unknown>;
 }
+// ⚠️ 归属裁定（2026-10-12 · 通道治理 阶段 1.3 收口）：本类型是**会话领域模型**（含 id/type/metadata，
+// 供存储与前端）；与 `channels/types/IChannel.ts` 的**同名** `MessageAttachment`（**通道协议层**载体：
+// fileId/fileName/mimeType）**同名不同物** ⇒ 保持独立、**严禁合并**与**断言互换**（同上文 `DataAttachment`
+// 判例）；跨层须经**显式适配函数**。
 
 /**
  * 消息分类

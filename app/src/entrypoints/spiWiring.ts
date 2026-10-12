@@ -368,6 +368,19 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- 出站网关端口 SPI（2026-10-12 · 通道治理 阶段 2.1「Port Layer Only」）----
+  // ⚠️ **预留端口**：生产中**暂无消费者**（后续"四原语只读出站广播"/进程外通道插件接入时消费）
+  // ⇒ 登记 UW（先例 `ICollaborationPort`）。本期只把**既有** `DeliveryRouter` 能力暴露为 core 侧窄契约。
+  {
+    const { registerOutboundGatewaySpi } = await import('@modules/core/spi');
+    const { OutboundGatewayPortAdapter } =
+      await import('@modules/channels/gateway/OutboundGatewayPortAdapter');
+    await registerOutboundGatewaySpi(
+      container,
+      new OutboundGatewayPortAdapter()
+    );
+  }
+
   // ---- 诊断采集 SPI（2026-09-30 D-123；D-128 转推送模型）----
   {
     const { STTRegistry } =

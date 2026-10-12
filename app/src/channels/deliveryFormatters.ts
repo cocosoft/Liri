@@ -37,6 +37,40 @@ export const DELIVERY_FORMAT_CHAIN = [
   'text',
 ] as const;
 
+/** 格式名（= 降级链成员；就地取联合类型，避免从 `DeliveryRouter` 反向导入造成环） */
+export type DeliveryFormatName = (typeof DELIVERY_FORMAT_CHAIN)[number];
+
+/**
+ * 通道对"高保真格式"的**声明式**支持（阶段 1.2）。
+ * 缺省均为 `true` ⇒ 与既有"逐级尝试"行为**完全一致**（不改变现状）。
+ */
+export interface DeliveryFormatSupport {
+  interactive: boolean;
+  markdown: boolean;
+}
+
+/**
+ * 解析从 `from` 到更低格式的**候选降级序列**（**声明驱动**）：通道**明确声明不支持**的格式
+ * **直接跳过** —— 不再"先发一次、失败再降级"（少一次注定失败的往返）。`text` 为兜底恒在链尾。
+ *
+ * 例：`from='interactive'` 且 `{interactive:true, markdown:false}` ⇒ `['text']`（跳过 markdown）。
+ */
+export function resolveDeliveryFallbacks(
+  from: DeliveryFormatName,
+  support: DeliveryFormatSupport
+): DeliveryFormatName[] {
+  const idx = DELIVERY_FORMAT_CHAIN.indexOf(from);
+  if (idx === -1) return [];
+  const out: DeliveryFormatName[] = [];
+  for (let i = idx + 1; i < DELIVERY_FORMAT_CHAIN.length; i++) {
+    const f = DELIVERY_FORMAT_CHAIN[i];
+    if (f === 'interactive' && !support.interactive) continue;
+    if (f === 'markdown' && !support.markdown) continue;
+    out.push(f); // `text` 恒入（任何通道都能收纯文本）
+  }
+  return out;
+}
+
 /**
  * Interactive → Markdown 转换
  * 将交互卡片的 title + options 转为 Markdown 文本

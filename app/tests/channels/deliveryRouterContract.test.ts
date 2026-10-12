@@ -179,19 +179,27 @@ describe('R11 DeliveryRouter 契约', () => {
     expect(r.success).toBe(true);
   });
 
-  it('D6b 重连失败 ⇒ 明确报错', async () => {
+  it('D6b 重连失败 ⇒ 明确报错（阶段 1.4：含**有界退避重试**）', async () => {
+    let connectCalls = 0;
     const ch = fakeChannel(
       'webhook',
       { sendText: async () => true },
       { connected: false, connectResult: false }
     );
+    ch.connect = async () => {
+      connectCalls++;
+      return false;
+    };
     const router = makeRouter([ch]);
     const r = await router.deliverToTarget(
       new DeliveryTarget('webhook', 'room'),
       textContent
     );
     expect(r.success).toBe(false);
-    expect(r.error).toBe('自动重连失败');
+    // 文案含"退避重试"说明（阶段 1.4 起）：仍以「自动重连失败」为前缀，契约可读
+    expect(r.error).toContain('自动重连失败');
+    // maxRetries=2 ⇒ 共 3 次尝试（有界，不无限重试）
+    expect(connectCalls).toBe(3);
   });
 
   it('D7 per-channel 串行化：同通道并发投递不交错', async () => {

@@ -22,6 +22,7 @@ import type {
 } from '@modules/channels/types';
 import { handleError } from '@modules/error';
 import { createReadStream } from 'node:fs';
+import { splitMessage } from '../messageSplitter';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:telegram:TelegramChannel');
@@ -470,54 +471,69 @@ class TelegramChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    // BUG-8：HTML 解析模式下 `<`、`>`、`&` 必须转义，否则 Telegram 返回 400
-    const body = {
-      chat_id: target,
-      text: escapeHtml(content).slice(0, TELEGRAM_META.maxMessageLength),
-      parse_mode: 'HTML',
-    };
-    const resp = await this.transport.fetch(
-      `/bot${this.botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }
-    );
-    const data = (await resp.json()) as Record<string, unknown>;
-    const ok = data['ok'] === true;
-    return {
-      success: ok,
-      error: ok ? undefined : (data['description'] as string),
-      messageId: data['result']
-        ? String((data['result'] as Record<string, unknown>)['message_id'])
-        : undefined,
-    };
+    // L-11.2（2026-10-12 通道治理 1.1）：长文本**分片发送**替代 `slice` 截断（尾部不再丢失）。
+    // 顺序：先按**原始**内容分片（避免把 HTML 实体或代码围栏切坏），再逐片 `escapeHtml`。
+    const chunks = splitMessage(content, TELEGRAM_META.maxMessageLength);
+    let last: SendResult = { success: true };
+    for (const chunk of chunks) {
+      // BUG-8：HTML 解析模式下 `<`、`>`、`&` 必须转义，否则 Telegram 返回 400
+      const body = {
+        chat_id: target,
+        text: escapeHtml(chunk),
+        parse_mode: 'HTML',
+      };
+      const resp = await this.transport.fetch(
+        `/bot${this.botToken}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      const ok = data['ok'] === true;
+      last = {
+        success: ok,
+        error: ok ? undefined : (data['description'] as string),
+        messageId: data['result']
+          ? String((data['result'] as Record<string, unknown>)['message_id'])
+          : undefined,
+      };
+      if (!ok) return last; // 任一分片失败即止（与 Discord 通道行为一致）
+    }
+    return last;
   }
 
   protected override async sendMarkdownMessage(
     target: string,
     content: string
   ): Promise<SendResult> {
-    // BUG-8：HTML 解析模式下特殊字符必须转义（与 sendTextMessage 一致）
-    const body = {
-      chat_id: target,
-      text: escapeHtml(content).slice(0, TELEGRAM_META.maxMessageLength),
-      parse_mode: 'HTML',
-    };
-    const resp = await this.transport.fetch(
-      `/bot${this.botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }
-    );
-    const data = (await resp.json()) as Record<string, unknown>;
-    return {
-      success: data['ok'] === true,
-      error: data['description'] as string,
-    };
+    // L-11.2（2026-10-12 通道治理 1.1）：分片发送替代 `slice` 截断（与 sendTextMessage 同口径）。
+    const chunks = splitMessage(content, TELEGRAM_META.maxMessageLength);
+    let last: SendResult = { success: true };
+    for (const chunk of chunks) {
+      // BUG-8：HTML 解析模式下特殊字符必须转义（与 sendTextMessage 一致）
+      const body = {
+        chat_id: target,
+        text: escapeHtml(chunk),
+        parse_mode: 'HTML',
+      };
+      const resp = await this.transport.fetch(
+        `/bot${this.botToken}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      last = {
+        success: data['ok'] === true,
+        error: data['description'] as string,
+      };
+      if (!last.success) return last;
+    }
+    return last;
   }
 
   protected async sendImageMessage(

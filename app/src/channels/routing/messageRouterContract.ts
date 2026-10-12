@@ -71,6 +71,103 @@ export interface RouteMessageOptions {
   dmPolicy?: Partial<DmPolicyConfig>;
 }
 
+// ─── 入站 DTO 标准化（阶段 2.4）─────────────────────────
+
+/** 入站载荷类型（**标准化口径**：仅 2 类；媒体/语音等一律归 `file`，语义细节留在 `attachments`） */
+export type InboundPayloadType = 'text' | 'file';
+
+/** 标准化附件元数据（**统一形状**：出入站共用；不承载平台私有字段） */
+export interface InboundAttachmentDto {
+  /** 语义类型（如 mime 主类型 / `image` / `voice`；无法判定 ⇒ `file`） */
+  type: string;
+  /** 远程 URL（未下载时） */
+  url?: string;
+  /** 本地路径（已落盘时；未落盘 ⇒ 省略，**不臆造**） */
+  path?: string;
+  /** 原始文件名 */
+  name?: string;
+  /** 字节数（缺省 ⇒ 省略；下游预算折算按 0 计） */
+  size?: number;
+}
+
+/**
+ * **标准化入站信封**（阶段 2.4）——主内核与外部通道插件之间的**唯一入站形状**。
+ *
+ * 口径：`{ sessionId?, messageId, platform, payload:{type,content,attachments?}, sender:{platform,userId}, receivedAt }`。
+ * `sessionId` 在**入站阶段尚未知**（由路由/会话复用决定）⇒ 可选。
+ */
+export interface InboundEnvelope {
+  /** 会话 ID（入站时未知 ⇒ 省略，由路由侧决定后回填） */
+  sessionId?: string;
+  /** 平台消息 ID（用于去重/追踪） */
+  messageId: string;
+  /** 平台标识（= 通道 id，如 `telegram`） */
+  platform: string;
+  payload: {
+    type: InboundPayloadType;
+    content: string;
+    attachments?: InboundAttachmentDto[];
+  };
+  sender: {
+    platform: string;
+    userId: string;
+  };
+  /** 平台侧时间戳（epoch ms） */
+  receivedAt: number;
+}
+
+/** `MessageContext.messageType` → 标准化载荷类型（媒体/语音/事件一律以文本承载或走 attachments） */
+function toPayloadType(messageType: string): InboundPayloadType {
+  return messageType === 'text' ? 'text' : 'file';
+}
+
+/**
+ * `MessageContext`（**通道协议层**）→ `InboundEnvelope`（**标准化入站 DTO**）纯函数。
+ *
+ * 说明：本函数只做**形状归一**（不改语义、不落盘、不发网络）；是"入站 DTO 标准化"的单一转换点。
+ * 未来进程外通道插件亦产出 `InboundEnvelope`，从而**共用同一条入站管线**。
+ */
+export function toInboundEnvelope(ctx: {
+  channelId: string;
+  senderId: string;
+  messageId: string;
+  messageType: string;
+  content: string;
+  timestamp: number;
+  attachments?: ReadonlyArray<{
+    fileName?: string;
+    mimeType?: string;
+    url?: string;
+    size?: number;
+  }>;
+}): InboundEnvelope {
+  const attachments =
+    ctx.attachments && ctx.attachments.length > 0
+      ? ctx.attachments.map((a) => {
+          const dto: InboundAttachmentDto = {
+            type: a.mimeType ?? 'file',
+          };
+          if (a.url) dto.url = a.url;
+          if (a.fileName) dto.name = a.fileName;
+          if (typeof a.size === 'number') dto.size = a.size;
+          return dto;
+        })
+      : undefined;
+
+  const envelope: InboundEnvelope = {
+    messageId: ctx.messageId,
+    platform: ctx.channelId,
+    payload: {
+      type: toPayloadType(ctx.messageType),
+      content: ctx.content,
+    },
+    sender: { platform: ctx.channelId, userId: ctx.senderId },
+    receivedAt: ctx.timestamp,
+  };
+  if (attachments) envelope.payload.attachments = attachments;
+  return envelope;
+}
+
 /** 消息大小上限（默认 1MB） */
 export const MAX_MESSAGE_SIZE = 1 * 1024 * 1024;
 

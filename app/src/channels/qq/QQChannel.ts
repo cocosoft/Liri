@@ -21,6 +21,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
+import { splitMessage } from '../messageSplitter';
 // 大文件拆分（spec file-size-debt-partition-plan §40）：协议常量/类型与四个内聚簇外迁
 import {
   QQ_META,
@@ -397,21 +398,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
       const token = await this.getAccessToken();
       // AC-5（2026-08-20）：窗口内携带 msg_id/msg_seq 走被动回复通道，
       // 不占用主动消息每日配额；超窗自动降级（consume 内处理）
-      const passiveFields = this.passiveReply.consumePassiveReplyFields(target);
-      const body: Record<string, unknown> = {
-        msg_type: 0,
-        content: content.slice(0, QQ_META.maxMessageLength),
-        ...passiveFields,
-      };
+      //
+      // L-11.2（2026-10-12 通道治理 1.1）：长文本**分片发送**替代 `slice` 截断（尾部不再丢失）。
+      // 被动回复字段**每片各消费一次**（`msg_seq` 递增；超窗 / 超 seq 上限时 `consume` 自动降级主动消息）。
+      const chunks = splitMessage(content, QQ_META.maxMessageLength);
       const url = getMessageApiUrl(target);
-
-      this.logger.info('[TRACE] QQ sendTextMessage 发送 HTTP 请求', {
-        url,
-        target,
-        bodyKeys: Object.keys(body),
-        isPassiveReply: 'msg_id' in passiveFields,
-        msgSeq: 'msg_seq' in passiveFields ? passiveFields.msg_seq : undefined,
-      });
 
       const sendOnce = async (payload: Record<string, unknown>) => {
         const resp = await fetch(url, {
@@ -429,33 +420,56 @@ class QQChannelPlugin extends BaseChannelPlugin {
         };
       };
 
-      let { status, ok, data } = await sendOnce(body);
-
-      // AC-5：被动回复失败（如窗口临界过期被服务端拒绝）→ 降级主动消息重试一次。
-      // 首次已失败未送达，重试不会产生重复消息。
-      if (!ok && 'msg_id' in passiveFields) {
-        this.logger.warning('QQ 被动回复发送失败，降级主动消息重试', {
-          target,
-          status,
-          error: data['message'],
-        });
-        ({ status, ok, data } = await sendOnce({
+      let last: SendResult = { success: true };
+      for (const chunk of chunks) {
+        const passiveFields =
+          this.passiveReply.consumePassiveReplyFields(target);
+        const body: Record<string, unknown> = {
           msg_type: 0,
-          content: body['content'],
-        }));
-      }
+          content: chunk,
+          ...passiveFields,
+        };
 
-      this.logger.info('[TRACE] QQ sendTextMessage HTTP 响应', {
-        status,
-        ok,
-        messageId: data['id'],
-        error: ok ? undefined : data['message'],
-      });
-      return {
-        success: ok,
-        error: ok ? undefined : (data['message'] as string),
-        messageId: data['id'] as string,
-      };
+        this.logger.info('[TRACE] QQ sendTextMessage 发送 HTTP 请求', {
+          url,
+          target,
+          bodyKeys: Object.keys(body),
+          isPassiveReply: 'msg_id' in passiveFields,
+          msgSeq:
+            'msg_seq' in passiveFields ? passiveFields.msg_seq : undefined,
+        });
+
+        let { status, ok, data } = await sendOnce(body);
+
+        // AC-5：被动回复失败（如窗口临界过期被服务端拒绝）→ 降级主动消息重试一次。
+        // 首次已失败未送达，重试不会产生重复消息。
+        if (!ok && 'msg_id' in passiveFields) {
+          this.logger.warning('QQ 被动回复发送失败，降级主动消息重试', {
+            target,
+            status,
+            error: data['message'],
+          });
+          ({ status, ok, data } = await sendOnce({
+            msg_type: 0,
+            content: chunk,
+          }));
+        }
+
+        this.logger.info('[TRACE] QQ sendTextMessage HTTP 响应', {
+          status,
+          ok,
+          messageId: data['id'],
+          error: ok ? undefined : data['message'],
+        });
+
+        last = {
+          success: ok,
+          error: ok ? undefined : (data['message'] as string),
+          messageId: data['id'] as string,
+        };
+        if (!ok) return last; // 任一分片失败即止（与 Discord 通道行为一致）
+      }
+      return last;
     } catch (err) {
       await handleError(err, {
         module: 'channels:qq',

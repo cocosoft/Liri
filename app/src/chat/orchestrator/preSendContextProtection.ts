@@ -54,6 +54,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';
 // R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
+import { estimateAttachmentsTokens } from '../../query/attachmentBudget.js';
 import { checkDailyBudget } from '../../query/dailyBudgetGate.js';
 // R16 硬阻断：预算耗尽时抛业务异常（§1.9 业务异常必须 throw new AppError）
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -187,11 +188,20 @@ export async function applyPreSendProtection(
     // 看到该预留（闭合 check→record 窗口）。告警日志沿用**预扣前**的 mode（保持既有可观测口径）。
     const dailyBudget = getDailyBudget();
     const budgetMode = dailyBudget.getMode();
+    // 阶段 1.3（通道治理，2026-10-12）：**富媒体字节 → 预算预留**（防富媒体绕过日预算硬闸门）。
+    // 口径（2026-10-12 收口订正）：取 `options.images` —— 这是**唯一**真正贯通到 `streamMessage`
+    // 且携带 `size` 的入参（前端 → `ChatRequest.images` → `CoreAPIImpl.chatStream` → 此处）。
+    // 取证：图片字节**不进** `apiMessages`（`StreamPipeline.registerImages()` 只把"图片路径文本"追加
+    // 进最后一条 user 消息、并把路径登记给 `ImageContextService`）⇒ 其开销**不计入** `msgTokens`
+    // 估算，正是本预留要补的口子（**不是**重复计数）。
+    // 缺 size ⇒ 0（不臆造）。见 `query/attachmentBudget.ts`。
+    const attachmentTokens = estimateAttachmentsTokens(options?.images);
+    const reservedTokens = msgTokens + attachmentTokens;
     const decision = checkDailyBudget({
       sessionId: session.id,
-      estimatedTokens: msgTokens,
+      estimatedTokens: reservedTokens,
     });
-    const reservation = dailyBudget.reserveFor(session.id, msgTokens);
+    const reservation = dailyBudget.reserveFor(session.id, reservedTokens);
     if (budgetMode.mode !== 'normal') {
       logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
         sessionId: session.id,
@@ -199,7 +209,8 @@ export async function applyPreSendProtection(
         todayUsed: budgetMode.todayUsed,
         projectedUsed: budgetMode.projectedUsed,
         dailyLimit: budgetMode.dailyLimit,
-        estimateThisRound: msgTokens,
+        estimateThisRound: reservedTokens,
+        attachmentTokens,
         reservedProjected: reservation.projected,
         ratioPct: Math.round(budgetMode.percentUsed * 100),
       });

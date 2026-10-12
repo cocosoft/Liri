@@ -81,7 +81,17 @@ export interface ChannelCapabilities {
 }
 
 /**
- * 消息附件
+ * 入站**通道附件**（**通道协议层**载体）。
+ *
+ * ⚠️ **归属裁定（2026-10-12 · 通道治理 阶段 1.3 收口）**：本类型描述"**平台给了什么**"
+ * （`fileId` / `mimeType` / 原始 `data`），属**通道协议层**。它与
+ * `session/types/message/enums.ts` 中的**同名** `MessageAttachment`（**会话领域模型**：含
+ * `id` / `contentType` / `metadata`，供存储与前端）**同名不同物** ⇒ **保持独立、严禁合并**，
+ * 也**严禁**用类型断言互相赋值 —— 对齐本仓既有判例（`enums.ts` 对 `DataAttachment` 的规定：
+ * 协议/存储向模型与领域模型形状不等价，**勿直接互换**）。
+ *
+ * 跨层时**必须写显式适配函数**（字段改名：`fileId→id`、`fileName→name`、`mimeType→contentType`，
+ * 并补齐缺失的 `type`）。
  */
 export interface MessageAttachment {
   /** 平台文件 ID（如 Telegram file_id） */

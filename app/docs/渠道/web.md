@@ -1,48 +1,31 @@
-# Web 渠道
+# Web / HTTP 接入
+
+> ⚠️ **历史文档订正（2026-10-12）**：Liri **没有**名为 `web` 的消息通道 —— `channels/` 下无 `web/` 目录，
+> `ChannelId` 与 `CHANNEL_CATALOG` 中亦无 `web` 项。本页原描述的 `WEB_CHANNEL_ENABLED`、`/api/chat`、
+> `PORT=3000` 等**均不存在**。Web 交互的正确入口见下。
 
 ## 概述
 
-通过 Web 界面与 Liri 交互，提供 REST API 和 WebSocket 支持。
+Web 侧交互由两部分提供（**均非"通道"**）：
 
-## 配置
+1. **Web 前端**：`client/`（Vite + React），经 HTTP/SSE 与后端通信；
+2. **本地 HTTP 服务**：`infrastructure/http/LocalHTTPService`（流式见 `LocalHTTPServiceSSE`）。
 
-```env
-WEB_CHANNEL_ENABLED=true
-PORT=3000
-HOST=0.0.0.0
-```
+如需"用消息平台与 Agent 交互"，请使用内置的 26 个**消息通道**（见 [渠道概述](overview.md)）。
 
-## API 端点
+## 地址与端口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/health` | 健康检查 |
-| POST | `/api/chat` | 聊天接口 |
-| GET | `/api/chat/stream` | 流式聊天 |
-| GET | `/api/sessions` | 会话列表 |
-| POST | `/api/tools` | 工具调用 |
+- **默认端口 `18990`** —— `core/ports.ts:16` `DEFAULT_HTTP_PORT`（可用 `--http-port` 参数或
+  `LIRI_HTTP_PORT` 环境变量覆盖；优先级：参数 > 环境变量 > 常量）。
+- **端点前缀 `/v1/`**，例如：`POST /v1/chat/stream`（流式对话）、`GET /v1/tools`（工具清单）、
+  `GET /v1/cost/daily-budget`（日预算）。
 
-## WebSocket
+## 鉴权
 
-支持 WebSocket 连接，实现实时消息推送。
+本地 HTTP 服务默认采用**本机信任基线**（免认证取向），与**对外 A2A 面刻意区分**；
+详见 `bridge/ModuleBridgeSetup.ts` 与 `infrastructure/http/` 相关实现。
 
-```
-ws://localhost:3000/ws
-```
+## 相关
 
-## 认证
-
-Web 渠道支持以下认证方式：
-
-- API Key (Header: `X-API-Key`)
-- Bearer Token (Header: `Authorization`)
-- Session Cookie
-
-## 请求示例
-
-```bash
-curl -X POST http://localhost:3000/api/chat \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
-  -d '{"message": "Hello, Liri!"}'
-```
+- [渠道目录](index.md) · [渠道概述](overview.md)
+- [网关 / 消息接入](../核心模块/gateway.md)（通道注册 / 入站路由 / 出站投递的真实承载）

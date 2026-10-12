@@ -83,6 +83,30 @@ export {
   resolveCollaboration,
 } from './CollaborationService';
 
+// 2026-10-12：出站网关端口（**薄端口 / 预留**；通道治理 阶段 2.1「Port Layer Only」）
+export {
+  type IOutboundGatewayPort,
+  type GatewayContentDto,
+  type GatewayDeliveryResultDto,
+  type GatewayBroadcastResultDto,
+  type GatewayFormat,
+  OUTBOUND_GATEWAY_SERVICE_ID,
+  registerOutboundGatewaySpi,
+  resolveOutboundGateway,
+} from './GatewayService';
+
+// 2026-10-12：入站网关端口（**UW 预留**；通道治理 阶段 2.4；真实注册随消费者在 setupChannels 落地）
+export {
+  type IInboundGatewayPort,
+  type InboundEnvelopeDto,
+  type InboundAttachmentDtoShape,
+  type InboundVerdictDto,
+  type InboundPayloadKind,
+  INBOUND_GATEWAY_SERVICE_ID,
+  registerInboundGatewaySpi,
+  resolveInboundGateway,
+} from './InboundGatewayService';
+
 // 2026-10-01 D-148：知识图谱端口（消除 chronos/autoDream 的 infra → app 倒挂，3 处）
 export {
   type IKnowledgeGraphPort,

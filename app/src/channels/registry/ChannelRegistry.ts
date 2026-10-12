@@ -14,7 +14,11 @@
 import { EventEmitter } from 'events';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import type { IChannelPlugin } from '../types/IChannel';
+import type {
+  ChannelCapabilities,
+  ChannelMeta,
+  IChannelPlugin,
+} from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -67,6 +71,19 @@ export interface ChannelInterface {
 
   plugin?: {
     outbound: ChannelOutbound;
+    /**
+     * 通道**声明能力**（阶段 1.2 降级支持判定的唯一事实源：`interactive`）。
+     *
+     * 2026-10-12（通道治理 阶段 1.2 收口）：原声明**只有** `outbound` ⇒ `DeliveryRouter._formatSupport`
+     * 读 `plugin.capabilities.interactive` 类型不成立（实测 3 处 typecheck 报错）。能力位本就存在于
+     * `IChannelPlugin.capabilities`，本处补**声明 + 运行时装配**（不新增字段、不改语义）。
+     */
+    capabilities?: ChannelCapabilities;
+    /**
+     * 通道**元信息**（阶段 1.2 降级支持判定的唯一事实源：`markdownCapable`）。
+     * 同上：值来自 `IChannelPlugin.meta`，本处仅为穿过 `ChannelInterface` 视图而显式透传。
+     */
+    meta?: ChannelMeta;
   };
 }
 
@@ -146,6 +163,9 @@ export function adaptPluginToInterface(
             }
           : {}),
       },
+      // 阶段 1.2 收口：能力位/元信息**原样透传**（唯一事实源 = `IChannelPlugin`，本处不复制、不派生）
+      capabilities: plugin.capabilities,
+      meta: plugin.meta,
     },
   };
 }

@@ -23,6 +23,8 @@ import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
+  resolveBudgetResumeMaxPerWake,
+  BUDGET_RESUME_MAX_PER_WAKE,
   SUSPEND_TTL_MS,
 } from '../../src/query/budgetSuspend';
 
@@ -108,5 +110,35 @@ describe('BudgetSuspendCoordinator（预算挂起协调器）', () => {
     resetBudgetSuspendForTest();
     expect(getBudgetSuspendCoordinator().isSuspended('s1')).toBe(false);
     expect(getBudgetSuspendCoordinator().list().length).toBe(0);
+  });
+});
+
+/**
+ * Task 4 遗留修正：env 键名对齐 spec 字面 `BUDGET_RESUME_MAX_PER_WAKE`（此前误用 `LIRI_` 前缀）。
+ */
+describe('BUDGET_RESUME_MAX_PER_WAKE（env 键名 + 默认值）', () => {
+  const KEY = 'BUDGET_RESUME_MAX_PER_WAKE';
+  const LEGACY = 'LIRI_BUDGET_RESUME_MAX_PER_WAKE';
+
+  it('不设 env ⇒ 默认值为 3', () => {
+    expect(BUDGET_RESUME_MAX_PER_WAKE).toBe(3);
+  });
+
+  it('env 键名恰为 BUDGET_RESUME_MAX_PER_WAKE（旧 LIRI_ 前缀不再被读取）', () => {
+    const prev = process.env[KEY];
+    const prevLegacy = process.env[LEGACY];
+    process.env[LEGACY] = '9';
+    delete process.env[KEY];
+    try {
+      // 旧键名被读取则应返回 9；实际回退默认 ⇒ 证明键名已切换
+      expect(resolveBudgetResumeMaxPerWake()).toBe(3);
+      process.env[KEY] = '5';
+      expect(resolveBudgetResumeMaxPerWake()).toBe(5);
+    } finally {
+      if (prev === undefined) delete process.env[KEY];
+      else process.env[KEY] = prev;
+      if (prevLegacy === undefined) delete process.env[LEGACY];
+      else process.env[LEGACY] = prevLegacy;
+    }
   });
 });

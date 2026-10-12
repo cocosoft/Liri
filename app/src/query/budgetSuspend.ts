@@ -71,16 +71,16 @@ const DEFAULT_BUDGET_RESUME_MAX_PER_WAKE = 3;
 /**
  * 单次放行最多唤醒数（默认 **3**；env 可调）。
  *
- * env 名 `LIRI_BUDGET_RESUME_MAX_PER_WAKE`，经统一出入口 `configManager.env()` 读取
+ * env 名 `BUDGET_RESUME_MAX_PER_WAKE`（spec 字面），经统一出入口 `configManager.env()` 读取
  * （R05-012）；缺失/非法（非正整数）⇒ 回退默认 3。上限场景见 spec D5：额度刚放行即批量
  * 唤醒会立刻再撞限 ⇒ 只唤醒最早的 N 个，其余**保持挂起**（不丢状态）。
  */
 export const BUDGET_RESUME_MAX_PER_WAKE = resolveBudgetResumeMaxPerWake();
 
-/** 解析唤醒上限（env 优先，非法/异常 ⇒ 默认 3） */
-function resolveBudgetResumeMaxPerWake(): number {
+/** 解析唤醒上限（env 优先，非法/异常 ⇒ 默认 3）；导出供测试锁定 env 键名。 */
+export function resolveBudgetResumeMaxPerWake(): number {
   try {
-    const raw = configManager.env('LIRI_BUDGET_RESUME_MAX_PER_WAKE');
+    const raw = configManager.env('BUDGET_RESUME_MAX_PER_WAKE');
     const parsed = Number.parseInt(raw ?? '', 10);
     return Number.isInteger(parsed) && parsed > 0
       ? parsed

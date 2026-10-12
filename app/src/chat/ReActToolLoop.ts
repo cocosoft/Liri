@@ -31,6 +31,9 @@ import { createPathGuard } from '@modules/query';
 import { configManager } from '@modules/config';
 // G-1（2026-10-11）：日预算闸门单一收口（逐轮复检用；与 `@modules/query` 同层，沿用既有直引形态）
 import { checkDailyBudget } from '../query/dailyBudgetGate.js';
+// Task 5（债二-预算挂起续跑）：日预算耗尽挂起落点（协调器 + 特性开关）
+import { getBudgetSuspendCoordinator } from '../query/budgetSuspend.js';
+import { feature } from '@modules/core';
 import type {
   ReActLoopConfig,
   ReasonResult,
@@ -445,6 +448,40 @@ export class ReActToolLoop extends ReActLoop<
       sessionId: this.ctx.session.id,
       estimatedTokens: 0,
     }).allowed;
+  }
+
+  /**
+   * Task 5（债二-预算挂起续跑）：日预算耗尽 ⇒ 落流式挂起检查点 + 登记协调器。
+   *
+   * 只处理 `kind === 'daily'`：`'loop'` 是**上下文窗口**预算（`createStreamBudget`），
+   * 与日预算放行（relief）正交 ⇒ 挂起它并无"续跑"语义（放行也不能解除窗口预算）。
+   * 整体由 `BUDGET_SUSPEND_RESUME` 门控 ⇒ 关时零行为变更（直接 return）。
+   */
+  protected override async onBudgetExhausted(
+    kind: 'loop' | 'daily'
+  ): Promise<void> {
+    if (!feature('BUDGET_SUSPEND_RESUME')) return;
+    if (kind !== 'daily') return;
+
+    const sessionId = this.ctx.session.id;
+    const reason = 'daily_budget_exhausted';
+    try {
+      const checkpoint = (await this.ctx.streamingCheckpoint.suspend?.(
+        reason
+      )) as { id?: string } | undefined;
+      getBudgetSuspendCoordinator().suspend({
+        sessionId,
+        chain: 'stream',
+        checkpointRef: checkpoint?.id,
+        reason,
+      });
+    } catch (error) {
+      // 挂起落盘失败不阻塞既有收尾（相位/finalize 语义不变）
+      logger.warn('reactToolLoop:budget_suspend_failed', {
+        sessionId,
+        error: String(error),
+      });
+    }
   }
 
   // ─── 骨架 hooks：检查点 + 循环检测（reason 前） ────────

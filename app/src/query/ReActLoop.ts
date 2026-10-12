@@ -577,6 +577,19 @@ export abstract class ReActLoop<
     // default: no-op
   }
 
+  /**
+   * 预算耗尽 Hook（Budget Suspend Resume，Task 5）。
+   *
+   * 两处耗尽分支（loop-local `config.budget` = 上下文窗口预算；G-1 = 进程级日预算）在
+   * 置 `budget_exhausted` 相位后、`finalize` 之前 `await` 调用，供子类落“挂起”标记。
+   * 默认空实现 ⇒ 未接入的子类零行为变更。
+   *
+   * @param kind `'loop'` = 上下文窗口预算耗尽；`'daily'` = 日预算耗尽（可挂起续跑场景）。
+   */
+  protected async onBudgetExhausted(_kind: 'loop' | 'daily'): Promise<void> {
+    // default: no-op
+  }
+
   // ── A2（2026-09-05）：终止原因单一判别（finalize/getTerminationTip/收尾共用）──
 
   /** 子类判定循环检测终止（TAOR loopDetector / ReActToolLoop loopState.loopDetected） */
@@ -797,6 +810,7 @@ export abstract class ReActLoop<
             // K1（2026-09-05）：预算耗尽终止不再置 'completed'——消费 phase 完成态的
             // 上层据此区分「预算耗尽」与「正常完成」。
             this.state.phase = 'budget_exhausted';
+            await this.onBudgetExhausted('loop');
             return this.finalize(this.state, context);
           }
           logger.warn('reActLoop:budget_grace_call', {
@@ -815,6 +829,7 @@ export abstract class ReActLoop<
             iteration: this.state.iteration,
           });
           this.state.phase = 'budget_exhausted';
+          await this.onBudgetExhausted('daily');
           return this.finalize(this.state, context);
         }
 

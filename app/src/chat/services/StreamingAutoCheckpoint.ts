@@ -75,6 +75,18 @@ export class StreamingAutoCheckpoint {
   private stepIndex = 0;
   private lastFullStep = 0;
   private version = 0;
+  /**
+   * Task 5（预算挂起续跑）：最近一次 `onToolCompleted` 的快照。
+   *
+   * 挂起落点（`suspend`）复用它落一条挂起检查点——轮间挂起**没有在途工具**，素材即
+   * 上一轮完成的完整消息快照（D2/D3：恢复素材 = 既有 full+delta 链）。未执行过任何工具
+   * （如首轮即撞限）时为空 ⇒ `suspend` 落空快照标记（恢复转由事件重建兜底）。
+   */
+  private lastSnapshot: {
+    messages: Message[];
+    metadata: ToolCompletedState['metadata'];
+    sessionState: DataSessionStatus;
+  } | null = null;
 
   constructor(checkpointService: SessionCheckpointService, sessionId: string) {
     this.checkpointService = checkpointService;
@@ -83,6 +95,11 @@ export class StreamingAutoCheckpoint {
 
   /** 每个 tool_call 完成后调用，写入自动检查点 */
   async onToolCompleted(state: ToolCompletedState): Promise<SessionCheckpoint> {
+    this.lastSnapshot = {
+      messages: state.messagesSnapshot,
+      metadata: state.metadata,
+      sessionState: state.sessionState,
+    };
     const isFull =
       this.stepIndex === 0 || this.stepIndex - this.lastFullStep >= 10;
     this.version++;
@@ -130,6 +147,30 @@ export class StreamingAutoCheckpoint {
     }
 
     return checkpoint;
+  }
+
+  /**
+   * Task 5（预算挂起续跑）：日预算耗尽时落一条**挂起标记**检查点。
+   *
+   * `label='budget_suspend'` + `metadata.budgetSuspend = { suspendedAt, reason }`；素材取
+   * 上一轮快照（`lastSnapshot`，见字段注释），`autoCreated: true`。开关判定由调用方
+   * （`ReActToolLoop.onBudgetExhausted`）负责——本方法只负责落盘。
+   */
+  async suspend(reason: string): Promise<SessionCheckpoint> {
+    const snapshot = this.lastSnapshot;
+    const metadata: SessionMetadata = {
+      ...(snapshot?.metadata ?? {}),
+      budgetSuspend: { suspendedAt: Date.now(), reason },
+    } as unknown as SessionMetadata;
+    return this.checkpointService.saveCheckpointWithData(
+      this.sessionId,
+      snapshot?.messages ?? [],
+      metadata,
+      snapshot?.sessionState ?? ('active' as DataSessionStatus),
+      'budget_suspend',
+      undefined,
+      true
+    );
   }
 
   /** 恢复：从自动检查点链重建完整消息 + 生成器状态 */

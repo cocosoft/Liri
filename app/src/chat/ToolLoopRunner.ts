@@ -134,6 +134,8 @@ export interface ToolLoopContext {
   };
   streamingCheckpoint: {
     onToolCompleted(data: Record<string, unknown>): Promise<unknown>;
+    /** Task 5（预算挂起续跑）：日预算耗尽时落挂起检查点（可选端口，未接入的 fake 可省）。 */
+    suspend?(reason: string): Promise<unknown>;
   };
 
   // LLM 客户端

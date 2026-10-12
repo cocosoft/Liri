@@ -28,6 +28,7 @@ const USAGE = [
   '  /budget boost [倍数] [分钟] 临时提额（默认 ×2 / 60 分钟；到期自动恢复原上限）',
   '  /budget waive               放行**下一次**发送（一次性；未消费 10 分钟后作废）',
   '  /budget unlock              今日不再拦截（软上限 = 原上限 ×5，次日恢复）',
+  '  /budget revoke              撤销放行（恢复配置上限；**保留**今日用量与欠账）',
   '  /budget set <token 上限>    改日上限（当场生效 + 持久化）',
 ].join('\n');
 
@@ -64,6 +65,8 @@ export class BudgetCommand {
           return { type: 'text', value: this.waive() };
         case 'unlock':
           return { type: 'text', value: this.unlock() };
+        case 'revoke':
+          return { type: 'text', value: this.revoke() };
         case 'set':
           return { type: 'text', value: this.setLimit(rest) };
         default:
@@ -161,6 +164,23 @@ export class BudgetCommand {
       `今日不再拦截：有效上限 ${fmt(view.effectiveLimit)}（= 原上限 ×5 的软上限，次日自动恢复）。` +
       this.killSwitchWarning()
     );
+  }
+
+  /**
+   * 撤销放行（D-b 对称回路，2026-10-12）：清全部在途放行、恢复**配置上限**；
+   * **不动**今日用量与欠账（区别于 `reset`）。无放行时为幂等 no-op。
+   */
+  private revoke(): string {
+    const budget = getDailyBudget();
+    const before = budget.getRelief();
+    budget.clearRelief();
+    if (!before) {
+      // 无 reliefState 也仍可能持有 waive-once 通行证（公开 API 不暴露）⇒ 文案如实，不断言"什么都没有"
+      return '当前没有生效的放行；已清空在途放行（若有）。今日用量与欠账保留。';
+    }
+    return `已撤销放行（${RELIEF_LABEL[before.kind] ?? before.kind}）：有效上限恢复为配置值 ${fmt(
+      budget.getMode().dailyLimit
+    )}（今日用量与欠账保留）。`;
   }
 
   private setLimit(rest: string[]): string {

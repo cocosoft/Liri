@@ -95,4 +95,22 @@ describe('T14：/budget 命令（查看 / 放行 / 改上限）', () => {
     expect(getDailyBudget().getMode().dailyLimit).toBe(LIMIT);
     expect(writeSpy).not.toHaveBeenCalled();
   });
+
+  it('revoke ⇒ 撤销放行（恢复配置上限），且**不动**今日用量', async () => {
+    const budget = getDailyBudget();
+    budget.recordUsage(80);
+    await new BudgetCommand().call('unlock');
+    expect(budget.getRelief()?.effectiveLimit).toBe(LIMIT * 5);
+
+    const { value } = await new BudgetCommand().call('revoke');
+    expect(value).toContain('已撤销放行');
+    expect(budget.getRelief()).toBeNull();
+    expect(budget.getMode().dailyLimit).toBe(LIMIT); // 回配置上限
+    expect(budget.getMode().todayUsed).toBe(80); // 用量保留（≠ reset）
+  });
+
+  it('revoke：无放行时幂等（如实提示，不报错）', async () => {
+    const { value } = await new BudgetCommand().call('revoke');
+    expect(value).toContain('当前没有生效的放行');
+  });
 });

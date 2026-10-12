@@ -1405,18 +1405,26 @@ export class ChatManagerImpl implements ChatManager {
       },
     });
 
-    // Task 7（2026-10-12）：装配「放行 ⇒ 唤醒挂起会话」的进程内端口（幂等 + 开关门控）。
-    this._installBudgetSuspendResume();
+    // Fix round 2（2026-10-12）：预算挂起唤醒端口**不再在构造器内注册**，改为惰性装配
+    // （见 `_ensureBudgetSuspendResumeInstalled`，入口 = `sendMessage` / `streamMessage`）。
+    // 构造器内注册会让每次 `createChatManager()`（命令处理器常见，且从不 `cleanup()`）
+    // 产生的丢弃实例都向**进程级单例**注册 listener 并以**单槽覆盖**劫持 `setResumeHandler`
+    // ⇒ 唤醒回调指向无会话状态的实例。惰性装配后：丢弃实例从不装配 ⇒ 不累积、不劫持。
   }
 
   /**
-   * Task 7：装配预算挂起的**唤醒端口**（幂等；`FEATURE_BUDGET_SUSPEND_RESUME` 默认关 ⇒ 零行为变更）。
+   * Task 7：**惰性装配**预算挂起的**唤醒端口**（幂等；`FEATURE_BUDGET_SUSPEND_RESUME` 默认关
+   * ⇒ 零行为变更）。
    *
    * - `getDailyBudget().onReliefApplied` ⇒ 放行发生时把 kind 转给协调器决策；
    * - `coordinator.setResumeHandler` ⇒ 协调器逐会话回调本类的 `resumeSuspendedSession`
    *   （`query/budgetSuspend` **不得** import `chat/**`，故经此注入端口，不构成循环导入）。
+   *
+   * **惰性而非构造期**（Fix round 2）：对齐 yield 恢复器的装配纪律（`_ensureYieldResumerInstalled`
+   * —— 惰性安装 + `cleanup()` 解绑）—— 入口 `sendMessage` / `streamMessage` 各调一次，`_budgetSuspendResumeWired`
+   * 保证**至多一次**。构造期装配会让丢弃实例（命令处理器的 `createChatManager()`）注册监听并覆盖 handler。
    */
-  private _installBudgetSuspendResume(): void {
+  private _ensureBudgetSuspendResumeInstalled(): void {
     if (this._budgetSuspendResumeWired) return;
     if (!coreFeature('BUDGET_SUSPEND_RESUME')) return; // 默认关 ⇒ 不注册（零行为变更）
     this._budgetSuspendResumeWired = true;
@@ -2617,10 +2625,14 @@ export class ChatManagerImpl implements ChatManager {
     setSelfWakeResumeHandler(null);
     setActiveSubagentRunProbe(null);
     // Task 7：卸载预算放行监听 + 摘除协调器 handler（同 yield 恢复器的防闭包累积纪律）
-    this._budgetReliefUninstall?.();
-    this._budgetReliefUninstall = null;
-    this._budgetSuspendResumeWired = false;
-    getBudgetSuspendCoordinator().setResumeHandler(null);
+    // Fix round 2：仅当**本实例**确是装配者时才摘除 —— 惰性装配后未装配的实例（如丢弃实例）
+    // 不得清掉 live 实例已装配的 handler。
+    if (this._budgetSuspendResumeWired) {
+      this._budgetReliefUninstall?.();
+      this._budgetReliefUninstall = null;
+      this._budgetSuspendResumeWired = false;
+      getBudgetSuspendCoordinator().setResumeHandler(null);
+    }
     // B1-6 / P0-6：**清空模块级单例的等待集**。卸载 listener 只切断"新信号"，
     // 而 `YieldRegistry` 是**进程级单例**（`getYieldRegistry()`）⇒ 条目会跨实例残留，
     // 新实例可能对**陈旧登记**发起恢复（修复前此处无 clear()，见 §2.5 P0-6）。
@@ -2662,6 +2674,14 @@ export class ChatManagerImpl implements ChatManager {
     // （`/v1/chat/completions`）不经该入口 ⇒ `yieldSettlementListeners` 为空 ⇒
     // 子代理结算时 `notifyYieldSettled` **静默丢弃**（等待已登记却永不恢复，且无任何日志）。
     this._ensureYieldResumerInstalled();
+    // Fix round 2（2026-10-12）：惰性装配预算挂起唤醒端口（同 yield 恢复器；构造期不再装配）。
+    this._ensureBudgetSuspendResumeInstalled();
+    // G-T3-1 / Important-1（Fix round 2）：进入**普通轮**前无条件清空该会话的残留续跑意图。
+    // `resumeSuspendedSession` 的 taor 分支只在委托执行**前**登记意图，而消费点在 TAOR 分支
+    // **内部**（`ChatOrchestrator` 的 `tool_calls` + `shouldUseTAORLoop` 两层）⇒ 若续跑轮未进入
+    // 该分支（无 `tool_calls` / 未走 TAOR / 分支前抛错），意图会**滞留**并误跳过此后任意一次
+    // 普通含工具轮次的 `reset()`。在此清空 ⇒ 意图生命周期收敛为「只影响紧接着的那一次执行」。
+    this.clearResumeIntent(options?.sessionId || this._currentSessionId || '');
     return this.chatOrchestrator.sendMessage(content, options);
   }
 
@@ -2735,6 +2755,17 @@ export class ChatManagerImpl implements ChatManager {
    */
   consumePendingResumeIntent(sessionId: string): boolean {
     return this._pendingResumeIntent.delete(sessionId);
+  }
+
+  /**
+   * G-T3-1 / Important-1（Fix round 2，2026-10-12）：**无条件清空**某会话的续跑意图（幂等）。
+   *
+   * 由 `sendMessage` 入口在每次普通轮开始前调用 —— 保证意图**只影响紧接着的那一次执行**：
+   * 续跑轮若未进入委托路径的 TAOR 分支（无 `tool_calls` / 未走 TAOR / 分支前抛错），
+   * 残留意图不得泄漏到后续轮次而误跳过其 `reset()`。
+   */
+  clearResumeIntent(sessionId: string): void {
+    this._pendingResumeIntent.delete(sessionId);
   }
   private async _sendMessageDowngradePath(
     session: ChatSession,
@@ -4336,7 +4367,12 @@ export class ChatManagerImpl implements ChatManager {
    */
   private _yieldResumerUninstall: (() => void) | null = null;
 
-  /** Task 7：预算挂起唤醒端口是否已装配（幂等守卫）。 */
+  /**
+   * Task 7：预算挂起唤醒端口是否已装配（幂等守卫）。
+   *
+   * Fix round 2：装配改为**惰性**（入口 `sendMessage` / `streamMessage`），故本守卫同时承担
+   * 「至多装一次」与「`cleanup()` 只摘除自有装配」两职 —— 未装配的实例不覆盖/不清除他人 handler。
+   */
   private _budgetSuspendResumeWired = false;
 
   /** Task 7：预算放行监听解绑函数（`cleanup` 卸载，防实例重建后闭包累积）。 */
@@ -4354,6 +4390,8 @@ export class ChatManagerImpl implements ChatManager {
   ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
     // 阶段 A（A1-e）：懒装配 yield 恢复器（子代理结算 → 恢复父会话）
     this._ensureYieldResumerInstalled();
+    // Fix round 2（2026-10-12）：惰性装配预算挂起唤醒端口（同 yield 恢复器；构造期不再装配）。
+    this._ensureBudgetSuspendResumeInstalled();
     return yield* this.chatOrchestrator.streamMessage(content, options);
   }
 

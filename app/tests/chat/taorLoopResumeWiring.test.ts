@@ -34,10 +34,14 @@
  *  ② `resumeSuspendedSession(sid, 'taor')` 会 resume 并**恰好调用一次既有执行入口**
  *     （`ChatOrchestrator.sendMessage`，即 TAOR 委托路径；不新增执行路径）。
  */
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import type http from 'http';
 
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
+import {
+  getBudgetSuspendCoordinator,
+  resetBudgetSuspendForTest,
+} from '../../src/query/budgetSuspend.js';
 import {
   handleListCheckpoints,
   handleResumeCheckpoint,
@@ -61,6 +65,11 @@ type ChatManagerInternals = {
 
 const internals = (cm: ChatManagerImpl): ChatManagerInternals =>
   cm as unknown as ChatManagerInternals;
+
+/** Fix round 2：覆写无关的 yield 恢复器装配（隔离，避免测试触真实库） */
+type YieldInstallInternals = {
+  _ensureYieldResumerInstalled: () => void;
+};
 
 /** 最小 req：`handleListCheckpoints`/`handleResumeCheckpoint` 只读 `url`/`method` */
 function makeReq(url: string, method = 'GET'): http.IncomingMessage {
@@ -239,7 +248,10 @@ function makeFakeLoop(): {
 function createSendMessageHost(opts: {
   sessionId: string;
   loop: ReturnType<typeof makeFakeLoop>;
-  consumeIntent: boolean;
+  /** 固定布尔，或按 sessionId 求值（Important-1 回归把消费委托给真实 ChatManager） */
+  consumeIntent: boolean | ((sessionId: string) => boolean);
+  /** 可覆盖的 LLM 响应（默认含 tool_calls；Important-1 回归用「无 tool_calls」轮） */
+  clientResponse?: () => Record<string, unknown>;
 }): ChatOrchestratorHost {
   const session = {
     id: opts.sessionId,
@@ -248,13 +260,14 @@ function createSendMessageHost(opts: {
     state: {},
   } as unknown as ChatSession;
   const client = {
-    sendMessage: async () => ({
-      content: '好的',
-      stop_reason: 'tool_calls',
-      tool_calls: [{ id: 'tc1', name: 'noop_tool', arguments: '{}' }],
-      usage: { prompt_tokens: 1, completion_tokens: 1 },
-      model: 'test-model',
-    }),
+    sendMessage: async () =>
+      opts.clientResponse?.() ?? {
+        content: '好的',
+        stop_reason: 'tool_calls',
+        tool_calls: [{ id: 'tc1', name: 'noop_tool', arguments: '{}' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+        model: 'test-model',
+      },
     getProviderId: () => 'test-provider',
     streamMessage: async function* (): AsyncGenerator<string> {
       yield '';
@@ -331,7 +344,10 @@ function createSendMessageHost(opts: {
     endTurnTelemetry: () => {},
     onTurnEnd: undefined,
     updateMessageBlocks: async () => {},
-    consumePendingResumeIntent: () => opts.consumeIntent,
+    consumePendingResumeIntent: (sid: string) =>
+      typeof opts.consumeIntent === 'function'
+        ? opts.consumeIntent(sid)
+        : opts.consumeIntent,
   } as unknown as ChatOrchestratorHost;
 }
 
@@ -375,5 +391,131 @@ describe('G-T3-1：委托路径的 reset() 条件化（续跑不被抹除）', (
 
     expect(internals(cm).consumePendingResumeIntent('g-one-shot')).toBe(true);
     expect(internals(cm).consumePendingResumeIntent('g-one-shot')).toBe(false);
+  });
+});
+
+// ─── Fix round 2 · Important-1：续跑意图生命周期收敛为「紧接着那一次执行」─────────
+//
+// 缺陷：`resumeSuspendedSession`（taor）在触发执行入口**前**登记意图，而消费点在
+// `ChatOrchestrator` 的 TAOR 分支**内部**（`tool_calls` + `shouldUseTAORLoop` 两层）。
+// 若续跑轮未进入该分支（响应无 `tool_calls`），意图**永不清除** ⇒ 此后任意一次普通含工具
+// 轮次都会命中并 `return true` ⇒ 误跳过 `taorLoop.reset()`，把上一次循环残留的游标/steering
+// 带进全新一轮。修复：`ChatManager.sendMessage` 入口无条件清空该会话的残留意图。
+
+describe('Fix round 2 · Important-1：残留续跑意图不泄漏到下一次普通轮', () => {
+  it('续跑轮未进入 TAOR reset 分支 ⇒ 下一次普通含 tool_calls 的轮照常 reset()', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'leak-regression';
+    const loop = makeFakeLoop();
+
+    // 可控响应：续跑轮 → 无 tool_calls（不进 TAOR 分支）；随后的普通轮 → 含 tool_calls
+    let response: Record<string, unknown> = {
+      content: '续跑完成（无工具）',
+      stop_reason: 'stop',
+    };
+    const host = createSendMessageHost({
+      sessionId: sid,
+      loop,
+      // 消费委托给**真实 ChatManager** ⇒ 与生产同一来源、同一份意图
+      consumeIntent: (s) => cm.consumePendingResumeIntent(s),
+      clientResponse: () => response,
+    });
+    const orch = new ChatOrchestrator({ host });
+    // `ChatManager.sendMessage` 委托到本 orchestrator（模拟同一实例的委托路径）
+    internals(cm).chatOrchestrator.sendMessage = (c, o) =>
+      orch.sendMessage(c as string, o as never);
+    // 隔离无关的 yield 装配（避免触真实库）
+    (cm as unknown as YieldInstallInternals)._ensureYieldResumerInstalled =
+      () => {};
+
+    // 续跑轮：登记意图后**绕过 ChatManager 入口**直接委托（与 resumeSuspendedSession 同法）
+    cm.markResumeIntent(sid);
+    await orch.sendMessage('resume', { sessionId: sid });
+
+    // 响应无 tool_calls ⇒ 未进入 reset 分支、意图**未被消费**（缺陷现场）
+    expect(loop.state.resetCalls).toBe(0);
+    expect(cm.consumePendingResumeIntent(sid)).toBe(true); // 意图确已滞留
+    cm.markResumeIntent(sid); // 复原滞留态（上一步探测已消费）
+
+    // 下一次普通含 tool_calls 的轮：必经 ChatManager 入口 ⇒ 清残留意图 + 照常 reset()
+    response = {
+      content: '普通轮',
+      stop_reason: 'tool_calls',
+      tool_calls: [{ id: 'tc9', name: 'noop_tool', arguments: '{}' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+      model: 'test-model',
+    };
+    await cm.sendMessage('normal', { sessionId: sid });
+
+    // 修复前：残留意图被误命中 ⇒ reset 恒被跳过（0）；修复后：照常 reset（1）
+    expect(loop.state.resetCalls).toBe(1);
+  });
+});
+
+// ─── Fix round 2 · Important-2：唤醒端口惰性装配（至多一次 · 丢弃实例不劫持）──────
+//
+// 缺陷：`_installBudgetSuspendResume()` 原在**构造器末尾**调用，而 `createChatManager()`
+// 每次 `new ChatManagerImpl()`（命令处理器常见，且从不 `cleanup()`）⇒ 向**进程级单例**
+// 注册永不解绑的 listener，并以**单槽覆盖**劫持 `setResumeHandler`（唤醒回调指向无会话
+// 状态的实例）。修复：改为**惰性装配**（入口 `sendMessage` / `streamMessage`），丢弃实例
+// 从不装配 ⇒ 不累积、不劫持；`cleanup()` 仅摘除自有装配。
+
+describe('Fix round 2 · Important-2：唤醒端口惰性装配', () => {
+  const FLAG = 'FEATURE_BUDGET_SUSPEND_RESUME';
+  let prevFlag: string | undefined;
+
+  beforeEach(() => {
+    resetBudgetSuspendForTest();
+    prevFlag = process.env[FLAG];
+    process.env[FLAG] = 'true';
+  });
+  afterEach(() => {
+    if (prevFlag === undefined) delete process.env[FLAG];
+    else process.env[FLAG] = prevFlag;
+    resetBudgetSuspendForTest();
+  });
+
+  it('构造丢弃实例不装配；live 经真实入口装配一次且 handler 指向 live；cleanup 解绑', async () => {
+    const coordinator = getBudgetSuspendCoordinator();
+    const handlerCalls: Array<((...a: never[]) => unknown) | null> = [];
+    const original = coordinator.setResumeHandler.bind(coordinator);
+    coordinator.setResumeHandler = (h) => {
+      handlerCalls.push(h as unknown as (...a: never[]) => unknown);
+      original(h);
+    };
+
+    // 丢弃实例（命令处理器典型路径：构造后从不 cleanup）
+    new ChatManagerImpl();
+    new ChatManagerImpl();
+    expect(handlerCalls.length).toBe(0); // 修复前：每次构造即装配并覆盖 handler
+
+    // live 实例：经**真实入口**（sendMessage）触发惰性装配
+    const live = new ChatManagerImpl();
+    (live as unknown as YieldInstallInternals)._ensureYieldResumerInstalled =
+      () => {};
+    internals(live).chatOrchestrator.sendMessage = async () => ({}) as never;
+
+    await live.sendMessage('hi', { sessionId: 'live-1' });
+    expect(handlerCalls.length).toBe(1);
+    await live.sendMessage('hi-2', { sessionId: 'live-1' });
+    expect(handlerCalls.length).toBe(1); // 幂等：至多装一次
+
+    // 再构造丢弃实例 ⇒ 仍不装配、不覆盖
+    new ChatManagerImpl();
+    expect(handlerCalls.length).toBe(1);
+
+    // handler 指向**具备会话状态**的 live：调用它 ⇒ 命中 live.resumeSuspendedSession
+    const spy = spyOn(live, 'resumeSuspendedSession').mockResolvedValue(true);
+    await (
+      handlerCalls[0] as unknown as (
+        sid: string,
+        chain: string
+      ) => Promise<boolean>
+    )('s-any', 'taor');
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // cleanup 解绑：仅装配者摘除 ⇒ handler 置 null
+    live.cleanup();
+    expect(handlerCalls[handlerCalls.length - 1]).toBeNull();
   });
 });

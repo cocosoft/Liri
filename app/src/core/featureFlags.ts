@@ -314,6 +314,17 @@ export const FEATURE_FLAGS = {
    * `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true`。
    */
   EXECUTION_TWO_PHASE_CANCEL: false,
+  /**
+   * 阶段 4（2026-10-12）：**四原语只读投影广播**（默认关 = 零行为变更）。
+   *
+   * 开 ⇒ 执行域在**唯一 choke point**（`ExecutionManager.emitStatus`）把原生状态映射为四原语
+   * （`PREPARED`/`RUNNING`/`SUSPENDED`/`SETTLED`）并经既有 `globalEventBus` 广播
+   * （事件名 `SystemEvents.STATE_PROJECTED`；**只带原语**、不带原生细粒度状态）。
+   * 关（默认）⇒ **不发布任何广播**（零行为变更；仅有常数级映射查表开销）。
+   * ⚠️ 当前**无生产消费者**（出站订阅面 = 通道治理 §3 阶段 2.3，已暂缓）⇒ 属**预留接线**（UW）。
+   * `FEATURE_STATE_PROJECTION_BROADCAST=true`。
+   */
+  STATE_PROJECTION_BROADCAST: false,
 
   // ───── 安全姿态（P0-3，2026-10-10；默认关 = 零行为变更的灰度开关）─────
   /**
@@ -442,16 +453,21 @@ export const FEATURE_FLAGS = {
   /** Pro：Swarm 编排 */
   PRO_SWARM: false,
 
-  // ───── 长任务预算挂起续跑（债二，2026-10-12；默认关 = 零行为变更）─────
+  // ───── 长任务预算挂起续跑（债二，2026-10-12；**同日用户裁定启用：默认开**）─────
   /**
-   * **每日预算耗尽 ⇒ 长任务挂起 / 放行后续跑**总开关（默认关）。
+   * **每日预算耗尽 ⇒ 长任务挂起 / 放行后续跑**总开关（**默认开**）。
    *
    * 开 ⇒ 撞限时两条链各自落"挂起标记"检查点并登记到 `BudgetSuspendCoordinator`，
    * 用户放行（boost/unlock-today/waive-once）后按挂起时间序、上限内续跑。
-   * 关（默认）⇒ 撞限行为与今日**完全一致**（零行为变更）。
-   * `FEATURE_BUDGET_SUSPEND_RESUME=true`。
+   * 关 ⇒ 撞限行为与启用前**完全一致**（零行为变更）：`FEATURE_BUDGET_SUSPEND_RESUME=false`。
+   *
+   * **启用依据（2026-10-12 用户裁定「补齐查询面可见性与 taor 链 E2E 后再启用开关」）**：
+   * 两链「撞限 → 放行 → **真续跑**」均已真实端到端实证（流式链 v1.4 · taor 链 v1.6），
+   * 且收尾缺陷（B3-1 续跑短路 / B3-2 递减连续性 / B3-3 启动期装配 / 幽灵挂起 /
+   * E2E-1 会话锁泄漏）已全部根因修复。详见 `.trae/specs/long-task-suspend-resume.md` v1.7
+   * 与证据 `.trae/architecture/fix-evidence-registry.json` → `BUDGET-SUSPEND-RESUME`。
    */
-  BUDGET_SUSPEND_RESUME: false,
+  BUDGET_SUSPEND_RESUME: true,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

@@ -5,7 +5,7 @@
  * 满足巨型文件行数守则）：① 保持原日志语义（`logExhaustionAbort`）② 开关开时落
  * `type='budget_suspend'` 检查点并登记协调器；开关关时**只打日志**（零行为变更）。
  *
- * 边界：`BUDGET_SUSPEND_RESUME`（默认关）门控新增行为；挂起事实源 = 检查点，协调器仅内存登记。
+ * 边界：`BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）门控新增行为；挂起事实源 = 检查点，协调器仅内存登记。
  */
 
 import { feature } from '@modules/core';

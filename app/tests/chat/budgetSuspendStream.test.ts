@@ -3,7 +3,7 @@
 //
 // Task 5（债二-预算挂起续跑）：流式链日预算耗尽 ⇒ 挂起落点。
 //
-// 门控：`FEATURE_BUDGET_SUSPEND_RESUME`（默认关）⇒ 关时零行为变更（不落标记、不登记）。
+// 门控：`FEATURE_BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）⇒ 关时零行为变更（不落标记、不登记）。
 // 开关开：日预算耗尽 ⇒ `StreamingAutoCheckpoint.suspend` 落一条 `label='budget_suspend'`
 // 检查点，并登记到 `BudgetSuspendCoordinator`（chain='stream'）。
 // 既有语义不变：仍置 `budget_exhausted` 相位、仍走 finalize（不抛错）。
@@ -204,7 +204,7 @@ describe('Task 5：流式链日预算耗尽挂起', () => {
   });
 
   it('开关关：日预算耗尽 ⇒ 不落挂起检查点、不登记（零行为变更）', async () => {
-    delete process.env[FLAG];
+    process.env[FLAG] = 'false'; // 默认已翻为开 ⇒ 显式 false 才是「关」
     const saved: Saved[] = [];
 
     await runLoop(saved);

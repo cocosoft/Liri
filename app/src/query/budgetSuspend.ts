@@ -31,7 +31,7 @@
  *  - 本模块**不订阅**任何事件、**不**主动调用唤醒 handler（那是 Task 7）；此处只提供
  *    `setResumeHandler` 挂点。
  *  - **不得** import `chat/**`（会与 chat→query 成环）；唤醒经注入的 handler 端口。
- *  - 新行为统一由 `FEATURE_BUDGET_SUSPEND_RESUME`（默认关）门控 ⇒ 关时零行为变更。
+ *  - 新行为统一由 `FEATURE_BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）门控 ⇒ 关时零行为变更。
  */
 
 import { configManager } from '@modules/config';

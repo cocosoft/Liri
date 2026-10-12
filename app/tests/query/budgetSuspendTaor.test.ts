@@ -3,7 +3,7 @@
 //
 // Task 6（债二-预算挂起续跑）：batch（TAOR）链日预算耗尽 ⇒ 挂起落点 + 启动扫描排除（反目标①）。
 //
-// 门控：`FEATURE_BUDGET_SUSPEND_RESUME`（默认关）⇒ 关时零行为变更（不落标记、不登记，但日志照打）。
+// 门控：`FEATURE_BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）⇒ 关时零行为变更（不落标记、不登记，但日志照打）。
 // 反目标①：`budget_suspend` 检查点**不参与**启动扫描（`scanPending`/`hasPending`）⇒
 // 重启后**不自动续跑**（静默烧额度）；普通 `auto` 检查点仍照旧被扫描（不误伤）。
 
@@ -97,7 +97,7 @@ describe('Task 6：batch 链日预算耗尽挂起', () => {
   });
 
   it('开关关 ⇒ 不落、不登记（但日志照打）', async () => {
-    delete process.env[FLAG];
+    process.env[FLAG] = 'false'; // 默认已翻为开 ⇒ 显式 false 才是「关」（`feature()`：env > 变体 > 静态默认）
     const saved: string[] = [];
     const logs: unknown[] = [];
     const off = addLogHandler((entry) => {

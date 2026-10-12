@@ -455,7 +455,7 @@ export class ReActToolLoop extends ReActLoop<
    *
    * 只处理 `kind === 'daily'`：`'loop'` 是**上下文窗口**预算（`createStreamBudget`），
    * 与日预算放行（relief）正交 ⇒ 挂起它并无"续跑"语义（放行也不能解除窗口预算）。
-   * 整体由 `BUDGET_SUSPEND_RESUME` 门控 ⇒ 关时零行为变更（直接 return）。
+   * 整体由 `BUDGET_SUSPEND_RESUME`（**默认开**）门控 ⇒ 关时零行为变更（直接 return）。
    */
   protected override async onBudgetExhausted(
     kind: 'loop' | 'daily'

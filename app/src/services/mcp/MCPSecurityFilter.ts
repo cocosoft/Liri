@@ -192,6 +192,65 @@ export function buildSafeEnv(extraKeys?: string[]): Record<string, string> {
 }
 
 /**
+ * 审计**显式配置**的 env（MCP server 自身配置），在合并进子进程环境前给出告警。
+ *
+ * 与 `buildSafeEnv()` 的分工（2026-10-12，G-2 收紧）：
+ * - `buildSafeEnv()` 约束的是「从**宿主** `process.env` 白名单继承」——不得全量继承；
+ * - 本函数处理的是**用户显式写在 MCP 配置里的 env**：这是为 MCP server 提供其**自身凭据**的
+ *   标准用法（如 `GITHUB_PERSONAL_ACCESS_TOKEN`），故**不按名硬拦截**（硬拦会破坏正常接入），
+ *   但必须**显式审计**：命中敏感名 ⇒ 告警；若其值恰与同名宿主变量一致 ⇒ 追加高信号告警，
+ *   以暴露「误把宿主密钥抄进配置」的情况。**告警只含键名，绝不含值。**
+ */
+export function auditExplicitEnv(
+  env?: Record<string, string>
+): Record<string, string> {
+  if (!env) return {};
+
+  const sensitiveKeys = Object.keys(env).filter((key) =>
+    BLOCKED_ENV_PATTERNS.some((p) => p.test(key))
+  );
+  if (sensitiveKeys.length === 0) return env;
+
+  logger.warn('mcp:explicit_env_sensitive', {
+    keys: sensitiveKeys,
+    note: 'explicit MCP server env contains sensitive-named keys; forwarded by design (server-owned credentials)',
+  });
+
+  const hostCopiedKeys = sensitiveKeys.filter(
+    (key) => process.env[key] !== undefined && process.env[key] === env[key]
+  );
+  if (hostCopiedKeys.length > 0) {
+    logger.warn('mcp:explicit_env_value_from_host', {
+      keys: hostCopiedKeys,
+      note: 'explicit MCP env value equals the host env value — confirm this is intended, not an accidental copy',
+    });
+  }
+
+  return env;
+}
+
+/**
+ * 对 MCP 返回的**结构化载荷**做凭据剥离（JSON 往返）。
+ * 与 `MCPServerManager.callTool` 的对象分支同源（CS01：单一实现，勿再各写一份）。
+ * 脱敏后若无法解析回 JSON，退回脱敏后的字符串（安全过滤容错，不抛错）。
+ */
+export function redactMcpPayload<T>(value: T): T | string {
+  try {
+    const jsonStr = JSON.stringify(value);
+    if (jsonStr === undefined) return value;
+    const { cleaned } = stripCredentials(jsonStr);
+    if (cleaned === jsonStr) return value;
+    try {
+      return JSON.parse(cleaned) as T;
+    } catch {
+      return cleaned;
+    }
+  } catch {
+    return value;
+  }
+}
+
+/**
  * 过滤 MCP 工具结果，应用凭据剥离
  */
 export function filterMCPToolResult(output: string): string {

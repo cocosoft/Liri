@@ -14,7 +14,11 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { trackProcess, untrackProcess } from './ChildProcessTracker';
-import { buildSafeEnv, stripCredentials } from '../MCPSecurityFilter';
+import {
+  buildSafeEnv,
+  stripCredentials,
+  auditExplicitEnv,
+} from '../MCPSecurityFilter';
 
 const logger = getLogger('services:mcp:stdio');
 
@@ -51,11 +55,15 @@ export class StdioTransport extends MCPTransport {
     super();
     this.command = options.command;
     this.args = options.args || [];
-    // P2-4: 使用 buildSafeEnv() 仅传递安全基线环境变量，而非全部 process.env
-    const extraKeys = options.env ? Object.keys(options.env) : [];
+    // P2-4：仅传递**宿主**安全基线环境变量（白名单），而非全部 process.env。
+    // G-2（2026-10-12）收紧：把「宿主继承」与「显式配置」两条来源**分离**——
+    //   旧实现 `{ ...buildSafeEnv(Object.keys(options.env)), ...options.env }` 把 config 键喂给
+    //   buildSafeEnv，触发 `mcp:env_blocked` 告警，却又被尾部展开原样透传 ⇒ **语义自相矛盾**
+    //   （声称已拦、实际放行）。现改为：宿主只取白名单基线；显式配置经 `auditExplicitEnv()`
+    //   **审计后合并**（按设计放行 MCP server 自身凭据，但命中敏感名/与宿主同值会告警）。
     this.env = {
-      ...buildSafeEnv(extraKeys),
-      ...options.env,
+      ...buildSafeEnv(),
+      ...auditExplicitEnv(options.env),
     };
   }
 

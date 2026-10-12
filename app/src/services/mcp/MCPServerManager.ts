@@ -245,17 +245,9 @@ export class MCPServerManager {
         const { filterMCPToolResult } = await import('./MCPSecurityFilter');
         safeResult = filterMCPToolResult(result);
       } else if (typeof result === 'object' && result !== null) {
-        const { stripCredentials } = await import('./MCPSecurityFilter');
-        const jsonStr = JSON.stringify(result);
-        const { cleaned } = stripCredentials(jsonStr);
-        if (cleaned !== jsonStr) {
-          try {
-            safeResult = JSON.parse(cleaned);
-          } catch {
-            // @ignore-catch — 脱敏后 JSON 解析失败退回原文（安全过滤容错，不抛错）
-            safeResult = cleaned;
-          }
-        }
+        // CS01：JSON 往返脱敏收敛到 `redactMcpPayload`（与 `McpToolWrapper` 单一实现，勿再各写一份）
+        const { redactMcpPayload } = await import('./MCPSecurityFilter');
+        safeResult = redactMcpPayload(result);
       }
 
       stats.successfulRequests++;

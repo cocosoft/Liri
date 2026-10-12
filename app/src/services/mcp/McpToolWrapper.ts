@@ -12,6 +12,7 @@ import type { SerializedTool } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 import { getLogger } from '@modules/monitoring';
+import { filterMCPToolResult, redactMcpPayload } from './MCPSecurityFilter';
 const logger = getLogger('services:mcp:McpToolWrapper');
 
 /**
@@ -116,11 +117,19 @@ export class McpToolWrapper implements Tool {
       const content = result.content as
         | Array<{ type: string; text?: string; data?: unknown }>
         | undefined;
-      const textContent =
+      const rawText =
         content
           ?.map((c) => c.text)
           .filter(Boolean)
           .join('\n') || '';
+
+      // G-1（2026-10-12）：与 `MCPServerManager.callTool` 对齐（单一实现，CS01）。本 wrapper 是
+      // `mcp__*` 工具的**模型可见路径**（由 `MCPToolBridge` 注册进工具端口），原实现直接回传
+      // 未脱敏文本 ⇒ 远端 server 回传的 API key / token 可原样进入模型上下文。此处统一剥离：
+      //   · 文本输出 → `filterMCPToolResult`（剥离 + 附加 System note）
+      //   · 结构化 `data` → `redactMcpPayload`（JSON 往返剥离，与 manager 同源）
+      const textContent = filterMCPToolResult(rawText);
+      const safeData = redactMcpPayload(result);
 
       // P4-5：工具调用审计（server/tool/耗时/结果）
       logger.info(
@@ -131,7 +140,7 @@ export class McpToolWrapper implements Tool {
       return {
         success: !result.isError,
         output: textContent,
-        data: result,
+        data: safeData,
         status: result.isError
           ? ToolExecutionStatus.FAILURE
           : ToolExecutionStatus.SUCCESS,

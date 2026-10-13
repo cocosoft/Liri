@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.83-blue)
+![Version](https://img.shields.io/badge/version-0.4.84-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.83**
+当前版本：**v0.4.84**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,10 +436,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.83 (2026-10-13)  M1 认领语义收紧：`waive-once` 通行证「先认领者独占」 
-- ✅ **`canExecute(sessionId?)` 不再每次调用都重写认领** - 改为**仅当无认领者时**认领（`_waiverGrantedForSession === null` 才置位；无 sessionId 的调用**不认领**）⇒ 消除「后到会话在同一 TTL 窗口内夺走消费归属」。依据：通行证是**单次**豁免 ⇒ 应由**最先**用它放行的会话负责消费，Consume-and-Die 的归属才稳定（承接上一批 M1 报告里如实披露的残余）
-- ✅ **锁定测试** - `tests/query/dailyBudgetWaiveOnceGate.test.ts` 新增 **M1-⑥**（先红后绿：修复前 **11 pass / 1 fail**，修复后 **12 pass / 0 fail**）；广域 `tests/{query,chat}` **832 pass / 1 fail**（唯一 fail 为既存环境型 `dailyBudgetSingleton` env 遮蔽）
-- ℹ️ **行为面** - 两会话同处 `locked` 且通行证有效时：**两者都会被放行**（既有语义不变），但只有**先认领者**的记账会消费该通行证；认领者若始终不记账，通行证由既有 **TTL** 兜底失效
+#### v0.4.84 (2026-10-13)  20261012 批次落地复查 · 补齐第一批（全方案落地复查 + 文档/台账漂移补齐 + T3-9 默认值单源统一） 
+- ✅ **全方案落地复查（35 条待办逐条对账）** - 对 `dev_docs/20261012/` 五方案逐条回仓取证（代码 `file:line` + 测试 + 证据台账），结论：**16 项已落地 · 8 项部分落地 · 10 项未落地**（含"未落地项"与部分落地缺口逐条列明）；结论入册 `五方案总览` §8，并做一轮**轻量真机 smoke**（真实会话 + 工具调用：`read_file` 返回 17580 字符 ⇒ 正确答 `0.4.77`；两个查询面 200；无挂起；环境已恢复）
+- ✅ **`T0-4` 文档幻觉符号订正** - `README.md` 与 `agent/registry/AgentRegistry.ts` 的 `SwarmCoordinator`/`AgentChain`（**均无实体**）订正为 `AgentSwarm` / 仅 `CHAIN_*` 事件；顺带清除 README 结构树中**已移除**的 `core/gateway/`
+- ✅ **`T0-6` `flows/FlowEngine.ts` 零消费者登记入册** - `.trae/specs/dead-code-and-unwired-items-rulings.md` §2 新增 **UW-4**（**只登记不删**，依 CD07）
+- ✅ **`T3-9` 默认预算常量单源统一** - `query/DailyBudgetManager.ts` 的 `DEFAULT_DAILY_BUDGET_TOKENS` 与类内 `DEFAULT_CONFIG.dailyLimit` **合并为同一常量引用**（单源）；按用户裁定以 **`1_000_000`** 为准（与原方案裁断 500_000 相反，**如实登记**）
+- ✅ **过时结论订正** - `state/engine/projectionBroker.ts` 与台账 `FSM-PROJECTION-P4` / `FSM-SUSPENDED-P5` 的「`SUSPENDED` 无生产者/不可达」已被债二落地推翻 ⇒ 更正为「**已有生产者、阶段 5 实质达成**」（`e2eVerified` 仍 false，因投影广播默认关）；侧车方案/盘点清单的「D10 P1 IPC 基座未落地」订正为**已落地（2026-10-10）**
+- ✅ **顺带修复两处此前未被发现的红** - ① `tests/query/dailyBudgetSingleton.test.ts` 的**机器配置依赖**断言改为**从解析结果派生**（既存"环境型失败"一并消除）；② `tests/state/stateMachineHygiene.test.ts` 的应用安装状态守卫改**空白容忍正则**（prettier 折行后原单行契据**恒为 0、形同虚设**）
+- ✅ **质量** - `typecheck` 3 工程 0 错；`lint:size`/`fn-size`/`complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`version:check` 全绿；`tests/{state,query,chat,execution,http,session,budget}` **1550 pass / 0 fail**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

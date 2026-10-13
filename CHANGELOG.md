@@ -59,16 +59,6 @@
 - 📄 **两份决策支持文档（只写文档）** - ① [债四 §12 十项待裁定的**裁定建议**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/unified-budget-and-accounting-%E8%A3%81%E5%AE%9A%E5%BB%BA%E8%AE%AE-20261013.md)（逐项：取证/建议/备选与影响/落地切片）；② [侧车化**实施计划**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-sidecar-isolation-plan-20261013.md)（8 阶段 / 19 任务，含 CD05/CD06/CD07 切片与验收）
 - ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（**114 条**）/`lint:doc-code`/`version:check` 全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**
 
-**20261012 批次落地复查 · 补齐第一批（全方案落地复查 + 文档/台账漂移补齐 + T3-9 默认值单源统一）**
-
-- ✅ **全方案落地复查（35 条待办逐条对账）** - 对 `dev_docs/20261012/` 五方案逐条回仓取证（代码 `file:line` + 测试 + 证据台账），结论：**16 项已落地 · 8 项部分落地 · 10 项未落地**（含"未落地项"与部分落地缺口逐条列明）；结论入册 `五方案总览` §8，并做一轮**轻量真机 smoke**（真实会话 + 工具调用：`read_file` 返回 17580 字符 ⇒ 正确答 `0.4.77`；两个查询面 200；无挂起；环境已恢复）
-- ✅ **`T0-4` 文档幻觉符号订正** - `README.md` 与 `agent/registry/AgentRegistry.ts` 的 `SwarmCoordinator`/`AgentChain`（**均无实体**）订正为 `AgentSwarm` / 仅 `CHAIN_*` 事件；顺带清除 README 结构树中**已移除**的 `core/gateway/`
-- ✅ **`T0-6` `flows/FlowEngine.ts` 零消费者登记入册** - `.trae/specs/dead-code-and-unwired-items-rulings.md` §2 新增 **UW-4**（**只登记不删**，依 CD07）
-- ✅ **`T3-9` 默认预算常量单源统一** - `query/DailyBudgetManager.ts` 的 `DEFAULT_DAILY_BUDGET_TOKENS` 与类内 `DEFAULT_CONFIG.dailyLimit` **合并为同一常量引用**（单源）；按用户裁定以 **`1_000_000`** 为准（与原方案裁断 500_000 相反，**如实登记**）
-- ✅ **过时结论订正** - `state/engine/projectionBroker.ts` 与台账 `FSM-PROJECTION-P4` / `FSM-SUSPENDED-P5` 的「`SUSPENDED` 无生产者/不可达」已被债二落地推翻 ⇒ 更正为「**已有生产者、阶段 5 实质达成**」（`e2eVerified` 仍 false，因投影广播默认关）；侧车方案/盘点清单的「D10 P1 IPC 基座未落地」订正为**已落地（2026-10-10）**
-- ✅ **顺带修复两处此前未被发现的红** - ① `tests/query/dailyBudgetSingleton.test.ts` 的**机器配置依赖**断言改为**从解析结果派生**（既存"环境型失败"一并消除）；② `tests/state/stateMachineHygiene.test.ts` 的应用安装状态守卫改**空白容忍正则**（prettier 折行后原单行契据**恒为 0、形同虚设**）
-- ✅ **质量** - `typecheck` 3 工程 0 错；`lint:size`/`fn-size`/`complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`version:check` 全绿；`tests/{state,query,chat,execution,http,session,budget}` **1550 pass / 0 fail**
-
 **20261012 批次落地复查 · 补齐第二批（工具数据源门禁 + 债一残余线性收口）**
 
 - ✅ **工具治理 阶段 3.2：「新数据源不以新增工具承载」源码门禁（`TOOLGOV-T12-32`）** - 新增 `app/tests/tools/toolDataSourcesNotNewTools.test.ts`：声明面 = `TOOL_NAME_CONSTANTS`（工具名唯一来源），**冻结基线 + 豁免清单（须非空理由）**，判据「新增 = 声明面 − 基线，必须已登记」否则 **fail-closed**；附基线陈旧检测与豁免重叠检测。**负向自证**固化在用例内（未登记的 `mysql_query` 被拦截、登记后放行）。先红后绿（3 fail → 6 pass）
@@ -148,6 +138,15 @@
 - ⚠️ **如实缺口**（`e2eVerified=false`） - 未做真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是既有类型盲区（parked）；唤醒上限按"成功数"计数（handler 调用数可 > N，未单测）；`taor` 续跑的 host 胶水缺集成用例。证据 `BUDGET-SUSPEND-RESUME`
 
 ---
+
+#### v0.4.84 (2026-10-13)  20261012 批次落地复查 · 补齐第一批（全方案落地复查 + 文档/台账漂移补齐 + T3-9 默认值单源统一） 
+- ✅ **全方案落地复查（35 条待办逐条对账）** - 对 `dev_docs/20261012/` 五方案逐条回仓取证（代码 `file:line` + 测试 + 证据台账），结论：**16 项已落地 · 8 项部分落地 · 10 项未落地**（含"未落地项"与部分落地缺口逐条列明）；结论入册 `五方案总览` §8，并做一轮**轻量真机 smoke**（真实会话 + 工具调用：`read_file` 返回 17580 字符 ⇒ 正确答 `0.4.77`；两个查询面 200；无挂起；环境已恢复）
+- ✅ **`T0-4` 文档幻觉符号订正** - `README.md` 与 `agent/registry/AgentRegistry.ts` 的 `SwarmCoordinator`/`AgentChain`（**均无实体**）订正为 `AgentSwarm` / 仅 `CHAIN_*` 事件；顺带清除 README 结构树中**已移除**的 `core/gateway/`
+- ✅ **`T0-6` `flows/FlowEngine.ts` 零消费者登记入册** - `.trae/specs/dead-code-and-unwired-items-rulings.md` §2 新增 **UW-4**（**只登记不删**，依 CD07）
+- ✅ **`T3-9` 默认预算常量单源统一** - `query/DailyBudgetManager.ts` 的 `DEFAULT_DAILY_BUDGET_TOKENS` 与类内 `DEFAULT_CONFIG.dailyLimit` **合并为同一常量引用**（单源）；按用户裁定以 **`1_000_000`** 为准（与原方案裁断 500_000 相反，**如实登记**）
+- ✅ **过时结论订正** - `state/engine/projectionBroker.ts` 与台账 `FSM-PROJECTION-P4` / `FSM-SUSPENDED-P5` 的「`SUSPENDED` 无生产者/不可达」已被债二落地推翻 ⇒ 更正为「**已有生产者、阶段 5 实质达成**」（`e2eVerified` 仍 false，因投影广播默认关）；侧车方案/盘点清单的「D10 P1 IPC 基座未落地」订正为**已落地（2026-10-10）**
+- ✅ **顺带修复两处此前未被发现的红** - ① `tests/query/dailyBudgetSingleton.test.ts` 的**机器配置依赖**断言改为**从解析结果派生**（既存"环境型失败"一并消除）；② `tests/state/stateMachineHygiene.test.ts` 的应用安装状态守卫改**空白容忍正则**（prettier 折行后原单行契据**恒为 0、形同虚设**）
+- ✅ **质量** - `typecheck` 3 工程 0 错；`lint:size`/`fn-size`/`complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`version:check` 全绿；`tests/{state,query,chat,execution,http,session,budget}` **1550 pass / 0 fail**
 
 #### v0.4.83 (2026-10-13)  M1 认领语义收紧：`waive-once` 通行证「先认领者独占」 
 - ✅ **`canExecute(sessionId?)` 不再每次调用都重写认领** - 改为**仅当无认领者时**认领（`_waiverGrantedForSession === null` 才置位；无 sessionId 的调用**不认领**）⇒ 消除「后到会话在同一 TTL 窗口内夺走消费归属」。依据：通行证是**单次**豁免 ⇒ 应由**最先**用它放行的会话负责消费，Consume-and-Die 的归属才稳定（承接上一批 M1 报告里如实披露的残余）

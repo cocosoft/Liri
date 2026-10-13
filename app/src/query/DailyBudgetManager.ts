@@ -1098,7 +1098,11 @@ export function recordDailyBudgetFromUsage(
   // ⚠️ 本路径**不提取缓存字段**（`extractCacheTokens` 属 `ai` 层 ⇒ query→ai 会造成模块级环）⇒
   //    缓存用量按缺失处理（**不臆造 0 之外的数**）；chat 主链的「缓存纳入」见 `ChatManager`。
   if (total > 0) {
-    recordTurnCostUsd({ inputTokens: input, outputTokens: output }, model, sessionId);
+    recordTurnCostUsd(
+      { inputTokens: input, outputTokens: output },
+      model,
+      sessionId
+    );
   }
   return total;
 }

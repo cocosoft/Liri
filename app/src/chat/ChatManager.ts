@@ -117,10 +117,7 @@ import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // R16：每日 Token 预算（进程共享单例）——记账点收敛到本类的 recordChatResponseUsage。
 // 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
-import {
-  getDailyBudget,
-  recordTurnCostUsd,
-} from '../query/DailyBudgetManager';
+import { getDailyBudget, recordTurnCostUsd } from '../query/DailyBudgetManager';
 // Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
 // `query/budgetSuspend` **不得** import `chat/**`（防环）⇒ 唤醒经注入的 handler 端口（下方装配）。
 import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';

@@ -74,10 +74,18 @@ describe('债四「换算接线」：用量 + 模型 ⇒ 金额入账', () => {
     const budget = getDailyBudget();
 
     expect(
-      recordTurnCostUsd({ inputTokens: 1000, outputTokens: 500 }, undefined, 's1')
+      recordTurnCostUsd(
+        { inputTokens: 1000, outputTokens: 500 },
+        undefined,
+        's1'
+      )
     ).toBe(0);
     expect(
-      recordTurnCostUsd({ inputTokens: 1000, outputTokens: 500 }, 'unknown', 's1')
+      recordTurnCostUsd(
+        { inputTokens: 1000, outputTokens: 500 },
+        'unknown',
+        's1'
+      )
     ).toBe(0);
     expect(
       recordTurnCostUsd({ inputTokens: 1000, outputTokens: 500 }, '', 's1')

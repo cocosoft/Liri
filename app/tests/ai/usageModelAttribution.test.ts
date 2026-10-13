@@ -170,7 +170,9 @@ describe('防漂移：金额台账的模型来源与成本归因同源（债四�
       readFileSync(join(APP_SRC, 'chat/streamingLlm.ts'), 'utf-8')
     );
     // 必须：解析一次 `turnModel` 并传给金额台账入口（第 4 参）
-    expect(code).toMatch(/const\s+turnModel\s*=\s*extractModelFromResponse\s*\(/);
+    expect(code).toMatch(
+      /const\s+turnModel\s*=\s*extractModelFromResponse\s*\(/
+    );
     expect(code).toMatch(
       /recordChatResponseUsage\(\s*this\.deps\.getCtx\(\)\.session\.id,\s*usage,\s*requestId,\s*turnModel\s*\)/
     );

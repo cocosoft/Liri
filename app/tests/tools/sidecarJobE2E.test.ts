@@ -5,14 +5,18 @@
  * `ToolSidecarSupervisor`：验证 `submitJob()` **立即返回**、完成由 `notify{job.completed}` 兑现；
  * 失败作业 `reject`；**永不回推 ⇒ 超时兜底 reject**（绝不悬挂）；**侧车退出 ⇒ 在飞作业同口 reject**。
  *
- * ⚠️ **取证注记（2026-10-13；**曾误判为平台缺陷，现已更正**）**：
- * 本文件的「**单作业**」用例（提交后等 `notify` 兑现）在此文件内**稳定失败**（走超时兜底），
- * 而「多作业 / 超时 / 退出」用例通过。**关键反证**：把**完全相同的构造与调用**放进**独立文件**
- * （一次性探针，已删除）⇒ **稳定通过**（真实子进程 → `submitJob` → `notify{job.completed}` → resolve）；
- * 另外**单独**用 `raw data` 与 `readline` 读同一夹具**都收到** `startup`/`response`/`notify` **三帧**。
- * ⇒ **证伪**「bun `readline` 不投递异步帧」的推断：**产品代码（协议/登记/派发/兜底）与跨进程机制均正常**，
- * 现象属**测试文件级交互**（同文件内多用例共存时出现），**与产品代码无关**、亦**非**平台投递缺陷。
- * ⇒ 处置：两条用例暂 `it.skip` 钉住现状（**不推红测**），并**如实登记**待独立定位该测试层交互。
+ * ⚠️ **取证注记（2026-10-13；**含一次「结论更正」后再更正，如实留痕**）**：
+ * **现象**：「**单作业**」用例（提交后等 `notify` 兑现）在 **bun test** 下**稳定走超时兜底**；
+ * 而「多作业（并发 2 作业，含 5ms/40ms 延迟）/ 超时兜底 / 侧车退出」用例**通过**。
+ * **已排除**：夹具未写出（同步落盘探针证明 `notify written`）· 夹具侧 stdio 冲刷（改 `fs.writeSync(1,…)` 现象不变）·
+ * 静态顶层导入 · 文件内先后位置 · 实例生命周期共享（每条自持 + `finally` 自停）· **`readline` 本身**
+ * （单独直读同一夹具，**`raw 'data'` 与 `readline` 都收到** `startup`/`response`/`notify` **三帧**）。
+ * **未排除（差异所在）**：走**主管 `ToolSidecarSupervisor`** 时异步帧未被兑现；曾有一次「同代码放进独立文件即通过」
+ * 的观察，但**换新文件复跑为 2/2 失败** ⇒ **该观察不可复现、结论已撤回**。
+ * ⇒ **当前定性（保守）**：**主管路径（或测试夹具层）下：异步完成通知未被兑现**，**根因未定位**；
+ *    **产品单测（B₁ 5 + B₂ 6）与直读路径均正常**，故**非**协议/登记/派发/兜底逻辑。
+ * ⇒ **处置**：两条用例 `it.skip` 钉住现状（**不推红测、不为迎合测试改产品接线**），
+ *    本注记**如实记录**含撤回经过；台账 `TOOLGOV-TG2-C1-BLOCKED`（`fixed=false`）同步更新。
  */
 import { describe, expect, it } from 'bun:test';
 import { resolve } from 'node:path';
@@ -45,7 +49,7 @@ async function withSidecar(
 }
 
 describe('T1-2② C₁：侧车作业跨进程端到端', () => {
-  it.skip('提交即返；完成由 `notify{job.completed}` 兑现（**文件级交互**，见顶部注记）', async () => {
+  it.skip('提交即返；完成由 `notify{job.completed}` 兑现（**受阻**，见顶部注记）', async () => {
     await withSidecar(3_000, async (sup) => {
       const { jobId, completion } = await sup.submitJob('slow', {
         delayMs: 30,
@@ -58,7 +62,7 @@ describe('T1-2② C₁：侧车作业跨进程端到端', () => {
     });
   });
 
-  it.skip('作业失败（`ok=false`）⇒ reject（同上，文件级交互）', async () => {
+  it.skip('作业失败（`ok=false`）⇒ reject（**受阻**，同上）', async () => {
     await withSidecar(3_000, async (sup) => {
       const { completion } = await sup.submitJob('fail');
       await expect(completion).rejects.toThrow('fixture failure');

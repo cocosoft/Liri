@@ -106,6 +106,64 @@ export interface ToolCapabilityDescriptor {
   readonly sandbox: ToolSandboxLevel;
 }
 
+// ─── 可挂起能力（可选实现；T1-2② / TG-2+TG-6，2026-10-13 · A 片）───────────────
+
+/**
+ * **续跑句柄**（不透明、**可序列化**的"续跑凭据"）。
+ *
+ * 中心层**只做不透明搬运**（不解释内容、不写日志、不落盘细节）—— 领域细节留实现
+ * （如侧车作业 id / 远端 request id）。
+ */
+export type SnapshotHandle = Readonly<Record<string, unknown>>;
+
+/**
+ * **可挂起能力**（**可选**实现；T1-2② / TG-2+TG-6）。
+ *
+ * 契约来源（`工具治理方案-20261012.md` 阶段 1.2 步骤 ②）：「长耗时侧车工具**不得同步阻塞** ——
+ * 提交后须能向内核投影 `SUSPENDED`（冻结思考树/释放连接），完成后通知解冻续跑」。
+ *
+ * 落法：工具**显式实现**本接口后，中心层（挂起点 = 债二的 `BudgetSuspendCoordinator`）可
+ * **探测**该能力 ⇒ 调 [`freezeForSuspend()`] 取句柄并投影 `SUSPENDED`；放行后续跑时
+ * 调 [`resumeFromSnapshot(handle)`]。
+ *
+ * ⚠️ **声明式、零行为**：仅"实现 + 标记字面量 `true`"才被认定可挂起（探测见下方
+ * [`isSnapshotCapable()`]）；**未实现者语义逐字等价现状**。
+ * ⚠️ **不并入 `Tool` 基接口**：绝大多数工具是同步短任务，强制实现即造**无意义空实现**（CS03）。
+ * ⚠️ **A 片范围（2026-10-13）**：只落**契约 + 探测**；真实的"提交→挂起→完成→续跑"端到端
+ * （侧车**作业化** + 内核挂起联动 + 可复现测试）见 `.trae/specs/sidecar-async-suspend.md` 的 B/C 片。
+ */
+export interface ISnapshotCapable {
+  /** 能力标记（**字面量 `true`** ⇒ typecheck 期可判别，避免"实现了但语义未声明"） */
+  readonly snapshotCapable: true;
+  /** 冻结快照（内核投影 `SUSPENDED` **之前**调用）：返回**可序列化**续跑句柄 */
+  freezeForSuspend(): SnapshotHandle | Promise<SnapshotHandle>;
+  /** 解冻续跑（内核放行**之后**调用）：以句柄恢复执行 */
+  resumeFromSnapshot(handle: SnapshotHandle): void | Promise<void>;
+}
+
+/**
+ * **探测：候选对象是否声明"可挂起"**（纯函数；**鸭子类型 + 字面量收窄**）。
+ *
+ * - 不 `import` 任何具体工具类、不改编排类树（T1-2② 的 A 片硬约束）；
+ * - 非对象 / `null` / 未声明 / 标记非字面量 `true` / 缺任一方法 ⇒ **`false`**（**不臆造**、不抛异常）；
+ * - 三个要件**同时**成立才算（避免"只挂标记不实现"或"只实现不声明"的半成品被误判为可挂起）。
+ */
+export function isSnapshotCapable(
+  candidate: unknown
+): candidate is ISnapshotCapable {
+  if (typeof candidate !== 'object' || candidate === null) return false;
+  const c = candidate as {
+    snapshotCapable?: unknown;
+    freezeForSuspend?: unknown;
+    resumeFromSnapshot?: unknown;
+  };
+  return (
+    c.snapshotCapable === true &&
+    typeof c.freezeForSuspend === 'function' &&
+    typeof c.resumeFromSnapshot === 'function'
+  );
+}
+
 /**
  * 工具信息类型
  */

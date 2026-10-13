@@ -19,11 +19,6 @@
 
 ## [未发布]
 
-**20261012 批次落地复查 · 补齐第九批（侧车化 S5：P2 媒体侧车）**
-
-- ✅ **侧车化 S5（`TOOLGOV-SIDECAR-S5`，受 `TOOL_SIDECAR_MEDIA`，**默认关**）** - **T5.1**：`vision_worker` 纳入**受管侧车面** —— 新增 `tools/sidecar/{mediaSidecar,mediaSidecarLifecycle,mediaCapabilities,SidecarMediaAnalyzer}.ts`（**复用** `ToolSidecarSupervisor` + `sidecarIpc`，**无第三套 IPC**；生命周期语义复用 S3 已验证的握手/崩溃结算/有界重启），`ImageAnalysisTool` 改**双跑**（关 ⇒ 既有 `WorkerGuard` 逐字不变；开 ⇒ 经 `media.analyze` 同形状返回）；覆盖 `ocr`/`objects`/`similarity`，其余**显式 fail-closed**。**T5.2**：`sharp` **只收一处** —— `ImageInputRouter` 的超大图缩放（原 >20MB 动态 `import('sharp')`）开关开经 `media.resize`，关逐字原路径；**未触碰** `media/image/ImageProcessor.ts` 主路径。**等价性**：off/on **字节级等价**（on 后端 = 同参数真 sharp）+ 断言确发 `maxSide:2048,quality:85`；后端抛错 ⇒ **不静默回落**。**验证**：先红后绿（3 errors + 5 fail / 1 pass ⇒ **17 pass / 0 fail**）；`tests/tools/sidecar` **64 pass**；`tests/{tools,utils,ai}` **1325 pass / 0 fail**；门禁全绿
-- ⚠️ **如实遗留（S5）** - **真实 L2 模型端到端未验证**：真起侧车后握手与 `media.resize`（真 sharp）通过，但 `media.analyze(ocr)` 受阻于 `Model 'easyocr' is not installed`（缺 EasyOCR/ultralytics/open_clip）⇒ 仅打通到「模型缺失」的结构化错误；**无 >20MB 真图夹具** ⇒ 以 161KB 图 + 缩小 `maxBytes` 触发同一路径做等价验证（计划允许的退化）；**未摘未删** `ai/python/**`（CD05/CD06/CD07）
-
 **MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
 
 - ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
@@ -96,6 +91,10 @@
 - ⚠️ **如实缺口**（`e2eVerified=false`） - 未做真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是既有类型盲区（parked）；唤醒上限按"成功数"计数（handler 调用数可 > N，未单测）；`taor` 续跑的 host 胶水缺集成用例。证据 `BUDGET-SUSPEND-RESUME`
 
 ---
+
+#### v0.4.92 (2026-10-13)  20261012 批次落地复查 · 补齐第九批（侧车化 S5：P2 媒体侧车） 
+- ✅ **侧车化 S5（`TOOLGOV-SIDECAR-S5`，受 `TOOL_SIDECAR_MEDIA`，**默认关**）** - **T5.1**：`vision_worker` 纳入**受管侧车面** —— 新增 `tools/sidecar/{mediaSidecar,mediaSidecarLifecycle,mediaCapabilities,SidecarMediaAnalyzer}.ts`（**复用** `ToolSidecarSupervisor` + `sidecarIpc`，**无第三套 IPC**；生命周期语义复用 S3 已验证的握手/崩溃结算/有界重启），`ImageAnalysisTool` 改**双跑**（关 ⇒ 既有 `WorkerGuard` 逐字不变；开 ⇒ 经 `media.analyze` 同形状返回）；覆盖 `ocr`/`objects`/`similarity`，其余**显式 fail-closed**。**T5.2**：`sharp` **只收一处** —— `ImageInputRouter` 的超大图缩放（原 >20MB 动态 `import('sharp')`）开关开经 `media.resize`，关逐字原路径；**未触碰** `media/image/ImageProcessor.ts` 主路径。**等价性**：off/on **字节级等价**（on 后端 = 同参数真 sharp）+ 断言确发 `maxSide:2048,quality:85`；后端抛错 ⇒ **不静默回落**。**验证**：先红后绿（3 errors + 5 fail / 1 pass ⇒ **17 pass / 0 fail**）；`tests/tools/sidecar` **64 pass**；`tests/{tools,utils,ai}` **1325 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S5）** - **真实 L2 模型端到端未验证**：真起侧车后握手与 `media.resize`（真 sharp）通过，但 `media.analyze(ocr)` 受阻于 `Model 'easyocr' is not installed`（缺 EasyOCR/ultralytics/open_clip）⇒ 仅打通到「模型缺失」的结构化错误；**无 >20MB 真图夹具** ⇒ 以 161KB 图 + 缩小 `maxBytes` 触发同一路径做等价验证（计划允许的退化）；**未摘未删** `ai/python/**`（CD05/CD06/CD07）
 
 #### v0.4.91 (2026-10-13)  20261012 批次落地复查 · 补齐第八批（门禁 DX 硬化：登记表 JSON 破损可精确定位） 
 - ✅ **`lint:fix-evidence` 解析失败时给出精确行列 + 惯例提示** - 本仓已**三次**因"登记表字符串内误用 ASCII 双引号"致 JSON 提前闭合，而 bun 的 `JSON Parse error` **不带位置**（只见 `Unrecognized token 'X'`）⇒ 排障成本高。新增 `locateStrayQuote()`（纯文本扫描：字符串闭合后下一个非空白字符必须是 `,` `}` `]` `:`；否则即元凶）⇒ 失败时打印 `文件:行:列`、该行内容与「本仓惯例：字符串内一律用中文引号「」」提示（[scripts/lint-fix-evidence.ts](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-fix-evidence.ts)）

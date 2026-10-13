@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.91-blue)
+![Version](https://img.shields.io/badge/version-0.4.92-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.91**
+当前版本：**v0.4.92**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,9 +436,9 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.91 (2026-10-13)  20261012 批次落地复查 · 补齐第八批（门禁 DX 硬化：登记表 JSON 破损可精确定位） 
-- ✅ **`lint:fix-evidence` 解析失败时给出精确行列 + 惯例提示** - 本仓已**三次**因"登记表字符串内误用 ASCII 双引号"致 JSON 提前闭合，而 bun 的 `JSON Parse error` **不带位置**（只见 `Unrecognized token 'X'`）⇒ 排障成本高。新增 `locateStrayQuote()`（纯文本扫描：字符串闭合后下一个非空白字符必须是 `,` `}` `]` `:`；否则即元凶）⇒ 失败时打印 `文件:行:列`、该行内容与「本仓惯例：字符串内一律用中文引号「」」提示（[scripts/lint-fix-evidence.ts](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-fix-evidence.ts)）
-- ✅ **负向自证（含修 bug）** - `app/tests/gates/fixEvidenceGate.test.ts` 新增 1 例：喂入含未转义引号的登记表 ⇒ 断言 exit 1 + 提示文案 + **元凶行号**。**首轮该用例即捕获我自己的实现 bug**（闭合后未复位 `inStr` ⇒ 报错位置偏移到 3:3）、修正后 **8 pass / 0 fail**。`lint:fix-evidence` 正常路径仍 **119 条自洽**；`typecheck` 0 错；`lint:fn-size`/`complexity` 未增长
+#### v0.4.92 (2026-10-13)  20261012 批次落地复查 · 补齐第九批（侧车化 S5：P2 媒体侧车） 
+- ✅ **侧车化 S5（`TOOLGOV-SIDECAR-S5`，受 `TOOL_SIDECAR_MEDIA`，**默认关**）** - **T5.1**：`vision_worker` 纳入**受管侧车面** —— 新增 `tools/sidecar/{mediaSidecar,mediaSidecarLifecycle,mediaCapabilities,SidecarMediaAnalyzer}.ts`（**复用** `ToolSidecarSupervisor` + `sidecarIpc`，**无第三套 IPC**；生命周期语义复用 S3 已验证的握手/崩溃结算/有界重启），`ImageAnalysisTool` 改**双跑**（关 ⇒ 既有 `WorkerGuard` 逐字不变；开 ⇒ 经 `media.analyze` 同形状返回）；覆盖 `ocr`/`objects`/`similarity`，其余**显式 fail-closed**。**T5.2**：`sharp` **只收一处** —— `ImageInputRouter` 的超大图缩放（原 >20MB 动态 `import('sharp')`）开关开经 `media.resize`，关逐字原路径；**未触碰** `media/image/ImageProcessor.ts` 主路径。**等价性**：off/on **字节级等价**（on 后端 = 同参数真 sharp）+ 断言确发 `maxSide:2048,quality:85`；后端抛错 ⇒ **不静默回落**。**验证**：先红后绿（3 errors + 5 fail / 1 pass ⇒ **17 pass / 0 fail**）；`tests/tools/sidecar` **64 pass**；`tests/{tools,utils,ai}` **1325 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S5）** - **真实 L2 模型端到端未验证**：真起侧车后握手与 `media.resize`（真 sharp）通过，但 `media.analyze(ocr)` 受阻于 `Model 'easyocr' is not installed`（缺 EasyOCR/ultralytics/open_clip）⇒ 仅打通到「模型缺失」的结构化错误；**无 >20MB 真图夹具** ⇒ 以 161KB 图 + 缩小 `maxBytes` 触发同一路径做等价验证（计划允许的退化）；**未摘未删** `ai/python/**`（CD05/CD06/CD07）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

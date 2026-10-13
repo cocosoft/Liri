@@ -117,8 +117,14 @@ function makeRawFixture(raw: string): NodeJS.ProcessEnv {
   };
 }
 
-function run(env: NodeJS.ProcessEnv): { status: number | null; out: string } {
-  const r = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
+function run(
+  env: NodeJS.ProcessEnv,
+  extra: string[] = []
+): { status: number | null; out: string } {
+  const r = spawnSync(process.execPath, [SCRIPT, ...extra], {
+    env,
+    encoding: 'utf8',
+  });
   return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 
@@ -191,6 +197,41 @@ describe('P1-4 修复证据门禁 · 负向自证', () => {
     expect(r.status).toBe(1);
     expect(r.out).toContain('未转义的 ASCII 双引号');
     expect(r.out).toContain(':8:'); // 元凶在第 8 行（title 行）
+  });
+
+  it('`--fix` ⇒ 就地修复 stray 引号（改「」）后复检通过（先坏后好）', () => {
+    const raw = [
+      '{',
+      '  "version": 1,',
+      '  "stages": ["discovered", "fixed", "testVerified", "postReleaseReviewed"],',
+      '  "flags": ["designed", "coded", "unitTested", "e2eVerified"],',
+      '  "items": [',
+      '    {',
+      '      "id": "X-1",',
+      '      "title": "含"裸引号"的标题",',
+      '      "source": "s",',
+      '      "stages": {"discovered": true, "fixed": false, "testVerified": false, "postReleaseReviewed": false},',
+      '      "flags": {"designed": false, "coded": false, "unitTested": false, "e2eVerified": false},',
+      '      "code": [],',
+      '      "tests": [],',
+      '      "changelog": [],',
+      '      "reopenWhen": "w"',
+      '    }',
+      '  ]',
+      '}',
+    ].join('\n');
+    const env = makeRawFixture(raw);
+    // 修复前：解析失败 ⇒ 红
+    expect(run(env).status).toBe(1);
+    // --fix：自动修复并放行
+    const fixed = run(env, ['--fix']);
+    expect(fixed.status).toBe(0);
+    expect(fixed.out).toContain('--fix 已修复');
+    expect(fixed.out).toContain('✅');
+    // 落盘后的登记表确已可解析，且引号已改为中文引号
+    const repaired = readFileSync(env.FIX_EVIDENCE_REGISTRY as string, 'utf8');
+    expect(JSON.parse(repaired)).toBeTruthy();
+    expect(repaired).toContain('「裸引号」');
   });
 });
 

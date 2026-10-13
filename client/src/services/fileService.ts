@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import i18n from "../i18n";
 
 /**
  * P0-2（2026-09-07）：Registry 批量删除统一走既有
@@ -236,7 +237,8 @@ async function uploadViaHttp(
         .then(resolve)
         .catch(reject);
     };
-    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onerror = () =>
+      reject(new Error(i18n.t("files.readFileFailedGeneric")));
     reader.readAsDataURL(file);
   });
 }

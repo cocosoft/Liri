@@ -2401,6 +2401,42 @@
       "changelog": [],
       "reopenWhen": "① 若把 `onDirtyRef` 换回直接引用 `onDirty` 并把 `onDirty` 加回该 effect 依赖 ⇒ 会重建 30s 定时器且在 cleanup 里多存一次快照（行为回归），若 lint 再现该 warning 亦属同一症状；② 若改为 `eslint-disable` 静默 ⇒ 违本仓「外科手术式修改 / 不静默存量问题」口径，须重开；③ 若 `core/CommandManager.ts` 的 `onChange(cb)` 语义由「替换」（`this.onChangeCb = cb`）改为「追加」⇒ 本修复「可安全重跑 effect」的前提不再成立，须复核（届时 effect 重跑会堆叠回调）；④ 若确实需要 autosave effect 随 `onDirty` 变化重建 ⇒ 须同时为 `commandRef.current.onChange` 补**注销**能力（当前该 API 无注销），否则会漏注册。",
       "notes": "**现象**：`eslint` 报 `CanvasEditor.tsx:715 react-hooks/exhaustive-deps`（`useEffect` 缺依赖 `onDirty`）。**取证**：该 warning **改前即有**（非 HD-P2-2 i18n 收尾引入 —— 收尾片仅改该文件的错误消息字面量，`git show HEAD:<file> | eslint --stdin` 可证）。**根因与选型（为什么「不」直接加进依赖）**：该 effect 设计为**只挂载一次**（内含 `setInterval(doSave, 30s)`、`window.beforeunload`、`commandRef.current.onChange(...)` 注册；cleanup 只清 interval/beforeunload 并执行一次 `doSave()`）；若把 `onDirty` 放进依赖，父级**每次重渲染**（`onDirty` 若为内联箭头则每次新 identity）都会重跑 effect ⇒ **重置 30s 定时器**并在 cleanup 里**多存一次快照**（行为回归）。**做法（正修，非 disable）**：新增 `onDirtyRef`（`useRef(onDirty)` + 一个 `useEffect` 同步），effect 内改调 `onDirtyRef.current?.(true)` ⇒ 依赖数组**保持不变**、lint 与行为双满足。**补充取证**：`core/CommandManager.ts` 的 `onChange(cb)` 是**替换**语义（`this.onChangeCb = cb`）—— 故「重跑 effect」不会堆积回调、只会**重复定时器 / 重复存盘**（即上段的行为回归），这也是选型依据。**验证**：`eslint` 该文件 **0 error / 0 warning**（原 1 warning）；`typecheck`（client）0 错；**client 全量 567 pass / 0 fail（69 文件）**。**如实边界**：① 本项是**既有 lint warning** 的修复，**不改任何运行时行为**（ref 承载最新回调 ⇒ 与直接引用语义等价）；② **无单元测试断言**（该 warning 由 ESLint 门禁覆盖，非 `vitest` 用例）⇒ `unitTested=false`、`testVerified=false`；③ 未做真机走查（改动为等价重构）。"
+    },
+    {
+      "id": "HARDCODE-INFRA-1B-QUOTE-FIXER",
+      "title": "硬编码治理 §7.5 **HD-INFRA-1B**：CS08 stray-quote **修复器**（`scripts/fix-stray-quotes.ts` + `lint:fix-evidence --fix`）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.5（HD-INFRA-1 续）+ 本轮待定项②「把成对替换器落成仓库脚本」",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": ["scripts/fix-stray-quotes.ts", "scripts/lint-fix-evidence.ts"],
+      "tests": ["app/tests/gates/fixStrayQuotes.test.ts", "app/tests/gates/fixEvidenceGate.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若台账再因 stray 引号破损而**未**先用 `bun run lint:fix-evidence --fix` 修（仍手修）⇒ 说明本工具未被采用，须复核接入（pre-commit 只在**校验**，`--fix` 是人工触发）；② 若把修复目标从 JSON 扩到 YAML ⇒ 须先处理 YAML 的多种引号/块标量形式（当前有意只做 JSON）；③ 若 `fixStrayQuotes` 的「同字符串内奇偶配对」口径改动 ⇒ 须同步复核 `fixStrayQuotes.test.ts` 的成对/不成对两例；④ 若 `lint-fix-evidence.ts` 的解析失败分支再改（如改为不 `exit`）⇒ 会破坏 `--fix` 的「修复后继续校验」语义；⑤ 若 CS08 从「中文引号「」优先」改为「一律转义」⇒ 本修复器的替换目标须同步（当前改为「」）。",
+      "notes": "**目标**：把「本轮已连续 ≥2 次在事后手修台账 JSON 破损」的临时工具固化为**仓库脚本**，并接入门禁。**问题复述（本仓实证）**：`.trae/architecture/fix-evidence-registry.json` 的 `notes`/`reopenWhen` 里夹未转义 ASCII `\"`（中文语境引号的自然写法）⇒ 字符串提前闭合 ⇒ 整份 JSON 解析失败 ⇒ `lint:fix-evidence` 崩；`scripts/lint-fix-evidence.ts:62` 自述「已在登记表上**三次**因此使 JSON 破损」，2026-10-13 又一次性引入 4 处。**落地**：① 新增 `scripts/fix-stray-quotes.ts`（纯函数 `fixStrayQuotes(src)` + CLI）—— 与门禁既有 `locateStrayQuote` **同口径**判定 stray（字符串内、其后非空白字符不属 `,}]:`），按**每条字符串为单位重置奇偶**把 stray 引号改为「」（首个「、次个」）；**两条保险**：**成对校验**（某条字符串结束时 stray 计数为奇数 ⇒ 返回 null **拒绝改写**）+ **写回前 `JSON.parse` 预检**（修复后仍不可解析 ⇒ **不落盘**）。② `scripts/lint-fix-evidence.ts` 增 `--fix`：解析失败时就地修复 → 预检 → 复检继续（无 `--fix` 时提示可加）。**验证**：① 新增 `app/tests/gates/fixStrayQuotes.test.ts` **4 例**（干净 JSON 退出 0 且不改动 / **成对** stray ⇒ 改「」且复归可解析（**先坏后好**：修复前 `JSON.parse` 抛错）/ **不成对** ⇒ 拒绝改写且文件保持原样 / `--dry-run` 只报告且不落盘）⇒ **4 pass / 0 fail**；② `app/tests/gates/fixEvidenceGate.test.ts` 增 **1 例**（`--fix` 就地修复后门禁**复检通过**：修复前 exit 1、`--fix` 后 exit 0 且落盘文本含「裸引号」）⇒ 该文件 **13 pass / 0 fail**（原 12）；③ 两文件合计 **17 pass / 0 fail**；④ 真台账 `bun run lint:fix-evidence` **绿（152 条）**。**如实边界**：① 只做 **JSON**（YAML 引号形式更多、未纳入）；② 修复器保证「**解析得开**」，**不保证**「配对语义 100% 正确」⇒ 修复后仍应 `git diff` 肉眼确认引号落位（已在脚本 docstring 与本条写明）；③ 未改 pre-commit 的**校验**步骤（`--fix` 为人工触发；是否把 `--fix` 也并入 pre-commit 属另议）。"
+    },
+    {
+      "id": "HARDCODE-HDP2-2-EN-ERROR-I18N",
+      "title": "硬编码治理 HD-P2-2 **延伸**：**英文**错误消息入 i18n（17 键 / 9 文件；含**哨兵串**等有意不迁）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2（HD-P2-2）+ 本轮待定项③「既有英文错误串是否另立一片」",
+      "stages": { "discovered": true, "fixed": true, "testVerified": false, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
+      "code": [
+        "client/src/services/SoundService.ts",
+        "client/src/services/chatService.ts",
+        "client/src/services/fileService.ts",
+        "client/src/services/imageService.ts",
+        "client/src/services/knowledgeService.ts",
+        "client/src/services/sessionService.ts",
+        "client/src/services/videoService.ts",
+        "client/src/services/voiceService.ts",
+        "client/src/components/views/MediaPage.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若这些文件里再出现**硬编码英文**用户可见错误消息 ⇒ 应改走 i18n（本片**未**新增英文侧守卫，见 notes 边界 ⇒ 当前靠评审/复核，非自动拦截）；② 若把 `sseService.ts` 的 `new Error(`Failed to fetch`)`（**哨兵串**）改为中文 ⇒ 会**破坏** `utils/friendlyError.ts` 的 `/Failed to fetch/i` 映射（「无法连接到服务器」退化为「操作异常」），须重开；③ 若新增第三种语言 ⇒ 须为 17 键补该语言；④ 若把内部/技术串（`Not implemented` / `Not in Tauri environment` 等）也纳入治理 ⇒ 属另议（当前有意不迁）；⑤ 若 `errors.unknown` / `knowledge.purgeFailed` 被改 zh ⇒ 复用点行为变化。",
+      "notes": "**目标**：把**会呈现给用户**的**硬编码英文**错误消息改走 i18n（与同族 `HARDCODE-HDP2-2-ERROR-I18N` 的判据一致 —— `toastError` → `friendlyErrorSummary` 会附**原异常信息**上屏；本项目默认语言 zh ⇒ 英文串属同类「未本地化」问题）。**范围（17 键 / 9 文件）**：`imageService`（`svgGenerateFailed` / `generateFailed` / `analyzeFailed` / `editFailed` / `canvasFailed` / `invalidJsonResponse` / `uploadFailed`（带 `{{status}}`）/ `networkError` / `uploadTimeout`）· `chatService`（`Unknown error` 2 处 ⇒ **复用** `errors.unknown`）· `fileService`（`Failed to read file` ⇒ `files.readFileFailedGeneric`）· `sessionService`（`Delete message failed` / `Truncate messages failed`）· `knowledgeService`（`trash failed` / `purge failed`（**复用既有** `knowledge.purgeFailed`）/ `restoreTrash failed`）· `videoService`（`Video generation failed` ⇒ `video.generationFailed`）· `voiceService`（`Failed to upload audio`）· `SoundService`（`AudioContext not supported` ⇒ `common.audioContextNotSupported`）· `MediaPage.tsx`（`video delete failed` ⇒ `video.deleteFailed`，`useCallback` 依赖同步补 `t`）。**⛔ 有意不迁（关键）**：`sseService.ts` 的 `new Error(`Failed to fetch`)` 是**哨兵串** —— **故意**用浏览器网络错误原文，供 `utils/friendlyError.ts` 的 `/Failed to fetch/i` 映射为 `errors.fetchFailed`（「无法连接到服务器，请确认服务是否在运行」）；改中文会让该提示**退化**为「操作异常」⇒ **保留**。另：内部/技术守卫串（`Not implemented` / `File operations unavailable outside Tauri` / `Not in Tauri environment` / `No response body` / `No resume response body` / `session paused twice` / `Failed to create OffscreenBuffer context` / `timeout` / `HTTP <status>`）**登记不改**。**验证**：① **client 全量 567 pass / 0 fail（69 文件）**（含 i18n key parity ⇒ 17 键 zh/en 双侧齐备）；② `typecheck`（client）0 错；③ `eslint` 改动文件 **0 error**（`MediaPage.tsx` 2 条 `exhaustive-deps` 为**既有** warning、非本片引入、未动）；④ **逐键命名空间审计**（防 `i18n.t` 键缺失**静默返回键名**：核验 17 键分别落在 `common` / `chat` / `image` / `files` / `knowledge` / `voice` / `video`，与调用点命名空间**一致**）。**如实边界**：① **无专用单元测试**（`unitTested=false` / `testVerified=false`，如实登记）—— 未新增「英文错误消息已 i18n」的守卫（英文侧守卫会引入噪音：大量内部/技术英文串属正常）；② 仅覆盖**服务/组件层**英文错误串；`app/` 后端与既有英文**日志**不在本片；③ `image.uploadFailed` 与既有 `projects.uploadFailed` 文案相同但按域分列（刻意取舍）。"
     }
   ]
 }

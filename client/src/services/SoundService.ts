@@ -14,6 +14,7 @@ import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { sendNotification } from "../utils/notifications";
+import i18n from "../i18n";
 
 const logger = createLogger("services:soundService");
 
@@ -40,7 +41,7 @@ function getContext(): AudioContext | null {
         window.AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext })
           .webkitAudioContext;
-      if (!AC) throw new Error("AudioContext not supported");
+      if (!AC) throw new Error(i18n.t("common.audioContextNotSupported"));
       audioCtx = new AC();
     }
     if (audioCtx.state === "suspended") {

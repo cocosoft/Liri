@@ -8,6 +8,7 @@
 
 import { toolService } from "./toolService";
 import { httpLegacy as http } from "./httpClient";
+import i18n from "../i18n";
 
 // ============================================================
 // 类型定义
@@ -153,7 +154,7 @@ export const imageService = {
     };
 
     if (!raw?.success || !raw?.data) {
-      throw new Error(raw?.error || "SVG generation failed");
+      throw new Error(raw?.error || i18n.t("image.svgGenerateFailed"));
     }
     return raw.data;
   },
@@ -175,7 +176,7 @@ export const imageService = {
     })) as { success: boolean; data: GenerateResult; error?: string | null };
 
     if (!raw?.success || !raw?.data || !raw.data.images?.length) {
-      throw new Error(raw?.error || "Image generation failed");
+      throw new Error(raw?.error || i18n.t("image.generateFailed"));
     }
     return raw.data;
   },
@@ -195,7 +196,7 @@ export const imageService = {
     })) as { success: boolean; data: AnalysisResult; error?: string | null };
 
     if (!raw?.success || !raw?.data) {
-      throw new Error(raw?.error || "Image analysis failed");
+      throw new Error(raw?.error || i18n.t("image.analyzeFailed"));
     }
     return raw.data;
   },
@@ -215,7 +216,7 @@ export const imageService = {
     })) as { success: boolean; data: EditResult; error?: string | null };
 
     if (!raw?.success || !raw?.data) {
-      throw new Error(raw?.error || "Image edit failed");
+      throw new Error(raw?.error || i18n.t("image.editFailed"));
     }
     return raw.data;
   },
@@ -294,7 +295,7 @@ export const imageService = {
       error?: string | null;
     };
     if (!raw?.success || !raw?.data) {
-      throw new Error(raw?.error || "Canvas operation failed");
+      throw new Error(raw?.error || i18n.t("image.canvasFailed"));
     }
     return raw.data;
   },
@@ -321,15 +322,17 @@ export const imageService = {
           try {
             resolve(JSON.parse(xhr.responseText));
           } catch {
-            reject(new Error("Invalid JSON response"));
+            reject(new Error(i18n.t("image.invalidJsonResponse")));
           }
         } else {
-          reject(new Error(`Upload failed: ${xhr.status}`));
+          reject(
+            new Error(i18n.t("image.uploadFailed", { status: xhr.status })),
+          );
         }
       };
 
-      xhr.onerror = () => reject(new Error("Network error"));
-      xhr.ontimeout = () => reject(new Error("Upload timeout"));
+      xhr.onerror = () => reject(new Error(i18n.t("image.networkError")));
+      xhr.ontimeout = () => reject(new Error(i18n.t("image.uploadTimeout")));
 
       const formData = new FormData();
       formData.append("file", file);

@@ -582,10 +582,13 @@ export const knowledgeService = {
   trash: async (docPath: string): Promise<boolean> => {
     const res = await http.post<unknown>("/v1/knowledge/trash", { docPath });
     if (res.ok) return true;
-    handleClientError(new Error(res.error?.message ?? "trash failed"), {
-      module: "services:knowledge",
-      action: "trash",
-    });
+    handleClientError(
+      new Error(res.error?.message ?? i18n.t("knowledge.trashFailed")),
+      {
+        module: "services:knowledge",
+        action: "trash",
+      },
+    );
     return false;
   },
 
@@ -608,10 +611,13 @@ export const knowledgeService = {
       `/v1/knowledge/trash?${params.toString()}`,
     );
     if (res.ok) return true;
-    handleClientError(new Error(res.error?.message ?? "purge failed"), {
-      module: "services:knowledge",
-      action: "purgeTrash",
-    });
+    handleClientError(
+      new Error(res.error?.message ?? i18n.t("knowledge.purgeFailed")),
+      {
+        module: "services:knowledge",
+        action: "purgeTrash",
+      },
+    );
     return false;
   },
 
@@ -621,10 +627,13 @@ export const knowledgeService = {
       docPath,
     });
     if (res.ok) return true;
-    handleClientError(new Error(res.error?.message ?? "restoreTrash failed"), {
-      module: "services:knowledge",
-      action: "restoreTrash",
-    });
+    handleClientError(
+      new Error(res.error?.message ?? i18n.t("knowledge.restoreTrashFailed")),
+      {
+        module: "services:knowledge",
+        action: "restoreTrash",
+      },
+    );
     return false;
   },
 

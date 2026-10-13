@@ -139,7 +139,7 @@ export const videoService = {
     if (!raw?.success || !raw.data) {
       return {
         success: false,
-        error: raw?.error || "Video generation failed",
+        error: raw?.error || i18n.t("video.generationFailed"),
       };
     }
 

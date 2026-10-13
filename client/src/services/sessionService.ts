@@ -908,7 +908,7 @@ export const sessionService = {
       });
       throw e;
     }
-    throw new Error("Delete message failed");
+    throw new Error(i18n.t("chat.deleteMessageFailed"));
   },
 
   /**
@@ -950,7 +950,7 @@ export const sessionService = {
       });
       throw e;
     }
-    throw new Error("Truncate messages failed");
+    throw new Error(i18n.t("chat.truncateMessagesFailed"));
   },
 
   /**

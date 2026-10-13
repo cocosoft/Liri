@@ -863,12 +863,12 @@ function MediaPage() {
       if (item.type === "video") {
         const backendPath = item.url.replace(/^\/v1\/videos\/static\//, "");
         const ok = await videoService.deleteVideo(backendPath);
-        if (!ok) throw new Error("video delete failed");
+        if (!ok) throw new Error(t("video.deleteFailed"));
         return;
       }
       await imageService.deleteImage(item.url);
     },
-    [],
+    [t],
   );
 
   const handleLightboxDelete = useCallback(async () => {

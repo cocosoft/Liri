@@ -256,7 +256,7 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
   if (pyappType === "error") {
     return {
       type: "error",
-      content: deltaContent || "Unknown error",
+      content: deltaContent || i18n.t("errors.unknown"),
       errorCode:
         (chunk.__pyapp_error_code as StreamChunk["errorCode"]) || "UNKNOWN",
     };
@@ -979,7 +979,9 @@ export const chatService = {
               const sseErrorCode = chunk.__pyapp_error_code;
               yield {
                 type: "error",
-                content: chunk.choices?.[0]?.delta?.content || "Unknown error",
+                content:
+                  chunk.choices?.[0]?.delta?.content ||
+                  i18n.t("errors.unknown"),
                 errorCode: sseErrorCode || "UNKNOWN",
               };
               // P1-1（2026-08-26）：后端"流式响应中断"（STREAM_INTERRUPTED）是

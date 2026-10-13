@@ -14,8 +14,13 @@
  * 退出码：0 = 通过；1 = 有违规。
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { fixStrayQuotes } from './fix-stray-quotes';
+
+/** `--fix`：登记表 JSON 解析失败时，自动修复「未转义 ASCII 双引号」（CS08）后复检。 */
+const FIX = process.argv.includes('--fix');
 
 const repoRoot = process.env.FIX_EVIDENCE_REPO_ROOT
   ? resolve(process.env.FIX_EVIDENCE_REPO_ROOT)
@@ -125,7 +130,25 @@ try {
       ].join('\n')
     );
   }
-  process.exit(1);
+  // `--fix`：就地修复后复检（同一实现见 scripts/fix-stray-quotes.ts，含成对校验 + parse 预检）。
+  if (!FIX) {
+    console.error('  （提示：加 --fix 可自动修复此类 stray 引号）');
+    process.exit(1);
+  }
+  const res = fixStrayQuotes(readFileSync(REGISTRY, 'utf8'));
+  if (!res || res.changed === 0) {
+    console.error('  ✗ --fix 未发现可安全修复的 stray 引号（引号不成对 / 字符串未闭合？）');
+    process.exit(1);
+  }
+  try {
+    JSON.parse(res.fixed); // 写回前预检
+  } catch {
+    console.error('  ✗ --fix 修复后仍无法解析 ⇒ **拒绝落盘**。');
+    process.exit(1);
+  }
+  writeFileSync(REGISTRY, res.fixed, 'utf8');
+  reg = JSON.parse(res.fixed) as Registry;
+  console.error(`  ✅ --fix 已修复 ${res.changed} 处 stray 引号并复检可解析。`);
 }
 if (!existsSync(DOC)) problems.push(`人读文档不存在: ${DOC}`);
 

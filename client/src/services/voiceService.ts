@@ -445,7 +445,9 @@ const voiceService = {
         }>("/v1/voice/upload", formData);
 
         if (!res.ok) {
-          throw new Error(res.error?.message || "Failed to upload audio");
+          throw new Error(
+            res.error?.message || i18n.t("voice.uploadAudioFailed"),
+          );
         }
 
         return res.data as { transcript: string; audioUrl?: string };

@@ -18,6 +18,8 @@ const en = {
     yes: "Yes",
     no: "No",
     noData: "No data",
+    timeYesterday: "Yesterday",
+    timeDaysAgo: "{{days}} days ago",
     success: "Success",
     failed: "Failed",
     enable: "Enable",

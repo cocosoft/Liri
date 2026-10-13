@@ -4,6 +4,9 @@
 // 统一格式化函数：成本、Token、百分比
 // 关联文档: dev_docs/20260723/Cost_Token_Dashboard设计方案.md
 
+// HD-P2-2：相对时间文案走 i18n（工具函数不能用 hook ⇒ 直接用 i18n 实例）
+import i18n from "../i18n";
+
 /**
  * 统一成本格式化。
  * @param value    成本数值
@@ -92,11 +95,27 @@ export function formatFileSize(bytes: number): string {
 // ── 相对时间格式化（由 formatTime.ts 归并） ──
 
 /**
+ * 当前语言的 BCP-47 locale（i18n 语言码 → 区域码）。
+ *
+ * 硬编码治理 `HD-P2-2`：原实现把时间/日期格式**写死 `zh-CN`** ⇒ 英文界面下也按中文区域输出。
+ */
+function currentLocale(): string {
+  const lang = i18n.language || "zh";
+  if (lang.startsWith("zh")) return "zh-CN";
+  if (lang.startsWith("en")) return "en-US";
+  return lang;
+}
+
+/**
  * 将日期字符串转为用户友好的相对时间显示：
  * - 今天 → HH:MM
- * - 昨天 → "昨天"
- * - 7天内 → "X天前"
- * - 更早 → "X月X日"
+ * - 昨天 → `common.timeYesterday`
+ * - 7天内 → `common.timeDaysAgo`
+ * - 更早 → 月/日（按**当前语言**的区域格式）
+ *
+ * ⚠️ 硬编码治理 `HD-P2-2`：原实现把文案（`"昨天"` / `` `${n}天前` ``）与
+ * `toLocaleTimeString("zh-CN")` / `toLocaleDateString("zh-CN")` 一并写死
+ * ⇒ **英文界面下仍显示中文与中文日期格式**。现：文案走 i18n，时间/日期格式走 `currentLocale()`。
  */
 export function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -105,14 +124,17 @@ export function formatRelativeTime(dateStr: string): string {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) {
-    return date.toLocaleTimeString("zh-CN", {
+    return date.toLocaleTimeString(currentLocale(), {
       hour: "2-digit",
       minute: "2-digit",
     });
   }
-  if (diffDays === 1) return "昨天";
-  if (diffDays < 7) return `${diffDays}天前`;
-  return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+  if (diffDays === 1) return i18n.t("common.timeYesterday");
+  if (diffDays < 7) return i18n.t("common.timeDaysAgo", { days: diffDays });
+  return date.toLocaleDateString(currentLocale(), {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 // ── 文件读取（由 fileUtils.ts 归并） ──

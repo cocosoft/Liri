@@ -17,6 +17,8 @@ const zh = {
     yes: "是",
     no: "否",
     noData: "暂无数据",
+    timeYesterday: "昨天",
+    timeDaysAgo: "{{days}}天前",
     success: "操作成功",
     failed: "操作失败",
     enable: "启用",

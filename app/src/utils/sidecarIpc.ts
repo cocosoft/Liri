@@ -109,3 +109,84 @@ export function buildHeartbeat(
 ): SidecarHeartbeatFrame {
   return { type: SIDECAR_HEARTBEAT_TYPE, at: now };
 }
+
+// ─── 侧车「作业化」协议（T1-2② / TG-2+TG-6 · B 片，2026-10-13）───────────────
+//
+// 目标（`工具治理方案-20261012.md` 阶段 1.2 ②）：「长耗时侧车工具**不得同步阻塞** ——
+// 提交后须能向内核投影 `SUSPENDED`，完成后通知解冻续跑」。
+//
+// **零新帧型（关键选型）**：复用本文件**既有**三类帧 ——
+// - **提交** = `request`（`method = SIDECAR_JOB_SUBMIT_METHOD`）→ 对端回 `response`（`{ jobId }`）；
+// - **完成** = 侧车 → 宿主 **`notify`**（`event = SIDECAR_JOB_COMPLETED_EVENT`）。
+// ⇒ 不新增帧类型、不新增传输、**不建第三套 IPC**（D10 GR02）。
+// 本层只定义**协议常量 + 载荷形状 + 纯构造/解析**；主管接线（notify → 作业完成处理器）见 B₂ 片。
+
+/** 作业提交方法名（`request.method`；宿主 → 侧车） */
+export const SIDECAR_JOB_SUBMIT_METHOD = 'job.submit' as const;
+
+/** 作业完成事件名（`notify.event`；侧车 → 宿主） */
+export const SIDECAR_JOB_COMPLETED_EVENT = 'job.completed' as const;
+
+/** 作业提交参数（宿主 → 侧车；`params` 形状由具体 worker 约定，此处只承载**不透明**负载） */
+export interface SidecarJobSubmitParams {
+  /** 作业标识（宿主生成；用于完成通知回关联） */
+  jobId: string;
+  /** 具体动作（worker 内方法名） */
+  action: string;
+  /** 动作参数（**不透明**：本层不解释，原样透传） */
+  payload?: unknown;
+}
+
+/** 作业完成通知载荷（侧车 → 宿主） */
+export interface SidecarJobCompletedPayload {
+  /** 与提交时的 `jobId` 回关联 */
+  jobId: string;
+  /** 成功与否（**必填**：成功/失败均须通知，避免宿主永久挂起） */
+  ok: boolean;
+  /** 成功时的结果（**不透明**；失败时省略） */
+  result?: unknown;
+  /** 失败时的原因（**仅文本**；成功时省略） */
+  error?: string;
+}
+
+/** 构造作业提交参数（纯函数） */
+export function buildJobSubmit(
+  jobId: string,
+  action: string,
+  payload?: unknown
+): SidecarJobSubmitParams {
+  return payload === undefined ? { jobId, action } : { jobId, action, payload };
+}
+
+/** 构造作业完成**通知帧**（worker 侧使用；纯函数） */
+export function buildJobCompleted(
+  payload: SidecarJobCompletedPayload
+): SidecarNotifyFrame {
+  return {
+    type: 'notify',
+    event: SIDECAR_JOB_COMPLETED_EVENT,
+    data: payload,
+  };
+}
+
+/**
+ * 解析「作业完成」通知帧（纯函数）。
+ *
+ * 非 notify / 事件名不符 / `data` 非对象 / 缺 `jobId` / **`ok` 非布尔** ⇒ `null`
+ * （**不臆造**：无法判定成败的通知一律丢弃，交由超时兜底，而不是猜成功）。
+ */
+export function parseJobCompleted(
+  frame: Record<string, unknown> | null | undefined
+): SidecarJobCompletedPayload | null {
+  if (!frame || frame.type !== 'notify') return null;
+  if (frame.event !== SIDECAR_JOB_COMPLETED_EVENT) return null;
+  const data = frame.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const d = data as Record<string, unknown>;
+  if (typeof d.jobId !== 'string' || d.jobId.length === 0) return null;
+  if (typeof d.ok !== 'boolean') return null;
+  const out: SidecarJobCompletedPayload = { jobId: d.jobId, ok: d.ok };
+  if (d.ok && 'result' in d) out.result = d.result;
+  if (!d.ok && typeof d.error === 'string') out.error = d.error;
+  return out;
+}

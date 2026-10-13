@@ -82,6 +82,21 @@ if [ -f "scripts/lint-architecture.ts" ]; then
   fi
 fi
 
+# ── 修复证据登记门禁（HD-INFRA-1c / Q-H6：前置，消除"推送后才发现"的滞后）──
+# 轻量但完整：JSON 可解析（含未转义 ASCII 引号的精确定位）+ 证据路径与状态自洽。
+# 规范见 .trae/rules/coding-standards.md §CS08。
+if [ -f "scripts/lint-fix-evidence.ts" ]; then
+  echo "  检查修复证据登记（JSON 可解析 + 未转义 ASCII 引号）..."
+  $RUNNER scripts/lint-fix-evidence.ts
+  RESULT=$?
+  if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ 修复证据登记门禁失败！提交已阻止。"
+    echo "   规则: .trae/rules/coding-standards.md §CS08"
+    exit 1
+  fi
+fi
+
 # ── 进入 app 目录验证 ──
 cd "$PROJECT_DIR/app" || exit 0
 
@@ -116,7 +131,9 @@ exit 0
 
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
-  console.log('   提交前自动运行: 架构合规检查 + 类型检查 + ESLint + 模块验证');
+  console.log(
+    '   提交前自动运行: 架构合规检查 + 修复证据登记 + 类型检查 + ESLint + 模块验证'
+  );
 }
 
 function main(): void {

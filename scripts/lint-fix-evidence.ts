@@ -113,12 +113,12 @@ try {
 } catch (err) {
   console.error(`登记表 JSON 解析失败: ${String(err)}`);
   // 精确诊断：本仓最常见根因 = 字符串内用了**未转义的 ASCII 双引号**
-  // （惯例见 `.trae/rules/` 与既有教训：登记表字符串内一律用中文引号「」）。
+  // 规范见 `.trae/rules/coding-standards.md` §CS08（机器可读 JSON/YAML 内字符串一律用中文引号「」）。
   const spot = locateStrayQuote(REGISTRY);
   if (spot) {
     console.error(
       [
-        '  ⚠️ 疑似**未转义的 ASCII 双引号** ⇒ 字符串提前闭合；本仓惯例：字符串内一律用中文引号「」。',
+        '  ⚠️ 疑似**未转义的 ASCII 双引号** ⇒ 字符串提前闭合；规范见 .trae/rules/coding-standards.md §CS08（字符串内容里一律用中文引号「」）。',
         `     位置: ${REGISTRY}:${spot.line}:${spot.col}`,
         `     该行: ${spot.text}`,
         '     如确需 ASCII 引号，必须在源文件里写作 \\" （转义）。',

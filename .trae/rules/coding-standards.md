@@ -288,6 +288,42 @@ type RenderText = (text: string) => JSX.Element[];
 
 ---
 
+## CS08 机器可读文本内的引号书写（MUST）—— JSON/YAML 字符串内容里一律用中文引号「」
+
+**凡由"机器解析"的文本（`.json` / `.yaml` / `.yml` 的字符串**内容**）里要再引用别的词句，一律用中文引号「」；禁止在内容里裸写 ASCII 双引号 `"`。确需 ASCII 引号时，源文件里必须写作 `\"`（转义）。**
+
+### CS08-001 [MUST] 为什么"值写对了"仍会坏事
+
+这类缺陷不是"**值错**"，而是"**文本写法让工具解析不了**"：
+
+- JSON 的字符串定界符就是 ASCII `"`；字符串**内容**里裸写一个 `"` ⇒ 字符串**提前闭合** ⇒ `JSON.parse` 失败；
+- 后果不是"显示错"，而是 **门禁 / 播种 / 配置加载静默降级** —— 工具"看起来跑了"但实际没跑（与 `architecture-compliance.md` AR-3「检查器崩溃被当成通过」同级）。
+
+```jsonc
+// ❌ 禁止：字符串内容里裸写 ASCII 双引号 ⇒ 字符串提前闭合 ⇒ 整份 JSON 解析失败
+{ "notes": "见 "RFC 3339" 的时区约定" }
+
+// ✅ 正确：内容里的引号用中文引号「」
+{ "notes": "见「RFC 3339」的时区约定" }
+
+// ✅ 也允许：确需 ASCII 引号时，源文件中显式转义
+{ "notes": "见 \"RFC 3339\" 的时区约定" }
+```
+
+### CS08-002 [MUST] 动手前先看同类面
+
+编辑任何 `*.json` / `*.yaml` / `*.yml`（尤其**机器读取**的台账、门禁配置、预设、主题、i18n 快照、模型/能力默认值）之前，先确认它在"含中文"的面上 —— 这些正是最容易踩坑的一类：
+
+```
+Grep  "[\p{Han}]"  --glob "**/*.json"  --glob "**/*.{yaml,yml}"
+```
+
+**真实案例（本仓，复发 ≥4 轮）**：`scripts/lint-fix-evidence.ts` 自述「我已在登记表上**三次**因此使 JSON 破损」（`scripts/lint-fix-evidence.ts:62`）；2026-10-13 写 `.trae/architecture/fix-evidence-registry.json` 两条条目时又**一次性引入 4 处**，仍需逐处事后修正。**根因两层**：① **规范悬空** —— 门禁报错写「惯例见 `.trae/rules/`」，但该目录里**零处**写过这条规范（门禁指向不存在的真源）；② **校验点位滞后** —— `lint:fix-evidence` 只在 CI 跑，pre-commit 不跑 ⇒ 写入时无提示、提交时不拦。⇒ 本条即那次"**规范落盘**"的产物；`lint-fix-evidence.ts` 的报错文本现已显式引用 **`CS08`**，并已前置到 pre-commit（`HD-INFRA-1c`）。
+
+**AI 自查问句**：我写进 JSON/YAML 字符串里的这段话，里面有没有裸的 ASCII 双引号？如果有，它会不会让这份文本**解析不了**（而不是"难看一点"）？
+
+---
+
 ## §6 规则索引
 
 | 规则 ID | 描述 | 强制级别 |
@@ -299,6 +335,7 @@ type RenderText = (text: string) => JSX.Element[];
 | CS05 | 根因优先 | MUST |
 | CS06 | 证据驱动：禁止空结果编造 | MUST |
 | CS07 | 依赖收敛前先扫全局命名空间裸用法 | MUST |
+| CS08 | 机器可读 JSON/YAML 字符串内容里一律用中文引号「」 | MUST |
 
 ---
 
@@ -312,5 +349,6 @@ type RenderText = (text: string) => JSX.Element[];
 | `architecture-compliance.md` R01 | CS01 归一化检查，与 R01 基础设施复用配合 |
 | `development-workflow.md` §2.2 禁止重复造轮子 | CS01 具体化搜索检查清单 |
 | `architecture-compliance.md` R02 数据模型统一 | CS07 把"重复类型"延伸到**依赖包粒度**：去重类型包（如两份 `@types/react`）前先扫全局命名空间泄漏 |
+| `architecture-compliance.md` AR-3（检查器崩溃不得当通过） | CS08 同源：**解析失败 ⇒ 门禁静默降级**，与"检查器崩溃被当成通过"同级 ⇒ 必须在**写入时**就拦住（`HD-INFRA-1c` 前置到 pre-commit） |
 
 > **优先级**：本规则与现有规则冲突时，以本规则为准。本规则是编码层面的硬约束，不涉及架构设计。

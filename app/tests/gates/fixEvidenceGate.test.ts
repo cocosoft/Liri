@@ -5,10 +5,18 @@
  * 「只改代码无测试却标已验收」「跳过单元直称端到端」「声明修复却无 code 证据」。
  */
 import { describe, it, expect, afterAll } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { load as loadYaml } from 'js-yaml';
 
 const SCRIPT = join(process.cwd(), '..', 'scripts', 'lint-fix-evidence.ts');
 
@@ -183,5 +191,109 @@ describe('P1-4 修复证据门禁 · 负向自证', () => {
     expect(r.status).toBe(1);
     expect(r.out).toContain('未转义的 ASCII 双引号');
     expect(r.out).toContain(':8:'); // 元凶在第 8 行（title 行）
+  });
+});
+
+// ── HD-INFRA-1（2026-10-13 · `dev_docs/20261013/硬编码统一治理方案-20261013.md` §7.5）──
+// 「格式/约定型陷阱」的**防回流守卫**。根因两层：① 规范悬空（门禁报错引用 `.trae/rules/`
+// 却无对应条目）② 校验点位滞后（只在 CI 跑、pre-commit 不跑）。本组把两层都钉死：
+// 规范必须真实存在且被报错文本引用；台账必须可解析；同类面必须可枚举且全部可解析。
+const REPO_ROOT = join(process.cwd(), '..');
+const EXCLUDE_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'coverage',
+  'out',
+  '.next',
+  'target', // client/src-tauri 的 Rust 构建产物（内含源文件副本）
+  'dev_docs', // 历史产物（eval 快照 / 日更），非源头
+]);
+
+/** TypeScript 官方配置是 JSONC（允许 `//` 注释）⇒ 不适用 `JSON.parse`，按文件名放行 */
+function isJsonc(file: string): boolean {
+  const base = file.split(/[\\/]/).pop() ?? '';
+  return (
+    /^tsconfig[^/\\]*\.json$/i.test(base) || /^jsconfig\.json$/i.test(base)
+  );
+}
+
+function collectSourceJsonYaml(dir: string, out: string[]): void {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) {
+      if (EXCLUDE_DIRS.has(e.name)) continue;
+      collectSourceJsonYaml(join(dir, e.name), out);
+    } else if (/\.(json|ya?ml)$/.test(e.name)) {
+      out.push(join(dir, e.name));
+    }
+  }
+}
+
+describe('HD-INFRA-1 格式/约定型陷阱 · 防回流守卫', () => {
+  it('① 规范不悬空：coding-standards.md 含 CS08，且门禁报错文本引用 CS08', () => {
+    const rules = readFileSync(
+      join(REPO_ROOT, '.trae/rules/coding-standards.md'),
+      'utf8'
+    );
+    expect(rules).toContain('## CS08');
+    expect(rules).toContain('中文引号');
+    const gate = readFileSync(
+      join(REPO_ROOT, 'scripts/lint-fix-evidence.ts'),
+      'utf8'
+    );
+    expect(gate).toContain('CS08');
+  });
+
+  it('② 真台账可 JSON.parse（未转义 ASCII 引号必然使其失败 ⇒ 等价于"无 stray quote"）', () => {
+    const raw = readFileSync(
+      join(REPO_ROOT, '.trae/architecture/fix-evidence-registry.json'),
+      'utf8'
+    );
+    const parsed = JSON.parse(raw) as { items: unknown[] };
+    expect(Array.isArray(parsed.items)).toBe(true);
+    expect(parsed.items.length).toBeGreaterThan(0);
+  });
+
+  it('③ 同类面可枚举且全部可解析：含中文的源头 JSON/YAML（防新增未纳管文件）', () => {
+    const all: string[] = [];
+    collectSourceJsonYaml(REPO_ROOT, all);
+    const cjk = all.filter((f) =>
+      /[\u4e00-\u9fff]/.test(readFileSync(f, 'utf8'))
+    );
+    const jsonFiles = cjk.filter((f) => f.endsWith('.json') && !isJsonc(f));
+    const yamlFiles = cjk.filter((f) => !f.endsWith('.json'));
+
+    // 面必须非空（否则"枚举"退化为"什么都没查"）
+    expect(jsonFiles.length).toBeGreaterThan(0);
+    expect(yamlFiles.length).toBeGreaterThan(0);
+
+    const failures: string[] = [];
+    for (const f of jsonFiles) {
+      // @ignore-catch — 收集全部失败后统一断言，避免首个文件中断扫描
+      try {
+        JSON.parse(readFileSync(f, 'utf8'));
+      } catch (err) {
+        failures.push(`${f} :: ${String(err)}`);
+      }
+    }
+    for (const f of yamlFiles) {
+      // @ignore-catch — 同上
+      try {
+        loadYaml(readFileSync(f, 'utf8'));
+      } catch (err) {
+        failures.push(`${f} :: ${String(err)}`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('④ 前置不退化：pre-commit 生成器含 fix-evidence 检查（HD-INFRA-1c / Q-H6）', () => {
+    const gen = readFileSync(
+      join(process.cwd(), 'scripts', 'setup-git-hooks.ts'),
+      'utf8'
+    );
+    expect(gen).toContain('lint-fix-evidence.ts');
+    expect(gen).toContain('CS08');
   });
 });

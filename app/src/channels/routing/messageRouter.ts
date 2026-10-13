@@ -49,6 +49,8 @@ import {
   finalizeMessage,
   rejectMessage,
 } from '../dedup/index';
+// T1-9（2026-10-13）：入站 PREPARED 只读接缝（四原语投影；复用既有 `state` 出口）
+import { publishStateProjection } from '../../state/engine/projectionBroker.js';
 import type { MessageContext } from '../types/IChannel';
 // 2026-10-01 D-206（子批 D，`channels -> ai` 倒挂收口，2 条边之一）：类型位改**相对直连
 // core 模块根**（`SessionSpanContext` 已随实现下沉 core；app 层原址转出）。
@@ -386,6 +388,19 @@ export async function routeChannelMessage(
     const sessionKey = message.isDirectMessage
       ? (message.conversationId ?? message.senderId)
       : `${message.conversationId ?? message.senderId}:${message.senderId}`;
+
+    // T1-9（通道治理 §2.4「**入站 PREPARED 接缝**」/ §7 状态机接缝，2026-10-13）：
+    // 位置 = **去重 / 帧验证 / 限流全部通过后**、进入 LLM 链路（其内的 `preSendContextProtection`）**之前**。
+    // 形态（与 `T2-8` 同裁定）：四原语**严格只读**、不承载裁决 ⇒ 原文「经中心控制器**显式转移** `PREPARED`」
+    // 落为**只读上报**（方案该条的验收口径本就是「状态转移**可观测**」），**不**改变任何状态机。
+    // 域取 `execution`（按 `sessionId` 键控，与随后 `ExecutionManager.acquire()` 的 choke point **同域同会话**）
+    // —— **不新增第三个域**（CS03：不为单点接缝造词汇）。受 `STATE_PROJECTION_BROADCAST`（默认关）门控
+    // ⇒ 关时**零发布、零行为变更**。
+    publishStateProjection({
+      domain: 'execution',
+      primitive: 'PREPARED',
+      sessionId: sessionKey,
+    });
 
     // ④ 会话创建/复用 → ⑤ CoreAPI.chatStream()
     logger.info(

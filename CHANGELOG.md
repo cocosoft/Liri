@@ -91,13 +91,6 @@
 - ℹ️ **既有测试口径变更（如实，2 处）** - ① M1 使 2 处既有用例（F4-② / C2）原「无 sessionId 记账 ⇒ 消费」的期望与新口径冲突 ⇒ 改为**会话化**（保留「放行恰消费一次」意图）；② `tests/chat/orchestrator/toolLoopContext.test.ts` 的「`streamingCheckpoint` **同引用**透传」改为**转发等价**断言（端口两方法必须转发到同一实例），原因：该字段由「调用方各自装配」改为「装配处统一适配」
 - ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`（TAORLoop 2000 · streamMessageFlow 未增长）/ `lint:fn-size`（棘轮维持）/ `lint:complexity` / `lint:doc-code` / `lint:fix-evidence`（110 条）/ `version:check` 全绿；`tests/{query,chat}` **829 pass / 1 fail**（唯一 fail 为**既存环境型** `dailyBudgetSingleton` env 遮蔽，与本次改动无关）；真实 E2E 环境已恢复（`dailyLimit 500000` / relief 撤销 / 挂起清零 / 实例已停）
 
-**长程任务「预算挂起—续跑」正式启用：`FEATURE_BUDGET_SUSPEND_RESUME` 翻为默认开**
-
-- ✅ **开关启用（用户裁定「补齐查询面可见性与 taor 链 E2E 后再启用开关」）** - 两项前置已补齐（查询面可见性 v1.5 · taor 链真实 E2E v1.6 复核通过）⇒ `app/src/core/featureFlags.ts` 的 `BUDGET_SUSPEND_RESUME` **由 `false` 改为 `true`**：日预算耗尽时长任务在**轮间安全点**挂起并登记，用户放行（`boost`/`unlock-today`/`waive-once`）后按挂起时间序、上限内**真的续跑**（两条链均已真实端到端实证）
-- ✅ **同批同步「默认关」措辞与负向用例** - ① 源码注释：`featureFlags.ts` 自身 · `query/budgetSuspend.ts` · `query/taor/budgetSuspendHook.ts` · `chat/ReActToolLoop.ts` · `chat/ChatManager.ts` · `chat/manager/bootstrap.ts`；② 测试头注（`budgetSuspendTaor` / `budgetSuspendStream` / `budgetSuspendStartupRestore`）；③ **3 处「开关关」负向用例改显式关** —— `delete process.env[FLAG]` → `process.env[FLAG] = 'false'`（`feature()` 三层解析 = env > 变体层 > 静态默认 ⇒ 默认为开后，**删 env 不再等于「关」**，不改则负向用例会静默失效）
-- ✅ **回归** - `bun test tests/{query,chat,execution,http,session}` **1397 pass / 1 fail**（该 1 fail 为**既存环境型**：`dailyBudgetSingleton` 的 env 覆盖断言被持久化配置 `costControl.dailyTokenBudget` 遮蔽，与本次改动无关）；`typecheck` 0 错；门禁全绿
-- ℹ️ **回退** - 改回 `false`（1 行）或 `FEATURE_BUDGET_SUSPEND_RESUME=false` ⇒ 撞限行为与启用前**完全一致**
-
 **MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
 
 - ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
@@ -170,6 +163,12 @@
 - ⚠️ **如实缺口**（`e2eVerified=false`） - 未做真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是既有类型盲区（parked）；唤醒上限按"成功数"计数（handler 调用数可 > N，未单测）；`taor` 续跑的 host 胶水缺集成用例。证据 `BUDGET-SUSPEND-RESUME`
 
 ---
+
+#### v0.4.81 (2026-10-13)  长程任务「预算挂起—续跑」正式启用：`FEATURE_BUDGET_SUSPEND_RESUME` 翻为默认开 
+- ✅ **开关启用（用户裁定「补齐查询面可见性与 taor 链 E2E 后再启用开关」）** - 两项前置已补齐（查询面可见性 v1.5 · taor 链真实 E2E v1.6 复核通过）⇒ `app/src/core/featureFlags.ts` 的 `BUDGET_SUSPEND_RESUME` **由 `false` 改为 `true`**：日预算耗尽时长任务在**轮间安全点**挂起并登记，用户放行（`boost`/`unlock-today`/`waive-once`）后按挂起时间序、上限内**真的续跑**（两条链均已真实端到端实证）
+- ✅ **同批同步「默认关」措辞与负向用例** - ① 源码注释：`featureFlags.ts` 自身 · `query/budgetSuspend.ts` · `query/taor/budgetSuspendHook.ts` · `chat/ReActToolLoop.ts` · `chat/ChatManager.ts` · `chat/manager/bootstrap.ts`；② 测试头注（`budgetSuspendTaor` / `budgetSuspendStream` / `budgetSuspendStartupRestore`）；③ **3 处「开关关」负向用例改显式关** —— `delete process.env[FLAG]` → `process.env[FLAG] = 'false'`（`feature()` 三层解析 = env > 变体层 > 静态默认 ⇒ 默认为开后，**删 env 不再等于「关」**，不改则负向用例会静默失效）
+- ✅ **回归** - `bun test tests/{query,chat,execution,http,session}` **1397 pass / 1 fail**（该 1 fail 为**既存环境型**：`dailyBudgetSingleton` 的 env 覆盖断言被持久化配置 `costControl.dailyTokenBudget` 遮蔽，与本次改动无关）；`typecheck` 0 错；门禁全绿
+- ℹ️ **回退** - 改回 `false`（1 行）或 `FEATURE_BUDGET_SUSPEND_RESUME=false` ⇒ 撞限行为与启用前**完全一致**
 
 #### v0.4.80 (2026-10-13)  长程任务「预算挂起—续跑」B3 收尾修复批次（B3-2 递减连续性复位 + B3-3 启动期装配唤醒端口 + 幽灵挂起根除） 
 - ✅ **B3-2 恢复边界复位 loop-local 收益递减连续性（不受开关门控）** - 根因：唤醒为保住恢复态**刻意跳过 `reset()`**（G-T3-1），而 `this.dailyBudget` 是 loop-local 实例（`TAORLoop.ts:301` 每实例新建）⇒ 其收益递减连续性（`lastTotalTokens`/`diminishingTurnsCount`，`DailyBudgetManager.ts`）**跨挂起边界残留** ⇒ taor 恢复首轮被 `_observeRound` 的 `checkDiminishingReturns` 误判为 `diminishing_returns` 提前终止，且该早退分支**先于** `persistMessages` ⇒ 工具执行了却不落盘。**修法**：`DailyBudgetManager.resetDiminishingReturns(baselineTokens?)`（原为**零调用者**且基线用 `todayUsed`，与 `checkDiminishingReturns(currentTokens)` 的入参**不同源**）改为 `lastTotalTokens = baselineTokens ?? this.todayUsed`；`TAORLoop.resumeFromCheckpoint` 在 `const currentTokens = checkpoint.budgetState.currentTokens ?? 0` 之后以之复位。**不受开关门控**（跨重启恢复本就 = 新实例/计数 0 ⇒ 本修复是让**进程内恢复与跨重启恢复对齐**，非新语义）；`TAORLoop.ts` 维持**净零行**（`lint:size` 计 2000，零余量守 R04-001）

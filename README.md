@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.88-blue)
+![Version](https://img.shields.io/badge/version-0.4.89-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.88**
+当前版本：**v0.4.89**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,10 +436,9 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.88 (2026-10-13)  20261012 批次落地复查 · 补齐第五批（侧车化 S2：`lsp` 工具经侧车真接线，Option A） 
-- ✅ **侧车化 S2 —— `lsp` 工具**经侧车真接线**（`TOOLGOV-SIDECAR-S2`）** - 用户裁定 **Option A**：**不收敛轨 B**（`app/src/lsp/**` 与 `tools/lsp/**` **未触碰**；前置取证 = 轨 B 静态近零 + **运行时不可达**，见 T0.1）。新增 [lspConnection.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/lspConnection.ts)（侧车**自持**最小 LSP 连接：标准 `Content-Length` 分帧 + `initialize`/`hover`/`definition`；`spawnFn` 可注入）与 [SidecarLspTool.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/SidecarLspTool.ts)（适配器 schema 与内置 `LSPToolAdapter` **deep-equal**）；[lspSidecar.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/lspSidecar.ts) 由桩改为**真实分派**；loader 侧车分支由「返回 `null`」改为经侧车执行（**off 分支逐字不变**，装配点未动 ⇒ 同一 ToolRegistry/PathGuard/结果上限）。**覆盖 3 项**（`initialize`/`hover`/`definition`），**其余 11 个 action 一律 fail-closed `NOT_IMPLEMENTED`**（不假装成功、不静默回落内置）。先红后绿（7 fail + 2 errors ⇒ **38 pass / 0 fail**）+ **真实进程级（假 LS）E2E** 打通；`tests/{tools,utils}` **1044 pass / 0 fail**；门禁全绿
-- ⚠️ **如实遗留（S2）** - **真实 LS 端到端未验证**（本机无 `typescript-language-server`，详见 S0）；LS 崩溃恢复/退避与**取消下传**未接线（属 S3）；**同源门禁**（S4/T1-11）未做；`tools/sidecar/` 全程 **默认关**（`TOOL_SIDECAR_LSP=false`）⇒ 生产零行为变更
-- 📄 **文档订正（顺带）** - 实施计划 T0.2 的**错误前提**已订正：`CHANGELOG.md` 并无「D10 P1 未落地」表述（`:221` 早已记 ✅；`:90` 实为 MCP 安全段）⇒ 该任务**无需**改动 CHANGELOG；真正的漂移在 `工具治理方案`/`盘点清单`（先前已修）
+#### v0.4.89 (2026-10-13)  20261012 批次落地复查 · 补齐第六批（侧车化 S3：崩溃结算/重启 + 取消下传） 
+- ✅ **侧车化 S3（`TOOLGOV-SIDECAR-S3`）** - **取消下传**（T3.2）：工具层认领 `AbortSignal`（[SidecarLspTool.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/SidecarLspTool.ts) 对齐既有 `McpToolWrapper` 做法）⇒ supervisor 写 `notify` 帧（**沿用 `sidecarIpc` 既有形状，未造新协议**）并本地结算 ⇒ 侧车 `abort()` 在飞连接 ⇒ 连接层转发标准 LSP `$/cancelRequest`；取消 ⇒ 明确「已取消」且**不回落内置**。**崩溃结算/重启**（T3.1）：崩溃 ⇒ **pending 全拒**（明确错误）+ **不自动重试**（避免重复副作用）+ **有界重启**（重启窗口内请求等待握手就绪；超限 ⇒ `fatal` fail-closed）。**验证**：先红后绿（实现前 2 pass / 5 fail ⇒ 后 **7 pass / 0 fail**）+ **真实进程级 + 故障注入（假 LS）E2E** 全链通过（取消 ⇒ LS 收到 `cancel:` 且主内核存活 ⇒ kill ⇒ 重启 ⇒ 再请求成功）；`tests/{tools,utils}` **1051 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S3）** - **真实 `typescript-language-server` 的语义端到端仍未验证**（本机未安装，同 S0/S2）；取消为 **best-effort**（侧车已崩时 `notify` 静默无写）；`fatal` 态后请求立即 fail-closed；`TOOL_SIDECAR_LSP` 仍**默认关** ⇒ 生产零行为变更
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

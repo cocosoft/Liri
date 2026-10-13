@@ -1,5 +1,6 @@
 import * as https from 'https';
 import { getLogger } from '@modules/monitoring';
+import { buildUserAgent } from '@modules/constants';
 import type {
   RegistryAdapter,
   SearchParams,
@@ -170,7 +171,7 @@ export class SmitheryRegistryAdapter implements RegistryAdapter {
         {
           timeout: this.timeout,
           headers: {
-            'User-Agent': 'Liri-MCPMarketplace/1.0',
+            'User-Agent': buildUserAgent('MCPMarketplace'),
             Accept: 'application/json',
           },
         },

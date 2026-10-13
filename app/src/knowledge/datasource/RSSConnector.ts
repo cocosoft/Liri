@@ -18,6 +18,7 @@
  */
 
 import { LogLevel } from '@modules/monitoring';
+import { buildUserAgent } from '@modules/constants';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import type {
   DataSourceConnector,
@@ -79,7 +80,7 @@ export class RSSConnector implements DataSourceConnector {
     try {
       // 1. 拉取 Feed
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'PY_APP-Knowledge/1.0' },
+        headers: { 'User-Agent': buildUserAgent('Knowledge') },
         signal: AbortSignal.timeout(15000),
       });
 

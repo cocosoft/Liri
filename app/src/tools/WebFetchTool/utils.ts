@@ -4,6 +4,7 @@
  * WebFetch工具函数集：URL处理、内容检测、响应解析
  */
 
+import { buildUserAgent as buildProductUserAgent } from '@modules/constants';
 import type { PreapprovedEntry } from './preapproved.js';
 import { isUrlPreapproved, isUrlBlocked, isUrlAllowed } from './preapproved.js';
 
@@ -174,7 +175,7 @@ export function extractTitle(html: string): string | undefined {
 }
 
 export function buildUserAgent(): string {
-  return 'Liri/2.0 (WebFetch; compatible)';
+  return buildProductUserAgent('WebFetch; compatible');
 }
 
 export function buildDefaultHeaders(

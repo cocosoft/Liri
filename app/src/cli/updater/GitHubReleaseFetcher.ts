@@ -4,6 +4,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { buildUserAgent } from '@modules/constants';
 import {
   getGitHubReleasesUrl,
   type UpdateChannel,
@@ -97,7 +98,7 @@ export class GitHubReleaseFetcher {
       const response = await fetch(url, {
         headers: {
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': 'Liri-Updater/1.0.0',
+          'User-Agent': buildUserAgent('Updater'),
         },
         signal: controller.signal,
       });

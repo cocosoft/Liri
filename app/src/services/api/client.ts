@@ -6,6 +6,7 @@
  */
 import { ApiError, ApiConnectionError, ApiTimeoutError } from './errors';
 import { configManager } from '@modules/config';
+import { USER_AGENT } from '@modules/constants';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:api:client');
@@ -37,7 +38,7 @@ export class ApiClient {
       timeoutMs: config.timeoutMs ?? 600000,
       defaultHeaders: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Liri/1.0.0',
+        'User-Agent': USER_AGENT,
         ...config.defaultHeaders,
       },
     };

@@ -85,7 +85,32 @@ export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';
 
 export const DEFAULT_MAX_TOKENS = 4096;
 
-export const USER_AGENT = 'Liri/1.0.0';
+/**
+ * 产品 **User-Agent 标识**（**唯一真源**）：`Liri/<APP_VERSION>`。
+ *
+ * 版本号**只此一处**（`APP_VERSION` 读 `app/package.json`）。
+ *
+ * ⚠️ **为什么需要它**（硬编码治理 `HD-P1-1`）：原先 14 个文件各自写死 UA，且版本号互不一致
+ * （`Liri/1.0.0` · `Liri/1.0` · `Liri/2.0` · `Liri-Updater/1.0.0` · `Liri-MCPMarketplace/1.0`
+ * · 甚至**旧品牌名** `PY_APP-Knowledge/1.0`）⇒ 第三方按 UA 限流/风控/统计时口径混乱。
+ *
+ * ⚠️ **不适用**（协议要求，见治理方案 §5）：抓 HTML 反爬用的 **Chrome 伪装 UA**
+ * （`tools/WebSearchTool/providers.ts`）与 edge-tts 的 **Chromium UA**（`edgeTTSProvider`）——
+ * 它们不是"产品标识"，**不可**合并到本常量。
+ */
+export const USER_AGENT = `${APP_NAME}/${APP_VERSION}`;
+
+/**
+ * 按用途派生产品 UA：`Liri/<版本> (<用途>)`。
+ *
+ * 用途后缀供第三方按**来源**归因/限流（如 `WebFetch` 与 `Updater` 可分别限速），
+ * 而**版本号仍只来自** `USER_AGENT`（一处改、处处生效）。
+ *
+ * @param purpose 用途标识（如 `'WebFetch'` / `'Updater'` / `'MCPMarketplace'`）
+ */
+export function buildUserAgent(purpose: string): string {
+  return `${USER_AGENT} (${purpose})`;
+}
 
 export const PROTOCOL_VERSION = '1.0';
 export const API_VERSION = 'v1';

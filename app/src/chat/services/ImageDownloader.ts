@@ -6,6 +6,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { buildUserAgent } from '@modules/constants';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/core/paths';
 import { withRetry } from '@modules/utils/withRetry';
@@ -244,7 +245,7 @@ export class ImageDownloader {
         redirect: 'follow',
         headers: {
           Accept: 'image/*',
-          'User-Agent': 'Liri-ImageDownloader/1.0',
+          'User-Agent': buildUserAgent('ImageDownloader'),
         },
       });
 

@@ -18,6 +18,7 @@ import type {
   ValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
+import { buildUserAgent } from '@modules/constants';
 import { resolveDownloadsDir, resolveInboundDir } from '@modules/core';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 import { writeFile, mkdir } from 'fs/promises';
@@ -242,7 +243,7 @@ export class WebFetchTool extends BaseTool {
       const fetchOptions: RequestInit = {
         method,
         headers: {
-          'User-Agent': 'Liri/1.0 (PowerShell AI Assistant)',
+          'User-Agent': buildUserAgent('WebFetch'),
           Accept:
             'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',

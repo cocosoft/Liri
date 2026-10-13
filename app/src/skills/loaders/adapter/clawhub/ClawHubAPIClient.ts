@@ -28,6 +28,7 @@
 import https from 'https';
 import http from 'http';
 import { getLogger } from '@modules/monitoring';
+import { buildUserAgent } from '@modules/constants';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta } from './ClawHubMeta';
 import { checkSsrf } from '@modules/tools';
@@ -229,7 +230,7 @@ export class ClawHubAPIClient {
         url,
         {
           timeout: this.timeout,
-          headers: { 'User-Agent': 'Liri-ClawHub/1.0' },
+          headers: { 'User-Agent': buildUserAgent('ClawHub') },
         },
         (res) => {
           const status = res.statusCode;

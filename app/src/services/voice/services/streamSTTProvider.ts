@@ -15,6 +15,7 @@
  */
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { buildUserAgent } from '@modules/constants';
 import { handleError } from '@modules/error';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
@@ -533,7 +534,7 @@ export class StreamSTTProvider implements STTProvider {
    */
   private buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
-      'User-Agent': 'Liri/1.0',
+      'User-Agent': buildUserAgent('StreamSTT'),
       ...this.config.headers,
     };
 

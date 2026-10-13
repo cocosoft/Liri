@@ -18,6 +18,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { buildUserAgent } from '@modules/constants';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { SearchResult } from './providers';
@@ -187,7 +188,7 @@ export class WebSearchTool extends BaseTool {
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
-            'User-Agent': 'Liri/1.0 (PowerShell AI Assistant)',
+            'User-Agent': buildUserAgent('WebSearch'),
             Accept: 'text/html',
           },
           signal: controller.signal,

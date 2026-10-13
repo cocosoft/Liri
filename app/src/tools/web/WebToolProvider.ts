@@ -7,6 +7,7 @@
 /**
  * Web 工具类型
  */
+import { buildUserAgent } from '@modules/constants';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:web:WebToolProvider');
 
@@ -112,7 +113,7 @@ export class DefaultWebFetcher implements WebToolProvider {
       const response = await fetch(request.url, {
         method: request.method,
         headers: {
-          'User-Agent': 'Liri/1.0',
+          'User-Agent': buildUserAgent('WebTool'),
           Accept: 'text/html,text/plain,application/json',
           ...(request.headers || {}),
         },

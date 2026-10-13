@@ -1,10 +1,11 @@
-﻿/**
+/**
  * WebSearch Multi-Provider Support
  * 对标OpenClaw web-search多Provider支持
  * 支持Bing、Google、DuckDuckGo、Brave等多个搜索引擎
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { buildUserAgent } from '@modules/constants';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\WebSearchTool\providers');
@@ -267,7 +268,7 @@ export class SearchProviderManager {
 
     try {
       const response = await fetch(url, {
-        headers: { 'User-Agent': 'Liri/2.0 (SearchProvider)' },
+        headers: { 'User-Agent': buildUserAgent('SearchProvider') },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

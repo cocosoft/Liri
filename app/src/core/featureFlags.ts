@@ -532,6 +532,24 @@ export const FEATURE_FLAGS = {
    * 依据：`.trae/specs/sidecar-async-suspend.md` §4 裁定（Q2 新增 `kind='tool-job'`、Q3 不推进轮次 + 保留连接）。
    */
   TOOL_JOB_SUSPEND: false,
+
+  // ───── USD 金额闸门（债四 S3 / USD-4，2026-10-13；**默认关 ⇒ 零行为变更**）─────
+  /**
+   * **金额口径（USD）闸门**（默认关）。
+   *
+   * 开 **且** 用户已保存 `limitUsd` ⇒ 日预算闸门（单一收口 `checkDailyBudget`）在 Token 轨之外
+   * **并行**判定金额轨并**双轨从严**（任一先踩线即拒，见治理方案 §6.4）：
+   * `usedUsd >= limitUsd` ⇒ 拒发（`AppError('DAILY_BUDGET_EXCEEDED')`，与 R16 同一路径与同一码）。
+   * 关（默认）/ 未配置 `limitUsd` ⇒ **金额轨完全不参与判定** ⇒ 行为与 Token 单轨**逐字一致**。
+   * 运维/灰度覆盖：`FEATURE_USD_BUDGET_GATE=true`。
+   *
+   * ⚠️ **不新增账本**：金额轨只**读**既有 S5/S8 的 `usedUsd` / `limitUsd`（闸门内不做预留/结算）；
+   * ⚠️ **拦截 ≠ 挂起**：拒发是硬拦截；给用户放行机会**复用**既有 `BudgetSuspendCoordinator`
+   *    （`kind='budget'`）+ 放行三件套（boost / waive-once / unlock-today），**不得**把四原语
+   *    `SUSPENDED` 当作拦截信号（四原语严格只读、不承载裁决）。
+   * ⚠️ 本键为**功能灰度开关**（不在 17 项 `SAFETY_SWITCHES` 内），不受 `lint:doc-code` 安全开关断言约束。
+   */
+  USD_BUDGET_GATE: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

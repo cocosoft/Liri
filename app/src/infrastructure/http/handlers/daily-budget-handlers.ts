@@ -23,8 +23,8 @@
  * daily-budget-handlers.ts — 日 Token 限额状态查询 / 配置 / 重置 / kill switch（D3）
  *
  * 端点：
- * - `GET    /v1/cost/daily-budget`             当前状态（用量/档位/上限/阈值/kill switch）
- * - `PUT    /v1/cost/daily-budget`             热更新上限/阈值（持久化到 config，运行期即时生效）
+ * - `GET    /v1/cost/daily-budget`             当前状态（用量/档位/上限/阈值/kill switch + USD 只读字段）
+ * - `PUT    /v1/cost/daily-budget`             热更新上限/阈值/USD 上限（持久化到 config，运行期即时生效）
  * - `POST   /v1/cost/daily-budget/reset`       重置当日统计（D6；**用量归零**）
  * - `POST   /v1/cost/daily-budget/kill-switch` 手动硬锁开关（D6）
  * - `POST   /v1/cost/daily-budget/relief`      放行（D-b：临时提额 / 单次豁免 / 当日解除）
@@ -69,6 +69,7 @@ async function loadBudget(): Promise<DailyBudgetManager> {
 function budgetSnapshot(budget: DailyBudgetManager): Record<string, unknown> {
   const state = budget.getMode();
   const cfg = budget.getConfigSnapshot();
+  const usd = budget.getUsdState();
   return {
     date: budget.currentDate(),
     mode: state.mode,
@@ -83,6 +84,12 @@ function budgetSnapshot(budget: DailyBudgetManager): Record<string, unknown> {
     // D-b/D-d（2026-10-11）：放行与透支欠账（Spec §5-B / §5-E）
     relief: budget.getRelief(),
     debt: budget.getDebtTokens(),
+    // 债四 S5 / 方案 §6.3 **USD-1**（2026-10-13）：USD 口径**只读**暴露。
+    // `limitUsd` 未配置 ⇒ **显式 `null`**：**不臆造 `0`**（`0` 会被误读为"上限=0 ⇒ 全额拒发"），
+    // 也让前端无需区分"字段缺席 / null"两种"未配置"形态。
+    usedUsd: usd.usedUsd,
+    debtUsd: usd.debtUsd,
+    limitUsd: usd.limitUsd ?? null,
   };
 }
 
@@ -263,10 +270,14 @@ export async function handleGetDailyBudgetSuspends(
 /**
  * PUT /v1/cost/daily-budget — 热更新上限/阈值
  *
- * body: `{ dailyLimit?, warningThreshold?, lockThreshold? }`（至少一项）
+ * body: `{ dailyLimit?, warningThreshold?, lockThreshold?, dailyLimitUSD? }`（至少一项）
+ *
+ * `dailyLimitUSD`（债四 USD-2，方案 §6.3）：**正数** ⇒ 设置 USD 口径上限（金额可含小数）；
+ * `null` ⇒ **清空 = 解除**（回到"未配置" ⇒ USD 闸门不启用）；缺省 ⇒ 保持现值。
+ * **不回填任何默认值**（`§12 Q-U3`：USD 上限由用户自主决策）。
  *
  * 边界纪律（fail loud）：外部输入非法 ⇒ 400，**禁止**静默忽略（区别于内部 `applyConfig` 的宽容）。
- * 校验通过与内部同一口径（复用 `isValidDailyLimit` / `isValidBudgetRatio`）。
+ * 校验通过与内部同一口径（复用 `isValidDailyLimit` / `isValidBudgetRatio` / `isValidDailyLimitUsd`）。
  */
 export async function handleUpdateDailyBudget(
   req: http.IncomingMessage,
@@ -283,25 +294,45 @@ export async function handleUpdateDailyBudget(
       return;
     }
 
-    const { isValidDailyLimit, isValidBudgetRatio, DAILY_BUDGET_CONFIG_KEY } =
-      await loadQueryModule();
+    const {
+      isValidDailyLimit,
+      isValidDailyLimitUsd,
+      isValidBudgetRatio,
+      DAILY_BUDGET_CONFIG_KEY,
+      DAILY_BUDGET_USD_CONFIG_KEY,
+    } = await loadQueryModule();
 
-    const { dailyLimit, warningThreshold, lockThreshold } = body;
+    const { dailyLimit, warningThreshold, lockThreshold, dailyLimitUSD } = body;
     if (
       dailyLimit === undefined &&
       warningThreshold === undefined &&
-      lockThreshold === undefined
+      lockThreshold === undefined &&
+      dailyLimitUSD === undefined
     ) {
       json(res, 400, {
         error: {
           message:
-            '至少提供 dailyLimit / warningThreshold / lockThreshold 之一',
+            '至少提供 dailyLimit / warningThreshold / lockThreshold / dailyLimitUSD 之一',
         },
       });
       return;
     }
     if (dailyLimit !== undefined && !isValidDailyLimit(dailyLimit)) {
       json(res, 400, { error: { message: 'dailyLimit 必须为正整数' } });
+      return;
+    }
+    // 债四 USD-2（方案 §6.3）：`null` = **显式清空**（解除 USD 上限）；其余非法值 fail-loud。
+    let limitUsdPatch: number | null | undefined;
+    if (dailyLimitUSD === undefined) {
+      limitUsdPatch = undefined; // 缺省 ⇒ 保持现值（不臆造、不回填默认）
+    } else if (dailyLimitUSD === null) {
+      limitUsdPatch = null; // 清空 ⇒ 解除（回到"未配置"）
+    } else if (isValidDailyLimitUsd(dailyLimitUSD)) {
+      limitUsdPatch = dailyLimitUSD; // 金额允许小数（与 Token 正整数口径不同）
+    } else {
+      json(res, 400, {
+        error: { message: 'dailyLimitUSD 必须为正数，或传 null 以解除' },
+      });
       return;
     }
     if (
@@ -326,6 +357,10 @@ export async function handleUpdateDailyBudget(
       ...(warningThreshold !== undefined ? { warningThreshold } : {}),
       ...(lockThreshold !== undefined ? { lockThreshold } : {}),
     });
+    // 债四 USD-2：**仅在显式提供时**改动 USD 上限（缺省 ⇒ 保持现值）
+    if (limitUsdPatch !== undefined) {
+      budget.setLimitUsd(limitUsdPatch);
+    }
 
     // 持久化**合并后的生效配置**（避免只传一项时抹掉其余字段）⇒ 重启后仍生效（D1）。
     const cfg = budget.getConfigSnapshot();
@@ -334,10 +369,17 @@ export async function handleUpdateDailyBudget(
       warningThreshold: cfg.warningThreshold,
       lockThreshold: cfg.lockThreshold,
     });
+    // 债四 USD-2：USD 上限落**独立键**（与 Token 口径**并列、互不替代**）。
+    // 清空 ⇒ 写 `null`：ConfigManager **无删除 API**，而解析侧 `typeof null !== 'number'`
+    // ⇒ 视同"未配置"（`resolveDailyBudgetConfig()` 的既有口径，无需改解析）。
+    if (limitUsdPatch !== undefined) {
+      setConfigValue(DAILY_BUDGET_USD_CONFIG_KEY, limitUsdPatch);
+    }
     logger.info('日 Token 预算配置已更新', {
       dailyLimit: cfg.dailyLimit,
       warningThreshold: cfg.warningThreshold,
       lockThreshold: cfg.lockThreshold,
+      ...(limitUsdPatch !== undefined ? { limitUsd: limitUsdPatch } : {}),
     });
 
     const snapshot = budgetSnapshot(budget);

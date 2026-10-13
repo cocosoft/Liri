@@ -55,7 +55,10 @@ import type { ToolDefinition } from '@modules/ai';
 // R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
 import { estimateAttachmentsTokens } from '../../query/attachmentBudget.js';
-import { checkDailyBudget } from '../../query/dailyBudgetGate.js';
+import {
+  checkDailyBudget,
+  formatBudgetExhausted,
+} from '../../query/dailyBudgetGate.js';
 // R16 硬阻断：预算耗尽时抛业务异常（§1.9 业务异常必须 throw new AppError）
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
@@ -222,7 +225,7 @@ export async function applyPreSendProtection(
       // 释放本轮预扣：拒绝发送 ⇒ 在途不得残留（否则污染后续判定）
       dailyBudget.settleFor(session.id, 0);
       throw new AppError(
-        `今日 Token 预算已用完（已用 ${decision.snapshot.used} / 上限 ${decision.snapshot.limit}），为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
+        `${formatBudgetExhausted(decision.snapshot)}，为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
         ErrorCategory.RESOURCE,
         ErrorSeverity.MEDIUM,
         'DAILY_BUDGET_EXCEEDED',

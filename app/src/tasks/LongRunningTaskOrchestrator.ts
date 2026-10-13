@@ -102,7 +102,10 @@ import { normalizeExecutorResult } from './lro/contracts.js';
 // （此路径不经 `ChatManager.recordChatResponseUsage`，故在默认执行器单点记账）。
 import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
 // G-2/D（2026-10-11）：闸门**单一收口**（与流式/非流式 chat 同源判定），用于长程任务执行器
-import { checkDailyBudget } from '../query/dailyBudgetGate';
+import {
+  checkDailyBudget,
+  formatBudgetExhausted,
+} from '../query/dailyBudgetGate';
 export type {
   PdcaStatus,
   PdcaMetrics,
@@ -329,7 +332,7 @@ function guardExecutorWithDailyBudget(
         mode: decision.snapshot.mode,
       });
       throw new AppError(
-        `今日 Token 预算已用完（已用 ${decision.snapshot.used} / 上限 ${decision.snapshot.limit}），为避免超额，本次未调用模型；任务已停在当前阶段，放行后可直接续跑/重发。`,
+        `${formatBudgetExhausted(decision.snapshot)}，为避免超额，本次未调用模型；任务已停在当前阶段，放行后可直接续跑/重发。`,
         ErrorCategory.RESOURCE,
         ErrorSeverity.MEDIUM,
         'DAILY_BUDGET_EXCEEDED',

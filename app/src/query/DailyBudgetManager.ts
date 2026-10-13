@@ -646,6 +646,28 @@ export class DailyBudgetManager {
     this.applyConfig({ dailyLimit: limit });
   }
 
+  /**
+   * 债四 USD-2（2026-10-13，方案 §6.3）：**设置 / 解除** USD 口径上限。
+   *
+   * - 正有限数 ⇒ 设置（金额可含小数）；
+   * - `null` ⇒ **解除**（回到"未配置" ⇒ USD 闸门不启用）；
+   * - 其它非法值 ⇒ 忽略并保留现值（与 `applyConfig` 同款宽容；外部边界另由
+   *   `isValidDailyLimitUsd` 做 fail-loud 400）。
+   *
+   * **何以不并入 `applyConfig`**：USD 上限**不参与** `getMode()` 的档位计算（USD 闸门在
+   * `checkDailyBudget` 内独立判定，见方案 §6.4）⇒ 此处**不**触发档位重观测，避免语义误导。
+   */
+  setLimitUsd(limitUsd: number | null): void {
+    if (limitUsd === null) {
+      delete this.config.limitUsd;
+      return;
+    }
+    if (!isValidDailyLimitUsd(limitUsd)) {
+      return;
+    }
+    this.config.limitUsd = limitUsd;
+  }
+
   /** D1：当前生效配置的**浅拷贝**（供 API 回显 / 持久化回写，避免外部改写内部状态）。 */
   getConfigSnapshot(): DailyBudgetConfig {
     return { ...this.config };
@@ -946,6 +968,16 @@ export function isValidDailyLimit(n: unknown): n is number {
 /** D1：日预算阈值合法性（(0, 1] 比值）—— 与 `applyConfig` 共用同一口径。 */
 export function isValidBudgetRatio(n: unknown): n is number {
   return isRatio(n);
+}
+
+/**
+ * 债四 USD-2（2026-10-13，方案 §6.3）：**USD 口径上限**合法性（**正有限数**）。
+ *
+ * 与 `isValidDailyLimit`（**正整数**）的区别：金额**允许小数**（如 `0.5` USD/日）。
+ * 供 HTTP 边界（fail-loud 400）与 `setLimitUsd`（与 `applyConfig` 同款宽容）**共用**（CS01）。
+ */
+export function isValidDailyLimitUsd(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n > 0;
 }
 
 /**

@@ -15,6 +15,19 @@ function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/**
+ * 金额（USD）→ 展示。
+ *
+ * 最少 2 位、最多 4 位小数：小额（如单轮的 `$0.0031`）不被四舍五入成 `$0.00`，
+ * 大额仍保持 `$12.50` 的可读性。
+ */
+function formatUsd(n: number): string {
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}`;
+}
+
 /** 档位 → i18n 键（normal / report_only / locked） */
 function modeKey(mode: DailyBudgetStatus["mode"]): string {
   switch (mode) {
@@ -109,6 +122,9 @@ export default function DailyBudgetPanel() {
   const [limitInput, setLimitInput] = useState("");
   const [warnInput, setWarnInput] = useState("");
   const [lockInput, setLockInput] = useState("");
+  // 债四 USD-3（方案 §6.3）：金额上限输入 —— **以字符串持有**：留空是**合法状态**
+  // （"不启用"），不可强转数字（`Number("")===0` 会被后端判为非法上限）。
+  const [usdLimitInput, setUsdLimitInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -143,6 +159,9 @@ export default function DailyBudgetPanel() {
     setLimitInput(String(s.dailyLimit));
     setWarnInput(String(Math.round(s.warningThreshold * 100)));
     setLockInput(String(Math.round(s.lockThreshold * 100)));
+    // 债四 USD-3：未配置（`null`）⇒ 输入框**留空**而非显示 `0`
+    //（`0` 是"上限 0 ⇒ 全额拒发"的误读；`null` 才是"未启用"）。
+    setUsdLimitInput(s.limitUsd === null ? "" : String(s.limitUsd));
   }, []);
 
   const load = useCallback(
@@ -239,12 +258,27 @@ export default function DailyBudgetPanel() {
       setError(t("cost.dailyLimitInvalidThreshold"));
       return;
     }
+    // 债四 USD-3：**留空 ⇒ `null`（清空 = 解除金额上限）**；填写 ⇒ 正数（允许小数）。
+    // 契约见 `DailyBudgetUpdate.dailyLimitUSD`（后端只收正有限数或 `null`）。
+    const usdRaw = usdLimitInput.trim();
+    let dailyLimitUSD: number | null;
+    if (usdRaw === "") {
+      dailyLimitUSD = null;
+    } else {
+      const usd = Number(usdRaw);
+      if (!Number.isFinite(usd) || usd <= 0) {
+        setError(t("cost.dailyLimitUsdInvalid"));
+        return;
+      }
+      dailyLimitUSD = usd;
+    }
     setSaving(true);
     try {
       const s = await usageService.updateDailyBudget({
         dailyLimit: limit,
         warningThreshold: warn / 100,
         lockThreshold: lock / 100,
+        dailyLimitUSD,
       });
       applyStatus(s);
       setNotice(t("cost.dailyLimitSaved"));
@@ -556,6 +590,43 @@ export default function DailyBudgetPanel() {
               </div>
             </div>
 
+            {/* 债四 USD-3（方案 §6.3）：金额口径**只读**展示。
+                未配置上限 ⇒ 显式「未启用」而非 `$0.00`（0 是"上限 0"的误读）。 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+              <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                <p className="text-xs text-gray-500">
+                  {t("cost.dailyLimitUsdUsed")}
+                </p>
+                <p className="text-lg font-semibold">
+                  {formatUsd(status.usedUsd)}
+                </p>
+              </div>
+              <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                <p className="text-xs text-gray-500">
+                  {t("cost.dailyLimitUsdDebt")}
+                </p>
+                <p
+                  className={`text-lg font-semibold ${
+                    status.debtUsd > 0
+                      ? "text-orange-600 dark:text-orange-400"
+                      : ""
+                  }`}
+                >
+                  {formatUsd(status.debtUsd)}
+                </p>
+              </div>
+              <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
+                <p className="text-xs text-gray-500">
+                  {t("cost.dailyLimitUsdCap")}
+                </p>
+                <p className="text-lg font-semibold">
+                  {status.limitUsd === null
+                    ? t("cost.dailyLimitUsdDisabled")
+                    : formatUsd(status.limitUsd)}
+                </p>
+              </div>
+            </div>
+
             <p className="text-xs text-gray-400">
               {t("cost.dailyLimitDateLabel")}: {status.date} ·{" "}
               {t("cost.dailyLimitNote")}
@@ -772,6 +843,28 @@ export default function DailyBudgetPanel() {
               className={inputCls}
             />
           </label>
+        </div>
+        {/* 债四 USD-3（方案 §6.3）：金额口径上限 —— **留空 = 不启用**。
+            Token 口径**保留**为辅助口径（本行不改上面三个控件的语义）。 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <label className="block">
+            <span className="text-xs text-gray-500">
+              {t("cost.dailyLimitUsd")}
+            </span>
+            <input
+              data-testid="daily-budget-usd-input"
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder={t("cost.dailyLimitUsdPlaceholder")}
+              value={usdLimitInput}
+              onChange={(e) => setUsdLimitInput(e.target.value)}
+              className={inputCls}
+            />
+          </label>
+          <p className="md:col-span-2 self-end text-xs text-gray-400">
+            {t("cost.dailyLimitUsdHint")}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button

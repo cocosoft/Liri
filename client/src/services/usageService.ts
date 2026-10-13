@@ -150,6 +150,19 @@ export interface DailyBudgetStatus {
   killSwitch: boolean;
   /** D-d：透支欠账（`waive-once` 消耗，次日从可用额度扣回） */
   debt: number;
+  /**
+   * 债四 S5 / USD-1（2026-10-13，治理方案 §6.3）：**金额口径**已用（USD）。
+   *
+   * 与 `todayUsed` **并行的第二本账**（由后端 S8 换算接线按同一计价链入账）。
+   */
+  usedUsd: number;
+  /** 债四 S5：金额口径欠账（USD，次日计入用量扣回） */
+  debtUsd: number;
+  /**
+   * 债四 USD-2：金额上限（USD）。**`null` = 用户未配置** ⇒ **金额闸门不启用**
+   * （Token 口径仍生效）—— 后端**不设任何默认值**（`§12 Q-U3`：由用户自主决策）。
+   */
+  limitUsd: number | null;
   /** 当前生效的放行（无放行 ⇒ `null`） */
   relief: DailyBudgetReliefView | null;
 }
@@ -159,6 +172,17 @@ export interface DailyBudgetUpdate {
   dailyLimit?: number;
   warningThreshold?: number;
   lockThreshold?: number;
+  /**
+   * 债四 USD-2：金额上限（USD）。
+   *
+   * - **正数** ⇒ 设置（**允许小数**，与 `dailyLimit` 的正整数口径不同）；
+   * - **`null` ⇒ 清空 = 解除**（回到"未配置"）；
+   * - **缺省 ⇒ 保持现值**。
+   *
+   * ⚠️ 后端**只接受正有限数或 `null`**：`""` / 字符串 / `0` / 负数 ⇒ **400**。
+   * 表单输入框留空时**必须发 `null`**（勿发 `""`）。
+   */
+  dailyLimitUSD?: number | null;
 }
 
 // ─── 统一服务 ──────────────────────────────────────────────────

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   getDailyBudget: vi.fn(),
   setDailyBudgetRelief: vi.fn(),
   clearDailyBudgetRelief: vi.fn(),
+  updateDailyBudget: vi.fn(),
   configGet: vi.fn(),
   configSet: vi.fn(),
 }));
@@ -26,7 +27,7 @@ vi.mock("../../../services/usageService", () => ({
     getDailyBudget: mocks.getDailyBudget,
     setDailyBudgetRelief: mocks.setDailyBudgetRelief,
     clearDailyBudgetRelief: mocks.clearDailyBudgetRelief,
-    updateDailyBudget: vi.fn(),
+    updateDailyBudget: mocks.updateDailyBudget,
     resetDailyBudget: vi.fn(),
     setDailyBudgetKillSwitch: vi.fn(),
   },
@@ -61,6 +62,10 @@ function budgetStatus(over: Record<string, unknown> = {}) {
     lockThreshold: 1,
     killSwitch: false,
     debt: 12_345,
+    // 债四 USD-3：金额口径三字段（默认**未配置** ⇒ `limitUsd: null`，不臆造 0）
+    usedUsd: 0,
+    debtUsd: 0,
+    limitUsd: null,
     relief: {
       kind: "boost",
       expiresAt: Date.now() + 60 * 60_000,
@@ -224,5 +229,90 @@ describe("DailyBudgetPanel：挂载请求次数（防 effect 抖动）", () => {
     // 留出窗口（语言就绪 / 微任务 / effect 二次执行）
     await new Promise((r) => setTimeout(r, 80));
     expect(mocks.getDailyBudget).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * 债四 USD-3（2026-10-13，治理方案 §6.3）：金额口径上限编辑 + 用量展示。
+ *
+ * 与后端的**白盒契约**（`DailyBudgetUpdate.dailyLimitUSD`）：留空 ⇒ 发 `null`（清空=解除）；
+ * 填写 ⇒ 正数（允许小数）；其它 ⇒ 400 ⇒ 前端**必须**在发送前拦下。
+ * 展示侧：未配置上限（`null`）⇒ 显式「未启用」，**不显示 `$0.00`**（0 是"上限 0"的误读）。
+ */
+describe("DailyBudgetPanel：金额口径（USD-3）", () => {
+  it("只读展示：已用金额 / 金额欠账 / 金额上限（已配置）", async () => {
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ usedUsd: 1.5, debtUsd: 0.25, limitUsd: 20 }),
+    );
+    render(<DailyBudgetPanel />);
+
+    expect(await screen.findByText("今日已用金额")).toBeTruthy();
+    expect(screen.getByText("$1.50")).toBeTruthy();
+    expect(screen.getByText("$0.25")).toBeTruthy();
+    expect(screen.getByText("$20.00")).toBeTruthy();
+  });
+
+  it("未配置上限（null）⇒ 展示「未启用」而非 `$0.00`", async () => {
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ usedUsd: 0, debtUsd: 0, limitUsd: null }),
+    );
+    render(<DailyBudgetPanel />);
+
+    expect(await screen.findByText("金额上限")).toBeTruthy();
+    expect(screen.getByText("未启用")).toBeTruthy();
+    // `$0.00` 只应出现在「已用金额 / 金额欠账」（二者确实为 0 —— 如实展示）；
+    // **上限**格必须是「未启用」，**不得**显示 `$0.00`（那是"上限 0 ⇒ 全额拒发"的误读）。
+    expect(screen.getAllByText("$0.00")).toHaveLength(2);
+  });
+
+  it("输入留空 ⇒ 保存发 `dailyLimitUSD: null`（清空 = 解除）", async () => {
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus());
+    mocks.updateDailyBudget.mockResolvedValue(budgetStatus());
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    fireEvent.click(screen.getByText("保存并生效"));
+
+    await waitFor(() =>
+      expect(mocks.updateDailyBudget).toHaveBeenCalledTimes(1),
+    );
+    expect(mocks.updateDailyBudget.mock.calls[0]?.[0]).toMatchObject({
+      dailyLimitUSD: null,
+    });
+  });
+
+  it("输入 12.5 ⇒ 保存发 `dailyLimitUSD: 12.5`（金额允许小数）", async () => {
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus());
+    mocks.updateDailyBudget.mockResolvedValue(budgetStatus({ limitUsd: 12.5 }));
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    fireEvent.change(screen.getByTestId("daily-budget-usd-input"), {
+      target: { value: "12.5" },
+    });
+    fireEvent.click(screen.getByText("保存并生效"));
+
+    await waitFor(() =>
+      expect(mocks.updateDailyBudget).toHaveBeenCalledTimes(1),
+    );
+    expect(mocks.updateDailyBudget.mock.calls[0]?.[0]).toMatchObject({
+      dailyLimitUSD: 12.5,
+    });
+  });
+
+  it("输入非法（负数）⇒ 不发请求 + 就地报错", async () => {
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus());
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    fireEvent.change(screen.getByTestId("daily-budget-usd-input"), {
+      target: { value: "-1" },
+    });
+    fireEvent.click(screen.getByText("保存并生效"));
+
+    expect(
+      await screen.findByText("金额上限必须为正数（可含小数）"),
+    ).toBeTruthy();
+    expect(mocks.updateDailyBudget).not.toHaveBeenCalled();
   });
 });

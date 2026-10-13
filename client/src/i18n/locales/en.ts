@@ -2898,6 +2898,16 @@ const en = {
     dailyLimitInvalidLimit: "Daily cap must be a positive integer",
     dailyLimitInvalidThreshold:
       "Threshold must be a percentage between 1 and 100",
+    dailyLimitUsd: "Amount Cap (USD)",
+    dailyLimitUsdPlaceholder: "Leave empty = disabled",
+    dailyLimitUsdHint:
+      "Charged as each model's actual unit price × usage — the same source as the cost report. Leave empty to keep the amount gate off (the token cap still applies).",
+    dailyLimitUsdInvalid:
+      "Amount cap must be a positive number (decimals allowed)",
+    dailyLimitUsdUsed: "Used Today (USD)",
+    dailyLimitUsdDebt: "Amount Debt",
+    dailyLimitUsdCap: "Amount Cap",
+    dailyLimitUsdDisabled: "Disabled",
     dailyLimitReset: "Reset Today's Usage",
     dailyLimitResetConfirm: "Reset today's token usage? This cannot be undone.",
     dailyLimitResetDone: "Today's usage has been reset",

@@ -22,6 +22,8 @@ import {
 } from '../../src/query/DailyBudgetManager';
 
 const CONFIG_KEY = 'costControl.dailyTokenBudget';
+/** 债四 USD-2：USD 上限的**独立**持久化键（与 Token 键并列、互不替代） */
+const USD_CONFIG_KEY = 'costControl.dailyBudgetUSD';
 
 /** 最小 req：仅满足 `readBody` 的 `data`/`end` 契约（注册 `end` 时才派发）。 */
 function createReq(
@@ -82,6 +84,7 @@ beforeEach(() => {
   events = [];
   resetDailyBudgetForTest();
   delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+  delete process.env.LIRI_DAILY_BUDGET_USD;
   // 拦截持久化写盘（configManager 是 Proxy ⇒ spy 实例方法才能生效）
   setConfigSpy = spyOn(getConfigManager(), 'setConfigValue').mockImplementation(
     (() => {}) as never
@@ -92,6 +95,7 @@ afterEach(() => {
   setConfigSpy.mockRestore();
   resetDailyBudgetForTest();
   delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+  delete process.env.LIRI_DAILY_BUDGET_USD;
 });
 
 async function call(
@@ -233,5 +237,92 @@ describe('POST /v1/cost/daily-budget/kill-switch', () => {
       enabled: 'yes',
     });
     expect(r.status).toBe(400);
+  });
+});
+
+// ── 债四 USD-1 / USD-2（2026-10-13，方案 §6.3；`§12 Q-U3` 裁定）──
+// 「USD 上限**由用户自主决策**」⇒ 代码内**不得出现任何默认值**：
+// 未配置即 `limitUsd: null`（**不臆造 0** —— 0 会被误读为"上限=0 ⇒ 全额拒发"）。
+describe('USD-1 GET /v1/cost/daily-budget：USD 只读字段', () => {
+  test('未配置 ⇒ limitUsd 显式为 null、两本账为 0', async () => {
+    const r = await call('GET', '/v1/cost/daily-budget');
+    expect(r.status).toBe(200);
+    expect(r.body['limitUsd']).toBeNull();
+    expect(r.body['usedUsd']).toBe(0);
+    expect(r.body['debtUsd']).toBe(0);
+  });
+
+  test('已配置 ⇒ limitUsd 与 getUsdState() 一致（金额允许小数）', async () => {
+    await call('PUT', '/v1/cost/daily-budget', { dailyLimitUSD: 12.5 });
+    const r = await call('GET', '/v1/cost/daily-budget');
+    expect(r.body['limitUsd']).toBe(12.5);
+    expect(r.body['limitUsd']).toBe(getDailyBudget().getUsdState().limitUsd);
+  });
+
+  test('记账后 usedUsd 与 getUsdState() 一致', async () => {
+    getDailyBudget().recordUsdUsage(1.25);
+    const r = await call('GET', '/v1/cost/daily-budget');
+    expect(r.body['usedUsd']).toBe(1.25);
+    expect(r.body['usedUsd']).toBe(getDailyBudget().getUsdState().usedUsd);
+  });
+});
+
+describe('USD-2 PUT /v1/cost/daily-budget：写入 / 清空 USD 上限', () => {
+  test('正数 ⇒ 即时生效 + 落**独立键** + 广播 SSE', async () => {
+    const r = await call('PUT', '/v1/cost/daily-budget', {
+      dailyLimitUSD: 12.5,
+    });
+    expect(r.status).toBe(200);
+    expect(r.body['limitUsd']).toBe(12.5);
+    expect(getDailyBudget().getUsdState().limitUsd).toBe(12.5);
+    // 两个键：Token 合并配置 + USD 上限（并列、互不替代）
+    expect(setConfigSpy).toHaveBeenCalledTimes(2);
+    expect(setConfigSpy.mock.calls[0]?.[0]).toBe(CONFIG_KEY);
+    expect(setConfigSpy.mock.calls[1]?.[0]).toBe(USD_CONFIG_KEY);
+    expect(setConfigSpy.mock.calls[1]?.[1]).toBe(12.5);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.[0]).toBe('cost:dailyBudgetUpdated');
+  });
+
+  test('null ⇒ 清空 = 解除（快照回 null，独立键写 null）', async () => {
+    await call('PUT', '/v1/cost/daily-budget', { dailyLimitUSD: 5 });
+    const r = await call('PUT', '/v1/cost/daily-budget', {
+      dailyLimitUSD: null,
+    });
+    expect(r.status).toBe(200);
+    expect(r.body['limitUsd']).toBeNull();
+    expect(getDailyBudget().getUsdState().limitUsd).toBeUndefined();
+    const last = setConfigSpy.mock.calls.at(-1);
+    expect(last?.[0]).toBe(USD_CONFIG_KEY);
+    expect(last?.[1]).toBeNull();
+  });
+
+  test('仅传 dailyLimitUSD ⇒ 200（Token 字段非必填）', async () => {
+    const r = await call('PUT', '/v1/cost/daily-budget', { dailyLimitUSD: 3 });
+    expect(r.status).toBe(200);
+    expect(r.body['dailyLimit']).toBe(500_000); // Token 上限未动
+  });
+
+  test('非法值（0 / 负数 / 字符串）⇒ 400 且不写配置', async () => {
+    for (const bad of [0, -1.5, 'abc']) {
+      const r = await call('PUT', '/v1/cost/daily-budget', {
+        dailyLimitUSD: bad,
+      });
+      expect(r.status).toBe(400);
+    }
+    expect(setConfigSpy).not.toHaveBeenCalled();
+  });
+
+  test('缺省 ⇒ 保持 USD 现值，且**不写** USD 键', async () => {
+    await call('PUT', '/v1/cost/daily-budget', { dailyLimitUSD: 7 });
+    setConfigSpy.mockClear();
+    const r = await call('PUT', '/v1/cost/daily-budget', {
+      dailyLimit: 600_000,
+    });
+    expect(r.status).toBe(200);
+    expect(r.body['limitUsd']).toBe(7); // 现值保持
+    expect(getDailyBudget().getUsdState().limitUsd).toBe(7);
+    expect(setConfigSpy).toHaveBeenCalledTimes(1); // 只写 Token 键
+    expect(setConfigSpy.mock.calls[0]?.[0]).toBe(CONFIG_KEY);
   });
 });

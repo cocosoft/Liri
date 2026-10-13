@@ -40,20 +40,44 @@ export interface BudgetSnapshot {
   used: number;
   /** 上限（当前单位；relief 生效时为**有效上限**） */
   limit: number;
-  /** 单位（当前仅 `'tokens'`；USD 专项切换点） */
-  unit: 'tokens';
-  /** 已用量的展示串（如 `"901.2 K Tokens"`） */
+  /**
+   * 单位：`'tokens'`（Token 轨，默认）或 `'usd'`（金额轨 —— USD-4 双轨从严命中金额轨时）。
+   *
+   * 快照描述的是**导致本次拒绝的那条轨**；放行时恒为 `'tokens'`（与 USD-4 之前**逐字一致**）。
+   */
+  unit: 'tokens' | 'usd';
+  /** 已用量的展示串（如 `"901.2 K Tokens"` / `"$12.50"`） */
   formatted: string;
   /** 当前档位 */
   mode: BudgetMode;
 }
 
-/** 数字 ↔ 展示串：`<1000` 原样，`≥1000` 走 `K` 后缀并保留 1 位小数。 */
+/** 金额（USD）→ 展示串：最少 2 位、最多 4 位小数（与前端 `formatUsd` 同口径）。 */
+export function formatUsdAmount(n: number): string {
+  return `$${n.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}`;
+}
+
+/** 数字 ↔ 展示串：`<1000` 原样，`≥1000` 走 `K` 后缀并保留 1 位小数；金额轨走货币格式。 */
 export function formatBudget(
   used: number,
   unit: BudgetSnapshot['unit']
 ): string {
-  const label = unit === 'tokens' ? 'Tokens' : unit;
+  if (unit === 'usd') return formatUsdAmount(used);
   const shown = used >= 1000 ? `${(used / 1000).toFixed(1)} K` : `${used}`;
-  return `${shown} ${label}`;
+  return `${shown} Tokens`;
+}
+
+/**
+ * 单位无关的「预算已用完」**人读前缀**（调用方在其后追加各自的出路指引）。
+ *
+ * **Token 轨逐字保留**既有文案 ⇒ USD 未启用 / 未命中金额轨时，全链用户可见文案**零变更**。
+ */
+export function formatBudgetExhausted(snapshot: BudgetSnapshot): string {
+  if (snapshot.unit === 'usd') {
+    return `今日金额预算已用完（已用 ${formatUsdAmount(snapshot.used)} / 上限 ${formatUsdAmount(snapshot.limit)}）`;
+  }
+  return `今日 Token 预算已用完（已用 ${snapshot.used} / 上限 ${snapshot.limit}）`;
 }

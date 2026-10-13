@@ -306,7 +306,9 @@ export {
   recordDailyBudgetFromUsage,
   resolveDailyBudgetConfig,
   DAILY_BUDGET_CONFIG_KEY,
+  DAILY_BUDGET_USD_CONFIG_KEY,
   isValidDailyLimit,
+  isValidDailyLimitUsd,
   isValidBudgetRatio,
   DEFAULT_DAILY_BUDGET_TOKENS,
 } from './DailyBudgetManager.js';

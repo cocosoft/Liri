@@ -9,7 +9,8 @@ import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
 
 // 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
-import { calculateCost } from '../core/pricing.js';
+// 2026-10-13（硬编码治理 HD-P0-1）：兜底价改为**引用 core 唯一真源**（原三处各写一份数值）
+import { calculateCost, DEFAULT_MODEL_PRICING } from '../core/pricing.js';
 import type { ModelPricing } from '../core/pricing.js';
 
 export interface CostCalculationResult {
@@ -25,11 +26,13 @@ export interface CostCalculationResult {
 
 const DEFAULT_PRICING_RESULT: PricingResult = {
   model: '',
+  // 2026-10-13（HD-P0-1）：本结构用 per-1M 简写字段名 ⇒ **映射取值**，数值仍来自 core 唯一真源
+  // （`DEFAULT_MODEL_PRICING`；与闸门折算 / 成本报表回落**同一份**，避免三处漂移）
   pricing: {
-    inputPer1M: 3,
-    outputPer1M: 15,
-    cacheWritePer1M: 3.75,
-    cacheReadPer1M: 0.3,
+    inputPer1M: DEFAULT_MODEL_PRICING.inputPricePerMillion,
+    outputPer1M: DEFAULT_MODEL_PRICING.outputPricePerMillion,
+    cacheWritePer1M: DEFAULT_MODEL_PRICING.cacheCreationPricePerMillion,
+    cacheReadPer1M: DEFAULT_MODEL_PRICING.cacheReadPricePerMillion,
   },
   contextWindow: 200000,
   supportsPromptCache: true,

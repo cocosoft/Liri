@@ -11,6 +11,9 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// 2026-10-13（硬编码治理 HD-P0-1）：prompt cache 的**默认单价**改为引用 core 唯一真源
+// （原与 `core/pricing.ts` 的兜底价各写一份数值 ⇒ 双源漂移风险）
+import { DEFAULT_MODEL_PRICING } from '../../core/pricing.js';
 const logger = getLogger('ai:promptCache');
 
 /** 缓存命中的统计 */
@@ -50,9 +53,10 @@ const DEFAULT_CONFIG: PromptCacheConfig = {
   enabled: true,
   ttlMs: 5 * 60 * 1000, // 5 分钟
   minMessagesForCache: 2,
-  inputPricePer1M: 3.0,
-  cacheWritePricePer1M: 3.75,
-  cacheReadPricePer1M: 0.3,
+  // 单价取自 core 唯一真源（HD-P0-1；字段名不同于 core 结构 ⇒ 显式映射）
+  inputPricePer1M: DEFAULT_MODEL_PRICING.inputPricePerMillion,
+  cacheWritePricePer1M: DEFAULT_MODEL_PRICING.cacheCreationPricePerMillion,
+  cacheReadPricePer1M: DEFAULT_MODEL_PRICING.cacheReadPricePerMillion,
 };
 
 export class PromptCacheManager {

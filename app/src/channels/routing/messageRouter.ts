@@ -529,6 +529,16 @@ export async function routeChannelMessage(
         sessionId: safeSessionId,
         // PR1（2026-10-09）：执行标识外显（契约；消费者接线随 PR2/PR5 展开）
         executionId: lease.executionId,
+        // T1-6（通道治理 §1.3 收口，2026-10-13）：**入站附件透传进 R16 预留口径** ——
+        // 此前渠道入站不传任何附件信息 ⇒ 经通道发来的带附件消息**绕过日预算预留**（硬闸门缺口）。
+        // 口径（用户 2026-10-13 裁定）：**不复用 `images`**（它是**多模态载体**，消费方读 `img.path`，
+        // 见 `StreamPipeline.ts:166-184`；塞通道附件会污染模型输入），而走**专用预留入参**
+        // `attachmentSizes`（预算侧只读 `size`，见 `query/attachmentBudget.ts:28-30`）。
+        // ⚠️ 两个 `MessageAttachment` **同名不同物**（通道协议层 vs 会话领域层，`enums.ts:142-145`）
+        // ⇒ 此处**显式适配**：只取 `size`，**不互换类型、不携带 url/data**。
+        attachmentSizes: (message.attachments ?? []).map((a) => ({
+          size: a.size,
+        })),
         // PR2（2026-10-09）：ABORT 信号端到端贯通（Router → CoreAPI → ChatManager → ToolRunner）
         signal: cancelController.signal,
         // P26-1 §9.1（2026-10-07）：渠道入站**非人工实时对话** ⇒ 显式声明后台优先级

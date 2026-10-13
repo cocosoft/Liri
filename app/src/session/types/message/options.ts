@@ -71,6 +71,15 @@ export interface SendMessageOptions {
   forcedVisibleTools?: string[];
 
   /**
+   * T1-6（通道治理 §1.3 收口，2026-10-13）：**入站附件的字节口径**（供 R16 日预算预留）。
+   *
+   * 由**会重算入站附件**的入口注入（当前 = 渠道 `messageRouter` 显式适配 `message.attachments`）；
+   * `preSendContextProtection` 把它与 `images` 的字节**一并**计入预留。
+   * **未提供 ⇒ 0 ⇒ 行为逐字等价现状**。仅取 `size`（不携带 url/data ⇒ 不构成模型可见输入）。
+   */
+  attachmentSizes?: readonly { size?: number }[];
+
+  /**
    * 元数据
    */
   metadata?: Record<string, unknown>;

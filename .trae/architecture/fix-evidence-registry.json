@@ -1929,6 +1929,23 @@
       "changelog": ["CHANGELOG.md"],
       "reopenWhen": "① 改判为**独立投影域**（不复用 `execution`）时；② 通道入站链路重构（`routeChannelMessage` 拆分/接缝位置移动）时；③ `STATE_PROJECTION_BROADCAST` 默认值翻转时；④ 需要把「入站 PREPARED」升级为**可写状态转移**时（须先推翻四原语只读裁定，见 `T2-8` §1）",
       "notes": "**位置（对齐原文）**：通道治理 §2.4 要求「去重/帧验证完成后、`preSendContextProtection` 之前」显式申请转移 `PREPARED`。落地点 = `routeChannelMessage` 的 `sessionKey` 计算之后、**进入 LLM 链路之前**（该处已在**去重 ② / 内容去重 ②-② / 限流 ②-③ 全部通过**之后；`preSendContextProtection` 在其后的 chat 链路内 ⇒ 位置严格满足原文）。**形态（与 `T2-8` 同裁定，未再单独问）**：四原语**严格无状态、只读**、**不承载裁决** ⇒ 原文「经**中心控制器**显式转移 `PREPARED`」**无落点**，落为**只读上报**——而该条方案的验收口径本就是「**状态转移可观测**」（`通道治理方案 §3 阶段 2.4` 验收列）⇒ 语义无损耗。**域取 `execution` + `sessionId = sessionKey`**（与随后 `ExecutionManager.acquire()` 的 choke point **同域、同会话**，两处上报互为「入口就绪」与「执行域状态转移」的**只读观测点**）—— **不新增第三个域**（CS03：不为单点接缝造词汇；`orchestration` 域已在 `T2-8` 为编排族建立，语义不同）。**实现**：仅 3 行（`publishStateProjection({domain:'execution', primitive:'PREPARED', sessionId: sessionKey})`）—— **复用**既有 broker（**不新建总线**，CS01），**未改**任何状态机/判定。**零行为变更**：受 `STATE_PROJECTION_BROADCAST`（**默认关**）门控 ⇒ 关时**零发布**。**测试**：`app/tests/channels/inboundPreparedSeam.test.ts` **3 例** **源码守卫**（与 `tests/budget/sideChannelGuard.test.ts` 同法）—— ① 引用四原语投影出口且复用 `state/engine/projectionBroker`（不新建总线）；② `routeChannelMessage` 内**三要件同现**（`domain:'execution'` + `primitive:'PREPARED'` + `sessionId: sessionKey`）；③ **位置序**（`primitive:'PREPARED'` 出现在「阶段开始: llm (CoreAPI.chatStream 流式并轨)」日志**之前** ⇒ 证接缝在进入 LLM 链路前）。**为什么用源码守卫（如实）**：`routeChannelMessage` 依赖面极大（渠道/去重/限流/会话/LLM/出站 + 十余个 stub），端到端单测成本远超本接缝（**一行只读上报**）的价值；其**载荷契约**另有真实断言（`tests/execution/projectionBroadcast.test.ts` 的键集/门控用例）。**门禁**：`typecheck` 3 工程 **0 错**；`lint:arch` **0 error**（5 条**既有** warning 未增）；`lint:complexity` **未增长**（实测 ≥40 仍 75）；`lint:doc-code` / `lint:fix-evidence` 全绿。**如实边界**：① 该接缝**当前无真实消费者**（出站订阅面暂缓，与 `execution` / `orchestration` 域同）—— **如实标注、不伪造「已下发」**；② `e2eVerified=false`（未做真实通道消息端到端）；③ 开关默认关 ⇒ 生产行为不变。"
+    },
+    {
+      "id": "CHANGOV-T16-INBOUND-ATTACH-BUDGET",
+      "title": "T1-6 / 通道治理 §1.3：**入站附件进入 R16 日预算预留口径**（新增专用入参 `attachmentSizes`；**不复用** `images`）",
+      "source": "dev_docs/20261012/通道治理方案-20261012.md §1.3（附仵字节 → 日预算预留）+ 五方案总览 `T1-6` + 用户 2026-10-13 裁定「新增专用预留入参」",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/session/types/message/options.ts",
+        "app/src/channels/routing/messageRouterContract.ts",
+        "app/src/channels/routing/messageRouter.ts",
+        "app/src/chat/orchestrator/preSendContextProtection.ts"
+      ],
+      "tests": ["app/tests/channels/inboundAttachmentBudget.test.ts"],
+      "changelog": ["CHANGELOG.md"],
+      "reopenWhen": "① **非图像附件的口径扩展**（现口径仅按 `size` 保守折算，是否需按 MIME 分类/上限）时；② `images` 与 `attachmentSizes` 两口径合并为统一「入站附件」入参时；③ 通道入站改为**落盘附件**（则预留口径可改用真实文件尺寸）时；④ `estimateAttachmentsTokens` 折算比（4 bytes/token）变更时",
+      "notes": "**缺口与取证**：入站附件原先**完全在 R16 预留之外** —— `routeChannelMessage` 调 `coreAPI.chatStream({content, sessionId, executionId, signal, priority, metadata})`（`messageRouter.ts:527-545`）**未传任何附件信息**；而预算侧的附件口径只读 `options.images`（`preSendContextProtection.ts:198`，其注释自述「`images` 是**唯一**真正贯通且携 `size` 的入参」）⇒ 经通道发来的带附件消息可**绕过日预算预留**。**为何不复用 `images`（关键取证）**：`images` 同时是**多模态载体** —— `StreamPipeline.ts:155-184` 读 `img.path` 并映射为绝对图片路径送模型 ⇒ 把通道附件（`{url, data, size}`，**无 `path`**）塞进去会**污染模型输入**；且两个 `MessageAttachment` **同名不同物、明令严禁断言互换**（`session/types/message/enums.ts:142-145`：通道协议层 vs 会话领域层，跨层须经**显式适配函数**）⇒ 用户 2026-10-13 裁定走**新增专用预留入参**。**实现**：① `StreamMessageOptions` 与渠道端口契约（`messageRouterContract.ts` 的 `chatStream` 形参）各增**可选** `attachmentSizes?: readonly { size?: number }[]`（形状 = `query/attachmentBudget.AttachmentSizeLike`，**仅 `size`** ⇒ 不携带 url/data ⇒ **不构成模型可见输入**）；② `preSendContextProtection` 改为 `estimateAttachmentsTokens(options?.images) + estimateAttachmentsTokens(options?.attachmentSizes)`（**一并**计入 `reservedTokens`）；③ `messageRouter` **显式适配**：`attachmentSizes: (message.attachments ?? []).map((a) => ({ size: a.size }))`（只取 `size`，不互换类型）。**零行为变更**：非渠道入口 / 无附件 / 未提供该入参 ⇒ `estimateAttachmentsTokens(undefined) === 0` ⇒ 与现状**逐字等价**。**验证**：新增 `app/tests/channels/inboundAttachmentBudget.test.ts` **4 例**（源码守卫：只取 `size` 且**不**把通道附件塞进 `images` · 端口与选项均声明该入参 · 预算侧**两口径相加** · **求和语义**：`400B + 800B ⇒ 100 + 200`（缺 `size` 按 0））；`typecheck` 3 工程 **0 错**。**如实边界**：① **非图像附件**的口径扩展（MIME 分类/上限）**未做**（现按 `size` 保守折算，见 `reopenWhen`）；② 仅覆盖**渠道入站**（前端 HTTP 路径原本即携 `images`）；③ 该入参**不在** 17 项 `SAFETY_SWITCHES`；④ `e2eVerified=false`（未做真实通道带附件消息端到端）。"
     }
   ]
 }

@@ -195,7 +195,10 @@ export async function applyPreSendProtection(
     // 进最后一条 user 消息、并把路径登记给 `ImageContextService`）⇒ 其开销**不计入** `msgTokens`
     // 估算，正是本预留要补的口子（**不是**重复计数）。
     // 缺 size ⇒ 0（不臆造）。见 `query/attachmentBudget.ts`。
-    const attachmentTokens = estimateAttachmentsTokens(options?.images);
+    const attachmentTokens =
+      estimateAttachmentsTokens(options?.images) +
+      // T1-6（2026-10-13）：渠道入站的**附件字节口径**（专用入参；此前通道附件完全在预留之外）。
+      estimateAttachmentsTokens(options?.attachmentSizes);
     const reservedTokens = msgTokens + attachmentTokens;
     const decision = checkDailyBudget({
       sessionId: session.id,

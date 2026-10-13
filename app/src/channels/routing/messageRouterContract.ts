@@ -42,6 +42,15 @@ export interface RouteMessageOptions {
       executionId?: string;
       /** PR2（2026-10-09）：外部取消信号（端到端贯通 Router → CoreAPI → ChatManager） */
       signal?: AbortSignal;
+      /**
+       * T1-6（通道治理 §1.3 收口，2026-10-13）：**入站附件的字节口径**（供 R16 日预算预留）。
+       *
+       * **仅取 `size`**（与 `query/attachmentBudget.estimateAttachmentsTokens` 的结构化入参同形）；
+       * **不**复用 `images`（后者是多模态载体，消费方读 `img.path`，见 `StreamPipeline.ts`）⇒
+       * 避免把通道附件污染为模型图片输入。⚠️ 通道协议层 `MessageAttachment` 与会话领域层
+       * **同名不同物**（`enums.ts:142-145`）⇒ 跨层只做**显式适配**（不互换类型）。
+       */
+      attachmentSizes?: readonly { size?: number }[];
       metadata?: Record<string, unknown>;
     }): AsyncGenerator<
       ChatStreamChunk,

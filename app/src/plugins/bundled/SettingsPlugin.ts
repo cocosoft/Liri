@@ -9,6 +9,8 @@ import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { getLogger } from '@modules/monitoring';
 import { resolveUserSettingsPath } from '@modules/core';
+// Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
+import { DEFAULT_LOCALE } from '@modules/constants';
 
 const logger = getLogger('plugins:bundled:settingsPlugin');
 // 2026-08-06 路径收敛：统一走注册表 resolveUserSettingsPath()（~/.pyapp/settings.json）
@@ -39,7 +41,7 @@ export class SettingsPlugin implements Plugin {
   private enabled = true;
   private settings: SettingsConfig = {
     theme: 'system',
-    language: 'zh-CN',
+    language: DEFAULT_LOCALE,
     fontSize: 14,
     autoSave: true,
     notifications: true,
@@ -113,7 +115,7 @@ export class SettingsPlugin implements Plugin {
   resetToDefaults(): void {
     this.settings = {
       theme: 'system',
-      language: 'zh-CN',
+      language: DEFAULT_LOCALE,
       fontSize: 14,
       autoSave: true,
       notifications: true,

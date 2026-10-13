@@ -1,7 +1,8 @@
-﻿/**
+/**
  * 由 VOICE_MODE feature flag 控制加载
  */
 import { FEATURE_FLAGS } from '@modules/core';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const feature = (name: keyof typeof FEATURE_FLAGS) =>
   FEATURE_FLAGS[name] ?? false;
 
@@ -22,7 +23,7 @@ export interface VoiceState {
 
 const defaultConfig: VoiceConfig = {
   enabled: false,
-  language: 'en-US',
+  language: DEFAULT_LOCALE,
 };
 
 let voiceState: VoiceState = {

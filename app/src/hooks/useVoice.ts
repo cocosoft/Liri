@@ -5,6 +5,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getLogger } from '@modules/monitoring';
+// Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
+import { DEFAULT_LOCALE } from '@modules/constants';
 
 /** 浏览器语音识别 API 类型声明 */
 declare class SpeechRecognition {
@@ -105,7 +107,7 @@ export interface UseVoiceResult {
  * 默认配置
  */
 const DEFAULT_CONFIG: VoiceConfig = {
-  language: 'zh-CN',
+  language: DEFAULT_LOCALE,
   continuous: false,
   autoStop: true,
   silenceTimeout: 2000,

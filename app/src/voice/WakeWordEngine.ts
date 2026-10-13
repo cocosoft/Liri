@@ -26,6 +26,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+// Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
+import { DEFAULT_LOCALE } from '@modules/constants';
 import { VadDetector } from '@modules/services/voice/services/vadDetector';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 
@@ -104,7 +106,7 @@ export class WakeWordEngine {
     const minSpeechDurationMs = config.minSpeechDurationMs ?? 200;
     const maxSpeechDurationMs = config.maxSpeechDurationMs ?? 8000;
     this.sampleRate = config.sampleRate ?? 16000;
-    this.language = config.language ?? 'zh-CN';
+    this.language = config.language ?? DEFAULT_LOCALE;
     this.triggers = config.triggers ?? ['小鸟小鸟', 'Hi Liri'];
 
     this.vad = new VadDetector(this.sampleRate, {

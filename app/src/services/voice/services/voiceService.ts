@@ -31,6 +31,8 @@ import { VadDetector } from './vadDetector';
 import { EnvironmentDetector } from './environmentDetector';
 import { TTSRegistry } from './ttsProvider';
 import type { TTSSpeakResult } from './ttsProvider';
+// Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
+import { DEFAULT_LOCALE } from '@modules/constants';
 import { TTSQueuePriority } from './ttsTypes';
 import type { TTSSpeakOptions } from './ttsTypes';
 import { STTRegistry } from './sttRegistry';
@@ -225,7 +227,7 @@ export class VoiceService {
       bitDepth: config.bitDepth || RECORDING_BITS_PER_SAMPLE,
       silenceThreshold: config.silenceThreshold ?? SILENCE_THRESHOLD,
       silenceDuration: config.silenceDuration ?? SILENCE_DURATION_SECS,
-      language: config.language || 'zh-CN',
+      language: config.language || DEFAULT_LOCALE,
     };
 
     this.levelMeter = new AudioLevelMeter(

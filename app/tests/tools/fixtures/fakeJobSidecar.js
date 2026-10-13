@@ -20,10 +20,13 @@ const rl = readline.createInterface({ input: process.stdin });
 /**
  * 输出一帧（**同步写 fd 1**）。
  *
- * ⚠️ 取证结论（2026-10-13）：在 bun + Windows 管道的组合下，`process.stdout.write` 若发生在
- * **定时器回调**（进程此刻空闲、无待处理 I/O）时会被**缓冲而不冲刷** ⇒ 宿主 readline 收不到
- * （实测：夹具 `notify` 已写、宿主仅收到 `startup`/`response` 两行，直至作业超时）。
- * 故夹具对**异步路径**输出一律用 `fs.writeSync(1, …)`（同步、不缓冲）⇒ 可确定性验证协议。
+ * **为何同步写**（2026-10-13；**结论已随取证更正，如实留痕**）：最初怀疑「`process.stdout.write`
+ * 在**定时器回调**里被缓冲而不冲刷 ⇒ 宿主收不到 `notify`」，故改为 `fs.writeSync(1, …)`；
+ * 但随后取证证明**改同步写并未改变现象**（失败仍仅出现在「`bun test` × 主管」组合：同一夹具 +
+ * 同一主管在**纯脚本**下 3/3 正常，`bun test` 内**裸 spawn** 亦正常 —— 见
+ * `tests/tools/sidecarJobE2E.test.ts` 顶部取证注记与 `.trae/specs/sidecar-async-suspend.md` §8）
+ * ⇒ **「stdout 缓冲」推断不成立**。此处保留同步写**仅为输出确定性**（不依赖运行器/平台的冲刷时机），
+ * **不作为任何根因结论**。
  */
 function send(obj) {
   fs.writeSync(1, JSON.stringify(obj) + '\n');

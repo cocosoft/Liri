@@ -98,7 +98,9 @@ async function runSuspendE2e(facts: Record<string, unknown>): Promise<void> {
     facts.registerOutcome = suspendPort.register({ sessionId, jobId });
     const coordinator = getBudgetSuspendCoordinator();
     facts.suspendedDuringWait = coordinator.isSuspended(sessionId);
-    facts.kinds = coordinator.list().map((e) => (e.kind ?? 'budget') as SuspendKind);
+    facts.kinds = coordinator
+      .list()
+      .map((e) => (e.kind ?? 'budget') as SuspendKind);
     // ③ 等完成（不推进轮次的语义：此处 await）
     facts.result = await completion;
     facts.suspendedAfterCompletion = coordinator.isSuspended(sessionId);

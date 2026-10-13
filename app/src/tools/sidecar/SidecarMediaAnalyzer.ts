@@ -35,7 +35,10 @@ import type { IToolJobSuspendPort } from '@modules/core/spi';
 import { resolveToolJobSuspend } from '@modules/core/spi';
 import { getLogger } from '@modules/monitoring';
 import type { MediaAnalysisKind } from './mediaCapabilities';
-import { isMediaSidecarEnabled, maybeStartMediaSidecar } from './mediaSidecarLifecycle';
+import {
+  isMediaSidecarEnabled,
+  maybeStartMediaSidecar,
+} from './mediaSidecarLifecycle';
 
 const logger = getLogger('tools:sidecar:mediaAnalyzer');
 
@@ -204,19 +207,25 @@ export function createL2WorkerJobPort(
         );
       }
       // ① 提交作业（**提交即返**：此处不阻塞）
-      const { jobId, completion } = await supervisor.submitJob('media.analyze', {
-        kind,
-        ...(params ?? {}),
-      });
+      const { jobId, completion } = await supervisor.submitJob(
+        'media.analyze',
+        {
+          kind,
+          ...(params ?? {}),
+        }
+      );
       // ② 登记**作业挂起**（`kind='tool-job'` ⇒ 投影 SUSPENDED）；开关关/未注册 ⇒ no-op
       const outcome = suspend.register({ sessionId: jobCtx.sessionId, jobId });
       if (!outcome.registered) {
-        logger.debug('媒体侧车作业未登记挂起（开关关/SPI 未注册），退化为等待完成', {
-          sessionId: jobCtx.sessionId,
-          jobId,
-          reason: outcome.reason,
-          method,
-        });
+        logger.debug(
+          '媒体侧车作业未登记挂起（开关关/SPI 未注册），退化为等待完成',
+          {
+            sessionId: jobCtx.sessionId,
+            jobId,
+            reason: outcome.reason,
+            method,
+          }
+        );
       }
       try {
         // ③ 等完成通知（保留连接）；④ 结果即 L2 载荷 ⇒ 交回调用方续跑

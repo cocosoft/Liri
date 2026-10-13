@@ -278,7 +278,9 @@ async function handleJobSubmit(
   const params = toRecord(frame.params);
   const jobId = typeof params.jobId === 'string' ? params.jobId : '';
   const jobAction = String(params.action ?? '');
-  const action = jobAction.startsWith('media.') ? jobAction.slice(6) : jobAction;
+  const action = jobAction.startsWith('media.')
+    ? jobAction.slice(6)
+    : jobAction;
   if (!jobId) {
     output.write(
       encodeFrame({
@@ -310,7 +312,9 @@ async function handleJobSubmit(
   // 作业与普通请求共用取消表（键 = jobId）⇒ cancel 下传对两者同构
   inflight.set(jobId, controller);
   // ① 受理（**提交即返**）
-  output.write(encodeFrame({ id, success: true, result: { jobId, accepted: true } }));
+  output.write(
+    encodeFrame({ id, success: true, result: { jobId, accepted: true } })
+  );
 
   // ② 异步执行 + ③ 完成通知（成败同报；**不吞错**，失败原因原样带回）
   void (async () => {

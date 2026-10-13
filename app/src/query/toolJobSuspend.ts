@@ -82,7 +82,8 @@ export function registerToolJobSuspend(input: {
   sessionId: string;
   jobId: string;
 }): ToolJobSuspendRegisterResult {
-  if (!isToolJobSuspendEnabled()) return { registered: false, reason: 'disabled' };
+  if (!isToolJobSuspendEnabled())
+    return { registered: false, reason: 'disabled' };
   getBudgetSuspendCoordinator().suspend({
     sessionId: input.sessionId,
     chain: 'tool-job',

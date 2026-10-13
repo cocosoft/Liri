@@ -54,7 +54,8 @@ function makeHarness(opts?: {
   releases: string[];
 } {
   const order: string[] = [];
-  const submits: Array<{ action: string; payload: Record<string, unknown> }> = [];
+  const submits: Array<{ action: string; payload: Record<string, unknown> }> =
+    [];
   const releases: string[] = [];
   const requester: MediaSupervisorJobRequester = {
     request: async () => ({}),
@@ -126,12 +127,20 @@ describe('T1-2② C₂：媒体侧车 L2 作业端口', () => {
     const h = makeHarness();
     const port = createL2WorkerJobPort(h.provide, h.suspend);
 
-    await port.requestJobResult('object_detection', { image_path: '/a' }, {
-      sessionId: 's1',
-    });
-    await port.requestJobResult('image_similarity', { image_path: '/a' }, {
-      sessionId: 's1',
-    });
+    await port.requestJobResult(
+      'object_detection',
+      { image_path: '/a' },
+      {
+        sessionId: 's1',
+      }
+    );
+    await port.requestJobResult(
+      'image_similarity',
+      { image_path: '/a' },
+      {
+        sessionId: 's1',
+      }
+    );
 
     expect(h.submits.map((s) => s.payload.kind)).toEqual([
       'objects',
@@ -173,9 +182,13 @@ describe('T1-2② C₂：媒体侧车 L2 作业端口', () => {
     const port = createL2WorkerJobPort(h.provide, h.suspend);
 
     await expect(
-      port.requestJobResult('sam_segment', { image_path: '/a' }, {
-        sessionId: 's1',
-      })
+      port.requestJobResult(
+        'sam_segment',
+        { image_path: '/a' },
+        {
+          sessionId: 's1',
+        }
+      )
     ).rejects.toThrow('未覆盖 L2 方法');
     expect(h.submits).toEqual([]);
     expect(h.order).toEqual([]);

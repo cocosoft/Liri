@@ -140,7 +140,11 @@ describe('T1-2② C₂：侧车作业挂起（kind=tool-job）', () => {
     process.env[FLAG] = 'true';
 
     const c = getBudgetSuspendCoordinator();
-    c.suspend({ sessionId: 's1', chain: 'taor', reason: 'daily_budget_exhausted' });
+    c.suspend({
+      sessionId: 's1',
+      chain: 'taor',
+      reason: 'daily_budget_exhausted',
+    });
 
     expect(releaseToolJobSuspend('s1')).toBe(false);
     expect(c.isSuspended('s1')).toBe(true);
@@ -211,7 +215,9 @@ describe('T1-2② C₂：侧车作业挂起（kind=tool-job）', () => {
       createToolJobSuspendPort()
     );
 
-    expect(registered.map((r) => r.id)).toEqual(['core.spi.IToolJobSuspendPort']);
+    expect(registered.map((r) => r.id)).toEqual([
+      'core.spi.IToolJobSuspendPort',
+    ]);
     const port = resolveToolJobSuspend();
     expect(port.register({ sessionId: 's1', jobId: 'job_1' })).toEqual({
       registered: true,

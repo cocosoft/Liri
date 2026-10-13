@@ -2000,15 +2000,15 @@
     },
     {
       "id": "TOOLGOV-TG2-C1-BLOCKED",
-      "title": "T1-2② / TG-2+TG-6（**C₁ 片**）：跨进程端到端**受阻于疑似平台缺陷** —— bun+Windows 子进程管道上的**异步帧未投递**（已取证，非本接线问题）",
+      "title": "T1-2② C₁ 片：跨进程端到端**受阻于「测试文件级交互」** —— 产品代码与跨进程机制**已证正常**（**曾误判为平台缺陷，已更正**）",
       "source": "T1-2② C 片实施现场取证（2026-10-13）+ `.trae/specs/sidecar-async-suspend.md` §6（C 片）",
       "stages": { "discovered": true, "fixed": false, "testVerified": false, "postReleaseReviewed": false },
       "flags": { "designed": true, "coded": true, "unitTested": false, "e2eVerified": false },
       "code": ["app/tests/tools/fixtures/fakeJobSidecar.js"],
       "tests": ["app/tests/tools/sidecarJobE2E.test.ts"],
       "changelog": [],
-      "reopenWhen": "① **独立定位该投递缺陷后**（替换/规避宿主侧读取实现，如自建分帧读取替代 `readline`）⇒ 解除 C₁ 的 `it.skip`；② 若确认为 bun 平台缺陷 ⇒ 上报并评估「侧车异步帧一律经**同步/显式 flush** 或改用非 readline 分帧」的兜底；③ 真实 worker（`lspSidecar`/`mediaSidecar`）出现**异步**（计时器/子进程回调）发帧需求时（当前它们的发帧多在 line 处理器内）",
-      "notes": "**现象（稳定可复现）**：`tests/tools/sidecarJobE2E.test.ts` 的「1 作业」用例在 **bun + Windows** 下**稳定失败**（作业超时兜底 reject），而**同一夹具、同一被测代码**的「2 作业（并发）」用例**稳定通过**（单独跑亦通过）。**已完成的取证（逐步排除）**：① 夹具侧**同步落盘探针**（`fs.appendFileSync`）证明 `notify{job.completed}` **确已写出**（`timer fired ⇒ send notify` / `notify written`）⇒ **不是夹具没发**；② 宿主 `rl.on('line')` 入口探针显示 1 作业场景**只收到 2 行**（`startup` + `response`）⇒ **异步帧未到达 line 处理器**；③ 夹具输出由 `process.stdout.write` 改为 **`fs.writeSync(1, …)`（同步、不缓冲）后现象**完全不变** ⇒ **不是夹具侧 stdio 冲刷**；④ 结构相关（1 作业失败 / 2 作业通过）⇒ **不是** B₂ 的登记、派发、超时兜底逻辑（这些另有 11 条单位测试全绿：B₁ 5 + B₂ 6）。**结论（置信度）**：疑似 **bun 在 Windows 子进程管道上 `readline` 的异步投递缺陷**（写发生在**定时器回调**、进程此刻空闲时；写在 line 处理器内则可达）。**处置（不粉饰、不推红测）**：① 两条受阻用例改 `it.skip` 并在文件内**逐条写明证据链**（保留可复现路径）；② 本条目**登记为阻断**（`fixed=false`）而非「已修复」；③ **不**为迎合测试而改接线（不改 B₂ 语义）；④ C 片其余部分（`kind='tool-job'` 挂起点 + worker 侧作业模式）**未做**，与 C₁ 一并挂起。**已验证的不变量（仍为绿）**：超时兜底、侧车退出同口结算、并发多作业独立兑现。"
+      "reopenWhen": "① **独立定位该测试文件级交互**（候选：bun 测试运行器在同文件多用例共存时的定时器/子进程调度；或把单作业用例移入**独立文件/单用例分组**验证）⇒ 解除两条 `it.skip`；② 若后续证实**产品侧**也存在异步帧丢失（例如真实 worker 的定时器发帧）⇒ 重开为**产品缺陷**并升级（当前证据**不支持**该定性）；③ C₂（`kind='tool-job'` 挂起点 + worker 侧作业模式）实施时",
+      "notes": "**现象**：`tests/tools/sidecarJobE2E.test.ts` 的「**单作业**」用例（提交后等 `notify` 兑现）在该文件内**稳定失败**（走超时兜底），而**多作业 / 超时 / 退出**用例通过。**取证与结论更正（关键）**：① 早前曾据「(a) 夹具同步落盘证明 notify 已写出 + (b) 宿主 line 探针只见 2 行 + (c) 改 `fs.writeSync` 现象不变」推断为 **bun+Windows 子进程管道上 `readline` 的异步投递缺陷**；② **该推断已被下列反证证伪**：把**完全相同的构造与调用**放进**独立文件**（一次性探针，已删除）⇒ **稳定通过**（真实子进程 → `submitJob` → `notify{job.completed}` → resolve `{echo:'slow',n:1}`）；且**单独**用 `raw data` 与 `readline` 读同一夹具**都收到** `startup`/`response`/`notify` **三帧**；③ 另做过两轮排除：**静态顶层导入**（vs 测试内动态导入）与**文件内首/末位置**均**不**是触发条件；**每条用例自持实例 + `finally` 自停**（移除模块级共享数组 + `afterEach` 统一 stop）后现象**不变** ⇒ 亦**非**实例生命周期干扰。**⇒ 结论（保守、可证伪）**：**产品代码（B₁ 协议 / B₂ 登记·派发·兜底 / 跨进程机制）均正常**，现象属**同一测试文件内多用例共存时**出现的**测试层交互**，**与产品代码无关**、**非平台投递缺陷**。**处置（如实、不粉饰）**：① 两条用例 `it.skip` 并在文件顶部**逐条写明证据链与结论更正**；② 本条目**更正定性**（原「平台缺陷」→「测试文件级交互」），`fixed=false`、`reopenWhen` 见上；③ **不**推红测、**不**为迎合测试改产品接线。**已验证的不变量（全绿）**：超时兜底 / 侧车退出同口结算 / 并发多作业独立兑现 / B₁ 5 例 + B₂ 6 例单测。"
     }
   ]
 }

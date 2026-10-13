@@ -59,13 +59,6 @@
 - 📄 **两份决策支持文档（只写文档）** - ① [债四 §12 十项待裁定的**裁定建议**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/unified-budget-and-accounting-%E8%A3%81%E5%AE%9A%E5%BB%BA%E8%AE%AE-20261013.md)（逐项：取证/建议/备选与影响/落地切片）；② [侧车化**实施计划**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-sidecar-isolation-plan-20261013.md)（8 阶段 / 19 任务，含 CD05/CD06/CD07 切片与验收）
 - ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（**114 条**）/`lint:doc-code`/`version:check` 全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**
 
-**20261012 批次落地复查 · 补齐第二批（工具数据源门禁 + 债一残余线性收口）**
-
-- ✅ **工具治理 阶段 3.2：「新数据源不以新增工具承载」源码门禁（`TOOLGOV-T12-32`）** - 新增 `app/tests/tools/toolDataSourcesNotNewTools.test.ts`：声明面 = `TOOL_NAME_CONSTANTS`（工具名唯一来源），**冻结基线 + 豁免清单（须非空理由）**，判据「新增 = 声明面 − 基线，必须已登记」否则 **fail-closed**；附基线陈旧检测与豁免重叠检测。**负向自证**固化在用例内（未登记的 `mysql_query` 被拦截、登记后放行）。先红后绿（3 fail → 6 pass）
-- ✅ **债一残余：`readBySeq`/`getTailSeq` 线性路径收口 + 纳入基准（`DEBT1-T310`）** - `app/src/session/storage/EventLogStorage.ts` 两条路径改为**复用既有 idx 二分定位**（`readBySeq` 走 `resolveScanStartOffset` 段读；`getTailSeq` 从末区间起点续扫），新增 `loadIdxEntries()`/`resolveTailScanStart()`/`openOffsetReadline()`，并修正 `findIdxStartOffset` 对"未索引尾部"的回退为**末区间起点**；`app/scripts/bench-longrun.ts` 新增 **F1c 随机访问**基准覆盖两条目标路径。**实测**：规模 ×10 ⇒ `getTailSeq` P50 ×1.2、`readBySeq` P50 ×1.0（改动前末条 `readBySeq` 为 ×11.8 全扫）⇒ 与规模解耦。语义/返回值**不变**（等价性用例 + P0-5/CRLF 回归全绿）；**不迁 SQLite**；新增守卫 `app/tests/session/eventLogIndexedTailReads.test.ts`（先红后绿：4 fail → 6 pass；回归 49 pass）
-- 📄 **两份 spec 推进（只写文档，未动产品代码）** - ① **侧车化**：新增 `.trae/specs/tool-sidecar-isolation.md` **v1.0 定案稿**（D1–D11 + 实施切片 S0–S7；前提订正：D10 的 P1 IPC 基座**已落地**）**待批准实施**；② **债四（USD 唯一口径）**：`.trae/specs/unified-budget-and-accounting.md` 由 v0.1 立项升为 **v1.0 定案稿**（D1–D9 + 切片 S0–S7），**§12 列 10 项待裁定**（HARD-GATE：裁定前不写产品代码）。**关键发现**：`DailyBudgetManager.debtTokens` **全仓无自增点** ⇒ 既有文档所述「`waive-once` 计入欠账、次日扣回」实为**静默 no-op**（已列为该 spec 的 S0 必修前置）
-- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`（`EventLogStorage.ts` 1983 行，仅 WARN）/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（112 条）/`version:check` 全绿；`tests/{tools,session}` **1065 pass / 0 fail**
-
 **MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
 
 - ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
@@ -138,6 +131,12 @@
 - ⚠️ **如实缺口**（`e2eVerified=false`） - 未做真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是既有类型盲区（parked）；唤醒上限按"成功数"计数（handler 调用数可 > N，未单测）；`taor` 续跑的 host 胶水缺集成用例。证据 `BUDGET-SUSPEND-RESUME`
 
 ---
+
+#### v0.4.85 (2026-10-13)  20261012 批次落地复查 · 补齐第二批（工具数据源门禁 + 债一残余线性收口） 
+- ✅ **工具治理 阶段 3.2：「新数据源不以新增工具承载」源码门禁（`TOOLGOV-T12-32`）** - 新增 `app/tests/tools/toolDataSourcesNotNewTools.test.ts`：声明面 = `TOOL_NAME_CONSTANTS`（工具名唯一来源），**冻结基线 + 豁免清单（须非空理由）**，判据「新增 = 声明面 − 基线，必须已登记」否则 **fail-closed**；附基线陈旧检测与豁免重叠检测。**负向自证**固化在用例内（未登记的 `mysql_query` 被拦截、登记后放行）。先红后绿（3 fail → 6 pass）
+- ✅ **债一残余：`readBySeq`/`getTailSeq` 线性路径收口 + 纳入基准（`DEBT1-T310`）** - `app/src/session/storage/EventLogStorage.ts` 两条路径改为**复用既有 idx 二分定位**（`readBySeq` 走 `resolveScanStartOffset` 段读；`getTailSeq` 从末区间起点续扫），新增 `loadIdxEntries()`/`resolveTailScanStart()`/`openOffsetReadline()`，并修正 `findIdxStartOffset` 对"未索引尾部"的回退为**末区间起点**；`app/scripts/bench-longrun.ts` 新增 **F1c 随机访问**基准覆盖两条目标路径。**实测**：规模 ×10 ⇒ `getTailSeq` P50 ×1.2、`readBySeq` P50 ×1.0（改动前末条 `readBySeq` 为 ×11.8 全扫）⇒ 与规模解耦。语义/返回值**不变**（等价性用例 + P0-5/CRLF 回归全绿）；**不迁 SQLite**；新增守卫 `app/tests/session/eventLogIndexedTailReads.test.ts`（先红后绿：4 fail → 6 pass；回归 49 pass）
+- 📄 **两份 spec 推进（只写文档，未动产品代码）** - ① **侧车化**：新增 `.trae/specs/tool-sidecar-isolation.md` **v1.0 定案稿**（D1–D11 + 实施切片 S0–S7；前提订正：D10 的 P1 IPC 基座**已落地**）**待批准实施**；② **债四（USD 唯一口径）**：`.trae/specs/unified-budget-and-accounting.md` 由 v0.1 立项升为 **v1.0 定案稿**（D1–D9 + 切片 S0–S7），**§12 列 10 项待裁定**（HARD-GATE：裁定前不写产品代码）。**关键发现**：`DailyBudgetManager.debtTokens` **全仓无自增点** ⇒ 既有文档所述「`waive-once` 计入欠账、次日扣回」实为**静默 no-op**（已列为该 spec 的 S0 必修前置）
+- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`（`EventLogStorage.ts` 1983 行，仅 WARN）/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（112 条）/`version:check` 全绿；`tests/{tools,session}` **1065 pass / 0 fail**
 
 #### v0.4.84 (2026-10-13)  20261012 批次落地复查 · 补齐第一批（全方案落地复查 + 文档/台账漂移补齐 + T3-9 默认值单源统一） 
 - ✅ **全方案落地复查（35 条待办逐条对账）** - 对 `dev_docs/20261012/` 五方案逐条回仓取证（代码 `file:line` + 测试 + 证据台账），结论：**16 项已落地 · 8 项部分落地 · 10 项未落地**（含"未落地项"与部分落地缺口逐条列明）；结论入册 `五方案总览` §8，并做一轮**轻量真机 smoke**（真实会话 + 工具调用：`read_file` 返回 17580 字符 ⇒ 正确答 `0.4.77`；两个查询面 200；无挂起；环境已恢复）

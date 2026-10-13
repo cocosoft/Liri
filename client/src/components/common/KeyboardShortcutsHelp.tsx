@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { APP_EVENTS } from "../../constants/events";
 
 interface ShortcutEntry {
   keys: string[];
@@ -24,8 +25,9 @@ function KeyboardShortcutsHelp() {
 
   useEffect(() => {
     const handler = () => setOpen((v) => !v);
-    window.addEventListener("toggle-shortcut-help", handler);
-    return () => window.removeEventListener("toggle-shortcut-help", handler);
+    window.addEventListener(APP_EVENTS.toggleShortcutHelp, handler);
+    return () =>
+      window.removeEventListener(APP_EVENTS.toggleShortcutHelp, handler);
   }, []);
 
   useEffect(() => {

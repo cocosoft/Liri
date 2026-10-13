@@ -24,6 +24,7 @@ import {
   clearAutoSave,
   SnapMeta,
 } from "../utils/autoSave";
+import { APP_EVENTS } from "../../../../../constants/events";
 
 /** 暴露给父组件的方法 */
 export interface CanvasEditorHandle {
@@ -139,13 +140,13 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
     const handleUndo = useCallback(() => {
       const ok = commandRef.current.undo(bufferRef.current.ctx);
       if (ok) {
-        window.dispatchEvent(new Event("canvas-render"));
+        window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
       }
     }, []);
 
     const handleRedo = useCallback(() => {
       const ok = commandRef.current.redo(bufferRef.current.ctx);
-      if (ok) window.dispatchEvent(new Event("canvas-render"));
+      if (ok) window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
     }, []);
 
     // 初始化 buffer 背景
@@ -251,7 +252,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
         });
 
         if (typeof source !== "string") URL.revokeObjectURL(imgSrc);
-        window.dispatchEvent(new Event("canvas-render"));
+        window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
       },
       [state.bgColor, t],
     );
@@ -320,7 +321,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
           c.putImageData(before, 0, 0);
         },
       });
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
     }, [bgColor]);
 
     // 新建画布（重置到默认尺寸）
@@ -356,7 +357,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
       });
 
       setState((s) => ({ ...s, width: defaultW, height: defaultH }));
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
     }, [state.width, state.height, bgColor]);
 
     // 裁剪到选区
@@ -415,7 +416,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
       });
 
       setState((s) => ({ ...s, width: sel.w, height: sel.h }));
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
     }, [state.width, state.height, state.activeTool, bgColor]);
 
     // 选区导出（仅导出选中区域）
@@ -504,7 +505,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
         },
       });
 
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
     }, []);
 
     // 图像滤镜（Worker 管线）
@@ -591,7 +592,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
             },
           });
 
-          window.dispatchEvent(new Event("canvas-render"));
+          window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
         } catch (err) {
           CanvasLogger.error("滤镜失败", {
             error: err instanceof Error ? err : new Error(String(err)),
@@ -654,7 +655,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
 
       setState((s) => ({ ...s, width: newW, height: newH }));
       setShowResize(false);
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
     }, [state.width, state.height, bgColor]);
 
     // 自动保存（IndexedDB + 3版本保留 + 30s/10命令/beforeunload/卸载触发，绘制中跳过）
@@ -950,7 +951,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
           cursorPos={cursorPos}
           onZoomReset={() => {
             transformRef.current.setZoom(1);
-            window.dispatchEvent(new Event("canvas-render"));
+            window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
           }}
         />
       </div>

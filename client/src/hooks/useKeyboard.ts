@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import i18n from "@/i18n";
+import { APP_EVENTS } from "@/constants/events";
 import { useChatStore } from "../stores/chat";
 import { useSessionStore } from "../stores/sessionStore";
 import { useNavigationStore } from "../stores/navigationStore";
@@ -53,7 +54,7 @@ export function useKeyboard() {
       // Ctrl+Shift+N：全局速记浮层（D-j；App 层监听 open-quick-note 事件）
       if (isCtrl && e.shiftKey && key === shortcutMap["quick-note"].key) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("open-quick-note"));
+        window.dispatchEvent(new CustomEvent(APP_EVENTS.openQuickNote));
         return;
       }
 
@@ -106,7 +107,7 @@ export function useKeyboard() {
 
       if (isCtrl && !e.shiftKey && key === shortcutMap["show-help"].key) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("toggle-shortcut-help"));
+        window.dispatchEvent(new CustomEvent(APP_EVENTS.toggleShortcutHelp));
         return;
       }
 

@@ -20,6 +20,7 @@ import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
 import { useShallow } from "zustand/shallow";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
+import { APP_EVENTS } from "../../constants/events";
 import { GallerySearchBar } from "./media/GallerySearchBar";
 import { GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
@@ -507,9 +508,9 @@ function MediaPage() {
       }
       loadGallery();
     };
-    window.addEventListener("pyapp:image_generated", handler);
+    window.addEventListener(APP_EVENTS.imageGenerated, handler);
     return () => {
-      window.removeEventListener("pyapp:image_generated", handler);
+      window.removeEventListener(APP_EVENTS.imageGenerated, handler);
     };
   }, [loadGallery]);
 

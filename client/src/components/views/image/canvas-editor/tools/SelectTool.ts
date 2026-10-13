@@ -4,6 +4,7 @@
 
 import { CanvasTool, CanvasPointerEvent } from "../types";
 import { CanvasToolHandler, ToolContext } from "./base";
+import { APP_EVENTS } from "../../../../../constants/events";
 
 type SelectState = "idle" | "selecting" | "selected" | "moving";
 
@@ -167,7 +168,7 @@ export class SelectTool implements CanvasToolHandler {
       this.selectedPixels = null;
       this.mode = "selected";
       this.drawMarquee(ctx);
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
       return;
     }
   }

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useNotificationStore } from "../../stores/notificationStore";
 import { BellIcon, SearchIcon } from "../../assets/icons";
+import { APP_EVENTS } from "../../constants/events";
 
 /**
  * 页面顶部 Header
@@ -46,7 +47,7 @@ function Header() {
         {/* 全局搜索（Ctrl+K / ⌘K，弹窗由 App 层承载） */}
         <button
           onClick={() =>
-            window.dispatchEvent(new CustomEvent("open-global-search"))
+            window.dispatchEvent(new CustomEvent(APP_EVENTS.openGlobalSearch))
           }
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
           title={`${t("common.search")} (Ctrl+K)`}

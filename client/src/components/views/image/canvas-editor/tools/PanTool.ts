@@ -2,6 +2,7 @@
 
 import { CanvasTool, CanvasPointerEvent } from "../types";
 import { CanvasToolHandler, ToolContext } from "./base";
+import { APP_EVENTS } from "../../../../../constants/events";
 
 export class PanTool implements CanvasToolHandler {
   readonly id: CanvasTool = "pan";
@@ -29,7 +30,7 @@ export class PanTool implements CanvasToolHandler {
     const dx = (e.x - this.startLx) * scale;
     const dy = (e.y - this.startLy) * scale;
     ctx.transform.setOffset(this.startOx + dx, this.startOy + dy);
-    window.dispatchEvent(new Event("canvas-render"));
+    window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
   }
 
   onPointerUp(_e: CanvasPointerEvent, _ctx: ToolContext) {

@@ -15,6 +15,8 @@ import { staleSessionCache } from "../stores/chat/chat-history.slice";
 import { registerResumeWaiter } from "./streamPause";
 import i18n from "@/i18n";
 import { DAILY_BUDGET_EXCEEDED } from "../error/errorCodes";
+import { APP_EVENTS } from "@/constants/events";
+import { STORAGE_KEYS } from "@/constants/storage";
 
 const logger = createLogger("chatService");
 
@@ -420,7 +422,7 @@ export function buildAuthHeaders(
     headers["X-API-Key"] = secret;
   }
   if (typeof localStorage !== "undefined") {
-    const authToken = localStorage.getItem("liri-auth-token");
+    const authToken = localStorage.getItem(STORAGE_KEYS.authToken);
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
@@ -961,7 +963,7 @@ export const chatService = {
               });
               if (chunk.tool_name === "image_generate") {
                 window.dispatchEvent(
-                  new CustomEvent("pyapp:image_generated", {
+                  new CustomEvent(APP_EVENTS.imageGenerated, {
                     detail: { images: chunk.images },
                   }),
                 );

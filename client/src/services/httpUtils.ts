@@ -8,6 +8,7 @@
 
 import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 import { propagation, context as otelContext } from "@opentelemetry/api";
+import { STORAGE_KEYS } from "../constants/storage";
 
 import type { ApiError } from "../types/system";
 
@@ -70,7 +71,7 @@ export function buildHeaders(
 
   // 登录态注入：管理 API 鉴权（M0d，登录后携带 Bearer token；未登录不注入）
   if (typeof localStorage !== "undefined") {
-    const authToken = localStorage.getItem("liri-auth-token");
+    const authToken = localStorage.getItem(STORAGE_KEYS.authToken);
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }

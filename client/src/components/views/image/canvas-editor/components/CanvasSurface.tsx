@@ -14,6 +14,7 @@ import { ToolContext } from "../tools/base";
 import { clipBoard } from "../utils/clipBoard";
 import { SelectTool } from "../tools/SelectTool";
 import { LassoSelectTool } from "../tools/LassoSelectTool";
+import { APP_EVENTS } from "../../../../../constants/events";
 
 interface Props {
   state: CanvasState;
@@ -137,8 +138,8 @@ export const CanvasSurface: React.FC<Props> = ({
     const handler = () => {
       needsRender = true;
     };
-    window.addEventListener("canvas-render", handler);
-    return () => window.removeEventListener("canvas-render", handler);
+    window.addEventListener(APP_EVENTS.canvasRender, handler);
+    return () => window.removeEventListener(APP_EVENTS.canvasRender, handler);
   }, []);
 
   // 根据当前工具设置光标样式

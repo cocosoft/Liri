@@ -25,6 +25,7 @@ import { StrengthBadge } from "../Knowledge/StrengthBadge";
 import { CitationText } from "../Knowledge/CitationText";
 import { toastError } from "../../stores/toastStore";
 import { createLogger } from "@/utils/logger";
+import { APP_EVENTS } from "@/constants/events";
 import { useToast, ToastContainer } from "../../hooks/useToast";
 // P1：打包版（Tauri 自定义协议）下相对 /v1 不可达，统一用绝对 backend URL
 import { getBackendBaseUrl } from "../../services/backendUrl";
@@ -1021,7 +1022,7 @@ function KnowledgePage() {
                       onSendToChat={() => {
                         if (!selectedFile) return;
                         window.dispatchEvent(
-                          new CustomEvent("liri:append-knowledge", {
+                          new CustomEvent(APP_EVENTS.appendKnowledge, {
                             detail: {
                               title: selectedFile.title,
                               content: selectedFile.content,

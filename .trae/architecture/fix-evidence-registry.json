@@ -2536,6 +2536,40 @@
       "changelog": [],
       "reopenWhen": "① 若要**统一**「组件级暗色」（`#1f2937`/`#374151`/`#9ca3af`）与 `index.css` 的深色令牌（`--color-bg-*` 等，取值**不同**）⇒ **会改变视觉**，须真机目视后再做；② 若把图表 categorical 调色板（`#8B5CF6`/`#06B6D4`/`#EC4899`/`#6366F1`…）纳入令牌 ⇒ 属另议（当前判为数据）；③ 若 `--color-border-dark`/`--color-border-light` 取值变更 ⇒ 视觉变化；④ 若要继续压降剩余 **43 行 / 23 文件** ⇒ 须逐类重判（当前已全部判为非主题色）。",
       "notes": "**目标**：推进 Batch 3 后剩余 **46 行 / 25 文件**（Batch 4 = **收口批**：能安全收口的收口，其余**逐类判定并记录为「非主题色」**）。**本轮代码改动（零视觉变化）**：① `index.css` 补 **2 个令牌** —— `--color-border-dark: #374151`（**回仓实测该值在 4 处重复**：`GraphCanvas:191` · `TranslatePage:230/840` · `StatsPanel:164` 的 `isDark` 分支）· `--color-border-light: #e5e7eb`（3 处重复；与 `--color-grid` 同值但**语义不同**，故各自成令）；② 上述 4 处 `isDark ? … : …` 分支改为 `var(--color-border-*)`。**剩余 43 行的判定（回仓逐文件取色值，事实）**：① **图表 categorical 调色板** —— `common/{MetricsChart(#8B5CF6),PieChart(var(--tw-bg,#FFFFFF) 为 **var 兜底**、本已令牌形态),ModelRankTable}` · `Memory/memoryConstants(#6366F1/#6B7280)` · `views/UsageCenterPage(多个图表 series)` · `views/media/MasonryGallery(#93c5fd)` · `VoiceSubtitleOverlay(#8b5cf6 渐变)`；② **Tokyo Night 代码块配色** —— `ChatArea/ImageToolResult/**`(`#a9b1d6`/`#7aa2f7`) · `views/image/ImageGallery(#7aa2f7)` · `ChatArea/BlockContent(#1a1a1a` 代码块底色`)`；③ **生成文档内联样式（非本页 DOM）** —— `ChatArea/OfficePreview:110`（拼接的 HTML 字符串 `border:1px solid #e5e7eb`）· `utils/exportMessage:511/512`（导出 HTML 的 `<style>` 字符串 `#f6f8fa`）；④ **开发期日志色** —— `utils/storeLogger:45/46`（console 着色码 `#8b5cf6`/`#a78bfa`）；⑤ **取色器/画布数据值** —— `views/image/ToolParamForm:243`(`#000000` 颜色输入默认) · `views/image/toolRegistry:424`(`#ffffff`)；⑥ **与 `index.css` 深色令牌取值不同的组件级暗色分支** —— `GraphCanvas:190/192/193`(`#1f2937`/`#6366f1`/`#9ca3af`/`#6b7280`/`#f9fafb`) · `views/AlternativesPopover:120`(`#1f2937`/`#ffffff`) · `views/LLMSetupGuide:282/311`(`#64748b`) · `ChatArea/DAGFullScreen:225`(`#e2e8f0` 网格色) · `Knowledge/StatsPanel(#374151 已收口，余 #e5e7eb 已收口)`；⑦ **已知保留** —— `chat/ContextWatermark`(2，`${dotColor}20` alpha 拼接) · `Terminal/XTermPanel`(4，xterm 需真实色值)。**结论**：`HD-P2-1` 的**语义状态/中性色已全部令牌化**；剩余 43 行经逐类判定**均非本产品主题色**（数据/独立主题/生成文档/日志/取色数据/**与令牌值不一致的组件级暗色**）⇒ 强行令牌化会**改视觉**或**语义错配** ⇒ 保持字面量并由棘轮锁定。**验证**：① 棘轮 **1 pass / 0 fail**（基线 **43 / 23 文件**）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 **0 error**（`TranslatePage` 2 条 `loadHistory` `exhaustive-deps` 经 `git show HEAD \\| eslint --stdin` **取证为改前既有**（HEAD 665/668）⇒ 未静默）；⑤ prettier 折行已 `--write`。**如实边界**：① **未做真机目视**；② 剩余 43 行的分类是**基于 `index.css` 令牌取值比对**得出（同值才可安全替换），**未**与设计确认「是否应统一两套暗色」（该统一属视觉变更，见 `reopenWhen` ①）。"
+    },
+    {
+      "id": "HARDCODE-HDP2-3-EVENTS-STORAGE",
+      "title": "硬编码治理 `HD-P2-3`：前端**自定义事件名**（6 个 / 36 处）+ **跨文件存储键**（`liri-auth-token` / 3 处）收敛为**单一真源** + 源码守卫",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2（HD-P2-3）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/constants/events.ts",
+        "client/src/constants/storage.ts",
+        "client/src/App.tsx",
+        "client/src/components/common/Header.tsx",
+        "client/src/components/ChatArea/ChatInput.tsx",
+        "client/src/components/common/KeyboardShortcutsHelp.tsx",
+        "client/src/hooks/useKeyboard.ts",
+        "client/src/services/chatService.ts",
+        "client/src/services/httpUtils.ts",
+        "client/src/services/authService.ts",
+        "client/src/components/views/KnowledgePage.tsx",
+        "client/src/components/views/MediaPage.tsx",
+        "client/src/components/views/image/useImageGallery.ts",
+        "client/src/components/views/image/canvas-editor/components/CanvasSurface.tsx",
+        "client/src/components/views/image/canvas-editor/components/CanvasEditor.tsx",
+        "client/src/components/views/image/canvas-editor/tools/FillTool.ts",
+        "client/src/components/views/image/canvas-editor/tools/EraserTool.ts",
+        "client/src/components/views/image/canvas-editor/tools/PanTool.ts",
+        "client/src/components/views/image/canvas-editor/tools/SelectTool.ts",
+        "client/src/components/views/image/canvas-editor/tools/LassoSelectTool.ts",
+        "client/src/components/views/image/canvas-editor/tools/PencilTool.ts"
+      ],
+      "tests": ["client/src/tests/constantsSingleSource.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若要**改这些事件名/键名的值** ⇒ 会断掉运行时已配对的双方 / 让既有用户被判定为未登录（须连带迁移，非本治理范围）；② 若新增自定义事件 ⇒ 在 `constants/events.ts` 加键后**直接引用**即可（守卫自动覆盖新值）；③ 若其它 `localStorage` 键（`liri-sessions`/`liri-tier`/`liri-config`/`liri-sidebar-expanded`/`liri-settings-view-mode`/`liri-root-store`）出现**跨文件复用** ⇒ 迁入 `constants/storage.ts`；④ 若注解里提到事件名的**注释行**改为非行首写法（如行内 `code: xxx` 后再 `//`）⇒ 守卫的注释排除口径需同步。",
+      "notes": "**目标**：按 §7.2 完成 `HD-P2-3`（前端存储键 / 事件名集中）。**取证（回仓实测）**：① **自定义事件**（区别于 `keydown`/`resize` 等 DOM 原生事件）共 **6 个**、**36 处**引用 —— `open-quick-note`（`App` 监听 / `useKeyboard` 派发）· `open-global-search`（`Header`·`ChatInput` 派发 / `App` 监听）· `toggle-shortcut-help`（`useKeyboard` 派发 / `KeyboardShortcutsHelp` 监听）· `liri:append-knowledge`（`KnowledgePage` 派发 / `App` 监听）· `pyapp:image_generated`（`chatService` 派发 / `MediaPage`·`useImageGallery` 监听）· `canvas-render`（工具栏与 6 个工具派发 / `CanvasSurface` 监听，**单文件 10 处**）；② **存储键面**共 7 个键，其中**仅 `liri-auth-token` 跨文件**（`authService` 定义 + `chatService`/`httpUtils` 各读一次 ⇒ 3 处），其余均**单文件内使用**。**落地**：① 新建真源 `client/src/constants/events.ts`（`APP_EVENTS` 6 键）与 `client/src/constants/storage.ts`（`STORAGE_KEYS.authToken`）—— **值逐字未改**；② 36 处事件引用改 `APP_EVENTS.*`、3 处键引用改 `STORAGE_KEYS.authToken`（`authService` 的**私有常量 `AUTH_TOKEN_KEY` 删除**，不复留双轨）；③ 新守卫 `client/src/tests/constantsSingleSource.test.ts`（**2 例**：7 个字面量只允许出现在对应真源；按**行首**排除注释行（`//`/`*`/`/*`）与测试文件）。**验证**：① 守卫 **2 pass / 0 fail**；② **client 全量 570 pass / 0 fail（71 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 0 error（改动引入的 1 条 prettier 折行已 `--write`）；⑤ **红向已实证**（把 `PanTool.ts` 一处改回字面量 `\"canvas-render\"` ⇒ 守卫**精确报** `components/views/image/canvas-editor/tools/PanTool.ts:33`，还原后复绿）；⑥ 独立复核 `Grep`：7 个字面量**仅剩两个真源文件**命中。**如实边界**：① **未做真机走查**（`e2eVerified=false`）；② 其余 6 个存储键**有意不上收**（单文件内使用，按 CS03/简洁优先；已在 `reopenWhen` ③ 记明再迁条件）；③ 本片**只搬家不改值**（含 `liri:`/`pyapp:` 前缀与短横线风格**原样保留**，未统一命名风格 —— 改名会破坏既有配对）。"
     }
   ]
 }

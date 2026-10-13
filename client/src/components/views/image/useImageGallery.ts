@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { imageService } from "../../../services/imageService";
+import { APP_EVENTS } from "../../../constants/events";
 
 interface ImageItem {
   path: string;
@@ -61,9 +62,9 @@ export function useImageGallery() {
     const handler = () => {
       loadInitial();
     };
-    window.addEventListener("pyapp:image_generated", handler);
+    window.addEventListener(APP_EVENTS.imageGenerated, handler);
     return () => {
-      window.removeEventListener("pyapp:image_generated", handler);
+      window.removeEventListener(APP_EVENTS.imageGenerated, handler);
     };
   }, [loadInitial]);
 

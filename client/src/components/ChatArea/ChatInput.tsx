@@ -23,6 +23,7 @@ import {
   fetchArtifacts,
   fetchProjectContext,
 } from "../../services/projectArtifactService";
+import { APP_EVENTS } from "../../constants/events";
 import VoiceInputButton, { type VoiceInputHandle } from "../VoiceInputButton";
 import FileAttachmentBar from "./FileAttachmentBar";
 import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
@@ -638,7 +639,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       setInput("");
       setShowCommands(false);
       window.dispatchEvent(
-        new CustomEvent("open-global-search", { detail: { query } }),
+        new CustomEvent(APP_EVENTS.openGlobalSearch, { detail: { query } }),
       );
       return;
     }

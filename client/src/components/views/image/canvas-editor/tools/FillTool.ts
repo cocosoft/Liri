@@ -1,6 +1,7 @@
 // canvas-editor/tools/FillTool.ts — 填充（Scanline Fill + Web Worker + 超时降级）
 
 import i18n from "@/i18n";
+import { APP_EVENTS } from "@/constants/events";
 import { CanvasTool, CanvasPointerEvent } from "../types";
 import { CanvasToolHandler, ToolContext } from "./base";
 
@@ -269,6 +270,6 @@ export class FillTool implements CanvasToolHandler {
     });
 
     // Worker 异步完成，手动触发渲染
-    window.dispatchEvent(new Event("canvas-render"));
+    window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
   }
 }

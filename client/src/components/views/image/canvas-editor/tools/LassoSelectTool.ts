@@ -4,6 +4,7 @@
 
 import { CanvasTool, CanvasPointerEvent } from "../types";
 import { CanvasToolHandler, ToolContext } from "./base";
+import { APP_EVENTS } from "../../../../../constants/events";
 
 interface LassoState {
   mode: "idle" | "drawing" | "selected" | "moving";
@@ -158,7 +159,7 @@ export class LassoSelectTool implements CanvasToolHandler {
       this.s.selectedPixels = null;
       this.s.mode = "selected";
       this.drawBbox(ctx);
-      window.dispatchEvent(new Event("canvas-render"));
+      window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
       return;
     }
   }

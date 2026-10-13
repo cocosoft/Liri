@@ -32,6 +32,7 @@ import SleepConfirmNotice from "./components/common/SleepConfirmNotice";
 import EstopBanner from "./components/common/EstopBanner";
 import QuickNoteModal from "./components/common/QuickNoteModal";
 import GlobalSearchModal from "./components/ChatArea/GlobalSearchModal";
+import { APP_EVENTS } from "./constants/events";
 
 function App() {
   const { t } = useTranslation();
@@ -50,8 +51,8 @@ function App() {
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
   useEffect(() => {
     const open = () => setQuickNoteOpen(true);
-    window.addEventListener("open-quick-note", open);
-    return () => window.removeEventListener("open-quick-note", open);
+    window.addEventListener(APP_EVENTS.openQuickNote, open);
+    return () => window.removeEventListener(APP_EVENTS.openQuickNote, open);
   }, []);
 
   // H7/E-4：全局搜索（⌘K + Header 按钮）上提到应用层——应用级能力不寄生 UI 组件
@@ -64,7 +65,7 @@ function App() {
       setSearchInitialQuery(query);
       setSearchOpen(true);
     };
-    window.addEventListener("open-global-search", open);
+    window.addEventListener(APP_EVENTS.openGlobalSearch, open);
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
@@ -74,7 +75,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener("open-global-search", open);
+      window.removeEventListener(APP_EVENTS.openGlobalSearch, open);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
@@ -159,10 +160,10 @@ function App() {
       navigate("/");
     }
 
-    window.addEventListener("liri:append-knowledge", handleAppendKnowledge);
+    window.addEventListener(APP_EVENTS.appendKnowledge, handleAppendKnowledge);
     return () =>
       window.removeEventListener(
-        "liri:append-knowledge",
+        APP_EVENTS.appendKnowledge,
         handleAppendKnowledge,
       );
   }, [navigate, t]);

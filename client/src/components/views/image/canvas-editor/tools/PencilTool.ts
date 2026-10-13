@@ -2,6 +2,7 @@
 
 import { CanvasTool, CanvasPointerEvent } from "../types";
 import { CanvasToolHandler, ToolContext } from "./base";
+import { APP_EVENTS } from "../../../../../constants/events";
 
 export class PencilTool implements CanvasToolHandler {
   readonly id: CanvasTool = "pencil";
@@ -97,6 +98,6 @@ export class PencilTool implements CanvasToolHandler {
 
     this.path = null;
 
-    window.dispatchEvent(new Event("canvas-render"));
+    window.dispatchEvent(new Event(APP_EVENTS.canvasRender));
   }
 }

@@ -1,5 +1,6 @@
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import { STORAGE_KEYS } from "../constants/storage";
 
 export interface User {
   id: string;
@@ -44,19 +45,18 @@ export interface Permission {
   level: "none" | "read" | "write" | "admin";
 }
 
-const AUTH_TOKEN_KEY = "liri-auth-token";
 const AUTH_USER_KEY = "liri-auth-user";
 
 function getStoredToken(): string | null {
-  return localStorage.getItem(AUTH_TOKEN_KEY);
+  return localStorage.getItem(STORAGE_KEYS.authToken);
 }
 
 function setStoredToken(token: string): void {
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(STORAGE_KEYS.authToken, token);
 }
 
 function removeStoredToken(): void {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(STORAGE_KEYS.authToken);
 }
 
 function getStoredUser(): User | null {

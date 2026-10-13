@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.94-blue)
+![Version](https://img.shields.io/badge/version-0.4.95-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.94**
+当前版本：**v0.4.95**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,15 +436,11 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.94 (2026-10-13)  债二专项：长程任务「预算挂起—续跑」最终整支评审修复波（v1.3，2 Critical + 4 Important） 
-- ✅ **C1（Critical，**口径变更**）流式链唤醒必须"真的继续跑"** - 事实：日预算闸门在 `ReActLoop.run` 的**轮首、REASON 之前**触发（`ReActLoop.ts:826-834`）⇒ 此刻上一轮 ACT 工具**已全部完成** ⇒ `resumeStream` 过滤"未完成工具"后剩余为 `0`，**直接 yield `task_all_done` 并 return**（不发起新 REASON 轮）。**新口径**（对齐 `daily-budget-over-limit-ux` §5-D-1 D「最简可续跑（**重发**）」）：`ChatManager.resumeSuspendedSession(sid,'stream')` 改为**先试重放、无实质进展则经既有执行入口（`ChatOrchestrator.sendMessage`）重发一轮**，且**返回值如实**（无进展且重发失败 ⇒ `false` ⇒ 协调器**保留挂起**，不 `release`）。**同步订正 spec §3-D7 流式链措辞 + §6.2 补"两链都必须断言真的继续跑"**
-- ✅ **C2（Critical）`waive-once` 放行接到流式/发送侧唯一收口** - 事实：F4 只接了 `DailyBudgetManager.canExecute()`（唯一运行时调用者 = `TAORLoop`），而**流式/发送侧**闸门是 `query/dailyBudgetGate.checkDailyBudget()`（自述纯读、不读 `waiveOncePending`）⇒ `waive-once` 放行后流式会话**立刻再次 `locked`**（反目标②在主链仍成立）。修复：`DailyBudgetManager` 新增**只读**判据 `hasActiveWaiver(now?)`；`checkDailyBudget()` 在 `mode==='locked'` 时按其放行（`allowed = waiver || (mode!=='locked' && projected<limit)`；**保持无副作用**）；消费点仍在 `recordUsage()`（不改）
-- ✅ **I1（Important，**默认路径**，不受开关门控）`registerTAORLoop` 无界增长** - 事实：每 sessionId 注册一次而 `unregisterTAORLoop` **全仓零调用** ⇒ 进程级 `activeLoops` 无界增长（内存泄漏 + 僵尸 TAORLoop）。修复：① 注册表**有界化**（`MAX_TAOR_LOOP_REGISTRY=200`，超出按最旧淘汰、同键重注册不淘汰）；② 会话拆除锚点（`ChatManager.deleteSession`/`clearAllSessions`/`cleanup()`）**反向注销**（`_registeredTaorSessions` 记账；拆除入口第一步、与拆除结果解耦）
-- ✅ **I2（Important，计划缺项）启动期把 `budget_suspend` 登记为"待放行挂起"** - 事实：spec §4.4 要求"重启后交协调器登记为待放行"，实现只做了 `scanPending`/`hasPending` 的**排除** ⇒ 重启后挂起**不可见也不可唤醒**（`list()` 为空）。修复：新增 `ResumeManager.scanBudgetSuspends()`（batch）+ `ChatBootstrap.resumeBudgetSuspends()`（在 `initialize()` 调用；**两支**：batch = `type='budget_suspend'`；stream = 会话检查点带 `metadata.budgetSuspend`），**只登记（`reason='restored_budget_suspend'`）、绝不自动续跑**；受 `FEATURE_BUDGET_SUSPEND_RESUME` 门控
-- ✅ **I3/I4（Important）返回值如实 + `pendingToolCalls` 消费点** - I3 并入 C1 的"返回值如实"（不再无条件 `true`）。I4：F1 落盘的 `pendingToolCalls` 此前**无运行时消费者** ⇒ 新增纯函数 `buildBudgetResumePrompt()` 消费该清单生成续跑提示（带未完成工具名 + 参数摘要；空清单 ⇒ 通用提示）：**流式** = `StreamingAutoCheckpoint.suspend` 落 `metadata.pendingToolCalls`，唤醒端读出作"重发一轮"的提示；**batch** = 并入 `resumeSuspendedSession('taor')` 的 `injectSteering`。**同步在 spec §3-D3 写明该消费点**（取代"仅落盘"）
-- ✅ **M2/M3/M5（Minor）口径统一与测试补强** - M2 去掉 `resumeSuspendedSession('stream')` 为取 id 的多余查询（`resumeStream` 的 `checkpointId` 形参未使用）；M3 `isSuspended()` **计入过期**（与 `list().expired` 同口径）、唤醒上限改按 **handler 调用数**计、`resumed` 日志记 relief `kind` + 新增 `resume_summary`（带 `woken`）；M5 负向用例补 `null`、`budgetSuspendStream` 用例①补断言"预算确已耗尽"
-- ✅ **验证** - 新增/加强覆盖：`budgetSuspendStream`（C1①②③/I4）、`budgetSuspendStartupRestore`（I2，**新文件**）、`taorLoopResumeWiring`（I1 三项 + I4 taor）、`budgetSuspendWake`（M3）、`budgetSuspendTaor`（I2 batch）+ `dailyBudgetWaiveOnceGate`（C2）、`taorCheckpointPendingTools`（M5/I4）。`bun test` 本批 5 文件 **59 pass / 0 fail**；`bun run typecheck` 0 错；`bun run lint:arch` **0 错**（修掉一处因新增 `query/taor` 子目录导入触发的 R03-002 ⇒ 改经 `@modules/query` 模块出口）
-- ⚠️ **残余（如实）** - **M1 未做**：`_waiverGrantedThisTurn` 的**会话归属**需扩 `canExecute()`/`BudgetPort` 签名（跨模块 ripple），超出"最小改动"；流式链通行证消费仍依赖同轮曾走 `canExecute()`（`recordUsage` 末尾 Consume-and-Die），否则在其 TTL 内保持有效。`e2eVerified=false` 不变。证据 `BUDGET-SUSPEND-RESUME`
+#### v0.4.95 (2026-10-13)  债二专项：长程任务「预算挂起—续跑」spec **定案 v1.1**（设计交付，零产品代码） 
+- ✅ **spec 定案（v0.1 立项稿 → v1.1 定案稿）** - `.trae/specs/long-task-suspend-resume.md`：把 v0.1 的 **8 项"待讨论"逐条定案（D1–D8）**，每项附回仓取证（`file:line`）与取舍。**要点**：① **D1** 挂起粒度 = **任务级（session）落轮间安全点**（不做工具中途冻结）；② **D2** 挂起标记**分链落各自既有检查点**（流式 = `StreamingAutoCheckpoint` metadata 标记；batch = `taor_checkpoints.type='budget_suspend'`）——**不新建表**；③ **D3** 修 **F1**（`TAORLoop.ts:1463` `pendingToolCalls` 恒 `undefined` ⇒ `reExecuteTools` 恒 false），取值由**末条含 `tool_calls` 的 assistant 消息**推导；④ **D4** 唤醒信号 = `DailyBudgetManager` **进程内回调**（非事件总线）；⑤ **D5** 按 `sessionId` 匹配、挂起时间序、**串行 + 单次放行上限默认 3**；⑥ **D6** TTL **沿用既有 24h**（不引入第二套阈值）；⑦ **D7** 两条链都做、**唤醒决策层统一**（`BudgetSuspendCoordinator`），并硬性要求 batch 链**"真的再跑"**；⑧ **D8** 三种 relief 都唤醒，`waive-once` 只唤醒 1 个。**实施阶段** A（前置修复 F1/F2/F4）→ B（挂起核心，两条链）→ C（唤醒）→ D（可观测）；新增开关 `FEATURE_BUDGET_SUSPEND_RESUME`（**默认关**）
+- ✅ **回仓取证 + 自带自检（fresh builder）暴露并订正 3 处** - ① **D4 事实订正**：原稿「复用 `globalEventBus` 的 `cost:dailyBudgetUpdated`」**不成立** —— 该事件只经 `broadcastEvent` → `LocalHTTPServiceSSE.ts:65-82` 写给 **SSE 客户端**（全仓无 `globalEventBus.publish('cost:dailyBudgetUpdated')`）⇒ 进程内订阅不到；且 5 个发送点含 `PUT`/`reset`/**kill-switch** ⇒ 照原样订阅会**误唤醒** ⇒ 改**进程内回调**；② **D2 订正**：原稿只覆盖 batch，而**桌面聊天主路径是流式链**（`ReActLoop.ts:790-806/812-819`）⇒ 改**分链落点**；③ **D7 补硬要求**：`resumeFromCheckpoint` **只恢复状态不触发执行**（`bootstrap.ts:373-389`）⇒ 唤醒 batch 链**必须补"可触发执行"的既有入口**。另新增 **F4**：`waive-once` 是**未接线的死能力**（`consumeWaiveOnce` 仅测试调用；`canExecute()` 不读 `waiveOncePending`）
+- ✅ **用户两项范围裁定** - ① **同时修 `waive-once` 闸门接线**（否则唤醒后仍 `locked` ⇒ 撞"放行无反应"反目标）；② **两条链（流式 + batch）都本期做**
+- ℹ️ **零产品代码**（如实） - 依该 spec 的 HARD-GATE：**批准前不写产品代码**；本批次仅产出 spec v1.1 + 台账/方案/总览回填。证据 `FSM-SUSPENDED-P5`（`designed` 由 false **升为 true**、`coded` 仍 false）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

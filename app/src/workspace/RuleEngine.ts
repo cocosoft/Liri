@@ -20,6 +20,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+// HD-P1-3：工作区级 `.liri` 名的唯一事实源（`core/paths.ts`）
+import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/core';
 
 const logger = getLogger('RuleEngine');
 
@@ -106,7 +108,7 @@ export class RuleEngine {
 
   /** 获取 rules 目录路径 */
   private get rulesDir(): string {
-    return path.join(this.workspacePath, '.liri', 'rules');
+    return path.join(this.workspacePath, WORKSPACE_CONFIG_DIR_NAME, 'rules');
   }
 
   /** 获取单个规则文件路径 */

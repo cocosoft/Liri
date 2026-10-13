@@ -18,13 +18,15 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-113，`workspace` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+// HD-P1-3：工作区级 `.liri` 名的唯一事实源（`core/paths.ts`）
+import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/core';
 import { resolveWorkspacePath } from './workspaces-handlers';
 
 /**
  * 获取或创建 TeamStore
  */
 async function getTeamStore(wsPath: string) {
-  const teamsDir = path.join(wsPath, '.liri', 'teams');
+  const teamsDir = path.join(wsPath, WORKSPACE_CONFIG_DIR_NAME, 'teams');
   return (await getCoreAPI().getWorkspaceOpsPort()).getTeamStore(teamsDir);
 }
 

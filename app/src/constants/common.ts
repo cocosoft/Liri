@@ -47,7 +47,6 @@ export const DEFAULT_HOST = 'localhost';
 export const ENV_PREFIX = 'LIRI_';
 
 export const CONFIG_FILE_NAME = 'config.json';
-export const CONFIG_DIR_NAME = '.liri';
 export const DATA_DIR_NAME = 'data';
 export const CACHE_DIR_NAME = 'cache';
 export const LOGS_DIR_NAME = 'logs';

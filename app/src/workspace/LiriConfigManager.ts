@@ -7,6 +7,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
+// HD-P1-3：工作区级 `.liri` 名的**唯一事实源**（`core/paths.ts`）—— 本文件原自行写死两处
+import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/core';
 import type {
   LiriWorkspaceConfig,
   LiriKnowledgeConfig,
@@ -16,8 +18,7 @@ import type {
   LiriDetectionResult,
 } from './types';
 
-/** .liri/ 目录常量 */
-const LIRI_DIR = '.liri';
+/** .liri/ 目录内的文件名常量（目录名本身见 `WORKSPACE_CONFIG_DIR_NAME`） */
 const CONFIG_FILE = 'config.json';
 const RULES_FILE = 'rules.md';
 const KNOWLEDGE_FILE = 'knowledge.json';
@@ -45,7 +46,7 @@ export class LiriConfigManager {
 
   constructor(workspaceRoot: string) {
     this.workspaceRoot = workspaceRoot;
-    this.liriDir = join(workspaceRoot, '.liri');
+    this.liriDir = join(workspaceRoot, WORKSPACE_CONFIG_DIR_NAME);
   }
 
   /** .liri/ 目录路径 */
@@ -162,7 +163,7 @@ export class LiriConfigManager {
           'node_modules/**',
           '.git/**',
           'dist/**',
-          '.liri/**',
+          `${WORKSPACE_CONFIG_DIR_NAME}/**`,
         ],
       };
       this.writeJsonFile(knowledgePath, defaultKnowledge);
@@ -420,7 +421,7 @@ export function detectLiriDir(startPath: string): LiriDetectionResult {
 
   // 向上查找最多 10 层
   for (let i = 0; i < 10; i++) {
-    const liriPath = join(currentPath, LIRI_DIR);
+    const liriPath = join(currentPath, WORKSPACE_CONFIG_DIR_NAME);
     if (existsSync(liriPath)) {
       const manager = new LiriConfigManager(currentPath);
       return manager.detect();

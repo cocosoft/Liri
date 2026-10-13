@@ -48,12 +48,16 @@ import { fileURLToPath } from 'node:url';
 import { getLogger } from '@modules/monitoring';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
+  SIDECAR_JOB_SUBMIT_METHOD,
   SIDECAR_STARTUP_TYPE,
+  buildJobSubmit,
   encodeFrame,
   decodeFrame,
   isCompatibleVersion,
   isHeartbeatFrame,
 } from '@modules/utils/sidecarIpc';
+// T1-2② / B₂（2026-10-13）：异步作业登记表（宿主侧；协议常量仍取自唯一基座 `utils/sidecarIpc`）
+import { SidecarJobRegistry } from './sidecarJobs.js';
 
 const logger = getLogger('tools:sidecar:supervisor');
 
@@ -80,6 +84,11 @@ export interface ToolSidecarDeps {
   maxRestarts?: number;
   /** 请求超时（默认 30s，对齐 `tools/lsp` 的 LSP 请求超时口径） */
   requestTimeoutMs?: number;
+  /**
+   * T1-2② / B₂（2026-10-13）：异步作业**完成**超时兜底（默认 10 分钟）。
+   * 到期 ⇒ 该作业 `completion` reject（**绝不永久悬挂**）。
+   */
+  jobTimeoutMs?: number;
 }
 
 interface PendingRequest {
@@ -105,6 +114,8 @@ export class ToolSidecarSupervisor {
   /** 持久降级态（有界重启超限）：后续请求 fail-closed，不再等待 */
   private fatal: Error | null = null;
   private readonly pending = new Map<string, PendingRequest>();
+  /** T1-2② / B₂（2026-10-13）：侧车**异步作业**登记表（`job.submit` ↔ `job.completed`） */
+  private readonly jobs = new SidecarJobRegistry();
   private readonly readyWaiters: ReadyWaiter[] = [];
   private readonly deps: ToolSidecarDeps;
 
@@ -239,6 +250,43 @@ export class ToolSidecarSupervisor {
     this.child.stdin.write(encodeFrame({ type: 'notify', event, data }));
   }
 
+  /**
+   * T1-2② / B₂（2026-10-13）：**提交一次异步作业**（长耗时侧车工具"不得同步阻塞"的宿主侧入口）。
+   *
+   * 语义：立即返回 `{ jobId, completion }` —— `completion` 在侧车回推
+   * `notify{event:'job.completed'}` 时结算，**超时兜底**（`deps.jobTimeoutMs`，缺省 10 分钟）
+   * 或侧车崩溃（`rejectAllPending` 同口结算）时 reject ⇒ **绝不悬挂**。
+   * 提交本身失败 ⇒ **本地结算**后抛出（不留悬挂 Promise）。
+   */
+  async submitJob(
+    action: string,
+    payload?: unknown,
+    opts?: { signal?: AbortSignal; timeoutMs?: number }
+  ): Promise<{ jobId: string; completion: Promise<unknown> }> {
+    const jobId = `job_${++this.seq}`;
+    const timeoutMs = opts?.timeoutMs ?? this.deps.jobTimeoutMs ?? 600_000;
+    const completion = this.jobs.register(jobId, timeoutMs, action);
+    try {
+      await this.request(
+        SIDECAR_JOB_SUBMIT_METHOD,
+        buildJobSubmit(jobId, action, payload) as unknown as Record<
+          string,
+          unknown
+        >,
+        opts?.signal
+      );
+    } catch (e) {
+      this.jobs.fail(jobId, e instanceof Error ? e : new Error(String(e)));
+      throw e;
+    }
+    return { jobId, completion };
+  }
+
+  /** 在飞作业数（观测用；不阻塞） */
+  get pendingJobCount(): number {
+    return this.jobs.size;
+  }
+
   /** 停止侧车（清理子进程；不再重启） */
   stop(): void {
     this.stopping = true;
@@ -290,6 +338,10 @@ export class ToolSidecarSupervisor {
   /** 子进程帧分派（就绪后由同一 readline 监听器调用） */
   private handleFrame(frame: Record<string, unknown>): void {
     if (isHeartbeatFrame(frame)) return;
+    // T1-2② / B₂（2026-10-13）：**作业完成通知**（`notify{event:'job.completed'}`，**无 `id`**）
+    // ⇒ 派发作业登记表。**必须在 `id` 校验之前**，否则该帧会被当作"无 id 帧"丢弃。
+    // 非作业通知 ⇒ `false` ⇒ 落回原有分派（不改既有语义）。
+    if (this.jobs.completeFromFrame(frame)) return;
     const id = frame.id;
     if (typeof id !== 'string') return;
     if (!this.pending.has(id)) return;
@@ -318,6 +370,8 @@ export class ToolSidecarSupervisor {
     for (const id of [...this.pending.keys()]) {
       this.settle(id, (p) => p.reject(reason));
     }
+    // T1-2② / B₂（2026-10-13）：在飞**作业**同口结算（同因同果 ⇒ 一条原因、两本账都不悬挂）
+    this.jobs.rejectAll(reason);
   }
 
   private onExit(code: number | null): void {

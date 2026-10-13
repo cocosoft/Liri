@@ -67,5 +67,18 @@
 
 | 片 | 内容 |
 |---|---|
-| **B₂** | 主管/客户端接线：`notify` → 作业完成处理器；`submitJob()` 客户端 API；`kind='tool-job'` 挂起点（`BudgetSuspendCoordinator`，**与 relief/guard 正交**） |
-| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 |
+| **B₂** | 主管/客户端接线：`notify` → 作业完成处理器；`submitJob()` 客户端 API；~~`kind='tool-job'` 挂起点~~（**改随 C 片** —— 需真实长耗时作业才触达） | ✅ **已落地（2026-10-13）** |
+| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | ⏳ **待实施**（含 `kind='tool-job'` 挂起点 + worker 侧作业模式） |
+
+## §7 B₂ 片（**已落地**，2026-10-13）
+
+- **新增** `tools/sidecar/sidecarJobs.ts` → `SidecarJobRegistry`（**只做登记与派发**，协议取自唯一基座 `utils/sidecarIpc`）
+  - `register(jobId, timeoutMs, action)` ⇒ 完成 Promise，**每条都有超时兜底**（到期 reject，**绝不永久悬挂**）
+  - `completeFromFrame(frame)`：**非作业帧 ⇒ `false`**（交回原分派）；**未知 `jobId` ⇒ `true` 但只留痕、不新增条目、不抛**（**不臆造**）；`ok=false` 亦结算（**成败同报**）
+  - 同 `jobId` 重复登记 ⇒ **先结算旧的**（不静默覆盖，避免悬挂）
+- **主管接线**（`ToolSidecarSupervisor`）
+  - `handleFrame()` **顶部**（**必须在 `id` 校验之前**，因作业完成通知是**无 `id` 的 `notify` 帧**）派发作业完成通知
+  - `submitJob(action, payload?, opts?)` ⇒ `{ jobId, completion }`；**提交失败 ⇒ 本地结算后抛出**（不留悬挂 Promise）
+  - `deps.jobTimeoutMs`（默认 10 分钟）；`rejectAllPending()` 同口 `jobs.rejectAll()` ⇒ **崩溃/停止时在飞请求与在飞作业同因同果结算**
+- **测试**：`app/tests/tools/sidecarJobRegistry.test.ts` **6 例**；**先红后绿**（`payload.ok` 分支写死恒真 ⇒ 1 fail / 5 pass → 6 pass / 0 fail）；回归 `tests/tools/sidecar*` **70/0**
+- **如实边界**：`kind='tool-job'` 挂起点**未接**（随 C）；**worker 侧作业模式未实现**（`lspSidecar`/`mediaSidecar` 尚不处理 `job.submit`）⇒ 宿主 API **当前无调用方 ⇒ 生产零行为变更**

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.79-blue)
+![Version](https://img.shields.io/badge/version-0.4.80-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.79**
+当前版本：**v0.4.80**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,13 +436,13 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.79 (2026-10-13)  长程任务「预算挂起—续跑」收尾批次：查询面可见性 + taor 链真实 E2E（含 B3 续跑短路修复） 
-- ✅ **A1 挂起检查点可见性修复（不受开关门控）** - `GET /v1/sessions/:id/checkpoints/latest`（`app/src/infrastructure/http/handlers/chat-handlers.ts`）原仅以 `checkpoint.messages.length > 0` 判可用；而**轮首撞限**（尚未完成任何工具）时 `StreamingAutoCheckpoint.suspend` 落的是**空消息快照**（真实载荷在 `metadata.budgetSuspend`/`pendingToolCalls`）⇒ 把一个真实挂起**误报为** `checkpointAvailable:false`（真实 E2E 实证，spec §6.5 查询面缺口）。**修法**：判据在**端点侧**区分（带 `metadata.budgetSuspend` 标记者即使消息为空也如实可见，并如实暴露 `label`），**不动** `StreamingAutoCheckpoint.restore()` 的 `META_KEY='streamingAutoCheckpoint'` 可续跑过滤（二者判据必须不同）
-- ✅ **A2 新增只读挂起清单查询面** - `GET /v1/cost/daily-budget/suspend`（`daily-budget-handlers.ts` + `routes/cost-channel-routes.ts`，经 `@modules/query` 桶动态取 `getBudgetSuspendCoordinator` 守 R00-001/R03-002）暴露协调器 `list()`：`{ sessions:[{sessionId,chain,suspendedAt,reason,expired,checkpointRef}], count }`；`expired` 由协调器按 `SUSPEND_TTL_MS`(24h) **现算**（不复制判据）；**不受 `FEATURE_BUDGET_SUSPEND_RESUME` 门控**（无挂起 ⇒ 空数组，开关关时亦可查，便于运维）
-- ✅ **B1+B2 taor（batch）链真实入口与 E2E** - 真实入口实证：非流式 `POST /v1/chat/completions`（`stream:false`）→ `CoreAPIImpl.chat` → `ChatManager.sendMessage` → `ChatOrchestrator.sendMessage`（`shouldUseTAORLoop` 恒真）→ `getOrCreateTAORLoop` 委托 `runCollect`；撞限闸门 = `TAORLoop.beforeReasoning` 的 `getDailyBudget().canExecute()===false`。真实 E2E（`--http-only` + 开关开 + 真实 LLM）：`TAOR loop started` → `Checkpoint saved {type:'budget_suspend'}` → `budgetSuspend:suspended{chain:'taor',reason:'daily_budget_exhausted'}`，查询面如实列出；**重启负向通过** —— 启动扫描**只登记**（`reason:'restored_budget_suspend'`）**不自动续跑**（重启日志无 `委托 TAORLoop`/`Resumed from checkpoint`）
-- ✅ **B3-1 唤醒后不真正续跑根因修复（不受开关门控）** - 根因：`TAORLoop.resumeFromCheckpoint`（`TAORLoop.ts:1528`）未清除挂起时 `beforeReasoning` 置的 `stopped=true`，而唤醒路径为保住恢复态**刻意跳过 `reset()`**（G-T3-1）⇒ 首个 seeded ACT 的 `shouldContinue` 判「有工具调用但被判不继续」⇒ 工具被静默丢弃。**修法**：恢复时 `this.stopped = false`（**净零行**守 R04-001：`TAORLoop.ts` 仍 2000 行）；回归 `app/tests/query/taorResumeClearsStopped.test.ts`（先红后绿）。修复后真实复测：至少一个 taor 会话 `budgetSuspend:resumed` + `resume_summary{woken:[SID]}` 且**新增真实工具结果消息**（真的续跑）
-- ✅ **回归与门禁** - 新增 `tests/http/latestCheckpointSuspend.contract.test.ts`（4 例）+ `tests/http/dailyBudgetSuspend.contract.test.ts`（5 例）+ `tests/query/taorResumeClearsStopped.test.ts`（1 例，TDD 先红后绿）；`typecheck` 0 错；`lint:arch` 0 错；`lint:size` 0 错（TAORLoop 2000）；相关测试 **502 pass / 1 fail**（该 1 fail 为**环境型**：`dailyBudgetSingleton` 的 env 覆盖断言被持久化配置 `costControl.dailyTokenBudget` 遮蔽，与代码改动无关）
-- ⚠️ **未修（如实，开放）** - **B3-2**：taor 恢复轮可被 `TAORLoop._observeRound` 的 `this.dailyBudget.checkDiminishingReturns()`（`TAORLoop.ts:1187-1195`）以 `diminishing_returns` 提前终止，且该早退**先于** `persistMessages` ⇒ 续跑落空；根因 = 跳过 `reset()` 后 loop-local `dailyBudget` 的收益递减连续性跨挂起边界残留（涉「`dailyBudget` 跨 run 保留」既有决策，属设计取舍）。**B3-3**：唤醒端口惰性装配（`_ensureBudgetSuspendResumeInstalled` 仅在 `sendMessage`/`streamMessage`）⇒ 重启后未先发消息即点放行则不唤醒。⇒ **taor 链 E2E 记为部分通过**（挂起/登记/负向通过，续跑对至少一会话成立但不稳定）。开关仍**默认关**
+#### v0.4.80 (2026-10-13)  长程任务「预算挂起—续跑」B3 收尾修复批次（B3-2 递减连续性复位 + B3-3 启动期装配唤醒端口 + 幽灵挂起根除） 
+- ✅ **B3-2 恢复边界复位 loop-local 收益递减连续性（不受开关门控）** - 根因：唤醒为保住恢复态**刻意跳过 `reset()`**（G-T3-1），而 `this.dailyBudget` 是 loop-local 实例（`TAORLoop.ts:301` 每实例新建）⇒ 其收益递减连续性（`lastTotalTokens`/`diminishingTurnsCount`，`DailyBudgetManager.ts`）**跨挂起边界残留** ⇒ taor 恢复首轮被 `_observeRound` 的 `checkDiminishingReturns` 误判为 `diminishing_returns` 提前终止，且该早退分支**先于** `persistMessages` ⇒ 工具执行了却不落盘。**修法**：`DailyBudgetManager.resetDiminishingReturns(baselineTokens?)`（原为**零调用者**且基线用 `todayUsed`，与 `checkDiminishingReturns(currentTokens)` 的入参**不同源**）改为 `lastTotalTokens = baselineTokens ?? this.todayUsed`；`TAORLoop.resumeFromCheckpoint` 在 `const currentTokens = checkpoint.budgetState.currentTokens ?? 0` 之后以之复位。**不受开关门控**（跨重启恢复本就 = 新实例/计数 0 ⇒ 本修复是让**进程内恢复与跨重启恢复对齐**，非新语义）；`TAORLoop.ts` 维持**净零行**（`lint:size` 计 2000，零余量守 R04-001）
+- ✅ **B3-3 启动登记处一并装配唤醒端口（受开关门控）** - 根因：唤醒端口注册点仅由 `sendMessage`/`streamMessage` **惰性**触发（Fix round 2 刻意设计：避免命令处理器的丢弃实例向进程级单例注册永不解除的监听并劫持 handler）⇒ 服务**重启后未先发任何消息**即点放行 ⇒ `DailyBudgetManager.onReliefApplied` 回调集为空 ⇒ 放行**静默无效**（**影响流式链与 taor 链两条链**）。**修法**：`ChatBootstrapDeps` 新增**必填** `installBudgetSuspendResume`（守 CS03：不做 `?.(` 式静默兜底，宿主缺装配即编译期报错），在 `ChatBootstrap.resumeBudgetSuspends()` 的开关检查之后**最先**调用（**先装配、后 await 扫描**，避免启动扫描窗口内发生的放行被丢弃）；宿主 `ChatManager` 注入 `() => this._ensureBudgetSuspendResumeInstalled()`（复用既有幂等实现）。**仍钩在启动期而非构造期** ⇒ 不违反「丢弃实例零副作用」的既有裁决
+- ✅ **幽灵挂起根除：会话删除同步清理 taor 检查点（不受开关门控）** - 根因：`ChatSessionTeardown.deleteSession` 此前只清**流式链**检查点（`session_checkpoints`），**不清** **taor 链**（`taor_checkpoints`）⇒ 删除的会话在服务重启时被 `ChatBootstrap.resumeBudgetSuspends()` 重新登记为「幽灵挂起」，用户放行时对已删会话尝试续跑（额外 LLM 开销 + 误导日志）。**修法**：新增私有 `clearSessionTaorCheckpoints`（动态 import `ResumeManager.clearSession`，与流式链清理**两链对称**；失败仅告警、不阻塞删除主流程）
+- ✅ **真实 E2E 三项复核全通过（`--http-only` + `FEATURE_BUDGET_SUSPEND_RESUME=true` + 真实 LLM，端口 18990）** - ① **B3-3**：启动完成后**未发任何消息**即放行 ⇒ 日志 `budgetSuspend:resume_summary{kind:'boost',woken:[]}` 且**无** `budgetSuspend:relief_no_handler — 未装配唤醒处理器，跳过唤醒`（修复前该路径只会打后者并直接返回）⇒ 端口确已在启动期装配；② **B3-2**：taor 链「撞限挂起 → 放行 → **真续跑**」⇒ `Checkpoint saved{type:'budget_suspend'}` → `budgetSuspend:suspended{chain:'taor'}` → 放行 → `Resumed from checkpoint{turnCount:0,phase:'act'}` → `taorLoop:steering_injected{count:1}` → `reActLoop:seeded_acting{glob,glob}` → `budgetSuspend:resumed{chain:'taor',kind:'boost'}` + `resume_summary{woken:[<SID>]}`，该会话消息数 **5 → 14**（新增 3 条**真实工具结果**），**全日志无** `收益递减，终止循环`/`diminishing_returns`；③ **幽灵挂起**：上述会话经 `POST /v1/sessions/batch-delete` 删除后，直连 DB 查 `taor_checkpoints WHERE session_id=<SID>` = **0 行**（删除前该会话确有一条 `budget_suspend` 行）
+- ✅ **回归与门禁** - 新增 `tests/query/taorResumeDiminishingReset.test.ts`（B3-2，先红后绿）· `tests/chat/taorLoopResumeWiring.test.ts` B3-3 组（3 例：装配恰一次 / 装配先于扫描 / 未发消息即生效）· `tests/chat/sessionTeardownTaorCleanup.test.ts`（幽灵挂起，先红后绿）；聚焦测试 **25 pass / 0 fail**；`typecheck` 0 错；`lint` 0 error；`lint:arch` / `lint:size` / `lint:fn-size` / `lint:complexity` / `lint:doc-code` / `lint:invariants` / `lint:unref` / `lint:fix-evidence`（110 条）/ `version:check` 全绿
+- ℹ️ **边界（如实）** - `resetDiminishingReturns` 只复位**连续性**：真递减时 `_observeRound` 的早退仍**先于** `persistMessages`（**既有行为，本批明确出界**，未做）；`streamMessageToolLoopContext` 的 `as unknown` 类型盲区仍 parked；E2E-2 仍待定。`FEATURE_BUDGET_SUSPEND_RESUME` 依用户裁定「补齐后再启用」—— 本批次完成即具备启用条件
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

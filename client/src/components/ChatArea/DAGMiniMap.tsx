@@ -22,12 +22,20 @@ const STATUS_COLORS: Record<
   TaskCardTask["status"],
   { bg: string; border: string; text: string }
 > = {
-  pending: { bg: "#f3f4f6", border: "#d1d5db", text: "#6b7280" },
-  in_progress: { bg: "#dbeafe", border: "#60a5fa", text: "#2563eb" },
+  pending: {
+    bg: "var(--status-pending-bg)",
+    border: "var(--status-pending-border)",
+    text: "var(--status-pending-text)",
+  },
+  in_progress: {
+    bg: "var(--status-running-bg)",
+    border: "var(--status-running-border)",
+    text: "var(--status-running-text)",
+  },
   completed: {
-    bg: "#dcfce7",
+    bg: "var(--status-done-bg)",
     border: "var(--color-success-strong)",
-    text: "#16a34a",
+    text: "var(--status-done-text)",
   },
   failed: {
     bg: "var(--color-error-bg)",
@@ -35,9 +43,21 @@ const STATUS_COLORS: Record<
     text: "var(--color-error-strong)",
   },
   // S3 修复：cancelled 独立终态色（橙色"已取消"）
-  cancelled: { bg: "#ffedd5", border: "#f97316", text: "#ea580c" },
-  blocked: { bg: "#fff7ed", border: "#f97316", text: "#ea580c" },
-  skipped: { bg: "#f9fafb", border: "#9ca3af", text: "#6b7280" },
+  cancelled: {
+    bg: "var(--status-cancelled-bg)",
+    border: "var(--status-cancelled-border)",
+    text: "var(--status-cancelled-text)",
+  },
+  blocked: {
+    bg: "var(--status-blocked-bg)",
+    border: "var(--status-cancelled-border)",
+    text: "var(--status-cancelled-text)",
+  },
+  skipped: {
+    bg: "var(--status-skipped-bg)",
+    border: "var(--status-skipped-border)",
+    text: "var(--status-pending-text)",
+  },
 };
 
 /** 用 Dagre 布局算法计算节点位置 */
@@ -144,7 +164,7 @@ export default function DAGMiniMap({
         fitView
         attributionPosition="bottom-left"
       >
-        <Background gap={16} color="#e5e7eb" />
+        <Background gap={16} color="var(--color-grid)" />
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={2} pannable zoomable />
       </ReactFlow>

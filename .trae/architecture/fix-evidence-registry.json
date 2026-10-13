@@ -2485,6 +2485,24 @@
       "changelog": [],
       "reopenWhen": "① 若在 ts/tsx 里**新增**原始 6/8 位十六进制色值（未走 `var(--color-*)`）⇒ 棘轮逐文件计数变红；② 若新增**数据表/艺术资源**（同类 `providerPresets`/`Buddy/**`/画布色板）⇒ 须把文件加入 `EXCLUDE_FILES`/`EXCLUDE_DIRS` 并注明理由（**不得**放宽阈值掩盖）；③ 若把 hex 喂给 **Canvas2D / `<input type=color>` / xterm 主题**（这些语境 `var()` 解析不了）⇒ **必须保留字面量**（当前已登记）；④ 若 `ContextWatermark` 的 `${dotColor}20` alpha 拼接改为 `var()` 形态 ⇒ 非法字符串（保留字面量的理由，见 notes）；⑤ 若要推进剩余 baseline（**113 行 / 35 文件**）⇒ 逐批下调 `themeTokenBaseline.json`（只减不增）；⑥ 若 `index.css` 的 `--color-*` 取值改动 ⇒ 视觉面变化（须目视）。",
       "notes": "**目标**：按方案 §7.2 推进 `HD-P2-1`（前端颜色/尺寸字面量走主题令牌）。**取证（回仓实测）**：`client/src` 的 6 位 hex 共 **338 处 / 46 文件**（方案 §3.2「颜色未走主题令牌」），其中**大量属数据表/艺术资源**：`config/providerPresets.ts`（供应商品牌色，42）· `components/Buddy/**`（吉祥物配色，42）· `views/image/canvas-editor/**`（画布工具色板，hex 是**数据值**）· `markdown-theme.css`/`index.css`（主题层）⇒ 按方案 §5 **登记不治理**；真正要令牌化的是**语义状态/中性色**。**Batch 1 落地**：① `index.css` **补 5 个令牌**（`--color-success-strong` #22c55e · `--color-warning-strong` #eab308 · `--color-error-strong` #dc2626 · `--color-error-bg` #fee2e2 · `--color-neutral-strong` #94a3b8）—— 取值与**原字面量逐字相等** ⇒ **零视觉变化**；② 把**语义色字面量**改为 `var(--color-*)`（**13 个文件**：子代理迁移 12 文件，我复核后追加 `GraphCanvas.tsx`（回仓核验其**实为 SVG**、非 Canvas2D ⇒ `fill`/`stroke` 支持 `var()`））；覆盖 React 内联 `style` / SVG `fill`·`stroke` / Tailwind 任意值 / CSS 渐变模板串等**CSS 呈现**语境。**⛔ 有意保留字面量（如实）**：`chat/ContextWatermark.tsx`（该色值在 `:83` 参与**十六进制 alpha 拼接** `${dotColor}20` ⇒ 换 `var()` 会拼出非法 `var(--color-error)20`）· `Terminal/XTermPanel.tsx`（**xterm theme 需真实色值**）· `canvas-editor/**`（色板数据值）。**新守卫**：`client/src/tests/themeTokenRatchet.test.ts` + 基线 `themeTokenBaseline.json`（**total=113 / 35 文件**；逐文件只减不增；`EXCLUDE_FILES`/`EXCLUDE_DIRS` 显式登记数据表/艺术资源/画布色板）。**验证**：① 棘轮测试 **1 pass / 0 fail**（基线 113/35）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 **0 error**（唯一 warning `DashboardPage.tsx:130` 的 `exhaustive-deps` 经 `git show HEAD | eslint --stdin` **取证为改前既有**，未静默）。**如实边界**：① **未做真机目视走查**（`e2eVerified=false`）—— 安全性依据是「**取值逐字相等** ⇒ 零视觉变化」，但 `var()` 在 **inline SVG presentation attribute** 的渲染兼容性**未在真机核验**（仓内已有 `PieChart.tsx` 的 `fill=\"var(--tw-bg, #FFFFFF)\"` 先例）；② 剩余 **113 行 / 35 文件**未迁（多为图表调色板/主题邻近色）⇒ 由棘轮锁定、逐批下调；③ 未改 `index.css` 既有令牌取值。"
+    },
+    {
+      "id": "HARDCODE-HDP2-1-THEME-TOKENS-B2",
+      "title": "硬编码治理 `HD-P2-1` **Batch 2**：状态调色板**补齐令牌**（15 个）+ DAG 迁移；代码主题/品牌色**登记 EXCLUDE**（基线 113 → 70）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §3.2 + §7.2（HD-P2-1）· Batch 1 基线 `themeTokenBaseline.json`",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/index.css",
+        "client/src/components/ChatArea/DAGMiniMap.tsx",
+        "client/src/components/ChatArea/DAGFullScreen.tsx",
+        "client/src/tests/themeTokenRatchet.test.ts",
+        "client/src/tests/fixtures/themeTokenBaseline.json"
+      ],
+      "tests": ["client/src/tests/themeTokenRatchet.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若再给 DAG 等状态面加**新的**颜色字面量（不走 `--status-*`）⇒ 棘轮变红；② 若把 `EXCLUDE_FILES` 里的文件（Tokyo Night 代码主题 · Google/MS 品牌 logo 色）当**主题色**治理 ⇒ 属另议（当前判定为数据/第三方身份色）；③ 若 `--status-*` 取值与 DAG 原字面量不再逐字相等 ⇒ **视觉变化**（须目视）；④ 若要推进剩余 baseline（**70 行 / 30 文件**，多为代码块深色 · 图表系列色 · 页面级插画色）⇒ 逐批判定后下调；⑤ 若新增**第四种**状态（`TaskCardTask[\"status\"]` 扩枚举）⇒ 需同步 `STATUS_COLORS` 与 `--status-*`。",
+      "notes": "**目标**：Batch 1 之后，对剩余 **113 行 / 35 文件**原始色值做**分类治理**（回仓取全量色值逐类判定，非猜测）。**分类结论（事实）**：① **语义状态调色板** —— `ChatArea/{DAGMiniMap,DAGFullScreen}` 的 `STATUS_COLORS`（pending / in_progress / cancelled / blocked / skipped 的 bg·border·text；failed / completed 已于 Batch 1 令牌化）⇒ **该补齐令牌**；② **数据/独立主题（§5 登记不治理）** —— `ChatArea/ToolCallGroup` · `ChatArea/DocWorkflowProgress` · `ChatInspector/PendingDecisionSidebar`（三者的 `#7aa2f7`/`#9ece6a`/`#f7768e`/`#bb9af7`/`#e6c384` **经回仓核验为 Tokyo Night 代码主题调色板**，自成一体的主题数据）· `views/LoginPage`（`#4285F4`/`#34A853`/`#FBBC05`/`#EA4335`/`#0078D4` = **Google / Microsoft 品牌 logo 色**，第三方身份色）。**落地**：① `index.css` 补 **15 个令牌**（`--status-{pending,running,done,cancelled,blocked,skipped}-*` 14 个 + `--color-grid`）—— 取值与原字面量**逐字相等** ⇒ **零视觉变化**；② `DAGMiniMap`/`DAGFullScreen` 的 `STATUS_COLORS` 全量改为 `var(--status-*)`（含 `DAGMiniMap` 的 `<Background color=\\\"var(--color-grid)\\\">`）；③ 棘轮 `EXCLUDE_FILES` **登记 4 个数据/独立主题文件**（附理由，见代码注释）；④ 基线 **113 → 70（30 文件）**。**验证**：① 棘轮测试 **1 pass / 0 fail**（基线 70/30）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 **0 error**（棘轮文件一处 prettier 折行已修）。**如实边界**：① **未做真机目视**（安全依据同上：取值逐字相等）；② 剩余 **70 行**（代码块深色 `#1a1a1a` · 图表系列色 `#8b5cf6` 等 · 页面级插画色）**未判定完**，属 Batch 3+ 素材；③ `EXCLUDE` 是**整文件**粒度 —— 若这些文件日后新增**主题色**（非数据色），棘轮**不会**拦截（已知代价，理由见各注释）。"
     }
   ]
 }

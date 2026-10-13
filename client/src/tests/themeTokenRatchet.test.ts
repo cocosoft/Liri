@@ -15,7 +15,13 @@
  *
  * 记录/更新基线：`UPDATE_THEME_BASELINE=1 bunx vitest run src/tests/themeTokenRatchet.test.ts`
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { join, relative } from "node:path";
 
 import { describe, expect, test } from "vitest";
@@ -23,11 +29,17 @@ import { describe, expect, test } from "vitest";
 const SRC = join(__dirname, "..");
 const BASELINE_PATH = join(__dirname, "fixtures", "themeTokenBaseline.json");
 
-/** 有意**不计入**的整文件（数据表 / 艺术资源 —— 方案 §5「不治理」同类） */
+/** 有意**不计入**的整文件（数据表 / 艺术资源 / 独立主题 —— 方案 §5「不治理」同类） */
 const EXCLUDE_FILES = [
   "config/providerPresets.ts", // 供应商品牌色（数据表）
   "components/Buddy/buddySprites.ts", // 吉祥物精灵配色（艺术资源）
   "components/Buddy/BuddySVG.tsx", // 吉祥物 SVG 配色（艺术资源）
+  // Tokyo Night **代码主题调色板**（工具调用/文档流程/决策侧栏的代码块配色，自成一体的主题数据）
+  "components/ChatArea/ToolCallGroup.tsx",
+  "components/ChatArea/DocWorkflowProgress.tsx",
+  "components/ChatInspector/PendingDecisionSidebar.tsx",
+  // Google / Microsoft **品牌 logo 色**（第三方身份色，非本产品主题）
+  "components/views/LoginPage.tsx",
 ];
 
 /** 有意**不计入**的目录前缀（画布工具色板：hex 是**数据值**，喂给 `<input type=color>` / Canvas2D） */

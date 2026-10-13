@@ -27,6 +27,22 @@
     --color-error-strong: #dc2626;
     --color-error-bg: #fee2e2;
     --color-neutral-strong: #94a3b8;
+    /* 状态调色板（DAG 节点等；取值与原字面量**逐字相等** ⇒ 零视觉变化） */
+    --status-pending-bg: #f3f4f6;
+    --status-pending-border: #d1d5db;
+    --status-pending-text: #6b7280;
+    --status-running-bg: #dbeafe;
+    --status-running-border: #60a5fa;
+    --status-running-text: #2563eb;
+    --status-done-bg: #dcfce7;
+    --status-done-text: #16a34a;
+    --status-cancelled-bg: #ffedd5;
+    --status-cancelled-border: #f97316;
+    --status-cancelled-text: #ea580c;
+    --status-blocked-bg: #fff7ed;
+    --status-skipped-bg: #f9fafb;
+    --status-skipped-border: #9ca3af;
+    --color-grid: #e5e7eb;
     /* 间距 */
     --space-xs: 0.25rem;
     --space-sm: 0.5rem;

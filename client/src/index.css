@@ -21,6 +21,12 @@
     --color-error: #ef4444;
     --color-info: #3b82f6;
     --color-brand: #6c5ce7;
+    /* HD-P2-1 补齐：此前内联、语义明确的状态/中性色（取值与原字面量**逐字相等** ⇒ 零视觉变化） */
+    --color-success-strong: #22c55e;
+    --color-warning-strong: #eab308;
+    --color-error-strong: #dc2626;
+    --color-error-bg: #fee2e2;
+    --color-neutral-strong: #94a3b8;
     /* 间距 */
     --space-xs: 0.25rem;
     --space-sm: 0.5rem;

@@ -24,12 +24,12 @@ export interface ModelRankTableProps {
 }
 
 const PIE_COLORS = [
-  "#3B82F6",
+  "var(--color-info)",
   "#8B5CF6",
   "#06B6D4",
-  "#F59E0B",
-  "#EF4444",
-  "#10B981",
+  "var(--color-warning)",
+  "var(--color-error)",
+  "var(--color-success)",
   "#EC4899",
   "#6366F1",
 ];

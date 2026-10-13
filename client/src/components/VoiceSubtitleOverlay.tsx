@@ -84,7 +84,7 @@ export default function VoiceSubtitleOverlay({
   const interimColor = isDark
     ? "rgba(255, 255, 255, 0.45)"
     : "rgba(0, 0, 0, 0.4)";
-  const accentColor = "#3b82f6";
+  const accentColor = "var(--color-info)";
 
   // 音频电平条宽度
   const levelBarWidth = Math.min(Math.max(audioLevel, 0), 100);

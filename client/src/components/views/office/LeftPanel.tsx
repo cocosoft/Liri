@@ -49,7 +49,11 @@ export function LeftPanel() {
         </h2>
         <span
           className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: connected ? "#22c55e" : "#ef4444" }}
+          style={{
+            backgroundColor: connected
+              ? "var(--color-success-strong)"
+              : "var(--color-error)",
+          }}
           title={
             connected
               ? t("office.connected", "OfficeCLI 已连接")

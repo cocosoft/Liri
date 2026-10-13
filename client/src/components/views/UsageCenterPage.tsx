@@ -616,12 +616,12 @@ export default function UsageCenterPage() {
                         label: p.providerName || p.provider,
                         value: p.cost,
                         color: [
-                          "#3B82F6",
+                          "var(--color-info)",
                           "#8B5CF6",
                           "#06B6D4",
-                          "#F59E0B",
-                          "#EF4444",
-                          "#10B981",
+                          "var(--color-warning)",
+                          "var(--color-error)",
+                          "var(--color-success)",
                         ][i % 6],
                       }))}
                       centerLabel={t("cost.monthCost")}

@@ -640,8 +640,8 @@ function STTTestPage() {
                         width: `${Math.min(level * 100, 100)}%`,
                         background:
                           level > 0.7
-                            ? "linear-gradient(90deg, #22c55e, #eab308, #ef4444)"
-                            : "linear-gradient(90deg, #22c55e, #eab308)",
+                            ? "linear-gradient(90deg, var(--color-success-strong), var(--color-warning-strong), var(--color-error))"
+                            : "linear-gradient(90deg, var(--color-success-strong), var(--color-warning-strong))",
                       }}
                     />
                   </div>

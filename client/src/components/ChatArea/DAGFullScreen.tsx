@@ -24,8 +24,16 @@ const STATUS_COLORS: Record<
 > = {
   pending: { bg: "#f3f4f6", border: "#d1d5db", text: "#6b7280" },
   in_progress: { bg: "#dbeafe", border: "#60a5fa", text: "#2563eb" },
-  completed: { bg: "#dcfce7", border: "#22c55e", text: "#16a34a" },
-  failed: { bg: "#fee2e2", border: "#ef4444", text: "#dc2626" },
+  completed: {
+    bg: "#dcfce7",
+    border: "var(--color-success-strong)",
+    text: "#16a34a",
+  },
+  failed: {
+    bg: "var(--color-error-bg)",
+    border: "var(--color-error)",
+    text: "var(--color-error-strong)",
+  },
   // S3 修复：cancelled 独立终态色（橙色"已取消"）
   cancelled: { bg: "#ffedd5", border: "#f97316", text: "#ea580c" },
   blocked: { bg: "#fff7ed", border: "#f97316", text: "#ea580c" },
@@ -105,7 +113,10 @@ function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {
         source: dep,
         target: task.id,
         style: {
-          stroke: task.status === "failed" ? "#ef4444" : "#94a3b8",
+          stroke:
+            task.status === "failed"
+              ? "var(--color-error)"
+              : "var(--color-neutral-strong)",
           strokeWidth: 2,
         },
         animated: task.status === "in_progress",

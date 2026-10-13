@@ -42,8 +42,8 @@ export const TYPE_COLORS: Record<MemoryType, string> = {
 
 export const TYPE_CHART_COLORS: Record<MemoryType, string> = {
   user_identity: "#6366F1",
-  user_preference: "#3B82F6",
-  project_context: "#10B981",
-  knowledge: "#F59E0B",
+  user_preference: "var(--color-info)",
+  project_context: "var(--color-success)",
+  knowledge: "var(--color-warning)",
   system_instruction: "#6B7280",
 };

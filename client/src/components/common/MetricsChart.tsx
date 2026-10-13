@@ -28,7 +28,7 @@ function MetricsChart({
   title,
   data,
   valueFormatter = (v) => v.toFixed(1),
-  color = "#3B82F6",
+  color = "var(--color-info)",
   isDark = false,
   height = 120,
   showArea = true,

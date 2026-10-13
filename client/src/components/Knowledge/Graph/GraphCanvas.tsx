@@ -22,13 +22,13 @@ interface LayoutNode {
 const NODE_RADIUS = 8;
 const PADDING = 50;
 const DOMAIN_COLORS = [
-  "#3b82f6",
+  "var(--color-info)",
   "#a855f7",
-  "#10b981",
-  "#f59e0b",
+  "var(--color-success)",
+  "var(--color-warning)",
   "#ec4899",
   "#06b6d4",
-  "#ef4444",
+  "var(--color-error)",
   "#6366f1",
 ];
 
@@ -189,7 +189,7 @@ export const GraphCanvas = memo(function GraphCanvas({
 
   const bgColor = isDark ? "#1f2937" : "#f9fafb";
   const edgeColor = isDark ? "#374151" : "#d1d5db";
-  const edgeFocus = isDark ? "#6366f1" : "#3b82f6";
+  const edgeFocus = isDark ? "#6366f1" : "var(--color-info)";
   const textColor = isDark ? "#9ca3af" : "#6b7280";
 
   return (
@@ -250,7 +250,7 @@ export const GraphCanvas = memo(function GraphCanvas({
               r={
                 isFocus ? NODE_RADIUS + 3 : isHl ? NODE_RADIUS + 2 : NODE_RADIUS
               }
-              fill={isHl ? "#f59e0b" : color}
+              fill={isHl ? "var(--color-warning)" : color}
               stroke={isFocus || isHl ? "#fff" : "none"}
               strokeWidth={isFocus || isHl ? 2 : 0}
               opacity={focusNode && !isFocus ? 0.3 : dimmed ? 0.2 : 0.85}

@@ -482,7 +482,7 @@ function DashboardPage() {
                     title={t("dashboard.cpuUsagePercent")}
                     data={metrics?.cpu ?? []}
                     valueFormatter={(v) => `${v.toFixed(1)}%`}
-                    color="#3B82F6"
+                    color="var(--color-info)"
                     isDark={isDark}
                     secondaryData={metrics?.appCpu ?? []}
                     secondaryColor="#8B5CF6"
@@ -492,10 +492,10 @@ function DashboardPage() {
                     title={t("dashboard.memoryUsageMb")}
                     data={metrics?.memory ?? []}
                     valueFormatter={(v) => `${v.toFixed(0)} MB`}
-                    color="#10B981"
+                    color="var(--color-success)"
                     isDark={isDark}
                     secondaryData={metrics?.appMemory ?? []}
-                    secondaryColor="#F59E0B"
+                    secondaryColor="var(--color-warning)"
                     secondaryLabel={t("dashboard.app")}
                   />
                 </div>
@@ -600,14 +600,14 @@ function DashboardPage() {
                     title={t("dashboard.requestsTrend")}
                     data={metrics?.requests ?? []}
                     valueFormatter={(v) => `${v.toFixed(0)}`}
-                    color="#3B82F6"
+                    color="var(--color-info)"
                     isDark={isDark}
                   />
                   <MetricsChart
                     title={t("dashboard.responseTimeMs")}
                     data={metrics?.responseTime ?? []}
                     valueFormatter={(v) => `${v.toFixed(0)}ms`}
-                    color="#10B981"
+                    color="var(--color-success)"
                     isDark={isDark}
                   />
                 </div>
@@ -617,7 +617,7 @@ function DashboardPage() {
                     title={t("dashboard.errorRateTrend")}
                     data={metrics?.errorRate ?? []}
                     valueFormatter={(v) => `${v.toFixed(2)}%`}
-                    color="#EF4444"
+                    color="var(--color-error)"
                     isDark={isDark}
                   />
                 </div>

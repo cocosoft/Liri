@@ -171,10 +171,10 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                       fill="none"
                       stroke={
                         lintScore >= 80
-                          ? "#22c55e"
+                          ? "var(--color-success-strong)"
                           : lintScore >= 50
-                            ? "#eab308"
-                            : "#ef4444"
+                            ? "var(--color-warning-strong)"
+                            : "var(--color-error)"
                       }
                       strokeWidth="3"
                       strokeDasharray={`${lintScore} ${100 - lintScore}`}

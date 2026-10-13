@@ -131,7 +131,7 @@ export const MasonryGallery: React.FC<Props> = ({
                 contentVisibility: "auto",
                 containIntrinsicSize: "auto 200px",
                 borderColor: selected
-                  ? "#3b82f6"
+                  ? "var(--color-info)"
                   : hovered
                     ? isDark
                       ? "#93c5fd"

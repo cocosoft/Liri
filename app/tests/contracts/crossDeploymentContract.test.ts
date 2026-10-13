@@ -146,3 +146,99 @@ describe('HD-P0-3 · B2 日限额 SSE 事件名（跨部署单元同值契约）
     ]);
   });
 });
+
+/**
+ * **B4 日预算错误码**：后端抛点 `preSendContextProtection.ts` 的
+ * `AppError('DAILY_BUDGET_EXCEEDED')` ⟷ 前端**收口一处** `client/src/error/errorCodes.ts`。
+ * 消费方（`DailyLimitNotice` 的分流判据 / `chatService` 的类型联合）均应**引用**该常量、
+ * 不再内联字面量 ⇒ ② 断言前端仅一处定义。
+ */
+describe('HD-P0-3 · B4 日预算错误码（跨部署单元同值契约）', () => {
+  it('① 前端常量取值 === 后端抛点取值（改任一侧即变红）', () => {
+    const captured = read('client/src/error/errorCodes.ts').match(
+      /DAILY_BUDGET_EXCEEDED\s*=\s*['"]([^'"]+)['"]/
+    )?.[1];
+    // 真源取值（改这一行 ⇒ ② 会连带变红）
+    expect(captured).toBe('DAILY_BUDGET_EXCEEDED');
+    expect(
+      read('app/src/chat/orchestrator/preSendContextProtection.ts')
+    ).toContain(`'${captured}'`);
+  });
+
+  it('② 前端**仅一处**定义该错误码（消费方引用常量，勿再内联）', () => {
+    const files: string[] = [];
+    collectTsFiles(CLIENT_SRC, files);
+    const defining = files
+      .filter(
+        (abs) => !abs.includes('__tests__') && !/\.test\.(ts|tsx)$/.test(abs)
+      )
+      .filter((abs) => {
+        const code = readFileSync(abs, 'utf-8');
+        return (
+          code.includes(`"${'DAILY_BUDGET_EXCEEDED'}"`) ||
+          code.includes(`'${'DAILY_BUDGET_EXCEEDED'}'`)
+        );
+      })
+      .map(relToRoot);
+    expect(defining).toEqual(['client/src/error/errorCodes.ts']);
+  });
+});
+
+/**
+ * **B3 模型能力标签集**：前端键集（`client/src/constants/capabilities.ts`，单一事实源）
+ * 必须 **⊆ 后端规范集合**（`app/src/ai/config/capabilities.default.yaml` 的 `capabilities[].key`）。
+ * 判据是 **⊆**（前端是 UI 退化清单，有意不追平后端 28 键）—— 防"前端写了后端不存在的能力键"。
+ */
+describe('HD-P0-3 · B3 模型能力标签集（跨部署单元同值契约）', () => {
+  function backendCapabilityKeys(): Set<string> {
+    const yaml = read('app/src/ai/config/capabilities.default.yaml');
+    const keys = new Set<string>();
+    // 仅取 `capabilities:` 段内的 `key:`（`categories:` / `taskMappings:` 段的键名不同）
+    for (const m of yaml.matchAll(/^\s{2}- key:\s*([A-Za-z_]+)\s*$/gm)) {
+      keys.add(m[1] as string);
+    }
+    return keys;
+  }
+
+  function frontCapabilityKeys(): string[] {
+    const src = read('client/src/constants/capabilities.ts');
+    const body = src.match(
+      /export const CAPABILITY = \{([\s\S]*?)\} as const/
+    )?.[1];
+    if (!body) return [];
+    return [...body.matchAll(/^\s*\w+:\s*['"]([^'"]+)['"]/gm)].map(
+      (m) => m[1] as string
+    );
+  }
+
+  it('① 前端键集非空，且**每个**键都在后端规范集合内（⊆）', () => {
+    const backend = backendCapabilityKeys();
+    const front = frontCapabilityKeys();
+    expect(backend.size).toBeGreaterThan(20); // 后端规范集合的规模哨兵
+    expect(front.length).toBeGreaterThan(0);
+    const unknown = front.filter((k) => !backend.has(k));
+    expect(
+      unknown,
+      '前端存在后端规范集合里没有的能力键（会在后端静默失效）'
+    ).toEqual([]);
+  });
+
+  it('② 前端**仅一处**定义能力键（消费方引用 `CAPABILITY`，勿再内联）', () => {
+    // 键集**从模块自身派生**（自维护：新增键即自动纳入扫描）
+    const keys = frontCapabilityKeys();
+    expect(keys.length).toBeGreaterThan(0);
+    const re = new RegExp(`key:\\s*["'](${keys.join('|')})["']`);
+    const files: string[] = [];
+    collectTsFiles(CLIENT_SRC, files);
+    const defining = files
+      .filter(
+        (abs) =>
+          !abs.includes('__tests__') &&
+          !/\.test\.(ts|tsx)$/.test(abs) &&
+          !abs.endsWith('constants/capabilities.ts')
+      )
+      .filter((abs) => re.test(readFileSync(abs, 'utf-8')))
+      .map(relToRoot);
+    expect(defining).toEqual([]);
+  });
+});

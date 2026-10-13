@@ -14,6 +14,7 @@ import { getOTelTracing } from "../monitoring/otel";
 import { staleSessionCache } from "../stores/chat/chat-history.slice";
 import { registerResumeWaiter } from "./streamPause";
 import i18n from "@/i18n";
+import { DAILY_BUDGET_EXCEEDED } from "../error/errorCodes";
 
 const logger = createLogger("chatService");
 
@@ -198,7 +199,7 @@ export interface StreamChunk {
     | "PROXY_ERROR"
     | "TIMEOUT"
     // 已知业务码（保留补全；开放取值见末行）
-    | "DAILY_BUDGET_EXCEEDED"
+    | typeof DAILY_BUDGET_EXCEEDED
     | (string & {});
   /** 后端注入的前端导航/提示元数据（如 create_project 后建议跳转） */
   _meta?: Record<string, unknown>;

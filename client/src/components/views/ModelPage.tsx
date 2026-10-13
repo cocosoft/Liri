@@ -13,6 +13,7 @@ import FetchedModelList from "../modelAdmin/FetchedModelList";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { usageService } from "../../services/usageService";
 import { modelSwitchService } from "../../services/modelSwitchService";
+import { CAPABILITY } from "../../constants/capabilities";
 import {
   modelService,
   type CapabilityProbeResult,
@@ -259,13 +260,13 @@ function ProviderPage() {
     // capabilities 不直接在 ModelInfo 中，用 type 兜底
     setEditCaps(
       model.type === "embedding"
-        ? "embedding"
+        ? CAPABILITY.embedding
         : model.type === "image"
-          ? "image_generation"
+          ? CAPABILITY.image_generation
           : model.type === "video"
-            ? "video_generation"
+            ? CAPABILITY.video_generation
             : model.type === "voice"
-              ? "text_to_speech"
+              ? CAPABILITY.text_to_speech
               : "",
     );
   }, []);

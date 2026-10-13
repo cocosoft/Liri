@@ -1,3 +1,5 @@
+import { DAILY_BUDGET_EXCEEDED } from "../../error/errorCodes";
+
 /**
  * DailyLimitNotice —— 日预算**撞限卡片**（Spec `daily-budget-over-limit-ux.md` §5-A）。
  *
@@ -7,7 +9,7 @@
  * - 「继续」是**显式**动作（D-f）：**不**静默自动重发被拦的那条消息。
  * - 文案经 `t` prop 由**宿主**注入：组件不自行引入 i18n 实例（便于单测，也避免多实例）。
  */
-export type DailyLimitReliefKind = 'boost' | 'waive-once' | 'unlock-today';
+export type DailyLimitReliefKind = "boost" | "waive-once" | "unlock-today";
 
 export interface DailyLimitNoticeProps {
   /** 今日已用量（tokens） */
@@ -31,9 +33,9 @@ export interface DailyLimitNoticeProps {
 }
 
 const ACTIONS: Array<{ kind: DailyLimitReliefKind; key: string }> = [
-  { kind: 'boost', key: 'cost.action.boost' },
-  { kind: 'waive-once', key: 'cost.action.waiveOnce' },
-  { kind: 'unlock-today', key: 'cost.action.unlockToday' },
+  { kind: "boost", key: "cost.action.boost" },
+  { kind: "waive-once", key: "cost.action.waiveOnce" },
+  { kind: "unlock-today", key: "cost.action.unlockToday" },
 ];
 
 /**
@@ -44,9 +46,9 @@ const ACTIONS: Array<{ kind: DailyLimitReliefKind; key: string }> = [
  * 判据是 store 的**状态字段** `errorCode`（CS02：不做字符串匹配业务语义）。
  */
 export function isDailyLimitErrorCode(
-  errorCode: string | null | undefined
+  errorCode: string | null | undefined,
 ): boolean {
-  return errorCode === 'DAILY_BUDGET_EXCEEDED';
+  return errorCode === DAILY_BUDGET_EXCEEDED;
 }
 
 export default function DailyLimitNotice({
@@ -71,14 +73,14 @@ export default function DailyLimitNotice({
         <span className="flex-shrink-0 mt-0.5">⛽</span>
         <div className="flex-1 min-w-0">
           <div className="text-sm text-amber-800 dark:text-amber-200">
-            <span>{t('cost.card.used')}</span>{' '}
+            <span>{t("cost.card.used")}</span>{" "}
             <span className="font-mono">{used.toLocaleString()}</span>
             <span className="mx-1">/</span>
             <span className="font-mono">{limit.toLocaleString()}</span>
             <span className="ml-2 opacity-80">{formatted}</span>
           </div>
           <p className="mt-1 text-xs text-amber-700/90 dark:text-amber-300/80 whitespace-pre-line">
-            {t('cost.card.hint')}
+            {t("cost.card.hint")}
           </p>
 
           <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -95,7 +97,7 @@ export default function DailyLimitNotice({
               onClick={onOpenSettings}
               className="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-800/50 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-700/50 transition-colors"
             >
-              {t('cost.action.openSettings')}
+              {t("cost.action.openSettings")}
             </button>
           </div>
 
@@ -104,14 +106,14 @@ export default function DailyLimitNotice({
               onClick={onContinue}
               className="text-xs px-3 py-1 rounded bg-amber-500/90 text-white hover:bg-amber-500 transition-colors"
             >
-              ▶ {t('cost.action.continue')}
+              ▶ {t("cost.action.continue")}
             </button>
           </div>
         </div>
         <button
           onClick={onDismiss}
           className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-200 flex-shrink-0"
-          title={t('common.close')}
+          title={t("common.close")}
         >
           ✕
         </button>

@@ -5,6 +5,7 @@ import { configService } from "../../services/configService";
 import { capabilityService } from "../../services/capabilityService";
 import { handleClientError } from "../../utils/handleError";
 import type { ModelCapabilityDefinition } from "../../services/capabilityService";
+import { CAPABILITY } from "../../constants/capabilities";
 
 interface ModelMetaEditorProps {
   modelId: string;
@@ -147,49 +148,49 @@ function ModelMetaEditor({
         // 加载失败使用基础能力列表作为 fallback
         setCapabilities([
           {
-            key: "streaming",
+            key: CAPABILITY.streaming,
             labelFallback: "Streaming",
             isDefault: true,
             enabled: true,
             category: "core",
           } as ModelCapabilityDefinition,
           {
-            key: "function_calling",
+            key: CAPABILITY.function_calling,
             labelFallback: "Function Calling",
             isDefault: true,
             enabled: true,
             category: "core",
           } as ModelCapabilityDefinition,
           {
-            key: "vision",
+            key: CAPABILITY.vision,
             labelFallback: "Vision",
             isDefault: false,
             enabled: true,
             category: "vision",
           } as ModelCapabilityDefinition,
           {
-            key: "thinking",
+            key: CAPABILITY.thinking,
             labelFallback: "Thinking",
             isDefault: false,
             enabled: true,
             category: "special",
           } as ModelCapabilityDefinition,
           {
-            key: "tool_use",
+            key: CAPABILITY.tool_use,
             labelFallback: "Tool Use",
             isDefault: true,
             enabled: true,
             category: "tools",
           } as ModelCapabilityDefinition,
           {
-            key: "structured_output",
+            key: CAPABILITY.structured_output,
             labelFallback: "Structured Output",
             isDefault: false,
             enabled: true,
             category: "core",
           } as ModelCapabilityDefinition,
           {
-            key: "image_input",
+            key: CAPABILITY.image_input,
             labelFallback: "Image Input",
             isDefault: false,
             enabled: true,

@@ -12,6 +12,7 @@ import type {
   ModelCapabilityDefinition,
   CapabilityCategoryDefinition,
 } from "../../services/capabilityService";
+import { CAPABILITY } from "../../constants/capabilities";
 
 interface CapabilitySelectorProps {
   /** 当前选中的能力 key 列表 */
@@ -84,7 +85,7 @@ export default function CapabilitySelector({
         // 使用基础 fallback 列表
         setCapabilities([
           {
-            key: "streaming",
+            key: CAPABILITY.streaming,
             labelFallback: "Streaming",
             isDefault: true,
             enabled: true,
@@ -92,7 +93,7 @@ export default function CapabilitySelector({
             sortOrder: 1,
           } as ModelCapabilityDefinition,
           {
-            key: "function_calling",
+            key: CAPABILITY.function_calling,
             labelFallback: "Function Calling",
             isDefault: true,
             enabled: true,
@@ -100,7 +101,7 @@ export default function CapabilitySelector({
             sortOrder: 2,
           } as ModelCapabilityDefinition,
           {
-            key: "tool_use",
+            key: CAPABILITY.tool_use,
             labelFallback: "Tool Use",
             isDefault: true,
             enabled: true,
@@ -108,7 +109,7 @@ export default function CapabilitySelector({
             sortOrder: 1,
           } as ModelCapabilityDefinition,
           {
-            key: "vision",
+            key: CAPABILITY.vision,
             labelFallback: "Vision",
             isDefault: false,
             enabled: true,
@@ -116,7 +117,7 @@ export default function CapabilitySelector({
             sortOrder: 1,
           } as ModelCapabilityDefinition,
           {
-            key: "image_generation",
+            key: CAPABILITY.image_generation,
             labelFallback: "Image Generation",
             isDefault: false,
             enabled: true,
@@ -124,7 +125,7 @@ export default function CapabilitySelector({
             sortOrder: 1,
           } as ModelCapabilityDefinition,
           {
-            key: "text_to_speech",
+            key: CAPABILITY.text_to_speech,
             labelFallback: "Text to Speech",
             isDefault: false,
             enabled: true,
@@ -132,7 +133,7 @@ export default function CapabilitySelector({
             sortOrder: 2,
           } as ModelCapabilityDefinition,
           {
-            key: "speech_recognition",
+            key: CAPABILITY.speech_recognition,
             labelFallback: "Speech Recognition",
             isDefault: false,
             enabled: true,
@@ -140,7 +141,7 @@ export default function CapabilitySelector({
             sortOrder: 3,
           } as ModelCapabilityDefinition,
           {
-            key: "embedding",
+            key: CAPABILITY.embedding,
             labelFallback: "Embedding",
             isDefault: false,
             enabled: true,
@@ -148,7 +149,7 @@ export default function CapabilitySelector({
             sortOrder: 1,
           } as ModelCapabilityDefinition,
           {
-            key: "structured_output",
+            key: CAPABILITY.structured_output,
             labelFallback: "Structured Output",
             isDefault: false,
             enabled: true,
@@ -156,7 +157,7 @@ export default function CapabilitySelector({
             sortOrder: 3,
           } as ModelCapabilityDefinition,
           {
-            key: "thinking",
+            key: CAPABILITY.thinking,
             labelFallback: "Thinking",
             isDefault: false,
             enabled: true,

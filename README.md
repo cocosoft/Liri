@@ -436,7 +436,9 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.99 (2026-10-13)  MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2） 
+#### v0.4.99 (2026-10-13)
+MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）
+
 - ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
 - ✅ **Stdio 子进程显式 env 审计收紧（G-2）** - `StdioTransport` 原构造 `{ ...buildSafeEnv(Object.keys(options.env)), ...options.env }` 把**显式配置键**喂给 `buildSafeEnv()` ⇒ 命中 `BLOCKED_ENV_PATTERNS` 时发出 `mcp:env_blocked` 告警，却又被尾部展开 `...options.env` **原样透传**（语义自相矛盾：声称已拦、实际放行）；现**分离**两条来源：宿主只取白名单基线 `buildSafeEnv()`，显式配置经新增 `auditExplicitEnv()` **审计后合并**（按设计放行 MCP server 自身凭据、**不按名硬拦**以免破坏正常接入；命中敏感名 ⇒ `mcp:explicit_env_sensitive`；值与同名宿主变量一致 ⇒ `mcp:explicit_env_value_from_host` 高信号告警；**告警只含键名、绝不含值**）
 - ✅ **回归与证据登记** - 新增 `app/tests/mcp/mcpResultRedaction.test.ts`（**7 例**：文本脱敏 / 结构化 `data` 脱敏 / 无密钥零变更 / `redactMcpPayload` 单元 / `stripCredentials` 基线 / `auditExplicitEnv` 放行 / Stdio env 分离）；`bun test tests/mcp/` **21 pass / 0 fail**（15 skip 为需真实 server 的 e2e）；`lint:arch` 违规 **0**（4 基线警告，未增）；`fix-evidence-registry.json` + `修复证据登记.md` 新增 `MCP-SEC-G1` / `MCP-SEC-G2`（`lint:fix-evidence` 条目 **85 → 87** 自洽；`fixEvidenceGate` **7 pass / 0 fail**）

@@ -132,15 +132,18 @@ export function buildToolLoopContext(
     // `request/start` 并把 seq 作 requestId 透传（见 `chat/streamingLlm.ts`）。
     // 端口契约声明 `usage: unknown`（不保证形状），host 侧要求
     // `Record<string, number> | null | undefined` ⇒ 单字段窄断言桥接（运行时未变）。
+    // 债四「换算接线」（2026-10-13）：`model`（本轮实际模型）同路透传（原样，不转换）。
     recordChatResponseUsage: (
       sid: string,
       usage: unknown,
-      requestId?: number
+      requestId?: number,
+      model?: string
     ) =>
       host.recordChatResponseUsage(
         sid,
         usage as Record<string, number> | null | undefined,
-        requestId
+        requestId,
+        model
       ),
     onToolUsage: (usage: Record<string, unknown>) => {
       const u = toUsageInfo(usage);

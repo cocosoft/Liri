@@ -116,7 +116,11 @@ import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // R16：每日 Token 预算（进程共享单例）——记账点收敛到本类的 recordChatResponseUsage。
-import { getDailyBudget } from '../query/DailyBudgetManager';
+// 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
+import {
+  getDailyBudget,
+  recordTurnCostUsd,
+} from '../query/DailyBudgetManager';
 // Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
 // `query/budgetSuspend` **不得** import `chat/**`（防环）⇒ 唤醒经注入的 handler 端口（下方装配）。
 import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
@@ -1325,8 +1329,8 @@ export class ChatManagerImpl implements ChatManager {
         extractFilePathsFromText: (text) => this.extractFilePathsFromText(text),
         extractMemoryFromChat: (u, a, sid) =>
           this.extractMemoryFromChat(u, a, sid),
-        recordChatResponseUsage: (sid, usage, requestId) =>
-          this.recordChatResponseUsage(sid, usage, requestId),
+        recordChatResponseUsage: (sid, usage, requestId, model) =>
+          this.recordChatResponseUsage(sid, usage, requestId, model),
         sanitizeApiMessages: (msgs) => this._sanitizeApiMessages(msgs),
         truncateApiMessages: (msgs, max, sid, outputBudgetTokens) =>
           this._truncateApiMessages(msgs, max, sid, outputBudgetTokens),
@@ -3115,11 +3119,14 @@ export class ChatManagerImpl implements ChatManager {
    * @param requestId P2-2（2026-09-23）：所属请求标识（= 同请求 `request/start` 的 seq）。
    *   **仅透传新增字段**，不改任何用量口径（TR-11 修复的 usage 语义/守卫原样）；
    *   拿不到（工具轮 / 非流式路径 / start 落盘失败）⇒ 不写该字段。
+   * @param model 债四「换算接线」（2026-10-13）：本轮**实际模型**（供金额台账取价换算）。
+   *   缺失 / 占位 `'unknown'` ⇒ 只记 token、**不记金额**（**不臆造金额**，见 `recordTurnCostUsd`）。
    */
   private recordChatResponseUsage(
     sessionId: string,
     usage: Record<string, number> | null | undefined,
-    requestId?: number
+    requestId?: number,
+    model?: string
   ): void {
     if (!usage) return;
     const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
@@ -3158,6 +3165,20 @@ export class ChatManagerImpl implements ChatManager {
     // 不能因其失败影响用量记账与主流程。
     const timingData = buildRequestTimingData(usage);
     if (timingData) {
+      // 债四「换算接线」（2026-10-13）：**金额**台账（`usedUsd`）与 token 口径**并行**。
+      // 四参**复用 `timingData`**（缓存字段的唯一提取点 `extractCacheTokens`，CS01 不另造一份）；
+      // 模型不可得 ⇒ 内部跳过并如实 warn（**不臆造金额**）。
+      // ⚠️ **不改闸门**：`usedUsd` 当前不参与任何拦截/档位判定（USD 闸门 = S3，待 U3 裁定）。
+      recordTurnCostUsd(
+        {
+          inputTokens: timingData.inputTokens ?? 0,
+          outputTokens: timingData.outputTokens ?? 0,
+          cacheCreationTokens: timingData.cacheCreationTokens,
+          cacheReadTokens: timingData.cacheReadTokens,
+        },
+        model,
+        sessionId
+      );
       // D1（2026-09-23）：**同一份载荷**先喂入校准闭环 —— 校准的数据源即
       // `metric/timing` 事件的用量字段（唯一构造点 `buildRequestTimingData`），
       // 不再依赖 `traces/` 落盘数据（已降级为观测层）。复用既有"调用方直接喂入"通路。
@@ -3556,11 +3577,12 @@ export class ChatManagerImpl implements ChatManager {
         .hookChainManager as unknown as PipelineContext['hookChainManager'],
       extractFilePathsFromText: this.extractFilePathsFromText.bind(this),
       addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      recordChatResponseUsage: (sid, usage, requestId) =>
+      recordChatResponseUsage: (sid, usage, requestId, model) =>
         this.recordChatResponseUsage(
           sid,
           usage as Record<string, number>,
-          requestId
+          requestId,
+          model
         ),
       extractMemoryFromChat: (userMsg, aiMsg, sid) =>
         this.extractMemoryFromChat(userMsg, aiMsg, sid),
@@ -4778,8 +4800,9 @@ export class ChatManagerImpl implements ChatManager {
         recordChatResponseUsage: (
           sid: string,
           usage: Record<string, number>,
-          requestId?: number
-        ) => this.recordChatResponseUsage(sid, usage, requestId),
+          requestId?: number,
+          model?: string
+        ) => this.recordChatResponseUsage(sid, usage, requestId, model),
         toolResultRegistry,
         toolRegistry: this.getToolRegistry(),
         toolDefinitions,

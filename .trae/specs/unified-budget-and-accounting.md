@@ -1,6 +1,6 @@
 # Spec：统一预算与核算（USD 口径）—— 定案稿
 
-> 版本: **1.2（定案 + §12 裁定回填 + S5 部分落地）** ｜ 创建: 2026-10-11 ｜ 定案: 2026-10-13 ｜ 状态: **已定案 · §12 九项已裁定（U3 待定）· 待授权排期**；**2026-10-13：S5 的「无默认值 USD 底座」已落地**（配置面 + 状态文件 + 记账入口；证据 `DEBT4-S5-USD-BASE`，见 §11.1）
+> 版本: **1.3（定案 + §12 裁定回填 + S5 底座 + S8 换算接线落地）** ｜ 创建: 2026-10-11 ｜ 定案: 2026-10-13 ｜ 状态: **已定案 · §12 九项已裁定（U3 待定）· 待授权排期**；**2026-10-13 落地**：S5 的「无默认值 USD 底座」（证据 `DEBT4-S5-USD-BASE`）+ **S8「换算接线」**（真实记账点补 `model` ⇒ 金额入账，证据 `DEBT4-USD-WIRING`；见 §11.1）；**S3（闸门切金额）仍受 `Q-U3` 挡住**
 > 来源：用户 2026-10-11 裁定「**以钱（USD）为准**」+「**当前体验 spec 先落地，本项另立**」（U-1/U-2/U-3）；
 > 　　　2026-10-13 由本仓 SDD「先推进 spec 至定案」前置把 v0.1 立项稿推进为本稿（**本文不含任何产品代码改动**）
 > 上游（**R16 已落地**）：`.trae/specs/daily-budget-unification.md`（日 Token 闸门现行实现，已实施）
@@ -361,6 +361,34 @@
 | **S5** | **迁移与端点**：配置键 `costControl.dailyBudgetUSD` + 状态文件 `usedUsd/debtUsd` + `GET/PUT` 字段 | ✅ | 中（外部输入边界 fail-loud） | `app/src/query/DailyBudgetManager.ts` · `dailyBudgetPersistence.ts` · `infrastructure/http/handlers/daily-budget-handlers.ts` |
 | **S6** | **前端/契约对齐**：`DailyBudgetPanel`/`UsageCenterPage` 展示 USD（单位/文案 i18n） | ✅ | 低 | `client/src/components/usage/DailyBudgetPanel.tsx` · `client/src/i18n/locales/{zh,en}.ts` |
 | **S7** | **死配置处置**（依 §12 Q-U8） | ✅ | 低（CD05/06） | `app/src/workspace/types.ts` · `LiriConfigManager.ts`（视裁定） |
+| **S8** | **换算接线**（2026-10-13 追加）：真实记账点补 `model` 参数 ⇒ 金额**入账** `usedUsd`（与 token 并行；**闸门判定不动**） | ✅ | 中（记账口径新增；**不改硬闸门**） | `app/src/query/DailyBudgetManager.ts`（`recordTurnCostUsd`）· `app/src/chat/ChatManager.ts` · `app/src/chat/streamingLlm.ts` + 端口（`StreamPipeline` / `ToolLoopRunner` / `streamMessageToolLoopContext` / `ChatOrchestratorHost`）· `app/src/tasks/LongRunningTaskOrchestrator.ts` · `app/src/ai/translation/TranslationService.ts` |
+
+### §11.1 已落地记录（2026-10-13）
+
+**① S5「无默认值 USD 底座」**（证据 `DEBT4-S5-USD-BASE`）：配置键常量 `costControl.dailyBudgetUSD`
+（`limitUsd?`，**无兜底常量** —— `Q-U3` 未裁定前**不实现任何默认值**）+ 状态文件扩 `usedUsd`/`debtUsd`
+（缺失/非法 ⇒ 0，**不由 token 反推**）+ 记账入口 `recordUsdUsage` / 只读 `getUsdState`；跨日同法扣回；`reset()` 清已用不清欠账。
+
+**② S8「换算接线」**（证据 `DEBT4-USD-WIRING`）—— 本轮落地，让 `recordUsdUsage` 获得**生产消费者**：
+
+- **换算口径（与计费链同源）**：`recordTurnCostUsd(parts, model, sessionId)`
+  （`query/DailyBudgetManager.ts`）= core SPI 取价（`model_registry`）→ core 零依赖
+  `calculateTotalCost`（S1/S2 的 `estimateTurnCostUsd`）⇒ **闸门折算口径 === 报表计费口径**（§6-1 同源）。
+- **四参形状（Q-U4）**：`input/output/cacheCreation/cacheRead`；chat 主链的缓存两项**复用既有
+  `buildRequestTimingData`**（缓存字段的唯一提取点 `extractCacheTokens`）⇒ 不另造一份提取逻辑（CS01）。
+- **模型来源（D2 纪律）**：`chat/streamingLlm.ts` 解析**一次** `turnModel`
+  （`extractModelFromResponse(response, options?.model || 'unknown')`）并**同一值**供
+  金额台账与 `trackUsage`（数出同源）；非 chat 路径（LRO 默认执行器 / 翻译三处）传各自**已在用**的模型表达式。
+- **不臆造金额**：模型名缺失 / `'unknown'` 占位 ⇒ **不入账**（`debug` 留痕），**不取兜底价**（§3-D2 明文）；
+  模型**已命名但未登记** ⇒ 仍入账（兜底价，降级可用）但 warn **如实标注** `unknownModel`（Q-U5）。
+- **闸门不动（本轮关键边界）**：只增**金额台账**，`usedUsd` **不参与**任何拦截/档位判定
+  ⇒ 「是否拦截」与现状**逐字一致**（USD 闸门 = **S3**，受 `Q-U3` 未裁定挡住）。
+- **验证**：`tests/query/dailyBudgetUsdWiring.test.ts` **6 例**（金额入账且等于 core 公式 / **Token 口径与档位零变化** /
+  缺模型不入账 / 缓存纳入 / `recordDailyBudgetFromUsage` 两本账 / 0 tokens no-op）；接线点用**源码守卫**钉住
+  （`tests/ai/usageModelAttribution.test.ts` 新增 3 例：第 4 参透传、记账点调用、签名保留 `model?`）；
+  **先红后绿**（停掉入账 ⇒ 4 fail / 2 pass → 还原 6 pass / 0 fail）；回归 `tests/{query,budget,chat,ai,cost,tasks}` **1586 pass / 1 skip（预存）/ 0 fail**。
+- **未做（如实）**：**S3 闸门切金额**（待 `Q-U3`）、S4（`waive-once` 金额预检）、S6（前端 USD 展示）、S7（死配置处置）；
+  **自定义 `ExecutorFn` 路径**（LRO `guardExecutorWithDailyBudget`）的实际模型对编排器不可见 ⇒ 该路径**只记 token、不记金额**。
 
 ---
 

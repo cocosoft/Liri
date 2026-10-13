@@ -46,6 +46,9 @@ import {
 } from './dailyBudgetPersistence.js';
 // 预算档位：**单一事实源** = `dailyBudgetSnapshot.ts`（状态机方案 阶段 1.3 取证去重，消除双事实源）
 import type { BudgetMode } from './dailyBudgetSnapshot.js';
+// 债四「换算接线」（2026-10-13）：单轮用量 + 本轮模型 ⇒ 金额（USD）。
+// 换算内核复用 core 零依赖 `calculateTotalCost` + core SPI 取价（S1/S2），本文件只做**编排与入账**。
+import { estimateTurnCostUsd } from './modelPricingAdapter.js';
 
 const logger = getLogger('query:dailyBudgetManager');
 
@@ -1069,6 +1072,9 @@ export async function initDailyBudget(): Promise<void> {
  * 兼容 `inputTokens/outputTokens`（内部归一化）与 `prompt_tokens/completion_tokens`（OpenAI 形）。
  * 返回实际计入的 tokens（0 表示无有效 usage，未计入）。
  *
+ * @param model 本轮实际模型（债四「换算接线」；供**金额**台账取价）。缺失 ⇒ 只记 token、
+ *   **不记金额**（`recordTurnCostUsd` 内部如实 warn，**不臆造金额**）。
+ *
  * 用途：**非 chat 管线**的模型调用（如长程任务默认执行器 `LongRunningTaskOrchestrator`
  * 的 `service.generate`）——该路径不经 `ChatManager.recordChatResponseUsage`，故在此单点记账。
  *
@@ -1080,12 +1086,69 @@ export async function initDailyBudget(): Promise<void> {
  */
 export function recordDailyBudgetFromUsage(
   usage: unknown,
-  sessionId?: string
+  sessionId?: string,
+  model?: string
 ): number {
   const u = (usage ?? {}) as Record<string, number>;
   const input = u.inputTokens ?? u.prompt_tokens ?? 0;
   const output = u.outputTokens ?? u.completion_tokens ?? 0;
   const total = input + output;
   if (total > 0) getDailyBudget().recordUsage(total, sessionId);
+  // 债四「换算接线」：**金额**台账与 token 口径**并行**（`recordTurnCostUsd` 内部按模型取价换算）。
+  // ⚠️ 本路径**不提取缓存字段**（`extractCacheTokens` 属 `ai` 层 ⇒ query→ai 会造成模块级环）⇒
+  //    缓存用量按缺失处理（**不臆造 0 之外的数**）；chat 主链的「缓存纳入」见 `ChatManager`。
+  if (total > 0) {
+    recordTurnCostUsd({ inputTokens: input, outputTokens: output }, model, sessionId);
+  }
   return total;
+}
+
+/** 单轮用量的**四参形状**（与计费链同参；Q-U4：`input/output/cacheCreation/cacheRead`） */
+export interface TurnCostUsageParts {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+}
+
+/**
+ * 债四「换算接线」（2026-10-13）：把**单轮真实用量 + 本轮模型**折算为**金额**并记入 USD 台账
+ * （债四 S5 的 `recordUsdUsage` **首个生产消费者**）。
+ *
+ * 口径：取价 core SPI（`model_registry`）→ core 零依赖 `calculateTotalCost`（S1/S2）
+ * ⇒ **与成本报表计费链同源**（spec §6-1「同源」，规避「判了却不符」）。
+ *
+ * 边界（如实）：
+ *  - 模型名**不可得**（空 / `'unknown'` 占位）⇒ **不入账**、**不臆造金额**（spec §3-D2 明文禁止
+ *    "回落后静默取兜底价"）—— 只记一条 warn 如实标注（Q-U5 精神：不静默）；
+ *  - 模型**已命名但未登记/零定价** ⇒ **仍入账**（按兜底价，降级可用）但打 warn 如实标注 `unknownModel`；
+ *  - `usd <= 0` ⇒ `recordUsdUsage` 内部幂等 no-op（不落盘）；
+ *  - **闸门判定不变**：本函数只增**金额台账**，`usedUsd` 当前**不参与**任何拦截/档位判定
+ *    （USD 闸门 = S3，受 `§12 Q-U3` 未裁定挡住）⇒ 对"是否拦截"零影响。
+ *
+ * @returns 实际计入的 USD（`0` = 未计入）
+ */
+export function recordTurnCostUsd(
+  parts: TurnCostUsageParts,
+  model: string | undefined,
+  sessionId?: string
+): number {
+  if (!model || model === 'unknown') {
+    // `debug`（非 warn）：调用方**未提供**模型（如长程任务自定义执行器路径）属"不适用"，
+    // 不是异常；关键是**不取兜底价、不臆造金额**（Q-U5「不静默」针对的是"悄悄用了兜底价"）。
+    logger.debug(
+      'dailyBudget:usd_skip — 模型名不可得，跳过金额记账（不臆造金额）',
+      { sessionId, model: model ?? null }
+    );
+    return 0;
+  }
+  const { costUsd, unknownModel } = estimateTurnCostUsd(model, parts);
+  if (unknownModel) {
+    logger.warn(
+      'dailyBudget:usd_unknown_model — 模型未登记/零定价，已按兜底价折算（如实标注）',
+      { sessionId, model, costUsd }
+    );
+  }
+  getDailyBudget().recordUsdUsage(costUsd, sessionId);
+  return costUsd;
 }

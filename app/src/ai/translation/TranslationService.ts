@@ -160,7 +160,8 @@ export class TranslationService {
       });
 
       // G-2/K：非 chat 管线用量计入每日预算（此前翻译只入成本追踪 ⇒ 可绕过日限额）
-      recordDailyBudgetFromUsage(response.usage);
+      // 债四「换算接线」（2026-10-13）：带上本轮模型 ⇒ 金额台账可取价换算（缺失 ⇒ 只记 token）
+      recordDailyBudgetFromUsage(response.usage, undefined, modelName);
 
       rawOutput = response.content || '';
 
@@ -354,7 +355,8 @@ export class TranslationService {
             totalTokens: chatResponse.usage.total_tokens,
           };
           // G-2/K：流式翻译同样计入每日预算（usage 取自流终态回显）
-          recordDailyBudgetFromUsage(chatResponse.usage);
+          // 债四「换算接线」（2026-10-13）：带上本轮模型 ⇒ 金额台账可取价换算
+          recordDailyBudgetFromUsage(chatResponse.usage, undefined, modelName);
         }
       }
     } catch (err) {
@@ -501,7 +503,8 @@ export class TranslationService {
       });
 
       // G-2/K：同上（备选翻译同属非 chat 管线）
-      recordDailyBudgetFromUsage(response.usage);
+      // 债四「换算接线」（2026-10-13）：带上本轮模型 ⇒ 金额台账可取价换算
+      recordDailyBudgetFromUsage(response.usage, undefined, modelName);
 
       const rawOutput = (response.content || '').trim();
 

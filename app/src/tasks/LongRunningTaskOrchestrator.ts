@@ -343,6 +343,9 @@ function guardExecutorWithDailyBudget(
     }
     const result = await base(params);
     // 计账：仅"执行器回传 usage"时计入（默认执行器内部已记账 ⇒ 不回传 usage ⇒ 不重复计）
+    // 债四「换算接线」（2026-10-13）：**自定义** ExecutorFn 的实际模型对编排器不可见
+    // （见 `lro/contracts.ts` 的 `ExecutorResult` 说明）⇒ 该路径**只记 token、不记金额**
+    // （`recordTurnCostUsd` 以 `debug` 留痕，**不取兜底价、不臆造金额**）。
     if (result && typeof result === 'object') {
       recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
     }
@@ -472,13 +475,19 @@ export class LongRunningTaskOrchestrator {
           tools.length > 0 ? { tools } : undefined
         );
 
+        // 债四「换算接线」（2026-10-13）：与 `trackUsage` **同一模型表达式**（数出同源）
+        const turnModel = response.model || model || 'unknown';
         trackUsage(response, {
-          model: response.model || model || 'unknown',
+          model: turnModel,
           providerId: 'default',
           latencyMs: Date.now() - _trackStart,
         });
         // R16（台账 L-14）：任务/子代理**非 chat 管线**用量计入每日预算
-        recordDailyBudgetFromUsage((response as { usage?: unknown }).usage);
+        recordDailyBudgetFromUsage(
+          (response as { usage?: unknown }).usage,
+          undefined,
+          turnModel
+        );
         // 回传 tool_calls —— 步骤工具可真实执行的前提（原实现只 return 文本）。
         return {
           content: response.content ?? '',

@@ -1408,14 +1408,20 @@ export class AgentTool implements Tool {
       });
       const latencyMs = Date.now() - startTime;
 
+      // 债四「换算接线」（2026-10-13）：与 `trackUsage` **同一模型表达式**（数出同源）
+      const turnModel = input.model || agentModel;
       trackUsage(response as unknown as Record<string, unknown>, {
-        model: input.model || agentModel,
+        model: turnModel,
         latencyMs,
       });
 
       // G-2/E（2026-10-11，Spec §5-D-1 E）：**直调路径**同样走非 chat 管线（直调 provider）⇒
       // 用量须计入每日预算，否则"简单任务"子代理可绕过日限额（与引擎路径同款单点记账）。
-      recordDailyBudgetFromUsage((response as { usage?: unknown }).usage);
+      recordDailyBudgetFromUsage(
+        (response as { usage?: unknown }).usage,
+        undefined,
+        turnModel
+      );
     } catch (e) {
       handleError(e, {
         module: 'tools:agentTool',

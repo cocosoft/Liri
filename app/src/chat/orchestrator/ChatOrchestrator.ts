@@ -270,11 +270,17 @@ export interface ChatOrchestratorHost {
     aiMsg: string,
     sessionId: string
   ): Promise<void>;
-  /** 用量记账（P2-2：`requestId` 可选透传，缺省 ⇒ 不写该字段） */
+  /**
+   * 用量记账（P2-2：`requestId` 可选透传，缺省 ⇒ 不写该字段）
+   *
+   * 债四「换算接线」（2026-10-13）：`model`（本轮实际模型）可选透传 ⇒ 供**金额**台账
+   * 取价换算（缺失 ⇒ 只记 token、不记金额，**不臆造金额**）。
+   */
   recordChatResponseUsage(
     sessionId: string,
     usage: Record<string, number> | null | undefined,
-    requestId?: number
+    requestId?: number,
+    model?: string
   ): void;
   sanitizeApiMessages(messages: Record<string, unknown>[]): void;
   truncateApiMessages(

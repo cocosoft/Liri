@@ -163,11 +163,13 @@ export interface ToolLoopContext {
    * 用量记账。P2-2（2026-09-23）：`requestId` 为**可选透传**（= 同请求 `request/start`
    * 的 seq）。P1-16（2026-10-05）：工具轮现由 `StreamingLlm` 每次请求前产
    * `request/start` 并透传 requestId；缺失能力（无 `appendStreamEvent`）⇒ 不传。
+   * 债四「换算接线」（2026-10-13）：`model`（本轮实际模型）供**金额**台账取价；缺失 ⇒ 不记金额。
    */
   recordChatResponseUsage: (
     sessionId: string,
     usage: unknown,
-    requestId?: number
+    requestId?: number,
+    model?: string
   ) => void;
   /** AB-10 修复：工具轮次 LLM 用量上报（区别于 recordChatResponseUsage 的内部记账，此回调转发给 streamMessage 的 onUsage → 前端 usage 事件） */
   onToolUsage?: (usage: Record<string, unknown>) => void;

@@ -812,7 +812,12 @@ export class SubAgentEngine {
       // （直调 provider，不经 `CoreAPI.chatStream` / `sendMessageFlow`）⇒ 此前其用量**不入每日预算**
       // （只入成本追踪）⇒ 子代理扇出可绕过日限额。此处按"provider 回显 usage"单点计入（与默认 LRO
       // 执行器同款：`recordDailyBudgetFromUsage` 是唯一的非 chat 计账助手）。
-      recordDailyBudgetFromUsage((result as { usage?: unknown }).usage);
+      recordDailyBudgetFromUsage(
+        (result as { usage?: unknown }).usage,
+        undefined,
+        // 债四「换算接线」（2026-10-13）：与 `trackUsage` **同一模型**（数出同源）⇒ 金额台账可取价
+        resolvedModel
+      );
 
       otel.endSpan(span, SpanStatusCode.OK);
       return result;

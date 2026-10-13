@@ -102,11 +102,15 @@ export interface PipelineContext {
    * 用量记账（P2-2，2026-09-23：新增可选 `requestId` 透传，**不改用量字段口径**）。
    * `requestId` = 同请求 `request/start` 的 seq ⇒ 用量条与延迟条可归并为同一请求区间；
    * 缺省（工具轮 / 非流式路径等拿不到时）**不写**该字段。
+   *
+   * 债四「换算接线」（2026-10-13）：新增可选 `model`（本轮实际模型）⇒ 供**金额**台账
+   * （`usedUsd`）取价换算；缺失 ⇒ 只记 token、不记金额（**不臆造金额**）。
    */
   recordChatResponseUsage: (
     sessionId: string,
     usage: unknown,
-    requestId?: number
+    requestId?: number,
+    model?: string
   ) => void;
   extractMemoryFromChat: (
     userMsg: string,

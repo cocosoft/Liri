@@ -153,3 +153,46 @@ describe('防漂移：窗口/估价类站点必须经 resolveEffectiveTurnModel 
     });
   }
 });
+
+/**
+ * 债四「换算接线」（2026-10-13）防漂移：**金额台账的模型来源必须与成本归因同源**。
+ *
+ * 依据：spec `.trae/specs/unified-budget-and-accounting.md` §3-D2「模型名来源 =
+ * `resolveEffectiveTurnModel` / provider 回显，**不得**回落 `''`/`'unknown'` 后静默取兜底价」，
+ * 与 §6-1「同源」（闸门折算口径 === 计费口径）。
+ *
+ * 行为侧证据在 `tests/query/dailyBudgetUsdWiring.test.ts`（金额入账/不臆造/四参/闸门不动）；
+ * 本处只钉**接线点**（`ChatManager` 装配极重 ⇒ 用源码守卫防"接线被改回去"）。
+ */
+describe('防漂移：金额台账的模型来源与成本归因同源（债四换算接线）', () => {
+  it('chat/streamingLlm.ts：`recordChatResponseUsage` 第 4 参传**同一** `turnModel`', () => {
+    const code = stripComments(
+      readFileSync(join(APP_SRC, 'chat/streamingLlm.ts'), 'utf-8')
+    );
+    // 必须：解析一次 `turnModel` 并传给金额台账入口（第 4 参）
+    expect(code).toMatch(/const\s+turnModel\s*=\s*extractModelFromResponse\s*\(/);
+    expect(code).toMatch(
+      /recordChatResponseUsage\(\s*this\.deps\.getCtx\(\)\.session\.id,\s*usage,\s*requestId,\s*turnModel\s*\)/
+    );
+    // 同源：成本归因（`trackUsage`）复用**同一** `turnModel`（不各自解析一次）
+    expect(code).toMatch(/model:\s*turnModel,/);
+  });
+
+  it('chat/ChatManager.ts：记账点内调用 `recordTurnCostUsd(..., model, sessionId)`', () => {
+    const code = stripComments(
+      readFileSync(join(APP_SRC, 'chat/ChatManager.ts'), 'utf-8')
+    );
+    expect(code).toMatch(
+      /recordTurnCostUsd\([\s\S]{0,400}?model,\s*\n?\s*sessionId\s*\n?\s*\)/
+    );
+  });
+
+  it('chat/ChatManager.ts：记账签名保留 `model?` 形参（透传链不丢）', () => {
+    const code = stripComments(
+      readFileSync(join(APP_SRC, 'chat/ChatManager.ts'), 'utf-8')
+    );
+    expect(code).toMatch(
+      /private\s+recordChatResponseUsage\([\s\S]{0,200}?model\?:\s*string/
+    );
+  });
+});

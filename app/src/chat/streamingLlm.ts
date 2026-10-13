@@ -431,9 +431,21 @@ export class StreamingLlm {
     ) {
       return;
     }
+    // 债四「换算接线」（2026-10-13）：本轮**实际模型**解析一次、**同一值**供两处使用
+    // （金额台账 + 成本追踪）⇒ 数出同源（CS01：复用既有 `extractModelFromResponse`，不新增实现）。
+    // 回落顺序：response.model → options.model → 'unknown'（'unknown' ⇒ 金额台账**不记账**，不臆造）。
+    const turnModel = extractModelFromResponse(
+      response,
+      (this.deps.getCtx().options?.model as string | undefined) || 'unknown'
+    );
     this.deps
       .getCtx()
-      .recordChatResponseUsage(this.deps.getCtx().session.id, usage, requestId);
+      .recordChatResponseUsage(
+        this.deps.getCtx().session.id,
+        usage,
+        requestId,
+        turnModel
+      );
     this.deps.getCtx().onToolUsage?.((usage as Record<string, unknown>) ?? {});
     trackUsage(response as unknown as Record<string, unknown>, {
       // 2026-09-27 修 `LLM call recorded: unknown`：服务端自发轮次（系统续跑 / 自唤醒 /
@@ -443,10 +455,7 @@ export class StreamingLlm {
       // 改用既有助手取 **provider 回显的真实模型名**（`ChatResponse.model`），
       // 回落顺序：response.model → options.model → 'unknown'（复用 `extractModelFromResponse`，
       // 与 `SessionSummarizer` 同源，不新增实现）。
-      model: extractModelFromResponse(
-        response,
-        (this.deps.getCtx().options?.model as string | undefined) || 'unknown'
-      ),
+      model: turnModel,
       providerId: this.deps.getCtx().activeClient.getProviderId(),
       latencyMs: 0,
       isStreaming: !this.deps.getInput().nonStreaming,

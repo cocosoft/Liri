@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.89-blue)
+![Version](https://img.shields.io/badge/version-0.4.90-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.89**
+当前版本：**v0.4.90**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,9 +436,9 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.89 (2026-10-13)  20261012 批次落地复查 · 补齐第六批（侧车化 S3：崩溃结算/重启 + 取消下传） 
-- ✅ **侧车化 S3（`TOOLGOV-SIDECAR-S3`）** - **取消下传**（T3.2）：工具层认领 `AbortSignal`（[SidecarLspTool.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/SidecarLspTool.ts) 对齐既有 `McpToolWrapper` 做法）⇒ supervisor 写 `notify` 帧（**沿用 `sidecarIpc` 既有形状，未造新协议**）并本地结算 ⇒ 侧车 `abort()` 在飞连接 ⇒ 连接层转发标准 LSP `$/cancelRequest`；取消 ⇒ 明确「已取消」且**不回落内置**。**崩溃结算/重启**（T3.1）：崩溃 ⇒ **pending 全拒**（明确错误）+ **不自动重试**（避免重复副作用）+ **有界重启**（重启窗口内请求等待握手就绪；超限 ⇒ `fatal` fail-closed）。**验证**：先红后绿（实现前 2 pass / 5 fail ⇒ 后 **7 pass / 0 fail**）+ **真实进程级 + 故障注入（假 LS）E2E** 全链通过（取消 ⇒ LS 收到 `cancel:` 且主内核存活 ⇒ kill ⇒ 重启 ⇒ 再请求成功）；`tests/{tools,utils}` **1051 pass / 0 fail**；门禁全绿
-- ⚠️ **如实遗留（S3）** - **真实 `typescript-language-server` 的语义端到端仍未验证**（本机未安装，同 S0/S2）；取消为 **best-effort**（侧车已崩时 `notify` 静默无写）；`fatal` 态后请求立即 fail-closed；`TOOL_SIDECAR_LSP` 仍**默认关** ⇒ 生产零行为变更
+#### v0.4.90 (2026-10-13)  20261012 批次落地复查 · 补齐第七批（侧车化 S4：同源门禁） 
+- ✅ **侧车化 S4（`TOOLGOV-SIDECAR-S4`）** - **取证结论**：侧车工具**已在同一 `ToolRegistry` / 同一装配链**（[ToolManagerUtils.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/utils/ToolManagerUtils.ts) 的 `cond(coreFeature('LSP'), …)` 位于 `buildBuiltinToolLoaders()` 清单内 ⇒ 进唯一注册表），且 **PathGuard 与结果上限已天然覆盖**（`ReActToolLoop` 门禁落点 + 注册表驱动的 `resolveToolParamNames`（`file_path ∈ PATH_ARG_KEYS`）+ 公共 `ToolResultBudget`）。**T4.1 裁定 = 保名派**：**不**改名为 `${server}__${tool}`（改名派会破坏 S2 已锁定的 schema deep-equal 不变量，且侧车不是 MCP server ⇒ 需整套 MCP 基建）⇒ 达成「进同一 registry、自动获同套门禁」的**目标**，工具名恒 `lsp`；计划 T4.1 验收原文已按此订正并留档冲突。**T4.2 落地**：新增 `SIDECAR_LSP_LANDLOCK_APPLICABILITY` **显式声明**（代码常量 + 注释 + 测试三处一致；LSP 只读查询 ⇒ **Landlock N/A**，不装作同源）+ 测试 `sidecarSameSourceGate.test.ts` **9 例**。**如实**：真实红→绿**仅**发生在 Landlock 常量（PathGuard/结果上限两例因机制层 S2 已覆盖，**首次可运行即绿**）；`tests/{tools,chat,utils}` **1597 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S4）** - 真实 `typescript-language-server` 端到端仍未验证（同 S0/S2/S3）；未在 `ReActToolLoop` **全栈**做整轮拦截断言（改在门禁落点证明同源）；`TOOL_SIDECAR_LSP` 仍默认关 ⇒ 生产零行为变更
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.77-blue)
+![Version](https://img.shields.io/badge/version-0.4.78-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.77**
+当前版本：**v0.4.78**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,18 +436,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.77 (2026-10-11)
+#### v0.4.78 (2026-10-13)
 
-**工具治理四阶段落地（D1–D11 / G1–G22 · 含 G18 上帝对象拆分）+ Token 日限额 R16 收口 + 边界收口批次（B2–B6）**
+**长程任务「预算挂起—续跑」：真实端到端复测修复（E2E-1 会话锁泄漏，唤醒从此真的续跑）**
 
-- ✅ **工具治理阶段 1–4（D1–D11 裁定落地）** - bash 硬拦截层**恒执行**；`commandNormalization` 收敛 raw/preprocessed/normalized/paths **单一事实源**；工具调用状态语义化（`TOOL_CALL_STATUSES` + 转移表）；取消全链路（MCP / WebFetch 接 `AbortSignal.any`）；**D1** `feature()` **三层优先**（env → 构建期 flags → 静态兜底）· **D2** 权限未注入 **fail-fast** · **D3** `unknown` 工具调用复用 Inbox 审批 · **D5** 工具能力契约 + 渐进棘轮 · **D6** 恢复两步同事务 · **D7** VFS 文件类工具**默认不注册**（消除双轨）
-- ✅ **G18 上帝对象拆分（零行为变更）** - `ToolFactory` **1030 → 112** 行（80 条 `name→thunk` 注册表为**唯一来源**，~80 处 loader 改 `byKey`，新增注册表↔loader 一致性门禁）；`BashTool` **1027 → 696** 行（抽出 `bashCommandPolicy` / `bashOutputTruncate` / `bashSecurityGate`，`execute` ≈440 行 / 复杂度 52 → ≈184 行 / < 40）
-- ✅ **工具名单一来源（D11-B / G5）** - 新增 `toolNameConstants`（**90 项** = 73 生效名 + 17 条件名），59 个工具类改引常量（值不变）；`gen-tool-names` 生成物同步（75 名）+ G5 双向门禁（生效面 ⊆ 声明面）
-- ✅ **变体链路 CI 矩阵（S3-1 / G2 / G3）** - `build-variant` 正名为「变体 flags 生成」；CI 新增 `variant-check`（core/coding/enterprise 三变体各跑 `typecheck` + 工具面/契约门禁）
-- ✅ **Token 日限额 R16 收口（阶段 1–5）** - 修复「重启绕过 / 不可配置 / 不可观测 / 日界错位 / 死配置」五类缺口：状态落盘（1s 去抖 + 启动恢复）+ 日界改**本地时区**；单一事实来源 + 运行期热更新；新增 `GET/PUT /v1/cost/daily-budget`（+ reset / kill-switch）；前端「日限额」tab；`CostBudgetManager.getPeriodCost` 改按周期起点查（原返回全时累计 ⇒ 三档失真）
-- ✅ **边界收口批次 + 工程修复（B2–B6）** - `INV-EXEC-006` 升 verified；`events.idx` 续页线性续扫（5 万事件 ×10 趋势 **×30.6 → ×17.6**）；`MODE-A9` 收口为每版复查项；Q4 复评 9 项逐条读观测**全部维持**（台账 0 → 43）；修 5 处 `LIRI_*` 环境变量跨文件泄漏 + **测试进程 `NODE_ENV` 归一**（修 `test:guarded` 本机/CI 假红）
-- ✅ **质量** - `typecheck`（app + client）**0** · **`bun run test:guarded` exit 0**（**5868 pass / 42 skip / 0 fail**）· `lint:arch` 违规 **0**（4 基线警告）· 本版区间 `v0.4.76..v0.4.77` 共 **14** 次实质提交
-- ℹ️ **边界（如实）** - 无默认开关翻转（`featureFlags.ts` 逐字未动）；ON_DEMAND 触发路径零消费者**登记不删**（G-C5）；D7 下 VFS 文件类工具**默认不注册**；`runStreamMessage` 拆分残余受控制流关键字约束（再抽唯一路径为状态机化，收益未证 ⇒ 不排期）
+- ✅ **E2E-1 根因修复（不受开关门控）** - `ChatManager.resumeStream` 的 `mutex.release()` 原**只覆盖工具循环那一段**的 `try/finally`，而 `StreamingAutoCheckpoint.restore()` 抛错与「无可用检查点 ⇒ yield error + return」两个出口都落在该 `try` **之前** ⇒ 会话互斥锁**永久泄漏** ⇒ 在飞守卫（`上一条回复仍在生成中…`）**永久**判「生成中」⇒ 唤醒被挡下。**修复** = 把 `try` 前移到 `acquire()` 之后（release 仍**唯一一处**，不引入双重 release）；**既有** `POST /v1/sessions/:id/resume`（手动续跑）同路径受益
+- ✅ **回归测试（3 例，含反证）** - `tests/chat/budgetSuspendStream.test.ts` 新增 `E2E-1` 组（判据用 `acquire(0)`，避开毫秒粒度假绿）；以 `git stash` 反证 ⇒ 该组确能捕获本缺陷
+- ✅ **真实验收（`e2eVerified` 转 true）** - 修后真实全链通过：撞限挂起 → 放行 `boost` → `budgetSuspend:resumed` + `resume_summary{woken:[SID]}` ⇒ 该会话消息 **2 → 6**（真的续跑）
+- ℹ️ **边界（如实）** - **E2E-2** 仍列为**开放判据**（首轮观测本次未复现）；开关仍**默认关**（关时零行为变更）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

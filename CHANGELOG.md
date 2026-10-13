@@ -19,6 +19,32 @@
 
 ## [未发布]
 
+**20261012 批次落地复查 · 补齐第九批（侧车化 S5：P2 媒体侧车）**
+
+- ✅ **侧车化 S5（`TOOLGOV-SIDECAR-S5`，受 `TOOL_SIDECAR_MEDIA`，**默认关**）** - **T5.1**：`vision_worker` 纳入**受管侧车面** —— 新增 `tools/sidecar/{mediaSidecar,mediaSidecarLifecycle,mediaCapabilities,SidecarMediaAnalyzer}.ts`（**复用** `ToolSidecarSupervisor` + `sidecarIpc`，**无第三套 IPC**；生命周期语义复用 S3 已验证的握手/崩溃结算/有界重启），`ImageAnalysisTool` 改**双跑**（关 ⇒ 既有 `WorkerGuard` 逐字不变；开 ⇒ 经 `media.analyze` 同形状返回）；覆盖 `ocr`/`objects`/`similarity`，其余**显式 fail-closed**。**T5.2**：`sharp` **只收一处** —— `ImageInputRouter` 的超大图缩放（原 >20MB 动态 `import('sharp')`）开关开经 `media.resize`，关逐字原路径；**未触碰** `media/image/ImageProcessor.ts` 主路径。**等价性**：off/on **字节级等价**（on 后端 = 同参数真 sharp）+ 断言确发 `maxSide:2048,quality:85`；后端抛错 ⇒ **不静默回落**。**验证**：先红后绿（3 errors + 5 fail / 1 pass ⇒ **17 pass / 0 fail**）；`tests/tools/sidecar` **64 pass**；`tests/{tools,utils,ai}` **1325 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S5）** - **真实 L2 模型端到端未验证**：真起侧车后握手与 `media.resize`（真 sharp）通过，但 `media.analyze(ocr)` 受阻于 `Model 'easyocr' is not installed`（缺 EasyOCR/ultralytics/open_clip）⇒ 仅打通到「模型缺失」的结构化错误；**无 >20MB 真图夹具** ⇒ 以 161KB 图 + 缩小 `maxBytes` 触发同一路径做等价验证（计划允许的退化）；**未摘未删** `ai/python/**`（CD05/CD06/CD07）
+
+**20261012 批次落地复查 · 补齐第八批（门禁 DX 硬化：登记表 JSON 破损可精确定位）**
+
+- ✅ **`lint:fix-evidence` 解析失败时给出精确行列 + 惯例提示** - 本仓已**三次**因"登记表字符串内误用 ASCII 双引号"致 JSON 提前闭合，而 bun 的 `JSON Parse error` **不带位置**（只见 `Unrecognized token 'X'`）⇒ 排障成本高。新增 `locateStrayQuote()`（纯文本扫描：字符串闭合后下一个非空白字符必须是 `,` `}` `]` `:`；否则即元凶）⇒ 失败时打印 `文件:行:列`、该行内容与「本仓惯例：字符串内一律用中文引号「」」提示（[scripts/lint-fix-evidence.ts](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-fix-evidence.ts)）
+- ✅ **负向自证（含修 bug）** - `app/tests/gates/fixEvidenceGate.test.ts` 新增 1 例：喂入含未转义引号的登记表 ⇒ 断言 exit 1 + 提示文案 + **元凶行号**。**首轮该用例即捕获我自己的实现 bug**（闭合后未复位 `inStr` ⇒ 报错位置偏移到 3:3）、修正后 **8 pass / 0 fail**。`lint:fix-evidence` 正常路径仍 **119 条自洽**；`typecheck` 0 错；`lint:fn-size`/`complexity` 未增长
+
+**20261012 批次落地复查 · 补齐第七批（侧车化 S4：同源门禁）**
+
+- ✅ **侧车化 S4（`TOOLGOV-SIDECAR-S4`）** - **取证结论**：侧车工具**已在同一 `ToolRegistry` / 同一装配链**（[ToolManagerUtils.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/utils/ToolManagerUtils.ts) 的 `cond(coreFeature('LSP'), …)` 位于 `buildBuiltinToolLoaders()` 清单内 ⇒ 进唯一注册表），且 **PathGuard 与结果上限已天然覆盖**（`ReActToolLoop` 门禁落点 + 注册表驱动的 `resolveToolParamNames`（`file_path ∈ PATH_ARG_KEYS`）+ 公共 `ToolResultBudget`）。**T4.1 裁定 = 保名派**：**不**改名为 `${server}__${tool}`（改名派会破坏 S2 已锁定的 schema deep-equal 不变量，且侧车不是 MCP server ⇒ 需整套 MCP 基建）⇒ 达成「进同一 registry、自动获同套门禁」的**目标**，工具名恒 `lsp`；计划 T4.1 验收原文已按此订正并留档冲突。**T4.2 落地**：新增 `SIDECAR_LSP_LANDLOCK_APPLICABILITY` **显式声明**（代码常量 + 注释 + 测试三处一致；LSP 只读查询 ⇒ **Landlock N/A**，不装作同源）+ 测试 `sidecarSameSourceGate.test.ts` **9 例**。**如实**：真实红→绿**仅**发生在 Landlock 常量（PathGuard/结果上限两例因机制层 S2 已覆盖，**首次可运行即绿**）；`tests/{tools,chat,utils}` **1597 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S4）** - 真实 `typescript-language-server` 端到端仍未验证（同 S0/S2/S3）；未在 `ReActToolLoop` **全栈**做整轮拦截断言（改在门禁落点证明同源）；`TOOL_SIDECAR_LSP` 仍默认关 ⇒ 生产零行为变更
+
+**20261012 批次落地复查 · 补齐第六批（侧车化 S3：崩溃结算/重启 + 取消下传）**
+
+- ✅ **侧车化 S3（`TOOLGOV-SIDECAR-S3`）** - **取消下传**（T3.2）：工具层认领 `AbortSignal`（[SidecarLspTool.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/SidecarLspTool.ts) 对齐既有 `McpToolWrapper` 做法）⇒ supervisor 写 `notify` 帧（**沿用 `sidecarIpc` 既有形状，未造新协议**）并本地结算 ⇒ 侧车 `abort()` 在飞连接 ⇒ 连接层转发标准 LSP `$/cancelRequest`；取消 ⇒ 明确「已取消」且**不回落内置**。**崩溃结算/重启**（T3.1）：崩溃 ⇒ **pending 全拒**（明确错误）+ **不自动重试**（避免重复副作用）+ **有界重启**（重启窗口内请求等待握手就绪；超限 ⇒ `fatal` fail-closed）。**验证**：先红后绿（实现前 2 pass / 5 fail ⇒ 后 **7 pass / 0 fail**）+ **真实进程级 + 故障注入（假 LS）E2E** 全链通过（取消 ⇒ LS 收到 `cancel:` 且主内核存活 ⇒ kill ⇒ 重启 ⇒ 再请求成功）；`tests/{tools,utils}` **1051 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S3）** - **真实 `typescript-language-server` 的语义端到端仍未验证**（本机未安装，同 S0/S2）；取消为 **best-effort**（侧车已崩时 `notify` 静默无写）；`fatal` 态后请求立即 fail-closed；`TOOL_SIDECAR_LSP` 仍**默认关** ⇒ 生产零行为变更
+
+**20261012 批次落地复查 · 补齐第五批（侧车化 S2：`lsp` 工具经侧车真接线，Option A）**
+
+- ✅ **侧车化 S2 —— `lsp` 工具**经侧车真接线**（`TOOLGOV-SIDECAR-S2`）** - 用户裁定 **Option A**：**不收敛轨 B**（`app/src/lsp/**` 与 `tools/lsp/**` **未触碰**；前置取证 = 轨 B 静态近零 + **运行时不可达**，见 T0.1）。新增 [lspConnection.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/lspConnection.ts)（侧车**自持**最小 LSP 连接：标准 `Content-Length` 分帧 + `initialize`/`hover`/`definition`；`spawnFn` 可注入）与 [SidecarLspTool.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/SidecarLspTool.ts)（适配器 schema 与内置 `LSPToolAdapter` **deep-equal**）；[lspSidecar.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/lspSidecar.ts) 由桩改为**真实分派**；loader 侧车分支由「返回 `null`」改为经侧车执行（**off 分支逐字不变**，装配点未动 ⇒ 同一 ToolRegistry/PathGuard/结果上限）。**覆盖 3 项**（`initialize`/`hover`/`definition`），**其余 11 个 action 一律 fail-closed `NOT_IMPLEMENTED`**（不假装成功、不静默回落内置）。先红后绿（7 fail + 2 errors ⇒ **38 pass / 0 fail**）+ **真实进程级（假 LS）E2E** 打通；`tests/{tools,utils}` **1044 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S2）** - **真实 LS 端到端未验证**（本机无 `typescript-language-server`，详见 S0）；LS 崩溃恢复/退避与**取消下传**未接线（属 S3）；**同源门禁**（S4/T1-11）未做；`tools/sidecar/` 全程 **默认关**（`TOOL_SIDECAR_LSP=false`）⇒ 生产零行为变更
+- 📄 **文档订正（顺带）** - 实施计划 T0.2 的**错误前提**已订正：`CHANGELOG.md` 并无「D10 P1 未落地」表述（`:221` 早已记 ✅；`:90` 实为 MCP 安全段）⇒ 该任务**无需**改动 CHANGELOG；真正的漂移在 `工具治理方案`/`盘点清单`（先前已修）
+
 **20261012 批次落地复查 · 补齐第四批（侧车化 S0+S1 骨架 · 债四 S1+S2 换算内核，均默认关/未接线）**
 
 - ✅ **侧车化 S0（前置校验，零产品代码）** - ① **轨 B（`app/src/lsp/**`）静态近零但存在字面量动态 thunk**：`core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（`ON_DEMAND`），然而触发链 `ModuleInitializer.requestOnDemandModule()` **全仓零调用** ⇒ 属 CD07「未接线但动态可发现」**高风险项，登记不删**（结论与无法确认项已回填实施计划）；② 真机探测**如实受阻**：本机 `typescript-language-server` **不可用**（`npx --no-install` 失败）、仓库内**无 >5MB 图片夹具** ⇒ P2 真机项需外部环境补齐；③ 基座复核 `tests/utils/sidecarIpc.test.ts` **8 pass**
@@ -79,13 +105,6 @@
 - ✅ **B3-1 唤醒后不真正续跑根因修复（不受开关门控）** - 根因：`TAORLoop.resumeFromCheckpoint`（`TAORLoop.ts:1528`）未清除挂起时 `beforeReasoning` 置的 `stopped=true`，而唤醒路径为保住恢复态**刻意跳过 `reset()`**（G-T3-1）⇒ 首个 seeded ACT 的 `shouldContinue` 判「有工具调用但被判不继续」⇒ 工具被静默丢弃。**修法**：恢复时 `this.stopped = false`（**净零行**守 R04-001：`TAORLoop.ts` 仍 2000 行）；回归 `app/tests/query/taorResumeClearsStopped.test.ts`（先红后绿）。修复后真实复测：至少一个 taor 会话 `budgetSuspend:resumed` + `resume_summary{woken:[SID]}` 且**新增真实工具结果消息**（真的续跑）
 - ✅ **回归与门禁** - 新增 `tests/http/latestCheckpointSuspend.contract.test.ts`（4 例）+ `tests/http/dailyBudgetSuspend.contract.test.ts`（5 例）+ `tests/query/taorResumeClearsStopped.test.ts`（1 例，TDD 先红后绿）；`typecheck` 0 错；`lint:arch` 0 错；`lint:size` 0 错（TAORLoop 2000）；相关测试 **502 pass / 1 fail**（该 1 fail 为**环境型**：`dailyBudgetSingleton` 的 env 覆盖断言被持久化配置 `costControl.dailyTokenBudget` 遮蔽，与代码改动无关）
 - ⚠️ **未修（如实，开放）** - **B3-2**：taor 恢复轮可被 `TAORLoop._observeRound` 的 `this.dailyBudget.checkDiminishingReturns()`（`TAORLoop.ts:1187-1195`）以 `diminishing_returns` 提前终止，且该早退**先于** `persistMessages` ⇒ 续跑落空；根因 = 跳过 `reset()` 后 loop-local `dailyBudget` 的收益递减连续性跨挂起边界残留（涉「`dailyBudget` 跨 run 保留」既有决策，属设计取舍）。**B3-3**：唤醒端口惰性装配（`_ensureBudgetSuspendResumeInstalled` 仅在 `sendMessage`/`streamMessage`）⇒ 重启后未先发消息即点放行则不唤醒。⇒ **taor 链 E2E 记为部分通过**（挂起/登记/负向通过，续跑对至少一会话成立但不稳定）。开关仍**默认关**
-
-**长程任务「预算挂起—续跑」：真实端到端复测修复（E2E-1 会话锁泄漏，唤醒从此真的续跑）**
-
-- ✅ **E2E-1 根因修复（不受开关门控）** - 真实端到端手测（`--http-only` + `FEATURE_BUDGET_SUSPEND_RESUME=true` + 真实 LLM）证实：挂起成功、**唤醒永远失败** —— `resumeSuspendedSession: 流式重发失败，保留挂起 {error:"上一条回复仍在生成中（已执行约 0 秒…）"}`，45s 后仍未恢复；再次唤醒则 `SimpleMutex: acquire timeout after 30000ms`。**根因**：`ChatManager.resumeStream` 的 `mutex.release()` **只覆盖工具循环那一段的 `try/finally`**，而 `StreamingAutoCheckpoint.restore()` 抛错与「无可用检查点 ⇒ yield error + return」两个出口都落在该 `try` **之前** ⇒ 会话互斥锁**永久泄漏** ⇒ `getHeldDurationMs() > 0` 使 `ChatOrchestrator.sendMessage` 的在飞守卫（`ChatOrchestrator.ts:681-686`，文案 `上一条回复仍在生成中…`）**永久**判「生成中」⇒ C1 的「重发一轮」被挡下。**修复**：把 `try` 前移到 `acquire()` 之后，使 `release` 覆盖 `acquire` 之后的**全部出口**（release 仍只有**唯一一处** = 最外层 `finally`，不引入双重 release）。**既有 `POST /v1/sessions/:id/resume`（用户手动续跑）同路径受益** —— 该路径此前也会把会话锁泄漏成「永久生成中」
-- ✅ **回归测试（3 例，含反证）** - `app/tests/chat/budgetSuspendStream.test.ts` 新增 `E2E-1` 组：① 无可用检查点时真实 `resumeStream` 跑完后会话锁必须已释放（判据用 `acquire(0)` 而非 `getHeldDurationMs()`，后者有毫秒粒度假绿）；② 真实 `resumeStream` + 唤醒 ⇒ 真的重发一轮（返回 `true`、执行入口恰 1 次）且不残留锁；③ **负向**：会话锁被真实持有时同会话再发送仍被守卫快速失败挡下（防"一刀切绕过守卫"）。**反证**：以 `git stash` 退回修复前，①② 均以 `SimpleMutex: acquire timeout after 0ms` 失败、③ 恒绿 ⇒ 该组测试确能捕获本缺陷
-- ✅ **真实验收（§6.8，`e2eVerified` 转 true）** - 修后复测全链通过：`reActLoop:daily_budget_exhausted{iteration:0}` → `budgetSuspend:suspended{chain:'stream'}` →（放行 `boost`）→ `budgetSuspend:resumed{kind:'boost'}` + `resume_summary{woken:[<SID>]}` → **该会话消息数 2 → 6**（新增续跑提示 user 消息 + 新 assistant + 2 条 tool 结果）。**负向**：真实并发双发仍被守卫挡下（日志 `[chat] 上一条回复仍在生成中…`）。开关仍**默认关**（关时零行为变更）
-- ℹ️ **边界（如实）** - **E2E-2（开放）**：首轮观测「第二次 `applyRelief(boost)` 未再次触发唤醒」本次**未复现**（日志可见第二次唤醒尝试 ⇒ 原观测系被泄漏锁阻塞后的次生表现），仍列为开放判据。文档/台账：`.trae/specs/long-task-suspend-resume.md` v1.4（§0/§3-D7/§6.8）、`fix-evidence-registry.json` `BUDGET-SUSPEND-RESUME`（⑧⑨）、修复报告 `.superpowers/sdd/budget-suspend-resume/e2e1-fix-report.md`
 
 **MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
 
@@ -159,6 +178,15 @@
 - ⚠️ **如实缺口**（`e2eVerified=false`） - 未做真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是既有类型盲区（parked）；唤醒上限按"成功数"计数（handler 调用数可 > N，未单测）；`taor` 续跑的 host 胶水缺集成用例。证据 `BUDGET-SUSPEND-RESUME`
 
 ---
+
+#### v0.4.78 (2026-10-13)
+
+长程任务「预算挂起—续跑」：真实端到端复测修复（E2E-1 会话锁泄漏，唤醒从此真的续跑）
+
+- ✅ **E2E-1 根因修复（不受开关门控）** - 真实端到端手测（`--http-only` + `FEATURE_BUDGET_SUSPEND_RESUME=true` + 真实 LLM）证实：挂起成功、**唤醒永远失败** —— `resumeSuspendedSession: 流式重发失败，保留挂起 {error:"上一条回复仍在生成中（已执行约 0 秒…）"}`，45s 后仍未恢复；再次唤醒则 `SimpleMutex: acquire timeout after 30000ms`。**根因**：`ChatManager.resumeStream` 的 `mutex.release()` **只覆盖工具循环那一段的 `try/finally`**，而 `StreamingAutoCheckpoint.restore()` 抛错与「无可用检查点 ⇒ yield error + return」两个出口都落在该 `try` **之前** ⇒ 会话互斥锁**永久泄漏** ⇒ `getHeldDurationMs() > 0` 使 `ChatOrchestrator.sendMessage` 的在飞守卫（`ChatOrchestrator.ts:681-686`，文案 `上一条回复仍在生成中…`）**永久**判「生成中」⇒ C1 的「重发一轮」被挡下。**修复**：把 `try` 前移到 `acquire()` 之后，使 `release` 覆盖 `acquire` 之后的**全部出口**（release 仍只有**唯一一处** = 最外层 `finally`，不引入双重 release）。**既有 `POST /v1/sessions/:id/resume`（用户手动续跑）同路径受益** —— 该路径此前也会把会话锁泄漏成「永久生成中」
+- ✅ **回归测试（3 例，含反证）** - `app/tests/chat/budgetSuspendStream.test.ts` 新增 `E2E-1` 组：① 无可用检查点时真实 `resumeStream` 跑完后会话锁必须已释放（判据用 `acquire(0)` 而非 `getHeldDurationMs()`，后者有毫秒粒度假绿）；② 真实 `resumeStream` + 唤醒 ⇒ 真的重发一轮（返回 `true`、执行入口恰 1 次）且不残留锁；③ **负向**：会话锁被真实持有时同会话再发送仍被守卫快速失败挡下（防"一刀切绕过守卫"）。**反证**：以 `git stash` 退回修复前，①② 均以 `SimpleMutex: acquire timeout after 0ms` 失败、③ 恒绿 ⇒ 该组测试确能捕获本缺陷
+- ✅ **真实验收（§6.8，`e2eVerified` 转 true）** - 修后复测全链通过：`reActLoop:daily_budget_exhausted{iteration:0}` → `budgetSuspend:suspended{chain:'stream'}` →（放行 `boost`）→ `budgetSuspend:resumed{kind:'boost'}` + `resume_summary{woken:[<SID>]}` → **该会话消息数 2 → 6**（新增续跑提示 user 消息 + 新 assistant + 2 条 tool 结果）。**负向**：真实并发双发仍被守卫挡下（日志 `[chat] 上一条回复仍在生成中…`）。开关仍**默认关**（关时零行为变更）
+- ℹ️ **边界（如实）** - **E2E-2（开放）**：首轮观测「第二次 `applyRelief(boost)` 未再次触发唤醒」本次**未复现**（日志可见第二次唤醒尝试 ⇒ 原观测系被泄漏锁阻塞后的次生表现），仍列为开放判据。文档/台账：`.trae/specs/long-task-suspend-resume.md` v1.4（§0/§3-D7/§6.8）、`fix-evidence-registry.json` `BUDGET-SUSPEND-RESUME`（⑧⑨）、修复报告 `.superpowers/sdd/budget-suspend-resume/e2e1-fix-report.md`
 
 #### v0.4.77 (2026-10-11)
 

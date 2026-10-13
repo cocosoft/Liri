@@ -605,6 +605,14 @@ export interface LiriEventMap {
     priorGeneration: number;
     generation?: number;
   };
+  // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照（durable 落盘，非遥测广播；镜像 app 侧同名字段，勿单端改）
+  "execution/prepared": {
+    executionId: string;
+    generation: number;
+    messageId?: string;
+    visibleTools: string[];
+    taskType?: string;
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────

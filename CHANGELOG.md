@@ -19,6 +19,8 @@
 
 ## [未发布]
 
+- ✅ **执行域「PREPARED 快照」durable 落盘能力（T1-13 / `✅-4` 前置，S1）** - 新增 durable 会话事件 `execution/prepared`（三处登记：`shared/events/eventNames.ts` / `session/types/eventPayloads.ts` / `session/types/knownEventTypes.ts`，漏一即编译失败；前端自有 `LiriEventMap` 镜像同步补键）+ `execution/preparedSnapshot.ts`（`emitPreparedSnapshot` / 纯函数 `pickPreparedSnapshot`）。**语义与四原语遥测广播分离**：后者是 fire-and-forget 带外广播（受 `STATE_PROJECTION_BROADCAST` 默认关门控），本事件是**落盘事实**（**不受**该开关门控）；**复用**既有 `execution/eventSink.ts` 追加通道（不新建事件通道/总线）。**落点 P-B（用户 2026-10-13 裁定）**：`streamMessageToolSelectionFlow.selectAndObserveToolDefinitions`（工具集 trim 后、**首次模型请求之前**，与 `RequestSnapshotService` 的写前持久化同相位）⇒ 记「本次执行 PREPARED 时点的**最终可见工具名**（去重 + 稳定排序，只存名字）」，供重放**读落盘快照**而非直读当前 Profile。`generation` 由执行记录补齐（缺失 ⇒ **不臆造**、如实 warn 后不落盘）。新增 `tests/execution/preparedSnapshot.test.ts` **5 例**（先红后绿：临时置空发射点 ⇒ 3 fail / 2 pass → 还原 5 pass / 0 fail）；回归 `tests/execution` 87/0、`tests/chat/orchestrator`+`tests/tools/toolCategories.test.ts` 112/0。**如实边界**：本批**只落能力本体**，**未实现 TG-4**（会话 profile 按需注入）；`pickPreparedSnapshot` **暂无生产消费者**（消费方 = TG-4 重放路径）；**未改** `ExecutionManager.recover()`（DB 路径 ≠ 会话事件重放）；`e2eVerified=false`。零行为变更口径：仅新增 1 类 log-only 事件，工具可见面与模型请求内容不变。证据 `PREPARED-SNAPSHOT-PERSIST`。
+
 ---
 
 #### v0.4.99 (2026-10-13)

@@ -19,6 +19,7 @@ import { estimateTokens } from '@modules/ai';
 import type { ToolDefinition } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
 import { recordToolSchemaEntropy } from '@modules/tools';
+import { emitPreparedSnapshot } from '@modules/execution';
 import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
 import { selectToolsForTurn } from './streamMessageToolSelection.js';
@@ -31,6 +32,8 @@ export interface ToolSelectionFlowOptions {
   model?: string;
   images?: unknown[];
   metadata?: Record<string, unknown>;
+  /** T1-13（2026-10-13）：本次执行的 id（PREPARED 快照落盘所需；入口未下传 ⇒ 无快照） */
+  executionId?: string;
 }
 
 /** 工具集选择 + 观测入参 */
@@ -93,6 +96,24 @@ export function selectAndObserveToolDefinitions(
     });
     toolDefinitions.length = 0;
     toolDefinitions.push(...selection.tools);
+  }
+
+  // T1-13 / `✅-4`（2026-10-13）—— **PREPARED 快照 durable 落盘**（落点 P-B：首次模型请求之前）。
+  // 作用：动态可见性清单的**最终快照**随会话事件落盘 ⇒ 重放（`recover`）读**落盘快照**，
+  // **严禁**直读当前运行时 Profile（否则长任务运行期改 Profile ⇒ 重放工具面与历史不一致）。
+  // 与四原语**遥测广播**不同：本落盘**不受** `STATE_PROJECTION_BROADCAST` 门控。
+  // 入口未下传 `executionId`（部分直连路径）⇒ 无执行身份可关联 ⇒ 如实不落（不臆造，CS04）。
+  if (options?.executionId) {
+    emitPreparedSnapshot({
+      sessionId: session.id,
+      executionId: options.executionId,
+      visibleTools: toolDefinitions
+        .map((t) => t.function?.name ?? '')
+        .filter((n) => n.length > 0),
+      ...(selection.taskType !== undefined
+        ? { taskType: selection.taskType }
+        : {}),
+    });
   }
 
   // S2-6（2026-10-11）：**Tool-Use Context Entropy**（§4 观测项）—— 记录本轮**最终**

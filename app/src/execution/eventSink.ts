@@ -45,7 +45,9 @@ export type ExecutionEventAppender = (
 /** 本模块负责落盘的 execution 事件类型（与 `LiriEventMap` 同源，不另立联合） */
 export type ExecutionEventType =
   | 'execution/status_changed'
-  | 'execution/recovery';
+  | 'execution/recovery'
+  // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照 durable 落盘（非遥测广播）
+  | 'execution/prepared';
 
 let sink: ExecutionEventAppender | null = null;
 

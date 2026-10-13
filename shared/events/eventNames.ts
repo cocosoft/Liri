@@ -128,6 +128,11 @@ export const LIRI_EVENT_NAMES = [
   // ⚠️ 如实边界：execution 状态**不直接进入模型请求** ⇒ **非** `§1.6` 红线所迫。
   'execution/status_changed',
   'execution/recovery',
+  // T1-13 / `✅-4`（2026-10-13）：**PREPARED 快照 durable 落盘** —— 与四原语**遥测广播**不同，
+  // 这是**落盘事实**（写前持久化，**不受** `STATE_PROJECTION_BROADCAST` 门控）：
+  // 记「本次执行 PREPARED 时点的最终可见工具名」，供重放**读落盘快照**而非直读当前运行时 Profile。
+  // 见 `.trae/specs/execution-prepared-snapshot-persistence.md`。
+  'execution/prepared',
 ] as const;
 
 /** 会话事件名（联合类型）——两端事件名联合均由此派生 */

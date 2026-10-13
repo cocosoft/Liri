@@ -1124,4 +1124,32 @@ export interface LiriEventMap {
      */
     unsettledToolCalls?: number;
   };
+
+  /**
+   * Execution **PREPARED 快照**（T1-13 / `✅-4`，2026-10-13）。
+   *
+   * 立项理由 = **可复现**：动态可见性清单的**最终快照**须在 PREPARED 阶段**随会话事件落盘**，
+   * 重放（`recover`）必须**读该落盘快照**、**严禁直读当前运行时 Profile** —— 否则长任务运行期
+   * 用户改动 Profile 会导致重放工具面与历史不一致（破坏可复现性红线）。
+   *
+   * ⚠️ 与四原语**遥测广播**（`state/engine/projectionBroker.ts`，受 `STATE_PROJECTION_BROADCAST`
+   * 门控）**语义不同**：本事件是**落盘事实**（写前持久化），**不**受该开关门控。
+   * ⚠️ 与 `context/model-input`（`RequestSnapshotService`）**口径不同**：后者记 **trim 前 + 全量注册表**，
+   * 本事件记 **trim 后最终可见集**（只存**工具名**，不存 schema 正文）。二者**不合并**（CS01 已核）。
+   */
+  'execution/prepared': {
+    /** Execution 标识 */
+    executionId: string;
+    /** 代次（generation fencing） */
+    generation: number;
+    /** 归属消息 id（若有；入口未下传则省略） */
+    messageId?: string;
+    /**
+     * PREPARED 时点**最终可见工具名**（去重 + **稳定排序**）。
+     * 只存**名字**：schema 正文由 `context/model-input` 承担（避免双份体积）。
+     */
+    visibleTools: string[];
+    /** 裁剪判据留痕（与 `selectToolsForTurn` 的 `taskType` 同源；未判定 ⇒ 省略） */
+    taskType?: string;
+  };
 }

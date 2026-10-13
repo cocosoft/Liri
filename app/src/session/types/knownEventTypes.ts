@@ -107,6 +107,8 @@ const ALL_SESSION_EVENT_TYPES = [
   // ─── Execution 生命周期（PR5-S3，2026-10-09；log-only） ───
   'execution/status_changed',
   'execution/recovery',
+  // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照 durable 落盘（写前持久化，非遥测广播）
+  'execution/prepared',
 ] as const satisfies readonly LiriEventType[];
 
 /**

@@ -32,7 +32,10 @@ function fixture(raw: string): string {
   return file;
 }
 
-function run(file: string, extra: string[] = []): { status: number | null; out: string } {
+function run(
+  file: string,
+  extra: string[] = []
+): { status: number | null; out: string } {
   const r = spawnSync(process.execPath, [SCRIPT, ...extra, file], {
     encoding: 'utf8',
   });

@@ -172,6 +172,19 @@ export {
   registerKnowledgeSpi,
   resolveKnowledge,
 } from './KnowledgeService';
+// 2026-10-13：侧车**作业挂起**端口（T1-2② C₂「提交→挂起→完成→续跑」）——
+// 实现体在 `query/toolJobSuspend.ts`，经 `entrypoints/spiWiring.ts` 推送注册
+// （**不**让 tools 直接 import query：既有 `query → tools` ⇒ 会成 tools⇄query 模块级循环）
+export {
+  type IToolJobSuspendPort,
+  type ToolJobSuspendRegisterInput,
+  type ToolJobSuspendRegisterResult,
+  TOOL_JOB_SUSPEND_SERVICE_ID,
+  registerToolJobSuspendSpi,
+  resetToolJobSuspendForTest,
+  resolveToolJobSuspend,
+} from './ToolJobSuspendService';
+
 // P1-7：SPI 装配顺序守卫（显式依赖 + 注册期断言；对应不变量 INV-ARCH-001）
 export {
   SPI_WIRING_REQUIRES,

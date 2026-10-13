@@ -520,6 +520,18 @@ export const FEATURE_FLAGS = {
    * 运维/灰度覆盖：`FEATURE_TOOL_SIDECAR_MEDIA=true`。依据：同 spec §3-D4。
    */
   TOOL_SIDECAR_MEDIA: false,
+  /**
+   * P3：**侧车作业挂起**（长耗时侧车工具**不得同步阻塞**）开关（默认关）。
+   *
+   * 开 ⇒ 媒体侧车 L2 分析走**作业模式**（`job.submit` → 挂起 → `job.completed` → 续跑）：
+   * 工具调用期间向内核登记 `kind='tool-job'` 挂起并投影 `SUSPENDED`（**不推进轮次**、**保留连接**），
+   * 完成通知到达后释放挂起、投影 `RUNNING` 并把结果交回调用方（续跑）。
+   * 关（默认）⇒ **零行为变更**（L2 仍走既有同步路径 / `WorkerGuard`）。有效前提：`TOOL_SIDECAR_MEDIA` 亦开。
+   * 运维/灰度覆盖：`FEATURE_TOOL_JOB_SUSPEND=true`。
+   *
+   * 依据：`.trae/specs/sidecar-async-suspend.md` §4 裁定（Q2 新增 `kind='tool-job'`、Q3 不推进轮次 + 保留连接）。
+   */
+  TOOL_JOB_SUSPEND: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

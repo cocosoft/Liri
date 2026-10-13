@@ -28,7 +28,10 @@ import { WorkerGuard } from '@modules/ai';
 import { imageDownloader } from '@modules/chat';
 import { isMediaSidecarEnabled } from '../sidecar/mediaSidecarLifecycle';
 import {
+  createL2WorkerJobPort,
   createL2WorkerPort,
+  isMediaSidecarJobEnabled,
+  type L2WorkerJobPort,
   type L2WorkerPort,
 } from '../sidecar/SidecarMediaAnalyzer';
 
@@ -178,6 +181,40 @@ let l2WorkerGuard: WorkerGuard | null = null;
 /** 媒体侧车 L2 分析端口（`TOOL_SIDECAR_MEDIA` 开时使用；懒加载单例） */
 let l2SidecarWorker: L2WorkerPort | null = null;
 
+/** 媒体侧车 L2 **作业模式**端口（`TOOL_SIDECAR_MEDIA && TOOL_JOB_SUSPEND` 双开时使用；懒加载单例） */
+let l2SidecarJobWorker: L2WorkerJobPort | null = null;
+
+/**
+ * L2 分析**单一收口**（T1-2② C₂，2026-10-13）：
+ *  - `TOOL_SIDECAR_MEDIA && TOOL_JOB_SUSPEND` **双开** ⇒ **作业模式**（提交 → 挂起 → 完成 → 续跑）；
+ *  - 否则 ⇒ **既有路径**（`WorkerGuard` / 同步侧车端口），与本改动前**逐字等价**（零行为变更）。
+ *
+ * @returns `null` = L2 不可用（内置 Python worker 熔断）⇒ 调用方按**既有语义**降级 L3；
+ *          侧车（同步 / 作业）不可用或未覆盖 ⇒ **抛错**（fail-closed，**不**回落 `WorkerGuard`）。
+ */
+async function l2Analyze<T>(
+  method: string,
+  params: Record<string, unknown>,
+  sessionId: string | undefined
+): Promise<T | null> {
+  if (isMediaSidecarJobEnabled()) {
+    // 作业模式**必须**能定位会话（否则无法登记作业挂起）⇒ 缺失时 **fail-closed 抛错**
+    // （**不**静默退回同步路径：那会造成"同一工具两条隐性轨道"，正是 spec §2 反目标）
+    if (!sessionId) {
+      throw new Error(
+        '媒体侧车作业模式需要 sessionId（当前 ToolUseContext 未提供）⇒ 无法登记作业挂起'
+      );
+    }
+    l2SidecarJobWorker ??= createL2WorkerJobPort();
+    return l2SidecarJobWorker.requestJobResult<T>(method, params, {
+      sessionId,
+    });
+  }
+  const guard = getL2WorkerGuard();
+  if (!guard) return null;
+  return guard.requestResult<T>(method, params);
+}
+
 /**
  * 获取 L2 分析端口
  *
@@ -273,7 +310,7 @@ export class ImageAnalysisTool extends BaseTool {
     },
   ];
 
-  async execute(input: unknown, _context: ToolUseContext): Promise<ToolResult> {
+  async execute(input: unknown, context: ToolUseContext): Promise<ToolResult> {
     try {
       const params = input as ImageAnalysisInput;
 
@@ -393,13 +430,16 @@ export class ImageAnalysisTool extends BaseTool {
             result = await this.handleVision(params);
             break;
           case 'ocr':
-            result = await this.handleOcr(params);
+            result = await this.handleOcr(params, context.sessionId);
             break;
           case 'objects':
-            result = await this.handleObjectDetection(params);
+            result = await this.handleObjectDetection(
+              params,
+              context.sessionId
+            );
             break;
           case 'similarity':
-            result = await this.handleSimilarity(params);
+            result = await this.handleSimilarity(params, context.sessionId);
             break;
           case 'segment':
             result = await this.handleSegment(params);
@@ -457,25 +497,30 @@ export class ImageAnalysisTool extends BaseTool {
    * OCR 文字识别（L2 → Python EasyOCR）
    * 降级：Python 不可用时返回错误提示
    */
-  private async handleOcr(params: ImageAnalysisInput): Promise<ToolResult> {
-    const guard = getL2WorkerGuard();
-
-    if (!guard) {
-      return {
-        success: false,
-        error:
-          'L2 OCR is unavailable. Python worker circuit is open. Try L3 vision analysis instead.',
-        data: { l2Unavailable: true },
-      };
-    }
-
+  private async handleOcr(
+    params: ImageAnalysisInput,
+    sessionId: string | undefined
+  ): Promise<ToolResult> {
     try {
       // requestResult：guard.request 返回完整信封 {id,success,result}，
       // L2 载荷（text/blocks）在 result 内——直读 .text/.blocks 恒 undefined 曾致 L2 OCR 静默降级 L3
-      const response = await guard.requestResult<OcrResult>('ocr', {
-        image_path: params.inputPath,
-        languages: params.languages ?? ['ch_sim', 'en'],
-      });
+      const response = await l2Analyze<OcrResult>(
+        'ocr',
+        {
+          image_path: params.inputPath,
+          languages: params.languages ?? ['ch_sim', 'en'],
+        },
+        sessionId
+      );
+
+      if (!response) {
+        return {
+          success: false,
+          error:
+            'L2 OCR is unavailable. Python worker circuit is open. Try L3 vision analysis instead.',
+          data: { l2Unavailable: true },
+        };
+      }
 
       logger.info('ImageAnalysisTool · OCR 完成', {
         textLength: response.text.length,
@@ -519,28 +564,28 @@ export class ImageAnalysisTool extends BaseTool {
    * 降级：Python 不可用时返回错误提示
    */
   private async handleObjectDetection(
-    params: ImageAnalysisInput
+    params: ImageAnalysisInput,
+    sessionId: string | undefined
   ): Promise<ToolResult> {
-    const guard = getL2WorkerGuard();
-
-    if (!guard) {
-      return {
-        success: false,
-        error:
-          'L2 object detection is unavailable. Python worker circuit is open.',
-        data: { l2Unavailable: true },
-      };
-    }
-
     try {
       // requestResult：信封解包（同 OCR/YOLO/similarity 修正）
-      const response = await guard.requestResult<ObjectDetectionResult>(
+      const response = await l2Analyze<ObjectDetectionResult>(
         'object_detection',
         {
           image_path: params.inputPath,
           model: 'yolov8n',
-        }
+        },
+        sessionId
       );
+
+      if (!response) {
+        return {
+          success: false,
+          error:
+            'L2 object detection is unavailable. Python worker circuit is open.',
+          data: { l2Unavailable: true },
+        };
+      }
 
       const lines = [
         `Object Detection Results (${response.count} objects):`,
@@ -574,19 +619,9 @@ export class ImageAnalysisTool extends BaseTool {
    * 降级：Python 不可用时返回错误提示
    */
   private async handleSimilarity(
-    params: ImageAnalysisInput
+    params: ImageAnalysisInput,
+    sessionId: string | undefined
   ): Promise<ToolResult> {
-    const guard = getL2WorkerGuard();
-
-    if (!guard) {
-      return {
-        success: false,
-        error:
-          'L2 similarity analysis is unavailable. Python worker circuit is open.',
-        data: { l2Unavailable: true },
-      };
-    }
-
     try {
       const requestParams: Record<string, unknown> = {
         image_path: params.inputPath,
@@ -606,10 +641,20 @@ export class ImageAnalysisTool extends BaseTool {
         };
       }
 
-      const response = await guard.requestResult<SimilarityResult>(
+      const response = await l2Analyze<SimilarityResult>(
         'image_similarity',
-        requestParams
+        requestParams,
+        sessionId
       );
+
+      if (!response) {
+        return {
+          success: false,
+          error:
+            'L2 similarity analysis is unavailable. Python worker circuit is open.',
+          data: { l2Unavailable: true },
+        };
+      }
 
       const scoreText = `Similarity: ${(response.similarity * 100).toFixed(1)}%`;
       let output = scoreText;

@@ -25,6 +25,11 @@
  * 父进程只核对**投影结果**（结果行 + 退出码）⇒ 取得**真实跨进程端到端证据**，
  * 且**不改产品接线、不推红测、不依赖该运行器语义**。**代价（如实）**：断言发生在子进程，
  * 父进程核对的是**投影结果**。
+ *
+ * **C₂ 增补（2026-10-13）**：同一 oracle 增 `suspend-e2e` 场景 —— **提交 → 挂起 → 完成 → 续跑**
+ * （真实主管 + **真实挂起协调器** + **真实 SPI 注册** `registerToolJobSuspendSpi`；并订阅
+ * `state:projected` **实收**投影）：核对 `kind='tool-job'` 登记、**完成前后均处挂起**、释放后解冻、
+ * `SUSPENDED → RUNNING` **时序**、结果回填。开关经 spawn 的 **env** 打开（由子进程环境决定）。
  */
 import { describe, expect, it } from 'bun:test';
 import { spawnSync } from 'node:child_process';
@@ -46,6 +51,16 @@ type OracleProjection = {
     pendingAfter?: number;
     result?: unknown;
     error?: string | null;
+    /** `suspend-e2e`（C₂）专用事实 */
+    spiIds?: string[];
+    jobId?: string;
+    registerOutcome?: { registered: boolean; reason?: string };
+    suspendedDuringWait?: boolean;
+    suspendedAfterCompletion?: boolean;
+    released?: boolean;
+    suspendedAfterRelease?: boolean;
+    kinds?: string[];
+    projections?: string[];
   };
   fatal: string | null;
 };
@@ -55,8 +70,14 @@ type OracleProjection = {
  *
  * `projection=null` 表示 oracle **未产出结果行**（如进程被崩、结果行未到达）——
  * 此时由调用方连同 `raw` 一并断言，**不臆造**投影（CS06）。
+ *
+ * `extraEnv` 用于按场景开启功能开关（如 C₂ 的作业挂起 / 四原语投影广播）——
+ * 开关由**子进程环境**决定，故必须经 spawn 传入（父进程内改 env 影响不到已 spawn 的子进程）。
  */
-function runOracle(scenario: 'single-ok' | 'single-fail'): {
+function runOracle(
+  scenario: 'single-ok' | 'single-fail' | 'suspend-e2e',
+  extraEnv?: Record<string, string>
+): {
   status: number | null;
   projection: OracleProjection | null;
   raw: string;
@@ -65,6 +86,7 @@ function runOracle(scenario: 'single-ok' | 'single-fail'): {
     cwd: process.cwd(),
     encoding: 'utf8',
     timeout: 30_000,
+    env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
   });
   const raw = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   const line = raw.split('\n').find((l) => l.startsWith('ORACLE_RESULT '));
@@ -133,6 +155,36 @@ describe('T1-2② C₁：侧车作业跨进程端到端', () => {
     const f = r.projection!.facts;
     expect(f.error).toContain('fixture failure');
     expect(f.elapsedMs).toBeLessThan(1_000); // 真实回推，非超时兜底
+    expect(f.pendingAfter).toBe(0);
+  });
+
+  // ③ C₂（挂起 → 续跑）：真实主管 + 真实挂起协调器 + **真实 SPI 注册**，在真实子进程中跑
+  it('「提交 → 挂起 → 完成 → 续跑」（**子进程 oracle**：真实协调器 + 真实 SPI）', () => {
+    const r = runOracle('suspend-e2e', {
+      FEATURE_TOOL_JOB_SUSPEND: 'true',
+      FEATURE_STATE_PROJECTION_BROADCAST: 'true',
+    });
+    expect(
+      r.projection,
+      `oracle 未产出结果行（status=${String(r.status)}）；原始输出：\n${r.raw}`
+    ).not.toBeNull();
+    expect(r.projection!.fatal).toBeNull();
+    expect(r.status).toBe(0);
+    const f = r.projection!.facts;
+    // 真实 SPI 注册（生产同一入口 `entrypoints/spiWiring.ts` 的推送注册）
+    expect(f.spiIds).toEqual(['core.spi.IToolJobSuspendPort']);
+    expect(f.registerOutcome).toEqual({ registered: true });
+    // **挂起**：提交后 / 完成前确处挂起态（"不推进轮次"的登记事实），类别为 tool-job
+    expect(f.suspendedDuringWait).toBe(true);
+    expect(f.kinds).toEqual(['tool-job']);
+    // **完成 → 解冻**先后可辨：完成通知兑现之后、释放之前**仍**挂起
+    expect(f.suspendedAfterCompletion).toBe(true);
+    // **续跑**：释放 ⇒ 解冻 + 结果回填
+    expect(f.released).toBe(true);
+    expect(f.suspendedAfterRelease).toBe(false);
+    expect(f.result).toEqual({ echo: 'slow', n: 1 });
+    // 四原语投影**时序**（经 `globalEventBus` 实收）
+    expect(f.projections).toEqual(['SUSPENDED', 'RUNNING']);
     expect(f.pendingAfter).toBe(0);
   });
 

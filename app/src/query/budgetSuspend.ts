@@ -41,16 +41,41 @@ import type { ReliefKind } from './DailyBudgetManager.js';
 
 const logger = getLogger('query:budgetSuspend');
 
-/** 挂起链类型：流式（`StreamingAutoCheckpoint`）/ batch（`TAORLoop` 检查点） */
-export type SuspendChain = 'stream' | 'taor';
+/**
+ * 挂起链类型：流式（`StreamingAutoCheckpoint`）/ batch（`TAORLoop` 检查点）。
+ *
+ * `'tool-job'`（T1-2② C₂，2026-10-13）：**侧车作业挂起** —— 语义上**不是**可续跑的链，
+ * 而是「等一个长耗时作业完成」的**来源标记**：此类挂起**无链续跑通道**，由作业完成通知
+ * **自动续跑**（`query/toolJobSuspend.ts`）。relief（只唤醒 `kind='budget'`）与 guard 继续入口
+ * （只受理 `kind='guard'`）均由 `kind` 判据**天然排除**它。
+ */
+export type SuspendChain = 'stream' | 'taor' | 'tool-job';
+
+/**
+ * **可续跑链**（`SuspendChain` **排除** `'tool-job'`）：只有真实执行链才有"链续跑通道"。
+ *
+ * 用于**续跑通道**的入参类型（`BudgetResumeHandler` / guard 继续入口）⇒ 在**编译期**就拒绝
+ * 「拿作业挂起去走链续跑」这类语义错误（`'tool-job'` 由作业完成通知**自动续跑**）。
+ */
+export type ResumableSuspendChain = Exclude<SuspendChain, 'tool-job'>;
+
+/** 该链是否有**链续跑通道**（`'tool-job'` ⇒ 无）—— 续跑通道前的**单一判据** */
+export function isResumableChain(
+  chain: SuspendChain
+): chain is ResumableSuspendChain {
+  return chain !== 'tool-job';
+}
 
 /**
  * 挂起**类别**（T3-12，2026-10-13）：
  *  - `'budget'`（缺省，向后兼容）：日预算耗尽挂起 ⇒ 由 **relief**（boost/waive-once/unlock-today）唤醒；
  *  - `'guard'`：guard 挂起（熵门禁 `schema_entropy` / 轮上限 `turn_limit`）⇒ **绝不**被 relief 唤醒，
- *    只能经独立继续入口 `POST /v1/sessions/:id/continue`（`coordinator.release` + 既有续跑通道）。
+ *    只能经独立继续入口 `POST /v1/sessions/:id/continue`（`coordinator.release` + 既有续跑通道）；
+ *  - `'tool-job'`（T1-2② C₂，2026-10-13）：**侧车作业挂起**（`query/toolJobSuspend.ts`）——
+ *    长耗时侧车工具「提交即返、完成后续跑」期间的登记；**既**不被 relief 唤醒（同 guard），
+ *    **也不**经 guard 继续入口（那是人工放行通道）⇒ 由**作业完成通知自动续跑**。
  */
-export type SuspendKind = 'budget' | 'guard';
+export type SuspendKind = 'budget' | 'guard' | 'tool-job';
 
 /** 单条挂起登记 */
 export interface SuspendEntry {
@@ -76,9 +101,10 @@ function isReliefEligible(entry: SuspendEntry & { expired: boolean }): boolean {
  * 唤醒处理器端口（由 Task 7 装配注入）。
  *
  * 入参 = 目标会话与其链类型；返回是否唤醒成功。**本任务只提供挂点，不调用它**。
+ * 链类型取 {@link ResumableSuspendChain}（**排除** `'tool-job'`：作业挂起无链续跑通道）。
  */
 export interface BudgetResumeHandler {
-  (sessionId: string, chain: SuspendChain): Promise<boolean>;
+  (sessionId: string, chain: ResumableSuspendChain): Promise<boolean>;
 }
 
 /**
@@ -183,6 +209,9 @@ export class BudgetSuspendCoordinator {
       if (attempts >= limit) break;
       // 幂等/并发占位：已 release 者跳过
       if (!this.entries.has(entry.sessionId)) continue;
+      // 无链续跑通道的挂起（`'tool-job'`）**不进**链唤醒（relief 只收 budget 条目 ⇒ 实际恒不触发；
+      // 此处是**类型层**与**语义层**的双保险：作业挂起由完成通知自动续跑）
+      if (!isResumableChain(entry.chain)) continue;
       this.release(entry.sessionId);
       attempts += 1;
       let ok = false;

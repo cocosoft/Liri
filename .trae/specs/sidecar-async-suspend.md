@@ -19,8 +19,8 @@
 | 片 | 内容 | 状态 |
 |---|---|---|
 | **A** | **契约 + 探测**：`ISnapshotCapable`（可选实现）+ `isSnapshotCapable()`（鸭子类型 + 字面量收窄）；**不改编排类树**、不接挂起点 | ✅ **已落地（2026-10-13）** |
-| **B** | 侧车**作业化**：提交返句柄 + 完成通知；**复用唯一 IPC 基座** `utils/sidecarIpc.ts`（D10 GR02：**禁第三套 IPC**） | ✅ **B₁ 协议层已落地（2026-10-13）**；B₂ 主管接线待实施 |
-| **C** | **提交→挂起→完成→续跑** 端到端：侧车完成回调 → 解冻续跑；可复现测试（= 原文验收） | ⏳ 依赖 B₂ |
+| **B** | 侧车**作业化**：提交返句柄 + 完成通知；**复用唯一 IPC 基座** `utils/sidecarIpc.ts`（D10 GR02：**禁第三套 IPC**） | ✅ **B₁ 协议层已落地（2026-10-13）**；**B₂ 已落地** |
+| **C** | **提交→挂起→完成→续跑** 端到端：侧车完成回调 → 解冻续跑；可复现测试（= 原文验收） | ✅ **C₁ + C₂ 均已落地（2026-10-13）** —— C₁ = 宿主侧「提交 → 完成」跨进程（子进程 oracle）；**C₂ = 「提交 → 挂起 → 完成 → 续跑」**（`kind='tool-job'` 挂点 + 媒体侧车 **worker 作业模式** + **L2 作业端口** + **core SPI 接线**至 `ImageAnalysisTool` 双开；端到端经 oracle 取证）⇒ **原文验收达成**（§9） |
 
 ## §3 A 片（已落地）
 
@@ -68,7 +68,7 @@
 | 片 | 内容 |
 |---|---|
 | **B₂** | 主管/客户端接线：`notify` → 作业完成处理器；`submitJob()` 客户端 API；~~`kind='tool-job'` 挂起点~~（**改随 C 片** —— 需真实长耗时作业才触达） | ✅ **已落地（2026-10-13）** |
-| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | ✅ **C₁ 已落地（2026-10-13）**：**宿主侧作业链路**「**提交即返 → 完成兑现**」以**子进程 oracle** 取得**真实跨进程端到端证据**（真实主管 + 真实侧车在**真实子进程**中断言；含成功 / 失败 / 超时兜底 / 崩溃结算）；**先红后绿**、回归 **11 pass / 0 fail / 0 skip**。**未做** = **C₂**（`kind='tool-job'` **挂起点** + worker 侧作业模式）⇒「**挂起 → 续跑**」段未覆盖。**绕行理由与代价**见 §8（运行器异常未解释，但**非产品接线**）|
+| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | ✅ **已落地（2026-10-13）**：**C₁** = 宿主侧「提交即返 → 完成兑现」（子进程 oracle：真实主管 + 真实侧车在真实子进程中跑）；**C₂** = **「提交 → 挂起（`kind='tool-job'` + 投影 `SUSPENDED`）→ 完成 → 续跑（释放 + 投影 `RUNNING` + 结果回填）」**，含 **worker 侧作业模式**、**L2 作业端口**、**core SPI 接线**、oracle 端到端。**先红后绿**、回归见 §9 |
 
 ## §8 C₁ 片（2026-10-13，**已落地**；运行器异常已绕行并单独登记）
 
@@ -97,4 +97,31 @@
   - `submitJob(action, payload?, opts?)` ⇒ `{ jobId, completion }`；**提交失败 ⇒ 本地结算后抛出**（不留悬挂 Promise）
   - `deps.jobTimeoutMs`（默认 10 分钟）；`rejectAllPending()` 同口 `jobs.rejectAll()` ⇒ **崩溃/停止时在飞请求与在飞作业同因同果结算**
 - **测试**：`app/tests/tools/sidecarJobRegistry.test.ts` **6 例**；**先红后绿**（`payload.ok` 分支写死恒真 ⇒ 1 fail / 5 pass → 6 pass / 0 fail）；回归 `tests/tools/sidecar*` **70/0**
-- **如实边界**：`kind='tool-job'` 挂起点**未接**（随 C）；**worker 侧作业模式未实现**（`lspSidecar`/`mediaSidecar` 尚不处理 `job.submit`）⇒ 宿主 API **当前无调用方 ⇒ 生产零行为变更**
+- **如实边界**：**`kind='tool-job'` 挂起点**与 **worker 侧作业模式**均由 **C₂ 落地**（见 §9）⇒ `submitJob()` 已有**生产调用方**（L2 作业端口）；但该调用方受 **`TOOL_SIDECAR_MEDIA && TOOL_JOB_SUSPEND` 双开关**门控（**默认双关 ⇒ 生产零行为变更**）
+
+## §9 C₂ 片（**已落地**，2026-10-13）：提交 → 挂起 → 完成 → 续跑
+
+**语义（对齐 §4 裁定 Q2/Q3）**：提交（`job.submit`，**立即返回**）⇒ **挂起**（登记 `kind='tool-job'` + 投影 `SUSPENDED`；**不推进轮次** = 调用方在此 `await`；**保留连接** = 不释放侧车连接）⇒ **完成**（`notify{job.completed}` 兑现）⇒ **续跑**（释放挂起 + 投影 `RUNNING` + 结果交回调用方）。
+
+| 层 | 文件 | 内容 |
+|---|---|---|
+| **开关** | `core/featureFlags.ts` | 新增 `TOOL_JOB_SUSPEND`（**默认关**；「有效前提：`TOOL_SIDECAR_MEDIA` 亦开」） |
+| **挂起类别** | `query/budgetSuspend.ts` | `SuspendKind` 增 `'tool-job'`（与 budget/guard **正交**）；`SuspendChain` 增 `'tool-job'`（**无链续跑通道**的来源标记）+ 新增 `ResumableSuspendChain = Exclude<SuspendChain,'tool-job'>` + 纯函数 `isResumableChain()` ⇒ **编译期**拒绝「拿作业挂起走链续跑」；`BudgetResumeHandler` 参数收窄为 `ResumableSuspendChain`（既有 2 处调用点**零改动**即通过） |
+| **挂点实现** | `query/toolJobSuspend.ts`（新） | `registerToolJobSuspend`（关 ⇒ `{registered:false,reason:'disabled'}`）/ `releaseToolJobSuspend`（**仅放 `kind='tool-job'`**，否则 `false`；实际释放时投影 `RUNNING`；幂等）/ `createToolJobSuspendPort()` |
+| **core SPI** | `core/spi/ToolJobSuspendService.ts`（新） | `IToolJobSuspendPort`（窄契约）+ `resolveToolJobSuspend()`（**未注册 ⇒ no-op 代理**，不挂起/不释放/不抛）+ `registerToolJobSuspendSpi()`（推送模型）+ 常量 `TOOL_JOB_SUSPEND_SERVICE_ID` |
+| **SPI 装配** | `entrypoints/spiWiring.ts` | 推送注册实现体（`entry` 层可依赖任意层）—— **为何必须走 SPI**：`tools/**` 与 `query/**` 同属 app 层，但既有 `query → tools`（`TAORLoop` 等 8 处）⇒ tools 直接 import query 会成 **`tools ⇄ query` 模块级循环** |
+| **worker 侧作业模式** | `tools/sidecar/mediaSidecar.ts` | `job.submit` ⇒ ① 受理即返 `response{jobId,accepted}`；② 异步执行**既有** `dispatch`（动作词汇不变：`analyze`/`resize`）；③ `notify{job.completed, ok, result\|error}`（**零新帧型**）；**未覆盖动作 / 缺 `jobId` ⇒ 提交阶段 fail-closed**（不建作业、不伪造受理）；作业与普通请求**共用取消表**（`notify{cancel,data:{id:jobId}}` 可中止，以 `ok=false` 结算） |
+| **L2 作业端口** | `tools/sidecar/SidecarMediaAnalyzer.ts` | `createL2WorkerJobPort({provide, suspend})`：`media.analyze`（`kind` 映射不变）经作业模式 ⇒ **首个 `submitJob()` 生产调用方**；`finally` 中释放（**失败也解冻**）；`isMediaSidecarJobEnabled()` = **双开关** |
+| **工具面接线** | `tools/ImageAnalysisTool/ImageAnalysisTool.ts` | L2 分析**单一收口** `l2Analyze()`：双开 ⇒ 作业模式（并把 `ToolUseContext.sessionId` 下传，缺失 ⇒ **fail-closed 抛错**，不静默退回同步路径）；否则 ⇒ **既有路径逐字等价**；3 个 L2 处理器改传 `sessionId`（`null` 返回语义不变 ⇒ L3 降级口径不变） |
+
+**测试（先红后绿）**：
+
+- `tests/query/toolJobSuspend.test.ts` **7 例**：默认关不登记 / 开则登记 + 投影 `SUSPENDED` / 释放投影 `RUNNING`（时序）+ 幂等 / **红线：同会话 budget 挂起**时**不得**误放 / **relief 不唤醒**（handler 调用数 0）/ guard 继续入口按类别拒绝且不调续跑通道 / SPI **未注册 ⇒ no-op**、注册后走真实实现。
+  **可证伪**：临时去掉 `releaseToolJobSuspend` 的 `kind` 判据 ⇒ **1 fail / 6 pass**；还原 ⇒ 7 pass / 0 fail。
+- `tests/tools/sidecar/mediaSidecarJobMode.test.ts` **6 例**（真实 `startMediaSidecar` + 注入流/端口）：**提交即返**（response 索引 < notify 索引）/ 失败 `ok=false` / **提交阶段 fail-closed** / 缺 `jobId` / `notify{cancel}` 结算 / **既有同步路径零行为变更**。
+- `tests/tools/sidecar/mediaL2JobPort.test.ts` **7 例**：**门控真值表**（仅媒体开 / 仅作业开均不启用）/ 提交动作与 `kind` 映射 / **时序 = 提交 → 登记 → 释放** / 失败**仍**释放 / `register` 未登记 ⇒ 退化等待 / 未覆盖方法、侧车不可用 ⇒ fail-closed **且不提交**。
+- `tests/tools/sidecarJobE2E.test.ts` 增 **`suspend-e2e`** 子进程 oracle 用例：真实主管 + **真实挂起协调器** + **真实 SPI 注册**（`registerToolJobSuspendSpi`）+ 实收 `state:projected` ⇒ 断言 `kind='tool-job'`、**完成前后均处挂起**、释放后解冻、`SUSPENDED → RUNNING` 时序、结果回填。
+
+**回归**：`tests/tools` + `tests/query` + `tests/chat` + `tests/http` **1925 pass / 0 fail**；`typecheck` 3 工程 0 错；`lint:arch` **0 error**（分层违规 0、「循环依赖 0」—— 未引入 `tools ⇄ query` 环）；`lint:fn-size`/`lint:complexity`/`lint:invariants`/`lint:entrypoints`/`lint:fix-evidence` 全绿。
+
+**如实边界**：① **默认零行为变更**（双开关默认关 ⇒ L2 仍走 `WorkerGuard`/同步侧车端口；开关关时 `register/release` 为 no-op）；② 「冻结思考树」的落地形态 = **登记 + 投影 + 调用方不推进轮次**（**未**释放侧车连接 —— Q3 有意，无实测证据）；③ 端到端用**夹具 worker**（`fakeJobSidecar.js`），真实 `mediaSidecar` 的作业模式由**注入端口的单测**覆盖（避免 e2e 引入 python/sharp 重依赖）；④ 首批实现者**仅**媒体侧车 L2 分析（`A` 片 `ISnapshotCapable` 仍**无实现者** —— 本片未使用该契约，冻结/解冻由作业挂起承担）；⑤ 开关为**功能灰度**，不在 17 项 `SAFETY_SWITCHES` 内。

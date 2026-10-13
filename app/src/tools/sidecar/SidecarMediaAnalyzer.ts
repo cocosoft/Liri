@@ -30,8 +30,14 @@
  * - {@link resizeViaMediaSidecar}：给 `ImageInputRouter` 的超大图缩放用 —— 经 `media.resize`
  *   执行（native `sharp` 移出主进程），**同输入同参数 ⇒ 结果等价**。
  */
+import { feature } from '@modules/core';
+import type { IToolJobSuspendPort } from '@modules/core/spi';
+import { resolveToolJobSuspend } from '@modules/core/spi';
+import { getLogger } from '@modules/monitoring';
 import type { MediaAnalysisKind } from './mediaCapabilities';
-import { maybeStartMediaSidecar } from './mediaSidecarLifecycle';
+import { isMediaSidecarEnabled, maybeStartMediaSidecar } from './mediaSidecarLifecycle';
+
+const logger = getLogger('tools:sidecar:mediaAnalyzer');
 
 /** 侧车监督器请求端口（窄签名；`ToolSidecarSupervisor` 天然满足） */
 export interface MediaSupervisorRequester {
@@ -125,4 +131,100 @@ export async function resizeViaMediaSidecar(
     throw new Error('媒体侧车 resize 返回缺少 bufferBase64');
   }
   return Buffer.from(result.bufferBase64, 'base64');
+}
+
+/**
+ * 侧车监督器**作业**端口（窄签名；`ToolSidecarSupervisor.submitJob` 天然满足）。
+ *
+ * 「提交即返」：`completion` 在侧车回推 `notify{event:'job.completed'}` 时兑现/拒绝
+ * （宿主侧**超时兜底**由 supervisor 保证 ⇒ 绝不永久悬挂）。
+ */
+export interface MediaSupervisorJobRequester extends MediaSupervisorRequester {
+  submitJob(
+    action: string,
+    payload?: Record<string, unknown>
+  ): Promise<{ jobId: string; completion: Promise<unknown> }>;
+}
+
+/** 作业型监督器提供者（缺省 {@link maybeStartMediaSidecar}；测试可注入替身） */
+export type MediaSupervisorJobProvider =
+  () => Promise<MediaSupervisorJobRequester | null>;
+
+/**
+ * **作业模式** L2 端口（T1-2② C₂：「提交 → 挂起 → 完成 → 续跑」）。
+ *
+ * 由 `ImageAnalysisTool` 在 `TOOL_SIDECAR_MEDIA && TOOL_JOB_SUSPEND` **双开**时选用；
+ * 单开（或全关）⇒ 走既有路径（`WorkerGuard` / 同步侧车端口），**逐字等价**（零行为变更）。
+ *
+ * 时序（与原文「长耗时侧车工具**不得同步阻塞**」对齐）：
+ *  ① **提交即返**：`job.submit` ⇒ 立即拿到 `{jobId, completion}`；
+ *  ② **挂起**：经 **core SPI**（`suspend` 端口）登记 `kind='tool-job'` ⇒ 投影 `SUSPENDED`，
+ *     调用方在此**等待**（**不推进轮次**；Q3 裁定「**保留连接**」—— 不释放侧车连接）；
+ *  ③ **完成**：`notify{job.completed}` 兑现 `completion` ⇒ 结果为 L2 载荷；
+ *  ④ **续跑**：`finally` 释放挂起（投影 `RUNNING`）并把结果交回调用方 ⇒ 轮次继续。
+ *
+ * **为何经 core SPI 取挂起端口**：`tools/**` 不得直接 import `query/**`（既有 `query → tools`
+ * ⇒ 会成**模块级循环**）；SPI 由 `entrypoints/spiWiring.ts` 推送注册，**未注册/开关关 ⇒ no-op**
+ * （不挂起、不报错，行为与"未启用"一致）。
+ */
+export interface L2WorkerJobPort {
+  requestJobResult<T = unknown>(
+    method: string,
+    params: Record<string, unknown>,
+    jobCtx: { sessionId: string }
+  ): Promise<T>;
+}
+
+/** 作业模式是否启用（`TOOL_SIDECAR_MEDIA && TOOL_JOB_SUSPEND`，**缺一不可**） */
+export function isMediaSidecarJobEnabled(): boolean {
+  return isMediaSidecarEnabled() && feature('TOOL_JOB_SUSPEND');
+}
+
+/** 构建经媒体侧车**作业模式**的 L2 分析端口（**提交即返** + 挂起等待完成） */
+export function createL2WorkerJobPort(
+  provide: MediaSupervisorJobProvider = maybeStartMediaSidecar,
+  suspend: IToolJobSuspendPort = resolveToolJobSuspend()
+): L2WorkerJobPort {
+  return {
+    async requestJobResult<T = unknown>(
+      method: string,
+      params: Record<string, unknown>,
+      jobCtx: { sessionId: string }
+    ): Promise<T> {
+      const kind = METHOD_TO_KIND[method];
+      if (!kind) {
+        throw new Error(
+          `媒体侧车未覆盖 L2 方法：${method}（已 fail-closed，不回落内置 WorkerGuard）`
+        );
+      }
+      const supervisor = await provide();
+      if (!supervisor) {
+        throw new Error(
+          '媒体侧车不可用（未启动/握手失败）；作业模式已 fail-closed，不回落内置 WorkerGuard。'
+        );
+      }
+      // ① 提交作业（**提交即返**：此处不阻塞）
+      const { jobId, completion } = await supervisor.submitJob('media.analyze', {
+        kind,
+        ...(params ?? {}),
+      });
+      // ② 登记**作业挂起**（`kind='tool-job'` ⇒ 投影 SUSPENDED）；开关关/未注册 ⇒ no-op
+      const outcome = suspend.register({ sessionId: jobCtx.sessionId, jobId });
+      if (!outcome.registered) {
+        logger.debug('媒体侧车作业未登记挂起（开关关/SPI 未注册），退化为等待完成', {
+          sessionId: jobCtx.sessionId,
+          jobId,
+          reason: outcome.reason,
+          method,
+        });
+      }
+      try {
+        // ③ 等完成通知（保留连接）；④ 结果即 L2 载荷 ⇒ 交回调用方续跑
+        return (await completion) as T;
+      } finally {
+        // 完成/失败/异常**均**解冻（不留幽灵挂起）；非本类挂起不会被误放
+        suspend.release(jobCtx.sessionId);
+      }
+    },
+  };
 }

@@ -352,6 +352,20 @@ export async function registerAllSpis(
     });
   }
 
+  // ---- 侧车**作业挂起**端口 SPI（2026-10-13 · T1-2② C₂「提交→挂起→完成→续跑」）----
+  // 消费者 = `tools/sidecar/SidecarMediaAnalyzer` 的**作业端口**（`submitJob` 首个生产调用方），
+  // 由 `ImageAnalysisTool` 在 `TOOL_SIDECAR_MEDIA && TOOL_JOB_SUSPEND` 双开时选用。
+  // 走 SPI 的理由：`tools/**` 与 `query/**` 同属 app 层，但既有 `query → tools`（TAORLoop 等 8 处）
+  // ⇒ tools 直接 import query 会成 **tools⇄query 模块级循环**；经 core 端口（tools→core 合法）
+  // 由本文件（entry，可依赖任意层）推送注册 ⇒ 零新增倒挂、零环。
+  // ⚠️ 实现体受 `TOOL_JOB_SUSPEND`（**默认关**）门控 ⇒ 关时 `register/release` 为 no-op（零行为变更）。
+  {
+    const { registerToolJobSuspendSpi } = await import('@modules/core/spi');
+    const { createToolJobSuspendPort } =
+      await import('@modules/query/toolJobSuspend');
+    await registerToolJobSuspendSpi(container, createToolJobSuspendPort());
+  }
+
   // ---- 协作编排统一层 · 薄端口（2026-10-07；`.trae/specs/collaboration-orchestration-port.md`）----
   // ⚠️ **预留端口**：生产中**无消费者**（消费入口未定，见 spec §5；**勿视为既有能力**）。
   // 本期只装配「**能力自述**」：三通道适配器（`agent/orchestration/` 的 SwarmChannelAdapter /

@@ -34,6 +34,9 @@
  * - `media.analyze`（`kind ∈ {ocr, objects, similarity}`）⇒ 经 {@link MediaAnalysisPort}
  *   （缺省 = 驱动既有 Python `vision_worker.py`，即 "vision_worker 受管"）；
  * - `media.resize` ⇒ 经 {@link MediaResizePort}（缺省 = `sharp` native 缩放，主进程零 native）；
+ * - **作业模式**（T1-2② C₂）：`job.submit`（`action ∈ {media.analyze, media.resize}` +
+ *   `payload`）⇒ **受理即返** `response{jobId, accepted}`，完成后回推
+ *   `notify{event:'job.completed'}`（**零新帧型**；未覆盖动作在**提交阶段** fail-closed）；
  * - **其余**一律 fail-closed 回 `{success:false, error:{code:'NOT_IMPLEMENTED'}}`（**不伪造成功**，CS03）。
  *
  * 生命周期由 `ToolSidecarSupervisor`（S1/S3 已验证语义：握手/心跳/崩溃结算/有界重启/停止）看护，
@@ -43,6 +46,8 @@ import readline from 'node:readline';
 import { getLogger } from '@modules/monitoring';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
+  SIDECAR_JOB_SUBMIT_METHOD,
+  buildJobCompleted,
   encodeFrame,
   decodeFrame,
   buildHeartbeat,
@@ -61,6 +66,14 @@ import {
 const logger = getLogger('tools:sidecar:media');
 
 export const MEDIA_SIDECAR_HEARTBEAT_MS = 15_000;
+
+/**
+ * 支持**作业模式**（`job.submit`）的媒体动作白名单（**提交阶段 fail-closed 判据**）。
+ *
+ * 与 `dispatch()` 的动作名**同一词汇**（`analyze` / `resize`）—— 未列入者**在提交阶段**即拒
+ * （`success:false`，**不建作业、不伪造受理**），而非"受理后才失败"（CS03）。
+ */
+const MEDIA_JOB_ACTIONS: ReadonlySet<string> = new Set(['analyze', 'resize']);
 
 export interface MediaSidecarOptions {
   /** 输入流（缺省 `process.stdin`；测试可注入） */
@@ -203,6 +216,11 @@ async function handleRequest(
 ): Promise<void> {
   const id = String(frame.id);
   const method = String(frame.method ?? '');
+  // 作业模式（C₂）：`job.submit` 走**受理即返 + 异步 notify** 的另一条路径（零新帧型）
+  if (method === SIDECAR_JOB_SUBMIT_METHOD) {
+    await handleJobSubmit(frame, output, analysisPort, resizePort, inflight);
+    return;
+  }
   const params = toRecord(frame.params);
   const action = method.startsWith('media.') ? method.slice(6) : method;
   const controller = new AbortController();
@@ -233,6 +251,104 @@ async function handleRequest(
   } finally {
     inflight.delete(id);
   }
+}
+
+/**
+ * **作业模式**（T1-2② C₂，2026-10-13）：`request(method='job.submit')` ⇒
+ * ① 立即回 `response{jobId, accepted:true}`（**提交即返** —— 宿主据此登记**作业挂起**，不推进轮次）；
+ * ② **异步**执行同名 `dispatch(action, payload)`；
+ * ③ 完成 / 失败 / 取消 ⇒ 侧车 → 宿主 `notify{event:'job.completed', data:{jobId, ok, result|error}}`
+ * （**零新帧型**：复用 B₁ 协议的 `request|response|notify` 三类帧）。
+ *
+ * **fail-closed（CS03）**：`jobId` 缺失 / 动作未覆盖 ⇒ **提交阶段**直接回 `success:false`，
+ * **不建作业、不伪造"已受理"**；作业**运行中**的失败才经 `notify ok=false` 上报
+ * （**成败同报** ⇒ 宿主侧 `completion` 绝不悬挂）。
+ *
+ * **取消**：作业与普通请求共用 `inflight`（键 = 宿主下发的 `jobId`）⇒ 既有
+ * `notify{cancel, data:{id}}` 下传对作业同样生效；被取消的作业以 `ok=false` 通知结算（不留悬挂）。
+ */
+async function handleJobSubmit(
+  frame: Record<string, unknown>,
+  output: NodeJS.WritableStream,
+  analysisPort: MediaAnalysisPort,
+  resizePort: MediaResizePort,
+  inflight: Map<string, AbortController>
+): Promise<void> {
+  const id = String(frame.id);
+  const params = toRecord(frame.params);
+  const jobId = typeof params.jobId === 'string' ? params.jobId : '';
+  const jobAction = String(params.action ?? '');
+  const action = jobAction.startsWith('media.') ? jobAction.slice(6) : jobAction;
+  if (!jobId) {
+    output.write(
+      encodeFrame({
+        id,
+        success: false,
+        error: {
+          code: 'INVALID_PARAMS',
+          message: '[INVALID_PARAMS] 作业提交缺少 jobId',
+        },
+      })
+    );
+    return;
+  }
+  if (!MEDIA_JOB_ACTIONS.has(action)) {
+    output.write(
+      encodeFrame({
+        id,
+        success: false,
+        error: {
+          code: 'NOT_IMPLEMENTED',
+          message: `[NOT_IMPLEMENTED] 媒体侧车作业动作未覆盖：${jobAction || '(空)'}`,
+        },
+      })
+    );
+    return;
+  }
+
+  const controller = new AbortController();
+  // 作业与普通请求共用取消表（键 = jobId）⇒ cancel 下传对两者同构
+  inflight.set(jobId, controller);
+  // ① 受理（**提交即返**）
+  output.write(encodeFrame({ id, success: true, result: { jobId, accepted: true } }));
+
+  // ② 异步执行 + ③ 完成通知（成败同报；**不吞错**，失败原因原样带回）
+  void (async () => {
+    try {
+      const result = await dispatch(
+        action,
+        toRecord(params.payload),
+        analysisPort,
+        resizePort,
+        controller.signal
+      );
+      output.write(
+        encodeFrame(
+          buildJobCompleted({ jobId, ok: true, result }) as unknown as Record<
+            string,
+            unknown
+          >
+        )
+      );
+    } catch (err) {
+      const message = controller.signal.aborted
+        ? '媒体作业已取消'
+        : err instanceof Error
+          ? err.message
+          : String(err);
+      output.write(
+        encodeFrame(
+          buildJobCompleted({
+            jobId,
+            ok: false,
+            error: message,
+          }) as unknown as Record<string, unknown>
+        )
+      );
+    } finally {
+      inflight.delete(jobId);
+    }
+  })();
 }
 
 // 独立/子进程启动（`bun run src/tools/sidecar/mediaSidecar.ts`）

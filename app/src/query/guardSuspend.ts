@@ -39,7 +39,9 @@
 import { feature } from '@modules/core';
 import {
   getBudgetSuspendCoordinator,
+  isResumableChain,
   type BudgetSuspendCoordinator,
+  type ResumableSuspendChain,
   type SuspendChain,
 } from './budgetSuspend.js';
 
@@ -121,11 +123,12 @@ export type ContinueOutcome =
  *    `resumeSuspendedSession(sid,'taor')`）；
  *  - 续跑失败（`resume` 返回 false）⇒ 回滚为挂起（保留 `chain`），返回 `resume_failed`。
  *
- * @param resume 既有续跑通道（由调用方注入 `ChatManager.resumeSuspendedSession`）
+ * @param resume 既有续跑通道（由调用方注入 `ChatManager.resumeSuspendedSession`）；
+ *   链类型取 {@link ResumableSuspendChain}（**排除** `'tool-job'` —— 作业挂起不走链通道）
  */
 export async function continueSuspendedSession(
   coordinator: BudgetSuspendCoordinator,
-  resume: (sessionId: string, chain: SuspendChain) => Promise<boolean>,
+  resume: (sessionId: string, chain: ResumableSuspendChain) => Promise<boolean>,
   sessionId: string
 ): Promise<ContinueOutcome> {
   if (!isGuardSuspendEnabled()) {
@@ -139,11 +142,26 @@ export async function continueSuspendedSession(
   if (!entry) {
     return { ok: false, code: 'not_suspended', message: '会话未处于挂起态' };
   }
-  if ((entry.kind ?? 'budget') !== 'guard') {
+  const entryKind = entry.kind ?? 'budget';
+  if (entryKind !== 'guard') {
     return {
       ok: false,
       code: 'budget_kind',
-      message: '该挂起为日预算挂起，请使用日预算放行（relief）续跑',
+      // 按**实际类别**给出可读原因（tool-job 与 budget 的续跑通道**不同**，不得混为一谈）
+      message:
+        entryKind === 'tool-job'
+          ? '该挂起为侧车作业挂起（无人工放行通道）：由作业完成通知自动续跑'
+          : '该挂起为日预算挂起，请使用日预算放行（relief）续跑',
+    };
+  }
+  // 无链续跑通道的挂起（`'tool-job'`）**不**经本继续入口（那是**人工放行**通道）：
+  // 作业挂起由侧车完成通知**自动续跑**（`query/toolJobSuspend.ts`）。
+  // 注：guard 条目链恒为真实执行链 ⇒ 上面的 kind 判据已排除 tool-job ⇒ 此处实为**类型收窄**。
+  if (!isResumableChain(entry.chain)) {
+    return {
+      ok: false,
+      code: 'resume_failed',
+      message: '该挂起无链续跑通道（作业挂起由完成通知自动续跑）',
     };
   }
 

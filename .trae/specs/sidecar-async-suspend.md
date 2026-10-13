@@ -68,14 +68,14 @@
 | 片 | 内容 |
 |---|---|
 | **B₂** | 主管/客户端接线：`notify` → 作业完成处理器；`submitJob()` 客户端 API；~~`kind='tool-job'` 挂起点~~（**改随 C 片** —— 需真实长耗时作业才触达） | ✅ **已落地（2026-10-13）** |
-| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | 🔶 **C₁ 部分：夹具 + 跨进程测试已建**，但 **1 作业场景受阻于疑似平台缺陷**（bun+Windows 子进程管道上**异步帧未投递**；已四步取证、**非本接线问题**）⇒ **2 例 `it.skip` + 登记阻断** `TOOLGOV-TG2-C1-BLOCKED`；**未做** = `kind='tool-job'` 挂起点 + worker 侧作业模式 |
+| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | 🔶 **C₁ 部分：夹具 + 跨进程测试已建**，但 **1 作业场景受阻**（**根因未定位** —— 曾疑「bun+Windows 管道异步帧未投递」，经原始 stdout 帧计数**证伪 `readline`** 且该观察**不可复现**，结论已两次更正并如实留痕）⇒ **2 例 `it.skip` + 登记阻断** `TOOLGOV-TG2-C1-BLOCKED`；**未做** = `kind='tool-job'` 挂起点 + worker 侧作业模式 |
 
 ## §8 C₁ 片现状（2026-10-13，**受阻已登记**）
 
 - **已建**：作业型侧车夹具 `app/tests/tools/fixtures/fakeJobSidecar.js`（真实子进程、同步写 fd 1、支持 `slow`/`fail`/`never`）+ 跨进程测试 `app/tests/tools/sidecarJobE2E.test.ts`。
 - **仍绿的不变量**（3 例通过）：**超时兜底** reject · **侧车退出**同口结算 · **并发 2 作业**独立兑现。
-- **阻断（2 例 `it.skip`）**：**单作业**用例在 **bun test** 下稳定走超时兜底（≈ `jobTimeoutMs`）；**已排除**：夹具未写出（同步落盘为证）/ 夹具侧 stdio 冲刷（改 `fs.writeSync` 无效）/ 静态导入 / 文件内位置 / 实例生命周期共享 / **`readline` 本身**（单独直读同一夹具时 `raw 'data'` 与 `readline` **都收到三帧**）。**未排除**：走**主管 `ToolSidecarSupervisor`** 时该异步帧未被兑现。**结论两次更正（如实留痕）**：原推断「平台 `readline` 投递缺陷」→ 曾被一次「独立文件即通过」的观察撤回 → 该观察**不可复现**（新独立文件 2/2 失败）⇒ **最终定性：根因未定位**（不宣称平台缺陷、也不宣称已定位测试层原因）。
-- **处置**：**不推红测、不为迎合测试改产品接线**；`it.skip` + 顶部**如实记录两次结论变动**；台账 `TOOLGOV-TG2-C1-BLOCKED`（`fixed=false`）同步；`reopenWhen` = 定位该根因（候选：主管 `start()` 读取时序 / `stderr` 未读 / 测试运行器与子进程交互）。
+- **阻断（2 例 `it.skip`）**：**单作业**用例在 **bun test** 下稳定走超时兜底（≈ `jobTimeoutMs`）。**已排除（逐项证据）**：① 夹具未写出（同步落盘为证）；② 夹具侧 stdio 冲刷（改 `fs.writeSync` 无效）；③ 静态导入 / ④ 文件内位置 / ⑤ 实例生命周期共享；⑥ **`readline` 本身**（**两路证伪**：(a) 单独直读同一夹具时 `raw 'data'` 与 `readline` **都收到三帧**；(b) 在主管 `start()` 内加**原始 stdout 帧计数**后实测失败运行中 `notify` **迟到**——`readline.line n:2` 与含 `notify` 的 `stdout.data chunks:3` 相差 **3.02s**，即**作业超时 `stop()` 杀进程触发 EOF** 才交付 ⇒ 据此**把 `readline` 换成手写分帧**，**2 例仍 fail** ⇒ 排除）；⑦ **spawn 的 `env: {...process.env}` 覆盖**（去掉后现象不变）；⑧ **`child.on('exit')` 监听**（单变量实验挂 / 不挂**两者均正常**，`notifyAtMs` 183 / 184）。**未排除**：走**主管 `ToolSidecarSupervisor`** 时该异步帧**未及时投递**（原始计数显示**直到杀进程 EOF 才到达**）——主管 `start()` 其余结构（读取时序 / `stderr` 未读 / 测试运行器 × 子进程交互）尚未穷尽；**「脱离 `bun test` 的纯脚本」未试**。**结论两次更正（如实留痕）**：原推断「平台 `readline` 投递缺陷」→ 曾被一次「独立文件即通过」的观察撤回 → 该观察**不可复现**（新独立文件 2/2 失败）⇒ **最终定性：根因未定位**（不宣称平台缺陷、也不宣称已定位测试层原因）。**临时取证改动（TEMP-PROBE / 手写分帧 / 去 `env`）已 `git checkout` 全量回退**，回归 **9 pass / 2 skip / 0 fail**。
+- **处置**：**不推红测、不为迎合测试改产品接线**；`it.skip` + 顶部**如实记录两次结论变动**；台账 `TOOLGOV-TG2-C1-BLOCKED`（`fixed=false`）同步；`reopenWhen` = 定位该根因（候选：主管 `start()` 读取时序 / `stderr` 未读 / **测试运行器 × 子进程交互（纯脚本实验）**）。
 
 ## §7 B₂ 片（**已落地**，2026-10-13）
 

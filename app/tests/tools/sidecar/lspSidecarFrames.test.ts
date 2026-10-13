@@ -23,7 +23,8 @@
  * LSP 侧车 **进程入口**分帧单测（S1 骨架）。
  *
  * 注入 PassThrough 流 ⇒ **不真起进程**即可断言：首发 `startup` 帧（含 `protocolVersion`/`pid`）；
- * 请求 ⇒ fail-closed 回 `NOT_IMPLEMENTED`（不伪造成功）；非法行被忽略（`decodeFrame` ⇒ null）。
+ * **未覆盖**方法之请求 ⇒ fail-closed 回 `NOT_IMPLEMENTED`（不伪造成功）；非法行被忽略
+ * （`decodeFrame` ⇒ null）。（已接线方法的翻译见 `lspSidecarMethods.test.ts`。）
  */
 import { describe, expect, it } from 'bun:test';
 import { PassThrough } from 'node:stream';
@@ -68,7 +69,7 @@ describe('LSP 侧车入口：就绪握手', () => {
 });
 
 describe('LSP 侧车入口：请求 / 非法行', () => {
-  it('请求 ⇒ fail-closed 回 NOT_IMPLEMENTED（不伪造成功）', async () => {
+  it('未覆盖方法请求 ⇒ fail-closed 回 NOT_IMPLEMENTED（不伪造成功）', async () => {
     const input = new PassThrough();
     const output = new PassThrough();
     const lines = collect(output);
@@ -79,7 +80,7 @@ describe('LSP 侧车入口：请求 / 非法行', () => {
       pid: 1,
     });
     await tick();
-    input.write(encodeFrame({ id: 'r1', method: 'lsp.hover' }));
+    input.write(encodeFrame({ id: 'r1', method: 'lsp.rename' }));
     await tick();
     const res = decodeFrame(lines()[1]);
     expect(res?.id).toBe('r1');

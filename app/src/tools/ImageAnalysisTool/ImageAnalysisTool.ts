@@ -26,6 +26,11 @@ import { imageSanitizationPolicy } from '@modules/security';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '@modules/ai';
 import { imageDownloader } from '@modules/chat';
+import { isMediaSidecarEnabled } from '../sidecar/mediaSidecarLifecycle';
+import {
+  createL2WorkerPort,
+  type L2WorkerPort,
+} from '../sidecar/SidecarMediaAnalyzer';
 
 /**
  * 分析操作类型
@@ -170,11 +175,22 @@ const logger = getLogger('tools:imageAnalysis');
 /** L2 分析 WorkerGuard（懒加载单例） */
 let l2WorkerGuard: WorkerGuard | null = null;
 
+/** 媒体侧车 L2 分析端口（`TOOL_SIDECAR_MEDIA` 开时使用；懒加载单例） */
+let l2SidecarWorker: L2WorkerPort | null = null;
+
 /**
- * 获取 L2 分析的 WorkerGuard 实例
- * Python 进程不可用时返回 null，调用方应降级到 L3
+ * 获取 L2 分析端口
+ *
+ * · `TOOL_SIDECAR_MEDIA` 关（默认）⇒ 既有 `WorkerGuard` 路径（与本改动前**逐字等价**，零行为变更）；
+ * · 开 ⇒ 经**受管媒体侧车**（`media.analyze`）；侧车不可用/未覆盖 ⇒ fail-closed 抛错（不回落 WorkerGuard）。
+ *
+ * Python 进程不可用时返回 null，调用方应降级到 L3（开关关路径维持既有语义）。
  */
-function getL2WorkerGuard(): WorkerGuard | null {
+function getL2WorkerGuard(): L2WorkerPort | null {
+  if (isMediaSidecarEnabled()) {
+    l2SidecarWorker ??= createL2WorkerPort();
+    return l2SidecarWorker;
+  }
   if (l2WorkerGuard && !l2WorkerGuard.isReady()) {
     return null;
   }

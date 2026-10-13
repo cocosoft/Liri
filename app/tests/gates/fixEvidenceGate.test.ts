@@ -89,6 +89,26 @@ function makeFixture(items: unknown[]): NodeJS.ProcessEnv {
   };
 }
 
+function makeRawFixture(raw: string): NodeJS.ProcessEnv {
+  const root = mkdtempSync(join(tmpdir(), 'liri-fix-gate-'));
+  roots.push(root);
+  mkdirSync(join(root, '.trae/architecture'), { recursive: true });
+  writeFileSync(
+    join(root, '.trae/architecture/修复证据登记.md'),
+    '# 修复证据登记\n'
+  );
+  const registryPath = join(
+    root,
+    '.trae/architecture/fix-evidence-registry.json'
+  );
+  writeFileSync(registryPath, raw);
+  return {
+    ...process.env,
+    FIX_EVIDENCE_REPO_ROOT: root,
+    FIX_EVIDENCE_REGISTRY: registryPath,
+  };
+}
+
 function run(env: NodeJS.ProcessEnv): { status: number | null; out: string } {
   const r = spawnSync(process.execPath, [SCRIPT], { env, encoding: 'utf8' });
   return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
@@ -141,5 +161,27 @@ describe('P1-4 修复证据门禁 · 负向自证', () => {
     const r = run(makeFixture([item({}), item({})]));
     expect(r.status).toBe(1);
     expect(r.out).toContain('id 重复');
+  });
+
+  // 2026-10-13 防复发：登记表字符串内误用 ASCII 双引号 ⇒ JSON 提前闭合。
+  // 该坑在本仓已复发三次（bun 的 JSON 错误不带位置，排障成本高）⇒ 门禁须报**精确行列**与惯例提示。
+  it('字符串内未转义 ASCII 双引号 ⇒ 变红，且报出精确行列 + 中文引号提示', () => {
+    const raw = [
+      '{',
+      '  "version": 1,',
+      '  "stages": [],',
+      '  "flags": [],',
+      '  "items": [',
+      '    {',
+      '      "id": "X-1",',
+      '      "title": "含未转义引号"的内层引号",',
+      '    }',
+      '  ]',
+      '}',
+    ].join('\n');
+    const r = run(makeRawFixture(raw));
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('未转义的 ASCII 双引号');
+    expect(r.out).toContain(':8:'); // 元凶在第 8 行（title 行）
   });
 });

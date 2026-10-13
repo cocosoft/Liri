@@ -36,6 +36,10 @@
  *
  * 崩溃隔离（D5）：侧车退出/僵死 ⇒ ① 所有在飞请求（`pending`）**全部 reject**（主进程收普通错误、**不倒**）；
  * ② 有界重启（`maxRestarts` 默认 3），超限 **fail-closed 停止重启**（不伪造成功，CS03）。
+ * 崩溃的请求**不自动重试**（避免重复执行副作用）—— 仅重启进程，不重放 pending。
+ *
+ * 取消下传（D5/T3.2）：`request(..., signal)` 中止 ⇒ ① **本地结算**该 pending（明确"已取消"错误）；
+ * ② 经 `notify` 帧下传 `{type:'notify', event:'cancel', data:{id}}` 给侧车（best-effort）。
  * 开关：`TOOL_SIDECAR_LSP`（默认关 ⇒ 本类**根本不被启动**，见 `toolSidecarLifecycle.ts`）。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -82,6 +86,13 @@ interface PendingRequest {
   resolve: (frame: Record<string, unknown>) => void;
   reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  /** 清理副作用（如移除 abort 监听）；结算时必调 */
+  cleanup?: () => void;
+}
+
+interface ReadyWaiter {
+  resolve: () => void;
+  reject: (reason: Error) => void;
 }
 
 /** 工具侧车监督器（缺省监督常驻 LSP 侧车） */
@@ -91,7 +102,10 @@ export class ToolSidecarSupervisor {
   private ready = false;
   private restarts = 0;
   private seq = 0;
+  /** 持久降级态（有界重启超限）：后续请求 fail-closed，不再等待 */
+  private fatal: Error | null = null;
   private readonly pending = new Map<string, PendingRequest>();
+  private readonly readyWaiters: ReadyWaiter[] = [];
   private readonly deps: ToolSidecarDeps;
 
   constructor(deps: ToolSidecarDeps = {}) {
@@ -163,28 +177,58 @@ export class ToolSidecarSupervisor {
     });
 
     this.ready = true;
+    this.fatal = null;
     child.on('exit', (code) => this.onExit(code));
+    this.flushReady();
     logger.info('工具侧车已就绪', { pid });
     return { pid };
   }
 
-  /** 发起一次请求（写 `request` 帧），等待匹配 id 的 `response` 帧（失败帧 ⇒ reject） */
-  request(
+  /**
+   * 发起一次请求（写 `request` 帧），等待匹配 id 的 `response` 帧（失败帧 ⇒ reject）。
+   *
+   * D5 取消下传（T3.2）：传入 `signal` ⇒ 中止时**本地结算**该 pending（明确错误）并经
+   * `notify{cancel}` 帧**下传**侧车（best-effort；`data.id` 为本请求 id）。
+   *
+   * T3.1：崩溃后有界重启期间，请求**等待就绪**（不早写），超限降级 ⇒ fail-closed。
+   */
+  async request(
     method: string,
-    params: Record<string, unknown> = {}
+    params: Record<string, unknown> = {},
+    signal?: AbortSignal
   ): Promise<Record<string, unknown>> {
+    if (!this.isRunning()) {
+      await this.waitUntilReady(this.deps.startupTimeoutMs ?? 10_000);
+    }
     const stdin = this.child?.stdin;
     if (!stdin?.writable) {
-      return Promise.reject(new Error('工具侧车未就绪'));
+      throw new Error('工具侧车未就绪');
     }
     const id = `toolsidecar_${++this.seq}`;
     const timeoutMs = this.deps.requestTimeoutMs ?? 30_000;
     return new Promise<Record<string, unknown>>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`工具侧车请求超时：${method}`));
-      }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
+      if (signal?.aborted) {
+        reject(new Error(`工具侧车请求已取消：${method}`));
+        return;
+      }
+      const timer = setTimeout(
+        () =>
+          this.settle(id, (p) =>
+            p.reject(new Error(`工具侧车请求超时：${method}`))
+          ),
+        timeoutMs
+      );
+      const onAbort = (): void => {
+        this.notify('cancel', { id }); // 取消下传帧（best-effort）
+        this.settle(id, (p) =>
+          p.reject(new Error(`工具侧车请求已取消：${method}`))
+        );
+      };
+      const cleanup = signal
+        ? () => signal.removeEventListener('abort', onAbort)
+        : undefined;
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.pending.set(id, { resolve, reject, timer, cleanup });
       stdin.write(encodeFrame({ id, method, params }));
     });
   }
@@ -202,6 +246,7 @@ export class ToolSidecarSupervisor {
     const child = this.child;
     this.child = null;
     this.rejectAllPending(new Error('工具侧车已停止'));
+    this.settleReady(new Error('工具侧车已停止'));
     if (!child) return;
     try {
       child.kill();
@@ -210,30 +255,69 @@ export class ToolSidecarSupervisor {
     }
   }
 
+  /** T3.1：等待侧车就绪（崩溃后有界重启期间）——超时 / 降级 ⇒ reject（fail-closed） */
+  private waitUntilReady(timeoutMs: number): Promise<void> {
+    if (this.isRunning()) return Promise.resolve();
+    if (this.fatal) return Promise.reject(this.fatal);
+    return new Promise<void>((resolve, reject) => {
+      const waiter: ReadyWaiter = { resolve: () => {}, reject: () => {} };
+      const timer = setTimeout(() => {
+        const i = this.readyWaiters.indexOf(waiter);
+        if (i >= 0) this.readyWaiters.splice(i, 1);
+        reject(new Error('工具侧车就绪超时'));
+      }, timeoutMs);
+      waiter.resolve = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      waiter.reject = (reason) => {
+        clearTimeout(timer);
+        reject(reason);
+      };
+      this.readyWaiters.push(waiter);
+      if (this.isRunning()) waiter.resolve(); // 竞态兜底
+    });
+  }
+
+  private flushReady(): void {
+    for (const w of this.readyWaiters.splice(0)) w.resolve();
+  }
+
+  private settleReady(reason: Error): void {
+    for (const w of this.readyWaiters.splice(0)) w.reject(reason);
+  }
+
   /** 子进程帧分派（就绪后由同一 readline 监听器调用） */
   private handleFrame(frame: Record<string, unknown>): void {
     if (isHeartbeatFrame(frame)) return;
     const id = frame.id;
     if (typeof id !== 'string') return;
+    if (!this.pending.has(id)) return;
+    if (frame.success === false) {
+      const err = (frame.error ?? {}) as Record<string, unknown>;
+      this.settle(id, (p) =>
+        p.reject(new Error(String(err.message ?? '工具侧车请求失败')))
+      );
+      return;
+    }
+    this.settle(id, (p) => p.resolve(frame));
+  }
+
+  /** 统一结算：移除 pending + 清计时器 + 清副作用，再执行 resolve/reject */
+  private settle(id: string, action: (p: PendingRequest) => void): void {
     const pending = this.pending.get(id);
     if (!pending) return;
     this.pending.delete(id);
     clearTimeout(pending.timer);
-    if (frame.success === false) {
-      const err = (frame.error ?? {}) as Record<string, unknown>;
-      pending.reject(new Error(String(err.message ?? '工具侧车请求失败')));
-      return;
-    }
-    pending.resolve(frame);
+    pending.cleanup?.();
+    action(pending);
   }
 
   /** D5：所有在飞请求**全部结算**（reject）—— 崩溃/停止路径统一入口 */
   private rejectAllPending(reason: Error): void {
-    for (const [, pending] of this.pending) {
-      clearTimeout(pending.timer);
-      pending.reject(reason);
+    for (const id of [...this.pending.keys()]) {
+      this.settle(id, (p) => p.reject(reason));
     }
-    this.pending.clear();
   }
 
   private onExit(code: number | null): void {
@@ -244,6 +328,8 @@ export class ToolSidecarSupervisor {
     if (this.stopping) return;
     const maxRestarts = this.deps.maxRestarts ?? 3;
     if (this.restarts >= maxRestarts) {
+      this.fatal = new Error('工具侧车不可用（重启超限，fail-closed）');
+      this.settleReady(this.fatal);
       logger.warn('工具侧车反复退出 ⇒ 停止重启（fail-closed）', {
         code,
         restarts: this.restarts,
@@ -255,8 +341,10 @@ export class ToolSidecarSupervisor {
       code,
       attempt: this.restarts,
     });
+    // 崩溃的请求**不自动重试**（避免重复执行副作用）：仅重启进程，不重放 pending
     void this.start().catch((err: unknown) => {
       logger.warn('工具侧车重启失败', { error: String(err) });
+      this.settleReady(new Error(`工具侧车重启失败：${String(err)}`));
     });
   }
 }

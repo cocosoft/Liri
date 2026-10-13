@@ -58,6 +58,51 @@ interface Registry {
 
 const problems: string[] = [];
 
+/**
+ * 定位登记表内**未转义的 ASCII 双引号**（我已在登记表上三次因此使 JSON 破损）。
+ *
+ * 判据（纯文本扫描，**不依赖 JSON 错误文本** —— bun 的 `JSON Parse error` 不带位置）：
+ * 逐字符串边界推进（含 `\` 转义跳过）；字符串闭合后的下一个**非空白**字符**必须**是
+ * `,` `}` `]` `:` 之一；否则该处 `"` 即"提前闭合"的元凶 ⇒ 返回其行列与所在行内容。
+ */
+function locateStrayQuote(file: string): {
+  line: number;
+  col: number;
+  text: string;
+} | null {
+  const src = readFileSync(file, 'utf8');
+  let inStr = false;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (inStr) {
+      if (ch === '\\') {
+        i++;
+        continue;
+      }
+      if (ch === '"') {
+        let j = i + 1;
+        while (j < src.length && /\s/.test(src[j] as string)) j++;
+        const next = src[j];
+        if (next !== undefined && !',}]:'.includes(next)) {
+          const before = src.slice(0, i);
+          const line = before.split('\n').length;
+          const col = i - before.lastIndexOf('\n');
+          const raw = src.split('\n')[line - 1] ?? '';
+          return {
+            line,
+            col,
+            text: raw.length > 160 ? `${raw.slice(0, 160)}…` : raw,
+          };
+        }
+        inStr = false; // 正常闭合 ⇒ 复位（否则下一处开引号会被误判为闭合）
+      }
+      continue;
+    }
+    if (ch === '"') inStr = true;
+  }
+  return null;
+}
+
 if (!existsSync(REGISTRY)) {
   console.error(`登记表不存在: ${REGISTRY}`);
   process.exit(1);
@@ -67,6 +112,19 @@ try {
   reg = JSON.parse(readFileSync(REGISTRY, 'utf8')) as Registry;
 } catch (err) {
   console.error(`登记表 JSON 解析失败: ${String(err)}`);
+  // 精确诊断：本仓最常见根因 = 字符串内用了**未转义的 ASCII 双引号**
+  // （惯例见 `.trae/rules/` 与既有教训：登记表字符串内一律用中文引号「」）。
+  const spot = locateStrayQuote(REGISTRY);
+  if (spot) {
+    console.error(
+      [
+        '  ⚠️ 疑似**未转义的 ASCII 双引号** ⇒ 字符串提前闭合；本仓惯例：字符串内一律用中文引号「」。',
+        `     位置: ${REGISTRY}:${spot.line}:${spot.col}`,
+        `     该行: ${spot.text}`,
+        '     如确需 ASCII 引号，必须在源文件里写作 \\" （转义）。',
+      ].join('\n')
+    );
+  }
   process.exit(1);
 }
 if (!existsSync(DOC)) problems.push(`人读文档不存在: ${DOC}`);

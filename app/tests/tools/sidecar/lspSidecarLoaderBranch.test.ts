@@ -23,8 +23,8 @@
  * 工具侧车 **双跑开关 + loader 分支 + 启动层门控** 单测（S1 骨架）。
  *
  * 锁定：
- * ① 开关关 ⇒ loader 选择与现状一致（`lsp` 在生效工具面），且**不启动任何侧车进程**；
- * ② 开关开 ⇒ loader 分支走侧车（`lsp` 不再走内置 loader）；
+ * ① 开关关 ⇒ loader 选择与现状一致（`lsp` 由**内置 loader/工厂**产出），且**不启动任何侧车进程**；
+ * ② 开关开 ⇒ loader 分支走侧车（`lsp` 由**侧车适配器**产出，不经内置工厂）；
  * ③ 启动层（`maybeStartLspSidecar`）开关关 ⇒ 不 spawn；开关开 ⇒ 按契约启动/握手/关闭（假子进程）。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
@@ -32,6 +32,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 import { getBuiltinToolLoaders } from '../../../src/tools/utils/ToolManagerUtils';
+import { SidecarLspTool } from '../../../src/tools/sidecar/SidecarLspTool';
 import type { ToolFactory } from '../../../src/tools/ToolFactory';
 import {
   isLspSidecarEnabled,
@@ -56,17 +57,28 @@ class FakeChild extends EventEmitter {
 }
 const asChild = (c: FakeChild): ChildProcess => c as unknown as ChildProcess;
 
-/** 假工厂：`byKey` 会以 `this.create(key)` 取构造器 ⇒ 只关心 LSP 键的产物名 */
+/** 假工厂：`byKey` 会以 `this.create(key)` 取构造器 ⇒ 产物打 `fromFactory` 标记便于区分来源 */
 const fakeFactory = {
   create: (key: string) => ({
     name: key === 'createLSPTool' ? 'lsp' : `fake_${key}`,
+    fromFactory: true,
   }),
 } as unknown as ToolFactory;
 
-function effectiveToolNames(): string[] {
+function effectiveTools(): Array<Record<string, unknown>> {
   return getBuiltinToolLoaders()
     .map((loader) => loader(fakeFactory))
-    .flatMap((tool) => (tool ? [tool.name] : []));
+    .filter((tool): tool is NonNullable<typeof tool> => tool !== null)
+    .map((tool) => tool as unknown as Record<string, unknown>);
+}
+
+function effectiveToolNames(): string[] {
+  return effectiveTools().map((tool) => String(tool.name));
+}
+
+/** 生效工具面里的 `lsp` 工具（开关关 = 工厂产物；开关开 = 侧车适配器） */
+function lspTool(): unknown {
+  return effectiveTools().find((tool) => tool.name === 'lsp') ?? null;
 }
 
 const ENV_LSP = 'FEATURE_LSP';
@@ -90,15 +102,18 @@ afterEach(() => {
 });
 
 describe('双跑开关：loader 分支选择', () => {
-  it('开关关（默认）⇒ 与现状一致：lsp 走内置 loader', () => {
+  it('开关关（默认）⇒ 与现状一致：lsp 由内置工厂产出', () => {
     expect(isLspSidecarEnabled()).toBe(false);
     expect(effectiveToolNames()).toContain('lsp');
+    expect(lspTool()).toMatchObject({ fromFactory: true });
+    expect(lspTool()).not.toBeInstanceOf(SidecarLspTool);
   });
 
-  it('开关开 ⇒ 走侧车 loader 分支（lsp 不再走内置）', () => {
+  it('开关开 ⇒ 走侧车 loader 分支（lsp 由侧车适配器产出）', () => {
     process.env[ENV_SIDECAR] = 'true';
     expect(isLspSidecarEnabled()).toBe(true);
-    expect(effectiveToolNames()).not.toContain('lsp');
+    expect(effectiveToolNames()).toContain('lsp');
+    expect(lspTool()).toBeInstanceOf(SidecarLspTool);
   });
 });
 

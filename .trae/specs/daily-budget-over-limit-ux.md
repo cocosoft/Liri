@@ -1,6 +1,7 @@
 # Spec：日预算「超限体验与放行」+ 闸门收口
 
-> 版本: 0.8（设计稿，**待用户评审**）｜ 创建: 2026-10-11 ｜ 更新: 2026-10-11 ｜ 状态: **未实施**
+> 版本: 0.8（设计稿 · **2026-10-13 状态回填**）｜ 创建: 2026-10-11 ｜ 更新: 2026-10-13 ｜ 状态: **主体已落地**（富上下文错误帧 `DAILY_BUDGET_EXCEEDED` 经 SSE `__pyapp_error_code` / 非流式 `errorCode`+`errorContext` + 前端**可交互**三路径卡片 `DailyLimitNotice`（boost / waive-once / unlock-today）+ 通道侧**专用文案**）—— 头部原记「未实施」与事实不符，2026-10-13 复查订正。**残留（如实）**：**通道侧为文案、非可交互**（按钮/回调属通道治理 阶段 2.3/2.4 范围）。
+> **2026-10-13 关联更正**：本文 §4 D-d 承诺的「`waive-once` 放行**计入欠账**、次日**从可用额度扣回**」原为**静默 no-op**（`DailyBudgetManager.debtTokens` 全仓无自增点）⇒ 已修复（消费点按本次实际消耗累加；跨日扣回复用既有 `rollover`）⇒ 该语义**自此真正生效**。证据 `.trae/architecture/fix-evidence-registry.json` → **`WAIVE-ONCE-DEBT`**。
 > 本版含**外部审阅（google ai建议.md §v0.6 评述 5 条）逐条复核**的落盘结果（见 §6.1 / §5-C / §5-D-2 / §10-8/9 / §11）
 > 后续专项：`.trae/specs/unified-budget-and-accounting.md`（USD 口径统一，见 §11）·
 > `.trae/specs/long-task-suspend-resume.md`（长程任务挂起—续跑，见 §5-D-1 D / §10-8）

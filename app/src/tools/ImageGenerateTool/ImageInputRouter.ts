@@ -35,6 +35,11 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { isMediaSidecarEnabled } from '../sidecar/mediaSidecarLifecycle';
+import {
+  resizeViaMediaSidecar,
+  type SidecarResizeFn,
+} from '../sidecar/SidecarMediaAnalyzer';
 
 const logger = getLogger('tools:image-input-router');
 
@@ -88,7 +93,31 @@ export interface ImageInputDecision {
 /** 默认 Vision API 最大图片大小：20MB */
 const DEFAULT_MAX_VISION_BYTES = 20 * 1024 * 1024;
 
+/** 缩放后端（T5.2 收口点：本地 sharp / media 侧车共用同一逐级缩放循环） */
+type ResizeBackend = (
+  image: Buffer,
+  maxSide: number,
+  quality: number
+) => Promise<Buffer>;
+
+/** 本地 `sharp` 后端（开关关默认；与原实现**逐字等价** —— 每次调用动态 `import('sharp')`） */
+const localSharpResize: ResizeBackend = async (image, maxSide, quality) => {
+  const { default: sharp } = await import('sharp');
+  return sharp(image)
+    .resize(maxSide, maxSide, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality })
+    .toBuffer();
+};
+
 export class ImageInputRouter {
+  /**
+   * @param sidecarResize 媒体侧车缩放后端（`TOOL_SIDECAR_MEDIA` 开时使用；缺省
+   *   {@link resizeViaMediaSidecar}）。开关关时**不被调用**（走本地 sharp）。
+   */
+  constructor(
+    private readonly sidecarResize: SidecarResizeFn = resizeViaMediaSidecar
+  ) {}
+
   /**
    * 根据主模型能力和图片属性，自动决定图片如何处理
    *
@@ -204,17 +233,30 @@ export class ImageInputRouter {
       maxSize: `${(maxBytes / 1024).toFixed(0)}KB`,
     });
 
+    // S5/T5.2：开关关（默认）⇒ 本地 sharp（原路径）；开 ⇒ 经受管 media 侧车（native 移出主进程）
+    const resize: ResizeBackend = isMediaSidecarEnabled()
+      ? (img, maxSide, quality) => this.sidecarResize(img, maxSide, quality)
+      : localSharpResize;
+
+    return this.shrinkWithResize(resize, image, currentSize, maxBytes);
+  }
+
+  /**
+   * 逐级缩放（开关关/开**共用**同一循环 —— 仅"缩放后端"不同 ⇒ 结果等价）。
+   * 后端 = 本地 `sharp`（开关关，逐字等价原实现）或 media 侧车（开关开）。
+   */
+  private async shrinkWithResize(
+    resize: ResizeBackend,
+    image: Buffer,
+    currentSize: number,
+    maxBytes: number
+  ): Promise<{ buffer: Buffer; shrunk: boolean }> {
     // 逐级缩放
     const sizes = [2048, 1600, 1024, 800, 600];
 
     for (const maxSide of sizes) {
       try {
-        const { default: sharp } = await import('sharp');
-
-        const resized = await sharp(image)
-          .resize(maxSide, maxSide, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 85 })
-          .toBuffer();
+        const resized = await resize(image, maxSide, 85);
 
         const newSize = resized.length;
 
@@ -242,11 +284,7 @@ export class ImageInputRouter {
 
     // 极端压缩：400px + JPEG quality 60
     try {
-      const { default: sharp } = await import('sharp');
-      const extreme = await sharp(image)
-        .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 60 })
-        .toBuffer();
+      const extreme = await resize(image, 400, 60);
 
       logger.warn('ImageInputRouter · 使用极端压缩', {
         extremeSize: `${(extreme.length / 1024).toFixed(0)}KB`,

@@ -12,7 +12,7 @@ import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { maybeStartLspSidecar } from '../sidecar/toolSidecarLifecycle';
+import { SidecarLspTool } from '../sidecar/SidecarLspTool';
 
 const logger = getLogger('tools:managerUtils');
 
@@ -81,21 +81,19 @@ const byKey = (key: BuiltinToolFactoryKey): ToolLoader =>
   });
 
 /**
- * 工具侧车（P1 常驻 LSP）**双跑 loader 选择**（S1 骨架，spec §3-D4）。
+ * 工具侧车（P1 常驻 LSP）**双跑 loader 选择**（S2：真接线，spec §3-D4 / §6.1）。
  *
  * · `TOOL_SIDECAR_LSP` **关**（默认）⇒ **内置 loader**（`byKey('createLSPTool')`）——
  *   与现状**逐字等价**，且**不启动任何侧车进程**（loader 构造期不产生副作用）。
- * · `TOOL_SIDECAR_LSP` **开** ⇒ **侧车 loader**：确保常驻侧车 supervisor 就绪
- *   （**启动层门控**：仅此处、仅开关为真时才 `spawn`）；工具面接线（`lsp` 经侧车返回结果，
- *   形状与内置一致）在 **S2/T2.2** —— 本阶段 **fail-closed 返回 `null`**
- *   （不回落内置"每次 spawn"路径 ⇒ 规避 spec §2「静默双轨」反目标；亦不伪造成功，CS03）。
+ * · `TOOL_SIDECAR_LSP` **开** ⇒ **侧车 loader**（`SidecarLspTool`）：`execute` 时经
+ *   `maybeStartLspSidecar()` 确保常驻侧车就绪（**启动层门控**：仅开关为真时才 `spawn`），
+ *   并把工具调用翻译为 sidecar `request`（结果形状与内置一致）。
+ *   侧车不可用 / 握手失败 / 方法未实现 ⇒ 适配器内 **fail-closed 报错**
+ *   （**不**回落内置"每次 spawn"路径 ⇒ 规避 spec §2「静默双轨」反目标；CS03）。
  */
 function selectLspToolLoader(): ToolLoader {
   if (!coreFeature('TOOL_SIDECAR_LSP')) return byKey('createLSPTool');
-  return () => {
-    void maybeStartLspSidecar();
-    return null; // S2/T2.2：接线 `lsp` 工具经侧车返回结果
-  };
+  return createToolLoader(() => new SidecarLspTool());
 }
 
 /**

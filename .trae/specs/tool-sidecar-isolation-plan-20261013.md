@@ -23,10 +23,10 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 |---|---|---|---|---|
 | S0 前置校验 | T0.1 / T0.2 | 文档（零代码） | 契约复核 + 漂移回填 | 否（单测即可） |
 | S1 骨架+开关 | T1.1–T1.4 | 开关 + supervisor + 侧车入口 + loader 分支 | 新进程 + 层落点（D11） | **是**（可控注入为默认） |
-| S2 LSP 双轨收敛 | T2.1–T2.4 | 收敛接线（独立提交） | CD07 保护域 | 中：双跑一致性 |
-| S3 崩溃+取消 | T3.1 / T3.2 | 崩溃结算/重启 + 取消帧 | 契约行为 | **是**（可控注入） |
-| S4 同源门禁 | T4.1 / T4.2 | 注册接线 + 测试 + Landlock 声明 | 安全同源 | 否（注册表断言） |
-| S5 媒体侧车 | T5.1 / T5.2 | `TOOL_SIDECAR_MEDIA` + worker 受管 + sharp 收口一处 | native/OOM 隔离 | **是**（大图/worker，按需） |
+| S2 LSP 双轨收敛 | T2.1–T2.4 | ~~收敛接线（独立提交）~~ ⇒ **2026-10-13 落地为 Option A：不收敛轨 B + 工具面真接线（独立提交，默认关）** | CD07 保护域（Option A 下**不触碰**） | 中：双跑一致性 |
+| S3 崩溃+取消 | T3.1 / T3.2 | 崩溃结算/重启 + 取消帧 | 契约行为 | **是**（可控注入）⇒ **✅ 2026-10-13 已落地** |
+| S4 同源门禁 | T4.1 / T4.2 | 注册接线 + 测试 + Landlock 声明 | 安全同源 | 否（注册表断言）⇒ **✅ 2026-10-13 已落地（保名派）** |
+| S5 媒体侧车 | T5.1 / T5.2 | `TOOL_SIDECAR_MEDIA` + worker 受管 + sharp 收口一处 | native/OOM 隔离 | **是**（大图/worker，按需）⇒ **✅ 2026-10-13 已落地（真机项部分受阻，见下）** |
 | S6 物理删除 | T6.1 | **独立删除提交**（记录哈希） | 不可逆 | 否（走 CD05 观察结论） |
 | S7 收尾回填 | T7.1 / T7.2 | 文档（零代码） | 台账/总览 | 否 |
 
@@ -55,10 +55,11 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 >   - **动态入口结论（关键）**：**存在字面量动态导入** —— `core/LazyModuleStrategy.ts:364` `lsp: () => import('../lsp/index.js')`（`DYNAMIC_IMPORT_LOADERS`），且 `lsp` 声明为 `loadMode: ON_DEMAND`（`:149-153`）。**但触发链当前不可达**：`requestModule('lsp')` 仅经 `ModuleInitializer.requestOnDemandModule()`（`:410-427`）→ 其**全仓零调用方**（G-C5 登记 `:402-405`；`modules/index.ts:63-64` 仅转出）；且 `lsp` 被 `getDeferredModuleIds` 排除（ON_DEMAND 不参与批量加载，`:403-412`）。
 >   - **约定式/配置驱动入口**：`modules/ModuleDefinitions.ts:399-408`（模块元数据，**无 `initialize()`**）、`MODULE_INITIALIZATION_ORDER:957`、`ImportManager.ts:107`、`tsconfig.json:38-39`。
 >   - **结论（⚠️ 无法仅凭检索确证"运行时零可达"）**：静态近零 + **动态 thunk 真实存在**（未来若接线 `requestOnDemandModule('lsp')` 即被加载）⇒ 属 CD07「未接线但动态可发现」高风险项，**登记不删**（定案稿 D7）。**若需运行时确证**：对 `requestOnDemandModule`/`requestModule` 埋点，或 `FEATURE_LSP=true` 后调用 `lsp` 工具并观察 `import('../lsp/index.js')` 是否求值。
+>   - **✅ 运行时取证补充（2026-10-13，真机 `--http-only` 启动 + 全日志检索）**：启动全量日志中 `lsp`（大小写不敏感）**零命中** —— 无 `初始化模块: lsp`、无 `lsp` 命名空间 logger；仅见 `按需模块已就绪: 9 个`（仅登记、不求值）。与静态"`requestOnDemandModule()` 零调用方"相互印证 ⇒ **当前运行时不可达**（日志证据；"全运行时零求值"的严格证明仍需埋点，但两条独立证据方向一致）。**仍按 CD07：登记不删**（`dead-code-and-unwired-items-rulings.md` §2 UW-5）。
 
 **T0.2 回填 §1 残留漂移（仅文档）**
 - 目标：消除 `CHANGELOG` 对 D10 P1 的过时表述。
-- 涉足文件：`CHANGELOG.md:90`（现写"D10 的 **P1（未落地）**"，与 D10 §8.5/P1 **已落地**矛盾；注：定案稿引 `:82`，实际行号已漂移到 `:90`）；`dev_docs/20261012/五方案总览-20261012.md:267/:270`。
+- 涉足文件：~~`CHANGELOG.md:90`~~ —— **⚠️ 2026-10-13 复核订正该任务前提**：`CHANGELOG.md` **并无** "D10 P1 未落地" 的表述 —— `:221` 早已记 `✅ ① 轻量 IPC 基座收敛（P1）…`，而 `:90` 实为 **MCP 安全段**（子代理报的 `:82`/`:90` 行号引用**与事实不符**）⇒ **CHANGELOG 无需订正**。真正的漂移在 `dev_docs/20261012/工具治理方案-20261012.md`（§5 阶段 2.2 硬依赖段）与 `重型工具侧车化-盘点清单-20261012.md:121`，**已于 2026-10-13 订正**；`五方案总览` 的 `T1-10/T3-5..7` 状态亦已回填。
 - 验收：文本改为"已落地（2026-10-10，`utils/sidecarIpc.ts`）"。
 - 风险：低。
 - 依赖：无（可与 T1.* 并行）。
@@ -113,6 +114,13 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 
 ### 阶段 S2 · LSP 双轨收敛（**CD05 / CD07**）
 
+> **✅ 执行结论（2026-10-13，**Option A**，用户裁定）**：**不收敛轨 B、不改 `app/src/lsp/**` 与 `tools/lsp/**`**（前置取证：轨 B 静态近零 + **运行时不可达** ⇒ 无「必须复用」压力；见 T0.1 两条互证结论）。改做**工具面真接线**：
+> - 新增 `tools/sidecar/lspConnection.ts`（侧车**自持**最小 LSP 连接：标准 `Content-Length` 分帧；`initialize`/`hover`/`definition`；`resolveLanguageServerCommand()` 语言→命令映射；`spawnFn` 可注入）与 `tools/sidecar/SidecarLspTool.ts`（侧车工具适配器；schema 与内置 `LSPToolAdapter` **deep-equal**）。
+> - `lspSidecar.ts` 由 S1 桩改为**真实方法分派**；loader 侧车分支由「返回 `null`」改为 `createToolLoader(() => new SidecarLspTool())`（**off 分支原样**；装配点未动 ⇒ 同一 ToolRegistry/PathGuard/结果上限路径）。
+> - **覆盖 3 项**（`lsp.initialize`/`lsp.hover`/`lsp.definition`）；**其余 11 个 action 一律 fail-closed `NOT_IMPLEMENTED`**（不假装成功、不静默回落内置）。
+> - **验证**：先红后绿（实现前 7 fail + 2 errors ⇒ 后 **38 pass / 0 fail**）；真实进程级（**假 LS**）E2E 打通（spawn → 握手 → initialize → hover ⇒ `FAKE_HOVER` → definition ⇒ `Location[]` → stop）；`tests/{tools,utils}` **1044 pass / 0 fail**；门禁全绿。证据 `TOOLGOV-SIDECAR-S2`。
+> - **如实遗留**：**真实 LS 端到端未验证**（本机无 `typescript-language-server`）；LS 崩溃恢复/退避与**取消下传**未接线（属 **S3**）；**同源门禁**（S4/T1-11）未做。
+
 **T2.1 轨 A / 轨 B 消费者与生命周期梳理**
 - 目标：固化两轨的消费者、生命周期、契约边界（不改码）。
 - 涉足文件：轨 A `app/src/tools/lsp/**`（`LSPServer.start()` spawn `app/src/tools/lsp/LSPServer.ts:68`；超时 `app/src/tools/lsp/LSPClient.ts:24`）；轨 B `app/src/lsp/**`（`createLSPServerManager()` `app/src/lsp/LSPServerManager.ts:30`、`createLSPServerInstance()` `app/src/lsp/LSPServerInstance.ts:41`）；工具面 `app/src/tools/adapters/LSPToolAdapter.ts:44,48`（`name='lsp'`）。
@@ -151,6 +159,12 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 
 ### 阶段 S3 · 崩溃隔离 + 取消下传（全链路契约）
 
+> **✅ 执行结论（2026-10-13）**：
+> - **取消下传（T3.2）逐跳**：工具层认领 `AbortSignal`（`SidecarLspTool.ts:237`，对齐既有 `McpToolWrapper`）⇒ supervisor 写 `notify` 帧（**沿用 `sidecarIpc` 既有 `{type:'notify',event,data}` 形状，未造新协议**）并**本地结算**（`ToolSidecarSupervisor.ts:217-221`）⇒ 侧车 `inflight.get(id).abort()`（`lspSidecar.ts:120-127`）⇒ 连接层写标准 LSP **`$/cancelRequest`**（`lspConnection.ts:240-243`）。取消 ⇒ 明确「已取消」且**不回落内置**。
+> - **崩溃结算/重启（T3.1）**：崩溃 ⇒ **pending 全拒**（明确错误）+ **不自动重试**（避免重复副作用）+ **有界重启**（`waitUntilReady`：重启窗口内请求等待握手就绪；超限 ⇒ `fatal` fail-closed）。
+> - **验证**：先红后绿（实现前 **2 pass / 5 fail** ⇒ 后 **7 pass / 0 fail**；如实：崩溃结算与开关关等价两例因 S1 已落地本已为绿）+ **真实进程级 + 故障注入（假 LS）E2E** 全链通过（`abort()` ⇒ 假 LS 收到 `cancel:` 且主内核存活 ⇒ `kill()` ⇒ 重启 `getRestarts()===1` ⇒ 再请求成功）；`tests/{tools,utils}` **1051 pass / 0 fail**；门禁全绿。证据 `TOOLGOV-SIDECAR-S3`。
+> - **如实遗留**：**真实 `typescript-language-server` 语义端到端未验证**（本机未装，同 S0/S2）；取消为 **best-effort**；`fatal` 态后请求立即 fail-closed。
+
 **T3.1 崩溃隔离：pending 全结算 + 有界重启**
 - 目标：侧车崩溃 ⇒ 主内核收**普通 RPC 错误**、主进程存活、长任务可续跑；supervisor 有界重启，超限降级报错（不伪造成功）。
 - 涉足文件：`app/src/ai/python/JsonRpcBridge.ts:218-227`（`exit` 时 reject 全部 pending，**同源语义**）；侧车 supervisor（T1.2）；测试范式 `app/tests/execution/processCrashInjection.test.ts`。
@@ -171,10 +185,18 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 
 ### 阶段 S4 · 同源门禁（T1-11）
 
+> **✅ 执行结论（2026-10-13，**保名派**）**：
+> - **取证三问**：① 侧车工具**已**在同一 `ToolRegistry` / 同一装配链（`ToolManagerUtils.ts:207` 的 `cond(coreFeature('LSP'), …)` 位于 `buildBuiltinToolLoaders()` 清单内 ⇒ 经 `getBuiltinToolLoaders()` 进唯一注册表 `ToolRegistry.ts:798`）；② **PathGuard 与结果上限已天然覆盖**（门禁落点 `ReActToolLoop.ts:1145`；`resolveToolParamNames` 从全局注册表读 `params`，侧车 `file_path ∈ PATH_ARG_KEYS` ⇒ 被提取判定拦截；`maxResultSizeChars=10000` 经 `getInfo()` 透出至公共预算器）；③ **改名派不可行**（破坏 S2 的 schema deep-equal 不变量 + 需整套 MCP server 基建，而侧车**不是** MCP server）。
+> - **裁定**：**保名派**（同一 registry + 同一门禁链即达成 T4.1 的**目标**；工具名恒 `lsp`）；T4.1 验收原文已订正（见上）。
+> - **T4.2 落地**：`SIDECAR_LSP_LANDLOCK_APPLICABILITY = { applies:false, reason:'LSP 工具为只读代码智能查询 ⇒ Landlock 不适用' }` **显式声明**（`SidecarLspTool.ts:48-61`；**代码常量 + 注释 + 测试断言三处一致**，对齐 D6「明示、不装作同源」）；新增测试 `sidecarSameSourceGate.test.ts` **9 例**（同源注册 / PathGuard 拦截 / 结果上限 / Landlock N/A / 开关关等价）。
+> - **先红后绿（如实）**：真实红→绿**仅**在 Landlock 常量（实现前 `SyntaxError…` ⇒ 0 pass/1 fail/1 error；后 **9 pass / 0 fail**）；PathGuard/结果上限两例**首次可运行即绿**（机制层 S2 已天然覆盖 ⇒ 本片为**验证 + 回归锁定**，**未编造红**）。
+> - **验证**：`tests/{tools,chat,utils}` **1597 pass / 0 fail**；门禁全绿。证据 `TOOLGOV-SIDECAR-S4`。
+> - **如实遗留**：真实 LS 端到端仍未验证；未在 `ReActToolLoop` 全栈做整轮拦截断言（改在门禁落点证明同源）。
+
 **T4.1 经 `MCPToolBridge` 注册为 `${server}__${tool}`**
 - 目标：侧车工具进**同一** `ToolRegistry`，自动获同套门禁。
 - 涉足文件：`app/src/services/mcp/MCPToolBridge.ts:112-115`（`registerServerTools()`）；`app/src/services/mcp/McpToolWrapper.ts:43`（工具名 `${serverName}__${toolName}`）。
-- 验收：测试断言侧车工具注册进同一 registry；工具名格式为 `${server}__${tool}`（**非** `mcp__...`）。
+- 验收：测试断言侧车工具注册进同一 registry；~~工具名格式为 `${server}__${tool}`（**非** `mcp__...`）~~ ⇒ **2026-10-13 订正为「保名派」**：经**同一装配链 / 同一 `ToolRegistry`**（`getBuiltinToolLoaders()` → `ToolManager.loadBuiltinTools()`）接入 ⇒ **自动获同套门禁**，工具名**恒 `lsp`**（与内置契约 deep-equal）。依据：改名派（计划原文）会破坏 S2 锁定不变量（`sidecarLspTool.test.ts:237-241` 的 schema deep-equal）且需引入整套 MCP server 基建（侧车**不是** MCP server）⇒ 不可行；冲突影响清单与两份口径见证据 `TOOLGOV-SIDECAR-S4`。
 - 风险：中（注册链同源）。
 - 依赖：T2.4。
 - 真实进程级验证：否（注册表断言）。
@@ -190,6 +212,13 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 - 回滚：独立提交 revert。
 
 ### 阶段 S5 · P2 媒体侧车（评估驱动切片，受 `TOOL_SIDECAR_MEDIA`）
+
+> **✅ 执行结论（2026-10-13，开关**默认关**）**：
+> - **T5.1**：新增 `tools/sidecar/{mediaSidecar,mediaSidecarLifecycle,mediaCapabilities,SidecarMediaAnalyzer}.ts`（**复用** `ToolSidecarSupervisor` + `sidecarIpc`，**无第三套 IPC**）；`ImageAnalysisTool.getL2WorkerGuard` 改**双跑**（关 ⇒ 既有 `WorkerGuard` 逐字不变；开 ⇒ 经 `media.analyze` 同形状）；覆盖 `ocr`/`objects`/`similarity`，其余（`sam_segment`/`depth_estimate`…）**显式 fail-closed**。
+> - **T5.2**：**只收一处** —— `ImageInputRouter` 的超大图缩放（原 >20MB 动态 `import('sharp')`）开关开 ⇒ 经 `media.resize`；关 ⇒ 逐字原路径；**未触碰** `media/image/ImageProcessor.ts` 主路径与其它 `sharp` 调用点。**等价性**：off/on **字节级等价**（on 后端 = 同参数真 sharp）；后端抛错 ⇒ **不静默回落**。
+> - **验证**：先红后绿（3 errors + 5 fail / 1 pass ⇒ **17 pass / 0 fail**）；`tests/tools/sidecar` **64 pass**；`tests/{tools,utils,ai}` **1325 pass / 0 fail**；门禁全绿。证据 `TOOLGOV-SIDECAR-S5`。
+> - **真机（如实）**：真起侧车 ⇒ 握手 OK ⇒ `media.resize` 经**真 sharp** 得 JPEG 50×50 ⇒ `sam_segment` NOT_IMPLEMENTED ⇒ `media.analyze(ocr)` **受阻**（`Model 'easyocr' is not installed`）⇒ **真实 L2 模型端到端未验证**（未伪造）。
+> - **遗留**：无 >20MB 真图夹具（以 161KB 图 + 缩小 `maxBytes` 触发同一路径做等价验证，属计划允许的退化）；**未摘未删** `ai/python/**`（CD05/CD06/CD07）。
 
 **T5.1 `vision_worker` 升级为受管 MCP 侧车**
 - 目标：`vision_worker`（已进程外常驻、真 OOM 源）纳入同一管理面（注册/权限/生命周期同源）。
@@ -261,7 +290,7 @@ T0.2 ─┘（文档，可并行）                          └──── S3/
 
 1. **工具侧车 supervisor 的**具体层级落点**未定**：D11 要求"先定层级再写码"；本稿给候选（`tools/**` 内 vs 经既有模块）但**未拍板**（缺"装配代码归属模块"的既定约定）。
    - **✅ S1 定案（2026-10-13）**：落 `app/src/tools/sidecar/**`（`tools` = **app** 层，见 `scripts/modules-to-layers.json:36`）；出向仅 `@modules/core`（`FeatureFlag`）/`@modules/monitoring`（Logger）/`@modules/utils/sidecarIpc` ⇒ **app → core/infra**，合法，无层倒置（`lint:arch` 0 违规）。
-2. **S2 双轨收敛的"以轨 B 为底座"是否引入轨 A 未覆盖能力缺口**：轨 A 有 `npx` 冷启动的各 external LS（`LSPToolImpl.ts:274-337`，引自盘点 §1），轨 B 常驻引擎支持的 LS 集合（`LSPServerManager.ts:44-59`：ts/rust/go/python/c/java）与之**是否等价**未逐项比对 —— 需 S2/T2.1 清单确认。
+2. **S2 双轨收敛的"以轨 B 为底座"是否引入轨 A 未覆盖能力缺口**：轨 A 有 `npx` 冷启动的各 external LS（`LSPToolImpl.ts:274-337`，引自盘点 §1），轨 B 常驻引擎支持的 LS 集合（`LSPServerManager.ts:44-59`：ts/rust/go/python/c/java）与之**是否等价**未逐项比对 —— ~~需 S2/T2.1 清单确认~~ ⇒ **已结案（2026-10-13，Option A）**：**不收敛两轨**（用户裁定），侧车**自持**最小 LSP 连接 ⇒ 本项**不再相关**。
 3. **`liri-native` 侧车评估**（定案稿 D8，本期仅评估）：不在本计划任务内；其量化评估（11 处调用点 × 热路径代价 × 崩溃恢复）**未产出**。
 4. **真机验证环境**：真实 `typescript-language-server`（经 `npx`）与 >20MB 大图夹具**是否可用**未确认（§1 真机项依赖本机环境）。
    - **⚠️ 探测结果（2026-10-13，S0 实测）**：`npx --no-install typescript-language-server --version` ⇒ **失败**（`npm error npx canceled due to missing packages and no YES option: ["typescript-language-server@6.0.2"]`）⇒ 本机**未安装**该 LS，**离线环境不可用**（真机时延对比项受阻）。仓库内 `*.png/jpg/jpeg/webp/tiff/bmp` 中**无 >5MB 文件**（更无 >20MB）⇒ **无可用大图夹具**（P2 真机项受阻）。二者均需**外部环境补齐**后方可真机验证。

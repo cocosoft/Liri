@@ -1,0 +1,42 @@
+/**
+ * 端点 / 本地 host 的**唯一事实源**（硬编码治理 HD-P0-2；方案 §4.1 A1·A3·A4·A6）
+ *
+ * 覆盖的「事实源」与收编前后的定义点数：
+ *   - A1 Ollama 本地地址 `http://localhost:11434`（含 `/v1` 兼容形式）：收编前 9 处 → 1 处
+ *   - A3 微信 bot 地址 `http://localhost:7600`：收编前 5 处 → 1 处
+ *   - A4 本地 OAuth 地址 `http://localhost:8080`：收编前 2 处 → 1 处
+ *   - A6 本机回环 host `127.0.0.1`：收编前 18 处（14 文件） → 1 处
+ *
+ * **分层硬约束（R00-001；方案 §7.3.1）**：本模块属 `core`，只允许依赖 `core`。因此这里
+ * **只提供静态默认常量**：**不读取任何配置、无副作用、无启动期依赖**。配置值（env / 持久化）
+ * 的读取与注入由 **app / service 层**在就绪后完成；调用方在 T0/T1 等早期阶段**不传配置**时
+ * 天然回落到本文件的常量 —— 这就是「启动期安全」，且**不引入就绪判据 API**、不越层。
+ *
+ * **与 `core/ports.ts` 的分工（不同事实源，勿合并）**：`core/ports.ts` 负责服务**监听端口**
+ * （`DEFAULT_HTTP_PORT` 及端口优先级口径）；本文件负责**端点 URL** 与**本机 host** 默认值。
+ *
+ * **语义边界（防未来错误合并）**：
+ *   1. `LOCAL_HTTP_HOST` 当前同时承担「默认**绑定** host」与「连接/探测**本机**服务的默认目标」
+ *      两个**当前等价**的角色。若将来引入「对外绑定策略」（例如绑定 `0.0.0.0`），**必须另立常量**，
+ *      **不得**复用本常量 —— 否则会把"对外暴露"与"本机自连"绑死成一处错误耦合。
+ *   2. `DEFAULT_OAUTH_LOCAL_BASE_URL` 与本地推理服务（llama.cpp / LocalAI）预设里的 `localhost:8080`
+ *      是**数值相同、事实不同**（OAuth 回调服务 vs 本地 LLM 服务）⇒ 按方案 §5 N7 口径**不合并**。
+ */
+
+/** 本机回环地址（IPv4）。默认绑定 host；亦用于连接/探测本机服务的默认目标。 */
+export const LOCAL_HTTP_HOST = '127.0.0.1';
+
+/** Ollama 本地服务默认地址（A1） */
+export const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434';
+
+/**
+ * Ollama 的 OpenAI 兼容端点（A1）。
+ * 由 `DEFAULT_OLLAMA_ENDPOINT` 派生 ⇒ 改端口只需改上面一处。
+ */
+export const DEFAULT_OLLAMA_OPENAI_ENDPOINT = `${DEFAULT_OLLAMA_ENDPOINT}/v1`;
+
+/** 微信 bot（weixin-cli HTTP Bridge）默认地址（A3） */
+export const DEFAULT_WECHAT_BOT_ENDPOINT = 'http://localhost:7600';
+
+/** 本地 OAuth 服务默认地址（A4；本地开发 / 自建部署用） */
+export const DEFAULT_OAUTH_LOCAL_BASE_URL = 'http://localhost:8080';

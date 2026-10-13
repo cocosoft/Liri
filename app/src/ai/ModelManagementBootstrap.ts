@@ -34,6 +34,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ProviderType } from '@modules/ai';
+import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
 
 const logger = getLogger('ai:modelManagementBootstrap');
 
@@ -156,7 +157,7 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
   {
     providerType: 'ollama',
     name: 'Ollama',
-    baseUrl: 'http://localhost:11434',
+    baseUrl: DEFAULT_OLLAMA_ENDPOINT,
     requiresAuth: false,
     envKey: '',
   },

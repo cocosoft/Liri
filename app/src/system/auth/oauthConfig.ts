@@ -7,6 +7,7 @@
 import type { OAuthConfig } from './oauth-types.js';
 import type { ValidationResult } from '@modules/common/types';
 import { configManager } from '@modules/config';
+import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@modules/core';
 
 const Liri_INFERENCE_SCOPE = 'user:inference';
 const Liri_PROFILE_SCOPE = 'user:profile';
@@ -34,7 +35,7 @@ export const DEFAULT_API_BASE_URL = 'https://api.openliri.com';
 export const ALLOWED_OAUTH_BASE_URLS: string[] = [
   'https://api.openliri.com',
   'https://api.staging.openliri.com',
-  'http://localhost:8080',
+  DEFAULT_OAUTH_LOCAL_BASE_URL,
 ];
 
 /**

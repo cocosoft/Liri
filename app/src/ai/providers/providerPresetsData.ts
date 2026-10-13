@@ -26,6 +26,8 @@
  * 保持与 client/src/config/providerPresets.ts 同步。
  */
 
+import { DEFAULT_OLLAMA_OPENAI_ENDPOINT } from '@modules/core';
+
 export interface ProviderPresetTheme {
   icon: string;
   backgroundColor: string;
@@ -509,13 +511,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: '/v1/models',
     endpointCandidates: [
-      'http://localhost:11434/v1',
+      DEFAULT_OLLAMA_OPENAI_ENDPOINT,
       'http://127.0.0.1:11434/v1',
     ],
     settingsConfig: {
       name: 'Ollama',
       providerType: 'ollama',
-      baseUrl: 'http://localhost:11434/v1',
+      baseUrl: DEFAULT_OLLAMA_OPENAI_ENDPOINT,
       apiKey: '',
       modelsUrl: '',
       notes: '本地运行，无需 API Key',

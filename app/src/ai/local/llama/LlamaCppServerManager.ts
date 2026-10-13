@@ -59,6 +59,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import {
   resolveLlamaBinaryPath,
   resolveLlamaDir,
@@ -134,7 +135,7 @@ export interface LlamaServerConfig {
 }
 
 const DEFAULT_CONFIG: LlamaServerConfig = {
-  host: '127.0.0.1',
+  host: LOCAL_HTTP_HOST,
   port: 11435,
   model: '',
   autoStart: true,
@@ -1378,7 +1379,7 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
     // 主动探测：从服务端 /props 获取真实 n_ctx（llama-server 实际 --ctx-size），
     // 探测失败回退 llama 配置值。DB 跟随服务端真实值，消除"配置改了 DB 不跟随"脱节。
     const probedNctx = await probeLlamaNctx(
-      status.host || '127.0.0.1',
+      status.host || LOCAL_HTTP_HOST,
       status.port
     );
     const contextWindow =

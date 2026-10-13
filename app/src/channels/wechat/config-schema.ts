@@ -3,13 +3,15 @@
  * 通过 weixin-cli HTTP Bridge 通信
  */
 
+import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
+
 export interface WechatConfig {
   botHttpUrl: string;
 }
 
 export function getDefaultWechatConfig(): WechatConfig {
   return {
-    botHttpUrl: 'http://localhost:7600',
+    botHttpUrl: DEFAULT_WECHAT_BOT_ENDPOINT,
   };
 }
 

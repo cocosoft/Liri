@@ -41,6 +41,7 @@
 import http from 'node:http';
 import readline from 'node:readline';
 import { getLogger } from '@modules/monitoring';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import { isA2AAuthorized } from '../handlers/routes/a2a-routes';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
@@ -181,7 +182,7 @@ export function startDiscoveryServer(
     );
   });
 
-  const host = opts.host ?? process.env[ENV_HOST] ?? '127.0.0.1';
+  const host = opts.host ?? process.env[ENV_HOST] ?? LOCAL_HTTP_HOST;
   const port = opts.port ?? Number(process.env[ENV_PORT] ?? 0) ?? 0;
   return new Promise<http.Server>((resolve, reject) => {
     server.once('error', reject);

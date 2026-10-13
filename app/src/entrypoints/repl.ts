@@ -47,6 +47,7 @@ import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '@modules/channels';
 import { handleError } from '@modules/error';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 
 const logger = getLogger('repl');
 
@@ -58,7 +59,7 @@ const logger = getLogger('repl');
  */
 export async function startHTTPServer(
   port: number,
-  host: string = '127.0.0.1'
+  host: string = LOCAL_HTTP_HOST
 ): Promise<
   import('@modules/infrastructure/http/LocalHTTPService').LocalHTTPService
 > {
@@ -200,7 +201,7 @@ export async function launchRepl(
       const { LocalHTTPService } =
         await import('@modules/infrastructure/http/LocalHTTPService');
       localHTTPService = new LocalHTTPService({
-        host: '127.0.0.1',
+        host: LOCAL_HTTP_HOST,
         port: finalConfig.httpPort,
       });
       await localHTTPService.start();

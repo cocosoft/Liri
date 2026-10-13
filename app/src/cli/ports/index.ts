@@ -25,6 +25,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import * as net from 'net';
 
 import { getLogger } from '@modules/monitoring';
@@ -64,7 +65,7 @@ export async function checkPort(port: number): Promise<PortInfo> {
       resolve({ port, inUse: false });
     });
 
-    server.listen(port, '127.0.0.1');
+    server.listen(port, LOCAL_HTTP_HOST);
   });
 }
 

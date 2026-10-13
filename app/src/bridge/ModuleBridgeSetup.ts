@@ -17,6 +17,7 @@ import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';
 import type { AcpRuntime } from '@modules/acp';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 
 const logger = getLogger('bridge:moduleSetup');
 
@@ -37,7 +38,7 @@ function resolveAcpRemoteConfig(): AcpWebSocketServerConfig | null {
   }
 
   return {
-    host: configManager.env('ACP_REMOTE_HOST') || '127.0.0.1',
+    host: configManager.env('ACP_REMOTE_HOST') || LOCAL_HTTP_HOST,
     port,
     path: configManager.env('ACP_REMOTE_PATH') || '/acp',
     authToken: configManager.env('ACP_REMOTE_AUTH_TOKEN') || undefined,

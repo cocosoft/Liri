@@ -36,11 +36,12 @@ import {
 } from '../EmbeddingBase';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
+import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai:embedding:providers:LocalEmbeddingProvider');
 
-const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
+const DEFAULT_OLLAMA_URL = DEFAULT_OLLAMA_ENDPOINT;
 const DEFAULT_EMBED_MODEL = 'nomic-embed-text';
 const DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_BATCH_SIZE = 10;

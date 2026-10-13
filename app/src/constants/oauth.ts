@@ -1,5 +1,6 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
+import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('constants\oauth');
@@ -45,7 +46,7 @@ export function fileSuffixForOauthConfig(): string {
 const ALLOWED_OAUTH_BASE_URLS = [
   'https://auth.openliri.com',
   'https://staging.auth.openliri.com',
-  'http://localhost:8080',
+  DEFAULT_OAUTH_LOCAL_BASE_URL,
 ];
 
 interface OauthConfig {

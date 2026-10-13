@@ -32,11 +32,12 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
 
 const logger = getLogger('ai:ollama');
 
 const OLLAMA_PROVIDER_TYPE = 'ollama' as const;
-const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
+const DEFAULT_OLLAMA_URL = DEFAULT_OLLAMA_ENDPOINT;
 /** 注册默认上下文窗口：现代本地模型可运行的安全操作窗口上限（探测失败时的兜底） */
 const DEFAULT_OLLAMA_CONTEXT_WINDOW = 32768;
 

@@ -6,6 +6,8 @@
  * 原位于 client/src/components/views/platformFields.ts，2026-08-06 收敛至后端。
  */
 
+import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
+
 /** 平台配置字段定义 */
 export interface PlatformFieldDef {
   key: string;
@@ -122,7 +124,7 @@ export const PLATFORM_FIELDS: Record<string, PlatformFieldDef[]> = {
     {
       key: 'botHttpUrl',
       label: 'Bot HTTP URL',
-      placeholder: 'http://localhost:7600',
+      placeholder: DEFAULT_WECHAT_BOT_ENDPOINT,
       type: 'text',
       required: true,
     },

@@ -23,6 +23,7 @@ import {
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
+import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
 import { randomIdSuffix } from '../../utils/common';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
@@ -31,7 +32,7 @@ import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 const logger = getLogger('ai:ollama');
 
-const DEFAULT_BASE_URL = 'http://localhost:11434';
+const DEFAULT_BASE_URL = DEFAULT_OLLAMA_ENDPOINT;
 
 /**
  * Ollama 流末 `done` 行的服务端用量 → `ChatResponse.usage` 口径（等价字段映射）。

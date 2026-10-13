@@ -32,6 +32,8 @@ export * from './paths';
 // P2-9（2026-09-25）：迁移注册表与版本中枢（`core/migration/` 内部用相对路径引 `../paths`，无环）
 export * from './migration/AppMigrationStore';
 export * from './migration/MigrationRegistry';
+// 硬编码治理 HD-P0-2：端点 / 本机 host 唯一事实源（纯常量、零副作用、零配置依赖 ⇒ 置于 paths 之后安全）
+export * from './endpoints';
 // G1 收口（台账 D-77 / A5）：移除 `@modules/system/state` 的整包再导出（`export *`）——
 //   零消费（删除后 `bun run typecheck` 无符号缺失），且消掉 core → system(infra) 的对边；
 //   消费方一律直连 `@modules/state/*`（如 `promptSuggestion/types.ts`）。

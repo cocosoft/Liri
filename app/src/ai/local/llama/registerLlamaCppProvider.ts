@@ -28,6 +28,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import {
   llamaCppServerManager,
   syncLlamaModelsToRegistry,
@@ -48,7 +49,7 @@ export async function ensureLlamaCppProviderRegistered(): Promise<boolean> {
       logger.debug('llama-server 未运行，跳过 provider 注册');
       return false;
     }
-    const host = status.host || '127.0.0.1';
+    const host = status.host || LOCAL_HTTP_HOST;
     const baseUrl = `http://${host}:${status.port}/v1`;
 
     const { providerManager } = await import('@modules/ai');

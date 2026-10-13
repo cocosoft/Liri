@@ -16,6 +16,7 @@ export type DependencyType =
   | 'process';
 
 import type { HealthStatus } from './types.js';
+import { LOCAL_HTTP_HOST } from '../endpoints.js';
 
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:health:DependencyHealthChecker');
@@ -74,7 +75,7 @@ export class DependencyHealthChecker {
    * @returns 健康结果
    */
   async checkRedis(
-    host: string = '127.0.0.1',
+    host: string = LOCAL_HTTP_HOST,
     port: number = 6379
   ): Promise<DependencyHealthResult> {
     const startTime = Date.now();

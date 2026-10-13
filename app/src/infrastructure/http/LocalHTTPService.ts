@@ -21,7 +21,7 @@ import { configManager } from '@modules/config';
 import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';
 import { setAnalyticsDependencies } from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics';
-import { DEFAULT_HTTP_PORT } from '@modules/core';
+import { DEFAULT_HTTP_PORT, LOCAL_HTTP_HOST } from '@modules/core';
 import {
   HandlerCtx,
   createHandlerCtx,
@@ -498,7 +498,7 @@ let _localHTTPService: LocalHTTPService | null = null;
 export function getLocalHTTPService(): LocalHTTPService {
   if (!_localHTTPService) {
     _localHTTPService = new LocalHTTPService({
-      host: '127.0.0.1',
+      host: LOCAL_HTTP_HOST,
       port: DEFAULT_HTTP_PORT,
     });
     // P3-1（2026-09-29）：**同步**装配 A2A 委派后端（CoreAPI 对话轮，方案①）。

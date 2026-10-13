@@ -45,6 +45,7 @@ import { copyFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { resolveDataSubDir } from '@modules/core/paths';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import { ENV_SHIELDED_PATHS } from '../tools/pathShield';
 
 export interface EvalSandbox {
@@ -103,7 +104,7 @@ async function pickFreePort(): Promise<number> {
     const server = createServer();
     server.unref();
     server.on('error', reject);
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, LOCAL_HTTP_HOST, () => {
       const addr = server.address();
       const port = typeof addr === 'object' && addr ? addr.port : 0;
       server.close(() => {

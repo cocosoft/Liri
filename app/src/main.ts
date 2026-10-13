@@ -42,6 +42,7 @@ import {
   logStartupContext,
   readLastExit,
   recordAbnormalExit,
+  LOCAL_HTTP_HOST,
 } from '@modules/core';
 import { initAppStateMachine } from './state/app/AppLifecycle.js';
 import {
@@ -582,7 +583,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     DEFAULT_HTTP_PORT;
   process.env.LIRI_HTTP_PORT = String(httpPort);
   // 监听地址：默认 127.0.0.1（本地/桌面场景），Docker 部署设置 LIRI_HTTP_HOST=0.0.0.0
-  const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
+  const httpHost = process.env.LIRI_HTTP_HOST?.trim() || LOCAL_HTTP_HOST;
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
   const httpOnly = options.args?.includes('--http-only') || false;
 
@@ -829,7 +830,7 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
     parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
     DEFAULT_HTTP_PORT;
   process.env.LIRI_HTTP_PORT = String(httpPort);
-  const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
+  const httpHost = process.env.LIRI_HTTP_HOST?.trim() || LOCAL_HTTP_HOST;
 
   const { startHTTPServer } = await import('./entrypoints/http-server');
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;

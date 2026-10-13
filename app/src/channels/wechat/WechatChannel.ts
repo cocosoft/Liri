@@ -23,6 +23,7 @@ import type {
 import { BaseChannelPlugin } from '@modules/channels/base';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
+import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 import { splitMessage } from '../messageSplitter';
 
@@ -54,7 +55,7 @@ const WECHAT_CAPABILITIES: ChannelCapabilities = {
 };
 
 export const WECHAT_DEFAULT_CONFIG = {
-  botHttpUrl: 'http://localhost:7600',
+  botHttpUrl: DEFAULT_WECHAT_BOT_ENDPOINT,
 };
 
 /**
@@ -66,7 +67,7 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   readonly meta = WECHAT_META;
   readonly capabilities = WECHAT_CAPABILITIES;
 
-  private botHttpUrl = 'http://localhost:7600';
+  private botHttpUrl = DEFAULT_WECHAT_BOT_ENDPOINT;
   private pollingTimer: ReturnType<typeof setInterval> | null = null;
   private pollingIntervalMs = 2000;
 
@@ -108,7 +109,7 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     this.botHttpUrl =
       (config['botHttpUrl'] as string) ||
       (process.env['WECHAT_BOT_HTTP_URL'] as string) ||
-      'http://localhost:7600';
+      DEFAULT_WECHAT_BOT_ENDPOINT;
 
     // 自动检测并启动 weixin-cli（默认插件管理）
     const cliManager = WeixinCliManager.getInstance();

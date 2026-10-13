@@ -14,6 +14,7 @@
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
 import { handleError } from '@modules/error';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 
 /** 默认端口范围（对标 cline-main 48801-48811） */
 const DEFAULT_PORT_RANGE = { start: 48801, end: 48811 };
@@ -81,7 +82,7 @@ export class AuthCodeListener {
   private tryBind(port: number): Promise<number> {
     return new Promise((resolve, reject) => {
       this.localServer.once('error', (err) => reject(err));
-      this.localServer.listen(port, '127.0.0.1', () => {
+      this.localServer.listen(port, LOCAL_HTTP_HOST, () => {
         const address = this.localServer.address() as AddressInfo;
         this.port = address.port;
         resolve(this.port);

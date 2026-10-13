@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir, LOCAL_HTTP_HOST } from '@modules/core';
 
 const logger = getLogger('daemon:ipcService');
 
@@ -35,7 +35,7 @@ export class IPCService {
     this.server = null;
     this.handlers = new Map();
     this.config = {
-      host: config.host ?? '127.0.0.1',
+      host: config.host ?? LOCAL_HTTP_HOST,
       port: config.port ?? 0,
       transport: config.transport ?? 'http',
       socketPath: config.socketPath ?? path.join(resolveDataDir(), 'ipc.sock'),

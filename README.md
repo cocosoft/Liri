@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.87-blue)
+![Version](https://img.shields.io/badge/version-0.4.88-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.87**
+当前版本：**v0.4.88**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,11 +436,10 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.87 (2026-10-13)  20261012 批次落地复查 · 补齐第四批（侧车化 S0+S1 骨架 · 债四 S1+S2 换算内核，均默认关/未接线） 
-- ✅ **侧车化 S0（前置校验，零产品代码）** - ① **轨 B（`app/src/lsp/**`）静态近零但存在字面量动态 thunk**：`core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（`ON_DEMAND`），然而触发链 `ModuleInitializer.requestOnDemandModule()` **全仓零调用** ⇒ 属 CD07「未接线但动态可发现」**高风险项，登记不删**（结论与无法确认项已回填实施计划）；② 真机探测**如实受阻**：本机 `typescript-language-server` **不可用**（`npx --no-install` 失败）、仓库内**无 >5MB 图片夹具** ⇒ P2 真机项需外部环境补齐；③ 基座复核 `tests/utils/sidecarIpc.test.ts` **8 pass**
-- ✅ **侧车化 S1（骨架 + 双跑开关，默认关 ⇒ 零行为变更）** - 新增 `app/src/tools/sidecar/{ToolSidecarSupervisor,lspSidecar,toolSidecarLifecycle}.ts`（**复用** `utils/sidecarIpc.ts`，**未新增第三套 IPC**；监督器**新写**并说明选型理由：不属 `daemon/ProcessManager` 的守护控制面语义）；开关 `TOOL_SIDECAR_LSP`/`TOOL_SIDECAR_MEDIA`（**默认 false**）；门控点 = 工具 loader `ToolManagerUtils.selectLspToolLoader()` 与启动层 `maybeStartLspSidecar()`（**关 ⇒ 零 spawn**，off 分支逐字返回原 `byKey('createLSPTool')`）；新增 17 例（含就绪超时/版本不兼容 fail-closed/**崩溃 ⇒ pending 全拒**/有界重启/stop 不重启）+ **真机进程级 E2E**（真实 spawn → 握手 → 诚实回 `NOT_IMPLEMENTED` → stop）。**⚠️ 与 spec §4 阶段 1 验收的差异（如实）**：本片仅骨架，**开关开 ⇒ 侧车分支 fail-closed 返回 `null`**（**不**回落内置"每次 spawn"，规避静默双轨）；工具面真接线在 **S2**（与实施计划 T2.2/T2.3 一致）
-- ✅ **债四 S1+S2（换算内核 + 取价适配器，**未接线 ⇒ 零行为变更**）** - **S1 复用/下沉而非新写**：`core/pricing.ts` 新增/下沉 `resolveTimeBasedPricing`、`DEFAULT_MODEL_PRICING`、`projectRegistryPricing`（由 `cost/ModelPricing.ts` **原样下沉**，值不变），后者改为**委托/转出**；**S2** 新增 `app/src/query/modelPricingAdapter.ts`（`resolveModelPricing`/`estimateTurnCostUsd`，经 **core SPI** 取价 —— **`query` 不静态引 `cost`**，分层合规已 grep 自证 + `lint:arch` 0 error）。**如实**：适配器目前**仅有单测消费方**（经 `@modules/query` 桶导出），**生产闸门仍走现行 Token 口径**；`spec §12` 已回填**九项裁定**（U1/U2/U4–U10）并保留 **U3（USD 默认上限）待裁定 ⇒ 未定前不得实现任何默认值**
-- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:arch` 0 error（警告 = 基线）；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`lint:models`/`version:check` 全绿；`tests/{tools,core,query,cost}` **1311 pass / 0 fail**
+#### v0.4.88 (2026-10-13)  20261012 批次落地复查 · 补齐第五批（侧车化 S2：`lsp` 工具经侧车真接线，Option A） 
+- ✅ **侧车化 S2 —— `lsp` 工具**经侧车真接线**（`TOOLGOV-SIDECAR-S2`）** - 用户裁定 **Option A**：**不收敛轨 B**（`app/src/lsp/**` 与 `tools/lsp/**` **未触碰**；前置取证 = 轨 B 静态近零 + **运行时不可达**，见 T0.1）。新增 [lspConnection.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/lspConnection.ts)（侧车**自持**最小 LSP 连接：标准 `Content-Length` 分帧 + `initialize`/`hover`/`definition`；`spawnFn` 可注入）与 [SidecarLspTool.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/SidecarLspTool.ts)（适配器 schema 与内置 `LSPToolAdapter` **deep-equal**）；[lspSidecar.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/sidecar/lspSidecar.ts) 由桩改为**真实分派**；loader 侧车分支由「返回 `null`」改为经侧车执行（**off 分支逐字不变**，装配点未动 ⇒ 同一 ToolRegistry/PathGuard/结果上限）。**覆盖 3 项**（`initialize`/`hover`/`definition`），**其余 11 个 action 一律 fail-closed `NOT_IMPLEMENTED`**（不假装成功、不静默回落内置）。先红后绿（7 fail + 2 errors ⇒ **38 pass / 0 fail**）+ **真实进程级（假 LS）E2E** 打通；`tests/{tools,utils}` **1044 pass / 0 fail**；门禁全绿
+- ⚠️ **如实遗留（S2）** - **真实 LS 端到端未验证**（本机无 `typescript-language-server`，详见 S0）；LS 崩溃恢复/退避与**取消下传**未接线（属 S3）；**同源门禁**（S4/T1-11）未做；`tools/sidecar/` 全程 **默认关**（`TOOL_SIDECAR_LSP=false`）⇒ 生产零行为变更
+- 📄 **文档订正（顺带）** - 实施计划 T0.2 的**错误前提**已订正：`CHANGELOG.md` 并无「D10 P1 未落地」表述（`:221` 早已记 ✅；`:90` 实为 MCP 安全段）⇒ 该任务**无需**改动 CHANGELOG；真正的漂移在 `工具治理方案`/`盘点清单`（先前已修）
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -2503,6 +2503,21 @@
       "changelog": [],
       "reopenWhen": "① 若再给 DAG 等状态面加**新的**颜色字面量（不走 `--status-*`）⇒ 棘轮变红；② 若把 `EXCLUDE_FILES` 里的文件（Tokyo Night 代码主题 · Google/MS 品牌 logo 色）当**主题色**治理 ⇒ 属另议（当前判定为数据/第三方身份色）；③ 若 `--status-*` 取值与 DAG 原字面量不再逐字相等 ⇒ **视觉变化**（须目视）；④ 若要推进剩余 baseline（**70 行 / 30 文件**，多为代码块深色 · 图表系列色 · 页面级插画色）⇒ 逐批判定后下调；⑤ 若新增**第四种**状态（`TaskCardTask[\"status\"]` 扩枚举）⇒ 需同步 `STATUS_COLORS` 与 `--status-*`。",
       "notes": "**目标**：Batch 1 之后，对剩余 **113 行 / 35 文件**原始色值做**分类治理**（回仓取全量色值逐类判定，非猜测）。**分类结论（事实）**：① **语义状态调色板** —— `ChatArea/{DAGMiniMap,DAGFullScreen}` 的 `STATUS_COLORS`（pending / in_progress / cancelled / blocked / skipped 的 bg·border·text；failed / completed 已于 Batch 1 令牌化）⇒ **该补齐令牌**；② **数据/独立主题（§5 登记不治理）** —— `ChatArea/ToolCallGroup` · `ChatArea/DocWorkflowProgress` · `ChatInspector/PendingDecisionSidebar`（三者的 `#7aa2f7`/`#9ece6a`/`#f7768e`/`#bb9af7`/`#e6c384` **经回仓核验为 Tokyo Night 代码主题调色板**，自成一体的主题数据）· `views/LoginPage`（`#4285F4`/`#34A853`/`#FBBC05`/`#EA4335`/`#0078D4` = **Google / Microsoft 品牌 logo 色**，第三方身份色）。**落地**：① `index.css` 补 **15 个令牌**（`--status-{pending,running,done,cancelled,blocked,skipped}-*` 14 个 + `--color-grid`）—— 取值与原字面量**逐字相等** ⇒ **零视觉变化**；② `DAGMiniMap`/`DAGFullScreen` 的 `STATUS_COLORS` 全量改为 `var(--status-*)`（含 `DAGMiniMap` 的 `<Background color=\\\"var(--color-grid)\\\">`）；③ 棘轮 `EXCLUDE_FILES` **登记 4 个数据/独立主题文件**（附理由，见代码注释）；④ 基线 **113 → 70（30 文件）**。**验证**：① 棘轮测试 **1 pass / 0 fail**（基线 70/30）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 **0 error**（棘轮文件一处 prettier 折行已修）。**如实边界**：① **未做真机目视**（安全依据同上：取值逐字相等）；② 剩余 **70 行**（代码块深色 `#1a1a1a` · 图表系列色 `#8b5cf6` 等 · 页面级插画色）**未判定完**，属 Batch 3+ 素材；③ `EXCLUDE` 是**整文件**粒度 —— 若这些文件日后新增**主题色**（非数据色），棘轮**不会**拦截（已知代价，理由见各注释）。"
+    },
+    {
+      "id": "HARDCODE-HDP2-1-THEME-TOKENS-B3",
+      "title": "硬编码治理 `HD-P2-1` **Batch 3**：第二批数据/独立主题**登记 EXCLUDE**（Tokyo Night 同族 · 图表分类色 · 页面插画）—— 基线 70 → 46",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §3.2 + §7.2（HD-P2-1）· Batch 2 基线",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/tests/themeTokenRatchet.test.ts",
+        "client/src/tests/fixtures/themeTokenBaseline.json"
+      ],
+      "tests": ["client/src/tests/themeTokenRatchet.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若再给这些文件加**主题色**（非数据/调色板色）⇒ 棘轮**不拦截**（`EXCLUDE` 整文件粒度的已知代价，须改为精细白名单时属另议）；② 若把 `EXCLUDE` 里的文件重新当**主题色**治理 ⇒ 须先移除其 `EXCLUDE` 条目；③ 若要推进剩余 baseline（**46 行 / 25 文件**：`GraphCanvas` 深色分支 · 代码块深色 · 图表系列色 · 待判定）⇒ 逐批处理。",
+      "notes": "**目标**：Batch 2 之后对剩余 **70 行 / 30 文件**继续**分类登记**（回仓逐文件取色值判定）。**本轮判定（事实）**：① `ChatArea/{ToolExecutionGroup,StatusBlock,ThinkingBlock}` —— 色值 `#9ece6a`/`#e6c384`/`#f7768e`/`#a9b1d6`/`#7aa2f7`/`#565f89` 与 Batch 2 已判定的 `ToolCallGroup` 等**同族** ⇒ **Tokyo Night 代码主题**（同一代码块配色，数据）；② `common/ModelRankTable` —— `#8B5CF6`/`#06B6D4`/`#EC4899`/`#6366F1` ⇒ **图表多系列 categorical 调色板**（非语义状态色）；③ `views/LiriPage` —— `#a78bfa`/`#c1b5fd`(sic)/`#8b5cf6`/`#7c3aed` 等 ⇒ **落地页插画/品牌渐变**（装饰）。三者按方案 §5 **登记不治理** ⇒ 加入棘轮 `EXCLUDE_FILES`（附理由注释）。**验证**：① 棘轮 **1 pass / 0 fail**（基线 **70 → 46 / 25 文件**）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错。**如实边界**：① **未改任何产品样式**（本轮纯分类登记）；② 剩余 **46 行**（`GraphCanvas` 的暗色分支 `#1f2937`/`#374151` 等 · 代码块深色 `#1a1a1a` · 图表系列色 · 若干待判定）**未处理** ⇒ Batch 4+；③ `EXCLUDE` **整文件粒度**的代价已在 `reopenWhen` ① 登记。"
     }
   ]
 }

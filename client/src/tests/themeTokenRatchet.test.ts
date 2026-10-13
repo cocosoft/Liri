@@ -40,6 +40,14 @@ const EXCLUDE_FILES = [
   "components/ChatInspector/PendingDecisionSidebar.tsx",
   // Google / Microsoft **品牌 logo 色**（第三方身份色，非本产品主题）
   "components/views/LoginPage.tsx",
+  // Tokyo Night 代码主题**同族**（工具执行组/状态块/思考块：同一代码块配色）
+  "components/ChatArea/ToolExecutionGroup.tsx",
+  "components/ChatArea/StatusBlock.tsx",
+  "components/ChatArea/ThinkingBlock.tsx",
+  // **图表分类色**（多系列 categorical palette，非语义状态色）
+  "components/common/ModelRankTable.tsx",
+  // **页面插画/品牌渐变**（Liri 落地页的紫系装饰）
+  "components/views/LiriPage.tsx",
 ];
 
 /** 有意**不计入**的目录前缀（画布工具色板：hex 是**数据值**，喂给 `<input type=color>` / Canvas2D） */

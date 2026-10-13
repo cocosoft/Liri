@@ -43,6 +43,10 @@
     --status-skipped-bg: #f9fafb;
     --status-skipped-border: #9ca3af;
     --color-grid: #e5e7eb;
+    /* 组件级**深色描边**（`isDark ? … : …` 分支；取值与原字面量逐字相等 ⇒ 零视觉变化） */
+    --color-border-dark: #374151;
+    /* 组件级**浅色描边**（同上；与 `--color-grid` 取值相同但**语义不同**，故各自成令） */
+    --color-border-light: #e5e7eb;
     /* 间距 */
     --space-xs: 0.25rem;
     --space-sm: 0.5rem;

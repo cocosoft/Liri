@@ -2518,6 +2518,24 @@
       "changelog": [],
       "reopenWhen": "① 若再给这些文件加**主题色**（非数据/调色板色）⇒ 棘轮**不拦截**（`EXCLUDE` 整文件粒度的已知代价，须改为精细白名单时属另议）；② 若把 `EXCLUDE` 里的文件重新当**主题色**治理 ⇒ 须先移除其 `EXCLUDE` 条目；③ 若要推进剩余 baseline（**46 行 / 25 文件**：`GraphCanvas` 深色分支 · 代码块深色 · 图表系列色 · 待判定）⇒ 逐批处理。",
       "notes": "**目标**：Batch 2 之后对剩余 **70 行 / 30 文件**继续**分类登记**（回仓逐文件取色值判定）。**本轮判定（事实）**：① `ChatArea/{ToolExecutionGroup,StatusBlock,ThinkingBlock}` —— 色值 `#9ece6a`/`#e6c384`/`#f7768e`/`#a9b1d6`/`#7aa2f7`/`#565f89` 与 Batch 2 已判定的 `ToolCallGroup` 等**同族** ⇒ **Tokyo Night 代码主题**（同一代码块配色，数据）；② `common/ModelRankTable` —— `#8B5CF6`/`#06B6D4`/`#EC4899`/`#6366F1` ⇒ **图表多系列 categorical 调色板**（非语义状态色）；③ `views/LiriPage` —— `#a78bfa`/`#c1b5fd`(sic)/`#8b5cf6`/`#7c3aed` 等 ⇒ **落地页插画/品牌渐变**（装饰）。三者按方案 §5 **登记不治理** ⇒ 加入棘轮 `EXCLUDE_FILES`（附理由注释）。**验证**：① 棘轮 **1 pass / 0 fail**（基线 **70 → 46 / 25 文件**）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错。**如实边界**：① **未改任何产品样式**（本轮纯分类登记）；② 剩余 **46 行**（`GraphCanvas` 的暗色分支 `#1f2937`/`#374151` 等 · 代码块深色 `#1a1a1a` · 图表系列色 · 若干待判定）**未处理** ⇒ Batch 4+；③ `EXCLUDE` **整文件粒度**的代价已在 `reopenWhen` ① 登记。"
+    },
+    {
+      "id": "HARDCODE-HDP2-1-THEME-TOKENS-B4",
+      "title": "硬编码治理 `HD-P2-1` **Batch 4（收口）**：补 2 个组件级描边令牌（深/浅）+ 4 处 `isDark` 分支收口；剩余**非主题色判定收口**（基线 46 → 43）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §3.2 + §7.2（HD-P2-1）· Batch 3 基线",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/index.css",
+        "client/src/components/Knowledge/Graph/GraphCanvas.tsx",
+        "client/src/components/views/TranslatePage.tsx",
+        "client/src/components/Knowledge/StatsPanel.tsx",
+        "client/src/tests/fixtures/themeTokenBaseline.json"
+      ],
+      "tests": ["client/src/tests/themeTokenRatchet.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若要**统一**「组件级暗色」（`#1f2937`/`#374151`/`#9ca3af`）与 `index.css` 的深色令牌（`--color-bg-*` 等，取值**不同**）⇒ **会改变视觉**，须真机目视后再做；② 若把图表 categorical 调色板（`#8B5CF6`/`#06B6D4`/`#EC4899`/`#6366F1`…）纳入令牌 ⇒ 属另议（当前判为数据）；③ 若 `--color-border-dark`/`--color-border-light` 取值变更 ⇒ 视觉变化；④ 若要继续压降剩余 **43 行 / 23 文件** ⇒ 须逐类重判（当前已全部判为非主题色）。",
+      "notes": "**目标**：推进 Batch 3 后剩余 **46 行 / 25 文件**（Batch 4 = **收口批**：能安全收口的收口，其余**逐类判定并记录为「非主题色」**）。**本轮代码改动（零视觉变化）**：① `index.css` 补 **2 个令牌** —— `--color-border-dark: #374151`（**回仓实测该值在 4 处重复**：`GraphCanvas:191` · `TranslatePage:230/840` · `StatsPanel:164` 的 `isDark` 分支）· `--color-border-light: #e5e7eb`（3 处重复；与 `--color-grid` 同值但**语义不同**，故各自成令）；② 上述 4 处 `isDark ? … : …` 分支改为 `var(--color-border-*)`。**剩余 43 行的判定（回仓逐文件取色值，事实）**：① **图表 categorical 调色板** —— `common/{MetricsChart(#8B5CF6),PieChart(var(--tw-bg,#FFFFFF) 为 **var 兜底**、本已令牌形态),ModelRankTable}` · `Memory/memoryConstants(#6366F1/#6B7280)` · `views/UsageCenterPage(多个图表 series)` · `views/media/MasonryGallery(#93c5fd)` · `VoiceSubtitleOverlay(#8b5cf6 渐变)`；② **Tokyo Night 代码块配色** —— `ChatArea/ImageToolResult/**`(`#a9b1d6`/`#7aa2f7`) · `views/image/ImageGallery(#7aa2f7)` · `ChatArea/BlockContent(#1a1a1a` 代码块底色`)`；③ **生成文档内联样式（非本页 DOM）** —— `ChatArea/OfficePreview:110`（拼接的 HTML 字符串 `border:1px solid #e5e7eb`）· `utils/exportMessage:511/512`（导出 HTML 的 `<style>` 字符串 `#f6f8fa`）；④ **开发期日志色** —— `utils/storeLogger:45/46`（console 着色码 `#8b5cf6`/`#a78bfa`）；⑤ **取色器/画布数据值** —— `views/image/ToolParamForm:243`(`#000000` 颜色输入默认) · `views/image/toolRegistry:424`(`#ffffff`)；⑥ **与 `index.css` 深色令牌取值不同的组件级暗色分支** —— `GraphCanvas:190/192/193`(`#1f2937`/`#6366f1`/`#9ca3af`/`#6b7280`/`#f9fafb`) · `views/AlternativesPopover:120`(`#1f2937`/`#ffffff`) · `views/LLMSetupGuide:282/311`(`#64748b`) · `ChatArea/DAGFullScreen:225`(`#e2e8f0` 网格色) · `Knowledge/StatsPanel(#374151 已收口，余 #e5e7eb 已收口)`；⑦ **已知保留** —— `chat/ContextWatermark`(2，`${dotColor}20` alpha 拼接) · `Terminal/XTermPanel`(4，xterm 需真实色值)。**结论**：`HD-P2-1` 的**语义状态/中性色已全部令牌化**；剩余 43 行经逐类判定**均非本产品主题色**（数据/独立主题/生成文档/日志/取色数据/**与令牌值不一致的组件级暗色**）⇒ 强行令牌化会**改视觉**或**语义错配** ⇒ 保持字面量并由棘轮锁定。**验证**：① 棘轮 **1 pass / 0 fail**（基线 **43 / 23 文件**）；② **client 全量 568 pass / 0 fail（70 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 **0 error**（`TranslatePage` 2 条 `loadHistory` `exhaustive-deps` 经 `git show HEAD \\| eslint --stdin` **取证为改前既有**（HEAD 665/668）⇒ 未静默）；⑤ prettier 折行已 `--write`。**如实边界**：① **未做真机目视**；② 剩余 43 行的分类是**基于 `index.css` 令牌取值比对**得出（同值才可安全替换），**未**与设计确认「是否应统一两套暗色」（该统一属视觉变更，见 `reopenWhen` ①）。"
     }
   ]
 }

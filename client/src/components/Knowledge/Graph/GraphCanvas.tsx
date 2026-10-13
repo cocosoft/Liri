@@ -188,7 +188,7 @@ export const GraphCanvas = memo(function GraphCanvas({
   }, [edges, hl]);
 
   const bgColor = isDark ? "#1f2937" : "#f9fafb";
-  const edgeColor = isDark ? "#374151" : "#d1d5db";
+  const edgeColor = isDark ? "var(--color-border-dark)" : "#d1d5db";
   const edgeFocus = isDark ? "#6366f1" : "var(--color-info)";
   const textColor = isDark ? "#9ca3af" : "#6b7280";
 

@@ -1,5 +1,5 @@
 {
-  "total": 46,
+  "total": 43,
   "files": {
     "components/chat/ContextWatermark.tsx": 2,
     "components/ChatArea/BlockContent.tsx": 1,
@@ -11,7 +11,6 @@
     "components/common/MetricsChart.tsx": 1,
     "components/common/PieChart.tsx": 1,
     "components/Knowledge/Graph/GraphCanvas.tsx": 10,
-    "components/Knowledge/StatsPanel.tsx": 1,
     "components/Memory/memoryConstants.ts": 2,
     "components/Terminal/XTermPanel.tsx": 4,
     "components/views/AlternativesPopover.tsx": 1,
@@ -21,7 +20,6 @@
     "components/views/image/toolRegistry.ts": 1,
     "components/views/LLMSetupGuide.tsx": 2,
     "components/views/media/MasonryGallery.tsx": 2,
-    "components/views/TranslatePage.tsx": 2,
     "components/views/UsageCenterPage.tsx": 2,
     "components/VoiceSubtitleOverlay.tsx": 1,
     "utils/exportMessage.ts": 2,

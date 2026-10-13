@@ -161,7 +161,11 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                       cy="18"
                       r="15.5"
                       fill="none"
-                      stroke={isDark ? "#374151" : "#e5e7eb"}
+                      stroke={
+                        isDark
+                          ? "var(--color-border-dark)"
+                          : "var(--color-border-light)"
+                      }
                       strokeWidth="3"
                     />
                     <circle

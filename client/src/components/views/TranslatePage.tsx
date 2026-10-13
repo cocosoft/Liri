@@ -227,7 +227,9 @@ const TranslateOutputPanel = React.memo(function TranslateOutputPanel({
     "bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50";
   const successBg = isDark ? "bg-green-900/30" : "bg-green-50";
   const successText = isDark ? "text-green-400" : "text-green-600";
-  const borderColor = isDark ? "#374151" : "#e5e7eb";
+  const borderColor = isDark
+    ? "var(--color-border-dark)"
+    : "var(--color-border-light)";
   const compareHover = isDark ? "hover:bg-gray-700/50" : "hover:bg-gray-100";
 
   // ── 派生状态 ──
@@ -837,7 +839,9 @@ function TranslatePage() {
     "bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50";
   const errorBg = isDark ? "bg-red-900/30" : "bg-red-50";
   const errorText = isDark ? "text-red-400" : "text-red-600";
-  const borderColor = isDark ? "#374151" : "#e5e7eb";
+  const borderColor = isDark
+    ? "var(--color-border-dark)"
+    : "var(--color-border-light)";
   const micActiveBg = "bg-red-500 hover:bg-red-600 text-white";
 
   return (

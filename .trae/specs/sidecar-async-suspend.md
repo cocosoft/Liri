@@ -68,7 +68,14 @@
 | 片 | 内容 |
 |---|---|
 | **B₂** | 主管/客户端接线：`notify` → 作业完成处理器；`submitJob()` 客户端 API；~~`kind='tool-job'` 挂起点~~（**改随 C 片** —— 需真实长耗时作业才触达） | ✅ **已落地（2026-10-13）** |
-| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | ⏳ **待实施**（含 `kind='tool-job'` 挂起点 + worker 侧作业模式） |
+| **C** | 端到端「提交→挂起→完成→续跑」+ **可复现测试**（fixture worker，参照既有 `fixtures/fakeLspServer.js` 手法）= 原文验收 | 🔶 **C₁ 部分：夹具 + 跨进程测试已建**，但 **1 作业场景受阻于疑似平台缺陷**（bun+Windows 子进程管道上**异步帧未投递**；已四步取证、**非本接线问题**）⇒ **2 例 `it.skip` + 登记阻断** `TOOLGOV-TG2-C1-BLOCKED`；**未做** = `kind='tool-job'` 挂起点 + worker 侧作业模式 |
+
+## §8 C₁ 片现状（2026-10-13，**受阻已登记**）
+
+- **已建**：作业型侧车夹具 `app/tests/tools/fixtures/fakeJobSidecar.js`（真实子进程、同步写 fd 1、支持 `slow`/`fail`/`never`）+ 跨进程测试 `app/tests/tools/sidecarJobE2E.test.ts`。
+- **仍绿的不变量**（3 例通过）：**超时兜底** reject · **侧车退出**同口结算 · **并发 2 作业**独立兑现。
+- **阻断（2 例 `it.skip`）**：**1 作业**场景下，夹具已写出的 `notify{job.completed}` **未被宿主 `readline` 投递**（宿主仅收到 `startup`/`response` 两行）⇒ 作业超时兜底。**取证四步**（详见测试文件注释与台账条目）：① 夹具**同步落盘探针**证明确已写出；② 宿主 line 探针显示仅 2 行；③ 夹具改 `fs.writeSync(1,…)` 后**现象不变**（非夹具冲刷）；④ **结构相关**（1 作业失败 / 2 作业通过）⇒ **非 B₂ 逻辑**（另有 11 条单测全绿）。
+- **处置**：**不推红测、不为迎合测试改接线**；登记为阻断（`fixed=false`）并写明 `reopenWhen`（独立定位该投递缺陷 → 或改用非 `readline` 分帧）。
 
 ## §7 B₂ 片（**已落地**，2026-10-13）
 

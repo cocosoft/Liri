@@ -19,13 +19,6 @@
 
 ## [未发布]
 
-**MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
-
-- ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
-- ✅ **Stdio 子进程显式 env 审计收紧（G-2）** - `StdioTransport` 原构造 `{ ...buildSafeEnv(Object.keys(options.env)), ...options.env }` 把**显式配置键**喂给 `buildSafeEnv()` ⇒ 命中 `BLOCKED_ENV_PATTERNS` 时发出 `mcp:env_blocked` 告警，却又被尾部展开 `...options.env` **原样透传**（语义自相矛盾：声称已拦、实际放行）；现**分离**两条来源：宿主只取白名单基线 `buildSafeEnv()`，显式配置经新增 `auditExplicitEnv()` **审计后合并**（按设计放行 MCP server 自身凭据、**不按名硬拦**以免破坏正常接入；命中敏感名 ⇒ `mcp:explicit_env_sensitive`；值与同名宿主变量一致 ⇒ `mcp:explicit_env_value_from_host` 高信号告警；**告警只含键名、绝不含值**）
-- ✅ **回归与证据登记** - 新增 `app/tests/mcp/mcpResultRedaction.test.ts`（**7 例**：文本脱敏 / 结构化 `data` 脱敏 / 无密钥零变更 / `redactMcpPayload` 单元 / `stripCredentials` 基线 / `auditExplicitEnv` 放行 / Stdio env 分离）；`bun test tests/mcp/` **21 pass / 0 fail**（15 skip 为需真实 server 的 e2e）；`lint:arch` 违规 **0**（4 基线警告，未增）；`fix-evidence-registry.json` + `修复证据登记.md` 新增 `MCP-SEC-G1` / `MCP-SEC-G2`（`lint:fix-evidence` 条目 **85 → 87** 自洽；`fixEvidenceGate` **7 pass / 0 fail**）
-- ℹ️ **边界（如实）** - 上述两条 `e2eVerified=false`（未接真实外部 MCP server 做端到端脱敏验证，已入 `修复证据登记.md` §2）；`postReleaseReviewed` 仍为 `false`（待正式发版 + tag 后按 `.trae/rules/versioning.md` 判据置位）；**未翻转** `OUTPUT_GUARD`（仍默认关）；未改 MCP 协议 / 传输契约
-
 **工具治理四阶段落地（D1–D11 / G1–G22 · 含 G18 上帝对象拆分）+ Token 日限额 R16 收口 + 边界收口批次（B2–B6）**
 
 - ✅ **工具治理阶段 1–4（D1–D11 裁定落地）** - **阶段 1**：bash **硬拦截层恒执行**（不受灰度开关影响）+ 审批快照统一口径；新增 `tools/bash/commandNormalization`（`raw/preprocessed/normalized/paths/baseCommand` **单一事实源** —— preprocessed→spawn、normalized→哈希与展示）；`toolCallId` 熵 + `tool_calls` 唯一约束；删死常量 `BashOutputSchema`、`settleToolCall` 改可等待。**阶段 2**：工具调用状态语义化（`TOOL_CALL_STATUSES` + 转移表 + 读回边界校验）；取消全链路（MCP `callTool` / WebFetch 接 `AbortSignal.any`）；契约与清单门禁（`TOOL_FLAG_KEYS` / 工具类型 shim 守卫 / `deriveNamespaceFamilies`）；可观测性 `tools/monitoring/ToolMetrics`（`tools.invocation.*` / `tools.schema.*`，桥接 OTel）。**阶段 3**：结构治理死桩清理（4 个恒 `null` 注册入口 + 实现 + `WORKFLOW_SCRIPTS`/`ENABLE_WORKFLOWS` 死特性位）；ON_DEMAND 触发路径**零消费者**登记（G-C5，裁定「登记不删」）。**阶段 4**：**D1** `feature()` **三层优先**（`FEATURE_*` env → `BUILD_VARIANT_FLAGS` → 静态兜底）· **D2** 权限未注入 **fail-fast**（`assertPermissionInjected`，`NODE_ENV=test` 保留 fail-open）· **D3** `unknown` 工具调用复用 Inbox 审批通道 · **D5** 工具能力契约 + 渐进棘轮（`toolCapability` + `lint-tool-schema`）· **D6** 恢复两步同事务（`ExecutionStore.transaction()`）· **D7** VFS 文件类工具**默认不注册**（消除双轨）
@@ -47,6 +40,12 @@
 - ℹ️ **边界（如实）** - 未翻转任何默认开关（`featureFlags.ts` 逐字未动，R07-2）；ON_DEMAND 触发路径**零消费者**登记不删（G-C5）；D7 下 VFS 文件类工具**默认不注册**（`VFS_ENABLED` 默认 false）；`runStreamMessage` 拆分残余受 `continue`/`break`/`yield` 控制流关键字约束（再抽唯一路径为状态机化，收益未证 ⇒ 不排期）；D2 权限注入断言以 `process.env.NODE_ENV` 判别测试环境（见「测试环境变量归一」）
 
 ---
+
+#### v0.4.99 (2026-10-13)  MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2） 
+- ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
+- ✅ **Stdio 子进程显式 env 审计收紧（G-2）** - `StdioTransport` 原构造 `{ ...buildSafeEnv(Object.keys(options.env)), ...options.env }` 把**显式配置键**喂给 `buildSafeEnv()` ⇒ 命中 `BLOCKED_ENV_PATTERNS` 时发出 `mcp:env_blocked` 告警，却又被尾部展开 `...options.env` **原样透传**（语义自相矛盾：声称已拦、实际放行）；现**分离**两条来源：宿主只取白名单基线 `buildSafeEnv()`，显式配置经新增 `auditExplicitEnv()` **审计后合并**（按设计放行 MCP server 自身凭据、**不按名硬拦**以免破坏正常接入；命中敏感名 ⇒ `mcp:explicit_env_sensitive`；值与同名宿主变量一致 ⇒ `mcp:explicit_env_value_from_host` 高信号告警；**告警只含键名、绝不含值**）
+- ✅ **回归与证据登记** - 新增 `app/tests/mcp/mcpResultRedaction.test.ts`（**7 例**：文本脱敏 / 结构化 `data` 脱敏 / 无密钥零变更 / `redactMcpPayload` 单元 / `stripCredentials` 基线 / `auditExplicitEnv` 放行 / Stdio env 分离）；`bun test tests/mcp/` **21 pass / 0 fail**（15 skip 为需真实 server 的 e2e）；`lint:arch` 违规 **0**（4 基线警告，未增）；`fix-evidence-registry.json` + `修复证据登记.md` 新增 `MCP-SEC-G1` / `MCP-SEC-G2`（`lint:fix-evidence` 条目 **85 → 87** 自洽；`fixEvidenceGate` **7 pass / 0 fail**）
+- ℹ️ **边界（如实）** - 上述两条 `e2eVerified=false`（未接真实外部 MCP server 做端到端脱敏验证，已入 `修复证据登记.md` §2）；`postReleaseReviewed` 仍为 `false`（待正式发版 + tag 后按 `.trae/rules/versioning.md` 判据置位）；**未翻转** `OUTPUT_GUARD`（仍默认关）；未改 MCP 协议 / 传输契约
 
 #### v0.4.98 (2026-10-13)  工具治理：阶段 1（契约与安全收口）+ 阶段 2.1（重型工具盘点） 
 - ✅ **TG-1 `capabilityDigest` 归属边界登记** - 裁断「**保持独立、严禁并入工具契约**」：`capabilityDigest` 是「特定会话 + 精确命令语义」的**执行授权指纹**（**权限域** `permission/`），与描述工具**静态固有属性**的 `ToolCapabilityDescriptor`（**能力域** `utils/toolContract/`）语义正交 ⇒ 在 `Tool.ts` 与 `ApprovedCommandRegistry.ts` 各加**双向边界守护注释**，防「看着像就合并」（CS01 / R02-002）。**如实**：原方案拟登记 R02-002 排除表，实测该规则只扫描**导出符号**、不扫描 interface 字段 ⇒ **无需**该登记

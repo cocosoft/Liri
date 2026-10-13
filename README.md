@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.98-blue)
+![Version](https://img.shields.io/badge/version-0.4.99-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.98**
+当前版本：**v0.4.99**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,18 +436,11 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.98 (2026-10-13)  工具治理：阶段 1（契约与安全收口）+ 阶段 2.1（重型工具盘点） 
-- ✅ **TG-1 `capabilityDigest` 归属边界登记** - 裁断「**保持独立、严禁并入工具契约**」：`capabilityDigest` 是「特定会话 + 精确命令语义」的**执行授权指纹**（**权限域** `permission/`），与描述工具**静态固有属性**的 `ToolCapabilityDescriptor`（**能力域** `utils/toolContract/`）语义正交 ⇒ 在 `Tool.ts` 与 `ApprovedCommandRegistry.ts` 各加**双向边界守护注释**，防「看着像就合并」（CS01 / R02-002）。**如实**：原方案拟登记 R02-002 排除表，实测该规则只扫描**导出符号**、不扫描 interface 字段 ⇒ **无需**该登记
-- ✅ **TG-5 工具 Schema 熵阈值告警（第 20 轮后 >30%，只告警不阻断）** - `ToolMetrics` 新增**纯函数** `evaluateSchemaEntropyGate()`（阈值常量 `SCHEMA_ENTROPY_TURN_THRESHOLD=20` / `SCHEMA_ENTROPY_PERCENT_THRESHOLD=30`；缺 `turn`/上下文窗口 ⇒ `null`，不臆造，CS06）+ `recordToolSchemaEntropy` 在 `warn` 时发 `logger.warn('tools:schema.entropy_high', ...)`；`ToolSchemaEntropyMetric` 增可选 `turn`，调用点 `selectAndObserveToolDefinitions` 传 `turn: host.toolRoundCount + 1`（**复用既有 `host` 机位、不改** `streamMessageFlow` ⇒ 不触 `lint:fn-size` 棘轮）。**不改指标名**（`tools.schema.*`）、**零阻断**（Fail-Open for Observation）
-- 🔶 **TG-2/TG-6 现状（如实）** - ① **取消下传已满足**（S2-2/G15 早已落地，`tests/tools/toolCancellation.test.ts` 覆盖）；② **侧车异步挂起阻塞**于 `.trae/specs/long-task-suspend-resume.md`（未实现）⇒ 待其落地后再接可选 `ISnapshotCapable` 契约（不建无消费者空抽象，CS03）
-- ✅ **回归与证据登记** - `tests/tools/toolMetrics.test.ts` **+6 例**（阈值常量 / 达标告警 / 轮次不足 / 30% 边界 / 缺参 `null` / 触发不抛且 gauge 照写）；`fix-evidence-registry.json` + `修复证据登记.md` 新增 `TOOLGOV-TG1` / `TOOLGOV-TG5`（`lint:fix-evidence` 条目 **87 → 89** 自洽）
-- ✅ **阶段 2.1 重型工具盘点（零代码改动）** - 落盘 `dev_docs/20261012/重型工具侧车化-盘点清单-20261012.md`（22 项工具 × 依赖 / 进程边界 / 常驻 / 崩溃面 / 默认注册，逐条 `file:line` 取证）。**实测推翻原靶点假设**：① `image_generate`/`video_generate` 主体是**远端 Provider HTTP**（无 in-process 崩溃面）；② `lsp` **本就 `spawn` 外部 language server**（`tools/lsp/LSPServer.ts:68`）⇒ 侧车化收益是**常驻化**（消 `npx` 冷启动 + 补请求超时），非"防崩溃"；③ **唯一真 in-process FFI = `liri-native`**（`bun:ffi` dlopen、模块级常驻），但被 **11 处高频基础路径**（文件读写/安全/压缩/计数）懒 `require` ⇒ **不建议**侧车化（RPC 往返劣化热路径），宜降级兜底；④ 真"内存大 + native"靶点 = **`sharp`(libvips) + Python `vision_worker`**（已常驻、载 OCR/YOLO/SAM/MiDaS）。**靶点重排（P1 常驻 LSP / P2 媒体原生面）待裁定**（阻塞 2.2）
-- ✅ **阶段 2 靶点裁定（采纳重排）** - 用户裁定：**采纳靶点重排**（**P1 = 常驻 LSP 侧车**；**P2 = 媒体原生面**（`sharp` + Python `vision_worker`））；**`liri-native` 纳入侧车评估**（须量化证据，不以 CS03 空谈否）；**LSP 双轨先收敛再侧车**。⚠️ **新发现硬依赖**：工具侧车需**通用 IPC 基座** = D10 的 **P1（未落地）**（D10 P0 已于 2026-10-10 完成）⇒ 2.2 **不得先写第二套桥**（D10 GR02「禁止第三套 IPC」）。证据 `TOOLGOV-SIDECAR-TARGETS`（`lint:fix-evidence` 条目 **89 → 90** 自洽）
-- ✅ **阶段 2 前置小修：工具 LSP 客户端请求超时兜底** - `tools/lsp/LSPClient.sendRequest` 原**无超时** ⇒ 服务器既不响应也不退出时 Promise **永不 settle**（`pendingRequests` 泄漏）⇒ 工具调用挂起；现新增 `LSP_REQUEST_TIMEOUT_MS=30_000`（口径对齐 `@modules/lsp`），`sendRequest` 超时即 `delete` pending 并 reject、响应到达 `clearTimeout`，`shutdown()` 关闭握手改 **best-effort**（超时不阻断 `stop()`/回收），构造函数新增可选 `requestTimeoutMs`（默认 30s，仅测试注入短值）。测试 `tests/tools/lspRequestTimeout.test.ts` **3 例**（桩打 `LSPServer.start/send`，离线确定）。证据 `TOOLGOV-LSP-TIMEOUT`
-- ✅ **阶段 2 顺带修复：`lsp` 工具在 bun 下起不来** - 实测 `bun -e "…spawn…typeof p.stdin.setEncoding"` ⇒ **`object undefined`**（bun 的 child_process 流**仅 stdout/stderr** 提供 `setEncoding`；另测 `stdout.setEncoding('utf8')` 生效、`data` 为 string）；而 `tools/lsp/LSPServer.start()`（`:81-83`）**对 `stdin` 也调 `setEncoding`** ⇒ 抛 `setEncoding is not a function` ⇒ `status=ERROR` ⇒ 工具不可用（默认关 `LSP=false`、**无测试** ⇒ 长期潜伏）。**已修**：移除对 `stdin` 的 `setEncoding`（stdin 仅用于写入 `send()`），保留 stdout/stderr。测试 `tests/tools/lspServerBunStdio.test.ts` **2 例**（真实子进程夹具 `tests/tools/fixtures/fakeLspServer.js` 按 LSP 帧回包）：`start()` 不抛且 `RUNNING`；`send()` + `handleOutput` 帧解析**端到端**。证据 `TOOLGOV-LSP-BUN-STDIO`
-- ✅ **阶段 3.1 复核 + 阶段 4.1/4.2 文档收口（低风险）** - ① **3.1**：D7 双轨排他断言复核绿（`tests/tools/toolNameLists.test.ts` **24 pass / 0 fail**；`VFS_ENABLED` 默认 false、`stat_vfs` 无条件注册，口径无漂移）。② **4.1**：修正 `README.md` 三处**当前口径**计数 `73 → 75`（`:12/:158/:379`；事实源 `TOOL_NAMES_COUNT=75`，`gen:toolnames` 复跑**零漂移**）；**历史记录按原样保留**（`ai-vfs-*.md` / `README:446` 的旧数字为**当时史实**）。③ **4.2**：移除 `README.md:156` 引用的**不存在**类名 `CheckpointManager`；`app/docs/` 复扫无旧计数/幻觉符号
-- ✅ **测试守卫可靠性修复（既有 flaky，非本次引入）** - `tests/tools/toolRegistrySingleSource.test.ts` 的「工具注册表单一写入口」守卫在**整批并发**下首例 **5776ms > 5000ms** 默认超时假红（单文件静置 1.35s 通过）。**根因**：`findRegistrySites()` 每次调用都**全仓扫 `src/**`（~3900 个 .ts/.tsx）并读取全部文件内容**，而**三个 `it` 各扫一次（3×）**。**修复（根因优先）**：改**惰性进程内缓存**（三断言共用一次扫描）+ **快速预筛**（`content.includes('ToolRegistry(')` 不含即跳过，免全量 `split`）+ 三断言**显式 30s 超时**兜底。**验证**：单文件首扫 **5776ms → 2802ms**、另两例 ~0.1ms；整批 `bun test tests/tools/` **747/1 → 748/0**，批内耗时 **49.7s → 32.5s**。证据 `TEST-GUARD-TOOLREGISTRY-FLAKY`
-- ℹ️ **质量（阶段 1 切片）** - `lint:arch` 违规 **0**（4 基线警告未增）· `lint:tool-schema` **0 ERROR** · `lint:fn-size` / `lint:complexity` **未增长** · `bun test tests/tools/toolMetrics.test.ts` **10 pass / 0 fail**
+#### v0.4.99 (2026-10-13)  MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2） 
+- ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
+- ✅ **Stdio 子进程显式 env 审计收紧（G-2）** - `StdioTransport` 原构造 `{ ...buildSafeEnv(Object.keys(options.env)), ...options.env }` 把**显式配置键**喂给 `buildSafeEnv()` ⇒ 命中 `BLOCKED_ENV_PATTERNS` 时发出 `mcp:env_blocked` 告警，却又被尾部展开 `...options.env` **原样透传**（语义自相矛盾：声称已拦、实际放行）；现**分离**两条来源：宿主只取白名单基线 `buildSafeEnv()`，显式配置经新增 `auditExplicitEnv()` **审计后合并**（按设计放行 MCP server 自身凭据、**不按名硬拦**以免破坏正常接入；命中敏感名 ⇒ `mcp:explicit_env_sensitive`；值与同名宿主变量一致 ⇒ `mcp:explicit_env_value_from_host` 高信号告警；**告警只含键名、绝不含值**）
+- ✅ **回归与证据登记** - 新增 `app/tests/mcp/mcpResultRedaction.test.ts`（**7 例**：文本脱敏 / 结构化 `data` 脱敏 / 无密钥零变更 / `redactMcpPayload` 单元 / `stripCredentials` 基线 / `auditExplicitEnv` 放行 / Stdio env 分离）；`bun test tests/mcp/` **21 pass / 0 fail**（15 skip 为需真实 server 的 e2e）；`lint:arch` 违规 **0**（4 基线警告，未增）；`fix-evidence-registry.json` + `修复证据登记.md` 新增 `MCP-SEC-G1` / `MCP-SEC-G2`（`lint:fix-evidence` 条目 **85 → 87** 自洽；`fixEvidenceGate` **7 pass / 0 fail**）
+- ℹ️ **边界（如实）** - 上述两条 `e2eVerified=false`（未接真实外部 MCP server 做端到端脱敏验证，已入 `修复证据登记.md` §2）；`postReleaseReviewed` 仍为 `false`（待正式发版 + tag 后按 `.trae/rules/versioning.md` 判据置位）；**未翻转** `OUTPUT_GUARD`（仍默认关）；未改 MCP 协议 / 传输契约
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

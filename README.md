@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.85-blue)
+![Version](https://img.shields.io/badge/version-0.4.86-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.85**
+当前版本：**v0.4.86**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,11 +436,11 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.85 (2026-10-13)  20261012 批次落地复查 · 补齐第二批（工具数据源门禁 + 债一残余线性收口） 
-- ✅ **工具治理 阶段 3.2：「新数据源不以新增工具承载」源码门禁（`TOOLGOV-T12-32`）** - 新增 `app/tests/tools/toolDataSourcesNotNewTools.test.ts`：声明面 = `TOOL_NAME_CONSTANTS`（工具名唯一来源），**冻结基线 + 豁免清单（须非空理由）**，判据「新增 = 声明面 − 基线，必须已登记」否则 **fail-closed**；附基线陈旧检测与豁免重叠检测。**负向自证**固化在用例内（未登记的 `mysql_query` 被拦截、登记后放行）。先红后绿（3 fail → 6 pass）
-- ✅ **债一残余：`readBySeq`/`getTailSeq` 线性路径收口 + 纳入基准（`DEBT1-T310`）** - `app/src/session/storage/EventLogStorage.ts` 两条路径改为**复用既有 idx 二分定位**（`readBySeq` 走 `resolveScanStartOffset` 段读；`getTailSeq` 从末区间起点续扫），新增 `loadIdxEntries()`/`resolveTailScanStart()`/`openOffsetReadline()`，并修正 `findIdxStartOffset` 对"未索引尾部"的回退为**末区间起点**；`app/scripts/bench-longrun.ts` 新增 **F1c 随机访问**基准覆盖两条目标路径。**实测**：规模 ×10 ⇒ `getTailSeq` P50 ×1.2、`readBySeq` P50 ×1.0（改动前末条 `readBySeq` 为 ×11.8 全扫）⇒ 与规模解耦。语义/返回值**不变**（等价性用例 + P0-5/CRLF 回归全绿）；**不迁 SQLite**；新增守卫 `app/tests/session/eventLogIndexedTailReads.test.ts`（先红后绿：4 fail → 6 pass；回归 49 pass）
-- 📄 **两份 spec 推进（只写文档，未动产品代码）** - ① **侧车化**：新增 `.trae/specs/tool-sidecar-isolation.md` **v1.0 定案稿**（D1–D11 + 实施切片 S0–S7；前提订正：D10 的 P1 IPC 基座**已落地**）**待批准实施**；② **债四（USD 唯一口径）**：`.trae/specs/unified-budget-and-accounting.md` 由 v0.1 立项升为 **v1.0 定案稿**（D1–D9 + 切片 S0–S7），**§12 列 10 项待裁定**（HARD-GATE：裁定前不写产品代码）。**关键发现**：`DailyBudgetManager.debtTokens` **全仓无自增点** ⇒ 既有文档所述「`waive-once` 计入欠账、次日扣回」实为**静默 no-op**（已列为该 spec 的 S0 必修前置）
-- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`（`EventLogStorage.ts` 1983 行，仅 WARN）/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（112 条）/`version:check` 全绿；`tests/{tools,session}` **1065 pass / 0 fail**
+#### v0.4.86 (2026-10-13)  20261012 批次落地复查 · 补齐第三批（守卫挂起 + 独立继续入口 + 欠账缺陷更正） 
+- ✅ **`T3-12`：熵门禁 / 轮上限「接通挂起」+ 独立继续入口（`T3-12-GUARD-SUSPEND`）** - 用户裁定「两者都接通挂起」+「**新增独立继续入口，不复用 relief**」（部分推翻 `TOOLGOV-TG5` 的「绝不阻断」）。新增 `app/src/query/guardSuspend.ts`；协调器引入 `kind: 'budget' | 'guard'` 且 **relief 只唤醒 `budget`**（guard 挂起**不被放行唤醒**，含负向测试）；两条触发源接线：熵门禁（stream 链，`schema_entropy`）与 `TAORLoop.onMaxIterations()`（taor 链，`turn_limit`，落 `guard_suspend` 检查点）；新增端点 **`POST /v1/sessions/:id/continue`**（guard 挂起 ⇒ 200；未挂起 ⇒ 404；**budget 挂起 ⇒ 409**，防继续入口成为 relief 旁路；失败 ⇒ 502 且回滚）；`ResumeManager` 新增 `isSuspendCheckpoint` 使 guard 挂起**不被 Durable Resume 自动续跑**；开关 **`FEATURE_GUARD_SUSPEND`（默认关）** ⇒ 关时零行为变更。新增测试 28 例；`TAORLoop.ts` 维持 **1999 行**（净零）
+- ✅ **缺陷更正：`waive-once` 的「计入欠账、次日扣回」此前是**静默 no-op**（`WAIVE-ONCE-DEBT`）** - `_consumeWaiverOnce()` 原**只清通行证、不累加** `debtTokens`（全仓无 `+=`）⇒ 文档/前端承诺的欠账与次日扣回**从未发生**。现于消费点按**本次实际消耗**累加欠账（`recordUsage(tokens, sessionId)` 的同会话分支），跨日扣回复用既有 `_rolloverIfNeeded()`（CS01，无需新机制）。**先红后绿**（`git stash` 反证：修复前 `Expected 1234 / Received 0`）⇒ 修复后 13 pass / 0 fail。⚠️ **行为变更（如实）**：欠账**自此真正生效** —— 用 `waive-once` 放行后的次日可用额度会按实际消耗扣回（这正是既有文档承诺的语义）
+- 📄 **两份决策支持文档（只写文档）** - ① [债四 §12 十项待裁定的**裁定建议**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/unified-budget-and-accounting-%E8%A3%81%E5%AE%9A%E5%BB%BA%E8%AE%AE-20261013.md)（逐项：取证/建议/备选与影响/落地切片）；② [侧车化**实施计划**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-sidecar-isolation-plan-20261013.md)（8 阶段 / 19 任务，含 CD05/CD06/CD07 切片与验收）
+- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（**114 条**）/`lint:doc-code`/`version:check` 全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

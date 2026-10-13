@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.86-blue)
+![Version](https://img.shields.io/badge/version-0.4.87-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.86**
+当前版本：**v0.4.87**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,11 +436,11 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.86 (2026-10-13)  20261012 批次落地复查 · 补齐第三批（守卫挂起 + 独立继续入口 + 欠账缺陷更正） 
-- ✅ **`T3-12`：熵门禁 / 轮上限「接通挂起」+ 独立继续入口（`T3-12-GUARD-SUSPEND`）** - 用户裁定「两者都接通挂起」+「**新增独立继续入口，不复用 relief**」（部分推翻 `TOOLGOV-TG5` 的「绝不阻断」）。新增 `app/src/query/guardSuspend.ts`；协调器引入 `kind: 'budget' | 'guard'` 且 **relief 只唤醒 `budget`**（guard 挂起**不被放行唤醒**，含负向测试）；两条触发源接线：熵门禁（stream 链，`schema_entropy`）与 `TAORLoop.onMaxIterations()`（taor 链，`turn_limit`，落 `guard_suspend` 检查点）；新增端点 **`POST /v1/sessions/:id/continue`**（guard 挂起 ⇒ 200；未挂起 ⇒ 404；**budget 挂起 ⇒ 409**，防继续入口成为 relief 旁路；失败 ⇒ 502 且回滚）；`ResumeManager` 新增 `isSuspendCheckpoint` 使 guard 挂起**不被 Durable Resume 自动续跑**；开关 **`FEATURE_GUARD_SUSPEND`（默认关）** ⇒ 关时零行为变更。新增测试 28 例；`TAORLoop.ts` 维持 **1999 行**（净零）
-- ✅ **缺陷更正：`waive-once` 的「计入欠账、次日扣回」此前是**静默 no-op**（`WAIVE-ONCE-DEBT`）** - `_consumeWaiverOnce()` 原**只清通行证、不累加** `debtTokens`（全仓无 `+=`）⇒ 文档/前端承诺的欠账与次日扣回**从未发生**。现于消费点按**本次实际消耗**累加欠账（`recordUsage(tokens, sessionId)` 的同会话分支），跨日扣回复用既有 `_rolloverIfNeeded()`（CS01，无需新机制）。**先红后绿**（`git stash` 反证：修复前 `Expected 1234 / Received 0`）⇒ 修复后 13 pass / 0 fail。⚠️ **行为变更（如实）**：欠账**自此真正生效** —— 用 `waive-once` 放行后的次日可用额度会按实际消耗扣回（这正是既有文档承诺的语义）
-- 📄 **两份决策支持文档（只写文档）** - ① [债四 §12 十项待裁定的**裁定建议**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/unified-budget-and-accounting-%E8%A3%81%E5%AE%9A%E5%BB%BA%E8%AE%AE-20261013.md)（逐项：取证/建议/备选与影响/落地切片）；② [侧车化**实施计划**](file:///e:/PY/Documents/CODES/PY_APP/.trae/specs/tool-sidecar-isolation-plan-20261013.md)（8 阶段 / 19 任务，含 CD05/CD06/CD07 切片与验收）
-- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:fix-evidence`（**114 条**）/`lint:doc-code`/`version:check` 全绿；`tests/{query,chat,http,state,session,tools,execution,budget}` **2334 pass / 0 fail**
+#### v0.4.87 (2026-10-13)  20261012 批次落地复查 · 补齐第四批（侧车化 S0+S1 骨架 · 债四 S1+S2 换算内核，均默认关/未接线） 
+- ✅ **侧车化 S0（前置校验，零产品代码）** - ① **轨 B（`app/src/lsp/**`）静态近零但存在字面量动态 thunk**：`core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（`ON_DEMAND`），然而触发链 `ModuleInitializer.requestOnDemandModule()` **全仓零调用** ⇒ 属 CD07「未接线但动态可发现」**高风险项，登记不删**（结论与无法确认项已回填实施计划）；② 真机探测**如实受阻**：本机 `typescript-language-server` **不可用**（`npx --no-install` 失败）、仓库内**无 >5MB 图片夹具** ⇒ P2 真机项需外部环境补齐；③ 基座复核 `tests/utils/sidecarIpc.test.ts` **8 pass**
+- ✅ **侧车化 S1（骨架 + 双跑开关，默认关 ⇒ 零行为变更）** - 新增 `app/src/tools/sidecar/{ToolSidecarSupervisor,lspSidecar,toolSidecarLifecycle}.ts`（**复用** `utils/sidecarIpc.ts`，**未新增第三套 IPC**；监督器**新写**并说明选型理由：不属 `daemon/ProcessManager` 的守护控制面语义）；开关 `TOOL_SIDECAR_LSP`/`TOOL_SIDECAR_MEDIA`（**默认 false**）；门控点 = 工具 loader `ToolManagerUtils.selectLspToolLoader()` 与启动层 `maybeStartLspSidecar()`（**关 ⇒ 零 spawn**，off 分支逐字返回原 `byKey('createLSPTool')`）；新增 17 例（含就绪超时/版本不兼容 fail-closed/**崩溃 ⇒ pending 全拒**/有界重启/stop 不重启）+ **真机进程级 E2E**（真实 spawn → 握手 → 诚实回 `NOT_IMPLEMENTED` → stop）。**⚠️ 与 spec §4 阶段 1 验收的差异（如实）**：本片仅骨架，**开关开 ⇒ 侧车分支 fail-closed 返回 `null`**（**不**回落内置"每次 spawn"，规避静默双轨）；工具面真接线在 **S2**（与实施计划 T2.2/T2.3 一致）
+- ✅ **债四 S1+S2（换算内核 + 取价适配器，**未接线 ⇒ 零行为变更**）** - **S1 复用/下沉而非新写**：`core/pricing.ts` 新增/下沉 `resolveTimeBasedPricing`、`DEFAULT_MODEL_PRICING`、`projectRegistryPricing`（由 `cost/ModelPricing.ts` **原样下沉**，值不变），后者改为**委托/转出**；**S2** 新增 `app/src/query/modelPricingAdapter.ts`（`resolveModelPricing`/`estimateTurnCostUsd`，经 **core SPI** 取价 —— **`query` 不静态引 `cost`**，分层合规已 grep 自证 + `lint:arch` 0 error）。**如实**：适配器目前**仅有单测消费方**（经 `@modules/query` 桶导出），**生产闸门仍走现行 Token 口径**；`spec §12` 已回填**九项裁定**（U1/U2/U4–U10）并保留 **U3（USD 默认上限）待裁定 ⇒ 未定前不得实现任何默认值**
+- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:arch` 0 error（警告 = 基线）；`lint:size`/`lint:fn-size`/`lint:complexity` 未增长；`lint:doc-code`/`lint:fix-evidence`/`lint:models`/`version:check` 全绿；`tests/{tools,core,query,cost}` **1311 pass / 0 fail**
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

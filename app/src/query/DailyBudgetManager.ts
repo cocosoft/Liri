@@ -89,8 +89,15 @@ export const UNLOCK_TODAY_SOFT_CAP_FACTOR = 5;
 
 /** D1：日预算运行期配置（上限 + 阈值 + 收益递减） */
 export interface DailyBudgetConfig {
-  /** 日预算上限 */
+  /** 日预算上限（**Token 口径 —— 闸门现行主口径**） */
   dailyLimit: number;
+  /**
+   * 债四 S5（T3-5/6/7，2026-10-13）：**USD 口径上限**（可选）。
+   *
+   * ⚠️ **无默认值** —— `§12 Q-U3` 未裁定 ⇒ **不得**以任何数值（含既有先例 `$50/日`）回填。
+   * 未配置（`undefined`）即 **USD 闸门不启用**：判定仍走 `dailyLimit` Token 口径，**行为与现状一致**。
+   */
+  limitUsd?: number;
   /** 警告阈值（百分比），默认 0.8 */
   warningThreshold: number;
   /** 锁定阈值（百分比），默认 1.0 */
@@ -165,6 +172,13 @@ export class DailyBudgetManager {
   private _waiverGrantedForSession: string | null = null;
   /** D-d：透支欠账（`waive-once` 消耗）——次日计入用量扣回；`reset()` 不抹除。 */
   private debtTokens = 0;
+  /**
+   * 债四 S5（2026-10-13）：USD 口径**已用**（与 `todayUsed` 并行的第二本账）。
+   * **不参与闸门判定**（USD 闸门未启用 ⇒ §12 Q-U3 待裁定）；仅记账 + 落盘 + 只读暴露。
+   */
+  private usedUsd = 0;
+  /** 债四 S5：USD 口径透支欠账（次日由 `_rolloverIfNeeded()` 计入用量扣回；`reset()` 不抹除）。 */
+  private debtUsd = 0;
   /** D7（Task 7）：放行应用回调集（进程内唤醒端口；非持久化、非事实源）。 */
   private readonly reliefAppliedListeners = new Set<
     (e: { kind: ReliefKind; effectiveLimit: number }) => void
@@ -215,11 +229,15 @@ export class DailyBudgetManager {
     // D-d（Spec §4 D-d）：跨日 ⇒ **欠账计入新的一天**（透支扣回），随后清空欠账。
     // D-b（Spec §4 D-n / D-m）：relief 一律**不跨日**（boost 限时、unlock-today 至日界）。
     const carriedDebt = this.debtTokens;
+    const carriedDebtUsd = this.debtUsd;
     const hadUsage =
       this.todayUsed > 0 || carriedDebt > 0 || this.reliefState !== null;
     this.todayDate = today;
     this.todayUsed = carriedDebt;
     this.debtTokens = 0;
+    // 债四 S5：USD 口径**同法**跨日扣回（与 token 口径对称，两本账各自独立）
+    this.usedUsd = carriedDebtUsd;
+    this.debtUsd = 0;
     this.reliefState = null;
     this.waiveOncePending = null;
     this._waiverGrantedForSession = null;
@@ -525,6 +543,39 @@ export class DailyBudgetManager {
     return this.debtTokens;
   }
 
+  /**
+   * 债四 S5（2026-10-13）：USD 口径**只读状态**（记账 + 落盘后的对外读数）。
+   *
+   * `limitUsd` **为 `undefined` 即未配置** ⇒ USD 闸门不启用（`§12 Q-U3` 未裁定，**无默认值**）。
+   * 本方法**不参与**任何判定（纯读，无副作用）。
+   */
+  getUsdState(): {
+    usedUsd: number;
+    debtUsd: number;
+    limitUsd: number | undefined;
+  } {
+    return {
+      usedUsd: this.usedUsd,
+      debtUsd: this.debtUsd,
+      limitUsd: this.config.limitUsd,
+    };
+  }
+
+  /**
+   * 债四 S5：按**金额**记账（USD 口径；与 `recordUsage` 的 token 口径**并行**）。
+   *
+   * ⚠️ 边界：与 `recordUsage` 同一"仅对话类入口可写"约定（见 `recordDailyBudgetFromUsage`
+   * 的 §2 反目标说明）；`usd <= 0` ⇒ **幂等 no-op**（不落盘、不动日界判定以外的任何状态）。
+   * **不消费** `waive-once` 通行证（当前无 USD 闸门 ⇒ 无"放行"语义可对齐）。
+   */
+  recordUsdUsage(usd: number, sessionId?: string): void {
+    if (!Number.isFinite(usd) || usd <= 0) return;
+    this._rolloverIfNeeded();
+    this.usedUsd += usd;
+    this._schedulePersist();
+    void sessionId; // 预留会话归属（USD 闸门启用后按会话记账；当前无消费点）
+  }
+
   /** D-k：单位无关快照（供 HTTP / 前端消费；Spec §11）。 */
   getSnapshot(): BudgetSnapshot {
     const state = this._computeState();
@@ -544,6 +595,9 @@ export class DailyBudgetManager {
       date: this.todayDate || this._getToday(),
       used: this.todayUsed,
       debt: this.debtTokens,
+      // 债四 S5：USD 两字段随状态文件往返（与 token 口径并排；**不**由 token 反推）
+      usedUsd: this.usedUsd,
+      debtUsd: this.debtUsd,
       relief: relief
         ? {
             kind: relief.kind,
@@ -751,6 +805,10 @@ export class DailyBudgetManager {
     } | null;
     /** D-d：随状态恢复的透支欠账 */
     debt?: number;
+    /** 债四 S5：随状态恢复的 USD 已用（缺省 ⇒ 沿用内存现值） */
+    usedUsd?: number;
+    /** 债四 S5：随状态恢复的 USD 欠账（缺省 ⇒ 沿用内存现值） */
+    debtUsd?: number;
   }): void {
     const today = this._getToday();
     const sameDay = state.date === undefined || state.date === today;
@@ -760,6 +818,10 @@ export class DailyBudgetManager {
     const carriedDebt = state.debt ?? this.debtTokens;
     this.todayUsed = sameDay ? state.todayUsed : carriedDebt;
     this.debtTokens = sameDay ? carriedDebt : 0;
+    // 债四 S5：USD 两字段与 token 口径**同法**恢复（跨日 ⇒ 昨日已用归零、欠账计入新的一天）
+    const carriedDebtUsd = state.debtUsd ?? this.debtUsd;
+    this.usedUsd = sameDay ? (state.usedUsd ?? this.usedUsd) : carriedDebtUsd;
+    this.debtUsd = sameDay ? carriedDebtUsd : 0;
     this.reliefState = sameDay ? (state.relief ?? null) : null;
     this.waiveOncePending = null;
     // 过期 relief 立即作废（防"重启即提额"）
@@ -819,6 +881,8 @@ export class DailyBudgetManager {
    */
   reset(): void {
     this.todayUsed = 0;
+    // 债四 S5：USD 已用同法归零；欠账（`debtUsd`）**不清**（与 `debtTokens` 同约定，防反复 reset 洗透支）
+    this.usedUsd = 0;
     this.todayDate = '';
     this.killSwitch = false;
     this.lastTotalTokens = 0;
@@ -890,6 +954,14 @@ export function isValidBudgetRatio(n: unknown): n is number {
 export const DAILY_BUDGET_CONFIG_KEY = 'costControl.dailyTokenBudget';
 
 /**
+ * 债四 S5（T3-5/6/7，2026-10-13）：**USD 口径上限**的持久化配置键（单一事实来源）。
+ *
+ * ⚠️ 与 `DAILY_BUDGET_CONFIG_KEY`（Token 口径）**并列、互不替代**；**无默认值** ——
+ * `§12 Q-U3` 未裁定 ⇒ 未配置即 `undefined`（USD 闸门不启用）。env 兜底：`LIRI_DAILY_BUDGET_USD`。
+ */
+export const DAILY_BUDGET_USD_CONFIG_KEY = 'costControl.dailyBudgetUSD';
+
+/**
  * D1：解析日 Token 限额上限与阈值（**单一事实来源**）。
  *
  * 优先级：ConfigManager **持久化配置**（`costControl.dailyTokenBudget`）
@@ -901,6 +973,8 @@ export function resolveDailyBudgetConfig(): {
   dailyLimit: number;
   warningThreshold: number;
   lockThreshold: number;
+  /** 债四 S5：USD 口径上限；**未配置 ⇒ `undefined`**（USD 闸门不启用 —— §12 Q-U3 未裁定，无默认值） */
+  limitUsd?: number;
 } {
   const cfg = configManager.getConfigValue<DailyBudgetConfigValue>(
     DAILY_BUDGET_CONFIG_KEY
@@ -910,10 +984,28 @@ export function resolveDailyBudgetConfig(): {
   const envLimit =
     raw && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 
+  // 债四 S5：USD 上限（新键 > env > **无默认值**）—— 与 token 口径**并列**，不共享兜底常量。
+  const cfgUsd = configManager.getConfigValue<unknown>(
+    DAILY_BUDGET_USD_CONFIG_KEY
+  );
+  const rawUsd = configManager.env('LIRI_DAILY_BUDGET_USD');
+  const parsedUsd = Number.parseFloat(rawUsd ?? '');
+  const envLimitUsd =
+    rawUsd && Number.isFinite(parsedUsd) && parsedUsd > 0
+      ? parsedUsd
+      : undefined;
+  const cfgLimitUsd =
+    typeof cfgUsd === 'number' && Number.isFinite(cfgUsd) && cfgUsd > 0
+      ? cfgUsd
+      : undefined;
+
   return {
     dailyLimit: isPositiveInt(cfg?.dailyLimit)
       ? cfg.dailyLimit
       : (envLimit ?? DEFAULT_DAILY_BUDGET_TOKENS),
+    ...(cfgLimitUsd !== undefined || envLimitUsd !== undefined
+      ? { limitUsd: cfgLimitUsd ?? envLimitUsd }
+      : {}),
     warningThreshold: isRatio(cfg?.warningThreshold)
       ? cfg.warningThreshold
       : DEFAULT_CONFIG.warningThreshold,

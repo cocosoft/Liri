@@ -57,6 +57,15 @@ export interface DailyBudgetPersistedState {
     factor?: number;
     amount?: number;
   } | null;
+  /**
+   * 债四 S5（T3-5/6/7，2026-10-13）：USD 口径**已用**（与 `used` 并行的第二本账）。
+   *
+   * ⚠️ **不臆造**：旧文件无此字段 ⇒ 按 **0** 读取，**绝不**由 token 反推金额（避免用未知价表污染账目）。
+   * 上限（`limitUsd`）**不在此文件** —— 它属**配置**（键 `costControl.dailyBudgetUSD`，见 §5 与 §12 Q-U3）。
+   */
+  usedUsd?: number;
+  /** 债四 S5：USD 口径**透支欠账**（次日由 `_rolloverIfNeeded()` 计入用量扣回）。缺省按 0。 */
+  debtUsd?: number;
 }
 
 export function dailyBudgetStatePath(): string {
@@ -106,12 +115,17 @@ export async function loadDailyBudgetState(): Promise<DailyBudgetPersistedState 
       return null;
     }
     const debt = Number(parsed.debt);
+    // 债四 S5：USD 两字段**各自独立**校验；缺失/非法 ⇒ 0（**不**由 token 反推，见接口注释）
+    const usedUsd = Number(parsed.usedUsd);
+    const debtUsd = Number(parsed.debtUsd);
     return {
       date: parsed.date,
       used: Math.max(0, Math.floor(used)),
       // 旧文件无 `debt` ⇒ 按 0 读取（见接口注释）
       debt: Number.isFinite(debt) ? Math.max(0, Math.floor(debt)) : 0,
       relief: normalizeRelief(parsed.relief),
+      usedUsd: Number.isFinite(usedUsd) ? Math.max(0, usedUsd) : 0,
+      debtUsd: Number.isFinite(debtUsd) ? Math.max(0, debtUsd) : 0,
     };
   } catch (e) {
     // 文件不存在 ⇒ 首次运行，属正常路径，不告警

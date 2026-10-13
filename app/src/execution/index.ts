@@ -70,7 +70,11 @@ export {
 } from './executionProjection';
 // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照 **durable 落盘** + 重放读回
 // （`.trae/specs/execution-prepared-snapshot-persistence.md`）
-export { emitPreparedSnapshot, pickPreparedSnapshot } from './preparedSnapshot';
+export {
+  emitPreparedSnapshot,
+  pickPreparedSnapshot,
+  resolveReplayVisibleTools,
+} from './preparedSnapshot';
 export type {
   EmitPreparedSnapshotInput,
   PreparedSnapshotPayload,

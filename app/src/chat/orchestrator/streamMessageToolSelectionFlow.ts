@@ -34,6 +34,8 @@ export interface ToolSelectionFlowOptions {
   metadata?: Record<string, unknown>;
   /** T1-13（2026-10-13）：本次执行的 id（PREPARED 快照落盘所需；入口未下传 ⇒ 无快照） */
   executionId?: string;
+  /** T1-13 / `✅-4` R-A（2026-10-13）：重放强制可见集（宿主于续跑分支注入；未提供 ⇒ 现状） */
+  forcedVisibleTools?: string[];
 }
 
 /** 工具集选择 + 观测入参 */
@@ -84,6 +86,10 @@ export function selectAndObserveToolDefinitions(
     lastUserText: lastUserMessageText(apiMessages),
     hasImages,
     profile,
+    // T1-13 / `✅-4` R-A：重放强制集（有则短路任务/profile 裁剪 ⇒ 重放工具面 = 落盘快照）
+    ...(options?.forcedVisibleTools !== undefined
+      ? { forcedVisibleTools: options.forcedVisibleTools }
+      : {}),
   });
   if (selection.promotedByExecutionIntent) {
     logger.info('streamMessage:tools — 项目执行意图提升 coding 集', {

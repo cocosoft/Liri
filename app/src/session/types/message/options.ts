@@ -61,6 +61,16 @@ export interface SendMessageOptions {
   executionId?: string;
 
   /**
+   * **重放强制可见集**（T1-13 / `✅-4` R-A，2026-10-13）
+   *
+   * 由宿主在**会重算工具面**的续跑分支注入（`ChatManager._resumeSuspendedStream`，
+   * 受 `PREPARED_SNAPSHOT_REPLAY` 门控，**默认关**）；提供时，本轮工具集**不做**任务/profile
+   * 裁剪，而是取输入中名字命中该集合的工具 ⇒ 重放工具面 = **落盘快照**（可复现），
+   * 不再受运行期 profile / 注册表变更影响。未提供 ⇒ 逐字等价现状。
+   */
+  forcedVisibleTools?: string[];
+
+  /**
    * 元数据
    */
   metadata?: Record<string, unknown>;

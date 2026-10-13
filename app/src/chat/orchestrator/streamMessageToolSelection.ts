@@ -42,6 +42,12 @@ export interface ToolSelectionInput {
    * 未声明 / 空 ⇒ 零行为变更。
    */
   profile?: readonly string[];
+  /**
+   * T1-13 / `✅-4` R-A（2026-10-13）：**重放强制可见集**（宿主在会重算工具面的续跑分支注入；
+   * 受 `PREPARED_SNAPSHOT_REPLAY`，**默认关**）。提供时**跳过**任务 / profile 裁剪，
+   * 取名字命中该集合的工具 ⇒ 重放工具面 = **落盘快照**。未提供 ⇒ 逐字等价现状。
+   */
+  forcedVisibleTools?: readonly string[];
 }
 
 export interface ToolSelectionResult {
@@ -77,6 +83,8 @@ export interface ToolSelectionResult {
  * 5. **TG-4 / T1-13**（2026-10-13）：会话 profile 能力标签（`session.metadata.toolProfile`）经
  *    `resolveToolProfileCategories` 映射为**追加类别**（如 `media` ⇒ `image`/`video`/`media`）——
  *    即「会话显式声明能力 ⇒ 动态追加可见工具」；**未声明 ⇒ 无追加 ⇒ 零行为变更**。
+ * 6. **T1-13 / `✅-4` R-A**（2026-10-13）：`forcedVisibleTools` 非空时**短路**步骤 1–5，
+ *    直接取名字命中**落盘快照**的工具 ⇒ 「重放工具面 = 落盘快照」（可复现性硬约束）。
  *
  * ⚠️ 本函数会调用 `filterToolsByTask`（其内部对"未登记类别工具"有**一次性告警**副作用）——
  * 与拆分前调用同源，行为不变。
@@ -105,7 +113,12 @@ export function selectToolsForTurn(
     ...(input.hasImages ? ['image' as const] : []),
     ...resolveToolProfileCategories(input.profile),
   ];
-  const filteredTools = filterToolsByTask(tools, taskType, extraCategories);
+  const filteredTools =
+    input.forcedVisibleTools !== undefined
+      ? tools.filter((t) =>
+          input.forcedVisibleTools?.includes(t.function?.name ?? '')
+        )
+      : filterToolsByTask(tools, taskType, extraCategories);
   const removedNames = tools
     .filter((t) => !filteredTools.includes(t))
     .map((t) => t.function?.name ?? '');

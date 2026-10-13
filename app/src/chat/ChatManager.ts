@@ -133,7 +133,7 @@ import { shouldEscalateLongTask } from './longTaskEscalation';
 
 const logger = getLogger('chat:manager');
 
-import { SimpleMutex } from '@modules/core';
+import { SimpleMutex, feature } from '@modules/core';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
@@ -2814,11 +2814,16 @@ export class ChatManagerImpl implements ChatManager {
     if (progressed) return true;
 
     // ② 无实质进展 ⇒ 重发一轮（既有执行入口，不新增执行路径）
+    // T1-13 / `✅-4` R-A（2026-10-13）：开关开 ⇒ 在**重算工具面之前**注入「重放强制集」
+    // （该会话最近一条 `execution/prepared` 快照的 `visibleTools`）⇒ 重放工具面 = 落盘快照，
+    // 不受运行期 profile / 注册表变更影响；开关关（默认）/ 无快照 ⇒ 不注入 ⇒ 逐字等价现状。
+    const forcedVisibleTools = await this._resolveReplayForcedTools(sessionId);
     try {
       await this.chatOrchestrator.sendMessage(
         buildBudgetResumePrompt(pending),
         {
           sessionId,
+          ...(forcedVisibleTools ? { forcedVisibleTools } : {}),
         }
       );
       return true;
@@ -2829,6 +2834,36 @@ export class ChatManagerImpl implements ChatManager {
         error: err instanceof Error ? err.message : String(err),
       });
       return false;
+    }
+  }
+
+  /**
+   * T1-13 / `✅-4`（R-A，2026-10-13）：解析「**重放强制可见集**」——受 `PREPARED_SNAPSHOT_REPLAY`（**默认关**）。
+   *
+   * 开关关 ⇒ **不读事件日志**、返回 `undefined`（零开销、零行为变更）；开 ⇒ 读该会话最近一条
+   * `execution/prepared` 快照的 `visibleTools`（无快照 ⇒ `undefined`，**不臆造**）。
+   * 读取失败只留痕（CS03：不把观测面失败升级为续跑失败）。
+   * 见 `.trae/specs/execution-prepared-snapshot-persistence.md` §11 R-A。
+   */
+  private async _resolveReplayForcedTools(
+    sessionId: string
+  ): Promise<string[] | undefined> {
+    if (!feature('PREPARED_SNAPSHOT_REPLAY')) return undefined;
+    try {
+      const { resolveReplayVisibleTools } = await import('@modules/execution');
+      // 只读该类型事件（每执行一条 ⇒ 结果集极小；`limit` 取上限以覆盖长会话）
+      const events = await this.readSessionEvents(sessionId, {
+        types: ['execution/prepared'],
+        limit: 10000,
+      });
+      return resolveReplayVisibleTools(events) ?? undefined;
+    } catch (e) {
+      // @ignore-catch — 强制集读取失败不影响续跑（CS03），已 warn
+      logger.warn('PREPARED 快照重放：读取落盘快照失败，按现状续跑', {
+        sessionId,
+        error: String(e),
+      });
+      return undefined;
     }
   }
 

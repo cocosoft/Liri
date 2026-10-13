@@ -485,6 +485,21 @@ export const FEATURE_FLAGS = {
    */
   GUARD_SUSPEND: false,
 
+  // ───── PREPARED 快照重放（T1-13 / `✅-4`，R-A；**默认关 ⇒ 零行为变更**）─────
+  /**
+   * 重放**强制套用**落盘快照（默认关）。
+   *
+   * 开 ⇒ 续跑（`ChatManager._resumeSuspendedStream` 的「重发一轮」分支）在**重算工具面之前**
+   * 读取该会话最近一条 `execution/prepared` 快照，并以 `visibleTools` **覆盖**实时计算结果
+   * ⇒ 运行期改动 profile / 工具注册表**不影响**历史执行的重放工具面（可复现性硬约束）。
+   * 关（默认）⇒ **完全等价现状**（不读快照、不覆盖）。`FEATURE_PREPARED_SNAPSHOT_REPLAY=true`。
+   *
+   * ⚠️ 只覆盖**会重算工具面**的续跑分支 —— 检查点重放（`resumeStream` 逐条重放剩余工具调用）
+   * **不重选**工具 ⇒ 无需强制（见 `.trae/specs/execution-prepared-snapshot-persistence.md` §11 R-A）。
+   * ⚠️ 本键为**功能灰度开关**（不在 17 项 `SAFETY_SWITCHES` 内），不受 `lint:doc-code` 安全开关断言约束。
+   */
+  PREPARED_SNAPSHOT_REPLAY: false,
+
   // ───── 工具侧车隔离（Tool Sidecar Isolation，S1；**默认关 ⇒ 零行为变更**）─────
   /**
    * P1：常驻 LSP 侧车**双跑开关**（默认关）。

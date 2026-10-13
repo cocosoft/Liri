@@ -168,7 +168,18 @@
 
 | 方案 | 落点 | 影响 |
 |---|---|---|
-| **R-A（建议）** | 宿主 resume 入口（`ChatManager._resumeSuspendedStream` / `resumeSuspendedSession`）**续跑前**读快照 | 仅影响续跑；需异步读事件日志；**建议加默认关开关** |
-| **R-B** | `selectAndObserveToolDefinitions` 内按「本执行是否已有 PREPARED 快照」覆盖 | 影响**每一轮**（含正常对话）⇒ 性能与语义代价更大 |
+| **R-A（已采纳，2026-10-13）** | 宿主 resume 入口（`ChatManager._resumeSuspendedStream` 的**重发一轮**分支）**续跑前**读快照 | 仅影响续跑；**加默认关开关** `PREPARED_SNAPSHOT_REPLAY` |
+| R-B（未采纳） | `selectAndObserveToolDefinitions` 内按「本执行是否已有 PREPARED 快照」覆盖 | 影响**每一轮**（含正常对话）⇒ 性能与语义代价更大 |
 
-> 未裁定前保持**契约级**交付（S1 落盘 + `pickPreparedSnapshot` 读回 + 重放独立性测试），**不臆造**主链行为。
+### §11.1 R-A 实施状态（2026-10-13）
+
+**已落地**（证据 `PREPARED-REPLAY-FORCE`）：
+
+- **开关**：`core/featureFlags.ts` 新增 `PREPARED_SNAPSHOT_REPLAY`（**默认关 ⇒ 零行为变更**）。
+- **读回**：`execution/preparedSnapshot.ts` 新增 `resolveReplayVisibleTools(events)`（= 快照 `visibleTools`；无 ⇒ `null`，**不臆造**）—— 其**唯一生产消费者**即本 R-A 路径（消除 S1 遗留的「无消费者」）。
+- **落点（精确）**：`ChatManager._resolveReplayForcedTools(sessionId)` —— 开关关 ⇒ **不读事件日志**直接返回 `undefined`；开 ⇒ 只读 `types: ['execution/prepared']`（结果集极小）取最近一条。已确认**只有「重发一轮」分支会重算工具面**；检查点重放（`resumeStream` 逐条重放剩余工具调用）**不重选** ⇒ **无需强制**（避免无谓热路径改动）。
+- **透传**：`StreamMessageOptions.forcedVisibleTools` → `ToolSelectionFlowOptions.forcedVisibleTools` → `selectToolsForTurn` ⇒ **没有**触碰 `runStreamMessage`（`options` 整体透传，规避 `lint:fn-size` 棘轮）。
+- **语义**：`forcedVisibleTools` 非 `undefined` ⇒ **短路**任务/profile 裁剪，取名字命中者（**已消失的工具不复活**）⇒ 重放工具面 = **落盘快照**；且新落盘的 PREPARED 快照记录**强制后**的可见集（重放幂等）。
+- **测试**：`tests/chat/orchestrator/preparedReplayForce.test.ts` **5 例**（①短路裁剪/不复活 ②优先于 profile ③端到端：工具面 = 强制集且快照记录强制后集 ④未提供 ⇒ 等价现状 ⑤`resolveReplayVisibleTools`）；**先红后绿**（短路禁用 ⇒ **3 fail / 2 pass** → 还原 **5 pass / 0 fail**）；回归 `tests/chat/orchestrator` + `tests/execution` + `tests/chat/{budgetSuspendStream,taorLoopResumeWiring}` + `tests/tools/{toolCategories,toolProfile}` **244 pass / 0 fail**。
+
+**如实边界**：① 仅覆盖**会重算工具面**的续跑分支（R-B 的「每轮覆盖」**未采纳**，理由见上表）；② `e2eVerified=false`（未做真实崩溃→续跑端到端）；③ 开关**默认关** ⇒ 生产行为不变。

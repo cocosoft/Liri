@@ -68,6 +68,12 @@ export function selectAndObserveToolDefinitions(
   )?.getBaseUrl?.();
   const sessionMeta = session.metadata;
   const hasImages = Array.isArray(options?.images) && options.images.length > 0;
+  // TG-4 / T1-13（2026-10-13）：会话 profile 能力标签（`metadata.toolProfile`）—— 非字符串项丢弃，
+  // 未声明 / 空数组 ⇒ `undefined` ⇒ 追加类别为空（零行为变更）。
+  const rawProfile = sessionMeta?.toolProfile;
+  const profile = Array.isArray(rawProfile)
+    ? rawProfile.filter((t): t is string => typeof t === 'string')
+    : undefined;
   const selection = selectToolsForTurn({
     tools: toolDefinitions,
     explicitTaskType: options?.metadata?.taskType,
@@ -77,6 +83,7 @@ export function selectAndObserveToolDefinitions(
       : undefined,
     lastUserText: lastUserMessageText(apiMessages),
     hasImages,
+    profile,
   });
   if (selection.promotedByExecutionIntent) {
     logger.info('streamMessage:tools — 项目执行意图提升 coding 集', {

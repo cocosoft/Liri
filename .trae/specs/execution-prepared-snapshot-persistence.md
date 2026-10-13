@@ -143,3 +143,32 @@
 - 门禁：`typecheck` 3 工程 0 错 / `lint:arch` 0 error / `lint:fn-size` / `lint:complexity` 未增长 / `lint:doc-code` / `lint:fix-evidence`（122 条）/ `version:check` 全绿。
 
 **未落地（S2 = TG-4，另起）**：会话 profile 声明 → 按需注入（复用 `filterToolsByTask` 的 `extraCategories`）；`recover` 走 `pickPreparedSnapshot` 读落盘快照。**如实**：`pickPreparedSnapshot` 当前**暂无生产消费者**（消费方 = S2 的重放路径）。
+
+---
+
+## §10 S2（TG-4：会话 profile 按需注入）设计与实施（2026-10-13）
+
+**已落地**：
+
+- **声明面**：`session.metadata.toolProfile?: string[]`（**能力标签**，如 `media` / `coding`）—— `app/src/session/types/session.ts`；依据 = `dev_docs/20261012/google ai 建议.md:78/152`（原文点名 `media` / `coding`）。
+- **映射（唯一事实源）**：`app/src/tools/toolProfile.ts` 的 `TOOL_PROFILE_CATEGORIES`（`media ⇒ image`/`video`/`media`；`coding ⇒ code`）+ `resolveToolProfileCategories()`（**去重**；未登记标签 ⇒ **忽略 + 一次性告警**，**不臆造**类别）。
+- **注入点**：`selectToolsForTurn`（`streamMessageToolSelection.ts`）把 profile 类别并入既有 `extraCategories`（与 D7/L2 的 `image` 追加**同口径**）⇒ **复用 `filterToolsByTask`，未新建 Top-K 路由**（CS01）；调用方 `streamMessageToolSelectionFlow.ts` 读 `session.metadata.toolProfile`（非字符串项丢弃）。
+- **默认零行为变更**：未声明 / 空 ⇒ 追加类别为空 ⇒ 与现状**逐字等价**（**不引入无消费者开关**，CS03）。
+- **可复现（`✅-4`）**：注入后的**最终可见集**仍由 S1 的 `execution/prepared` 快照落盘；**重放唯一入口 = `pickPreparedSnapshot`**（本 spec 明确），**严禁**直读当前 `toolProfile`。
+- **验收**（对齐方案 §5 阶段 3.3）：① 不同 profile 可见面差异**可枚举**（精确断言，`undefined` / `media` / `coding` 两两不等）；② **重放工具面 = 落盘快照**（用例：当前 profile 已改为 `coding`，重放仍返回快照的 `image_analysis` 集）；③ **不引入 Top-K**。
+- **测试**：`tests/tools/toolProfile.test.ts`（**5 例**）+ `tests/chat/orchestrator/toolProfileInjection.test.ts`（**5 例**）；**先红后绿**（临时置空映射 ⇒ **7 fail / 3 pass** → 还原 **10 pass / 0 fail**）；回归 `tests/chat/orchestrator` + `tests/tools/toolCategories.test.ts` + `tests/execution` **209 pass / 0 fail**。
+
+**如实边界**：① **实时重放路径未接线** —— 本批交付「落盘 + 读回契约 + 重放独立性测试」；把快照**强制套用**到 resume/replay 主链属**行为变更**，见 §11；② 能力标签**仅登记 `media` / `coding`**（原文点名）—— 扩充须有依据（防造需求）。
+
+---
+
+## §11 待裁定：重放「强制套用」的落点
+
+「重放工具面 = 落盘快照」目前是**契约 + 测试**（`pickPreparedSnapshot`），**尚未**在实时链路强制生效。闭环需在 **resume / replay** 路径读取该会话最近一条 `execution/prepared` 并**覆盖**实时计算结果：
+
+| 方案 | 落点 | 影响 |
+|---|---|---|
+| **R-A（建议）** | 宿主 resume 入口（`ChatManager._resumeSuspendedStream` / `resumeSuspendedSession`）**续跑前**读快照 | 仅影响续跑；需异步读事件日志；**建议加默认关开关** |
+| **R-B** | `selectAndObserveToolDefinitions` 内按「本执行是否已有 PREPARED 快照」覆盖 | 影响**每一轮**（含正常对话）⇒ 性能与语义代价更大 |
+
+> 未裁定前保持**契约级**交付（S1 落盘 + `pickPreparedSnapshot` 读回 + 重放独立性测试），**不臆造**主链行为。

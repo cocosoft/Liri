@@ -14,7 +14,11 @@
  * 点判定）、`../taskIntent`（执行意图判定）—— 均为 chat 编排层既有依赖，无新环。
  */
 
-import { filterToolsByTask, type ToolCategory } from '@modules/tools';
+import {
+  filterToolsByTask,
+  resolveToolProfileCategories,
+  type ToolCategory,
+} from '@modules/tools';
 import type { ToolDefinition } from '@modules/ai';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
 import { isExecutionTaskIntent } from '../taskIntent.js';
@@ -32,6 +36,12 @@ export interface ToolSelectionInput {
   lastUserText: string;
   /** 本轮是否带图片（带图必须保留 image 类工具，D7/L2） */
   hasImages: boolean;
+  /**
+   * TG-4 / T1-13（2026-10-13）：**会话 profile 能力标签**（`session.metadata.toolProfile`）。
+   * 经 `resolveToolProfileCategories` 映射为**追加类别** ⇒ 实现「会话声明能力 → 动态追加可见工具」。
+   * 未声明 / 空 ⇒ 零行为变更。
+   */
+  profile?: readonly string[];
 }
 
 export interface ToolSelectionResult {
@@ -64,6 +74,9 @@ export interface ToolSelectionResult {
  *    （BashTool/ApprovedCommandRegistry），安全底线不变。
  * 4. **D7/L2**：带图消息追加 `'image'` 额外类别 —— 否则 default/chat 集不含 image 类别，
  *    裁剪后模型函数列表无 image_analysis ⇒ 识图链路不可用（会话实录实证）。
+ * 5. **TG-4 / T1-13**（2026-10-13）：会话 profile 能力标签（`session.metadata.toolProfile`）经
+ *    `resolveToolProfileCategories` 映射为**追加类别**（如 `media` ⇒ `image`/`video`/`media`）——
+ *    即「会话显式声明能力 ⇒ 动态追加可见工具」；**未声明 ⇒ 无追加 ⇒ 零行为变更**。
  *
  * ⚠️ 本函数会调用 `filterToolsByTask`（其内部对"未登记类别工具"有**一次性告警**副作用）——
  * 与拆分前调用同源，行为不变。
@@ -86,7 +99,12 @@ export function selectToolsForTurn(
     taskType = 'coding';
     promotedByExecutionIntent = true;
   }
-  const extraCategories: ToolCategory[] = input.hasImages ? ['image'] : [];
+  // TG-4 / T1-13（2026-10-13）：会话 profile 声明的能力**追加**可见类别（与 D7/L2 的 image 追加同口径）；
+  // 未声明 ⇒ `[]` ⇒ 与拆分前逐字等价（零行为变更）。
+  const extraCategories: ToolCategory[] = [
+    ...(input.hasImages ? ['image' as const] : []),
+    ...resolveToolProfileCategories(input.profile),
+  ];
   const filteredTools = filterToolsByTask(tools, taskType, extraCategories);
   const removedNames = tools
     .filter((t) => !filteredTools.includes(t))

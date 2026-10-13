@@ -34,6 +34,14 @@ export interface SessionMetadata {
   mode?: string;
 
   /**
+   * 会话级**工具能力 profile**（TG-4 / `T1-13`，2026-10-13）：声明能力标签（如 `media` / `coding`）
+   * ⇒ 经 `tools/toolProfile.ts` 把对应工具类别**追加**进本会话的可见白名单。
+   * **未声明 ⇒ 零行为变更**。注入后的**最终可见集**由 `execution/preparedSnapshot.ts` 在
+   * PREPARED 阶段落盘（可复现：重放读落盘快照，**不读本字段**）。
+   */
+  toolProfile?: string[];
+
+  /**
    * 模型名称
    */
   model?: string;

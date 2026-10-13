@@ -355,6 +355,11 @@ export {
   getToolCategory,
 } from './toolCategories';
 export type { ToolCategory } from './toolCategories';
+// TG-4 / T1-13（2026-10-13）：会话级工具 profile（能力标签 → 追加工具类别）
+export {
+  resolveToolProfileCategories,
+  TOOL_PROFILE_CATEGORIES,
+} from './toolProfile';
 export { checkSsrf, describeSsrfBlock } from './WebFetchTool/ssrf';
 export { ImageUrlHelper } from './ImageUrlHelper';
 export { ParallelExecutor } from './executor/ParallelExecutor';

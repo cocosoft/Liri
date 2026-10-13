@@ -822,7 +822,7 @@ export const chatService = {
 
       const choice = response.choices?.[0];
       if (!choice) {
-        throw new Error("AI 服务返回了空的 choices 列表");
+        throw new Error(i18n.t("chat.emptyChoices"));
       }
       return {
         id: response.id,

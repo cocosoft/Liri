@@ -5,6 +5,8 @@
  *        /v1/projects/:projectId/context API
  */
 
+import i18n from "../i18n";
+
 export interface ProjectArtifact {
   id: string;
   projectId: string;
@@ -31,7 +33,10 @@ export async function fetchArtifacts(
 ): Promise<ProjectArtifact[]> {
   const params = kind ? `?kind=${kind}` : "";
   const res = await fetch(`${API_BASE}/${projectId}/artifacts${params}`);
-  if (!res.ok) throw new Error(`获取构件失败: ${res.status}`);
+  if (!res.ok)
+    throw new Error(
+      i18n.t("projects.artifactFetchFailed", { status: res.status }),
+    );
   return res.json();
 }
 
@@ -47,7 +52,10 @@ export async function saveArtifact(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(artifact),
   });
-  if (!res.ok) throw new Error(`保存构件失败: ${res.status}`);
+  if (!res.ok)
+    throw new Error(
+      i18n.t("projects.artifactSaveFailed", { status: res.status }),
+    );
   return res.json();
 }
 
@@ -58,7 +66,10 @@ export async function deleteArtifact(
   const res = await fetch(`${API_BASE}/${projectId}/artifacts/${artifactId}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error(`删除构件失败: ${res.status}`);
+  if (!res.ok)
+    throw new Error(
+      i18n.t("projects.artifactDeleteFailed", { status: res.status }),
+    );
 }
 
 /** 获取项目的结构化上下文（rules.md 解析结果） */
@@ -127,13 +138,16 @@ export async function uploadProjectFile(
         body: JSON.stringify({ filename: file.name, data: base64 }),
       })
         .then((res) => {
-          if (!res.ok) throw new Error(`上传失败: ${res.status}`);
+          if (!res.ok)
+            throw new Error(
+              i18n.t("projects.uploadFailed", { status: res.status }),
+            );
           return res.json();
         })
         .then(resolve)
         .catch(reject);
     };
-    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.onerror = () => reject(new Error(i18n.t("projects.readFileFailed")));
     reader.readAsDataURL(file);
   });
 }
@@ -165,7 +179,10 @@ export async function deleteProjectFile(
     `${API_BASE}/${projectId}/files/${encodeURIComponent(filename)}`,
     { method: "DELETE" },
   );
-  if (!res.ok) throw new Error(`删除失败: ${res.status}`);
+  if (!res.ok)
+    throw new Error(
+      i18n.t("projects.fileDeleteFailed", { status: res.status }),
+    );
   return res.json();
 }
 
@@ -263,7 +280,10 @@ export async function createProject(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error(`创建项目失败: ${res.status}`);
+  if (!res.ok)
+    throw new Error(
+      i18n.t("projects.createProjectFailed", { status: res.status }),
+    );
   return res.json();
 }
 

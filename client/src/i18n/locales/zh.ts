@@ -373,6 +373,15 @@ const zh = {
     startUsing: "开始使用",
   },
   chat: {
+    emptyChoices: "AI 服务返回了空的 choices 列表",
+    sessionListFailed: "获取会话列表失败：HTTP 与 Tauri 均不可用",
+    searchMessagesFailed: "搜索消息失败",
+    createSessionUnavailable: "无法创建会话：后端服务不可用",
+    branchCreateFailed: "分支创建失败",
+    batchDeleteSessionsFailed: "批量删除会话失败",
+    switchSessionFailed: "切换会话失败: {{message}}",
+    renameSessionFailed: "重命名会话失败: {{message}}",
+    flushPendingSavesTimeout: "flushPendingSaves 超时",
     newSession: "新建会话",
     newSessionTitle: "新会话 {{n}}",
     temporaryToggle: "临时对话",
@@ -976,6 +985,23 @@ const zh = {
     },
   },
   settings: {
+    llamaService: {
+      statusFetchFailed: "获取 llama 状态失败",
+      configFetchFailed: "获取 llama 配置失败",
+      configSaveFailed: "保存 llama 配置失败",
+      restartFailed: "重启 llama 服务失败",
+      forceKillFailed: "强制杀死 llama 服务失败",
+      forceRestartFailed: "强制重启 llama 服务失败",
+      logsFetchFailed: "获取 llama 日志失败",
+      hardwareDetectFailed: "硬件检测失败",
+      modelRecommendFailed: "获取模型推荐失败",
+      modelDeleteFailed: "删除模型失败",
+      migrationCancelFailed: "取消迁移失败",
+      emptyResponse: "响应数据为空",
+    },
+    dataDirRequired: "目录路径不能为空",
+    dataDirSaveFailed: "保存失败",
+    portRangeInvalid: "端口号必须在 1024-65535 之间",
     title: "设置",
     about: "关于",
     actions: "操作",
@@ -2005,6 +2031,8 @@ const zh = {
     fillRequired: "请填写任务名称、执行内容和调度配置",
   },
   image: {
+    imageLoadFailed: "图片加载失败",
+    filterTimeout: "滤镜超时",
     title: "图像",
     subtitle: "AI 图像生成、分析与编辑",
     generate: "生成",
@@ -2254,6 +2282,7 @@ const zh = {
     noAlerts: "暂无未确认的告警",
   },
   files: {
+    readFileFailed: "读取文件失败: {{name}}",
     title: "文件管理",
     browse: "浏览",
     upload: "上传",
@@ -3174,6 +3203,7 @@ const zh = {
       "暂无用户数据：细粒度用户管理可通过 CLI /permissions user 配置后，在此查看信任等级与角色。",
   },
   logs: {
+    exportFailed: "导出失败",
     title: "日志查看",
     level: "级别",
     module: "模块",
@@ -3243,6 +3273,7 @@ const zh = {
     colRisk: "风险",
   },
   model: {
+    saveTasksFailed: "保存任务分工失败：后端返回异常",
     title: "模型管理",
     addModel: "添加模型",
     editModel: "编辑模型",
@@ -3509,6 +3540,7 @@ const zh = {
     },
   },
   agent: {
+    recoverTaskFailed: "无法恢复任务",
     title: "Agent 管理",
     create: "创建 Agent",
     config: "配置",
@@ -3853,6 +3885,16 @@ const zh = {
     temperatureInline: "温度: {{value}}",
   },
   voice: {
+    streamSttError: "流式 STT 错误",
+    streamSttConnectFailed: "流式 STT 连接失败",
+    streamSttConnectError: "流式 STT 连接错误",
+    streamSttClosed: "流式 STT 连接关闭",
+    wakeWsConnectFailed: "唤醒 WS 连接失败",
+    wsConnectFailed: "WebSocket 连接失败",
+    getAudioStreamFailed: "获取音频流失败",
+    offlineSttUnavailable: "网络不可用，语音识别暂不可用，请连接网络后重试",
+    readAudioFileFailed: "读取音频文件失败",
+    serverResponseAbnormal: "服务器响应异常 ({{error}})",
     title: "语音",
     startRecording: "开始录音",
     stopRecording: "停止录音",
@@ -4750,6 +4792,10 @@ const zh = {
     noSteps: "暂无步骤",
   },
   video: {
+    createTaskFailed: "创建任务失败",
+    getTaskFailed: "查询任务失败",
+    cancelTaskFailed: "取消任务失败",
+    listTasksFailed: "查询任务列表失败",
     title: "视频处理",
     subtitle: "AI 视频生成 — 文生视频 / 图生视频",
     generate: "生成视频",
@@ -5493,6 +5539,7 @@ const zh = {
   },
   // 后端进程状态（BackendStore：启动/停止时的可见错误文案）
   backend: {
+    requestTimeout: "请求超时 ({{timeout}}ms)",
     startFailed: "后端进程启动失败：\n{{error}}",
     exitedWithCode: "后端进程异常退出，退出码：{{code}}",
     browserModeStart:
@@ -5546,6 +5593,7 @@ const zh = {
   },
   // Agent 角色管理页（`/agent/roles`）—— T1 所有权归一面
   council: {
+    sseConnectionError: "SSE 连接异常",
     addRole: "新增角色",
     editRole: "编辑角色",
     empty: '暂无 Agent 角色，请点击"新增角色"添加。',
@@ -5830,6 +5878,13 @@ const zh = {
   },
   // 项目中心（Projects）页
   projects: {
+    artifactFetchFailed: "获取构件失败: {{status}}",
+    artifactSaveFailed: "保存构件失败: {{status}}",
+    artifactDeleteFailed: "删除构件失败: {{status}}",
+    uploadFailed: "上传失败: {{status}}",
+    readFileFailed: "读取文件失败",
+    fileDeleteFailed: "删除失败: {{status}}",
+    createProjectFailed: "创建项目失败: {{status}}",
     title: "项目",
     newProject: "新建项目",
     searchPlaceholder: "搜索项目...",

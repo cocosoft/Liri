@@ -7,6 +7,7 @@
  */
 
 import { getApiSecret } from "./backendUrl";
+import i18n from "../i18n";
 
 /** 流式 STT 客户端接口 */
 export interface STTStreamClient {
@@ -111,7 +112,9 @@ export function createSTTStream(options?: {
           );
         } else if (data.type === "error") {
           errorCbs.forEach((cb) =>
-            cb(new Error(String(data.message ?? "流式 STT 错误"))),
+            cb(
+              new Error(String(data.message ?? i18n.t("voice.streamSttError"))),
+            ),
           );
         }
       } catch {
@@ -121,15 +124,17 @@ export function createSTTStream(options?: {
 
     ws.onerror = () => {
       if (!resolved) {
-        reject(new Error("流式 STT 连接失败"));
+        reject(new Error(i18n.t("voice.streamSttConnectFailed")));
       } else {
-        errorCbs.forEach((cb) => cb(new Error("流式 STT 连接错误")));
+        errorCbs.forEach((cb) =>
+          cb(new Error(i18n.t("voice.streamSttConnectError"))),
+        );
       }
     };
 
     ws.onclose = () => {
       if (!resolved) {
-        reject(new Error("流式 STT 连接关闭"));
+        reject(new Error(i18n.t("voice.streamSttClosed")));
       }
     };
   });

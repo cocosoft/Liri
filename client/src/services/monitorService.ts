@@ -1,4 +1,5 @@
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
+import i18n from "../i18n";
 import type { MetricPoint, Alert, LogEntry, SystemHealth } from "../types";
 
 export interface SessionSummary {
@@ -181,7 +182,7 @@ export const monitorService = {
       responseType: "blob",
     });
     if (!res.ok) {
-      throw new Error(res.error?.message || "导出失败");
+      throw new Error(res.error?.message || i18n.t("logs.exportFailed"));
     }
     return res.data as Blob;
   },

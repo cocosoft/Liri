@@ -149,7 +149,8 @@ export function readFileAsBase64(file: File): Promise<string> {
       const result = reader.result as string;
       resolve(result.split(",")[1]);
     };
-    reader.onerror = () => reject(new Error(`读取文件失败: ${file.name}`));
+    reader.onerror = () =>
+      reject(new Error(i18n.t("files.readFileFailed", { name: file.name })));
     reader.readAsDataURL(file);
   });
 }

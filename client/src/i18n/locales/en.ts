@@ -380,6 +380,17 @@ const en = {
     startUsing: "Start Using",
   },
   chat: {
+    emptyChoices: "The AI service returned an empty choices list",
+    sessionListFailed:
+      "Failed to load sessions: neither HTTP nor Tauri is available",
+    searchMessagesFailed: "Failed to search messages",
+    createSessionUnavailable:
+      "Unable to create session: the backend service is unavailable",
+    branchCreateFailed: "Failed to create branch",
+    batchDeleteSessionsFailed: "Failed to batch delete sessions",
+    switchSessionFailed: "Failed to switch session: {{message}}",
+    renameSessionFailed: "Failed to rename session: {{message}}",
+    flushPendingSavesTimeout: "flushPendingSaves timed out",
     newSession: "New Session",
     newSessionTitle: "New Session {{n}}",
     temporaryToggle: "Temporary chat",
@@ -1015,6 +1026,23 @@ const en = {
     },
   },
   settings: {
+    llamaService: {
+      statusFetchFailed: "Failed to fetch llama status",
+      configFetchFailed: "Failed to fetch llama config",
+      configSaveFailed: "Failed to save llama config",
+      restartFailed: "Failed to restart the llama service",
+      forceKillFailed: "Failed to force-kill the llama service",
+      forceRestartFailed: "Failed to force-restart the llama service",
+      logsFetchFailed: "Failed to fetch llama logs",
+      hardwareDetectFailed: "Hardware detection failed",
+      modelRecommendFailed: "Failed to fetch model recommendations",
+      modelDeleteFailed: "Failed to delete the model",
+      migrationCancelFailed: "Failed to cancel the migration",
+      emptyResponse: "The response data is empty",
+    },
+    dataDirRequired: "The directory path cannot be empty",
+    dataDirSaveFailed: "Failed to save",
+    portRangeInvalid: "The port number must be between 1024 and 65535",
     title: "Settings",
     about: "About",
     actions: "Actions",
@@ -2088,6 +2116,8 @@ const en = {
     atTimeTemplate: "Every day at {{hour}}:{{minute}}",
   },
   image: {
+    imageLoadFailed: "Failed to load image",
+    filterTimeout: "Filter timed out",
     title: "Image",
     subtitle: "Generate, analyze, and edit images",
     generate: "Generate",
@@ -2340,6 +2370,7 @@ const en = {
     noAlerts: "No unacknowledged alerts",
   },
   files: {
+    readFileFailed: "Failed to read file: {{name}}",
     title: "File Management",
     browse: "Browse",
     upload: "Upload",
@@ -3309,6 +3340,7 @@ const en = {
       "No user data: fine-grained user management can be configured via CLI /permissions user, then view trust levels and roles here.",
   },
   logs: {
+    exportFailed: "Export failed",
     title: "Log Viewer",
     level: "Level",
     module: "Module",
@@ -3380,6 +3412,8 @@ const en = {
     colRisk: "Risk",
   },
   model: {
+    saveTasksFailed:
+      "Failed to save task assignments: the backend returned an error",
     title: "Model Management",
     addModel: "Add Model",
     editModel: "Edit Model",
@@ -3657,6 +3691,7 @@ const en = {
     },
   },
   agent: {
+    recoverTaskFailed: "Failed to recover task",
     title: "Agent Management",
     create: "Create Agent",
     config: "Configuration",
@@ -4009,6 +4044,17 @@ const en = {
     temperatureInline: "Temperature: {{value}}",
   },
   voice: {
+    streamSttError: "Streaming STT error",
+    streamSttConnectFailed: "Streaming STT connection failed",
+    streamSttConnectError: "Streaming STT connection error",
+    streamSttClosed: "Streaming STT connection closed",
+    wakeWsConnectFailed: "Failed to connect the wake-word WebSocket",
+    wsConnectFailed: "WebSocket connection failed",
+    getAudioStreamFailed: "Failed to get the audio stream",
+    offlineSttUnavailable:
+      "The network is unavailable, so speech recognition is temporarily unavailable. Please connect to the network and try again.",
+    readAudioFileFailed: "Failed to read the audio file",
+    serverResponseAbnormal: "Abnormal server response ({{error}})",
     title: "Voice",
     startRecording: "Start Recording",
     stopRecording: "Stop Recording",
@@ -4925,6 +4971,10 @@ const en = {
     noSteps: "No steps",
   },
   video: {
+    createTaskFailed: "Failed to create task",
+    getTaskFailed: "Failed to query task",
+    cancelTaskFailed: "Failed to cancel task",
+    listTasksFailed: "Failed to query task list",
     title: "Video",
     subtitle: "AI Video Generation — Text-to-Video / Image-to-Video",
     generate: "Generate Video",
@@ -5687,6 +5737,7 @@ const en = {
   },
   // Backend process status (BackendStore: visible error copy on start/stop)
   backend: {
+    requestTimeout: "Request timed out ({{timeout}}ms)",
     startFailed: "The backend process failed to start:\n{{error}}",
     exitedWithCode:
       "The backend process exited unexpectedly, exit code: {{code}}",
@@ -5741,6 +5792,7 @@ const en = {
   },
   // Agent role management page (`/agent/roles`) — T1 ownership consolidation
   council: {
+    sseConnectionError: "SSE connection error",
     addRole: "Add Role",
     editRole: "Edit Role",
     empty: 'No Agent roles yet. Click "Add Role" to create one.',
@@ -6030,6 +6082,13 @@ const en = {
   },
   // Projects page
   projects: {
+    artifactFetchFailed: "Failed to fetch artifacts: {{status}}",
+    artifactSaveFailed: "Failed to save artifact: {{status}}",
+    artifactDeleteFailed: "Failed to delete artifact: {{status}}",
+    uploadFailed: "Upload failed: {{status}}",
+    readFileFailed: "Failed to read file",
+    fileDeleteFailed: "Failed to delete: {{status}}",
+    createProjectFailed: "Failed to create project: {{status}}",
     title: "Projects",
     newProject: "New Project",
     searchPlaceholder: "Search projects...",

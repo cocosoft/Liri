@@ -5,6 +5,7 @@
  */
 
 import { http, type HttpClientConfig } from "./httpClient";
+import i18n from "../i18n";
 
 export type LlamaServerStatus =
   "stopped" | "downloading" | "starting" | "running" | "error";
@@ -147,8 +148,12 @@ export const llamaService = {
     const res = await http.get<{ success: boolean; status: LlamaStatus }>(
       "/v1/llama/status",
     );
-    if (!res.ok) throw new Error(res.error?.message ?? "获取 llama 状态失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.statusFetchFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data.status;
   },
 
@@ -159,8 +164,12 @@ export const llamaService = {
       config: LlamaConfig;
       status: LlamaStatus;
     }>("/v1/llama/config");
-    if (!res.ok) throw new Error(res.error?.message ?? "获取 llama 配置失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.configFetchFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return { config: res.data.config, status: res.data.status };
   },
 
@@ -170,15 +179,22 @@ export const llamaService = {
       "/v1/llama/config",
       config,
     );
-    if (!res.ok) throw new Error(res.error?.message ?? "保存 llama 配置失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.configSaveFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data.config;
   },
 
   /** 应用配置并重启服务 */
   async restart(): Promise<void> {
     const res = await http.post<{ success: boolean }>("/v1/llama/restart");
-    if (!res.ok) throw new Error(res.error?.message ?? "重启 llama 服务失败");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.restartFailed"),
+      );
   },
 
   /** 强制杀掉所有 llama-server 进程（紧急恢复） */
@@ -193,8 +209,11 @@ export const llamaService = {
       message: string;
     }>("/v1/llama/force-kill");
     if (!res.ok)
-      throw new Error(res.error?.message ?? "强制杀死 llama 服务失败");
-    if (!res.data) throw new Error("响应数据为空");
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.forceKillFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data;
   },
 
@@ -213,8 +232,12 @@ export const llamaService = {
       error?: string;
     }>("/v1/llama/force-restart");
     if (!res.ok)
-      throw new Error(res.error?.message ?? "强制重启 llama 服务失败");
-    if (!res.data) throw new Error("响应数据为空");
+      throw new Error(
+        res.error?.message ??
+          i18n.t("settings.llamaService.forceRestartFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     if (!res.data.success && res.data.error) {
       throw new Error(res.data.error);
     }
@@ -226,8 +249,12 @@ export const llamaService = {
     const res = await http.get<{ success: boolean; logs: string }>(
       `/v1/llama/logs?lines=${lines}`,
     );
-    if (!res.ok) throw new Error(res.error?.message ?? "获取 llama 日志失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.logsFetchFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data.logs;
   },
 
@@ -276,8 +303,13 @@ export const llamaService = {
       success: boolean;
       hardware: LlamaHardwareInfo;
     }>("/v1/llama/hardware", { params });
-    if (!res.ok) throw new Error(res.error?.message ?? "硬件检测失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ??
+          i18n.t("settings.llamaService.hardwareDetectFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data.hardware;
   },
 
@@ -287,8 +319,13 @@ export const llamaService = {
       success: boolean;
       recommendations: LlamaModelRecommendation[];
     }>("/v1/llama/recommendations");
-    if (!res.ok) throw new Error(res.error?.message ?? "获取模型推荐失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ??
+          i18n.t("settings.llamaService.modelRecommendFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data.recommendations;
   },
 
@@ -305,8 +342,12 @@ export const llamaService = {
       deleted: string;
       message: string;
     }>(`/v1/llama/models/${encodeURIComponent(filename)}`);
-    if (!res.ok) throw new Error(res.error?.message ?? "删除模型失败");
-    if (!res.data) throw new Error("响应数据为空");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ?? i18n.t("settings.llamaService.modelDeleteFailed"),
+      );
+    if (!res.data)
+      throw new Error(i18n.t("settings.llamaService.emptyResponse"));
     return res.data;
   },
 
@@ -358,7 +399,11 @@ export const llamaService = {
     const res = await http.post<{ success: boolean; message: string }>(
       "/v1/llama/migrate/cancel",
     );
-    if (!res.ok) throw new Error(res.error?.message ?? "取消迁移失败");
+    if (!res.ok)
+      throw new Error(
+        res.error?.message ??
+          i18n.t("settings.llamaService.migrationCancelFailed"),
+      );
   },
 
   /**

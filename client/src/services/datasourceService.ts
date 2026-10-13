@@ -1,11 +1,14 @@
 import { http } from "./httpClient";
+import i18n from "../i18n";
 
 function unwrap<T>(
   res: { ok: boolean; data?: T; error?: { code: number; message: string } },
   action: string,
 ): T {
   if (!res.ok)
-    throw new Error(`[${action}] ${res.error?.message ?? "未知错误"}`);
+    throw new Error(
+      `[${action}] ${res.error?.message ?? i18n.t("errors.unknown")}`,
+    );
   return res.data as T;
 }
 

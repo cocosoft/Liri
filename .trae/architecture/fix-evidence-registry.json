@@ -2351,6 +2351,44 @@
       "changelog": [],
       "reopenWhen": "① 若在 `TARGET_FILES`（40 文件清单）内**新增**内联中文文案 ⇒ 棘轮逐文件计数变红（应改走 `t()`；确属数据表的须记入基线并注明理由）；② 若把清单外文件（≈120 处扫描中尚未纳入者，多为数据表类）**纳入清单** ⇒ 须**先扩大基线**再迁移（否则整批误红）；③ 若改动 `isCommentLine` / `I18N_ALREADY` / `DEV_ONLY` 的判定口径 ⇒ 须同步复核基线（放松 ⇒ 掩盖真实文案；收紧 ⇒ 误红）；④ 若删除或改写 `chat.pendingQuestionHint` 及其余 B1a/B1b/B2/B3 新增键的 zh 文案 ⇒ i18n key parity 与相关断言会红；⑤ 若把 `chat-message-stream.ts` 的 `noContentFallbackOnly` 标记换回 `content.includes(...)` 字符串匹配 ⇒ **违 CS02**（英文界面必然失效），须重开；⑥ 若引入第三种语言 ⇒ 须为本片四批新增键补该语言资源（zh/en 现双侧齐备）。",
       "notes": "**目标**：推进方案 §7.2 标记为「剩余」的 HD-P2-2 主体 —— 方案原估 **16 处 / 7 文件**，回仓实测主清单 **≈120 处 / ≈40 文件**（另 ≈35「边界项」= throw 后可上屏、约 10 组「数据表」= 供应商名/渠道名/农历常量等）⇒ 本片把**主清单**内联中文文案全部迁入 i18n，并落地**棘轮守卫**锁死回流。**统计口径（守卫三条排除）**：① **注释行**（按行首判定，含 JSX 注释）不计；② **已走 i18n** 的行（本仓主流写法 `t(`key`,`中文默认值`)`）不计；③ **开发者消息**（`console.*` / `logger.*` / `throw new Error(...)`）不计 —— 三者把「全仓 1837 处」收窄为「真实剩余」。**四批迁移**：B1a（utils 6 文件 + 顶级 `errors.*` / `tool.value.*` / `chat.export.*` / `plans.*` / `logs.*`）→ B1b（`toolHumanSummary.ts` 129→0；`tool.name.*` / `tool.summary.*` / `tool.argKey.*`）→ B2（`services` / `stores` / `hooks` 11 文件 + `chat.error.*` / `chat.progress.*` / `chat.stream.*` / `backend.*` / `dream.notify*`）→ B3（≈22 源文件 + 56 键：`dag.*` / `office.*` / `knowledge.*` / `voice.*` / `chat.*` / `media.*` / `common.*`）⇒ 棘轮 total **426 → 17**。**CS02 根治（重要）**：`chat-message-stream.ts` 原以 `finalBlocks[0].content.includes(`未生成内容`)` **匹配用户可见文案**判定状态 —— 文案一旦 i18n，**英文界面下该匹配必然失效** ⇒ 走错分支（不再跳过覆盖、有数据回退风险）；改为**同函数内标记** `noContentFallbackOnly`（兜底块即在该作用域创建）⇒ 与语言无关。**棘轮守卫自省（如实）**：① **假阳性** —— `isCommentLine` 初版漏判 **JSX 注释**（`{/*` 开头），把 `ChatInput.tsx` 的一条组件注释误计 ⇒ 已排除；② **假阴性（更要紧）** —— 真正的用户可见文本 `ChatInput.tsx:1505`（AI 正在等待您的回答…）因**同行无引号亦无 `>`** 而**漏计**（守卫抓不到）⇒ 已迁为 `chat.pendingQuestionHint`（**key-only** 写法，避免长默认值被 prettier 折行后再度计中）。**外科手术式复核（如实）**：B3 曾为达成「0 warning」给 **6 处存量 `exhaustive-deps` 告警**加 `eslint-disable` —— 经 `git show HEAD:<file> | eslint --stdin` **取证证明这些告警改前即有** ⇒ **全部撤回**（静默与本轮无关的存量问题超范围）；`DAGView` 的 disable 属**本轮引起**（`t` 未进依赖）⇒ **正修**（`[planId]` → `[planId, t]`）；`XTermPanel` 的 `t` 未进依赖系**有意**（注释明示「挂载一次即写死启动文案、切换语言不重建」）⇒ 保留。**验证**：① 棘轮测试 **1 pass / 0 fail**（基线 JSON `total=17`、7 文件；含「清单文件必须存在」与「总量只减不增」双断言）；② **client 全量 566 pass / 0 fail（68 文件）**（含 i18n key parity ⇒ zh/en 双侧齐备）；③ `typecheck`（client）0 错；④ `eslint` 本轮改动文件 0 error / 0 warning。**如实边界**：① **未做真机切 en 走查**（验证停在单元 + 源码守卫）⇒ `e2eVerified=false`；② **剩余 17 处**全属**口径明确不迁**（`logger` / `Error` 参数 · `format.ts` 的 `万` / `千` 单位 · 已 i18n 的默认值多行）⇒ 记入基线；③ ≈35「边界项」（throw 后可上屏）**另立一片**，本片统一登记不治理；④ ≈10 组「数据表」不治理；⑤ 撤回的 6 条 `disable` 对应**存量告警仍在**（本片既不静默、亦未治理）。"
+    },
+    {
+      "id": "HARDCODE-HDP2-2-ERROR-I18N",
+      "title": "硬编码治理 HD-P2-2 **收尾**：用户可见**错误消息**入 i18n（≈64 处 / 22 文件，53 键）+ 「错误消息不得裸写中文」源码守卫",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2（HD-P2-2）+ 用户裁定「优先推进 ≈35『throw 后可上屏』边界项」（2026-10-13）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/utils/format.ts",
+        "client/src/services/agentService.ts",
+        "client/src/services/chatService.ts",
+        "client/src/services/faqService.ts",
+        "client/src/services/graphService.ts",
+        "client/src/services/datasourceService.ts",
+        "client/src/services/knowledgeService.ts",
+        "client/src/services/notificationService.ts",
+        "client/src/services/modelSwitchService.ts",
+        "client/src/services/llamaService.ts",
+        "client/src/services/monitorService.ts",
+        "client/src/services/projectArtifactService.ts",
+        "client/src/services/sessionService.ts",
+        "client/src/services/sttStream.ts",
+        "client/src/services/tauriProxy.ts",
+        "client/src/services/videoService.ts",
+        "client/src/services/voiceService.ts",
+        "client/src/services/translateService.ts",
+        "client/src/stores/councilStore.ts",
+        "client/src/stores/chat/chat-message-actions.ts",
+        "client/src/components/views/SettingsPage.tsx",
+        "client/src/components/views/image/canvas-editor/components/CanvasEditor.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts",
+        "client/src/tests/fixtures/i18nLiteralBaseline.json"
+      ],
+      "tests": ["client/src/tests/errorMessageI18n.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若在 22 个文件的错误消息构造点**新增**裸中文 ⇒ `errorMessageI18n.test.ts` 精确变红；② 若把清单外文件纳入该守卫 ⇒ 须**先迁移**再入清单（否则误红）；③ 若 `toastStore.ts` 改为**不再**附 `getRawErrorMessage`（即不再上屏原始消息）⇒ 可重估本片必要性（属**上屏语义**变更，须单独裁定）；④ 若新增第三种语言 ⇒ 须为 53 键补该语言（zh/en 现双侧齐备）；⑤ 若把既有**英文**错误串也纳入治理（本片有意排除）⇒ 需另立一片；⑥ 若 `errors.unknown` / `translate.translateError` 被删或改 zh ⇒ 复用点与 key parity 会红。",
+      "notes": "**目标**：收尾 HD-P2-2 —— 把**会呈现给用户**的前端**错误消息**从源码字面量改为 i18n 引用。**判据（本片新定义）**：`toastError(err)`（`stores/toastStore.ts:64`）把 `friendlyErrorSummary(err)` 与 `getRawErrorMessage(err)` **一并**推给 toast ⇒ 原异常文本会以「原异常信息」形式**显示给用户**；故 `services/**`、`stores/**`、组件中 `new Error(中文)` / `reject(new Error(中文))` / `setError(中文)` 的中文**均会上屏**、必须 i18n。**范围更正（回仓实测）**：棘轮 docstring 原估「≈35 处」 ⇒ 实测 `client/src`（排除测试）`new Error(中文)` 共 **84 行 / 24 文件**，其中**会经上述链路上屏**者 **≈64 处 / 22 文件**（本片全部迁移）；余下为测试夹具（`tests/**`）与非错误中文。**落地（53 键）**：纯函数/服务模块用 `i18n.t(...)`、React 组件用既有 `t(...)`；**zh 渲染结果逐字不变**（含插值：`获取构件失败: {{status}}` / `请求超时 ({{timeout}}ms)` 精确还原原串的空格与半角括号）；`未知错误` 复用既有 `errors.unknown`（5 处 unwrap + CanvasEditor），`翻译失败` 复用 `translate.translateError`。命名空间就近复用既有域（`chat.*` / `settings.*` / `video.*` / `voice.*` / `model.*` / `logs.*` / `projects.*` / `council.*` / `image.*` / `backend.*` / `files.*` / `agent.*`），llama 专组落 `settings.llamaService.*`（12 键，含重复文案「响应数据为空」**共用一个键**）。**四类装箱**：① 5 个 `[action] ... 未知错误` 同型包装器；② llamaService 21 处；③ session/project/voice/video 批量；④ 组件 2 文件 6 处。**新守卫**：`client/src/tests/errorMessageI18n.test.ts`（**1 例**）—— 对 22 个迁移文件逐行断言「错误消息构造点（`new Error(` / `setError(` / `setDataDirError(` / `onError(`）同一括号内**不得**出现裸中文，除非该行已引用 i18n（含 `t(` 形式）」，按行首排除注释（含 JSX 注释）。**红向已实证**：把 `videoService.ts:215` 临时改回裸中文 `创建任务失败` ⇒ 守卫**精确报 `src/services/videoService.ts:215`**（还原后 1 pass）。**验证**：① 守卫 **1 pass / 0 fail**；② **client 全量 567 pass / 0 fail（69 文件）**（含 i18n key parity ⇒ 53 键 zh/en 双侧齐备）；③ `typecheck`（client）0 错；④ `eslint` 改动文件 0 error（仅 1 条**既有** `exhaustive-deps` warning 在 `CanvasEditor.tsx:715`，**非本片引入**、未静默）；⑤ 棘轮守卫 total **17 → 14**（剩余全为 `logger`/单位类，属**口径明确不迁**）。**如实边界**：① **未做真机切 en 走查**（验证停在**单元 + 源码守卫**）⇒ `e2eVerified=false`；② 只覆盖**中文字面量**错误消息 —— 既有**英文**错误串（如 `voiceService` 的 `Failed to upload audio`、`imageService` / `fileService` 系列）**不在本片**；③ `llamaService` 的 `throw new Error(res.data.error)`（后端返回内容）非字面量、未迁；④ 名单外**同类**项一并迁移 4 处（sessionService 切换/重命名、voiceService 服务器响应异常、knowledgeService 快照）—— 均经同一上屏链路，属**同片同类**扩大而非越界；⑤ `CanvasEditor.tsx:715` 的既有 warning **如实保留**（改其依赖数组会变更 autosave 触发时机 ⇒ 行为风险）。"
     }
   ]
 }

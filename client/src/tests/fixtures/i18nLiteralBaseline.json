@@ -1,12 +1,11 @@
 {
-  "total": 17,
+  "total": 14,
   "files": {
-    "src/utils/format.ts": 3,
+    "src/utils/format.ts": 2,
     "src/utils/messageText.ts": 1,
     "src/services/chatService.ts": 4,
-    "src/stores/councilStore.ts": 1,
     "src/stores/chat/chat-message-stream.ts": 5,
-    "src/stores/chat/chat-message-actions.ts": 2,
+    "src/stores/chat/chat-message-actions.ts": 1,
     "src/components/views/office/CreateDocModal.tsx": 1
   }
 }

@@ -5,6 +5,7 @@
  */
 
 import { http } from "./httpClient";
+import i18n from "../i18n";
 import type {
   NotificationListParams,
   NotificationListResult,
@@ -17,7 +18,9 @@ function unwrap<T>(
   action: string,
 ): T {
   if (!res.ok)
-    throw new Error(`[${action}] ${res.error?.message ?? "未知错误"}`);
+    throw new Error(
+      `[${action}] ${res.error?.message ?? i18n.t("errors.unknown")}`,
+    );
   return res.data as T;
 }
 

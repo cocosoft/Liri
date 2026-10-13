@@ -9,6 +9,7 @@ import type {
 import { http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
+import i18n from "../i18n";
 
 // ─── 工具 ────────────────────────────────────────────────
 
@@ -18,7 +19,9 @@ function unwrap<T>(
   action: string,
 ): T {
   if (!res.ok) {
-    throw new Error(`[${action}] ${res.error?.message ?? "未知错误"}`);
+    throw new Error(
+      `[${action}] ${res.error?.message ?? i18n.t("errors.unknown")}`,
+    );
   }
   return res.data as T;
 }
@@ -479,7 +482,7 @@ export const knowledgeService = {
       // 400 表示无快照，返回空数组
       if (res.error?.code === 400) return [];
       throw new Error(
-        `[KNOWLEDGE_SNAPSHOTS] ${res.error?.message ?? "未知错误"}`,
+        `[KNOWLEDGE_SNAPSHOTS] ${res.error?.message ?? i18n.t("errors.unknown")}`,
       );
     }
     return res.data?.snapshots ?? [];

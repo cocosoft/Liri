@@ -368,7 +368,7 @@ function SettingsPage() {
   };
   const handleSaveDataDirectory = async () => {
     if (!dataDirectory.trim()) {
-      setDataDirError("目录路径不能为空");
+      setDataDirError(t("settings.dataDirRequired"));
       return;
     }
     setDataDirSaved(false);
@@ -393,7 +393,9 @@ function SettingsPage() {
       const err = e as {
         response?: { data?: { error?: { message?: string } } };
       };
-      setDataDirError(err.response?.data?.error?.message || "保存失败");
+      setDataDirError(
+        err.response?.data?.error?.message || t("settings.dataDirSaveFailed"),
+      );
     } finally {
       setMigrating(false);
     }
@@ -425,7 +427,7 @@ function SettingsPage() {
   const handleSavePort = async () => {
     const port = parseInt(backendPort, 10);
     if (isNaN(port) || port < 1024 || port > 65535) {
-      setError("端口号必须在 1024-65535 之间");
+      setError(t("settings.portRangeInvalid"));
       return;
     }
     setPortSaved(false);

@@ -193,7 +193,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
         try {
           await new Promise<void>((resolve, reject) => {
             img.onload = () => resolve();
-            img.onerror = () => reject(new Error("图片加载失败"));
+            img.onerror = () => reject(new Error(t("image.imageLoadFailed")));
             img.src = imgSrc;
           });
         } catch (err) {
@@ -253,7 +253,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
         if (typeof source !== "string") URL.revokeObjectURL(imgSrc);
         window.dispatchEvent(new Event("canvas-render"));
       },
-      [state.bgColor],
+      [state.bgColor, t],
     );
 
     // 加载初始图片（仅 src 变化时触发，不受 bgColor 等影响）
@@ -562,7 +562,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
           const worker = getFilterWorker();
           const result = await new Promise<ImageData>((resolve, reject) => {
             const timeout = setTimeout(
-              () => reject(new Error("滤镜超时")),
+              () => reject(new Error(t("image.filterTimeout"))),
               3000,
             );
             worker.onmessage = (
@@ -570,7 +570,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
             ) => {
               clearTimeout(timeout);
               if (e.data.result) resolve(e.data.result);
-              else reject(new Error(e.data.error || "未知错误"));
+              else reject(new Error(e.data.error || t("errors.unknown")));
             };
             worker.postMessage({ imageData: before, filters });
           });
@@ -598,7 +598,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
           });
         }
       },
-      [getFilterWorker],
+      [getFilterWorker, t],
     );
 
     // 调整画布尺寸

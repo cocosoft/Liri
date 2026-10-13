@@ -5,6 +5,7 @@ import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
 import { setSessionCache } from "../stores/chat/chat-history.slice";
 import { importLegacyMessages } from "../stores/chat/legacyMessageImporter";
+import i18n from "../i18n";
 
 const logger = createLogger("sessionService");
 const isTauri =
@@ -370,7 +371,7 @@ export const sessionService = {
       // （标题回"请选择会话"、currentSessionId 被 persist 写盘，刷新也回不来）。
       // 与 switch/delete/rename 的"上抛"策略对齐：真失败即抛错，由调用方
       // （loadChatSessions catch 分支保留现有会话）处理，而非伪装成合法空列表。
-      throw new Error("获取会话列表失败：HTTP 与 Tauri 均不可用");
+      throw new Error(i18n.t("chat.sessionListFailed"));
     });
   },
 
@@ -413,7 +414,9 @@ export const sessionService = {
           }>
         >(`/v1/sessions/messages/search?${params.toString()}`);
         if (res.ok) return res.data ?? [];
-        throw new Error(res.error?.message ?? "搜索消息失败");
+        throw new Error(
+          res.error?.message ?? i18n.t("chat.searchMessagesFailed"),
+        );
       },
     );
   },
@@ -460,7 +463,7 @@ export const sessionService = {
         // W1 修复：HTTP 与 Tauri 均不可用时，原实现返回内存假会话（id 为 local-*，
         // list() 返回空、刷新即失，UI 却显示"创建成功"——静默假成功）。
         // 改为显式抛错，由调用方展示失败（对齐 switch() 的 N1 404 上抛语义）。
-        throw new Error("无法创建会话：后端服务不可用");
+        throw new Error(i18n.t("chat.createSessionUnavailable"));
       },
     );
   },
@@ -490,7 +493,7 @@ export const sessionService = {
         if (!res.ok) {
           const msg = (res.data as { error?: { message?: string } } | null)
             ?.error?.message;
-          throw new Error(msg ?? "分支创建失败");
+          throw new Error(msg ?? i18n.t("chat.branchCreateFailed"));
         }
         return {
           session: flattenSession(res.data?.session as Session),
@@ -524,7 +527,9 @@ export const sessionService = {
           });
           if (status >= 400) {
             const err = new Error(
-              `切换会话失败: ${res.error?.message ?? `HTTP ${status}`}`,
+              i18n.t("chat.switchSessionFailed", {
+                message: res.error?.message ?? `HTTP ${status}`,
+              }),
             );
             (err as unknown as Record<string, unknown>).statusCode = status;
             throw err;
@@ -618,7 +623,9 @@ export const sessionService = {
             error: res.error,
           });
           const err = new Error(
-            `重命名会话失败: ${res.error?.message ?? `HTTP ${status}`}`,
+            i18n.t("chat.renameSessionFailed", {
+              message: res.error?.message ?? `HTTP ${status}`,
+            }),
           );
           (err as unknown as Record<string, unknown>).statusCode = status;
           throw err;
@@ -867,7 +874,7 @@ export const sessionService = {
             count: ids.length,
             error: res.error,
           });
-          throw new Error(msg ?? "批量删除会话失败");
+          throw new Error(msg ?? i18n.t("chat.batchDeleteSessionsFailed"));
         }
         _isUsingFallback = false;
         return {

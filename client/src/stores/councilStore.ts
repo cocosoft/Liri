@@ -164,7 +164,9 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
 
     es.addEventListener("error", (e) => {
       handleClientError(
-        e instanceof ErrorEvent ? e : new Error("SSE 连接异常"),
+        e instanceof ErrorEvent
+          ? e
+          : new Error(i18n.t("council.sseConnectionError")),
         { module: "stores:councilStore", action: "councilSSE" },
         "warn",
       );

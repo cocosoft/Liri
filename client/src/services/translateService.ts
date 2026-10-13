@@ -6,6 +6,7 @@
 
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import i18n from "../i18n";
 
 /** 翻译请求参数 */
 export interface TranslateParams {
@@ -119,7 +120,10 @@ export const translateService = {
                 onDone(chunk.result as TranslateResult);
                 retryCount = 0; // 成功，重置
               } else if (chunk.type === "error") {
-                onError(chunk.message ?? "翻译失败", true);
+                onError(
+                  chunk.message ?? i18n.t("translate.translateError"),
+                  true,
+                );
               }
             } catch (e) {
               handleClientError(e, {

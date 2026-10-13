@@ -2,6 +2,7 @@ import type { AgentTask } from "../types";
 import { httpLegacy as http } from "./httpClient";
 import { getOTelTracing } from "../monitoring/otel";
 import { handleClientError } from "../utils/handleError";
+import i18n from "../i18n";
 
 const isTauri =
   typeof window !== "undefined" &&
@@ -262,7 +263,7 @@ export const agentService = {
         taskId,
       });
       if (result) return result;
-      throw new Error("无法恢复任务");
+      throw new Error(i18n.t("agent.recoverTaskFailed"));
     }
   },
 

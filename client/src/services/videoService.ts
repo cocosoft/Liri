@@ -8,6 +8,7 @@
 
 import { toolService } from "./toolService";
 import { http } from "./httpClient";
+import i18n from "../i18n";
 import type { ApiResponse } from "../types/system";
 
 // 视频生成超时 10 分钟
@@ -211,7 +212,7 @@ export const videoService = {
       params,
     );
     if (!res.ok) {
-      throw new Error(String(res.error || "创建任务失败"));
+      throw new Error(String(res.error || i18n.t("video.createTaskFailed")));
     }
     return res.data as { taskId: string; status: string };
   },
@@ -224,7 +225,7 @@ export const videoService = {
       `/v1/video/tasks/${encodeURIComponent(taskId)}`,
     );
     if (!res.ok) {
-      throw new Error(String(res.error || "查询任务失败"));
+      throw new Error(String(res.error || i18n.t("video.getTaskFailed")));
     }
     return res.data as unknown as VideoTaskDetail;
   },
@@ -237,7 +238,7 @@ export const videoService = {
       `/v1/video/tasks/${encodeURIComponent(taskId)}/cancel`,
     );
     if (!res.ok) {
-      throw new Error(String(res.error || "取消任务失败"));
+      throw new Error(String(res.error || i18n.t("video.cancelTaskFailed")));
     }
     return res.data as { success: boolean };
   },
@@ -274,7 +275,7 @@ export const videoService = {
       `/v1/video/tasks?${query.toString()}`,
     );
     if (!res.ok) {
-      throw new Error(String(res.error || "查询任务列表失败"));
+      throw new Error(String(res.error || i18n.t("video.listTasksFailed")));
     }
     return res.data as unknown as VideoTaskListResponse;
   },

@@ -11,6 +11,7 @@
 
 import { buildUrl, formatError } from "./httpUtils";
 import { handleClientError } from "../utils/handleError";
+import i18n from "../i18n";
 
 import type { ApiResponse } from "../types/system";
 
@@ -140,7 +141,11 @@ export async function proxyFetch<T>(
     const resp = await Promise.race([
       invokePromise,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`请求超时 (${timeout}ms)`)), timeout),
+        setTimeout(
+          () =>
+            reject(new Error(i18n.t("backend.requestTimeout", { timeout }))),
+          timeout,
+        ),
       ),
     ]);
 

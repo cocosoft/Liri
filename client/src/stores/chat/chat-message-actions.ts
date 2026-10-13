@@ -437,7 +437,10 @@ export async function flushPendingSavesImpl(
   if (getHasPendingSave()) {
     // 超时保护：最多等待 3 秒，防止 HTTP 挂起阻塞会话切换（方案 C）
     const timeout = new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error("flushPendingSaves 超时")), 3000),
+      setTimeout(
+        () => reject(new Error(i18n.t("chat.flushPendingSavesTimeout"))),
+        3000,
+      ),
     );
     await Promise.race([flushSaveBlocks(), timeout]).catch((err) => {
       handleClientError(

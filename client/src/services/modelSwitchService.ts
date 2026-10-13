@@ -4,6 +4,7 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import i18n from "../i18n";
 import type {
   CurrentModelInfo,
   TaskModelConfig,
@@ -65,7 +66,7 @@ export const modelSwitchService = {
   async saveTasks(tasks: TaskModelConfig): Promise<void> {
     const res = await http.put<{ success: boolean }>("/v1/models/tasks", tasks);
     if (!res.success) {
-      throw new Error("保存任务分工失败：后端返回异常");
+      throw new Error(i18n.t("model.saveTasksFailed"));
     }
   },
 

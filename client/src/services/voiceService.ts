@@ -1,5 +1,6 @@
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
 import { getOTelTracing } from "../monitoring/otel";
+import i18n from "../i18n";
 
 // STTResult、STTSegment、VoiceSession 来自共享类型定义
 import type { STTResult, STTSegment, VoiceSession } from "@shared/types";
@@ -214,7 +215,7 @@ export function connectWakeWordWebSocket(): Promise<void> {
 
     ws.onerror = () => {
       // onerror 后会有 onclose，由 onclose 处理重连
-      reject(new Error("唤醒 WS 连接失败"));
+      reject(new Error(i18n.t("voice.wakeWsConnectFailed")));
     };
   });
 }
@@ -327,7 +328,7 @@ export function connectVoiceWebSocket(): Promise<void> {
     };
 
     ws.onerror = () => {
-      reject(new Error("WebSocket 连接失败"));
+      reject(new Error(i18n.t("voice.wsConnectFailed")));
     };
   });
 }
@@ -462,7 +463,9 @@ const voiceService = {
           responseType: "blob",
         });
         if (!res.ok) {
-          throw new Error(res.error?.message || "获取音频流失败");
+          throw new Error(
+            res.error?.message || i18n.t("voice.getAudioStreamFailed"),
+          );
         }
         const blob = res.data as Blob;
         const url = URL.createObjectURL(blob);
@@ -522,9 +525,7 @@ const voiceService = {
     return getOTelTracing().asyncWrap("services:voice:transcribe", async () => {
       // L15: 离线检测 — 网络不可用时给出友好提示
       if (typeof navigator !== "undefined" && !navigator.onLine) {
-        return Promise.reject(
-          new Error("网络不可用，语音识别暂不可用，请连接网络后重试"),
-        );
+        return Promise.reject(new Error(i18n.t("voice.offlineSttUnavailable")));
       }
 
       // L4/L5: 优先使用二进制传输（FormData / multipart）
@@ -547,7 +548,9 @@ const voiceService = {
 
         if (!res.ok) {
           throw new Error(
-            `服务器响应异常 (${res.error?.message || "未知错误"})`,
+            i18n.t("voice.serverResponseAbnormal", {
+              error: res.error?.message || i18n.t("errors.unknown"),
+            }),
           );
         }
 
@@ -575,7 +578,8 @@ const voiceService = {
             }
           };
 
-          reader.onerror = () => reject(new Error("读取音频文件失败"));
+          reader.onerror = () =>
+            reject(new Error(i18n.t("voice.readAudioFileFailed")));
           reader.readAsDataURL(audioBlob);
         });
       }

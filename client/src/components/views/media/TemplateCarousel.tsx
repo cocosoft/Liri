@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMediaStore } from "../../../stores/mediaStore";
 
 /** 模板数据（与后端 MediaTemplateRecord 对应） */
@@ -21,6 +22,7 @@ interface TemplateInfo {
 }
 
 export const TemplateCarousel: React.FC<{ isDark: boolean }> = ({ isDark }) => {
+  const { t } = useTranslation();
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
   const selectedId = useMediaStore((s) => s.selectedId);
   const selectTemplate = useMediaStore((s) => s.selectTemplate);
@@ -82,7 +84,11 @@ export const TemplateCarousel: React.FC<{ isDark: boolean }> = ({ isDark }) => {
             }`}
             title={
               tmpl.promptTemplate ||
-              `${tmpl.name} (${tmpl.type === "i2i2v" ? "图生视频" : "图生图"})`
+              `${tmpl.name} (${
+                tmpl.type === "i2i2v"
+                  ? t("media.imageToVideo")
+                  : t("media.imageToImage")
+              })`
             }
           >
             <span className="mr-1">{tmpl.type === "i2i2v" ? "🎬" : "🖼️"}</span>

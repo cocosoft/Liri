@@ -5,6 +5,7 @@
  * 存放跨方法共享的模块级状态（会话切换锁 / 工具结果缓存）与纯工具函数。
  */
 import type { MessageBlock } from "@/types";
+import i18n from "@/i18n";
 
 /**
  * 会话切换锁：setMessages 期间挂起流式写入，避免 loadSessions 覆盖流式数据。
@@ -43,7 +44,9 @@ export function truncateResult(raw: string): string {
       : MAX_INLINE_RESULT_LENGTH;
   return (
     raw.slice(0, cutPoint) +
-    `\n...（共 ${raw.length.toLocaleString()} 字符，已截断，点击展开查看完整结果）`
+    i18n.t("chat.stream.truncatedResult", {
+      total: raw.length.toLocaleString(),
+    })
   );
 }
 

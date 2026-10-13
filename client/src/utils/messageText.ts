@@ -9,6 +9,7 @@ import type { Message } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
 import { createLogger } from "./logger";
 import { decodeToolResultContent } from "./toolResultText";
+import i18n from "../i18n";
 
 const logger = createLogger("utils:messageText");
 
@@ -132,9 +133,14 @@ function getMessageExportText(message: Message, full = false): string {
         // 原标注只给"共 N 字"，读者无法判断"导出里保留了多少"。现同时给出**保留规模**
         // 与"完整内容仍在会话内"的去处，使导出记录可被独立审计（不再需要猜测缺口）。
         const truncationNote = truncated
-          ? `\n（思考过长，已截断：仅导出前 ${MAX_EXPORT_THINKING_CHARS} 字，原文共 ${merged.length} 字；完整思考见会话内）`
+          ? `\n${i18n.t("chat.export.thinkingTruncated", {
+              kept: MAX_EXPORT_THINKING_CHARS,
+              total: merged.length,
+            })}`
           : "";
-        parts.push(`💭 [思考中]\n${excerpt}${truncationNote}`);
+        parts.push(
+          `💭 ${i18n.t("chat.export.thinking")}\n${excerpt}${truncationNote}`,
+        );
       }
     }
   }
@@ -252,17 +258,23 @@ function getMessageExportText(message: Message, full = false): string {
         // 相邻连续相同文案的进度块（如流式过程中重复推送"正在执行工具调用"）只保留最后一条
         const lastIdx = parts.length - 1;
         const lastLine = lastIdx >= 0 ? parts[lastIdx] : "";
-        if (lastLine === `📊 [进度]\n${content}` || lastLine === content) {
+        if (
+          lastLine === `📊 ${i18n.t("chat.export.progress")}\n${content}` ||
+          lastLine === content
+        ) {
           continue;
         }
-        parts.push(`📊 [进度]\n${content}`);
+        parts.push(`📊 ${i18n.t("chat.export.progress")}\n${content}`);
         continue;
       }
       const prefix =
-        block.type === "task_decomposition" ? "📝 [任务分解]\n" : "";
+        block.type === "task_decomposition"
+          ? `📝 ${i18n.t("chat.export.taskDecomposition")}\n`
+          : "";
       parts.push(prefix + content);
     }
   }
-  if (message.error) parts.push(`❌ [错误]: ${message.error}`);
+  if (message.error)
+    parts.push(`❌ ${i18n.t("chat.export.error")}: ${message.error}`);
   return parts.join("\n");
 }

@@ -144,6 +144,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         sttStreamRef.current?.close();
         sttStreamRef.current = null;
       };
+      // 卸载清理：仅需执行一次，内部函数不随渲染变化
     }, []);
 
     /** 清理音频流 */
@@ -534,9 +535,9 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
         useVoiceStore.setState({
           micStatus: { status: "no_device", audioLevel: 0 },
         });
-        return { ok: false, warning: "未检测到麦克风，请连接麦克风设备" };
+        return { ok: false, warning: t("voice.micNoDevice") };
       }
-    }, []);
+    }, [t]);
 
     /**
      * 开始录音
@@ -735,10 +736,10 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
           style={{ transform: `scale(${pulseScale})` }}
           title={
             isProcessing
-              ? "语音识别中..."
+              ? t("voice.speechRecognizing")
               : isRecording
-                ? "松开发送"
-                : "按住说话"
+                ? t("voice.releaseToSend")
+                : t("voice.pushToTalk")
           }
         >
           {isProcessing ? (

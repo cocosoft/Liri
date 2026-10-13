@@ -13,6 +13,7 @@ import { planService } from "@/services/planService";
 import { usePlanTaskStore } from "@/stores/planTaskStore";
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "@/utils/handleError";
+import i18n from "../i18n";
 
 const logger = createLogger("utils:planRestore");
 
@@ -46,7 +47,7 @@ function mapStepStatus(status: string): TaskCardTask["status"] {
 /** 后端 Plan → 前端 TaskCardData（刷新后从后端恢复真实状态） */
 export function mapPlanToTaskCard(plan: Plan): TaskCardData {
   return {
-    title: plan.description || "任务分解",
+    title: plan.description || i18n.t("plans.taskDecomposition"),
     status: mapPlanStatus(plan.status),
     planId: plan.id,
     tasks: plan.steps.map((step) => ({

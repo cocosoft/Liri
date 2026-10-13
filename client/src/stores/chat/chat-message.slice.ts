@@ -16,6 +16,7 @@ import type { Message } from "@/types";
 import type { FileSlice } from "./chat-file.slice";
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "@/utils/handleError";
+import i18n from "@/i18n";
 import { truncateMessages } from "@/services/chatService";
 import { connectionMonitor } from "@/services/connectionMonitor";
 import { resolveResumeWaiter } from "@/services/streamPause";
@@ -374,7 +375,7 @@ export const createMessageSlice: StateCreator<
         // 推导中排除"的**原意一致**（原实现漏写）。
         isStreaming: Object.keys(nextControllers).length > 0,
         // N8-3：状态栏文案同步（避免与 Banner"已暂停"并存矛盾；恢复后由流式链路重置）
-        streamingStatus: "后端连接已断开，回复已暂停",
+        streamingStatus: i18n.t("chat.stream.pausedStatus"),
         pausedStreams: {
           ...get().pausedStreams,
           [sessionId]: { since: Date.now(), phase: "waiting", controller },

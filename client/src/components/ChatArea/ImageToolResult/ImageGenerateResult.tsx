@@ -79,7 +79,7 @@ export default function ImageGenerateResult({ data }: Props) {
       url: attached.url,
       localUrl: img.localUrl,
     });
-    sendMessage("请分析这张图片", undefined, [attached]);
+    sendMessage(t("chat.analyzeThisImage"), undefined, [attached]);
   };
 
   // 优先使用本地持久化 URL（刷新后不丢失），fallback 到远程 URL

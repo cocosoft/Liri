@@ -16,6 +16,7 @@ import {
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "../../utils/handleError";
 import { toastError } from "../../stores/toastStore";
+import i18n from "../../i18n";
 
 const logger = createLogger("components:knowledgeBaseList");
 
@@ -179,7 +180,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     } catch (err) {
       logger.error("加载知识文件失败", err);
       // F1（Liri 第四轮确认遗漏）：加载失败≠空库——明确提示，避免误判"知识库为空"
-      toastError("加载知识文件失败，请检查后端连接后重试");
+      toastError(i18n.t("knowledge.loadFilesFailed"));
       dispatchList({ type: "SET_FILES", files: [], total: 0 });
     }
   }
@@ -218,7 +219,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
         // KB-P2：搜索失败 ≠ 真实无结果 —— 明确提示，避免右侧误显示"未找到匹配文档"
         dispatchList({
           type: "SET_SEARCH_ERROR",
-          error: "搜索失败，请检查后端连接后重试",
+          error: i18n.t("knowledge.searchFailedRetry"),
         });
         dispatchList({ type: "SET_SEARCH_RESULTS", results: [] });
       }
@@ -313,12 +314,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
   }
 
   async function handleDeleteBase(name: string) {
-    if (
-      !confirm(
-        `确定要删除知识库 "${name}" 吗？相关文件不会被删除，但知识库将不再显示。`,
-      )
-    )
-      return;
+    if (!confirm(i18n.t("knowledge.deleteBaseConfirm", { name }))) return;
     try {
       await knowledgeService.deleteBase(name);
       if (selectedBase === name) onSelectBase(null);
@@ -329,10 +325,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
   }
 
   async function handleCloneBase(name: string) {
-    const newName = prompt(
-      "请输入新知识库名称（克隆含文档和索引）:",
-      `${name}-clone`,
-    );
+    const newName = prompt(i18n.t("knowledge.clonePrompt"), `${name}-clone`);
     if (!newName?.trim()) return;
     try {
       await knowledgeService.cloneBase(name, newName.trim());
@@ -341,17 +334,16 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
       logger.error("克隆知识库失败", err);
       toastError(
         new Error(
-          `克隆失败: ${err instanceof Error ? err.message : String(err)}`,
+          i18n.t("knowledge.cloneFailed", {
+            error: err instanceof Error ? err.message : String(err),
+          }),
         ),
       );
     }
   }
 
   async function handleDuplicateBase(name: string) {
-    const newName = prompt(
-      "请输入新知识库名称（仅复制配置，不含文档）:",
-      `${name}-copy`,
-    );
+    const newName = prompt(i18n.t("knowledge.duplicatePrompt"), `${name}-copy`);
     if (!newName?.trim()) return;
     try {
       await knowledgeService.duplicateBase(name, newName.trim());
@@ -360,7 +352,9 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
       logger.error("复制知识库配置失败", err);
       toastError(
         new Error(
-          `复制失败: ${err instanceof Error ? err.message : String(err)}`,
+          i18n.t("knowledge.duplicateFailed", {
+            error: err instanceof Error ? err.message : String(err),
+          }),
         ),
       );
     }

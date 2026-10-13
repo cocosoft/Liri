@@ -86,6 +86,12 @@ const en = {
     shortcutStopGenerating: "Stop generating",
     loadingEllipsis: "Loading…",
     unknown: "Unknown",
+    notSelected: "Not selected",
+    selectModuleToStart: "Select a module to get started",
+    currentWorkspace: "Current workspace: {{id}}",
+    portSuffix: " · port {{port}}",
+    initFailed: "Initialization failed",
+    initializing: "Initializing...",
     currentLabel: "Current:",
     themeDark: "Dark mode",
     themeLight: "Light mode",
@@ -850,6 +856,26 @@ const en = {
     // WatermarkTag (context watermark tag)
     watermarkContext: "Context {{pct}}%",
     needCompression: "Compression needed",
+    watermarkTitle: "Context watermark: {{pct}}%",
+    watermarkCompacted:
+      "Context compacted: {{before}} → {{after}} tokens (saved {{pct}}%)",
+    watermarkCompactionStats:
+      "Compacted {{count}} times, saved {{saved}}K tokens in total",
+    // Cite images into the chat (ImageDisplayResult / ImageGenerateResult)
+    analyzeThisImage: "Please analyze this image",
+    analyzeTheseImages: "Please analyze the following images",
+    // Streaming response interrupted (chatService recoverable-interrupt fallback)
+    streamInterrupted: "Streaming response interrupted",
+    // App: prefix for a knowledge doc appended to the chat
+    knowledgeDocRef: "[Knowledge Doc: {{title}}]",
+    // WorkflowRunCard (workflow run aggregate card)
+    interrupted: "Interrupted",
+    workflowFailedAtStep: "Failed at step {{step}}",
+    workflowFailedGeneric: "Execution failed",
+    workflowRunCancelled: "Run cancelled",
+    workflowInterruptedHint: "Execution interrupted; result unknown",
+    workflowNoSteps: "No step records",
+    workflowForcedSettle: "Forced settlement",
     // ---- i18n residual cleanup round 3 (2026-09-27, deep ChatArea scan: bare strings / maps / JSX text) ----
     // CodeBlock (copy-code button; "Copy" reuses common.copy, "Copied" reuses toastCopied above)
     copyCode: "Copy code",
@@ -893,6 +919,8 @@ const en = {
     branchOnEdit: "Save as branch",
     streamBlockedHint: "Replying — please wait for the current reply to finish",
     pendingQuestionPlaceholder: "Please answer the AI's question above first",
+    pendingQuestionHint:
+      "AI is waiting for your answer. Please respond in the question card above to continue.",
     // CitationLink (local file open tooltip)
     openPathUnavailable: "Open failed: local path unavailable or moved",
     openLocalFile: "Open local file",
@@ -934,6 +962,57 @@ const en = {
     viewTechDetails: "View technical details",
     noImagesToDisplay: "No images to display",
     citeAll: "Cite all",
+    // ---- HD-P2-2 batch 3: Chinese copy from non-component modules moved into i18n (chatService / chat stores) ----
+    error: {
+      aiService:
+        "The AI service returned an error. Please check your API key and model configuration.",
+      sseParse: "The SSE stream failed to parse; some content may be lost.",
+      streamTimeout:
+        "The streaming response timed out. Please retry (the connection may have been interrupted).",
+      cancelled: "Request cancelled.",
+      connectionReset:
+        "The connection was lost. Please refresh the page and retry (messages before the interruption have been saved).",
+      proxyIntercepted:
+        "The network request was intercepted by a proxy. Turn off your proxy's global/system mode (or add an exception for 127.0.0.1) and retry.",
+      backendUnreachable:
+        "Unable to connect to the backend service. Please make sure the backend is running and retry.",
+      network: "Network error: {{detail}}",
+      requestFailed: "Request failed: {{detail}}",
+      disconnectNoCheckpoint:
+        "The connection was lost and no checkpoint is available. {{progress}}. {{actionHint}}",
+      actionRepersisted:
+        "Your message has been saved. You can resend it to continue (generation restarts from the current progress).",
+      actionOutboxed:
+        "Your message is stored locally and will be resent automatically once the network recovers — no need to resend it.",
+      pausedWaiting:
+        "The backend connection was lost. The reply is paused and will resume automatically once the backend recovers.",
+      reconnectingStep:
+        "The connection was lost. Resuming from step {{step}}...",
+    },
+    progress: {
+      chars: "{{count}} characters generated",
+      toolCalls: "{{count}} tool calls completed",
+      thinking: "{{count}} thinking passes",
+      none: "No content generated yet",
+    },
+    stream: {
+      noContentFallback:
+        "⚠️ This reply generated no content. Please retry or check the model/network status.",
+      interruptedIncompleteTools:
+        "⚠️ Task interrupted: the following tools did not finish — {{names}}",
+      incompleteToolsCount: "{{count}} tools",
+      truncatedResult:
+        "\n... ({{total}} characters in total, truncated — click to expand the full result)",
+      pausedStatus: "The backend connection was lost. The reply is paused.",
+    },
+    export: {
+      thinking: "[Thinking]",
+      thinkingTruncated:
+        "(Thinking too long, truncated: only the first {{kept}} characters are exported; the original is {{total}} characters — the full thinking is available in the session)",
+      progress: "[Progress]",
+      taskDecomposition: "[Task Breakdown]",
+      error: "[Error]",
+    },
   },
   settings: {
     title: "Settings",
@@ -2021,6 +2100,8 @@ const en = {
     executing: "Executing...",
     noImages: "No images yet",
     noImagesGenerated: "No results generated",
+    selectedBadge: "✔ Selected",
+    selectBadge: "📷 Use",
     unknownError: "Unknown error",
     history: "Task History",
     clearHistory: "Clear",
@@ -2408,6 +2489,8 @@ const en = {
     notebookReading: "Reading...",
     notebookReadFailed: "Read failed: {{error}}",
     notebookEmpty: "Notebook content is empty",
+    savedToKnowledge:
+      "Added to the knowledge base. You can view it in Knowledge.",
   },
   knowledge: {
     title: "Knowledge Base",
@@ -2425,6 +2508,26 @@ const en = {
     pending: "Pending",
     compiled: "Compiled",
     failed: "Failed",
+    loadFilesFailed:
+      "Failed to load knowledge files. Check the backend connection and try again.",
+    searchFailedRetry:
+      "Search failed. Check the backend connection and try again.",
+    deleteBaseConfirm:
+      'Delete knowledge base "{{name}}"? Related files will not be deleted, but the knowledge base will no longer be shown.',
+    clonePrompt:
+      "Enter a name for the new knowledge base (clone includes documents and index):",
+    duplicatePrompt:
+      "Enter a name for the new knowledge base (config only, no documents):",
+    cloneFailed: "Clone failed: {{error}}",
+    duplicateFailed: "Duplicate failed: {{error}}",
+    compileTimeout: "Compilation timed out. Check the logs later for progress.",
+    compileFailed: "Compilation failed: {{error}}",
+    compileDone:
+      "Compilation complete: {{compiled}} succeeded, {{skipped}} skipped",
+    compileErrorsPart: ", {{errors}} errors",
+    compileNotStarted:
+      "Compilation task did not start. Please try again later.",
+    compileComplete: "Compilation complete",
     entryTitle: "Title",
     entryContent: "Content",
     entryCategory: "Category",
@@ -2842,6 +2945,10 @@ const en = {
     wechatQrRawHint: "If it fails to display, click here to copy the link",
     wechatReady: "weixin-cli is running normally",
     wechatViewError: "View Error Details",
+    pluginInstallFailed:
+      "Plugin installation failed. Please run npm install manually.",
+    pluginInstallFailedWithError:
+      "Plugin installation failed: {{error}}. Please run npm install manually.",
   },
   cost: {
     title: "Cost Management",
@@ -3229,6 +3336,8 @@ const en = {
     autoRefreshing: "Auto-refreshing...",
     search: "Search logs...",
     total: "{{count}} total",
+    empty: "(empty)",
+    unknownError: "Unknown error",
   },
   security: {
     title: "Security Dashboard",
@@ -3801,6 +3910,7 @@ const en = {
   },
   workspace: {
     title: "Workspace",
+    defaultName: "Default Workspace",
     openView: "Open view",
     newWorkItem: "New work item",
     enterPlanning: "Enter planning",
@@ -3919,6 +4029,9 @@ const en = {
     listeningMode: "Listening Mode",
     alwaysOn: "Always On",
     pushToTalk: "Push to Talk",
+    releaseToSend: "Release to send",
+    speechRecognizing: "Recognizing...",
+    micNoDevice: "No microphone detected. Please connect a microphone.",
     noVoiceSelected: "No voice selected",
     subtitle: "Subtitles",
     showSubtitle: "Show Subtitles",
@@ -4773,6 +4886,7 @@ const en = {
     emptyFlowsHint:
       "Flows are reusable task orchestration templates registered by the backend TaskFlowRegistry.",
     flowFallbackName: "Flow {{index}}",
+    taskDecomposition: "Task breakdown",
   },
   terminal: {
     title: "Terminal",
@@ -4785,6 +4899,8 @@ const en = {
     fontSize: "Font Size",
     noTerminal: "No terminal session",
     welcome: "Welcome to Liri Terminal",
+    ready: "Liri terminal ready (xterm.js)",
+    executingCommand: "Run: {{cmd}}",
     helpHint: "Type help to see available commands",
     basic: "Basic",
     loadingEngine: "Loading terminal engine...",
@@ -4800,6 +4916,13 @@ const en = {
       help: "  help           Show this help",
       backendCommands: "Backend commands:",
     },
+  },
+  dag: {
+    loadEmpty: "Failed to load DAG data",
+    loadFailed: "Failed to load DAG",
+    loading: "Loading dependency graph...",
+    noData: "No dependency data",
+    noSteps: "No steps",
   },
   video: {
     title: "Video",
@@ -4910,6 +5033,11 @@ const en = {
     zoomIn: "Enlarge",
     compare: "Compare",
     imageToVideo: "Image to Video",
+    imageToImage: "Image to Image",
+    visionAnalyzePrompt:
+      "Describe this image in detail — subject, style, colors, composition and lighting — so it can be used to generate an image in a similar style.",
+    genSimilarFilled: "Generate an image in a similar style",
+    genImageFallback: "Generate an image",
     editImage: "Edit Image",
     recognizing: "Recognizing…",
     generateSimilar: "Generate Similar",
@@ -5044,6 +5172,7 @@ const en = {
     canvasParamInnerRatio: "Inner ratio",
     canvasToolTransparentErase: "Transparent erase",
     canvasFilling: "Filling...",
+    videoTaskCancelled: "Task cancelled.",
   },
   office: {
     title: "Office",
@@ -5142,6 +5271,15 @@ const en = {
     emptyState: "Click a document to preview, or let AI create one",
     askAiToCreate: "Ask AI to write a document",
     viewSample: "View sample document",
+    promptCreateDoc: "Please help me create a document:",
+    promptViewSample: "Please help me view the sample document",
+    docPromptDocx: "Please help me create a document (.docx)",
+    docPromptXlsx:
+      "Please help me create an Excel spreadsheet (.xlsx) with suitable column headers and sample data",
+    docPromptPptx:
+      "Please help me create a presentation (.pptx) with a title page, content pages and charts",
+    docPromptFromTemplate:
+      'Please help me create a {{type}} document using the "{{template}}" template',
     downloadToOpen: "Download and open locally",
     renderFailed: "Render failed",
     unsupportedFormat: "Format not supported for preview",
@@ -5547,6 +5685,14 @@ const en = {
     refresh: "Refresh Page",
     refreshAria: "Refresh page",
   },
+  // Backend process status (BackendStore: visible error copy on start/stop)
+  backend: {
+    startFailed: "The backend process failed to start:\n{{error}}",
+    exitedWithCode:
+      "The backend process exited unexpectedly, exit code: {{code}}",
+    browserModeStart:
+      "The backend cannot be started automatically in browser mode. Please run it in a terminal:\ncd app && bun run src/main.ts repl --http-port {{port}}\nThen refresh the page.",
+  },
   home: {
     modulesTitle: "Modules",
     toolsTitle: "Tools",
@@ -5636,6 +5782,7 @@ const en = {
     deleteConfirmPrefix: 'Delete role "',
     deleteConfirmSuffix: '"? This action cannot be undone.',
     deleting: "Deleting...",
+    consensusToast: '🏛️ The council reached a consensus: "{{topic}}"',
   },
   // Auto reply rule management page
   autoReply: {
@@ -5874,6 +6021,12 @@ const en = {
   dream: {
     title: "Dreams",
     desc: 'While idle, the AI automatically organizes sessions and generates insights — just like "dreaming".',
+    // ---- HD-P2-2 batch 3: system notification copy for useBuddyNotification ----
+    notifyStarted: "🌙 Dream integration started",
+    notifyCompleted: "✨ Dream integration complete",
+    notifyFailed: "💤 Dream integration failed",
+    notifyBuddyEvent: "🧠 Buddy event",
+    notifyTask: "Task {{id}}...",
   },
   // Projects page
   projects: {
@@ -6242,6 +6395,195 @@ const en = {
     userMessageFallback: "User message",
     aiReplyFallback: "AI reply",
     expandToTab: "Expand to {{label}} Tab",
+  },
+  errors: {
+    networkInterrupted:
+      "The network connection was interrupted. Please check your network and try again.",
+    fetchFailed:
+      "Unable to reach the server. Please make sure the service is running.",
+    networkError: "Network error. Please check your network connection.",
+    serverUnresponsive:
+      "The server is not responding. Please make sure the backend is running.",
+    connectionRefused:
+      "The server refused the connection. Please make sure the backend is running.",
+    timeout:
+      "Request timed out. The server was too slow to respond or the network is unstable.",
+    cancelled: "The request has been cancelled.",
+    loadFailed:
+      "Failed to load the resource. Please refresh the page and try again.",
+    badJson: "The server returned invalid data. Please try again later.",
+    serverInternal: "Internal server error ({{code}}). Please try again later.",
+    badRequest: "Bad request ({{code}}). Please check the parameters.",
+    http400: "Invalid request parameters.",
+    http401: "Your session has expired. Please sign in again.",
+    http403: "You do not have permission to access this.",
+    http404: "The requested resource does not exist.",
+    http408: "Request timed out.",
+    http429: "Too many requests. Please try again later.",
+    http500: "Internal server error.",
+    http502: "Bad gateway.",
+    http503: "Service temporarily unavailable.",
+    http504: "Gateway timeout.",
+    modelNotFound:
+      "The model does not exist or has been removed. Please select an available model in Model Management.",
+    modelUnreachable:
+      "There was a problem connecting to the network, so the model service is temporarily unreachable. Please check your network and try again; if it still fails, try switching networks (for example, a different Wi-Fi or a mobile hotspot).",
+    modelAuth:
+      "Model service authentication failed. Please check that your API key is correct.",
+    modelQuota:
+      "The model service quota is insufficient or rate-limited. Please check your account balance or try again later.",
+    contextTooLong:
+      "The context length exceeds the model limit. Please shorten the conversation or switch to a model with a larger context.",
+    unknown: "Unknown error",
+    operationFailed: "Operation failed",
+    originalError: "(Original error: {{raw}})",
+  },
+  tool: {
+    value: {
+      none: "None",
+      milliseconds: "{{value}} ms",
+      seconds: "{{value}} s",
+      minutes: "{{value}} min",
+      chars: "{{value}} chars",
+      emptyList: "(empty list)",
+      itemsCount: "{{count}} items:",
+    },
+    name: {
+      web_search: "Web search",
+      web_fetch: "Web fetch",
+      "web-search": "Web search",
+      "web-fetch": "Web fetch",
+      grep: "Text search",
+      glob: "File search",
+      search_knowledge: "Search knowledge base",
+      file_read: "Read file",
+      file_write: "Write file",
+      file_edit: "Edit file",
+      file_delete: "Delete file",
+      file_create: "Create file",
+      file_convert: "Convert file",
+      bash: "Terminal command",
+      powershell: "PowerShell",
+      execute: "Run command",
+      run: "Run",
+      shell: "Terminal command",
+      fetch: "Fetch content",
+      list: "List",
+      query: "Query",
+      build_index: "Build index",
+      todo_write: "Task management",
+      plan: "Planning",
+      ask_user_question: "Ask user",
+      save_conversation: "Save conversation",
+      brief: "Generate summary",
+      sessions: "Session management",
+      image_generate: "Generate image",
+      doc_generate: "Generate document",
+      image_analysis: "Analyze image",
+      image_svg_generate: "Generate SVG image",
+      image_display: "Preview image",
+      video_display: "Preview video",
+      audio_play: "Play audio",
+      music_generate: "Generate music",
+      video_generate: "Generate video",
+      tts: "Text to speech",
+      image: "Image processing",
+      canvas: "Canvas operation",
+      clipboard: "Clipboard",
+      computer_use: "Computer control",
+      notebook: "Notebook",
+      channel: "Send message",
+      channel_manager: "Channel management",
+      broadcast: "Broadcast message",
+      gateway: "Gateway",
+      browser: "Browser automation",
+      agents_list: "View agent list",
+      cron_create: "Create scheduled task",
+      mcp_resource: "MCP resource",
+      create_task_list: "Create task list",
+      view_tasks: "View task",
+      abort_task: "Abort task",
+      view_plan: "View plan",
+      update_task_status: "Update task status",
+      get_task_list: "Get task list",
+      task_output: "Task output",
+      task_stop: "Stop task",
+    },
+    summary: {
+      separator: ": ",
+      listSeparator: ", ",
+      tensePresent: "",
+      tensePast: "",
+      searchingCode: "Searching code",
+      searchingFiles: "Searching files",
+      searchingWeb: "Searching the web",
+      fetchingPage: "Fetching page",
+      searchingKnowledge: "Searching knowledge base",
+      reading: "Reading",
+      writing: "Writing",
+      editing: "Editing",
+      deleting: "Deleting",
+      creating: "Creating",
+      convertingFile: "Converting file",
+      runningCommand: "Running command",
+      running: "Running",
+      planning: "Planning",
+      askingUser: "Asking user",
+      savingConversation: "Saving conversation",
+      generatingConversationSummary: "Generating conversation summary",
+      managingSessions: "Managing sessions",
+      generatingImage: "Generating image",
+      generatingDoc: "Generating document",
+      editingImage: "Editing image",
+      analyzingImage: "Analyzing image",
+      generatingSvg: "Generating SVG",
+      previewingImage: "Previewing image",
+      previewingVideo: "Previewing video",
+      playingAudio: "Playing audio",
+      generatingMusic: "Generating music",
+      generatingVideo: "Generating video",
+      synthesizingVoice: "Synthesizing speech",
+      operatingCanvas: "Operating canvas",
+      operatingClipboard: "Operating clipboard",
+      simulatingAction: "Simulating action",
+      editingNotebook: "Editing notebook",
+      browsingWeb: "Browsing the web",
+      viewingAgentList: "View agent list",
+      creatingCronTask: "Create scheduled task",
+      sendingMessage: "Sending message",
+      creatingTaskList: "Create task list",
+      viewingTaskList: "View task list",
+      stoppingTask: "Stopping task",
+      viewingPlan: "View plan",
+      updatingTaskStatus: "Update task status",
+      gettingTaskOutput: "Get task output",
+      accessingMcpResource: "Accessing MCP resource",
+      fetching: "Fetching",
+      listing: "Listing",
+      querying: "Querying",
+      buildingIndex: "Building index",
+      todoCreated: "Created {{total}} tasks: {{names}}",
+      todoCreatedMore: "Created {{total}} tasks: {{names}}, etc.",
+      todoCreate: "Create task",
+      todoCompleted: "Completed task: {{name}}",
+      todoStarted: "Started: {{name}}",
+      todoUpdated: "Updated task: {{name}}",
+      todoUpdateStatus: "Update task status",
+      todoManage: "Manage tasks",
+    },
+    argKey: {
+      file_path: "File path",
+      url: "Link",
+      query: "Query",
+      pattern: "Pattern",
+      command: "Command",
+      path: "Path",
+      keywords: "Keywords",
+      code: "Code",
+      language: "Language",
+      content: "Content",
+      output: "Output",
+    },
   },
 };
 

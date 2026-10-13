@@ -13,6 +13,7 @@
 
 import { useCallback } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
+import i18n from "../../i18n";
 
 const POLL_INTERVAL = 1000;
 /** 等编译启动（idle → compiling/done）的重试次数上限。
@@ -81,7 +82,7 @@ export function useCompilePolling(opts: UseCompilePollingOptions) {
           // C2：超时退出 → 明确报超时，不再误报成功
           if (status.status === "compiling") {
             onResult({
-              message: "编译超时，请稍后在日志查看编译进度",
+              message: i18n.t("knowledge.compileTimeout"),
               hasError: true,
             });
             onProgress?.(100);
@@ -93,27 +94,46 @@ export function useCompilePolling(opts: UseCompilePollingOptions) {
         const result = status.result;
         if (status.lastError && !result) {
           onResult({
-            message: `编译失败: ${status.lastError}`,
+            message: i18n.t("knowledge.compileFailed", {
+              error: status.lastError,
+            }),
             hasError: true,
           });
         } else if (result) {
           onResult({
             message:
-              `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过` +
-              (result.errors ? `, ${result.errors} 个错误` : ""),
+              i18n.t("knowledge.compileDone", {
+                compiled: result.compiled,
+                skipped: result.skipped,
+              }) +
+              (result.errors
+                ? i18n.t("knowledge.compileErrorsPart", {
+                    errors: result.errors,
+                  })
+                : ""),
             hasError: result.errors > 0,
           });
         } else if (status.status === "idle") {
-          onResult({ message: "编译任务未启动，请稍后重试", hasError: true });
+          onResult({
+            message: i18n.t("knowledge.compileNotStarted"),
+            hasError: true,
+          });
         } else {
-          onResult({ message: "编译完成", hasError: false });
+          onResult({
+            message: i18n.t("knowledge.compileComplete"),
+            hasError: false,
+          });
         }
         onProgress?.(100);
         return true;
       } catch (err) {
         onResult({
-          message:
-            "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
+          message: i18n.t("knowledge.compileFailed", {
+            error:
+              err instanceof Error
+                ? err.message
+                : i18n.t("knowledge.unknownError"),
+          }),
           hasError: true,
         });
         onProgress?.(0);

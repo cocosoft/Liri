@@ -13,6 +13,7 @@ import {
 import { getOTelTracing } from "../monitoring/otel";
 import { staleSessionCache } from "../stores/chat/chat-history.slice";
 import { registerResumeWaiter } from "./streamPause";
+import i18n from "@/i18n";
 
 const logger = createLogger("chatService");
 
@@ -317,7 +318,7 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
   if (choices?.[0]?.finish_reason === "error") {
     return {
       type: "error",
-      content: "AI 服务返回错误，请检查 API 密钥和模型配置",
+      content: i18n.t("chat.error.aiService"),
     };
   }
   if (choices?.[0]?.finish_reason) {
@@ -561,9 +562,12 @@ export function buildStreamFailureMessage(
   progressInfo: string,
 ): string {
   const actionHint = messagePersisted
-    ? "您的消息已保存，可直接重新发送以继续（将从当前进度重新生成）"
-    : "您的消息暂存在本地，网络恢复后将自动补发，无需重复发送";
-  return `连接已断开，且无可用检查点。${progressInfo}。${actionHint}`;
+    ? i18n.t("chat.error.actionRepersisted")
+    : i18n.t("chat.error.actionOutboxed");
+  return i18n.t("chat.error.disconnectNoCheckpoint", {
+    progress: progressInfo,
+    actionHint,
+  });
 }
 
 /** 断网时暂存待补发的用户消息（幂等：同 id 不重复入队） */
@@ -988,7 +992,8 @@ export const chatService = {
               ) {
                 throw new StreamConnectionError(
                   "STREAM_INTERRUPTED",
-                  chunk.choices?.[0]?.delta?.content || "流式响应中断",
+                  chunk.choices?.[0]?.delta?.content ||
+                    i18n.t("chat.streamInterrupted"),
                 );
               }
             } else if (pyappType === "tool_call") {
@@ -1079,7 +1084,7 @@ export const chatService = {
               // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
               yield {
                 type: "error",
-                content: "AI 服务返回错误，请检查 API 密钥和模型配置",
+                content: i18n.t("chat.error.aiService"),
               };
             } else if (chunk.choices?.[0]?.finish_reason) {
               // 无 usage 时的独立 finish_reason 信号（修复 BUG #10）
@@ -1128,7 +1133,7 @@ export const chatService = {
             if (parseFailCount >= 5) {
               yield {
                 type: "error",
-                content: "SSE 数据流解析异常，部分内容可能丢失",
+                content: i18n.t("chat.error.sseParse"),
               };
               parseFailCount = 0; // 重置以免重复报告
             }
@@ -1204,7 +1209,7 @@ export const chatService = {
           }
           yield {
             type: "error",
-            content: "流式响应超时，请重试（连接可能已中断）",
+            content: i18n.t("chat.error.streamTimeout"),
             errorCode: "TIMEOUT",
           };
           return;
@@ -1233,7 +1238,11 @@ export const chatService = {
               e.message.includes("BodyStreamBuffer was aborted"),
             abortedFlag: (e as { aborted?: boolean })?.aborted ?? false,
           });
-          yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };
+          yield {
+            type: "error",
+            content: i18n.t("chat.error.cancelled"),
+            errorCode: "UNKNOWN",
+          };
           return;
         }
         // 使用结构化 errorCode 替代字符串匹配 (CS02)
@@ -1266,7 +1275,7 @@ export const chatService = {
           }
           yield {
             type: "error",
-            content: "连接已断开，请刷新页面重试（中断前的消息已保存）",
+            content: i18n.t("chat.error.connectionReset"),
             errorCode: "CONNECTION_RESET",
           };
           // P0: 断线可恢复场景向外抛专用异常，让 streamMessageWithReconnect
@@ -1284,8 +1293,7 @@ export const chatService = {
         if (isProxyInterception) {
           yield {
             type: "error",
-            content:
-              "网络请求被代理拦截，请关闭代理软件的全局/系统代理（或添加 127.0.0.1 例外）后重试",
+            content: i18n.t("chat.error.proxyIntercepted"),
             errorCode: "PROXY_ERROR",
           };
           return;
@@ -1300,7 +1308,7 @@ export const chatService = {
         if (isBackendUnreachable) {
           yield {
             type: "error",
-            content: "无法连接后端服务，请确认后端已启动后重试",
+            content: i18n.t("chat.error.backendUnreachable"),
             errorCode: "BACKEND_UNREACHABLE",
           };
           return;
@@ -1308,7 +1316,9 @@ export const chatService = {
         // 其他网络错误（友好化主文案；原始技术信息走日志/错误弹层详情）
         yield {
           type: "error",
-          content: `网络错误: ${friendlyErrorSummary(errorMessage)}`,
+          content: i18n.t("chat.error.network", {
+            detail: friendlyErrorSummary(errorMessage),
+          }),
           errorCode: "BACKEND_UNREACHABLE",
         };
       } finally {
@@ -1319,7 +1329,11 @@ export const chatService = {
       // 与内层 reader 循环（AbortError → "请求已取消"）语义一致，用户主动取消
       // 不再误报"请求失败/BACKEND_UNREACHABLE"（触发"无法连接后端服务"提示）。
       if (e instanceof DOMException && e.name === "AbortError") {
-        yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };
+        yield {
+          type: "error",
+          content: i18n.t("chat.error.cancelled"),
+          errorCode: "UNKNOWN",
+        };
         return;
       }
       handleClientError(e, {
@@ -1332,7 +1346,9 @@ export const chatService = {
       // 聊天界面无任何可见反馈（用户"无回复"）。统一转为 error chunk 走正常错误渲染。
       yield {
         type: "error",
-        content: `请求失败: ${friendlyErrorSummary(e)}`,
+        content: i18n.t("chat.error.requestFailed", {
+          detail: friendlyErrorSummary(e),
+        }),
         errorCode: "BACKEND_UNREACHABLE",
       };
     } finally {
@@ -1558,7 +1574,7 @@ export const chatService = {
         });
         yield {
           type: "paused",
-          content: "后端连接已断开，回复已暂停，等待后端恢复后自动继续",
+          content: i18n.t("chat.error.pausedWaiting"),
         } as StreamChunk;
         try {
           await registerResumeWaiter(sessionId);
@@ -1599,7 +1615,9 @@ export const chatService = {
           });
           yield {
             type: "reconnect_status",
-            content: `连接已断开，正在从第 ${cpData.stepIndex ?? "?"} 步恢复...`,
+            content: i18n.t("chat.error.reconnectingStep", {
+              step: cpData.stepIndex ?? "?",
+            }),
           } as StreamChunk;
           const delay = Math.min(1000 * 2 ** (retryCount - 1), 30000);
           await new Promise((r) => setTimeout(r, delay));
@@ -1620,16 +1638,24 @@ export const chatService = {
       // 无可用检查点：保留已生成内容并给出进度提示，而不是简单报错
       const progressParts: string[] = [];
       if (receivedTextChars > 0) {
-        progressParts.push(`已生成 ${receivedTextChars} 字符内容`);
+        progressParts.push(
+          i18n.t("chat.progress.chars", { count: receivedTextChars }),
+        );
       }
       if (receivedToolCalls > 0) {
-        progressParts.push(`完成 ${receivedToolCalls} 次工具调用`);
+        progressParts.push(
+          i18n.t("chat.progress.toolCalls", { count: receivedToolCalls }),
+        );
       }
       if (receivedThinkingBlocks > 0) {
-        progressParts.push(`${receivedThinkingBlocks} 次思考`);
+        progressParts.push(
+          i18n.t("chat.progress.thinking", { count: receivedThinkingBlocks }),
+        );
       }
       const progressInfo =
-        progressParts.length > 0 ? progressParts.join("、") : "尚未产生内容";
+        progressParts.length > 0
+          ? progressParts.join("、")
+          : i18n.t("chat.progress.none");
       // 报错语义拆分（§13.9 建议）：按"消息是否已落盘"区分后续动作，
       // 避免一律"请重新发送"——已落盘可直接重发；未落盘将由 outbox 在恢复后自动补发。
       yield {

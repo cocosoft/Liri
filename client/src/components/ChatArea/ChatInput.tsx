@@ -1047,9 +1047,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       if (item.type === "file") {
         reference = `[${item.label}](file://${item.path})`;
       } else if (item.type === "context") {
-        reference = `@资料: ${item.content || item.label}`;
+        reference = `@${t("chat.mentionTypeContext")}: ${item.content || item.label}`;
       } else {
-        reference = `@成果: ${item.label}`;
+        reference = `@${t("chat.mentionTypeArtifact")}: ${item.label}`;
       }
       const newValue = before + reference + after;
       setInput(newValue);
@@ -1064,7 +1064,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         }
       }, 0);
     },
-    [input, mentionStartPos, mentionQuery, setInput],
+    [input, mentionStartPos, mentionQuery, setInput, t],
   );
 
   return (
@@ -1502,7 +1502,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
               {pendingQuestionActive && (
                 <div className="px-2 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-lg text-xs text-blue-600 dark:text-blue-300 flex items-center gap-1.5">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  AI 正在等待您的回答，请在上方问题卡片中作答后继续。
+                  {t("chat.pendingQuestionHint")}
                 </div>
               )}
 

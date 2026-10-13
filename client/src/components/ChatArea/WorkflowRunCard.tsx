@@ -7,11 +7,12 @@
  *  - 步骤列表：状态图标 / 描述（回退工具名）/ 耗时 / 步骤级错误；超过 6 条内部滚动
  *  - 结论行：失败 / 取消 / 中断原因（中断文案由后端重放期合成，D16）
  *
- * 标签硬编码中文（D17：与 ProgressCard / StatusBlock 等既有卡片惯例一致，不引入 i18n）。
+ * 标签经 i18n（原 D17 硬编码已随 HD-P2-2 收尾迁移；状态文案复用 chat.running/completed/failed 等既有键）。
  * 数据来自真实事件聚合（CS04：无 mock）；缺字段即省略，不编造（CS06）。
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   WorkflowRunData,
   WorkflowRunStatus,
@@ -26,12 +27,12 @@ const RUN_STATUS_ICON: Record<WorkflowRunStatus, string> = {
   interrupted: "⚠",
 };
 
-const RUN_STATUS_LABEL: Record<WorkflowRunStatus, string> = {
-  running: "运行中",
-  completed: "已完成",
-  failed: "失败",
-  cancelled: "已取消",
-  interrupted: "已中断",
+const RUN_STATUS_LABEL_KEY: Record<WorkflowRunStatus, string> = {
+  running: "chat.running",
+  completed: "chat.completed",
+  failed: "chat.failed",
+  cancelled: "chat.taskCancelled",
+  interrupted: "chat.interrupted",
 };
 
 const RUN_STATUS_CLASS: Record<WorkflowRunStatus, string> = {
@@ -73,6 +74,7 @@ interface WorkflowRunCardProps {
 }
 
 export default function WorkflowRunCard({ data }: WorkflowRunCardProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
 
   const totalSteps = data.steps.length;
@@ -83,14 +85,14 @@ export default function WorkflowRunCard({ data }: WorkflowRunCardProps) {
   let conclusion: string | undefined;
   if (data.status === "failed") {
     const where = data.failedStep
-      ? `失败于步骤 ${data.failedStep}`
-      : "执行失败";
+      ? t("chat.workflowFailedAtStep", { step: data.failedStep })
+      : t("chat.workflowFailedGeneric");
     conclusion = data.error ? `${where}：${data.error}` : where;
     if (data.rootCauseSummary) conclusion += `｜${data.rootCauseSummary}`;
   } else if (data.status === "cancelled") {
-    conclusion = "运行已取消";
+    conclusion = t("chat.workflowRunCancelled");
   } else if (data.status === "interrupted") {
-    conclusion = data.interruptedHint ?? "执行中断，运行结果未知";
+    conclusion = data.interruptedHint ?? t("chat.workflowInterruptedHint");
   }
 
   return (
@@ -112,7 +114,7 @@ export default function WorkflowRunCard({ data }: WorkflowRunCardProps) {
           <span
             className={`text-xs flex-shrink-0 ${RUN_STATUS_CLASS[data.status]}`}
           >
-            {RUN_STATUS_LABEL[data.status]}
+            {t(RUN_STATUS_LABEL_KEY[data.status])}
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -132,7 +134,7 @@ export default function WorkflowRunCard({ data }: WorkflowRunCardProps) {
         <div className="px-4 pb-3 space-y-2">
           {totalSteps === 0 ? (
             <p className="text-xs text-gray-400 dark:text-gray-500 italic">
-              无步骤记录
+              {t("chat.workflowNoSteps")}
             </p>
           ) : (
             <div
@@ -156,7 +158,7 @@ export default function WorkflowRunCard({ data }: WorkflowRunCardProps) {
                   </span>
                   {step.synthesized && (
                     <span className="text-amber-600 dark:text-amber-400 flex-shrink-0">
-                      强制结算
+                      {t("chat.workflowForcedSettle")}
                     </span>
                   )}
                   {step.durationMs !== undefined && (

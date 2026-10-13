@@ -10,6 +10,7 @@
 import type { LiriEvent, Message, ToolCall } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
 import { createLogger } from "./logger";
+import i18n from "../i18n";
 
 const logger = createLogger("chat:sessionLog");
 
@@ -143,7 +144,9 @@ export interface LogEvent {
 
 function firstLine(text: string): string {
   const line = (text || "").split("\n")[0].trim();
-  return line.length > 60 ? `${line.slice(0, 60)}…` : line || "（空）";
+  return line.length > 60
+    ? `${line.slice(0, 60)}…`
+    : line || i18n.t("logs.empty");
 }
 
 function toolEventTitle(rec: ToolCallRecord): string {
@@ -417,7 +420,7 @@ export function summarizeResult(result: unknown): string {
 export function extractError(record: ToolCallRecord): string | null {
   if (record.error) return record.error;
   if (record.status !== "failed") return null;
-  if (!record.result) return "未知错误";
+  if (!record.result) return i18n.t("logs.unknownError");
   if (typeof record.result === "string") return record.result.slice(0, 200);
   if (typeof record.result === "object" && record.result !== null) {
     const r = record.result as Record<string, unknown>;

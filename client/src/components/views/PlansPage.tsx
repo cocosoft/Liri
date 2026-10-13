@@ -8,18 +8,11 @@ import { SkeletonCard } from "../common/Skeleton";
 
 type TabId = "plans" | "pdca" | "kanban";
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "plans", label: "计划管理", icon: "📋" },
-  { id: "pdca", label: "PDCA 流程", icon: "🔄" },
-  { id: "kanban", label: "看板", icon: "📌" },
+const TABS: { id: TabId; labelKey: string; icon: string }[] = [
+  { id: "plans", labelKey: "plans.planManagement", icon: "📋" },
+  { id: "pdca", labelKey: "plans.pdcaFlow", icon: "🔄" },
+  { id: "kanban", labelKey: "plans.kanban", icon: "📌" },
 ];
-
-/** Tab id 到 i18n key 的映射 */
-const TAB_LABEL_KEYS: Record<string, string> = {
-  plans: "plans.planManagement",
-  pdca: "plans.pdcaFlow",
-  kanban: "plans.kanban",
-};
 
 /**
  * 计划/PDCA/看板 管理页面
@@ -50,7 +43,7 @@ export default function PlansPage() {
               }`}
             >
               <span>{tab.icon}</span>
-              <span>{t(TAB_LABEL_KEYS[tab.id] || tab.label)}</span>
+              <span>{t(tab.labelKey)}</span>
             </button>
           ))}
         </div>

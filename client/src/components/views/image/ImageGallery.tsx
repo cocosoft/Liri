@@ -190,7 +190,9 @@ function ImageGallery({
                       : "bg-blue-500/80 text-white hover:bg-blue-500"
                   }`}
                 >
-                  {selectedImage === img.path ? "✔ 已选用" : "📷 选用"}
+                  {selectedImage === img.path
+                    ? t("image.selectedBadge")
+                    : t("image.selectBadge")}
                 </button>
               )}
 

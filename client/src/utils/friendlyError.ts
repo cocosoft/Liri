@@ -5,44 +5,37 @@
  * 返回格式： "人看得懂的信息" + "\n\n（原异常信息）"
  */
 
+import i18n from "../i18n";
+
 /** 常见网络错误 → 中文映射 */
 const NETWORK_ERROR_MAP: Array<[RegExp, string]> = [
-  [
-    /socket connection was closed unexpectedly/i,
-    "网络连接意外中断，请检查网络后重试",
-  ],
-  [/Failed to fetch/i, "无法连接到服务器，请确认服务是否在运行"],
-  [/NetworkError/i, "网络异常，请检查网络连接"],
-  [/ERR_CONNECTION_REFUSED/i, "服务器未响应，请确认后端已启动"],
-  [/ECONNREFUSED/i, "服务器拒绝连接，请确认后端已启动"],
-  [/timeout/i, "请求超时，服务器响应过慢或网络不稳定"],
-  [/aborted/i, "请求已被取消"],
-  [/Load failed/i, "资源加载失败，请刷新页面重试"],
-  [/Unexpected token.*JSON/i, "服务器返回了异常数据，请稍后重试"],
+  [/socket connection was closed unexpectedly/i, "errors.networkInterrupted"],
+  [/Failed to fetch/i, "errors.fetchFailed"],
+  [/NetworkError/i, "errors.networkError"],
+  [/ERR_CONNECTION_REFUSED/i, "errors.serverUnresponsive"],
+  [/ECONNREFUSED/i, "errors.connectionRefused"],
+  [/timeout/i, "errors.timeout"],
+  [/aborted/i, "errors.cancelled"],
+  [/Load failed/i, "errors.loadFailed"],
+  [/Unexpected token.*JSON/i, "errors.badJson"],
   // P3-2 修复：泛化 5xx/4xx 要求状态码语境前缀（status/HTTP/error 邻近），
   // 避免 "已处理 500 条记录" 式误匹配；捕获组用于替换 {code} 占位符
-  [
-    /(?:status|http|error)[^\d]{0,20}(5\d{2})\b/i,
-    "服务器内部错误（{code}），请稍后重试",
-  ],
-  [
-    /(?:status|http|error)[^\d]{0,20}(4\d{2})\b/i,
-    "请求有误（{code}），请检查参数",
-  ],
+  [/(?:status|http|error)[^\d]{0,20}(5\d{2})\b/i, "errors.serverInternal"],
+  [/(?:status|http|error)[^\d]{0,20}(4\d{2})\b/i, "errors.badRequest"],
 ];
 
 /** HTTP 状态码 → 中文 */
 const HTTP_STATUS_MAP: Record<number, string> = {
-  400: "请求参数有误",
-  401: "登录已过期，请重新登录",
-  403: "没有权限访问",
-  404: "请求的资源不存在",
-  408: "请求超时",
-  429: "请求过于频繁，请稍后重试",
-  500: "服务器内部错误",
-  502: "网关错误",
-  503: "服务暂时不可用",
-  504: "网关超时",
+  400: "errors.http400",
+  401: "errors.http401",
+  403: "errors.http403",
+  404: "errors.http404",
+  408: "errors.http408",
+  429: "errors.http429",
+  500: "errors.http500",
+  502: "errors.http502",
+  503: "errors.http503",
+  504: "errors.http504",
 };
 
 /**
@@ -55,23 +48,20 @@ const HTTP_STATUS_MAP: Record<number, string> = {
 const SPECIFIC_ERROR_MAP: Array<[RegExp, string]> = [
   [
     /model does not exist|model not found|model_not_found|no such model|invalid model|model.*not available/i,
-    "模型不存在或已被移除，请在模型管理中选择可用模型",
+    "errors.modelNotFound",
   ],
   [
     /certificate|ssl|tls|unable to connect|is the computer able to access|FailedToOpenSocket/i,
-    "网络连接出现问题，暂时无法连接模型服务。请检查网络后重试；若仍失败，可尝试切换网络（如更换 Wi-Fi 或手机热点）",
+    "errors.modelUnreachable",
   ],
-  [
-    /api[- ]?key|incorrect.*key|invalid.*key|unauthorized/i,
-    "模型服务认证失败，请检查 API Key 是否正确",
-  ],
+  [/api[- ]?key|incorrect.*key|invalid.*key|unauthorized/i, "errors.modelAuth"],
   [
     /rate limit|quota|insufficient.*(quota|balance)|payment required/i,
-    "模型服务额度不足或触发限流，请检查账户余额或稍后重试",
+    "errors.modelQuota",
   ],
   [
     /context.*(length|limit|exceed)|n_ctx|context window.*(exceed|too (small|large))/i,
-    "上下文长度超出模型限制，请精简对话或切换更大上下文的模型",
+    "errors.contextTooLong",
   ],
 ];
 
@@ -84,7 +74,7 @@ export function getRawErrorMessage(error: unknown): string {
   if (error && typeof error === "object" && "message" in error) {
     return String((error as { message: unknown }).message);
   }
-  return "未知错误";
+  return i18n.t("errors.unknown");
 }
 
 /**
@@ -105,6 +95,10 @@ function extractHttpStatus(error: unknown): number | null {
   return null;
 }
 
+function withOriginalInfo(message: string, raw: string): string {
+  return `${message}\n\n${i18n.t("errors.originalError", { raw })}`;
+}
+
 /**
  * 将技术异常翻译为用户可读的中文提示
  *
@@ -118,31 +112,28 @@ export function friendlyErrorMessage(error: unknown): string {
   const raw = getRawErrorMessage(error);
 
   // 0. 业务/模型服务特定错误优先（避免 HTTP 400 误判"参数有误"等）
-  for (const [pattern, friendly] of SPECIFIC_ERROR_MAP) {
+  for (const [pattern, key] of SPECIFIC_ERROR_MAP) {
     if (pattern.test(raw)) {
-      return `${friendly}\n\n（原异常信息：${raw}）`;
+      return withOriginalInfo(i18n.t(key), raw);
     }
   }
 
   // 1. 再查 HTTP 状态码
   const status = extractHttpStatus(error);
   if (status && HTTP_STATUS_MAP[status]) {
-    return `${HTTP_STATUS_MAP[status]}\n\n（原异常信息：${raw}）`;
+    return withOriginalInfo(i18n.t(HTTP_STATUS_MAP[status]), raw);
   }
 
   // 2. 再查网络错误模式（P3-2：替换 {code} 占位符为实际捕获的状态码）
-  for (const [pattern, friendly] of NETWORK_ERROR_MAP) {
+  for (const [pattern, key] of NETWORK_ERROR_MAP) {
     const m = raw.match(pattern);
     if (m) {
-      const text = friendly.includes("{code}")
-        ? friendly.replace("{code}", m[1] ?? "")
-        : friendly;
-      return `${text}\n\n（原异常信息：${raw}）`;
+      return withOriginalInfo(i18n.t(key, { code: m[1] ?? "" }), raw);
     }
   }
 
   // 3. 没有匹配，返回原文
-  return `操作异常\n\n（原异常信息：${raw}）`;
+  return withOriginalInfo(i18n.t("errors.operationFailed"), raw);
 }
 
 /**
@@ -150,6 +141,6 @@ export function friendlyErrorMessage(error: unknown): string {
  */
 export function friendlyErrorSummary(error: unknown): string {
   const full = friendlyErrorMessage(error);
-  const idx = full.indexOf("\n\n（");
+  const idx = full.indexOf("\n\n");
   return idx > 0 ? full.slice(0, idx) : full;
 }

@@ -561,6 +561,7 @@ function MediaPage() {
       .catch(() => {
         /* 图片元数据不可用时静默忽略 */
       });
+    // 仅在选中项变化时拉取元数据；galleryItems 为派生列表，纳入会重复请求
   }, [selectedId]);
 
   /** "生成类似"：识图 → 生成 prompt → 切换图片模式 */
@@ -575,8 +576,7 @@ function MediaPage() {
     setAnalyzingImage(true);
     try {
       const analysis = await imageService.analyze(imageMeta.path, "vision", {
-        prompt:
-          "请详细描述这张图片的视觉内容，包括主题、风格、颜色、构图、光线等，以便用于生成一张类似风格的图片。",
+        prompt: t("media.visionAnalyzePrompt"),
       });
 
       if (analysis.description) {
@@ -588,7 +588,7 @@ function MediaPage() {
       } else {
         useMediaStore.getState().setMode("image");
         useMediaStore.getState().setSelectedImage(item.url, item.id);
-        useMediaStore.getState().setPrompt("生成一张类似风格的图片");
+        useMediaStore.getState().setPrompt(t("media.genSimilarFilled"));
         addToast("info", t("media.recognizeEmptyFilled"));
       }
     } catch (err) {
@@ -596,7 +596,7 @@ function MediaPage() {
       logger.warn("识图调用失败", { error: errMsg, path: imageMeta?.path });
       useMediaStore.getState().setMode("image");
       useMediaStore.getState().setSelectedImage(item.url, item.id);
-      useMediaStore.getState().setPrompt("生成一张类似风格的图片");
+      useMediaStore.getState().setPrompt(t("media.genSimilarFilled"));
       addToast(
         "info",
         t("media.recognizeFailedFilled", { err: errMsg.slice(0, 40) }),
@@ -604,6 +604,7 @@ function MediaPage() {
     } finally {
       setAnalyzingImage(false);
     }
+    // analyzingImage 仅作并发守卫，非依赖数据
   }, [selectedId, galleryItems, imageMeta, addToast, t]);
 
   // ──── 上传完成回调 ────
@@ -739,7 +740,7 @@ function MediaPage() {
         type: "image",
         status: "running",
         progress: 30,
-        prompt: prompt.trim() || "生成一张图片",
+        prompt: prompt.trim() || t("media.genImageFallback"),
         sourceImageUrl: selectedImageUrl || null,
         resultUrl: null,
         error: null,
@@ -756,7 +757,7 @@ function MediaPage() {
           genOptions.inputImage = imageMeta.path;
         }
         const result = await imageService.generate(
-          prompt.trim() || "生成一张图片",
+          prompt.trim() || t("media.genImageFallback"),
           genOptions as Parameters<typeof imageService.generate>[1],
         );
         if (result.images?.length > 0) {

@@ -118,7 +118,9 @@ function HomePage() {
                 </h3>
                 <p className={`text-sm ${getStatusColor()}`}>
                   {status.running ? t("common.running") : t("common.stopped")}
-                  {status.running && status.port && ` · 端口 ${status.port}`}
+                  {status.running &&
+                    status.port &&
+                    t("common.portSuffix", { port: status.port })}
                 </p>
               </div>
             </div>

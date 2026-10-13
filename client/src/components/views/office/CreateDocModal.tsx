@@ -46,12 +46,12 @@ export default function CreateDocModal({
     setSending(true);
     try {
       const prompts: Record<string, string> = {
-        docx: "请帮我创建一份文档（.docx）",
-        xlsx: "请帮我创建一份 Excel 电子表格（.xlsx），包含合适的列标题和示例数据",
-        pptx: "请帮我创建一份演示文稿（.pptx），包含标题页、内容页和图表",
+        docx: t("office.docPromptDocx"),
+        xlsx: t("office.docPromptXlsx"),
+        pptx: t("office.docPromptPptx"),
       };
       const prompt = template
-        ? `请用"${template}"模板帮我创建一份${type}文档`
+        ? t("office.docPromptFromTemplate", { template: t(template), type })
         : prompts[type] || prompts.docx;
       await useChatStore.getState().sendMessage(prompt);
       onClose();
@@ -155,13 +155,13 @@ export default function CreateDocModal({
                   <option value="">
                     {t("office.docTemplateNone", "无模板")}
                   </option>
-                  <option value="周报">
+                  <option value="office.docTemplateWeekly">
                     {t("office.docTemplateWeekly", "周报")}
                   </option>
-                  <option value="会议纪要">
+                  <option value="office.docTemplateMeeting">
                     {t("office.docTemplateMeeting", "会议纪要")}
                   </option>
-                  <option value="技术设计">
+                  <option value="office.docTemplateTechDesign">
                     {t("office.docTemplateTechDesign", "技术设计")}
                   </option>
                   <option value="PRD">PRD</option>

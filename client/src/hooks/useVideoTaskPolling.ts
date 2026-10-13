@@ -19,6 +19,7 @@ import { useMediaStore } from "../stores/mediaStore";
 import { videoService } from "../services/videoService";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "@/utils/handleError";
+import i18n from "../i18n";
 
 const logger = createLogger("useVideoTaskPolling");
 
@@ -131,7 +132,7 @@ export function useVideoTaskPolling(
             if (response.error) patch.error = response.error;
             // 后端 cancelled 时 `error` 可能为空 ⇒ 补一句明确的本地说明
             if (response.status === "cancelled" && !patch.error) {
-              patch.error = "任务已取消";
+              patch.error = i18n.t("media.videoTaskCancelled");
             }
             updateGenerationTask(gt.id, patch);
           }

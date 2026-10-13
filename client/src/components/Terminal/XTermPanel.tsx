@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -9,6 +10,7 @@ interface XTermPanelProps {
 }
 
 export default function XTermPanel({ onReady }: XTermPanelProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
 
@@ -40,7 +42,7 @@ export default function XTermPanel({ onReady }: XTermPanelProps) {
     handleResize();
     window.addEventListener("resize", handleResize);
 
-    term.writeln("Liri 终端已就绪 (xterm.js)");
+    term.writeln(t("terminal.ready"));
     term.write("$ ");
 
     let cmdBuffer = "";
@@ -55,7 +57,7 @@ export default function XTermPanel({ onReady }: XTermPanelProps) {
         const cmd = cmdBuffer.trim();
         if (cmd) {
           cmdHistory.push(cmd);
-          term.writeln(`执行: ${cmd}`);
+          term.writeln(t("terminal.executingCommand", { cmd }));
           // 通过回调发送命令
           onReady?.(term);
         }
@@ -82,6 +84,7 @@ export default function XTermPanel({ onReady }: XTermPanelProps) {
       window.removeEventListener("resize", handleResize);
       term.dispose();
     };
+    // 挂载一次即写死启动文案（终端已 open，切换语言不重建）；onReady 为父级稳定回调
   }, []);
 
   return (

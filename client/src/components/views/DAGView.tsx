@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { planService } from "../../services/planService";
 import { createLogger } from "../../utils/logger";
 import { handleClientError } from "../../utils/handleError";
@@ -150,6 +151,7 @@ interface DAGViewProps {
 }
 
 export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
+  const { t } = useTranslation();
   const [dag, setDag] = useState<DAGData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
       .then((data) => {
         if (cancelled) return;
         if (!data) {
-          setError("无法加载 DAG 数据");
+          setError(t("dag.loadEmpty"));
           logger.warn("DAG 数据为空", { planId });
         } else {
           setDag(data);
@@ -179,33 +181,38 @@ export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
           action: "getDAG",
           meta: { planId },
         });
-        setError("加载 DAG 失败");
+        setError(t("dag.loadFailed"));
         setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [planId]);
+    // 本批新增 `t(...)` ⇒ 语言切换需重取（`t` 进依赖，不再 disable 规则）
+  }, [planId, t]);
 
   const layout = useMemo(() => (dag ? layoutDAG(dag) : []), [dag]);
 
   if (loading) {
     return (
-      <div className="p-4 text-center text-xs text-gray-400">加载依赖图...</div>
+      <div className="p-4 text-center text-xs text-gray-400">
+        {t("dag.loading")}
+      </div>
     );
   }
 
   if (error || !dag) {
     return (
       <div className="p-4 text-center text-xs text-gray-400">
-        {error || "无依赖数据"}
+        {error || t("dag.noData")}
       </div>
     );
   }
 
   if (dag.nodes.length === 0) {
     return (
-      <div className="p-4 text-center text-xs text-gray-400">暂无步骤</div>
+      <div className="p-4 text-center text-xs text-gray-400">
+        {t("dag.noSteps")}
+      </div>
     );
   }
 

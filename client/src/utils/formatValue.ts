@@ -11,16 +11,18 @@
  * - 对象 → JSON 字符串
  */
 
+import i18n from "../i18n";
+
 /**
  * 格式化参数值，根据类型返回更友好的展示
  */
 export function formatValue(key: string, value: unknown): string {
   if (value === null || value === undefined) {
-    return "无";
+    return i18n.t("tool.value.none");
   }
 
   if (typeof value === "boolean") {
-    return value ? "是" : "否";
+    return value ? i18n.t("common.yes") : i18n.t("common.no");
   }
 
   if (typeof value === "number") {
@@ -28,15 +30,20 @@ export function formatValue(key: string, value: unknown): string {
       key.toLowerCase().includes("time") ||
       key.toLowerCase().includes("duration")
     ) {
-      if (value < 1000) return `${value} 毫秒`;
-      if (value < 60000) return `${(value / 1000).toFixed(1)} 秒`;
-      return `${(value / 60000).toFixed(1)} 分钟`;
+      if (value < 1000) return i18n.t("tool.value.milliseconds", { value });
+      if (value < 60000)
+        return i18n.t("tool.value.seconds", {
+          value: (value / 1000).toFixed(1),
+        });
+      return i18n.t("tool.value.minutes", {
+        value: (value / 60000).toFixed(1),
+      });
     }
     if (
       key.toLowerCase().includes("length") ||
       key.toLowerCase().includes("size")
     ) {
-      if (value < 1024) return `${value} 字符`;
+      if (value < 1024) return i18n.t("tool.value.chars", { value });
       if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
       return `${(value / 1024 / 1024).toFixed(1)} MB`;
     }
@@ -65,11 +72,11 @@ export function formatValue(key: string, value: unknown): string {
   }
 
   if (Array.isArray(value)) {
-    if (value.length === 0) return "（空列表）";
+    if (value.length === 0) return i18n.t("tool.value.emptyList");
     if (value.length <= 3) {
       return value.map((v, i) => `${i + 1}. ${formatValue(key, v)}`).join("\n");
     }
-    return `共 ${value.length} 项：\n${value
+    return `${i18n.t("tool.value.itemsCount", { count: value.length })}\n${value
       .slice(0, 3)
       .map((v, i) => `${i + 1}. ${formatValue(key, v)}`)
       .join("\n")}\n...`;

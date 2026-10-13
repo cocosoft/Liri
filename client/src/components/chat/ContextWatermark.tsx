@@ -7,9 +7,11 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useContextWatermarkStore } from "../../stores/contextWatermarkStore";
 
 export function ContextWatermark() {
+  const { t } = useTranslation();
   const { watermark, lastCompaction, cumulative } = useContextWatermarkStore();
   const [showDetail, setShowDetail] = useState(false);
   const [showCompactionToast, setShowCompactionToast] = useState(false);
@@ -21,6 +23,7 @@ export function ContextWatermark() {
       const timer = setTimeout(() => setShowCompactionToast(false), 5000);
       return () => clearTimeout(timer);
     }
+    // lastCompaction 每次压缩都新建对象；仅在时间戳变化时重置 toast 计时
   }, [lastCompaction?.timestamp]);
 
   const onMouseEnter = useCallback(() => setShowDetail(true), []);
@@ -38,7 +41,11 @@ export function ContextWatermark() {
         }}
       >
         {lastCompaction.message ||
-          `上下文已压缩：${lastCompaction.tokensBefore.toLocaleString()} → ${lastCompaction.tokensAfter.toLocaleString()} tokens（节省 ${lastCompaction.savingsPercent}%）`}
+          t("chat.watermarkCompacted", {
+            before: lastCompaction.tokensBefore.toLocaleString(),
+            after: lastCompaction.tokensAfter.toLocaleString(),
+            pct: lastCompaction.savingsPercent,
+          })}
       </div>
     );
   }
@@ -62,7 +69,7 @@ export function ContextWatermark() {
       <div
         className={`w-2 h-2 rounded-full cursor-pointer ${isCritical ? "animate-pulse" : ""}`}
         style={{ backgroundColor: dotColor }}
-        title={`上下文水位: ${pct}%`}
+        title={t("chat.watermarkTitle", { pct })}
       />
 
       {/* 详细模式：hover 展开 */}
@@ -76,7 +83,7 @@ export function ContextWatermark() {
             border: `1px solid ${dotColor}20`,
           }}
         >
-          {isCritical ? "🔴" : "⚠️"} 上下文 {pct}%
+          {isCritical ? "🔴" : "⚠️"} {t("chat.watermarkContext", { pct })}
           {watermark.currentTokens > 0 && watermark.contextLimit > 0 && (
             <>
               {" "}
@@ -87,8 +94,11 @@ export function ContextWatermark() {
           {cumulative.totalCompressions > 0 && (
             <>
               {" "}
-              | 已压缩 {cumulative.totalCompressions} 次，累计节省{" "}
-              {(cumulative.totalTokensSaved / 1000).toFixed(0)}K tokens
+              |{" "}
+              {t("chat.watermarkCompactionStats", {
+                count: cumulative.totalCompressions,
+                saved: (cumulative.totalTokensSaved / 1000).toFixed(0),
+              })}
             </>
           )}
         </div>

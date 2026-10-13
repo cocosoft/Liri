@@ -9,6 +9,7 @@
  */
 
 import React, { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { GalleryItem } from "../../../stores/mediaStore";
 import { ActionMenu } from "./ActionMenu";
 import { getCachedThumb, generateAndCacheThumb } from "./thumbCache";
@@ -97,6 +98,7 @@ export const MasonryGallery: React.FC<Props> = ({
   onContextMenu,
   onDragStart,
 }) => {
+  const { t } = useTranslation();
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
@@ -203,7 +205,7 @@ export const MasonryGallery: React.FC<Props> = ({
       {/* 加载指示器 */}
       {loading && (
         <div className="flex items-center justify-center py-4">
-          <span className="text-xs text-gray-400">加载更多…</span>
+          <span className="text-xs text-gray-400">{t("media.loadMore")}</span>
         </div>
       )}
     </div>

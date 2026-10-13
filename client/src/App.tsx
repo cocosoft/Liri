@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useRoutes, useLocation, useNavigate } from "react-router-dom";
 import "./components/ChatArea/markdown-theme.css";
 import Sidebar, { MobileBottomNav } from "./components/Sidebar/Sidebar";
@@ -33,6 +34,7 @@ import QuickNoteModal from "./components/common/QuickNoteModal";
 import GlobalSearchModal from "./components/ChatArea/GlobalSearchModal";
 
 function App() {
+  const { t } = useTranslation();
   const syncActivePage = useNavigationStore((s) => s.syncActivePage);
   const _setNavigate = useNavigationStore((s) => s._setNavigate);
   const { config } = useConfigStore();
@@ -147,7 +149,7 @@ function App() {
       const systemMsg = {
         id: crypto.randomUUID(),
         role: "system" as const,
-        content: `[知识库文档: ${detail.title}]\n\n${detail.content}`,
+        content: `${t("chat.knowledgeDocRef", { title: detail.title })}\n\n${detail.content}`,
         timestamp: Date.now(),
         session_id: sessionId,
       };
@@ -163,7 +165,7 @@ function App() {
         "liri:append-knowledge",
         handleAppendKnowledge,
       );
-  }, [navigate]);
+  }, [navigate, t]);
 
   // Root Store: 首次启动时自动创建默认工作空间
   useEffect(() => {
@@ -173,7 +175,7 @@ function App() {
 
     // 创建默认工作空间
     const wtId = rootCreateWorkspace({
-      name: "默认工作空间",
+      name: t("workspace.defaultName"),
       path: ".",
       workspaceSource: "system",
     });
@@ -183,6 +185,7 @@ function App() {
     rootCurrentWorkspaceId,
     rootCreateWorkspace,
     rootSwitchWorkspace,
+    t,
   ]);
 
   // 初始化未完成 / 加载失败时显示过渡态
@@ -191,11 +194,15 @@ function App() {
       <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
         {initState.phase === "error" ? (
           <div className="text-center">
-            <div className="text-red-500 text-lg mb-2">初始化失败</div>
+            <div className="text-red-500 text-lg mb-2">
+              {t("common.initFailed")}
+            </div>
             <div className="text-sm text-gray-500">{initState.error}</div>
           </div>
         ) : (
-          <div className="text-gray-400 text-sm">正在初始化...</div>
+          <div className="text-gray-400 text-sm">
+            {t("common.initializing")}
+          </div>
         )}
       </div>
     );

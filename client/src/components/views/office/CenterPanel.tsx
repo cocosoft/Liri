@@ -298,7 +298,7 @@ function EmptyState() {
         </p>
         <div className="flex flex-col gap-2">
           <button
-            onClick={() => focusChat("请帮我创建一份文档：")}
+            onClick={() => focusChat(t("office.promptCreateDoc"))}
             className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-lg 
               hover:bg-blue-700 transition-colors font-medium"
           >
@@ -313,7 +313,7 @@ function EmptyState() {
             + {t("office.uploadFile", "上传文件")}
           </button>
           <button
-            onClick={() => focusChat("请帮我查看示例文档")}
+            onClick={() => focusChat(t("office.promptViewSample"))}
             className="w-full px-4 py-2 text-sm border border-gray-300 
               dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 
               transition-colors text-gray-700 dark:text-gray-300"
@@ -328,12 +328,13 @@ function EmptyState() {
 
 /** PreviewSkeleton — 加载骨架屏 */
 function PreviewSkeleton() {
+  const { t } = useTranslation();
   return (
     <div className="h-full flex items-center justify-center">
       <div className="text-center animate-pulse">
         <div className="w-48 h-4 bg-gray-200 dark:bg-gray-700 rounded mx-auto mb-2" />
         <div className="w-32 h-3 bg-gray-100 dark:bg-gray-800 rounded mx-auto" />
-        <p className="text-sm text-gray-400 mt-3">加载中...</p>
+        <p className="text-sm text-gray-400 mt-3">{t("common.loading")}</p>
       </div>
     </div>
   );

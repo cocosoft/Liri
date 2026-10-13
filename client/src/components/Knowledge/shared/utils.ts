@@ -3,6 +3,8 @@
  *
  * 从 KnowledgePage/KnowledgeBaseList/PendingCompilePanel 三方提取归并。
  */
+import i18n from "../../../i18n";
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0B";
   if (bytes < 1024) return `${bytes}B`;
@@ -21,6 +23,6 @@ export function formatDate(ts: number): string {
 }
 
 export function formatDateTime(ts: number): string {
-  if (!ts) return "未知";
+  if (!ts) return i18n.t("common.unknown");
   return new Date(ts).toLocaleString("zh-CN");
 }

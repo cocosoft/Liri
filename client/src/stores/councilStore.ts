@@ -13,6 +13,7 @@ import { create } from "zustand";
 import { useWorkspaceStore } from "./workspaceStore";
 import { useToastStore } from "./toastStore";
 import { handleClientError } from "@/utils/handleError";
+import i18n from "../i18n";
 
 /** 从后端流式事件中提取的发言 */
 export interface CouncilStatementUI {
@@ -144,7 +145,7 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
         .getState()
         .addToast(
           "info",
-          `\u{1F3DB}\uFE0F 理事会已达成共识："${get().topic}"`,
+          i18n.t("council.consensusToast", { topic: get().topic }),
           String(5000),
         );
       es.close();

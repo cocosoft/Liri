@@ -69,7 +69,7 @@ export default function ImageDisplayResult({ data }: Props) {
       path: attached[0].path,
       url: img.url,
     });
-    sendMessage("请分析这张图片", undefined, attached);
+    sendMessage(t("chat.analyzeThisImage"), undefined, attached);
   };
 
   /** 复制图片引用到剪贴板 */
@@ -168,7 +168,11 @@ export default function ImageDisplayResult({ data }: Props) {
             logger.info("ImageDisplayResult: 发送全部图片分析", {
               count: attachedImages.length,
             });
-            sendMessage("请分析以下图片", undefined, attachedImages);
+            sendMessage(
+              t("chat.analyzeTheseImages"),
+              undefined,
+              attachedImages,
+            );
           }}
           className="text-blue-400 hover:text-blue-300 bg-transparent border-0 cursor-pointer"
         >

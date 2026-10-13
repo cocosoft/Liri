@@ -9,6 +9,7 @@ import { chatService } from "../services/chatService";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "../utils/logger";
 import { DEFAULT_BACKEND_PORT } from "../services/backendUrl";
+import i18n from "../i18n";
 import type { BackendStatus } from "../types";
 
 const logger = createLogger("stores:backendStore");
@@ -88,8 +89,8 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
         // 后端启动失败时，将退出码/stderr 展示给用户（而非仅"连接被拒"）
         if (!status.running && (status.exit_code != null || status.error)) {
           const errorMsg = status.error
-            ? `后端进程启动失败：\n${status.error}`
-            : `后端进程异常退出，退出码：${status.exit_code}`;
+            ? i18n.t("backend.startFailed", { error: status.error })
+            : i18n.t("backend.exitedWithCode", { code: status.exit_code });
           logger.error("[startBackend] 后端启动失败", { errorMsg });
           set({ error: errorMsg });
         }
@@ -107,7 +108,9 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     } else {
       logger.warn("[startBackend] 浏览器模式，无法自动启动后端");
       set({
-        error: `浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port ${DEFAULT_BACKEND_PORT}\n启动后刷新页面。`,
+        error: i18n.t("backend.browserModeStart", {
+          port: DEFAULT_BACKEND_PORT,
+        }),
       });
     }
   },

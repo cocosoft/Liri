@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Channel, UpdateChannelRequest } from "../types";
 import { channelService } from "../services/channelService";
 import { handleClientError } from "@/utils/handleError";
+import i18n from "../i18n";
 
 // ─── 工具函数 ──────────────────────────────────────────
 
@@ -407,8 +408,10 @@ export const useChannelStore = create<ChannelStore>((set, get) => ({
       }
       set({
         error: lastError
-          ? `插件安装失败: ${lastError}，请手动执行 npm install`
-          : "插件安装失败，请手动执行 npm install",
+          ? i18n.t("channels.pluginInstallFailedWithError", {
+              error: lastError,
+            })
+          : i18n.t("channels.pluginInstallFailed"),
       });
     } catch (e) {
       handleClientError(e, {

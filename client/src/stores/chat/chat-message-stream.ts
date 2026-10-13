@@ -415,6 +415,15 @@ export async function streamMessageImpl(
     const streamAggregator = new EventBasedStreamAggregator();
     /** P0-1：聚合器健康度标志（false 时最终落盘跳过覆盖，后端权威数据优先） */
     let aggregatorHealthy = true;
+    /**
+     * P0-1：**"仅含无内容兜底块"标记**。
+     *
+     * ⚠️ 原实现在落盘前用 `content.includes("未生成内容")` **匹配用户可见文案**来判定状态
+     * —— 违 CS02（状态检测禁止字符串匹配）：文案一旦 i18n（`chat.stream.noContentFallback`），
+     * **英文界面下该匹配必然失效** ⇒ 英文用户会走错分支（不再跳过覆盖 ⇒ 有数据回退风险）。
+     * 现改为**同一函数内的标记**（兜底块在此作用域创建）⇒ 与语言无关。
+     */
+    let noContentFallbackOnly = false;
     try {
       const eventsResult = { events: await loadSparseBaseline(sid) };
       await streamAggregator.init(eventsResult.events, sid, {
@@ -736,11 +745,13 @@ export async function streamMessageImpl(
           const fallbackBlock: MessageBlock = {
             id: `blk_fallback_${nowStamp}`,
             type: "status",
-            content: "⚠️ 本次回复未生成内容，请重试或检查模型/网络状态。",
+            content: i18n.t("chat.stream.noContentFallback"),
             isStreaming: false,
             groupId: `grp_fallback_${nowStamp}`,
           };
           finalBlocks = [...derivedBlocks, fallbackBlock];
+          // CS02：用**标记**记录"仅含兜底块"（勿再用 `content.includes(...)` 匹配文案）
+          noContentFallbackOnly = derivedBlocks.length === 0;
           logger.warn("streamMessage:无内容兜底触发", {
             sessionId: sid,
             blockCount: derivedBlocks.length,
@@ -782,7 +793,13 @@ export async function streamMessageImpl(
       const interruptBlock: MessageBlock = {
         id: `blk_interrupt_${nowStamp}`,
         type: "status",
-        content: `⚠️ 任务中断：以下工具未完成 — ${names || `${incompleteToolCalls.length} 个工具`}`,
+        content: i18n.t("chat.stream.interruptedIncompleteTools", {
+          names:
+            names ||
+            i18n.t("chat.stream.incompleteToolsCount", {
+              count: incompleteToolCalls.length,
+            }),
+        }),
         isStreaming: false,
         groupId: `grp_interrupt_${nowStamp}`,
       };
@@ -929,11 +946,12 @@ export async function streamMessageImpl(
       // P0-1 修复：聚合器不健康时跳过覆盖（后端权威数据优先）
       // 场景：aggregator 初始化失败 → 流式渲染全程空 blocks → finalBlocks 仅含兜底 status 块
       // → 覆盖会永久丢失后端已持久化的正常内容（数据回退）
+      // CS02（2026-10-13 i18n 迁移暴露）：状态由**标记**判定，不再匹配用户可见文案
+      // （原 `content.includes("未生成内容")` 在英文界面下必然失效 ⇒ 走错分支）
       const isAggregatorFallbackOnly =
         finalBlocks.length === 1 &&
         finalBlocks[0].type === "status" &&
-        typeof finalBlocks[0].content === "string" &&
-        finalBlocks[0].content.includes("未生成内容");
+        noContentFallbackOnly;
       const shouldSkipOverwrite =
         controller.signal.aborted ||
         (!aggregatorHealthy && isAggregatorFallbackOnly);
@@ -1074,7 +1092,7 @@ export async function streamMessageImpl(
             const fallbackBlock = {
               id: `blk_fallback_${nowStamp}`,
               type: "status" as const,
-              content: "⚠️ 本次回复未生成内容，请重试或检查模型/网络状态。",
+              content: i18n.t("chat.stream.noContentFallback"),
               isStreaming: false,
               groupId: `grp_fallback_${nowStamp}`,
             };

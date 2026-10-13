@@ -9,6 +9,7 @@ import { truncateMessages } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
+import i18n from "@/i18n";
 import { removeStreamController } from "./chat-message-shared";
 import { getHasPendingSave, flushSaveBlocks } from "./chat-history.slice";
 import type { MessageSet, MessageGet } from "./chat-message.types";
@@ -43,7 +44,9 @@ function saveAbortCheckpoint(sessionId: string): void {
 }
 
 /** 检测工作模式：从会话级 workMode 读取 Plan/Do 模式（源：Session.workMode 展平） */
-export async function resolveWorkMode(sessionId?: string): Promise<"plan" | "do"> {
+export async function resolveWorkMode(
+  sessionId?: string,
+): Promise<"plan" | "do"> {
   if (!sessionId) return "plan";
   try {
     const { useSessionStore } = await import("../sessionStore");
@@ -343,7 +346,7 @@ export async function continueGenerationImpl(
   set({ pendingReplyToId: assistantMsgId });
 
   try {
-    await get().streamMessage(prompt || "请继续", sid);
+    await get().streamMessage(prompt || i18n.t("chat.continuePrompt"), sid);
   } catch (error) {
     handleClientError(
       error,

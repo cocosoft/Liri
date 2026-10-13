@@ -7,6 +7,7 @@
  */
 
 import React, { Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { useRootStore } from "@/stores/root-store";
 import { selectCurrentSession, selectEnabledModules } from "@/stores/selectors";
 import { createLogger } from "@/utils/logger";
@@ -15,14 +16,19 @@ const logger = createLogger("ViewRouter");
 
 /** 无 Session 时的欢迎/首页占位 */
 function WelcomeScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const wt = useRootStore(selectCurrentSession);
 
   return (
     <div className="flex items-center justify-center h-full text-muted-foreground">
       <div className="text-center">
-        <p className="text-lg mb-2">选择一个功能模块开始</p>
+        <p className="text-lg mb-2">{t("common.selectModuleToStart")}</p>
         {wt && (
-          <p className="text-sm">当前工作空间: {wt.workspaceId ?? "未选择"}</p>
+          <p className="text-sm">
+            {t("common.currentWorkspace", {
+              id: wt.workspaceId ?? t("common.notSelected"),
+            })}
+          </p>
         )}
       </div>
     </div>
@@ -43,6 +49,7 @@ function WelcomeScreen(): React.ReactElement {
  * 本组件的 `mod?.component` 恒为 undefined（会落到 WelcomeScreen）；启用时须同步补齐注册来源。
  */
 export function ViewRouter(): React.ReactElement {
+  const { t } = useTranslation();
   const currentSession = useRootStore(selectCurrentSession);
   const modules = useRootStore(selectEnabledModules);
 
@@ -64,7 +71,9 @@ export function ViewRouter(): React.ReactElement {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center h-full">加载中...</div>
+        <div className="flex items-center justify-center h-full">
+          {t("common.loading")}
+        </div>
       }
     >
       <Component sessionId={currentSession.id} />

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.82-blue)
+![Version](https://img.shields.io/badge/version-0.4.83-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.82**
+当前版本：**v0.4.83**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,13 +436,10 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.4.82 (2026-10-13)  长程任务「预算挂起—续跑」收尾四项开放项收口（M1 会话归属 / observeRound 落盘 / as-unknown 收窄 / E2E-2 定案） 
-- ✅ **M1：`waive-once` 通行证按会话归属（不受开关门控）** - 原为 manager 级布尔 `_waiverGrantedThisTurn`，而 `getDailyBudget()` 是**进程单例** ⇒ A 会话取得通行证后，**B 会话**任何一笔记账都会把它消费掉。现改为 `_waiverGrantedForSession: string | null`：`canExecute(sessionId?)` 置位、`recordUsage(tokens, sessionId?)` **仅同一会话**的记账消费（精确相等，CS02；跨会话/无 sessionId **不消费**，未消费者由通行证 **TTL 兜底**）；`settleFor(sessionId, …)`（chat 主路径唯一记账写者）与 `recordDailyBudgetFromUsage(usage, sessionId?)` 透传；`TAORLoop` 传其 `sessionId`。回归 `tests/query/dailyBudgetWaiveOnceGate.test.ts`（先红后绿）
-- ✅ **observeRound：终态早退不再快于落盘（不受开关门控）** - `TAORLoop._observeRound` 的熔断/收益递减两条**终态早退**原先**位于** `persistMessages` 之前 ⇒ 该轮**已执行**的工具结果不落盘（用户观感"没继续"）。现将 `persistMessages`（含重试）**整块前移**到两条早退之前（why：工具确已执行 ⇒ 结果必须落盘；是否终止是另一件事）；`stopReason`/`stopped`/相位取值与两早退的相对顺序**均不变**；`TAORLoop.ts` 维持**净零行**（`lint:size` 计 2000）。回归 `tests/query/taorObservePersistsBeforeTerminalReturn.test.ts`（先红后绿：修复前 persist 计数 0）
-- ✅ **as-unknown：收窄工具轮上下文的类型盲区（零行为变更）** - 移除 `streamMessageToolLoopContext.ts` 的**整体** `as unknown as ToolLoopContext` 断言 ⇒ 改为具名注解（编译器**逐字段**校验），并把 `ToolLoopContextDeps` 的 `unknown` 字段收窄为端口真实类型；**端口装配收敛到 `buildToolLoopContext` 内**（`toStreamingCheckpointPort`，含**必填** `suspend`）⇒ 两个调用方（流式主链 / 恢复路径）一律传裸检查点，**任何调用点都不可能漏接 `suspend`**（`ChatManager` 侧的重复包装与 import 随之移除）。保留 **5 处**带中文理由的**单字段**窄断言（host 桥接 4 + 端口入参形状 1）
-- ✅ **E2E-2 定案（真实 E2E 复现 + 单测锁定）** - 真实 E2E（同一挂起点**两次放行**）证明：**协调器每次放行都被通知**（`resume_summary` 每次都打），第二次候选为空 ⇒ `woken:[]` 且 handler **零新增调用**；原观测「第二次未再触发 `onReliefApplied`」**系误判**（很可能是 v1.4 会话锁泄漏期的次生表现）。据此**定案**：**成功即释放** ⇒ 再次放行**幂等无操作**；**失败即回滚** ⇒ 再次放行**重试**。锁定测试 `tests/query/budgetSuspendWake.test.ts` 新增「E2E-2 定案」组（2 例）
-- ℹ️ **既有测试口径变更（如实，2 处）** - ① M1 使 2 处既有用例（F4-② / C2）原「无 sessionId 记账 ⇒ 消费」的期望与新口径冲突 ⇒ 改为**会话化**（保留「放行恰消费一次」意图）；② `tests/chat/orchestrator/toolLoopContext.test.ts` 的「`streamingCheckpoint` **同引用**透传」改为**转发等价**断言（端口两方法必须转发到同一实例），原因：该字段由「调用方各自装配」改为「装配处统一适配」
-- ✅ **回归与门禁** - `typecheck` 3 工程 0 错；`lint:size`（TAORLoop 2000 · streamMessageFlow 未增长）/ `lint:fn-size`（棘轮维持）/ `lint:complexity` / `lint:doc-code` / `lint:fix-evidence`（110 条）/ `version:check` 全绿；`tests/{query,chat}` **829 pass / 1 fail**（唯一 fail 为**既存环境型** `dailyBudgetSingleton` env 遮蔽，与本次改动无关）；真实 E2E 环境已恢复（`dailyLimit 500000` / relief 撤销 / 挂起清零 / 实例已停）
+#### v0.4.83 (2026-10-13)  M1 认领语义收紧：`waive-once` 通行证「先认领者独占」 
+- ✅ **`canExecute(sessionId?)` 不再每次调用都重写认领** - 改为**仅当无认领者时**认领（`_waiverGrantedForSession === null` 才置位；无 sessionId 的调用**不认领**）⇒ 消除「后到会话在同一 TTL 窗口内夺走消费归属」。依据：通行证是**单次**豁免 ⇒ 应由**最先**用它放行的会话负责消费，Consume-and-Die 的归属才稳定（承接上一批 M1 报告里如实披露的残余）
+- ✅ **锁定测试** - `tests/query/dailyBudgetWaiveOnceGate.test.ts` 新增 **M1-⑥**（先红后绿：修复前 **11 pass / 1 fail**，修复后 **12 pass / 0 fail**）；广域 `tests/{query,chat}` **832 pass / 1 fail**（唯一 fail 为既存环境型 `dailyBudgetSingleton` env 遮蔽）
+- ℹ️ **行为面** - 两会话同处 `locked` 且通行证有效时：**两者都会被放行**（既有语义不变），但只有**先认领者**的记账会消费该通行证；认领者若始终不记账，通行证由既有 **TTL** 兜底失效
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

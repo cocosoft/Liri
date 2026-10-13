@@ -662,6 +662,15 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
     const cmdCountRef = useRef(0);
     // 脏状态跟踪（Modal 模式下通知外部）
     const isDirtyRef = useRef(false);
+    /**
+     * `onDirty` 的最新引用：本 autosave effect 只应挂载一次（内含 `setInterval` /
+     * `beforeunload` / 命令回调注册）；若把 `onDirty` 放进其依赖数组，父级每次
+     * 重渲染都会重建定时器、并在 cleanup 里多存一次快照 ⇒ 用 ref 承载最新回调。
+     */
+    const onDirtyRef = useRef(onDirty);
+    useEffect(() => {
+      onDirtyRef.current = onDirty;
+    }, [onDirty]);
     useEffect(() => {
       const keyPrefix = canvasId || "default";
       const saveTick = 30_000;
@@ -697,7 +706,7 @@ export const CanvasEditor = forwardRef<CanvasEditorHandle, CanvasEditorProps>(
         // 脏状态跟踪：首次编辑操作通知外部
         if (!isDirtyRef.current) {
           isDirtyRef.current = true;
-          onDirty?.(true);
+          onDirtyRef.current?.(true);
         }
         if (cmdCountRef.current % cmdTrigger === 0) doSave();
       };

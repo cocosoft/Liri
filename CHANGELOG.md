@@ -24,11 +24,6 @@
 - ✅ **侧车化 S5（`TOOLGOV-SIDECAR-S5`，受 `TOOL_SIDECAR_MEDIA`，**默认关**）** - **T5.1**：`vision_worker` 纳入**受管侧车面** —— 新增 `tools/sidecar/{mediaSidecar,mediaSidecarLifecycle,mediaCapabilities,SidecarMediaAnalyzer}.ts`（**复用** `ToolSidecarSupervisor` + `sidecarIpc`，**无第三套 IPC**；生命周期语义复用 S3 已验证的握手/崩溃结算/有界重启），`ImageAnalysisTool` 改**双跑**（关 ⇒ 既有 `WorkerGuard` 逐字不变；开 ⇒ 经 `media.analyze` 同形状返回）；覆盖 `ocr`/`objects`/`similarity`，其余**显式 fail-closed**。**T5.2**：`sharp` **只收一处** —— `ImageInputRouter` 的超大图缩放（原 >20MB 动态 `import('sharp')`）开关开经 `media.resize`，关逐字原路径；**未触碰** `media/image/ImageProcessor.ts` 主路径。**等价性**：off/on **字节级等价**（on 后端 = 同参数真 sharp）+ 断言确发 `maxSide:2048,quality:85`；后端抛错 ⇒ **不静默回落**。**验证**：先红后绿（3 errors + 5 fail / 1 pass ⇒ **17 pass / 0 fail**）；`tests/tools/sidecar` **64 pass**；`tests/{tools,utils,ai}` **1325 pass / 0 fail**；门禁全绿
 - ⚠️ **如实遗留（S5）** - **真实 L2 模型端到端未验证**：真起侧车后握手与 `media.resize`（真 sharp）通过，但 `media.analyze(ocr)` 受阻于 `Model 'easyocr' is not installed`（缺 EasyOCR/ultralytics/open_clip）⇒ 仅打通到「模型缺失」的结构化错误；**无 >20MB 真图夹具** ⇒ 以 161KB 图 + 缩小 `maxBytes` 触发同一路径做等价验证（计划允许的退化）；**未摘未删** `ai/python/**`（CD05/CD06/CD07）
 
-**20261012 批次落地复查 · 补齐第八批（门禁 DX 硬化：登记表 JSON 破损可精确定位）**
-
-- ✅ **`lint:fix-evidence` 解析失败时给出精确行列 + 惯例提示** - 本仓已**三次**因"登记表字符串内误用 ASCII 双引号"致 JSON 提前闭合，而 bun 的 `JSON Parse error` **不带位置**（只见 `Unrecognized token 'X'`）⇒ 排障成本高。新增 `locateStrayQuote()`（纯文本扫描：字符串闭合后下一个非空白字符必须是 `,` `}` `]` `:`；否则即元凶）⇒ 失败时打印 `文件:行:列`、该行内容与「本仓惯例：字符串内一律用中文引号「」」提示（[scripts/lint-fix-evidence.ts](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-fix-evidence.ts)）
-- ✅ **负向自证（含修 bug）** - `app/tests/gates/fixEvidenceGate.test.ts` 新增 1 例：喂入含未转义引号的登记表 ⇒ 断言 exit 1 + 提示文案 + **元凶行号**。**首轮该用例即捕获我自己的实现 bug**（闭合后未复位 `inStr` ⇒ 报错位置偏移到 3:3）、修正后 **8 pass / 0 fail**。`lint:fix-evidence` 正常路径仍 **119 条自洽**；`typecheck` 0 错；`lint:fn-size`/`complexity` 未增长
-
 **MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）**
 
 - ✅ **MCP 工具结果凭据脱敏一致性修复（G-1）** - `mcp__*` 工具的**模型可见路径** `McpToolWrapper.execute` 原**直接回传未脱敏文本**（带脱敏的 `MCPServerManager.callTool` 仅被 CLI（`cli/mcpCommand.ts`）调用 ⇒ 两路径脱敏不一致），远端 MCP server 回传的 API key / token 可原样进入模型上下文；现于返回前统一套 `filterMCPToolResult`（文本输出）+ 新增 `redactMcpPayload`（结构化 `data` 的 JSON 往返脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏**收敛到同一 helper**（CS01，单一实现，勿再各写一份）。同批核查确认 **`sessionId` 不外传**：wrapper 只发 `{name, arguments}` + `{signal}`，`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose scope
@@ -101,6 +96,10 @@
 - ⚠️ **如实缺口**（`e2eVerified=false`） - 未做真实长会话端到端（撞限→放行→续跑全链）核对；`streamMessageToolLoopContext` 的 `as unknown` 断言口径仍是既有类型盲区（parked）；唤醒上限按"成功数"计数（handler 调用数可 > N，未单测）；`taor` 续跑的 host 胶水缺集成用例。证据 `BUDGET-SUSPEND-RESUME`
 
 ---
+
+#### v0.4.91 (2026-10-13)  20261012 批次落地复查 · 补齐第八批（门禁 DX 硬化：登记表 JSON 破损可精确定位） 
+- ✅ **`lint:fix-evidence` 解析失败时给出精确行列 + 惯例提示** - 本仓已**三次**因"登记表字符串内误用 ASCII 双引号"致 JSON 提前闭合，而 bun 的 `JSON Parse error` **不带位置**（只见 `Unrecognized token 'X'`）⇒ 排障成本高。新增 `locateStrayQuote()`（纯文本扫描：字符串闭合后下一个非空白字符必须是 `,` `}` `]` `:`；否则即元凶）⇒ 失败时打印 `文件:行:列`、该行内容与「本仓惯例：字符串内一律用中文引号「」」提示（[scripts/lint-fix-evidence.ts](file:///e:/PY/Documents/CODES/PY_APP/scripts/lint-fix-evidence.ts)）
+- ✅ **负向自证（含修 bug）** - `app/tests/gates/fixEvidenceGate.test.ts` 新增 1 例：喂入含未转义引号的登记表 ⇒ 断言 exit 1 + 提示文案 + **元凶行号**。**首轮该用例即捕获我自己的实现 bug**（闭合后未复位 `inStr` ⇒ 报错位置偏移到 3:3）、修正后 **8 pass / 0 fail**。`lint:fix-evidence` 正常路径仍 **119 条自洽**；`typecheck` 0 错；`lint:fn-size`/`complexity` 未增长
 
 #### v0.4.90 (2026-10-13)  20261012 批次落地复查 · 补齐第七批（侧车化 S4：同源门禁） 
 - ✅ **侧车化 S4（`TOOLGOV-SIDECAR-S4`）** - **取证结论**：侧车工具**已在同一 `ToolRegistry` / 同一装配链**（[ToolManagerUtils.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/tools/utils/ToolManagerUtils.ts) 的 `cond(coreFeature('LSP'), …)` 位于 `buildBuiltinToolLoaders()` 清单内 ⇒ 进唯一注册表），且 **PathGuard 与结果上限已天然覆盖**（`ReActToolLoop` 门禁落点 + 注册表驱动的 `resolveToolParamNames`（`file_path ∈ PATH_ARG_KEYS`）+ 公共 `ToolResultBudget`）。**T4.1 裁定 = 保名派**：**不**改名为 `${server}__${tool}`（改名派会破坏 S2 已锁定的 schema deep-equal 不变量，且侧车不是 MCP server ⇒ 需整套 MCP 基建）⇒ 达成「进同一 registry、自动获同套门禁」的**目标**，工具名恒 `lsp`；计划 T4.1 验收原文已按此订正并留档冲突。**T4.2 落地**：新增 `SIDECAR_LSP_LANDLOCK_APPLICABILITY` **显式声明**（代码常量 + 注释 + 测试三处一致；LSP 只读查询 ⇒ **Landlock N/A**，不装作同源）+ 测试 `sidecarSameSourceGate.test.ts` **9 例**。**如实**：真实红→绿**仅**发生在 Landlock 常量（PathGuard/结果上限两例因机制层 S2 已覆盖，**首次可运行即绿**）；`tests/{tools,chat,utils}` **1597 pass / 0 fail**；门禁全绿

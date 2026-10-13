@@ -134,6 +134,8 @@ import { shouldEscalateLongTask } from './longTaskEscalation';
 const logger = getLogger('chat:manager');
 
 import { SimpleMutex, feature } from '@modules/core';
+// T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
+import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
@@ -3014,6 +3016,13 @@ export class ChatManagerImpl implements ChatManager {
     topic: string,
     context: string
   ): Promise<void> {
+    // T2-8 / `✅-17`（2026-10-13，形态 A）：编排**入口**只读上报 `PREPARED` —— **不**承载
+    // "断言/锁定"裁决（四原语严格无状态、只读，见 `state/engine/projectionBroker.ts` 头注）。
+    // 受 `STATE_PROJECTION_BROADCAST`（默认关）门控 ⇒ 关时零发布、零行为变更。
+    publishOrchestrationProjection({
+      primitive: 'PREPARED',
+      orchestrationId: workspaceId,
+    });
     // A10（2026-10-06）：走单一构造点 —— 原 `new CouncilOrchestrator(getCouncilEngine())`
     const { getCouncilOrchestrator } =
       await import('@modules/workspace/CouncilOrchestrator');

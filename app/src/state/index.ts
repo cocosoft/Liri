@@ -33,6 +33,8 @@ export type {
   StateProjectionBroadcast,
   StateProjectionDomain,
 } from './engine/projectionBroker';
+// T2-8 / `✅-17`（2026-10-13）：编排域只读投影出口（形态 A：只读上报，不承载断言/锁定）
+export { publishOrchestrationProjection } from './engine/orchestrationProjection';
 
 // 会话状态机（阶段 3 / 2026-10-12：8 态 → 3 态；旧 `SessionState` 枚举已删除）
 export { SessionStateMachine } from './session/SessionStateMachine';

@@ -23,8 +23,13 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import { MessageService } from '../services/MessageService.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
+// T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
+import { publishOrchestrationProjection } from '../../state/engine/orchestrationProjection.js';
 
 const logger = getLogger('chat:pdcaLauncher');
+
+/** T2-8 只读一致性观测：已告警过的会话（一次性，避免长程编排重复噪声） */
+const warnedNoParentExecution = new Set<string>();
 
 export interface PdcaLauncherDeps {
   /** 是否启用 PlanDrivenLoop */
@@ -399,6 +404,34 @@ export class PdcaLauncher {
             reqs.length > 0 ? reqs[reqs.length - 1].id : undefined;
         } catch {
           /* 无需求登记时不关联（阶段链正常运行） */
+        }
+
+        // T2-8 / `✅-17`（2026-10-13，形态 A）：编排**入口**只读上报 `PREPARED`（**不**承载
+        // "断言/锁定"裁决 —— 四原语严格只读）；并做**只读一致性观测**：原文的「断言父上下文已转入
+        // PREPARED」降级为**观测不到活跃执行即一次性 warn 如实标注**（**绝不阻断**编排启动）。
+        // 受 `STATE_PROJECTION_BROADCAST`（默认关）门控 ⇒ 关时零发布、零行为变更。
+        publishOrchestrationProjection({
+          primitive: 'PREPARED',
+          sessionId,
+          orchestrationId: taskId,
+        });
+        if (!warnedNoParentExecution.has(sessionId)) {
+          try {
+            const { getExecutionManager } = await import('@modules/execution');
+            if (!getExecutionManager().getBySession(sessionId)) {
+              warnedNoParentExecution.add(sessionId);
+              logger.warn(
+                '编排入口未观测到父上下文活跃执行（只读观测，不阻断）',
+                { sessionId, taskId }
+              );
+            }
+          } catch (e) {
+            // @ignore-catch — 只读观测失败绝不影响编排启动
+            logger.debug('编排入口只读观测失败（忽略）', {
+              sessionId,
+              error: String(e),
+            });
+          }
         }
 
         const stageOrch = StageOrchestrator.create(

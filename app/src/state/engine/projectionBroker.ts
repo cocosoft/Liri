@@ -59,28 +59,38 @@ export const EXECUTION_PRIMITIVES = [
 export type ExecutionPrimitive = (typeof EXECUTION_PRIMITIVES)[number];
 
 /**
- * 投影域标识（当前仅 `execution`）。
+ * 投影域标识。
  *
- * 其余域（toolCall / session / app / task）**本期未投影**，理由逐一取证：
+ * - `execution`：执行域（唯一既有投影域；见 `execution/executionProjection.ts`）；
+ * - `orchestration`：**编排域**（T2-8 / `✅-17`，2026-10-13）—— 编排族**入口**与**主循环**的只读投影
+ *   （✅ 形态 A：**只读上报**，**不**承载"断言/锁定"裁决 —— 四原语严格无状态，见本文件头注）。
+ *
+ * 其余域（`toolCall` / `session` / `app` / `task`）**本期未投影**，理由逐一取证：
  * - `toolCall`：结算路径**无单一 choke point**（`settleToolCall` / `endToolCall` / `recordToolCall` 三入口 +
  *   直连 store 的恢复路径）⇒ 逐点接线违背 §4.1「不要求手工逐点调用」；
  * - `session` / `app` / `task`：其"对外统一进度态"**无真实消费者**（CS03：不建无消费者的抽象）。
  */
-export type StateProjectionDomain = 'execution';
+export type StateProjectionDomain = 'execution' | 'orchestration';
 
 /**
  * 广播载荷（**只读、无原生细粒度状态** —— §4.3）。
  *
- * 刻意**不含**：原生状态字符串、`executionId`/`generation` 等内部标识（对外定位用 `sessionId` 足够，
- * 且 execution 与 session 是**一对一所有权**关系）。
+ * 关联字段**按域取其一**（`execution` ⇒ `sessionId` **必填**；`orchestration` ⇒ **至少一个**：
+ * 会话型编排携 `sessionId`、任务型编排携 `orchestrationId`，有会话上下文时两者皆携），
+ * 刻意**不含**：原生状态字符串、`executionId` / `generation` 等内部标识。
  */
 export interface StateProjectionBroadcast {
   /** 投影域 */
   readonly domain: StateProjectionDomain;
   /** 四原语取值 */
   readonly primitive: ExecutionPrimitive;
-  /** 关联会话（对外定位） */
-  readonly sessionId: string;
+  /** 关联会话（`domain='execution'` 时**必填**；`domain='orchestration'` 时有会话上下文才携） */
+  readonly sessionId?: string;
+  /**
+   * 关联**编排主体**（`domain='orchestration'` 且为**任务型**编排时携）：`taskId` / `workspaceId` 等。
+   * 与 `sessionId` **语义正交**（任务型编排不由"会话执行所有权"定位）。
+   */
+  readonly orchestrationId?: string;
   /** 观测时间（epoch ms） */
   readonly at: number;
 }
@@ -101,14 +111,18 @@ export function isStateProjectionBroadcastEnabled(): boolean {
 export function publishStateProjection(input: {
   domain: StateProjectionDomain;
   primitive: ExecutionPrimitive;
-  sessionId: string;
+  sessionId?: string;
+  orchestrationId?: string;
 }): void {
   if (!isStateProjectionBroadcastEnabled()) return;
 
   const payload: StateProjectionBroadcast = {
     domain: input.domain,
     primitive: input.primitive,
-    sessionId: input.sessionId,
+    ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
+    ...(input.orchestrationId !== undefined
+      ? { orchestrationId: input.orchestrationId }
+      : {}),
     at: Date.now(),
   };
 
@@ -121,6 +135,7 @@ export function publishStateProjection(input: {
       domain: payload.domain,
       primitive: payload.primitive,
       sessionId: payload.sessionId,
+      orchestrationId: payload.orchestrationId,
       error: String(err),
     });
   }

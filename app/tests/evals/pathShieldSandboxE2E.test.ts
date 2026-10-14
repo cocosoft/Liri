@@ -41,7 +41,7 @@ import { resolveDbPath, resolvePyappHome } from '@modules/core/paths';
 import { createSandbox } from '../../src/evals/sandbox';
 import { resolveEvalRepoRoot } from '../../src/evals/sourceTask';
 
-const ENABLED = process.env.PERMISSION_SHIELD_E2E === '1';
+const PATH_SHIELD_E2E_ENABLED = process.env.PERMISSION_SHIELD_E2E === '1';
 
 /**
  * 取文件开头 60 字的 **JSON 转义**形式（去掉包裹引号）。
@@ -111,7 +111,7 @@ async function callTool(
 }
 
 describe('A7 防泄题：真实沙箱端到端（HTTP 工具执行路径）', () => {
-  test.skipIf(!ENABLED)(
+  test.skipIf(!PATH_SHIELD_E2E_ENABLED)(
     '真实 daemon：被屏蔽路径的读取被拒（工具未执行）；无关路径正常',
     async () => {
       const repoRoot = resolveEvalRepoRoot();
@@ -193,7 +193,7 @@ describe('A7 防泄题：真实沙箱端到端（HTTP 工具执行路径）', ()
     180_000
   );
 
-  test.skipIf(!ENABLED)(
+  test.skipIf(!PATH_SHIELD_E2E_ENABLED)(
     '因果对照：**不带**屏蔽清单的真实 daemon ⇒ 同一路径可读（证明拒绝确由屏蔽引起）',
     async () => {
       const repoRoot = resolveEvalRepoRoot();

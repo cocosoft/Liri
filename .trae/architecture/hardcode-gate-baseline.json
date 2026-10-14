@@ -69,7 +69,6 @@
     "同名常量:OPS": 2,
     "同名常量:MAX_ENTRIES": 2,
     "同名常量:BASE_BACKOFF_MS": 2,
-    "同名常量:ENABLED": 3,
     "同名常量:PERMISSION_MODES": 2,
     "同名常量:DEFAULT_BOOST_TTL_MS": 2,
     "同名常量:STORAGE_DIR": 2,

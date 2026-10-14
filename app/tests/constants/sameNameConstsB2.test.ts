@@ -1106,4 +1106,37 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(sse).toContain('}, SSE_FALLBACK_POLL_INTERVAL_MS);');
     expect(sse).toContain('每隔 SSE_FALLBACK_POLL_INTERVAL_MS 调用');
   });
+
+  test('B5-2㉔：`ENABLED` ×3 已按域消歧（取值表达式一字未改）', () => {
+    // 3 处同名 `ENABLED`（各模块自己的开关）全为文件内私有，取值均为 env 表达式
+    const items: Array<[string, string, string]> = [
+      [
+        'src/monitoring/memProfile.ts',
+        'MEM_PROFILE_ENABLED',
+        "configManager.env('MEM_PROFILE') === '1'",
+      ],
+      [
+        'src/monitoring/memoryPressure/MemoryPressureMonitor.ts',
+        'MEM_PRESSURE_ENABLED',
+        "configManager.env('MEM_PRESSURE') !== '0'",
+      ],
+      [
+        'src/query/queryProfiler.ts',
+        'QUERY_PROFILER_ENABLED',
+        "process.env?.Liri_PROFILE_QUERY === '1'",
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/(^|[^_A-Za-z])const ENABLED\b/);
+      expect(src).toContain(`const ${name}`);
+      expect(src).toContain(value);
+    }
+    // tests 侧同名别名一并消歧（非门禁扫描面，但全仓不再有同名定义）
+    const e2e = read('tests/evals/pathShieldSandboxE2E.test.ts');
+    expect(e2e).not.toMatch(/(^|[^_A-Za-z])const ENABLED\b/);
+    expect(e2e).toContain(
+      "const PATH_SHIELD_E2E_ENABLED = process.env.PERMISSION_SHIELD_E2E === '1';"
+    );
+  });
 });

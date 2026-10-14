@@ -4,7 +4,7 @@
  * 提供查询性能分析和检查点记录功能
  */
 
-const ENABLED =
+const QUERY_PROFILER_ENABLED =
   typeof process !== 'undefined' && process.env?.Liri_PROFILE_QUERY === '1';
 
 const checkpoints: Array<{ name: string; time: number }> = [];
@@ -14,7 +14,7 @@ let queryCount = 0;
  * 开始查询性能分析
  */
 export function startQueryProfile(): void {
-  if (!ENABLED) return;
+  if (!QUERY_PROFILER_ENABLED) return;
   checkpoints.length = 0;
   queryCount++;
   checkpoints.push({ name: 'query_start', time: performance.now() });
@@ -25,7 +25,7 @@ export function startQueryProfile(): void {
  * @param name 检查点名称
  */
 export function queryCheckpoint(name: string): void {
-  if (!ENABLED) return;
+  if (!QUERY_PROFILER_ENABLED) return;
   checkpoints.push({ name, time: performance.now() });
 }
 
@@ -33,7 +33,7 @@ export function queryCheckpoint(name: string): void {
  * 结束查询性能分析
  */
 export function endQueryProfile(): void {
-  if (!ENABLED) return;
+  if (!QUERY_PROFILER_ENABLED) return;
   checkpoints.push({ name: 'query_end', time: performance.now() });
   printProfileReport();
 }

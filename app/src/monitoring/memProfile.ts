@@ -13,7 +13,7 @@ import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor
 import { configManager } from '@modules/config';
 
 // 经统一出入口（R05-012）
-const ENABLED = configManager.env('MEM_PROFILE') === '1';
+const MEM_PROFILE_ENABLED = configManager.env('MEM_PROFILE') === '1';
 
 // R11-001（2026-09-24）：改用零样板门面 getLogger(module) —— 默认 INFO/json 形态，
 // 与原显式构造等价且复用单例；禁止直接构造 Logger 实例。
@@ -24,7 +24,7 @@ const logger = getLogger('chat:mem-profile');
  * §3.1/§3.4：压力期自动升级为逐点采样，无需重启带 MEM_PROFILE）。
  */
 function samplingActive(): boolean {
-  return ENABLED || getMemoryPressureMonitor().currentLevel() >= 1;
+  return MEM_PROFILE_ENABLED || getMemoryPressureMonitor().currentLevel() >= 1;
 }
 
 interface MemSample {

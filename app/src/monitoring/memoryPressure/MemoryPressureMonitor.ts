@@ -28,7 +28,7 @@ import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 // 以下 env 读取均经统一出入口（R05-012）
-const ENABLED = configManager.env('MEM_PRESSURE') !== '0';
+const MEM_PRESSURE_ENABLED = configManager.env('MEM_PRESSURE') !== '0';
 
 const SOFT1_MB = Number(configManager.env('MEM_PRESSURE_SOFT1_MB', '2400'));
 const SOFT2_MB = Number(configManager.env('MEM_PRESSURE_SOFT2_MB', '3000'));
@@ -145,7 +145,7 @@ class MemoryPressureMonitor {
    * 只在"级别变化/冷却期满"时打日志与通知，正常路径零日志。
    */
   tick(lagMs = 0): void {
-    if (!ENABLED) return;
+    if (!MEM_PRESSURE_ENABLED) return;
     this.feed(this.sample(), lagMs);
     this.maybeScheduleLagProbe();
   }
@@ -321,7 +321,7 @@ class MemoryPressureMonitor {
    * 期间产生的过度收紧/重做将被容忍并记录）。放宽不改变有损压缩本身。
    */
   recordReverseSignal(sessionId: string, reason: string): void {
-    if (!ENABLED || RELAX_DISABLED) return;
+    if (!MEM_PRESSURE_ENABLED || RELAX_DISABLED) return;
     const now = Date.now();
     this.counters.reverseWindow++;
     if (this.level < 2) return; // 守卫②：仅压力下

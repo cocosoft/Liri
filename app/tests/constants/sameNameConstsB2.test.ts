@@ -865,4 +865,37 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2⑮：`POLL_INTERVAL_MS` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `POLL_INTERVAL_MS`（轮询间隔）分属 3 个独立域，取值全不同、全为文件内私有
+    const items: Array<[string, string, string]> = [
+      [
+        'src/channels/bluebubbles/monitor.ts',
+        'BLUEBUBBLES_POLL_INTERVAL_MS',
+        '8000',
+      ],
+      [
+        '../client/src/components/settings/AgentTaskSettings.tsx',
+        'AGENT_TASK_POLL_INTERVAL_MS',
+        '5000',
+      ],
+      [
+        'src/ai/providers/ReplicateProvider.ts',
+        'REPLICATE_POLL_INTERVAL_MS',
+        '2000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const POLL_INTERVAL_MS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**非本键**名仍在（不得误伤）：`POLL_INTERVAL` ×3 与 `POLL_INTERVAL_QR_MS` / `POLL_MAX_ATTEMPTS`
+    expect(read('src/ai/providers/ReplicateProvider.ts')).toContain(
+      'const POLL_MAX_ATTEMPTS = 60;'
+    );
+    expect(read('../client/src/services/sseService.ts')).toContain(
+      'const POLL_INTERVAL = 15000;'
+    );
+  });
 });

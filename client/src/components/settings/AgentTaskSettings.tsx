@@ -39,7 +39,7 @@ const STATUS_FILTERS: { id: StatusFilter; labelKey: string }[] = [
 ];
 
 /** 自动轮询间隔（跨项目全局任务进度保持最新） */
-const POLL_INTERVAL_MS = 5000;
+const AGENT_TASK_POLL_INTERVAL_MS = 5000;
 
 function AgentTaskSettings() {
   const { t } = useTranslation();
@@ -58,7 +58,7 @@ function AgentTaskSettings() {
   // 首次加载 + 每 5s 自动轮询
   useEffect(() => {
     loadTasks();
-    const iv = setInterval(loadTasks, POLL_INTERVAL_MS);
+    const iv = setInterval(loadTasks, AGENT_TASK_POLL_INTERVAL_MS);
     return () => clearInterval(iv);
   }, [loadTasks]);
 

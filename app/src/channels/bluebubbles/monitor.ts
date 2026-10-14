@@ -15,7 +15,7 @@ export declare interface BlueBubblesMonitor {
   on(event: 'close', listener: () => void): this;
 }
 
-const POLL_INTERVAL_MS = 8000;
+const BLUEBUBBLES_POLL_INTERVAL_MS = 8000;
 
 /**
  * BlueBubbles 入站消息监控
@@ -121,7 +121,7 @@ export class BlueBubblesMonitor extends EventEmitter {
   private async pollLoop(): Promise<void> {
     while (this.running) {
       await this.pollOnce();
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      await new Promise((resolve) => setTimeout(resolve, BLUEBUBBLES_POLL_INTERVAL_MS));
     }
   }
 }

@@ -45,7 +45,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 const logger = getLogger('ai:replicate-provider');
 
 /** Replicate 轮询配置 */
-const POLL_INTERVAL_MS = 2000;
+const REPLICATE_POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 60; // 最多等 2 分钟
 
 export class ReplicateProvider extends BaseAIProvider {
@@ -255,7 +255,7 @@ export class ReplicateProvider extends BaseAIProvider {
     apiKey: string
   ): Promise<Record<string, unknown> | null> {
     for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
-      await this.delay(POLL_INTERVAL_MS);
+      await this.delay(REPLICATE_POLL_INTERVAL_MS);
 
       const response = await fetch(
         `https://api.replicate.com/v1/predictions/${predictionId}`,

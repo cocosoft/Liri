@@ -39,7 +39,7 @@ export const HEARTBEAT_INTERVAL = 30 * 1000;
 export const CONNECTION_TIMEOUT = 10 * 1000;
 export const REQUEST_TIMEOUT = 60 * 1000;
 export const MAX_LOG_FILE_SIZE = 10 * 1024 * 1024;
-export const MAX_CACHE_SIZE = 100 * 1024 * 1024;
+export const MAX_CACHE_SIZE_BYTES = 100 * 1024 * 1024;
 export const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
 
 export const DEFAULT_PORT = 3000;

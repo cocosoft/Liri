@@ -43,7 +43,6 @@
     "同名常量:SAFE_ENV_VARS": 2,
     "同名常量:MDM_SUBPROCESS_TIMEOUT_MS": 2,
     "同名常量:DEFAULT_SESSION_TIMEOUT": 2,
-    "同名常量:MAX_CACHE_SIZE": 4,
     "同名常量:MAX_FILENAME_LENGTH": 2,
     "同名常量:DEFAULT_MODEL": 2,
     "同名常量:DEFAULT_MODEL_SENTINEL": 2,

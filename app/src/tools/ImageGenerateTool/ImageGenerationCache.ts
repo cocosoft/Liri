@@ -25,7 +25,7 @@ interface CacheEntry {
   ttlMs: number;
 }
 
-const MAX_CACHE_SIZE = 100;
+const IMAGE_GENERATION_CACHE_MAX_ENTRIES = 100;
 const IMAGE_GENERATION_CACHE_TTL_MS = 3600 * 1000;
 
 export class ImageGenerationCache {
@@ -117,7 +117,7 @@ export class ImageGenerationCache {
     const key = this.computeKey(params);
 
     // 淘汰最旧条目
-    if (this.store.size >= MAX_CACHE_SIZE) {
+    if (this.store.size >= IMAGE_GENERATION_CACHE_MAX_ENTRIES) {
       const oldest = this.store.keys().next().value;
       if (oldest) {
         this.store.delete(oldest);

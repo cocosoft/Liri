@@ -541,4 +541,31 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2④：`MAX_CACHE_SIZE` ×4 已按域消歧（取值/单位一字未改）', () => {
+    // 4 处同名 `MAX_CACHE_SIZE` 单位各异：字节（通用 100 MiB）· 条数（1000 / 10000 / 100）
+    const items: Array<[string, string, string]> = [
+      ['src/constants/common.ts', 'MAX_CACHE_SIZE_BYTES', '100 * 1024 * 1024'],
+      [
+        'src/ink/ink/line-width-cache.ts',
+        'LINE_WIDTH_CACHE_MAX_ENTRIES',
+        '1000',
+      ],
+      [
+        'src/tokenBudget/ModelContextCache.ts',
+        'MODEL_CONTEXT_CACHE_MAX_ENTRIES',
+        '10000',
+      ],
+      [
+        'src/tools/ImageGenerateTool/ImageGenerationCache.ts',
+        'IMAGE_GENERATION_CACHE_MAX_ENTRIES',
+        '100',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_CACHE_SIZE = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

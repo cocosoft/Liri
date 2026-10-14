@@ -20,7 +20,7 @@ import { handleError } from '../core/errorHandler.js';
 const MODEL_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** 最大缓存条目数 */
-const MAX_CACHE_SIZE = 10000;
+const MODEL_CONTEXT_CACHE_MAX_ENTRIES = 10000;
 
 // 2026-09-30 直连 core（A2 倒挂收口）：缓存实现由 infra 的 `utils` 改为 core 侧 `TtlCache`
 // （`../spi/CacheService.js`）—— get/set/has/delete/clear/size 与原地逐一同签名（CS01 归一化复用，
@@ -63,7 +63,7 @@ export class ModelContextCache {
   private listeners: Array<() => void> = [];
 
   constructor(ttlMs: number = MODEL_CONTEXT_CACHE_TTL_MS) {
-    this.cache = new TtlCache<ModelContextInfo>(MAX_CACHE_SIZE, ttlMs);
+    this.cache = new TtlCache<ModelContextInfo>(MODEL_CONTEXT_CACHE_MAX_ENTRIES, ttlMs);
   }
 
   /**

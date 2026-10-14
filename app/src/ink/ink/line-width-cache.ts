@@ -11,7 +11,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
-const MAX_CACHE_SIZE = 1000;
+const LINE_WIDTH_CACHE_MAX_ENTRIES = 1000;
 const CACHE_TTL = 60000;
 
 export function getLineWidth(text: string): number {
@@ -24,7 +24,7 @@ export function getLineWidth(text: string): number {
 
   const width = stringWidth(text);
 
-  if (cache.size >= MAX_CACHE_SIZE) {
+  if (cache.size >= LINE_WIDTH_CACHE_MAX_ENTRIES) {
     const oldestKey = Array.from(cache.entries()).sort(
       (a, b) => a[1].timestamp - b[1].timestamp
     )[0][0];

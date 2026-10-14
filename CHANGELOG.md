@@ -19,6 +19,11 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第十七项：`MAX_DEPTH` ×3 按域消歧 —— `lint:consts` 239 → 238 键（−1）**
+  - 判定：3 处定义分属独立域 ⇒ `PHASE_STACK_MAX_DEPTH`（`64`，诊断相位栈上限）· `FILES_MAX_DEPTH`（`4`，`/files` 递归守卫）· `PROJECT_ARTIFACT_MAX_DEPTH`（`4`，工件扫描）；**数值一字未改**。
+  - 全仓核验：3 处全为文件内私有（无 `export`、无消费面）⇒ **零跨文件复改**；另把 **tests 侧同名局部别名**一并消歧（`SUBAGENT_MAX_DEPTH`，非门禁扫描面）；同族非本键 `DEFAULT_ROOT_CAUSE_MAX_DEPTH`（systemgraph 导出真源）**未动**。
+  - 涉及 tests 注释同步：`files-clean.test.ts` 两处注释改指新名（避免悬空引用）。
+  - 验证：守卫 33 pass / 0 fail · `typecheck` 0 · 相关 tests 5 pass · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十六项：`DEFAULT_THROTTLE_MS` ×3 按渠道消歧 —— `lint:consts` 240 → 239 键（−1）**
   - 判定：3 处取值各异、各受渠道上游限流约束 ⇒ `DISCORD_DEFAULT_THROTTLE_MS`（`800`）· `MATRIX_DEFAULT_THROTTLE_MS`（`1000`）· `MSTEAMS_DEFAULT_THROTTLE_MS`（`1500`）；**数值一字未改**。
   - 全仓核验：该名全仓仅 6 处命中（定义 1 + 用法 1 ×3），**全在这 3 个文件内**（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `STREAMING_UPDATE_THROTTLE_MS`（飞书）**未动**（守卫正向钉住）。

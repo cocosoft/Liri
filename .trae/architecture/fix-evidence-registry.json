@@ -3404,6 +3404,26 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三渠道节流日后要**集中到渠道契约真源**（如 `channels/<kind>/contract`）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（239 键）阻断。",
       "notes": "取证：3 处同名 `DEFAULT_THROTTLE_MS` **全为文件内私有**（全仓 6 处 = 定义 1 + 用法 1 ×3，无 export 面）；取值 800/1000/1500 各受渠道上游限流约束 ⇒ 按渠道消歧、**数值一字未改**、**零跨文件复改**。同族非本键 `STREAMING_UPDATE_THROTTLE_MS`（飞书）未动。效果：240 → 239 键。验证：typecheck 0 · 守卫 32 pass/0 fail · channels 域 324 pass · 5 门禁 exit 0。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-17-MAX-DEPTH",
+      "title": "硬编码治理 · 「同名常量」B5-2 第十七项：`MAX_DEPTH` ×3 按域消歧（诊断相位栈 / `/files` 递归 / 工件扫描）⇒ `lint:consts` 239 → 238 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/diagnostics/loopProbe/phaseStack.ts",
+        "app/src/commands/builtin/files/Files.ts",
+        "app/src/infrastructure/http/handlers/project-artifact-handlers.ts",
+        "app/tests/tools/AgentTool/agentDelegationGrant.test.ts",
+        "app/tests/commands/files-clean.test.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三处深度上限日后要**集中到统一遍历工具** ⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（238 键）阻断。",
+      "notes": "取证：3 处同名 `MAX_DEPTH` **全为文件内私有**（无 export 面）；取值 2 种（phaseStack 64 · Files 4 · project-artifact 4）分属三个独立域 ⇒ 按域消歧、**数值一字未改**、**零跨文件复改**。另将 tests 侧同名局部别名一并消歧（`SUBAGENT_MAX_DEPTH`，非门禁扫描面）。同族非本键 `DEFAULT_ROOT_CAUSE_MAX_DEPTH` 未动。效果：239 → 238 键。验证：typecheck 0 · 守卫 33 pass · 5 门禁 exit 0。"
     }
   ]
 }

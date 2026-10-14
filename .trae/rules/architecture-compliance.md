@@ -273,7 +273,9 @@ Health / 健康检查
 
 ---
 
-## R05 模块导入规范（SHOULD）
+## R05 导入规范与代码卫生（SHOULD）
+
+> **本系列口径（2026-10-14 补）**：`R05-*` 由 `scripts/lint-architecture.ts` 承载，既含**导入/访问**规范（R05-005 / R05-011 / R05-012），也含**代码卫生与一致性**检查（R05-003 / R05-004 / R05-007 / R05-008 / R05-013）。此前 R05-003/004/007/008/013 五个编号**只有门禁实现、无规范条目**（`lint:failmsg-refs` 报为「规范悬空」）⇒ 本节即为补录。
 
 ### R05-005 [SHOULD] 禁止不必要的 Barrel 文件
 
@@ -312,6 +314,47 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 - 特性开关 Feature Flag（`AppCore.ts`、`ExtensibilityService.ts`）
 - 测试文件（`__tests__`、`.test.ts`）—— 集成测试需直接注入 API key
 - **`LIRI_*` 前缀**（前缀级白名单）与单点 `PDCA_RUN_MAX_TOKENS` —— **core 层专属理由**：core **不得** import `ConfigManager`（分层约束 R00-001），而 `configManager.env()` 的实现本身就是 `process.env[name] ?? defaultValue`（`config/ConfigManager.ts:1420`）⇒ core 侧读取该命名空间**无合法替代路径**；且 `LIRI_*` 是项目**自有** env 命名空间（`project_rules` §1.4）。**仅放行该前缀 + 该单点，不放宽到任意前缀/变量**。（2026-09-30，台账 D-71；实现见 `scripts/lint-architecture.ts` 的 `whitelistPrefixes`）
+
+### R05-003 [SHOULD] Console 调用基线（禁止净增裸 console）
+
+`src/` 内 `console.log` / `warn` / `error` / `debug` 的**总数**不得越过基线（允许按比例超出）。
+
+- **基线真源**：`scripts/console-baseline.json` 的 `count` / `threshold`（缺省 `2045` / `10%`）⇒ 上限 = `ceil(count × (1 + threshold))`。
+- **判定命令**：`bun run lint:arch` → 输出行 `[Console 基线] 当前 N 次调用（基线: … 上限: …）`。等级 **warning（不阻断提交）**。
+- **排除面**：测试文件（`.test.` / `__tests__` / `spec.`）与 `.js` 文件不计。
+- **口径要求**：新代码的日志应走 `Logger`（见 **R11-001 / R11-002**）；确需裸 console 时应同步说明，而非直接抬高基线。
+- ⚠️ **已知双源（如实，待收敛）**：CI 另有一条独立阈值 `Console usage gate (baseline: 2034)`（`.github/workflows/ci.yml`，用 `grep` 计数、阈值 2034）。两者**计数口径与阈值均不同**，属历史遗留 ⇒ 收敛前**不得**只改一处。
+
+### R05-004 [MUST] `src/` 下不得存在 `.js` 源文件
+
+`src/` 目录树内不得残留 `.js` 文件（`.test.js` 除外）—— 源码一律 TypeScript。
+
+- **判定命令**：`bun run lint:arch` → 违规行 `src/ 目录下存在 N 个 .js 文件，应改为 .ts`。等级 **error（`exit 1`，阻断）**。
+- **处置**：迁移为 `.ts`（含类型标注）；确属产物/脚本者移出 `src/`。
+
+### R05-007 [MUST] tsconfig / tsconfig.eslint 的类型检查盲区必须收敛
+
+`app/tsconfig.json` 的 `exclude` **不得**把核心模块目录排除在类型检查之外；`tsconfig.eslint.json` 的检查范围必须**不小于** `tsconfig.json`。
+
+- **判定命令**：`bun run lint:arch`。等级：盲区 ⇒ **error（阻断）**；`tsconfig.eslint.json` 未扩大范围 ⇒ **warning**。
+- **已知盲区清单（门禁内以数据表声明）**：`src/hooks` · `src/chat` · `src/governance` · `src/memory` · `src/plugins` · `src/session` · `src/sandbox` · `src/permission` · `src/mcp` · `src/llm` · `src/subagents` · `src/subagent`。
+- **⚠️ 历史教训（本条的由来）**：该检查曾因用 `process.cwd()` 定位 `app/tsconfig.json` 而 `existsSync` 判否后**静默 return** ⇒ **从未真正执行**（从 `app/` 运行时解析到不存在的 `app/app/tsconfig.json`）。根因与纪律见 **AR-2**。
+
+### R05-008 [SHOULD] 禁止功能重叠的重复依赖
+
+`app/package.json` 中**功能重叠**的依赖组不得同时存在。当前登记的组：**Schema 校验** —— `ajv` / `zod` / `@sinclair/typebox`（≥2 个即报，建议统一 Zod）。
+
+- **判定命令**：`bun run lint:arch` → 输出行 `[重复依赖] 发现 N 组功能重叠依赖`。等级 **warning（不阻断提交）**。
+- **扩展方式**：在 `lint-architecture.ts#checkDuplicateDependencies` 的 `overlappingGroups` 内声明（数据驱动，勿写成 if 分支）。
+
+### R05-013 [SHOULD] 类型中心（`src/types/`）重复定义检测
+
+`src/types/**` 中的**定义**（`export interface|type|class`）与**任一模块本地定义**同名 ⇒ 报冲突。
+
+- **判定命令**：`bun run lint:arch` → 输出行 `[类型中心] 已收录 N 个公开类型` + 违规 `[类型中心冲突] …`。等级 **warning（不阻断提交）**。
+- **⚠️ 再导出不计入**：本规则只扫**定义**、不扫 `export … from` ⇒ **shim / 桶转发是合法手法**（与 D-207 `EffectScope`、D-212 `TiktokenEstimator` 一致）；真正受限的只有「往类型中心塞同名定义」这一件事。
+- **往 `types/` 新增/迁移类型前必须核同名**：`grep -E "export (interface|type|class) (新名1|新名2|…)" app/src`；命中同名 ⇒ **不得落 `types/`** —— 改落**非类型中心目录**（如 `utils/`，infra），或按 `knownExceptions` 登记并注明语义差异（**优先前者**，避免例外膨胀）。
+- **反面案例（D-222 B14，已回滚，如实）**：`context/types/Context.ts` 下沉 `types/` ⇒ 与 `docs/HelpSystem.ts#Context`、`memory/types/SessionContext.ts`、`security/SecurityAudit.ts#SessionContext` 同名 ⇒ `[类型中心冲突] 3 处（2 名）`；该文件应落 `utils/`（非类型中心）而非 `types/`。
 
 ---
 
@@ -419,6 +462,14 @@ src/<module>/
 1. **`import type` / `export type` 不计** R00-001（与同仓 eslint 规则 `module-registry/no-direct-module-import` 的 type-only 豁免**同口径**）；另以 `type-only 跨层引用 N 处（仅上报）` 保持可见。
 2. **测试文件**（`__tests__` / `.test.ts` / `.spec.ts`）在 R00-001 / R00-003 / R03-002 **统一排除**（常量 `TEST_FILE_EXCLUSIONS`）。
 
+**R00-002 [SHOULD] 未登记分层映射的顶层目录必须显式上报（防门禁盲区）**
+
+`app/src` 下**未在 `scripts/modules-to-layers.json` 的 `modules` 中登记层归属**的顶层目录，必须**显式上报为 warning**（不得静默跳过）。
+
+- **判定命令**：`bun run lint:arch` → 违规行 `N 个顶层目录未登记分层映射 ⇒ 其文件**不参与**分层检查（门禁盲区）`。等级 **warning（不阻断提交）**。
+- **消除方式**：在 `scripts/modules-to-layers.json` 的 `modules` 里为每个目录补 `{ "layer": … }`（按职责选 `entry`/`ui`/`app`/`service`/`infra`/`core`）；补齐后本条自动消失。
+- **⚠️ 本条的由来（D-3「防盲区复发」，2026-09-28）**：此前 `if (!srcLayer) continue;` 是**静默**跳过 ⇒ 实测 `app/src` 有 **19 个顶层目录**（含整个 `infrastructure/` HTTP 层与 `runtime/`）**从未参与分层检查**，而门禁仍报「违规 0」。改为显式登记并报 warning ⇒ 盲区一旦新增/存续即被看见。
+
 ### R06-009 [SHOULD] 碎片归集（AR06）
 
 **R06-009-1 [SHOULD] 单文件行数下限 100 行**（不含类型定义、barrel 文件、测试文件）
@@ -444,6 +495,44 @@ src/<module>/
 - **依赖方向**以 `scripts/modules-to-layers.json#allowedDependencies` 为**唯一事实源**：任一层只允许依赖「自身 ＋ 更低层」，层序 `entry > ui > app > service > infra > core`（层表与禁止方向详见 **R06-008**）
 - 常见具体约束（**示例**，非穷举；完整判据以事实源为准）：`core` 仅依赖 `core` ⇒ `core/` 不依赖 `modules/`(app) 或 `utils/`(infra)；`infra`（含 `utils/`）**允许**依赖 `core`（含 `types/`）；`app`（含 `modules/` · `chat/` · `tools/`）允许依赖 `service` · `infra` · `core`
 - ⚠️ 本节 2026-10-01 按事实源订正：此前写「依赖方向：`modules/` → `core/` → `utils/`」与「`utils/` 不依赖 `core/`」——**方向与层归属均与现行模型相反**（现行 `utils`=infra 在 core **之上**，`modules`=app 在 infra **之上**）
+
+---
+
+## R07 碎片化防回潮与工作区卫生（SHOULD）
+
+> **本系列口径（2026-10-14 补）**：`R07-*` 四条均由 `scripts/lint-architecture.ts` 实现，等级**全部为 warning（不阻断提交）**；此前**只有门禁实现、无规范条目**（`lint:failmsg-refs` 报为「规范悬空」）⇒ 本节即为补录。
+> 共同目标：**防"收敛后又长回来"**（碎片化回潮 / 模板复制回潮 / 参考副本污染统计口径）。
+
+### R07-001 [SHOULD] 禁止 `<10` 行微小源码文件（碎片化防回潮）
+
+单个源码文件（含空行）**少于 10 行**即报 —— 应归并到同域模块。
+
+- **判定命令**：`bun run lint:arch` → 输出行 `[微小文件检查 R07-001] 发现 N 个 <10 行文件`。等级 **warning**。
+- **豁免面**：`*.d.ts` · 测试文件 · `__tests__/` · `__mocks__/` · `index.ts`（桶文件由 **R07-003** 单独治理）· `ink/`（本地化第三方库）· 纯 re-export 桶（交由 R07-003）；另有 `layer-exceptions.json#tinyFileExceptions` 逐文件豁免。
+
+### R07-002 [SHOULD] 禁止自定义文件头异常重复（模板复制防回潮）
+
+同一段自定义文件头（前 21 行、长度 ≥40 字符）在**超过 10 个**文件中重复 ⇒ 报模板复制。
+
+- **判定命令**：`bun run lint:arch` → 输出行 `[license 头检查 R07-002] N 组重复文件头（>10 次）`。等级 **warning**。
+- **⛔ MIT license 头不计入**：`MIT License` / `Permission is hereby granted` 开头的头是 `project_rules` §1.2 的**规范要求**（合规行为，非模板复制）⇒ 显式跳过；本条只检测**自定义头**的异常重复。
+
+### R07-003 [SHOULD] 禁止薄桶（re-export ≤2 符号的 `index.ts`）
+
+`index.ts` 若仅 re-export **≤2 个**具名符号 ⇒ 属薄桶，应**删除并把引用改指实现文件**。
+
+- **判定命令**：`bun run lint:arch` → 输出行 `[薄桶检查 R07-003] 发现 N 个薄桶（re-export ≤2 符号）`。等级 **warning**。
+- **豁免面**：模块入口 `index.ts`（模块公共 API 边界的目录清单在门禁内以数据表声明）；`export * from` 因无法数符号而视为**合法聚合**跳过。
+- **与 R06-010 的关系**：R06-010 定义「模块只通过 `index.ts` 暴露公共 API」，本条只禁**薄**桶 ⇒ 两者不冲突（**边界桶合法，薄桶非法**）。
+- ⚠️ **历史误报（KB-LINT-RELPATH，2026-08-29，如实）**：门禁在仓库根运行时 `relative(cwd, file)` 会带 `app\` 前缀，导致模块入口豁免失效 ⇒ 曾把 **18 个**合法模块入口桶误报为薄桶。路径归一化后消除。
+
+### R07-004 [SHOULD] 仓库工作区不得残留参考副本目录
+
+仓库工作区不得存在 `REF/` · `codex-main` 等**参考副本目录**（未入库，但会**污染人工统计口径**）。
+
+- **判定命令**：`bun run lint:arch` → 输出行 `[工作区参考副本检查 R07-004] 发现 N 个参考副本目录`。等级 **warning**（物理搬迁需择机执行 —— 目录可能被 IDE/索引器占用，`rename` 会被拒）。
+- **依据（2026-09-28 实测）**：`REF/` 含 **82,168 文件 / 2,659 MB**，`git ls-files REF` = **0**（`.gitignore` 已有 `REF/*`）。它本身不入库，但当时把其中 **5,159 个 `.rs`** 当成 Liri 自身代码（真值 **21** 个），得出完全相反的结论（"Rust 193 万行" vs 真实 **3,919 行**）。对应架构原则「**单一事实源**」：参考副本不是本仓事实。
+- **搬迁前**：任何人工统计/脚本**必须**排除这些目录；处置与口径约定见 `dev_docs/20260928/liri-upgrade-plan-20260928.md` §1。
 
 ---
 
@@ -671,6 +760,30 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 - **背景（2026-09-29 D-7 核查）**：该类文件曾达 **20/41**，其 `*InputSchema` / `validateXxxInput` / `logger` **全无人消费**，且**已实测与实现漂移**（`sleep` 写 `milliseconds` 而工具读 `durationMs`、`cron_create` 写 `cron` 而实读 `expression`、`push_notification` 写 `{title,body,url}` 而实参是 `action`）⇒ **"反向归一（让工具 import）"会把过期契约灌进活代码** ⇒ 已全部**删除**。
 - **A 档验证**：临时重建 `tools/MonitorTool/schemas.ts` ⇒ 报 `候选 22 个，零 importer 1 个：tools/MonitorTool/schemas.ts` + 1 条 R15-002 违规 ⇒ **门禁确实会红**；已还原、复用 R15-001 的还原惯例核验残留。
 - **局限（如实）**：仅解析**静态**说明符（`./schemas`、`./schemas.js`、`../<X>/schemas`、`@modules/tools/<X>/schemas`）；动态拼路径无法识别 ⇒ **只漏报、不误报**。
+
+---
+
+## AR 门禁自身纪律（MUST）
+
+> **本系列口径（2026-10-14 补）**：`AR-*`（**带连字符**）是**门禁自身**的纪律，与 §R06 里括注的**旧系列** `AR01`–`AR06`（**无连字符**，已并入 `R06-001`…）**不是同一系列**，勿混。
+> 由来：第 9 轮审查 §3.4「门禁自证」与 `app/tests/gates/gateSelfProof.test.ts` —— **绿色 CI 只说明"当时没报"，不说明门禁真的会报**。`AR-2` / `AR-3` 即两条已落地的门禁纪律；此前 `AR-2` **无任何规范条目**（`lint:failmsg-refs` 报为「规范悬空」），`AR-3` 仅被 `coding-standards.md` §CS08 以「`architecture-compliance.md` AR-3」**跨文件引用**却**在该文件中并不存在**（同属悬空）⇒ 本节即为补录。
+
+### AR-2 [MUST] 门禁定位仓库文件必须用解析后的项目根，禁止 `process.cwd()`
+
+门禁检查器（`scripts/lint-*.ts`）中**需要定位仓库文件**的检查**必须**使用**解析后的绝对项目根**，❌ **不得**用 `process.cwd()`；仅用于**展示**的相对路径（如 `relative(process.cwd(), file)`）不在此列。
+
+**仓库根解析口径（唯一）**：① 显式覆盖 `PYAPP_PROJECT_DIR` 优先（CI / 特殊布局）；② 默认**由脚本位置推导**（`scripts/` 的上级 = 仓库根）。
+
+**为什么（历史实证，2026-10-06）**：用 `cwd` 会使行为**随调用方漂移** —— 从 `app/` 运行时 `resolve(cwd, 'app', 'tsconfig.json')` 解析到不存在的 `app/app/tsconfig.json`，命中 `existsSync` 判否后**静默 return** ⇒ **检查形同关闭**（实测 **R05-007 从未真正执行**）。另注：`app/package.json` 的 `PYAPP_PROJECT_DIR=..` 是 bash 式前缀赋值，**Windows 下不生效**。
+
+**与 CS06 同源**：「找不到就当作 0 违规」= 用空结果冒充结论。
+
+### AR-3 [MUST] 门禁检查器自身崩溃不得被当作"通过"
+
+门禁的**非零退出码必须全部落为失败**；尤其**不得**把「检查器自身崩溃」（如配置 JSON 解析失败 / 路径不存在 ⇒ `exit 2`）当作通过 —— 那意味着**只跑了一部分检查**，结果不可信。
+
+- **落地实证**：`app/scripts/setup-git-hooks.ts` 生成的 pre-commit 钩子已改为 `if [ $RESULT -ne 0 ]`（**原条件 `-ne 0 且 -ne 2` 会把 `exit 2` 当通过**）⇒ 崩溃即阻止提交并提示"检查器异常退出（exit 2）"。
+- **与 CS08 同源**：**解析失败 ⇒ 门禁静默降级**，与"检查器崩溃被当成通过"同级 ⇒ 必须在**写入时**就拦住。
 
 ---
 

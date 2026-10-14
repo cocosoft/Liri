@@ -96,16 +96,31 @@ describe('§8 阶段③ · 接线（"CI 必绿"不是纸面承诺）', () => {
 });
 
 describe('§8 阶段③ · 基线（棘轮不得退化为"什么都不比"）', () => {
-  it('基线可 JSON.parse，四节齐备且非空', () => {
+  it('基线可 JSON.parse；四节齐备（对象），且棘轮未整体退化', () => {
     const parsed = JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<
       string,
       Record<string, number>
     >;
+    let nonEmpty = 0;
     for (const g of GATES) {
       const section = parsed[`lint:${g}`];
       expect(section).toBeDefined();
-      expect(Object.keys(section).length).toBeGreaterThan(0);
+      expect(typeof section).toBe('object');
+      if (Object.keys(section ?? {}).length > 0) nonEmpty++;
     }
+    // ⚠️ 空分节**不是**退化：棘轮语义下「空基线 = **最严**」（任何命中都是新键 ⇒ 阻断）。
+    // 但**四节全空**说明基线被整体写坏/清空 ⇒ 须察觉。
+    expect(nonEmpty).toBeGreaterThan(0);
+  });
+
+  it('悬空规则 ID 已清零：`failmsg-refs` 分节不得残留 `规则ID:` 键', () => {
+    // 防"遇到红灯就播种"：悬空规则 ID 的处置是**补规范条目**，不得降级为"豁免存量"。
+    const parsed = JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<
+      string,
+      Record<string, number>
+    >;
+    const keys = Object.keys(parsed['lint:failmsg-refs'] ?? {});
+    expect(keys.filter((k) => k.startsWith('规则ID:'))).toEqual([]);
   });
 });
 

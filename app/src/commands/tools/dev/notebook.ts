@@ -12,7 +12,7 @@ import { notebookManager } from '@modules/tools';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:dev:notebook');
 
-const SUBCOMMANDS = new Set([
+const NOTEBOOK_SUBCOMMANDS = new Set([
   'create',
   'open',
   'save',
@@ -292,7 +292,7 @@ export const notebookCommand: Command = {
         };
       }
 
-      if (!SUBCOMMANDS.has(subcommand)) {
+      if (!NOTEBOOK_SUBCOMMANDS.has(subcommand)) {
         return {
           success: false,
           error: `未知子命令: ${subcommand}\n使用 /notebook help 查看支持的命令`,

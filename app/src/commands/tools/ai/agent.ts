@@ -32,7 +32,7 @@ const AGENT_TYPES = [
 ] as const;
 
 /** 可用子命令列表 */
-const SUBCOMMANDS = ['run', 'list', 'status', 'stop', 'bg-list'] as const;
+const AGENT_SUBCOMMANDS = ['run', 'list', 'status', 'stop', 'bg-list'] as const;
 
 /**
  * 构建帮助文本
@@ -769,7 +769,7 @@ export const agentCommand: Command = {
         default:
           return {
             success: false,
-            error: `未知子命令 "${subcommand}"。可用子命令: ${SUBCOMMANDS.join(', ')}\n使用 /subagent-run help 查看详细帮助。`,
+            error: `未知子命令 "${subcommand}"。可用子命令: ${AGENT_SUBCOMMANDS.join(', ')}\n使用 /subagent-run help 查看详细帮助。`,
           };
       }
     },

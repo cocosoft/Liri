@@ -960,4 +960,31 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const SUBAGENT_MAX_DEPTH = getTaskConcurrencyLimits().subagentDepth;'
     );
   });
+
+  test('B5-2⑱：`SUBCOMMANDS` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `SUBCOMMANDS`（各命令自己的子命令清单）分属 3 个命令模块，全为文件内私有
+    for (const rel of [
+      'src/commands/tools/dev/notebook.ts',
+      'src/commands/tools/ai/agents.ts',
+      'src/commands/tools/ai/agent.ts',
+    ]) {
+      expect(read(rel)).not.toMatch(/const SUBCOMMANDS = /);
+    }
+    expect(read('src/commands/tools/dev/notebook.ts')).toContain(
+      'const NOTEBOOK_SUBCOMMANDS = new Set(['
+    );
+    expect(read('src/commands/tools/ai/agents.ts')).toContain(
+      "const AGENTS_SUBCOMMANDS = ['list', 'create', 'delete', 'help'] as const;"
+    );
+    expect(read('src/commands/tools/ai/agent.ts')).toContain(
+      "const AGENT_SUBCOMMANDS = ['run', 'list', 'status', 'stop', 'bg-list'] as const;"
+    );
+    // 同族**非本键**名仍在（不得误伤）：git 子命令表 / git 只读子命令集
+    expect(read('src/security/git/gitSafety.ts')).toContain(
+      'const GIT_SUBCOMMANDS: GitSubcommandInfo[] = ['
+    );
+    expect(read('src/security/readOnlyValidation.ts')).toContain(
+      'const GIT_READ_ONLY_SUBCOMMANDS = new Set(['
+    );
+  });
 });

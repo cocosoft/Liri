@@ -30,7 +30,7 @@ const AGENT_TYPES = [
 ] as const;
 
 /** 子命令列表 */
-const SUBCOMMANDS = ['list', 'create', 'delete', 'help'] as const;
+const AGENTS_SUBCOMMANDS = ['list', 'create', 'delete', 'help'] as const;
 
 /** Agent 实例配置 */
 interface AgentInstance {

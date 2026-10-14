@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第二十三项：`POLL_INTERVAL` ×3 按域消歧 —— `lint:consts` 233 → 232 键（−1）**
+  - 判定：3 处取值各异、分属独立轮询域（全在 `client/`、全为文件内私有）⇒ `COMPILE_POLL_INTERVAL_MS`（`1000` · Knowledge 编译轮询）· `VIDEO_TASK_POLL_INTERVAL_MS`（`2000`）· `SSE_FALLBACK_POLL_INTERVAL_MS`（`15000` · 断线兜底）；**数值一字未改**。
+  - **注释同步**：`sseService.ts` 两处注释随名改指新名（防悬空引用）；**守卫改钉**：⑮ 用例原钉的 `POLL_INTERVAL`（已消歧）改钉同族非本键 `POLL_INTERVAL_QR_MS`（wechat `1_500`）。
+  - 验证：守卫 39 pass / 0 fail · app/client `typecheck` 0 · 5 门禁 exit 0；`client` 全量仍为 **180 fail / 12 error（既有，与本片逐字一致）**；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十二项：`CURRENT_SCHEMA_VERSION` ×3 按域消歧 —— `lint:consts` 234 → 233 键（−1）**
   - 判定：三处**域与取值/类型均不同**（memory `2` 数值 · knowledge `1` 数值 · context `'1.0'` **字符串**）⇒ 按域消歧、**不合并**。
   - 处置：① `memory/types/MemoryMetadata.ts` 为**导出真源**（被 `MemorySchemaRegistry` 消费）⇒ **保留原名**；② `knowledge/KnowledgeSchemaMigration.ts` ⇒ `KNOWLEDGE_SCHEMA_VERSION`；③ `context/persistence/ContextPersistence.ts` ⇒ `CONTEXT_PERSISTENCE_SCHEMA_VERSION`（后两处均文件私有 ⇒ 零跨文件复改）。

@@ -3511,6 +3511,24 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若 memory / knowledge / context 三域 schema 版本日后要**统一编排**（同一迁移注册表）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（233 键）阻断。",
       "notes": "取证：三处**域与取值均不同**（memory `2` · knowledge `1` · context `'1.0'`）⇒ 按域消歧。处置：① `memory/…MemoryMetadata.ts` **导出真源保留原名**；② `knowledge/…` ⇒ `KNOWLEDGE_SCHEMA_VERSION`；③ `context/…` ⇒ `CONTEXT_PERSISTENCE_SCHEMA_VERSION`。取值一字未改；效果 234 → 233 键。验证 typecheck 0 · 守卫 38 pass · 5 门禁 exit 0。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-23-POLL-INTERVAL",
+      "title": "硬编码治理 · 「同名常量」B5-2 第二十三项：`POLL_INTERVAL` ×3 按域消歧（编译轮询 / 视频任务 / SSE 兜底）⇒ `lint:consts` 233 → 232 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/components/Knowledge/useCompilePolling.ts",
+        "client/src/hooks/useVideoTaskPolling.ts",
+        "client/src/services/sseService.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 三处轮询若日后要**统一到共享 hook / 轮询工具** ⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（232 键）阻断。",
+      "notes": "取证：3 处同名 `POLL_INTERVAL` **全在 client 侧、全为文件内私有**（无 export 面）；取值各异（编译轮询 1000 · 视频任务 2000 · SSE 兜底 15000）⇒ 按域消歧、**数值一字未改**。含**注释同步**（sseService 两处注释 + 用法改指新名）。同族非本键 `POLL_INTERVAL_QR_MS`（wechat 1500）未动（⑮ 守卫改钉）。效果：233 → 232 键。验证：app/client typecheck 0 · 守卫 39 pass · 5 门禁 exit 0。"
     }
   ]
 }

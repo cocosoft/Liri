@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第二十项：`BINARY_EXTENSIONS` 三定义文件 ⇒ 1（真源保留 / 同文件两副本合一 / 按域消歧）—— `lint:consts` 236 → 235 键（−1）**
+  - 判定（**门禁按「定义文件数」计**，故 4 处定义 = 3）：三处实为**两个不同事实 + 一处同文件重复**。
+  - 处置：① `constants/files.ts` 为**导出真源**（媒体/压缩类，自用 `hasBinaryExtension`）⇒ **保留原名**（唯一真源）；② `knowledge-handlers.ts` 内**两处逐字相同**的函数级副本 ⇒ **合一**为模块级 `KNOWLEDGE_CONVERT_BINARY_EXTENSIONS`（文档转换类），4 个消费点改指新名；③ `FileReadTool.ts` 自带**不同**清单（26 项）⇒ 按域消歧 `FILE_READ_BINARY_EXTENSIONS`。**内容一字未改**。
+  - 验证：守卫 36 pass / 0 fail · `typecheck` 0 · `tests/tools` 853 pass · `tests/infrastructure` 27 pass · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十九项：`COLORS` ×3 按域消歧 —— `lint:consts` 237 → 236 键（−1）**
   - 判定：3 处内容各异、分属独立域 ⇒ `TOAST_TYPE_COLORS`（toast 样式表 · `ToastContainer.tsx`）· `CANVAS_TOOLBAR_COLORS`（画布 8 色调色板 · `CanvasToolbar.tsx`）· `AVATAR_COLORS`（头像底色 8 色 · `Avatar.tsx`）；**内容一字未改**。
   - 全仓核验：3 处全为文件内私有（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `*_COLORS`（`PROVIDER_COLORS`/`TYPE_COLORS`/`EVENT_COLORS` 等）**未动**（守卫正向钉住）。

@@ -3460,6 +3460,23 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若调色板/主题色日后要**集中到设计令牌真源** ⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（236 键）阻断。",
       "notes": "取证：3 处同名 `COLORS` **全为文件内私有**（无 export 面）；内容各异（toast 样式 / 画布 8 色 / 头像 8 色）⇒ 按域消歧、**内容一字未改**、**零跨文件复改**。同族非本键 `*_COLORS` 未动。效果：237 → 236 键。验证：app/client typecheck 0 · 守卫 35 pass · 5 门禁 exit 0。边界：client 全量 180 fail 为**既有**（stash 对照前后同为 180，与本片无关）。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-20-BINARY-EXTENSIONS",
+      "title": "硬编码治理 · 「同名常量」B5-2 第二十项：`BINARY_EXTENSIONS` 按「真源 / 合一 / 消歧」三类分别处置（3 定义文件 ⇒ 1）⇒ `lint:consts` 236 → 235 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/infrastructure/http/handlers/knowledge-handlers.ts",
+        "app/src/tools/FileReadTool/FileReadTool.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三处清单日后要**集中到单一文件类型注册表**（真源 + 用途标签）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（235 键）阻断。",
+      "notes": "取证：门禁按**定义文件数**计（3 文件）。三处处置：① `constants/files.ts` 导出真源**保留原名**；② kh 两处**逐字相同**副本 ⇒ **合一**为 `KNOWLEDGE_CONVERT_BINARY_EXTENSIONS`；③ `FileReadTool.ts` 清单不同 ⇒ `FILE_READ_BINARY_EXTENSIONS`。内容一字未改。效果：236 → 235 键。验证：typecheck 0 · 守卫 36 pass · 5 门禁 exit 0。"
     }
   ]
 }

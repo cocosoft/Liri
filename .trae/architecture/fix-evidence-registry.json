@@ -6358,6 +6358,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② **门禁盲区**（带类型同名定义：全仓 16+ 处）是否扩门禁正则 / 单独批次统一 ⇒ 须用户裁定；③ 副本写回 ⇒ 守卫或棘轮（230 键）阻断。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG）",
       "notes": "取证：门禁正则**只认无类型标注**的同类定义 ⇒ 本键恰为 3 家 STT 提供者（形状各异）⇒ 按域消歧、**内容一字未改**（`{ ...新名, ...config }` 用法同步）。⚠️ **盲区**：带类型写法（`const X: T =`）门禁看不见，全仓仍有 16+ 处 ⇒ 已登记、本片未动。效果：23…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT",
+      "title": "硬编码治理 · 「同名常量」B5-2 第二十六项：`DEFAULT_TIMEOUT` ×3 按域消歧（httpUtils 保留 / toolService / SessionLock）⇒ `lint:consts` 230 → 229 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/services/toolService.ts",
+        "app/src/session/SessionLock.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② `httpUtils` 的 `DEFAULT_TIMEOUT` 零外部消费者 ⇒ 是否「假真源」待裁定；③ 副本写回 ⇒ 守卫或棘轮（229 键）阻断。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT）",
+      "notes": "取证：3 处同名 `DEFAULT_TIMEOUT` 均 `30_000`，但语义分属两域 ⇒ 按域消歧、**取值一字未改**：① `client/src/services/httpUtils.ts` **保留原名**（零导入消费者）；② `toolService.ts` ⇒ `TOOL_CALL_DEFAULT_T…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT）"
     }
   ]
 }

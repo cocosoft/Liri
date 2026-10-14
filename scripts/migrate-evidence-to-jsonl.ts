@@ -72,15 +72,25 @@ function main(): void {
   // ② 明细归档
   // ⚠️ **不得**用**生成物 registry**（已短化）重建条目明细 —— 那会把原文缩短（数据损失）。
   //    实测教训（2026-10-14）：曾因此把归档 3,524 行截成 2,971 行；已从 git 恢复并加此守卫。
+  // `--detail <file>`：**新片**追加明细（一个 JSON 对象：id/title/source/reopenWhen/notes/code/tests/changelog）
+  const detailIdx = process.argv.indexOf('--detail');
+  const detailArg = detailIdx >= 0 ? process.argv[detailIdx + 1] : undefined;
+  const extraItems: RegistryItem[] = detailArg
+    ? [JSON.parse(readFileSync(detailArg, 'utf-8')) as RegistryItem]
+    : [];
   const regMeta = JSON.parse(readFileSync(REGISTRY, 'utf-8')) as Record<
     string,
     unknown
   >;
   const generated = String(regMeta.$comment ?? '').includes('生成物');
   const existing = existsSync(DETAIL) ? readJsonl<DetailRow>(DETAIL) : [];
+  const extraIds = new Set(extraItems.map((i) => i.id));
   const itemRows = generated
-    ? existing.filter((r) => r.id !== CL_BLOCK_ID)
-    : encodeDetailRows(items);
+    ? [
+        ...existing.filter((r) => r.id !== CL_BLOCK_ID && !extraIds.has(r.id)),
+        ...encodeDetailRows(extraItems),
+      ]
+    : encodeDetailRows([...items, ...extraItems]);
   const rows: DetailRow[] = [...itemRows];
 
   // ②b CHANGELOG「未发布段」→ 归档块（**首次**执行时顺带插入锚点；此后按锚点界定 ⇒ 幂等）
@@ -122,19 +132,29 @@ function main(): void {
     problems.push(`归档 ${detOver.length} 行超 ${MAX_DETAIL_LINE}`);
 
   const back = decodeDetailRows(rows);
-  const backCount = [...back.keys()].filter((k) => k !== CL_BLOCK_ID).length;
+  const backCount =
+    [...back.keys()].filter((k) => k !== CL_BLOCK_ID).length - extraIds.size;
   if (backCount !== items.length)
     problems.push(`反解条目数 ${backCount} ≠ ${items.length}`);
   if (joinField(rows, CL_BLOCK_ID, CL_BLOCK_KEY) !== blockText) {
     problems.push('CHANGELOG 归档块「反解 ≠ 原文」');
   }
   if (generated) {
-    const before = existing.filter((r) => r.id !== CL_BLOCK_ID).length;
-    const after = rows.filter((r) => r.id !== CL_BLOCK_ID).length;
-    if (after !== before) {
+    // 既有条目明细**逐字节保持不变**（只允许 `--detail` 新增/替换**指定 id**）
+    const key = (r: DetailRow): string => JSON.stringify(r);
+    const pick = (src: DetailRow[]): string[] =>
+      src
+        .filter((r) => r.id !== CL_BLOCK_ID && !extraIds.has(r.id))
+        .map(key)
+        .sort();
+    if (JSON.stringify(pick(existing)) !== JSON.stringify(pick(rows))) {
       problems.push(
-        `条目明细行数变化 ${before} → ${after}（生成物模式应保持不变）`
+        `既有条目明细被改动（${pick(existing).length} → ${pick(rows).length} 行）—— 生成物模式禁止`
       );
+    }
+    for (const id of extraIds) {
+      if (!rows.some((r) => r.id === id))
+        problems.push(`--detail 条目无明细行：${id}`);
     }
     const missing = items
       .filter((it) => !rows.some((r) => r.id === it.id))
@@ -195,7 +215,8 @@ function main(): void {
   }
 
   mkdirSync(dirname(DETAIL), { recursive: true });
-  writeFileSync(LOG, `${logLines.join('\n')}\n`, 'utf-8');
+  // 生成物模式下 **不重写写入点**（否则会抹掉新追加的行 —— 实测教训 2026-10-14）
+  if (!generated) writeFileSync(LOG, `${logLines.join('\n')}\n`, 'utf-8');
   writeFileSync(DETAIL, `${detailLines.join('\n')}\n`, 'utf-8');
   if (clOut !== null) writeFileSync(CHANGELOG, clOut, 'utf-8');
   try {

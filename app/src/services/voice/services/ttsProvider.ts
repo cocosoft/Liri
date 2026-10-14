@@ -33,6 +33,7 @@ export type {
 export { TTSQueuePriority } from './ttsTypes';
 
 import { EdgeTTSProvider } from './edgeTTSProvider';
+import { WAV_HEADER_SIZE } from './audioUtils';
 export { EdgeTTSProvider };
 
 const logger = getLogger('voice:ttsProvider');
@@ -374,10 +375,7 @@ interface ChunkConfig {
   crossFadeMs: number;
 }
 
-/**
- * WAV 文件头长度（PCM16 单声道）
- */
-const WAV_HEADER_SIZE = 44;
+// WAV 文件头长度已统一到真源 `./audioUtils`（硬编码治理「同名常量」B2b）。
 
 /**
  * 从 WAV Buffer 中提取 PCM 数据（跳过 44 字节头部）

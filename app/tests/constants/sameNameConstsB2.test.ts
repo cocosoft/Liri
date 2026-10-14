@@ -2,7 +2,8 @@
  * 硬编码治理「同名常量」B2 守卫：协议/格式常量**唯一真源**（`CHANNEL_TAG` · `RESET`→`ANSI_RESET` · `BYTES_PER_TOKEN`）。
  *
  * 背景：这三组原为「同名常量在 ≥2 文件各写一份」——`lint:consts` 的 `同名常量:<NAME>` 检测项。
- * 2026-10-14 **续批 B2b**：再收 `A2A_TASKS_PATH`（原 `a2a-routes.ts` 与 `a2a/discoverySidecar.ts` 各一份）。
+ * 2026-10-14 **续批 B2b**：再收 `A2A_TASKS_PATH`（原 `a2a-routes.ts` 与 `a2a/discoverySidecar.ts` 各一份）
+ * 与 **oauth 加密参数 5 个 + 盐消歧**、**`WAV_HEADER_SIZE`**。
  * B2 的处置是**保留单一真源、其余处改为引用/转出**（导出面不变 ⇒ 零消费者改动、零行为变化）。
  *
  * 本测试即**防回流**：若有人再在消费侧写回 `const X =`，此处立即变红
@@ -77,5 +78,56 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(sidecar).toContain(
       "import { A2A_TASKS_PATH } from '@modules/types/a2a';"
     );
+  });
+
+  test('B2b：AES-256-GCM 参数真源在 oauth/utils/OAuthCrypto.ts；两 store 以别名引用（加密实现逐字不动）', () => {
+    const truth = read('src/oauth/utils/OAuthCrypto.ts');
+    expect(truth).toMatch(/export const OAUTH_CIPHER_ALGORITHM = 'aes-256-gcm';/);
+    expect(truth).toMatch(/export const OAUTH_CIPHER_IV_LENGTH = 16;/);
+    expect(truth).toMatch(/export const OAUTH_CIPHER_AUTH_TAG_LENGTH = 16;/);
+    expect(truth).toMatch(/export const OAUTH_CIPHER_KEY_LENGTH = 32;/);
+    expect(truth).toMatch(/export const OAUTH_PBKDF2_ITERATIONS = 100000;/);
+    for (const rel of [
+      'src/oauth/OAuthProviderStore.ts',
+      'src/oauth/services/OAuthStorage.ts',
+    ]) {
+      const src = read(rel);
+      // 不再各自定义参数常量...
+      for (const decl of [
+        /const ALGORITHM =/,
+        /const IV_LENGTH =/,
+        /const AUTH_TAG_LENGTH =/,
+        /const KEY_LENGTH =/,
+        /const ITERATIONS =/,
+        /const PBKDF2_SALT =/,
+      ]) {
+        expect(src).not.toMatch(decl);
+      }
+      // ...而是以**别名导入**保留原有局部名（实现零改动）
+      expect(src).toContain('OAUTH_CIPHER_ALGORITHM as ALGORITHM');
+      expect(src).toContain('OAUTH_PBKDF2_ITERATIONS as ITERATIONS');
+    }
+    // 盐已**改名消歧**但**值不变**（两处本就不同值 ⇒ 存量密文照常解密）
+    expect(read('src/oauth/OAuthProviderStore.ts')).toContain(
+      "'pyapp-oauth-provider-salt-v1'"
+    );
+    expect(read('src/oauth/services/OAuthStorage.ts')).toContain(
+      "'pyapp-oauth-salt-v2'"
+    );
+  });
+
+  test('B2b：WAV_HEADER_SIZE 真源在 services/voice/services/audioUtils.ts；三处消费侧改引真源', () => {
+    expect(read('src/services/voice/services/audioUtils.ts')).toMatch(
+      /export const WAV_HEADER_SIZE = 44;/
+    );
+    for (const rel of [
+      'src/services/voice/services/audioPlayer.ts',
+      'src/services/voice/services/playbackManager.ts',
+      'src/services/voice/services/ttsProvider.ts',
+    ]) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const WAV_HEADER_SIZE =/);
+      expect(src).toContain("import { WAV_HEADER_SIZE } from './audioUtils';");
+    }
   });
 });

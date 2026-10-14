@@ -20,6 +20,7 @@ import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type { AudioDevice } from './audioDeviceManager';
+import { WAV_HEADER_SIZE } from './audioUtils';
 
 const logger = getLogger('voice:audioPlayer');
 
@@ -57,8 +58,7 @@ interface QueueItem {
   priority: PlayPriority;
 }
 
-/** WAV 文件头长度 */
-const WAV_HEADER_SIZE = 44;
+// WAV 文件头长度已统一到真源 `./audioUtils`（硬编码治理「同名常量」B2b）。
 
 /** 播放超时（毫秒），超过此时间未完成视为完成 */
 const PLAY_TIMEOUT_MS = 1500;

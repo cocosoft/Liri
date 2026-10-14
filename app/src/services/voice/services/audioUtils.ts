@@ -5,6 +5,14 @@
  * 从 voiceService.ts 提取以减小上帝对象耦合。
  */
 
+/**
+ * WAV 文件头固定长度（PCM16 单声道，44 字节）。
+ *
+ * **唯一真源**（硬编码治理「同名常量」B2b）：原于 `audioPlayer.ts` / `playbackManager.ts` /
+ * `ttsProvider.ts` **各写一份**同名常量 ⇒ 统一由此导出（本文件零依赖 ⇒ 作叶子真源，无环风险）。
+ */
+export const WAV_HEADER_SIZE = 44;
+
 /** 对象池：复用 pcm16BufferToSamples 的 Float64Array 缓冲区 */
 let samplesBuffer: Float64Array | null = null;
 

@@ -39,15 +39,24 @@ import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+// AES-256-GCM 参数统一到真源 `utils/OAuthCrypto.ts`（硬编码治理「同名常量」B2b）——
+// 以**别名导入**保留原有局部名 ⇒ 加解密实现**逐字不动**（用法零改动，降低安全代码 review 风险）。
+import {
+  OAUTH_CIPHER_ALGORITHM as ALGORITHM,
+  OAUTH_CIPHER_IV_LENGTH as IV_LENGTH,
+  OAUTH_CIPHER_AUTH_TAG_LENGTH as AUTH_TAG_LENGTH,
+  OAUTH_CIPHER_KEY_LENGTH as KEY_LENGTH,
+  OAUTH_PBKDF2_ITERATIONS as ITERATIONS,
+} from './utils/OAuthCrypto.js';
 
 const logger = getLogger('oauth:providerStore');
 
-const ALGORITHM = 'aes-256-gcm';
-const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
-const ITERATIONS = 100000;
-const KEY_LENGTH = 32;
-const PBKDF2_SALT = Buffer.from('pyapp-oauth-provider-salt-v1');
+/**
+ * PBKDF2 盐（**本 store 专用**）。
+ * 硬编码治理「同名常量」B2b：与 `services/OAuthStorage.ts` 的盐**值不同**（不同事实）
+ * ⇒ 原同名 `PBKDF2_SALT` 具误导性，改名消歧（**值不变** ⇒ 存量密文照常解密）。
+ */
+const PROVIDER_PBKDF2_SALT = Buffer.from('pyapp-oauth-provider-salt-v1');
 
 /** Provider 配置（对外展示形态，clientSecret 为明文仅内部解密后使用） */
 export interface OAuthProviderInfo {
@@ -133,7 +142,13 @@ export class OAuthProviderStore {
         'OAUTH_ENCRYPTION_KEY_TOO_SHORT'
       );
     }
-    return pbkdf2Sync(envKey, PBKDF2_SALT, ITERATIONS, KEY_LENGTH, 'sha256');
+    return pbkdf2Sync(
+      envKey,
+      PROVIDER_PBKDF2_SALT,
+      ITERATIONS,
+      KEY_LENGTH,
+      'sha256'
+    );
   }
 
   private encryptSecret(plaintext: string): string {

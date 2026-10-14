@@ -17,17 +17,24 @@ import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
+// AES-256-GCM 参数统一到真源 `../utils/OAuthCrypto.ts`（硬编码治理「同名常量」B2b）——
+// 以**别名导入**保留原有局部名 ⇒ 加解密实现**逐字不动**（用法零改动，降低安全代码 review 风险）。
+import {
+  OAUTH_CIPHER_ALGORITHM as ALGORITHM,
+  OAUTH_CIPHER_IV_LENGTH as IV_LENGTH,
+  OAUTH_CIPHER_AUTH_TAG_LENGTH as AUTH_TAG_LENGTH,
+  OAUTH_CIPHER_KEY_LENGTH as KEY_LENGTH,
+  OAUTH_PBKDF2_ITERATIONS as ITERATIONS,
+} from '../utils/OAuthCrypto.js';
 
 const logger = getLogger('OAuthStorage');
 
-const ALGORITHM = 'aes-256-gcm';
-const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
-const ITERATIONS = 100000;
-const KEY_LENGTH = 32;
-
-/** PBKDF2 salt（固定盐，密钥强度依赖 OAUTH_ENCRYPTION_KEY） */
-const PBKDF2_SALT = Buffer.from('pyapp-oauth-salt-v2');
+/**
+ * PBKDF2 盐（**本存储专用**；密钥强度依赖 `OAUTH_ENCRYPTION_KEY`）。
+ * 硬编码治理「同名常量」B2b：与 `OAuthProviderStore.ts` 的盐**值不同**（不同事实）
+ * ⇒ 原同名 `PBKDF2_SALT` 具误导性，改名消歧（**值不变** ⇒ 存量密文照常解密）。
+ */
+const TOKEN_PBKDF2_SALT = Buffer.from('pyapp-oauth-salt-v2');
 
 /**
  * OAuth Token 数据结构（唯一版本）
@@ -156,7 +163,7 @@ class OAuthStorageImpl implements OAuthStorage {
     return new Promise((resolve, reject) => {
       pbkdf2(
         envKey,
-        PBKDF2_SALT,
+        TOKEN_PBKDF2_SALT,
         ITERATIONS,
         KEY_LENGTH,
         'sha256',

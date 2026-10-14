@@ -21,6 +21,7 @@ import { PCMAudioPlayer } from './audioPlayer';
 import { isFFmpegAvailable } from './audioFormatConverter';
 import { transcodeToPcm16 } from './audioNormalizer';
 import { decodeWav } from './audioPipeline';
+import { WAV_HEADER_SIZE } from './audioUtils';
 
 const logger = getLogger('voice:playback');
 
@@ -37,8 +38,7 @@ export type PlaybackEventCallback = (
   data: Record<string, unknown>
 ) => void;
 
-/** WAV 文件头固定大小 */
-const WAV_HEADER_SIZE = 44;
+// WAV 文件头长度已统一到真源 `./audioUtils`（硬编码治理「同名常量」B2b）。
 
 /**
  * PlaybackManager — 音频播放管理器

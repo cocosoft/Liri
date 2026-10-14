@@ -14,7 +14,7 @@ export interface TaskHistory {
 }
 
 const STORAGE_KEY = "liri-image-task-history";
-const MAX_HISTORY = 50;
+const IMAGE_TASK_MAX_HISTORY = 50;
 
 export function getHistory(): TaskHistory[] {
   try {
@@ -38,7 +38,7 @@ export function addHistory(
     startedAt: entry.startedAt ?? Date.now(),
     completedAt: entry.completedAt ?? Date.now(),
   });
-  if (list.length > MAX_HISTORY) list.length = MAX_HISTORY;
+  if (list.length > IMAGE_TASK_MAX_HISTORY) list.length = IMAGE_TASK_MAX_HISTORY;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch {

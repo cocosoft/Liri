@@ -26,7 +26,7 @@ interface HistoryItem {
   downloadTxt?: string;
 }
 
-const MAX_HISTORY = 50;
+const STT_TEST_MAX_HISTORY = 50;
 
 /**
  * STT 语音识别测试页面
@@ -294,7 +294,7 @@ function STTTestPage() {
         downloadSrt,
         downloadTxt,
       };
-      setHistory((prev) => [histItem, ...prev].slice(0, MAX_HISTORY));
+      setHistory((prev) => [histItem, ...prev].slice(0, STT_TEST_MAX_HISTORY));
     } catch (err) {
       setError(
         t("voice.transcribeFailed", {
@@ -457,7 +457,7 @@ function STTTestPage() {
       const saved = sessionStorage.getItem("stt_history");
       if (saved) {
         const parsed = JSON.parse(saved) as HistoryItem[];
-        setHistory(parsed.slice(0, MAX_HISTORY));
+        setHistory(parsed.slice(0, STT_TEST_MAX_HISTORY));
       }
     } catch {
       // sessionStorage 数据损坏，静默忽略

@@ -23,7 +23,7 @@ interface TTSPlaygroundProps {
 const HISTORY_KEY = "liri-tts-history";
 
 /** 历史记录最大条数 */
-const MAX_HISTORY = 100;
+const TTS_PLAYGROUND_MAX_HISTORY = 100;
 
 /** 输入字符上限 */
 const MAX_INPUT_CHARS = 5000;
@@ -53,7 +53,7 @@ function TTSPlayground({
       const raw = localStorage.getItem(HISTORY_KEY);
       if (!raw) return [];
       const items: SynthesisHistoryItem[] = JSON.parse(raw);
-      return Array.isArray(items) ? items.slice(-MAX_HISTORY) : [];
+      return Array.isArray(items) ? items.slice(-TTS_PLAYGROUND_MAX_HISTORY) : [];
     } catch {
       return [];
     }
@@ -68,7 +68,7 @@ function TTSPlayground({
   // ── 保存历史 ──
   const saveHistory = useCallback((items: SynthesisHistoryItem[]): void => {
     try {
-      const trimmed = items.slice(-MAX_HISTORY);
+      const trimmed = items.slice(-TTS_PLAYGROUND_MAX_HISTORY);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
       setHistory(trimmed);
     } catch {

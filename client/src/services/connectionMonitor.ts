@@ -27,7 +27,7 @@ const FAIL_THRESHOLD = 3;
 /** 单次健康检查超时 */
 const HEALTH_TIMEOUT_MS = 5_000;
 /** 历史记录上限 */
-const MAX_HISTORY = 20;
+const CONNECTION_MONITOR_MAX_HISTORY = 20;
 
 /** 连接状态（前端本地状态机） */
 export enum ConnectionState {
@@ -153,7 +153,7 @@ function transition(to: ConnectionState, reason: string): void {
     reason,
     timestamp: Date.now(),
   };
-  history = [...history, record].slice(-MAX_HISTORY);
+  history = [...history, record].slice(-CONNECTION_MONITOR_MAX_HISTORY);
 
   if (CRITICAL_STATES.has(to)) {
     logger.warn(`连接状态(关键): ${from} → ${to}`, { reason });

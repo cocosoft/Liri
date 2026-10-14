@@ -143,7 +143,6 @@
     "同名常量:MAX_RETRIES": 2,
     "同名常量:ACTIVE_NAV_KEY": 3,
     "同名常量:STORAGE_KEY": 2,
-    "同名常量:MAX_HISTORY": 4,
     "同名常量:WEEKDAY_KEYS": 2,
     "同名常量:API_BASE": 2,
     "同值host:http://localhost": 15,

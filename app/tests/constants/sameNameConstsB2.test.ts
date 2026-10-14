@@ -650,4 +650,39 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'MAX_FILES_PER_REPLY'
     );
   });
+
+  test('B5-2⑧：`MAX_HISTORY` ×4 已按域消歧（取值一字未改；全在 client 侧）', () => {
+    // 4 处同名 `MAX_HISTORY` **全在 client**：图像任务历史 50 · TTS 试听台 100 · STT 测试页 50 · 连接监控 20
+    const items: Array<[string, string, string]> = [
+      [
+        '../client/src/components/views/image/taskHistoryStore.ts',
+        'IMAGE_TASK_MAX_HISTORY',
+        '50',
+      ],
+      [
+        '../client/src/components/views/TTSPlayground.tsx',
+        'TTS_PLAYGROUND_MAX_HISTORY',
+        '100',
+      ],
+      [
+        '../client/src/components/views/STTTestPage.tsx',
+        'STT_TEST_MAX_HISTORY',
+        '50',
+      ],
+      [
+        '../client/src/services/connectionMonitor.ts',
+        'CONNECTION_MONITOR_MAX_HISTORY',
+        '20',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_HISTORY = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**后缀名** `MAX_HISTORY_ENTRIES`（app 侧压缩指标）是另一个标识符（非本键）⇒ 有意未动
+    expect(read('src/context/compaction/CompactionMetrics.ts')).toContain(
+      'MAX_HISTORY_ENTRIES'
+    );
+  });
 });

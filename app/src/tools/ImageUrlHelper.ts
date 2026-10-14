@@ -96,7 +96,8 @@ export class ImageUrlHelper {
     //    匹配 Windows 绝对路径中的图片，如 E:\...\filename.png
     content = content.replace(
       /[A-Za-z]:[\\\/][^\s"'<>\]]*?[\\\/]([\w._-]+\.(?:png|jpg|jpeg|webp|gif))/gi,
-      (_fullMatch: string, filename: string) => `${IMAGE_DISPLAY_PREFIX}${filename}`
+      (_fullMatch: string, filename: string) =>
+        `${IMAGE_DISPLAY_PREFIX}${filename}`
     );
 
     return content;

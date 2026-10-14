@@ -1034,4 +1034,27 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(frt).toContain('if (FILE_READ_BINARY_EXTENSIONS.has(ext)) {');
     expect(frt).not.toMatch(/(^|[^_])BINARY_EXTENSIONS\b/);
   });
+
+  test('B5-2㉑：`DEFAULT_MAX_RESULT_SIZE_CHARS` 已收敛为单一真源（重复导出面保留）', () => {
+    // 真源：`constants/toolLimits.ts`（唯一保留定义处）
+    expect(read('src/constants/toolLimits.ts')).toContain(
+      'export const DEFAULT_MAX_RESULT_SIZE_CHARS = 50_000;'
+    );
+    // `context/budget`：删本地私有副本 ⇒ 改引用真源
+    const budget = read('src/context/budget/ToolResultBudget.ts');
+    expect(budget).not.toMatch(/const DEFAULT_MAX_RESULT_SIZE_CHARS = /);
+    expect(budget).toContain(
+      "import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';"
+    );
+    // `services/toolResultStorage`：仅保留**导出面**（re-export 真源，消费者零改动）
+    const storage = read('src/services/toolResultStorage/types.ts');
+    expect(storage).not.toMatch(/const DEFAULT_MAX_RESULT_SIZE_CHARS = /);
+    expect(storage).toContain(
+      "export { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';"
+    );
+    // 同族**非本键**：`BYTES_PER_TOKEN` 的 B2 收口形态仍在（不得误伤）
+    expect(storage).toContain(
+      "export { BYTES_PER_TOKEN } from '@modules/constants';"
+    );
+  });
 });

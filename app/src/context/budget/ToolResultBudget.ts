@@ -7,10 +7,11 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { estimateTokens } from '@modules/ai';
+// B5-2㉑（2026-10-14）：原为本文件私有同名副本（值 50_000，与真源同值同事实）⇒ 合一引用真源
+import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';
 
 const logger = getLogger('context:budget');
 
-const DEFAULT_MAX_RESULT_SIZE_CHARS = 50_000;
 /** token-aware: 工具结果最大 token 预算（防止 CJK 文本的 token 消耗远超字符数预期） */
 const DEFAULT_MAX_RESULT_TOKENS = 25_000;
 const TRUNCATION_NOTICE = '\n\n[... 工具结果超出上下文预算，已截断]';

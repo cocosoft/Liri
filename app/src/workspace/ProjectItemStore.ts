@@ -160,9 +160,9 @@ function rowToItem(row: ItemRow): ProjectItem {
 
 // ─── 建表 DDL ───
 
-const TABLE_NAME = 'project_items';
+const PROJECT_ITEMS_TABLE_NAME = 'project_items';
 
-const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS ${PROJECT_ITEMS_TABLE_NAME} (
   id          TEXT PRIMARY KEY NOT NULL,
   project_id  TEXT NOT NULL,
   kind        TEXT NOT NULL CHECK(kind IN ('context', 'artifact')),
@@ -179,7 +179,7 @@ const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 )`;
 
-const UPSERT_SQL = `INSERT INTO ${TABLE_NAME}
+const UPSERT_SQL = `INSERT INTO ${PROJECT_ITEMS_TABLE_NAME}
   (id, project_id, kind, type, title, content, summary,
    session_id, message_id, ref_ids, phase, tags, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -253,15 +253,15 @@ export class ProjectItemStore {
           } else {
             // 建索引（不阻塞）
             this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_items_project ON ${TABLE_NAME}(project_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_items_project ON ${PROJECT_ITEMS_TABLE_NAME}(project_id)`,
               () => {}
             );
             this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_items_kind ON ${TABLE_NAME}(kind)`,
+              `CREATE INDEX IF NOT EXISTS idx_items_kind ON ${PROJECT_ITEMS_TABLE_NAME}(kind)`,
               () => {}
             );
             this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_items_type ON ${TABLE_NAME}(type)`,
+              `CREATE INDEX IF NOT EXISTS idx_items_type ON ${PROJECT_ITEMS_TABLE_NAME}(type)`,
               () => resolve()
             );
           }
@@ -496,7 +496,7 @@ export class ProjectItemStore {
       const result = await new Promise<ProjectItem | null>(
         (resolve, reject) => {
           this.db!.get(
-            `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
+            `SELECT * FROM ${PROJECT_ITEMS_TABLE_NAME} WHERE id = ?`,
             id,
             (err: Error | null, row: ItemRow | undefined) => {
               if (err) reject(err);
@@ -526,8 +526,8 @@ export class ProjectItemStore {
     span.setAttribute('projectId', this.projectId);
     try {
       const sql = kind
-        ? `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? AND kind = ? ORDER BY updated_at DESC`
-        : `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? ORDER BY kind, updated_at DESC`;
+        ? `SELECT * FROM ${PROJECT_ITEMS_TABLE_NAME} WHERE project_id = ? AND kind = ? ORDER BY updated_at DESC`
+        : `SELECT * FROM ${PROJECT_ITEMS_TABLE_NAME} WHERE project_id = ? ORDER BY kind, updated_at DESC`;
       const params = kind ? [this.projectId, kind] : [this.projectId];
       const result = await new Promise<ProjectItem[]>((resolve, reject) => {
         this.db!.all(sql, params, (err: Error | null, rows: ItemRow[]) => {
@@ -553,7 +553,7 @@ export class ProjectItemStore {
     this.ensureDb();
     return new Promise<ProjectItem[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? AND type = ? ORDER BY updated_at DESC`,
+        `SELECT * FROM ${PROJECT_ITEMS_TABLE_NAME} WHERE project_id = ? AND type = ? ORDER BY updated_at DESC`,
         this.projectId,
         type,
         (err: Error | null, rows: ItemRow[]) => {
@@ -584,7 +584,7 @@ export class ProjectItemStore {
             .join(' ');
           const ftsRows = await new Promise<ItemRow[]>((resolve, reject) => {
             this.db!.all(
-              `SELECT pi.* FROM ${TABLE_NAME} pi
+              `SELECT pi.* FROM ${PROJECT_ITEMS_TABLE_NAME} pi
                JOIN project_items_fts fts ON pi.rowid = fts.rowid
                WHERE project_items_fts MATCH ?
                ORDER BY rank
@@ -611,7 +611,7 @@ export class ProjectItemStore {
       const likePattern = `%${escapeLike(query)}%`;
       const result = await new Promise<ProjectItem[]>((resolve, reject) => {
         this.db!.all(
-          `SELECT * FROM ${TABLE_NAME}
+          `SELECT * FROM ${PROJECT_ITEMS_TABLE_NAME}
            WHERE project_id = ?
              AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')
            ORDER BY updated_at DESC
@@ -651,7 +651,7 @@ export class ProjectItemStore {
       const rowid = await this._getRowid(id);
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${TABLE_NAME} WHERE id = ?`,
+          `DELETE FROM ${PROJECT_ITEMS_TABLE_NAME} WHERE id = ?`,
           id,
           (err: Error | null) => {
             if (err) reject(err);
@@ -680,7 +680,7 @@ export class ProjectItemStore {
     this.ensureDb();
     return new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE_NAME} WHERE project_id = ?`,
+        `DELETE FROM ${PROJECT_ITEMS_TABLE_NAME} WHERE project_id = ?`,
         this.projectId,
         (err: Error | null) => {
           if (err) reject(err);

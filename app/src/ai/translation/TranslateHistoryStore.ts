@@ -19,7 +19,7 @@ import type {
   TranslateHistoryPage,
 } from './types';
 
-const TABLE_NAME = 'translate_history';
+const TRANSLATE_HISTORY_TABLE_NAME = 'translate_history';
 const logger = getLogger('ai:translation:history');
 
 export class TranslateHistoryStore {
@@ -65,7 +65,7 @@ export class TranslateHistoryStore {
   private async createTable(): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+        `CREATE TABLE IF NOT EXISTS ${TRANSLATE_HISTORY_TABLE_NAME} (
           id              TEXT PRIMARY KEY,
           group_id        TEXT NOT NULL,
           source_text     TEXT NOT NULL,
@@ -88,14 +88,14 @@ export class TranslateHistoryStore {
     // 创建索引
     await new Promise<void>((resolve) => {
       this.db!.run(
-        `CREATE INDEX IF NOT EXISTS idx_translate_history_group ON ${TABLE_NAME}(group_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_translate_history_group ON ${TRANSLATE_HISTORY_TABLE_NAME}(group_id)`,
         () => resolve()
       );
     });
 
     await new Promise<void>((resolve) => {
       this.db!.run(
-        `CREATE INDEX IF NOT EXISTS idx_translate_history_created ON ${TABLE_NAME}(created_at DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_translate_history_created ON ${TRANSLATE_HISTORY_TABLE_NAME}(created_at DESC)`,
         () => resolve()
       );
     });
@@ -106,7 +106,7 @@ export class TranslateHistoryStore {
     try {
       await new Promise<void>((resolve) => {
         this.db!.run(
-          `ALTER TABLE ${TABLE_NAME} ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`,
+          `ALTER TABLE ${TRANSLATE_HISTORY_TABLE_NAME} ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`,
           () => resolve()
         );
       });
@@ -128,7 +128,7 @@ export class TranslateHistoryStore {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `INSERT INTO ${TABLE_NAME} (id, group_id, source_text, translated_text, source_lang, target_lang, model, duration_ms, usage_json, starred, created_at)
+        `INSERT INTO ${TRANSLATE_HISTORY_TABLE_NAME} (id, group_id, source_text, translated_text, source_lang, target_lang, model, duration_ms, usage_json, starred, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
         [
           id,
@@ -187,7 +187,7 @@ export class TranslateHistoryStore {
 
     const countRow = await new Promise<{ total: number }>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as total FROM ${TABLE_NAME} ${whereClause}`,
+        `SELECT COUNT(*) as total FROM ${TRANSLATE_HISTORY_TABLE_NAME} ${whereClause}`,
         bindParams,
         (err: Error | null, row: { total: number }) => {
           if (err) reject(err);
@@ -213,7 +213,7 @@ export class TranslateHistoryStore {
     const rows = await new Promise<RawRow[]>((resolve, reject) => {
       this.db!.all(
         `SELECT id, group_id, source_text, translated_text, source_lang, target_lang, model, duration_ms, usage_json, starred, created_at
-         FROM ${TABLE_NAME} ${whereClause}
+         FROM ${TRANSLATE_HISTORY_TABLE_NAME} ${whereClause}
          ORDER BY created_at DESC
          LIMIT ? OFFSET ?`,
         [...bindParams, pageSize, offset],
@@ -255,7 +255,7 @@ export class TranslateHistoryStore {
     const current = await new Promise<{ starred: number }>(
       (resolve, reject) => {
         this.db!.get(
-          `SELECT starred FROM ${TABLE_NAME} WHERE id = ?`,
+          `SELECT starred FROM ${TRANSLATE_HISTORY_TABLE_NAME} WHERE id = ?`,
           [id],
           (err: Error | null, row: { starred: number }) => {
             if (err) reject(err);
@@ -269,7 +269,7 @@ export class TranslateHistoryStore {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `UPDATE ${TABLE_NAME} SET starred = ? WHERE id = ?`,
+        `UPDATE ${TRANSLATE_HISTORY_TABLE_NAME} SET starred = ? WHERE id = ?`,
         [newVal, id],
         (err: Error | null) => {
           if (err) reject(err);
@@ -289,7 +289,7 @@ export class TranslateHistoryStore {
 
     return new Promise<boolean>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE_NAME} WHERE id = ?`,
+        `DELETE FROM ${TRANSLATE_HISTORY_TABLE_NAME} WHERE id = ?`,
         [id],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
@@ -313,7 +313,7 @@ export class TranslateHistoryStore {
 
     return new Promise<number>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE_NAME} WHERE id IN (${placeholders})`,
+        `DELETE FROM ${TRANSLATE_HISTORY_TABLE_NAME} WHERE id IN (${placeholders})`,
         ids,
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
@@ -330,10 +330,13 @@ export class TranslateHistoryStore {
     await this.initialize();
 
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${TABLE_NAME}`, (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        `DELETE FROM ${TRANSLATE_HISTORY_TABLE_NAME}`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
 
     logger.info('翻译历史已清空');

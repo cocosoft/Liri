@@ -18,7 +18,7 @@ import type { TaskNode, TaskStatus, TaskType } from './types';
 
 const logger = getLogger('workspace:TaskStore');
 
-const TABLE_NAME = 'tasks';
+const TASKS_TABLE_NAME = 'tasks';
 
 // ─── 数据库行类型（snake_case，匹配 SQLite 列） ───
 
@@ -134,7 +134,7 @@ export class TaskStore {
   private createTables(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+        `CREATE TABLE IF NOT EXISTS ${TASKS_TABLE_NAME} (
           id              TEXT PRIMARY KEY,
           workspace_id    TEXT NOT NULL,
           project_id      TEXT,
@@ -171,15 +171,15 @@ export class TaskStore {
           } else {
             // 索引
             this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON ${TABLE_NAME}(workspace_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON ${TASKS_TABLE_NAME}(workspace_id)`,
               () => {}
             );
             this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_tasks_project ON ${TABLE_NAME}(project_id)`,
+              `CREATE INDEX IF NOT EXISTS idx_tasks_project ON ${TASKS_TABLE_NAME}(project_id)`,
               () => {}
             );
             this.db!.run(
-              `CREATE INDEX IF NOT EXISTS idx_tasks_status ON ${TABLE_NAME}(workspace_id, status)`,
+              `CREATE INDEX IF NOT EXISTS idx_tasks_status ON ${TASKS_TABLE_NAME}(workspace_id, status)`,
               () => resolve()
             );
           }
@@ -206,7 +206,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE workspace_id = ? ORDER BY created_at DESC`,
+        `SELECT * FROM ${TASKS_TABLE_NAME} WHERE workspace_id = ? ORDER BY created_at DESC`,
         [workspaceId],
         (err: Error | null, rows: TaskRow[]) => {
           if (err) {
@@ -228,7 +228,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? ORDER BY created_at DESC`,
+        `SELECT * FROM ${TASKS_TABLE_NAME} WHERE project_id = ? ORDER BY created_at DESC`,
         [projectId],
         (err: Error | null, rows: TaskRow[]) => {
           if (err) {
@@ -250,7 +250,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.get(
-        `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
+        `SELECT * FROM ${TASKS_TABLE_NAME} WHERE id = ?`,
         [id],
         (err: Error | null, row: TaskRow | undefined) => {
           if (err || !row) {
@@ -268,7 +268,7 @@ export class TaskStore {
     return new Promise((resolve, reject) => {
       const db = this.ensureDb();
       db.run(
-        `INSERT OR REPLACE INTO ${TABLE_NAME}
+        `INSERT OR REPLACE INTO ${TASKS_TABLE_NAME}
           (id, workspace_id, project_id, title, description, type, status, priority,
            tags, parent_id, depends_on, estimated_effort, assignee, session_id,
            estimated_impact, risk_warnings, progress, started_at, completed_at,
@@ -429,7 +429,7 @@ export class TaskStore {
       params.push(id);
 
       db.run(
-        `UPDATE ${TABLE_NAME} SET ${setClauses.join(', ')} WHERE id = ?`,
+        `UPDATE ${TASKS_TABLE_NAME} SET ${setClauses.join(', ')} WHERE id = ?`,
         params,
         (err: Error | null) => {
           if (err) {
@@ -453,7 +453,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.run(
-        `DELETE FROM ${TABLE_NAME} WHERE id = ?`,
+        `DELETE FROM ${TASKS_TABLE_NAME} WHERE id = ?`,
         [id],
         (err: Error | null) => {
           if (err) {
@@ -475,7 +475,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE workspace_id = ? AND status = ? ORDER BY created_at DESC`,
+        `SELECT * FROM ${TASKS_TABLE_NAME} WHERE workspace_id = ? AND status = ? ORDER BY created_at DESC`,
         [workspaceId, status],
         (err: Error | null, rows: TaskRow[]) => {
           if (err) {
@@ -497,7 +497,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE project_id = ? AND parent_id IS NULL ORDER BY created_at ASC`,
+        `SELECT * FROM ${TASKS_TABLE_NAME} WHERE project_id = ? AND parent_id IS NULL ORDER BY created_at ASC`,
         [projectId],
         (err: Error | null, rows: TaskRow[]) => {
           if (err) {
@@ -519,7 +519,7 @@ export class TaskStore {
     return new Promise((resolve) => {
       const db = this.ensureDb();
       db.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE parent_id = ? ORDER BY created_at ASC`,
+        `SELECT * FROM ${TASKS_TABLE_NAME} WHERE parent_id = ? ORDER BY created_at ASC`,
         [parentId],
         (err: Error | null, rows: TaskRow[]) => {
           if (err) {

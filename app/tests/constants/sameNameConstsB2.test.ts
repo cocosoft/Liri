@@ -205,4 +205,35 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "export { CRED_STORED_MARKER } from '@modules/constants';"
     );
   });
+
+  test('B5-1①：`TABLE_NAME` ×5 已按域消歧（不再同名；表名字符串值未改）', () => {
+    const stores: Array<[string, string, string]> = [
+      ['src/workspace/TaskStore.ts', 'TASKS_TABLE_NAME', "'tasks'"],
+      [
+        'src/workspace/ProjectItemStore.ts',
+        'PROJECT_ITEMS_TABLE_NAME',
+        "'project_items'",
+      ],
+      [
+        'src/query/DBTAORCheckpointStorage.ts',
+        'TAOR_CHECKPOINTS_TABLE_NAME',
+        "'taor_checkpoints'",
+      ],
+      [
+        'src/ai/translation/TranslateHistoryStore.ts',
+        'TRANSLATE_HISTORY_TABLE_NAME',
+        "'translate_history'",
+      ],
+      [
+        'src/ai/router/SessionRouterStore.ts',
+        'SESSION_ROUTER_TABLE_NAME',
+        "'router_session_routes'",
+      ],
+    ];
+    for (const [rel, name, value] of stores) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const TABLE_NAME =/);
+      expect(src).toContain(`const ${name} = ${value};`);
+    }
+  });
 });

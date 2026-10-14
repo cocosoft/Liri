@@ -21,7 +21,7 @@ import type { TAORCheckpoint, TAORCheckpointStorage } from './types.js';
 
 const logger = getLogger('query:dbTAORCheckpoint');
 
-const TABLE_NAME = 'taor_checkpoints';
+const TAOR_CHECKPOINTS_TABLE_NAME = 'taor_checkpoints';
 
 export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
   private db: Database | null = null;
@@ -56,7 +56,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+        `CREATE TABLE IF NOT EXISTS ${TAOR_CHECKPOINTS_TABLE_NAME} (
           id TEXT PRIMARY KEY,
           session_id TEXT NOT NULL,
           turn_count INTEGER NOT NULL,
@@ -83,7 +83,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `CREATE INDEX IF NOT EXISTS idx_taor_cp_session_id ON ${TABLE_NAME}(session_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_taor_cp_session_id ON ${TAOR_CHECKPOINTS_TABLE_NAME}(session_id)`,
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -93,7 +93,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `CREATE INDEX IF NOT EXISTS idx_taor_cp_created_at ON ${TABLE_NAME}(created_at)`,
+        `CREATE INDEX IF NOT EXISTS idx_taor_cp_created_at ON ${TAOR_CHECKPOINTS_TABLE_NAME}(created_at)`,
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -105,7 +105,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     // 与 PDCA 方案 §四 兼容策略同款「先加后 toggle」——列已存在时 ALTER 报错，忽略即可。
     await new Promise<void>((resolve) => {
       this.db!.run(
-        `ALTER TABLE ${TABLE_NAME} ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'`,
+        `ALTER TABLE ${TAOR_CHECKPOINTS_TABLE_NAME} ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'`,
         () => resolve()
       );
     });
@@ -125,7 +125,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `INSERT OR REPLACE INTO ${TABLE_NAME}
+          `INSERT OR REPLACE INTO ${TAOR_CHECKPOINTS_TABLE_NAME}
         (id, session_id, turn_count, phase, budget_state, conversation_summary,
          last_prompt, created_at, type, kind, breaker_state, loop_detector_state,
          error_recovery_state, pending_tool_calls, message_count, inbox_state)
@@ -193,7 +193,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
       const row = await new Promise<any>((resolve, reject) => {
         this.db!.get(
-          `SELECT * FROM ${TABLE_NAME} WHERE id = ?`,
+          `SELECT * FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE id = ?`,
           [id],
           (err, row) => {
             if (err) reject(err);
@@ -219,7 +219,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${TABLE_NAME} WHERE session_id = ? ORDER BY created_at DESC`,
+        `SELECT * FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE session_id = ? ORDER BY created_at DESC`,
         [sessionId],
         (err, rows) => {
           if (err) reject(err);
@@ -236,10 +236,14 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     if (!this.db) return false;
 
     await new Promise<void>((resolve, reject) => {
-      this.db!.run(`DELETE FROM ${TABLE_NAME} WHERE id = ?`, [id], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      this.db!.run(
+        `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE id = ?`,
+        [id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
     });
 
     return true;
@@ -251,7 +255,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     const row = await new Promise<any>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as count FROM ${TABLE_NAME} WHERE created_at < ?`,
+        `SELECT COUNT(*) as count FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE created_at < ?`,
         [expireTime],
         (err, row) => {
           if (err) reject(err);
@@ -264,7 +268,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     if (count > 0) {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${TABLE_NAME} WHERE created_at < ?`,
+          `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE created_at < ?`,
           [expireTime],
           (err) => {
             if (err) reject(err);
@@ -296,7 +300,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
       this.db!.all(
         // P0 修复（2026-08-14 排查）：过滤空/非法 session_id——脏检查点
         // （session_id=''）会污染 TAORLoop 单例导致会话串扰，此处源头拦截
-        `SELECT DISTINCT session_id FROM ${TABLE_NAME}
+        `SELECT DISTINCT session_id FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
          WHERE session_id IS NOT NULL AND session_id != ''`,
         [],
         (err, rows) => {
@@ -316,7 +320,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     const row = await new Promise<any>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as count FROM ${TABLE_NAME} WHERE session_id = ?`,
+        `SELECT COUNT(*) as count FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE session_id = ?`,
         [sessionId],
         (err, row) => {
           if (err) reject(err);
@@ -329,7 +333,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     if (count > 0) {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${TABLE_NAME} WHERE session_id = ?`,
+          `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE session_id = ?`,
           [sessionId],
           (err) => {
             if (err) reject(err);

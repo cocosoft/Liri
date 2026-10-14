@@ -2984,6 +2984,26 @@
       "changelog": [],
       "reopenWhen": "① 若未来出现「凭据/安全」专属 **infra** 模块（如 `security/**` 内的哨兵常量文件）⇒ 本常量宜迁往该处（当前落 `constants/common.ts`，语义可接受但偏泛）；② `ai/credentials/index.ts` barrel 与 4 个 app 消费点（`ProviderManager`/`ProviderSyncService`/`ProviderAPI`/`CredentialStore`）的导入路径**未改动**（保留导出面）⇒ 若将来要统一为「直接引 `@modules/constants`」需批量改 4 处；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 260）立即阻断。",
       "notes": "**取证（CS06）**：`ai/credentials/CredentialStore.ts:50`（**export**，app 层）与 `chronos/maintenance/ChronosBackgroundHousekeeping.ts:48`（私有，infra 层）同值 `'__stored__'`；**后者注释自述**「本地复刻**避免跨层引用**」（D-146，`credentialStore` 已改经 core SPI，唯独该字符串常量被复刻）⇒ 属**为绕开分层而人为复刻**的重复事实源。**分层核实**（`scripts/modules-to-layers.json`）：`ai`=**app** · `chronos`=**infra** · `constants`=**infra** ⇒ 真源**上提到 infra** 后，`chronos`(infra→infra) 与 `ai`(app→infra) **均合法** ⇒ 复刻的理由（跨层）**消失**。**消费面核实**：app 层有 **4 个消费者**（`ai/providers/ProviderManager.ts` ×5 · `ai/providers/ProviderSyncService.ts` · `ai/api/ProviderAPI.ts` · barrel `ai/credentials/index.ts:35`）⇒ 为**零改动**保留 `CredentialStore.ts` 的**导出面**（改 `export { … } from '@modules/constants'` 纯转出；typecheck 证实该常量在 `CredentialStore.ts` **内部无消费** ⇒ 纯转出成立）。**落地**：① `constants/common.ts` 新增真源（含 docstring：用途 + 为何上提）；② `CredentialStore.ts` 常量定义 → **纯转出**；③ `chronos` 侧删复刻 + 改为 `import { CRED_STORED_MARKER } from '@modules/constants'`（infra→infra ✓），并**改写其上方 D-146 注释**（说明复刻已删、改直引）。**效果（可证伪）**：`lint:consts` **261 → 260**（**−1 键**），门禁自报 `同名常量:CRED_STORED_MARKER` **2 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 260 键**。**守卫**（第 **11** 例）：`constants/common.ts` 真源存在；`chronos` 与 `CredentialStore` **均不含** `const CRED_STORED_MARKER =`；`CredentialStore` 含确切转出形态。**验证**：守卫 **11 pass / 0 fail**；`tests/ai`+`src/ai`+`src/chronos` **250 pass / 0 fail（830 expect）**；`typecheck`（app 三 tsconfig）**0**；`eslint`（3 改动文件）**0 问题**；4 硬编码门禁全 **exit 0**；`lint:arch` **错误 0 / 警告 5（无回归）**。**如实边界**：① `src/chronos` **无既有测试**（该次合跑的 250 例与上一次 `tests/ai`+`src/ai` 相同 ⇒ chronos 侧贡献 0）⇒ 其等价性证据为「同值字符串 + 纯引用替换」+ `typecheck`；② **未做真机走查**（`e2eVerified=false`）；③ 本片只消 **1 键**。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME",
+      "title": "硬编码治理 · **「同名常量」B5-1 子项①**：`TABLE_NAME` ×5 **按域改名消歧**（5 文件**取值本就全不同**）⇒ `lint:consts` **260 → 259 键（−1）**",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + `HD-P1-2 A8` 先例（「有意差异」不合一）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/workspace/TaskStore.ts",
+        "app/src/workspace/ProjectItemStore.ts",
+        "app/src/query/DBTAORCheckpointStorage.ts",
+        "app/src/ai/translation/TranslateHistoryStore.ts",
+        "app/src/ai/router/SessionRouterStore.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① **B5-1 余项仍待执行**（方案与「**整键才消键**」约束见 `HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP` 的 `reopenWhen` ①）：`DEFAULT_BASE_URL` ×5 · `CACHE_TTL_MS` ×7 · `DEFAULT_TIMEOUT_MS` ×8 · `MAX_FILE_SIZE` ×6；② 若某 store 新增第二张表 ⇒ 用 `<域>_<表>_TABLE_NAME` 继续消歧（**不要**回到泛名 `TABLE_NAME`）；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 259）立即阻断。",
+      "notes": "**取证（CS06）**：`TABLE_NAME` ×5 且**取值全不同** —— `workspace/TaskStore.ts:21` `'tasks'` · `workspace/ProjectItemStore.ts:163` `'project_items'` · `query/DBTAORCheckpointStorage.ts:24` `'taor_checkpoints'` · `ai/translation/TranslateHistoryStore.ts:22` `'translate_history'` · `ai/router/SessionRouterStore.ts:55` `'router_session_routes'` ⇒ 属「**命名太泛**」（非重复事实源，**不得**合一；对齐 `HD-P1-2 A8`「有意差异」先例）。**落地（每文件 `replace_all` 单一 token，零行为变化）**：各改 `<域>_TABLE_NAME`（`TASKS_TABLE_NAME` / `PROJECT_ITEMS_TABLE_NAME` / `TAOR_CHECKPOINTS_TABLE_NAME` / `TRANSLATE_HISTORY_TABLE_NAME` / `SESSION_ROUTER_TABLE_NAME`）；grep 证全仓 `TABLE_NAME` **仅作裸 token**（`const TABLE_NAME` 与 `${TABLE_NAME}` 模板，**无更长标识符包含它**）⇒ `replace_all` 不误伤；**表名字符串值一字未改** ⇒ 对 SQLite 表名与存量数据**零影响**。**效果（可证伪）**：`lint:consts` **260 → 259**（**−1 键**），门禁自报 `同名常量:TABLE_NAME` **5 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 259 键**。**守卫**（第 **12** 例）：五文件**均不含** `const TABLE_NAME =`，且各含**确切新名 + 原表名字符串**（同时钉住「已改名」与「值未变」）。**验证**：守卫 **12 pass / 0 fail**；`tests/ai`+`src/ai` **250 pass / 0 fail**；`typecheck`（app 三 tsconfig）**0**；`eslint`（5 改动文件）**首轮 8 errors**（均为 **prettier 行宽** —— 新名比 `TABLE_NAME` 长、模板串超列宽）**已 `--fix`** ⇒ 复查 **0**；4 硬编码门禁全 **exit 0**；`lint:arch` **错误 0 / 警告 5（无回归）**。**如实边界**：① 本片是 **B5-1 的 1/5 子项**（余 4 项见 `reopenWhen` ①）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`（仅相关域 `tests/ai`+`src/ai`；`workspace`/`query` 侧**无既有测试命中**）⇒ 已如实标注。"
     }
   ]
 }

@@ -52,7 +52,7 @@ import type { RouterTier, SessionRouteRecord } from './types.js';
 
 const logger = getLogger('ai:session-store');
 
-const TABLE_NAME = 'router_session_routes';
+const SESSION_ROUTER_TABLE_NAME = 'router_session_routes';
 
 /** 会话黏性 TTL：30 分钟内无更新则过期 */
 const STICKY_TTL_MS = 30 * 60 * 1000;
@@ -90,7 +90,7 @@ export class SessionRouterStore {
   private createTable(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db!.run(
-        `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+        `CREATE TABLE IF NOT EXISTS ${SESSION_ROUTER_TABLE_NAME} (
           session_id TEXT PRIMARY KEY,
           tier TEXT NOT NULL,
           provider TEXT NOT NULL DEFAULT '',
@@ -115,7 +115,7 @@ export class SessionRouterStore {
 
     return new Promise((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${TABLE_NAME} WHERE session_id = ?`,
+        `SELECT * FROM ${SESSION_ROUTER_TABLE_NAME} WHERE session_id = ?`,
         [sessionId],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
@@ -161,7 +161,7 @@ export class SessionRouterStore {
 
     return new Promise((resolve, reject) => {
       this.db!.run(
-        `INSERT INTO ${TABLE_NAME} (session_id, tier, provider, model, created_at, updated_at, hit_count)
+        `INSERT INTO ${SESSION_ROUTER_TABLE_NAME} (session_id, tier, provider, model, created_at, updated_at, hit_count)
          VALUES (?, ?, ?, ?, ?, ?, 1)
          ON CONFLICT(session_id) DO UPDATE SET
            tier = excluded.tier,
@@ -184,7 +184,7 @@ export class SessionRouterStore {
   private delete(sessionId: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE_NAME} WHERE session_id = ?`,
+        `DELETE FROM ${SESSION_ROUTER_TABLE_NAME} WHERE session_id = ?`,
         [sessionId],
         (err: Error | null) => {
           if (err) reject(err);
@@ -203,7 +203,7 @@ export class SessionRouterStore {
 
     return new Promise((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE_NAME} WHERE updated_at < ?`,
+        `DELETE FROM ${SESSION_ROUTER_TABLE_NAME} WHERE updated_at < ?`,
         [cutoff],
         function (this: SqliteRunContext, err: Error | null) {
           if (err) reject(err);

@@ -11,7 +11,6 @@
     "同名常量:POLL_INTERVAL_MS": 3,
     "同名常量:DEFAULT_INTERVAL_MS": 2,
     "同名常量:DEFAULT_REQUEST_TIMEOUT_MS": 2,
-    "同名常量:TABLE_NAME": 5,
     "同名常量:HEARTBEAT_INTERVAL": 2,
     "同名常量:SAFE_ID_PATTERN": 2,
     "同名常量:EMPTY_POLL_LOG_INTERVAL": 2,

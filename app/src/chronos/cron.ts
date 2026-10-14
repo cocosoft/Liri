@@ -313,6 +313,12 @@ const DAY_NAMES = [
   'Saturday',
 ];
 
+/**
+ * ⚠️ **有意 `en-US`**（硬编码治理 `HD-P2-5`，2026-10-14）：
+ * 本模块产出的 cron 描述**以英文呈现**（同文件 `DAY_NAMES` 为英文），时间格式用 `en-US`（`3:30 PM`）
+ * 与模块内文案**口径一致** ⇒ 它**不是**"忽略用户语言"缺陷。
+ * 若将来把该模块整体 i18n，须连同 `DAY_NAMES` 一并改造（届时本条注释一并移除）。
+ */
 function formatLocalTime(minute: number, hour: number): string {
   const d = new Date(2000, 0, 1, hour, minute);
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });

@@ -16,6 +16,7 @@ import type { SessionMessage } from '@modules/session';
 import { resolveDataDir } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const logger = getLogger('tools:SaveConversationTool:SaveConversationTool');
 
 export interface SaveConversationInput {
@@ -119,7 +120,7 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
 
     lines.push('# Liri 对话记录');
     lines.push('');
-    lines.push(`> 保存时间: ${new Date().toLocaleString('zh-CN')}`);
+    lines.push(`> 保存时间: ${new Date().toLocaleString(DEFAULT_LOCALE)}`);
     lines.push(`> 消息总数: ${messages.length}`);
     lines.push('');
 
@@ -130,7 +131,7 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
     for (const msg of conversationMessages) {
       const role = msg.type === 'user' ? '## 用户' : '## Liri';
       const time = msg.createdAt
-        ? new Date(msg.createdAt).toLocaleString('zh-CN')
+        ? new Date(msg.createdAt).toLocaleString(DEFAULT_LOCALE)
         : '';
 
       lines.push(`${role}${time ? ` (${time})` : ''}`);

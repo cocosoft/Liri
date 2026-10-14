@@ -16,6 +16,7 @@ import { resolveDbPath } from '@modules/core';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const logger = getLogger('commands:cron:Cron');
 
 const CRON_DATA_DIR = configManager.env('CRON_DATA_DIR') || '';
@@ -53,7 +54,7 @@ function formatSchedule(s: CronSchedule): string {
 function formatDate(iso: string | undefined): string {
   if (!iso) return '-';
   const d = new Date(iso);
-  return d.toLocaleString('zh-CN', {
+  return d.toLocaleString(DEFAULT_LOCALE, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

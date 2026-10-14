@@ -10,6 +10,7 @@ import { SessionGateway, createSessionGateway } from '@modules/session';
 import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 import type { Transcript } from '@modules/session/types/Transcript';
+import { DEFAULT_LOCALE } from '@modules/constants';
 
 const logger = getLogger('sessionHandler');
 
@@ -82,7 +83,9 @@ export class SessionHandler {
 
       sessions.forEach((session, index) => {
         const statusColor = getStatusColor(session.status);
-        const timeStr = new Date(session.createdAt).toLocaleString('zh-CN');
+        const timeStr = new Date(session.createdAt).toLocaleString(
+          DEFAULT_LOCALE
+        );
         console.log(
           chalk.green(`${String(index + 1).padStart(3)}.`),
           chalk.bold(session.id.slice(0, 8) + '...'),
@@ -272,10 +275,10 @@ export class SessionHandler {
         console.log(`- **ID**: ${session.id}`);
         console.log(`- **状态**: ${session.status}`);
         console.log(
-          `- **创建时间**: ${new Date(session.createdAt).toLocaleString('zh-CN')}`
+          `- **创建时间**: ${new Date(session.createdAt).toLocaleString(DEFAULT_LOCALE)}`
         );
         console.log(
-          `- **更新时间**: ${new Date(session.updatedAt).toLocaleString('zh-CN')}`
+          `- **更新时间**: ${new Date(session.updatedAt).toLocaleString(DEFAULT_LOCALE)}`
         );
         console.log();
 
@@ -295,7 +298,7 @@ export class SessionHandler {
         for (const msg of messages) {
           const roleLabel = msg.role === 'user' ? '👤 用户' : '🤖 助手';
           const time = msg.timestamp
-            ? new Date(msg.timestamp).toLocaleString('zh-CN')
+            ? new Date(msg.timestamp).toLocaleString(DEFAULT_LOCALE)
             : '';
           console.log(`### ${roleLabel} (${time})`);
           console.log();
@@ -358,10 +361,10 @@ function printSessionDetail(session: UnifiedSession): void {
     `  ${chalk.gray('状态:')}     ${getStatusColor(session.status)(session.status)}`
   );
   console.log(
-    `  ${chalk.gray('创建:')}     ${new Date(session.createdAt).toLocaleString('zh-CN')}`
+    `  ${chalk.gray('创建:')}     ${new Date(session.createdAt).toLocaleString(DEFAULT_LOCALE)}`
   );
   console.log(
-    `  ${chalk.gray('更新:')}     ${new Date(session.updatedAt).toLocaleString('zh-CN')}`
+    `  ${chalk.gray('更新:')}     ${new Date(session.updatedAt).toLocaleString(DEFAULT_LOCALE)}`
   );
 
   if (session.metadata) {

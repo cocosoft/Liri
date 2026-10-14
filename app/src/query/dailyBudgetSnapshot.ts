@@ -52,7 +52,14 @@ export interface BudgetSnapshot {
   mode: BudgetMode;
 }
 
-/** 金额（USD）→ 展示串：最少 2 位、最多 4 位小数（与前端 `formatUsd` 同口径）。 */
+/**
+ * 金额（USD）→ 展示串：最少 2 位、最多 4 位小数（与前端 `formatUsd` 同口径）。
+ *
+ * ⚠️ **有意 `en-US`**（硬编码治理 `HD-P2-5`，2026-10-14）：USD 属于**金额口径**（货币符号 +
+ * 千分位 + 小数点 + 小数位），**不是** UI 语言 ⇒ 不随语言切换。它与**前端**
+ * `client/src/components/usage/DailyBudgetPanel.tsx#formatUsd` **逐字同口径**（跨部署契约，
+ * 同 `HD-P0-3` B3/B4 的性质）——**单侧改动会破坏两侧一致性**。
+ */
 export function formatUsdAmount(n: number): string {
   return `$${n.toLocaleString('en-US', {
     minimumFractionDigits: 2,

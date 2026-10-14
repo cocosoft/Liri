@@ -392,17 +392,8 @@
   },
   "lint:locale": {
     "app/src/chronos/cron.ts": 1,
-    "app/src/cli/handlers/sessionHandler.ts": 6,
     "app/src/commands/builtin/budget/Budget.ts": 1,
-    "app/src/commands/builtin/cost/Cost.ts": 1,
-    "app/src/commands/builtin/memory/Memory.ts": 1,
-    "app/src/commands/cron/Cron.ts": 1,
-    "app/src/commands/usagestats/usagestats.ts": 1,
     "app/src/query/dailyBudgetSnapshot.ts": 1,
-    "app/src/tools/DocGenerateTool/DocGenerateTool.ts": 1,
-    "app/src/tools/RecallMemoryTool/RecallMemoryTool.ts": 1,
-    "app/src/tools/SaveConversationTool/SaveConversationTool.ts": 2,
-    "app/src/ui/components/MessageBubble.tsx": 1,
     "client/src/components/usage/DailyBudgetPanel.tsx": 2,
     "桶:语言": 1,
     "桶:时区": 1

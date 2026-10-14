@@ -29,6 +29,7 @@ import { usageStatsService } from '@modules/ai';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const logger = getLogger('commands:usagestats:usagestats');
 
 /** 格式化货币显示 */
@@ -214,7 +215,9 @@ const usagestatsCommand = {
           ];
 
           for (const log of result.data) {
-            const time = new Date(log.timestamp * 1000).toLocaleString('zh-CN');
+            const time = new Date(log.timestamp * 1000).toLocaleString(
+              DEFAULT_LOCALE
+            );
             const status =
               log.statusCode >= 400
                 ? `❌${log.statusCode}`

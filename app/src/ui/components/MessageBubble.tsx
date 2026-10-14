@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { DEFAULT_LOCALE } from '@modules/constants';
 
 export interface MessageBubbleProps {
   content: string;
@@ -23,7 +24,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isLoading = false,
 }) => {
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('zh-CN', {
+    return date.toLocaleTimeString(DEFAULT_LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
     });

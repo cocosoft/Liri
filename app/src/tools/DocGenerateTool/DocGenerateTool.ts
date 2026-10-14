@@ -31,6 +31,7 @@ import {
   resolveLanguage,
   type LangKey,
 } from '@modules/system/i18n/languageProfiles';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const logger = getLogger('tools:DocGenerateTool');
 
 /** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：officecli 探测/调用原为 `execSync`/`spawnSync` */
@@ -1447,7 +1448,7 @@ export class DocGenerateTool extends BaseTool {
           const rendered = engine.render(params.template, {
             title: params.title,
             content: params.content,
-            date: new Date().toLocaleDateString('zh-CN'),
+            date: new Date().toLocaleDateString(DEFAULT_LOCALE),
             author: 'Liri AI',
           });
           finalContent = rendered;

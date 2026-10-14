@@ -46,6 +46,11 @@ const RELIEF_LABEL: Record<string, string> = {
   'unlock-today': '今日解除',
 };
 
+/**
+ * ⚠️ **有意 `en-US`**（硬编码治理 `HD-P2-5`，2026-10-14）：这是**数值的稳定口径**
+ * （千分位 `,` + 小数点 `.`），**不是** UI 语言选择 —— 跟随当前语言会在 `de-DE` 等区域
+ * 变成 `1.234,56`，使 CLI 内同一数值在不同语言下形状不一致。
+ */
 function fmt(n: number): string {
   return n.toLocaleString('en-US');
 }

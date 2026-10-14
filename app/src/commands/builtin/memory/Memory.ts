@@ -12,6 +12,7 @@ import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const logger = getLogger('commands\builtin\memory\Memory');
 
 /**
@@ -238,7 +239,7 @@ const memoryCommand = {
       try {
         const s = await stat(getMemoryFilePath(memoryFiles[i]));
         const size = formatSize(s.size);
-        const date = s.mtime.toLocaleDateString('zh-CN');
+        const date = s.mtime.toLocaleDateString(DEFAULT_LOCALE);
         content += `  ${i + 1}. ${memoryFiles[i]} (${size}, ${date})\n`;
       } catch {
         content += `  ${i + 1}. ${memoryFiles[i]}\n`;

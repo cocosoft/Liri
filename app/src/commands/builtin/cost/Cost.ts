@@ -10,6 +10,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { DEFAULT_LOCALE } from '@modules/constants';
 const logger = getLogger('commands:builtin:cost:Cost');
 
 /**
@@ -199,7 +200,7 @@ async function handleCostHistory(limit: number): Promise<CommandResult> {
   lines.push('');
 
   for (const record of records) {
-    const date = new Date(record.timestamp).toLocaleString('zh-CN');
+    const date = new Date(record.timestamp).toLocaleString(DEFAULT_LOCALE);
     lines.push(
       `  [${date}] ${record.model}: ` +
         `输入 ${record.inputTokens.toLocaleString()} / ` +

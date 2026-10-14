@@ -63,7 +63,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(truth).toMatch(/export const A2A_TASKS_PATH = '\/v1\/a2a\/tasks';/);
     expect(truth).toContain('单一事实源');
     // 两消费侧：均不再定义本地副本，且都从真源模块导入
-    const routes = read('src/infrastructure/http/handlers/routes/a2a-routes.ts');
+    const routes = read(
+      'src/infrastructure/http/handlers/routes/a2a-routes.ts'
+    );
     const sidecar = read('src/infrastructure/http/a2a/discoverySidecar.ts');
     for (const src of [routes, sidecar]) {
       expect(src).not.toMatch(/const TASKS_PATH =/);

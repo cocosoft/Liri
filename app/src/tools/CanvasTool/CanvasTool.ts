@@ -25,7 +25,7 @@ import type { CanvasElement, ExportOptions } from './CanvasInstance';
 const logger = getLogger('tools:canvas');
 
 /** 画布实例自动清理间隔 (ms) */
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+const CANVAS_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 /** 画布实例空闲 TTL (ms) — 15 分钟无操作则销毁 */
 const INSTANCE_IDLE_TTL_MS = 15 * 60 * 1000;
 
@@ -101,7 +101,7 @@ function ensureCleanupTimer(): void {
         remaining: canvasRegistry.size,
       });
     }
-  }, CLEANUP_INTERVAL_MS);
+  }, CANVAS_CLEANUP_INTERVAL_MS);
   // 允许进程退出（不阻止事件循环）
   if (
     cleanupTimer &&

@@ -45,7 +45,7 @@ const APPROVED_COMMAND_TTL_MS = 300_000;
 const APPROVAL_TTL_ENV = 'PERMISSION_APPROVAL_TTL_MS';
 
 /** 定时清理间隔（毫秒） */
-const CLEANUP_INTERVAL_MS = 30_000;
+const APPROVED_COMMAND_CLEANUP_INTERVAL_MS = 30_000;
 
 /**
  * 命令规范化：**引号感知**压缩空白 + 运算符贴边；**保留大小写**。
@@ -259,7 +259,7 @@ export class ApprovedCommandRegistry {
     if (autoCleanup) {
       this.cleanupTimer = setInterval(
         () => this.cleanup(),
-        CLEANUP_INTERVAL_MS
+        APPROVED_COMMAND_CLEANUP_INTERVAL_MS
       );
       // 避免定时器阻止进程退出（测试环境）
       this.cleanupTimer.unref?.();

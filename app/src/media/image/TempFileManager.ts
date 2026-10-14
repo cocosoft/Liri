@@ -21,7 +21,7 @@ const logger = getLogger('media:tempFile');
 /** 默认 TTL (ms)：30 分钟 */
 const TEMP_FILE_TTL_MS = 30 * 60 * 1000;
 /** 清理扫描间隔 (ms)：5 分钟 */
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+const TEMP_FILE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 /** 临时文件元数据 */
 interface TempFileEntry {
@@ -194,7 +194,7 @@ export class TempFileManager {
     if (this.cleanupTimer) return;
     this.cleanupTimer = setInterval(() => {
       this.cleanup('expired');
-    }, CLEANUP_INTERVAL_MS);
+    }, TEMP_FILE_CLEANUP_INTERVAL_MS);
 
     // 允许进程退出
     if (

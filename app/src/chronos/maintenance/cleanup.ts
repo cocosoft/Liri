@@ -13,7 +13,7 @@ import { handleError } from '@modules/error/handleError';
 const logger = getLogger('ChronosCleanup');
 
 const CLEANUP_LOCK_FILE = '.chronos-cleanup.lock';
-const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const CHRONOS_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 async function getCleanupLockPath(): Promise<string> {
   return join(resolveDataDir(), CLEANUP_LOCK_FILE);
@@ -36,12 +36,12 @@ async function isLockStale(lockPath: string): Promise<boolean> {
       try {
         process.kill(pid, 0);
         // 进程存活：按文件年龄判断（超 24h 视为过期）
-        return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
+        return Date.now() - s.mtimeMs > CHRONOS_CLEANUP_INTERVAL_MS;
       } catch (err) {
         const code = (err as NodeJS.ErrnoException).code;
         if (code === 'EPERM') {
           // 进程存在但当前用户无权限访问（Windows 上表示持有者存活）
-          return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
+          return Date.now() - s.mtimeMs > CHRONOS_CLEANUP_INTERVAL_MS;
         }
         // ESRCH 等：进程不存在（已退出/崩溃）→ 锁残留，视为过期
         return true;
@@ -49,7 +49,7 @@ async function isLockStale(lockPath: string): Promise<boolean> {
     }
 
     // 锁文件无有效 PID：仅按年龄判断
-    return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
+    return Date.now() - s.mtimeMs > CHRONOS_CLEANUP_INTERVAL_MS;
   } catch (err) {
     // KB-CLEANUP-LOCK-LOG（2026-08-29）：stat 失败除 ENOENT（无锁文件=可清理）
     // 外静默判定"锁已过期" → 多实例可能同时进入清理流程且无排查线索
@@ -160,7 +160,7 @@ export async function cleanupStaleLocks(): Promise<void> {
     if (existsSync(lockPath)) {
       const s = await stat(lockPath);
       const age = Date.now() - s.mtimeMs;
-      if (age > CLEANUP_INTERVAL_MS * 2) {
+      if (age > CHRONOS_CLEANUP_INTERVAL_MS * 2) {
         await rm(lockPath, { force: true });
         logger.info('已移除过期的清理锁');
       }

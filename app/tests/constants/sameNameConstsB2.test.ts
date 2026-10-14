@@ -747,4 +747,42 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'WS_MAX_RECONNECT_ATTEMPTS'
     );
   });
+
+  test('B5-2⑪：`CLEANUP_INTERVAL_MS` ×4 已按域消歧（取值一字未改）', () => {
+    // 4 处同名 `CLEANUP_INTERVAL_MS`：chronos 日清 24h · 临时文件 5min · 画布实例 5min · 已批准命令 30s
+    const items: Array<[string, string, string]> = [
+      [
+        'src/chronos/maintenance/cleanup.ts',
+        'CHRONOS_CLEANUP_INTERVAL_MS',
+        '24 * 60 * 60 * 1000',
+      ],
+      [
+        'src/media/image/TempFileManager.ts',
+        'TEMP_FILE_CLEANUP_INTERVAL_MS',
+        '5 * 60 * 1000',
+      ],
+      [
+        'src/tools/CanvasTool/CanvasTool.ts',
+        'CANVAS_CLEANUP_INTERVAL_MS',
+        '5 * 60 * 1000',
+      ],
+      [
+        'src/permission/ApprovedCommandRegistry.ts',
+        'APPROVED_COMMAND_CLEANUP_INTERVAL_MS',
+        '30_000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const CLEANUP_INTERVAL_MS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**前缀名** `RECURRING_`/`DEFAULT_CLEANUP_INTERVAL_MS`（另两个标识符）非本键 ⇒ 有意未动
+    expect(
+      read('src/chronos/maintenance/ChronosBackgroundHousekeeping.ts')
+    ).toContain('RECURRING_CLEANUP_INTERVAL_MS');
+    expect(read('src/channels/dedup/index.ts')).toContain(
+      'DEFAULT_CLEANUP_INTERVAL_MS'
+    );
+  });
 });

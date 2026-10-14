@@ -70,7 +70,7 @@ export interface FileEditResult extends FileOperationResult {
   oldStringFound: boolean;
 }
 
-const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
+const FILE_EDIT_MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
 export function editFile(input: FileEditInput): FileEditResult {
   const resolved = resolveFilePath(input.filePath);
@@ -85,7 +85,7 @@ export function editFile(input: FileEditInput): FileEditResult {
   }
 
   const stat = fs.statSync(resolved);
-  if (stat.size > MAX_FILE_SIZE) {
+  if (stat.size > FILE_EDIT_MAX_FILE_SIZE) {
     throw new AppError(
       `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`,
       ErrorCategory.EXECUTION,

@@ -362,4 +362,44 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(sandboxMgr).not.toMatch(/\bDEFAULT_TIMEOUT_MS/);
     expect(sandboxMgr).toContain('SANDBOX_DEFAULT_TIMEOUT_MS');
   });
+
+  test('B5-1⑤：`MAX_FILE_SIZE` ×6 已按域消歧（取值一字未改；`constants/common.ts` 处为假真源故未动）', () => {
+    // 6 处同名 `MAX_FILE_SIZE`：工具侧读取 10 MiB / 编辑·写入 1 GiB / 前端附件 20 MiB（**同值对已登记为合一候选**）
+    const items: Array<[string, string, string]> = [
+      [
+        'src/tools/FileReadTool/FileReadTool.ts',
+        'FILE_READ_MAX_FILE_SIZE',
+        '10 * 1024 * 1024',
+      ],
+      [
+        'src/tools/FileEditTool/FileEditTool.ts',
+        'FILE_EDIT_MAX_FILE_SIZE',
+        '1 * 1024 * 1024 * 1024',
+      ],
+      [
+        'src/tools/FileWriteTool/FileWriteTool.ts',
+        'FILE_WRITE_MAX_FILE_SIZE',
+        '1 * 1024 * 1024 * 1024',
+      ],
+      [
+        '../client/src/components/ChatArea/FileAttachmentBar.tsx',
+        'ATTACHMENT_MAX_FILE_SIZE',
+        '20 * 1024 * 1024',
+      ],
+      [
+        '../client/src/components/ChatArea/ChatInput.tsx',
+        'CHAT_INPUT_ATTACHMENT_MAX_FILE_SIZE',
+        '20 * 1024 * 1024',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_FILE_SIZE =/);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // `app/src/constants/common.ts` 的该名**零消费者**（假真源）⇒ 本片**有意未动**（删除需 CD01–CD06 六步核查，属另案）
+    expect(read('src/constants/common.ts')).toContain(
+      'export const MAX_FILE_SIZE ='
+    );
+  });
 });

@@ -30,7 +30,7 @@ export interface FileAttachmentBarHandle {
   triggerFileInput: () => void;
 }
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const ATTACHMENT_MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 /**
  * FileAttachmentBar — 聊天输入框的附件管理栏
@@ -79,7 +79,7 @@ const FileAttachmentBar = forwardRef<
 
       const newAttachments: FileAttachment[] = [];
       for (const file of Array.from(files)) {
-        if (file.size > MAX_FILE_SIZE) {
+        if (file.size > ATTACHMENT_MAX_FILE_SIZE) {
           toastWarning(
             t("chat.fileTooLargeSkipped", {
               name: file.name,
@@ -135,7 +135,7 @@ const FileAttachmentBar = forwardRef<
       const processFiles = async () => {
         const newAttachments: FileAttachment[] = [];
         for (const file of files) {
-          if (file.size > MAX_FILE_SIZE) {
+          if (file.size > ATTACHMENT_MAX_FILE_SIZE) {
             toastWarning(
               t("chat.fileTooLargeSkipped", {
                 name: file.name,

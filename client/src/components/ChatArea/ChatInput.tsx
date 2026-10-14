@@ -461,11 +461,11 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
    */
   const handleFileAttachments = useCallback(
     async (files: File[]) => {
-      const MAX_FILE_SIZE = 20 * 1024 * 1024;
+      const CHAT_INPUT_ATTACHMENT_MAX_FILE_SIZE = 20 * 1024 * 1024;
       const newAttachments: FileAttachment[] = [];
 
       for (const file of files) {
-        if (file.size > MAX_FILE_SIZE) {
+        if (file.size > CHAT_INPUT_ATTACHMENT_MAX_FILE_SIZE) {
           toastWarning(
             t("chat.fileTooLarge", { name: file.name, max: "20MB" }),
           );

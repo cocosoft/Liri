@@ -30,7 +30,7 @@ export interface FileReadResult extends FileOperationResult {
   truncated: boolean;
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB
+const FILE_READ_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB
 /** 分段读取整读硬上限（2026-09-03）：带 offset 的超限文件允许读（整读后切片返回，
  *  但 offset 只读几十行）；超过此阈值整读内存不划算，一律拒绝并引导 grep。 */
 const SEGMENT_READ_HARD_LIMIT = 50 * 1024 * 1024;
@@ -78,7 +78,7 @@ export function readFile(input: FileReadInput): FileReadResult {
     );
   }
 
-  if (stat.size > MAX_FILE_SIZE && typeof input.offset !== 'number') {
+  if (stat.size > FILE_READ_MAX_FILE_SIZE && typeof input.offset !== 'number') {
     throw new AppError(
       `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB). ` +
         `This tool cannot read the whole file in one call. Use segmented reads instead: ` +

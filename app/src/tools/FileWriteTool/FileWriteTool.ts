@@ -70,7 +70,7 @@ export interface FileWriteResult extends FileOperationResult {
   linesWritten: number;
 }
 
-const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
+const FILE_WRITE_MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
 export function writeFile(input: FileWriteInput): FileWriteResult {
   const resolved = resolveFilePath(input.filePath);
@@ -83,7 +83,7 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
   const existed = fs.existsSync(resolved);
   if (existed) {
     const stat = fs.statSync(resolved);
-    if (stat.size > MAX_FILE_SIZE) {
+    if (stat.size > FILE_WRITE_MAX_FILE_SIZE) {
       throw new AppError(
         `File too large to overwrite: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`,
         ErrorCategory.EXECUTION,

@@ -87,7 +87,7 @@ export const RECONNECT_DELAYS = [
 ] as const;
 
 /** 最大重连尝试次数 */
-export const MAX_RECONNECT_ATTEMPTS = 50;
+export const QQ_MAX_RECONNECT_ATTEMPTS = 50;
 
 /** 限流等待延迟（毫秒） */
 export const RATE_LIMIT_DELAY = 60000;

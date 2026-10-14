@@ -38,7 +38,7 @@ import { getMCPServerManager } from './MCPServerManager';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 // 重连常量
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MCP_MANAGER_MAX_RECONNECT_ATTEMPTS = 5;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 
@@ -249,13 +249,13 @@ export class MCPConnectionManager {
   private async reconnectWithBackoff(
     client: MCPServerConnection
   ): Promise<void> {
-    for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= MCP_MANAGER_MAX_RECONNECT_ATTEMPTS; attempt++) {
       this.updateServer({
         connection: {
           ...client,
           type: 'pending',
           reconnectAttempt: attempt,
-          maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+          maxReconnectAttempts: MCP_MANAGER_MAX_RECONNECT_ATTEMPTS,
         } as MCPServerConnection,
       });
 
@@ -271,7 +271,7 @@ export class MCPConnectionManager {
           return;
         }
 
-        if (attempt === MAX_RECONNECT_ATTEMPTS) {
+        if (attempt === MCP_MANAGER_MAX_RECONNECT_ATTEMPTS) {
           logger.warn(
             `Max reconnection attempts reached for server ${client.name}`
           );
@@ -286,7 +286,7 @@ export class MCPConnectionManager {
           context: { serverName: client.name, attempt },
         });
 
-        if (attempt === MAX_RECONNECT_ATTEMPTS) {
+        if (attempt === MCP_MANAGER_MAX_RECONNECT_ATTEMPTS) {
           logger.warn(
             `Max reconnection attempts reached for server ${client.name}`
           );

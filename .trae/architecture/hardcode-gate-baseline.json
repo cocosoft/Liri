@@ -14,7 +14,6 @@
     "同名常量:IMAGE_EXTENSIONS": 2,
     "同名常量:DEFAULT_THROTTLE_MS": 3,
     "同名常量:MIN_INITIAL_CHARS": 3,
-    "同名常量:MAX_RECONNECT_ATTEMPTS": 4,
     "同名常量:STREAM_IDLE_TIMEOUT_MS": 2,
     "同名常量:CHANNEL_ARROW": 2,
     "同名常量:THINKING_BATCH_SIZE": 2,

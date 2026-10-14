@@ -30,7 +30,7 @@ import {
   QQEventType,
   QQ_INTENT_FULL,
   RECONNECT_DELAYS,
-  MAX_RECONNECT_ATTEMPTS,
+  QQ_MAX_RECONNECT_ATTEMPTS,
   RATE_LIMIT_DELAY,
   QUICK_DISCONNECT_THRESHOLD,
   TOKEN_REFRESH_AHEAD_MS,
@@ -56,7 +56,7 @@ const logger = getLogger('channels:qq:QQChannel');
 // 已外迁 `./types`（大文件拆分，spec file-size-debt-partition-plan §40）。
 
 // （协议常量 `QQOpCode` / `QQCloseCode` / `QQEventType` / `QQ_INTENT_FULL` /
-//  `RECONNECT_DELAYS` / `MAX_RECONNECT_ATTEMPTS` / `RATE_LIMIT_DELAY` /
+//  `RECONNECT_DELAYS` / `QQ_MAX_RECONNECT_ATTEMPTS` / `RATE_LIMIT_DELAY` /
 //  `QUICK_DISCONNECT_THRESHOLD` / `TOKEN_REFRESH_AHEAD_MS` /
 //  `MAX_CONSECUTIVE_SESSION_FAILURES` / `MAX_MISSED_HEARTBEAT_ACKS` /
 //  `LONG_BACKOFF_DELAY_MS` 已外迁 `./types`，spec §40）
@@ -1459,7 +1459,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private scheduleReconnect(delayMs?: number): void {
     // 鉴权级失败熔断：任何路径进入重连调度都直接 no-op，
-    // 避免 MAX_RECONNECT_ATTEMPTS 支路或其他错误路径绕过熔断守卫继续重试
+    // 避免 QQ_MAX_RECONNECT_ATTEMPTS 支路或其他错误路径绕过熔断守卫继续重试
     if (this._authFuseBlown) {
       this.logger.info(
         'QQ Bot 处于鉴权熔断状态，忽略 scheduleReconnect 调度；请手动点击「连接」重试'
@@ -1479,7 +1479,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
       const actualDelay =
         typeof delayMs === 'number' && Number.isFinite(delayMs)
           ? delayMs
-          : this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS
+          : this.reconnectAttempts >= QQ_MAX_RECONNECT_ATTEMPTS
             ? LONG_BACKOFF_DELAY_MS
             : delayFromTable;
       channelEventBus.publish(ChannelEvents.CHANNEL_RECONNECTING, {
@@ -1504,17 +1504,17 @@ class QQChannelPlugin extends BaseChannelPlugin {
       this.reconnectTimer = null;
     }
 
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (this.reconnectAttempts >= QQ_MAX_RECONNECT_ATTEMPTS) {
       // 长退避自愈（原为永久停连）：重置计数后 5 分钟再试，指数阶梯重新开始，
       // 避免 QQ 网关长时间故障恢复后通道永远不再连接。
       this.logger.error(
-        `QQ Bot 重连已达 ${MAX_RECONNECT_ATTEMPTS} 次，` +
+        `QQ Bot 重连已达 ${QQ_MAX_RECONNECT_ATTEMPTS} 次，` +
           `进入长退避自愈（${LONG_BACKOFF_DELAY_MS / 1000}s 后重试）`
       );
       channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
         channelName: 'qq',
         code: 'RECONNECT_EXHAUSTED_BACKOFF',
-        message: `QQ 重连次数耗尽（${MAX_RECONNECT_ATTEMPTS} 次），已进入 5 分钟长退避自愈（原为永久停连）`,
+        message: `QQ 重连次数耗尽（${QQ_MAX_RECONNECT_ATTEMPTS} 次），已进入 5 分钟长退避自愈（原为永久停连）`,
       });
       this.reconnectAttempts = 0;
       this.scheduleReconnect(LONG_BACKOFF_DELAY_MS);

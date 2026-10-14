@@ -63,7 +63,7 @@ export interface SessionsWebSocketConfig {
 }
 
 const RECONNECT_DELAY_MS = 2000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const SESSIONS_WS_MAX_RECONNECT_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 30000;
 const MAX_SESSION_NOT_FOUND_RETRIES = 3;
 /** P2-26：pong 超时阈值（2 个 ping 周期 + 余量），超时判定 TCP 半开死连接 */
@@ -103,7 +103,7 @@ export class SessionsWebSocket {
     this.callbacks = callbacks;
     this.reconnectDelay = config.reconnectDelay ?? RECONNECT_DELAY_MS;
     this.maxReconnectAttempts =
-      config.maxReconnectAttempts ?? MAX_RECONNECT_ATTEMPTS;
+      config.maxReconnectAttempts ?? SESSIONS_WS_MAX_RECONNECT_ATTEMPTS;
     this.pingIntervalMs = config.pingInterval ?? PING_INTERVAL_MS;
     this.url = config.url;
   }

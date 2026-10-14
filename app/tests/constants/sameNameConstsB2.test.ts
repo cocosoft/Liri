@@ -716,4 +716,39 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2⑩：`MAX_RECONNECT_ATTEMPTS` ×4 已按域消歧（取值一字未改；含 QQ 导出真源 + 消费侧同步）', () => {
+    // 4 处同名 `MAX_RECONNECT_ATTEMPTS`：QQ 渠道导出真源 50；会话 WS / MCP 管理器 / MCP client 各 5
+    const items: Array<[string, string, string]> = [
+      ['src/channels/qq/types.ts', 'QQ_MAX_RECONNECT_ATTEMPTS', '50'],
+      [
+        'src/session/websocket/SessionsWebSocket.ts',
+        'SESSIONS_WS_MAX_RECONNECT_ATTEMPTS',
+        '5',
+      ],
+      [
+        'src/services/mcp/MCPConnectionManager.ts',
+        'MCP_MANAGER_MAX_RECONNECT_ATTEMPTS',
+        '5',
+      ],
+      [
+        'src/services/mcp/client.ts',
+        'MCP_CLIENT_MAX_RECONNECT_ATTEMPTS',
+        '5',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_RECONNECT_ATTEMPTS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // QQ 处属**导出真源** ⇒ 消费侧 `QQChannel` 已同步（只断言**标识符**，不钉 import 单行形态）
+    expect(read('src/channels/qq/QQChannel.ts')).toContain(
+      'QQ_MAX_RECONNECT_ATTEMPTS'
+    );
+    // 同族**前缀名** `WS_MAX_RECONNECT_ATTEMPTS`（飞书渠道，另一标识符）非本键 ⇒ 未动
+    expect(read('src/channels/feishu/FeishuChannel.ts')).toContain(
+      'WS_MAX_RECONNECT_ATTEMPTS'
+    );
+  });
 });

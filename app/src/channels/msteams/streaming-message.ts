@@ -15,7 +15,7 @@ const logger = getLogger('channels:msteams:streaming-message');
 const DEFAULT_THROTTLE_MS = 1500;
 
 /** 启动流式消息前的最小字符数 */
-const MIN_INITIAL_CHARS = 20;
+const MSTEAMS_MIN_INITIAL_CHARS = 20;
 
 /** Teams 消息最大字符数 */
 const TEAMS_MAX_CHARS = 4000;
@@ -112,7 +112,10 @@ export class TeamsHttpStream {
       return;
     }
 
-    if (this.accumulatedText.length < MIN_INITIAL_CHARS && !this.streamId) {
+    if (
+      this.accumulatedText.length < MSTEAMS_MIN_INITIAL_CHARS &&
+      !this.streamId
+    ) {
       return;
     }
 

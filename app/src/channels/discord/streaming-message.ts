@@ -15,7 +15,7 @@ const logger = getLogger('channels:discord:streaming-message');
 const DEFAULT_THROTTLE_MS = 800;
 
 /** 启动流式消息前的最小字符数 */
-const MIN_INITIAL_CHARS = 10;
+const DISCORD_MIN_INITIAL_CHARS = 10;
 
 /** Discord 消息最大字符数 */
 const DISCORD_MAX_CHARS = 2000;
@@ -108,7 +108,7 @@ export class DiscordStreamMessage {
     this.accumulatedText += text;
 
     if (
-      this.accumulatedText.length < MIN_INITIAL_CHARS &&
+      this.accumulatedText.length < DISCORD_MIN_INITIAL_CHARS &&
       !this.lastStreamedText
     ) {
       return;

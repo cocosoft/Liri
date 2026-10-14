@@ -839,4 +839,30 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2⑭：`MIN_INITIAL_CHARS` ×3 已按渠道消歧（取值一字未改）', () => {
+    // 3 处同名 `MIN_INITIAL_CHARS`（最小首包字符数）各受渠道上游约束，取值全不同、全为文件内私有
+    const items: Array<[string, string, string]> = [
+      [
+        'src/channels/discord/streaming-message.ts',
+        'DISCORD_MIN_INITIAL_CHARS',
+        '10',
+      ],
+      [
+        'src/channels/matrix/streaming-message.ts',
+        'MATRIX_MIN_INITIAL_CHARS',
+        '15',
+      ],
+      [
+        'src/channels/msteams/streaming-message.ts',
+        'MSTEAMS_MIN_INITIAL_CHARS',
+        '20',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MIN_INITIAL_CHARS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

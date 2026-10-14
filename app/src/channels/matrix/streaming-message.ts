@@ -15,7 +15,7 @@ const logger = getLogger('channels:matrix:streaming-message');
 const DEFAULT_THROTTLE_MS = 1000;
 
 /** 启动流式消息前的最小字符数 */
-const MIN_INITIAL_CHARS = 15;
+const MATRIX_MIN_INITIAL_CHARS = 15;
 
 /** Matrix 消息最大字符数 */
 const MATRIX_MAX_CHARS = 100000;
@@ -142,7 +142,7 @@ export class MatrixStreamMessage {
     this.accumulatedText += text;
 
     if (
-      this.accumulatedText.length < MIN_INITIAL_CHARS &&
+      this.accumulatedText.length < MATRIX_MIN_INITIAL_CHARS &&
       !this.lastStreamedText
     ) {
       return;

@@ -7,6 +7,7 @@ import type {
   KnowledgeFile,
 } from "../types";
 import { http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
 import i18n from "../i18n";
@@ -57,7 +58,9 @@ async function fetchFiles(
   if (category) params.set("category", category);
   if (source) params.set("source", source);
   const qs = params.toString();
-  const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
+  const url = qs
+    ? `${ENDPOINTS.knowledge.base}?${qs}`
+    : ENDPOINTS.knowledge.base;
   const res = await http.get<{
     items: KnowledgeFile[];
     total: number;
@@ -73,7 +76,7 @@ export const knowledgeService = {
   list: (): Promise<KnowledgeItem[]> => {
     return getOTelTracing().asyncWrap("services:knowledge:list", async () => {
       const res = await http.get<{ items: KnowledgeItem[]; total: number }>(
-        "/v1/knowledge",
+        ENDPOINTS.knowledge.base,
       );
       const data = unwrap(res, "KNOWLEDGE_LIST");
       return Array.isArray(data) ? data : (data.items ?? []);
@@ -81,14 +84,16 @@ export const knowledgeService = {
   },
 
   get: async (id: string): Promise<KnowledgeItem | null> => {
-    const res = await http.get<KnowledgeItem | null>(`/v1/knowledge/${id}`);
+    const res = await http.get<KnowledgeItem | null>(
+      ENDPOINTS.knowledge.byId(id),
+    );
     return unwrap(res, "KNOWLEDGE_GET");
   },
 
   create: async (
     item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">,
   ): Promise<KnowledgeItem> => {
-    const res = await http.post<KnowledgeItem>("/v1/knowledge", item);
+    const res = await http.post<KnowledgeItem>(ENDPOINTS.knowledge.base, item);
     return unwrap(res, "KNOWLEDGE_CREATE");
   },
 
@@ -96,18 +101,21 @@ export const knowledgeService = {
     id: string,
     updates: Partial<KnowledgeItem>,
   ): Promise<KnowledgeItem> => {
-    const res = await http.put<KnowledgeItem>(`/v1/knowledge/${id}`, updates);
+    const res = await http.put<KnowledgeItem>(
+      ENDPOINTS.knowledge.byId(id),
+      updates,
+    );
     return unwrap(res, "KNOWLEDGE_UPDATE");
   },
 
   delete: async (id: string): Promise<void> => {
-    const res = await http.delete<unknown>(`/v1/knowledge/${id}`);
+    const res = await http.delete<unknown>(ENDPOINTS.knowledge.byId(id));
     unwrap(res, "KNOWLEDGE_DELETE");
   },
 
   search: (query: string): Promise<KnowledgeItem[]> => {
     return getOTelTracing().asyncWrap("services:knowledge:search", async () => {
-      const res = await http.post<KnowledgeItem[]>("/v1/knowledge/search", {
+      const res = await http.post<KnowledgeItem[]>(ENDPOINTS.knowledge.search, {
         query,
       });
       return unwrap(res, "KNOWLEDGE_SEARCH");
@@ -126,7 +134,7 @@ export const knowledgeService = {
         params.set("buckets", "1");
         if (base) params.set("base", base);
         const res = await http.post<BucketedKnowledgeSearch>(
-          `/v1/knowledge/search?${params.toString()}`,
+          `${ENDPOINTS.knowledge.search}?${params.toString()}`,
           { query },
         );
         return unwrap(res, "KNOWLEDGE_SEARCH_BUCKETED");
@@ -145,7 +153,9 @@ export const knowledgeService = {
     if (domain) params.set("domain", domain);
     if (tags && tags.length > 0) params.set("tags", tags.join(","));
     const qs = params.toString();
-    const url = qs ? `/v1/knowledge/search?${qs}` : "/v1/knowledge/search";
+    const url = qs
+      ? `${ENDPOINTS.knowledge.search}?${qs}`
+      : ENDPOINTS.knowledge.search;
     const res = await http.post<KnowledgeSearchResult[]>(url, { query, tags });
     const results = unwrap(res, "KNOWLEDGE_HYBRID_SEARCH");
     return results.map((r) => ({
@@ -220,14 +230,14 @@ export const knowledgeService = {
     const params = new URLSearchParams();
     params.set("docPath", docPath);
     const res = await http.get<KnowledgeFile>(
-      `/v1/knowledge/doc?${params.toString()}`,
+      `${ENDPOINTS.knowledge.doc}?${params.toString()}`,
     );
     if (!res.ok) return null;
     return res.data ?? null;
   },
 
   listBases: async (): Promise<KnowledgeBase[]> => {
-    const res = await http.get<KnowledgeBase[]>("/v1/knowledge/bases");
+    const res = await http.get<KnowledgeBase[]>(ENDPOINTS.knowledge.bases);
     return unwrap(res, "KNOWLEDGE_LIST_BASES");
   },
 
@@ -236,7 +246,7 @@ export const knowledgeService = {
     label: string,
     icon?: string,
   ): Promise<KnowledgeBase> => {
-    const res = await http.post<KnowledgeBase>("/v1/knowledge/bases", {
+    const res = await http.post<KnowledgeBase>(ENDPOINTS.knowledge.bases, {
       name,
       label,
       icon,
@@ -249,7 +259,7 @@ export const knowledgeService = {
     updates: Partial<KnowledgeBase>,
   ): Promise<KnowledgeBase> => {
     const res = await http.put<KnowledgeBase>(
-      `/v1/knowledge/bases/${encodeURIComponent(name)}`,
+      ENDPOINTS.knowledge.baseByName(name),
       updates,
     );
     return unwrap(res, "KNOWLEDGE_UPDATE_BASE");
@@ -257,7 +267,7 @@ export const knowledgeService = {
 
   deleteBase: async (name: string): Promise<void> => {
     const res = await http.delete<unknown>(
-      `/v1/knowledge/bases/${encodeURIComponent(name)}`,
+      ENDPOINTS.knowledge.baseByName(name),
     );
     unwrap(res, "KNOWLEDGE_DELETE_BASE");
   },
@@ -265,7 +275,7 @@ export const knowledgeService = {
   /** 克隆知识库（深拷贝，含文档和索引） */
   cloneBase: async (name: string, newName: string): Promise<KnowledgeBase> => {
     const res = await http.post<KnowledgeBase>(
-      `/v1/knowledge/bases/${encodeURIComponent(name)}/clone`,
+      ENDPOINTS.knowledge.cloneBase(name),
       { target: newName },
     );
     return unwrap(res, "KNOWLEDGE_CLONE_BASE");
@@ -277,7 +287,7 @@ export const knowledgeService = {
     newName: string,
   ): Promise<KnowledgeBase> => {
     const res = await http.post<KnowledgeBase>(
-      `/v1/knowledge/bases/${encodeURIComponent(name)}/duplicate`,
+      ENDPOINTS.knowledge.duplicateBase(name),
       { target: newName },
     );
     return unwrap(res, "KNOWLEDGE_DUPLICATE_BASE");
@@ -295,7 +305,7 @@ export const knowledgeService = {
       success: boolean;
       docPath: string;
       title: string;
-    }>("/v1/knowledge/save-from-chat", params);
+    }>(ENDPOINTS.knowledge.saveFromChat, params);
     return unwrap(res, "KNOWLEDGE_SAVE_FROM_CHAT");
   },
 
@@ -323,7 +333,7 @@ export const knowledgeService = {
         source: string | null;
       }>;
       totalCount: number;
-    }>("/v1/knowledge/raw-files");
+    }>(ENDPOINTS.knowledge.rawFiles);
     return unwrap(res, "KNOWLEDGE_RAW_FILES");
   },
 
@@ -340,7 +350,7 @@ export const knowledgeService = {
     if (extra?.category !== undefined) body.category = extra.category;
     if (extra?.base !== undefined) body.base = extra.base;
     const res = await http.put<{ docPath: string; updatedAt: string }>(
-      "/v1/knowledge/docs",
+      ENDPOINTS.knowledge.docs,
       body,
     );
     return unwrap(res, "KNOWLEDGE_UPDATE_DOC");
@@ -358,7 +368,7 @@ export const knowledgeService = {
           docPath: string;
           title: string;
           size: number;
-        }>("/v1/knowledge/upload", {
+        }>(ENDPOINTS.knowledge.upload, {
           baseName,
           ...file,
           tags,
@@ -386,7 +396,7 @@ export const knowledgeService = {
       success: boolean;
       started: boolean;
       message?: string;
-    }>("/v1/knowledge/compile", { force });
+    }>(ENDPOINTS.knowledge.compile, { force });
     return unwrap(res, "KNOWLEDGE_COMPILE");
   },
 
@@ -414,7 +424,7 @@ export const knowledgeService = {
         skipped: number;
         errors: number;
       } | null;
-    }>("/v1/knowledge/compile-status");
+    }>(ENDPOINTS.knowledge.compileStatus);
     return unwrap(res, "KNOWLEDGE_COMPILE_STATUS");
   },
 
@@ -427,7 +437,7 @@ export const knowledgeService = {
       exportPath: string;
       fileName: string;
       size: number;
-    }>("/v1/knowledge/export-to-notebook", {
+    }>(ENDPOINTS.knowledge.exportToNotebook, {
       docPath,
       title,
     });
@@ -444,7 +454,7 @@ export const knowledgeService = {
       docPath: string;
       title: string;
       size: number;
-    }>("/v1/knowledge/import-from-file", {
+    }>(ENDPOINTS.knowledge.importFromFile, {
       filePath,
       baseName,
       tags,
@@ -455,7 +465,7 @@ export const knowledgeService = {
   /** 批量删除知识文档 */
   batchDelete: async (ids: string[]): Promise<{ deleted: number }> => {
     const res = await http.post<{ deleted: number }>(
-      "/v1/knowledge/batch-delete",
+      ENDPOINTS.knowledge.batchDelete,
       { ids },
     );
     return unwrap(res, "KNOWLEDGE_BATCH_DELETE");
@@ -467,7 +477,7 @@ export const knowledgeService = {
     tags: string[],
   ): Promise<{ updated: number }> => {
     const res = await http.post<{ updated: number }>(
-      "/v1/knowledge/batch-tag",
+      ENDPOINTS.knowledge.batchTag,
       { ids, tags },
     );
     return unwrap(res, "KNOWLEDGE_BATCH_TAG");
@@ -476,7 +486,7 @@ export const knowledgeService = {
   /** 列出文档的快照版本 */
   listSnapshots: async (title: string): Promise<string[]> => {
     const res = await http.get<{ snapshots: string[] }>(
-      `/v1/knowledge/snapshots?title=${encodeURIComponent(title)}`,
+      `${ENDPOINTS.knowledge.snapshots}?title=${encodeURIComponent(title)}`,
     );
     if (!res.ok) {
       // 400 表示无快照，返回空数组
@@ -506,7 +516,7 @@ export const knowledgeService = {
     snapshot: string,
   ): Promise<string | null> => {
     const res = await http.post<{ restored: boolean; content: string | null }>(
-      "/v1/knowledge/restore",
+      ENDPOINTS.knowledge.restore,
       { title, snapshot },
     );
     return res.ok ? (res.data?.content ?? null) : null;
@@ -554,7 +564,7 @@ export const knowledgeService = {
       sourceDistribution: { source: string; count: number }[];
       tagDistribution: { tag: string; count: number }[];
       recentItems: { id: string; title: string; updated_at: number }[];
-    }>("/v1/knowledge/health");
+    }>(ENDPOINTS.knowledge.health);
     const data = unwrap(res, "KNOWLEDGE_HEALTH");
     return data;
   },
@@ -562,7 +572,7 @@ export const knowledgeService = {
   /** D5：读取知识库运行时配置（OCR 开关等） */
   getKnowledgeConfig: async (): Promise<{ ocrEnabled?: boolean }> => {
     const res = await http.get<{ ocrEnabled?: boolean }>(
-      "/v1/knowledge/config",
+      ENDPOINTS.knowledge.config,
     );
     return unwrap(res, "KNOWLEDGE_GET_CONFIG");
   },
@@ -572,7 +582,7 @@ export const knowledgeService = {
     ocrEnabled: boolean;
   }): Promise<{ ocrEnabled?: boolean }> => {
     const res = await http.put<{ ocrEnabled?: boolean }>(
-      "/v1/knowledge/config",
+      ENDPOINTS.knowledge.config,
       partial,
     );
     return unwrap(res, "KNOWLEDGE_UPDATE_CONFIG");
@@ -580,7 +590,9 @@ export const knowledgeService = {
 
   /** 软删除文档（移至回收站） */
   trash: async (docPath: string): Promise<boolean> => {
-    const res = await http.post<unknown>("/v1/knowledge/trash", { docPath });
+    const res = await http.post<unknown>(ENDPOINTS.knowledge.trash, {
+      docPath,
+    });
     if (res.ok) return true;
     handleClientError(
       new Error(res.error?.message ?? i18n.t("knowledge.trashFailed")),
@@ -598,7 +610,7 @@ export const knowledgeService = {
   > => {
     const res = await http.get<{
       items: Array<{ docPath: string; fileName: string; trashedAt: number }>;
-    }>("/v1/knowledge/trash");
+    }>(ENDPOINTS.knowledge.trash);
     const data = unwrap(res, "KNOWLEDGE_LIST_TRASH");
     return data.items ?? [];
   },
@@ -608,7 +620,7 @@ export const knowledgeService = {
     const params = new URLSearchParams();
     params.set("docPath", docPath);
     const res = await http.delete<{ purged: boolean }>(
-      `/v1/knowledge/trash?${params.toString()}`,
+      `${ENDPOINTS.knowledge.trash}?${params.toString()}`,
     );
     if (res.ok) return true;
     handleClientError(
@@ -623,7 +635,7 @@ export const knowledgeService = {
 
   /** 从回收站恢复文档 */
   restoreTrash: async (docPath: string): Promise<boolean> => {
-    const res = await http.post<unknown>("/v1/knowledge/restore-trash", {
+    const res = await http.post<unknown>(ENDPOINTS.knowledge.restoreTrash, {
       docPath,
     });
     if (res.ok) return true;
@@ -640,7 +652,7 @@ export const knowledgeService = {
   /** W11: 获取语义索引状态 */
   getSemanticIndex: async (): Promise<Record<string, unknown>> => {
     const res = await http.get<Record<string, unknown>>(
-      "/v1/knowledge/semantic-index",
+      ENDPOINTS.knowledge.semanticIndex,
     );
     return unwrap(res, "KNOWLEDGE_SEMANTIC_INDEX");
   },

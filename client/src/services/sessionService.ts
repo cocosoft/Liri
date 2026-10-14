@@ -1,5 +1,6 @@
 import type { LiriEvent, Message, Session } from "../types";
 import { http as apiHttp } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
@@ -60,7 +61,7 @@ export async function getSessionRuntimeStatus(
       triggerAt?: number;
       createdAt?: number;
     };
-  }>(`/v1/sessions/${sessionId}/streaming`);
+  }>(ENDPOINTS.session.streaming(sessionId));
   const pw = res.data?.pendingWake;
   return {
     streaming: res.data?.streaming === true,
@@ -354,7 +355,7 @@ export const sessionService = {
   list: (): Promise<Session[]> => {
     return getOTelTracing().asyncWrap("services:session:list", async () => {
       try {
-        const res = await apiHttp.get<Session[]>("/v1/sessions");
+        const res = await apiHttp.get<Session[]>(ENDPOINTS.session.base);
         if (res.ok) {
           _isUsingFallback = false;
           return (res.data ?? []).map(flattenSession);
@@ -412,7 +413,7 @@ export const sessionService = {
             score: number;
             timestamp: number;
           }>
-        >(`/v1/sessions/messages/search?${params.toString()}`);
+        >(`${ENDPOINTS.session.messagesSearch}?${params.toString()}`);
         if (res.ok) return res.data ?? [];
         throw new Error(
           res.error?.message ?? i18n.t("chat.searchMessagesFailed"),
@@ -445,7 +446,7 @@ export const sessionService = {
           if (options?.projectId) body.projectId = options.projectId;
           // A1 临时对话：temporary=true 透传（后端写入 metadata 持久化标记）
           if (options?.temporary === true) body.temporary = true;
-          const res = await apiHttp.post<Session>("/v1/sessions", body);
+          const res = await apiHttp.post<Session>(ENDPOINTS.session.base, body);
           if (res.ok) {
             _isUsingFallback = false;
             return flattenSession(res.data as Session);
@@ -489,7 +490,7 @@ export const sessionService = {
           session: Session;
           boundary: number;
           copied: number;
-        }>(`/v1/sessions/${sourceId}/fork`, body);
+        }>(ENDPOINTS.session.fork(sourceId), body);
         if (!res.ok) {
           const msg = (res.data as { error?: { message?: string } } | null)
             ?.error?.message;
@@ -509,7 +510,9 @@ export const sessionService = {
       "services:session:switchSession",
       async () => {
         try {
-          const res = await apiHttp.post<Session>(`/v1/sessions/${id}/switch`);
+          const res = await apiHttp.post<Session>(
+            ENDPOINTS.session.switchById(id),
+          );
           if (res.ok) {
             _isUsingFallback = false;
             return flattenSession(res.data as Session);
@@ -555,7 +558,7 @@ export const sessionService = {
       "services:session:deleteSession",
       async () => {
         try {
-          const res = await apiHttp.delete<void>(`/v1/sessions/${id}`);
+          const res = await apiHttp.delete<void>(ENDPOINTS.session.byId(id));
           if (res.ok) {
             _isUsingFallback = false;
             return;
@@ -605,7 +608,9 @@ export const sessionService = {
         // 与 switchChatSession 的"①开始/✅完成"风格对齐
         logger.info("rename:①开始", { id, title });
         try {
-          const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
+          const res = await apiHttp.put<void>(ENDPOINTS.session.byId(id), {
+            title,
+          });
           if (res.ok) {
             _isUsingFallback = false;
             logger.info("rename:✅后端重命名成功", { id });
@@ -665,7 +670,7 @@ export const sessionService = {
     return getOTelTracing().asyncWrap(
       "services:session:setPinned",
       async () => {
-        const res = await apiHttp.patch<void>(`/v1/sessions/${id}/meta`, {
+        const res = await apiHttp.patch<void>(ENDPOINTS.session.meta(id), {
           pinned,
         });
         if (!res.ok) {
@@ -683,7 +688,7 @@ export const sessionService = {
 
   getCurrent: async (): Promise<Session | null> => {
     try {
-      const res = await apiHttp.get<Session | null>("/v1/sessions/current");
+      const res = await apiHttp.get<Session | null>(ENDPOINTS.session.current);
       if (res.ok) {
         _isUsingFallback = false;
         return flattenSession(res.data as Session | null);
@@ -703,7 +708,7 @@ export const sessionService = {
 
   get: async (id: string): Promise<Session | null> => {
     try {
-      const res = await apiHttp.get<Session>(`/v1/sessions/${id}`);
+      const res = await apiHttp.get<Session>(ENDPOINTS.session.byId(id));
       if (res.ok) {
         _isUsingFallback = false;
         return flattenSession(res.data as Session);
@@ -727,7 +732,7 @@ export const sessionService = {
       async () => {
         try {
           const res = await apiHttp.get<Message[] | { messages?: Message[] }>(
-            `/v1/sessions/${sessionId}/messages`,
+            ENDPOINTS.session.messages(sessionId),
           );
           if (res.ok) {
             _isUsingFallback = false;
@@ -785,7 +790,7 @@ export const sessionService = {
           const res = await apiHttp.get<
             Message[] | { messages: Message[]; hasMore: boolean }
           >(
-            `/v1/sessions/${sessionId}/messages${queryStr ? `?${queryStr}` : ""}`,
+            `${ENDPOINTS.session.messages(sessionId)}${queryStr ? `?${queryStr}` : ""}`,
           );
           if (res.ok && res.data) {
             // 兼容旧格式（纯数组）与新格式（{ messages, hasMore }）
@@ -831,7 +836,7 @@ export const sessionService = {
 
   clearAll: async (): Promise<void> => {
     try {
-      const res = await apiHttp.delete<void>("/v1/sessions");
+      const res = await apiHttp.delete<void>(ENDPOINTS.session.base);
       if (res.ok) {
         _isUsingFallback = false;
         return;
@@ -865,7 +870,7 @@ export const sessionService = {
           success?: boolean;
           deleted?: number;
           failed?: number;
-        }>("/v1/sessions/batch-delete", { ids });
+        }>(ENDPOINTS.session.batchDelete, { ids });
         if (!res.ok || res.data?.success !== true) {
           const msg = (
             res.data as { error?: { message?: string } } | null | undefined
@@ -896,7 +901,7 @@ export const sessionService = {
       const res = await apiHttp.delete<{
         success: boolean;
         messages: Array<Record<string, unknown>>;
-      }>(`/v1/sessions/${sessionId}/messages/${messageId}`);
+      }>(ENDPOINTS.session.messageById(sessionId, messageId));
       if (res.ok && res.data) {
         _isUsingFallback = false;
         return { messages: res.data.messages };
@@ -932,7 +937,7 @@ export const sessionService = {
           success: boolean;
           error?: string;
         }>;
-      }>(`/v1/sessions/${sessionId}/messages/truncate`, {
+      }>(ENDPOINTS.session.messagesTruncate(sessionId), {
         beforeMessageId,
       });
       if (res.ok && res.data) {
@@ -977,7 +982,7 @@ export const sessionService = {
       if (meta.tasksOverride !== undefined)
         body.tasks_override = meta.tasksOverride;
       if (meta.workMode !== undefined) body.work_mode = meta.workMode;
-      const res = await apiHttp.patch(`/v1/sessions/${sessionId}/meta`, body);
+      const res = await apiHttp.patch(ENDPOINTS.session.meta(sessionId), body);
       if (res.ok) {
         _isUsingFallback = false;
         return true;
@@ -995,7 +1000,7 @@ export const sessionService = {
 
   compact: async (sessionId: string): Promise<unknown | null> => {
     try {
-      const res = await apiHttp.post(`/v1/sessions/${sessionId}/compact`);
+      const res = await apiHttp.post(ENDPOINTS.session.compact(sessionId));
       if (res.ok) {
         _isUsingFallback = false;
         return res.data;
@@ -1011,7 +1016,7 @@ export const sessionService = {
   // P2-22 同步：后端 prune 为全量修剪（无单会话实现），路由为 POST /v1/sessions/prune
   prune: async (): Promise<unknown | null> => {
     try {
-      const res = await apiHttp.post(`/v1/sessions/prune`);
+      const res = await apiHttp.post(ENDPOINTS.session.prune);
       if (res.ok) {
         _isUsingFallback = false;
         return res.data;
@@ -1034,7 +1039,7 @@ export const sessionService = {
       if (query) params.set("q", query);
       if (topK) params.set("topK", String(topK));
       const qs = params.toString();
-      const url = `/v1/sessions/${sessionId}/memory${qs ? `?${qs}` : ""}`;
+      const url = `${ENDPOINTS.session.memory(sessionId)}${qs ? `?${qs}` : ""}`;
       const res = await apiHttp.get<{ items: unknown[]; sessionId: string }>(
         url,
       );

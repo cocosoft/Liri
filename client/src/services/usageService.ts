@@ -5,6 +5,7 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { getOTelTracing } from "../monitoring/otel";
 import type {
   UsageSummary,
@@ -196,9 +197,12 @@ export const usageService = {
     providerId?: string;
   }): Promise<UsageSummary> {
     return getOTelTracing().asyncWrap("services:usage:summary", async () => {
-      const resp = await http.get<{ data: UsageSummary }>("/v1/usage/summary", {
-        params: params as Record<string, unknown>,
-      });
+      const resp = await http.get<{ data: UsageSummary }>(
+        ENDPOINTS.usage.summary,
+        {
+          params: params as Record<string, unknown>,
+        },
+      );
       return resp.data;
     });
   },
@@ -210,7 +214,7 @@ export const usageService = {
   }): Promise<DailyUsageStats[]> {
     return getOTelTracing().asyncWrap("services:usage:trend", async () => {
       const resp = await http.get<{ data: DailyUsageStats[] }>(
-        "/v1/usage/trend",
+        ENDPOINTS.usage.trend,
         { params: params as Record<string, unknown> },
       );
       return resp.data;
@@ -223,7 +227,7 @@ export const usageService = {
   }): Promise<ModelUsageStats[]> {
     return getOTelTracing().asyncWrap("services:usage:modelStats", async () => {
       const resp = await http.get<{ data: ModelUsageStats[] }>(
-        "/v1/usage/models",
+        ENDPOINTS.usage.models,
         { params: params as Record<string, unknown> },
       );
       return resp.data;
@@ -238,7 +242,7 @@ export const usageService = {
       "services:usage:providerStats",
       async () => {
         const resp = await http.get<{ data: ProviderUsageStats[] }>(
-          "/v1/usage/providers",
+          ENDPOINTS.usage.providers,
           { params: params as Record<string, unknown> },
         );
         return resp.data;
@@ -265,7 +269,7 @@ export const usageService = {
           page: number;
           pageSize: number;
         };
-      }>("/v1/usage/logs", { params: params as Record<string, unknown> });
+      }>(ENDPOINTS.usage.logs, { params: params as Record<string, unknown> });
       return resp.data;
     });
   },
@@ -275,7 +279,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:getCostSummary",
       async () => {
-        return http.get<CostSummary>("/v1/usage/cost/summary");
+        return http.get<CostSummary>(ENDPOINTS.usage.costSummary);
       },
     );
   },
@@ -287,7 +291,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:getCostRecords",
       async () => {
-        return http.get<CostRecordsResponse>("/v1/usage/cost/records", {
+        return http.get<CostRecordsResponse>(ENDPOINTS.usage.costRecords, {
           params: { page, limit },
         });
       },
@@ -301,7 +305,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:getCostByDateRange",
       async () => {
-        return http.get<CostRecord[]>("/v1/usage/cost/range", {
+        return http.get<CostRecord[]>(ENDPOINTS.usage.costRange, {
           params: { startDate, endDate },
         });
       },
@@ -316,7 +320,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:getCostReconcile",
       async () => {
-        return http.get<CostReconcileResult>("/v1/usage/cost/reconcile", {
+        return http.get<CostReconcileResult>(ENDPOINTS.usage.costReconcile, {
           params: { startDate, endDate },
         });
       },
@@ -331,7 +335,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:getCostReport",
       async () => {
-        return http.get<string>("/v1/usage/cost/report", {
+        return http.get<string>(ENDPOINTS.usage.costReport, {
           params: { format, period },
         });
       },
@@ -344,7 +348,7 @@ export const usageService = {
       "services:usage:listPricing",
       async () => {
         const resp = await http.get<{ data: ModelPricingRecord[] }>(
-          "/v1/pricing",
+          ENDPOINTS.pricing.base,
         );
         return resp.data ?? [];
       },
@@ -365,7 +369,7 @@ export const usageService = {
       "services:usage:upsertPricing",
       async () => {
         const resp = await http.post<{ data: ModelPricingRecord }>(
-          "/v1/pricing",
+          ENDPOINTS.pricing.base,
           params,
         );
         return resp.data;
@@ -377,7 +381,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:removePricing",
       async () => {
-        await http.delete(`/v1/pricing/${encodeURIComponent(modelId)}`);
+        await http.delete(ENDPOINTS.pricing.byId(modelId));
       },
     );
   },
@@ -392,7 +396,7 @@ export const usageService = {
       "services:usage:checkBalance",
       async () => {
         const resp = await http.post<{ data: BalanceResult }>(
-          "/v1/usage/balance",
+          ENDPOINTS.usage.balance,
           params,
         );
         return resp.data;
@@ -405,7 +409,7 @@ export const usageService = {
       "services:usage:batchCheckBalance",
       async () => {
         const resp = await http.get<{ data: BalanceRecord[] }>(
-          "/v1/usage/balances",
+          ENDPOINTS.usage.balances,
         );
         return resp.data;
       },
@@ -418,7 +422,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:getDailyBudget",
       async () => {
-        return http.get<DailyBudgetStatus>("/v1/cost/daily-budget");
+        return http.get<DailyBudgetStatus>(ENDPOINTS.cost.dailyBudget);
       },
     );
   },
@@ -430,7 +434,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:updateDailyBudget",
       async () => {
-        return http.put<DailyBudgetStatus>("/v1/cost/daily-budget", patch);
+        return http.put<DailyBudgetStatus>(ENDPOINTS.cost.dailyBudget, patch);
       },
     );
   },
@@ -440,7 +444,10 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:resetDailyBudget",
       async () => {
-        return http.post<DailyBudgetStatus>("/v1/cost/daily-budget/reset", {});
+        return http.post<DailyBudgetStatus>(
+          ENDPOINTS.cost.dailyBudgetReset,
+          {},
+        );
       },
     );
   },
@@ -458,7 +465,7 @@ export const usageService = {
       "services:usage:setDailyBudgetRelief",
       async () => {
         return http.post<DailyBudgetStatus>(
-          "/v1/cost/daily-budget/relief",
+          ENDPOINTS.cost.dailyBudgetRelief,
           relief,
         );
       },
@@ -476,7 +483,7 @@ export const usageService = {
     return getOTelTracing().asyncWrap(
       "services:usage:clearDailyBudgetRelief",
       async () => {
-        return http.delete<DailyBudgetStatus>("/v1/cost/daily-budget/relief");
+        return http.delete<DailyBudgetStatus>(ENDPOINTS.cost.dailyBudgetRelief);
       },
     );
   },
@@ -487,7 +494,7 @@ export const usageService = {
       "services:usage:setDailyBudgetKillSwitch",
       async () => {
         return http.post<DailyBudgetStatus>(
-          "/v1/cost/daily-budget/kill-switch",
+          ENDPOINTS.cost.dailyBudgetKillSwitch,
           { enabled },
         );
       },

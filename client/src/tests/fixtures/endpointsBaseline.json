@@ -1,5 +1,5 @@
 {
-  "total": 468,
+  "total": 302,
   "files": {
     "capabilityService.ts": 10,
     "channelService.ts": 16,
@@ -13,7 +13,6 @@
     "graphService.ts": 3,
     "imageService.ts": 7,
     "infrastructureHealthService.ts": 1,
-    "knowledgeService.ts": 36,
     "llamaService.ts": 14,
     "mcpMarketplaceService.ts": 11,
     "memoryService.ts": 16,
@@ -32,19 +31,15 @@
     "routerService.ts": 2,
     "sandboxService.ts": 3,
     "semanticService.ts": 5,
-    "sessionService.ts": 21,
-    "skillService.ts": 27,
     "systemService.ts": 4,
     "taskService.ts": 6,
     "toolService.ts": 2,
     "traceService.ts": 1,
     "trajectoryService.ts": 2,
     "translateService.ts": 7,
-    "usageService.ts": 21,
     "userService.ts": 7,
     "vfsService.ts": 2,
     "videoService.ts": 6,
-    "voiceService.ts": 22,
-    "workspaceService.ts": 61
+    "voiceService.ts": 22
   }
 }

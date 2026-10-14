@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import type { WorkItem } from "../stores/workStore";
 import { createLogger } from "@/utils/logger";
 
@@ -125,13 +126,13 @@ export interface WorkspaceListItem {
 export const workspaceService = {
   /** 获取工作空间列表 */
   async listWorkspaces(): Promise<WorkspaceListItem[]> {
-    return await http.get<WorkspaceListItem[]>("/v1/workspaces");
+    return await http.get<WorkspaceListItem[]>(ENDPOINTS.workspace.base);
   },
 
   /** 获取工作空间信息 */
   async getWorkspace(id: string): Promise<WorkspaceInfo | null> {
     try {
-      return await http.get<WorkspaceInfo>(`/v1/workspaces/${id}`);
+      return await http.get<WorkspaceInfo>(ENDPOINTS.workspace.byId(id));
     } catch (err) {
       logger.warn("获取工作空间信息失败", err);
       return null;
@@ -141,25 +142,27 @@ export const workspaceService = {
   /** 解析前端项目 ID → 后端工作空间 ID（V-37 工作项删除用） */
   async resolveBackendWorkspaceId(projectId: string): Promise<string | null> {
     const project = await http.get<{ workspaceId?: string }>(
-      `/v1/projects/${projectId}`,
+      ENDPOINTS.project.byId(projectId),
     );
     return project?.workspaceId ?? null;
   },
 
   /** 创建新工作空间 */
   async createWorkspace(data: CreateWorkspaceRequest): Promise<WorkspaceInfo> {
-    return await http.post<WorkspaceInfo>("/v1/workspaces", data);
+    return await http.post<WorkspaceInfo>(ENDPOINTS.workspace.base, data);
   },
 
   /** 删除工作空间 */
   async deleteWorkspace(id: string): Promise<{ success: boolean }> {
-    return await http.delete<{ success: boolean }>(`/v1/workspaces/${id}`);
+    return await http.delete<{ success: boolean }>(
+      ENDPOINTS.workspace.byId(id),
+    );
   },
 
   /** 获取工作空间的 session 列表 */
   async getSessions(workspaceId: string): Promise<WorkspaceSession[]> {
     return await http.get<WorkspaceSession[]>(
-      `/v1/workspaces/${workspaceId}/sessions`,
+      ENDPOINTS.workspace.sessions(workspaceId),
     );
   },
 
@@ -169,14 +172,14 @@ export const workspaceService = {
     data?: CreateSessionRequest,
   ): Promise<WorkspaceSession> {
     return await http.post<WorkspaceSession>(
-      `/v1/workspaces/${workspaceId}/sessions`,
+      ENDPOINTS.workspace.sessions(workspaceId),
       data || {},
     );
   },
 
   /** 获取工作项列表 */
   async getWorkItems(workspaceId: string): Promise<WorkItem[]> {
-    return await http.get<WorkItem[]>(`/v1/workspaces/${workspaceId}/items`);
+    return await http.get<WorkItem[]>(ENDPOINTS.workspace.items(workspaceId));
   },
 
   /** 创建工作项 */
@@ -185,7 +188,7 @@ export const workspaceService = {
     data: CreateWorkItemRequest,
   ): Promise<WorkItem> {
     return await http.post<WorkItem>(
-      `/v1/workspaces/${workspaceId}/items`,
+      ENDPOINTS.workspace.items(workspaceId),
       data,
     );
   },
@@ -197,7 +200,7 @@ export const workspaceService = {
     data: Partial<WorkItem>,
   ): Promise<WorkItem> {
     return await http.patch<WorkItem>(
-      `/v1/workspaces/${workspaceId}/items/${itemId}`,
+      ENDPOINTS.workspace.itemById(workspaceId, itemId),
       data,
     );
   },
@@ -205,7 +208,7 @@ export const workspaceService = {
   /** 删除工作项（V-37） */
   async deleteWorkItem(workspaceId: string, itemId: string): Promise<boolean> {
     const res = await http.delete<{ deleted: boolean }>(
-      `/v1/workspaces/${workspaceId}/items/${itemId}`,
+      ENDPOINTS.workspace.itemById(workspaceId, itemId),
     );
     return res.deleted;
   },
@@ -213,7 +216,7 @@ export const workspaceService = {
   /** 检查后端 Workspace API 是否就绪 */
   async isBackendReady(): Promise<boolean> {
     try {
-      await http.get<unknown>("/v1/workspaces");
+      await http.get<unknown>(ENDPOINTS.workspace.base);
       return true;
     } catch {
       return false;
@@ -225,21 +228,21 @@ export const workspaceService = {
   /** 检测 .liri/ 目录 */
   async detectLiriDir(workspaceId: string): Promise<LiriDetectionResult> {
     return await http.get<LiriDetectionResult>(
-      `/v1/workspaces/${workspaceId}/liri/detect`,
+      ENDPOINTS.workspace.liriDetect(workspaceId),
     );
   },
 
   /** 初始化 .liri/ 目录结构 */
   async initLiriDir(workspaceId: string): Promise<LiriDetectionResult> {
     return await http.post<LiriDetectionResult>(
-      `/v1/workspaces/${workspaceId}/liri/init`,
+      ENDPOINTS.workspace.liriInit(workspaceId),
     );
   },
 
   /** 获取工作空间配置摘要 */
   async getConfig(workspaceId: string): Promise<WorkspaceConfigSummary> {
     return await http.get<WorkspaceConfigSummary>(
-      `/v1/workspaces/${workspaceId}/config`,
+      ENDPOINTS.workspace.config(workspaceId),
     );
   },
 
@@ -249,14 +252,14 @@ export const workspaceService = {
     data: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     return await http.put<Record<string, unknown>>(
-      `/v1/workspaces/${workspaceId}/config`,
+      ENDPOINTS.workspace.config(workspaceId),
       data,
     );
   },
 
   /** 获取工作空间规则 */
   async getRules(workspaceId: string): Promise<string> {
-    return await http.get<string>(`/v1/workspaces/${workspaceId}/rules`);
+    return await http.get<string>(ENDPOINTS.workspace.rules(workspaceId));
   },
 
   /** 更新工作空间规则 */
@@ -265,7 +268,7 @@ export const workspaceService = {
     data: UpdateRulesRequest,
   ): Promise<{ success: boolean }> {
     return await http.put<{ success: boolean }>(
-      `/v1/workspaces/${workspaceId}/rules`,
+      ENDPOINTS.workspace.rules(workspaceId),
       data,
     );
   },
@@ -278,7 +281,7 @@ export const workspaceService = {
     itemId: string,
   ): Promise<ChangeSet[]> {
     return await http.get<ChangeSet[]>(
-      `/v1/workspaces/${workspaceId}/items/${itemId}/changesets`,
+      ENDPOINTS.workspace.itemChangeSets(workspaceId, itemId),
     );
   },
 
@@ -289,7 +292,7 @@ export const workspaceService = {
     data: { description: string; files?: ChangeSetFile[] },
   ): Promise<ChangeSet> {
     return await http.post<ChangeSet>(
-      `/v1/workspaces/${workspaceId}/items/${itemId}/changesets`,
+      ENDPOINTS.workspace.itemChangeSets(workspaceId, itemId),
       data,
     );
   },
@@ -300,7 +303,7 @@ export const workspaceService = {
     changesetId: string,
   ): Promise<ChangeSet> {
     return await http.get<ChangeSet>(
-      `/v1/workspaces/${workspaceId}/changesets/${changesetId}`,
+      ENDPOINTS.workspace.changeSetById(workspaceId, changesetId),
     );
   },
 
@@ -316,7 +319,7 @@ export const workspaceService = {
     },
   ): Promise<ChangeSet> {
     return await http.post<ChangeSet>(
-      `/v1/workspaces/${workspaceId}/changesets/${changesetId}/files`,
+      ENDPOINTS.workspace.changeSetFiles(workspaceId, changesetId),
       data,
     );
   },
@@ -328,7 +331,7 @@ export const workspaceService = {
     data: { status: string },
   ): Promise<ChangeSet> {
     return await http.patch<ChangeSet>(
-      `/v1/workspaces/${workspaceId}/changesets/${changesetId}`,
+      ENDPOINTS.workspace.changeSetById(workspaceId, changesetId),
       data,
     );
   },
@@ -339,7 +342,7 @@ export const workspaceService = {
     changesetId: string,
   ): Promise<ChangeSetSummary> {
     return await http.get<ChangeSetSummary>(
-      `/v1/workspaces/${workspaceId}/changesets/${changesetId}/summary`,
+      ENDPOINTS.workspace.changeSetSummary(workspaceId, changesetId),
     );
   },
 
@@ -351,7 +354,7 @@ export const workspaceService = {
     itemId: string,
   ): Promise<Record<string, unknown>> {
     return await http.get<Record<string, unknown>>(
-      `/v1/workspaces/${workspaceId}/items/${itemId}/orchestration`,
+      ENDPOINTS.workspace.orchestration(workspaceId, itemId),
     );
   },
 
@@ -360,7 +363,7 @@ export const workspaceService = {
   /** 获取 Swarm 群组状态 */
   async getSwarmStatus(workspaceId: string): Promise<Record<string, unknown>> {
     return await http.get<Record<string, unknown>>(
-      `/v1/workspaces/${workspaceId}/swarm`,
+      ENDPOINTS.workspace.swarm(workspaceId),
     );
   },
 
@@ -376,7 +379,7 @@ export const workspaceService = {
     }>;
     availableModels: Array<{ id: string; name: string; provider: string }>;
   }> {
-    return await http.get(`/v1/workspaces/${workspaceId}/agent-model-bindings`);
+    return await http.get(ENDPOINTS.workspace.agentModelBindings(workspaceId));
   },
 
   /** 更新 Agent-Model 绑定配置 */
@@ -392,7 +395,7 @@ export const workspaceService = {
     },
   ): Promise<{ success: boolean }> {
     return await http.put(
-      `/v1/workspaces/${workspaceId}/agent-model-bindings`,
+      ENDPOINTS.workspace.agentModelBindings(workspaceId),
       data as Record<string, unknown>,
     );
   },
@@ -401,7 +404,7 @@ export const workspaceService = {
 
   /** 获取团队列表 */
   async getTeams(workspaceId: string): Promise<unknown[]> {
-    return await http.get(`/v1/workspaces/${workspaceId}/teams`);
+    return await http.get(ENDPOINTS.workspace.teams(workspaceId));
   },
 
   /** 创建团队 */
@@ -410,14 +413,14 @@ export const workspaceService = {
     data: { name: string; description?: string; members?: unknown[] },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/teams`,
+      ENDPOINTS.workspace.teams(workspaceId),
       data as Record<string, unknown>,
     );
   },
 
   /** 获取团队详情 */
   async getTeam(workspaceId: string, teamId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/teams/${teamId}`);
+    return await http.get(ENDPOINTS.workspace.teamById(workspaceId, teamId));
   },
 
   /** 更新团队 */
@@ -427,7 +430,7 @@ export const workspaceService = {
     data: Record<string, unknown>,
   ): Promise<unknown> {
     return await http.put(
-      `/v1/workspaces/${workspaceId}/teams/${teamId}`,
+      ENDPOINTS.workspace.teamById(workspaceId, teamId),
       data,
     );
   },
@@ -437,7 +440,7 @@ export const workspaceService = {
     workspaceId: string,
     teamId: string,
   ): Promise<{ success: boolean }> {
-    return await http.delete(`/v1/workspaces/${workspaceId}/teams/${teamId}`);
+    return await http.delete(ENDPOINTS.workspace.teamById(workspaceId, teamId));
   },
 
   /** 添加团队成员 */
@@ -453,7 +456,7 @@ export const workspaceService = {
     },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/teams/${teamId}/members`,
+      ENDPOINTS.workspace.teamMembers(workspaceId, teamId),
       data as Record<string, unknown>,
     );
   },
@@ -465,7 +468,7 @@ export const workspaceService = {
     memberId: string,
   ): Promise<unknown> {
     return await http.delete(
-      `/v1/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}`,
+      ENDPOINTS.workspace.teamMemberById(workspaceId, teamId, memberId),
     );
   },
 
@@ -477,7 +480,7 @@ export const workspaceService = {
     role: string,
   ): Promise<unknown> {
     return await http.put(
-      `/v1/workspaces/${workspaceId}/teams/${teamId}/members/${memberId}/role`,
+      ENDPOINTS.workspace.teamMemberRole(workspaceId, teamId, memberId),
       { role },
     );
   },
@@ -486,12 +489,12 @@ export const workspaceService = {
 
   /** 获取成本报告 */
   async getCostReport(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/cost/report`);
+    return await http.get(ENDPOINTS.workspace.costReport(workspaceId));
   },
 
   /** 获取预算状态 */
   async getBudgetStatus(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/cost/budget`);
+    return await http.get(ENDPOINTS.workspace.costBudget(workspaceId));
   },
 
   // ========== 工作项搜索 API ==========
@@ -501,31 +504,31 @@ export const workspaceService = {
     workspaceId: string,
     query: Record<string, unknown>,
   ): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/items/search`, query);
+    return await http.post(ENDPOINTS.workspace.itemsSearch(workspaceId), query);
   },
 
   /** 获取工作项回顾摘要 */
   async getWorkItemReview(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/items/review`);
+    return await http.get(ENDPOINTS.workspace.itemsReview(workspaceId));
   },
 
   // ========== 工作流模板 API ==========
 
   /** 获取工作流模板列表 */
   async getWorkflowTemplates(): Promise<unknown[]> {
-    return await http.get("/v1/workflows/templates");
+    return await http.get(ENDPOINTS.workflow.templates);
   },
 
   /** 获取工作流模板详情 */
   async getWorkflowTemplate(templateId: string): Promise<unknown> {
-    return await http.get(`/v1/workflows/templates/${templateId}`);
+    return await http.get(ENDPOINTS.workflow.templateById(templateId));
   },
 
   /** 创建工作流模板 */
   async createWorkflowTemplate(
     data: Record<string, unknown>,
   ): Promise<unknown> {
-    return await http.post("/v1/workflows/templates", data);
+    return await http.post(ENDPOINTS.workflow.templates, data);
   },
 
   /** 更新工作流模板 */
@@ -533,14 +536,14 @@ export const workspaceService = {
     templateId: string,
     data: Record<string, unknown>,
   ): Promise<unknown> {
-    return await http.put(`/v1/workflows/templates/${templateId}`, data);
+    return await http.put(ENDPOINTS.workflow.templateById(templateId), data);
   },
 
   /** 删除工作流模板 */
   async deleteWorkflowTemplate(
     templateId: string,
   ): Promise<{ success: boolean }> {
-    return await http.delete(`/v1/workflows/templates/${templateId}`);
+    return await http.delete(ENDPOINTS.workflow.templateById(templateId));
   },
 
   // ==================== Council API ====================
@@ -560,7 +563,7 @@ export const workspaceService = {
       maxRounds?: number;
     },
   ): Promise<{ sessionId: string; message: string }> {
-    return await http.post(`/v1/workspaces/${workspaceId}/council`, data);
+    return await http.post(ENDPOINTS.workspace.council(workspaceId), data);
   },
 
   /** 获取 Council 会话 */
@@ -568,14 +571,16 @@ export const workspaceService = {
     workspaceId: string,
     sessionId: string,
   ): Promise<import("@/types/council").CouncilSession> {
-    return await http.get(`/v1/workspaces/${workspaceId}/council/${sessionId}`);
+    return await http.get(
+      ENDPOINTS.workspace.councilById(workspaceId, sessionId),
+    );
   },
 
   /** 列出活跃的 Council 会话 */
   async listCouncils(
     workspaceId: string,
   ): Promise<import("@/types/council").CouncilSession[]> {
-    return await http.get(`/v1/workspaces/${workspaceId}/council`);
+    return await http.get(ENDPOINTS.workspace.council(workspaceId));
   },
 
   // ==================== 编排智能 API ====================
@@ -586,7 +591,7 @@ export const workspaceService = {
     data: { changedFiles: string[]; changedContent: string },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/intelligence/impact`,
+      ENDPOINTS.workspace.intelligenceImpact(workspaceId),
       data,
     );
   },
@@ -597,7 +602,7 @@ export const workspaceService = {
     data: { title: string; description: string; changedFiles: string[] },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/intelligence/risks`,
+      ENDPOINTS.workspace.intelligenceRisks(workspaceId),
       data,
     );
   },
@@ -613,7 +618,7 @@ export const workspaceService = {
     },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/intelligence/decision`,
+      ENDPOINTS.workspace.intelligenceDecision(workspaceId),
       data,
     );
   },
@@ -629,7 +634,7 @@ export const workspaceService = {
     },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/intelligence/escalate`,
+      ENDPOINTS.workspace.intelligenceEscalate(workspaceId),
       data,
     );
   },
@@ -637,7 +642,7 @@ export const workspaceService = {
   /** 获取活跃异常 */
   async getEscalations(workspaceId: string): Promise<unknown> {
     return await http.get(
-      `/v1/workspaces/${workspaceId}/intelligence/escalations`,
+      ENDPOINTS.workspace.intelligenceEscalations(workspaceId),
     );
   },
 
@@ -647,7 +652,7 @@ export const workspaceService = {
     data: { workItemId: string; resources: string[]; priority: number },
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/intelligence/schedule`,
+      ENDPOINTS.workspace.intelligenceSchedule(workspaceId),
       data,
     );
   },
@@ -655,7 +660,7 @@ export const workspaceService = {
   /** 获取资源状态 */
   async getResources(workspaceId: string): Promise<unknown> {
     return await http.get(
-      `/v1/workspaces/${workspaceId}/intelligence/resources`,
+      ENDPOINTS.workspace.intelligenceResources(workspaceId),
     );
   },
 
@@ -663,13 +668,13 @@ export const workspaceService = {
 
   /** 列出所有规则 */
   async listRules(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/rules`);
+    return await http.get(ENDPOINTS.workspace.rules(workspaceId));
   },
 
   /** 读取规则 */
   async getRule(workspaceId: string, specialization: string): Promise<unknown> {
     return await http.get(
-      `/v1/workspaces/${workspaceId}/rules/${specialization}`,
+      ENDPOINTS.workspace.ruleBySpec(workspaceId, specialization),
     );
   },
 
@@ -680,7 +685,7 @@ export const workspaceService = {
     content: string,
   ): Promise<unknown> {
     return await http.put(
-      `/v1/workspaces/${workspaceId}/rules/${specialization}`,
+      ENDPOINTS.workspace.ruleBySpec(workspaceId, specialization),
       { content },
     );
   },
@@ -692,7 +697,7 @@ export const workspaceService = {
     content: string,
   ): Promise<unknown> {
     return await http.post(
-      `/v1/workspaces/${workspaceId}/rules/${specialization}`,
+      ENDPOINTS.workspace.ruleBySpec(workspaceId, specialization),
       { content },
     );
   },
@@ -702,11 +707,11 @@ export const workspaceService = {
     workspaceId: string,
     data: { title: string; description: string; changedFiles: string[] },
   ): Promise<unknown> {
-    return await http.post(`/v1/workspaces/${workspaceId}/rules/load`, data);
+    return await http.post(ENDPOINTS.workspace.rulesLoad(workspaceId), data);
   },
 
   /** 规则总览 */
   async getRulesOverview(workspaceId: string): Promise<unknown> {
-    return await http.get(`/v1/workspaces/${workspaceId}/rules/overview`);
+    return await http.get(ENDPOINTS.workspace.rulesOverview(workspaceId));
   },
 };

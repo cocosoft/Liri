@@ -207,7 +207,7 @@ function truncateConvertOutput(markdown: string): string {
   );
 }
 
-const BINARY_EXTENSIONS = new Set([
+const FILE_READ_BINARY_EXTENSIONS = new Set([
   '.docx',
   '.xlsx',
   '.xls',
@@ -320,7 +320,7 @@ export class FileReadTool extends BaseTool {
 
       const ext = path.extname(filePath).toLowerCase();
 
-      if (BINARY_EXTENSIONS.has(ext)) {
+      if (FILE_READ_BINARY_EXTENSIONS.has(ext)) {
         // 2026-08-24 修复：二进制转换路径透传 offset/limit——
         // 大文档（如 18 万字符 docx）可按行分段读取全文，不再被 30K 截断只读头尾
         return this.convertFile(

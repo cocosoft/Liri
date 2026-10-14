@@ -21,6 +21,22 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // （原文由 docs 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import type { KnowledgeRoutePort } from '@modules/runtime/api/knowledgeOpsPorts';
 
+/** 需要 ConverterEngine 转换的二进制文件扩展名 */
+// B5-2⑳（2026-10-14）：原为本文件**两处函数级同名副本**（内容逐字相同）⇒ 合一为模块级单一真源
+const KNOWLEDGE_CONVERT_BINARY_EXTENSIONS = new Set([
+  '.docx',
+  '.xlsx',
+  '.xls',
+  '.pptx',
+  '.pdf',
+  '.epub',
+  '.ipynb',
+  '.zip',
+  '.msg',
+  '.rss',
+  '.atom',
+]);
+
 /**
  * B4（2026-09-08）：HTTP 知识搜索复用共享单例 getKnowledgeRouter()，
  * 不再自建 KnowledgeRouter——此前 KB-SEARCH-REUSE 仅收敛为"模块级私有单例"，
@@ -34,6 +50,7 @@ import type { KnowledgeRoutePort } from '@modules/runtime/api/knowledgeOpsPorts'
  * SemanticIndexUpdater 只订阅 knowledge:changed——此前前端所有写操作都不触发
  * 语义索引更新（事件断链）。此处统一补发全局事件。
  */
+
 export function publishKnowledgeChanged(
   action: 'created' | 'updated' | 'deleted',
   filePath: string
@@ -981,23 +998,6 @@ export async function handleKnowledgeUpload(
     const now = new Date().toISOString();
     const tagList = Array.isArray(tags) ? tags : [];
 
-    /**
-     * 需要 ConverterEngine 转换的二进制文件扩展名
-     */
-    const BINARY_EXTENSIONS = new Set([
-      '.docx',
-      '.xlsx',
-      '.xls',
-      '.pptx',
-      '.pdf',
-      '.epub',
-      '.ipynb',
-      '.zip',
-      '.msg',
-      '.rss',
-      '.atom',
-    ]);
-
     let docRelativePath: string;
     const rawBuffer = Buffer.from(data, 'base64');
 
@@ -1030,7 +1030,7 @@ export async function handleKnowledgeUpload(
         : `${frontmatter}\n\n${rawContent}\n`;
 
       await writeFile(fullPath, fileContent, 'utf-8');
-    } else if (BINARY_EXTENSIONS.has(ext)) {
+    } else if (KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext)) {
       const nameStem = basename(safeName, ext);
       const rawDir = join(baseDir, 'raw');
       await mkdir(rawDir, { recursive: true });
@@ -1478,26 +1478,9 @@ export async function handleImportFromFile(
     const originalName = basename(filePath);
     const ext = extname(originalName).toLowerCase();
 
-    /**
-     * 需要 ConverterEngine 转换的二进制文件扩展名
-     */
-    const BINARY_EXTENSIONS = new Set([
-      '.docx',
-      '.xlsx',
-      '.xls',
-      '.pptx',
-      '.pdf',
-      '.epub',
-      '.ipynb',
-      '.zip',
-      '.msg',
-      '.rss',
-      '.atom',
-    ]);
-
     let rawContent: string;
 
-    if (BINARY_EXTENSIONS.has(ext)) {
+    if (KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext)) {
       const result = await (
         await getCoreAPI().getToolsPort()
       ).convertFile(filePath);
@@ -1530,8 +1513,8 @@ export async function handleImportFromFile(
         tagList.length > 0
           ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
           : '',
-        BINARY_EXTENSIONS.has(ext) ? `originalFormat: "${ext}"` : '',
-        BINARY_EXTENSIONS.has(ext) ? `originalFile: "${filePath}"` : '',
+        KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext) ? `originalFormat: "${ext}"` : '',
+        KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext) ? `originalFile: "${filePath}"` : '',
         '---',
         '',
       ]

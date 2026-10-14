@@ -1013,4 +1013,25 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       read('../client/src/components/Memory/memoryConstants.ts')
     ).toContain('export const TYPE_COLORS: Record<MemoryType, string> = {');
   });
+
+  test('B5-2⑳：`BINARY_EXTENSIONS` 已收敛为单一真源（内容一字未改）', () => {
+    // 真源：`constants/files.ts`（导出 + 自带 `hasBinaryExtension` 助手）—— 本片**有意保留原名**
+    expect(read('src/constants/files.ts')).toContain(
+      'export const BINARY_EXTENSIONS = new Set(['
+    );
+    expect(read('src/constants/files.ts')).toContain(
+      'return BINARY_EXTENSIONS.has(ext);'
+    );
+    // knowledge-handlers.ts：原**两处函数级同名副本**⇒ 合一为模块级单一真源
+    const kh = read('src/infrastructure/http/handlers/knowledge-handlers.ts');
+    expect(kh).toContain(
+      'const KNOWLEDGE_CONVERT_BINARY_EXTENSIONS = new Set(['
+    );
+    expect(kh).not.toMatch(/(^|[^_])BINARY_EXTENSIONS\b/);
+    // FileReadTool.ts：该文件自带一份**不同**清单 ⇒ 按域消歧
+    const frt = read('src/tools/FileReadTool/FileReadTool.ts');
+    expect(frt).toContain('const FILE_READ_BINARY_EXTENSIONS = new Set([');
+    expect(frt).toContain('if (FILE_READ_BINARY_EXTENSIONS.has(ext)) {');
+    expect(frt).not.toMatch(/(^|[^_])BINARY_EXTENSIONS\b/);
+  });
 });

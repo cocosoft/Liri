@@ -58,7 +58,7 @@ const BLUEBUBBLES_CAPABILITIES: ChannelCapabilities = {
 };
 
 /** 请求超时时间 */
-const REQUEST_TIMEOUT_MS = 20000;
+const BLUEBUBBLES_REQUEST_TIMEOUT_MS = 20000;
 
 export class BlueBubblesChannel
   extends BaseChannelPlugin
@@ -105,7 +105,7 @@ export class BlueBubblesChannel
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(BLUEBUBBLES_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -222,7 +222,7 @@ export class BlueBubblesChannel
   ): Promise<SendResult> {
     try {
       const imageResp = await fetch(imageUrl, {
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(BLUEBUBBLES_REQUEST_TIMEOUT_MS),
       });
 
       if (!imageResp.ok) {

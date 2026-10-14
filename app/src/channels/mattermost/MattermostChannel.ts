@@ -60,7 +60,7 @@ const MATTERMOST_CAPABILITIES: ChannelCapabilities = {
 };
 
 /** 请求超时时间 */
-const REQUEST_TIMEOUT_MS = 15000;
+const MATTERMOST_REQUEST_TIMEOUT_MS = 15000;
 
 export class MattermostChannel
   extends BaseChannelPlugin
@@ -103,7 +103,7 @@ export class MattermostChannel
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(MATTERMOST_REQUEST_TIMEOUT_MS),
       });
 
       if (!meResponse.ok) {
@@ -183,7 +183,7 @@ export class MattermostChannel
       method,
       headers: this.getApiHeaders(),
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(MATTERMOST_REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -286,7 +286,7 @@ export class MattermostChannel
           Authorization: `Bearer ${this.channelConfig.botToken}`,
         },
         body: formData,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(MATTERMOST_REQUEST_TIMEOUT_MS),
       });
 
       if (!uploadResp.ok) {

@@ -73,7 +73,7 @@ function detectProvider(baseUrl: string): BalanceProvider | null {
   return null;
 }
 
-const REQUEST_TIMEOUT_MS = 10000;
+const BALANCE_CHECK_REQUEST_TIMEOUT_MS = 10000;
 
 /** 解析 JSON 数字字段 */
 function parseFloatField(
@@ -97,7 +97,7 @@ async function httpGet(
   apiKey: string
 ): Promise<{ status: number; body: unknown }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), BALANCE_CHECK_REQUEST_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {

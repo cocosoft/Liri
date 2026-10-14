@@ -99,7 +99,7 @@ const ALLOWED_COMPUTE_TYPES = ['int8', 'float16', 'float32'] as const;
 const LANGUAGE_CODE_REGEX = /^[a-z]{2,3}$/;
 
 /** 单次转录请求超时（毫秒） */
-const REQUEST_TIMEOUT_MS = 30_000;
+const LOCAL_STT_REQUEST_TIMEOUT_MS = 30_000;
 
 /** 进程崩溃后最大重启次数 */
 const MAX_RESTART_ATTEMPTS = 3;
@@ -656,10 +656,10 @@ export class LocalSTTProvider implements STTProvider {
         const elapsed = Date.now() - startTime;
         reject(
           new Error(
-            `转录请求超时 (${REQUEST_TIMEOUT_MS}ms, 实际等待 ${elapsed}ms)`
+            `转录请求超时 (${LOCAL_STT_REQUEST_TIMEOUT_MS}ms, 实际等待 ${elapsed}ms)`
           )
         );
-      }, REQUEST_TIMEOUT_MS);
+      }, LOCAL_STT_REQUEST_TIMEOUT_MS);
 
       this._pendingRequests.set(reqId, { resolve, reject, timeout, startTime });
 

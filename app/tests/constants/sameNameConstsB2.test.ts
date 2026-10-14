@@ -505,4 +505,40 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(seed).toContain('TASKS_SCHEMA');
     expect(seed).not.toContain('as TASK_SCHEMA');
   });
+
+  test('B5-2③：`REQUEST_TIMEOUT_MS` ×5 已按域消歧（取值一字未改）', () => {
+    // 5 处同名 `REQUEST_TIMEOUT_MS` 全为**文件内局部**（无 export），取值 5 个全不同
+    const items: Array<[string, string, string]> = [
+      [
+        'src/ai/providers/BalanceChecker.ts',
+        'BALANCE_CHECK_REQUEST_TIMEOUT_MS',
+        '10000',
+      ],
+      [
+        'src/channels/bluebubbles/BlueBubblesChannel.ts',
+        'BLUEBUBBLES_REQUEST_TIMEOUT_MS',
+        '20000',
+      ],
+      [
+        'src/channels/mattermost/MattermostChannel.ts',
+        'MATTERMOST_REQUEST_TIMEOUT_MS',
+        '15000',
+      ],
+      [
+        'src/services/voice/services/senseVoiceSTTProvider.ts',
+        'SENSEVOICE_STT_REQUEST_TIMEOUT_MS',
+        '60_000',
+      ],
+      [
+        'src/services/voice/services/localSTTProvider.ts',
+        'LOCAL_STT_REQUEST_TIMEOUT_MS',
+        '30_000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const REQUEST_TIMEOUT_MS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

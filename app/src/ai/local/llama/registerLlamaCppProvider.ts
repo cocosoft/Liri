@@ -30,13 +30,12 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { LOCAL_HTTP_HOST } from '@modules/core';
 import {
+  LLAMACPP_PROVIDER_TYPE,
   llamaCppServerManager,
   syncLlamaModelsToRegistry,
 } from './LlamaCppServerManager.js';
 
 const logger = getLogger('ai:llama');
-
-const LLAMACPP_PROVIDER_TYPE = 'llamacpp' as const;
 
 /**
  * 确保 llamacpp provider 已注册到 DB 与 Registry

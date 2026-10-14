@@ -158,4 +158,26 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain('DEFAULT_OLLAMA_ENDPOINT');
     }
   });
+
+  test('B3-2：`MAX_STATUS_CHARS` 真源在 GitDetector.ts（3→1）；`LLAMACPP_PROVIDER_TYPE` 真源在 LlamaCppServerManager.ts（2→1）', () => {
+    const git = read('src/context/GitDetector.ts');
+    expect(git).toMatch(/export const MAX_STATUS_CHARS = 2000;/);
+    expect(git).toContain('唯一真源');
+    const consumers: Array<[string, string]> = [
+      ['src/context/GitContextService.ts', "from './GitDetector'"],
+      ['src/context/services/SystemContextService.ts', "from '../GitDetector'"],
+    ];
+    for (const [rel, imp] of consumers) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_STATUS_CHARS =/);
+      expect(src).toContain(imp);
+    }
+    const mgr = read('src/ai/local/llama/LlamaCppServerManager.ts');
+    expect(mgr).toMatch(
+      /export const LLAMACPP_PROVIDER_TYPE = 'llamacpp' as const;/
+    );
+    const reg = read('src/ai/local/llama/registerLlamaCppProvider.ts');
+    expect(reg).not.toMatch(/const LLAMACPP_PROVIDER_TYPE =/);
+    expect(reg).toContain('LLAMACPP_PROVIDER_TYPE,');
+  });
 });

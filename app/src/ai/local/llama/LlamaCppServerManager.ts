@@ -1330,8 +1330,15 @@ export class LlamaCppServerManager {
   }
 }
 
-/** llamacpp provider 类型（与 providers 表 provider_type 一致） */
-const LLAMACPP_PROVIDER_TYPE = 'llamacpp' as const;
+/**
+ * llama.cpp provider 类型标识（与 `providers` 表 `provider_type` 一致）。
+ *
+ * **唯一真源**（硬编码治理「同名常量」B3-2）：原于本文件与 `registerLlamaCppProvider.ts`
+ * **各写一份** ⇒ 后者改从本文件导入（其**本就已**导入本模块 ⇒ **零新增依赖方向**）。
+ * 注：provider 类型的**全集**另见 `ai/providers/ProviderManager.ts` 的联合类型 —— 未来若统一，
+ * 本常量应随之收编，届时以 union 为唯一真源。
+ */
+export const LLAMACPP_PROVIDER_TYPE = 'llamacpp' as const;
 
 /**
  * 从 llama-server 服务端探测真实 n_ctx（--ctx-size 实际值）

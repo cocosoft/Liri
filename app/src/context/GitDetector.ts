@@ -11,7 +11,14 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('context:gitDetector');
 
-const MAX_STATUS_CHARS = 2000;
+/**
+ * Git status 输出截断上限（字符）。
+ *
+ * **唯一真源**（硬编码治理「同名常量」B3-2）：原于本文件、`GitContextService.ts`、
+ * `services/SystemContextService.ts` **各写一份**同值常量 ⇒ 统一由此导出（本文件为三者
+ * 公共底座，其余两处 import；两处**都不反向被本文件引用** ⇒ 无成环）。
+ */
+export const MAX_STATUS_CHARS = 2000;
 
 let gitAvailable: boolean | null = null;
 

@@ -10,12 +10,12 @@ import path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
+// `MAX_STATUS_CHARS` 统一到真源 `./GitDetector`（硬编码治理「同名常量」B3-2）。
+import { MAX_STATUS_CHARS } from './GitDetector';
 
 const logger = getLogger('context:git');
 
 const execAsync = promisify(exec);
-
-const MAX_STATUS_CHARS = 2000;
 
 /**
  * Git状态信息

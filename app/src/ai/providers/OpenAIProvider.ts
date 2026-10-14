@@ -59,7 +59,7 @@ import { randomUUID } from 'crypto';
 
 const logger = getLogger('ai:openai');
 
-const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+const OPENAI_PROVIDER_BASE_URL = 'https://api.openai.com/v1';
 
 /**
  * 模型请求超时（毫秒）。
@@ -176,7 +176,7 @@ export class OpenAIProvider extends BaseAIProvider {
     super(options, _extraConfig);
 
     this.apiKey = this.resolveApiKey() || '';
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+    this.baseUrl = (this.resolveBaseUrl() || OPENAI_PROVIDER_BASE_URL).replace(
       /\/+$/,
       ''
     );

@@ -236,4 +236,24 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`const ${name} = ${value};`);
     }
   });
+
+  test('B5-1②：`DEFAULT_BASE_URL` ×5 已按域消歧（Ollama 去别名；其余按 provider 改名）', () => {
+    const pairs: Array<[string, string]> = [
+      ['src/ai/providers/OpenAIProvider.ts', 'OPENAI_PROVIDER_BASE_URL'],
+      [
+        'src/ai/embedding/providers/OpenAIEmbeddingProvider.ts',
+        'OPENAI_EMBEDDING_BASE_URL',
+      ],
+      ['src/ai/providers/LlamaCppProvider.ts', 'LLAMACPP_PROVIDER_BASE_URL'],
+      ['src/ai/providers/GoogleProvider.ts', 'GOOGLE_PROVIDER_BASE_URL'],
+    ];
+    for (const [rel, name] of pairs) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const DEFAULT_BASE_URL =/);
+      expect(src).toContain(`const ${name} = `);
+    }
+    const ollama = read('src/ai/providers/OllamaProvider.ts');
+    expect(ollama).not.toContain('DEFAULT_BASE_URL');
+    expect(ollama).toContain('DEFAULT_OLLAMA_ENDPOINT');
+  });
 });

@@ -50,7 +50,8 @@ import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 const logger = getLogger('ai:google');
 
-const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+const GOOGLE_PROVIDER_BASE_URL =
+  'https://generativelanguage.googleapis.com/v1beta';
 
 export class GoogleProvider extends BaseAIProvider {
   private apiKey: string;
@@ -70,7 +71,7 @@ export class GoogleProvider extends BaseAIProvider {
     super(options, _extraConfig);
 
     this.apiKey = this.resolveApiKey() || '';
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+    this.baseUrl = (this.resolveBaseUrl() || GOOGLE_PROVIDER_BASE_URL).replace(
       /\/+$/,
       ''
     );

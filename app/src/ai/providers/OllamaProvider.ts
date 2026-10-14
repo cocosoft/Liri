@@ -32,7 +32,7 @@ import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
 const logger = getLogger('ai:ollama');
 
-const DEFAULT_BASE_URL = DEFAULT_OLLAMA_ENDPOINT;
+// 本地别名已删（硬编码治理「同名常量」B5-1②）：直接使用真源 `DEFAULT_OLLAMA_ENDPOINT`（顶部已导入）。
 
 /**
  * Ollama 流末 `done` 行的服务端用量 → `ChatResponse.usage` 口径（等价字段映射）。
@@ -95,7 +95,7 @@ export class OllamaProvider extends BaseAIProvider {
   ) {
     super(options, _extraConfig);
 
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
+    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_OLLAMA_ENDPOINT).replace(
       /\/+$/,
       ''
     );
@@ -604,7 +604,7 @@ export class OllamaProvider extends BaseAIProvider {
 
     if (!config.baseUrl && !configManager.env('OLLAMA_BASE_URL')) {
       warnings.push(
-        'No baseUrl configured, using default: ' + DEFAULT_BASE_URL
+        'No baseUrl configured, using default: ' + DEFAULT_OLLAMA_ENDPOINT
       );
     }
 

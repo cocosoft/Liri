@@ -27,7 +27,7 @@ export interface OpenAIEmbeddingConfig {
   dimensions?: number;
 }
 
-const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+const OPENAI_EMBEDDING_BASE_URL = 'https://api.openai.com/v1';
 
 /**
  * OpenAI 嵌入提供者
@@ -50,7 +50,7 @@ export class OpenAIEmbeddingProvider extends EmbeddingBase {
     this.baseURL =
       config.baseURL ||
       configManager.env('OPENAI_BASE_URL') ||
-      DEFAULT_BASE_URL;
+      OPENAI_EMBEDDING_BASE_URL;
   }
 
   /**

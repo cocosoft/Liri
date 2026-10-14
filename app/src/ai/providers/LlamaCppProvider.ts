@@ -46,7 +46,7 @@ import type {
 const logger = getLogger('ai:llama');
 
 /** llama-server 默认 OpenAI 兼容端点（与 LlamaCppServerManager 默认端口对齐） */
-const DEFAULT_BASE_URL = 'http://127.0.0.1:11435/v1';
+const LLAMACPP_PROVIDER_BASE_URL = 'http://127.0.0.1:11435/v1';
 
 /**
  * llama.cpp 单次请求工具数量上限。
@@ -112,10 +112,9 @@ export class LlamaCppProvider extends OpenAIProvider {
     _extraConfig?: Record<string, unknown>
   ) {
     super(options, _extraConfig);
-    this.baseUrl = (this.resolveBaseUrl() || DEFAULT_BASE_URL).replace(
-      /\/+$/,
-      ''
-    );
+    this.baseUrl = (
+      this.resolveBaseUrl() || LLAMACPP_PROVIDER_BASE_URL
+    ).replace(/\/+$/, '');
   }
 
   /** 本地服务可用性：探测 llama-server /health（根路径，baseUrl 的 /v1 后缀需剥离） */
@@ -164,7 +163,7 @@ export class LlamaCppProvider extends OpenAIProvider {
     const warnings: string[] = [];
     if (!config.baseUrl) {
       warnings.push(
-        'No baseUrl configured, using default: ' + DEFAULT_BASE_URL
+        'No baseUrl configured, using default: ' + LLAMACPP_PROVIDER_BASE_URL
       );
     }
     return { valid: true, errors: [], warnings };

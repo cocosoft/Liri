@@ -3004,6 +3004,26 @@
       "changelog": [],
       "reopenWhen": "① **B5-1 余项仍待执行**（方案与「**整键才消键**」约束见 `HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP` 的 `reopenWhen` ①）：`DEFAULT_BASE_URL` ×5 · `CACHE_TTL_MS` ×7 · `DEFAULT_TIMEOUT_MS` ×8 · `MAX_FILE_SIZE` ×6；② 若某 store 新增第二张表 ⇒ 用 `<域>_<表>_TABLE_NAME` 继续消歧（**不要**回到泛名 `TABLE_NAME`）；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 259）立即阻断。",
       "notes": "**取证（CS06）**：`TABLE_NAME` ×5 且**取值全不同** —— `workspace/TaskStore.ts:21` `'tasks'` · `workspace/ProjectItemStore.ts:163` `'project_items'` · `query/DBTAORCheckpointStorage.ts:24` `'taor_checkpoints'` · `ai/translation/TranslateHistoryStore.ts:22` `'translate_history'` · `ai/router/SessionRouterStore.ts:55` `'router_session_routes'` ⇒ 属「**命名太泛**」（非重复事实源，**不得**合一；对齐 `HD-P1-2 A8`「有意差异」先例）。**落地（每文件 `replace_all` 单一 token，零行为变化）**：各改 `<域>_TABLE_NAME`（`TASKS_TABLE_NAME` / `PROJECT_ITEMS_TABLE_NAME` / `TAOR_CHECKPOINTS_TABLE_NAME` / `TRANSLATE_HISTORY_TABLE_NAME` / `SESSION_ROUTER_TABLE_NAME`）；grep 证全仓 `TABLE_NAME` **仅作裸 token**（`const TABLE_NAME` 与 `${TABLE_NAME}` 模板，**无更长标识符包含它**）⇒ `replace_all` 不误伤；**表名字符串值一字未改** ⇒ 对 SQLite 表名与存量数据**零影响**。**效果（可证伪）**：`lint:consts` **260 → 259**（**−1 键**），门禁自报 `同名常量:TABLE_NAME` **5 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 259 键**。**守卫**（第 **12** 例）：五文件**均不含** `const TABLE_NAME =`，且各含**确切新名 + 原表名字符串**（同时钉住「已改名」与「值未变」）。**验证**：守卫 **12 pass / 0 fail**；`tests/ai`+`src/ai` **250 pass / 0 fail**；`typecheck`（app 三 tsconfig）**0**；`eslint`（5 改动文件）**首轮 8 errors**（均为 **prettier 行宽** —— 新名比 `TABLE_NAME` 长、模板串超列宽）**已 `--fix`** ⇒ 复查 **0**；4 硬编码门禁全 **exit 0**；`lint:arch` **错误 0 / 警告 5（无回归）**。**如实边界**：① 本片是 **B5-1 的 1/5 子项**（余 4 项见 `reopenWhen` ①）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`（仅相关域 `tests/ai`+`src/ai`；`workspace`/`query` 侧**无既有测试命中**）⇒ 已如实标注。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-1-BASE-URL",
+      "title": "硬编码治理 · **「同名常量」B5-1 子项②**：`DEFAULT_BASE_URL` ×5 按域消歧（Ollama **去别名**、其余 4 处按 provider 改名）⇒ `lint:consts` **259 → 258 键（−1）**",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + `HD-P1-2 A8` 先例",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/ai/providers/OpenAIProvider.ts",
+        "app/src/ai/embedding/providers/OpenAIEmbeddingProvider.ts",
+        "app/src/ai/providers/LlamaCppProvider.ts",
+        "app/src/ai/providers/GoogleProvider.ts",
+        "app/src/ai/providers/OllamaProvider.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① **B5-1 余项**（`CACHE_TTL_MS` ×7 · `DEFAULT_TIMEOUT_MS` ×8 · `MAX_FILE_SIZE` ×6）待执行，方案与「**整键才消键**」约束见 `HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP`.reopenWhen ①；② 若 OpenAI 两处将来确认为**同一事实**（同一 upstream 端点）⇒ 可进一步**合一**（须先验 `ai/embedding/providers` ⇄ `ai/providers` 依赖方向以免成环）；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 258）立即阻断。",
+      "notes": "**取证（CS06）**：`DEFAULT_BASE_URL` ×5 —— `ai/providers/OpenAIProvider.ts:62` 与 `ai/embedding/providers/OpenAIEmbeddingProvider.ts:30` **同值** `'https://api.openai.com/v1'`；`LlamaCppProvider.ts:49` `'http://127.0.0.1:11435/v1'`；`GoogleProvider.ts:53` `'https://generativelanguage.googleapis.com/v1beta'`；`OllamaProvider.ts:35` = **`DEFAULT_OLLAMA_ENDPOINT` 的本地别名**。**判定**：全属「**命名太泛**」（各 provider 自有 base URL，本就该不同；Ollama 处更是同一事实的别名）⇒ 处置 = **按域消歧**、**不强行合一**。**落地（12 处全为裸 token ⇒ `replace_all` 安全；零依赖变更、零成环风险）**：① `OpenAIProvider` → `OPENAI_PROVIDER_BASE_URL` ② `OpenAIEmbeddingProvider` → `OPENAI_EMBEDDING_BASE_URL`（**有意保留为两个独立配置点**：当前同值，但 chat 与 embedding 是两条独立通路；合一须先验依赖方向 ⇒ 记 `reopenWhen` ②）③ `LlamaCppProvider` → `LLAMACPP_PROVIDER_BASE_URL` ④ `GoogleProvider` → `GOOGLE_PROVIDER_BASE_URL` ⑤ `OllamaProvider` **删本地别名**（同 `HD-P1-2 A8` / B3-1 `DEFAULT_OLLAMA_URL` 手法）⇒ 3 处用法直接用真源 `DEFAULT_OLLAMA_ENDPOINT`；**所有 URL 字面量一字未改** ⇒ **零行为变化**。**效果（可证伪）**：`lint:consts` **259 → 258**（**−1 键**），门禁自报 `同名常量:DEFAULT_BASE_URL` **5 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 258 键**。**守卫**（第 **13** 例）：4 个 provider 均不含 `const DEFAULT_BASE_URL =` 且各含确切新名；`OllamaProvider` **整体不含** `DEFAULT_BASE_URL`（别名已删）且含真源名。**验证**：`typecheck`（app 三 tsconfig）**0**；`eslint`（5 改动文件）**0 errors / 1 warning**（**warning 未逐条溯源**，本片为纯改名 ⇒ 如实标注「未核实是否既有」）；`tests/ai`+`src/ai` **250 pass / 0 fail**；4 硬编码门禁全 **exit 0**；提交前钩子（含架构门禁）通过。**如实边界**：① 本片是 **B5-1 的 2/5 子项**（余 3 项见 `reopenWhen` ①）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`（仅 `tests/ai`+`src/ai`）；④ 无既有行为测试覆盖 provider 默认 baseUrl ⇒ 等价性证据 = **URL 字面量未改** + `typecheck` + 门禁。"
     }
   ]
 }

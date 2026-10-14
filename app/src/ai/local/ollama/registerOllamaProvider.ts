@@ -37,7 +37,9 @@ import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
 const logger = getLogger('ai:ollama');
 
 const OLLAMA_PROVIDER_TYPE = 'ollama' as const;
-const DEFAULT_OLLAMA_URL = DEFAULT_OLLAMA_ENDPOINT;
+// 本地别名常量 `DEFAULT_OLLAMA_URL` 已删除（硬编码治理「同名常量」B3-1）——
+// 与 `LocalEmbeddingProvider.ts` 的同名别名构成**重复事实源**，现**直接使用**真源
+// `DEFAULT_OLLAMA_ENDPOINT`（已在文件顶部导入）。
 /** 注册默认上下文窗口：现代本地模型可运行的安全操作窗口上限（探测失败时的兜底） */
 const DEFAULT_OLLAMA_CONTEXT_WINDOW = 32768;
 
@@ -107,7 +109,7 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
     );
     if (!provider) return 0;
     const providerId = provider.id;
-    const baseUrl = (provider.baseUrl || DEFAULT_OLLAMA_URL).replace(
+    const baseUrl = (provider.baseUrl || DEFAULT_OLLAMA_ENDPOINT).replace(
       /\/+$/,
       ''
     );
@@ -217,9 +219,9 @@ export async function ensureOllamaProviderRegistered(): Promise<boolean> {
       (p) => p.providerType === OLLAMA_PROVIDER_TYPE
     );
 
-    let baseUrl = DEFAULT_OLLAMA_URL;
+    let baseUrl = DEFAULT_OLLAMA_ENDPOINT;
     if (record) {
-      baseUrl = (record.baseUrl || DEFAULT_OLLAMA_URL).replace(/\/+$/, '');
+      baseUrl = (record.baseUrl || DEFAULT_OLLAMA_ENDPOINT).replace(/\/+$/, '');
     } else {
       await providerManager.createProvider({
         name: 'Ollama',

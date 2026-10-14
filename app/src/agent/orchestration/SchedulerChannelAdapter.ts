@@ -40,7 +40,7 @@ import type {
 } from '@modules/core/spi';
 
 /** 通道标识（可观测值） */
-const CHANNEL = 'local-scheduler';
+const SCHEDULER_CHANNEL = 'local-scheduler';
 
 export interface SchedulerChannelDeps {
   /** 调度器实例（由装配 / 消费方注入，其 `executor` 由构造方自行持有） */
@@ -51,7 +51,7 @@ export class SchedulerChannelAdapter implements ICollaborationPort {
   constructor(private readonly deps: SchedulerChannelDeps) {}
 
   async listChannels(): Promise<ReadonlyArray<string>> {
-    return [CHANNEL];
+    return [SCHEDULER_CHANNEL];
   }
 
   async dispatch(
@@ -67,7 +67,7 @@ export class SchedulerChannelAdapter implements ICollaborationPort {
     );
 
     return {
-      channel: CHANNEL,
+      channel: SCHEDULER_CHANNEL,
       // ScheduledTaskResult[] → outcomes（保序）
       outcomes: result.results.map((r) => ({
         unitId: r.agentId,

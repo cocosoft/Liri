@@ -41,7 +41,9 @@ import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai:embedding:providers:LocalEmbeddingProvider');
 
-const DEFAULT_OLLAMA_URL = DEFAULT_OLLAMA_ENDPOINT;
+// 本地别名常量 `DEFAULT_OLLAMA_URL` 已删除（硬编码治理「同名常量」B3-1）——
+// 与 `registerOllamaProvider.ts` 的同名别名构成**重复事实源**，现**直接使用**真源
+// `DEFAULT_OLLAMA_ENDPOINT`（已在文件顶部导入）。
 const DEFAULT_EMBED_MODEL = 'nomic-embed-text';
 const DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_BATCH_SIZE = 10;
@@ -86,7 +88,9 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
     this.config = {
       provider: config.provider || 'ollama',
       baseUrl:
-        config.baseUrl || configManager.env('OLLAMA_URL') || DEFAULT_OLLAMA_URL,
+        config.baseUrl ||
+        configManager.env('OLLAMA_URL') ||
+        DEFAULT_OLLAMA_ENDPOINT,
       model: config.model || DEFAULT_EMBED_MODEL,
       apiKey: config.apiKey || '',
       timeoutMs: config.timeoutMs || DEFAULT_TIMEOUT_MS,

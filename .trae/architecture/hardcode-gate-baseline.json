@@ -2,10 +2,8 @@
   "lint:consts": {
     "同名常量:DEFAULT_IDLE_TIMEOUT_MS": 2,
     "同名常量:MAGIC_GUID": 3,
-    "同名常量:CHANNEL": 3,
     "同名常量:MODEL_ALIASES": 2,
     "同名常量:CRED_STORED_MARKER": 2,
-    "同名常量:DEFAULT_OLLAMA_URL": 2,
     "同名常量:DEFAULT_TIMEOUT_MS": 8,
     "同名常量:DEFAULT_BASE_URL": 5,
     "同名常量:LLAMACPP_PROVIDER_TYPE": 2,

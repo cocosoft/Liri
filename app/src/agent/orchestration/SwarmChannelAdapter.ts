@@ -39,7 +39,7 @@ import type {
 } from '@modules/core/spi';
 
 /** 通道标识（可观测值） */
-const CHANNEL = 'local-swarm';
+const SWARM_CHANNEL = 'local-swarm';
 
 export interface SwarmChannelDeps {
   /** swarm 引擎实例（由装配 / 消费方注入） */
@@ -52,7 +52,7 @@ export class SwarmChannelAdapter implements ICollaborationPort {
   constructor(private readonly deps: SwarmChannelDeps) {}
 
   async listChannels(): Promise<ReadonlyArray<string>> {
-    return [CHANNEL];
+    return [SWARM_CHANNEL];
   }
 
   async dispatch(
@@ -69,7 +69,7 @@ export class SwarmChannelAdapter implements ICollaborationPort {
     });
 
     return {
-      channel: CHANNEL,
+      channel: SWARM_CHANNEL,
       // workers → outcomes（保序：引擎 M-13 保证顺序 = task 顺序）
       outcomes: result.workers.map((w) => ({
         unitId: w.id,

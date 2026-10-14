@@ -39,7 +39,7 @@ import type {
 } from '@modules/core/spi';
 
 /** 通道标识（可观测值） */
-const CHANNEL = 'remote';
+const REMOTE_CHANNEL = 'remote';
 
 export interface RemoteChannelDeps {
   /** 远程执行器实例（由装配 / 消费方注入；其连接状态由 `getStatus()` 暴露） */
@@ -50,7 +50,7 @@ export class RemoteChannelAdapter implements ICollaborationPort {
   constructor(private readonly deps: RemoteChannelDeps) {}
 
   async listChannels(): Promise<ReadonlyArray<string>> {
-    return [CHANNEL];
+    return [REMOTE_CHANNEL];
   }
 
   async dispatch(
@@ -76,7 +76,7 @@ export class RemoteChannelAdapter implements ICollaborationPort {
     }
 
     return {
-      channel: CHANNEL,
+      channel: REMOTE_CHANNEL,
       outcomes,
       // 实现侧口径：全部单元成功且至少一个单元
       allPassed: outcomes.length > 0 && outcomes.every((o) => o.ok),

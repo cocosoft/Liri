@@ -132,4 +132,27 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain("import { WAV_HEADER_SIZE } from './audioUtils';");
     }
   });
+
+  test('B3-1：通道标识已按适配器消歧（不再同名）；`DEFAULT_OLLAMA_URL` 本地别名已删（直用真源）', () => {
+    const adapters: Array<[string, string]> = [
+      ['src/agent/orchestration/SwarmChannelAdapter.ts', 'SWARM_CHANNEL'],
+      ['src/agent/orchestration/SchedulerChannelAdapter.ts', 'SCHEDULER_CHANNEL'],
+      ['src/agent/orchestration/RemoteChannelAdapter.ts', 'REMOTE_CHANNEL'],
+    ];
+    for (const [rel, name] of adapters) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const CHANNEL =/);
+      expect(src).toContain(`const ${name} = `);
+      expect(src).toContain(`[${name}]`);
+    }
+    for (const rel of [
+      'src/ai/local/ollama/registerOllamaProvider.ts',
+      'src/ai/embedding/providers/LocalEmbeddingProvider.ts',
+    ]) {
+      const src = read(rel);
+      // 不再有**定义**（注释里可提及历史名）
+      expect(src).not.toMatch(/const DEFAULT_OLLAMA_URL/);
+      expect(src).toContain('DEFAULT_OLLAMA_ENDPOINT');
+    }
+  });
 });

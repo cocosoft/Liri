@@ -29,7 +29,7 @@ const logger = getLogger('context:persistence');
  *   当 entries > 1000 条时，应在 CI 中做 I/O benchmark：
  *   目标: 序列化/反序列化 < 200ms
  */
-const CURRENT_SCHEMA_VERSION = '1.0';
+const CONTEXT_PERSISTENCE_SCHEMA_VERSION = '1.0';
 
 export interface SerializedContextEntry {
   id: string;
@@ -63,10 +63,10 @@ function validateSchemaVersion(snapshot: ContextSnapshot): ValidationResult {
     errors.push('Missing schemaVersion');
   } else {
     const [major] = snapshot.schemaVersion.split('.');
-    const [currentMajor] = CURRENT_SCHEMA_VERSION.split('.');
+    const [currentMajor] = CONTEXT_PERSISTENCE_SCHEMA_VERSION.split('.');
     if (major !== currentMajor) {
       errors.push(
-        `Schema major version mismatch: ${snapshot.schemaVersion} (expected ${CURRENT_SCHEMA_VERSION})`
+        `Schema major version mismatch: ${snapshot.schemaVersion} (expected ${CONTEXT_PERSISTENCE_SCHEMA_VERSION})`
       );
     }
   }
@@ -90,7 +90,7 @@ export interface ContextPersistence {
  * 对标 PilotDeck TokenStatsCollector + hermes-agent SessionDB
  */
 export class JsonlContextPersistence implements ContextPersistence {
-  readonly schemaVersion = CURRENT_SCHEMA_VERSION;
+  readonly schemaVersion = CONTEXT_PERSISTENCE_SCHEMA_VERSION;
   private filePath: string;
 
   constructor(filePath: string) {
@@ -132,7 +132,7 @@ export class JsonlContextPersistence implements ContextPersistence {
       if (entries.length === 0) return null;
 
       const snapshot: ContextSnapshot = {
-        schemaVersion: CURRENT_SCHEMA_VERSION,
+        schemaVersion: CONTEXT_PERSISTENCE_SCHEMA_VERSION,
         createdAt: entries[0]?.createdAt ?? new Date().toISOString(),
         entries,
         metadata: { totalCount: entries.length, maxSize: 1000 },
@@ -185,7 +185,7 @@ export function serializeStoreEntries(
   }
 
   return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
+    schemaVersion: CONTEXT_PERSISTENCE_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
     entries: serialized,
     metadata: { totalCount: entries.size, maxSize },
@@ -226,7 +226,7 @@ const CTX_FTS = 'context_entries_fts';
  * 对标 hermes-agent SessionDB + FTS5 全文搜索
  */
 export class SqliteContextPersistenceImpl implements SqliteContextPersistence {
-  readonly schemaVersion = CURRENT_SCHEMA_VERSION;
+  readonly schemaVersion = CONTEXT_PERSISTENCE_SCHEMA_VERSION;
   private db: Database | null = null;
   private dbPath: string;
   private initialized = false;
@@ -423,7 +423,7 @@ export class SqliteContextPersistenceImpl implements SqliteContextPersistence {
       }));
 
       const snapshot: ContextSnapshot = {
-        schemaVersion: CURRENT_SCHEMA_VERSION,
+        schemaVersion: CONTEXT_PERSISTENCE_SCHEMA_VERSION,
         createdAt: entries[0]?.createdAt ?? new Date().toISOString(),
         entries,
         metadata: { totalCount: entries.length, maxSize: 1000 },

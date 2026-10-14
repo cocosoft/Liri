@@ -13,7 +13,7 @@ import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('knowledge:schemaMigration');
 
-const CURRENT_SCHEMA_VERSION = 1;
+const KNOWLEDGE_SCHEMA_VERSION = 1;
 
 /** Frontmatter 结构（最小定义） */
 interface KnowledgeFrontmatter {
@@ -71,7 +71,7 @@ export async function migrateKnowledgeSchema(
       const newContent = [
         '---',
         `title: ${filePath.split('/').pop()?.replace('.md', '') || 'Untitled'}`,
-        `schema_version: ${CURRENT_SCHEMA_VERSION}`,
+        `schema_version: ${KNOWLEDGE_SCHEMA_VERSION}`,
         '---',
         '',
         body,
@@ -81,12 +81,12 @@ export async function migrateKnowledgeSchema(
       return { migrated: true };
     }
 
-    if (frontmatter.schema_version === CURRENT_SCHEMA_VERSION) {
+    if (frontmatter.schema_version === KNOWLEDGE_SCHEMA_VERSION) {
       return { migrated: false };
     }
 
     // 版本不匹配 → 更新版本号
-    frontmatter.schema_version = CURRENT_SCHEMA_VERSION;
+    frontmatter.schema_version = KNOWLEDGE_SCHEMA_VERSION;
     const fmStr = Object.entries(frontmatter)
       .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
       .join('\n');
@@ -95,7 +95,7 @@ export async function migrateKnowledgeSchema(
     logger.info('Schema 迁移：更新版本', {
       filePath,
       from: frontmatter.schema_version,
-      to: CURRENT_SCHEMA_VERSION,
+      to: KNOWLEDGE_SCHEMA_VERSION,
     });
     return { migrated: true };
   } catch (err) {

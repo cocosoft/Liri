@@ -1057,4 +1057,22 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "export { BYTES_PER_TOKEN } from '@modules/constants';"
     );
   });
+
+  test('B5-2㉒：`CURRENT_SCHEMA_VERSION` ×3 已按域消歧（真源保留 + 两处私有副本改名）', () => {
+    // memory：导出真源，被 `MemorySchemaRegistry` 消费 ⇒ **有意保留原名**
+    expect(read('src/memory/types/MemoryMetadata.ts')).toContain(
+      'export const CURRENT_SCHEMA_VERSION = 2;'
+    );
+    expect(read('src/memory/types/MemorySchemaRegistry.ts')).toContain(
+      "import { CURRENT_SCHEMA_VERSION } from './MemoryMetadata';"
+    );
+    // knowledge：文件私有（值 1）⇒ 按域消歧
+    const kh = read('src/knowledge/KnowledgeSchemaMigration.ts');
+    expect(kh).not.toMatch(/const CURRENT_SCHEMA_VERSION = /);
+    expect(kh).toContain('const KNOWLEDGE_SCHEMA_VERSION = 1;');
+    // context：文件私有，且为**字符串**版本（'1.0'）⇒ 按域消歧
+    const ctx = read('src/context/persistence/ContextPersistence.ts');
+    expect(ctx).not.toMatch(/const CURRENT_SCHEMA_VERSION = /);
+    expect(ctx).toContain("const CONTEXT_PERSISTENCE_SCHEMA_VERSION = '1.0';");
+  });
 });

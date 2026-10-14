@@ -45,7 +45,6 @@
     "同名常量:FILE_WRITE_TOOL_NAME": 3,
     "同名常量:FORK_BOILERPLATE_TAG": 2,
     "同名常量:FORK_DIRECTIVE_PREFIX": 2,
-    "同名常量:CURRENT_SCHEMA_VERSION": 3,
     "同名常量:MAX_FILE_CHARS": 2,
     "同名常量:DEFAULT_MAX_ENTRIES": 2,
     "同名常量:MAX_TRACKED": 2,

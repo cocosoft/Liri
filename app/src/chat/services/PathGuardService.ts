@@ -44,7 +44,7 @@ const PATH_PATTERNS = {
 
 const pathCheckCache = new Map<string, { result: boolean; ts: number }>();
 const CACHE_MAX_SIZE = 200;
-const CACHE_TTL_MS = 30_000;
+const PATH_GUARD_CACHE_TTL_MS = 30_000;
 
 function addToCache(key: string, result: boolean): void {
   if (pathCheckCache.size >= CACHE_MAX_SIZE) {
@@ -263,7 +263,7 @@ function normalizePath(p: string): string {
 async function checkPathExistsWithCache(p: string): Promise<boolean> {
   const now = Date.now();
   const cached = pathCheckCache.get(p);
-  if (cached && now - cached.ts < CACHE_TTL_MS) {
+  if (cached && now - cached.ts < PATH_GUARD_CACHE_TTL_MS) {
     recordCacheHit();
     return cached.result;
   }

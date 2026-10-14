@@ -23,7 +23,7 @@ export interface PromptOverrides {
 
 let _cachedOverrides: PromptOverrides | null = null;
 let _cacheTime = 0;
-const CACHE_TTL_MS = 30_000; // 30s
+const PROMPT_VERSION_CACHE_TTL_MS = 30_000; // 30s
 
 const SECTION_FILE_MAP: Record<string, string> = {
   identity: 'identity.md',
@@ -42,7 +42,7 @@ export function loadPromptOverrides(forceRefresh = false): PromptOverrides {
   if (
     !forceRefresh &&
     _cachedOverrides &&
-    Date.now() - _cacheTime < CACHE_TTL_MS
+    Date.now() - _cacheTime < PROMPT_VERSION_CACHE_TTL_MS
   ) {
     return _cachedOverrides;
   }

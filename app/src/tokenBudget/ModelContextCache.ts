@@ -17,7 +17,7 @@ import { priceManager } from './PriceManager';
 import { handleError } from '../core/errorHandler.js';
 
 /** TTL 默认值: 5 分钟 */
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const MODEL_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** 最大缓存条目数 */
 const MAX_CACHE_SIZE = 10000;
@@ -62,7 +62,7 @@ export class ModelContextCache {
   private cache: TtlCache<ModelContextInfo>;
   private listeners: Array<() => void> = [];
 
-  constructor(ttlMs: number = CACHE_TTL_MS) {
+  constructor(ttlMs: number = MODEL_CONTEXT_CACHE_TTL_MS) {
     this.cache = new TtlCache<ModelContextInfo>(MAX_CACHE_SIZE, ttlMs);
   }
 

@@ -347,12 +347,12 @@ export const imageService = {
 // ============================================================
 
 const _cache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL_MS = 30_000; // 30 秒
+const IMAGE_SERVICE_CACHE_TTL_MS = 30_000; // 30 秒
 
 /** 缓存包装器 */
 function withCache<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const cached = _cache.get(key);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.ts < IMAGE_SERVICE_CACHE_TTL_MS) {
     return Promise.resolve(cached.data as T);
   }
   return fetcher().then((data) => {

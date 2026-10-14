@@ -258,4 +258,47 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(ollama).not.toContain('DEFAULT_BASE_URL');
     expect(ollama).toContain('DEFAULT_OLLAMA_ENDPOINT');
   });
+
+  test('B5-1③：`CACHE_TTL_MS` ×7 已按域消歧（取值一字未改）', () => {
+    // 7 处同名 `CACHE_TTL_MS` 各属**独立缓存**（不同层/不同对象）⇒ 判为「命名太泛」，按域改名消歧、**不得合一**
+    const items: Array<[string, string, string]> = [
+      ['src/ai/models/ActiveModelService.ts', 'ACTIVE_MODEL_CACHE_TTL_MS', '30_000'],
+      [
+        'src/ai/translation/LanguageDetector.ts',
+        'LANGUAGE_DETECTION_CACHE_TTL_MS',
+        '5 * 60 * 1000',
+      ],
+      [
+        'src/chat/services/PathGuardService.ts',
+        'PATH_GUARD_CACHE_TTL_MS',
+        '30_000',
+      ],
+      [
+        'src/config/settings/CheckpointLogConfig.ts',
+        'CHECKPOINT_LOG_CACHE_TTL_MS',
+        '3_000',
+      ],
+      [
+        'src/services/prompt/PromptVersionManager.ts',
+        'PROMPT_VERSION_CACHE_TTL_MS',
+        '30_000',
+      ],
+      [
+        'src/tokenBudget/ModelContextCache.ts',
+        'MODEL_CONTEXT_CACHE_TTL_MS',
+        '5 * 60 * 1000',
+      ],
+      [
+        '../client/src/services/imageService.ts',
+        'IMAGE_SERVICE_CACHE_TTL_MS',
+        '30_000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const CACHE_TTL_MS =/);
+      // 断言确切新名 + **取值钉住**（证明"只改名、TTL 数值一字未改"）
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

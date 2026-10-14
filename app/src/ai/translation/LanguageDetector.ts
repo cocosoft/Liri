@@ -30,7 +30,7 @@ const CHINESE_COMMON =
   /[的是不了一我人]|什么|怎么|这个|那个|因为|所以|可以|但是/;
 
 /** 检测缓存 TTL（5 分钟） */
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const LANGUAGE_DETECTION_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CacheEntry {
   result: LanguageDetectionResult;
@@ -68,7 +68,7 @@ export class LanguageDetector {
     const result = this.doDetect(text);
     this.cache.set(cacheKey, {
       result,
-      expiresAt: Date.now() + CACHE_TTL_MS,
+      expiresAt: Date.now() + LANGUAGE_DETECTION_CACHE_TTL_MS,
     });
 
     return result;

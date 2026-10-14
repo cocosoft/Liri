@@ -29,7 +29,7 @@ function getConfigPath(): string {
 /** 缓存：上次读取的时间戳和值 */
 let cachedAt = 0;
 let cachedValue = false;
-const CACHE_TTL_MS = 3_000; // 3 秒 TTL，平衡实时性与 I/O 开销
+const CHECKPOINT_LOG_CACHE_TTL_MS = 3_000; // 3 秒 TTL，平衡实时性与 I/O 开销
 
 /**
  * 读取 config.json 中的 checkpointLog 字段。
@@ -37,7 +37,7 @@ const CACHE_TTL_MS = 3_000; // 3 秒 TTL，平衡实时性与 I/O 开销
  */
 export function isCheckpointLogEnabled(): boolean {
   const now = Date.now();
-  if (now - cachedAt < CACHE_TTL_MS) {
+  if (now - cachedAt < CHECKPOINT_LOG_CACHE_TTL_MS) {
     return cachedValue;
   }
 

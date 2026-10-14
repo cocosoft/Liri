@@ -38,7 +38,7 @@ import {
   type ModelPricingRecord,
 } from './ModelPricingService.js';
 
-const CACHE_TTL_MS = 30_000;
+const ACTIVE_MODEL_CACHE_TTL_MS = 30_000;
 
 class ActiveModelService {
   private cache: { models: ModelPricingRecord[]; timestamp: number } | null =
@@ -47,7 +47,7 @@ class ActiveModelService {
   /** 获取所有启用模型的 ModelPricingRecord 列表 */
   async getActiveModels(): Promise<ModelPricingRecord[]> {
     const now = Date.now();
-    if (this.cache && now - this.cache.timestamp < CACHE_TTL_MS) {
+    if (this.cache && now - this.cache.timestamp < ACTIVE_MODEL_CACHE_TTL_MS) {
       return this.cache.models;
     }
     await modelPricingService.initialize();

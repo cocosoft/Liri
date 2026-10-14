@@ -890,12 +890,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).not.toMatch(/const POLL_INTERVAL_MS = /);
       expect(src).toContain(`${name} = ${value};`);
     }
-    // 同族**非本键**名仍在（不得误伤）：`POLL_INTERVAL` ×3 与 `POLL_INTERVAL_QR_MS` / `POLL_MAX_ATTEMPTS`
+    // 同族**非本键**名仍在（不得误伤）：`POLL_MAX_ATTEMPTS`（app）/ `POLL_INTERVAL_QR_MS`（wechat）
+    // 注：原先此处钉的 `POLL_INTERVAL` ×3 已于 **B5-2㉓** 消歧 ⇒ 改钉其余同族名
     expect(read('src/ai/providers/ReplicateProvider.ts')).toContain(
       'const POLL_MAX_ATTEMPTS = 60;'
     );
-    expect(read('../client/src/services/sseService.ts')).toContain(
-      'const POLL_INTERVAL = 15000;'
+    expect(read('src/channels/wechat/cli-manager.ts')).toContain(
+      'const POLL_INTERVAL_QR_MS = 1_500;'
     );
   });
 
@@ -1074,5 +1075,35 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const ctx = read('src/context/persistence/ContextPersistence.ts');
     expect(ctx).not.toMatch(/const CURRENT_SCHEMA_VERSION = /);
     expect(ctx).toContain("const CONTEXT_PERSISTENCE_SCHEMA_VERSION = '1.0';");
+  });
+
+  test('B5-2㉓：`POLL_INTERVAL` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `POLL_INTERVAL` 全在 client 侧、全为文件内私有，取值各异、分属独立域
+    const items: Array<[string, string, string]> = [
+      [
+        '../client/src/components/Knowledge/useCompilePolling.ts',
+        'COMPILE_POLL_INTERVAL_MS',
+        '1000',
+      ],
+      [
+        '../client/src/hooks/useVideoTaskPolling.ts',
+        'VIDEO_TASK_POLL_INTERVAL_MS',
+        '2000',
+      ],
+      [
+        '../client/src/services/sseService.ts',
+        'SSE_FALLBACK_POLL_INTERVAL_MS',
+        '15000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/(^|[^_])POLL_INTERVAL\b/);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 消费点与**注释**同步改指新名（防"只改定义、未改用法/注释"）
+    const sse = read('../client/src/services/sseService.ts');
+    expect(sse).toContain('}, SSE_FALLBACK_POLL_INTERVAL_MS);');
+    expect(sse).toContain('每隔 SSE_FALLBACK_POLL_INTERVAL_MS 调用');
   });
 });

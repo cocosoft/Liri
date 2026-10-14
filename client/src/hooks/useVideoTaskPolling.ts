@@ -24,7 +24,7 @@ import i18n from "../i18n";
 const logger = createLogger("useVideoTaskPolling");
 
 /** 轮询间隔（毫秒） */
-const POLL_INTERVAL = 2000;
+const VIDEO_TASK_POLL_INTERVAL_MS = 2000;
 
 /**
  * 轮询 hook
@@ -164,7 +164,7 @@ export function useVideoTaskPolling(
 
       const timer = setInterval(() => {
         pollTask(taskId);
-      }, POLL_INTERVAL);
+      }, VIDEO_TASK_POLL_INTERVAL_MS);
 
       timers.current.set(taskId, timer);
     },

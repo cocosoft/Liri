@@ -26,7 +26,7 @@ const INITIAL_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_DELAY = 30000;
 
 /** 轮询兜底间隔（毫秒） */
-const POLL_INTERVAL = 15000;
+const SSE_FALLBACK_POLL_INTERVAL_MS = 15000;
 
 /**
  * SSE 长连接服务
@@ -372,7 +372,7 @@ class SSEService {
   /**
    * 设置轮询兜底回调
    *
-   * SSE 连接断开期间，每隔 POLL_INTERVAL 调用一次该回调；
+   * SSE 连接断开期间，每隔 SSE_FALLBACK_POLL_INTERVAL_MS 调用一次该回调；
    * 重连成功后自动停止调用。
    */
   setPollHandler(handler: (() => void) | null): void {
@@ -479,7 +479,7 @@ class SSEService {
   /**
    * 启动轮询兜底
    *
-   * 断开期间每隔 POLL_INTERVAL 调用 pollHandler。
+   * 断开期间每隔 SSE_FALLBACK_POLL_INTERVAL_MS 调用 pollHandler。
    */
   private startPolling(): void {
     if (this.pollingTimer) return; // 已运行
@@ -487,7 +487,7 @@ class SSEService {
 
     this.pollingTimer = setInterval(() => {
       this.pollHandler?.();
-    }, POLL_INTERVAL);
+    }, SSE_FALLBACK_POLL_INTERVAL_MS);
   }
 
   /**

@@ -15,7 +15,7 @@ import { useCallback } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 import i18n from "../../i18n";
 
-const POLL_INTERVAL = 1000;
+const COMPILE_POLL_INTERVAL_MS = 1000;
 /** 等编译启动（idle → compiling/done）的重试次数上限。
  *  KB-C9：原 10 次（10s）在大库冷启动/线程池繁忙时误报"编译任务未启动"，放宽至 30s */
 const IDLE_RETRY_LIMIT = 30;
@@ -63,7 +63,7 @@ export function useCompilePolling(opts: UseCompilePollingOptions) {
             ? initial
             : await knowledgeService.getCompileStatus();
         for (let i = 0; status.status === "idle" && i < IDLE_RETRY_LIMIT; i++) {
-          await sleep(POLL_INTERVAL);
+          await sleep(COMPILE_POLL_INTERVAL_MS);
           status = await knowledgeService.getCompileStatus();
         }
 
@@ -76,7 +76,7 @@ export function useCompilePolling(opts: UseCompilePollingOptions) {
                 Math.min(99, Math.round((status.current / status.total) * 100)),
               );
             }
-            await sleep(POLL_INTERVAL);
+            await sleep(COMPILE_POLL_INTERVAL_MS);
             status = await knowledgeService.getCompileStatus();
           }
           // C2：超时退出 → 明确报超时，不再误报成功

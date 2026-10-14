@@ -122,7 +122,6 @@
     "同名常量:MAX_MISSED_PONGS": 2,
     "同名常量:MAX_CACHE": 2,
     "同名常量:PADDING": 2,
-    "同名常量:POLL_INTERVAL": 3,
     "同名常量:DEFAULT_COLOR": 2,
     "同名常量:INTERACTIONS": 2,
     "同名常量:ENABLE_TRACE_REDESIGN": 2,

@@ -3386,6 +3386,24 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三处轮询间隔日后要**集中到轮询契约真源**（如统一的 `polling` 工具）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（240 键）阻断。",
       "notes": "取证：3 处同名 `POLL_INTERVAL_MS` **全为文件内私有**（全仓 7 处 = 定义 1 + 用法 ×3，无 export 面）；取值 8000/5000/2000 分属三域 ⇒ 按域消歧、**数值一字未改**、**零跨文件复改**。本片跨 app/client 双侧（两侧 tsconfig 均验）。同族非本键 `POLL_INTERVAL` ×3 未动。效果：241 → 240 键。验证：typecheck 0 · 守卫 31 pass/0 fail · 5 门禁 exit 0。边界：未跑全量。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS",
+      "title": "硬编码治理 · 「同名常量」B5-2 第十六项：`DEFAULT_THROTTLE_MS` ×3 按渠道消歧（Discord/Matrix/MS Teams 流式节流）⇒ `lint:consts` 240 → 239 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/channels/discord/streaming-message.ts",
+        "app/src/channels/matrix/streaming-message.ts",
+        "app/src/channels/msteams/streaming-message.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三渠道节流日后要**集中到渠道契约真源**（如 `channels/<kind>/contract`）⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（239 键）阻断。",
+      "notes": "取证：3 处同名 `DEFAULT_THROTTLE_MS` **全为文件内私有**（全仓 6 处 = 定义 1 + 用法 1 ×3，无 export 面）；取值 800/1000/1500 各受渠道上游限流约束 ⇒ 按渠道消歧、**数值一字未改**、**零跨文件复改**。同族非本键 `STREAMING_UPDATE_THROTTLE_MS`（飞书）未动。效果：240 → 239 键。验证：typecheck 0 · 守卫 32 pass/0 fail · channels 域 324 pass · 5 门禁 exit 0。"
     }
   ]
 }

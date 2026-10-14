@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第十六项：`DEFAULT_THROTTLE_MS` ×3 按渠道消歧 —— `lint:consts` 240 → 239 键（−1）**
+  - 判定：3 处取值各异、各受渠道上游限流约束 ⇒ `DISCORD_DEFAULT_THROTTLE_MS`（`800`）· `MATRIX_DEFAULT_THROTTLE_MS`（`1000`）· `MSTEAMS_DEFAULT_THROTTLE_MS`（`1500`）；**数值一字未改**。
+  - 全仓核验：该名全仓仅 6 处命中（定义 1 + 用法 1 ×3），**全在这 3 个文件内**（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `STREAMING_UPDATE_THROTTLE_MS`（飞书）**未动**（守卫正向钉住）。
+  - 验证：守卫 32 pass / 0 fail · `typecheck` 0 · `channels` 域 324 pass / 0 fail · 5 门禁 exit 0；`e2eVerified=false`（未做真机渠道走查）。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十五项：`POLL_INTERVAL_MS` ×3 按域消歧 —— `lint:consts` 241 → 240 键（−1）**
   - 判定：3 处取值各异、分属三个独立域 ⇒ `BLUEBUBBLES_POLL_INTERVAL_MS`（`8000`，渠道轮询）· `AGENT_TASK_POLL_INTERVAL_MS`（`5000`，任务面板刷新）· `REPLICATE_POLL_INTERVAL_MS`（`2000`，供应商作业轮询）；**数值一字未改**。
   - 全仓核验：该名全仓仅 7 处命中（定义 1 + 用法 1 ×3），**全在这 3 个文件内**（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `POLL_INTERVAL` ×3 · `POLL_INTERVAL_QR_MS` · `POLL_MAX_ATTEMPTS` **未动**（守卫正向钉住）。

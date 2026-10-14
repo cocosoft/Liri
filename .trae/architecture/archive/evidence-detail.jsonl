@@ -4121,3 +4121,15 @@
 {"id":"@changelog-unreleased","k":"block#0","i":585,"c":"：在夹具 `beforeAll` 里补出该定义目录（**零依赖纯数据** `STATE_MACHINES = []` + `BOUNDARY_STATE_MACHINES = []`；夹具内无状态机候选 ⇒ 空登记即满足完整性）——**夹具必须满足门禁前置**，否则它验的不是\"合法性\"而是\"缺文件\"；**未改任何产品代码、未放宽门禁语义**（`"}
 {"id":"@changelog-unreleased","k":"block#0","i":586,"c":"scripts/lint-architecture.ts` 一字未动）。**验证**：该用例 **14 pass / 0 fail**（原本恒红那条现为 pass）；**全量 `bun test` = 6365 pass / 42 skip / 0 fail（726 文件）**；`lint:fix-evidence` **149 条绿**。证据 `"}
 {"id":"@changelog-unreleased","k":"block#0","i":587,"c":"GATE-SELFPROOF-R09006-FIXTURE`。\n"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第二十七项：`MAX_MESSAGES` ×3 按域消歧（office 回放 50 / LRO 取尾 12 / teammate 容量 500）⇒ `lint:consts` 229 → 228 键"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 副本写回 ⇒ 守卫或棘轮（228 键）阻断。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"notes","i":0,"c":"取证：3 处同名 `MAX_MESSAGES` 取值各异、分属独立域 ⇒ 按域消歧、**取值一字未改**：`OfficeChatPanel.tsx` 50（UI 回放）·"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"notes","i":1,"c":"`LongRunningTaskOrchestrator.ts` 12（LRO 取尾）· `InProcessTeammateTask.ts` 500（teammate 容量）⇒ `OFFICE_CHAT_MAX_MESSAGES` / `LRO_MAX_MESSAGES` / `TEAMMATE_MAX_MESSAGES`；"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"notes","i":2,"c":"同族 `DEFAULT_MAX_MESSAGES`（session 裁剪）非本键未动（守卫正向钉住）。tasks 域 378 pass · 4 门禁 exit 0 · app/client typecheck 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"code#0","i":0,"c":"client/src/components/views/office/OfficeChatPanel.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"code#2","i":0,"c":"app/src/tasks/InProcessTeammateTask.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

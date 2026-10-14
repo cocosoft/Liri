@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES**：`MAX_MESSAGES`×3 按域消歧（office 回放 50 / LRO 取尾 12 / teammate 容量 500）⇒ consts 229>228 —— 验证 tc0|guard43|tasks378|gate4；基线 229>228（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT**：`DEFAULT_TIMEOUT`×3 按域消歧（httpUtils 留 / toolService / SessionLock）⇒ consts 230>229 —— 验证 tc0|guard42|sess311|gate5；基线 230>229（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT）
 
 

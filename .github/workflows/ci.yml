@@ -56,23 +56,14 @@ jobs:
     - name: "Run root scripts linter (待办 ⑨：scripts/** 原先不在 eslint 覆盖内)"
       run: bun run lint:scripts
 
-    - name: "Console usage gate (baseline: 2034)"
-      shell: bash
-      run: |
-        COUNT=$(grep -rn "console\.\(log\|warn\|error\|info\|debug\|trace\)(" \
-          --include="*.ts" --include="*.tsx" \
-          src/ \
-          | grep -v "node_modules" \
-          | grep -v "\.test\." \
-          | grep -v "/tests/" \
-          | wc -l)
-        echo "Console calls: $COUNT (baseline: 2034)"
-        if [ "$COUNT" -gt 2034 ]; then
-          echo "FAIL: Console calls ($COUNT) exceed baseline (2034)"
-          echo "Please migrate new console calls to Logger or justify the exemption."
-          exit 1
-        fi
-        echo "PASS: Console calls within baseline"
+    # R05-003 双源收敛（2026-10-14）：原先此处为**内联 grep**（6 名 / 按行 / 阈值写死 2034），
+    # 与门禁 `lint-architecture.ts#checkConsoleBaseline`（4 名 / 按次 / 阈值 2045+10% ⇒ 上限 2250）
+    # 构成**两套实现 + 两个阈值**（改一处即漂移）。现改调**同一实现** `scripts/lib/consoleCalls.ts`，
+    # 阈值读**同一真源** `scripts/console-baseline.json`（count 2034 / threshold 0 ⇒ 上限 2034，
+    # 与原有严格度**逐字一致**，零放宽）。基线缺失/非法 ⇒ 脚本 fail-closed 退出 1。
+    - name: "Console baseline gate (R05-003 · 单一实现 + 单一真源)"
+      working-directory: .
+      run: bun run scripts/check-console-baseline.ts
 
     - name: Run tests (without coverage)
       run: bun test tests/

@@ -1,8 +1,7 @@
 {
-  "description": "Console 调用基线",
-  "count": 2045,
-  "threshold": 0.10,
-  "capturedAt": "2026-06-18",
-  "files": 100,
-  "note": "超过基线 10% 触发 warning。如需更新基线，修改 count 字段。"
+  "description": "Console 调用基线（R05-003 · 单一事实源：门禁 scripts/lint-architecture.ts 与 CI scripts/check-console-baseline.ts 都读这里）",
+  "count": 2034,
+  "threshold": 0,
+  "capturedAt": "2026-10-14",
+  "note": "上限 = ceil(count × (1 + threshold))。双源收敛（2026-10-14）：原门禁用 count 2045 + threshold 0.10（上限 2250）、CI 内联 grep 写死 2034 且按 6 个方法名/按行计数 —— 两处口径与阈值均不同。现统一为：计数实现 scripts/lib/consoleCalls.ts（6 名 · 按行）、阈值本文件；取 count 2034 / threshold 0 ⇒ 上限 2034，与 CI 既有严格度**逐字一致**（零放宽）。计数口径见 scripts/lib/consoleCalls.ts 头注释；改基线请只改 count（并说明依据）。"
 }

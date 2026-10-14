@@ -317,13 +317,15 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 
 ### R05-003 [SHOULD] Console 调用基线（禁止净增裸 console）
 
-`src/` 内 `console.log` / `warn` / `error` / `debug` 的**总数**不得越过基线（允许按比例超出）。
+`app/src` 内 `console.log` / `warn` / `error` / `info` / `debug` / `trace` 的调用**行数**不得越过基线。
 
-- **基线真源**：`scripts/console-baseline.json` 的 `count` / `threshold`（缺省 `2045` / `10%`）⇒ 上限 = `ceil(count × (1 + threshold))`。
-- **判定命令**：`bun run lint:arch` → 输出行 `[Console 基线] 当前 N 次调用（基线: … 上限: …）`。等级 **warning（不阻断提交）**。
-- **排除面**：测试文件（`.test.` / `__tests__` / `spec.`）与 `.js` 文件不计。
-- **口径要求**：新代码的日志应走 `Logger`（见 **R11-001 / R11-002**）；确需裸 console 时应同步说明，而非直接抬高基线。
-- ⚠️ **已知双源（如实，待收敛）**：CI 另有一条独立阈值 `Console usage gate (baseline: 2034)`（`.github/workflows/ci.yml`，用 `grep` 计数、阈值 2034）。两者**计数口径与阈值均不同**，属历史遗留 ⇒ 收敛前**不得**只改一处。
+- **唯一实现**：`scripts/lib/consoleCalls.ts`（扫描面 = `app/src` 下 `.ts`/`.tsx`；排除 `node_modules`/`.git`/`dist`/`coverage` 与 `*.test.*`/`*.spec.*`/`__tests__/`/`*.d.ts`；**按行**计数）。
+- **唯一真源（阈值）**：`scripts/console-baseline.json` 的 `count` / `threshold` ⇒ 上限 = `ceil(count × (1 + threshold))`。现取 `count 2034` / `threshold 0` ⇒ 上限 **2034**。**基线缺失/非法 ⇒ fail-closed（报 error / 退出 1）**，不得回退硬编码默认值。
+- **两个调用点**（**都**引用上述同一实现与真源，不得各写一份）：
+  - 门禁：`bun run lint:arch` → 输出行 `[Console 基线 R05-003] 当前 N 行（基线: … 上限: …）`；等级 **warning（不阻断提交）**。
+  - CI：`bun run scripts/check-console-baseline.ts`（`.github/workflows/ci.yml` 的 `test` 作业）⇒ 超上限 **退出 1**。
+- **口径要求**：新代码的日志应走 `Logger`（见 **R11-001 / R11-002**）；确需裸 console 时应同步说明，而非直接抬高基线（改基线请只改 `count` 并写明依据）。
+- ✅ **双源已收敛（2026-10-14）**：此前为**两套实现 + 两个阈值** —— 门禁自带 `log|warn|error|debug`（4 名）· 按**次** · `count 2045 + 10%`（上限 2250），且用 `process.cwd()` 定位基线（从 `app/` 跑会静默回退默认值，`AR-2` 同型）；CI 为**内联 `grep`** · 6 名 · 按**行** · **写死 2034**。现统一为「单实现 + 单真源」，严格度取 CI 原有 **2034**（**零放宽**），门禁侧由 2250 **收紧**到 2034（实测当前 1766 行，余量充足）。守卫：`app/tests/gates/consoleBaselineSingleSource.test.ts`。
 
 ### R05-004 [MUST] `src/` 下不得存在 `.js` 源文件
 

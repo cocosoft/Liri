@@ -11,6 +11,15 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve, relative, dirname } from 'node:path';
 // R09-006（2026-10-12）：动态载入状态机**定义目录**（登记唯一事实源）需要 file:// URL
 import { pathToFileURL } from 'node:url';
+// R05-003（2026-10-14 双源收敛）：Console 基线的**唯一实现**（与 CI `check-console-baseline.ts` 共用）
+import {
+  CONSOLE_BASELINE_REL,
+  type ConsoleBaseline,
+  collectConsoleScanFiles,
+  consoleLimit,
+  countConsoleCalls,
+  loadConsoleBaseline,
+} from './lib/consoleCalls';
 
 /**
  * 测试文件排除集（2026-10-01 口径统一，用户裁定）。
@@ -1189,75 +1198,62 @@ class ArchitectureLinter {
     }
   }
 
-  /** R05-003: Console 基线检查 — 统计 console.log/warn/error/debug 总数 */
+  /**
+   * R05-003: Console 调用基线（**单一实现 + 单一真源**：`scripts/lib/consoleCalls.ts`）。
+   *
+   * **双源收敛（2026-10-14）**：本检查原自带计数与阈值读取 —— 计数 `log|warn|error|debug`（4 名）
+   * **按出现次数**、阈值 `count 2045 + 10%`（上限 2250），且用 `resolve(process.cwd(), 'scripts', …)`
+   * 定位基线 ⇒ 从 `app/` 运行时落到不存在的 `app/scripts/…`，**静默回退硬编码 2045**（`AR-2` 同型）。
+   * 与此同时 CI 内联 `grep` 用 6 名 / 按行 / 写死 2034 ⇒ 两套实现、两个阈值。
+   * 现：计数实现统一到 `lib/consoleCalls.ts`（6 名 · **按行**）、阈值统一到
+   * `scripts/console-baseline.json`（`count 2034` / `threshold 0` ⇒ 上限 2034，与 CI 既有严格度**逐字一致**）。
+   *
+   * **fail-closed**：基线缺失/非法 ⇒ 报 **error** 并 return（**不得**静默回退硬编码默认值 —— 那会重新引入第二真源；对照 `AR-3`）。
+   */
   async checkConsoleBaseline(): Promise<void> {
-    // 基线值：从 scripts/console-baseline.json 读取，若不存在则使用硬编码基线
-    const baselinePath = resolve(
-      process.cwd(),
-      'scripts',
-      'console-baseline.json'
-    );
-    let baseline = 2045; // 默认基线（2026-06-18 快照值）
-    let threshold = 0.1; // 允许超出基线的比例
-
-    if (existsSync(baselinePath)) {
-      try {
-        const baselineData = JSON.parse(readFileSync(baselinePath, 'utf-8'));
-        if (baselineData.count) baseline = baselineData.count;
-        if (baselineData.threshold) threshold = baselineData.threshold;
-      } catch {
-        // 使用默认值
-      }
+    let baseline: ConsoleBaseline;
+    try {
+      baseline = loadConsoleBaseline(this.projectDir);
+    } catch (err) {
+      this.violations.push({
+        ruleId: 'R05-003',
+        severity: 'error',
+        file: CONSOLE_BASELINE_REL,
+        message: `Console 基线不可用（fail-closed）：${String(err)}`,
+        suggestion:
+          '恢复 scripts/console-baseline.json（R05-003 的单一事实源）。基线缺失时**不得**静默放行（对照 AR-3）。',
+      });
+      return;
     }
 
-    const consolePattern = /console\.(log|warn|error|debug)\s*\(/g;
-    let totalCount = 0;
-    const fileCounts: Array<{ file: string; count: number }> = [];
+    const files = collectConsoleScanFiles(this.srcPath).map((abs) => ({
+      rel: relative(this.projectDir, abs),
+      content: readFileSync(abs, 'utf-8'),
+    }));
+    const { total, perFile } = countConsoleCalls(files);
+    const limit = consoleLimit(baseline);
 
-    for (const file of this.allFiles) {
-      // 跳过测试文件
-      if (
-        file.includes('.test.') ||
-        file.includes('__tests__') ||
-        file.includes('spec.')
-      )
-        continue;
-      // 跳过 .js 文件（因 JS 文件本应迁移）
-      if (file.endsWith('.js')) continue;
-
-      const content = readFileSync(file, 'utf-8');
-      const matches = [...content.matchAll(consolePattern)];
-      if (matches.length > 0) {
-        totalCount += matches.length;
-        fileCounts.push({
-          file: relative(process.cwd(), file),
-          count: matches.length,
-        });
-      }
-    }
-
-    const limit = Math.ceil(baseline * (1 + threshold));
-
-    if (totalCount > limit) {
+    if (total > limit) {
       this.violations.push({
         ruleId: 'R05-003',
         severity: 'warning',
         file: 'src/ (全局)',
-        message: `console 调用总数 ${totalCount} 超过基线上限 ${limit}（基线: ${baseline}，允许超出: ${Math.round(threshold * 100)}%）`,
-        suggestion: '请减少不必要的 console 调用，或更新 console-baseline.json',
+        message: `console 调用行数 ${total} 超过基线上限 ${limit}（基线: ${baseline.count}，容差: ${Math.round(baseline.threshold * 100)}%）`,
+        suggestion:
+          '请把新日志迁移到 Logger；确需裸 console 时应说明，而非直接抬高基线',
       });
     }
 
     // 输出统计信息
     console.log(
-      `\n[Console 基线] 当前 ${totalCount} 次调用（基线: ${baseline}，上限: ${limit}）`
+      `\n[Console 基线 R05-003] 当前 ${total} 行（基线: ${baseline.count}，上限: ${limit}）`
     );
-    if (fileCounts.length > 0) {
+    if (perFile.length > 0) {
       // 按调用数降序，输出 top 5
-      fileCounts.sort((a, b) => b.count - a.count);
+      perFile.sort((a, b) => b.count - a.count);
       console.log(`  调用最多的文件:`);
-      for (const fc of fileCounts.slice(0, 5)) {
-        console.log(`    ${fc.file}: ${fc.count} 次`);
+      for (const fc of perFile.slice(0, 5)) {
+        console.log(`    ${fc.file}: ${fc.count} 行`);
       }
     }
   }

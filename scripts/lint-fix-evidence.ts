@@ -137,7 +137,9 @@ try {
   }
   const res = fixStrayQuotes(readFileSync(REGISTRY, 'utf8'));
   if (!res || res.changed === 0) {
-    console.error('  ✗ --fix 未发现可安全修复的 stray 引号（引号不成对 / 字符串未闭合？）');
+    console.error(
+      '  ✗ --fix 未发现可安全修复的 stray 引号（引号不成对 / 字符串未闭合？）'
+    );
     process.exit(1);
   }
   try {

@@ -707,9 +707,9 @@ export async function handleListProjectFiles(
     }> = [];
     const dirs: Array<{ name: string; type: 'dir' }> = [];
     const MAX_DEPTH = 4;
-    const MAX_FILES = 500;
+    const PROJECT_ARTIFACT_MAX_FILES = 500;
     const walk = (dir: string, rel: string, depth: number): void => {
-      if (depth > MAX_DEPTH || files.length >= MAX_FILES) return;
+      if (depth > MAX_DEPTH || files.length >= PROJECT_ARTIFACT_MAX_FILES) return;
       let entries: import('fs').Dirent[] = [];
       try {
         entries = _readdir(dir, { withFileTypes: true });
@@ -717,7 +717,7 @@ export async function handleListProjectFiles(
         return;
       }
       for (const e of entries) {
-        if (files.length >= MAX_FILES) return;
+        if (files.length >= PROJECT_ARTIFACT_MAX_FILES) return;
         const full = join(dir, e.name);
         const relPath = rel ? `${rel}/${e.name}` : e.name;
         if (e.isDirectory()) {

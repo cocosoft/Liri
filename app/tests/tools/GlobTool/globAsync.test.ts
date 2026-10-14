@@ -7,7 +7,7 @@
  * 覆盖：
  * - globAsync 结果与 glob() 完全一致
  * - 协作式：遍历期间让出事件循环（探针可执行）
- * - 空结果 / 匹配达到 MAX_FILES 截断
+ * - 空结果 / 匹配达到 GLOB_TOOL_MAX_FILES 截断
  */
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
@@ -99,7 +99,7 @@ describe('globAsync（2026-09-01 协作式修复 / 2026-09-17 G2 语义修正）
         probeRanDuringScan = true;
       }
     );
-    // 匹配 300 个嵌套 *.txt（递归须用 **）→ 达到 MAX_FILES(100) 截断前遍历大部分目录树
+    // 匹配 300 个嵌套 *.txt（递归须用 **）→ 达到 GLOB_TOOL_MAX_FILES(100) 截断前遍历大部分目录树
     const result = await globAsync('**/*.txt', bigDir);
     await probe;
     expect(probeRanDuringScan).toBe(true);
@@ -112,7 +112,7 @@ describe('globAsync（2026-09-01 协作式修复 / 2026-09-17 G2 语义修正）
     expect(result.filenames.length).toBe(0);
   });
 
-  test('达到 MAX_FILES 截断标记', async () => {
+  test('达到 GLOB_TOOL_MAX_FILES 截断标记', async () => {
     const result = await globAsync('**/*.txt', bigDir);
     expect(result.truncated).toBe(true); // 300 个嵌套 *.txt > 100 上限
     expect(result.filenames.length).toBe(100);

@@ -618,4 +618,36 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${re};`);
     }
   });
+
+  test('B5-2⑦：`MAX_FILES` ×5 已按域消歧（取值一字未改；含扫描面外 1 处脚本）', () => {
+    // 5 处同名 `MAX_FILES`：4 处在门禁扫描面（app/src）+ 1 处在扫描面外（app/scripts 基准脚本）
+    const items: Array<[string, string, string]> = [
+      ['src/tools/GlobTool/GlobTool.ts', 'GLOB_TOOL_MAX_FILES', '100'],
+      [
+        'src/context/promptSections/builtinSections.ts',
+        'BUILTIN_SECTION_MAX_FILES',
+        '20',
+      ],
+      [
+        'src/infrastructure/http/handlers/project-artifact-handlers.ts',
+        'PROJECT_ARTIFACT_MAX_FILES',
+        '500',
+      ],
+      [
+        'src/skills/loaders/adapter/clawhub/ClawHubInstaller.ts',
+        'CLAWHUB_INSTALL_MAX_FILES',
+        '50',
+      ],
+      ['scripts/bench-truncation-closure.ts', 'BENCH_MAX_FILES', '400'],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_FILES = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**后缀名** `MAX_FILES_PER_REPLY` 是另一个标识符（非本键）⇒ 有意未动
+    expect(read('src/channels/routing/outboundFileRouter.ts')).toContain(
+      'MAX_FILES_PER_REPLY'
+    );
+  });
 });

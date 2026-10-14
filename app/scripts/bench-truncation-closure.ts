@@ -21,7 +21,7 @@ import {
 } from '../src/utils/structureCut';
 
 const LIMITS = [4_000, 8_000, 16_000];
-const MAX_FILES = 400;
+const BENCH_MAX_FILES = 400;
 
 function balanced(s: string): boolean {
   let d = 0;
@@ -32,7 +32,7 @@ function balanced(s: string): boolean {
 /** 递归收集 `src` 下所有 `.ts` 路径（避开 `Bun.Glob` 的类型缺失） */
 function walk(dir: string, out: string[]): void {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (out.length >= MAX_FILES) return;
+    if (out.length >= BENCH_MAX_FILES) return;
     const p = join(dir, e.name);
     if (e.isDirectory()) walk(p, out);
     else if (e.isFile() && e.name.endsWith('.ts')) out.push(p);
@@ -43,7 +43,7 @@ async function collectCorpus(): Promise<string[]> {
   const files: string[] = [];
   walk('src', files);
   const texts: string[] = [];
-  for (const f of files.slice(0, MAX_FILES)) {
+  for (const f of files.slice(0, BENCH_MAX_FILES)) {
     try {
       const t = readFileSync(f, 'utf8');
       if (t.length > 2_000) texts.push(t); // 只用"会被截断"的长文本

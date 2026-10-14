@@ -374,12 +374,12 @@ export class ClawHubInstaller {
    * 超限抛错，install 流程中断（安装目录由 Base 层在失败时清理）
    */
   private validateInstallSize(installPath: string, files: string[]): void {
-    const MAX_FILES = 50;
+    const CLAWHUB_INSTALL_MAX_FILES = 50;
     const MAX_BYTES = 10 * 1024 * 1024;
 
-    if (files.length > MAX_FILES) {
+    if (files.length > CLAWHUB_INSTALL_MAX_FILES) {
       throw new Error(
-        `技能文件数超限（${files.length} > ${MAX_FILES}）: ${installPath}`
+        `技能文件数超限（${files.length} > ${CLAWHUB_INSTALL_MAX_FILES}）: ${installPath}`
       );
     }
 

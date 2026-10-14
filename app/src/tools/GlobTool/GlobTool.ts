@@ -22,7 +22,7 @@ export interface GlobResult {
   invalidPattern?: string;
 }
 
-const MAX_FILES = 100;
+const GLOB_TOOL_MAX_FILES = 100;
 
 /**
  * 不可读目录（EPERM / EACCES / ENOENT 等）属遍历用户目录时的**预期**情况。
@@ -81,7 +81,7 @@ export function glob(
         normalizedSearchPath,
         normalizedPattern,
         results,
-        MAX_FILES,
+        GLOB_TOOL_MAX_FILES,
         normalizedSearchPath,
         resolveSkipDirs(normalizedPattern)
       );
@@ -94,12 +94,12 @@ export function glob(
   }
 
   const durationMs = Date.now() - startTime;
-  const truncated = results.length >= MAX_FILES;
+  const truncated = results.length >= GLOB_TOOL_MAX_FILES;
 
   return {
     durationMs,
     numFiles: results.length,
-    filenames: results.slice(0, MAX_FILES),
+    filenames: results.slice(0, GLOB_TOOL_MAX_FILES),
     truncated,
     ...(invalidPattern ? { invalidPattern } : {}),
   };
@@ -108,7 +108,7 @@ export function glob(
 /**
  * 协作式异步 glob（与 glob() 结果语义完全一致）。
  *
- * 根因修复（2026-09-01）：glob() 为纯同步递归遍历（readdirSync），MAX_FILES 上限
+ * 根因修复（2026-09-01）：glob() 为纯同步递归遍历（readdirSync），GLOB_TOOL_MAX_FILES 上限
  * 仅在"匹配到 100 个文件"时提前退出；当模式匹配少（如 *.txt）时会遍历整个目录树
  * （项目根 6.5 万+ 文件），同步阻塞事件循环数分钟——SSE 心跳/HTTP 请求全停，
  * 前端 60s/120s 无数据误判"流式响应超时"（与 grep() 同类问题，对称修复）。
@@ -137,7 +137,7 @@ export async function globAsync(
         normalizedSearchPath,
         normalizedPattern,
         results,
-        MAX_FILES,
+        GLOB_TOOL_MAX_FILES,
         normalizedSearchPath,
         resolveSkipDirs(normalizedPattern)
       );
@@ -150,12 +150,12 @@ export async function globAsync(
   }
 
   const durationMs = Date.now() - startTime;
-  const truncated = results.length >= MAX_FILES;
+  const truncated = results.length >= GLOB_TOOL_MAX_FILES;
 
   return {
     durationMs,
     numFiles: results.length,
-    filenames: results.slice(0, MAX_FILES),
+    filenames: results.slice(0, GLOB_TOOL_MAX_FILES),
     truncated,
     ...(invalidPattern ? { invalidPattern } : {}),
   };

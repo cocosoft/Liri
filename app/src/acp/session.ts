@@ -12,13 +12,13 @@ export interface AcpSessionStore {
   size(): Promise<number>;
 }
 
-const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const ACP_SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 export function createInMemorySessionStore(options?: {
   idleTimeoutMs?: number;
 }): AcpSessionStore {
   const sessions = new Map<SessionId, AcpSession>();
-  const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+  const idleTimeoutMs = options?.idleTimeoutMs ?? ACP_SESSION_IDLE_TIMEOUT_MS;
 
   const clearIdleSessions = (): void => {
     const now = Date.now();

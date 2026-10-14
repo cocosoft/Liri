@@ -785,4 +785,32 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'DEFAULT_CLEANUP_INTERVAL_MS'
     );
   });
+
+  test('B5-2⑫：`DEFAULT_IDLE_TIMEOUT_MS` ×2 已按域消歧（取值一字未改）', () => {
+    // 2 处同名 `DEFAULT_IDLE_TIMEOUT_MS` 同值 30min 异事实：ACP 会话空闲回收 · 空闲降载监控（P3-5）
+    const items: Array<[string, string, string]> = [
+      ['src/acp/session.ts', 'ACP_SESSION_IDLE_TIMEOUT_MS', '30 * 60 * 1000'],
+      [
+        'src/core/idle/IdleScaleMonitor.ts',
+        'IDLE_SCALE_TIMEOUT_MS',
+        '30 * 60_000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const DEFAULT_IDLE_TIMEOUT_MS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**后缀名** `STREAM_IDLE_TIMEOUT_MS`/`REPL_IDLE_TIMEOUT_MS`（另两个标识符）非本键 ⇒ 有意未动
+    expect(read('src/channels/routing/messageRouterContract.ts')).toContain(
+      'STREAM_IDLE_TIMEOUT_MS'
+    );
+    expect(read('src/tools/notebook/NotebookToolImpl.ts')).toContain(
+      'REPL_IDLE_TIMEOUT_MS'
+    );
+    // 裸 `IDLE_TIMEOUT_MS`（auth-code-listener，另一标识符）非本键 ⇒ 有意未动
+    expect(read('src/system/auth/auth-code-listener.ts')).toContain(
+      'const IDLE_TIMEOUT_MS = '
+    );
+  });
 });

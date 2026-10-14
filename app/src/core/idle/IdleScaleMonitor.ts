@@ -37,7 +37,7 @@ import { resolveTempDir } from '@modules/core/paths';
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:idleScale');
 
-export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60_000; // 30 分钟无活动
+export const IDLE_SCALE_TIMEOUT_MS = 30 * 60_000; // 30 分钟无活动
 export const DEFAULT_POLL_MS = 60_000; // 每分钟采样一次
 export const DEFAULT_TEMP_MAX_AGE_MS = 24 * 3600_000; // 过期临时文件阈值（24h）
 
@@ -62,7 +62,7 @@ export class IdleScaleMonitor {
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly deps: IdleScaleDeps) {
-    this.idleTimeoutMs = deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+    this.idleTimeoutMs = deps.idleTimeoutMs ?? IDLE_SCALE_TIMEOUT_MS;
     this.pollMs = deps.pollMs ?? DEFAULT_POLL_MS;
   }
 

@@ -63,7 +63,10 @@ export class ModelContextCache {
   private listeners: Array<() => void> = [];
 
   constructor(ttlMs: number = MODEL_CONTEXT_CACHE_TTL_MS) {
-    this.cache = new TtlCache<ModelContextInfo>(MODEL_CONTEXT_CACHE_MAX_ENTRIES, ttlMs);
+    this.cache = new TtlCache<ModelContextInfo>(
+      MODEL_CONTEXT_CACHE_MAX_ENTRIES,
+      ttlMs
+    );
   }
 
   /**

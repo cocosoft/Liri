@@ -1,5 +1,5 @@
 /**
- * 硬编码治理 · 报错/提示文本引用的规范条目须真实存在（方案 §8 阶段①「仅上报」）
+ * 硬编码治理 · 报错/提示文本引用的规范条目须真实存在（方案 §8 阶段②「白名单收敛」）
  *
  * 扫 `scripts/lint-*.ts`（含本阶段新增的 4 个）中**字符串字面量**里的规范引用：
  *  - **路径型**：`.trae/rules/<name>.md`、`.trae/architecture/<name>.{md,json}`、
@@ -9,14 +9,25 @@
  * 引用**不存在** ⇒ 上报（§2.10①「规范悬空」的根因治理：门禁不得指向不存在的真源）。
  * 字符串字面量内 vs 注释内**分别标注**（口径：提示文本为主，注释内一并扫描并注明）。
  *
- * 结果：仅上报，不阻断（永远 `process.exit(0)`）。
+ * 结果：**棘轮式（只减不增）** —— 稳定键 = `规则ID:<ID>` / `路径:<.trae/...>`，
+ * 计数 = 违规出现次数；与基线 `.trae/architecture/hardcode-gate-baseline.json` 的
+ * `lint:failmsg-refs` 分节比对；**新增键 / 计数扩大 ⇒ `process.exit(1)`**。
+ * 播种（初始化 / 下调）：`HARDCODE_GATE_BASELINE_WRITE=1`；负向自证：
+ * `HARDCODE_GATE_BASELINE=<临时副本>`。
+ *
  * 运行：cd app && bun run lint:failmsg-refs
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PROJECT_ROOT, isCommentLine, report } from './lib/hardcodeScan';
+import {
+  type GateCounts,
+  PROJECT_ROOT,
+  isCommentLine,
+  ratchet,
+  report,
+} from './lib/hardcodeScan';
 
 /** 待扫脚本目录（仓库根 `scripts/`） */
 const SCRIPTS_DIR = join(PROJECT_ROOT, 'scripts');
@@ -121,6 +132,7 @@ function main(): void {
 
   const findings: string[] = [];
   const seen = new Set<string>();
+  const counts: GateCounts = {};
   let pathRefs = 0;
   let idRefs = 0;
 
@@ -137,6 +149,7 @@ function main(): void {
         if (/[<>*]/.test(ref)) continue;
         pathRefs++;
         if (existsSync(join(PROJECT_ROOT, ref))) continue;
+        counts[`路径:${ref}`] = (counts[`路径:${ref}`] ?? 0) + 1;
         const ctx = lineIsComment ? 'comment' : contextOf(line, m.index ?? 0);
         const key = `scripts/${name}:${no}:${ref}:${ctx}`;
         if (seen.has(key)) continue;
@@ -149,6 +162,7 @@ function main(): void {
         idRefs++;
         const ref = m[0];
         if (corpus.includes(ref)) continue;
+        counts[`规则ID:${ref}`] = (counts[`规则ID:${ref}`] ?? 0) + 1;
         const ctx = lineIsComment ? 'comment' : contextOf(line, m.index ?? 0);
         const key = `scripts/${name}:${no}:${ref}:${ctx}`;
         if (seen.has(key)) continue;
@@ -166,7 +180,7 @@ function main(): void {
     `[lint:failmsg-refs] 扫描 ${targets.length} 个 lint 脚本；规范引用 ` +
       `路径型 ${pathRefs} 处 / 规则 ID 型 ${idRefs} 处`,
   ]);
-  process.exit(0);
+  ratchet('failmsg-refs', counts);
 }
 
 main();

@@ -1,5 +1,5 @@
 /**
- * 硬编码治理 · 默认 locale/timezone 冲突 + 忽略语言的格式化（方案 §8 阶段①）
+ * 硬编码治理 · 默认 locale/timezone 冲突 + 忽略语言的格式化（方案 §8 阶段②）
  *
  * (a) **冲突检测**：找默认语言/时区定义点（`DEFAULT_LOCALE` / `DEFAULT_TIMEZONE` /
  *     `currentLanguage=` / `defaultLanguage:` / i18n `fallbackLng`），按「语言 / 时区」
@@ -7,14 +7,21 @@
  *     口径：`fallbackLng: "zh"` 属**语言码**（非 BCP-47），单独列出、**不计入冲突**。
  * (b) **忽略语言的格式化**：`toLocale*(…, "zh-CN")` / `"en-US"` 等**写死**用法上报。
  *
- * 结果：仅上报，不阻断（永远 `process.exit(0)`）。
+ * 结果：**棘轮式（只减不增）** —— 稳定键 = `<相对路径>`（写死 locale 的格式化，
+ * 计数 = 该文件命中数）· `桶:<语言|时区>`（计数 = 该桶取值种数）；与基线
+ * `.trae/architecture/hardcode-gate-baseline.json` 的 `lint:locale` 分节比对；
+ * **新增/扩大 ⇒ `process.exit(1)`**。播种（初始化 / 下调）：
+ * `HARDCODE_GATE_BASELINE_WRITE=1`；负向自证：`HARDCODE_GATE_BASELINE=<临时副本>`。
+ *
  * 运行：cd app && bun run lint:locale
  */
 
 import {
   collectFiles,
+  type GateCounts,
   isCommentLine,
   matchesWhitelist,
+  ratchet,
   readLines,
   report,
   toRel,
@@ -172,6 +179,7 @@ function main(): void {
 
   // (b) 忽略语言的格式化（写死 locale）
   const formatFindings: string[] = [];
+  const formatCounts: GateCounts = {};
   for (const abs of files) {
     const rel = toRel(abs);
     if (matchesWhitelist(rel, LOCALE_WHITELIST)) continue;
@@ -184,12 +192,18 @@ function main(): void {
         formatFindings.push(
           `${rel}:${i + 1}  toLocale 写死 locale "${m[1]}"（应随语言切换）`
         );
+        formatCounts[rel] = (formatCounts[rel] ?? 0) + 1;
       }
     }
   }
 
+  // 棘轮稳定键：格式化的写死 locale（键 = 相对路径）+ 默认桶冲突（键 = `桶:<语言|时区>`）
+  const counts: GateCounts = { ...formatCounts };
+  if (localeMap.size >= 1) counts['桶:语言'] = localeMap.size;
+  if (tzMap.size >= 1) counts['桶:时区'] = tzMap.size;
+
   report('locale', [...findings, ...formatFindings], extra);
-  process.exit(0);
+  ratchet('locale', counts);
 }
 
 main();

@@ -1,20 +1,26 @@
 /**
- * 硬编码治理 · 重复事实源检测（方案 §8 阶段①「仅上报」）
+ * 硬编码治理 · 重复事实源检测（方案 §8 阶段②「白名单收敛」）
  *
  * (a) **同名常量**（`const UPPER_SNAKE =`）定义于 ≥2 文件；
  * (b) **同值 URL/host 字面量**（scheme://host[:port] / localhost:port / 127.0.0.1）
  *     出现于 ≥2 文件。
  *
  * 白名单（真源）内的文件不上报（见下方 TRUTH_SOURCE_FRAGMENTS，可逐条注释）。
- * 结果：仅上报，不阻断（永远 `process.exit(0)`）。
+ * 结果：**棘轮式（只减不增）** —— 稳定键（`同名常量:<NAME>` / `同值host:<LITERAL>`，
+ * 计数 = 命中文件数）与基线 `.trae/architecture/hardcode-gate-baseline.json`
+ * 的 `lint:consts` 分节比对；**新增键 / 计数扩大 ⇒ `process.exit(1)`**。
+ * 播种（初始化 / 下调）：`HARDCODE_GATE_BASELINE_WRITE=1`；负向自证：
+ * `HARDCODE_GATE_BASELINE=<临时副本>`。
  *
  * 运行：cd app && bun run lint:consts
  */
 
 import {
   collectFiles,
+  type GateCounts,
   isCommentLine,
   matchesWhitelist,
+  ratchet,
   readLines,
   report,
   toRel,
@@ -123,11 +129,16 @@ function main(): void {
     );
   }
 
+  // 棘轮稳定键：`同名常量:<NAME>` / `同值host:<LITERAL>`，计数 = 命中文件数
+  const counts: GateCounts = {};
+  for (const d of constDups) counts[`同名常量:${d.key}`] = d.files.length;
+  for (const d of valueDups) counts[`同值host:${d.key}`] = d.files.length;
+
   report('consts', findings, [
     `[lint:consts] 扫描 ${files.length} 个文件（白名单外），同名常量重复 ` +
       `${constDups.length} 组 / 同值字面量重复 ${valueDups.length} 组`,
   ]);
-  process.exit(0);
+  ratchet('consts', counts);
 }
 
 main();

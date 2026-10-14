@@ -1,16 +1,24 @@
 /**
- * 硬编码治理 · 共享扫描工具（方案 §8 阶段①「仅上报」）
+ * 硬编码治理 · 共享扫描工具（方案 §8 阶段②「白名单收敛」）
  *
  * 复用 `scripts/lint-models.ts` 的成熟框架（目录 / 扩展名 / 注释跳过 / 白名单），
- * 为 4 个「仅上报、不阻断」的门禁（lint:consts / lint:endpoints / lint:locale /
- * lint:failmsg-refs）提供**唯一**的扫描与打印实现，避免 4 份重复。
+ * 为 4 个门禁（lint:consts / lint:endpoints / lint:locale / lint:failmsg-refs）
+ * 提供**唯一**的扫描与打印实现，避免 4 份重复。
  *
- * 口径（阶段①）：一律 `process.exit(0)` —— 只 warning、不阻断（对齐 R00-003）。
+ * 口径（阶段②）：**棘轮式 —— 白名单只减不增**。每个门禁产出稳定的「键 → 计数」表，
+ * 与基线 `.trae/architecture/hardcode-gate-baseline.json`（**一份**，内含四个分节）
+ * 比对：出现基线没有的键、或某键计数 > 基线 ⇒ **阻断**（`process.exit(1)`）；
+ * 全部 ≤ 基线 ⇒ PASS（并提示可下调的键，**仅提示、不自动改**）。
+ * 对齐仓内先例 `scripts/lint-function-size-ratchet.ts`。
+ *
+ * env 覆盖（**负向自证**用）：
+ *  - `HARDCODE_GATE_BASELINE=<path>`     基线路径覆盖（缺失 ⇒ `exit(1)`）；
+ *  - `HARDCODE_GATE_BASELINE_WRITE=1`    一次性播种：把**当前**结果写入基线分节。
  * 实现约束：Windows 无系统 grep，全部用 Bun/Node 内置 API。
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 
 /** 项目根目录：本文件位于 `scripts/lib/`，故上溯两级 */
 export const PROJECT_ROOT = join(import.meta.dir, '..', '..');
@@ -85,10 +93,9 @@ export function matchesWhitelist(rel: string, fragments: string[]): boolean {
 }
 
 /**
- * 统一打印（**永不 `process.exit(1)`** —— 阶段①仅上报）。
+ * 统一打印**人类可读明细**（棘轮结论由 `ratchet(...)` 单独打印）。
  * - 0 条 ⇒ `[lint:X] ✅ 无告警`
- * - >0 条 ⇒ `[lint:X] ⚠️ 仅上报 N 条：` 后逐条 `  文件:行 说明`
- * - 末尾统一 `[lint:X] 结果：WARN（仅上报，不阻断）`
+ * - >0 条 ⇒ `[lint:X] ⚠️ 上报 N 条（棘轮：基线内为存量，超出即阻断）：` 后逐条 `  说明`
  *
  * @param name   门禁名（`[lint:<name>]`）
  * @param findings 逐条告警（`文件:行 说明`）
@@ -104,8 +111,96 @@ export function report(
   if (findings.length === 0) {
     console.log(`${tag} ✅ 无告警`);
   } else {
-    console.log(`${tag} ⚠️ 仅上报 ${findings.length} 条：`);
+    console.log(
+      `${tag} ⚠️ 上报 ${findings.length} 条（棘轮：基线内为存量，超出即阻断）：`
+    );
     for (const f of findings) console.log(`  ${f}`);
   }
-  console.log(`${tag} 结果：WARN（仅上报，不阻断）`);
+}
+
+/** 单个门禁的「稳定键 → 计数」表（键里不得含行号，避免随无关编辑漂移） */
+export type GateCounts = Record<string, number>;
+
+/** 基线文件形态：一份 JSON，内含四个门禁的分节（键 = `lint:<name>`） */
+type BaselineFile = Record<string, GateCounts | unknown>;
+
+/** 棘轮基线路径：默认 `.trae/architecture/hardcode-gate-baseline.json`，env 可覆盖 */
+export const HARDCODE_BASELINE_PATH = process.env.HARDCODE_GATE_BASELINE
+  ? resolve(process.env.HARDCODE_GATE_BASELINE)
+  : join(PROJECT_ROOT, '.trae', 'architecture', 'hardcode-gate-baseline.json');
+
+/** 一次性播种开关（`HARDCODE_GATE_BASELINE_WRITE=1`） */
+const BASELINE_WRITE = process.env.HARDCODE_GATE_BASELINE_WRITE === '1';
+
+/** 读取基线（缺失 / 解析失败 ⇒ `console.error` + `process.exit(1)`，同先例） */
+function loadBaseline(): BaselineFile {
+  if (!existsSync(HARDCODE_BASELINE_PATH)) {
+    console.error(`基线不存在: ${HARDCODE_BASELINE_PATH}`);
+    process.exit(1);
+  }
+  try {
+    return JSON.parse(
+      readFileSync(HARDCODE_BASELINE_PATH, 'utf8')
+    ) as BaselineFile;
+  } catch (err) {
+    console.error(`基线 JSON 解析失败: ${String(err)}`);
+    process.exit(1);
+  }
+}
+
+/** 播种：把**当前**结果写入本门禁分节（保留其它分节，便于逐门禁依次播种） */
+function seedBaseline(name: string, counts: GateCounts): void {
+  const file: BaselineFile = existsSync(HARDCODE_BASELINE_PATH)
+    ? loadBaseline()
+    : {};
+  file[`lint:${name}`] = counts;
+  writeFileSync(
+    HARDCODE_BASELINE_PATH,
+    JSON.stringify(file, null, 2) + '\n',
+    'utf8'
+  );
+  console.log(
+    `[lint:${name}] 🌱 已播种基线分节：${Object.keys(counts).length} 键 ⇒ ${HARDCODE_BASELINE_PATH}`
+  );
+}
+
+/**
+ * 棘轮比对（**只减不增**）：
+ * - `HARDCODE_GATE_BASELINE_WRITE=1` ⇒ 播种当前结果并 `exit(0)`；
+ * - 出现基线没有的键 / 某键计数 > 基线 ⇒ 打印「新增/扩大违规」⇒ `exit(1)`；
+ * - 全部 ≤ 基线 ⇒ 打印 `结果：PASS（基线只减不增）`，并提示可下调的键。
+ */
+export function ratchet(name: string, counts: GateCounts): never {
+  if (BASELINE_WRITE) {
+    seedBaseline(name, counts);
+    process.exit(0);
+  }
+  const section = (loadBaseline()[`lint:${name}`] ?? {}) as GateCounts;
+  const added: string[] = [];
+  const grown: string[] = [];
+  const shrinkable: string[] = [];
+
+  for (const [key, n] of Object.entries(counts)) {
+    const base = section[key];
+    if (base === undefined) added.push(`${key}（新增，当前 ${n}）`);
+    else if (n > base) grown.push(`${key}：基线 ${base} → 当前 ${n}`);
+  }
+  for (const [key, base] of Object.entries(section)) {
+    const n = counts[key] ?? 0;
+    if (n < base) shrinkable.push(`${key}：基线 ${base} → 当前 ${n}`);
+  }
+
+  const tag = `[lint:${name}]`;
+  if (added.length > 0 || grown.length > 0) {
+    console.error(`${tag} ❌ 新增/扩大违规（棘轮：白名单只减不增）:`);
+    for (const a of added) console.error(`  - 新增键 ${a}`);
+    for (const g of grown) console.error(`  - 计数扩大 ${g}`);
+    process.exit(1);
+  }
+  console.log(`${tag} 结果：PASS（基线只减不增）`);
+  if (shrinkable.length > 0) {
+    console.log(`${tag} ℹ️ 可下调基线的键（仅提示，不自动改）:`);
+    for (const s of shrinkable) console.log(`  - ${s}`);
+  }
+  process.exit(0);
 }

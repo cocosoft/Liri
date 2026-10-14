@@ -1,18 +1,25 @@
 /**
- * 硬编码治理 · host/端口字面量白名单检测（方案 §8 阶段①「仅上报」）
+ * 硬编码治理 · host/端口字面量白名单检测（方案 §8 阶段②「白名单收敛」）
  *
  * 报 `localhost` / `127.0.0.1` / `0.0.0.0` 与**固定端口**（`:\d{4,5}`）字面量。
  * 白名单（真源）内的文件不上报；`.md` 文档/示例不在扫描内（扩展名天然排除）。
  * 输出**按文件聚合计数**，便于后续收敛。
  *
- * 结果：仅上报，不阻断（永远 `process.exit(0)`）。
+ * 结果：**棘轮式（只减不增）** —— 稳定键 = `<相对路径>`，计数 = 该文件命中数；
+ * 与基线 `.trae/architecture/hardcode-gate-baseline.json` 的 `lint:endpoints` 分节
+ * 比对；**新增键（新文件）/ 计数扩大 ⇒ `process.exit(1)`**。
+ * 播种（初始化 / 下调）：`HARDCODE_GATE_BASELINE_WRITE=1`；负向自证：
+ * `HARDCODE_GATE_BASELINE=<临时副本>`。
+ *
  * 运行：cd app && bun run lint:endpoints
  */
 
 import {
   collectFiles,
+  type GateCounts,
   isCommentLine,
   matchesWhitelist,
+  ratchet,
   readLines,
   report,
   toRel,
@@ -51,6 +58,7 @@ interface Hit {
 function main(): void {
   const files = collectFiles();
   const findings: string[] = [];
+  const counts: GateCounts = {};
   let hitFiles = 0;
   let total = 0;
 
@@ -73,6 +81,8 @@ function main(): void {
 
     hitFiles++;
     total += hits.length;
+    // 棘轮稳定键 = 相对路径，计数 = 该文件命中数
+    counts[rel] = hits.length;
     const kinds = new Map<string, number>();
     for (const h of hits) kinds.set(h.kind, (kinds.get(h.kind) ?? 0) + 1);
     const kindStr = [...kinds.entries()].map(([k, n]) => `${k}×${n}`).join(' ');
@@ -88,7 +98,7 @@ function main(): void {
     `[lint:endpoints] 扫描 ${files.length} 个文件（白名单外），命中 ` +
       `${hitFiles} 文件 / ${total} 处`,
   ]);
-  process.exit(0);
+  ratchet('endpoints', counts);
 }
 
 main();

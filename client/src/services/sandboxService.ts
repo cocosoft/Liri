@@ -1,5 +1,6 @@
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import { ENDPOINTS } from "./endpoints";
 
 /** 沙箱权限级别（与后端 PERMISSION_SANDBOX_DEFAULT 取值一致） */
 export type SandboxPermissionLevel = "full" | "standard" | "readonly";
@@ -51,7 +52,7 @@ export const sandboxService = {
   /** 获取沙箱配置 */
   async getConfig(): Promise<SandboxConfig> {
     try {
-      return await http.get<SandboxConfig>("/v1/sandbox/config");
+      return await http.get<SandboxConfig>(ENDPOINTS.sandbox.config);
     } catch (e) {
       handleClientError(e, { module: "services:sandbox", action: "getConfig" });
       throw e;
@@ -61,7 +62,7 @@ export const sandboxService = {
   /** 更新沙箱配置（持久化 + 运行时同步） */
   async updateConfig(patch: Partial<SandboxConfig>): Promise<SandboxConfig> {
     try {
-      return await http.put<SandboxConfig>("/v1/sandbox/config", patch);
+      return await http.put<SandboxConfig>(ENDPOINTS.sandbox.config, patch);
     } catch (e) {
       handleClientError(e, {
         module: "services:sandbox",
@@ -74,7 +75,7 @@ export const sandboxService = {
   /** 获取沙箱运行时状态 */
   async getStatus(): Promise<SandboxStatus> {
     try {
-      return await http.get<SandboxStatus>("/v1/sandbox/status");
+      return await http.get<SandboxStatus>(ENDPOINTS.sandbox.status);
     } catch (e) {
       handleClientError(e, { module: "services:sandbox", action: "getStatus" });
       throw e;

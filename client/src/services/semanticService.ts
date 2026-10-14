@@ -4,6 +4,7 @@
  */
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import { ENDPOINTS } from "./endpoints";
 
 export interface SemanticIndexStatus {
   exists: boolean;
@@ -52,7 +53,7 @@ export const semanticService = {
   getStatus: async (): Promise<SemanticIndexStatus | null> => {
     try {
       const res = await http.get<SemanticIndexStatus>(
-        "/v1/semantic/index/status",
+        ENDPOINTS.semantic.indexStatus,
       );
       return (res ?? {
         exists: false,
@@ -75,10 +76,13 @@ export const semanticService = {
    */
   startBuild: async (rootDir?: string): Promise<string | null> => {
     try {
-      const res = await http.post<{ taskId: string }>("/v1/semantic/index", {
-        rootDir: rootDir || "",
-        incremental: true,
-      });
+      const res = await http.post<{ taskId: string }>(
+        ENDPOINTS.semantic.index,
+        {
+          rootDir: rootDir || "",
+          incremental: true,
+        },
+      );
       return res?.taskId ?? null;
     } catch (e) {
       handleClientError(e, {
@@ -93,7 +97,7 @@ export const semanticService = {
   getBuildTask: async (taskId: string): Promise<SemanticBuildTask | null> => {
     try {
       const res = await http.get<SemanticBuildTask>(
-        `/v1/semantic/index/task?taskId=${encodeURIComponent(taskId)}`,
+        `${ENDPOINTS.semantic.indexTask}?taskId=${encodeURIComponent(taskId)}`,
       );
       return (res ?? null) as SemanticBuildTask | null;
     } catch (e) {
@@ -108,7 +112,7 @@ export const semanticService = {
   /** 清除语义索引 */
   clearIndex: async (): Promise<boolean> => {
     try {
-      await http.delete("/v1/semantic/index");
+      await http.delete(ENDPOINTS.semantic.index);
       return true;
     } catch (e) {
       handleClientError(e, {
@@ -130,7 +134,7 @@ export const semanticService = {
   ): Promise<SemanticSearchResult[] | null> => {
     try {
       const res = await http.get<SemanticSearchResult[]>(
-        `/v1/semantic/search?q=${encodeURIComponent(query)}&topK=${topK}`,
+        `${ENDPOINTS.semantic.search}?q=${encodeURIComponent(query)}&topK=${topK}`,
       );
       if (Array.isArray(res)) return res as SemanticSearchResult[];
       // 兼容包装响应格式 { data: [...] }

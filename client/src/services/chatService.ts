@@ -17,6 +17,7 @@ import i18n from "@/i18n";
 import { DAILY_BUDGET_EXCEEDED } from "../error/errorCodes";
 import { APP_EVENTS } from "@/constants/events";
 import { STORAGE_KEYS } from "@/constants/storage";
+import { ENDPOINTS } from "./endpoints";
 
 const logger = createLogger("chatService");
 
@@ -611,9 +612,9 @@ export async function truncateMessages(
       success: boolean;
       deletedMessageIds?: string[];
     }>(
-      `${getBackendBaseUrl()}/v1/sessions/${encodeURIComponent(
+      `${getBackendBaseUrl()}${ENDPOINTS.session.messagesTruncateEncoded(
         sessionId,
-      )}/messages/truncate`,
+      )}`,
       {
         method: "POST",
         body: JSON.stringify({ beforeMessageId }),
@@ -638,7 +639,7 @@ async function addMessageRequest(
       idempotent: boolean;
       messageId: string;
     }>(
-      `${getBackendBaseUrl()}/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      `${getBackendBaseUrl()}${ENDPOINTS.session.messagesEncoded(sessionId)}`,
       {
         method: "POST",
         body: JSON.stringify(message),
@@ -806,7 +807,7 @@ export const chatService = {
           }>;
           pending_interaction?: QuestionData;
         } & Record<string, unknown>
-      >(`${getBackendBaseUrl()}/v1/chat/completions`, {
+      >(`${getBackendBaseUrl()}${ENDPOINTS.chat.completions}`, {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -892,7 +893,7 @@ export const chatService = {
       // http_proxy_stream（密钥 Rust 侧注入，JS 不接触明文），浏览器直连 fetch。
       // createStreamReader 模拟 ReadableStreamDefaultReader 接口，下方解析循环不变。
       const { createStreamReader } = await import("./httpClient");
-      const reader = await createStreamReader("/v1/chat/completions", {
+      const reader = await createStreamReader(ENDPOINTS.chat.completions, {
         method: "POST",
         body,
         headers: buildAuthHeaders(),
@@ -1394,7 +1395,7 @@ export const chatService = {
       if (checkpointId) {
         try {
           const resumeResp = await fetch(
-            `${getBackendBaseUrl()}/v1/sessions/${sessionId}/resume`,
+            `${getBackendBaseUrl()}${ENDPOINTS.session.resume(sessionId)}`,
             {
               method: "POST",
               headers: buildAuthHeaders(),
@@ -1602,7 +1603,7 @@ export const chatService = {
       // 获取最新检查点
       try {
         const cpResp = await fetch(
-          `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
+          `${getBackendBaseUrl()}${ENDPOINTS.session.checkpointsLatest(sessionId)}`,
           { headers: buildAuthHeaders(), signal: AbortSignal.timeout(5000) },
         );
         const cpData = (await cpResp.json()) as {
@@ -1695,7 +1696,7 @@ export const chatService = {
             providerId?: string;
             enabled?: boolean;
           }>;
-        }>(`${getBackendBaseUrl()}/v1/models`);
+        }>(`${getBackendBaseUrl()}${ENDPOINTS.models.base}`);
         return (response.data || [])
           .filter((m) => m.enabled !== false)
           .map((m) => ({
@@ -1739,7 +1740,7 @@ export const chatService = {
           const response = await fetchJSON<{
             success: boolean;
             content?: string;
-          }>(`${getBackendBaseUrl()}/v1/chat/question-answer`, {
+          }>(`${getBackendBaseUrl()}${ENDPOINTS.chat.questionAnswer}`, {
             method: "POST",
             body: JSON.stringify({ questionId, answers, sessionId }),
           });
@@ -1770,7 +1771,7 @@ export const chatService = {
       "services:chat:steerSession",
       async () => {
         return fetchJSON<{ queued: boolean }>(
-          `${getBackendBaseUrl()}/v1/sessions/${sessionId}/steer`,
+          `${getBackendBaseUrl()}${ENDPOINTS.session.steer(sessionId)}`,
           {
             method: "POST",
             body: JSON.stringify({ message }),

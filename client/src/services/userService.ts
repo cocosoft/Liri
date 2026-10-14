@@ -7,6 +7,7 @@
 
 import { httpLegacy as http } from "./httpClient";
 import type { BuddyCompanion, BuddyInteractionResult } from "../types";
+import { ENDPOINTS } from "./endpoints";
 
 /** 新统一设置 API 响应结构 */
 interface SettingsResponse {
@@ -18,7 +19,7 @@ interface SettingsResponse {
  * 读取 SOUL.md 人格定义
  */
 export async function fetchSoul(): Promise<string> {
-  const res = await http.get<SettingsResponse>("/v1/settings/soul");
+  const res = await http.get<SettingsResponse>(ENDPOINTS.settings.soul);
   return res?.value?.content ?? "";
 }
 
@@ -26,7 +27,7 @@ export async function fetchSoul(): Promise<string> {
  * 保存 SOUL.md 人格定义
  */
 export async function saveSoul(content: string): Promise<boolean> {
-  await http.put("/v1/settings/soul", { content });
+  await http.put(ENDPOINTS.settings.soul, { content });
   return true;
 }
 
@@ -34,7 +35,7 @@ export async function saveSoul(content: string): Promise<boolean> {
  * 读取 USER.md 用户身份
  */
 export async function fetchUser(): Promise<string> {
-  const res = await http.get<SettingsResponse>("/v1/settings/user");
+  const res = await http.get<SettingsResponse>(ENDPOINTS.settings.user);
   return res?.value?.content ?? "";
 }
 
@@ -42,21 +43,21 @@ export async function fetchUser(): Promise<string> {
  * 保存 USER.md 用户身份
  */
 export async function saveUser(content: string): Promise<boolean> {
-  await http.put("/v1/settings/user", { content });
+  await http.put(ENDPOINTS.settings.user, { content });
   return true;
 }
 
 export const buddyService = {
   getBuddy: async (name?: string): Promise<BuddyCompanion> => {
     const params = name ? `?name=${encodeURIComponent(name)}` : "";
-    return http.get<BuddyCompanion>(`/v1/buddy/companion${params}`);
+    return http.get<BuddyCompanion>(`${ENDPOINTS.buddy.companion}${params}`);
   },
 
   interact: async (
     action: string,
     name?: string,
   ): Promise<BuddyInteractionResult> => {
-    return http.post<BuddyInteractionResult>("/v1/buddy/interact", {
+    return http.post<BuddyInteractionResult>(ENDPOINTS.buddy.interact, {
       action,
       name,
     });
@@ -67,6 +68,6 @@ export const buddyService = {
     dreamsCompleted: number;
     totalXp: number;
   }> => {
-    return http.get("/v1/buddy/stats");
+    return http.get(ENDPOINTS.buddy.stats);
   },
 };

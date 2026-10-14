@@ -12,6 +12,7 @@ import type {
   NotificationCountResult,
   NotificationItem,
 } from "../types/notification";
+import { ENDPOINTS } from "./endpoints";
 
 function unwrap<T>(
   res: { ok: boolean; data?: T; error?: { code: number; message: string } },
@@ -41,22 +42,25 @@ export const notificationService = {
   list: async (
     params: NotificationListParams = {},
   ): Promise<NotificationListResult> => {
-    const res = await http.get<NotificationListResult>("/v1/notifications", {
-      params: {
-        category: params.category,
-        status: params.status,
-        priority: params.priority,
-        cursor: params.cursor,
-        limit: params.limit,
+    const res = await http.get<NotificationListResult>(
+      ENDPOINTS.notifications.base,
+      {
+        params: {
+          category: params.category,
+          status: params.status,
+          priority: params.priority,
+          cursor: params.cursor,
+          limit: params.limit,
+        },
       },
-    });
+    );
     return unwrap(res, "NOTIF_LIST");
   },
 
   /** GET /v1/notifications/unread-count */
   unreadCount: async (): Promise<NotificationCountResult> => {
     const res = await http.get<NotificationCountResult>(
-      "/v1/notifications/unread-count",
+      ENDPOINTS.notifications.unreadCount,
     );
     return unwrap(res, "NOTIF_COUNT");
   },
@@ -64,7 +68,7 @@ export const notificationService = {
   /** PATCH /v1/notifications/:id/read */
   markRead: async (id: string): Promise<{ success: boolean }> => {
     const res = await http.patch<{ success: boolean }>(
-      `/v1/notifications/${id}/read`,
+      ENDPOINTS.notifications.markRead(id),
     );
     return unwrap(res, "NOTIF_READ");
   },
@@ -73,7 +77,7 @@ export const notificationService = {
   readAll: async (category?: string): Promise<{ updatedCount: number }> => {
     const qs = category ? buildQuery({ category }) : "";
     const res = await http.patch<{ updatedCount: number }>(
-      `/v1/notifications/read-all${qs}`,
+      `${ENDPOINTS.notifications.readAll}${qs}`,
     );
     return unwrap(res, "NOTIF_READ_ALL");
   },
@@ -81,7 +85,7 @@ export const notificationService = {
   /** PATCH /v1/notifications/:id/dismiss */
   dismiss: async (id: string): Promise<{ success: boolean }> => {
     const res = await http.patch<{ success: boolean }>(
-      `/v1/notifications/${id}/dismiss`,
+      ENDPOINTS.notifications.dismiss(id),
     );
     return unwrap(res, "NOTIF_DISMISS");
   },
@@ -89,7 +93,7 @@ export const notificationService = {
   /** DELETE /v1/notifications/:id */
   delete: async (id: string): Promise<{ success: boolean }> => {
     const res = await http.delete<{ success: boolean }>(
-      `/v1/notifications/${id}`,
+      ENDPOINTS.notifications.byId(id),
     );
     return unwrap(res, "NOTIF_DELETE");
   },
@@ -105,7 +109,10 @@ export const notificationService = {
     link_to?: { type: string; id: string; label?: string } | null;
     expires_at?: number | null;
   }): Promise<NotificationItem> => {
-    const res = await http.post<NotificationItem>("/v1/notifications", input);
+    const res = await http.post<NotificationItem>(
+      ENDPOINTS.notifications.base,
+      input,
+    );
     return unwrap(res, "NOTIF_CREATE");
   },
 };

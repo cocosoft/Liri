@@ -1,6 +1,7 @@
 import type { FAQEntry, FAQImportReport } from "../types/knowledge";
 import { http } from "./httpClient";
 import i18n from "../i18n";
+import { ENDPOINTS } from "./endpoints";
 
 function unwrap<T>(
   res: { ok: boolean; data?: T; error?: { code: number; message: string } },
@@ -30,8 +31,8 @@ export const faqService = {
     if (params?.limit !== undefined) sp.set("limit", String(params.limit));
     const qs = sp.toString();
     const url = qs
-      ? `/v1/knowledge/${encodeURIComponent(base)}/faq?${qs}`
-      : `/v1/knowledge/${encodeURIComponent(base)}/faq`;
+      ? `${ENDPOINTS.knowledge.faqBase(base)}?${qs}`
+      : ENDPOINTS.knowledge.faqBase(base);
     const res = await http.get<{
       entries: FAQEntry[];
       total: number;
@@ -54,7 +55,7 @@ export const faqService = {
     },
   ): Promise<FAQEntry> => {
     const res = await http.post<FAQEntry>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq`,
+      ENDPOINTS.knowledge.faqBase(base),
       entry,
     );
     return unwrap(res, "FAQ_CREATE");
@@ -67,7 +68,7 @@ export const faqService = {
     updates: Partial<FAQEntry>,
   ): Promise<FAQEntry> => {
     const res = await http.put<FAQEntry>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq/${id}`,
+      ENDPOINTS.knowledge.faqById(base, id),
       updates,
     );
     return unwrap(res, "FAQ_UPDATE");
@@ -76,7 +77,7 @@ export const faqService = {
   /** 删除 FAQ 条目 */
   delete: async (base: string, id: string): Promise<void> => {
     const res = await http.delete<unknown>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq/${id}`,
+      ENDPOINTS.knowledge.faqById(base, id),
     );
     unwrap(res, "FAQ_DELETE");
   },
@@ -87,7 +88,7 @@ export const faqService = {
     ids: string[],
   ): Promise<{ deleted: number }> => {
     const res = await http.post<{ deleted: number }>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq/batch-delete`,
+      ENDPOINTS.knowledge.faqBatchDelete(base),
       { ids },
     );
     return unwrap(res, "FAQ_BATCH_DELETE");
@@ -100,7 +101,7 @@ export const faqService = {
     data: string,
   ): Promise<FAQImportReport> => {
     const res = await http.post<FAQImportReport>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq/import`,
+      ENDPOINTS.knowledge.faqImport(base),
       { format, data },
     );
     return unwrap(res, "FAQ_IMPORT");
@@ -112,7 +113,7 @@ export const faqService = {
     query: string,
   ): Promise<{ entries: FAQEntry[]; total: number }> => {
     const res = await http.get<{ entries: FAQEntry[]; total: number }>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq/search?q=${encodeURIComponent(query)}`,
+      `${ENDPOINTS.knowledge.faqSearch(base)}?q=${encodeURIComponent(query)}`,
     );
     return unwrap(res, "FAQ_SEARCH");
   },
@@ -120,7 +121,7 @@ export const faqService = {
   /** 获取 FAQ 分类列表 */
   categories: async (base: string): Promise<string[]> => {
     const res = await http.get<{ categories: string[] }>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq/categories`,
+      ENDPOINTS.knowledge.faqCategories(base),
     );
     return unwrap(res, "FAQ_CATEGORIES").categories;
   },
@@ -128,7 +129,7 @@ export const faqService = {
   /** 获取计数 */
   count: async (base: string): Promise<number> => {
     const res = await http.get<{ total: number }>(
-      `/v1/knowledge/${encodeURIComponent(base)}/faq?limit=1`,
+      `${ENDPOINTS.knowledge.faqBase(base)}?limit=1`,
     );
     return res.ok ? (res.data?.total ?? 0) : 0;
   },

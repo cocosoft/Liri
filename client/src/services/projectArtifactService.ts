@@ -6,6 +6,7 @@
  */
 
 import i18n from "../i18n";
+import { ENDPOINTS } from "./endpoints";
 
 export interface ProjectArtifact {
   id: string;
@@ -25,7 +26,7 @@ export interface ProjectContext {
   line: number;
 }
 
-const API_BASE = "/v1/projects";
+const API_BASE = ENDPOINTS.project.base;
 
 export async function fetchArtifacts(
   projectId: string,

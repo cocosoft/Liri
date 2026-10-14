@@ -8,6 +8,7 @@
 
 import { http } from "./httpClient";
 import type { ApiResponse } from "../types/system";
+import { ENDPOINTS } from "./endpoints";
 import type {
   VfsMountInput,
   VfsMountsResponse,
@@ -17,7 +18,7 @@ import type {
 export const vfsService = {
   /** 获取当前生效的挂载计划（含 `mcpServers` 供 UI 选择） */
   async listMounts(): Promise<ApiResponse<VfsMountsResponse>> {
-    return http.get<VfsMountsResponse>("/v1/vfs/mounts");
+    return http.get<VfsMountsResponse>(ENDPOINTS.vfs.mounts);
   },
 
   /**
@@ -27,6 +28,6 @@ export const vfsService = {
   async saveMounts(
     mounts: VfsMountInput[],
   ): Promise<ApiResponse<VfsMountsSaveResponse>> {
-    return http.put<VfsMountsSaveResponse>("/v1/vfs/mounts", { mounts });
+    return http.put<VfsMountsSaveResponse>(ENDPOINTS.vfs.mounts, { mounts });
   },
 };

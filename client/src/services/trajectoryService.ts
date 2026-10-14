@@ -34,6 +34,7 @@ import { getBackendBaseUrl } from "./backendUrl";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
+import { ENDPOINTS } from "./endpoints";
 
 const logger = createLogger("trajectoryService");
 
@@ -99,7 +100,7 @@ export const trajectoryService = {
           if (query?.recent) params.recent = "1";
 
           const res = await apiHttp.get<SessionEventsResponse>(
-            `/v1/sessions/${sessionId}/events`,
+            ENDPOINTS.session.events(sessionId),
             { params },
           );
           if (res.ok && res.data) {
@@ -129,7 +130,7 @@ export const trajectoryService = {
       async () => {
         try {
           const res = await apiHttp.get<EventSessionStats>(
-            `/v1/sessions/${sessionId}/stats`,
+            ENDPOINTS.session.stats(sessionId),
           );
           if (res.ok && res.data) {
             return res.data;
@@ -157,9 +158,9 @@ export const trajectoryService = {
     format: "jsonl" | "json" = "jsonl",
   ): void => {
     try {
-      const url = `${getBackendBaseUrl()}/v1/sessions/${encodeURIComponent(
+      const url = `${getBackendBaseUrl()}${ENDPOINTS.session.eventsExport(
         sessionId,
-      )}/events/export?format=${format}`;
+      )}?format=${format}`;
       const a = document.createElement("a");
       a.href = url;
       a.download = `events-${sessionId}.${format}`;

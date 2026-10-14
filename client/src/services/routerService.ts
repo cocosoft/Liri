@@ -4,6 +4,7 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 export interface RouterConfig {
   enabled: boolean;
@@ -31,7 +32,7 @@ export const routerService = {
    * 获取 SmartRouter 当前配置与状态
    */
   async getConfig(): Promise<RouterStatus> {
-    return http.get<RouterStatus>("/v1/router/config");
+    return http.get<RouterStatus>(ENDPOINTS.router.config);
   },
 
   /**
@@ -39,6 +40,6 @@ export const routerService = {
    * @param config - 需要更新的配置项（支持部分更新）
    */
   async updateConfig(config: Partial<RouterConfig>): Promise<void> {
-    await http.put("/v1/router/config", { config });
+    await http.put(ENDPOINTS.router.config, { config });
   },
 };

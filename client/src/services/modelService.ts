@@ -1,5 +1,6 @@
 import { httpLegacy as http } from "./httpClient";
 import type { BillingMode, ModelInfo, TimeBasedPrice } from "../types";
+import { ENDPOINTS } from "./endpoints";
 
 export type { ModelInfo };
 
@@ -55,7 +56,7 @@ export interface UpdateModelParams {
 export const modelService = {
   async list(): Promise<ModelInfo[]> {
     const response = await http.get<{ object: string; data: ModelInfo[] }>(
-      "/v1/models",
+      ENDPOINTS.models.base,
     );
     if (response && Array.isArray(response.data)) {
       return response.data;
@@ -70,7 +71,7 @@ export const modelService = {
    */
   async listOrphanModels(): Promise<OrphanModel[]> {
     const response = await http.get<{ data: OrphanModel[] }>(
-      "/v1/models/orphans",
+      ENDPOINTS.models.orphans,
     );
     if (response && Array.isArray(response.data)) {
       return response.data;
@@ -85,7 +86,7 @@ export const modelService = {
 
   async update(id: string, params: UpdateModelParams): Promise<ModelInfo> {
     const resp = await http.put<{ data: ModelInfo }>(
-      `/v1/models/${encodeURIComponent(id)}`,
+      ENDPOINTS.models.byId(id),
       params,
     );
     return resp.data;
@@ -94,14 +95,12 @@ export const modelService = {
   async toggle(id: string): Promise<boolean> {
     const resp = await http.patch<{
       data: { modelId: string; enabled: boolean };
-    }>(`/v1/models/${encodeURIComponent(id)}/toggle`);
+    }>(ENDPOINTS.models.toggle(id));
     return resp.data.enabled;
   },
 
   async remove(id: string): Promise<void> {
-    await http.delete<{ success: boolean }>(
-      `/v1/models/${encodeURIComponent(id)}`,
-    );
+    await http.delete<{ success: boolean }>(ENDPOINTS.models.byId(id));
   },
 
   /** 测试模型连通（POST /v1/models/test，modelId 为模型名，providerId 为供应商 UUID） */
@@ -113,13 +112,13 @@ export const modelService = {
       success: boolean;
       response?: unknown;
       error?: string;
-    }>("/v1/models/test", { modelId, providerId });
+    }>(ENDPOINTS.models.test, { modelId, providerId });
   },
 
   /** 同步官方价格到已注册模型（POST /v1/models/pricing/sync），返回更新的模型数 */
   async syncOfficialPricing(): Promise<number> {
     const resp = await http.post<{ data: { updated: number } }>(
-      "/v1/models/pricing/sync",
+      ENDPOINTS.models.pricingSync,
       {},
     );
     return resp?.data?.updated ?? 0;
@@ -134,7 +133,7 @@ export const modelService = {
     persist = true,
   ): Promise<CapabilityProbeResult> {
     const resp = await http.post<{ data: CapabilityProbeResult }>(
-      "/v1/models/probe",
+      ENDPOINTS.models.probe,
       { modelId, persist },
     );
     return resp.data;
@@ -143,7 +142,7 @@ export const modelService = {
   /** 本地服务（Ollama/llama.cpp）运行状态（GET /v1/providers/status） */
   async providerStatus(): Promise<ProviderStatusInfo[]> {
     const resp = await http.get<{ data: ProviderStatusInfo[] }>(
-      "/v1/providers/status",
+      ENDPOINTS.providers.status,
     );
     return resp.data || [];
   },

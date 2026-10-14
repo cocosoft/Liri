@@ -10,6 +10,7 @@ import { toolService } from "./toolService";
 import { http } from "./httpClient";
 import i18n from "../i18n";
 import type { ApiResponse } from "../types/system";
+import { ENDPOINTS } from "./endpoints";
 
 // 视频生成超时 10 分钟
 const VIDEO_GENERATE_TIMEOUT = 600_000;
@@ -159,7 +160,7 @@ export const videoService = {
 
     const fetcher = () =>
       http.get<VideoListResponse>(
-        `/v1/videos/list?page=${page}&pageSize=${pageSize}`,
+        `${ENDPOINTS.videos.list}?page=${page}&pageSize=${pageSize}`,
       );
 
     return withListCache(cacheKey, fetcher)
@@ -180,7 +181,7 @@ export const videoService = {
   async deleteVideo(path: string): Promise<boolean> {
     try {
       const res = await http.delete<{ success: boolean }>(
-        `/v1/videos/delete?path=${encodeURIComponent(path)}`,
+        `${ENDPOINTS.videos.delete}?path=${encodeURIComponent(path)}`,
       );
       if (res.ok) {
         listCache.clear();
@@ -208,7 +209,7 @@ export const videoService = {
     modelId?: string;
   }): Promise<{ taskId: string; status: string }> {
     const res = await http.post<{ taskId: string; status: string }>(
-      "/v1/video/tasks",
+      ENDPOINTS.video.tasks,
       params,
     );
     if (!res.ok) {
@@ -221,9 +222,7 @@ export const videoService = {
    * 查询单个任务状态
    */
   async getVideoTask(taskId: string): Promise<VideoTaskDetail> {
-    const res = await http.get<VideoTaskDetail>(
-      `/v1/video/tasks/${encodeURIComponent(taskId)}`,
-    );
+    const res = await http.get<VideoTaskDetail>(ENDPOINTS.video.task(taskId));
     if (!res.ok) {
       throw new Error(String(res.error || i18n.t("video.getTaskFailed")));
     }
@@ -235,7 +234,7 @@ export const videoService = {
    */
   async cancelVideoTask(taskId: string): Promise<{ success: boolean }> {
     const res = await http.post<{ success: boolean }>(
-      `/v1/video/tasks/${encodeURIComponent(taskId)}/cancel`,
+      ENDPOINTS.video.taskCancel(taskId),
     );
     if (!res.ok) {
       throw new Error(String(res.error || i18n.t("video.cancelTaskFailed")));
@@ -272,7 +271,7 @@ export const videoService = {
     if (params?.offset) query.set("offset", String(params.offset));
 
     const res = await http.get<VideoTaskListResponse>(
-      `/v1/video/tasks?${query.toString()}`,
+      `${ENDPOINTS.video.tasks}?${query.toString()}`,
     );
     if (!res.ok) {
       throw new Error(String(res.error || i18n.t("video.listTasksFailed")));

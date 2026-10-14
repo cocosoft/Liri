@@ -2,6 +2,7 @@ import type { Tool } from "../types";
 import { httpLegacy as http, setHttpTimeout } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
+import { ENDPOINTS } from "./endpoints";
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -42,7 +43,7 @@ export const toolService = {
   list: (): Promise<Tool[]> => {
     return getOTelTracing().asyncWrap("services:tool:list", async () => {
       try {
-        return await http.get<Tool[]>("/v1/tools");
+        return await http.get<Tool[]>(ENDPOINTS.tools.base);
       } catch (e) {
         handleClientError(e, { module: "services:tool", action: "list" });
         const result = await tryTauri<Tool[]>("list_tools");
@@ -62,7 +63,7 @@ export const toolService = {
       const prevTimeout = setHttpTimeout(timeout);
 
       try {
-        return await http.post<unknown>(`/v1/tools/${toolName}/execute`, {
+        return await http.post<unknown>(ENDPOINTS.tools.execute(toolName), {
           arguments: args,
         });
       } catch (err) {

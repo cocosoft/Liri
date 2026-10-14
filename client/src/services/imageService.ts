@@ -9,6 +9,7 @@
 import { toolService } from "./toolService";
 import { httpLegacy as http } from "./httpClient";
 import i18n from "../i18n";
+import { ENDPOINTS } from "./endpoints";
 
 // ============================================================
 // 类型定义
@@ -230,10 +231,10 @@ export const imageService = {
     // 提取 output/images/ 之后的部分
     const match = filePath.match(/output[/\\]images[/\\](.+)$/i);
     if (match) {
-      return `/v1/images/static/${match[1].replace(/\\/g, "/")}`;
+      return ENDPOINTS.images.static(match[1].replace(/\\/g, "/"));
     }
     // 如果不匹配，尝试直接作为 images/ 子路径
-    return `/v1/images/static/${filePath.replace(/\\/g, "/")}`;
+    return ENDPOINTS.images.static(filePath.replace(/\\/g, "/"));
   },
 
   /**
@@ -259,7 +260,7 @@ export const imageService = {
         page: number;
         pageSize: number;
         hasMore: boolean;
-      }>(`/v1/images/list?page=${page}&pageSize=${pageSize}`);
+      }>(`${ENDPOINTS.images.list}?page=${page}&pageSize=${pageSize}`);
       return raw || { images: [], total: 0, page, pageSize, hasMore: false };
     });
   },
@@ -271,11 +272,11 @@ export const imageService = {
   async deleteImage(imagePathOrUrl: string): Promise<{ success: boolean }> {
     // 将 web URL 转为后端可识别的相对路径格式
     let backendPath = imagePathOrUrl;
-    if (imagePathOrUrl.startsWith("/v1/images/static/")) {
-      backendPath = imagePathOrUrl.slice("/v1/images/static/".length);
+    if (imagePathOrUrl.startsWith(ENDPOINTS.images.staticPrefix)) {
+      backendPath = imagePathOrUrl.slice(ENDPOINTS.images.staticPrefix.length);
     }
     return http.delete(
-      `/v1/images/delete?path=${encodeURIComponent(backendPath)}`,
+      `${ENDPOINTS.images.delete}?path=${encodeURIComponent(backendPath)}`,
     );
   },
 
@@ -309,7 +310,7 @@ export const imageService = {
   ): Promise<{ path: string; url: string }> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/v1/images/upload");
+      xhr.open("POST", ENDPOINTS.images.upload);
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && onProgress) {

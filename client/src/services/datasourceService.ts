@@ -1,5 +1,6 @@
 import { http } from "./httpClient";
 import i18n from "../i18n";
+import { ENDPOINTS } from "./endpoints";
 
 function unwrap<T>(
   res: { ok: boolean; data?: T; error?: { code: number; message: string } },
@@ -34,7 +35,9 @@ export interface SyncResult {
 
 export const datasourceService = {
   list: async (): Promise<DataSourceConfig[]> => {
-    const res = await http.get<DataSourceConfig[]>("/v1/knowledge/datasources");
+    const res = await http.get<DataSourceConfig[]>(
+      ENDPOINTS.knowledge.datasources,
+    );
     return unwrap(res, "DS_LIST");
   },
 
@@ -42,20 +45,22 @@ export const datasourceService = {
     entry: Omit<DataSourceConfig, "createdAt">,
   ): Promise<DataSourceConfig> => {
     const res = await http.post<DataSourceConfig>(
-      "/v1/knowledge/datasources",
+      ENDPOINTS.knowledge.datasources,
       entry,
     );
     return unwrap(res, "DS_CREATE");
   },
 
   delete: async (type: string): Promise<void> => {
-    const res = await http.delete<unknown>(`/v1/knowledge/datasources/${type}`);
+    const res = await http.delete<unknown>(
+      ENDPOINTS.knowledge.datasourceByType(type),
+    );
     unwrap(res, "DS_DELETE");
   },
 
   sync: async (type: string): Promise<SyncResult> => {
     const res = await http.post<SyncResult>(
-      `/v1/knowledge/datasources/${type}/sync`,
+      ENDPOINTS.knowledge.datasourceSync(type),
     );
     return unwrap(res, "DS_SYNC");
   },

@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 /** 市场插件信息（后端 PluginMarketplace.MarketplacePlugin） */
 export interface MarketplacePlugin {
@@ -64,24 +65,24 @@ class PluginMarketplaceService {
     if (params.page) queryParams.page = params.page;
     if (params.pageSize) queryParams.pageSize = params.pageSize;
     return http.get<PluginMarketplaceSearchResult>(
-      "/v1/plugins/marketplace/search",
+      ENDPOINTS.plugins.marketplaceSearch,
       { params: queryParams },
     );
   }
 
   async getCategories(): Promise<Array<{ name: string; count: number }>> {
     return http.get<Array<{ name: string; count: number }>>(
-      "/v1/plugins/marketplace/categories",
+      ENDPOINTS.plugins.marketplaceCategories,
     );
   }
 
   async getInstalledPlugins(): Promise<InstalledPlugin[]> {
-    return http.get<InstalledPlugin[]>("/v1/plugins/marketplace/installed");
+    return http.get<InstalledPlugin[]>(ENDPOINTS.plugins.marketplaceInstalled);
   }
 
   /** 获取响应式挂起的插件列表（inject 必需服务缺失等待中，4.4） */
   async getPendingPlugins(): Promise<PendingPlugin[]> {
-    return http.get<PendingPlugin[]>("/v1/plugins/marketplace/pending");
+    return http.get<PendingPlugin[]>(ENDPOINTS.plugins.marketplacePending);
   }
 
   async getPluginDetail(pluginId: string): Promise<{
@@ -91,7 +92,7 @@ class PluginMarketplaceService {
     return http.get<{
       plugin: MarketplacePlugin | null;
       versions: Array<{ version: string; publishedAt: string }>;
-    }>(`/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}`);
+    }>(ENDPOINTS.plugins.marketplacePlugin(pluginId));
   }
 
   async install(pluginId: string): Promise<{
@@ -105,9 +106,7 @@ class PluginMarketplaceService {
       name: string;
       version?: string;
       loaded?: boolean;
-    }>(
-      `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/install`,
-    );
+    }>(ENDPOINTS.plugins.marketplacePluginInstall(pluginId));
   }
 
   async uninstall(pluginId: string): Promise<{
@@ -115,7 +114,7 @@ class PluginMarketplaceService {
     name: string;
   }> {
     return http.post<{ success: boolean; name: string }>(
-      `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/uninstall`,
+      ENDPOINTS.plugins.marketplacePluginUninstall(pluginId),
     );
   }
 }

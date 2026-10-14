@@ -8,6 +8,7 @@
 import { http } from "./httpClient";
 import type { TaskNode, TaskStatus } from "../types/work";
 import { createLogger } from "@/utils/logger";
+import { ENDPOINTS } from "./endpoints";
 
 const logger = createLogger("services:taskService");
 
@@ -77,7 +78,7 @@ export const taskService = {
     if (params.status) query.set("status", params.status);
 
     const res = await http.get<TaskListResponse>(
-      `/v1/tasks?${query.toString()}`,
+      `${ENDPOINTS.tasks.base}?${query.toString()}`,
     );
     if (!res.ok) {
       logger.warn("获取任务列表失败", { error: res.error });
@@ -92,7 +93,7 @@ export const taskService = {
    */
   async get(taskId: string): Promise<TaskNode | null> {
     const res = await http.get<TaskDetailResponse>(
-      `/v1/tasks/${encodeURIComponent(taskId)}`,
+      ENDPOINTS.tasks.byId(taskId),
     );
     if (!res.ok) return null;
     return (res.data as TaskDetailResponse)?.data || null;
@@ -103,7 +104,10 @@ export const taskService = {
    * POST /v1/tasks
    */
   async create(params: CreateTaskParams): Promise<TaskNode | null> {
-    const res = await http.post<TaskDetailResponse>("/v1/tasks", params);
+    const res = await http.post<TaskDetailResponse>(
+      ENDPOINTS.tasks.base,
+      params,
+    );
     if (!res.ok) {
       logger.warn("创建任务失败", { error: res.error });
       return null;
@@ -120,7 +124,7 @@ export const taskService = {
     updates: UpdateTaskParams,
   ): Promise<TaskNode | null> {
     const res = await http.patch<TaskDetailResponse>(
-      `/v1/tasks/${encodeURIComponent(taskId)}`,
+      ENDPOINTS.tasks.byId(taskId),
       updates,
     );
     if (!res.ok) return null;
@@ -133,7 +137,7 @@ export const taskService = {
    */
   async delete(taskId: string): Promise<boolean> {
     const res = await http.delete<TaskDeleteResponse>(
-      `/v1/tasks/${encodeURIComponent(taskId)}`,
+      ENDPOINTS.tasks.byId(taskId),
     );
     return res.ok;
   },
@@ -144,7 +148,7 @@ export const taskService = {
    */
   async getChildren(taskId: string): Promise<TaskNode[]> {
     const res = await http.get<TaskChildrenResponse>(
-      `/v1/tasks/${encodeURIComponent(taskId)}/children`,
+      ENDPOINTS.tasks.children(taskId),
     );
     if (!res.ok) return [];
     return (res.data as TaskChildrenResponse)?.data?.tasks || [];

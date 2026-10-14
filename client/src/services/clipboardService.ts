@@ -8,6 +8,7 @@
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getApiSecret } from "./backendUrl";
+import { ENDPOINTS } from "./endpoints";
 
 const logger = createLogger("clipboardService");
 
@@ -241,7 +242,7 @@ async function execCommand(cmd: string): Promise<string> {
     };
     const secret = getApiSecret();
     if (secret) headers["X-API-Key"] = secret;
-    const response = await fetch("/v1/system/exec", {
+    const response = await fetch(ENDPOINTS.system.exec, {
       method: "POST",
       headers,
       body: JSON.stringify({ command: cmd }),

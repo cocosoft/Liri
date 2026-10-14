@@ -1,6 +1,7 @@
 import { httpLegacy as http } from "./httpClient";
 import { getOTelTracing } from "../monitoring/otel";
 import { handleClientError } from "../utils/handleError";
+import { ENDPOINTS } from "./endpoints";
 
 /**
  * 配置服务
@@ -23,7 +24,7 @@ export const configService = {
   get: (key: string): Promise<unknown> => {
     return getOTelTracing().asyncWrap("services:config:get", async () => {
       try {
-        return await http.get<unknown>(`/v1/config/${key}`);
+        return await http.get<unknown>(ENDPOINTS.config.byKey(key));
       } catch (e) {
         handleClientError(e, { module: "services:config", action: "get" });
         return memoryConfigService.get(key);
@@ -35,7 +36,7 @@ export const configService = {
   set: (key: string, value: unknown): Promise<void> => {
     return getOTelTracing().asyncWrap("services:config:set", async () => {
       try {
-        await http.put<void>(`/v1/config/${key}`, { value });
+        await http.put<void>(ENDPOINTS.config.byKey(key), { value });
       } catch (e) {
         handleClientError(e, { module: "services:config", action: "set" });
         return memoryConfigService.set(key, value);
@@ -46,7 +47,7 @@ export const configService = {
   /** 列出所有配置 */
   list: async (): Promise<Record<string, unknown>> => {
     try {
-      return await http.get<Record<string, unknown>>("/v1/config");
+      return await http.get<Record<string, unknown>>(ENDPOINTS.config.base);
     } catch (e) {
       handleClientError(e, { module: "services:config", action: "list" });
       return memoryConfigService.list();

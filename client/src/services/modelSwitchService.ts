@@ -10,10 +10,11 @@ import type {
   TaskModelConfig,
   TaskDefinition,
 } from "../types";
+import { ENDPOINTS } from "./endpoints";
 
 export const modelSwitchService = {
   async getCurrent(): Promise<CurrentModelInfo> {
-    return http.get<CurrentModelInfo>("/v1/models/current");
+    return http.get<CurrentModelInfo>(ENDPOINTS.models.current);
   },
 
   async switch(
@@ -21,7 +22,7 @@ export const modelSwitchService = {
   ): Promise<{ modelId: string; modelName: string }> {
     const res = await http.post<{
       data: { modelId: string; modelName: string };
-    }>("/v1/models/switch", { modelId });
+    }>(ENDPOINTS.models.switch, { modelId });
     return res.data;
   },
 
@@ -29,7 +30,7 @@ export const modelSwitchService = {
     const res = await http.get<{
       tasks: TaskModelConfig;
       modelNames: Record<string, string>;
-    }>("/v1/models/tasks");
+    }>(ENDPOINTS.models.tasks);
     return res.tasks;
   },
 
@@ -55,7 +56,7 @@ export const modelSwitchService = {
       tasks: TaskModelConfig;
       sources?: Record<string, "user" | "seed">;
       modelNames?: Record<string, string>;
-    }>("/v1/models/tasks");
+    }>(ENDPOINTS.models.tasks);
     return {
       tasks: res.tasks ?? {},
       sources: res.sources ?? {},
@@ -64,28 +65,31 @@ export const modelSwitchService = {
   },
 
   async saveTasks(tasks: TaskModelConfig): Promise<void> {
-    const res = await http.put<{ success: boolean }>("/v1/models/tasks", tasks);
+    const res = await http.put<{ success: boolean }>(
+      ENDPOINTS.models.tasks,
+      tasks,
+    );
     if (!res.success) {
       throw new Error(i18n.t("model.saveTasksFailed"));
     }
   },
 
   async setDefaultModel(providerId: string, modelId: string): Promise<void> {
-    await http.put("/v1/models/default", { providerId, modelId });
+    await http.put(ENDPOINTS.models.default, { providerId, modelId });
   },
 
   /** 获取任务定义列表（同源，后端为唯一事实来源） */
   async getTaskDefinitions(): Promise<TaskDefinition[]> {
-    return http.get<TaskDefinition[]>("/v1/models/tasks/definitions");
+    return http.get<TaskDefinition[]>(ENDPOINTS.models.tasksDefinitions);
   },
 
   /** S3: 获取阶段→TaskType 自定义映射 */
   async getPhaseMapping(): Promise<Record<string, string>> {
-    return http.get<Record<string, string>>("/v1/models/phase-mapping");
+    return http.get<Record<string, string>>(ENDPOINTS.models.phaseMapping);
   },
 
   /** S3: 保存阶段→TaskType 自定义映射 */
   async savePhaseMapping(mapping: Record<string, string>): Promise<void> {
-    await http.put("/v1/models/phase-mapping", mapping);
+    await http.put(ENDPOINTS.models.phaseMapping, mapping);
   },
 };

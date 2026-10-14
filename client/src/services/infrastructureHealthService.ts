@@ -5,6 +5,7 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 /** 健康检查条目 */
 export interface HealthCheckEntry {
@@ -69,6 +70,6 @@ export const infrastructureHealthService = {
    * 获取基础设施聚合状态
    */
   async getStatus(): Promise<InfrastructureStatus> {
-    return http.get<InfrastructureStatus>("/v1/infrastructure/status");
+    return http.get<InfrastructureStatus>(ENDPOINTS.infrastructure.status);
   },
 };

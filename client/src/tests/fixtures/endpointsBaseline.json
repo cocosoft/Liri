@@ -1,34 +1,4 @@
 {
-  "total": 136,
-  "files": {
-    "chatService.ts": 1,
-    "clipboardService.ts": 1,
-    "configService.ts": 3,
-    "datasourceService.ts": 4,
-    "faqService.ts": 10,
-    "goalService.ts": 3,
-    "graphService.ts": 3,
-    "imageService.ts": 7,
-    "infrastructureHealthService.ts": 1,
-    "mcpMarketplaceService.ts": 11,
-    "modelAdminService.ts": 5,
-    "modelService.ts": 9,
-    "modelSwitchService.ts": 9,
-    "notificationService.ts": 7,
-    "permissionService.ts": 7,
-    "pluginMarketplaceService.ts": 7,
-    "projectArtifactService.ts": 1,
-    "routerService.ts": 2,
-    "sandboxService.ts": 3,
-    "semanticService.ts": 5,
-    "systemService.ts": 4,
-    "taskService.ts": 6,
-    "toolService.ts": 2,
-    "traceService.ts": 1,
-    "trajectoryService.ts": 2,
-    "translateService.ts": 7,
-    "userService.ts": 7,
-    "vfsService.ts": 2,
-    "videoService.ts": 6
-  }
+  "total": 0,
+  "files": {}
 }

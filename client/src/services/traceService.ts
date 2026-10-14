@@ -5,6 +5,7 @@
  * 前端通过此服务获取真实数据，替代估算值用于显示和成本计算。
  */
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 export interface TraceStats {
   totalCalls: number;
@@ -47,6 +48,6 @@ export interface TraceStatsResponse {
  * 获取 Trace 统计快照（真实 API token 消耗）
  */
 export async function getTraceStats(): Promise<TraceStatsResponse> {
-  const resp = await http.get<TraceStatsResponse>("/v1/trace/stats");
+  const resp = await http.get<TraceStatsResponse>(ENDPOINTS.trace.stats);
   return resp;
 }

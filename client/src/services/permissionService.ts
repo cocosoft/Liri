@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 export interface PermissionRule {
   id: string;
@@ -59,7 +60,7 @@ export interface PermissionUser {
 /** 工具权限规则管理（P1-5：对应后端 /v1/permissions/rules） */
 export const permissionService = {
   async listRules(): Promise<PermissionRulesResponse> {
-    return http.get<PermissionRulesResponse>("/v1/permissions/rules");
+    return http.get<PermissionRulesResponse>(ENDPOINTS.permissions.rules);
   },
 
   async addRule(
@@ -67,7 +68,7 @@ export const permissionService = {
     toolName: string,
     contentPattern?: string,
   ): Promise<void> {
-    return http.post("/v1/permissions/rules", {
+    return http.post(ENDPOINTS.permissions.rules, {
       behavior,
       toolName,
       contentPattern,
@@ -75,26 +76,26 @@ export const permissionService = {
   },
 
   async deleteRule(ruleId: string): Promise<void> {
-    return http.delete(`/v1/permissions/rules/${ruleId}`);
+    return http.delete(ENDPOINTS.permissions.ruleById(ruleId));
   },
 
   /** D 体系（细粒度权限）角色列表（P2-7） */
   async listRoles(): Promise<PermissionRole[]> {
-    return http.get<PermissionRole[]>("/v1/permissions/roles");
+    return http.get<PermissionRole[]>(ENDPOINTS.permissions.roles);
   },
 
   /** D 体系（细粒度权限）用户列表（P2-7） */
   async listUsers(): Promise<PermissionUser[]> {
-    return http.get<PermissionUser[]>("/v1/permissions/users");
+    return http.get<PermissionUser[]>(ENDPOINTS.permissions.users);
   },
 
   /** D 体系（细粒度权限）更新用户角色（M0e：PUT /v1/permissions/users/{id}） */
   async updateUserRoles(userId: string, roles: string[]): Promise<void> {
-    return http.put(`/v1/permissions/users/${userId}`, { roles });
+    return http.put(ENDPOINTS.permissions.userById(userId), { roles });
   },
 
   /** D 体系（细粒度权限）资源列表（P2-7） */
   async listResources(): Promise<unknown[]> {
-    return http.get<unknown[]>("/v1/permissions/resources");
+    return http.get<unknown[]>(ENDPOINTS.permissions.resources);
   },
 };

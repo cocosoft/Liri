@@ -13,6 +13,7 @@
 import { http } from "./httpClient";
 import type { TaskGoalDto } from "../types/events";
 import { createLogger } from "@/utils/logger";
+import { ENDPOINTS } from "./endpoints";
 
 const logger = createLogger("services:goalService");
 
@@ -38,7 +39,7 @@ export const goalService = {
   }): Promise<TaskGoalDto[]> {
     const query: Record<string, string> = { sessionId: params.sessionId };
     if (params.activeOnly) query.active = "1";
-    const res = await http.get<GoalListResponse>("/v1/goals", {
+    const res = await http.get<GoalListResponse>(ENDPOINTS.goals.base, {
       params: query,
     });
     if (!res.ok) {
@@ -57,7 +58,7 @@ export const goalService = {
     sessionId?: string;
     tokenBudget?: number;
   }): Promise<TaskGoalDto | null> {
-    const res = await http.post<GoalResponse>("/v1/goals", params);
+    const res = await http.post<GoalResponse>(ENDPOINTS.goals.base, params);
     if (!res.ok) {
       logger.warn("创建目标失败", { error: res.error });
       return null;
@@ -74,7 +75,7 @@ export const goalService = {
     changes: { objective?: string; tokenBudget?: number },
   ): Promise<TaskGoalDto | null> {
     const res = await http.patch<GoalResponse>(
-      `/v1/goals/${encodeURIComponent(id)}`,
+      ENDPOINTS.goals.byId(id),
       changes,
     );
     if (!res.ok) {

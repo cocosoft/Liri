@@ -5,25 +5,26 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 export const modelAdminService = {
   async testConnection(
     modelId: string,
   ): Promise<{ success: boolean; error?: string; content?: string }> {
-    return http.post("/v1/models/test", { modelId });
+    return http.post(ENDPOINTS.models.test, { modelId });
   },
 
   async syncPricing(
     sourceUrl?: string,
   ): Promise<{ success: boolean; count?: number; error?: string }> {
     return http.post(
-      "/v1/models/pricing/sync",
+      ENDPOINTS.models.pricingSync,
       sourceUrl ? { source: sourceUrl } : {},
     );
   },
 
   async reloadConfig(): Promise<{ success: boolean; error?: string }> {
-    return http.post("/v1/config/reload", {});
+    return http.post(ENDPOINTS.config.reload, {});
   },
 
   async saveModelOverride(
@@ -31,16 +32,13 @@ export const modelAdminService = {
     overrides: Record<string, unknown>,
   ): Promise<void> {
     for (const [key, value] of Object.entries(overrides)) {
-      await http.put(
-        `/v1/config/models.overrides.${encodeURIComponent(modelId)}.${key}`,
-        { value },
-      );
+      await http.put(ENDPOINTS.config.modelOverrideKey(modelId, key), {
+        value,
+      });
     }
   },
 
   async deleteModelOverride(modelId: string): Promise<void> {
-    await http.delete(
-      `/v1/config/models.overrides.${encodeURIComponent(modelId)}`,
-    );
+    await http.delete(ENDPOINTS.config.modelOverride(modelId));
   },
 };

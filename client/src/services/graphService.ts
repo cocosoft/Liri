@@ -1,6 +1,7 @@
 import type { GraphEdgesResponse, GraphStats } from "../types/project";
 import { http } from "./httpClient";
 import i18n from "../i18n";
+import { ENDPOINTS } from "./endpoints";
 
 function unwrap<T>(
   res: { ok: boolean; data?: T; error?: { code: number; message: string } },
@@ -28,15 +29,15 @@ export const graphService = {
     if (params?.limit !== undefined) sp.set("limit", String(params.limit));
     const qs = sp.toString();
     const url = qs
-      ? `/v1/knowledge/graph/edges?${qs}`
-      : "/v1/knowledge/graph/edges";
+      ? `${ENDPOINTS.knowledge.graphEdges}?${qs}`
+      : ENDPOINTS.knowledge.graphEdges;
     const res = await http.get<GraphEdgesResponse>(url);
     return unwrap(res, "GRAPH_LIST");
   },
 
   /** 获取图统计 */
   getStats: async (): Promise<GraphStats> => {
-    const res = await http.get<GraphStats>("/v1/knowledge/graph/stats");
+    const res = await http.get<GraphStats>(ENDPOINTS.knowledge.graphStats);
     return unwrap(res, "GRAPH_STATS");
   },
 };

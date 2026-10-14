@@ -7,6 +7,7 @@
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
 import i18n from "../i18n";
+import { ENDPOINTS } from "./endpoints";
 
 /** 翻译请求参数 */
 export interface TranslateParams {
@@ -74,7 +75,7 @@ export const translateService = {
   /** 执行翻译 */
   async translate(params: TranslateParams): Promise<TranslateResult> {
     const response = await http.post<{ data: TranslateResult }>(
-      "/v1/translate",
+      ENDPOINTS.translate.base,
       params,
     );
     return response.data;
@@ -105,7 +106,7 @@ export const translateService = {
     const start = (): void => {
       apiHttp
         .stream(
-          "/v1/translate/stream",
+          ENDPOINTS.translate.stream,
           (payload) => {
             try {
               const chunk = JSON.parse(payload) as {
@@ -173,7 +174,7 @@ export const translateService = {
     starred?: boolean;
   }): Promise<TranslateHistoryPage> {
     const response = await http.get<{ data: TranslateHistoryPage }>(
-      "/v1/translate/history",
+      ENDPOINTS.translate.history,
       { params },
     );
     return response.data;
@@ -182,7 +183,7 @@ export const translateService = {
   /** 切换收藏状态 */
   async toggleStar(id: string): Promise<boolean> {
     const response = await http.post<{ data: { starred: boolean } }>(
-      `/v1/translate/history/${id}/star`,
+      ENDPOINTS.translate.historyStar(id),
     );
     return response.data.starred;
   },
@@ -190,7 +191,7 @@ export const translateService = {
   /** 批量删除历史记录 */
   async deleteByIds(ids: string[]): Promise<number> {
     const response = await http.post<{ data: { deleted: number } }>(
-      "/v1/translate/history/delete",
+      ENDPOINTS.translate.historyDelete,
       { ids },
     );
     return response.data.deleted;
@@ -204,7 +205,7 @@ export const translateService = {
     context?: string;
   }): Promise<AlternativesResult> {
     const response = await http.post<{ data: AlternativesResult }>(
-      "/v1/translate/alternatives",
+      ENDPOINTS.translate.alternatives,
       params,
     );
     return response.data;
@@ -216,7 +217,7 @@ export const translateService = {
     targetLang?: string;
   }): Promise<TranslateHistoryRecord[]> {
     const response = await http.get<{ data: TranslateHistoryRecord[] }>(
-      "/v1/translate/history/export",
+      ENDPOINTS.translate.historyExport,
       { params },
     );
     return response.data;

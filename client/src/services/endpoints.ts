@@ -41,6 +41,9 @@ export const ENDPOINTS = {
   },
   buddy: {
     dreams: "/v1/buddy/dreams",
+    companion: "/v1/buddy/companion",
+    interact: "/v1/buddy/interact",
+    stats: "/v1/buddy/stats",
   },
   background: {
     status: "/v1/background/status",
@@ -78,6 +81,22 @@ export const ENDPOINTS = {
     restoreTrash: "/v1/knowledge/restore-trash",
     semanticIndex: "/v1/knowledge/semantic-index",
     ingest: "/v1/knowledge/ingest",
+    datasources: "/v1/knowledge/datasources",
+    datasourceByType: (type: string) => `/v1/knowledge/datasources/${type}`,
+    datasourceSync: (type: string) => `/v1/knowledge/datasources/${type}/sync`,
+    graphEdges: "/v1/knowledge/graph/edges",
+    graphStats: "/v1/knowledge/graph/stats",
+    faqBase: (base: string) => `/v1/knowledge/${encodeURIComponent(base)}/faq`,
+    faqById: (base: string, id: string) =>
+      `/v1/knowledge/${encodeURIComponent(base)}/faq/${id}`,
+    faqBatchDelete: (base: string) =>
+      `/v1/knowledge/${encodeURIComponent(base)}/faq/batch-delete`,
+    faqImport: (base: string) =>
+      `/v1/knowledge/${encodeURIComponent(base)}/faq/import`,
+    faqSearch: (base: string) =>
+      `/v1/knowledge/${encodeURIComponent(base)}/faq/search`,
+    faqCategories: (base: string) =>
+      `/v1/knowledge/${encodeURIComponent(base)}/faq/categories`,
   },
   workspace: {
     base: "/v1/workspaces",
@@ -147,6 +166,7 @@ export const ENDPOINTS = {
       `/v1/workspaces/${workspaceId}/intelligence/resources`,
   },
   project: {
+    base: "/v1/projects",
     byId: (projectId: string) => `/v1/projects/${projectId}`,
   },
   workflow: {
@@ -203,6 +223,18 @@ export const ENDPOINTS = {
     compact: (sessionId: string) => `/v1/sessions/${sessionId}/compact`,
     prune: "/v1/sessions/prune",
     memory: (sessionId: string) => `/v1/sessions/${sessionId}/memory`,
+    messagesEncoded: (sessionId: string) =>
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+    messagesTruncateEncoded: (sessionId: string) =>
+      `/v1/sessions/${encodeURIComponent(sessionId)}/messages/truncate`,
+    resume: (sessionId: string) => `/v1/sessions/${sessionId}/resume`,
+    checkpointsLatest: (sessionId: string) =>
+      `/v1/sessions/${sessionId}/checkpoints/latest`,
+    steer: (sessionId: string) => `/v1/sessions/${sessionId}/steer`,
+    events: (sessionId: string) => `/v1/sessions/${sessionId}/events`,
+    stats: (sessionId: string) => `/v1/sessions/${sessionId}/stats`,
+    eventsExport: (sessionId: string) =>
+      `/v1/sessions/${encodeURIComponent(sessionId)}/events/export`,
   },
   usage: {
     summary: "/v1/usage/summary",
@@ -266,6 +298,7 @@ export const ENDPOINTS = {
     models: (id: string) => `/v1/providers/${encodeURIComponent(id)}/models`,
     stats: "/v1/providers/stats",
     presets: "/v1/providers/presets",
+    status: "/v1/providers/status",
   },
   models: {
     base: "/v1/models",
@@ -277,6 +310,18 @@ export const ENDPOINTS = {
     capabilitiesTaskMappings: "/v1/models/capabilities/task-mappings",
     capabilitiesCategories: "/v1/models/capabilities/categories",
     capabilitiesValidate: "/v1/models/capabilities/validate",
+    byId: (id: string) => `/v1/models/${encodeURIComponent(id)}`,
+    toggle: (id: string) => `/v1/models/${encodeURIComponent(id)}/toggle`,
+    test: "/v1/models/test",
+    orphans: "/v1/models/orphans",
+    pricingSync: "/v1/models/pricing/sync",
+    probe: "/v1/models/probe",
+    current: "/v1/models/current",
+    switch: "/v1/models/switch",
+    tasks: "/v1/models/tasks",
+    tasksDefinitions: "/v1/models/tasks/definitions",
+    default: "/v1/models/default",
+    phaseMapping: "/v1/models/phase-mapping",
   },
   doc: {
     status: "/v1/doc/status",
@@ -351,6 +396,8 @@ export const ENDPOINTS = {
   },
   settings: {
     voice: "/v1/settings/voice",
+    soul: "/v1/settings/soul",
+    user: "/v1/settings/user",
   },
   tts: {
     providers: "/v1/tts/providers",
@@ -403,5 +450,132 @@ export const ENDPOINTS = {
     migrate: "/v1/llama/migrate",
     migrateCancel: "/v1/llama/migrate/cancel",
     download: "/v1/llama/download",
+  },
+  goals: {
+    base: "/v1/goals",
+    byId: (id: string) => `/v1/goals/${encodeURIComponent(id)}`,
+  },
+  chat: {
+    completions: "/v1/chat/completions",
+    questionAnswer: "/v1/chat/question-answer",
+  },
+  config: {
+    base: "/v1/config",
+    reload: "/v1/config/reload",
+    byKey: (key: string) => `/v1/config/${key}`,
+    modelOverride: (modelId: string) =>
+      `/v1/config/models.overrides.${encodeURIComponent(modelId)}`,
+    modelOverrideKey: (modelId: string, key: string) =>
+      `/v1/config/models.overrides.${encodeURIComponent(modelId)}.${key}`,
+  },
+  images: {
+    list: "/v1/images/list",
+    static: (relPath: string) => `/v1/images/static/${relPath}`,
+    staticPrefix: "/v1/images/static/",
+    delete: "/v1/images/delete",
+    upload: "/v1/images/upload",
+  },
+  infrastructure: {
+    status: "/v1/infrastructure/status",
+  },
+  mcp: {
+    marketplaceSearch: "/v1/mcp/marketplace/search",
+    marketplaceCategories: "/v1/mcp/marketplace/categories",
+    marketplaceInstalled: "/v1/mcp/marketplace/installed",
+    marketplaceRegistries: "/v1/mcp/marketplace/registries",
+    marketplaceServer: (serverId: string) =>
+      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}`,
+    marketplaceServerInstall: (serverId: string) =>
+      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/install`,
+    marketplaceServerUninstall: (serverId: string) =>
+      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/uninstall`,
+    marketplaceServerToggle: (serverId: string) =>
+      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/toggle`,
+    serverVerify: (serverId: string) =>
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/verify`,
+    tools: "/v1/mcp/tools",
+    toolToggle: (toolName: string) =>
+      `/v1/mcp/tools/${encodeURIComponent(toolName)}/toggle`,
+  },
+  notifications: {
+    base: "/v1/notifications",
+    unreadCount: "/v1/notifications/unread-count",
+    readAll: "/v1/notifications/read-all",
+    byId: (id: string) => `/v1/notifications/${id}`,
+    markRead: (id: string) => `/v1/notifications/${id}/read`,
+    dismiss: (id: string) => `/v1/notifications/${id}/dismiss`,
+  },
+  permissions: {
+    rules: "/v1/permissions/rules",
+    ruleById: (ruleId: string) => `/v1/permissions/rules/${ruleId}`,
+    roles: "/v1/permissions/roles",
+    users: "/v1/permissions/users",
+    userById: (userId: string) => `/v1/permissions/users/${userId}`,
+    resources: "/v1/permissions/resources",
+  },
+  plugins: {
+    marketplaceSearch: "/v1/plugins/marketplace/search",
+    marketplaceCategories: "/v1/plugins/marketplace/categories",
+    marketplaceInstalled: "/v1/plugins/marketplace/installed",
+    marketplacePending: "/v1/plugins/marketplace/pending",
+    marketplacePlugin: (pluginId: string) =>
+      `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}`,
+    marketplacePluginInstall: (pluginId: string) =>
+      `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/install`,
+    marketplacePluginUninstall: (pluginId: string) =>
+      `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/uninstall`,
+  },
+  router: {
+    config: "/v1/router/config",
+  },
+  sandbox: {
+    config: "/v1/sandbox/config",
+    status: "/v1/sandbox/status",
+  },
+  semantic: {
+    index: "/v1/semantic/index",
+    indexStatus: "/v1/semantic/index/status",
+    indexTask: "/v1/semantic/index/task",
+    search: "/v1/semantic/search",
+  },
+  system: {
+    exec: "/v1/system/exec",
+    estop: "/v1/system/estop",
+    sleepResolve: "/v1/system/sleep/resolve",
+  },
+  tasks: {
+    base: "/v1/tasks",
+    byId: (taskId: string) => `/v1/tasks/${encodeURIComponent(taskId)}`,
+    children: (taskId: string) =>
+      `/v1/tasks/${encodeURIComponent(taskId)}/children`,
+  },
+  tools: {
+    base: "/v1/tools",
+    execute: (toolName: string) => `/v1/tools/${toolName}/execute`,
+  },
+  trace: {
+    stats: "/v1/trace/stats",
+  },
+  translate: {
+    base: "/v1/translate",
+    stream: "/v1/translate/stream",
+    history: "/v1/translate/history",
+    historyStar: (id: string) => `/v1/translate/history/${id}/star`,
+    historyDelete: "/v1/translate/history/delete",
+    historyExport: "/v1/translate/history/export",
+    alternatives: "/v1/translate/alternatives",
+  },
+  vfs: {
+    mounts: "/v1/vfs/mounts",
+  },
+  videos: {
+    list: "/v1/videos/list",
+    delete: "/v1/videos/delete",
+  },
+  video: {
+    tasks: "/v1/video/tasks",
+    task: (taskId: string) => `/v1/video/tasks/${encodeURIComponent(taskId)}`,
+    taskCancel: (taskId: string) =>
+      `/v1/video/tasks/${encodeURIComponent(taskId)}/cancel`,
   },
 } as const;

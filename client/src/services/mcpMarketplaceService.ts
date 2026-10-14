@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import type {
   ServerDetail,
   SearchResult,
@@ -42,30 +43,30 @@ class MCPMarketplaceService {
     if (params.sourceRegistry)
       queryParams.sourceRegistry = params.sourceRegistry;
 
-    return http.get<SearchResult[]>("/v1/mcp/marketplace/search", {
+    return http.get<SearchResult[]>(ENDPOINTS.mcp.marketplaceSearch, {
       params: queryParams,
     });
   }
 
   async getCategories(): Promise<MCPCategory[]> {
-    return http.get<MCPCategory[]>("/v1/mcp/marketplace/categories");
+    return http.get<MCPCategory[]>(ENDPOINTS.mcp.marketplaceCategories);
   }
 
   async getServerDetail(serverId: string): Promise<ServerDetail | null> {
     return http.get<ServerDetail | null>(
-      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}`,
+      ENDPOINTS.mcp.marketplaceServer(serverId),
     );
   }
 
   async getInstalledServers(): Promise<InstalledMCPServer[]> {
-    return http.get<InstalledMCPServer[]>("/v1/mcp/marketplace/installed");
+    return http.get<InstalledMCPServer[]>(ENDPOINTS.mcp.marketplaceInstalled);
   }
 
   async install(
     serverId: string,
   ): Promise<{ success: boolean; serverId: string }> {
     return http.post<{ success: boolean; serverId: string }>(
-      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/install`,
+      ENDPOINTS.mcp.marketplaceServerInstall(serverId),
     );
   }
 
@@ -73,7 +74,7 @@ class MCPMarketplaceService {
     serverId: string,
   ): Promise<{ success: boolean; serverId: string }> {
     return http.post<{ success: boolean; serverId: string }>(
-      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/uninstall`,
+      ENDPOINTS.mcp.marketplaceServerUninstall(serverId),
     );
   }
 
@@ -82,7 +83,7 @@ class MCPMarketplaceService {
     enabled: boolean,
   ): Promise<{ success: boolean; serverId: string }> {
     return http.post<{ success: boolean; serverId: string }>(
-      `/v1/mcp/marketplace/servers/${encodeURIComponent(serverId)}/toggle`,
+      ENDPOINTS.mcp.marketplaceServerToggle(serverId),
       { enabled },
     );
   }
@@ -101,7 +102,7 @@ class MCPMarketplaceService {
       connected: boolean;
       status: string;
       error?: string;
-    }>(`/v1/mcp/servers/${encodeURIComponent(serverId)}/verify`);
+    }>(ENDPOINTS.mcp.serverVerify(serverId));
   }
 
   /**
@@ -126,7 +127,7 @@ class MCPMarketplaceService {
         enabled: boolean;
       }>;
       total: number;
-    }>("/v1/mcp/tools");
+    }>(ENDPOINTS.mcp.tools);
   }
 
   /**
@@ -138,7 +139,7 @@ class MCPMarketplaceService {
     server?: string,
   ): Promise<{ success: boolean; tool: string; enabled: boolean }> {
     return http.patch<{ success: boolean; tool: string; enabled: boolean }>(
-      `/v1/mcp/tools/${encodeURIComponent(toolName)}/toggle`,
+      ENDPOINTS.mcp.toolToggle(toolName),
       { enabled, server },
     );
   }
@@ -149,7 +150,7 @@ class MCPMarketplaceService {
   > {
     const res = await http.get<{
       registries: Array<{ id: string; name: string; sourceRegistry: string }>;
-    }>("/v1/mcp/marketplace/registries");
+    }>(ENDPOINTS.mcp.marketplaceRegistries);
     return res.registries || [];
   }
 }

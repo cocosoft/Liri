@@ -7,6 +7,7 @@
 
 import type { CronTask, DreamLogResponse } from "../types";
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 interface CronSchedulerStatus {
   running: boolean;
@@ -18,31 +19,31 @@ interface CronSchedulerStatus {
 
 export const cronService = {
   list: async (): Promise<CronTask[]> => {
-    return http.get<CronTask[]>("/v1/cron");
+    return http.get<CronTask[]>(ENDPOINTS.cron.base);
   },
 
   getStatus: async (): Promise<CronSchedulerStatus> => {
-    return http.get<CronSchedulerStatus>("/v1/cron/status");
+    return http.get<CronSchedulerStatus>(ENDPOINTS.cron.status);
   },
 
   create: async (task: Omit<CronTask, "id" | "status">): Promise<CronTask> => {
-    return http.post<CronTask>("/v1/cron", task);
+    return http.post<CronTask>(ENDPOINTS.cron.base, task);
   },
 
   update: async (id: string, updates: Partial<CronTask>): Promise<CronTask> => {
-    return http.put<CronTask>(`/v1/cron/${id}`, updates);
+    return http.put<CronTask>(ENDPOINTS.cron.byId(id), updates);
   },
 
   delete: async (id: string): Promise<void> => {
-    return http.delete<void>(`/v1/cron/${id}`);
+    return http.delete<void>(ENDPOINTS.cron.byId(id));
   },
 
   toggle: async (id: string, enabled: boolean): Promise<CronTask> => {
-    return http.put<CronTask>(`/v1/cron/${id}`, { enabled });
+    return http.put<CronTask>(ENDPOINTS.cron.byId(id), { enabled });
   },
 
   runNow: async (id: string): Promise<void> => {
-    return http.post<void>(`/v1/cron/${id}/run`);
+    return http.post<void>(ENDPOINTS.cron.run(id));
   },
 };
 
@@ -58,7 +59,9 @@ export const dreamService = {
     if (type) {
       params.set("type", type);
     }
-    return http.get<DreamLogResponse>(`/v1/buddy/dreams?${params.toString()}`);
+    return http.get<DreamLogResponse>(
+      `${ENDPOINTS.buddy.dreams}?${params.toString()}`,
+    );
   },
 };
 
@@ -105,7 +108,7 @@ export interface BackgroundStatus {
 
 export const backgroundStatusService = {
   getStatus: async (): Promise<BackgroundStatus> => {
-    return http.get<BackgroundStatus>("/v1/background/status");
+    return http.get<BackgroundStatus>(ENDPOINTS.background.status);
   },
 };
 
@@ -131,6 +134,6 @@ export interface StateAllResponse {
 
 export const stateMachineService = {
   getStateAll: async (): Promise<StateAllResponse> => {
-    return http.get<StateAllResponse>("/v1/state/all");
+    return http.get<StateAllResponse>(ENDPOINTS.state.all);
   },
 };

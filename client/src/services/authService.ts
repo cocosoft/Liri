@@ -1,6 +1,7 @@
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
 import { STORAGE_KEYS } from "../constants/storage";
+import { ENDPOINTS } from "./endpoints";
 
 export interface User {
   id: string;
@@ -89,7 +90,7 @@ export const authService = {
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await http.post<AuthResponse>(
-      "/v1/auth/login",
+      ENDPOINTS.auth.login,
       credentials,
     );
     setStoredToken(response.token);
@@ -98,7 +99,10 @@ export const authService = {
   },
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await http.post<AuthResponse>("/v1/auth/register", data);
+    const response = await http.post<AuthResponse>(
+      ENDPOINTS.auth.register,
+      data,
+    );
     setStoredToken(response.token);
     setStoredUser(response.user);
     return response;
@@ -106,7 +110,7 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      await http.post("/v1/auth/logout");
+      await http.post(ENDPOINTS.auth.logout);
     } catch (e) {
       handleClientError(e, { module: "services:auth", action: "logout" });
     } finally {
@@ -119,7 +123,7 @@ export const authService = {
     const token = getStoredToken();
     if (!token) return null;
     try {
-      const user = await http.get<User>("/v1/auth/me");
+      const user = await http.get<User>(ENDPOINTS.auth.me);
       setStoredUser(user);
       return user;
     } catch (e) {
@@ -134,7 +138,7 @@ export const authService = {
   },
 
   async listApiKeys(): Promise<ApiKey[]> {
-    return http.get<ApiKey[]>("/v1/apikeys");
+    return http.get<ApiKey[]>(ENDPOINTS.apiKeys.base);
   },
 
   async createApiKey(
@@ -142,7 +146,7 @@ export const authService = {
     permissions: string[],
     expiresInDays?: number,
   ): Promise<ApiKey & { key: string }> {
-    return http.post<ApiKey & { key: string }>("/v1/apikeys", {
+    return http.post<ApiKey & { key: string }>(ENDPOINTS.apiKeys.base, {
       name,
       permissions,
       expires_in_days: expiresInDays,
@@ -150,11 +154,11 @@ export const authService = {
   },
 
   async deleteApiKey(id: string): Promise<void> {
-    return http.delete(`/v1/apikeys/${id}`);
+    return http.delete(ENDPOINTS.apiKeys.byId(id));
   },
 
   async getPermissions(): Promise<Permission[]> {
-    return http.get<Permission[]>("/v1/auth/permissions");
+    return http.get<Permission[]>(ENDPOINTS.auth.permissions);
   },
 
   clearAuth(): void {

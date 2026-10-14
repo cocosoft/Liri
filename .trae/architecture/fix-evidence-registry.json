@@ -2570,6 +2570,25 @@
       "changelog": [],
       "reopenWhen": "① 若要**改这些事件名/键名的值** ⇒ 会断掉运行时已配对的双方 / 让既有用户被判定为未登录（须连带迁移，非本治理范围）；② 若新增自定义事件 ⇒ 在 `constants/events.ts` 加键后**直接引用**即可（守卫自动覆盖新值）；③ 若其它 `localStorage` 键（`liri-sessions`/`liri-tier`/`liri-config`/`liri-sidebar-expanded`/`liri-settings-view-mode`/`liri-root-store`）出现**跨文件复用** ⇒ 迁入 `constants/storage.ts`；④ 若注解里提到事件名的**注释行**改为非行首写法（如行内 `code: xxx` 后再 `//`）⇒ 守卫的注释排除口径需同步。",
       "notes": "**目标**：按 §7.2 完成 `HD-P2-3`（前端存储键 / 事件名集中）。**取证（回仓实测）**：① **自定义事件**（区别于 `keydown`/`resize` 等 DOM 原生事件）共 **6 个**、**36 处**引用 —— `open-quick-note`（`App` 监听 / `useKeyboard` 派发）· `open-global-search`（`Header`·`ChatInput` 派发 / `App` 监听）· `toggle-shortcut-help`（`useKeyboard` 派发 / `KeyboardShortcutsHelp` 监听）· `liri:append-knowledge`（`KnowledgePage` 派发 / `App` 监听）· `pyapp:image_generated`（`chatService` 派发 / `MediaPage`·`useImageGallery` 监听）· `canvas-render`（工具栏与 6 个工具派发 / `CanvasSurface` 监听，**单文件 10 处**）；② **存储键面**共 7 个键，其中**仅 `liri-auth-token` 跨文件**（`authService` 定义 + `chatService`/`httpUtils` 各读一次 ⇒ 3 处），其余均**单文件内使用**。**落地**：① 新建真源 `client/src/constants/events.ts`（`APP_EVENTS` 6 键）与 `client/src/constants/storage.ts`（`STORAGE_KEYS.authToken`）—— **值逐字未改**；② 36 处事件引用改 `APP_EVENTS.*`、3 处键引用改 `STORAGE_KEYS.authToken`（`authService` 的**私有常量 `AUTH_TOKEN_KEY` 删除**，不复留双轨）；③ 新守卫 `client/src/tests/constantsSingleSource.test.ts`（**2 例**：7 个字面量只允许出现在对应真源；按**行首**排除注释行（`//`/`*`/`/*`）与测试文件）。**验证**：① 守卫 **2 pass / 0 fail**；② **client 全量 570 pass / 0 fail（71 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 0 error（改动引入的 1 条 prettier 折行已 `--write`）；⑤ **红向已实证**（把 `PanTool.ts` 一处改回字面量 `\"canvas-render\"` ⇒ 守卫**精确报** `components/views/image/canvas-editor/tools/PanTool.ts:33`，还原后复绿）；⑥ 独立复核 `Grep`：7 个字面量**仅剩两个真源文件**命中。**如实边界**：① **未做真机走查**（`e2eVerified=false`）；② 其余 6 个存储键**有意不上收**（单文件内使用，按 CS03/简洁优先；已在 `reopenWhen` ③ 记明再迁条件）；③ 本片**只搬家不改值**（含 `liri:`/`pyapp:` 前缀与短横线风格**原样保留**，未统一命名风格 —— 改名会破坏既有配对）。"
+    },
+    {
+      "id": "HARDCODE-HDP2-4-ENDPOINTS-B1",
+      "title": "硬编码治理 `HD-P2-4` **Batch 1**：`/v1/*` 契约路径**按域收口**到 `services/endpoints.ts`（auth / agentTasks / autoReply / cron 四域 · 36 处）+ 只减不增**棘轮**",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2（HD-P2-4）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/services/endpoints.ts",
+        "client/src/services/authService.ts",
+        "client/src/services/agentService.ts",
+        "client/src/services/autoReplyService.ts",
+        "client/src/services/backgroundTaskService.ts",
+        "client/src/tests/fixtures/endpointsBaseline.json"
+      ],
+      "tests": ["client/src/tests/endpointsRatchet.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 若要新增/改动契约路径 ⇒ 在 `services/endpoints.ts` 改（本文件是**唯一编辑点**）；在 service 内直接写裸 `/v1/` 字面量会被棘轮拦下；② 若某域路径增多 ⇒ 继续在对应域加键（Batch 2+ 逐域推进，基线只减不增）；③ 若把 `services/endpoints.ts` 之外的层（`components/**` / `stores/**` / `hooks/**`，合计约 140 处）也纳入 ⇒ 需把棘轮扫描面从 `services/**` 扩到全 `src`（当前**有意只覆盖 service 层**，与方案验收口径一致）；④ 若后端改路径 ⇒ 前端只需改本文件（这正是收口目的）。",
+      "notes": "**目标**：按 §7.2 推进 `HD-P2-4`（`/v1/*` 契约路径集中）。**取证（回仓实测）**：`client/src` 内 `/v1/` 字面量共 **610 处 / 88 文件**（方案原估「296 处」偏小），其中 **`services/` 约 504 处 / 49 文件**。**决策**：按用户裁定采用**按域常量 + 构造器**（非仅前缀）。**Batch 1 落地**：① 新建真源 `client/src/services/endpoints.ts` —— `ENDPOINTS` 按域组织（`auth` 5 键 · `apiKeys` base+byId · `agentTasks` base/execute/history/6 个构造器 · `autoReply` rules+byId · `cron` base/status/byId/run），**值逐字不变**（含模板插值）；② 迁移 **4 个 service / 36 处** —— `authService`(8) · `agentService`(14) · `autoReplyService`(4) · `backgroundTaskService`(10)，其中**回仓补齐 4 个模板未列键**（`cron.run` / `buddy.dreams` / `background.status` / `state.all` —— 不补无法达成「该文件内 0 命中」），`/v1/buddy/dreams?${params}` 保留「常量 + 调用点拼 query」（运行期字符串一致）；③ 新守卫 `client/src/tests/endpointsRatchet.test.ts` + 基线 `endpointsBaseline.json`（**total=468 / 45 文件**；逐文件只减不增；排除真源/测试/**注释行**）。**验证**：① 棘轮 **1 pass / 0 fail**；② **client 全量 571 pass / 0 fail（72 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 0 error；⑤ **独立复核** `Grep`（HTTP 调用点 × `/v1/`）于 `services/`：4 个已迁文件**不在命中列表**；⑥ 子代理给出**逐条 36 行路径值改前/改后对照表**（全部一致）。**如实边界**：① **未做真机联调**（`e2eVerified=false`）—— 路径写错**不会被 typecheck 拦住**（只在运行时 404），故安全性依赖「逐条对照 + 棘轮」而非编译器；② **只迁 4 个域**（剩余约 468 处 / 45 文件待 Batch 2+）；③ 棘轮**只覆盖 `services/**`**（`components/**`、`stores/**`、`hooks/**`、`config/providerPresets.ts`、`types/**` 等约 140 处**有意不在本片范围**，与方案「收口到 services/endpoints.ts」的验收口径一致）。"
     }
   ]
 }

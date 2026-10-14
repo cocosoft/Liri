@@ -1,5 +1,6 @@
 import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
+import { ENDPOINTS } from "./endpoints";
 
 /** 匹配模式（与后端 StoredPattern 一致） */
 export interface AutoReplyPattern {
@@ -52,7 +53,7 @@ export const autoReplyService = {
           failed: number;
           ruleCount: number;
         };
-      }>("/v1/auto-reply/rules");
+      }>(ENDPOINTS.autoReply.rules);
     } catch (e) {
       handleClientError(e, { module: "services:autoReply", action: "list" });
       throw e;
@@ -62,7 +63,7 @@ export const autoReplyService = {
   /** 创建规则 */
   async createRule(rule: AutoReplyRuleInput): Promise<AutoReplyRule> {
     try {
-      return await http.post<AutoReplyRule>("/v1/auto-reply/rules", rule);
+      return await http.post<AutoReplyRule>(ENDPOINTS.autoReply.rules, rule);
     } catch (e) {
       handleClientError(e, { module: "services:autoReply", action: "create" });
       throw e;
@@ -76,7 +77,7 @@ export const autoReplyService = {
   ): Promise<AutoReplyRule> {
     try {
       return await http.put<AutoReplyRule>(
-        `/v1/auto-reply/rules/${ruleId}`,
+        ENDPOINTS.autoReply.byId(ruleId),
         patch,
       );
     } catch (e) {
@@ -88,7 +89,7 @@ export const autoReplyService = {
   /** 删除规则 */
   async deleteRule(ruleId: string): Promise<void> {
     try {
-      await http.delete(`/v1/auto-reply/rules/${ruleId}`);
+      await http.delete(ENDPOINTS.autoReply.byId(ruleId));
     } catch (e) {
       handleClientError(e, { module: "services:autoReply", action: "delete" });
       throw e;

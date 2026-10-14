@@ -83,6 +83,17 @@ export const DEFAULT_MODEL = '';
  */
 export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';
 
+/**
+ * 凭据「已存盘」哨兵值：DB `ai_providers.api_key` 列写入它表示**真实密钥存于
+ * `~/.pyapp/credentials.json`**（见 `CredentialStore`），而非明文。
+ *
+ * **唯一真源**（硬编码治理「同名常量」B3-4）：原于 `ai/credentials/CredentialStore.ts`（app 层）
+ * 与 `chronos/maintenance/ChronosBackgroundHousekeeping.ts`（infra 层）**各写一份** —— 后者注释
+ * 自述「本地复刻**避免跨层引用**」（D-146）⇒ 本片把真源**上提到 infra**（本文件），
+ * 使 `chronos`=infra 与 `ai`=app **都能合法引用**（app→infra / infra→infra 均合 R00-001）。
+ */
+export const CRED_STORED_MARKER = '__stored__';
+
 export const DEFAULT_MAX_TOKENS = 4096;
 
 /**

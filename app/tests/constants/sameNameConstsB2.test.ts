@@ -191,4 +191,18 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "import { MODEL_ALIASES, type ModelAlias } from './models/ModelAliases';"
     );
   });
+
+  test('B3-4：`CRED_STORED_MARKER` 真源上提到 infra `constants/common.ts`（chronos 侧复刻已删；app 侧保留导出面）', () => {
+    expect(read('src/constants/common.ts')).toMatch(
+      /export const CRED_STORED_MARKER = '__stored__';/
+    );
+    expect(
+      read('src/chronos/maintenance/ChronosBackgroundHousekeeping.ts')
+    ).not.toMatch(/const CRED_STORED_MARKER =/);
+    const cs = read('src/ai/credentials/CredentialStore.ts');
+    expect(cs).not.toMatch(/const CRED_STORED_MARKER =/);
+    expect(cs).toContain(
+      "export { CRED_STORED_MARKER } from '@modules/constants';"
+    );
+  });
 });

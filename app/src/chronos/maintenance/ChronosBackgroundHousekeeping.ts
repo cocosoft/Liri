@@ -11,9 +11,11 @@ import {
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '@modules/core';
 // D-146（2026-10-01）：`credentialStore` 改经 core SPI（`infra -> app` 倒挂收口）；
-// `CRED_STORED_MARKER` 是纯字符串常量（`ai/credentials/CredentialStore.ts:50`）⇒ 本地复刻避免跨层引用
+// `CRED_STORED_MARKER` 原为**本地复刻**（避免跨层引用）—— 硬编码治理「同名常量」B3-4 已把真源
+// **上提到 infra** `@modules/constants` ⇒ 本处改为**直接引用**（infra→infra 合法），复刻已删。
 import { resolveAiAccess } from '@modules/core/spi';
 import { getLogger } from '@modules/monitoring';
+import { CRED_STORED_MARKER } from '@modules/constants';
 import { handleError } from '@modules/error/handleError';
 
 /**
@@ -43,9 +45,6 @@ export interface HousekeepingUpperLayerAssembly {
   /** 初始化 buddy 域集成（梦境 / 任务成长 / cron 反馈三件套） */
   initBuddyDomainIntegrations(): void;
 }
-
-/** `CRED_STORED_MARKER` 纯字符串常量（`ai/credentials/CredentialStore.ts:50`）⇒ 本地复刻避免跨层引用 */
-const CRED_STORED_MARKER = '__stored__';
 
 const logger = getLogger('chronos:housekeeping');
 

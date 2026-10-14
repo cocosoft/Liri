@@ -22,6 +22,10 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
 import {
+  CHANGELOG,
+  CL_BLOCK_ID,
+  CL_BLOCK_KEY,
+  DETAIL,
   DETAIL_REF_PREFIX,
   DOC,
   LOG,
@@ -29,12 +33,15 @@ import {
   REGISTRY,
   flagCode,
   flagFromCode,
+  findAnchor,
   headOf,
+  joinField,
   loadDetail,
   readJsonl,
   scopeOf,
   stageCode,
   stageFromCode,
+  type DetailRow,
   type LogRecord,
   type RegistryItem,
 } from './lib/evidenceStore';
@@ -106,6 +113,38 @@ function renderRegistry(
   items: RegistryItem[]
 ): string {
   return `${JSON.stringify({ ...meta, items }, null, 2)}\n`;
+}
+
+/** CHANGELOG：**只重写锚点区**（新片 bullet + 历史归档块），锚点外逐字节保留 */
+function renderChangelog(logs: LogRecord[]): {
+  text: string;
+  ok: boolean;
+  fresh: string[];
+} {
+  const lines = readFileSync(CHANGELOG, 'utf-8').split('\n');
+  const anchor = findAnchor(lines);
+  if (!anchor) return { text: lines.join('\n'), ok: false, fresh: [] };
+  const rows = readJsonl<DetailRow>(DETAIL);
+  const blockText = joinField(rows, CL_BLOCK_ID, CL_BLOCK_KEY);
+  // fail-closed：归档块缺失时**绝不**渲染空块（否则会把「未发布段」抹掉 —— 实测教训 2026-10-14）
+  if (blockText.trim() === '')
+    return { text: lines.join('\n'), ok: false, fresh: [] };
+  const block = blockText.split('\n');
+  const fresh = logs
+    .filter((l) => l.cl === 1)
+    .reverse()
+    .map(
+      (l) =>
+        `- ✅ **${l.id}**：${l.scope} —— 验证 ${l.verify ?? '—'}；` +
+        `基线 ${l.baseline ?? '—'}（详情见 ${DETAIL_REF_PREFIX}${l.id}）`
+    );
+  const rendered = [...fresh, ...(fresh.length > 0 ? [''] : []), ...block];
+  const out = [
+    ...lines.slice(0, anchor.begin + 1),
+    ...rendered,
+    ...lines.slice(anchor.end),
+  ];
+  return { text: out.join('\n'), ok: true, fresh };
 }
 
 /** §1 概览表 + §2 裁定点表（短行） */
@@ -195,6 +234,8 @@ function main(): void {
   const { meta, items } = buildItems();
   const regText = renderRegistry(meta, items);
   const docText = renderDoc(items);
+  const logs = readJsonl<LogRecord>(LOG);
+  const cl = renderChangelog(logs);
 
   const problems: string[] = [];
   const maxReg = regText.split('\n').reduce((m, l) => Math.max(m, l.length), 0);
@@ -203,6 +244,16 @@ function main(): void {
     problems.push(`registry 最长行 ${maxReg} > ${MAX_DETAIL_LINE}`);
   if (maxDoc > MAX_DETAIL_LINE)
     problems.push(`登记文档最长行 ${maxDoc} > ${MAX_DETAIL_LINE}`);
+  if (!cl.ok)
+    problems.push(
+      'CHANGELOG 缺锚点 ⇒ 先跑 scripts/migrate-evidence-to-jsonl.ts'
+    );
+  const maxFresh = cl.fresh.reduce((m, l) => Math.max(m, l.length), 0);
+  if (maxFresh > MAX_DETAIL_LINE) {
+    problems.push(
+      `CHANGELOG 新片 bullet 最长 ${maxFresh} > ${MAX_DETAIL_LINE}`
+    );
+  }
   if (new Set(items.map((i) => i.id)).size !== items.length)
     problems.push('存在重复 id');
   for (const it of items) {
@@ -223,6 +274,7 @@ function main(): void {
   const out = (p: string): string => (outDir ? join(outDir, basename(p)) : p);
   writeFileSync(out(REGISTRY), regText, 'utf-8');
   writeFileSync(out(DOC), docText, 'utf-8');
+  writeFileSync(out(CHANGELOG), cl.text, 'utf-8');
   console.log(
     `[gen-evidence] ✅ items=${items.length} · registryLines=${regText.split('\n').length} (max ${maxReg}) · ` +
       `docLines=${docText.split('\n').length} (max ${maxDoc})` +

@@ -15,7 +15,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { DETAIL, DOC, LOG, PROJECT_ROOT, REGISTRY } from './lib/evidenceStore';
+import {
+  CHANGELOG,
+  DETAIL,
+  DOC,
+  LOG,
+  PROJECT_ROOT,
+  REGISTRY,
+} from './lib/evidenceStore';
 
 const GEN = join(PROJECT_ROOT, 'scripts', 'gen-evidence-views.ts');
 /** 每份文件最多打印的差异行数（保持门禁输出精简 —— SB08） */
@@ -47,6 +54,7 @@ try {
       join(tmp, 'fix-evidence-registry.json'),
     ],
     ['修复证据登记.md', DOC, join(tmp, '修复证据登记.md')],
+    ['CHANGELOG.md（锚点区）', CHANGELOG, join(tmp, 'CHANGELOG.md')],
   ];
   for (const [label, committed, generated] of pairs) {
     if (!existsSync(committed)) {
@@ -96,4 +104,6 @@ if (problems.length > 0) {
   for (const p of problems) console.error(`  - ${p}`);
   process.exit(1);
 }
-console.log('✅ 生成物与提交物一致（registry + 修复证据登记.md）');
+console.log(
+  '✅ 生成物与提交物一致（registry + 修复证据登记.md + CHANGELOG 锚点区）'
+);

@@ -8,26 +8,47 @@
  * 运行：`bun run scripts/migrate-evidence-to-jsonl.ts`
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
+  CHANGELOG,
+  CL_BEGIN,
+  CL_BLOCK_ID,
+  CL_BLOCK_KEY,
+  CL_END,
   DETAIL,
   DETAIL_REF_PREFIX,
   LOG,
   MAX_DETAIL_LINE,
   MAX_LOG_LINE,
   REGISTRY,
+  chunkText,
   encodeDetailRows,
   decodeDetailRows,
+  findAnchor,
+  findUnreleasedBlock,
   flagCode,
+  joinField,
+  readJsonl,
   scopeOf,
   stageCode,
+  type DetailRow,
   type RegistryItem,
 } from './lib/evidenceStore';
 
 /** 已弃用的折行 md 归档（不可无损反解） */
 const LEGACY_MD = `${dirname(DETAIL)}/evidence-notes.md`;
+
+/** 去掉生成物短化尾巴（指针 + 省略号）⇒ 得到「短化头」（原文前缀） */
+const stripShort = (s: string): string =>
+  s.replace(/（全文见 [^）]*）$/, '').replace(/…$/, '');
 
 function main(): void {
   const reg = JSON.parse(readFileSync(REGISTRY, 'utf-8')) as {
@@ -49,7 +70,46 @@ function main(): void {
   );
 
   // ② 明细归档
-  const rows = encodeDetailRows(items);
+  // ⚠️ **不得**用**生成物 registry**（已短化）重建条目明细 —— 那会把原文缩短（数据损失）。
+  //    实测教训（2026-10-14）：曾因此把归档 3,524 行截成 2,971 行；已从 git 恢复并加此守卫。
+  const regMeta = JSON.parse(readFileSync(REGISTRY, 'utf-8')) as Record<
+    string,
+    unknown
+  >;
+  const generated = String(regMeta.$comment ?? '').includes('生成物');
+  const existing = existsSync(DETAIL) ? readJsonl<DetailRow>(DETAIL) : [];
+  const itemRows = generated
+    ? existing.filter((r) => r.id !== CL_BLOCK_ID)
+    : encodeDetailRows(items);
+  const rows: DetailRow[] = [...itemRows];
+
+  // ②b CHANGELOG「未发布段」→ 归档块（**首次**执行时顺带插入锚点；此后按锚点界定 ⇒ 幂等）
+  const clLines = readFileSync(CHANGELOG, 'utf-8').split('\n');
+  const anchor = findAnchor(clLines);
+  let clOut: string | null = null;
+  let blockText: string;
+  if (anchor) {
+    blockText = clLines.slice(anchor.begin + 1, anchor.end).join('\n');
+  } else {
+    const blk = findUnreleasedBlock(clLines);
+    if (!blk) {
+      console.error(
+        '[migrate-evidence] ❌ CHANGELOG 未找到「未发布段」（需 `## [未发布]` 与紧随的 `---`）'
+      );
+      process.exit(1);
+    }
+    blockText = clLines.slice(blk.start, blk.end + 1).join('\n');
+    clOut = [
+      ...clLines.slice(0, blk.start),
+      CL_BEGIN,
+      ...clLines.slice(blk.start, blk.end + 1),
+      CL_END,
+      ...clLines.slice(blk.end + 1),
+    ].join('\n');
+  }
+  chunkText(blockText).forEach((c, i) =>
+    rows.push({ id: CL_BLOCK_ID, k: CL_BLOCK_KEY, i, c })
+  );
   const detailLines = rows.map((r) => JSON.stringify(r));
 
   // ③ 自检（不过则不落盘）
@@ -62,8 +122,29 @@ function main(): void {
     problems.push(`归档 ${detOver.length} 行超 ${MAX_DETAIL_LINE}`);
 
   const back = decodeDetailRows(rows);
-  if (back.size !== items.length)
-    problems.push(`反解条目数 ${back.size} ≠ ${items.length}`);
+  const backCount = [...back.keys()].filter((k) => k !== CL_BLOCK_ID).length;
+  if (backCount !== items.length)
+    problems.push(`反解条目数 ${backCount} ≠ ${items.length}`);
+  if (joinField(rows, CL_BLOCK_ID, CL_BLOCK_KEY) !== blockText) {
+    problems.push('CHANGELOG 归档块「反解 ≠ 原文」');
+  }
+  if (generated) {
+    const before = existing.filter((r) => r.id !== CL_BLOCK_ID).length;
+    const after = rows.filter((r) => r.id !== CL_BLOCK_ID).length;
+    if (after !== before) {
+      problems.push(
+        `条目明细行数变化 ${before} → ${after}（生成物模式应保持不变）`
+      );
+    }
+    const missing = items
+      .filter((it) => !rows.some((r) => r.id === it.id))
+      .map((i) => i.id);
+    if (missing.length > 0) {
+      problems.push(
+        `生成物模式：${missing.length} 条目归档无明细（如 ${missing[0]}）`
+      );
+    }
+  }
   items.forEach((it, i) => {
     const rec = JSON.parse(logLines[i]) as Record<string, unknown>;
     if (rec.id !== it.id) problems.push(`${it.id}: id 不一致`);
@@ -83,8 +164,16 @@ function main(): void {
     }
     for (const k of ['title', 'source', 'reopenWhen', 'notes'] as const) {
       const src = (it[k] ?? '').trim();
-      if (src !== '' && b[k] !== src)
+      if (src === '') continue;
+      if (generated) {
+        // 生成物模式：registry 已是**短化**文本 ⇒ 归档原文须以「短化头」为前缀
+        const head = stripShort(src);
+        if (head !== '' && !(b[k] ?? '').startsWith(head)) {
+          problems.push(`${it.id}: 归档 ${k} 非「registry 短化头」前缀`);
+        }
+      } else if (b[k] !== src) {
         problems.push(`${it.id}: 反解 ${k} 不一致`);
+      }
     }
     for (const field of ['code', 'tests', 'changelog'] as const) {
       const a = it[field] ?? [];
@@ -108,6 +197,7 @@ function main(): void {
   mkdirSync(dirname(DETAIL), { recursive: true });
   writeFileSync(LOG, `${logLines.join('\n')}\n`, 'utf-8');
   writeFileSync(DETAIL, `${detailLines.join('\n')}\n`, 'utf-8');
+  if (clOut !== null) writeFileSync(CHANGELOG, clOut, 'utf-8');
   try {
     rmSync(LEGACY_MD, { force: true });
   } catch {

@@ -33,6 +33,38 @@ export const DETAIL = join(
   '.trae/architecture/archive/evidence-detail.jsonl'
 );
 export const DETAIL_REF_PREFIX = 'archive/evidence-detail.jsonl#';
+/** CHANGELOG（**部分生成**：仅「未发布段」的锚点区；发布历史仍手写） */
+export const CHANGELOG = join(PROJECT_ROOT, 'CHANGELOG.md');
+/** 未发布段归档的合成 id / 键（非台账条目） */
+export const CL_BLOCK_ID = '@changelog-unreleased';
+export const CL_BLOCK_KEY = 'block#0';
+export const CL_BEGIN =
+  '<!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 ' +
+  'gen-evidence-views.ts 重新生成） -->';
+export const CL_END = '<!-- EVIDENCE-VIEWS:END -->';
+
+/** 找锚点区（返回锚点所在行下标；内容 = `begin+1 .. end-1`） */
+export function findAnchor(
+  lines: string[]
+): { begin: number; end: number } | null {
+  const b = lines.findIndex((l) =>
+    l.trim().startsWith('<!-- EVIDENCE-VIEWS:BEGIN')
+  );
+  const e = lines.findIndex((l) => l.trim() === CL_END);
+  if (b < 0 || e < 0 || e < b) return null;
+  return { begin: b, end: e };
+}
+
+/** 未发布段（`## [未发布]` 之下、首个 `---` 之前；含块内空行） */
+export function findUnreleasedBlock(
+  lines: string[]
+): { start: number; end: number } | null {
+  const h = lines.findIndex((l) => l.trim() === '## [未发布]');
+  if (h < 0) return null;
+  const sep = lines.findIndex((l, i) => i > h && l.trim() === '---');
+  if (sep < 0) return null;
+  return { start: h + 1, end: sep - 1 };
+}
 
 /** SB01：写入点单行上限 */
 export const MAX_LOG_LINE = 400;
@@ -73,6 +105,10 @@ export interface LogRecord {
   files: number;
   tn: number;
   ref: string;
+  /** `1` ⇒ 该片需在 CHANGELOG「未发布段」渲染一行 bullet（新片写入时置；历史条目**不写**） */
+  cl?: number;
+  verify?: string;
+  baseline?: string;
 }
 
 /** 阶段码：discovered→D fixed→F testVerified→T postReleaseReviewed→R */
@@ -264,4 +300,16 @@ export function readJsonl<T>(path: string): T[] {
 /** 读明细归档（已反解） */
 export function loadDetail(): Map<string, RegistryItem> {
   return decodeDetailRows(readJsonl<DetailRow>(DETAIL));
+}
+
+/**
+ * 取任意字段的分片并拼接（用于**非条目**字段，如 `@changelog-unreleased` 的 `block#0`）。
+ * 与 `decodeDetailRows` 同源（分片按 `i` 升序拼接）。
+ */
+export function joinField(rows: DetailRow[], id: string, k: string): string {
+  return rows
+    .filter((r) => r.id === id && r.k === k)
+    .sort((a, b) => a.i - b.i)
+    .map((r) => r.c)
+    .join('');
 }

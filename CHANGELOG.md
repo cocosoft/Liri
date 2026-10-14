@@ -18,6 +18,7 @@
 ---
 
 ## [未发布]
+<!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
 
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**
   - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。
@@ -157,6 +158,7 @@
 - ✅ **硬编码治理 HD-P2-2（优先项）：`formatRelativeTime` 文案入 i18n + 时间/日期格式随语言** - **问题**：`client/src/utils/format.ts` 的 `formatRelativeTime()` 把**文案**（`"昨天"` / `` `${n}天前` ``）与**区域格式**（`toLocaleTimeString("zh-CN")` / `toLocaleDateString("zh-CN")`）一并写死 ⇒ **英文界面下既显示中文、又用中文日期格式**（该函数渲染在会话列表/消息时间等用户可见位）。**做法**：新增 i18n 键 `common.timeYesterday` / `common.timeDaysAgo`（zh `昨天` / `{{days}}天前`；en `Yesterday` / `{{days}} days ago`，用 `{{days}}` 插值**避开 i18next 复数形态差异**）+ 局部纯函数 `currentLocale()`（`zh*`→`zh-CN`、`en*`→`en-US`）；工具函数不能用 hook ⇒ 直接引 i18n 实例。**验证**：新增 `client/src/utils/__tests__/format.test.ts` **4 例**（zh 三种形态 / **en 三次采样均不含中文** / 日期区域格式随语言 / **源码守卫**：函数体内不得有中文与 `zh-CN`）⇒ **4 pass / 0 fail**；**client 全量 565/565（67 文件）**（含 i18n key parity ⇒ zh/en 双侧齐备）。**口径更正（重要）**：方案写「前端内联文案 **16 处 / 7 文件**」，本片只读扫描 `client/src` 实测主清单 **≈120 处 / ≈40 文件**（另 ≈35 处"边界项"、约 10 组"数据表"）⇒ **剩余体量是原估的 ~7 倍**，已在方案 §7.2 更正计数，**是否全量推进待裁定**（本片只落方案明示的优先项）。**如实边界**：未在真机 UI 切 `en` 观察 ⇒ `e2eVerified=false`；其余 ≈120 处未动。证据 `HARDCODE-HDP2-2-FORMAT-I18N`。
 - ✅ **修复预存红：`lint:arch` 门禁自证夹具补齐 `R09-006` 前置（全量套件恢复绿）** - **现象**：`bun test` 全量唯一失败为 `gateSelfProof.test.ts:147`「【合法样例】同层自依赖 ⇒ 通过（退出 0）」（期望 0 实得 1）。**根因（取证）**：`R09-006`（**状态机定义必须登记**，由 `2b32941a6`【状态机规范管理 阶段 1-4】引入，2026-10-13）要求**项目内**存在定义目录 `app/src/state/engine/stateMachineCatalog.ts` 并经 `file://` **动态 import**；而门禁自证用的**极简夹具**只有 `app/src/core/probe.ts` 一行、**未随之更新** ⇒ 该夹具跑门禁必命中 `❌ R09-006`（ERROR ⇒ 退出 1）。**修法（最小且方向正确）**：在夹具 `beforeAll` 里补出该定义目录（**零依赖纯数据** `STATE_MACHINES = []` + `BOUNDARY_STATE_MACHINES = []`；夹具内无状态机候选 ⇒ 空登记即满足完整性）——**夹具必须满足门禁前置**，否则它验的不是"合法性"而是"缺文件"；**未改任何产品代码、未放宽门禁语义**（`scripts/lint-architecture.ts` 一字未动）。**验证**：该用例 **14 pass / 0 fail**（原本恒红那条现为 pass）；**全量 `bun test` = 6365 pass / 42 skip / 0 fail（726 文件）**；`lint:fix-evidence` **149 条绿**。证据 `GATE-SELFPROOF-R09006-FIXTURE`。
 
+<!-- EVIDENCE-VIEWS:END -->
 ---
 
 #### v0.4.99 (2026-10-13)

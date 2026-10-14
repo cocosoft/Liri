@@ -18,13 +18,16 @@
 - 每片**追加一行**（append-only），字段固定、**单行 ≤400 字符**：
   `{"id","scope","files","verify","baseline","reopen","date","commit"}`
 - 禁止在 `registry` / `修复证据登记.md` / `CHANGELOG.md` **手写长文**（详见 SB02）。
-- 状态：**规范已落盘；机制待阶段 B**（当前仍为四处手写，按 SB08 先降成本）。
+- **新片写法（已落地）**：写入点记录追加 `"cl":1`（可带 `verify` / `baseline`）⇒
+  `CHANGELOG.md`「未发布段」锚点区**自动渲染**一行 bullet（**不再手写 CHANGELOG**）；
+  历史叙事原文留在明细归档，发布历史段仍手写。
+- 状态：**机制已落地**（迁移脚本 + 生成器 + drift 门禁；见下 SB02）。
 
 ### SB02 [MUST] 三个视图由脚本生成，不得手改
 
-- `registry` / `修复证据登记.md`（§1+§2）/ `CHANGELOG.md` 的治理段落 = **生成物**
+- `registry` / `修复证据登记.md`（§1+§2）/ `CHANGELOG.md` 的**未发布段锚点区** = **生成物**
   （由 `scripts/gen-evidence-views.ts` 从 JSONL 渲染，带「勿手改」头注）。
-- 状态：**待阶段 B**。
+- 状态：**已落地**（`registry` + 登记 md + CHANGELOG 锚点区；漂移由 `lint-evidence-views-drift` **仅 CI** 拦截）。
 
 ### SB03 [MUST] 台账/登记类文件单行 ≤300 字符（JSONL ≤400）
 

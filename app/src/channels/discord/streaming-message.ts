@@ -12,7 +12,7 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:discord:streaming-message');
 
-const DEFAULT_THROTTLE_MS = 800;
+const DISCORD_DEFAULT_THROTTLE_MS = 800;
 
 /** 启动流式消息前的最小字符数 */
 const DISCORD_MIN_INITIAL_CHARS = 10;
@@ -66,7 +66,7 @@ export class DiscordStreamMessage {
     this.sendMessage = options.sendMessage;
     this.editMessage = options.editMessage;
     this.onError = options.onError;
-    this.throttleMs = options.throttleMs ?? DEFAULT_THROTTLE_MS;
+    this.throttleMs = options.throttleMs ?? DISCORD_DEFAULT_THROTTLE_MS;
   }
 
   get state(): DiscordStreamState {

@@ -898,4 +898,34 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const POLL_INTERVAL = 15000;'
     );
   });
+
+  test('B5-2⑯：`DEFAULT_THROTTLE_MS` ×3 已按渠道消歧（取值一字未改）', () => {
+    // 3 处同名 `DEFAULT_THROTTLE_MS`（流式更新节流间隔）各受渠道上游限流约束，取值全不同、全为文件内私有
+    const items: Array<[string, string, string]> = [
+      [
+        'src/channels/discord/streaming-message.ts',
+        'DISCORD_DEFAULT_THROTTLE_MS',
+        '800',
+      ],
+      [
+        'src/channels/matrix/streaming-message.ts',
+        'MATRIX_DEFAULT_THROTTLE_MS',
+        '1000',
+      ],
+      [
+        'src/channels/msteams/streaming-message.ts',
+        'MSTEAMS_DEFAULT_THROTTLE_MS',
+        '1500',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const DEFAULT_THROTTLE_MS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**非本键**名仍在（不得误伤）：飞书流式卡片节流
+    expect(read('src/channels/feishu/streaming-card.ts')).toContain(
+      'const STREAMING_UPDATE_THROTTLE_MS = 160;'
+    );
+  });
 });

@@ -12,7 +12,7 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:msteams:streaming-message');
 
-const DEFAULT_THROTTLE_MS = 1500;
+const MSTEAMS_DEFAULT_THROTTLE_MS = 1500;
 
 /** 启动流式消息前的最小字符数 */
 const MSTEAMS_MIN_INITIAL_CHARS = 20;
@@ -86,7 +86,7 @@ export class TeamsHttpStream {
   constructor(options: TeamsStreamOptions) {
     this.sendActivity = options.sendActivity;
     this.onError = options.onError;
-    this.throttleMs = options.throttleMs ?? DEFAULT_THROTTLE_MS;
+    this.throttleMs = options.throttleMs ?? MSTEAMS_DEFAULT_THROTTLE_MS;
   }
 
   get state(): TeamsStreamState {

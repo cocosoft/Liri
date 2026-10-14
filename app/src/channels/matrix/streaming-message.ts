@@ -12,7 +12,7 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:matrix:streaming-message');
 
-const DEFAULT_THROTTLE_MS = 1000;
+const MATRIX_DEFAULT_THROTTLE_MS = 1000;
 
 /** 启动流式消息前的最小字符数 */
 const MATRIX_MIN_INITIAL_CHARS = 15;
@@ -99,7 +99,7 @@ export class MatrixStreamMessage {
     this.editMessage = options.editMessage;
     this.roomId = options.roomId;
     this.onError = options.onError;
-    this.throttleMs = options.throttleMs ?? DEFAULT_THROTTLE_MS;
+    this.throttleMs = options.throttleMs ?? MATRIX_DEFAULT_THROTTLE_MS;
   }
 
   get state(): MatrixStreamState {

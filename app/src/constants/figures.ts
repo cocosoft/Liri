@@ -41,6 +41,15 @@ export const ARROW_LEFT = '←';
 export const ARROW_UP = '↑';
 export const ARROW_DOWN = '↓';
 
+/**
+ * ANSI SGR 重置序列（终端颜色/样式复位）。
+ *
+ * **唯一真源**（硬编码治理「同名常量」B2 收口）：原于 `cli/print.ts` 与 `commands/tasks/tasks.ts`
+ * **各写一份**同名 `RESET` ⇒ 现统一由此导出（命名加 `ANSI_` 前缀消歧）。
+ * 注：`print.ts` 的 ANSI 族其余成员（`BOLD` / `ITALIC` / `UNDERLINE` 等）**单处使用**、暂留本地。
+ */
+export const ANSI_RESET = '\x1b[0m';
+
 export const DOT = '•';
 export const ELLIPSIS = '…';
 export const BULLET = '●';

@@ -18,7 +18,11 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-export const BYTES_PER_TOKEN = 4;
+/**
+ * 每 token 的字节数估算（**真源**：`constants/toolLimits.ts` —— 硬编码治理「同名常量」B2 收口；
+ * 此处仅保留**导出面**以免影响既有消费者）。
+ */
+export { BYTES_PER_TOKEN } from '@modules/constants';
 
 export const DEFAULT_MAX_RESULT_SIZE_CHARS = 50000;
 

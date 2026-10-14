@@ -4,6 +4,7 @@
  */
 
 import { configManager } from '@modules/config';
+import { ANSI_RESET } from '@modules/constants';
 
 export interface PrintOptions {
   bold?: boolean;
@@ -54,7 +55,6 @@ const BG_COLOR_CODES: Record<string, string> = {
   white: '\x1b[47m',
 };
 
-const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const ITALIC = '\x1b[3m';
 const UNDERLINE = '\x1b[4m';
@@ -82,7 +82,7 @@ export function formatText(text: string, options: PrintOptions = {}): string {
     result += options.suffix;
   }
 
-  result += RESET;
+  result += ANSI_RESET;
 
   return result;
 }

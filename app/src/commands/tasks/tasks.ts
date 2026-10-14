@@ -18,6 +18,7 @@ import type { BaseTask } from '@modules/tasks';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
+import { ANSI_RESET } from '@modules/constants';
 const logger = getLogger('commands:tasks:tasks');
 
 /**
@@ -156,8 +157,6 @@ function statusColor(status: BackgroundTaskStatus): string {
   }
 }
 
-const RESET = '\x1b[0m';
-
 /**
  * 构建统计头部
  */
@@ -221,7 +220,7 @@ function formatTypeGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
       }
 
       lines.push(
-        `    ${color}${icon}${RESET} [${sid}] ${desc} (${age}${elapsed})${extra}`
+        `    ${color}${icon}${ANSI_RESET} [${sid}] ${desc} (${age}${elapsed})${extra}`
       );
       shown++;
     }
@@ -304,7 +303,7 @@ function formatTaskGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
       const progress = task.progressMessage ? ` — ${task.progressMessage}` : '';
 
       lines.push(
-        `    ${color}${icon}${RESET} [${sid}] ${desc} (${agentInfo}, ${age}${elapsed})${progress}`
+        `    ${color}${icon}${ANSI_RESET} [${sid}] ${desc} (${agentInfo}, ${age}${elapsed})${progress}`
       );
       shown++;
     }
@@ -321,7 +320,7 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
   const color = statusColor(task.status);
   const icon = statusIcon(task.status);
 
-  lines.push(`${color}${icon}${RESET} 任务详情`);
+  lines.push(`${color}${icon}${ANSI_RESET} 任务详情`);
   lines.push('─'.repeat(50));
   lines.push(`  ID:          ${task.taskId}`);
   if (task.taskType) {
@@ -331,7 +330,7 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
     `  Agent:       ${task.agentName || 'unknown'} (${task.agentType || 'unknown'})`
   );
   lines.push(` 描述:        ${task.description || '无'}`);
-  lines.push(` 状态:        ${color}${task.status}${RESET}`);
+  lines.push(` 状态:        ${color}${task.status}${ANSI_RESET}`);
   if (task.ownerKey) {
     lines.push(` 归属:        ${task.ownerKey}`);
   }
@@ -780,7 +779,7 @@ function handleRecent(args: string, showJson: boolean): CommandResult {
     const duration = task.durationMs ? formatDuration(task.durationMs) : '-';
     const age = task.completedAt ? formatAge(task.completedAt) : '-';
 
-    lines.push(`  ${color}${icon}${RESET} [${sid}] ${desc}`);
+    lines.push(`  ${color}${icon}${ANSI_RESET} [${sid}] ${desc}`);
     lines.push(
       `      Agent: ${agentInfo}, 耗时: ${duration}, 完成于: ${age}前`
     );

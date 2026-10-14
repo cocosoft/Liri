@@ -3,10 +3,13 @@
  * 实现通道消息的解析和格式化
  */
 
+import { CHANNEL_TAG } from '@modules/constants';
+
 /**
- * 通道消息标签
+ * 通道消息标签（**真源**：`constants/xml.ts` —— 硬编码治理「同名常量」B2 收口；
+ * 此处仅保留**导出面**以免影响既有消费者）
  */
-export const CHANNEL_TAG = 'channel';
+export { CHANNEL_TAG };
 
 /**
  * 通道箭头符号

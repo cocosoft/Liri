@@ -709,7 +709,10 @@ export async function handleListProjectFiles(
     const PROJECT_ARTIFACT_MAX_DEPTH = 4;
     const PROJECT_ARTIFACT_MAX_FILES = 500;
     const walk = (dir: string, rel: string, depth: number): void => {
-      if (depth > PROJECT_ARTIFACT_MAX_DEPTH || files.length >= PROJECT_ARTIFACT_MAX_FILES)
+      if (
+        depth > PROJECT_ARTIFACT_MAX_DEPTH ||
+        files.length >= PROJECT_ARTIFACT_MAX_FILES
+      )
         return;
       let entries: import('fs').Dirent[] = [];
       try {

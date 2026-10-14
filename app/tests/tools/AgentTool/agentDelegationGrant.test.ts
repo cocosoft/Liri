@@ -121,9 +121,9 @@ describe('T9：子代理委派授权（角色策略 × 深度）', () => {
       resolveGrant.call(tool, true, { subagentDepth: SUBAGENT_MAX_DEPTH - 1 })
     ).toBe(true);
     // 授权但深度达上限 ⇒ 拒绝（与 executeGuard 同源判据，避免"可见但必被拒"）
-    expect(resolveGrant.call(tool, true, { subagentDepth: SUBAGENT_MAX_DEPTH })).toBe(
-      false
-    );
+    expect(
+      resolveGrant.call(tool, true, { subagentDepth: SUBAGENT_MAX_DEPTH })
+    ).toBe(false);
     // 未授权（含缺省）⇒ 恒拒绝
     expect(resolveGrant.call(tool, false, { subagentDepth: 0 })).toBe(false);
     expect(resolveGrant.call(tool, undefined, { subagentDepth: 0 })).toBe(

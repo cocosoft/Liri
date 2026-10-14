@@ -79,6 +79,19 @@ function runGate(scriptFile: string, fixtureRoot: string) {
   };
 }
 
+/**
+ * 为夹具写入 R05-003 的**唯一真源** `scripts/console-baseline.json`
+ * （门禁自 2026-10-14 起 fail-closed：缺该文件 ⇒ 报 error ⇒ "合法样例"会变红）。
+ */
+function writeConsoleBaseline(fixtureRoot: string): void {
+  const dir = join(fixtureRoot, 'scripts');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'console-baseline.json'),
+    JSON.stringify({ count: 100000, threshold: 0 })
+  );
+}
+
 let baseDir = '';
 /** 合法夹具：`core` 内自依赖（同层） */
 let legalDir = '';
@@ -112,6 +125,10 @@ beforeAll(() => {
     join(legalCatalogDir, 'stateMachineCatalog.ts'),
     'export const STATE_MACHINES = [];\nexport const BOUNDARY_STATE_MACHINES = [];\n'
   );
+  // R05-003（Console 基线）自 **2026-10-14 双源收敛**起为 **fail-closed**：门禁改从
+  // `projectDir/scripts/console-baseline.json` 读取**唯一真源**，**缺失即报 error**（不再回退
+  // 硬编码默认值）⇒ 夹具作为"合法样例"**必须提供该前置**，否则验的是"缺文件"而非"合法性"。
+  writeConsoleBaseline(legalDir);
 
   illegalDir = join(baseDir, 'illegal');
   mkdirSync(join(illegalDir, 'app', 'src', 'core'), { recursive: true });
@@ -125,6 +142,8 @@ beforeAll(() => {
     join(illegalDir, 'app', 'src', 'core', 'probe.ts'),
     "import { t } from '@modules/utils/thing';\nexport const x = t;\n"
   );
+  // 违规夹具同样补前置 ⇒ 让失败原因**单纯是 R00-001**（而非"缺基线"）——见上方 R05-003 注
+  writeConsoleBaseline(illegalDir);
 
   noSrcDir = join(baseDir, 'nosrc');
   mkdirSync(noSrcDir, { recursive: true });

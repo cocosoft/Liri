@@ -73,11 +73,23 @@
 
 1. **钩子/门禁输出重定向到文件**，只回显**末 3 行**；禁止全量回读；
    `CheckCommandStatus` 单次取用 **≤600 字符**。
+   **具体配方（R5 零成本项，2026-10-14 实测）**：`git commit` 的钩子输出由 git 继承 stdio，
+   用 `| Select-Object -Last N` **拦不住**（本会话多次提交仍带回显）；
+   须整体 `*>` 落盘，再取尾部 + 计量：
+
+   ```powershell
+   git commit -m "<msg>" *> "$env:TEMP\commit.log"
+   Get-Content "$env:TEMP\commit.log" -Tail 3          # 只回显末 3 行
+   (Get-Content "$env:TEMP\commit.log" -Raw).Length    # 计量：落盘字符数
+   ```
+
+   门禁/测试同法：`bun run lint:x *> "$env:TEMP\gate.log"` + `-Tail 3`。
+   **禁止**把钩子全文（pre-commit 的 eslint warning + 架构合规报告）带进对话。
 2. 台账与长行文件**只用短行锚点编辑**（`old_string` 取 1 行、`new_string` ≤300 字符）。
 3. 事实收集**一次聚合**（单条命令输出多指标），禁止 N 条分散 grep。
 4. 片尾报告**模板化**：表格 + 文件链接 + 一行结论；**禁止复述证据链**（细节导流台账/文档）。
 
-- 状态：**即时生效**。
+- 状态：**即时生效**（① 已补**可执行配方**）。
 
 ---
 
@@ -108,7 +120,7 @@
 | SB05 | 4 检查点；**先提交代码、后补台账** | MUST | **已生效（纪律）** |
 | SB06 | `hardcode-progress.json` + 每片写 `nextAction` | MUST | 规范已落 / 机制待 C |
 | SB07 | 交接单脚本生成（≤30 行） | SHOULD | 规范已落 / 机制待 C |
-| SB08 | 工具纪律四则（输出裁剪 / 短行编辑 / 一次聚合 / 报告模板化） | MUST | **已生效（纪律）** |
+| SB08 | 工具纪律四则（输出裁剪 / 短行编辑 / 一次聚合 / 报告模板化） | MUST | **已生效（含 R5 配方）** |
 | SB09 | 单片 ≤18 调用 / ≤10k tokens，超限拆分 | MUST | **已生效（纪律）** |
 | SB10 | 计划变更必须登记 | MUST | 规范已落 |
 | SB11 | 与 `development-workflow.md` 交叉引用 | SHOULD | 规范已落 |

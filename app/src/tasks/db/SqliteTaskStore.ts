@@ -3,7 +3,12 @@ import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { DatabaseError, handleError } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
-import { TASKS_SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
+import {
+  TASKS_SCHEMA,
+  FTS5_SCHEMA,
+  KANBAN_SCHEMA,
+  TABLE_NAMES,
+} from './schema';
 import type { TaskState } from '../types';
 import type {
   TaskFlowRecord,

@@ -338,8 +338,9 @@ Barrel 文件（仅做 re-export 的 `index.ts`）不利于 tree-shaking，且�
 
 `app/tsconfig.json` 的 `exclude` **不得**把核心模块目录排除在类型检查之外；`tsconfig.eslint.json` 的检查范围必须**不小于** `tsconfig.json`。
 
-- **判定命令**：`bun run lint:arch`。等级：盲区 ⇒ **error（阻断）**；`tsconfig.eslint.json` 未扩大范围 ⇒ **warning**。
-- **已知盲区清单（门禁内以数据表声明）**：`src/hooks` · `src/chat` · `src/governance` · `src/memory` · `src/plugins` · `src/session` · `src/sandbox` · `src/permission` · `src/mcp` · `src/llm` · `src/subagents` · `src/subagent`。
+- **判定命令**：`bun run lint:arch` → 输出行 `[tsconfig/ESLint] N 个目录存在类型检查盲区`。等级：盲区 ⇒ **error（阻断）**；`tsconfig.eslint.json` 未扩大范围 ⇒ **warning**。
+- **候选目录清单（门禁内以数据表声明，用于检测「是否被 exclude」）**：`src/hooks` · `src/chat` · `src/governance` · `src/memory` · `src/plugins` · `src/session` · `src/sandbox` · `src/permission` · `src/mcp` · `src/llm` · `src/subagents` · `src/subagent`。
+  ⚠️ **候选 ≠ 当前盲区**：2026-10-14 回仓实测 `app/tsconfig.json` 的 `exclude` 仅含 `node_modules` / `dist` / `packages` / 测试文件（`src/**/__tests__` 等）⇒ 上述 12 个目录**均未被排除**，门禁输出 **`0 个目录存在类型检查盲区`**、且 `tsconfig.eslint.json` 已扩大范围（无 warning）⇒ **当前 0 盲区**。本条为**防回潮**而设：一旦有人往 `exclude` 里加回这些目录，门禁即 **error**。
 - **⚠️ 历史教训（本条的由来）**：该检查曾因用 `process.cwd()` 定位 `app/tsconfig.json` 而 `existsSync` 判否后**静默 return** ⇒ **从未真正执行**（从 `app/` 运行时解析到不存在的 `app/app/tsconfig.json`）。根因与纪律见 **AR-2**。
 
 ### R05-008 [SHOULD] 禁止功能重叠的重复依赖

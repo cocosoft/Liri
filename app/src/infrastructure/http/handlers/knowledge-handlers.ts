@@ -1513,8 +1513,12 @@ export async function handleImportFromFile(
         tagList.length > 0
           ? `tags: [${tagList.map((t: string) => `"${t}"`).join(', ')}]`
           : '',
-        KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext) ? `originalFormat: "${ext}"` : '',
-        KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext) ? `originalFile: "${filePath}"` : '',
+        KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext)
+          ? `originalFormat: "${ext}"`
+          : '',
+        KNOWLEDGE_CONVERT_BINARY_EXTENSIONS.has(ext)
+          ? `originalFile: "${filePath}"`
+          : '',
         '---',
         '',
       ]

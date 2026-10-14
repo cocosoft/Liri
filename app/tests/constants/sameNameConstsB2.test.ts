@@ -262,7 +262,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-1③：`CACHE_TTL_MS` ×7 已按域消歧（取值一字未改）', () => {
     // 7 处同名 `CACHE_TTL_MS` 各属**独立缓存**（不同层/不同对象）⇒ 判为「命名太泛」，按域改名消歧、**不得合一**
     const items: Array<[string, string, string]> = [
-      ['src/ai/models/ActiveModelService.ts', 'ACTIVE_MODEL_CACHE_TTL_MS', '30_000'],
+      [
+        'src/ai/models/ActiveModelService.ts',
+        'ACTIVE_MODEL_CACHE_TTL_MS',
+        '30_000',
+      ],
       [
         'src/ai/translation/LanguageDetector.ts',
         'LANGUAGE_DETECTION_CACHE_TTL_MS',

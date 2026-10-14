@@ -351,5 +351,17 @@
     "桶:语言": 1,
     "桶:时区": 1
   },
-  "lint:failmsg-refs": {}
+  "lint:failmsg-refs": {},
+  "lint:evidence-linewidth": {
+    ".trae/architecture/execution-entrypoints.md#over300": 0,
+    ".trae/architecture/execution-entrypoints.md#max": 217,
+    ".trae/architecture/fix-evidence-registry.json#over300": 218,
+    ".trae/architecture/fix-evidence-registry.json#max": 13939,
+    ".trae/architecture/invariants.md#over300": 0,
+    ".trae/architecture/invariants.md#max": 254,
+    ".trae/architecture/修复证据登记.md#over300": 190,
+    ".trae/architecture/修复证据登记.md#max": 1903,
+    "CHANGELOG.md#over300": 207,
+    "CHANGELOG.md#max": 2426
+  }
 }

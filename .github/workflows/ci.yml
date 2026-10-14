@@ -195,6 +195,8 @@ jobs:
         bun run scripts/lint-endpoints.ts
         bun run scripts/lint-locale.ts
         bun run scripts/lint-failmsg-refs.ts
+        # 会话预算纪律 SB03：台账/登记类文件「单行超长」棘轮（只减不增）
+        bun run scripts/lint-evidence-linewidth.ts
 
     - name: Run session regression check (BUG-A/B/C)
       working-directory: .

@@ -6,7 +6,7 @@
  *
  * 为什么需要（同 `gateSelfProof.test.ts` 的立论）："CI 绿"只说明**当时没报**，
  * 不说明门禁真的会报、也不说明门禁**真的在跑**。本文件把三件事钉死：
- *   ① **接线**（否则"阻断"只是纸面承诺）：4 门禁已进 `app/package.json` 的 `ci`
+ *   ① **接线**（否则"阻断"只是纸面承诺）：5 门禁已进 `app/package.json` 的 `ci`
  *      聚合脚本 **且** 进了 `.github/workflows/ci.yml` 的 `static-check` 作业；
  *   ② **口径**：明细由「⚠️ 仅上报」升级为 **error 级**（`❌ 违规`）；
  *   ③ **负向对照**（跑**真实**脚本 + env 覆盖基线）：
@@ -24,7 +24,14 @@ const BASELINE = join(
   REPO_ROOT,
   '.trae/architecture/hardcode-gate-baseline.json'
 );
-const GATES = ['consts', 'endpoints', 'locale', 'failmsg-refs'] as const;
+const GATES = [
+  'consts',
+  'endpoints',
+  'locale',
+  'failmsg-refs',
+  // 会话预算纪律 SB03（台账单行超长棘轮）——与上述 4 把同属「只减不增」门禁
+  'evidence-linewidth',
+] as const;
 
 const temps: string[] = [];
 afterAll(() => {
@@ -63,7 +70,7 @@ function runGate(
 }
 
 describe('§8 阶段③ · 接线（"CI 必绿"不是纸面承诺）', () => {
-  it('4 门禁已进 `app/package.json` 的 `ci` 聚合脚本', () => {
+  it('5 门禁已进 `app/package.json` 的 `ci` 聚合脚本', () => {
     const pkg = JSON.parse(
       readFileSync(join(REPO_ROOT, 'app', 'package.json'), 'utf8')
     ) as { scripts: Record<string, string> };
@@ -75,7 +82,7 @@ describe('§8 阶段③ · 接线（"CI 必绿"不是纸面承诺）', () => {
     }
   });
 
-  it('4 门禁已进 `.github/workflows/ci.yml`（CI 真实执行）', () => {
+  it('5 门禁已进 `.github/workflows/ci.yml`（CI 真实执行）', () => {
     const wf = readFileSync(
       join(REPO_ROOT, '.github', 'workflows', 'ci.yml'),
       'utf8'

@@ -314,7 +314,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         'EMBEDDING_DEFAULT_TIMEOUT_MS',
         '180_000',
       ],
-      ['src/ai/providers/SpeedTestService.ts', 'SPEED_TEST_DEFAULT_TIMEOUT_MS', '8000'],
+      [
+        'src/ai/providers/SpeedTestService.ts',
+        'SPEED_TEST_DEFAULT_TIMEOUT_MS',
+        '8000',
+      ],
       [
         'src/evals/adversarialProposer.ts',
         'ADVERSARIAL_DEFAULT_TIMEOUT_MS',

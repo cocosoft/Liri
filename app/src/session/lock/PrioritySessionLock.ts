@@ -99,7 +99,8 @@ export class PrioritySessionLock {
   constructor(config: PriorityLockConfig = {}) {
     this.baseLock = new SessionLock(config.lockOptions);
     this.defaultMaxHoldMs = config.defaultMaxHoldMs ?? DEFAULT_MAX_HOLD_MS;
-    this.defaultTimeoutMs = config.defaultTimeoutMs ?? SESSION_LOCK_DEFAULT_TIMEOUT_MS;
+    this.defaultTimeoutMs =
+      config.defaultTimeoutMs ?? SESSION_LOCK_DEFAULT_TIMEOUT_MS;
     this.watchdogIntervalMs =
       config.watchdogIntervalMs ?? DEFAULT_WATCHDOG_INTERVAL_MS;
     this.priorityAgingIntervalMs =

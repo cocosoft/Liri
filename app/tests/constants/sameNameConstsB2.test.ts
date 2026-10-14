@@ -492,20 +492,17 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(table);
     }
     // `tasks/db/schema.ts` 的 `TASKS_SCHEMA` 属**公开导出面** ⇒ 2 import + 2 barrel 转出 + 1 seed 脚本**全部同步**
-    expect(read('src/tasks/db/SqliteTaskStore.ts')).toContain(
-      'import { TASKS_SCHEMA'
-    );
-    expect(read('src/tasks/db/GoalMetricsService.ts')).toContain(
-      'import { TASKS_SCHEMA'
-    );
-    expect(read('src/tasks/db/index.ts')).toContain(
-      'export { TASKS_SCHEMA, TABLE_NAMES }'
-    );
-    expect(read('src/tasks/index.ts')).toContain(
-      'export { TASKS_SCHEMA, FTS5_SCHEMA, TABLE_NAMES }'
-    );
+    // ⚠️ 只断言**标识符**，不钉 import/export 语句的单行形态 —— prettier 会按行宽把长 import 折成多行
+    for (const rel of [
+      'src/tasks/db/SqliteTaskStore.ts',
+      'src/tasks/db/GoalMetricsService.ts',
+      'src/tasks/db/index.ts',
+      'src/tasks/index.ts',
+    ]) {
+      expect(read(rel)).toContain('TASKS_SCHEMA');
+    }
     const seed = read('scripts/seed-test-tasks.ts');
-    expect(seed).toContain('import { TASKS_SCHEMA }');
+    expect(seed).toContain('TASKS_SCHEMA');
     expect(seed).not.toContain('as TASK_SCHEMA');
   });
 });

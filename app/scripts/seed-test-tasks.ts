@@ -9,7 +9,7 @@
 import { Database } from '../src/core/external/sqlite3';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import { SCHEMA as TASK_SCHEMA } from '../src/tasks/db/schema';
+import { TASKS_SCHEMA } from '../src/tasks/db/schema';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DB_PATH = path.join(PROJECT_ROOT, 'data', 'app.db');
@@ -262,7 +262,7 @@ function runDb(
 
 async function createTables(db: Database): Promise<void> {
   console.log('[seed] 创建数据表（如不存在）...');
-  await execDb(db, TASK_SCHEMA);
+  await execDb(db, TASKS_SCHEMA);
   await execDb(db, CRON_TABLE_SCHEMA);
   console.log('  数据表就绪');
 }

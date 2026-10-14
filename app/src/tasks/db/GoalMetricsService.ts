@@ -17,7 +17,7 @@ import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { SCHEMA, TABLE_NAMES } from './schema';
+import { TASKS_SCHEMA, TABLE_NAMES } from './schema';
 
 const logger = getLogger('tasks:goalMetrics');
 
@@ -153,7 +153,7 @@ export class GoalMetricsService {
       });
     });
     // 幂等建表（多语句需用 exec，与 SqliteTaskStore.createTables 一致）
-    await exec(this.db, SCHEMA);
+    await exec(this.db, TASKS_SCHEMA);
     // 存量库列迁移：仅新增缺失列
     await this._migrateSchema();
   }

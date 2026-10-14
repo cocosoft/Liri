@@ -1,4 +1,4 @@
-export const SCHEMA = `
+export const TASKS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS task_states (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,

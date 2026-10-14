@@ -40,7 +40,7 @@ import type { DreamCycleRecord } from './types';
 export const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 50;
 
-const SCHEMA = `
+const DREAM_CYCLE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS dream_cycles (
   cycle_id TEXT PRIMARY KEY,
   started_at INTEGER NOT NULL,
@@ -189,7 +189,7 @@ export class DreamCycleDb {
         else resolve(db);
       });
     });
-    await exec(this.db, SCHEMA);
+    await exec(this.db, DREAM_CYCLE_SCHEMA);
   }
 
   /**

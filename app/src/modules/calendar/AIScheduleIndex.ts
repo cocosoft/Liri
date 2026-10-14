@@ -8,7 +8,7 @@ import { resolveDbPath } from '@modules/core';
 import { getLogger } from '../../core/loggerFacade.js';
 const logger = getLogger('calendar:aiScheduleIndex');
 
-const SCHEMA = `
+const AI_SCHEDULE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS ai_schedules (
   id TEXT PRIMARY KEY,
   calendar_event_id TEXT NOT NULL,
@@ -93,7 +93,7 @@ export class AIScheduleIndex {
           logger.error('ai_schedules 数据库连接失败', { error: String(err) });
           return reject(err);
         }
-        this.db!.exec(SCHEMA, (schemaErr: Error | null) => {
+        this.db!.exec(AI_SCHEDULE_SCHEMA, (schemaErr: Error | null) => {
           if (schemaErr) {
             logger.error('ai_schedules 建表失败', { error: String(schemaErr) });
             return reject(schemaErr);

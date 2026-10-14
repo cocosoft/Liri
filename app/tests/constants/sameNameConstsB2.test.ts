@@ -450,4 +450,62 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2②：`SCHEMA` ×6 已按域消歧（DDL 目标表未改；tasks 公开导出面同步改名）', () => {
+    // 6 处同名 `SCHEMA` 各是**不同表的 SQL DDL** ⇒ 按域消歧（DDL 文本一字未改）
+    const items: Array<[string, string, string]> = [
+      [
+        'src/dream/DreamCycleDb.ts',
+        'DREAM_CYCLE_SCHEMA',
+        'CREATE TABLE IF NOT EXISTS dream_cycles',
+      ],
+      [
+        'src/tasks/db/schema.ts',
+        'TASKS_SCHEMA',
+        'CREATE TABLE IF NOT EXISTS task_states',
+      ],
+      [
+        'src/tasks/cron/DeliveryQueue.ts',
+        'DELIVERY_QUEUE_SCHEMA',
+        'CREATE TABLE IF NOT EXISTS delivery_queue',
+      ],
+      [
+        'src/tasks/cron/CronRunLog.ts',
+        'CRON_RUN_LOG_SCHEMA',
+        'CREATE TABLE IF NOT EXISTS ${TABLE_CRON_RUN_LOGS}',
+      ],
+      [
+        'src/tasks/cron/CronJobStore.ts',
+        'CRON_JOB_SCHEMA',
+        'CREATE TABLE IF NOT EXISTS cron_jobs',
+      ],
+      [
+        'src/modules/calendar/AIScheduleIndex.ts',
+        'AI_SCHEDULE_SCHEMA',
+        'CREATE TABLE IF NOT EXISTS ai_schedules',
+      ],
+    ];
+    for (const [rel, name, table] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const SCHEMA = /);
+      expect(src).toContain(`const ${name} =`);
+      expect(src).toContain(table);
+    }
+    // `tasks/db/schema.ts` 的 `TASKS_SCHEMA` 属**公开导出面** ⇒ 2 import + 2 barrel 转出 + 1 seed 脚本**全部同步**
+    expect(read('src/tasks/db/SqliteTaskStore.ts')).toContain(
+      'import { TASKS_SCHEMA'
+    );
+    expect(read('src/tasks/db/GoalMetricsService.ts')).toContain(
+      'import { TASKS_SCHEMA'
+    );
+    expect(read('src/tasks/db/index.ts')).toContain(
+      'export { TASKS_SCHEMA, TABLE_NAMES }'
+    );
+    expect(read('src/tasks/index.ts')).toContain(
+      'export { TASKS_SCHEMA, FTS5_SCHEMA, TABLE_NAMES }'
+    );
+    const seed = read('scripts/seed-test-tasks.ts');
+    expect(seed).toContain('import { TASKS_SCHEMA }');
+    expect(seed).not.toContain('as TASK_SCHEMA');
+  });
 });

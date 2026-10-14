@@ -20,7 +20,7 @@ const logger = getLogger('tasks:cron:jobStore');
 
 const TABLE_CRON_JOBS = 'cron_jobs';
 
-const SCHEMA = `
+const CRON_JOB_SCHEMA = `
 CREATE TABLE IF NOT EXISTS cron_jobs (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -186,7 +186,7 @@ export class CronJobStore {
           reject(err);
           return;
         }
-        this.db!.exec(SCHEMA, (schemaErr) => {
+        this.db!.exec(CRON_JOB_SCHEMA, (schemaErr) => {
           if (schemaErr) {
             handleError(schemaErr, {
               module: 'tasks:cron:store',

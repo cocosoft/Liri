@@ -3,7 +3,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { DatabaseError, handleError } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
-import { SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
+import { TASKS_SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
 import type { TaskState } from '../types';
 import type {
   TaskFlowRecord,
@@ -186,7 +186,7 @@ export class SqliteTaskStore implements ITaskStore {
         { method: 'createTables' }
       );
     await new Promise<void>((resolve, reject) => {
-      this.db!.exec(SCHEMA, (err) => {
+      this.db!.exec(TASKS_SCHEMA, (err) => {
         if (err) reject(err);
         else resolve();
       });

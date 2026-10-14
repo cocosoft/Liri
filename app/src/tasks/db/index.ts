@@ -19,4 +19,4 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 export { SqliteTaskStore, createSqliteTaskStore } from './SqliteTaskStore';
-export { SCHEMA, TABLE_NAMES } from './schema';
+export { TASKS_SCHEMA, TABLE_NAMES } from './schema';

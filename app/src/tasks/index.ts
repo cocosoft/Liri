@@ -107,7 +107,7 @@ export type {
 // 导出 SQLite 持久化存储
 export { SqliteTaskStore, createSqliteTaskStore } from './db/SqliteTaskStore';
 export type { TaskRun, SearchResult } from './db/SqliteTaskStore';
-export { SCHEMA, FTS5_SCHEMA, TABLE_NAMES } from './db/schema';
+export { TASKS_SCHEMA, FTS5_SCHEMA, TABLE_NAMES } from './db/schema';
 export { goalMetricsService } from './db/GoalMetricsService';
 export type { GoalMetricsService as GoalMetricsServiceType } from './db/GoalMetricsService';
 

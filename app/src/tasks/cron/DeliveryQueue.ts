@@ -12,7 +12,7 @@ const logger = getLogger('tasks:cron:deliveryQueue');
 
 const TABLE_DELIVERY_QUEUE = 'delivery_queue';
 
-const SCHEMA = `
+const DELIVERY_QUEUE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS delivery_queue (
   id TEXT PRIMARY KEY,
   job_id TEXT NOT NULL,
@@ -116,7 +116,7 @@ export class DeliveryQueue {
           reject(err);
           return;
         }
-        this.db!.exec(SCHEMA, (schemaErr) => {
+        this.db!.exec(DELIVERY_QUEUE_SCHEMA, (schemaErr) => {
           if (schemaErr) {
             handleError(schemaErr, {
               module: 'tasks:cron:delivery',

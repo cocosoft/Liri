@@ -41,7 +41,7 @@ export interface CronRunLogPage {
 
 const TABLE_CRON_RUN_LOGS = 'cron_run_logs';
 
-const SCHEMA = `
+const CRON_RUN_LOG_SCHEMA = `
 CREATE TABLE IF NOT EXISTS ${TABLE_CRON_RUN_LOGS} (
   id TEXT PRIMARY KEY,
   job_id TEXT NOT NULL,
@@ -117,7 +117,7 @@ export class CronRunLog {
           reject(err);
           return;
         }
-        this.db!.exec(SCHEMA, (schemaErr) => {
+        this.db!.exec(CRON_RUN_LOG_SCHEMA, (schemaErr) => {
           if (schemaErr) {
             handleError(schemaErr, {
               module: 'tasks:cron:runlog',

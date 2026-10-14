@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第二十四项：`ENABLED` ×3 按域消歧 —— `lint:consts` 232 → 231 键（−1）**
+  - 判定：3 处取值均为 **env 表达式**、各属独立模块开关（全为文件内私有）⇒ `MEM_PROFILE_ENABLED`（`MEM_PROFILE === '1'`，内存画像）· `MEM_PRESSURE_ENABLED`（`MEM_PRESSURE !== '0'`，内存压力）· `QUERY_PROFILER_ENABLED`（`Liri_PROFILE_QUERY === '1'`，查询分析器）；**表达式一字未改**。
+  - 附带：**tests 侧同名别名**一并消歧（`pathShieldSandboxE2E.test.ts` 的 `ENABLED` → `PATH_SHIELD_E2E_ENABLED`，非门禁扫描面）⇒ 全仓不再有同名定义。
+  - 验证：守卫 40 pass / 0 fail · `typecheck` 0 · `tests/monitoring`+`tests/query` 378 pass / 0 fail · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十三项：`POLL_INTERVAL` ×3 按域消歧 —— `lint:consts` 233 → 232 键（−1）**
   - 判定：3 处取值各异、分属独立轮询域（全在 `client/`、全为文件内私有）⇒ `COMPILE_POLL_INTERVAL_MS`（`1000` · Knowledge 编译轮询）· `VIDEO_TASK_POLL_INTERVAL_MS`（`2000`）· `SSE_FALLBACK_POLL_INTERVAL_MS`（`15000` · 断线兜底）；**数值一字未改**。
   - **注释同步**：`sseService.ts` 两处注释随名改指新名（防悬空引用）；**守卫改钉**：⑮ 用例原钉的 `POLL_INTERVAL`（已消歧）改钉同族非本键 `POLL_INTERVAL_QR_MS`（wechat `1_500`）。

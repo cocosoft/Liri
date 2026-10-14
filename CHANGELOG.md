@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第二十二项：`CURRENT_SCHEMA_VERSION` ×3 按域消歧 —— `lint:consts` 234 → 233 键（−1）**
+  - 判定：三处**域与取值/类型均不同**（memory `2` 数值 · knowledge `1` 数值 · context `'1.0'` **字符串**）⇒ 按域消歧、**不合并**。
+  - 处置：① `memory/types/MemoryMetadata.ts` 为**导出真源**（被 `MemorySchemaRegistry` 消费）⇒ **保留原名**；② `knowledge/KnowledgeSchemaMigration.ts` ⇒ `KNOWLEDGE_SCHEMA_VERSION`；③ `context/persistence/ContextPersistence.ts` ⇒ `CONTEXT_PERSISTENCE_SCHEMA_VERSION`（后两处均文件私有 ⇒ 零跨文件复改）。
+  - 验证：守卫 38 pass / 0 fail · `typecheck` 0 · `tests/memory`+`tests/knowledge`+`tests/context` 211 pass / 0 fail · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十一项：`DEFAULT_MAX_RESULT_SIZE_CHARS` 收敛单一真源 —— `lint:consts` 235 → 234 键（−1）**
   - 判定：三处**同值同事实**（均 `50000` / `50_000`）⇒ 不再「消歧」而是**合一**（沿用 B2 `BYTES_PER_TOKEN` 的既有形态）。
   - 处置：① 真源 = `constants/toolLimits.ts`（**保留**，唯一定义处）；② `context/budget/ToolResultBudget.ts` 私有副本 ⇒ 删本地、改**引用真源**；③ `services/toolResultStorage/types.ts` ⇒ **仅保留导出面**（`export { … } from '@modules/constants'`，消费者零改动）。

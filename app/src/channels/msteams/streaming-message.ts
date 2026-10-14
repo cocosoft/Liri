@@ -21,7 +21,7 @@ const MIN_INITIAL_CHARS = 20;
 const TEAMS_MAX_CHARS = 4000;
 
 /** 流最大存活时间（毫秒） */
-const MAX_STREAM_AGE_MS = 45000;
+const MSTEAMS_MAX_STREAM_AGE_MS = 45000;
 
 /** 流式消息状态 */
 export type TeamsStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
@@ -169,7 +169,7 @@ export class TeamsHttpStream {
 
       if (
         this.streamStartedAt &&
-        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+        Date.now() - this.streamStartedAt > MSTEAMS_MAX_STREAM_AGE_MS
       ) {
         this.stopped = true;
         this.sendFinalMessage(this.accumulatedText).catch((err) => {

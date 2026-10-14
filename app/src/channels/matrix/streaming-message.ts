@@ -21,7 +21,7 @@ const MIN_INITIAL_CHARS = 15;
 const MATRIX_MAX_CHARS = 100000;
 
 /** 流最大存活时间（毫秒） */
-const MAX_STREAM_AGE_MS = 300000;
+const MATRIX_MAX_STREAM_AGE_MS = 300000;
 
 /** 流式消息状态 */
 export type MatrixStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
@@ -213,7 +213,7 @@ export class MatrixStreamMessage {
 
       if (
         this.streamStartedAt &&
-        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+        Date.now() - this.streamStartedAt > MATRIX_MAX_STREAM_AGE_MS
       ) {
         this.finalize().catch((err) => {
           if (this.onError) this.onError(err);

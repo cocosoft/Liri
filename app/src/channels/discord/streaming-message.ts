@@ -21,7 +21,7 @@ const MIN_INITIAL_CHARS = 10;
 const DISCORD_MAX_CHARS = 2000;
 
 /** 流最大存活时间（毫秒） */
-const MAX_STREAM_AGE_MS = 900000;
+const DISCORD_MAX_STREAM_AGE_MS = 900000;
 
 /** 流式消息状态 */
 export type DiscordStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
@@ -178,7 +178,7 @@ export class DiscordStreamMessage {
 
       if (
         this.streamStartedAt &&
-        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+        Date.now() - this.streamStartedAt > DISCORD_MAX_STREAM_AGE_MS
       ) {
         this.finalize().catch((err) => {
           if (this.onError) this.onError(err);

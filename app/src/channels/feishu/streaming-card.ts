@@ -21,7 +21,7 @@ const STREAMING_SIGNIFICANT_DELTA_CHARS = 18;
 const FEISHU_MAX_CHARS = 30000;
 
 /** 流最大存活时间（毫秒） */
-const MAX_STREAM_AGE_MS = 60000;
+const FEISHU_MAX_STREAM_AGE_MS = 60000;
 
 /** 流式消息状态 */
 export type FeishuStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
@@ -213,7 +213,7 @@ export class FeishuStreamingCard {
 
       if (
         this.streamStartedAt &&
-        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+        Date.now() - this.streamStartedAt > FEISHU_MAX_STREAM_AGE_MS
       ) {
         this.finalize().catch((err) => {
           if (this.onError) this.onError(err);

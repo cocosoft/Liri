@@ -685,4 +685,35 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'MAX_HISTORY_ENTRIES'
     );
   });
+
+  test('B5-2⑨：`MAX_STREAM_AGE_MS` ×4 已按渠道消歧（取值一字未改）', () => {
+    // 4 处同名 `MAX_STREAM_AGE_MS` 分属 4 个渠道的流式消息模块（45000 / 300000 / 60000 / 900000）
+    const items: Array<[string, string, string]> = [
+      [
+        'src/channels/msteams/streaming-message.ts',
+        'MSTEAMS_MAX_STREAM_AGE_MS',
+        '45000',
+      ],
+      [
+        'src/channels/matrix/streaming-message.ts',
+        'MATRIX_MAX_STREAM_AGE_MS',
+        '300000',
+      ],
+      [
+        'src/channels/feishu/streaming-card.ts',
+        'FEISHU_MAX_STREAM_AGE_MS',
+        '60000',
+      ],
+      [
+        'src/channels/discord/streaming-message.ts',
+        'DISCORD_MAX_STREAM_AGE_MS',
+        '900000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_STREAM_AGE_MS = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

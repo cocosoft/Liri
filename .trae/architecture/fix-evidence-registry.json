@@ -3257,6 +3257,25 @@
       "changelog": [],
       "reopenWhen": "① **B5-2 续项**：`MAX_STREAM_AGE_MS`（4）· `MAX_RECONNECT_ATTEMPTS`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先做全仓 grep**（含 `app/scripts`/`app/tests`：门禁扫描面只含 `app/src` + `client/src`，见 B5-2⑦ 的 `reopenWhen` ②）再判定；**整键改完才消键**；② **同族后缀名「非本键」**：`app/src/context/compaction/CompactionMetrics.ts` 的 `MAX_HISTORY_ENTRIES`（**另一标识符**）⇒ **未动**（守卫正向钉住，防误并入）；③ 前端「历史条数」若要做**统一上限**（如统一设置项）⇒ 须先证四处**语义一致**（图像任务历史 / TTS 试听 / STT 测试 / 连接监控 四个互不相关的列表）⇒ 当前**有意保持按域独立**；④ 副本写回（任一处重新出现 `const MAX_HISTORY = `）⇒ 守卫或棘轮门禁（基线 247）立即阻断。",
       "notes": "**取证（CS06）**：`MAX_HISTORY` **4 文件，全在 client** —— `client/src/components/views/image/taskHistoryStore.ts:17` `50`（图像任务历史持久化条数）· `client/src/components/views/TTSPlayground.tsx:26` `100`（TTS 试听历史条数）· `client/src/components/views/STTTestPage.tsx:29` `50`（STT 测试页历史条数）· `client/src/services/connectionMonitor.ts:30` `20`（连接状态历史条数）。**判定**：4 处**分属四个互不相关的列表/子系统**，取值 3 种（**两个 `50` 分属图像任务历史与 STT 测试页，非同一事实**）⇒ 属「**命名太泛**」⇒ **按域改名消歧**、**不因同值而合一**。**全仓核验（采纳 B5-2⑦ 教训）**：以定义模式（`[^_A-Z]MAX_HISTORY(\\s*[:=])`）**全仓**（含 `app/scripts`/`app/tests`/`client`）grep ⇒ **仅这 4 处**（**脚本面/测试面无同名 definer**）；同族**后缀名** `MAX_HISTORY_ENTRIES`（`app/src/context/compaction/CompactionMetrics.ts`）为**另一标识符**、**非本键** ⇒ 逐文件核验后 `replace_all` 不误伤。**落地**：`IMAGE_TASK_MAX_HISTORY` · `TTS_PLAYGROUND_MAX_HISTORY` · `STT_TEST_MAX_HISTORY` · `CONNECTION_MONITOR_MAX_HISTORY`；**4 个数值一字未改** ⇒ **零行为变化**；4 处**均无 `export`** ⇒ 无跨文件消费面。**效果（可证伪）**：`lint:consts` **248 → 247**（**−1 键**），门禁自报 `同名常量:MAX_HISTORY` **4 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 247 键**。**守卫**（第 **24** 例）：4 文件均不含 `const MAX_HISTORY = ` 且各含**确切新名 + 取值钉住**；另**正向钉住** `MAX_HISTORY_ENTRIES` 仍在（防误并入同族后缀名）。**验证**：`typecheck`（**client**）**0**；守卫 **24 pass / 0 fail**；**client 全量 `vitest` 73 文件全绿**；4 硬编码门禁全 **exit 0**。**如实边界**：① 本片**改动全在 client**（**未跑 app 侧域测试** —— app 源码**零改动**，仅 `app/tests/constants` 守卫用例新增；`typecheck`(app) 未单独复跑，但**未改 app 源码** ⇒ 无影响面）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ 本片是 B5-2 **第八项**。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS",
+      "title": "硬编码治理 · **「同名常量」B5-2 第九项**：`MAX_STREAM_AGE_MS` ×4 按渠道消歧（4 处全在 `channels/**` 的流式消息模块；取值 45000 / 60000 / 300000 / 900000 全不同）⇒ `lint:consts` **247 → 246 键（−1）**",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + B5-1①–⑤ / B5-2①–⑧ + `.trae/rules/code-deletion.md` CD07（`channels` 关键域：**仅改名不删**）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/channels/msteams/streaming-message.ts",
+        "app/src/channels/matrix/streaming-message.ts",
+        "app/src/channels/feishu/streaming-card.ts",
+        "app/src/channels/discord/streaming-message.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① **B5-2 续项**：`MAX_RECONNECT_ATTEMPTS`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先做全仓 grep**（含 `app/scripts`/`app/tests`；门禁扫描面只含 `app/src` + `client/src`，见 B5-2⑦ `reopenWhen` ②）再判定；**整键改完才消键**；② **四个渠道的「流存活窗口」是各上游约束**（Teams 45s / 飞书 60s / Matrix 300s / Discord 900s）⇒ **不得归一**；若将来做「渠道流式参数集中化」须**先证四个上游窗口语义可统一**（当前无证据）⇒ 已记；③ `channels/**` 属 **CD07 关键域** ⇒ 本片**仅改名、未删实现、未改数值**；④ 副本写回（任一处重新出现 `const MAX_STREAM_AGE_MS = `）⇒ 守卫或棘轮门禁（基线 246）立即阻断。",
+      "notes": "**取证（CS06）**：`MAX_STREAM_AGE_MS` **4 文件（各 2 处：1 定义 + 1 用例，共 8 处），全在 `app/src/channels/**`** —— `channels/msteams/streaming-message.ts:24` `45000` · `channels/matrix/streaming-message.ts:24` `300000` · `channels/feishu/streaming-card.ts:24` `60000` · `channels/discord/streaming-message.ts:24` `900000`；四处**注释同形**（`/** 流最大存活时间（毫秒） */`）⇒ 同一**概念**在四个渠道各有**上游不同的取值**。**判定**：取值**全不同**且受**各上游平台约束** ⇒ 属「**命名太泛**」⇒ **按渠道改名消歧**、**不得归一**（归一即改行为）。**全仓核验（按 B5-2⑦/⑧ 教训）**：该名**全仓仅这 4 文件 ×2**（含 `app/scripts`/`app/tests`/`client` 均已扫）⇒ **无同族超长名**（`[A-Za-z0-9_]MAX_STREAM_AGE_MS` 0 命中）⇒ `replace_all` 不误伤；4 处**均无 `export`** ⇒ 无消费面。**落地**：`MSTEAMS_MAX_STREAM_AGE_MS` · `MATRIX_MAX_STREAM_AGE_MS` · `FEISHU_MAX_STREAM_AGE_MS` · `DISCORD_MAX_STREAM_AGE_MS`；**4 个数值一字未改** ⇒ **零行为变化**。**效果（可证伪）**：`lint:consts` **247 → 246**（**−1 键**），门禁自报 `同名常量:MAX_STREAM_AGE_MS` **4 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 246 键**。**守卫**（第 **25** 例）：4 文件均不含 `const MAX_STREAM_AGE_MS = ` 且各含**确切新名 + 取值钉住**。**验证**：`typecheck`（app 三 tsconfig，含 scripts）**0**；守卫 **25 pass / 0 fail**；相关域（`tests/constants`+`tests/channels`+`src/channels` 与 `streaming-*`）**355 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① `channels/**` 属 **CD07 关键域** ⇒ **仅改名、未删实现、未改数值**；② **未做真机渠道走查**（4 个渠道的真实流式消息行为**未验**）⇒ `e2eVerified=false`；③ 未跑全量 `bun test`（app 侧仅相关域）；④ **未跑 client**（无 client 侧改动）；⑤ 本片是 B5-2 **第九项**。"
     }
   ]
 }

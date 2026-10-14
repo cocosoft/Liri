@@ -40,7 +40,7 @@ export interface CloudSTTConfig {
 }
 
 /** 默认配置 */
-const DEFAULT_CONFIG = {
+const CLOUD_STT_DEFAULT_CONFIG = {
   model: 'whisper-1',
   timeout: 60000,
 };
@@ -87,7 +87,7 @@ export class CloudSTTProvider implements STTProvider {
   private _pendingProbe: Promise<void> | null = null;
 
   constructor(config: CloudSTTConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...CLOUD_STT_DEFAULT_CONFIG, ...config };
   }
 
   /**

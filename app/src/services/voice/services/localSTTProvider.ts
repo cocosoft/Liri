@@ -75,7 +75,7 @@ export function buildWorkerScript(): string {
 }
 
 /** 默认配置 */
-const DEFAULT_CONFIG = {
+const LOCAL_STT_DEFAULT_CONFIG = {
   model: 'base',
   device: 'cpu',
   computeType: 'int8',
@@ -216,7 +216,7 @@ export class LocalSTTProvider implements STTProvider {
   } | null = null;
 
   constructor(config: LocalSTTConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...LOCAL_STT_DEFAULT_CONFIG, ...config };
   }
 
   /**

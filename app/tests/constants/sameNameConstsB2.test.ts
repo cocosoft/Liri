@@ -1139,4 +1139,37 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "const PATH_SHIELD_E2E_ENABLED = process.env.PERMISSION_SHIELD_E2E === '1';"
     );
   });
+
+  test('B5-2㉕：`DEFAULT_CONFIG` ×3 已按域消歧（内容一字未改）', () => {
+    // 门禁口径为 `^\s*(export )?const NAME =`（**无类型标注**、同行 `=`）
+    // ⇒ 本键的 3 个命中文件 = 三家 STT 提供者的默认配置
+    const items: Array<[string, string, string]> = [
+      [
+        'src/services/voice/services/cloudSTTProvider.ts',
+        'CLOUD_STT_DEFAULT_CONFIG',
+        "model: 'whisper-1'",
+      ],
+      [
+        'src/services/voice/services/localSTTProvider.ts',
+        'LOCAL_STT_DEFAULT_CONFIG',
+        "model: 'base'",
+      ],
+      [
+        'src/services/voice/services/senseVoiceSTTProvider.ts',
+        'SENSE_VOICE_STT_DEFAULT_CONFIG',
+        "model: 'SenseVoiceSmall'",
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_CONFIG\s*=/);
+      expect(src).toContain(`const ${name} = {`);
+      expect(src).toContain(value);
+      expect(src).toContain(`{ ...${name}, ...config }`);
+    }
+    // ⚠️ 同族**盲区观察**（仅登记，本片未动）：带类型写法 ⇒ 门禁正则看不见
+    expect(read('src/services/voice/services/streamSTTProvider.ts')).toContain(
+      'const DEFAULT_CONFIG: StreamSTTConfig = {'
+    );
+  });
 });

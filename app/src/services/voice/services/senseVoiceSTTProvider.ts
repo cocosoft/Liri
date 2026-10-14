@@ -72,7 +72,7 @@ function buildSenseVoiceWorkerScript(): string {
 }
 
 /** 默认配置 */
-const DEFAULT_CONFIG = {
+const SENSE_VOICE_STT_DEFAULT_CONFIG = {
   model: 'SenseVoiceSmall',
   device: 'cpu',
   pythonCmd: PYTHON_CMD,
@@ -171,7 +171,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
   } | null = null;
 
   constructor(config: SenseVoiceSTTConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.config = { ...SENSE_VOICE_STT_DEFAULT_CONFIG, ...config };
   }
 
   /**

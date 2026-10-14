@@ -145,7 +145,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     for (const [rel, name] of adapters) {
       const src = read(rel);
       expect(src).not.toMatch(/const CHANNEL =/);
-      expect(src).toContain(`const ${name} = `);
+      // 不含 `=` 后尾空格：prettier 可能因新名变长而把声明换行
+      expect(src).toContain(`const ${name} =`);
       expect(src).toContain(`[${name}]`);
     }
     for (const rel of [
@@ -250,7 +251,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     for (const [rel, name] of pairs) {
       const src = read(rel);
       expect(src).not.toMatch(/const DEFAULT_BASE_URL =/);
-      expect(src).toContain(`const ${name} = `);
+      // 不含 `=` 后尾空格：prettier 可能因新名变长而把声明换行
+      expect(src).toContain(`const ${name} =`);
     }
     const ollama = read('src/ai/providers/OllamaProvider.ts');
     expect(ollama).not.toContain('DEFAULT_BASE_URL');

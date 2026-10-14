@@ -39,7 +39,7 @@ import { verifyRequestAuth } from '../../LocalHTTPServiceHelpers';
 // app 层 `agent/a2a/types.ts` 原址转出），**值**（注册表 / Agent Card 构建 / etag / 任务台账）
 // 改经 **服务层端口** `getCoreAPI().getA2APort()`。
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { A2A_RPC_PATH } from '@modules/types/a2a';
+import { A2A_RPC_PATH, A2A_TASKS_PATH } from '@modules/types/a2a';
 import type { A2ATask } from '@modules/types/a2a';
 // T4 批次 E：JSON-RPC 绑定（含 SSE）与委派交付物构造已拆至 `a2a-rpc.ts`
 //（本文件保留 卡片 / 探针 / 自定义 REST + 委派核心）；依赖方向单向：本文件 → `a2a-rpc`
@@ -50,8 +50,9 @@ const logger = getLogger('http:a2a');
 
 /** A2A 规范的 Agent Card 发现路径 */
 const WELL_KNOWN_AGENT_CARD = '/.well-known/agent-card.json';
-/** 委派端点（本仓自定路径，非 A2A JSON-RPC 绑定；见 api-spec §3.8.2） */
-const TASKS_PATH = '/v1/a2a/tasks';
+// 委派端点（本仓自定路径，非 A2A JSON-RPC 绑定；见 api-spec §3.8.2）已**统一到真源**
+// `types/a2a.ts` 的 `A2A_TASKS_PATH` —— 硬编码治理「同名常量」B2b：原先本文件与
+// `a2a/discoverySidecar.ts` **各写一份**同名常量。
 /** 独立就绪探针（R11-3 D2；非 A2A 规范路径，本仓自定，见 api-spec §3.8.2） */
 const HEALTH_PATH = '/v1/a2a/health';
 /**
@@ -221,8 +222,8 @@ function isA2APath(url: string): boolean {
     url === WELL_KNOWN_AGENT_CARD ||
     url === HEALTH_PATH ||
     url === RPC_PATH ||
-    url === TASKS_PATH ||
-    url.startsWith(`${TASKS_PATH}/`)
+    url === A2A_TASKS_PATH ||
+    url.startsWith(`${A2A_TASKS_PATH}/`)
   );
 }
 
@@ -268,10 +269,10 @@ export async function dispatchA2ARoutes(
         (delegator as A2ADelegator)(message, agentId),
     });
   }
-  if (url === TASKS_PATH) {
+  if (url === A2A_TASKS_PATH) {
     return handleCreateTask(req, res);
   }
-  return handleGetTask(req, res, url.slice(TASKS_PATH.length + 1));
+  return handleGetTask(req, res, url.slice(A2A_TASKS_PATH.length + 1));
 }
 
 /** `GET /.well-known/agent-card.json` —— Agent Card（T1–T3） */

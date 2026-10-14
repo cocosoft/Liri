@@ -439,3 +439,12 @@ export const A2A_HEADER_EXTENSIONS = 'A2A-Extensions';
  * `supportedInterfaces[0].url`（`agentCard.ts`）**共用**本常量 ⇒ 不会漂移。
  */
 export const A2A_RPC_PATH = '/v1/a2a/rpc';
+
+/**
+ * A2A **委派端点路径**（本仓自定，非 A2A JSON-RPC 绑定；见 `api-spec` §3.8.2）。
+ *
+ * **单一事实源**（硬编码治理「同名常量」B2b）：原于 HTTP 路由（`a2a-routes.ts`）与发现
+ * sidecar（`a2a/discoverySidecar.ts`）**各写一份**同名 `TASKS_PATH`（后者的注释即写明
+ * 「与 `a2a-routes.ts` 同口径」）⇒ 现并入本文件 —— 与 `A2A_RPC_PATH` **同处**，沿用其既定先例。
+ */
+export const A2A_TASKS_PATH = '/v1/a2a/tasks';

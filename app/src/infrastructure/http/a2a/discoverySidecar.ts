@@ -42,6 +42,7 @@ import http from 'node:http';
 import readline from 'node:readline';
 import { getLogger } from '@modules/monitoring';
 import { LOCAL_HTTP_HOST } from '@modules/core';
+import { A2A_TASKS_PATH } from '@modules/types/a2a';
 import { isA2AAuthorized } from '../handlers/routes/a2a-routes';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
@@ -86,8 +87,8 @@ export interface DiscoveryServerDeps {
   delegate?: SidecarDelegate;
 }
 
-/** ① P3：委派端点路径（与 `a2a-routes.ts` 的 `TASKS_PATH` 同口径） */
-const TASKS_PATH = '/v1/a2a/tasks';
+// ① P3：委派端点路径已**统一到真源** `types/a2a.ts` 的 `A2A_TASKS_PATH`
+// —— 硬编码治理「同名常量」B2b（原先本文件与 `a2a-routes.ts` 各写一份同名常量）。
 
 function writeJson(
   res: http.ServerResponse,
@@ -117,7 +118,7 @@ export function startDiscoveryServer(
     const method = req.method ?? 'GET';
 
     // ① P3：委派端点（非只读）—— 经 IPC 回主进程内核执行，本进程**不自建 CoreAPI**
-    if (method === 'POST' && url === TASKS_PATH) {
+    if (method === 'POST' && url === A2A_TASKS_PATH) {
       if (!isA2AAuthorized(req)) {
         writeJson(res, 401, {
           error: { message: 'A2A 未授权：需 x-api-key 或 Bearer' },

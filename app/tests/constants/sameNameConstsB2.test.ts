@@ -1192,4 +1192,26 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const SESSION_LOCK_DEFAULT_TIMEOUT_MS = 30_000;'
     );
   });
+
+  test('B5-2㉗：`MAX_MESSAGES` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `MAX_MESSAGES` 取值各异、分属独立域（UI 回放 50 / LRO 取尾 12 / teammate 容量 500）
+    const items: Array<[string, string, string]> = [
+      [
+        '../client/src/components/views/office/OfficeChatPanel.tsx',
+        'OFFICE_CHAT_MAX_MESSAGES',
+        '50',
+      ],
+      ['src/tasks/LongRunningTaskOrchestrator.ts', 'LRO_MAX_MESSAGES', '12'],
+      ['src/tasks/InProcessTeammateTask.ts', 'TEAMMATE_MAX_MESSAGES', '500'],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/(^|[^_A-Za-z])const MAX_MESSAGES\s*=/);
+      expect(src).toContain(`const ${name} = ${value};`);
+    }
+    // 同族**非本键**名仍在（不得误伤）：session 裁剪的 `DEFAULT_MAX_MESSAGES`
+    expect(read('src/session/pruning/CountBasedPruner.ts')).toContain(
+      'const DEFAULT_MAX_MESSAGES = 500;'
+    );
+  });
 });

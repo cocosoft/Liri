@@ -209,11 +209,11 @@ function buildTaorStepResult(
   stats: { turns: number; tokens: number; elapsedMs: number }
 ): string {
   const MAX_MSG_CHARS = 800;
-  const MAX_MESSAGES = 12;
+  const LRO_MAX_MESSAGES = 12;
   const lines: string[] = [
     `[TAORLoop] turns=${stats.turns} tokens=${stats.tokens} elapsed=${stats.elapsedMs}ms`,
   ];
-  for (const m of messages.slice(-MAX_MESSAGES)) {
+  for (const m of messages.slice(-LRO_MAX_MESSAGES)) {
     const text =
       typeof m.content === 'string'
         ? m.content

@@ -16,7 +16,7 @@ import { useOfficeStore, type ChatMessage } from "../../../stores/officeStore";
 /** localStorage 存储键 */
 const CHAT_STORAGE_KEY = "liri-office-chat-messages";
 /** 聊天消息上限 */
-const MAX_MESSAGES = 50;
+const OFFICE_CHAT_MAX_MESSAGES = 50;
 
 /** 从 localStorage 恢复消息 */
 function loadMessages(): ChatMessage[] {
@@ -24,7 +24,7 @@ function loadMessages(): ChatMessage[] {
     const raw = localStorage.getItem(CHAT_STORAGE_KEY);
     if (!raw) return [];
     const msgs = JSON.parse(raw) as ChatMessage[];
-    return msgs.slice(-MAX_MESSAGES);
+    return msgs.slice(-OFFICE_CHAT_MAX_MESSAGES);
   } catch {
     return [];
   }
@@ -35,7 +35,7 @@ function saveMessages(msgs: ChatMessage[]) {
   try {
     localStorage.setItem(
       CHAT_STORAGE_KEY,
-      JSON.stringify(msgs.slice(-MAX_MESSAGES)),
+      JSON.stringify(msgs.slice(-OFFICE_CHAT_MAX_MESSAGES)),
     );
   } catch {
     // localStorage 满时静默失败

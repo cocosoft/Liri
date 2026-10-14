@@ -58,12 +58,12 @@ export interface InProcessTeammateTaskState {
   lastReportedTokenCount: number;
 }
 
-const MAX_MESSAGES = 500;
+const TEAMMATE_MAX_MESSAGES = 500;
 
 function appendCappedMessage(messages: Message[], message: Message): Message[] {
   const updated = [...messages, message];
-  if (updated.length > MAX_MESSAGES) {
-    return updated.slice(updated.length - MAX_MESSAGES);
+  if (updated.length > TEAMMATE_MAX_MESSAGES) {
+    return updated.slice(updated.length - TEAMMATE_MAX_MESSAGES);
   }
   return updated;
 }

@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第十四项：`MIN_INITIAL_CHARS` ×3 按渠道消歧 —— `lint:consts` 242 → 241 键（−1）**
+  - 判定：3 处取值各异、各属独立渠道流式首帧阈值 ⇒ `DISCORD_MIN_INITIAL_CHARS`（`10`）· `MATRIX_MIN_INITIAL_CHARS`（`15`）· `MSTEAMS_MIN_INITIAL_CHARS`（`20`）；**数值一字未改**。
+  - 全仓核验：该名全仓仅 6 处命中（定义 1 + 用法 1 ×3），**全在这 3 个文件内**（无 `export`、无消费面）⇒ **零跨文件复改**。
+  - 验证：守卫 30 pass / 0 fail · `typecheck` 0 · 5 门禁 exit 0；`e2eVerified=false`（未做真机渠道走查）。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十三项：`DISPLAY_PREFIX` ×3 按域消歧 —— `lint:consts` 243 → 242 键（−1）**
   - 判定：3 处取值各异、各属独立媒体类型 ⇒ `AUDIO_DISPLAY_PREFIX`（`/v1/audio/static/`）· `IMAGE_DISPLAY_PREFIX`（`/v1/images/static/media/`）· `VIDEO_DISPLAY_PREFIX`（`/v1/videos/static/`）；**数值一字未改**。
   - 全仓核验：该名全仓仅 10 处命中，**全在这 3 个文件内**（无 `export`、无消费面）⇒ **零跨文件复改**。

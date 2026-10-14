@@ -82,7 +82,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B2b：AES-256-GCM 参数真源在 oauth/utils/OAuthCrypto.ts；两 store 以别名引用（加密实现逐字不动）', () => {
     const truth = read('src/oauth/utils/OAuthCrypto.ts');
-    expect(truth).toMatch(/export const OAUTH_CIPHER_ALGORITHM = 'aes-256-gcm';/);
+    expect(truth).toMatch(
+      /export const OAUTH_CIPHER_ALGORITHM = 'aes-256-gcm';/
+    );
     expect(truth).toMatch(/export const OAUTH_CIPHER_IV_LENGTH = 16;/);
     expect(truth).toMatch(/export const OAUTH_CIPHER_AUTH_TAG_LENGTH = 16;/);
     expect(truth).toMatch(/export const OAUTH_CIPHER_KEY_LENGTH = 32;/);

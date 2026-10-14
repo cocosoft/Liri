@@ -19,6 +19,12 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第十九项：`COLORS` ×3 按域消歧 —— `lint:consts` 237 → 236 键（−1）**
+  - 判定：3 处内容各异、分属独立域 ⇒ `TOAST_TYPE_COLORS`（toast 样式表 · `ToastContainer.tsx`）· `CANVAS_TOOLBAR_COLORS`（画布 8 色调色板 · `CanvasToolbar.tsx`）· `AVATAR_COLORS`（头像底色 8 色 · `Avatar.tsx`）；**内容一字未改**。
+  - 全仓核验：3 处全为文件内私有（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `*_COLORS`（`PROVIDER_COLORS`/`TYPE_COLORS`/`EVENT_COLORS` 等）**未动**（守卫正向钉住）。
+  - 本片**跨 `client/` + `app/` 双侧**⇒ 两侧 `typecheck` 均 0 错。
+  - ⚠️ **既有红（与本片无关）**：`client` 全量测试 180 fail / 12 error —— 经 **stash 对照**（撤掉本片 2 处 client 改动后同为 180 fail）证明为**改动前既有**，本片不引入、不修（已在台账如实登记）。
+  - 验证：守卫 35 pass / 0 fail · app/client typecheck 0 · 5 门禁 exit 0；`e2eVerified=false`（未做真机目视）。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十八项：`SUBCOMMANDS` ×3 按域消歧 —— `lint:consts` 238 → 237 键（−1）**
   - 判定：3 处子命令清单分属 3 个命令模块 ⇒ `NOTEBOOK_SUBCOMMANDS`（`10` 项 · `commands/tools/dev/notebook.ts`）· `AGENTS_SUBCOMMANDS`（`4` 项 · `commands/tools/ai/agents.ts`）· `AGENT_SUBCOMMANDS`（`5` 项 · `commands/tools/ai/agent.ts`，其报错文本自述为 `/subagent-run`）；**取值一字未改**。
   - 全仓核验：3 处全为文件内私有（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `GIT_SUBCOMMANDS` / `GIT_READ_ONLY_SUBCOMMANDS`（`security/**`）**未动**。

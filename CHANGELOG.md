@@ -19,6 +19,11 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第十八项：`SUBCOMMANDS` ×3 按域消歧 —— `lint:consts` 238 → 237 键（−1）**
+  - 判定：3 处子命令清单分属 3 个命令模块 ⇒ `NOTEBOOK_SUBCOMMANDS`（`10` 项 · `commands/tools/dev/notebook.ts`）· `AGENTS_SUBCOMMANDS`（`4` 项 · `commands/tools/ai/agents.ts`）· `AGENT_SUBCOMMANDS`（`5` 项 · `commands/tools/ai/agent.ts`，其报错文本自述为 `/subagent-run`）；**取值一字未改**。
+  - 全仓核验：3 处全为文件内私有（无 `export`、无消费面）⇒ **零跨文件复改**；同族非本键 `GIT_SUBCOMMANDS` / `GIT_READ_ONLY_SUBCOMMANDS`（`security/**`）**未动**。
+  - ⚠️ **新发现（仅登记，未处理）**：`agents.ts` 的 `AGENTS_SUBCOMMANDS` **本文件内零引用** ⇒ 疑死常量，本片**只改名不删**（删除须过 CD01–CD06）。
+  - 验证：守卫 34 pass / 0 fail · `typecheck` 0 · `tests/commands` 13 pass / 0 fail · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十七项：`MAX_DEPTH` ×3 按域消歧 —— `lint:consts` 239 → 238 键（−1）**
   - 判定：3 处定义分属独立域 ⇒ `PHASE_STACK_MAX_DEPTH`（`64`，诊断相位栈上限）· `FILES_MAX_DEPTH`（`4`，`/files` 递归守卫）· `PROJECT_ARTIFACT_MAX_DEPTH`（`4`，工件扫描）；**数值一字未改**。
   - 全仓核验：3 处全为文件内私有（无 `export`、无消费面）⇒ **零跨文件复改**；另把 **tests 侧同名局部别名**一并消歧（`SUBAGENT_MAX_DEPTH`，非门禁扫描面）；同族非本键 `DEFAULT_ROOT_CAUSE_MAX_DEPTH`（systemgraph 导出真源）**未动**。

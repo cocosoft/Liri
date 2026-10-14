@@ -813,4 +813,30 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const IDLE_TIMEOUT_MS = '
     );
   });
+
+  test('B5-2⑬：`DISPLAY_PREFIX` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `DISPLAY_PREFIX` **全为文件内私有**（无 export/消费面），取值各异
+    const items: Array<[string, string, string]> = [
+      [
+        'src/tools/AudioUrlHelper.ts',
+        'AUDIO_DISPLAY_PREFIX',
+        "'/v1/audio/static/'",
+      ],
+      [
+        'src/tools/ImageUrlHelper.ts',
+        'IMAGE_DISPLAY_PREFIX',
+        "'/v1/images/static/media/'",
+      ],
+      [
+        'src/tools/VideoUrlHelper.ts',
+        'VIDEO_DISPLAY_PREFIX',
+        "'/v1/videos/static/'",
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const DISPLAY_PREFIX = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

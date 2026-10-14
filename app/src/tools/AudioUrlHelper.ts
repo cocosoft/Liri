@@ -14,19 +14,19 @@ function extractFilename(input: string): string | null {
   return match ? match[0] : null;
 }
 
-const DISPLAY_PREFIX = '/v1/audio/static/';
+const AUDIO_DISPLAY_PREFIX = '/v1/audio/static/';
 
 export class AudioUrlHelper {
   static toDisplayUrl(input: string): string {
     const filename = extractFilename(input);
     if (!filename) return input;
-    return `${DISPLAY_PREFIX}${filename}`;
+    return `${AUDIO_DISPLAY_PREFIX}${filename}`;
   }
 
   static toDisplayUrlOrNull(input: string): string | null {
     const filename = extractFilename(input);
     if (!filename) return null;
-    return `${DISPLAY_PREFIX}${filename}`;
+    return `${AUDIO_DISPLAY_PREFIX}${filename}`;
   }
 
   static extractFilename(input: string): string | null {

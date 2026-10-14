@@ -12,19 +12,19 @@ function extractFilename(input: string): string | null {
   return match ? match[0] : null;
 }
 
-const DISPLAY_PREFIX = '/v1/videos/static/';
+const VIDEO_DISPLAY_PREFIX = '/v1/videos/static/';
 
 export class VideoUrlHelper {
   static toDisplayUrl(input: string): string {
     const filename = extractFilename(input);
     if (!filename) return input;
-    return `${DISPLAY_PREFIX}${filename}`;
+    return `${VIDEO_DISPLAY_PREFIX}${filename}`;
   }
 
   static toDisplayUrlOrNull(input: string): string | null {
     const filename = extractFilename(input);
     if (!filename) return null;
-    return `${DISPLAY_PREFIX}${filename}`;
+    return `${VIDEO_DISPLAY_PREFIX}${filename}`;
   }
 
   static extractFilename(input: string): string | null {

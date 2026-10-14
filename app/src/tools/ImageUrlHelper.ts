@@ -23,7 +23,7 @@ function extractFilename(input: string): string | null {
 }
 
 /** /v1/images/static/ 前缀 */
-const DISPLAY_PREFIX = '/v1/images/static/media/';
+const IMAGE_DISPLAY_PREFIX = '/v1/images/static/media/';
 
 export class ImageUrlHelper {
   /**
@@ -44,7 +44,7 @@ export class ImageUrlHelper {
   static toDisplayUrl(input: string): string {
     const filename = extractFilename(input);
     if (!filename) return input;
-    return `${DISPLAY_PREFIX}${filename}`;
+    return `${IMAGE_DISPLAY_PREFIX}${filename}`;
   }
 
   /**
@@ -53,7 +53,7 @@ export class ImageUrlHelper {
   static toDisplayUrlOrNull(input: string): string | null {
     const filename = extractFilename(input);
     if (!filename) return null;
-    return `${DISPLAY_PREFIX}${filename}`;
+    return `${IMAGE_DISPLAY_PREFIX}${filename}`;
   }
 
   /**
@@ -96,7 +96,7 @@ export class ImageUrlHelper {
     //    匹配 Windows 绝对路径中的图片，如 E:\...\filename.png
     content = content.replace(
       /[A-Za-z]:[\\\/][^\s"'<>\]]*?[\\\/]([\w._-]+\.(?:png|jpg|jpeg|webp|gif))/gi,
-      (_fullMatch: string, filename: string) => `${DISPLAY_PREFIX}${filename}`
+      (_fullMatch: string, filename: string) => `${IMAGE_DISPLAY_PREFIX}${filename}`
     );
 
     return content;

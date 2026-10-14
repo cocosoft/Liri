@@ -112,7 +112,6 @@
     "同名常量:READ_ONLY_TOOLS": 2,
     "同名常量:MAX_MESSAGES": 3,
     "同名常量:VERIFICATION_AGENT_TYPE": 2,
-    "同名常量:DISPLAY_PREFIX": 3,
     "同名常量:DANGEROUS_COMMANDS": 2,
     "同名常量:BASH_SEARCH_COMMANDS": 2,
     "同名常量:BASH_READ_COMMANDS": 2,

@@ -12,10 +12,8 @@
 import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
+import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
 const logger = getLogger('voice:edgeTTS:transport');
-
-/** WebSocket GUID（RFC 6455） */
-const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 /** WebSocket 操作码 */
 export const enum WsOpcode {
@@ -62,7 +60,7 @@ function generateWsKey(): string {
  */
 function computeWsAccept(key: string): string {
   const hash = createHash('sha1')
-    .update(key + WS_GUID)
+    .update(key + WEBSOCKET_MAGIC_GUID)
     .digest();
   return hash.toString('base64');
 }

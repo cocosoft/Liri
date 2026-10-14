@@ -28,8 +28,7 @@
 
 import * as crypto from 'crypto';
 
-/** RFC 6455 WebSocket 魔术 GUID */
-export const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
 
 /** WebSocket 操作码 */
 export const enum OpCode {
@@ -64,7 +63,7 @@ export interface ParsedFrame {
 export function computeAcceptHash(key: string): string {
   return crypto
     .createHash('sha1')
-    .update(key + MAGIC_GUID)
+    .update(key + WEBSOCKET_MAGIC_GUID)
     .digest('base64');
 }
 

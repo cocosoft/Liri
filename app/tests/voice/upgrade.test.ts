@@ -15,7 +15,7 @@ import {
 } from '../../src/voice/upgrade.js';
 
 /** WebSocket 魔术 GUID */
-const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const RFC6455_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 describe('isWebSocketUpgrade', () => {
   it('检测 Upgrade: websocket 请求头', () => {
@@ -153,7 +153,7 @@ describe('upgradeToVoiceConnection', () => {
   it('验证 Accept Key 生成格式', () => {
     const key = 'dGhlIHNhbXBsZSBub25jZQ==';
     const expectedAccept = createHash('sha1')
-      .update(key + MAGIC_GUID)
+      .update(key + RFC6455_MAGIC_GUID)
       .digest('base64');
 
     expect(expectedAccept).toBeTruthy();

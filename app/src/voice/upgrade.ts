@@ -14,10 +14,9 @@ import type {
   VoiceServerEvent,
 } from './types';
 
-const logger = getLogger('voice:upgrade');
+import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
 
-/** WebSocket 魔术 GUID (RFC 6455) */
-const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const logger = getLogger('voice:upgrade');
 
 /** 操作码 */
 const enum OpCode {
@@ -63,7 +62,7 @@ export function isWebSocketUpgrade(req: IncomingMessage): boolean {
  */
 function generateAcceptKey(key: string): string {
   const sha1 = createHash('sha1');
-  sha1.update(key + MAGIC_GUID);
+  sha1.update(key + WEBSOCKET_MAGIC_GUID);
   return sha1.digest('base64');
 }
 

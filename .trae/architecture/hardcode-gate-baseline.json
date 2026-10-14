@@ -1,6 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:MAGIC_GUID": 3,
     "同名常量:UUID_RE": 2,
     "同名常量:MAX_POLL_TIME": 2,
     "同名常量:DEFAULT_INTERVAL_MS": 2,

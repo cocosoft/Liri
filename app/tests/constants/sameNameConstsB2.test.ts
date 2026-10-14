@@ -1214,4 +1214,41 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const DEFAULT_MAX_MESSAGES = 500;'
     );
   });
+
+  test('B5-2㉘：`MAGIC_GUID` 已合一到 core 层真源（RFC 6455；取值一字未改）', () => {
+    // 真源：core 层（纯常量、零 import ⇒ 满足 core 只依赖 core）
+    const src = read('src/core/protocol/websocket.ts');
+    expect(src).toContain(
+      "export const WEBSOCKET_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';"
+    );
+    expect(src).toContain("export const SEC_WEBSOCKET_VERSION = '13';");
+    expect(src).not.toMatch(/^import /m); // 零 import（不读 config / 不引上层）
+    // 规范出口（R03-002）：经 core barrel 导出
+    expect(read('src/core/index.ts')).toContain(
+      "export * from './protocol/websocket';"
+    );
+    // 4 处副本全部改为引用真源（含曾 `export` 的 acp，其**零消费者** ⇒ 一并收掉导出）
+    const consumers: Array<[string, string]> = [
+      ['src/acp/websocket.ts', 'MAGIC_GUID'],
+      ['src/voice/upgrade.ts', 'MAGIC_GUID'],
+      ['src/voice/WakeWebSocketServer.ts', 'MAGIC_GUID'],
+      ['src/services/voice/services/edgeTTSTransport.ts', 'WS_GUID'],
+    ];
+    for (const [rel, oldName] of consumers) {
+      const consumer = read(rel);
+      expect(consumer).not.toMatch(
+        new RegExp(`(^|[^_A-Za-z])const ${oldName}\\s*=`)
+      );
+      expect(consumer).toContain(
+        "import { WEBSOCKET_MAGIC_GUID } from '@modules/core';"
+      );
+      expect(consumer).toContain('WEBSOCKET_MAGIC_GUID');
+    }
+    // 测试侧同名字面量一并消歧（避免全仓再出现 `const MAGIC_GUID =`）
+    const testSrc = read('tests/voice/upgrade.test.ts');
+    expect(testSrc).not.toMatch(/(^|[^_A-Za-z])const MAGIC_GUID\s*=/);
+    expect(testSrc).toContain(
+      "const RFC6455_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';"
+    );
+  });
 });

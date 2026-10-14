@@ -19,6 +19,11 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第二十一项：`DEFAULT_MAX_RESULT_SIZE_CHARS` 收敛单一真源 —— `lint:consts` 235 → 234 键（−1）**
+  - 判定：三处**同值同事实**（均 `50000` / `50_000`）⇒ 不再「消歧」而是**合一**（沿用 B2 `BYTES_PER_TOKEN` 的既有形态）。
+  - 处置：① 真源 = `constants/toolLimits.ts`（**保留**，唯一定义处）；② `context/budget/ToolResultBudget.ts` 私有副本 ⇒ 删本地、改**引用真源**；③ `services/toolResultStorage/types.ts` ⇒ **仅保留导出面**（`export { … } from '@modules/constants'`，消费者零改动）。
+  - 旁证：同文件的 `MAX_TOOL_RESULT_BYTES`/`MAX_TOOL_RESULTS_PER_MESSAGE_CHARS` 与真源**值不同**（1e6 vs 4e5 · 25e4 vs 2e5）⇒ 属**别的键**，本片未动（已记入 `reopenWhen`）。
+  - 验证：守卫 37 pass / 0 fail · `typecheck` 0 · `tests/context`+`tests/services` 119 pass / 0 fail · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十项：`BINARY_EXTENSIONS` 三定义文件 ⇒ 1（真源保留 / 同文件两副本合一 / 按域消歧）—— `lint:consts` 236 → 235 键（−1）**
   - 判定（**门禁按「定义文件数」计**，故 4 处定义 = 3）：三处实为**两个不同事实 + 一处同文件重复**。
   - 处置：① `constants/files.ts` 为**导出真源**（媒体/压缩类，自用 `hasBinaryExtension`）⇒ **保留原名**（唯一真源）；② `knowledge-handlers.ts` 内**两处逐字相同**的函数级副本 ⇒ **合一**为模块级 `KNOWLEDGE_CONVERT_BINARY_EXTENSIONS`（文档转换类），4 个消费点改指新名；③ `FileReadTool.ts` 自带**不同**清单（26 项）⇒ 按域消歧 `FILE_READ_BINARY_EXTENSIONS`。**内容一字未改**。

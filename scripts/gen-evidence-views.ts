@@ -19,7 +19,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import {
   DETAIL_REF_PREFIX,
@@ -218,8 +218,11 @@ function main(): void {
   }
 
   const verified = VERIFY_IDX >= 0 ? verify(items) : -1;
-  writeFileSync(REGISTRY, regText, 'utf-8');
-  writeFileSync(DOC, docText, 'utf-8');
+  // `EVIDENCE_VIEWS_OUT_DIR`：输出到指定目录（供 **drift 门禁** 生成到临时目录比对，不污染工作区）
+  const outDir = process.env.EVIDENCE_VIEWS_OUT_DIR;
+  const out = (p: string): string => (outDir ? join(outDir, basename(p)) : p);
+  writeFileSync(out(REGISTRY), regText, 'utf-8');
+  writeFileSync(out(DOC), docText, 'utf-8');
   console.log(
     `[gen-evidence] ✅ items=${items.length} · registryLines=${regText.split('\n').length} (max ${maxReg}) · ` +
       `docLines=${docText.split('\n').length} (max ${maxDoc})` +

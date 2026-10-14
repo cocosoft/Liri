@@ -35,17 +35,25 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('CHANNEL_TAG 真源在 constants/xml.ts；消费侧只保留导出面（不再定义）', () => {
-    expect(read('src/constants/xml.ts')).toMatch(/export const CHANNEL_TAG = 'channel';/);
+    expect(read('src/constants/xml.ts')).toMatch(
+      /export const CHANNEL_TAG = 'channel';/
+    );
     const parser = read('src/chat/ChannelMessageParser.ts');
     expect(parser).not.toMatch(/const CHANNEL_TAG =/);
-    expect(parser).toContain("import { CHANNEL_TAG } from '@modules/constants';");
+    expect(parser).toContain(
+      "import { CHANNEL_TAG } from '@modules/constants';"
+    );
     expect(parser).toContain('export { CHANNEL_TAG };');
   });
 
   test('BYTES_PER_TOKEN 真源在 constants/toolLimits.ts；消费侧只保留导出面（不再定义）', () => {
-    expect(read('src/constants/toolLimits.ts')).toMatch(/export const BYTES_PER_TOKEN = 4;/);
+    expect(read('src/constants/toolLimits.ts')).toMatch(
+      /export const BYTES_PER_TOKEN = 4;/
+    );
     const types = read('src/services/toolResultStorage/types.ts');
     expect(types).not.toMatch(/const BYTES_PER_TOKEN =/);
-    expect(types).toContain("export { BYTES_PER_TOKEN } from '@modules/constants';");
+    expect(types).toContain(
+      "export { BYTES_PER_TOKEN } from '@modules/constants';"
+    );
   });
 });

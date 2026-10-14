@@ -22,7 +22,7 @@ export interface LockAcquireResult {
   acquiredAt?: number;
 }
 
-const DEFAULT_TIMEOUT = 30000;
+const SESSION_LOCK_ACQUIRE_TIMEOUT_MS = 30000;
 const DEFAULT_RETRY_INTERVAL = 100;
 const DEFAULT_STALE_THRESHOLD = 60000;
 
@@ -37,7 +37,7 @@ export class SessionLock {
 
   constructor(options: LockOptions = {}) {
     this.lockDir = options.lockDir ?? join(tmpdir(), 'Liri', 'session_locks');
-    this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
+    this.timeout = options.timeout ?? SESSION_LOCK_ACQUIRE_TIMEOUT_MS;
     this.retryInterval = options.retryInterval ?? DEFAULT_RETRY_INTERVAL;
     this.staleThreshold = options.staleThreshold ?? DEFAULT_STALE_THRESHOLD;
     this.instanceId = `${process.pid}-${Date.now()}-${randomIdSuffix(6)}`;

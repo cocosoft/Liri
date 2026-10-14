@@ -4,7 +4,7 @@ import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
 import { ENDPOINTS } from "./endpoints";
 
-const DEFAULT_TIMEOUT = 30_000;
+const TOOL_CALL_DEFAULT_TIMEOUT_MS = 30_000;
 
 const isTauri =
   typeof window !== "undefined" &&
@@ -59,7 +59,7 @@ export const toolService = {
     opts?: ToolExecuteOptions,
   ): Promise<unknown> => {
     return getOTelTracing().asyncWrap("services:tool:execute", async () => {
-      const timeout = opts?.timeout ?? DEFAULT_TIMEOUT;
+      const timeout = opts?.timeout ?? TOOL_CALL_DEFAULT_TIMEOUT_MS;
       const prevTimeout = setHttpTimeout(timeout);
 
       try {

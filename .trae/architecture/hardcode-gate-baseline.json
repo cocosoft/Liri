@@ -94,7 +94,6 @@
     "同名常量:DEFAULT_THRESHOLD": 2,
     "同名常量:MEMORY_TEMPLATE": 2,
     "同名常量:MEMORY_FILE": 2,
-    "同名常量:DEFAULT_TIMEOUT": 3,
     "同名常量:CHECKPOINT_TABLE": 2,
     "同名常量:FILE_NAME": 2,
     "同名常量:REGISTRY_PREFIX": 2,

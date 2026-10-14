@@ -1172,4 +1172,24 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const DEFAULT_CONFIG: StreamSTTConfig = {'
     );
   });
+
+  test('B5-2㉖：`DEFAULT_TIMEOUT` ×3 已按域消歧（取值一字未改）', () => {
+    // **声明处保留**：client services 层通用 HTTP 超时（零外部消费者，保留原语义位）
+    expect(read('../client/src/services/httpUtils.ts')).toContain(
+      'export const DEFAULT_TIMEOUT = 30_000;'
+    );
+    // toolService：工具调用超时 ⇒ 消歧（不引入行为耦合）
+    const tool = read('../client/src/services/toolService.ts');
+    expect(tool).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_TIMEOUT\s*=/);
+    expect(tool).toContain('const TOOL_CALL_DEFAULT_TIMEOUT_MS = 30_000;');
+    expect(tool).toContain('opts?.timeout ?? TOOL_CALL_DEFAULT_TIMEOUT_MS');
+    // SessionLock（`app/src/session/**` = **CD07 关键域** ⇒ 仅改名、不删实现）：
+    // 取锁超时 ⇒ 消歧；名字**避开**既有 `SESSION_LOCK_DEFAULT_TIMEOUT_MS`（免生新同名键）
+    const lock = read('src/session/SessionLock.ts');
+    expect(lock).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_TIMEOUT\s*=/);
+    expect(lock).toContain('const SESSION_LOCK_ACQUIRE_TIMEOUT_MS = 30000;');
+    expect(read('src/session/lock/PrioritySessionLock.ts')).toContain(
+      'const SESSION_LOCK_DEFAULT_TIMEOUT_MS = 30_000;'
+    );
+  });
 });

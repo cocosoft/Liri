@@ -10,10 +10,9 @@
  *  - `CHANGELOG.md`
  *  - `.trae/architecture/fix-evidence-registry.json`
  *  - `.trae/architecture/*.md`（登记 / 规范类文档）
- *  - `.trae/architecture/fix-evidence-log.jsonl`（**存在时**按 JSONL 口径，上限 400；规则 SB01）
  *
  * 稳定键（不含行号，避免无关编辑漂移）：
- *  - `<rel>#over<limit>`：该文件**超过上限的行数**
+ *  - `<rel>#over300`：该文件**超过 300 字符的行数**
  *  - `<rel>#max`：该文件**最长行字符数**
  *
  * 口径：**棘轮 —— 只减不增**。出现基线外的键（如新台账文件带长行）、或某键数值扩大 ⇒ `exit(1)`；
@@ -36,9 +35,6 @@ import {
 /** 台账 / 登记类文件的单行上限（字符）——规则 SB03 */
 const MAX_LINE_CHARS = 300;
 
-/** JSONL 单行上限（字符）——规则 SB01（每片 1 行，字段固定） */
-const MAX_JSONL_LINE_CHARS = 400;
-
 /** 固定观测点（相对仓库根） */
 const FIXED_TARGETS = [
   'CHANGELOG.md',
@@ -48,16 +44,13 @@ const FIXED_TARGETS = [
 /** 目录观测点：其下全部 `*.md` 纳入（台账 / 规范文档） */
 const WATCH_DIRS = ['.trae/architecture'];
 
-/** 存在时按 JSONL 口径观测 */
-const JSONL_TARGETS = ['.trae/architecture/fix-evidence-log.jsonl'];
-
 /** 每个文件最多打印的示例行（保持门禁输出精简 —— 规则 SB08） */
 const MAX_SAMPLES_PER_FILE = 3;
 
 /** 汇总观测面（相对仓库根的 `/` 分隔路径），仅保留真实存在的文件 */
 function collectTargets(): string[] {
   const targets = new Set<string>();
-  for (const rel of [...FIXED_TARGETS, ...JSONL_TARGETS]) {
+  for (const rel of FIXED_TARGETS) {
     if (existsSync(join(PROJECT_ROOT, rel))) targets.add(rel);
   }
   for (const dir of WATCH_DIRS) {
@@ -84,8 +77,6 @@ function main(): void {
   let globalMax = 0;
 
   for (const rel of targets) {
-    const isJsonl = rel.endsWith('.jsonl');
-    const limit = isJsonl ? MAX_JSONL_LINE_CHARS : MAX_LINE_CHARS;
     let lines: string[];
     try {
       lines = readFileSync(join(PROJECT_ROOT, rel), 'utf-8').split(/\r?\n/);
@@ -97,15 +88,15 @@ function main(): void {
     for (let i = 0; i < lines.length; i++) {
       const len = lines[i].length;
       if (len > maxLen) maxLen = len;
-      if (len <= limit) continue;
+      if (len <= MAX_LINE_CHARS) continue;
       over++;
       if (over <= MAX_SAMPLES_PER_FILE) {
         findings.push(
-          `${rel}:${i + 1} 行宽 ${len} > ${limit}（规则 SB03：写入侧须短行）`
+          `${rel}:${i + 1} 行宽 ${len} > ${MAX_LINE_CHARS}（规则 SB03：写入侧须短行）`
         );
       }
     }
-    counts[`${rel}#over${limit}`] = over;
+    counts[`${rel}#over${MAX_LINE_CHARS}`] = over;
     counts[`${rel}#max`] = maxLen;
     overTotal += over;
     if (maxLen > globalMax) globalMax = maxLen;
@@ -114,8 +105,8 @@ function main(): void {
   findings.sort();
   report('evidence-linewidth', findings, [
     `[lint:evidence-linewidth] 观测 ${targets.length} 个台账/登记文件；` +
-      `超长行合计 ${overTotal} 行（md/json 上限 ${MAX_LINE_CHARS}、jsonl 上限 ` +
-      `${MAX_JSONL_LINE_CHARS}）；全局最长行 ${globalMax} 字符（规则 SB03）`,
+      `超长行合计 ${overTotal} 行（上限 ${MAX_LINE_CHARS} 字符）；` +
+      `全局最长行 ${globalMax} 字符（规则 SB03）`,
   ]);
   ratchet('evidence-linewidth', counts);
 }

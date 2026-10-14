@@ -12,33 +12,15 @@ import {
 } from '../types';
 import { debugBody, extractErrorDetail } from '../utils/debugUtils';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+// A8（退避默认值合一）：`BackoffConfig` 与 `DEFAULT_BACKOFF_CONFIG` 的**唯一声明点**在
+// `bridge/types/BridgeApiTypes.ts`（本文件原先**自带一份同值副本** ⇒ 已删，改为引用）
+import {
+  type BackoffConfig,
+  DEFAULT_BACKOFF_CONFIG,
+} from '../types/BridgeApiTypes';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('bridge\api\BridgeApi');
-
-/**
- * 指数退避配置
- */
-interface BackoffConfig {
-  /** 初始退避时间（毫秒） */
-  initialMs: number;
-  /** 最大退避时间（毫秒） */
-  maxMs: number;
-  /** 退避乘数 */
-  multiplier: number;
-  /** 最大重试次数 */
-  maxRetries: number;
-}
-
-/**
- * 默认退避配置
- */
-const DEFAULT_BACKOFF_CONFIG: BackoffConfig = {
-  initialMs: 1000,
-  maxMs: 30000,
-  multiplier: 2,
-  maxRetries: 5,
-};
 
 /**
  * 执行指数退避等待

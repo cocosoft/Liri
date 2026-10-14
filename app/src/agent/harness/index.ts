@@ -25,6 +25,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+// A8（退避默认值合一）：重试次数默认值取自唯一真源 `utils/withRetry.ts`
+import { DEFAULT_RETRY_CONFIG } from '@modules/utils/withRetry';
 const logger = getLogger('agent:harness:index');
 
 export type HookName =
@@ -134,7 +136,7 @@ export class AgentHarness {
   constructor(config: HarnessConfig, registry: HarnessRegistry) {
     this.config = {
       agentId: config.agentId,
-      maxRetries: config.maxRetries ?? 3,
+      maxRetries: config.maxRetries ?? DEFAULT_RETRY_CONFIG.maxRetries,
       timeout: config.timeout ?? 30000,
       autoInit: config.autoInit ?? true,
     };

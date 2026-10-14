@@ -9,7 +9,7 @@ import { getLogger } from '@modules/monitoring';
 import { buildUserAgent } from '@modules/constants';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/core/paths';
-import { withRetry } from '@modules/utils/withRetry';
+import { withRetry, DEFAULT_RETRY_CONFIG } from '@modules/utils/withRetry';
 import { checkSsrf, describeSsrfBlock } from '@modules/tools';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import * as crypto from 'crypto';
@@ -36,7 +36,10 @@ function envStr(key: string, fallback: string): string {
 const DEFAULT_MAX_SIZE = envInt('IMAGE_DOWNLOAD_MAX_SIZE_MB', 50) * 1024 * 1024;
 
 /** 默认重试次数，可通过 IMAGE_DOWNLOAD_MAX_RETRIES 覆盖 */
-const DEFAULT_MAX_RETRIES = envInt('IMAGE_DOWNLOAD_MAX_RETRIES', 3);
+const DEFAULT_MAX_RETRIES = envInt(
+  'IMAGE_DOWNLOAD_MAX_RETRIES',
+  DEFAULT_RETRY_CONFIG.maxRetries
+);
 
 /** 默认重试退避基准（ms），可通过 IMAGE_DOWNLOAD_RETRY_DELAY_MS 覆盖 */
 const DEFAULT_RETRY_DELAY_MS = envInt('IMAGE_DOWNLOAD_RETRY_DELAY_MS', 2000);

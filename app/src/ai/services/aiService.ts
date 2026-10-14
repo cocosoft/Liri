@@ -23,6 +23,8 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
+// A8（退避默认值合一）：重试次数默认值取自唯一真源 `utils/withRetry.ts`
+import { DEFAULT_RETRY_CONFIG } from '@modules/utils/withRetry';
 import {
   createDefaultScrubberPipeline,
   type ScrubberPipeline,
@@ -400,7 +402,7 @@ export function createAIService(
       '',
     baseUrl: '',
     timeout: 60000,
-    maxRetries: 3,
+    maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
   };
 
   return new AIServiceImpl({ ...defaultConfig, ...config });
@@ -434,7 +436,7 @@ export function createAIServiceWithScrubbing(
       '',
     baseUrl: '',
     timeout: 60000,
-    maxRetries: 3,
+    maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
     ...config,
   });
 

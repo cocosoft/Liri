@@ -512,7 +512,9 @@ ${overlay}`;
           try {
             const entries = readdirSync(sandboxPath, { withFileTypes: true });
             const BUILTIN_SECTION_MAX_FILES = 20;
-            const files = entries.filter((e) => e.isFile()).slice(0, BUILTIN_SECTION_MAX_FILES);
+            const files = entries
+              .filter((e) => e.isFile())
+              .slice(0, BUILTIN_SECTION_MAX_FILES);
             const dirs = entries
               .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
               .slice(0, 5);
@@ -537,7 +539,10 @@ ${overlay}`;
                   lines.push(`- ${f.name}`);
                 }
               }
-              if (entries.filter((e) => e.isFile()).length > BUILTIN_SECTION_MAX_FILES) {
+              if (
+                entries.filter((e) => e.isFile()).length >
+                BUILTIN_SECTION_MAX_FILES
+              ) {
                 lines.push(
                   `(+${entries.filter((e) => e.isFile()).length - BUILTIN_SECTION_MAX_FILES} 个文件未列出)`
                 );

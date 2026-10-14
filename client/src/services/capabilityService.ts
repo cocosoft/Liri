@@ -72,11 +72,11 @@ interface CapabilityCache {
 }
 
 let cache: CapabilityCache | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+const CAPABILITY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 
 /** 获取缓存的能力列表 */
 function getCachedCapabilities(): ModelCapabilityDefinition[] {
-  if (!cache || Date.now() - cache.lastUpdated > CACHE_TTL) {
+  if (!cache || Date.now() - cache.lastUpdated > CAPABILITY_CACHE_TTL_MS) {
     return [];
   }
   return cache.capabilities;
@@ -84,7 +84,7 @@ function getCachedCapabilities(): ModelCapabilityDefinition[] {
 
 /** 获取缓存的分类列表 */
 function getCachedCategories(): CapabilityCategoryDefinition[] {
-  if (!cache || Date.now() - cache.lastUpdated > CACHE_TTL) {
+  if (!cache || Date.now() - cache.lastUpdated > CAPABILITY_CACHE_TTL_MS) {
     return [];
   }
   return cache.categories;

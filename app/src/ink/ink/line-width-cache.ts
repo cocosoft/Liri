@@ -12,13 +12,13 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const LINE_WIDTH_CACHE_MAX_ENTRIES = 1000;
-const CACHE_TTL = 60000;
+const LINE_WIDTH_CACHE_TTL_MS = 60000;
 
 export function getLineWidth(text: string): number {
   const now = Date.now();
 
   const cached = cache.get(text);
-  if (cached && now - cached.timestamp < CACHE_TTL) {
+  if (cached && now - cached.timestamp < LINE_WIDTH_CACHE_TTL_MS) {
     return cached.width;
   }
 
@@ -55,7 +55,7 @@ export function getCacheSize(): number {
 export function pruneStaleCache(): void {
   const now = Date.now();
   for (const [key, entry] of cache.entries()) {
-    if (now - entry.timestamp >= CACHE_TTL) {
+    if (now - entry.timestamp >= LINE_WIDTH_CACHE_TTL_MS) {
       cache.delete(key);
     }
   }

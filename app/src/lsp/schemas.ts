@@ -17,7 +17,7 @@ import type {
  * 缓存配置
  */
 const CACHE_SIZE = 1000;
-const CACHE_TTL = 60000; // 60秒
+const LSP_SCHEMA_CACHE_TTL_MS = 60000; // 60秒
 
 /**
  * 缓存条目类型
@@ -55,7 +55,7 @@ function getCachedValue<T>(
   key: string
 ): T | undefined {
   const entry = cache.get(key);
-  if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
+  if (entry && Date.now() - entry.timestamp < LSP_SCHEMA_CACHE_TTL_MS) {
     return entry.value;
   }
   if (entry) {

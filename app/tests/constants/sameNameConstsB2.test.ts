@@ -568,4 +568,27 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2⑤：`CACHE_TTL` ×4 已按域消歧（取值一字未改）', () => {
+    // 4 处同名 `CACHE_TTL`：ink 行宽缓存 60s · LSP schema 缓存 60s · 缩略图 30min · 能力列表 5min
+    const items: Array<[string, string, string]> = [
+      ['src/ink/ink/line-width-cache.ts', 'LINE_WIDTH_CACHE_TTL_MS', '60000'],
+      ['src/lsp/schemas.ts', 'LSP_SCHEMA_CACHE_TTL_MS', '60000'],
+      [
+        '../client/src/components/views/media/thumbCache.ts',
+        'THUMB_CACHE_TTL_MS',
+        '30 * 60 * 1000',
+      ],
+      [
+        '../client/src/services/capabilityService.ts',
+        'CAPABILITY_CACHE_TTL_MS',
+        '5 * 60 * 1000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const CACHE_TTL = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+  });
 });

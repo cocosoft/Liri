@@ -8,7 +8,7 @@
  *   - 后续加载：直接从缓存读取 base64，无需网络请求
  */
 
-const CACHE_TTL = 30 * 60 * 1000; // 30 分钟
+const THUMB_CACHE_TTL_MS = 30 * 60 * 1000; // 30 分钟
 const STORAGE_PREFIX = "pyapp_thumb:";
 const MAX_STORAGE_ENTRIES = 200; // 最多缓存 200 张缩略图
 
@@ -31,7 +31,7 @@ export function getCachedThumb(url: string): string | null {
     const raw = localStorage.getItem(STORAGE_PREFIX + url);
     if (raw) {
       const entry: CacheEntry = JSON.parse(raw);
-      if (Date.now() - entry.ts < CACHE_TTL) {
+      if (Date.now() - entry.ts < THUMB_CACHE_TTL_MS) {
         memCache.set(url, entry.data);
         return entry.data;
       }

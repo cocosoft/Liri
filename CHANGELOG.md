@@ -19,6 +19,11 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**
+  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。
+  - **口径澄清（重要）**：门禁正则 `^\s*(export )?const NAME\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。
+  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（bridge / voice / config-enterprise / core / ai-python / agent / utils / client…）⇒ 建议单独裁定（扩门禁正则 或 单批统一）。
+  - 验证：守卫 41 pass / 0 fail · `typecheck` 0 · `tests/services`+`tests/voice` 201 pass / 0 fail · 5 门禁 exit 0；`e2eVerified=false`。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十四项：`ENABLED` ×3 按域消歧 —— `lint:consts` 232 → 231 键（−1）**
   - 判定：3 处取值均为 **env 表达式**、各属独立模块开关（全为文件内私有）⇒ `MEM_PROFILE_ENABLED`（`MEM_PROFILE === '1'`，内存画像）· `MEM_PRESSURE_ENABLED`（`MEM_PRESSURE !== '0'`，内存压力）· `QUERY_PROFILER_ENABLED`（`Liri_PROFILE_QUERY === '1'`，查询分析器）；**表达式一字未改**。
   - 附带：**tests 侧同名别名**一并消歧（`pathShieldSandboxE2E.test.ts` 的 `ENABLED` → `PATH_SHIELD_E2E_ENABLED`，非门禁扫描面）⇒ 全仓不再有同名定义。

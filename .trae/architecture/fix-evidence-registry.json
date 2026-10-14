@@ -3548,6 +3548,24 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三处开关日后要**集中到统一 featureFlags 真源** ⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（231 键）阻断。",
       "notes": "取证：3 处同名 `ENABLED` **全为文件内私有**（无 export 面）；取值均为 **env 表达式**（`MEM_PROFILE === '1'` · `MEM_PRESSURE !== '0'` · `Liri_PROFILE_QUERY === '1'`）⇒ 按域消歧、**表达式一字未改**。含 **tests 侧同名别名**一并消歧（`PATH_SHIELD_E2E_ENABLED`）。效果：232 → 231 键。验证：typecheck 0 · 守卫 40 pass · 域测试 378 pass · 5 门禁 exit 0。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG",
+      "title": "硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧（cloud / local / senseVoice 三家 STT 提供者）⇒ `lint:consts` 231 → 230 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/services/voice/services/cloudSTTProvider.ts",
+        "app/src/services/voice/services/localSTTProvider.ts",
+        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② **门禁盲区**（带类型同名定义：全仓 16+ 处）是否扩门禁正则 / 单独批次统一 ⇒ 须用户裁定；③ 副本写回 ⇒ 守卫或棘轮（230 键）阻断。",
+      "notes": "取证：门禁正则**只认无类型标注**的同类定义 ⇒ 本键恰为 3 家 STT 提供者（形状各异）⇒ 按域消歧、**内容一字未改**（`{ ...新名, ...config }` 用法同步）。⚠️ **盲区**：带类型写法（`const X: T =`）门禁看不见，全仓仍有 16+ 处 ⇒ 已登记、本片未动。效果：231 → 230 键。验证：typecheck 0 · 守卫 41 pass · 域测试 201 pass · 5 门禁 exit 0。"
     }
   ]
 }

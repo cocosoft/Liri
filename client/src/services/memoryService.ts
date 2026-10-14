@@ -1,4 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { getBackendBaseUrl } from "./backendUrl";
 
 export type MemoryType =
@@ -119,7 +120,7 @@ const memoryService = {
   async list(
     params?: MemoryListParams,
   ): Promise<{ memories: Memory[]; total: number }> {
-    const url = new URL("/v1/memory", getBackendBaseUrl());
+    const url = new URL(ENDPOINTS.memory.base, getBackendBaseUrl());
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -139,7 +140,7 @@ const memoryService = {
     const response = await http.get<{
       success: boolean;
       memory: BackendMemory;
-    }>(`/v1/memory/${id}`);
+    }>(ENDPOINTS.memory.byId(id));
     return toClientMemory(response.memory);
   },
 
@@ -149,7 +150,7 @@ const memoryService = {
     const response = await http.post<{
       success: boolean;
       memory: BackendMemory;
-    }>("/v1/memory", memory);
+    }>(ENDPOINTS.memory.base, memory);
     return toClientMemory(response.memory);
   },
 
@@ -157,26 +158,26 @@ const memoryService = {
     const response = await http.put<{
       success: boolean;
       memory: BackendMemory;
-    }>(`/v1/memory/${id}`, updates);
+    }>(ENDPOINTS.memory.byId(id), updates);
     return toClientMemory(response.memory);
   },
 
   async delete(id: string): Promise<void> {
-    await http.delete<{ success: boolean }>(`/v1/memory/${id}`);
+    await http.delete<{ success: boolean }>(ENDPOINTS.memory.byId(id));
   },
 
   async deleteAll(): Promise<number> {
     const response = await http.delete<{
       success: boolean;
       deletedCount: number;
-    }>("/v1/memory");
+    }>(ENDPOINTS.memory.base);
     return response.deletedCount;
   },
 
   async search(
     params: MemorySearchParams,
   ): Promise<{ results: MemorySearchResult[]; total: number }> {
-    const url = new URL("/v1/memory/search", getBackendBaseUrl());
+    const url = new URL(ENDPOINTS.memory.search, getBackendBaseUrl());
     if (params.query) url.searchParams.set("query", params.query);
     if (params.type) url.searchParams.set("type", params.type);
     if (params.limit) url.searchParams.set("limit", String(params.limit));
@@ -200,7 +201,7 @@ const memoryService = {
     const response = await http.get<{
       success: boolean;
       summary: BackendSummary;
-    }>(`/v1/memory/${id}/summary`);
+    }>(ENDPOINTS.memory.summary(id));
     return response.summary;
   },
 
@@ -208,7 +209,7 @@ const memoryService = {
     const response = await http.get<{
       success: boolean;
       weights: MemoryWeight[];
-    }>("/v1/memory/weights");
+    }>(ENDPOINTS.memory.weights);
     return response.weights || [];
   },
 
@@ -216,7 +217,7 @@ const memoryService = {
     const response = await http.get<{
       success: boolean;
       stats: MemorySystemStats;
-    }>("/v1/memory/stats");
+    }>(ENDPOINTS.memory.stats);
     return response.stats;
   },
 
@@ -231,7 +232,7 @@ const memoryService = {
         remainingCount: number;
         reindexed: boolean;
       };
-    }>("/v1/memory/sync");
+    }>(ENDPOINTS.memory.sync);
     return {
       cleanedCount: response.result.cleanedCount,
       remainingCount: response.result.remainingCount,
@@ -251,7 +252,7 @@ const memoryService = {
         spaceSaved: number;
         removedIds: string[];
       };
-    }>("/v1/memory/consolidate");
+    }>(ENDPOINTS.memory.consolidate);
     return {
       duplicateGroups: response.result.duplicateGroups,
       totalRemoved: response.result.totalRemoved,
@@ -268,7 +269,7 @@ const memoryService = {
     const response = await http.post<{
       success: boolean;
       memory: BackendMemory;
-    }>("/v1/memory/create-from-file", { filePath, name, tags });
+    }>(ENDPOINTS.memory.createFromFile, { filePath, name, tags });
     return toClientMemory(response.memory);
   },
 
@@ -310,7 +311,7 @@ const memoryService = {
           mergedPairs: number;
         }>;
       };
-    }>("/v1/memory/dream");
+    }>(ENDPOINTS.memory.dream);
     return response.result;
   },
 
@@ -350,7 +351,7 @@ const memoryService = {
     if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
 
     const query = searchParams.toString();
-    const url = `/v1/memory/dream/cycles${query ? `?${query}` : ""}`;
+    const url = `${ENDPOINTS.memory.dreamCycles}${query ? `?${query}` : ""}`;
 
     const response = await http.get<{
       success: boolean;
@@ -425,7 +426,7 @@ const memoryService = {
         soulConflicts: number;
         userConflicts: number;
       };
-    }>(`/v1/memory/dream/cycles/${cycleId}`);
+    }>(ENDPOINTS.memory.dreamCycle(cycleId));
     return response.cycle;
   },
 };

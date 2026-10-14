@@ -4,6 +4,7 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import type {
   ProviderInfo,
   ProviderFormData,
@@ -16,21 +17,26 @@ import type {
 export const providerService = {
   /** 获取所有供应商 */
   async list(): Promise<ProviderInfo[]> {
-    const resp = await http.get<{ data: ProviderInfo[] }>("/v1/providers");
+    const resp = await http.get<{ data: ProviderInfo[] }>(
+      ENDPOINTS.providers.base,
+    );
     return resp?.data ?? [];
   },
 
   /** 获取单个供应商 */
   async get(id: string): Promise<ProviderInfo> {
     const resp = await http.get<{ data: ProviderInfo }>(
-      `/v1/providers/${encodeURIComponent(id)}`,
+      ENDPOINTS.providers.byIdEncoded(id),
     );
     return resp.data;
   },
 
   /** 创建供应商 */
   async create(data: ProviderFormData): Promise<ProviderInfo> {
-    const resp = await http.post<{ data: ProviderInfo }>("/v1/providers", data);
+    const resp = await http.post<{ data: ProviderInfo }>(
+      ENDPOINTS.providers.base,
+      data,
+    );
     return resp.data;
   },
 
@@ -40,7 +46,7 @@ export const providerService = {
     data: Partial<ProviderFormData>,
   ): Promise<ProviderInfo> {
     const resp = await http.put<{ data: ProviderInfo }>(
-      `/v1/providers/${encodeURIComponent(id)}`,
+      ENDPOINTS.providers.byIdEncoded(id),
       data,
     );
     return resp.data;
@@ -55,14 +61,14 @@ export const providerService = {
     const resp = await http.delete<{
       success?: boolean;
       disabledModels?: string[];
-    }>(`/v1/providers/${encodeURIComponent(id)}`);
+    }>(ENDPOINTS.providers.byIdEncoded(id));
     return { disabledModels: resp?.disabledModels ?? [] };
   },
 
   /** 切换启用/停用 */
   async toggle(id: string): Promise<ProviderInfo> {
     const resp = await http.post<{ data: ProviderInfo }>(
-      `/v1/providers/${encodeURIComponent(id)}/toggle`,
+      ENDPOINTS.providers.toggle(id),
     );
     return resp.data;
   },
@@ -73,7 +79,7 @@ export const providerService = {
   ): Promise<{ provider: string; results: EndpointLatency[] }> {
     const resp = await http.get<{
       data: { provider: string; results: EndpointLatency[] };
-    }>(`/v1/providers/${encodeURIComponent(id)}/test`);
+    }>(ENDPOINTS.providers.test(id));
     return resp.data;
   },
 
@@ -99,9 +105,7 @@ export const providerService = {
     if (options?.page) params.set("page", String(options.page));
     if (options?.pageSize) params.set("pageSize", String(options.pageSize));
     if (options?.search) params.set("search", options.search);
-    return http.get(
-      `/v1/providers/${encodeURIComponent(id)}/models?${params.toString()}`,
-    );
+    return http.get(`${ENDPOINTS.providers.models(id)}?${params.toString()}`);
   },
 
   /** 供应商统计 */
@@ -116,7 +120,7 @@ export const providerService = {
         total: number;
         active: number;
       };
-    }>("/v1/providers/stats");
+    }>(ENDPOINTS.providers.stats);
     return resp.data;
   },
 
@@ -124,7 +128,7 @@ export const providerService = {
   async getPresets(): Promise<Record<string, unknown[]>> {
     try {
       const resp = await http.get<{ data: Record<string, unknown[]> }>(
-        "/v1/providers/presets",
+        ENDPOINTS.providers.presets,
       );
       return resp?.data ?? {};
     } catch {
@@ -171,7 +175,7 @@ export const providerService = {
         createdAt: string;
         updatedAt: string;
       };
-    }>("/v1/models", data);
+    }>(ENDPOINTS.models.base, data);
     return resp.data;
   },
 
@@ -182,7 +186,7 @@ export const providerService = {
   ): Promise<{ imported: number }> {
     const resp = await http.post<{
       data: { imported: number };
-    }>("/v1/models/bulk-import", { modelIds, providerId });
+    }>(ENDPOINTS.models.bulkImport, { modelIds, providerId });
     return resp.data;
   },
 };

@@ -5,6 +5,7 @@
  */
 
 import { http, type HttpClientConfig } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import i18n from "../i18n";
 
 export type LlamaServerStatus =
@@ -146,7 +147,7 @@ export const llamaService = {
   /** 查询集成状态（含 GGUF 模型列表） */
   async getStatus(): Promise<LlamaStatus> {
     const res = await http.get<{ success: boolean; status: LlamaStatus }>(
-      "/v1/llama/status",
+      ENDPOINTS.llama.status,
     );
     if (!res.ok)
       throw new Error(
@@ -163,7 +164,7 @@ export const llamaService = {
       success: boolean;
       config: LlamaConfig;
       status: LlamaStatus;
-    }>("/v1/llama/config");
+    }>(ENDPOINTS.llama.config);
     if (!res.ok)
       throw new Error(
         res.error?.message ?? i18n.t("settings.llamaService.configFetchFailed"),
@@ -176,7 +177,7 @@ export const llamaService = {
   /** 保存专业配置（后端校验 + 持久化 config.json llama 段） */
   async saveConfig(config: Partial<LlamaConfig>): Promise<LlamaConfig> {
     const res = await http.put<{ success: boolean; config: LlamaConfig }>(
-      "/v1/llama/config",
+      ENDPOINTS.llama.config,
       config,
     );
     if (!res.ok)
@@ -190,7 +191,7 @@ export const llamaService = {
 
   /** 应用配置并重启服务 */
   async restart(): Promise<void> {
-    const res = await http.post<{ success: boolean }>("/v1/llama/restart");
+    const res = await http.post<{ success: boolean }>(ENDPOINTS.llama.restart);
     if (!res.ok)
       throw new Error(
         res.error?.message ?? i18n.t("settings.llamaService.restartFailed"),
@@ -207,7 +208,7 @@ export const llamaService = {
       success: boolean;
       remainingProcesses: number;
       message: string;
-    }>("/v1/llama/force-kill");
+    }>(ENDPOINTS.llama.forceKill);
     if (!res.ok)
       throw new Error(
         res.error?.message ?? i18n.t("settings.llamaService.forceKillFailed"),
@@ -230,7 +231,7 @@ export const llamaService = {
       status: string;
       message: string;
       error?: string;
-    }>("/v1/llama/force-restart");
+    }>(ENDPOINTS.llama.forceRestart);
     if (!res.ok)
       throw new Error(
         res.error?.message ??
@@ -247,7 +248,7 @@ export const llamaService = {
   /** 获取 llama-server 日志 */
   async getLogs(lines = 200): Promise<string> {
     const res = await http.get<{ success: boolean; logs: string }>(
-      `/v1/llama/logs?lines=${lines}`,
+      `${ENDPOINTS.llama.logs}?lines=${lines}`,
     );
     if (!res.ok)
       throw new Error(
@@ -274,7 +275,7 @@ export const llamaService = {
     // 注入密钥（原直连 fetch 依赖 getApiSecret，BackendStatus.secret 回收后恒空）。
     // event: initial/log 由 http.stream 解析回传，此处仅分发。
     return http.stream(
-      `/v1/llama/logs/stream?initialLines=${initialLines}`,
+      `${ENDPOINTS.llama.logsStream}?initialLines=${initialLines}`,
       (payload, eventName = "message") => {
         try {
           const parsed = JSON.parse(payload);
@@ -302,7 +303,7 @@ export const llamaService = {
     const res = await http.get<{
       success: boolean;
       hardware: LlamaHardwareInfo;
-    }>("/v1/llama/hardware", { params });
+    }>(ENDPOINTS.llama.hardware, { params });
     if (!res.ok)
       throw new Error(
         res.error?.message ??
@@ -318,7 +319,7 @@ export const llamaService = {
     const res = await http.get<{
       success: boolean;
       recommendations: LlamaModelRecommendation[];
-    }>("/v1/llama/recommendations");
+    }>(ENDPOINTS.llama.recommendations);
     if (!res.ok)
       throw new Error(
         res.error?.message ??
@@ -341,7 +342,7 @@ export const llamaService = {
       success: boolean;
       deleted: string;
       message: string;
-    }>(`/v1/llama/models/${encodeURIComponent(filename)}`);
+    }>(ENDPOINTS.llama.modelByFilename(filename));
     if (!res.ok)
       throw new Error(
         res.error?.message ?? i18n.t("settings.llamaService.modelDeleteFailed"),
@@ -371,7 +372,7 @@ export const llamaService = {
     },
   ): Promise<AbortController> {
     return postSseRequest(
-      "/v1/llama/migrate",
+      ENDPOINTS.llama.migrate,
       params,
       (event: LlamaSseEvent) => {
         switch (event.event) {
@@ -397,7 +398,7 @@ export const llamaService = {
   /** 取消正在进行的迁移（通知后端 abort，幂等） */
   async cancelMigration(): Promise<void> {
     const res = await http.post<{ success: boolean; message: string }>(
-      "/v1/llama/migrate/cancel",
+      ENDPOINTS.llama.migrateCancel,
     );
     if (!res.ok)
       throw new Error(
@@ -424,7 +425,7 @@ export const llamaService = {
   ): Promise<AbortController> {
     const { onProgress, onComplete, onError } = options;
     return postSseRequest(
-      "/v1/llama/download",
+      ENDPOINTS.llama.download,
       { ...model, autoStart: options.autoStart },
       (event: LlamaSseEvent) => {
         switch (event.event) {

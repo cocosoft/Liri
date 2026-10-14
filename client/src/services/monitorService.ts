@@ -1,4 +1,5 @@
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import i18n from "../i18n";
 import type { MetricPoint, Alert, LogEntry, SystemHealth } from "../types";
 
@@ -104,21 +105,23 @@ export interface AnalyticsDashboardData {
 
 export const monitorService = {
   async getMetrics(timeRange: number = 3600000): Promise<MetricsData> {
-    return http.get<MetricsData>(`/v1/monitor/metrics?range=${timeRange}`);
+    return http.get<MetricsData>(
+      `${ENDPOINTS.monitor.metrics}?range=${timeRange}`,
+    );
   },
 
   async getSummary(): Promise<MonitorSummary> {
-    return http.get<MonitorSummary>("/v1/monitor/summary");
+    return http.get<MonitorSummary>(ENDPOINTS.monitor.summary);
   },
 
   async getAlerts(acknowledged?: boolean): Promise<Alert[]> {
     const params =
       acknowledged !== undefined ? `?acknowledged=${acknowledged}` : "";
-    return http.get<Alert[]>(`/v1/monitor/alerts${params}`);
+    return http.get<Alert[]>(`${ENDPOINTS.monitor.alerts}${params}`);
   },
 
   async acknowledgeAlert(id: string): Promise<void> {
-    return http.post(`/v1/monitor/alerts/${id}/acknowledge`, {});
+    return http.post(ENDPOINTS.monitor.acknowledgeAlert(id), {});
   },
 
   async getLogs(params: {
@@ -141,16 +144,16 @@ export const monitorService = {
     if (params.offset) searchParams.set("offset", String(params.offset));
 
     return http.get<{ logs: LogEntry[]; total: number }>(
-      `/v1/monitor/logs?${searchParams.toString()}`,
+      `${ENDPOINTS.monitor.logs}?${searchParams.toString()}`,
     );
   },
 
   async getSystemHealth(): Promise<SystemHealth> {
-    return http.get<SystemHealth>("/v1/health/report");
+    return http.get<SystemHealth>(ENDPOINTS.health.report);
   },
 
   async getAnalyticsDashboard(): Promise<AnalyticsDashboardData> {
-    return http.get<AnalyticsDashboardData>("/v1/analytics/dashboard");
+    return http.get<AnalyticsDashboardData>(ENDPOINTS.analytics.dashboard);
   },
 
   async getSessions(params: {
@@ -162,12 +165,12 @@ export const monitorService = {
     if (params.offset) searchParams.set("offset", String(params.offset));
 
     return http.get<{ sessions: SessionSummary[]; total: number }>(
-      `/v1/monitor/sessions?${searchParams.toString()}`,
+      `${ENDPOINTS.monitor.sessions}?${searchParams.toString()}`,
     );
   },
 
   async getSessionDetail(sessionId: string): Promise<SessionDetail> {
-    return http.get<SessionDetail>(`/v1/monitor/sessions/${sessionId}`);
+    return http.get<SessionDetail>(ENDPOINTS.monitor.sessionDetail(sessionId));
   },
 
   async exportLogs(params: {
@@ -178,7 +181,7 @@ export const monitorService = {
   }): Promise<Blob> {
     // 加固部署鉴权专项（2026-08-30）：原直连 fetch 无鉴权头 → LIRI_API_SECRET 下必 401。
     // 改走统一 http 客户端（Tauri 走 Rust http_proxy 注入 X-API-Key）。
-    const res = await apiHttp.post<Blob>("/v1/monitor/logs/export", params, {
+    const res = await apiHttp.post<Blob>(ENDPOINTS.monitor.logsExport, params, {
       responseType: "blob",
     });
     if (!res.ok) {

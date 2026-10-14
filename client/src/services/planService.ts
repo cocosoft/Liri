@@ -3,6 +3,7 @@
  * 对应后端 LocalHTTPService 中的 Plans & Flows / PDCA / Kanban 处理器
  */
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 
 /* ========== 计划管理 ========== */
 
@@ -63,7 +64,7 @@ export const planService = {
   /** 获取计划列表；传入 workspaceId 时按项目过滤 */
   list: async (workspaceId?: string): Promise<Plan[]> => {
     const res = await http.get<Plan[] | PlanListResponse>(
-      "/v1/plans",
+      ENDPOINTS.plans.base,
       workspaceId ? { params: { workspaceId } } : undefined,
     );
     if (Array.isArray(res)) return res;
@@ -77,7 +78,7 @@ export const planService = {
       // 后端 handleGetPlan 返回 { plan, progress } 包裹结构（此前未解包，
       // 类型断言掩盖导致返回值无 id/steps，刷新恢复等消费方拿不到真实 Plan）
       const res = await http.get<{ plan: Plan; progress?: unknown }>(
-        `/v1/plans/${encodeURIComponent(id)}`,
+        ENDPOINTS.plans.byIdEncoded(id),
       );
       return res?.plan ?? null;
     } catch {
@@ -88,7 +89,7 @@ export const planService = {
   /** 创建计划 */
   create: async (input: CreatePlanInput): Promise<Plan | null> => {
     try {
-      const res = await http.post<Plan>("/v1/plans", input);
+      const res = await http.post<Plan>(ENDPOINTS.plans.base, input);
       return res ?? (null as Plan | null);
     } catch {
       return null;
@@ -98,7 +99,7 @@ export const planService = {
   /** 执行计划 */
   execute: async (id: string): Promise<boolean> => {
     try {
-      await http.post(`/v1/plans/${encodeURIComponent(id)}/execute`, {});
+      await http.post(ENDPOINTS.plans.execute(id), {});
       return true;
     } catch {
       return false;
@@ -108,7 +109,7 @@ export const planService = {
   /** 中止计划 */
   abort: async (id: string): Promise<boolean> => {
     try {
-      await http.post(`/v1/plans/${encodeURIComponent(id)}/abort`, {});
+      await http.post(ENDPOINTS.plans.abort(id), {});
       return true;
     } catch {
       return false;
@@ -118,9 +119,7 @@ export const planService = {
   /** P2（08-09）：获取计划的 DAG 结构 */
   getDAG: async (id: string): Promise<DAGData | null> => {
     try {
-      const res = await http.get<DAGData>(
-        `/v1/plans/${encodeURIComponent(id)}/dag`,
-      );
+      const res = await http.get<DAGData>(ENDPOINTS.plans.dag(id));
       return res ?? (null as DAGData | null);
     } catch {
       return null;
@@ -159,7 +158,7 @@ export const pdcaService = {
   list: async (projectId?: string): Promise<PdcaStatus[]> => {
     try {
       const res = await http.post<PdcaStatus[] | { data?: PdcaStatus[] }>(
-        "/v1/pdca/list",
+        ENDPOINTS.pdca.list,
         projectId ? { projectId } : {},
       );
       if (Array.isArray(res)) return res;
@@ -173,9 +172,7 @@ export const pdcaService = {
   /** 获取 PDCA 状态 */
   getStatus: async (id: string): Promise<PdcaStatus | null> => {
     try {
-      const res = await http.get<PdcaStatus>(
-        `/v1/pdca/${encodeURIComponent(id)}`,
-      );
+      const res = await http.get<PdcaStatus>(ENDPOINTS.pdca.byIdEncoded(id));
       return res ?? (null as PdcaStatus | null);
     } catch {
       return null;
@@ -188,7 +185,7 @@ export const pdcaService = {
     sessionId?: string,
   ): Promise<string | null> => {
     try {
-      const res = await http.post<{ taskId: string }>("/v1/pdca/start", {
+      const res = await http.post<{ taskId: string }>(ENDPOINTS.pdca.start, {
         description,
         sessionId,
       });
@@ -218,7 +215,7 @@ export const kanbanService = {
   /** 获取所有看板卡片 */
   list: async (): Promise<KanbanCard[]> => {
     const res = await http.get<KanbanCard[] | { data: KanbanCard[] }>(
-      "/v1/kanban",
+      ENDPOINTS.kanban.base,
     );
     if (Array.isArray(res)) return res;
     if (res?.data && Array.isArray(res.data)) return res.data;
@@ -232,7 +229,7 @@ export const kanbanService = {
     priority?: string;
   }): Promise<boolean> => {
     try {
-      await http.post("/v1/kanban", card);
+      await http.post(ENDPOINTS.kanban.base, card);
       return true;
     } catch {
       return false;
@@ -242,7 +239,7 @@ export const kanbanService = {
   /** 更新卡片 */
   update: async (id: string, data: Partial<KanbanCard>): Promise<boolean> => {
     try {
-      await http.put(`/v1/kanban/${encodeURIComponent(id)}`, data);
+      await http.put(ENDPOINTS.kanban.byIdEncoded(id), data);
       return true;
     } catch {
       return false;
@@ -252,7 +249,7 @@ export const kanbanService = {
   /** 删除卡片 */
   delete: async (id: string): Promise<boolean> => {
     try {
-      await http.delete(`/v1/kanban/${encodeURIComponent(id)}`);
+      await http.delete(ENDPOINTS.kanban.byIdEncoded(id));
       return true;
     } catch {
       return false;
@@ -262,7 +259,7 @@ export const kanbanService = {
   /** 移动卡片到其他列 */
   move: async (id: string, columnId: string): Promise<boolean> => {
     try {
-      await http.post(`/v1/kanban/${encodeURIComponent(id)}/move`, {
+      await http.post(ENDPOINTS.kanban.move(id), {
         columnId,
       });
       return true;
@@ -279,10 +276,13 @@ export const researchService = {
     sessionId?: string,
   ): Promise<string | null> => {
     try {
-      const res = await http.post<{ taskId: string }>("/v1/research/start", {
-        description,
-        sessionId,
-      });
+      const res = await http.post<{ taskId: string }>(
+        ENDPOINTS.research.start,
+        {
+          description,
+          sessionId,
+        },
+      );
       return (res as { taskId?: string } | null)?.taskId ?? null;
     } catch {
       return null;
@@ -339,7 +339,7 @@ export const patternService = {
    */
   async list(): Promise<OrchestrationPattern[]> {
     const res = await http.get<{ patterns: OrchestrationPattern[] }>(
-      "/v1/patterns",
+      ENDPOINTS.patterns.base,
     );
     return (
       (res as { patterns?: OrchestrationPattern[] } | null)?.patterns ?? []
@@ -352,6 +352,6 @@ export const patternService = {
    * POST（有写盘副作用）；返回落盘**绝对路径**供 UI 回显。失败时抛出（不静默）。
    */
   async exportSnapshot(): Promise<PatternCatalogSnapshotResult> {
-    return http.post<PatternCatalogSnapshotResult>("/v1/patterns/export");
+    return http.post<PatternCatalogSnapshotResult>(ENDPOINTS.patterns.export);
   },
 };

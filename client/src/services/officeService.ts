@@ -4,6 +4,7 @@
  */
 
 import { http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import type {
   DocStatusResponse,
   MailConfigPayload,
@@ -20,23 +21,23 @@ export const officeService = {
   // ==================== 文档 ====================
 
   getDocStatus: () =>
-    http.get<ApiEnvelope<DocStatusResponse>>("/v1/doc/status"),
+    http.get<ApiEnvelope<DocStatusResponse>>(ENDPOINTS.doc.status),
 
   // ==================== OfficeCLI 安装管理 ====================
 
   /** 获取 OfficeCLI 安装状态（检测结果 + 安装进度 + 版本约束） */
   getOfficeCLIStatus: () =>
-    http.get<ApiEnvelope<OfficeCliInstallStatus>>("/v1/officecli/status"),
+    http.get<ApiEnvelope<OfficeCliInstallStatus>>(ENDPOINTS.officecli.status),
 
   /** 触发 OfficeCLI 安装（异步后台执行，返回当前状态） */
   installOfficeCLI: () =>
-    http.post<ApiEnvelope<OfficeCliInstallStatus>>("/v1/officecli/install"),
+    http.post<ApiEnvelope<OfficeCliInstallStatus>>(ENDPOINTS.officecli.install),
 
   // ==================== 邮件 ====================
 
   getMailStatus: () =>
     http.get<ApiEnvelope<{ status: string; accountCount: number }>>(
-      "/v1/mail/status",
+      ENDPOINTS.mail.status,
     ),
 
   getMailConfig: () =>
@@ -44,87 +45,88 @@ export const officeService = {
       ApiEnvelope<{
         accounts: Array<{ provider: string; user: string; authMethod: string }>;
       }>
-    >("/v1/mail/config"),
+    >(ENDPOINTS.mail.config),
 
   saveMailConfig: (p: MailConfigPayload) =>
-    http.post<ApiEnvelope<{ accountCount: number }>>("/v1/mail/config", p),
+    http.post<ApiEnvelope<{ accountCount: number }>>(ENDPOINTS.mail.config, p),
 
-  deleteMailConfig: () => http.delete<ApiEnvelope<unknown>>("/v1/mail/config"),
+  deleteMailConfig: () =>
+    http.delete<ApiEnvelope<unknown>>(ENDPOINTS.mail.config),
 
   sendMail: (p: { to: string; subject: string; body: string }) =>
-    http.post<ApiEnvelope<{ messageId: string }>>("/v1/mail/send", p),
+    http.post<ApiEnvelope<{ messageId: string }>>(ENDPOINTS.mail.send, p),
 
   getMailInbox: (limit = 20) =>
     http.get<ApiEnvelope<{ mails: MailItem[] }>>(
-      `/v1/mail/inbox?limit=${limit}`,
+      `${ENDPOINTS.mail.inbox}?limit=${limit}`,
     ),
 
   getMailSent: (limit = 20) =>
     http.get<ApiEnvelope<{ mails: MailItem[] }>>(
-      `/v1/mail/sent?limit=${limit}`,
+      `${ENDPOINTS.mail.sent}?limit=${limit}`,
     ),
 
   searchMail: (q: string, limit = 20) =>
     http.get<ApiEnvelope<{ mails: MailItem[] }>>(
-      `/v1/mail/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      `${ENDPOINTS.mail.search}?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
 
   deleteMail: (id: string) =>
-    http.delete<ApiEnvelope<{ id: string }>>(`/v1/mail/${id}`),
+    http.delete<ApiEnvelope<{ id: string }>>(ENDPOINTS.mail.byId(id)),
 
   patchMailRead: (id: string, read: boolean) =>
-    http.patch<ApiEnvelope<{ id: string }>>(`/v1/mail/${id}/read`, { read }),
+    http.patch<ApiEnvelope<{ id: string }>>(ENDPOINTS.mail.read(id), { read }),
 
   // ==================== 日历 ====================
 
   getCalendarStatus: () =>
-    http.get<ApiEnvelope<{ status: string }>>("/v1/calendar/status"),
+    http.get<ApiEnvelope<{ status: string }>>(ENDPOINTS.calendar.status),
 
   getCalendarEvents: () =>
     http.get<ApiEnvelope<{ events: CalendarEventItem[] }>>(
-      "/v1/calendar/events",
+      ENDPOINTS.calendar.events,
     ),
 
   addCalendarEvent: (e: Record<string, unknown>) =>
     http.post<ApiEnvelope<{ event: CalendarEventItem }>>(
-      "/v1/calendar/events",
+      ENDPOINTS.calendar.events,
       e,
     ),
 
   updateCalendarEvent: (id: string, u: Record<string, unknown>) =>
-    http.put<ApiEnvelope<{ id: string }>>(`/v1/calendar/events/${id}`, u),
+    http.put<ApiEnvelope<{ id: string }>>(ENDPOINTS.calendar.eventById(id), u),
 
   deleteCalendarEvent: (id: string) =>
-    http.delete<ApiEnvelope<{ id: string }>>(`/v1/calendar/events/${id}`),
+    http.delete<ApiEnvelope<{ id: string }>>(ENDPOINTS.calendar.eventById(id)),
 
   /** 导出 .ics 文件 URL（直接用于 <a download>） */
-  exportCalendarEventUrl: (id: string) => `/v1/calendar/export/${id}`,
+  exportCalendarEventUrl: (id: string) => ENDPOINTS.calendar.exportEvent(id),
 
   /** 获取聚合日历数据（三源：手动+Cron+AI） */
   getCalendarMerged: (start: string, end: string, timezone?: string) => {
     const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     return http.get<ApiEnvelope<MergedCalendarResponse>>(
-      `/v1/calendar/merged?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezone=${encodeURIComponent(tz)}`,
+      `${ENDPOINTS.calendar.merged}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&timezone=${encodeURIComponent(tz)}`,
     );
   },
 
   /** 更新日程状态 */
   updateCalendarEventStatus: (id: string, status: string) =>
     http.patch<ApiEnvelope<{ event: CalendarEventItem }>>(
-      `/v1/calendar/events/${id}/status`,
+      ENDPOINTS.calendar.eventStatus(id),
       { status },
     ),
 
   /** 批量更新日程状态 */
   batchUpdateCalendarEventStatus: (ids: string[], status: string) =>
     http.post<ApiEnvelope<{ updated: number; total: number }>>(
-      "/v1/calendar/events/batch-status",
+      ENDPOINTS.calendar.eventsBatchStatus,
       { ids, status },
     ),
 
   /** 触发超时检测 */
   checkCalendarOverdue: () =>
     http.get<ApiEnvelope<{ overdueCount: number; overdueIds: string[] }>>(
-      "/v1/calendar/overdue-check",
+      ENDPOINTS.calendar.overdueCheck,
     ),
 };

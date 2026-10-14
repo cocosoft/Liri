@@ -2609,6 +2609,32 @@
       "changelog": [],
       "reopenWhen": "① 同 Batch 1（新路径一律进 `services/endpoints.ts`）；② 若 Batch 2 后续组也需 `/v1/projects/*` 或 `/v1/workflows/*` ⇒ 复用本组已建的 `project` / `workflow` 域（勿重复建域）；③ 若某端点同时存在「编码」与「未编码」两种插值写法（如 `skill.byId` vs `skill.byIdEncoded`）⇒ 保持两键，不得合并（合并会改变运行期字符串）。",
       "notes": "**范围**：`HD-P2-4` Batch 2 的 **Group A**（5 个最重的 service）。**落地**：① 在 `services/endpoints.ts` 的 `ENDPOINTS` 内**追加** `knowledge`（25 键）· `workspace`（含 items/changeSets/orchestration/team/cost/council/intelligence 等 ~30 键）· `skill`（~20 键）· `session`（15 键）· `usage`（12 键）· 另**新列 3 个顶层域**：`project`（`/v1/projects/*`）· `workflow`（`/v1/workflows/*`）· `pricing`（`/v1/pricing*`）· `cost`（`/v1/cost/daily-budget*`）—— 因这些前缀与所选域名不同，单列以免语义错配；② 迁移 **5 文件 / 166 处**（`knowledgeService` 36 · `workspaceService` 61 · `skillService` 27 · `sessionService` 21 · `usageService` 21）。**取值保真要点**：含 `encodeURIComponent` 的插值在**构造器内**保持同一位置与同一包装（编码时机不变）；路径含 query 的（如 `?range=`、`?${params}`）一律「**纯路径做常量 + 调用点拼 query**」⇒ 运行期字符串逐字一致；`/v1/skills/${id}`（未编码）与 `/v1/skills/${encodeURIComponent(id)}`（编码）**拆为两键**（`byId` / `byIdEncoded`）以保值不变。**验证**：① 棘轮 **1 pass / 0 fail**（基线 **468 → 302 / 40 文件**）；② **client 全量 571 pass / 0 fail（72 文件）**；③ `typecheck`（client）0 错；④ `eslint` 改动文件 0 error（prettier 已 `--write`）；⑤ 自检：5 文件内 `[\"'`]/v1/` **0 命中**（仅注释行残留，属棘轮排除口径）。**如实边界**：① **未做真机联调**（路径写错不被编译器拦住）；② 剩余 **约 302 处 / 40 文件**待 Batch 2 的 Group B/C；③ `project`/`workflow` 两域当前**仅** `workspaceService` 使用（已全仓 grep 确认无跨文件命名冲突）。"
+    },
+    {
+      "id": "HARDCODE-HDP2-4-ENDPOINTS-B2B",
+      "title": "硬编码治理 `HD-P2-4` **Batch 2 · Group B**：files / channels / providers / models / doc·officecli·mail·calendar / plans·pdca·kanban / voice·tts·settings / memory / monitor·health·analytics / llama 等域路径收口（166 处）—— 基线 302 → 136",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2（HD-P2-4）· Group A 基线",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "client/src/services/endpoints.ts",
+        "client/src/services/fileService.ts",
+        "client/src/services/channelService.ts",
+        "client/src/services/providerService.ts",
+        "client/src/services/officeService.ts",
+        "client/src/services/officeApi.ts",
+        "client/src/services/planService.ts",
+        "client/src/services/voiceService.ts",
+        "client/src/services/memoryService.ts",
+        "client/src/services/capabilityService.ts",
+        "client/src/services/monitorService.ts",
+        "client/src/services/llamaService.ts",
+        "client/src/tests/fixtures/endpointsBaseline.json"
+      ],
+      "tests": ["client/src/tests/endpointsRatchet.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 同前（新路径一律进 `services/endpoints.ts`）；② 若后续组也要 `/v1/settings/*` / `/v1/tts/*` / `/v1/wechat/*` ⇒ 复用本组已建域；③ **`office` 未聚合成单域** —— 按「前缀即域」拆为 `doc` / `officecli` / `mail` / `calendar`（若产品口径要求单域，需同时改 4 处引用，属另议）；④ `capabilityService` 的 `/v1/models/capabilities*` 已并入 `models` 域（勿重复建 `capabilities` 域）。",
+      "notes": "**范围**：`HD-P2-4` Batch 2 的 **Group B**（11 个 service）。**落地**：① 在 `ENDPOINTS` 内**追加**这些域 —— `files`(10 键) · `channels`(13) · `wechat`(1) · `providers`(7) · `models`(8，并**并入** `capabilityService` 的 `/v1/models/capabilities*` 与 `providerService` 的 `/v1/models`·`/bulk-import`）· `doc`/`officecli`/`mail`/`calendar`（**按「前缀即域」拆**，未聚合为单 `office`）· `plans`/`pdca`/`kanban`/`research`/`patterns` · `voice`(13)/`settings`(1)/`tts`(3) · `memory`(12) · `monitor`(8)/`health`(1)/`analytics`(1) · `llama`(13)；另**复用**已有 `workspace`/`knowledge` 域（`fileService` 的 `/v1/workspaces`、`/v1/knowledge/ingest`）。**取值保真**：含 `encodeURIComponent` 的保持同一包装；`new URL(\"/v1/…\", …)` 的只换首参；含 `{ params }` 配置对象的只换路径实参；query 字符串拼接一律「常量 + 调用点拼」⇒ 运行期串逐字一致。**验证**：① 棘轮 **1 pass / 0 fail**（基线 **302 → 136 / 29 文件**）；② **client 全量 571 pass / 0 fail（72 文件）**；③ `typecheck`（client）0 错；④ `eslint` 12 文件 0 error（24 条 prettier 已 `--write`）；⑤ 自检：11 文件内 `/v1/` **仅注释行**命中（代码行 0）。**如实边界**：① **未做真机联调**；② 剩余 **约 136 处 / 29 文件**待 Group C；③ `office` 域拆分为 4 个前缀域（口径取向，已在 `reopenWhen` ③ 记明）。"
     }
   ]
 }

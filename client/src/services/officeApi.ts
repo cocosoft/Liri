@@ -4,6 +4,7 @@
  */
 
 import { http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import type { DocItem } from "../types/office";
 
 export const officeApi = {
@@ -15,10 +16,13 @@ export const officeApi = {
    * N-1：httpClient 已支持 responseType: "blob"（浏览器 + Tauri 双路径）
    */
   downloadDoc: (file: string) =>
-    http.get<Blob>(`/v1/doc/download?file=${encodeURIComponent(file)}`, {
-      timeout: 15000,
-      responseType: "blob",
-    }),
+    http.get<Blob>(
+      `${ENDPOINTS.doc.download}?file=${encodeURIComponent(file)}`,
+      {
+        timeout: 15000,
+        responseType: "blob",
+      },
+    ),
 
   /**
    * 获取综合状态（含连接状态、文件列表、OfficeCLI 信息）
@@ -33,7 +37,7 @@ export const officeApi = {
         templates?: string[];
         documents?: DocItem[];
       };
-    }>("/v1/doc/status"),
+    }>(ENDPOINTS.doc.status),
 
   /**
    * 从 /v1/doc/status 中提取文件列表
@@ -42,7 +46,7 @@ export const officeApi = {
   listFiles: async (): Promise<DocItem[]> => {
     const res = await http.get<{
       data: { documents?: DocItem[] };
-    }>("/v1/doc/status");
+    }>(ENDPOINTS.doc.status);
     const resp = res as unknown as {
       data?: { data?: { documents?: DocItem[] } };
     };
@@ -53,17 +57,17 @@ export const officeApi = {
 
   /** 重命名文档 */
   renameDoc: (name: string, newName: string) =>
-    http.post("/v1/doc/rename", { name, newName }),
+    http.post(ENDPOINTS.doc.rename, { name, newName }),
 
   /** 删除文档 */
   deleteDoc: (name: string) =>
-    http.delete(`/v1/doc/delete?file=${encodeURIComponent(name)}`),
+    http.delete(`${ENDPOINTS.doc.delete}?file=${encodeURIComponent(name)}`),
 
   /** 上传文档 */
   uploadDoc: (file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return http.post("/v1/doc/upload", form);
+    return http.post(ENDPOINTS.doc.upload, form);
   },
 
   // ==================== 邮件/日历（委托 officeService） ====================

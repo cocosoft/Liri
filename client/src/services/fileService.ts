@@ -7,6 +7,7 @@ import type {
   FileStats,
 } from "../types";
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { handleClientError } from "../utils/handleError";
 import i18n from "../i18n";
 
@@ -20,7 +21,7 @@ async function deleteRegistryFiles(ids: string[]): Promise<void> {
   for (let i = 0; i < ids.length; i += REGISTRY_DELETE_BATCH) {
     const chunk = ids.slice(i, i + REGISTRY_DELETE_BATCH);
     const fileIds = encodeURIComponent(chunk.join(","));
-    await http.delete(`/v1/files/registry/delete?fileIds=${fileIds}`);
+    await http.delete(`${ENDPOINTS.files.registryDelete}?fileIds=${fileIds}`);
   }
 }
 
@@ -70,10 +71,10 @@ function createFallbackFileService() {
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
     convert: async (params: ConvertFileOptions): Promise<unknown> => {
-      return http.post("/v1/files/convert", params);
+      return http.post(ENDPOINTS.files.convert, params);
     },
     detect: async (filePath: string): Promise<FileDetectResult> => {
-      return http.post<FileDetectResult>("/v1/files/detect", { filePath });
+      return http.post<FileDetectResult>(ENDPOINTS.files.detect, { filePath });
     },
     listWorkspaces: async (): Promise<WorkspaceInfo[]> => {
       return [];
@@ -98,17 +99,17 @@ function createFallbackFileService() {
       if (params.endDate) queryParams.end_date = params.endDate;
       if (params.cursor) queryParams.cursor = params.cursor;
       if (params.limit) queryParams.limit = params.limit;
-      return http.get<FileSearchResult>("/v1/files/registry/search", {
+      return http.get<FileSearchResult>(ENDPOINTS.files.registrySearch, {
         params: queryParams,
       });
     },
     getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
-      return http.get<FileRegistryRecord>(`/v1/files/registry/detail`, {
+      return http.get<FileRegistryRecord>(ENDPOINTS.files.registryDetail, {
         params: { fileId },
       });
     },
     getFileStats: async (): Promise<FileStats> => {
-      return http.get<FileStats>("/v1/files/registry/stats");
+      return http.get<FileStats>(ENDPOINTS.files.registryStats);
     },
     batchDelete: async (ids: string[]): Promise<void> => {
       await deleteRegistryFiles(ids);
@@ -121,7 +122,7 @@ function createTauriFileService() {
     // 走 HTTP API 而非 Tauri IPC（后端 Rust 命令未实现）
     listDir: async (path: string): Promise<FileEntry[]> => {
       try {
-        const result = await http.get<FileEntry[]>("/v1/files/list", {
+        const result = await http.get<FileEntry[]>(ENDPOINTS.files.list, {
           params: { path },
         });
         return result;
@@ -135,9 +136,12 @@ function createTauriFileService() {
     },
     readFile: async (path: string): Promise<string> => {
       try {
-        const result = await http.get<{ content: string }>("/v1/files/read", {
-          params: { path },
-        });
+        const result = await http.get<{ content: string }>(
+          ENDPOINTS.files.read,
+          {
+            params: { path },
+          },
+        );
         return result.content;
       } catch (e) {
         handleClientError(e, { module: "services:file", action: "readFile" });
@@ -149,7 +153,7 @@ function createTauriFileService() {
     },
     readFileDetail: async (path: string): Promise<FileReadDetail> => {
       try {
-        const result = await http.get<FileReadDetail>("/v1/files/read", {
+        const result = await http.get<FileReadDetail>(ENDPOINTS.files.read, {
           params: { path },
         });
         return result;
@@ -167,14 +171,14 @@ function createTauriFileService() {
     upload: uploadViaHttp,
     uploadBase64: uploadBase64ViaHttp,
     convert: async (params: ConvertFileOptions): Promise<unknown> => {
-      return http.post("/v1/files/convert", params);
+      return http.post(ENDPOINTS.files.convert, params);
     },
     detect: async (filePath: string): Promise<FileDetectResult> => {
-      return http.post<FileDetectResult>("/v1/files/detect", { filePath });
+      return http.post<FileDetectResult>(ENDPOINTS.files.detect, { filePath });
     },
     listWorkspaces: async (): Promise<WorkspaceInfo[]> => {
       try {
-        return await http.get<WorkspaceInfo[]>("/v1/workspaces");
+        return await http.get<WorkspaceInfo[]>(ENDPOINTS.workspace.base);
       } catch (e) {
         handleClientError(e, {
           module: "services:file",
@@ -184,13 +188,13 @@ function createTauriFileService() {
       }
     },
     sendToAI: async (filePath: string): Promise<void> => {
-      await http.post("/v1/files/send-to-ai", { filePath });
+      await http.post(ENDPOINTS.files.sendToAi, { filePath });
     },
     saveToKnowledge: async (filePath: string): Promise<void> => {
-      await http.post("/v1/knowledge/ingest", { filePath });
+      await http.post(ENDPOINTS.knowledge.ingest, { filePath });
     },
     saveToMemory: async (filePath: string): Promise<void> => {
-      await http.post("/v1/memory/create-from-file", { filePath });
+      await http.post(ENDPOINTS.memory.createFromFile, { filePath });
     },
     searchFiles: async (
       params: FileSearchParams,
@@ -203,17 +207,17 @@ function createTauriFileService() {
       if (params.endDate) queryParams.end_date = params.endDate;
       if (params.cursor) queryParams.cursor = params.cursor;
       if (params.limit) queryParams.limit = params.limit;
-      return http.get<FileSearchResult>("/v1/files/registry/search", {
+      return http.get<FileSearchResult>(ENDPOINTS.files.registrySearch, {
         params: queryParams,
       });
     },
     getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
-      return http.get<FileRegistryRecord>("/v1/files/registry/detail", {
+      return http.get<FileRegistryRecord>(ENDPOINTS.files.registryDetail, {
         params: { fileId },
       });
     },
     getFileStats: async (): Promise<FileStats> => {
-      return http.get<FileStats>("/v1/files/registry/stats");
+      return http.get<FileStats>(ENDPOINTS.files.registryStats);
     },
     batchDelete: async (ids: string[]): Promise<void> => {
       await deleteRegistryFiles(ids);
@@ -230,7 +234,7 @@ async function uploadViaHttp(
       const result = reader.result as string;
       const base64 = result.split(",")[1];
       http
-        .post<{ path: string; size: number }>("/v1/files/upload", {
+        .post<{ path: string; size: number }>(ENDPOINTS.files.upload, {
           filename: file.name,
           data: base64,
         })
@@ -247,7 +251,7 @@ async function uploadBase64ViaHttp(
   filename: string,
   base64Data: string,
 ): Promise<{ path: string; size: number }> {
-  return http.post<{ path: string; size: number }>("/v1/files/upload", {
+  return http.post<{ path: string; size: number }>(ENDPOINTS.files.upload, {
     filename,
     data: base64Data,
   });

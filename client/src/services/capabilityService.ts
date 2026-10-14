@@ -6,6 +6,7 @@
  */
 
 import { httpLegacy as http } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { handleClientError } from "../utils/handleError";
 
 /** 能力分类 */
@@ -101,7 +102,7 @@ export const capabilityService = {
     version: string;
     lastModified: string;
   }> {
-    const url = new URL("/v1/models/capabilities", window.location.origin);
+    const url = new URL(ENDPOINTS.models.capabilities, window.location.origin);
     if (params?.category) {
       url.searchParams.set("category", params.category);
     }
@@ -138,7 +139,7 @@ export const capabilityService = {
   async get(key: string): Promise<ModelCapabilityDefinition | null> {
     try {
       const res = await http.get<{ data: ModelCapabilityDefinition }>(
-        `/v1/models/capabilities/${encodeURIComponent(key)}`,
+        ENDPOINTS.models.capabilityByKey(key),
       );
       return res.data;
     } catch (e) {
@@ -154,7 +155,7 @@ export const capabilityService = {
   async create(
     definition: Omit<ModelCapabilityDefinition, "version">,
   ): Promise<void> {
-    await http.post("/v1/models/capabilities", definition);
+    await http.post(ENDPOINTS.models.capabilities, definition);
     // 清除缓存
     cache = null;
   },
@@ -168,10 +169,7 @@ export const capabilityService = {
     key: string,
     updates: Partial<Omit<ModelCapabilityDefinition, "key">>,
   ): Promise<void> {
-    await http.put(
-      `/v1/models/capabilities/${encodeURIComponent(key)}`,
-      updates,
-    );
+    await http.put(ENDPOINTS.models.capabilityByKey(key), updates);
     // 清除缓存
     cache = null;
   },
@@ -181,7 +179,7 @@ export const capabilityService = {
    * @param key 能力唯一标识
    */
   async delete(key: string): Promise<void> {
-    await http.delete(`/v1/models/capabilities/${encodeURIComponent(key)}`);
+    await http.delete(ENDPOINTS.models.capabilityByKey(key));
     // 清除缓存
     cache = null;
   },
@@ -191,7 +189,7 @@ export const capabilityService = {
    * @param data 能力定义数组
    */
   async batch(data: ModelCapabilityDefinition[]): Promise<void> {
-    await http.post("/v1/models/capabilities/batch", { data });
+    await http.post(ENDPOINTS.models.capabilitiesBatch, { data });
     // 清除缓存
     cache = null;
   },
@@ -202,7 +200,7 @@ export const capabilityService = {
    */
   async getTaskMappings(): Promise<TaskCapabilityMapping[]> {
     const res = await http.get<{ data: TaskCapabilityMapping[] }>(
-      "/v1/models/capabilities/task-mappings",
+      ENDPOINTS.models.capabilitiesTaskMappings,
     );
     return res.data;
   },
@@ -212,7 +210,9 @@ export const capabilityService = {
    * @param mappings 任务映射数组
    */
   async updateTaskMappings(mappings: TaskCapabilityMapping[]): Promise<void> {
-    await http.put("/v1/models/capabilities/task-mappings", { data: mappings });
+    await http.put(ENDPOINTS.models.capabilitiesTaskMappings, {
+      data: mappings,
+    });
   },
 
   /**
@@ -221,7 +221,7 @@ export const capabilityService = {
    */
   async getCategories(): Promise<CapabilityCategoryDefinition[]> {
     const res = await http.get<{ data: CapabilityCategoryDefinition[] }>(
-      "/v1/models/capabilities/categories",
+      ENDPOINTS.models.capabilitiesCategories,
     );
     return res.data;
   },
@@ -238,7 +238,7 @@ export const capabilityService = {
   ): Promise<{ valid: boolean; issues: ValidationIssue[] }> {
     const res = await http.post<{
       data: { valid: boolean; issues: ValidationIssue[] };
-    }>("/v1/models/capabilities/validate", {
+    }>(ENDPOINTS.models.capabilitiesValidate, {
       taskType,
       modelCapabilities,
     });

@@ -1,4 +1,5 @@
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
+import { ENDPOINTS } from "./endpoints";
 import { getOTelTracing } from "../monitoring/otel";
 import i18n from "../i18n";
 
@@ -363,12 +364,14 @@ const voiceService = {
       namespace: string;
       value: VoiceSettings;
       success?: boolean;
-    }>("/v1/settings/voice");
+    }>(ENDPOINTS.settings.voice);
     if (response?.value && response.value.config) {
       return response.value;
     }
     // 回退：旧端点格式
-    const legacyResponse = await http.get<VoiceSettings>("/v1/voice/settings");
+    const legacyResponse = await http.get<VoiceSettings>(
+      ENDPOINTS.voice.settings,
+    );
     return legacyResponse;
   },
 
@@ -383,27 +386,29 @@ const voiceService = {
       success: boolean;
       value: VoiceSettings;
       namespace: string;
-    }>("/v1/settings/voice", settings);
+    }>(ENDPOINTS.settings.voice, settings);
     // 新 API 返回 { success, namespace, value }，value 中即为 VoiceSettings
     if (response?.value && response.value.config) {
       return response.value;
     }
     // 回退：旧端点格式
     const legacyResponse = await http.put<VoiceSettings>(
-      "/v1/voice/settings",
+      ENDPOINTS.voice.settings,
       settings,
     );
     return legacyResponse;
   },
 
   async startSession(): Promise<VoiceSession> {
-    const response = await http.post<VoiceSession>("/v1/voice/session/start");
+    const response = await http.post<VoiceSession>(
+      ENDPOINTS.voice.sessionStart,
+    );
     return response;
   },
 
   async endSession(sessionId: string): Promise<VoiceSession> {
     const response = await http.post<VoiceSession>(
-      `/v1/voice/session/${sessionId}/end`,
+      ENDPOINTS.voice.sessionEnd(sessionId),
     );
     return response;
   },
@@ -414,13 +419,13 @@ const voiceService = {
     const response = await http.get<{
       sessions: VoiceSession[];
       total: number;
-    }>(`/v1/voice/sessions?limit=${limit}`);
+    }>(`${ENDPOINTS.voice.sessions}?limit=${limit}`);
     return response;
   },
 
   async getSession(sessionId: string): Promise<VoiceSession> {
     const response = await http.get<VoiceSession>(
-      `/v1/voice/session/${sessionId}`,
+      ENDPOINTS.voice.sessionById(sessionId),
     );
     return response;
   },
@@ -442,7 +447,7 @@ const voiceService = {
         const res = await apiHttp.post<{
           transcript: string;
           audioUrl?: string;
-        }>("/v1/voice/upload", formData);
+        }>(ENDPOINTS.voice.upload, formData);
 
         if (!res.ok) {
           throw new Error(
@@ -461,7 +466,7 @@ const voiceService = {
       async () => {
         // 加固部署鉴权专项（2026-08-30）：原直连 fetch 无鉴权头 → 加固下 401。
         // 改走统一 http 客户端（blob 响应走 http_proxy N-1 base64 解码）。
-        const res = await apiHttp.get<Blob>(`/v1/voice/stream/${sessionId}`, {
+        const res = await apiHttp.get<Blob>(ENDPOINTS.voice.stream(sessionId), {
           responseType: "blob",
         });
         if (!res.ok) {
@@ -479,15 +484,18 @@ const voiceService = {
   },
 
   async synthesizeSpeech(text: string, voiceId?: string): Promise<string> {
-    const response = await http.post<{ audioUrl: string }>("/v1/voice/tts", {
-      text,
-      voiceId,
-    });
+    const response = await http.post<{ audioUrl: string }>(
+      ENDPOINTS.voice.tts,
+      {
+        text,
+        voiceId,
+      },
+    );
     return response.audioUrl;
   },
 
   async getProviders(): Promise<VoiceProvider[]> {
-    const response = await http.get<VoiceProvider[]>("/v1/voice/providers");
+    const response = await http.get<VoiceProvider[]>(ENDPOINTS.voice.providers);
     return response;
   },
 
@@ -496,13 +504,13 @@ const voiceService = {
   ): Promise<{ id: string; name: string; language: string }[]> {
     const response = await http.get<
       { id: string; name: string; language: string }[]
-    >(`/v1/voice/voices?provider=${provider}`);
+    >(`${ENDPOINTS.voice.voices}?provider=${provider}`);
     return response;
   },
 
   async testWakeWord(wakeWordId: string): Promise<boolean> {
     const response = await http.post<{ detected: boolean }>(
-      `/v1/voice/wakeword/${wakeWordId}/test`,
+      ENDPOINTS.voice.wakeWordTest(wakeWordId),
     );
     return response.detected;
   },
@@ -544,7 +552,7 @@ const voiceService = {
         // 加固部署鉴权专项（2026-08-30）：原裸 fetch("/v1/voice/transcribe")——
         // Tauri 下相对路径到不了后端 + 无 X-API-Key 必 401。改走 apiHttp（proxyFetch 注入密钥）。
         const res = await apiHttp.post<STTResult>(
-          "/v1/voice/transcribe",
+          ENDPOINTS.voice.transcribe,
           formData,
         );
 
@@ -566,7 +574,7 @@ const voiceService = {
             try {
               const base64 = (reader.result as string).split(",")[1];
               const result = await http.post<STTResult>(
-                "/v1/voice/transcribe",
+                ENDPOINTS.voice.transcribe,
                 {
                   audioData: base64,
                   providerId: options?.providerId,
@@ -597,7 +605,7 @@ const voiceService = {
    * 底层调用 GET /v1/voice/providers，由后端返回已注册的语音提供商 ID 列表。
    */
   async getTTSProviders(): Promise<string[]> {
-    const response = await http.get<string[]>("/v1/voice/providers");
+    const response = await http.get<string[]>(ENDPOINTS.voice.providers);
     return response;
   },
 
@@ -608,10 +616,9 @@ const voiceService = {
   async getTTSProvidersDetail(): Promise<
     Array<{ name: string; supportedFormats: string[] }>
   > {
-    const response =
-      await http.get<Array<{ name: string; supportedFormats: string[] }>>(
-        "/v1/tts/providers",
-      );
+    const response = await http.get<
+      Array<{ name: string; supportedFormats: string[] }>
+    >(ENDPOINTS.tts.providers);
     return response;
   },
 
@@ -628,7 +635,7 @@ const voiceService = {
       status: string;
       providers: string[];
       providerDetails: Array<{ name: string; supportedFormats: string[] }>;
-    }>("/v1/tts/health");
+    }>(ENDPOINTS.tts.health);
     return response;
   },
 
@@ -642,7 +649,7 @@ const voiceService = {
     provider: string,
     config: Record<string, unknown>,
   ): Promise<void> {
-    await http.post(`/v1/tts/providers/${provider}/config`, config);
+    await http.post(ENDPOINTS.tts.providerConfig(provider), config);
   },
 
   /**
@@ -656,11 +663,14 @@ const voiceService = {
     text: string,
     options?: { voiceId?: string; format?: string },
   ): Promise<string> {
-    const response = await http.post<{ audioUrl: string }>("/v1/voice/tts", {
-      text,
-      voiceId: options?.voiceId,
-      format: options?.format,
-    });
+    const response = await http.post<{ audioUrl: string }>(
+      ENDPOINTS.voice.tts,
+      {
+        text,
+        voiceId: options?.voiceId,
+        format: options?.format,
+      },
+    );
     return response.audioUrl;
   },
 
@@ -671,7 +681,7 @@ const voiceService = {
    */
   async checkTTSHealth(): Promise<{ status: string; message?: string }> {
     try {
-      return await http.get("/v1/voice/health");
+      return await http.get(ENDPOINTS.voice.health);
     } catch {
       return { status: "unavailable", message: "健康检测端点未实现" };
     }

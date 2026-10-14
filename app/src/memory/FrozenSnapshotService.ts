@@ -27,13 +27,13 @@ interface FrozenEntry {
 }
 
 /** 默认 TTL：1 小时 */
-const DEFAULT_TTL_MS = 60 * 60 * 1000;
+const FROZEN_SNAPSHOT_TTL_MS = 60 * 60 * 1000;
 
 export class FrozenSnapshotService {
   private snapshots = new Map<string, FrozenEntry>();
   private ttlMs: number;
 
-  constructor(ttlMs: number = DEFAULT_TTL_MS) {
+  constructor(ttlMs: number = FROZEN_SNAPSHOT_TTL_MS) {
     this.ttlMs = ttlMs;
   }
 

@@ -26,7 +26,7 @@ interface CacheEntry {
 }
 
 const MAX_CACHE_SIZE = 100;
-const DEFAULT_TTL_MS = 3600 * 1000;
+const IMAGE_GENERATION_CACHE_TTL_MS = 3600 * 1000;
 
 export class ImageGenerationCache {
   private store = new Map<string, CacheEntry>();

@@ -63,7 +63,6 @@
     "同名常量:CURRENT_SCHEMA_VERSION": 3,
     "同名常量:MAX_FILE_CHARS": 2,
     "同名常量:MAX_FILES": 4,
-    "同名常量:DEFAULT_TTL_MS": 9,
     "同名常量:DEFAULT_MAX_ENTRIES": 2,
     "同名常量:MAX_TRACKED": 2,
     "同名常量:MAX_RECENT": 2,

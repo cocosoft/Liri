@@ -22,7 +22,7 @@ import type { FileStats } from './types';
 const logger = getLogger('services:file:stats');
 
 /** 缓存默认 TTL（毫秒） */
-const DEFAULT_TTL_MS = 60_000; // 1 分钟
+const FILE_STATS_CACHE_TTL_MS = 60_000; // 1 分钟
 
 /** 缓存条目接口 */
 interface CacheEntry<T> {
@@ -48,7 +48,7 @@ export class FileStatsService {
     Record<string, { count: number; size: number }>
   > | null = null;
 
-  private constructor(ttlMs: number = DEFAULT_TTL_MS) {
+  private constructor(ttlMs: number = FILE_STATS_CACHE_TTL_MS) {
     this.registry = FileRegistry.getInstance();
     this.ttlMs = ttlMs;
   }

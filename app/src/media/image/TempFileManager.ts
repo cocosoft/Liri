@@ -19,7 +19,7 @@ import { randomIdSuffix } from '../../utils/common';
 const logger = getLogger('media:tempFile');
 
 /** 默认 TTL (ms)：30 分钟 */
-const DEFAULT_TTL_MS = 30 * 60 * 1000;
+const TEMP_FILE_TTL_MS = 30 * 60 * 1000;
 /** 清理扫描间隔 (ms)：5 分钟 */
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -63,7 +63,7 @@ export class TempFileManager {
   }): string {
     const prefix = options?.prefix ?? 'img_';
     const extension = options?.extension ?? '.png';
-    const ttlMs = options?.ttlMs ?? DEFAULT_TTL_MS;
+    const ttlMs = options?.ttlMs ?? TEMP_FILE_TTL_MS;
 
     const dateDir = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const datePath = path.join(this.outputDir, dateDir);
@@ -95,7 +95,7 @@ export class TempFileManager {
     this.files.set(filePath, {
       path: filePath,
       createdAt: Date.now(),
-      ttlMs: ttlMs ?? DEFAULT_TTL_MS,
+      ttlMs: ttlMs ?? TEMP_FILE_TTL_MS,
       lastTouched: Date.now(),
     });
   }

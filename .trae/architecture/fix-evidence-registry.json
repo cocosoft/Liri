@@ -3090,6 +3090,30 @@
       "changelog": [],
       "reopenWhen": "① **3 组同值对**待裁定是否**合一**（本片统一按域消歧保留两处）：`FileEditTool` ⇄ `FileWriteTool`（各 `1 GiB`，文件编辑/写入上限）· `FileReadTool` ⇄ `constants/common.ts`（各 10 MiB）· `ChatInput` ⇄ `FileAttachmentBar`（各 20 MiB，聊天附件上限）—— 合一须先**裁定真源落位**（兄弟工具互引会**倒置依赖**；前端跨组件共享常量须新增出口；两处断言/文案亦需同步）；② **假真源** `app/src/constants/common.ts:72` 的 `export const MAX_FILE_SIZE` **零消费者** ⇒ 本片**有意未动**；若确认废弃须走 `.trae/rules/code-deletion.md` **CD01–CD06**（含动态导入/配置注册/构建入口检索）后再删**或**接线给真实消费者；③ 副本写回（任一处重新出现 `const MAX_FILE_SIZE =`）⇒ 守卫或棘轮门禁（基线 255）立即阻断。",
       "notes": "**取证（CS06）**：`MAX_FILE_SIZE` ×6 —— `app/src/constants/common.ts:72` `export const MAX_FILE_SIZE = 10 * 1024 * 1024`（**零消费者 ⇒ 假真源**）· `app/src/tools/FileReadTool/FileReadTool.ts:33` `10 * 1024 * 1024`（无 `offset` 时的整读上限）· `app/src/tools/FileEditTool/FileEditTool.ts:73` `1 * 1024 * 1024 * 1024`（1 GiB）· `app/src/tools/FileWriteTool/FileWriteTool.ts:73` `1 * 1024 * 1024 * 1024`（1 GiB）· `client/src/components/ChatArea/FileAttachmentBar.tsx:33` `20 * 1024 * 1024`（模块级）· `client/src/components/ChatArea/ChatInput.tsx:464` `20 * 1024 * 1024`（**回调内局部**）。**判定（与前四子项不同，如实标注）**：本键**含 3 组同值对**（10 MiB / 1 GiB / 20 MiB）——同值**未必**即同一事实，但也**不可**仅凭「同值」就合一：① 合一须先定真源落位（见 `reopenWhen` ①，属**架构选择**而非纯改名）；② `constants/common.ts` 处**零消费者**（假真源），其归属未定 ⇒ 本片**统一按域消歧**（与①②③④ 口径一致：**零依赖变更、零行为变化**），并把**合一候选 + 假真源**逐条登记到 `reopenWhen`/§2（不隐瞒「本可合一」）。**落地**（5 文件各 1–3 处裸 token；`PdfPageExtractor` 的 `DEFAULT_MAX_FILE_SIZE`（100 MiB）与 `policyLimits` 的 `LimitType.MAX_FILE_SIZE` **枚举成员**均**非**本键、**未动**）：`FILE_READ_MAX_FILE_SIZE` · `FILE_EDIT_MAX_FILE_SIZE` · `FILE_WRITE_MAX_FILE_SIZE` · `ATTACHMENT_MAX_FILE_SIZE` · `CHAT_INPUT_ATTACHMENT_MAX_FILE_SIZE`；**5 处阈值字面量一字未改** ⇒ **零行为变化**。**效果（可证伪）**：`lint:consts` **256 → 255**（**−1 键**），门禁自报 `同名常量:MAX_FILE_SIZE` **6 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 255 键**。**守卫**（第 **16** 例）：5 文件均不含 `const MAX_FILE_SIZE =` 且各含**确切新名 + 取值**；并**正向钉住** `constants/common.ts` **仍保留** `export const MAX_FILE_SIZE =`（防「顺手删掉假真源」—— 删除须先过 CD01–CD06）。**验证**：`typecheck`（app 三 tsconfig）**0** 且 `typecheck`（client）**0**；守卫 **16 pass / 0 fail**；app 侧 `tests/tools`+`tests/constants`+`File{Read,Edit,Write}Tool` **875 pass / 0 fail**；**client 全量 vitest 73 文件全绿**（含 `ChatArea` 相关用例）；4 硬编码门禁全 **exit 0**。**如实边界**：① 本片为 **B5-1 的 5/5（末项）⇒ B5-1 全部收口**；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`（app 侧仅相关域）；④ **3 组同值对的合一未做**、**假真源未删**（均属另案，见 `reopenWhen`）；⑤ 前端两处阈值属**前端校验**，与后端工具阈值**非同一事实**（不做跨端合并）。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS",
+      "title": "硬编码治理 · **「同名常量」B5-2 首项**：`DEFAULT_TTL_MS` ×9 按域消歧（9 处各属独立缓存/锁；取值一字未改）⇒ `lint:consts` **255 → 254 键（−1）**",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + `HD-P1-2 A8` 先例 + B5-1①–⑤（Top5 已收口，本片为**续批首项**，键序按文件数：`DEFAULT_TTL_MS` 9 → `SCHEMA` 6 → `REQUEST_TIMEOUT_MS` 5 …）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/cost/DailyCostCache.ts",
+        "app/src/tasks/CrossProcessLock.ts",
+        "app/src/core/cache/SessionCache.ts",
+        "app/src/core/approval/ApprovalCache.ts",
+        "app/src/memory/FrozenSnapshotService.ts",
+        "app/src/media/image/TempFileManager.ts",
+        "app/src/permission/ApprovedCommandRegistry.ts",
+        "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
+        "app/src/services/file/FileStatsService.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① **B5-2 续项**：`SCHEMA`（6 文件）· `REQUEST_TIMEOUT_MS`（5）· `MAX_STREAM_AGE_MS`（4）· `MAX_CACHE_SIZE`（4）· `CACHE_TTL`（4）· `FENCE_RE`（4）· `MAX_RECONNECT_ATTEMPTS`（4）· `MAX_FILES`（4）· `MAX_HISTORY`（4）· `CLEANUP_INTERVAL_MS`（4）等 —— 每项**先 grep 全量用法与取值**再判定（异值⇒消歧；同值同义⇒合一须先定真源）；**整键改完才消键**；② 若将来把「缓存 TTL」做成**统一可配置项**（如集中注册表）⇒ 须先证各处**失效时机语义一致**，否则仍应保持按域独立；③ 副本写回（任一处重新出现 `const DEFAULT_TTL_MS =`）⇒ 守卫或棘轮门禁（基线 254）立即阻断。",
+      "notes": "**取证（CS06）**：`DEFAULT_TTL_MS` ×9 —— `cost/DailyCostCache.ts:34` `60_000`（日成本缓存）· `tasks/CrossProcessLock.ts:40` `60_000`（跨进程锁 TTL）· `core/cache/SessionCache.ts:33` `5 * 60 * 1000`（会话缓存）· `core/approval/ApprovalCache.ts:41` `5 * 60 * 1000`（审批缓存）· `memory/FrozenSnapshotService.ts:30` `60 * 60 * 1000`（冻结快照）· `media/image/TempFileManager.ts:22` `30 * 60 * 1000`（临时文件清理）· `permission/ApprovedCommandRegistry.ts:42` `300_000`（已批准命令注册表）· `tools/ImageGenerateTool/ImageGenerationCache.ts:29` `3600 * 1000`（生图结果缓存）· `services/file/FileStatsService.ts:25` `60_000`（文件 stat 缓存）。**判定**：9 处**分属不同缓存/锁对象**，取值 6 种（`60_000`×3 · `5min`×2 · `1h`×2 · `30min` · `300_000`）且**失效语义各异** ⇒ 属「**命名太泛**」⇒ **按域改名消歧**、**不强行合一**（对齐 B5-1 判定）。**注**：`FrozenSnapshotService` 的 `60 * 60 * 1000` 与 `ImageGenerationCache` 的 `3600 * 1000` **数值相同但写法不同、语义无关**（快照 vs 生图缓存）⇒ 同样**不合一**。**落地**（9 文件各 2–3 处裸 token；全仓核验**无更长标识符**包含该裸 token ⇒ `replace_all` 不误伤；**本键无跨文件消费侧**，全为文件内用例）：`DAILY_COST_CACHE_TTL_MS` · `CROSS_PROCESS_LOCK_TTL_MS` · `SESSION_CACHE_TTL_MS` · `APPROVAL_CACHE_TTL_MS` · `FROZEN_SNAPSHOT_TTL_MS` · `TEMP_FILE_TTL_MS` · `APPROVED_COMMAND_TTL_MS` · `IMAGE_GENERATION_CACHE_TTL_MS` · `FILE_STATS_CACHE_TTL_MS`；**9 个 TTL 数值一字未改** ⇒ **零行为变化**。**效果（可证伪）**：`lint:consts` **255 → 254**（**−1 键**），门禁自报 `同名常量:DEFAULT_TTL_MS` **9 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 254 键**。**守卫**（第 **17** 例）：9 文件均不含 `const DEFAULT_TTL_MS =` 且各含**确切新名 + 取值钉住**。**验证**：`typecheck`（app 三 tsconfig）**0**；相关域（`tests/constants`+`tests|src` 的 `cost`/`tasks`/`core`/`memory`/`permission`/`media`/`services` 与 8 个被改类名）**793 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① **`permission/ApprovedCommandRegistry.ts` 属权限域（CD07 关键域）⇒ 本片仅改名、未删实现、未改数值**；`core/cache`、`memory`、`tasks` 同属敏感面，处理同上（改名 + `typecheck` + 域测试）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ 本片是 B5-2 **首项**（余项见 `reopenWhen` ①）。"
     }
   ]
 }

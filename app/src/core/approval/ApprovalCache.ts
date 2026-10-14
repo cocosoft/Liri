@@ -38,7 +38,7 @@ export interface ApprovalCacheOptions {
   maxEntries?: number;
 }
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 分钟
+const APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 const DEFAULT_MAX_ENTRIES = 200;
 
 export class ApprovalCache {
@@ -48,7 +48,7 @@ export class ApprovalCache {
 
   constructor(options: ApprovalCacheOptions = {}) {
     this.options = {
-      ttlMs: options.ttlMs ?? DEFAULT_TTL_MS,
+      ttlMs: options.ttlMs ?? APPROVAL_CACHE_TTL_MS,
       maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
     };
   }

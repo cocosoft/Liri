@@ -37,7 +37,7 @@ const LOCK_DIR = resolveDataSubDir('locks');
 const DEFAULT_HEARTBEAT_MS = 30_000;
 
 /** 默认 TTL（ms，超过无心跳视为过期） */
-const DEFAULT_TTL_MS = 60_000;
+const CROSS_PROCESS_LOCK_TTL_MS = 60_000;
 
 export interface CrossProcessLockOptions {
   /** 锁名称（用于生成文件名） */
@@ -60,7 +60,7 @@ export class CrossProcessLock {
     this.name = options.name;
     this.lockPath = `${LOCK_DIR}/${options.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.lock`;
     this.heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
-    this.ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
+    this.ttlMs = options.ttlMs ?? CROSS_PROCESS_LOCK_TTL_MS;
   }
 
   /**

@@ -31,13 +31,13 @@ interface CacheEntry {
 }
 
 /** 默认缓存 TTL：60 秒 */
-const DEFAULT_TTL_MS = 60_000;
+const DAILY_COST_CACHE_TTL_MS = 60_000;
 
 class DailyCostCache {
   private cache: CacheEntry | null = null;
   private ttlMs: number;
 
-  constructor(ttlMs: number = DEFAULT_TTL_MS) {
+  constructor(ttlMs: number = DAILY_COST_CACHE_TTL_MS) {
     this.ttlMs = ttlMs;
   }
 

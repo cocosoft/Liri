@@ -39,7 +39,7 @@ import { feature } from '@modules/core';
 const logger = getLogger('permission:approvedCommands');
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
-const DEFAULT_TTL_MS = 300_000;
+const APPROVED_COMMAND_TTL_MS = 300_000;
 
 /** 环境变量：批准放行缓存 TTL（毫秒） */
 const APPROVAL_TTL_ENV = 'PERMISSION_APPROVAL_TTL_MS';
@@ -254,7 +254,7 @@ export class ApprovedCommandRegistry {
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private ttlMs: number;
 
-  constructor(ttlMs: number = DEFAULT_TTL_MS, autoCleanup = true) {
+  constructor(ttlMs: number = APPROVED_COMMAND_TTL_MS, autoCleanup = true) {
     this.ttlMs = ttlMs;
     if (autoCleanup) {
       this.cleanupTimer = setInterval(
@@ -408,7 +408,7 @@ function resolveApprovalTtl(): number {
     const parsed = Number(raw);
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
-  return DEFAULT_TTL_MS;
+  return APPROVED_COMMAND_TTL_MS;
 }
 
 /** 全局单例 */

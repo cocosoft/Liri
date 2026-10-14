@@ -1,5 +1,5 @@
 /**
- * 硬编码治理 · 共享扫描工具（方案 §8 阶段②「白名单收敛」）
+ * 硬编码治理 · 共享扫描工具（方案 §8 阶段②「白名单收敛」+ 阶段③「转 error 级 / CI 必绿」）
  *
  * 复用 `scripts/lint-models.ts` 的成熟框架（目录 / 扩展名 / 注释跳过 / 白名单），
  * 为 4 个门禁（lint:consts / lint:endpoints / lint:locale / lint:failmsg-refs）
@@ -10,6 +10,11 @@
  * 比对：出现基线没有的键、或某键计数 > 基线 ⇒ **阻断**（`process.exit(1)`）；
  * 全部 ≤ 基线 ⇒ PASS（并提示可下调的键，**仅提示、不自动改**）。
  * 对齐仓内先例 `scripts/lint-function-size-ratchet.ts`。
+ *
+ * 口径（阶段③）：明细文案由「⚠️ 仅上报」升级为 **error 级**（`❌ 违规`），且 4 门禁
+ * 已**接入流水线**（`app/package.json` 的 `ci` 聚合脚本 + `.github/workflows/ci.yml`
+ * 的 `static-check` 作业的 `Hardcode gates` 步骤）⇒ 「CI 必绿」不再是纸面承诺。
+ * 基线内条目为**已裁定的豁免存量**（不阻断），**新增 / 扩大 ⇒ 阻断**。
  *
  * env 覆盖（**负向自证**用）：
  *  - `HARDCODE_GATE_BASELINE=<path>`     基线路径覆盖（缺失 ⇒ `exit(1)`）；
@@ -95,7 +100,10 @@ export function matchesWhitelist(rel: string, fragments: string[]): boolean {
 /**
  * 统一打印**人类可读明细**（棘轮结论由 `ratchet(...)` 单独打印）。
  * - 0 条 ⇒ `[lint:X] ✅ 无告警`
- * - >0 条 ⇒ `[lint:X] ⚠️ 上报 N 条（棘轮：基线内为存量，超出即阻断）：` 后逐条 `  说明`
+ * - >0 条 ⇒ `[lint:X] ❌ 违规 N 条（基线内为豁免存量，不阻断；新增/扩大 ⇒ 阻断）：` 后逐条 `  说明`
+ *
+ * §8 阶段③：文案由「⚠️ 仅上报」升级为 **error 级**（`❌ 违规`）；基线内条目为
+ * **已裁定豁免的存量**（不阻断，见 `ratchet(...)`），**新增 / 扩大 ⇒ 阻断**。
  *
  * @param name   门禁名（`[lint:<name>]`）
  * @param findings 逐条告警（`文件:行 说明`）
@@ -112,7 +120,7 @@ export function report(
     console.log(`${tag} ✅ 无告警`);
   } else {
     console.log(
-      `${tag} ⚠️ 上报 ${findings.length} 条（棘轮：基线内为存量，超出即阻断）：`
+      `${tag} ❌ 违规 ${findings.length} 条（基线内为豁免存量，不阻断；新增/扩大 ⇒ 阻断）：`
     );
     for (const f of findings) console.log(`  ${f}`);
   }

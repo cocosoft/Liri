@@ -191,6 +191,20 @@ jobs:
       run: |
         bun run scripts/lint-file-size.ts
 
+    # ══════════════════════════════════════════════
+    # 硬编码治理门禁（方案 `dev_docs/20261013/硬编码统一治理方案-20261013.md` §8 阶段③）
+    #   口径：**棘轮 + error 级** —— 基线 `.trae/architecture/hardcode-gate-baseline.json`
+    #   只减不增；出现基线外的键、或某键计数扩大 ⇒ `exit 1`（**阻断**）。
+    #   基线缺失 / 解析失败 ⇒ 同样 `exit 1`（fail-closed，不得静默降级为"0 违规"）。
+    # ══════════════════════════════════════════════
+    - name: Hardcode gates (§8 阶段③ · ratchet baseline, error level)
+      working-directory: .
+      run: |
+        bun run scripts/lint-consts.ts
+        bun run scripts/lint-endpoints.ts
+        bun run scripts/lint-locale.ts
+        bun run scripts/lint-failmsg-refs.ts
+
     - name: Run session regression check (BUG-A/B/C)
       working-directory: .
       run: |

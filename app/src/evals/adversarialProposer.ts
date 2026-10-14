@@ -117,7 +117,7 @@ export const DEFAULT_MAX_CALLS = 5;
  * ⚠️ **思考型（thinking）模型须显式上调**：`deepseek-v4-pro` 实测 **127s** ⇒
  * 用 `--adversarial-timeout-ms=180000`（`AbortSignal` 会真正中断，不会无限挂起）。
  */
-export const DEFAULT_TIMEOUT_MS = 60_000;
+export const ADVERSARIAL_DEFAULT_TIMEOUT_MS = 60_000;
 /**
  * 单次最大输出 token（**R-1 调优**，2026-10-07 真机实测）。
  *
@@ -267,7 +267,7 @@ export function createLlmProposer(
   opts: LlmProposerOptions
 ): AdversarialProposer {
   const maxCalls = opts.maxCalls ?? DEFAULT_MAX_CALLS;
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = opts.timeoutMs ?? ADVERSARIAL_DEFAULT_TIMEOUT_MS;
   const maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
   const chat = opts.chat ?? createAiServiceChat();
 

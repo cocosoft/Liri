@@ -45,7 +45,7 @@ const logger = getLogger('ai:embedding:providers:LocalEmbeddingProvider');
 // 与 `registerOllamaProvider.ts` 的同名别名构成**重复事实源**，现**直接使用**真源
 // `DEFAULT_OLLAMA_ENDPOINT`（已在文件顶部导入）。
 const DEFAULT_EMBED_MODEL = 'nomic-embed-text';
-const DEFAULT_TIMEOUT_MS = 180_000;
+const EMBEDDING_DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_BATCH_SIZE = 10;
 
 /** 本地嵌入后端类型 */
@@ -93,7 +93,7 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
         DEFAULT_OLLAMA_ENDPOINT,
       model: config.model || DEFAULT_EMBED_MODEL,
       apiKey: config.apiKey || '',
-      timeoutMs: config.timeoutMs || DEFAULT_TIMEOUT_MS,
+      timeoutMs: config.timeoutMs || EMBEDDING_DEFAULT_TIMEOUT_MS,
       batchSize: config.batchSize || DEFAULT_BATCH_SIZE,
       extraBody: config.extraBody || {},
     };

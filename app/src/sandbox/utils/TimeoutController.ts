@@ -223,7 +223,7 @@ export interface TimeoutOptions {
 /**
  * 默认超时配置
  */
-export const DEFAULT_TIMEOUT_MS = 300000;
+export const SANDBOX_DEFAULT_TIMEOUT_MS = 300000;
 
 /**
  * 创建默认超时控制器
@@ -232,7 +232,7 @@ export function createTimeoutController(
   options?: Partial<TimeoutOptions>
 ): TimeoutController {
   return new TimeoutController(
-    options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    options?.timeoutMs ?? SANDBOX_DEFAULT_TIMEOUT_MS,
     options?.onTimeout
   );
 }

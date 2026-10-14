@@ -67,7 +67,7 @@ export interface StreamableHttpTransportOptions {
 }
 
 const SESSION_HEADER = 'mcp-session-id';
-const DEFAULT_TIMEOUT_MS = 30_000;
+const MCP_TRANSPORT_DEFAULT_TIMEOUT_MS = 30_000;
 
 // ─── 传输实现 ────────────────────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ export class StreamableHttpTransport {
   constructor(opts: StreamableHttpTransportOptions) {
     this.url = opts.url;
     this.extraHeaders = opts.headers ?? {};
-    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.timeoutMs = opts.timeoutMs ?? MCP_TRANSPORT_DEFAULT_TIMEOUT_MS;
   }
 
   // ── 发送请求 ──────────────────────────────────────────────────────────────

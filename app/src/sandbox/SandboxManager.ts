@@ -23,7 +23,7 @@ import {
 import {
   TimeoutController,
   executeWithTimeout,
-  DEFAULT_TIMEOUT_MS,
+  SANDBOX_DEFAULT_TIMEOUT_MS,
 } from './utils/TimeoutController';
 
 import { getLogger } from '@modules/monitoring';
@@ -302,7 +302,7 @@ export class SandboxManager {
     const timeoutMs =
       options?.timeoutMs ??
       this.constraints.maxExecutionTimeMs ??
-      DEFAULT_TIMEOUT_MS;
+      SANDBOX_DEFAULT_TIMEOUT_MS;
 
     return executeWithTimeout(fn, timeoutMs, options?.command);
   }

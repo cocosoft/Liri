@@ -31,7 +31,7 @@ import { handleError } from '@modules/error';
 
 const logger = getLogger('ai:providers:speedTestService');
 
-const DEFAULT_TIMEOUT_MS = 8000;
+const SPEED_TEST_DEFAULT_TIMEOUT_MS = 8000;
 const MIN_TIMEOUT_MS = 2000;
 const MAX_TIMEOUT_MS = 30000;
 
@@ -149,7 +149,7 @@ export async function testEndpoints(
 
 /** 规范化超时参数 */
 function sanitizeTimeout(ms?: number): number {
-  if (ms === undefined) return DEFAULT_TIMEOUT_MS;
+  if (ms === undefined) return SPEED_TEST_DEFAULT_TIMEOUT_MS;
   return Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, ms));
 }
 

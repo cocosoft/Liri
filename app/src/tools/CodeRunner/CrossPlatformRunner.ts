@@ -28,7 +28,7 @@ import type { CodeRunResult } from './types';
 const logger = getLogger('tools:CodeRunner:runner');
 
 /** 默认超时（ms） */
-const DEFAULT_TIMEOUT_MS = 60_000;
+const CROSS_PLATFORM_RUNNER_DEFAULT_TIMEOUT_MS = 60_000;
 /** 单帧输出体积上限（字节） */
 const FRAME_LIMIT_BYTES = 256 * 1024;
 /** stderr 收集上限（字节） */
@@ -84,7 +84,7 @@ export async function runRpcChildProcess(
   opts: RpcChildOptions
 ): Promise<CodeRunResult> {
   const startedAt = Date.now();
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = opts.timeoutMs ?? CROSS_PLATFORM_RUNNER_DEFAULT_TIMEOUT_MS;
 
   return await new Promise<CodeRunResult>((resolvePromise) => {
     const logs: string[] = [];

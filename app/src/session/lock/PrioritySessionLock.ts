@@ -74,7 +74,7 @@ interface QueueEntry {
 }
 
 const DEFAULT_MAX_HOLD_MS = 5 * 60 * 1000;
-const DEFAULT_TIMEOUT_MS = 30_000;
+const SESSION_LOCK_DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_WATCHDOG_INTERVAL_MS = 60_000;
 const DEFAULT_PRIORITY_AGING_MS = 120_000;
 
@@ -99,7 +99,7 @@ export class PrioritySessionLock {
   constructor(config: PriorityLockConfig = {}) {
     this.baseLock = new SessionLock(config.lockOptions);
     this.defaultMaxHoldMs = config.defaultMaxHoldMs ?? DEFAULT_MAX_HOLD_MS;
-    this.defaultTimeoutMs = config.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.defaultTimeoutMs = config.defaultTimeoutMs ?? SESSION_LOCK_DEFAULT_TIMEOUT_MS;
     this.watchdogIntervalMs =
       config.watchdogIntervalMs ?? DEFAULT_WATCHDOG_INTERVAL_MS;
     this.priorityAgingIntervalMs =

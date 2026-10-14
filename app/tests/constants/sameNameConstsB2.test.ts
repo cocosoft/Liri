@@ -305,4 +305,57 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-1④：`DEFAULT_TIMEOUT_MS` ×8 已按域消歧（取值一字未改；sandbox 跨文件消费侧同步）', () => {
+    // 8 处同名 `DEFAULT_TIMEOUT_MS` 分属不同子系统的**独立超时**（取值 8000 / 30_000 / 60_000 / 180_000 / 300000）
+    const items: Array<[string, string, string]> = [
+      [
+        'src/ai/embedding/providers/LocalEmbeddingProvider.ts',
+        'EMBEDDING_DEFAULT_TIMEOUT_MS',
+        '180_000',
+      ],
+      ['src/ai/providers/SpeedTestService.ts', 'SPEED_TEST_DEFAULT_TIMEOUT_MS', '8000'],
+      [
+        'src/evals/adversarialProposer.ts',
+        'ADVERSARIAL_DEFAULT_TIMEOUT_MS',
+        '60_000',
+      ],
+      [
+        'src/sandbox/utils/TimeoutController.ts',
+        'SANDBOX_DEFAULT_TIMEOUT_MS',
+        '300000',
+      ],
+      [
+        'src/session/lock/PrioritySessionLock.ts',
+        'SESSION_LOCK_DEFAULT_TIMEOUT_MS',
+        '30_000',
+      ],
+      [
+        'src/services/mcp/transports/StreamableHttpTransport.ts',
+        'MCP_TRANSPORT_DEFAULT_TIMEOUT_MS',
+        '30_000',
+      ],
+      [
+        'src/tools/CodeRunner/CrossPlatformRunner.ts',
+        'CROSS_PLATFORM_RUNNER_DEFAULT_TIMEOUT_MS',
+        '60_000',
+      ],
+      [
+        'src/tools/CodeRunner/CodeRunnerTool.ts',
+        'CODE_RUNNER_TOOL_DEFAULT_TIMEOUT_MS',
+        '60_000',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const DEFAULT_TIMEOUT_MS =/);
+      // 不含 `=` 后尾空格：prettier 可能因新名变长而把声明换行
+      expect(src).toContain(`${name} =`);
+      expect(src).toContain(`${value};`);
+    }
+    // 唯一的**跨文件**消费侧：`sandbox/SandboxManager.ts` 曾从 `TimeoutController` 按旧名导入 ⇒ 同步改名（防"只改定义未改导入"）
+    const sandboxMgr = read('src/sandbox/SandboxManager.ts');
+    expect(sandboxMgr).not.toMatch(/\bDEFAULT_TIMEOUT_MS/);
+    expect(sandboxMgr).toContain('SANDBOX_DEFAULT_TIMEOUT_MS');
+  });
 });

@@ -3046,6 +3046,30 @@
       "changelog": [],
       "reopenWhen": "① **B5-1 余项**（`DEFAULT_TIMEOUT_MS` ×8 · `MAX_FILE_SIZE` ×6）待执行，方案与「**整键才消键**」约束见 `HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP`.reopenWhen ①；② **刻意未合一的同值族**：本键曾有 4 处同值 `30_000`（`ActiveModelService` / `PathGuardService` / `PromptVersionManager` / `ImageService`）与 2 处同值 `5 * 60 * 1000`（`LanguageDetector` / `ModelContextCache`）—— 它们是**不同缓存对象、不同失效语义**的独立事实，同值属巧合 ⇒ 若将来要做 TTL 集中配置（如统一可配置项），须先证「同一失效时机」；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 257）立即阻断。",
       "notes": "**取证（CS06）**：`CACHE_TTL_MS` ×7 —— `app/src/ai/models/ActiveModelService.ts:41` `30_000`（启用模型定价记录缓存）· `app/src/ai/translation/LanguageDetector.ts:33` `5 * 60 * 1000`（语种检测结果缓存）· `app/src/chat/services/PathGuardService.ts:47` `30_000`（路径存在性缓存）· `app/src/config/settings/CheckpointLogConfig.ts:32` `3_000`（config.json 读取缓存）· `app/src/services/prompt/PromptVersionManager.ts:26` `30_000`（prompt overrides 缓存）· `app/src/tokenBudget/ModelContextCache.ts:20` `5 * 60 * 1000`（模型上下文窗口缓存）· `client/src/services/imageService.ts:350` `30_000`（前端图片请求缓存）。**判定**：**无一处是同一事实的副本**（缓存对象与失效语义各不相同；数值相同属巧合）⇒ 属「**命名太泛**」⇒ 处置 = **按域改名消歧**、**不强行合一**（对齐 B5-1①② 判定）。**落地**（7 文件各 2 处裸 token；全仓核验更长名 `DEFAULT_CACHE_TTL_MS` / `TOOL_SUPPORT_CACHE_TTL_MS` / `SEARCH_CACHE_TTL_MS` **不含**裸 token ⇒ `replace_all` 不误伤）：`ACTIVE_MODEL_CACHE_TTL_MS` · `LANGUAGE_DETECTION_CACHE_TTL_MS` · `PATH_GUARD_CACHE_TTL_MS` · `CHECKPOINT_LOG_CACHE_TTL_MS` · `PROMPT_VERSION_CACHE_TTL_MS` · `MODEL_CONTEXT_CACHE_TTL_MS` · `IMAGE_SERVICE_CACHE_TTL_MS`；**7 个 TTL 数值一字未改** ⇒ **零行为变化**。**效果（可证伪）**：`lint:consts` **258 → 257**（**−1 键**），门禁自报 `同名常量:CACHE_TTL_MS` **7 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 257 键**。**守卫**（第 **14** 例）：7 文件均不含 `const CACHE_TTL_MS =` 且各含**确切新名 + 取值钉住**（证「只改名、数值未改」）。**验证**：`typecheck`（app 三 tsconfig）**0** 且 `typecheck`（client）**0**；守卫 **14 pass / 0 fail**；相关域（`tests/ai`+`src/ai`+`tests|src` 的 `config`/`prompt`/`tokenBudget`/`constants`/`chat`）**974 pass / 2 fail** —— **两失败经 HEAD 对照实测同现**（`Q-H2 ③ 跨部署单元时区同值契约` · `HD-P1-1 ③ UA 字面量`；`git stash` 后同一命令 **973 pass / 2 fail**）⇒ **既有失败、与本片无关**（本片净增 1 例通过）；4 硬编码门禁全 **exit 0**。**如实边界**：① 本片是 **B5-1 的 3/5 子项**（余 2 项见 `reopenWhen` ①）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ `client` 侧**未跑 `vitest`**（前端无 `imageService` 既有测试命中）⇒ 等价性证据 = **TTL 数值未改** + 双端 `typecheck` + 门禁 + 守卫。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS",
+      "title": "硬编码治理 · **「同名常量」B5-1 子项④**：`DEFAULT_TIMEOUT_MS` ×8 按域消歧（8 处取值各异：8000 / 30_000 ×2 / 60_000 ×3 / 180_000 / 300000；`sandbox` 跨文件消费侧同步改名）⇒ `lint:consts` **257 → 256 键（−1）**",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（①同名常量，**异值类** ⇒ 按域重命名消歧）+ CS01/CS05 + `HD-P1-2 A8` 先例 + B5-1①②③（同批次判定口径）+ `.trae/rules/code-deletion.md` CD07（`sandbox` 关键域：本片**只改名不删**）",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/ai/embedding/providers/LocalEmbeddingProvider.ts",
+        "app/src/ai/providers/SpeedTestService.ts",
+        "app/src/evals/adversarialProposer.ts",
+        "app/src/sandbox/utils/TimeoutController.ts",
+        "app/src/sandbox/SandboxManager.ts",
+        "app/src/session/lock/PrioritySessionLock.ts",
+        "app/src/services/mcp/transports/StreamableHttpTransport.ts",
+        "app/src/tools/CodeRunner/CrossPlatformRunner.ts",
+        "app/src/tools/CodeRunner/CodeRunnerTool.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① **B5-1 末项**（`MAX_FILE_SIZE` ×6）待执行，方案与「**整键才消键**」约束见 `HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP`.reopenWhen ①；② **CodeRunner 两处同为 `60_000`**（`CodeRunnerTool` 显式传参 vs `CrossPlatformRunner` 兜底）本片**按域消歧保留两处** ⇒ 若确认应统一为一处默认（须先走查 `LinuxSandboxRunner` 的转发链，确认兜底是否另有消费者）可改**合一**；③ `SimpleMutex` 的类静态 `static readonly DEFAULT_TIMEOUT_MS = 30_000` **不在门禁键内**（门禁只收 `const` 声明）⇒ 本片**未动**；④ 副本写回（任一处重新出现 `const DEFAULT_TIMEOUT_MS =`）⇒ 守卫或棘轮门禁（基线 256）立即阻断。",
+      "notes": "**取证（CS06）**：`DEFAULT_TIMEOUT_MS` ×8 —— `ai/embedding/providers/LocalEmbeddingProvider.ts:48` `180_000` · `ai/providers/SpeedTestService.ts:34` `8000` · `evals/adversarialProposer.ts:120` `60_000`（**export**）· `sandbox/utils/TimeoutController.ts:226` `300000`（**export**，唯一跨文件真源）· `session/lock/PrioritySessionLock.ts:77` `30_000` · `services/mcp/transports/StreamableHttpTransport.ts:70` `30_000` · `tools/CodeRunner/CrossPlatformRunner.ts:31` `60_000` · `tools/CodeRunner/CodeRunnerTool.ts:42` `60_000`。**判定**：8 处分属不同子系统的**独立超时**（嵌入请求 / 测速 / 对抗提案 / 沙箱执行 / 会话锁 / MCP HTTP 传输 / 代码运行两层），**取值多值且语义各异** ⇒ 属「**命名太泛**」⇒ 处置 = **按域改名消歧**、**不强行合一**（对齐 B5-1①②③ 判定）。**落地**（8 文件各 2 处裸 token；全仓核验无更长名包含该裸 token；`config/managedEnv.ts` 的 **字符串** `'BASH_DEFAULT_TIMEOUT_MS'` **不在本键内、未动**）：`EMBEDDING_DEFAULT_TIMEOUT_MS` · `SPEED_TEST_DEFAULT_TIMEOUT_MS` · `ADVERSARIAL_DEFAULT_TIMEOUT_MS` · `SANDBOX_DEFAULT_TIMEOUT_MS` · `SESSION_LOCK_DEFAULT_TIMEOUT_MS` · `MCP_TRANSPORT_DEFAULT_TIMEOUT_MS` · `CROSS_PLATFORM_RUNNER_DEFAULT_TIMEOUT_MS` · `CODE_RUNNER_TOOL_DEFAULT_TIMEOUT_MS`；**唯一的跨文件消费侧** `sandbox/SandboxManager.ts`（`:26` 导入 + `:305` 用法）**同步改名**（`typecheck` 即证导入/用法一致）；**8 个超时数值一字未改** ⇒ **零行为变化**。**效果（可证伪）**：`lint:consts` **257 → 256**（**−1 键**），门禁自报 `同名常量:DEFAULT_TIMEOUT_MS` **8 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 256 键**。**守卫**（第 **15** 例）：8 文件均不含 `const DEFAULT_TIMEOUT_MS =` 且各含**确切新名 + 取值**；并**单独钉住** `SandboxManager` 不含旧名（词边界断言，避免被新名内的同名片段误判）且含新名。**验证**：`typecheck`（app 三 tsconfig）**0** 且 `typecheck`（client）**0**；守卫 **15 pass / 0 fail**；相关域（`tests/ai`+`src/ai`+`tests|src` 的 `evals`/`sandbox`/`session/lock`/`mcp`/`services/mcp`/`tools/CodeRunner` + `tests/constants`）**650 pass / 0 fail**（**本片无既有失败**，与 B5-1③ 不同）；4 硬编码门禁全 **exit 0**。**如实边界**：① 本片是 **B5-1 的 4/5 子项**（末项见 `reopenWhen` ①）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ `sandbox` 属 **CD07 关键域** ⇒ 本片**仅改名、未删任何实现**，且**不改变**任何超时数值。"
     }
   ]
 }

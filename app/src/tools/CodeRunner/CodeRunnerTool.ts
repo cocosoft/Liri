@@ -39,7 +39,7 @@ const logger = getLogger('tools:CodeRunner:tool');
 /** code 参数体积上限（字节） */
 const CODE_MAX_BYTES = 64 * 1024;
 /** 默认超时（ms） */
-const DEFAULT_TIMEOUT_MS = 60_000;
+const CODE_RUNNER_TOOL_DEFAULT_TIMEOUT_MS = 60_000;
 
 /**
  * **Tier1**（默认启用）：本地只读文件检索 —— 沙箱的默认能力面。
@@ -352,7 +352,7 @@ export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
       sessionId,
       code,
       bridge,
-      timeoutMs: DEFAULT_TIMEOUT_MS,
+      timeoutMs: CODE_RUNNER_TOOL_DEFAULT_TIMEOUT_MS,
     });
 
     // 5.5 事件落盘（CM-5）：assistant/code_run（内部调用摘要不逐条落 tool_call；

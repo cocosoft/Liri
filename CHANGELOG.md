@@ -19,6 +19,10 @@
 
 ## [未发布]
 
+- ✅ **硬编码治理 · 「同名常量」B5-2 第十三项：`DISPLAY_PREFIX` ×3 按域消歧 —— `lint:consts` 243 → 242 键（−1）**
+  - 判定：3 处取值各异、各属独立媒体类型 ⇒ `AUDIO_DISPLAY_PREFIX`（`/v1/audio/static/`）· `IMAGE_DISPLAY_PREFIX`（`/v1/images/static/media/`）· `VIDEO_DISPLAY_PREFIX`（`/v1/videos/static/`）；**数值一字未改**。
+  - 全仓核验：该名全仓仅 10 处命中，**全在这 3 个文件内**（无 `export`、无消费面）⇒ **零跨文件复改**。
+  - 验证：守卫 29 pass / 0 fail · `typecheck` 0 · 5 门禁 exit 0；`e2eVerified=false`（未做真机 URL 走查）。
 - ✅ **硬编码治理 · 「同名常量」B5-2 第十二项（代为收尾）：`DEFAULT_IDLE_TIMEOUT_MS` ×2 按域消歧 —— `lint:consts` 244 → 243 键（−1）**
   - 判定：2 处同值 30min 但**异事实** ⇒ `ACP_SESSION_IDLE_TIMEOUT_MS`（ACP 会话空闲回收）· `IDLE_SCALE_TIMEOUT_MS`（空闲降载监控）；**数值一字未改**。
   - 收尾背景：原切片会话终止于「代码+守卫完成 → 未收紧基线/未写台账/未提交」（60s 零写入 + HEAD 未前进 ⇒ 判已静止）；本次补基线（消陈键 `同名常量:DEFAULT_IDLE_TIMEOUT_MS`）+ 提交 + 台账。

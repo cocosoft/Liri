@@ -1,210 +1,210 @@
-{"id":"REV9-A","scope":"Bash/AST 五项缺陷","stages":"DFTR","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-notes.md#REV9-A"}
-{"id":"REV9-A7","scope":"跨层安全回归（AST→分析→沙箱→审批→最终决策一致）","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#REV9-A7"}
-{"id":"REV9-B","scope":"执行生命周期 B-01–B-05","stages":"DFTR","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-notes.md#REV9-B"}
-{"id":"REV9-B17","scope":"恢复故障注入（含**真实进程级崩溃注入**）","stages":"DFTR","flags":"dcue","files":1,"tn":2,"ref":"archive/evidence-notes.md#REV9-B17"}
-{"id":"REV9-C","scope":"事件持久化与会话恢复 8 项","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#REV9-C"}
-{"id":"REV9-9","scope":"沙箱执行测试组","stages":"DFTR","flags":"dcu","files":1,"tn":2,"ref":"archive/evidence-notes.md#REV9-9"}
-{"id":"PLAN-P0-1","scope":"真实进程级崩溃注入","stages":"DFTR","flags":"dcue","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P0-1"}
-{"id":"PLAN-P0-2","scope":"客户端 /v1/chat/stream 接入 Execution","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P0-2"}
-{"id":"PLAN-P0-3","scope":"统一安全决策词汇 + 消除 INDETERMINATE→ALLOW 折叠","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P0-3"}
-{"id":"PLAN-P0-4","scope":"UNKNOWN 副作用重放守卫 + 可重试性分级","stages":"DFTR","flags":"dcu","files":2,"tn":2,"ref":"archive/evidence-notes.md#PLAN-P0-4"}
-{"id":"PLAN-P1-1","scope":"不变量注册表 + 架构规范","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-1"}
-{"id":"PLAN-P1-2","scope":"CI 文档与语义门禁 + paths-ignore 修正","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-2"}
-{"id":"PLAN-P1-3","scope":"执行入口注册清单 / 执行契约矩阵","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-3"}
-{"id":"PLAN-P1-5","scope":"跨层一致性补 env 清洗 + 最终 spawn","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-5"}
-{"id":"PLAN-P1-6","scope":"沙箱真负向测试纳入默认可执行门禁","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-6"}
-{"id":"PLAN-P1-7","scope":"SPI 装配顺序等隐式约束机器化","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-7"}
-{"id":"PLAN-P1-8","scope":"配置契约测试（默认值/覆盖/读值一致）","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P1-8"}
-{"id":"PLAN-P2-1a","scope":"runStreamMessage 拆分 —— Spec + 棘轮门禁","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1a"}
-{"id":"PLAN-P2-1b","scope":"runStreamMessage 拆分 —— S1 请求准备外移","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1b"}
-{"id":"PLAN-P2-1c","scope":"runStreamMessage 拆分 —— S4 事件持久化收敛","stages":"DFTR","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-notes.md#PLAN-P2-1c"}
-{"id":"PLAN-P2-1d-1","scope":"runStreamMessage 拆分 —— S6 压缩段纯派生外移","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1d-1"}
-{"id":"PLAN-P2-1d-2","scope":"runStreamMessage 拆分 —— S6 retry 段纯助手 + 文案单一来源","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1d-2"}
-{"id":"PLAN-P2-1d-3","scope":"runStreamMessage 拆分 —— S6 截断/降级纯决策","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1d-3"}
-{"id":"PLAN-P2-1d-4","scope":"runStreamMessage 拆分 —— S6 degradation 水位载荷纯化","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1d-4"}
-{"id":"PLAN-P2-1e","scope":"runStreamMessage 拆分 —— S2/S7 所有权与终态（S7 释放收口）","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1e"}
-{"id":"PLAN-P2-1f","scope":"runStreamMessage 拆分 —— S3 工具轮 todo 载荷去重","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1f"}
-{"id":"PLAN-P2-1g","scope":"runStreamMessage 拆分 —— S1 发送前历史污染清洗纯化","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1g"}
-{"id":"PLAN-P2-1h","scope":"runStreamMessage 拆分 —— S4 流式水位上报（节流决策 + 双载荷）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1h"}
-{"id":"PLAN-P2-1i","scope":"runStreamMessage 拆分 —— S3 本轮工具集选择（任务类型判定 + 裁剪）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1i"}
-{"id":"PLAN-P2-1j","scope":"runStreamMessage 拆分 —— S3 工具轮上下文装配","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1j"}
-{"id":"PLAN-P2-1k","scope":"runStreamMessage 拆分 —— S3 回滚轮次启动（只读性判据 + 动作）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1k"}
-{"id":"PLAN-P2-1l","scope":"runStreamMessage 拆分 —— S4 turn/start 写入（恢复最大 turn + 失败留痕）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1l"}
-{"id":"PLAN-P2-1m","scope":"runStreamMessage 拆分 —— 请求级延迟 metric/timing 载荷纯化","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1m"}
-{"id":"PLAN-P2-1n","scope":"runStreamMessage 拆分 —— 后台压缩水位状态块构造","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-1n"}
-{"id":"PLAN-P2-2","scope":"门禁 skip 风险管理分级","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-2"}
-{"id":"PLAN-P2-3","scope":"门禁自证扩展到安全链与状态机","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-3"}
-{"id":"PLAN-P2-4","scope":"灰度安全开关复评裁定 + 跨平台安全边界","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#PLAN-P2-4"}
-{"id":"PLAN-P2-5","scope":"Execution 生命周期死面登记与裁定","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#PLAN-P2-5"}
-{"id":"PLAN-P2-6","scope":"复杂度门禁可选升级（重尾离群阻断）","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-6"}
-{"id":"PLAN-P2-7","scope":"模式装配接线条件裁定（复核 + 状态冻结守卫）","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#PLAN-P2-7"}
-{"id":"PLAN-P2-8","scope":"MCP 双轨子进程收敛（SDK 轨边界复核）","stages":"DFTR","flags":"dcue","files":2,"tn":2,"ref":"archive/evidence-notes.md#PLAN-P2-8"}
-{"id":"PLAN-P2-9","scope":"跨路径评估入口裁定（有意不做）","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#PLAN-P2-9"}
-{"id":"L-23-test-global-pollution","scope":"全量 bun test 中 A2A 侧车 5 例失败 —— 跨文件全局污染（mock.module / globalThis.fetch）","stages":"DFTR","flags":"dcu","files":8,"tn":4,"ref":"archive/evidence-notes.md#L-23-test-global-pollution"}
-{"id":"L-23-no-module-mock-gate","scope":"测试禁用 `mock.module`（P0-8 防复发 · 零豁免）","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#L-23-no-module-mock-gate"}
-{"id":"MODE-A1","scope":"编排决策层错层","stages":"D","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#MODE-A1"}
-{"id":"MODE-A2","scope":"多智能体协作层缺失","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A2"}
-{"id":"MODE-A3","scope":"安全/权限同名类双轨","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#MODE-A3"}
-{"id":"MODE-A4","scope":"Loop/Orchestrator 家族失控","stages":"D","flags":"d","files":0,"tn":0,"ref":"archive/evidence-notes.md#MODE-A4"}
-{"id":"MODE-A5","scope":"记忆域外同名","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#MODE-A5"}
-{"id":"MODE-A6","scope":"评估可观测性割裂","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A6"}
-{"id":"MODE-A7","scope":"Routing 分散（14 Router 无统一契约）","stages":"D","flags":"d","files":0,"tn":0,"ref":"archive/evidence-notes.md#MODE-A7"}
-{"id":"MODE-A8","scope":"模式层『描述而非可执行』","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A8"}
-{"id":"MODE-A9","scope":"未提交改动堆积","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A9"}
-{"id":"MODE-A10","scope":"协作引擎构造点分散","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A10"}
-{"id":"MODE-A11","scope":"评估内嵌而非总线","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A11"}
-{"id":"MODE-A12","scope":"A2A 未接线 501 语义","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#MODE-A12"}
-{"id":"MODE-A13","scope":"双源漂移「治标未治本」","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#MODE-A13"}
-{"id":"RRF-CONV","scope":"mergeResults 值域归一化 (0,1] + 重叠命中 hybrid","stages":"DFTR","flags":"dcu","files":5,"tn":2,"ref":"archive/evidence-notes.md#RRF-CONV"}
-{"id":"TOOLVIS-1","scope":"shell 回归通用任务集 + tool_search 检索面覆盖全量（真机长程任务事故）","stages":"DFT","flags":"cu","files":5,"tn":3,"ref":"archive/evidence-notes.md#TOOLVIS-1"}
-{"id":"TOOLGOV-S1-1","scope":"审批身份绑定升级（SHA-256 + 执行作用域绑定 + 审批快照）","stages":"DFT","flags":"cu","files":6,"tn":2,"ref":"archive/evidence-notes.md#TOOLGOV-S1-1"}
-{"id":"TOOLGOV-S1-2","scope":"硬拦截与灰度开关解耦（DENY 不可被 FEATURE_BASH_APPROVED_REVALIDATE 绕过）","stages":"DFT","flags":"cu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S1-2"}
-{"id":"TOOLGOV-S1-3","scope":"toolCallId 熵 + tool_calls 唯一约束（碰撞不再错行结算）","stages":"DFT","flags":"cu","files":3,"tn":2,"ref":"archive/evidence-notes.md#TOOLGOV-S1-3"}
-{"id":"TOOLGOV-S1-4","scope":"删死常量 BashOutputSchema + 工具结算改可等待（G16/G17）","stages":"DFT","flags":"cu","files":3,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S1-4"}
-{"id":"TOOLGOV-S1-5","scope":"命令规范化单一事实源 + Windows Unix 敏感目录探测（G22/G10 同根）","stages":"DFT","flags":"cu","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S1-5"}
-{"id":"TOOLGOV-S2-1","scope":"工具调用状态语义化（枚举 + 转移表 + 收窄 union）","stages":"DFT","flags":"cu","files":3,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S2-1"}
-{"id":"TOOLGOV-S2-3","scope":"G7/G4/G8/G6 落地，G5 待设计）","stages":"DFT","flags":"dcu","files":5,"tn":2,"ref":"archive/evidence-notes.md#TOOLGOV-S2-3"}
-{"id":"TOOLGOV-S2-2","scope":"取消全链路（MCP / WebFetch 接上下文取消信号）","stages":"DFT","flags":"cu","files":3,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S2-2"}
-{"id":"TOOLGOV-S2-6","scope":"工具调用可观测性补全（统一指标 + Tool-Use Context Entropy）","stages":"DFT","flags":"cu","files":4,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S2-6"}
-{"id":"TOOLGOV-S3-1","scope":"变体链路与 CI 矩阵（G1/G2/G3）——正名 + 接线 + 变体矩阵","stages":"DFT","flags":"cu","files":2,"tn":2,"ref":"archive/evidence-notes.md#TOOLGOV-S3-1"}
-{"id":"TOOLGOV-S3-2","scope":"ToolFactory 死桩入口摘除 + 实现/死特性位删除（G19 / CD05–CD06）","stages":"DFT","flags":"cu","files":6,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-S3-2"}
-{"id":"TOOLGOV-GATE-SELFPROOF","scope":"4 个新增门禁在**负向夹具**下失败（S2-3 G8/G6、S3-1 G2、S3-2 死桩）","stages":"DFT","flags":"cu","files":4,"tn":4,"ref":"archive/evidence-notes.md#TOOLGOV-GATE-SELFPROOF"}
-{"id":"TOOLGOV-DOC-INTEGRITY","scope":"workflow-* Spec 的『已完成』声明逐条回仓核验并纠正","stages":"DFT","flags":"cu","files":5,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-DOC-INTEGRITY"}
-{"id":"TOOLGOV-D11-B","scope":"工具名全量常量表 —— 声明面单一来源 + G5 门禁 + 台账 D-40/D-41 闭合","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-D11-B"}
-{"id":"TOOLGOV-G-C5","scope":"ON_DEMAND 触发路径零消费方 —— 登记事实 + 替代保护 + reopen 条件","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-G-C5"}
-{"id":"TOOLGOV-D1","scope":"feature() 三层优先 —— env → BUILD_VARIANT_FLAGS → FEATURE_FLAGS","stages":"DFT","flags":"dcu","files":6,"tn":3,"ref":"archive/evidence-notes.md#TOOLGOV-D1"}
-{"id":"TOOLGOV-D5","scope":"工具能力/风险描述符（复用既有元数据，默认派生）","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-D5"}
-{"id":"TOOLGOV-D7","scope":"VFS 事实源唯一性 —— 默认最小面 + 双轨排他性门禁（G21）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-D7"}
-{"id":"TOOLGOV-D2","scope":"权限管理器未注入 ⇒ 生产 fail-fast（G9）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-D2"}
-{"id":"TOOLGOV-D3","scope":"`unknown` 工具调用的人工介入通道","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-D3"}
-{"id":"TOOLGOV-D4","scope":"工具面发现策略（G20）—— 增量治理，不做 Top-K 收口","stages":"DF","flags":"dc","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-D4"}
-{"id":"TOOLGOV-D6","scope":"崩溃恢复「两步」同事务（G-D2）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-D6"}
-{"id":"TOOLGOV-D8","scope":"工具级配额与熔断 + 两阶段异步工具","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-D8"}
-{"id":"TOOLGOV-D9","scope":"Reflection 不松绑 §1.6","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-D9"}
-{"id":"TOOLGOV-D10","scope":"重型工具内核剥离（MCP 微服务化）","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-D10"}
-{"id":"TOOLGOV-G18","scope":"上帝对象拆分 —— BashTool 内聚模块抽取 + ToolFactory 委托式/注册表驱动 + **BashTool.execute 巨型函数下沉**","stages":"DFT","flags":"dcu","files":11,"tn":6,"ref":"archive/evidence-notes.md#TOOLGOV-G18"}
-{"id":"MCP-SEC-G1","scope":"MCP 工具结果凭据脱敏一致性（模型可见路径补齐）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#MCP-SEC-G1"}
-{"id":"MCP-SEC-G2","scope":"Stdio 子进程显式 env 审计收紧（消除「声称拦截却透传」矛盾）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#MCP-SEC-G2"}
-{"id":"TOOLGOV-TG1","scope":"capabilityDigest 归属边界登记（权限域 ≠ 能力域，严禁并入工具契约）","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-TG1"}
-{"id":"TOOLGOV-TG5","scope":"工具 Schema 熵阈值告警（长程第 20 轮后 >30%，只告警不阻断）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-TG5"}
-{"id":"TOOLGOV-SIDECAR-TARGETS","scope":"侧车首批靶点重排（P1 常驻 LSP / P2 媒体原生面 / P3 liri-native 评估）","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-SIDECAR-TARGETS"}
-{"id":"TOOLGOV-LSP-TIMEOUT","scope":"工具 LSP 客户端请求超时兜底（消除永久挂起 + pendingRequests 泄漏）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-LSP-TIMEOUT"}
-{"id":"TOOLGOV-LSP-BUN-STDIO","scope":"`lsp` 工具在 bun 下起不来（`LSPServer.start()` 调 `stdin.setEncoding` 抛错）—— 已修","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-LSP-BUN-STDIO"}
-{"id":"TEST-GUARD-TOOLREGISTRY-FLAKY","scope":"`toolRegistrySingleSource` 全仓源扫描的 flaky 超时（3× 全扫 → 缓存 + 预筛）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TEST-GUARD-TOOLREGISTRY-FLAKY"}
-{"id":"CHANGOV-DOC-DRIFT","scope":"文档-代码漂移纠正（gateway.md / web.md / channel-routing.md / project_rules §1.14 / 渠道 i…","stages":"DF","flags":"dc","files":5,"tn":0,"ref":"archive/evidence-notes.md#CHANGOV-DOC-DRIFT"}
-{"id":"CHANGOV-SPLIT-COVERAGE","scope":"出站长文本**分片全覆盖**（telegram / qq 去 `slice` 截断，改用 `splitMessage`）","stages":"DFT","flags":"dcu","files":2,"tn":2,"ref":"archive/evidence-notes.md#CHANGOV-SPLIT-COVERAGE"}
-{"id":"CHANGOV-FALLBACK-DECLARED","scope":"出站降级链**声明驱动**（按 `ChannelMeta`/`ChannelCapabilities` 跳过不支持格式）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#CHANGOV-FALLBACK-DECLARED"}
-{"id":"CHANGOV-ATTACHMENT-BUDGET","scope":"附件字节 → 日预算预留（防富媒体绕过 R16 硬闸门）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#CHANGOV-ATTACHMENT-BUDGET"}
-{"id":"CHANGOV-OUTBOUND-BACKOFF","scope":"出站重连**退避重试**（复用 withRetry 的指数退避 + jitter；失败只影响投递）","stages":"DFT","flags":"dcu","files":1,"tn":2,"ref":"archive/evidence-notes.md#CHANGOV-OUTBOUND-BACKOFF"}
-{"id":"CHANGOV-DTO-OWNERSHIP","scope":"两个同名 `MessageAttachment` **归属保持独立**（协议层 vs 会话领域层；禁合并 / 禁断言互换）","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-notes.md#CHANGOV-DTO-OWNERSHIP"}
-{"id":"CHANGOV-GATEWAY-PORT","scope":"出站网关**端口化**（core 侧 `IOutboundGatewayPort` + channels 适配器 + 组合根装配）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#CHANGOV-GATEWAY-PORT"}
-{"id":"CHANGOV-INBOUND-DTO-PORT","scope":"入站 DTO 标准化（`InboundEnvelope` + `toInboundEnvelope`）+ 入站网关端口（UW 预留）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#CHANGOV-INBOUND-DTO-PORT"}
-{"id":"FSM-CATALOG-P1","scope":"状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#FSM-CATALOG-P1"}
-{"id":"FSM-CATALOG-HYGIENE","scope":"消除取证暴露的 **3 项隐患**（命名类型 / 瞬态常量 / 去双事实源）+ 源码守卫","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#FSM-CATALOG-HYGIENE"}
-{"id":"FSM-CATALOG-GATE14","scope":"状态机**登记硬门禁**（`lint:arch` → R09-006，error）+ 显式豁免清单 + 规则条文","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#FSM-CATALOG-GATE14"}
-{"id":"CHANGOV-TYPECHECK-1323","scope":"修复 3 处 **typecheck 回归**（`ChannelInterface.plugin` 契约缺 `capabilities`/`meta`；附件口…","stages":"DFT","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-notes.md#CHANGOV-TYPECHECK-1323"}
-{"id":"FSM-TOOLSTATUS-P2","scope":"工具调用状态**单一事实源**（收敛 5 份分叉契约）+ chunk/SSE 层**去裸值**","stages":"DFT","flags":"dcu","files":8,"tn":2,"ref":"archive/evidence-notes.md#FSM-TOOLSTATUS-P2"}
-{"id":"FSM-SESSIONSTATE-P3","scope":"会话状态机 **8 态 → 3 态收敛**（用户裁定）+ 旧枚举删除 + 不可达兜底清理","stages":"DFT","flags":"dcu","files":7,"tn":2,"ref":"archive/evidence-notes.md#FSM-SESSIONSTATE-P3"}
-{"id":"FSM-PROJECTION-P4","scope":"四原语**只读投影** + 异步 Outbound Broker（telemetry-gated，复用 `globalEventBus`）","stages":"DFT","flags":"dcu","files":7,"tn":2,"ref":"archive/evidence-notes.md#FSM-PROJECTION-P4"}
-{"id":"FSM-SUSPENDED-P5","scope":"状态机规范管理 阶段 5（SUSPENDED 投影 / Freeze-and-Resume 联动）—— **前置已由债二专项落地（2026-10-12），本阶…","stages":"DFT","flags":"dcu","files":4,"tn":2,"ref":"archive/evidence-notes.md#FSM-SUSPENDED-P5"}
-{"id":"TOOLGOV-T12-32","scope":"「新数据源不以新增工具承载」源码门禁（基线冻结 + 新增须登记理由，fail-closed）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-T12-32"}
-{"id":"DEBT1-T310","scope":"`readBySeq`/`getTailSeq` 线性路径收口（复用 idx 二分定位）+ 纳入长程基准","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#DEBT1-T310"}
-{"id":"TOOLGOV-SIDECAR-S1","scope":"前置校验（轨 B 动态 thunk 取证）+ 侧车骨架与双跑开关（**默认关 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":5,"tn":3,"ref":"archive/evidence-notes.md#TOOLGOV-SIDECAR-S1"}
-{"id":"TOOLGOV-SIDECAR-S2","scope":"不收敛轨 B；开关开 ⇒ 真经 sidecar 执行，未覆盖方法 fail-closed）","stages":"DFT","flags":"dcu","files":4,"tn":4,"ref":"archive/evidence-notes.md#TOOLGOV-SIDECAR-S2"}
-{"id":"TOOLGOV-SIDECAR-S3","scope":"崩溃结算/重启 + 取消下传（工具 → supervisor → 侧车 → LS 的 `$/cancelRequest`）","stages":"DFT","flags":"dcue","files":4,"tn":2,"ref":"archive/evidence-notes.md#TOOLGOV-SIDECAR-S3"}
-{"id":"TOOLGOV-SIDECAR-S4","scope":"同源门禁（PathGuard / 结果上限**天然同源**验证 + Landlock **显式 N/A** + T4.1 **保名派**裁定）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-SIDECAR-S4"}
-{"id":"TOOLGOV-SIDECAR-S5","scope":"P2 媒体侧车（`vision_worker` 纳入受管面 + `sharp` **只收一处**；受 `TOOL_SIDECAR_MEDIA`，**默认关**）","stages":"DFT","flags":"dcu","files":6,"tn":5,"ref":"archive/evidence-notes.md#TOOLGOV-SIDECAR-S5"}
-{"id":"TOOLGOV-T13-BLOCKED","scope":"前置「PREPARED 落盘点」不存在**（零代码改动）；**2026-10-13 已裁定 (a) 且能力本体已落地 ⇒ 见 `PREPARED-SNAPSH…","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-notes.md#TOOLGOV-T13-BLOCKED"}
-{"id":"DEBT4-S1S2","scope":"core 换算内核**下沉/复用** + query 取价适配器（经 core SPI；**未接线 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":4,"tn":2,"ref":"archive/evidence-notes.md#DEBT4-S1S2"}
-{"id":"DEBT4-USD-WIRING","scope":"真实记账点补 `model` ⇒ 「用量 + 模型 ⇒ 金额」**入账** `usedUsd`（与 token 并行；**不改硬闸门**）","stages":"DFT","flags":"dcu","files":9,"tn":2,"ref":"archive/evidence-notes.md#DEBT4-USD-WIRING"}
-{"id":"DEBT4-QU3-RULING","scope":"**不设默认值** + USD 上限由**用户在 UI 自主配置**（未配置 ⇒ 不启用金额闸门）⇒ **解锁 S3/USD-4**","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-notes.md#DEBT4-QU3-RULING"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","scope":"默认语言/时区口径归一 **`zh-CN` / `Asia/Shanghai`** —— 消除 `en-US`/`UTC` 与 `zh-CN` 的**自相矛盾…","stages":"DFT","flags":"dcu","files":8,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-QH2-LOCALE-TZ"}
-{"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","scope":"兜底价**单一真源** —— 收编 `tokenBudget/PriceManager` 与 `ai/prompts/PromptCacheManager` …","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP0-1-FALLBACK-PRICE"}
-{"id":"T3-12-GUARD-SUSPEND","scope":"熵门禁 / 轮上限「接通挂起」+ 独立继续入口（用户裁定推翻 `TOOLGOV-TG5` 的「绝不阻断」）","stages":"DFT","flags":"dcu","files":13,"tn":3,"ref":"archive/evidence-notes.md#T3-12-GUARD-SUSPEND"}
-{"id":"WAIVE-ONCE-DEBT","scope":"`waive-once` 放行的「计入欠账、次日扣回」此前为**静默 no-op**（`debtTokens` 无自增点）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#WAIVE-ONCE-DEBT"}
-{"id":"BUDGET-SUSPEND-RESUME","scope":"撞限挂起 + relief 唤醒 + 两链续跑 + SUSPENDED 投影（含 F1/F2/F4 三项前置缺陷修复 + E2E-1 互斥锁泄漏根因修复 + …","stages":"DFT","flags":"dcue","files":25,"tn":16,"ref":"archive/evidence-notes.md#BUDGET-SUSPEND-RESUME"}
-{"id":"PREPARED-SNAPSHOT-PERSIST","scope":"执行域「PREPARED 快照」**durable 落盘能力**（复用 `eventSink`；**不受** `STATE_PROJECTION_BROADC…","stages":"DFT","flags":"dcu","files":8,"tn":1,"ref":"archive/evidence-notes.md#PREPARED-SNAPSHOT-PERSIST"}
-{"id":"TOOLGOV-TG4-PROFILE","scope":"会话 profile **按需注入**（能力标签 → 追加可见类别）+ 重放读落盘快照（契约 + 测试）","stages":"DFT","flags":"dcu","files":5,"tn":2,"ref":"archive/evidence-notes.md#TOOLGOV-TG4-PROFILE"}
-{"id":"PREPARED-REPLAY-FORCE","scope":"重放**强制套用**落盘快照（宿主 resume「重发一轮」分支；受 `PREPARED_SNAPSHOT_REPLAY`，**默认关 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#PREPARED-REPLAY-FORCE"}
-{"id":"T2-8-ORCH-PROJECTION","scope":"编排触发绑定四原语 —— **形态 A（只读投影上报）** + 新增 `orchestration` 投影域","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#T2-8-ORCH-PROJECTION"}
-{"id":"DEBT4-S5-USD-BASE","scope":"**USD 口径底座** —— 配置面 + 状态文件扩字段 + 记账入口，**不设任何默认上限值**（`§12 Q-U3` 未裁定）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#DEBT4-S5-USD-BASE"}
-{"id":"CHANGOV-T19-INBOUND-PREPARED","scope":"**入站 PREPARED 接缝**（只读上报；受 `STATE_PROJECTION_BROADCAST`，**默认关 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#CHANGOV-T19-INBOUND-PREPARED"}
-{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","scope":"**入站附件进入 R16 日预算预留口径**（新增专用入参 `attachmentSizes`；**不复用** `images`）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#CHANGOV-T16-INBOUND-ATTACH-BUDGET"}
-{"id":"CHANGOV-T18-UW-GATEWAY-PORTS","scope":"出站/入站**网关端口**均裁定为**有意 UW**（出站已注册无消费者；入站待消费者才注册 —— 端口头注明令「**不伪造接受**」）","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-notes.md#CHANGOV-T18-UW-GATEWAY-PORTS"}
-{"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","scope":"`ISnapshotCapable` **契约 + 探测**（可选实现；声明式、零行为、不改编排类树）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-TG2-A-SNAPSHOT-CAP"}
-{"id":"TOOLGOV-TG2-B1-JOB-PROTO","scope":"侧车「作业化」**协议层** —— 复用既有三类帧，**零新帧型**","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-TG2-B1-JOB-PROTO"}
-{"id":"TOOLGOV-TG2-B2-JOB-HOST","scope":"侧车作业**宿主侧接线** —— 完成通知派发 + `submitJob()` + 超时/崩溃兜底","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-TG2-B2-JOB-HOST"}
-{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","scope":"侧车**作业挂起**「**提交 → 挂起 → 完成 → 续跑**」（`kind='tool-job'` 挂点 + 媒体侧车 **worker 作业模式** +…","stages":"DFT","flags":"dcue","files":8,"tn":4,"ref":"archive/evidence-notes.md#TOOLGOV-TG2-C2-JOB-SUSPEND"}
-{"id":"TOOLGOV-TG2-C1-E2E-ORACLE","scope":"跨进程「提交即返 → 完成兑现」**端到端**（**子进程 oracle** 取得真实证据；产品路径真跑，含失败分支；**先红后绿**）","stages":"DFT","flags":"dcue","files":2,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-TG2-C1-E2E-ORACLE"}
-{"id":"TOOLGOV-TG2-C1-BLOCKED","scope":"**运行器异常（未解释，已绕行）** —— 「`bun test` × 主管」组合下异步完成通知在**本进程内**未被兑现（**非产品接线**，2×2 矩阵已…","stages":"D","flags":"dc","files":1,"tn":1,"ref":"archive/evidence-notes.md#TOOLGOV-TG2-C1-BLOCKED"}
-{"id":"HARDCODE-INFRA-1-QUOTE-SPEC","scope":"机器可读 JSON/YAML 内的 ASCII 双引号陷阱 —— **规范落盘（CS08）+ 门禁自检 + 校验前置**（复发 ≥4 轮的结构性收口）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-INFRA-1-QUOTE-SPEC"}
-{"id":"HARDCODE-HDP0-2-ENDPOINTS","scope":"端点 / 本机 host **单一真源**（A1 Ollama · A3 微信 · A4 OAuth · A6 绑定 host）—— 同值搬运、零行为变更","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP0-2-ENDPOINTS"}
-{"id":"DEBT4-USD-ENDPOINT-IO","scope":"日预算端点补 USD 字段（**只读暴露** + **用户写入 / 清空**；无默认值）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#DEBT4-USD-ENDPOINT-IO"}
-{"id":"DEBT4-USD3-PANEL","scope":"前端「日限额」面板 —— **金额上限编辑** + **金额用量展示** + 换算说明（留空 = 不启用）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#DEBT4-USD3-PANEL"}
-{"id":"DEBT4-USD4-GATE","scope":"日预算闸门**金额轨「双轨从严」**（唯一收口内并行判定；任一先踩线即拒；无默认值）","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#DEBT4-USD4-GATE"}
-{"id":"HARDCODE-HDP0-3-CROSS-CONTRACT","scope":"前后端**契约常量**（B1 默认后端端口 · B2 日限额 SSE 事件名）—— 跨部署单元**同值契约测试**","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP0-3-CROSS-CONTRACT"}
-{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","scope":"原「双轨迁移」前提被推翻）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","scope":"产品 **User-Agent 单一真源**（15 站点 → 1 处；版本号随 `APP_VERSION`）","stages":"DFT","flags":"dcu","files":15,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP1-1-UA-SINGLE-SOURCE"}
-{"id":"HARDCODE-HDP2-2-FORMAT-I18N","scope":"`formatRelativeTime` 文案入 i18n + 时间/日期格式随语言（原**写死 `zh-CN`**）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-2-FORMAT-I18N"}
-{"id":"GATE-SELFPROOF-R09006-FIXTURE","scope":"`lint:arch` 门禁自证的**极简夹具**补齐 `R09-006` 前置 ⇒「合法样例 ⇒ 退出 0」恢复绿（**与本轮功能改动无关**）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#GATE-SELFPROOF-R09006-FIXTURE"}
-{"id":"HARDCODE-HDP2-2-BULK-I18N","scope":"≈40 文件前端内联中文文案入 i18n（426 → 17 处）+ CS02 根治 + 内联文案「棘轮」守卫","stages":"DFT","flags":"dcu","files":41,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-2-BULK-I18N"}
-{"id":"HARDCODE-HDP2-2-ERROR-I18N","scope":"用户可见**错误消息**入 i18n（≈64 处 / 22 文件，53 键）+ 「错误消息不得裸写中文」源码守卫","stages":"DFT","flags":"dcu","files":25,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-2-ERROR-I18N"}
-{"id":"GATE-CANVASEDITOR-DEPS","scope":"`CanvasEditor` autosave effect 的 `react-hooks/exhaustive-deps`（缺 `onDirty`）—— 用…","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-notes.md#GATE-CANVASEDITOR-DEPS"}
-{"id":"HARDCODE-INFRA-1B-QUOTE-FIXER","scope":"CS08 stray-quote **修复器**（`scripts/fix-stray-quotes.ts` + `lint:fix-evidence --f…","stages":"DFT","flags":"dcu","files":2,"tn":2,"ref":"archive/evidence-notes.md#HARDCODE-INFRA-1B-QUOTE-FIXER"}
-{"id":"HARDCODE-HDP2-2-EN-ERROR-I18N","scope":"**英文**错误消息入 i18n（17 键 / 9 文件；含**哨兵串**等有意不迁）","stages":"DF","flags":"dc","files":11,"tn":0,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-2-EN-ERROR-I18N"}
-{"id":"HARDCODE-HDP0-3-B3B4-CONTRACT","scope":"模型能力标签集 + 日预算错误码 —— 前端**收口一处** + 跨部署单元**契约测试**","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP0-3-B3B4-CONTRACT"}
-{"id":"HARDCODE-HDP2-1-THEME-TOKENS","scope":"语义色**令牌化**（补 5 令牌 + 迁移 13 文件的色值字面量）+ 「原始颜色字面量」**棘轮守卫**","stages":"DFT","flags":"dcu","files":15,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-1-THEME-TOKENS"}
-{"id":"HARDCODE-HDP2-1-THEME-TOKENS-B2","scope":"状态调色板**补齐令牌**（15 个）+ DAG 迁移；代码主题/品牌色**登记 EXCLUDE**（基线 113 → 70）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-1-THEME-TOKENS-B2"}
-{"id":"HARDCODE-HDP2-1-THEME-TOKENS-B3","scope":"第二批数据/独立主题**登记 EXCLUDE**（Tokyo Night 同族 · 图表分类色 · 页面插画）—— 基线 70 → 46","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-1-THEME-TOKENS-B3"}
-{"id":"HARDCODE-HDP2-1-THEME-TOKENS-B4","scope":"补 2 个组件级描边令牌（深/浅）+ 4 处 `isDark` 分支收口；剩余**非主题色判定收口**（基线 46 → 43）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-1-THEME-TOKENS-B4"}
-{"id":"HARDCODE-HDP2-3-EVENTS-STORAGE","scope":"前端**自定义事件名**（6 个 / 36 处）+ **跨文件存储键**（`liri-auth-token` / 3 处）收敛为**单一真源** + 源码守卫","stages":"DFT","flags":"dcu","files":21,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-3-EVENTS-STORAGE"}
-{"id":"HARDCODE-HDP2-4-ENDPOINTS-B1","scope":"`/v1/*` 契约路径**按域收口**到 `services/endpoints.ts`（auth / agentTasks / autoReply / c…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-4-ENDPOINTS-B1"}
-{"id":"HARDCODE-HDP2-4-ENDPOINTS-B2A","scope":"knowledge / workspace / skill / session / usage 五域路径收口（166 处）—— 基线 468 → 302","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-4-ENDPOINTS-B2A"}
-{"id":"HARDCODE-HDP2-4-ENDPOINTS-B2B","scope":"files / channels / providers / models / doc·officecli·mail·calendar / plans·pdc…","stages":"DFT","flags":"dcu","files":13,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-4-ENDPOINTS-B2B"}
-{"id":"HARDCODE-HDP2-4-ENDPOINTS-B2C","scope":"其余 29 个 service 收口（145 处）—— 基线 136 → **0**（`services/**` 裸 `/v1/` 清零）","stages":"DFT","flags":"dcu","files":31,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-4-ENDPOINTS-B2C"}
-{"id":"HARDCODE-HDP1-2-A8-BACKOFF-DEFAULTS","scope":"退避/重试**默认值合一** —— Bridge 同值副本已删（引用唯一真源）· 3 个消费点改引用 `DEFAULT_RETRY_CONFIG`；同族变体与…","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP1-2-A8-BACKOFF-DEFAULTS"}
-{"id":"HARDCODE-HDP1-2-A9-LOCALE-TZ","scope":"语言/时区**统一引用真源** —— 新增客户端真源 `constants/locale.ts` + 导出 `currentLocale()`，**38 处*…","stages":"DFT","flags":"dcu","files":12,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-HDP1-2-A9-LOCALE-TZ"}
-{"id":"GATE-S8-HARDCODE-REPORT","scope":"新增 4 把门禁（`lint:consts` 重复事实源 · `lint:endpoints` host/端口 · `lint:locale` 默认 loca…","stages":"DF","flags":"dc","files":7,"tn":0,"ref":"archive/evidence-notes.md#GATE-S8-HARDCODE-REPORT"}
-{"id":"GATE-S8-HARDCODE-RATCHET","scope":"4 把门禁升级为**棘轮阻断**（新违规/计数扩大 ⇒ `exit 1`）+ 基线 `.trae/architecture/hardcode-gate-bas…","stages":"DF","flags":"dc","files":6,"tn":0,"ref":"archive/evidence-notes.md#GATE-S8-HARDCODE-RATCHET"}
-{"id":"GATE-S8-HARDCODE-BLOCKING","scope":"4 门禁接入流水线（`ci` 聚合脚本 + `.github/workflows/ci.yml` 的 `static-check` 作业）+ 明细口径由「⚠️…","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#GATE-S8-HARDCODE-BLOCKING"}
-{"id":"GATE-S8-HARDCODE-DANGLING-REFS","scope":"11 个只有门禁实现、无规范条目的 `R00-002`/`R05-003,004,007,008,013`/`R07-001..004`/`AR-2` 全部*…","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#GATE-S8-HARDCODE-DANGLING-REFS"}
-{"id":"HARDCODE-HDP2-5-APP-LOCALE","scope":"**后端（`app/src`）locale 写死收口** —— 15 处 `toLocale*('zh-CN')` 改引用唯一真源 `DEFAULT_LOCA…","stages":"DF","flags":"dc","files":13,"tn":0,"ref":"archive/evidence-notes.md#HARDCODE-HDP2-5-APP-LOCALE"}
-{"id":"HARDCODE-R05-003-CONSOLE-SINGLE-SOURCE","scope":"门禁与 CI 原为**两套实现 + 两个阈值**（门禁 4 名/按次/`2045+10%`⇒上限 2250 vs CI 内联 `grep` 6 名/按行/写死…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-R05-003-CONSOLE-SINGLE-SOURCE"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP","scope":"删除**零消费者**的死副本目录 `app/src/utils/constants/`（3 文件、与真源同值的旧副本）⇒ `lint:consts` **29…","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","scope":"协议/格式常量合一**（`CHANNEL_TAG` · `RESET`→`ANSI_RESET` · `BYTES_PER_TOKEN`）⇒ `lint:co…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B-A2A-TASKS-PATH","scope":"`TASKS_PATH` → 唯一真源 **`types/a2a.ts` 的 `A2A_TASKS_PATH`**（与既有 `A2A_RPC_PATH` 同处…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B2B-A2A-TASKS-PATH"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","scope":"**oauth AES-256-GCM 参数 5 个合一 + PBKDF2 盐改名消歧** · **`WAV_HEADER_SIZE` 合一** ⇒ `lin…","stages":"DFT","flags":"dcu","files":9,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B3-1-CHANNEL-ALIAS","scope":"`CHANNEL` ×3 **按适配器改名消歧**（值本就不同）· `DEFAULT_OLLAMA_URL` ×2 **本地别名删除**（直用真源名）⇒ `l…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B3-1-CHANNEL-ALIAS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B3-2-PROVIDER-GIT-CONSTS","scope":"`MAX_STATUS_CHARS` ×3 → 真源 `GitDetector.ts` · `LLAMACPP_PROVIDER_TYPE` ×2 → 真源 …","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B3-2-PROVIDER-GIT-CONSTS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B3-3-MODEL-ALIASES","scope":"`MODEL_ALIASES` **顺序漂移归一到真源** `ai/models/ModelAliases.ts`（`AIModelManager` 改导入、…","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B3-3-MODEL-ALIASES"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","scope":"`CRED_STORED_MARKER` **真源上提到 infra**（`constants/common.ts`）—— 消除 `chronos`(infr…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","scope":"`TABLE_NAME` ×5 **按域改名消歧**（5 文件**取值本就全不同**）⇒ `lint:consts` **260 → 259 键（−1）**","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-BASE-URL","scope":"`DEFAULT_BASE_URL` ×5 按域消歧（Ollama **去别名**、其余 4 处按 provider 改名）⇒ `lint:consts` *…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-1-BASE-URL"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","scope":"`CACHE_TTL_MS` ×7 按域消歧（7 处各属独立缓存；取值一字未改）⇒ `lint:consts` **258 → 257 键（−1）**","stages":"DFT","flags":"dcu","files":9,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","scope":"8000 / 30_000 ×2 / 60_000 ×3 / 180_000 / 300000；`sandbox` 跨文件消费侧同步改名）⇒ `lint:co…","stages":"DFT","flags":"dcu","files":11,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-MAX-FILE-SIZE","scope":"10 MiB / 1 GiB / 20 MiB）⇒ `lint:consts` **256 → 255 键（−1）**","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-1-MAX-FILE-SIZE"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","scope":"`DEFAULT_TTL_MS` ×9 按域消歧（9 处各属独立缓存/锁；取值一字未改）⇒ `lint:consts` **255 → 254 键（−1）**","stages":"DFT","flags":"dcu","files":11,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","scope":"`SCHEMA` ×6 按域消歧（6 处各为**不同表的 SQL DDL**；含 `tasks/db/schema.ts` 的**公开导出面** ⇒ 5 处消…","stages":"DFT","flags":"dcu","files":13,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","scope":"`REQUEST_TIMEOUT_MS` ×5 按域消歧（5 处**全为文件内局部**、取值 5 个全不同；无 export ⇒ 零跨文件影响）⇒ `lint…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","scope":"字节 vs 条数 ⇒ **单位写进名字**；含 1 处假真源与 1 处本地化 vendored 文件）⇒ `lint:consts` **252 → 251 …","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","scope":"`CACHE_TTL` ×4 按域消歧（2 处 app + **2 处 client**；取值 60s×2 / 30min / 5min，前一 60s 对分属…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","scope":"**围栏行** `^\\s*``` vs **围栏块** ``` … ```；4 个模块；正则一字未改）⇒ `lint:consts` **250 → 249 …","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","scope":"`MAX_FILES` ×5 按域消歧（门禁口径 4 处 + **扫描面外 1 处脚本**；取值 20/50/100/400/500 全不同）⇒ `lint:…","stages":"DFT","flags":"dcu","files":8,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-8-MAX-HISTORY","scope":"`MAX_HISTORY` ×4 按域消歧（**4 处全在 client 侧**；取值 50/100/50/20，两个 50 分属不同组件故不合一）⇒ `li…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-8-MAX-HISTORY"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","scope":"`MAX_STREAM_AGE_MS` ×4 按渠道消歧（4 处全在 `channels/**` 的流式消息模块；取值 45000 / 60000 / 300…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","scope":"`MAX_RECONNECT_ATTEMPTS` ×4 按域消歧（QQ 渠道 **导出真源 50** + 消费侧同步；会话 WS / MCP 管理器 / MC…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","scope":"`CLEANUP_INTERVAL_MS` ×4 按域消歧（24h / 5min ×2 / 30s，四处分属独立清理器）⇒ `lint:consts` **2…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","scope":"`DEFAULT_IDLE_TIMEOUT_MS` ×2 按域消歧 ⇒ `lint:consts` 244 → 243 键（−1）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-13-DISPLAY-PREFIX","scope":"`DISPLAY_PREFIX` ×3 按域消歧（音/图/视频静态前缀）⇒ `lint:consts` 243 → 242 键（−1）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-13-DISPLAY-PREFIX"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","scope":"`MIN_INITIAL_CHARS` ×3 按渠道消歧（Discord/Matrix/MS Teams 流式首帧阈值）⇒ `lint:consts` 242…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","scope":"`POLL_INTERVAL_MS` ×3 按域消歧（BlueBubbles 渠道 / Agent 任务面板 / Replicate 供应商）⇒ `lint:…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","scope":"`DEFAULT_THROTTLE_MS` ×3 按渠道消歧（Discord/Matrix/MS Teams 流式节流）⇒ `lint:consts` 240…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-17-MAX-DEPTH","scope":"`MAX_DEPTH` ×3 按域消歧（诊断相位栈 / `/files` 递归 / 工件扫描）⇒ `lint:consts` 239 → 238 键（−1）","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-17-MAX-DEPTH"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-18-SUBCOMMANDS","scope":"`SUBCOMMANDS` ×3 按域消歧（notebook / agents / agent 三个命令模块）⇒ `lint:consts` 238 → 23…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-18-SUBCOMMANDS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-19-COLORS","scope":"`COLORS` ×3 按域消歧（toast 样式表 / 画布调色板 / 头像底色）⇒ `lint:consts` 237 → 236 键（−1）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-19-COLORS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-20-BINARY-EXTENSIONS","scope":"`BINARY_EXTENSIONS` 按「真源 / 合一 / 消歧」三类分别处置（3 定义文件 ⇒ 1）⇒ `lint:consts` 236 → 235 …","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-20-BINARY-EXTENSIONS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","scope":"`DEFAULT_MAX_RESULT_SIZE_CHARS` 收敛单一真源（同值同事实 50_000，重复导出面保留）⇒ `lint:consts` 235…","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-22-CURRENT-SCHEMA-VERSION","scope":"`CURRENT_SCHEMA_VERSION` ×3 按域消歧（memory 真源保留 / knowledge / context）⇒ `lint:cons…","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-22-CURRENT-SCHEMA-VERSION"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-23-POLL-INTERVAL","scope":"`POLL_INTERVAL` ×3 按域消歧（编译轮询 / 视频任务 / SSE 兜底）⇒ `lint:consts` 233 → 232 键（−1）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-23-POLL-INTERVAL"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","scope":"`ENABLED` ×3 按域消歧（内存画像 / 内存压力 / 查询分析器开关）⇒ `lint:consts` 232 → 231 键（−1）","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","scope":"`DEFAULT_CONFIG` ×3 按域消歧（cloud / local / senseVoice 三家 STT 提供者）⇒ `lint:consts` …","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-notes.md#HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG"}
+{"id":"REV9-A","scope":"Bash/AST 五项缺陷","stages":"DFTR","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-detail.jsonl#REV9-A"}
+{"id":"REV9-A7","scope":"跨层安全回归（AST→分析→沙箱→审批→最终决策一致）","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#REV9-A7"}
+{"id":"REV9-B","scope":"执行生命周期 B-01–B-05","stages":"DFTR","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-detail.jsonl#REV9-B"}
+{"id":"REV9-B17","scope":"恢复故障注入（含**真实进程级崩溃注入**）","stages":"DFTR","flags":"dcue","files":1,"tn":2,"ref":"archive/evidence-detail.jsonl#REV9-B17"}
+{"id":"REV9-C","scope":"事件持久化与会话恢复 8 项","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#REV9-C"}
+{"id":"REV9-9","scope":"沙箱执行测试组","stages":"DFTR","flags":"dcu","files":1,"tn":2,"ref":"archive/evidence-detail.jsonl#REV9-9"}
+{"id":"PLAN-P0-1","scope":"真实进程级崩溃注入","stages":"DFTR","flags":"dcue","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P0-1"}
+{"id":"PLAN-P0-2","scope":"客户端 /v1/chat/stream 接入 Execution","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P0-2"}
+{"id":"PLAN-P0-3","scope":"统一安全决策词汇 + 消除 INDETERMINATE→ALLOW 折叠","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P0-3"}
+{"id":"PLAN-P0-4","scope":"UNKNOWN 副作用重放守卫 + 可重试性分级","stages":"DFTR","flags":"dcu","files":2,"tn":2,"ref":"archive/evidence-detail.jsonl#PLAN-P0-4"}
+{"id":"PLAN-P1-1","scope":"不变量注册表 + 架构规范","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-1"}
+{"id":"PLAN-P1-2","scope":"CI 文档与语义门禁 + paths-ignore 修正","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-2"}
+{"id":"PLAN-P1-3","scope":"执行入口注册清单 / 执行契约矩阵","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-3"}
+{"id":"PLAN-P1-5","scope":"跨层一致性补 env 清洗 + 最终 spawn","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-5"}
+{"id":"PLAN-P1-6","scope":"沙箱真负向测试纳入默认可执行门禁","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-6"}
+{"id":"PLAN-P1-7","scope":"SPI 装配顺序等隐式约束机器化","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-7"}
+{"id":"PLAN-P1-8","scope":"配置契约测试（默认值/覆盖/读值一致）","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P1-8"}
+{"id":"PLAN-P2-1a","scope":"runStreamMessage 拆分 —— Spec + 棘轮门禁","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1a"}
+{"id":"PLAN-P2-1b","scope":"runStreamMessage 拆分 —— S1 请求准备外移","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1b"}
+{"id":"PLAN-P2-1c","scope":"runStreamMessage 拆分 —— S4 事件持久化收敛","stages":"DFTR","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1c"}
+{"id":"PLAN-P2-1d-1","scope":"runStreamMessage 拆分 —— S6 压缩段纯派生外移","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1d-1"}
+{"id":"PLAN-P2-1d-2","scope":"runStreamMessage 拆分 —— S6 retry 段纯助手 + 文案单一来源","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1d-2"}
+{"id":"PLAN-P2-1d-3","scope":"runStreamMessage 拆分 —— S6 截断/降级纯决策","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1d-3"}
+{"id":"PLAN-P2-1d-4","scope":"runStreamMessage 拆分 —— S6 degradation 水位载荷纯化","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1d-4"}
+{"id":"PLAN-P2-1e","scope":"runStreamMessage 拆分 —— S2/S7 所有权与终态（S7 释放收口）","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1e"}
+{"id":"PLAN-P2-1f","scope":"runStreamMessage 拆分 —— S3 工具轮 todo 载荷去重","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1f"}
+{"id":"PLAN-P2-1g","scope":"runStreamMessage 拆分 —— S1 发送前历史污染清洗纯化","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1g"}
+{"id":"PLAN-P2-1h","scope":"runStreamMessage 拆分 —— S4 流式水位上报（节流决策 + 双载荷）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1h"}
+{"id":"PLAN-P2-1i","scope":"runStreamMessage 拆分 —— S3 本轮工具集选择（任务类型判定 + 裁剪）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1i"}
+{"id":"PLAN-P2-1j","scope":"runStreamMessage 拆分 —— S3 工具轮上下文装配","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1j"}
+{"id":"PLAN-P2-1k","scope":"runStreamMessage 拆分 —— S3 回滚轮次启动（只读性判据 + 动作）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1k"}
+{"id":"PLAN-P2-1l","scope":"runStreamMessage 拆分 —— S4 turn/start 写入（恢复最大 turn + 失败留痕）","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1l"}
+{"id":"PLAN-P2-1m","scope":"runStreamMessage 拆分 —— 请求级延迟 metric/timing 载荷纯化","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1m"}
+{"id":"PLAN-P2-1n","scope":"runStreamMessage 拆分 —— 后台压缩水位状态块构造","stages":"DFTR","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-1n"}
+{"id":"PLAN-P2-2","scope":"门禁 skip 风险管理分级","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-2"}
+{"id":"PLAN-P2-3","scope":"门禁自证扩展到安全链与状态机","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-3"}
+{"id":"PLAN-P2-4","scope":"灰度安全开关复评裁定 + 跨平台安全边界","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#PLAN-P2-4"}
+{"id":"PLAN-P2-5","scope":"Execution 生命周期死面登记与裁定","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#PLAN-P2-5"}
+{"id":"PLAN-P2-6","scope":"复杂度门禁可选升级（重尾离群阻断）","stages":"DFTR","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-6"}
+{"id":"PLAN-P2-7","scope":"模式装配接线条件裁定（复核 + 状态冻结守卫）","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#PLAN-P2-7"}
+{"id":"PLAN-P2-8","scope":"MCP 双轨子进程收敛（SDK 轨边界复核）","stages":"DFTR","flags":"dcue","files":2,"tn":2,"ref":"archive/evidence-detail.jsonl#PLAN-P2-8"}
+{"id":"PLAN-P2-9","scope":"跨路径评估入口裁定（有意不做）","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#PLAN-P2-9"}
+{"id":"L-23-test-global-pollution","scope":"全量 bun test 中 A2A 侧车 5 例失败 —— 跨文件全局污染（mock.module / globalThis.fetch）","stages":"DFTR","flags":"dcu","files":8,"tn":4,"ref":"archive/evidence-detail.jsonl#L-23-test-global-pollution"}
+{"id":"L-23-no-module-mock-gate","scope":"测试禁用 `mock.module`（P0-8 防复发 · 零豁免）","stages":"DFTR","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#L-23-no-module-mock-gate"}
+{"id":"MODE-A1","scope":"编排决策层错层","stages":"D","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A1"}
+{"id":"MODE-A2","scope":"多智能体协作层缺失","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A2"}
+{"id":"MODE-A3","scope":"安全/权限同名类双轨","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A3"}
+{"id":"MODE-A4","scope":"Loop/Orchestrator 家族失控","stages":"D","flags":"d","files":0,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A4"}
+{"id":"MODE-A5","scope":"记忆域外同名","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A5"}
+{"id":"MODE-A6","scope":"评估可观测性割裂","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A6"}
+{"id":"MODE-A7","scope":"Routing 分散（14 Router 无统一契约）","stages":"D","flags":"d","files":0,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A7"}
+{"id":"MODE-A8","scope":"模式层『描述而非可执行』","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A8"}
+{"id":"MODE-A9","scope":"未提交改动堆积","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A9"}
+{"id":"MODE-A10","scope":"协作引擎构造点分散","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A10"}
+{"id":"MODE-A11","scope":"评估内嵌而非总线","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A11"}
+{"id":"MODE-A12","scope":"A2A 未接线 501 语义","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#MODE-A12"}
+{"id":"MODE-A13","scope":"双源漂移「治标未治本」","stages":"DFTR","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#MODE-A13"}
+{"id":"RRF-CONV","scope":"mergeResults 值域归一化 (0,1] + 重叠命中 hybrid","stages":"DFTR","flags":"dcu","files":5,"tn":2,"ref":"archive/evidence-detail.jsonl#RRF-CONV"}
+{"id":"TOOLVIS-1","scope":"shell 回归通用任务集 + tool_search 检索面覆盖全量（真机长程任务事故）","stages":"DFT","flags":"cu","files":5,"tn":3,"ref":"archive/evidence-detail.jsonl#TOOLVIS-1"}
+{"id":"TOOLGOV-S1-1","scope":"审批身份绑定升级（SHA-256 + 执行作用域绑定 + 审批快照）","stages":"DFT","flags":"cu","files":6,"tn":2,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S1-1"}
+{"id":"TOOLGOV-S1-2","scope":"硬拦截与灰度开关解耦（DENY 不可被 FEATURE_BASH_APPROVED_REVALIDATE 绕过）","stages":"DFT","flags":"cu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S1-2"}
+{"id":"TOOLGOV-S1-3","scope":"toolCallId 熵 + tool_calls 唯一约束（碰撞不再错行结算）","stages":"DFT","flags":"cu","files":3,"tn":2,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S1-3"}
+{"id":"TOOLGOV-S1-4","scope":"删死常量 BashOutputSchema + 工具结算改可等待（G16/G17）","stages":"DFT","flags":"cu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S1-4"}
+{"id":"TOOLGOV-S1-5","scope":"命令规范化单一事实源 + Windows Unix 敏感目录探测（G22/G10 同根）","stages":"DFT","flags":"cu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S1-5"}
+{"id":"TOOLGOV-S2-1","scope":"工具调用状态语义化（枚举 + 转移表 + 收窄 union）","stages":"DFT","flags":"cu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S2-1"}
+{"id":"TOOLGOV-S2-3","scope":"G7/G4/G8/G6 落地，G5 待设计）","stages":"DFT","flags":"dcu","files":5,"tn":2,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S2-3"}
+{"id":"TOOLGOV-S2-2","scope":"取消全链路（MCP / WebFetch 接上下文取消信号）","stages":"DFT","flags":"cu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S2-2"}
+{"id":"TOOLGOV-S2-6","scope":"工具调用可观测性补全（统一指标 + Tool-Use Context Entropy）","stages":"DFT","flags":"cu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S2-6"}
+{"id":"TOOLGOV-S3-1","scope":"变体链路与 CI 矩阵（G1/G2/G3）——正名 + 接线 + 变体矩阵","stages":"DFT","flags":"cu","files":2,"tn":2,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S3-1"}
+{"id":"TOOLGOV-S3-2","scope":"ToolFactory 死桩入口摘除 + 实现/死特性位删除（G19 / CD05–CD06）","stages":"DFT","flags":"cu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-S3-2"}
+{"id":"TOOLGOV-GATE-SELFPROOF","scope":"4 个新增门禁在**负向夹具**下失败（S2-3 G8/G6、S3-1 G2、S3-2 死桩）","stages":"DFT","flags":"cu","files":4,"tn":4,"ref":"archive/evidence-detail.jsonl#TOOLGOV-GATE-SELFPROOF"}
+{"id":"TOOLGOV-DOC-INTEGRITY","scope":"workflow-* Spec 的『已完成』声明逐条回仓核验并纠正","stages":"DFT","flags":"cu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-DOC-INTEGRITY"}
+{"id":"TOOLGOV-D11-B","scope":"工具名全量常量表 —— 声明面单一来源 + G5 门禁 + 台账 D-40/D-41 闭合","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D11-B"}
+{"id":"TOOLGOV-G-C5","scope":"ON_DEMAND 触发路径零消费方 —— 登记事实 + 替代保护 + reopen 条件","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-G-C5"}
+{"id":"TOOLGOV-D1","scope":"feature() 三层优先 —— env → BUILD_VARIANT_FLAGS → FEATURE_FLAGS","stages":"DFT","flags":"dcu","files":6,"tn":3,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D1"}
+{"id":"TOOLGOV-D5","scope":"工具能力/风险描述符（复用既有元数据，默认派生）","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D5"}
+{"id":"TOOLGOV-D7","scope":"VFS 事实源唯一性 —— 默认最小面 + 双轨排他性门禁（G21）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D7"}
+{"id":"TOOLGOV-D2","scope":"权限管理器未注入 ⇒ 生产 fail-fast（G9）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D2"}
+{"id":"TOOLGOV-D3","scope":"`unknown` 工具调用的人工介入通道","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D3"}
+{"id":"TOOLGOV-D4","scope":"工具面发现策略（G20）—— 增量治理，不做 Top-K 收口","stages":"DF","flags":"dc","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D4"}
+{"id":"TOOLGOV-D6","scope":"崩溃恢复「两步」同事务（G-D2）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D6"}
+{"id":"TOOLGOV-D8","scope":"工具级配额与熔断 + 两阶段异步工具","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D8"}
+{"id":"TOOLGOV-D9","scope":"Reflection 不松绑 §1.6","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D9"}
+{"id":"TOOLGOV-D10","scope":"重型工具内核剥离（MCP 微服务化）","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-D10"}
+{"id":"TOOLGOV-G18","scope":"上帝对象拆分 —— BashTool 内聚模块抽取 + ToolFactory 委托式/注册表驱动 + **BashTool.execute 巨型函数下沉**","stages":"DFT","flags":"dcu","files":11,"tn":6,"ref":"archive/evidence-detail.jsonl#TOOLGOV-G18"}
+{"id":"MCP-SEC-G1","scope":"MCP 工具结果凭据脱敏一致性（模型可见路径补齐）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#MCP-SEC-G1"}
+{"id":"MCP-SEC-G2","scope":"Stdio 子进程显式 env 审计收紧（消除「声称拦截却透传」矛盾）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#MCP-SEC-G2"}
+{"id":"TOOLGOV-TG1","scope":"capabilityDigest 归属边界登记（权限域 ≠ 能力域，严禁并入工具契约）","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG1"}
+{"id":"TOOLGOV-TG5","scope":"工具 Schema 熵阈值告警（长程第 20 轮后 >30%，只告警不阻断）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG5"}
+{"id":"TOOLGOV-SIDECAR-TARGETS","scope":"侧车首批靶点重排（P1 常驻 LSP / P2 媒体原生面 / P3 liri-native 评估）","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-SIDECAR-TARGETS"}
+{"id":"TOOLGOV-LSP-TIMEOUT","scope":"工具 LSP 客户端请求超时兜底（消除永久挂起 + pendingRequests 泄漏）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-LSP-TIMEOUT"}
+{"id":"TOOLGOV-LSP-BUN-STDIO","scope":"`lsp` 工具在 bun 下起不来（`LSPServer.start()` 调 `stdin.setEncoding` 抛错）—— 已修","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-LSP-BUN-STDIO"}
+{"id":"TEST-GUARD-TOOLREGISTRY-FLAKY","scope":"`toolRegistrySingleSource` 全仓源扫描的 flaky 超时（3× 全扫 → 缓存 + 预筛）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TEST-GUARD-TOOLREGISTRY-FLAKY"}
+{"id":"CHANGOV-DOC-DRIFT","scope":"文档-代码漂移纠正（gateway.md / web.md / channel-routing.md / project_rules §1.14 / 渠道 i…","stages":"DF","flags":"dc","files":5,"tn":0,"ref":"archive/evidence-detail.jsonl#CHANGOV-DOC-DRIFT"}
+{"id":"CHANGOV-SPLIT-COVERAGE","scope":"出站长文本**分片全覆盖**（telegram / qq 去 `slice` 截断，改用 `splitMessage`）","stages":"DFT","flags":"dcu","files":2,"tn":2,"ref":"archive/evidence-detail.jsonl#CHANGOV-SPLIT-COVERAGE"}
+{"id":"CHANGOV-FALLBACK-DECLARED","scope":"出站降级链**声明驱动**（按 `ChannelMeta`/`ChannelCapabilities` 跳过不支持格式）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#CHANGOV-FALLBACK-DECLARED"}
+{"id":"CHANGOV-ATTACHMENT-BUDGET","scope":"附件字节 → 日预算预留（防富媒体绕过 R16 硬闸门）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#CHANGOV-ATTACHMENT-BUDGET"}
+{"id":"CHANGOV-OUTBOUND-BACKOFF","scope":"出站重连**退避重试**（复用 withRetry 的指数退避 + jitter；失败只影响投递）","stages":"DFT","flags":"dcu","files":1,"tn":2,"ref":"archive/evidence-detail.jsonl#CHANGOV-OUTBOUND-BACKOFF"}
+{"id":"CHANGOV-DTO-OWNERSHIP","scope":"两个同名 `MessageAttachment` **归属保持独立**（协议层 vs 会话领域层；禁合并 / 禁断言互换）","stages":"DF","flags":"dc","files":2,"tn":0,"ref":"archive/evidence-detail.jsonl#CHANGOV-DTO-OWNERSHIP"}
+{"id":"CHANGOV-GATEWAY-PORT","scope":"出站网关**端口化**（core 侧 `IOutboundGatewayPort` + channels 适配器 + 组合根装配）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#CHANGOV-GATEWAY-PORT"}
+{"id":"CHANGOV-INBOUND-DTO-PORT","scope":"入站 DTO 标准化（`InboundEnvelope` + `toInboundEnvelope`）+ 入站网关端口（UW 预留）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#CHANGOV-INBOUND-DTO-PORT"}
+{"id":"FSM-CATALOG-P1","scope":"状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#FSM-CATALOG-P1"}
+{"id":"FSM-CATALOG-HYGIENE","scope":"消除取证暴露的 **3 项隐患**（命名类型 / 瞬态常量 / 去双事实源）+ 源码守卫","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#FSM-CATALOG-HYGIENE"}
+{"id":"FSM-CATALOG-GATE14","scope":"状态机**登记硬门禁**（`lint:arch` → R09-006，error）+ 显式豁免清单 + 规则条文","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#FSM-CATALOG-GATE14"}
+{"id":"CHANGOV-TYPECHECK-1323","scope":"修复 3 处 **typecheck 回归**（`ChannelInterface.plugin` 契约缺 `capabilities`/`meta`；附件口…","stages":"DFT","flags":"dcu","files":3,"tn":2,"ref":"archive/evidence-detail.jsonl#CHANGOV-TYPECHECK-1323"}
+{"id":"FSM-TOOLSTATUS-P2","scope":"工具调用状态**单一事实源**（收敛 5 份分叉契约）+ chunk/SSE 层**去裸值**","stages":"DFT","flags":"dcu","files":8,"tn":2,"ref":"archive/evidence-detail.jsonl#FSM-TOOLSTATUS-P2"}
+{"id":"FSM-SESSIONSTATE-P3","scope":"会话状态机 **8 态 → 3 态收敛**（用户裁定）+ 旧枚举删除 + 不可达兜底清理","stages":"DFT","flags":"dcu","files":7,"tn":2,"ref":"archive/evidence-detail.jsonl#FSM-SESSIONSTATE-P3"}
+{"id":"FSM-PROJECTION-P4","scope":"四原语**只读投影** + 异步 Outbound Broker（telemetry-gated，复用 `globalEventBus`）","stages":"DFT","flags":"dcu","files":7,"tn":2,"ref":"archive/evidence-detail.jsonl#FSM-PROJECTION-P4"}
+{"id":"FSM-SUSPENDED-P5","scope":"状态机规范管理 阶段 5（SUSPENDED 投影 / Freeze-and-Resume 联动）—— **前置已由债二专项落地（2026-10-12），本阶…","stages":"DFT","flags":"dcu","files":4,"tn":2,"ref":"archive/evidence-detail.jsonl#FSM-SUSPENDED-P5"}
+{"id":"TOOLGOV-T12-32","scope":"「新数据源不以新增工具承载」源码门禁（基线冻结 + 新增须登记理由，fail-closed）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-T12-32"}
+{"id":"DEBT1-T310","scope":"`readBySeq`/`getTailSeq` 线性路径收口（复用 idx 二分定位）+ 纳入长程基准","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#DEBT1-T310"}
+{"id":"TOOLGOV-SIDECAR-S1","scope":"前置校验（轨 B 动态 thunk 取证）+ 侧车骨架与双跑开关（**默认关 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":5,"tn":3,"ref":"archive/evidence-detail.jsonl#TOOLGOV-SIDECAR-S1"}
+{"id":"TOOLGOV-SIDECAR-S2","scope":"不收敛轨 B；开关开 ⇒ 真经 sidecar 执行，未覆盖方法 fail-closed）","stages":"DFT","flags":"dcu","files":4,"tn":4,"ref":"archive/evidence-detail.jsonl#TOOLGOV-SIDECAR-S2"}
+{"id":"TOOLGOV-SIDECAR-S3","scope":"崩溃结算/重启 + 取消下传（工具 → supervisor → 侧车 → LS 的 `$/cancelRequest`）","stages":"DFT","flags":"dcue","files":4,"tn":2,"ref":"archive/evidence-detail.jsonl#TOOLGOV-SIDECAR-S3"}
+{"id":"TOOLGOV-SIDECAR-S4","scope":"同源门禁（PathGuard / 结果上限**天然同源**验证 + Landlock **显式 N/A** + T4.1 **保名派**裁定）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-SIDECAR-S4"}
+{"id":"TOOLGOV-SIDECAR-S5","scope":"P2 媒体侧车（`vision_worker` 纳入受管面 + `sharp` **只收一处**；受 `TOOL_SIDECAR_MEDIA`，**默认关**）","stages":"DFT","flags":"dcu","files":6,"tn":5,"ref":"archive/evidence-detail.jsonl#TOOLGOV-SIDECAR-S5"}
+{"id":"TOOLGOV-T13-BLOCKED","scope":"前置「PREPARED 落盘点」不存在**（零代码改动）；**2026-10-13 已裁定 (a) 且能力本体已落地 ⇒ 见 `PREPARED-SNAPSH…","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#TOOLGOV-T13-BLOCKED"}
+{"id":"DEBT4-S1S2","scope":"core 换算内核**下沉/复用** + query 取价适配器（经 core SPI；**未接线 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":4,"tn":2,"ref":"archive/evidence-detail.jsonl#DEBT4-S1S2"}
+{"id":"DEBT4-USD-WIRING","scope":"真实记账点补 `model` ⇒ 「用量 + 模型 ⇒ 金额」**入账** `usedUsd`（与 token 并行；**不改硬闸门**）","stages":"DFT","flags":"dcu","files":9,"tn":2,"ref":"archive/evidence-detail.jsonl#DEBT4-USD-WIRING"}
+{"id":"DEBT4-QU3-RULING","scope":"**不设默认值** + USD 上限由**用户在 UI 自主配置**（未配置 ⇒ 不启用金额闸门）⇒ **解锁 S3/USD-4**","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#DEBT4-QU3-RULING"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","scope":"默认语言/时区口径归一 **`zh-CN` / `Asia/Shanghai`** —— 消除 `en-US`/`UTC` 与 `zh-CN` 的**自相矛盾…","stages":"DFT","flags":"dcu","files":8,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-QH2-LOCALE-TZ"}
+{"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","scope":"兜底价**单一真源** —— 收编 `tokenBudget/PriceManager` 与 `ai/prompts/PromptCacheManager` …","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP0-1-FALLBACK-PRICE"}
+{"id":"T3-12-GUARD-SUSPEND","scope":"熵门禁 / 轮上限「接通挂起」+ 独立继续入口（用户裁定推翻 `TOOLGOV-TG5` 的「绝不阻断」）","stages":"DFT","flags":"dcu","files":13,"tn":3,"ref":"archive/evidence-detail.jsonl#T3-12-GUARD-SUSPEND"}
+{"id":"WAIVE-ONCE-DEBT","scope":"`waive-once` 放行的「计入欠账、次日扣回」此前为**静默 no-op**（`debtTokens` 无自增点）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#WAIVE-ONCE-DEBT"}
+{"id":"BUDGET-SUSPEND-RESUME","scope":"撞限挂起 + relief 唤醒 + 两链续跑 + SUSPENDED 投影（含 F1/F2/F4 三项前置缺陷修复 + E2E-1 互斥锁泄漏根因修复 + …","stages":"DFT","flags":"dcue","files":25,"tn":16,"ref":"archive/evidence-detail.jsonl#BUDGET-SUSPEND-RESUME"}
+{"id":"PREPARED-SNAPSHOT-PERSIST","scope":"执行域「PREPARED 快照」**durable 落盘能力**（复用 `eventSink`；**不受** `STATE_PROJECTION_BROADC…","stages":"DFT","flags":"dcu","files":8,"tn":1,"ref":"archive/evidence-detail.jsonl#PREPARED-SNAPSHOT-PERSIST"}
+{"id":"TOOLGOV-TG4-PROFILE","scope":"会话 profile **按需注入**（能力标签 → 追加可见类别）+ 重放读落盘快照（契约 + 测试）","stages":"DFT","flags":"dcu","files":5,"tn":2,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG4-PROFILE"}
+{"id":"PREPARED-REPLAY-FORCE","scope":"重放**强制套用**落盘快照（宿主 resume「重发一轮」分支；受 `PREPARED_SNAPSHOT_REPLAY`，**默认关 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#PREPARED-REPLAY-FORCE"}
+{"id":"T2-8-ORCH-PROJECTION","scope":"编排触发绑定四原语 —— **形态 A（只读投影上报）** + 新增 `orchestration` 投影域","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#T2-8-ORCH-PROJECTION"}
+{"id":"DEBT4-S5-USD-BASE","scope":"**USD 口径底座** —— 配置面 + 状态文件扩字段 + 记账入口，**不设任何默认上限值**（`§12 Q-U3` 未裁定）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#DEBT4-S5-USD-BASE"}
+{"id":"CHANGOV-T19-INBOUND-PREPARED","scope":"**入站 PREPARED 接缝**（只读上报；受 `STATE_PROJECTION_BROADCAST`，**默认关 ⇒ 零行为变更**）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#CHANGOV-T19-INBOUND-PREPARED"}
+{"id":"CHANGOV-T16-INBOUND-ATTACH-BUDGET","scope":"**入站附件进入 R16 日预算预留口径**（新增专用入参 `attachmentSizes`；**不复用** `images`）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#CHANGOV-T16-INBOUND-ATTACH-BUDGET"}
+{"id":"CHANGOV-T18-UW-GATEWAY-PORTS","scope":"出站/入站**网关端口**均裁定为**有意 UW**（出站已注册无消费者；入站待消费者才注册 —— 端口头注明令「**不伪造接受**」）","stages":"D","flags":"d","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#CHANGOV-T18-UW-GATEWAY-PORTS"}
+{"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","scope":"`ISnapshotCapable` **契约 + 探测**（可选实现；声明式、零行为、不改编排类树）","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG2-A-SNAPSHOT-CAP"}
+{"id":"TOOLGOV-TG2-B1-JOB-PROTO","scope":"侧车「作业化」**协议层** —— 复用既有三类帧，**零新帧型**","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG2-B1-JOB-PROTO"}
+{"id":"TOOLGOV-TG2-B2-JOB-HOST","scope":"侧车作业**宿主侧接线** —— 完成通知派发 + `submitJob()` + 超时/崩溃兜底","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG2-B2-JOB-HOST"}
+{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","scope":"侧车**作业挂起**「**提交 → 挂起 → 完成 → 续跑**」（`kind='tool-job'` 挂点 + 媒体侧车 **worker 作业模式** +…","stages":"DFT","flags":"dcue","files":8,"tn":4,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG2-C2-JOB-SUSPEND"}
+{"id":"TOOLGOV-TG2-C1-E2E-ORACLE","scope":"跨进程「提交即返 → 完成兑现」**端到端**（**子进程 oracle** 取得真实证据；产品路径真跑，含失败分支；**先红后绿**）","stages":"DFT","flags":"dcue","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG2-C1-E2E-ORACLE"}
+{"id":"TOOLGOV-TG2-C1-BLOCKED","scope":"**运行器异常（未解释，已绕行）** —— 「`bun test` × 主管」组合下异步完成通知在**本进程内**未被兑现（**非产品接线**，2×2 矩阵已…","stages":"D","flags":"dc","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#TOOLGOV-TG2-C1-BLOCKED"}
+{"id":"HARDCODE-INFRA-1-QUOTE-SPEC","scope":"机器可读 JSON/YAML 内的 ASCII 双引号陷阱 —— **规范落盘（CS08）+ 门禁自检 + 校验前置**（复发 ≥4 轮的结构性收口）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-INFRA-1-QUOTE-SPEC"}
+{"id":"HARDCODE-HDP0-2-ENDPOINTS","scope":"端点 / 本机 host **单一真源**（A1 Ollama · A3 微信 · A4 OAuth · A6 绑定 host）—— 同值搬运、零行为变更","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP0-2-ENDPOINTS"}
+{"id":"DEBT4-USD-ENDPOINT-IO","scope":"日预算端点补 USD 字段（**只读暴露** + **用户写入 / 清空**；无默认值）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#DEBT4-USD-ENDPOINT-IO"}
+{"id":"DEBT4-USD3-PANEL","scope":"前端「日限额」面板 —— **金额上限编辑** + **金额用量展示** + 换算说明（留空 = 不启用）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#DEBT4-USD3-PANEL"}
+{"id":"DEBT4-USD4-GATE","scope":"日预算闸门**金额轨「双轨从严」**（唯一收口内并行判定；任一先踩线即拒；无默认值）","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#DEBT4-USD4-GATE"}
+{"id":"HARDCODE-HDP0-3-CROSS-CONTRACT","scope":"前后端**契约常量**（B1 默认后端端口 · B2 日限额 SSE 事件名）—— 跨部署单元**同值契约测试**","stages":"DFT","flags":"dcu","files":1,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP0-3-CROSS-CONTRACT"}
+{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","scope":"原「双轨迁移」前提被推翻）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","scope":"产品 **User-Agent 单一真源**（15 站点 → 1 处；版本号随 `APP_VERSION`）","stages":"DFT","flags":"dcu","files":15,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP1-1-UA-SINGLE-SOURCE"}
+{"id":"HARDCODE-HDP2-2-FORMAT-I18N","scope":"`formatRelativeTime` 文案入 i18n + 时间/日期格式随语言（原**写死 `zh-CN`**）","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-2-FORMAT-I18N"}
+{"id":"GATE-SELFPROOF-R09006-FIXTURE","scope":"`lint:arch` 门禁自证的**极简夹具**补齐 `R09-006` 前置 ⇒「合法样例 ⇒ 退出 0」恢复绿（**与本轮功能改动无关**）","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#GATE-SELFPROOF-R09006-FIXTURE"}
+{"id":"HARDCODE-HDP2-2-BULK-I18N","scope":"≈40 文件前端内联中文文案入 i18n（426 → 17 处）+ CS02 根治 + 内联文案「棘轮」守卫","stages":"DFT","flags":"dcu","files":41,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-2-BULK-I18N"}
+{"id":"HARDCODE-HDP2-2-ERROR-I18N","scope":"用户可见**错误消息**入 i18n（≈64 处 / 22 文件，53 键）+ 「错误消息不得裸写中文」源码守卫","stages":"DFT","flags":"dcu","files":25,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-2-ERROR-I18N"}
+{"id":"GATE-CANVASEDITOR-DEPS","scope":"`CanvasEditor` autosave effect 的 `react-hooks/exhaustive-deps`（缺 `onDirty`）—— 用…","stages":"DF","flags":"dc","files":1,"tn":0,"ref":"archive/evidence-detail.jsonl#GATE-CANVASEDITOR-DEPS"}
+{"id":"HARDCODE-INFRA-1B-QUOTE-FIXER","scope":"CS08 stray-quote **修复器**（`scripts/fix-stray-quotes.ts` + `lint:fix-evidence --f…","stages":"DFT","flags":"dcu","files":2,"tn":2,"ref":"archive/evidence-detail.jsonl#HARDCODE-INFRA-1B-QUOTE-FIXER"}
+{"id":"HARDCODE-HDP2-2-EN-ERROR-I18N","scope":"**英文**错误消息入 i18n（17 键 / 9 文件；含**哨兵串**等有意不迁）","stages":"DF","flags":"dc","files":11,"tn":0,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-2-EN-ERROR-I18N"}
+{"id":"HARDCODE-HDP0-3-B3B4-CONTRACT","scope":"模型能力标签集 + 日预算错误码 —— 前端**收口一处** + 跨部署单元**契约测试**","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP0-3-B3B4-CONTRACT"}
+{"id":"HARDCODE-HDP2-1-THEME-TOKENS","scope":"语义色**令牌化**（补 5 令牌 + 迁移 13 文件的色值字面量）+ 「原始颜色字面量」**棘轮守卫**","stages":"DFT","flags":"dcu","files":15,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-1-THEME-TOKENS"}
+{"id":"HARDCODE-HDP2-1-THEME-TOKENS-B2","scope":"状态调色板**补齐令牌**（15 个）+ DAG 迁移；代码主题/品牌色**登记 EXCLUDE**（基线 113 → 70）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-1-THEME-TOKENS-B2"}
+{"id":"HARDCODE-HDP2-1-THEME-TOKENS-B3","scope":"第二批数据/独立主题**登记 EXCLUDE**（Tokyo Night 同族 · 图表分类色 · 页面插画）—— 基线 70 → 46","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-1-THEME-TOKENS-B3"}
+{"id":"HARDCODE-HDP2-1-THEME-TOKENS-B4","scope":"补 2 个组件级描边令牌（深/浅）+ 4 处 `isDark` 分支收口；剩余**非主题色判定收口**（基线 46 → 43）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-1-THEME-TOKENS-B4"}
+{"id":"HARDCODE-HDP2-3-EVENTS-STORAGE","scope":"前端**自定义事件名**（6 个 / 36 处）+ **跨文件存储键**（`liri-auth-token` / 3 处）收敛为**单一真源** + 源码守卫","stages":"DFT","flags":"dcu","files":21,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-3-EVENTS-STORAGE"}
+{"id":"HARDCODE-HDP2-4-ENDPOINTS-B1","scope":"`/v1/*` 契约路径**按域收口**到 `services/endpoints.ts`（auth / agentTasks / autoReply / c…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-4-ENDPOINTS-B1"}
+{"id":"HARDCODE-HDP2-4-ENDPOINTS-B2A","scope":"knowledge / workspace / skill / session / usage 五域路径收口（166 处）—— 基线 468 → 302","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-4-ENDPOINTS-B2A"}
+{"id":"HARDCODE-HDP2-4-ENDPOINTS-B2B","scope":"files / channels / providers / models / doc·officecli·mail·calendar / plans·pdc…","stages":"DFT","flags":"dcu","files":13,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-4-ENDPOINTS-B2B"}
+{"id":"HARDCODE-HDP2-4-ENDPOINTS-B2C","scope":"其余 29 个 service 收口（145 处）—— 基线 136 → **0**（`services/**` 裸 `/v1/` 清零）","stages":"DFT","flags":"dcu","files":31,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-4-ENDPOINTS-B2C"}
+{"id":"HARDCODE-HDP1-2-A8-BACKOFF-DEFAULTS","scope":"退避/重试**默认值合一** —— Bridge 同值副本已删（引用唯一真源）· 3 个消费点改引用 `DEFAULT_RETRY_CONFIG`；同族变体与…","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP1-2-A8-BACKOFF-DEFAULTS"}
+{"id":"HARDCODE-HDP1-2-A9-LOCALE-TZ","scope":"语言/时区**统一引用真源** —— 新增客户端真源 `constants/locale.ts` + 导出 `currentLocale()`，**38 处*…","stages":"DFT","flags":"dcu","files":12,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP1-2-A9-LOCALE-TZ"}
+{"id":"GATE-S8-HARDCODE-REPORT","scope":"新增 4 把门禁（`lint:consts` 重复事实源 · `lint:endpoints` host/端口 · `lint:locale` 默认 loca…","stages":"DF","flags":"dc","files":7,"tn":0,"ref":"archive/evidence-detail.jsonl#GATE-S8-HARDCODE-REPORT"}
+{"id":"GATE-S8-HARDCODE-RATCHET","scope":"4 把门禁升级为**棘轮阻断**（新违规/计数扩大 ⇒ `exit 1`）+ 基线 `.trae/architecture/hardcode-gate-bas…","stages":"DF","flags":"dc","files":6,"tn":0,"ref":"archive/evidence-detail.jsonl#GATE-S8-HARDCODE-RATCHET"}
+{"id":"GATE-S8-HARDCODE-BLOCKING","scope":"4 门禁接入流水线（`ci` 聚合脚本 + `.github/workflows/ci.yml` 的 `static-check` 作业）+ 明细口径由「⚠️…","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#GATE-S8-HARDCODE-BLOCKING"}
+{"id":"GATE-S8-HARDCODE-DANGLING-REFS","scope":"11 个只有门禁实现、无规范条目的 `R00-002`/`R05-003,004,007,008,013`/`R07-001..004`/`AR-2` 全部*…","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#GATE-S8-HARDCODE-DANGLING-REFS"}
+{"id":"HARDCODE-HDP2-5-APP-LOCALE","scope":"**后端（`app/src`）locale 写死收口** —— 15 处 `toLocale*('zh-CN')` 改引用唯一真源 `DEFAULT_LOCA…","stages":"DF","flags":"dc","files":13,"tn":0,"ref":"archive/evidence-detail.jsonl#HARDCODE-HDP2-5-APP-LOCALE"}
+{"id":"HARDCODE-R05-003-CONSOLE-SINGLE-SOURCE","scope":"门禁与 CI 原为**两套实现 + 两个阈值**（门禁 4 名/按次/`2045+10%`⇒上限 2250 vs CI 内联 `grep` 6 名/按行/写死…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-R05-003-CONSOLE-SINGLE-SOURCE"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP","scope":"删除**零消费者**的死副本目录 `app/src/utils/constants/`（3 文件、与真源同值的旧副本）⇒ `lint:consts` **29…","stages":"DFT","flags":"dcu","files":2,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B1-DEAD-DUP"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","scope":"协议/格式常量合一**（`CHANNEL_TAG` · `RESET`→`ANSI_RESET` · `BYTES_PER_TOKEN`）⇒ `lint:co…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B-A2A-TASKS-PATH","scope":"`TASKS_PATH` → 唯一真源 **`types/a2a.ts` 的 `A2A_TASKS_PATH`**（与既有 `A2A_RPC_PATH` 同处…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B2B-A2A-TASKS-PATH"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","scope":"**oauth AES-256-GCM 参数 5 个合一 + PBKDF2 盐改名消歧** · **`WAV_HEADER_SIZE` 合一** ⇒ `lin…","stages":"DFT","flags":"dcu","files":9,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B3-1-CHANNEL-ALIAS","scope":"`CHANNEL` ×3 **按适配器改名消歧**（值本就不同）· `DEFAULT_OLLAMA_URL` ×2 **本地别名删除**（直用真源名）⇒ `l…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B3-1-CHANNEL-ALIAS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B3-2-PROVIDER-GIT-CONSTS","scope":"`MAX_STATUS_CHARS` ×3 → 真源 `GitDetector.ts` · `LLAMACPP_PROVIDER_TYPE` ×2 → 真源 …","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B3-2-PROVIDER-GIT-CONSTS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B3-3-MODEL-ALIASES","scope":"`MODEL_ALIASES` **顺序漂移归一到真源** `ai/models/ModelAliases.ts`（`AIModelManager` 改导入、…","stages":"DFT","flags":"dcu","files":3,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B3-3-MODEL-ALIASES"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","scope":"`CRED_STORED_MARKER` **真源上提到 infra**（`constants/common.ts`）—— 消除 `chronos`(infr…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME","scope":"`TABLE_NAME` ×5 **按域改名消歧**（5 文件**取值本就全不同**）⇒ `lint:consts` **260 → 259 键（−1）**","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-1-TABLE-NAME"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-BASE-URL","scope":"`DEFAULT_BASE_URL` ×5 按域消歧（Ollama **去别名**、其余 4 处按 provider 改名）⇒ `lint:consts` *…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-1-BASE-URL"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","scope":"`CACHE_TTL_MS` ×7 按域消歧（7 处各属独立缓存；取值一字未改）⇒ `lint:consts` **258 → 257 键（−1）**","stages":"DFT","flags":"dcu","files":9,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","scope":"8000 / 30_000 ×2 / 60_000 ×3 / 180_000 / 300000；`sandbox` 跨文件消费侧同步改名）⇒ `lint:co…","stages":"DFT","flags":"dcu","files":11,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-MAX-FILE-SIZE","scope":"10 MiB / 1 GiB / 20 MiB）⇒ `lint:consts` **256 → 255 键（−1）**","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-1-MAX-FILE-SIZE"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","scope":"`DEFAULT_TTL_MS` ×9 按域消歧（9 处各属独立缓存/锁；取值一字未改）⇒ `lint:consts` **255 → 254 键（−1）**","stages":"DFT","flags":"dcu","files":11,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL","scope":"`SCHEMA` ×6 按域消歧（6 处各为**不同表的 SQL DDL**；含 `tasks/db/schema.ts` 的**公开导出面** ⇒ 5 处消…","stages":"DFT","flags":"dcu","files":13,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-2-SCHEMA-DDL"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","scope":"`REQUEST_TIMEOUT_MS` ×5 按域消歧（5 处**全为文件内局部**、取值 5 个全不同；无 export ⇒ 零跨文件影响）⇒ `lint…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","scope":"字节 vs 条数 ⇒ **单位写进名字**；含 1 处假真源与 1 处本地化 vendored 文件）⇒ `lint:consts` **252 → 251 …","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL","scope":"`CACHE_TTL` ×4 按域消歧（2 处 app + **2 处 client**；取值 60s×2 / 30min / 5min，前一 60s 对分属…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-5-CACHE-TTL"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","scope":"**围栏行** `^\\s*``` vs **围栏块** ``` … ```；4 个模块；正则一字未改）⇒ `lint:consts` **250 → 249 …","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES","scope":"`MAX_FILES` ×5 按域消歧（门禁口径 4 处 + **扫描面外 1 处脚本**；取值 20/50/100/400/500 全不同）⇒ `lint:…","stages":"DFT","flags":"dcu","files":8,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-7-MAX-FILES"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-8-MAX-HISTORY","scope":"`MAX_HISTORY` ×4 按域消歧（**4 处全在 client 侧**；取值 50/100/50/20，两个 50 分属不同组件故不合一）⇒ `li…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-8-MAX-HISTORY"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS","scope":"`MAX_STREAM_AGE_MS` ×4 按渠道消歧（4 处全在 `channels/**` 的流式消息模块；取值 45000 / 60000 / 300…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-9-MAX-STREAM-AGE-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","scope":"`MAX_RECONNECT_ATTEMPTS` ×4 按域消歧（QQ 渠道 **导出真源 50** + 消费侧同步；会话 WS / MCP 管理器 / MC…","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","scope":"`CLEANUP_INTERVAL_MS` ×4 按域消歧（24h / 5min ×2 / 30s，四处分属独立清理器）⇒ `lint:consts` **2…","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","scope":"`DEFAULT_IDLE_TIMEOUT_MS` ×2 按域消歧 ⇒ `lint:consts` 244 → 243 键（−1）","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-13-DISPLAY-PREFIX","scope":"`DISPLAY_PREFIX` ×3 按域消歧（音/图/视频静态前缀）⇒ `lint:consts` 243 → 242 键（−1）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-13-DISPLAY-PREFIX"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS","scope":"`MIN_INITIAL_CHARS` ×3 按渠道消歧（Discord/Matrix/MS Teams 流式首帧阈值）⇒ `lint:consts` 242…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-14-MIN-INITIAL-CHARS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS","scope":"`POLL_INTERVAL_MS` ×3 按域消歧（BlueBubbles 渠道 / Agent 任务面板 / Replicate 供应商）⇒ `lint:…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-15-POLL-INTERVAL-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS","scope":"`DEFAULT_THROTTLE_MS` ×3 按渠道消歧（Discord/Matrix/MS Teams 流式节流）⇒ `lint:consts` 240…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-16-DEFAULT-THROTTLE-MS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-17-MAX-DEPTH","scope":"`MAX_DEPTH` ×3 按域消歧（诊断相位栈 / `/files` 递归 / 工件扫描）⇒ `lint:consts` 239 → 238 键（−1）","stages":"DFT","flags":"dcu","files":7,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-17-MAX-DEPTH"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-18-SUBCOMMANDS","scope":"`SUBCOMMANDS` ×3 按域消歧（notebook / agents / agent 三个命令模块）⇒ `lint:consts` 238 → 23…","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-18-SUBCOMMANDS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-19-COLORS","scope":"`COLORS` ×3 按域消歧（toast 样式表 / 画布调色板 / 头像底色）⇒ `lint:consts` 237 → 236 键（−1）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-19-COLORS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-20-BINARY-EXTENSIONS","scope":"`BINARY_EXTENSIONS` 按「真源 / 合一 / 消歧」三类分别处置（3 定义文件 ⇒ 1）⇒ `lint:consts` 236 → 235 …","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-20-BINARY-EXTENSIONS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","scope":"`DEFAULT_MAX_RESULT_SIZE_CHARS` 收敛单一真源（同值同事实 50_000，重复导出面保留）⇒ `lint:consts` 235…","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-22-CURRENT-SCHEMA-VERSION","scope":"`CURRENT_SCHEMA_VERSION` ×3 按域消歧（memory 真源保留 / knowledge / context）⇒ `lint:cons…","stages":"DFT","flags":"dcu","files":4,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-22-CURRENT-SCHEMA-VERSION"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-23-POLL-INTERVAL","scope":"`POLL_INTERVAL` ×3 按域消歧（编译轮询 / 视频任务 / SSE 兜底）⇒ `lint:consts` 233 → 232 键（−1）","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-23-POLL-INTERVAL"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","scope":"`ENABLED` ×3 按域消歧（内存画像 / 内存压力 / 查询分析器开关）⇒ `lint:consts` 232 → 231 键（−1）","stages":"DFT","flags":"dcu","files":6,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","scope":"`DEFAULT_CONFIG` ×3 按域消歧（cloud / local / senseVoice 三家 STT 提供者）⇒ `lint:consts` …","stages":"DFT","flags":"dcu","files":5,"tn":1,"ref":"archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG"}

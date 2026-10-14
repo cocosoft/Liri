@@ -3315,6 +3315,23 @@
       "changelog": [],
       "reopenWhen": "① **B5-2 续项**：其余「各 4」键 —— 每项**先做全仓 grep**（含 `app/scripts`/`app/tests`；门禁扫描面只含 `app/src` + `client/src`，见 B5-2⑦ `reopenWhen` ②）再判定；**整键改完才消键**；② **⚠️ 同值同域观察（未处理）**：本片 `CHRONOS_CLEANUP_INTERVAL_MS`（`chronos/maintenance/cleanup.ts`）与 `ChronosBackgroundHousekeeping.ts` 的 `RECURRING_CLEANUP_INTERVAL_MS` **同值 `24h` 且同属 chronos 维护面** ⇒ **疑为同一事实**（每日清理节奏）；但两者**标识符不同**（**非本键**）⇒ 本片**未动**；若确认同一事实 ⇒ 可合一（须先定真源落位 + 验依赖方向 + 两条清理路径是否**同时触发**）；③ **同族「前缀名」非本键**：`RECURRING_CLEANUP_INTERVAL_MS`（24h）与 `DEFAULT_CLEANUP_INTERVAL_MS`（`channels/dedup/index.ts`，1h）⇒ **未动**（守卫正向钉住，防误并入）；④ `permission/**` 属 **CD07 关键域** ⇒ 本片**仅改名、未删实现、未改数值**；⑤ 副本写回（任一处重新出现 `const CLEANUP_INTERVAL_MS = `）⇒ 守卫或棘轮门禁（基线 244）立即阻断。",
       "notes": "**取证（CS06）**：`CLEANUP_INTERVAL_MS` **4 文件** —— `chronos/maintenance/cleanup.ts:16` `24 * 60 * 60 * 1000`（chronos 每日清理）· `media/image/TempFileManager.ts:24` `5 * 60 * 1000`（临时文件清理扫描，注释「5 分钟」）· `tools/CanvasTool/CanvasTool.ts:28` `5 * 60 * 1000`（画布实例自动清理）· `permission/ApprovedCommandRegistry.ts:48` `30_000`（已批准命令定时清理）。**判定**：4 处**分属四个独立清理器**，取值 3 种（**两个 `5min` 分属临时文件与画布实例，非同一事实**）⇒ 属「**命名太泛**」⇒ **按域改名消歧**、**不因同值而合一**。**全仓核验（按 B5-2⑦–⑩ 教训）**：全仓 `CLEANUP_INTERVAL_MS` 命中 **6 文件**= 4 definer + 2 **前缀名**（`RECURRING_CLEANUP_INTERVAL_MS`@`ChronosBackgroundHousekeeping.ts`（24h）· `DEFAULT_CLEANUP_INTERVAL_MS`@`channels/dedup/index.ts`（1h））⇒ 前缀名**均在别的文件、非本键** ⇒ `replace_all` 不误伤；4 处**均无 `export`** ⇒ 无消费面。**落地**：`CHRONOS_CLEANUP_INTERVAL_MS`（24h）· `TEMP_FILE_CLEANUP_INTERVAL_MS`（5min）· `CANVAS_CLEANUP_INTERVAL_MS`（5min）· `APPROVED_COMMAND_CLEANUP_INTERVAL_MS`（30s）；**4 个数值一字未改** ⇒ **零行为变化**。**⚠️ 同值同域观察（如实，未处理）**：`cleanup.ts` 的 `24h` 与 `ChronosBackgroundHousekeeping.ts#RECURRING_CLEANUP_INTERVAL_MS` 的 `24h` **同值且同属 chronos 维护面** ⇒ **疑为同一事实**（两者的定时是否**同时触发**未验）⇒ 因标识符不同（**非本键**）本片**未动**，记 `reopenWhen` ②（若确认同一事实可合一）。**效果（可证伪）**：`lint:consts` **245 → 244**（**−1 键**），门禁自报 `同名常量:CLEANUP_INTERVAL_MS` **4 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 244 键**。**守卫**（第 **27** 例）：4 文件均不含 `const CLEANUP_INTERVAL_MS = ` 且各含**确切新名 + 取值钉住**；另**正向钉住**两个同族前缀名仍在（防误并入）。**验证**：`typecheck`（app 三 tsconfig，含 scripts）**0**；守卫 **27 pass / 0 fail**；相关域（`tests/constants`+`tests|src` 的 `chronos`/`media`/`tools`/`permission` 与 4 个被改类名）**1059 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① `permission/**` 属 **CD07 关键域**（权限）⇒ **仅改名**；`chronos/**`（后台维护）、`media/**`、`tools/**` 同属敏感面，处理同上；② **未做真机走查**（四类清理器的真实触发节奏**未验**）⇒ `e2eVerified=false`；③ 未跑全量 `bun test`（app 侧仅相关域）；④ **未跑 client**（无 client 侧改动）；⑤ 本片是 B5-2 **第十一项**。"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS",
+      "title": "硬编码治理 · 「同名常量」B5-2 第十二项（**代为收尾**）：`DEFAULT_IDLE_TIMEOUT_MS` ×2 按域消歧 ⇒ `lint:consts` 244 → 243 键（−1）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + SB03/SB05 + 原切片会话（已静止）产物",
+      "stages": { "discovered": true, "fixed": true, "testVerified": true, "postReleaseReviewed": false },
+      "flags": { "designed": true, "coded": true, "unitTested": true, "e2eVerified": false },
+      "code": [
+        "app/src/acp/session.ts",
+        "app/src/core/idle/IdleScaleMonitor.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": ["app/tests/constants/sameNameConstsB2.test.ts"],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若两处 30min 空闲日后被判定为**同一事实** ⇒ 先验两条路径是否同时触发再谈合一；③ 同族名 `STREAM_/REPL_IDLE_TIMEOUT_MS` 与裸 `IDLE_TIMEOUT_MS` 非本键、未动（守卫正向钉住）；④ 副本写回 ⇒ 守卫或棘轮（243 键）阻断。",
+      "notes": "**代为收尾**：原切片会话在「代码+守卫完成 → 未收紧基线/未写台账/未提交」处终止（60s 零写入 + HEAD 未前进 ⇒ 判已静止）。取证：2 处同值 30min **异事实** ⇒ 按域消歧、**数值一字未改**。效果：244 → 243 键（消陈键）。验证：守卫 28 pass / 0 fail · 5 门禁 exit 0 · hardcodeGateBlocking 8 pass。边界：e2eVerified=false、未跑全量。"
     }
   ]
 }

@@ -97,7 +97,10 @@ async function httpGet(
   apiKey: string
 ): Promise<{ status: number; body: unknown }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), BALANCE_CHECK_REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    BALANCE_CHECK_REQUEST_TIMEOUT_MS
+  );
 
   try {
     const response = await fetch(url, {

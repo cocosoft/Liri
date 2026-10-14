@@ -987,4 +987,30 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const GIT_READ_ONLY_SUBCOMMANDS = new Set(['
     );
   });
+
+  test('B5-2⑲：`COLORS` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `COLORS` 分属 toast 样式表 / 画布调色板 / 头像底色，全为文件内私有
+    const toast = '../client/src/components/common/ToastContainer.tsx';
+    const canvas =
+      '../client/src/components/views/image/canvas-editor/components/CanvasToolbar.tsx';
+    const avatar = 'src/components/ui/Avatar.tsx';
+    for (const rel of [toast, canvas, avatar]) {
+      expect(read(rel)).not.toMatch(/const COLORS = [{\[]/);
+    }
+    expect(read(toast)).toContain('const TOAST_TYPE_COLORS = {');
+    expect(read(toast)).toContain('const c = TOAST_TYPE_COLORS[toast.type];');
+    expect(read(canvas)).toContain('const CANVAS_TOOLBAR_COLORS = [');
+    expect(read(canvas)).toContain('{CANVAS_TOOLBAR_COLORS.map((c) => (');
+    expect(read(avatar)).toContain('const AVATAR_COLORS = [');
+    expect(read(avatar)).toContain(
+      'return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];'
+    );
+    // 同族**非本键**名仍在（不得误伤）：`*_COLORS` 语义化命名
+    expect(
+      read('../client/src/components/modelAdmin/ModelSwitcher.tsx')
+    ).toContain('const PROVIDER_COLORS: Record<string, string> = {');
+    expect(
+      read('../client/src/components/Memory/memoryConstants.ts')
+    ).toContain('export const TYPE_COLORS: Record<MemoryType, string> = {');
+  });
 });

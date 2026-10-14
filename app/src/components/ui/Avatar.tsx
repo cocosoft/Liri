@@ -22,7 +22,7 @@ const SIZE_CONFIG: Record<AvatarSize, { width: number; height: number }> = {
   lg: { width: 8, height: 8 },
 };
 
-const COLORS = [
+const AVATAR_COLORS = [
   'red',
   'green',
   'blue',
@@ -38,7 +38,7 @@ function getColorFromName(name: string): string {
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return COLORS[Math.abs(hash) % COLORS.length];
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
 function getInitials(name: string): string {

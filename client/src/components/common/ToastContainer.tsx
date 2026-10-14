@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useToastStore } from "../../stores/toastStore";
 
-const COLORS = {
+const TOAST_TYPE_COLORS = {
   error: {
     bg: "bg-red-50 dark:bg-red-950/40",
     border: "border-red-200 dark:border-red-800/50",
@@ -59,7 +59,7 @@ export default function ToastContainer() {
   return (
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
       {toasts.map((toast) => {
-        const c = COLORS[toast.type];
+        const c = TOAST_TYPE_COLORS[toast.type];
         const isExpanded = expanded.has(toast.id);
         return (
           <div

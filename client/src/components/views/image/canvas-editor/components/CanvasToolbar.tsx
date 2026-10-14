@@ -37,7 +37,7 @@ const TOOLS: {
   { id: "lasso", label: "🔗", nameKey: "media.canvasToolLasso", key: "M" },
 ];
 
-const COLORS = [
+const CANVAS_TOOLBAR_COLORS = [
   "#000000",
   "#ffffff",
   "#ff0000",
@@ -198,7 +198,7 @@ export const CanvasToolbar: React.FC<Props> = ({
 
       {/* 颜色 */}
       <div className="flex gap-1">
-        {COLORS.map((c) => (
+        {CANVAS_TOOLBAR_COLORS.map((c) => (
           <button
             key={c}
             onClick={() => onFgColor(c)}

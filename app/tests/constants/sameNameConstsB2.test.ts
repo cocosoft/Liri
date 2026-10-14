@@ -591,4 +591,31 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
   });
+
+  test('B5-2⑥：`FENCE_RE` ×4 已按域消歧（正则一字未改）', () => {
+    // 4 处同名 `FENCE_RE`：2 处**围栏行**正则（`^\s*```）· 2 处**围栏块**正则（```…```）
+    const items: Array<[string, string, string]> = [
+      ['src/utils/structureCut.ts', 'STRUCTURE_CUT_FENCE_RE', '/^\\s*```/'],
+      [
+        'src/channels/messageSplitter.ts',
+        'MESSAGE_SPLITTER_FENCE_RE',
+        '/^\\s*```/',
+      ],
+      [
+        'src/chat/services/bareExplorationStripper.ts',
+        'BARE_EXPLORATION_FENCE_RE',
+        '/```[\\s\\S]*?```/g',
+      ],
+      [
+        '../client/src/stores/chat/chat-toolcall.slice.ts',
+        'CHAT_TOOLCALL_FENCE_RE',
+        '/```[\\s\\S]*?```/g',
+      ],
+    ];
+    for (const [rel, name, re] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const FENCE_RE = /);
+      expect(src).toContain(`${name} = ${re};`);
+    }
+  });
 });

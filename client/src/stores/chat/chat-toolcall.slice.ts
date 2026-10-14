@@ -1384,9 +1384,9 @@ const MARKDOWN_STRUCTURE_RE =
 
 /** 按句子拆分 content，fenced code block 整体占位保护，保留换行结构 */
 function splitSentencesPreservingFences(content: string): string[] {
-  const FENCE_RE = /```[\s\S]*?```/g;
+  const CHAT_TOOLCALL_FENCE_RE = /```[\s\S]*?```/g;
   const placeholders: string[] = [];
-  const masked = content.replace(FENCE_RE, (m) => {
+  const masked = content.replace(CHAT_TOOLCALL_FENCE_RE, (m) => {
     placeholders.push(m);
     return `\u0000FENCE${placeholders.length - 1}\u0000`;
   });

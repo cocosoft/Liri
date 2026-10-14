@@ -35,7 +35,7 @@
 import { bracketDelta } from '@modules/utils/structureCut';
 
 const FENCE = '```';
-const FENCE_RE = /^\s*```/;
+const MESSAGE_SPLITTER_FENCE_RE = /^\s*```/;
 
 /**
  * 把一个字符串切成不超过 `maxLen` 的片段。
@@ -57,7 +57,7 @@ export function splitMessage(content: string, maxLen: number): string[] {
   let inFence = false;
   let depth = 0;
   for (let i = 0; i < n; i++) {
-    if (FENCE_RE.test(lines[i])) inFence = !inFence;
+    if (MESSAGE_SPLITTER_FENCE_RE.test(lines[i])) inFence = !inFence;
     depth = Math.max(0, depth + bracketDelta(lines[i]));
     fenceOpenAfter[i] = inFence;
     safeAfter[i] = !inFence && depth === 0;

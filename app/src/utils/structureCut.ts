@@ -37,7 +37,7 @@
 import type { NativeLib } from '../../native';
 
 /** 代码围栏行（行首可含空格后接三个反引号） */
-const FENCE_RE = /^\s*```/;
+const STRUCTURE_CUT_FENCE_RE = /^\s*```/;
 
 /** 轻量括号净增量：`{ [ (` +1，`} ] )` −1（不解析字符串/注释） */
 export function bracketDelta(line: string): number {
@@ -88,7 +88,7 @@ export function findStructuralCut(
     const lineStart = offset;
     // 末段无换行 ⇒ 该行不完整，不作为切点（切在完整行之后）
     if (i === lines.length - 1) break;
-    if (FENCE_RE.test(line)) inFence = !inFence;
+    if (STRUCTURE_CUT_FENCE_RE.test(line)) inFence = !inFence;
     depth = Math.max(0, depth + bracketDelta(line));
     offset += line.length + 1; // 含换行符
     if (inFence || depth !== 0) continue;

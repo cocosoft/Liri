@@ -23,11 +23,15 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
+import { MODEL_ALIASES, type ModelAlias } from './models/ModelAliases';
 const logger = getLogger('ai\AIModelManager');
 
-export const MODEL_ALIASES = ['best', 'pro', 'flash', 'fast'] as const;
-
-export type ModelAlias = (typeof MODEL_ALIASES)[number];
+// `MODEL_ALIASES` / `ModelAlias` 统一到真源 `./models/ModelAliases`（硬编码治理「同名常量」B3-3）：
+// 原两处**同集合但顺序不同**（本处 `best,pro,flash,fast` vs 真源 `best,fast,pro,flash`）⇒ 顺序漂移。
+// 本处原 `export` 面经 grep 证**零外部消费者**（barrel `ai/index.ts` 的 `MODEL_ALIASES` 本就取
+// `./models/ModelAliases`）⇒ 直接改为导入、**不保留重导出**。
+// ⚠️ 可观测变更（**有意**）：`getModelAliases()` 返回顺序改为真源的 `best,fast,pro,flash`
+// （**集合不变**）⇒ 消除「顺序取决于从哪个入口取」的不确定性。
 
 export class AIModelManager {
   private static instance: AIModelManager;

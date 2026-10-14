@@ -180,4 +180,15 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(reg).not.toMatch(/const LLAMACPP_PROVIDER_TYPE =/);
     expect(reg).toContain('LLAMACPP_PROVIDER_TYPE,');
   });
+
+  test('B3-3：`MODEL_ALIASES` 唯一真源在 ai/models/ModelAliases.ts（AIModelManager 改导入，不保留副本）', () => {
+    expect(read('src/ai/models/ModelAliases.ts')).toMatch(
+      /export const MODEL_ALIASES = \['best', 'fast', 'pro', 'flash'\] as const;/
+    );
+    const mgr = read('src/ai/AIModelManager.ts');
+    expect(mgr).not.toMatch(/export const MODEL_ALIASES =/);
+    expect(mgr).toContain(
+      "import { MODEL_ALIASES, type ModelAlias } from './models/ModelAliases';"
+    );
+  });
 });

@@ -928,4 +928,36 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'const STREAMING_UPDATE_THROTTLE_MS = 160;'
     );
   });
+
+  test('B5-2⑰：`MAX_DEPTH` ×3 已按域消歧（取值一字未改）', () => {
+    // 3 处同名 `MAX_DEPTH`（深度上限）分属三个独立域，取值 2 种、全为文件内私有
+    const items: Array<[string, string, string]> = [
+      [
+        'src/diagnostics/loopProbe/phaseStack.ts',
+        'PHASE_STACK_MAX_DEPTH',
+        '64',
+      ],
+      ['src/commands/builtin/files/Files.ts', 'FILES_MAX_DEPTH', '4'],
+      [
+        'src/infrastructure/http/handlers/project-artifact-handlers.ts',
+        'PROJECT_ARTIFACT_MAX_DEPTH',
+        '4',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      expect(src).not.toMatch(/const MAX_DEPTH = /);
+      expect(src).toContain(`${name} = ${value};`);
+    }
+    // 同族**非本键**名仍在（不得误伤）：`DEFAULT_ROOT_CAUSE_MAX_DEPTH`（systemgraph 导出真源）
+    expect(read('src/core/systemgraph/SystemGraph.ts')).toContain(
+      'export const DEFAULT_ROOT_CAUSE_MAX_DEPTH = 5;'
+    );
+    // tests 侧同名局部别名一并消歧（非门禁扫描面，但全仓不再有同名定义）
+    expect(
+      read('tests/tools/AgentTool/agentDelegationGrant.test.ts')
+    ).toContain(
+      'const SUBAGENT_MAX_DEPTH = getTaskConcurrencyLimits().subagentDepth;'
+    );
+  });
 });

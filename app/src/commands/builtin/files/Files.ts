@@ -10,7 +10,7 @@ const logger = getLogger('commands:builtin:files:Files');
  * P1-2（2026-09-07）：递归守卫——clean/tree/find 共享的深度/黑名单/符号链接保护。
  * 防止遍历巨型目录（node_modules 等）、符号链接循环或超深层级导致卡死/误删。
  */
-const MAX_DEPTH = 4;
+const FILES_MAX_DEPTH = 4;
 const SKIP_DIRS = new Set([
   'node_modules',
   'dist',
@@ -33,7 +33,7 @@ function shouldSkipEntry(
 ): boolean {
   if (stat.isSymbolicLink()) return true;
   if (!stat.isDirectory()) return false;
-  return depth > MAX_DEPTH || SKIP_DIRS.has(name);
+  return depth > FILES_MAX_DEPTH || SKIP_DIRS.has(name);
 }
 
 export default {
@@ -149,7 +149,7 @@ export default {
       const searchDir = context.cwd || process.cwd();
 
       const search = (dir: string, depth: number) => {
-        if (depth > MAX_DEPTH) return;
+        if (depth > FILES_MAX_DEPTH) return;
         const files = fs.readdirSync(dir);
         for (const file of files) {
           if (foundFiles.length >= FIND_MAX_RESULTS) return;
@@ -348,7 +348,7 @@ export default {
       const searchDir = context.cwd || process.cwd();
 
       const collect = (dir: string, depth: number) => {
-        if (depth > MAX_DEPTH) return;
+        if (depth > FILES_MAX_DEPTH) return;
         const files = fs.readdirSync(dir);
         for (const file of files) {
           const fullPath = pathModule.join(dir, file);

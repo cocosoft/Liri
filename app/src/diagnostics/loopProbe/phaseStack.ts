@@ -20,7 +20,7 @@
  */
 
 /** 活跃栈上限：超过即放弃记录（宁可不采样，也不让探针自己成为内存增长点） */
-const MAX_DEPTH = 64;
+const PHASE_STACK_MAX_DEPTH = 64;
 /** 已完成阶段环形缓冲容量（够覆盖 burst 期连续多轮） */
 const RING_CAPACITY = 32;
 /** 归因判据下界：小于 1s 的阶段不可能是"阻塞源"，避免抖动噪声干扰 */
@@ -71,7 +71,7 @@ export function isPhaseStackEnabled(): boolean {
 /** 进入阶段（务必在 try/finally 中与 `exitPhase` 配对） */
 export function enterPhase(name: string): void {
   if (!enabled) return;
-  if (activeNames.length >= MAX_DEPTH) return;
+  if (activeNames.length >= PHASE_STACK_MAX_DEPTH) return;
   const now = Date.now();
   activeNames.push(name);
   activeStartedAt.push(now);

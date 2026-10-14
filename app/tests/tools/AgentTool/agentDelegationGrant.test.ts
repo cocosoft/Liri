@@ -20,7 +20,7 @@ import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
 import { getTaskConcurrencyLimits } from '../../../src/tasks/limits';
 
-const MAX_DEPTH = getTaskConcurrencyLimits().subagentDepth;
+const SUBAGENT_MAX_DEPTH = getTaskConcurrencyLimits().subagentDepth;
 
 function fakeTool(name: string): Tool {
   return {
@@ -118,10 +118,10 @@ describe('T9：子代理委派授权（角色策略 × 深度）', () => {
     // 授权 + 深度未达上限 ⇒ 放行
     expect(resolveGrant.call(tool, true, { subagentDepth: 0 })).toBe(true);
     expect(
-      resolveGrant.call(tool, true, { subagentDepth: MAX_DEPTH - 1 })
+      resolveGrant.call(tool, true, { subagentDepth: SUBAGENT_MAX_DEPTH - 1 })
     ).toBe(true);
     // 授权但深度达上限 ⇒ 拒绝（与 executeGuard 同源判据，避免"可见但必被拒"）
-    expect(resolveGrant.call(tool, true, { subagentDepth: MAX_DEPTH })).toBe(
+    expect(resolveGrant.call(tool, true, { subagentDepth: SUBAGENT_MAX_DEPTH })).toBe(
       false
     );
     // 未授权（含缺省）⇒ 恒拒绝

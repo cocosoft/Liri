@@ -4,12 +4,14 @@
  * FileRegistry 的 createdAt/updatedAt 为**秒级**（SQLite `strftime('%s')`）。
  * 所有展示必须经本函数换算（*1000），避免调用方直接 `new Date(ts)` 落入 1970 陷阱。
  */
+import { currentLocale } from "./format";
+
 export function formatRegistryTime(
   tsSec?: number,
   options?: { withSeconds?: boolean },
 ): string {
   if (!tsSec || tsSec <= 0) return "";
-  return new Date(tsSec * 1000).toLocaleString("zh-CN", {
+  return new Date(tsSec * 1000).toLocaleString(currentLocale(), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

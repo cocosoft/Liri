@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { Skill, SkillSource } from "../../services/skillService";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
+import { currentLocale } from "../../utils/format";
 
 interface SkillDetailProps {
   skill: Skill;
@@ -57,7 +58,7 @@ function SkillDetail({
 }: SkillDetailProps) {
   const { t } = useTranslation();
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN", {
+    return new Date(timestamp).toLocaleString(currentLocale(), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

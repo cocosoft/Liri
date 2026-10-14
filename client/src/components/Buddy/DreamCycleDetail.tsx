@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { memoryService } from "../../services/memoryService";
+import { currentLocale } from "../../utils/format";
 
 interface DreamCycleDetail {
   cycleId: string;
@@ -57,7 +58,7 @@ function DreamCycleDetail({ cycleId, isDark, onClose }: DreamCycleDetailProps) {
   };
 
   const formatTime = (ts: number) => {
-    return new Date(ts).toLocaleString("zh-CN", {
+    return new Date(ts).toLocaleString(currentLocale(), {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",

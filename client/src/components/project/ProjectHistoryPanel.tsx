@@ -24,6 +24,7 @@ import {
   fetchSummaries,
   type ProjectSummary,
 } from "@/services/projectArtifactService";
+import { currentLocale } from "../../utils/format";
 
 interface Props {
   projectId: string;
@@ -176,7 +177,7 @@ export const ProjectHistoryPanel: React.FC<Props> = ({
             >
               <div className="line-clamp-2">{s.summary}</div>
               <div className="text-gray-400 mt-0.5">
-                {new Date(s.createdAt).toLocaleDateString("zh-CN")}
+                {new Date(s.createdAt).toLocaleDateString(currentLocale())}
               </div>
             </div>
           ))}

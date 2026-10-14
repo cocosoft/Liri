@@ -15,6 +15,7 @@ import {
   formatTokens,
   getCurrencyFromTimezone,
 } from "../../utils/format";
+import { DEFAULT_TIMEZONE } from "../../constants/locale";
 import { MetricCard } from "../common/MetricCard";
 import { TokenGrid } from "../common/TokenGrid";
 import { PieChart } from "../common/PieChart";
@@ -118,7 +119,7 @@ export default function UsageCenterPage() {
   const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const timezone = (config.timezone as string) || "Asia/Shanghai";
+  const timezone = (config.timezone as string) || DEFAULT_TIMEZONE;
   const currency = getCurrencyFromTimezone(timezone);
   const [searchParams, setSearchParams] = useSearchParams();
 

@@ -4,6 +4,7 @@ import type {
   SkillStatus,
   SkillSource,
 } from "../../services/skillService";
+import { currentLocale } from "../../utils/format";
 
 interface SkillListProps {
   skills: Skill[];
@@ -91,7 +92,7 @@ function SkillList({
 }: SkillListProps) {
   const { t } = useTranslation();
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN", {
+    return new Date(timestamp).toLocaleString(currentLocale(), {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",

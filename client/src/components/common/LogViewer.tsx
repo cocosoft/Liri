@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../../types";
 import { extractInternalSource } from "./logSourceUtils";
+import { currentLocale } from "../../utils/format";
 
 interface LogViewerProps {
   logs: LogEntry[];
@@ -17,8 +18,8 @@ interface LogDetailModalProps {
 }
 
 function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.language === "en" ? "en-US" : "zh-CN";
+  const { t } = useTranslation();
+  const locale = currentLocale();
   const internalSource = extractInternalSource(log);
 
   const formatTime = (timestamp: number) => {
@@ -239,8 +240,8 @@ function LogViewer({
   onLoadMore,
   hasMore = false,
 }: LogViewerProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.language === "en" ? "en-US" : "zh-CN";
+  const { t } = useTranslation();
+  const locale = currentLocale();
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 
   const formatTime = (timestamp: number) => {

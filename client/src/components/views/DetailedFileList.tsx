@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FileEntry } from "../../types";
+import { currentLocale } from "../../utils/format";
 
 /**
  * 详细文件列表组件属性
@@ -44,7 +45,7 @@ function formatSize(bytes?: number): string {
  */
 function formatDate(ts?: number): string {
   if (!ts) return "-";
-  return new Date(ts).toLocaleString("zh-CN", {
+  return new Date(ts).toLocaleString(currentLocale(), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

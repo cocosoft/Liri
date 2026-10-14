@@ -32,6 +32,7 @@
 import { useTranslation } from "react-i18next";
 import { useOrchestrationStore } from "@/stores/orchestrationStore";
 import type { PdcaLiveEventPayload } from "@/stores/orchestrationStore";
+import { currentLocale } from "../../utils/format";
 
 interface OrchestrationLivePanelProps {
   /** 项目上下文（编排视图当前所在项目）；提供后仅展示该项目任务 */
@@ -41,7 +42,7 @@ interface OrchestrationLivePanelProps {
 }
 
 function fmtTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("zh-CN", { hour12: false });
+  return new Date(ts).toLocaleTimeString(currentLocale(), { hour12: false });
 }
 
 function describe(ev: PdcaLiveEventPayload): string {

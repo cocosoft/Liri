@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { httpLegacy as http } from "../../services/httpClient";
+import { currentLocale } from "../../utils/format";
 
 const XTermPanel = lazy(() => import("../Terminal/XTermPanel"));
 
@@ -139,7 +140,7 @@ function TerminalPage() {
 
     // 处理 date 命令
     if (trimmedCmd === "date" || trimmedCmd === "/date") {
-      addLine(new Date().toLocaleString("zh-CN"), "output");
+      addLine(new Date().toLocaleString(currentLocale()), "output");
       setIsExecuting(false);
       return;
     }

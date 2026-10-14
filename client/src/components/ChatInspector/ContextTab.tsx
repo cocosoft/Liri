@@ -16,6 +16,7 @@ import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useContextWatermarkStore } from "../../stores/contextWatermarkStore";
 import { useModelStore } from "../../stores/modelStore";
+import { currentLocale } from "../../utils/format";
 
 // ─── 工具函数 ─────────────────────────────────────
 
@@ -315,7 +316,7 @@ function SessionStatsImpl({
   const { t } = useTranslation();
   const createdTime = useMemo(() => {
     try {
-      return new Date(createdAt).toLocaleTimeString("zh-CN", {
+      return new Date(createdAt).toLocaleTimeString(currentLocale(), {
         hour: "2-digit",
         minute: "2-digit",
       });

@@ -13,6 +13,7 @@ import { getPcmWorkletUrl, PCM_WORKLET_PROCESSOR } from "../utils/pcmWorklet";
 
 const logger = createLogger("components:voiceInput");
 import { useVoiceStore } from "../stores/voiceStore";
+import { DEFAULT_LOCALE } from "../constants/locale";
 import {
   voiceService,
   createSTTStream,
@@ -89,7 +90,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
     {
       isDark,
       onTranscribed,
-      subtitleLang = "zh-CN",
+      subtitleLang = DEFAULT_LOCALE,
       autoSubmit = false,
       onShouldSubmit,
     },

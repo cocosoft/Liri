@@ -12,6 +12,7 @@ import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { knowledgeService } from "../../services/knowledgeService";
 import { toastError } from "../../stores/toastStore";
 import type { KnowledgeFile } from "../../types";
+import { currentLocale } from "../../utils/format";
 
 type ViewMode = "edit" | "preview" | "split";
 
@@ -266,7 +267,7 @@ function KnowledgeEditor({
               if (!tpl) return;
               (e.target as HTMLSelectElement).value = "";
               try {
-                const title = `${tpl.name} - ${new Date().toLocaleDateString("zh-CN")}`;
+                const title = `${tpl.name} - ${new Date().toLocaleDateString(currentLocale())}`;
                 // KB-TPL（2026-08-27）：后端 create 按 category 路由到 base 目录——
                 // 此前不传 category 文档落到根目录，但 newFile.base 却用当前 base，
                 // 导致新建文档出现在错误的知识库下

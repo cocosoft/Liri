@@ -6,6 +6,7 @@ import type {
   SemanticSearchResult,
 } from "../../services/semanticService";
 import { SkeletonCard } from "../common/Skeleton";
+import { currentLocale } from "../../utils/format";
 
 /**
  * 语义索引管理页面
@@ -175,7 +176,7 @@ export default function SemanticIndexPage() {
 
   const formatTime = (ts: number | undefined): string => {
     if (!ts) return t("semanticIndex.unknown");
-    return new Date(ts).toLocaleString("zh-CN");
+    return new Date(ts).toLocaleString(currentLocale());
   };
 
   return (

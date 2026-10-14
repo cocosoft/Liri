@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import type { CronTask } from "../../types";
+import { currentLocale } from "../../utils/format";
 
 interface ExecutionRecord {
   id: string;
@@ -20,10 +21,10 @@ interface CronExecutionHistoryProps {
 }
 
 function CronExecutionHistory({ tasks }: CronExecutionHistoryProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { config, loadConfig } = useConfigStore();
   const isDark = config.theme === "dark";
-  const locale = i18n.language === "zh" ? "zh-CN" : "en-US";
+  const locale = currentLocale();
 
   // Derive execution records from cron tasks with lastRun data
   const records: ExecutionRecord[] = tasks

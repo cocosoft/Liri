@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { ConfigSection, ConfigItem, ToggleConfig } from "./ConfigComponents";
+import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from "../../constants/locale";
 
 interface AppearancePanelProps {
   isDark: boolean;
@@ -33,11 +34,12 @@ function AppearancePanel({
 }: AppearancePanelProps) {
   const { t, i18n } = useTranslation();
 
-  const language = (config.language as string) || navigator.language || "zh-CN";
+  const language =
+    (config.language as string) || navigator.language || DEFAULT_LOCALE;
   const timezone =
     (config.timezone as string) ||
     Intl.DateTimeFormat().resolvedOptions().timeZone ||
-    "Asia/Shanghai";
+    DEFAULT_TIMEZONE;
 
   const SUPPORTED_LANGUAGES = [
     { value: "zh-CN", label: "简体中文" },

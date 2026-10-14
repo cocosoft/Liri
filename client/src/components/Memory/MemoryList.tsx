@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { Memory } from "../../services/memoryService";
 import { TYPE_LABELS, TYPE_COLORS } from "./memoryConstants";
+import { currentLocale } from "../../utils/format";
 
 const BORDER_COLORS: Record<string, string> = {
   user_identity: "border-l-indigo-500 dark:border-l-indigo-400",
@@ -40,7 +41,7 @@ function MemoryList({
 }: MemoryListProps) {
   const { t } = useTranslation();
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN", {
+    return new Date(timestamp).toLocaleString(currentLocale(), {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",

@@ -5,6 +5,7 @@ import {
   backgroundStatusService,
   type BackgroundStatus,
 } from "../../services/backgroundTaskService";
+import { currentLocale } from "../../utils/format";
 
 /** 后台任务运行状况面板 — 展示"功能承诺 vs 实际执行" */
 function BackgroundStatusPage() {
@@ -32,7 +33,7 @@ function BackgroundStatusPage() {
 
   const formatTime = (ts: number | null) => {
     if (!ts) return t("backgroundStatus.never");
-    return new Date(ts).toLocaleString("zh-CN", {
+    return new Date(ts).toLocaleString(currentLocale(), {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",

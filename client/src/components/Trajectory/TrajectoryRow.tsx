@@ -29,7 +29,7 @@ import { useTranslation } from "react-i18next";
 import type { LiriEvent, LiriEventCategory } from "@/types";
 import { categorizeEvent } from "@/types";
 // P3-4（2026-09-22）：`metric/timing` 行内展示耗时 / tokens —— 复用既有格式化工具（CS01）
-import { formatTokens } from "../../utils/format";
+import { currentLocale, formatTokens } from "../../utils/format";
 import { formatDuration } from "../../stores/chat/deriveTrajectoryTimeline";
 
 const CATEGORY_ICONS: Record<LiriEventCategory, string> = {
@@ -83,7 +83,7 @@ export function TrajectoryRow({ event, selected, onClick }: Props) {
   const icon = CATEGORY_ICONS[category];
   const typeLabelKey = TYPE_LABEL_KEYS[event.type];
   const label = typeLabelKey ? t(typeLabelKey) : event.type;
-  const time = new Date(event.time).toLocaleTimeString("zh-CN", {
+  const time = new Date(event.time).toLocaleTimeString(currentLocale(), {
     hour12: false,
   });
   const preview = getEventPreview(event);

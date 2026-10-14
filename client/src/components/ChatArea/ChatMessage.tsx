@@ -34,6 +34,7 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
 import { saveArtifact } from "../../services/projectArtifactService";
 import { exportMessageAsFormat } from "../../utils/exportMessage";
+import { currentLocale } from "../../utils/format";
 
 const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
 
@@ -303,7 +304,7 @@ const ChatMessageMemo = memo(
     /** 查找被回复的原始消息（P0-5：replyTarget 已由上方 selector 精准订阅，无需 useMemo） */
     const formatTime = (timestamp: number) => {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString("zh-CN", {
+      return date.toLocaleTimeString(currentLocale(), {
         hour: "2-digit",
         minute: "2-digit",
       });

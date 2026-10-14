@@ -4,6 +4,7 @@ import { useApiKeyStore } from "../../stores/authStore";
 import { useConfigStore } from "../../stores/configStore";
 import { handleClientError } from "../../utils/handleError";
 import SafetyPositionBanner from "./SafetyPositionBanner";
+import { currentLocale } from "../../utils/format";
 
 /** API 密钥管理面板 — 从 SettingsPage.tsx 提取 */
 function ApiKeyContent() {
@@ -67,7 +68,7 @@ function ApiKeyContent() {
   };
 
   const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("zh-CN", {
+    new Date(timestamp).toLocaleString(currentLocale(), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

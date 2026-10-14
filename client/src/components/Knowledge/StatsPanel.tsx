@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
 import { sourceLabelKeys } from "./shared/constants";
+import { currentLocale } from "../../utils/format";
 
 interface HealthMetrics {
   totalDocs: number;
@@ -323,7 +324,9 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                   </span>
                   <span className={`text-xs ${textSecondary} ml-2 shrink-0`}>
                     {item.updated_at
-                      ? new Date(item.updated_at).toLocaleDateString("zh-CN")
+                      ? new Date(item.updated_at).toLocaleDateString(
+                          currentLocale(),
+                        )
                       : "-"}
                   </span>
                 </div>

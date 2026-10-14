@@ -10,6 +10,7 @@ import MemoryWeightChart from "../Memory/MemoryWeightChart";
 import MemorySyncingStatus from "../Memory/MemorySyncingStatus";
 import MemoryCreateDialog from "../Memory/MemoryCreateDialog";
 import { TYPE_LABELS } from "../Memory/memoryConstants";
+import { currentLocale } from "../../utils/format";
 
 function MemoryPage() {
   const { t } = useTranslation();
@@ -209,7 +210,7 @@ function MemoryPage() {
   };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN", {
+    return new Date(timestamp).toLocaleString(currentLocale(), {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

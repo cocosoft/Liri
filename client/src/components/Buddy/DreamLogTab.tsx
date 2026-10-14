@@ -4,6 +4,7 @@ import { dreamService } from "../../services/backgroundTaskService";
 import { memoryService } from "../../services/memoryService";
 import type { DreamLogEntry, DreamLogResponse } from "../../types";
 import DreamCycleDetail from "./DreamCycleDetail";
+import { currentLocale } from "../../utils/format";
 
 const DREAM_TYPE_LABELS: Record<string, string> = {
   "dream:started": "buddy.dreamTypeStarted",
@@ -96,7 +97,7 @@ function DreamLogTab() {
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
-    return d.toLocaleString("zh-CN", {
+    return d.toLocaleString(currentLocale(), {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",

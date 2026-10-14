@@ -36,7 +36,7 @@ export function formatTokens(
   if (locale === "zh") {
     if (value >= 10_000) return `${(value / 10_000).toFixed(1)}万`;
     if (value >= 1_000) return `${(value / 1_000).toFixed(1)}千`;
-    return value.toLocaleString("zh-CN");
+    return value.toLocaleString(currentLocale());
   }
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -98,8 +98,11 @@ export function formatFileSize(bytes: number): string {
  * 当前语言的 BCP-47 locale（i18n 语言码 → 区域码）。
  *
  * 硬编码治理 `HD-P2-2`：原实现把时间/日期格式**写死 `zh-CN`** ⇒ 英文界面下也按中文区域输出。
+ *
+ * 硬编码治理 `HD-P1-2` **A9**：本函数**导出**为**客户端唯一真源** —— 其它模块一律引用它，
+ * **不得**再写死 `"zh-CN"` / `"en-US"`（`Q-H2` 已裁定默认口径 `zh-CN`/`Asia/Shanghai`）。
  */
-function currentLocale(): string {
+export function currentLocale(): string {
   const lang = i18n.language || "zh";
   if (lang.startsWith("zh")) return "zh-CN";
   if (lang.startsWith("en")) return "en-US";

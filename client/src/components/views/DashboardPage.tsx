@@ -28,6 +28,7 @@ const ENABLE_TRACE_REDESIGN = true;
 import { useConfigStore } from "../../stores/configStore";
 import MetricsChart from "../common/MetricsChart";
 import {
+  currentLocale,
   formatCost,
   formatTokens,
   getCurrencyFromTimezone,
@@ -35,6 +36,7 @@ import {
 import { DashboardStatCard } from "../common/DashboardStatCard";
 import { ChannelMetricsCard } from "../common/ChannelMetricsCard";
 import { ChannelMonitorPanel } from "../common/ChannelMonitorPanel";
+import { DEFAULT_TIMEZONE } from "../../constants/locale";
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -91,7 +93,7 @@ function formatUptime(seconds: number, t: Translate): string {
 function DashboardPage() {
   const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
-  const timezone = (config.timezone as string) || "Asia/Shanghai";
+  const timezone = (config.timezone as string) || DEFAULT_TIMEZONE;
   const currency = getCurrencyFromTimezone(timezone);
   const isDark = config.theme === "dark";
   const navigate = useNavigate();
@@ -950,7 +952,7 @@ function DashboardPage() {
                           {t("dashboard.checkTime", {
                             time: new Date(
                               systemHealth.timestamp,
-                            ).toLocaleString("zh-CN"),
+                            ).toLocaleString(currentLocale()),
                           })}
                         </span>
                       </div>

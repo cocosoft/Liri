@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { MetricPoint } from "../../types";
+import { currentLocale } from "../../utils/format";
 
 interface MetricsChartProps {
   title: string;
@@ -86,7 +87,7 @@ function MetricsChart({
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString("zh-CN", {
+    return date.toLocaleTimeString(currentLocale(), {
       hour: "2-digit",
       minute: "2-digit",
     });

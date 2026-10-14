@@ -7,6 +7,7 @@ import CronRetryConfig from "../Cron/CronRetryConfig";
 import RunningTasksCard from "../RunningTasksCard";
 import type { ScheduleMode } from "../../types";
 import { cronTemplates } from "../../config/cronTemplates";
+import { currentLocale } from "../../utils/format";
 
 function CronPage() {
   const { t } = useTranslation();
@@ -240,7 +241,7 @@ function CronPage() {
   };
 
   const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString("zh-CN");
+    return new Date(timestamp).toLocaleString(currentLocale());
   };
 
   /** 构建调度表达式的可读预览 */

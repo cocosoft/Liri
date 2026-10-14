@@ -34,6 +34,7 @@ import {
   type ProjectFilesResult,
 } from "../../services/projectArtifactService";
 import { toastError } from "../../stores/toastStore";
+import { currentLocale } from "../../utils/format";
 
 interface Props {
   projectId: string;
@@ -342,7 +343,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
             >
               <div className="truncate">{s.summary}</div>
               <div className="text-gray-400 mt-0.5">
-                {new Date(s.createdAt).toLocaleDateString("zh-CN")} ·{" "}
+                {new Date(s.createdAt).toLocaleDateString(currentLocale())} ·{" "}
                 {t("projects.messageCount", { count: s.messageCount })}
               </div>
             </div>

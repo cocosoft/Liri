@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { knowledgeService } from "../../services/knowledgeService";
 import { toastError } from "../../stores/toastStore";
+import { currentLocale } from "../../utils/format";
 
 interface TrashItem {
   docPath: string;
@@ -123,7 +124,7 @@ export function RecycleBinModal({
                   {item.docPath}
                   <span className="ml-1">
                     ·{" "}
-                    {new Date(item.trashedAt).toLocaleString("zh-CN", {
+                    {new Date(item.trashedAt).toLocaleString(currentLocale(), {
                       hour12: false,
                     })}
                   </span>

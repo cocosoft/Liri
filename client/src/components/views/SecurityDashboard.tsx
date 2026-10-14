@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
+import { currentLocale } from "../../utils/format";
 
 /**
  * 安全仪表盘
@@ -389,7 +390,9 @@ function SecurityDashboard() {
                     className="hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <td className="px-4 py-2 whitespace-nowrap text-xs">
-                      {new Date(event.timestamp).toLocaleString("zh-CN")}
+                      {new Date(event.timestamp).toLocaleString(
+                        currentLocale(),
+                      )}
                     </td>
                     <td className="px-4 py-2 max-w-md truncate font-mono text-xs">
                       {event.truncatedResult}

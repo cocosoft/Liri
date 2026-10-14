@@ -17,6 +17,7 @@ import {
   getCurrencyFromTimezone,
 } from "../../utils/format";
 import { useConfigStore } from "../../stores/configStore";
+import { DEFAULT_TIMEZONE } from "../../constants/locale";
 
 const logger = createLogger("components:footer");
 
@@ -24,7 +25,7 @@ function Footer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const config = useConfigStore((s) => s.config);
-  const timezone = (config.timezone as string) || "Asia/Shanghai";
+  const timezone = (config.timezone as string) || DEFAULT_TIMEZONE;
   const currency = getCurrencyFromTimezone(timezone);
   const { status, checkStatus, startBackend, stopBackend, error } =
     useBackendStore();

@@ -19,6 +19,7 @@ import DirectoryTree from "./DirectoryTree";
 import DetailedFileList from "./DetailedFileList";
 import CodeBlock from "../ChatArea/CodeBlock";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
+import { currentLocale } from "../../utils/format";
 
 /**
  * 格式化文件大小
@@ -37,7 +38,7 @@ function formatSize(bytes?: number): string {
  */
 function formatDate(ts?: number): string {
   if (!ts) return "";
-  return new Date(ts).toLocaleString("zh-CN", {
+  return new Date(ts).toLocaleString(currentLocale(), {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

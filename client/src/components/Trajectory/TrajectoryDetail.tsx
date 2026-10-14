@@ -35,6 +35,7 @@ import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { JsonTree } from "../common/JsonTree";
 // TR-12-B（2026-09-22）：按 refSeq 一跳还原"模型当时看到的输入"
 import { resolveModelInputSnapshot } from "@/stores/chat/resolveModelInputSnapshot";
+import { currentLocale } from "../../utils/format";
 
 interface Props {
   event: LiriEvent;
@@ -62,7 +63,9 @@ export function TrajectoryDetail({ event, onClose, allEvents }: Props) {
   }, [event]);
 
   const timeStr = useMemo(() => {
-    return new Date(event.time).toLocaleString("zh-CN", { hour12: false });
+    return new Date(event.time).toLocaleString(currentLocale(), {
+      hour12: false,
+    });
   }, [event]);
 
   // TR-12-B（2026-09-22）：模型输入快照（引用式去重 ⇒ 需按 seq 一跳还原）

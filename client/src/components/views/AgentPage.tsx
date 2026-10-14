@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../../stores/agent";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { SkeletonCard } from "../common/Skeleton";
+import { currentLocale } from "../../utils/format";
 
 function AgentPage() {
   const { t } = useTranslation();
@@ -274,7 +275,9 @@ function AgentPage() {
                         )}
                       <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 pt-1">
                         <span>
-                          {new Date(task.created_at).toLocaleString("zh-CN")}
+                          {new Date(task.created_at).toLocaleString(
+                            currentLocale(),
+                          )}
                         </span>
                         {task.tokenUsed !== undefined && (
                           <span>Token: {task.tokenUsed}</span>

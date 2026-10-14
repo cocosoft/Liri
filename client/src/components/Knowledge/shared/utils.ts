@@ -4,6 +4,7 @@
  * 从 KnowledgePage/KnowledgeBaseList/PendingCompilePanel 三方提取归并。
  */
 import i18n from "../../../i18n";
+import { currentLocale } from "../../../utils/format";
 
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0B";
@@ -14,7 +15,7 @@ export function formatFileSize(bytes: number): string {
 
 export function formatDate(ts: number): string {
   if (!ts) return "";
-  return new Date(ts).toLocaleString("zh-CN", {
+  return new Date(ts).toLocaleString(currentLocale(), {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -24,5 +25,5 @@ export function formatDate(ts: number): string {
 
 export function formatDateTime(ts: number): string {
   if (!ts) return i18n.t("common.unknown");
-  return new Date(ts).toLocaleString("zh-CN");
+  return new Date(ts).toLocaleString(currentLocale());
 }

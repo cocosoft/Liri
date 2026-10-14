@@ -6,6 +6,8 @@
  * `MediaGridView` 共用 ⇒ 下沉为独立模块（**只搬不改**，逻辑逐字保留）。
  */
 
+import { currentLocale } from "../../../utils/format";
+
 /** 筛选类型 */
 export type FilterType = "all" | "image" | "video" | "favorites";
 /** 排序方式 */
@@ -55,7 +57,7 @@ export function formatFileSize(bytes: number): string {
 
 /** 格式化时间戳为日期字符串 */
 export function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("zh-CN", {
+  return new Date(ts).toLocaleDateString(currentLocale(), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

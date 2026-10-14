@@ -121,7 +121,9 @@ export class BlueBubblesMonitor extends EventEmitter {
   private async pollLoop(): Promise<void> {
     while (this.running) {
       await this.pollOnce();
-      await new Promise((resolve) => setTimeout(resolve, BLUEBUBBLES_POLL_INTERVAL_MS));
+      await new Promise((resolve) =>
+        setTimeout(resolve, BLUEBUBBLES_POLL_INTERVAL_MS)
+      );
     }
   }
 }

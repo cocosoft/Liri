@@ -249,7 +249,11 @@ export class MCPConnectionManager {
   private async reconnectWithBackoff(
     client: MCPServerConnection
   ): Promise<void> {
-    for (let attempt = 1; attempt <= MCP_MANAGER_MAX_RECONNECT_ATTEMPTS; attempt++) {
+    for (
+      let attempt = 1;
+      attempt <= MCP_MANAGER_MAX_RECONNECT_ATTEMPTS;
+      attempt++
+    ) {
       this.updateServer({
         connection: {
           ...client,

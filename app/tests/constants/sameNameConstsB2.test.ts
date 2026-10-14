@@ -731,11 +731,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         'MCP_MANAGER_MAX_RECONNECT_ATTEMPTS',
         '5',
       ],
-      [
-        'src/services/mcp/client.ts',
-        'MCP_CLIENT_MAX_RECONNECT_ATTEMPTS',
-        '5',
-      ],
+      ['src/services/mcp/client.ts', 'MCP_CLIENT_MAX_RECONNECT_ATTEMPTS', '5'],
     ];
     for (const [rel, name, value] of items) {
       const src = read(rel);

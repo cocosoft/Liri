@@ -544,20 +544,31 @@ export class StreamPipeline {
     ) {
       return;
     }
+    // 债四「换算接线」（**2026-10-15 修复**）：本轮**实际模型**解析一次、**同一值**供两处使用
+    // （金额台账 + 成本追踪）⇒ 数出同源（复用既有 `extractModelFromResponse`，不新增实现）。
+    //
+    // ⚠️ **原实现漏传第 4 参 `model`** ⇒ `ChatManager.recordChatResponseUsage` →
+    // `recordTurnCostUsd` 拿不到模型名 ⇒ 按 Q-U5 口径**跳过金额记账**（`dailyBudget:usd_skip`）
+    // ⇒ `usedUsd` 在**流式主链**（客户端主路径）出现缺口。该缺口在债四 **S3** 之后升级为
+    // **闸门漏判**（USD 已成唯一硬闸门）——真机 E2E 实证（2026-10-15：本次 12,712 tokens 的
+    // 真实调用 ⇒ 金额入账 $0，而 `todayUsed` 正确 +12,712）。与 `Chat.ts`（2026-10-15 已修）
+    // 属**同类缺陷**：调用点漏传，而非账本本身错。
+    const turnModel = extractModelFromResponse(
+      finalResponse ?? {},
+      options?.model || 'unknown'
+    );
     this.ctx.recordChatResponseUsage(
       session.id,
       finalResponse?.usage,
-      this.ctx.requestId
+      this.ctx.requestId,
+      turnModel
     );
 
     trackUsage(finalResponse ?? {}, {
       // 2026-09-27 修 `LLM call recorded: unknown`：服务端自发轮次不带 `options.model`，
       // 原写法恒为 'unknown' ⇒ 归因丢失 + `getModelPricing` 回落兜底价（金额亦失真）。
       // 复用既有助手取 provider 回显的真实模型名；回落 options.model → 'unknown'。
-      model: extractModelFromResponse(
-        finalResponse ?? {},
-        options?.model || 'unknown'
-      ),
+      model: turnModel,
       providerId: this.ctx.activeClient.getProviderId(),
       latencyMs: 0,
       isStreaming: true,

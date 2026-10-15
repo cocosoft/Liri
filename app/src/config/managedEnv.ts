@@ -70,7 +70,7 @@ export const DANGEROUS_SHELL_SETTINGS = [
  * 这些变量可以在信任对话框之前应用，不会造成安全风险
  * * 不在此列表中的环境变量被视为危险的，通过远程托管设置设置时会触发安全对话框
  */
-export const SAFE_ENV_VARS = new Set([
+export const SAFE_MANAGED_ENV_VARS = new Set([
   'LIRI_CUSTOM_HEADERS',
   'LIRI_CUSTOM_MODEL_OPTION',
   'LIRI_FOUNDRY_API_KEY',
@@ -225,7 +225,7 @@ export function applyProjectScopedEnvVariables(
   if (!env) return;
 
   for (const [key, value] of Object.entries(env)) {
-    if (SAFE_ENV_VARS.has(key)) {
+    if (SAFE_MANAGED_ENV_VARS.has(key)) {
       process.env[key] = value;
     }
   }
@@ -235,14 +235,14 @@ export function applyProjectScopedEnvVariables(
  * 检查环境变量是否安全
  */
 export function isSafeEnvVar(key: string): boolean {
-  return SAFE_ENV_VARS.has(key);
+  return SAFE_MANAGED_ENV_VARS.has(key);
 }
 
 /**
  * 检查环境变量是否危险
  */
 export function isDangerousEnvVar(key: string): boolean {
-  return !SAFE_ENV_VARS.has(key) && !isProviderManagedEnvVar(key);
+  return !SAFE_MANAGED_ENV_VARS.has(key) && !isProviderManagedEnvVar(key);
 }
 
 /**

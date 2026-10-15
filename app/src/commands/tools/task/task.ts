@@ -12,14 +12,14 @@ import { NoteTask } from '@modules/tasks';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:task:task');
 
-const VALID_STATUSES = [
+const TASK_VALID_STATUSES = [
   'pending',
   'in_progress',
   'completed',
   'failed',
   'cancelled',
 ] as const;
-type DisplayStatus = (typeof VALID_STATUSES)[number];
+type DisplayStatus = (typeof TASK_VALID_STATUSES)[number];
 
 function hasJsonFlag(parts: string[]): boolean {
   return parts.includes('--json') || parts.includes('-j');
@@ -241,10 +241,10 @@ async function handleList(
   const stripped = stripFlags(parts.slice(1));
   const statusFilter = stripped[0] as DisplayStatus | undefined;
 
-  if (statusFilter && !VALID_STATUSES.includes(statusFilter)) {
+  if (statusFilter && !TASK_VALID_STATUSES.includes(statusFilter)) {
     return {
       success: false,
-      error: `Error: Invalid status "${statusFilter}". Valid statuses: ${VALID_STATUSES.join(', ')}`,
+      error: `Error: Invalid status "${statusFilter}". Valid statuses: ${TASK_VALID_STATUSES.join(', ')}`,
     };
   }
 
@@ -434,10 +434,10 @@ async function handleUpdate(
     };
   }
 
-  if (!VALID_STATUSES.includes(status)) {
+  if (!TASK_VALID_STATUSES.includes(status)) {
     return {
       success: false,
-      error: `Error: Invalid status "${status}". Valid statuses: ${VALID_STATUSES.join(', ')}`,
+      error: `Error: Invalid status "${status}". Valid statuses: ${TASK_VALID_STATUSES.join(', ')}`,
     };
   }
 

@@ -26,7 +26,11 @@ export const SHELL_KEYWORDS = new Set([
   'coproc',
 ]);
 
-export const SAFE_ENV_VARS = new Set([
+/**
+ * bash 命令可安全继承的环境变量白名单（**bash 域专属**：与托管设置白名单
+ * `config/managedEnv.ts#SAFE_MANAGED_ENV_VARS` 是**同名不同事实** ⇒ B5-2-55 按域消歧）。
+ */
+export const BASH_SAFE_ENV_VARS = new Set([
   'PATH',
   'HOME',
   'USER',

@@ -1,8 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:VALID_STATUSES": 2,
-    "同名常量:AUTOCOMPACT_BUFFER_TOKENS": 2,
-    "同名常量:SAFE_ENV_VARS": 2,
     "同名常量:MDM_SUBPROCESS_TIMEOUT_MS": 2,
     "同名常量:DEFAULT_SESSION_TIMEOUT": 2,
     "同名常量:MAX_FILENAME_LENGTH": 2,

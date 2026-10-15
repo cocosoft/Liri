@@ -23,7 +23,7 @@
  */
 export {
   SHELL_KEYWORDS,
-  SAFE_ENV_VARS,
+  BASH_SAFE_ENV_VARS,
   isNoOpText,
   extractEnvVars,
   extractRedirections,

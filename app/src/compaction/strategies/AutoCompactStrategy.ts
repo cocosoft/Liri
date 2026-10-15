@@ -13,6 +13,8 @@ import {
   type CompactConfig,
   type CompactMetadata,
 } from '../ContextEngine';
+// 安全余量取真源（B5-2-54 同值同事实合一；原此处另写一份 13000）
+import { AUTOCOMPACT_BUFFER_TOKENS } from '../autoCompact';
 
 export interface AutoCompactConfig extends CompactConfig {
   autoCompactThreshold: number;
@@ -39,8 +41,6 @@ const DEFAULT_CONFIG: AutoCompactConfig = {
   effectiveWindow: 180000,
   maxConsecutiveFailures: 3,
 };
-
-const AUTOCOMPACT_BUFFER_TOKENS = 13000;
 
 export class AutoCompactStrategy extends ContextEngine {
   private consecutiveFailures: number = 0;

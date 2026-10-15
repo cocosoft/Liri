@@ -171,7 +171,7 @@ export {
   isDangerousEnvVar,
   applySafeConfigEnvironmentVariables,
   applyProjectScopedEnvVariables,
-  SAFE_ENV_VARS,
+  SAFE_MANAGED_ENV_VARS,
   DANGEROUS_SHELL_SETTINGS,
   TRUSTED_SETTING_SOURCES,
   type TrustedSettingSource,

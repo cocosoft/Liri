@@ -1697,6 +1697,41 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     }
   });
 
+  test('B5-2-54：`AUTOCOMPACT_BUFFER_TOKENS` 已合一到真源（同值同事实：13000；策略侧改引用）', () => {
+    const core = read('src/compaction/autoCompact.ts');
+    expect(core).toContain('export const AUTOCOMPACT_BUFFER_TOKENS = 13_000;');
+    const strategy = read('src/compaction/strategies/AutoCompactStrategy.ts');
+    expect(strategy).not.toMatch(
+      /(^|[^_A-Za-z])const AUTOCOMPACT_BUFFER_TOKENS\s*=/
+    );
+    expect(strategy).toContain(
+      "import { AUTOCOMPACT_BUFFER_TOKENS } from '../autoCompact';"
+    );
+  });
+
+  test('B5-2-55：`SAFE_ENV_VARS` ×2 已按域消歧（托管设置白名单 / bash 继承白名单，异值异域）', () => {
+    const managed = read('src/config/managedEnv.ts');
+    expect(managed).not.toMatch(/(^|[^_A-Za-z])const SAFE_ENV_VARS\s*=/);
+    expect(managed).toContain('export const SAFE_MANAGED_ENV_VARS = new Set([');
+    expect(read('src/config/index.ts')).toContain('SAFE_MANAGED_ENV_VARS,');
+    const bash = read('src/utils/bash/ast.ts');
+    expect(bash).not.toMatch(/(^|[^_A-Za-z])const SAFE_ENV_VARS\s*=/);
+    expect(bash).toContain('export const BASH_SAFE_ENV_VARS = new Set([');
+    expect(read('src/utils/bash/index.ts')).toContain('BASH_SAFE_ENV_VARS,');
+  });
+
+  test('B5-2-56：`VALID_STATUSES` ×2 已按域消歧（task 五态 / todo 三态，异值异域）', () => {
+    const task = read('src/commands/tools/task/task.ts');
+    expect(task).not.toMatch(/(^|[^_A-Za-z])const VALID_STATUSES\s*=/);
+    expect(task).toContain('const TASK_VALID_STATUSES = [');
+    expect(task).toContain("'cancelled',");
+    const todo = read('src/commands/tools/task/todo.ts');
+    expect(todo).not.toMatch(/(^|[^_A-Za-z])const VALID_STATUSES\s*=/);
+    expect(todo).toContain(
+      "const TODO_VALID_STATUSES = ['pending', 'in_progress', 'completed'] as const;"
+    );
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

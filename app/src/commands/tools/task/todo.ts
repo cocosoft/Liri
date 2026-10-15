@@ -13,8 +13,8 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:task:todo');
 
 /** 有效的 todo 状态 */
-const VALID_STATUSES = ['pending', 'in_progress', 'completed'] as const;
-type TodoStatus = (typeof VALID_STATUSES)[number];
+const TODO_VALID_STATUSES = ['pending', 'in_progress', 'completed'] as const;
+type TodoStatus = (typeof TODO_VALID_STATUSES)[number];
 
 /** 解析 --json 标志 */
 function hasJsonFlag(parts: string[]): boolean {
@@ -168,10 +168,10 @@ async function handleList(parts: string[]): Promise<CommandResult> {
   const showJson = hasJsonFlag(parts);
   const statusFilter = stripFlags(parts.slice(1))[0] as TodoStatus | undefined;
 
-  if (statusFilter && !VALID_STATUSES.includes(statusFilter)) {
+  if (statusFilter && !TODO_VALID_STATUSES.includes(statusFilter)) {
     return {
       success: false,
-      error: `错误: 无效状态 "${statusFilter}"，有效值为: ${VALID_STATUSES.join(', ')}`,
+      error: `错误: 无效状态 "${statusFilter}"，有效值为: ${TODO_VALID_STATUSES.join(', ')}`,
     };
   }
 
@@ -398,10 +398,10 @@ async function handleUpdate(parts: string[]): Promise<CommandResult> {
     };
   }
 
-  if (!VALID_STATUSES.includes(status)) {
+  if (!TODO_VALID_STATUSES.includes(status)) {
     return {
       success: false,
-      error: `错误: 无效状态 "${status}"，有效值为: ${VALID_STATUSES.join(', ')}`,
+      error: `错误: 无效状态 "${status}"，有效值为: ${TODO_VALID_STATUSES.join(', ')}`,
     };
   }
 

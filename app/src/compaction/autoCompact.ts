@@ -22,7 +22,13 @@ export interface CompactResult {
   totalCompactCount: number;
 }
 
-const AUTOCOMPACT_BUFFER_TOKENS = 13_000;
+/**
+ * auto-compact 阈值的安全余量（tokens）—— **真源**（同值同事实合一，B5-2-54）。
+ *
+ * 消费方：本文件的 `autoCompactThreshold` 与 `strategies/AutoCompactStrategy.ts` 的阈值计算
+ * （原两处各写一份 `13000` / `13_000`，取值相同 ⇒ 合一，避免单侧改动造成阈值漂移）。
+ */
+export const AUTOCOMPACT_BUFFER_TOKENS = 13_000;
 const WARNING_THRESHOLD_BUFFER_TOKENS = 20_000;
 const ERROR_THRESHOLD_BUFFER_TOKENS = 20_000;
 const MANUAL_COMPACT_BUFFER_TOKENS = 3_000;

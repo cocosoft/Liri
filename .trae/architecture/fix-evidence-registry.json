@@ -7295,6 +7295,44 @@
       "changelog": [],
       "reopenWhen": "① 若再次观测到重启后 USD 台账归零（哨兵：daily-budget-state.json 的 usedUsd 大于 0，而 GET /v1/cost/daily-budget 返回 usedUsd:0）；② 若日预算持久化新增字段（如分模型/分渠道 USD 明细），必须同步补 restore 透传，否则重开；③…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-RESTORE）",
       "notes": "① **根因**：initDailyBudget 组装 restore() 入参时漏传 usedUsd / debtUsd 两个 USD 字段 ⇒ BudgetSnapshot.restore 内 state.usedUsd 为 undefined 时沿用内存现值 0 ⇒ USD 台账**重启即清零**，日限额可被「…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-RESTORE）"
+    },
+    {
+      "id": "BUDGET-USD-PRIMARY",
+      "title": "日预算闸门主口径切金额（债四 S3）：Token 轨降级为观测告警，USD 为唯一硬闸门；未配 limitUsd 回落 Token 口径",
+      "source": "用户 2026-10-15 裁定「把 token 轨降级为观测告警，硬闸门交 USD 轨」+ 既有已批准设计：.trae/specs/unified-budget-and-accounting.md D1/S3（唯一口径 = 金额，`_computeState` 与 `checkDailyBudget` 主口径改 USD，Token 计数保留但降为辅助系数…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/query/dailyBudgetGate.ts",
+        "app/src/query/dailyBudgetSnapshot.ts",
+        "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
+        "app/src/commands/builtin/budget/Budget.ts",
+        "client/src/services/usageService.ts",
+        "client/src/components/usage/DailyBudgetPanel.tsx",
+        "client/src/components/ChatArea/DailyLimitNotice.tsx",
+        "client/src/utils/format.ts"
+      ],
+      "tests": [
+        "app/tests/query/dailyBudgetUsdGate.test.ts",
+        "app/tests/budget/budgetCommand.test.ts",
+        "app/tests/http/daily-budget-handlers.test.ts",
+        "client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx",
+        "client/src/components/ChatArea/__tests__/DailyLimitNotice.test.tsx"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若再次观测到「金额未越界却被拒发」或「金额已越界却放行」（哨兵：dailyBudgetGate:decision 日志的 primary.exceeded 与 allowed 不一致）；② 若新增准入点直接读 mode / 绕过 checkDailyBudget（哨兵：源码守卫 `tokenAllowed && …（全文见 archive/evidence-detail.jsonl#BUDGET-USD-PRIMARY）",
+      "notes": "① **动机（真机实证）**：Token 计数在本仓是「所有请求的上下文搬运总量」—— 含 cache_read（该 provider 的 input_tokens ≡ cache_read + cache_create，占比 100%）、且 agentic 每轮重发全上下文。2026-10-15 实测：token …（全文见 archive/evidence-detail.jsonl#BUDGET-USD-PRIMARY）"
     }
   ]
 }

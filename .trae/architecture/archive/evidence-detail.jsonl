@@ -3920,6 +3920,37 @@
 {"id":"BUDGET-USD-RESTORE","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-USD-RESTORE","k":"code#1","i":0,"c":"app/src/core/featureFlags.ts"}
 {"id":"BUDGET-USD-RESTORE","k":"tests#0","i":0,"c":"app/tests/budget/dailyBudgetUsdRestore.test.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"title","i":0,"c":"日预算闸门主口径切金额（债四 S3）：Token 轨降级为观测告警，USD 为唯一硬闸门；未配 limitUsd 回落 Token 口径"}
+{"id":"BUDGET-USD-PRIMARY","k":"source","i":0,"c":"用户 2026-10-15 裁定「把 token 轨降级为观测告警，硬闸门交 USD 轨」+ 既有已批准设计：.trae/specs/unified-budget-and-accounting.md D1/S3（唯一口径 = 金额，`_computeState` 与 `checkDailyBudget` 主口径改 USD，Token 计数保留但降为辅助系数）"}
+{"id":"BUDGET-USD-PRIMARY","k":"source","i":1,"c":"+ Q-U10（relief 沿用倍数、基座换 USD）+ §225 回退路径②（金额上限未配 ⇒ 回落 token 上限，降级可用不 fail）"}
+{"id":"BUDGET-USD-PRIMARY","k":"reopenWhen","i":0,"c":"① 若再次观测到「金额未越界却被拒发」或「金额已越界却放行」（哨兵：dailyBudgetGate:decision 日志的 primary.exceeded 与 allowed 不一致）；② 若新增准入点直接读 mode / 绕过 checkDailyBudget（哨兵：源码守卫 `tokenAllowed && !usdExceeded` 回流）；③ 若"}
+{"id":"BUDGET-USD-PRIMARY","k":"reopenWhen","i":1,"c":" token 轨告警（dailyBudget:token_track）长期刷屏或从不出现，说明 config.dailyLimit 与真实量级失配，需重设基数；④ 若 USD 轨需支持「本轮预估」（闭合判定的 TOCTOU 窗口），按 spec §6.4-2 重开；⑤ 若金额上限被清空（回退 Token 口径）时期望仍拒发，需确认这是否符合用户预期。"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":0,"c":"① **动机（真机实证）**：Token 计数在本仓是「所有请求的上下文搬运总量」—— 含 cache_read（该 provider 的 input_tokens ≡ cache_read + cache_create，占比 100%）、且 agentic 每轮重发全上下文。2026-10-15 实测：token 基数 500,000 vs 当日 13,"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":1,"c":"186,080（26.4×，其中 330 次调用 / 平均每次 prompt 39,583）；旧「双轨从严」（任一先踩线即拒）下必恒 locked，闸门退化为摆设（当日仅靠 relief: unlock-today 放行）。② **实现**：新增 `_primaryUnit()` 决定主口径（`FEATURE_USD_BUDGET_GATE` 开 **且**"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":2,"c":" 已配 limitUsd ⇒ usd，否则回落 tokens）；`_effectiveLimit()` 基座随主口径（relief 倍数沿用，Q-U10）；`_computeState()` 的 mode/percentUsed/remaining/used 一律主口径，Token 计数降为辅助（在途预留 / 收益递减 / 展示）；`"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":3,"c":"checkDailyBudget` 判定式改为 `!killSwitch && (waiver || 主口径档位 !== 'locked' [&& Token 回落路径附加 projected < limit])`；`getSnapshot()` 恒取主口径。③ **Token 轨观测**：新增独立告警 `dailyBudget:token_track`（越"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":4,"c":"界 warn / 回限 info，按 `lastTokenTrackExceeded` 去重），判据恒用基座 `config.dailyLimit`（与 relief 抬高有效上限解耦）。④ **顺带收紧**：kill-switch 作为手动总闸**不可**被 waive-once 绕过（原实现经 waive 短路口会顺带绕过硬锁）。⑤ **DTO/展示**"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":5,"c":"：`daily-budget-handlers` 增 `unit` / `used` / `tokenLimit`（Token 轨基数，供观测行），`dailyLimit`/`percentUsed`/`remaining` 语义改为主口径；面板主卡与进度条按主口径渲染、USD 主口径时新增「Token 轨（观测，不参与判定）」行；撞限卡片改按 `unit`"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":6,"c":" 格式化；CLI `/budget status` 同法，并新增观测行。⑥ **CS01 归一**：客户端金额格式化（原 `DailyBudgetPanel` 局部 `formatUsd`）收敛为 `client/src/utils/format.ts#formatUsdAmount`，与后端 `"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":7,"c":"dailyBudgetSnapshot.ts#formatUsdAmount` **逐字同口径**（单一实现，两侧同步改）。⑦ **测试确定性修复（预存问题）**：单例在首次取用时读**真实 config.json** ⇒ 开发机已配 `costControl.dailyBudgetUSD` 时整套 Token 轨用例会静默切到金额主口径（37 例因机器而异"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":8,"c":"）。`resetDailyBudgetForTest()` 改为下一个单例创建时**清除配置面 USD 上限**；需金额口径的用例改用运行时 API `setLimitUsd(N)` 显式开启（env 注入无效：`resolveDailyBudgetConfig` 读 ConfigManager **初始化快照**且「配置键 > env」）。⑧ **验证**"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":9,"c":"：app 侧受影响面 241 例 pass / 0 fail（含 usdGate 11 例新契约 + 防回流源码守卫）；client 侧 vitest 20 例 pass；`typecheck`（app 三 tsconfig + client）全 exit 0；`i18n:check` 100% 一致；6 门禁族（"}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":10,"c":"arch/unref/fix-evidence/consts/evidence-linewidth/evidence-views-drift）全 exit 0。⑨ **如实缺口（e2eVerified=false）**：未做「真机重启 → 金额闸门拦截 → relief 放行 → 续跑」端到端复核；且运行中进程仍执行旧代码，需重启方生效。⑩ 旧「USD-4 "}
+{"id":"BUDGET-USD-PRIMARY","k":"notes","i":11,"c":"双轨从严」契约与用例已随本片**作废并改写**（文件仍为 `dailyBudgetUsdGate.test.ts`，头注已改述为 S3 单轨契约）。"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#1","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#2","i":0,"c":"app/src/query/dailyBudgetSnapshot.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#3","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#4","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#5","i":0,"c":"client/src/services/usageService.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#6","i":0,"c":"client/src/components/usage/DailyBudgetPanel.tsx"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#7","i":0,"c":"client/src/components/ChatArea/DailyLimitNotice.tsx"}
+{"id":"BUDGET-USD-PRIMARY","k":"code#8","i":0,"c":"client/src/utils/format.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetUsdGate.test.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"tests#1","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"tests#2","i":0,"c":"app/tests/http/daily-budget-handlers.test.ts"}
+{"id":"BUDGET-USD-PRIMARY","k":"tests#3","i":0,"c":"client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"}
+{"id":"BUDGET-USD-PRIMARY","k":"tests#4","i":0,"c":"client/src/components/ChatArea/__tests__/DailyLimitNotice.test.tsx"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -3997,6 +3997,22 @@
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#2","i":0,"c":"app/tests/query/dailyBudgetWaiveOnceGate.test.ts"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#3","i":0,"c":"app/tests/query/dailyBudgetSingleton.test.ts"}
 {"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#4","i":0,"c":"app/tests/http/dailyBudgetRelief.contract.test.ts"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"title","i":0,"c":"日预算面板措辞纠偏：未配金额上限时明示「无预算硬闸门」，Token 阈值不再称「日上限」、档位改示「观测（不拦截）」"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"source","i":0,"c":"台账 `BUDGET-TOKEN-OBSERVE-ONLY` 的 reopenWhen ④（用户 2026-10-15 指令「先修复前端面板的措辞误导」）—— 承接 token 轨只观测、不启用闸门后的界面口径对齐"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"reopenWhen","i":0,"c":"① 若「未配金额上限」状态下仍出现把 Token 数字读作额度的界面（如其它面板/状态栏/通知），按同一判据（`status.unit !== 'usd'`）补「观测」措辞；② 若告警／锁定阈值输入在无闸门时仍需隐藏或禁用（当前仅以说明文字告知其不生效），按 UX 裁定重开；③ 若 CLI `/budget status` 的同类措辞需一并纠偏（本项只覆盖前"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"reopenWhen","i":1,"c":"端面板）。"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":0,"c":"① **误导点（本项修复对象）**：Token 轨只观测、不启用闸门后，若未配置 `limitUsd`（`unit === 'tokens'`）则**不存在任何预算硬闸门**；而面板仍以「每日 Token 限额 / 日上限 / 档位＝正常」呈现 ⇒ 用户会把**观测阈值**读成**生效额度**（真机同态：`unit=tokens · mode=normal`"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":1,"c":"）。② **修法（按 `unit` 分流）**：**(a) 显式无闸门提示**——`unit !== 'usd'` 时在状态区顶部插入说明（新增 i18n 键 `cost.dailyLimitNoGateNote`）+ `data-testid=\"daily-budget-no-gate\"`；**(b) 档位徽章**——`unit === 'usd'` 才走"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":2,"c":" `modeTone/modeKey`（正常/告警/已锁定），否则改示新增键 `cost.dailyLimitModeObserved`「观测（不拦截）」并以中性灰着色；**(c) 阈值卡与配置输入标签**——由「日上限」改为新增键 `cost.dailyLimitCapObserved`「Token 观测阈值」；**(d) 校验文案**——`"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":3,"c":"cost.dailyLimitInvalidLimit` 由「日上限必须为正整数」改为「Token 观测阈值必须为正整数」；**(e) 标题**——`cost.dailyLimitTitle` 由「每日 Token 限额」改为「每日预算限额」、`tabDailyLimitDesc` 同步（闸门已切金额口径，标题不应再限定 Token）。③ **i18n**："}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":4,"c":"新增 3 键（`dailyLimitCapObserved` / `dailyLimitModeObserved` / `dailyLimitNoGateNote`）× zh/en 双写；`i18n:check` 100% 一致。④ **验证**：面板用例由 13 例增至 **15 例**（新增 2 例按 `unit` 分流钉住措辞：tokens ⇒ 有 "}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":5,"c":"no-gate 提示 + 徽章「观测（不拦截）」+ 不出现「日上限」；usd ⇒ 无 no-gate 提示 + 徽章回到「已锁定（拒绝新调用）」+ 保留「日上限」）；client `tsc --noEmit` exit 0；client vitest 22 例 pass（面板 15 + 撞限卡片 7）；app `i18n:check` 通过；6 门禁族全 "}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":6,"c":"exit 0。⑤ **如实缺口（e2eVerified=false）**：未在浏览器里实机核对渲染效果（仅 vitest + 真实 i18n 断言）；未覆盖 CLI `/budget status` 的同类措辞（reopenWhen ③）。⑥ **顺带观察（未改）**：告警／锁定阈值两个输入在无闸门时**不生效**（档位只由 USD 口径产出），当前仅由 "}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"notes","i":7,"c":"no-gate 说明文字告知；是否隐藏/禁用待 UX 裁定（reopenWhen ②）。"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"code#0","i":0,"c":"client/src/components/usage/DailyBudgetPanel.tsx"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"code#1","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"code#2","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"tests#0","i":0,"c":"client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

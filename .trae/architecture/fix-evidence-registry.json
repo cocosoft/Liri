@@ -7391,6 +7391,34 @@
       "changelog": [],
       "reopenWhen": "① 若需要为「未配置金额上限」的用户恢复预算兜底（当前为**无硬闸门**）——这是本项唯一的有意姿态变化，按 §225 回退路径② 重开并给出新的兜底判据；② 若 `dailyBudget:token_track` 告警长期不触发或天天触发，说明 `costControl.dailyTokenBudget` 与真实量…（全文见 archive/evidence-detail.jsonl#BUDGET-TOKEN-OBSERVE-ONLY）",
       "notes": "① **语义变更（用户裁定）**：Token 轨**只观测、不启用闸门** ⇒ `_computeState()` 改为**只有 USD 主口径产出档位**（`locked`/`report_only`），Token 口径（USD 闸门未启用时的回落）**恒 `normal`**；`killSwitch` 为手动总闸…（全文见 archive/evidence-detail.jsonl#BUDGET-TOKEN-OBSERVE-ONLY）"
+    },
+    {
+      "id": "BUDGET-PANEL-OBSERVE-WORDING",
+      "title": "日预算面板措辞纠偏：未配金额上限时明示「无预算硬闸门」，Token 阈值不再称「日上限」、档位改示「观测（不拦截）」",
+      "source": "台账 `BUDGET-TOKEN-OBSERVE-ONLY` 的 reopenWhen ④（用户 2026-10-15 指令「先修复前端面板的措辞误导」）—— 承接 token 轨只观测、不启用闸门后的界面口径对齐",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/usage/DailyBudgetPanel.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts"
+      ],
+      "tests": [
+        "client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若「未配金额上限」状态下仍出现把 Token 数字读作额度的界面（如其它面板/状态栏/通知），按同一判据（`status.unit !== 'usd'`）补「观测」措辞；② 若告警／锁定阈值输入在无闸门时仍需隐藏或禁用（当前仅以说明文字告知其不生效），按 UX 裁定重开；③ 若 CLI `/budget stat…（全文见 archive/evidence-detail.jsonl#BUDGET-PANEL-OBSERVE-WORDING）",
+      "notes": "① **误导点（本项修复对象）**：Token 轨只观测、不启用闸门后，若未配置 `limitUsd`（`unit === 'tokens'`）则**不存在任何预算硬闸门**；而面板仍以「每日 Token 限额 / 日上限 / 档位＝正常」呈现 ⇒ 用户会把**观测阈值**读成**生效额度**（真机同态：`unit=…（全文见 archive/evidence-detail.jsonl#BUDGET-PANEL-OBSERVE-WORDING）"
     }
   ]
 }

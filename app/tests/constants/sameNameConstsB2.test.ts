@@ -1531,8 +1531,24 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(llm).not.toMatch(/(^|\n)\s+const THINKING_BATCH_SIZE\s*=/);
     const flow = read('src/chat/orchestrator/streamMessageFlow.ts');
     expect(flow).not.toMatch(/(^|[^_A-Za-z])const THINKING_BATCH_SIZE\s*=/);
+    // prettier 可能折行/合并 import 块 ⇒ 分片段断言（空白容忍）
+    expect(flow).toContain('THINKING_BATCH_SIZE');
+    expect(flow).toContain("from '../streamingLlm.js';");
+  });
+
+  test('B5-2㊹：`THINKING_BATCH_MS` 已合一（同值同事实；真源在 streamingLlm.ts 顶层，streamMessageFlow 改引用）', () => {
+    // 2 处同值 2000、同属 chat 域 thinking 事件防抖时间窗（KB-EVENT-BATCH）⇒ 合一
+    const llm = read('src/chat/streamingLlm.ts');
+    expect(llm).toContain('THINKING_BATCH_MS 唯一真源');
+    expect(llm).toContain('export const THINKING_BATCH_MS = 2000;');
+    // 方法体内不得残留裸定义（应引用模块级真源）
+    expect(llm).not.toMatch(
+      /(^|\n)\s+const THINKING_BATCH_MS\s*=/
+    );
+    const flow = read('src/chat/orchestrator/streamMessageFlow.ts');
+    expect(flow).not.toMatch(/(^|[^_A-Za-z])const THINKING_BATCH_MS\s*=/);
     expect(flow).toContain(
-      "import { THINKING_BATCH_SIZE } from '../streamingLlm.js';"
+      "THINKING_BATCH_SIZE, THINKING_BATCH_MS } from '../streamingLlm.js';"
     );
   });
 });

@@ -81,6 +81,13 @@ export interface StreamingLlmDeps {
  */
 export const THINKING_BATCH_SIZE = 50;
 
+/**
+ * B5-2㊹：THINKING_BATCH_MS 唯一真源（chat 域 thinking 事件防抖时间窗，与
+ * THINKING_BATCH_SIZE 配套）。KB-EVENT-BATCH：批阈值 OR 时间窗任一命中即合并落盘。
+ * `orchestrator/streamMessageFlow.ts` 已改为引用本常量（不得重建副本）。
+ */
+export const THINKING_BATCH_MS = 2000;
+
 export class StreamingLlm {
   /** P1-2（2026-08-26）：LLM 调用错误恢复判定（复用 TAOR 的 errorRecovery，CS01） */
   private readonly _llmRecovery = createErrorRecoveryManager();
@@ -260,8 +267,7 @@ export class StreamingLlm {
     const thinkScrubber = new StreamingThinkScrubber();
     // KB-EVENT-BATCH（2026-08-29）：工具轮 thinking 事件防抖合并——推理模型
     // thinking chunk 逐条落盘使 events.jsonl 膨胀，会话加载 O(N²) 卡死。
-    // B5-2㊸：THINKING_BATCH_SIZE 真源在模块顶层（下方直接引用，无局部副本）
-    const THINKING_BATCH_MS = 2000;
+    // B5-2㊸/㊹：THINKING_BATCH_SIZE / THINKING_BATCH_MS 真源在模块顶层（下方直接引用，无局部副本）
     let thinkingAccum: string[] = [];
     let lastThinkingFlushAt = Date.now();
     const flushThinkingEvents = async () => {

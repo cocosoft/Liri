@@ -6894,6 +6894,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const CHANNEL_ARROW =`（非 figures.ts 真源）⇒ 守卫（第 58 例）或棘轮阻断；③ 若未来两者语义收敛为同一事实（如统一箭头方向），可再评估合一；④ 本次为**异值异域消歧**（非合一）：`constants…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW）",
       "notes": "**自证**：app typecheck 0 · 守卫第 58 例（figures 真源标注 + 取值 `←` 钉住 + parser 无裸 `CHANNEL_ARROW` 定义 + `MSG_SOURCE_ARROW='→'` + 使用点模板串）58 pass · `lint:consts` 重新播种基线：`同名常…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE",
+      "title": "硬编码治理 · 「同名常量」B5-2 第四十三项：`THINKING_BATCH_SIZE` **2 处同名合一**（同值同事实，chat 域 thinking 事件防抖批阈值真源化；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/streamingLlm.ts",
+        "app/src/chat/orchestrator/streamMessageFlow.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列；下一键 `THINKING_BATCH_MS` 同组参数待处理）；② 任一文件重新出现 `const THINKING_BATCH_SIZE =`（非 streamingLlm.ts 顶层导出真源）⇒ 守卫（第 59 例）或棘轮阻断；③ 若未来 chat 域 thin…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 59 例（streamingLlm.ts 顶层真源标注 + `export const` 钉住 + 方法体内无裸定义 + streamMessageFlow.ts 无裸定义 + import 引用）59 pass · `lint:consts` 重新播种基线：…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE）"
     }
   ]
 }

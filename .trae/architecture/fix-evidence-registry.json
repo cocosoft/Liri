@@ -6632,6 +6632,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const DEFAULT_INTERVAL_MS =` ⇒ 守卫（第 49 例）或棘轮阻断；③ 若未来某域需调整调度间隔 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ TopologyWatcher 5s 与 DataArchi…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS）",
       "notes": "**自证**：app typecheck 0 · 守卫第 49 例（TopologyWatcher / DataArchivalStrategy 两文件无 `DEFAULT_INTERVAL_MS` 定义 + 新名与取值逐字钉住 + 构造默认参数与 intervalMs 兜底均落新名）49 pass · `lint:…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十四项：`DEFAULT_REQUEST_TIMEOUT_MS` **2 处同名按域消歧**（JsonRpcBridge 30s / LspSidecar 30s；同值异域，取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（lsp 两轨不互相引用）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/ai/python/JsonRpcBridge.ts",
+        "app/src/tools/sidecar/lspConnection.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const DEFAULT_REQUEST_TIMEOUT_MS =` ⇒ 守卫（第 50 例）或棘轮阻断；③ 若未来某域需调整请求超时 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ JsonRpcBridge 与 LspSide…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 50 例（JsonRpcBridge / lspConnection 两文件无 `DEFAULT_REQUEST_TIMEOUT_MS` 定义 + 新名与取值逐字钉住 + 使用处落新名）50 pass · `lint:consts` 重新播种基线：`同名常量:…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS）"
     }
   ]
 }

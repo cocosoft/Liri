@@ -3645,6 +3645,17 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第三十四项：`DEFAULT_REQUEST_TIMEOUT_MS` **2 处同名按域消歧**（JsonRpcBridge 30s / LspSidecar 30s；同值异域，取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（lsp 两轨不互相引用）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const DEFAULT_REQUEST_TIMEOUT_MS =` ⇒ 守卫（第 50 例）或棘轮阻断；③ 若未来某域需调整请求超时 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ JsonRpcBridge 与 LspSidecar 为**同值异域**（不同 RPC "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"reopenWhen","i":1,"c":"通道的独立超时策略）⇒ 若未来用户解除裁定 A（允许侧车引用 tools/lsp/**），可考虑 lspConnection 合一到 `LSP_REQUEST_TIMEOUT_MS`（LSPClient.ts 既有真源，有测试钉 30_000），**不得**在本次消歧中合并。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 50 例（JsonRpcBridge / lspConnection 两文件无 `DEFAULT_REQUEST_TIMEOUT_MS` 定义 + 新名与取值逐字钉住 + 使用处落新名）50 pass · `lint:consts` 重新播种基线：`同名常量"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"notes","i":1,"c":":DEFAULT_REQUEST_TIMEOUT_MS` **2→0**（221→220 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/ai/python/JsonRpcBridge.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/tools/sidecar/lspConnection.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

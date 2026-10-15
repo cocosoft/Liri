@@ -7478,6 +7478,30 @@
       "changelog": [],
       "reopenWhen": "① 若 DTO 的 `dailyLimit` / `tokenLimit` 语义再次调整，必须同步核对**每一处**「口径相关输入/展示」的绑定源（本项即因 S3 改了 DTO 语义而漏改一处绑定所致）—— 建议为 UI 侧加「输入绑定源」注释与用例；② 若面板/CLI 再次出现「同屏两个上限数字不一致」，按本项判据…（全文见 archive/evidence-detail.jsonl#BUDGET-E2E-FOUND-DEFECTS）",
       "notes": "① **缺陷一（最重，我上一轮引入）**：面板「Token 观测阈值」输入由 `applyStatus` 的 `setLimitInput(String(s.dailyLimit))` 初始化 —— 债四 S3 后 `dailyLimit` 是**主口径**值（配了金额上限时 = USD 金额），而该输入编辑的是**…（全文见 archive/evidence-detail.jsonl#BUDGET-E2E-FOUND-DEFECTS）"
+    },
+    {
+      "id": "SESSION-COMBINED-GATEWAY-INIT",
+      "title": "共享会话网关启动未初始化修复：`ModuleInitializer` 注册进 DI 后补 `await initialize()` 使 agents 非空 —— 修前写端恒抛 `No active gateway found`（被 catch 吞）、读端恒返回空",
+      "source": "用户 2026-10-15 指令「先查一下共享会话网关失败的原因」→「按方案 A 修复」；现象出处：QQ 通道真机 E2E 中 trace 的 `shared_session` 阶段 = fail",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/modules/ModuleInitializer.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 真机 E2E（真实入站通道消息）证实 `shared_session` 阶段不再 fail 后，本项升为 DFT/dcue 并补端到端证据；② 若自动初始化出的第二个 `SessionGateway` 实例带来可见副作用（启动变慢、重复「P0' 多分区聚合」扫描、FTS 持久化定时器翻倍、崩溃恢复二次扫描），改走…（全文见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）",
+      "notes": "① **根因（三段）**：`ModuleInitializer._registerCombinedGateway()` 以 `createCombinedGateway()`（**不传 gateways**）注册 ⇒ 一个 Agent 都没注册；默认 Agent 只在 `CombinedSessionGateway.…（全文见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）"
     }
   ]
 }

@@ -1521,4 +1521,20 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(parser).toContain("export const MSG_SOURCE_ARROW = '→';");
     expect(parser).toContain('MSG_SOURCE_ARROW} ${parsed.displaySource}');
   });
+
+  test('B5-2㊸：`THINKING_BATCH_SIZE` 已合一（同值同事实；真源在 streamingLlm.ts 顶层，streamMessageFlow 改引用）', () => {
+    // 2 处同值 50、同属 chat 域 thinking 事件防抖（KB-EVENT-BATCH）⇒ 合一
+    const llm = read('src/chat/streamingLlm.ts');
+    expect(llm).toContain('THINKING_BATCH_SIZE 唯一真源');
+    expect(llm).toContain('export const THINKING_BATCH_SIZE = 50;');
+    // 方法体内不得残留裸定义（应引用模块级真源）
+    expect(llm).not.toMatch(
+      /(^|\n)\s+const THINKING_BATCH_SIZE\s*=/
+    );
+    const flow = read('src/chat/orchestrator/streamMessageFlow.ts');
+    expect(flow).not.toMatch(/(^|[^_A-Za-z])const THINKING_BATCH_SIZE\s*=/);
+    expect(flow).toContain(
+      "import { THINKING_BATCH_SIZE } from '../streamingLlm.js';"
+    );
+  });
 });

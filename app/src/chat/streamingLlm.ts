@@ -72,6 +72,15 @@ export interface StreamingLlmDeps {
  * `.trae/specs/file-size-debt-partition-plan.md` §19.3）——方法体、注释、日志文案逐字保留，
  * 仅将宿主状态改为经 `StreamingLlmDeps` 的 getter/setter 读写。
  */
+
+/**
+ * B5-2㊸：THINKING_BATCH_SIZE 唯一真源（chat 域 thinking 事件防抖批阈值）。
+ * KB-EVENT-BATCH（2026-08-29）：推理模型 thinking chunk 逐条落盘使 events.jsonl 膨胀、
+ * 会话加载 O(N²) 卡死 ⇒ 按条数/时间防抖合并。`orchestrator/streamMessageFlow.ts`
+ * 已改为引用本常量（不得重建副本）；本文件方法体亦直接引用（不重复声明）。
+ */
+export const THINKING_BATCH_SIZE = 50;
+
 export class StreamingLlm {
   /** P1-2（2026-08-26）：LLM 调用错误恢复判定（复用 TAOR 的 errorRecovery，CS01） */
   private readonly _llmRecovery = createErrorRecoveryManager();
@@ -251,7 +260,7 @@ export class StreamingLlm {
     const thinkScrubber = new StreamingThinkScrubber();
     // KB-EVENT-BATCH（2026-08-29）：工具轮 thinking 事件防抖合并——推理模型
     // thinking chunk 逐条落盘使 events.jsonl 膨胀，会话加载 O(N²) 卡死。
-    const THINKING_BATCH_SIZE = 50;
+    // B5-2㊸：THINKING_BATCH_SIZE 真源在模块顶层（下方直接引用，无局部副本）
     const THINKING_BATCH_MS = 2000;
     let thinkingAccum: string[] = [];
     let lastThinkingFlushAt = Date.now();

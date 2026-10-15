@@ -107,6 +107,8 @@ import { buildBackgroundCompactionNotice } from './streamMessageBackgroundCompac
 import { getToolExecErrorMessage } from './toolErrorMessages.js';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
+// B5-2㊸ 合一：THINKING_BATCH_SIZE 唯一真源在 ../streamingLlm.js（chat 域 thinking 事件防抖批阈值），本处直接引用
+import { THINKING_BATCH_SIZE } from '../streamingLlm.js';
 import { getOutputGuardRegistry } from '@modules/core';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
@@ -1105,7 +1107,7 @@ export async function* runStreamMessage(
       // chunk 可达数十万条，逐条落盘使 events.jsonl 膨胀到 90MB+，会话加载 O(N²)
       // 卡死（"重启后打不开"）。累积后按条数/时间合并为一条事件，内容全保留。
       // 声明在 try 外：catch（流中断）路径也需 flush（KB-EVENT-BATCH-FLUSH）。
-      const THINKING_BATCH_SIZE = 50;
+      // B5-2㊸：THINKING_BATCH_SIZE 已合一（真源 ../streamingLlm.js），本处仅保留 THINKING_BATCH_MS
       const THINKING_BATCH_MS = 2000;
       let thinkingAccum: string[] = [];
       let lastThinkingFlushAt = Date.now();

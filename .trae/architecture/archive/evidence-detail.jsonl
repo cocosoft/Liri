@@ -4346,6 +4346,23 @@
 {"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/streamCommandShortCircuit.test.ts"}
 {"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"tests#1","i":0,"c":"app/tests/ink/commandDispatch.test.ts"}
 {"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"tests#2","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"title","i":0,"c":"命令输出去 markdown 强调星号：`Brief`/`Commit`/`Git`/`ContextWallet`/`agent`/`agents` 的输出标签改为纯文本（约 50 处），并加守则测试禁止回流"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"source","i":0,"c":"用户 2026-10-16 指令「好的，执行吧」；上溯当日前片 SLASH-COMMAND-DISPATCH-STREAM 的 reopenWhen ④（`/budget` 去星号后与其余命令输出不一致 ⇒ 当时记「要统一得全仓一次过」）"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"reopenWhen","i":0,"c":"① 若今后把命令输出改作 markdown 渲染面（让 Terminal 页 / ink 渲染 markdown），须重新引入强调标记并撤掉守则测试；② **同类未处理（待裁定）**：命令输出里的 markdown 标题 `##`/`###`（约 40 处："}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"reopenWhen","i":1,"c":"Brief/Commit/ContextWallet/Complete/agent/agents/websearch/fetch/notebook）在纯文本面仍显字面 `##`；`fetch` 的 HTML→markdown 加粗（`**$1**`）属内容保真，保留；③ 新增命令输出请一律纯文本 —— 守则测试会拦 `summary|output|"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"reopenWhen","i":2,"c":"lines.push|value:|message:` 前缀下的 `**`；④ 用例白名单只放「掩码 `****`」与「glob `**`」两类，若要放行第三类须在用例内写明理由"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"notes","i":0,"c":"① 判据（四显现面）：桌面聊天（markdown 渲染 ⇒ `**` 变粗体）/ 客户端 Terminal 页（逐行纯文本）/ ink TUI（命令输出刻意以 `role:'system'` 呈现、不过 MarkdownRenderer）/ legacy REPL 与 `executeOnce`、pipe（`console.log` 直出）⇒ **3/4 面"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"notes","i":1,"c":"显字面星号**，故统一为「命令输出 = 纯文本」，强调改用中文引号「」。② 范围：`Brief` 12 处（章节标签）、`Commit` 10、`Git` 12、`ContextWallet` 4（含金额/百分比值）、`agent` 9、`agents` 3。③ **未动**（各有理由）：`****` 密钥掩码（Env / Onboard / "}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"notes","i":2,"c":"provider）、glob 模式（`tools/file/glob.ts` 的 `**/*.ts`）、注释与 JSDoc、`fetch` 里把 `<strong>` 转成 `**` 的内容保真转换（那是内容不是标签）。④ 守则 + 自证：新增 `app/tests/commands/commandOutputPlainText.test.ts` 扫描 `"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"notes","i":3,"c":"src/commands/**` 的输出构造式；**负向对照已做** —— 临时把 `Brief.ts` 标签改回 `**` ⇒ 用例转红并精确指到 `brief/Brief.ts:225`，随后还原。⑤ 回归：`bun test tests/commands tests/budget tests/ink` 49 例绿；`typecheck` 0；六门禁绿。"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"notes","i":4,"c":"⑥ 未验：真机渲染（Terminal 页 / ink），同前片原因（本机 `isTTY=false`、无 ink 测试夹具）。"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#0","i":0,"c":"app/src/commands/builtin/brief/Brief.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#1","i":0,"c":"app/src/commands/builtin/commit/Commit.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#2","i":0,"c":"app/src/commands/builtin/git/Git.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#3","i":0,"c":"app/src/commands/builtin/context/ContextWallet.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#4","i":0,"c":"app/src/commands/tools/ai/agent.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#5","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"tests#0","i":0,"c":"app/tests/commands/commandOutputPlainText.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

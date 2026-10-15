@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **COMMAND-OUTPUT-PLAIN-TEXT-STARS**：命令输出去 markdown 强调星号（6 文件约 50 处改纯文本）+ 守则测试钉住 —— 验证 tc0|ut1|gate6；基线 命令输出在 Terminal 页 / ink / legacy REPL 显字面 `**标签**`（四显现面中 3 面不渲染 markdown）（详情见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）
 - ✅ **SLASH-COMMAND-DISPATCH-STREAM**：斜杠命令全链路派发（流式接入 + 取值单一实现 + ink help/补全接注册表 + Budget 去星号） —— 验证 tc0|ut6|gate6；基线 流式链路零命令派发（唯一派发点=非流式 `_handleCommand`）⇒ 聊天/渠道打 `/budget` 进模型；ink help 硬编码 5 条、补全 7 条静态（详情见 archive/evidence-detail.jsonl#SLASH-COMMAND-DISPATCH-STREAM）
 - ✅ **INK-REPL-SLASH-COMMAND-DISPATCH**：未派发的 `/xxx`（如 `/budget`）不再进模型，统一交全局命令注册表 —— 验证 tc3|ut3|gate6；基线 默认 ink 只硬编码 5 类命令，其余 `/xxx` 落 `streamMessage` 进模型（真机：模型自述命令应由应用层处理）（详情见 archive/evidence-detail.jsonl#INK-REPL-SLASH-COMMAND-DISPATCH）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT**：跨包契约一等公民化（门禁登记 + 三方同值守卫）⇒ 同名常量 2>0 —— 验证 tc0|ut87|gate6；基线 同名常量:DEFAULT_MODEL_SENTINEL 2>0（后端 0 识别点）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）

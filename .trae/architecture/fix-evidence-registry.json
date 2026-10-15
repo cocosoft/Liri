@@ -8082,6 +8082,37 @@
       "changelog": [],
       "reopenWhen": "① 若新增**内部** `streamMessage` 调用方传入以 `/` 开头的系统提示词 ⇒ 会被当命令拦截（现存两类系统续跑提示词均以 `[` 开头，已核）；② 命令输出取值口径若再分叉（客户端 Terminal 页的 `commands-handlers.ts` 仍自带一份 `value || messag…（全文见 archive/evidence-detail.jsonl#SLASH-COMMAND-DISPATCH-STREAM）",
       "notes": "① 路由事实（真机 + 静态）：全仓唯一派发点 = **非流式** `ChatOrchestrator._handleCommand`；流式两文件（`streamMessageFlow` / `streamMessagePrepare`）`command` 命中 0 ⇒ 客户端聊天恒 `stream:true`、渠道…（全文见 archive/evidence-detail.jsonl#SLASH-COMMAND-DISPATCH-STREAM）"
+    },
+    {
+      "id": "COMMAND-OUTPUT-PLAIN-TEXT-STARS",
+      "title": "命令输出去 markdown 强调星号：`Brief`/`Commit`/`Git`/`ContextWallet`/`agent`/`agents` 的输出标签改为纯文本（约 50 处），并加守则测试禁止回流",
+      "source": "用户 2026-10-16 指令「好的，执行吧」；上溯当日前片 SLASH-COMMAND-DISPATCH-STREAM 的 reopenWhen ④（`/budget` 去星号后与其余命令输出不一致 ⇒ 当时记「要统一得全仓一次过」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/commands/builtin/brief/Brief.ts",
+        "app/src/commands/builtin/commit/Commit.ts",
+        "app/src/commands/builtin/git/Git.ts",
+        "app/src/commands/builtin/context/ContextWallet.ts",
+        "app/src/commands/tools/ai/agent.ts",
+        "app/src/commands/tools/ai/agents.ts"
+      ],
+      "tests": [
+        "app/tests/commands/commandOutputPlainText.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若今后把命令输出改作 markdown 渲染面（让 Terminal 页 / ink 渲染 markdown），须重新引入强调标记并撤掉守则测试；② **同类未处理（待裁定）**：命令输出里的 markdown 标题 `##`/`###`（约 40 处：Brief/Commit/ContextWallet/Com…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）",
+      "notes": "① 判据（四显现面）：桌面聊天（markdown 渲染 ⇒ `**` 变粗体）/ 客户端 Terminal 页（逐行纯文本）/ ink TUI（命令输出刻意以 `role:'system'` 呈现、不过 MarkdownRenderer）/ legacy REPL 与 `executeOnce`、pipe（`cons…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）"
     }
   ]
 }

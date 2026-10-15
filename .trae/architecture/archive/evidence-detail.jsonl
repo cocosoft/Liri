@@ -3812,6 +3812,18 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第四十八项：`DEFAULT_CACHE_TTL_MS` **2 处同名消歧**（异值异域：图片下载 24h / 市场 1h；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列；同节下一键 `CACHE_MAX_SIZE` 同为异值异域待处理）；② 任一文件重新出现 `const DEFAULT_CACHE_TTL_MS =` ⇒ 守卫（第 64 例）或棘轮阻断；③ 若未来两域收敛为共享缓存策略层，可再评估合一；④ 本次为**异值异域消歧**（非合一）：`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"reopenWhen","i":1,"c":"chat/services/ImageDownloader.ts` 为图片下载缓存 TTL（默认 24h，env `IMAGE_DOWNLOAD_CACHE_TTL_MS` 可覆盖）⇒ 改名 `IMAGE_DOWNLOAD_CACHE_TTL_MS`；`plugins/marketplace/PluginMarketplace.ts` 为市场元数据缓存 "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"reopenWhen","i":2,"c":"TTL（1h）⇒ 改名 `MARKETPLACE_CACHE_TTL_MS`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"notes","i":0,"c":"**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 64 例（chat 侧无裸定义 + envInt 真源 + env 键名 + 使用点；plugins 侧无裸定义 + 取值钉住 + 使用点）64 pass / 596 expect · `lint:consts` 重新播种基线：`同名常量"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"notes","i":1,"c":":DEFAULT_CACHE_TTL_MS` **2→0**（207→206 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 两处均文件内私有，改名后取值与行为零变化；plugins 侧 3 处使用点（348/404 与 408）缩进不同，第二处需单独替换（首轮 replace_all 漏一行，已补）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"code#0","i":0,"c":"app/src/chat/services/ImageDownloader.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"code#1","i":0,"c":"app/src/plugins/marketplace/PluginMarketplace.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

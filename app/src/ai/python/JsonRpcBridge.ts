@@ -28,7 +28,7 @@ import {
 const logger = getLogger('ai:python:jsonRpcBridge');
 
 /** 请求默认超时 (ms) */
-const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+const JSON_RPC_REQUEST_TIMEOUT_MS = 30000;
 /** 默认启动超时 (ms) */
 const DEFAULT_STARTUP_TIMEOUT_MS = 10000;
 
@@ -114,7 +114,7 @@ export class JsonRpcBridge {
   constructor(options: JsonRpcBridgeOptions) {
     this.options = {
       startupTimeoutMs: DEFAULT_STARTUP_TIMEOUT_MS,
-      requestTimeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
+      requestTimeoutMs: JSON_RPC_REQUEST_TIMEOUT_MS,
       ...options,
     };
   }

@@ -1383,4 +1383,19 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(archival).toContain('const ARCHIVAL_INTERVAL_MS = 60 * 60 * 1000;');
     expect(archival).toContain('intervalMs: config?.intervalMs ?? ARCHIVAL_INTERVAL_MS,');
   });
+
+  test('B5-2㉞：`DEFAULT_REQUEST_TIMEOUT_MS` ×2 已按域消歧（同值异域，取值一字未改）', () => {
+    // 2 处同名均 30s 请求超时但属独立域：JsonRpcBridge（AI Python JSON-RPC 桥）/ LspSidecarConnection（LSP 侧车）
+    // 注：lspConnection 受用户 2026-10-13 裁定 A 约束（不引用 tools/lsp/**）⇒ 不可合一到 LSPClient 真源，只能按域改名
+    const bridge = read('src/ai/python/JsonRpcBridge.ts');
+    expect(bridge).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_REQUEST_TIMEOUT_MS\s*=/);
+    expect(bridge).toContain('const JSON_RPC_REQUEST_TIMEOUT_MS = 30000;');
+    expect(bridge).toContain('requestTimeoutMs: JSON_RPC_REQUEST_TIMEOUT_MS,');
+    const conn = read('src/tools/sidecar/lspConnection.ts');
+    expect(conn).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_REQUEST_TIMEOUT_MS\s*=/);
+    expect(conn).toContain('const LSP_SIDECAR_REQUEST_TIMEOUT_MS = 30_000;');
+    expect(conn).toContain(
+      'opts.requestTimeoutMs ?? LSP_SIDECAR_REQUEST_TIMEOUT_MS'
+    );
+  });
 });

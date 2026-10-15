@@ -125,7 +125,7 @@ export type LspConnectionFactory = (
   opts: LspConnectionOptions
 ) => LspConnectionPort;
 
-const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+const LSP_SIDECAR_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_DOCUMENT_URI = 'file:///lsp-snippet';
 
 interface PendingRequest {
@@ -149,7 +149,7 @@ export class LspSidecarConnection implements LspConnectionPort {
 
   constructor(opts: LspConnectionOptions) {
     this.opts = opts;
-    this.timeoutMs = opts.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    this.timeoutMs = opts.requestTimeoutMs ?? LSP_SIDECAR_REQUEST_TIMEOUT_MS;
   }
 
   async start(): Promise<void> {

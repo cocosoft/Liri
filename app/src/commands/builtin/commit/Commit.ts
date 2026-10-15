@@ -215,7 +215,7 @@ export class CommitCommand {
     const info = await this.getGitInfo();
 
     let output = '## Git 状态\n\n';
-    output += `**分支**: ${info.branch}\n\n`;
+    output += `分支: ${info.branch}\n\n`;
 
     if (info.stagedFiles.length > 0) {
       output += '### 已暂存文件\n\n';
@@ -249,7 +249,7 @@ export class CommitCommand {
       output += '没有发现任何变更。\n';
     }
 
-    output += '\n**最近提交**:\n';
+    output += '\n最近提交:\n';
     for (const commit of info.recentCommits.slice(0, 5)) {
       output += `- ${commit}\n`;
     }
@@ -277,7 +277,7 @@ export class CommitCommand {
 
     let output = '## 智能Git提交\n\n';
 
-    output += `**当前分支**: ${info.branch}\n\n`;
+    output += `当前分支: ${info.branch}\n\n`;
 
     output += '### 安全协议\n\n';
     for (const rule of SAFETY_RULES) {
@@ -320,7 +320,7 @@ export class CommitCommand {
 
     output += '### 提交类型\n\n';
     for (const type of COMMIT_TYPES) {
-      output += `- **${type.name}**: ${type.description}\n`;
+      output += `- ${type.name}: ${type.description}\n`;
     }
     output += '\n';
 
@@ -346,8 +346,8 @@ export class CommitCommand {
     const info = await this.getGitInfo();
 
     let output = '## 提交预览 (Dry Run)\n\n';
-    output += `**分支**: ${info.branch}\n`;
-    output += `**提交信息**: ${message}\n\n`;
+    output += `分支: ${info.branch}\n`;
+    output += `提交信息: ${message}\n\n`;
 
     if (info.stagedFiles.length > 0) {
       output += '### 将要提交的文件\n\n';
@@ -407,9 +407,9 @@ export class CommitCommand {
       });
 
       let output = '✅ 提交成功！\n\n';
-      output += `**分支**: ${info.branch}\n`;
-      output += `**提交信息**: ${message}\n`;
-      output += `**提交的文件**:\n`;
+      output += `分支: ${info.branch}\n`;
+      output += `提交信息: ${message}\n`;
+      output += `提交的文件:\n`;
       for (const file of info.stagedFiles) {
         output += `  - ${file}\n`;
       }
@@ -494,7 +494,7 @@ export class CommitCommand {
 
     output += '\n### 提交类型\n\n';
     for (const type of COMMIT_TYPES) {
-      output += `- **${type.name}**: ${type.description}\n`;
+      output += `- ${type.name}: ${type.description}\n`;
     }
 
     return { type: 'text', value: output };

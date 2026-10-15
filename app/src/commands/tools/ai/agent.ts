@@ -244,7 +244,7 @@ async function handleAgentList(
     return { success: true, message: JSON.stringify(data, null, 2) };
   }
 
-  const lines: string[] = ['📋 **Agent List**\n'];
+  const lines: string[] = ['📋 Agent List\n'];
 
   if (
     agents.length === 0 &&
@@ -255,7 +255,7 @@ async function handleAgentList(
   }
 
   if (agents.length > 0) {
-    lines.push('**Active Agents (Tool):**');
+    lines.push('Active Agents (Tool):');
     for (const agent of agents) {
       const icon =
         agent.status === 'running'
@@ -272,7 +272,7 @@ async function handleAgentList(
   }
 
   if (engineAgents.length > 0) {
-    lines.push('**Engine Agents:**');
+    lines.push('Engine Agents:');
     for (const agent of engineAgents) {
       lines.push(`  🤖 [${agent.agentId}] - running`);
     }
@@ -280,7 +280,7 @@ async function handleAgentList(
   }
 
   if (activeBgTasks.length > 0) {
-    lines.push('**Background Tasks (active):**');
+    lines.push('Background Tasks (active):');
     for (const task of activeBgTasks) {
       const duration = task.startedAt
         ? formatDuration(Date.now() - task.startedAt)
@@ -294,7 +294,7 @@ async function handleAgentList(
 
   if (completedBgTasks.length > 0) {
     const recentTasks = completedBgTasks.slice(-3);
-    lines.push('**Recent Background Tasks:**');
+    lines.push('Recent Background Tasks:');
     for (const task of recentTasks) {
       const duration =
         task.startedAt && task.completedAt
@@ -309,7 +309,7 @@ async function handleAgentList(
   }
 
   lines.push(
-    `**Stats:** total=${stats.total} running=${stats.running} completed=${stats.completed} failed=${stats.failed}`
+    `Stats: total=${stats.total} running=${stats.running} completed=${stats.completed} failed=${stats.failed}`
   );
 
   return { success: true, message: lines.join('\n') };
@@ -399,7 +399,7 @@ async function handleAgentStatus(
 
   if (task) {
     const lines: string[] = [
-      `📊 **Background Task: [${id}]**\n`,
+      `📊 Background Task: [${id}]\n`,
       `  Name: ${task.agentName}`,
       `  Type: ${task.agentType}`,
       `  Status: ${task.status}`,
@@ -505,7 +505,7 @@ async function handleBackgroundList(
     return { success: true, message: JSON.stringify(data, null, 2) };
   }
 
-  const lines: string[] = ['📊 **Background Task List**\n'];
+  const lines: string[] = ['📊 Background Task List\n'];
 
   if (tasks.length === 0) {
     lines.push('  没有后台任务。');
@@ -534,7 +534,7 @@ async function handleBackgroundList(
     lines.push('');
   }
 
-  lines.push(`**Stats:**`);
+  lines.push(`Stats:`);
   lines.push(`  Total: ${stats.total}`);
   lines.push(`  Running: ${stats.running}`);
   lines.push(`  Completed: ${stats.completed}`);

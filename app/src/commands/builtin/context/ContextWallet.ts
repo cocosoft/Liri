@@ -53,11 +53,7 @@ export interface WalletBreakdown {
 
 /** 优化建议类型 */
 export type SuggestionType =
-  | 'compact'
-  | 'trim_tools'
-  | 'enable_cache'
-  | 'route_cheaper'
-  | 'near_limit';
+  'compact' | 'trim_tools' | 'enable_cache' | 'route_cheaper' | 'near_limit';
 
 /** 优化建议 */
 export interface WalletSuggestion {
@@ -341,14 +337,14 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
 
   // Cost & savings
   lines.push('### 成本');
-  lines.push(`- 估计成本: **$${breakdown.estimatedCostUsd.toFixed(6)}**`);
+  lines.push(`- 估计成本: $${breakdown.estimatedCostUsd.toFixed(6)}`);
   if (breakdown.cacheSavingsUsd > 0) {
-    lines.push(`- 缓存节省: **$${breakdown.cacheSavingsUsd.toFixed(6)}**`);
+    lines.push(`- 缓存节省: $${breakdown.cacheSavingsUsd.toFixed(6)}`);
     const savingsRate =
       (breakdown.cacheSavingsUsd /
         (breakdown.estimatedCostUsd + breakdown.cacheSavingsUsd + 0.000001)) *
       100;
-    lines.push(`- 节省率: **${savingsRate.toFixed(1)}%**`);
+    lines.push(`- 节省率: ${savingsRate.toFixed(1)}%`);
   }
   lines.push('');
 
@@ -375,7 +371,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
           : s.severity === 'warning'
             ? '🟡'
             : '🔵';
-      lines.push(`${icon} **${s.message}**`);
+      lines.push(`${icon} ${s.message}`);
       lines.push(`   → ${s.action}`);
       lines.push('');
     }

@@ -324,17 +324,17 @@ export class GitCommand {
     let output = '';
 
     if (status.isDetached) {
-      output += `**分支**: ${status.branch} ( detached HEAD )\n`;
+      output += `分支: ${status.branch} ( detached HEAD )\n`;
     } else {
-      output += `**分支**: ${status.branch}\n`;
+      output += `分支: ${status.branch}\n`;
     }
 
     if (status.sha) {
-      output += `**SHA**: ${status.sha.slice(0, 8)}\n`;
+      output += `SHA: ${status.sha.slice(0, 8)}\n`;
     }
 
     if (status.ahead > 0 || status.behind > 0) {
-      output += `**同步状态**:`;
+      output += `同步状态:`;
       if (status.ahead > 0) output += ` ↑${status.ahead}`;
       if (status.behind > 0) output += ` ↓${status.behind}`;
       output += '\n';
@@ -433,7 +433,7 @@ export class GitCommand {
         const isCurrent = branch.startsWith('*');
 
         if (isCurrent) {
-          output += `* **${name}** (当前分支)\n`;
+          output += `* ${name} (当前分支)\n`;
         } else {
           output += `  ${name}\n`;
         }
@@ -464,7 +464,7 @@ export class GitCommand {
     let output = `## Git 提交历史 (最近 ${limit} 条)\n\n`;
 
     if (file) {
-      output += `**文件**: ${file}\n\n`;
+      output += `文件: ${file}\n\n`;
     }
 
     const commits = result.stdout.split('\n').filter(Boolean);
@@ -473,7 +473,7 @@ export class GitCommand {
       const hash = parts[0] || '';
       const message = parts.slice(1).join(' ') || commit;
 
-      output += `- **${hash}** ${message}\n`;
+      output += `- ${hash} ${message}\n`;
     });
 
     return { type: 'text', value: output };
@@ -712,11 +712,11 @@ export class GitCommand {
     ]);
 
     let output = '## Git 仓库信息\n\n';
-    output += `**分支**: ${branchResult.stdout || '( detached )'}\n`;
-    output += `**仓库根目录**: ${rootResult.stdout || this.gitRoot}\n`;
+    output += `分支: ${branchResult.stdout || '( detached )'}\n`;
+    output += `仓库根目录: ${rootResult.stdout || this.gitRoot}\n`;
 
     if (remoteResult.stdout) {
-      output += `**远程仓库**: ${remoteResult.stdout}\n`;
+      output += `远程仓库: ${remoteResult.stdout}\n`;
     }
 
     const [tagResult, commitResult] = await Promise.all([
@@ -725,9 +725,9 @@ export class GitCommand {
     ]);
 
     if (tagResult.stdout) {
-      output += `**版本标签**: ${tagResult.stdout}\n`;
+      output += `版本标签: ${tagResult.stdout}\n`;
     }
-    output += `**当前Commit**: ${commitResult.stdout}\n`;
+    output += `当前Commit: ${commitResult.stdout}\n`;
 
     return { type: 'text', value: output };
   }

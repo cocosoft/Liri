@@ -222,10 +222,10 @@ export class BriefCommand {
   ): string {
     let summary = '';
 
-    summary += `**会话消息数:** ${messages.length}\n\n`;
+    summary += `会话消息数: ${messages.length}\n\n`;
 
     if (keyPoints.length > 0) {
-      summary += `**关键要点:**\n`;
+      summary += `关键要点:\n`;
       for (const point of keyPoints.slice(0, 5)) {
         summary += `- ${point}\n`;
       }
@@ -233,7 +233,7 @@ export class BriefCommand {
     }
 
     const lastMessages = messages.slice(-3);
-    summary += `**最近消息:**\n`;
+    summary += `最近消息:\n`;
     for (const msg of lastMessages) {
       const preview =
         msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
@@ -258,13 +258,13 @@ export class BriefCommand {
   ): string {
     let summary = '';
 
-    summary += `**会话概览:**\n`;
+    summary += `会话概览:\n`;
     summary += `- 消息总数: ${messages.length}\n`;
     summary += `- 第一条消息时间: ${messages[0]?.createdAt ? new Date(messages[0].createdAt).toLocaleString() : '未知'}\n`;
     summary += `- 最后消息时间: ${messages[messages.length - 1]?.createdAt ? new Date(messages[messages.length - 1].createdAt).toLocaleString() : '未知'}\n\n`;
 
     if (keyPoints.length > 0) {
-      summary += `**关键要点:**\n`;
+      summary += `关键要点:\n`;
       for (const point of keyPoints.slice(0, 8)) {
         summary += `- ${point}\n`;
       }
@@ -272,7 +272,7 @@ export class BriefCommand {
     }
 
     if (decisions.length > 0) {
-      summary += `**决策记录:**\n`;
+      summary += `决策记录:\n`;
       for (const decision of decisions.slice(0, 5)) {
         summary += `- ${decision}\n`;
       }
@@ -280,7 +280,7 @@ export class BriefCommand {
     }
 
     if (actionItems.length > 0) {
-      summary += `**待办事项:**\n`;
+      summary += `待办事项:\n`;
       for (const item of actionItems.slice(0, 5)) {
         summary += `- ${item}\n`;
       }
@@ -299,27 +299,27 @@ export class BriefCommand {
     let summary = '';
 
     if (decisions.length > 0) {
-      summary += `**关键决策点:**\n`;
+      summary += `关键决策点:\n`;
       for (const decision of decisions.slice(0, 5)) {
         summary += `- ${decision}\n`;
       }
       summary += '\n';
     } else {
-      summary += `**关键决策点:**\n- 暂无明确决策\n\n`;
+      summary += `关键决策点:\n- 暂无明确决策\n\n`;
     }
 
     if (actionItems.length > 0) {
-      summary += `**后续行动:**\n`;
+      summary += `后续行动:\n`;
       for (const item of actionItems.slice(0, 5)) {
         summary += `- ${item}\n`;
       }
       summary += '\n';
     } else {
-      summary += `**后续行动:**\n- 暂无明确行动项\n\n`;
+      summary += `后续行动:\n- 暂无明确行动项\n\n`;
     }
 
     if (keyPoints.length > 0) {
-      summary += `**背景信息:**\n`;
+      summary += `背景信息:\n`;
       for (const point of keyPoints.slice(0, 3)) {
         summary += `- ${point}\n`;
       }

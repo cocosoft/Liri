@@ -52,6 +52,14 @@ export class CombinedSessionGateway {
   private agents: Map<string, AgentGatewayEntry> = new Map();
   private autoInitialize: boolean;
   private initialized = false;
+  /**
+   * 懒引导的 **in-flight 去重** promise。
+   *
+   * 首次用到时才拉起默认 Agent ⇒ 多个入口可能**同时**触发引导；无去重会各自
+   * `new SessionGateway()` + `initialize()`（重复 FTS 重建 / 崩溃恢复扫描）。
+   * 与 `SessionGateway.crashRecoveryInFlight` 同一口径。
+   */
+  private initInFlight: Promise<void> | null = null;
 
   constructor(config: CombinedGatewayConfig = {}) {
     this.autoInitialize = config.autoInitialize ?? true;
@@ -102,9 +110,29 @@ export class CombinedSessionGateway {
       .map(([id]) => id);
   }
 
+  /**
+   * 初始化：先就绪已注册的 Agent；**未注册任何 Agent** 时按 `autoInitialize` 拉起默认 Agent。
+   *
+   * **懒触发**：不必由启动期显式调用 —— 各入口经 {@link ensureReady} 在**首次用到时**执行。
+   * 这样启动期不会 `new` 第二个 `SessionGateway`（自带 storage / FTS 索引 / 崩溃恢复扫描），
+   * 避免重复的分区聚合扫描与启动耗时；同时"忘了 initialize"也不再能把 `agents` 变成空集。
+   */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    // 并发去重：多个入口同时首次用到时只真正引导一次
+    if (!this.initInFlight) {
+      this.initInFlight = this.doInitialize().catch((err) => {
+        // 失败**不锁死**：清掉 in-flight，下次调用可完整重试
+        // （H3 教训：半初始化状态若把 initialized 提前置真，会永久无法自愈）
+        this.initInFlight = null;
+        throw err;
+      });
+    }
+    await this.initInFlight;
+  }
+
+  private async doInitialize(): Promise<void> {
     const activeAgents = this.getActiveAgentEntries();
     await Promise.all(
       activeAgents.map(async ({ agentId, gateway }) => {
@@ -131,6 +159,17 @@ export class CombinedSessionGateway {
     });
   }
 
+  /**
+   * 入口前置：首次用到时才引导（懒初始化）。
+   *
+   * 所有需要 Agent 的公开入口都调它 —— 调用方无需知道"必须先 initialize"这一隐形前置条件；
+   * 这也是本类**唯一**的引导触发点（除公开 `initialize()` 显式调用外）。
+   */
+  private async ensureReady(): Promise<void> {
+    if (this.initialized) return;
+    await this.initialize();
+  }
+
   async createSession(
     params: CreateSessionParams & {
       userId?: string;
@@ -138,6 +177,8 @@ export class CombinedSessionGateway {
       agentId?: string;
     } = {}
   ): Promise<UnifiedSession> {
+    await this.ensureReady();
+
     const agentId = params.agentId ?? DEFAULT_AGENT_ID;
     const gateway = this.resolveGateway(agentId);
 
@@ -152,6 +193,8 @@ export class CombinedSessionGateway {
     sessionId: string,
     agentId?: string
   ): Promise<UnifiedSession | null> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       return gateway?.getSession(sessionId) ?? null;
@@ -180,6 +223,8 @@ export class CombinedSessionGateway {
     session: UnifiedSession,
     agentId?: string
   ): Promise<void> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       if (gateway) {
@@ -219,6 +264,8 @@ export class CombinedSessionGateway {
   }
 
   async deleteSession(sessionId: string, agentId?: string): Promise<void> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       if (gateway) {
@@ -274,6 +321,8 @@ export class CombinedSessionGateway {
     filter?: SessionFilter,
     agentIds?: string[]
   ): Promise<CombinedSessionResult> {
+    await this.ensureReady();
+
     const targetIds = agentIds ?? this.getActiveAgentIds();
     const agentSources: Record<string, string[]> = {};
 
@@ -315,6 +364,8 @@ export class CombinedSessionGateway {
     query: string,
     agentIds?: string[]
   ): Promise<CombinedSessionResult> {
+    await this.ensureReady();
+
     const targetIds = agentIds ?? this.getActiveAgentIds();
     const agentSources: Record<string, string[]> = {};
     const allSessions = new Map<
@@ -352,6 +403,8 @@ export class CombinedSessionGateway {
   }
 
   async getSessionStats(agentId?: string): Promise<SessionStats> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       if (!gateway) {
@@ -404,6 +457,8 @@ export class CombinedSessionGateway {
     message: UnifiedMessage,
     agentId?: string
   ): Promise<void> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       if (!gateway) {
@@ -454,6 +509,8 @@ export class CombinedSessionGateway {
     options?: { limit?: number; offset?: number },
     agentId?: string
   ): Promise<UnifiedMessage[]> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       logger.info('getMessages: 显式 Agent 读取', { sessionId, agentId });
@@ -491,6 +548,8 @@ export class CombinedSessionGateway {
     sessionId: string,
     agentId?: string
   ): Promise<Transcript | null> {
+    await this.ensureReady();
+
     if (agentId) {
       const gateway = this.agents.get(agentId)?.gateway;
       return gateway?.loadTranscript(sessionId) ?? null;

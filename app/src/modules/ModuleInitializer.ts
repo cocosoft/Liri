@@ -449,12 +449,12 @@ export class ModuleInitializer {
       if (!container.has('combinedSessionGateway')) {
         const combinedGateway = createCombinedGateway();
         container.registerInstance('combinedSessionGateway', combinedGateway);
-        // 必须显式 initialize()：Agent 注册只发生在 initialize() 内（未传 gateways 时
-        // 由 autoInitialize 分支注册默认 Agent）。漏掉这步 ⇒ agents 恒空 ⇒ 写入
-        // shared-context 时抛 "No active gateway found"、读取静默返回空，
-        // 共享上下文特性整体失效（写端被 catch 吞、读端无异常，故障不可见）。
-        await combinedGateway.initialize();
-        logger.info('CombinedSessionGateway 已注册到 DI 容器');
+        // 这里**只注册实例**，不调 initialize()：网关自身在各入口首次用到时懒引导
+        // （CombinedSessionGateway.ensureReady → initialize）。启动期显式 initialize 会
+        // 立刻 new 出第二个 SessionGateway（自带 storage / FTS 索引 / 崩溃恢复扫描），
+        // 造成重复的分区聚合扫描与启动耗时；而"漏调 initialize"这一隐形前置条件也已由
+        // 懒引导消除（原缺陷：只注册不初始化 ⇒ agents 恒空 ⇒ shared-context 写抛错被吞、读静默空）。
+        logger.info('CombinedSessionGateway 已注册到 DI 容器（懒引导）');
       }
     } catch (e) {
       logger.warning('CombinedSessionGateway 注册失败（非致命）', e as Error);

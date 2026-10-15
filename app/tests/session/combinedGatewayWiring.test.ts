@@ -1,12 +1,14 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
-// 共享会话网关（CombinedSessionGateway）**接线**回归测试
+// 共享会话网关（CombinedSessionGateway）**接线与懒引导**回归测试
 //
-// 覆盖：`ModuleInitializer` 把 `combinedSessionGateway` 注册进 DI 容器后，必须**已 initialize()**。
-// 修前遗漏该调用 ⇒ `agents` 恒空 ⇒ `sendMessage('shared-context', …)` 抛
-// 「No active gateway found for session: shared-context」——写端被 try/catch 吞成 warning、
-// 读端 `getMessages` 静默返回空，故「共享上下文」特性整体失效且故障不可见。
+// 契约（两层，缺一不可）：
+//   ① 懒引导：`ModuleInitializer` 只把实例注册进 DI，**不**在启动期 initialize()
+//      —— 启动期不多起第二个 `SessionGateway`（自带 storage / FTS 索引 / 崩溃恢复扫描）；
+//   ② 首次用到即自引导：任何入口（如 sendMessage/getMessages）无需调用方先 initialize()，
+//      否则写端会抛「No active gateway found for session: shared-context」（被 catch 吞成
+//      warning）、读端 `getMessages` 静默返回空 —— 共享上下文特性整体失效且不可见。
 
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
@@ -39,7 +41,7 @@ afterEach(async () => {
   const container = getDIContainer();
   if (container.has(KEY)) {
     const gw = container.resolve<CombinedSessionGateway>(KEY);
-    // 关掉默认网关的 FTS 持久化定时器
+    // 关掉（若已懒引导出的）默认网关的 FTS 持久化定时器
     await gw.getAgent(DEFAULT_AGENT_ID)?.close();
     container.clear(KEY);
   }
@@ -57,13 +59,14 @@ async function registerViaInitializer(): Promise<CombinedSessionGateway> {
 }
 
 describe('ModuleInitializer 注册共享会话网关', () => {
-  it('注册后默认 Agent 已登记（agents 非空）', async () => {
+  it('注册后**不**引导（懒初始化：启动期不起第二个 SessionGateway）', async () => {
     const gw = await registerViaInitializer();
 
-    expect(gw.getActiveAgentIds()).toEqual([DEFAULT_AGENT_ID]);
+    expect(gw.isInitialized()).toBe(false);
+    expect(gw.getActiveAgentIds()).toEqual([]);
   });
 
-  it('注册后写入 + 读回 shared-context 不再抛「No active gateway found」', async () => {
+  it('首次写入即自引导：shared-context 可写入并读回（调用方无需先 initialize）', async () => {
     const gw = await registerViaInitializer();
 
     await gw.sendMessage('shared-context', {
@@ -74,6 +77,8 @@ describe('ModuleInitializer 注册共享会话网关', () => {
       content: 'hi',
       timestamp: Date.now(),
     });
+
+    expect(gw.getActiveAgentIds()).toEqual([DEFAULT_AGENT_ID]);
 
     const messages = await gw.getMessages('shared-context', { limit: 10 });
     expect(messages.map((m) => m.content)).toContain('hi');

@@ -1668,7 +1668,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2B2：`ENTRYPOINT_NAME` 已按域消歧（异值异域：index.md / MEMORY.md，取值一字未改）', () => {
     // memory 域导出真源（'MEMORY.md'，被 MemoryFileService 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');
-    expect(mem).toContain('export const ENTRYPOINT_NAME = \'MEMORY.md\';');
+    expect(mem).toContain("export const ENTRYPOINT_NAME = 'MEMORY.md';");
     // chronos 域（dream 记忆根，'index.md'）改名
     const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
     expect(dream).not.toMatch(/(^|[^_A-Za-z])const ENTRYPOINT_NAME\s*=/);

@@ -7864,6 +7864,58 @@
       "changelog": [],
       "reopenWhen": "① 若「上下文上限」与「落盘阈值」确需联动（例如按同一比例派生），须先在共享层（`constants/`）建真源、再由存储侧引用，**不得**让 `constants` 反向依赖 `services`（层级违规）；② 若存储侧阈值改为走配置项已有 `persistenceThreshold` 选项（`ToolResu…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES）",
       "notes": "① **判据**：两处同名但**语义与取值都不同** —— `app/src/constants/toolLimits.ts` 的 `MAX_TOOL_RESULT_BYTES = MAX_TOOL_RESULT_TOKENS(100_000) * BYTES_PER_TOKEN(4)` = **400_000**（…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS",
+      "title": "删除 `constants/toolLimits.ts` 的 `MAX_TOOL_RESULTS_PER_MESSAGE_CHARS` 死副本（同名同义却**值漂移**：本处 200_000 vs 活值 250_000）⇒ 同名常量 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/constants/toolLimits.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **回滚路径**：本删除落**独立提交** `22a2012f5`（1 file, -7），如需恢复执行 `git revert 22a2012f5` 即可整笔回滚（符合 CD06「删除独立提交 + 保留可回滚点」）；② 若日后确需在**上下文域**也暴露该名（例如新入口按消息字符预算拒发），必须**从存储侧真源…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS）",
+      "notes": "① **判据（为何不是消歧而是删除）**：两处**同名、同义、异值** —— `app/src/constants/toolLimits.ts` = `200_000`，`app/src/services/toolResultStorage/types.ts` = `250_000`；且**两处文档注释描述的行为一字…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED",
+      "title": "`lint:consts` 增 vendored 目录排除（`app/src/ink/ink/` 上游副本不参与本仓重复事实源治理）—— 口径修正，一次解掉 4 键假阳性（ELLIPSIS / CUSTOM_BORDER_STYLES / OSC / BEL）",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线队列中 `同名常量:ELLIPSIS`（本仓真源 vs vendored `wrap-text.ts`）引发的判据讨论",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-consts.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若将来把 `ink` 改为**依赖引用**（`node_modules`），应删除该 vendored 目录并同步移除本排除项；② 若又有目录被**整体抄入**（新 vendored 上游副本），须按同口径登记进 `VENDORED_FRAGMENTS` 并补注释（勿用 `TRUTH_SOURCE_FRAGMEN…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED）",
+      "notes": "① **问题**：`lint:consts` 把 vendored 上游副本与本仓代码一并统计 ⇒ `ELLIPSIS = '…'` 被判为「同名常量 2 文件」。但**上游代码与本仓真源同名同值属正常**，且为过门禁去改名/合并会破坏「可与上游逐字对照」的可维护性（未来重新 vendoring 无法比对）。② **…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED）"
     }
   ]
 }

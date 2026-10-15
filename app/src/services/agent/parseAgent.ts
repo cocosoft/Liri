@@ -18,15 +18,15 @@ import { PermissionMode } from '@modules/permission';
 import { configManager } from '@modules/config';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
-// 硬编码治理 B5-2㉙：`FILE_*_TOOL_NAME` 收敛到 `@modules/constants` 单一真源（services→infra 合法）
-import { FILE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from '@modules/constants';
+// 硬编码治理 B5-2㉙ / B5-2-65：`FILE_*_TOOL_NAME` 三个名**全部**收敛到 `@modules/constants` 单一真源
+// （services→infra 合法）。原 `file_read` 因当时真源未导出而暂留私有副本，B5-2-65 已补齐。
+import {
+  FILE_EDIT_TOOL_NAME,
+  FILE_WRITE_TOOL_NAME,
+  FILE_READ_TOOL_NAME,
+} from '@modules/constants';
 
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
-
-/**
- * 工具名称常量（`file_read` 仍为本文件私有；两个 `file_*` 名改引真源）
- */
-const FILE_READ_TOOL_NAME = 'file_read';
 
 /**
  * 权限模式列表

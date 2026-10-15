@@ -443,8 +443,10 @@ export const TOOL_REGISTRY: Record<string, ToolRegistration> = {
   },
 };
 
-/** 工具名列表（供枚举遍历） */
-export const TOOL_NAMES = Object.keys(TOOL_REGISTRY) as readonly string[];
+/** 图像工具名列表（供枚举遍历）—— B5-2-66：原 `TOOL_NAMES` 与后端生成的真源
+ * （`app/src/constants/toolNames.generated.ts`）**同名不同事实**（此处仅图像视图域）⇒ 按域消歧；
+ * 取名避开 app 侧已占用的 `IMAGE_TOOL_NAMES`（`chat/services/ToolExecutionService.ts` 内局部名）。 */
+export const IMAGE_REGISTRY_TOOL_NAMES = Object.keys(TOOL_REGISTRY) as readonly string[];
 
 /** 工具入口列表（供 UI 渲染） */
 export const TOOL_ENTRIES = Object.values(TOOL_REGISTRY).map((r) => r.entry);

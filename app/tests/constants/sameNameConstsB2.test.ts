@@ -1279,7 +1279,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(agent).toContain('FILE_EDIT_TOOL_NAME,');
     expect(agent).toContain('FILE_WRITE_TOOL_NAME,');
     expect(agent).toMatch(
-      /import\s*\{\s*FILE_EDIT_TOOL_NAME,\s*FILE_WRITE_TOOL_NAME,?\s*\}\s*from '@modules\/constants';/
+      // B5-2-65 起该 import 由单行变多行（三个 `FILE_*` 名同引真源）⇒ 放宽为「同名同源」形态断言
+      /import\s*\{[\s\S]*?FILE_EDIT_TOOL_NAME[\s\S]*?FILE_WRITE_TOOL_NAME[\s\S]*?\}\s*from '@modules\/constants';/
     );
     expect(agent).toContain("} from '@modules/constants';");
     // 既有「桶 ↔ 真源 同值契约」守卫**必须保留**（不得为消键而删测试）
@@ -1825,6 +1826,36 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 仓内真源仍在（只是不再与 vendored 同名冲突）
     expect(read('src/constants/figures.ts')).toContain(
       "export const ELLIPSIS = '…';"
+    );
+  });
+
+  test('B5-2-65：`FILE_READ_TOOL_NAME` 已合一到真源（同值同事实：`file_read`；parseAgent 补齐第三个 `FILE_*` 名）', () => {
+    expect(read('src/constants/tools.ts')).toContain(
+      "export const FILE_READ_TOOL_NAME = 'file_read' satisfies ToolName;"
+    );
+    const parse = read('src/services/agent/parseAgent.ts');
+    expect(parse).not.toMatch(/(^|[^_A-Za-z])const FILE_READ_TOOL_NAME\s*=/);
+    expect(parse).toContain('FILE_READ_TOOL_NAME,');
+    expect(parse).toContain("} from '@modules/constants';");
+  });
+
+  test('B5-2-66：`TOOL_NAMES` ×2 已按域消歧（后端生成真源保留 / client 图像视图注册表改名）', () => {
+    expect(read('src/constants/toolNames.generated.ts')).toContain(
+      'export const TOOL_NAMES = ['
+    );
+    const client = read('../client/src/components/views/image/toolRegistry.ts');
+    expect(client).not.toMatch(/(^|[^_A-Za-z])const TOOL_NAMES\s*=/);
+    expect(client).toContain(
+      'export const IMAGE_REGISTRY_TOOL_NAMES = Object.keys(TOOL_REGISTRY)'
+    );
+  });
+
+  test('B5-2-67：`FORK_BOILERPLATE_TAG` 的 `constants/xml.ts` 死副本已删（同义异值：`fork-boilerplate` vs 活值 `[fork-subagent]`）', () => {
+    expect(read('src/constants/xml.ts')).not.toMatch(
+      /(^|[^_A-Za-z])const FORK_BOILERPLATE_TAG\s*=/
+    );
+    expect(read('src/tools/AgentTool/ForkSubagent.ts')).toContain(
+      "export const FORK_BOILERPLATE_TAG = '[fork-subagent]';"
     );
   });
 

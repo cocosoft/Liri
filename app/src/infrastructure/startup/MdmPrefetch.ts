@@ -25,8 +25,8 @@
 
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
-
-const MDM_SUBPROCESS_TIMEOUT_MS = 5000;
+// MDM 子进程超时取真源（B5-2-57 同值同事实合一；原此处另写一份 5000）
+import { MDM_SUBPROCESS_TIMEOUT_MS } from '@modules/config';
 
 export interface MdmRawReadResult {
   plistStdouts: Array<{ stdout: string; label: string }> | null;

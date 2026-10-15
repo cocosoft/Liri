@@ -1732,6 +1732,42 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
   });
 
+  test('B5-2-57：`MDM_SUBPROCESS_TIMEOUT_MS` 已合一到真源（同值同事实 5000；MdmPrefetch 改桶引用）', () => {
+    const truth = read('src/config/settings/mdm/constants.ts');
+    expect(truth).toContain('export const MDM_SUBPROCESS_TIMEOUT_MS = 5000;');
+    expect(read('src/config/index.ts')).toContain('MDM_SUBPROCESS_TIMEOUT_MS,');
+    const prefetch = read('src/infrastructure/startup/MdmPrefetch.ts');
+    expect(prefetch).not.toMatch(
+      /(^|[^_A-Za-z])const MDM_SUBPROCESS_TIMEOUT_MS\s*=/
+    );
+    expect(prefetch).toContain(
+      "import { MDM_SUBPROCESS_TIMEOUT_MS } from '@modules/config';"
+    );
+  });
+
+  test('B5-2-58：`DEFAULT_SESSION_TIMEOUT` ×2 已按域消歧（通用 30min 真源保留 / voice 10min 改名，取值一字未改）', () => {
+    expect(read('src/constants/common.ts')).toContain(
+      'export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;'
+    );
+    const voice = read('src/voice/VoiceSession.ts');
+    expect(voice).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_SESSION_TIMEOUT\s*=/);
+    expect(voice).toContain('const VOICE_SESSION_TIMEOUT = 10 * 60 * 1000;');
+    expect(voice).toContain('}, VOICE_SESSION_TIMEOUT);');
+  });
+
+  test('B5-2-59：`MAX_FILENAME_LENGTH` ×2 已按域消歧（app 文件系统 255 真源保留 / client 导出名 120 改名，取值一字未改）', () => {
+    expect(read('src/constants/common.ts')).toContain(
+      'export const MAX_FILENAME_LENGTH = 255;'
+    );
+    const client = read('../client/src/utils/exportMessage.ts');
+    expect(client).not.toMatch(
+      /(^|[^_A-Za-z])const MAX_FILENAME_LENGTH\s*=/
+    );
+    expect(client).toContain('const EXPORT_FILENAME_MAX_LENGTH = 120;');
+    expect(client).toContain('> EXPORT_FILENAME_MAX_LENGTH)');
+    expect(client).toContain('slice(0, EXPORT_FILENAME_MAX_LENGTH)');
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

@@ -161,6 +161,7 @@ export {
   getHkcuSettings,
   clearMdmSettingsCache,
   refreshMdmSettings,
+  MDM_SUBPROCESS_TIMEOUT_MS,
   type MdmResult,
 } from './settings/mdm/index.js';
 

@@ -50,7 +50,7 @@ const PROVIDER_ADAPTERS: Record<
 };
 
 /** 默认超时（毫秒） */
-const DEFAULT_SESSION_TIMEOUT = 10 * 60 * 1000;
+const VOICE_SESSION_TIMEOUT = 10 * 60 * 1000;
 
 /** 会话集成选项 */
 export interface SessionIntegrationOptions {
@@ -678,7 +678,7 @@ export class VoiceSession {
 
       this.disconnectAdapter();
       this.setState('disconnected');
-    }, DEFAULT_SESSION_TIMEOUT);
+    }, VOICE_SESSION_TIMEOUT);
   }
 
   /** 清除超时计时器 */

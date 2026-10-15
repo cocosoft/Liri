@@ -59,7 +59,7 @@ const WINDOWS_RESERVED_NAMES = new Set([
 ]);
 
 /** 文件名最大长度（多数文件系统上限 255，留出路径余量） */
-const MAX_FILENAME_LENGTH = 120;
+const EXPORT_FILENAME_MAX_LENGTH = 120;
 
 /**
  * 文件名消毒（**唯一实现**，2026-09-27 P2-6 归一：原 `SessionHistorySidebar` 与
@@ -82,8 +82,8 @@ export function sanitizeFilename(name: string): string {
   const ext = dot > 0 ? safe.slice(dot) : "";
   if (WINDOWS_RESERVED_NAMES.has(base.toLowerCase())) safe = `_${base}${ext}`;
   // ④ 超长截断
-  if (safe.length > MAX_FILENAME_LENGTH)
-    safe = safe.slice(0, MAX_FILENAME_LENGTH);
+  if (safe.length > EXPORT_FILENAME_MAX_LENGTH)
+    safe = safe.slice(0, EXPORT_FILENAME_MAX_LENGTH);
   return safe.trim() || "export";
 }
 

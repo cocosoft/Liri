@@ -7419,6 +7419,35 @@
       "changelog": [],
       "reopenWhen": "① 若「未配金额上限」状态下仍出现把 Token 数字读作额度的界面（如其它面板/状态栏/通知），按同一判据（`status.unit !== 'usd'`）补「观测」措辞；② 若告警／锁定阈值输入在无闸门时仍需隐藏或禁用（当前仅以说明文字告知其不生效），按 UX 裁定重开；③ 若 CLI `/budget stat…（全文见 archive/evidence-detail.jsonl#BUDGET-PANEL-OBSERVE-WORDING）",
       "notes": "① **误导点（本项修复对象）**：Token 轨只观测、不启用闸门后，若未配置 `limitUsd`（`unit === 'tokens'`）则**不存在任何预算硬闸门**；而面板仍以「每日 Token 限额 / 日上限 / 档位＝正常」呈现 ⇒ 用户会把**观测阈值**读成**生效额度**（真机同态：`unit=…（全文见 archive/evidence-detail.jsonl#BUDGET-PANEL-OBSERVE-WORDING）"
+    },
+    {
+      "id": "BUDGET-CLI-CHANNEL-WORDING",
+      "title": "CLI 与通道撞限文案纠偏：/budget 明示闸门状态（金额已启用/未启用）、Token 数字改称观测阈值；IM 撞限文案由「Token 预算」改为「金额预算」并指向「金额上限」",
+      "source": "承接同批 `BUDGET-PANEL-OBSERVE-WORDING`（前端面板同族措辞；用户 2026-10-15 指令「先修复前端面板的措辞误导」后确认继续）—— 口径依据 `BUDGET-TOKEN-OBSERVE-ONLY`（Token 轨只观测、不启用闸门）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/commands/builtin/budget/Budget.ts",
+        "app/src/commands/builtin/budget/index.ts",
+        "app/src/commands/loader/CommandLoader.ts",
+        "app/src/channels/routing/messageRouterContract.ts"
+      ],
+      "tests": [
+        "app/tests/budget/budgetCommand.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若其它入口（A2A / 长程任务 / 翻译 / 通道回执）仍出现把 Token 当额度的措辞，按同一判据（闸门是否启用）逐处纠偏；② 若 `dailyBudgetSnapshot.formatBudgetExhausted` 的 Token 分支需保留或删除（当前在无闸门后**实际不可达**），按 CD05「先降…（全文见 archive/evidence-detail.jsonl#BUDGET-CLI-CHANNEL-WORDING）",
+      "notes": "① **误导点**：闸门切金额口径后，CLI `/budget status` 仍打印「日 Token 限额」+「已用 / 上限」+「档位：正常」，IM 通道撞限文案仍称「今日 Token 预算已用完…或调高每日上限」⇒ 用户会去调 **Token 观测阈值**（无用）而非「**金额上限**」，改不到点上。② **修…（全文见 archive/evidence-detail.jsonl#BUDGET-CLI-CHANNEL-WORDING）"
     }
   ]
 }

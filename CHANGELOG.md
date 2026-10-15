@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BUDGET-CLI-CHANNEL-WORDING**：CLI 与通道撞限文案纠偏（/budget 明示闸门状态 + Token 数字改称观测阈值；IM 撞限文案改称金额预算并指向金额上限） —— 验证 tc0|ut10|arch0|gate6；基线 CLI 仍打印「日 Token 限额/已用-上限/档位正常」、IM 仍称「今日 Token 预算已用完…调高每日上限」⇒ 用户去调 Token 观测阈值（无用）（详情见 archive/evidence-detail.jsonl#BUDGET-CLI-CHANNEL-WORDING）
 - ✅ **BUDGET-PANEL-OBSERVE-WORDING**：日预算面板措辞纠偏（未配金额上限时明示「无预算硬闸门」；Token 阈值不再称「日上限」、档位改示「观测（不拦截）」） —— 验证 tc0|ut15|arch0|gate6；基线 无闸门状态下面板仍以「日上限/正常」呈现 Token 观测阈值 ⇒ 误读为生效额度（详情见 archive/evidence-detail.jsonl#BUDGET-PANEL-OBSERVE-WORDING）
 - ✅ **BUDGET-TOKEN-OBSERVE-ONLY**：Token 轨只观测、不启用闸门（撤回 §225 回落兜底）+ 观测阈值按 58 天分布重设为 30_000_000 —— 验证 tc0|ut275|e2e2|arch0|gate6；基线 50 万阈值低于除 1 天外所有历史日（中位 9.34M）⇒ 回落路径约 13 次调用即锁死（详情见 archive/evidence-detail.jsonl#BUDGET-TOKEN-OBSERVE-ONLY）
 - ✅ **BUDGET-USD-STREAM-LEDGER**：流式主链 USD 台账漏记修复（StreamPipeline 补传 model）+ 债四 S3 真机端到端复核 —— 验证 tc0|ut5|e2e5|arch0|gate6；基线 12,691 tokens 真实调用 usedUsd 增量为 0（dailyBudget:usd_skip model=null）（详情见 archive/evidence-detail.jsonl#BUDGET-USD-STREAM-LEDGER）

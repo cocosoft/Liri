@@ -4013,6 +4013,23 @@
 {"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"code#1","i":0,"c":"client/src/i18n/locales/zh.ts"}
 {"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"code#2","i":0,"c":"client/src/i18n/locales/en.ts"}
 {"id":"BUDGET-PANEL-OBSERVE-WORDING","k":"tests#0","i":0,"c":"client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"title","i":0,"c":"CLI 与通道撞限文案纠偏：/budget 明示闸门状态（金额已启用/未启用）、Token 数字改称观测阈值；IM 撞限文案由「Token 预算」改为「金额预算」并指向「金额上限」"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"source","i":0,"c":"承接同批 `BUDGET-PANEL-OBSERVE-WORDING`（前端面板同族措辞；用户 2026-10-15 指令「先修复前端面板的措辞误导」后确认继续）—— 口径依据 `BUDGET-TOKEN-OBSERVE-ONLY`（Token 轨只观测、不启用闸门）"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"reopenWhen","i":0,"c":"① 若其它入口（A2A / 长程任务 / 翻译 / 通道回执）仍出现把 Token 当额度的措辞，按同一判据（闸门是否启用）逐处纠偏；② 若 `dailyBudgetSnapshot.formatBudgetExhausted` 的 Token 分支需保留或删除（当前在无闸门后**实际不可达**），按 CD05「先降级观察」再议；③ 若内部日志哨兵名（`"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"reopenWhen","i":1,"c":"dailyBudget:exhausted_abort` 等含「Token 预算」字样）需与对外措辞统一，须同步改测试引用。"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":0,"c":"① **误导点**：闸门切金额口径后，CLI `/budget status` 仍打印「日 Token 限额」+「已用 / 上限」+「档位：正常」，IM 通道撞限文案仍称「今日 Token 预算已用完…或调高每日上限」⇒ 用户会去调 **Token 观测阈值**（无用）而非「**金额上限**」，改不到点上。② **修法**：**(a) `/budget "}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":1,"c":"status`** 标题统一为「每日预算限额（日期）」，新增**「闸门：金额（USD）—— 已启用」/「闸门：未启用（未配置金额上限）⇒ 下列 Token 数字仅作观测，不拦截调用」**一行；无闸门时**不显示「档位」**、改示「观测（不拦截）」；「已用 / 上限」在无闸门时改称「已用 / Token 观测阈值」、「当前有效上限」改称「当前有效阈值」；`"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":2,"c":"USAGE` 首行与 `set` 行同步（`set` 改为「改 **Token 观测阈值**（只影响观测告警）」）并加一行总说明。**(b) `set` 命令回执/校验**：「日 Token 上限已更新」→「Token 观测阈值已更新（…只影响观测告警，不改变能否调用）」；「上限需为正整数」→「阈值需为正整数」。**(c) IM 通道撞限文案**（`"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":3,"c":"messageRouterContract` 的 `BUDGET_EXCEEDED_FAILURE`，**用户可见**）：「今日 Token 预算已用完」→「今日**金额**预算已用完」，出路由「调高每日上限」→「调高「**金额上限**」」；码 `DAILY_BUDGET_EXCEEDED` 不变（外部契约）。**(d) 命令与工具描述**（`"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":4,"c":"budget/index.ts`，**LLM 面向**）与两处注释（`Budget.ts` 头注 / `CommandLoader.ts`）同步。③ **验证**：`budgetCommand.test.ts` 由 9 例增至 **10 例**（status 拆为「未配金额上限」与「已配金额上限」两例双向钉住：前者断言无闸门提示 + `档位：观测（不拦截）`"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":5,"c":" + `已用 / Token 观测阈值：0 / 100`；后者断言 `闸门：金额（USD）—— 已启用` + `档位：正常` + `已用 / 上限：$1.00 / $10.00` + Token 轨观测行）；受影响面 49 + 7 例 pass / 0 fail；app typecheck exit 0；6 门禁族全 exit 0。④ **如实缺口（"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":6,"c":"e2eVerified=false）**：未在终端实机跑 `/budget status` 两种态核对渲染（仅单测断言）；未提交 IM 通道实机回执。⑤ **顺带记录（未改）**：`dailyBudgetSnapshot.formatBudgetExhausted` 的 **Token 分支**（「今日 Token 预算已用完（已用 N / 上限 M）」）在"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"notes","i":7,"c":"取消 token 闸门后**实际不可达**（无闸门即不会产生该拒绝）—— 按 CD05 先观察、不删，仅在 reopenWhen ② 记录；`dailyBudgetUsdGate.test.ts` 仍钉住该文案以保「单位无关快照」契约不漂。"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#0","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#1","i":0,"c":"app/src/commands/builtin/budget/index.ts"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#2","i":0,"c":"app/src/commands/loader/CommandLoader.ts"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#3","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"BUDGET-CLI-CHANNEL-WORDING","k":"tests#0","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -1,6 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:META_KEY": 2,
     "同名常量:DIR_EXISTS_GUIDANCE": 2,
     "同名常量:ENTRYPOINT_NAME": 2,
     "同名常量:MAX_ENTRYPOINT_LINES": 2,

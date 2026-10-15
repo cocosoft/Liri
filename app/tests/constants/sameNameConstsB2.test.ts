@@ -1629,4 +1629,21 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'if (pathCheckCache.size >= PATH_GUARD_CACHE_MAX_SIZE) {'
     );
   });
+
+  test('B5-2㊿：`META_KEY` 已按域消歧（异值异域：流式/普通检查点元数据键，取值一字未改）', () => {
+    // 两处 metadata 键名不同 ⇒ 按用途消歧：流式检查点 / 普通对话检查点
+    const streaming = read('src/chat/services/StreamingAutoCheckpoint.ts');
+    expect(streaming).not.toMatch(/(^|[^_A-Za-z])const META_KEY\s*=/);
+    expect(streaming).toContain(
+      "const STREAMING_CHECKPOINT_META_KEY = 'streamingAutoCheckpoint';"
+    );
+    expect(streaming).toContain('[STREAMING_CHECKPOINT_META_KEY]: true,');
+    const plain = read('src/chat/services/PlainTextCheckpoint.ts');
+    expect(plain).not.toMatch(/(^|[^_A-Za-z])const META_KEY\s*=/);
+    expect(plain).toContain(
+      "const PLAIN_TEXT_CHECKPOINT_META_KEY = 'plainTextAutoCheckpoint';"
+    );
+    expect(plain).toContain('[PLAIN_TEXT_CHECKPOINT_META_KEY]: true,');
+    expect(plain).toContain('if (!meta?.[PLAIN_TEXT_CHECKPOINT_META_KEY]) return null;');
+  });
 });

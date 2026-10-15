@@ -19,8 +19,12 @@ import type {
   DataSessionStatus,
 } from '@modules/session/types/session';
 
-/** metadata 中标记普通对话检查点的字段 */
-const META_KEY = 'plainTextAutoCheckpoint';
+/**
+ * metadata 中标记普通对话检查点的字段。
+ * B5-2㊿ 按域消歧：原 `META_KEY` 与 chat/services/StreamingAutoCheckpoint 的流式检查点
+ * 元数据键异值异域（'plainTextAutoCheckpoint' vs 'streamingAutoCheckpoint'）⇒ 按用途正名。
+ */
+const PLAIN_TEXT_CHECKPOINT_META_KEY = 'plainTextAutoCheckpoint';
 
 export class PlainTextCheckpoint {
   private checkpointService: SessionCheckpointService;
@@ -47,7 +51,7 @@ export class PlainTextCheckpoint {
     try {
       const enrichedMetadata = {
         ...metadata,
-        [META_KEY]: true,
+        [PLAIN_TEXT_CHECKPOINT_META_KEY]: true,
       } as unknown as SessionMetadata;
 
       const checkpoint = await this.checkpointService.autoCreateCheckpoint(
@@ -81,7 +85,7 @@ export class PlainTextCheckpoint {
     if (!latest) return null;
 
     const meta = latest.metadata as unknown as Record<string, unknown>;
-    if (!meta?.[META_KEY]) return null;
+    if (!meta?.[PLAIN_TEXT_CHECKPOINT_META_KEY]) return null;
 
     return latest;
   }

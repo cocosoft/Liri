@@ -62,8 +62,12 @@ export interface RestoreResult {
 
 // ── 元数据键名常量 ────────────────────────────────────────────────
 
-/** metadata 中标记自动检查点的字段 */
-const META_KEY = 'streamingAutoCheckpoint';
+/**
+ * metadata 中标记自动检查点的字段。
+ * B5-2㊿ 按域消歧：原 `META_KEY` 与 chat/services/PlainTextCheckpoint 的普通对话检查点
+ * 元数据键异值异域（'streamingAutoCheckpoint' vs 'plainTextAutoCheckpoint'）⇒ 按用途正名。
+ */
+const STREAMING_CHECKPOINT_META_KEY = 'streamingAutoCheckpoint';
 /** description JSON 中存储的恢复状态字段 */
 const DESC_KEY = 'autoCheckpointState';
 
@@ -120,7 +124,7 @@ export class StreamingAutoCheckpoint {
 
     const metadata: SessionMetadata = {
       ...state.metadata,
-      [META_KEY]: true,
+      [STREAMING_CHECKPOINT_META_KEY]: true,
     } as unknown as SessionMetadata;
 
     const checkpoint = await this.checkpointService.saveCheckpointWithData(
@@ -199,7 +203,9 @@ export class StreamingAutoCheckpoint {
     const autoCheckpoints = checkpoints
       .filter(
         (c) =>
-          (c.metadata as unknown as Record<string, unknown>)?.[META_KEY] ===
+          (c.metadata as unknown as Record<string, unknown>)?.[
+            STREAMING_CHECKPOINT_META_KEY
+          ] ===
           true
       )
       .sort((a, b) => a.createdAt - b.createdAt);

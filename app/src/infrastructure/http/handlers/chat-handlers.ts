@@ -1207,7 +1207,7 @@ export async function handleLatestCheckpoint(
     // （真实载荷在 `metadata.budgetSuspend` / `pendingToolCalls`）。原判据仅看「messages 非空」
     // ⇒ 会把一个真实挂起误报为 `checkpointAvailable:false`（真实 E2E 实证，spec §6.5 查询面缺口）。
     // 判据在**端点侧**区分：带 `budgetSuspend` 标记者即使消息为空也如实可见；
-    // `StreamingAutoCheckpoint.restore()` 的「可续跑」过滤键（`META_KEY`）**不变**（二者判据不同）。
+    // `StreamingAutoCheckpoint.restore()` 的「可续跑」过滤键（`STREAMING_CHECKPOINT_META_KEY`）**不变**（二者判据不同）。
     const meta = checkpoint?.metadata as unknown as
       | Record<string, unknown>
       | undefined;

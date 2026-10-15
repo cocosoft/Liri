@@ -7838,6 +7838,32 @@
       "changelog": [],
       "reopenWhen": "① 若 evals 红队的 16384 被证明也应适用于通用场景（或反之），须先有真机/回归证据再统一，**不得**直接合并两个数值（4096 是通用默认，16384 是 R-1 实测调优值）；② 若该值改为按供应商/模型配置化（当前硬编码常量），按模型属性读 DB 的口径（`model-usage.md`：属性读 …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS）",
       "notes": "① **判据**：两处同名但**取值与语义不同** —— `app/src/constants/common.ts` 的 `DEFAULT_MAX_TOKENS = 4096`（通用默认输出上限）；`app/src/evals/adversarialProposer.ts` 的 `DEFAULT_MAX_TOKENS…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES",
+      "title": "`MAX_TOOL_RESULT_BYTES` ×2 按域消歧（异值异域：上下文注入上限 400_000 / 存储落盘阈值 1_000_000，取值一字未改）⇒ 同名常量:MAX_TOOL_RESULT_BYTES 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/constants/toolLimits.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若「上下文上限」与「落盘阈值」确需联动（例如按同一比例派生），须先在共享层（`constants/`）建真源、再由存储侧引用，**不得**让 `constants` 反向依赖 `services`（层级违规）；② 若存储侧阈值改为走配置项已有 `persistenceThreshold` 选项（`ToolResu…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES）",
+      "notes": "① **判据**：两处同名但**语义与取值都不同** —— `app/src/constants/toolLimits.ts` 的 `MAX_TOOL_RESULT_BYTES = MAX_TOOL_RESULT_TOKENS(100_000) * BYTES_PER_TOKEN(4)` = **400_000**（…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES）"
     }
   ]
 }

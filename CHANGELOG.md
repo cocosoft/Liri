@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES**：`MAX_TOOL_RESULT_BYTES`×2 按域消歧（上下文上限 / 落盘阈值异值）⇒ 同名常量 2>0 —— 验证 tc0|ut81|gate6；基线 同名常量:MAX_TOOL_RESULT_BYTES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS**：`DEFAULT_MAX_TOKENS`×2 按域消歧（通用 4096 真源保留 / evals 红队 16384 改名）⇒ 同名常量 2>0 —— 验证 tc0|ut80|gate6；基线 同名常量:DEFAULT_MAX_TOKENS 2>0（本轮基线播种被跳过，基线待下调）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-61-DEFAULT-MAX-TOKENS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL**：`DEFAULT_MODEL` 已合一到真源（同值同事实：空串「未指定模型」）⇒ 同名常量 2>0 —— 验证 tc0|ut80|gate6；基线 同名常量:DEFAULT_MODEL 2>0（本轮基线播种被跳过，基线待下调；另 `DEFAULT_MODEL_SENTINEL` 属跨包契约未处置）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-60-DEFAULT-MODEL）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH**：`MAX_FILENAME_LENGTH`×2 按域消歧（app FS 255 真源保留 / client 导出名 120 改名）⇒ 同名常量 2>0 —— 验证 tc0|ut78|gate6；基线 同名常量:MAX_FILENAME_LENGTH 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH）

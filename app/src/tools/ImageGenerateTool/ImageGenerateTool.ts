@@ -18,6 +18,8 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BaseTool } from '../BaseTool';
+// 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
+import { UUID_RE } from '@modules/core';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
@@ -182,10 +184,7 @@ export class ImageGenerateTool extends BaseTool {
           await import('../../ai/models/ModelPricingService.js');
         await modelPricingService.initialize();
         const allModels = await modelPricingService.getAllPricing();
-        const isUuid =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            resolvedModel
-          );
+        const isUuid = UUID_RE.test(resolvedModel);
         const modelRecord = allModels.find((m) =>
           isUuid ? m.id === resolvedModel : m.modelId === resolvedModel
         );

@@ -43,6 +43,8 @@
 
 import { handleError } from '@modules/error/handleError.js';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
+// 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
+import { UUID_RE } from '@modules/core';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from './models/ModelRegistry.js';
@@ -467,9 +469,7 @@ export class ModelRouter {
 
   /** 检测字符串是否为 UUID 格式 */
   private isUUID(value: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
-    );
+    return UUID_RE.test(value);
   }
 
   /** 预加载 UUID→模型名 缓存（从 DB 全量加载） */

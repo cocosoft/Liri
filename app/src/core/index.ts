@@ -29,6 +29,8 @@
  */
 
 export * from './paths';
+// `core/ids`（ID 熵源 + UUID 形态判定真源）：归属 core 供**各层**使用（`core → infra` 属分层倒挂）
+export * from './ids';
 // P2-9（2026-09-25）：迁移注册表与版本中枢（`core/migration/` 内部用相对路径引 `../paths`，无环）
 export * from './migration/AppMigrationStore';
 export * from './migration/MigrationRegistry';

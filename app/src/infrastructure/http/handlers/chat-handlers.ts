@@ -24,6 +24,8 @@
  */
 
 import type http from 'http';
+// 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
+import { UUID_RE } from '@modules/core';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 // N-45：会话级 yield 状态派生（同处 handlers 层，单向依赖，无环）
@@ -168,9 +170,6 @@ interface ChatCompletionResponse {
 }
 
 // ── 公共导出 ──────────────────────────────────────────────────────
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * 把请求里的 `model` **UUID**（即 `GET /v1/models` 的 `id` 字段）解析为 `modelId`。

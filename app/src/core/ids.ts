@@ -15,3 +15,15 @@ import { randomUUID } from 'crypto';
 export function randomIdSuffix(length: number = 8): string {
   return randomUUID().replace(/-/g, '').slice(0, length);
 }
+
+/**
+ * UUID（8-4-4-4-12 十六进制）**形态判定**的单一真源（硬编码治理 B5-2㉛，2026-10-15 收敛）。
+ *
+ * 实测原为 **8 份副本**且取值逐字相同（同一事实 ⇒ 合一，非消歧）：
+ * 2 处 `const UUID_RE =`（`ai/models/orphanModels.ts` · `infrastructure/http/handlers/chat-handlers.ts`）
+ * + **6 处内联字面量**（`ai/modelRouter.ts` 的私有 `isUUID` · `session/key/LegacyKeyAdapter.ts`
+ * · `tools/VideoGenerateTool` · `tools/ImageGenerateTool/{ImageGenerationTool,ImageGenerationRouter}`×3）
+ * —— 内联形式对 `lint:consts` **不可见**（门禁只认 `const` 定义），故此前只报出 2 处。
+ */
+export const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

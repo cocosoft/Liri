@@ -8,6 +8,8 @@
  */
 
 import { SessionKey } from './SessionKey';
+// 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
+import { UUID_RE } from '@modules/core';
 
 export const LEGACY_PREFIX = 'legacy';
 
@@ -21,9 +23,7 @@ export class LegacyKeyAdapter {
   }
 
   static isPlainUuid(key: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      key
-    );
+    return UUID_RE.test(key);
   }
 
   static toSessionKey(uuid: string): SessionKey | null {

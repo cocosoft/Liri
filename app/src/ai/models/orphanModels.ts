@@ -19,6 +19,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
+import { UUID_RE } from '@modules/core';
+
 /**
  * 孤儿模型判定与收集（N-59 后续 · 2026-09-20）
  *
@@ -34,9 +37,6 @@
  * 注意：`provider_id` 存 **provider_type**（如 `deepseek`）的**松绑定**由
  * `ProviderRegistry.getByType` 解析成功，**不属孤儿**，一律不处理。
  */
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface OrphanModel {
   /** `model_registry.id`（UUID，即会话 metadata.model 引用的键） */

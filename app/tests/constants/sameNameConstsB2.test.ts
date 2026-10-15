@@ -1317,4 +1317,34 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`localStorage.setItem(${name}, id)`);
     }
   });
+
+  test('B5-2㉛：`UUID_RE` 已合一到 core 层真源（8 份同值副本 → 1；取值一字未改）', () => {
+    // 真源：core 层 `core/ids.ts`（归属 core ⇒ 各层可引用；`core → infra` 倒挂禁止）
+    // 实测原为 8 份副本（2 `const` + 6 内联，内联对 `lint:consts` 不可见）且取值逐字相同 ⇒ 合一
+    const truth = read('src/core/ids.ts');
+    expect(truth).toContain('export const UUID_RE =');
+    expect(truth).toContain(
+      '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;'
+    );
+    // 规范出口（R03-002）：经 core barrel 导出
+    expect(read('src/core/index.ts')).toContain("export * from './ids';");
+    // 7 个消费文件：不再有本地 `const UUID_RE` / 内联正则，一律引用真源
+    const consumers = [
+      'src/ai/models/orphanModels.ts',
+      'src/infrastructure/http/handlers/chat-handlers.ts',
+      'src/ai/modelRouter.ts',
+      'src/session/key/LegacyKeyAdapter.ts',
+      'src/tools/VideoGenerateTool/VideoGenerateTool.ts',
+      'src/tools/ImageGenerateTool/ImageGenerationRouter.ts',
+      'src/tools/ImageGenerateTool/ImageGenerateTool.ts',
+    ];
+    for (const rel of consumers) {
+      const src = read(rel);
+      expect(src).not.toMatch(/(^|[^_A-Za-z])const UUID_RE\s*=/);
+      expect(src).not.toMatch(/\[0-9a-f\]\{8\}-/); // 内联正则不得回流
+      expect(src).toContain('UUID_RE');
+      expect(src).toContain("from '@modules/core'");
+      expect(src).toContain('UUID_RE.test('); // 用法确实落到真源
+    }
+  });
 });

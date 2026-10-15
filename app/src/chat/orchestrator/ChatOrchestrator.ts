@@ -719,7 +719,8 @@ export class ChatOrchestrator {
       let userMessage: Message;
       const prePersisted = options?.messageId
         ? (session.messages.find((m) => m.id === options.messageId) as
-            Message | undefined)
+            | Message
+            | undefined)
         : undefined;
       const prevRoundCount = session.metadata.roundCount ?? 0;
       session.metadata.roundCount = prevRoundCount + 1;

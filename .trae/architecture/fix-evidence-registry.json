@@ -7434,7 +7434,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "app/src/commands/builtin/budget/Budget.ts",

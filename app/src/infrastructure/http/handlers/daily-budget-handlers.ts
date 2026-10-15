@@ -73,7 +73,20 @@ function budgetSnapshot(budget: DailyBudgetManager): Record<string, unknown> {
   return {
     date: budget.currentDate(),
     mode: state.mode,
+    /**
+     * 债四 **S3**（2026-10-15）：`unit` = **主口径**（`'usd'` ⇔ USD 闸门启用）。
+     * 其下的 `used` / `dailyLimit` / `percentUsed` / `remaining` **均为主口径值**；
+     * `todayUsed` 恒为 **Token 口径**（辅助系数，供参考展示），前端须按 `unit` 分别格式化。
+     */
+    unit: state.unit,
+    /** 主口径已用量（`'usd'` ⇒ 已结算金额；`'tokens'` ⇒ 当日 Token） */
+    used: state.used,
     todayUsed: state.todayUsed,
+    /**
+     * **Token 轨基数上限**（配置键 `costControl.dailyTokenBudget`）—— 恒为 Token 口径，
+     * 供"观测行"展示（`todayUsed / tokenLimit`）。主口径为 USD 时它与 `dailyLimit` **不同源**。
+     */
+    tokenLimit: cfg.dailyLimit,
     projectedUsed: state.projectedUsed,
     dailyLimit: state.dailyLimit,
     percentUsed: state.percentUsed,

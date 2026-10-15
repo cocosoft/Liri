@@ -36,9 +36,11 @@ import {
 // LRO-17：进入 `locked` 时发一次 ALERT，经既有 AlertBridge（订阅 `alert:triggered`）路由，
 // 避免长程任务被日限额**静默**腰斩。
 import { globalEventBus } from '../core/events/EventBus.js';
+// 债四 D1/S3（2026-10-15）：USD 轨是否启用决定**主口径**（金额 vs Token）⇒ 需读功能开关。
+import { feature } from '@modules/core';
 // D-k（2026-10-11）：快照形状/格式化取自**叶子模块**（零依赖 ⇒ 不构成与闸门的循环导入）。
 import { formatBudget } from './dailyBudgetSnapshot.js';
-import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
+import type { BudgetSnapshot, BudgetUnit } from './dailyBudgetSnapshot.js';
 // P1：日预算**用量状态**持久化（`{date, used}` 落盘 `~/.pyapp/data/daily-budget-state.json`）。
 import {
   loadDailyBudgetState,
@@ -113,10 +115,19 @@ export interface DailyBudgetConfig {
 
 interface DailyBudgetState {
   mode: BudgetMode;
-  /** **实际**已用（不含在途预留） */
+  /** **主口径**单位（{@link BudgetUnit}）：USD 轨启用 ⇒ `'usd'`，否则回落 `'tokens'`。 */
+  unit: BudgetUnit;
+  /** **主口径实际**已用（不含在途）：`'usd'` ⇒ 已结算金额；`'tokens'` ⇒ 当日 Token。 */
+  used: number;
+  /** Token 口径实际已用（**辅助系数**：在途预留 / 收益递减 / 次要展示）。 */
   todayUsed: number;
-  /** **含在途预留**的预计用量（R16 原子预留；无预留时 === `todayUsed`） */
+  /**
+   * **含在途**的主口径预计用量。
+   * - `'usd'`：金额轨按**已结算**判定（无本轮预估，spec §6.4-2）⇒ === `used`；
+   * - `'tokens'`：=== `todayUsed` + 在途预留（R16）。
+   */
   projectedUsed: number;
+  /** **主口径**上限（relief 生效时为提高后的有效上限）。 */
   dailyLimit: number;
   percentUsed: number;
   remaining: number;
@@ -156,6 +167,12 @@ export class DailyBudgetManager {
   private outstandingBySession = new Map<string, number>();
   /** LRO-17：最近一次**已观测**的预算模式（用于阈值跨越的**单次**日志/告警，避免热路径刷屏） */
   private lastObservedMode: BudgetMode = 'normal';
+  /**
+   * S3（2026-10-15）：Token 轨是否**已越界**（观测去重）。Token 轨降级为观测告警后，
+   * 越界只在跨越时记一条 warn（否则热路径刷屏）；与 `lastObservedMode` **各自独立**
+   * （主口径可能是 USD，而 Token 轨越界与否是另一件事）。
+   */
+  private lastTokenTrackExceeded = false;
   /** P1：用量落盘去抖定时器（1s 合并多次记账写） */
   private _persistTimer: ReturnType<typeof setTimeout> | null = null;
   /**
@@ -297,14 +314,23 @@ export class DailyBudgetManager {
   /**
    * 计算当前预算状态（纯计算，无副作用）。
    *
-   * R16：`percentUsed` / `mode` / `remaining` 基于**含在途预留**的 `projectedUsed`（在途为 0 时
-   * 与 `todayUsed` 相同 ⇒ **无预留则行为逐一不变**）；`todayUsed` 仍为**实际**用量。
+   * 2026-10-15（债四 **S3**「闸门切金额」）：档位与 `percentUsed`/`remaining` 一律按**主口径**
+   * （{@link _primaryUnit}，USD 轨启用 ⇒ 金额）计算 —— 这是 D1「唯一口径 = 金额」的落地。
+   * Token 计数**保留但降为辅助系数**（在途预留 / 收益递减 / 次要展示），不再作为阻断判据。
+   *
+   * R16：Token 主口径下 `percentUsed` / `mode` / `remaining` 基于**含在途预留**的 `projectedUsed`
+   * （在途为 0 时与 `todayUsed` 相同 ⇒ **无预留则行为逐一不变**）；`todayUsed` 仍为**实际**用量。
+   *
+   * USD 主口径下**无在途量**（金额轨按已结算判定，见 `dailyBudgetGate` §6.4-2）⇒ `projectedUsed === used`。
    */
   private _computeState(): DailyBudgetState {
     // D-b（2026-10-11）：档位/剩余一律按**有效上限**（relief 生效时为提高后的上限）判定，
     // 使 `boost` / `unlock-today` 真正"放行"而**不是无视预算**（软上限仍在）。
+    const unit = this._primaryUnit();
     const limit = this._effectiveLimit();
-    const projectedUsed = this.effectiveUsed();
+    const isUsd = unit === 'usd';
+    const used = isUsd ? this.usedUsd : this.todayUsed;
+    const projectedUsed = isUsd ? this.usedUsd : this.effectiveUsed();
     const percentUsed = limit > 0 ? projectedUsed / limit : 0;
 
     let mode: BudgetMode = 'normal';
@@ -317,6 +343,8 @@ export class DailyBudgetManager {
 
     return {
       mode,
+      unit,
+      used,
       todayUsed: this.todayUsed,
       projectedUsed,
       dailyLimit: limit,
@@ -326,40 +354,110 @@ export class DailyBudgetManager {
   }
 
   /**
+   * **主口径**单位（债四 D1/S3）—— 由 `FEATURE_USD_BUDGET_GATE` **且** 已配置 `limitUsd` 决定。
+   *
+   * **为什么不用"任一先踩线"（旧双轨从严）**：Token 计数在本仓是"所有请求的上下文搬运总量"
+   * （含 cache_read，且 agentic 每轮重发全上下文）⇒ 与"额度"语义差 1–2 个数量级
+   * （真机 2026-10-15：基数 50 万 vs 当日 13,186,080 ≈ 26×）⇒ 用它当额度会**恒 locked**，
+   * 闸门退化为摆设。故按其真实语义降为**观测告警**，硬闸门交金额（用户 2026-10-15 裁定）。
+   *
+   * **回退（降级可用，不 fail）**：开关关 **或** 未配 `limitUsd` ⇒ 回落 Token 主口径，
+   * 与 S3 之前**逐字一致**（用户未设金额上限时不得静默失去保护）。
+   */
+  private _primaryUnit(): BudgetUnit {
+    return feature('USD_BUDGET_GATE') && this.config.limitUsd !== undefined
+      ? 'usd'
+      : 'tokens';
+  }
+
+  /** 主口径**基座上限**（relief 生效前的配置值）：USD ⇒ `limitUsd`；Token ⇒ `dailyLimit`。 */
+  private _limitBase(): number {
+    return this._primaryUnit() === 'usd'
+      ? (this.config.limitUsd as number)
+      : this.config.dailyLimit;
+  }
+
+  /**
    * LRO-17：观测模式**跨越**并各记一次日志（首次进入 `report_only` / `locked`）。
    *
    * 本方法在**热路径**（每次 `getMode`/`recordUsage`）被调用 ⇒ 必须以 `lastObservedMode`
    * 去重，否则刷屏。进入 `locked` 时额外发一次 `[ALERT]`（经 AlertBridge 的 `alert:triggered`）。
+   *
+   * S3（2026-10-15）：告警文案与载荷随**主口径**切换（USD / Token）；同时**独立观测 Token 轨越界**
+   * —— 它已不再阻断调用，但必须可见（用户口径："降级为观测告警"）。
    */
   private _observeModeTransition(state: DailyBudgetState): void {
+    this._observeTokenTrack();
     if (state.mode === this.lastObservedMode) return;
     const previousMode = this.lastObservedMode;
     this.lastObservedMode = state.mode;
 
+    const unitLabel = state.unit === 'usd' ? '金额' : 'Token';
     const payload = {
       previousMode,
       mode: state.mode,
-      todayUsed: state.todayUsed,
+      unit: state.unit,
+      used: state.used,
       projectedUsed: state.projectedUsed,
       dailyLimit: state.dailyLimit,
       percentUsed: Math.round(state.percentUsed * 100),
+      todayUsed: state.todayUsed,
     };
 
     if (state.mode === 'locked') {
-      logger.error('dailyBudget:mode — 日 Token 预算已用尽（locked）', payload);
+      logger.error(
+        `dailyBudget:mode — 日${unitLabel}预算已用尽（locked）`,
+        payload
+      );
       globalEventBus.publish('alert:triggered', {
         module: 'query:dailyBudgetManager',
         code: 'DAILY_BUDGET_LOCKED',
         severity: 'HIGH',
-        message: `日 Token 预算已用尽（已用 ${state.todayUsed} / 上限 ${state.dailyLimit}），后续模型调用将被拒绝`,
+        message:
+          state.unit === 'usd'
+            ? `日金额预算已用尽（已用 ${formatBudget(state.used, 'usd')} / 上限 ${formatBudget(state.dailyLimit, 'usd')}），后续模型调用将被拒绝`
+            : `日 Token 预算已用尽（已用 ${state.todayUsed} / 上限 ${state.dailyLimit}），后续模型调用将被拒绝`,
         timestamp: Date.now(),
       });
       return;
     }
     logger.warn(
-      'dailyBudget:mode — 日 Token 预算进入告警区（report_only）',
+      `dailyBudget:mode — 日${unitLabel}预算进入告警区（report_only）`,
       payload
     );
+  }
+
+  /**
+   * S3（2026-10-15）：**Token 轨的独立观测**（越界只告警、**不阻断**）。
+   *
+   * Token 计数 = 所有请求的上下文搬运总量（含缓存命中、含每轮重发的历史）⇒ 它是**成本/负载
+   * 的代理指标**，不是额度。降级后仍需可见：越界时记一条 warn（去重，避免热路径刷屏），
+   * 回到限内记一条 info。判据恒用 `config.dailyLimit`（**基座**，不含 relief）—— 观测应反映
+   * "原始配置是否被突破"，与 relief 抬高有效上限的行为解耦。
+   */
+  private _observeTokenTrack(): void {
+    const base = this.config.dailyLimit;
+    const exceeded = base > 0 && this.todayUsed >= base;
+    if (exceeded === this.lastTokenTrackExceeded) return;
+    this.lastTokenTrackExceeded = exceeded;
+    if (exceeded) {
+      logger.warn(
+        'dailyBudget:token_track — Token 轨已越界（**观测项**，不再阻断模型调用；硬闸门 = 金额轨）',
+        {
+          todayUsed: this.todayUsed,
+          tokenLimit: base,
+          ratio: base > 0 ? Number((this.todayUsed / base).toFixed(2)) : null,
+          usedUsd: this.usedUsd,
+          limitUsd: this.config.limitUsd ?? null,
+          primaryUnit: this._primaryUnit(),
+        }
+      );
+    } else {
+      logger.info('dailyBudget:token_track — Token 轨回到限内', {
+        todayUsed: this.todayUsed,
+        tokenLimit: base,
+      });
+    }
   }
 
   // ─── D-b（2026-10-11）：relief（放行）状态机 ─────────────────────────────
@@ -380,9 +478,12 @@ export class DailyBudgetManager {
    * - 无 relief ⇒ 配置上限（逐一不变）；
    * - `boost` ⇒ `max(×factor, base + amount)`（默认 ×2，Spec §4 D-n）；
    * - `unlock-today` ⇒ 原上限 ×5（**软上限**兜底，Spec §4 D-m）。
+   *
+   * S3 / Q-U10（2026-10-15）：**基座单位随主口径**（USD 轨启用 ⇒ 基座 = `limitUsd`，
+   * 倍数沿用；否则 = `dailyLimit`）。倍数与单位无关 ⇒ relief 三件套的定义与端点**均不变**。
    */
   private _effectiveLimit(now = Date.now()): number {
-    const base = this.config.dailyLimit;
+    const base = this._limitBase();
     const relief = this._activeRelief(now);
     if (!relief) return base;
     if (relief.kind === 'unlock-today') {
@@ -595,14 +696,19 @@ export class DailyBudgetManager {
     void sessionId; // 预留会话归属（USD 闸门启用后按会话记账；当前无消费点）
   }
 
-  /** D-k：单位无关快照（供 HTTP / 前端消费；Spec §11）。 */
+  /**
+   * D-k：单位无关快照（供 HTTP / 前端消费；Spec §11）。
+   *
+   * S3（2026-10-15）：`used` / `limit` / `unit` 一律取**主口径**（USD 轨启用 ⇒ 金额）——
+   * 快照不再"只在拒发时才切金额"（旧双轨语义已废）。
+   */
   getSnapshot(): BudgetSnapshot {
     const state = this._computeState();
     return {
-      used: state.todayUsed,
+      used: state.used,
       limit: state.dailyLimit,
-      unit: 'tokens',
-      formatted: formatBudget(state.todayUsed, 'tokens'),
+      unit: state.unit,
+      formatted: formatBudget(state.used, state.unit),
       mode: state.mode,
     };
   }
@@ -1081,17 +1187,35 @@ export function resolveDailyBudgetConfig(): {
  * （其状态按循环/轮次计，**不能**跨会话共享）——故"去双实例"仅指**闸门**收敛到本单例。
  */
 let dailyBudgetSingleton: DailyBudgetManager | null = null;
+/** 测试专用：下一次创建单例时是否清除「配置面」的 USD 上限（见 `resetDailyBudgetForTest`）。 */
+let pendingTestReset = false;
+
+/**
+ * 仅供测试：**下一个**单例在首次创建时清掉「配置面」的 USD 上限（生产不使用）。
+ *
+ * **为什么需要**（2026-10-15 S3 落地时暴露的预存耦合）：单例在首次取用时
+ * `resolveDailyBudgetConfig()` 会读**真实 `config.json`** ⇒ 开发机若已配
+ * `costControl.dailyBudgetUSD`，则整套「Token 轨」用例会**静默切到金额主口径**，
+ * 断言随机器而异。此处让测试默认回到「未配金额上限 ⇒ Token 回落口径」，
+ * 需要金额口径的用例改用运行时 API `setLimitUsd(N)` **显式开启**。
+ */
+export function resetDailyBudgetForTest(): void {
+  dailyBudgetSingleton = null;
+  pendingTestReset = true;
+}
 
 export function getDailyBudget(): DailyBudgetManager {
   if (!dailyBudgetSingleton) {
     dailyBudgetSingleton = createDailyBudgetManager(resolveDailyBudgetConfig());
+    if (pendingTestReset) {
+      pendingTestReset = false;
+      // 一律清除**配置面**的 USD 上限：`resolveDailyBudgetConfig()` 读的是 ConfigManager 的
+      // **初始化快照**且「配置键 > env」⇒ 用例改 env 无法覆盖开发机 `config.json` 的值。
+      // 需要金额口径的用例改用运行时 API `setLimitUsd(N)` **显式开启**。
+      dailyBudgetSingleton.setLimitUsd(null);
+    }
   }
   return dailyBudgetSingleton;
-}
-
-/** 仅供测试：重置单例（生产不使用）。 */
-export function resetDailyBudgetForTest(): void {
-  dailyBudgetSingleton = null;
 }
 
 /**

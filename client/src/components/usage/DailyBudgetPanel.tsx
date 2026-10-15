@@ -9,6 +9,9 @@ import {
 import { configService } from "../../services/configService";
 import { sseService } from "../../services/sseService";
 import { handleClientError } from "../../utils/handleError";
+// HD 归一（S3，2026-10-15）：金额展示**单一实现**（与后端 `formatUsdAmount` 逐字同口径），
+// 原本文件内的局部 `formatUsd` 与本文件之外的第二份拷贝已收敛至此。
+import { formatUsdAmount } from "../../utils/format";
 
 /** 数字 → 千分位展示 */
 function formatNumber(n: number): string {
@@ -16,16 +19,14 @@ function formatNumber(n: number): string {
 }
 
 /**
- * 金额（USD）→ 展示。
+ * **主口径**数值 → 展示（债四 S3，2026-10-15）。
  *
- * 最少 2 位、最多 4 位小数：小额（如单轮的 `$0.0031`）不被四舍五入成 `$0.00`，
- * 大额仍保持 `$12.50` 的可读性。
+ * `dailyLimit` / `used` / `remaining` / `relief.effectiveLimit` 均为**主口径值**：
+ * `"usd"` ⇒ 货币格式（{@link formatUsdAmount}，与后端 `formatBudget` 的 `usd` 分支同口径）；
+ * `"tokens"` ⇒ 千分位整数。
  */
-function formatUsd(n: number): string {
-  return `$${n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  })}`;
+function formatPrimary(n: number, unit: DailyBudgetStatus["unit"]): string {
+  return unit === "usd" ? formatUsdAmount(n) : formatNumber(n);
 }
 
 /** 档位 → i18n 键（normal / report_only / locked） */
@@ -489,7 +490,7 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitUsed")}
                 </p>
                 <p className="text-lg font-semibold">
-                  {formatNumber(status.todayUsed)}
+                  {formatPrimary(status.used, status.unit)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -497,7 +498,7 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitCap")}
                 </p>
                 <p className="text-lg font-semibold">
-                  {formatNumber(status.dailyLimit)}
+                  {formatPrimary(status.dailyLimit, status.unit)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -505,7 +506,7 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitRemaining")}
                 </p>
                 <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                  {formatNumber(status.remaining)}
+                  {formatPrimary(status.remaining, status.unit)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -541,8 +542,9 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitEffectiveLimit")}
                 </p>
                 <p className="text-lg font-semibold">
-                  {formatNumber(
+                  {formatPrimary(
                     status.relief?.effectiveLimit ?? status.dailyLimit,
+                    status.unit,
                   )}
                 </p>
               </div>
@@ -590,6 +592,19 @@ export default function DailyBudgetPanel() {
               </div>
             </div>
 
+            {/* 债四 S3（2026-10-15）：USD 为主口径时，Token 轨降为**观测项**（不再阻断调用）
+                ⇒ 单独一行如实展示，避免"看不到 Token 用量"的观感。 */}
+            {status.unit === "usd" && (
+              <p
+                data-testid="daily-budget-token-track"
+                className="text-xs text-gray-400 mb-3"
+              >
+                {t("cost.dailyLimitTokenTrackObserved")}:{" "}
+                {formatNumber(status.todayUsed)} /{" "}
+                {formatNumber(status.tokenLimit)}
+              </p>
+            )}
+
             {/* 债四 USD-3（方案 §6.3）：金额口径**只读**展示。
                 未配置上限 ⇒ 显式「未启用」而非 `$0.00`（0 是"上限 0"的误读）。 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
@@ -598,7 +613,7 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitUsdUsed")}
                 </p>
                 <p className="text-lg font-semibold">
-                  {formatUsd(status.usedUsd)}
+                  {formatUsdAmount(status.usedUsd)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -612,7 +627,7 @@ export default function DailyBudgetPanel() {
                       : ""
                   }`}
                 >
-                  {formatUsd(status.debtUsd)}
+                  {formatUsdAmount(status.debtUsd)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -622,7 +637,7 @@ export default function DailyBudgetPanel() {
                 <p className="text-lg font-semibold">
                   {status.limitUsd === null
                     ? t("cost.dailyLimitUsdDisabled")
-                    : formatUsd(status.limitUsd)}
+                    : formatUsdAmount(status.limitUsd)}
                 </p>
               </div>
             </div>

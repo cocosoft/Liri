@@ -78,7 +78,7 @@ describe('T14：/budget 命令（查看 / 放行 / 改上限）', () => {
   it('set 200 ⇒ 当场生效 + 持久化到同一配置键', async () => {
     const { value } = await new BudgetCommand().call('set 200');
 
-    expect(value).toContain('日上限已更新');
+    expect(value).toContain('日 Token 上限已更新');
     expect(getDailyBudget().getMode().dailyLimit).toBe(200);
     expect(writeSpy).toHaveBeenCalledTimes(1);
     const [key] = writeSpy.mock.calls[0] as unknown as [string, unknown];

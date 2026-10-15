@@ -2934,6 +2934,7 @@ const zh = {
     dailyLimitUsdDebt: "金额欠账",
     dailyLimitUsdCap: "金额上限",
     dailyLimitUsdDisabled: "未启用",
+    dailyLimitTokenTrackObserved: "Token 轨（观测，不参与判定）",
     dailyLimitReset: "重置当日用量",
     dailyLimitResetConfirm: "确定要重置当日 Token 用量统计吗？此操作不可撤销。",
     dailyLimitResetDone: "已重置当日用量",

@@ -300,7 +300,12 @@ describe('USD-2 PUT /v1/cost/daily-budget：写入 / 清空 USD 上限', () => {
   test('仅传 dailyLimitUSD ⇒ 200（Token 字段非必填）', async () => {
     const r = await call('PUT', '/v1/cost/daily-budget', { dailyLimitUSD: 3 });
     expect(r.status).toBe(200);
-    expect(r.body['dailyLimit']).toBe(500_000); // Token 上限未动
+    // S3（2026-10-15）：配了金额上限 ⇒ 主口径切 USD ⇒ `dailyLimit` 是**金额**上限；
+    // Token 轨基数未动，改由 `tokenLimit` 如实暴露（观测面）。
+    expect(r.body['limitUsd']).toBe(3);
+    expect(r.body['unit']).toBe('usd');
+    expect(r.body['dailyLimit']).toBe(3);
+    expect(r.body['tokenLimit']).toBe(500_000); // Token 上限未动
   });
 
   test('非法值（0 / 负数 / 字符串）⇒ 400 且不写配置', async () => {

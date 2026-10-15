@@ -11,10 +11,9 @@ import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { voiceService } from "../../services/voiceService";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 // T6（D-a/D-b/D-f）：撞限渲染可操作限额卡片（不再是红色错误条）
-import DailyLimitNotice, {
-  isDailyLimitErrorCode,
-} from "./DailyLimitNotice";
+import DailyLimitNotice, { isDailyLimitErrorCode } from "./DailyLimitNotice";
 import { usageService } from "../../services/usageService";
+import type { DailyBudgetUnit } from "../../services/usageService";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
@@ -54,8 +53,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // 拉一次 `GET /v1/cost/daily-budget`（失败静默：卡片退化为仅展示动作）。
   const isDailyLimitExceeded = isDailyLimitErrorCode(errorCode);
   const [limitSnapshot, setLimitSnapshot] = useState<{
-    todayUsed: number;
+    /** **主口径**已用（`unit` 决定单位：USD 轨启用 ⇒ 金额） */
+    used: number;
     dailyLimit: number;
+    unit: DailyBudgetUnit;
     mode: string;
   } | null>(null);
   useEffect(() => {
@@ -66,8 +67,9 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       .then((s) => {
         if (!cancelled) {
           setLimitSnapshot({
-            todayUsed: s.todayUsed,
+            used: s.used,
             dailyLimit: s.dailyLimit,
+            unit: s.unit,
             mode: s.mode,
           });
         }
@@ -619,9 +621,9 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         >
           <div className={fluid ? "w-full" : "w-full max-w-3xl px-4"}>
             <DailyLimitNotice
-              used={limitSnapshot?.todayUsed ?? 0}
+              used={limitSnapshot?.used ?? 0}
               limit={limitSnapshot?.dailyLimit ?? 0}
-              formatted={`${(limitSnapshot?.todayUsed ?? 0).toLocaleString()} Tokens`}
+              unit={limitSnapshot?.unit ?? "tokens"}
               mode={limitSnapshot?.mode ?? "locked"}
               t={t}
               onRelief={(kind) => {

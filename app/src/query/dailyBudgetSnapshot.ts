@@ -31,6 +31,17 @@
 export type BudgetMode = 'normal' | 'report_only' | 'locked';
 
 /**
+ * 日预算**主口径**单位（债四 D1/S3，2026-10-15 落地）。
+ *
+ * - `'usd'`：USD 轨启用（`FEATURE_USD_BUDGET_GATE` 开 **且** 已配置 `limitUsd`）⇒ **金额是唯一硬闸门**；
+ *   档位（`normal` / `report_only` / `locked`）与 `percentUsed` 一律按金额计算，
+ *   Token 计数降为**辅助系数**（在途预留、收益递减、展示）。
+ * - `'tokens'`：USD 轨未启用 ⇒ **回落**既有 Token 口径闸门（降级可用，不 fail；见
+ *   `unified-budget-and-accounting.md` §225 回退路径②）。
+ */
+export type BudgetUnit = 'tokens' | 'usd';
+
+/**
  * 单位无关的预算快照（Spec §11）。
  *
  * `formatted` **只描述已用量**（对齐 Spec §11 的示例 `"901.2 K Tokens"`）。
@@ -41,11 +52,12 @@ export interface BudgetSnapshot {
   /** 上限（当前单位；relief 生效时为**有效上限**） */
   limit: number;
   /**
-   * 单位：`'tokens'`（Token 轨，默认）或 `'usd'`（金额轨 —— USD-4 双轨从严命中金额轨时）。
+   * 主口径单位（{@link BudgetUnit}）——**描述快照本身的口径**，而非"哪条轨拒了"。
    *
-   * 快照描述的是**导致本次拒绝的那条轨**；放行时恒为 `'tokens'`（与 USD-4 之前**逐字一致**）。
+   * 2026-10-15（债四 S3 落地）语义变更：USD 轨启用时恒为 `'usd'`（放行/拒绝都一样），
+   * 未启用时恒为 `'tokens'`。旧语义（"仅命中金额轨时才是 usd"）随**双轨从严**改单轨而废弃。
    */
-  unit: 'tokens' | 'usd';
+  unit: BudgetUnit;
   /** 已用量的展示串（如 `"901.2 K Tokens"` / `"$12.50"`） */
   formatted: string;
   /** 当前档位 */

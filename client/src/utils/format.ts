@@ -8,6 +8,20 @@
 import i18n from "../i18n";
 
 /**
+ * 日预算**金额（USD）**展示 —— 与后端 `dailyBudgetSnapshot.ts#formatUsdAmount`
+ * **逐字同口径**（跨部署契约：最少 2 位、最多 4 位小数；**有意 `en-US`**，金额属货币口径而非 UI 语言）。
+ *
+ * 与 `formatCost` 的区别：本函数保留**千分位**（`$1,234.50`），后端快照/撞限卡片文案同款。
+ * 单侧改动会破坏两侧一致性 —— 改这里必须同步改后端。
+ */
+export function formatUsdAmount(n: number): string {
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })}`;
+}
+
+/**
  * 统一成本格式化。
  * @param value    成本数值
  * @param currency 货币符号，默认 '$'

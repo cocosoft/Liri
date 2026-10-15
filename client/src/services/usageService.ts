@@ -133,23 +133,40 @@ export interface DailyBudgetReliefInput {
   ttlMs?: number;
 }
 
+/**
+ * 日预算**主口径**单位（债四 D1/S3，2026-10-15 落地；对齐后端 `BudgetUnit`）。
+ *
+ * - `"usd"`：USD 闸门启用 ⇒ **金额是唯一硬闸门**；`used`/`dailyLimit`/`percentUsed`/`remaining`
+ *   均为**金额**，`todayUsed` 降为辅助（Token 观测）。
+ * - `"tokens"`：USD 闸门未启用 ⇒ **回落** Token 口径。
+ */
+export type DailyBudgetUnit = "tokens" | "usd";
+
 /** 日 Token 限额状态（GET /v1/cost/daily-budget，R16 / D3） */
 export interface DailyBudgetStatus {
   /** 统计所属**本地**自然日（YYYY-MM-DD） */
   date: string;
   mode: DailyBudgetMode;
-  /** 实际已用 Token（不含在途预留） */
+  /** **主口径**单位（`"usd"` ⇔ 金额闸门启用） */
+  unit: DailyBudgetUnit;
+  /** **主口径**已用量（`"usd"` ⇒ 已结算金额；`"tokens"` ⇒ 当日 Token） */
+  used: number;
+  /** Token 口径实际已用（**辅助观测**：USD 主口径下供参考，不参与判定） */
   todayUsed: number;
-  /** 预计用量（含在途预留；无预留时 === todayUsed） */
+  /** **Token 轨基数上限**（恒为 Token 口径；主口径为 USD 时与 `dailyLimit` 不同源） */
+  tokenLimit: number;
+  /** 预计用量（含在途预留；USD 主口径下无在途 ⇒ === `used`） */
   projectedUsed: number;
+  /** **主口径**日上限 */
   dailyLimit: number;
-  /** 已用比例（**0..1+** 的比值，非百分数） */
+  /** 已用比例（**0..1+** 的比值，非百分数；**主口径**） */
   percentUsed: number;
+  /** **主口径**剩余 */
   remaining: number;
   warningThreshold: number;
   lockThreshold: number;
   killSwitch: boolean;
-  /** D-d：透支欠账（`waive-once` 消耗，次日从可用额度扣回） */
+  /** D-d：透支欠账（**Token 口径**；`waive-once` 消耗，次日从可用额度扣回） */
   debt: number;
   /**
    * 债四 S5 / USD-1（2026-10-13，治理方案 §6.3）：**金额口径**已用（USD）。

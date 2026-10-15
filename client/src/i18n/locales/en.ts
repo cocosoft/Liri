@@ -3064,6 +3064,7 @@ const en = {
     dailyLimitUsdDebt: "Amount Debt",
     dailyLimitUsdCap: "Amount Cap",
     dailyLimitUsdDisabled: "Disabled",
+    dailyLimitTokenTrackObserved: "Token track (observed, not enforced)",
     dailyLimitReset: "Reset Today's Usage",
     dailyLimitResetConfirm: "Reset today's token usage? This cannot be undone.",
     dailyLimitResetDone: "Today's usage has been reset",

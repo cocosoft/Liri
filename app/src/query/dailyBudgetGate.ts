@@ -33,8 +33,6 @@ import { getDailyBudget } from './DailyBudgetManager.js';
 import { formatBudget, formatBudgetExhausted } from './dailyBudgetSnapshot.js';
 import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-// USD-4：功能开关（`USD_BUDGET_GATE`，默认关）+ 双读对照日志
-import { feature } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('query:dailyBudgetGate');
@@ -53,23 +51,28 @@ export {
 /**
  * 判定"本轮能否发起模型调用"（**纯读，无副作用**）。
  *
- * **Token 轨**（既有）：`allowed = 有效 waiver || (mode !== 'locked' && (projectedUsed + estimatedTokens) < dailyLimit)`。
+ * ## 主口径（债四 D1/S3，2026-10-15 落地）
  *
- * - 与既有 `preSendContextProtection` 的内联判定**互补等价**：
- *   原拒绝条件 = `mode === 'locked' || (projected + estimate) >= limit`。
+ * **硬闸门 = 主口径档位**：USD 轨启用（`FEATURE_USD_BUDGET_GATE` 开 **且** 已配 `limitUsd`）时
+ * 主口径是**金额**；未启用则**回落** Token 口径（降级可用，不 fail，见 `_primaryUnit()`）。
+ * 档位（`normal` / `report_only` / `locked`）由 `DailyBudgetManager._computeState()` 按主口径给出。
+ *
+ * **Token 轨已降级为观测告警**（用户 2026-10-15 裁定）：Token 计数是"所有请求的上下文搬运总量"
+ * （含 `cache_read`、含 agentic 每轮重发的全上下文）⇒ 与"额度"语义差 1–2 个数量级，不再参与
+ * 判定；越界只记 warn（`dailyBudget:token_track`）。
+ *
+ * ## 判定式
+ *
+ * ```
+ * allowed = !killSwitch && (waiver || 主口径档位 !== 'locked' [&& Token 口径: projected < 上限])
+ * ```
+ *
+ * - **Token 口径回落时**附加 `projected < dailyLimit`（保留 R16「在途预留 + 本轮预估」语义），
+ *   与本模块既有实现**互补等价**；USD 口径**无本轮预估**（金额按已结算判定，§6.4-2）⇒ 只看档位。
+ * - `waive-once` 通行证（C2）⇒ 放行**本轮**（作用于**当前主口径**；不消费，消费仍在 `recordUsage()`）。
+ * - **kill-switch 是手动总闸，不可被任何放行绕过**（硬锁优先）：原实现在 `waive-once` 短路口
+ *   会顺带绕过硬锁 —— S3 一并收紧。
  * - **不做预扣**：预扣（`reserveFor`）仍由调用方负责；本函数可被工具循环**逐轮**安全调用。
- * - `waive-once` 通行证（C2）⇒ `allowed` 短路口（越界也放行**本轮**）；**不消费**通行证。
- *
- * **金额轨（USD-4，方案 §6.3/§6.4「双轨从严」）**：启用条件 = `FEATURE_USD_BUDGET_GATE` 开
- * **且** 用户已配置 `limitUsd`（代码内**无任何默认值** ⇒ 未配置即不启用）。启用时
- * `金额已越界 OR Token 轨已越界` ⇒ **拒发**（同一 `DAILY_BUDGET_EXCEEDED` 路径）。
- *
- * - **不新增账本**：金额轨只**读** S5/S8 既有 `usedUsd` / `limitUsd`；不新增锁/事务。
- * - **不新增第二个闸门**：判定仍在本**唯一收口**内（D7）。
- * - **金额轨无"本轮预估"**（金额来自结算侧 S8，判定侧是同步纯读 ⇒ 两条口径时间线不同）⇒
- *   金额轨按**已结算** `usedUsd` 判定；「预扣→结算」窗口由 Token 轨的**同步预扣**闭合（§6.4-2）。
- * - **归因**：仅当**金额轨独占拒绝**（Token 轨放行）时快照 `unit === 'usd'`；两轨同时越界 ⇒
- *   归因 Token（用户文案与历史一致），两轨明细见双读对照日志。
  */
 export function checkDailyBudget(input: {
   sessionId: string;
@@ -77,64 +80,54 @@ export function checkDailyBudget(input: {
 }): { allowed: boolean; snapshot: BudgetSnapshot } {
   const budget = getDailyBudget();
   // ⚠️ 顺序敏感：`getMode()` 内含 `_rolloverIfNeeded()`（跨日归零 / 欠账扣回）⇒
-  // 必须在读 `getUsdState()` **之前**，否则金额轨会看到昨日的 `usedUsd`。
+  // 必须在读 `getUsdState()` **之前**，否则会看到昨日的 `usedUsd`。
   const state = budget.getMode();
-  const projected = state.projectedUsed + input.estimatedTokens;
-  // C2（最终整支评审）：`waive-once` 放行必须接到本**唯一收口** —— 否则流式/发送侧闸门只读
-  // `mode`（`locked`）⇒ 放行后被唤醒的会话立刻再 `locked`（撞反目标②"放行无反应"）。
-  // `hasActiveWaiver()` 为**只读**判据（消费点仍在 `recordUsage()`）⇒ 本函数保持**无副作用**。
-  const tokenAllowed =
-    budget.hasActiveWaiver() ||
-    (state.mode !== 'locked' && projected < state.dailyLimit);
-
-  // ── USD-4：金额轨（开关开 **且** 用户已配置上限才启用；否则恒为 `null` ⇒ 完全不参与判定）──
   const usd = budget.getUsdState();
-  const usdTrack =
-    feature('USD_BUDGET_GATE') && usd.limitUsd !== undefined
-      ? { used: usd.usedUsd, limit: usd.limitUsd }
-      : null;
-  const usdExceeded = usdTrack !== null && usdTrack.used >= usdTrack.limit;
-  const allowed = tokenAllowed && !usdExceeded;
-  const usdGoverns = usdExceeded && tokenAllowed;
+  // C2（最终整支评审）：`waive-once` 放行必须接到本**唯一收口**（只读判据）。
+  const waiver = budget.hasActiveWaiver();
+  // 手动硬锁：**独立于用量**的总闸，任何放行都不得绕过。
+  const killSwitch = budget.isKillSwitchEnabled();
 
-  if (usdTrack !== null) {
-    // §6.4「双读对照日志」：两轨并排如实记录（灰度期核对"金额轨是否真的在拦"）。
-    logger.info('dailyBudgetGate:dual-track', {
-      sessionId: input.sessionId,
-      tokens: {
-        projected,
-        dailyLimit: state.dailyLimit,
-        mode: state.mode,
-        exceeded: !tokenAllowed,
-      },
-      usd: {
-        usedUsd: usdTrack.used,
-        limitUsd: usdTrack.limit,
-        exceeded: usdExceeded,
-      },
-      allowed,
-      deniedBy: allowed ? null : usdGoverns ? 'usd' : 'tokens',
-    });
-  }
+  const isUsd = state.unit === 'usd';
+  // Token 口径回落路径专用（USD 主口径下 `estimatedTokens` 不参与判定：无金额预估可用）
+  const tokenProjected = state.projectedUsed + input.estimatedTokens;
+  const tokenTrackAllows =
+    state.mode !== 'locked' && tokenProjected < state.dailyLimit;
 
-  const snapshot: BudgetSnapshot =
-    usdGoverns && usdTrack !== null
-      ? {
-          used: usdTrack.used,
-          limit: usdTrack.limit,
-          unit: 'usd',
-          formatted: formatBudget(usdTrack.used, 'usd'),
-          mode: state.mode,
-        }
-      : {
-          used: state.todayUsed,
-          limit: state.dailyLimit,
-          unit: 'tokens',
-          formatted: formatBudget(state.todayUsed, 'tokens'),
-          mode: state.mode,
-        };
+  const primaryAllows = state.mode !== 'locked';
+  const allowed =
+    !killSwitch && (waiver || (isUsd ? primaryAllows : tokenTrackAllows));
 
-  return { allowed, snapshot };
+  // 观测日志：主口径 + Token 轨（已降级）并排如实记录，便于核对"闸门是否按金额在拦"。
+  logger.info('dailyBudgetGate:decision', {
+    sessionId: input.sessionId,
+    primary: {
+      unit: state.unit,
+      used: state.used,
+      limit: state.dailyLimit,
+      projectedUsed: state.projectedUsed,
+      mode: state.mode,
+      exceeded: !primaryAllows,
+    },
+    tokenTrack: {
+      projected: tokenProjected,
+      dailyLimit: state.dailyLimit,
+      todayUsed: state.todayUsed,
+      /** Token 轨**已不参与判定** ⇒ 仅观测（S3）。 */
+      exceeded:
+        state.mode !== 'locked' ? tokenProjected >= state.dailyLimit : true,
+    },
+    usd: {
+      usedUsd: usd.usedUsd,
+      limitUsd: usd.limitUsd ?? null,
+    },
+    killSwitch,
+    waiver,
+    allowed,
+  });
+
+  // 快照**恒取主口径**（S3：不再"只在拒发时才切金额"）。
+  return { allowed, snapshot: budget.getSnapshot() };
 }
 
 /**
@@ -172,6 +165,8 @@ export function resolveEntryBudgetDenial(input: {
       '放行方式：在桌面端「用量中心 → 日限额」临时提额 / 今日解除（或调高每日上限）后重试。',
     context: {
       entry: input.entry,
+      // S3：口径随快照（USD 轨启用 ⇒ 金额）—— `dailyLimit`/`todayUsed` 均为**主口径**值。
+      unit: decision.snapshot.unit,
       todayUsed: decision.snapshot.used,
       dailyLimit: decision.snapshot.limit,
       estimateThisRound: input.estimatedTokens,

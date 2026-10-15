@@ -12,6 +12,8 @@ import {
   getDailyBudget,
   isValidDailyLimit,
 } from '../../../query/DailyBudgetManager';
+// 债四 S3（2026-10-15）：展示随**主口径**（USD 轨启用 ⇒ 金额），复用同一格式化实现（CS01 不另立）。
+import { formatUsdAmount } from '../../../query/dailyBudgetSnapshot';
 
 const logger = getLogger('commands:builtin:budget');
 
@@ -53,6 +55,14 @@ const RELIEF_LABEL: Record<string, string> = {
  */
 function fmt(n: number): string {
   return n.toLocaleString('en-US');
+}
+
+/**
+ * **主口径**数值 → 展示（债四 S3）：`'usd'` ⇒ 货币格式（与快照 `formatUsdAmount` 同源）；
+ * `'tokens'` ⇒ 千分位整数。缺省按 Token（历史行为）。
+ */
+function fmtPrimary(n: number, unit?: 'tokens' | 'usd'): string {
+  return unit === 'usd' ? formatUsdAmount(n) : fmt(n);
 }
 
 export class BudgetCommand {
@@ -110,14 +120,22 @@ export class BudgetCommand {
         }`
       : '无';
 
+    const tokenBase = budget.getConfigSnapshot().dailyLimit;
     return [
-      `日 Token 限额（${budget.currentDate()}）`,
+      // 主口径标题：Token 归档时**与历史文案逐字一致**（`日 Token 限额`），USD 时改称金额。
+      `日 ${state.unit === 'usd' ? '金额（USD）' : 'Token'} 限额（${budget.currentDate()}）`,
       `  档位：${MODE_LABEL[state.mode] ?? state.mode}`,
-      `  已用 / 上限：${fmt(state.todayUsed)} / ${fmt(state.dailyLimit)}（${(
-        state.percentUsed * 100
-      ).toFixed(1)}%）`,
-      `  当前有效上限：${fmt(effectiveLimit)}`,
-      `  今日剩余：${fmt(state.remaining)}`,
+      `  已用 / 上限：${fmtPrimary(state.used, state.unit)} / ${fmtPrimary(
+        state.dailyLimit,
+        state.unit
+      )}（${(state.percentUsed * 100).toFixed(1)}%）`,
+      `  当前有效上限：${fmtPrimary(effectiveLimit, state.unit)}`,
+      `  今日剩余：${fmtPrimary(state.remaining, state.unit)}`,
+      ...(state.unit === 'usd'
+        ? [
+            `  Token 轨（**观测**，不参与判定）：${fmt(state.todayUsed)} / ${fmt(tokenBase)}`,
+          ]
+        : []),
       `  透支欠账：${fmt(debt)}${debt > 0 ? '（次日从可用额度扣回）' : ''}`,
       `  当前放行：${reliefText}`,
       `  硬锁：${budget.isKillSwitchEnabled() ? '已开启' : '未开启'}`,
@@ -137,14 +155,18 @@ export class BudgetCommand {
     }
 
     const budget = getDailyBudget();
-    const before = budget.getMode().dailyLimit;
+    const beforeState = budget.getMode();
+    const before = beforeState.dailyLimit;
     const view = budget.applyRelief({
       kind: 'boost',
       ...(factor !== undefined ? { factor } : {}),
       ...(minutes !== undefined ? { ttlMs: Math.round(minutes * 60_000) } : {}),
     });
     return (
-      `已临时提额：有效上限 ${fmt(before)} → ${fmt(view.effectiveLimit)}` +
+      `已临时提额：有效上限 ${fmtPrimary(before, beforeState.unit)} → ${fmtPrimary(
+        view.effectiveLimit,
+        beforeState.unit
+      )}` +
       (view.expiresAt
         ? `（到期自动恢复：${new Date(view.expiresAt).toLocaleTimeString()}）`
         : '') +
@@ -166,8 +188,10 @@ export class BudgetCommand {
     const budget = getDailyBudget();
     const view = budget.applyRelief({ kind: 'unlock-today' });
     return (
-      `今日不再拦截：有效上限 ${fmt(view.effectiveLimit)}（= 原上限 ×5 的软上限，次日自动恢复）。` +
-      this.killSwitchWarning()
+      `今日不再拦截：有效上限 ${fmtPrimary(
+        view.effectiveLimit,
+        budget.getMode().unit
+      )}（= 原上限 ×5 的软上限，次日自动恢复）。` + this.killSwitchWarning()
     );
   }
 
@@ -183,8 +207,10 @@ export class BudgetCommand {
       // 无 reliefState 也仍可能持有 waive-once 通行证（公开 API 不暴露）⇒ 文案如实，不断言"什么都没有"
       return '当前没有生效的放行；已清空在途放行（若有）。今日用量与欠账保留。';
     }
-    return `已撤销放行（${RELIEF_LABEL[before.kind] ?? before.kind}）：有效上限恢复为配置值 ${fmt(
-      budget.getMode().dailyLimit
+    const after = budget.getMode();
+    return `已撤销放行（${RELIEF_LABEL[before.kind] ?? before.kind}）：有效上限恢复为配置值 ${fmtPrimary(
+      after.dailyLimit,
+      after.unit
     )}（今日用量与欠账保留）。`;
   }
 
@@ -195,7 +221,8 @@ export class BudgetCommand {
     }
 
     const budget = getDailyBudget();
-    const before = budget.getMode().dailyLimit;
+    // ⚠️ 本子命令改的是 **Token 口径基座**（`dailyLimit`），与主口径无关 ⇒ 一律按 Token 展示。
+    const before = budget.getConfigSnapshot().dailyLimit;
     // 1) 运行期热更新（当场生效）；2) 持久化（重启后仍生效）—— 与 HTTP PUT 同一配置键
     budget.applyConfig({ dailyLimit: limit });
     const cfg = budget.getConfigSnapshot();
@@ -204,7 +231,7 @@ export class BudgetCommand {
       warningThreshold: cfg.warningThreshold,
       lockThreshold: cfg.lockThreshold,
     });
-    return `日上限已更新：${fmt(before)} → ${fmt(
+    return `日 Token 上限已更新：${fmt(before)} → ${fmt(
       limit
     )}（当场生效，且已持久化 ⇒ 重启后仍生效）`;
   }

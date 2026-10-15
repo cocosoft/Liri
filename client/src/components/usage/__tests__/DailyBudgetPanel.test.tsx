@@ -50,9 +50,14 @@ function emitBudgetUpdated(payload: Record<string, unknown> = {}): void {
 
 /** 日限额状态夹具（对齐 `GET /v1/cost/daily-budget`，含 T5 新增的 relief / debt） */
 function budgetStatus(over: Record<string, unknown> = {}) {
-  return {
+  const base = {
     date: "2026-10-11",
     mode: "locked",
+    // 债四 S3（2026-10-15）：主口径三字段。本夹具为 **Token 主口径**
+    // （`unit: "tokens"`）⇒ `used` ≡ `todayUsed`、`tokenLimit` ≡ `dailyLimit`。
+    unit: "tokens",
+    used: 901_200,
+    tokenLimit: 500_000,
     todayUsed: 901_200,
     projectedUsed: 901_200,
     dailyLimit: 500_000,
@@ -71,7 +76,15 @@ function budgetStatus(over: Record<string, unknown> = {}) {
       expiresAt: Date.now() + 60 * 60_000,
       effectiveLimit: 1_000_000,
     },
-    ...over,
+  };
+  const merged = { ...base, ...over };
+  // Token 主口径下 `used`/`tokenLimit` 与 `todayUsed`/`dailyLimit` 同源 ⇒ 用例只改后两者即可。
+  return {
+    ...merged,
+    used: (over["used"] as number | undefined) ?? (merged.todayUsed as number),
+    tokenLimit:
+      (over["tokenLimit"] as number | undefined) ??
+      (merged.dailyLimit as number),
   };
 }
 

@@ -1,4 +1,6 @@
 import { DAILY_BUDGET_EXCEEDED } from "../../error/errorCodes";
+import { formatUsdAmount } from "../../utils/format";
+import type { DailyBudgetUnit } from "../../services/usageService";
 
 /**
  * DailyLimitNotice —— 日预算**撞限卡片**（Spec `daily-budget-over-limit-ux.md` §5-A）。
@@ -12,12 +14,15 @@ import { DAILY_BUDGET_EXCEEDED } from "../../error/errorCodes";
 export type DailyLimitReliefKind = "boost" | "waive-once" | "unlock-today";
 
 export interface DailyLimitNoticeProps {
-  /** 今日已用量（tokens） */
+  /** **主口径**已用量（`usd` ⇒ 已结算金额；`tokens` ⇒ 当日 Token） */
   used: number;
-  /** 当前**有效**上限（relief 生效时为提高后的上限） */
+  /** 当前**有效**上限（relief 生效时为提高后的上限；单位 = `unit`） */
   limit: number;
-  /** 已用量的展示串（如 `"901.2 K Tokens"`） */
-  formatted: string;
+  /**
+   * **主口径**单位（债四 S3，2026-10-15）：`"usd"` 时按货币格式渲染
+   * （与后端 `formatUsdAmount` 同口径），否则千分位整数。
+   */
+  unit: DailyBudgetUnit;
   /** 档位（`locked` / `report_only`） */
   mode: string;
   /** 文案函数（宿主注入，如 i18n `t`） */
@@ -54,7 +59,7 @@ export function isDailyLimitErrorCode(
 export default function DailyLimitNotice({
   used,
   limit,
-  formatted,
+  unit,
   mode,
   t,
   onRelief,
@@ -62,6 +67,11 @@ export default function DailyLimitNotice({
   onOpenSettings,
   onDismiss,
 }: DailyLimitNoticeProps) {
+  // 债四 S3：口径由 `unit` 决定（金额 ⇒ 货币格式；Token ⇒ 千分位整数）。
+  const usedText =
+    unit === "usd" ? formatUsdAmount(used) : used.toLocaleString();
+  const limitText =
+    unit === "usd" ? formatUsdAmount(limit) : limit.toLocaleString();
   return (
     <div
       className="p-4 bg-amber-50 dark:bg-amber-900/30 backdrop-blur-xl border border-amber-200 dark:border-amber-800 rounded-xl shadow-lg"
@@ -74,10 +84,9 @@ export default function DailyLimitNotice({
         <div className="flex-1 min-w-0">
           <div className="text-sm text-amber-800 dark:text-amber-200">
             <span>{t("cost.card.used")}</span>{" "}
-            <span className="font-mono">{used.toLocaleString()}</span>
+            <span className="font-mono">{usedText}</span>
             <span className="mx-1">/</span>
-            <span className="font-mono">{limit.toLocaleString()}</span>
-            <span className="ml-2 opacity-80">{formatted}</span>
+            <span className="font-mono">{limitText}</span>
           </div>
           <p className="mt-1 text-xs text-amber-700/90 dark:text-amber-300/80 whitespace-pre-line">
             {t("cost.card.hint")}

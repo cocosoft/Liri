@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-44-THINKING-BATCH-MS**：`THINKING_BATCH_MS` ×2 合一（同值同事实，chat 域 thinking 防抖时间窗真源化） —— 验证 tc0|guard60|arch0|gate6；基线 同名常量:THINKING_BATCH_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-44-THINKING-BATCH-MS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE**：`THINKING_BATCH_SIZE` ×2 合一（同值同事实，chat 域 thinking 防抖批阈值真源化至 streamingLlm.ts 顶层） —— 验证 tc0|guard59|arch0|gate6；基线 同名常量:THINKING_BATCH_SIZE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW**：`CHANNEL_ARROW` ×2 按域消歧（figures ← / parser → 异值，来源箭头改名 MSG_SOURCE_ARROW） —— 验证 tc0|guard58|arch0|gate6；基线 同名常量:CHANNEL_ARROW 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS**：`STREAM_IDLE_TIMEOUT_MS` ×2 按域消歧（client/app 异域同值，副本改名 SSE_IDLE_TIMEOUT_MS） —— 验证 tc0|guard57|arch0|gate6；基线 同名常量:STREAM_IDLE_TIMEOUT_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS）

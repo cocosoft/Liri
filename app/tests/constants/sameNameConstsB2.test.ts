@@ -1447,9 +1447,23 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(files).toContain('FILES_IMAGE_EXTS.has(ext)');
     const tool = read('src/chat/services/ToolExecutionService.ts');
     expect(tool).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
-    expect(tool).toContain(
-      "const SANDBOX_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.svg', '.webp'];"
-    );
+    // prettier 可能把数组折行 ⇒ 只断声明首行
+    expect(tool).toContain('const SANDBOX_IMAGE_EXTS = [');
+    expect(tool).toContain("'.webp',");
     expect(tool).toContain('SANDBOX_IMAGE_EXTS.some((x) =>');
+  });
+
+  test('B5-2㊳：`SAFE_ID_PATTERN` 已合一（同值同事实；真源在 BridgeApi.ts，BridgeApiClient 改别名引用）', () => {
+    // 2 处同名同值 `/^[a-zA-Z0-9_-]+$/`、同为 bridge/api 域 ID 校验 ⇒ 合一，非消歧
+    const truth = read('src/bridge/api/BridgeApi.ts');
+    expect(truth).toContain('SAFE_ID_PATTERN 唯一真源');
+    expect(truth).toContain('const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;');
+    expect(truth).toContain('export function validateBridgeId');
+    const client = read('src/bridge/api/BridgeApiClient.ts');
+    expect(client).not.toMatch(/(^|[^_A-Za-z])const SAFE_ID_PATTERN\s*=/);
+    expect(client).toContain(
+      "import { validateBridgeId as importedValidateBridgeId } from './BridgeApi';"
+    );
+    expect(client).toContain('return importedValidateBridgeId(id, label);');
   });
 });

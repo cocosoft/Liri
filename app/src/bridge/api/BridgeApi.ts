@@ -94,6 +94,7 @@ export class BridgeFatalError extends AppError {
  * 验证Bridge ID
  */
 export function validateBridgeId(id: string, label: string): string {
+  // B5-2㊳：SAFE_ID_PATTERN 唯一真源（bridge/api 域内 ID 校验；BridgeApiClient 已改为引用本实现）
   const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
   if (!id || !SAFE_ID_PATTERN.test(id)) {
     throw new AppError(

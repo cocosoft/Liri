@@ -14,6 +14,8 @@ import {
   type BackoffConfig,
   DEFAULT_BACKOFF_CONFIG,
 } from '../types/BridgeApiTypes';
+// B5-2㊳ 合一：validateBridgeId（含 SAFE_ID_PATTERN）唯一实现/真源在 ./BridgeApi，本处以别名引用
+import { validateBridgeId as importedValidateBridgeId } from './BridgeApi';
 
 /**
  * Bridge API客户端工厂函数
@@ -232,16 +234,8 @@ export function createBridgeApiClient(deps: {
   }
 
   function validateBridgeId(id: string, label: string): string {
-    const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
-    if (!id || !SAFE_ID_PATTERN.test(id)) {
-      throw new AppError(
-        `Invalid ${label}: contains unsafe characters`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-    return id;
+    // B5-2㊳ 合一：validateBridgeId 唯一实现（含 SAFE_ID_PATTERN）在 ./BridgeApi，本处直接引用
+    return importedValidateBridgeId(id, label);
   }
 
   return {

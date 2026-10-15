@@ -7010,6 +7010,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const EXPLORATION_SENTENCE_PATTERNS =`（非 app 服务端真源）⇒ 守卫（第 62 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享正则层**（如公共包）使两轨可同源，可再评估将 `TO…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS）",
       "notes": "**自证**：app typecheck 0 · client typecheck 0 · 守卫第 62 例（app 真源标注 + `const` 定义 + 使用点；client 无裸定义 + `TOOLCALL_EXPLORATION_SENTENCE_PATTERNS` 定义 + 使用点）62 pass / 58…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE",
+      "title": "硬编码治理 · 「同名常量」B5-2 第四十七项：`MARKDOWN_STRUCTURE_RE` **2 处同名消歧**（异域同值，client/app 双轨互不引用；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（双轨互不引用 ⇒ 同值亦不可跨轨合一）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/bareExplorationStripper.ts",
+        "client/src/stores/chat/chat-toolcall.slice.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const MARKDOWN_STRUCTURE_RE =`（非 app 服务端真源）⇒ 守卫（第 63 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享正则层**使两轨可同源，可再评估将 `CHAT_TOOLCALL_MA…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE）",
+      "notes": "**自证**：app typecheck 0 · client typecheck 0 · 守卫第 63 例（app 真源标注 + `const` 定义 + 使用点 `MARKDOWN_STRUCTURE_RE.test(sentence)`；client 无裸定义 + `CHAT_TOOLCALL_MARKDOWN…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE）"
     }
   ]
 }

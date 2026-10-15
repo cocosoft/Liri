@@ -6981,6 +6981,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const REVIEW_GUIDELINES =` ⇒ 守卫（第 61 例）或棘轮阻断；③ 若未来两者语义收敛（如共用统一审核准则模板）可再评估合一；④ 本次为**异值异域消歧**（非合一）：`query/CompetitiveStrate…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES）",
       "notes": "**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 61 例（query 侧无裸定义 + `RESEARCH_REVIEW_GUIDELINES` 模板字符串头 + 使用点；chat 侧无裸定义 + `TURN_REVIEW_GUIDELINES` 数组头 + 使用点）61 pass…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS",
+      "title": "硬编码治理 · 「同名常量」B5-2 第四十六项：`EXPLORATION_SENTENCE_PATTERNS` **2 处同名消歧**（异域同值，client/app 双轨互不引用；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（双轨互不引用 ⇒ 同值亦不可跨轨合一）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/bareExplorationStripper.ts",
+        "client/src/stores/chat/chat-toolcall.slice.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const EXPLORATION_SENTENCE_PATTERNS =`（非 app 服务端真源）⇒ 守卫（第 62 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享正则层**（如公共包）使两轨可同源，可再评估将 `TO…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS）",
+      "notes": "**自证**：app typecheck 0 · client typecheck 0 · 守卫第 62 例（app 真源标注 + `const` 定义 + 使用点；client 无裸定义 + `TOOLCALL_EXPLORATION_SENTENCE_PATTERNS` 定义 + 使用点）62 pass / 58…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS）"
     }
   ]
 }

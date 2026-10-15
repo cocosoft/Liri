@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS**：`EXPLORATION_SENTENCE_PATTERNS` ×2 消歧（client/app 异域同值） —— 验证 tc0|guard62|arch0|gate6；基线 同名常量:EXPLORATION_SENTENCE_PATTERNS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES**：`REVIEW_GUIDELINES` ×2 按域消歧（异值异域，方案评审/回复复核分域改名） —— 验证 tc0|guard61|arch0|gate6；基线 同名常量:REVIEW_GUIDELINES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-44-THINKING-BATCH-MS**：`THINKING_BATCH_MS` ×2 合一（同值同事实，chat 域 thinking 防抖时间窗真源化） —— 验证 tc0|guard60|arch0|gate6；基线 同名常量:THINKING_BATCH_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-44-THINKING-BATCH-MS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE**：`THINKING_BATCH_SIZE` ×2 合一（同值同事实，chat 域 thinking 防抖批阈值真源化至 streamingLlm.ts 顶层） —— 验证 tc0|guard59|arch0|gate6；基线 同名常量:THINKING_BATCH_SIZE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-43-THINKING-BATCH-SIZE）

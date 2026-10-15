@@ -3788,6 +3788,18 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-45-REVIEW-GUIDELINES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第四十六项：`EXPLORATION_SENTENCE_PATTERNS` **2 处同名消歧**（异域同值，client/app 双轨互不引用；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（双轨互不引用 ⇒ 同值亦不可跨轨合一）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const EXPLORATION_SENTENCE_PATTERNS =`（非 app 服务端真源）⇒ 守卫（第 62 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享正则层**（如公共包）使两轨可同源，可再评估将 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"reopenWhen","i":1,"c":"TOOLCALL_EXPLORATION_SENTENCE_PATTERNS` 收敛到真源（按合一处理）；④ 本次为**异域同值消歧**（非合一）：app 侧 `chat/services/bareExplorationStripper.ts` 为服务端「裸探索句」判定真源（3 条正则、`isBareExplorationSentence`），保留原名；"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"reopenWhen","i":2,"c":"client 侧 `stores/chat/chat-toolcall.slice.ts` 为前端收尾抽离实现（同 3 条正则逐字一致、同 `MARKDOWN_STRUCTURE_RE` 结构），因 client/app 异域双轨（裁定 A）不可跨轨合一 ⇒ 改名 `TOOLCALL_EXPLORATION_SENTENCE_PATTERNS`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · client typecheck 0 · 守卫第 62 例（app 真源标注 + `const` 定义 + 使用点；client 无裸定义 + `TOOLCALL_EXPLORATION_SENTENCE_PATTERNS` 定义 + 使用点）62 pass / 583 expect · `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"notes","i":1,"c":"lint:consts` 重新播种基线：`同名常量:EXPLORATION_SENTENCE_PATTERNS` **2→0**（209→208 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 两处均为文件内私有（Grep 确认无跨文件引用），改名后正则取值与行为零变化。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"code#0","i":0,"c":"app/src/chat/services/bareExplorationStripper.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"code#1","i":0,"c":"client/src/stores/chat/chat-toolcall.slice.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

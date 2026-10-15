@@ -49,7 +49,6 @@ export const CHANNEL_TAG = 'channel';
 
 export const CROSS_SESSION_MESSAGE_TAG = 'cross-session-message';
 
-export const FORK_BOILERPLATE_TAG = 'fork-boilerplate';
 export const FORK_DIRECTIVE_PREFIX = 'Your directive: ';
 
 export const COMMON_HELP_ARGS = ['help', '-h', '--help'];

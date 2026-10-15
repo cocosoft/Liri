@@ -139,8 +139,14 @@ function main(): void {
     problems.push(`归档 ${detOver.length} 行超 ${MAX_DETAIL_LINE}`);
 
   const back = decodeDetailRows(rows);
-  const backCount =
-    [...back.keys()].filter((k) => k !== CL_BLOCK_ID).length - extraIds.size;
+  // 反解条目数须与 registry 条目数一致。判据**不能**写成「总数 − extraIds.size」——
+  // 该式只对「新增片」成立：新增时 registry 尚无该 id，减去 extraIds 才能对齐；
+  // 而 `--detail` **替换既有 id**（如补 tests/notes 后置 e2eVerified）时 registry 已含该 id，
+  // 再减 1 ⇒ 恒差 1，升级既有条目会被误判未过。故改为按 registry id 集计数（两种情况同式成立）。
+  const itemIds = new Set(items.map((it) => it.id));
+  const backCount = [...back.keys()].filter(
+    (k) => k !== CL_BLOCK_ID && itemIds.has(k)
+  ).length;
   if (backCount !== items.length)
     problems.push(`反解条目数 ${backCount} ≠ ${items.length}`);
   if (joinField(rows, CL_BLOCK_ID, CL_BLOCK_KEY) !== blockText) {

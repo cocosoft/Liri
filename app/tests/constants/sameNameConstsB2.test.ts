@@ -1569,9 +1569,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const app = read('src/chat/services/bareExplorationStripper.ts');
     expect(app).toContain('EXPLORATION_SENTENCE_PATTERNS 唯一真源');
     expect(app).toContain('const EXPLORATION_SENTENCE_PATTERNS = [');
-    expect(app).toContain('EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence))');
+    expect(app).toContain(
+      'EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence))'
+    );
     const cli = read('../client/src/stores/chat/chat-toolcall.slice.ts');
-    expect(cli).not.toMatch(/(^|[^_A-Za-z])const EXPLORATION_SENTENCE_PATTERNS\s*=/);
+    expect(cli).not.toMatch(
+      /(^|[^_A-Za-z])const EXPLORATION_SENTENCE_PATTERNS\s*=/
+    );
     expect(cli).toContain('const TOOLCALL_EXPLORATION_SENTENCE_PATTERNS = [');
     expect(cli).toContain(
       'return TOOLCALL_EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));'

@@ -329,3 +329,32 @@ describe("DailyBudgetPanel：金额口径（USD-3）", () => {
     expect(mocks.updateDailyBudget).not.toHaveBeenCalled();
   });
 });
+
+describe("DailyBudgetPanel：Token 轨只观测的措辞（台账 reopenWhen ④，2026-10-15）", () => {
+  it("未配置金额上限（unit=tokens）⇒ 明示「无预算硬闸门」+ 徽章为「观测」+ 阈值不叫「日上限」", async () => {
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus({ unit: "tokens" }));
+    render(<DailyBudgetPanel />);
+    await screen.findByText("每日预算限额");
+
+    // 显式「无闸门」提示（否则下方数字会被误读为生效额度）
+    expect(screen.getByTestId("daily-budget-no-gate")).toBeTruthy();
+    // 徽章不再显示「正常／已锁定」，改示「观测（不拦截）」
+    expect(screen.getByText("观测（不拦截）")).toBeTruthy();
+    // 阈值卡与配置输入改名（不再称「日上限」）
+    expect(screen.getAllByText("Token 观测阈值").length).toBeGreaterThan(0);
+    expect(screen.queryByText("日上限")).toBeNull();
+  });
+
+  it("已配置金额上限（unit=usd）⇒ **不**显示无闸门提示，徽章回到档位、上限卡仍叫「日上限」", async () => {
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ unit: "usd", dailyLimit: 10, limitUsd: 10, used: 1 }),
+    );
+    render(<DailyBudgetPanel />);
+    await screen.findByText("每日预算限额");
+
+    expect(screen.queryByTestId("daily-budget-no-gate")).toBeNull();
+    // 夹具 mode=locked ⇒ 档位口径生效
+    expect(screen.getByText("已锁定（拒绝新调用）")).toBeTruthy();
+    expect(screen.getAllByText("日上限").length).toBeGreaterThan(0);
+  });
+});

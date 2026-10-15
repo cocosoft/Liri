@@ -468,9 +468,19 @@ export default function DailyBudgetPanel() {
           <div className="flex items-center gap-2">
             {status && (
               <span
-                className={`text-xs px-2 py-0.5 rounded ${modeTone(status.mode)}`}
+                className={`text-xs px-2 py-0.5 rounded ${
+                  status.unit === "usd"
+                    ? modeTone(status.mode)
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+                }`}
               >
-                {t(modeKey(status.mode))}
+                {/* 2026-10-15（台账 reopenWhen ④）：未配置金额上限 ⇒ **无预算硬闸门** ⇒
+                    不显示「正常／锁定」档位（那会把它误读为生效额度），改示「观测（不拦截）」。 */}
+                {t(
+                  status.unit === "usd"
+                    ? modeKey(status.mode)
+                    : "cost.dailyLimitModeObserved",
+                )}
               </span>
             )}
             <button
@@ -484,6 +494,17 @@ export default function DailyBudgetPanel() {
 
         {status && (
           <>
+            {/* 2026-10-15（台账 reopenWhen ④）：Token 轨只观测、不启用闸门 ⇒ 未配置金额上限时
+                必须**显式说明"当前无闸门"**，否则下方"日上限/剩余/比例"会被误读为生效额度。 */}
+            {status.unit !== "usd" && (
+              <p
+                data-testid="daily-budget-no-gate"
+                className="mb-3 p-3 rounded bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 whitespace-pre-line"
+              >
+                {t("cost.dailyLimitNoGateNote")}
+              </p>
+            )}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
                 <p className="text-xs text-gray-500">
@@ -495,7 +516,11 @@ export default function DailyBudgetPanel() {
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
                 <p className="text-xs text-gray-500">
-                  {t("cost.dailyLimitCap")}
+                  {t(
+                    status.unit === "usd"
+                      ? "cost.dailyLimitCap"
+                      : "cost.dailyLimitCapObserved",
+                  )}
                 </p>
                 <p className="text-lg font-semibold">
                   {formatPrimary(status.dailyLimit, status.unit)}
@@ -822,7 +847,9 @@ export default function DailyBudgetPanel() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <label className="block">
             <span className="text-xs text-gray-500">
-              {t("cost.dailyLimitCap")}
+              {/* 2026-10-15：该输入改的是 **Token 观测阈值**（Token 轨只观测、不启用闸门），
+                  不再称「日上限」——避免把观测阈值当额度配置。 */}
+              {t("cost.dailyLimitCapObserved")}
             </span>
             <input
               type="number"

@@ -3032,11 +3032,16 @@ const en = {
       continue: "Continue",
     },
     tabDailyLimit: "Daily Limit",
-    tabDailyLimitDesc: "Per-day token budget / tiers / manual hard lock",
-    dailyLimitTitle: "Daily Token Limit",
+    tabDailyLimitDesc:
+      "Per-day budget (gate = amount-based) / tiers / manual hard lock",
+    dailyLimitTitle: "Daily Budget Limit",
     dailyLimitConfigTitle: "Limit Configuration",
     dailyLimitUsed: "Used Today",
     dailyLimitCap: "Daily Cap",
+    dailyLimitCapObserved: "Token observation threshold",
+    dailyLimitModeObserved: "Observed (not enforced)",
+    dailyLimitNoGateNote:
+      "No amount cap configured — **no budget gate is active**; the token figures below are observation only and do not block calls. Calls are gated once an amount cap is set.",
     dailyLimitRemaining: "Remaining Today",
     dailyLimitPercent: "Used Ratio",
     dailyLimitDateLabel: "Stats Date",
@@ -3051,7 +3056,7 @@ const en = {
     dailyLimitSaving: "Saving...",
     dailyLimitSaved: "Saved and applied instantly",
     dailyLimitSaveFailed: "Failed to save",
-    dailyLimitInvalidLimit: "Daily cap must be a positive integer",
+    dailyLimitInvalidLimit: "Token observation threshold must be a positive integer",
     dailyLimitInvalidThreshold:
       "Threshold must be a percentage between 1 and 100",
     dailyLimitUsd: "Amount Cap (USD)",

@@ -17,7 +17,7 @@ import { BudgetCommand } from '../../src/commands/builtin/budget/Budget';
 const LIMIT = 100;
 const CONFIG_KEY = 'costControl.dailyTokenBudget';
 
-describe('T14：/budget 命令（查看 / 放行 / 改上限）', () => {
+describe('T14：/budget 命令（查看 / 放行 / 改 Token 观测阈值）', () => {
   let writeSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
@@ -32,15 +32,31 @@ describe('T14：/budget 命令（查看 / 放行 / 改上限）', () => {
     resetDailyBudgetForTest();
   });
 
-  it('status（默认）：展示档位 / 已用与上限 / 有效上限 / 欠账 / 当前放行 / 硬锁', async () => {
+  it('status（**未配金额上限**）：明示无闸门 + 阈值口径 + 欠账/放行/硬锁', async () => {
     const { value } = await new BudgetCommand().call('');
 
-    expect(value).toContain('日 Token 限额');
-    expect(value).toContain('已用 / 上限：0 / 100');
-    expect(value).toContain('当前有效上限：100');
+    expect(value).toContain('每日预算限额');
+    // 2026-10-15：Token 轨只观测、不启用闸门 ⇒ 必须**显式说明当前无闸门**
+    expect(value).toContain('闸门：**未启用**（未配置金额上限）');
+    expect(value).toContain('档位：观测（不拦截）'); // 无闸门 ⇒ 不显示「正常/锁定」
+    expect(value).toContain('已用 / Token 观测阈值：0 / 100');
+    expect(value).toContain('当前有效阈值：100');
     expect(value).toContain('透支欠账：0');
     expect(value).toContain('当前放行：无');
     expect(value).toContain('硬锁：未开启');
+  });
+
+  it('status（**已配金额上限**）：闸门=金额已启用 + 档位按金额 + Token 轨观测行', async () => {
+    const budget = getDailyBudget();
+    budget.setLimitUsd(10);
+    budget.recordUsdUsage(1); // 1/10 = 10% ⇒ normal
+
+    const { value } = await new BudgetCommand().call('status');
+
+    expect(value).toContain('闸门：金额（USD）—— **已启用**');
+    expect(value).toContain('档位：正常');
+    expect(value).toContain('已用 / 上限：$1.00 / $10.00');
+    expect(value).toContain('Token 轨（**观测**，不参与判定）');
   });
 
   it('boost 3 30 ⇒ 有效上限 ×3 + 到期时间（当场生效）', async () => {
@@ -78,7 +94,7 @@ describe('T14：/budget 命令（查看 / 放行 / 改上限）', () => {
   it('set 200 ⇒ 当场生效 + 持久化到同一配置键', async () => {
     const { value } = await new BudgetCommand().call('set 200');
 
-    expect(value).toContain('日 Token 上限已更新');
+    expect(value).toContain('Token 观测阈值已更新');
     expect(getDailyBudget().getMode().dailyLimit).toBe(200);
     expect(writeSpy).toHaveBeenCalledTimes(1);
     const [key] = writeSpy.mock.calls[0] as unknown as [string, unknown];
@@ -87,7 +103,7 @@ describe('T14：/budget 命令（查看 / 放行 / 改上限）', () => {
 
   it('set 非法 / 未知子命令 ⇒ 用法提示且**不改配置**', async () => {
     const invalid = await new BudgetCommand().call('set abc');
-    expect(invalid.value).toContain('上限需为正整数');
+    expect(invalid.value).toContain('阈值需为正整数');
 
     const unknown = await new BudgetCommand().call('whatever');
     expect(unknown.value).toContain('未知子命令');

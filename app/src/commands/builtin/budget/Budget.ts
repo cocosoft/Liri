@@ -1,5 +1,5 @@
 /**
- * Budget 命令 —— 日 Token 限额（查看 / 放行 / 改上限）
+ * Budget 命令 —— 日预算限额（查看 / 放行 / 改 **Token 观测阈值**）
  *
  * 与桌面端「用量中心 → 日限额」**同一事实源**（`DailyBudgetManager` 进程单例）与**同一配置键**
  *（`DAILY_BUDGET_CONFIG_KEY`）；CLI 是**进程内**入口 ⇒ 改动**当场生效**并持久化（重启后仍生效）。
@@ -23,7 +23,8 @@ export interface BudgetResult {
 }
 
 const USAGE = [
-  '日 Token 限额（本地日统计；与桌面端「用量中心 → 日限额」同源）',
+  '日预算限额（闸门 = **金额口径**；本地日统计，与桌面端「用量中心 → 日限额」同源）',
+  '注：Token 轨**只观测、不启用闸门** ⇒ 未配金额上限时**无预算硬闸门**，放行也改变不了能否调用。',
   '',
   '  /budget                     查看状态',
   '  /budget status              同上',
@@ -31,7 +32,7 @@ const USAGE = [
   '  /budget waive               放行**下一次**发送（一次性；未消费 10 分钟后作废）',
   '  /budget unlock              今日不再拦截（软上限 = 原上限 ×5，次日恢复）',
   '  /budget revoke              撤销放行（恢复配置上限；**保留**今日用量与欠账）',
-  '  /budget set <token 上限>    改日上限（当场生效 + 持久化）',
+  '  /budget set <阈值>          改 **Token 观测阈值**（只影响观测告警；当场生效 + 持久化）',
 ].join('\n');
 
 /** 档位 → 人读 */
@@ -120,18 +121,30 @@ export class BudgetCommand {
         }`
       : '无';
 
+    // 2026-10-15（用户裁定「Token 轨只观测、不启用闸门」）：口径/闸门状态**单独一行**说明，
+    // 标题不再限定 Token（闸门已切金额口径）；无闸门时**不显示"档位"**（不存在档位），
+    // 改示「观测（不拦截）」—— 与桌面端面板同措辞，避免把观测阈值读成生效额度。
+    const gated = state.unit === 'usd';
     const tokenBase = budget.getConfigSnapshot().dailyLimit;
     return [
-      // 主口径标题：Token 归档时**与历史文案逐字一致**（`日 Token 限额`），USD 时改称金额。
-      `日 ${state.unit === 'usd' ? '金额（USD）' : 'Token'} 限额（${budget.currentDate()}）`,
-      `  档位：${MODE_LABEL[state.mode] ?? state.mode}`,
-      `  已用 / 上限：${fmtPrimary(state.used, state.unit)} / ${fmtPrimary(
-        state.dailyLimit,
-        state.unit
-      )}（${(state.percentUsed * 100).toFixed(1)}%）`,
-      `  当前有效上限：${fmtPrimary(effectiveLimit, state.unit)}`,
+      `每日预算限额（${budget.currentDate()}）`,
+      gated
+        ? '  闸门：金额（USD）—— **已启用**（唯一硬闸门）'
+        : '  闸门：**未启用**（未配置金额上限）⇒ 下列 Token 数字仅作**观测**，不拦截调用',
+      `  档位：${gated ? (MODE_LABEL[state.mode] ?? state.mode) : '观测（不拦截）'}`,
+      gated
+        ? `  已用 / 上限：${fmtPrimary(state.used, state.unit)} / ${fmtPrimary(
+            state.dailyLimit,
+            state.unit
+          )}（${(state.percentUsed * 100).toFixed(1)}%）`
+        : `  已用 / Token 观测阈值：${fmt(state.todayUsed)} / ${fmt(
+            tokenBase
+          )}（${(state.percentUsed * 100).toFixed(1)}%）`,
+      gated
+        ? `  当前有效上限：${fmtPrimary(effectiveLimit, state.unit)}`
+        : `  当前有效阈值：${fmt(effectiveLimit)}`,
       `  今日剩余：${fmtPrimary(state.remaining, state.unit)}`,
-      ...(state.unit === 'usd'
+      ...(gated
         ? [
             `  Token 轨（**观测**，不参与判定）：${fmt(state.todayUsed)} / ${fmt(tokenBase)}`,
           ]
@@ -217,7 +230,7 @@ export class BudgetCommand {
   private setLimit(rest: string[]): string {
     const limit = Number(rest[0]);
     if (!isValidDailyLimit(limit)) {
-      return `上限需为正整数（收到：${rest[0] ?? '(空)'}）\n\n${USAGE}`;
+      return `阈值需为正整数（收到：${rest[0] ?? '(空)'}）\n\n${USAGE}`;
     }
 
     const budget = getDailyBudget();
@@ -231,9 +244,9 @@ export class BudgetCommand {
       warningThreshold: cfg.warningThreshold,
       lockThreshold: cfg.lockThreshold,
     });
-    return `日 Token 上限已更新：${fmt(before)} → ${fmt(
+    return `Token 观测阈值已更新：${fmt(before)} → ${fmt(
       limit
-    )}（当场生效，且已持久化 ⇒ 重启后仍生效）`;
+    )}（当场生效，且已持久化 ⇒ 重启后仍生效；只影响观测告警，不改变能否调用）`;
   }
 }
 

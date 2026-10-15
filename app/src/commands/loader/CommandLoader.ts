@@ -61,7 +61,7 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/skill/index.js', name: 'skill' },
       { path: '../builtin/config/index.js', name: 'config' },
       {
-        // T14：日 Token 限额（查看 / 放行 / 改上限）—— 撞限文案的终端出路
+        // T14：日预算限额（查看 / 放行 / 改 Token 观测阈值）—— 撞限文案的终端出路
         path: '../builtin/budget/index.js',
         name: 'budget',
         aliases: ['limits', 'quota'],

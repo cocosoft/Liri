@@ -8,11 +8,11 @@ import type { Command } from '@modules/commands';
 export const budgetCommand: Command = {
   type: 'action',
   name: 'budget',
-  description: '日 Token 限额（status/boost/waive/unlock/set）',
+  description: '日预算限额（闸门 = 金额口径；status/boost/waive/unlock/set）',
   aliases: ['limits', 'quota'],
   argumentHint: '[status|boost|waive|unlock|set]',
   whenToUse:
-    '当你需要查看日 Token 限额、临时提额/单次放行/今日解除，或调整日上限时',
+    '当你需要查看日预算限额与闸门状态（Token 数字仅作观测、不拦截）、临时提额/单次放行/今日解除，或调整 Token 观测阈值时',
   load: async () =>
     import('./Budget.js').then((m) => ({
       execute: async (args: string) => {

@@ -7486,19 +7486,21 @@
       "stages": {
         "discovered": true,
         "fixed": true,
-        "testVerified": false,
+        "testVerified": true,
         "postReleaseReviewed": false
       },
       "flags": {
         "designed": true,
         "coded": true,
-        "unitTested": false,
-        "e2eVerified": false
+        "unitTested": true,
+        "e2eVerified": true
       },
       "code": [
         "app/src/modules/ModuleInitializer.ts"
       ],
-      "tests": [],
+      "tests": [
+        "app/tests/session/combinedGatewayWiring.test.ts"
+      ],
       "changelog": [],
       "reopenWhen": "① 真机 E2E（真实入站通道消息）证实 `shared_session` 阶段不再 fail 后，本项升为 DFT/dcue 并补端到端证据；② 若自动初始化出的第二个 `SessionGateway` 实例带来可见副作用（启动变慢、重复「P0' 多分区聚合」扫描、FTS 持久化定时器翻倍、崩溃恢复二次扫描），改走…（全文见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）",
       "notes": "① **根因（三段）**：`ModuleInitializer._registerCombinedGateway()` 以 `createCombinedGateway()`（**不传 gateways**）注册 ⇒ 一个 Agent 都没注册；默认 Agent 只在 `CombinedSessionGateway.…（全文见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）"

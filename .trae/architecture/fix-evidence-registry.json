@@ -6417,6 +6417,40 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 副本写回 ⇒ 守卫或棘轮（228 键）阻断。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES）",
       "notes": "取证：3 处同名 `MAX_MESSAGES` 取值各异、分属独立域 ⇒ 按域消歧、**取值一字未改**：`OfficeChatPanel.tsx` 50（UI 回放）·`LongRunningTaskOrchestrator.ts` 12（LRO 取尾）· `InProcessTeammateTask.ts` 50…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID",
+      "title": "硬编码治理 · 「同名常量」B5-2 第二十八项：`MAGIC_GUID` **合一到 core 层真源**（RFC 6455 握手魔数，5 处副本 → 1；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ 前次 defer 解锁条件（B2）+ R00-001/R03-002 + CS01/CS05",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/protocol/websocket.ts",
+        "app/src/core/index.ts",
+        "app/src/acp/websocket.ts",
+        "app/src/voice/upgrade.ts",
+        "app/src/voice/WakeWebSocketServer.ts",
+        "app/src/services/voice/services/edgeTTSTransport.ts",
+        "app/tests/voice/upgrade.test.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        "app/tests/voice/upgrade.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**；② 真源文件另含同族常量（`SEC_WEBSOCKET_VERSION` / 三个握手头名）**尚未迁移消费点** ⇒ 本片只迁 `WEBSOCKET_MAGIC_GUID`（头名/版本走后续分批，避免本片膨胀）；③ 副本写回 ⇒ 守卫或棘轮（227 键）阻断。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID）",
+      "notes": "取证：`258EAFA5-E914-47DA-95CA-C5AB0DC85B11`（RFC 6455）实测 **5 份**——`acp/websocket.ts`（core，曾 export 但**零消费者**）· `voice/upgrade.ts` · `voice/WakeWebSocketServer.ts`…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID）"
     }
   ]
 }

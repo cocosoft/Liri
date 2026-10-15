@@ -144,6 +144,27 @@ export class ResumeManager {
         const age = now - latest.createdAt;
         const isExpired = age > 24 * 60 * 60 * 1000;
 
+        // 2026-10-15（「幽灵恢复」修复）：`phase === 'completed'` 的检查点**不做 Durable Resume**。
+        //
+        // 根因（真机实证）：`before_abort` 检查点由 `TAORLoop.abort()` 在**用户中止前**保存，
+        // 其 `phase` 记录中止时刻的循环阶段。当 phase 已是 `completed`（该轮正常跑完、仅用户
+        // 主动停止），并无「未完成的推理」需要续跑；而本扫描的判据当时只有 goal/suspend/过期
+        // ⇒ 这类检查点在 **24h 内每次启动都被恢复一次**（真机会话 `diag-budget-gate-2`
+        // 于 10:02→11:17 被恢复 8 次，随进程反复启动复发），每次注入 steering 并建 TAORLoop
+        // ⇒ 会话轮次/消息被反复累加（前端反馈的「工具轮次」异常）。
+        //
+        // 语义依据：用户刚点「停止」，重启即自动续跑**违背用户意图**；真正"跑到一半中断"的
+        // 检查点，其 phase 不会落在 `completed`（仍可正常续跑，能力不减）。
+        if (latest.phase === 'completed') {
+          if (isCheckpointLogEnabled()) {
+            logger.info(
+              '[ResumeManager] 已完成检查点跳过（轮次已收尾，无待续推理；防幽灵恢复）',
+              { sessionId, checkpointId: latest.id, type: latest.type }
+            );
+          }
+          continue;
+        }
+
         if (isCheckpointLogEnabled()) {
           logger.info('[ResumeManager] 检查点状态', {
             sessionId,

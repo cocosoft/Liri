@@ -3824,6 +3824,17 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第四十九项：`CACHE_MAX_SIZE` **2 处同名消歧**（异值异域：议会 15 / 路径校验 200；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列；同节后续键待处理）；② 任一文件重新出现 `const CACHE_MAX_SIZE =` ⇒ 守卫（第 65 例）或棘轮阻断；③ 若未来两者收敛为共享 LRU 缓存工具层（容量由调用方注入），可再评估合一；④ 本次为**异值异域消歧**（非合一）：`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"reopenWhen","i":1,"c":"workspace/CouncilOrchestrator.ts` 为议会会话缓存上限（15）⇒ 改名 `COUNCIL_CACHE_MAX_SIZE`；`chat/services/PathGuardService.ts` 为路径校验 LRU 缓存上限（200）⇒ 改名 `PATH_GUARD_CACHE_MAX_SIZE`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"notes","i":0,"c":"**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 65 例（议会侧无裸定义 + 取值钉住 + 使用点；路径校验侧无裸定义 + 取值钉住 + 使用点）65 pass / 602 expect · `lint:consts` 重新播种基线：`同名常量:CACHE_MAX_SIZE` **2→0**（206→205 键），且可下"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"notes","i":1,"c":"调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 两处均文件内私有，改名后取值与行为零变化；全仓 Grep 确认 `CACHE_MAX_SIZE` 仅 2 定义 + 2 使用（`SEARCH_CACHE_MAX_SIZE` 为不同名常量，不受影响）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"code#0","i":0,"c":"app/src/workspace/CouncilOrchestrator.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"code#1","i":0,"c":"app/src/chat/services/PathGuardService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

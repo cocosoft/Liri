@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE**：`CACHE_MAX_SIZE` ×2 消歧（异值异域，议会/路径校验分域改名） —— 验证 tc0|guard65|arch0|gate6；基线 同名常量:CACHE_MAX_SIZE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS**：`DEFAULT_CACHE_TTL_MS` ×2 消歧（异值异域，图片下载/市场分域改名） —— 验证 tc0|guard64|arch0|gate6；基线 同名常量:DEFAULT_CACHE_TTL_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE**：`MARKDOWN_STRUCTURE_RE` ×2 消歧（client/app 异域同值） —— 验证 tc0|guard63|arch0|gate6；基线 同名常量:MARKDOWN_STRUCTURE_RE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-47-MARKDOWN-STRUCTURE-RE）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS**：`EXPLORATION_SENTENCE_PATTERNS` ×2 消歧（client/app 异域同值） —— 验证 tc0|guard62|arch0|gate6；基线 同名常量:EXPLORATION_SENTENCE_PATTERNS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-46-EXPLORATION-SENTENCE-PATTERNS）

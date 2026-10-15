@@ -7068,6 +7068,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列；同节下一键 `CACHE_MAX_SIZE` 同为异值异域待处理）；② 任一文件重新出现 `const DEFAULT_CACHE_TTL_MS =` ⇒ 守卫（第 64 例）或棘轮阻断；③ 若未来两域收敛为共享缓存策略层，可再评估合一；④ 本次为**异值异域消歧**…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS）",
       "notes": "**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 64 例（chat 侧无裸定义 + envInt 真源 + env 键名 + 使用点；plugins 侧无裸定义 + 取值钉住 + 使用点）64 pass / 596 expect · `lint:consts` 重新播种基线：`同…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-48-DEFAULT-CACHE-TTL-MS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE",
+      "title": "硬编码治理 · 「同名常量」B5-2 第四十九项：`CACHE_MAX_SIZE` **2 处同名消歧**（异值异域：议会 15 / 路径校验 200；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/workspace/CouncilOrchestrator.ts",
+        "app/src/chat/services/PathGuardService.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列；同节后续键待处理）；② 任一文件重新出现 `const CACHE_MAX_SIZE =` ⇒ 守卫（第 65 例）或棘轮阻断；③ 若未来两者收敛为共享 LRU 缓存工具层（容量由调用方注入），可再评估合一；④ 本次为**异值异域消歧**（非合一）：`workspac…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE）",
+      "notes": "**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 65 例（议会侧无裸定义 + 取值钉住 + 使用点；路径校验侧无裸定义 + 取值钉住 + 使用点）65 pass / 602 expect · `lint:consts` 重新播种基线：`同名常量:CACHE_MAX_SIZE` *…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE）"
     }
   ]
 }

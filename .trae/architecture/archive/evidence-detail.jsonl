@@ -4056,7 +4056,7 @@
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"source","i":0,"c":"用户 2026-10-15 指令「先查一下共享会话网关失败的原因」→「按方案 A 修复」；现象出处：QQ 通道真机 E2E 中 trace 的 `shared_session` 阶段 = fail"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"reopenWhen","i":0,"c":"① 真机 E2E（真实入站通道消息）证实 `shared_session` 阶段不再 fail 后，本项升为 DFT/dcue 并补端到端证据；② 若自动初始化出的第二个 `SessionGateway` 实例带来可见副作用（启动变慢、重复「P0' 多分区聚合」扫描、FTS 持久化定时器翻倍、崩溃恢复二次扫描），改走「复用 ChatManager 的 "}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"reopenWhen","i":1,"c":"gateway」或「首次用到时懒初始化」；③ 若 `shared-context` 会话在 FS 分区无界增长需要清理，补归档/修剪策略。④ **已办结（2026-10-15）**：真机 E2E（QQ 入站消息）已证实 `shared_session` 由 fail 转 ok、`shared-context` 真实落盘，并补守卫测试 + 负向对照 ⇒ ①的升"}
-{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"reopenWhen","i":2,"c":"级动作已完成，本项置 DFT/dcue。"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"reopenWhen","i":2,"c":"级动作已完成，本项置 DFT/dcue。⑤ **已办结（2026-10-15，懒引导）**：②所指的「多起一个 SessionGateway（重复分区聚合扫描 + 启动耗时）」已消除 —— 启动期不再 initialize，改由网关入口**首次用到时**懒引导（实测 session 模块 init 903ms → 1ms）。"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":0,"c":"① **根因（三段）**：`ModuleInitializer._registerCombinedGateway()` 以 `createCombinedGateway()`（**不传 gateways**）注册 ⇒ 一个 Agent 都没注册；默认 Agent 只在 `CombinedSessionGateway.initialize()` 的 `"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":1,"c":"autoInitialize 且 getActiveAgentEntries() 为空` 分支里注册（**构造期不触发**）；而全仓**无一处**对 DI 内的 `combinedSessionGateway` 调 `initialize()` ⇒ `agents` 恒空 ⇒ `sendMessage` 走到 `"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":2,"c":"CombinedSessionGateway.ts:449` 的 `throw new Error(No active gateway found ...)`。② **影响面（两端各自失效）**：写端 `messageRouter.ts`（通道消息）与 `repl.ts`（REPL 输入）抛错后被 try/catch 降级为 warning，`"}
@@ -4072,8 +4072,14 @@
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":12,"c":"session: shared-context」，恢复后转绿（恢复后该文件 `git diff` 为空 ⇒ 无负向对照残留）。测试经 `LIRI_DATA_DIR` 指向临时目录隔离存储，afterEach 关闭默认网关以停掉 FTS 持久化定时器。⑦ **迁移脚本判据修复**：`scripts/migrate-evidence-to-jsonl.ts` 的"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":13,"c":"「反解条目数」判据原式「总数 − extraIds.size」只对**新增片**成立，`--detail` **替换既有 id**（如本条补 tests/notes 后置 e2eVerified）时 registry 已含该 id ⇒ 恒差 1、升级被误判未过；改为按 registry id 集计数，新增/替换两况同式成立（本条目升级即首个用例）。⑧ **已"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":14,"c":"知副作用（未处理，见 reopenWhen ②）**：`initialize()` 的 autoInitialize 分支会新建一个 `SessionGateway`（自带 `FileSystemUnifiedStorage` + FTS 索引 + 崩溃恢复扫描），日志可见同一时刻连续两次「P0' 多分区聚合：检测到跨分区重复会话」（`"}
-{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":15,"c":"app.log:27391` / `27392`）；session 模块整体 init 862ms。"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":15,"c":"app.log:27391` / `27392`）；session 模块整体 init 862ms。⑨ **懒引导优化（2026-10-15，办结 reopenWhen ②）**：**(a)** `ModuleInitializer._registerCombinedGateway()` 去掉启动期 `await initialize()`，只注册实例（原「"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":16,"c":"只注册不初始化」的缺陷改由网关自身兜住）；**(b)** `CombinedSessionGateway.initialize()` 拆出 `doInitialize()`，加 **in-flight 去重**（并发首次使用只引导一次）与「失败清 in-flight ⇒ 可完整重试」（对齐 SessionGateway H3 教训：半初始化不得把 `"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":17,"c":"initialized` 提前置真）；**(c)** 新增私有 `ensureReady()` 作为**唯一懒触发点**，10 个入口（createSession / getSession / updateSession / deleteSession / listSessions / searchSessions / getSessionStats / "}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":18,"c":"sendMessage / getMessages / loadTranscript）首行调用 —— 既消除「必须先 initialize」的隐形前置条件，又保证「首次用到即自引导」；**(d)** 真机证据：改前启动日志为 `CombinedSessionGateway 初始化完成` + `模块初始化完成: session (903ms)`（伴两次「P0'"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":19,"c":" 多分区聚合」扫描），改后仅 `CombinedSessionGateway 已注册到 DI 容器（懒引导）` + `模块初始化完成: session (1ms)`；**(e)** 测试：守卫测试改写为钉住懒契约（注册后 `isInitialized() === false`、`getActiveAgentIds() === []`；首次写入即自引导并可读回"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":20,"c":"），**负向对照**（摘掉 `sendMessage` 的 `ensureReady()`）⇒ 恰好 1 例红且报错为原症状。"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#0","i":0,"c":"app/src/modules/ModuleInitializer.ts"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#1","i":0,"c":"app/src/session/gateway/CombinedSessionGateway.ts"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"tests#0","i":0,"c":"app/tests/session/combinedGatewayWiring.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}

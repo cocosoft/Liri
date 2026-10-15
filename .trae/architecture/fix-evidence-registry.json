@@ -7496,7 +7496,8 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/modules/ModuleInitializer.ts"
+        "app/src/modules/ModuleInitializer.ts",
+        "app/src/session/gateway/CombinedSessionGateway.ts"
       ],
       "tests": [
         "app/tests/session/combinedGatewayWiring.test.ts"

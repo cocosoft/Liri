@@ -77,7 +77,9 @@ export interface VerifierTurnReviewerDeps {
  * 明确"看不到执行细节时不得臆测 ⇒ 输出 ESCALATE"：把 `failClosed` 的精神延伸到**证据不足**，
  * 避免复核器凭想象打分（CS06：不臆断）。
  */
-const REVIEW_GUIDELINES = [
+// B5-2㊺ 按域消歧：REVIEW_GUIDELINES 异值异域（本处「回复正文复核」数组；
+// query/CompetitiveStrategyOrchestrator.ts 的「研究方案评审」模板字符串为另一域）⇒ 改名 TURN_REVIEW_GUIDELINES
+const TURN_REVIEW_GUIDELINES = [
   '审查对象：**一次已完成的助手回复正文**（不是代码 diff、不是工具结果）。',
   '审查维度：① 是否切题并正面回答了用户诉求；② 是否存在自相矛盾、明显事实错误、或承诺了却没做的事；',
   '③ 是否用"已完成/已修复"等断言掩盖并未真正执行的动作。',
@@ -125,7 +127,7 @@ export async function createVerifierTurnReviewer(
         toolResults: [],
         turnCount: input.turnNumber,
         sessionId: input.sessionId,
-        reviewGuidelines: REVIEW_GUIDELINES,
+        reviewGuidelines: TURN_REVIEW_GUIDELINES,
       },
       controller.signal
     );

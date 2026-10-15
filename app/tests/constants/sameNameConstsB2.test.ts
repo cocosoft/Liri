@@ -1549,4 +1549,17 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "THINKING_BATCH_SIZE, THINKING_BATCH_MS } from '../streamingLlm.js';"
     );
   });
+
+  test('B5-2㊺：`REVIEW_GUIDELINES` 已按域消歧（异值异域，取值一字未改）', () => {
+    // query 侧「研究方案评审」模板字符串 → RESEARCH_REVIEW_GUIDELINES
+    // chat 侧「回复正文复核」数组 → TURN_REVIEW_GUIDELINES
+    const q = read('src/query/CompetitiveStrategyOrchestrator.ts');
+    expect(q).not.toMatch(/(^|[^_A-Za-z])const REVIEW_GUIDELINES\s*=/);
+    expect(q).toContain('RESEARCH_REVIEW_GUIDELINES = `审查对象');
+    expect(q).toContain('reviewGuidelines: RESEARCH_REVIEW_GUIDELINES,');
+    const c = read('src/chat/quality/turnQualityReviewer.ts');
+    expect(c).not.toMatch(/(^|[^_A-Za-z])const REVIEW_GUIDELINES\s*=/);
+    expect(c).toContain('const TURN_REVIEW_GUIDELINES = [');
+    expect(c).toContain('reviewGuidelines: TURN_REVIEW_GUIDELINES,');
+  });
 });

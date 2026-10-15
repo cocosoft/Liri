@@ -158,7 +158,9 @@ const SYSTEM_GENERATOR =
  * 替换其默认"代码变更验证"语义为"研究候选方案评审"（修复真机走查 #3：
  * 默认代码维度检查研究方案致通过率异常偏低）。判定机制仍复用 REJECT 默认立场 + checks 通过率。
  */
-const REVIEW_GUIDELINES = `审查对象：候选方案/提案（研究评审，非代码变更审查）。
+// B5-2㊺ 按域消歧：REVIEW_GUIDELINES 异值异域（本处「研究方案评审」prompt 模板字符串；
+// chat/quality/turnQualityReviewer.ts 的「回复正文复核」数组为另一域）⇒ 改名 RESEARCH_REVIEW_GUIDELINES
+const RESEARCH_REVIEW_GUIDELINES = `审查对象：候选方案/提案（研究评审，非代码变更审查）。
 逐项审查以下维度（每项一个 check：item 用维度短标签，passed=是否满足）：
 1. 目标回应：是否完整回应研究任务目标，无关键遗漏
 2. 可执行性：结论与步骤具体可落地，不含空泛口号或自相矛盾
@@ -381,7 +383,7 @@ export class CompetitiveStrategyOrchestrator {
           turnCount: 0,
           sessionId: 'competitive',
           // P0-3：注入研究候选评审准则，避免默认"代码变更验证"语义错位（真机走查 #3）
-          reviewGuidelines: REVIEW_GUIDELINES,
+          reviewGuidelines: RESEARCH_REVIEW_GUIDELINES,
         },
         signal
       );

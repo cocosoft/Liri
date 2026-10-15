@@ -1,6 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:REVIEW_GUIDELINES": 2,
     "同名常量:EXPLORATION_SENTENCE_PATTERNS": 2,
     "同名常量:MARKDOWN_STRUCTURE_RE": 2,
     "同名常量:DEFAULT_CACHE_TTL_MS": 2,

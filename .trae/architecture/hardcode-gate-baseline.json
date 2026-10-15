@@ -1,6 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:DEFAULT_MODEL_SENTINEL": 2,
     "同名常量:FORK_DIRECTIVE_PREFIX": 2,
     "同名常量:MAX_FILE_CHARS": 2,
     "同名常量:DEFAULT_MAX_ENTRIES": 2,

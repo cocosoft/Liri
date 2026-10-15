@@ -60,6 +60,25 @@ const TRUTH_SOURCE_FRAGMENTS = [
 const VENDORED_FRAGMENTS = ['app/src/ink/ink/'];
 
 /**
+ * **跨包 / 跨语言契约常量**：同名同值属**有意为之** —— 两侧分属不同包（甚至不同语言），
+ * **无法 import**，只能各自声明并要求**逐字同值**。故不视为「重复事实源」，**不纳入统计**。
+ *
+ * ⚠️ 准入条件（三条同时满足，缺一不可）：
+ *  1. 两侧**确实无法共享代码**（不同包 / 不同语言），而不是"懒得归一化"；
+ *  2. 同名是**刻意**的（名字本身就是契约信号，grep 一处即可找到全部落点）；
+ *  3. **必须配套守卫测试**断言各侧取值逐字一致 —— 否则"保留同名"只是把不一致藏起来，
+ *     比改名更糟（改名至少不会让人以为它们同源）。
+ *
+ * 键 = 常量名；值 = 契约说明（含全部落点文件，供人工复核与守卫测试对照）。
+ */
+const CROSS_PACKAGE_CONTRACT_CONSTS: Record<string, string> = {
+  DEFAULT_MODEL_SENTINEL:
+    '「未选模型」哨兵（由后端 SmartRouter 兜底）：app/src/constants/common.ts ↔ ' +
+    'client/src/services/chatService.ts ↔ client/src-tauri/src/commands/chat.rs；' +
+    '守卫见 app/tests/constants/sameNameConstsB2.test.ts 的 B5-2-68（三方逐字同值断言）',
+};
+
+/**
  * 常量定义：`[\export ]const UPPER_SNAKE (: 标量基础类型)? =`（≥3 字符，全大写/数字/下划线）。
  *
  * ⚠️ **补门禁盲区**（2026-10-15）：原正则要求 `=` 紧跟常量名 ⇒ `const X: T = …` **一律漏检**
@@ -115,7 +134,10 @@ function collect(files: string[]): {
       const line = lines[i];
       if (isCommentLine(line)) continue;
       const def = line.match(CONST_DEF_RE);
-      if (def) push(consts, def[1], { file: rel, line: i + 1 });
+      // 跨包契约常量：同名同值属**有意为之**（准入三条 + 三方同值守卫，见上表注释）⇒ 不纳入统计
+      if (def && !(def[1] in CROSS_PACKAGE_CONTRACT_CONSTS)) {
+        push(consts, def[1], { file: rel, line: i + 1 });
+      }
       for (const lit of line.matchAll(STRING_LITERAL_RE)) {
         for (const m of lit[1].matchAll(URL_RE)) {
           push(values, m[0], { file: rel, line: i + 1 });

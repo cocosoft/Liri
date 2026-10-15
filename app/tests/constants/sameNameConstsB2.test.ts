@@ -1859,6 +1859,25 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
   });
 
+  test('B5-2-68：`DEFAULT_MODEL_SENTINEL` 为**跨包契约常量**（门禁登记豁免 + 三方逐字同值守卫）', () => {
+    const gate = read('../scripts/lint-consts.ts');
+    expect(gate).toContain(
+      'const CROSS_PACKAGE_CONTRACT_CONSTS: Record<string, string> = {'
+    );
+    expect(gate).toContain('DEFAULT_MODEL_SENTINEL:');
+    expect(gate).toContain('!(def[1] in CROSS_PACKAGE_CONTRACT_CONSTS)');
+    // 三方逐字同值：app TS ↔ client TS ↔ client Rust（跨包无法 import ⇒ 只靠守卫钉住）
+    expect(read('src/constants/common.ts')).toContain(
+      "export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';"
+    );
+    expect(read('../client/src/services/chatService.ts')).toContain(
+      'const DEFAULT_MODEL_SENTINEL = "pyapp-default";'
+    );
+    expect(read('../client/src-tauri/src/commands/chat.rs')).toContain(
+      'const DEFAULT_MODEL_SENTINEL: &str = "pyapp-default";'
+    );
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

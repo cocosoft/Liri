@@ -1619,7 +1619,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const council = read('src/workspace/CouncilOrchestrator.ts');
     expect(council).not.toMatch(/(^|[^_A-Za-z])const CACHE_MAX_SIZE\s*=/);
     expect(council).toContain('const COUNCIL_CACHE_MAX_SIZE = 15;');
-    expect(council).toContain('if (councilCache.size >= COUNCIL_CACHE_MAX_SIZE) {');
+    expect(council).toContain(
+      'if (councilCache.size >= COUNCIL_CACHE_MAX_SIZE) {'
+    );
     const guard = read('src/chat/services/PathGuardService.ts');
     expect(guard).not.toMatch(/(^|[^_A-Za-z])const CACHE_MAX_SIZE\s*=/);
     expect(guard).toContain('const PATH_GUARD_CACHE_MAX_SIZE = 200;');

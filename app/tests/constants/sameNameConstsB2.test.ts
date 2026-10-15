@@ -1612,4 +1612,19 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(mkt).toContain('const MARKETPLACE_CACHE_TTL_MS = 3600 * 1000;');
     expect(mkt).toContain('ttlMs: MARKETPLACE_CACHE_TTL_MS,');
   });
+
+  test('B5-2㊾：`CACHE_MAX_SIZE` 已按域消歧（异值异域：议会 15 / 路径校验 200，取值一字未改）', () => {
+    // workspace 域议会缓存上限（15）→ COUNCIL_CACHE_MAX_SIZE
+    // chat 域路径校验缓存上限（200）→ PATH_GUARD_CACHE_MAX_SIZE
+    const council = read('src/workspace/CouncilOrchestrator.ts');
+    expect(council).not.toMatch(/(^|[^_A-Za-z])const CACHE_MAX_SIZE\s*=/);
+    expect(council).toContain('const COUNCIL_CACHE_MAX_SIZE = 15;');
+    expect(council).toContain('if (councilCache.size >= COUNCIL_CACHE_MAX_SIZE) {');
+    const guard = read('src/chat/services/PathGuardService.ts');
+    expect(guard).not.toMatch(/(^|[^_A-Za-z])const CACHE_MAX_SIZE\s*=/);
+    expect(guard).toContain('const PATH_GUARD_CACHE_MAX_SIZE = 200;');
+    expect(guard).toContain(
+      'if (pathCheckCache.size >= PATH_GUARD_CACHE_MAX_SIZE) {'
+    );
+  });
 });

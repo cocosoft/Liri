@@ -94,10 +94,12 @@ function bootstrapAgentRegistry(): void {
 
 // ============================================================
 // 简易缓存（Map 实现，最大 15 条）
+// B5-2㊾ 按域消歧：原 `CACHE_MAX_SIZE` 与 chat/services/PathGuardService
+// 的路径校验缓存上限异值异域（15 vs 200）⇒ 按 workspace 域职责正名
 // ============================================================
 
 const councilCache = new Map<string, CouncilSession>();
-const CACHE_MAX_SIZE = 15;
+const COUNCIL_CACHE_MAX_SIZE = 15;
 
 // ============================================================
 // 复杂度关键词（用于触发 Council）
@@ -274,7 +276,7 @@ export class CouncilOrchestrator {
     }
 
     // 5. 写入缓存（超出上限时删除最旧条目）
-    if (councilCache.size >= CACHE_MAX_SIZE) {
+    if (councilCache.size >= COUNCIL_CACHE_MAX_SIZE) {
       const firstKey = councilCache.keys().next().value;
       if (firstKey) councilCache.delete(firstKey);
     }

@@ -43,11 +43,13 @@ const PATH_PATTERNS = {
 // ============================================================
 
 const pathCheckCache = new Map<string, { result: boolean; ts: number }>();
-const CACHE_MAX_SIZE = 200;
+// B5-2㊾ 按域消歧：原 `CACHE_MAX_SIZE` 与 workspace/CouncilOrchestrator
+// 的议会缓存上限异值异域（200 vs 15）⇒ 按 chat 域职责正名
+const PATH_GUARD_CACHE_MAX_SIZE = 200;
 const PATH_GUARD_CACHE_TTL_MS = 30_000;
 
 function addToCache(key: string, result: boolean): void {
-  if (pathCheckCache.size >= CACHE_MAX_SIZE) {
+  if (pathCheckCache.size >= PATH_GUARD_CACHE_MAX_SIZE) {
     const oldest = pathCheckCache.keys().next().value;
     if (oldest !== undefined) pathCheckCache.delete(oldest);
   }

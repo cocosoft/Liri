@@ -3972,6 +3972,31 @@
 {"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":13,"c":"。"}
 {"id":"BUDGET-USD-STREAM-LEDGER","k":"code#0","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
 {"id":"BUDGET-USD-STREAM-LEDGER","k":"tests#0","i":0,"c":"app/tests/budget/usdLedgerModelArgGuard.test.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"title","i":0,"c":"Token 轨只观测、不启用闸门（撤回 §225「未配金额上限则回落 token 上限」兜底）；观测阈值按 58 天分布重设为 30_000_000；测试面迁移至金额口径"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"source","i":0,"c":"用户 2026-10-15 二次裁定（原文「只观测，不启用闸门。」）—— 承接同批 `BUDGET-USD-PRIMARY`（主口径切 USD）；数据依据：本仓 58 个有调用日的 Token 口径 Σ(input+output) 分布（p50 9.34M / p75 23.3M / p90 32.5M / max 90.4M，见 `"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"source","i":1,"c":"BUDGET-USD-STREAM-LEDGER`）"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"reopenWhen","i":0,"c":"① 若需要为「未配置金额上限」的用户恢复预算兜底（当前为**无硬闸门**）——这是本项唯一的有意姿态变化，按 §225 回退路径② 重开并给出新的兜底判据；② 若 `dailyBudget:token_track` 告警长期不触发或天天触发，说明 `costControl.dailyTokenBudget` 与真实量级再次失配，需重设阈值；③ 若新增档位产出"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"reopenWhen","i":1,"c":"点（`report_only`/`locked`）而不经 `_computeState`，须同步「仅 USD 产档位」不变式与 `dailyBudgetUsdGate.test.ts` 的判定式守卫；④ 若前端在「未配置金额上限」时把 Token 条当额度展示（文案误导），须补「观测」措辞。"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":0,"c":"① **语义变更（用户裁定）**：Token 轨**只观测、不启用闸门** ⇒ `_computeState()` 改为**只有 USD 主口径产出档位**（`locked`/`report_only`），Token 口径（USD 闸门未启用时的回落）**恒 `normal`**；`killSwitch` 为手动总闸，任何口径下都置 `locked`。连带效"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":1,"c":"果：`canExecute`/`canSpawnSubAgent`/`needsGraceCall`（均基于档位）**不再被 Token 越界阻断**。② **判定式简化**：`checkDailyBudget` 由「`!killSwitch && (waiver || (isUsd ? 主口径 : token 分支))`」简化为「`!killSwitch "}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":2,"c":"&& (waiver || 主口径档位 !== 'locked')`」（`estimatedTokens` 仅进观测日志）。③ **⚠️ 如实标注（姿态变化，本项最需知悉的一点）**：本项**有意偏离** `unified-budget-and-accounting.md` §225「金额上限未设 ⇒ 回落 token 上限（降级可用，不 fail）」—— "}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":3,"c":"**未配置 `limitUsd` 时不再存在任何预算硬闸门**（仅有观测告警）。理由（数据）：原兜底阈值 50 万**低于除 1 天外的所有历史日**（中位日 9.34M，为阈值的 18.7 倍）⇒ 兜底并非加强保护，而是**恒触发**（约 13 次调用即锁死，只能靠 relief 放行）。已在 `_primaryUnit()` 与 `"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":4,"c":"dailyBudgetGate` 头注显式记录该偏离与回滚方式。④ **阈值重设**：`DEFAULT_DAILY_BUDGET_TOKENS` 由 `1_000_000` 改为 `30_000_000`（≈ p90 取整；约 1/10 的日子告警），措辞由「上限／额度」改为「**观测阈值**」；本机 `"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":5,"c":"costControl.dailyTokenBudget.dailyLimit` 亦经 `PUT /v1/cost/daily-budget` 同步为 30_000_000。⑤ **测试面迁移（三波共 43 例）**：闸门只认金额后，旧用例「`setLimit(N)+recordUsage(N)` 造 locked」全部失效。新增 test-only "}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":6,"c":"helper `lockDailyBudgetForTest()`（金额越界）收敛该动作；逐文件迁移（gate／usdGate／waiveOnce(F4·C2·M1)／singleton／config／relief／budgetCommand／chatDowngradeGate／dialogueEntryGates／dailyBudgetHardBlock／"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":7,"c":"streamBudgetPerTurn／budgetSuspendStream／subagentBudget／lroExecutorFnBudget／chatBudgetNonStreaming／dailyBudgetRelief.contract／daily-budget-handlers）。⑥ **顺带拆除预存耦合（重要）**：本项暴露出多处断言**硬编"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":8,"c":"码开发机 `config.json` 的值**（`500_000`／`1_000_000`／`1_500_000`／`2_500_000`）⇒ 改配置即红。已改为**从解析结果派生**（`getConfigSnapshot().dailyLimit * factor`、`reserveFor(...).projected` 探针等），并给 `"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":9,"c":"dailyBudgetGate.test.ts` 显式 `setLimit(DEFAULT_DAILY_BUDGET_TOKENS)` 使断言与机器无关。⑦ **真机确认**：清空金额上限 ⇒ `unit=tokens · mode=normal`（Token 口径不产档位），同一入口 `POST /v1/translate` **未被预算拦**（Token"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":10,"c":" 越界不再拦）；恢复 `limitUsd=10` ⇒ `unit=usd · mode=normal`。⑧ **验证**：受影响面 **275 例 pass / 0 fail**；app typecheck exit 0；6 门禁族全 exit 0。⑨ **如实缺口**：前端面板在「未配置金额上限」（`unit=tokens`）时仍以「日上限」措辞展示该阈值"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"notes","i":11,"c":" ⇒ 措辞误导（reopenWhen ④），本次未改前端。"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#1","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"code#2","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetGate.test.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#1","i":0,"c":"app/tests/query/dailyBudgetUsdGate.test.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#2","i":0,"c":"app/tests/query/dailyBudgetWaiveOnceGate.test.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#3","i":0,"c":"app/tests/query/dailyBudgetSingleton.test.ts"}
+{"id":"BUDGET-TOKEN-OBSERVE-ONLY","k":"tests#4","i":0,"c":"app/tests/http/dailyBudgetRelief.contract.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

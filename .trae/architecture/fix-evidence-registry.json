@@ -7359,6 +7359,38 @@
       "changelog": [],
       "reopenWhen": "① 若再次观测到「真实调用发生而 usedUsd 不变」（哨兵：日志 dailyBudget:usd_skip 出现且 meta.model 为空）；② 若新增/改动 LLM 响应记账调用点（recordChatResponseUsage / recordDailyBudgetFromUsage / recordTu…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-STREAM-LEDGER）",
       "notes": "① **真机 E2E 五步（债四 S3 主口径切金额，2026-10-15；应用经 --watch 热重启加载新代码，PID 36876）**：**(S1) 制限**：DELETE /relief + PUT {dailyLimitUSD:0.5} ⇒ GET 返回 unit=usd、mode=locked、used…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-STREAM-LEDGER）"
+    },
+    {
+      "id": "BUDGET-TOKEN-OBSERVE-ONLY",
+      "title": "Token 轨只观测、不启用闸门（撤回 §225「未配金额上限则回落 token 上限」兜底）；观测阈值按 58 天分布重设为 30_000_000；测试面迁移至金额口径",
+      "source": "用户 2026-10-15 二次裁定（原文「只观测，不启用闸门。」）—— 承接同批 `BUDGET-USD-PRIMARY`（主口径切 USD）；数据依据：本仓 58 个有调用日的 Token 口径 Σ(input+output) 分布（p50 9.34M / p75 23.3M / p90 32.5M / max 90.4M，见 `BUDGET-USD-…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/query/dailyBudgetGate.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts"
+      ],
+      "tests": [
+        "app/tests/query/dailyBudgetGate.test.ts",
+        "app/tests/query/dailyBudgetUsdGate.test.ts",
+        "app/tests/query/dailyBudgetWaiveOnceGate.test.ts",
+        "app/tests/query/dailyBudgetSingleton.test.ts",
+        "app/tests/http/dailyBudgetRelief.contract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若需要为「未配置金额上限」的用户恢复预算兜底（当前为**无硬闸门**）——这是本项唯一的有意姿态变化，按 §225 回退路径② 重开并给出新的兜底判据；② 若 `dailyBudget:token_track` 告警长期不触发或天天触发，说明 `costControl.dailyTokenBudget` 与真实量…（全文见 archive/evidence-detail.jsonl#BUDGET-TOKEN-OBSERVE-ONLY）",
+      "notes": "① **语义变更（用户裁定）**：Token 轨**只观测、不启用闸门** ⇒ `_computeState()` 改为**只有 USD 主口径产出档位**（`locked`/`report_only`），Token 口径（USD 闸门未启用时的回落）**恒 `normal`**；`killSwitch` 为手动总闸…（全文见 archive/evidence-detail.jsonl#BUDGET-TOKEN-OBSERVE-ONLY）"
     }
   ]
 }

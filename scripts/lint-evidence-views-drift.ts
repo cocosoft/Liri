@@ -22,6 +22,8 @@ import {
   LOG,
   PROJECT_ROOT,
   REGISTRY,
+  findAnchor,
+  isFreshBullet,
 } from './lib/evidenceStore';
 
 const GEN = join(PROJECT_ROOT, 'scripts', 'gen-evidence-views.ts');
@@ -89,6 +91,21 @@ try {
     ['明细归档', DETAIL],
   ] as Array<[string, string]>) {
     if (!existsSync(p)) problems.push(`${label}缺失: ${p}`);
+  }
+
+  // 未发布段：**同一 id 的新片 bullet 不得重复**（口径同 gen/migrate 的 `isFreshBullet`）。
+  // 「生成物 == 提交物」比对**看不见**这类缺陷：重复是**归档块自身**被逐轮吞回生成物造成，
+  // 重新生成只会稳定复现同一份重复文本（实测 2026-10-15：㉗/㉘/㉙ 后出现 4 层嵌套重复）。
+  const clIds = readFileSync(CHANGELOG, 'utf8')
+    .split('\n')
+    .filter(isFreshBullet)
+    .map((l) => l.match(/^- ✅ \*\*([^*]+)\*\*/)?.[1] ?? '');
+  const dupIds = [...new Set(clIds.filter((id, i) => clIds.indexOf(id) !== i))];
+  if (dupIds.length > 0) {
+    problems.push(
+      `CHANGELOG「未发布段」有 ${dupIds.length} 个 id 重复（如 ${dupIds[0].slice(0, 48)}）—— ` +
+        '归档块把生成物吞回了历史块'
+    );
   }
 } finally {
   try {

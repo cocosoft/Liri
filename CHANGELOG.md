@@ -19,18 +19,11 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY**：`ACTIVE_NAV_KEY` 三处按域消歧（client 三视图各自私有、取值各异）⇒ 同名常量:ACTIVE_NAV_KEY 3→0 —— 验证 tc0|guard46|arch0|gate5；基线 同名常量:ACTIVE_NAV_KEY 3>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES**：`FILE_{EDIT,WRITE}_TOOL_NAME` 合一到 constants 真源（prompt.ts 改转发导出）⇒ consts 227>225 —— 验证 tc0|guard45|tools853|arch0|gate5；基线 227>225（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID**：`MAGIC_GUID` 合一到 core 真源（RFC 6455，5 处→1）⇒ consts 228>227 —— 验证 tc0|guard44|voice+acp202|arch0|gate5；基线 228>227（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES**：`MAX_MESSAGES`×3 按域消歧（office 回放 50 / LRO 取尾 12 / teammate 容量 500）⇒ consts 229>228 —— 验证 tc0|guard43|tasks378|gate4；基线 229>228（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT**：`DEFAULT_TIMEOUT`×3 按域消歧（httpUtils 留 / toolService / SessionLock）⇒ consts 230>229 —— 验证 tc0|guard42|sess311|gate5；基线 230>229（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT）
-
-- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID**：`MAGIC_GUID` 合一到 core 真源（RFC 6455，5 处→1）⇒ consts 228>227 —— 验证 tc0|guard44|voice+acp202|arch0|gate5；基线 228>227（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID）
-- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES**：`MAX_MESSAGES`×3 按域消歧（office 回放 50 / LRO 取尾 12 / teammate 容量 500）⇒ consts 229>228 —— 验证 tc0|guard43|tasks378|gate4；基线 229>228（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES）
-- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT**：`DEFAULT_TIMEOUT`×3 按域消歧（httpUtils 留 / toolService / SessionLock）⇒ consts 230>229 —— 验证 tc0|guard42|sess311|gate5；基线 230>229（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT）
-
-- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES**：`MAX_MESSAGES`×3 按域消歧（office 回放 50 / LRO 取尾 12 / teammate 容量 500）⇒ consts 229>228 —— 验证 tc0|guard43|tasks378|gate4；基线 229>228（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-27-MAX-MESSAGES）
-- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT**：`DEFAULT_TIMEOUT`×3 按域消歧（httpUtils 留 / toolService / SessionLock）⇒ consts 230>229 —— 验证 tc0|guard42|sess311|gate5；基线 230>229（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-26-DEFAULT-TIMEOUT）
-
 
 - ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**
   - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。

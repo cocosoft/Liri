@@ -111,6 +111,27 @@ export interface LogRecord {
   baseline?: string;
 }
 
+/**
+ * CHANGELOG「未发布段」**新片 bullet** 的唯一形态（gen 渲染 / migrate 识别**共用** ⇒ 单一真源）。
+ *
+ * ⚠️ **为什么还要"识别"**：migrate 每次会把「未发布段」整体归档为 `block#0`；若归档时**不剔除**
+ * 上一次生成的 bullet，下次 gen 就会把「历史块里的旧生成物」**再渲染一遍** ⇒ **每片递归多一层重复**。
+ * 实测（2026-10-15）：㉗/㉘/㉙ 三片之后，未发布段出现 **4 层嵌套重复**（同一 id 重复 2–4 次）。
+ */
+export const freshBullet = (l: LogRecord): string =>
+  `- ✅ **${l.id}**：${l.scope} —— 验证 ${l.verify ?? '—'}；` +
+  `基线 ${l.baseline ?? '—'}（详情见 ${DETAIL_REF_PREFIX}${l.id}）`;
+
+/** 新片 bullet 的**形态正则**（转义前缀 ⇒ 与 {@link freshBullet} 恒同一口径） */
+const FRESH_BULLET_RE = new RegExp(
+  '^- ✅ \\*\\*[^*]+\\*\\*：.* —— 验证 .+；基线 .+（详情见 ' +
+    `${DETAIL_REF_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^）]+）$`
+);
+
+/** 该行是否为「新片 bullet」（migrate 归档时据此剔除生成物，防递归重复） */
+export const isFreshBullet = (line: string): boolean =>
+  FRESH_BULLET_RE.test(line);
+
 /** 阶段码：discovered→D fixed→F testVerified→T postReleaseReviewed→R */
 export function stageCode(stages: Record<string, boolean> | undefined): string {
   const s = stages ?? {};

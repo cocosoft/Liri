@@ -35,6 +35,7 @@ import {
   findAnchor,
   findUnreleasedBlock,
   flagCode,
+  isFreshBullet,
   joinField,
   readJsonl,
   scopeOf,
@@ -99,7 +100,13 @@ function main(): void {
   let clOut: string | null = null;
   let blockText: string;
   if (anchor) {
-    blockText = clLines.slice(anchor.begin + 1, anchor.end).join('\n');
+    const raw = clLines.slice(anchor.begin + 1, anchor.end);
+    // ⚠️ 归档前**必须剔除**上一次生成的新片 bullet —— 否则「生成物」会被并回历史块，
+    //    下次 gen 再渲染一遍 ⇒ **每片递归多一层重复**（实测 2026-10-15：4 层嵌套）。
+    //    判定同粒度用 `isFreshBullet`（与 `freshBullet` 同源 ⇒ 形态恒一致）。
+    let i = 0;
+    while (i < raw.length && (isFreshBullet(raw[i]) || raw[i].trim() === '')) i++;
+    blockText = raw.slice(i).join('\n');
   } else {
     const blk = findUnreleasedBlock(clLines);
     if (!blk) {
@@ -139,6 +146,11 @@ function main(): void {
   if (joinField(rows, CL_BLOCK_ID, CL_BLOCK_KEY) !== blockText) {
     problems.push('CHANGELOG 归档块「反解 ≠ 原文」');
   }
+  // 归档块必须只剩**历史正文**：空 ⇒ gen 会 fail-closed 拒渲染；仍含生成物 ⇒ 递归重复风险
+  if (blockText.trim() === '')
+    problems.push('CHANGELOG 归档块为空（未发布段被生成物 bullet 占满？）');
+  if (blockText.split('\n').some(isFreshBullet))
+    problems.push('CHANGELOG 归档块仍含「新片 bullet」⇒ 会产生重复');
   if (generated) {
     // 既有条目明细**逐字节保持不变**（只允许 `--detail` 新增/替换**指定 id**）
     const key = (r: DetailRow): string => JSON.stringify(r);

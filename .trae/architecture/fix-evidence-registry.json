@@ -6481,6 +6481,36 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② `FILE_READ_TOOL_NAME`（`parseAgent.ts` 文件私有）**不在本键内、未动** —— 若它与别处同名 ⇒ 属**别的键**，走常规消歧；③ 副本写回（任一 `const FILE_(EDIT|WRITE)_TOOL_NAME =` 重现…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES）",
       "notes": "取证（CS06）：两键各 3 处定义、**取值逐字相同**（`file_edit` / `file_write`）且经 spec 确认为**真实注册名** ⇒ 属**同一事实** ⇒ 合一（非消歧）。真源 = `constants/tools.ts`（带 `satisfies ToolName` 编译期约束；已有 `…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十项：`ACTIVE_NAV_KEY` 三处**按域消歧**（client 三视图各自私有的 localStorage key，取值各异；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化检查 / 根因优先）+ R03-002",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/views/UserPage.tsx",
+        "client/src/components/views/SettingsPage.tsx",
+        "client/src/components/views/HelpPage.tsx",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 三键取值各异、且各为单一页面私有 ⇒ 属**不同事实**，只消歧不合并；③ 若将来三视图共享同一导航态 ⇒ 应改为**单一共享 key**（那是行为变更，须另立片并给出 localStorage 迁移方案，不得顺手改取值）；④ 旧名 `ACTIVE_NAV_KEY` …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY）",
+      "notes": "取证（CS06）：`ACTIVE_NAV_KEY` 实测 3 处定义、**取值逐字不同** —— `liri-user-active-nav`（UserPage.tsx:27）· `liri-settings-active-nav`（SettingsPage.tsx:236）· `liri-help-active-n…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY）"
     }
   ]
 }

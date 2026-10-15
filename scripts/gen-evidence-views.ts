@@ -34,6 +34,7 @@ import {
   flagCode,
   flagFromCode,
   findAnchor,
+  freshBullet,
   headOf,
   joinField,
   loadDetail,
@@ -133,11 +134,7 @@ function renderChangelog(logs: LogRecord[]): {
   const fresh = logs
     .filter((l) => l.cl === 1)
     .reverse()
-    .map(
-      (l) =>
-        `- ✅ **${l.id}**：${l.scope} —— 验证 ${l.verify ?? '—'}；` +
-        `基线 ${l.baseline ?? '—'}（详情见 ${DETAIL_REF_PREFIX}${l.id}）`
-    );
+    .map((l) => freshBullet(l));
   const rendered = [...fresh, ...(fresh.length > 0 ? [''] : []), ...block];
   const out = [
     ...lines.slice(0, anchor.begin + 1),

@@ -3713,6 +3713,16 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第四十项：`EYES` **2 处同名消歧**（异域同值，client/app 双轨互不引用；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（双轨互不引用 ⇒ 同值亦不可跨轨合一）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② client 侧任一文件重新出现 `const EYES =` ⇒ 守卫（第 56 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享类型层**（如 monorepo 公共包）使两轨可同源，可再评估将 `BUDDY_EYES` 收敛到真源（此时按合一处理）；④ 本次为**异域同值消歧**"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"reopenWhen","i":1,"c":"（非合一）：client UI 包与 app 后端包互不引用，参照裁定 A（lsp 两轨）不可跨轨合一 ⇒ 保留 app 侧 `EYES` 真源（导出 + 派生 `Eye` 类型），client 私有副本改名 `BUDDY_EYES`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"notes","i":0,"c":"**自证**：app typecheck 0 · client typecheck 0 · 守卫第 56 例（app 真源保留 + 类型派生钉住 + client 无裸 `EYES` 定义 + `BUDDY_EYES` 改名 + 两使用点）56 pass · `lint:consts` 重新播种基线：`同名常量:EYES` **2→0**（215→214 键"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"notes","i":1,"c":"），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· client 侧 `EYES` 为 BuddyAvatar.tsx 私有副本（Grep 全仓仅本文件定义与两处使用），改名后取值/行为零变化。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"code#0","i":0,"c":"client/src/components/Buddy/BuddyAvatar.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"code#1","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

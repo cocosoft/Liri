@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES**：`EYES` ×2 按域消歧（client/app 异域同值，副本改名 BUDDY_EYES）⇒ 同名常量 2→0 —— 验证 tc0|guard56|arch0|gate6；基线 同名常量:EYES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL**：`EMPTY_POLL_LOG_INTERVAL` ×2 合一（同值同事实，bridge/api 空轮询日志节流真源化）⇒ 同名常量 2→0 —— 验证 tc0|guard55|arch0|gate6；基线 同名常量:EMPTY_POLL_LOG_INTERVAL 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN**：`SAFE_ID_PATTERN` ×2 合一（同值同事实，bridge/api ID 校验真源化）⇒ 同名常量 2→0 —— 验证 tc0|guard54|arch0|gate6；基线 同名常量:SAFE_ID_PATTERN 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS**：`IMAGE_EXTS` ×2 按域消歧（files-handlers 7 项 / ToolExecution 5 项）⇒ 同名常量 2→0 —— 验证 tc0|guard53|arch0|gate6；基线 同名常量:IMAGE_EXTS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS）

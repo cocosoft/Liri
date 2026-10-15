@@ -6807,6 +6807,34 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const EMPTY_POLL_LOG_INTERVAL =` ⇒ 守卫（第 55 例）或棘轮阻断；③ 若未来 bridge 空轮询日志节流阈值需调整 ⇒ 直接改 **BridgeApi.ts** 顶层导出（唯一真源），**不得**在客户端…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL）",
       "notes": "**自证**：app typecheck 0 · 守卫第 55 例（BridgeApi.ts 真源标注 + `export const` 钉住 + BridgeApiClient 无裸定义 + import 引用 + 使用点转发）55 pass · `lint:consts` 重新播种基线：`同名常量:EMPTY_P…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES",
+      "title": "硬编码治理 · 「同名常量」B5-2 第四十项：`EYES` **2 处同名消歧**（异域同值，client/app 双轨互不引用；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（双轨互不引用 ⇒ 同值亦不可跨轨合一）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/Buddy/BuddyAvatar.tsx",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② client 侧任一文件重新出现 `const EYES =` ⇒ 守卫（第 56 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享类型层**（如 monorepo 公共包）使两轨可同源，可再评估将 `BUDDY_EYES` 收敛到真源（此时按…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES）",
+      "notes": "**自证**：app typecheck 0 · client typecheck 0 · 守卫第 56 例（app 真源保留 + 类型派生钉住 + client 无裸 `EYES` 定义 + `BUDDY_EYES` 改名 + 两使用点）56 pass · `lint:consts` 重新播种基线：`同名常量:EY…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES）"
     }
   ]
 }

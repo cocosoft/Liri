@@ -53,7 +53,11 @@ export interface WalletBreakdown {
 
 /** 优化建议类型 */
 export type SuggestionType =
-  'compact' | 'trim_tools' | 'enable_cache' | 'route_cheaper' | 'near_limit';
+  | 'compact'
+  | 'trim_tools'
+  | 'enable_cache'
+  | 'route_cheaper'
+  | 'near_limit';
 
 /** 优化建议 */
 export interface WalletSuggestion {

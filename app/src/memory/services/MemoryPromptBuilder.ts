@@ -17,6 +17,9 @@ import {
 
 import { handleError } from '@modules/error';
 
+// B5-2B2 真源标注：`ENTRYPOINT_NAME` / `MAX_ENTRYPOINT_LINES` 唯一真源（memory 域索引文件名与行上限，
+// 导出供 MemoryFileService 等引用）；chronos/autoDream 的 dream 记忆根同名常量已按域消歧改名
+// DREAM_ENTRYPOINT_NAME / DREAM_MAX_ENTRYPOINT_LINES。
 export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
 export const MAX_ENTRYPOINT_BYTES = 25000;

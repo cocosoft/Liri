@@ -1664,4 +1664,30 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const team = read('src/memory/services/teamMemPrompts.ts');
     expect(team).toContain("from './MemoryPromptBuilder.js';");
   });
+
+  test('B5-2B2：`ENTRYPOINT_NAME` 已按域消歧（异值异域：index.md / MEMORY.md，取值一字未改）', () => {
+    // memory 域导出真源（'MEMORY.md'，被 MemoryFileService 引用）保留原名
+    const mem = read('src/memory/services/MemoryPromptBuilder.ts');
+    expect(mem).toContain('export const ENTRYPOINT_NAME = \'MEMORY.md\';');
+    // chronos 域（dream 记忆根，'index.md'）改名
+    const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
+    expect(dream).not.toMatch(/(^|[^_A-Za-z])const ENTRYPOINT_NAME\s*=/);
+    expect(dream).toContain("const DREAM_ENTRYPOINT_NAME = 'index.md';");
+    expect(dream).toContain('${DREAM_ENTRYPOINT_NAME}');
+    expect(dream).toContain('return DREAM_ENTRYPOINT_NAME;');
+    // 跨文件消费者仍引用 memory 真源
+    const fileSvc = read('src/memory/services/MemoryFileService.ts');
+    expect(fileSvc).toContain('ENTRYPOINT_NAME,');
+  });
+
+  test('B5-2B3：`MAX_ENTRYPOINT_LINES` 已按域消歧（异值异域：50 / 200，取值一字未改）', () => {
+    const mem = read('src/memory/services/MemoryPromptBuilder.ts');
+    expect(mem).toContain('export const MAX_ENTRYPOINT_LINES = 200;');
+    const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
+    expect(dream).not.toMatch(/(^|[^_A-Za-z])const MAX_ENTRYPOINT_LINES\s*=/);
+    expect(dream).toContain('const DREAM_MAX_ENTRYPOINT_LINES = 50;');
+    expect(dream).toContain('return DREAM_MAX_ENTRYPOINT_LINES;');
+    const fileSvc = read('src/memory/services/MemoryFileService.ts');
+    expect(fileSvc).toContain('MAX_ENTRYPOINT_LINES,');
+  });
 });

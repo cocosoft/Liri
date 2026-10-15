@@ -19,8 +19,16 @@ const DREAM_DIR_CONTENT_GUIDANCE = `Files in this dir (see \`ls -la\`):
 - \`logs/\` — daily logs (optional)
 - \`sessions/\` — session logs (optional)`;
 
-const ENTRYPOINT_NAME = 'index.md';
-const MAX_ENTRYPOINT_LINES = 50;
+/**
+ * B5-2B2 按域消歧：原 `ENTRYPOINT_NAME` 与 memory/services/MemoryPromptBuilder 的导出真源
+ * 异值异域（'index.md' vs 'MEMORY.md'）⇒ 本处（dream 记忆根）改名。
+ */
+const DREAM_ENTRYPOINT_NAME = 'index.md';
+/**
+ * B5-2B3 按域消歧：原 `MAX_ENTRYPOINT_LINES` 与 memory/services/MemoryPromptBuilder 的导出真源
+ * 异值异域（50 vs 200）⇒ 本处（dream 记忆根索引行上限）改名。
+ */
+const DREAM_MAX_ENTRYPOINT_LINES = 50;
 
 export function buildConsolidationPrompt(
   options: ConsolidationPromptOptions
@@ -41,7 +49,7 @@ Session transcripts: \`${transcriptDir}\` (large JSONL files — grep narrowly, 
 ## Phase 1 — Orient
 
 - \`ls\` the memory directory to see what already exists
-- Read \`${ENTRYPOINT_NAME}\` to understand the current index
+- Read \`${DREAM_ENTRYPOINT_NAME}\` to understand the current index
 - Skim existing topic files so you improve them rather than creating duplicates
 - If \`logs/\` or \`sessions/\` subdirectories exist (assistant-mode layout), review recent entries there
 
@@ -67,7 +75,7 @@ Focus on:
 
 ## Phase 4 — Prune and index
 
-Update \`${ENTRYPOINT_NAME}\` so it stays under ${MAX_ENTRYPOINT_LINES} lines AND under ~25KB. It's an **index**, not a dump — each entry should be one line under ~150 characters: \`- [Title](file.md) — one-line hook\`. Never write memory content directly into it.
+Update \`${DREAM_ENTRYPOINT_NAME}\` so it stays under ${DREAM_MAX_ENTRYPOINT_LINES} lines AND under ~25KB. It's an **index**, not a dump — each entry should be one line under ~150 characters: \`- [Title](file.md) — one-line hook\`. Never write memory content directly into it.
 
 - Remove pointers to memories that are now stale, wrong, or superseded
 - Demote verbose entries: if an index line is over ~200 chars, it's carrying content that belongs in the topic file — shorten the line, move the detail
@@ -80,9 +88,9 @@ Return a brief summary of what you consolidated, updated, or pruned. If nothing 
 }
 
 export function getMaxEntrypointLines(): number {
-  return MAX_ENTRYPOINT_LINES;
+  return DREAM_MAX_ENTRYPOINT_LINES;
 }
 
 export function getEntrypointName(): string {
-  return ENTRYPOINT_NAME;
+  return DREAM_ENTRYPOINT_NAME;
 }

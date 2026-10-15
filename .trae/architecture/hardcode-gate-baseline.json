@@ -1,7 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:ENTRYPOINT_NAME": 2,
-    "同名常量:MAX_ENTRYPOINT_LINES": 2,
     "同名常量:TABLE": 2,
     "同名常量:SKIP_DIRS": 2,
     "同名常量:AGENT_TYPES": 2,

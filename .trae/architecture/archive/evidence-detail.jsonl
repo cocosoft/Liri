@@ -3723,6 +3723,21 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"code#1","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-40-EYES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第四十一项：`STREAM_IDLE_TIMEOUT_MS` **2 处同名消歧**（异域同值 300s，client/app 双轨互不引用；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 用户 2026-10-13 裁定 A（双轨互不引用 ⇒ 同值亦不可跨轨合一）+ `.trae/specs/message-router-split.md`（架构指定 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"source","i":1,"c":"routing/messageRouterContract.ts` 为常量收容地）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const STREAM_IDLE_TIMEOUT_MS =`（非 app 契约真源）⇒ 守卫（第 57 例）或棘轮阻断；③ 若未来 client 与 app 建立**共享类型层**使两轨可同源，可再评估将 `SSE_IDLE_TIMEOUT_MS` 收敛到真源（按合一处理）；④ 本"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"reopenWhen","i":1,"c":"次为**异域同值消歧**（非合一）：app 侧 `messageRouterContract.ts` 为架构收容地（`.trae/specs/message-router-split.md` 指定，被 `streamConsumption.ts`/`messageRouter.ts` 消费）保留原名；client 侧 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"reopenWhen","i":2,"c":"readWithIdleTimeout.ts`（被 `chatService.ts` 两处消费）副本改名 `SSE_IDLE_TIMEOUT_MS`，参照裁定 A（lsp 两轨）不可跨轨合一。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · client typecheck 0 · 守卫第 57 例（app 契约真源标注 + 取值钉住 + client 无裸 `STREAM_IDLE_TIMEOUT_MS` 定义 + `SSE_IDLE_TIMEOUT_MS` 改名 + 默认参数 + import + 两使用点 + `chatService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"notes","i":1,"c":"` 全文件无旧名残留）57 pass · `lint:consts` 重新播种基线：`同名常量:STREAM_IDLE_TIMEOUT_MS` **2→0**（214→213 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 改名后取值（300_000）与行为零变化；`configManager.env('"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"notes","i":2,"c":"STREAM_IDLE_TIMEOUT_MS')`（streamMessageFlow.ts）为 env 键名字符串、非常量定义，不受本键影响。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"client/src/utils/readWithIdleTimeout.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#2","i":0,"c":"client/src/services/chatService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

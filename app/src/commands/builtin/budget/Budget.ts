@@ -137,13 +137,26 @@ export class BudgetCommand {
             state.dailyLimit,
             state.unit
           )}（${(state.percentUsed * 100).toFixed(1)}%）`
-        : `  已用 / Token 观测阈值：${fmt(state.todayUsed)} / ${fmt(
+        : // 无闸门：观测口径**恒按基座**（`tokenBase`）——relief 只对「闸门」有意义，
+          // 而观测告警（`_observeTokenTrack`）判据用的正是基座。若照抄主口径的
+          // `state.remaining`（relief 抬高后）会自相矛盾（真机实测：阈值 3,000 万 ↔ 剩余 1.37 亿）。
+          `  已用 / Token 观测阈值：${fmt(state.todayUsed)} / ${fmt(
             tokenBase
-          )}（${(state.percentUsed * 100).toFixed(1)}%）`,
-      gated
-        ? `  当前有效上限：${fmtPrimary(effectiveLimit, state.unit)}`
-        : `  当前有效阈值：${fmt(effectiveLimit)}`,
-      `  今日剩余：${fmtPrimary(state.remaining, state.unit)}`,
+          )}（${(tokenBase > 0
+            ? (state.todayUsed / tokenBase) * 100
+            : 0
+          ).toFixed(1)}%）`,
+      // 无闸门时不显示「有效阈值」（relief 只作用于闸门 ⇒ 该行无意义且与阈值行矛盾）。
+      ...(gated
+        ? [
+            `  当前有效上限：${fmtPrimary(effectiveLimit, state.unit)}`,
+            `  今日剩余：${fmtPrimary(state.remaining, state.unit)}`,
+          ]
+        : [
+            `  今日剩余：${fmt(
+              Math.max(0, tokenBase - state.todayUsed)
+            )}（按观测阈值基座）`,
+          ]),
       ...(gated
         ? [
             `  Token 轨（**观测**，不参与判定）：${fmt(state.todayUsed)} / ${fmt(tokenBase)}`,

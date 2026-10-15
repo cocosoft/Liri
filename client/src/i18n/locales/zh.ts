@@ -2912,7 +2912,7 @@ const zh = {
     dailyLimitCapObserved: "Token 观测阈值",
     dailyLimitModeObserved: "观测（不拦截）",
     dailyLimitNoGateNote:
-      "未配置「金额上限」⇒ 当前**不存在预算硬闸门**；下方 Token 数字仅作观测，不会拦截调用。配置「金额上限」后才会拦截。",
+      "未配置「金额上限」⇒ 当前不存在预算硬闸门；下方 Token 数字仅作观测，不会拦截调用。配置「金额上限」后才会拦截。",
     dailyLimitRemaining: "今日剩余",
     dailyLimitPercent: "已用比例",
     dailyLimitDateLabel: "统计日期",
@@ -2932,7 +2932,7 @@ const zh = {
     dailyLimitUsd: "金额上限 (USD)",
     dailyLimitUsdPlaceholder: "留空 = 不启用",
     dailyLimitUsdHint:
-      "按「各模型实际单价 × 用量」折算入账，与成本报表同源；留空即不启用金额闸门（Token 口径仍生效）。",
+      "按「各模型实际单价 × 用量」折算入账，与成本报表同源；留空即不启用金额闸门（此时无预算硬闸门，Token 数字仅作观测、不拦截调用）。",
     dailyLimitUsdInvalid: "金额上限必须为正数（可含小数）",
     dailyLimitUsdUsed: "今日已用金额",
     dailyLimitUsdDebt: "金额欠账",

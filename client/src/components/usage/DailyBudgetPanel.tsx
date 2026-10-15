@@ -157,7 +157,11 @@ export default function DailyBudgetPanel() {
 
   const applyStatus = useCallback((s: DailyBudgetStatus) => {
     setStatus(s);
-    setLimitInput(String(s.dailyLimit));
+    // 2026-10-15（**真机 E2E 发现**）：本输入编辑的是 **Token 观测阈值**（后端字段 `tokenLimit`）。
+    // ⚠️ **不可再用 `s.dailyLimit`** —— 债四 S3 后它是**主口径**值（配了金额上限时即 USD 金额）
+    // ⇒ 真机实测会把 Token 阈值显示成 `50`（本机 USD 有效上限），且点「保存并生效」会把真实阈值
+    // `30_000_000` **覆盖为 50**（写坏观测阈值）。两处（回显 + 提交）必须同源于 `tokenLimit`。
+    setLimitInput(String(s.tokenLimit));
     setWarnInput(String(Math.round(s.warningThreshold * 100)));
     setLockInput(String(Math.round(s.lockThreshold * 100)));
     // 债四 USD-3：未配置（`null`）⇒ 输入框**留空**而非显示 `0`
@@ -448,6 +452,22 @@ export default function DailyBudgetPanel() {
     );
   }
 
+  // 2026-10-15（**真机 E2E 发现**）：无闸门（`unit !== 'usd'`）时，第一行必须按 **Token 观测
+  // 阈值基座**（`tokenLimit`）呈现 —— ① relief 只对「闸门」有意义（Token 轨不设闸门，`relief`
+  // 在 token 口径下无任何可观测效果）；② 观测告警（`_observeTokenTrack`）判据用的正是**基座**。
+  // 若照搬主口径的 `dailyLimit`（relief 抬高后的有效值），真机实测会出现
+  // 「阈值卡 150,000,000 ↔ 配置输入 30,000,000」的自相矛盾。
+  const gated = status?.unit === "usd";
+  const primaryLimit = status
+    ? gated
+      ? status.dailyLimit
+      : status.tokenLimit
+    : 0;
+  const primaryUsed = status ? status.used : 0;
+  const primaryRemaining = Math.max(0, primaryLimit - primaryUsed);
+  const primaryPercent =
+    primaryLimit > 0 ? (primaryUsed / primaryLimit) * 100 : 0;
+
   return (
     <div className="space-y-4">
       {error && (
@@ -511,19 +531,17 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitUsed")}
                 </p>
                 <p className="text-lg font-semibold">
-                  {formatPrimary(status.used, status.unit)}
+                  {formatPrimary(primaryUsed, status.unit)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
                 <p className="text-xs text-gray-500">
                   {t(
-                    status.unit === "usd"
-                      ? "cost.dailyLimitCap"
-                      : "cost.dailyLimitCapObserved",
+                    gated ? "cost.dailyLimitCap" : "cost.dailyLimitCapObserved",
                   )}
                 </p>
                 <p className="text-lg font-semibold">
-                  {formatPrimary(status.dailyLimit, status.unit)}
+                  {formatPrimary(primaryLimit, status.unit)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -531,7 +549,7 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitRemaining")}
                 </p>
                 <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                  {formatPrimary(status.remaining, status.unit)}
+                  {formatPrimary(primaryRemaining, status.unit)}
                 </p>
               </div>
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
@@ -539,7 +557,7 @@ export default function DailyBudgetPanel() {
                   {t("cost.dailyLimitPercent")}
                 </p>
                 <p className="text-lg font-semibold">
-                  {(status.percentUsed * 100).toFixed(1)}%
+                  {primaryPercent.toFixed(1)}%
                 </p>
               </div>
             </div>
@@ -555,24 +573,19 @@ export default function DailyBudgetPanel() {
                       : "bg-blue-500"
                 }`}
                 style={{
-                  width: `${Math.min(status.percentUsed * 100, 100)}%`,
+                  // 与第一行同源（`primaryPercent`）：无闸门时按 **Token 基座**，
+                  // 否则会出现"卡片 44% / 进度条 8.8%"（relief 抬高后）的不一致。
+                  width: `${Math.min(primaryPercent, 100)}%`,
                 }}
               />
             </div>
 
-            {/* D-b/D-d：有效上限 / 欠账 / 当前放行（D-h 只读展示） */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-              <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
-                <p className="text-xs text-gray-500">
-                  {t("cost.dailyLimitEffectiveLimit")}
-                </p>
-                <p className="text-lg font-semibold">
-                  {formatPrimary(
-                    status.relief?.effectiveLimit ?? status.dailyLimit,
-                    status.unit,
-                  )}
-                </p>
-              </div>
+            {/* D-b/D-d：欠账 / 当前放行（D-h 只读展示）
+                ⚠️ `当前有效上限` 卡已删（2026-10-15，真机 E2E）：它与「日上限」卡**恒同值**
+                （`relief?.effectiveLimit ?? dailyLimit` ≡ `dailyLimit` = 生效上限）⇒ 纯冗余，
+                且真机实测出现"两卡都 $50.00、而配置金额上限 $10.00"的观感矛盾。
+                「配置值 ↔ 生效值」的对照由「金额上限」（配置）↔「日上限」（生效）+「当前放行」承担。 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
               <div className="p-3 rounded bg-gray-50 dark:bg-gray-900">
                 <p className="text-xs text-gray-500">
                   {t("cost.dailyLimitDebt")}
@@ -854,6 +867,7 @@ export default function DailyBudgetPanel() {
             <input
               type="number"
               min={1}
+              data-testid="daily-budget-token-threshold-input"
               value={limitInput}
               onChange={(e) => setLimitInput(e.target.value)}
               className={inputCls}

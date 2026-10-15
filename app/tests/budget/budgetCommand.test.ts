@@ -40,10 +40,28 @@ describe('T14：/budget 命令（查看 / 放行 / 改 Token 观测阈值）', (
     expect(value).toContain('闸门：**未启用**（未配置金额上限）');
     expect(value).toContain('档位：观测（不拦截）'); // 无闸门 ⇒ 不显示「正常/锁定」
     expect(value).toContain('已用 / Token 观测阈值：0 / 100');
-    expect(value).toContain('当前有效阈值：100');
+    expect(value).toContain('今日剩余：100（按观测阈值基座）');
+    // 无闸门 ⇒ 不展示「当前有效阈值」（relief 只作用于闸门，展示即与阈值行矛盾）
+    expect(value).not.toContain('当前有效阈值');
     expect(value).toContain('透支欠账：0');
     expect(value).toContain('当前放行：无');
     expect(value).toContain('硬锁：未开启');
+  });
+
+  it('status（无闸门 + 放行生效）⇒ 观测口径仍按**基座**（不被 relief ×5 抬高）', async () => {
+    // 真机 E2E（2026-10-15）：`unlock-today` 生效时，无闸门状态曾显示「当前有效阈值 150,000,000 /
+    // 今日剩余 136,788,517」，与「Token 观测阈值 30,000,000」自相矛盾（观测告警也用基座）。
+    const budget = getDailyBudget();
+    budget.recordUsage(20);
+    await new BudgetCommand().call('unlock'); // ×5 ⇒ 有效值 500，但观测口径**不得**跟随
+
+    const { value } = await new BudgetCommand().call('status');
+
+    expect(value).toContain('档位：观测（不拦截）');
+    expect(value).toContain('已用 / Token 观测阈值：20 / 100');
+    expect(value).toContain('今日剩余：80（按观测阈值基座）');
+    expect(value).not.toContain('当前有效阈值');
+    expect(value).not.toContain('500'); // relief 抬高值不得出现
   });
 
   it('status（**已配金额上限**）：闸门=金额已启用 + 档位按金额 + Token 轨观测行', async () => {

@@ -3041,7 +3041,7 @@ const en = {
     dailyLimitCapObserved: "Token observation threshold",
     dailyLimitModeObserved: "Observed (not enforced)",
     dailyLimitNoGateNote:
-      "No amount cap configured — **no budget gate is active**; the token figures below are observation only and do not block calls. Calls are gated once an amount cap is set.",
+      "No amount cap configured — no budget gate is active; the token figures below are observation only and do not block calls. Calls are gated once an amount cap is set.",
     dailyLimitRemaining: "Remaining Today",
     dailyLimitPercent: "Used Ratio",
     dailyLimitDateLabel: "Stats Date",
@@ -3056,13 +3056,14 @@ const en = {
     dailyLimitSaving: "Saving...",
     dailyLimitSaved: "Saved and applied instantly",
     dailyLimitSaveFailed: "Failed to save",
-    dailyLimitInvalidLimit: "Token observation threshold must be a positive integer",
+    dailyLimitInvalidLimit:
+      "Token observation threshold must be a positive integer",
     dailyLimitInvalidThreshold:
       "Threshold must be a percentage between 1 and 100",
     dailyLimitUsd: "Amount Cap (USD)",
     dailyLimitUsdPlaceholder: "Leave empty = disabled",
     dailyLimitUsdHint:
-      "Charged as each model's actual unit price × usage — the same source as the cost report. Leave empty to keep the amount gate off (the token cap still applies).",
+      "Charged as each model's actual unit price × usage — the same source as the cost report. Leave empty to keep the amount gate off (no budget gate is active; token figures are observation only and do not block calls).",
     dailyLimitUsdInvalid:
       "Amount cap must be a positive number (decimals allowed)",
     dailyLimitUsdUsed: "Used Today (USD)",

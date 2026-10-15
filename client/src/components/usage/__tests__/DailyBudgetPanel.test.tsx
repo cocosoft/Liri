@@ -278,6 +278,35 @@ describe("DailyBudgetPanel：金额口径（USD-3）", () => {
     expect(screen.getAllByText("$0.00")).toHaveLength(2);
   });
 
+  it("金额主口径下 Token 观测阈值输入框取 `tokenLimit`（**非** `dailyLimit`）—— 真机 E2E 回归", async () => {
+    // 真机实测（2026-10-15）：`dailyLimit` 在主口径切金额后是 **USD 有效上限**（本机 50），
+    // 而该输入编辑的是 Token 观测阈值 ⇒ 修复前回显 `50`，且保存会把真实 `30_000_000` 覆盖为 50。
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({
+        unit: "usd",
+        dailyLimit: 50,
+        limitUsd: 10,
+        tokenLimit: 30_000_000,
+      }),
+    );
+    mocks.updateDailyBudget.mockResolvedValue(budgetStatus());
+    render(<DailyBudgetPanel />);
+    await screen.findByText("每日预算限额");
+
+    const input = screen.getByTestId(
+      "daily-budget-token-threshold-input",
+    ) as HTMLInputElement;
+    expect(input.value).toBe("30000000"); // 修复前为 "50"
+
+    fireEvent.click(screen.getByText("保存并生效"));
+    await waitFor(() =>
+      expect(mocks.updateDailyBudget).toHaveBeenCalledTimes(1),
+    );
+    expect(mocks.updateDailyBudget.mock.calls[0]?.[0]).toMatchObject({
+      dailyLimit: 30_000_000, // 修复前提交 50
+    });
+  });
+
   it("输入留空 ⇒ 保存发 `dailyLimitUSD: null`（清空 = 解除）", async () => {
     mocks.getDailyBudget.mockResolvedValue(budgetStatus());
     mocks.updateDailyBudget.mockResolvedValue(budgetStatus());
@@ -343,6 +372,40 @@ describe("DailyBudgetPanel：Token 轨只观测的措辞（台账 reopenWhen ④
     // 阈值卡与配置输入改名（不再称「日上限」）
     expect(screen.getAllByText("Token 观测阈值").length).toBeGreaterThan(0);
     expect(screen.queryByText("日上限")).toBeNull();
+  });
+
+  it("无闸门状态：第一行按 **Token 基座**（`tokenLimit`）呈现，不被 relief 抬高值污染", async () => {
+    // 真机实测（2026-10-15）：无闸门时卡显示 `150,000,000`（= 基座 ×5，relief 抬高），
+    // 而配置输入与观测告警都用基座 `30,000,000` ⇒ 同屏自相矛盾。
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({
+        unit: "tokens",
+        limitUsd: null,
+        todayUsed: 13_211_483,
+        used: 13_211_483,
+        dailyLimit: 150_000_000, // relief 抬高后的"有效值"（不得作为观测阈值展示）
+        tokenLimit: 30_000_000,
+      }),
+    );
+    render(<DailyBudgetPanel />);
+    await screen.findByText("每日预算限额");
+
+    expect(screen.getByText("30,000,000")).toBeTruthy(); // 观测阈值 = 基座
+    expect(screen.getByText("16,788,517")).toBeTruthy(); // 剩余 = 基座 − 已用
+    expect(screen.getByText("44.0%")).toBeTruthy(); // 比例 = 已用 / 基座
+    expect(screen.queryByText("150,000,000")).toBeNull(); // relief 抬高值不得出现
+    // 无闸门 ⇒ 不展示「当前有效上限」（relief 只作用于闸门，展示即误导）
+    expect(screen.queryByText("当前有效上限")).toBeNull();
+  });
+
+  it("无闸门提示为**纯文本**（不得残留 Markdown `**`）", async () => {
+    // 真机实测：i18n 里写了 Markdown 粗体 ⇒ 面板纯文本渲染把 `**` 原样显示出来。
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ unit: "tokens", limitUsd: null }),
+    );
+    render(<DailyBudgetPanel />);
+    const note = await screen.findByTestId("daily-budget-no-gate");
+    expect(note.textContent ?? "").not.toContain("**");
   });
 
   it("已配置金额上限（unit=usd）⇒ **不**显示无闸门提示，徽章回到档位、上限卡仍叫「日上限」", async () => {

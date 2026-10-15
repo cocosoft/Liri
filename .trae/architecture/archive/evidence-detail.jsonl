@@ -3701,6 +3701,18 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第三十九项：`EMPTY_POLL_LOG_INTERVAL` **2 处同名合一**（同值同事实，bridge/api 域空轮询日志节流真源化；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const EMPTY_POLL_LOG_INTERVAL =` ⇒ 守卫（第 55 例）或棘轮阻断；③ 若未来 bridge 空轮询日志节流阈值需调整 ⇒ 直接改 **BridgeApi.ts** 顶层导出（唯一真源），**不得**在客户端侧重建副本；④ 本次为**同值同事实合一"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"reopenWhen","i":1,"c":"**（非消歧）：两处均属 bridge/api 域、值相同（100）、用途一致（`consecutiveEmptyPolls % … === 0`）⇒ 收敛单一真源，若未来出现**异域异值**的同名常量，按域消歧另案处理。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 55 例（BridgeApi.ts 真源标注 + `export const` 钉住 + BridgeApiClient 无裸定义 + import 引用 + 使用点转发）55 pass · `lint:consts` 重新播种基线：`同名常量:EMPTY_POLL_LOG_INTERVAL` **2"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"notes","i":1,"c":"→0**（216→215 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 连锁影响：㊳ 例的单行 import 断言因本次 import 块折行失效 ⇒ 已改为分片段空白容忍断言（`validateBridgeId as importedValidateBridgeId` + `} from '"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"notes","i":2,"c":"./BridgeApi';`），同轮修复；期间 eslint --fix 对守卫第 55 例长断言行 prettier 折行 ⇒ 单独提交 d49fbc74c。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"code#0","i":0,"c":"app/src/bridge/api/BridgeApi.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"code#1","i":0,"c":"app/src/bridge/api/BridgeApiClient.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

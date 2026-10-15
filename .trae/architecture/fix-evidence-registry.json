@@ -6778,6 +6778,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const SAFE_ID_PATTERN =` ⇒ 守卫（第 54 例）或棘轮阻断；③ 若未来 bridge ID 校验规则需调整 ⇒ 直接改 **BridgeApi.ts validateBridgeId**（唯一实现），**不得**在客…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN）",
       "notes": "**自证**：app typecheck 0 · 守卫第 54 例（BridgeApi.ts 真源标注 + 逐字钉住 + BridgeApiClient 无裸定义 + 别名 import + 薄包装转发）54 pass · `lint:consts` 重新播种基线：`同名常量:SAFE_ID_PATTERN` **2…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十九项：`EMPTY_POLL_LOG_INTERVAL` **2 处同名合一**（同值同事实，bridge/api 域空轮询日志节流真源化；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/bridge/api/BridgeApi.ts",
+        "app/src/bridge/api/BridgeApiClient.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const EMPTY_POLL_LOG_INTERVAL =` ⇒ 守卫（第 55 例）或棘轮阻断；③ 若未来 bridge 空轮询日志节流阈值需调整 ⇒ 直接改 **BridgeApi.ts** 顶层导出（唯一真源），**不得**在客户端…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 55 例（BridgeApi.ts 真源标注 + `export const` 钉住 + BridgeApiClient 无裸定义 + import 引用 + 使用点转发）55 pass · `lint:consts` 重新播种基线：`同名常量:EMPTY_P…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-39-EMPTY-POLL-LOG-INTERVAL）"
     }
   ]
 }

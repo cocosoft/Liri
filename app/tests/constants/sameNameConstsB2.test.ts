@@ -1774,7 +1774,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
     const voice = read('src/voice/OpenAIRealtimeAdapter.ts');
     expect(voice).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_MODEL\s*=/);
-    expect(voice).toContain("import { DEFAULT_MODEL } from '@modules/constants';");
+    expect(voice).toContain(
+      "import { DEFAULT_MODEL } from '@modules/constants';"
+    );
     expect(voice).toContain('this.model = model ?? DEFAULT_MODEL;');
   });
 

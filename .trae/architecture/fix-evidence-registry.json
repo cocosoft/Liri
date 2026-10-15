@@ -8021,6 +8021,33 @@
       "changelog": [],
       "reopenWhen": "① 若后端出现该哨兵的识别点（例如 SmartRouter 显式比较该字符串），须改为引用真源而非再写字面量，并在本项 notes 补记（当前全仓 0 识别点）；② 若契约落点增删（新客户端 / 新语言），必须同步三方守卫与本表值，否则豁免失效；③ 若 app 侧该导出长期无消费者（当前 0 importer），按 …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）",
       "notes": "① 问题本质：同名三处 —— `app/src/constants/common.ts`（TS）、`client/src/services/chatService.ts`（TS）、`client/src-tauri/src/commands/chat.rs`（Rust），值均为 `pyapp-default`。三者分…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）"
+    },
+    {
+      "id": "INK-REPL-SLASH-COMMAND-DISPATCH",
+      "title": "ink REPL 接入 `commandExecutor`：未派发的 `/xxx`（如 `/budget`）不再当普通消息进模型，统一交全局命令注册表（与客户端 Terminal 页 / 非流式 HTTP 同一实现）",
+      "source": "用户 2026-10-16 指令「按方案 ① 让 ink REPL 接入 commandExecutor」；上溯本轮 t5「核对 budget 口径」时对默认 ink REPL 命令派发链路的静态 + 真机取证",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/ink/repl/commandDispatch.ts",
+        "app/src/ink/repl/ReplApp.tsx"
+      ],
+      "tests": [
+        "app/tests/ink/commandDispatch.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改动 ink REPL 输入派发分支或 `app/src/ink/repl/commandDispatch.ts` 时；流式链路（`ChatManager.streamMessage` / `streamMessageFlow`）若新增命令拦截，会与本处形成双轨；另注意 ReplApp 上方硬编码的 `/help`、…（全文见 archive/evidence-detail.jsonl#INK-REPL-SLASH-COMMAND-DISPATCH）",
+      "notes": "① 真机取证（本机 18990，同一条 `/budget status`）：`stream:true` 的 SSE 里**没有**命令输出，模型自述「该斜杠命令由应用层处理（app/src/commands/builtin/budget/Budget.ts），当前消息落到了我这里」；同内容 `stream:false…（全文见 archive/evidence-detail.jsonl#INK-REPL-SLASH-COMMAND-DISPATCH）"
     }
   ]
 }

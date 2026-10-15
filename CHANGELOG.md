@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INK-REPL-SLASH-COMMAND-DISPATCH**：未派发的 `/xxx`（如 `/budget`）不再进模型，统一交全局命令注册表 —— 验证 tc3|ut3|gate6；基线 默认 ink 只硬编码 5 类命令，其余 `/xxx` 落 `streamMessage` 进模型（真机：模型自述命令应由应用层处理）（详情见 archive/evidence-detail.jsonl#INK-REPL-SLASH-COMMAND-DISPATCH）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT**：跨包契约一等公民化（门禁登记 + 三方同值守卫）⇒ 同名常量 2>0 —— 验证 tc0|ut87|gate6；基线 同名常量:DEFAULT_MODEL_SENTINEL 2>0（后端 0 识别点）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE**：删 `xml.ts` 的 `FORK_BOILERPLATE_TAG` 死副本（同义异值）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:FORK_BOILERPLATE_TAG 2>0（独立提交 e464d0655 可 revert）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES**：`TOOL_NAMES`×2 按域消歧（后端生成真源保留 / client 图像注册表改名）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:TOOL_NAMES 2>0（首选名 IMAGE_TOOL_NAMES 已被 ToolExecutionService 占用）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES）

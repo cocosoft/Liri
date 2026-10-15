@@ -4315,6 +4315,17 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":6,"c":"全 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"code#0","i":0,"c":"scripts/lint-consts.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"title","i":0,"c":"ink REPL 接入 `commandExecutor`：未派发的 `/xxx`（如 `/budget`）不再当普通消息进模型，统一交全局命令注册表（与客户端 Terminal 页 / 非流式 HTTP 同一实现）"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"source","i":0,"c":"用户 2026-10-16 指令「按方案 ① 让 ink REPL 接入 commandExecutor」；上溯本轮 t5「核对 budget 口径」时对默认 ink REPL 命令派发链路的静态 + 真机取证"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"reopenWhen","i":0,"c":"改动 ink REPL 输入派发分支或 `app/src/ink/repl/commandDispatch.ts` 时；流式链路（`ChatManager.streamMessage` / `streamMessageFlow`）若新增命令拦截，会与本处形成双轨；另注意 ReplApp 上方硬编码的 `/help`、`/clear`、`/ink`、`"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"reopenWhen","i":1,"c":"/onboard`、`/router*` 五类**仍优先命中**（ink 本地 UX，未并入注册表，判 `/help` 文案过时时需先决定是否让位给注册表）"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"notes","i":0,"c":"① 真机取证（本机 18990，同一条 `/budget status`）：`stream:true` 的 SSE 里**没有**命令输出，模型自述「该斜杠命令由应用层处理（app/src/commands/builtin/budget/Budget.ts），当前消息落到了我这里」；同内容 `stream:false` 逐字返回 `每日预算限额（"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"notes","i":1,"c":"2026-10-16）…`（正向对照）。② 路由事实：全仓唯一派发点 = **非流式** `ChatOrchestrator._handleCommand`；流式两文件（`streamMessageFlow.ts` / `streamMessagePrepare.ts`）`command` 命中数为 0；`app/src/ink` 全目录 `"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"notes","i":2,"c":"commandExecutor|commandRegistry` 命中数为 0。③ 处置：新增 `dispatchSlashCommand`（复用全局 `commandExecutor`，不另立命令表 + 结果整形 message→value→data），ReplApp 在五类硬编码之后加兜底分支，输出以 `role:'system'` 纯文本呈现（避免 "}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"notes","i":3,"c":"MarkdownRenderer 把 `#`/`*` 误当标题与列表项）。④ 未验：ink 渲染层在本机不可实测（`process.stdout.isTTY=false`、仓内无伪终端与 ink 测试库）⇒ `e2eVerified` 保持 false，需真 TTY 复验；同批探针把当日 USD 用量推到 $0.2082（附带证明 USD 记账读侧生效）。"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"code#0","i":0,"c":"app/src/ink/repl/commandDispatch.ts"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"code#1","i":0,"c":"app/src/ink/repl/ReplApp.tsx"}
+{"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"tests#0","i":0,"c":"app/tests/ink/commandDispatch.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

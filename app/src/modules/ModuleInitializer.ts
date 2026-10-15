@@ -449,6 +449,11 @@ export class ModuleInitializer {
       if (!container.has('combinedSessionGateway')) {
         const combinedGateway = createCombinedGateway();
         container.registerInstance('combinedSessionGateway', combinedGateway);
+        // 必须显式 initialize()：Agent 注册只发生在 initialize() 内（未传 gateways 时
+        // 由 autoInitialize 分支注册默认 Agent）。漏掉这步 ⇒ agents 恒空 ⇒ 写入
+        // shared-context 时抛 "No active gateway found"、读取静默返回空，
+        // 共享上下文特性整体失效（写端被 catch 吞、读端无异常，故障不可见）。
+        await combinedGateway.initialize();
         logger.info('CombinedSessionGateway 已注册到 DI 容器');
       }
     } catch (e) {

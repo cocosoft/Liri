@@ -19,6 +19,9 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH**：`MAX_FILENAME_LENGTH`×2 按域消歧（app FS 255 真源保留 / client 导出名 120 改名）⇒ 同名常量 2>0 —— 验证 tc0|ut78|gate6；基线 同名常量:MAX_FILENAME_LENGTH 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-59-MAX-FILENAME-LENGTH）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT**：`DEFAULT_SESSION_TIMEOUT`×2 按域消歧（通用 30min 真源保留 / voice 10min 改名）⇒ 同名常量 2>0 —— 验证 tc0|ut78|gate6；基线 同名常量:DEFAULT_SESSION_TIMEOUT 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS**：`MDM_SUBPROCESS_TIMEOUT_MS` 合一到 mdm 真源（同值同事实 5000）⇒ 同名常量 2>0 —— 验证 tc0|ut78|gate6；基线 同名常量:MDM_SUBPROCESS_TIMEOUT_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES**：`VALID_STATUSES`×2 按域消歧（task 五态 / todo 三态，异值异域）⇒ 同名常量 2>0 —— 验证 tc0|ut75|gate6；基线 同名常量:VALID_STATUSES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS**：`SAFE_ENV_VARS`×2 按域消歧（托管设置 / bash 继承，异值异域；只改名不放宽）⇒ 同名常量 2>0 —— 验证 tc0|ut75|gate6；基线 同名常量:SAFE_ENV_VARS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS**：`AUTOCOMPACT_BUFFER_TOKENS` 合一到真源（同值同事实 13000）⇒ 同名常量 2>0 —— 验证 tc0|ut75|gate6；基线 同名常量:AUTOCOMPACT_BUFFER_TOKENS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）

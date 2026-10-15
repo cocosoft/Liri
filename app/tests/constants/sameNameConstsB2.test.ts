@@ -1581,4 +1581,19 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'return TOOLCALL_EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));'
     );
   });
+
+  test('B5-2㊼：`MARKDOWN_STRUCTURE_RE` 已按域消歧（client/app 异域同值，取值一字未改）', () => {
+    // 同值（正则逐字一致）但属 client/app 异域双轨（裁定 A）⇒ 消歧：
+    // app 服务端 bareExplorationStripper.ts 保留原名真源；client chat-toolcall.slice.ts 改名 CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE
+    const app = read('src/chat/services/bareExplorationStripper.ts');
+    expect(app).toContain('MARKDOWN_STRUCTURE_RE 唯一真源');
+    expect(app).toContain('const MARKDOWN_STRUCTURE_RE =');
+    expect(app).toContain('if (MARKDOWN_STRUCTURE_RE.test(sentence)) return false;');
+    const cli = read('../client/src/stores/chat/chat-toolcall.slice.ts');
+    expect(cli).not.toMatch(/(^|[^_A-Za-z])const MARKDOWN_STRUCTURE_RE\s*=/);
+    expect(cli).toContain('const CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE =');
+    expect(cli).toContain(
+      'if (CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE.test(sentence)) return false;'
+    );
+  });
 });

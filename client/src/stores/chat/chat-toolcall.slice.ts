@@ -1382,8 +1382,12 @@ const TOOLCALL_EXPLORATION_SENTENCE_PATTERNS = [
   /(?:真相大白|看起来|这说明|这表明|出现了|参考目录)/,
 ];
 
-/** Markdown 结构行（标题/列表/引用/代码/图片）——正文标志，不作探索句处理 */
-const MARKDOWN_STRUCTURE_RE =
+/**
+ * B5-2㊼ 按域消歧：MARKDOWN_STRUCTURE_RE 真源在 app/src/chat/services/bareExplorationStripper.ts
+ * （client/app 异域双轨，裁定 A 不可跨轨合一）⇒ 本客户端副本改名 CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE。
+ * Markdown 结构行（标题/列表/引用/代码/图片）——正文标志，不作探索句处理
+ */
+const CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE =
   /^\s*(?:#{1,6}\s|\*\s|-\s|>\s|\d+\.\s|```|`|\[\[|!\[)/;
 
 /** 按句子拆分 content，fenced code block 整体占位保护，保留换行结构 */
@@ -1405,7 +1409,7 @@ function splitSentencesPreservingFences(content: string): string[] {
 /** 判定单个句子是否为"裸探索句" */
 function isBareExplorationSentence(sentence: string): boolean {
   if (!sentence?.trim()) return false;
-  if (MARKDOWN_STRUCTURE_RE.test(sentence)) return false;
+  if (CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE.test(sentence)) return false;
   return TOOLCALL_EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));
 }
 

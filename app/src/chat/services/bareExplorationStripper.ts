@@ -17,7 +17,9 @@
  */
 
 /**
- * 裸探索段信号正则（来自真实会话导出实证）
+ * B5-2㊻：EXPLORATION_SENTENCE_PATTERNS 唯一真源（app 服务端「裸探索句」判定正则）。
+ * 注意：client/stores/chat/chat-toolcall.slice.ts 存在同值副本，因 client/app 异域双轨
+ * （裁定 A）不可跨轨合一 ⇒ 该副本已按域消歧改名 TOOLCALL_EXPLORATION_SENTENCE_PATTERNS。
  * 三类信号：
  *  1. 第一人称操作开头（让我/继续/再/先…）
  *  2. 工具操作反馈（被拦/改用/读完了/确认了/找到了/路径解析…）

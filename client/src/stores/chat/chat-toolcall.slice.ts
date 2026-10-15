@@ -1371,8 +1371,12 @@ export function rebuildBlocksFromContent(
  *  未走 thinking 通道、直接泄漏进正文 —— 收尾时抽离为 thinking 块。
  * =================================================================== */
 
-/** 裸探索句信号正则（真实会话导出 chat-export-*.md 实证） */
-const EXPLORATION_SENTENCE_PATTERNS = [
+/**
+ * B5-2㊻ 按域消歧：EXPLORATION_SENTENCE_PATTERNS 真源在 app/src/chat/services/bareExplorationStripper.ts
+ * （client/app 异域双轨，裁定 A 不可跨轨合一）⇒ 本客户端副本改名 TOOLCALL_EXPLORATION_SENTENCE_PATTERNS。
+ * 裸探索句信号正则（真实会话导出 chat-export-*.md 实证）
+ */
+const TOOLCALL_EXPLORATION_SENTENCE_PATTERNS = [
   /(?:^|[。！？；：])\s*(?:让我(?:先|再|看看|读读|查查|深入)?|我现在|接下来|下一步|继续(?:读|看|挖|深挖|定位|确认|搜索|探索|排查|把|补)|再(?:读|看|挖|深入|确认)|先(?:定位|规划|看看|系统|把|批量)|换个方式|改用|换成|逐一|逐个|批量)/,
   /(?:被拦|被拦截|改用|重试|路径解析|输出被截断|读完了|看完了|确认了|发现了|找到了|拿到了|定位到|列出来了|搜一下|命令被|证据收集完毕|更新任务状态|出(?:正式)?报告|输出报告|链路基本成型|拼图|补上|补齐|汇总新增|这轮|本轮|盲区|还没(?:读|看|碰|覆盖)|找不到|没找到|不在)/,
   /(?:真相大白|看起来|这说明|这表明|出现了|参考目录)/,
@@ -1402,7 +1406,7 @@ function splitSentencesPreservingFences(content: string): string[] {
 function isBareExplorationSentence(sentence: string): boolean {
   if (!sentence?.trim()) return false;
   if (MARKDOWN_STRUCTURE_RE.test(sentence)) return false;
-  return EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));
+  return TOOLCALL_EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));
 }
 
 /**

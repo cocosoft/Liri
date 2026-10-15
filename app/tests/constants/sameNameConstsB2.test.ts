@@ -1562,4 +1562,19 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(c).toContain('const TURN_REVIEW_GUIDELINES = [');
     expect(c).toContain('reviewGuidelines: TURN_REVIEW_GUIDELINES,');
   });
+
+  test('B5-2㊻：`EXPLORATION_SENTENCE_PATTERNS` 已按域消歧（client/app 异域同值，取值一字未改）', () => {
+    // 同值（3 条正则逐字一致）但属 client/app 异域双轨（裁定 A）⇒ 消歧：
+    // app 服务端 bareExplorationStripper.ts 保留原名真源；client chat-toolcall.slice.ts 改名 TOOLCALL_EXPLORATION_SENTENCE_PATTERNS
+    const app = read('src/chat/services/bareExplorationStripper.ts');
+    expect(app).toContain('EXPLORATION_SENTENCE_PATTERNS 唯一真源');
+    expect(app).toContain('const EXPLORATION_SENTENCE_PATTERNS = [');
+    expect(app).toContain('EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence))');
+    const cli = read('../client/src/stores/chat/chat-toolcall.slice.ts');
+    expect(cli).not.toMatch(/(^|[^_A-Za-z])const EXPLORATION_SENTENCE_PATTERNS\s*=/);
+    expect(cli).toContain('const TOOLCALL_EXPLORATION_SENTENCE_PATTERNS = [');
+    expect(cli).toContain(
+      'return TOOLCALL_EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));'
+    );
+  });
 });

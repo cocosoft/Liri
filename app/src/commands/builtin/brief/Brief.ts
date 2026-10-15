@@ -101,7 +101,7 @@ export class BriefCommand {
     const recentMessages = messages.slice(-messageCount);
 
     if (recentMessages.length === 0) {
-      return '## 会话摘要\n\n当前会话暂无消息。';
+      return '会话摘要\n\n当前会话暂无消息。';
     }
 
     const keyPoints = this.extractKeyPoints(recentMessages);
@@ -109,7 +109,7 @@ export class BriefCommand {
     const actionItems = this.extractActionItems(recentMessages);
 
     let summary = '';
-    const header = `## 会话摘要\n\n`;
+    const header = `会话摘要\n\n`;
     const remainingLength = maxLength - header.length;
 
     switch (summaryType) {

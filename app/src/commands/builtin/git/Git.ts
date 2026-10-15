@@ -344,7 +344,7 @@ export class GitCommand {
       output += '\n';
 
       if (status.staged.length > 0) {
-        output += '### 已暂存文件\n\n';
+        output += '已暂存文件\n\n';
         for (const file of status.staged) {
           output += `  + ${file}\n`;
         }
@@ -352,7 +352,7 @@ export class GitCommand {
       }
 
       if (status.modified.length > 0) {
-        output += '### 已修改文件\n\n';
+        output += '已修改文件\n\n';
         for (const file of status.modified) {
           output += `  ~ ${file}\n`;
         }
@@ -360,7 +360,7 @@ export class GitCommand {
       }
 
       if (status.untracked.length > 0) {
-        output += '### 未跟踪文件\n\n';
+        output += '未跟踪文件\n\n';
         for (const file of status.untracked) {
           output += `  ? ${file}\n`;
         }
@@ -411,10 +411,10 @@ export class GitCommand {
     const currentBranch = (await this.execGit('git branch --show-current'))
       .stdout;
 
-    let output = '## Git 分支\n\n';
+    let output = 'Git 分支\n\n';
 
     if (isRemote) {
-      output += '### 远程分支\n\n';
+      output += '远程分支\n\n';
       branches
         .filter((b) => b.startsWith('  remotes/'))
         .forEach((branch) => {
@@ -427,7 +427,7 @@ export class GitCommand {
           }
         });
     } else {
-      output += '### 本地分支\n\n';
+      output += '本地分支\n\n';
       branches.forEach((branch) => {
         const name = branch.replace(/^\*?\s*/, '');
         const isCurrent = branch.startsWith('*');
@@ -461,7 +461,7 @@ export class GitCommand {
       return { type: 'error', value: result.stderr };
     }
 
-    let output = `## Git 提交历史 (最近 ${limit} 条)\n\n`;
+    let output = `Git 提交历史 (最近 ${limit} 条)\n\n`;
 
     if (file) {
       output += `文件: ${file}\n\n`;
@@ -494,7 +494,7 @@ export class GitCommand {
       return { type: 'error', value: result.stderr };
     }
 
-    let output = isStaged ? '## 暂存区差异\n\n' : '## 工作区差异\n\n';
+    let output = isStaged ? '暂存区差异\n\n' : '工作区差异\n\n';
 
     if (isStat) {
       const stats = result.stdout.split('\n').filter(Boolean);
@@ -525,7 +525,7 @@ export class GitCommand {
 
     if (isList) {
       const result = await this.execGit('git stash list');
-      let output = '## Git Stash\n\n';
+      let output = 'Git Stash\n\n';
 
       if (!result.stdout) {
         output += '没有保存的stash\n';
@@ -589,7 +589,7 @@ export class GitCommand {
       const result = await this.execGit(
         isVerbose ? 'git remote -v' : 'git remote'
       );
-      let output = '## Git 远程仓库\n\n';
+      let output = 'Git 远程仓库\n\n';
 
       if (!result.stdout) {
         output += '没有配置远程仓库\n';
@@ -616,7 +616,7 @@ export class GitCommand {
 
     if (isList) {
       const result = await this.execGit('git worktree list');
-      let output = '## Git Worktree\n\n';
+      let output = 'Git Worktree\n\n';
 
       const trees = result.stdout.split('\n').filter(Boolean);
       trees.forEach((tree) => {
@@ -649,10 +649,10 @@ export class GitCommand {
       }
 
       let output = isStatus
-        ? '## 子模块状态\n\n'
+        ? '子模块状态\n\n'
         : isInit
-          ? '## 初始化子模块\n\n'
-          : '## 更新子模块\n\n';
+          ? '初始化子模块\n\n'
+          : '更新子模块\n\n';
 
       output +=
         result.stdout
@@ -685,7 +685,7 @@ export class GitCommand {
 
     if (isList) {
       const result = await this.execGit('git tag --list');
-      let output = '## Git 标签\n\n';
+      let output = 'Git 标签\n\n';
 
       if (!result.stdout) {
         output += '没有标签\n';
@@ -711,7 +711,7 @@ export class GitCommand {
       this.execGit('git rev-parse --show-toplevel'),
     ]);
 
-    let output = '## Git 仓库信息\n\n';
+    let output = 'Git 仓库信息\n\n';
     output += `分支: ${branchResult.stdout || '( detached )'}\n`;
     output += `仓库根目录: ${rootResult.stdout || this.gitRoot}\n`;
 
@@ -733,7 +733,7 @@ export class GitCommand {
   }
 
   private showShortcut(): GitResult {
-    let output = '## Git 常用命令快捷方式\n\n';
+    let output = 'Git 常用命令快捷方式\n\n';
     output += '| 快捷方式 | 完整命令 | 说明 |\n';
     output += '|---------|---------|------|\n';
     output += '| /git s  | /git status | 显示状态 |\n';
@@ -745,10 +745,10 @@ export class GitCommand {
   }
 
   private showHelp(): GitResult {
-    let output = `## /git 命令 - Git操作封装
+    let output = `/git 命令 - Git操作封装
 
 
-### 子命令
+子命令
 
 | 子命令 | 说明 |
 |--------|------|
@@ -764,7 +764,7 @@ export class GitCommand {
 | info | 显示仓库信息 |
 | shortcut | 显示快捷方式 |
 
-### 选项
+选项
 
 通用选项:
   --short, -s    简洁输出
@@ -772,7 +772,7 @@ export class GitCommand {
   --stat         显示统计信息
   --file=<文件>  指定文件
 
-### 使用示例
+使用示例
 
 /git status           - 查看工作区状态
 /git status --short   - 简洁模式
@@ -783,7 +783,7 @@ export class GitCommand {
 /git info             - 显示仓库信息
 /git shortcut         - 显示快捷方式
 
-### 快捷方式
+快捷方式
 
 /git s  = /git status
 /git b  = /git branch

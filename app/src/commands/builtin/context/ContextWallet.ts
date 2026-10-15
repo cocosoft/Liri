@@ -53,11 +53,7 @@ export interface WalletBreakdown {
 
 /** 优化建议类型 */
 export type SuggestionType =
-  | 'compact'
-  | 'trim_tools'
-  | 'enable_cache'
-  | 'route_cheaper'
-  | 'near_limit';
+  'compact' | 'trim_tools' | 'enable_cache' | 'route_cheaper' | 'near_limit';
 
 /** 优化建议 */
 export interface WalletSuggestion {
@@ -296,10 +292,10 @@ export function generateContextSuggestions(
 
 /** 格式化钱包分解为可读文本 */
 export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
-  const lines: string[] = ['## 上下文钱包', ''];
+  const lines: string[] = ['上下文钱包', ''];
 
   // Session summary
-  lines.push('### 会话概览');
+  lines.push('会话概览');
   lines.push(`| 指标 | 值 |`);
   lines.push(`|------|-----|`);
   lines.push(`| 会话 ID | ${breakdown.sessionId} |`);
@@ -314,7 +310,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
   lines.push('');
 
   // Token breakdown
-  lines.push('### Token 分解');
+  lines.push('Token 分解');
   lines.push(`| 类别 | Token 数 | 占比 |`);
   lines.push(`|------|---------|------|`);
   const total = breakdown.totalTokens || 1;
@@ -340,7 +336,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
   lines.push('');
 
   // Cost & savings
-  lines.push('### 成本');
+  lines.push('成本');
   lines.push(`- 估计成本: $${breakdown.estimatedCostUsd.toFixed(6)}`);
   if (breakdown.cacheSavingsUsd > 0) {
     lines.push(`- 缓存节省: $${breakdown.cacheSavingsUsd.toFixed(6)}`);
@@ -354,7 +350,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
 
   // Per-model breakdown
   if (breakdown.models.length > 0) {
-    lines.push('### 各模型明细');
+    lines.push('各模型明细');
     lines.push(`| 模型 | 请求 | 输入 | 输出 | 成本 |`);
     lines.push(`|------|------|------|------|------|`);
     for (const m of breakdown.models.slice(0, 10)) {
@@ -367,7 +363,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
 
   // Suggestions
   if (breakdown.suggestions.length > 0) {
-    lines.push('### 优化建议');
+    lines.push('优化建议');
     for (const s of breakdown.suggestions) {
       const icon =
         s.severity === 'critical'
@@ -380,7 +376,7 @@ export function formatWalletBreakdown(breakdown: WalletBreakdown): string {
       lines.push('');
     }
   } else {
-    lines.push('### 优化建议');
+    lines.push('优化建议');
     lines.push('✅ 上下文使用健康，暂无优化建议。');
     lines.push('');
   }

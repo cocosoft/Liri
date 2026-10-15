@@ -214,11 +214,11 @@ export class CommitCommand {
   private async showGitStatus(): Promise<CommitResult> {
     const info = await this.getGitInfo();
 
-    let output = '## Git 状态\n\n';
+    let output = 'Git 状态\n\n';
     output += `分支: ${info.branch}\n\n`;
 
     if (info.stagedFiles.length > 0) {
-      output += '### 已暂存文件\n\n';
+      output += '已暂存文件\n\n';
       for (const file of info.stagedFiles) {
         output += `- ${file}\n`;
       }
@@ -226,7 +226,7 @@ export class CommitCommand {
     }
 
     if (info.modifiedFiles.length > 0) {
-      output += '### 已修改文件\n\n';
+      output += '已修改文件\n\n';
       for (const file of info.modifiedFiles) {
         output += `- ${file}\n`;
       }
@@ -234,7 +234,7 @@ export class CommitCommand {
     }
 
     if (info.untrackedFiles.length > 0) {
-      output += '### 未跟踪文件\n\n';
+      output += '未跟踪文件\n\n';
       for (const file of info.untrackedFiles) {
         output += `- ${file}\n`;
       }
@@ -275,18 +275,18 @@ export class CommitCommand {
       };
     }
 
-    let output = '## 智能Git提交\n\n';
+    let output = '智能Git提交\n\n';
 
     output += `当前分支: ${info.branch}\n\n`;
 
-    output += '### 安全协议\n\n';
+    output += '安全协议\n\n';
     for (const rule of SAFETY_RULES) {
       output += `- ${rule}\n`;
     }
     output += '\n';
 
     if (info.stagedFiles.length > 0) {
-      output += '### 已暂存文件 (' + info.stagedFiles.length + ')\n\n';
+      output += '已暂存文件 (' + info.stagedFiles.length + ')\n\n';
       for (const file of info.stagedFiles.slice(0, 10)) {
         output += `- ${file}\n`;
       }
@@ -297,7 +297,7 @@ export class CommitCommand {
     }
 
     if (info.modifiedFiles.length > 0) {
-      output += '### 未暂存文件 (' + info.modifiedFiles.length + ')\n\n';
+      output += '未暂存文件 (' + info.modifiedFiles.length + ')\n\n';
       for (const file of info.modifiedFiles.slice(0, 10)) {
         output += `- ${file}\n`;
       }
@@ -308,7 +308,7 @@ export class CommitCommand {
     }
 
     if (info.untrackedFiles.length > 0) {
-      output += '### 未跟踪文件 (' + info.untrackedFiles.length + ')\n\n';
+      output += '未跟踪文件 (' + info.untrackedFiles.length + ')\n\n';
       for (const file of info.untrackedFiles.slice(0, 10)) {
         output += `- ${file}\n`;
       }
@@ -318,13 +318,13 @@ export class CommitCommand {
       output += '\n';
     }
 
-    output += '### 提交类型\n\n';
+    output += '提交类型\n\n';
     for (const type of COMMIT_TYPES) {
       output += `- ${type.name}: ${type.description}\n`;
     }
     output += '\n';
 
-    output += '### 使用方法\n\n';
+    output += '使用方法\n\n';
     output += '```\n';
     output += '/commit "fix: 修复登录问题"\n';
     output += '/commit "feat: 添加新功能"\n';
@@ -345,12 +345,12 @@ export class CommitCommand {
   private async showCommitPreview(message: string): Promise<CommitResult> {
     const info = await this.getGitInfo();
 
-    let output = '## 提交预览 (Dry Run)\n\n';
+    let output = '提交预览 (Dry Run)\n\n';
     output += `分支: ${info.branch}\n`;
     output += `提交信息: ${message}\n\n`;
 
     if (info.stagedFiles.length > 0) {
-      output += '### 将要提交的文件\n\n';
+      output += '将要提交的文件\n\n';
       for (const file of info.stagedFiles) {
         output += `+ ${file}\n`;
       }
@@ -359,7 +359,7 @@ export class CommitCommand {
     }
 
     if (info.modifiedFiles.length > 0) {
-      output += '\n### 未暂存的文件（不会被提交）\n\n';
+      output += '\n未暂存的文件（不会被提交）\n\n';
       for (const file of info.modifiedFiles.slice(0, 5)) {
         output += `- ${file}\n`;
       }
@@ -469,17 +469,17 @@ export class CommitCommand {
    * 显示帮助信息
    */
   showHelp(): CommitResult {
-    let output = '## /commit 命令 - 智能Git提交\n\n';
+    let output = '/commit 命令 - 智能Git提交\n\n';
     output += '分析当前Git状态，智能引导完成提交操作。\n\n';
 
-    output += '### 选项\n\n';
+    output += '选项\n\n';
     output += '- `--status`     - 显示详细的Git状态\n';
     output += '- `--all`        - 暂存所有已跟踪文件的变更\n';
     output += '--dry-run`      - 预览提交（不实际执行）\n';
     output += '--no-verify`    - 跳过pre-commit hooks（不推荐）\n';
     output += '--amend`        - 修改最后一次提交（不推荐）\n\n';
 
-    output += '### 使用示例\n\n';
+    output += '使用示例\n\n';
     output += '```\n';
     output += '/commit --status\n';
     output += '/commit "feat: 添加新功能"\n';
@@ -487,12 +487,12 @@ export class CommitCommand {
     output += '/commit --dry-run "refactor: 重构代码"\n';
     output += '```\n\n';
 
-    output += '### 安全协议\n\n';
+    output += '安全协议\n\n';
     for (const rule of SAFETY_RULES) {
       output += `- ${rule}\n`;
     }
 
-    output += '\n### 提交类型\n\n';
+    output += '\n提交类型\n\n';
     for (const type of COMMIT_TYPES) {
       output += `- ${type.name}: ${type.description}\n`;
     }

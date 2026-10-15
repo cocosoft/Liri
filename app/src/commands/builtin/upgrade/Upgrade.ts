@@ -135,7 +135,7 @@ export default {
     const changelogText = changelog
       .map(
         (entry) =>
-          `\n## ${entry.version} (${entry.date})\n` +
+          `\n${entry.version} (${entry.date})\n` +
           `${entry.changes.map((c) => `- ${c}`).join('\n')}`
       )
       .join('\n');

@@ -235,7 +235,7 @@ export class CompleteCommand {
     const frequent = commandCompletionManager.getFrequentlyUsedCommands();
 
     const stats = [
-      '## 补全统计 ##',
+      '补全统计',
       '',
       `最近命令数: ${recent.length}`,
       `常用命令数: ${frequent.length}`,
@@ -279,7 +279,7 @@ export class CompleteCommand {
   private showHelp(): CompleteResult {
     return {
       type: 'text',
-      value: `## /complete 命令 - 命令自动补全
+      value: `/complete 命令 - 命令自动补全
 
 用法: /complete <子命令> [选项]
 

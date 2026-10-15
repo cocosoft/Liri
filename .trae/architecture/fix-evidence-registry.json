@@ -7310,7 +7310,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "app/src/query/DailyBudgetManager.ts",
@@ -7333,6 +7333,32 @@
       "changelog": [],
       "reopenWhen": "① 若再次观测到「金额未越界却被拒发」或「金额已越界却放行」（哨兵：dailyBudgetGate:decision 日志的 primary.exceeded 与 allowed 不一致）；② 若新增准入点直接读 mode / 绕过 checkDailyBudget（哨兵：源码守卫 `tokenAllowed && …（全文见 archive/evidence-detail.jsonl#BUDGET-USD-PRIMARY）",
       "notes": "① **动机（真机实证）**：Token 计数在本仓是「所有请求的上下文搬运总量」—— 含 cache_read（该 provider 的 input_tokens ≡ cache_read + cache_create，占比 100%）、且 agentic 每轮重发全上下文。2026-10-15 实测：token …（全文见 archive/evidence-detail.jsonl#BUDGET-USD-PRIMARY）"
+    },
+    {
+      "id": "BUDGET-USD-STREAM-LEDGER",
+      "title": "流式主链 USD 台账漏记修复：StreamPipeline 补传 model 参（12,691 tokens 真实调用仅入账 $0）+ 债四 S3 真机端到端复核",
+      "source": "真机端到端复核（2026-10-15，用户裁定「先处理1」）+ 日志取证 ~/.pyapp/data/logs/app.log 的 dailyBudget:usd_skip（meta.model=null）；上位口径见 .trae/specs/unified-budget-and-accounting.md（D1/S3/Q-U5）与同批 BUDGET-US…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/chat/pipeline/StreamPipeline.ts"
+      ],
+      "tests": [
+        "app/tests/budget/usdLedgerModelArgGuard.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若再次观测到「真实调用发生而 usedUsd 不变」（哨兵：日志 dailyBudget:usd_skip 出现且 meta.model 为空）；② 若新增/改动 LLM 响应记账调用点（recordChatResponseUsage / recordDailyBudgetFromUsage / recordTu…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-STREAM-LEDGER）",
+      "notes": "① **真机 E2E 五步（债四 S3 主口径切金额，2026-10-15；应用经 --watch 热重启加载新代码，PID 36876）**：**(S1) 制限**：DELETE /relief + PUT {dailyLimitUSD:0.5} ⇒ GET 返回 unit=usd、mode=locked、used…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-STREAM-LEDGER）"
     }
   ]
 }

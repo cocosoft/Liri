@@ -3951,6 +3951,27 @@
 {"id":"BUDGET-USD-PRIMARY","k":"tests#2","i":0,"c":"app/tests/http/daily-budget-handlers.test.ts"}
 {"id":"BUDGET-USD-PRIMARY","k":"tests#3","i":0,"c":"client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"}
 {"id":"BUDGET-USD-PRIMARY","k":"tests#4","i":0,"c":"client/src/components/ChatArea/__tests__/DailyLimitNotice.test.tsx"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"title","i":0,"c":"流式主链 USD 台账漏记修复：StreamPipeline 补传 model 参（12,691 tokens 真实调用仅入账 $0）+ 债四 S3 真机端到端复核"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"source","i":0,"c":"真机端到端复核（2026-10-15，用户裁定「先处理1」）+ 日志取证 ~/.pyapp/data/logs/app.log 的 dailyBudget:usd_skip（meta.model=null）；上位口径见 .trae/specs/unified-budget-and-accounting.md（D1/S3/Q-U5）与同批 "}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"source","i":1,"c":"BUDGET-USD-PRIMARY"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"reopenWhen","i":0,"c":"① 若再次观测到「真实调用发生而 usedUsd 不变」（哨兵：日志 dailyBudget:usd_skip 出现且 meta.model 为空）；② 若新增/改动 LLM 响应记账调用点（recordChatResponseUsage / recordDailyBudgetFromUsage / recordTurnCostUsd）时未显式传模型名，本条"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"reopenWhen","i":1,"c":"守卫会红；③ 若「入账金额 vs provider 自报 estimated_cost_usd」偏差需收敛为同一口径（本次实测约 1.96×），按 §6-1「同源」重开；④ 若决定把**非流式** /v1/chat/completions 也纳入日预算闸门（本次发现该路径未经闸门），须补判定点并复跑本 E2E。"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":0,"c":"① **真机 E2E 五步（债四 S3 主口径切金额，2026-10-15；应用经 --watch 热重启加载新代码，PID 36876）**：**(S1) 制限**：DELETE /relief + PUT {dailyLimitUSD:0.5} ⇒ GET 返回 unit=usd、mode=locked、used=0.863076、"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":1,"c":"dailyLimit=0.5、percentUsed=1.7262（金额为唯一判据）。**(S2) 真实入口拦截**：POST /v1/translate ⇒ 500 且文案 `今日金额预算已用完（已用 $0.8631 / 上限 $0.50），为避免超额，本次未调用模型。` —— 货币口径（formatBudgetExhausted(unit=usd)）如实"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":2,"c":"生效。**(S3) 流式主链拦截**（客户端主路径）：POST /v1/chat/completions {stream:true, session_id} ⇒ SSE 末块 `__pyapp_error_code:\"DAILY_BUDGET_EXCEEDED\"` + 同款金额文案。**(S4) relief 放行**：POST /relief {"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":3,"c":"unlock-today} ⇒ effectiveLimit=2.5（= 0.5×5，基座换 USD，Q-U10）、mode=normal；同一流式调用**真实跑通**（`usage.prompt_tokens 12700 / completion_tokens 12 / estimated_cost_usd 0.002649`）。**(S5) 回退路径**"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":4,"c":"：PUT {dailyLimitUSD:null} ⇒ unit=tokens、mode=locked、dailyLimit=2500000（= Token 基数 50 万 ×5）、limitUsd=null；同一入口文案回到 `今日 Token 预算已用完（已用 13198792 / 上限 2500000）` ⇒ 未配金额上限时**保护不失效**（§225"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":5,"c":" 回退②）。② **E2E 顺带发现（本条修复对象）**：S4 的真实调用使 `todayUsed` 正确 +12,712，而 **`usedUsd` 纹丝不动**（$0）。日志取证：`dailyBudget:usd_skip — 模型名不可得，跳过金额记账 meta:{sessionId, model:null}` —— 该 warn 正是同批把日志从 "}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":6,"c":"debug 升 warn 后才可见。③ **根因**：`StreamPipeline.recordUsage` 调 `ctx.recordChatResponseUsage(session.id, finalResponse?.usage, this.ctx.requestId)` **漏传第 4 参 model**，而紧随其后的 `trackUsage("}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":7,"c":"...)` 对**同一个响应**已算出模型名 ⇒ 同一事实在该处可得，只是没传。与 `Chat.ts`（同批已修）**同类缺陷**：调用点漏传，账本本身无错。④ **修法**：把模型解析提为 `const turnModel = extractModelFromResponse(finalResponse ?? {}, options?.model || '"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":8,"c":"unknown')`，**同一值**喂给金额台账与 `trackUsage`（CS01 数出同源，不新增实现、不新增取值点）。⑤ **修复后复测**：同一真实调用 ⇒ `usedUsd +0.005174`（0.863076 → 0.86825），与 `todayUsed +12691` 同步入账（修复前为 +0）。⑥ **如实观察（未改）**：入账 "}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":9,"c":"$0.005174 vs provider 自报 `estimated_cost_usd` $0.002641 ≈ **1.96×** —— 属**计价口径差异**（本仓 calculateTotalCost + 缓存兜底 vs provider 自报），**不是漏记**；是否收敛为同一口径另议（reopenWhen ③）。⑦ **顺带发现（未改，需裁定）"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":10,"c":"**：`POST /v1/chat/completions` **非流式**路径（handleNormalChat → coreAPI.chat → llmChatOps.chat）**不经**日预算闸门（实测 locked 态下返回 provider 错误而非预算拒绝）；**流式**路径经 `coreAPI.chatStream`（"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":11,"c":"CoreAPIImpl.ts:619）委派 `ChatManager.streamMessage` ⇒ 有闸门。该形状为**预存**（非本批引入），是否补齐请裁定（reopenWhen ④）。⑧ **验证**：守卫 5 例 pass（CLI 2 例 + 流式主链 3 例，含负向防回流与「单一取值点」断言）；app typecheck exit 0；6 门禁族"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":12,"c":"全 exit 0。⑨ 现场已复原（limitUsd=10、relief=unlock-today、mode=normal），E2E 会话（2 个）均已删除。⑩ **e2eVerified=true 依据**：本条与 `BUDGET-USD-PRIMARY` 共享同一次真机 E2E（S1–S5），PRIMARY 的 `e2eVerified` 亦据此处证据置真"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"notes","i":13,"c":"。"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"code#0","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
+{"id":"BUDGET-USD-STREAM-LEDGER","k":"tests#0","i":0,"c":"app/tests/budget/usdLedgerModelArgGuard.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

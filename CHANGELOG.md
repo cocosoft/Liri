@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BUDGET-USD-STREAM-LEDGER**：流式主链 USD 台账漏记修复（StreamPipeline 补传 model）+ 债四 S3 真机端到端复核 —— 验证 tc0|ut5|e2e5|arch0|gate6；基线 12,691 tokens 真实调用 usedUsd 增量为 0（dailyBudget:usd_skip model=null）（详情见 archive/evidence-detail.jsonl#BUDGET-USD-STREAM-LEDGER）
 - ✅ **BUDGET-USD-PRIMARY**：日预算闸门主口径切金额（债四 S3）：Token 轨降级为观测告警，USD 为唯一硬闸门 —— 验证 tc0|ut33|arch0|gate6；基线 token 基数 50 万 vs 当日 13,186,080（26.4×）⇒ 恒 locked、闸门空转（详情见 archive/evidence-detail.jsonl#BUDGET-USD-PRIMARY）
 - ✅ **BUDGET-USD-RESTORE**：USD 台账重启即清零修复（restore 补透传 usedUsd/debtUsd）+ 闸门 USD_BUDGET_GATE 默认开 —— 验证 tc0|ut3|arch0|gate6；基线 状态文件 usedUsd=0.863076 vs API usedUsd:0（详情见 archive/evidence-detail.jsonl#BUDGET-USD-RESTORE）
 - ✅ **BUDGET-GHOST-RESUME**：Durable Resume 过滤 phase=completed 检查点（根除会话轮次/消息反复累加） —— 验证 tc0|ut3|arch0|gate6；基线 diag-budget-gate-2 已完成检查点当日被恢复 8 次（详情见 archive/evidence-detail.jsonl#BUDGET-GHOST-RESUME）

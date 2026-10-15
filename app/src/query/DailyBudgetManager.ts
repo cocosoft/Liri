@@ -431,6 +431,22 @@ export class DailyBudgetManager {
     }
     this._schedulePersist();
     this._observeModeTransition(this._computeState());
+    // 2026-10-15（可观测性修复）：放行**必须留痕**。
+    // 原实现与 `clearRelief()` 不对称 —— 撤销有 `relief_revoked`，**放行侧却静默**：真机
+    // `daily-budget-state.json` 出现 `relief.kind="unlock-today"`（放行至日界）而 app.log
+    // 对 `relief` 零命中 ⇒ 无法追溯"何时放行了什么"，当日日限额整体不拦截却查无来路。
+    const appliedExpiresAt =
+      input.kind === 'waive-once'
+        ? (this.waiveOncePending?.expiresAt ?? null)
+        : (this.reliefState?.expiresAt ?? null);
+    logger.info('dailyBudget:relief_applied', {
+      kind: input.kind,
+      // `unlock-today` ⇒ 至**日界**（null 即"至日界"语义，与 `ReliefView.expiresAt` 一致）
+      expiresAt: appliedExpiresAt,
+      effectiveLimit: this._effectiveLimit(),
+      todayUsed: this.todayUsed,
+      usedUsd: this.usedUsd,
+    });
     // D7（Task 7）：通知进程内唤醒端口（**仅显式放行成功后**触发 ⇒ 构成因果判别）。
     this._emitReliefApplied(input.kind);
     return this._reliefView();

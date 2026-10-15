@@ -7,7 +7,7 @@ import type { ScheduledTask } from '../types';
 
 const logger = getLogger('chronos:service:sqliteCronStore');
 
-const TABLE = 'scheduled_tasks';
+const SCHEDULED_TASKS_TABLE = 'scheduled_tasks';
 const RUNS_TABLE = 'cron_runs';
 
 interface TaskRow {
@@ -109,7 +109,7 @@ export class SqliteCronStore {
     await new Promise<void>((resolve, reject) => {
       this.db!.exec(
         `
-        CREATE TABLE IF NOT EXISTS ${TABLE} (
+        CREATE TABLE IF NOT EXISTS ${SCHEDULED_TASKS_TABLE} (
           id TEXT PRIMARY KEY,
           cron TEXT NOT NULL,
           prompt TEXT NOT NULL,
@@ -123,8 +123,8 @@ export class SqliteCronStore {
           metadata TEXT
         );
 
-        CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_cron ON ${TABLE}(cron);
-        CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_created ON ${TABLE}(created_at);
+        CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_cron ON ${SCHEDULED_TASKS_TABLE}(cron);
+        CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_created ON ${SCHEDULED_TASKS_TABLE}(created_at);
 
         CREATE TABLE IF NOT EXISTS ${RUNS_TABLE} (
           id TEXT PRIMARY KEY,
@@ -135,7 +135,7 @@ export class SqliteCronStore {
           exit_code INTEGER,
           output TEXT,
           error TEXT,
-          FOREIGN KEY (task_id) REFERENCES ${TABLE}(id)
+          FOREIGN KEY (task_id) REFERENCES ${SCHEDULED_TASKS_TABLE}(id)
         );
 
         CREATE INDEX IF NOT EXISTS idx_cron_runs_task_id ON ${RUNS_TABLE}(task_id);
@@ -155,7 +155,7 @@ export class SqliteCronStore {
 
     const rows = await new Promise<TaskRow[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${TABLE} ORDER BY created_at DESC`,
+        `SELECT * FROM ${SCHEDULED_TASKS_TABLE} ORDER BY created_at DESC`,
         (err, rows) => {
           if (err) reject(err);
           else resolve((rows || []) as TaskRow[]);
@@ -171,7 +171,7 @@ export class SqliteCronStore {
 
     const row = await new Promise<TaskRow | undefined>((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${TABLE} WHERE id = ?`,
+        `SELECT * FROM ${SCHEDULED_TASKS_TABLE} WHERE id = ?`,
         [taskId],
         (err, row) => {
           if (err) reject(err);
@@ -193,7 +193,7 @@ export class SqliteCronStore {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `INSERT OR REPLACE INTO ${TABLE} (${keys.join(', ')})
+        `INSERT OR REPLACE INTO ${SCHEDULED_TASKS_TABLE} (${keys.join(', ')})
          VALUES (${placeholders})`,
         values,
         (err) => {
@@ -223,7 +223,7 @@ export class SqliteCronStore {
     });
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE} WHERE id IN (${placeholders})`,
+        `DELETE FROM ${SCHEDULED_TASKS_TABLE} WHERE id IN (${placeholders})`,
         ids,
         (err) => {
           if (err) reject(err);
@@ -241,7 +241,7 @@ export class SqliteCronStore {
     const placeholders = ids.map(() => '?').join(', ');
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `UPDATE ${TABLE} SET last_fired_at = ? WHERE id IN (${placeholders})`,
+        `UPDATE ${SCHEDULED_TASKS_TABLE} SET last_fired_at = ? WHERE id IN (${placeholders})`,
         [firedAt, ...ids],
         (err) => {
           if (err) reject(err);
@@ -274,7 +274,7 @@ export class SqliteCronStore {
     values.push(taskId);
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `UPDATE ${TABLE} SET ${setClauses.join(', ')} WHERE id = ?`,
+        `UPDATE ${SCHEDULED_TASKS_TABLE} SET ${setClauses.join(', ')} WHERE id = ?`,
         values,
         (err) => {
           if (err) reject(err);
@@ -290,10 +290,13 @@ export class SqliteCronStore {
 
     const row = await new Promise<{ count: number } | undefined>(
       (resolve, reject) => {
-        this.db!.get(`SELECT COUNT(*) as count FROM ${TABLE}`, (err, row) => {
-          if (err) reject(err);
-          else resolve(row as { count: number } | undefined);
-        });
+        this.db!.get(
+          `SELECT COUNT(*) as count FROM ${SCHEDULED_TASKS_TABLE}`,
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row as { count: number } | undefined);
+          }
+        );
       }
     );
     return row?.count ?? 0;

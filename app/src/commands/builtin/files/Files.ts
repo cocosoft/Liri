@@ -11,7 +11,7 @@ const logger = getLogger('commands:builtin:files:Files');
  * 防止遍历巨型目录（node_modules 等）、符号链接循环或超深层级导致卡死/误删。
  */
 const FILES_MAX_DEPTH = 4;
-const SKIP_DIRS = new Set([
+const FILES_SKIP_DIRS = new Set([
   'node_modules',
   'dist',
   '.git',
@@ -33,7 +33,7 @@ function shouldSkipEntry(
 ): boolean {
   if (stat.isSymbolicLink()) return true;
   if (!stat.isDirectory()) return false;
-  return depth > FILES_MAX_DEPTH || SKIP_DIRS.has(name);
+  return depth > FILES_MAX_DEPTH || FILES_SKIP_DIRS.has(name);
 }
 
 export default {

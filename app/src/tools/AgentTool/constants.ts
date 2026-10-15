@@ -76,3 +76,11 @@ export const BUILTIN_AGENTS = {
     supportBackground: false,
   },
 };
+
+/**
+ * 内置 Agent **类型名**列表 —— 真源 = {@link BUILTIN_AGENTS} 的**键**（不另抄一份名单）。
+ *
+ * 消费方：CLI `agent` / `agents` 两个命令的帮助文本与 `--type` 校验（原各自内联同值数组
+ * ⇒ 同名常量重复；改由本真源派生，新增内置类型时两侧自动一致）。
+ */
+export const AGENT_TYPES = Object.keys(BUILTIN_AGENTS);

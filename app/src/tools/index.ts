@@ -365,6 +365,8 @@ export { ImageUrlHelper } from './ImageUrlHelper';
 export { ParallelExecutor } from './executor/ParallelExecutor';
 export { ToolCallPartitioner } from './orchestration/Partitioner';
 export { SubAgentEngine, getSubAgentEngine } from './AgentTool/SubAgentEngine';
+// 内置 Agent 类型名真源（= `BUILTIN_AGENTS` 的键）：CLI `agent`/`agents` 命令复用同一份名单
+export { AGENT_TYPES } from './AgentTool/constants';
 export type { SkillDefinition } from './SkillTool/types';
 
 // 2026-10-02 R02-002 收敛：ToolSearchOutput 数据契约唯一落点（zod 推导）

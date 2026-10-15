@@ -1649,6 +1649,54 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
   });
 
+  // 51+ 无圈码字形 ⇒ 沿用台账 ASCII 编号（`B5-2-<n>-<SLUG>`）
+  test('B5-2-51：`TABLE` ×2 已按域消歧（异值异域：定时任务表 / 人设绑定表，取值一字未改）', () => {
+    const cron = read('src/chronos/service/SqliteCronStore.ts');
+    expect(cron).not.toMatch(/(^|[^_A-Za-z])const TABLE\s*=/);
+    expect(cron).toContain("const SCHEDULED_TASKS_TABLE = 'scheduled_tasks';");
+    expect(cron).toContain(
+      'CREATE TABLE IF NOT EXISTS ${SCHEDULED_TASKS_TABLE} ('
+    );
+    const persona = read('src/core/persona/PersonaService.ts');
+    expect(persona).not.toMatch(/(^|[^_A-Za-z])const TABLE\s*=/);
+    expect(persona).toContain(
+      "const PERSONA_BINDINGS_TABLE = 'persona_bindings';"
+    );
+    expect(persona).toContain(
+      'CREATE TABLE IF NOT EXISTS ${PERSONA_BINDINGS_TABLE} ('
+    );
+  });
+
+  test('B5-2-52：`SKIP_DIRS` ×2 已按域消歧（异值异域：插件安全扫描 / files 递归守卫；搜索工具另有真源 searchSkipDirs.ts）', () => {
+    const plugin = read('src/plugins/utils/pluginSecurityScanner.ts');
+    expect(plugin).not.toMatch(/(^|[^_A-Za-z])const SKIP_DIRS\s*=/);
+    expect(plugin).toContain('const PLUGIN_SCAN_SKIP_DIRS = [');
+    expect(plugin).toContain('!PLUGIN_SCAN_SKIP_DIRS.includes(entry.name)');
+    const files = read('src/commands/builtin/files/Files.ts');
+    expect(files).not.toMatch(/(^|[^_A-Za-z])const SKIP_DIRS\s*=/);
+    expect(files).toContain('const FILES_SKIP_DIRS = new Set([');
+    expect(files).toContain('FILES_SKIP_DIRS.has(name)');
+  });
+
+  test('B5-2-53：`AGENT_TYPES` ×2 已合一到真源（`BUILTIN_AGENTS` 的键；CLI 两命令改引用，取值/顺序一字未改）', () => {
+    const constants = read('src/tools/AgentTool/constants.ts');
+    expect(constants).toContain(
+      'export const AGENT_TYPES = Object.keys(BUILTIN_AGENTS);'
+    );
+    const barrel = read('src/tools/index.ts');
+    expect(barrel).toContain(
+      "export { AGENT_TYPES } from './AgentTool/constants';"
+    );
+    for (const rel of [
+      'src/commands/tools/ai/agent.ts',
+      'src/commands/tools/ai/agents.ts',
+    ]) {
+      const src = read(rel);
+      expect(src).not.toMatch(/(^|[^_A-Za-z])const AGENT_TYPES\s*=/);
+      expect(src).toContain("import { AGENT_TYPES } from '@modules/tools';");
+    }
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

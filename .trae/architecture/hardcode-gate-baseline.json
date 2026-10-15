@@ -1,8 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:TABLE": 2,
-    "同名常量:SKIP_DIRS": 2,
-    "同名常量:AGENT_TYPES": 2,
     "同名常量:VALID_STATUSES": 2,
     "同名常量:AUTOCOMPACT_BUFFER_TOKENS": 2,
     "同名常量:SAFE_ENV_VARS": 2,
@@ -304,7 +301,7 @@
     "app/src/chronos/cron.ts": 1,
     "app/src/commands/builtin/budget/Budget.ts": 1,
     "app/src/query/dailyBudgetSnapshot.ts": 1,
-    "client/src/components/usage/DailyBudgetPanel.tsx": 2,
+    "client/src/components/usage/DailyBudgetPanel.tsx": 1,
     "桶:语言": 1,
     "桶:时区": 1
   },

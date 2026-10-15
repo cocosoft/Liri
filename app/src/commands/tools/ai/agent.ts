@@ -15,21 +15,13 @@ import {
   type BackgroundTaskInfo,
   type BackgroundTaskStatus,
 } from '@modules/tasks/types.js';
+// 内置 Agent 类型名取真源（`BUILTIN_AGENTS` 的键）——此前本文件内联同值数组，属同名常量重复
+import { AGENT_TYPES } from '@modules/tools';
 import type { BaseTask } from '@modules/tasks';
 import { getSubAgentEngine } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:ai:agent');
-
-/** 可用的 Agent 类型列表 */
-const AGENT_TYPES = [
-  'general',
-  'explore',
-  'plan',
-  'verification',
-  'code-guide',
-  'statusline-setup',
-] as const;
 
 /** 可用子命令列表 */
 const AGENT_SUBCOMMANDS = ['run', 'list', 'status', 'stop', 'bg-list'] as const;

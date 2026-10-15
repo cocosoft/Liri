@@ -22,7 +22,7 @@ import type { PersonaBinding, CreatePersonaBindingInput } from './types';
 const logger = getLogger('core:persona');
 
 /** 数据库表名 */
-const TABLE = 'persona_bindings';
+const PERSONA_BINDINGS_TABLE = 'persona_bindings';
 
 /**
  * 人设绑定持久化服务
@@ -62,7 +62,7 @@ export class PersonaService {
     await new Promise<void>((resolve, reject) => {
       this.db!.exec(
         `
-        CREATE TABLE IF NOT EXISTS ${TABLE} (
+        CREATE TABLE IF NOT EXISTS ${PERSONA_BINDINGS_TABLE} (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           agent_id TEXT NOT NULL,
           persona_id TEXT NOT NULL,
@@ -72,10 +72,10 @@ export class PersonaService {
         );
 
         CREATE INDEX IF NOT EXISTS idx_persona_bindings_agent_id
-          ON ${TABLE}(agent_id);
+          ON ${PERSONA_BINDINGS_TABLE}(agent_id);
 
         CREATE INDEX IF NOT EXISTS idx_persona_bindings_persona_id
-          ON ${TABLE}(persona_id);
+          ON ${PERSONA_BINDINGS_TABLE}(persona_id);
         `,
         (err: Error | null) => {
           if (err) reject(err);
@@ -84,7 +84,9 @@ export class PersonaService {
       );
     });
 
-    logger.info('PersonaService · 数据库表已就绪', { table: TABLE });
+    logger.info('PersonaService · 数据库表已就绪', {
+      table: PERSONA_BINDINGS_TABLE,
+    });
   }
 
   /**
@@ -102,12 +104,12 @@ export class PersonaService {
       await new Promise<void>((resolve, reject) => {
         const now = Math.floor(Date.now() / 1000);
         this.db!.run(
-          `INSERT OR REPLACE INTO ${TABLE}
+          `INSERT OR REPLACE INTO ${PERSONA_BINDINGS_TABLE}
            (agent_id, persona_id, created_at, updated_at)
            VALUES (
              ?,
              ?,
-             COALESCE((SELECT created_at FROM ${TABLE} WHERE agent_id = ?), ?),
+             COALESCE((SELECT created_at FROM ${PERSONA_BINDINGS_TABLE} WHERE agent_id = ?), ?),
              ?
            )`,
           [agentId, personaId, agentId, now, now],
@@ -132,7 +134,7 @@ export class PersonaService {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TABLE} WHERE agent_id = ?`,
+        `DELETE FROM ${PERSONA_BINDINGS_TABLE} WHERE agent_id = ?`,
         [agentId],
         (err: Error | null) => {
           if (err) reject(err);
@@ -153,7 +155,7 @@ export class PersonaService {
 
     const row = await new Promise<any>((resolve, reject) => {
       this.db!.get(
-        `SELECT persona_id FROM ${TABLE} WHERE agent_id = ?`,
+        `SELECT persona_id FROM ${PERSONA_BINDINGS_TABLE} WHERE agent_id = ?`,
         [agentId],
         (err: Error | null, row: any) => {
           if (err) reject(err);
@@ -175,7 +177,7 @@ export class PersonaService {
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db!.all(
         `SELECT id, agent_id, persona_id, created_at, updated_at
-         FROM ${TABLE}
+         FROM ${PERSONA_BINDINGS_TABLE}
          ORDER BY created_at DESC`,
         (err: Error | null, rows: any[]) => {
           if (err) reject(err);
@@ -196,7 +198,7 @@ export class PersonaService {
 
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT agent_id FROM ${TABLE} WHERE persona_id = ?`,
+        `SELECT agent_id FROM ${PERSONA_BINDINGS_TABLE} WHERE persona_id = ?`,
         [personaId],
         (err: Error | null, rows: any[]) => {
           if (err) reject(err);
@@ -217,7 +219,7 @@ export class PersonaService {
 
     const row = await new Promise<any>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as cnt FROM ${TABLE}`,
+        `SELECT COUNT(*) as cnt FROM ${PERSONA_BINDINGS_TABLE}`,
         (err: Error | null, row: any) => {
           if (err) reject(err);
           else resolve(row);

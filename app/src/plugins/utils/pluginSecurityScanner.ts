@@ -130,9 +130,9 @@ const DANGER_PATTERNS: Array<{
 const CODE_EXTENSIONS = ['.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs'];
 
 /**
- * 可跳过的目录
+ * 可跳过的目录（**插件安全扫描专属**：与搜索工具的 `SKIP_DIRS` 取值/用途不同 ⇒ 独立命名）
  */
-const SKIP_DIRS = [
+const PLUGIN_SCAN_SKIP_DIRS = [
   'node_modules',
   '.git',
   'dist',
@@ -210,7 +210,10 @@ export class PluginSecurityScanner {
       const fullPath = join(dir, entry.name);
 
       if (entry.isDirectory()) {
-        if (!SKIP_DIRS.includes(entry.name) && !entry.name.startsWith('.')) {
+        if (
+          !PLUGIN_SCAN_SKIP_DIRS.includes(entry.name) &&
+          !entry.name.startsWith('.')
+        ) {
           await this.scanDirectory(fullPath, baseDir || dir);
         }
         continue;

@@ -1381,14 +1381,18 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const archival = read('src/monitoring/archival/DataArchivalStrategy.ts');
     expect(archival).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_INTERVAL_MS\s*=/);
     expect(archival).toContain('const ARCHIVAL_INTERVAL_MS = 60 * 60 * 1000;');
-    expect(archival).toContain('intervalMs: config?.intervalMs ?? ARCHIVAL_INTERVAL_MS,');
+    expect(archival).toContain(
+      'intervalMs: config?.intervalMs ?? ARCHIVAL_INTERVAL_MS,'
+    );
   });
 
   test('B5-2㉞：`DEFAULT_REQUEST_TIMEOUT_MS` ×2 已按域消歧（同值异域，取值一字未改）', () => {
     // 2 处同名均 30s 请求超时但属独立域：JsonRpcBridge（AI Python JSON-RPC 桥）/ LspSidecarConnection（LSP 侧车）
     // 注：lspConnection 受用户 2026-10-13 裁定 A 约束（不引用 tools/lsp/**）⇒ 不可合一到 LSPClient 真源，只能按域改名
     const bridge = read('src/ai/python/JsonRpcBridge.ts');
-    expect(bridge).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_REQUEST_TIMEOUT_MS\s*=/);
+    expect(bridge).not.toMatch(
+      /(^|[^_A-Za-z])const DEFAULT_REQUEST_TIMEOUT_MS\s*=/
+    );
     expect(bridge).toContain('const JSON_RPC_REQUEST_TIMEOUT_MS = 30000;');
     expect(bridge).toContain('requestTimeoutMs: JSON_RPC_REQUEST_TIMEOUT_MS,');
     const conn = read('src/tools/sidecar/lspConnection.ts');
@@ -1397,5 +1401,16 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(conn).toContain(
       'opts.requestTimeoutMs ?? LSP_SIDECAR_REQUEST_TIMEOUT_MS'
     );
+  });
+
+  test('B5-2㉟：`HEARTBEAT_INTERVAL` ×2 已按域消歧（异值异域，取值一字未改）', () => {
+    // 2 处同名各属独立域：AppCoreOTelHelper OTel 心跳 4min / constants/common.ts 通用 30s（该导出无消费方，属「假真源」待裁定项，本次只消歧不删）
+    const otel = read('src/bootstrap/AppCoreOTelHelper.ts');
+    expect(otel).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
+    expect(otel).toContain('const OTEL_HEARTBEAT_INTERVAL = 4 * 60 * 1000;');
+    expect(otel).toContain('}, OTEL_HEARTBEAT_INTERVAL);');
+    const common = read('src/constants/common.ts');
+    expect(common).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
+    expect(common).toContain('export const COMMON_HEARTBEAT_INTERVAL = 30 * 1000;');
   });
 });

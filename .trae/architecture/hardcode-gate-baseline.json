@@ -1,6 +1,5 @@
 {
   "lint:consts": {
-    "同名常量:HEARTBEAT_INTERVAL": 2,
     "同名常量:SAFE_ID_PATTERN": 2,
     "同名常量:EMPTY_POLL_LOG_INTERVAL": 2,
     "同名常量:EYES": 2,

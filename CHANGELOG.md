@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN**：`SAFE_ID_PATTERN` ×2 合一（同值同事实，bridge/api ID 校验真源化）⇒ 同名常量 2→0 —— 验证 tc0|guard54|arch0|gate6；基线 同名常量:SAFE_ID_PATTERN 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-38-SAFE-ID-PATTERN）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS**：`IMAGE_EXTS` ×2 按域消歧（files-handlers 7 项 / ToolExecution 5 项）⇒ 同名常量 2→0 —— 验证 tc0|guard53|arch0|gate6；基线 同名常量:IMAGE_EXTS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS**：`IMAGE_EXTENSIONS` ×3 按域消歧（MediaCache 8 项 / Brief 7 项 / FileRead 13 项）⇒ 同名常量 2→0 —— 验证 tc0|guard52|arch0|gate6；基线 同名常量:IMAGE_EXTENSIONS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL**：`HEARTBEAT_INTERVAL` ×2 按域消歧（OTel 4min / 通用 30s）⇒ 同名常量 2→0 —— 验证 tc0|guard51|arch0|gate6；基线 同名常量:HEARTBEAT_INTERVAL 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL）

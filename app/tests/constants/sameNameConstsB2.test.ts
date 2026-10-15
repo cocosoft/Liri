@@ -1802,6 +1802,32 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
   });
 
+  test('B5-2-63：`MAX_TOOL_RESULTS_PER_MESSAGE_CHARS` 的 toolLimits 死副本已删（同名同义却值漂移：200_000 vs 活值 250_000）', () => {
+    const limits = read('src/constants/toolLimits.ts');
+    expect(limits).not.toMatch(
+      /(^|[^_A-Za-z])const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS\s*=/
+    );
+    const storage = read('src/services/toolResultStorage/types.ts');
+    expect(storage).toContain(
+      'export const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 250_000;'
+    );
+    expect(
+      read('src/services/toolResultStorage/ContentReplacementStore.ts')
+    ).toContain("configManager.env('MAX_TOOL_RESULTS_PER_MESSAGE_CHARS')");
+  });
+
+  test('B5-2-64：`lint:consts` 增 vendored 目录排除（`ink/ink` 上游副本不参与重复事实源治理）', () => {
+    const gate = read('../scripts/lint-consts.ts');
+    expect(gate).toContain("const VENDORED_FRAGMENTS = ['app/src/ink/ink/'];");
+    expect(gate).toContain(
+      'if (matchesWhitelist(rel, VENDORED_FRAGMENTS)) continue;'
+    );
+    // 仓内真源仍在（只是不再与 vendored 同名冲突）
+    expect(read('src/constants/figures.ts')).toContain(
+      "export const ELLIPSIS = '…';"
+    );
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

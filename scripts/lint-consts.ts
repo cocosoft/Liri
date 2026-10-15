@@ -46,6 +46,20 @@ const TRUTH_SOURCE_FRAGMENTS = [
 ];
 
 /**
+ * **vendored（本地整体抄入的上游副本）目录**：**不纳入统计**，不参与本仓「重复事实源」治理。
+ *
+ * 判据与理由：这些目录是**整体抄入的上游包源码** —— 当前 `ink` **未**在本仓 `package.json`
+ * 声明依赖 ⇒ `app/src/ink/ink/` 即上游 ink 源码的本地副本。上游代码与本仓真源「同名同值」属
+ * **正常现象**；为过门禁而改名/合并会**破坏"可与上游逐字对照"的可维护性**（将来重新 vendoring
+ * 时无法比对）。实证：`ELLIPSIS = '…'`（本仓 `constants/figures.ts` 真源 vs vendored `wrap-text.ts`）
+ * —— 本仓那份为**死导出**（全仓 0 消费者），活的一份正在 vendored 侧，按域消歧两边都不合适。
+ *
+ * ⚠️ 与 {@link TRUTH_SOURCE_FRAGMENTS} 的**语义区别**（勿混用）：后者是「**本仓**真源 —— 同名/同值
+ * 若**定义于此**不算重复（计入统计但不报警）」；本项是「**非本仓来源**的代码 —— 直接不纳入统计」。
+ */
+const VENDORED_FRAGMENTS = ['app/src/ink/ink/'];
+
+/**
  * 常量定义：`[\export ]const UPPER_SNAKE (: 标量基础类型)? =`（≥3 字符，全大写/数字/下划线）。
  *
  * ⚠️ **补门禁盲区**（2026-10-15）：原正则要求 `=` 紧跟常量名 ⇒ `const X: T = …` **一律漏检**
@@ -94,6 +108,8 @@ function collect(files: string[]): {
   for (const abs of files) {
     const rel = toRel(abs);
     if (matchesWhitelist(rel, TRUTH_SOURCE_FRAGMENTS)) continue;
+    // vendored 上游副本：不纳入统计（见 VENDORED_FRAGMENTS 注释）
+    if (matchesWhitelist(rel, VENDORED_FRAGMENTS)) continue;
     const lines = readLines(abs);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];

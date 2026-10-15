@@ -31,13 +31,6 @@ export const CONTEXT_MAX_TOOL_RESULT_BYTES =
   MAX_TOOL_RESULT_TOKENS * BYTES_PER_TOKEN;
 
 /**
- * 单个用户消息中工具结果块的最大总字符数
- * 当消息的块合计超过此值时，最大的块将被持久化到磁盘并替换为预览
- * 消息独立评估——一个turn中150K结果和下一个turn中150K结果都不受影响
- */
-export const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 200_000;
-
-/**
  * 压缩视图中工具摘要字符串的最大字符长度
  */
 export const TOOL_SUMMARY_MAX_LENGTH = 50;

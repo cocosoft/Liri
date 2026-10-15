@@ -1172,8 +1172,14 @@ export function recordTurnCostUsd(
   if (!model || model === 'unknown') {
     // `debug`（非 warn）：调用方**未提供**模型（如长程任务自定义执行器路径）属"不适用"，
     // 不是异常；关键是**不取兜底价、不臆造金额**（Q-U5「不静默」针对的是"悄悄用了兜底价"）。
-    logger.debug(
-      'dailyBudget:usd_skip — 模型名不可得，跳过金额记账（不臆造金额）',
+    //
+    // 2026-10-15（日限额「USD 台账同源化」修复）：原为 `debug` ⇒ 默认级别下**完全不可见**，
+    // 使"USD 台账漏记"长期静默 —— 真机实测当日 `usedUsd=$0.863` vs 计费侧 `$3.6866`
+    // （仅覆盖 29%），根因即 CLI 对话路径（`Chat.ts`）调 `recordDailyBudgetFromUsage`
+    // 时未传 `model`。此处升为 `warn`：模型不可得是**应可见的记账缺口**，
+    // 调用方应补齐 `model`（同源的 `costTracker.addCost` 已有该值）。定价语义不变。
+    logger.warn(
+      'dailyBudget:usd_skip — 模型名不可得，跳过金额记账（USD 台账将出现缺口，不臆造金额）',
       { sessionId, model: model ?? null }
     );
     return 0;

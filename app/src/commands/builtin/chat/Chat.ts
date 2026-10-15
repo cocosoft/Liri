@@ -227,7 +227,10 @@ export class ChatCommand {
     );
 
     // G-2/M：CLI 对话用量计入每日预算（`AIProvider` 的 `usage` 为驼峰形 ⇒ 复用上方已归一的值）
-    recordDailyBudgetFromUsage({ inputTokens, outputTokens });
+    // 日限额「USD 台账同源化」修复（2026-10-15）：补第 3 参 `model` —— 同上行 `costTracker.addCost`
+    // 的同一模型值（数出同源）。缺参会让 `recordTurnCostUsd` 因模型不可得而跳过金额记账，
+    // 导致 USD 台账只覆盖 29%（真机实测 $0.863 vs 计费侧 $3.6866）。
+    recordDailyBudgetFromUsage({ inputTokens, outputTokens }, undefined, model);
 
     let resultValue =
       typeof response.content === 'string' ? response.content : '没有收到回复';
@@ -291,7 +294,8 @@ export class ChatCommand {
     const cost = costTracker.addCost(model, inputTokens, outputTokens);
 
     // G-2/M：流式 CLI 对话同样计入每日预算（usage 取自流终态回显；无回显则计入 0 ⇒ 不虚增）
-    recordDailyBudgetFromUsage({ inputTokens, outputTokens });
+    // 日限额「USD 台账同源化」修复（2026-10-15）：补第 3 参 `model`（同上行 `costTracker.addCost` 同源）
+    recordDailyBudgetFromUsage({ inputTokens, outputTokens }, undefined, model);
 
     let resultValue = fullResponse || '没有收到回复';
 

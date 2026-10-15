@@ -205,8 +205,7 @@ export class StreamingAutoCheckpoint {
         (c) =>
           (c.metadata as unknown as Record<string, unknown>)?.[
             STREAMING_CHECKPOINT_META_KEY
-          ] ===
-          true
+          ] === true
       )
       .sort((a, b) => a.createdAt - b.createdAt);
     if (autoCheckpoints.length === 0) return null;

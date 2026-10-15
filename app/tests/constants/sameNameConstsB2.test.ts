@@ -1644,6 +1644,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "const PLAIN_TEXT_CHECKPOINT_META_KEY = 'plainTextAutoCheckpoint';"
     );
     expect(plain).toContain('[PLAIN_TEXT_CHECKPOINT_META_KEY]: true,');
-    expect(plain).toContain('if (!meta?.[PLAIN_TEXT_CHECKPOINT_META_KEY]) return null;');
+    expect(plain).toContain(
+      'if (!meta?.[PLAIN_TEXT_CHECKPOINT_META_KEY]) return null;'
+    );
   });
 });

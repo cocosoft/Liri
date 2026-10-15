@@ -10,15 +10,10 @@
  * （见 `app/tests/ink/commandDispatch.test.ts`）。
  */
 import { getLogger } from '@modules/monitoring';
+// 仅类型（编译期擦除 ⇒ 不引入运行时耦合；命令执行仍走下面的动态 import）
+import type { CommandDisplay } from '@modules/commands';
 
 const logger = getLogger('ink:repl:commandDispatch');
-
-export interface SlashCommandOutcome {
-  /** 命令是否执行成功（对应 `CommandResult.success`） */
-  ok: boolean;
-  /** 供 REPL 展示的文本（故障已整形为可读文案，调用方直接渲染即可） */
-  text: string;
-}
 
 /**
  * 执行一条斜杠命令并整形为可展示文本。
@@ -29,28 +24,20 @@ export interface SlashCommandOutcome {
 export async function dispatchSlashCommand(
   command: string,
   sessionId?: string
-): Promise<SlashCommandOutcome> {
+): Promise<CommandDisplay> {
   try {
-    const { commandExecutor } = await import('@modules/commands');
+    const { commandExecutor, formatCommandResult } =
+      await import('@modules/commands');
     const { resolveProjectRoot } = await import('@modules/core/paths');
     const result = await commandExecutor.execute(command, {
       sessionId: sessionId ?? 'ink-session',
       cwd: resolveProjectRoot(),
     });
 
-    if (!result.success) {
-      // 未知名/未启用/环境不满足均由 `CommandManager.executeCommand` 以 `success:false`
-      // + `error` 返回（不抛）⇒ 原样呈现，不做错误码字符串匹配（CS02）
-      return { ok: false, text: `❌ ${result.error || '命令执行失败'}` };
-    }
-
-    // 展示口径与 `entrypoints/repl.ts`（legacy REPL / 一次性执行）一致：message → value → data
-    const text =
-      result.message ||
-      result.value ||
-      (result.data !== undefined ? JSON.stringify(result.data, null, 2) : '');
-
-    return { ok: true, text: text || '（命令无输出）' };
+    // 取值口径由 `formatCommandResult` **单一实现**（③ 2026-10-16 收敛）：未注册命令
+    //（`{success:false, error:'Command not found: …'}`，不抛）也如实回报，不再是空消息。
+    // 不做错误码字符串匹配（CS02）。
+    return formatCommandResult(result);
   } catch (error) {
     // 命令实现可由 skill / 插件提供（外部边界）⇒ 抛错不得让 REPL 崩：如实回一条失败文案
     logger.warning('斜杠命令执行抛错', {

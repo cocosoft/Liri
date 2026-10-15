@@ -719,8 +719,7 @@ export class ChatOrchestrator {
       let userMessage: Message;
       const prePersisted = options?.messageId
         ? (session.messages.find((m) => m.id === options.messageId) as
-            | Message
-            | undefined)
+            Message | undefined)
         : undefined;
       const prevRoundCount = session.metadata.roundCount ?? 0;
       session.metadata.roundCount = prevRoundCount + 1;
@@ -1248,7 +1247,8 @@ export class ChatOrchestrator {
     const [commandName, ...args] = parts;
 
     let commandResult = '';
-    const { commandExecutor } = await import('../../commands/index.js');
+    const { commandExecutor, formatCommandResult } =
+      await import('../../commands/index.js');
     const { resolveProjectRoot } = await import('@modules/core/paths');
     const result = await commandExecutor.execute(
       `/${commandName} ${args.join(' ')}`,
@@ -1258,7 +1258,10 @@ export class ChatOrchestrator {
         messages: cmdSession?.messages || [],
       }
     );
-    commandResult = result.message || result.value || '';
+    // ③（2026-10-16）：取值口径收敛到 `formatCommandResult`（单一实现）。原实现只取
+    // `message || value` ⇒ 未注册命令（`{success:false, error:'Command not found: …'}`，
+    // 不抛）会落成**空正文**：聊天里回一条空消息，既不报错也无提示。
+    commandResult = formatCommandResult(result).text;
 
     const commandMessage = this.host.messageService.createAssistantMessage(
       commandResult,
@@ -1288,6 +1291,25 @@ export class ChatOrchestrator {
     content: string,
     options?: StreamMessageOptions
   ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
+    // ③（2026-10-16）：斜杠命令**短路** —— 与非流式 `sendMessage` **同一判据 + 同一实现**
+    //（`_handleCommand`）。此前只有非流式路径派发命令，而客户端聊天（`chatService` 恒
+    // `stream:true`）与渠道（2026-08-20 流式并轨）都走本入口 ⇒ 聊天里打 `/budget status`
+    // 会被当普通消息送进模型（真机实测：模型自述「该斜杠命令由应用层处理…当前消息落到了
+    // 我这里」）。命令不耗 token、不入模型请求 ⇒ 在会话互斥/预算准入**之前**短路，
+    // 与非流式命令分支位置一致（`sendMessage` 亦在 estop / 互斥之前判命令）。
+    if (content.startsWith('/')) {
+      const message = await this._handleCommand(content, options);
+      const text = typeof message.content === 'string' ? message.content : '';
+      if (text !== '') {
+        yield {
+          type: 'text',
+          content: text,
+          sessionId: message.sessionId ?? options?.sessionId ?? '',
+        } as ChatStreamChunk;
+      }
+      return message;
+    }
+
     const { runStreamMessage } = await import('./streamMessageFlow.js');
 
     // P3-3（2026-09-02）：turn 卡死看门狗（对标 Hermes turn_liveness）——

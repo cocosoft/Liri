@@ -137,22 +137,23 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             content,
             timestamp: Date.now(),
           },
+        ]);
+        // ①（2026-10-16）：命令清单**让位给注册表**（`helpCommand` 读 `commandRegistry.getVisible()`）
+        // —— 原先此处硬编码 5 条，注册表里的 131 条命令在 TUI 里既不可见也不可达。
+        // 仅追加 ink TUI 独有的按键说明（注册表不掌握键盘映射）。
+        const outcome = await dispatchSlashCommand('/help');
+        setMessages((prev) => [
+          ...prev,
           {
             id: `help-${Date.now()}`,
             role: 'system',
             content: [
-              '可用命令:',
-              '  /help       - 显示帮助',
-              '  /clear      - 清空对话',
-              '  /onboard    - 重新配置 AI 设置',
-              '  /router     - 智能路由管理（status/on/off/config）',
-              '  /ink        - 显示 Ink 模式信息',
-              '  exit        - 退出',
+              outcome.text,
               '',
-              '快捷键:',
-              '  ↑↓       - 浏览输入历史',
-              '  Tab      - 命令补全',
-              '  PageUp/Down - 翻页浏览对话',
+              '快捷键（仅 Ink TUI）:',
+              '  ↑↓            - 浏览输入历史',
+              '  Tab           - 命令补全',
+              '  PageUp/Down   - 翻页浏览对话',
               '  Ctrl+Home/End - 跳到对话首/尾',
             ].join('\n'),
             timestamp: Date.now(),

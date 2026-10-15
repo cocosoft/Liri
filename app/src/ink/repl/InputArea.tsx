@@ -6,7 +6,11 @@ import React, {
   useLayoutEffect,
 } from 'react';
 import { Box, Text } from '../../ink';
+import { getLogger } from '@modules/monitoring';
 
+const logger = getLogger('ink:repl:InputArea');
+
+/** 静态兜底（注册表不可用时的列表；也是 ink 本地命令的来源之一） */
 const AVAILABLE_COMMANDS = [
   '/help',
   '/onboard',
@@ -16,6 +20,22 @@ const AVAILABLE_COMMANDS = [
   '/quit',
   '/ink',
 ];
+
+/**
+ * 提示行最多列出的命令数。
+ * ⚠️ 注册表有 131 条（2026-10-16 实测）：不设上限时，输入一个 `/` 会把单行 `<Text>`
+ * 提示撑成二十来行，直接吃掉 ConversationArea 的高度预算（`terminalHeight - 9`）。
+ */
+const SUGGESTION_LIMIT = 12;
+
+/** 提示行文案：超出上限则折叠为计数（提示继续输入以缩小范围） */
+function formatSuggestion(matching: string[]): string {
+  if (matching.length === 0) return '';
+  const head = matching.slice(0, SUGGESTION_LIMIT).join('  ');
+  return matching.length > SUGGESTION_LIMIT
+    ? `${head}  …（共 ${matching.length} 个，继续输入缩小范围）`
+    : head;
+}
 
 interface InputAreaProps {
   onSubmit: (value: string) => void;
@@ -34,6 +54,8 @@ export const InputArea: React.FC<InputAreaProps> = ({
   const [suggestion, setSuggestion] = useState('');
   const historyRef = useRef<string[]>([]);
   const draftRef = useRef('');
+  /** 补全/提示的来源列表（静态兜底 ∪ 注册表，注册表就绪后在 effect 里合并） */
+  const commandsRef = useRef<string[]>(AVAILABLE_COMMANDS);
 
   const onSubmitRef = useRef(onSubmit);
   const onEscapeRef = useRef(onEscape);
@@ -58,6 +80,32 @@ export const InputArea: React.FC<InputAreaProps> = ({
     }, 530);
     return () => clearInterval(interval);
   }, [disabled]);
+
+  // ②（2026-10-16）：补全来源接**真实命令注册表**（与派发同源），否则内置命令
+  // （/budget、/git…）在 TUI 里既不可见也无法 Tab 补全。合并进 ref（stdin 监听器
+  // 只注册一次，读 state 会拿到闭包旧值 ⇒ 必须走 ref）。
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { commandRegistry } = await import('@modules/commands');
+        const names = commandRegistry.getVisible().map((cmd) => `/${cmd.name}`);
+        if (cancelled || names.length === 0) return;
+        commandsRef.current = [
+          ...new Set([...AVAILABLE_COMMANDS, ...names]),
+        ].sort();
+      } catch (error) {
+        // 注册表不可用（尚未 initializeCommands）⇒ 保留静态列表，并留日志（不静默）
+        logger.warn('命令补全来源加载失败，回退静态列表', {
+          error: error instanceof Error ? error.message : String(error),
+          fallbackCount: AVAILABLE_COMMANDS.length,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (disabled) return;
@@ -161,12 +209,10 @@ export const InputArea: React.FC<InputAreaProps> = ({
               return next || '';
             }
             if (next.startsWith('/')) {
-              const matching = AVAILABLE_COMMANDS.filter(
+              const matching = commandsRef.current.filter(
                 (cmd) => cmd.startsWith(next) && cmd !== next
               );
-              setSuggestionRef.current(
-                matching.length > 0 ? matching.join('  ') : ''
-              );
+              setSuggestionRef.current(formatSuggestion(matching));
             } else {
               setSuggestionRef.current('');
             }
@@ -180,7 +226,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
         if (char === '\t') {
           setInputRef.current((currentInput) => {
             if (!currentInput.startsWith('/')) return currentInput;
-            const matching = AVAILABLE_COMMANDS.filter(
+            const matching = commandsRef.current.filter(
               (cmd) => cmd.startsWith(currentInput) && cmd !== currentInput
             );
             if (matching.length === 1) {
@@ -197,10 +243,10 @@ export const InputArea: React.FC<InputAreaProps> = ({
               }
               const partial = commonPrefix.slice(0, i);
               if (partial !== currentInput) {
-                setSuggestionRef.current(matching.join('  '));
+                setSuggestionRef.current(formatSuggestion(matching));
                 return partial;
               }
-              setSuggestionRef.current(matching.join('  '));
+              setSuggestionRef.current(formatSuggestion(matching));
             }
             return currentInput;
           });
@@ -216,12 +262,10 @@ export const InputArea: React.FC<InputAreaProps> = ({
           setInputRef.current((prev) => {
             const next = prev + char;
             if (next.startsWith('/')) {
-              const matching = AVAILABLE_COMMANDS.filter(
+              const matching = commandsRef.current.filter(
                 (cmd) => cmd.startsWith(next) && cmd !== next
               );
-              setSuggestionRef.current(
-                matching.length > 0 ? matching.join('  ') : ''
-              );
+              setSuggestionRef.current(formatSuggestion(matching));
             } else {
               setSuggestionRef.current('');
             }

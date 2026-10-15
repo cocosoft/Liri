@@ -37,7 +37,7 @@ describe('T14：/budget 命令（查看 / 放行 / 改 Token 观测阈值）', (
 
     expect(value).toContain('每日预算限额');
     // 2026-10-15：Token 轨只观测、不启用闸门 ⇒ 必须**显式说明当前无闸门**
-    expect(value).toContain('闸门：**未启用**（未配置金额上限）');
+    expect(value).toContain('闸门：「未启用」（未配置金额上限）');
     expect(value).toContain('档位：观测（不拦截）'); // 无闸门 ⇒ 不显示「正常/锁定」
     expect(value).toContain('已用 / Token 观测阈值：0 / 100');
     expect(value).toContain('今日剩余：100（按观测阈值基座）');
@@ -71,10 +71,10 @@ describe('T14：/budget 命令（查看 / 放行 / 改 Token 观测阈值）', (
 
     const { value } = await new BudgetCommand().call('status');
 
-    expect(value).toContain('闸门：金额（USD）—— **已启用**');
+    expect(value).toContain('闸门：金额（USD）—— 「已启用」');
     expect(value).toContain('档位：正常');
     expect(value).toContain('已用 / 上限：$1.00 / $10.00');
-    expect(value).toContain('Token 轨（**观测**，不参与判定）');
+    expect(value).toContain('Token 轨（「观测」，不参与判定）');
   });
 
   it('boost 3 30 ⇒ 有效上限 ×3 + 到期时间（当场生效）', async () => {

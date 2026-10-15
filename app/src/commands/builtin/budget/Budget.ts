@@ -23,16 +23,16 @@ export interface BudgetResult {
 }
 
 const USAGE = [
-  '日预算限额（闸门 = **金额口径**；本地日统计，与桌面端「用量中心 → 日限额」同源）',
-  '注：Token 轨**只观测、不启用闸门** ⇒ 未配金额上限时**无预算硬闸门**，放行也改变不了能否调用。',
+  '日预算限额（闸门 = 「金额口径」；本地日统计，与桌面端「用量中心 → 日限额」同源）',
+  '注：Token 轨「只观测、不启用闸门」 ⇒ 未配金额上限时「无预算硬闸门」，放行也改变不了能否调用。',
   '',
   '  /budget                     查看状态',
   '  /budget status              同上',
   '  /budget boost [倍数] [分钟] 临时提额（默认 ×2 / 60 分钟；到期自动恢复原上限）',
-  '  /budget waive               放行**下一次**发送（一次性；未消费 10 分钟后作废）',
+  '  /budget waive               放行「下一次」发送（一次性；未消费 10 分钟后作废）',
   '  /budget unlock              今日不再拦截（软上限 = 原上限 ×5，次日恢复）',
-  '  /budget revoke              撤销放行（恢复配置上限；**保留**今日用量与欠账）',
-  '  /budget set <阈值>          改 **Token 观测阈值**（只影响观测告警；当场生效 + 持久化）',
+  '  /budget revoke              撤销放行（恢复配置上限；「保留」今日用量与欠账）',
+  '  /budget set <阈值>          改「Token 观测阈值」（只影响观测告警；当场生效 + 持久化）',
 ].join('\n');
 
 /** 档位 → 人读 */
@@ -129,8 +129,8 @@ export class BudgetCommand {
     return [
       `每日预算限额（${budget.currentDate()}）`,
       gated
-        ? '  闸门：金额（USD）—— **已启用**（唯一硬闸门）'
-        : '  闸门：**未启用**（未配置金额上限）⇒ 下列 Token 数字仅作**观测**，不拦截调用',
+        ? '  闸门：金额（USD）—— 「已启用」（唯一硬闸门）'
+        : '  闸门：「未启用」（未配置金额上限）⇒ 下列 Token 数字仅作「观测」，不拦截调用',
       `  档位：${gated ? (MODE_LABEL[state.mode] ?? state.mode) : '观测（不拦截）'}`,
       gated
         ? `  已用 / 上限：${fmtPrimary(state.used, state.unit)} / ${fmtPrimary(
@@ -159,7 +159,7 @@ export class BudgetCommand {
           ]),
       ...(gated
         ? [
-            `  Token 轨（**观测**，不参与判定）：${fmt(state.todayUsed)} / ${fmt(tokenBase)}`,
+            `  Token 轨（「观测」，不参与判定）：${fmt(state.todayUsed)} / ${fmt(tokenBase)}`,
           ]
         : []),
       `  透支欠账：${fmt(debt)}${debt > 0 ? '（次日从可用额度扣回）' : ''}`,
@@ -204,7 +204,7 @@ export class BudgetCommand {
     const budget = getDailyBudget();
     budget.applyRelief({ kind: 'waive-once' });
     return (
-      '已放行**下一次**发送：一次性通行证（被消费即失效；未消费 10 分钟后自动作废）。' +
+      '已放行「下一次」发送：一次性通行证（被消费即失效；未消费 10 分钟后自动作废）。' +
       '超出的消耗会计入欠账，次日从可用额度扣回。' +
       this.killSwitchWarning()
     );

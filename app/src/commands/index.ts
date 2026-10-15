@@ -38,6 +38,10 @@ export { commandRegistry } from './registry/index.js';
 
 export { CommandExecutor, commandExecutor } from './executor/index.js';
 
+/** ③（2026-10-16）：`CommandResult` → 展示文本的**单一实现**（收敛原先散落各处的取值口径） */
+export { formatCommandResult } from './resultFormatter.js';
+export type { CommandDisplay } from './resultFormatter.js';
+
 export {
   CommandPipeline,
   commandPipeline,

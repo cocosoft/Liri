@@ -8113,6 +8113,36 @@
       "changelog": [],
       "reopenWhen": "① 若今后把命令输出改作 markdown 渲染面（让 Terminal 页 / ink 渲染 markdown），须重新引入强调标记并撤掉守则测试；② **同类未处理（待裁定）**：命令输出里的 markdown 标题 `##`/`###`（约 40 处：Brief/Commit/ContextWallet/Com…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）",
       "notes": "① 判据（四显现面）：桌面聊天（markdown 渲染 ⇒ `**` 变粗体）/ 客户端 Terminal 页（逐行纯文本）/ ink TUI（命令输出刻意以 `role:'system'` 呈现、不过 MarkdownRenderer）/ legacy REPL 与 `executeOnce`、pipe（`cons…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）"
+    },
+    {
+      "id": "COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS",
+      "title": "命令输出去 markdown 标题：`Brief`/`Commit`/`Git`/`ContextWallet`/`Complete`/`Upgrade` 的 `##`/`###` 章节标题改为纯文本（约 40 处）；同时回退上一片的越界改动（`agents.ts` 那 3 处 `**` 实为 `getPromptForCommand` 提示词载荷）",
+      "source": "用户 2026-10-16 指令「继续」（承接上一片 COMMAND-OUTPUT-PLAIN-TEXT-STARS 的 reopenWhen ②：`##`/`###` 属同类未处理、待裁定）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/commands/builtin/brief/Brief.ts",
+        "app/src/commands/builtin/commit/Commit.ts",
+        "app/src/commands/builtin/git/Git.ts",
+        "app/src/commands/builtin/context/ContextWallet.ts",
+        "app/src/commands/builtin/complete/Complete.ts",
+        "app/src/commands/builtin/upgrade/Upgrade.ts",
+        "app/src/commands/tools/ai/agents.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若今后把命令输出改作 markdown 渲染面，须重新引入标题标记；② **同类未处理（待裁定）**：命令输出里的代码围栏 ``` （5 处，`Commit` 4 / `Git` 1）与 markdown 表格（20 处，`ContextWallet` 9 / `Git` 7 / `Commit` 4）—— 后者…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS）",
+      "notes": "① 判据同前一星号片（命令输出 = 纯文本；四显现面中 3 面不渲染 markdown），本片处理**标题标记**。② 处置：`## X`/`### X` → `X`（保留标题文字，不引入新装饰）。改动分布：`Commit` 19（含 `\\n### …` 与拼串式 `'### 已暂存文件 (' + n + ')'`）…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS）"
     }
   ]
 }

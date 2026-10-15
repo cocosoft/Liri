@@ -4363,6 +4363,26 @@
 {"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#4","i":0,"c":"app/src/commands/tools/ai/agent.ts"}
 {"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"code#5","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
 {"id":"COMMAND-OUTPUT-PLAIN-TEXT-STARS","k":"tests#0","i":0,"c":"app/tests/commands/commandOutputPlainText.test.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"title","i":0,"c":"命令输出去 markdown 标题：`Brief`/`Commit`/`Git`/`ContextWallet`/`Complete`/`Upgrade` 的 `##`/`###` 章节标题改为纯文本（约 40 处）；同时回退上一片的越界改动（`agents.ts` 那 3 处 `**` 实为 `getPromptForCommand` 提示词载荷）"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"source","i":0,"c":"用户 2026-10-16 指令「继续」（承接上一片 COMMAND-OUTPUT-PLAIN-TEXT-STARS 的 reopenWhen ②：`##`/`###` 属同类未处理、待裁定）"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"reopenWhen","i":0,"c":"① 若今后把命令输出改作 markdown 渲染面，须重新引入标题标记；② **同类未处理（待裁定）**：命令输出里的代码围栏 ``` （5 处，`Commit` 4 / `Git` 1）与 markdown 表格（20 处，`ContextWallet` 9 / `Git` 7 / `Commit` 4）—— 后者需列宽对齐渲染，属渲染改动而非「去标记」，"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"reopenWhen","i":1,"c":"另立片；③ `Commit.ts` 的 `--dry-run`/`--no-verify`/`--amend` 三行 help **本身就是坏的**（缺 `- \\`` 前缀 ⇒ 输出里留半截反引号），属文案缺陷另修；④ 本片**无机器守则**（原因见 notes ⑤）：若要补守则，须先解决「提示词载荷 / 写文件内容 / HTML→markdown 转换」与"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"reopenWhen","i":2,"c":"终端输出**同形**的判别问题"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":0,"c":"① 判据同前一星号片（命令输出 = 纯文本；四显现面中 3 面不渲染 markdown），本片处理**标题标记**。② 处置：`## X`/`### X` → `X`（保留标题文字，不引入新装饰）。改动分布：`Commit` 19（含 `\\n### …` 与拼串式 `'### 已暂存文件 (' + n + ')'`）、`Git` 19（含多行模板内的 4 处"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":1,"c":" `###`，该模板靠行首扫描才发现）、`ContextWallet` 7、`Complete` 2（含 `## 补全统计 ##` 横幅）、`Brief` 2、`Upgrade` 1。③ **刻意未动**（分类规则，供后续复审沿用）：`getPromptForCommand` 的**提示词载荷**（`grep`/`bash`/`websearch`/`"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":2,"c":"fetch`/`agent`/`notebook`/`task`/`todo`/`write`/`edit`/`glob`/`lsp`/`usage`/`plan` —— 发给模型，非终端显示）；**写文件内容**（`memory`/`init`/`knowledge`/`onboard` 的 SOUL.md·USER.md·笔记正文、`share` 导出）"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":3,"c":"；**HTML→markdown 转换**（`fetch` 的 `<h1>`→`# `、`<strong>`→`**`，属内容保真）；**shell 脚本注释**（`FishCompletionGenerator` 生成 fish 补全脚本，`#` 是 fish 语法）；**示例载荷**（`notebook` 的 add-md 示例、`Demo.ts` 里 "}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":4,"c":"Python 代码注释）。④ **越界回退（如实）**：上一片把 `agents.ts` 的 3 处 `**list**` 当作命令输出去星号 —— 取证表明那是 `getPromptForCommand` 的**提示词载荷**（该命令有 `load().execute`，提示词分支不达）⇒ 本片一并恢复原文；上一片台账的 code 列表含 `"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":5,"c":"agents.ts`，以本条为准。⑤ **未加机器守则**：`**` 片有守则测试（`commandOutputPlainText.test.ts`，模式精确）；标题则无法可靠区分终端输出与「提示词载荷 / 文件内容 / 转换产物」（同形）⇒ 强加守则会带来假阳性门禁，故只落分类规则 + 本台账，改由评审把关（如实标注覆盖边界）。⑥ 复查方式：对 `#{1,"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":6,"c":"6} ` 做「引号前缀 + 行首 + `\\n` 前缀 + 缩进行首」四类模式全量扫描后逐条分类（该扫描抓到两处初版漏网：`Git.ts` 的 `### 本地分支` 与 `` `## Git 提交历史 (最近 N 条)` ``）。⑦ 回归：`bun test tests/commands tests/budget tests/ink` 50 例绿（含上一片守则"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"notes","i":7,"c":"测试，且 `agents.ts` 复原后仍绿）；`typecheck` 0；六门禁绿。⑧ 未验：真机渲染（Terminal 页 / ink），同前因（`isTTY=false`、无 ink 测试夹具）。"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#0","i":0,"c":"app/src/commands/builtin/brief/Brief.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#1","i":0,"c":"app/src/commands/builtin/commit/Commit.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#2","i":0,"c":"app/src/commands/builtin/git/Git.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#3","i":0,"c":"app/src/commands/builtin/context/ContextWallet.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#4","i":0,"c":"app/src/commands/builtin/complete/Complete.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#5","i":0,"c":"app/src/commands/builtin/upgrade/Upgrade.ts"}
+{"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#6","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

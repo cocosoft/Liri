@@ -3738,6 +3738,18 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-41-STREAM-IDLE-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第四十二项：`CHANNEL_ARROW` **2 处同名消歧**（异值异域 ←/→；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准（㉞/㊵ 先例）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const CHANNEL_ARROW =`（非 figures.ts 真源）⇒ 守卫（第 58 例）或棘轮阻断；③ 若未来两者语义收敛为同一事实（如统一箭头方向），可再评估合一；④ 本次为**异值异域消歧**（非合一）：`constants/figures.ts` 的 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"reopenWhen","i":1,"c":"CHANNEL_ARROW = '←'` 为通用 UI 图形字符库真源（与 `INJECTED_ARROW='→'` 同族，全仓无独立 import 消费者、属共享常量域）保留原名；`chat/ChannelMessageParser.ts` 的 `CHANNEL_ARROW = '→'` 为「消息来源展示箭头」（本文件 2 处 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"reopenWhen","i":2,"c":"formatForDisplay` 使用）异值 ⇒ 改名 `MSG_SOURCE_ARROW`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 58 例（figures 真源标注 + 取值 `←` 钉住 + parser 无裸 `CHANNEL_ARROW` 定义 + `MSG_SOURCE_ARROW='→'` + 使用点模板串）58 pass · `lint:consts` 重新播种基线：`同名常量:CHANNEL_ARROW` **2→"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"notes","i":1,"c":"0**（213→212 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 改名后取值与行为零变化；全仓 Grep 确认 `CHANNEL_ARROW` 仅 2 定义 + 2 内部使用（无外部 import 消费者）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#0","i":0,"c":"app/src/constants/figures.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#1","i":0,"c":"app/src/chat/ChannelMessageParser.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -89,7 +89,7 @@ function makeClient(): {
 describe('T8：非流式 chat 补日预算闸门（G-2/B）', () => {
   beforeEach(() => {
     resetDailyBudgetForTest();
-    getDailyBudget().setLimit(LIMIT);
+    getDailyBudget().setLimitUsd(LIMIT);
   });
   afterEach(() => {
     resetDailyBudgetForTest();
@@ -97,7 +97,7 @@ describe('T8：非流式 chat 补日预算闸门（G-2/B）', () => {
 
   it('额度耗尽 ⇒ 抛 DAILY_BUDGET_EXCEEDED，且**不发起模型调用**、不留请求边界事件', async () => {
     const budget = getDailyBudget();
-    budget.recordUsage(LIMIT); // 已达上限 ⇒ locked
+    budget.recordUsdUsage(LIMIT); // 已达金额上限 ⇒ locked（2026-10-15：档位只由 USD 产出）
     expect(budget.getMode().mode).toBe('locked');
 
     const { appendStreamEvent, events } = makeAppender();

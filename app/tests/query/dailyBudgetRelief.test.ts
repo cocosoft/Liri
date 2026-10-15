@@ -56,15 +56,17 @@ describe('T4：日预算 relief 状态机（boost / waive-once / unlock-today）
     expect(b.getSnapshot().limit).toBe(LIMIT);
   });
 
-  it('unlock-today 仍有软上限（原上限 ×5）', () => {
+  it('unlock-today 仍有软上限（原上限 ×5；越软上限仍 locked）', () => {
     const b = getDailyBudget();
+    // 2026-10-15：Token 口径**不产档位**（只观测）⇒ 软上限的"兜底仍锁定"改由**金额口径**验证。
+    b.setLimitUsd(10);
     const v = b.applyRelief({ kind: 'unlock-today' });
-    expect(v.effectiveLimit).toBe(LIMIT * 5);
+    expect(v.effectiveLimit).toBe(50); // 10 × 5
 
-    b.recordUsage(400); // 400 < 500 ⇒ 放行
+    b.recordUsdUsage(40); // 40 < 50 ⇒ 放行
     expect(b.getMode().mode).not.toBe('locked');
 
-    b.recordUsage(150); // 550 ≥ 500 ⇒ 软上限兜底仍锁定
+    b.recordUsdUsage(15); // 55 ≥ 50 ⇒ 软上限兜底仍锁定
     expect(b.getMode().mode).toBe('locked');
   });
 

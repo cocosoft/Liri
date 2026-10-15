@@ -21,6 +21,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
+  DEFAULT_DAILY_BUDGET_TOKENS,
   getDailyBudget,
   resetDailyBudgetForTest,
 } from '../../src/query/DailyBudgetManager';
@@ -30,15 +31,22 @@ import {
 } from '../../src/query/dailyBudgetGate';
 
 /**
- * G-1 前置 / D-k 接缝：日预算闸门**单一收口** `checkDailyBudget` + 单位无关快照。
+ * G-1 前置 / D-k 接缝：日预算闸门**单一收口** `checkDailyBudget`。
  *
  * 设计依据（Spec §11）：对外结构化字段用与单位无关的命名并携带单位与展示串：
- * `{ used, limit, unit, formatted }` —— 专项切 USD 时只换 `unit`/`formatted`/折算逻辑。
+ * `{ used, limit, unit, formatted }`。
+ *
+ * ⚠️ **2026-10-15 语义变更（用户裁定）**：闸门判定式改为
+ * `allowed = !killSwitch && (waiver || 主口径档位 !== 'locked')` —— **Token 轨只观测、不拦**
+ * （它不再产生 `report_only`/`locked`）⇒ 本文件原「Token 越界 ⇒ 拒发」两例**已废并被反向钉住**。
+ * 金额口径的拒发/放行见 `dailyBudgetUsdGate.test.ts`（S3 契约）。
  */
 describe('dailyBudgetGate — 闸门单一收口（G-1 前置 / D-k 接缝）', () => {
   beforeEach(() => {
     resetDailyBudgetForTest();
     delete process.env.LIRI_DAILY_BUDGET_TOKENS;
+    // 断言**不依赖开发机 `config.json`**：显式把观测阈值对齐代码常量（单一真源）。
+    getDailyBudget().setLimit(DEFAULT_DAILY_BUDGET_TOKENS);
   });
   afterEach(() => {
     resetDailyBudgetForTest();
@@ -51,25 +59,35 @@ describe('dailyBudgetGate — 闸门单一收口（G-1 前置 / D-k 接缝）', 
     expect(r.snapshot.unit).toBe('tokens');
     expect(r.snapshot.mode).toBe('normal');
     expect(r.snapshot.formatted).toContain('Tokens');
-    expect(r.snapshot.limit).toBe(500_000);
+    expect(r.snapshot.limit).toBe(DEFAULT_DAILY_BUDGET_TOKENS);
   });
 
-  it('used 达上限 ⇒ allowed=false 且 mode=locked', () => {
-    getDailyBudget().setLimit(100);
-    getDailyBudget().recordUsage(100);
+  it('**Token 越界 ⇒ 不再拦**（只观测）：allowed=true 且档位恒 normal', () => {
+    const budget = getDailyBudget();
+    budget.setLimit(100);
+    budget.recordUsage(100); // 观测阈值已越界（旧实现 ⇒ locked + 拒发）
     const r = checkDailyBudget({ sessionId: 's1', estimatedTokens: 1 });
-    expect(r.allowed).toBe(false);
-    expect(r.snapshot.mode).toBe('locked');
-    expect(r.snapshot.used).toBe(100);
-    expect(r.snapshot.limit).toBe(100);
+    expect(r.allowed).toBe(true);
+    expect(r.snapshot.mode).toBe('normal');
+    // 观测面仍如实可见（越界不隐藏）
+    expect(budget.getMode().todayUsed).toBe(100);
   });
 
-  it('尚未 locked 但本轮估算将越界 ⇒ allowed=false（自含估算）', () => {
-    getDailyBudget().setLimit(100);
-    getDailyBudget().recordUsage(50); // 50% ⇒ mode=normal（未达 warning 0.8）
+  it('**本轮估算将越界 ⇒ 同样不拦**（`estimatedTokens` 仅进观测日志）', () => {
+    const budget = getDailyBudget();
+    budget.setLimit(100);
+    budget.recordUsage(50);
     const r = checkDailyBudget({ sessionId: 's1', estimatedTokens: 60 });
     expect(r.snapshot.mode).toBe('normal');
-    expect(r.allowed).toBe(false); // 50 + 60 >= 100 ⇒ 拒发
+    expect(r.allowed).toBe(true);
+  });
+
+  it('`canExecute` / `canSpawnSubAgent` 不因 Token 越界阻断（档位同源）', () => {
+    const budget = getDailyBudget();
+    budget.setLimit(100);
+    budget.recordUsage(1_000_000);
+    expect(budget.canExecute('s1')).toBe(true);
+    expect(budget.canSpawnSubAgent()).toBe(true);
   });
 
   it('formatBudget：<1000 原样；≥1000 走 K 且保留 1 位小数（只格式化已用量）', () => {

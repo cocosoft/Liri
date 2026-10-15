@@ -4,21 +4,29 @@
 // F4（Spec `.trae/specs/long-task-suspend-resume.md` §3-D8 / §1.3-F4）：
 // `waive-once` 的**闸门消费点** —— 一次性通行证必须真正被 `canExecute()` 消费，
 // 使"放行一次"从"死能力"变为可用；且该放行**恰消费一次**（本轮记账后失效）。
+//
+// ⚠️ **2026-10-15 迁移**：主口径已切 USD 且 **Token 轨只观测、不拦**（用户裁定）⇒
+// 旧写法 `setLimit(N) + recordUsage(N)` **不再能造出 `locked`**；本文件改用
+// `lockDailyBudgetForTest()`（金额越界）制造 locked，其余断言逐字保留。
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   getDailyBudget,
+  lockDailyBudgetForTest,
   resetDailyBudgetForTest,
 } from '../../src/query/DailyBudgetManager';
 import { checkDailyBudget } from '../../src/query/dailyBudgetGate';
 
-const LIMIT = 100;
+/** locked 态统一入口：金额越界（Token 口径已不再产生档位）。 */
+function locked(): ReturnType<typeof getDailyBudget> {
+  return lockDailyBudgetForTest();
+}
 
 describe('F4：waive-once 被日预算闸门消费（canExecute 放行一次）', () => {
   beforeEach(() => {
     resetDailyBudgetForTest();
     delete process.env.LIRI_DAILY_BUDGET_TOKENS;
-    getDailyBudget().setLimit(LIMIT);
+    locked();
   });
   afterEach(() => {
     resetDailyBudgetForTest();
@@ -27,7 +35,6 @@ describe('F4：waive-once 被日预算闸门消费（canExecute 放行一次）'
 
   it('① locked + applyRelief({kind:waive-once}) ⇒ canExecute() === true', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT); // 100/100 ⇒ locked
     expect(b.getMode().mode).toBe('locked');
     expect(b.canExecute()).toBe(false); // 放行前：无 waiver ⇒ 拦截
 
@@ -38,7 +45,6 @@ describe('F4：waive-once 被日预算闸门消费（canExecute 放行一次）'
 
   it('② 放行恰消费一次：同会话 recordUsage(1, sess) 后下一次 canExecute() === false', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
     expect(b.canExecute('sess-f4')).toBe(true); // 本轮放行（通行证归属 sess-f4）
 
@@ -48,14 +54,12 @@ describe('F4：waive-once 被日预算闸门消费（canExecute 放行一次）'
 
   it('③ 既有语义不变：无 waiver 时 locked ⇒ canExecute() === false', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     expect(b.getMode().mode).toBe('locked');
     expect(b.canExecute()).toBe(false);
   });
 
   it('④ waiver 过期 ⇒ 不消费、不放行（canExecute() === false）', async () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 1 });
     await new Promise((r) => setTimeout(r, 5));
 
@@ -73,7 +77,7 @@ describe('C2：checkDailyBudget 认 waive-once（流式/发送侧闸门）', () 
   beforeEach(() => {
     resetDailyBudgetForTest();
     delete process.env.LIRI_DAILY_BUDGET_TOKENS;
-    getDailyBudget().setLimit(LIMIT);
+    locked();
   });
   afterEach(() => {
     resetDailyBudgetForTest();
@@ -82,7 +86,6 @@ describe('C2：checkDailyBudget 认 waive-once（流式/发送侧闸门）', () 
 
   it('locked + 有效 waiver ⇒ allowed === true；消费后 ⇒ allowed === false', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT); // 100/100 ⇒ locked
     const q = { sessionId: 'sess-c2', estimatedTokens: 0 };
     expect(checkDailyBudget(q).allowed).toBe(false); // 无 waiver ⇒ 拦截（既有语义）
 
@@ -97,7 +100,6 @@ describe('C2：checkDailyBudget 认 waive-once（流式/发送侧闸门）', () 
 
   it('waiver 过期 ⇒ checkDailyBudget 仍拦截', async () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 1 });
     await new Promise((r) => setTimeout(r, 5));
 
@@ -119,7 +121,7 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
   beforeEach(() => {
     resetDailyBudgetForTest();
     delete process.env.LIRI_DAILY_BUDGET_TOKENS;
-    getDailyBudget().setLimit(LIMIT);
+    locked();
   });
   afterEach(() => {
     resetDailyBudgetForTest();
@@ -128,7 +130,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('① 跨会话记账不消费通行证：A 取得，B 记账 ⇒ 通行证仍有效', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT); // 100/100 ⇒ locked
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
 
     expect(b.canExecute('A')).toBe(true); // A 取得通行证
@@ -138,7 +139,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('② 同会话记账消费通行证：A 取得，A 记账 ⇒ 通行证失效', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
 
     b.canExecute('A');
@@ -148,7 +148,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('③ 无 sessionId 的记账不消费任何通行证', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
 
     b.canExecute('A');
@@ -158,7 +157,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('④ 通行证 TTL 到期 ⇒ hasActiveWaiver() === false', async () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT);
     b.applyRelief({ kind: 'waive-once', ttlMs: 1 });
     await new Promise((r) => setTimeout(r, 5));
 
@@ -167,7 +165,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('⑤ settleFor 透传 sessionId：本会话结算消费，他会话结算不消费', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT); // locked
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
 
     b.canExecute('A'); // A 取得通行证
@@ -180,7 +177,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('⑥ 先认领者独占：A 认领后 B 仍被放行但不夺走认领（B 记账不消费、A 记账才消费）', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT); // locked
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
 
     expect(b.canExecute('A')).toBe(true); // A **先**认领
@@ -193,7 +189,6 @@ describe('M1：waive-once 通行证按会话归属（跨会话不得互相消费
 
   it('⑦ 消费按**本次实际消耗**计入欠账（`debtTokens`；修复前恒 0 = 静默 no-op）', () => {
     const b = getDailyBudget();
-    b.recordUsage(LIMIT); // locked
     b.applyRelief({ kind: 'waive-once', ttlMs: 60_000 });
 
     b.canExecute('A'); // 取得通行证

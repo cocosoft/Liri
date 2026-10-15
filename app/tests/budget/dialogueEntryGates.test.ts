@@ -53,11 +53,11 @@ afterAll(() => {
   }
 });
 
-/** 把日预算打到 `locked`（**任何**入口都必须被拦） */
-function exhaustBudget(limit = 100): void {
+/** 把日预算打到 `locked`（**任何**入口都必须被拦）。2026-10-15：档位只由**金额口径**产出。 */
+function exhaustBudget(limitUsd = 1): void {
   const budget = getDailyBudget();
-  budget.setLimit(limit);
-  budget.recordUsage(limit);
+  budget.setLimitUsd(limitUsd);
+  budget.recordUsdUsage(limitUsd + 1); // 越界 ⇒ locked
 }
 
 describe('T12：F/G/K/M 入口的撞限出路', () => {

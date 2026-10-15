@@ -105,8 +105,8 @@ describe('T10：长程任务执行器的日预算收口（G-2/D）', () => {
 
   it('撞限 ⇒ 抛 DAILY_BUDGET_EXCEEDED、不发起模型调用，且 checkpoint 保留（可续跑）', async () => {
     const budget = getDailyBudget();
-    budget.setLimit(10);
-    budget.recordUsage(10); // 已达上限 ⇒ locked
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2); // 金额越界 ⇒ locked（2026-10-15：档位只由 USD 产出）
     expect(budget.getMode().mode).toBe('locked');
 
     const taskId = `t10-gate-${Date.now()}`;
@@ -125,7 +125,9 @@ describe('T10：长程任务执行器的日预算收口（G-2/D）', () => {
 
     expect(thrown).toBeInstanceOf(AppError);
     expect((thrown as AppError).code).toBe('DAILY_BUDGET_EXCEEDED');
-    expect((thrown as AppError).context?.dailyLimit).toBe(10);
+    // 拒绝上下文随**主口径**（2026-10-15 起为 USD）—— `limitUsd=1`
+    expect((thrown as AppError).context?.unit).toBe('usd');
+    expect((thrown as AppError).context?.dailyLimit).toBe(1);
     // 闸门在**模型调用之前** ⇒ 执行器一次都没被调用
     expect(calls).toBe(0);
     // 中止但**不丢进度**：阶段边界（setPhase('plan')）已落 checkpoint ⇒ 放行后可续跑/重发

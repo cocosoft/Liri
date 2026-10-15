@@ -121,13 +121,15 @@ async function call(
 
 describe('GET /v1/cost/daily-budget', () => {
   test('200：返回默认上限/档位/剩余/kill switch', async () => {
+    // 从**解析结果**派生（不硬编码 500_000：那会让断言依赖开发机 config.json）
+    const tokenLimit = getDailyBudget().getConfigSnapshot().dailyLimit;
     const r = await call('GET', '/v1/cost/daily-budget');
     expect(r.matched).toBe(true);
     expect(r.status).toBe(200);
-    expect(r.body['dailyLimit']).toBe(500_000);
+    expect(r.body['dailyLimit']).toBe(tokenLimit);
     expect(r.body['mode']).toBe('normal');
     expect(r.body['todayUsed']).toBe(0);
-    expect(r.body['remaining']).toBe(500_000);
+    expect(r.body['remaining']).toBe(tokenLimit);
     expect(r.body['killSwitch']).toBe(false);
     expect(typeof r.body['date']).toBe('string');
   });
@@ -159,13 +161,19 @@ describe('PUT /v1/cost/daily-budget', () => {
   });
 
   test('200：仅更新阈值（不改上限），锁定阈值即时反映', async () => {
-    getDailyBudget().recordUsage(300_000); // 60%
+    // 2026-10-15：档位只由**金额口径**产出（Token 轨只观测、不拦）⇒ 阈值用例改用金额口径驱动
+    getDailyBudget().setLimitUsd(10);
+    getDailyBudget().recordUsdUsage(6); // 60%
+    // Token 基座**事前取值**（不硬编码 500_000：那会让断言依赖开发机 config.json）
+    const tokenBefore = getDailyBudget().getConfigSnapshot().dailyLimit;
     const r = await call('PUT', '/v1/cost/daily-budget', {
       warningThreshold: 0.5,
       lockThreshold: 0.9,
     });
     expect(r.status).toBe(200);
-    expect(r.body['dailyLimit']).toBe(500_000); // 未提供 ⇒ 保持
+    expect(r.body['unit']).toBe('usd');
+    expect(r.body['dailyLimit']).toBe(10); // 未提供 ⇒ 保持
+    expect(r.body['tokenLimit']).toBe(tokenBefore); // Token 基座亦未动（观测面）
     expect(r.body['mode']).toBe('report_only'); // 60% ≥ 50% 且 < 90%
   });
 
@@ -298,6 +306,7 @@ describe('USD-2 PUT /v1/cost/daily-budget：写入 / 清空 USD 上限', () => {
   });
 
   test('仅传 dailyLimitUSD ⇒ 200（Token 字段非必填）', async () => {
+    const tokenBefore = getDailyBudget().getConfigSnapshot().dailyLimit;
     const r = await call('PUT', '/v1/cost/daily-budget', { dailyLimitUSD: 3 });
     expect(r.status).toBe(200);
     // S3（2026-10-15）：配了金额上限 ⇒ 主口径切 USD ⇒ `dailyLimit` 是**金额**上限；
@@ -305,7 +314,7 @@ describe('USD-2 PUT /v1/cost/daily-budget：写入 / 清空 USD 上限', () => {
     expect(r.body['limitUsd']).toBe(3);
     expect(r.body['unit']).toBe('usd');
     expect(r.body['dailyLimit']).toBe(3);
-    expect(r.body['tokenLimit']).toBe(500_000); // Token 上限未动
+    expect(r.body['tokenLimit']).toBe(tokenBefore); // Token 基座未动
   });
 
   test('非法值（0 / 负数 / 字符串）⇒ 400 且不写配置', async () => {

@@ -68,9 +68,9 @@ describe('applyPreSendProtection — R16 日预算硬阻断', () => {
 
   it('预算耗尽 ⇒ 抛 DAILY_BUDGET_EXCEEDED（拒绝发送）', async () => {
     const budget = getDailyBudget();
-    const limit = budget.getMode().dailyLimit;
-    expect(limit).toBeGreaterThan(0); // 默认上限 > 0；否则断言前提不成立
-    budget.recordUsage(limit + 1);
+    // 2026-10-15：档位只由**金额口径**产出（Token 轨只观测、不拦）
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2);
 
     let caught: unknown;
     try {
@@ -85,16 +85,19 @@ describe('applyPreSendProtection — R16 日预算硬阻断', () => {
     expect(String(err.message)).toContain('预算已用完');
   });
 
-  it('预算耗尽 ⇒ 释放本轮预扣（在途归零，projected === todayUsed）', async () => {
+  it('预算耗尽 ⇒ 释放本轮预扣（在途归零）', async () => {
     const budget = getDailyBudget();
-    const limit = budget.getMode().dailyLimit;
-    budget.recordUsage(limit + 1);
-    const todayUsed = budget.getMode().todayUsed;
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2);
+    budget.recordUsage(500); // Token 辅助记账
+    // ⚠️ 主口径为 USD 时 `getMode().projectedUsed` 走**金额**（金额无在途量）⇒ 在途（token 口径预留）
+    // 改由 `reserveFor(..., 0)` 的 `projected`（= 实际 token 用量 + 在途）作**探针**观测。
+    const inFlightBefore = budget.reserveFor('probe-before', 0).projected;
 
     await expect(applyPreSendProtection(params())).rejects.toThrow();
 
-    const after = budget.getMode();
-    expect(after.projectedUsed).toBe(after.todayUsed);
-    expect(after.todayUsed).toBe(todayUsed);
+    const inFlightAfter = budget.reserveFor('probe-after', 0).projected;
+    expect(inFlightAfter).toBe(inFlightBefore); // 本轮预扣已释放（不残留）
+    expect(budget.getMode().todayUsed).toBe(500); // 实际用量不受影响
   });
 });

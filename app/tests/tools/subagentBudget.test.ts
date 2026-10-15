@@ -96,8 +96,9 @@ describe('T11：子代理计账与闸门（G-2/E）', () => {
 
   it('额度耗尽（locked）⇒ 派生前拒绝：以工具结果回父对话（含原因 + 出路），不派生', async () => {
     const budget = getDailyBudget();
-    budget.setLimit(100);
-    budget.recordUsage(100);
+    // 2026-10-15：档位只由**金额口径**产出（Token 轨只观测、不拦）
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2);
     expect(budget.getMode().mode).toBe('locked');
 
     const tool = createAgentTool();
@@ -116,8 +117,8 @@ describe('T11：子代理计账与闸门（G-2/E）', () => {
 
   it('告警区（report_only）⇒ 同样不派生（`canSpawnSubAgent()` 仅 normal 放行）', async () => {
     const budget = getDailyBudget();
-    budget.setLimit(100);
-    budget.recordUsage(85); // 85% ⇒ report_only（chat 闸门仍放行，但扇出入口更保守）
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(0.85); // 85% ⇒ report_only（chat 闸门仍放行，但扇出入口更保守）
     expect(budget.getMode().mode).toBe('report_only');
 
     const tool = createAgentTool();

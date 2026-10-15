@@ -65,8 +65,8 @@ afterEach(() => {
   delete process.env[ENV_FLAG];
 });
 
-describe('S3 · 启用条件（约束④：不满足即回落 Token 口径）', () => {
-  it('开关**显式关** + 金额已越界 ⇒ 回落 Token：仍放行，快照 unit=tokens', () => {
+describe('S3 · 启用条件（约束④：不满足即 **Token 只观测**，不拦）', () => {
+  it('开关**显式关** + 金额已越界 ⇒ 金额不参与：仍放行，快照 unit=tokens', () => {
     setUsdLimit(1);
     disableUsdGate();
     getDailyBudget().recordUsdUsage(5); // 5 >= 1 ⇒ 金额越界，但开关关
@@ -75,14 +75,15 @@ describe('S3 · 启用条件（约束④：不满足即回落 Token 口径）', 
     expect(r.snapshot.unit).toBe('tokens');
   });
 
-  it('开关开 + **未配** limitUsd ⇒ 回落 Token（不 fail，档位仍按 Token）', () => {
+  it('开关开 + **未配** limitUsd ⇒ Token 口径**也不再拦**（用户裁定：只观测）', () => {
     enableUsdGate();
     getDailyBudget().setLimit(100);
-    getDailyBudget().recordUsage(100); // Token 越界
+    getDailyBudget().recordUsage(100); // Token 观测阈值越界
     const r = checkDailyBudget({ sessionId: 's1', estimatedTokens: 0 });
     expect(r.snapshot.unit).toBe('tokens');
-    expect(r.allowed).toBe(false); // 回落口径下 Token 仍拦（降级可用而非失效）
-    expect(r.snapshot.mode).toBe('locked');
+    // ⚠️ 2026-10-15 撤回 spec §225 的「回落 token 上限」兜底 ⇒ 无金额上限即**无预算硬闸门**
+    expect(r.allowed).toBe(true);
+    expect(r.snapshot.mode).toBe('normal');
   });
 });
 
@@ -162,15 +163,18 @@ describe('S3 · Token 轨降级为观测告警（Plan A 核心）', () => {
   });
 });
 
-describe('S3 · 源码守卫（防回流到「双轨从严」）', () => {
+describe('S3 · 源码守卫（防回流到「双轨从严」/「Token 拦停」）', () => {
   it('闸门判定式**不得**再出现 Token 轨 conjunct（`tokenAllowed && !usdExceeded`）', () => {
     const src = readFileSync(
       join(import.meta.dir, '../../src/query/dailyBudgetGate.ts'),
       'utf8'
     );
     expect(src).not.toContain('tokenAllowed && !usdExceeded');
-    // 主口径分流必须存在（`state.unit === 'usd'` 分支即回退路径的载体）
-    expect(src).toContain("state.unit === 'usd'");
+    // 判定式必须**只**看主口径档位（Token 轨不再有分支）
+    expect(src).toMatch(
+      /const allowed = !killSwitch && \(waiver \|\| primaryAllows\);/
+    );
+    expect(src).not.toContain('tokenTrackAllows');
   });
 });
 

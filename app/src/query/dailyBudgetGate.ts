@@ -51,27 +51,27 @@ export {
 /**
  * 判定"本轮能否发起模型调用"（**纯读，无副作用**）。
  *
- * ## 主口径（债四 D1/S3，2026-10-15 落地）
+ * ## 硬闸门（用户 2026-10-15 两次裁定的合成口径）
  *
- * **硬闸门 = 主口径档位**：USD 轨启用（`FEATURE_USD_BUDGET_GATE` 开 **且** 已配 `limitUsd`）时
- * 主口径是**金额**；未启用则**回落** Token 口径（降级可用，不 fail，见 `_primaryUnit()`）。
- * 档位（`normal` / `report_only` / `locked`）由 `DailyBudgetManager._computeState()` 按主口径给出。
+ * 1. **金额（USD）是唯一预算硬闸门**：USD 轨启用（`FEATURE_USD_BUDGET_GATE` 开 **且** 已配
+ *    `limitUsd`）时，档位（`normal` / `report_only` / `locked`）按金额计算，`locked` ⇒ 拒发。
+ * 2. **Token 轨只观测、不启用闸门**：Token 计数是"所有请求的上下文搬运总量"（含 `cache_read`、
+ *    含 agentic 每轮重发的全上下文）⇒ 与"额度"语义差 1–2 个数量级，**不参与判定**；
+ *    越界只经 `_observeTokenTrack` 记 warn。
+ * 3. **kill-switch 是手动总闸**：与口径无关，任何情况下拒发，且**不可**被任何放行绕过。
  *
- * **Token 轨已降级为观测告警**（用户 2026-10-15 裁定）：Token 计数是"所有请求的上下文搬运总量"
- * （含 `cache_read`、含 agentic 每轮重发的全上下文）⇒ 与"额度"语义差 1–2 个数量级，不再参与
- * 判定；越界只记 warn（`dailyBudget:token_track`）。
+ * ⚠️ 由此产生一处**有意偏离**（如实标注）：`unified-budget-and-accounting.md` §225 原定
+ * 「金额上限未设 ⇒ 回落 token 上限（降级可用，不 fail）」—— 本项按用户裁定取消该回落，
+ * 即**未配置 `limitUsd` 时不存在任何预算硬闸门**（只有观测告警）。
  *
  * ## 判定式
  *
  * ```
- * allowed = !killSwitch && (waiver || 主口径档位 !== 'locked' [&& Token 口径: projected < 上限])
+ * allowed = !killSwitch && (waiver || 主口径档位 !== 'locked')
  * ```
  *
- * - **Token 口径回落时**附加 `projected < dailyLimit`（保留 R16「在途预留 + 本轮预估」语义），
- *   与本模块既有实现**互补等价**；USD 口径**无本轮预估**（金额按已结算判定，§6.4-2）⇒ 只看档位。
- * - `waive-once` 通行证（C2）⇒ 放行**本轮**（作用于**当前主口径**；不消费，消费仍在 `recordUsage()`）。
- * - **kill-switch 是手动总闸，不可被任何放行绕过**（硬锁优先）：原实现在 `waive-once` 短路口
- *   会顺带绕过硬锁 —— S3 一并收紧。
+ * - `waive-once` 通行证（C2）⇒ 放行**本轮**（不消费，消费仍在 `recordUsage()`）。
+ * - `estimatedTokens` 仅进观测日志：**金额轨无"本轮预估"**（按已结算判定），Token 轨又不判定。
  * - **不做预扣**：预扣（`reserveFor`）仍由调用方负责；本函数可被工具循环**逐轮**安全调用。
  */
 export function checkDailyBudget(input: {
@@ -88,17 +88,14 @@ export function checkDailyBudget(input: {
   // 手动硬锁：**独立于用量**的总闸，任何放行都不得绕过。
   const killSwitch = budget.isKillSwitchEnabled();
 
-  const isUsd = state.unit === 'usd';
-  // Token 口径回落路径专用（USD 主口径下 `estimatedTokens` 不参与判定：无金额预估可用）
-  const tokenProjected = state.projectedUsed + input.estimatedTokens;
-  const tokenTrackAllows =
-    state.mode !== 'locked' && tokenProjected < state.dailyLimit;
-
+  // 硬闸门判据 = **主口径档位**（`_computeState` 仅在 USD 主口径下产出 `locked`；
+  // kill-switch 任何口径下都产 `locked`）。Token 口径恒 `normal` ⇒ 天然不拦。
   const primaryAllows = state.mode !== 'locked';
-  const allowed =
-    !killSwitch && (waiver || (isUsd ? primaryAllows : tokenTrackAllows));
+  const allowed = !killSwitch && (waiver || primaryAllows);
 
-  // 观测日志：主口径 + Token 轨（已降级）并排如实记录，便于核对"闸门是否按金额在拦"。
+  // 观测日志：硬闸门（主口径）+ Token 观测轨并排如实记录，便于核对"两者是否已分离"。
+  const tokenBase = budget.getConfigSnapshot().dailyLimit;
+  const tokenProjected = state.projectedUsed + input.estimatedTokens;
   logger.info('dailyBudgetGate:decision', {
     sessionId: input.sessionId,
     primary: {
@@ -109,13 +106,12 @@ export function checkDailyBudget(input: {
       mode: state.mode,
       exceeded: !primaryAllows,
     },
+    /** Token 轨**不参与判定**（用户 2026-10-15 裁定）⇒ 本块仅供观测。 */
     tokenTrack: {
       projected: tokenProjected,
-      dailyLimit: state.dailyLimit,
       todayUsed: state.todayUsed,
-      /** Token 轨**已不参与判定** ⇒ 仅观测（S3）。 */
-      exceeded:
-        state.mode !== 'locked' ? tokenProjected >= state.dailyLimit : true,
+      observationLimit: tokenBase,
+      exceeded: tokenBase > 0 && tokenProjected >= tokenBase,
     },
     usd: {
       usedUsd: usd.usedUsd,

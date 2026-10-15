@@ -29,6 +29,7 @@ import {
 } from '../../src/query/budgetSuspend';
 
 const LIMIT = 100;
+/** 每轮模型响应的**实际**用量（2026-10-15：改为**金额口径 USD** —— 档位只由 USD 产出） */
 const PER_ROUND = 60;
 const ROUNDS = 8;
 const SESSION_ID = 'sess-budget-suspend-stream';
@@ -90,7 +91,7 @@ function makeCtx(
       arguments: Record<string, unknown>;
     }) => {
       // 模拟"每轮工具执行即产生真实消耗"
-      getDailyBudget().recordUsage(PER_ROUND);
+      getDailyBudget().recordUsdUsage(PER_ROUND);
       return {
         toolCallId: toolCall.id,
         toolName: toolCall.name,
@@ -193,7 +194,7 @@ describe('Task 5：流式链日预算耗尽挂起', () => {
   beforeEach(() => {
     prevFlag = process.env[FLAG];
     resetDailyBudgetForTest();
-    getDailyBudget().setLimit(LIMIT);
+    getDailyBudget().setLimitUsd(LIMIT);
     resetBudgetSuspendForTest();
   });
   afterEach(() => {
@@ -215,7 +216,7 @@ describe('Task 5：流式链日预算耗尽挂起', () => {
     // M5（最终整支评审）：补断言"预算确已耗尽"——否则本用例可能空转（未真正走到撞限分支）。
     const mode = getDailyBudget().getMode();
     expect(mode.mode).toBe('locked');
-    expect(mode.todayUsed).toBeGreaterThanOrEqual(LIMIT);
+    expect(mode.used).toBeGreaterThanOrEqual(LIMIT);
   });
 
   it('开关开：日预算耗尽 ⇒ 落 label=budget_suspend 检查点 + 协调器登记 chain=stream', async () => {

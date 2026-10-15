@@ -338,6 +338,8 @@ function guardExecutorWithDailyBudget(
         'DAILY_BUDGET_EXCEEDED',
         {
           taskId,
+          // 口径随快照（2026-10-15：主口径已切 USD）—— 与 `resolveEntryBudgetDenial` 的 context 同形。
+          unit: decision.snapshot.unit,
           todayUsed: decision.snapshot.used,
           dailyLimit: decision.snapshot.limit,
           estimateThisRound: estimatedTokens,

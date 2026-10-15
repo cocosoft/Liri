@@ -134,13 +134,24 @@ interface DailyBudgetState {
 }
 
 /**
- * 进程级每日 Token 预算**默认上限（单源）**。
+ * 进程级每日 Token **观测阈值**默认值（单源）。
  *
  * 2026-10-13 裁定：与类内 `DEFAULT_CONFIG.dailyLimit` **统一为同一常量**（此前两处字面量不一致：
  * 常量 500_000 vs 类内 1_000_000）；按用户裁定**以 1_000_000 为准**。
  * 解析优先级：持久化配置 `costControl.dailyTokenBudget` ＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 本常量。
+ *
+ * **2026-10-15 重设（用户裁定「Token 轨只观测、不启用闸门」）**：该值**不再是额度**，只是
+ * `_observeTokenTrack` 的**告警线**。原值（50 万 / 1 000 000）远低于真实日量级 ⇒ 天天告警、
+ * 无信息量。取本仓 58 个有调用日的历史分布（Token 口径 Σ(input+output)，见台账
+ * `BUDGET-USD-STREAM-LEDGER`）：
+ *
+ * | min | p25 | p50 | p75 | **p90** | max |
+ * |---|---|---|---|---|---|
+ * | 0.30M | 4.57M | 9.34M | 23.3M | **32.5M** | 90.4M |
+ *
+ * ⇒ 取 **p90 的整数值 30_000_000**（≈ 中位日的 3.2 倍）：约 **1/10** 的日子会告警。
  */
-export const DEFAULT_DAILY_BUDGET_TOKENS = 1_000_000;
+export const DEFAULT_DAILY_BUDGET_TOKENS = 30_000_000;
 
 /** 默认配置 */
 const DEFAULT_CONFIG: DailyBudgetConfig = {
@@ -335,9 +346,17 @@ export class DailyBudgetManager {
 
     let mode: BudgetMode = 'normal';
 
-    if (this.killSwitch || percentUsed >= this.config.lockThreshold) {
+    // S3+（2026-10-15 用户裁定「Token 轨**只观测、不启用闸门**」）：**只有 USD 主口径产出档位**。
+    // Token 口径（USD 闸门未配置时的回落）**恒 `normal`** —— 它只作为观测告警
+    // （`_observeTokenTrack`），不再产生 `report_only` / `locked`，因而也不经
+    // `canExecute` / `canSpawnSubAgent` / `needsGraceCall` 阻断任何调用。
+    // `killSwitch` 为**手动总闸**、与口径无关 ⇒ 任何情况下都置 `locked`。
+    if (
+      this.killSwitch ||
+      (isUsd && percentUsed >= this.config.lockThreshold)
+    ) {
       mode = 'locked';
-    } else if (percentUsed >= this.config.warningThreshold) {
+    } else if (isUsd && percentUsed >= this.config.warningThreshold) {
       mode = 'report_only';
     }
 
@@ -354,15 +373,21 @@ export class DailyBudgetManager {
   }
 
   /**
-   * **主口径**单位（债四 D1/S3）—— 由 `FEATURE_USD_BUDGET_GATE` **且** 已配置 `limitUsd` 决定。
+   * **主口径**单位（债四 D1/S3 + 2026-10-15 用户裁定）—— 由 `FEATURE_USD_BUDGET_GATE`
+   * **且** 已配置 `limitUsd` 决定；不满足则回落 `'tokens'`。
    *
    * **为什么不用"任一先踩线"（旧双轨从严）**：Token 计数在本仓是"所有请求的上下文搬运总量"
    * （含 cache_read，且 agentic 每轮重发全上下文）⇒ 与"额度"语义差 1–2 个数量级
-   * （真机 2026-10-15：基数 50 万 vs 当日 13,186,080 ≈ 26×）⇒ 用它当额度会**恒 locked**，
-   * 闸门退化为摆设。故按其真实语义降为**观测告警**，硬闸门交金额（用户 2026-10-15 裁定）。
+   * （真机 2026-10-15：基数 50 万 vs 当日 13,186,080 ≈ 26×；58 天历史仅 1 天低于 50 万）
+   * ⇒ 用它当额度会**恒 locked**，闸门退化为摆设。
    *
-   * **回退（降级可用，不 fail）**：开关关 **或** 未配 `limitUsd` ⇒ 回落 Token 主口径，
-   * 与 S3 之前**逐字一致**（用户未设金额上限时不得静默失去保护）。
+   * **Token 轨的定位（用户 2026-10-15 二次裁定）**：**只观测、不启用闸门**。
+   * ⇒ 回落到 `'tokens'` 时**不产生任何档位**（`_computeState` 恒 `normal`）、
+   * 不阻断调用；Token 越界只经 `_observeTokenTrack` 记 warn（观测项）。
+   *
+   * ⚠️ **如实标注（姿态变化）**：本项**有意偏离** `unified-budget-and-accounting.md` §225
+   * 「金额上限未设 ⇒ 回落 token 上限（降级可用，不 fail）」—— 即**未配置 `limitUsd` 时不再有任何
+   * 预算硬闸门**（仅有观测告警）。用户裁定优先；如需恢复兜底，改回本方法并同步本注与台账。
    */
   private _primaryUnit(): BudgetUnit {
     return feature('USD_BUDGET_GATE') && this.config.limitUsd !== undefined
@@ -428,12 +453,13 @@ export class DailyBudgetManager {
   }
 
   /**
-   * S3（2026-10-15）：**Token 轨的独立观测**（越界只告警、**不阻断**）。
+   * S3+（2026-10-15）：**Token 轨的独立观测**（越界只告警、**不阻断**）。
    *
    * Token 计数 = 所有请求的上下文搬运总量（含缓存命中、含每轮重发的历史）⇒ 它是**成本/负载
-   * 的代理指标**，不是额度。降级后仍需可见：越界时记一条 warn（去重，避免热路径刷屏），
-   * 回到限内记一条 info。判据恒用 `config.dailyLimit`（**基座**，不含 relief）—— 观测应反映
-   * "原始配置是否被突破"，与 relief 抬高有效上限的行为解耦。
+   * 的代理指标**，不是额度。用户 2026-10-15 裁定「**只观测、不启用闸门**」⇒ 越界时记一条 warn
+   * （去重，避免热路径刷屏），回到限内记一条 info；**不产生档位、不阻断调用**。
+   * 判据恒用 `config.dailyLimit`（**基座**，不含 relief）—— 观测应反映"原始阈值是否被突破"，
+   * 与 relief 抬高有效上限的行为解耦。
    */
   private _observeTokenTrack(): void {
     const base = this.config.dailyLimit;
@@ -442,7 +468,7 @@ export class DailyBudgetManager {
     this.lastTokenTrackExceeded = exceeded;
     if (exceeded) {
       logger.warn(
-        'dailyBudget:token_track — Token 轨已越界（**观测项**，不再阻断模型调用；硬闸门 = 金额轨）',
+        'dailyBudget:token_track — Token 观测阈值已越界（**观测项**，不阻断任何调用；硬闸门 = 金额轨）',
         {
           todayUsed: this.todayUsed,
           tokenLimit: base,
@@ -453,7 +479,7 @@ export class DailyBudgetManager {
         }
       );
     } else {
-      logger.info('dailyBudget:token_track — Token 轨回到限内', {
+      logger.info('dailyBudget:token_track — Token 观测值回到阈值内', {
         todayUsed: this.todayUsed,
         tokenLimit: base,
       });
@@ -1202,6 +1228,23 @@ let pendingTestReset = false;
 export function resetDailyBudgetForTest(): void {
   dailyBudgetSingleton = null;
   pendingTestReset = true;
+}
+
+/**
+ * 仅供测试：把预算**直接置为越界**（⇒ `getMode().mode === 'locked'`）。
+ *
+ * **为什么需要**：主口径已切 USD，且 Token 轨**只观测、不拦**（用户 2026-10-15 裁定）
+ * ⇒ 旧用例里 `setLimit(N) + recordUsage(N)` 那一招**不再能造出 `locked`**（Token 越界恒 `normal`）。
+ * 本 helper 把新写法收敛到一处，避免各测试文件复写两行、并各自踩"忘了配 USD 上限"的坑。
+ */
+export function lockDailyBudgetForTest(
+  limitUsd = 1,
+  usedUsd = 2
+): DailyBudgetManager {
+  const budget = getDailyBudget();
+  budget.setLimitUsd(limitUsd);
+  budget.recordUsdUsage(usedUsd);
+  return budget;
 }
 
 export function getDailyBudget(): DailyBudgetManager {

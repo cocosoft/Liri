@@ -106,23 +106,25 @@ describe('resolveDailyBudgetConfig 优先级（D1）', () => {
 });
 
 describe('DailyBudgetManager applyConfig/setLimit 热更新（D1）', () => {
-  it('setLimit 立即生效：上调上限使 locked ⇒ normal', () => {
-    const b = createDailyBudgetManager({ dailyLimit: 1000 });
-    b.recordUsage(1200);
+  // ⚠️ 2026-10-15：档位只由 **USD 主口径** 产出（Token 轨只观测不拦）⇒ 本组用例改用金额口径驱动。
+  it('setLimitUsd 立即生效：上调金额上限使 locked ⇒ normal', () => {
+    const b = createDailyBudgetManager({ limitUsd: 1 });
+    b.recordUsdUsage(2); // 2 ≥ 1 ⇒ locked
     expect(b.getMode().mode).toBe('locked');
 
-    b.setLimit(2000); // 无需重启
+    b.setLimitUsd(3); // 无需重启
     const m = b.getMode();
-    expect(m.dailyLimit).toBe(2000);
+    expect(m.unit).toBe('usd');
+    expect(m.dailyLimit).toBe(3);
     expect(m.mode).toBe('normal');
   });
 
-  it('applyConfig 更新阈值并即时反映档位', () => {
+  it('applyConfig 更新阈值并即时反映档位（金额口径）', () => {
     const b = createDailyBudgetManager({
-      dailyLimit: 1000,
+      limitUsd: 100,
       warningThreshold: 0.8,
     });
-    b.recordUsage(500); // 50% < 80% ⇒ normal
+    b.recordUsdUsage(50); // 50% < 80% ⇒ normal
     expect(b.getMode().mode).toBe('normal');
 
     b.applyConfig({ warningThreshold: 0.4 }); // 50% ≥ 40% ⇒ report_only
@@ -130,10 +132,10 @@ describe('DailyBudgetManager applyConfig/setLimit 热更新（D1）', () => {
   });
 
   it('applyConfig 忽略非法值（保留当前值）', () => {
-    const b = createDailyBudgetManager({ dailyLimit: 1000 });
+    const b = createDailyBudgetManager({ dailyLimit: 1000, limitUsd: 1000 });
     b.applyConfig({ dailyLimit: -5, warningThreshold: 2 });
-    expect(b.getMode().dailyLimit).toBe(1000);
-    b.recordUsage(900); // 90% ≥ 默认 80% ⇒ report_only（说明阈值未被 2 覆盖）
+    expect(b.getConfigSnapshot().dailyLimit).toBe(1000); // Token 基座未被非法值改动
+    b.recordUsdUsage(900); // 90% ≥ 默认 80% ⇒ report_only（说明阈值未被 2 覆盖）
     expect(b.getMode().mode).toBe('report_only');
   });
 });

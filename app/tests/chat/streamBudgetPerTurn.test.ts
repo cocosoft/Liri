@@ -23,7 +23,7 @@ import {
 
 /** 日预算上限（测试用极小值，便于 2 轮内耗尽） */
 const LIMIT = 100;
-/** 每轮模型响应的**实际**用量 */
+/** 每轮模型响应的**实际**用量（2026-10-15：改为**金额口径 USD** —— 档位只由 USD 产出） */
 const PER_ROUND = 60;
 /** 预置的工具轮次数（若无闸门，循环会跑满这么多轮） */
 const ROUNDS = 8;
@@ -59,7 +59,7 @@ function makeCtx(counter: { calls: number }): ToolLoopContext {
     }) => {
       // 模拟"每轮工具执行即产生真实消耗"：直接记入日预算（不绕 streamingLlm 的 usage 上报，
       // 以便本用例聚焦**闸门**而非用量归因；也避免触碰真实成本库）。
-      getDailyBudget().recordUsage(PER_ROUND);
+      getDailyBudget().recordUsdUsage(PER_ROUND);
       return {
         toolCallId: toolCall.id,
         toolName: toolCall.name,
@@ -126,7 +126,7 @@ function makeInput(): never {
 describe('G-1：流式工具循环逐轮复检日预算', () => {
   beforeEach(() => {
     resetDailyBudgetForTest();
-    getDailyBudget().setLimit(LIMIT);
+    getDailyBudget().setLimitUsd(LIMIT);
   });
   afterEach(() => {
     resetDailyBudgetForTest();
@@ -154,8 +154,8 @@ describe('G-1：流式工具循环逐轮复检日预算', () => {
 
     // 修复前：跑满 ROUNDS(=8) 轮 ⇒ 8 次模型请求、用量 480 远超上限 100
     expect(counter.calls).toBe(2);
-    // 收束发生在第 3 轮**之前**的复检 ⇒ 已记账量为前两轮实际用量
-    expect(getDailyBudget().getMode().todayUsed).toBe(PER_ROUND * 2);
+    // 收束发生在第 3 轮**之前**的复检 ⇒ 已记账量为前两轮实际用量（**主口径 = USD**）
+    expect(getDailyBudget().getMode().used).toBe(PER_ROUND * 2);
     expect(stops.length).toBeGreaterThan(0);
     expect(returned).toBeDefined();
   });

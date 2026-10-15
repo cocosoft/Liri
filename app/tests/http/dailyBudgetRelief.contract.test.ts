@@ -122,9 +122,14 @@ describe('POST /v1/cost/daily-budget/relief（T5 放行端点）', () => {
     expect(r.status).toBe(200);
     const relief = r.body['relief'] as { kind: string; effectiveLimit: number };
     expect(relief.kind).toBe('boost');
-    expect(relief.effectiveLimit).toBe(1_000_000);
+    // ⚠️ 从**解析结果**派生（不硬编码 500_000/1_000_000：那会让断言依赖开发机 config.json）
+    expect(relief.effectiveLimit).toBe(
+      getDailyBudget().getConfigSnapshot().dailyLimit * 2
+    );
     // 即时生效
-    expect(getDailyBudget().getMode().dailyLimit).toBe(1_000_000);
+    expect(getDailyBudget().getMode().dailyLimit).toBe(
+      getDailyBudget().getConfigSnapshot().dailyLimit * 2
+    );
     // 广播
     expect(events.map((e) => e[0])).toContain('cost:dailyBudgetUpdated');
   });
@@ -177,7 +182,9 @@ describe('POST /v1/cost/daily-budget/relief（T5 放行端点）', () => {
     });
     const view = getDailyBudget().getRelief();
     expect(view?.expiresAt ?? 0).toBeGreaterThan(first);
-    expect(getDailyBudget().getMode().dailyLimit).toBe(1_500_000);
+    expect(getDailyBudget().getMode().dailyLimit).toBe(
+      getDailyBudget().getConfigSnapshot().dailyLimit * 3
+    );
   });
 
   test('硬锁优先：kill-switch 开启时 relief 照记（200）但 mode 仍 locked', async () => {
@@ -188,20 +195,24 @@ describe('POST /v1/cost/daily-budget/relief（T5 放行端点）', () => {
     });
     expect(r.status).toBe(200);
     expect(getDailyBudget().getMode().mode).toBe('locked');
-    expect(getDailyBudget().getRelief()?.effectiveLimit).toBe(2_500_000);
+    expect(getDailyBudget().getRelief()?.effectiveLimit).toBe(
+      getDailyBudget().getConfigSnapshot().dailyLimit * 5
+    );
   });
 });
 
 describe('DELETE /v1/cost/daily-budget/relief（撤销放行，2026-10-12）', () => {
   test('200：撤销后放行清空、上限回配置值，且**保留今日用量**（≠ reset）', async () => {
     const budget = getDailyBudget();
-    budget.recordUsage(600_000); // > 500K ⇒ locked
+    // 2026-10-15：档位只由**金额口径**产出（Token 轨只观测、不拦）⇒ 用金额越界制造 locked
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2); // 2 ≥ 1 ⇒ locked
     expect(budget.getMode().mode).toBe('locked');
 
     await call('POST', '/v1/cost/daily-budget/relief', {
       kind: 'unlock-today',
     });
-    expect(budget.getMode().dailyLimit).toBe(2_500_000);
+    expect(budget.getMode().dailyLimit).toBe(5); // 1 × 5（unlock-today 软上限，基座换 USD）
     expect(budget.getMode().mode).toBe('normal');
 
     const r = await call('DELETE', '/v1/cost/daily-budget/relief');
@@ -209,8 +220,8 @@ describe('DELETE /v1/cost/daily-budget/relief（撤销放行，2026-10-12）', (
     expect(r.status).toBe(200);
     expect(r.body['relief']).toBeNull();
     // 恢复**配置上限** + 用量保留 ⇒ 重新 locked
-    expect(budget.getMode().dailyLimit).toBe(500_000);
-    expect(budget.getMode().todayUsed).toBe(600_000);
+    expect(budget.getMode().dailyLimit).toBe(1);
+    expect(budget.getMode().used).toBe(2);
     expect(budget.getMode().mode).toBe('locked');
     expect(budget.getRelief()).toBeNull();
     // SSE 广播（前端面板即时刷新）

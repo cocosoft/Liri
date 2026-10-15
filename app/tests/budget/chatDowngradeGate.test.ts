@@ -81,8 +81,9 @@ describe('G-2：ChatManager 降级路径的日预算闸门', () => {
 
   it('额度耗尽 ⇒ 抛 DAILY_BUDGET_EXCEEDED 且**不调用模型**（判定早于工具执行）', async () => {
     const budget = getDailyBudget();
-    budget.setLimit(100);
-    budget.recordUsage(100);
+    // 2026-10-15：档位只由**金额口径**产出（Token 轨只观测、不拦）⇒ 用金额越界制造 locked
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2);
     expect(budget.getMode().mode).toBe('locked');
 
     const manager = createChatManager() as unknown as ManagerWithPrivates;

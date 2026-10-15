@@ -45,20 +45,23 @@ describe('getDailyBudget（R16 进程共享单例）', () => {
     expect(getDailyBudget()).toBe(getDailyBudget());
   });
 
-  it('默认上限：常量与类内默认配置单源（= 1_000_000）', () => {
+  it('默认阈值：常量与类内默认配置单源（= 30_000_000，2026-10-15 重设为观测阈值）', () => {
     // 2026-10-13 裁定：常量与 `DEFAULT_CONFIG.dailyLimit` 统一为同一值（此前 500_000 vs 1_000_000 分裂）。
-    expect(DEFAULT_DAILY_BUDGET_TOKENS).toBe(1_000_000);
-    // 运行期生效上限来自「持久化配置 ＞ env ＞ 常量」解析（含本机持久化配置）⇒ 一律**从解析结果派生**，
+    // 2026-10-15 重设：Token 轨**只观测、不拦**（用户裁定）⇒ 该值不再是额度，只是告警线；
+    // 按 58 天历史分布取 p90 整数值 30_000_000（原 1_000_000 低于除 1 天外所有日子 ⇒ 天天告警）。
+    expect(DEFAULT_DAILY_BUDGET_TOKENS).toBe(30_000_000);
+    // 运行期生效阈值来自「持久化配置 ＞ env ＞ 常量」解析（含本机持久化配置）⇒ 一律**从解析结果派生**，
     // 不硬编码数值（解析顺序由 `dailyBudgetConfig.test.ts` 的 fresh 实例用例覆盖）。
     expect(getDailyBudget().getMode().dailyLimit).toBeGreaterThan(0);
   });
 
-  it('recordUsage 累积并反映到 getMode（todayUsed + mode）', () => {
+  it('recordUsage 累积并反映到 getMode（todayUsed 可见；**Token 不产档位**）', () => {
     const b = getDailyBudget();
     b.recordUsage(400_000);
     const m = b.getMode();
     expect(m.todayUsed).toBe(400_000);
-    expect(m.mode).toBe('report_only'); // 400000/上限 ⇒ warning 窗口内（上限 ≥ 500_000）
+    // Token 轨只观测（用户 2026-10-15 裁定）⇒ 档位恒 normal（档位只由 USD 口径 / kill-switch 产出）
+    expect(m.mode).toBe('normal');
   });
 });
 
@@ -88,7 +91,8 @@ describe('DailyBudgetManager 原子预留（R16）', () => {
     expect(m.projectedUsed).toBe(450_000); // 实际 + 在途
     // remaining/上限同为**解析结果派生**（本机持久化配置与 CI 默认可能不同）⇒ 不硬编码数值
     expect(m.remaining).toBe(m.dailyLimit - m.projectedUsed);
-    expect(m.mode).toBe('report_only'); // 450000/上限（0.45~0.9 均落 report_only）
+    // Token 口径**不产档位**（用户 2026-10-15 裁定）⇒ 恒 normal（档位只由 USD / kill-switch 产出）
+    expect(m.mode).toBe('normal');
   });
 
   it('同一会话多次预留累加', () => {
@@ -115,10 +119,15 @@ describe('DailyBudgetManager 原子预留（R16）', () => {
 
   it('reserveFor 超额 ⇒ ok=false（含他人在途）', () => {
     const b = getDailyBudget();
-    b.reserveFor('s1', 400_000);
-    const r = b.reserveFor('s2', 400_000); // 累计 800k > 500k
-    expect(r.ok).toBe(false);
-    expect(r.projected).toBe(800_000);
+    // 显式设定上限（不依赖开发机 config.json 的 Token 基座）
+    b.setLimit(1000);
+    const r1 = b.reserveFor('s1', 400);
+    const r2 = b.reserveFor('s2', 400); // 累计 800 < 1000 ⇒ 仍在限内
+    expect(r2.ok).toBe(true);
+    const r3 = b.reserveFor('s3', 400); // 累计 1200 > 1000 ⇒ 越界
+    expect(r3.ok).toBe(false);
+    expect(r3.projected).toBe(1_200);
+    expect(r1.projected).toBe(400);
   });
 });
 

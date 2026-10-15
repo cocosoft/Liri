@@ -19,6 +19,9 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES**：`VALID_STATUSES`×2 按域消歧（task 五态 / todo 三态，异值异域）⇒ 同名常量 2>0 —— 验证 tc0|ut75|gate6；基线 同名常量:VALID_STATUSES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS**：`SAFE_ENV_VARS`×2 按域消歧（托管设置 / bash 继承，异值异域；只改名不放宽）⇒ 同名常量 2>0 —— 验证 tc0|ut75|gate6；基线 同名常量:SAFE_ENV_VARS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS**：`AUTOCOMPACT_BUFFER_TOKENS` 合一到真源（同值同事实 13000）⇒ 同名常量 2>0 —— 验证 tc0|ut75|gate6；基线 同名常量:AUTOCOMPACT_BUFFER_TOKENS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES**：`AGENT_TYPES`×2 已合一到真源（= `BUILTIN_AGENTS` 的键；CLI 两命令改桶引用，取值/顺序一字未改）⇒ 同名常量:AGENT_TYPES 2>0 —— 验证 tc0|ut76|gate6；基线 同名常量:AGENT_TYPES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS**：`SKIP_DIRS`×2 按域消歧（插件安全扫描 / files 递归守卫，异值异域；搜索工具真源另在 searchSkipDirs.ts）⇒ 同名常量:SKIP_DIRS 2>0 —— 验证 tc0|ut76|gate6；基线 同名常量:SKIP_DIRS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE**：`TABLE`×2 按域消歧（定时任务表 / 人设绑定表，取值一字未改）⇒ 同名常量:TABLE 2>0 —— 验证 tc0|ut76|gate6；基线 同名常量:TABLE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）

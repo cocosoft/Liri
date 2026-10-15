@@ -4146,6 +4146,43 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#2","i":0,"c":"app/src/commands/tools/ai/agent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#3","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"title","i":0,"c":"`AUTOCOMPACT_BUFFER_TOKENS` 已合一到真源（同值同事实：13000；策略侧改引用，取值一字未改）⇒ 同名常量:AUTOCOMPACT_BUFFER_TOKENS 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"reopenWhen","i":0,"c":"① 若 `compaction/strategies/` 被拆成独立包（跨模块引用），需把真源一并上提，否则会触发跨模块深路径引用规则；② 若将来 warning/error 两级余量也要共享（当前 `WARNING_/ERROR_THRESHOLD_BUFFER_TOKENS` 仅 `autoCompact.ts` 内部使用），按同一口径上提到真源再引用；"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"reopenWhen","i":1,"c":"③ 若阈值改为按模型/上下文窗口配置化，须同步两处消费点并补契约测试。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":0,"c":"① **判据**：两处 `const AUTOCOMPACT_BUFFER_TOKENS` 取值相同（`13000` 与 `13_000` 为同一数值）、语义相同（auto-compact 阈值的安全余量）⇒ 同值同事实 ⇒ 合一（B5-2 惯例）。② **真源选择**：`app/src/compaction/autoCompact.ts`（同模块核心，且该"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":1,"c":"文件本就集中了 `WARNING_/ERROR_/MANUAL_COMPACT_BUFFER_TOKENS` 等同族常量）改为导出；`app/src/compaction/strategies/AutoCompactStrategy.ts` 删除私有一份、改 `import { AUTOCOMPACT_BUFFER_TOKENS } from '"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":2,"c":"../autoCompact'`（同模块内相对引用，不引入跨模块深路径）。**取值一字未改**（`13_000`）。③ **无环校验**：`autoCompact.ts` 仅 `import type` 自 `@modules/session/types/chat`，不引用策略侧 ⇒ 新边 `strategies → autoCompact` 不构成环；提交"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":3,"c":"钩子的依赖校验器给出「循环依赖: 0」。④ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-54`。⑤ 棘轮：基线键由 2 归零（198→195 键，与本批另两簇一并播种）。⑥ 验证：`tsc` exit 0；守卫测试文件 **75 例全绿**；`lint:consts` / `lint:arch` / `lint:unref`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"notes","i":4,"c":" 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"code#0","i":0,"c":"app/src/compaction/autoCompact.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"code#1","i":0,"c":"app/src/compaction/strategies/AutoCompactStrategy.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"title","i":0,"c":"`SAFE_ENV_VARS` ×2 按域消歧（异值异域：托管设置白名单 / bash 继承白名单，取值一字未改）⇒ 同名常量:SAFE_ENV_VARS 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"reopenWhen","i":0,"c":"① **安全域变更需走 CD07**：二者均为安全白名单（放宽/收紧都会改变「是否触发信任对话框」或「bash 能继承哪些变量」），任何合并/增删都必须带安全评审与负向用例，**不得**以「同名」为由合并；② 若托管设置侧要复用 bash 的变量表（或反之），须先证明两处判据同一（当前不同：一个决定是否弹安全对话框、一个决定子进程继承），再考虑提真源；③ 若"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"reopenWhen","i":1,"c":"新增第三个安全白名单，按域命名（`*_SAFE_ENV_VARS`）后提交。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":0,"c":"① **判据（为什么不合并）**：两处同名但**用途与取值完全不同** —— ① `app/src/config/managedEnv.ts`：远程托管设置里「可在信任对话框之前安全应用」的变量（`LIRI_*` / `AWS_*` / `BASH_*` 等，未列入者视为危险、会触发安全对话框），由 `isSafeEnvVar` / `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":1,"c":"isDangerousEnvVar` / `applySafeConfigEnvironmentVariables` 消费；② `app/src/utils/bash/ast.ts`：bash 命令**可安全继承**的环境变量（`PATH` / `HOME` / `USER` / `PWD` / `SHELL` / `TERM` / `LANG` / `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":2,"c":"LC_*` / `TMPDIR` / `EDITOR`），供 AST 侧解析使用。二者判据不同、无一项清单重叠 ⇒ 合并必然改变行为 ⇒ 仅按域消歧。② **改法**：①→`SAFE_MANAGED_ENV_VARS`（含本文件 3 处内部引用 + `config/index.ts` 桶 re-export 同步）；②→`BASH_SAFE_ENV_VARS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":3,"c":"`（含 `utils/bash/index.ts` 桶 re-export 同步）。**两个白名单的字符串元素一字未改**。③ 取证：全仓搜索该名，除定义处与上述两个桶 re-export 外**无第三方消费者** ⇒ 改名影响面封闭（并已按 CD07 声明：本项只改名、不删除、不放宽）。④ 守卫：`sameNameConstsB2.test.ts` 新增 "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":4,"c":"`B5-2-55`（断言两文件均无旧名、新名与两处桶导出一致）。⑤ 棘轮：基线键由 2 归零。⑥ 验证：`tsc` exit 0；**75 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#0","i":0,"c":"app/src/config/managedEnv.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#1","i":0,"c":"app/src/config/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#2","i":0,"c":"app/src/utils/bash/ast.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#3","i":0,"c":"app/src/utils/bash/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"title","i":0,"c":"`VALID_STATUSES` ×2 按域消歧（异值异域：task 五态含 failed/cancelled / todo 三态，取值一字未改）⇒ 同名常量:VALID_STATUSES 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"reopenWhen","i":0,"c":"① 若两命令状态集**确需收敛**（例如 `/todo` 也接受 `failed`），正确做法是让 todo 复用任务域真源并显式声明允许子集，**不得**直接把 5 态塞给 todo（会放宽其校验、改变用户可见行为）；② 若任务域状态集改动（新增/删除状态），须同时检查 `DisplayStatus` 类型别名与两处 `--status` 过滤分支；③ 若"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"reopenWhen","i":1,"c":"状态名要 i18n 化（当前为用户可见英文枚举），按 `project_rules.md` 的禁止字符串匹配口径另立条目。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"notes","i":0,"c":"① **判据**：两处同名但**取值不同** —— `commands/tools/task/task.ts` 五态（`pending` / `in_progress` / `completed` / `failed` / `cancelled`，另有 `DisplayStatus` 类型别名）；`commands/tools/task/todo.ts` 三"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"notes","i":1,"c":"态（`pending` / `in_progress` / `completed`，另有 `TodoStatus`）。二者都用于 `--status` 过滤校验与错误提示拼接，**合并会放宽 todo 的校验**（接受 `failed`/`cancelled`）⇒ 属异值异域 ⇒ 按域消歧。② **改法**：`VALID_STATUSES` → `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"notes","i":2,"c":"TASK_VALID_STATUSES` / `TODO_VALID_STATUSES`（各含声明 + 类型别名 + 2 处 `includes` 校验 + 2 处 `join` 提示，共 5 处/文件）。**状态字符串与两处校验逻辑一字未改**。③ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-56`（断言两文件均无旧名；"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"notes","i":3,"c":"task 侧保留 `'cancelled'`、todo 侧为三态单行声明，防止「顺手合并」两处状态集）。④ 棘轮：基线键由 2 归零。⑤ 验证：`tsc` exit 0；**75 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"code#0","i":0,"c":"app/src/commands/tools/task/task.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"code#1","i":0,"c":"app/src/commands/tools/task/todo.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

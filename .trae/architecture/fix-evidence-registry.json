@@ -7623,6 +7623,89 @@
       "changelog": [],
       "reopenWhen": "① 若 `BUILTIN_AGENTS` 新增/删除内置类型，CLI 的 `--type` 校验与帮助文本会**自动**跟随（这正是本项的目的）；若某次不希望跟随（如需保留旧类型做兼容），须显式引入各自的兼容白名单并说明理由；② 若 CLI 要支持**运行时注册**的自定义 Agent 类型（当前不支持，见 `com…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）",
       "notes": "① **判据**：两处内联数组**取值与顺序完全相同**（`general, explore, plan, verification, code-guide, statusline-setup`）⇒ 属**同值同事实**（B5-2 惯例：合一，不消歧）。② **真源定位（CS01）**：`app/src/tools/…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS",
+      "title": "`AUTOCOMPACT_BUFFER_TOKENS` 已合一到真源（同值同事实：13000；策略侧改引用，取值一字未改）⇒ 同名常量:AUTOCOMPACT_BUFFER_TOKENS 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/compaction/autoCompact.ts",
+        "app/src/compaction/strategies/AutoCompactStrategy.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `compaction/strategies/` 被拆成独立包（跨模块引用），需把真源一并上提，否则会触发跨模块深路径引用规则；② 若将来 warning/error 两级余量也要共享（当前 `WARNING_/ERROR_THRESHOLD_BUFFER_TOKENS` 仅 `autoCompact.ts`…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）",
+      "notes": "① **判据**：两处 `const AUTOCOMPACT_BUFFER_TOKENS` 取值相同（`13000` 与 `13_000` 为同一数值）、语义相同（auto-compact 阈值的安全余量）⇒ 同值同事实 ⇒ 合一（B5-2 惯例）。② **真源选择**：`app/src/compaction/aut…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-54-AUTOCOMPACT-BUFFER-TOKENS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS",
+      "title": "`SAFE_ENV_VARS` ×2 按域消歧（异值异域：托管设置白名单 / bash 继承白名单，取值一字未改）⇒ 同名常量:SAFE_ENV_VARS 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/config/managedEnv.ts",
+        "app/src/config/index.ts",
+        "app/src/utils/bash/ast.ts",
+        "app/src/utils/bash/index.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **安全域变更需走 CD07**：二者均为安全白名单（放宽/收紧都会改变「是否触发信任对话框」或「bash 能继承哪些变量」），任何合并/增删都必须带安全评审与负向用例，**不得**以「同名」为由合并；② 若托管设置侧要复用 bash 的变量表（或反之），须先证明两处判据同一（当前不同：一个决定是否弹安全对话框、…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS）",
+      "notes": "① **判据（为什么不合并）**：两处同名但**用途与取值完全不同** —— ① `app/src/config/managedEnv.ts`：远程托管设置里「可在信任对话框之前安全应用」的变量（`LIRI_*` / `AWS_*` / `BASH_*` 等，未列入者视为危险、会触发安全对话框），由 `isSafeE…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES",
+      "title": "`VALID_STATUSES` ×2 按域消歧（异值异域：task 五态含 failed/cancelled / todo 三态，取值一字未改）⇒ 同名常量:VALID_STATUSES 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/commands/tools/task/task.ts",
+        "app/src/commands/tools/task/todo.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若两命令状态集**确需收敛**（例如 `/todo` 也接受 `failed`），正确做法是让 todo 复用任务域真源并显式声明允许子集，**不得**直接把 5 态塞给 todo（会放宽其校验、改变用户可见行为）；② 若任务域状态集改动（新增/删除状态），须同时检查 `DisplayStatus` 类型别名与两…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES）",
+      "notes": "① **判据**：两处同名但**取值不同** —— `commands/tools/task/task.ts` 五态（`pending` / `in_progress` / `completed` / `failed` / `cancelled`，另有 `DisplayStatus` 类型别名）；`commands/…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES）"
     }
   ]
 }

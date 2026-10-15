@@ -22,7 +22,7 @@ import { handleError } from '@modules/error';
 const logger = getLogger('ai:topology-watcher');
 
 /** 默认轮询间隔（毫秒） */
-const DEFAULT_INTERVAL_MS = 5000;
+const TOPOLOGY_WATCH_INTERVAL_MS = 5000;
 
 export class ProviderTopologyWatcher {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -30,7 +30,7 @@ export class ProviderTopologyWatcher {
   private lastFingerprint = '';
   private checking = false;
 
-  constructor(private intervalMs: number = DEFAULT_INTERVAL_MS) {}
+  constructor(private intervalMs: number = TOPOLOGY_WATCH_INTERVAL_MS) {}
 
   /** 启动观察器：先建立基线指纹（不触发同步），之后周期检测变更并自动同步 */
   async start(): Promise<void> {

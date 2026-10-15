@@ -1369,4 +1369,18 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 超时报错文案同样落新名（SiliconFlow 30min 处）
     expect(oai).toContain('${SILICONFLOW_POLL_TIME / 60000} 分钟');
   });
+
+  test('B5-2㉝：`DEFAULT_INTERVAL_MS` ×2 已按域消歧（异值异域，取值一字未改）', () => {
+    // 2 处同名 `DEFAULT_INTERVAL_MS` 各属独立调度域：TopologyWatcher 轮询 5s / DataArchivalStrategy 归档 1h
+    const topo = read('src/ai/providers/TopologyWatcher.ts');
+    expect(topo).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_INTERVAL_MS\s*=/);
+    expect(topo).toContain('const TOPOLOGY_WATCH_INTERVAL_MS = 5000;');
+    expect(topo).toContain(
+      'private intervalMs: number = TOPOLOGY_WATCH_INTERVAL_MS'
+    );
+    const archival = read('src/monitoring/archival/DataArchivalStrategy.ts');
+    expect(archival).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_INTERVAL_MS\s*=/);
+    expect(archival).toContain('const ARCHIVAL_INTERVAL_MS = 60 * 60 * 1000;');
+    expect(archival).toContain('intervalMs: config?.intervalMs ?? ARCHIVAL_INTERVAL_MS,');
+  });
 });

@@ -121,7 +121,7 @@ export interface ArchivalConfig {
 const DEFAULT_ARCHIVE_DIR = join('data', 'monitoring', 'archives');
 
 /** 默认归档间隔（1小时） */
-const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
+const ARCHIVAL_INTERVAL_MS = 60 * 60 * 1000;
 
 /** 默认各类型保留时长 */
 const DEFAULT_RETENTION: RetentionPolicies = {
@@ -146,7 +146,7 @@ export class DataArchivalStrategy {
     this.config = {
       archiveDir: config?.archiveDir ?? DEFAULT_ARCHIVE_DIR,
       retentionPolicies: { ...DEFAULT_RETENTION, ...config?.retentionPolicies },
-      intervalMs: config?.intervalMs ?? DEFAULT_INTERVAL_MS,
+      intervalMs: config?.intervalMs ?? ARCHIVAL_INTERVAL_MS,
       enabled: config?.enabled ?? true,
       compressEnabled: config?.compressEnabled ?? true,
       compressAfterMs: config?.compressAfterMs ?? DEFAULT_COMPRESS_AFTER_MS,

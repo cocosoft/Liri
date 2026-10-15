@@ -186,7 +186,9 @@ export const DEDUP_TTL_MS = 3000;
 /** 内容级去重窗口（毫秒） */
 export const CONTENT_DEDUP_WINDOW_MS = 5000; // 5 秒内容去重窗口
 
-/** 流式空转（无 chunk）超时（毫秒）——活动心跳语义，长任务持续推进则不被掐断 */
+/** 流式空转（无 chunk）超时（毫秒）——活动心跳语义，长任务持续推进则不被掐断
+ *  B5-2㊶：本处为 STREAM_IDLE_TIMEOUT_MS 唯一真源（app 域消息路由契约，架构收容地）；
+ *  client 侧副本已按域消歧改名 SSE_IDLE_TIMEOUT_MS（client/app 异域双轨，参照裁定 A 不可跨轨合一） */
 export const STREAM_IDLE_TIMEOUT_MS = 300_000;
 
 /**

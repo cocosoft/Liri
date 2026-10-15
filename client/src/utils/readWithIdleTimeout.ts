@@ -17,8 +17,10 @@ import { createLogger } from "./logger";
 const logger = createLogger("utils:readWithIdleTimeout");
 
 /** 流式读取无数据超时（ms）。D-231：与后端 TTFB 预算（`TTFB_MAX_WAIT_MS`=300s）对齐，
- *  覆盖单次 ReAct 迭代内「工具执行 / 事件循环阻塞」导致的长时间零推流 */
-export const STREAM_IDLE_TIMEOUT_MS = 300_000;
+ *  覆盖单次 ReAct 迭代内「工具执行 / 事件循环阻塞」导致的长时间零推流
+ *  B5-2㊶：STREAM_IDLE_TIMEOUT_MS 真源在 app/src/channels/routing/messageRouterContract.ts
+ *  （client/app 异域双轨，参照裁定 A 不可跨轨合一）⇒ 本客户端副本按域消歧改名 SSE_IDLE_TIMEOUT_MS */
+export const SSE_IDLE_TIMEOUT_MS = 300_000;
 
 /**
  * 首 chunk 无数据超时（ms）。
@@ -43,7 +45,7 @@ export const FIRST_CHUNK_TIMEOUT_MS = 120_000;
  */
 export async function readWithIdleTimeout(
   reader: Pick<ReadableStreamDefaultReader<Uint8Array>, "read" | "cancel">,
-  timeoutMs: number = STREAM_IDLE_TIMEOUT_MS,
+  timeoutMs: number = SSE_IDLE_TIMEOUT_MS,
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const startedAt = Date.now();

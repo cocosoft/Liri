@@ -1493,4 +1493,20 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(avatar).toContain('frame % BUDDY_EYES.length');
     expect(avatar).toContain('setDisplayEye(BUDDY_EYES[idx] as BuddyEye)');
   });
+
+  test('B5-2㊶：`STREAM_IDLE_TIMEOUT_MS` 已按域消歧（client/app 异域同值，取值一字未改）', () => {
+    // 真源：app/src/channels/routing/messageRouterContract.ts（架构收容地，streamConsumption 消费）
+    // client 副本 readWithIdleTimeout 消歧改名 SSE_IDLE_TIMEOUT_MS（chatService 两处使用）
+    const truth = read('src/channels/routing/messageRouterContract.ts');
+    expect(truth).toContain('STREAM_IDLE_TIMEOUT_MS 唯一真源');
+    expect(truth).toContain('export const STREAM_IDLE_TIMEOUT_MS = 300_000;');
+    const util = read('../client/src/utils/readWithIdleTimeout.ts');
+    expect(util).not.toMatch(/(^|[^_A-Za-z])const STREAM_IDLE_TIMEOUT_MS\s*=/);
+    expect(util).toContain('const SSE_IDLE_TIMEOUT_MS = 300_000;');
+    expect(util).toContain('timeoutMs: number = SSE_IDLE_TIMEOUT_MS,');
+    const svc = read('../client/src/services/chatService.ts');
+    expect(svc).not.toContain('STREAM_IDLE_TIMEOUT_MS');
+    expect(svc).toContain('SSE_IDLE_TIMEOUT_MS,');
+    expect(svc).toContain(': SSE_IDLE_TIMEOUT_MS,');
+  });
 });

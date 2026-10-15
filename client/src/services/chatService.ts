@@ -7,7 +7,7 @@ import { handleClientError } from "../utils/handleError";
 import { friendlyErrorSummary } from "../utils/friendlyError";
 import {
   readWithIdleTimeout,
-  STREAM_IDLE_TIMEOUT_MS,
+  SSE_IDLE_TIMEOUT_MS,
   FIRST_CHUNK_TIMEOUT_MS,
 } from "../utils/readWithIdleTimeout";
 import { getOTelTracing } from "../monitoring/otel";
@@ -1154,7 +1154,7 @@ export const chatService = {
           // 无数据超时兜底（对齐后端 60s idle）：SSE 流中断时不永久挂起
           const { done, value } = await readWithIdleTimeout(
             reader,
-            isFirstChunk ? FIRST_CHUNK_TIMEOUT_MS : STREAM_IDLE_TIMEOUT_MS,
+            isFirstChunk ? FIRST_CHUNK_TIMEOUT_MS : SSE_IDLE_TIMEOUT_MS,
           );
           if (done) break;
           isFirstChunk = false;
@@ -1434,7 +1434,7 @@ export const chatService = {
               reader,
               resumeFirstChunk
                 ? FIRST_CHUNK_TIMEOUT_MS
-                : STREAM_IDLE_TIMEOUT_MS,
+                : SSE_IDLE_TIMEOUT_MS,
             );
             if (done) break;
             resumeFirstChunk = false;

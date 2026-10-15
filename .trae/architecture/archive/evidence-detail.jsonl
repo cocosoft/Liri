@@ -4077,7 +4077,9 @@
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":17,"c":"initialized` 提前置真）；**(c)** 新增私有 `ensureReady()` 作为**唯一懒触发点**，10 个入口（createSession / getSession / updateSession / deleteSession / listSessions / searchSessions / getSessionStats / "}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":18,"c":"sendMessage / getMessages / loadTranscript）首行调用 —— 既消除「必须先 initialize」的隐形前置条件，又保证「首次用到即自引导」；**(d)** 真机证据：改前启动日志为 `CombinedSessionGateway 初始化完成` + `模块初始化完成: session (903ms)`（伴两次「P0'"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":19,"c":" 多分区聚合」扫描），改后仅 `CombinedSessionGateway 已注册到 DI 容器（懒引导）` + `模块初始化完成: session (1ms)`；**(e)** 测试：守卫测试改写为钉住懒契约（注册后 `isInitialized() === false`、`getActiveAgentIds() === []`；首次写入即自引导并可读回"}
-{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":20,"c":"），**负向对照**（摘掉 `sendMessage` 的 `ensureReady()`）⇒ 恰好 1 例红且报错为原症状。"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":20,"c":"），**负向对照**（摘掉 `sendMessage` 的 `ensureReady()`）⇒ 恰好 1 例红且报错为原症状。 **(f) 真机「首次用到即自引导」（2026-10-15 15:16）**：QQ 发「hi」⇒ 消息于 `15:16:13.509` 到达，`CombinedSessionGateway 初始化完成`（agentCount=1）出"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":21,"c":"现在 **`15:16:13.802`**，即由该次写入触发而非启动期（本次启动只有「已注册到 DI 容器（懒引导）」与 `模块初始化完成: session (1ms)`）；紧接 `sendMessage: 按归属 Agent 写入`（`15:16:13.803`，owner=default）；trace `"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"notes","i":22,"c":"ch_trc_qq_1792077373515_f7a9` 的 `shared_session` = ok（该阶段耗时 302ms，即首用的引导开销），`shared-context/messages.jsonl` 由 1 行增至 2 行（第 2 行 content=hi、metadata.channel=qq）⇒ 懒引导在生产首次使用时确实生效。"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#0","i":0,"c":"app/src/modules/ModuleInitializer.ts"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#1","i":0,"c":"app/src/session/gateway/CombinedSessionGateway.ts"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"tests#0","i":0,"c":"app/tests/session/combinedGatewayWiring.test.ts"}

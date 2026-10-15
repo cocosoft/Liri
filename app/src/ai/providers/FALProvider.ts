@@ -546,12 +546,12 @@ export class FALProvider extends BaseAIProvider {
 
       // 2. 轮询状态（指数退避 + 错误分类 + 5 分钟超时保护）
       const statusUrl = `https://fal.run/${modelId}/requests/${requestId}/status`;
-      const MAX_POLL_TIME = 5 * 60 * 1000;
+      const FAL_POLL_TIME = 5 * 60 * 1000;
       let pollInterval = 2000;
       let videoUrl = '';
       let retryCount = 0;
 
-      while (Date.now() - startTime < MAX_POLL_TIME) {
+      while (Date.now() - startTime < FAL_POLL_TIME) {
         await sleep(pollInterval);
         pollInterval = Math.min(pollInterval * 1.5, 10000);
 

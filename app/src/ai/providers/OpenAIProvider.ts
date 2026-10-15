@@ -1077,12 +1077,12 @@ export class OpenAIProvider extends BaseAIProvider {
 
       // 2. 轮询状态
       // Wan2.2-I2V-A14B 等大模型需 15-25 分钟，设置 30 分钟超时
-      const MAX_POLL_TIME = 30 * 60 * 1000;
+      const SILICONFLOW_POLL_TIME = 30 * 60 * 1000;
       let pollInterval = 3000;
       let lastLogTime = startTime;
       let videoUrl = '';
 
-      while (Date.now() - startTime < MAX_POLL_TIME) {
+      while (Date.now() - startTime < SILICONFLOW_POLL_TIME) {
         await new Promise((r) => setTimeout(r, pollInterval));
         pollInterval = Math.min(pollInterval * 1.3, 15000);
 
@@ -1157,7 +1157,7 @@ export class OpenAIProvider extends BaseAIProvider {
         return {
           success: false,
           data: [],
-          error: `SiliconFlow 视频生成超时（超过 ${MAX_POLL_TIME / 60000} 分钟）`,
+          error: `SiliconFlow 视频生成超时（超过 ${SILICONFLOW_POLL_TIME / 60000} 分钟）`,
           durationMs: Date.now() - startTime,
         };
       }
@@ -1289,11 +1289,11 @@ export class OpenAIProvider extends BaseAIProvider {
       }
 
       const statusUrl = `${this.baseUrl}/video/generations/${taskId}`;
-      const MAX_POLL_TIME = 5 * 60 * 1000;
+      const OPENAI_POLL_TIME = 5 * 60 * 1000;
       let pollInterval = 2000;
       let videoUrl = '';
 
-      while (Date.now() - startTime < MAX_POLL_TIME) {
+      while (Date.now() - startTime < OPENAI_POLL_TIME) {
         await new Promise((r) => setTimeout(r, pollInterval));
         pollInterval = Math.min(pollInterval * 1.5, 10000);
 

@@ -1347,4 +1347,26 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain('UUID_RE.test('); // 用法确实落到真源
     }
   });
+
+  test('B5-2㉜：`MAX_POLL_TIME` ×3 已按域消歧（异值异域，取值一字未改）', () => {
+    // 3 处同名 `MAX_POLL_TIME` 各属独立 provider 的视频轮询超时（FAL 5min / SiliconFlow 30min / OpenAI 兼容 5min）
+    // 按文件分组断言（OpenAIProvider 含两处 ⇒ 不能逐文件断言"无同名"，需按文件断言）
+    const fal = read('src/ai/providers/FALProvider.ts');
+    expect(fal).not.toMatch(/(^|[^_A-Za-z])const MAX_POLL_TIME\s*=/);
+    expect(fal).toContain('const FAL_POLL_TIME = 5 * 60 * 1000;');
+    expect(fal).toContain('while (Date.now() - startTime < FAL_POLL_TIME) {');
+    const oai = read('src/ai/providers/OpenAIProvider.ts');
+    expect(oai).not.toMatch(/(^|[^_A-Za-z])const MAX_POLL_TIME\s*=/);
+    expect(oai).toContain('const SILICONFLOW_POLL_TIME = 30 * 60 * 1000;');
+    expect(oai).toContain('const OPENAI_POLL_TIME = 5 * 60 * 1000;');
+    // 三处 while 用法全部落到新名（防"只改定义、未改用法"）
+    expect(oai).toContain(
+      'while (Date.now() - startTime < SILICONFLOW_POLL_TIME) {'
+    );
+    expect(oai).toContain(
+      'while (Date.now() - startTime < OPENAI_POLL_TIME) {'
+    );
+    // 超时报错文案同样落新名（SiliconFlow 30min 处）
+    expect(oai).toContain('${SILICONFLOW_POLL_TIME / 60000} 分钟');
+  });
 });

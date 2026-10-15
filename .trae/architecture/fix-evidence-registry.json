@@ -8048,6 +8048,40 @@
       "changelog": [],
       "reopenWhen": "改动 ink REPL 输入派发分支或 `app/src/ink/repl/commandDispatch.ts` 时；流式链路（`ChatManager.streamMessage` / `streamMessageFlow`）若新增命令拦截，会与本处形成双轨；另注意 ReplApp 上方硬编码的 `/help`、…（全文见 archive/evidence-detail.jsonl#INK-REPL-SLASH-COMMAND-DISPATCH）",
       "notes": "① 真机取证（本机 18990，同一条 `/budget status`）：`stream:true` 的 SSE 里**没有**命令输出，模型自述「该斜杠命令由应用层处理（app/src/commands/builtin/budget/Budget.ts），当前消息落到了我这里」；同内容 `stream:false…（全文见 archive/evidence-detail.jsonl#INK-REPL-SLASH-COMMAND-DISPATCH）"
+    },
+    {
+      "id": "SLASH-COMMAND-DISPATCH-STREAM",
+      "title": "斜杠命令全链路派发：流式链路接入 `commandExecutor`（聊天/渠道不再把 `/xxx` 送进模型）+ 命令输出取值收敛到 `formatCommandResult` 单一实现（顺带修「打错命令回空消息」）+ ink `/help` 与补全改读注册表 + `/budget` 用户可见文案去字面星号",
+      "source": "用户 2026-10-16 指令「好的，执行吧」并多选确认三项（①+② ink 本地收尾 / ③ 接流式链路 / ④ `/budget` 去星号）；上溯当日前一提交 INK-REPL-SLASH-COMMAND-DISPATCH 的路由取证",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/orchestrator/ChatOrchestrator.ts",
+        "app/src/commands/resultFormatter.ts",
+        "app/src/commands/index.ts",
+        "app/src/ink/repl/commandDispatch.ts",
+        "app/src/ink/repl/ReplApp.tsx",
+        "app/src/ink/repl/InputArea.tsx",
+        "app/src/commands/builtin/budget/Budget.ts"
+      ],
+      "tests": [
+        "app/tests/chat/orchestrator/streamCommandShortCircuit.test.ts",
+        "app/tests/ink/commandDispatch.test.ts",
+        "app/tests/budget/budgetCommand.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若新增**内部** `streamMessage` 调用方传入以 `/` 开头的系统提示词 ⇒ 会被当命令拦截（现存两类系统续跑提示词均以 `[` 开头，已核）；② 命令输出取值口径若再分叉（客户端 Terminal 页的 `commands-handlers.ts` 仍自带一份 `value || messag…（全文见 archive/evidence-detail.jsonl#SLASH-COMMAND-DISPATCH-STREAM）",
+      "notes": "① 路由事实（真机 + 静态）：全仓唯一派发点 = **非流式** `ChatOrchestrator._handleCommand`；流式两文件（`streamMessageFlow` / `streamMessagePrepare`）`command` 命中 0 ⇒ 客户端聊天恒 `stream:true`、渠道…（全文见 archive/evidence-detail.jsonl#SLASH-COMMAND-DISPATCH-STREAM）"
     }
   ]
 }

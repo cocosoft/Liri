@@ -4326,6 +4326,26 @@
 {"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"code#0","i":0,"c":"app/src/ink/repl/commandDispatch.ts"}
 {"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"code#1","i":0,"c":"app/src/ink/repl/ReplApp.tsx"}
 {"id":"INK-REPL-SLASH-COMMAND-DISPATCH","k":"tests#0","i":0,"c":"app/tests/ink/commandDispatch.test.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"title","i":0,"c":"斜杠命令全链路派发：流式链路接入 `commandExecutor`（聊天/渠道不再把 `/xxx` 送进模型）+ 命令输出取值收敛到 `formatCommandResult` 单一实现（顺带修「打错命令回空消息」）+ ink `/help` 与补全改读注册表 + `/budget` 用户可见文案去字面星号"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"source","i":0,"c":"用户 2026-10-16 指令「好的，执行吧」并多选确认三项（①+② ink 本地收尾 / ③ 接流式链路 / ④ `/budget` 去星号）；上溯当日前一提交 INK-REPL-SLASH-COMMAND-DISPATCH 的路由取证"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"reopenWhen","i":0,"c":"① 若新增**内部** `streamMessage` 调用方传入以 `/` 开头的系统提示词 ⇒ 会被当命令拦截（现存两类系统续跑提示词均以 `[` 开头，已核）；② 命令输出取值口径若再分叉（客户端 Terminal 页的 `commands-handlers.ts` 仍自带一份 `value || message`）须并到 `"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"reopenWhen","i":1,"c":"formatCommandResult`；③ ReplApp 上方五类硬编码命令（`/help` 已改读注册表，其余四类仍是 ink 本地实现）若与注册表同名会双轨；④ `/budget` 去星号后与其余命令输出（`git`/`commit`/`brief`/`context` 仍在用 `**`）不一致 —— 若要全仓统一须一并处理，勿只改一处"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"notes","i":0,"c":"① 路由事实（真机 + 静态）：全仓唯一派发点 = **非流式** `ChatOrchestrator._handleCommand`；流式两文件（`streamMessageFlow` / `streamMessagePrepare`）`command` 命中 0 ⇒ 客户端聊天恒 `stream:true`、渠道 2026-08-20 流式并轨后，聊天里"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"notes","i":1,"c":"打 `/budget status` 会被当普通消息进模型（实测模型自述「该斜杠命令由应用层处理…当前消息落到了我这里」；同内容 `stream:false` 逐字返回命令文案作正向对照）。② 处置：`streamMessage` 顶部按**同一判据 + 同一实现**短路（yield 一条带 sessionId 的 text chunk 并返回同一 "}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"notes","i":2,"c":"assistant 消息，落盘语义与非流式一致）；取值口径抽 `app/src/commands/resultFormatter.ts::formatCommandResult` 收敛三处（chat / ink / 后续可并 HTTP 页）；ink `/help` 由硬编码 5 条改读 `commandRegistry.getVisible()`；补全表改「"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"notes","i":3,"c":"静态兜底 ∪ 注册表」并加 12 条显示上限（注册表 131 条会把单行提示撑成二十来行、吃掉 ConversationArea 高度预算）；`/budget` 用户可见文案 `**` → 「」。③ **顺带修**：原 `_handleCommand` 只取 `message || value`，丢掉 `error` ⇒ 打错命令（`{"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"notes","i":4,"c":"success:false,error:'Command not found: …'}`，不抛）会落成**空正文**（聊天里回一条空消息，既不报错也无提示）。④ 验证：新增 6 例（ink 3 + 流式 3，其中**反证**普通消息不得被短路），回归 153 例（tests/budget + tests/ink + "}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"notes","i":5,"c":"tests/chat/orchestrator + dailyBudgetUsdGate）全绿；`typecheck` 0；六门禁全绿。⑤ **未验**：流式链路真机 E2E 需重启本机服务（18990 仍是改动前代码）；ink TUI 渲染同前片（`isTTY=false`、仓内无 ink 测试库）⇒ `e2eVerified` 保持 false。"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#0","i":0,"c":"app/src/chat/orchestrator/ChatOrchestrator.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#1","i":0,"c":"app/src/commands/resultFormatter.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#2","i":0,"c":"app/src/commands/index.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#3","i":0,"c":"app/src/ink/repl/commandDispatch.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#4","i":0,"c":"app/src/ink/repl/ReplApp.tsx"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#5","i":0,"c":"app/src/ink/repl/InputArea.tsx"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"code#6","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/streamCommandShortCircuit.test.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"tests#1","i":0,"c":"app/tests/ink/commandDispatch.test.ts"}
+{"id":"SLASH-COMMAND-DISPATCH-STREAM","k":"tests#2","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

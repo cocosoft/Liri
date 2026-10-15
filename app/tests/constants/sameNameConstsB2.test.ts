@@ -1792,6 +1792,16 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(evals).toContain('opts.maxTokens ?? ADVERSARIAL_DEFAULT_MAX_TOKENS');
   });
 
+  test('B5-2-62：`MAX_TOOL_RESULT_BYTES` ×2 已按域消歧（上下文 400KB 上限 / 存储 1MB 落盘阈值，异值异域）', () => {
+    const limits = read('src/constants/toolLimits.ts');
+    expect(limits).not.toMatch(/(^|[^_A-Za-z])const MAX_TOOL_RESULT_BYTES\s*=/);
+    expect(limits).toContain('export const CONTEXT_MAX_TOOL_RESULT_BYTES =');
+    const storage = read('src/services/toolResultStorage/types.ts');
+    expect(storage).toContain(
+      'export const MAX_TOOL_RESULT_BYTES = 1_000_000;'
+    );
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

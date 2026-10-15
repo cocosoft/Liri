@@ -1,10 +1,7 @@
 {
   "lint:consts": {
-    "同名常量:DEFAULT_MODEL": 2,
     "同名常量:DEFAULT_MODEL_SENTINEL": 2,
-    "同名常量:DEFAULT_MAX_TOKENS": 2,
     "同名常量:ELLIPSIS": 2,
-    "同名常量:MAX_TOOL_RESULT_BYTES": 2,
     "同名常量:MAX_TOOL_RESULTS_PER_MESSAGE_CHARS": 2,
     "同名常量:TOOL_NAMES": 2,
     "同名常量:FILE_READ_TOOL_NAME": 2,

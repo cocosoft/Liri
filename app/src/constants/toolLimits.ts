@@ -21,9 +21,14 @@ export const MAX_TOOL_RESULT_TOKENS = 100_000;
 export const BYTES_PER_TOKEN = 4;
 
 /**
- * 工具结果的最大字节数（由token限制推导）
+ * 工具结果注入**上下文**的最大字节数（由 token 限制推导）—— **上下文域**专属。
+ *
+ * ⚠️ 与 `services/toolResultStorage` 的**落盘**阈值 `MAX_TOOL_RESULT_BYTES`（1_000_000，
+ * 超过则持久化到磁盘并替换为预览）**不是同一事实** ⇒ B5-2-62 按域消歧改名
+ * （原两处同名：本处 400_000 上下文上限 vs 存储侧 1MB 落盘阈值）。
  */
-export const MAX_TOOL_RESULT_BYTES = MAX_TOOL_RESULT_TOKENS * BYTES_PER_TOKEN;
+export const CONTEXT_MAX_TOOL_RESULT_BYTES =
+  MAX_TOOL_RESULT_TOKENS * BYTES_PER_TOKEN;
 
 /**
  * 单个用户消息中工具结果块的最大总字符数

@@ -6720,6 +6720,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const IMAGE_EXTENSIONS =` ⇒ 守卫（第 52 例）或棘轮阻断；③ 若未来某域需调整图片扩展名单 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ 三处值集不同（8/7/13 项）为**异值异域**（媒体类型推…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS）",
       "notes": "**自证**：app typecheck 0 · 守卫第 52 例（MediaCache / attachments / imageProcessor 三文件无裸 `IMAGE_EXTENSIONS =` 定义 + 新名与使用处逐字钉住 + 导出面 `IMAGE_EXTENSIONS_LIST` 数据源改新名）52 …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十七项：`IMAGE_EXTS` **2 处同名按域消歧**（files-handlers 7 项 / ToolExecution 5 项；异值异域，取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/infrastructure/http/handlers/files-handlers.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const IMAGE_EXTS =` ⇒ 守卫（第 53 例）或棘轮阻断；③ 若未来某域需调整图片扩展名单 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ 两处值集不同（7 项文件预览 / 5 项沙箱图片收集）为**异值异域** …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 53 例（files-handlers / ToolExecutionService 两文件无裸 `IMAGE_EXTS =` 定义 + 新名与使用处逐字钉住）53 pass · `lint:consts` 重新播种基线：`同名常量:IMAGE_EXTS` *…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS）"
     }
   ]
 }

@@ -3679,6 +3679,17 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-36-IMAGE-EXTENSIONS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第三十七项：`IMAGE_EXTS` **2 处同名按域消歧**（files-handlers 7 项 / ToolExecution 5 项；异值异域，取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const IMAGE_EXTS =` ⇒ 守卫（第 53 例）或棘轮阻断；③ 若未来某域需调整图片扩展名单 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ 两处值集不同（7 项文件预览 / 5 项沙箱图片收集）为**异值异域** ⇒ 若未来确认语义同事实，可走合一流程另案"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"reopenWhen","i":1,"c":"收敛，**不得**在本次消歧中合并。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 53 例（files-handlers / ToolExecutionService 两文件无裸 `IMAGE_EXTS =` 定义 + 新名与使用处逐字钉住）53 pass · `lint:consts` 重新播种基线：`同名常量:IMAGE_EXTS` **2→0**（218→217 键），且可下"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"notes","i":1,"c":"调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 期间修复守卫第 52 例一处 prettier 折行导致的断言失效（改前缀断言，空白容忍口径）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/files-handlers.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"code#1","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-37-IMAGE-EXTS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

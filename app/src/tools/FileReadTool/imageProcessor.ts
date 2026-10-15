@@ -45,7 +45,7 @@ const IMAGE_SIGNATURES: Record<
   '52494646': { format: 'webp', mime: 'image/webp', offset: 0 },
 };
 
-const IMAGE_EXTENSIONS: Set<string> = new Set([
+const FILE_READ_IMAGE_EXTENSIONS: Set<string> = new Set([
   '.png',
   '.jpg',
   '.jpeg',
@@ -65,7 +65,7 @@ const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
 
 export function isImageFile(filePath: string): boolean {
   const ext = filePath.toLowerCase().split('.').pop();
-  return ext ? IMAGE_EXTENSIONS.has(`.${ext}`) : false;
+  return ext ? FILE_READ_IMAGE_EXTENSIONS.has(`.${ext}`) : false;
 }
 
 export function getImageFormat(filePath: string): ImageFormat | null {
@@ -226,7 +226,7 @@ export function formatImageInfo(info: ImageInfo): string {
   return `${info.path} | ${info.format} | ${dimStr} | ${sizeStr}`;
 }
 
-export const IMAGE_EXTENSIONS_LIST = Array.from(IMAGE_EXTENSIONS).sort();
+export const IMAGE_EXTENSIONS_LIST = Array.from(FILE_READ_IMAGE_EXTENSIONS).sort();
 export const SUPPORTED_IMAGE_FORMATS: ImageFormat[] = [
   'png',
   'jpeg',

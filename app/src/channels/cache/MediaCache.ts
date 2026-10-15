@@ -83,7 +83,7 @@ interface MemoryNode {
 }
 
 /** 支持的图片扩展名 */
-const IMAGE_EXTENSIONS = new Set([
+const MEDIA_CACHE_IMAGE_EXTENSIONS = new Set([
   '.jpg',
   '.jpeg',
   '.png',
@@ -122,7 +122,7 @@ const VIDEO_EXTENSIONS = new Set([
 function inferMediaType(fileName: string): MediaType {
   const ext = extname(fileName).toLowerCase();
 
-  if (IMAGE_EXTENSIONS.has(ext)) return 'image';
+  if (MEDIA_CACHE_IMAGE_EXTENSIONS.has(ext)) return 'image';
   if (AUDIO_EXTENSIONS.has(ext)) return 'audio';
   if (VIDEO_EXTENSIONS.has(ext)) return 'video';
   if (ext === '.pdf' || ext === '.doc' || ext === '.docx' || ext === '.zip')

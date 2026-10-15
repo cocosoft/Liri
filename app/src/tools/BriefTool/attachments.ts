@@ -9,7 +9,7 @@ import { extname, isAbsolute, resolve } from 'path';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:BriefTool:attachments');
 
-const IMAGE_EXTENSIONS = new Set([
+const BRIEF_IMAGE_EXTENSIONS = new Set([
   '.png',
   '.jpg',
   '.jpeg',
@@ -96,7 +96,7 @@ export async function resolveAttachments(
 
       const stats = await stat(resolvedPath);
       const ext = extname(resolvedPath).toLowerCase();
-      const isImage = IMAGE_EXTENSIONS.has(ext);
+      const isImage = BRIEF_IMAGE_EXTENSIONS.has(ext);
 
       results.push({
         path: resolvedPath,

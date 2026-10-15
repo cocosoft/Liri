@@ -1396,7 +1396,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(bridge).toContain('const JSON_RPC_REQUEST_TIMEOUT_MS = 30000;');
     expect(bridge).toContain('requestTimeoutMs: JSON_RPC_REQUEST_TIMEOUT_MS,');
     const conn = read('src/tools/sidecar/lspConnection.ts');
-    expect(conn).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_REQUEST_TIMEOUT_MS\s*=/);
+    expect(conn).not.toMatch(
+      /(^|[^_A-Za-z])const DEFAULT_REQUEST_TIMEOUT_MS\s*=/
+    );
     expect(conn).toContain('const LSP_SIDECAR_REQUEST_TIMEOUT_MS = 30_000;');
     expect(conn).toContain(
       'opts.requestTimeoutMs ?? LSP_SIDECAR_REQUEST_TIMEOUT_MS'
@@ -1412,5 +1414,25 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const common = read('src/constants/common.ts');
     expect(common).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
     expect(common).toContain('export const COMMON_HEARTBEAT_INTERVAL = 30 * 1000;');
+  });
+
+  test('B5-2㊱：`IMAGE_EXTENSIONS` ×3 已按域消歧（异值异域，取值一字未改）', () => {
+    // 3 处同名各属独立域且值集不同：MediaCache（8 项，媒体类型推断）/ BriefTool attachments（7 项，附件验证）/ FileReadTool imageProcessor（13 项，图片处理）
+    const media = read('src/channels/cache/MediaCache.ts');
+    expect(media).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTENSIONS\s*=/);
+    expect(media).toContain('const MEDIA_CACHE_IMAGE_EXTENSIONS = new Set([');
+    expect(media).toContain('MEDIA_CACHE_IMAGE_EXTENSIONS.has(ext)');
+    const brief = read('src/tools/BriefTool/attachments.ts');
+    expect(brief).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTENSIONS\s*=/);
+    expect(brief).toContain('const BRIEF_IMAGE_EXTENSIONS = new Set([');
+    expect(brief).toContain('BRIEF_IMAGE_EXTENSIONS.has(ext)');
+    const img = read('src/tools/FileReadTool/imageProcessor.ts');
+    expect(img).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTENSIONS\s*=/);
+    expect(img).toContain('const FILE_READ_IMAGE_EXTENSIONS: Set<string> = new Set([');
+    expect(img).toContain('FILE_READ_IMAGE_EXTENSIONS.has(`.${ext}`)');
+    // 导出面 IMAGE_EXTENSIONS_LIST 保留，其数据源改为新名
+    expect(img).toContain(
+      'Array.from(FILE_READ_IMAGE_EXTENSIONS).sort();'
+    );
   });
 });

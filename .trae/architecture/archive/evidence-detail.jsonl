@@ -3835,6 +3835,20 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第五十项：`META_KEY` **2 处同名消歧**（异值异域：流式 / 普通对话检查点元数据键；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现 `const META_KEY =` ⇒ 守卫（第 66 例）或棘轮阻断；③ **注意**：这两处是**持久化 metadata 的键名**（写入 events.jsonl 的 session metadata），改名只动**常量名**、**不得动字符串值**——历史检查点数据依赖原键"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"reopenWhen","i":1,"c":"名 `'streamingAutoCheckpoint'` / `'plainTextAutoCheckpoint'` 才能被 `restore()` 识别；④ 本次为**异值异域消歧**（非合一）：`chat/services/StreamingAutoCheckpoint.ts`（可续跑过滤键）⇒ `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"reopenWhen","i":2,"c":"STREAMING_CHECKPOINT_META_KEY`；`chat/services/PlainTextCheckpoint.ts` ⇒ `PLAIN_TEXT_CHECKPOINT_META_KEY`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"notes","i":0,"c":"**自证**：app typecheck 0（三 tsconfig 全绿）· 守卫第 66 例（两侧均无裸 `const META_KEY` 定义 + 新常量名与**字符串值逐字钉住** + 使用点）66 pass / 609 expect · `lint:consts` 重新播种基线：`同名常量:META_KEY` **2→0**（205→204 键），且"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"notes","i":1,"c":"可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 连带同步 chat-handlers.ts:1210 注释中的键名引用（`META_KEY` ⇒ `STREAMING_CHECKPOINT_META_KEY`），避免文档指向已不存在之名；两处均文件内私有，改名后 **metadata 键字符串值零变化**（持久化向后兼容）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"notes","i":2,"c":"；期间 eslint --fix 对 `] === true` prettier 折行 ⇒ 单独提交 029d808a0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#0","i":0,"c":"app/src/chat/services/StreamingAutoCheckpoint.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#1","i":0,"c":"app/src/chat/services/PlainTextCheckpoint.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#2","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

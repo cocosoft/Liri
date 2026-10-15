@@ -1528,9 +1528,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(llm).toContain('THINKING_BATCH_SIZE 唯一真源');
     expect(llm).toContain('export const THINKING_BATCH_SIZE = 50;');
     // 方法体内不得残留裸定义（应引用模块级真源）
-    expect(llm).not.toMatch(
-      /(^|\n)\s+const THINKING_BATCH_SIZE\s*=/
-    );
+    expect(llm).not.toMatch(/(^|\n)\s+const THINKING_BATCH_SIZE\s*=/);
     const flow = read('src/chat/orchestrator/streamMessageFlow.ts');
     expect(flow).not.toMatch(/(^|[^_A-Za-z])const THINKING_BATCH_SIZE\s*=/);
     expect(flow).toContain(

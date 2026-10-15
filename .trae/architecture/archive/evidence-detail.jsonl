@@ -3860,6 +3860,28 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第五十二项：`ENTRYPOINT_NAME` **2 处同名消歧**（异值异域：index.md / MEMORY.md；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列；配套键 `MAX_ENTRYPOINT_LINES` 同批已处理，见 B5-2-53）；② 任一文件重新出现裸 `const ENTRYPOINT_NAME`（非 memory 导出真源）⇒ 守卫（第 68 例）或棘轮阻断；③ 若两域索引文件名收敛，可再评估合一。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 68 例（memory 导出真源保留 + 取值 'MEMORY.md' 钉住；chronos 无裸定义 + `DREAM_ENTRYPOINT_NAME = 'index.md'` + 插值点 + getter 返回；跨文件消费者 MemoryFileService 仍 import 真源）69 "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"notes","i":1,"c":"pass / 627 expect · `lint:consts` 重播种：`同名常量:ENTRYPOINT_NAME` **2→0**（与 B5-2-53 同批，203→201 键）· 6 门禁 exit 0（含 drift）。**定性**：chronos dream 记忆根（'index.md'，本地 const）与 memory 域（'"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"notes","i":2,"c":"MEMORY.md'，`export` 且被 `MemoryFileService` 跨文件消费）**异值异域** ⇒ memory 导出真源保名，chronos 副本改名 `DREAM_ENTRYPOINT_NAME`；取值/行为零变化。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#0","i":0,"c":"app/src/chronos/autoDream/ConsolidationPrompt.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#1","i":0,"c":"app/src/memory/services/MemoryPromptBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第五十三项：`MAX_ENTRYPOINT_LINES` **2 处同名消歧**（异值异域：50 / 200；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现裸 `const MAX_ENTRYPOINT_LINES`（非 memory 导出真源）⇒ 守卫（第 69 例）或棘轮阻断；③ 与 B5-2-52（`ENTRYPOINT_NAME`）为**同一对文件的配套键**，若将来两域索引规范收敛，应一并评估合一。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 69 例（memory 导出真源 `= 200` 钉住；chronos 无裸定义 + `DREAM_MAX_ENTRYPOINT_LINES = 50` + getter 返回；MemoryFileService 仍 import 真源）69 pass / 627 expect · `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"notes","i":1,"c":"lint:consts` 重播种：`同名常量:MAX_ENTRYPOINT_LINES` **2→0**（**与 B5-2-52 同批提交 3878abaf7**，203→201 键；该次重播种仅此二键为可下调项，无意外新增）· 6 门禁 exit 0（含 drift）。**定性**：chronos dream 记忆根索引行上限（50）与 memory 域（"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"notes","i":2,"c":"200，`export` 且被 `MemoryFileService` 消费）**异值异域** ⇒ memory 真源保名，chronos 副本改名 `DREAM_MAX_ENTRYPOINT_LINES`；取值/行为零变化。同批 reason：两键同文件同性质、注释互指，拆两次提交会造成中间态注释指向未存在的名。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#0","i":0,"c":"app/src/chronos/autoDream/ConsolidationPrompt.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#1","i":0,"c":"app/src/memory/services/MemoryPromptBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

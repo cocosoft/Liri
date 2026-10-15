@@ -19,6 +19,8 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES**：`MAX_ENTRYPOINT_LINES` ×2 消歧（异值异域，dream 记忆根改名 DREAM_MAX_ENTRYPOINT_LINES） —— 验证 tc0|guard69|arch0|gate6；基线 同名常量:MAX_ENTRYPOINT_LINES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME**：`ENTRYPOINT_NAME` ×2 消歧（异值异域，dream 记忆根改名 DREAM_ENTRYPOINT_NAME） —— 验证 tc0|guard68|arch0|gate6；基线 同名常量:ENTRYPOINT_NAME 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE**：`DIR_EXISTS_GUIDANCE` ×2 消歧（异值异域，dream 目录清单/memory 已存在提示） —— 验证 tc0|guard67|arch0|gate6；基线 同名常量:DIR_EXISTS_GUIDANCE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY**：`META_KEY` ×2 消歧（异值异域，流式/普通检查点分域改名） —— 验证 tc0|guard66|arch0|gate6；基线 同名常量:META_KEY 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE**：`CACHE_MAX_SIZE` ×2 消歧（异值异域，议会/路径校验分域改名） —— 验证 tc0|guard65|arch0|gate6；基线 同名常量:CACHE_MAX_SIZE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-49-CACHE-MAX-SIZE）

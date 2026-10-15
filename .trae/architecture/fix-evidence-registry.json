@@ -7156,6 +7156,64 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列；同节下一键 `ENTRYPOINT_NAME`、`MAX_ENTRYPOINT_LINES` 为同对文件的配套异值键）；② 任一文件重新出现裸 `const DIR_EXISTS_GUIDANCE`（非 memory 导出真源）⇒ 守卫（第 67 例）或棘轮阻断；③ …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE）",
       "notes": "**自证**：app typecheck 0 · 守卫第 67 例（memory 真源标注 + 导出保留 + 文案钉住；chronos 无裸定义 + 新名 + 插值点；跨文件消费者 teamMemPrompts 仍 import 真源）67 pass / 616 expect · `lint:consts` 重播种：…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME",
+      "title": "硬编码治理 · 「同名常量」B5-2 第五十二项：`ENTRYPOINT_NAME` **2 处同名消歧**（异值异域：index.md / MEMORY.md；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chronos/autoDream/ConsolidationPrompt.ts",
+        "app/src/memory/services/MemoryPromptBuilder.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列；配套键 `MAX_ENTRYPOINT_LINES` 同批已处理，见 B5-2-53）；② 任一文件重新出现裸 `const ENTRYPOINT_NAME`（非 memory 导出真源）⇒ 守卫（第 68 例）或棘轮阻断；③ 若两域索引文件名收敛，可再评估合一。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 68 例（memory 导出真源保留 + 取值 'MEMORY.md' 钉住；chronos 无裸定义 + `DREAM_ENTRYPOINT_NAME = 'index.md'` + 插值点 + getter 返回；跨文件消费者 MemoryFileServ…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES",
+      "title": "硬编码治理 · 「同名常量」B5-2 第五十三项：`MAX_ENTRYPOINT_LINES` **2 处同名消歧**（异值异域：50 / 200；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chronos/autoDream/ConsolidationPrompt.ts",
+        "app/src/memory/services/MemoryPromptBuilder.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现裸 `const MAX_ENTRYPOINT_LINES`（非 memory 导出真源）⇒ 守卫（第 69 例）或棘轮阻断；③ 与 B5-2-52（`ENTRYPOINT_NAME`）为**同一对文件的配套键**，若将来两域索引规范收敛，应一并…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 69 例（memory 导出真源 `= 200` 钉住；chronos 无裸定义 + `DREAM_MAX_ENTRYPOINT_LINES = 50` + getter 返回；MemoryFileService 仍 import 真源）69 pass / 6…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES）"
     }
   ]
 }

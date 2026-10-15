@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT**：跨包契约一等公民化（门禁登记 + 三方同值守卫）⇒ 同名常量 2>0 —— 验证 tc0|ut87|gate6；基线 同名常量:DEFAULT_MODEL_SENTINEL 2>0（后端 0 识别点）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE**：删 `xml.ts` 的 `FORK_BOILERPLATE_TAG` 死副本（同义异值）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:FORK_BOILERPLATE_TAG 2>0（独立提交 e464d0655 可 revert）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES**：`TOOL_NAMES`×2 按域消歧（后端生成真源保留 / client 图像注册表改名）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:TOOL_NAMES 2>0（首选名 IMAGE_TOOL_NAMES 已被 ToolExecutionService 占用）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME**：`FILE_READ_TOOL_NAME` 合一到真源（同值同事实；补齐第三个 `FILE_*` 名）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:FILE_READ_TOOL_NAME 2>0（㉙ 遗留：当时真源未导出故留私有）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME）

@@ -4302,6 +4302,19 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"tests#1","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"title","i":0,"c":"`DEFAULT_MODEL_SENTINEL` 跨包契约一等公民化：门禁增 `CROSS_PACKAGE_CONTRACT_CONSTS`（准入三条）保留同名，并加三方逐字同值守卫（app TS ↔ client TS ↔ client Rust）⇒ 同名常量 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"source","i":0,"c":"用户 2026-10-15 指令「先处理 DEFAULT_MODEL_SENTINEL 的跨包契约问题」；上溯 `B5-2-60-DEFAULT-MODEL` 的 reopenWhen ②（当时列为「跨包契约未处置」）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"reopenWhen","i":0,"c":"① 若后端出现该哨兵的识别点（例如 SmartRouter 显式比较该字符串），须改为引用真源而非再写字面量，并在本项 notes 补记（当前全仓 0 识别点）；② 若契约落点增删（新客户端 / 新语言），必须同步三方守卫与本表值，否则豁免失效；③ 若 app 侧该导出长期无消费者（当前 0 importer），按 CD05 先标记观察再议去留——不得仅凭「"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"reopenWhen","i":1,"c":"静态无引用」删除（CD07：跨边界契约类）；④ 若准入三条被放宽（把本仓「懒得归一化」的同名常量塞进本表以规避门禁），属口径违规，评审须拒。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":0,"c":"① 问题本质：同名三处 —— `app/src/constants/common.ts`（TS）、`client/src/services/chatService.ts`（TS）、`client/src-tauri/src/commands/chat.rs`（Rust），值均为 `pyapp-default`。三者分属不同包 / 语言，无法 import，只"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":1,"c":"能各自声明 ⇒ 同名同值属**有意为之**，而门禁把它当「重复事实源」上报。② 取证（关键，改变了问题性质）：全仓搜索该字符串仅 4 处（三处声明 + 本项台账），**后端无任何比较 / 识别点** ⇒ 当前它只是**客户端出站令牌**（前端未选模型时把该值作为 `model` 发出，由后端按「未知模型」兜底），其值不承载后端语义；`app` 侧那份导出 "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":2,"c":"**0 importer**（死面，按 CD05 观察，未删）。③ 两条路线的取舍（已裁定）：(b) 按域消歧改名会抹掉「同名 = 同一契约」这一唯一的源码级线索（跨包无法 import，名字即契约信号），且仍需逐字同值 ⇒ 只剩注释维系；(a) 门禁登记为契约则保留同名并把契约显式化 + 加守卫。故选 (a)。④ 实现：`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":3,"c":"scripts/lint-consts.ts` 新增 `CROSS_PACKAGE_CONTRACT_CONSTS`（含准入三条：确无法共享代码 / 同名是刻意的 / 必须配套逐字同值守卫），`collect()` 中命中该表的常量不纳入统计；与 `TRUTH_SOURCE_FRAGMENTS`（本仓真源：计入但不报警）、`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":4,"c":"VENDORED_FRAGMENTS`（非本仓来源：不纳入）三者分开注释防混用。⑤ 守卫（补上「必须」那一环）：`sameNameConstsB2.test.ts` 新增 `B5-2-68` —— 断言门禁表与跳过逻辑存在，并逐一读取三处文件断言取值逐字为 `pyapp-default`（含 Rust 侧带类型标注的声明形态）。这是本豁免唯一的安全网：任一侧"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":5,"c":"改值即红。⑥ 口径变更已如实标注：本项放宽门禁统计范围（1 个常量名），对价为「准入三条 + 三方守卫」。⑦ 棘轮：基线键由 2 归零。⑧ 验证：`lint:consts` PASS（无「可下调」残留）；`sameNameConstsB2` 87 例全绿；`lint:arch` / `lint:unref` / `lint:scripts`（0 error）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"notes","i":6,"c":"全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"code#0","i":0,"c":"scripts/lint-consts.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -7995,6 +7995,32 @@
       "changelog": [],
       "reopenWhen": "① **回滚路径**：本删除落**独立提交** `e464d0655`（1 file, -1），`git revert e464d0655` 即可整笔回滚（CD06）；② 若日后 fork 子代理要改用 XML 包裹标签（当前活实现既作 `[fork-subagent]` 检测标记、又作包裹标签），应在 `ForkS…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）",
       "notes": "① **判据（为何删除而非消歧）**：两处**同名、同义、异值** —— `app/src/constants/xml.ts` = `'fork-boilerplate'`（全仓**仅声明处**出现一次：`fork-boilerplate` 字符串在整仓搜索中仅命中该行 ⇒ 死副本）；`app/src/tools/A…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT",
+      "title": "`DEFAULT_MODEL_SENTINEL` 跨包契约一等公民化：门禁增 `CROSS_PACKAGE_CONTRACT_CONSTS`（准入三条）保留同名，并加三方逐字同值守卫（app TS ↔ client TS ↔ client Rust）⇒ 同名常量 2>0",
+      "source": "用户 2026-10-15 指令「先处理 DEFAULT_MODEL_SENTINEL 的跨包契约问题」；上溯 `B5-2-60-DEFAULT-MODEL` 的 reopenWhen ②（当时列为「跨包契约未处置」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-consts.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若后端出现该哨兵的识别点（例如 SmartRouter 显式比较该字符串），须改为引用真源而非再写字面量，并在本项 notes 补记（当前全仓 0 识别点）；② 若契约落点增删（新客户端 / 新语言），必须同步三方守卫与本表值，否则豁免失效；③ 若 app 侧该导出长期无消费者（当前 0 importer），按 …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）",
+      "notes": "① 问题本质：同名三处 —— `app/src/constants/common.ts`（TS）、`client/src/services/chatService.ts`（TS）、`client/src-tauri/src/commands/chat.rs`（Rust），值均为 `pyapp-default`。三者分…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT）"
     }
   ]
 }

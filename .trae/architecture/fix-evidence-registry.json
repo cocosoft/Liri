@@ -7916,6 +7916,85 @@
       "changelog": [],
       "reopenWhen": "① 若将来把 `ink` 改为**依赖引用**（`node_modules`），应删除该 vendored 目录并同步移除本排除项；② 若又有目录被**整体抄入**（新 vendored 上游副本），须按同口径登记进 `VENDORED_FRAGMENTS` 并补注释（勿用 `TRUTH_SOURCE_FRAGMEN…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED）",
       "notes": "① **问题**：`lint:consts` 把 vendored 上游副本与本仓代码一并统计 ⇒ `ELLIPSIS = '…'` 被判为「同名常量 2 文件」。但**上游代码与本仓真源同名同值属正常**，且为过门禁去改名/合并会破坏「可与上游逐字对照」的可维护性（未来重新 vendoring 无法比对）。② **…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME",
+      "title": "`FILE_READ_TOOL_NAME` 已合一到真源（同值同事实：`file_read`；`parseAgent` 补齐第三个 `FILE_*` 名）⇒ 同名常量:FILE_READ_TOOL_NAME 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；承接既有 `B5-2㉙`（当时只收敛了 `FILE_EDIT_/FILE_WRITE_` 两名）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/services/agent/parseAgent.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        "app/tests/tools/toolNameLists.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `constants/tools.ts` 的 `FILE_*_TOOL_NAME` 三兄弟再增删，须同步本项守卫与 `B5-2㉙`；② `parseAgent` 若迁出 services 层，import 需改为对应规范入口；③ 若工具名要改为编译期枚举（见 spec `tool-name-compile-t…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME）",
+      "notes": "① **判据**：两处取值与语义相同（`'file_read'`）⇒ 同值同事实 ⇒ 合一。② **背景（为何上一轮没做完）**：`B5-2㉙` 收敛了 `FILE_EDIT_/FILE_WRITE_` 两名，并在 `parseAgent.ts` 留注释「`file_read` 仍为本文件私有（当时真源未导出）」；其…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES",
+      "title": "`TOOL_NAMES` ×2 按域消歧（异域：后端**生成**的工具名真源 / client 图像视图注册表，取值来源与用途不同）⇒ 同名常量:TOOL_NAMES 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/views/image/toolRegistry.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 client 图像视图确需**后端全量**工具名（而非本注册表键），应从端点/生成物取用，勿把两处混为一谈；② 若 `IMAGE_REGISTRY_TOOL_NAMES` 长期无消费者（当前 client 侧 0 importer）按 CD05 先标记观察，本项不删；③ app 侧 `TOOL_NAMES` …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES）",
+      "notes": "① **判据**：两处同名但**来源与用途不同** —— `app/src/constants/toolNames.generated.ts` 的 `TOOL_NAMES` 是**生成物**（由 `app/scripts/gen-tool-names.ts` 从工具注册表汇总的**全量**工具名真源，带「勿手改」头注…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE",
+      "title": "删除 `constants/xml.ts` 的 `FORK_BOILERPLATE_TAG` 死副本（同名同义却**值漂移**：本处 `fork-boilerplate` vs 活值 `[fork-subagent]`）⇒ 同名常量:FORK_BOILERPLATE_TAG 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/constants/xml.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **回滚路径**：本删除落**独立提交** `e464d0655`（1 file, -1），`git revert e464d0655` 即可整笔回滚（CD06）；② 若日后 fork 子代理要改用 XML 包裹标签（当前活实现既作 `[fork-subagent]` 检测标记、又作包裹标签），应在 `ForkS…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）",
+      "notes": "① **判据（为何删除而非消歧）**：两处**同名、同义、异值** —— `app/src/constants/xml.ts` = `'fork-boilerplate'`（全仓**仅声明处**出现一次：`fork-boilerplate` 字符串在整仓搜索中仅命中该行 ⇒ 死副本）；`app/src/tools/A…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）"
     }
   ]
 }

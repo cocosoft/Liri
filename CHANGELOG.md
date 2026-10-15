@@ -19,6 +19,9 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE**：删 `xml.ts` 的 `FORK_BOILERPLATE_TAG` 死副本（同义异值）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:FORK_BOILERPLATE_TAG 2>0（独立提交 e464d0655 可 revert）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES**：`TOOL_NAMES`×2 按域消歧（后端生成真源保留 / client 图像注册表改名）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:TOOL_NAMES 2>0（首选名 IMAGE_TOOL_NAMES 已被 ToolExecutionService 占用）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME**：`FILE_READ_TOOL_NAME` 合一到真源（同值同事实；补齐第三个 `FILE_*` 名）⇒ 同名常量 2>0 —— 验证 tc0|ut110|gate6；基线 同名常量:FILE_READ_TOOL_NAME 2>0（㉙ 遗留：当时真源未导出故留私有）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED**：`lint:consts` 加 vendored 排除（ink 上游副本）⇒ 解 4 键假阳性 —— 验证 tc0|ut83|gate6；基线 vendored ink 内部常量与本仓真源同名同值；基线一次删 5 键（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS**：删 `toolLimits` 死副本（同义异值 200k/250k）⇒ 同名常量 2>0 —— 验证 tc0|ut83|gate6；基线 同名常量:MAX_TOOL_RESULTS_PER_MESSAGE_CHARS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES**：`MAX_TOOL_RESULT_BYTES`×2 按域消歧（上下文上限 / 落盘阈值异值）⇒ 同名常量 2>0 —— 验证 tc0|ut81|gate6；基线 同名常量:MAX_TOOL_RESULT_BYTES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES）

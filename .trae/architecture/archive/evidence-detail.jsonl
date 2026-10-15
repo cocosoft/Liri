@@ -4269,6 +4269,39 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":5,"c":"lint:unref` / `lint:scripts`(0 error) 全 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"code#0","i":0,"c":"app/src/constants/toolLimits.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"title","i":0,"c":"`TOOL_NAMES` ×2 按域消歧（异域：后端**生成**的工具名真源 / client 图像视图注册表，取值来源与用途不同）⇒ 同名常量:TOOL_NAMES 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"reopenWhen","i":0,"c":"① 若 client 图像视图确需**后端全量**工具名（而非本注册表键），应从端点/生成物取用，勿把两处混为一谈；② 若 `IMAGE_REGISTRY_TOOL_NAMES` 长期无消费者（当前 client 侧 0 importer）按 CD05 先标记观察，本项不删；③ app 侧 `TOOL_NAMES` 由 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"reopenWhen","i":1,"c":"app/scripts/gen-tool-names.ts` 生成，改动须走生成器（勿手改 `toolNames.generated.ts`）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"notes","i":0,"c":"① **判据**：两处同名但**来源与用途不同** —— `app/src/constants/toolNames.generated.ts` 的 `TOOL_NAMES` 是**生成物**（由 `app/scripts/gen-tool-names.ts` 从工具注册表汇总的**全量**工具名真源，带「勿手改」头注）；`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"notes","i":1,"c":"client/src/components/views/image/toolRegistry.ts` 的 `TOOL_NAMES` 是 `Object.keys(TOOL_REGISTRY)`（**图像视图域**的工具入口键，供 UI 枚举）。⇒ 异域 ⇒ 按域消歧，**后端生成真源名不动**（其名被生成器与消费面钉住），client 侧改名。② **命名过"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"notes","i":2,"c":"程（如实）**：首选取名 `IMAGE_TOOL_NAMES` 被门禁判为**新增键**（当前 2）—— 该名已被 `app/src/chat/services/ToolExecutionService.ts` 的**函数内局部**常量占用（且 `.trae/specs/tool-name-compile-time-enum.md` 正记录该组名的收敛计划）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"notes","i":3,"c":"⇒ 改取 `IMAGE_REGISTRY_TOOL_NAMES`（绑 `TOOL_REGISTRY`，语义自证且无占用）。③ 取证：client 侧该导出**当前 0 importer**（全 client 搜索该名仅见声明）⇒ 改名影响面封闭。④ 守卫：新增 `B5-2-66`（断言后端生成物名保留、client 旧名消失且新名为 `Object.keys"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"notes","i":4,"c":"(TOOL_REGISTRY)`）。⑤ 棘轮：基线键由 2 归零。⑥ 验证：app + client `tsc` exit 0；**110 例全绿**；`lint:consts` PASS（无新增键）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"code#0","i":0,"c":"client/src/components/views/image/toolRegistry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"title","i":0,"c":"删除 `constants/xml.ts` 的 `FORK_BOILERPLATE_TAG` 死副本（同名同义却**值漂移**：本处 `fork-boilerplate` vs 活值 `[fork-subagent]`）⇒ 同名常量:FORK_BOILERPLATE_TAG 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"reopenWhen","i":0,"c":"① **回滚路径**：本删除落**独立提交** `e464d0655`（1 file, -1），`git revert e464d0655` 即可整笔回滚（CD06）；② 若日后 fork 子代理要改用 XML 包裹标签（当前活实现既作 `[fork-subagent]` 检测标记、又作包裹标签），应在 `ForkSubagent.ts` 内明确区分「检测标"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"reopenWhen","i":1,"c":"记」与「包裹标签」两个名，勿再回到常量文件抄一份；③ 若 `constants/xml.ts` 里其它 `*_TAG` 出现同类漂移，按同判据（同名同义异值 ⇒ 删死副本）处理。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":0,"c":"① **判据（为何删除而非消歧）**：两处**同名、同义、异值** —— `app/src/constants/xml.ts` = `'fork-boilerplate'`（全仓**仅声明处**出现一次：`fork-boilerplate` 字符串在整仓搜索中仅命中该行 ⇒ 死副本）；`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":1,"c":"app/src/tools/AgentTool/ForkSubagent.ts` = `'[fork-subagent]'`（**活实现**：用于 `content.includes(...)` 检测 fork 会话、写入开场提示、并以 `<tag>` 形式包裹系统提示，共 4 处消费）。⇒ 同一语义旋钮的两份定义、其中一份从未接线且取值已废弃 ⇒ 按域改名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":2,"c":"会把「漂移」合法化 ⇒ 删死副本。② **CD01–CD06 六步核查**：(CD01) 静态 0 importer + 字符串 `fork-boilerplate` 全仓仅 1 处（即其声明），无动态拼接/配置注册；(CD02/CD03) 无构建/插件/DI/反射入口；(CD04) 无测试引用（既有测试引用的是 `ForkSubagent` 侧同名）；("}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":3,"c":"CD05) 无注册入口可摘（本身未接线）；(CD06) 独立提交 `e464d0655` + revert 可复原。③ 守卫：新增 `B5-2-67`（断言 `xml.ts` 已无该名、`ForkSubagent.ts` 活值 `'[fork-subagent]'` 仍在）。④ 棘轮：基线键由 2 归零。⑤ 验证：app `tsc` exit 0；**110"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":4,"c":" 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"code#0","i":0,"c":"app/src/constants/xml.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"title","i":0,"c":"`FILE_READ_TOOL_NAME` 已合一到真源（同值同事实：`file_read`；`parseAgent` 补齐第三个 `FILE_*` 名）⇒ 同名常量:FILE_READ_TOOL_NAME 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；承接既有 `B5-2㉙`（当时只收敛了 `FILE_EDIT_/FILE_WRITE_` 两名）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"reopenWhen","i":0,"c":"① 若 `constants/tools.ts` 的 `FILE_*_TOOL_NAME` 三兄弟再增删，须同步本项守卫与 `B5-2㉙`；② `parseAgent` 若迁出 services 层，import 需改为对应规范入口；③ 若工具名要改为编译期枚举（见 spec `tool-name-compile-time-enum.md`），本项随该 "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"reopenWhen","i":1,"c":"spec 一并重做。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":0,"c":"① **判据**：两处取值与语义相同（`'file_read'`）⇒ 同值同事实 ⇒ 合一。② **背景（为何上一轮没做完）**：`B5-2㉙` 收敛了 `FILE_EDIT_/FILE_WRITE_` 两名，并在 `parseAgent.ts` 留注释「`file_read` 仍为本文件私有（当时真源未导出）」；其后 `constants/tools.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":1,"c":"` 已补导出 `export const FILE_READ_TOOL_NAME = 'file_read' satisfies ToolName;` ⇒ 本项补齐第三个名，删除私有副本、并入既有 `@modules/constants` import。③ **顺带修既有守卫**：`B5-2㉙` 用单行正则钉住该 import 形态（`import { "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":2,"c":"FILE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from …`）；并入三个名后 prettier 折成多行 ⇒ 该断言失效。已把断言放宽为「同名同源」形态（以跨行通配占位替代原文的固定换行，未改判据），**未删任何既有断言**（其中「桶 ↔ 真源 同值契约」一行仍在）。④ 守卫：新增 `B5-2-65`。⑤ 棘轮：基线"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":3,"c":"键由 2 归零。⑥ 验证：app + client `tsc` exit 0；守卫测试 `sameNameConstsB2` + 桶契约 `toolNameLists` **110 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"tests#1","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

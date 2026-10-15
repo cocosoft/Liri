@@ -19,10 +19,7 @@ import { configManager } from '@modules/config';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
 // 硬编码治理 B5-2㉙：`FILE_*_TOOL_NAME` 收敛到 `@modules/constants` 单一真源（services→infra 合法）
-import {
-  FILE_EDIT_TOOL_NAME,
-  FILE_WRITE_TOOL_NAME,
-} from '@modules/constants';
+import { FILE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from '@modules/constants';
 
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 

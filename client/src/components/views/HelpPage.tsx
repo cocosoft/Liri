@@ -26,7 +26,7 @@ const NAV_ITEMS: HelpNavItem[] = [
   { id: "about", labelKey: "help.aboutLiri", icon: "A" },
 ];
 
-const ACTIVE_NAV_KEY = "liri-help-active-nav";
+const HELP_PAGE_ACTIVE_NAV_KEY = "liri-help-active-nav";
 
 /**
  * 文档分类索引（与 app/docs/ 目录结构同步）
@@ -303,7 +303,7 @@ function HelpPage() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState(() => {
     try {
-      const s = localStorage.getItem(ACTIVE_NAV_KEY);
+      const s = localStorage.getItem(HELP_PAGE_ACTIVE_NAV_KEY);
       if (s && NAV_ITEMS.some((n) => n.id === s)) return s;
     } catch {
       /* ignore */
@@ -350,7 +350,7 @@ function HelpPage() {
     setActiveNav(id);
     setDocContent(null);
     try {
-      localStorage.setItem(ACTIVE_NAV_KEY, id);
+      localStorage.setItem(HELP_PAGE_ACTIVE_NAV_KEY, id);
     } catch {
       /* ignore */
     }

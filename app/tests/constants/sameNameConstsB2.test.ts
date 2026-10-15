@@ -1273,12 +1273,48 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "export { FILE_WRITE_TOOL_NAME } from '@modules/constants';"
     );
     const agent = read('src/services/agent/parseAgent.ts');
-    expect(agent).not.toMatch(/(^|[^_A-Za-z])const FILE_(EDIT|WRITE)_TOOL_NAME\s*=/);
-    expect(agent).toContain('FILE_EDIT_TOOL_NAME,\n  FILE_WRITE_TOOL_NAME,');
+    expect(agent).not.toMatch(
+      /(^|[^_A-Za-z])const FILE_(EDIT|WRITE)_TOOL_NAME\s*=/
+    );
+    expect(agent).toContain('FILE_EDIT_TOOL_NAME,');
+    expect(agent).toContain('FILE_WRITE_TOOL_NAME,');
+    expect(agent).toMatch(
+      /import\s*\{\s*FILE_EDIT_TOOL_NAME,\s*FILE_WRITE_TOOL_NAME,?\s*\}\s*from '@modules\/constants';/
+    );
     expect(agent).toContain("} from '@modules/constants';");
     // 既有「桶 ↔ 真源 同值契约」守卫**必须保留**（不得为消键而删测试）
     expect(read('tests/tools/toolNameLists.test.ts')).toContain(
       'BARREL_FILE_WRITE_TOOL_NAME'
     );
+  });
+
+  test('B5-2㉚：`ACTIVE_NAV_KEY` 三处按域消歧（异值异域，取值一字未改）', () => {
+    const items: Array<[string, string, string]> = [
+      [
+        '../client/src/components/views/UserPage.tsx',
+        'USER_PAGE_ACTIVE_NAV_KEY',
+        'liri-user-active-nav',
+      ],
+      [
+        '../client/src/components/views/SettingsPage.tsx',
+        'SETTINGS_PAGE_ACTIVE_NAV_KEY',
+        'liri-settings-active-nav',
+      ],
+      [
+        '../client/src/components/views/HelpPage.tsx',
+        'HELP_PAGE_ACTIVE_NAV_KEY',
+        'liri-help-active-nav',
+      ],
+    ];
+    for (const [rel, name, value] of items) {
+      const src = read(rel);
+      // 旧同名常量不得回流
+      expect(src).not.toMatch(/(^|[^_A-Za-z])const ACTIVE_NAV_KEY\s*=/);
+      // 新名 + 取值钉住
+      expect(src).toContain(`const ${name} = "${value}";`);
+      // 用法同步（读写各一处）
+      expect(src).toContain(`localStorage.getItem(${name})`);
+      expect(src).toContain(`localStorage.setItem(${name}, id)`);
+    }
   });
 });

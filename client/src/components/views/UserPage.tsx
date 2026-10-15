@@ -24,7 +24,7 @@ const NAV_ITEMS: UserNavItem[] = [
   { id: "permissions", labelKey: "user.permissions", icon: "P" },
 ];
 
-const ACTIVE_NAV_KEY = "liri-user-active-nav";
+const USER_PAGE_ACTIVE_NAV_KEY = "liri-user-active-nav";
 
 /** 通用时区列表 */
 const TIMEZONES = [
@@ -56,7 +56,7 @@ function UserPage() {
   const userCfg = config.user as UserConfig | undefined;
   const [activeNav, setActiveNav] = useState(() => {
     try {
-      const s = localStorage.getItem(ACTIVE_NAV_KEY);
+      const s = localStorage.getItem(USER_PAGE_ACTIVE_NAV_KEY);
       if (s && NAV_ITEMS.some((n) => n.id === s)) return s;
     } catch {
       /* ignore */
@@ -88,7 +88,7 @@ function UserPage() {
   const switchNav = (id: string) => {
     setActiveNav(id);
     try {
-      localStorage.setItem(ACTIVE_NAV_KEY, id);
+      localStorage.setItem(USER_PAGE_ACTIVE_NAV_KEY, id);
     } catch {
       /* ignore */
     }

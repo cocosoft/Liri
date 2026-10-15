@@ -233,7 +233,7 @@ interface SetDataDirectoryResponse {
 }
 
 /** 侧边栏选中项持久化 */
-const ACTIVE_NAV_KEY = "liri-settings-active-nav";
+const SETTINGS_PAGE_ACTIVE_NAV_KEY = "liri-settings-active-nav";
 
 /** Base 简单视角导航项（U3：换大脑+外观=config / 通知 / 语音 / 我的信息） */
 const SIMPLE_NAV_ITEMS = new Set(["config", "notifications", "voice", "user"]);
@@ -248,7 +248,7 @@ const SIMPLE_NAV_PLAIN: Record<string, string> = {
 
 function getPersistedNav(fallback: string): string {
   try {
-    const s = localStorage.getItem(ACTIVE_NAV_KEY);
+    const s = localStorage.getItem(SETTINGS_PAGE_ACTIVE_NAV_KEY);
     if (s && ALL_NAV_ITEMS.some((n) => n.id === s)) return s;
   } catch {
     /* ignore */
@@ -333,7 +333,7 @@ function SettingsPage() {
   const switchNav = (id: string) => {
     setActiveNav(id);
     try {
-      localStorage.setItem(ACTIVE_NAV_KEY, id);
+      localStorage.setItem(SETTINGS_PAGE_ACTIVE_NAV_KEY, id);
     } catch {
       /* ignore */
     }

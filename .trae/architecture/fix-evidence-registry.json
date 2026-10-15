@@ -6538,6 +6538,42 @@
       "changelog": [],
       "reopenWhen": "① 承接 B5-2 续项；② **口径外清单需单独裁定**（数组/对象型同名不纳入检测，见 notes 五键）；③ 口径回退（重新放宽为任意类型标注 ⇒ 惯例名涌入、棘轮被冲淡）⇒ 守卫测试 `hardcodeGateBlocking.test.ts` 变红；④ 数组/对象型同名若确为同一事实 ⇒ 由各域真源或跨部署…（全文见 archive/evidence-detail.jsonl#HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT）",
       "notes": "**根因（CS05）**：原正则要求 `=` 紧跟常量名 ⇒ `const X: T = …` 一律漏检，带类型写法的同名常量对棘轮**完全不可见**（原登记估「16+ 处」，实测远超）。**口径按「值可比」收窄**：只纳入标量基础类型（`string`/`number`/`boolean`/`bigint`，可加 …（全文见 archive/evidence-detail.jsonl#HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十一项：`UUID_RE` **8 份同值副本合一到 `core/ids.ts` 真源**（2 const + 6 内联；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ R03-002 + 分层约束（core 只依赖 core）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/ids.ts",
+        "app/src/core/index.ts",
+        "app/src/ai/modelRouter.ts",
+        "app/src/ai/models/orphanModels.ts",
+        "app/src/infrastructure/http/handlers/chat-handlers.ts",
+        "app/src/session/key/LegacyKeyAdapter.ts",
+        "app/src/tools/VideoGenerateTool/VideoGenerateTool.ts",
+        "app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts",
+        "app/src/tools/ImageGenerateTool/ImageGenerateTool.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（合一队列）；② 任一文件重新出现 `const UUID_RE =` 定义或内联 `[0-9a-f]{8}-` 正则 ⇒ 守卫（第 47 例）或棘轮阻断；③ 若未来需要**不同** UUID 形态（大小写/分组不同）⇒ 属新事实，须另立常量，**不得改真源取值**（真源是形态判定的单…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE）",
+      "notes": "****自证**：app typecheck 0 · 守卫第 47 例（真源存在 + core 出口 + 7 消费文件无副本/无内联/有引用）47 pass · `lint:consts` 重新播种基线：`同名常量:UUID_RE` **2→0**（224→223 键），且可下调键仅此一个（无意外新增）· 门禁族 6…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE）"
     }
   ]
 }

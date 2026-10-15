@@ -3602,6 +3602,27 @@
 {"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"code#0","i":0,"c":"scripts/lint-consts.ts"}
 {"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"code#1","i":0,"c":"app/tests/gates/hardcodeGateBlocking.test.ts"}
 {"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"tests#0","i":0,"c":"app/tests/gates/hardcodeGateBlocking.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第三十一项：`UUID_RE` **8 份同值副本合一到 `core/ids.ts` 真源**（2 const + 6 内联；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ R03-002 + 分层约束（core 只依赖 core）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（合一队列）；② 任一文件重新出现 `const UUID_RE =` 定义或内联 `[0-9a-f]{8}-` 正则 ⇒ 守卫（第 47 例）或棘轮阻断；③ 若未来需要**不同** UUID 形态（大小写/分组不同）⇒ 属新事实，须另立常量，**不得改真源取值**（真源是形态判定的单一事实）；④ core 层倒挂（引用上层）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"reopenWhen","i":1,"c":"由 `lint:arch` 兜底。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":0,"c":"****自证**：app typecheck 0 · 守卫第 47 例（真源存在 + core 出口 + 7 消费文件无副本/无内联/有引用）47 pass · `lint:consts` 重新播种基线：`同名常量:UUID_RE` **2→0**（224→223 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":1,"c":"**如实边界**：内联字面量对 `lint:consts` 天然不可见 ⇒ 本片靠**守卫测试**钉住 6 处内联消费点不回流；`lint:consts` 仍只能看 `const` 定义形态。CS06**UUID_RE**8******/^0-9a-f8-0-9a-f4-0-9a-f4-0-9a-f4-0-9a-f12$/i2constUUID_RE="}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":2,"c":"ai/models/orphanModels.tsinfrastructure/http/handlers/chat-handlers.tslint:consts****+**6**ai/modelRouter.tsisUUIDsession/key/LegacyKeyAdapter.tstools/VideoGenerateTool"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":3,"c":"tools/ImageGenerateTool/ImageGenerateToolImageGenerationRouter3lint:consts****2**********core/ids.ts**UUIDrandomIdSuffixIDcore****coreinfracore/index.tsexport*from./idsR03-0027"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":4,"c":"importUUID_REfrom@modules/core****i****apptypecheck047+core+7//47passlint:consts:UUID_RE**20**2242236exit0drift****lint:consts****6lint:constsconst"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#0","i":0,"c":"app/src/core/ids.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#1","i":0,"c":"app/src/core/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#2","i":0,"c":"app/src/ai/modelRouter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#3","i":0,"c":"app/src/ai/models/orphanModels.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#5","i":0,"c":"app/src/session/key/LegacyKeyAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#6","i":0,"c":"app/src/tools/VideoGenerateTool/VideoGenerateTool.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationRouter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#8","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerateTool.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#10","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

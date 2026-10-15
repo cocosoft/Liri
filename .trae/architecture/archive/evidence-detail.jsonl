@@ -4052,7 +4052,7 @@
 {"id":"BUDGET-E2E-FOUND-DEFECTS","k":"code#3","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
 {"id":"BUDGET-E2E-FOUND-DEFECTS","k":"tests#0","i":0,"c":"client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"}
 {"id":"BUDGET-E2E-FOUND-DEFECTS","k":"tests#1","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
-{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"title","i":0,"c":"共享会话网关启动未初始化修复：`ModuleInitializer` 注册进 DI 后补 `await initialize()` 使 agents 非空 —— 修前写端恒抛 `No active gateway found`（被 catch 吞）、读端恒返回空"}
+{"id":"SESSION-COMBINED-GATEWAY-INIT","k":"title","i":0,"c":"共享会话网关启动未初始化修复：终态为懒引导（由网关入口首次用到时自引导，不再由启动期 initialize），以保证 agents 非空 —— 修前写端恒抛 `No active gateway found`（被 catch 吞）、读端恒返回空"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"source","i":0,"c":"用户 2026-10-15 指令「先查一下共享会话网关失败的原因」→「按方案 A 修复」；现象出处：QQ 通道真机 E2E 中 trace 的 `shared_session` 阶段 = fail"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"reopenWhen","i":0,"c":"① 真机 E2E（真实入站通道消息）证实 `shared_session` 阶段不再 fail 后，本项升为 DFT/dcue 并补端到端证据；② 若自动初始化出的第二个 `SessionGateway` 实例带来可见副作用（启动变慢、重复「P0' 多分区聚合」扫描、FTS 持久化定时器翻倍、崩溃恢复二次扫描），改走「复用 ChatManager 的 "}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"reopenWhen","i":1,"c":"gateway」或「首次用到时懒初始化」；③ 若 `shared-context` 会话在 FS 分区无界增长需要清理，补归档/修剪策略。④ **已办结（2026-10-15）**：真机 E2E（QQ 入站消息）已证实 `shared_session` 由 fail 转 ok、`shared-context` 真实落盘，并补守卫测试 + 负向对照 ⇒ ①的升"}

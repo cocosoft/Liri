@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT**：`lint:consts` 补「同名常量」盲区：纳入标量基础类型的带类型写法（棘轮零增长，口径外数组/对象另有登记） —— 验证 tc0|gates11|arch0|gate6；基线 同名常量 122 组（零增长）（详情见 archive/evidence-detail.jsonl#HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY**：`ACTIVE_NAV_KEY` 三处按域消歧（client 三视图各自私有、取值各异）⇒ 同名常量:ACTIVE_NAV_KEY 3→0 —— 验证 tc0|guard46|arch0|gate5；基线 同名常量:ACTIVE_NAV_KEY 3>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES**：`FILE_{EDIT,WRITE}_TOOL_NAME` 合一到 constants 真源（prompt.ts 改转发导出）⇒ consts 227>225 —— 验证 tc0|guard45|tools853|arch0|gate5；基线 227>225（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID**：`MAGIC_GUID` 合一到 core 真源（RFC 6455，5 处→1）⇒ consts 228>227 —— 验证 tc0|guard44|voice+acp202|arch0|gate5；基线 228>227（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID）

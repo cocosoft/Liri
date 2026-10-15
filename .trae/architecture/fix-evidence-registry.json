@@ -6511,6 +6511,33 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 三键取值各异、且各为单一页面私有 ⇒ 属**不同事实**，只消歧不合并；③ 若将来三视图共享同一导航态 ⇒ 应改为**单一共享 key**（那是行为变更，须另立片并给出 localStorage 迁移方案，不得顺手改取值）；④ 旧名 `ACTIVE_NAV_KEY` …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY）",
       "notes": "取证（CS06）：`ACTIVE_NAV_KEY` 实测 3 处定义、**取值逐字不同** —— `liri-user-active-nav`（UserPage.tsx:27）· `liri-settings-active-nav`（SettingsPage.tsx:236）· `liri-help-active-n…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY）"
+    },
+    {
+      "id": "HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT",
+      "title": "硬编码治理 · 门禁口径：`lint:consts` 补「同名常量」**带类型写法盲区**（纳入标量基础类型；棘轮零增长）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（门禁强化 · 防回流）+ CS01/CS05（归一化 / 根因优先）+ 台账原登记项「带类型盲区（16+ 处）是否扩门禁正则」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-consts.ts",
+        "app/tests/gates/hardcodeGateBlocking.test.ts"
+      ],
+      "tests": [
+        "app/tests/gates/hardcodeGateBlocking.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 B5-2 续项；② **口径外清单需单独裁定**（数组/对象型同名不纳入检测，见 notes 五键）；③ 口径回退（重新放宽为任意类型标注 ⇒ 惯例名涌入、棘轮被冲淡）⇒ 守卫测试 `hardcodeGateBlocking.test.ts` 变红；④ 数组/对象型同名若确为同一事实 ⇒ 由各域真源或跨部署…（全文见 archive/evidence-detail.jsonl#HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT）",
+      "notes": "**根因（CS05）**：原正则要求 `=` 紧跟常量名 ⇒ `const X: T = …` 一律漏检，带类型写法的同名常量对棘轮**完全不可见**（原登记估「16+ 处」，实测远超）。**口径按「值可比」收窄**：只纳入标量基础类型（`string`/`number`/`boolean`/`bigint`，可加 …（全文见 archive/evidence-detail.jsonl#HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT）"
     }
   ]
 }

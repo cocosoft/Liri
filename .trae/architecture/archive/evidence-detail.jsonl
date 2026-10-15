@@ -3590,6 +3590,18 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-30-ACTIVE-NAV-KEY","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"title","i":0,"c":"硬编码治理 · 门禁口径：`lint:consts` 补「同名常量」**带类型写法盲区**（纳入标量基础类型；棘轮零增长）"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（门禁强化 · 防回流）+ CS01/CS05（归一化 / 根因优先）+ 台账原登记项「带类型盲区（16+ 处）是否扩门禁正则」"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"reopenWhen","i":0,"c":"① 承接 B5-2 续项；② **口径外清单需单独裁定**（数组/对象型同名不纳入检测，见 notes 五键）；③ 口径回退（重新放宽为任意类型标注 ⇒ 惯例名涌入、棘轮被冲淡）⇒ 守卫测试 `hardcodeGateBlocking.test.ts` 变红；④ 数组/对象型同名若确为同一事实 ⇒ 由各域真源或跨部署契约测试覆盖，本门禁不负责。"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"notes","i":0,"c":"**根因（CS05）**：原正则要求 `=` 紧跟常量名 ⇒ `const X: T = …` 一律漏检，带类型写法的同名常量对棘轮**完全不可见**（原登记估「16+ 处」，实测远超）。**口径按「值可比」收窄**：只纳入标量基础类型（`string`/`number`/`boolean`/`bigint`，可加 `readonly`）。**取证（三层放宽"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"notes","i":1,"c":"实测）**：① 任意类型标注 ⇒ 一次性 **69 键**涌入，其中 `DEFAULT_CONFIG` 横跨 **93 文件**（各模块私有默认配置，属惯例名）· ② 再纳入数组 ⇒ **4 新键 + 1 计数扩大** · ③ 只留标量 ⇒ **delta=0**（122 组不变）。**关键实证**：`BINARY_EXTS: string[]` 在 app"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"notes","i":2,"c":"（`.pdf/.docx/.mp3`）与 client（`.exe/.dll/.so`）**同名同类型却完全不同事实** ⇒ 「集合同名 ≠ 同一事实」，故数组不纳入。**自证**：注入标量带类型同名 ⇒ exit 1 并精确报键；注入对象带类型同名 ⇒ exit 0（口径排除）；两处注入均已还原。**口径外已知同名（登记待裁定，未纳入检测）**：`"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"notes","i":3,"c":"ALLOWED_OAUTH_BASE_URLS`（`constants/oauth.ts` 的 `auth.openliri.com` vs `system/auth/oauthConfig.ts` 的 `api.openliri.com` ⇒ **疑真漂移**，安全域须单独裁定）· `DANGEROUS_PATTERNS`×3（"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"notes","i":4,"c":"hooks/sandbox/bash 三套不同用途模式集）· `BINARY_EXTS` · `SENSITIVE_CONFIG_FILES`（basename vs home 绝对路径）· `DEFAULT_TRIGGERS`（app 三个唤醒词 vs client 两个 ⇒ 端间默认值不一致）。**如实边界**：本片只补「标量」这一段盲区，数组/对象型同"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"notes","i":5,"c":"名仍是口径外义务盲区；`e2eVerified=false`（门禁属静态扫描，无运行时面）。"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"code#0","i":0,"c":"scripts/lint-consts.ts"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"code#1","i":0,"c":"app/tests/gates/hardcodeGateBlocking.test.ts"}
+{"id":"HARDCODE-GATE-CONSTS-TYPED-BLINDSPOT","k":"tests#0","i":0,"c":"app/tests/gates/hardcodeGateBlocking.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -13,12 +13,11 @@ import type {
   VoiceToolDeclaration,
 } from './types';
 import { randomUUID } from 'crypto';
+// 「未指定模型」兜底取真源（B5-2-60 同值同事实合一；原此处另写一份空串）
+import { DEFAULT_MODEL } from '@modules/constants';
 
 /** OpenAI Realtime API 端点 */
 const OPENAI_WS_BASE = 'wss://api.openai.com/v1/realtime';
-
-/** 默认模型 */
-const DEFAULT_MODEL = '';
 
 /** 语音配置 */
 const DEFAULT_VOICE = 'alloy';

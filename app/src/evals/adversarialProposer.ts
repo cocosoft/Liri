@@ -99,7 +99,7 @@ export interface LlmProposerOptions {
    *
    * ⚠️ **e2e 实证（2026-10-04）**：不显式给值时，部分供应商默认 **4096** ⇒ 模型把预算全耗在推理上，
    * 返回 `finish_reason=max_tokens` 且 **`content` 为空**（实测空内容 + 截断 JSON）⇒ 提案 0 条。
-   * 故本适配器**显式给值**（默认见 {@link DEFAULT_MAX_TOKENS}），并容忍 JSON 被截断（见 {@link extractJsonArray}）。
+   * 故本适配器**显式给值**（默认见 {@link ADVERSARIAL_DEFAULT_MAX_TOKENS}），并容忍 JSON 被截断（见 {@link extractJsonArray}）。
    */
   maxTokens?: number;
   /** 注入式对话实现（缺省 = 经 `@modules/ai` 既有入口） */
@@ -125,7 +125,7 @@ export const ADVERSARIAL_DEFAULT_TIMEOUT_MS = 60_000;
  * + `content=""` ⇒ **提案 0 条**；同提示词同目标闭集下 @16384 ⇒ **12 条**。
  * ⇒ 上调整为 16384（仅**抬高上限**，非强制消耗；JSON 截断仍由 {@link extractJsonArray} 兜底）。
  */
-export const DEFAULT_MAX_TOKENS = 16_384;
+export const ADVERSARIAL_DEFAULT_MAX_TOKENS = 16_384;
 
 /**
  * 红队系统提示词（**安全面**：只给"已声明防线 + 目标闭集"，**不含隐藏期望值/参考解** —— spec §8 风险 3）。
@@ -268,7 +268,7 @@ export function createLlmProposer(
 ): AdversarialProposer {
   const maxCalls = opts.maxCalls ?? DEFAULT_MAX_CALLS;
   const timeoutMs = opts.timeoutMs ?? ADVERSARIAL_DEFAULT_TIMEOUT_MS;
-  const maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
+  const maxTokens = opts.maxTokens ?? ADVERSARIAL_DEFAULT_MAX_TOKENS;
   const chat = opts.chat ?? createAiServiceChat();
 
   return async (input: AdversarialProposerInput) => {

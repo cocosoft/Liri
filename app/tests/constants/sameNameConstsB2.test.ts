@@ -1750,7 +1750,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;'
     );
     const voice = read('src/voice/VoiceSession.ts');
-    expect(voice).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_SESSION_TIMEOUT\s*=/);
+    expect(voice).not.toMatch(
+      /(^|[^_A-Za-z])const DEFAULT_SESSION_TIMEOUT\s*=/
+    );
     expect(voice).toContain('const VOICE_SESSION_TIMEOUT = 10 * 60 * 1000;');
     expect(voice).toContain('}, VOICE_SESSION_TIMEOUT);');
   });
@@ -1760,12 +1762,32 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'export const MAX_FILENAME_LENGTH = 255;'
     );
     const client = read('../client/src/utils/exportMessage.ts');
-    expect(client).not.toMatch(
-      /(^|[^_A-Za-z])const MAX_FILENAME_LENGTH\s*=/
-    );
+    expect(client).not.toMatch(/(^|[^_A-Za-z])const MAX_FILENAME_LENGTH\s*=/);
     expect(client).toContain('const EXPORT_FILENAME_MAX_LENGTH = 120;');
     expect(client).toContain('> EXPORT_FILENAME_MAX_LENGTH)');
     expect(client).toContain('slice(0, EXPORT_FILENAME_MAX_LENGTH)');
+  });
+
+  test('B5-2-60：`DEFAULT_MODEL` 已合一到真源（同值同事实：空串；voice 适配器改桶引用）', () => {
+    expect(read('src/constants/common.ts')).toContain(
+      "export const DEFAULT_MODEL = '';"
+    );
+    const voice = read('src/voice/OpenAIRealtimeAdapter.ts');
+    expect(voice).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_MODEL\s*=/);
+    expect(voice).toContain("import { DEFAULT_MODEL } from '@modules/constants';");
+    expect(voice).toContain('this.model = model ?? DEFAULT_MODEL;');
+  });
+
+  test('B5-2-61：`DEFAULT_MAX_TOKENS` ×2 已按域消歧（通用 4096 真源保留 / evals 红队 16384 改名，取值一字未改）', () => {
+    expect(read('src/constants/common.ts')).toContain(
+      'export const DEFAULT_MAX_TOKENS = 4096;'
+    );
+    const evals = read('src/evals/adversarialProposer.ts');
+    expect(evals).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_MAX_TOKENS\s*=/);
+    expect(evals).toContain(
+      'export const ADVERSARIAL_DEFAULT_MAX_TOKENS = 16_384;'
+    );
+    expect(evals).toContain('opts.maxTokens ?? ADVERSARIAL_DEFAULT_MAX_TOKENS');
   });
 
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Text, AlternateScreen, useApp } from '../../ink';
 import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
+import { dispatchSlashCommand } from './commandDispatch';
 import { StatusFloatingBar } from './StatusFloatingBar';
 import { Header } from './Header';
 import { getLogger } from '@modules/monitoring';
@@ -393,6 +394,39 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
             },
           ]);
         }
+        return;
+      }
+
+      // 方案①（2026-10-16）：内置斜杠命令统一派发。
+      // 此前本文件只处理上面硬编码的 /help、/clear、/ink、/onboard、/router* 五类，
+      // 其余 `/xxx`（如 /budget、/git、/commit）会落到底部 `chatManager.streamMessage`
+      // 当**普通消息送进模型**（真机实测：模型自述「该斜杠命令由应用层处理…当前消息落到了
+      // 我这里」）⇒ 此处交给与 Terminal 页 / 非流式 HTTP 同一个 `commandExecutor`（CS01 复用）。
+      if (content.startsWith('/')) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content,
+            timestamp: Date.now(),
+          },
+        ]);
+        const outcome = await dispatchSlashCommand(
+          content,
+          chatManager.getCurrentSession()?.id
+        );
+        // role 用 'system'：命令输出是**纯文本语义**（同本文件既有命令分支），
+        // 过 MarkdownRenderer 会被其中的 `#` / `*` 误当标题与列表项。
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `command-${Date.now()}`,
+            role: 'system',
+            content: outcome.text,
+            timestamp: Date.now(),
+          },
+        ]);
         return;
       }
 

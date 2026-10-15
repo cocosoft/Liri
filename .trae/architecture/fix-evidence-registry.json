@@ -6574,6 +6574,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（合一队列）；② 任一文件重新出现 `const UUID_RE =` 定义或内联 `[0-9a-f]{8}-` 正则 ⇒ 守卫（第 47 例）或棘轮阻断；③ 若未来需要**不同** UUID 形态（大小写/分组不同）⇒ 属新事实，须另立常量，**不得改真源取值**（真源是形态判定的单…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE）",
       "notes": "****自证**：app typecheck 0 · 守卫第 47 例（真源存在 + core 出口 + 7 消费文件无副本/无内联/有引用）47 pass · `lint:consts` 重新播种基线：`同名常量:UUID_RE` **2→0**（224→223 键），且可下调键仅此一个（无意外新增）· 门禁族 6…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-32-MAX-POLL-TIME",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十二项：`MAX_POLL_TIME` **3 处同名按域消歧**（FAL 5min / SiliconFlow 30min / OpenAI 兼容 5min；取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 模型使用规则（provider 域独立）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/ai/providers/FALProvider.ts",
+        "app/src/ai/providers/OpenAIProvider.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一 provider 文件重新出现 `const MAX_POLL_TIME =` ⇒ 守卫（第 48 例）或棘轮阻断；③ 若未来某 provider 需调整轮询超时 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ FAL 5min 与 OpenAI…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-32-MAX-POLL-TIME）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 48 例（FALProvider / OpenAIProvider 两文件无 `MAX_POLL_TIME` 定义 + 新名与取值逐字钉住 + 三处 `while (Date.now() - startTime < <NEW>)` 用法落新名 + Silico…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-32-MAX-POLL-TIME）"
     }
   ]
 }

@@ -7214,6 +7214,87 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧/合一队列）；② 任一文件重新出现裸 `const MAX_ENTRYPOINT_LINES`（非 memory 导出真源）⇒ 守卫（第 69 例）或棘轮阻断；③ 与 B5-2-52（`ENTRYPOINT_NAME`）为**同一对文件的配套键**，若将来两域索引规范收敛，应一并…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES）",
       "notes": "**自证**：app typecheck 0 · 守卫第 69 例（memory 导出真源 `= 200` 钉住；chronos 无裸定义 + `DREAM_MAX_ENTRYPOINT_LINES = 50` + getter 返回；MemoryFileService 仍 import 真源）69 pass / 6…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES）"
+    },
+    {
+      "id": "BUDGET-USD-LEDGER",
+      "title": "日限额 USD 台账同源化：CLI 对话路径补传 model 参（原漏传致金额记账静默跳过 71%）+ 跳过日志 debug 升 warn + 放行留痕补 dailyBudget:relief_applied",
+      "source": "用户裁定（2026-10-15：根治前端反馈的「token 日限额」问题）——真机对账发现 CLI 路径 USD 台账缺口（usedUsd=$0.863 vs 计费侧 $3.6866，漏记 71%）；上位口径见 .trae/specs/unified-budget-and-accounting.md（债四 S3/S5，USD 唯一口径）与 .trae/sp…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/commands/builtin/chat/Chat.ts",
+        "app/src/query/DailyBudgetManager.ts"
+      ],
+      "tests": [
+        "app/tests/budget/usdLedgerModelArgGuard.test.ts",
+        "app/tests/budget/dailyBudgetReliefLogGuard.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若再次观测到 USD 台账与计费侧对账缺口（哨兵：日志 dailyBudget:usd_skip 频繁出现，或 GET /v1/cost/daily-budget 的 usedUsd 明显低于 cost_records 当日合计）；② 若新增 recordDailyBudgetFromUsage 调用点，必须显式…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-LEDGER）",
+      "notes": "① **根因**：recordDailyBudgetFromUsage 的 model 为可选参；CLI 对话路径（Chat.ts 两处，L230 / L294）漏传 ⇒ recordTurnCostUsd 因模型名不可得而静默 return 0（原日志级别 debug，默认级别下完全不可见）⇒ USD 台账出现缺口…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-LEDGER）"
+    },
+    {
+      "id": "BUDGET-GHOST-RESUME",
+      "title": "Durable Resume 幽灵恢复根除：启动扫描过滤 phase=completed 的检查点（原被反复唤醒致会话轮次/消息重复累加）",
+      "source": "用户裁定（2026-10-15：根治前端反馈的「工具轮次」问题）——真机实证 diag-budget-gate-2 的 phase=completed 检查点当日被恢复 8 次（约每 10 分钟一次，随进程反复启动复发），每次注入 steering 并新建 TAORLoop；上位方案见 .trae/specs/tool-turn-budget-persis…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/ResumeManager.ts"
+      ],
+      "tests": [
+        "app/tests/query/resumeScanCompletedGuard.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若再次观测到已收尾会话被自动恢复（哨兵：日志 [ResumeManager] 已完成检查点跳过（轮次已收尾，无待续推理；防幽灵恢复）零出现，而会话轮次/消息数凭空增长）；② 若 Durable Resume 新增候选来源或新增 phase 枚举值时，须复核对齐本过滤判据；③ 若产品要求 completed 检查点…（全文见 archive/evidence-detail.jsonl#BUDGET-GHOST-RESUME）",
+      "notes": "① **根因**：ResumeManager.scanPending 原仅按「未收尾（suspend / goal / 未过期）」之外的条件筛选候选，未排除 phase==='completed' 的检查点 ⇒ 已收尾会话在**每次进程启动**时被重新恢复：注入 steering + 新建 TAORLoop ⇒ 轮次…（全文见 archive/evidence-detail.jsonl#BUDGET-GHOST-RESUME）"
+    },
+    {
+      "id": "BUDGET-USD-RESTORE",
+      "title": "USD 日限额启用前置修复：initDailyBudget 漏传 usedUsd/debtUsd 致 restore 回落内存 0（USD 台账重启即清零、限额可被重启绕过），同批将 USD_BUDGET_GATE 静态默认改为 true",
+      "source": "用户裁定（2026-10-15：「先启用 USD 日限额」→ 静态默认 true + 额度 $10/天）——真机实证状态文件 usedUsd=0.863076 而 API 返回 usedUsd:0，定位为 restore 漏传；上位口径见 .trae/specs/unified-budget-and-accounting.md（债四 S5 / T3-5/6…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/core/featureFlags.ts"
+      ],
+      "tests": [
+        "app/tests/budget/dailyBudgetUsdRestore.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若再次观测到重启后 USD 台账归零（哨兵：daily-budget-state.json 的 usedUsd 大于 0，而 GET /v1/cost/daily-budget 返回 usedUsd:0）；② 若日预算持久化新增字段（如分模型/分渠道 USD 明细），必须同步补 restore 透传，否则重开；③…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-RESTORE）",
+      "notes": "① **根因**：initDailyBudget 组装 restore() 入参时漏传 usedUsd / debtUsd 两个 USD 字段 ⇒ BudgetSnapshot.restore 内 state.usedUsd 为 undefined 时沿用内存现值 0 ⇒ USD 台账**重启即清零**，日限额可被「…（全文见 archive/evidence-detail.jsonl#BUDGET-USD-RESTORE）"
     }
   ]
 }

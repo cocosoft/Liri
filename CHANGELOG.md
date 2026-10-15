@@ -19,6 +19,9 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BUDGET-USD-RESTORE**：USD 台账重启即清零修复（restore 补透传 usedUsd/debtUsd）+ 闸门 USD_BUDGET_GATE 默认开 —— 验证 tc0|ut3|arch0|gate6；基线 状态文件 usedUsd=0.863076 vs API usedUsd:0（详情见 archive/evidence-detail.jsonl#BUDGET-USD-RESTORE）
+- ✅ **BUDGET-GHOST-RESUME**：Durable Resume 过滤 phase=completed 检查点（根除会话轮次/消息反复累加） —— 验证 tc0|ut3|arch0|gate6；基线 diag-budget-gate-2 已完成检查点当日被恢复 8 次（详情见 archive/evidence-detail.jsonl#BUDGET-GHOST-RESUME）
+- ✅ **BUDGET-USD-LEDGER**：USD 台账同源化：CLI 对话路径补传 model 参 + 跳过日志升 warn + 放行留痕 —— 验证 tc0|ut5|arch0|gate6；基线 CLI 路径 USD 台账 0.863 vs 计费 3.6866（漏记 71%）（详情见 archive/evidence-detail.jsonl#BUDGET-USD-LEDGER）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES**：`MAX_ENTRYPOINT_LINES` ×2 消歧（异值异域，dream 记忆根改名 DREAM_MAX_ENTRYPOINT_LINES） —— 验证 tc0|guard69|arch0|gate6；基线 同名常量:MAX_ENTRYPOINT_LINES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME**：`ENTRYPOINT_NAME` ×2 消歧（异值异域，dream 记忆根改名 DREAM_ENTRYPOINT_NAME） —— 验证 tc0|guard68|arch0|gate6；基线 同名常量:ENTRYPOINT_NAME 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE**：`DIR_EXISTS_GUIDANCE` ×2 消歧（异值异域，dream 目录清单/memory 已存在提示） —— 验证 tc0|guard67|arch0|gate6；基线 同名常量:DIR_EXISTS_GUIDANCE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE）

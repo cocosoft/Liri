@@ -3882,6 +3882,44 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"BUDGET-USD-LEDGER","k":"title","i":0,"c":"日限额 USD 台账同源化：CLI 对话路径补传 model 参（原漏传致金额记账静默跳过 71%）+ 跳过日志 debug 升 warn + 放行留痕补 dailyBudget:relief_applied"}
+{"id":"BUDGET-USD-LEDGER","k":"source","i":0,"c":"用户裁定（2026-10-15：根治前端反馈的「token 日限额」问题）——真机对账发现 CLI 路径 USD 台账缺口（usedUsd=$0.863 vs 计费侧 $3.6866，漏记 71%）；上位口径见 .trae/specs/unified-budget-and-accounting.md（债四 S3/S5，USD 唯一口径）与 "}
+{"id":"BUDGET-USD-LEDGER","k":"source","i":1,"c":".trae/specs/daily-budget-over-limit-ux.md（relief 三件套）"}
+{"id":"BUDGET-USD-LEDGER","k":"reopenWhen","i":0,"c":"① 若再次观测到 USD 台账与计费侧对账缺口（哨兵：日志 dailyBudget:usd_skip 频繁出现，或 GET /v1/cost/daily-budget 的 usedUsd 明显低于 cost_records 当日合计）；② 若新增 recordDailyBudgetFromUsage 调用点，必须显式传 model（第 3 参），否则重开；③"}
+{"id":"BUDGET-USD-LEDGER","k":"reopenWhen","i":1,"c":" 价目表 cache_write_price 显式配置后需复核对账口径（当前 cache-write 走 calculateCost 的 input×1.25 启发式兜底）。"}
+{"id":"BUDGET-USD-LEDGER","k":"notes","i":0,"c":"① **根因**：recordDailyBudgetFromUsage 的 model 为可选参；CLI 对话路径（Chat.ts 两处，L230 / L294）漏传 ⇒ recordTurnCostUsd 因模型名不可得而静默 return 0（原日志级别 debug，默认级别下完全不可见）⇒ USD 台账出现缺口（真机实证：当日 "}
+{"id":"BUDGET-USD-LEDGER","k":"notes","i":1,"c":"usedUsd=$0.863 vs 计费侧 $3.6866）。② **修法**：两处调用补第 3 参 model（与同处 trackUsage/addCost 的模型同源，符合「数出同源」）；跳过分支日志 debug 升 warn 并写明不臆造金额；顺带补齐 applyRelief 的 dailyBudget:relief_applied 留痕（原与 "}
+{"id":"BUDGET-USD-LEDGER","k":"notes","i":2,"c":"clearRelief 不对称而静默，致 unlock-today 放行不可追溯）。③ **验证**：新增 2 个源码守卫（usdLedgerModelArgGuard：正向断言两处调用均带 model + 负向断言不存在缺参形态；dailyBudgetReliefLogGuard：relief_applied 存在 / relief_revoked 对称 "}
+{"id":"BUDGET-USD-LEDGER","k":"notes","i":3,"c":"/ kind+expiresAt+effectiveLimit 三字段齐备），本批 5 例 pass；typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。④ **如实缺口（e2eVerified=false）**：修复需重启应用方可生效，本期未做「重启后对账闭合」的端到端复核（运行中进程仍执行旧代码）。"}
+{"id":"BUDGET-USD-LEDGER","k":"code#0","i":0,"c":"app/src/commands/builtin/chat/Chat.ts"}
+{"id":"BUDGET-USD-LEDGER","k":"code#1","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-USD-LEDGER","k":"tests#0","i":0,"c":"app/tests/budget/usdLedgerModelArgGuard.test.ts"}
+{"id":"BUDGET-USD-LEDGER","k":"tests#1","i":0,"c":"app/tests/budget/dailyBudgetReliefLogGuard.test.ts"}
+{"id":"BUDGET-GHOST-RESUME","k":"title","i":0,"c":"Durable Resume 幽灵恢复根除：启动扫描过滤 phase=completed 的检查点（原被反复唤醒致会话轮次/消息重复累加）"}
+{"id":"BUDGET-GHOST-RESUME","k":"source","i":0,"c":"用户裁定（2026-10-15：根治前端反馈的「工具轮次」问题）——真机实证 diag-budget-gate-2 的 phase=completed 检查点当日被恢复 8 次（约每 10 分钟一次，随进程反复启动复发），每次注入 steering 并新建 TAORLoop；上位方案见 "}
+{"id":"BUDGET-GHOST-RESUME","k":"source","i":1,"c":".trae/specs/tool-turn-budget-persistence.md（工具轮次预算跨 run 持久化）"}
+{"id":"BUDGET-GHOST-RESUME","k":"reopenWhen","i":0,"c":"① 若再次观测到已收尾会话被自动恢复（哨兵：日志 [ResumeManager] 已完成检查点跳过（轮次已收尾，无待续推理；防幽灵恢复）零出现，而会话轮次/消息数凭空增长）；② 若 Durable Resume 新增候选来源或新增 phase 枚举值时，须复核对齐本过滤判据；③ 若产品要求 completed 检查点也要重放（如崩溃于收尾回执之前），按本节判"}
+{"id":"BUDGET-GHOST-RESUME","k":"reopenWhen","i":1,"c":"据重开并给出区分手段。"}
+{"id":"BUDGET-GHOST-RESUME","k":"notes","i":0,"c":"① **根因**：ResumeManager.scanPending 原仅按「未收尾（suspend / goal / 未过期）」之外的条件筛选候选，未排除 phase==='completed' 的检查点 ⇒ 已收尾会话在**每次进程启动**时被重新恢复：注入 steering + 新建 TAORLoop ⇒ 轮次与消息被反复累加（真机实证：同一会话当日被"}
+{"id":"BUDGET-GHOST-RESUME","k":"notes","i":1,"c":"恢复 8 次）。② **根因性质**：属状态检测缺口 —— 收尾态本应由持久化 phase 标记判定，而扫描侧未消费该标记。③ **修法**：scanPending 内新增 latest.phase === 'completed' 的显式跳过（仅在有 checkpoint 日志开关时打 info 说明跳过原因，保持可观测），与既有 suspend / "}
+{"id":"BUDGET-GHOST-RESUME","k":"notes","i":2,"c":"goal / 过期判据并列、互不覆盖。④ **验证**：新增行为回归 3 例（completed 不入候选；未收尾的仍入候选；suspend / goal / 过期仍按既有判据排除——防本次改动覆盖原判据），pass；typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。⑤ **如实缺口（e2eVerified=false）**：未"}
+{"id":"BUDGET-GHOST-RESUME","k":"notes","i":3,"c":"在真实进程重启序列下端到端复跑「启动 → 不再恢复」全链；本次以隔离行为用例覆盖判据。⑥ 会话级残留（50 个检查点 + taor_checkpoints 行）已随该诊断会话的删除级联清除（2026-10-15）。"}
+{"id":"BUDGET-GHOST-RESUME","k":"code#0","i":0,"c":"app/src/query/ResumeManager.ts"}
+{"id":"BUDGET-GHOST-RESUME","k":"tests#0","i":0,"c":"app/tests/query/resumeScanCompletedGuard.test.ts"}
+{"id":"BUDGET-USD-RESTORE","k":"title","i":0,"c":"USD 日限额启用前置修复：initDailyBudget 漏传 usedUsd/debtUsd 致 restore 回落内存 0（USD 台账重启即清零、限额可被重启绕过），同批将 USD_BUDGET_GATE 静态默认改为 true"}
+{"id":"BUDGET-USD-RESTORE","k":"source","i":0,"c":"用户裁定（2026-10-15：「先启用 USD 日限额」→ 静态默认 true + 额度 $10/天）——真机实证状态文件 usedUsd=0.863076 而 API 返回 usedUsd:0，定位为 restore 漏传；上位口径见 .trae/specs/unified-budget-and-accounting.md（债四 S5 / "}
+{"id":"BUDGET-USD-RESTORE","k":"source","i":1,"c":"T3-5/6/7 USD 口径持久化）"}
+{"id":"BUDGET-USD-RESTORE","k":"reopenWhen","i":0,"c":"① 若再次观测到重启后 USD 台账归零（哨兵：daily-budget-state.json 的 usedUsd 大于 0，而 GET /v1/cost/daily-budget 返回 usedUsd:0）；② 若日预算持久化新增字段（如分模型/分渠道 USD 明细），必须同步补 restore 透传，否则重开；③ 若 USD_BUDGET_GATE 需回"}
+{"id":"BUDGET-USD-RESTORE","k":"reopenWhen","i":1,"c":"退为默认关（如误拦正常任务），改 featureFlags 静态值并在本条目登记；④ token 轨上限（默认 50 万/天）与实耗严重不匹配的观察项未在本条目闭合，另行裁定。"}
+{"id":"BUDGET-USD-RESTORE","k":"notes","i":0,"c":"① **根因**：initDailyBudget 组装 restore() 入参时漏传 usedUsd / debtUsd 两个 USD 字段 ⇒ BudgetSnapshot.restore 内 state.usedUsd 为 undefined 时沿用内存现值 0 ⇒ USD 台账**重启即清零**，日限额可被「重启」绕过（与 token 轨 "}
+{"id":"BUDGET-USD-RESTORE","k":"notes","i":1,"c":"todayUsed 曾出现的同类缺口同源）。② **修法**：restore 入参补透传 usedUsd / debtUsd（与 token 侧 used / debt 逐字段对齐，保持双轨并行的记账口径一致）。③ **同批启用**：USD_BUDGET_GATE 静态默认 false→true（三级解析 env "}
+{"id":"BUDGET-USD-RESTORE","k":"notes","i":2,"c":"FEATURE_USD_BUDGET_GATE → BUILD_VARIANT_FLAGS → 静态常量，无用户配置层）；USD 轨启用条件 = 开关开 **且** 已配置 limitUsd（代码内无默认额度，未配则不参与判定，避免静默改行为）；额度经 PUT /v1/cost/daily-budget（body 字段 dailyLimitUSD）写入并持久"}
+{"id":"BUDGET-USD-RESTORE","k":"notes","i":3,"c":"化为 config 扁平键 costControl.dailyBudgetUSD，本次取值 $10/天。④ **验证**：新增行为回归 2 例（同日恢复 ⇒ usedUsd/debtUsd 如实回填；跨日恢复 ⇒ 已用归零、欠账计入新的一天）+ 源码守卫 1 例（断言 initDailyBudget 的 restore 必须透传两字段），pass；"}
+{"id":"BUDGET-USD-RESTORE","k":"notes","i":4,"c":"typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。⑤ **如实缺口（e2eVerified=false）**：USD 闸门生效需重启应用，本期未做「重启 → 限额拦截」端到端复核；且运行中进程仍执行旧代码（GET /v1/cost/daily-budget 显示 usedUsd=0.863076 为旧代码内存态）。⑥ **观察项"}
+{"id":"BUDGET-USD-RESTORE","k":"notes","i":5,"c":"**：token 轨上限 50 万/天 vs 当日实耗 1318 万（约 26 倍）⇒ 恒 locked，仅靠 relief: unlock-today 放行；该口径是否调整待用户裁定，不在本条目范围内。"}
+{"id":"BUDGET-USD-RESTORE","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-USD-RESTORE","k":"code#1","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"BUDGET-USD-RESTORE","k":"tests#0","i":0,"c":"app/tests/budget/dailyBudgetUsdRestore.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

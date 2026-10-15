@@ -9,7 +9,11 @@ export interface ConsolidationPromptOptions {
   extra?: string;
 }
 
-const DIR_EXISTS_GUIDANCE = `Files in this dir (see \`ls -la\`):
+/**
+ * B5-2 按域消歧：原 `DIR_EXISTS_GUIDANCE` 与 memory/services/MemoryPromptBuilder 的
+ * 「目录已存在」提示异值异域 ⇒ 本处（dream 整合的目录内容清单）改名。
+ */
+const DREAM_DIR_CONTENT_GUIDANCE = `Files in this dir (see \`ls -la\`):
 - \`index.md\` — entry point / table of contents
 - \`*.md\` — topic memories
 - \`logs/\` — daily logs (optional)
@@ -28,7 +32,7 @@ export function buildConsolidationPrompt(
 You are performing a dream — a reflective pass over your memory files. Synthesize what you've learned recently into durable, well-organized memories so that future sessions can orient quickly.
 
 Memory directory: \`${memoryRoot}\`
-${DIR_EXISTS_GUIDANCE}
+${DREAM_DIR_CONTENT_GUIDANCE}
 
 Session transcripts: \`${transcriptDir}\` (large JSONL files — grep narrowly, don't read whole files)
 

@@ -20,6 +20,8 @@ import { handleError } from '@modules/error';
 export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
 export const MAX_ENTRYPOINT_BYTES = 25000;
+// B5-2 真源标注：`DIR_EXISTS_GUIDANCE` 唯一真源（memory 域「目录已存在」提示，导出供
+// teamMemPrompts 引用）；chronos/autoDream 的目录内容清单已按域消歧改名 DREAM_DIR_CONTENT_GUIDANCE。
 export const DIR_EXISTS_GUIDANCE =
   '该目录已存在 —— 直接用 Write 工具写入即可（不要执行 mkdir，也不要检查其是否存在）。';
 

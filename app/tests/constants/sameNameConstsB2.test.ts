@@ -1648,4 +1648,20 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'if (!meta?.[PLAIN_TEXT_CHECKPOINT_META_KEY]) return null;'
     );
   });
+
+  test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
+    // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
+    const mem = read('src/memory/services/MemoryPromptBuilder.ts');
+    expect(mem).toContain('唯一真源（memory 域');
+    expect(mem).toContain('export const DIR_EXISTS_GUIDANCE =');
+    expect(mem).toContain('该目录已存在 —— 直接用 Write 工具写入即可');
+    // chronos 域（dream 整合的目录内容清单）改名
+    const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
+    expect(dream).not.toMatch(/(^|[^_A-Za-z])const DIR_EXISTS_GUIDANCE\s*=/);
+    expect(dream).toContain('const DREAM_DIR_CONTENT_GUIDANCE =');
+    expect(dream).toContain('${DREAM_DIR_CONTENT_GUIDANCE}');
+    // 跨文件消费者仍引用 memory 真源
+    const team = read('src/memory/services/teamMemPrompts.ts');
+    expect(team).toContain("from './MemoryPromptBuilder.js';");
+  });
 });

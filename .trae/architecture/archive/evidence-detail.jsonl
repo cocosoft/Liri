@@ -4083,6 +4083,69 @@
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#0","i":0,"c":"app/src/modules/ModuleInitializer.ts"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"code#1","i":0,"c":"app/src/session/gateway/CombinedSessionGateway.ts"}
 {"id":"SESSION-COMBINED-GATEWAY-INIT","k":"tests#0","i":0,"c":"app/tests/session/combinedGatewayWiring.test.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"title","i":0,"c":"预算口径遗留清理：删死 i18n 键 `cost.dailyLimitEffectiveLimit`、统一内部日志哨兵/注释到金额闸门口径、并更正 `formatBudgetExhausted` Token 分支的「死面」误判"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"source","i":0,"c":"台账 reopenWhen 遗留三项（用户 2026-10-15 指令「清理台账 reopenWhen 遗留」）"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"reopenWhen","i":0,"c":"① 若后续真要删 `formatBudgetExhausted` 的 Token 分支，须先消除 killSwitch 下的可达路径（或让 killSwitch 也产出金额口径快照），**并**同步改 `tests/http/chatBudgetNonStreaming.contract.test.ts` 与 `"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"reopenWhen","i":1,"c":"tests/query/dailyBudgetUsdGate.test.ts` 两处钉住的期望；② 若新增 UI/入口再次把 Token 数字当额度呈现，按 `status.unit !== 'usd'` 判据逐处纠偏（承接 `BUDGET-CLI-CHANNEL-WORDING` ①）；③ 若某日 `dailyBudget:exhausted_abort`"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"reopenWhen","i":2,"c":" 的**前缀**也要改（含测试），须同时改 `tests/query/budgetSuspendTaor.test.ts` 的 startsWith 断言。"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":0,"c":"① **死 i18n 键**：`cost.dailyLimitEffectiveLimit`（zh/en 各一处）在「当前有效上限」卡删除后成死键。按 CD01 取证：全仓无静态消费者，且 client 的动态键拼接只有 `goalBar.status.*`（GoalBar.tsx:114）与 `onboarding.*`（"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":1,"c":"LLMSetupGuide.tsx:248）两处、**不含** `cost.*` ⇒ 确认可删，zh/en 双侧同删（保持 locale 对等）。② **哨兵/注释口径统一**：`DailyBudgetManager.logExhaustionAbort` 的文案由「日 Token 预算已耗尽」改为**随主口径**的 `日${unitLabel}预算已耗尽`"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":2,"c":"（**前缀 `dailyBudget:exhausted_abort` 一字未改** —— 被 `tests/query/budgetSuspendTaor.test.ts:104` 以 `startsWith` 钉住）；`preSendContextProtection` 的 `streamMessage:budget — 每日 Token 预算前置检查`"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":3,"c":" → `每日预算前置检查`；`entrypoints/init.ts` 的「日 Token 预算状态恢复失败」→「日预算状态恢复失败」（并注明含 Token 计数与 USD 金额两轨）；`ChatManager:118`、`ReActLoop:750`、`ReActToolLoop:437` 三处注释同步到「每日预算（S3 后主口径=金额）」。**未改** "}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":4,"c":"`ChatManager:3136` 的「每日 Token 预算…结算本会话预扣」——该处结算的确实是 Token 轨预扣（`settleFor(sessionId, totalTokens)`），口径正确。③ **更正一处误判（本项重点）**：原台账把 `formatBudgetExhausted` 的 Token 分支记作「已成不可达死面」，取证后**推"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":5,"c":"翻**：`checkDailyBudget` 的 `snapshot` 恒取主口径，而 `killSwitch` 是**与口径无关的手动总闸**（`DailyBudgetManager.ts:353` 注释 + `dailyBudgetGate.ts:70` 判定式 `allowed = !killSwitch && (waiver || 主口径档位 !=="}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":6,"c":" 'locked')`）⇒ 未配 `limitUsd` 时 `unit='tokens'` + killSwitch ⇒ `locked` ⇒ 该分支**可达**；且有两处契约测试正钉住其输出（`chatBudgetNonStreaming.contract.test.ts:299`、`dailyBudgetUsdGate.test.ts:191`）。故**"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":7,"c":"保留**该分支，只在台账更正结论。④ 验证：app `tsc --noEmit` 三套配置 exit 0；抽测 5 个预算相关测试文件 **40 例全绿**（budgetSuspendTaor / dailyBudgetUsdGate / chatBudgetNonStreaming.contract / channelBudgetNotice / "}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"notes","i":8,"c":"dailyBudgetSse.contract）；`lint:locale` PASS；6 门禁族 exit 0。"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#0","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#1","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#2","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#3","i":0,"c":"app/src/entrypoints/init.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#4","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#5","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#6","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"code#7","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendTaor.test.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#1","i":0,"c":"app/tests/query/dailyBudgetUsdGate.test.ts"}
+{"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#2","i":0,"c":"app/tests/http/chatBudgetNonStreaming.contract.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"title","i":0,"c":"`TABLE` ×2 按域消歧（异值异域：定时任务表 `scheduled_tasks` / 人设绑定表 `persona_bindings`，取值一字未改）⇒ 同名常量:TABLE 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"reopenWhen","i":0,"c":"① 若这两个模块的表名再被第三个模块复用，须提真源（当前各自私有、无复用诉求）；② 若新增 SQLite 表且沿用裸名 `TABLE`，`lint:consts` 会重新报同名常量 ⇒ 按域命名后再提交；③ 建表语句（DDL）若改为迁移脚本，需同步本项的两处断言。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":0,"c":"① **判据**：两处 `const TABLE = '...'` 是**同名不同事实**（两个不同的表名）⇒ 按域消歧（B5-2 系列惯例：异值异域改名、同值同事实合一）。② **改法**：`app/src/chronos/service/SqliteCronStore.ts` → `const SCHEDULED_TASKS_TABLE = '"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":1,"c":"scheduled_tasks'`（含 12 处 `${TABLE}` 模板引用与 DDL/索引/CRUD 全部同步；与同文件既有 `RUNS_TABLE` 命名对齐）；`app/src/core/persona/PersonaService.ts` → `const PERSONA_BINDINGS_TABLE = 'persona_bindings'`（"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":2,"c":"含 12 处模板引用与一处 `table:` 日志字段）。**表名字符串与 SQL 语义一字未改**。③ 守卫：`app/tests/constants/sameNameConstsB2.test.ts` 新增 `B5-2-51`（断言两文件均无 `const TABLE =`、且新名与新 DDL 同现）。④ 棘轮：`lint:consts` 基线键 `同名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":3,"c":"常量:TABLE` 由 2 归零（199→198 键）。⑤ 验证：`tsc` exit 0；`sameNameConstsB2` 等 3 个测试文件 **76 例全绿**；6 门禁 + `lint:no-module-mock` + `lint:size` 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"code#0","i":0,"c":"app/src/chronos/service/SqliteCronStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"code#1","i":0,"c":"app/src/core/persona/PersonaService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"title","i":0,"c":"`SKIP_DIRS` ×2 按域消歧（异值异域：插件安全扫描 6 项 / files 递归守卫 9 项；搜索工具真源另在 searchSkipDirs.ts，取值一字未改）⇒ 同名常量:SKIP_DIRS 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"reopenWhen","i":0,"c":"① 若三处清单出现**真实收敛诉求**（例如插件扫描也需跳过 `tmp`/`logs`），不要在私有处复制，改为把 `tools/utils/searchSkipDirs.ts` 的导出提升为跨域真源并逐处 import；② 若 `resolveSkipDirs`（模式点名不跳过）的语义也要用于插件扫描 / files 递归守卫，按上一条同办（当前二者语义不"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"reopenWhen","i":1,"c":"同、故未合并）；③ 若新增扫描器再内联 `SKIP_DIRS`，按域命名后提交。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"notes","i":0,"c":"① **判据（为什么不合并）**：三处同名但**用途与取值都不同** —— ① 搜索工具真源 `tools/utils/searchSkipDirs.ts`（17 项，含 `target`/`out`/`__pycache__`/`venv`…，供 grep/glob 扫项目根时跳过重目录，另带「模式显式点名则该目录不跳过」的 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"notes","i":1,"c":"resolveSkipDirs` 语义）；② `plugins/utils/pluginSecurityScanner.ts`（6 项：`node_modules`/`.git`/`dist`/`build`/`coverage`/`.cache` —— 插件安全扫描面，**含 `.git`**、不含 `tmp`/`logs`/`venv`）；③ `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"notes","i":2,"c":"commands/builtin/files/Files.ts`（9 项 —— clean/tree/find 的递归守卫，**含 `.next`**、不含 `coverage`/`logs`）。合并任两处都会**改变行为**（多跳或少跳目录）⇒ 按域消歧是唯一不改变行为的收敛方式。② **改法**：②→`PLUGIN_SCAN_SKIP_DIRS`、③→`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"notes","i":3,"c":"FILES_SKIP_DIRS`（与同文件既有 `FILES_MAX_DEPTH` 前缀对齐），各自文件内引用同步；三处清单的**字符串元素一字未改**。③ 附注：门禁 `CONST_DEF_RE` 只纳入**标量**类型标注，故真源⑧（`export const SKIP_DIRS: ReadonlySet<string>`）本就不计入同名常量（这也是它当"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"notes","i":4,"c":"前只报 2 处的原因）。④ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-52`。⑤ 棘轮：`同名常量:SKIP_DIRS` 由 2 归零。⑥ 验证：`tsc` exit 0；`sameNameConstsB2` 等 3 个测试文件 **76 例全绿**；6 门禁全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"code#0","i":0,"c":"app/src/plugins/utils/pluginSecurityScanner.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"code#1","i":0,"c":"app/src/commands/builtin/files/Files.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"title","i":0,"c":"`AGENT_TYPES` ×2 已合一到真源（= `BUILTIN_AGENTS` 的键；CLI 两命令改引用，取值/顺序一字未改）⇒ 同名常量:AGENT_TYPES 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"reopenWhen","i":0,"c":"① 若 `BUILTIN_AGENTS` 新增/删除内置类型，CLI 的 `--type` 校验与帮助文本会**自动**跟随（这正是本项的目的）；若某次不希望跟随（如需保留旧类型做兼容），须显式引入各自的兼容白名单并说明理由；② 若 CLI 要支持**运行时注册**的自定义 Agent 类型（当前不支持，见 `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"reopenWhen","i":1,"c":"commands/tools/ai/agents.ts` 头注），List 来源应改读解析链（内置 + DB 角色 + 运行时）而非本真源；③ 若 `tools` 桶的导出面被治理收缩，需把该导出迁到与之匹配的真源文件。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":0,"c":"① **判据**：两处内联数组**取值与顺序完全相同**（`general, explore, plan, verification, code-guide, statusline-setup`）⇒ 属**同值同事实**（B5-2 惯例：合一，不消歧）。② **真源定位（CS01）**：`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":1,"c":"app/src/tools/AgentTool/constants.ts` 的 `BUILTIN_AGENTS` 是内置 Agent 定义真源，其**键即这 6 个类型名、顺序一致**，且已被 `AgentTool.ts` 以 `Object.keys(BUILTIN_AGENTS)` 复用（内置类型名口径）⇒ 不再另抄一份名单，改为 `export "}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":2,"c":"const AGENT_TYPES = Object.keys(BUILTIN_AGENTS);`。③ **接线**：经 `app/src/tools/index.ts` 桶 `export { AGENT_TYPES } from './AgentTool/constants';`，两处 CLI（`commands/tools/ai/agent.ts`、`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":3,"c":"agents.ts`）删除本地 `const AGENT_TYPES = [...] as const` 并 `import { AGENT_TYPES } from '@modules/tools'`（沿用其既有桶 import 约定，避免跨模块深路径）。④ **运行时取值核对（一字未改）**：以 `bun -e` 直读真源打印，输出 `general,"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":4,"c":"explore,plan,verification,code-guide,statusline-setup`。类型影响：由 `as const` 元组变为 `string[]`，`agents.ts` 原有的 `as unknown as (typeof AGENT_TYPES)[number]` 断言继续编译通过。⑤ 守卫：`"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":5,"c":"sameNameConstsB2.test.ts` 新增 `B5-2-53`（断言真源推导式、桶导出、两处 CLI 均无本地同名定义且引用桶）。⑥ 棘轮：`同名常量:AGENT_TYPES` 由 2 归零（基线 199→198 键）。⑦ 验证：`tsc` exit 0；**76 例全绿**；6 门禁 + `lint:no-module-mock` + `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"notes","i":6,"c":"lint:size` 全 exit 0（含 `lint:arch` 对桶新增导出面的检查：错误 0、警告仍为存量 5 条）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#0","i":0,"c":"app/src/tools/AgentTool/constants.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#1","i":0,"c":"app/src/tools/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#2","i":0,"c":"app/src/commands/tools/ai/agent.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"code#3","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

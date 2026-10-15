@@ -7505,6 +7505,124 @@
       "changelog": [],
       "reopenWhen": "① 真机 E2E（真实入站通道消息）证实 `shared_session` 阶段不再 fail 后，本项升为 DFT/dcue 并补端到端证据；② 若自动初始化出的第二个 `SessionGateway` 实例带来可见副作用（启动变慢、重复「P0' 多分区聚合」扫描、FTS 持久化定时器翻倍、崩溃恢复二次扫描），改走…（全文见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）",
       "notes": "① **根因（三段）**：`ModuleInitializer._registerCombinedGateway()` 以 `createCombinedGateway()`（**不传 gateways**）注册 ⇒ 一个 Agent 都没注册；默认 Agent 只在 `CombinedSessionGateway.…（全文见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）"
+    },
+    {
+      "id": "BUDGET-OBSERVE-LEFTOVER-CLEANUP",
+      "title": "预算口径遗留清理：删死 i18n 键 `cost.dailyLimitEffectiveLimit`、统一内部日志哨兵/注释到金额闸门口径、并更正 `formatBudgetExhausted` Token 分支的「死面」误判",
+      "source": "台账 reopenWhen 遗留三项（用户 2026-10-15 指令「清理台账 reopenWhen 遗留」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts",
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/entrypoints/init.ts",
+        "app/src/chat/orchestrator/preSendContextProtection.ts",
+        "app/src/query/ReActLoop.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        "app/src/chat/ChatManager.ts"
+      ],
+      "tests": [
+        "app/tests/query/budgetSuspendTaor.test.ts",
+        "app/tests/query/dailyBudgetUsdGate.test.ts",
+        "app/tests/http/chatBudgetNonStreaming.contract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若后续真要删 `formatBudgetExhausted` 的 Token 分支，须先消除 killSwitch 下的可达路径（或让 killSwitch 也产出金额口径快照），**并**同步改 `tests/http/chatBudgetNonStreaming.contract.test.ts` 与 `te…（全文见 archive/evidence-detail.jsonl#BUDGET-OBSERVE-LEFTOVER-CLEANUP）",
+      "notes": "① **死 i18n 键**：`cost.dailyLimitEffectiveLimit`（zh/en 各一处）在「当前有效上限」卡删除后成死键。按 CD01 取证：全仓无静态消费者，且 client 的动态键拼接只有 `goalBar.status.*`（GoalBar.tsx:114）与 `onboarding…（全文见 archive/evidence-detail.jsonl#BUDGET-OBSERVE-LEFTOVER-CLEANUP）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE",
+      "title": "`TABLE` ×2 按域消歧（异值异域：定时任务表 `scheduled_tasks` / 人设绑定表 `persona_bindings`，取值一字未改）⇒ 同名常量:TABLE 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chronos/service/SqliteCronStore.ts",
+        "app/src/core/persona/PersonaService.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若这两个模块的表名再被第三个模块复用，须提真源（当前各自私有、无复用诉求）；② 若新增 SQLite 表且沿用裸名 `TABLE`，`lint:consts` 会重新报同名常量 ⇒ 按域命名后再提交；③ 建表语句（DDL）若改为迁移脚本，需同步本项的两处断言。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）",
+      "notes": "① **判据**：两处 `const TABLE = '...'` 是**同名不同事实**（两个不同的表名）⇒ 按域消歧（B5-2 系列惯例：异值异域改名、同值同事实合一）。② **改法**：`app/src/chronos/service/SqliteCronStore.ts` → `const SCHEDULED…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS",
+      "title": "`SKIP_DIRS` ×2 按域消歧（异值异域：插件安全扫描 6 项 / files 递归守卫 9 项；搜索工具真源另在 searchSkipDirs.ts，取值一字未改）⇒ 同名常量:SKIP_DIRS 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/plugins/utils/pluginSecurityScanner.ts",
+        "app/src/commands/builtin/files/Files.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若三处清单出现**真实收敛诉求**（例如插件扫描也需跳过 `tmp`/`logs`），不要在私有处复制，改为把 `tools/utils/searchSkipDirs.ts` 的导出提升为跨域真源并逐处 import；② 若 `resolveSkipDirs`（模式点名不跳过）的语义也要用于插件扫描 / file…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS）",
+      "notes": "① **判据（为什么不合并）**：三处同名但**用途与取值都不同** —— ① 搜索工具真源 `tools/utils/searchSkipDirs.ts`（17 项，含 `target`/`out`/`__pycache__`/`venv`…，供 grep/glob 扫项目根时跳过重目录，另带「模式显式点名则该目录…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES",
+      "title": "`AGENT_TYPES` ×2 已合一到真源（= `BUILTIN_AGENTS` 的键；CLI 两命令改引用，取值/顺序一字未改）⇒ 同名常量:AGENT_TYPES 2>0",
+      "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/AgentTool/constants.ts",
+        "app/src/tools/index.ts",
+        "app/src/commands/tools/ai/agent.ts",
+        "app/src/commands/tools/ai/agents.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `BUILTIN_AGENTS` 新增/删除内置类型，CLI 的 `--type` 校验与帮助文本会**自动**跟随（这正是本项的目的）；若某次不希望跟随（如需保留旧类型做兼容），须显式引入各自的兼容白名单并说明理由；② 若 CLI 要支持**运行时注册**的自定义 Agent 类型（当前不支持，见 `com…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）",
+      "notes": "① **判据**：两处内联数组**取值与顺序完全相同**（`general, explore, plan, verification, code-guide, statusline-setup`）⇒ 属**同值同事实**（B5-2 惯例：合一，不消歧）。② **真源定位（CS01）**：`app/src/tools/…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）"
     }
   ]
 }

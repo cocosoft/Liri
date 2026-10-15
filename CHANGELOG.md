@@ -19,6 +19,10 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES**：`AGENT_TYPES`×2 已合一到真源（= `BUILTIN_AGENTS` 的键；CLI 两命令改桶引用，取值/顺序一字未改）⇒ 同名常量:AGENT_TYPES 2>0 —— 验证 tc0|ut76|gate6；基线 同名常量:AGENT_TYPES 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-53-AGENT-TYPES）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS**：`SKIP_DIRS`×2 按域消歧（插件安全扫描 / files 递归守卫，异值异域；搜索工具真源另在 searchSkipDirs.ts）⇒ 同名常量:SKIP_DIRS 2>0 —— 验证 tc0|ut76|gate6；基线 同名常量:SKIP_DIRS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS）
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE**：`TABLE`×2 按域消歧（定时任务表 / 人设绑定表，取值一字未改）⇒ 同名常量:TABLE 2>0 —— 验证 tc0|ut76|gate6；基线 同名常量:TABLE 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）
+- ✅ **BUDGET-OBSERVE-LEFTOVER-CLEANUP**：预算口径遗留清理（删死 i18n 键 + 哨兵/注释统一到金额闸门 + 更正 Token 分支死面误判） —— 验证 tc0|ut40|gate6；基线 死键 `dailyLimitEffectiveLimit` 无消费者；Token 分支原记「不可达」（取证推翻：killSwitch 与口径无关 ⇒ 可达）（详情见 archive/evidence-detail.jsonl#BUDGET-OBSERVE-LEFTOVER-CLEANUP）
 - ✅ **SESSION-COMBINED-GATEWAY-INIT**：共享上下文网关启动未初始化（写端恒抛被吞、读端恒空） —— 验证 tc0|ut2|e2e3|gate6；基线 `shared_session` 阶段 trace=fail；`No active gateway found for session: shared-context`（全日志 1 次）（详情见 archive/evidence-detail.jsonl#SESSION-COMBINED-GATEWAY-INIT）
 - ✅ **BUDGET-E2E-FOUND-DEFECTS**：真机 E2E 发现并修复四处缺陷（面板 Token 阈值输入绑定错/无闸门按基座取值/i18n 星号字面渲染/冗余有效上限卡；CLI 同步） —— 验证 tc0|ut29|e2e4|arch0|gate6；基线 Token 阈值输入回显 50 且保存覆盖 30,000,000；无闸门显示 relief 抬高的 150,000,000；面板字面渲染 **（详情见 archive/evidence-detail.jsonl#BUDGET-E2E-FOUND-DEFECTS）
 - ✅ **BUDGET-CLI-CHANNEL-WORDING**：CLI 与通道撞限文案纠偏（/budget 明示闸门状态 + Token 数字改称观测阈值；IM 撞限文案改称金额预算并指向金额上限） —— 验证 tc0|ut10|arch0|gate6；基线 CLI 仍打印「日 Token 限额/已用-上限/档位正常」、IM 仍称「今日 Token 预算已用完…调高每日上限」⇒ 用户去调 Token 观测阈值（无用）（详情见 archive/evidence-detail.jsonl#BUDGET-CLI-CHANNEL-WORDING）

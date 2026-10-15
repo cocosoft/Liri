@@ -1251,4 +1251,34 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "const RFC6455_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';"
     );
   });
+
+  test('B5-2㉙：`FILE_EDIT_TOOL_NAME` / `FILE_WRITE_TOOL_NAME` 已合一到 constants 真源', () => {
+    // 真源：constants（带 `satisfies ToolName` 编译期约束）
+    const src = read('src/constants/tools.ts');
+    expect(src).toContain(
+      "export const FILE_EDIT_TOOL_NAME = 'file_edit' satisfies ToolName;"
+    );
+    expect(src).toContain(
+      "export const FILE_WRITE_TOOL_NAME = 'file_write' satisfies ToolName;"
+    );
+    // 副本消失：两处 prompt.ts 只**转发导出**（保留消费面），parseAgent 改为导入
+    const edit = read('src/tools/FileEditTool/prompt.ts');
+    expect(edit).not.toMatch(/(^|[^_A-Za-z])const FILE_EDIT_TOOL_NAME\s*=/);
+    expect(edit).toContain(
+      "export { FILE_EDIT_TOOL_NAME } from '@modules/constants';"
+    );
+    const write = read('src/tools/FileWriteTool/prompt.ts');
+    expect(write).not.toMatch(/(^|[^_A-Za-z])const FILE_WRITE_TOOL_NAME\s*=/);
+    expect(write).toContain(
+      "export { FILE_WRITE_TOOL_NAME } from '@modules/constants';"
+    );
+    const agent = read('src/services/agent/parseAgent.ts');
+    expect(agent).not.toMatch(/(^|[^_A-Za-z])const FILE_(EDIT|WRITE)_TOOL_NAME\s*=/);
+    expect(agent).toContain('FILE_EDIT_TOOL_NAME,\n  FILE_WRITE_TOOL_NAME,');
+    expect(agent).toContain("} from '@modules/constants';");
+    // 既有「桶 ↔ 真源 同值契约」守卫**必须保留**（不得为消键而删测试）
+    expect(read('tests/tools/toolNameLists.test.ts')).toContain(
+      'BARREL_FILE_WRITE_TOOL_NAME'
+    );
+  });
 });

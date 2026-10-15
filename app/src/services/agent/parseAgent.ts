@@ -18,15 +18,18 @@ import { PermissionMode } from '@modules/permission';
 import { configManager } from '@modules/config';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
+// 硬编码治理 B5-2㉙：`FILE_*_TOOL_NAME` 收敛到 `@modules/constants` 单一真源（services→infra 合法）
+import {
+  FILE_EDIT_TOOL_NAME,
+  FILE_WRITE_TOOL_NAME,
+} from '@modules/constants';
 
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 
 /**
- * 工具名称常量
+ * 工具名称常量（`file_read` 仍为本文件私有；两个 `file_*` 名改引真源）
  */
-const FILE_EDIT_TOOL_NAME = 'file_edit';
 const FILE_READ_TOOL_NAME = 'file_read';
-const FILE_WRITE_TOOL_NAME = 'file_write';
 
 /**
  * 权限模式列表

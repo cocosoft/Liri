@@ -40,8 +40,6 @@
     "同名常量:MAX_TOOL_RESULTS_PER_MESSAGE_CHARS": 2,
     "同名常量:TOOL_NAMES": 2,
     "同名常量:FILE_READ_TOOL_NAME": 2,
-    "同名常量:FILE_EDIT_TOOL_NAME": 3,
-    "同名常量:FILE_WRITE_TOOL_NAME": 3,
     "同名常量:FORK_BOILERPLATE_TAG": 2,
     "同名常量:FORK_DIRECTIVE_PREFIX": 2,
     "同名常量:MAX_FILE_CHARS": 2,

@@ -21,7 +21,8 @@ interface BuddyAvatarProps {
   onClick?: () => void;
 }
 
-const EYES = ["·", "✦", "×", "◉", "@", "°"] as const;
+// B5-2㊵：EYES 真源在 app/src/buddy/types.ts（client/app 异域双轨，参照裁定 A 不可跨轨合一）⇒ 本私有副本按域消歧
+const BUDDY_EYES = ["·", "✦", "×", "◉", "@", "°"] as const;
 
 const sizeMap = {
   sm: {
@@ -64,8 +65,8 @@ function BuddyAvatar({
 
   useEffect(() => {
     if (frame === 0) return;
-    const idx = frame % EYES.length;
-    setDisplayEye(EYES[idx] as BuddyEye);
+    const idx = frame % BUDDY_EYES.length;
+    setDisplayEye(BUDDY_EYES[idx] as BuddyEye);
   }, [frame]);
 
   return (

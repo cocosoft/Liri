@@ -1481,4 +1481,16 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'consecutiveEmptyPolls % EMPTY_POLL_LOG_INTERVAL === 0'
     );
   });
+
+  test('B5-2㊵：`EYES` 已按域消歧（client/app 异域同值，取值一字未改）', () => {
+    // 真源：app/src/buddy/types.ts（导出 + 派生 Eye 类型）；client BuddyAvatar 私有副本消歧为 BUDDY_EYES
+    const truth = read('src/buddy/types.ts');
+    expect(truth).toContain('export const EYES = [');
+    expect(truth).toContain('export type Eye = (typeof EYES)[number];');
+    const avatar = read('../client/src/components/Buddy/BuddyAvatar.tsx');
+    expect(avatar).not.toMatch(/(^|[^_A-Za-z])const EYES\s*=/);
+    expect(avatar).toContain('const BUDDY_EYES = [');
+    expect(avatar).toContain('frame % BUDDY_EYES.length');
+    expect(avatar).toContain('setDisplayEye(BUDDY_EYES[idx] as BuddyEye)');
+  });
 });

@@ -1413,7 +1413,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(otel).toContain('}, OTEL_HEARTBEAT_INTERVAL);');
     const common = read('src/constants/common.ts');
     expect(common).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
-    expect(common).toContain('export const COMMON_HEARTBEAT_INTERVAL = 30 * 1000;');
+    expect(common).toContain(
+      'export const COMMON_HEARTBEAT_INTERVAL = 30 * 1000;'
+    );
   });
 
   test('B5-2㊱：`IMAGE_EXTENSIONS` ×3 已按域消歧（异值异域，取值一字未改）', () => {
@@ -1428,11 +1430,26 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(brief).toContain('BRIEF_IMAGE_EXTENSIONS.has(ext)');
     const img = read('src/tools/FileReadTool/imageProcessor.ts');
     expect(img).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTENSIONS\s*=/);
-    expect(img).toContain('const FILE_READ_IMAGE_EXTENSIONS: Set<string> = new Set([');
-    expect(img).toContain('FILE_READ_IMAGE_EXTENSIONS.has(`.${ext}`)');
-    // 导出面 IMAGE_EXTENSIONS_LIST 保留，其数据源改为新名
     expect(img).toContain(
-      'Array.from(FILE_READ_IMAGE_EXTENSIONS).sort();'
+      'const FILE_READ_IMAGE_EXTENSIONS: Set<string> = new Set(['
     );
+    expect(img).toContain('FILE_READ_IMAGE_EXTENSIONS.has(`.${ext}`)');
+    // 导出面 IMAGE_EXTENSIONS_LIST 保留，其数据源改为新名（prettier 可能折行 ⇒ 只断前缀）
+    expect(img).toContain('IMAGE_EXTENSIONS_LIST = Array.from(');
+    expect(img).toContain('FILE_READ_IMAGE_EXTENSIONS\n).sort();');
+  });
+
+  test('B5-2㊲：`IMAGE_EXTS` ×2 已按域消歧（异值异域，取值一字未改）', () => {
+    // 2 处同名各属独立域且值集不同：files-handlers（7 项，文件预览 base64）/ ToolExecutionService（5 项，沙箱图片收集）
+    const files = read('src/infrastructure/http/handlers/files-handlers.ts');
+    expect(files).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
+    expect(files).toContain('const FILES_IMAGE_EXTS = new Set([');
+    expect(files).toContain('FILES_IMAGE_EXTS.has(ext)');
+    const tool = read('src/chat/services/ToolExecutionService.ts');
+    expect(tool).not.toMatch(/(^|[^_A-Za-z])const IMAGE_EXTS\s*=/);
+    expect(tool).toContain(
+      "const SANDBOX_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.svg', '.webp'];"
+    );
+    expect(tool).toContain('SANDBOX_IMAGE_EXTS.some((x) =>');
   });
 });

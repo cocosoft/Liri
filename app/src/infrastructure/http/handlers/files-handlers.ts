@@ -182,7 +182,7 @@ export async function handleFileList(
 /**
  * 图片扩展名集合
  */
-const IMAGE_EXTS = new Set([
+const FILES_IMAGE_EXTS = new Set([
   '.jpg',
   '.jpeg',
   '.png',
@@ -308,7 +308,7 @@ export async function handleFileRead(
     }
 
     // 图片文件：读取为 base64 并返回 data URL
-    if (IMAGE_EXTS.has(ext)) {
+    if (FILES_IMAGE_EXTS.has(ext)) {
       const buffer = readFileSync(absPath);
       const mimeType = getMimeType(ext);
       const base64 = buffer.toString('base64');

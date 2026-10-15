@@ -811,7 +811,13 @@ export class ToolExecutionService {
             );
             const project = store.get(projectId);
             if (project?.sandboxPath && fs.existsSync(project.sandboxPath)) {
-              const SANDBOX_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.svg', '.webp'];
+              const SANDBOX_IMAGE_EXTS = [
+                '.png',
+                '.jpg',
+                '.jpeg',
+                '.svg',
+                '.webp',
+              ];
               const collect = (dir: string, depth: number): string[] => {
                 if (depth > 3) return [];
                 let out: string[] = [];
@@ -829,7 +835,9 @@ export class ToolExecutionService {
                     out = out.concat(collect(full, depth + 1));
                   } else if (
                     e.isFile() &&
-                    SANDBOX_IMAGE_EXTS.some((x) => e.name.toLowerCase().endsWith(x))
+                    SANDBOX_IMAGE_EXTS.some((x) =>
+                      e.name.toLowerCase().endsWith(x)
+                    )
                   ) {
                     out.push(full);
                   }

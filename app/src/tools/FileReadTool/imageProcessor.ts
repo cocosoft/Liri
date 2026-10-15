@@ -226,7 +226,9 @@ export function formatImageInfo(info: ImageInfo): string {
   return `${info.path} | ${info.format} | ${dimStr} | ${sizeStr}`;
 }
 
-export const IMAGE_EXTENSIONS_LIST = Array.from(FILE_READ_IMAGE_EXTENSIONS).sort();
+export const IMAGE_EXTENSIONS_LIST = Array.from(
+  FILE_READ_IMAGE_EXTENSIONS
+).sort();
 export const SUPPORTED_IMAGE_FORMATS: ImageFormat[] = [
   'png',
   'jpeg',

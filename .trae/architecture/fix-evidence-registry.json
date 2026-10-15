@@ -6661,6 +6661,35 @@
       "changelog": [],
       "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const DEFAULT_REQUEST_TIMEOUT_MS =` ⇒ 守卫（第 50 例）或棘轮阻断；③ 若未来某域需调整请求超时 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ JsonRpcBridge 与 LspSide…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS）",
       "notes": "**自证**：app typecheck 0 · 守卫第 50 例（JsonRpcBridge / lspConnection 两文件无 `DEFAULT_REQUEST_TIMEOUT_MS` 定义 + 新名与取值逐字钉住 + 使用处落新名）50 pass · `lint:consts` 重新播种基线：`同名常量:…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL",
+      "title": "硬编码治理 · 「同名常量」B5-2 第三十五项：`HEARTBEAT_INTERVAL` **2 处同名按域消歧**（OTel 心跳 4min / 通用 30s；异值异域，取值一字未改）",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05（归一化 / 根因优先）+ 台账待裁定项「假真源 constants/common.ts」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/bootstrap/AppCoreOTelHelper.ts",
+        "app/src/constants/common.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 承接 **B5-2 续项**（消歧队列）；② 任一文件重新出现 `const HEARTBEAT_INTERVAL =` ⇒ 守卫（第 51 例）或棘轮阻断；③ 若未来某域需调整心跳间隔 ⇒ 直接改**本域常量**取值，**不得**再建同名通用名；④ `COMMON_HEARTBEAT_INTERVAL`（con…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL）",
+      "notes": "**自证**：app typecheck 0 · 守卫第 51 例（AppCoreOTelHelper / constants/common.ts 两文件无裸 `HEARTBEAT_INTERVAL =` 定义 + 新名与取值逐字钉住 + setInterval 使用落新名）51 pass · `lint:const…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL）"
     }
   ]
 }

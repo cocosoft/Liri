@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL**：`HEARTBEAT_INTERVAL` ×2 按域消歧（OTel 4min / 通用 30s）⇒ 同名常量 2→0 —— 验证 tc0|guard51|arch0|gate6；基线 同名常量:HEARTBEAT_INTERVAL 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS**：`DEFAULT_REQUEST_TIMEOUT_MS` 按域消歧（JsonRpcBridge / LspSidecar）⇒ 2→0 —— 验证 tc0|guard50|arch0|gate6；基线 同名常量:DEFAULT_REQUEST_TIMEOUT_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-34-DEFAULT-REQUEST-TIMEOUT-MS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS**：`DEFAULT_INTERVAL_MS` ×2 按域消歧（TopologyWatcher 5s / DataArchivalStrategy 1h）⇒ 同名常量 2→0 —— 验证 tc0|guard49|arch0|gate6；基线 同名常量:DEFAULT_INTERVAL_MS 2>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-32-MAX-POLL-TIME**：`MAX_POLL_TIME` ×3 按域消歧（FAL 5min / SiliconFlow 30min / OpenAI 兼容 5min，取值一字未改）⇒ 同名常量:MAX_POLL_TIME 3→0 —— 验证 tc0|guard48|arch0|gate6；基线 同名常量:MAX_POLL_TIME 3>0（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-32-MAX-POLL-TIME）

@@ -7406,7 +7406,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "client/src/components/usage/DailyBudgetPanel.tsx",
@@ -7448,6 +7448,36 @@
       "changelog": [],
       "reopenWhen": "① 若其它入口（A2A / 长程任务 / 翻译 / 通道回执）仍出现把 Token 当额度的措辞，按同一判据（闸门是否启用）逐处纠偏；② 若 `dailyBudgetSnapshot.formatBudgetExhausted` 的 Token 分支需保留或删除（当前在无闸门后**实际不可达**），按 CD05「先降…（全文见 archive/evidence-detail.jsonl#BUDGET-CLI-CHANNEL-WORDING）",
       "notes": "① **误导点**：闸门切金额口径后，CLI `/budget status` 仍打印「日 Token 限额」+「已用 / 上限」+「档位：正常」，IM 通道撞限文案仍称「今日 Token 预算已用完…或调高每日上限」⇒ 用户会去调 **Token 观测阈值**（无用）而非「**金额上限**」，改不到点上。② **修…（全文见 archive/evidence-detail.jsonl#BUDGET-CLI-CHANNEL-WORDING）"
+    },
+    {
+      "id": "BUDGET-E2E-FOUND-DEFECTS",
+      "title": "真机 E2E 发现的四处缺陷修复：面板 Token 阈值输入绑定错（回显 50 且保存覆盖真值 30,000,000）、无闸门按基座取值、i18n 星号字面渲染、冗余「当前有效上限」卡；CLI 同步",
+      "source": "用户 2026-10-15 指令「先补全 e2e 验证」—— 真机验证（浏览器面板 ×2 态 + 运行中应用的 POST /v1/commands/execute 跑 /budget status ×2 态）据此发现",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "client/src/components/usage/DailyBudgetPanel.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts",
+        "app/src/commands/builtin/budget/Budget.ts"
+      ],
+      "tests": [
+        "client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx",
+        "app/tests/budget/budgetCommand.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 DTO 的 `dailyLimit` / `tokenLimit` 语义再次调整，必须同步核对**每一处**「口径相关输入/展示」的绑定源（本项即因 S3 改了 DTO 语义而漏改一处绑定所致）—— 建议为 UI 侧加「输入绑定源」注释与用例；② 若面板/CLI 再次出现「同屏两个上限数字不一致」，按本项判据…（全文见 archive/evidence-detail.jsonl#BUDGET-E2E-FOUND-DEFECTS）",
+      "notes": "① **缺陷一（最重，我上一轮引入）**：面板「Token 观测阈值」输入由 `applyStatus` 的 `setLimitInput(String(s.dailyLimit))` 初始化 —— 债四 S3 后 `dailyLimit` 是**主口径**值（配了金额上限时 = USD 金额），而该输入编辑的是**…（全文见 archive/evidence-detail.jsonl#BUDGET-E2E-FOUND-DEFECTS）"
     }
   ]
 }

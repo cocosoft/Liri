@@ -4030,6 +4030,28 @@
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#2","i":0,"c":"app/src/commands/loader/CommandLoader.ts"}
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"code#3","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
 {"id":"BUDGET-CLI-CHANNEL-WORDING","k":"tests#0","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"title","i":0,"c":"真机 E2E 发现的四处缺陷修复：面板 Token 阈值输入绑定错（回显 50 且保存覆盖真值 30,000,000）、无闸门按基座取值、i18n 星号字面渲染、冗余「当前有效上限」卡；CLI 同步"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"source","i":0,"c":"用户 2026-10-15 指令「先补全 e2e 验证」—— 真机验证（浏览器面板 ×2 态 + 运行中应用的 POST /v1/commands/execute 跑 /budget status ×2 态）据此发现"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"reopenWhen","i":0,"c":"① 若 DTO 的 `dailyLimit` / `tokenLimit` 语义再次调整，必须同步核对**每一处**「口径相关输入/展示」的绑定源（本项即因 S3 改了 DTO 语义而漏改一处绑定所致）—— 建议为 UI 侧加「输入绑定源」注释与用例；② 若面板/CLI 再次出现「同屏两个上限数字不一致」，按本项判据（有闸门 ⇒ 用生效值；无闸门 ⇒ 用基座"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"reopenWhen","i":1,"c":"）复核；③ 若 `cost.dailyLimitEffectiveLimit` i18n 键需清理（该卡已删 ⇒ 键成死键），按 CD05 先观察再删。"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":0,"c":"① **缺陷一（最重，我上一轮引入）**：面板「Token 观测阈值」输入由 `applyStatus` 的 `setLimitInput(String(s.dailyLimit))` 初始化 —— 债四 S3 后 `dailyLimit` 是**主口径**值（配了金额上限时 = USD 金额），而该输入编辑的是**后端 `tokenLimit`**。真机后"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":1,"c":"果双份：**(a) 回显错**（显示 `50`，即本机 USD 有效上限）；**(b) 保存即写坏**（点「保存并生效」会把真实阈值 `30_000_000` 覆盖为 50）。修：改用 `String(s.tokenLimit)`，回显与提交同源；并加 `data-testid=\"daily-budget-token-threshold-input\"` 与回"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":2,"c":"归用例（输入值须为 30000000、提交须为 30000000）。② **缺陷二（面板 + CLI 同病）**：无闸门（`unit !== 'usd'`）时，阈值/剩余/比例按主口径 `dailyLimit`（= `_effectiveLimit()`，被 relief 抬高）呈现 ⇒ 真机出现「阈值卡 30,000,000 ↔ 剩余 136,788,"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":3,"c":"517（= 30M×5 − 已用）」「CLI 当前有效阈值 150,000,000」等**同屏自相矛盾**；而观测告警（`_observeTokenTrack`）判据用的是**基座**，且 relief 对不设闸门的 token 轨**没有任何可观测效果**。修：面板与 CLI 的无闸门分支**一律按基座 `tokenLimit`** 取阈值/剩余/比例；并"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":4,"c":"**不再展示**「当前有效上限/阈值」（relief 只作用于闸门）。③ **缺陷三**：`cost.dailyLimitNoGateNote` 里写了 Markdown 粗体星号 ⇒ 面板（纯文本渲染）**把星号原样显示**（真机实测：可见文本含字面星号；`body.innerText` 星号计数修复前 >0、修复后 0）。修：i18n 字符串去星号（"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":5,"c":"zh/en 双写）。④ **缺陷四（预存冗余）**：`当前有效上限` 卡与「日上限」卡**恒同值**（`relief?.effectiveLimit ?? dailyLimit` ≡ `dailyLimit`）⇒ 纯冗余占格，且真机制造「两卡都 50.00、而配置金额上限 10.00」的观感矛盾。修：删除该卡（行内改 `md:grid-cols-2`）；「配"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":6,"c":"置值 ↔ 生效值」对照改由「金额上限」（配置）↔「日上限」（生效）+「当前放行」承担。⑤ **真机证据（E2E 方式）**：面板经 vite dev（`localhost:1420`，`/v1` 代理 18990）由浏览器实测**两态**（无闸门态：徽章「观测（不拦截）」、通告段无星号、首行 13,211,483 / 30,000,000 / 16,788,"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":7,"c":"517 / 44.0%、「日上限」与「当前有效上限」均不出现、金额上限输入空；**并经 UI 输入 10 + 点「保存并生效」** ⇒ 提示「已保存并即时生效」、徽章回「正常」、通告段消失、**阈值输入仍为 30000000（未被覆盖）**、日上限 50.00）。CLI 经**运行中应用**的 `POST /v1/commands/execute` 实测两态"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":8,"c":"：已配 ⇒ 「闸门：金额（USD）—— 已启用」/「档位：正常」/「已用 / 上限：0.8683 / 50.00」；未配 ⇒ 「闸门：未启用」/「档位：观测（不拦截）」/「已用 / Token 观测阈值：13,211,483 / 30,000,000（44.0%）」/「今日剩余：16,788,517（按观测阈值基座）」，且无「当前有效阈值」。⑥ **验证**"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":9,"c":"：面板用例 15→**18 例**、CLI 用例 10→**11 例**（含「无闸门 + 放行生效仍按基座」）；client `tsc --noEmit` exit 0；app typecheck exit 0；client vitest 23 例 pass；app 6 门禁族全 exit 0。⑦ **现场**：已恢复 `limitUsd=10`（经 UI "}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":10,"c":"保存写入并持久化），`unit=usd · mode=normal · relief=unlock-today`。⑧ **如实缺口**：**IM 通道（QQ）撞限文案未做真机端到端**（需真人发一条 QQ 消息触发）；`/budget` 的**终端 REPL 渲染**未实测（ink 需 TTY，本次经命令执行端点等价验证命令逻辑与文案）；`"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"notes","i":11,"c":"cost.dailyLimitEffectiveLimit` i18n 键成死键（reopenWhen ③）。"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"code#0","i":0,"c":"client/src/components/usage/DailyBudgetPanel.tsx"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"code#1","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"code#2","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"code#3","i":0,"c":"app/src/commands/builtin/budget/Budget.ts"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"tests#0","i":0,"c":"client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"}
+{"id":"BUDGET-E2E-FOUND-DEFECTS","k":"tests#1","i":0,"c":"app/tests/budget/budgetCommand.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

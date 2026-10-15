@@ -1473,7 +1473,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(truth).toContain('EMPTY_POLL_LOG_INTERVAL 唯一真源');
     expect(truth).toContain('export const EMPTY_POLL_LOG_INTERVAL = 100;');
     const client = read('src/bridge/api/BridgeApiClient.ts');
-    expect(client).not.toMatch(/(^|[^_A-Za-z])const EMPTY_POLL_LOG_INTERVAL\s*=/);
+    expect(client).not.toMatch(
+      /(^|[^_A-Za-z])const EMPTY_POLL_LOG_INTERVAL\s*=/
+    );
     expect(client).toContain('EMPTY_POLL_LOG_INTERVAL,');
     expect(client).toContain(
       'consecutiveEmptyPolls % EMPTY_POLL_LOG_INTERVAL === 0'

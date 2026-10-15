@@ -3849,6 +3849,17 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-50-META-KEY","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"title","i":0,"c":"硬编码治理 · 「同名常量」B5-2 第五十一项：`DIR_EXISTS_GUIDANCE` **2 处同名消歧**（异值异域；取值一字未改）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8（同名常量）+ CS01/CS05 + 同值同事实 ⇒ 合一 / 异值异域 ⇒ 按域消歧的定性标准"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（消歧/合一队列；同节下一键 `ENTRYPOINT_NAME`、`MAX_ENTRYPOINT_LINES` 为同对文件的配套异值键）；② 任一文件重新出现裸 `const DIR_EXISTS_GUIDANCE`（非 memory 导出真源）⇒ 守卫（第 67 例）或棘轮阻断；③ 若两域提示收敛为同一文案，可再评估合一。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 67 例（memory 真源标注 + 导出保留 + 文案钉住；chronos 无裸定义 + 新名 + 插值点；跨文件消费者 teamMemPrompts 仍 import 真源）67 pass / 616 expect · `lint:consts` 重播种：`同名常量"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"notes","i":1,"c":":DIR_EXISTS_GUIDANCE` **2→0**（204→203 键），可下调键仅此一个 · 6 门禁 exit 0（含 drift）。**定性**：chronos 侧（英文「目录内容清单」，dream 整合提示词用）与 memory 侧（中文「目录已存在，直接 Write」提示，`export` 且被 `teamMemPrompts.ts` 跨文"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"notes","i":2,"c":"件消费）**异值异域** ⇒ 保留 memory 导出真源原名（有真实消费者），chronos 本地副本改名 `DREAM_DIR_CONTENT_GUIDANCE`；取值/行为零变化。首轮守卫断言漏写注释中的反引号致 1 fail ⇒ 已修正为 `唯一真源（memory 域`。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#0","i":0,"c":"app/src/chronos/autoDream/ConsolidationPrompt.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#1","i":0,"c":"app/src/memory/services/MemoryPromptBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

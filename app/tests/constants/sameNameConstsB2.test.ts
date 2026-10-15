@@ -1598,4 +1598,18 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'if (CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE.test(sentence)) return false;'
     );
   });
+
+  test('B5-2㊽：`DEFAULT_CACHE_TTL_MS` 已按域消歧（异值异域：图片下载 24h / 市场 1h，取值一字未改）', () => {
+    // chat 域图片下载缓存（24h，env 可覆盖）→ IMAGE_DOWNLOAD_CACHE_TTL_MS
+    // plugins 域市场元数据缓存（1h）→ MARKETPLACE_CACHE_TTL_MS
+    const img = read('src/chat/services/ImageDownloader.ts');
+    expect(img).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_CACHE_TTL_MS\s*=/);
+    expect(img).toContain('const IMAGE_DOWNLOAD_CACHE_TTL_MS = envInt(');
+    expect(img).toContain("'IMAGE_DOWNLOAD_CACHE_TTL_MS',");
+    expect(img).toContain('config.cacheTtlMs ?? IMAGE_DOWNLOAD_CACHE_TTL_MS');
+    const mkt = read('src/plugins/marketplace/PluginMarketplace.ts');
+    expect(mkt).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_CACHE_TTL_MS\s*=/);
+    expect(mkt).toContain('const MARKETPLACE_CACHE_TTL_MS = 3600 * 1000;');
+    expect(mkt).toContain('ttlMs: MARKETPLACE_CACHE_TTL_MS,');
+  });
 });

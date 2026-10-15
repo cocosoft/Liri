@@ -87,7 +87,11 @@ interface CacheMeta {
   etag?: string;
 }
 
-const DEFAULT_CACHE_TTL_MS = 3600 * 1000;
+/**
+ * B5-2㊽ 按域消歧：原 `DEFAULT_CACHE_TTL_MS` 与 chat/services/ImageDownloader 的图片缓存 TTL
+ * 异值异域，按 plugins 域职责正名（市场元数据缓存 1h）。
+ */
+const MARKETPLACE_CACHE_TTL_MS = 3600 * 1000;
 
 function getCacheDir(): string {
   // 2026-08-06 路径收敛：市场缓存统一 ~/.pyapp/plugins/cache
@@ -345,7 +349,7 @@ export class PluginMarketplace {
       if (response.status === 304) {
         this.writeCacheMeta({
           cachedAt: Date.now(),
-          ttlMs: DEFAULT_CACHE_TTL_MS,
+          ttlMs: MARKETPLACE_CACHE_TTL_MS,
           etag: meta?.etag,
         });
         return true;
@@ -401,7 +405,7 @@ export class PluginMarketplace {
       this.saveCatalogToCache(data);
       this.writeCacheMeta({
         cachedAt: Date.now(),
-        ttlMs: DEFAULT_CACHE_TTL_MS,
+        ttlMs: MARKETPLACE_CACHE_TTL_MS,
         etag,
       });
 

@@ -44,8 +44,12 @@ const DEFAULT_MAX_RETRIES = envInt(
 /** 默认重试退避基准（ms），可通过 IMAGE_DOWNLOAD_RETRY_DELAY_MS 覆盖 */
 const DEFAULT_RETRY_DELAY_MS = envInt('IMAGE_DOWNLOAD_RETRY_DELAY_MS', 2000);
 
-/** 默认缓存 TTL（ms），可通过 IMAGE_DOWNLOAD_CACHE_TTL_MS 覆盖 */
-const DEFAULT_CACHE_TTL_MS = envInt(
+/**
+ * 默认缓存 TTL（ms），可通过 IMAGE_DOWNLOAD_CACHE_TTL_MS 覆盖。
+ * B5-2㊽ 按域消歧：原 `DEFAULT_CACHE_TTL_MS` 与 plugins/marketplace 的市场缓存 TTL 异值异域，
+ * 按 chat 域职责正名（本处为图片下载缓存 24h）。
+ */
+const IMAGE_DOWNLOAD_CACHE_TTL_MS = envInt(
   'IMAGE_DOWNLOAD_CACHE_TTL_MS',
   24 * 60 * 60 * 1000
 );
@@ -81,7 +85,7 @@ export class ImageDownloader {
       maxSize: config.maxSize ?? DEFAULT_MAX_SIZE,
       maxRetries: config.maxRetries ?? DEFAULT_MAX_RETRIES,
       retryDelayMs: config.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS,
-      cacheTtlMs: config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS,
+      cacheTtlMs: config.cacheTtlMs ?? IMAGE_DOWNLOAD_CACHE_TTL_MS,
     };
   }
 

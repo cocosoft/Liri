@@ -23,6 +23,12 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('bridge\api\BridgeApi');
 
 /**
+ * B5-2㊴：EMPTY_POLL_LOG_INTERVAL 唯一真源（bridge/api 域内空轮询日志节流阈值；
+ * BridgeApiClient 已改为引用本常量，不得在客户端侧重建副本）。
+ */
+export const EMPTY_POLL_LOG_INTERVAL = 100;
+
+/**
  * 执行指数退避等待
  */
 async function backoffWait(
@@ -116,7 +122,6 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
   }
 
   let consecutiveEmptyPolls = 0;
-  const EMPTY_POLL_LOG_INTERVAL = 100;
   const BETA_HEADER = 'environments-2025-11-01';
   const backoffConfig = deps.backoffConfig || DEFAULT_BACKOFF_CONFIG;
 

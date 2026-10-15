@@ -15,7 +15,11 @@ import {
   DEFAULT_BACKOFF_CONFIG,
 } from '../types/BridgeApiTypes';
 // B5-2㊳ 合一：validateBridgeId（含 SAFE_ID_PATTERN）唯一实现/真源在 ./BridgeApi，本处以别名引用
-import { validateBridgeId as importedValidateBridgeId } from './BridgeApi';
+// B5-2㊴ 合一：EMPTY_POLL_LOG_INTERVAL 唯一真源在 ./BridgeApi，本处直接引用
+import {
+  validateBridgeId as importedValidateBridgeId,
+  EMPTY_POLL_LOG_INTERVAL,
+} from './BridgeApi';
 
 /**
  * Bridge API客户端工厂函数
@@ -31,7 +35,6 @@ export function createBridgeApiClient(deps: {
 }): IBridgeApiClient {
   const backoffConfig = deps.backoffConfig || DEFAULT_BACKOFF_CONFIG;
   let consecutiveEmptyPolls = 0;
-  const EMPTY_POLL_LOG_INTERVAL = 100;
 
   function debug(msg: string): void {
     deps.onDebug?.(msg);

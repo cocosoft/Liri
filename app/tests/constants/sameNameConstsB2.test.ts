@@ -1461,9 +1461,22 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(truth).toContain('export function validateBridgeId');
     const client = read('src/bridge/api/BridgeApiClient.ts');
     expect(client).not.toMatch(/(^|[^_A-Za-z])const SAFE_ID_PATTERN\s*=/);
-    expect(client).toContain(
-      "import { validateBridgeId as importedValidateBridgeId } from './BridgeApi';"
-    );
+    // prettier 可能折行 import 块 ⇒ 分片段断言（空白容忍）
+    expect(client).toContain('validateBridgeId as importedValidateBridgeId');
+    expect(client).toContain("} from './BridgeApi';");
     expect(client).toContain('return importedValidateBridgeId(id, label);');
+  });
+
+  test('B5-2㊴：`EMPTY_POLL_LOG_INTERVAL` 已合一（同值同事实；真源在 BridgeApi.ts，BridgeApiClient 改引用）', () => {
+    // 2 处同名同值 100、同为 bridge/api 域空轮询日志节流判定 ⇒ 合一，非消歧
+    const truth = read('src/bridge/api/BridgeApi.ts');
+    expect(truth).toContain('EMPTY_POLL_LOG_INTERVAL 唯一真源');
+    expect(truth).toContain('export const EMPTY_POLL_LOG_INTERVAL = 100;');
+    const client = read('src/bridge/api/BridgeApiClient.ts');
+    expect(client).not.toMatch(/(^|[^_A-Za-z])const EMPTY_POLL_LOG_INTERVAL\s*=/);
+    expect(client).toContain('EMPTY_POLL_LOG_INTERVAL,');
+    expect(client).toContain(
+      'consecutiveEmptyPolls % EMPTY_POLL_LOG_INTERVAL === 0'
+    );
   });
 });

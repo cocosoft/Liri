@@ -45,8 +45,24 @@ const TRUTH_SOURCE_FRAGMENTS = [
   '.spec.', // *.spec.*
 ];
 
-/** 常量定义：`[\export ]const UPPER_SNAKE =`（≥3 字符，全大写/数字/下划线） */
-const CONST_DEF_RE = /^\s*(?:export\s+)?const\s+([A-Z][A-Z0-9_]{2,})\s*=/;
+/**
+ * 常量定义：`[\export ]const UPPER_SNAKE (: 标量基础类型)? =`（≥3 字符，全大写/数字/下划线）。
+ *
+ * ⚠️ **补门禁盲区**（2026-10-15）：原正则要求 `=` 紧跟常量名 ⇒ `const X: T = …` **一律漏检**
+ * （带类型写法的同名常量对棘轮完全不可见）。
+ *
+ * **口径：只纳入「标量基础类型」**（`string` / `number` / `boolean` / `bigint`，可加 `readonly`）。
+ * 判据是**同名是否可能等于同一事实**，而这取决于值能否比较；实测两类反例都指向"越窄越对"：
+ *  - 放宽到**任意类型标注** ⇒ 一次性涌入 **69 个键**，其中 `DEFAULT_CONFIG` 一个键横跨 **93 个文件**
+ *    （各模块的私有默认配置对象）——那是**惯例名**，收进基线等于"什么都豁免"；
+ *  - 放宽到**数组**（`string[]`）⇒ 抓到 4 键，但逐个取证后仍是惯例名高发区，最有说服力的是
+ *    `BINARY_EXTS: string[]`：app 侧 `['.pdf','.docx','.mp3',…]`、client 侧 `['.exe','.dll','.so',…]`
+ *    —— **同名同类型却完全不同的事实**，正是"集合同名 ≠ 同一事实"的实证。
+ *  故只纳入**标量**（值可直接比较，如 `const DEFAULT_TIMEOUT: number = 30000`，同名同值即真重复）；
+ *  数组 / 对象 / 接口 / 联合类型不纳入（其同名多数是命名惯例，且已由各域真源/契约测试另行覆盖）。
+ */
+const CONST_DEF_RE =
+  /^\s*(?:export\s+)?const\s+([A-Z][A-Z0-9_]{2,})\s*(?::\s*(?:readonly\s+)?(?:string|number|boolean|bigint)\s*)?=/;
 
 /** 字符串字面量（单/双/反引号，内容不含引号与换行） */
 const STRING_LITERAL_RE = /['"`]([^'"`\n]+)['"`]/g;

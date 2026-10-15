@@ -166,3 +166,32 @@ describe('§8 阶段③ · 负向对照（真实脚本 + env 覆盖基线）', (
     expect(r.out).toContain('基线不存在');
   });
 });
+
+describe('§8 门禁口径 · 「同名常量」补盲区（带类型写法）', () => {
+  /**
+   * 2026-10-15 补：原正则 `const NAME =` 要求 `=` 紧跟常量名 ⇒ `const NAME: T = …` **一律漏检**
+   * （带类型写法的同名常量对棘轮完全不可见）。现按「**值可比**」收窄纳入**标量基础类型**。
+   * 取证见 `scripts/lint-consts.ts` 的口径注释（放宽到任意类型 ⇒ 69 键 / `DEFAULT_CONFIG` 93 文件）。
+   */
+  const decl = (): string =>
+    /const CONST_DEF_RE =([\s\S]*?);\n/.exec(
+      readFileSync(join(REPO_ROOT, 'scripts', 'lint-consts.ts'), 'utf8')
+    )?.[1] ?? '';
+
+  it('口径纳入「标量基础类型」的带类型写法（原漏检盲区已补）', () => {
+    expect(decl()).toContain('string|number|boolean|bigint');
+    expect(decl()).toContain('readonly');
+  });
+
+  it('口径**不**放宽为「任意类型标注」（否则惯例名涌入、棘轮语义被冲淡）', () => {
+    expect(decl()).not.toContain('[^\\n]*?'); // 任意类型（含对象/接口/联合）不得纳入
+    expect(decl()).not.toContain('\\[\\]'); // 数组不纳入（同名同类型 ≠ 同一事实）
+  });
+
+  it('真实扫描：对象型惯例名不得因口径放宽而涌入（棘轮零增长）', () => {
+    const r = runGate('consts', BASELINE);
+    expect(r.status).toBe(0);
+    // `const DEFAULT_CONFIG: XxxConfig = {…}` 全仓 92 文件 ⇒ 若被纳入，此断言即红
+    expect(r.out).not.toContain('同名常量 DEFAULT_CONFIG ');
+  });
+});

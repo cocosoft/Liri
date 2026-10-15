@@ -105,7 +105,8 @@ function main(): void {
     //    下次 gen 再渲染一遍 ⇒ **每片递归多一层重复**（实测 2026-10-15：4 层嵌套）。
     //    判定同粒度用 `isFreshBullet`（与 `freshBullet` 同源 ⇒ 形态恒一致）。
     let i = 0;
-    while (i < raw.length && (isFreshBullet(raw[i]) || raw[i].trim() === '')) i++;
+    while (i < raw.length && (isFreshBullet(raw[i]) || raw[i].trim() === ''))
+      i++;
     blockText = raw.slice(i).join('\n');
   } else {
     const blk = findUnreleasedBlock(clLines);

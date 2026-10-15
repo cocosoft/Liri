@@ -1588,7 +1588,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const app = read('src/chat/services/bareExplorationStripper.ts');
     expect(app).toContain('MARKDOWN_STRUCTURE_RE 唯一真源');
     expect(app).toContain('const MARKDOWN_STRUCTURE_RE =');
-    expect(app).toContain('if (MARKDOWN_STRUCTURE_RE.test(sentence)) return false;');
+    expect(app).toContain(
+      'if (MARKDOWN_STRUCTURE_RE.test(sentence)) return false;'
+    );
     const cli = read('../client/src/stores/chat/chat-toolcall.slice.ts');
     expect(cli).not.toMatch(/(^|[^_A-Za-z])const MARKDOWN_STRUCTURE_RE\s*=/);
     expect(cli).toContain('const CHAT_TOOLCALL_MARKDOWN_STRUCTURE_RE =');

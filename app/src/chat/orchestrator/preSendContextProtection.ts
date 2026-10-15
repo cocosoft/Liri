@@ -179,7 +179,7 @@ export async function applyPreSendProtection(
         });
       }
     }
-    // 8.4④（2026-09-16）：每日 Token 预算前置检查。
+    // 8.4④（2026-09-16）：每日预算前置检查（S3 后硬闸门=金额轨；Token 轨只观测）。
     // R16（2026-10-09，用户裁定「升级为硬阻断」）：**超限即拒发** —— 预算耗尽（`locked`）
     // 或本轮估算将越界（`projected ≥ 上限`）时，**不发起模型调用**：先释放本轮预扣，再抛
     // 业务异常（`DAILY_BUDGET_EXCEEDED`）。上层 `CoreAPIImpl.chatStream` 的 catch 会把该
@@ -209,7 +209,7 @@ export async function applyPreSendProtection(
     });
     const reservation = dailyBudget.reserveFor(session.id, reservedTokens);
     if (budgetMode.mode !== 'normal') {
-      logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
+      logger.warn('streamMessage:budget — 每日预算前置检查', {
         sessionId: session.id,
         model: options?.model ?? 'unknown',
         todayUsed: budgetMode.todayUsed,

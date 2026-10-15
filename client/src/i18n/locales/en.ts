@@ -3081,7 +3081,6 @@ const en = {
     dailyLimitKillSwitchEnableConfirm:
       "Lock now? Further model calls will be rejected until you manually unlock.",
     dailyLimitKillSwitchDisableConfirm: "Unlock now?",
-    dailyLimitEffectiveLimit: "Effective Limit",
     dailyLimitDebt: "Debt (carried over)",
     dailyLimitActiveRelief: "Active Relief",
     dailyLimitReliefNone: "None",

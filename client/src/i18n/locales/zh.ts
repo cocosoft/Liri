@@ -2948,7 +2948,6 @@ const zh = {
     dailyLimitKillSwitchEnableConfirm:
       "确定要立即锁定吗？后续模型调用将被拒绝，直到你手动解除。",
     dailyLimitKillSwitchDisableConfirm: "确定要解除锁定吗？",
-    dailyLimitEffectiveLimit: "当前有效上限",
     dailyLimitDebt: "透支欠账",
     dailyLimitActiveRelief: "当前放行",
     dailyLimitReliefNone: "无",

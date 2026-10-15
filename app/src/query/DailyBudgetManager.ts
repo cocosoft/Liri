@@ -840,8 +840,11 @@ export class DailyBudgetManager {
    */
   logExhaustionAbort(context: Record<string, unknown> = {}): void {
     const state = this._computeState();
+    // 口径随主口径（S3 后硬闸门=金额轨；Token 轨只观测）—— 哨兵名 `dailyBudget:exhausted_abort`
+    // 被 `tests/query/budgetSuspendTaor.test.ts` 以 startsWith 钉住 ⇒ **只改后缀文案，不改前缀**。
+    const unitLabel = state.unit === 'usd' ? '金额' : 'Token';
     logger.warn(
-      'dailyBudget:exhausted_abort — 日 Token 预算已耗尽，调用方中止执行',
+      `dailyBudget:exhausted_abort — 日${unitLabel}预算已耗尽，调用方中止执行`,
       {
         ...context,
         todayUsed: state.todayUsed,

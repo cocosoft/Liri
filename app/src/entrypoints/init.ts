@@ -147,14 +147,14 @@ export async function init(): Promise<void> {
   // 此时 userDataDirOverride 已从设置加载，ensureDataDirectories 会使用正确路径
   ensureDataDirectories();
 
-  // 2.1.2. 恢复日 Token 预算**用量状态**（P1：状态持久化，避免"重启即清零"绕过日限额）。
+  // 2.1.2. 恢复日预算**用量状态**（P1：状态持久化，避免"重启即清零"绕过日限额；含 Token 计数与 USD 金额两轨）。
   // 需在 ensureDataDirectories 之后（数据目录就绪），且早于任何模型调用（早于模块初始化）。
   // 文件缺失/损坏由持久化层吞掉 ⇒ 从 0 起算，不阻塞启动。
   try {
     const { initDailyBudget } = await import('../query/DailyBudgetManager.js');
     await initDailyBudget();
   } catch (error) {
-    logger.warning('日 Token 预算状态恢复失败（不影响启动）', {
+    logger.warning('日预算状态恢复失败（不影响启动）', {
       error: String(error),
     });
   }

@@ -434,7 +434,7 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /**
-   * G-1（2026-10-11）：**对话类**入口的每日 Token 预算**逐轮**复检。
+   * G-1（2026-10-11）：**对话类**入口的每日预算**逐轮**复检（S3 后硬闸门=金额轨）。
    *
    * 对齐 `TAORLoop.beforeReasoning`（`app/src/query/TAORLoop.ts:1099-1128`）的语义：每轮模型
    * 请求前判定一次；`allowed === false` ⇒ 由骨架置 `budget_exhausted` 相位并 `finalize`

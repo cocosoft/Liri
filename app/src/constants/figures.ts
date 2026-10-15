@@ -17,6 +17,7 @@ export const PLAY_ICON = '▶';
 export const PAUSE_ICON = '⏸';
 
 export const REFRESH_ARROW = '↻';
+// B5-2㊷：CHANNEL_ARROW 唯一真源（本 UI 图形字符库，←）；chat/ChannelMessageParser 的「消息来源箭头」（→）异值已按域消歧改名 MSG_SOURCE_ARROW
 export const CHANNEL_ARROW = '←';
 export const INJECTED_ARROW = '→';
 export const FORK_GLYPH = '⑂';

@@ -12,9 +12,10 @@ import { CHANNEL_TAG } from '@modules/constants';
 export { CHANNEL_TAG };
 
 /**
- * 通道箭头符号
+ * 消息来源箭头符号（B5-2㊷ 按域消歧：CHANNEL_ARROW 真源在 constants/figures.ts（←，UI 图形字符库）；
+ * 本处为「消息来源展示箭头」（→），异值 ⇒ 改名 MSG_SOURCE_ARROW）
  */
-export const CHANNEL_ARROW = '→';
+export const MSG_SOURCE_ARROW = '→';
 
 /**
  * 通道消息配置
@@ -137,7 +138,7 @@ export class ChannelMessageParser {
     const parts: string[] = [];
 
     // 添加箭头和来源
-    parts.push(`${CHANNEL_ARROW} ${parsed.displaySource}`);
+    parts.push(`${MSG_SOURCE_ARROW} ${parsed.displaySource}`);
 
     // 添加用户（如果有）
     if (parsed.user) {
@@ -159,7 +160,7 @@ export class ChannelMessageParser {
   formatFullText(parsed: ParsedChannelMessage): string {
     const parts: string[] = [];
 
-    parts.push(`${CHANNEL_ARROW} ${parsed.displaySource}`);
+    parts.push(`${MSG_SOURCE_ARROW} ${parsed.displaySource}`);
 
     if (parsed.user) {
       parts.push(` · ${parsed.user}`);

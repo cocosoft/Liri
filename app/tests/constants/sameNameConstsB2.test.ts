@@ -1509,4 +1509,16 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(svc).toContain('SSE_IDLE_TIMEOUT_MS,');
     expect(svc).toContain(': SSE_IDLE_TIMEOUT_MS,');
   });
+
+  test('B5-2㊷：`CHANNEL_ARROW` 已按域消歧（figures ← / parser → 异值，取值一字未改）', () => {
+    // 异值异域 ⇒ 消歧：figures.ts 为通用 UI 图形字符库（←）保留真源；
+    // chat/ChannelMessageParser 的「消息来源箭头」（→）改名 MSG_SOURCE_ARROW
+    const figures = read('src/constants/figures.ts');
+    expect(figures).toContain('CHANNEL_ARROW 唯一真源');
+    expect(figures).toContain("export const CHANNEL_ARROW = '←';");
+    const parser = read('src/chat/ChannelMessageParser.ts');
+    expect(parser).not.toMatch(/(^|[^_A-Za-z])const CHANNEL_ARROW\s*=/);
+    expect(parser).toContain("export const MSG_SOURCE_ARROW = '→';");
+    expect(parser).toContain('MSG_SOURCE_ARROW} ${parsed.displaySource}');
+  });
 });

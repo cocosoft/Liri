@@ -1110,6 +1110,14 @@ export async function initDailyBudget(): Promise<void> {
       date: persisted.date,
       debt: persisted.debt,
       relief: persisted.relief,
+      // 2026-10-15（USD 日限额启用前置修复）：**必须透传 USD 两字段**。
+      // 漏传 ⇒ `restore()` 内 `state.usedUsd === undefined` ⇒ 沿用内存现值 0
+      // ⇒ **USD 台账重启即清零**（真机实证：状态文件 `usedUsd=0.863076`，API 返回 `usedUsd:0`；
+      // 同一次响应里 token 侧 `todayUsed` 恢复正确 ⇒ 仅 USD 轨丢失）。
+      // 与 `dailyBudgetPersistence.ts` 注释所载 D-b/D-d 历史缺陷**同型**：读取侧已补字段，
+      // 调用侧未同步透传。USD 闸门启用后，清零即"重启绕过限额"。
+      usedUsd: persisted.usedUsd,
+      debtUsd: persisted.debtUsd,
     });
   }
 }

@@ -272,7 +272,7 @@ function ModelMetaEditor({
   // 获取分类显示名称
   //
   // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原实现自建 `known` 键集 + 私有
-  // `t('model.capability.category.' + key)` —— 前者是**客户端第三份分类键集副本**，后者把
+  // `t('capability.category.' + key)` —— 前者是**客户端第三份分类键集副本**，后者把
   // i18n 键约定抄进了组件。现统一走服务端下发的 `labelKey`（经 `capabilityService` 解析）。
   const getCategoryName = (categoryKey: string): string =>
     capabilityService.getCategoryDisplayNameByKey(categories, categoryKey, t);

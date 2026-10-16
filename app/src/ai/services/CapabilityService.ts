@@ -550,10 +550,10 @@ export class CapabilityService {
       .map((key) => ({
         key,
         // 分类标签的 i18n 键**在服务端生成**（运行时生成 ⇒ 改此处对所有用户立即生效，不涉播种/迁移）。
-        // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原值为 `capability.category.<key>`，
-        // **缺 `model.` 前缀** ⇒ 客户端 `t()` 恒 miss（locale 把能力/分类标签都放在 `model:` 命名空间下），
-        // 调用方只能各自退到本地副本（硬编码中文表 / 另一套 i18n 键 / 私有实现）。
-        labelKey: `model.capability.category.${key}`,
+        // 2026-10-16（台账 `CAPS-CAPABILITY-LABEL-CONVENTION`）：与能力的 `labelKey`（`capability.<x>`，
+        // 见 capabilities.default.yaml 与 DB `label_key` 列）**统一为同一命名约定** `capability.*`，
+        // 客户端 i18n 也据此把标签放在顶层 `capability` 块（原放 `model.capability.*` ⇒ `t()` 恒 miss）。
+        labelKey: `capability.category.${key}`,
         sortOrder: this.getCategorySortOrder(key),
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder);

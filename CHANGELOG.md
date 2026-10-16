@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CAPS-CAPABILITY-LABEL-CONVENTION**：能力标签解析修复：locale 的 model.capability 块上移为顶层 capability —— 验证 ct13|ut629|tc1|ts6628|probe1；基线 改前：28 个 labelKey 与 locale 的 model.capability.* 不匹配 ⇒ t() 恒 miss（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）
 - ✅ **CAPS-CATEGORY-LABEL-SINGLE-SOURCE**：分类标签跨端单源：服务端 labelKey 补 model. 前缀 + 客户端删 4 处副本 + 契约 B4 —— 验证 ct12|ut629|tc1|ts6625；基线 改前：labelKey 缺 model. 前缀 ⇒ t() 恒 miss，客户端遂各自复制（含两处 categoryOrder）（详情见 archive/evidence-detail.jsonl#CAPS-CATEGORY-LABEL-SINGLE-SOURCE）
 - ✅ **CAPS-CATEGORY-SINGLE-SOURCE**：收敛「能力分类」三处同名声明为单一真源（代码 CATEGORY_ORDER）；删除 YAML categories 死面 + 门禁 C5 改锚代码 —— 验证 gate1|ut14|ct9|ts6625；基线 改前：分类事实有三处声明（代码枚举 / 代码顺序表 / YAML categories 块——零读取者）；改后：单一真源 CATEGORY_ORDER（详情见 archive/evidence-detail.jsonl#CAPS-CATEGORY-SINGLE-SOURCE）
 - ✅ **LINTCAPS-C6-COVERAGE**：补 lint:capabilities 的 C6 覆盖面：分类 key 唯一性 + sortOrder 缺失明确报「缺少」，不再退化成「undefined 重复」 —— 验证 gate1|ut14|tc1|pf1；基线 改前：C6 漏查分类 key 重复；且 sortOrder 缺失会被 String(undefined) 报成「undefined 重复」（真源字段齐全，两条均未触发）（详情见 archive/evidence-detail.jsonl#LINTCAPS-C6-COVERAGE）

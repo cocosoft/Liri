@@ -324,7 +324,7 @@ export const capabilityService = {
   /**
    * 获取分类的显示名称
    *
-   * 真源：**服务端下发的 `category.labelKey`**（= `model.capability.category.<key>`）+ 客户端 i18n。
+   * 真源：**服务端下发的 `category.labelKey`**（= `capability.category.<key>`）+ 客户端 i18n。
    * 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：删除原先的**硬编码中文兜底表** ——
    * 它既是重复声明，又让非中文界面退回中文（且掩盖了 labelKey 前缀失效的真问题）。
    * 现约定：i18n 未命中 ⇒ 原样返回分类键（可诊断，不再是"看着对但语言错"的文本）。
@@ -352,7 +352,7 @@ export const capabilityService = {
    * 分类定义列表（含服务端 labelKey）由 `/v1/capabilities` 下发 ⇒ 这里查表 + 委派给
    * {@link getCategoryDisplayName}，**避免各组件各自复制 i18n 键约定或中文标签表**
    * （此前 `CapabilitySelector` 的 `CATEGORY_NAME_KEYS`、`ModelMetaEditor` 的
-   * `known` 数组 + 私有 `t('model.capability.category.' + key)` 即为此类副本）。
+   * `known` 数组 + 私有 `t('capability.category.' + key)` 即为此类副本）。
    *
    * @param categories 分类定义列表（服务端下发）
    * @param key 分类键

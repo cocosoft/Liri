@@ -9245,6 +9245,35 @@
       "changelog": [],
       "reopenWhen": "① **能力标签（28 个）同源问题未修**（本片只覆盖分类）：`capabilities[].labelKey` 形如 `capability.<x>`，而 locale 把能力/分类标签都放在 `model.capability.<x>` 下 ⇒ 客户端 `t(labelKey)` 恒 miss ⇒ `getDi…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-LABEL-SINGLE-SOURCE）",
       "notes": "【发现链（根因）】分类标签此前有**四条**互不知晓的路径：①服务端生成 `labelKey = capability.category.<key>`（**缺 `model.` 前缀**）⇒ 客户端 `t()` 恒 miss；②客户端 `getCategoryDisplayName` 的**硬编码中文兜底表**（五条…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-LABEL-SINGLE-SOURCE）"
+    },
+    {
+      "id": "CAPS-CAPABILITY-LABEL-CONVENTION",
+      "title": "修能力标签解析（28 个 labelKey 原本恒 miss）：locale 的 `model.capability` 块上移为顶层 `capability` + labelKey 约定统一 `capability.*` + B4 增能力侧断言",
+      "source": "承 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE` 的 reopenWhen ① ——「能力侧 28 个 `labelKey` 同源问题（`capability.<x>` 与 locale 的 `model.capability.<x>` 不匹配 ⇒ 中文界面显示英文 `labelFallback`）」（用户裁定另立一片）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts",
+        "app/src/ai/services/CapabilityService.ts",
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "tests": [
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 新增能力时（`capabilities.default.yaml` 加 `labelKey: capability.<x>`）⇒ B4 ③ 要求 zh/en 同步补 `<x>` 与 `<x>Desc`，**这是设计意图**（补标签才算登记完成）；② 客户端 locale 只有 `zh` / `en`（`clien…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）",
+      "notes": "【问题】能力标签（28 个）与分类标签同源不同命：`capabilities[].labelKey` = `capability.<x>`（YAML 声明 + 播种进 DB `model_capabilities.label_key` 列），而客户端 i18n 把它放在 **`model.capability.*`*…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）"
     }
   ]
 }

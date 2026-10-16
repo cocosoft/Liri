@@ -5161,6 +5161,29 @@
 {"id":"CAPS-CATEGORY-LABEL-SINGLE-SOURCE","k":"code#5","i":0,"c":"client/src/i18n/locales/zh.ts"}
 {"id":"CAPS-CATEGORY-LABEL-SINGLE-SOURCE","k":"code#6","i":0,"c":"client/src/i18n/locales/en.ts"}
 {"id":"CAPS-CATEGORY-LABEL-SINGLE-SOURCE","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"title","i":0,"c":"修能力标签解析（28 个 labelKey 原本恒 miss）：locale 的 `model.capability` 块上移为顶层 `capability` + labelKey 约定统一 `capability.*` + B4 增能力侧断言"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"source","i":0,"c":"承 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE` 的 reopenWhen ① ——「能力侧 28 个 `labelKey` 同源问题（`capability.<x>` 与 locale 的 `model.capability.<x>` 不匹配 ⇒ 中文界面显示英文 `labelFallback`）」（用户裁定另立一片）"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"reopenWhen","i":0,"c":"① 新增能力时（`capabilities.default.yaml` 加 `labelKey: capability.<x>`）⇒ B4 ③ 要求 zh/en 同步补 `<x>` 与 `<x>Desc`，**这是设计意图**（补标签才算登记完成）；② 客户端 locale 只有 `zh` / `en`（`client/src/i18n/index.ts`，"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"reopenWhen","i":1,"c":"`fallbackLng: 'zh'`）⇒ B4 只断言这两个语言，**新增语言须扩展该断言**；③ YAML 的 `descriptionKey`（`capability.<x>.desc` 嵌套形态）**仍无任何消费者**（客户端描述走 `${labelKey}Desc` 扁平形态，见 `capabilityService.getDescription`"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"reopenWhen","i":2,"c":" 的注释）⇒ 若日后启用它，须同时补 locale 的嵌套键，否则又是一次「键写对了但解析不到」；④ 若有人把 locale 的 `capability` 块移回 `model:` 下 ⇒ B4 ②③ 的非空哨兵会报红（报「未解析到顶层 capability 块」），按提示改回即可；⑤ `CapabilitySelector` / `"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"reopenWhen","i":3,"c":"ModelMetaEditor` 仍各留一份**预设能力列表**（无 labelKey 的降级数据），能力标签加载失败时它们只给 `labelFallback`（英文）—— 未在本片清理。"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":0,"c":"【问题】能力标签（28 个）与分类标签同源不同命：`capabilities[].labelKey` = `capability.<x>`（YAML 声明 + 播种进 DB `model_capabilities.label_key` 列），而客户端 i18n 把它放在 **`model.capability.*`** 下 ⇒ `t(labelKey)` 恒"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":1,"c":" miss ⇒ `capabilityService.getDisplayName(cap, t)` 退到 `labelFallback`（英文）⇒ **中文界面显示英文能力名**。分类侧上一个片已修（服务端生成 labelKey 补前缀 ⇒ 与 locale 的 `model.capability.category.*` 对齐）。【为什么本片反过来「对齐 "}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":2,"c":"locale 到数据」而不是继续改 labelKey】两者的可改面不同：① 分类 labelKey 是**运行时生成**（改代码即对所有用户生效）；② 能力 labelKey 是**播种进 DB 的列**（`mergeYamlToDatabase()` 一次性播种、行已存在即 `continue` 保留用户覆盖）⇒ 只改 YAML 对**存量库无效**，要修"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":3,"c":"就得写用户 DB（迁移）或加读时归一（幂等 + 写侧也要防回流）。本片选择**第三方案：把 locale 块上移为顶层 `capability.*`** ⇒ 与既有数据命名（YAML + 存量 DB 列）一致 ⇒ **零数据写入、零服务端逻辑、对所有用户立即生效**；并顺带把上一片给分类 labelKey 加的前缀**回退**为 `"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":4,"c":"capability.category.<key>`，使「能力 + 分类 + 服务端生成值」全部落在**同一个命名约定** `capability.*` 上（避免两套约定并存）。【改了什么】(1) `client/src/i18n/locales/{zh,en}.ts`：把 `model:` 下的 `capability` 块（zh 75 行 / en 76"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":5,"c":" 行）整体上移为**顶层** `capability`（内容逐字节保留，仅减 2 空格缩进；用一次性脚本搬运并校验行数不变）——原 `model.capability` 路径随之消失；(2) `CapabilityService.refreshCache()`：分类 labelKey 回退为 `capability.category.${key}`（与能力 "}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":6,"c":"labelKey 同一约定）；(3) 门禁 `crossDeploymentContract` 的 B4 组扩为 **4 条**：① 命名约定（服务端生成的分类模板 == `capability.category.${key}`，且 YAML 的每个 labelKey 都以 `capability.` 开头）；② 分类键在 zh/en 齐备；③ **能力键（"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":7,"c":"label + `*Desc`，共 28×2）在 zh/en 齐备**（本片新增，即用户所指问题的守卫）；④ 防回流锁（客户端不得再出现分类键集/中文标签副本）。【验证】（a）**一次性校验脚本**（用完即删）直接 import 两个 locale：从 YAML 解析出 **28** 个 labelKey，逐一断言 zh/en 均有 `capability."}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":8,"c":"<x>` 与 `capability.<x>Desc`、分类 5 键齐备、`model.capability` 已不存在 ⇒ **0 问题**；（b）`crossDeploymentContract.test.ts` ⇒ **13 pass / 0 fail**（B1–B4，含新增的 ③）；（c）客户端 `tsc --noEmit` ⇒ 0；客户端 `bun"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":9,"c":" run test` ⇒ **80 files / 629 tests 全 pass**；客户端 `npm run lint` ⇒ 0 error；（d）app 全链 `bun run ci` 通过。【口径边界（如实）】① 本片**订正了上一片的一个决策**：上一片把分类 labelKey 改成 `model.capability.category.<key"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":10,"c":">`（对齐当时的 locale 结构），本片改为回退 —— 因为统一到 `capability.*` 这一既有数据约定才不需要触碰存量 DB（两片合起来看：方向由「改服务端适配 locale」订正为「改 locale 适配数据」）。② locale 块搬迁是纯机械操作（内容逐字节保留、行数不变），**未新增**针对 locale 形状的单测，守卫由 B4 ②"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"notes","i":11,"c":"③（带非空哨兵）承担；③ `eslint` 对客户端 locale 文件不报错但仓库存在既有 prettier warnings（与本片文件无关）。"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"code#0","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"code#1","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"code#2","i":0,"c":"app/src/ai/services/CapabilityService.ts"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"code#3","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -246,69 +246,112 @@ describe('HD-P0-3 · B3 模型能力标签集（跨部署单元同值契约）',
 });
 
 /**
- * HD-P0-3 · B4 —— **能力分类标签**跨部署单元契约（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）。
+ * HD-P0-3 · B4 —— **能力/分类标签**跨部署单元契约
+ * （台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`、`CAPS-CAPABILITY-LABEL-CONVENTION`）。
  *
- * 事实链（收敛后的**单一来源**）：
- *   服务端 `CATEGORY_ORDER`（分类键集 + 顺序）
- *     → `CapabilityService.refreshCache()` 生成 `labelKey = model.capability.category.<key>`
- *     → 客户端 `capabilityService.getCategoryDisplayName*(...)` 只做 `t(labelKey)`
- *     → `client/src/i18n/locales/{zh,en}.ts` 的 `model.capability.category.*`
+ * 事实链（收敛后的**单一来源**与**单一命名约定**）：
+ *   服务端 `labelKey = capability.<x>`（能力：来自 `capabilities.default.yaml`，播种进 DB `label_key` 列；
+ *     分类：由 `refreshCache()` 运行时生成 `capability.category.<key>`）
+ *     → 客户端 `capabilityService.get*DisplayName(..., t)` 只做 `t(labelKey)`（描述拼 `${labelKey}Desc`）
+ *     → `client/src/i18n/locales/{zh,en}.ts` 的**顶层** `capability` 块
  *
- * 断言链上**唯一允许**的两个跨端同步点（改任一侧即变红，消除「人工同步」）：
- *   ① **键集**：服务端每个分类在 zh / en 两个 locale 里都有标签键
- *      （漏一个 ⇒ 该分类在 UI 上显示原始键）；
- *   ② **标签键前缀**：模板必须带 `model.` 前缀 —— 2026-10-16 前服务端发的是
- *      `capability.category.<key>`（**缺前缀**）⇒ `t()` 恒 miss，导致三个调用方各自退到本地副本
- *      （硬编码中文表 / `common.capabilityCat*` / 组件内私有 `t('model...')`）。
+ * 断言链上**唯一允许**的跨端同步点（改任一侧即变红，消除「人工同步」）：
+ *   ① **命名约定**：服务端生成的分类 labelKey 模板必须为 `capability.category.<key>`
+ *      —— 2026-10-16 前的能力 labelKey 是 `capability.<x>`，而 locale 把标签放在 `model.capability.*`
+ *      下 ⇒ `t()` 恒 miss ⇒ 中文界面显示英文 `labelFallback`，且各调用方各自造本地副本。
+ *      收敛方向是**对齐 locale 到既有数据命名**（能力标签是播种进 DB 的列 ⇒ 改数据对存量库无效，
+ *      改 locale 才对**所有用户立即生效**且零数据迁移）。
+ *   ② **键集**：服务端每个分类 / 每个能力（含 `*Desc`）在 zh 与 en 中都有标签键
+ *      （漏一个 ⇒ 该标签在 UI 上退到 fallback 或显示原始键）。
  *
  * 并附**防回流**负向锁：客户端不得再出现「分类键集 / 分类标签」的第二份声明。
  */
-describe('HD-P0-3 · B4 能力分类标签（跨部署单元契约）', () => {
+describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
   /**
-   * 从 locale 源文件抽取 `model.capability.category` 块内的键。
+   * 抽取 locale 中**顶层** `capability` 块内的键（含嵌套 `category` 的键）。
    *
-   * 解析方式（缩进定界，**不引入 TS 解析器**）：先定位 `    capability: {`，
-   * 再定位其后的 `      category: {`，随后收集 8 空格缩进的键行，直到 6 空格的 `},`。
-   * 抽不到任何键 ⇒ 直接返回空数组，由调用方的**非空哨兵**报红（防"扫了个空也绿"）。
+   * 解析方式（缩进定界，**不引入 TS 解析器**）：定位 `  capability: {`（2 空格 = 顶层），
+   * 收集其下 4 空格的键；进入 `    category: {` 后收集 6 空格的键；遇 2 空格的 `},` 结束。
+   * 抽不到任何键 ⇒ 返回空数组，由调用方的**非空哨兵**报红（防"扫了个空也绿"）。
    */
-  function categoryLabelKeys(localeSrc: string): string[] {
+  function capabilityLabelKeys(localeSrc: string): string[] {
     const lines = localeSrc.split(/\r?\n/);
-    const capIdx = lines.findIndex((l) => /^ {4}capability: \{$/.test(l));
+    const capIdx = lines.findIndex((l) => /^ {2}capability: \{$/.test(l));
     if (capIdx < 0) return [];
-    const catIdx = lines.findIndex(
-      (l, i) => i > capIdx && /^ {6}category: \{$/.test(l)
-    );
-    if (catIdx < 0) return [];
     const keys: string[] = [];
-    for (let i = catIdx + 1; i < lines.length; i++) {
-      if (/^ {6}\},?\s*$/.test(lines[i] as string)) break;
-      const m = (lines[i] as string).match(/^ {8}([A-Za-z_][\w]*):/);
+    let inCategory = false;
+    for (let i = capIdx + 1; i < lines.length; i++) {
+      const line = lines[i] as string;
+      if (/^ {2}\},?\s*$/.test(line)) break;
+      if (/^ {4}category: \{$/.test(line)) {
+        inCategory = true;
+        continue;
+      }
+      if (inCategory && /^ {4}\},?\s*$/.test(line)) {
+        inCategory = false;
+        continue;
+      }
+      const m = line.match(
+        inCategory ? /^ {6}([A-Za-z_]\w*):/ : /^ {4}([A-Za-z_]\w*):/
+      );
       if (m) keys.push(m[1] as string);
     }
     return keys;
   }
 
-  it('① 服务端分类真源非空，且标签键模板带 `model.` 前缀（防前缀回流）', () => {
-    expect(CATEGORY_ORDER.length).toBeGreaterThan(0);
-    // 该模板是"服务端分类 → 客户端 i18n"的唯一接口，前缀缺失会让下面 ② 的键**全部**解析不到
-    expect(read('app/src/ai/services/CapabilityService.ts')).toContain(
-      'labelKey: `model.capability.category.${key}`'
+  /** `capabilities.default.yaml` 的 labelKey 去前缀后的键（能力侧真源） */
+  function capabilityKeysFromYaml(): string[] {
+    const yaml = read('app/src/ai/config/capabilities.default.yaml');
+    const keys = [...yaml.matchAll(/^\s*labelKey:\s*(\S+)\s*$/gm)].map((m) =>
+      (m[1] as string).replace(/^capability\./, '')
     );
+    return [...new Set(keys)];
+  }
+
+  it('① 服务端生成/声明的 labelKey 走同一命名约定 `capability.*`（防前缀漂移）', () => {
+    expect(CATEGORY_ORDER.length).toBeGreaterThan(0);
+    // 分类：运行时生成的模板
+    expect(read('app/src/ai/services/CapabilityService.ts')).toContain(
+      'labelKey: `capability.category.${key}`'
+    );
+    // 能力：播种源里的 labelKey 本就必须是 `capability.<x>`
+    const yaml = read('app/src/ai/config/capabilities.default.yaml');
+    const bad = [...yaml.matchAll(/^\s*labelKey:\s*(\S+)\s*$/gm)]
+      .map((m) => m[1] as string)
+      .filter((k) => !k.startsWith('capability.'));
+    expect(bad, '能力的 labelKey 必须形如 capability.<x>').toEqual([]);
   });
 
-  it('② 服务端每个分类在 zh / en 两个 locale 中都有标签键（漏 ⇒ UI 显示原始键）', () => {
+  it('② 服务端每个分类在 zh / en 中都有标签键（漏 ⇒ UI 显示原始键）', () => {
     for (const locale of ['zh', 'en']) {
-      const keys = categoryLabelKeys(
+      const keys = capabilityLabelKeys(
         read(`client/src/i18n/locales/${locale}.ts`)
       );
       // 非空哨兵：解析器失效（缩进/块名变了）必须报红，不得静默"0 缺失"
-      expect(keys.length, `${locale} 未解析到分类标签块`).toBeGreaterThan(0);
+      expect(
+        keys.length,
+        `${locale} 未解析到顶层 capability 块`
+      ).toBeGreaterThan(0);
       const missing = CATEGORY_ORDER.filter((k) => !keys.includes(k));
       expect(missing, `${locale} 缺少分类标签键`).toEqual([]);
     }
   });
 
-  it('③ 防回流：客户端不再有分类键集 / 分类标签的第二份声明', () => {
+  it('③ 服务端每个能力标签（label + Desc）在 zh / en 中都存在（漏 ⇒ 退回英文 fallback）', () => {
+    const caps = capabilityKeysFromYaml();
+    expect(caps.length, '未从 YAML 解析到能力 labelKey').toBeGreaterThan(0);
+    for (const locale of ['zh', 'en']) {
+      const keys = capabilityLabelKeys(
+        read(`client/src/i18n/locales/${locale}.ts`)
+      );
+      const missing = caps
+        .flatMap((k) => [k, `${k}Desc`])
+        .filter((k) => !keys.includes(k));
+      expect(missing, `${locale} 缺少能力标签键`).toEqual([]);
+    }
+  });
+
+  it('④ 防回流：客户端不再有分类键集 / 分类标签的第二份声明', () => {
     const files: string[] = [];
     collectTsFiles(CLIENT_SRC, files);
     const scan = files

@@ -194,6 +194,17 @@ app/.PY_APP/
 app/.document_versions/
 .PY_APP/
 
+# app/ 顶层**一次性产物与日志**（2026-10-16 清理 17 个后补规则：它们曾被实体入库）
+# 口径：只给**产物/日志**上通配；`check_*.ts` 一类临时调试脚本**不加**通配 ——
+# 那些名字可能合法重现，通配会掩盖"新脚本是否该入库"的评审（详见台账 APPCLEAN-ONEOFF-FILES）。
+app/typecheck*.log
+app/typecheck*.txt
+app/src.zip
+app/bun_test_results.json
+app/perf_*_output.txt
+app/deps-report.md
+app/dependency_validation_report.md
+
 # Build artifacts
 app/app/
 app/backend/

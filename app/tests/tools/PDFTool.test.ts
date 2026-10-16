@@ -52,9 +52,7 @@ describe('P4b：PDFTool extract/info fail-closed（原为假成功）', () => {
     expect(r.success).toBe(false);
     expect(String(r.error)).toContain('media_pdf_extract');
     // 反向自证：占位文本不再出现在输出里
-    expect(JSON.stringify(r)).not.toContain(
-      'requires a PDF parsing library]'
-    );
+    expect(JSON.stringify(r)).not.toContain('requires a PDF parsing library]');
   });
 
   it('info ⇒ success:false（不再伪造 pages/title 为 unknown）', async () => {

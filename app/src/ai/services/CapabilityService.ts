@@ -64,6 +64,28 @@ export enum CapabilityCategory {
 }
 
 /**
+ * 分类的**显示顺序**（唯一真源：顺序 = 数组下标 + 1；不在其中 ⇒ 落 99）。
+ *
+ * 2026-10-16（台账 `CAPS-CATEGORY-SINGLE-SOURCE`）收敛三处同名声明为一处：
+ * ① 本文件原有一个独立的 `Record<string, number>` 顺序表 —— 与上面的枚举**并列**声明同一事实
+ *    （枚举说「有哪些分类」、表说「谁在前」）；
+ * ② `capabilities.default.yaml` 的 `categories:` 块是**第三处**（key + labelKey + sortOrder），
+ *    但**零运行时消费者**（`refreshCache()` 的分类是从能力的 `category` 值去重派生、排序读本表）
+ *    ⇒ 已删除该块（删除依据见台账 CD01–CD04 取证）。
+ *
+ * 为什么顺序留在**代码**而不是 YAML：打包产物**不含** `app/src/ai/config/capabilities.default.yaml`
+ * （`copy-seed-data.ts` 不复制它；`mergeYamlToDatabase()` 读不到时按既有约定静默降级）
+ * ⇒ 若把顺序交给 YAML，分发包里的分类顺序会静默退化。分类属**结构性 taxonomy**，随代码走。
+ */
+export const CATEGORY_ORDER: readonly CapabilityCategory[] = [
+  CapabilityCategory.CORE,
+  CapabilityCategory.VISION,
+  CapabilityCategory.MEDIA,
+  CapabilityCategory.TOOLS,
+  CapabilityCategory.SPECIAL,
+];
+
+/**
  * 能力定义接口
  */
 export interface ModelCapabilityDefinition {
@@ -537,17 +559,11 @@ export class CapabilityService {
   }
 
   /**
-   * 获取分类排序顺序
+   * 获取分类排序顺序（顺序真源 = `CATEGORY_ORDER`；未知分类 ⇒ 99 排末尾）
    */
   private getCategorySortOrder(key: string): number {
-    const order: Record<string, number> = {
-      [CapabilityCategory.CORE]: 1,
-      [CapabilityCategory.VISION]: 2,
-      [CapabilityCategory.MEDIA]: 3,
-      [CapabilityCategory.TOOLS]: 4,
-      [CapabilityCategory.SPECIAL]: 5,
-    };
-    return order[key] || 99;
+    const idx = CATEGORY_ORDER.indexOf(key as CapabilityCategory);
+    return idx >= 0 ? idx + 1 : 99;
   }
 
   // ==================== 公开 API ====================

@@ -9184,6 +9184,35 @@
       "changelog": [],
       "reopenWhen": "① 若 `categories` 块被赋予**运行时消费者**（当前 `CapabilityService.categoriesCache` 是由能力的 `category` 去重**派生**、排序读硬编码 `getCategorySortOrder()` ⇒ 该块目前只被声明面消费）⇒ 脚本里「分类块无运行时消费者…（全文见 archive/evidence-detail.jsonl#LINTCAPS-C6-COVERAGE）",
       "notes": "【由来】用户指定对本轮两个提交做**自查复核**，追加核出两条「门禁自身」的疑点：C6 漏查 `categories[].key` 唯一性；`duplicates()` 用 `String(sortOrder)` 比较 ⇒ 缺失字段被归一为 `'undefined'`，同分类两条都缺时会报「分类 X 内 sortOr…（全文见 archive/evidence-detail.jsonl#LINTCAPS-C6-COVERAGE）"
+    },
+    {
+      "id": "CAPS-CATEGORY-SINGLE-SOURCE",
+      "title": "收敛「能力分类」的三处同名声明为单一真源（代码 `CATEGORY_ORDER`）；删除 YAML `categories:` 死面 + 门禁 C5 改锚代码",
+      "source": "承 `LINTCAPS-C6-COVERAGE` 的 reopenWhen ① —— 自查复核时核出「YAML `categories[].sortOrder` 与代码 `getCategorySortOrder()` 硬编码表**双真源**（今日值一致，改一处即漂移）」，经用户裁定「另立一片收敛成单一真源」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/ai/services/CapabilityService.ts",
+        "app/src/ai/config/capabilities.default.yaml",
+        "app/scripts/lint-capabilities.ts",
+        "app/tests/gates/capabilityConsistencyGate.test.ts"
+      ],
+      "tests": [
+        "app/tests/gates/capabilityConsistencyGate.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **客户端仍有第二/三份**：`client/src/services/capabilityService.ts:13` 的 `CapabilityCategory` 枚举 + 同文件 `:344-348` 的 zh 标签表（`[CapabilityCategory.CORE]: 核心能力` …），与服务端生成的…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-SINGLE-SOURCE）",
+      "notes": "【问题】「能力分类」这一事实曾有**三处**声明：(a) `CapabilityService` 的 `CapabilityCategory` 枚举（说『有哪些分类』）、(b) 同文件的 `Record<string, number>` 顺序表（说『谁在前』）、(c) `capabilities.default.ya…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-SINGLE-SOURCE）"
     }
   ]
 }

@@ -16,15 +16,22 @@
  *   C2 `taskMappings[]` required ∪ optional ⊆ `capabilities[].key`
  *   C3 `capabilities[].taskTypes[]`     ⊆ 代码 `ALL_TASK_TYPES`
  *   C4 `capabilities[].dependencies[]`  ⊆ `capabilities[].key`
- *   C5 `capabilities[].category`        ∈ `categories[].key`
- *   C6 唯一性与排序字段完整性：能力 key · **分类 key** · 任务 taskType · 分类内 sortOrder ·
- *      任务 sortOrder；且**各 `sortOrder` 必须存在**（缺失 ⇒ 播种落 DB 默认 0 ⇒ 静默并列）
+ *   C5 `capabilities[].category`        ∈ 代码 `CATEGORY_ORDER`（分类真源，见下）
+ *   C6 唯一性与排序字段完整性：能力 key · 任务 taskType · 分类内 sortOrder · 任务 sortOrder；
+ *      且**各 `sortOrder` 必须存在**（缺失 ⇒ 播种落 DB 默认 0 ⇒ 静默并列）
  *   C7 代码 `ALL_TASK_TYPES` 的**每个**任务类型都有 `taskMappings` 行（≠ 漏登记）
  *
  * C7 的由来：缺映射时 `CapabilityService.validateTaskAssignment()` 直接返回
  * `mapping_not_found`（「未找到任务类型 X 的能力映射」）⇒ 用户在"任务分工"里看到**告警但功能仍可用**
  * 的**静默半失效**（与 `capability-task-mapping-unify.md` 的「taskMappings 覆盖全部 19 个 task」同源）。
  * C1 与 C7 合起来即两个集合**相等**：代码侧新增任务类型而未登记 ⇒ 立即变红，而不是等到用户看到告警。
+ *
+ * C5 的比对面为何是**代码**而不是 YAML：2026-10-16（台账 `CAPS-CATEGORY-SINGLE-SOURCE`）核出
+ * 「分类」这一事实曾有**三处**声明 ——（a）`CapabilityService` 的 `CapabilityCategory` 枚举、
+ * （b）同文件的 `Record<string, number>` 顺序表、（c）`capabilities.default.yaml` 的 `categories:` 块。
+ * 其中 (c) **零运行时消费者**（`refreshCache()` 的分类由能力的 `category` 去重派生、排序读 (b)）
+ * ⇒ 已删除该块，并把 (a)(b) 合并为 `CATEGORY_ORDER` 一处；C5 随之改锚该常量
+ * （比对面 = **运行时会真正用来排序的那份**，而不是一份没人读的声明）。
  *
  * **有意不校验**（如实边界）：`capabilities[].taskTypes` 与 `taskMappings[]` 的
  * `required/optionalCapabilities` 之间的**双向包含**关系。两者**粒度不同**：
@@ -46,6 +53,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { ALL_TASK_TYPES } from '../src/ai/modelRouter';
+import { CATEGORY_ORDER } from '../src/ai/services/CapabilityService';
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // app/scripts
 const APP_DIR = resolve(HERE, '..'); // app
@@ -59,7 +67,6 @@ const YAML_PATH = join(
 
 /** YAML 形态（只声明本门禁读到的字段） */
 export interface CapabilityDoc {
-  categories?: Array<{ key: string; sortOrder?: number }>;
   capabilities?: Array<{
     key: string;
     category?: string;
@@ -100,10 +107,12 @@ export function checkCapabilityConsistency(
   const codeTasks = new Set<string>(taskTypes);
   const caps = doc.capabilities ?? [];
   const mappings = doc.taskMappings ?? [];
-  const categories = doc.categories ?? [];
 
   const capKeys = new Set(caps.map((c) => c.key));
-  const catKeys = new Set(categories.map((c) => c.key));
+  // 分类真源 = 代码 `CATEGORY_ORDER`（顺序，亦隐式定义「可排序的分类集合」）。
+  // 2026-10-16 前，YAML 里另有一份 `categories:` 声明块作为比对面 —— 该块**零运行时消费者**
+  // 已删除（见台账 `CAPS-CATEGORY-SINGLE-SOURCE` 的 CD01–CD04 取证）⇒ C5 改锚代码枚举。
+  const categoryKeys = new Set<string>(CATEGORY_ORDER);
 
   // C1 / C2 / C6（任务映射侧）
   for (const m of mappings) {
@@ -144,10 +153,12 @@ export function checkCapabilityConsistency(
         });
       }
     }
-    if (c.category !== undefined && !catKeys.has(c.category)) {
+    if (c.category !== undefined && !categoryKeys.has(c.category)) {
       issues.push({
         rule: 'C5',
-        detail: `能力「${c.key}」的 category「${c.category}」未在 categories 中定义`,
+        detail:
+          `能力「${c.key}」的 category「${c.category}」不在代码 CATEGORY_ORDER 内` +
+          `（运行时取排序会落 99 ⇒ 排到末尾、顺序不可读）`,
       });
     }
   }
@@ -168,27 +179,21 @@ export function checkCapabilityConsistency(
   for (const key of duplicates(caps.map((c) => c.key))) {
     issues.push({ rule: 'C6', detail: `能力 key「${key}」重复` });
   }
-  for (const key of duplicates(categories.map((c) => c.key))) {
-    // 分类块**当前无运行时消费者**（`CapabilityService.categoriesCache` 由能力的 category
-    // 去重派生，排序读硬编码 `getCategorySortOrder`）⇒ 本条属**声明洁癖级**（两条同名分类
-    // 各带自己的 sortOrder 会让人读不出真序），不是运行期风险 —— 如实标注，不夸大。
-    issues.push({ rule: 'C6', detail: `分类 key「${key}」重复` });
-  }
   for (const t of duplicates(mappings.map((m) => m.taskType))) {
     issues.push({ rule: 'C6', detail: `taskMappings.taskType「${t}」重复` });
   }
-  for (const cat of categories) {
+  for (const cat of new Set(caps.map((c) => c.category))) {
     // 只比较**双方都存在**的 sortOrder：缺失由下方「排序字段完整性」单独报，
     // 否则会以 `String(undefined)` 的形态误报成「undefined 重复」
     const orders = caps
-      .filter((c) => c.category === cat.key)
+      .filter((c) => c.category === cat)
       .map((c) => c.sortOrder)
       .filter((o): o is number => o !== undefined)
       .map(String);
     for (const o of duplicates(orders)) {
       issues.push({
         rule: 'C6',
-        detail: `分类「${cat.key}」内 sortOrder ${o} 重复`,
+        detail: `分类「${cat}」内 sortOrder ${o} 重复`,
       });
     }
   }
@@ -252,9 +257,10 @@ function main(): number {
 
   const issues = checkCapabilityConsistency(doc, ALL_TASK_TYPES);
 
+  // 分类数此处按**代码真源**（CATEGORY_ORDER）计，不再读 YAML 的 categories 块（该块已删除）
   console.log(
     `[lint:capabilities] 能力 ${doc.capabilities?.length ?? 0} · ` +
-      `分类 ${doc.categories?.length ?? 0} · ` +
+      `代码分类 ${CATEGORY_ORDER.length} · ` +
       `任务映射 ${doc.taskMappings?.length ?? 0} · ` +
       `代码任务类型 ${ALL_TASK_TYPES.length}（C1–C7 静态一致性）`
   );

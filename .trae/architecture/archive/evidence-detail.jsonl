@@ -5107,6 +5107,32 @@
 {"id":"LINTCAPS-C6-COVERAGE","k":"code#0","i":0,"c":"app/scripts/lint-capabilities.ts"}
 {"id":"LINTCAPS-C6-COVERAGE","k":"code#1","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
 {"id":"LINTCAPS-C6-COVERAGE","k":"tests#0","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"title","i":0,"c":"收敛「能力分类」的三处同名声明为单一真源（代码 `CATEGORY_ORDER`）；删除 YAML `categories:` 死面 + 门禁 C5 改锚代码"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"source","i":0,"c":"承 `LINTCAPS-C6-COVERAGE` 的 reopenWhen ① —— 自查复核时核出「YAML `categories[].sortOrder` 与代码 `getCategorySortOrder()` 硬编码表**双真源**（今日值一致，改一处即漂移）」，经用户裁定「另立一片收敛成单一真源」"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"reopenWhen","i":0,"c":"① **客户端仍有第二/三份**：`client/src/services/capabilityService.ts:13` 的 `CapabilityCategory` 枚举 + 同文件 `:344-348` 的 zh 标签表（`[CapabilityCategory.CORE]: 核心能力` …），与服务端生成的 `labelKey`（`"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"reopenWhen","i":1,"c":"capability.category.${key}`，见 `CapabilityService.refreshCache()`）**未跨端对齐、且无门禁** ⇒ 若要连标签也单源，需另立一片（可复用 `crossDeploymentContract.test.ts` 的跨端契约手法）；② 若将来分类需**用户自定义/可扩展** ⇒ 需引入 DB 表，并把 "}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"reopenWhen","i":2,"c":"`CATEGORY_ORDER` 降级为「播种默认值」（届时「顺序留代码」的理由不再成立）；③ 若打包链改为**分发** `capabilities.default.yaml`（`copy-seed-data.ts` 目前不复制它，只复制 .env.example / package.json / docs/ / config/{startup,"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"reopenWhen","i":3,"c":"permissions}.yaml / seed/pyapp/**）⇒ 本条「YAML 在分发包里读不到、故顺序必须随代码」的论证须重评；④ 门禁 C5 的比对面已从「YAML 声明」换成「运行时会真正用于排序的那份常量」——若日后新增分类，须同时改 `CapabilityCategory` 与 `CATEGORY_ORDER`（两者仍相邻同文件，且 C5 "}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"reopenWhen","i":4,"c":"会拦下未登记的 `category`）。"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":0,"c":"【问题】「能力分类」这一事实曾有**三处**声明：(a) `CapabilityService` 的 `CapabilityCategory` 枚举（说『有哪些分类』）、(b) 同文件的 `Record<string, number>` 顺序表（说『谁在前』）、(c) `capabilities.default.yaml` 的 `categories:` 块"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":1,"c":"（key + labelKey + sortOrder）。三处今日取值一致，但**改一处即漂移**，且无任何门禁比对。【CD01 静态引用 / 动态导入 / 配置注册】全仓搜 `data.categories` / `categories:` / `labelKey` 读点：`CapabilityService.mergeYamlToDatabase()` "}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":2,"c":"与 `validateYamlSchema()` 只处理 `data.capabilities` 与 `data.taskMappings`；`refreshCache()` 的分类是**从能力的 `category` 值去重派生**（`categorySet`）、排序读 (b) ⇒ **YAML `categories:` 块零读取者**；客户端 `"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":3,"c":"categories` 全部来自 `/v1/capabilities` API（服务端派生），与 YAML 无耦合。【CD02 构建入口 / 运行时发现】`app/scripts/copy-seed-data.ts` **不复制** `src/ai/config/capabilities.default.yaml`（复制清单：`.env.example` /"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":4,"c":" `package.json` / `docs/` / `config/{startup,permissions}.yaml` / `seed/pyapp/**`）⇒ 分发包里 `mergeYamlToDatabase()` 本就读不到该文件（既有约定：加载失败不阻塞启动）⇒ **这正是「顺序不能交给 YAML」的硬理由**：若顺序由 YAML 决定，分发包"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":5,"c":"会静默退化。【CD03 DI / 反射 / 外部协议】该 YAML 无 DI / 反射 / 路由注册入口；`CapabilitiesAPI` 的 `category` 字段是**请求体**（用户可写），与本块无耦合。【CD04 测试 / 构建变体 / 运行模式】`crossDeploymentContract.test.ts:197` 用正则 `^\\s{2}"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":6,"c":"- key:\\s*([A-Za-z_]+)\\s*$` 抓「后端规范集合」——该正则**会连带匹配** `categories:` 块的 5 个 `- key: x`（既有判据是 ⊆ + `>20` 规模哨兵 ⇒ 未误判，但集合被多算了 5 项）；删除后该集合更准确（33 → 28）。除本门禁测试外无测试引用该块；4 个构建变体（"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":7,"c":"core/personal/coding/enterprise）与 4 种运行模式（CLI/REPL/MCP/DAEMON）均不读它。【改了什么】(1) `CapabilityService.ts`：把 (a)(b) **合并为一处** —— 新增 `export const CATEGORY_ORDER: readonly "}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":8,"c":"CapabilityCategory[]`（顺序 = 下标 + 1，不在其中 ⇒ 99），`getCategorySortOrder()` 改为 `indexOf` 查该常量；**等价改写**：core1/vision2/media3/tools4/special5 不变，未知键仍 99（且顺带修掉旧写法 `order[key] || 99` 在 `key="}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":9,"c":"'constructor'` 之类原型键上会返回函数对象的隐患）。(2) 删除 YAML 的 `categories:` 块，原位留 3 行注释指向代码真源（避免后来者再补一份）。(3) 门禁 C5 改锚 `CATEGORY_ORDER`（比对面从「没人读的声明」换成「运行时会真正用来排序的那份」），C6 去掉「分类 key 重复」（不再有分类声明块）但保留"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":10,"c":"「分类内 sortOrder 重复」（改按能力的 `category` 分组）。【验证】`bun run lint:capabilities` PASS（28 能力 / **代码分类 5** / 19 映射 / 19 代码任务类型，新锚点零命中）；门禁自证 **14 pass / 0 fail**（C5 夹具改为「category 不在代码 "}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":11,"c":"CATEGORY_ORDER 内」、C6 夹具改为「能力侧同分类 sortOrder 重复」）；`crossDeploymentContract.test.ts` **9 pass / 0 fail**（顺带证明删块未破坏其解析）；prettier --check / eslint / `tsc -p tsconfig.scripts.json` 全绿；**"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":12,"c":"完整 `bun run ci` 全链通过（6583 pass / 42 skip / 0 fail）**。【口径边界（不夸大）】服务侧顺序表合并是**等价改写**，其等价性由「同一常量被两条路径共用」结构性保证 + 全量测试通过，**未新增**该私有方法的单测（无直接可达的测试入口：`getCategorySortOrder`/`refreshCache` "}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"notes","i":13,"c":"均为 private，唯一公开入口 `getCategories()` 需初始化 DB）。"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"code#0","i":0,"c":"app/src/ai/services/CapabilityService.ts"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"code#1","i":0,"c":"app/src/ai/config/capabilities.default.yaml"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/scripts/lint-capabilities.ts"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
+{"id":"CAPS-CATEGORY-SINGLE-SOURCE","k":"tests#0","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

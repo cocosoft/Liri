@@ -1,22 +1,9 @@
 # 模型能力默认配置基线
 # 此文件随版本更新，用户自定义配置存储在数据库中
 
-categories:
-  - key: core
-    labelKey: capability.category.core
-    sortOrder: 1
-  - key: vision
-    labelKey: capability.category.vision
-    sortOrder: 2
-  - key: media
-    labelKey: capability.category.media
-    sortOrder: 3
-  - key: tools
-    labelKey: capability.category.tools
-    sortOrder: 4
-  - key: special
-    labelKey: capability.category.special
-    sortOrder: 5
+# 注：分类（category）的取值与显示顺序**不在此声明** —— 唯一真源是代码
+# `app/src/ai/services/CapabilityService.ts` 的 `CapabilityCategory` 枚举 + `CATEGORY_ORDER`
+# （本文件不进分发包，顺序放这里会在打包环境静默退化 —— 台账 CAPS-CATEGORY-SINGLE-SOURCE）
 
 capabilities:
   # 核心能力

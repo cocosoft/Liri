@@ -24,10 +24,15 @@ import { ALL_TASK_TYPES } from '../../src/ai/modelRouter';
 
 const REPO_ROOT = join(process.cwd(), '..');
 
-/** 最小合法文档（C1–C7 全不触发）；夹具均为它的**单点扰动** */
+/**
+ * 最小合法文档（C1–C7 全不触发）；夹具均为它的**单点扰动**。
+ *
+ * 注：夹具**不含 `categories` 字段** —— 分类取值与顺序的唯一真源是代码
+ * （`CapabilityService` 的 `CapabilityCategory` + `CATEGORY_ORDER`），YAML 侧不再声明分类块
+ * （见台账 `CAPS-CATEGORY-SINGLE-SOURCE`）⇒ C5 的比对面是代码常量，不是本夹具。
+ */
 function legalDoc(): CapabilityDoc {
   return {
-    categories: [{ key: 'core', sortOrder: 1 }],
     capabilities: [
       { key: 'streaming', category: 'core', taskTypes: ['chat'], sortOrder: 1 },
       {
@@ -107,7 +112,7 @@ describe('lint:capabilities 负向夹具：C1–C7 每条规则**必须**判出'
     expect(rulesOf(doc, FIXTURE_TASKS)).toContain('C4');
   });
 
-  it('C5：category 未在 categories 中定义 ⇒ 判出', () => {
+  it('C5：category 不在代码 CATEGORY_ORDER 内 ⇒ 判出', () => {
     const doc = legalDoc();
     doc.capabilities![0].category = 'nonexistent_category';
     expect(rulesOf(doc, FIXTURE_TASKS)).toContain('C5');
@@ -132,10 +137,11 @@ describe('lint:capabilities 负向夹具：C1–C7 每条规则**必须**判出'
     expect(rulesOf(dupOrder, FIXTURE_TASKS)).toContain('C6');
   });
 
-  it('C6：分类 key 重复 ⇒ 判出', () => {
-    const dupCat = legalDoc();
-    dupCat.categories!.push({ key: 'core', sortOrder: 9 });
-    expect(rulesOf(dupCat, FIXTURE_TASKS)).toContain('C6');
+  it('C6：分类内 sortOrder 重复（能力侧） ⇒ 判出', () => {
+    const dupCapOrder = legalDoc();
+    // 两条能力都属 core 分类 ⇒ sortOrder 同为 1 即重复
+    dupCapOrder.capabilities![1].sortOrder = 1;
+    expect(rulesOf(dupCapOrder, FIXTURE_TASKS)).toContain('C6');
   });
 
   it('C6：sortOrder 缺失 ⇒ **明确报「缺少」**（不得退化成「undefined 重复」）', () => {

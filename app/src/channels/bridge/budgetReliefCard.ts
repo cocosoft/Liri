@@ -87,6 +87,17 @@ export function buildBudgetReliefCard(args: {
 /** 已发卡会话（进程内去重：同一挂起点不重复刷卡；重启即清，见 spec §3-5） */
 const sentSessions = new Set<string>();
 
+/**
+ * **入站回调已接线**的通道白名单（2026-10-17，Spec `channel-budget-inline-relief.md` §2 D2 风险项）。
+ *
+ * ⚠️ 为什么必须白名单：实现 `sendInteractive` 的通道有 12 个，但**入站按钮回调**目前**只有 QQ**
+ * （`INTERACTION_CREATE`）。对「出站能发、入站没接」的通道给按钮 ⇒ 用户点了**毫无反应**（飞书会
+ * 一直 loading）——**比没有按钮更糟**（用户以为按了、其实什么都没发生）。
+ *
+ * 新增通道时必须**同时**接完出站与入站，再把该通道 id 加进来。
+ */
+export const BUTTON_CAPABLE_CHANNELS: ReadonlySet<string> = new Set(['qq']);
+
 /** 仅供测试：清空去重标记 */
 export function resetBudgetReliefCardForTest(): void {
   sentSessions.clear();
@@ -135,13 +146,39 @@ export async function sendBudgetReliefCard(args: {
   }
   sentSessions.add(args.sessionId);
 
+  // 降级文案 = **无按钮**版（如实：不谎称可点）
+  const plain = `**今日预算已用完**\n${buildBudgetSuspendedNotice({ hasButtons: false })}`;
+
+  // 入站回调**未接线**的通道 ⇒ **不给按钮**（点了没反应比没有按钮更糟）⇒ 只发如实文案（含桌面端出路）
+  if (!BUTTON_CAPABLE_CHANNELS.has(args.channelName)) {
+    logger.info('sendBudgetReliefCard: 该通道入站回调未接线，改发无按钮文案', {
+      channelName: args.channelName,
+    });
+    try {
+      if (typeof outbound?.sendMarkdown === 'function') {
+        await outbound.sendMarkdown(args.target, plain);
+        return true;
+      }
+      if (typeof outbound?.sendText === 'function') {
+        await outbound.sendText(args.target, plain);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      await handleError(err, {
+        module: 'channels:budgetReliefCard',
+        action: 'sendBudgetReliefCard:无按钮文案发送失败',
+        context: { channelName: args.channelName },
+      });
+      return false;
+    }
+  }
+
   const card = buildBudgetReliefCard({
     sessionId: args.sessionId,
-    // 文案按**实际投递路径**取（有按钮 / 无按钮）—— 见 spec §D1：不得谎称"可点按钮"
+    // 文案按**实际投递路径**取（有按钮 / 无按钮）—— 见 spec §D1：不得谎称可点按钮
     text: buildBudgetSuspendedNotice({ hasButtons: true }),
   });
-  // 降级文案 = **无按钮**版（如实：不谎称可点）
-  const plain = `**${card.title}**\n${buildBudgetSuspendedNotice({ hasButtons: false })}`;
 
   try {
     if (typeof outbound?.sendInteractive === 'function') {

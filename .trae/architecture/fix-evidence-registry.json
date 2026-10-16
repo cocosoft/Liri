@@ -9213,6 +9213,38 @@
       "changelog": [],
       "reopenWhen": "① **客户端仍有第二/三份**：`client/src/services/capabilityService.ts:13` 的 `CapabilityCategory` 枚举 + 同文件 `:344-348` 的 zh 标签表（`[CapabilityCategory.CORE]: 核心能力` …），与服务端生成的…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-SINGLE-SOURCE）",
       "notes": "【问题】「能力分类」这一事实曾有**三处**声明：(a) `CapabilityService` 的 `CapabilityCategory` 枚举（说『有哪些分类』）、(b) 同文件的 `Record<string, number>` 顺序表（说『谁在前』）、(c) `capabilities.default.ya…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-SINGLE-SOURCE）"
+    },
+    {
+      "id": "CAPS-CATEGORY-LABEL-SINGLE-SOURCE",
+      "title": "收敛「能力分类标签」为跨端单源：服务端 labelKey 补 `model.` 前缀 + 客户端删 4 处副本 + 新增跨端契约 B4",
+      "source": "承 `CAPS-CATEGORY-SINGLE-SOURCE` 的 reopenWhen ① —— 「客户端仍有 `CapabilityCategory` 枚举 + zh 标签表，与服务端生成的 `labelKey` 未跨端对齐、且无门禁」（用户裁定另立一片收敛）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/ai/services/CapabilityService.ts",
+        "app/tests/contracts/crossDeploymentContract.test.ts",
+        "client/src/services/capabilityService.ts",
+        "client/src/components/common/CapabilitySelector.tsx",
+        "client/src/components/modelAdmin/ModelMetaEditor.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts"
+      ],
+      "tests": [
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **能力标签（28 个）同源问题未修**（本片只覆盖分类）：`capabilities[].labelKey` 形如 `capability.<x>`，而 locale 把能力/分类标签都放在 `model.capability.<x>` 下 ⇒ 客户端 `t(labelKey)` 恒 miss ⇒ `getDi…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-LABEL-SINGLE-SOURCE）",
+      "notes": "【发现链（根因）】分类标签此前有**四条**互不知晓的路径：①服务端生成 `labelKey = capability.category.<key>`（**缺 `model.` 前缀**）⇒ 客户端 `t()` 恒 miss；②客户端 `getCategoryDisplayName` 的**硬编码中文兜底表**（五条…（全文见 archive/evidence-detail.jsonl#CAPS-CATEGORY-LABEL-SINGLE-SOURCE）"
     }
   ]
 }

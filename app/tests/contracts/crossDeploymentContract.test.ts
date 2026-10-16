@@ -21,6 +21,8 @@ import { join, relative } from 'node:path';
 
 import { DEFAULT_HTTP_PORT } from '../../src/core/ports';
 import { DAILY_BUDGET_SSE_EVENT } from '../../src/infrastructure/http/handlers/daily-budget-handlers';
+// B4：分类键集真源（服务端 taxonomy；客户端不得再枚举一份）
+import { CATEGORY_ORDER } from '../../src/ai/services/CapabilityService';
 
 /** 仓库根（`app/tests/contracts/` → 上三级） */
 const ROOT = join(import.meta.dir, '..', '..', '..');
@@ -240,5 +242,110 @@ describe('HD-P0-3 · B3 模型能力标签集（跨部署单元同值契约）',
       .filter((abs) => re.test(readFileSync(abs, 'utf-8')))
       .map(relToRoot);
     expect(defining).toEqual([]);
+  });
+});
+
+/**
+ * HD-P0-3 · B4 —— **能力分类标签**跨部署单元契约（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）。
+ *
+ * 事实链（收敛后的**单一来源**）：
+ *   服务端 `CATEGORY_ORDER`（分类键集 + 顺序）
+ *     → `CapabilityService.refreshCache()` 生成 `labelKey = model.capability.category.<key>`
+ *     → 客户端 `capabilityService.getCategoryDisplayName*(...)` 只做 `t(labelKey)`
+ *     → `client/src/i18n/locales/{zh,en}.ts` 的 `model.capability.category.*`
+ *
+ * 断言链上**唯一允许**的两个跨端同步点（改任一侧即变红，消除「人工同步」）：
+ *   ① **键集**：服务端每个分类在 zh / en 两个 locale 里都有标签键
+ *      （漏一个 ⇒ 该分类在 UI 上显示原始键）；
+ *   ② **标签键前缀**：模板必须带 `model.` 前缀 —— 2026-10-16 前服务端发的是
+ *      `capability.category.<key>`（**缺前缀**）⇒ `t()` 恒 miss，导致三个调用方各自退到本地副本
+ *      （硬编码中文表 / `common.capabilityCat*` / 组件内私有 `t('model...')`）。
+ *
+ * 并附**防回流**负向锁：客户端不得再出现「分类键集 / 分类标签」的第二份声明。
+ */
+describe('HD-P0-3 · B4 能力分类标签（跨部署单元契约）', () => {
+  /**
+   * 从 locale 源文件抽取 `model.capability.category` 块内的键。
+   *
+   * 解析方式（缩进定界，**不引入 TS 解析器**）：先定位 `    capability: {`，
+   * 再定位其后的 `      category: {`，随后收集 8 空格缩进的键行，直到 6 空格的 `},`。
+   * 抽不到任何键 ⇒ 直接返回空数组，由调用方的**非空哨兵**报红（防"扫了个空也绿"）。
+   */
+  function categoryLabelKeys(localeSrc: string): string[] {
+    const lines = localeSrc.split(/\r?\n/);
+    const capIdx = lines.findIndex((l) => /^ {4}capability: \{$/.test(l));
+    if (capIdx < 0) return [];
+    const catIdx = lines.findIndex(
+      (l, i) => i > capIdx && /^ {6}category: \{$/.test(l)
+    );
+    if (catIdx < 0) return [];
+    const keys: string[] = [];
+    for (let i = catIdx + 1; i < lines.length; i++) {
+      if (/^ {6}\},?\s*$/.test(lines[i] as string)) break;
+      const m = (lines[i] as string).match(/^ {8}([A-Za-z_][\w]*):/);
+      if (m) keys.push(m[1] as string);
+    }
+    return keys;
+  }
+
+  it('① 服务端分类真源非空，且标签键模板带 `model.` 前缀（防前缀回流）', () => {
+    expect(CATEGORY_ORDER.length).toBeGreaterThan(0);
+    // 该模板是"服务端分类 → 客户端 i18n"的唯一接口，前缀缺失会让下面 ② 的键**全部**解析不到
+    expect(read('app/src/ai/services/CapabilityService.ts')).toContain(
+      'labelKey: `model.capability.category.${key}`'
+    );
+  });
+
+  it('② 服务端每个分类在 zh / en 两个 locale 中都有标签键（漏 ⇒ UI 显示原始键）', () => {
+    for (const locale of ['zh', 'en']) {
+      const keys = categoryLabelKeys(
+        read(`client/src/i18n/locales/${locale}.ts`)
+      );
+      // 非空哨兵：解析器失效（缩进/块名变了）必须报红，不得静默"0 缺失"
+      expect(keys.length, `${locale} 未解析到分类标签块`).toBeGreaterThan(0);
+      const missing = CATEGORY_ORDER.filter((k) => !keys.includes(k));
+      expect(missing, `${locale} 缺少分类标签键`).toEqual([]);
+    }
+  });
+
+  it('③ 防回流：客户端不再有分类键集 / 分类标签的第二份声明', () => {
+    const files: string[] = [];
+    collectTsFiles(CLIENT_SRC, files);
+    const scan = files
+      .filter(
+        (abs) => !abs.includes('__tests__') && !/\.test\.(ts|tsx)$/.test(abs)
+      )
+      // locale 是分类标签的**唯一正主**，其中的中文标签与 `model.capability.category` 键是合法的
+      .filter((abs) => !relToRoot(abs).includes('client/src/i18n/locales/'));
+
+    const offenders: string[] = [];
+    for (const abs of scan) {
+      const rel = relToRoot(abs);
+      const lines = readFileSync(abs, 'utf-8').split(/\r?\n/);
+      for (const raw of lines) {
+        // 只看代码行：注释里出现这些词（如本片留下的说明、`sessionService` 的「工具能力 profile」）
+        // 是**合法**的 —— 否则防回流锁会把注释当违规（实测踩中过一次）
+        const line = raw.trim();
+        if (
+          line.startsWith('//') ||
+          line.startsWith('*') ||
+          line.startsWith('/*')
+        )
+          continue;
+        // i18n 键必为字符串字面量 ⇒ 用引号定界，避免命中注释/类型名
+        if (/["'`]common\.capabilityCat/.test(line))
+          offenders.push(`${rel}: 又引用了已删除的 common.capabilityCat* 键`);
+        if (/(?:核心能力|视觉能力|媒体能力|工具能力|特殊能力)/.test(line))
+          offenders.push(`${rel}: 又内联了分类中文标签（应走 i18n）`);
+        // 分类**键集/顺序**字面量：连续列出 ≥3 个分类键（如 `["core","vision","media",…]`）
+        if (/["']core["']\s*,\s*["']vision["']\s*,\s*["']media["']/.test(line))
+          offenders.push(
+            `${rel}: 又内联了分类键集/顺序（应取服务端 categories）`
+          );
+        if (/\benum\s+CapabilityCategory\b/.test(line))
+          offenders.push(`${rel}: 又声明了客户端 CapabilityCategory 枚举`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

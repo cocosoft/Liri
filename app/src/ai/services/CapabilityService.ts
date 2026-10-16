@@ -549,7 +549,11 @@ export class CapabilityService {
     this.categoriesCache = Array.from(categorySet)
       .map((key) => ({
         key,
-        labelKey: `capability.category.${key}`,
+        // 分类标签的 i18n 键**在服务端生成**（运行时生成 ⇒ 改此处对所有用户立即生效，不涉播种/迁移）。
+        // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原值为 `capability.category.<key>`，
+        // **缺 `model.` 前缀** ⇒ 客户端 `t()` 恒 miss（locale 把能力/分类标签都放在 `model:` 命名空间下），
+        // 调用方只能各自退到本地副本（硬编码中文表 / 另一套 i18n 键 / 私有实现）。
+        labelKey: `model.capability.category.${key}`,
         sortOrder: this.getCategorySortOrder(key),
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder);

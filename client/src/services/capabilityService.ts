@@ -9,19 +9,17 @@ import { httpLegacy as http } from "./httpClient";
 import { ENDPOINTS } from "./endpoints";
 import { handleClientError } from "../utils/handleError";
 
-/** 能力分类 */
-export enum CapabilityCategory {
-  CORE = "core",
-  VISION = "vision",
-  MEDIA = "media",
-  TOOLS = "tools",
-  SPECIAL = "special",
-}
-
 /** 能力定义接口 */
 export interface ModelCapabilityDefinition {
   key: string;
-  category: CapabilityCategory;
+  /**
+   * 分类键（如 `core` / `vision`）。
+   *
+   * 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原为本地 `CapabilityCategory` 枚举 ——
+   * 那是**客户端第二份分类键集声明**（真源在服务端 `CATEGORY_ORDER`）⇒ 已删，改为 `string`：
+   * 分类列表由 `/v1/capabilities` 下发，客户端不需要也不应再枚举一遍。
+   */
+  category: string;
   labelKey: string;
   descriptionKey: string;
   labelFallback: string;
@@ -325,9 +323,14 @@ export const capabilityService = {
 
   /**
    * 获取分类的显示名称
-   * @param category 分类定义
-   * @param t 翻译函数（可选）
-   * @returns 显示名称
+   *
+   * 真源：**服务端下发的 `category.labelKey`**（= `model.capability.category.<key>`）+ 客户端 i18n。
+   * 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：删除原先的**硬编码中文兜底表** ——
+   * 它既是重复声明，又让非中文界面退回中文（且掩盖了 labelKey 前缀失效的真问题）。
+   * 现约定：i18n 未命中 ⇒ 原样返回分类键（可诊断，不再是"看着对但语言错"的文本）。
+   *
+   * @param category 分类定义（含服务端下发的 labelKey）
+   * @param t 翻译函数（可选；不传则直接返回分类键）
    */
   getCategoryDisplayName(
     category: CapabilityCategoryDefinition,
@@ -339,14 +342,29 @@ export const capabilityService = {
         return translated;
       }
     }
-    // 提供默认的分类显示名称映射
-    const fallbackNames: Record<string, string> = {
-      [CapabilityCategory.CORE]: "核心能力",
-      [CapabilityCategory.VISION]: "视觉能力",
-      [CapabilityCategory.MEDIA]: "媒体能力",
-      [CapabilityCategory.TOOLS]: "工具能力",
-      [CapabilityCategory.SPECIAL]: "特殊能力",
-    };
-    return fallbackNames[category.key] || category.key;
+    return category.key;
+  },
+
+  /**
+   * 按分类键解析显示名（各 UI 的**唯一**入口）。
+   *
+   * 存在的意义：组件常只持有分类键（分组结果的 key），而不是分类定义对象。
+   * 分类定义列表（含服务端 labelKey）由 `/v1/capabilities` 下发 ⇒ 这里查表 + 委派给
+   * {@link getCategoryDisplayName}，**避免各组件各自复制 i18n 键约定或中文标签表**
+   * （此前 `CapabilitySelector` 的 `CATEGORY_NAME_KEYS`、`ModelMetaEditor` 的
+   * `known` 数组 + 私有 `t('model.capability.category.' + key)` 即为此类副本）。
+   *
+   * @param categories 分类定义列表（服务端下发）
+   * @param key 分类键
+   * @param t 翻译函数（可选）
+   * @returns 显示名；列表里查不到 ⇒ 原样返回分类键
+   */
+  getCategoryDisplayNameByKey(
+    categories: CapabilityCategoryDefinition[],
+    key: string,
+    t?: (key: string) => string,
+  ): string {
+    const category = categories.find((c) => c.key === key);
+    return category ? this.getCategoryDisplayName(category, t) : key;
   },
 };

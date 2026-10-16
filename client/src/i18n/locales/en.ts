@@ -164,11 +164,6 @@ const en = {
     channelMetricsProcessingItem: "{{channel}}: {{ms}}ms ({{count}} msgs)",
     channelMetricsSendRate: "Outbound send success rate",
     channelMetricsSendRateItem: "{{platform}}: {{rate}}% ({{ok}}/{{total}})",
-    capabilityCatCore: "Core",
-    capabilityCatVision: "Vision",
-    capabilityCatMedia: "Media",
-    capabilityCatTools: "Tools",
-    capabilityCatSpecial: "Special",
     capabilityTitle: "Capabilities",
     capabilityLoading: "Loading capabilities...",
     capabilitySelected: "({{count}} selected)",
@@ -1721,7 +1716,8 @@ const en = {
     toolsLoading: "Loading tool visibility…",
     toolsLoadFailed:
       "Failed to load tool visibility (backend not ready or endpoint unreachable)",
-    toolsSaveFailed: "Save failed: the override did not take effect, please retry",
+    toolsSaveFailed:
+      "Save failed: the override did not take effect, please retry",
     toolsSaved: "Saved (effective from the next turn)",
     toolsSearchPlaceholder: "Search by tool name / category / reason",
     toolsEmpty: "No matching tools",
@@ -1746,7 +1742,8 @@ const en = {
     toolsConditionalNote:
       "Not part of this build's effective tool set (either not wired, or a factory feature flag is off) — overrides have no effect.",
     toolsOverrideIneffective: "Enabled but ineffective",
-    toolsReasonMandatory: "Required by the agent loop (always kept, cannot be off)",
+    toolsReasonMandatory:
+      "Required by the agent loop (always kept, cannot be off)",
     toolsReasonArchived: "Intentionally archived (needs explicit opt-in)",
     toolsReasonUnregisteredCategory:
       "Unregistered category (filtered out for every task type)",

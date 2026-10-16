@@ -4,7 +4,10 @@ import { modelAdminService } from "../../services/modelAdminService";
 import { configService } from "../../services/configService";
 import { capabilityService } from "../../services/capabilityService";
 import { handleClientError } from "../../utils/handleError";
-import type { ModelCapabilityDefinition } from "../../services/capabilityService";
+import type {
+  ModelCapabilityDefinition,
+  CapabilityCategoryDefinition,
+} from "../../services/capabilityService";
 import { CAPABILITY } from "../../constants/capabilities";
 
 interface ModelMetaEditorProps {
@@ -46,6 +49,10 @@ function ModelMetaEditor({
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>(
+    [],
+  );
+  // 分类定义列表（含服务端下发的 labelKey）—— 分类显示名的唯一来源，见 getCategoryName
+  const [categories, setCategories] = useState<CapabilityCategoryDefinition[]>(
     [],
   );
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
@@ -116,6 +123,22 @@ function ModelMetaEditor({
     };
     loadOverrides();
   }, [modelId]);
+
+  // 加载分类定义列表（分类显示名的唯一来源；服务端下发 labelKey）
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setCategories(await capabilityService.getCategories());
+      } catch (e) {
+        handleClientError(e, {
+          module: "components:modelAdmin:ModelMetaEditor",
+          action: "loadCategories",
+        });
+        // 加载失败 ⇒ 分类显示名退回分类键（由 getCategoryDisplayNameByKey 兜底），不阻塞编辑
+      }
+    };
+    loadCategories();
+  }, []);
 
   // 加载能力定义列表（从服务端动态获取）
   useEffect(() => {
@@ -218,11 +241,15 @@ function ModelMetaEditor({
   }, []);
 
   // 将能力按分类分组
+  //
+  // 分类**顺序与键集来自服务端**（`categories[].sortOrder`，真源 `CATEGORY_ORDER`）——
+  // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原为组件内硬编码
+  // `["core","vision","media","tools","special"]`（客户端又一份分类键集副本）。
   const capabilitiesByCategory = useMemo(() => {
     const grouped: Record<string, ModelCapabilityDefinition[]> = {};
-    const categoryOrder = ["core", "vision", "media", "tools", "special"];
-
-    for (const cat of categoryOrder) {
+    for (const cat of [...categories]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((c) => c.key)) {
       grouped[cat] = [];
     }
 
@@ -240,16 +267,15 @@ function ModelMetaEditor({
     }
 
     return grouped;
-  }, [capabilities]);
+  }, [capabilities, categories]);
 
   // 获取分类显示名称
-  const getCategoryName = (categoryKey: string): string => {
-    const known = ["core", "vision", "media", "tools", "special"];
-    if (known.includes(categoryKey)) {
-      return t(`model.capability.category.${categoryKey}`);
-    }
-    return categoryKey;
-  };
+  //
+  // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原实现自建 `known` 键集 + 私有
+  // `t('model.capability.category.' + key)` —— 前者是**客户端第三份分类键集副本**，后者把
+  // i18n 键约定抄进了组件。现统一走服务端下发的 `labelKey`（经 `capabilityService` 解析）。
+  const getCategoryName = (categoryKey: string): string =>
+    capabilityService.getCategoryDisplayNameByKey(categories, categoryKey, t);
 
   const handleChange = (field: keyof FormState, value: string | string[]) => {
     setForm((prev) => ({ ...prev, [field]: value }));

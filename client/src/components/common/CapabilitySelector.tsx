@@ -35,14 +35,6 @@ interface CapabilitySelectorProps {
   forceRefresh?: boolean;
 }
 
-const CATEGORY_NAME_KEYS: Record<string, string> = {
-  core: "common.capabilityCatCore",
-  vision: "common.capabilityCatVision",
-  media: "common.capabilityCatMedia",
-  tools: "common.capabilityCatTools",
-  special: "common.capabilityCatSpecial",
-};
-
 export default function CapabilitySelector({
   value,
   onChange,
@@ -194,11 +186,15 @@ export default function CapabilitySelector({
     }
 
     // 按分类分组
+    //
+    // 分类**顺序与键集来自服务端**（`categories[].sortOrder`，真源 `CATEGORY_ORDER`）——
+    // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原为组件内硬编码
+    // `["core","vision","media","tools","special"]`，是客户端第 N 份分类键集/顺序副本。
+    // 服务端列表尚未到达时，分类由下方按能力惰性建键（顺序 = 能力出现顺序），不影响功能。
     const grouped: Record<string, ModelCapabilityDefinition[]> = {};
-    const categoryOrder = ["core", "vision", "media", "tools", "special"];
-
-    // 初始化分类
-    for (const cat of categoryOrder) {
+    for (const cat of [...categories]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((c) => c.key)) {
       grouped[cat] = [];
     }
 
@@ -216,20 +212,15 @@ export default function CapabilitySelector({
     }
 
     return grouped;
-  }, [capabilities, searchTerm, onlyEnabled]);
+  }, [capabilities, categories, searchTerm, onlyEnabled]);
 
   // 获取分类显示名称
-  const getCategoryName = (categoryKey: string): string => {
-    // 优先从 categories 列表获取
-    const cat = categories.find((c) => c.key === categoryKey);
-    if (cat) {
-      return capabilityService.getCategoryDisplayName(cat);
-    }
-    // 回退到硬编码映射
-    return CATEGORY_NAME_KEYS[categoryKey]
-      ? t(CATEGORY_NAME_KEYS[categoryKey])
-      : categoryKey;
-  };
+  //
+  // 2026-10-16（台账 `CAPS-CATEGORY-LABEL-SINGLE-SOURCE`）：原实现**不传 `t`** ⇒ 恒走
+  // `getCategoryDisplayName` 的硬编码中文兜底（en 界面也显示中文），且另有 `CATEGORY_NAME_KEYS`
+  // 一套 `common.capabilityCat*` 副本。现统一走服务端下发的 `labelKey` + 客户端 i18n。
+  const getCategoryName = (categoryKey: string): string =>
+    capabilityService.getCategoryDisplayNameByKey(categories, categoryKey, t);
 
   // 切换能力选中状态
   const toggleCapability = useCallback(

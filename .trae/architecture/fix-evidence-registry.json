@@ -8214,15 +8214,48 @@
         "e2eVerified": true
       },
       "code": [
-        "client/src/components/ChatArea/ChatInput.tsx",
-        "client/src/stores/chat/branchBoundary.ts"
+        "client/src/components/ChatArea/ChatInput.tsx"
       ],
       "tests": [
-        "client/src/stores/chat/__tests__/branchBoundary.test.ts"
+        "app/tests/session/forkBoundaryBeforeMessage.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "① **非首条编辑仍未修（根因，下一片）**：需要「编辑点之前的事件边界」，客户端**拿不到可信值** —— 实测前一条 `lastEventSeq` 为 `null`；且 `withPaginationSeq` 对缺 seq 消息按数组顺序**合成**序号（那是消息分页游标语义、非事件 seq，用它当 `bound…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-ZERO-HISTORY）",
       "notes": "① 真机缺陷（本机 1420/18990）：分支流程原实现 = fork 全量 + 事后 `editTruncate`；该截断在**新会话**恒被后端 404（`Target message not found`，见 `app/src/runtime/api/messageMutation.ts` 按 `before…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-ZERO-HISTORY）"
+    },
+    {
+      "id": "FORK-BOUNDARY-BEFORE-MESSAGE",
+      "title": "「编辑并另存为分支」非首条编辑的分支截断层（承接 BRANCH-EDIT-ZERO-HISTORY 的 reopenWhen ①）：边界改由后端在**源会话事件**上解析（`fork { truncateBeforeMessageId }`，取编辑点之前**最后一个已闭合轮次**的 `turn/end`）；编辑点在首轮 ⇒ 零种子分支",
+      "source": "用户 2026-10-16「好的，按 boundary 方向修复截断层」；收口 BRANCH-EDIT-ZERO-HISTORY 的 reopenWhen ①（当时判定：边界只能由后端在源会话上解析）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/session/gateway/ForkBoundary.ts",
+        "app/src/session/SessionGateway.ts",
+        "app/src/chat/ChatManager.ts",
+        "app/src/runtime/api/sessionAgentOps.ts",
+        "app/src/runtime/api/CoreAPI.ts",
+        "app/src/runtime/api/CoreAPIImpl.ts",
+        "app/src/infrastructure/http/handlers/session-handlers.ts",
+        "client/src/services/sessionService.ts",
+        "client/src/components/ChatArea/ChatInput.tsx"
+      ],
+      "tests": [
+        "app/tests/session/forkBoundaryBeforeMessage.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **降级路径仍在**：消息不在源会话事件日志（如纯投影的存量会话）⇒ 后端返回失败 ⇒ `ChatInput` 退回「fork 全量 + 事后 `editTruncate`」，该路径**已知可能回显旧消息**（本期未修；要修需让 `truncateMessages` 走事件派生读路径，或给 fork 加投影侧边界…（全文见 archive/evidence-detail.jsonl#FORK-BOUNDARY-BEFORE-MESSAGE）",
+      "notes": "① 缺陷（真机 1420/18990）：分支流程原为「fork 全量 + 事后 `editTruncate`」；该截断按**投影**查 id（`messageMutation.ts` 走 `gateway.getMessages`），而 fork 只复制**事件**（子会话 `messages.jsonl` 为空）⇒…（全文见 archive/evidence-detail.jsonl#FORK-BOUNDARY-BEFORE-MESSAGE）"
     }
   ]
 }

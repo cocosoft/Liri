@@ -174,14 +174,24 @@ function seedBaseline(name: string, counts: GateCounts): void {
 
 /**
  * 棘轮比对（**只减不增**）：
- * - `HARDCODE_GATE_BASELINE_WRITE=1` ⇒ 播种当前结果并 `exit(0)`；
- * - 出现基线没有的键 / 某键计数 > 基线 ⇒ 打印「新增/扩大违规」⇒ `exit(1)`；
- * - 全部 ≤ 基线 ⇒ 打印 `结果：PASS（基线只减不增）`，并提示可下调的键。
+ * - `HARDCODE_GATE_BASELINE_WRITE=1` ⇒ 播种当前结果 ⇒ 返回 `0`；
+ * - 出现基线没有的键 / 某键计数 > 基线 ⇒ 打印「新增/扩大违规」⇒ 返回 `1`；
+ * - 全部 ≤ 基线 ⇒ 打印 `结果：PASS（基线只减不增）`，并提示可下调的键 ⇒ 返回 `0`。
+ *
+ * ⚠️ **本函数不再自行 `process.exit`**（2026-10-16 治本）：退出码**返回**给调用方，由 5 个入口
+ * 脚本以 `process.exit(main())` 收尾。原因（两条）：
+ * ① `scripts/lib/**` 是**库**，替宿主进程决定生死是错的分层 —— `scripts/lint-script-exit.ts`
+ *    头注明确警告「给被 import 的 helper 加 `process.exit` 会杀掉宿主进程」，而本函数正是那个 helper；
+ * ② 退出落在**入口文件**里，门禁的文本判据（入口必须含显式退出）**天然成立**，无需再在入口写
+ *    一行运行时不可达的兜底（见台账 `LINTEXIT-ENTRY-EXPLICIT-EXIT` 的 reopenWhen ①）。
+ *
+ * **fail-closed 由构造成立**：入口若漏写 `process.exit(main())`，文件里就没有 `process.exit(` 记号
+ * ⇒ `lint:exit` 直接判红（该门禁只扫入口文件自身），不会出现「违规却静默退出 0」。
  */
-export function ratchet(name: string, counts: GateCounts): never {
+export function ratchet(name: string, counts: GateCounts): 0 | 1 {
   if (BASELINE_WRITE) {
     seedBaseline(name, counts);
-    process.exit(0);
+    return 0;
   }
   const section = (loadBaseline()[`lint:${name}`] ?? {}) as GateCounts;
   const added: string[] = [];
@@ -203,12 +213,12 @@ export function ratchet(name: string, counts: GateCounts): never {
     console.error(`${tag} ❌ 新增/扩大违规（棘轮：白名单只减不增）:`);
     for (const a of added) console.error(`  - 新增键 ${a}`);
     for (const g of grown) console.error(`  - 计数扩大 ${g}`);
-    process.exit(1);
+    return 1;
   }
   console.log(`${tag} 结果：PASS（基线只减不增）`);
   if (shrinkable.length > 0) {
     console.log(`${tag} ℹ️ 可下调基线的键（仅提示，不自动改）:`);
     for (const s of shrinkable) console.log(`  - ${s}`);
   }
-  process.exit(0);
+  return 0;
 }

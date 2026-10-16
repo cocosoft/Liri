@@ -4893,6 +4893,30 @@
 {"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#2","i":0,"c":"scripts/lint-locale.ts"}
 {"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#3","i":0,"c":"scripts/lint-failmsg-refs.ts"}
 {"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#4","i":0,"c":"scripts/lint-evidence-linewidth.ts"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"title","i":0,"c":"lint:exit 治本：ratchet() 改返回退出码，出口移回 5 个入口（5 门禁 fail-closed 已实证）"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"source","i":0,"c":"承上一片 `LINTEXIT-ENTRY-EXPLICIT-EXIT` 的 reopenWhen ①（那片用的是「入口补兜底行」）；2026-10-16 用户裁定落地治本"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"reopenWhen","i":0,"c":"① 若日后新增使用 `ratchet()` 的门禁：必须写成 `process.exit(main())` + `main(): number` 且 `return ratchet(...)` —— 漏写则文件里没有 `process.exit(` 记号，`lint:exit` 直接判红（这正是 fail-closed 的结构性保证）；② 若 `"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"reopenWhen","i":1,"c":"scripts/lib/hardcodeScan.ts` 内**其它**函数（如 `loadBaseline` 的「基线缺失 ⇒ exit(1)」、`report` 的失败分支）的 lib 级 `process.exit` 也被要求搬迁：按同一方向处理（返回码 + 入口收尾），但注意那属于「fail-closed 的 lib 兜底」，搬迁前须先确认每条错误路"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"reopenWhen","i":2,"c":"径在入口都有对应出口；③ 若 `HARDCODE_GATE_BASELINE` 的语义变更：本片的两条负向自证命令（见 notes）须同步更新。"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":0,"c":"【治本内容】把退出**从 lib 移回入口**，共 2 处结构变更：① `scripts/lib/hardcodeScan.ts` 的 `ratchet(name, counts)` 由 `: never` 改为 **`: 0 | 1`**，其三条分支（`BASELINE_WRITE` 播种 ⇒ `return 0`；新增/扩大违规 ⇒ `return 1`"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":1,"c":"；PASS ⇒ `return 0`）**不再** `process.exit`；② 5 个入口（`lint-consts` / `lint-endpoints` / `lint-locale` / `lint-failmsg-refs` / `lint-evidence-linewidth`）由 `main(): void` 改为 `main(): "}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":2,"c":"number`、末句 `return ratchet(name, counts)`，文件尾部由「`main();` + 上一片加的兜底行」改为 **`process.exit(main());`**（并删掉那行现已多余的兜底注释）。【为什么这样更好（两条，均为结构性的）】① **分层**：`scripts/lib/**` 是库，替宿主进程决定生死是错的 ——"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":3,"c":" `scripts/lint-script-exit.ts` 头注明确警告「给被 import 的 helper 加 `process.exit` 会杀掉宿主进程」，而 `ratchet` 正是那个 helper；② **门禁判据天然成立**：出口落在**入口文件自身**，`lint:exit`（文本判据、只扫入口）无需再被「一行运行时不可达的兜底」满足 —"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":4,"c":"— 上一片那 5 行**运行时不可达的代码**在本片被**消除**（不是转移）。【fail-closed 实证（关键，因上一片我以「fail-open 风险」为由暂缓本项）】两条路径都跑过，命令均可复现：**注 1 —— 违规路径**：用该 lib **自带**的负向自证环境变量把基线指向空文件（`HARDCODE_GATE_BASELINE=<空.json"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":5,"c":">`）⇒ 所有键都成「新增」⇒ 期望失败。实测：`lint-consts` / `lint-endpoints` / `lint-locale` / `lint-evidence-linewidth` **exit=1** ✓；`lint-failmsg-refs` 该探针下为 0 —— 复核后确认**语义正确**而非漏洞：它的 `counts` 只在「`"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":6,"c":".trae/**` 路径引用不存在」或「规则 ID 不在语料」时才非空（见 `lint-failmsg-refs.ts:146-165`），仓库当前无违规 ⇒ `counts = {}` ⇒ 没有任何键可「新增」。**注 2 —— 给第 5 个门禁补端到端证明**：向 `scripts/lint-mock.ts` 临时注入一行注释引用 `"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":7,"c":".trae/rules/__probe_missing__.md`（该门禁的 `PATH_REF_RE` 只认 `.trae/{rules,architecture,specs,docs}/*.md|json`，见 `:39-40` —— 第一次探针我用 `scripts/**.ts` 形式，**匹配不上**，如实记录这次无效探针）⇒ 实测输出 `❌ 新增/"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":8,"c":"扩大违规 … 新增键 路径:.trae/rules/__probe_missing__.md` 且 **exit=1** ✓；移除后 **exit=0** ✓，文件**逐字节还原**（比对相等）。**注 3 —— PASS 路径**：5 个门禁正常跑均 **exit=0** ✓。【验证】`bun run lint:exit` ✅ 通过（46 个入口脚本 0 "}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":9,"c":"违规）· `bun run typecheck` 0 错（`scripts/**` 由 `tsconfig.root-scripts.json` 覆盖，`0 | 1` → `number` 通过）· 6 门禁全绿。【与 CI 的关系（如实）】本项**不**把 `lint:exit` 接进 CI：`.github/workflows/doc-gate.yml`"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":10,"c":" 只跑 `lint:doc-code` / `lint:invariants` / `lint:entrypoints` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity` 六项，而 `lint:consts` / `lint:locale` / `lint:endpoints` / `"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":11,"c":"lint:failmsg-refs` / `lint:evidence-linewidth` / `lint:arch` / `lint:unref` **同样不在 CI** —— 这是刻意的子集，单独把 `lint:exit` 塞进去只会让它成为孤例；价值在**本地门禁自洽**。【附带清理】两次探针均在 `scripts/lint-mock.ts` 上进出"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"notes","i":12,"c":"，已确认 `git status` 只含本片 6 个预期文件，无残留。"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#0","i":0,"c":"scripts/lib/hardcodeScan.ts"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#1","i":0,"c":"scripts/lint-consts.ts"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#2","i":0,"c":"scripts/lint-endpoints.ts"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#3","i":0,"c":"scripts/lint-locale.ts"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#4","i":0,"c":"scripts/lint-failmsg-refs.ts"}
+{"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#5","i":0,"c":"scripts/lint-evidence-linewidth.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

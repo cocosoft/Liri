@@ -69,7 +69,7 @@ function collectTargets(): string[] {
   return [...targets].sort();
 }
 
-function main(): void {
+function main(): number {
   const targets = collectTargets();
   const counts: GateCounts = {};
   const findings: string[] = [];
@@ -108,10 +108,8 @@ function main(): void {
       `超长行合计 ${overTotal} 行（上限 ${MAX_LINE_CHARS} 字符）；` +
       `全局最长行 ${globalMax} 字符（规则 SB03）`,
   ]);
-  ratchet('evidence-linewidth', counts);
+  return ratchet('evidence-linewidth', counts);
 }
 
-main();
-// 兜底显式收尾（`lint:exit` 门禁要求）：正常路径已在 `ratchet()` 内部退出（其返回类型为
-// `never`）；此处保证「若日后 `ratchet` 不再自退出，入口仍显式结束」，不会挂在长驻句柄上。
-process.exit(0);
+// 退出码由 `ratchet()` 返回（见其头注）：出口落在**入口文件**里 ⇒ `lint:exit` 判据天然成立。
+process.exit(main());

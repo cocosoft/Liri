@@ -118,7 +118,7 @@ function renderBucket(map: Map<string, Hit[]>): string {
     .join(' | ');
 }
 
-function main(): void {
+function main(): number {
   const files = collectFiles();
   const points: DefaultPoint[] = [];
   const refLines: string[] = [];
@@ -203,10 +203,8 @@ function main(): void {
   if (tzMap.size >= 1) counts['桶:时区'] = tzMap.size;
 
   report('locale', [...findings, ...formatFindings], extra);
-  ratchet('locale', counts);
+  return ratchet('locale', counts);
 }
 
-main();
-// 兜底显式收尾（`lint:exit` 门禁要求）：正常路径已在 `ratchet()` 内部退出（其返回类型为
-// `never`）；此处保证「若日后 `ratchet` 不再自退出，入口仍显式结束」，不会挂在长驻句柄上。
-process.exit(0);
+// 退出码由 `ratchet()` 返回（见其头注）：出口落在**入口文件**里 ⇒ `lint:exit` 判据天然成立。
+process.exit(main());

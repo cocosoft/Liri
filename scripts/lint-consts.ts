@@ -163,7 +163,7 @@ function duplicates(
   return out;
 }
 
-function main(): void {
+function main(): number {
   const files = collectFiles();
   const { consts, values } = collect(files);
   const constDups = duplicates(consts);
@@ -192,10 +192,8 @@ function main(): void {
     `[lint:consts] 扫描 ${files.length} 个文件（白名单外），同名常量重复 ` +
       `${constDups.length} 组 / 同值字面量重复 ${valueDups.length} 组`,
   ]);
-  ratchet('consts', counts);
+  return ratchet('consts', counts);
 }
 
-main();
-// 兜底显式收尾（`lint:exit` 门禁要求）：正常路径已在 `ratchet()` 内部退出（其返回类型为
-// `never`）；此处保证「若日后 `ratchet` 不再自退出，入口仍显式结束」，不会挂在长驻句柄上。
-process.exit(0);
+// 退出码由 `ratchet()` 返回（见其头注）：出口落在**入口文件**里 ⇒ `lint:exit` 判据天然成立。
+process.exit(main());

@@ -120,7 +120,7 @@ function label(ctx: 'string' | 'comment' | 'code'): string {
   return '（代码内）';
 }
 
-function main(): void {
+function main(): number {
   const corpus = loadRuleCorpus();
   let names: string[];
   try {
@@ -180,10 +180,8 @@ function main(): void {
     `[lint:failmsg-refs] 扫描 ${targets.length} 个 lint 脚本；规范引用 ` +
       `路径型 ${pathRefs} 处 / 规则 ID 型 ${idRefs} 处`,
   ]);
-  ratchet('failmsg-refs', counts);
+  return ratchet('failmsg-refs', counts);
 }
 
-main();
-// 兜底显式收尾（`lint:exit` 门禁要求）：正常路径已在 `ratchet()` 内部退出（其返回类型为
-// `never`）；此处保证「若日后 `ratchet` 不再自退出，入口仍显式结束」，不会挂在长驻句柄上。
-process.exit(0);
+// 退出码由 `ratchet()` 返回（见其头注）：出口落在**入口文件**里 ⇒ `lint:exit` 判据天然成立。
+process.exit(main());

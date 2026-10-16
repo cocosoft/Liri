@@ -8881,6 +8881,35 @@
       "changelog": [],
       "reopenWhen": "① 若日后要「治本」：应把退出**从 lib 移回入口** —— 让 `scripts/lib/hardcodeScan.ts` 的 `ratchet()` **返回**退出码（0/1）而非自行 `process.exit`，5 个入口改为 `process.exit(main())`、`main()` 改为 `re…（全文见 archive/evidence-detail.jsonl#LINTEXIT-ENTRY-EXPLICIT-EXIT）",
       "notes": "【现象与定性：门禁误报，非代码缺陷】`bun run lint:exit`（= `scripts/lint-script-exit.ts`）报 5 个入口脚本「缺少显式退出」：`lint-consts.ts` / `lint-endpoints.ts` / `lint-locale.ts` / `lint-failm…（全文见 archive/evidence-detail.jsonl#LINTEXIT-ENTRY-EXPLICIT-EXIT）"
+    },
+    {
+      "id": "LINTEXIT-RATCHET-RETURN-CODE",
+      "title": "lint:exit 治本：ratchet() 改返回退出码，出口移回 5 个入口（5 门禁 fail-closed 已实证）",
+      "source": "承上一片 `LINTEXIT-ENTRY-EXPLICIT-EXIT` 的 reopenWhen ①（那片用的是「入口补兜底行」）；2026-10-16 用户裁定落地治本",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lib/hardcodeScan.ts",
+        "scripts/lint-consts.ts",
+        "scripts/lint-endpoints.ts",
+        "scripts/lint-locale.ts",
+        "scripts/lint-failmsg-refs.ts",
+        "scripts/lint-evidence-linewidth.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若日后新增使用 `ratchet()` 的门禁：必须写成 `process.exit(main())` + `main(): number` 且 `return ratchet(...)` —— 漏写则文件里没有 `process.exit(` 记号，`lint:exit` 直接判红（这正是 fail-close…（全文见 archive/evidence-detail.jsonl#LINTEXIT-RATCHET-RETURN-CODE）",
+      "notes": "【治本内容】把退出**从 lib 移回入口**，共 2 处结构变更：① `scripts/lib/hardcodeScan.ts` 的 `ratchet(name, counts)` 由 `: never` 改为 **`: 0 | 1`**，其三条分支（`BASELINE_WRITE` 播种 ⇒ `return 0`…（全文见 archive/evidence-detail.jsonl#LINTEXIT-RATCHET-RETURN-CODE）"
     }
   ]
 }

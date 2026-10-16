@@ -4674,6 +4674,26 @@
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#3","i":0,"c":"app/src/tools/toolEffects.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"title","i":0,"c":"P4b 接线③：pdf 从影子工具转为生效工具（生成物 77 → 78）+ 收口 extract/info 两个「假成功」分支"}
+{"id":"TOOLVIS-P4B-PDF","k":"source","i":0,"c":"P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(3)（唯一 PDF 生成器 + prompt 已列为生成类工具；先决 = 处置 extract/info 桩，二选一取「收口」）"}
+{"id":"TOOLVIS-P4B-PDF","k":"reopenWhen","i":0,"c":"若日后安装并接线 pdf-parse（则 extract/info 应从 fail-closed 改为真实实现，PDFTool.test.ts 的三条断言需同步）；或 PDF 生成能力被 doc_generate/file_convert 完全取代（届时考虑下线本工具并再走一遍差额集）；或 prompt「交付物落点口径」新增/移除生成类工具名（须与 "}
+{"id":"TOOLVIS-P4B-PDF","k":"reopenWhen","i":1,"c":"TOOL_CATEGORIES 的 doc 归属保持一致）"}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":0,"c":"① **先决收口（CS04）**：`extract` / `info` 原返回 `success: true` + 占位文本（`text: '[PDF text extraction requires a PDF parsing library]'`）与 `pages: 'unknown'` —— 属**假成功**（模型会把占位符当真实抽取结果）⇒ 改为 "}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":1,"c":"**fail-closed**（success:false + 明确原因 + 指向 `media_pdf_extract` / `file_read` 两条真替代路径）；同时改掉 description 里「Also supports extract/info」的宣称。② 六步接线：TOOL_CATEGORIES 登记 pdf='doc'（与 "}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":2,"c":"doc_generate 同档，该类别在四个主任务白名单内）→ builtinToolRegistry 复用 PDFTool.ts **内早已导出**的 `createPDFTool()`（工厂存在但从未登记，是「实现了没接线」的直接证据）→ ToolManagerUtils 加 `byKey('createPDFTool')`（**无条件**：与任何 "}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":3,"c":"flag 无关）→ gen:toolnames 重算（77 → 78）→ TOOL_EFFECTS 声明 LOCAL（generate 写盘）→ 门禁与守卫。③ 守卫同步：pdf 移入 P4b 接线回归锁名单（task_output / propose_plan / pdf），差额集 15 → 12；新增 PDFTool.test.ts（3 例）钉住「两个桩"}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":4,"c":"分支 fail-closed + generate 路径未被误伤」。④ 真机取证：接线前 pdf = conditional + misc；接线后 registration=registered、category=doc、default 下 visible、risk=medium（与 doc_generate 同档）；条目数仍 90。⑤ 顺带修正文档漂移：`"}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":5,"c":"app/docs/工具参考/pdf.md` 原描述的是**不存在的** `file` + `operation: read/metadata/pages` 契约 ⇒ 按真实 params（action/title/content/content_file/filename/filepath）重写，并写明 extract/info 在本构建不可用。⑥ 自证："}
+{"id":"TOOLVIS-P4B-PDF","k":"notes","i":6,"c":"tests/tools 887 例全绿；typecheck 0。"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#0","i":0,"c":"app/src/tools/PDFTool/PDFTool.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#1","i":0,"c":"app/src/tools/toolCategories.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#2","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#3","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#4","i":0,"c":"app/src/tools/toolEffects.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#5","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#6","i":0,"c":"app/docs/工具参考/pdf.md"}
+{"id":"TOOLVIS-P4B-PDF","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"tests#1","i":0,"c":"app/tests/tools/PDFTool.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

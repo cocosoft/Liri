@@ -370,7 +370,11 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
     'When the source content already exists on disk (e.g. a markdown/html/text file), ' +
     'you MUST pass content_file instead of reciting the full content — ' +
     'avoids output token explosion and long-content JSON truncation.' +
-    'Also supports extract (read text from PDF) and info (get PDF metadata).' +
+    // P4b（2026-10-16）：`extract` / `info` 本构建**未实现**（依赖未安装的 pdf-parse）
+    // ⇒ 描述里不再宣称"支持读取/元数据"，并指向实际可用的替代工具（原先只写
+    // "Also supports extract/info" ⇒ 模型会据此调用，拿到的却是假成功占位文本）。
+    'Reading an existing PDF is NOT supported here: use file_read (auto-converted to ' +
+    'Markdown) or media_pdf_extract instead.' +
     '注意：产物落在全局输出目录（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
     '若该 PDF 须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
   params: ToolParam[] = [
@@ -559,13 +563,14 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
               error: 'filepath is required for extract action',
             };
           }
+          // P4b（2026-10-16）：原实现返回 `success: true` + 占位文本
+          // （`text: '[PDF text extraction requires a PDF parsing library]'`）—— 属**假成功**
+          // （CS04：模型会把占位符当成提取结果）⇒ 改为 **fail-closed** 并给出可用替代路径。
           return {
-            success: true,
-            data: {
-              filepath,
-              text: '[PDF text extraction requires a PDF parsing library]',
-            },
-            output: `PDF file "${filepath}" - text extraction requires pdf-parse library.`,
+            success: false,
+            error:
+              'PDF text extraction is not available in this build (the pdf-parse library is not installed). ' +
+              'Use `media_pdf_extract` to extract text from a PDF, or `file_read` (PDF is converted to Markdown automatically).',
           };
         }
 
@@ -576,10 +581,12 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
               error: 'filepath is required for info action',
             };
           }
+          // P4b（2026-10-16）：同上 —— 原为 `success: true` + `pages: 'unknown'`（假成功）⇒ fail-closed。
           return {
-            success: true,
-            data: { filepath, pages: 'unknown', title: 'unknown' },
-            output: `PDF file info for "${filepath}" - metadata requires pdf-parse library.`,
+            success: false,
+            error:
+              'PDF metadata is not available in this build (the pdf-parse library is not installed). ' +
+              'Use `file_read` to read the PDF content (converted to Markdown).',
           };
         }
 

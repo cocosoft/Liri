@@ -224,6 +224,10 @@ function buildBuiltinToolLoaders(
     // 与 `plan` 同族同门控（`PLAN`），且既有 `propose-plan.test.ts` / `plan-mode-loop.test.ts`
     // 已覆盖"提交计划 → 等批准"闭环。
     cond(coreFeature('PLAN'), byKey('createProposePlanTool')),
+    // P4b（2026-10-16，P4a 评估 §2.2(3)）：`pdf` 从影子工具接线（唯一 PDF 生成器；
+    // prompt「交付物落点口径」已把它列为生成类工具）。**无条件注册**：它与任何 flag 无关，
+    // 且 `extract`/`info` 两个未实现分支已同日收口为 fail-closed（不再是假成功）。
+    byKey('createPDFTool'),
 
     // 其他条件工具
     cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronCreateTool')),

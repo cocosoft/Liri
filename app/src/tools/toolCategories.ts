@@ -186,6 +186,12 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
 
   // ── doc 文档 ──
   doc_generate: 'doc',
+  // P4b（2026-10-16，P4a 评估 §2.2(3)）：`pdf` 原为影子工具。它是**唯一** PDF 生成器
+  // （`media_pdf_extract` 只做抽取、`file_convert` 做格式转换），且 prompt 的
+  // 「交付物落点口径」（`builtinSections.ts:683`）已把 `pdf` 列为生成类工具 ⇒ 归 `doc`
+  // （该类别在 chat/default/coding/agent 四个主任务白名单内 ⇒ 与"通用生成"语义一致）。
+  // ⚠️ 接线同时收口了 `extract`/`info` 两个假成功分支（见 PDFTool.ts 内注释）。
+  pdf: 'doc',
   'office:workflow': 'doc',
   // N-45（2026-10-05）：懒加载注册的编排工具此前**完全未登记** ⇒ misc ⇒ 被裁剪
   'office:doc-pipeline': 'doc',

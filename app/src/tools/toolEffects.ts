@@ -95,6 +95,9 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   music: LOCAL,
   notebook: LOCAL,
   plan: LOCAL,
+  // P4b（2026-10-16）：`pdf` 接线后须声明。generate 会**写盘**（产物落全局输出目录）⇒ LOCAL；
+  // extract/info 已在同日收口为 fail-closed（本构建不可用，故不影响该声明）。
+  pdf: LOCAL,
   powershell: EXTERNAL,
   read_project_file: NONE,
   read_vfs: NONE,

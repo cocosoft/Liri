@@ -539,7 +539,6 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
     'mcp_auth',
     'music_generate',
     'nodes',
-    'pdf',
     'send_message',
     'sessions_send',
     'sessions_spawn',
@@ -569,7 +568,7 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * ① 进生成物（⇒ 会被真实实例化）② 不在差额集（⇒ 不再是 conditional 影子工具）。
    * 若日后有人把已接线工具的 loader/登记回退，本用例即红。
    */
-  const P4B_WIRED_TOOL_NAMES = ['task_output', 'propose_plan'];
+  const P4B_WIRED_TOOL_NAMES = ['task_output', 'propose_plan', 'pdf'];
 
   it('P4b 接线回归锁：已接线工具进生效面且已移出 conditional 差额集', () => {
     for (const name of P4B_WIRED_TOOL_NAMES) {

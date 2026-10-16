@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOLVIS-P4B-PDF**：P4b 接线③：pdf 转生效工具（生成物 77→78）+ 收口 extract/info 两个假成功分支 —— 验证 tc1|ut887|e2e3|gate3；基线 真机：接线前 pdf = conditional+misc；接线后 registered+doc（default 可见，与 doc_generate 同档）；extract/info 由假成功改为 fail-closed（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PDF）
 - ✅ **TOOLVIS-P4B-PROPOSE-PLAN**：P4b 接线②：propose_plan 转生效工具（生成物 76→77，conditional 14→13） —— 验证 tc1|ut1436|e2e3|gate3；基线 真机：接线前 conditional+misc，接线后 registered+interaction（default 可见、coding 不可见，与 ask_user_question 逐项同档）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN）
 - ✅ **TOOLVIS-P4B-TASK-OUTPUT**：P4b 接线①：task_output 转生效工具（生成物 75→76，conditional 15→14） —— 验证 tc1|ut884|e2e4|gate5；基线 真机：接线前 conditional+misc，接线后 registered+task（default 不可见、coding/agent 可见）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TASK-OUTPUT）
 - ✅ **TOOLVIS-P4A-EVAL**：15 个影子工具逐条评估（接线 3 / 保持条件化 12 / 删除常量 0）+ 两条口径纠正 —— 验证 doc2|gate5；基线 评估前：15 个统一按「E 类实现了但没接线」叙述；实测 14 个无 loader（E 类）、send_message 有 loader+flag（D 类），且 12 个的 execute 为空壳/桩（不可直接接线）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4A-EVAL）

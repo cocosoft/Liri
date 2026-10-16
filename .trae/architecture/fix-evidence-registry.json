@@ -8566,6 +8566,39 @@
       "changelog": [],
       "reopenWhen": "若产品最终判定 propose_plan 与 ask_user_question（confirm 型）二者只保留一个（P4a 登记的**唯一待裁定项**，未找到既有裁决文档）⇒ 应下线其中一个并同步差额集/生成物；或 PLAN 功能开关被移除、或 ProposePlanTool.execute 不再依赖通用 _use…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN）",
       "notes": "① 六步接线：TOOL_CATEGORIES 登记 propose_plan='interaction'（与 ask_user_question 同档；原未登记 ⇒ 落 misc 被裁）→ builtinToolRegistry 加 createProposePlanTool → ToolManagerUtils 加…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN）"
+    },
+    {
+      "id": "TOOLVIS-P4B-PDF",
+      "title": "P4b 接线③：pdf 从影子工具转为生效工具（生成物 77 → 78）+ 收口 extract/info 两个「假成功」分支",
+      "source": "P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(3)（唯一 PDF 生成器 + prompt 已列为生成类工具；先决 = 处置 extract/info 桩，二选一取「收口」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/tools/PDFTool/PDFTool.ts",
+        "app/src/tools/toolCategories.ts",
+        "app/src/tools/factories/builtinToolRegistry.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts",
+        "app/src/tools/toolEffects.ts",
+        "app/src/constants/toolNames.generated.ts",
+        "app/docs/工具参考/pdf.md"
+      ],
+      "tests": [
+        "app/tests/tools/toolNameLists.test.ts",
+        "app/tests/tools/PDFTool.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若日后安装并接线 pdf-parse（则 extract/info 应从 fail-closed 改为真实实现，PDFTool.test.ts 的三条断言需同步）；或 PDF 生成能力被 doc_generate/file_convert 完全取代（届时考虑下线本工具并再走一遍差额集）；或 prompt「交付物落点口…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PDF）",
+      "notes": "① **先决收口（CS04）**：`extract` / `info` 原返回 `success: true` + 占位文本（`text: '[PDF text extraction requires a PDF parsing library]'`）与 `pages: 'unknown'` —— 属**假成功**（…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PDF）"
     }
   ]
 }

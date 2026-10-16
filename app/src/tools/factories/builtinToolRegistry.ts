@@ -77,6 +77,8 @@ import { BrowserVisionTool } from '../BrowserVisionTool/BrowserVisionTool';
 import { PlanTool } from '../PlanTool/PlanTool';
 // P4b（2026-10-16）：`propose_plan` 原为影子工具（零 loader）⇒ 接线（见 P4a 评估 §2.2(2)）
 import { ProposePlanTool } from '../ProposePlanTool/ProposePlanTool';
+// P4b（2026-10-16）：`pdf` 接线（复用 PDFTool.ts 内早已导出的 `createPDFTool`）
+import { createPDFTool } from '../PDFTool/PDFTool';
 import { ToolSearchTool } from '../ToolSearchTool/ToolSearchTool';
 import { TungstenTool } from '../TungstenTool/TungstenTool';
 // ── 通道 / 团队 ──
@@ -207,6 +209,9 @@ export const BUILTIN_TOOL_FACTORIES = {
     new PlanTool() as unknown as Tool<unknown, unknown, ToolProgressData>,
   // P4b（2026-10-16，P4a 评估 §2.2(2)）：`propose_plan` 接线（原零 loader）
   createProposePlanTool: () => new ProposePlanTool(),
+  // P4b（2026-10-16，P4a 评估 §2.2(3)）：`pdf` 接线（复用其文件内**早已导出**的
+  // `createPDFTool()` —— 工厂存在但从未登记，是"实现了没接线"的直接证据）
+  createPDFTool,
   createToolSearchTool: () => new ToolSearchTool(),
   createTungstenTool: () => new TungstenTool(),
   // ── 通道 / 团队 ──

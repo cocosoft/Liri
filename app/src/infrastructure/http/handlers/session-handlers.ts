@@ -983,6 +983,33 @@ export async function handleUpdateSessionMeta(
       return;
     }
 
+    // P4b（2026-10-16）：tool_profile 边界校验 —— 必须是字符串数组，且每个标签**已登记**
+    // （`isKnownToolProfileTag` 的单一事实源 = `tools/toolProfile.ts` 的映射表键集，不另写清单）。
+    // 同 work_mode 口径：非法值 → 400，**不静默忽略** —— 静默忽略正是本项要修的根因：
+    // 此前本 handler 的字段白名单里没有 toolProfile ⇒ 传了也被丢掉、且无任何提示，
+    // 于是 `session.metadata.toolProfile` 成了「只有读方、没有写方」的休眠入口（TG-4 不可用）。
+    // 动态导入避免 service -> app 静态倒挂（同 isWorkMode）。
+    const { isKnownToolProfileTag } = await import('@modules/tools');
+    if (data.tool_profile !== undefined) {
+      if (
+        !Array.isArray(data.tool_profile) ||
+        data.tool_profile.some((t: unknown) => typeof t !== 'string')
+      ) {
+        sendBadRequest(res, 'tool_profile must be an array of strings');
+        return;
+      }
+      const unknown = (data.tool_profile as string[]).filter(
+        (t) => !isKnownToolProfileTag(t)
+      );
+      if (unknown.length > 0) {
+        sendBadRequest(
+          res,
+          `unknown tool_profile tag(s): ${unknown.join(', ')}`
+        );
+        return;
+      }
+    }
+
     await coreAPI.updateSessionMeta(sessionId, {
       model: data.model as string | undefined,
       workspaceId: data.workspace_id as string | undefined,
@@ -990,6 +1017,7 @@ export async function handleUpdateSessionMeta(
       tasksOverride: data.tasks_override as Record<string, string> | undefined,
       pinned: data.pinned as boolean | undefined,
       workMode: data.work_mode as 'plan' | 'do' | undefined,
+      toolProfile: data.tool_profile as string[] | undefined,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

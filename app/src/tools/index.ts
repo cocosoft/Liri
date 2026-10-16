@@ -382,6 +382,8 @@ export type { ToolCategory } from './toolCategories';
 export {
   resolveToolProfileCategories,
   TOOL_PROFILE_CATEGORIES,
+  // P4b（2026-10-16）：`toolProfile` 写入口的边界校验（HTTP handler 走动态导入本 barrel）
+  isKnownToolProfileTag,
 } from './toolProfile';
 export { checkSsrf, describeSsrfBlock } from './WebFetchTool/ssrf';
 export { ImageUrlHelper } from './ImageUrlHelper';

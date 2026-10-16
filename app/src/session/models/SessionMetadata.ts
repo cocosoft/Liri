@@ -24,6 +24,9 @@ export interface SessionMetadata {
   prLink?: PrLink;
   /** M1-T1.3（2026-08-31）：列表置顶标记——更新时不得 touch updatedAt（防列表重排） */
   pinned?: boolean;
+  /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）——
+   * 经 `resolveToolProfileCategories()` 并入工具可见性类别；与 `types/session.ts` 同名副本保持一致 */
+  toolProfile?: string[];
   /** M4-T4.1（2026-08-31）：会话来源渠道（set_once，通道会话首次请求时补写）——
    * 供 CoreAPIImpl._resolveSessionSource 读取；非通道会话为 undefined */
   channel?: string;
@@ -87,6 +90,9 @@ export class SessionMetadata implements SessionMetadata {
   /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`） */
   workMode?: 'plan' | 'do';
 
+  /** P4b（2026-10-16）：会话级工具 profile 能力标签（见 `@modules/tools` 的 `TOOL_PROFILE_CATEGORIES`） */
+  toolProfile?: string[];
+
   addTag(tag: string): void {
     if (!this.tags.includes(tag)) {
       this.tags.push(tag);
@@ -113,6 +119,7 @@ export class SessionMetadata implements SessionMetadata {
       worktreeState: this.worktreeState,
       prLink: this.prLink,
       ...(this.workMode !== undefined ? { workMode: this.workMode } : {}),
+      ...(this.toolProfile !== undefined ? { toolProfile: this.toolProfile } : {}),
       ...(this.pinned !== undefined ? { pinned: this.pinned } : {}),
       ...(this.tokenUsage ? { tokenUsage: this.tokenUsage } : {}),
       ...(this.sessionSource ? { sessionSource: this.sessionSource } : {}),
@@ -133,6 +140,10 @@ export class SessionMetadata implements SessionMetadata {
     // plan/do 工作模式：仅在合法取值时保留（非法/缺省视为未设置）
     if (data.workMode === 'plan' || data.workMode === 'do') {
       meta.workMode = data.workMode;
+    }
+    // P4b（2026-10-16）：工具 profile 标签——仅接受字符串数组（非法形态视为未设置，不造默认值）
+    if (Array.isArray(data.toolProfile)) {
+      meta.toolProfile = data.toolProfile.filter((t: unknown): t is string => typeof t === 'string');
     }
     return meta;
   }

@@ -981,6 +981,13 @@ export const sessionService = {
       tasksOverride?: Record<string, string>;
       /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入，后端 PATCH meta 落库） */
       workMode?: "plan" | "do";
+      /**
+       * P4b（2026-10-16）：会话级**工具能力 profile**（TG-4）能力标签（如 `media` / `coding`）
+       * ⇒ 后端把对应工具类别追加进本会话可见白名单。
+       * **程序化写入口**（渠道 / 侧车按需注入，对齐 TG-4），非 UI 开关；
+       * 用户级可见性控制走设置页（`PUT /v1/settings/tools`）。未传 ⇒ 零行为变更。
+       */
+      toolProfile?: string[];
     },
   ): Promise<boolean> => {
     try {
@@ -991,6 +998,7 @@ export const sessionService = {
       if (meta.tasksOverride !== undefined)
         body.tasks_override = meta.tasksOverride;
       if (meta.workMode !== undefined) body.work_mode = meta.workMode;
+      if (meta.toolProfile !== undefined) body.tool_profile = meta.toolProfile;
       const res = await apiHttp.patch(ENDPOINTS.session.meta(sessionId), body);
       if (res.ok) {
         _isUsingFallback = false;

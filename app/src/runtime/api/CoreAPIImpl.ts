@@ -1799,6 +1799,8 @@ export class CoreAPIImpl implements CoreAPI {
       pinned?: boolean;
       /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入） */
       workMode?: 'plan' | 'do';
+      /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
+      toolProfile?: string[];
     }
   ): Promise<void> {
     return this.sessionAgentOps.updateSessionMeta(sessionId, meta);

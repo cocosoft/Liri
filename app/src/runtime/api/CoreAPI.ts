@@ -828,6 +828,8 @@ export interface CoreAPI {
       providerId?: string;
       tasksOverride?: Record<string, string>;
       pinned?: boolean;
+      /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
+      toolProfile?: string[];
     }
   ): Promise<void>;
 

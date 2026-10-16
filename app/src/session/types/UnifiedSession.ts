@@ -77,6 +77,12 @@ export interface SessionMetadata {
   pinned?: boolean;
   /** plan/do 工作模式——输入区开关写入（与 models/SessionMetadata.ts 对齐，见 .trae/specs/plan-do-mode.md） */
   workMode?: 'plan' | 'do';
+  /**
+   * P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）。
+   * 经 `tools/toolProfile.ts` 的 `resolveToolProfileCategories()` 追加对应工具类别到
+   * 本会话可见白名单；未声明 ⇒ 零行为变更。与 `models/SessionMetadata.ts` 对齐。
+   */
+  toolProfile?: string[];
   /** 方案 A（2026-09-16）：会话标题单向锁——终态(manual/final)置位后永不回退 */
   titleLocked?: boolean;
   /** 方案 B（2026-09-16，P1-1）：标题原始值备份（首次改写前的 metadata.title） */

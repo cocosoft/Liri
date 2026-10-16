@@ -1,11 +1,16 @@
 /**
  * CoreAPIImpl.updateSessionMeta — 会话置顶（M1-T1.3）契约锁定
+ * P4b（2026-10-16）：`toolProfile` 写入口
  *
  * 核心不变量：
  *   ① pinned-only 更新**不 touch updatedAt**（列表不因置顶操作重排）
  *   ② meta 字段（model/workspaceId/providerId/tasksOverride）更新 touch updatedAt
  *   ③ pinned 与 meta 字段同时更新时 updatedAt 刷新（pinned 不抑制 touch）
  *   ④ 内存 session 与 gateway 持久层双侧同步写入 pinned
+ *   ⑤ 会话不在内存（未持久化）时不抛错
+ *   ⑥ `toolProfile`（配置类字段）内存 + 存储**双侧**同步写入且 touch updatedAt
+ *      —— 修复前该字段只有读方、无写方（TG-4 死入口），且存储侧 `SessionMetadata`
+ *      副本缺字段 ⇒ 落库时被静默丢弃
  */
 
 import { describe, it, expect } from 'bun:test';
@@ -101,5 +106,32 @@ describe('CoreAPIImpl.updateSessionMeta 置顶契约（M1-T1.3）', () => {
   it('⑤ 会话不在内存（未持久化）：不抛错、静默跳过', async () => {
     const { api } = makeFixture(false);
     await api.updateSessionMeta('sess-missing', { pinned: true });
+  });
+
+  it('⑥ toolProfile：内存 + 存储双侧同步写入，且 touch updatedAt', async () => {
+    const { api, memSession, storedSession, updateSessionCalls } =
+      makeFixture(true);
+    const before = memSession.updatedAt.getTime();
+
+    await api.updateSessionMeta('sess-1', { toolProfile: ['media'] });
+
+    // 内存侧
+    expect(memSession.metadata.toolProfile).toEqual(['media']);
+    // 配置类字段 ⇒ touch updatedAt（同 workMode 口径）
+    expect(memSession.updatedAt.getTime()).toBeGreaterThan(before);
+    // 存储侧（缺此行即为"落库时被静默丢弃"的复发形态）
+    expect(updateSessionCalls.length).toBe(1);
+    expect(storedSession.metadata.toolProfile).toEqual(['media']);
+  });
+
+  it('⑦ toolProfile=[]（显式清空）：写空数组而非跳过（与 undefined 区分）', async () => {
+    const { api, memSession, storedSession } = makeFixture(true);
+    memSession.metadata.toolProfile = ['media'];
+    storedSession.metadata.toolProfile = ['media'];
+
+    await api.updateSessionMeta('sess-1', { toolProfile: [] });
+
+    expect(memSession.metadata.toolProfile).toEqual([]);
+    expect(storedSession.metadata.toolProfile).toEqual([]);
   });
 });

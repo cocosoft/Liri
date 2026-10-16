@@ -378,6 +378,8 @@ export class SessionTitling {
       pinned?: boolean;
       /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入） */
       workMode?: 'plan' | 'do';
+      /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
+      toolProfile?: string[];
     }
   ): Promise<void> {
     // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
@@ -385,12 +387,14 @@ export class SessionTitling {
     // 会话在列表中因"最近更新"而重排（标题自动生成同理，由 rename 路径单独控制）。
     // 2026-10-04：workMode 属"配置类"字段（同 model/workspaceId/tasksOverride），
     // 计入 hasMetaField → 会 touch updatedAt。
+    // P4b（2026-10-16）：toolProfile 同属"配置类"字段（会改变后续轮次的可见工具面）。
     const hasMetaField =
       meta.model !== undefined ||
       meta.workspaceId !== undefined ||
       meta.providerId !== undefined ||
       meta.tasksOverride !== undefined ||
-      meta.workMode !== undefined;
+      meta.workMode !== undefined ||
+      meta.toolProfile !== undefined;
     const shouldTouchUpdatedAt = hasMetaField;
 
     // 1. 更新内存中的会话 metadata
@@ -409,6 +413,8 @@ export class SessionTitling {
       if (meta.pinned !== undefined) session.metadata.pinned = meta.pinned;
       if (meta.workMode !== undefined)
         session.metadata.workMode = meta.workMode;
+      if (meta.toolProfile !== undefined)
+        session.metadata.toolProfile = meta.toolProfile;
       if (shouldTouchUpdatedAt) session.updatedAt = new Date();
     }
 
@@ -430,6 +436,8 @@ export class SessionTitling {
             storedSession.metadata.pinned = meta.pinned;
           if (meta.workMode !== undefined)
             storedSession.metadata.workMode = meta.workMode;
+          if (meta.toolProfile !== undefined)
+            storedSession.metadata.toolProfile = meta.toolProfile;
           await gateway.updateSession(storedSession);
         }
       }

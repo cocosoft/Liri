@@ -91,6 +91,53 @@ describe('M2: load* 返回深拷贝副本——调用方污染不达缓存', () 
   });
 });
 
+describe('P4b（2026-10-16）：metadata 白名单往返不丢字段（toolProfile）', () => {
+  /**
+   * `models/SessionMetadata` 的 `toJSON`/`fromJSON` 是**字段白名单**，且
+   * `loadMetadata` 恒走 `fromJSON(value.toJSON())` 深拷贝 ⇒ 漏登记的字段会被**静默丢弃**。
+   * `toolProfile` 修复前即缺登记（P4b 写入口的 TS2339 同源），此为本回归锁。
+   */
+  it('缓存往返保留 toolProfile / workMode', async () => {
+    const { store } = makeStore();
+    const meta = new SessionMetadata('orig', ['t'], 'default');
+    meta.toolProfile = ['media'];
+    meta.workMode = 'plan';
+    await store.saveMetadata('s1', meta);
+
+    const loaded = await store.loadMetadata('s1');
+    expect(loaded!.toolProfile).toEqual(['media']);
+    expect(loaded!.workMode).toBe('plan');
+  });
+
+  it('toJSON：已设置 ⇒ 展开该字段；未设置 ⇒ 不写该字段（不造默认值）', () => {
+    const meta = new SessionMetadata('t', ['a'], 'default');
+    meta.toolProfile = ['media', 'coding'];
+    expect((meta.toJSON() as { toolProfile?: string[] }).toolProfile).toEqual([
+      'media',
+      'coding',
+    ]);
+
+    const untouched = new SessionMetadata('t', ['a'], 'default');
+    expect('toolProfile' in untouched.toJSON()).toBe(false);
+  });
+
+  it('fromJSON：只接受字符串数组（非法形态视为未设置，不造默认值）', () => {
+    expect(
+      SessionMetadata.fromJSON({ title: 't', toolProfile: 'media' }).toolProfile
+    ).toBeUndefined();
+    expect(
+      SessionMetadata.fromJSON({ title: 't', toolProfile: [1, 'media', null] })
+        .toolProfile
+    ).toEqual(['media']);
+    expect(
+      SessionMetadata.fromJSON({ title: 't' }).toolProfile
+    ).toBeUndefined();
+    expect(
+      SessionMetadata.fromJSON({ title: 't', toolProfile: [] }).toolProfile
+    ).toEqual([]);
+  });
+});
+
 describe('M2: invalidate 失效缓存 key——底层直写后读得新值', () => {
   it('invalidate 前读缓存旧值，invalidate 后读底层新值', async () => {
     const { store, storage } = makeStore();

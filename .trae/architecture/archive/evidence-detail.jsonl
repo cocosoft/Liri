@@ -4714,6 +4714,41 @@
 {"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"notes","i":4,"c":"6605 pass / 1 fail）⇒ 这是唯一的预存红项。⑥ 边界（如实）：本片只改测试守卫，**未改任何产品代码**（客户端常量原值本就正确）；e2eVerified=false（静态源码守卫，无真机面）。"}
 {"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"code#0","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}
 {"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"tests#0","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"title","i":0,"c":"P4b 收口：toolProfile 会话级写入口（PATCH meta 的 tool_profile 校验 + 落库 + 三份副本补字段）"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"source","i":0,"c":"工具可见性治理方案 §4 P4 收口（dev_docs/20261016/工具可见性治理方案-20261016.md 第 251 行验收项）；治的是 §3.6 记录的唯一「只有读方、无写方」休眠入口（TG-4 / T1-13）；2026-10-16 用户裁定「继续 P4b 接线」"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"reopenWhen","i":0,"c":"① 若把会话级 profile 从「程序化写入口」升级为 UI 开关：须先在设置页/输入区给出显式声明入口，并复核本项新加的会话边界校验（未知标签 400）是否会成为 UI 的可用性障碍；② 若未来允许未登记标签（如由 MCP 侧车动态申报能力）：须把 `isKnownToolProfileTag` 的单一事实源从静态表改为运行时能力契约，并同步放开 "}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"reopenWhen","i":1,"c":"handler 的 400 分支（当前是 fail loud 的刻意设计，见根因）；③ 若 `models/SessionMetadata` 与 `types/{session,UnifiedSession}` 三份副本被收敛为一份：本项在三处补的字段与往返锁（`toJSON`/`fromJSON`）应一并迁移，勿只删其一。"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":0,"c":"【根因】`toolProfile` 在 P4b 前是**半接线**：读路径（`tools/toolProfile.ts` 映射表 + `streamMessageToolSelectionFlow.ts` 注入 + `toolProfileInjection.test.ts` 验收）全在，但**没有任何写方**（全仓 + client 侧 grep 均 0 "}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":1,"c":"命中）⇒ 等于死配置（TG-4 不可用）。缺口不止一处，同一 bug 在两层各复发一次：① HTTP 层 `handleUpdateSessionMeta` 的字段白名单**不含** `tool_profile` ⇒ 传了被**静默丢弃**且无任何提示（对照同文件的 `work_mode`：非法值 400、fail loud）；② 存储层 `"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":2,"c":"SessionMetadata` 有**三份副本**（`types/session.ts` 已有该字段、`models/SessionMetadata.ts` 与 `types/UnifiedSession.ts` 缺），其中 `models/SessionMetadata.ts` 是**活代码**（`SessionStore.loadMetadata` 恒"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":3,"c":"走 `fromJSON(value.toJSON())` 深拷贝，`FileSystemStorage`/`UnifiedStorageAdapter` 亦走它）⇒ 其 `toJSON` 是字段白名单，漏登记即**落库/回读时再丢一次**；`types/UnifiedSession.ts` 的副本则是 `sessionTitling.ts` 里 `"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":4,"c":"gateway.getSession()` 的 `storedSession.metadata` 类型来源（TS2339 的直接来源）。【处置】(a) 新增 `isKnownToolProfileTag`（**单一事实源 = 现有映射表键集**，用 `hasOwnProperty` 排除原型链名，**不另写第 7 张手写清单**）；(b) handler 补"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":5,"c":"边界校验 + 传参：非数组 / 含非字符串 / 含未登记标签 ⇒ 400，与 `work_mode` 同口径（fail loud，不静默忽略）；(c) `updateSessionMeta` 全链（`CoreAPI` 接口 → `CoreAPIImpl` → `sessionAgentOps` 薄转发 → `sessionTitling` 双层写）补字段，并"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":6,"c":"把 `toolProfile` 计入 `hasMetaField`（配置类字段会 touch updatedAt，同 model/workspaceId/workMode）；(d) 两份缺失副本各补 4 处（接口字段 / class 字段 / `toJSON` 条件展开 / `fromJSON` 仅接受字符串数组）；(e) client `"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":7,"c":"sessionService.updateSessionMeta` 补 `tool_profile`（前端唯一 meta 写点）；(f) `api-spec.md` 的 PATCH meta 行补字段语义。【有意的边界】(1) **不做 UI**：会话级 profile 是 TG-4 的**程序化**注入面（渠道/侧车按需），用户级可见性的正经入口是 P3 "}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":8,"c":"的 ToolsPanel（`PUT /v1/settings/tools`），为其造 UI 开关等于给「显式声明」开一条自动化的近路（D4 所禁的自动可见性路由）。故 client 侧只补传输层字段，**不加调用方**（`updateSessionMeta` 现有 2 个调用点仍只传 model/workMode）。(2) **不改** `"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":9,"c":"UnifiedStorageAdapter.saveMetadata/loadMetadata` —— 该旧链桥接**只带 title/tags/mode**，`pinned`/`workMode`/`tokenUsage`/`toolProfile` 一律不过（**先于本项存在**的普遍性有损，不是本项引入，亦不在 P4 范围）；本项只保证**活路径**（"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":10,"c":"`SessionGateway` 直连 `UnifiedSessionStorage`，`persistSession` 原样写 `UnifiedSession` JSON、无 metadata 白名单）不丢字段。最初的用例曾断言该桥接保留 `toolProfile`，实测**失败**（`invalidate` 后 `loadMetadata` 返 null"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":11,"c":"）⇒ 按实测改写为「锁白名单展开 + 缓存往返」，不在测试里写不成立的行为。【真机取证】临时会话（已删）逐项验证写入口：`tool_profile:[「nope」]` ⇒ 400 `unknown tool_profile tag(s): nope`；`tool_profile:「media」`（非数组）⇒ 400 `must be an array of "}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":12,"c":"strings`；`tool_profile:[「media」,「x」]` ⇒ 400 且点名 `x`；`tool_profile:[「media」]` ⇒ 200；随后 `GET /v1/sessions/{id}` 回读 `metadata.toolProfile = media` ⇒ 证明**写入 + 落盘 + 回读**闭环（接线前基线为：同请求返回 "}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":13,"c":"200 而字段被丢弃）。【测试】定向 3 文件 22 例（新增 `isKnownToolProfileTag` 正向逐键 + 反向含 `toString`/`constructor` 原型链名、`updateSessionMeta` 双层写 + `[]` 显式清空与 `undefined` 区分、`SessionMetadata` 白名单往返 + `"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":14,"c":"toJSON` 展开 + `fromJSON` 类型过滤）；受扰域回归 `tests/{tools,session,runtime,chat/orchestrator,http}` 1571 例 0 失败；`bun run typecheck`（app）+ `tsc --noEmit`（client）双绿。【重放硬边界（未变）】重放工具面仍须经 `"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":15,"c":"pickPreparedSnapshot` 读**落盘快照**，**严禁**直读当前 `toolProfile`（本项只补写入口，不碰该约束；`toolProfileInjection.test.ts` 已有对应用例）。【口径】`session.metadata.toolProfile` 的**能力标签**与 P2 用户级覆写（`settings.tools"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"notes","i":16,"c":"` 三态）是**两个正交面**：前者是「会话声明需要哪些能力类别」（追加类别），后者是「用户强制某个工具可见/不可见」（改可见性判定）；P4 只让前者可写，不改后者。"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#0","i":0,"c":"app/src/tools/toolProfile.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#1","i":0,"c":"app/src/tools/index.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#2","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#3","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#4","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#5","i":0,"c":"app/src/runtime/api/sessionTitling.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/session-handlers.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#7","i":0,"c":"app/src/session/models/SessionMetadata.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#8","i":0,"c":"app/src/session/types/UnifiedSession.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#9","i":0,"c":"client/src/services/sessionService.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"code#10","i":0,"c":".trae/docs/api-spec.md"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#0","i":0,"c":"app/tests/tools/toolProfile.test.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#1","i":0,"c":"app/tests/runtime/coreapi-session-meta.test.ts"}
+{"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#2","i":0,"c":"app/tests/session/SessionStore.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

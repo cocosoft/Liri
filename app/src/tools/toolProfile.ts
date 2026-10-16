@@ -41,6 +41,18 @@ export const TOOL_PROFILE_CATEGORIES: Record<string, readonly ToolCategory[]> =
 const warnedUnknownTags = new Set<string>();
 
 /**
+ * 是否为**已登记**的能力标签（P4b，2026-10-16：`toolProfile` 写入口的边界校验用）。
+ *
+ * 单一事实源 = `TOOL_PROFILE_CATEGORIES` 的键集（不另写清单）；消费者 = HTTP handler
+ * （`PATCH /v1/sessions/{id}/meta` 的 `tool_profile` 字段）—— 该文件既有的
+ * `isWorkMode` 同口径：**非法值 → 400，不静默忽略**（静默忽略正是本项要修的根因：
+ * 原先 handler 有字段白名单，`toolProfile` 不在其中 ⇒ 传了也被丢掉且无任何提示）。
+ */
+export function isKnownToolProfileTag(tag: string): boolean {
+  return Object.prototype.hasOwnProperty.call(TOOL_PROFILE_CATEGORIES, tag);
+}
+
+/**
  * 解析会话 profile 能力标签 → 追加的**工具类别**（去重）。
  *
  * 未登记标签 ⇒ **忽略 + 一次性告警**（不阻断主链路，亦**不臆造**类别）。空 / 未声明 ⇒ `[]`。

@@ -9569,6 +9569,36 @@
       "changelog": [],
       "reopenWhen": "① **新增通道时必须同时接完出站与入站**再把该通道 id 加入 `BUTTON_CAPABLE_CHANNELS`，否则该通道会退化为「无按钮文案」（不报错、只是少一个按钮能力）—— 判据：新通道接完入站回调后，卡片仍显示为无按钮版本。② 白名单是**硬编码 Set**（当前仅 `qq`）：若通道 id 在注册表…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-BUTTON-GATE）",
       "notes": "【问题（上一片自查发现的**自身隐患**）】上一片的出站卡片按「通道是否实现 `sendInteractive`」决定是否带按钮，而入站回调**只接了 QQ**（`INTERACTION_CREATE`）⇒ 对飞书等 11 个「出站能发、入站没接」的通道，用户点了按钮**毫无反应**（飞书还会一直 loading）。…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-BUTTON-GATE）"
+    },
+    {
+      "id": "CHANNEL-RELIEF-FEISHU-INBOUND",
+      "title": "飞书「卡片回传」入站接线：两版回调体（card.action.trigger / 旧版扁平）→ **同一**放行动作端口 + `{toast}` 回执；飞书加入按钮白名单",
+      "source": "上一片 `CHANNEL-RELIEF-BUTTON-GATE` **刻意留在门外**的缺口（白名单当时只有 qq：飞书出站按钮已实现、入站回调未做）；用户裁定「加入白名单」后本片收口",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/feishu/cardActionPayload.ts",
+        "app/src/channels/feishu/FeishuChannel.ts",
+        "app/src/channels/bridge/budgetReliefCard.ts",
+        ".trae/specs/channel-budget-inline-relief.md"
+      ],
+      "tests": [
+        "app/tests/channels/feishuCardAction.test.ts",
+        "app/tests/channels/budgetInlineRelief.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **飞书无真机验证**（`e2eVerified=false`）：本机飞书通道**未配置/未启用** ⇒ 本片证据只到**单测级**。真机判据：在飞书点卡片按钮 ⇒ 日志出现「飞书卡片回传（webhook）：动作已处理」+ `channels:budgetReliefAction: 放行已处理` + `daily…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-INBOUND）",
+      "notes": "【问题（上一片刻意留下的缺口）】上一片 `CHANNEL-RELIEF-BUTTON-GATE` 把按钮收敛为「**入站回调已接线**」白名单，当时白名单只有 `qq`：飞书出站按钮**已实现**（`sendInteractiveMessage`），但**入站只处理消息事件**（长连接的 `im.message.re…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-INBOUND）"
     }
   ]
 }

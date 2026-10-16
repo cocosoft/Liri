@@ -5433,6 +5433,29 @@
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":7,"c":"**独立成提交**，与本片功能改动分离。"}
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"code#0","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
 {"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"title","i":0,"c":"飞书「卡片回传」入站接线：两版回调体（card.action.trigger / 旧版扁平）→ **同一**放行动作端口 + `{toast}` 回执；飞书加入按钮白名单"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"source","i":0,"c":"上一片 `CHANNEL-RELIEF-BUTTON-GATE` **刻意留在门外**的缺口（白名单当时只有 qq：飞书出站按钮已实现、入站回调未做）；用户裁定「加入白名单」后本片收口"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"reopenWhen","i":0,"c":"① **飞书无真机验证**（`e2eVerified=false`）：本机飞书通道**未配置/未启用** ⇒ 本片证据只到**单测级**。真机判据：在飞书点卡片按钮 ⇒ 日志出现「飞书卡片回传（webhook）：动作已处理」+ `channels:budgetReliefAction: 放行已处理` + `dailyBudget:relief_applied"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"reopenWhen","i":1,"c":"{…targetSessionId}` + `budgetSuspend:resumed{…}`。⇒ 若「点了没反应」，**先**核对应用订阅的**回调版本**（`card.action.trigger` / `trigger_v1`）与接收模式（webhook / 长连接），再改代码。② **长连接模式的帧应答契约未获权威文档** ⇒ 该模式下只**应用动"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"reopenWhen","i":2,"c":"作**、帧内**不回** toast（客户端可能提示交互超时）。若日后拿到官方契约（或改用官方 SDK），应补 ack/toast —— 届时 `applyCardActionOverWebSocket` 是唯一落点。③ 其余 **10** 个实现 `sendInteractiveMessage` 的通道仍未接线 ⇒ 白名单外**不发按钮**（只发无按钮文案"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"reopenWhen","i":3,"c":"）；新增通道须**同时**接完出站与入站再把 id 加进白名单（守 CD05 次序）。"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":0,"c":"【问题（上一片刻意留下的缺口）】上一片 `CHANNEL-RELIEF-BUTTON-GATE` 把按钮收敛为「**入站回调已接线**」白名单，当时白名单只有 `qq`：飞书出站按钮**已实现**（`sendInteractiveMessage`），但**入站只处理消息事件**（长连接的 `im.message.receive_v1` / webhook 的"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":1,"c":" `type==='event_callback'`）⇒ 飞书只能收无按钮文案。用户裁定「加入白名单」后本片把飞书入站补上。\n【取证（外部权威两篇 + 本仓实况）】① 新版 `card.action.trigger`：`{schema:'2.0',header:{event_type:'card.action.trigger'…},event:{"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":2,"c":"action:{value,tag},context:{open_message_id}}}`；② 旧版 `card.action.trigger_v1` 是**扁平**体（**无** type/event 包裹，锚点 = 顶层 `open_message_id`）——⚠️ 本仓飞书**出站卡片用的是旧版结构** ⇒ **只按新版写会收不到自己卡片的点击**"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":3,"c":"，故两版都必须认；③ 响应：**3 秒内** HTTP 200 + `{toast}`、**禁** 3xx、不回 `card`（⇒ 保持原卡片）；④ 飞书默认 `useWebSocket:false` ⇒ 回传落在**同一** webhook 地址（与消息事件**同地址不同体** ⇒ 必须**先**分流，不能沿用原来那句空 `{}` 的 200）。\n【做法】"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":4,"c":"① 新增 `channels/feishu/cardActionPayload.ts`（**纯函数**）：`extractFeishuCardAction` 按**互斥**三形识别（长连接帧 / 新版体 / 旧版扁平体）+ `buildFeishuCardActionResponse` 产 `{toast}`；载荷取法按**自家出站契约**取 `{key,"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":5,"c":"value}` **内层**（平台允许 string 或 object；其余对象 `JSON.stringify` 后交**同一**解析入口 ⇒ 宁拒不猜）。② `FeishuChannel`：webhook 侧**先**分流卡片回传（回 `{toast}`）再走原消息路径；长连接侧**只应用动作、不伪造 ack**（帧应答契约无文档，如实边界）。③ 两条路"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":6,"c":"都调**同一** `handleBudgetReliefAction` 端口（与 QQ 同源，不各平台各写一套放行逻辑；守 R01-007：channels 不反依赖 query）。④ 白名单加 `feishu` ⇒ 飞书开始收按钮。\n【验证】新增 `tests/channels/feishuCardAction.test.ts` **19 例**：两版体 "}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":7,"c":"+ 帧两形均能取载荷；**7 类反例**（URL 校验 / 事件订阅体 / 帧内消息 / 空对象 / null / 字符串 / 数组）全 `null`（**不抢**消息路径）；缺锚点 / 缺 value ⇒ `null`；飞书载荷 ⇒ 端口收到 `{sessionId,kind}`（与 QQ 同源）；伪造载荷 ⇒ 非零码且**不调用**端口；回执体不含 `"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":8,"c":"card` 且成败文案如实。`budgetInlineRelief.test.ts` 同步（负向样例由 `feishu` 改为仍在白名单外的 `slack`）⇒ 该文件 **26 例**。两文件 **45 pass / 0 fail**；全量 **6651 pass / 0 fail**（6693 tests / 748 files）；`tsc` 0 错；`"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":9,"c":"lint:arch` 违规 0；`lint:size` 0 错；`lint:doc-code` 绿。\n【如实边界】① 飞书**无真机验证**（本机未配置/未启用）⇒ `e2eVerified=false`。② 长连接模式帧内**不回** toast（契约未文档化）。③ 其余 10 个通道未做（白名单外不发按钮）。④ `toast.type` 只用官方示例里的"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"notes","i":10,"c":" `info`（枚举未获权威文档 ⇒ 不臆造 `success`/`error`）。"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#0","i":0,"c":"app/src/channels/feishu/cardActionPayload.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#1","i":0,"c":"app/src/channels/feishu/FeishuChannel.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#2","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#3","i":0,"c":".trae/specs/channel-budget-inline-relief.md"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"tests#0","i":0,"c":"app/tests/channels/feishuCardAction.test.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

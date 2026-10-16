@@ -17,7 +17,8 @@
  *   C3 `capabilities[].taskTypes[]`     ⊆ 代码 `ALL_TASK_TYPES`
  *   C4 `capabilities[].dependencies[]`  ⊆ `capabilities[].key`
  *   C5 `capabilities[].category`        ∈ `categories[].key`
- *   C6 唯一性：能力 key · 任务 taskType · 分类内 sortOrder · 任务 sortOrder
+ *   C6 唯一性与排序字段完整性：能力 key · **分类 key** · 任务 taskType · 分类内 sortOrder ·
+ *      任务 sortOrder；且**各 `sortOrder` 必须存在**（缺失 ⇒ 播种落 DB 默认 0 ⇒ 静默并列）
  *   C7 代码 `ALL_TASK_TYPES` 的**每个**任务类型都有 `taskMappings` 行（≠ 漏登记）
  *
  * C7 的由来：缺映射时 `CapabilityService.validateTaskAssignment()` 直接返回
@@ -167,13 +168,23 @@ export function checkCapabilityConsistency(
   for (const key of duplicates(caps.map((c) => c.key))) {
     issues.push({ rule: 'C6', detail: `能力 key「${key}」重复` });
   }
+  for (const key of duplicates(categories.map((c) => c.key))) {
+    // 分类块**当前无运行时消费者**（`CapabilityService.categoriesCache` 由能力的 category
+    // 去重派生，排序读硬编码 `getCategorySortOrder`）⇒ 本条属**声明洁癖级**（两条同名分类
+    // 各带自己的 sortOrder 会让人读不出真序），不是运行期风险 —— 如实标注，不夸大。
+    issues.push({ rule: 'C6', detail: `分类 key「${key}」重复` });
+  }
   for (const t of duplicates(mappings.map((m) => m.taskType))) {
     issues.push({ rule: 'C6', detail: `taskMappings.taskType「${t}」重复` });
   }
   for (const cat of categories) {
+    // 只比较**双方都存在**的 sortOrder：缺失由下方「排序字段完整性」单独报，
+    // 否则会以 `String(undefined)` 的形态误报成「undefined 重复」
     const orders = caps
       .filter((c) => c.category === cat.key)
-      .map((c) => String(c.sortOrder));
+      .map((c) => c.sortOrder)
+      .filter((o): o is number => o !== undefined)
+      .map(String);
     for (const o of duplicates(orders)) {
       issues.push({
         rule: 'C6',
@@ -181,8 +192,31 @@ export function checkCapabilityConsistency(
       });
     }
   }
-  for (const o of duplicates(mappings.map((m) => String(m.sortOrder)))) {
+  const taskOrders = mappings
+    .map((m) => m.sortOrder)
+    .filter((o): o is number => o !== undefined)
+    .map(String);
+  for (const o of duplicates(taskOrders)) {
     issues.push({ rule: 'C6', detail: `taskMappings.sortOrder ${o} 重复` });
+  }
+
+  // C6 排序字段完整性：`sortOrder` 缺失 ⇒ 播种时落 DB 默认 0（`sort_order INTEGER DEFAULT 0`）
+  // ⇒ 与其它缺省项**静默并列**、顺序不再可读。明确报出，不许「没写就当没有」。
+  for (const c of caps) {
+    if (c.sortOrder === undefined) {
+      issues.push({
+        rule: 'C6',
+        detail: `能力「${c.key}」缺少 sortOrder 字段`,
+      });
+    }
+  }
+  for (const m of mappings) {
+    if (m.sortOrder === undefined) {
+      issues.push({
+        rule: 'C6',
+        detail: `taskMappings「${m.taskType}」缺少 sortOrder 字段`,
+      });
+    }
   }
 
   return issues;

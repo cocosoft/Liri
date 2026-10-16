@@ -9157,6 +9157,33 @@
       "changelog": [],
       "reopenWhen": "① 推进 `.trae/specs/stream-message-flow-split.md` 的后续拆分阶段时，须**继续下调**本基线以锁定成果；本条目若长期不降，应视为拆分停滞的信号。② 若 `runStreamMessage` 再出现增长，本门禁会照常变红（本次上抬**不构成**对后续增长的豁免）。（全文见 archive/evidence-detail.jsonl#FNSIZE-BASELINE-ACCEPT-GROWTH）",
       "notes": "【发现】本次跑 `bun run ci`（本地全链）时，`lint:fn-size` 报：`app/src/chat/orchestrator/streamMessageFlow.ts :: runStreamMessage` 行数 **2167 → 2218**、文件行数 **2345 → 2398**（棘轮只允许…（全文见 archive/evidence-detail.jsonl#FNSIZE-BASELINE-ACCEPT-GROWTH）"
+    },
+    {
+      "id": "LINTCAPS-C6-COVERAGE",
+      "title": "补 lint:capabilities 的 C6 覆盖面：分类 key 唯一性 + `sortOrder` 缺失明确报「缺少」（不再退化成「undefined 重复」）",
+      "source": "承 `LINTCAPS-CONSISTENCY-GATE` 的**自查复核**（用户指定「自查本轮两个提交」）所核出的两个疑点 ①（C6 漏查分类 key 重复）与 ②（`duplicates()` 把缺失 sortOrder 归一为 `'undefined'` ⇒ 若同分类两条都缺会误报「undefined 重复」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/lint-capabilities.ts",
+        "app/tests/gates/capabilityConsistencyGate.test.ts"
+      ],
+      "tests": [
+        "app/tests/gates/capabilityConsistencyGate.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `categories` 块被赋予**运行时消费者**（当前 `CapabilityService.categoriesCache` 是由能力的 `category` 去重**派生**、排序读硬编码 `getCategorySortOrder()` ⇒ 该块目前只被声明面消费）⇒ 脚本里「分类块无运行时消费者…（全文见 archive/evidence-detail.jsonl#LINTCAPS-C6-COVERAGE）",
+      "notes": "【由来】用户指定对本轮两个提交做**自查复核**，追加核出两条「门禁自身」的疑点：C6 漏查 `categories[].key` 唯一性；`duplicates()` 用 `String(sortOrder)` 比较 ⇒ 缺失字段被归一为 `'undefined'`，同分类两条都缺时会报「分类 X 内 sortOr…（全文见 archive/evidence-detail.jsonl#LINTCAPS-C6-COVERAGE）"
     }
   ]
 }

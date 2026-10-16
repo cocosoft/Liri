@@ -132,6 +132,36 @@ describe('lint:capabilities 负向夹具：C1–C7 每条规则**必须**判出'
     expect(rulesOf(dupOrder, FIXTURE_TASKS)).toContain('C6');
   });
 
+  it('C6：分类 key 重复 ⇒ 判出', () => {
+    const dupCat = legalDoc();
+    dupCat.categories!.push({ key: 'core', sortOrder: 9 });
+    expect(rulesOf(dupCat, FIXTURE_TASKS)).toContain('C6');
+  });
+
+  it('C6：sortOrder 缺失 ⇒ **明确报「缺少」**（不得退化成「undefined 重复」）', () => {
+    const capNoOrder = legalDoc();
+    delete capNoOrder.capabilities![0].sortOrder;
+    const capIssues = checkCapabilityConsistency(capNoOrder, FIXTURE_TASKS);
+    expect(capIssues.map((i) => i.rule)).toEqual(['C6']);
+    expect(capIssues[0].detail).toContain('缺少 sortOrder');
+
+    const mapNoOrder = legalDoc();
+    delete mapNoOrder.taskMappings![0].sortOrder;
+    const mapIssues = checkCapabilityConsistency(mapNoOrder, FIXTURE_TASKS);
+    expect(mapIssues.map((i) => i.rule)).toEqual(['C6']);
+    expect(mapIssues[0].detail).toContain('缺少 sortOrder');
+
+    // 同分类两条都缺 ⇒ 应是两条「缺少」，**不得**出现「重复」（旧实现会报 `undefined 重复`）
+    const bothMissing = legalDoc();
+    delete bothMissing.capabilities![0].sortOrder;
+    delete bothMissing.capabilities![1].sortOrder;
+    const bothIssues = checkCapabilityConsistency(bothMissing, FIXTURE_TASKS);
+    expect(bothIssues.length).toBe(2);
+    expect(bothIssues.every((i) => i.detail.includes('缺少 sortOrder'))).toBe(
+      true
+    );
+  });
+
   it('C7：代码任务类型缺映射行（漏登记） ⇒ 判出', () => {
     const doc = legalDoc();
     doc.taskMappings = doc.taskMappings!.filter((m) => m.taskType !== 'vision');

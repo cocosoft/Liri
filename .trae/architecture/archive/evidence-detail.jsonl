@@ -5092,6 +5092,21 @@
 {"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":5,"c":"`scripts/lint-function-size-ratchet.ts` 未变更）；复杂度记录同步为 248 → 253（取自 ESLint `complexity` 实测输出），基线 JSON 无复杂度字段，故只写在 note。【验证】`bun run scripts/lint-function-size-ratchet.ts` ⇒ `✅ 未增长（棘"}
 {"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":6,"c":"轮维持）`（exit 0）；随后完整 `bun run ci` 全链通过。"}
 {"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"code#0","i":0,"c":".trae/architecture/function-size-baseline.json"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"title","i":0,"c":"补 lint:capabilities 的 C6 覆盖面：分类 key 唯一性 + `sortOrder` 缺失明确报「缺少」（不再退化成「undefined 重复」）"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"source","i":0,"c":"承 `LINTCAPS-CONSISTENCY-GATE` 的**自查复核**（用户指定「自查本轮两个提交」）所核出的两个疑点 ①（C6 漏查分类 key 重复）与 ②（`duplicates()` 把缺失 sortOrder 归一为 `'undefined'` ⇒ 若同分类两条都缺会误报「undefined 重复」）"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"reopenWhen","i":0,"c":"① 若 `categories` 块被赋予**运行时消费者**（当前 `CapabilityService.categoriesCache` 是由能力的 `category` 去重**派生**、排序读硬编码 `getCategorySortOrder()` ⇒ 该块目前只被声明面消费）⇒ 脚本里「分类块无运行时消费者」的注记须订正，且「YAML `"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"reopenWhen","i":1,"c":"categories[].sortOrder` 与代码 `getCategorySortOrder()` 硬编码表**双真源**」应升级为独立一片处理（今天两侧值一致：core1/vision2/media3/tools4/special5；但同一事实有两处声明，改一处即漂移）。② 若日后决定 `sortOrder` 允许缺省（由播种填默认值）而非报违规 ⇒"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"reopenWhen","i":2,"c":" C6 的「排序字段完整性」判据须撤下。③ 自查复核里仍留档未处理的另三条（负向夹具多为 `toContain` 弱断言、接线断言依赖 cwd=app、`YAML_PATH` 与 `CapabilityService.YAML_CONFIG_PATH` 属字面量重复）尚未动。"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":0,"c":"【由来】用户指定对本轮两个提交做**自查复核**，追加核出两条「门禁自身」的疑点：C6 漏查 `categories[].key` 唯一性；`duplicates()` 用 `String(sortOrder)` 比较 ⇒ 缺失字段被归一为 `'undefined'`，同分类两条都缺时会报「分类 X 内 sortOrder undefined 重复」这种**"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":1,"c":"指向错误**的信息（真源当前 28/19 条字段齐全，故两条都未在实际中触发）。【改了什么】① 新增分类 key 重复检查（C6）；② 分类内 / 任务侧 sortOrder 的重复比较**先剔除 undefined**，并另立「排序字段完整性」：能力 / 任务映射缺 `sortOrder` ⇒ 明确报 `缺少 sortOrder 字段`（依据：DB 列是 "}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":2,"c":"`sort_order INTEGER DEFAULT 0` ⇒ 缺失会落 0、与其它缺省项静默并列）。【口径边界（不夸大）】分类块**当前无运行时消费者**（`CapabilityService.refreshCache()` 由能力的 category 去重派生 `categoriesCache`，排序读硬编码 `getCategorySortOrder"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":3,"c":"()`）⇒ 「分类 key 重复」属**声明洁癖级**（两条同名分类各带自己的 sortOrder，读者读不出真序），**不是运行期风险**；该定性已写进脚本注释，避免被读成「拦住了真实故障」。C5（`capabilities[].category ∈ categories[].key`）的价值同理属「声明面自洽」，运行时的分类落位实际由 `"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":4,"c":"getCategorySortOrder()` 的硬编码表决定 —— 这构成**同一事实的两处声明**（YAML vs 代码表），今日值一致，已记入 reopenWhen ①。【验证】`bun run lint:capabilities` PASS（真源 28 能力 / 5 分类 / 19 映射 / 19 代码任务类型，新规则**零命中** ⇒ 未把存量说成"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":5,"c":"违规）；门禁自证由 12 用例增至 **14 pass / 0 fail**：新增「分类 key 重复 ⇒ 判出」与「sortOrder 缺失 ⇒ 明确报『缺少』（含**同分类两条都缺**的对照组：必须是两条『缺少』、不得出现『重复』）」；prettier --check / eslint / `tsc -p tsconfig.scripts.json` 全"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"notes","i":6,"c":"绿。"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"code#0","i":0,"c":"app/scripts/lint-capabilities.ts"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"code#1","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
+{"id":"LINTCAPS-C6-COVERAGE","k":"tests#0","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

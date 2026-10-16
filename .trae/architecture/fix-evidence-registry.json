@@ -8311,6 +8311,37 @@
       "changelog": [],
       "reopenWhen": "① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 …（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）",
       "notes": "① **告警点**：`deriveConversationBlocks.ts` 的 `default` 分支在 `!KNOWN_EVENT_TYPES.has(event.type) && event.ignorable !== true` 时 warn `[D2:derive] 遇到未知事件类型`；判据是该文件**…（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）"
+    },
+    {
+      "id": "TRAJECTORY-TYPE-FILTER-DYNAMIC",
+      "title": "轨迹面板的「类型筛选」去静态 21 项手写清单、改由**已加载事件**动态派生候选；类型标签并做单一实现：消掉「最吵的类型反而筛不到」等覆盖缺口（真机 request/start 与 metric/timing 现已有按钮）",
+      "source": "用户 2026-10-16「请评估 TrajectoryFilter.tsx 的筛选覆盖问题」→ AskUserQuestion 裁定「动态候选（推荐）」（承 CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE 的 reopenWhen ②）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "client/src/components/Trajectory/trajectoryEventTypes.ts",
+        "client/src/components/Trajectory/TrajectoryFilter.tsx",
+        "client/src/components/Trajectory/TrajectoryRow.tsx",
+        "client/src/components/ChatInspector/ChatInspector.tsx"
+      ],
+      "tests": [
+        "client/src/components/Trajectory/__tests__/trajectoryEventTypes.test.ts",
+        "client/src/components/Trajectory/__tests__/TrajectoryFilter.test.tsx",
+        "client/src/tests/trajectory-filter.test.tsx"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **关键词维度仍不匹配 `type` 字段本身**（只匹配 data.content/name/error/result/toolCallId/turn/model）⇒ 要按类型检索只能用类型按钮（有意保留：类型维度已覆盖，且给 keyword 加 type 会稀释其「内容检索」语义）。② 候选按**已加载窗口*…（全文见 archive/evidence-detail.jsonl#TRAJECTORY-TYPE-FILTER-DYNAMIC）",
+      "notes": "① **根因（静态子集 + 两份清单错位）**：类型按钮原为**静态 21 项手写清单**，只覆盖事件名清单（54 项，`shared/events/eventNames.ts`）的 **39%**；类型标签又是**另一份 18 项手写清单**（在 `TrajectoryRow`）⇒ 实测：**12 个按钮无中文标签…（全文见 archive/evidence-detail.jsonl#TRAJECTORY-TYPE-FILTER-DYNAMIC）"
     }
   ]
 }

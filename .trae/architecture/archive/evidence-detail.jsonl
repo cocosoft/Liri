@@ -4462,28 +4462,6 @@
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#7","i":0,"c":"client/src/services/sessionService.ts"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"code#8","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
 {"id":"FORK-BOUNDARY-BEFORE-MESSAGE","k":"tests#0","i":0,"c":"app/tests/session/forkBoundaryBeforeMessage.test.ts"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"title","i":0,"c":"客户端 derive 的「已知事件类型」判据去手写副本（承 D-57 单一事实源）：消掉每轮刷屏的「遇到未知事件类型」误报（真机 61 会话累计 ≈3775 条）并补守则测试"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"source","i":0,"c":"用户 2026-10-16「请排查前端未识别 session/title 事件类型的告警」（承 FORK-PREFIX-WINDOW 的 reopenWhen ③）"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":0,"c":"① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 derive 这一处，不构成全局门禁。② "}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":1,"c":"`client/src/components/Trajectory/TrajectoryFilter.tsx` 的事件筛选下拉是**展示用子集**（非「已知/未知」判据），不随名单扩张 —— 有意为之；若要求筛选覆盖全部类型需另行评估（未处理）。③ 20 个缺失类型在 shared 自注里均为 log-only / 不入消息 surface，且 `"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":2,"c":"assistant/code_run` 另有显式 `case` ⇒ 本轮**无 UI 内容丢失**，只治噪音与「诊断信号失效」。④ 已确认的本轮遗留（与本条无关）：真机 `net::ERR_ABORTED /v1/events`（新建会话时旧 SSE 流被主动断开，属良性）。"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":0,"c":"① **告警点**：`deriveConversationBlocks.ts` 的 `default` 分支在 `!KNOWN_EVENT_TYPES.has(event.type) && event.ignorable !== true` 时 warn `[D2:derive] 遇到未知事件类型`；判据是该文件**手写的** `"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":1,"c":"KNOWN_EVENT_TYPES`（34 项，注释自称「与 LiriEventType 保持同步」，实际无机制保证）。② **单一事实源早已存在**：`shared/events/eventNames.ts`（54 项，台账 D-57）—— 后端 `knownEventTypes.ts` 与客户端**类型联合**（`"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":2,"c":"client/src/types/events.ts`）都已由此派生，**只剩这个运行时 Set 是手写副本**。③ **实测漂移（逐字）**：`shared=54 clientLocal=34`，缺失 20 且**多余 0**（严格子集）：`turn/quality` / `context/steering` / `context/model-input`"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":3,"c":" / `request/start` / `goal/created|updated|status_changed|injected|deviation` / `validation/injected` / `validation/output_guard_applied` / `agent/recovery` / `session/wake` / `"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":4,"c":"evolution/applied` / `session/title` / `pattern/decision` / `assistant/code_run` / `execution/status_changed|recovery|prepared`。④ **噪音量化（扫真实数据目录 61 个有事件的会话）**：`request/start` "}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":5,"c":"**3137** · `context/model-input` **503** · `session/title` **105** · `context/steering` 20 · `validation/injected` 5 · `execution/status_changed` 3 · `goal/created`/`"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":6,"c":"pattern/decision`/`execution/prepared` 各 1 ⇒ 累计 **≈3775 条误报**（正常每轮 2–3 条）⇒ 「未知事件类型」这一诊断信号被正常流量淹没（真出现新类型时分辨不出）。⑤ **内容影响 = 无**：20 个均为 log-only / 不入消息 surface（shared 自注），`"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":7,"c":"assistant/code_run` 另有显式 `case`（`:1033`）处理 ⇒ 仅噪音 + 信号失效，不丢 UI 内容。⑥ **为什么门禁没抓到**：客户端既有 parity 测试只校验「shared 名单 + 客户端**载荷映射顶层键** ≡ 名单」，不覆盖这个运行时 Set；类型联合虽已派生，但 Set 是 `Set<string>` 手写、与"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":8,"c":"类型**无链接** ⇒ `typecheck` 也看不见（正是 `shared/events/eventNames.ts` 头注批判过的「文件头声明一致、无机制保证」，同族 D-1）。⑦ **修法**：`const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>("}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":9,"c":"LIRI_EVENT_NAMES);`（与后端同口径，漂移不可能再发生）。⑧ **守则测试**（新增 `client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts` 3 例）：逐个把 `LIRI_EVENT_NAMES` 成员喂进 derive 并断言「未知事件类型」告警 **0 条** + "}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":10,"c":"负向对照（`bogus/not-a-real-event-type` **必须**告警）+ 名单基数/`session/title` 存在性。**负向对照已做**：临时把派生改为 `filter(n => n !== 'session/title')` ⇒ 第 1 例转红（`expected 1 to be +0`）。⑨ **真机复验（三路独立来源，0 命中"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":11,"c":"）**：新标签页硬载新代码，跑一轮真实对话（回复 `2`、`streamMessage:流式正常结束 durationMs:4641`）——主标签页 console 钩子 80 行中 `遇到未知事件类型`/`D2:derive` = **0**；原生 console 44 条 = 0；应用持久化日志 `localStorage["}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":12,"c":"liri-frontend-logs]`（500 条窗口）`module` 含 `derive` = 0；副标签页（另一路长任务轮）864 行 = 0。**非空验证**：该轮确实收到了 `session:renamed`（即 `session/title` 类事件，此前正是误报源）且消息/轮次/工具块均由派生渲染 ⇒ 判定有效。⑩ 门禁：`lint:arch"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":13,"c":"`（错误 0）/ `lint:consts` / `lint:unref` / `lint:fix-evidence` / `lint:evidence-linewidth` / `lint:evidence-views-drift` 全绿；client `tsc --noEmit` 0；client `vitest` 74 文件 / 587 例绿。⑪ 验证"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":14,"c":"用会话（`简单加法问答`）已用 API 删除。"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"code#0","i":0,"c":"client/src/stores/chat/deriveConversationBlocks.ts"}
-{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"tests#0","i":0,"c":"client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts"}
 {"id":"FORK-PREFIX-WINDOW","k":"title","i":0,"c":"挂账 ①/② 收口（承 FORK-BOUNDARY-BEFORE-MESSAGE）：fork 三项前置判据改**分页读全前缀**（原用 `read()` 默认 1000 条**窗口** ⇒ 长会话误报未闭合轮次、边界解析漏检）；「另存为分支」标题落 `titleStage=manual`/`titleLocked` 锁（不再被占位标题与 LLM 精化覆盖）"}
 {"id":"FORK-PREFIX-WINDOW","k":"source","i":0,"c":"用户 2026-10-16「请排查挂账问题①和②」；AskUserQuestion 裁定「连 fork 的窗口校验一起修」+「锁分支标题」"}
 {"id":"FORK-PREFIX-WINDOW","k":"reopenWhen","i":0,"c":"① `iterEvents` 页大小 `PREFIX_PAGE=2000`、成本 O(n) 流式（内存 O(page)）；若将来出现**数十万条事件**的会话，需复看分页读的累积耗时（本轮实测最大会话 `session_mujh93m0ozq1ctj9s6f` tail=24650，探针正常）。② 客户端「解析失败 ⇒ 中止发送」是 "}
@@ -4512,6 +4490,55 @@
 {"id":"FORK-PREFIX-WINDOW","k":"code#2","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
 {"id":"FORK-PREFIX-WINDOW","k":"tests#0","i":0,"c":"app/tests/session/forkPrefixPaging.test.ts"}
 {"id":"FORK-PREFIX-WINDOW","k":"tests#1","i":0,"c":"app/tests/session/forkBoundaryBeforeMessage.test.ts"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"title","i":0,"c":"轨迹面板的「类型筛选」去静态 21 项手写清单、改由**已加载事件**动态派生候选；类型标签并做单一实现：消掉「最吵的类型反而筛不到」等覆盖缺口（真机 request/start 与 metric/timing 现已有按钮）"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"source","i":0,"c":"用户 2026-10-16「请评估 TrajectoryFilter.tsx 的筛选覆盖问题」→ AskUserQuestion 裁定「动态候选（推荐）」（承 CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE 的 reopenWhen ②）"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":0,"c":"① **关键词维度仍不匹配 `type` 字段本身**（只匹配 data.content/name/error/result/toolCallId/turn/model）⇒ 要按类型检索只能用类型按钮（有意保留：类型维度已覆盖，且给 keyword 加 type 会稀释其「内容检索」语义）。② 候选按**已加载窗口**派生（store 每页 1000 条 +"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":1,"c":" `loadOlder` 向前补页）⇒ 只在更早页出现的类型，需翻到该页才会出现按钮（数据驱动取舍；静态清单下则是「永远没有按钮」，两害相权）。③ `TYPE_LABEL_KEYS` 仍只有 18 项，其余类型回落**原始 type 串**（有意：不新增 i18n 键、不发明文案）。④ 同批真机复验时发现**另一条 UI 线索（未处理）**：窄视口（1090"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":2,"c":"×569）下左侧会话栏被 flex 挤压成 48px（`.w-60` 实测 computed width=48px、行内按钮 `getBoundingClientRect().width=0`）⇒ 点侧栏切不了会话，只能走全局搜索。"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":0,"c":"① **根因（静态子集 + 两份清单错位）**：类型按钮原为**静态 21 项手写清单**，只覆盖事件名清单（54 项，`shared/events/eventNames.ts`）的 **39%**；类型标签又是**另一份 18 项手写清单**（在 `TrajectoryRow`）⇒ 实测：**12 个按钮无中文标签**（行内显示原始 type 串）、**9"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":1,"c":" 个标签无按钮**（有中文名却筛不到）。分类/来源两维因走 `categorizeEvent` 前缀 + `lifecycle` 兜底而 **100% 覆盖** ⇒ 事件**可见性无损**（`filter.types` 是白名单、空集不过滤），问题只在「按类型筛/隐」的粒度。② **真实数据（61 个有事件的会话 / 103,935 条 / 实际出现 27 "}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":2,"c":"种类型）**：未被按钮覆盖但真实出现的有 14 种，其中 `metric/timing` **6773（6.5%）** 与 `request/start` **3468（3.3%）** 合计 **9.9%**（面板每 1000 条里约 98 行）——**恰是最想一键隐掉的两类**；另有 `context/model-input` 505、`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":3,"c":"session/title` 105、`assistant/deliverable` 23、`context/steering` 21、`session/summary` 10、`assistant/diff` 8 等（含「有内容语义」的交付物/diff/摘要）。另 19 种真实数据 0 次。③ **修法**：新增 `"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":4,"c":"components/Trajectory/trajectoryEventTypes.ts` 作为**单一实现** —— `countEventTypes`（按出现次数降序、同次数按类型名字典序 ⇒ 结果确定）+ `TYPE_LABEL_KEYS`/`trajectoryTypeLabel`（命中 i18n 键显译文、否则回落原始 type 串）；`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":5,"c":"TrajectoryFilter` 改为从 `availableTypes` prop **动态生成**按钮（并保留「已选但当前会话未出现」的类型，否则切会话后筛出 0 条又取消不掉）；`TrajectoryRow` 改用同一标签实现；`ChatInspector` 以 `useMemo(() => countEventTypes(events), ["}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":6,"c":"events])` 提供候选。按钮 `title` 带 `type · 次数`，便于看噪音量级。④ **真机 UI 复验（逐字）**：轨迹 Tab「边界终验需求澄清」会话实测 **13 个动态 chip**（次数降序）：思考 ← `assistant/thinking · 147`、工具调用 ← `assistant/tool_call · 58`、工具结果"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":7,"c":" ← `tool/result · 58`、**性能指标 ← `metric/timing · 37`**、**`request/start · 31`**、`assistant/status · 28`、`context/model-input · 6`、`session/title · 4`、Turn 结束 ← `turn/end · 4`、`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":8,"c":"assistant/text-batch · 3`、Turn 开始 ← `turn/start · 3`、用户消息 ← `user/message · 3`、`context/steering · 1`；筛选计数：**383/383** →（点 `request/start`）**31/383**（摘要变「已启用 1 项」）→ 取消 → "}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":9,"c":"**383/383**；Console 全量 grep `未知事件类型`/`Uncaught`/`TypeError`/`Failed to` = **0 命中**。⑤ **测试**：新增 `components/Trajectory/__tests__/trajectoryEventTypes.test.ts` 6 例（候选计数/降序/同次数字典序/空输入"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":10,"c":"/**最吵两类必在候选**/标签译文与回落/对 54 成员均非空）+ 新增 `__tests__/TrajectoryFilter.test.tsx` 4 例（动态渲染、点击回传、**已选但未出现仍保留**、缺省不渲染）；同步更新既有 `src/tests/trajectory-filter.test.tsx`（去掉「文案恒为类型原文 + 短别名」旧契约，改"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":11,"c":"为按 `title` 定位 + `request/start` 回落原串断言）。**负向对照已做**：临时把候选改为 `filter(剔除 metric/timing 与 request/start)` 并去掉「已选兜底」⇒ 组件测试 **3/4 转红**（含关键回归例），改回即绿。⑥ 门禁：`lint:arch`（错误 0）/`lint:consts`/`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":12,"c":"lint:unref`/`lint:fix-evidence`/`lint:evidence-linewidth`/`lint:evidence-views-drift` 全绿；client `tsc --noEmit` 0；client `vitest` **76 文件 / 597 例**绿。⑦ 真机复验时未改动任何设置/未删除会话；出现的 `"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":13,"c":"net::ERR_ABORTED /v1/events` 与 SSE 重连告警属切换会话时旧流断开，与本次无关。"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#0","i":0,"c":"client/src/components/Trajectory/trajectoryEventTypes.ts"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#1","i":0,"c":"client/src/components/Trajectory/TrajectoryFilter.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#2","i":0,"c":"client/src/components/Trajectory/TrajectoryRow.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#3","i":0,"c":"client/src/components/ChatInspector/ChatInspector.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#0","i":0,"c":"client/src/components/Trajectory/__tests__/trajectoryEventTypes.test.ts"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#1","i":0,"c":"client/src/components/Trajectory/__tests__/TrajectoryFilter.test.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#2","i":0,"c":"client/src/tests/trajectory-filter.test.tsx"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"title","i":0,"c":"客户端 derive 的「已知事件类型」判据去手写副本（承 D-57 单一事实源）：消掉每轮刷屏的「遇到未知事件类型」误报（真机 61 会话累计 ≈3775 条）并补守则测试"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"source","i":0,"c":"用户 2026-10-16「请排查前端未识别 session/title 事件类型的告警」（承 FORK-PREFIX-WINDOW 的 reopenWhen ③）"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":0,"c":"① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 derive 这一处，不构成全局门禁。② "}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":1,"c":"`client/src/components/Trajectory/TrajectoryFilter.tsx` 的事件筛选下拉是**展示用子集**（非「已知/未知」判据），不随名单扩张 —— 有意为之；若要求筛选覆盖全部类型需另行评估（未处理）。③ 20 个缺失类型在 shared 自注里均为 log-only / 不入消息 surface，且 `"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":2,"c":"assistant/code_run` 另有显式 `case` ⇒ 本轮**无 UI 内容丢失**，只治噪音与「诊断信号失效」。④ 已确认的本轮遗留（与本条无关）：真机 `net::ERR_ABORTED /v1/events`（新建会话时旧 SSE 流被主动断开，属良性）。⑤ **2026-10-16 已收口**：② 的轨迹面板轨迹筛选覆盖问题已修（类型按"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":3,"c":"钮改动态候选 + 标签单一实现，真机 13 个 chip、点选 383→31/383），详见 `TRAJECTORY-TYPE-FILTER-DYNAMIC`。"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":0,"c":"① **告警点**：`deriveConversationBlocks.ts` 的 `default` 分支在 `!KNOWN_EVENT_TYPES.has(event.type) && event.ignorable !== true` 时 warn `[D2:derive] 遇到未知事件类型`；判据是该文件**手写的** `"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":1,"c":"KNOWN_EVENT_TYPES`（34 项，注释自称「与 LiriEventType 保持同步」，实际无机制保证）。② **单一事实源早已存在**：`shared/events/eventNames.ts`（54 项，台账 D-57）—— 后端 `knownEventTypes.ts` 与客户端**类型联合**（`"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":2,"c":"client/src/types/events.ts`）都已由此派生，**只剩这个运行时 Set 是手写副本**。③ **实测漂移（逐字）**：`shared=54 clientLocal=34`，缺失 20 且**多余 0**（严格子集）：`turn/quality` / `context/steering` / `context/model-input`"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":3,"c":" / `request/start` / `goal/created|updated|status_changed|injected|deviation` / `validation/injected` / `validation/output_guard_applied` / `agent/recovery` / `session/wake` / `"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":4,"c":"evolution/applied` / `session/title` / `pattern/decision` / `assistant/code_run` / `execution/status_changed|recovery|prepared`。④ **噪音量化（扫真实数据目录 61 个有事件的会话）**：`request/start` "}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":5,"c":"**3137** · `context/model-input` **503** · `session/title` **105** · `context/steering` 20 · `validation/injected` 5 · `execution/status_changed` 3 · `goal/created`/`"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":6,"c":"pattern/decision`/`execution/prepared` 各 1 ⇒ 累计 **≈3775 条误报**（正常每轮 2–3 条）⇒ 「未知事件类型」这一诊断信号被正常流量淹没（真出现新类型时分辨不出）。⑤ **内容影响 = 无**：20 个均为 log-only / 不入消息 surface（shared 自注），`"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":7,"c":"assistant/code_run` 另有显式 `case`（`:1033`）处理 ⇒ 仅噪音 + 信号失效，不丢 UI 内容。⑥ **为什么门禁没抓到**：客户端既有 parity 测试只校验「shared 名单 + 客户端**载荷映射顶层键** ≡ 名单」，不覆盖这个运行时 Set；类型联合虽已派生，但 Set 是 `Set<string>` 手写、与"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":8,"c":"类型**无链接** ⇒ `typecheck` 也看不见（正是 `shared/events/eventNames.ts` 头注批判过的「文件头声明一致、无机制保证」，同族 D-1）。⑦ **修法**：`const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>("}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":9,"c":"LIRI_EVENT_NAMES);`（与后端同口径，漂移不可能再发生）。⑧ **守则测试**（新增 `client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts` 3 例）：逐个把 `LIRI_EVENT_NAMES` 成员喂进 derive 并断言「未知事件类型」告警 **0 条** + "}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":10,"c":"负向对照（`bogus/not-a-real-event-type` **必须**告警）+ 名单基数/`session/title` 存在性。**负向对照已做**：临时把派生改为 `filter(n => n !== 'session/title')` ⇒ 第 1 例转红（`expected 1 to be +0`）。⑨ **真机复验（三路独立来源，0 命中"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":11,"c":"）**：新标签页硬载新代码，跑一轮真实对话（回复 `2`、`streamMessage:流式正常结束 durationMs:4641`）——主标签页 console 钩子 80 行中 `遇到未知事件类型`/`D2:derive` = **0**；原生 console 44 条 = 0；应用持久化日志 `localStorage["}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":12,"c":"liri-frontend-logs]`（500 条窗口）`module` 含 `derive` = 0；副标签页（另一路长任务轮）864 行 = 0。**非空验证**：该轮确实收到了 `session:renamed`（即 `session/title` 类事件，此前正是误报源）且消息/轮次/工具块均由派生渲染 ⇒ 判定有效。⑩ 门禁：`lint:arch"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":13,"c":"`（错误 0）/ `lint:consts` / `lint:unref` / `lint:fix-evidence` / `lint:evidence-linewidth` / `lint:evidence-views-drift` 全绿；client `tsc --noEmit` 0；client `vitest` 74 文件 / 587 例绿。⑪ 验证"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":14,"c":"用会话（`简单加法问答`）已用 API 删除。"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"code#0","i":0,"c":"client/src/stores/chat/deriveConversationBlocks.ts"}
+{"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"tests#0","i":0,"c":"client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

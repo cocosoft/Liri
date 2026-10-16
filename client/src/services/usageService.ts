@@ -142,6 +142,28 @@ export interface DailyBudgetReliefInput {
  */
 export type DailyBudgetUnit = "tokens" | "usd";
 
+/**
+ * **预算挂起**条目（`GET /v1/cost/daily-budget/suspend`，Spec `long-task-suspend-resume.md` v1.5 A2）。
+ *
+ * 语义：会话在**轮间安全点**被封存（检查点已落盘）并登记，等用户**放行**后由协调器**自动续跑**
+ * —— 即"撞限 ≠ 丢上下文"。（本清单**不受** `FEATURE_BUDGET_SUSPEND_RESUME` 门控：开关关时恒空。）
+ */
+export interface BudgetSuspendEntry {
+  sessionId: string;
+  /** 链：`stream`（桌面聊天主路径）/ `taor`（batch） */
+  chain: string;
+  /** 挂起时刻（epoch ms） */
+  suspendedAt: number;
+  /** 缺省 `daily_budget_exhausted` */
+  reason: string;
+  /** T3-12：挂起类别 —— `budget`（日预算；**放行可唤醒**）/ `guard`（熵门禁/轮上限；**放行不唤醒**） */
+  kind: "budget" | "guard";
+  /** 超过 24h 视为过期（协调器现算；**只过滤不删**） */
+  expired: boolean;
+  /** 续跑检查点引用（guard 挂起可能为 `null`） */
+  checkpointRef: string | null;
+}
+
 /** 日 Token 限额状态（GET /v1/cost/daily-budget，R16 / D3） */
 export interface DailyBudgetStatus {
   /** 统计所属**本地**自然日（YYYY-MM-DD） */
@@ -452,6 +474,28 @@ export const usageService = {
       "services:usage:updateDailyBudget",
       async () => {
         return http.put<DailyBudgetStatus>(ENDPOINTS.cost.dailyBudget, patch);
+      },
+    );
+  },
+
+  /**
+   * 查询**预算挂起清单**（GET /v1/cost/daily-budget/suspend，v1.5 A2）。
+   *
+   * 用途（v1.10 遗留项收口）：撞限**当时**的入口是 `DailyLimitNotice`（靠 store 的 `errorCode`）；
+   * 但用户若**没当场点继续**、或**重启/切会话后回来**，`errorCode` 已不在内存态 ⇒ 此前**没有入口**
+   * 继续这个"已挂起（进度已保存）"的会话。本方法即该入口的数据源：
+   * 宿主据此在**当前会话**命中挂起项时渲染挂起卡片（放行 ⇒ 协调器自动续跑）。
+   */
+  async getDailyBudgetSuspends(): Promise<{
+    sessions: BudgetSuspendEntry[];
+    count: number;
+  }> {
+    return getOTelTracing().asyncWrap(
+      "services:usage:getDailyBudgetSuspends",
+      async () => {
+        return http.get<{ sessions: BudgetSuspendEntry[]; count: number }>(
+          ENDPOINTS.cost.dailyBudgetSuspend,
+        );
       },
     );
   },

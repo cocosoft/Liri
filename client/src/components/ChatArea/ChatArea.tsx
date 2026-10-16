@@ -13,7 +13,10 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 // T6（D-a/D-b/D-f）：撞限渲染可操作限额卡片（不再是红色错误条）
 import DailyLimitNotice, { isDailyLimitErrorCode } from "./DailyLimitNotice";
 import { usageService } from "../../services/usageService";
-import type { DailyBudgetUnit } from "../../services/usageService";
+import type {
+  DailyBudgetUnit,
+  BudgetSuspendEntry,
+} from "../../services/usageService";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
@@ -52,6 +55,16 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // 错误通道只带**字符串**（errorSummary/errorDetail），卡片需要结构化数字 ⇒ 命中限额码时
   // 拉一次 `GET /v1/cost/daily-budget`（失败静默：卡片退化为仅展示动作）。
   const isDailyLimitExceeded = isDailyLimitErrorCode(errorCode);
+  /**
+   * 2026-10-17（台账 `BUDGET-SUSPEND-CONTINUE-ENTRY`，v1.10 遗留项收口）：
+   * **挂起态**（会话已封存、进度已保存、等放行后自动续跑）—— 与"撞限当下"的关键区别是
+   * 它**跨重启/跨会话切换仍然存在**（服务端协调器登记），而 `errorCode` 是**内存态**。
+   * 否则用户"没当场点继续"就再也找不到入口（本机实证：撞日限额后重启，会话一直挂起却无入口）。
+   */
+  const [suspendNotice, setSuspendNotice] = useState<BudgetSuspendEntry | null>(
+    null,
+  );
+  const isSuspended = suspendNotice !== null;
   const [limitSnapshot, setLimitSnapshot] = useState<{
     /** **主口径**已用（`unit` 决定单位：USD 轨启用 ⇒ 金额） */
     used: number;
@@ -60,7 +73,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     mode: string;
   } | null>(null);
   useEffect(() => {
-    if (!isDailyLimitExceeded) return;
+    if (!isDailyLimitExceeded && !isSuspended) return;
     let cancelled = false;
     void usageService
       .getDailyBudget()
@@ -80,7 +93,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [isDailyLimitExceeded]);
+  }, [isDailyLimitExceeded, isSuspended]);
   const isStreaming = useChatStore((s) => s.isStreaming);
   // P1-6a（D8 = 统一到总量 + 尾锚定）：轮次导航器需要分页状态与"加载更早"动作
   // ——与 ChatMessageList 同源（CS01 不另立实现）
@@ -107,6 +120,36 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // 阶段2：当前会话若存在挂起流则显示断连 Banner
   const currentSid = currentSession?.id;
   const pausedInfo = currentSid ? pausedStreams[currentSid] : undefined;
+
+  // 拉取**当前会话**的挂起项（挂载时 + 切换会话时；失败静默 ⇒ 退化为无挂起卡片）。
+  // 放这里是因为需要 `currentSession`（声明于上方）：挂起态**跨重启/跨会话切换仍在**
+  // （服务端协调器登记），而 `errorCode` 只在内存 —— 这正是"回来还能继续"的入口依据。
+  useEffect(() => {
+    if (!currentSid) {
+      setSuspendNotice(null);
+      return;
+    }
+    let cancelled = false;
+    void usageService
+      .getDailyBudgetSuspends()
+      .then((res) => {
+        if (cancelled) return;
+        const mine =
+          res.sessions.find(
+            (e) =>
+              e.sessionId === currentSid &&
+              e.kind === "budget" &&
+              e.expired === false,
+          ) ?? null;
+        setSuspendNotice(mine);
+      })
+      .catch(() => {
+        // 清单不可达 ⇒ 不显示挂起卡片（不臆造状态）
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSid]);
 
   // P2-A（2026-09-17）：PDCA 自动启动 → 当前轮聊天正文内嵌卡片（实时 append，幂等）
   usePdcaAutoAppend(currentSid);
@@ -614,8 +657,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         onLoadOlder={() => void loadOlderMessages()}
       />
 
-      {/* T6：限额码 ⇒ 可操作卡片（非红色语义）；其余码仍走下面的红条（不回归） */}
-      {errorSummary && isDailyLimitExceeded && (
+      {/* T6：限额码 ⇒ 可操作卡片（非红色语义）；「预算挂起」亦复用同一张卡（挂起态优先） */}
+      {(errorSummary && isDailyLimitExceeded) || isSuspended ? (
         <div
           className={`absolute bottom-[140px] left-0 right-0 z-20 ${fluid ? "px-4" : "flex justify-center"}`}
         >
@@ -625,6 +668,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               limit={limitSnapshot?.dailyLimit ?? 0}
               unit={limitSnapshot?.unit ?? "tokens"}
               mode={limitSnapshot?.mode ?? "locked"}
+              // 挂起态优先于"撞限当下"：挂起后**放行即自动续跑**，重发反而多余
+              suspended={isSuspended}
               t={t}
               onRelief={(kind) => {
                 void usageService
@@ -641,13 +686,37 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                     // 放行失败保留卡片，让用户可改用其它动作
                   });
               }}
-              onContinue={() => void handleContinueError()}
+              onContinue={() => {
+                if (isSuspended) {
+                  // 挂起态：主按钮 = **放行**（临时提额，可随时用 `DELETE /relief` 撤销）
+                  // ⇒ 后端协调器 `onReliefApplied` 自动从这里续跑（无需重发消息）
+                  void usageService
+                    .setDailyBudgetRelief({
+                      kind: "boost",
+                      factor: 2,
+                      ttlMs: 3_600_000,
+                    })
+                    .then(() => {
+                      useChatStore.setState({ error: null, errorCode: null });
+                      setSuspendNotice(null); // 放行成功 ⇒ 挂起已释放，收起卡片
+                    })
+                    .catch(() => {
+                      // 放行失败 ⇒ 保留卡片（可改用其它档位或去限额设置）
+                    });
+                  return;
+                }
+                void handleContinueError();
+              }}
               onOpenSettings={() => void handleDismissError()}
-              onDismiss={() => void handleDismissError()}
+              onDismiss={() => {
+                // 挂起卡片的"关闭"只收起本次展示（挂起状态仍在服务端；切换会话/重启会再次提示）
+                if (isSuspended) setSuspendNotice(null);
+                else void handleDismissError();
+              }}
             />
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* 错误提示 */}
       {errorSummary && !isDailyLimitExceeded && (

@@ -25,11 +25,20 @@ export interface DailyLimitNoticeProps {
   unit: DailyBudgetUnit;
   /** 档位（`locked` / `report_only`） */
   mode: string;
+  /**
+   * 是否为**预算挂起**态（Spec `long-task-suspend-resume.md`，v1.10 遗留项收口）。
+   *
+   * 与"撞限当下"的区别（同一张卡复用，文案与主按钮语义不同）：
+   * - `false`（撞限当下）：发送被拦 ⇒ 主按钮「继续」= **显式重发**被拦的那条消息（D-f，不静默重发）；
+   * - `true`（挂起，随时可回来）：会话已封存、**进度已保存**，且**无需重发** —— 主按钮「继续」
+   *   = 放行（临时提额，可撤销）⇒ 后端协调器**自动从这里续跑**（E2E 已证，见 `BUDGET-SUSPEND-RESUME`）。
+   */
+  suspended?: boolean;
   /** 文案函数（宿主注入，如 i18n `t`） */
   t: (key: string) => string;
   /** 放行：交给宿主调 `POST /v1/cost/daily-budget/relief` */
   onRelief: (kind: DailyLimitReliefKind) => void;
-  /** 显式重发被拦的那条消息（D-f） */
+  /** 显式重发被拦的那条消息（D-f；**挂起态**下为"放行并等待自动续跑"） */
   onContinue: () => void;
   /** 直达限额设置面（D-h） */
   onOpenSettings: () => void;
@@ -61,6 +70,7 @@ export default function DailyLimitNotice({
   limit,
   unit,
   mode,
+  suspended = false,
   t,
   onRelief,
   onContinue,
@@ -78,9 +88,10 @@ export default function DailyLimitNotice({
       role="status"
       data-testid="daily-limit-notice"
       data-mode={mode}
+      data-suspended={suspended ? "true" : "false"}
     >
       <div className="flex items-start gap-3">
-        <span className="flex-shrink-0 mt-0.5">⛽</span>
+        <span className="flex-shrink-0 mt-0.5">{suspended ? "⏸" : "⛽"}</span>
         <div className="flex-1 min-w-0">
           <div className="text-sm text-amber-800 dark:text-amber-200">
             <span>{t("cost.card.used")}</span>{" "}
@@ -89,7 +100,8 @@ export default function DailyLimitNotice({
             <span className="font-mono">{limitText}</span>
           </div>
           <p className="mt-1 text-xs text-amber-700/90 dark:text-amber-300/80 whitespace-pre-line">
-            {t("cost.card.hint")}
+            {/* 挂起态：**进度已保存、放行后自动续跑**（与后端收尾文案同一事实）；撞限当下：原提示 */}
+            {suspended ? t("cost.card.suspended") : t("cost.card.hint")}
           </p>
 
           <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -115,7 +127,12 @@ export default function DailyLimitNotice({
               onClick={onContinue}
               className="text-xs px-3 py-1 rounded bg-amber-500/90 text-white hover:bg-amber-500 transition-colors"
             >
-              ▶ {t("cost.action.continue")}
+              ▶{" "}
+              {t(
+                suspended
+                  ? "cost.action.continueSuspended"
+                  : "cost.action.continue",
+              )}
             </button>
           </div>
         </div>

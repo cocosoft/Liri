@@ -259,6 +259,8 @@ export const ENDPOINTS = {
     dailyBudgetReset: "/v1/cost/daily-budget/reset",
     dailyBudgetRelief: "/v1/cost/daily-budget/relief",
     dailyBudgetKillSwitch: "/v1/cost/daily-budget/kill-switch",
+    /** 只读**挂起清单**（v1.5 A2）—— 供"挂起后回来仍能继续"的入口使用 */
+    dailyBudgetSuspend: "/v1/cost/daily-budget/suspend",
   },
   files: {
     registryDelete: "/v1/files/registry/delete",

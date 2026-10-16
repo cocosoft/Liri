@@ -3065,6 +3065,9 @@ const en = {
     card: {
       used: "Today's quota is used up (used / limit)",
       hint: "This is a local daily token-quota state, not conversation content. You can temporarily raise the limit, waive this once, or unlock for today — or open limit settings.",
+      // 2026-10-17（台账 `BUDGET-SUSPEND-CONTINUE-ENTRY`）：挂起态（进度已保存 + 放行后自动续跑）
+      suspended:
+        "This turn is suspended: today's quota is used up and progress has been saved. After you grant relief, this session resumes automatically from here — no need to resend.",
     },
     action: {
       boost: "Raise limit",
@@ -3072,6 +3075,7 @@ const en = {
       unlockToday: "Unlock today",
       openSettings: "Limit settings",
       continue: "Continue",
+      continueSuspended: "Continue (raise limit)",
     },
     tabDailyLimit: "Daily Limit",
     tabDailyLimitDesc:

@@ -31,6 +31,8 @@ import { categorizeEvent } from "@/types";
 // P3-4（2026-09-22）：`metric/timing` 行内展示耗时 / tokens —— 复用既有格式化工具（CS01）
 import { currentLocale, formatTokens } from "../../utils/format";
 import { formatDuration } from "../../stores/chat/deriveTrajectoryTimeline";
+// 2026-10-16：类型标签的**单一实现**（原为本文件内的手写 18 条清单，见该模块头注）
+import { trajectoryTypeLabel } from "./trajectoryEventTypes";
 
 const CATEGORY_ICONS: Record<LiriEventCategory, string> = {
   conversation: "💬",
@@ -50,27 +52,6 @@ const CATEGORY_COLORS: Record<LiriEventCategory, string> = {
   lifecycle: "text-green-600 dark:text-green-400",
 };
 
-const TYPE_LABEL_KEYS: Record<string, string> = {
-  "turn/start": "trajectory.type.turnStart",
-  "turn/end": "trajectory.type.turnEnd",
-  "user/message": "trajectory.type.userMessage",
-  "assistant/thinking": "trajectory.type.thinking",
-  "assistant/text": "trajectory.type.reply",
-  "assistant/tool_call": "trajectory.type.toolCall",
-  "tool/result": "trajectory.type.toolResult",
-  "context/compaction": "trajectory.type.contextCompaction",
-  "context/summary": "trajectory.type.contextSummary",
-  "system/error": "trajectory.type.error",
-  "system/warning": "trajectory.type.warning",
-  "system/info": "trajectory.type.info",
-  "metric/timing": "trajectory.type.metricTiming",
-  "channel/connect": "trajectory.type.channelConnect",
-  "channel/disconnect": "trajectory.type.channelDisconnect",
-  "channel/message": "trajectory.type.channelMessage",
-  "session/start": "trajectory.type.sessionStart",
-  "session/end": "trajectory.type.sessionEnd",
-};
-
 interface Props {
   event: LiriEvent;
   selected: boolean;
@@ -81,8 +62,7 @@ export function TrajectoryRow({ event, selected, onClick }: Props) {
   const { t } = useTranslation();
   const category = categorizeEvent(event.type);
   const icon = CATEGORY_ICONS[category];
-  const typeLabelKey = TYPE_LABEL_KEYS[event.type];
-  const label = typeLabelKey ? t(typeLabelKey) : event.type;
+  const label = trajectoryTypeLabel(event.type, t);
   const time = new Date(event.time).toLocaleTimeString(currentLocale(), {
     hour12: false,
   });

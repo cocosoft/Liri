@@ -23,12 +23,22 @@
  * TrajectoryFilter — 事件过滤栏
  *
  * 支持按 category 多选 + 关键字搜索。
+ *
+ * 2026-10-16（台账 `TRAJECTORY-TYPE-FILTER-DYNAMIC`）：**类型按钮改为动态候选** ——
+ * 由调用方传入「当前已加载事件里实际出现过的类型 + 次数」（`countEventTypes`），
+ * 按次数降序生成按钮。原静态 21 项只覆盖事件名清单(54)的 39%，且**最吵的两类恰好不在其中**
+ * （真机：`metric/timing` 6.5% + `request/start` 3.3% ⇒ 面板每 1000 条里约 98 行无法按类型隐藏），
+ * 另有 12 个按钮无中文标签、9 个标签无按钮（两份手写清单错位）。
  */
 
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LiriEventCategory, LiriEventType } from "@/types";
 import type { TrajectoryFilterState } from "@/stores/chat/trajectoryStore";
+import {
+  trajectoryTypeLabel,
+  type TrajectoryTypeOption,
+} from "./trajectoryEventTypes";
 
 const CATEGORY_OPTIONS: Array<{
   value: LiriEventCategory;
@@ -70,32 +80,6 @@ const CATEGORY_OPTIONS: Array<{
   },
 ];
 
-// P7（2026-08-25）：常用事件类型快捷过滤
-const TYPE_OPTIONS: Array<{ value: LiriEventType; label: string }> = [
-  { value: "turn/start", label: "turn/start" },
-  { value: "turn/end", label: "turn/end" },
-  { value: "user/message", label: "user" },
-  { value: "assistant/text", label: "text" },
-  { value: "assistant/text-batch", label: "text-batch" },
-  { value: "assistant/thinking", label: "thinking" },
-  { value: "assistant/tool_call", label: "tool_call" },
-  { value: "tool/result", label: "result" },
-  { value: "tool/canceled", label: "canceled" },
-  { value: "assistant/status", label: "status" },
-  { value: "assistant/todo", label: "todo" },
-  { value: "assistant/question", label: "question" },
-  { value: "assistant/doc_workflow", label: "doc_workflow" },
-  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录
-  { value: "assistant/workflow_run_start", label: "workflow_run_start" },
-  { value: "assistant/workflow_step_start", label: "workflow_step_start" },
-  { value: "assistant/workflow_step_end", label: "workflow_step_end" },
-  { value: "assistant/workflow_run_end", label: "workflow_run_end" },
-  { value: "assistant/progress", label: "progress" },
-  { value: "assistant/truncation", label: "truncation" },
-  { value: "context/compaction", label: "compaction" },
-  { value: "system/error", label: "error" },
-];
-
 // P7（2026-08-25）：来源维度（对标 DSH 按来源查看，由 categorizeEvent 派生）
 const SOURCE_OPTIONS: Array<{ value: string; labelKey: string }> = [
   { value: "llm", labelKey: "trajectory.source.llm" },
@@ -108,11 +92,35 @@ const SOURCE_OPTIONS: Array<{ value: string; labelKey: string }> = [
 interface Props {
   filter: TrajectoryFilterState;
   onChange: (patch: Partial<TrajectoryFilterState>) => void;
+  /**
+   * 动态类型候选（当前已加载事件里实际出现过的类型 + 次数，见 `countEventTypes`）。
+   * 缺省空数组 ⇒ 不渲染任何类型按钮（仅分类/来源/关键字/区间可用）。
+   */
+  availableTypes?: TrajectoryTypeOption[];
 }
 
-export function TrajectoryFilter({ filter, onChange }: Props) {
+export function TrajectoryFilter({
+  filter,
+  onChange,
+  availableTypes = [],
+}: Props) {
   const { t } = useTranslation();
   const keywordId = useId();
+
+  /**
+   * 按钮集合 = 动态候选（次数降序）∪ **已选但当前会话未出现**的类型。
+   *
+   * 后者必须保留：否则用户在某会话勾了 `assistant/diff`、切到无该类型的会话后按钮消失，
+   * 「筛出 0 条且无法取消该筛选项」——只能靠"清除"整维，属可用性陷阱。
+   */
+  const typeCandidates: TrajectoryTypeOption[] = [
+    ...availableTypes,
+    // 已选但当前会话未出现者补在末尾：否则切会话后按钮消失 ⇒「筛出 0 条且无法取消该筛选项」
+    // （只能靠"清除"整维）——属可用性陷阱
+    ...filter.types
+      .filter((ty) => !availableTypes.some((o) => o.type === ty))
+      .map((ty) => ({ type: ty as LiriEventType, count: 0 })),
+  ];
 
   /** 已启用的筛选维度数（折叠状态下作为摘要；TB-1） */
   const activeCount =
@@ -253,21 +261,24 @@ export function TrajectoryFilter({ filter, onChange }: Props) {
               );
             })}
           </div>
-          {/* P7：类型多选（低垂果实，store 已有 types 字段） */}
+          {/* 2026-10-16：类型多选 —— **动态候选**（按当前会话实际出现次数降序；见模块头注） */}
           <div className="flex flex-wrap gap-1">
-            {TYPE_OPTIONS.map((opt) => {
-              const active = filter.types.includes(opt.value);
+            {typeCandidates.map((opt) => {
+              const active = filter.types.includes(opt.type);
               return (
                 <button
-                  key={opt.value}
-                  onClick={() => toggleType(opt.value)}
+                  key={opt.type}
+                  onClick={() => toggleType(opt.type)}
+                  title={
+                    opt.count > 0 ? `${opt.type} · ${opt.count}` : opt.type
+                  }
                   className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
                     active
                       ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
                       : "bg-gray-50 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                   }`}
                 >
-                  {opt.label}
+                  {trajectoryTypeLabel(opt.type, t)}
                 </button>
               );
             })}

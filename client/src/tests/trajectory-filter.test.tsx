@@ -28,6 +28,12 @@
  * - 关键词与 seq/时间区间为受控输入，回传的是**数字或 undefined**（不是字符串）；
  * - 「清除」按钮**仅在有筛选时出现**，点击后**八个维度同时归空**（漏清一个即为回归）；
  * - 时间输入用 `new Date(v).getTime()` ⇒ 断言只校验"是有限数字"，**不锁绝对值**（该值随运行时区变化）。
+ *
+ * 2026-10-16（台账 `TRAJECTORY-TYPE-FILTER-DYNAMIC`）同步两处**契约变更**：
+ * - 类型按钮改为**动态候选**（由 `availableTypes` 传入，按出现次数降序）⇒ harness 必须给候选，
+ *   否则不渲染任何类型按钮；
+ * - 按钮文案改为**类型标签单一实现**（`trajectoryTypeLabel`）：命中 i18n 键显示译文，
+ *   未命中回落原始 type 串 —— 原「文案恒为类型原文、且用短别名（thinking/tool_call）」的断言作废。
  */
 
 import { describe, it, expect } from "vitest";
@@ -35,6 +41,7 @@ import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TrajectoryFilter } from "../components/Trajectory/TrajectoryFilter";
 import type { TrajectoryFilterState } from "../stores/chat/trajectoryStore";
+import type { LiriEventType } from "@/types";
 
 const EMPTY: TrajectoryFilterState = {
   keyword: "",
@@ -42,6 +49,16 @@ const EMPTY: TrajectoryFilterState = {
   types: [],
   sources: [],
 };
+
+/**
+ * 类型候选（动态）：含一个**有 i18n 映射**的类型（`assistant/thinking` ⇒ 显示译文）
+ * 与一个**无映射**的类型（`request/start` ⇒ 显示原始 type 串），以及最吵的 `metric/timing`。
+ */
+const AVAILABLE_TYPES: Array<{ type: LiriEventType; count: number }> = [
+  { type: "assistant/thinking", count: 30 },
+  { type: "metric/timing", count: 20 },
+  { type: "request/start", count: 10 },
+];
 
 function Harness({ initial }: { initial?: Partial<TrajectoryFilterState> }) {
   const [filter, setFilter] = useState<TrajectoryFilterState>({
@@ -53,6 +70,7 @@ function Harness({ initial }: { initial?: Partial<TrajectoryFilterState> }) {
       <TrajectoryFilter
         filter={filter}
         onChange={(patch) => setFilter((prev) => ({ ...prev, ...patch }))}
+        availableTypes={AVAILABLE_TYPES}
       />
       <output data-testid="filter-state">{JSON.stringify(filter)}</output>
     </>
@@ -103,13 +121,25 @@ describe("TrajectoryFilter（TC-1）", () => {
     expect(currentState().sources).toEqual([]);
   });
 
-  it("类型多选：按钮文案是事件类型原文，回传完整类型名", () => {
+  it("类型多选：按钮来自**动态候选**、文案走标签单一实现，回传完整类型名", () => {
     setup();
-    const btn = screen.getByRole("button", { name: "thinking" });
-    fireEvent.click(btn);
-    expect(currentState().types).toEqual(["assistant/thinking"]);
-    fireEvent.click(btn);
-    expect(currentState().types).toEqual([]);
+    // 用 `title`（= `type · 次数`）定位，避开 i18n 文案随 locale 变化
+    // 无 i18n 键（request/start）⇒ 回落原始 type 串；这类"此前没有按钮的类型"现在也有按钮
+    const unmapped = screen.getByTitle("request/start · 10");
+    expect(unmapped.textContent).toBe("request/start");
+    fireEvent.click(unmapped);
+    expect(currentState().types).toEqual(["request/start"]);
+
+    // 有 i18n 键（assistant/thinking）⇒ 显示译文（不等于原始 type 串）
+    const mapped = screen.getByTitle("assistant/thinking · 30");
+    expect(mapped.textContent).not.toBe("assistant/thinking");
+    fireEvent.click(mapped);
+    expect(currentState().types).toEqual([
+      "request/start",
+      "assistant/thinking",
+    ]);
+    fireEvent.click(mapped);
+    expect(currentState().types).toEqual(["request/start"]);
   });
 
   it("关键词输入回传原文（受控）", () => {
@@ -155,7 +185,7 @@ describe("TrajectoryFilter（TC-1）", () => {
       { target: { value: "x" } },
     );
     fireEvent.click(screen.getByRole("button", { name: "上下文" }));
-    fireEvent.click(screen.getByRole("button", { name: "thinking" }));
+    fireEvent.click(screen.getByTitle("assistant/thinking · 30"));
     fireEvent.click(screen.getByRole("button", { name: "LLM" }));
     const clear = screen.getByRole("button", { name: "清除" });
     fireEvent.click(clear);

@@ -29,6 +29,8 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import { TrajectoryFilter } from "../Trajectory/TrajectoryFilter";
 import { TrajectoryRow } from "../Trajectory/TrajectoryRow";
+// 2026-10-16：类型筛选候选由已加载事件派生（`countEventTypes`，单一实现）
+import { countEventTypes } from "../Trajectory/trajectoryEventTypes";
 import TrajectoryDetail from "../Trajectory/TrajectoryDetail";
 import { TrajectoryTimeline } from "../Trajectory/TrajectoryTimeline";
 import { TrajectoryPlayer } from "../Trajectory/TrajectoryPlayer";
@@ -288,6 +290,11 @@ function TrajectoryTabContentImpl() {
     ],
   );
 
+  // 2026-10-16（台账 `TRAJECTORY-TYPE-FILTER-DYNAMIC`）：类型筛选按钮的**候选** = 当前已加载
+  // 事件里实际出现过的类型（按次数降序）。替代原静态 21 项清单（只覆盖事件名清单的 39%，
+  // 且最吵的 `metric/timing` / `request/start` 不在其中 ⇒ 每 1000 条约 98 行无法按类型隐藏）。
+  const availableTypes = useMemo(() => countEventTypes(events), [events]);
+
   // R-1（2026-08-23）：轨迹 Tab 按 Turn/Step 分组渲染（恢复规格书 E-2 交付物），
   // 孤立事件（session/start 等）单独列出
   const layout = useMemo(
@@ -429,7 +436,11 @@ function TrajectoryTabContentImpl() {
         onPrevTurn={() => jumpTurn(-1)}
         onNextTurn={() => jumpTurn(1)}
       />
-      <TrajectoryFilter filter={filter} onChange={setFilter} />
+      <TrajectoryFilter
+        filter={filter}
+        onChange={setFilter}
+        availableTypes={availableTypes}
+      />
       {/* P1-4（2026-09-22）只读时间线：与列表使用**同一份过滤后事件**（口径一致） */}
       <TrajectoryTimeline
         events={filteredEvents}

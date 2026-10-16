@@ -4629,6 +4629,18 @@
 {"id":"TOOLVIS-P3-PANEL","k":"tests#0","i":0,"c":"client/src/components/settings/__tests__/ToolsPanel.test.tsx"}
 {"id":"TOOLVIS-P3-PANEL","k":"tests#1","i":0,"c":"client/src/components/settings/__tests__/toolsPanelModel.test.ts"}
 {"id":"TOOLVIS-P3-PANEL","k":"tests#2","i":0,"c":"client/src/components/Sidebar/__tests__/systemItemsOverride.test.ts"}
+{"id":"TOOLVIS-P4A-EVAL","k":"title","i":0,"c":"工具可见性治理 P4a：15 个影子工具逐条评估（接线 3 / 保持条件化 12 / 删除常量 0）"}
+{"id":"TOOLVIS-P4A-EVAL","k":"source","i":0,"c":"方案 dev_docs/20261016/工具可见性治理方案-20261016.md §3.6（Q3 裁定「评估后逐个接线」）；取证 = 4 组并行全仓只读检索 + 作者回仓复核关键结论（CS06）"}
+{"id":"TOOLVIS-P4A-EVAL","k":"reopenWhen","i":0,"c":"任何 P4b 接线动作前须回读本评估对应行并复核其「前置」是否已满足；若产品就 propose_plan 与 ask_user_question（confirm 型）的审批入口边界给出结论、或某桩实现被补成真实现（如 music_generate 接 provider、pdf 补 pdf-parse）、或 kanban/mcp_auth 的双轨被收口，则须更"}
+{"id":"TOOLVIS-P4A-EVAL","k":"reopenWhen","i":1,"c":"新对应行的建议与 §3 落地顺序"}
+{"id":"TOOLVIS-P4A-EVAL","k":"notes","i":0,"c":"① 结论分布：接线 3（task_output / propose_plan / pdf）· 保持条件化 12 · 删除常量 0（CD07 默认保留，且 15 名被 3 处清单/基线引用，删除会连带改门禁）。② 接线判据三条：实现体须为真实现（否则接线等于把编造数据暴露给模型，违 CS04）· 不得与生效面构成事实源双轨（实现唯一性）· 须有真实引用面（"}
+{"id":"TOOLVIS-P4A-EVAL","k":"notes","i":1,"c":"prompt/UI/文档已把它当可用工具 ⇒ 不接线即留悬空承诺）。③ 两条口径纠正：15 个并非同一类 —— send_message 有 loader（ToolManagerUtils.ts:201）+ flag 门控（builtinToolRegistry.ts:183-189 的 ENABLE_SEND_MESSAGE，默认 false）⇒ 属 D "}
+{"id":"TOOLVIS-P4A-EVAL","k":"notes","i":2,"c":"类，其余 14 个无 loader（连与 flag 无关的全量视图都不在）才是 E 类；toolNameLists.test.ts 的 KNOWN_CONDITIONAL_TOOL_NAMES 注释「flag-gated 且默认关」对那 14 个不成立（P4b 顺手订正）。④ 接线价值最高的两条证据：task_output 有真实现（"}
+{"id":"TOOLVIS-P4A-EVAL","k":"notes","i":3,"c":"taskRegistry.getTask）+ 已被 ToolUIRegistry:363 与 AgentTool/prompt.ts:72 引用却未注册（模型照 prompt 调用必失败）；pdf 被 builtinSections.ts:683 列为生成类工具且是唯一 PDF 生成器，但其 extract/info 依赖未安装的 pdf-parse ⇒ 接"}
+{"id":"TOOLVIS-P4A-EVAL","k":"notes","i":4,"c":"线前须先处置该桩。⑤ 三条不确定项已如实登记：propose_plan 的产品取舍（与 ask_user_question 是否重复，未找到裁定文档）、send_message 的 flag 解析链细节未逐行核、各桩实现是否有历史 provider（git 历史未查）。⑥ 本片为评估文档，零代码改动；P4b 按评估顺序逐个独立提交（task_output →"}
+{"id":"TOOLVIS-P4A-EVAL","k":"notes","i":5,"c":" propose_plan → pdf → send_message）。"}
+{"id":"TOOLVIS-P4A-EVAL","k":"code#0","i":0,"c":"dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"}
+{"id":"TOOLVIS-P4A-EVAL","k":"code#1","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

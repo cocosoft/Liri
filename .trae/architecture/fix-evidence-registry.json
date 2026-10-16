@@ -8481,6 +8481,31 @@
       "changelog": [],
       "reopenWhen": "改动 GET /v1/tools/visibility 的字段或 reasons 枚举（须同步 shared/types/tool-visibility.ts 与前端穷尽映射）、settings.tools 的读写形状、高风险二次确认判据、或 Sidebar 的系统导航渲染块（onClickOverride 转发是抽…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P3-PANEL）",
       "notes": "① 新增 client ToolsPanel + toolsPanelModel：三态控件（跟随任务 / 强制可见 / 强制不可见）、reasons 结构化原因徽标、risk=high 的**二次确认**（文案含「可见不代表放行…仍需逐次审批」）、conditional 行标注「未进生效工具面 ⇒ 覆写不会生效」；分…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P3-PANEL）"
+    },
+    {
+      "id": "TOOLVIS-P4A-EVAL",
+      "title": "工具可见性治理 P4a：15 个影子工具逐条评估（接线 3 / 保持条件化 12 / 删除常量 0）",
+      "source": "方案 dev_docs/20261016/工具可见性治理方案-20261016.md §3.6（Q3 裁定「评估后逐个接线」）；取证 = 4 组并行全仓只读检索 + 作者回仓复核关键结论（CS06）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md",
+        "dev_docs/20261016/工具可见性治理方案-20261016.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "任何 P4b 接线动作前须回读本评估对应行并复核其「前置」是否已满足；若产品就 propose_plan 与 ask_user_question（confirm 型）的审批入口边界给出结论、或某桩实现被补成真实现（如 music_generate 接 provider、pdf 补 pdf-parse）、或 kanba…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4A-EVAL）",
+      "notes": "① 结论分布：接线 3（task_output / propose_plan / pdf）· 保持条件化 12 · 删除常量 0（CD07 默认保留，且 15 名被 3 处清单/基线引用，删除会连带改门禁）。② 接线判据三条：实现体须为真实现（否则接线等于把编造数据暴露给模型，违 CS04）· 不得与生效面构成事实源…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4A-EVAL）"
     }
   ]
 }

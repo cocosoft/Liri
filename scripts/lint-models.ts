@@ -10,7 +10,7 @@
  * 实现约束：Windows 无系统 grep，全部用 Bun 内置 API（Bun.file/readdirSync/正则）。
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { Database } from 'bun:sqlite';
 
@@ -212,13 +212,13 @@ function checkCapabilityCoverage(): {
   let dbPath = '';
   for (const p of DB_PATHS) {
     const full = join(process.cwd(), p);
-    try {
-      if (readFileSync(full, 'utf-8')) {
-        dbPath = full;
-        break;
-      }
-    } catch {
-      /* 尝试下一个 */
+    // `existsSync` 而非 `readFileSync`：后者用于"是否存在"会**整读文件**（真接上真实 DB
+    // 时是 129MB/次），且空文件会因"空串为假"被漏判。改为纯存在性判断后**结论不变**：
+    // 路径不存在 ⇒ 换下一个；存在但不可用 ⇒ 由下方表结构/异常分支同样归为"跳过"
+    // （实测：空文件 ⇒ `task_capability_mappings 列名未识别`，仍 exit 0）。
+    if (existsSync(full)) {
+      dbPath = full;
+      break;
     }
   }
   if (!dbPath) {

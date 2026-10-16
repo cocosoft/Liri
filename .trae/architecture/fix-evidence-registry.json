@@ -8983,6 +8983,30 @@
       "changelog": [],
       "reopenWhen": "① 若要让该子检查在**本机真正跑起来**（把 `DB_PATHS` 指向真实数据目录 `~/.pyapp/data/app.db`）：属**行为变更**、须先裁定 —— 且必须知道它随后会按用户当前数据判红（本片实测：`tts`/`stt` 各 0 个 enabled 模型 ⇒ FAIL，且那是**真实配置缺口**…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-SCOPE）",
       "notes": "【为什么做这一片】上一片按「缺夹具」的思路记着 lint-models 的跳过，本片查清后**结论不同**：不是「CI 缺 DB」，而是这项检查**语义上就只能本地跑**。【证据链（三步实测）】**第一步 —— 查输入**：`scripts/lint-models.ts:244-256` 读两张表：`task_cap…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-SCOPE）"
+    },
+    {
+      "id": "LINTMODELS-DB-EXISTS-PROBE",
+      "title": "lint-models 的 DB 存在性判断改用 existsSync（原 readFileSync 会整读文件、且漏判空文件）",
+      "source": "承 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ③（该片记录：存在性判断用 `readFileSync` 会整读文件，实测真实 DB 129MB）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-models.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若日后把 `DB_PATHS` 指向真实数据目录（那属**行为变更**，见 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ①）：本片的 `existsSync` 已是正确形态，**无需再改** —— 真接上真实 DB 时不再每次整读 129MB；② 若该子检查未来改为 **…（全文见 archive/evidence-detail.jsonl#LINTMODELS-DB-EXISTS-PROBE）",
+      "notes": "【改动（2 处）】`checkCapabilityCoverage()` 的候选路径探测由 `try { if (readFileSync(full, 'utf-8')) { … } } catch { /* 下一个 */ }` 改为 `if (existsSync(full)) { … }`；import 行补 `…（全文见 archive/evidence-detail.jsonl#LINTMODELS-DB-EXISTS-PROBE）"
     }
   ]
 }

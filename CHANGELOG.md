@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **FORK-PREFIX-WINDOW**：fork 三项前置判据改分页读全前缀（治 read() 默认 1000 条窗口误判）+ 分支标题落 manual/locked 锁 —— 验证 tc0|ut12|e2e2|gate6；基线 真机：fork 三判据误用 read() 默认 1000 条窗口 ⇒ 长会话全量 fork 恒被拒（open turn@925）、窗口外边界解析漏检；fork 子会话无标题标记 ⇒ 分支标题被占位/LLM 命名覆盖（三段标题链）（详情见 archive/evidence-detail.jsonl#FORK-PREFIX-WINDOW）
 - ✅ **FORK-BOUNDARY-BEFORE-MESSAGE**：非首条编辑的分支边界改由后端在源事件上解析（取编辑点前最后一个已闭合轮次的 turn/end）；首轮⇒零种子分支 —— 验证 tc0|ut4|e2e2|gate6；基线 真机：fork 全量 + 事后 editTruncate 恒 404（子会话只有事件、无投影）⇒ 分支重载后旧消息回显；客户端自算边界两次被真机打回（详情见 archive/evidence-detail.jsonl#FORK-BOUNDARY-BEFORE-MESSAGE）
 - ✅ **BRANCH-EDIT-ZERO-HISTORY**：「编辑并另存为分支」编辑首条 ⇒ 零历史（不再 fork 全量 + 事后截断）；非首条待后端解析边界 —— 验证 tc0|ut4|e2e1|gate6；基线 真机：首条编辑仍 fork 全量 + 事后 `editTruncate` ⇒ `Target message not found` ⇒ 分支重载后旧消息回显；次版用前一条 `lastEventSeq` 算边界被真机打回（`prevSeq: null`）（详情见 archive/evidence-detail.jsonl#BRANCH-EDIT-ZERO-HISTORY）
 - ✅ **BRANCH-EDIT-FORK-UPSERT**：「编辑并另存为分支」先 upsert 再切（fork 后 G5 丢弃切换 ⇒ 截断打错会话） —— 验证 tc0|ut3|e2e1|gate6；基线 真机：fork 后逐字 `switchChatSession:目标会话已不在列表，丢弃切换` ⇒ 回落旧会话 ⇒ `editTruncate` 用旧会话消息 id 打新会话（`Target message not found`）（详情见 archive/evidence-detail.jsonl#BRANCH-EDIT-FORK-UPSERT）

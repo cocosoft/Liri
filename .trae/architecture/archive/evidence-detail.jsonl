@@ -5419,6 +5419,20 @@
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#8","i":0,"c":"app/src/channels/qq/apiUrls.ts"}
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#9","i":0,"c":"app/src/main.ts"}
 {"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"title","i":0,"c":"通道就地放行的按钮**按白名单**给：入站回调未接线的通道不得给按钮（防「点了没反应」的假按钮）"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"source","i":0,"c":"上一片（CHANNEL-BUDGET-INLINE-RELIEF）**自查发现的自身隐患**：出站按 `sendInteractive` 能力给按钮，而入站回调只接了 QQ ⇒ 对飞书等 11 个通道会给出「点了毫无反应」的按钮"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"reopenWhen","i":0,"c":"① **新增通道时必须同时接完出站与入站**再把该通道 id 加入 `BUTTON_CAPABLE_CHANNELS`，否则该通道会退化为「无按钮文案」（不报错、只是少一个按钮能力）—— 判据：新通道接完入站回调后，卡片仍显示为无按钮版本。② 白名单是**硬编码 Set**（当前仅 `qq`）：若通道 id 在注册表里另有别名（如大小写/前缀差异），须同步或"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"reopenWhen","i":1,"c":"改为按通道能力声明（`ChannelCapabilities.interactive` **不足以**判定 —— 它只表示「出站能画按钮」，不代表「入站能收回调」）。③ 若日后某通道的入站回执语义变化（如飞书不要求 loading 回执），须重审该通道是否可移出/加入白名单。"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":0,"c":"【问题（上一片自查发现的**自身隐患**）】上一片的出站卡片按「通道是否实现 `sendInteractive`」决定是否带按钮，而入站回调**只接了 QQ**（`INTERACTION_CREATE`）⇒ 对飞书等 11 个「出站能发、入站没接」的通道，用户点了按钮**毫无反应**（飞书还会一直 loading）。**这比没有按钮更糟**：用户以为按了、其"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":1,"c":"实什么都没发生（这正是该片 spec §2 D2 自己写下的风险项，却在实现时漏了闸门）。\n【做法】`channels/bridge/budgetReliefCard.ts` 增 `BUTTON_CAPABLE_CHANNELS`（当前 = `{'qq'}`，即**入站回调已接线**的通道白名单）：非白名单通道**不建卡**、改发**无按钮**文案（`"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":2,"c":"buildBudgetSuspendedNotice({hasButtons:false})`，含桌面端出路）⇒ 用户拿到的是**如实**的提示，而非假按钮。注释写明纪律：**新增通道必须同时接完出站与入站，再把 id 加进来**。\n【验证】`tests/channels/budgetInlineRelief.test.ts` 新增 2 例：① 飞书（有 `"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":3,"c":"sendInteractive`）⇒ **断言 `sendInteractive` 从未被调用**（核心负向：不得给假按钮）+ 走 markdown 且文案不含「点下方」、含「用量中心 → 日限额」；② 白名单自证（`qq` ∈、`feishu` ∉）。该文件 **26 pass / 0 fail**；`tsc --noEmit` 0 错。\n【如实边界】① "}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":4,"c":"本片只加**闸门**，没有新增任何通道的入站能力（飞书/其余通道的入站回调仍未做，见 `CHANNEL-BUDGET-INLINE-RELIEF` reopenWhen ③）。② `e2eVerified=false`（与上一片同：按钮点击须真人在客户端点）。③ 白名单为硬编码 Set（见 reopenWhen ②）。\n【台账工具（落盘受阻时的**最小**修"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":5,"c":"复）】首次跑 `migrate --detail` 时自检**假红**：`CHANNEL-BUDGET-INLINE-RELIEF: 归档 notes 非「registry 短化头」前缀`。根因 = **两侧口径不一致**：「短化」(`headOf`) 会把空白折叠为单空格（`\\s+ → ' '`），而 `migrate` 的前缀断言拿**未归一化**的归档"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":6,"c":"原文比较 ⇒ **首段含换行**的条目必然假红（该条 `notes` 首段在 `。` 后即换行）；`gen --verify-against` 早已用同一口径（它归一化的是旧表一侧）。修法：`scripts/migrate-evidence-to-jsonl.ts` **仅**把归档侧按同一口径归一化后再断言（只影响空白；内容层面的漂移仍照旧拦截）。该修复"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"notes","i":7,"c":"**独立成提交**，与本片功能改动分离。"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"code#0","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
+{"id":"CHANNEL-RELIEF-BUTTON-GATE","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

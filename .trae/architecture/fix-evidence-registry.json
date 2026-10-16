@@ -9543,6 +9543,32 @@
       "changelog": [],
       "reopenWhen": "① **真机端到端仍未做**（`e2eVerified=false`）：按钮点击必须**真人在 QQ 客户端**点 ⇒ 待用户开通「自定义按钮」并在 QQ 里点一次后补齐（判据：日志出现 `channels:budgetReliefAction: 放行已处理` + `budgetSuspend:resumed{tar…（全文见 archive/evidence-detail.jsonl#CHANNEL-BUDGET-INLINE-RELIEF）",
       "notes": "【问题（用户裁定「A + C2，先 QQ」）】通道（QQ/飞书）里的会话撞上日预算后，**放行动作只在桌面端** ⇒ 手机上的通道用户卡住。上一片收口桌面端入口后，这一半成了唯一缺口。 【取证（只读十条，含一条纠正）】① 通道侧**已有**「发送被拦」文案（`resolveLlmFailure('DAILY_BUDG…（全文见 archive/evidence-detail.jsonl#CHANNEL-BUDGET-INLINE-RELIEF）"
+    },
+    {
+      "id": "CHANNEL-RELIEF-BUTTON-GATE",
+      "title": "通道就地放行的按钮**按白名单**给：入站回调未接线的通道不得给按钮（防「点了没反应」的假按钮）",
+      "source": "上一片（CHANNEL-BUDGET-INLINE-RELIEF）**自查发现的自身隐患**：出站按 `sendInteractive` 能力给按钮，而入站回调只接了 QQ ⇒ 对飞书等 11 个通道会给出「点了毫无反应」的按钮",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/bridge/budgetReliefCard.ts"
+      ],
+      "tests": [
+        "app/tests/channels/budgetInlineRelief.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **新增通道时必须同时接完出站与入站**再把该通道 id 加入 `BUTTON_CAPABLE_CHANNELS`，否则该通道会退化为「无按钮文案」（不报错、只是少一个按钮能力）—— 判据：新通道接完入站回调后，卡片仍显示为无按钮版本。② 白名单是**硬编码 Set**（当前仅 `qq`）：若通道 id 在注册表…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-BUTTON-GATE）",
+      "notes": "【问题（上一片自查发现的**自身隐患**）】上一片的出站卡片按「通道是否实现 `sendInteractive`」决定是否带按钮，而入站回调**只接了 QQ**（`INTERACTION_CREATE`）⇒ 对飞书等 11 个「出站能发、入站没接」的通道，用户点了按钮**毫无反应**（飞书还会一直 loading）。…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-BUTTON-GATE）"
     }
   ]
 }

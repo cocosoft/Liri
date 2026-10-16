@@ -9402,7 +9402,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "client/src/components/ChatArea/ChatArea.tsx",

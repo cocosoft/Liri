@@ -19,7 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-- ✅ **BUDGET-SUSPEND-CONTINUE-ENTRY**：补「预算挂起」后的继续入口：撞限卡两态化（挂起态主按钮=放行并自动续跑） —— 验证 ut3|cln633|tc1|ts6592；基线 改前：撞限当时有卡片，挂起态却无入口 —— 没当场点继续、或重启/切会话后 errorCode 已不在内存，会话一直挂起却找不到继续按钮（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-CONTINUE-ENTRY）
+- ✅ **BUDGET-SUSPEND-CONTINUE-ENTRY**：补「预算挂起」后的继续入口：撞限卡两态化（挂起态主按钮=放行并自动续跑） —— 验证 e2e1|ut3|cln633|tc1|ts6592；基线 改前：撞限当时有卡片，挂起态却无入口 —— 没当场点继续、或重启/切会话后 errorCode 已不在内存，会话一直挂起却找不到继续按钮（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-CONTINUE-ENTRY）
 - ✅ **BUDGET-EXHAUSTED-TERMINATION-COPY**：修预算耗尽收尾文案：按 kind（窗口预算/日限额）+ 是否已挂起三态区分 + 给可执行出路 —— 验证 ut4|ts907|tc1|ts6592；基线 改前：两种语义共用一句「已达到本轮 token 预算上限，工具链提前终止」；日预算已挂起可续跑时也这么说（详情见 archive/evidence-detail.jsonl#BUDGET-EXHAUSTED-TERMINATION-COPY）
 - ✅ **TOAST-SINGLE-CHANNEL**：toast 收敛为唯一通道：KnowledgePage 摘除第二套 + 删除 hooks/useToast + 写明错误呈现口径 + 守卫 —— 验证 guard1|ut630|tc1|ts6630；基线 改前：toast 两套并行（store 与 hooks/useToast），KnowledgePage 同页两条通道、两种位置样式（详情见 archive/evidence-detail.jsonl#TOAST-SINGLE-CHANNEL）
 - ✅ **CAPS-CAPABILITY-LOAD-FAILED-MSG**：补「能力加载失败」专用文案键：两组件如实报错（空态三态区分）+ 契约 ⑤ 钉住 —— 验证 ct14|ut629|tc1；基线 改前：加载失败时 CapabilitySelector 显示「暂无可用能力」、ModelMetaEditor 一片空白 —— 均把故障读成正常（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LOAD-FAILED-MSG）

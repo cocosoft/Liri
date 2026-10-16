@@ -717,9 +717,11 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
             // 否则 `streamMessage` 会拿**旧会话**的 messageId 去截新会话（404 噪音）。
             useChatStore.getState().setEditTarget(null);
           } catch (err) {
-            // 边界无法解析（该消息不在源会话事件日志中，如纯投影的存量会话）⇒ 退回既有行为：
-            // fork 全量 + 由 `streamMessage` 事后截断（该路径已知可能回显旧消息，见台账
-            // BRANCH-EDIT-ZERO-HISTORY；此处只保证"不静默、有留痕"）。
+            // 边界无法解析：该消息在**源会话事件日志**中不存在（如纯投影的存量消息）。
+            // 2026-10-16 改为**明确失败并中止发送**（不再静默退回「fork 全量 + 事后截断」）：
+            // 后端 fork 只复制**事件**（子会话 `messages.jsonl` 为空），事后截断按投影查 id 恒 404
+            // ⇒ 退回该路径会产出"**含被编辑掉的旧消息**"的分支（台账 BRANCH-EDIT-ZERO-HISTORY /
+            // FORK-PREFIX-WINDOW）。宁可失败可见，也不产出错误历史。
             handleClientError(
               err,
               {
@@ -728,12 +730,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
               },
               "warn",
             );
-            const forked = await sessionService.forkSession(currentSession.id, {
-              childTitle: branchTitle,
-            });
-            useRootStore.getState().upsertChatSession(forked.session);
-            await useSessionStore.getState().switchSession(forked.session.id);
-            sessionId = forked.session.id;
+            useChatStore.setState({ isUploading: false });
+            toastError(new Error(t("chat.branchCreateFailed")));
+            return;
           }
         } else {
           const branchSession = await createSession(branchTitle);

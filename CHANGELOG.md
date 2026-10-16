@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BRANCH-EDIT-FORK-UPSERT**：「编辑并另存为分支」先 upsert 再切（fork 后 G5 丢弃切换 ⇒ 截断打错会话） —— 验证 tc0|ut3|e2e1|gate6；基线 真机：fork 后逐字 `switchChatSession:目标会话已不在列表，丢弃切换` ⇒ 回落旧会话 ⇒ `editTruncate` 用旧会话消息 id 打新会话（`Target message not found`）（详情见 archive/evidence-detail.jsonl#BRANCH-EDIT-FORK-UPSERT）
 - ✅ **ABORT-TURN-END-BACKFILL**：中止补齐 `turn/end{canceled}`（切走会话杀长任务后不再呈现无报错的假空闲） —— 验证 tc0|ut2|e2e1|gate6；基线 真机：切走后事件日志停在 `seq=680 assistant/thinking` 无 `turn/end`、94 条消息 `finishReason` 全空 ⇒ 切回后进度冻结、Console 零 warn/error（详情见 archive/evidence-detail.jsonl#ABORT-TURN-END-BACKFILL）
 - ✅ **COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS**：命令输出去 markdown 标题（6 文件约 40 处）+ 回退提示词载荷越界（`agents.ts`） —— 验证 tc0|gate6；基线 Terminal 页 / ink / legacy REPL 显字面 `## Git 状态`；`getPromptForCommand` 载荷与终端输出**同形**（易误改）（详情见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS）
 - ✅ **COMMAND-OUTPUT-PLAIN-TEXT-STARS**：命令输出去 markdown 强调星号（6 文件约 50 处改纯文本）+ 守则测试钉住 —— 验证 tc0|ut1|gate6；基线 命令输出在 Terminal 页 / ink / legacy REPL 显字面 `**标签**`（四显现面中 3 面不渲染 markdown）（详情见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）

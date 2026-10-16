@@ -4399,6 +4399,21 @@
 {"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":9,"c":"typecheck` 0；六门禁绿。"}
 {"id":"ABORT-TURN-END-BACKFILL","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
 {"id":"ABORT-TURN-END-BACKFILL","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/abortTurnEndBackfill.test.ts"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"title","i":0,"c":"「编辑并另存为分支」先 upsert 再切会话：fork 后目标未入 `chatSessions` ⇒ G5 守卫丢弃切换（回落旧会话）⇒ 后续截断把旧会话消息 id 打到新会话（`Target message not found`）"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"source","i":0,"c":"用户 2026-10-16 指令「跑会话系统的 E2E 真机验证…全面排查，然后逐一修复」+「按方案 (a) 执行，先修复 upsert 逻辑」"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"reopenWhen","i":0,"c":"① **同流程仍有未修缺陷（另立片，务必先看这条）**：切换已修正，但 `truncate` 在新会话仍被后端 404 ⇒ 截断落空 ⇒ 分支重载后**旧消息回显**（真机复现：分支含 4 条/2 轮，编辑前 `你好` 与编辑后 `你好-分支终验` 同时可见）。根因修法方向 = 用 fork 的**事件边界** `boundary`（fork 时即只复制编辑"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"reopenWhen","i":1,"c":"点之前的历史）⇒ 不再需要事后 truncate；动手前须先确认 `boundary` 的 inclusive 语义与「落在 open turn 内 ⇒ 400」的边界，并确认客户端如何取编辑点的事件 seq。② `upsertChatSession` 只做单条插入/合并、**不做列表排序** ⇒ 排序由随后的 SSE 刷新收敛；若日后 SSE 延迟导致顺序"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"reopenWhen","i":2,"c":"抖动，应改为复用 `sortSessionsForList`。③ 若其他「后端已建、前端未列」的路径（如未来新增的导入/克隆）也直接 switch，同样需要在切换前 upsert。"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":0,"c":"① 真机取证（本机 1420/18990，会话 `session_mva9ipfjb15d261845` → 分支 `b180032e-8c98-4c58-a882-c8d19be6a76c`）：分支流程 `POST /fork` → `POST /switch(新id)` → 修复前逐字出现 `switchChatSession:目标会话已不在列表，丢弃切"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":1,"c":"换 {sessionId: 新id, seq: 2}` 并回落旧会话（`loadConversation{sessionId: 旧id}`）⇒ 随后的 `streamMessage:editTruncate {sessionId: 新id, editTargetId: 旧会话的消息 id}` ⇒ `Target message not found`。② 根因"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":2,"c":"：G5 守卫（`sessionSlice` 内「目标会话已不在列表 ⇒ 丢弃切换」，防幽灵会话）读取的是侧栏 `chatSessions`，而 fork 后该列表**尚未被 SSE/刷新补齐**，仓内也**没有** upsert API（只有重量级 `loadChatSessions`）。③ 修法（方案 a）：新增 `upsertChatSession("}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":3,"c":"session)`（单条插入/合并，不排序、不重拉），分支流程在 `switchSession` 之前先收录 `forked.session`。④ **真机复验（第一层通过）**：修复后逐字核对 —— `目标会话已不在列表`/`丢弃` **0 命中**；`②后端切换完成` 与 `③消息已加载` 的 sessionId **均为新分支**（`count: 2,"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":4,"c":" fromCache: false, source: events-incremental`）；`POST /v1/sessions/<新id>/messages/truncate` 无网络层失败标记。⑤ 测试：在既有 `client/src/tests/session-slice-race.test.ts` 追加 3 例（新会话置顶插入不丢既有项 / 已存"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":5,"c":"在原位合并不重复且顺序不变 / 空列表单条插入）；`vitest run` 19 例绿 + `tsc --noEmit` 0。⑥ **中途试错（如实）**：首版误判为「编辑点未重映射」，写了 `branchEditRemap` 与 6 例测试并接线；真机复验显示该版**无效**（Console 仍报 `Target message not found` 且 "}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"notes","i":6,"c":"`branchEditRemap` 日志 0 命中），遂**删除该模块与其测试**、只保留已被真机证实有效的 upsert 改动（避免留无用代码）。⑦ 清理：复验期间的测试会话已用 API 删除（3 + 2 个）。"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"code#0","i":0,"c":"client/src/stores/root-store/sessionSlice.ts"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"code#1","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
+{"id":"BRANCH-EDIT-FORK-UPSERT","k":"tests#0","i":0,"c":"client/src/tests/session-slice-race.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

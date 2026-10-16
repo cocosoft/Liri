@@ -8169,6 +8169,33 @@
       "changelog": [],
       "reopenWhen": "① 若 `runStreamMessage` 的收尾结构变更（外层 try/finally 边界、`startStreamTurn` 写入点、`_finalizeStreamMessage` 的 turn/end 责任）⇒ `turnTrace` 的三处置位须同步核对；② 若新增「正常路径也会跳过 turn/end」…（全文见 archive/evidence-detail.jsonl#ABORT-TURN-END-BACKFILL）",
       "notes": "① 真机缺陷取证（本机 18990，会话 `session_mva6u12hcfb812df09`）：长任务运行中切走会话 ⇒ 客户端 `stopAndFlush() → stopMessage() → controller.abort()`；此后事件日志停在 `seq=680 assistant/thinking`…（全文见 archive/evidence-detail.jsonl#ABORT-TURN-END-BACKFILL）"
+    },
+    {
+      "id": "BRANCH-EDIT-FORK-UPSERT",
+      "title": "「编辑并另存为分支」先 upsert 再切会话：fork 后目标未入 `chatSessions` ⇒ G5 守卫丢弃切换（回落旧会话）⇒ 后续截断把旧会话消息 id 打到新会话（`Target message not found`）",
+      "source": "用户 2026-10-16 指令「跑会话系统的 E2E 真机验证…全面排查，然后逐一修复」+「按方案 (a) 执行，先修复 upsert 逻辑」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "client/src/stores/root-store/sessionSlice.ts",
+        "client/src/components/ChatArea/ChatInput.tsx"
+      ],
+      "tests": [
+        "client/src/tests/session-slice-race.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **同流程仍有未修缺陷（另立片，务必先看这条）**：切换已修正，但 `truncate` 在新会话仍被后端 404 ⇒ 截断落空 ⇒ 分支重载后**旧消息回显**（真机复现：分支含 4 条/2 轮，编辑前 `你好` 与编辑后 `你好-分支终验` 同时可见）。根因修法方向 = 用 fork 的**事件边界** `b…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-FORK-UPSERT）",
+      "notes": "① 真机取证（本机 1420/18990，会话 `session_mva9ipfjb15d261845` → 分支 `b180032e-8c98-4c58-a882-c8d19be6a76c`）：分支流程 `POST /fork` → `POST /switch(新id)` → 修复前逐字出现 `switchChat…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-FORK-UPSERT）"
     }
   ]
 }

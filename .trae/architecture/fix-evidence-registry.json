@@ -8536,6 +8536,36 @@
       "changelog": [],
       "reopenWhen": "若日后回退 task_output 的 loader/类别登记（则该名会重回 conditional 差额集，P4b 接线回归锁会红）；或 TaskOutputTool 的 execute 改为不再依赖 taskRegistry（真实现前提消失）时；或 TASK_TOOL_CATEGORIES 中 task 类的白名…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TASK-OUTPUT）",
       "notes": "① 六步接线：TOOL_CATEGORIES 登记 task_output='task'（与 get_task_list 同族；原未登记 ⇒ 落 misc 被裁）→ builtinToolRegistry 加 createTaskOutputTool → ToolManagerUtils 的 buildBuiltin…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TASK-OUTPUT）"
+    },
+    {
+      "id": "TOOLVIS-P4B-PROPOSE-PLAN",
+      "title": "P4b 接线②：propose_plan 从影子工具转为生效工具（生成物 76 → 77，conditional 差额集 14 → 13）",
+      "source": "P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(2)（真实现 + 两条既有端到端测试 + 复用 ask_user_question 的 question 通道）；用户裁定 Q3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/tools/toolCategories.ts",
+        "app/src/tools/factories/builtinToolRegistry.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts",
+        "app/src/tools/toolEffects.ts",
+        "app/src/constants/toolNames.generated.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolNameLists.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若产品最终判定 propose_plan 与 ask_user_question（confirm 型）二者只保留一个（P4a 登记的**唯一待裁定项**，未找到既有裁决文档）⇒ 应下线其中一个并同步差额集/生成物；或 PLAN 功能开关被移除、或 ProposePlanTool.execute 不再依赖通用 _use…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN）",
+      "notes": "① 六步接线：TOOL_CATEGORIES 登记 propose_plan='interaction'（与 ask_user_question 同档；原未登记 ⇒ 落 misc 被裁）→ builtinToolRegistry 加 createProposePlanTool → ToolManagerUtils 加…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN）"
     }
   ]
 }

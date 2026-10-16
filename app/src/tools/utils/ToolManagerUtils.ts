@@ -220,6 +220,10 @@ function buildBuiltinToolLoaders(
     cond(isAntUser(), byKey('createTungstenTool')),
     cond(coreFeature('BROWSER'), byKey('createBrowserTool')),
     cond(coreFeature('PLAN'), byKey('createPlanTool')),
+    // P4b（2026-10-16）：`propose_plan` 从影子工具接线进注册面（P4a 评估 §2.2(2)）——
+    // 与 `plan` 同族同门控（`PLAN`），且既有 `propose-plan.test.ts` / `plan-mode-loop.test.ts`
+    // 已覆盖"提交计划 → 等批准"闭环。
+    cond(coreFeature('PLAN'), byKey('createProposePlanTool')),
 
     // 其他条件工具
     cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronCreateTool')),

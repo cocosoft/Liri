@@ -4658,6 +4658,22 @@
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#3","i":0,"c":"app/src/tools/toolEffects.ts"}
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"title","i":0,"c":"P4b 接线②：propose_plan 从影子工具转为生效工具（生成物 76 → 77，conditional 差额集 14 → 13）"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"source","i":0,"c":"P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(2)（真实现 + 两条既有端到端测试 + 复用 ask_user_question 的 question 通道）；用户裁定 Q3"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"reopenWhen","i":0,"c":"若产品最终判定 propose_plan 与 ask_user_question（confirm 型）二者只保留一个（P4a 登记的**唯一待裁定项**，未找到既有裁决文档）⇒ 应下线其中一个并同步差额集/生成物；或 PLAN 功能开关被移除、或 ProposePlanTool.execute 不再依赖通用 _userAnswers 注入机制时"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":0,"c":"① 六步接线：TOOL_CATEGORIES 登记 propose_plan='interaction'（与 ask_user_question 同档；原未登记 ⇒ 落 misc 被裁）→ builtinToolRegistry 加 createProposePlanTool → ToolManagerUtils 加 cond(coreFeature('"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":1,"c":"PLAN'), byKey('createProposePlanTool'))（与同族 plan **同门控**）→ gen:toolnames 重算（76 → 77）→ TOOL_EFFECTS 声明 EXTERNAL（与 ask_user_question 同口径：面向用户可见 + 重复调用会再次追问 ⇒ 非幂等、不得盲目重试）→ 门禁与守卫。② 接线依"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":2,"c":"据：ProposePlanTool 有 params + execute，**复用通用 _userAnswers 注入**（ReActToolLoop.ts:1303 等）无需新机制；且 app/tests/tools/propose-plan.test.ts 与 app/tests/chat/plan-mode-loop.test.ts **两条端到端测试"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":3,"c":"早已存在**（与其他影子工具不同：它已被测，只差注册）。③ 守卫同步：从 KNOWN_CONDITIONAL_TOOL_NAMES 移出 propose_plan，并把 P4b 接线回归锁改为**名单驱动**（P4B_WIRED_TOOL_NAMES = [task_output, propose_plan]；差额集长度 = 15 − 名单长度）⇒ 后续接线"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":4,"c":"只需追加名单，无需改断言数值。④ 真机取证：接线前 propose_plan = conditional + misc；接线后 registration=registered、category=interaction，default 下 visible、coding 下 hidden（not-in-task-whitelist）——与 "}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":5,"c":"ask_user_question 逐项同档，符合「同族同口径」。⑤ 自证：tests/tools + tests/chat 共 1436 例全绿（含 plan-mode-loop 与 propose-plan 两条既有端到端）；typecheck 0；生成物 77 名、排除集 13 名。⑥ 如实边界：**产品取舍未决** —— 与 "}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"notes","i":6,"c":"ask_user_question 的 confirm 型功能部分重叠，本片按 P4a 建议接线并已把该问题写入 reopenWhen；另 ToolUIRegistry 侧**无** propose_plan 的专属 UI（沿用 ask_user_question 的 question 通道渲染）。"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#0","i":0,"c":"app/src/tools/toolCategories.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#1","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#2","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#3","i":0,"c":"app/src/tools/toolEffects.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -49,6 +49,9 @@ const EXTERNAL: ToolEffect = { idempotent: false, sideEffect: 'external' };
 export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   agent: EXTERNAL,
   ask_user_question: EXTERNAL,
+  // P4b（2026-10-16）：`propose_plan` 接线后须声明。与 `ask_user_question` 同口径取 EXTERNAL：
+  // 它**面向用户可见**（提交计划并等批准），且重复调用会**再次追问**（非幂等）⇒ 不得盲目重试。
+  propose_plan: EXTERNAL,
   audio_play: NONE,
   bash: EXTERNAL,
   brief: LOCAL,

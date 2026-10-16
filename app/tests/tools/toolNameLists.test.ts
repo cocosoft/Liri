@@ -540,7 +540,6 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
     'music_generate',
     'nodes',
     'pdf',
-    'propose_plan',
     'send_message',
     'sessions_send',
     'sessions_spawn',
@@ -568,13 +567,19 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
   /**
    * **P4b 接线回归锁（2026-10-16）**：影子工具"接线"的**可证伪判据** = 它同时满足
    * ① 进生成物（⇒ 会被真实实例化）② 不在差额集（⇒ 不再是 conditional 影子工具）。
-   * 若日后有人把 `task_output` 的 loader/登记回退，本用例即红。
+   * 若日后有人把已接线工具的 loader/登记回退，本用例即红。
    */
-  it('P4b 接线回归锁：task_output 已进生效面（生成物 76 名）且已移出 conditional 差额集', () => {
-    expect(TOOL_NAMES).toContain('task_output');
-    expect(KNOWN_CONDITIONAL_TOOL_NAMES).not.toContain('task_output');
-    // 反向自证：差额集规模确实从 15 收缩到 14（接线是**净收缩**，不是新增登记）
-    expect(KNOWN_CONDITIONAL_TOOL_NAMES.length).toBe(14);
+  const P4B_WIRED_TOOL_NAMES = ['task_output', 'propose_plan'];
+
+  it('P4b 接线回归锁：已接线工具进生效面且已移出 conditional 差额集', () => {
+    for (const name of P4B_WIRED_TOOL_NAMES) {
+      expect(TOOL_NAMES).toContain(name);
+      expect(KNOWN_CONDITIONAL_TOOL_NAMES).not.toContain(name);
+    }
+    // 反向自证：差额集随接线**净收缩**（15 − 已接线数），而不是"新增登记"
+    expect(KNOWN_CONDITIONAL_TOOL_NAMES.length).toBe(
+      15 - P4B_WIRED_TOOL_NAMES.length
+    );
   });
 
   it('门禁自证（负向夹具）：新增命名空间族会被判违规 ⇒ 快照非恒真', () => {

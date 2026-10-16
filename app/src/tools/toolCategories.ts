@@ -135,6 +135,12 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   create_task_list: 'task',
   update_task_status: 'task',
   get_task_list: 'task',
+  // P4b（2026-10-16，方案 `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §2.2(1)）：
+  // `task_output` 原为「声明面有名、零 loader、零类别登记」的影子工具 ⇒ 即使注册也会落
+  // `misc` 被裁。它读的是 `taskRegistry` 的任务输出（真实现），且 `AgentTool` 提示词已
+  // 引导模型"通过 TaskOutput 工具获取后台任务结果" ⇒ 不登记即留悬空承诺。归 `task`
+  // （与 `get_task_list` 同族；该类别属 coding/agent 白名单 ⇒ 与"后台任务"场景一致）。
+  task_output: 'task',
   cron_create: 'task',
   cron_delete: 'task',
   cron_list: 'task',

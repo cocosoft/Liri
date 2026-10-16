@@ -520,8 +520,18 @@ function deriveNamespaceFamilies(keys: string[]): string[] {
 describe('S2-3 契约与清单门禁（G5 / G6）', () => {
   /**
    * **G5（D11-B 后落地，2026-10-11）**：常量表 = 声明的**单一来源**；它与生成物"生效面"的**差额**
-   * 只允许是**已知的条件工具**（flag-gated 且默认关，台账 D-40/D-41 长期无法枚举的那批）。
-   * 新增未知差额 ⇒ CI 失败，强制"显式登记或修正注册"。
+   * 只允许是**已知的不可见工具**。新增未知差额 ⇒ CI 失败，强制"显式登记或修正注册"。
+   *
+   * ⚠️ **口径订正（2026-10-16，P4a 评估实证）**：本集合原注释称"flag-gated 且默认关"，实测
+   * 它**混装两类**（见 `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §0.1）：
+   * - **E 类（未接线）**：在 `buildBuiltinToolLoaders()` 与 `BUILTIN_TOOL_FACTORIES` 里**零命中**
+   *   —— 连"与 flag 无关的全量视图"都不在；本集合中除 `send_message` 外皆属此类；
+   * - **D 类（flag 门控）**：`send_message` —— 有 loader（`ToolManagerUtils.ts:201`），
+   *   仅因 `isToolEnabled('ENABLE_SEND_MESSAGE')` 默认 false 而不实例化
+   *   （`builtinToolRegistry.ts:183-189`）。
+   *
+   * ⚠️ 移出本集合的**唯一正规途径**是"真接线"（登记类别 + loader + 重算生成物 + 声明 effects），
+   * 见 P4b；`task_output` 即首个（2026-10-16 接线，75 → 76）。
    */
   const KNOWN_CONDITIONAL_TOOL_NAMES = [
     'agents_list',
@@ -535,7 +545,6 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
     'sessions_send',
     'sessions_spawn',
     'session_status',
-    'task_output',
     'thinking',
     'tts',
     'update_plan',
@@ -554,6 +563,18 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
       .filter((n) => !effective.has(n))
       .sort();
     expect(notEffective).toEqual([...KNOWN_CONDITIONAL_TOOL_NAMES].sort());
+  });
+
+  /**
+   * **P4b 接线回归锁（2026-10-16）**：影子工具"接线"的**可证伪判据** = 它同时满足
+   * ① 进生成物（⇒ 会被真实实例化）② 不在差额集（⇒ 不再是 conditional 影子工具）。
+   * 若日后有人把 `task_output` 的 loader/登记回退，本用例即红。
+   */
+  it('P4b 接线回归锁：task_output 已进生效面（生成物 76 名）且已移出 conditional 差额集', () => {
+    expect(TOOL_NAMES).toContain('task_output');
+    expect(KNOWN_CONDITIONAL_TOOL_NAMES).not.toContain('task_output');
+    // 反向自证：差额集规模确实从 15 收缩到 14（接线是**净收缩**，不是新增登记）
+    expect(KNOWN_CONDITIONAL_TOOL_NAMES.length).toBe(14);
   });
 
   it('门禁自证（负向夹具）：新增命名空间族会被判违规 ⇒ 快照非恒真', () => {

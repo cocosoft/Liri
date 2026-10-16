@@ -42,6 +42,8 @@ import {
   TaskUpdateStatusTool,
   TaskGetListTool,
 } from '../TaskOrchestratorTools/TaskOrchestratorTools';
+// P4b（2026-10-16）：`task_output` 原为影子工具（零 loader）⇒ 接线（见 P4a 评估 §2.2(1)）
+import { TaskOutputTool } from '../TaskOutputTool/TaskOutputTool';
 import { CronCreateTool } from '../ChronosTool/CronCreateTool';
 import { CronDeleteTool } from '../ChronosTool/CronDeleteTool';
 import { CronListTool } from '../ChronosTool/CronListTool';
@@ -147,6 +149,7 @@ export const BUILTIN_TOOL_FACTORIES = {
   createTaskCreateListTool: () => new TaskCreateListTool(),
   createTaskUpdateStatusTool: () => new TaskUpdateStatusTool(),
   createTaskGetListTool: () => new TaskGetListTool(),
+  createTaskOutputTool: () => new TaskOutputTool(),
   createCronCreateTool: () => CronCreateTool.create(),
   createCronDeleteTool: () => CronDeleteTool.create(),
   createCronListTool: () => CronListTool.create(),

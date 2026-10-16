@@ -4641,6 +4641,23 @@
 {"id":"TOOLVIS-P4A-EVAL","k":"notes","i":5,"c":" propose_plan → pdf → send_message）。"}
 {"id":"TOOLVIS-P4A-EVAL","k":"code#0","i":0,"c":"dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"}
 {"id":"TOOLVIS-P4A-EVAL","k":"code#1","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"title","i":0,"c":"P4b 接线①：task_output 从影子工具转为生效工具（生成物 75 → 76，conditional 差额集 15 → 14）"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"source","i":0,"c":"P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(1)（接线判据：真实现 + 有真实引用面 + 不造双轨）；用户裁定 Q3「评估后逐个接线」"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"reopenWhen","i":0,"c":"若日后回退 task_output 的 loader/类别登记（则该名会重回 conditional 差额集，P4b 接线回归锁会红）；或 TaskOutputTool 的 execute 改为不再依赖 taskRegistry（真实现前提消失）时；或 TASK_TOOL_CATEGORIES 中 task 类的白名单归属被调整（影响它在 "}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"reopenWhen","i":1,"c":"coding/agent 之外是否可见）"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":0,"c":"① 六步接线：TOOL_CATEGORIES 登记 task_output='task'（与 get_task_list 同族；原未登记 ⇒ 落 misc 被裁）→ builtinToolRegistry 加 createTaskOutputTool → ToolManagerUtils 的 buildBuiltinToolLoaders 加 byKey('"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":1,"c":"createTaskOutputTool') → bun run gen:toolnames 重算生成物（75 → 76）→ TOOL_EFFECTS 声明 NONE（与 isReadOnly()=true 一致）→ 门禁与守卫。② 接线依据：execute 走真源 taskRegistry.getTask（TaskOutputTool.ts:285）+ 已"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":2,"c":"被 ToolUIRegistry.ts:363 与 AgentTool/prompt.ts:72 引用却未注册 ⇒ 模型照 prompt 调用必然失败（真实悬空承诺）；非 E 类以外成因。③ 守卫同步：把 task_output 从 KNOWN_CONDITIONAL_TOOL_NAMES 移出（G5 差额集断言 15 → 14，该断言在接线前**确实报红"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":3,"c":"**，证明门禁有效），并新增 P4b 接线回归锁（断言它同时在生成物内且不在差额集、差额集长度=14）；顺手按 P4a 实证订正该集合的注释口径（原文称 flag-gated 且默认关，实测混装 E 类 14 个与 D 类 1 个）。④ 真机取证：接线前 GET /v1/tools/visibility 中 task_output = conditional"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":4,"c":" + misc；接线后 registration=registered、category=task，default 下 hidden（not-in-task-whitelist）、coding 与 agent 下 visible、risk=low；条目数仍 90（名字域不变）。⑤ 自证：tests/tools 884 例全绿（原 883 例中 1 例为 G5"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":5,"c":" 差额集断言，随登记同步而转绿）；app 全量 6600 例仅 1 例预存失败（defaultLocaleTimezone ③ 前端时区兜底，与本次改动无关：Footer/DashboardPage 本轮未改动，疑为客户端改用 constants/locale 单一真源后未同步该源码断言）；typecheck 0；lint:tool-schema 通过（"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"notes","i":6,"c":"task_output 在存量基线内，无新增缺声明）；lint:consts/unref 通过；分层违规 0。"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#0","i":0,"c":"app/src/tools/toolCategories.ts"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#1","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#2","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#3","i":0,"c":"app/src/tools/toolEffects.ts"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

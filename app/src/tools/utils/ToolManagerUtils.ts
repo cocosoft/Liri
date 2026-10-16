@@ -138,6 +138,9 @@ function buildBuiltinToolLoaders(
     byKey('createTaskCreateListTool'),
     byKey('createTaskUpdateStatusTool'),
     byKey('createTaskGetListTool'),
+    // P4b（2026-10-16）：`task_output` 从「影子工具」接线进注册面（见 P4a 评估 §2.2(1)）——
+    // 它读 `taskRegistry` 的真任务输出，且 `AgentTool/prompt.ts` 与 `ToolUIRegistry` 早已引用其名。
+    byKey('createTaskOutputTool'),
     byKey('createSkillTool'),
     // T9'（2026-08-30）：skills_list / skill_view 注册进 ToolManager loaders——
     // 此前仅存在于 getAllBaseTools() 工具池路径，未进入 ToolRegistry，导致

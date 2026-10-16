@@ -66,6 +66,7 @@ export const TOOL_NAMES = [
   'sleep_for',
   'sleep_until',
   'stat_vfs',
+  'task_output',
   'task_stop',
   'team_create',
   'team_delete',
@@ -88,4 +89,4 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 75;
+export const TOOL_NAMES_COUNT = 76;

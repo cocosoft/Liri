@@ -107,6 +107,9 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   sleep_until: NONE,
   stat_vfs: NONE,
   task_stop: LOCAL,
+  // P4b（2026-10-16）：`task_output` 接线进生效面后须声明（`Record<ToolName,…>` 强制）。
+  // 只读（`TaskOutputTool.isReadOnly() === true`，TaskOutputTool.ts:208）⇒ NONE。
+  task_output: NONE,
   // D1 接线（2026-10-11）：coding 变体下 `TEAM_CREATE`/`TEAM_DELETE` 默认生效 ⇒ 成为生成物工具名，
   // `Record<ToolName, …>` 强制在此声明（团队操作对**其他参与者/外部系统**可见 ⇒ EXTERNAL）。
   team_create: EXTERNAL,

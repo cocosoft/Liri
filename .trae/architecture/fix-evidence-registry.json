@@ -8506,6 +8506,36 @@
       "changelog": [],
       "reopenWhen": "任何 P4b 接线动作前须回读本评估对应行并复核其「前置」是否已满足；若产品就 propose_plan 与 ask_user_question（confirm 型）的审批入口边界给出结论、或某桩实现被补成真实现（如 music_generate 接 provider、pdf 补 pdf-parse）、或 kanba…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4A-EVAL）",
       "notes": "① 结论分布：接线 3（task_output / propose_plan / pdf）· 保持条件化 12 · 删除常量 0（CD07 默认保留，且 15 名被 3 处清单/基线引用，删除会连带改门禁）。② 接线判据三条：实现体须为真实现（否则接线等于把编造数据暴露给模型，违 CS04）· 不得与生效面构成事实源…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4A-EVAL）"
+    },
+    {
+      "id": "TOOLVIS-P4B-TASK-OUTPUT",
+      "title": "P4b 接线①：task_output 从影子工具转为生效工具（生成物 75 → 76，conditional 差额集 15 → 14）",
+      "source": "P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(1)（接线判据：真实现 + 有真实引用面 + 不造双轨）；用户裁定 Q3「评估后逐个接线」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/tools/toolCategories.ts",
+        "app/src/tools/factories/builtinToolRegistry.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts",
+        "app/src/tools/toolEffects.ts",
+        "app/src/constants/toolNames.generated.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolNameLists.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若日后回退 task_output 的 loader/类别登记（则该名会重回 conditional 差额集，P4b 接线回归锁会红）；或 TaskOutputTool 的 execute 改为不再依赖 taskRegistry（真实现前提消失）时；或 TASK_TOOL_CATEGORIES 中 task 类的白名…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TASK-OUTPUT）",
+      "notes": "① 六步接线：TOOL_CATEGORIES 登记 task_output='task'（与 get_task_list 同族；原未登记 ⇒ 落 misc 被裁）→ builtinToolRegistry 加 createTaskOutputTool → ToolManagerUtils 的 buildBuiltin…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TASK-OUTPUT）"
     }
   ]
 }

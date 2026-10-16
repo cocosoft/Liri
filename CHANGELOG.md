@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOLVIS-P4B-TASK-OUTPUT**：P4b 接线①：task_output 转生效工具（生成物 75→76，conditional 15→14） —— 验证 tc1|ut884|e2e4|gate5；基线 真机：接线前 conditional+misc，接线后 registered+task（default 不可见、coding/agent 可见）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TASK-OUTPUT）
 - ✅ **TOOLVIS-P4A-EVAL**：15 个影子工具逐条评估（接线 3 / 保持条件化 12 / 删除常量 0）+ 两条口径纠正 —— 验证 doc2|gate5；基线 评估前：15 个统一按「E 类实现了但没接线」叙述；实测 14 个无 loader（E 类）、send_message 有 loader+flag（D 类），且 12 个的 execute 为空壳/桩（不可直接接线）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4A-EVAL）
 - ✅ **TOOLVIS-P3-PANEL**：工具可见性设置页：三态覆写 + 原因徽标 + 高风险二次确认（另修真机暴露的抽屉不可达与保存后须刷新） —— 验证 tc2|ut37|e2e6|gate7；基线 真机：抽屉 tab 与 /settings?nav=tools 双路径渲染 90 条（可见 48 / 未接线 15）；computer_use 二次确认后无需刷新即转「已强制开启」；复验另暴露 BUG-1（桌面抽屉真机不可达）与 BUG-2（保存后须刷新）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P3-PANEL）
 - ✅ **TOOLVIS-P2-OVERRIDES**：工具可见性三态覆写层（auto/on/off）：默认空表 ⇒ 逐元素恒等、零行为变更 —— 验证 tc1|ut18|e2e5|gate7；基线 真机 PUT 开 computer_use（此前 archived 且被裁）⇒ 报表 effective=visible + user-on-bypass；bash:off ⇒ hidden + user-off；非法值与未知名被丢弃；重放路径强制集不变（详情见 archive/evidence-detail.jsonl#TOOLVIS-P2-OVERRIDES）

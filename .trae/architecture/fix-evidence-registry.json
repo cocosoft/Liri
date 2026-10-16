@@ -9079,6 +9079,30 @@
       "changelog": [],
       "reopenWhen": "① 若**语音链路将来改走模型路由**（`tts`/`stt` 任务类型被真实消费）：**必须删掉**对应登记 —— 否则真实缺口会被豁免掩盖，本表就成了后门；② 登记**只**接受「该能力由独立子系统提供」这一类理由，**不得**用于掩盖「忘了启用模型」—— 若发现自己正在为后者登记，应改为去修配置；③ 若 `.t…（全文见 archive/evidence-detail.jsonl#LINTMODELS-TASK-EXEMPT）",
       "notes": "【改了什么】在 `scripts/lint-models.ts` 新增豁免表 `INTENTIONALLY_MODEL_LESS: Record<task:capability, 理由>`（与文件内既有 `IGNORE_PATH_FRAGMENTS` 白名单**同风格**，不另建 JSON 表），登记两条：`tts:…（全文见 archive/evidence-detail.jsonl#LINTMODELS-TASK-EXEMPT）"
+    },
+    {
+      "id": "SESSION-ADAPTER-METADATA-BRIDGE",
+      "title": "旧链 metadata 桥（UnifiedStorageAdapter）取证定性：只透传 title/tags/mode 但无生产消费者 ⇒ 不补字段、不删，仅钉注释",
+      "source": "承 `TOOLVIS-P4B-TOOLPROFILE` 的如实边界（当时记为「先于本项存在的普遍性有损，不在 P4 范围」—— 该表述含糊，未区分「有损且有消费者」与「有损且无消费者」）；本片做活性取证并给精确结论",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/session/storage/UnifiedStorageAdapter.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若**新代码开始经旧接口读写元数据**（即 `SessionStore.loadMetadata` / `saveMetadata` 出现生产调用）：**必须**把本桥改为**通用字段透传**（全量 `{...metadata}` + 由 `SessionMetadata.fromJSON` 统一收敛），而不是在…（全文见 archive/evidence-detail.jsonl#SESSION-ADAPTER-METADATA-BRIDGE）",
+      "notes": "【问题（承接的含糊表述）】早先在做 `toolProfile` 时发现：旧链 `UnifiedStorageAdapter.saveMetadata/loadMetadata` **只透传 `title`/`tags`/`mode`**（因为旧 `Session` 模型的元数据形状只有这三字段）⇒ `pinned`/…（全文见 archive/evidence-detail.jsonl#SESSION-ADAPTER-METADATA-BRIDGE）"
     }
   ]
 }

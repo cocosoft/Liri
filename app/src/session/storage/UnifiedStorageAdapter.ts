@@ -213,6 +213,28 @@ export class UnifiedStorageAdapter implements SessionStorage {
     return unifiedMessages.map(toOldSessionMessage);
   }
 
+  /**
+   * ⚠️ **已知有损的旧链接口**（2026-10-16 取证，台账 `SESSION-ADAPTER-METADATA-BRIDGE`）：
+   *
+   * 本方法与下面的 `loadMetadata` **只透传 `title` / `tags` / `mode`** —— 因为旧 `Session` 模型的
+   * 元数据形状只有这三个字段。后果：`pinned` / `workMode` / `tokenUsage` / `toolProfile` 等
+   * **新链字段不会经此桥往返**（新链自身的落盘走 `UnifiedSessionStorage`，原样写 `UnifiedSession`
+   * JSON、无字段白名单 ⇒ **不受影响**）。
+   *
+   * **为什么保持现状（不补字段、也不删）**：
+   * - 取证：`SessionStore.loadMetadata` / `saveMetadata` 在 `app/src` **零生产调用**（全仓唯一
+   *   调用点是 `app/tests/session/SessionStore.test.ts` 的往返锁）；`SessionFactory` 全仓**零实例化**
+   *   （旧链 `@deprecated`）且其 storage 默认是 `MemoryStorage` 而非本适配器；仍在使用的
+   *   `SessionManagerAdapter` 走的旧 `SessionManager` 接口**不含 metadata 方法**
+   *   ⇒ **本桥当前无生产消费者**（属"活代码里的死面"）。
+   * - 因此"补全字段"是无消费者的改动（YAGNI）；而"删除"属 CD07 关键域（会话存储）**不得**以
+   *   "静态无引用"为依据。
+   *
+   * 🔁 若将来要让**旧接口**真正承载完整元数据（例如新代码开始经 `SessionStore.loadMetadata` 读元数据）：
+   * 应改为**通用字段透传**（`{...metadata}` 全量 + 由 `SessionMetadata.fromJSON` 统一收敛），
+   * 而不是在此逐个补字段 —— 后者正是"字段白名单漂移"的复发形态（同 `models/SessionMetadata.ts`
+   * 的 `toJSON` 白名单，见台账 `TOOLVIS-P4B-TOOLPROFILE`）。
+   */
   async saveMetadata(
     sessionId: string,
     metadata: SessionMetadata
@@ -229,6 +251,7 @@ export class UnifiedStorageAdapter implements SessionStorage {
     }
   }
 
+  /** ⚠️ 有损桥：只还原 `title` / `tags` / `mode`（原因与取证见上方 `saveMetadata` 的头注） */
   async loadMetadata(sessionId: string): Promise<SessionMetadata | null> {
     const session = await this.storage.getSession(sessionId);
     if (!session) return null;

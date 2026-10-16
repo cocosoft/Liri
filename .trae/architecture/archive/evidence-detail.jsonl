@@ -5039,6 +5039,23 @@
 {"id":"LINTMODELS-TASK-EXEMPT","k":"notes","i":11,"c":"），本片不改变这一点。"}
 {"id":"LINTMODELS-TASK-EXEMPT","k":"code#0","i":0,"c":"scripts/lint-models.ts"}
 {"id":"LINTMODELS-TASK-EXEMPT","k":"code#1","i":0,"c":".github/workflows/ci.yml"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"title","i":0,"c":"旧链 metadata 桥（UnifiedStorageAdapter）取证定性：只透传 title/tags/mode 但无生产消费者 ⇒ 不补字段、不删，仅钉注释"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"source","i":0,"c":"承 `TOOLVIS-P4B-TOOLPROFILE` 的如实边界（当时记为「先于本项存在的普遍性有损，不在 P4 范围」—— 该表述含糊，未区分「有损且有消费者」与「有损且无消费者」）；本片做活性取证并给精确结论"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"reopenWhen","i":0,"c":"① 若**新代码开始经旧接口读写元数据**（即 `SessionStore.loadMetadata` / `saveMetadata` 出现生产调用）：**必须**把本桥改为**通用字段透传**（全量 `{...metadata}` + 由 `SessionMetadata.fromJSON` 统一收敛），而不是在此逐个补字段（逐字段补正是「字段白名单漂移"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"reopenWhen","i":1,"c":"」的复发形态）；② 若 `SessionFactory` / `SessionManager`（旧链，已 `@deprecated`）被彻底移除 ⇒ 本桥成为可删对象，但删除须走 CD01–CD07（会话存储属 CD07 关键域，**静态无引用不足以判可删**，需「运行时可证无消费者」）；③ 若会话存储的收敛计划推进：本桥的归宿应在那里裁定，不应被顺手删改。"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":0,"c":"【问题（承接的含糊表述）】早先在做 `toolProfile` 时发现：旧链 `UnifiedStorageAdapter.saveMetadata/loadMetadata` **只透传 `title`/`tags`/`mode`**（因为旧 `Session` 模型的元数据形状只有这三字段）⇒ `pinned`/`workMode`/`"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":1,"c":"tokenUsage`/`toolProfile` 等新链字段**不会经此桥往返**。当时只记为「先于本项存在、不在 P4 范围」，**没查它有没有消费者** —— 于是「有损」与「有影响」被混同。本片把它查清。【活性取证（CD01，逐条可复核）】① **读方向**：`SessionStore.loadMetadata` 是访问本桥的唯一入口，而它在 `"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":2,"c":"app/src` **零生产调用**（全仓唯一调用点是 `app/tests/session/SessionStore.test.ts` 的往返锁，即我自己加的）；在 `app/src` 里搜 `.loadMetadata(` 也**只命中定义**（`SessionStore` 自身 + `SessionStorage` 接口 + 三个存储实现）。② **写"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":3,"c":"方向**：`SessionFactory.updateMetadata` 确实调 `this.storage.saveMetadata(...)`，但（a）`SessionFactory` 的构造签名是 `constructor(storage: SessionStorage = new MemoryStorage())` ⇒ 默认**不是**本适配器；（b"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":4,"c":"）`new SessionFactory(` 全仓**零命中**（旧链 `SessionManager.ts:56` 已标 `@deprecated 请使用 SessionGateway + SessionManagerAdapter 替代`）⇒ 该写路径也不可达本适配器。③ **仍在用的旧入口不碰 metadata**：`"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":5,"c":"entrypoints/init.ts:530-538` 仍在实例化 `SessionManagerAdapter(gateway)`，但它实现的是旧 `SessionManager` 接口，该接口**不含 metadata 方法**（见 `types/session.ts` 的 `SessionManager`）⇒ 也不会走到本桥。⇒ **结论：本桥当前无"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":6,"c":"生产消费者**（属「活代码里的死面」）。【处置：只钉注释，不补字段、不删】（a）**不补字段**：无消费者的补全 = YAGNI（CS03）；（b）**不删**：会话存储属 **CD07 关键域**，其明文规定**不得**以「静态引用为零」作为删除依据（本仓正是因此吃过沙箱误删事故的亏）；（c）因此把「有损 + 无消费者 + 两不做」的事实与**取证**写进"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":7,"c":" `saveMetadata` 的头注（`loadMetadata` 处留一行指针），并写明**若将来要承载完整元数据应改为通用透传**（而非逐字段补 —— 后者正是本会话在 `models/SessionMetadata.ts` 里修过的「字段白名单漂移」同型）。【顺带厘清（避免误读）】① 新链自身**不受影响**：`SessionGateway` 走 `"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":8,"c":"UnifiedSessionStorage`，其 `persistSession` 原样写 `UnifiedSession` JSON、**无元数据字段白名单** ⇒ `pinned`/`workMode`/`tokenUsage`/`toolProfile` 全部正常落盘与回读（`toolProfile` 已有真机回读取证）；② `pinned` 在旧链"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":9,"c":"**缓存路径**上也是安全的（`models/SessionMetadata.ts` 的构造器与 `toJSON` 均含 `pinned`），本桥是唯一缺口且无消费者；③ 本片**不改行为**（纯注释）⇒ 零风险。【验证】`bun run typecheck` 0 错 · `bun test tests/session` **332 pass / 0 "}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":10,"c":"fail**（受扰域回归）· 门禁 `consts`/`arch`/`unref`/`exit`/`refs`/`models` + `lint:fix-evidence` / `evidence-linewidth` / `evidence-views-drift` / `doc-code` 全绿。【如实边界】无单测改动（改的是注释，且**不该**为「无消"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":11,"c":"费者的桥」新写断言 —— 那会把死面固化成期望）；本条目**不**主张该桥可删（明确反对：CD07）。"}
+{"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"code#0","i":0,"c":"app/src/session/storage/UnifiedStorageAdapter.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

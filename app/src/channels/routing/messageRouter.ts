@@ -52,6 +52,8 @@ import {
 // T1-9（2026-10-13）：入站 PREPARED 只读接缝（四原语投影；复用既有 `state` 出口）
 import { publishStateProjection } from '../../state/engine/projectionBroker.js';
 import type { MessageContext } from '../types/IChannel';
+// 运行中被预算挂起 ⇒ 追加「就地放行」卡片（Spec `channel-budget-inline-relief.md` §D2）
+import { sendBudgetReliefCard } from '../bridge/budgetReliefCard';
 // 2026-10-01 D-206（子批 D，`channels -> ai` 倒挂收口，2 条边之一）：类型位改**相对直连
 // core 模块根**（`SessionSpanContext` 已随实现下沉 core；app 层原址转出）。
 import type { SessionSpanContext } from '../../core/SessionSpanTracer.js';
@@ -774,6 +776,16 @@ export async function routeChannelMessage(
       onOutbound,
       onOutboundFile,
     });
+
+    // ⑥b 运行中**被预算挂起** ⇒ 追加一张「就地放行」卡片（Spec `channel-budget-inline-relief.md` §D2）
+    // 判据用**结构化** `finishReason`（**非**正文匹配，守 CS02）；失败不阻塞主流程（卡片的失败自己吞并留痕）。
+    if (finishReason === 'budget_exhausted') {
+      await sendBudgetReliefCard({
+        channelName,
+        target: message.conversationId ?? message.senderId,
+        sessionId: safeSessionId,
+      });
+    }
 
     if (enableTracing && traceSpanContext?.isSampled) {
       try {

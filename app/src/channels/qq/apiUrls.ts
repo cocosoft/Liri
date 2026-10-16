@@ -59,3 +59,13 @@ export function getMediaUploadApiUrl(target: string): string {
       return `${base}/channels/${parsed.targetId}/files`;
   }
 }
+
+/**
+ * 构建**互动事件回应** API URL（`INTERACTION_CREATE` 的回执，2026-10-17）。
+ *
+ * 按 QQ 官方「互动事件响应」：`PUT /interactions/{interaction_id}` + `{ code }`；
+ * `type=11/12` **必须**回应，否则客户端一直 loading。
+ */
+export function getInteractionApiUrl(interactionId: string): string {
+  return `https://api.sgroup.qq.com/interactions/${encodeURIComponent(interactionId)}`;
+}

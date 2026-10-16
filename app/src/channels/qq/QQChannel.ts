@@ -42,12 +42,22 @@ import type {
   QQGatewayPayload,
   QQReadyPayload,
   QQC2cMessageCreatePayload,
+  QQInteractionCreatePayload,
 } from './types';
 import { QQDedupGuard } from './dedupGuard';
 import { QQPassiveReplyTracker } from './passiveReplyTracker';
 import { QQInboundEvents } from './inboundEvents';
 import { analyzeCloseCode } from './closeCodeAnalysis';
-import { parseTarget, getMessageApiUrl, getMediaUploadApiUrl } from './apiUrls';
+import {
+  parseTarget,
+  getMessageApiUrl,
+  getMediaUploadApiUrl,
+  getInteractionApiUrl,
+} from './apiUrls';
+// 预算挂起「就地放行」：出站按钮（`buildQQKeyboard`）+ 入站按钮回调（`handleBudgetReliefAction`）
+// Spec `.trae/specs/channel-budget-inline-relief.md`
+import { buildQQKeyboard } from './keyboard';
+import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:qq:QQChannel');
@@ -482,7 +492,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   protected override async sendMarkdownMessage(
     target: string,
-    content: string
+    content: string,
+    /** 追加字段（2026-10-17：`{ keyboard }` —— QQ「消息按钮」，见 `./keyboard.ts`） */
+    extra?: Record<string, unknown>
   ): Promise<SendResult> {
     if (!this.appId) return { success: false, error: '未连接' };
     try {
@@ -490,6 +502,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
       const body: Record<string, unknown> = {
         msg_type: 2,
         markdown: { content },
+        ...(extra ?? {}),
         // AC-5（2026-08-20）：替换原假 msg_id（时间戳冒充，无法关联原消息）；
         // 窗口内携带真实 msg_id/msg_seq 走被动回复，超窗省略（主动消息）
         ...this.passiveReply.consumePassiveReplyFields(target),
@@ -739,12 +752,75 @@ class QQChannelPlugin extends BaseChannelPlugin {
     card: InteractiveCard
   ): Promise<SendResult> {
     const mdContent = `**${card.title}**\n${card.content}`;
+    const keyboard = buildQQKeyboard(card);
+    // 无按钮 ⇒ 维持既有行为（纯 Markdown，零回归）
+    if (!keyboard) return this.sendMarkdownMessage(target, mdContent);
+
+    // 有按钮 ⇒ 带 `keyboard` 发送；⚠️ QQ 自定义按钮属平台「内邀开通」能力 ⇒ **失败必须降级**为
+    // 纯 Markdown 重发（否则用户连消息都收不到 —— 比"没有按钮"更糟，守 CS03）。
+    const withKeyboard = await this.sendMarkdownMessage(target, mdContent, {
+      keyboard,
+    });
+    if (withKeyboard.success) return withKeyboard;
+    logger.warn(
+      'QQ sendInteractiveMessage: 带按钮发送失败（可能未开通自定义按钮），降级为纯 Markdown',
+      { target, error: withKeyboard.error }
+    );
     return this.sendMarkdownMessage(target, mdContent);
   }
 
   // ────────────────────────────────────────────────────────────
   // 入站 WebSocket 消息接收
   // ────────────────────────────────────────────────────────────
+
+  /**
+   * 处理 `INTERACTION_CREATE`（2026-10-17，Spec `channel-budget-inline-relief.md` §D3）。
+   *
+   * 只处理 `type=11`（**消息按钮回调**）—— 其余互动类型（消息反馈 / 清空会话 / 切换模型 / 授权…）
+   * 非本通道职责且**官方说明无需回应** ⇒ 直接返回（不臆造处理）。
+   *
+   * **无论如何都回应**（type=11 必须回应，否则客户端一直 loading）：解析失败 / 未注册端口 /
+   * 放行失败都映射为**非零 code**并留痕（不静默）。
+   */
+  private async handleInteractionCreate(
+    p: QQInteractionCreatePayload
+  ): Promise<void> {
+    if (!p?.id || p.type !== 11) return;
+    const buttonData = p.data?.resolved?.button_data;
+    const { code } = await handleBudgetReliefAction(buttonData);
+    await this.respondInteraction(p.id, code);
+  }
+
+  /** 回应互动事件（`PUT /interactions/{interaction_id}`）；失败只告警（服务端事实已成立）。 */
+  private async respondInteraction(
+    interactionId: string,
+    code: number
+  ): Promise<void> {
+    try {
+      const token = await this.getAccessToken();
+      const resp = await fetch(getInteractionApiUrl(interactionId), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `QQBot ${token}`,
+        },
+        body: JSON.stringify({ code }),
+      });
+      if (!resp.ok) {
+        logger.warn('QQ 互动事件回应未成功（客户端可能 loading 至超时）', {
+          interactionId,
+          code,
+          status: resp.status,
+        });
+      }
+    } catch (err) {
+      await handleError(err, {
+        module: 'channels:qq',
+        action: 'respondInteraction',
+        context: { interactionId, code },
+      });
+    }
+  }
 
   /**
    * 覆写入站适配器创建方法，返回 WebSocket 实现
@@ -1139,6 +1215,19 @@ class QQChannelPlugin extends BaseChannelPlugin {
       //     payload.d as QQGroupAtMessageCreatePayload
       //   );
       //   break;
+
+      case QQEventType.INTERACTION_CREATE:
+        // 2026-10-17：消息按钮回调（预算挂起「就地放行」）。**必须回应**（type=11/12），
+        // 否则客户端一直 loading —— 回应在 handleInteractionCreate 内**无条件**发生。
+        this.handleInteractionCreate(
+          payload.d as QQInteractionCreatePayload
+        ).catch((error) => {
+          handleError(error, {
+            module: 'channels:qq',
+            action: 'INTERACTION_CREATE 处理异常',
+          });
+        });
+        break;
 
       // BYPASS: 仅使用 C2C 私聊，不处理频道私信
       // case QQEventType.DIRECT_MESSAGE_CREATE:

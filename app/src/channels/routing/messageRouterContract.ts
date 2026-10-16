@@ -259,6 +259,28 @@ const BUDGET_EXCEEDED_FAILURE: ChannelLlmFailure = {
 };
 
 /**
+ * **运行中被挂起**专用文案（2026-10-17，Spec `channel-budget-inline-relief.md` §D1）。
+ *
+ * ⚠️ 与上面的「**发送被拦**」是**两种语义**，**不得**共用一句：
+ *  - 发送被拦（`BUDGET_EXCEEDED_FAILURE`）= 本条消息**未被处理** ⇒ 放行后**重发**即可；
+ *  - 运行中被挂起（本函数）= 会话已跑到一半、**进度已保存** ⇒ 放行后**自动续跑、无需重发**。
+ *
+ * 两者混淆的代价是**做错动作**（该重发时没重发、该等待时重复重发 ⇒ 重复执行）。
+ *
+ * `hasButtons`：本次是否**真的**发出了「就地放行」按钮（由 `channels/bridge/budgetReliefCard`
+ * 按实际投递路径传入）—— 无按钮（QQ 未开通自定义按钮、或已降级）时**不得**说"点下方按钮"。
+ */
+export function buildBudgetSuspendedNotice(args: {
+  hasButtons: boolean;
+}): string {
+  const head = '⏸ 今日金额预算已用完，本轮**进度已保存**（不是失败）。\n';
+  const tail = args.hasButtons
+    ? '点下方「临时提额」或「今日解除」放行，本会话会**自动从这里续跑，无需重发消息**。'
+    : '放行后本会话会**自动从这里续跑，无需重发消息**；放行入口在 Liri 桌面端「用量中心 → 日限额」（临时提额 / 今日解除）。';
+  return head + tail;
+}
+
+/**
  * 解析 LLM 失败回执（纯函数，便于单测）。
  *
  * 仅 `DAILY_BUDGET_EXCEEDED` 走限额文案；其余（含无码 / `LLM_ERROR`）保持既有通用兜底 ⇒ **不回归**。

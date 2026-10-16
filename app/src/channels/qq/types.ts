@@ -71,15 +71,39 @@ export const QQEventType = {
   C2C_MESSAGE_CREATE: 'C2C_MESSAGE_CREATE',
   GROUP_AT_MESSAGE_CREATE: 'GROUP_AT_MESSAGE_CREATE',
   DIRECT_MESSAGE_CREATE: 'DIRECT_MESSAGE_CREATE',
+  /** 互动事件（**消息按钮回调** = type 11 等）：Spec `channel-budget-inline-relief.md` §D3 */
+  INTERACTION_CREATE: 'INTERACTION_CREATE',
 } as const;
+
+/**
+ * `INTERACTION_CREATE` 事件体（2026-10-17，按 QQ 官方「互动事件」文档）：
+ * 仅收**本通道用得到**的字段；`data.resolved.button_data` = 我们发按钮时写在 `action.data` 的值。
+ *
+ * ⚠️ 响应：`type=11/12` **必须** `PUT /interactions/{id}` 回应，否则客户端一直 loading。
+ */
+export interface QQInteractionCreatePayload {
+  /** 互动事件 id（= 回应接口的 `interaction_id`；**不带** `INTERACTION_CREATE:` 前缀） */
+  id: string;
+  /** 互动类型：11 = 消息按钮回调（本通道只处理它） */
+  type: number;
+  scene?: string;
+  user_openid?: string;
+  group_openid?: string;
+  group_member_openid?: string;
+  data?: {
+    type?: number;
+    resolved?: { button_data?: string; button_id?: string };
+  };
+}
 
 /**
  * QQ Bot 网关意图（OpenClaw FULL_INTENTS 标准）
  * 1 << 30: PUBLIC_GUILD_MESSAGES（频道消息）
  * 1 << 25: GROUP_AND_C2C（群聊和私信）
  * 1 << 12: DIRECT_MESSAGE（频道私信）
+ * 1 << 26: INTERACTION（互动事件 / 消息按钮回调，2026-10-17 补：**不加则收不到点击**）
  */
-export const QQ_INTENT_FULL = (1 << 30) | (1 << 25) | (1 << 12);
+export const QQ_INTENT_FULL = (1 << 30) | (1 << 25) | (1 << 12) | (1 << 26);
 
 /** 重连指数退避延迟（毫秒） */
 export const RECONNECT_DELAYS = [

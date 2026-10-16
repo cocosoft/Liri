@@ -205,9 +205,17 @@ function main(): void {
       const src = (it[k] ?? '').trim();
       if (src === '') continue;
       if (generated) {
-        // 生成物模式：registry 已是**短化**文本 ⇒ 归档原文须以「短化头」为前缀
+        // 生成物模式：registry 已是**短化**文本 ⇒ 归档原文须以「短化头」为前缀。
+        //
+        // ⚠️ 两侧**必须同口径**：`headOf`（`gen-evidence-views` 短化）会把**空白折叠为单空格**
+        //   （`\s+ → ' '`，见 `scripts/lib/evidenceStore.ts` 的 `headOf`/`scopeOf`），
+        //   故归档侧须先做**同一归一化**，否则原文里的**换行**会让前缀断言假红。
+        //   `gen-evidence-views.ts` 的 `--verify-against` 早用同一口径（它归一化的是**旧表**一侧）；
+        //   本条是**首个**因「首段含换行」而触发的条目（`CHANNEL-BUDGET-INLINE-RELIEF`）。
+        //   归一化只影响空白 ⇒ 内容层面的漂移仍照旧拦截。
         const head = stripShort(src);
-        if (head !== '' && !(b[k] ?? '').startsWith(head)) {
+        const archive = (b[k] ?? '').replace(/\s+/g, ' ').trim();
+        if (head !== '' && !archive.startsWith(head)) {
           problems.push(`${it.id}: 归档 ${k} 非「registry 短化头」前缀`);
         }
       } else if (b[k] !== src) {

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BUDGET-SUSPEND-DELETE-RELEASE**：会话删除/清空一并释放预算挂起协调器的内存登记：不再留「已删会话仍在挂起清单」的幽灵条目 —— 验证 e2e1|ut3|tc1|ts6602；基线 改前：删除仍挂起的会话只清检查点（磁盘），协调器内存登记不释放 ⇒ 真机实测删后挂起清单仍是 2 条（含已删会话）（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-DELETE-RELEASE）
 - ✅ **BUDGET-SUSPEND-WAKE-SCOPE**：放行可带「唤醒收窄目标」：点一条会话的「继续」不再唤醒当日别的挂起会话 —— 验证 e2e1|ut7|cln634|tc1|ts6599；基线 改前：卡片「继续」走全局放行 ⇒ 协调器按挂起时间唤醒当日最多 3 条挂起会话（真机 woken:[用户的会话, 我的会话]），别的会话自行开跑并花钱（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-WAKE-SCOPE）
 - ✅ **BUDGET-SUSPEND-CONTINUE-ENTRY**：补「预算挂起」后的继续入口：撞限卡两态化（挂起态主按钮=放行并自动续跑） —— 验证 e2e1|ut3|cln633|tc1|ts6592；基线 改前：撞限当时有卡片，挂起态却无入口 —— 没当场点继续、或重启/切会话后 errorCode 已不在内存，会话一直挂起却找不到继续按钮（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-CONTINUE-ENTRY）
 - ✅ **BUDGET-EXHAUSTED-TERMINATION-COPY**：修预算耗尽收尾文案：按 kind（窗口预算/日限额）+ 是否已挂起三态区分 + 给可执行出路 —— 验证 ut4|ts907|tc1|ts6592；基线 改前：两种语义共用一句「已达到本轮 token 预算上限，工具链提前终止」；日预算已挂起可续跑时也这么说（详情见 archive/evidence-detail.jsonl#BUDGET-EXHAUSTED-TERMINATION-COPY）

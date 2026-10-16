@@ -5335,6 +5335,26 @@
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendWake.test.ts"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"tests#1","i":0,"c":"app/tests/http/daily-budget-handlers.test.ts"}
 {"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"tests#2","i":0,"c":"client/src/tests/dailyLimitNotice.test.tsx"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"title","i":0,"c":"会话删除/清空一并释放预算挂起协调器的内存登记：不再留「已删会话仍在挂起清单」的幽灵条目"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"source","i":0,"c":"由上一片（BUDGET-SUSPEND-WAKE-SCOPE）真机复测**如实发现**的缺口（v1.6 「幽灵挂起」只治理了检查点导致的重启重登记，未覆盖删除时的内存登记）+ 用户「继续」指令收口该缺口"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"reopenWhen","i":0,"c":"① 若将来出现**绕过 `ChatSessionTeardown` 的会话销毁路径**（直接调存储层 / 账号级清理 / DB 直删），须同样释放协调器登记 —— 判据：删除后 `GET /v1/cost/daily-budget/suspend` 不应再列出该 id。② 协调器登记为**进程内**、重启靠检查点重建：若日后要「重启后仍能列出挂起清单」（持久"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"reopenWhen","i":1,"c":"化登记），须同步重审本处的 release 依赖假设（删除即释放 + 启动靠检查点重建，两条路径不得互相打架）。③ 「清空历史」的释放集合与清空集合**同源**（本片把内联的 `stored.filter(...)` 提为 `targets` 复用）：若日后清空改为按 moduleType 之外的维度过滤，两处必须同步，否则又会出现「清了但没释放」。④ 本片"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"reopenWhen","i":2,"c":"收口了 `BUDGET-SUSPEND-WAKE-SCOPE` 的 reopenWhen ①；若那条**再次**被触发（观察到幽灵条目），应先确认是否走了本片未覆盖的销毁路径（见 ①）。"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":0,"c":"【问题（上一片真机复测如实发现的缺口，用户指令收口）】`BudgetSuspendCoordinator` 持 `sessionId → 挂起条目` 的**进程内**登记（内存 Map，非持久化事实源）；而 `ChatSessionTeardown.deleteSession` 当时只清**两条链的检查点**（`session_checkpoints` / "}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":1,"c":"`taor_checkpoints`）⇒ 会话被删后协调器登记**不会消失**。真机实证（2026-10-17，本机）：删掉一个仍挂起的会话后，`GET /v1/cost/daily-budget/suspend` **仍列出该 sessionId**（重启才消失）。影响面：① 挂起清单出现**幽灵条目**（前端因按当前会话过滤而不显示卡片，但接口与运维观测"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":2,"c":"面失真）；② 全局放行（`用量中心 → 日限额`）会尝试唤醒已不存在的会话 ⇒ 续跑失败回滚为挂起 + warn（无害但每次放行都刷噪音，且永不收敛）。判据（与 v1.6「幽灵挂起」同源但**不同层**）：v1.6 治理的是**检查点**导致的重启**重新登记**，本片治理的是**删除时的内存登记**。\n【做法（同一 facade、与既有清理同位、同口径）】"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":3,"c":"`app/src/chat/manager/sessionTeardown.ts`：新增私有 `releaseBudgetSuspends(sessionIds)` —— 动态 import `query/budgetSuspend`（沿用本文件既有惯例，不新增 chat → query 静态跨模块边）；**幂等**（`release` 不存在即 no-op"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":4,"c":"）；失败仅告警、**不阻塞删除主流程**（与 `clearSessionTaorCheckpoints` 同口径）。两处挂点：① `deleteSession` 内紧跟 taor 检查点清理之后（传 `[sessionId]`）；② `clearAllSessions` 内对**同一份过滤后的集合**释放（把原先内联在 `Promise.all` 里的 `"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":5,"c":"stored.filter(...)` 提为 `targets` ⇒ 释放集合与清空集合**同源**）—— 否则「清空历史」会留下**成批**幽灵条目（同根因，一并收口，见 reopenWhen ③）。\n【验证（单测，先红后绿）】`app/tests/chat/sessionTeardownTaorCleanup.test.ts` 新增「Task "}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":6,"c":"Ghost-2」3 例：① 删除**挂起中**的会话 ⇒ 协调器登记被释放（删后 `isSuspended` 转 false、`list()` 为空）② 只释放被删会话 ⇒ 未挂起者删除是**幂等 no-op**、**不误伤**其它挂起会话 ③ `clearAllSessions('chat')` ⇒ 被清会话**成批**释放，且**不纳入本次范围**的会话"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":7,"c":"（`metadata.moduleType` 不同）**保持挂起**。**反证**：`git stash push` 摘掉实现后 ⇒ **2 pass / 3 fail**（三条新用例均 `waitFor 超时`）；装回后 **5 pass / 0 fail**。广域：app 全链 `bun run ci` 通过（**6602 pass / 42 skip "}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":8,"c":"/ 0 fail**，较上一片后基线 6599 恰 +3 = 本片新增 3 例，无既有用例受影响）；`tsc --noEmit` 0 错。\n【真机 E2E（2026-10-17，本机真机，未 mock）】环境：用户正在运行的实例（`--watch src/main.ts --http-only` @18990 + Vite dev @1420；改动落盘即热重"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":9,"c":"载，故未重启进程）。① 临时把 `dailyLimitUSD` 调至 0.017 触发**真实撞限**，造出自建挂起会话 C（`daily_budget_exhausted`）⇒ 挂起清单 **2 条**（用户存量会话 + C）。② `DELETE /v1/sessions/C`（**先按标题核对身份**）⇒ 200。③ **删除后立即**查 `GET "}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":10,"c":"/v1/cost/daily-budget/suspend` ⇒ **只剩 1 条**（用户的会话），C **不再出现** ⇒ 修复前（上一片实测）此处会残留。④ 现场恢复：`dailyLimitUSD` 回 10（复核 `config.json=10`）；C 已删、无残留。\n【如实边界】① 协调器登记仍是**进程内语义**：进程重启后清单为空、由启动扫描按"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":11,"c":"**检查点**重建（spec §4.4）—— 本片只保证「会话没了，登记也没了」，不改变「重启靠检查点重建」（若要跨重启保留挂起清单，须持久化登记，见 reopenWhen ②）。② 未覆盖的会话销毁路径：将来若出现绕过 `ChatSessionTeardown` 的删除（直接操作存储层、账号级清理），仍会留幽灵条目（判据见 reopenWhen ①）。③ "}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":12,"c":"`e2eVerified=true` 只覆盖**本地 HTTP** 的删除路径（`DELETE /v1/sessions/:id` 与「清空历史」共用同一 facade；清空侧的成批释放由单测 ③ 覆盖，未在真机做「清空历史」的破坏性操作）。"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"code#0","i":0,"c":"app/src/chat/manager/sessionTeardown.ts"}
+{"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"tests#0","i":0,"c":"app/tests/chat/sessionTeardownTaorCleanup.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -9452,6 +9452,32 @@
       "changelog": [],
       "reopenWhen": "① **删除挂起中的会话未释放协调器登记**（本片真机复测如实发现的缺口，见 notes 末段）—— 判据：删除后 `GET /v1/cost/daily-budget/suspend` 仍列出该 sessionId（重启才消失）；修法方向：`ChatSessionTeardown.deleteSession` 一并…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-WAKE-SCOPE）",
       "notes": "【问题（真机 E2E 暴露的落差，承接上一片）】上一片补上「预算挂起 → 继续」入口后，真机复测（2026-10-17）暴露次生问题：卡片主按钮走 `POST /v1/cost/daily-budget/relief`，而 relief 是**当日全局**语义 —— 协调器 `onReliefApplied` 按挂起…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-WAKE-SCOPE）"
+    },
+    {
+      "id": "BUDGET-SUSPEND-DELETE-RELEASE",
+      "title": "会话删除/清空一并释放预算挂起协调器的内存登记：不再留「已删会话仍在挂起清单」的幽灵条目",
+      "source": "由上一片（BUDGET-SUSPEND-WAKE-SCOPE）真机复测**如实发现**的缺口（v1.6 「幽灵挂起」只治理了检查点导致的重启重登记，未覆盖删除时的内存登记）+ 用户「继续」指令收口该缺口",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/chat/manager/sessionTeardown.ts"
+      ],
+      "tests": [
+        "app/tests/chat/sessionTeardownTaorCleanup.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若将来出现**绕过 `ChatSessionTeardown` 的会话销毁路径**（直接调存储层 / 账号级清理 / DB 直删），须同样释放协调器登记 —— 判据：删除后 `GET /v1/cost/daily-budget/suspend` 不应再列出该 id。② 协调器登记为**进程内**、重启靠检查点重建…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-DELETE-RELEASE）",
+      "notes": "【问题（上一片真机复测如实发现的缺口，用户指令收口）】`BudgetSuspendCoordinator` 持 `sessionId → 挂起条目` 的**进程内**登记（内存 Map，非持久化事实源）；而 `ChatSessionTeardown.deleteSession` 当时只清**两条链的检查点**（`se…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-DELETE-RELEASE）"
     }
   ]
 }

@@ -4694,6 +4694,16 @@
 {"id":"TOOLVIS-P4B-PDF","k":"code#6","i":0,"c":"app/docs/工具参考/pdf.md"}
 {"id":"TOOLVIS-P4B-PDF","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"tests#1","i":0,"c":"app/tests/tools/PDFTool.test.ts"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"title","i":0,"c":"P4b 第 4 项裁定：send_message 保持默认关闭（有意不做，零行为变更）"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"source","i":0,"c":"P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §6（D 类：loader + 类别已就绪，仅缺 SEND_MESSAGE flag 默认值）；2026-10-16 用户裁定"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"reopenWhen","i":0,"c":"若产品决定启用「AI 向 teammate 发消息」能力：应把 SEND_MESSAGE 由编译期默认值改为**设置项**（而非直接改 featureFlags 默认），并同步 (a) TOOL_EFFECTS 声明（send_message 现未声明，开 flag 后 Record<ToolName,…> 会强制要求）(b) gen:toolnames 重"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"reopenWhen","i":1,"c":"算生成物（78 → 79）(c) 确认 notify 类白名单范围（当前仅 scheduled 任务含该类别）(d) 把 send_message 从 KNOWN_CONDITIONAL_TOOL_NAMES 移入 P4b 接线回归锁名单；另若 propose_plan 与 ask_user_question 的审批入口被裁定合并，需同步下线 "}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"reopenWhen","i":2,"c":"propose_plan"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"notes","i":0,"c":"① 裁定内容：`send_message` 属 **D 类**（loader 与类别 `notify` 均已就绪，仅差 `SEND_MESSAGE` flag 默认值）；用户裁定「**保持默认关闭**」⇒ 本批**不改任何代码**（零行为变更），故无单测/真机证据（flags 如实为 dc 而非 dcue，tests 为空）。② 为什么这不是「放过」：P1 "}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"notes","i":1,"c":"报表与 P3 设置页会把它**如实显示为** `conditional`（未进生效工具面 ⇒ 覆写无效），用户看到的是准确状态而非错误暗示；且 P4a 已给出启用时的完整前置清单（见 reopenWhen）。③ 与既有台账先例同型：本仓对「评估后有意不做」的裁定有独立登记惯例（如 PLAN-P2-9「跨路径评估入口裁定（有意不做）」）。④ P4b 整体收口："}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"notes","i":2,"c":"3 个真接线（task_output / propose_plan / pdf，生成物 75 → 78）+ 1 个有意不做（send_message）；条件工具差额集 15 → 12。"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"code#0","i":0,"c":"dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"}
+{"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"code#1","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

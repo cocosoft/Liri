@@ -8599,6 +8599,31 @@
       "changelog": [],
       "reopenWhen": "若日后安装并接线 pdf-parse（则 extract/info 应从 fail-closed 改为真实实现，PDFTool.test.ts 的三条断言需同步）；或 PDF 生成能力被 doc_generate/file_convert 完全取代（届时考虑下线本工具并再走一遍差额集）；或 prompt「交付物落点口…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PDF）",
       "notes": "① **先决收口（CS04）**：`extract` / `info` 原返回 `success: true` + 占位文本（`text: '[PDF text extraction requires a PDF parsing library]'`）与 `pages: 'unknown'` —— 属**假成功**（…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PDF）"
+    },
+    {
+      "id": "TOOLVIS-P4B-SEND-MESSAGE-SKIP",
+      "title": "P4b 第 4 项裁定：send_message 保持默认关闭（有意不做，零行为变更）",
+      "source": "P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §6（D 类：loader + 类别已就绪，仅缺 SEND_MESSAGE flag 默认值）；2026-10-16 用户裁定",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md",
+        "dev_docs/20261016/工具可见性治理方案-20261016.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "若产品决定启用「AI 向 teammate 发消息」能力：应把 SEND_MESSAGE 由编译期默认值改为**设置项**（而非直接改 featureFlags 默认），并同步 (a) TOOL_EFFECTS 声明（send_message 现未声明，开 flag 后 Record<ToolName,…> 会强制要…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-SEND-MESSAGE-SKIP）",
+      "notes": "① 裁定内容：`send_message` 属 **D 类**（loader 与类别 `notify` 均已就绪，仅差 `SEND_MESSAGE` flag 默认值）；用户裁定「**保持默认关闭**」⇒ 本批**不改任何代码**（零行为变更），故无单测/真机证据（flags 如实为 dc 而非 dcue，tests…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-SEND-MESSAGE-SKIP）"
     }
   ]
 }

@@ -460,6 +460,12 @@ export class ReActToolLoop extends ReActLoop<
   protected override async onBudgetExhausted(
     kind: 'loop' | 'daily'
   ): Promise<void> {
+    // 2026-10-16（台账 `BUDGET-EXHAUSTED-TERMINATION-COPY`）：**先记事实**，供收尾文案区分
+    // 两种预算与"是否已成功挂起" —— 修「文案与事实脱节」：原实现对 `'loop'`（窗口预算）与
+    // `'daily'`（日限额，且可能已挂起可续跑）**共用同一句**「已达到本轮 token 预算上限，
+    // 工具链提前终止」，既名不副实（窗口阈值不是"预算"）又不给可执行出路。
+    this._lastBudgetExhausted = { kind, suspended: false };
+
     if (!feature('BUDGET_SUSPEND_RESUME')) return;
     if (kind !== 'daily') return;
 
@@ -484,6 +490,8 @@ export class ReActToolLoop extends ReActLoop<
         checkpointRef: checkpoint.id,
         reason,
       });
+      // **登记成功**才算"已挂起"（文案据此承诺"放行后自动续跑"；未登记不得承诺）
+      this._lastBudgetExhausted.suspended = true;
     } catch (error) {
       // 挂起落盘失败不阻塞既有收尾（相位/finalize 语义不变）
       logger.warn('reactToolLoop:budget_suspend_failed', {
@@ -492,6 +500,15 @@ export class ReActToolLoop extends ReActLoop<
       });
     }
   }
+
+  /**
+   * 最后一次预算耗尽的事实（`onBudgetExhausted` 在 `finalize` **之前**被 await ⇒ 收尾文案
+   * 一定能读到；两个来源在同一轮互斥，故只需记最后一次）。
+   *
+   * 用途：`resolveTerminationOutput()` 的 `budget_exhausted` 分支据此产出**与事实一致**的文案
+   * —— `loop`（窗口预算，不可放行续跑）vs `daily`（日限额，已挂起 ⇒ 可放行自动续跑）。
+   */
+  private _lastBudgetExhausted?: { kind: 'loop' | 'daily'; suspended: boolean };
 
   // ─── 骨架 hooks：检查点 + 循环检测（reason 前） ────────
 
@@ -2346,10 +2363,37 @@ export class ReActToolLoop extends ReActLoop<
         break;
       // L1（2026-09-06）：骨架 budget_exhausted phase（流式预算耗尽）附加原因提示——
       // 对齐 A3 截断/循环提示风格，避免用户看到"无正文直接中断"的困惑。
-      case 'budget_exhausted':
+      //
+      // 2026-10-16（台账 `BUDGET-EXHAUSTED-TERMINATION-COPY`）：**按事实区分三态**（此前两种
+      // 语义完全不同的耗尽共用一句「已达到本轮 token 预算上限，工具链提前终止」，实测用户据此
+      // 反复追问"为什么还会提前终止"）：
+      //   · `loop`  = **上下文窗口**预算（`createStreamBudget`，`spent ≥ 92% × 窗口`）：不可放行续跑
+      //     ⇒ 文案点明"窗口"并给**可执行出路**（发新消息 / 换大窗口模型）；
+      //   · `daily` + **已挂起**：如实告诉用户"进度已保存 + 放行后自动续跑"（**不再说"提前终止"**）
+      //     —— 否则与已实现的挂起续跑机制自相矛盾；
+      //   · `daily` + 未挂起（开关关 / 无检查点）：给"放行后重发本条消息"的出路。
+      // 兜底（无事实记录）保留原句，保证其它入口零回归。
+      case 'budget_exhausted': {
         finishReason = 'budget_exhausted';
-        suffix = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
+        const b = this._lastBudgetExhausted;
+        if (b?.kind === 'daily' && b.suspended) {
+          suffix =
+            `\n\n⏸ 今日预算已用完 —— **本轮进度已保存**：在「用量中心 → 日限额」放行` +
+            `（临时提额 / 今日解除）后，本会话会**自动从这里续跑**，无需重发消息。`;
+        } else if (b?.kind === 'daily') {
+          suffix =
+            `\n\n⚠️ 今日预算已用完，本轮提前收尾（本次未能保存续跑点）。` +
+            `请在「用量中心 → 日限额」放行（临时提额 / 今日解除）后**重发本条消息**继续。`;
+        } else if (b?.kind === 'loop') {
+          suffix =
+            `\n\n⚠️ 本轮上下文已接近模型窗口上限，为避免超出窗口，工具链提前收尾。` +
+            `**发送新消息即可继续**（新一轮会重新计算上下文占用）；` +
+            `若经常撞线，建议改用上下文窗口更大的模型。`;
+        } else {
+          suffix = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
+        }
         break;
+      }
       // P4（2026-09-01）：error 终止时附加 lastError——no_progress 熔断/电路熔断的
       // 降级提示此前只 yield 了 error 事件、finalize 未附加（assistantMessage 空正文时
       // 用户看不到任何原因，实测熔断后仅 24 字符）。此处统一附加。

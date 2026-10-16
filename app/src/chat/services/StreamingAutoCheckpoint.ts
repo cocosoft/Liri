@@ -191,6 +191,34 @@ export class StreamingAutoCheckpoint {
     );
   }
 
+  /**
+   * 2026-10-17（台账 `BUDGET-SUSPEND-RESTART-IDEMPOTENT`）：放行**续跑成功** ⇒ 在事实源上落一条
+   * 「已从挂起点恢复」**轻量**标记（`label='budget_resumed'`，**空消息**）。
+   *
+   * 为什么需要：挂起事实源 = 检查点（`metadata.budgetSuspend`），启动扫描据此重建挂起登记
+   * （`ChatBootstrap.resumeBudgetSuspends`）；而此前**没有任何机制让该标记失效** ⇒ 已续跑过的
+   * 会话在每次重启/重载后又变回「已挂起」。落一条**更新**的检查点后，「只认最新检查点」的启动
+   * 判据即判定其不再挂起 —— 这补上了「续跑轮不产生新检查点」的空隙（如整轮纯文本回答、
+   * 无工具调用 ⇒ 不落 `auto` 检查点 ⇒ 旧挂起点一直是"最新"）。
+   *
+   * 边界：**空消息**（不承载恢复素材），且不含 `streamingAutoCheckpoint` 标记 ⇒ **不入**
+   * `restore()` 的 auto 链、不影响既有恢复素材；调用方负责容错（失败不得把续跑失败化）。
+   */
+  async markResumed(): Promise<void> {
+    const metadata: SessionMetadata = {
+      budgetResumed: { resumedAt: Date.now() },
+    } as unknown as SessionMetadata;
+    await this.checkpointService.saveCheckpointWithData(
+      this.sessionId,
+      [],
+      metadata,
+      'active' as DataSessionStatus,
+      'budget_resumed',
+      undefined,
+      true
+    );
+  }
+
   /** 恢复：从自动检查点链重建完整消息 + 生成器状态 */
   async restore(): Promise<RestoreResult | null> {
     // BUG-A 修复（2026-08-26）：delta 检查点恢复必须沿父链合并——

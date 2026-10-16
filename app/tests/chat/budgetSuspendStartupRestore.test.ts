@@ -133,3 +133,115 @@ describe('I2：启动扫描登记 budget_suspend（两链，只登记不续跑�
     expect(getBudgetSuspendCoordinator().list()).toEqual([]);
   });
 });
+
+/**
+ * `BUDGET-SUSPEND-RESTART-IDEMPOTENT`（2026-10-17）：流式支路**只认最新检查点**。
+ *
+ * 缺陷（真机实证）：原判据 `checkpoints.find(cp => cp.metadata?.budgetSuspend !== undefined)`
+ * **扫全部**检查点 ⇒ 只要该会话历史上挂起过一次，其后每次重启/重载都被重新登记为「已挂起」——
+ * 即便用户早已放行续跑（同一会话当日被登记 **10 次**、用户被迫反复点「继续」）。
+ *
+ * 判据（与事实源构造一致）：挂起点是**当轮最后一条**检查点（`suspend()` 在轮间安全点落盘）
+ * ⇒ 其后出现任何更新的检查点（普通 `auto` 或放行成功后的 `budget_resumed` 标记）即证明该挂起
+ * 已过期。修复前 ①/③/④ 必然红。
+ */
+describe('BUDGET-SUSPEND-RESTART-IDEMPOTENT：只认最新检查点', () => {
+  beforeEach(() => {
+    resetBudgetSuspendForTest();
+  });
+  afterEach(() => {
+    delete process.env[FLAG];
+    resetBudgetSuspendForTest();
+  });
+
+  /** 挂起点（createdAt 1000）+ 其后一条普通检查点（createdAt 2000） */
+  const resumedThenPlain = [
+    {
+      id: 'cp-suspend',
+      createdAt: 1000,
+      metadata: { budgetSuspend: { suspendedAt: 1000 } },
+    },
+    { id: 'cp-later', createdAt: 2000, metadata: { model: 'x' } },
+  ];
+
+  it('① 挂起点之后有更新的检查点 ⇒ **不**登记（该挂起已过期）', async () => {
+    process.env[FLAG] = 'true';
+    await new ChatBootstrap(
+      makeDeps({
+        batch: [],
+        streamSessions: ['s-resumed'],
+        streamCheckpoints: { 's-resumed': resumedThenPlain },
+        onGetLoop: () => {},
+      })
+    ).resumeBudgetSuspends();
+
+    expect(getBudgetSuspendCoordinator().list()).toEqual([]);
+  });
+
+  it('② 最新一条仍是挂起点 ⇒ 登记（零回归），且 checkpointRef = 该挂起点', async () => {
+    process.env[FLAG] = 'true';
+    await new ChatBootstrap(
+      makeDeps({
+        batch: [],
+        streamSessions: ['s-still'],
+        streamCheckpoints: {
+          's-still': [
+            { id: 'cp-old', createdAt: 1000, metadata: { model: 'x' } },
+            {
+              id: 'cp-suspend-latest',
+              createdAt: 2000,
+              metadata: { budgetSuspend: { suspendedAt: 2000 } },
+            },
+          ],
+        },
+        onGetLoop: () => {},
+      })
+    ).resumeBudgetSuspends();
+
+    const list = getBudgetSuspendCoordinator().list();
+    expect(list.map((e) => e.sessionId)).toEqual(['s-still']);
+    expect(list[0]?.checkpointRef).toBe('cp-suspend-latest');
+  });
+
+  it('③ 顺序无关：同一组检查点**倒序**返回（File 存储 = 新在前）⇒ 结论不变', async () => {
+    process.env[FLAG] = 'true';
+    await new ChatBootstrap(
+      makeDeps({
+        batch: [],
+        streamSessions: ['s-reversed'],
+        // ⚠️ 两种存储顺序相反（File 新在前 / DB 旧在前）⇒ 判据不得依赖数组下标
+        streamCheckpoints: { 's-reversed': [...resumedThenPlain].reverse() },
+        onGetLoop: () => {},
+      })
+    ).resumeBudgetSuspends();
+
+    expect(getBudgetSuspendCoordinator().list()).toEqual([]);
+  });
+
+  it('④ 放行成功落下的 `budget_resumed` 标记（更新的空消息检查点）⇒ 视作已恢复 ⇒ 不登记', async () => {
+    process.env[FLAG] = 'true';
+    await new ChatBootstrap(
+      makeDeps({
+        batch: [],
+        streamSessions: ['s-marked'],
+        streamCheckpoints: {
+          's-marked': [
+            {
+              id: 'cp-suspend',
+              createdAt: 1000,
+              metadata: { budgetSuspend: { suspendedAt: 1000 } },
+            },
+            {
+              id: 'cp-resumed',
+              createdAt: 3000,
+              metadata: { budgetResumed: { resumedAt: 3000 } },
+            },
+          ],
+        },
+        onGetLoop: () => {},
+      })
+    ).resumeBudgetSuspends();
+
+    expect(getBudgetSuspendCoordinator().list()).toEqual([]);
+  });
+});

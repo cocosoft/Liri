@@ -2818,7 +2818,10 @@ export class ChatManagerImpl implements ChatManager {
     for await (const chunk of this.resumeStream(sessionId, '')) {
       if (this._isSubstantiveResumeChunk(chunk)) progressed = true;
     }
-    if (progressed) return true;
+    if (progressed) {
+      await this._markBudgetResumed(sessionId);
+      return true;
+    }
 
     // ② 无实质进展 ⇒ 重发一轮（既有执行入口，不新增执行路径）
     // T1-13 / `✅-4` R-A（2026-10-13）：开关开 ⇒ 在**重算工具面之前**注入「重放强制集」
@@ -2833,6 +2836,7 @@ export class ChatManagerImpl implements ChatManager {
           ...(forcedVisibleTools ? { forcedVisibleTools } : {}),
         }
       );
+      await this._markBudgetResumed(sessionId);
       return true;
     } catch (err) {
       // ③ 重发也失败 ⇒ 如实返回 false（协调器回滚为挂起，不 release）
@@ -2841,6 +2845,35 @@ export class ChatManagerImpl implements ChatManager {
         error: err instanceof Error ? err.message : String(err),
       });
       return false;
+    }
+  }
+
+  /**
+   * 2026-10-17（台账 `BUDGET-SUSPEND-RESTART-IDEMPOTENT`）：放行**续跑成功** ⇒ 落一条
+   * 「已从挂起点恢复」轻量检查点（`StreamingAutoCheckpoint.markResumed`）。
+   *
+   * 为什么需要：挂起事实源 = 检查点（`metadata.budgetSuspend`）、启动扫描据此重建挂起登记；
+   * 而此前**没有任何机制让该标记失效** ⇒ 已续跑过的会话在每次重启/重载后又变回「已挂起」
+   * （真机实证：同一会话当日被登记 10 次、用户被迫反复点「继续」）。落一条**更新**的检查点后，
+   * `ChatBootstrap.resumeBudgetSuspends` 的「只认最新检查点」判据即判定其不再挂起。
+   *
+   * 与「重放/重发**均失败** ⇒ 不落标记（协调器回滚为挂起）」对称 —— 只有**真续跑**才算恢复。
+   * 失败仅告警（CS03：登记面失败不得反过来把一次成功的续跑判成失败）。
+   */
+  private async _markBudgetResumed(sessionId: string): Promise<void> {
+    try {
+      await new StreamingAutoCheckpoint(
+        this._checkpointService,
+        sessionId
+      ).markResumed();
+    } catch (err) {
+      logger.warn(
+        'resumeSuspendedSession: 落「已恢复」标记失败（续跑已成功）',
+        {
+          sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        }
+      );
     }
   }
 

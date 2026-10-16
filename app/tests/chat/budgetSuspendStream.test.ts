@@ -9,6 +9,8 @@
 // 既有语义不变：仍置 `budget_exhausted` 相位、仍走 finalize（不抛错）。
 
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import { SimpleMutex } from '../../src/core/SimpleMutex.js';
 import { ChatOrchestrator } from '../../src/chat/orchestrator/ChatOrchestrator.js';
@@ -311,22 +313,50 @@ type StreamInternals = {
   chatOrchestrator: {
     sendMessage(content: string, options?: unknown): Promise<unknown>;
   };
+  _checkpointService: {
+    saveCheckpointWithData(
+      sessionId: string,
+      messages: unknown[],
+      metadata: Record<string, unknown>,
+      state: unknown,
+      label?: string
+    ): Promise<unknown>;
+  };
 };
 
 const asStreamInternals = (cm: ChatManagerImpl): StreamInternals =>
   cm as unknown as StreamInternals;
 
-/** 让 `resumeStream` / `getLatestCheckpoint` 可被替换（私有成员，运行期可覆写） */
+/**
+ * 让 `resumeStream` / `getLatestCheckpoint` / `_checkpointService` 可被替换（私有成员，运行期可覆写）。
+ *
+ * `_checkpointService` **必须**一并换成 fake：`BUDGET-SUSPEND-RESTART-IDEMPOTENT` 起，唤醒**成功**
+ * 会经它落一条 `budget_resumed` 轻量检查点 —— 不 stub 就会写进真实数据目录（测试污染），
+ * 且 `saved` 正是「是否落了标记」的断言面。
+ */
 function stubStreamResume(
   cm: ChatManagerImpl,
   chunks: unknown[],
-  latest: unknown
+  latest: unknown,
+  saved?: Saved[]
 ): void {
   const internals = asStreamInternals(cm);
   internals.getLatestCheckpoint = async () => latest;
   internals.resumeStream = async function* () {
     for (const c of chunks) yield c;
   } as never;
+  internals._checkpointService = {
+    saveCheckpointWithData: async (
+      _sid: string,
+      _messages: unknown[],
+      metadata: Record<string, unknown>,
+      _state: unknown,
+      label?: string
+    ) => {
+      saved?.push({ label, metadata });
+      return { id: `cp-saved-${saved?.length ?? 0}`, label };
+    },
+  };
 }
 
 describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
@@ -340,11 +370,14 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
   it('① 无剩余未完成工具（只 yield task_all_done）⇒ 发起新一轮且返回 true', async () => {
     const cm = new ChatManagerImpl();
     const sid = 'c1-stream-1';
+    const saved: Saved[] = [];
     // 典型轮首撞限：挂起检查点无 pendingToolCalls
-    stubStreamResume(cm, [{ type: 'status', statusType: 'task_all_done' }], {
-      id: 'cp-1',
-      metadata: {},
-    });
+    stubStreamResume(
+      cm,
+      [{ type: 'status', statusType: 'task_all_done' }],
+      { id: 'cp-1', metadata: {} },
+      saved
+    );
     let execCalls = 0;
     let execContent = '';
     asStreamInternals(cm).chatOrchestrator.sendMessage = async (content) => {
@@ -358,15 +391,19 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
     expect(ok).toBe(true);
     expect(execCalls).toBe(1); // 真的发起了新一轮（既有执行入口）
     expect(execContent.length).toBeGreaterThan(0); // 携带续跑提示
+    // `BUDGET-SUSPEND-RESTART-IDEMPOTENT`：真续跑 ⇒ 落「已恢复」标记（启动判据据此不复活）
+    expect(saved.some((s) => s.label === 'budget_resumed')).toBe(true);
   });
 
   it('② 重发也失败（执行入口抛错）⇒ 返回 false 且协调器保留挂起（不 release）', async () => {
     const cm = new ChatManagerImpl();
     const sid = 'c1-stream-2';
+    const saved: Saved[] = [];
     stubStreamResume(
       cm,
       [{ type: 'status', statusType: 'task_all_done' }],
-      null
+      null,
+      saved
     );
     asStreamInternals(cm).chatOrchestrator.sendMessage = async () => {
       throw new Error('boom');
@@ -380,18 +417,23 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
 
     expect(woken).toEqual([]);
     expect(coordinator.isSuspended(sid)).toBe(true); // 保留挂起（不 release）
+    // 与成功路径**对称**：未真续跑 ⇒ **不得**落「已恢复」标记（否则重启后该会话永不复活、
+    // 用户以为继续过了而实际没跑）
+    expect(saved.some((s) => s.label === 'budget_resumed')).toBe(false);
   });
 
   it('③ 有实质进展（yield 非 task_all_done）⇒ 不重发、返回 true', async () => {
     const cm = new ChatManagerImpl();
     const sid = 'c1-stream-3';
+    const saved: Saved[] = [];
     stubStreamResume(
       cm,
       [
         { type: 'status', statusType: 'resume', content: '从第 3 步恢复' },
         '正文增量',
       ],
-      null
+      null,
+      saved
     );
     let execCalls = 0;
     asStreamInternals(cm).chatOrchestrator.sendMessage = async () => {
@@ -403,6 +445,8 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
 
     expect(ok).toBe(true);
     expect(execCalls).toBe(0); // 重放已有进展 ⇒ 不重发（避免重复执行）
+    // 另一条成功出口同样落标记（两个 return true 都必须落）
+    expect(saved.some((s) => s.label === 'budget_resumed')).toBe(true);
   });
 
   it('I4：重发轮的提示消费挂起检查点的未完成工具清单', async () => {
@@ -447,6 +491,14 @@ type StreamResumeInternals = {
   _sessionMutexes: Map<string, SimpleMutex>;
   _checkpointService: {
     listCheckpoints(sessionId: string): Promise<unknown[]>;
+    /** `BUDGET-SUSPEND-RESTART-IDEMPOTENT`：唤醒成功会落 `budget_resumed` 标记 ⇒ 须 stub（防真实写盘） */
+    saveCheckpointWithData(
+      sessionId: string,
+      messages: unknown[],
+      metadata: Record<string, unknown>,
+      state: unknown,
+      label?: string
+    ): Promise<unknown>;
   };
   _recovery: {
     rebuildTrailingTurnFromEvents(sessionId: string): Promise<unknown>;
@@ -470,6 +522,11 @@ function stubNoRestorableCheckpoint(cm: ChatManagerImpl): void {
   spyOn(internals._checkpointService, 'listCheckpoints').mockResolvedValue(
     [] as never
   );
+  // 唤醒成功路径会落 `budget_resumed` 标记 ⇒ 一并 stub（否则写进真实数据目录）
+  spyOn(
+    internals._checkpointService,
+    'saveCheckpointWithData'
+  ).mockResolvedValue({ id: 'cp-stub', label: 'budget_resumed' } as never);
   spyOn(internals._recovery, 'rebuildTrailingTurnFromEvents').mockResolvedValue(
     null as never
   );

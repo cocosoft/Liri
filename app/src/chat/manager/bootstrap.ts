@@ -377,16 +377,35 @@ export class ChatBootstrap {
       const checkpoints = await this.deps
         .getCheckpointService()
         .listCheckpoints(session.id);
-      const suspended = checkpoints.find(
-        (cp) =>
-          (cp.metadata as unknown as Record<string, unknown> | undefined)
-            ?.budgetSuspend !== undefined
+      /**
+       * 2026-10-17（台账 `BUDGET-SUSPEND-RESTART-IDEMPOTENT`）：**只认最新检查点**。
+       *
+       * 挂起点按构造就是**当轮最后一条**（`StreamingAutoCheckpoint.suspend()` 在轮间安全点落盘）
+       * ⇒ 其后只要该会话有任何活动（含放行成功后的 `budget_resumed` 标记），就会出现**更新的**
+       * 检查点 ⇒ 该挂起标记**已过期**，不得再登记为挂起。
+       *
+       * 修复前扫**全部**检查点（`find`）⇒ 「已放行续跑过」的会话每次重启/重载都被重新登记为
+       * 挂起（真机实证：同一会话当日被登记 **10 次**，用户被迫反复点「继续」）。
+       *
+       * ⚠️ **顺序不可依赖数组下标**：两种存储的返回顺序**相反**（`FileCheckpointStorage`
+       * 新在前、`CheckpointDatabase` 旧在前）⇒ 按 `createdAt` 自行求最值。
+       */
+      const latest = checkpoints.reduce<SessionCheckpoint | null>(
+        (newest, cp) =>
+          newest === null || cp.createdAt > newest.createdAt ? cp : newest,
+        null
       );
-      if (!suspended) continue;
+      if (
+        !latest ||
+        (latest.metadata as unknown as Record<string, unknown> | undefined)
+          ?.budgetSuspend === undefined
+      ) {
+        continue;
+      }
       coordinator.suspend({
         sessionId: session.id,
         chain: 'stream',
-        checkpointRef: suspended.id,
+        checkpointRef: latest.id,
         reason: 'restored_budget_suspend',
       });
     }

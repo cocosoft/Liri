@@ -9032,6 +9032,28 @@
       "changelog": [],
       "reopenWhen": "① 若日后要把「能力断链」重新**升为阻断**：必须先解决「CI/干净环境无输入」—— 而 CI 里造输入只能伪造模型数据（违 CS04）⇒ 届时应把它明确为**本地专用门禁**并从 CI 步骤的语义里摘出该子检查（而不是靠伪造数据让 CI 绿）；② 若 `~/.pyapp` 改名 / 支持多 profile（如 `…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-WARN）",
       "notes": "【改动（3 处）】① `DB_PATHS` 补**运行时真实数据目录** `~/.pyapp/data/app.db`（`join(homedir(), '.pyapp','data','app.db')`，用绝对路径 ⇒ 循环里 `isAbsolute(p) ? p : join(cwd,p)`，因为 `join(…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-WARN）"
+    },
+    {
+      "id": "VOICE-TTS-STT-NO-MODEL-NEEDED",
+      "title": "排查结论：tts/stt 无需在模型管理里配模型（语音走独立子系统，且该 taskMapping 无运行时消费者）",
+      "source": "用户 2026-10-16 提问「帮我排查该配哪个模型」（承 `LINTMODELS-CAPABILITY-WARN` 打出的两条 `⚠️ 能力断链：task=tts/stt`）",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若日后**语音链路改为经模型路由**（即 `tts`/`stt` 任务类型被真实消费）：届时必须在模型管理里登记具备 `text_to_speech`/`speech_recognition` 的模型，本结论随之失效；② 若要消掉这两条告警：三条路都动事实源、须先裁定 —— (a) 删 `tts`/`stt` 的…（全文见 archive/evidence-detail.jsonl#VOICE-TTS-STT-NO-MODEL-NEEDED）",
+      "notes": "【问题】门禁 `lint-models` 的「能力覆盖」子检查报两条断链：`task=tts 能力=text_to_speech`、`task=stt 能力=speech_recognition` 各 `0 个 enabled 模型`（第 8 轮修好该检查的本地可用性后**首次**可见）。用户问：该配哪个模型。【三条…（全文见 archive/evidence-detail.jsonl#VOICE-TTS-STT-NO-MODEL-NEEDED）"
     }
   ]
 }

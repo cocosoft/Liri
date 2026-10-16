@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **VOICE-TTS-STT-NO-MODEL-NEEDED**：排查结论：tts/stt 无需在模型管理里配模型（语音走独立子系统 + 该 taskMapping 无消费者） —— 验证 read1|probe1|gate1；基线 两条 ⚠️ 能力断链（task=tts/stt 各 0 个 enabled 模型）曾被读作「需要配模型」；实测为声明面遗留 + 语音链路不读模型表（详情见 archive/evidence-detail.jsonl#VOICE-TTS-STT-NO-MODEL-NEEDED）
 - ✅ **LINTMODELS-CAPABILITY-WARN**：lint-models 能力覆盖：DB_PATHS 补真实数据目录（本地终于生效）+ 按裁定降为告警不阻断 —— 验证 tc1|probe2|gate7；基线 改前：DB_PATHS 两条都在仓库内 ⇒ 本机/CI 都查不到 DB，子检查形同不存在（且其发现会硬失败）（详情见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-WARN）
 - ✅ **LINTMODELS-DB-EXISTS-PROBE**：lint-models 的 DB 存在性判断改 existsSync（原 readFileSync 整读文件且漏判空文件） —— 验证 tc1|probe2|gate7；基线 修前：try { if (readFileSync(full,utf-8)) … } catch {} —— 用整读文件当存在性判断（真实 DB 129MB/次），空文件会因空串为假被漏判（详情见 archive/evidence-detail.jsonl#LINTMODELS-DB-EXISTS-PROBE）
 - ✅ **LINTMODELS-CAPABILITY-SCOPE**：lint-models 能力覆盖子检查定性为「语义本地专属，CI 永不适用」+ 修「跳过被说成通过」的措辞 —— 验证 probe1|tc1|gate7|ci0；基线 修前：无 DB 时输出「✅ 能力覆盖检查通过（DB 未找到，跳过）」+ 汇总「结果：PASS」⇒ 把未执行显示成通过（详情见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-SCOPE）

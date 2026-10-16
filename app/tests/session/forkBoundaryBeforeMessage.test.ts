@@ -161,7 +161,9 @@ describe('fork truncateBeforeMessageId: 编辑点之前的历史', () => {
     // 血缘：声明 = 事实
     expect(getSessionParent(childId)).toBe(sourceId);
     const child = await gateway.getSession(childId);
-    expect((child?.metadata as { seedLength?: number } | undefined)?.seedLength).toBe(5);
+    expect(
+      (child?.metadata as { seedLength?: number } | undefined)?.seedLength
+    ).toBe(5);
   });
 
   it('该消息之前无已闭合轮次（首轮编辑）⇒ 零种子分支（不复制事件）', async () => {
@@ -175,7 +177,10 @@ describe('fork truncateBeforeMessageId: 编辑点之前的历史', () => {
     await gateway.createSession({ id: sourceId, title: sourceId });
     writeEvents(sourceId, [
       makeEvent(1, sourceId, 'turn/start', { turn: 1 }),
-      makeEvent(2, sourceId, 'user/message', { content: '甲', messageId: 'm1' }),
+      makeEvent(2, sourceId, 'user/message', {
+        content: '甲',
+        messageId: 'm1',
+      }),
       makeEvent(3, sourceId, 'assistant/text-batch', {
         content: '甲答',
         messageId: 'a1',
@@ -193,7 +198,9 @@ describe('fork truncateBeforeMessageId: 编辑点之前的历史', () => {
     expect(result.copied).toBe(0);
     expect(await readChildSeqs(childId)).toEqual([]);
     const child = await gateway.getSession(childId);
-    expect((child?.metadata as { seedLength?: number } | undefined)?.seedLength).toBe(0);
+    expect(
+      (child?.metadata as { seedLength?: number } | undefined)?.seedLength
+    ).toBe(0);
   });
 
   it('消息不在事件日志中 ⇒ 失败且不建子会话（不猜测边界）', async () => {

@@ -813,7 +813,11 @@ export class SessionGateway {
         });
       } else {
         boundary = options.boundary ?? tailSeq;
-        if (!Number.isInteger(boundary) || boundary <= 0 || boundary > tailSeq) {
+        if (
+          !Number.isInteger(boundary) ||
+          boundary <= 0 ||
+          boundary > tailSeq
+        ) {
           return {
             success: false,
             error: `invalid boundary: ${boundary} (tailSeq=${tailSeq})`,

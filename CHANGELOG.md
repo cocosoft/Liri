@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOLVIS-P4B-PROPOSE-PLAN-RETIRE**：propose_plan 下线：审批入口合并到 ask_user_question（生成物 78→77、声明面 90→89、差额集仍 12） —— 验证 tc1|ut1489|gate6；基线 下线前：propose_plan 已由 P4b 接线（78 名、interaction 类别、PLAN flag 门控），与 ask_user_question 同为审批入口（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN-RETIRE）
 - ✅ **ROOTCLEAN-REPORTS-INTO-DEV_DOCS**：根目录清零：7 篇被引用报告移入 dev_docs/ + 7 处引用路径同步（5 源码/测试 + 2 spec） —— 验证 tc1|doc2|gate6；基线 上一提交只清了零引用子集（7 篇）⇒ 被引用的 7 篇仍在根目录；本次原位移入 dev_docs 并改指引用（不删、留档不丢）（详情见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-INTO-DEV_DOCS）
 - ✅ **TOOLVIS-P2-BOUNDARY-RULING**：P2 两条如实边界终局裁定「均不做」：flag-gated-off 归因（对象集 ≤3）+ on 对 conditional —— 验证 doc2|tc0|gate6；基线 首版仅理念性理由；本次量化：81 loader / 3 返回 null / 排除 12 名（9 个连 loader 都没有）⇒ 精确归因对象 ≤3，收益 < 成本（详情见 archive/evidence-detail.jsonl#TOOLVIS-P2-BOUNDARY-RULING）
 - ✅ **TOOLVIS-P4B-INTERACTION-RULING**：propose_plan vs ask_user_question 终局裁定「保留两个」+ 补 ask_user_question 契约（真实现标记此前无守卫） —— 验证 tc1|ut1453|gate6；基线 裁定前记为「无异议即维持」的默认（未取得单独裁定）；复核后升格为终局裁定 + 三条重开触发条件（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-INTERACTION-RULING）

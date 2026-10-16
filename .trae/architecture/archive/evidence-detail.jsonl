@@ -4823,6 +4823,34 @@
 {"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#4","i":0,"c":"app/tests/tools/toolNameCodec.test.ts"}
 {"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#5","i":0,"c":".trae/specs/orchestration-family-convergence.md"}
 {"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#6","i":0,"c":".trae/specs/contract-layer-6-proposals.md"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"title","i":0,"c":"propose_plan 下线：审批入口合并到 ask_user_question（生成物 78→77、声明面 90→89）"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"source","i":0,"c":"2026-10-16 用户裁定「合并 propose_plan 下线」—— **推翻同日先落的「保留两个」结论**（该结论的四条取证仍有效：它们证明的是「二者非事实源双轨」这一事实命题；保留与否属产品取舍，由用户裁定）"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"reopenWhen","i":0,"c":"① 若产品重新需要「结构化计划 + 批准后按其续跑」的专用审批语义（如实证显示模型普遍不再用 `confirm` 承接审批）：按 CD06 `git revert` 本独立提交即**完整复原**（loader / 工厂 / 类别 / `TOOL_EFFECTS` / 常量 / 实现体同批回归），或按 P4a §6「推翻记录」重建；② 若证 `"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"reopenWhen","i":1,"c":"ask_user_question(questionType='confirm')` 不足以承接审批（例如落盘事件里缺计划正文）：应补 `confirm` 的载荷/渲染，而**不是**恢复第二入口（否则重新引入同机制双入口）；③ 若 `PLAN` flag 日后失去全部门控对象（`plan` 亦下线）：须一并处置该 flag。"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":0,"c":"【为什么可以这样摘】先做了一次穷尽接触点检索（`--no-ignore`，含被忽略目录）：`propose_plan` 全仓仅出现在**注册面**（`ToolManagerUtils.ts:226` loader、`builtinToolRegistry.ts:211` 工厂）、**登记面**（`toolCategories.ts:185` 类别、`"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":1,"c":"toolEffects.ts:54` effects、`toolNameConstants.ts:67` 常量）、**生成物**（`toolNames.generated.ts`）、**测试/白名单**（`propose-plan.test.ts`、`plan-mode-loop.test.ts`、`toolNameLists.test.ts:571`、`"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":2,"c":"toolDataSourcesNotNewTools.test.ts:85`）—— **零运行时消费者、零产品逻辑按名分支**（其「批准后续跑」就是 ReAct 循环拿到工具结果后继续，无专用机器）⇒ 满足 CD01/CD02/CD05 的「先摘入口」条件。【本批改动（6 处移除 + 2 处白名单 + 1 处新增锁）】① `"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":3,"c":"toolNameConstants.ts` 删 `propose_plan`（声明面 90 → 89）；② `ToolManagerUtils.ts` 删 `cond(coreFeature('PLAN'), byKey('createProposePlanTool'))`（loader 清单 81 → 80）；③ `"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":4,"c":"builtinToolRegistry.ts` 删 import + `createProposePlanTool` 工厂；④ `toolCategories.ts` 删 `propose_plan: 'interaction'`；⑤ `toolEffects.ts` 删 `propose_plan: EXTERNAL`（`Record<ToolName,…"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":5,"c":">` 会**强制**同步，否则 typecheck 红 —— 该棘轮按要求生效）；⑥ 删实现体目录 `app/src/tools/ProposePlanTool/`。生成物重算：**78 → 77**（80 loader − 3 返回 null），被排除名仍 **12**（声明面与生成物两边同时减 1，差额集不变，故 G5「声明面 − 生效面 = 已知条件工"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":6,"c":"具集」仍成立）。【测试同步（含一处「不丢覆盖」的论证）】删 `app/tests/tools/propose-plan.test.ts`（其 5 例的主体断言是**被删工具本身**，随工具一并移除）；删 `app/tests/chat/plan-mode-loop.test.ts` —— **不丢覆盖**：它钉的核心不变量是「交互工具挂起 → resolve"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":7,"c":" → 循环继续」，该不变量已由 `app/tests/chat/ReActToolLoop.test.ts:574`「交互工具不阻塞：yield question + 注册 pendingInteraction + **恢复后继续执行**」覆盖（删的是重复覆盖，CS01），且它断言的工具名已不存在；`toolNameLists.test.ts` 的 `"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":8,"c":"P4B_WIRED_TOOL_NAMES` 移除该项（改 `['task_output','pdf']`），并**新增 `P4B_RETIRED_TOOL_NAMES = ['propose_plan']` 下线锁**（断言该名在**声明面与生效面同时**不存在，且不在差额集）—— 防的是「半下线」：只摘 loader 却留常量（会被 G5 判成 "}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":9,"c":"conditional 影子工具）、或只删常量却留实现；差额集长度断言改为 `15 − 已接线数 − 已下线数`（如实表达「净收缩」的两种来源）；`toolDataSourcesNotNewTools.test.ts` 的 `FROZEN_TOOL_BASELINE` 删该名（其「基线不陈旧」用例本就为「移除须同步基线」而设，本轮即其首个实际触发）；`"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":10,"c":"ask-user-question.test.ts` 头部与 ④ 的标题同步改写：它从「裁定前提的一半」变为「**唯一交互入口不许失联**」。【语义承接】审批由 `ask_user_question(questionType='confirm')` 承接 —— 其描述本就写明「适用于需要用户批准的决策点（如『是否继续执行？』）」⇒ **无需新增提示词**（避"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":11,"c":"免为推测性问题造 prompt 文本）。【验证】`bun run scripts/gen-tool-names.ts`（**真实实例化**工厂，非静态扫描）自报 80 loader / 3 返回 null / 写入 **77** 名；`bun run typecheck` 0 错；`tests/{tools,chat,contracts,runtime}` "}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":12,"c":"**1489 pass / 0 fail**；`lint:tool-schema`（工具类 62 → 61）· `lint:consts` · `lint:unref` · `lint:arch` · `lint:doc-code` · `lint:refs` · 6 门禁全绿。【如实边界】① 未做真机取证（`e2eVerified=false`）—— 删除"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":13,"c":"类改动无新增运行时行为面，模型可见面由生成物决定，而生成物是**真实例化**得出的；② **CD05 的两步（先摘入口 → 观察 → 再删实现）在本批合并为一个提交**，原因是常量表摘除后实现体 `name = TOOL_NAME_CONSTANTS.propose_plan` **不再编译** ⇒ 拆开会产生不可编译的中间态；回滚粒度仍为**单一提交**（"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"notes","i":14,"c":"`git revert` 完整复原），符合 CD06；③ 前端无需改动（client 侧对 `propose_plan` 零引用，已核）。"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#0","i":0,"c":"app/src/tools/toolNameConstants.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#1","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#2","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#3","i":0,"c":"app/src/tools/toolCategories.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#4","i":0,"c":"app/src/tools/toolEffects.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#5","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"tests#1","i":0,"c":"app/tests/tools/toolDataSourcesNotNewTools.test.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"tests#2","i":0,"c":"app/tests/tools/ask-user-question.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

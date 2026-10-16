@@ -64,7 +64,6 @@ export const TOOL_NAME_CONSTANTS = {
   pdf: 'pdf',
   plan: 'plan',
   powershell: 'powershell',
-  propose_plan: 'propose_plan',
   read_project_file: 'read_project_file',
   read_vfs: 'read_vfs',
   repl: 'repl',

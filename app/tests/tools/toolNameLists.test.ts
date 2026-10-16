@@ -568,17 +568,34 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * ① 进生成物（⇒ 会被真实实例化）② 不在差额集（⇒ 不再是 conditional 影子工具）。
    * 若日后有人把已接线工具的 loader/登记回退，本用例即红。
    */
-  const P4B_WIRED_TOOL_NAMES = ['task_output', 'propose_plan', 'pdf'];
+  const P4B_WIRED_TOOL_NAMES = ['task_output', 'pdf'];
+
+  /**
+   * **P4b 期"下线"（非接线）的工具**：`propose_plan` —— 2026-10-16 用户裁定「审批入口合并到
+   * `ask_user_question`」⇒ 它从**声明面与生效面同时移除**（既不在常量表、也不在生成物），
+   * 故**不属**差额集（差额集只统计"声明了但没生效"），也**不属**上面的接线锁。
+   * 本锁防的是"半下线"：只摘 loader 却留着常量（会被 G5 判为 conditional）或只删常量却留着实现。
+   */
+  const P4B_RETIRED_TOOL_NAMES = ['propose_plan'];
 
   it('P4b 接线回归锁：已接线工具进生效面且已移出 conditional 差额集', () => {
     for (const name of P4B_WIRED_TOOL_NAMES) {
       expect(TOOL_NAMES).toContain(name);
       expect(KNOWN_CONDITIONAL_TOOL_NAMES).not.toContain(name);
     }
-    // 反向自证：差额集随接线**净收缩**（15 − 已接线数），而不是"新增登记"
+    // 反向自证：差额集随接线**净收缩**（15 − 已接线数 − 已下线数），而不是"新增登记"
     expect(KNOWN_CONDITIONAL_TOOL_NAMES.length).toBe(
-      15 - P4B_WIRED_TOOL_NAMES.length
+      15 - P4B_WIRED_TOOL_NAMES.length - P4B_RETIRED_TOOL_NAMES.length
     );
+  });
+
+  it('P4b 下线锁：已下线工具在声明面与生效面**同时**不存在（防"半下线"）', () => {
+    const declared = new Set<string>(Object.values(TOOL_NAME_CONSTANTS));
+    for (const name of P4B_RETIRED_TOOL_NAMES) {
+      expect(declared.has(name)).toBe(false);
+      expect(TOOL_NAMES).not.toContain(name);
+      expect(KNOWN_CONDITIONAL_TOOL_NAMES).not.toContain(name);
+    }
   });
 
   it('门禁自证（负向夹具）：新增命名空间族会被判违规 ⇒ 快照非恒真', () => {

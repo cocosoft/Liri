@@ -1,17 +1,16 @@
 /**
  * AskUserQuestionTool 契约（补既有空白）
  *
- * **为什么补**：交互链路的既有测试（`ReActToolLoop*.test.ts`、`plan-mode-loop.test.ts`、
- * `events-trailing-turn.test.ts`）**全部使用** `{ requiresUserInteraction: () => true } **桩**，
- * 真实现的该标记与 execute 契约此前**无任何守卫**；而 `propose-plan.test.ts` 侧已有 ④/⑤。
+ * **为什么补**：交互链路的既有测试（`ReActToolLoop*.test.ts`、`events-trailing-turn.test.ts`）
+ * **全部使用** `{ requiresUserInteraction: () => true } **桩**，
+ * 真实现的该标记与 execute 契约此前**无任何守卫**（同族工具 `propose_plan` 已下线，其侧守卫一并移除）。
  *
- * **与 `propose_plan` 的边界（2026-10-16 终局裁定「保留两个」，见
- * `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §6）**：
- * 二者**共用同一条 question 通道**（`requiresUserInteraction()` → `ReActToolLoop` yield question
- * → 答复经 `_userAnswers` 注入 → 同一 `QuestionBlock` 渲染），只是**语义不同** ——
- * `ask_user_question` 是通用提问（choice/open/confirm），`propose_plan` 是「提交计划 → 等批准 →
- * 按计划续跑」的专用通道 ⇒ **不构成事实源双轨**。本文件 ④ 是该裁定前提的另一半机器校验
- * （另一半在 `propose-plan.test.ts` ④/⑤）：若任一被改走独立通道，裁定前提失效，须重开裁定。
+ * **与 `propose_plan` 的关系（2026-10-16 两次裁定，后者推翻前者）**：
+ * 先裁定「保留两个」（理由：二者共用同一条 question 通道 ⇒ 非事实源双轨），随后用户裁定
+ * **合并下线** `propose_plan`（其 loader / 工厂 / 类别 / `TOOL_EFFECTS` / 常量 / 实现体已同批移除，
+ * 生成物 78 → 77）。⇒ **本工具现为唯一的用户交互（含审批）入口**：提交计划并请批准的语义由
+ * `questionType='confirm'` 承接。本文件 ④ 保留 `requiresUserInteraction` 断言 —— 它现在钉的是
+ * 「本工具走 question 通道」这一**不可回退**的前提（唯一入口若失联，交互链路整体不可用）。
  */
 
 import { describe, it, expect } from 'bun:test';
@@ -64,7 +63,7 @@ describe('AskUserQuestionTool 契约', () => {
     expect(String(data.error)).toContain('_userAnswers');
   });
 
-  it('④ 标记 requiresUserInteraction ⇒ 与 propose_plan 同处一条 question 通道（裁定前提）', () => {
+  it('④ 标记 requiresUserInteraction ⇒ 走 question 通道（现为唯一交互入口，失联即链路不可用）', () => {
     expect(new AskUserQuestionTool().requiresUserInteraction()).toBe(true);
     expect(new AskUserQuestionTool().isReadOnly()).toBe(true);
   });

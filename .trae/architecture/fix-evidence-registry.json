@@ -8796,6 +8796,39 @@
       "changelog": [],
       "reopenWhen": "① 若 `dev_docs/` 的「全量本地、不推送」裁定被推翻（dev_docs 入库）：本批移入的 7 篇报告随之入库，届时须复核它们是否仍应是**仓库内**文档（尤其 `Liri_契约层详细设计文档.md` 是**外部产出物**，本仓不维护）；② 若日后要删这批报告：仍须先摘引用（CD05）—— 引用点即本片 …（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-INTO-DEV_DOCS）",
       "notes": "【背景】上一提交（ROOTCLEAN-REPORTS-SCRIPTS）按 CD01 取证只清了**零引用**子集，并把 7 篇**被引用**报告留在了仓库根（引用点见下）。本片处理这 7 篇：**原位移入仓内 `dev_docs/`**（与该处既有 26 篇报告同级、同为本地不推送域）—— 比「删掉」或「移出仓外」都…（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-INTO-DEV_DOCS）"
+    },
+    {
+      "id": "TOOLVIS-P4B-PROPOSE-PLAN-RETIRE",
+      "title": "propose_plan 下线：审批入口合并到 ask_user_question（生成物 78→77、声明面 90→89）",
+      "source": "2026-10-16 用户裁定「合并 propose_plan 下线」—— **推翻同日先落的「保留两个」结论**（该结论的四条取证仍有效：它们证明的是「二者非事实源双轨」这一事实命题；保留与否属产品取舍，由用户裁定）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/toolNameConstants.ts",
+        "app/src/tools/utils/ToolManagerUtils.ts",
+        "app/src/tools/factories/builtinToolRegistry.ts",
+        "app/src/tools/toolCategories.ts",
+        "app/src/tools/toolEffects.ts",
+        "app/src/constants/toolNames.generated.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolNameLists.test.ts",
+        "app/tests/tools/toolDataSourcesNotNewTools.test.ts",
+        "app/tests/tools/ask-user-question.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若产品重新需要「结构化计划 + 批准后按其续跑」的专用审批语义（如实证显示模型普遍不再用 `confirm` 承接审批）：按 CD06 `git revert` 本独立提交即**完整复原**（loader / 工厂 / 类别 / `TOOL_EFFECTS` / 常量 / 实现体同批回归），或按 P4a §6「推…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN-RETIRE）",
+      "notes": "【为什么可以这样摘】先做了一次穷尽接触点检索（`--no-ignore`，含被忽略目录）：`propose_plan` 全仓仅出现在**注册面**（`ToolManagerUtils.ts:226` loader、`builtinToolRegistry.ts:211` 工厂）、**登记面**（`toolCatego…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN-RETIRE）"
     }
   ]
 }

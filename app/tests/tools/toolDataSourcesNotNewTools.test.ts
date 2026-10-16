@@ -26,8 +26,10 @@ import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
 
 /**
  * **冻结基线**（出处：`src/tools/toolNameConstants.ts` 的 `TOOL_NAME_CONSTANTS`，
- * 2026-10-13 冻结，共 90 项）。⚠️ 这是**快照**，不是"实时清单"：新增工具**不得**改这里，
+ * 2026-10-13 冻结，共 90 项；2026-10-16 `propose_plan` 下线后为 **89 项**）。
+ * ⚠️ 这是**快照**，不是"实时清单"：新增工具**不得**改这里，
  * 而应在 `NEW_TOOL_REGISTRY` 登记理由（见文件头判据）。
+ * 例外：**移除**工具时须同步删基线项 —— 否则会被下方"基线不陈旧"用例判红（设计如此）。
  */
 const FROZEN_TOOL_BASELINE: readonly string[] = [
   'agent',
@@ -82,7 +84,6 @@ const FROZEN_TOOL_BASELINE: readonly string[] = [
   'pdf',
   'plan',
   'powershell',
-  'propose_plan',
   'read_project_file',
   'read_vfs',
   'repl',

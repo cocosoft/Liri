@@ -179,10 +179,8 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── interaction 交互 ──
   ask_user_question: 'interaction',
   brief: 'interaction',
-  // P4b（2026-10-16，P4a 评估 §2.2(2)）：`propose_plan` 原为影子工具（零 loader、零类别登记）。
-  // 它复用 `ask_user_question` 的 question 通道做「提交计划 → 等用户批准」⇒ 归 `interaction`
-  // （与 ask_user_question 同档；该类别属 chat/default/local 白名单 ⇒ 通用会话内可用）。
-  propose_plan: 'interaction',
+  // 2026-10-16：`propose_plan` 已下线（审批入口合并到 `ask_user_question`）⇒ 移除其类别登记；
+  // 曾于 P4b 归入本类别（`interaction`，与 `ask_user_question` 同档）。
 
   // ── doc 文档 ──
   doc_generate: 'doc',

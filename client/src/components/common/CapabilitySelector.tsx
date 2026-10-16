@@ -54,11 +54,14 @@ export default function CapabilitySelector({
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  /** 加载失败（用于把"后端故障"与"搜索无结果 / 暂无能力"区分开；见下方空态） */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // 加载能力列表
   useEffect(() => {
     const loadCapabilities = async () => {
       setLoading(true);
+      setLoadFailed(false);
       try {
         if (presetCapabilities) {
           setCapabilities(presetCapabilities);
@@ -77,8 +80,10 @@ export default function CapabilitySelector({
         // 原实现在此 `setCapabilities([…10 项硬编码…])` —— 属**生产代码里的假数据**（CS04），
         // 且它是服务端 28 项能力的**部分副本**（缺 18 项、无 labelKey ⇒ 只能显示英文 labelFallback，
         // `sortOrder`/`isDefault` 也是编的）⇒ 让「后端不可用」看起来像「功能正常」。
-        // 现约定：加载失败 ⇒ 保持空列表（上方 handleClientError 已提示 + 下方空态呈现），不猜、不伪造；
-        // 能力数据只有**一个来源**：服务端 `/v1/capabilities`（或显式传入的 `presetCapabilities`）。
+        // 现约定：加载失败 ⇒ 保持空列表 + **置 loadFailed 让空态如实报错**（下方空态三态区分：
+        // 加载失败 / 搜索无结果 / 暂无能力），不猜、不伪造；能力数据只有**一个来源**：
+        // 服务端 `/v1/capabilities`（或显式传入的 `presetCapabilities`）。
+        setLoadFailed(true);
       } finally {
         setLoading(false);
       }
@@ -275,9 +280,14 @@ export default function CapabilitySelector({
 
       {Object.keys(filteredAndGroupedCapabilities).length === 0 && (
         <div className="py-4 text-center text-gray-400 text-sm">
-          {searchTerm
-            ? t("common.capabilityNoMatch")
-            : t("common.capabilityNone")}
+          {/* 加载失败优先如实报错：与"搜索无结果 / 暂无能力"区分开（2026-10-16
+              台账 `CAPS-CAPABILITY-LOAD-FAILED-MSG`；此前失败时会显示"暂无可用能力"，
+              读起来像"确实没有能力"而掩盖了后端故障） */}
+          {loadFailed
+            ? t("common.capabilityLoadFailed")
+            : searchTerm
+              ? t("common.capabilityNoMatch")
+              : t("common.capabilityNone")}
         </div>
       )}
     </div>

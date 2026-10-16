@@ -163,6 +163,7 @@ const zh = {
     channelMetricsSendRateItem: "{{platform}}: {{rate}}%（{{ok}}/{{total}}）",
     capabilityTitle: "能力",
     capabilityLoading: "加载能力列表中...",
+    capabilityLoadFailed: "读取能力列表失败（后端未就绪或接口不可达）",
     capabilitySelected: "({{count}} 已选)",
     capabilitySearchPlaceholder: "搜索能力...",
     capabilityNoMatch: "未找到匹配的能力",

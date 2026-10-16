@@ -166,6 +166,8 @@ const en = {
     channelMetricsSendRateItem: "{{platform}}: {{rate}}% ({{ok}}/{{total}})",
     capabilityTitle: "Capabilities",
     capabilityLoading: "Loading capabilities...",
+    capabilityLoadFailed:
+      "Failed to load capabilities (backend not ready or endpoint unreachable)",
     capabilitySelected: "({{count}} selected)",
     capabilitySearchPlaceholder: "Search capabilities...",
     capabilityNoMatch: "No matching capabilities",

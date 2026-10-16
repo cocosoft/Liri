@@ -5203,6 +5203,25 @@
 {"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"code#1","i":0,"c":"client/src/components/modelAdmin/ModelMetaEditor.tsx"}
 {"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"code#2","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
 {"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"title","i":0,"c":"补「能力加载失败」专用文案键 `common.capabilityLoadFailed`（两组件如实报错 + 契约 ⑤ 钉住）"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"source","i":0,"c":"承 `CAPS-CAPABILITY-PRESET-CLEANUP` 的**口径边界 ②** ——「未改 i18n：加载失败的空态仍复用 `common.capabilityNoMatch`」（用户指令：补一个加载失败的专用文案键）"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"reopenWhen","i":0,"c":"① 若日后给 `CapabilitySelector` 加「离线能力清单」，加载失败文案需相应改为「当前显示离线清单」之类的**区分态**文案（不要两态共用一句话）；② 客户端仍只有 zh / en 两语言 ⇒ 新增键只补这两个地方（与 B4 ②③ 同口径，新增语言须一并补）；③ 本片只处理「列表加载失败」，**保存失败**（`handleSave` 的 "}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"reopenWhen","i":1,"c":"error 区）沿用既有 `error` 文案机制，未做统一：若日后要统一错误呈现风格，可另立一片。"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":0,"c":"【问题】上一片删掉伪造降级数据后，两个组件的加载失败**没有专用文案**：`CapabilitySelector` 的空态按「有搜索词 ? `capabilityNoMatch`：「未找到匹配的能力」 : `capabilityNone`（「暂无可用能力」）」二分 —— 加载失败时落在后者，读起来像**后端真的没有能力**；`ModelMetaEditor`"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":1,"c":" 则更糟：失败后能力区渲染**一片空白**（分组容器无子项）。⇒ 都属「故障被呈现成正常」，与上一片删假数据要解决的正是同一件事。【订正（上一片的一处失实陈述）】`CAPS-CAPABILITY-PRESET-CLEANUP` 的 notes 口径边界 ② 写的是「空态仍复用 `common.capabilityNoMatch`」——**不准确**：那是**"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":2,"c":"有搜索词**时的分支；无搜索词时用的是 `common.capabilityNone`（「暂无可用能力」），实测见 `CapabilitySelector.tsx` 的空态二分（`zh.ts:168-169`）。结论方向不变（都属「故障被读成正常」），措辞按此订正。【改了什么】(1) 新增 i18n 键 `"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":3,"c":"common.capabilityLoadFailed`（zh「读取能力列表失败（后端未就绪或接口不可达）」/ en「Failed to load capabilities (backend not ready or endpoint unreachable)」——措辞对齐既有 `settings.toolsLoadFailed` 的平实风格）；(2) `"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":4,"c":"CapabilitySelector` 增 `loadFailed` 状态（effect 起始复位、catch 置位）⇒ 空态改为**三态**：加载失败 > 搜索无结果 > 暂无能力（失败优先，避免被读成「确实没有」）；(3) `ModelMetaEditor` 增 `capabilitiesLoadFailed` 状态，并在「能力」区内用红字如实报错（替代"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":5,"c":"此前的静默空白）；(4) 契约测试 B4 增 **⑤**：两组件都必须引用 `common.capabilityLoadFailed`，且该键在 zh / en 中都存在（`^ {4}capabilityLoadFailed:`，与 `common` 段的缩进口径一致）⇒「失败必须如实报错」这条被机器钉住，防回流。【验证】`"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":6,"c":"crossDeploymentContract.test.ts` ⇒ **14 pass / 0 fail**（B1–B4，其中 B4 现为 ①②③④⑤ 五条）；客户端 `tsc --noEmit` ⇒ 0；客户端 `bun run test` ⇒ **80 files / 629 tests 全 pass**；app 全链 `bun run ci` 通过。"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":7,"c":"【口径边界（如实）】① 两个组件**仍无组件级单测**（全仓 client 无对应测试文件）⇒ 文案呈现的正确性由「静态契约 ⑤ + 类型检查 + 全量回归」间接保证，**未**新增 UI 用例（渲染断言需引入组件测试基建，属另一片）；② 未做错误文案的**统一治理**（加载失败 vs 保存失败仍是两套机制），只补了本片发现的具体缺口；③ 未新增 `"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"notes","i":8,"c":"capabilityEmptyOffline` 之类的「离线态」文案 —— 当前不存在离线清单功能，不预造键。"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#0","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#1","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#2","i":0,"c":"client/src/components/common/CapabilitySelector.tsx"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#3","i":0,"c":"client/src/components/modelAdmin/ModelMetaEditor.tsx"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#4","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

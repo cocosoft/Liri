@@ -55,6 +55,8 @@ function ModelMetaEditor({
     [],
   );
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
+  /** 能力列表加载失败（用于在"能力"区如实报错，而不是静默空白；见下方渲染） */
+  const [capabilitiesLoadFailed, setCapabilitiesLoadFailed] = useState(false);
 
   // 加载已有的模型覆盖配置
   useEffect(() => {
@@ -169,7 +171,9 @@ function ModelMetaEditor({
         // 2026-10-16（台账 `CAPS-CAPABILITY-PRESET-CLEANUP`）：**不再注入伪造的能力列表**
         // （原实现为 10 项硬编码；它是服务端 28 项能力的部分副本、无 labelKey ⇒ 只能显示英文
         // labelFallback，且 `sortOrder`/`isDefault` 是编的 ⇒ 让「后端不可用」看起来像「功能正常」）。
-        // 现约定：加载失败 ⇒ 保持空列表（上方 handleClientError 已提示），能力数据只有一个来源。
+        // 现约定：加载失败 ⇒ 保持空列表 + **置 capabilitiesLoadFailed 让"能力"区如实报错**
+        // （此前删掉假数据后会渲染成一片空白，读起来像"这个模型没有任何能力"）。
+        setCapabilitiesLoadFailed(true);
       } finally {
         setCapabilitiesLoaded(true);
       }
@@ -420,6 +424,11 @@ function ModelMetaEditor({
                   {t("model.capabilities")}
                 </label>
                 <div className="space-y-3">
+                  {capabilitiesLoadFailed && (
+                    <div className="text-xs text-red-500 dark:text-red-400">
+                      {t("common.capabilityLoadFailed")}
+                    </div>
+                  )}
                   {Object.entries(capabilitiesByCategory)
                     .filter(([, caps]) => caps.length > 0)
                     .map(([category, caps]) => (

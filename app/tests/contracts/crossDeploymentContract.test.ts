@@ -398,4 +398,25 @@ describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
     }
     expect(offenders).toEqual([]);
   });
+
+  it('⑤ 能力加载失败必须**如实报错**（两组件引用专用键 + 该键 zh/en 都有）', () => {
+    // 为什么钉住：删掉伪造降级数据后，若失败分支什么都不显示，会渲染成"没有能力"（静默空白）；
+    // 若复用 `capabilityNone`（「暂无可用能力」），则把**后端故障**读成"确实没有能力"。
+    const consumers = [
+      'client/src/components/common/CapabilitySelector.tsx',
+      'client/src/components/modelAdmin/ModelMetaEditor.tsx',
+    ];
+    for (const rel of consumers) {
+      expect(read(rel), `${rel} 未在加载失败时使用专用文案键`).toContain(
+        'common.capabilityLoadFailed'
+      );
+    }
+    for (const locale of ['zh', 'en']) {
+      const src = read(`client/src/i18n/locales/${locale}.ts`);
+      expect(
+        /^ {4}capabilityLoadFailed:/m.test(src),
+        `${locale} 缺少 common.capabilityLoadFailed 键`
+      ).toBe(true);
+    }
+  });
 });

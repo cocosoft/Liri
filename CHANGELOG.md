@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CAPS-CAPABILITY-LOAD-FAILED-MSG**：补「能力加载失败」专用文案键：两组件如实报错（空态三态区分）+ 契约 ⑤ 钉住 —— 验证 ct14|ut629|tc1；基线 改前：加载失败时 CapabilitySelector 显示「暂无可用能力」、ModelMetaEditor 一片空白 —— 均把故障读成正常（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LOAD-FAILED-MSG）
 - ✅ **CAPS-CAPABILITY-PRESET-CLEANUP**：清理客户端伪造能力降级数据：删两处硬编码能力列表 + 硬编码默认能力 + 加防回流锁 —— 验证 ct13|ut629|tc1|grep2；基线 改前：加载失败即注入 10 项硬编码能力（28 项的部分副本、无 labelKey ⇒ 只能显示英文 fallback）（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-PRESET-CLEANUP）
 - ✅ **CAPS-CAPABILITY-LABEL-CONVENTION**：能力标签解析修复：locale 的 model.capability 块上移为顶层 capability —— 验证 ct13|ut629|tc1|ts6628|probe1；基线 改前：28 个 labelKey 与 locale 的 model.capability.* 不匹配 ⇒ t() 恒 miss（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）
 - ✅ **CAPS-CATEGORY-LABEL-SINGLE-SOURCE**：分类标签跨端单源：服务端 labelKey 补 model. 前缀 + 客户端删 4 处副本 + 契约 B4 —— 验证 ct12|ut629|tc1|ts6625；基线 改前：labelKey 缺 model. 前缀 ⇒ t() 恒 miss，客户端遂各自复制（含两处 categoryOrder）（详情见 archive/evidence-detail.jsonl#CAPS-CATEGORY-LABEL-SINGLE-SOURCE）

@@ -28,6 +28,14 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { claimMessage, finalizeMessage } from '../dedup/index.js';
+// 预算挂起「就地放行」：按钮回传（`card.action.trigger` / 旧版扁平体）→ **同一**动作端口
+//（与 QQ 共用一个入口，不各平台各写一套放行逻辑）。Spec `.trae/specs/channel-budget-inline-relief.md`
+import {
+  extractFeishuCardAction,
+  buildFeishuCardActionResponse,
+  type FeishuCardActionHit,
+} from './cardActionPayload.js';
+import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:feishu:FeishuChannel');
@@ -866,6 +874,50 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  /* ───────── 卡片回传交互（入站动作） ───────── */
+
+  /**
+   * Webhook 路径：处理卡片回传并**返回回调响应体**（文档：3 秒内 HTTP 200 + `{toast}`，禁 3xx）。
+   *
+   * **永不抛**（网关必须拿到响应体）：动作端口自身也不抛（见 `handleBudgetReliefAction`），
+   * 此处再兜一层 —— 异常 ⇒ 失败 toast（守 CS03：不静默）。
+   */
+  private async respondCardAction(
+    hit: FeishuCardActionHit
+  ): Promise<Record<string, unknown>> {
+    try {
+      const result = await handleBudgetReliefAction(hit.payload);
+      this.logger.info('飞书卡片回传（webhook）：动作已处理', {
+        shape: hit.shape,
+        openMessageId: hit.openMessageId,
+        code: result.code,
+      });
+      return buildFeishuCardActionResponse(result);
+    } catch (err) {
+      await handleError(err, {
+        module: 'channels:feishu',
+        action: 'respondCardAction',
+      });
+      return buildFeishuCardActionResponse({ code: 1, message: '放行失败' });
+    }
+  }
+
+  /**
+   * 长连接路径：**只应用动作**，帧内不回 toast。
+   *
+   * ⚠️ 如实边界：原始 WS 帧的应答契约未获权威文档（官方推荐经 SDK 接入，ack 由 SDK 内部完成）
+   * ⇒ 本路径**不伪造** ack。代价：飞书客户端可能提示交互超时，但**放行本身已生效**（副作用已落）。
+   */
+  private async applyCardActionOverWebSocket(
+    hit: FeishuCardActionHit
+  ): Promise<void> {
+    const result = await handleBudgetReliefAction(hit.payload);
+    this.logger.info(
+      '飞书卡片回传（长连接）：动作已处理（帧内不回 toast，契约未文档化）',
+      { shape: hit.shape, openMessageId: hit.openMessageId, code: result.code }
+    );
+  }
+
   /* ───────── WebSocket 模式 ───────── */
 
   /**
@@ -946,6 +998,19 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       if (type === 'event') {
         const eventData = data['data'] as Record<string, unknown> | undefined;
         if (eventData) {
+          // ① 卡片回传交互（长连接帧）：**只应用动作**——帧的应答契约（能否回 toast）未获权威
+          //    文档 ⇒ 不猜（不伪造 ack）。副作用（放行）仍照常生效，留痕见 helper。
+          const cardHit = extractFeishuCardAction(data);
+          if (cardHit) {
+            this.applyCardActionOverWebSocket(cardHit).catch((err) => {
+              handleError(err, {
+                module: 'channels:feishu',
+                action: '飞书长连接卡片回传处理失败',
+              });
+            });
+            return;
+          }
+
           const eventType = eventData['type'] as string;
           if (eventType === 'im.message.receive_v1') {
             const eventBody = eventData['event'] as
@@ -1111,48 +1176,67 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       });
 
       req.on('end', () => {
+        let parsed: Record<string, unknown>;
         try {
-          const parsed = JSON.parse(body) as Record<string, unknown>;
-
-          /* 处理飞书 URL 验证请求 */
-          const challenge = parsed['challenge'] as string | undefined;
-          if (challenge) {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ challenge }));
-            return;
-          }
-
-          /* 验证 token（如果配置了 verifyToken） */
-          if (self.verifyToken) {
-            const token = parsed['token'] as string;
-            if (token !== self.verifyToken) {
-              self.logger.warn('飞书 Webhook token 验证失败');
-              res.writeHead(403);
-              res.end();
-              return;
-            }
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({}));
-
-          const eventType = parsed['type'] as string;
-          if (eventType !== 'event_callback') return;
-
-          const event = parsed['event'] as Record<string, unknown> | undefined;
-          if (!event) return;
-
-          self.processFeishuEvent(event).catch((err) => {
-            handleError(err, {
-              module: 'channels:feishu',
-              action: '飞书消息处理异常',
-            });
-          });
+          parsed = JSON.parse(body) as Record<string, unknown>;
         } catch {
           self.logger.warn('飞书 Webhook 消息解析失败');
           res.writeHead(400);
           res.end();
+          return;
         }
+
+        /* 处理飞书 URL 验证请求 */
+        const challenge = parsed['challenge'] as string | undefined;
+        if (challenge) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ challenge }));
+          return;
+        }
+
+        /* 验证 token（如果配置了 verifyToken） */
+        if (self.verifyToken) {
+          const token = parsed['token'] as string;
+          if (token !== self.verifyToken) {
+            self.logger.warn('飞书 Webhook token 验证失败');
+            res.writeHead(403);
+            res.end();
+            return;
+          }
+        }
+
+        /* ① 卡片回传交互（**与消息事件同地址、不同体**）⇒ 必须在此**先**分流：
+           文档要求 3 秒内 HTTP 200 且响应体为 `{toast}`（禁 3xx）⇒ 不能沿用下方那句空 `{}` 的 200。
+           `respondCardAction` 按构造不拒绝，`.catch` 只为**保证网关一定拿到响应体**（否则客户端报交互失败）。 */
+        const cardHit = extractFeishuCardAction(parsed);
+        if (cardHit) {
+          self
+            .respondCardAction(cardHit)
+            .catch(() =>
+              buildFeishuCardActionResponse({ code: 1, message: '放行失败' })
+            )
+            .then((toastBody) => {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(toastBody));
+            });
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({}));
+
+        const eventType = parsed['type'] as string;
+        if (eventType !== 'event_callback') return;
+
+        const event = parsed['event'] as Record<string, unknown> | undefined;
+        if (!event) return;
+
+        self.processFeishuEvent(event).catch((err) => {
+          handleError(err, {
+            module: 'channels:feishu',
+            action: '飞书消息处理异常',
+          });
+        });
       });
     });
 

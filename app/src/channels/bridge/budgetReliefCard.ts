@@ -90,13 +90,17 @@ const sentSessions = new Set<string>();
 /**
  * **入站回调已接线**的通道白名单（2026-10-17，Spec `channel-budget-inline-relief.md` §2 D2 风险项）。
  *
- * ⚠️ 为什么必须白名单：实现 `sendInteractive` 的通道有 12 个，但**入站按钮回调**目前**只有 QQ**
- * （`INTERACTION_CREATE`）。对「出站能发、入站没接」的通道给按钮 ⇒ 用户点了**毫无反应**（飞书会
- * 一直 loading）——**比没有按钮更糟**（用户以为按了、其实什么都没发生）。
+ * ⚠️ 为什么必须白名单：实现 `sendInteractive` 的通道有 12 个，而**入站按钮回调已接线**的只有下列通道
+ * （QQ = `INTERACTION_CREATE`；飞书 = `card.action.trigger` / 旧版扁平体）⇒ 对「出站能发、入站没接」
+ * 的通道给按钮 ⇒ 用户点了**毫无反应**（飞书未接线时客户端会一直 loading）——**比没有按钮更糟**
+ * （用户以为按了、其实什么都没发生）。
  *
  * 新增通道时必须**同时**接完出站与入站，再把该通道 id 加进来。
  */
-export const BUTTON_CAPABLE_CHANNELS: ReadonlySet<string> = new Set(['qq']);
+export const BUTTON_CAPABLE_CHANNELS: ReadonlySet<string> = new Set([
+  'qq',
+  'feishu',
+]);
 
 /** 仅供测试：清空去重标记 */
 export function resetBudgetReliefCardForTest(): void {

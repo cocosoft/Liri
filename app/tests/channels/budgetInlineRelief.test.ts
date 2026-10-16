@@ -246,21 +246,24 @@ describe('验收 3（出站降级链）：失败不静默、文案随实际路�
 
 /**
  * Spec §2 D2 **风险项**的守卫（2026-10-17，本片自查发现的**本片引入**隐患）：
- * 实现 `sendInteractive` 的通道有 12 个，但**入站按钮回调目前只有 QQ** ⇒ 对「出站能发、入站没接」
- * 的通道给按钮，用户点了**毫无反应**（**比没有按钮更糟**）。故按**白名单**决定是否给按钮。
+ * 实现 `sendInteractive` 的通道有 12 个，而**入站按钮回调已接线**的只有白名单内那些 ⇒ 对「出站能发、
+ * 入站没接」的通道给按钮，用户点了**毫无反应**（**比没有按钮更糟**）。故按**白名单**决定是否给按钮。
+ *
+ * 2026-10-17 更新：飞书入站（`card.action.trigger`）接线后加入白名单 ⇒ 本组用**仍未接线**的通道
+ * （如 `slack`）做负向样例。
  */
 describe('D2 风险项：入站回调未接线的通道**不得**给按钮（防「假按钮」）', () => {
   beforeEach(() => {
     resetBudgetReliefCardForTest();
   });
 
-  it('飞书（出站有 sendInteractive 但入站未接线）⇒ 只发**无按钮**文案，绝不调 sendInteractive', async () => {
+  it('slack（出站有 sendInteractive 但入站未接线）⇒ 只发**无按钮**文案，绝不调 sendInteractive', async () => {
     const interactive = vi.fn(async () => ({}));
     const markdown = vi.fn(async () => ({}));
     const ok = await sendBudgetReliefCard({
-      channelName: 'feishu',
-      target: 'ou_xxx',
-      sessionId: 'session_feishu_1',
+      channelName: 'slack',
+      target: 'C0123',
+      sessionId: 'session_slack_1',
       resolveOutbound: () => ({
         sendInteractive: interactive,
         sendMarkdown: markdown,
@@ -274,8 +277,9 @@ describe('D2 风险项：入站回调未接线的通道**不得**给按钮（防
     expect(text).toContain('用量中心 → 日限额');
   });
 
-  it('白名单只含**入站回调已接线**的通道（当前 = qq）；新增通道须**同时**接完出站与入站', () => {
+  it('白名单只含**入站回调已接线**的通道（当前 = qq / feishu）；新增通道须**同时**接完出站与入站', () => {
     expect(BUTTON_CAPABLE_CHANNELS.has('qq')).toBe(true);
-    expect(BUTTON_CAPABLE_CHANNELS.has('feishu')).toBe(false);
+    expect(BUTTON_CAPABLE_CHANNELS.has('feishu')).toBe(true);
+    expect(BUTTON_CAPABLE_CHANNELS.has('slack')).toBe(false);
   });
 });

@@ -9418,6 +9418,40 @@
       "changelog": [],
       "reopenWhen": "① 若日后要覆盖 guard 挂起（kind==='guard'）或 'loop'（上下文窗口预算），须先解「放行不唤醒 guard / 放行解除不了窗口占用」的语义冲突，再扩本入口的过滤条件（现为 kind==='budget' && !expired）；② 通道侧（非桌面端）要补同一入口时，应复用本片的 Budg…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-CONTINUE-ENTRY）",
       "notes": "【问题（用户痛点，承接上一片）】上一片修好「预算耗尽收尾文案」后，用户裁定「补『继续』入口（推荐）」—— Spec long-task-suspend-resume.md v1.10 §0 早已把「前端/通道侧『继续』按钮与卡片未做」登记为遗留项：撞限额当时前端有 DailyLimitNotice 卡片（靠 chat…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-CONTINUE-ENTRY）"
+    },
+    {
+      "id": "BUDGET-SUSPEND-WAKE-SCOPE",
+      "title": "会话级收窄：放行可带「唤醒收窄目标」，修「点一条会话的『继续』⇒ 当日别的挂起会话也自行开跑并花钱」",
+      "source": "上一片（BUDGET-SUSPEND-CONTINUE-ENTRY）真机 E2E 暴露的落差 + 用户裁定「收窄为『只唤醒当前会话』（根因）」；承接 Spec long-task-suspend-resume.md v1.10 §0 遗留的「前端『继续』按钮与卡片」那一半",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/query/budgetSuspend.ts",
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
+        "app/src/chat/ChatManager.ts",
+        "client/src/components/ChatArea/ChatArea.tsx",
+        "client/src/services/usageService.ts",
+        ".trae/specs/long-task-suspend-resume.md"
+      ],
+      "tests": [
+        "app/tests/query/budgetSuspendWake.test.ts",
+        "app/tests/http/daily-budget-handlers.test.ts",
+        "client/src/tests/dailyLimitNotice.test.tsx"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **删除挂起中的会话未释放协调器登记**（本片真机复测如实发现的缺口，见 notes 末段）—— 判据：删除后 `GET /v1/cost/daily-budget/suspend` 仍列出该 sessionId（重启才消失）；修法方向：`ChatSessionTeardown.deleteSession` 一并…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-WAKE-SCOPE）",
+      "notes": "【问题（真机 E2E 暴露的落差，承接上一片）】上一片补上「预算挂起 → 继续」入口后，真机复测（2026-10-17）暴露次生问题：卡片主按钮走 `POST /v1/cost/daily-budget/relief`，而 relief 是**当日全局**语义 —— 协调器 `onReliefApplied` 按挂起…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-WAKE-SCOPE）"
     }
   ]
 }

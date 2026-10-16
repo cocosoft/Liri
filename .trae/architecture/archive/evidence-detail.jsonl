@@ -5298,6 +5298,43 @@
 {"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#4","i":0,"c":"client/src/i18n/locales/zh.ts"}
 {"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#5","i":0,"c":"client/src/i18n/locales/en.ts"}
 {"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"tests#0","i":0,"c":"client/src/tests/dailyLimitNotice.test.tsx"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"title","i":0,"c":"会话级收窄：放行可带「唤醒收窄目标」，修「点一条会话的『继续』⇒ 当日别的挂起会话也自行开跑并花钱」"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"source","i":0,"c":"上一片（BUDGET-SUSPEND-CONTINUE-ENTRY）真机 E2E 暴露的落差 + 用户裁定「收窄为『只唤醒当前会话』（根因）」；承接 Spec long-task-suspend-resume.md v1.10 §0 遗留的「前端『继续』按钮与卡片」那一半"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"reopenWhen","i":0,"c":"① **删除挂起中的会话未释放协调器登记**（本片真机复测如实发现的缺口，见 notes 末段）—— 判据：删除后 `GET /v1/cost/daily-budget/suspend` 仍列出该 sessionId（重启才消失）；修法方向：`ChatSessionTeardown.deleteSession` 一并 `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"reopenWhen","i":1,"c":"getBudgetSuspendCoordinator().release(sessionId)`（与 v1.6 的检查点清理两链对称）；**独立变更，不在本片**。② 通道侧（非桌面端）补「继续」入口时须复用本片 `sessionId` 收窄口径，否则通道里点继续会连带唤醒桌面端挂起会话。③ 日后新增任何**放行入口**（CLI / 定时 / 其它页面）："}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"reopenWhen","i":2,"c":"会话级入口必须带 `sessionId`，只有「整日额度放行」语义才可不带 —— 判据在 `client/src/tests/dailyLimitNotice.test.tsx` 的接线守卫（应随新入口扩面）。④ guard 挂起（放行不唤醒）与 'loop'（窗口预算，放行解除不了窗口占用）仍不在本入口覆盖面内；如果日后再有人把「卡片整张收窄」改成只收窄主"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"reopenWhen","i":3,"c":"按钮，须同步守卫与文案口径。"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":0,"c":"【问题（真机 E2E 暴露的落差，承接上一片）】上一片补上「预算挂起 → 继续」入口后，真机复测（2026-10-17）暴露次生问题：卡片主按钮走 `POST /v1/cost/daily-budget/relief`，而 relief 是**当日全局**语义 —— 协调器 `onReliefApplied` 按挂起时间升序唤醒**当日全部未过期 `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":1,"c":"kind='budget'` 条目**（上限 `BUDGET_RESUME_MAX_PER_WAKE`，默认 3）。机上实测：在自建会话点「继续」后 `resume_summary{woken:[用户的会话, 我的会话]}` ⇒ **更早挂起的 206 消息会话也被唤醒并自行开跑**（被注入「[系统] 会话已从预算挂起点恢复…」，其后 token 从 "}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":2,"c":"13271 涨到 34829）。即「我在 A 点继续 ⇒ B 自己跑起来并花钱」。用户裁定：**收窄为「只唤醒当前会话」**（根因方向，而非只改文案）。\n【为什么不是只改文案】文案只能消除「意外感」，消除不了副作用：被唤醒的别的会话会**真实执行工具、消耗额度**。且按会话续跑的现成入口早已存在（`POST /v1/sessions/:id/resume`，"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":3,"c":"spec §1.2 已盘点）⇒ 收窄**不需要新造能力**，只需给放行链加一个可选范围。\n【做法（单一漏斗 + 可选参数；缺省口径零变更）】沿既有放行链一条路走通，不新造第二套：① **HTTP**：relief body 增可选 `sessionId`；`parseReliefBody` **fail-loud 校验**（给了就必须是非空字符串，否则 "}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":4,"c":"400 —— **禁止**静默降级为全局唤醒）；handler 把 `sessionId` 拆出单列传（`ReliefInput` 保持「额度定义」的纯净，不含跨域字段）。② **额度层**：`applyRelief(input, targetSessionId?)`；回调载荷提为具名 `ReliefAppliedEvent`（`kind`/`"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":5,"c":"effectiveLimit`/`targetSessionId?`，单一类型源，监听器集合与 `onReliefApplied` 共用）；`relief_applied` 日志在有收窄时如实带 `targetSessionId`。③ **唤醒层**：`onReliefApplied(kind, targetSessionId?)` —— 候选集再加一层 `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":6,"c":"e.sessionId === target` 过滤、上限恒 1；`resume_summary` 如实带收窄目标。④ **接线**：`ChatManager` 放行回调透传 `e.targetSessionId`。⑤ **客户端**：`DailyBudgetReliefInput` 增可选 `sessionId`；`ChatArea` 挂起卡片**整张**"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":7,"c":"收窄（主按钮 + 三档放行都带 `sessionId: currentSid`）；`用量中心 → 日限额` **有意不带**（保持全局口径）。Spec §D5 增补「唤醒收窄目标」并升版 v1.11。\n【验证（单测）】`app/tests/query/budgetSuspendWake.test.ts` 新增「会话级收窄」4 例：① 带目标只唤醒该会话、更早"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":8,"c":"挂起者仍挂起（**经真实 budget→coordinator 接线**；目标刻意取**较晚**挂起者 ⇒ 旧实现必然红）② 缺省（显式 undefined）⇒ 旧口径零回归（时间序 + 上限，超上限者保持挂起）③ 目标不在册 / 为 guard 挂起 / 已过期 ⇒ 空唤醒且**不**误唤醒其它在册条目 ④ 汇总日志如实带收窄目标。`"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":9,"c":"app/tests/http/daily-budget-handlers.test.ts` 新增 3 例：透传到回调 / 缺省无目标 / 非法 `sessionId`（空串·纯空白·非字符串）⇒ 400 且**不放行**。client `dailyLimitNotice.test.tsx` 新增**接线守卫** 1 例：`ChatArea` 每处 `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":10,"c":"setDailyBudgetRelief(...)` 的**括号配平实参块**都必须含 `sessionId`（调用点 ≥ 2 防「删掉调用点让守卫空转」的假绿）—— 组件单测锁不到这层，漏掉即静默退回全局唤醒。广域：app 全链 `bun run ci` 通过（**6599 pass / 42 skip / 0 fail**，较基线 6592 +7）；"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":11,"c":"client 全量 **82 文件 / 634 pass**（较基线 633 +1）；client `tsc --noEmit` 0 错；改动文件 `eslint` 0 error。\n【真实端到端复测（2026-10-17，本机真机，未 mock）】环境：用户正在运行的实例（`bun run --watch src/main.ts --http-only` "}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":12,"c":"@18990 + Vite dev @1420）。**如实说明**：该实例以 `--watch` 运行 ⇒ 源码落盘即**热重载**，故**未重启进程**；新代码生效由**判定性探针**证实（旧码对 `{\"kind\":\"boost\",\"sessionId\":\"\"}` 返回 200 并忽略该字段，新码返回 **400**）。① 造两个自建挂起会话（临时把 `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":13,"c":"dailyLimitUSD` 调至 0.006 / 0.012 触发**真实撞限**，事后恢复为 10 并复核 `config.json`），使挂起清单为 **3 条**：用户的存量会话（`restored_budget_suspend`，**时间序最早**）+ 自建 A + 自建 B（**最晚**）。② 重载前端、打开 **B**（界面 `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":14,"c":"data-suspended=\"true\"` + 挂起文案 + 「▶ 继续（临时提额）」），点主按钮。③ 日志实证（**收窄生效**）：`dailyBudget:relief_applied{kind:boost,targetSessionId:\"session_mvb7l9k45251da2716\"}` → `budgetSuspend:resumed{"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":15,"c":"sessionId:\"…da2716\"}` → `resume_summary{kind:\"boost\",woken:[\"…da2716\"],targetSessionId:\"…da2716\"}` —— **woken 恰好 1 条，且不是时间序最早的那条**（旧口径下会是 3 条、含用户的会话）。④ 挂起清单 **3 → 2**：用户的会话与 A **均保"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":16,"c":"持挂起**；前端卡片消失；B 真实续跑（`todayUsed` 81490 → 101933）。⑤ **新旧对照**：上一轮（收窄前 16:33:37）同一入口的 `resume_summary{woken:[用户的会话, 我的会话]}` 恰是本片修复对象。⑥ 现场恢复：`DELETE /relief` ⇒ `relief=null` / `"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":17,"c":"limitUsd=10`（撤销不再唤醒任何会话）；两个自建会话按**标题核对身份**后删除（均 200）。\n【如实发现（本片未修，已写入 reopenWhen ①）】复测中观察到：**删除一个仍挂起的会话，协调器（进程内登记）不释放该 `sessionId`** —— 删除 A 后 `GET /v1/cost/daily-budget/suspend` 仍列"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":18,"c":"出 A（B 因已被唤醒而 release，如期消失）。影响面：挂起清单出现**幽灵条目**（重启即消失）、全局放行会尝试唤醒已不存在的会话 ⇒ 唤醒失败回滚 + warn（无害但噪音）。判据：v1.6 的「幽灵挂起」只治理了**检查点**导致的重启重登记，未覆盖**删除时的内存登记**。**未在本片顺手修**（避免夹带，属独立变更）。\n【另一如实说明】热重载"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":19,"c":"使启动扫描按 spec §4.4 重新登记了用户的存量挂起会话（`restored_budget_suspend`，只登记不续跑）—— 属既有设计、非本片引入；该会话现有一条**只唤醒它自己**的「继续」入口（本片修复后不再连带唤醒别人）。\n【本片不作变更的面】`'loop'`（上下文窗口预算）仍不挂起、guard 挂起仍不由 relief 唤醒；上述两类的"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"notes","i":20,"c":"入口条件仍由各自判据决定（见 reopenWhen ④）。"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#0","i":0,"c":"app/src/query/budgetSuspend.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#1","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#2","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#3","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#4","i":0,"c":"client/src/components/ChatArea/ChatArea.tsx"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#5","i":0,"c":"client/src/services/usageService.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"code#6","i":0,"c":".trae/specs/long-task-suspend-resume.md"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendWake.test.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"tests#1","i":0,"c":"app/tests/http/daily-budget-handlers.test.ts"}
+{"id":"BUDGET-SUSPEND-WAKE-SCOPE","k":"tests#2","i":0,"c":"client/src/tests/dailyLimitNotice.test.tsx"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

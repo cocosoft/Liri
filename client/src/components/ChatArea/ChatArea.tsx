@@ -672,12 +672,20 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               suspended={isSuspended}
               t={t}
               onRelief={(kind) => {
+                /**
+                 * 2026-10-17（用户裁定，spec D5 增补）：**这张卡上的任何放行都只唤醒本会话**
+                 * （`sessionId` 即唤醒收窄目标）。额度本身仍是当日全局（日预算是共享资源），
+                 * 但"谁被唤醒"收窄到本会话 —— 否则用户在此点放行，当日别的挂起会话会
+                 * **自行开跑并花钱**（真机 E2E 实证的落差）。
+                 * 「用量中心 → 日限额」的放行仍走全局口径（不带 `sessionId`）。
+                 */
                 void usageService
-                  .setDailyBudgetRelief(
-                    kind === "boost"
+                  .setDailyBudgetRelief({
+                    ...(kind === "boost"
                       ? { kind, factor: 2, ttlMs: 3_600_000 }
-                      : { kind },
-                  )
+                      : { kind }),
+                    ...(currentSid ? { sessionId: currentSid } : {}),
+                  })
                   .then(() => {
                     // 放行成功 ⇒ 清错（用户再点「继续」显式重发，不静默自动重发）
                     useChatStore.setState({ error: null, errorCode: null });
@@ -689,12 +697,14 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               onContinue={() => {
                 if (isSuspended) {
                   // 挂起态：主按钮 = **放行**（临时提额，可随时用 `DELETE /relief` 撤销）
-                  // ⇒ 后端协调器 `onReliefApplied` 自动从这里续跑（无需重发消息）
+                  // ⇒ 后端协调器 `onReliefApplied` 自动从这里续跑（无需重发消息）。
+                  // `sessionId` = 只唤醒本会话（与撞限当下的「显式重发」语义不同，见上）。
                   void usageService
                     .setDailyBudgetRelief({
                       kind: "boost",
                       factor: 2,
                       ttlMs: 3_600_000,
+                      ...(currentSid ? { sessionId: currentSid } : {}),
                     })
                     .then(() => {
                       useChatStore.setState({ error: null, errorCode: null });

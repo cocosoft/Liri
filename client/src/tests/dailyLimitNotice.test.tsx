@@ -32,6 +32,8 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import DailyLimitNotice from "../components/ChatArea/DailyLimitNotice";
 
 /** 文案函数：回传 key（断言"用了哪个键"，而非具体文案 —— 文案属 i18n 资源职责） */
@@ -103,5 +105,61 @@ describe("DailyLimitNotice 两态契约", () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByTitle("common.close"));
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * 接线守卫（防回流）：**卡片上的放行必须带「唤醒收窄目标」**。
+ *
+ * 若漏掉 `sessionId`，行为会静默退化成「当日全局唤醒」—— 用户在会话 A 点「继续」，
+ * 更早挂起的会话 B 也会被唤醒并**自行开跑、花钱**（真机 E2E 实证的落差，2026-10-17 裁定收窄）。
+ * 组件单测锁不到这层（它只管 props），故按**源码逐调用点**判定：
+ *   ① `ChatArea` 内每处 `setDailyBudgetRelief(...)` 的**实参块**都必须含 `sessionId`；
+ *   ② 调用点数量 ≥ 2（挂起态主按钮 + 三档放行各一次）⇒ 防"删掉调用点让守卫空转"的假绿。
+ *
+ * 口径边界（如实）：用量中心 `DailyBudgetPanel` 以 `input` 变量调用、**有意**保持全局口径，
+ * 不在本守卫判定面内（它不是会话级入口）。
+ */
+describe("接线守卫：卡片放行必须带会话收窄目标", () => {
+  /** 注释行（口径说明里会出现该 API 名 ⇒ 只判代码行，同 `toastSingleChannel.test.ts` 的教训） */
+  function isCommentLine(line: string): boolean {
+    const s = line.trimStart();
+    return (
+      s.startsWith("//") ||
+      s.startsWith("*") ||
+      s.startsWith("/*") ||
+      s.startsWith("{/*")
+    );
+  }
+
+  /** 取从 `openIdx` 处的 `(` 起、**括号配平**的一段（相关实参块内无字符串括号） */
+  function balancedCall(src: string, openIdx: number): string {
+    let depth = 0;
+    for (let i = openIdx; i < src.length; i += 1) {
+      if (src[i] === "(") depth += 1;
+      else if (src[i] === ")") {
+        depth -= 1;
+        if (depth === 0) return src.slice(openIdx, i + 1);
+      }
+    }
+    return "";
+  }
+
+  it("ChatArea 每处 setDailyBudgetRelief 实参块都含 sessionId", () => {
+    const raw = readFileSync(
+      join(__dirname, "..", "components/ChatArea/ChatArea.tsx"),
+      "utf8",
+    );
+    const code = raw
+      .split("\n")
+      .filter((line) => !isCommentLine(line))
+      .join("\n");
+
+    const blocks = [...code.matchAll(/setDailyBudgetRelief\(/g)]
+      .map((m) => balancedCall(code, (m.index ?? 0) + m[0].length - 1))
+      .filter((b) => b !== "");
+
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    expect(blocks.filter((b) => !b.includes("sessionId"))).toEqual([]);
   });
 });

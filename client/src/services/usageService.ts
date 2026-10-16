@@ -131,6 +131,14 @@ export interface DailyBudgetReliefInput {
   factor?: number;
   amount?: number;
   ttlMs?: number;
+  /**
+   * **可选：唤醒收窄目标**（2026-10-17 用户裁定，spec D5 增补）。
+   *
+   * 只把本次放行的**唤醒范围**收窄到该会话 —— 额度仍是**当日全局**（日预算是共享资源，
+   * 无法按会话提额）。会话级入口（挂起卡片）必须带上，否则会连带唤醒当日其它挂起会话
+   * （它们会自行开跑并花钱）；「用量中心 → 日限额」保持缺省（全局口径）。
+   */
+  sessionId?: string;
 }
 
 /**

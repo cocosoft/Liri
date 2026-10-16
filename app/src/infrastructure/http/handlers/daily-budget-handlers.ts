@@ -107,10 +107,20 @@ function budgetSnapshot(budget: DailyBudgetManager): Record<string, unknown> {
 }
 
 /** 放行请求体（**结构等价**于 `ReliefInput`，避免依赖 query 桶的具名导出）。 */
-type ReliefBody =
+type ReliefBody = (
   | { kind: 'boost'; factor?: number; amount?: number; ttlMs?: number }
   | { kind: 'waive-once'; ttlMs?: number }
-  | { kind: 'unlock-today' };
+  | { kind: 'unlock-today' }
+) & {
+  /**
+   * **可选：唤醒收窄目标**（2026-10-17 用户裁定，见 spec D5 增补）。
+   *
+   * 只把本次放行的**唤醒范围**收窄到该会话 —— 额度仍是**当日全局**（日预算是共享资源，
+   * 无法按会话提额）。供**会话级**入口（前端挂起卡片的「继续」）使用，避免"在某会话点继续
+   * ⇒ 当日别的挂起会话也自行开跑并花钱"（真机 E2E 实证）。缺省 ⇒ 既有全局口径（零行为变更）。
+   */
+  sessionId?: string;
+};
 
 function isPositiveNumber(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n) && n > 0;
@@ -126,15 +136,27 @@ function parseReliefBody(raw: Record<string, unknown>): ReliefBody | null {
   const factor = raw['factor'];
   const amount = raw['amount'];
   const ttlMs = raw['ttlMs'];
+  const rawSessionId = raw['sessionId'];
   if (factor !== undefined && !isPositiveNumber(factor)) return null;
   if (amount !== undefined && !isPositiveNumber(amount)) return null;
   if (ttlMs !== undefined && !isPositiveNumber(ttlMs)) return null;
+  // `sessionId` 给了就**必须**是非空字符串：空串/非字符串 ⇒ 400（不静默降级成"全局唤醒"
+  // —— 那样用户以为只续跑本会话，实际把别人的会话也叫醒了）。
+  const targetSessionId =
+    rawSessionId === undefined
+      ? undefined
+      : typeof rawSessionId === 'string' && rawSessionId.trim() !== ''
+        ? rawSessionId
+        : null;
+  if (targetSessionId === null) return null;
+  const scope =
+    targetSessionId === undefined ? {} : { sessionId: targetSessionId };
 
-  if (kind === 'unlock-today') return { kind: 'unlock-today' };
+  if (kind === 'unlock-today') return { kind: 'unlock-today', ...scope };
   if (kind === 'waive-once') {
     return ttlMs === undefined
-      ? { kind: 'waive-once' }
-      : { kind: 'waive-once', ttlMs };
+      ? { kind: 'waive-once', ...scope }
+      : { kind: 'waive-once', ttlMs, ...scope };
   }
   if (kind === 'boost') {
     return {
@@ -142,6 +164,7 @@ function parseReliefBody(raw: Record<string, unknown>): ReliefBody | null {
       ...(factor !== undefined ? { factor } : {}),
       ...(amount !== undefined ? { amount } : {}),
       ...(ttlMs !== undefined ? { ttlMs } : {}),
+      ...scope,
     };
   }
   return null;
@@ -150,7 +173,9 @@ function parseReliefBody(raw: Record<string, unknown>): ReliefBody | null {
 /**
  * POST /v1/cost/daily-budget/relief — 放行（D-b：临时提额 / 单次豁免 / 当日解除）
  *
- * body: `{ kind: 'boost' | 'waive-once' | 'unlock-today', factor? | amount?, ttlMs? }`
+ * body: `{ kind: 'boost' | 'waive-once' | 'unlock-today', factor? | amount?, ttlMs?, sessionId? }`
+ *
+ * `sessionId`（可选）：把**唤醒范围**收窄到该会话（额度仍当日全局）；缺省 ⇒ 全局唤醒。
  *
  * **硬锁优先**（D-e）：kill-switch 开启时本端点照常记录放行状态（便于 UI 展示），但
  * `getMode()` 仍为 `locked`（不静默削弱硬锁）。
@@ -177,12 +202,17 @@ export async function handleSetDailyBudgetRelief(
     const input = parseReliefBody(raw);
     if (!input) {
       json(res, 400, {
-        error: { message: 'relief 参数非法（kind/factor/amount/ttlMs）' },
+        error: {
+          message: 'relief 参数非法（kind/factor/amount/ttlMs/sessionId）',
+        },
       });
       return;
     }
+    // `sessionId` 是**唤醒范围**而非额度语义 ⇒ 拆出来单独传（`applyRelief` 的入参保持
+    // "额度定义"的纯净：`ReliefInput` 不含跨域字段）。
+    const { sessionId: targetSessionId, ...reliefInput } = input;
     const budget = await loadBudget();
-    const relief = budget.applyRelief(input);
+    const relief = budget.applyRelief(reliefInput, targetSessionId);
     const snapshot = budgetSnapshot(budget);
     broadcastEvent(DAILY_BUDGET_SSE_EVENT, snapshot);
     json(res, 200, { ...snapshot, relief });

@@ -186,9 +186,18 @@ export class BudgetSuspendCoordinator {
    * - 过期（>24h）不唤醒；handler 返回 `false` ⇒ 回滚为挂起（保留原挂起时刻）+ warn；
    * - 未设 handler ⇒ 只 warn，不报错、不改登记。
    *
+   * **`targetSessionId`（可选）= 把本次唤醒**收窄**到该会话**（2026-10-17 用户裁定，见
+   * spec D5 增补）：放行**额度本身**仍是全局的（日预算是当日共享资源，无法按会话提额），
+   * 但**唤醒范围**可指定 —— 卡片入口的「继续」即"提额 + 只续跑本会话"，避免用户在某会话
+   * 点继续时**别的会话自行开跑并花钱**（真机 E2E 实证的落差）。缺省（`undefined`）= 旧口径
+   * （时间序 + 上限）⇒ 用量中心/设置页等既有调用**零行为变更**。
+   *
    * @returns 本次实际唤醒的 `sessionId` 列表
    */
-  async onReliefApplied(kind: ReliefKind): Promise<{ woken: string[] }> {
+  async onReliefApplied(
+    kind: ReliefKind,
+    targetSessionId?: string
+  ): Promise<{ woken: string[] }> {
     const handler = this.resumeHandler;
     if (!handler) {
       logger.warn(
@@ -197,10 +206,18 @@ export class BudgetSuspendCoordinator {
       );
       return { woken: [] };
     }
-    const limit = kind === 'waive-once' ? 1 : resolveBudgetResumeMaxPerWake();
+    // 收窄到单会话时上限恒 1（候选至多 1 条）；未收窄时沿用 `waive-once`=1 / 其余=env 上限。
+    const limit =
+      targetSessionId !== undefined || kind === 'waive-once'
+        ? 1
+        : resolveBudgetResumeMaxPerWake();
     // T3-12：relief 只唤醒 `kind==='budget'`（缺省）候选 —— **绝不**唤醒 guard 挂起
     // （落实"guard 挂起不复用 relief 放行通道"）。
-    const candidates = this.list().filter(isReliefEligible);
+    const candidates = this.list()
+      .filter(isReliefEligible)
+      .filter(
+        (e) => targetSessionId === undefined || e.sessionId === targetSessionId
+      );
     const woken: string[] = [];
     // M3（最终整支评审）：上限按 **handler 调用数**计（而非"成功数"）—— 否则 handler 持续失败时
     // 会遍历全部候选（尝试次数远超上限）。
@@ -256,7 +273,12 @@ export class BudgetSuspendCoordinator {
       }
     }
     // M3：一次放行的汇总（带 `woken`，修复前逐条 `resumed` 日志无 woken 汇总）。
-    logger.info('budgetSuspend:resume_summary', { kind, woken });
+    // 收窄放行时**如实带上**收窄目标（否则日志与"为什么只唤醒一条"脱节）。
+    logger.info('budgetSuspend:resume_summary', {
+      kind,
+      woken,
+      ...(targetSessionId !== undefined ? { targetSessionId } : {}),
+    });
     return { woken };
   }
 

@@ -340,3 +340,55 @@ describe('USD-2 PUT /v1/cost/daily-budget：写入 / 清空 USD 上限', () => {
     expect(setConfigSpy.mock.calls[0]?.[0]).toBe(CONFIG_KEY);
   });
 });
+
+// ─── 会话级收窄（2026-10-17 用户裁定，spec D5 增补）────────────────────────────
+//
+// `POST /relief` 可选带 `sessionId` = **唤醒收窄目标**（额度仍当日全局）。会话级入口
+// （前端挂起卡片）靠它避免"在某会话点继续 ⇒ 当日别的挂起会话也自行开跑并花钱"。
+// 本组锁**边界纪律**：非法 sessionId **不得**静默降级成全局唤醒（那样用户以为只续跑本会话）。
+describe('POST /v1/cost/daily-budget/relief：sessionId（唤醒收窄目标）', () => {
+  /** 捕获放行回调载荷（`applyRelief` 成功后同步触发） */
+  function captureRelief(): Array<{ kind: string; targetSessionId?: string }> {
+    const seen: Array<{ kind: string; targetSessionId?: string }> = [];
+    getDailyBudget().onReliefApplied((e) => {
+      seen.push({ kind: e.kind, targetSessionId: e.targetSessionId });
+    });
+    return seen;
+  }
+
+  test('带 sessionId ⇒ 200 且**原样透传**到放行回调', async () => {
+    const seen = captureRelief();
+    const r = await call('POST', '/v1/cost/daily-budget/relief', {
+      kind: 'boost',
+      factor: 2,
+      ttlMs: 3_600_000,
+      sessionId: 'session_A',
+    });
+    expect(r.status).toBe(200);
+    expect(seen).toEqual([{ kind: 'boost', targetSessionId: 'session_A' }]);
+  });
+
+  test('缺省 ⇒ 回调无 targetSessionId（既有全局口径零变更）', async () => {
+    const seen = captureRelief();
+    const r = await call('POST', '/v1/cost/daily-budget/relief', {
+      kind: 'unlock-today',
+    });
+    expect(r.status).toBe(200);
+    expect(seen).toEqual([
+      { kind: 'unlock-today', targetSessionId: undefined },
+    ]);
+  });
+
+  test('非法 sessionId（空串 / 纯空白 / 非字符串）⇒ 400 且**不放行**', async () => {
+    const seen = captureRelief();
+    for (const bad of ['', '   ', 123, {}, []]) {
+      const r = await call('POST', '/v1/cost/daily-budget/relief', {
+        kind: 'boost',
+        sessionId: bad,
+      });
+      expect(r.status).toBe(400);
+    }
+    expect(seen).toHaveLength(0); // 未静默降级为全局放行
+    expect(getDailyBudget().getRelief()).toBeNull();
+  });
+});

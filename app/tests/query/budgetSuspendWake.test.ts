@@ -291,6 +291,140 @@ describe('M3：isSuspended 计入过期 + 上限按 handler 调用数 + 唤醒�
   });
 });
 
+// ─── 会话级收窄（2026-10-17 用户裁定，spec D5 增补）：放行只唤醒**目标会话** ─────────
+//
+// 落差（真机 E2E 实证）：挂起卡片的「继续（临时提额）」走的是**全局**放行 ⇒ 用户在会话 A
+// 点继续，更早挂起的会话 B 也会被唤醒并**自行开跑、花钱**。收口 = 放行申请可带**唤醒收窄
+// 目标**：额度仍当日全局（日预算是共享资源，无法按会话提额），但"谁被唤醒"收窄到该会话；
+// 缺省（不带）⇒ 旧口径零变更（用量中心/设置页/CLI 等既有调用不受影响）。
+describe('会话级收窄：放行只唤醒目标会话（其它保持挂起）', () => {
+  let nowSpy: ReturnType<typeof spyOn>;
+  let prevMax: string | undefined;
+
+  beforeEach(() => {
+    resetBudgetSuspendForTest();
+    nowSpy = spyOn(Date, 'now');
+    nowSpy.mockReturnValue(1_000);
+    prevMax = process.env[MAX_KEY];
+    delete process.env[MAX_KEY];
+  });
+  afterEach(() => {
+    nowSpy.mockRestore();
+    resetBudgetSuspendForTest();
+    if (prevMax === undefined) delete process.env[MAX_KEY];
+    else process.env[MAX_KEY] = prevMax;
+  });
+
+  it('① 带目标 ⇒ 只唤醒该会话；更早挂起者仍挂起（经真实 budget→coordinator 接线）', async () => {
+    const { getDailyBudget, resetDailyBudgetForTest } =
+      await import('../../src/query/DailyBudgetManager');
+    resetDailyBudgetForTest();
+    const c = getBudgetSuspendCoordinator();
+    nowSpy.mockReturnValue(1_000);
+    c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r1' });
+    nowSpy.mockReturnValue(2_000);
+    c.suspend({ sessionId: 's2', chain: 'stream', reason: 'r2' });
+
+    const called: string[] = [];
+    c.setResumeHandler(async (sessionId) => {
+      called.push(sessionId);
+      return true;
+    });
+    const budget = getDailyBudget();
+    const off = budget.onReliefApplied((e) => {
+      void c.onReliefApplied(e.kind, e.targetSessionId);
+    });
+
+    try {
+      // 目标刻意取**较晚**挂起的 s2：旧口径（时间序）会先唤醒 s1 ⇒ 本用例对旧实现必然红。
+      budget.applyRelief({ kind: 'boost' }, 's2');
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(called).toEqual(['s2']);
+      expect(c.list().map((e) => e.sessionId)).toEqual(['s1']); // 更早挂起者不受影响
+      expect(c.isSuspended('s1')).toBe(true);
+    } finally {
+      off();
+      resetDailyBudgetForTest();
+    }
+  });
+
+  it('② 缺省（显式 undefined）⇒ 旧口径零回归：时间序 + 上限，超上限者保持挂起', async () => {
+    process.env[MAX_KEY] = '2';
+    const c = getBudgetSuspendCoordinator();
+    nowSpy.mockReturnValue(1_000);
+    c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r1' });
+    nowSpy.mockReturnValue(2_000);
+    c.suspend({ sessionId: 's2', chain: 'stream', reason: 'r2' });
+    nowSpy.mockReturnValue(3_000);
+    c.suspend({ sessionId: 's3', chain: 'stream', reason: 'r3' });
+
+    const called: string[] = [];
+    c.setResumeHandler(async (sessionId) => {
+      called.push(sessionId);
+      return true;
+    });
+
+    const { woken } = await c.onReliefApplied('boost', undefined);
+
+    expect(woken).toEqual(['s1', 's2']);
+    expect(called).toEqual(['s1', 's2']);
+    expect(c.list().map((e) => e.sessionId)).toEqual(['s3']);
+  });
+
+  it('③ 目标不在册 / 为 guard / 已过期 ⇒ 空唤醒，且**不**误唤醒其它在册条目', async () => {
+    const c = getBudgetSuspendCoordinator();
+    nowSpy.mockReturnValue(1_000);
+    c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r1' });
+    nowSpy.mockReturnValue(2_000);
+    c.suspend({
+      sessionId: 'g1',
+      chain: 'stream',
+      reason: '熵门禁',
+      kind: 'guard',
+    });
+
+    const called: string[] = [];
+    c.setResumeHandler(async (sessionId) => {
+      called.push(sessionId);
+      return true;
+    });
+
+    expect((await c.onReliefApplied('boost', 'nope')).woken).toEqual([]); // 不在册
+    expect((await c.onReliefApplied('boost', 'g1')).woken).toEqual([]); // guard 不复用 relief 通道
+
+    nowSpy.mockReturnValue(1_000 + 24 * 60 * 60 * 1000 + 1); // 越过 TTL
+    expect((await c.onReliefApplied('boost', 's1')).woken).toEqual([]); // 过期
+
+    expect(called).toEqual([]);
+    expect(c.list().length).toBe(2); // 两条均未被误唤醒（也未 release）
+  });
+
+  it('④ 汇总日志如实带收窄目标', async () => {
+    const { addLogHandler } =
+      await import('../../src/monitoring/logs/Logger.js');
+    const c = getBudgetSuspendCoordinator();
+    c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r' });
+    c.setResumeHandler(async () => true);
+
+    const logs: Array<{ targetSessionId?: string; woken?: string[] }> = [];
+    const off = addLogHandler((entry) => {
+      if (entry.message === 'budgetSuspend:resume_summary') {
+        logs.push(entry.data as { targetSessionId?: string; woken?: string[] });
+      }
+    });
+    try {
+      await c.onReliefApplied('boost', 's1');
+    } finally {
+      off();
+    }
+
+    expect(logs.length).toBe(1);
+    expect(logs[0].targetSessionId).toBe('s1');
+    expect(logs[0].woken).toEqual(['s1']);
+  });
+});
+
 // ─── E2E-2 定案（2026-10-12，用户裁定「定案=当前语义并锁定」）：同一挂起点的放行语义 ─────
 //
 // 真实 E2E 复现（`.superpowers/sdd/budget-suspend-resume/server-e2e2.log`）：同一挂起点「成功

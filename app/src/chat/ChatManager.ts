@@ -1461,11 +1461,15 @@ export class ChatManagerImpl implements ChatManager {
     this._budgetSuspendResumeWired = true;
     const coordinator = getBudgetSuspendCoordinator();
     this._budgetReliefUninstall = getDailyBudget().onReliefApplied((e) => {
-      void coordinator.onReliefApplied(e.kind).catch((err) => {
-        logger.warn('budgetSuspend:onReliefApplied failed', {
-          error: err instanceof Error ? err.message : String(err),
+      // `targetSessionId` 原样透传（可选）：会话级入口（挂起卡片「继续」）把唤醒收窄到本会话，
+      // 缺省 ⇒ 旧口径（全局，时间序 + 上限）。
+      void coordinator
+        .onReliefApplied(e.kind, e.targetSessionId)
+        .catch((err) => {
+          logger.warn('budgetSuspend:onReliefApplied failed', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
-      });
     });
     coordinator.setResumeHandler((sessionId, chain) =>
       this.resumeSuspendedSession(sessionId, chain)

@@ -75,6 +75,19 @@ export interface ReliefView {
   effectiveLimit: number;
 }
 
+/**
+ * D7：**放行应用回调**载荷（`onReliefApplied` 的入参）。
+ *
+ * `targetSessionId`（可选）= 本次放行的**唤醒收窄目标**（跨域关注点，非额度语义）：
+ * 缺省 ⇒ 全局唤醒（旧口径）；给出 ⇒ **只唤醒该会话**（会话级入口用）。判据与理由见
+ * `query/budgetSuspend.ts` 的 `onReliefApplied`。
+ */
+export interface ReliefAppliedEvent {
+  kind: ReliefKind;
+  effectiveLimit: number;
+  targetSessionId?: string;
+}
+
 /** 内部放行状态（可持久化字段的子集）。 */
 interface ReliefState {
   kind: ReliefKind;
@@ -212,7 +225,7 @@ export class DailyBudgetManager {
   private debtUsd = 0;
   /** D7（Task 7）：放行应用回调集（进程内唤醒端口；非持久化、非事实源）。 */
   private readonly reliefAppliedListeners = new Set<
-    (e: { kind: ReliefKind; effectiveLimit: number }) => void
+    (e: ReliefAppliedEvent) => void
   >();
 
   constructor(config?: Partial<DailyBudgetConfig>) {
@@ -534,8 +547,12 @@ export class DailyBudgetManager {
   /**
    * 应用一次放行（D-b）。**单一活动 relief**：同 kind 重复 ⇒ 按新参数替换并刷新到期时间；
    * **不写回**配置键（C1：避免污染用户配置，"重启即提额"由持久化的 `expiresAt` 处理）。
+   *
+   * `targetSessionId`（可选，**跨域关注点**，非额度语义）：只把本次放行的**唤醒范围**收窄到
+   * 该会话 —— 额度仍按当日全局生效（日预算是共享资源，无法按会话提额）。缺省 ⇒ 旧口径
+   * （全局唤醒，时间序 + 上限）⇒ 既有调用零行为变更。见 `budgetSuspend.onReliefApplied`。
    */
-  applyRelief(input: ReliefInput): ReliefView {
+  applyRelief(input: ReliefInput, targetSessionId?: string): ReliefView {
     const now = Date.now();
     if (input.kind === 'boost') {
       const ttl =
@@ -573,9 +590,11 @@ export class DailyBudgetManager {
       effectiveLimit: this._effectiveLimit(),
       todayUsed: this.todayUsed,
       usedUsd: this.usedUsd,
+      // 收窄放行时如实留痕（否则"为什么只唤醒一条"再次查无来路 —— 与本次修复同源）
+      ...(targetSessionId !== undefined ? { targetSessionId } : {}),
     });
     // D7（Task 7）：通知进程内唤醒端口（**仅显式放行成功后**触发 ⇒ 构成因果判别）。
-    this._emitReliefApplied(input.kind);
+    this._emitReliefApplied(input.kind, targetSessionId);
     return this._reliefView();
   }
 
@@ -583,12 +602,11 @@ export class DailyBudgetManager {
    * D7（Task 7）：注册**放行应用回调**，返回解绑函数。
    *
    * 触发时机：`applyRelief(...)` **成功写入放行之后**，`kind` = 本次应用的 kind、
-   * `effectiveLimit` = 应用后的有效上限。**仅**在显式放行处触发 —— kill-switch /
+   * `effectiveLimit` = 应用后的有效上限、`targetSessionId` = 本次放行的**唤醒收窄目标**
+   * （可选；缺省 ⇒ 全局唤醒）。**仅**在显式放行处触发 —— kill-switch /
    * `reset()` / PUT 配置变更 / `clearRelief()` 一律不触发（它们不改变"用户放行"这一事实）。
    */
-  onReliefApplied(
-    listener: (e: { kind: ReliefKind; effectiveLimit: number }) => void
-  ): () => void {
+  onReliefApplied(listener: (e: ReliefAppliedEvent) => void): () => void {
     this.reliefAppliedListeners.add(listener);
     return () => {
       this.reliefAppliedListeners.delete(listener);
@@ -596,10 +614,10 @@ export class DailyBudgetManager {
   }
 
   /** D7：遍历放行回调（`effectiveLimit` 取应用后的有效上限）；回调为 fire-and-forget 端口。 */
-  private _emitReliefApplied(kind: ReliefKind): void {
+  private _emitReliefApplied(kind: ReliefKind, targetSessionId?: string): void {
     const effectiveLimit = this._effectiveLimit();
     for (const listener of this.reliefAppliedListeners) {
-      listener({ kind, effectiveLimit });
+      listener({ kind, effectiveLimit, targetSessionId });
     }
   }
 

@@ -8143,6 +8143,32 @@
       "changelog": [],
       "reopenWhen": "① 若今后把命令输出改作 markdown 渲染面，须重新引入标题标记；② **同类未处理（待裁定）**：命令输出里的代码围栏 ``` （5 处，`Commit` 4 / `Git` 1）与 markdown 表格（20 处，`ContextWallet` 9 / `Git` 7 / `Commit` 4）—— 后者…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS）",
       "notes": "① 判据同前一星号片（命令输出 = 纯文本；四显现面中 3 面不渲染 markdown），本片处理**标题标记**。② 处置：`## X`/`### X` → `X`（保留标题文字，不引入新装饰）。改动分布：`Commit` 19（含 `\\n### …` 与拼串式 `'### 已暂存文件 (' + n + ')'`）…（全文见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS）"
+    },
+    {
+      "id": "ABORT-TURN-END-BACKFILL",
+      "title": "中止补齐 `turn/end`：客户端中止（切走会话 / 关页 / 断连）导致的长任务被中止后**无终态**，切回呈现「无报错的假空闲」⇒ 收尾补写 `turn/end{canceled}`",
+      "source": "用户 2026-10-16 指令「跑会话系统的 E2E 真机验证，要求前端所有功能均完成验证，特别是长程任务，以及『加载更早消息』的 BUG，全面排查，然后逐一修复」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/chat/orchestrator/streamMessageFlow.ts"
+      ],
+      "tests": [
+        "app/tests/chat/orchestrator/abortTurnEndBackfill.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `runStreamMessage` 的收尾结构变更（外层 try/finally 边界、`startStreamTurn` 写入点、`_finalizeStreamMessage` 的 turn/end 责任）⇒ `turnTrace` 的三处置位须同步核对；② 若新增「正常路径也会跳过 turn/end」…（全文见 archive/evidence-detail.jsonl#ABORT-TURN-END-BACKFILL）",
+      "notes": "① 真机缺陷取证（本机 18990，会话 `session_mva6u12hcfb812df09`）：长任务运行中切走会话 ⇒ 客户端 `stopAndFlush() → stopMessage() → controller.abort()`；此后事件日志停在 `seq=680 assistant/thinking`…（全文见 archive/evidence-detail.jsonl#ABORT-TURN-END-BACKFILL）"
     }
   ]
 }

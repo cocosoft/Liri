@@ -4383,6 +4383,22 @@
 {"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#4","i":0,"c":"app/src/commands/builtin/complete/Complete.ts"}
 {"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#5","i":0,"c":"app/src/commands/builtin/upgrade/Upgrade.ts"}
 {"id":"COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS","k":"code#6","i":0,"c":"app/src/commands/tools/ai/agents.ts"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"title","i":0,"c":"中止补齐 `turn/end`：客户端中止（切走会话 / 关页 / 断连）导致的长任务被中止后**无终态**，切回呈现「无报错的假空闲」⇒ 收尾补写 `turn/end{canceled}`"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"source","i":0,"c":"用户 2026-10-16 指令「跑会话系统的 E2E 真机验证，要求前端所有功能均完成验证，特别是长程任务，以及『加载更早消息』的 BUG，全面排查，然后逐一修复」"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"reopenWhen","i":0,"c":"① 若 `runStreamMessage` 的收尾结构变更（外层 try/finally 边界、`startStreamTurn` 写入点、`_finalizeStreamMessage` 的 turn/end 责任）⇒ `turnTrace` 的三处置位须同步核对；② 若新增「正常路径也会跳过 turn/end」的分支（如新的让出/挂起语义），须确认其 "}
+{"id":"ABORT-TURN-END-BACKFILL","k":"reopenWhen","i":1,"c":"finishReason 语义是否应标 `canceled`；③ `StreamMessageFlow` 之外若出现第二处 turn 生命周期写点，须收敛到同一不变量；④ 关联未修：轨迹面板该轮标签把 `finishReason: 'canceled'` 的轮显示为「已完成」（面板文案与终态不一致，本轮未动）"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":0,"c":"① 真机缺陷取证（本机 18990，会话 `session_mva6u12hcfb812df09`）：长任务运行中切走会话 ⇒ 客户端 `stopAndFlush() → stopMessage() → controller.abort()`；此后事件日志停在 `seq=680 assistant/thinking`（拉 `/events` 逐条核对，**末"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":1,"c":"段 400 条无任何 `turn/end`**）、`/messages` 全量 94 条 `finishReason` 皆空 ⇒ 该轮**没有终态**。切回会话后前端既不显示中断提示也无任何终态：进度冻结（「执行 12 个工具调用 / 已完成 0/8」）、无停止按钮、Console **零 warn/error**（静默）—— 即用户所报的「假空闲/卡住」。"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":2,"c":"② 根因（不变量被破坏）：`turn/start` ↔ `turn/end` 必须成对；崩溃恢复期已由 `EventLogRepair.interruptedTurnClosers()` 以 `finishReason:'canceled'` 补闭合，但**实时链路的客户端中止**绕过了正常路径的 `turn/end` 写入（非工具轮写在 `"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":3,"c":"streamMessageFlow` 内，工具轮由 `_finalizeStreamMessage` 补写，两者都在中止时被跳过）。③ 处置：`runStreamMessage` 外层 finally 兜底 —— 若 `turn/start` 已写而 `turn/end` 未写，则补写 `turn/end{ finishReason:'canceled' }"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":4,"c":"`（与 `EventLogRepair` **同口径**）。holder `turnTrace` 必须在 try **外**声明（踩到本文件 BUG-1 已记录的同一个坑：finally 与 try Block 平行，看不到 try 内 `let`；首版即因此报 `turnStarted is not defined`）。顺序放在既有资源释放之后，"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":5,"c":"append 失败只 warn（非阻断，CS03）。④ **客户端无需改**：`ChatMessage` 的中断判据本就是 `finishReason ∈ {canceled, abort}`（有正文 →「该回复已中断（任务被中止）」；无正文 →「该回复生成中断，未完成最终输出」）。⑤ 测试：`"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":6,"c":"app/tests/chat/orchestrator/abortTurnEndBackfill.test.ts` 2 例 —— 客户端中止（`.return()`）⇒ 恰好一条 `turn/end{canceled}`；正常结束 ⇒ 恰好一条 `turn/end`（`stop`，防兜底重复补写）。**负向对照已做**：临时把兜底条件置 `false` ⇒ "}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":7,"c":"用例 1 转红（`0 turn/end`）、用例 2 仍绿 ⇒ 用例确为钉住该兜底而非其他路径。⑥ **真机复验通过**（会话 `session_mva7a5n209f479661c`，后端 `bun run --watch` 已热重载）：新建会话跑同一长任务 → 中途切走 5 秒 → 切回 ⇒ 立即出现「⚠️ 该回复生成中断，未完成最终输出。…」、停止按钮"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":8,"c":"消失、`重新生成`/`继续生成` 可点；整页重载后提示仍在（持久化）；事件面板末条逐字 `#225 turn/end`，`data` 为 `turn: 1 finishReason: \"canceled\"`。⑦ 回归：`bun test tests/chat/orchestrator tests/runtime tests/session` 460 例绿；`"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"notes","i":9,"c":"typecheck` 0；六门禁绿。"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
+{"id":"ABORT-TURN-END-BACKFILL","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/abortTurnEndBackfill.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

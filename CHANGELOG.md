@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **ABORT-TURN-END-BACKFILL**：中止补齐 `turn/end{canceled}`（切走会话杀长任务后不再呈现无报错的假空闲） —— 验证 tc0|ut2|e2e1|gate6；基线 真机：切走后事件日志停在 `seq=680 assistant/thinking` 无 `turn/end`、94 条消息 `finishReason` 全空 ⇒ 切回后进度冻结、Console 零 warn/error（详情见 archive/evidence-detail.jsonl#ABORT-TURN-END-BACKFILL）
 - ✅ **COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS**：命令输出去 markdown 标题（6 文件约 40 处）+ 回退提示词载荷越界（`agents.ts`） —— 验证 tc0|gate6；基线 Terminal 页 / ink / legacy REPL 显字面 `## Git 状态`；`getPromptForCommand` 载荷与终端输出**同形**（易误改）（详情见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-HEADINGS）
 - ✅ **COMMAND-OUTPUT-PLAIN-TEXT-STARS**：命令输出去 markdown 强调星号（6 文件约 50 处改纯文本）+ 守则测试钉住 —— 验证 tc0|ut1|gate6；基线 命令输出在 Terminal 页 / ink / legacy REPL 显字面 `**标签**`（四显现面中 3 面不渲染 markdown）（详情见 archive/evidence-detail.jsonl#COMMAND-OUTPUT-PLAIN-TEXT-STARS）
 - ✅ **SLASH-COMMAND-DISPATCH-STREAM**：斜杠命令全链路派发（流式接入 + 取值单一实现 + ink help/补全接注册表 + Budget 去星号） —— 验证 tc0|ut6|gate6；基线 流式链路零命令派发（唯一派发点=非流式 `_handleCommand`）⇒ 聊天/渠道打 `/budget` 进模型；ink help 硬编码 5 条、补全 7 条静态（详情见 archive/evidence-detail.jsonl#SLASH-COMMAND-DISPATCH-STREAM）

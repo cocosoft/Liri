@@ -4749,6 +4749,60 @@
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#0","i":0,"c":"app/tests/tools/toolProfile.test.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#1","i":0,"c":"app/tests/runtime/coreapi-session-meta.test.ts"}
 {"id":"TOOLVIS-P4B-TOOLPROFILE","k":"tests#2","i":0,"c":"app/tests/session/SessionStore.test.ts"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"title","i":0,"c":"根目录清理：7 篇未被引用报告移出仓外 + 2 个调试脚本删除 + .gitignore 死规则收敛"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"source","i":0,"c":"用户 2026-10-16 裁定「执行根目录保留项清理」；执行前按 .trae/rules/code-deletion.md 走 CD01/CD02 引用取证（穷尽 tracked + 被忽略目录，含 --no-ignore 检索）"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"reopenWhen","i":0,"c":"① 若被移出的 7 篇报告需要回来：仓外备份仍在 `E:\\PY\\Documents\\CODES\\_pyapp_root_reports_backup_20261016\\`（7 个文件，逐一列名于本条 notes），可原样放回根目录；② 若日后要删**被保留的 7 篇根报告**（04/06/11/12/第四次架构复查报告"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"reopenWhen","i":1,"c":"/debug-long-task-interrupt/Liri_契约层详细设计文档）或 `probe_sessions.ps1`：必须**先摘引用**（CD05）——它们的引用点在 `.trae/specs/{orchestration-family-convergence,contract-layer-6-proposals}.md`、`dev_docs/"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"reopenWhen","i":2,"c":"任务计划-20261004.md`、`dev_docs/20261007/任务计划.md`、`dev_docs/trajectory-dual-source-evidence-report.md` 与 `app/src/{core/paths.ts,chat/orchestrator/streamMessageFlow.ts,"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"reopenWhen","i":3,"c":"chat/orchestrator/streamMessageWatermark.ts,tools/GlobTool/GlobTool.ts,tools/toolNameCodec.ts}`；③ 若 `.gitignore` 的 `dev_docs/*` 全量本地化裁定被推翻（dev_docs 入库）：根报告的归档位置与引用路径须一并重定。"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":0,"c":"【为什么不是「按原清单直接删」】原计划是「删 14 篇根级 .md + 3 个已跟踪脚本」，CD01 取证后**推翻**：14 篇里 **7 篇被引用**（① `debug-long-task-interrupt.md` —— 被 **4 处源码 + 1 处测试**当作证据文档引用：`app/src/tools/toolNameCodec.ts:17`、`"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":1,"c":"app/src/tools/GlobTool/GlobTool.ts:33`、`app/src/chat/orchestrator/streamMessageWatermark.ts:8`、`app/src/chat/orchestrator/streamMessageFlow.ts:1075`、`"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":2,"c":"app/tests/tools/toolNameCodec.test.ts:8`；② `11_复查_代码更新后架构差异与优化建议.md` —— `dev_docs/任务计划-20261004.md:1816` 明写「**仓库根**」，另 `:32` 与 `dev_docs/20261007/任务计划.md:296,548`；③ `12_复查_代码更新后收敛进"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":3,"c":"度与优化建议.md` —— 台账 §25 来源 + 被 11 篇自身引用；④ `Liri_契约层详细设计文档.md` —— `.trae/specs/contract-layer-6-proposals.md:4,75` + 台账 §24.2/§24.4 四条；⑤ `04_终版复核报告_按当前代码实测.md` 与 ⑥ `第四次架构复查报告.md` —— `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":4,"c":".trae/specs/orchestration-family-convergence.md:4` 的「原始出处」；⑦ `06_最新复核_架构不足按当前代码实测.md` —— `dev_docs/任务计划-20261004.md:1343` 登记表按名入表）。脚本侧：`probe_sessions.ps1` **保留** —— `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":5,"c":"dev_docs/trajectory-dual-source-evidence-report.md:94,104` 把它当**可用工具**（含可执行命令 `powershell -ExecutionPolicy Bypass -File .\\probe_sessions.ps1`），`app/src/core/paths.ts:229` 亦以它说明 `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":6,"c":"~/.liri` 残留位置，且 `dev_docs/20261013/硬编码统一治理方案-20261013.md:370` 对其有「**登记不改**」的既有处置。【实际处置】① **移出仓外备份**（不是硬删 —— 这 7 篇是**未跟踪**文件，被 `/*.md` 忽略 ⇒ 无 git 回滚点，违 CD06「保留可回滚路径」，故改为移到 `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":7,"c":"E:\\PY\\Documents\\CODES\\_pyapp_root_reports_backup_20261016\\`）：`向量数据库选型调研报告.md`(15464B)、`中止测试说明.md`(3849B)、`AI-Agent技术简报_2026-10.md`(11917B)、`LIRI_技术报告.md`(13671B)、`Liri架构对照分析报告.md`("}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":8,"c":"6978B)、`Liri架构分析报告-AgenticDesignPatterns-21模式-20261015.md`(23913B)、`ThinkPad_T14p_本地大模型推理优化报告.md`(7518B) —— 全仓 `--no-ignore` 检索（含 `dev_docs`/`.trae`）**零引用**；② **删除** `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":9,"c":"_analyze_sessions.cjs`（全仓零引用）与 `_check_api.cjs`（其唯一活代码引用是 `app/tests/contracts/crossDeploymentContract.test.ts:15` 的「**不纳入（如实）**」边界说明 ⇒ 按 CD05 **先摘引用**：该段改写为不点名的「仓库根的开发期一次性调试脚本」，"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":10,"c":"CHANGELOG/台账里的历史记录**保留不改**），二者**已跟踪** ⇒ git 历史即回滚点；③ `.gitignore:254-256` 的 `liri_check.py`/`liri_serve.py`/`rand_pick.py` 三条**死规则**（对应脚本已于上一轮清理删除）收敛为一条说明注释。【验证】`lint:refs`（脚本引用可达性"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":11,"c":"，70 处入口引用）✅ · `lint:case` ✅ · `lint:consts` ✅ · `lint:unref` ✅ · `crossDeploymentContract.test.ts` **9 pass / 0 fail**；根目录由 18 个 .md + 3 脚本收敛为 11 个 .md（4 正当 + 7 被引用）+ 1 脚本。【如实边界】未做"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":12,"c":"真机端到端（本项为文件级清理，无运行时行为面）⇒ `e2eVerified=false`；`app/` 目录自身亦有一次性文件（`check_db.py`/`list_tables.ts`/`typecheck*.log`/`src.zip` 等）**未在本次范围**（用户裁定的是「根目录」）。"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"code#0","i":0,"c":".gitignore"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"code#1","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"title","i":0,"c":"propose_plan vs ask_user_question 终局裁定「保留两个」+ 补 AskUserQuestionTool 契约（真实现标记此前无守卫）"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"source","i":0,"c":"工具可见性治理方案 §6 遗留待裁定项「唯一待产品裁定项」；2026-10-16 用户裁定「收口」⇒ 做一次回仓复核并给出终局裁定"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"reopenWhen","i":0,"c":"① 出现「模型在两种审批入口间误选」的**实证**（日志/真机），而非推测；② 二者渲染通道分叉（如 propose_plan 另起一套卡片、不再经 ReActToolLoop 的 yield question）；③ 产品决定 Plan 模式不再需要专用审批语义 —— 三条任一成立则裁定须重开（推翻成本见 notes，一个提交）。"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":0,"c":"【裁定：两者都保留（终局）】四条依据（均在仓可核）：① **同一通道、非双轨** —— 二者都靠 `requiresUserInteraction()` → `ReActToolLoop` yield question → 答复经 `_userAnswers` 注入 → 客户端**同一个** `QuestionBlock` 渲染（`"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":1,"c":"client/src/components/ChatArea/QuestionBlock.tsx` 只解构 `question/header/options/multiSelect/questionId`，全文件**无** `plan`/`questionType` 分支）；② **无任何代码按工具名分支** —— `propose_plan` 全仓仅出现在"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":2,"c":"注册（`app/src/tools/utils/ToolManagerUtils.ts:226`、`factories/builtinToolRegistry.ts:211`）、类别（`toolCategories.ts:185`）、`toolEffects.ts:54`、常量（`toolNameConstants.ts:67` + 生成物）、测试与白名单 "}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":3,"c":"⇒ 二者是**同一机制上的两个入口**，不是两套机制；③ **`PLAN` flag 同时门控 `plan` 与 `propose_plan`**（`ToolManagerUtils.ts:222,226`）⇒ 保留后者不会让该 flag 变死；④ **差异化真实但价值在模型侧**：`ask_user_question` 的 `confirm` 型只能给出「"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":4,"c":"确认/取消」，而 `propose_plan` 自带 `plan`（step/detail）与 `status:approved` +「请严格按计划继续执行」引导语；但 `plan` 参数**不参与 UI 渲染**（已核 QuestionBlock）⇒ 它是**提示词层**的专用审批语义。【本批实际改动】补 `"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":5,"c":"app/tests/tools/ask-user-question.test.ts`（4 例：choice 回填 / confirm 无选项可答 / 无 `_userAnswers` 引导错误 / `requiresUserInteraction` + 只读）—— 修的是一个**真实空白**：交互链路的既有测试（`ReActToolLoop*.test.ts"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":6,"c":"`、`plan-mode-loop.test.ts`、`events-trailing-turn.test.ts`）**全部使用桩** `{ requiresUserInteraction: () => true }`，真实现的该标记**此前无任何守卫**；而 `propose_plan` 侧的 ④/⑤ 已由 `"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":7,"c":"app/tests/tools/propose-plan.test.ts` 覆盖 ⇒ 本文件 ④ 补上裁定前提的另一半，使「同处一条通道」**可机器校验**（若任一被改走独立通道，裁定前提失效即变红）。【推翻成本（如实，一个提交）】移除 loader + 工厂 + 类别 + `TOOL_EFFECTS` + 常量 → 重算生成物（**78 → 77**，声明"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":8,"c":"面 90 → 89）→ 同步 `propose-plan.test.ts` / `plan-mode-loop.test.ts` / `toolNameLists.test.ts`（`P4B_WIRED_TOOL_NAMES`）/ `toolDataSourcesNotNewTools.test.ts:85` → 审批语义由 `"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":9,"c":"ask_user_question(questionType=confirm)` 承接。**无引擎侧改动** —— 该工具的「批准后续跑」就是 ReAct 循环拿到工具结果后继续，**没有**专用机器（`plan-mode-loop.test.ts` 实测断言的即 `round === 2`）。【未做（如实）】未改任何工具描述文案：**没有**「模型误选」的"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":10,"c":"实证，加提示词属推测性改动（CS03/CS05：不为不存在的问题开工）⇒ 记录为**重开触发条件 ①**。【验证】定向 10 例（新增 4 + `propose-plan.test.ts` 5 + `plan-mode-loop.test.ts` 1）· 受扰域 `tests/{tools,chat,contracts}` **1453 pass / 0 "}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"notes","i":11,"c":"fail** · `bun run typecheck` 0 错。"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"code#0","i":0,"c":"app/tests/tools/ask-user-question.test.ts"}
+{"id":"TOOLVIS-P4B-INTERACTION-RULING","k":"tests#0","i":0,"c":"app/tests/tools/ask-user-question.test.ts"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"title","i":0,"c":"P2 两条如实边界终局裁定「均不做」：flag-gated-off 归因 + on 对 conditional"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"source","i":0,"c":"工具可见性治理方案 §8「两条如实边界（P2 落地后新增）」；2026-10-16 用户裁定「处置」⇒ 先做对象集量化再做终局裁定"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"reopenWhen","i":0,"c":"① flag-gated-off 归因：出现「用户/模型确实需要知道该翻哪个开关」的实证诉求（如某个 flag-gated 工具被反复问起），或工具注册面**本就要**重构（届时把门控改为结构化数据，报表顺带消费、零额外表）；② on 对 conditional：某项 conditional 工具经 P4b 接线后进生成物 ⇒ 它**自动**离开本边界，无需"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"reopenWhen","i":1,"c":"改代码。"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":0,"c":"【裁定：两项均不做（终局），但依据从「理念性」升级为「量化」】首版理由只有一句「反推 flag 名要手写第 7 张 tool→flag 表，与本域六套映射表漂移的历史根因自相矛盾」。本次复核补上**对象集量化**（生成器自报，可复跑 `bun run app/scripts/gen-tool-names.ts` 逐条核对）：`"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":1,"c":"getAllBuiltinToolLoaders()` 清单 **81** 条 loader → 其中 **3** 条返回 null（生成器原文「多为 flag-gated 且默认关闭者」）→ 生成物 `TOOL_NAMES` **78** 条（口径 = 全量 ∧ 可实例化）→ 常量表有名但未进生成物的 **12** 条 = `agents_list, "}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":2,"c":"kanban, mcp_auth, music_generate, nodes, send_message, session_status, sessions_send, sessions_spawn, thinking, tts, update_plan`。⇒ **精确归因的对象集 ≤ 3**（12 个被排除名里 9 个**连 loader 都没有** ＝"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":3,"c":" P4a 的 E 类未接线；只有其余 3 个是「有工厂但返回 null」）；而「哪个 flag 关了哪个工具」这一事实**只以代码形态存在**（`cond(coreFeature(X), byKey(createY))` 外层 + 工厂内 `isToolEnabled(...)`），静态取不到名字 ⇒ 要精确归因只能**新增一张手写 tool→flag 表"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":4,"c":"**（第 7 张，与方案目标自相矛盾）或**重构工具注册面**（属 CD07 关键域）；**收益（≤3 个对象的文案精度）< 成本** ⇒ 不做（CS03）。现状文案「未进生成物：可能未接线或工厂内 flag 门控关闭」对 9 个 E 类**准确**、对 ≤3 个 flag-gated 者**不撒谎**（二者都是本构建里没实例化）。【第二项】`on` 对 `"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":5,"c":"conditional` 无效**已是如实呈现**（P3 已落地：报表保持 hidden 且不加 `user-on-bypass`，UI 显式标注「覆写无效」/「已开启但无效」）；让它「真生效」只有两条路且都不可走 —— ① 凭空实例化未注册工具（违实现唯一性；且 P4a 实测 12 个里有空壳/桩实现）；② 代改 feature flag（编译期语义，且与"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":6,"c":"既有裁定冲突：`send_message` 已被用户裁定「保持默认关闭」，UI 开关若可绕过即等于推翻该裁定）⇒ 该类工具的真正处置路径是 P4b 接线（本轮已做 3 个，差额 15 → 12）。【交叉订正】生成器那句「多为 flag-gated 且默认关闭者」的口径**不准**（如实记录）：实测 12 个被排除名里只有 1 个（`send_message`"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":7,"c":"）落在 `isToolEnabled` 门控清单内（清单内另有 `push_notification`/`subscribe_pr`/`team_create`/`team_delete` 四项，其 flag 默认**开** ⇒ 正常进生成物）⇒ 「3 条返回 null」与「flag-gated」**不等价**，本裁定按「≤3 个」这种**上界**表述，不宣"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":8,"c":"称精确对应。"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"code#0","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"code#1","i":0,"c":"dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -19,6 +19,9 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOLVIS-P2-BOUNDARY-RULING**：P2 两条如实边界终局裁定「均不做」：flag-gated-off 归因（对象集 ≤3）+ on 对 conditional —— 验证 doc2|tc0|gate6；基线 首版仅理念性理由；本次量化：81 loader / 3 返回 null / 排除 12 名（9 个连 loader 都没有）⇒ 精确归因对象 ≤3，收益 < 成本（详情见 archive/evidence-detail.jsonl#TOOLVIS-P2-BOUNDARY-RULING）
+- ✅ **TOOLVIS-P4B-INTERACTION-RULING**：propose_plan vs ask_user_question 终局裁定「保留两个」+ 补 ask_user_question 契约（真实现标记此前无守卫） —— 验证 tc1|ut1453|gate6；基线 裁定前记为「无异议即维持」的默认（未取得单独裁定）；复核后升格为终局裁定 + 三条重开触发条件（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-INTERACTION-RULING）
+- ✅ **ROOTCLEAN-REPORTS-SCRIPTS**：根目录清理：CD01 取证推翻原清单（14 篇中 7 篇被引用），移出 7 篇零引用报告 + 删 2 个调试脚本 + 死规则 —— 验证 tc0|ut9|gate6；基线 原计划删 14 篇根级 .md + 3 脚本；CD01 实测 7 篇被引用（debug-long-task-interrupt.md 被 4 源文件 + 1 测试引用）⇒ 只做可证安全子集（详情见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-SCRIPTS）
 - ✅ **TOOLVIS-P4B-TOOLPROFILE**：P4b 收口：toolProfile 写入口（PATCH meta 校验 + 落库 + 副本补字段） —— 验证 tc2|ut22|e2e3|gate6；基线 接线前只有读方无写方：handler 白名单不含 tool_profile ⇒ 传了被静默丢弃；两份 SessionMetadata 副本缺字段 ⇒ 落库/回读再丢一次（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TOOLPROFILE）
 - ✅ **QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD**：修正过期的时区守卫（客户端单一真源后恒红） —— 验证 tc0|ut6606|gate4；基线 修前恒红：断言组件源码含 Asia/Shanghai 字面量，而客户端已改用 constants/locale 真源并禁止写死（详情见 archive/evidence-detail.jsonl#QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD）
 - ✅ **TOOLVIS-P4B-SEND-MESSAGE-SKIP**：P4b 第 4 项裁定：send_message 保持默认关闭（有意不做，零行为变更） —— 验证 doc2|gate3；基线 裁定前：send_message 属 D 类（loader + 类别 notify 已就绪，仅缺 SEND_MESSAGE flag 默认值）；裁定：保持默认关闭 ⇒ 不改代码（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-SEND-MESSAGE-SKIP）

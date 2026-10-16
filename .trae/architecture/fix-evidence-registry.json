@@ -8688,6 +8688,84 @@
       "changelog": [],
       "reopenWhen": "① 若把会话级 profile 从「程序化写入口」升级为 UI 开关：须先在设置页/输入区给出显式声明入口，并复核本项新加的会话边界校验（未知标签 400）是否会成为 UI 的可用性障碍；② 若未来允许未登记标签（如由 MCP 侧车动态申报能力）：须把 `isKnownToolProfileTag` 的单一事实源从静…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TOOLPROFILE）",
       "notes": "【根因】`toolProfile` 在 P4b 前是**半接线**：读路径（`tools/toolProfile.ts` 映射表 + `streamMessageToolSelectionFlow.ts` 注入 + `toolProfileInjection.test.ts` 验收）全在，但**没有任何写方**（全仓…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-TOOLPROFILE）"
+    },
+    {
+      "id": "ROOTCLEAN-REPORTS-SCRIPTS",
+      "title": "根目录清理：7 篇未被引用报告移出仓外 + 2 个调试脚本删除 + .gitignore 死规则收敛",
+      "source": "用户 2026-10-16 裁定「执行根目录保留项清理」；执行前按 .trae/rules/code-deletion.md 走 CD01/CD02 引用取证（穷尽 tracked + 被忽略目录，含 --no-ignore 检索）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        ".gitignore",
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "tests": [
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若被移出的 7 篇报告需要回来：仓外备份仍在 `E:\\PY\\Documents\\CODES\\_pyapp_root_reports_backup_20261016\\`（7 个文件，逐一列名于本条 notes），可原样放回根目录；② 若日后要删**被保留的 7 篇根报告**（04/06/11/12/第四次架构复查报…（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-SCRIPTS）",
+      "notes": "【为什么不是「按原清单直接删」】原计划是「删 14 篇根级 .md + 3 个已跟踪脚本」，CD01 取证后**推翻**：14 篇里 **7 篇被引用**（① `debug-long-task-interrupt.md` —— 被 **4 处源码 + 1 处测试**当作证据文档引用：`app/src/tools/to…（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-SCRIPTS）"
+    },
+    {
+      "id": "TOOLVIS-P4B-INTERACTION-RULING",
+      "title": "propose_plan vs ask_user_question 终局裁定「保留两个」+ 补 AskUserQuestionTool 契约（真实现标记此前无守卫）",
+      "source": "工具可见性治理方案 §6 遗留待裁定项「唯一待产品裁定项」；2026-10-16 用户裁定「收口」⇒ 做一次回仓复核并给出终局裁定",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/tests/tools/ask-user-question.test.ts"
+      ],
+      "tests": [
+        "app/tests/tools/ask-user-question.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 出现「模型在两种审批入口间误选」的**实证**（日志/真机），而非推测；② 二者渲染通道分叉（如 propose_plan 另起一套卡片、不再经 ReActToolLoop 的 yield question）；③ 产品决定 Plan 模式不再需要专用审批语义 —— 三条任一成立则裁定须重开（推翻成本见 notes…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-INTERACTION-RULING）",
+      "notes": "【裁定：两者都保留（终局）】四条依据（均在仓可核）：① **同一通道、非双轨** —— 二者都靠 `requiresUserInteraction()` → `ReActToolLoop` yield question → 答复经 `_userAnswers` 注入 → 客户端**同一个** `QuestionBlo…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-INTERACTION-RULING）"
+    },
+    {
+      "id": "TOOLVIS-P2-BOUNDARY-RULING",
+      "title": "P2 两条如实边界终局裁定「均不做」：flag-gated-off 归因 + on 对 conditional",
+      "source": "工具可见性治理方案 §8「两条如实边界（P2 落地后新增）」；2026-10-16 用户裁定「处置」⇒ 先做对象集量化再做终局裁定",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "dev_docs/20261016/工具可见性治理方案-20261016.md",
+        "dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① flag-gated-off 归因：出现「用户/模型确实需要知道该翻哪个开关」的实证诉求（如某个 flag-gated 工具被反复问起），或工具注册面**本就要**重构（届时把门控改为结构化数据，报表顺带消费、零额外表）；② on 对 conditional：某项 conditional 工具经 P4b 接线后进…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P2-BOUNDARY-RULING）",
+      "notes": "【裁定：两项均不做（终局），但依据从「理念性」升级为「量化」】首版理由只有一句「反推 flag 名要手写第 7 张 tool→flag 表，与本域六套映射表漂移的历史根因自相矛盾」。本次复核补上**对象集量化**（生成器自报，可复跑 `bun run app/scripts/gen-tool-names.ts` 逐条…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P2-BOUNDARY-RULING）"
     }
   ]
 }

@@ -398,6 +398,8 @@ export const ENDPOINTS = {
     voice: "/v1/settings/voice",
     soul: "/v1/settings/soul",
     user: "/v1/settings/user",
+    /** P2/P3（2026-10-16）：工具可见性覆写（`{ overrides: { [toolName]: 'on' | 'off' } }`） */
+    tools: "/v1/settings/tools",
   },
   tts: {
     providers: "/v1/tts/providers",
@@ -552,6 +554,8 @@ export const ENDPOINTS = {
   tools: {
     base: "/v1/tools",
     execute: (toolName: string) => `/v1/tools/${toolName}/execute`,
+    /** P1（2026-10-16）：工具**可见性报表**（只读；解释"为什么模型看不见它"） */
+    visibility: "/v1/tools/visibility",
   },
   trace: {
     stats: "/v1/trace/stats",

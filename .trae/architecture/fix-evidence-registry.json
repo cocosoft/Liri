@@ -8437,6 +8437,50 @@
       "changelog": [],
       "reopenWhen": "改动工具可见性裁剪口径（filterToolsByTask / extraCategories / forcedVisibleTools 重放路径）、新增或删除内置工具名、或调整 MANDATORY_TOOLS / ARCHIVED_MISC_TOOLS / 归档语义（含 ToolSearchTool 检索面）时；另…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P2-OVERRIDES）",
       "notes": "① 新增 tools/toolVisibilityOverrides.ts：三态 auto/on/off（缺省 auto = 不登记），**归一化在读取侧单一真源**（含未知工具名、非法值、MANDATORY_TOOLS 的 off ⇒ 丢弃 + 一次性告警）—— 因为写入走通用 PUT /v1/settings/{…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P2-OVERRIDES）"
+    },
+    {
+      "id": "TOOLVIS-P3-PANEL",
+      "title": "工具可见性治理 P3：设置页 ToolsPanel（三态 + 原因徽标 + 风险二次确认）",
+      "source": "方案 dev_docs/20261016/工具可见性治理方案-20261016.md §3.5/§4 P3（用户裁定四期全做）+ 真机复验暴露的两个缺陷（BUG-1 抽屉不可达 / BUG-2 保存后须刷新）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/tools/toolVisibilityReport.ts",
+        "app/src/utils/toolContract/Tool.ts",
+        "shared/types/tool-visibility.ts",
+        "shared/types/index.ts",
+        "app/tests/tools/toolVisibilityReport.test.ts",
+        "client/src/services/toolService.ts",
+        "client/src/services/endpoints.ts",
+        "client/src/components/settings/ToolsPanel.tsx",
+        "client/src/components/settings/toolsPanelModel.ts",
+        "client/src/components/settings/SettingsPanel.tsx",
+        "client/src/stores/settingsPanelStore.ts",
+        "client/src/components/views/SettingsPage.tsx",
+        "client/src/components/Sidebar/Sidebar.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts",
+        ".trae/docs/api-spec.md",
+        "dev_docs/20261016/工具可见性治理方案-20261016.md"
+      ],
+      "tests": [
+        "client/src/components/settings/__tests__/ToolsPanel.test.tsx",
+        "client/src/components/settings/__tests__/toolsPanelModel.test.ts",
+        "client/src/components/Sidebar/__tests__/systemItemsOverride.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "改动 GET /v1/tools/visibility 的字段或 reasons 枚举（须同步 shared/types/tool-visibility.ts 与前端穷尽映射）、settings.tools 的读写形状、高风险二次确认判据、或 Sidebar 的系统导航渲染块（onClickOverride 转发是抽…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P3-PANEL）",
+      "notes": "① 新增 client ToolsPanel + toolsPanelModel：三态控件（跟随任务 / 强制可见 / 强制不可见）、reasons 结构化原因徽标、risk=high 的**二次确认**（文案含「可见不代表放行…仍需逐次审批」）、conditional 行标注「未进生效工具面 ⇒ 覆写不会生效」；分…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P3-PANEL）"
     }
   ]
 }

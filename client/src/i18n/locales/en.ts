@@ -1668,6 +1668,8 @@ const en = {
       dataDir: "Configure where data files and attachments are stored",
       ingest: "Configure knowledge base ingestion rules and sources",
       vfs: "Manage VFS mount points: project docs (dev_docs) and MCP servers",
+      tools:
+        "See why the model cannot see a tool, and force it visible / hidden as needed (visibility is not authorization)",
     },
     oauth: "OAuth Auth",
     offline: "Offline",
@@ -1712,6 +1714,47 @@ const en = {
     theme: "Theme",
     themeMode: "Theme Mode",
     timezone: "Timezone",
+    // ── Tool visibility panel (P3, 2026-10-16 tool governance; keys mirror zh) ──
+    tools: "Tool Visibility",
+    toolsDesc:
+      "See why the model cannot see a given tool, and force it visible / hidden as needed (effective from the next turn). Visibility only decides whether the model can see the tool; command execution and file writes still go through approval.",
+    toolsLoading: "Loading tool visibility…",
+    toolsLoadFailed:
+      "Failed to load tool visibility (backend not ready or endpoint unreachable)",
+    toolsSaveFailed: "Save failed: the override did not take effect, please retry",
+    toolsSaved: "Saved (effective from the next turn)",
+    toolsSearchPlaceholder: "Search by tool name / category / reason",
+    toolsEmpty: "No matching tools",
+    toolsSummary:
+      "{{total}} tools: {{visible}} visible to the model, of which {{forcedOn}} forced on; {{conditional}} not wired (override has no effect)",
+    toolsStateAuto: "Follow task",
+    toolsStateOn: "Force visible",
+    toolsStateOff: "Force hidden",
+    toolsStatusVisible: "Visible",
+    toolsStatusHidden: "Hidden",
+    toolsRiskHigh: "High risk",
+    toolsRiskMedium: "Writes",
+    toolsRiskConfirmTitle:
+      "Make the high-risk tool {{name}} visible to the model?",
+    toolsRiskConfirmBody:
+      "Visible does not mean allowed: once enabled the model can see the tool and request it, but every actual execution still requires your approval and stays subject to path and sandbox limits.",
+    toolsRiskConfirmOk: "Enable anyway",
+    toolsGroupOn: "Forced on",
+    toolsGroupDefault: "Visible by default",
+    toolsGroupHidden: "Hidden",
+    toolsGroupOff: "Forced off",
+    toolsConditionalNote:
+      "Not part of this build's effective tool set (either not wired, or a factory feature flag is off) — overrides have no effect.",
+    toolsOverrideIneffective: "Enabled but ineffective",
+    toolsReasonMandatory: "Required by the agent loop (always kept, cannot be off)",
+    toolsReasonArchived: "Intentionally archived (needs explicit opt-in)",
+    toolsReasonUnregisteredCategory:
+      "Unregistered category (filtered out for every task type)",
+    toolsReasonNotInTaskWhitelist:
+      "Current task type does not include this category",
+    toolsReasonConditional: "Not in the effective tool set",
+    toolsReasonUserOff: "Forced hidden by you",
+    toolsReasonUserOnBypass: "Forced visible by you",
     topP: "Top P",
     trustedWorkspaces: "Trusted Workspaces",
     trustedWorkspacesDesc: "Manage workspaces allowed to access local files",

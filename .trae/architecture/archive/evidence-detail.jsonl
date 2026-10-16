@@ -4599,6 +4599,36 @@
 {"id":"TOOLVIS-P2-OVERRIDES","k":"code#6","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
 {"id":"TOOLVIS-P2-OVERRIDES","k":"code#7","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
 {"id":"TOOLVIS-P2-OVERRIDES","k":"tests#0","i":0,"c":"app/tests/tools/toolVisibilityOverrides.test.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"title","i":0,"c":"工具可见性治理 P3：设置页 ToolsPanel（三态 + 原因徽标 + 风险二次确认）"}
+{"id":"TOOLVIS-P3-PANEL","k":"source","i":0,"c":"方案 dev_docs/20261016/工具可见性治理方案-20261016.md §3.5/§4 P3（用户裁定四期全做）+ 真机复验暴露的两个缺陷（BUG-1 抽屉不可达 / BUG-2 保存后须刷新）"}
+{"id":"TOOLVIS-P3-PANEL","k":"reopenWhen","i":0,"c":"改动 GET /v1/tools/visibility 的字段或 reasons 枚举（须同步 shared/types/tool-visibility.ts 与前端穷尽映射）、settings.tools 的读写形状、高风险二次确认判据、或 Sidebar 的系统导航渲染块（onClickOverride 转发是抽屉可达性的唯一支点）时；另：P4a 影子工"}
+{"id":"TOOLVIS-P3-PANEL","k":"reopenWhen","i":1,"c":"具评估后须复核 conditional 行的「覆写无效」语义是否仍成立"}
+{"id":"TOOLVIS-P3-PANEL","k":"notes","i":0,"c":"① 新增 client ToolsPanel + toolsPanelModel：三态控件（跟随任务 / 强制可见 / 强制不可见）、reasons 结构化原因徽标、risk=high 的**二次确认**（文案含「可见不代表放行…仍需逐次审批」）、conditional 行标注「未进生效工具面 ⇒ 覆写不会生效」；分组**派生**自 (覆写, "}
+{"id":"TOOLVIS-P3-PANEL","k":"notes","i":1,"c":"effective)，不按类别手写表。② **双端契约单一事实源**：reasons 枚举与 risk 分级移入 shared/types/tool-visibility.ts，后端 ToolRiskLevel 改为其别名（消第二份联合，R02/CS01），后端报表新增 risk（由 TOOL_EFFECTS × 既有 D5 纯函数 "}
+{"id":"TOOLVIS-P3-PANEL","k":"notes","i":2,"c":"deriveFromLegacyEffects 派生，零新表；未声明效果者保守判 high）。③ 接线 3 处：抽屉 settingsPanelStore+SettingsPanel、全量页 SettingsPage（NAV_GROUPS/PAGE_DESCRIPTION_KEYS/renderContent）；i18n zh/en 各 34 键同步（"}
+{"id":"TOOLVIS-P3-PANEL","k":"notes","i":3,"c":"i18nKeyParity.test 守护）。④ **真机复验暴露并修复 BUG-1**：Sidebar 系统导航渲染块漏转发 item.onClickOverride ⇒ 桌面端点「设置」整页跳 /settings、设置抽屉真机不可达（P3 的 tab 等于白做）⇒ 补转发 + 源码锚点回归锁。⑤ **BUG-2**：保存后只更新本地 overrides，"}
+{"id":"TOOLVIS-P3-PANEL","k":"notes","i":4,"c":"而 effective 是后端权威判定 ⇒ 分组/徽标按陈旧值渲染、误标「已开启但无效」，须手动刷新 ⇒ 改为保存成功后重拉报表（回归锁：组件测试断言第二次 visibility() 被调用且分组立即正确）。⑥ 真机取证：抽屉 tab 与 /settings?nav=tools 双路径均渲染 90 条（可见 48 / 未接线 15）；computer_use"}
+{"id":"TOOLVIS-P3-PANEL","k":"notes","i":5,"c":" 经二次确认后**无需刷新**即转「已强制开启 · 1」并显示「已被你强制可见」，复位「跟随任务」后回「不可见」；Console 无面板相关 error（仅 SSE 重连噪声）。⑦ 边界（如实）：risk 对 15 个未接线工具按 D5 原口径保守判 high。"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#0","i":0,"c":"app/src/tools/toolVisibilityReport.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#1","i":0,"c":"app/src/utils/toolContract/Tool.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#2","i":0,"c":"shared/types/tool-visibility.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#3","i":0,"c":"shared/types/index.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#4","i":0,"c":"app/tests/tools/toolVisibilityReport.test.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#5","i":0,"c":"client/src/services/toolService.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#6","i":0,"c":"client/src/services/endpoints.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#7","i":0,"c":"client/src/components/settings/ToolsPanel.tsx"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#8","i":0,"c":"client/src/components/settings/toolsPanelModel.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#9","i":0,"c":"client/src/components/settings/SettingsPanel.tsx"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#10","i":0,"c":"client/src/stores/settingsPanelStore.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#11","i":0,"c":"client/src/components/views/SettingsPage.tsx"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#12","i":0,"c":"client/src/components/Sidebar/Sidebar.tsx"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#13","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#14","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#15","i":0,"c":".trae/docs/api-spec.md"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#16","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"TOOLVIS-P3-PANEL","k":"tests#0","i":0,"c":"client/src/components/settings/__tests__/ToolsPanel.test.tsx"}
+{"id":"TOOLVIS-P3-PANEL","k":"tests#1","i":0,"c":"client/src/components/settings/__tests__/toolsPanelModel.test.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"tests#2","i":0,"c":"client/src/components/Sidebar/__tests__/systemItemsOverride.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

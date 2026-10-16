@@ -55,24 +55,20 @@ import {
 import type { ToolCategory } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
 import type { ToolVisibilityOverrides } from './toolVisibilityOverrides';
+import { deriveFromLegacyEffects } from './toolCapability';
+import { resolveToolEffect } from './toolEffects';
 import { TOOL_NAMES } from '@modules/constants/toolNames.generated';
+import type { ToolRiskLevel } from '../utils/toolContract/Tool';
+import type { SharedToolVisibilityReason } from '@shared/types';
 
-/** 可见/不可见的**结构化原因**（对齐方案 §3.2；P1 产出前 5 种，P2 追加后 2 种） */
-export type ToolVisibilityReason =
-  /** 恒保留（`MANDATORY_TOOLS`）⇒ **可见**（唯一"可见且带原因"的情形之一） */
-  | 'mandatory'
-  /** 有意归档（`ARCHIVED_MISC_TOOLS`）⇒ 默认不可见（裁剪 + 检索双封死；用户 `on` 可放开） */
-  | 'archived'
-  /** 未登记类别 ⇒ 落 `misc` 且非归档 ⇒ 任何任务下都被裁 */
-  | 'unregistered-category'
-  /** 类别已登记，但当前 `taskType` 的白名单不含它 ⇒ 换个任务才有 */
-  | 'not-in-task-whitelist'
-  /** ∉ 生成物 ⇒ 工厂实例化失败（未接线 / 工厂内门控关闭）⇒ 根本不在注册表里 */
-  | 'conditional'
-  /** P2：用户显式 `off`（`settings.tools`） */
-  | 'user-off'
-  /** P2：用户显式 `on` —— 覆盖了类别白名单 / 归档判定 ⇒ **可见** */
-  | 'user-on-bypass';
+/**
+ * 可见/不可见的**结构化原因**。
+ *
+ * ⚠️ 枚举的**单一事实源在 `shared/types/tool-visibility.ts`**（双端共享，2026-10-16）：前端设置页
+ * 必须对它做**穷尽渲染映射** ⇒ 若两侧各写一份联合，新增取值会在前端静默漏渲染。
+ * 各取值语义见 shared 侧注释（P1 产出前 5 种，P2 追加 `user-off` / `user-on-bypass`）。
+ */
+export type ToolVisibilityReason = SharedToolVisibilityReason;
 
 export interface ToolVisibilityReport {
   name: string;
@@ -88,6 +84,27 @@ export interface ToolVisibilityReport {
    * 或含 `mandatory` / `user-on-bypass`（"可见但非默认"的两种情形，UI 可据此标注）。
    */
   reasons: ToolVisibilityReason[];
+  /**
+   * 风险级别（D5 能力契约，`utils/toolContract/Tool.ts:85`）—— 供设置页做**二次确认**分级。
+   *
+   * **派生口径（零新表）**：`TOOL_EFFECTS[name]`（`toolEffects.ts`，唯一事实源，`Record<ToolName,…>`
+   * 受 typecheck 强制）经 `deriveFromLegacyEffects()`（`toolCapability.ts`，既有 D5 纯函数）派生：
+   * `local`⇒`medium`、`external`⇒`high`、`none`⇒`low`。
+   * ⚠️ 未声明效果的工具（15 个未接入的 `conditional`）按 D5 原口径**保守判 `high`**
+   * （"无法证明只读即视为对外写"）—— 如实保守，不臆造低风险。
+   */
+  risk: ToolRiskLevel;
+}
+
+/** 由既有声明派生风险级别（**纯函数**；输入为 `TOOL_EFFECTS`，无实例化） */
+function deriveRiskOf(name: string): ToolRiskLevel {
+  const effect = resolveToolEffect(name);
+  return deriveFromLegacyEffects({
+    effect,
+    // ⚠️ 该入参只在 `effect` **未声明**时被使用（见 toolCapability.ts 注释）⇒ 此处按保守口径取
+    // "已声明为只读"（`sideEffect === 'none'`），未声明一律 `false`（⇒ 保守 high）。
+    isReadOnly: effect?.sideEffect === 'none',
+  }).risk;
 }
 
 export interface ResolveToolVisibilityOptions {
@@ -165,6 +182,7 @@ export function resolveToolVisibilityReport(
         visibleByDefault: visible,
         effective: effective ? 'visible' : 'hidden',
         reasons,
+        risk: deriveRiskOf(name),
       };
     })
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));

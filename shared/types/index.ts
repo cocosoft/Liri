@@ -149,3 +149,13 @@ export type {
   GoalDeviationSeverity,
   GoalTemplateKind,
 } from './goal-types';
+
+// ============================================================
+// 工具可见性契约（tool-visibility）—— P1/P2/P3 工具治理（前后端唯一事实来源）
+// ============================================================
+
+export type {
+  SharedToolVisibilityReason,
+  SharedToolRiskLevel,
+  SharedToolVisibilityEntry,
+} from './tool-visibility';

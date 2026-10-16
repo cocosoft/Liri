@@ -7,7 +7,13 @@
 
 import { create } from "zustand";
 
-export type SettingsPanelTab = "config" | "router" | "memory" | "notifications";
+export type SettingsPanelTab =
+  | "config"
+  | "router"
+  | "memory"
+  | "notifications"
+  /** P3（2026-10-16 工具治理）：工具可见性（报表 + 三态覆写） */
+  | "tools";
 
 interface SettingsPanelState {
   panelOpen: boolean;

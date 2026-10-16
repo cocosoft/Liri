@@ -32,6 +32,7 @@ import PDCAReviewSettingsPanel from "../settings/PDCAReviewSettingsPanel";
 import EstopPanel from "../settings/EstopPanel";
 import RouterConfigPanel from "../settings/RouterConfigPanel";
 import VfsMountsPanel from "../settings/VfsMountsPanel";
+import ToolsPanel from "../settings/ToolsPanel";
 import type { BackendStatus } from "../../types";
 import {
   SettingsIcon,
@@ -109,6 +110,12 @@ const NAV_GROUPS: NavGroup[] = [
         id: "memory",
         labelKey: "settings.memory",
         icon: BookOpenIcon,
+      },
+      {
+        // P3（2026-10-16 工具治理）：工具可见性（报表 + 三态覆写）
+        id: "tools",
+        labelKey: "settings.tools",
+        icon: WrenchIcon,
       },
     ],
   },
@@ -206,6 +213,7 @@ const PAGE_DESCRIPTION_KEYS: Record<string, string> = {
   "data-dir": "settings.desc.dataDir",
   ingest: "settings.desc.ingest",
   vfs: "settings.desc.vfs",
+  tools: "settings.desc.tools",
 };
 
 /** 获取所有导航项 */
@@ -811,6 +819,8 @@ function SettingsPage() {
         return <KnowledgeIngestPanel isDark={isDark} />;
       case "vfs":
         return <VfsMountsPanel isDark={isDark} />;
+      case "tools":
+        return <ToolsPanel isDark={isDark} />;
       case "memory":
         return (
           <div className="p-6">

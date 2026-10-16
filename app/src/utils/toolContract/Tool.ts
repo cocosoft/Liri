@@ -7,6 +7,7 @@ import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
 import type { ToolRuntimePermissionContext } from './PermissionContext';
 import type { ProtocolMessage } from '@modules/core';
+import type { SharedToolRiskLevel } from '@shared/types';
 
 export type { ToolResult };
 
@@ -81,8 +82,14 @@ export type ToolCapabilityLevel =
   | 'write-external'
   | 'execute';
 
-/** 工具**风险分级**（由能力 + 破坏性派生；供审批/HITL 分级用） */
-export type ToolRiskLevel = 'low' | 'medium' | 'high';
+/**
+ * 工具**风险分级**（由能力 + 破坏性派生；供审批/HITL 分级用）。
+ *
+ * ⚠️ **单一事实源在 `shared/types/tool-visibility.ts`**（2026-10-16，P3 工具设置页）：
+ * 该枚举同时被前端设置页消费（风险徽标 + 二次确认）⇒ 若在此再写一份联合即构成
+ * 双轨（R02「数据模型统一」/ CS01）⇒ 本处改为**别名**，取值只在 shared 定义一次。
+ */
+export type ToolRiskLevel = SharedToolRiskLevel;
 
 /** 工具沙箱级别（与 `BaseTool.sandboxLevel` 同域） */
 export type ToolSandboxLevel = 'none' | 'readonly' | 'file-io' | 'execution';

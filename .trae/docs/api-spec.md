@@ -254,8 +254,11 @@
 |------|------|----------|-----------|
 | GET | `/v1/tools` | ✅ | `toolService.list` |
 | POST | `/v1/tools/{name}/execute` | ✅ | `toolService.execute` |
-| GET | `/v1/tools/visibility` | ✅ **P1（2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案-20261016.md`）** | 待接（P3 `ToolsPanel`） |
-|  | 查询参数 `?taskType=<t>&extraCategories=<c>`（`extraCategories` **可重复**；非法类别丢弃并告警） |  | **只读**：返回**全量**工具（常量表 90 个）的**可见性解释**（`category` / `registration` / `visibleByDefault` / `effective` / `reasons`），即"模型这轮为什么看不见它"。与 `GET /v1/tools`（注册表全量 = "装了什么"）**不同**：后者不含当轮裁剪结论。口径由 `tools/toolVisibilityReport.ts` 单实现派生，与 `filterToolsByTask` 逐条一致（单测全量交叉钉死）。**不改变**任何注册/裁剪/执行行为 |
+| GET | `/v1/tools/visibility` | ✅ **P1（2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案-20261016.md`）** | `toolService.visibility`（P3 设置页） |
+|  | 查询参数 `?taskType=<t>&extraCategories=<c>`（`extraCategories` **可重复**；非法类别丢弃并告警） |  | **只读**：返回**全量**工具（常量表 90 个）的**可见性解释**（`category` / `registration` / `visibleByDefault` / `effective` / `reasons` / `risk`），即"模型这轮为什么看不见它"。与 `GET /v1/tools`（注册表全量 = "装了什么"）**不同**：后者不含当轮裁剪结论。口径由 `tools/toolVisibilityReport.ts` 单实现派生，与 `filterToolsByTask` 逐条一致（单测全量交叉钉死）。**不改变**任何注册/裁剪/执行行为。结构契约（含 `reasons` 枚举）见 `shared/types/tool-visibility.ts`（双端单一事实源） |
+| GET / PUT | `/v1/settings/tools` | ✅ **P2（2026-10-16）** | `toolService.getVisibilityOverrides` / `setVisibilityOverrides` |
+|  | 读写体：`{ overrides: { [toolName]: 'on' \| 'off' } }`（缺省 / `auto` ⇒ 不登记；命名空间读写复用既有 `/v1/settings/{ns}` handler ⇒ **零新增端点**） |  | 工具**可见性覆写**：`on` = 强制对模型可见（可放开类别白名单与"有意归档"，如 `computer_use`），`off` = 强制不可见。**归一化在读取侧单一真源**（未知工具名 / 非法值 / `MANDATORY_TOOLS` 的 `off` ⇒ 丢弃 + 一次性告警）⇒ 手工改 `config.json` 亦走同一口径。下一轮对话即生效（无需重启）。**可见性 ≠ 授权**：不触碰审批 / PathGuard / 沙箱 |
+
 
 ### §3.8 Agent 任务
 

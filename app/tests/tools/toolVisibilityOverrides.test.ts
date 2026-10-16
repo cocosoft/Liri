@@ -50,7 +50,9 @@ import { selectToolsForTurn } from '../../src/chat/orchestrator/streamMessageToo
 
 type ToolLike = { function?: { name?: string }; name?: string };
 
-const ALL_TOOLS: ToolLike[] = TOOL_NAMES.map((n) => ({ function: { name: n } }));
+const ALL_TOOLS: ToolLike[] = TOOL_NAMES.map((n) => ({
+  function: { name: n },
+}));
 const namesOf = (tools: readonly ToolLike[]): string[] =>
   tools.map((t) => t.function?.name ?? t.name ?? '');
 
@@ -104,16 +106,20 @@ describe('P2 覆写层：加/减语义（切在 filterToolsByTask 之后）', ()
   it('空表 ⇒ 结果集合与 filterToolsByTask 逐字节一致（跨 taskType 全量交叉）', () => {
     for (const taskType of ['default', 'chat', 'coding', 'agent', 'local']) {
       const kept = filterToolsByTask(ALL_TOOLS, taskType);
-      expect(namesOf(applyToolVisibilityOverrides(kept, ALL_TOOLS, {}))).toEqual(
-        namesOf(kept)
-      );
+      expect(
+        namesOf(applyToolVisibilityOverrides(kept, ALL_TOOLS, {}))
+      ).toEqual(namesOf(kept));
     }
   });
 
   it('off ⇒ 白名单内工具被移除（含恒保留之外的任意工具）', () => {
     const kept = filterToolsByTask(ALL_TOOLS, 'default');
     expect(namesOf(kept)).toContain('bash');
-    const out = applyToolVisibilityOverrides(kept, ALL_TOOLS, override(['bash', 'off']));
+    const out = applyToolVisibilityOverrides(
+      kept,
+      ALL_TOOLS,
+      override(['bash', 'off'])
+    );
     expect(namesOf(out)).not.toContain('bash');
     // 其余工具不受影响（只减指定项）
     expect(namesOf(out)).toEqual(namesOf(kept).filter((n) => n !== 'bash'));
@@ -143,7 +149,9 @@ describe('P2 覆写层：加/减语义（切在 filterToolsByTask 之后）', ()
     );
     const finalNames = namesOf(out);
     // 恒等式：最终顺序 == 全量顺序中"最终可见者"的相对顺序（与 `kept` 的原始顺序无关）
-    expect(finalNames).toEqual(TOOL_NAMES.filter((n) => finalNames.includes(n)));
+    expect(finalNames).toEqual(
+      TOOL_NAMES.filter((n) => finalNames.includes(n))
+    );
   });
 });
 
@@ -214,7 +222,9 @@ describe('P2 报表同源：effective 与 reasons 随同一份覆写变化', () 
 
   it('on（归档）⇒ effective=visible + user-on-bypass', () => {
     const entry = entryOf(
-      resolveToolVisibilityReport({ overrides: override(['computer_use', 'on']) }),
+      resolveToolVisibilityReport({
+        overrides: override(['computer_use', 'on']),
+      }),
       'computer_use'
     );
     expect(entry.visibleByDefault).toBe(false);

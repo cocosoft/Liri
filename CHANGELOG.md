@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOLVIS-P3-PANEL**：工具可见性设置页：三态覆写 + 原因徽标 + 高风险二次确认（另修真机暴露的抽屉不可达与保存后须刷新） —— 验证 tc2|ut37|e2e6|gate7；基线 真机：抽屉 tab 与 /settings?nav=tools 双路径渲染 90 条（可见 48 / 未接线 15）；computer_use 二次确认后无需刷新即转「已强制开启」；复验另暴露 BUG-1（桌面抽屉真机不可达）与 BUG-2（保存后须刷新）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P3-PANEL）
 - ✅ **TOOLVIS-P2-OVERRIDES**：工具可见性三态覆写层（auto/on/off）：默认空表 ⇒ 逐元素恒等、零行为变更 —— 验证 tc1|ut18|e2e5|gate7；基线 真机 PUT 开 computer_use（此前 archived 且被裁）⇒ 报表 effective=visible + user-on-bypass；bash:off ⇒ hidden + user-off；非法值与未知名被丢弃；重放路径强制集不变（详情见 archive/evidence-detail.jsonl#TOOLVIS-P2-OVERRIDES）
 - ✅ **TOOLVIS-P1-REPORT**：工具可见性报表：解释每个工具为什么不可见（只读、零行为变更） —— 验证 tc1|ut11|e2e6|gate6；基线 真机 GET /v1/tools/visibility 200 / 90 条：computer_use=archived、pdf=conditional、code 类随 taskType 改判；此前可见性从不外露（GET /v1/tools 仅注册表全量）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P1-REPORT）
 - ✅ **SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK**：窄屏自动折叠不再写偏好、回宽屏恢复偏好，且 48px 折叠栏 hover 真正展开出会话列表 —— 验证 tc0|ut9|e2e1|gate6；基线 真机 1090x569：窗口曾 <=1023px ⇒ localStorage 被写 false 且无回宽屏恢复 ⇒ 侧栏永久 48px，折叠态 DOM 零会话行（占位符）选不了会话（详情见 archive/evidence-detail.jsonl#SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK）

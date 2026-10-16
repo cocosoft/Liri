@@ -378,6 +378,12 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               item={item}
               isActive={isActive(item)}
               onNavigate={onNavigate}
+              // BUG-1（2026-10-16 P3 真机复验）：此前**漏转发** `onClickOverride` ⇒
+              // `settings` 项的「打开设置抽屉」（`SYSTEM_ITEMS:64`）被丢弃、回落默认
+              // `path:"/settings"` 整页跳转 ⇒ **桌面端设置抽屉从不可达**（移动底栏
+              // `openSettings` 是唯一其它触发点，`lg:hidden` 下拿不到）。补转发即可
+              // —— `MenuItem.onClickOverride` 即为此设计（高频导航早已转发，见 `:272`）。
+              onClickOverride={item.onClickOverride}
             />
           ))}
         </div>

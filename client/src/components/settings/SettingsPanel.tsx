@@ -18,6 +18,7 @@ import AppearancePanel from "./AppearancePanel";
 import RouterConfigPanel from "./RouterConfigPanel";
 import MemorySummaryPanel from "./MemorySummaryPanel";
 import NotificationsPanel from "./NotificationsPanel";
+import ToolsPanel from "./ToolsPanel";
 
 function SettingsPanel() {
   const { t } = useTranslation();
@@ -114,6 +115,7 @@ function SettingsPanel() {
               <TabsTrigger value="notifications">
                 {t("settings.notifications")}
               </TabsTrigger>
+              <TabsTrigger value="tools">{t("settings.tools")}</TabsTrigger>
             </TabsList>
           </div>
           <div className="flex-1 overflow-y-auto min-h-0">
@@ -143,6 +145,9 @@ function SettingsPanel() {
                   setConfig("notifications", { ...notifications, ...u })
                 }
               />
+            </TabsContent>
+            <TabsContent value="tools">
+              <ToolsPanel isDark={isDark} />
             </TabsContent>
           </div>
         </Tabs>

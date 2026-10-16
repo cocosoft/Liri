@@ -41,12 +41,14 @@ import {
   filterToolsByTask,
 } from '../../src/tools/toolCategories';
 import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
+import { TOOL_EFFECTS, resolveToolEffect } from '../../src/tools/toolEffects';
 import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
 import {
   isKnownToolCategory,
   resolveToolVisibilityReport,
 } from '../../src/tools/toolVisibilityReport';
 import type { ToolVisibilityReport } from '../../src/tools/toolVisibilityReport';
+import type { SharedToolVisibilityEntry } from '@shared/types';
 
 const ALL_NAMES = Object.values(TOOL_NAME_CONSTANTS);
 const report = resolveToolVisibilityReport();
@@ -178,5 +180,53 @@ describe('P1 工具可见性报表', () => {
     expect(isKnownToolCategory('misc')).toBe(false);
     expect(isKnownToolCategory('not-a-category')).toBe(false);
     expect(isKnownToolCategory('')).toBe(false);
+  });
+});
+
+/**
+ * P3（2026-10-16）：设置页需要**风险分级**做二次确认 —— 报表的 `risk` 必须**派生**
+ * （`TOOL_EFFECTS` × 既有 D5 纯函数 `deriveFromLegacyEffects`），不得新写一张风险表（CS01）。
+ * 本块即"派生口径"的守卫：一旦有人在报表里手写风险映射即红。
+ */
+describe('P3 报表 risk：派生自 TOOL_EFFECTS（D5）', () => {
+  const EXPECTED: Record<string, 'low' | 'medium' | 'high'> = {
+    none: 'low',
+    local: 'medium',
+    external: 'high',
+  };
+
+  it('已声明效果的工具 ⇒ risk 与 sideEffect 一一对应（全量交叉，不手写名单）', () => {
+    let checked = 0;
+    for (const [name, effect] of Object.entries(TOOL_EFFECTS)) {
+      const entry = byName.get(name);
+      if (!entry) continue; // 不在常量表者（如 tool_search）不属本报表名字域
+      expect({ name, risk: entry.risk }).toEqual({
+        name,
+        risk: EXPECTED[effect.sideEffect],
+      });
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(50); // 防空转
+  });
+
+  it('未声明效果者（15 个 conditional）⇒ 保守判 high，不臆造低风险', () => {
+    const undeclared = report.filter(
+      (r) => resolveToolEffect(r.name) === undefined
+    );
+    expect(undeclared.length).toBeGreaterThan(0);
+    for (const r of undeclared) expect(r.risk).toBe('high');
+  });
+
+  /**
+   * **双端契约同源锁**（2026-10-16）：报表条目必须可赋给 `shared/types/tool-visibility.ts` 的
+   * `SharedToolVisibilityEntry`（前端设置页即消费该类型）。若后端擅自改枚举/删字段/改语义，
+   * **本行 typecheck 即红**（比运行时断言更早、更硬）。
+   */
+  it('契约同源：每条报表可赋给 shared 契约（类型不兼容 ⇒ 编译期失败）', () => {
+    for (const r of report) {
+      const asShared: SharedToolVisibilityEntry = r;
+      expect(asShared.name).toBe(r.name);
+      expect(asShared.reasons).toEqual(r.reasons);
+    }
   });
 });

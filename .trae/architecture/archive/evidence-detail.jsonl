@@ -4917,6 +4917,26 @@
 {"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#3","i":0,"c":"scripts/lint-locale.ts"}
 {"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#4","i":0,"c":"scripts/lint-failmsg-refs.ts"}
 {"id":"LINTEXIT-RATCHET-RETURN-CODE","k":"code#5","i":0,"c":"scripts/lint-evidence-linewidth.ts"}
+{"id":"LINTEXIT-CI-WIRING","k":"title","i":0,"c":"把 lint:exit 补进 CI（static-check 新步骤）+ 订正上一片关于「哪些门禁不在 CI」的错误陈述"}
+{"id":"LINTEXIT-CI-WIRING","k":"source","i":0,"c":"承 `LINTEXIT-RATCHET-RETURN-CODE` 的收尾项（该片以「多数同族门禁同样不在 CI」为由未接 CI）；本轮复核发现该前提**不成立** ⇒ 按事实处置并订正记录"}
+{"id":"LINTEXIT-CI-WIRING","k":"reopenWhen","i":0,"c":"① 若要把**其余 8 项**不在 CI 的门禁（`lint:unref` / `lint:tool-schema` / `lint:refs` / `lint:mock` / `lint:models` / `lint:no-module-mock` / `lint:case` / `lint:legacy-env`）也纳入 CI：须**逐项**先评估 "}
+{"id":"LINTEXIT-CI-WIRING","k":"reopenWhen","i":1,"c":"CI 就绪度（是否稳定全绿 / 是否依赖本机环境或 DB / 耗时是否可接受），不可一刀切 —— 本片只补了刚修好的 `lint:exit`（它今天全绿，补进去不可能引入即红）；② 若 `ci.yml` 的 `static-check` 作业结构调整（步骤重排 / 作业改名 / 拆分）：本片新增的步骤须随之搬运，勿在重构中丢失；③ 若 `"}
+{"id":"LINTEXIT-CI-WIRING","k":"reopenWhen","i":2,"c":"app/package.json` 的 `ci` 聚合脚本（本地全链，已含 `lint:exit`）与 `ci.yml`（CI 策展子集）的差异再度扩大：应一次性对齐口径，而不是逐项零散补。"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":0,"c":"【做了什么】在 `.github/workflows/ci.yml` 的 `static-check` 作业中，紧随「Run session regression check (BUG-A/B/C)」新增一步：`Entry scripts explicit exit (lint:exit · 台账 N-16 / N-49)`，命令 `bun run "}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":1,"c":"scripts/lint-script-exit.ts`、`working-directory: .` —— 与该作业内其它门禁（如「Hardcode gates」步骤直接调 `bun run scripts/lint-consts.ts` 等）**同形**，不引入新写法。**验证**：按 CI 的调用方式在**仓库根**实跑 `bun run "}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":2,"c":"scripts/lint-script-exit.ts` ⇒ `✅ 入口脚本显式退出检查通过（已检查 46 个入口脚本）`、exit=0；`ci.yml` 用 `js-yaml` 解析校验通过，`static-check` 共 **11** 个步骤、新步骤位次 **10**（紧随 session regression）。【⚠️ 为什么会有这一片：订正一个错误"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":3,"c":"前提】上一片 `LINTEXIT-RATCHET-RETURN-CODE` 决定**不**把 `lint:exit` 接进 CI，理由是「`lint:consts` / `lint:locale` / `lint:endpoints` / `lint:failmsg-refs` / `lint:evidence-linewidth` / `lint:arch"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":4,"c":"` / `lint:unref` **同样不在 CI**，把 `lint:exit` 塞进去只会成为孤例」。**本轮复核确认该前提不成立**：`ci.yml` 的 `static-check` 作业**确实在跑**它们 —— 步骤「Hardcode gates (§8 阶段③ · ratchet baseline, error level)」跑 6 个（`"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":5,"c":"lint-consts` / `lint-endpoints` / `lint-locale` / `lint-failmsg-refs` / `lint-evidence-linewidth` / `lint-evidence-views-drift`）；另有「Run architecture compliance check」= `"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":6,"c":"lint-architecture.ts`、「Run file size check」= `lint-file-size.ts`、「Run session regression check」= `lint-session-regression.ts`、「Check console baseline」、「Check version consistency」、「"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":7,"c":"Check coverage threshold」；`doc-gate.yml` 另跑 6 项（`lint:doc-code` / `lint:invariants` / `lint:entrypoints` / `lint:fix-evidence` / `lint:fn-size` / `lint:complexity`）。**误判成因（如实）**：我最"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":8,"c":"初只用 `bun run (lint|test|typecheck)` 形状的正则搜 `ci.yml`，而 CI 里这些步骤是**直接调 `bun run scripts/xxx.ts`** 的写法 ⇒ 形状不匹配 ⇒ 整段漏检。这属「检索形状选错导致的漏判」，与 CS06「空结果不得编造」不同 —— 我没编造，但**把漏检当成了事实**并据此做了决定，性质"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":9,"c":"同样是证据不实，故必须留痕订正。【订正后的准确事实】CI 覆盖约 **20 项**门禁；**不在 CI** 的是 `lint:exit`（**本片已补**）/ `lint:unref` / `lint:tool-schema` / `lint:refs` / `lint:mock` / `lint:models` / `lint:no-module-mock"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":10,"c":"` / `lint:case` / `lint:legacy-env`（共 8 项，本片**未**动，理由见 reopenWhen ①）。另注：本仓另有 `app/package.json` 的 `ci` 聚合脚本（**本地全链**，已含 `lint:exit`）—— 即本仓的模型是「`bun run ci` 跑全链、`ci.yml` 跑策展子集」，故本片是"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":11,"c":"把 `lint:exit` 从「仅本地全链」提升到「CI 也拦」。【为何只补这一项（而非 8 项一起）】`lint:exit` 是上一片刚修好、且当前全绿的那条 ⇒ 补进 CI **不可能引入即红**，收益是防「入口丢失显式退出」这一类回归；其余 8 项的 CI 就绪度**未评估**（可能依赖本机环境、可能耗时大），本片**不擅自扩面**（CS01/CS03"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":12,"c":"）。【痕迹说明】本片**不改**上一片已提交的明细文本（`archive/evidence-detail.jsonl` 里那条陈述保持原样）—— 台账是 append-only 证据日志，订正以**新增条目**的方式留痕：本条即对上一条的显式更正，读者沿 id 链可见完整轨迹。（另：尝试用 `--detail` **就地替换**上一条时被 migrate 的"}
+{"id":"LINTEXIT-CI-WIRING","k":"notes","i":13,"c":"校验挡住 —— 它按 registry 的「短化头」比对 `title`，改标题会判「归档 title 非短化头前缀」；这属工具的正确约束，故改为新增条目。）"}
+{"id":"LINTEXIT-CI-WIRING","k":"code#0","i":0,"c":".github/workflows/ci.yml"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -205,6 +205,11 @@ jobs:
       run: |
         bun run scripts/lint-session-regression.ts
 
+    - name: Entry scripts explicit exit (lint:exit · 台账 N-16 / N-49)
+      working-directory: .
+      run: |
+        bun run scripts/lint-script-exit.ts
+
   # ══════════════════════════════════════════════
   # S3-1 G3（2026-10-11）：**构建变体矩阵** —— typecheck + 工具面/契约门禁
   #   每个变体：生成 `BUILD_VARIANT_FLAGS`（D1 接线后由 `feature()` 消费）→ typecheck →

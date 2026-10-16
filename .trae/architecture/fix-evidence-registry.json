@@ -8910,6 +8910,30 @@
       "changelog": [],
       "reopenWhen": "① 若日后新增使用 `ratchet()` 的门禁：必须写成 `process.exit(main())` + `main(): number` 且 `return ratchet(...)` —— 漏写则文件里没有 `process.exit(` 记号，`lint:exit` 直接判红（这正是 fail-close…（全文见 archive/evidence-detail.jsonl#LINTEXIT-RATCHET-RETURN-CODE）",
       "notes": "【治本内容】把退出**从 lib 移回入口**，共 2 处结构变更：① `scripts/lib/hardcodeScan.ts` 的 `ratchet(name, counts)` 由 `: never` 改为 **`: 0 | 1`**，其三条分支（`BASELINE_WRITE` 播种 ⇒ `return 0`…（全文见 archive/evidence-detail.jsonl#LINTEXIT-RATCHET-RETURN-CODE）"
+    },
+    {
+      "id": "LINTEXIT-CI-WIRING",
+      "title": "把 lint:exit 补进 CI（static-check 新步骤）+ 订正上一片关于「哪些门禁不在 CI」的错误陈述",
+      "source": "承 `LINTEXIT-RATCHET-RETURN-CODE` 的收尾项（该片以「多数同族门禁同样不在 CI」为由未接 CI）；本轮复核发现该前提**不成立** ⇒ 按事实处置并订正记录",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若要把**其余 8 项**不在 CI 的门禁（`lint:unref` / `lint:tool-schema` / `lint:refs` / `lint:mock` / `lint:models` / `lint:no-module-mock` / `lint:case` / `lint:legacy-env…（全文见 archive/evidence-detail.jsonl#LINTEXIT-CI-WIRING）",
+      "notes": "【做了什么】在 `.github/workflows/ci.yml` 的 `static-check` 作业中，紧随「Run session regression check (BUG-A/B/C)」新增一步：`Entry scripts explicit exit (lint:exit · 台账 N-16 / N-…（全文见 archive/evidence-detail.jsonl#LINTEXIT-CI-WIRING）"
     }
   ]
 }

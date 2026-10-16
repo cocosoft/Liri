@@ -8285,6 +8285,32 @@
       "changelog": [],
       "reopenWhen": "① `iterEvents` 页大小 `PREFIX_PAGE=2000`、成本 O(n) 流式（内存 O(page)）；若将来出现**数十万条事件**的会话，需复看分页读的累积耗时（本轮实测最大会话 `session_mujh93m0ozq1ctj9s6f` tail=24650，探针正常）。② 客户端「解析失败 …（全文见 archive/evidence-detail.jsonl#FORK-PREFIX-WINDOW）",
       "notes": "① **根因（三项判据共用一个截断窗口）**：`EventLogStorage.read()` 的 `limit` 缺省 **1000**（内部夹取 ≤10000），而 `forkSession` 原实现用无参 `read()` 的窗口做「未闭合轮次 / 边界解析 / 前缀同构」三项判据、边界却用真实 `tailSe…（全文见 archive/evidence-detail.jsonl#FORK-PREFIX-WINDOW）"
+    },
+    {
+      "id": "CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE",
+      "title": "客户端 derive 的「已知事件类型」判据去手写副本（承 D-57 单一事实源）：消掉每轮刷屏的「遇到未知事件类型」误报（真机 61 会话累计 ≈3775 条）并补守则测试",
+      "source": "用户 2026-10-16「请排查前端未识别 session/title 事件类型的告警」（承 FORK-PREFIX-WINDOW 的 reopenWhen ③）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "client/src/stores/chat/deriveConversationBlocks.ts"
+      ],
+      "tests": [
+        "client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 …（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）",
+      "notes": "① **告警点**：`deriveConversationBlocks.ts` 的 `default` 分支在 `!KNOWN_EVENT_TYPES.has(event.type) && event.ignorable !== true` 时 warn `[D2:derive] 遇到未知事件类型`；判据是该文件**…（全文见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）"
     }
   ]
 }

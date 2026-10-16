@@ -8958,6 +8958,31 @@
       "changelog": [],
       "reopenWhen": "① `lint:case`（大小写同名碰撞）仍未在 CI：若要在 CI 验它，应**先在 ubuntu 上跑一遍** `bun run scripts/lint-case-collision.ts` 看是否真核出碰撞（Windows 无法表示仅大小写不同的同级条目，本机恒 0 违规 ⇒ 无法本地预判），确认后再按同一…（全文见 archive/evidence-detail.jsonl#CI-GATES-LOCAL-SET-EXPAND）",
       "notes": "【评估方法（逐项，非一刀切）】对 `LINTEXIT-CI-WIRING` 列出的 8 项各做四问：① 是否 exit 0？② 耗时？③ 有没有环境依赖（`PYAPP_PROJECT_DIR` / 本机数据目录 / SQLite / 网络 / OS 语义）？④ 扫描域是否都在 **tracked** 目录（CI 是*…（全文见 archive/evidence-detail.jsonl#CI-GATES-LOCAL-SET-EXPAND）"
+    },
+    {
+      "id": "LINTMODELS-CAPABILITY-SCOPE",
+      "title": "lint-models 能力覆盖子检查定性：语义本地专属（CI 永不适用）+ 修「跳过被说成通过」的措辞",
+      "source": "承 `CI-GATES-LOCAL-SET-EXPAND` 的 reopenWhen ③（该片记录：lint-models 在无 DB 环境恒跳过，如需 CI 真跑须提供 DB 夹具或另立项）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-models.ts",
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若要让该子检查在**本机真正跑起来**（把 `DB_PATHS` 指向真实数据目录 `~/.pyapp/data/app.db`）：属**行为变更**、须先裁定 —— 且必须知道它随后会按用户当前数据判红（本片实测：`tts`/`stt` 各 0 个 enabled 模型 ⇒ FAIL，且那是**真实配置缺口**…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-SCOPE）",
+      "notes": "【为什么做这一片】上一片按「缺夹具」的思路记着 lint-models 的跳过，本片查清后**结论不同**：不是「CI 缺 DB」，而是这项检查**语义上就只能本地跑**。【证据链（三步实测）】**第一步 —— 查输入**：`scripts/lint-models.ts:244-256` 读两张表：`task_cap…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-SCOPE）"
     }
   ]
 }

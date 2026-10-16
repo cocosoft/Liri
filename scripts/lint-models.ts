@@ -25,7 +25,17 @@ const SCAN_DIRS = [
 ];
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
-/** DB 候选路径（相对 app/） */
+/**
+ * DB 候选路径（两处都落在**仓库内** `<root>/data/pyapp/data/app.db`；后者适配 cwd=app/）。
+ *
+ * ⚠️ 两点须知道，**别顺手把它指向真实数据目录**（2026-10-16 实测，台账 `LINTMODELS-CAPABILITY-SCOPE`）：
+ * ① 运行时的真实数据目录是 `~/.pyapp/data/`（见 `core/paths.ts` 的 `resolveDataDir()`），
+ *    而这两个候选路径在本机/CI 都**不存在** ⇒ 「能力覆盖」子检查在标准布局下**恒被跳过**；
+ * ② 若把它改指 `~/.pyapp/data/app.db`，该子检查会**立刻按用户本机启用的模型判红**
+ *    （本次实测：`task=tts 能力=text_to_speech` / `task=stt 能力=speech_recognition`
+ *    各有 0 个 enabled 模型 ⇒ FAIL）。那是**用户配置缺口**、不是门禁故障 ——
+ *    改动属**行为变更**（会让本地 `bun run ci` 变红），须先裁定。
+ */
 const DB_PATHS = ['data/pyapp/data/app.db', '../data/pyapp/data/app.db'];
 
 /**
@@ -329,9 +339,16 @@ function main(): void {
   }
 
   if (coverage.violations.length === 0) {
-    console.log(
-      `[lint:models] ✅ 能力覆盖检查通过${coverage.note ? '（' + coverage.note + '）' : ''}`
-    );
+    if (coverage.note) {
+      // ⚠️ 「未执行」不得说成「通过」（对照 architecture-compliance AR-3：不得把"没跑"当成"干净"）。
+      // 该子检查的**输入是用户本机启用的模型**（`model_registry where enabled = 1`）⇒ 语义上
+      // **本地专属**：CI / 干净环境里跑它只会得到"每个能力 0 个模型"的假红（除非伪造模型数据，违 CS04）。
+      console.log(
+        `[lint:models] ⏭️ 能力覆盖检查**未执行**（${coverage.note}）—— 该项依赖本机已启用模型，CI/干净环境不适用`
+      );
+    } else {
+      console.log('[lint:models] ✅ 能力覆盖检查通过');
+    }
   } else {
     console.log('[lint:models] ❌ 能力断链：');
     for (const v of coverage.violations) {
@@ -346,7 +363,11 @@ function main(): void {
     console.log('\n[lint:models] 结果：FAIL');
     process.exit(1);
   }
-  console.log('[lint:models] 结果：PASS');
+  console.log(
+    coverage.note
+      ? `[lint:models] 结果：PASS（⚠️ 能力覆盖检查未执行：${coverage.note}）`
+      : '[lint:models] 结果：PASS'
+  );
 }
 
 main();

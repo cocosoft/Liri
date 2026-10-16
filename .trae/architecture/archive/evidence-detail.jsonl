@@ -4955,6 +4955,25 @@
 {"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":10,"c":"实跑、而非照抄 npm 脚本名」这一步把它抓了出来（npm 脚本名是 `lint:refs`，文件名不同）。已修正并复跑 ✅（70 处入口引用）。【影响面】CI 变严格：这 7 项此后会拦 PR —— 但它们当前全绿，故**不可能引入即红**，收益是把这个本地纪律变成 CI 纪律（本仓的 `app/package.json#ci` 聚合脚本早已含全部这些，本"}
 {"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":11,"c":"片只是把 CI 的子集扩到与之一致）。"}
 {"id":"CI-GATES-LOCAL-SET-EXPAND","k":"code#0","i":0,"c":".github/workflows/ci.yml"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"title","i":0,"c":"lint-models 能力覆盖子检查定性：语义本地专属（CI 永不适用）+ 修「跳过被说成通过」的措辞"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"source","i":0,"c":"承 `CI-GATES-LOCAL-SET-EXPAND` 的 reopenWhen ③（该片记录：lint-models 在无 DB 环境恒跳过，如需 CI 真跑须提供 DB 夹具或另立项）"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"reopenWhen","i":0,"c":"① 若要让该子检查在**本机真正跑起来**（把 `DB_PATHS` 指向真实数据目录 `~/.pyapp/data/app.db`）：属**行为变更**、须先裁定 —— 且必须知道它随后会按用户当前数据判红（本片实测：`tts`/`stt` 各 0 个 enabled 模型 ⇒ FAIL，且那是**真实配置缺口**不是门禁故障）；② 若要让它在 "}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"reopenWhen","i":1,"c":"**CI** 有意义：**不可行** —— 其输入是用户启用模型（伪造模型数据违 CS04）；若仍要覆盖这一潜在问题，应另立一个**按 tracked 事实源（`capabilities.default.yaml` 的 taskMappings）做静态一致性检查**的门禁，而不是复活这一条；③ `DB_PATHS` 的存在性判断用 `readFileSync"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"reopenWhen","i":2,"c":"(full,'utf-8')`（会**整读文件**；实测真实 DB 129MB）⇒ 若日后真接上真实 DB，应改 `existsSync`（本片未改，避免与 ① 的行为变更混在一起）；④ 本子检查是**fail-open**（缺输入 ⇒ 跳过并 PASS），与仓规「基线缺失 ⇒ fail-closed」的口径不一致（见 `ci.yml` 硬编码门禁段注释）—"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"reopenWhen","i":3,"c":"— 是否收紧同样属行为变更，须先裁定。"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":0,"c":"【为什么做这一片】上一片按「缺夹具」的思路记着 lint-models 的跳过，本片查清后**结论不同**：不是「CI 缺 DB」，而是这项检查**语义上就只能本地跑**。【证据链（三步实测）】**第一步 —— 查输入**：`scripts/lint-models.ts:244-256` 读两张表：`task_capability_mappings`（"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":1,"c":"taskType ⇒ 必需能力）与 `model_registry where enabled = 1`（用户**启用**的模型 ⇒ 各能力可用数），随后逐条判定「某 task 的必需能力是否有 ≥1 个启用模型」（`:266-275`）。⇒ **输入即用户本机模型配置**。【第二步 —— 本机为何也跳过】`DB_PATHS = ['"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":2,"c":"data/pyapp/data/app.db', '../data/pyapp/data/app.db']` 两条都落在**仓库内** `<root>/data/pyapp/data/app.db`，而运行时真实数据目录是 `~/.pyapp/data/`（`core/paths.ts` 的 `resolveDataDir()`；实测该目录下 `app.db"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":3,"c":"` 存在、129MB）⇒ **标准布局下本机也恒跳过**（实测输出 `DB 未找到，能力覆盖检查跳过`）。**【第三步 —— 若指向真实 DB 会怎样（反向自证）】**临时把 DB_PATHS 指向 `~/.pyapp/data/app.db`（并让路径解析支持绝对路径）后运行 ⇒ 实测 **FAIL / exit 1**，明细为 `task=tts 能力"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":4,"c":"=text_to_speech 有 0 个 enabled 模型` 与 `task=stt 能力=speech_recognition 有 0 个 enabled 模型`；探针文件已**逐字节还原**（比对相等）。⇒ 该结果是**真实配置缺口**（用户没启用 TTS/STT 模型），不是门禁故障。【结论 1：CI 永不接入】若给 CI 造一个「有模型」的夹具"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":5,"c":"，那等于**伪造模型数据**（违 CS04），且会掩盖真实语义；若给 CI 空库，则**每个**必需能力都是 0 个模型 ⇒ 恒红。两条都不可走 ⇒ 该子检查**不该**进 CI（上一片已如实记录 CI 只承担其静态部分，本片把**理由**从「CI 缺 DB」更正为「输入即用户数据，语义本地专属」）。【结论 2：修一处「把没跑说成通过」的措辞（本片唯一代码改"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":6,"c":"动）】原实现缺 DB 时打印 `✅ 能力覆盖检查通过（DB 未找到，能力覆盖检查跳过）`，汇总行仍是 `结果：PASS` ⇒ **「未执行」被显示成「通过」**，与 architecture-compliance **AR-3**（检查器崩溃/未跑不得当成通过）同源风险。现改为：`⏭️ 能力覆盖检查**未执行**（<原因>）—— 该项依赖本机已启用模型，"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":7,"c":"CI/干净环境不适用`，汇总行同步为 `结果：PASS（⚠️ 能力覆盖检查未执行：<原因>）`。**反向自证**：改措辞后 FAIL 路径逐字未变（仍 `❌ 能力断链` + `结果：FAIL` + exit 1）✓；跳过路径 exit 0 ✓（**未改** fail-open 判定本身 —— 那是行为变更，见 reopenWhen ④）。【顺带订正上一片的 "}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":8,"c":"CI 注释】`ci.yml` 里那两行由「无 DB 环境（含 CI 干净 runner）会明示跳过，属其既有 fail-open 设计」改为**输入即用户启用模型 ⇒ 语义本地专属、永不接入 CI**，并登记本片 id。【验证】`bun run lint:models` exit 0（跳过路径）· 探针路径 exit 1（fail 语义不变）· `bun "}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":9,"c":"run typecheck` 0 错 · 6 门禁 + `lint:exit` + `lint:doc-code` 全绿 · 两次探针均**逐字节还原**（`restored_ok=True`）。【如实边界】本片**不动** `DB_PATHS`、**不动** fail-open 判定（两者都是行为变更，须先裁定）；无单测（改的是门禁脚本的输出措辞与注释，判"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"notes","i":10,"c":"据为运行输出/退出码）⇒ `flags` 如实为 `dc`。"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"code#0","i":0,"c":"scripts/lint-models.ts"}
+{"id":"LINTMODELS-CAPABILITY-SCOPE","k":"code#1","i":0,"c":".github/workflows/ci.yml"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

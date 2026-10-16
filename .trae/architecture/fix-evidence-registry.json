@@ -9623,6 +9623,28 @@
       "changelog": [],
       "reopenWhen": "① 若飞书 webhook 的**分支顺序**被改动（如把通用 `{}` 的 200 挪到卡片分流之前）⇒ 本组会红（`{toast}` 与端口调用同时消失）——这正是本组的主要防回归面（纯函数单测**测不到**它）。② 本组**不覆盖真机**：本机飞书未配置/未启用 ⇒ 平台侧的**回调地址注册**与**订阅版本*…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG）",
       "notes": "【问题（**证据缺口**，自查）】上一片 `CHANNEL-RELIEF-FEISHU-INBOUND` 对飞书卡片回传的凭据只到**纯函数单测**（`extractFeishuCardAction` 识别三形 + 造回执体）；而台账里那句「webhook 侧**先分流**卡片回传、3 秒内回 **HTTP 200*…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG）"
+    },
+    {
+      "id": "LOOP-BUDGET-COMPRESS-THEN-CONTINUE",
+      "title": "取证结论：`'loop'`（上下文窗口）预算的「先压缩再续跑」**已由既有机制落地** —— 不新增实现（防重复造轮子）",
+      "source": "用户搁置项「`'loop'` 窗口预算改为**先压缩再续跑**（行为变更，需先解语义冲突）」；本片**只读取证**后判定该行为**已存在**",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若 `REACT_LAYER_WINDOW_TOKENS`（默认 45000）被设为 **0** ⇒ **关掉**轮内分层压缩 ⇒ 本结论的前提（每轮都有压缩机会）**失效**，届时应重审「先压缩再续跑」是否仍成立。② 若某 provider **不返回 usage** ⇒ `_chargeStreamBudge…（全文见 archive/evidence-detail.jsonl#LOOP-BUDGET-COMPRESS-THEN-CONTINUE）",
+      "notes": "【搁置项的原口径（被本片推翻）】原记为「`'loop'` 窗口预算撞顶即**硬终止**，需改为**先压缩再续跑**（行为变更，且疑似需解语义冲突）」。**只读取证后结论：该行为已落地**，无需新增实现。 【取证：四处机制（每处都有历史根因修复记录）】① **记账口径 = 当前占用**（不是累计增长）：`createS…（全文见 archive/evidence-detail.jsonl#LOOP-BUDGET-COMPRESS-THEN-CONTINUE）"
     }
   ]
 }
